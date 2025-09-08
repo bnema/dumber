@@ -1,50 +1,92 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# Dumb Browser Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Speed First (NON-NEGOTIABLE)
+- Fast startup time is paramount - no feature worth compromising speed
+- Single binary with embedded assets - no external dependencies at runtime
+- WebKit2GTK for rendering - full compliance without reinventing wheels
+- Minimal UI overhead - focus on web content, not chrome
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Universal Launcher Compatibility
+- Support any dmenu-compatible launcher (fuzzel, rofi, tofi, wofi, bemenu)
+- Standard stdin/stdout protocol - no launcher-specific integrations
+- Clean text-based format for history/suggestions
+- Pipeline-friendly: `dumb-browser --dmenu | launcher | dumb-browser --dmenu`
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Smart URL Handling
+- Direct URL detection: `reddit.com` → navigate directly
+- Search shortcuts: `g: golang tutorial` → Google search  
+- History-first search: `reddit` → check history before web search
+- No ambiguity - clear rules for input interpretation
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Privacy-Conscious History
+- Local SQLite database only - no cloud sync
+- Configurable retention periods and cleanup
+- Visit counting for intelligent suggestions
+- User controls data - easy to clear/export
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Wayland Native
+- Built for modern Linux desktop - sway, hyprland, etc.
+- WebKit2GTK provides native Wayland integration
+- Single instance handling for launcher integration
+- Minimal resource usage - no background services
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Technical Standards
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### Stack Requirements
+- **Backend**: Go + Wails([v3-alpha](https://github.com/wailsapp/wails/tree/v3.0.0-alpha.28)) + WebKit2GTK + SQLite
+- **CLI**: Cobra + Viper for configuration
+- **Database**: SQLC for type-safe SQL generation
+- **Validation**: Input sanitization libraries ([go-playground/validator](https://github.com/go-playground/validator))
+- **Build**: Single static binary with embedded frontend
+- **Dependencies**: WebKit2GTK + GTK3 only (system packages)
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+### Performance Targets
+- Startup time: < 500ms from cold start
+- Memory usage: < 100MB baseline + WebKit overhead
+- History search: < 50ms for 1000+ entries
+- Single instance lock: < 10ms response time
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### Quality Gates
+- All database queries must use SQLC generated code
+- All user input must be validated and sanitized
+- Error handling: proper Go error chains, no panics in user paths 
+- Logging: structured logging for debugging, minimal in production (Slog for logging in text mode)
+
+## Development Workflow
+
+### Implementation Order
+1. Core CLI structure (Cobra + Viper)
+2. Database schema + SQLC integration
+3. URL parser + search engine logic with fuzzy finder algorithm
+4. History management (CRUD operations)
+5. Wails browser integration
+6. Dmenu compatibility layer
+7. Configuration system
+
+### Testing Requirements
+- Unit tests for URL parsing logic
+- Integration tests for database operations
+- Manual testing with fuzzel integration
+- Cross-launcher compatibility verification
+
+## Constraints
+
+### Simplicity Mandate
+- KISS principle - no over-engineering
+- Clean Code philosophy throughout
+- Single responsibility per module
+- Minimal configuration surface
+
+### Security Requirements
+- No credential storage or session management
+- Input sanitization for all user data
+- SQL injection prevention via SQLC
+- No network requests except web browsing
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution defines the project's core identity and technical direction. All implementation decisions must align with these principles, prioritizing speed and simplicity above feature richness.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2025-01-09 | **Last Amended**: 2025-01-09
