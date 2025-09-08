@@ -1,7 +1,7 @@
 # Go Module Contract: Project Dependencies
 
 # Expected go.mod file structure after initialization
-module: dumb-browser
+module: dumber
 go_version: "1.25"
 
 # Runtime dependencies (will be installed via go get @latest)
@@ -49,7 +49,7 @@ tools:
 
 # Expected go.mod content template
 go_mod_template: |
-  module dumb-browser
+  module dumber
   
   go 1.21
   
@@ -102,7 +102,7 @@ build:
 verification:
   module_valid: "go mod verify"
   dependencies_resolved: "go mod download"
-  build_succeeds: "go build ./cmd/dumb-browser"
+  build_succeeds: "go build ./cmd/dumber"
   tests_pass: "go test ./..."
   tools_available: 
     - "sqlc version"
@@ -114,13 +114,13 @@ success_criteria:
     command: "test -f go.mod"
     
   - name: "module name correct"
-    command: "grep -q 'module dumb-browser' go.mod"
+    command: "grep -q 'module dumber' go.mod"
     
   - name: "all dependencies resolved"
     command: "go mod download && echo 'OK'"
     
   - name: "build succeeds"
-    command: "go build -o /tmp/test-build ./cmd/dumb-browser"
+    command: "go build -o /tmp/test-build ./cmd/dumber"
     cleanup: "rm -f /tmp/test-build"
     
   - name: "sqlc available"

@@ -39,7 +39,7 @@
 ## User Scenarios & Testing *(mandatory)*
 
 ### Primary User Story
-As a developer starting work on the dumb-browser project, I need a properly initialized Go project with all required dependencies installed so that I can begin implementing features according to the project constitution without manual setup overhead.
+As a developer starting work on the dumber project, I need a properly initialized Go project with all required dependencies installed so that I can begin implementing features according to the project constitution without manual setup overhead.
 
 ### Acceptance Scenarios
 1. **Given** an empty project directory, **When** project initialization is complete, **Then** the project has a valid Go module structure

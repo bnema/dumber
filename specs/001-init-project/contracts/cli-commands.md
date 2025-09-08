@@ -5,12 +5,12 @@
 
 ## Root Command
 
-### `dumb-browser init`
+### `dumber init`
 **Purpose**: Initialize the project with all dependencies
 
 **Syntax**:
 ```bash
-dumb-browser init [OPTIONS]
+dumber init [OPTIONS]
 ```
 
 **Options**:
@@ -22,16 +22,16 @@ dumb-browser init [OPTIONS]
 **Examples**:
 ```bash
 # Basic initialization
-dumb-browser init
+dumber init
 
 # Preview mode
-dumb-browser init --dry-run
+dumber init --dry-run
 
 # Force reinitialize existing project
-dumb-browser init --force --verbose
+dumber init --force --verbose
 
 # Specify Go version
-dumb-browser init --go-version=1.21
+dumber init --go-version=1.21
 ```
 
 **Exit Codes**:
@@ -43,7 +43,7 @@ dumb-browser init --go-version=1.21
 
 **Output Format**:
 ```
-✓ Initializing Go module: dumb-browser
+✓ Initializing Go module: dumber
 ✓ Installing CLI dependencies: cobra, viper
 ✓ Installing database dependencies: sqlite3, sqlc
 ✓ Installing validation: go-playground/validator
@@ -57,18 +57,18 @@ Project initialized successfully!
 
 Next steps:
   1. Review generated configs/
-  2. Run: go build ./cmd/dumb-browser
-  3. Start development: dumb-browser --help
+  2. Run: go build ./cmd/dumber
+  3. Start development: dumber --help
 ```
 
 ## Subcommands
 
-### `dumb-browser init deps`
+### `dumber init deps`
 **Purpose**: Install only dependencies without project structure
 
 **Syntax**:
 ```bash
-dumb-browser init deps [OPTIONS]
+dumber init deps [OPTIONS]
 ```
 
 **Options**:
@@ -80,21 +80,21 @@ dumb-browser init deps [OPTIONS]
 **Examples**:
 ```bash
 # Install only CLI dependencies
-dumb-browser init deps --only=cli
+dumber init deps --only=cli
 
 # Install everything except Wails
-dumb-browser init deps --skip=wails
+dumber init deps --skip=wails
 
 # Check current dependency status
-dumb-browser init deps --check
+dumber init deps --check
 ```
 
-### `dumb-browser init structure`
+### `dumber init structure`
 **Purpose**: Create project directory structure only
 
 **Syntax**:
 ```bash
-dumb-browser init structure [OPTIONS]
+dumber init structure [OPTIONS]
 ```
 
 **Options**:
@@ -104,21 +104,21 @@ dumb-browser init structure [OPTIONS]
 **Examples**:
 ```bash
 # Create full project structure
-dumb-browser init structure
+dumber init structure
 
 # Preview directory layout
-dumb-browser init structure --preview
+dumber init structure --preview
 
 # Minimal structure (no example files)
-dumb-browser init structure --template=minimal
+dumber init structure --template=minimal
 ```
 
-### `dumb-browser init config`
+### `dumber init config`
 **Purpose**: Generate configuration files only
 
 **Syntax**:
 ```bash
-dumb-browser init config [OPTIONS]
+dumber init config [OPTIONS]
 ```
 
 **Options**:
@@ -128,23 +128,23 @@ dumb-browser init config [OPTIONS]
 **Examples**:
 ```bash
 # Generate all config files
-dumb-browser init config
+dumber init config
 
 # Only SQLC configuration
-dumb-browser init config --type=sqlc
+dumber init config --type=sqlc
 
 # Replace existing configs
-dumb-browser init config --overwrite
+dumber init config --overwrite
 ```
 
 ## Status and Information Commands
 
-### `dumb-browser init status`
+### `dumber init status`
 **Purpose**: Show initialization status
 
 **Syntax**:
 ```bash
-dumb-browser init status [OPTIONS]
+dumber init status [OPTIONS]
 ```
 
 **Options**:
@@ -169,12 +169,12 @@ Structure:
 Build Status: ✓ Ready (go build succeeds)
 ```
 
-### `dumb-browser init verify`
+### `dumber init verify`
 **Purpose**: Verify complete installation
 
 **Syntax**:
 ```bash
-dumb-browser init verify [OPTIONS]
+dumber init verify [OPTIONS]
 ```
 
 **Options**:
@@ -192,7 +192,7 @@ dumb-browser init verify [OPTIONS]
 
 **Dependency Installation Failures**:
 ```bash
-$ dumb-browser init
+$ dumber init
 ✗ Installing database dependencies: sqlite3
   Error: CGO_ENABLED=1 required for sqlite3
   Suggestion: Run 'export CGO_ENABLED=1' and try again
@@ -201,7 +201,7 @@ $ dumb-browser init
 
 **System Dependency Missing**:
 ```bash
-$ dumb-browser init
+$ dumber init
 ✗ Installing Wails v3-alpha
   Error: libwebkit2gtk-4.0-dev not found
   Suggestion: Install with 'sudo apt install libwebkit2gtk-4.0-dev'
@@ -210,9 +210,9 @@ $ dumb-browser init
 
 **Project Already Exists**:
 ```bash
-$ dumb-browser init
+$ dumber init
 ✗ Project already initialized
-  Use --force to reinitialize or run 'dumb-browser init status'
+  Use --force to reinitialize or run 'dumber init status'
   Exit Code: 4
 ```
 
@@ -222,24 +222,24 @@ $ dumb-browser init
 Commands designed for automated environments:
 ```bash
 # Non-interactive initialization
-dumb-browser init --verbose > init.log 2>&1
+dumber init --verbose > init.log 2>&1
 
 # Verification in CI
-dumb-browser init verify --report=ci-report.json
+dumber init verify --report=ci-report.json
 ```
 
 ### Development Workflow Integration
 ```bash
 # Quick setup for new contributors
 git clone <repo> && cd <repo>
-dumb-browser init
+dumber init
 go test ./...
 ```
 
 ### IDE Integration
 Status command provides machine-readable output:
 ```bash
-dumb-browser init status --format=json | jq '.dependencies.wails.status'
+dumber init status --format=json | jq '.dependencies.wails.status'
 ```
 
 This CLI contract supports the initialization phase while providing flexibility for different development scenarios and debugging needs.
