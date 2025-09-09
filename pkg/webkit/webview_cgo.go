@@ -846,7 +846,7 @@ func (w *WebView) enableUserContentManager() {
 	}
 
     // Add user script at document-start (omnibox/find reusable component)
-    src := C.CString(ucmOmniboxScript)
+    src := C.CString(getOmniboxScript())
 	defer C.free(unsafe.Pointer(src))
 	script := C.webkit_user_script_new((*C.gchar)(src), C.WEBKIT_USER_CONTENT_INJECT_ALL_FRAMES, C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, nil, nil)
 	if script != nil {
