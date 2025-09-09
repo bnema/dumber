@@ -51,6 +51,9 @@ func getOmniboxScript() string {
         style.textContent = '.dumber-find-highlight{background:#ffeb3b;color:#000;padding:0 1px;border-radius:2px;box-shadow:0 0 0 1px #c8b900 inset}';
         document.documentElement.appendChild(style);
         box.appendChild(input); box.appendChild(list); root.appendChild(box); document.documentElement.appendChild(root);
+        // Focus and select input on hover for quick typing
+        input.addEventListener('mouseenter', ()=>{ if (H.visible) { try { input.focus({preventScroll:true}); input.select(); } catch(_) { input.focus(); } } });
+        root.addEventListener('mouseenter', ()=>{ if (H.visible) { try { input.focus({preventScroll:true}); } catch(_) { input.focus(); } } });
         input.addEventListener('keydown', (e)=>{
           if (e.key === 'Escape'){ H.close(); }
           else if (H.mode==='omnibox' && e.key === 'Enter'){
@@ -94,6 +97,7 @@ func getOmniboxScript() string {
             const url = document.createElement('div'); url.textContent = s.url || ''; url.style.cssText = 'flex:1;color:#9ad;word-break:break-all;';
             const title = document.createElement('div'); title.textContent = s.title || ''; title.style.cssText = 'flex:1;color:#ccc;opacity:.9;';
             item.appendChild(title); item.appendChild(url);
+            item.addEventListener('mouseenter', ()=>{ H.selectedIndex = i; H.paintList(); });
             item.addEventListener('click',()=>{ H.post({type:'navigate', url:s.url}); H.toggle(false); });
             list.appendChild(item);
           });
@@ -108,6 +112,7 @@ func getOmniboxScript() string {
             item.style.cssText = 'padding:8px 10px;cursor:pointer;border-bottom:1px solid #2a2a2a;'+(i===H.selectedIndex?'background:#0a0a0a;':'');
             const ctx = document.createElement('div'); ctx.textContent = m.context || ''; ctx.style.cssText = 'color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
             item.appendChild(ctx);
+            item.addEventListener('mouseenter', ()=>{ H.selectedIndex = i; H.paintList(); });
             item.addEventListener('click',()=>{ H.selectedIndex=i; H.revealSelection(); H.paintList(); H.close(); });
             list.appendChild(item);
           });
