@@ -121,6 +121,24 @@ func runBrowser() {
         defer runtime.UnlockOSThread()
     }
 
+    // Proactively harden media pipeline to avoid WebProcess crashes from buggy VAAPI/plugins.
+    // Can be disabled with DUMBER_MEDIA_SAFE=0
+    if os.Getenv("DUMBER_MEDIA_SAFE") != "0" {
+        // Demote VAAPI-related elements so they won't be auto-picked
+        if os.Getenv("GST_PLUGIN_FEATURE_RANK") == "" {
+            os.Setenv("GST_PLUGIN_FEATURE_RANK", "vaapisink:0,vaapidecodebin:0,vaapih264dec:0,vaapivideoconvert:0")
+        }
+        // Provide a safe audio sink to avoid autoaudiosink failures
+        if os.Getenv("GST_AUDIO_SINK") == "" {
+            os.Setenv("GST_AUDIO_SINK", "fakesink")
+        }
+        // Optionally disable media stream features that can engage complex pipelines
+        if os.Getenv("WEBKIT_DISABLE_MEDIA_STREAM") == "" {
+            os.Setenv("WEBKIT_DISABLE_MEDIA_STREAM", "1")
+        }
+        log.Printf("[media] Safe mode enabled (override with DUMBER_MEDIA_SAFE=0)")
+    }
+
     if err := config.Init(); err != nil {
         log.Fatalf("Failed to initialize config: %v", err)
     }
@@ -142,7 +160,8 @@ func runBrowser() {
     // JS controls injection is disabled; using native shortcuts via GTK.
 
     // Track current URL for zoom persistence
-    var currentURL string
+    // Initialize to the initial homepage so shortcuts work immediately
+    var currentURL string = "dumb://homepage"
 
     // Register custom scheme resolver for dumb://
     webkit.SetURISchemeResolver(func(uri string) (string, []byte, bool) {
@@ -169,6 +188,14 @@ func runBrowser() {
             if strings.HasPrefix(path, "/api/") { path = strings.TrimPrefix(path, "/api") }
             if path == "/api" { path = "/" }
             switch {
+            case strings.HasPrefix(path, "/rendering/status"):
+                log.Printf("[api] GET /rendering/status")
+                // Report configured rendering mode; runtime GPU state depends on WebKit internals
+                resp := struct{
+                    Mode string `json:"mode"`
+                }{Mode: string(cfg.RenderingMode)}
+                b, _ := json.Marshal(resp)
+                return "application/json; charset=utf-8", b, true
             case strings.HasPrefix(path, "/config"):
                 log.Printf("[api] GET /config")
                 // Build config info
@@ -290,6 +317,7 @@ func runBrowser() {
         DefaultSerifFont:     cfg.Appearance.SerifFont,
         DefaultMonospaceFont: cfg.Appearance.MonospaceFont,
         DefaultFontSize:      cfg.Appearance.DefaultFontSize,
+        Rendering:            webkit.RenderingConfig{Mode: string(cfg.RenderingMode)},
     })
     if err != nil {
         log.Printf("Warning: failed to create WebView: %v", err)
@@ -325,6 +353,7 @@ func runBrowser() {
                 URL    string `json:"url"`
                 Q      string `json:"q"`
                 Limit  int    `json:"limit"`
+                Value  string `json:"value"`
                 // Wails fetch bridge
                 ID     string          `json:"id"`
                 Payload json.RawMessage `json:"payload"`
@@ -397,7 +426,7 @@ func runBrowser() {
                     _ = view.InjectScript("window.__dumber_wails_resolve('" + m.ID + "', '{}')")
                 }
             case "theme":
-                if m.URL != "" { log.Printf("[theme] page reported color-scheme: %s", m.URL) }
+                if m.Value != "" { log.Printf("[theme] page reported color-scheme: %s", m.Value) }
             }
         })
         log.Printf("Showing WebView window…")
@@ -437,7 +466,6 @@ func runBrowser() {
 
     // Register basic keyboard shortcuts on the native view to preserve behavior
     if view != nil {
-        ctx := context.Background()
         // DevTools
         _ = view.RegisterKeyboardShortcut("F12", func() { log.Printf("Shortcut: F12 (devtools)"); _ = view.ShowDevTools() })
         // Omnibox (Ctrl+L): rely on injected script listener
@@ -445,29 +473,7 @@ func runBrowser() {
             log.Printf("Shortcut: Omnibox toggle")
             _ = view.InjectScript("window.__dumber_toggle && window.__dumber_toggle()")
         })
-        // Zoom In
-        _ = view.RegisterKeyboardShortcut("cmdorctrl+=", func() {
-            log.Printf("Shortcut: Zoom In")
-            if currentURL == "" { return }
-            if z, err := browserService.ZoomIn(ctx, currentURL); err == nil { _ = view.SetZoom(z) }
-        })
-        _ = view.RegisterKeyboardShortcut("cmdorctrl+plus", func() {
-            log.Printf("Shortcut: Zoom In")
-            if currentURL == "" { return }
-            if z, err := browserService.ZoomIn(ctx, currentURL); err == nil { _ = view.SetZoom(z) }
-        })
-        // Zoom Out
-        _ = view.RegisterKeyboardShortcut("cmdorctrl+-", func() {
-            log.Printf("Shortcut: Zoom Out")
-            if currentURL == "" { return }
-            if z, err := browserService.ZoomOut(ctx, currentURL); err == nil { _ = view.SetZoom(z) }
-        })
-        // Zoom Reset
-        _ = view.RegisterKeyboardShortcut("cmdorctrl+0", func() {
-            log.Printf("Shortcut: Zoom Reset")
-            if currentURL == "" { return }
-            if z, err := browserService.ResetZoom(ctx, currentURL); err == nil { _ = view.SetZoom(z) }
-        })
+        // Zoom handled natively in webkit package (built-in shortcuts)
     }
 
     // Enter GTK main loop only when native backend is available.

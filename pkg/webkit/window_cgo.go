@@ -3,7 +3,7 @@
 package webkit
 
 /*
-#cgo pkg-config: webkit2gtk-4.0 gtk+-3.0
+#cgo pkg-config: webkitgtk-6.0 gtk4
 #include <stdlib.h>
 #include <gtk/gtk.h>
 */
@@ -16,10 +16,11 @@ type Window struct {
 }
 
 func NewWindow(title string) (*Window, error) {
-    if C.gtk_init_check(nil, nil) == 0 {
+    if C.gtk_init_check() == 0 {
         return nil, ErrNotImplemented
     }
-    w := C.gtk_window_new(C.GTK_WINDOW_TOPLEVEL)
+    // GTK4: gtk_window_new() returns GtkWindow*, no toplevel enum
+    w := (*C.GtkWidget)(unsafe.Pointer(C.gtk_window_new()))
     if w == nil {
         return nil, ErrNotImplemented
     }

@@ -3,8 +3,8 @@
 package webkit
 
 /*
-#cgo pkg-config: webkit2gtk-4.0 gtk+-3.0
-#include <webkit2/webkit2.h>
+#cgo pkg-config: webkitgtk-6.0 gtk4
+#include <webkit/webkit.h>
 */
 import "C"
 
@@ -31,4 +31,3 @@ func (w *WebView) GetZoom() (float64, error) {
     w.zoom = z
     return z, nil
 }
-

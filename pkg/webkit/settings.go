@@ -25,4 +25,15 @@ type Config struct {
     DefaultSerifFont     string
     DefaultMonospaceFont string
     DefaultFontSize      int // CSS px (~points)
+
+    // Rendering controls GPU/CPU selection and debug options
+    Rendering RenderingConfig
+}
+
+// RenderingConfig controls hardware acceleration preferences.
+// Mode accepts: "auto" (default), "gpu", or "cpu".
+// DebugGPU enables compositing indicators if supported.
+type RenderingConfig struct {
+    Mode    string
+    DebugGPU bool
 }

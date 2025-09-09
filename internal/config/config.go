@@ -22,7 +22,18 @@ type Config struct {
     Dmenu           DmenuConfig               `mapstructure:"dmenu" yaml:"dmenu"`
     Logging         LoggingConfig             `mapstructure:"logging" yaml:"logging"`
     Appearance      AppearanceConfig          `mapstructure:"appearance" yaml:"appearance"`
+    // RenderingMode controls GPU/CPU rendering selection for WebKit
+    RenderingMode   RenderingMode             `mapstructure:"rendering_mode" yaml:"rendering_mode"`
 }
+
+// RenderingMode selects GPU vs CPU rendering.
+type RenderingMode string
+
+const (
+    RenderingModeAuto RenderingMode = "auto"
+    RenderingModeGPU  RenderingMode = "gpu"
+    RenderingModeCPU  RenderingMode = "cpu"
+)
 
 // DatabaseConfig holds database-related configuration.
 type DatabaseConfig struct {
@@ -108,7 +119,7 @@ func NewManager() (*Manager, error) {
 	v.AutomaticEnv()
 
 	// Bind specific environment variables
-	bindings := map[string]string{
+    bindings := map[string]string{
 		"database.path":             "DATABASE_PATH",
 		"database.max_connections":  "DATABASE_MAX_CONNECTIONS",
 		"database.max_idle_time":    "DATABASE_MAX_IDLE_TIME",
@@ -136,11 +147,16 @@ func NewManager() (*Manager, error) {
 		"logging.compress":          "LOGGING_COMPRESS",
 	}
 
-	for key, env := range bindings {
-		if err := v.BindEnv(key, "DUMB_BROWSER_"+env); err != nil {
-			return nil, fmt.Errorf("failed to bind environment variable %s: %w", env, err)
-		}
-	}
+    for key, env := range bindings {
+        if err := v.BindEnv(key, "DUMB_BROWSER_"+env); err != nil {
+            return nil, fmt.Errorf("failed to bind environment variable %s: %w", env, err)
+        }
+    }
+
+    // Explicit binding for rendering mode via dedicated env var
+    if err := v.BindEnv("rendering_mode", "DUMBER_RENDERING_MODE"); err != nil {
+        return nil, fmt.Errorf("failed to bind DUMBER_RENDERING_MODE: %w", err)
+    }
 
 	return &Manager{
 		viper:     v,
@@ -173,11 +189,11 @@ func (m *Manager) Load() error {
 		}
 	}
 
-	// Unmarshal into config struct
-	config := &Config{}
-	if err := m.viper.Unmarshal(config); err != nil {
-		return fmt.Errorf("failed to unmarshal config: %w", err)
-	}
+    // Unmarshal into config struct
+    config := &Config{}
+    if err := m.viper.Unmarshal(config); err != nil {
+        return fmt.Errorf("failed to unmarshal config: %w", err)
+    }
 
 	// Set database path if not specified
 	if config.Database.Path == "" {
@@ -188,8 +204,20 @@ func (m *Manager) Load() error {
 		config.Database.Path = dbPath
 	}
 
-	m.config = config
-	return nil
+    // Normalize/validate rendering mode
+    switch strings.ToLower(string(config.RenderingMode)) {
+    case "", string(RenderingModeAuto):
+        config.RenderingMode = RenderingModeAuto
+    case string(RenderingModeGPU):
+        config.RenderingMode = RenderingModeGPU
+    case string(RenderingModeCPU):
+        config.RenderingMode = RenderingModeCPU
+    default:
+        config.RenderingMode = RenderingModeAuto
+    }
+
+    m.config = config
+    return nil
 }
 
 // Get returns the current configuration (thread-safe).
@@ -249,10 +277,10 @@ func (m *Manager) reload() error {
 		return err
 	}
 
-	config := &Config{}
-	if err := m.viper.Unmarshal(config); err != nil {
-		return err
-	}
+    config := &Config{}
+    if err := m.viper.Unmarshal(config); err != nil {
+        return err
+    }
 
 	// Set database path if not specified
 	if config.Database.Path == "" {
@@ -263,8 +291,20 @@ func (m *Manager) reload() error {
 		config.Database.Path = dbPath
 	}
 
-	m.config = config
-	return nil
+    // Normalize/validate rendering mode
+    switch strings.ToLower(string(config.RenderingMode)) {
+    case "", string(RenderingModeAuto):
+        config.RenderingMode = RenderingModeAuto
+    case string(RenderingModeGPU):
+        config.RenderingMode = RenderingModeGPU
+    case string(RenderingModeCPU):
+        config.RenderingMode = RenderingModeCPU
+    default:
+        config.RenderingMode = RenderingModeAuto
+    }
+
+    m.config = config
+    return nil
 }
 
 // setDefaults sets default configuration values in Viper.
@@ -310,6 +350,9 @@ func (m *Manager) setDefaults() {
     m.viper.SetDefault("appearance.serif_font", defaults.Appearance.SerifFont)
     m.viper.SetDefault("appearance.monospace_font", defaults.Appearance.MonospaceFont)
     m.viper.SetDefault("appearance.default_font_size", defaults.Appearance.DefaultFontSize)
+
+    // Rendering defaults
+    m.viper.SetDefault("rendering_mode", string(RenderingModeAuto))
 }
 
 // createDefaultConfig creates a default configuration file.
