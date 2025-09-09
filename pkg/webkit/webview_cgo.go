@@ -336,35 +336,6 @@ func boolToInt(b bool) int {
 	return 0
 }
 
-const omniboxDefaultScript = `(() => {
-  try {
-    if (window.__dumber_omnibox_loaded) return; window.__dumber_omnibox_loaded = true;
-    const H = { el:null,input:null,list:null,visible:false,suggestions:[],debounceTimer:0,
-      post(m){ try{ window.webkit?.messageHandlers?.dumber?.postMessage(JSON.stringify(m)); }catch(_){} },
-      render(){ if(!this.el) this.mount(); this.el.style.display=this.visible?'block':'none'; if(this.visible) this.input.focus(); },
-      mount(){ const r=document.createElement('div'); r.style.cssText='position:fixed;inset:0;z-index:2147483647;display:none;';
-        const b=document.createElement('div'); b.style.cssText='max-width:720px;margin:8vh auto;padding:10px 12px;background:#16181a;color:#e6e6e6;border:1px solid #2a2e33;border-radius:10px;box-shadow:0 12px 36px rgba(0,0,0,.55);backdrop-filter:saturate(120%) blur(2px);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,\"Helvetica Neue\",Arial,sans-serif;';
-        const i=document.createElement('input'); i.type='text'; i.placeholder='Type URL or search…'; i.style.cssText='display:block;width:100%;box-sizing:border-box;padding:12px 14px;border-radius:8px;border:1px solid #3a3f45;background:#0f1113;color:#e6e6e6;font-size:15px;outline:none;';
-        const l=document.createElement('div'); l.style.cssText='margin-top:10px;max-height:52vh;overflow:auto;border-top:1px solid #2a2e33;';
-        b.appendChild(i); b.appendChild(l); r.appendChild(b); document.documentElement.appendChild(r);
-        i.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){H.toggle(false);} else if(e.key==='Enter'){ const pick=H.suggestions[H.selectedIndex|0]; const v=(pick&&pick.url)||i.value||''; if(v) H.post({type:'navigate', url:v}); H.toggle(false);} else if(e.key==='ArrowDown' || e.key==='ArrowUp'){ e.preventDefault(); const n=H.suggestions.length; if(n){ H.selectedIndex=(H.selectedIndex||0)+(e.key==='ArrowDown'?1:-1); if(H.selectedIndex<0)H.selectedIndex=n-1; if(H.selectedIndex>=n)H.selectedIndex=0; H.paintList(); } } });
-        i.addEventListener('input', ()=>{ clearTimeout(H.debounceTimer); const q=i.value; H.debounceTimer=setTimeout(()=>H.post({type:'query', q, limit:10}), 120); });
-        this.el=r; this.input=i; this.list=l; this.selectedIndex=-1; this.paintList(); },
-      paintList(){ const l=this.list; if(!l) return; l.textContent=''; this.suggestions.forEach((s,i)=>{ const it=document.createElement('div'); it.style.cssText='padding:10px 12px;display:flex;gap:10px;align-items:center;cursor:pointer;border-bottom:1px solid #252a2f;'+(i===this.selectedIndex?'background:#0c0f12;':'');
-          const icon=document.createElement('img'); icon.src=s.favicon||''; icon.width=18; icon.height=18; icon.loading='lazy'; icon.style.cssText='flex:0 0 18px;width:18px;height:18px;border-radius:4px;opacity:.95;'; icon.onerror=()=>{ icon.style.display='none'; };
-          const url=document.createElement('div'); url.textContent=s.url||''; url.style.cssText='flex:1;min-width:0;color:#cfe6ff;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
-          it.appendChild(icon); it.appendChild(url);
-          it.addEventListener('mouseenter',()=>{ H.selectedIndex=i; H.paintList(); });
-          it.addEventListener('click',()=>{ H.post({type:'navigate', url:s.url}); H.toggle(false); });
-          l.appendChild(it);
-        }); },
-      toggle(v){ this.visible=(typeof v==='boolean')?v:!this.visible; this.render(); }, setSuggestions(a){ this.suggestions=Array.isArray(a)?a:[]; this.selectedIndex=-1; this.paintList(); }
-    };
-    window.addEventListener('keydown', (e)=>{ if((e.ctrlKey||e.metaKey) && (e.key==='l'||e.key==='L')){ e.preventDefault(); H.toggle(true); } }, true);
-    window.__dumber_setSuggestions = (a)=> H.setSuggestions(a);
-    window.__dumber_toggle = ()=> H.toggle();
-  } catch(_){}
-})();`
 
 type nativeView struct {
 	win  *C.GtkWidget
@@ -872,8 +843,8 @@ func (w *WebView) enableUserContentManager() {
 		C.webkit_user_script_unref(schemeScript)
 	}
 
-	// Add user script at document-start
-	src := C.CString(omniboxDefaultScript)
+    // Add user script at document-start (omnibox/find reusable component)
+    src := C.CString(ucmOmniboxScript)
 	defer C.free(unsafe.Pointer(src))
 	script := C.webkit_user_script_new((*C.gchar)(src), C.WEBKIT_USER_CONTENT_INJECT_ALL_FRAMES, C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, nil, nil)
 	if script != nil {

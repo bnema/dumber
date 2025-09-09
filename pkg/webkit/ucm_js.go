@@ -3,26 +3,38 @@
 package webkit
 
 // ucmOmniboxScript is injected at document-start via WebKit UserContentManager.
-// It renders a minimal overlay with an input and a suggestions list, handles
-// Ctrl+L to toggle, Enter to navigate, and posts search queries to native.
+// It provides a reusable overlay component with two modes:
+// - "omnibox": navigation/search suggestions (Ctrl/Cmd+L)
+// - "find": in-page find with yellow highlights and match list (Ctrl/Cmd+F)
 const ucmOmniboxScript = `(() => {
   try {
     if (window.__dumber_omnibox_loaded) return; // idempotent
     window.__dumber_omnibox_loaded = true;
 
+    const MAX_MATCHES = 2000;
     const H = {
       el: null,
       input: null,
       list: null,
       visible: false,
+      mode: 'omnibox', // 'omnibox' | 'find'
       suggestions: [],
+      matches: [], // {el, context}
+      selectedIndex: -1,
       debounceTimer: 0,
-      post(msg){ try { window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.dumber && window.webkit.messageHandlers.dumber.postMessage(JSON.stringify(msg)); } catch(_){} },
+      highlightNodes: [],
+      post(msg){ try { window.webkit?.messageHandlers?.dumber?.postMessage(JSON.stringify(msg)); } catch(_){} },
       render(){
         if (!H.el) H.mount();
         H.el.style.display = H.visible ? 'block' : 'none';
-        if (H.visible) H.input.focus();
+        if (!H.visible) return;
+        H.input.placeholder = H.mode === 'find' ? 'Find in page…' : 'Type URL or search…';
+        H.input.focus();
       },
+      setMode(m){ H.mode = m === 'find' ? 'find' : 'omnibox'; H.selectedIndex = -1; H.paintList(); },
+      open(mode, initial){ H.setMode(mode||'omnibox'); H.toggle(true); if (typeof initial==='string') { H.input.value = initial; H.onInput(); } },
+      close(){ if (H.mode==='find') H.clearHighlights(); H.toggle(false); },
+      toggle(v){ H.visible = (typeof v==='boolean')? v : !H.visible; H.render(); },
       mount(){
         const root = document.createElement('div');
         root.id = 'dumber-omnibox-root';
@@ -35,52 +47,148 @@ const ucmOmniboxScript = `(() => {
         input.style.cssText = 'width:100%;padding:10px 12px;border-radius:6px;border:1px solid #555;background:#121212;color:#eee;font-size:16px;outline:none;';
         const list = document.createElement('div');
         list.style.cssText = 'margin-top:8px;max-height:50vh;overflow:auto;border-top:1px solid #333;';
+        const style = document.createElement('style');
+        style.textContent = '.dumber-find-highlight{background:#ffeb3b;color:#000;padding:0 1px;border-radius:2px;box-shadow:0 0 0 1px #c8b900 inset}';
+        document.documentElement.appendChild(style);
         box.appendChild(input); box.appendChild(list); root.appendChild(box); document.documentElement.appendChild(root);
         input.addEventListener('keydown', (e)=>{
-          if (e.key === 'Escape'){ H.toggle(false); }
-          else if (e.key === 'Enter'){
+          if (e.key === 'Escape'){ H.close(); }
+          else if (H.mode==='omnibox' && e.key === 'Enter'){
             const pick = H.suggestions && H.suggestions[H.selectedIndex|0];
             const v = (pick && pick.url) || input.value || '';
             if (v) H.post({type:'navigate', url:v});
             H.toggle(false);
+          } else if (H.mode==='find' && e.key === 'Enter'){
+            e.preventDefault(); H.jump(1);
+          } else if (H.mode==='find' && e.key === 'Enter' && e.shiftKey){
+            e.preventDefault(); H.jump(-1);
           } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp'){
             e.preventDefault();
-            const n = H.suggestions.length;
+            const n = (H.mode==='find'? H.matches.length : H.suggestions.length);
             if (n){
               H.selectedIndex = (H.selectedIndex||0) + (e.key==='ArrowDown'?1:-1);
               if (H.selectedIndex<0) H.selectedIndex = n-1; if (H.selectedIndex>=n) H.selectedIndex = 0;
               H.paintList();
+              H.revealSelection();
             }
           }
         });
-        input.addEventListener('input', ()=>{
-          clearTimeout(H.debounceTimer);
-          const q = input.value;
-          H.debounceTimer = setTimeout(()=> H.post({type:'query', q, limit:10}), 120);
-        });
+        input.addEventListener('input', ()=> H.onInput());
         H.el = root; H.input = input; H.list = list; H.selectedIndex = -1; H.paintList();
       },
-      paintList(){
-        const list = H.list; if (!list) return;
-        list.textContent = '';
-        H.suggestions.forEach((s, i)=>{
-          const item = document.createElement('div');
-          item.style.cssText = 'padding:8px 10px;display:flex;gap:10px;align-items:center;cursor:pointer;border-bottom:1px solid #2a2a2a;'+(i===H.selectedIndex?'background:#0a0a0a;':'');
-          const url = document.createElement('div'); url.textContent = s.url || ''; url.style.cssText = 'flex:1;color:#9ad;word-break:break-all;';
-          const title = document.createElement('div'); title.textContent = s.title || ''; title.style.cssText = 'flex:1;color:#ccc;opacity:.9;';
-          item.appendChild(title); item.appendChild(url);
-          item.addEventListener('click',()=>{ H.post({type:'navigate', url:s.url}); H.toggle(false); });
-          list.appendChild(item);
-        });
+      onInput(){
+        const q = H.input.value || '';
+        if (H.mode === 'omnibox'){
+          clearTimeout(H.debounceTimer);
+          H.debounceTimer = setTimeout(()=> H.post({type:'query', q, limit:10}), 120);
+        } else {
+          H.find(q);
+        }
       },
-      toggle(v){ H.visible = (typeof v==='boolean')? v : !H.visible; H.render(); },
-      setSuggestions(arr){ H.suggestions = Array.isArray(arr)? arr: []; H.selectedIndex = -1; H.paintList(); }
+      paintList(){
+        const list = H.list; if (!list) return; list.textContent = '';
+        if (H.mode==='omnibox'){
+          H.suggestions.forEach((s, i)=>{
+            const item = document.createElement('div');
+            item.style.cssText = 'padding:8px 10px;display:flex;gap:10px;align-items:center;cursor:pointer;border-bottom:1px solid #2a2a2a;'+(i===H.selectedIndex?'background:#0a0a0a;':'');
+            const url = document.createElement('div'); url.textContent = s.url || ''; url.style.cssText = 'flex:1;color:#9ad;word-break:break-all;';
+            const title = document.createElement('div'); title.textContent = s.title || ''; title.style.cssText = 'flex:1;color:#ccc;opacity:.9;';
+            item.appendChild(title); item.appendChild(url);
+            item.addEventListener('click',()=>{ H.post({type:'navigate', url:s.url}); H.toggle(false); });
+            list.appendChild(item);
+          });
+        } else {
+          const total = H.matches.length;
+          const header = document.createElement('div');
+          header.textContent = total ? total + ' matches' : 'No matches';
+          header.style.cssText = 'padding:6px 10px;color:#bbb;font-size:12px;border-bottom:1px solid #2a2a2a;';
+          list.appendChild(header);
+          H.matches.forEach((m, i)=>{
+            const item = document.createElement('div');
+            item.style.cssText = 'padding:8px 10px;cursor:pointer;border-bottom:1px solid #2a2a2a;'+(i===H.selectedIndex?'background:#0a0a0a;':'');
+            const ctx = document.createElement('div'); ctx.textContent = m.context || ''; ctx.style.cssText = 'color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+            item.appendChild(ctx);
+            item.addEventListener('click',()=>{ H.selectedIndex=i; H.revealSelection(); H.paintList(); });
+            list.appendChild(item);
+          });
+        }
+      },
+      setSuggestions(arr){ H.suggestions = Array.isArray(arr)? arr: []; H.selectedIndex = -1; H.paintList(); },
+      // FIND MODE IMPLEMENTATION
+      clearHighlights(){
+        try {
+          H.highlightNodes.forEach(({span, text})=>{
+            const p = span.parentNode; if (!p) return; p.replaceChild(text, span); p.normalize();
+          });
+        } catch(_){}
+        H.highlightNodes = [];
+        H.matches = [];
+        H.selectedIndex = -1;
+        H.paintList();
+      },
+      find(q){
+        H.clearHighlights();
+        q = (q||'').trim(); if (!q) return;
+        const body = document.body; if (!body) return;
+        const root = document.getElementById('dumber-omnibox-root');
+        const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, {
+          acceptNode(node){
+            if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+            let el = node.parentElement; if (!el) return NodeFilter.FILTER_REJECT;
+            if (root && root.contains(el)) return NodeFilter.FILTER_REJECT;
+            const name = el.tagName; if (name==='SCRIPT'||name==='STYLE'||name==='NOSCRIPT') return NodeFilter.FILTER_REJECT;
+            if (getComputedStyle(el).visibility==='hidden' || getComputedStyle(el).display==='none') return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        });
+        const lc = q.toLowerCase();
+        while (walker.nextNode()){
+          const text = walker.currentNode;
+          let s = text.nodeValue; let i = 0;
+          while (s && (i = s.toLowerCase().indexOf(lc)) !== -1) {
+            const before = document.createTextNode(s.slice(0, i));
+            const match = document.createTextNode(s.slice(i, i+q.length));
+            const afterVal = s.slice(i+q.length);
+            const span = document.createElement('span'); span.className = 'dumber-find-highlight'; span.appendChild(match);
+            const parent = text.parentNode; if (!parent) break;
+            parent.insertBefore(before, text);
+            parent.insertBefore(span, text);
+            text.nodeValue = afterVal;
+            H.highlightNodes.push({span, text: match});
+            const context = (before.nodeValue.slice(-30) + match.nodeValue + afterVal.slice(0, 30)).replace(/\s+/g,' ').trim();
+            H.matches.push({el: span, context});
+            if (H.matches.length >= MAX_MATCHES) break;
+            s = afterVal;
+          }
+          if (H.matches.length >= MAX_MATCHES) break;
+        }
+        H.selectedIndex = H.matches.length ? 0 : -1;
+        H.paintList();
+        H.revealSelection();
+      },
+      revealSelection(){
+        const m = H.matches[H.selectedIndex|0]; if (!m) return;
+        try { m.el.scrollIntoView({block:'center', inline:'nearest'}); } catch(_){ m.el.scrollIntoView(); }
+      },
+      jump(delta){
+        const n = H.matches.length; if (!n) return;
+        H.selectedIndex = ((H.selectedIndex||0) + delta) % n; if (H.selectedIndex<0) H.selectedIndex = n-1;
+        H.paintList(); H.revealSelection();
+      }
     };
+
+    // Keyboard hooks
     window.addEventListener('keydown', (e)=>{
-      if ((e.ctrlKey||e.metaKey) && (e.key==='l' || e.key==='L')) { e.preventDefault(); H.toggle(true); }
+      const mod = (e.ctrlKey||e.metaKey);
+      if (mod && (e.key==='l' || e.key==='L')) { e.preventDefault(); H.open('omnibox'); }
+      if (mod && (e.key==='f' || e.key==='F')) { e.preventDefault(); H.open('find'); }
     }, true);
-    // Allow native side to update suggestions or toggle
+
+    // Public API for native
     window.__dumber_setSuggestions = (arr)=> H.setSuggestions(arr);
     window.__dumber_toggle = ()=> H.toggle();
+    window.__dumber_find_open = (q)=> H.open('find', q||'');
+    window.__dumber_find_close = ()=> H.close();
+    window.__dumber_find_query = (q)=> { if (H.mode!=='find') H.setMode('find'); if (!H.visible) H.toggle(true); H.input.value = q||''; H.find(q||''); };
   } catch (e) { /* no-op */ }
 })();`
