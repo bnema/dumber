@@ -1,6 +1,6 @@
 # Makefile for dumber
 
-.PHONY: build build-frontend test lint clean install-tools dev generate help check init build-static
+.PHONY: build build-frontend test lint clean install-tools dev generate help check init build-static build-no-gui
 
 # Load local overrides from .env.local if present (Makefile syntax)
 ifneq (,$(wildcard .env.local))
@@ -33,27 +33,28 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 # Build targets
-build: build-frontend ## Build the application (frontend assets, then Go binary)
-	@echo "Building $(BINARY_NAME) $(VERSION)..."
+build: build-frontend ## Build the application with GUI (frontend assets, then Go binary with WebKitGTK)
+	@echo "Building $(BINARY_NAME) $(VERSION) with GUI..."
 	@mkdir -p $(DIST_DIR) tmp tmp/go-cache tmp/go-mod
-	$(GOENV) CGO_ENABLED=1 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	$(GOENV) CGO_ENABLED=1 go build $(LDFLAGS) -tags=webkit_cgo -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 
 build-frontend: ## Build TypeScript frontend
 	@echo "Building TypeScript frontend..."
 	@cd frontend && npm install --silent && npm run build
 	@echo "Frontend build complete"
 
-build-static: ## Build static binary (CGO disabled, CLI-only functionality)
-	@echo "Building static $(BINARY_NAME) $(VERSION) (CLI-only)..."
+build-no-gui: build-frontend ## Build binary without GUI (CGO disabled, CLI-only functionality)
+	@echo "Building $(BINARY_NAME) $(VERSION) (CLI-only, no GUI)..."
 	@mkdir -p $(DIST_DIR) tmp tmp/go-cache tmp/go-mod
-	$(GOENV) CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME)-static $(MAIN_PATH)
+	$(GOENV) CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME)-no-gui $(MAIN_PATH)
+
+build-static: build-no-gui ## Alias for build-no-gui (backward compatibility)
+	@echo "Note: build-static is deprecated, use build-no-gui instead"
 
 # GUI build with WebKitGTK 6.0 (GTK4)
 .PHONY: build-gui run-gui
-build-gui: build-frontend ## Build GUI binary with native WebKitGTK 6.0 (requires GTK4/WebKitGTK 6 dev packages)
-	@echo "Building $(BINARY_NAME) (GUI, webkit_cgo)…"
-	@mkdir -p $(DIST_DIR) tmp tmp/go-cache tmp/go-mod
-	$(GOENV) CGO_ENABLED=1 go build $(LDFLAGS) -tags=webkit_cgo -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+build-gui: build ## Alias for default build (backward compatibility)
+	@echo "Note: build-gui is now the default 'build' target"
 
 run-gui: ## Run the GUI with native WebKitGTK 6.0 (requires GTK4/WebKitGTK 6 dev packages)
 	@echo "Running GUI (webkit_cgo)…"
