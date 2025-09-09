@@ -56,10 +56,14 @@ func getOmniboxScript() string {
         if (!H.box || !H.input || !H.list) return;
         if (H.faded) {
           H.box.style.background = 'rgba(27,27,27,0.25)';
+          H.box.style.backdropFilter = 'blur(2px) saturate(110%)';
+          H.box.style.webkitBackdropFilter = 'blur(2px) saturate(110%)';
           H.input.style.background = 'rgba(18,18,18,0.35)';
           H.input.style.color = '#eee';
         } else {
           H.box.style.background = '#1b1b1b';
+          H.box.style.backdropFilter = '';
+          H.box.style.webkitBackdropFilter = '';
           H.input.style.background = '#121212';
           H.input.style.color = '#eee';
         }
