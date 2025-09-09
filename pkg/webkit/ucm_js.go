@@ -1,5 +1,3 @@
-//go:build webkit_cgo
-
 package webkit
 
 // ucmOmniboxScript is injected at document-start via WebKit UserContentManager.
