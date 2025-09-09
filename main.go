@@ -1,26 +1,26 @@
 package main
 
 import (
-	"context"
-	"embed"
-	"fmt"
-	"log"
-	"log/slog"
-	"os"
-	"time"
+    "context"
+    "embed"
+    "encoding/json"
+    "fmt"
+    "mime"
+    "log"
+    "os"
+    "runtime"
+    neturl "net/url"
+    "path/filepath"
+    "strings"
+    "strconv"
+    
 
-	"github.com/wailsapp/wails/v3/pkg/application"
-
-	"github.com/bnema/dumber/internal/cli"
-	"github.com/bnema/dumber/internal/config"
-	"github.com/bnema/dumber/internal/db"
-	"github.com/bnema/dumber/services"
+    "github.com/bnema/dumber/internal/cli"
+    "github.com/bnema/dumber/internal/config"
+    "github.com/bnema/dumber/internal/db"
+    "github.com/bnema/dumber/services"
+    "github.com/bnema/dumber/pkg/webkit"
 )
-
-// Embed the frontend assets
-//
-//go:embed frontend/dist
-var assets embed.FS
 
 // Build information set via ldflags
 var (
@@ -36,8 +36,8 @@ func main() {
 		return
 	}
 
-	// Otherwise run the GUI browser
-	runBrowser()
+    // Otherwise run the GUI browser
+    runBrowser()
 }
 
 // shouldRunCLI determines if we should run in CLI mode based on arguments
@@ -106,148 +106,376 @@ func runCLI() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
-	}
+    }
 }
 
-// runBrowser executes the browser GUI functionality
+//go:embed frontend/dist
+var assets embed.FS
+
+// runBrowser launches a minimal native WebKit window and integrates services.
 func runBrowser() {
-	// Initialize configuration
-	if err := config.Init(); err != nil {
-		log.Fatalf("Failed to initialize config: %v", err)
-	}
-	cfg := config.Get()
+    log.Printf("Starting GUI mode (webkit_cgo=%v)", webkit.IsNativeAvailable())
+    // GTK requires all UI calls to run on the main OS thread
+    if webkit.IsNativeAvailable() {
+        runtime.LockOSThread()
+        defer runtime.UnlockOSThread()
+    }
 
-	// Initialize database
-	database, err := db.InitDB(cfg.Database.Path)
-	if err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
-	}
-	defer database.Close()
+    if err := config.Init(); err != nil {
+        log.Fatalf("Failed to initialize config: %v", err)
+    }
+    cfg := config.Get()
+    log.Printf("Config initialized")
 
-	queries := db.New(database)
+    // Initialize database
+    database, err := db.InitDB(cfg.Database.Path)
+    if err != nil {
+        log.Fatalf("Failed to initialize database: %v", err)
+    }
+    defer database.Close()
+    queries := db.New(database)
+    log.Printf("Database opened at %s", cfg.Database.Path)
 
-	// Initialize services
-	parserService := services.NewParserService(cfg, queries)
-	browserService := services.NewBrowserService(cfg, queries)
-	configService := services.NewConfigService(cfg, "")
+    // Initialize services
+    parserService := services.NewParserService(cfg, queries)
+    browserService := services.NewBrowserService(cfg, queries)
+    // JS controls injection is disabled; using native shortcuts via GTK.
 
-	// Load the injectable script into the browser service
-	if err := browserService.LoadInjectableScript(assets); err != nil {
-		log.Printf("Warning: Failed to load injectable script: %v", err)
-	}
+    // Track current URL for zoom persistence
+    var currentURL string
 
-	// Check if this is a browse command with URL
-	var directURL string
-	var initialZoom float64 = 1.0
-	if len(os.Args) >= 3 && os.Args[1] == "browse" {
-		// Parse the URL using our parser service
-		ctx := context.Background()
-		result, err := parserService.ParseInput(ctx, os.Args[2])
-		if err != nil {
-			log.Printf("Error parsing URL: %v", err)
-		} else {
-			directURL = result.URL
-			// Record the visit
-			browserService.Navigate(ctx, directURL)
-			// Load saved zoom level for the destination domain to apply natively
-			if z, zerr := browserService.GetZoomLevel(ctx, directURL); zerr == nil && z > 0 {
-				initialZoom = z
-			}
-		}
-	}
+    // Register custom scheme resolver for dumb://
+    webkit.SetURISchemeResolver(func(uri string) (string, []byte, bool) {
+        log.Printf("[scheme] request: %s", uri)
+        // Known forms:
+        // - dumb://homepage or dumb:homepage → index.html
+        // - dumb://app/index.html, dumb://app/<path> → serve from frontend/dist/<path>
+        // - dumb://<anything> without path → index.html
+        u, err := neturl.Parse(uri)
+        if err != nil || u.Scheme != "dumb" {
+            return "", nil, false
+        }
+        // API routes
+        if u.Host == "api" || strings.HasPrefix(u.Opaque, "api") || strings.HasPrefix(u.Path, "/api") {
+            // Normalize path for opaque or hierarchical forms
+            path := u.Path
+            if path == "" && u.Opaque != "" {
+                // e.g., dumb:api/config or dumb:api/history/recent
+                parts := strings.SplitN(u.Opaque, ":", 2)
+                if len(parts) == 2 {
+                    path = "/" + parts[1]
+                }
+            }
+            if strings.HasPrefix(path, "/api/") { path = strings.TrimPrefix(path, "/api") }
+            if path == "/api" { path = "/" }
+            switch {
+            case strings.HasPrefix(path, "/config"):
+                log.Printf("[api] GET /config")
+                // Build config info
+                cfgPath, _ := config.GetConfigFile()
+                info := struct {
+                    ConfigPath     string                                    `json:"config_path"`
+                    DatabasePath   string                                    `json:"database_path"`
+                    SearchShortcuts map[string]config.SearchShortcut          `json:"search_shortcuts"`
+                    Appearance     config.AppearanceConfig                    `json:"appearance"`
+                }{
+                    ConfigPath: cfgPath,
+                    DatabasePath: cfg.Database.Path,
+                    SearchShortcuts: cfg.SearchShortcuts,
+                    Appearance: cfg.Appearance,
+                }
+                b, _ := json.Marshal(info)
+                return "application/json; charset=utf-8", b, true
+            case strings.HasPrefix(path, "/history/recent"):
+                log.Printf("[api] GET /history/recent%s", u.RawQuery)
+                // Parse limit
+                q := u.Query()
+                limit := 50
+                if l := q.Get("limit"); l != "" {
+                    if n, err := strconv.Atoi(l); err == nil && n > 0 {
+                        limit = n
+                    }
+                }
+                ctx := context.Background()
+                entries, err := browserService.GetRecentHistory(ctx, limit)
+                if err != nil {
+                    return "application/json; charset=utf-8", []byte("[]"), true
+                }
+                b, _ := json.Marshal(entries)
+                return "application/json; charset=utf-8", b, true
+            case strings.HasPrefix(path, "/history/search"):
+                log.Printf("[api] GET /history/search%s", u.RawQuery)
+                q := u.Query()
+                query := q.Get("q")
+                limit := 50
+                if l := q.Get("limit"); l != "" {
+                    if n, err := strconv.Atoi(l); err == nil && n > 0 {
+                        limit = n
+                    }
+                }
+                ctx := context.Background()
+                entries, err := browserService.SearchHistory(ctx, query, limit)
+                if err != nil {
+                    return "application/json; charset=utf-8", []byte("[]"), true
+                }
+                b, _ := json.Marshal(entries)
+                return "application/json; charset=utf-8", b, true
+            case strings.HasPrefix(path, "/history/stats"):
+                log.Printf("[api] GET /history/stats")
+                ctx := context.Background()
+                stats, err := browserService.GetHistoryStats(ctx)
+                if err != nil { return "application/json; charset=utf-8", []byte("{}"), true }
+                b, _ := json.Marshal(stats)
+                return "application/json; charset=utf-8", b, true
+            default:
+                return "application/json; charset=utf-8", []byte("{}"), true
+            }
+        }
+        // Resolve target path inside embed FS
+        var rel string
+        if u.Opaque == "homepage" || (u.Host == "homepage" && (u.Path == "" || u.Path == "/")) || (u.Host == "" && (u.Path == "" || u.Path == "/")) {
+            rel = "index.html"
+        } else {
+            host := u.Host
+            p := strings.TrimPrefix(u.Path, "/")
+            if host == "app" && p == "" {
+                rel = "index.html"
+            } else if host == "app" {
+                rel = p
+            } else if host == "homepage" && p != "" {
+                // dumb://homepage/<asset>
+                rel = p
+            } else if p != "" {
+                rel = p
+            } else {
+                rel = "index.html"
+            }
+        }
+        log.Printf("[scheme] asset: rel=%s (host=%s path=%s)", rel, u.Host, u.Path)
+        data, rerr := assets.ReadFile(filepath.ToSlash(filepath.Join("frontend", "dist", rel)))
+        if rerr != nil {
+            log.Printf("[scheme] not found: %s", rel)
+            return "", nil, false
+        }
+        // Determine mime type
+        mt := mime.TypeByExtension(strings.ToLower(filepath.Ext(rel)))
+        if mt == "" {
+            // Fallbacks
+            switch strings.ToLower(filepath.Ext(rel)) {
+            case ".js": mt = "application/javascript"
+            case ".css": mt = "text/css"
+            case ".svg": mt = "image/svg+xml"
+            case ".ico": mt = "image/x-icon"
+            default: mt = "text/html; charset=utf-8"
+            }
+        }
+        return mt, data, true
+    })
 
-	// Create application with correct v3-alpha options
-	app := application.New(application.Options{
-		Name:        "dumber-browser",
-		Description: "A smart URL launcher and browser with learning behavior",
-		LogLevel:    slog.LevelInfo,
+    // Create WebKit view
+    log.Printf("Creating WebView (native backend expected: %v)", webkit.IsNativeAvailable())
+    dataDir, _ := config.GetDataDir()
+    stateDir, _ := config.GetStateDir()
+    webkitData := filepath.Join(dataDir, "webkit")
+    webkitCache := filepath.Join(stateDir, "webkit-cache")
+    _ = os.MkdirAll(webkitData, 0o755)
+    _ = os.MkdirAll(webkitCache, 0o755)
+    view, err := webkit.NewWebView(&webkit.Config{
+        InitialURL:        "dumb://homepage",
+        ZoomDefault:       1.0,
+        EnableDeveloperExtras: true,
+        DataDir:           webkitData,
+        CacheDir:          webkitCache,
+        DefaultSansFont:      cfg.Appearance.SansFont,
+        DefaultSerifFont:     cfg.Appearance.SerifFont,
+        DefaultMonospaceFont: cfg.Appearance.MonospaceFont,
+        DefaultFontSize:      cfg.Appearance.DefaultFontSize,
+    })
+    if err != nil {
+        log.Printf("Warning: failed to create WebView: %v", err)
+    } else {
+        browserService.AttachWebView(view)
+        // Use native window as title updater
+        if win := view.Window(); win != nil {
+            browserService.SetWindowTitleUpdater(win)
+        }
+        // Persist page titles to DB when they change
+        view.RegisterTitleChangedHandler(func(title string) {
+            ctx := context.Background()
+            url := view.GetCurrentURL()
+            if url != "" && title != "" {
+                if err := browserService.UpdatePageTitle(ctx, url, title); err != nil {
+                    log.Printf("Warning: failed to update page title: %v", err)
+                }
+            }
+        })
+        // Track current URL changes and apply saved zoom
+        view.RegisterURIChangedHandler(func(u string) {
+            currentURL = u
+            if u == "" { return }
+            ctx := context.Background()
+            if z, err := browserService.GetZoomLevel(ctx, u); err == nil {
+                _ = view.SetZoom(z)
+            }
+        })
+        // Bridge UCM messages: navigate + history queries
+        view.RegisterScriptMessageHandler(func(payload string) {
+            type msg struct {
+                Type   string `json:"type"`
+                URL    string `json:"url"`
+                Q      string `json:"q"`
+                Limit  int    `json:"limit"`
+                // Wails fetch bridge
+                ID     string          `json:"id"`
+                Payload json.RawMessage `json:"payload"`
+            }
+            var m msg
+            if err := json.Unmarshal([]byte(payload), &m); err != nil { return }
+            switch m.Type {
+            case "navigate":
+                ctx := context.Background()
+                res, err := parserService.ParseInput(ctx, m.URL)
+                if err == nil {
+                    currentURL = res.URL
+                    browserService.Navigate(ctx, currentURL)
+                    _ = view.LoadURL(currentURL)
+                    if z, zerr := browserService.GetZoomLevel(ctx, currentURL); zerr == nil { _ = view.SetZoom(z) }
+                }
+            case "query":
+                ctx := context.Background()
+                lim := m.Limit
+                if lim <= 0 || lim > 25 { lim = 10 }
+                entries, err := browserService.SearchHistory(ctx, m.Q, lim)
+                if err != nil { return }
+                // Map to lightweight items
+                type item struct { URL string `json:"url"`; Favicon string `json:"favicon"` }
+                buildFavicon := func(raw string) string {
+                    u, err := parserService.ParseInput(ctx, raw)
+                    if err != nil || u.URL == "" { return "" }
+                    parsed, perr := neturl.Parse(u.URL)
+                    if perr != nil || parsed.Host == "" { return "" }
+                    scheme := parsed.Scheme
+                    if scheme == "" { scheme = "https" }
+                    return scheme + "://" + parsed.Host + "/favicon.ico"
+                }
+                items := make([]item, 0, len(entries))
+                for _, e := range entries { items = append(items, item{URL: e.URL, Favicon: buildFavicon(e.URL)}) }
+                b, _ := json.Marshal(items)
+                // Update suggestions in page
+                _ = view.InjectScript("window.__dumber_setSuggestions && window.__dumber_setSuggestions(" + string(b) + ")")
+            case "wails":
+                // Handle Wails runtime fetch bridge calls for homepage
+                // Payload contains { methodID, methodName?, args }
+                var p struct {
+                    MethodID uint32           `json:"methodID"`
+                    MethodName string         `json:"methodName"`
+                    Args     json.RawMessage  `json:"args"`
+                }
+                if err := json.Unmarshal(m.Payload, &p); err != nil { return }
+                // Only implement the IDs we need
+                switch p.MethodID {
+                case 3708519028: // BrowserService.GetRecentHistory(limit)
+                    var args []interface{}
+                    _ = json.Unmarshal(p.Args, &args)
+                    limit := 50
+                    if len(args) > 0 {
+                        if f, ok := args[0].(float64); ok { limit = int(f) }
+                    }
+                    ctx := context.Background()
+                    entries, err := browserService.GetRecentHistory(ctx, limit)
+                    if err != nil { return }
+                    resp, _ := json.Marshal(entries)
+                    _ = view.InjectScript("window.__dumber_wails_resolve('" + m.ID + "', " + string(resp) + ")")
+                case 4078533762: // BrowserService.GetSearchShortcuts()
+                    ctx := context.Background()
+                    shortcuts, err := browserService.GetSearchShortcuts(ctx)
+                    if err != nil { return }
+                    resp, _ := json.Marshal(shortcuts)
+                    _ = view.InjectScript("window.__dumber_wails_resolve('" + m.ID + "', " + string(resp) + ")")
+                default:
+                    // Return empty JSON to avoid breaking UI
+                    _ = view.InjectScript("window.__dumber_wails_resolve('" + m.ID + "', '{}')")
+                }
+            case "theme":
+                if m.URL != "" { log.Printf("[theme] page reported color-scheme: %s", m.URL) }
+            }
+        })
+        log.Printf("Showing WebView window…")
+        if err := view.Show(); err != nil {
+            log.Printf("Warning: failed to show WebView: %v", err)
+        } else {
+            if !webkit.IsNativeAvailable() {
+                log.Printf("Notice: running without webkit_cgo tag — no native window will be displayed.")
+            }
+        }
+    }
 
-		Services: []application.Service{
-			application.NewService(parserService),
-			application.NewService(browserService),
-			application.NewService(configService),
-		},
+    // Parse browse argument if present
+    if len(os.Args) >= 3 && os.Args[1] == "browse" {
+        log.Printf("Browse command detected: %s", os.Args[2])
+        ctx := context.Background()
+        result, err := parserService.ParseInput(ctx, os.Args[2])
+        if err == nil {
+            currentURL = result.URL
+            log.Printf("Parsed input → URL: %s", currentURL)
+            browserService.Navigate(ctx, currentURL)
+            if view != nil {
+                log.Printf("Loading URL in WebView: %s", currentURL)
+                if err := view.LoadURL(currentURL); err != nil {
+                    log.Printf("Warning: failed to load URL: %v", err)
+                }
+                if z, zerr := browserService.GetZoomLevel(ctx, currentURL); zerr == nil {
+                    log.Printf("Applying stored zoom: %.2f", z)
+                    if err := view.SetZoom(z); err != nil {
+                        log.Printf("Warning: failed to set zoom: %v", err)
+                    }
+                }
+                // No JS injection; native accelerators handle zoom/devtools.
+            }
+        }
+    }
 
-		Assets: application.AssetOptions{
-			Handler: application.AssetFileServerFS(assets),
-		},
+    // Register basic keyboard shortcuts on the native view to preserve behavior
+    if view != nil {
+        ctx := context.Background()
+        // DevTools
+        _ = view.RegisterKeyboardShortcut("F12", func() { log.Printf("Shortcut: F12 (devtools)"); _ = view.ShowDevTools() })
+        // Omnibox (Ctrl+L): rely on injected script listener
+        _ = view.RegisterKeyboardShortcut("cmdorctrl+l", func() {
+            log.Printf("Shortcut: Omnibox toggle")
+            _ = view.InjectScript("window.__dumber_toggle && window.__dumber_toggle()")
+        })
+        // Zoom In
+        _ = view.RegisterKeyboardShortcut("cmdorctrl+=", func() {
+            log.Printf("Shortcut: Zoom In")
+            if currentURL == "" { return }
+            if z, err := browserService.ZoomIn(ctx, currentURL); err == nil { _ = view.SetZoom(z) }
+        })
+        _ = view.RegisterKeyboardShortcut("cmdorctrl+plus", func() {
+            log.Printf("Shortcut: Zoom In")
+            if currentURL == "" { return }
+            if z, err := browserService.ZoomIn(ctx, currentURL); err == nil { _ = view.SetZoom(z) }
+        })
+        // Zoom Out
+        _ = view.RegisterKeyboardShortcut("cmdorctrl+-", func() {
+            log.Printf("Shortcut: Zoom Out")
+            if currentURL == "" { return }
+            if z, err := browserService.ZoomOut(ctx, currentURL); err == nil { _ = view.SetZoom(z) }
+        })
+        // Zoom Reset
+        _ = view.RegisterKeyboardShortcut("cmdorctrl+0", func() {
+            log.Printf("Shortcut: Zoom Reset")
+            if currentURL == "" { return }
+            if z, err := browserService.ResetZoom(ctx, currentURL); err == nil { _ = view.SetZoom(z) }
+        })
+    }
 
-		Mac: application.MacOptions{
-			ApplicationShouldTerminateAfterLastWindowClosed: true,
-		},
-	})
-
-	// Always start with the browser UI, never directly navigate to external URLs
-	startURL := "/"
-
-	// Create the main window
-	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title: "Dumber Browser",
-		URL:   startURL,
-		Zoom:  initialZoom,
-		// Ensure the window can take full available space in tilers like Hyprland
-		// by avoiding a too-small max size hint from GTK. Also start maximised.
-		StartState:    application.WindowStateMaximised,
-		DisableResize: false,
-		MinWidth:      800,
-		MinHeight:     600,
-		// Use large max size hints so compositor isn't constrained by logical monitor size
-		MaxWidth:  10000,
-		MaxHeight: 10000,
-		// Enable devtools and add native keybindings so they work on any page
-		DevToolsEnabled: true,
-		KeyBindings: map[string]func(window application.Window){
-			// DevTools toggle (native; works on any page)
-			"F12": func(w application.Window) { w.OpenDevTools() },
-			// Native zoom shortcuts so they work on any origin
-			// Note: current implementation does not persist zoom changes made via these shortcuts.
-			// Zoom In variants
-			"cmdorctrl+plus":       func(w application.Window) { w.ZoomIn() },
-			"cmdorctrl+=":          func(w application.Window) { w.ZoomIn() },
-			"cmdorctrl+shift+=":    func(w application.Window) { w.ZoomIn() },
-			"cmdorctrl+shift+plus": func(w application.Window) { w.ZoomIn() },
-			"cmdorctrl+-":          func(w application.Window) { w.ZoomOut() },
-			"cmdorctrl+0":          func(w application.Window) { w.ZoomReset() },
-		},
-	})
-
-	// Connect the browser service to the window for title updates and script injection
-	browserService.SetWindowTitleUpdater(window)
-	browserService.SetScriptInjector(window)
-
-	// Show the window
-	window.Show()
-
-	// Set up navigation monitoring and script injection
-	// We'll inject the script periodically to ensure it's available on all pages
-	go func() {
-		ctx := context.Background()
-		
-		// Initial injection after a short delay to let the page load
-		time.Sleep(1 * time.Second)
-		if err := browserService.InjectControlScript(ctx); err != nil {
-			log.Printf("Initial script injection failed: %v", err)
-		}
-		
-		// More aggressive re-injection to handle navigation and CSP restrictions
-		ticker := time.NewTicker(1 * time.Second)
-		defer ticker.Stop()
-		
-		for {
-			select {
-			case <-ticker.C:
-				// Try to inject script - this will be ignored if already injected
-				if err := browserService.InjectControlScript(ctx); err != nil {
-					// Silently fail - this is expected on some pages with strict CSP
-					continue
-				}
-			}
-		}
-	}()
-
-	// Run the application (blocking call)
-	err = app.Run()
-	if err != nil {
-		log.Fatal(err)
-	}
+    // Enter GTK main loop only when native backend is available.
+    if webkit.IsNativeAvailable() {
+        log.Printf("Entering GTK main loop…")
+        webkit.RunMainLoop()
+        log.Printf("GTK main loop exited")
+    } else {
+        log.Printf("Not entering GUI loop (non-CGO build)")
+    }
 }

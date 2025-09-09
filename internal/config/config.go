@@ -16,11 +16,12 @@ import (
 
 // Config represents the complete configuration for dumber.
 type Config struct {
-	Database        DatabaseConfig            `mapstructure:"database" yaml:"database"`
-	History         HistoryConfig             `mapstructure:"history" yaml:"history"`
-	SearchShortcuts map[string]SearchShortcut `mapstructure:"search_shortcuts" yaml:"search_shortcuts"`
-	Dmenu           DmenuConfig               `mapstructure:"dmenu" yaml:"dmenu"`
-	Logging         LoggingConfig             `mapstructure:"logging" yaml:"logging"`
+    Database        DatabaseConfig            `mapstructure:"database" yaml:"database"`
+    History         HistoryConfig             `mapstructure:"history" yaml:"history"`
+    SearchShortcuts map[string]SearchShortcut `mapstructure:"search_shortcuts" yaml:"search_shortcuts"`
+    Dmenu           DmenuConfig               `mapstructure:"dmenu" yaml:"dmenu"`
+    Logging         LoggingConfig             `mapstructure:"logging" yaml:"logging"`
+    Appearance      AppearanceConfig          `mapstructure:"appearance" yaml:"appearance"`
 }
 
 // DatabaseConfig holds database-related configuration.
@@ -65,6 +66,16 @@ type LoggingConfig struct {
 	MaxBackups int    `mapstructure:"max_backups" yaml:"max_backups"`
 	MaxAge     int    `mapstructure:"max_age" yaml:"max_age"`
 	Compress   bool   `mapstructure:"compress" yaml:"compress"`
+}
+
+// AppearanceConfig holds UI/rendering preferences.
+type AppearanceConfig struct {
+    // Default fonts for pages that do not specify fonts.
+    SansFont       string `mapstructure:"sans_font" yaml:"sans_font"`
+    SerifFont      string `mapstructure:"serif_font" yaml:"serif_font"`
+    MonospaceFont  string `mapstructure:"monospace_font" yaml:"monospace_font"`
+    // Default font size in CSS pixels (approx).
+    DefaultFontSize int   `mapstructure:"default_font_size" yaml:"default_font_size"`
 }
 
 // Manager handles configuration loading, watching, and reloading.
@@ -258,14 +269,14 @@ func (m *Manager) reload() error {
 
 // setDefaults sets default configuration values in Viper.
 func (m *Manager) setDefaults() {
-	defaults := DefaultConfig()
+    defaults := DefaultConfig()
 
 	// Database defaults
 	m.viper.SetDefault("database.max_connections", defaults.Database.MaxConnections)
 	m.viper.SetDefault("database.max_idle_time", defaults.Database.MaxIdleTime)
 	m.viper.SetDefault("database.query_timeout", defaults.Database.QueryTimeout)
 
-	// Note: Browser config removed - we build our own browser with Wails
+	// Note: Browser config removed - we build our own browser
 
 	// History defaults
 	m.viper.SetDefault("history.max_entries", defaults.History.MaxEntries)
@@ -285,14 +296,20 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("dmenu.date_format", defaults.Dmenu.DateFormat)
 	m.viper.SetDefault("dmenu.sort_by_visit_count", defaults.Dmenu.SortByVisitCount)
 
-	// Logging defaults
-	m.viper.SetDefault("logging.level", defaults.Logging.Level)
-	m.viper.SetDefault("logging.format", defaults.Logging.Format)
-	m.viper.SetDefault("logging.filename", defaults.Logging.Filename)
-	m.viper.SetDefault("logging.max_size", defaults.Logging.MaxSize)
-	m.viper.SetDefault("logging.max_backups", defaults.Logging.MaxBackups)
-	m.viper.SetDefault("logging.max_age", defaults.Logging.MaxAge)
-	m.viper.SetDefault("logging.compress", defaults.Logging.Compress)
+    // Logging defaults
+    m.viper.SetDefault("logging.level", defaults.Logging.Level)
+    m.viper.SetDefault("logging.format", defaults.Logging.Format)
+    m.viper.SetDefault("logging.filename", defaults.Logging.Filename)
+    m.viper.SetDefault("logging.max_size", defaults.Logging.MaxSize)
+    m.viper.SetDefault("logging.max_backups", defaults.Logging.MaxBackups)
+    m.viper.SetDefault("logging.max_age", defaults.Logging.MaxAge)
+    m.viper.SetDefault("logging.compress", defaults.Logging.Compress)
+
+    // Appearance defaults
+    m.viper.SetDefault("appearance.sans_font", defaults.Appearance.SansFont)
+    m.viper.SetDefault("appearance.serif_font", defaults.Appearance.SerifFont)
+    m.viper.SetDefault("appearance.monospace_font", defaults.Appearance.MonospaceFont)
+    m.viper.SetDefault("appearance.default_font_size", defaults.Appearance.DefaultFontSize)
 }
 
 // createDefaultConfig creates a default configuration file.

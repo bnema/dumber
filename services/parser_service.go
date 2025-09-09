@@ -10,7 +10,7 @@ import (
 	"github.com/bnema/dumber/internal/parser"
 )
 
-// ParserService wraps the parser functionality for Wails integration.
+// ParserService wraps the parser functionality for the application.
 type ParserService struct {
 	parser   *parser.Parser
 	dbQueries *db.Queries
@@ -32,69 +32,81 @@ func NewParserService(cfg *config.Config, queries *db.Queries) *ParserService {
 
 // ParseInput parses user input and returns navigation result.
 func (s *ParserService) ParseInput(ctx context.Context, input string) (*parser.ParseResult, error) {
-	if input == "" {
-		return nil, fmt.Errorf("input cannot be empty")
-	}
+    _ = ctx
+    if input == "" {
+        return nil, fmt.Errorf("input cannot be empty")
+    }
 	
 	return s.parser.ParseInput(input)
 }
 
 // GetCompletions provides URL/search completions based on input.
 func (s *ParserService) GetCompletions(ctx context.Context, input string, limit int) ([]string, error) {
-	if limit <= 0 {
-		limit = 10 // Default limit
-	}
+    _ = ctx
+    if limit <= 0 {
+        limit = 10 // Default limit
+    }
 	
 	return s.parser.SuggestCompletions(input, limit)
 }
 
 // FuzzySearchHistory performs fuzzy search on history entries.
-func (s *ParserService) FuzzySearchHistory(ctx context.Context, query string, threshold float64) ([]parser.FuzzyMatch, error) {
-	if threshold <= 0 {
-		threshold = 0.3 // Default threshold
-	}
+func (s *ParserService) FuzzySearchHistory(
+    ctx context.Context, query string, threshold float64,
+) ([]parser.FuzzyMatch, error) {
+    _ = ctx
+    if threshold <= 0 {
+        threshold = 0.3 // Default threshold
+    }
 	
 	return s.parser.FuzzySearchHistory(query, threshold)
 }
 
 // GetSupportedShortcuts returns configured search shortcuts.
 func (s *ParserService) GetSupportedShortcuts(ctx context.Context) (map[string]config.SearchShortcut, error) {
-	return s.parser.GetSupportedShortcuts(), nil
+    _ = ctx
+    return s.parser.GetSupportedShortcuts(), nil
 }
 
 // ProcessShortcut processes a shortcut and returns the resulting URL.
 func (s *ParserService) ProcessShortcut(ctx context.Context, shortcut, query string) (string, error) {
-	shortcuts := s.parser.GetSupportedShortcuts()
-	return s.parser.ProcessShortcut(shortcut, query, shortcuts)
+    _ = ctx
+    shortcuts := s.parser.GetSupportedShortcuts()
+    return s.parser.ProcessShortcut(shortcut, query, shortcuts)
 }
 
 // CalculateSimilarity calculates similarity between two strings.
 func (s *ParserService) CalculateSimilarity(ctx context.Context, s1, s2 string) (float64, error) {
-	return s.parser.CalculateSimilarity(s1, s2), nil
+    _ = ctx
+    return s.parser.CalculateSimilarity(s1, s2), nil
 }
 
 // ValidateURL checks if the input represents a valid URL.
 func (s *ParserService) ValidateURL(ctx context.Context, input string) (bool, error) {
-	return s.parser.IsValidURL(input), nil
+    _ = ctx
+    return s.parser.IsValidURL(input), nil
 }
 
 // PreviewParse provides a preview of what ParseInput would return.
 func (s *ParserService) PreviewParse(ctx context.Context, input string) (*parser.ParseResult, error) {
-	if input == "" {
-		return nil, fmt.Errorf("input cannot be empty")
-	}
-	
-	return s.parser.PreviewParse(input)
+    _ = ctx
+    if input == "" {
+        return nil, fmt.Errorf("input cannot be empty")
+    }
+    
+    return s.parser.PreviewParse(input)
 }
 
 // GetFuzzyConfig returns current fuzzy matching configuration.
 func (s *ParserService) GetFuzzyConfig(ctx context.Context) (*parser.FuzzyConfig, error) {
-	return s.parser.GetFuzzyConfig(), nil
+    _ = ctx
+    return s.parser.GetFuzzyConfig(), nil
 }
 
 // UpdateFuzzyConfig updates the fuzzy matching configuration.
 func (s *ParserService) UpdateFuzzyConfig(ctx context.Context, config *parser.FuzzyConfig) error {
-	return s.parser.UpdateFuzzyConfig(config)
+    _ = ctx
+    return s.parser.UpdateFuzzyConfig(config)
 }
 
 // DatabaseHistoryProvider implements HistoryProvider using the database.
@@ -123,10 +135,11 @@ func (h *DatabaseHistoryProvider) GetRecentHistory(limit int) ([]*db.History, er
 
 // GetAllHistory returns all history entries for fuzzy search.
 func (h *DatabaseHistoryProvider) GetAllHistory() ([]*db.History, error) {
-	ctx := context.Background()
-	
-	// Use a large limit to get all history
-	entries, err := h.queries.GetHistory(ctx, 10000)
+    ctx := context.Background()
+    
+    // Use a large limit to get all history
+    const allHistoryLimit = 10000
+    entries, err := h.queries.GetHistory(ctx, allHistoryLimit)
 	if err != nil {
 		return nil, err
 	}

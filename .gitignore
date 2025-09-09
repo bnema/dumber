@@ -57,6 +57,8 @@ config.local.*
 # Build artifacts and caches
 .cache/
 *.prof
+tmp/go-cache/
+tmp/go-mod/
 
 # Node/TypeScript related
 node_modules/

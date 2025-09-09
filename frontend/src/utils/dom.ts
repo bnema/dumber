@@ -1,6 +1,5 @@
-import type { HistoryEntry, SearchShortcut } from '../types/wails.js';
-import { BrowserService } from '../../bindings/github.com/bnema/dumber/services/index';
-import { Window } from '@wailsio/runtime';
+type HistoryEntry = { id: number; url: string; title: string };
+type SearchShortcut = { description: string; url: string };
 
 export class DOMRenderer {
   private historyListElement: HTMLElement | null = null;
@@ -73,9 +72,11 @@ export class DOMRenderer {
   private createHistoryItem(item: HistoryEntry): HTMLElement {
     const historyItem = document.createElement('div');
     historyItem.className = 'history-item';
+    const parsed = this.safeParseURL(item.url);
+    const title = item.title && item.title.trim() !== '' ? item.title : (parsed.host || 'Untitled');
     historyItem.innerHTML = `
       <div class="history-url">${this.escapeHtml(item.url)}</div>
-      <div class="history-title">${this.escapeHtml(item.title || 'Untitled')}</div>
+      <div class="history-title">${this.escapeHtml(title)}</div>
     `;
     
     historyItem.addEventListener('click', () => {
@@ -104,14 +105,6 @@ export class DOMRenderer {
 
   private async navigateToUrl(url: string): Promise<void> {
     console.log('Navigating to:', url);
-    try {
-      const savedZoom = await BrowserService.GetZoomLevel(url);
-      if (savedZoom && savedZoom > 0) {
-        try { Window.SetZoom(savedZoom); } catch {}
-      }
-    } catch (e) {
-      // Ignore zoom retrieval errors
-    }
     window.location.href = url;
   }
 
@@ -147,5 +140,14 @@ export class DOMRenderer {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  private safeParseURL(raw: string): { host: string } {
+    try {
+      const u = new URL(raw);
+      return { host: u.host };
+    } catch {
+      return { host: '' };
+    }
   }
 }
