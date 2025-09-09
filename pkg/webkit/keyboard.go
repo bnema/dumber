@@ -32,3 +32,5 @@ func getShortcutRegistry(w *WebView) shortcutRegistry {
     }
     return reg
 }
+
+// No layout-specific remaps in non-CGO build either.

@@ -10,6 +10,7 @@ package webkit
 // Declarations for Go callbacks
 extern void goOnKeyPress(unsigned long id, unsigned int keyval, GdkModifierType state);
 extern void goOnButtonPress(unsigned long id, unsigned int button, GdkModifierType state);
+extern void goOnScroll(unsigned long id, double dx, double dy, GdkModifierType state);
 
 // Key controller callback -> forward to Go
 static gboolean on_key_pressed(GtkEventControllerKey* controller, guint keyval, guint keycode, GdkModifierType state, gpointer user_data) {
@@ -30,6 +31,8 @@ static void on_click_pressed(GtkGestureClick* gesture, gint n_press, gdouble x, 
 static void attach_key_controller(GtkWidget* widget, unsigned long id) {
     if (!widget) return;
     GtkEventController* keyc = gtk_event_controller_key_new();
+    // Capture phase so we see keys even if child consumes them (e.g., WebKit)
+    gtk_event_controller_set_propagation_phase(keyc, GTK_PHASE_CAPTURE);
     g_signal_connect_data(keyc, "key-pressed", G_CALLBACK(on_key_pressed), (gpointer)id, NULL, 0);
     gtk_widget_add_controller(widget, keyc);
 }
@@ -39,6 +42,37 @@ static void attach_mouse_gesture(GtkWidget* widget, unsigned long id) {
     GtkGesture* click = gtk_gesture_click_new();
     g_signal_connect_data(click, "pressed", G_CALLBACK(on_click_pressed), (gpointer)id, NULL, 0);
     gtk_widget_add_controller(widget, GTK_EVENT_CONTROLLER(click));
+}
+
+// Legacy controller to capture side buttons (8/9) reliably in GTK4
+static gboolean on_legacy_event(GtkEventController* controller, GdkEvent* event, gpointer user_data) {
+    (void)controller;
+    if (!event) return FALSE;
+    GdkEventType type = gdk_event_get_event_type(event);
+    if (type == GDK_BUTTON_PRESS) {
+        guint button = gdk_button_event_get_button(event);
+        GdkModifierType state = gdk_event_get_modifier_state(event);
+        if (button == 8 || button == 9) {
+            goOnButtonPress((unsigned long)user_data, button, state);
+            return TRUE; // consume side buttons
+        }
+        return FALSE; // let WebKit handle normal clicks
+    } else if (type == GDK_SCROLL) {
+        double dx = 0.0, dy = 0.0;
+        gdk_scroll_event_get_deltas(event, &dx, &dy);
+        GdkModifierType state = gdk_event_get_modifier_state(event);
+        goOnScroll((unsigned long)user_data, dx, dy, state);
+        return FALSE; // don't steal regular scrolling
+    }
+    return FALSE;
+}
+
+static void attach_mouse_legacy(GtkWidget* widget, unsigned long id) {
+    if (!widget) return;
+    GtkEventController* legacy = gtk_event_controller_legacy_new();
+    gtk_event_controller_set_propagation_phase(legacy, GTK_PHASE_CAPTURE);
+    g_signal_connect_data(legacy, "event", G_CALLBACK(on_legacy_event), (gpointer)id, NULL, 0);
+    gtk_widget_add_controller(widget, legacy);
 }
 */
 import "C"
@@ -61,6 +95,8 @@ var (
     viewByID      = make(map[uintptr]*WebView)
     lastKeyTime   = make(map[uintptr]map[string]time.Time)
 )
+
+// Locale hint function removed; no layout-specific remaps.
 
 // RegisterKeyboardShortcut registers a callback under an accelerator string.
 func (w *WebView) RegisterKeyboardShortcut(accel string, callback func()) error {
@@ -90,28 +126,42 @@ func goOnKeyPress(id C.ulong, keyval C.guint, state C.GdkModifierType) {
 
 func dispatchAccelerator(uid uintptr, keyval uint, state uint) {
     ctrl := (state & uint(C.GDK_CONTROL_MASK)) != 0
+    alt := (state & uint(C.GDK_ALT_MASK)) != 0
     // Map keyval to string names
     var keyName string
     switch keyval {
-    case uint(C.GDK_KEY_plus), uint(C.GDK_KEY_KP_Add):
-        keyName = "plus"
-    case uint(C.GDK_KEY_equal):
-        keyName = "="
     case uint(C.GDK_KEY_minus), uint(C.GDK_KEY_KP_Subtract), uint(C.GDK_KEY_underscore):
-        // Treat underscore as minus for layouts where '-' requires Shift (e.g., AZERTY)
+        // Normalize minus; log raw detection for diagnostics
+        log.Printf("[accelerator-raw] minus key detected ctrl=%v alt=%v keyval=0x%x", ctrl, alt, keyval)
         keyName = "-"
+    case uint(C.GDK_KEY_equal), uint(C.GDK_KEY_KP_Add):
+        keyName = "="
     case uint(C.GDK_KEY_0), uint(C.GDK_KEY_KP_0):
         keyName = "0"
+    case uint(C.GDK_KEY_Left):
+        keyName = "ArrowLeft"
+    case uint(C.GDK_KEY_Right):
+        keyName = "ArrowRight"
     case uint(C.GDK_KEY_F12):
         keyName = "F12"
     default:
+        // If Control held, log unknown keyval for diagnostics
+        if ctrl {
+            log.Printf("[accelerator-miss] ctrl keyval=0x%x", keyval)
+        }
         return
     }
 
     // Candidate accelerator strings in order
     candidates := []string{keyName}
     if ctrl {
+        // Common style: modifier + '+' + keyName (e.g., cmdorctrl+=)
         candidates = append([]string{"cmdorctrl+" + keyName, "ctrl+" + keyName}, candidates...)
+        // Also accept style without the extra '+' for punctuation keys (e.g., cmdorctrl-)
+        candidates = append([]string{"cmdorctrl" + keyName, "ctrl" + keyName}, candidates...)
+    }
+    if alt {
+        candidates = append([]string{"alt+" + keyName}, candidates...)
     }
 
     regMu.RLock()
@@ -168,7 +218,38 @@ func AttachKeyboardControllers(w *WebView) {
         C.attach_key_controller(w.native.win, C.ulong(w.id))
     }
     C.attach_mouse_gesture(w.native.view, C.ulong(w.id))
+    // Legacy controller captures raw button presses (8/9) for back/forward reliably
+    C.attach_mouse_legacy(w.native.view, C.ulong(w.id))
     log.Printf("[input] GTK4 key/mouse controllers attached")
+}
+
+//export goOnScroll
+func goOnScroll(id C.ulong, dx C.double, dy C.double, state C.GdkModifierType) {
+    uid := uintptr(id)
+    regMu.RLock()
+    vw := viewByID[uid]
+    regMu.RUnlock()
+    if vw == nil { return }
+    // Ctrl+scroll zooms
+    if (uint(state) & uint(C.GDK_CONTROL_MASK)) != 0 {
+        if float64(dy) < 0 {
+            // scroll up -> zoom in
+            nz := vw.zoom
+            if nz <= 0 { nz = 1.0 }
+            nz *= 1.1
+            if nz < 0.25 { nz = 0.25 }
+            if nz > 5.0 { nz = 5.0 }
+            _ = vw.SetZoom(nz)
+        } else if float64(dy) > 0 {
+            // scroll down -> zoom out
+            nz := vw.zoom
+            if nz <= 0 { nz = 1.0 }
+            nz /= 1.1
+            if nz < 0.25 { nz = 0.25 }
+            if nz > 5.0 { nz = 5.0 }
+            _ = vw.SetZoom(nz)
+        }
+    }
 }
 
 //export goOnThemeChanged

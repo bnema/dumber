@@ -204,6 +204,16 @@ static void maybe_set_media_user_gesture(WebKitSettings* settings, int require) 
 #endif
 }
 
+// Enable two-finger swipe back/forward navigation gestures when supported
+static void maybe_set_back_forward_gestures(WebKitSettings* settings, int enable) {
+#if WEBKIT_CHECK_VERSION(2,38,0)
+    if (!settings) return;
+    webkit_settings_set_enable_back_forward_navigation_gestures(settings, enable ? 1 : 0);
+#else
+    (void)settings; (void)enable;
+#endif
+}
+
 // Set cookie accept policy with compile-time compatibility across WebKit versions
 static void maybe_set_cookie_policy(WebKitCookieManager* cm, int policy) {
     if (!cm) return;
@@ -282,6 +292,7 @@ type WebView struct {
     msgHandler func(payload string)
     titleHandler func(title string)
     uriHandler   func(uri string)
+    zoomHandler  func(level float64)
 }
 
 // NewWebView constructs a new WebView instance with native WebKit2GTK widgets.
@@ -387,6 +398,9 @@ func NewWebView(cfg *Config) (*WebView, error) {
         _ = v.SetZoom(nz)
     })
     _ = v.RegisterKeyboardShortcut("cmdorctrl+0", func() { _ = v.SetZoom(1.0) })
+    // Navigation with Alt+Arrow keys
+    _ = v.RegisterKeyboardShortcut("alt+ArrowLeft", func() { _ = v.GoBack() })
+    _ = v.RegisterKeyboardShortcut("alt+ArrowRight", func() { _ = v.GoForward() })
     // Update window title when page title changes
     cNotifyTitle1 := C.CString("notify::title")
     C.g_signal_connect_data(C.gpointer(unsafe.Pointer(viewWidget)), cNotifyTitle1, C.GCallback(C.on_title_notify), C.gpointer(unsafe.Pointer(win)), nil, 0)
@@ -420,6 +434,8 @@ func NewWebView(cfg *Config) (*WebView, error) {
         if cfg.Rendering.DebugGPU { C.maybe_set_draw_indicators(settings, 1) }
         // Reduce media pipeline churn by requiring a user gesture for playback
         C.maybe_set_media_user_gesture(settings, 1)
+        // Enable trackpad back/forward gestures when available
+        C.maybe_set_back_forward_gestures(settings, 1)
     }
 
     if cfg.ZoomDefault > 0 {
@@ -557,6 +573,13 @@ func (w *WebView) RegisterURIChangedHandler(cb func(uri string)) { w.uriHandler 
 
 func (w *WebView) dispatchURIChanged(uri string) {
     if w != nil && w.uriHandler != nil { w.uriHandler(uri) }
+}
+
+// RegisterZoomChangedHandler registers a callback invoked when zoom level changes.
+func (w *WebView) RegisterZoomChangedHandler(cb func(level float64)) { w.zoomHandler = cb }
+
+func (w *WebView) dispatchZoomChanged(level float64) {
+    if w != nil && w.zoomHandler != nil { w.zoomHandler(level) }
 }
 
 // enableUserContentManager registers the 'dumber' message handler and injects the omnibox script.
