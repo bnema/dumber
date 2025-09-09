@@ -168,13 +168,15 @@ func getOmniboxScript() string {
           H.suggestions.forEach((s, i)=>{
             const item = document.createElement('div');
             item.style.cssText = 'padding:8px 10px;display:flex;gap:10px;align-items:center;cursor:pointer;border-bottom:1px solid #2a2a2a;'+(i===H.selectedIndex?'background:#0a0a0a;':'');
-            // Favicon
+            // Favicon chip (wrapper ensures perfect circle sizing)
+            const chip = document.createElement('div');
+            chip.style.cssText = 'flex:0 0 20px;width:20px;height:20px;border-radius:50%;background:#ccc;border:1px solid rgba(0,0,0,.12);box-shadow:0 1px 2px rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center;';
             const icon = document.createElement('img');
             icon.src = s.favicon || '';
             icon.width = 16; icon.height = 16; icon.loading = 'lazy';
-            // Circular chip with light gray background for consistent contrast
-            icon.style.cssText = 'flex:0 0 20px;width:16px;height:16px;padding:2px;box-sizing:content-box;border-radius:50%;background:#ccc;border:1px solid rgba(0,0,0,.12);box-shadow:0 1px 2px rgba(0,0,0,.12);filter:brightness(1.06) contrast(1.03);';
-            icon.onerror = ()=>{ icon.style.display='none'; };
+            icon.style.cssText = 'width:16px;height:16px;filter:brightness(1.06) contrast(1.03);image-rendering:-webkit-optimize-contrast;';
+            icon.onerror = ()=>{ chip.style.display='none'; };
+            chip.appendChild(icon);
             // Text line: Domain | full path (one line, fade at end)
             let domain = '', path = '';
             try { const u = new URL(s.url, window.location.href); domain = u.hostname; path = (u.pathname||'') + (u.search||'') + (u.hash||''); } catch(_) { domain = s.url || ''; }
@@ -187,7 +189,7 @@ func getOmniboxScript() string {
             const sep = document.createElement('span'); sep.textContent = ' | '; sep.style.cssText = 'color:#777;';
             const pathEl = document.createElement('span'); pathEl.textContent = path || '/'; pathEl.style.cssText = 'color:#9ad;';
             text.appendChild(domainEl); text.appendChild(sep); text.appendChild(pathEl);
-            item.appendChild(icon); item.appendChild(text);
+            item.appendChild(chip); item.appendChild(text);
             item.addEventListener('mouseenter', ()=>{ H.selectedIndex = i; H.paintList(); H.scrollListToSelection(); H.setFaded(true); });
             item.addEventListener('click',()=>{ H.post({type:'navigate', url:s.url}); H.toggle(false); });
             list.appendChild(item);
