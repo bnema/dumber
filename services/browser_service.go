@@ -483,3 +483,6 @@ func zoomKeyFromURL(raw string) string {
 // extractDomain extracts the domain from a URL for zoom level storage
 // Domain-based zoom allows settings to persist across different pages of the same site
 // extractDomain is no longer used; zoom is stored per URL for contract parity.
+
+// ZoomKeyForLog exposes the derived zoom key (host or raw URL) for logging from other packages.
+func ZoomKeyForLog(raw string) string { return zoomKeyFromURL(raw) }

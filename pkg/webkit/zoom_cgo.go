@@ -20,6 +20,7 @@ func (w *WebView) SetZoom(level float64) error {
     }
     w.zoom = level
     C.webkit_web_view_set_zoom_level(w.native.wv, C.gdouble(level))
+    w.dispatchZoomChanged(w.zoom)
     return nil
 }
 

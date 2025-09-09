@@ -13,6 +13,7 @@ import (
     "path/filepath"
     "strings"
     "strconv"
+    "os/exec"
     
 
     "github.com/bnema/dumber/internal/cli"
@@ -144,6 +145,9 @@ func runBrowser() {
     }
     cfg := config.Get()
     log.Printf("Config initialized")
+
+    // Detect keyboard layout/locale and hint to webkit layer
+    detectAndSetKeyboardLocale()
 
     // Initialize database
     database, err := db.InitDB(cfg.Database.Path)
@@ -344,7 +348,21 @@ func runBrowser() {
             ctx := context.Background()
             if z, err := browserService.GetZoomLevel(ctx, u); err == nil {
                 _ = view.SetZoom(z)
+                key := services.ZoomKeyForLog(u)
+                log.Printf("[zoom] loaded %.2f for %s", z, key)
             }
+        })
+        // Persist zoom changes per-domain
+        view.RegisterZoomChangedHandler(func(level float64) {
+            url := view.GetCurrentURL()
+            if url == "" { return }
+            ctx := context.Background()
+            if err := browserService.SetZoomLevel(ctx, url, level); err != nil {
+                log.Printf("[zoom] failed to save level %.2f for %s: %v", level, url, err)
+                return
+            }
+            key := services.ZoomKeyForLog(url)
+            log.Printf("[zoom] saved %.2f for %s", level, key)
         })
         // Bridge UCM messages: navigate + history queries
         view.RegisterScriptMessageHandler(func(payload string) {
@@ -429,6 +447,21 @@ func runBrowser() {
                 if m.Value != "" { log.Printf("[theme] page reported color-scheme: %s", m.Value) }
             }
         })
+        // Apply initial zoom setting and log it before showing the window
+        {
+            ctx := context.Background()
+            u := view.GetCurrentURL()
+            if u == "" { u = "dumb://homepage" }
+            if z, zerr := browserService.GetZoomLevel(ctx, u); zerr == nil {
+                if err := view.SetZoom(z); err != nil {
+                    log.Printf("Warning: failed to set initial zoom: %v", err)
+                } else {
+                    key := services.ZoomKeyForLog(u)
+                    log.Printf("[zoom] loaded %.2f for %s", z, key)
+                }
+            }
+        }
+
         log.Printf("Showing WebView window…")
         if err := view.Show(); err != nil {
             log.Printf("Warning: failed to show WebView: %v", err)
@@ -454,9 +487,11 @@ func runBrowser() {
                     log.Printf("Warning: failed to load URL: %v", err)
                 }
                 if z, zerr := browserService.GetZoomLevel(ctx, currentURL); zerr == nil {
-                    log.Printf("Applying stored zoom: %.2f", z)
                     if err := view.SetZoom(z); err != nil {
                         log.Printf("Warning: failed to set zoom: %v", err)
+                    } else {
+                        key := services.ZoomKeyForLog(currentURL)
+                        log.Printf("[zoom] loaded %.2f for %s", z, key)
                     }
                 }
                 // No JS injection; native accelerators handle zoom/devtools.
@@ -484,4 +519,65 @@ func runBrowser() {
     } else {
         log.Printf("Not entering GUI loop (non-CGO build)")
     }
+}
+
+// detectAndSetKeyboardLocale attempts to determine the current keyboard layout
+// and hints it to the webkit input layer for accelerator compatibility.
+func detectAndSetKeyboardLocale() {
+    // 0) Explicit override
+    locale := os.Getenv("DUMBER_KEYBOARD_LOCALE")
+    if locale == "" {
+        locale = os.Getenv("DUMB_BROWSER_KEYBOARD_LOCALE") // legacy prefix
+    }
+    // 1) Environment
+    if locale == "" { locale = os.Getenv("LC_ALL") }
+    if locale == "" { locale = os.Getenv("LANG") }
+    if locale == "" { locale = os.Getenv("LC_CTYPE") }
+    // Trim variants
+    if i := strings.IndexByte(locale, '.'); i > 0 { locale = locale[:i] }
+    if i := strings.IndexByte(locale, '@'); i > 0 { locale = locale[:i] }
+    if i := strings.IndexByte(locale, '_'); i > 0 { locale = locale[:i] }
+
+    // 2) Try XKB env override
+    if locale == "" {
+        locale = os.Getenv("XKB_DEFAULT_LAYOUT")
+    }
+
+    // 3) Best-effort probe of setxkbmap/localectl (non-fatal)
+    if locale == "" {
+        if out, err := exec.Command("localectl", "status").Output(); err == nil {
+            s := string(out)
+            for _, line := range strings.Split(s, "\n") {
+                line = strings.TrimSpace(line)
+                if strings.HasPrefix(strings.ToLower(line), "x11 layout:") || strings.HasPrefix(strings.ToLower(line), "keyboard layout:") {
+                    parts := strings.SplitN(line, ":", 2)
+                    if len(parts) == 2 {
+                        cand := strings.TrimSpace(parts[1])
+                        if cand != "" { locale = cand }
+                    }
+                    break
+                }
+            }
+        }
+    }
+    if locale == "" {
+        if out, err := exec.Command("setxkbmap", "-query").Output(); err == nil {
+            s := string(out)
+            for _, line := range strings.Split(s, "\n") {
+                line = strings.TrimSpace(line)
+                if strings.HasPrefix(strings.ToLower(line), "layout:") {
+                    parts := strings.SplitN(line, ":", 2)
+                    if len(parts) == 2 {
+                        cand := strings.TrimSpace(parts[1])
+                        if cand != "" { locale = cand }
+                    }
+                    break
+                }
+            }
+        }
+    }
+
+    if locale == "" { locale = "en" }
+    // No layout-specific remaps; log for diagnostics only
+    log.Printf("[locale] keyboard locale detected: %s", locale)
 }
