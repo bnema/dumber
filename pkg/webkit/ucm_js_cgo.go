@@ -139,13 +139,16 @@ func getOmniboxScript() string {
               if (H.selectedIndex<0) H.selectedIndex = n-1; if (H.selectedIndex>=n) H.selectedIndex = 0;
               H.paintList();
               H.scrollListToSelection();
-              if (H.mode==='find') { H.revealSelection(); H.setFaded(true); }
+              // Fade overlay while navigating results; also reveal active match in find mode
+              H.setFaded(true);
+              if (H.mode==='find') { H.revealSelection(); }
             }
           } else {
-            if (H.mode==='find') H.setFaded(false);
+            // Any other key input should restore full opacity while editing
+            H.setFaded(false);
           }
         });
-        input.addEventListener('input', ()=> { H.onInput(); if (H.mode==='find') H.setFaded(false); });
+        input.addEventListener('input', ()=> { H.onInput(); H.setFaded(false); });
         input.addEventListener('mousedown', ()=> H.setFaded(false));
         input.addEventListener('click', ()=> H.setFaded(false));
         H.el = root; H.input = input; H.list = list; H.selectedIndex = -1; H.paintList();
@@ -184,7 +187,7 @@ func getOmniboxScript() string {
             const pathEl = document.createElement('span'); pathEl.textContent = path || '/'; pathEl.style.cssText = 'color:#9ad;';
             text.appendChild(domainEl); text.appendChild(sep); text.appendChild(pathEl);
             item.appendChild(icon); item.appendChild(text);
-            item.addEventListener('mouseenter', ()=>{ H.selectedIndex = i; H.paintList(); H.scrollListToSelection(); });
+            item.addEventListener('mouseenter', ()=>{ H.selectedIndex = i; H.paintList(); H.scrollListToSelection(); H.setFaded(true); });
             item.addEventListener('click',()=>{ H.post({type:'navigate', url:s.url}); H.toggle(false); });
             list.appendChild(item);
           });
