@@ -1,5 +1,6 @@
 export class HTMLBuilder {
   static createBaseHTML(): string {
+    const faviconData = this.getFaviconDataURL();
     return `
 <!DOCTYPE html>
 <html lang="en">
@@ -7,6 +8,7 @@ export class HTMLBuilder {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dumber Browser</title>
+    <link rel="icon" type="image/svg+xml" href="${faviconData}">
     <style>
         ${this.getStyles()}
     </style>
@@ -30,6 +32,42 @@ export class HTMLBuilder {
     <script type="module" src="./main.js"></script>
 </body>
 </html>`;
+  }
+
+  private static getFaviconDataURL(): string {
+    const svg = this.getFaviconSVG();
+    // Minimal encoding for safe inline usage
+    const encoded = encodeURIComponent(svg)
+      .replace(/'/g, '%27')
+      .replace(/\(/g, '%28')
+      .replace(/\)/g, '%29');
+    return `data:image/svg+xml;utf8,${encoded}`;
+  }
+
+  private static getFaviconSVG(): string {
+    // Stylized D with speed bolt on a subtle dark rounded card
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#101214"/>
+      <stop offset="100%" stop-color="#1b1e22"/>
+    </linearGradient>
+    <filter id="inset" x="-20%" y="-20%" width="140%" height="140%">
+      <feOffset dx="0" dy="1"/>
+      <feGaussianBlur stdDeviation="0.6" result="blur"/>
+      <feComposite in2="SourceAlpha" operator="out"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0"/>
+      <feBlend in="SourceGraphic" mode="normal"/>
+    </filter>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="14" ry="14" fill="url(#bg)" filter="url(#inset)"/>
+  <rect x="4.5" y="4.5" width="55" height="55" rx="13.5" ry="13.5" fill="none" stroke="#252a2f" stroke-width="1"/>
+  <!-- D glyph -->
+  <path d="M20 16 L20 48 M20 16 H34 q12 0 12 16 t-12 16 H20" fill="none" stroke="#e9eef3" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Speed bolt accent -->
+  <path d="M36 22 L32 34 h6 l-8 16 4-12 h-6 z" fill="#ff9800" opacity="0.95"/>
+</svg>`;
   }
 
   private static getStyles(): string {
