@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- WebKit memory controls (opt‑in):
+  - Env vars to tune memory/perf trade‑offs without code changes:
+    - `DUMBER_CACHE_MODEL`, `DUMBER_ENABLE_PAGE_CACHE`
+    - `DUMBER_ENABLE_MEMORY_MONITORING`, `DUMBER_MEMORY_LIMIT_MB`, `DUMBER_MEMORY_POLL_INTERVAL`
+    - `DUMBER_MEMORY_CONSERVATIVE`, `DUMBER_MEMORY_STRICT`, `DUMBER_MEMORY_KILL`
+    - `DUMBER_GC_INTERVAL`, `DUMBER_RECYCLE_THRESHOLD`
+  - Version‑guarded CGO wrappers for memory pressure and GC hooks; safe no‑ops on unsupported WebKitGTK builds.
+
+### Changed
+- Performance‑first defaults retained:
+  - Cache model set to “WebBrowser”, page cache enabled, DevTools available.
+  - No implicit memory pressure or GC enabled by default; all memory tuning is opt‑in.
+
+### Removed
+- Deprecated offline app‑cache calls eliminated (no‑ops) to avoid warnings and brittle builds.
+
 ### Fixed
 - Homepage Recent History layout:
   - Show single-line entries as “{Title} – {Domain} – {URL}”.
@@ -25,6 +42,9 @@ All notable changes to this project will be documented in this file.
   - Load and log initial zoom level on startup and on every navigation.
 - Build/dev ergonomics:
   - Makefile loads `.env.local`; supports overriding `GOMODCACHE`, `GOCACHE`, `GOTMPDIR` for sandboxed builds.
+ - WebKit CGO hardening and API compatibility:
+   - Apply memory pressure settings to `WebKitNetworkSession` (correct signature) when enabled.
+   - Guarded C wrappers remove deprecation warnings across header variants; builds succeed on WebKitGTK 6.
 
 ## [0.2.0] - 2025-09-10
 
