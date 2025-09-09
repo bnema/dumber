@@ -92,6 +92,16 @@ func getOmniboxScript() string {
         document.documentElement.appendChild(style);
         box.appendChild(input); box.appendChild(list); root.appendChild(box); document.documentElement.appendChild(root);
         H.box = box;
+        // Click outside the box closes the overlay
+        root.addEventListener('mousedown', (e)=>{
+          const tgt = e.target;
+          if (tgt && box && !box.contains(tgt)) {
+            e.preventDefault();
+            e.stopPropagation();
+            H.close();
+          }
+        }, true);
+        box.addEventListener('mousedown', (e)=>{ e.stopPropagation(); }, true);
         // Focus and select input on hover for quick typing
         input.addEventListener('mouseenter', ()=>{ if (H.visible) { try { input.focus({preventScroll:true}); input.select(); } catch(_) { input.focus(); } } });
         root.addEventListener('mouseenter', ()=>{ if (H.visible) { try { input.focus({preventScroll:true}); } catch(_) { input.focus(); } } });
