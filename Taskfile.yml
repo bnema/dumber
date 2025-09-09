@@ -1,0 +1,49 @@
+version: '3'
+
+vars:
+  APP_NAME: dumber
+  VERSION: 0.1.0
+  COMMIT: 
+    sh: git rev-parse --short HEAD 2>/dev/null || echo "dev"
+  BUILD_DATE:
+    sh: date -u +"%Y-%m-%dT%H:%M:%SZ"
+
+tasks:
+  build:
+    desc: Build the unified Dumber application (CLI + Browser)
+    cmds:
+      - go build -ldflags "-X main.version={{.VERSION}} -X main.commit={{.COMMIT}} -X main.buildDate={{.BUILD_DATE}}" -o dist/{{.APP_NAME}} main.go
+
+  dev:
+    desc: Run the application in development mode (GUI)
+    cmds:
+      - go run main.go
+
+  dev-cli:
+    desc: Run the application in CLI development mode
+    cmds:
+      - go run main.go version
+
+  test:
+    desc: Run tests
+    cmds:
+      - go test ./...
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -rf dist/
+      - mkdir -p dist
+
+  demo:
+    desc: Show different usage modes
+    cmds:
+      - echo "Building unified application..."
+      - task build
+      - echo ""
+      - echo "Usage examples:"
+      - echo "  GUI mode{{":"}}       ./dist/{{.APP_NAME}}"
+      - echo "  CLI mode{{":"}}       ./dist/{{.APP_NAME}} version"
+      - echo "  History{{":"}}        ./dist/{{.APP_NAME}} history"
+      - echo "  Dmenu{{":"}}          ./dist/{{.APP_NAME}} --dmenu"
+      - echo "  Browse URL{{":"}}     ./dist/{{.APP_NAME}} 'https://github.com'"

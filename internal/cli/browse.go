@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
-	"runtime"
 	"strings"
 
 	"github.com/bnema/dumber/internal/config"
@@ -158,26 +157,20 @@ func openURL(url string) error {
 	return openURLWithConfig(url, nil)
 }
 
-// openURLWithConfig opens a URL using system default browser
-// TODO: Replace with Wails browser integration
-func openURLWithConfig(url string, _ *config.Config) error {
-	var cmd *exec.Cmd
-
-	// Use system default browser until Wails integration is ready
-	switch runtime.GOOS {
-	case "linux":
-		cmd = exec.Command("xdg-open", url)
-	case "darwin":
-		cmd = exec.Command("open", url)
-	case "windows":
-		cmd = exec.Command("cmd", "/c", "start", "", url)
-	default:
-		return fmt.Errorf("unsupported operating system: %s", runtime.GOOS)
+// openURLWithConfig opens a URL using our built-in Wails browser
+func openURLWithConfig(url string, cfg *config.Config) error {
+	// Get the path to our own executable
+	executable, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get executable path: %w", err)
 	}
+
+	// Launch our own browser in browse mode with the URL directly
+	cmd := exec.Command(executable, "browse", url)
 
 	// Start the browser in detached mode
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to open URL in browser: %w", err)
+		return fmt.Errorf("failed to open URL in built-in browser: %w", err)
 	}
 
 	// Don't wait for the browser process to exit
@@ -185,7 +178,7 @@ func openURLWithConfig(url string, _ *config.Config) error {
 		_ = cmd.Wait()
 	}()
 
-	fmt.Printf("Opening: %s (using system default browser)\n", url)
+	fmt.Printf("Opening: %s (using built-in browser)\n", url)
 	return nil
 }
 
