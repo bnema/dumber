@@ -2,44 +2,44 @@
 package services
 
 import (
-    "context"
-    "database/sql"
-    "embed"
-    "fmt"
-    "errors"
-    "math"
-    "time"
-    neturl "net/url"
+	"context"
+	"database/sql"
+	"embed"
+	"errors"
+	"fmt"
+	"math"
+	neturl "net/url"
+	"time"
 
-    "github.com/bnema/dumber/internal/config"
-    "github.com/bnema/dumber/internal/db"
-    "github.com/bnema/dumber/pkg/webkit"
+	"github.com/bnema/dumber/internal/config"
+	"github.com/bnema/dumber/internal/db"
+	"github.com/bnema/dumber/pkg/webkit"
 )
 
 func clampToInt32(i int64) int32 {
-    if i > math.MaxInt32 {
-        i = math.MaxInt32
-    }
-    if i < math.MinInt32 {
-        i = math.MinInt32
-    }
-    return int32(i) //nolint:gosec // value is clamped to int32 bounds
+	if i > math.MaxInt32 {
+		i = math.MaxInt32
+	}
+	if i < math.MinInt32 {
+		i = math.MinInt32
+	}
+	return int32(i) //nolint:gosec // value is clamped to int32 bounds
 }
 
 // WindowTitleUpdater interface allows the service to update the window title
 // Decoupled from any specific GUI framework.
 type WindowTitleUpdater interface {
-    SetTitle(title string)
+	SetTitle(title string)
 }
 
 // BrowserService handles browser-related operations for the built-in browser.
 type BrowserService struct {
-    config       *config.Config
-    dbQueries    db.DatabaseQuerier
-    windowTitleUpdater WindowTitleUpdater
-    webView      *webkit.WebView
-    initialURL   string
-    injectableScript string
+	config             *config.Config
+	dbQueries          db.DatabaseQuerier
+	windowTitleUpdater WindowTitleUpdater
+	webView            *webkit.WebView
+	initialURL         string
+	injectableScript   string
 }
 
 // ServiceName returns the service name for frontend binding
@@ -69,14 +69,14 @@ type HistoryEntry struct {
 
 // NewBrowserService creates a new BrowserService instance.
 func NewBrowserService(cfg *config.Config, queries db.DatabaseQuerier) *BrowserService {
-    return &BrowserService{
-        config:       cfg,
-        dbQueries:    queries,
-        windowTitleUpdater: nil,
-        webView:      nil,
-        initialURL:   "",
-        injectableScript: "",
-    }
+	return &BrowserService{
+		config:             cfg,
+		dbQueries:          queries,
+		windowTitleUpdater: nil,
+		webView:            nil,
+		initialURL:         "",
+		injectableScript:   "",
+	}
 }
 
 // SetWindowTitleUpdater sets the window title updater interface
@@ -86,7 +86,7 @@ func (s *BrowserService) SetWindowTitleUpdater(updater WindowTitleUpdater) {
 
 // AttachWebView connects a native WebKit WebView to this service for integration.
 func (s *BrowserService) AttachWebView(view *webkit.WebView) {
-    s.webView = view
+	s.webView = view
 }
 
 // LoadInjectableScript loads the minified injectable controls script from assets
@@ -101,26 +101,26 @@ func (s *BrowserService) LoadInjectableScript(assets embed.FS) error {
 
 // InjectControlScript injects the global controls script into the current page
 func (s *BrowserService) InjectControlScript(ctx context.Context) error {
-    _ = ctx
-    if s.webView == nil {
-        return fmt.Errorf("webview not attached")
-    }
-    if s.injectableScript == "" {
-        return fmt.Errorf("injectable script not loaded")
-    }
-    wrappedScript := "(function(){try{" +
-        "if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){try{" +
-        s.injectableScript +
-        "}catch(e){console.warn('Dumber Browser controls failed to load on DOMContentLoaded:', e);}});}else{" +
-        s.injectableScript +
-        "}}catch(e){console.warn('Dumber Browser controls injection failed:', e);}})();"
-    return s.webView.InjectScript(wrappedScript)
+	_ = ctx
+	if s.webView == nil {
+		return fmt.Errorf("webview not attached")
+	}
+	if s.injectableScript == "" {
+		return fmt.Errorf("injectable script not loaded")
+	}
+	wrappedScript := "(function(){try{" +
+		"if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){try{" +
+		s.injectableScript +
+		"}catch(e){console.warn('Dumber Browser controls failed to load on DOMContentLoaded:', e);}});}else{" +
+		s.injectableScript +
+		"}}catch(e){console.warn('Dumber Browser controls injection failed:', e);}})();"
+	return s.webView.InjectScript(wrappedScript)
 }
 
 // Navigate handles navigation to a URL and records it in history.
 func (s *BrowserService) Navigate(ctx context.Context, url string) (*NavigationResult, error) {
 	startTime := time.Now()
-	
+
 	if url == "" {
 		return &NavigationResult{
 			Success: false,
@@ -182,16 +182,16 @@ func (s *BrowserService) GetRecentHistory(ctx context.Context, limit int) ([]His
 
 	result := make([]HistoryEntry, len(entries))
 	for i, entry := range entries {
-        // Defensive cast to int32 to prevent overflow
-        vc := clampToInt32(entry.VisitCount.Int64)
-        result[i] = HistoryEntry{
-            ID:          entry.ID,
-            URL:         entry.Url,
-            Title:       entry.Title.String,
-            VisitCount:  vc,
-            LastVisited: entry.LastVisited.Time,
-            CreatedAt:   entry.CreatedAt.Time,
-        }
+		// Defensive cast to int32 to prevent overflow
+		vc := clampToInt32(entry.VisitCount.Int64)
+		result[i] = HistoryEntry{
+			ID:          entry.ID,
+			URL:         entry.Url,
+			Title:       entry.Title.String,
+			VisitCount:  vc,
+			LastVisited: entry.LastVisited.Time,
+			CreatedAt:   entry.CreatedAt.Time,
+		}
 	}
 
 	return result, nil
@@ -209,7 +209,7 @@ func (s *BrowserService) SearchHistory(ctx context.Context, query string, limit 
 
 	urlPattern := sql.NullString{String: "%" + query + "%", Valid: true}
 	titlePattern := sql.NullString{String: "%" + query + "%", Valid: true}
-	
+
 	entries, err := s.dbQueries.SearchHistory(ctx, urlPattern, titlePattern, int64(limit))
 	if err != nil {
 		return nil, err
@@ -217,15 +217,15 @@ func (s *BrowserService) SearchHistory(ctx context.Context, query string, limit 
 
 	result := make([]HistoryEntry, len(entries))
 	for i, entry := range entries {
-        vc := clampToInt32(entry.VisitCount.Int64)
-        result[i] = HistoryEntry{
-            ID:          entry.ID,
-            URL:         entry.Url,
-            Title:       entry.Title.String,
-            VisitCount:  vc,
-            LastVisited: entry.LastVisited.Time,
-            CreatedAt:   entry.CreatedAt.Time,
-        }
+		vc := clampToInt32(entry.VisitCount.Int64)
+		result[i] = HistoryEntry{
+			ID:          entry.ID,
+			URL:         entry.Url,
+			Title:       entry.Title.String,
+			VisitCount:  vc,
+			LastVisited: entry.LastVisited.Time,
+			CreatedAt:   entry.CreatedAt.Time,
+		}
 	}
 
 	return result, nil
@@ -233,25 +233,25 @@ func (s *BrowserService) SearchHistory(ctx context.Context, query string, limit 
 
 // DeleteHistoryEntry removes a specific history entry.
 func (s *BrowserService) DeleteHistoryEntry(ctx context.Context, id int64) error {
-    _ = ctx
-    _ = id
-    // Note: DeleteHistory method doesn't exist in current schema
-    // This would need to be implemented in the database layer
-    return fmt.Errorf("delete history not implemented yet")
+	_ = ctx
+	_ = id
+	// Note: DeleteHistory method doesn't exist in current schema
+	// This would need to be implemented in the database layer
+	return fmt.Errorf("delete history not implemented yet")
 }
 
 // ClearHistory removes all history entries.
 func (s *BrowserService) ClearHistory(ctx context.Context) error {
-    _ = ctx
-    // Note: ClearAllHistory method doesn't exist in current schema
-    // This would need to be implemented in the database layer
-    return fmt.Errorf("clear all history not implemented yet")
+	_ = ctx
+	// Note: ClearAllHistory method doesn't exist in current schema
+	// This would need to be implemented in the database layer
+	return fmt.Errorf("clear all history not implemented yet")
 }
 
 // GetHistoryStats returns statistics about browser history.
 func (s *BrowserService) GetHistoryStats(ctx context.Context) (map[string]interface{}, error) {
-    // Get recent entries for basic stats
-    recentEntries, err := s.dbQueries.GetHistory(ctx, recentHistoryLimit)
+	// Get recent entries for basic stats
+	recentEntries, err := s.dbQueries.GetHistory(ctx, recentHistoryLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -273,16 +273,16 @@ func (s *BrowserService) GetHistoryStats(ctx context.Context) (map[string]interf
 
 // GetConfig returns the current browser configuration.
 func (s *BrowserService) GetConfig(ctx context.Context) (*config.Config, error) {
-    _ = ctx
-    return s.config, nil
+	_ = ctx
+	return s.config, nil
 }
 
 // UpdateConfig updates the browser configuration.
 func (s *BrowserService) UpdateConfig(ctx context.Context, newConfig *config.Config) error {
-    _ = ctx
-    // In a real implementation, you'd want to validate and persist the config
-    s.config = newConfig
-    return nil
+	_ = ctx
+	// In a real implementation, you'd want to validate and persist the config
+	s.config = newConfig
+	return nil
 }
 
 // GetSearchShortcuts returns available search shortcuts.
@@ -297,7 +297,7 @@ func (s *BrowserService) recordHistory(ctx context.Context, url, title string) e
 	if title != "" {
 		titleNull = sql.NullString{String: title, Valid: true}
 	}
-	
+
 	return s.dbQueries.AddOrUpdateHistory(ctx, url, titleNull)
 }
 
@@ -310,13 +310,13 @@ func (s *BrowserService) ZoomIn(ctx context.Context, url string) (float64, error
 	if err != nil {
 		return 1.0, err
 	}
-	
+
 	newZoom := s.getNextZoomLevel(currentZoom, true)
 	err = s.SetZoomLevel(ctx, url, newZoom)
 	if err != nil {
 		return currentZoom, err
 	}
-	
+
 	return newZoom, nil
 }
 
@@ -326,13 +326,13 @@ func (s *BrowserService) ZoomOut(ctx context.Context, url string) (float64, erro
 	if err != nil {
 		return 1.0, err
 	}
-	
+
 	newZoom := s.getNextZoomLevel(currentZoom, false)
 	err = s.SetZoomLevel(ctx, url, newZoom)
 	if err != nil {
 		return currentZoom, err
 	}
-	
+
 	return newZoom, nil
 }
 
@@ -343,51 +343,51 @@ func (s *BrowserService) ResetZoom(ctx context.Context, url string) (float64, er
 
 // GetZoomLevel retrieves the saved zoom level for a URL.
 func (s *BrowserService) GetZoomLevel(ctx context.Context, url string) (float64, error) {
-    if url == "" {
-        return 1.0, nil
-    }
+	if url == "" {
+		return 1.0, nil
+	}
 
-    key := zoomKeyFromURL(url)
-    zoomLevel, err := s.dbQueries.GetZoomLevel(ctx, key)
-    if err != nil {
-        if errors.Is(err, sql.ErrNoRows) {
-            // Fallback to exact URL record if present (backward compatibility)
-            zl, err2 := s.dbQueries.GetZoomLevel(ctx, url)
-            if err2 == nil {
-                return zl, nil
-            }
-            // No zoom setting found, return default
-            return 1.0, nil
-        }
-        return 1.0, err
-    }
+	key := zoomKeyFromURL(url)
+	zoomLevel, err := s.dbQueries.GetZoomLevel(ctx, key)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// Fallback to exact URL record if present (backward compatibility)
+			zl, err2 := s.dbQueries.GetZoomLevel(ctx, url)
+			if err2 == nil {
+				return zl, nil
+			}
+			// No zoom setting found, return default
+			return 1.0, nil
+		}
+		return 1.0, err
+	}
 
-    return zoomLevel, nil
+	return zoomLevel, nil
 }
 
 // SetZoomLevel sets the zoom level for a URL.
 func (s *BrowserService) SetZoomLevel(ctx context.Context, url string, zoomLevel float64) error {
-    if url == "" {
-        return fmt.Errorf("URL cannot be empty")
-    }
+	if url == "" {
+		return fmt.Errorf("URL cannot be empty")
+	}
 
-    // Clamp zoom level to reasonable bounds
-    if zoomLevel < zoomMin {
-        zoomLevel = zoomMin
-    } else if zoomLevel > zoomMax {
-        zoomLevel = zoomMax
-    }
+	// Clamp zoom level to reasonable bounds
+	if zoomLevel < zoomMin {
+		zoomLevel = zoomMin
+	} else if zoomLevel > zoomMax {
+		zoomLevel = zoomMax
+	}
 
-    key := zoomKeyFromURL(url)
-    return s.dbQueries.SetZoomLevel(ctx, key, zoomLevel)
+	key := zoomKeyFromURL(url)
+	return s.dbQueries.SetZoomLevel(ctx, key, zoomLevel)
 }
 
 // GetCurrentURL returns the current URL (this would be implemented by the frontend)
 func (s *BrowserService) GetCurrentURL(ctx context.Context) (string, error) {
-    if s.webView == nil {
-        return "", nil
-    }
-    return s.webView.GetCurrentURL(), nil
+	if s.webView == nil {
+		return "", nil
+	}
+	return s.webView.GetCurrentURL(), nil
 }
 
 // GetInitialURL returns the initially navigated URL for frontend synchronization
@@ -408,34 +408,34 @@ func (s *BrowserService) CopyCurrentURL(ctx context.Context, url string) error {
 
 // GoBack provides navigation back functionality
 func (s *BrowserService) GoBack(ctx context.Context) error {
-    if s.webView != nil {
-        return s.webView.GoBack()
-    }
-    fmt.Println("Navigation: Go back")
-    return nil
+	if s.webView != nil {
+		return s.webView.GoBack()
+	}
+	fmt.Println("Navigation: Go back")
+	return nil
 }
 
 // GoForward provides navigation forward functionality
 func (s *BrowserService) GoForward(ctx context.Context) error {
-    if s.webView != nil {
-        return s.webView.GoForward()
-    }
-    fmt.Println("Navigation: Go forward")
-    return nil
+	if s.webView != nil {
+		return s.webView.GoForward()
+	}
+	fmt.Println("Navigation: Go forward")
+	return nil
 }
 
 // getNextZoomLevel returns the next Firefox zoom level in the specified direction
 const (
-    zoomMin = 0.25
-    zoomMax = 5.0
-    recentHistoryLimit = 1000
+	zoomMin            = 0.25
+	zoomMax            = 5.0
+	recentHistoryLimit = 1000
 )
 
 func (s *BrowserService) getNextZoomLevel(currentZoom float64, zoomIn bool) float64 {
 	// Find the closest current zoom level
 	closestIndex := 0
 	minDiff := 10.0 // Large initial value
-	
+
 	for i, level := range firefoxZoomLevels {
 		diff := currentZoom - level
 		if diff < 0 {
@@ -446,38 +446,38 @@ func (s *BrowserService) getNextZoomLevel(currentZoom float64, zoomIn bool) floa
 			closestIndex = i
 		}
 	}
-	
-    if zoomIn {
-        // Move to next higher zoom level
-        if closestIndex < len(firefoxZoomLevels)-1 {
-            return firefoxZoomLevels[closestIndex+1]
-        }
-        return firefoxZoomLevels[closestIndex] // Already at max
-    }
-    // Move to next lower zoom level
-    if closestIndex > 0 {
-        return firefoxZoomLevels[closestIndex-1]
-    }
-    return firefoxZoomLevels[closestIndex] // Already at min
+
+	if zoomIn {
+		// Move to next higher zoom level
+		if closestIndex < len(firefoxZoomLevels)-1 {
+			return firefoxZoomLevels[closestIndex+1]
+		}
+		return firefoxZoomLevels[closestIndex] // Already at max
+	}
+	// Move to next lower zoom level
+	if closestIndex > 0 {
+		return firefoxZoomLevels[closestIndex-1]
+	}
+	return firefoxZoomLevels[closestIndex] // Already at min
 }
 
 // setZoom sets the zoom level to a specific value
 func (s *BrowserService) setZoom(ctx context.Context, url string, zoomLevel float64) (float64, error) {
-    err := s.SetZoomLevel(ctx, url, zoomLevel)
-    if err != nil {
-        return 1.0, err
-    }
-    return zoomLevel, nil
+	err := s.SetZoomLevel(ctx, url, zoomLevel)
+	if err != nil {
+		return 1.0, err
+	}
+	return zoomLevel, nil
 }
 
 // zoomKeyFromURL extracts a stable per-domain key for zoom persistence.
 // Uses hostname if present; falls back to the full input URL string.
 func zoomKeyFromURL(raw string) string {
-    u, err := neturl.Parse(raw)
-    if err != nil || u.Host == "" {
-        return raw
-    }
-    return u.Host
+	u, err := neturl.Parse(raw)
+	if err != nil || u.Host == "" {
+		return raw
+	}
+	return u.Host
 }
 
 // extractDomain extracts the domain from a URL for zoom level storage

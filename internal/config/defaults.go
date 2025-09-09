@@ -7,7 +7,7 @@ import (
 
 // DefaultConfig returns the default configuration values for dumber.
 func DefaultConfig() *Config {
-    return &Config{
+	return &Config{
 		Database: DatabaseConfig{
 			MaxConnections: 1,
 			MaxIdleTime:    time.Minute * 5,
@@ -46,23 +46,23 @@ func DefaultConfig() *Config {
 			DateFormat:       "2006-01-02 15:04",
 			SortByVisitCount: true,
 		},
-        Logging: LoggingConfig{
-            Level:      "info",
-            Format:     "text", // text or json
-            Filename:   "",     // empty means stdout
-            MaxSize:    100,    // MB
-            MaxBackups: 3,
-            MaxAge:     7, // days
-            Compress:   true,
-        },
-        Appearance: AppearanceConfig{
-            SansFont:       "Fira Sans",
-            SerifFont:      "Fira Sans",
-            MonospaceFont:  "Fira Code",
-            DefaultFontSize: 16,
-        },
-        RenderingMode: RenderingModeAuto,
-    }
+		Logging: LoggingConfig{
+			Level:      "info",
+			Format:     "text", // text or json
+			Filename:   "",     // empty means stdout
+			MaxSize:    100,    // MB
+			MaxBackups: 3,
+			MaxAge:     7, // days
+			Compress:   true,
+		},
+		Appearance: AppearanceConfig{
+			SansFont:        "Fira Sans",
+			SerifFont:       "Fira Sans",
+			MonospaceFont:   "Fira Code",
+			DefaultFontSize: 16,
+		},
+		RenderingMode: RenderingModeAuto,
+	}
 }
 
 // GetDefaultSearchShortcuts returns the default search shortcuts.

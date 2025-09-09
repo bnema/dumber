@@ -4,8 +4,8 @@ package parser
 import (
 	"time"
 
-	"github.com/bnema/dumber/internal/db"
 	"github.com/bnema/dumber/internal/config"
+	"github.com/bnema/dumber/internal/db"
 )
 
 // InputType represents the type of user input detected.

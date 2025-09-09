@@ -78,193 +78,211 @@ static void attach_mouse_legacy(GtkWidget* widget, unsigned long id) {
 import "C"
 
 import (
-    "fmt"
-    "log"
-    "sync/atomic"
-    "sync"
-    "time"
+	"fmt"
+	"log"
+	"sync"
+	"sync/atomic"
+	"time"
 )
 
 // Registry of accelerators per view id.
 type shortcutRegistry map[string]func()
 
 var (
-    regMu         sync.RWMutex
-    viewShortcuts = make(map[uintptr]shortcutRegistry)
-    viewIDCounter  uint64
-    viewByID      = make(map[uintptr]*WebView)
-    lastKeyTime   = make(map[uintptr]map[string]time.Time)
+	regMu         sync.RWMutex
+	viewShortcuts = make(map[uintptr]shortcutRegistry)
+	viewIDCounter uint64
+	viewByID      = make(map[uintptr]*WebView)
+	lastKeyTime   = make(map[uintptr]map[string]time.Time)
 )
 
 // Locale hint function removed; no layout-specific remaps.
 
 // RegisterKeyboardShortcut registers a callback under an accelerator string.
 func (w *WebView) RegisterKeyboardShortcut(accel string, callback func()) error {
-    if w == nil || w.destroyed {
-        return ErrNotImplemented
-    }
-    if accel == "" || callback == nil {
-        return fmt.Errorf("invalid shortcut registration")
-    }
-    regMu.Lock()
-    if _, ok := viewShortcuts[w.id]; !ok {
-        viewShortcuts[w.id] = make(shortcutRegistry)
-    }
-    viewShortcuts[w.id][accel] = callback
-    regMu.Unlock()
-    return nil
+	if w == nil || w.destroyed {
+		return ErrNotImplemented
+	}
+	if accel == "" || callback == nil {
+		return fmt.Errorf("invalid shortcut registration")
+	}
+	regMu.Lock()
+	if _, ok := viewShortcuts[w.id]; !ok {
+		viewShortcuts[w.id] = make(shortcutRegistry)
+	}
+	viewShortcuts[w.id][accel] = callback
+	regMu.Unlock()
+	return nil
 }
 
 //export goOnKeyPress
 func goOnKeyPress(id C.ulong, keyval C.guint, state C.GdkModifierType) {
-    // Normalize and dispatch
-    uid := uintptr(id)
-    kv := uint(keyval)
-    st := uint(state)
-    dispatchAccelerator(uid, kv, st)
+	// Normalize and dispatch
+	uid := uintptr(id)
+	kv := uint(keyval)
+	st := uint(state)
+	dispatchAccelerator(uid, kv, st)
 }
 
 func dispatchAccelerator(uid uintptr, keyval uint, state uint) {
-    ctrl := (state & uint(C.GDK_CONTROL_MASK)) != 0
-    alt := (state & uint(C.GDK_ALT_MASK)) != 0
-    // Map keyval to string names
-    var keyName string
-    switch keyval {
-    case uint(C.GDK_KEY_minus), uint(C.GDK_KEY_KP_Subtract), uint(C.GDK_KEY_underscore):
-        // Normalize minus; log raw detection for diagnostics
-        log.Printf("[accelerator-raw] minus key detected ctrl=%v alt=%v keyval=0x%x", ctrl, alt, keyval)
-        keyName = "-"
-    case uint(C.GDK_KEY_equal), uint(C.GDK_KEY_KP_Add):
-        keyName = "="
-    case uint(C.GDK_KEY_0), uint(C.GDK_KEY_KP_0):
-        keyName = "0"
-    case uint(C.GDK_KEY_Left):
-        keyName = "ArrowLeft"
-    case uint(C.GDK_KEY_Right):
-        keyName = "ArrowRight"
-    case uint(C.GDK_KEY_F12):
-        keyName = "F12"
-    default:
-        // If Control held, log unknown keyval for diagnostics
-        if ctrl {
-            log.Printf("[accelerator-miss] ctrl keyval=0x%x", keyval)
-        }
-        return
-    }
+	ctrl := (state & uint(C.GDK_CONTROL_MASK)) != 0
+	alt := (state & uint(C.GDK_ALT_MASK)) != 0
+	// Map keyval to string names
+	var keyName string
+	switch keyval {
+	case uint(C.GDK_KEY_minus), uint(C.GDK_KEY_KP_Subtract), uint(C.GDK_KEY_underscore):
+		// Normalize minus; log raw detection for diagnostics
+		log.Printf("[accelerator-raw] minus key detected ctrl=%v alt=%v keyval=0x%x", ctrl, alt, keyval)
+		keyName = "-"
+	case uint(C.GDK_KEY_equal), uint(C.GDK_KEY_KP_Add):
+		keyName = "="
+	case uint(C.GDK_KEY_0), uint(C.GDK_KEY_KP_0):
+		keyName = "0"
+	case uint(C.GDK_KEY_Left):
+		keyName = "ArrowLeft"
+	case uint(C.GDK_KEY_Right):
+		keyName = "ArrowRight"
+	case uint(C.GDK_KEY_F12):
+		keyName = "F12"
+	default:
+		// If Control held, log unknown keyval for diagnostics
+		if ctrl {
+			log.Printf("[accelerator-miss] ctrl keyval=0x%x", keyval)
+		}
+		return
+	}
 
-    // Candidate accelerator strings in order
-    candidates := []string{keyName}
-    if ctrl {
-        // Common style: modifier + '+' + keyName (e.g., cmdorctrl+=)
-        candidates = append([]string{"cmdorctrl+" + keyName, "ctrl+" + keyName}, candidates...)
-        // Also accept style without the extra '+' for punctuation keys (e.g., cmdorctrl-)
-        candidates = append([]string{"cmdorctrl" + keyName, "ctrl" + keyName}, candidates...)
-    }
-    if alt {
-        candidates = append([]string{"alt+" + keyName}, candidates...)
-    }
+	// Candidate accelerator strings in order
+	candidates := []string{keyName}
+	if ctrl {
+		// Common style: modifier + '+' + keyName (e.g., cmdorctrl+=)
+		candidates = append([]string{"cmdorctrl+" + keyName, "ctrl+" + keyName}, candidates...)
+		// Also accept style without the extra '+' for punctuation keys (e.g., cmdorctrl-)
+		candidates = append([]string{"cmdorctrl" + keyName, "ctrl" + keyName}, candidates...)
+	}
+	if alt {
+		candidates = append([]string{"alt+" + keyName}, candidates...)
+	}
 
-    regMu.RLock()
-    reg := viewShortcuts[uid]
-    regMu.RUnlock()
-    if reg == nil {
-        return
-    }
-    for _, name := range candidates {
-        if cb, ok := reg[name]; ok {
-            // Debounce duplicates within 120ms for the same view+key
-            regMu.Lock()
-            if _, ok := lastKeyTime[uid]; !ok { lastKeyTime[uid] = make(map[string]time.Time) }
-            last := lastKeyTime[uid][name]
-            now := time.Now()
-            if now.Sub(last) < 120*time.Millisecond {
-                // Skip duplicate
-                regMu.Unlock()
-                return
-            }
-            lastKeyTime[uid][name] = now
-            regMu.Unlock()
-            log.Printf("[accelerator] %s", name)
-            cb()
-            break
-        }
-    }
+	regMu.RLock()
+	reg := viewShortcuts[uid]
+	regMu.RUnlock()
+	if reg == nil {
+		return
+	}
+	for _, name := range candidates {
+		if cb, ok := reg[name]; ok {
+			// Debounce duplicates within 120ms for the same view+key
+			regMu.Lock()
+			if _, ok := lastKeyTime[uid]; !ok {
+				lastKeyTime[uid] = make(map[string]time.Time)
+			}
+			last := lastKeyTime[uid][name]
+			now := time.Now()
+			if now.Sub(last) < 120*time.Millisecond {
+				// Skip duplicate
+				regMu.Unlock()
+				return
+			}
+			lastKeyTime[uid][name] = now
+			regMu.Unlock()
+			log.Printf("[accelerator] %s", name)
+			cb()
+			break
+		}
+	}
 }
 
 func nextViewID() uintptr {
-    return uintptr(atomic.AddUint64(&viewIDCounter, 1))
+	return uintptr(atomic.AddUint64(&viewIDCounter, 1))
 }
 
 func registerView(id uintptr, w *WebView) {
-    regMu.Lock()
-    viewByID[id] = w
-    regMu.Unlock()
+	regMu.Lock()
+	viewByID[id] = w
+	regMu.Unlock()
 }
 
 func unregisterView(id uintptr) {
-    regMu.Lock()
-    delete(viewByID, id)
-    delete(viewShortcuts, id)
-    regMu.Unlock()
+	regMu.Lock()
+	delete(viewByID, id)
+	delete(viewShortcuts, id)
+	regMu.Unlock()
 }
 
 // AttachKeyboardControllers attaches GTK4 key and mouse controllers to the view widget.
 func AttachKeyboardControllers(w *WebView) {
-    if w == nil || w.native == nil || w.native.view == nil {
-        return
-    }
-    C.attach_key_controller(w.native.view, C.ulong(w.id))
-    if w.native.win != nil {
-        C.attach_key_controller(w.native.win, C.ulong(w.id))
-    }
-    C.attach_mouse_gesture(w.native.view, C.ulong(w.id))
-    // Legacy controller captures raw button presses (8/9) for back/forward reliably
-    C.attach_mouse_legacy(w.native.view, C.ulong(w.id))
-    log.Printf("[input] GTK4 key/mouse controllers attached")
+	if w == nil || w.native == nil || w.native.view == nil {
+		return
+	}
+	C.attach_key_controller(w.native.view, C.ulong(w.id))
+	if w.native.win != nil {
+		C.attach_key_controller(w.native.win, C.ulong(w.id))
+	}
+	C.attach_mouse_gesture(w.native.view, C.ulong(w.id))
+	// Legacy controller captures raw button presses (8/9) for back/forward reliably
+	C.attach_mouse_legacy(w.native.view, C.ulong(w.id))
+	log.Printf("[input] GTK4 key/mouse controllers attached")
 }
 
 //export goOnScroll
 func goOnScroll(id C.ulong, dx C.double, dy C.double, state C.GdkModifierType) {
-    uid := uintptr(id)
-    regMu.RLock()
-    vw := viewByID[uid]
-    regMu.RUnlock()
-    if vw == nil { return }
-    // Ctrl+scroll zooms
-    if (uint(state) & uint(C.GDK_CONTROL_MASK)) != 0 {
-        if float64(dy) < 0 {
-            // scroll up -> zoom in
-            nz := vw.zoom
-            if nz <= 0 { nz = 1.0 }
-            nz *= 1.1
-            if nz < 0.25 { nz = 0.25 }
-            if nz > 5.0 { nz = 5.0 }
-            _ = vw.SetZoom(nz)
-        } else if float64(dy) > 0 {
-            // scroll down -> zoom out
-            nz := vw.zoom
-            if nz <= 0 { nz = 1.0 }
-            nz /= 1.1
-            if nz < 0.25 { nz = 0.25 }
-            if nz > 5.0 { nz = 5.0 }
-            _ = vw.SetZoom(nz)
-        }
-    }
+	uid := uintptr(id)
+	regMu.RLock()
+	vw := viewByID[uid]
+	regMu.RUnlock()
+	if vw == nil {
+		return
+	}
+	// Ctrl+scroll zooms
+	if (uint(state) & uint(C.GDK_CONTROL_MASK)) != 0 {
+		if float64(dy) < 0 {
+			// scroll up -> zoom in
+			nz := vw.zoom
+			if nz <= 0 {
+				nz = 1.0
+			}
+			nz *= 1.1
+			if nz < 0.25 {
+				nz = 0.25
+			}
+			if nz > 5.0 {
+				nz = 5.0
+			}
+			_ = vw.SetZoom(nz)
+		} else if float64(dy) > 0 {
+			// scroll down -> zoom out
+			nz := vw.zoom
+			if nz <= 0 {
+				nz = 1.0
+			}
+			nz /= 1.1
+			if nz < 0.25 {
+				nz = 0.25
+			}
+			if nz > 5.0 {
+				nz = 5.0
+			}
+			_ = vw.SetZoom(nz)
+		}
+	}
 }
 
 //export goOnThemeChanged
 func goOnThemeChanged(id C.ulong, preferDark C.int) {
-    uid := uintptr(id)
-    regMu.RLock()
-    vw := viewByID[uid]
-    regMu.RUnlock()
-    if vw == nil {
-        return
-    }
-    // Inject runtime theme update into the page
-    dval := "false"
-    if int(preferDark) != 0 { dval = "true" }
-    js := fmt.Sprintf(`(() => { try { const d=%s; const cs=d?'dark':'light'; console.log('[dumber] theme change:'+cs);
+	uid := uintptr(id)
+	regMu.RLock()
+	vw := viewByID[uid]
+	regMu.RUnlock()
+	if vw == nil {
+		return
+	}
+	// Inject runtime theme update into the page
+	dval := "false"
+	if int(preferDark) != 0 {
+		dval = "true"
+	}
+	js := fmt.Sprintf(`(() => { try { const d=%s; const cs=d?'dark':'light'; console.log('[dumber] theme change:'+cs);
 let m=document.querySelector('meta[name="color-scheme"]');
 if(!m){ m=document.createElement('meta'); m.name='color-scheme'; document.head.appendChild(m); }
 m.setAttribute('content', d ? 'dark light' : 'light dark');
@@ -272,57 +290,63 @@ let s=document.getElementById('__dumber_theme_style');
 if(!s){ s=document.createElement('style'); s.id='__dumber_theme_style'; document.documentElement.appendChild(s); }
 s.textContent=':root{color-scheme:' + (d?'dark':'light') + ';}';
 } catch(e) { console.warn('[dumber] theme runtime update failed', e); } })();`, dval)
-    _ = vw.InjectScript(js)
+	_ = vw.InjectScript(js)
 }
 
 //export goOnUcmMessage
 func goOnUcmMessage(id C.ulong, json *C.char) {
-    uid := uintptr(id)
-    regMu.RLock()
-    vw := viewByID[uid]
-    regMu.RUnlock()
-    if vw == nil || json == nil { return }
-    goPayload := C.GoString(json)
-    vw.dispatchScriptMessage(goPayload)
+	uid := uintptr(id)
+	regMu.RLock()
+	vw := viewByID[uid]
+	regMu.RUnlock()
+	if vw == nil || json == nil {
+		return
+	}
+	goPayload := C.GoString(json)
+	vw.dispatchScriptMessage(goPayload)
 }
 
 //export goOnTitleChanged
 func goOnTitleChanged(id C.ulong, ctitle *C.char) {
-    uid := uintptr(id)
-    regMu.RLock()
-    vw := viewByID[uid]
-    regMu.RUnlock()
-    if vw == nil || ctitle == nil { return }
-    title := C.GoString(ctitle)
-    vw.dispatchTitleChanged(title)
+	uid := uintptr(id)
+	regMu.RLock()
+	vw := viewByID[uid]
+	regMu.RUnlock()
+	if vw == nil || ctitle == nil {
+		return
+	}
+	title := C.GoString(ctitle)
+	vw.dispatchTitleChanged(title)
 }
 
 //export goOnURIChanged
 func goOnURIChanged(id C.ulong, curi *C.char) {
-    uid := uintptr(id)
-    regMu.RLock()
-    vw := viewByID[uid]
-    regMu.RUnlock()
-    if vw == nil || curi == nil { return }
-    uri := C.GoString(curi)
-    vw.dispatchURIChanged(uri)
+	uid := uintptr(id)
+	regMu.RLock()
+	vw := viewByID[uid]
+	regMu.RUnlock()
+	if vw == nil || curi == nil {
+		return
+	}
+	uri := C.GoString(curi)
+	vw.dispatchURIChanged(uri)
 }
 
 //export goOnButtonPress
 func goOnButtonPress(id C.ulong, button C.guint, state C.GdkModifierType) {
-    uid := uintptr(id)
-    btn := uint(button)
-    log.Printf("[mouse] button=%d state=0x%x", btn, uint(state))
-    regMu.RLock()
-    vw := viewByID[uid]
-    regMu.RUnlock()
-    if vw == nil {
-        return
-    }
-    switch btn {
-    case 8: // Back button on many mice
-        _ = vw.GoBack()
-    case 9: // Forward button on many mice
-        _ = vw.GoForward()
-    }
+	uid := uintptr(id)
+	btn := uint(button)
+	log.Printf("[mouse] button=%d state=0x%x", btn, uint(state))
+	regMu.RLock()
+	vw := viewByID[uid]
+	regMu.RUnlock()
+	if vw == nil {
+		return
+	}
+	switch btn {
+	case 8: // Back button on many mice
+		_ = vw.GoBack()
+	case 9: // Forward button on many mice
+		_ = vw.GoForward()
+	}
 }
