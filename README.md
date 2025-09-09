@@ -1,5 +1,9 @@
 # Dumber, fully unfeatured unbloated browser for tiling WMs
 
+<p align="center">
+  <img src="assets/logo.svg" alt="Dumber Logo" width="256" height="256" />
+</p>
+
 Dumber is a minimalist browser and launcher companion focused on speed and simplicity. It ships a built‑in WebKitGTK (GTK4) window for navigation and a CLI with dmenu‑style launcher integration (rofi, fuzzel).
 
 - Native GUI via WebKitGTK 6 (GTK4, CGO) with an embedded homepage UI.
