@@ -287,6 +287,15 @@ func runBrowser() {
 				rel = "index.html"
 			}
 		}
+		// Special-case homepage favicon: map .ico request to embedded SVG file
+		if (u.Host == "homepage" || u.Opaque == "homepage") && strings.EqualFold(rel, "favicon.ico") {
+			log.Printf("[scheme] asset: rel=%s (host=%s path=%s) → mapping to favicon.svg", rel, u.Host, u.Path)
+			data, rerr := assets.ReadFile(filepath.ToSlash(filepath.Join("frontend", "dist", "favicon.svg")))
+			if rerr == nil {
+				return "image/svg+xml", data, true
+			}
+		}
+
 		log.Printf("[scheme] asset: rel=%s (host=%s path=%s)", rel, u.Host, u.Path)
 		data, rerr := assets.ReadFile(filepath.ToSlash(filepath.Join("frontend", "dist", rel)))
 		if rerr != nil {
@@ -720,3 +729,7 @@ func detectAndSetKeyboardLocale() {
 	// No layout-specific remaps; log for diagnostics only
 	log.Printf("[locale] keyboard locale detected: %s", locale)
 }
+
+// getHomepageFaviconSVG returns the SVG used as a favicon for the homepage
+// when WebKit requests dumb://homepage/favicon.ico.
+// getHomepageFaviconSVG was inlined previously; now favicon.svg is emitted at build time.

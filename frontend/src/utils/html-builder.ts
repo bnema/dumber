@@ -35,7 +35,7 @@ export class HTMLBuilder {
   }
 
   private static getFaviconDataURL(): string {
-    const svg = this.getFaviconSVG();
+    const svg = HTMLBuilder.getFaviconSVG();
     // Minimal encoding for safe inline usage
     const encoded = encodeURIComponent(svg)
       .replace(/'/g, '%27')
@@ -44,7 +44,7 @@ export class HTMLBuilder {
     return `data:image/svg+xml;utf8,${encoded}`;
   }
 
-  private static getFaviconSVG(): string {
+  static getFaviconSVG(): string {
     // Stylized D with speed bolt on a subtle dark rounded card
     return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">

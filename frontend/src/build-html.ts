@@ -8,6 +8,9 @@ function buildHTML() {
     const html = HTMLBuilder.createBaseHTML();
     const outputPath = join(process.cwd(), 'dist', 'index.html');
     writeFileSync(outputPath, html);
+    // Also emit favicon.svg as a file for dumb:// scheme lookups
+    const favPath = join(process.cwd(), 'dist', 'favicon.svg');
+    writeFileSync(favPath, HTMLBuilder.getFaviconSVG());
     console.log('✓ Generated index.html');
   } catch (error) {
     console.error('✗ Failed to generate HTML:', error);
