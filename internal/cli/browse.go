@@ -17,9 +17,11 @@ import (
 
 // NewBrowseCmd creates the browse command
 func NewBrowseCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "browse <url|query>",
-		Short: "Browse a URL or search query",
+    var renderingMode string
+
+    cmd := &cobra.Command{
+        Use:   "browse <url|query>",
+        Short: "Browse a URL or search query",
 		Long: `Browse a URL directly or use search shortcuts like:
   g:golang      -> Google search for "golang"
   gh:cobra      -> GitHub search for "cobra"
@@ -30,11 +32,21 @@ Direct URLs are also supported:
   https://example.com
   example.com (automatically adds https://)`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			cli, err := NewCLI()
-			if err != nil {
-				return fmt.Errorf("failed to initialize CLI: %w", err)
-			}
+        RunE: func(_ *cobra.Command, args []string) error {
+            // Propagate rendering mode to GUI process via env var
+            if renderingMode != "" {
+                rm := strings.ToLower(renderingMode)
+                switch rm {
+                case "auto", "gpu", "cpu":
+                    _ = os.Setenv("DUMBER_RENDERING_MODE", rm)
+                default:
+                    return fmt.Errorf("invalid --rendering-mode: %s (expected auto|gpu|cpu)", renderingMode)
+                }
+            }
+            cli, err := NewCLI()
+            if err != nil {
+                return fmt.Errorf("failed to initialize CLI: %w", err)
+            }
 			defer func() {
 				if closeErr := cli.Close(); closeErr != nil {
 					fmt.Fprintf(os.Stderr, "Warning: failed to close database: %v\n", closeErr)
@@ -45,7 +57,10 @@ Direct URLs are also supported:
 		},
 	}
 
-	return cmd
+    // Flags
+    cmd.Flags().StringVar(&renderingMode, "rendering-mode", "", "Rendering mode: auto|gpu|cpu")
+
+    return cmd
 }
 
 // browse handles the core browsing logic

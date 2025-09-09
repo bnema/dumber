@@ -3,9 +3,9 @@
 package webkit
 
 /*
-#cgo pkg-config: webkit2gtk-4.0 gtk+-3.0
+#cgo pkg-config: webkitgtk-6.0 gtk4
 #include <stdlib.h>
-#include <webkit2/webkit2.h>
+#include <webkit/webkit.h>
 */
 import "C"
 

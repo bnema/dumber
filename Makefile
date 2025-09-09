@@ -7,6 +7,9 @@ BINARY_NAME=dumber
 MAIN_PATH=.
 DIST_DIR=dist
 
+# Local caches to avoid $HOME permission issues in sandboxed environments
+GOENV=GOMODCACHE=$(PWD)/tmp/go-mod GOCACHE=$(PWD)/tmp/go-cache GOTMPDIR=$(PWD)/tmp
+
 # Version information from git
 VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "v0.0.0-dev")
 COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
@@ -23,8 +26,8 @@ help: ## Show this help message
 # Build targets
 build: build-frontend ## Build the application (frontend assets, then Go binary)
 	@echo "Building $(BINARY_NAME) $(VERSION)..."
-	@mkdir -p $(DIST_DIR)
-	CGO_ENABLED=1 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	@mkdir -p $(DIST_DIR) tmp tmp/go-cache tmp/go-mod
+	$(GOENV) CGO_ENABLED=1 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 
 build-frontend: ## Build TypeScript frontend
 	@echo "Building TypeScript frontend..."
@@ -33,19 +36,28 @@ build-frontend: ## Build TypeScript frontend
 
 build-static: ## Build static binary (CGO disabled, CLI-only functionality)
 	@echo "Building static $(BINARY_NAME) $(VERSION) (CLI-only)..."
-	@mkdir -p $(DIST_DIR)
-	CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME)-static $(MAIN_PATH)
+	@mkdir -p $(DIST_DIR) tmp tmp/go-cache tmp/go-mod
+	$(GOENV) CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME)-static $(MAIN_PATH)
 
-# GUI build with WebKit2GTK
+# GUI build with WebKitGTK 6.0 (GTK4)
 .PHONY: build-gui run-gui
-build-gui: build-frontend ## Build GUI binary with native WebKit2GTK (requires dev packages)
+build-gui: build-frontend ## Build GUI binary with native WebKitGTK 6.0 (requires GTK4/WebKitGTK 6 dev packages)
 	@echo "Building $(BINARY_NAME) (GUI, webkit_cgo)…"
-	@mkdir -p $(DIST_DIR)
-	CGO_ENABLED=1 go build $(LDFLAGS) -tags=webkit_cgo -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	@mkdir -p $(DIST_DIR) tmp tmp/go-cache tmp/go-mod
+	$(GOENV) CGO_ENABLED=1 go build $(LDFLAGS) -tags=webkit_cgo -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 
-run-gui: ## Run the GUI with native WebKit2GTK (requires dev packages)
+run-gui: ## Run the GUI with native WebKitGTK 6.0 (requires GTK4/WebKitGTK 6 dev packages)
 	@echo "Running GUI (webkit_cgo)…"
-	CGO_ENABLED=1 go run -tags=webkit_cgo $(MAIN_PATH)
+	@mkdir -p tmp tmp/go-cache tmp/go-mod
+	$(GOENV) CGO_ENABLED=1 go run -tags=webkit_cgo $(MAIN_PATH)
+
+.PHONY: check-webkit
+check-webkit: ## Check system has GTK4/WebKitGTK 6.0/JavaScriptCore 6.0
+	@echo "Checking pkg-config versions..."
+	@which pkg-config >/dev/null 2>&1 || (echo "pkg-config not found" && exit 1)
+	@echo "gtk4:            $$(pkg-config --modversion gtk4 2>/dev/null || echo not found)"
+	@echo "webkitgtk-6.0:    $$(pkg-config --modversion webkitgtk-6.0 2>/dev/null || echo not found)"
+	@echo "javascriptcoregtk-6.0: $$(pkg-config --modversion javascriptcoregtk-6.0 2>/dev/null || echo not found)"
 
 # Development targets
 dev: ## Run in development mode
@@ -60,11 +72,13 @@ generate: ## Generate code (SQLC)
 # Testing
 test: ## Run tests
 	@echo "Running tests..."
-	CGO_ENABLED=0 go test -v ./...
+	@mkdir -p tmp tmp/go-cache tmp/go-mod
+	$(GOENV) CGO_ENABLED=0 go test -v ./...
 
 test-race: ## Run tests with race detection
 	@echo "Running tests with race detection..."
-	CGO_ENABLED=1 go test -race -v ./...
+	@mkdir -p tmp tmp/go-cache tmp/go-mod
+	$(GOENV) CGO_ENABLED=1 go test -race -v ./...
 
 # Linting
 lint: ## Run golangci-lint
@@ -100,15 +114,15 @@ init: install-tools ## Initialize project dependencies and tools
 check: ## Check that all tools and dependencies are working
 	@echo "Checking project setup..."
 	@echo "Go version:"
-	@go version
+	@$(GOENV) go version
 	@echo "\nSQLC version:"
-	@sqlc version
+	@$(GOENV) sqlc version
 	@echo "\nGolangci-lint version:"
-	@golangci-lint version
+	@$(GOENV) golangci-lint version
 	@echo "\nBuilding project..."
-	@make build
+	@$(MAKE) build
 	@echo "\nTesting built binary..."
 	@$(DIST_DIR)/$(BINARY_NAME) version
 	@echo "\nRunning tests..."
-	@make test
+	@$(MAKE) test
 	@echo "\n✅ All checks passed! Project is ready for development."

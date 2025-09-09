@@ -6,7 +6,8 @@ import (
     "os"
     "path/filepath"
 
-	"github.com/bnema/dumber/internal/config"
+    "github.com/bnema/dumber/internal/config"
+    "strings"
 )
 
 // ConfigService handles configuration operations for the application.
@@ -19,10 +20,11 @@ const defaultDirPerm = 0o750
 
 // ConfigInfo represents configuration information for the frontend.
 type ConfigInfo struct {
-	ConfigPath      string                            `json:"config_path"`
-	DatabasePath    string                            `json:"database_path"`
-	SearchShortcuts map[string]config.SearchShortcut  `json:"search_shortcuts"`
-	DmenuSettings   *config.DmenuConfig              `json:"dmenu_settings"`
+    ConfigPath      string                            `json:"config_path"`
+    DatabasePath    string                            `json:"database_path"`
+    SearchShortcuts map[string]config.SearchShortcut  `json:"search_shortcuts"`
+    DmenuSettings   *config.DmenuConfig              `json:"dmenu_settings"`
+    RenderingMode   string                           `json:"rendering_mode"`
 }
 
 // NewConfigService creates a new ConfigService instance.
@@ -41,6 +43,7 @@ func (s *ConfigService) GetConfigInfo(ctx context.Context) (*ConfigInfo, error) 
         DatabasePath:    s.config.Database.Path,
         SearchShortcuts: s.config.SearchShortcuts,
         DmenuSettings:   &s.config.Dmenu,
+        RenderingMode:   string(s.config.RenderingMode),
     }, nil
 }
 
@@ -248,6 +251,25 @@ func (s *ConfigService) ImportConfig(ctx context.Context, newConfig *config.Conf
 	// Apply the new config
 	s.config = newConfig
 	return s.saveConfig()
+}
+
+// GetRenderingMode returns the current rendering mode (auto|gpu|cpu).
+func (s *ConfigService) GetRenderingMode(ctx context.Context) (string, error) {
+    _ = ctx
+    return string(s.config.RenderingMode), nil
+}
+
+// SetRenderingMode updates the rendering mode (auto|gpu|cpu).
+func (s *ConfigService) SetRenderingMode(ctx context.Context, mode string) error {
+    _ = ctx
+    m := strings.ToLower(strings.TrimSpace(mode))
+    switch m {
+    case "auto", "gpu", "cpu":
+        s.config.RenderingMode = config.RenderingMode(m)
+        return s.saveConfig()
+    default:
+        return fmt.Errorf("invalid rendering mode: %s", mode)
+    }
 }
 
 // saveConfig saves the current configuration to file.

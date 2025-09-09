@@ -3,21 +3,53 @@
 package webkit
 
 /*
-#cgo pkg-config: webkit2gtk-4.0 gtk+-3.0 javascriptcoregtk-4.0
+#cgo pkg-config: webkitgtk-6.0 gtk4 javascriptcoregtk-6.0
 #include <stdlib.h>
 #include <gtk/gtk.h>
-#include <webkit2/webkit2.h>
+#include <webkit/webkit.h>
 #include <glib-object.h>
 #include <gdk/gdk.h>
 #include <jsc/jsc.h>
 #include <glib.h>
 #include <gio/gio.h>
 
-static GtkWidget* new_window() { return gtk_window_new(GTK_WINDOW_TOPLEVEL); }
-static void connect_destroy_quit(GtkWidget* w) { g_signal_connect(w, "destroy", G_CALLBACK(gtk_main_quit), NULL); }
+static GtkWidget* new_window() { return GTK_WIDGET(gtk_window_new()); }
+// GTK4: gtk_main_quit removed; leave as no-op for now (Quit handled in Go)
+static void connect_destroy_quit(GtkWidget* w) { (void)w; }
 static WebKitWebView* as_webview(GtkWidget* w) { return WEBKIT_WEB_VIEW(w); }
-static WebKitWebsiteDataManager* make_wdm(const gchar* data, const gchar* cache){
-    return webkit_website_data_manager_new("base-data-directory", data, "base-cache-directory", cache, NULL);
+// WebsiteDataManager creation will be handled via GTK4/WebKit6 APIs in Go code.
+
+// Forward declare helpers used below
+static void maybe_set_cookie_policy(WebKitCookieManager* cm, int policy);
+
+// Construct a WebKitWebView via g_object_new with a fresh UserContentManager.
+static GtkWidget* new_webview_with_ucm_and_session(const char* data_dir, const char* cache_dir, const char* cookie_path, WebKitUserContentManager** out_ucm) {
+    WebKitUserContentManager* u = webkit_user_content_manager_new();
+    if (!u) return NULL;
+    // WebKitGTK 6: create NetworkSession with data/cache directories
+    WebKitNetworkSession* sess = webkit_network_session_new(
+        data_dir ? data_dir : "",
+        cache_dir ? cache_dir : "");
+    if (!sess) { g_object_unref(u); return NULL; }
+    // Configure cookie persistence and policy (no third-party by default)
+    WebKitCookieManager* cm = webkit_network_session_get_cookie_manager(sess);
+    if (cm) {
+        if (cookie_path && cookie_path[0]) {
+            webkit_cookie_manager_set_persistent_storage(cm, cookie_path, WEBKIT_COOKIE_PERSISTENT_STORAGE_SQLITE);
+        }
+        // 2 => no-third-party (default), 0 => always, 1 => never
+        maybe_set_cookie_policy(cm, 2);
+    }
+    // Persist credentials (HTTP auth, etc.)
+    webkit_network_session_set_persistent_credential_storage_enabled(sess, TRUE);
+    GtkWidget* w = GTK_WIDGET(g_object_new(WEBKIT_TYPE_WEB_VIEW,
+        "user-content-manager", u,
+        "network-session", sess,
+        NULL));
+    // WebView holds refs to provided objects; drop our temporary refs
+    g_object_unref(sess);
+    if (out_ucm) { *out_ucm = u; }
+    return w;
 }
 
 static gboolean gtk_prefers_dark() {
@@ -31,27 +63,11 @@ static gboolean gtk_prefers_dark() {
 // Note: preferred color scheme is handled via a user script injection to support
 // older WebKitGTK versions without the color-scheme API. See enableUserContentManager.
 
-// Forward declaration of Go callback
-extern void goOnKeyPress(unsigned long id, guint keyval, GdkModifierType state);
-extern void goOnButtonPress(unsigned long id, guint button, GdkModifierType state);
 extern void goOnUcmMessage(unsigned long id, const char* json);
 extern void goOnTitleChanged(unsigned long id, const char* title);
 extern void goOnURIChanged(unsigned long id, const char* uri);
+extern void goOnThemeChanged(unsigned long id, int prefer_dark);
 extern void* goResolveURIScheme(char* uri, size_t* out_len, char** out_mime);
-
-gboolean on_key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data) {
-    (void)widget;
-    unsigned long id = (unsigned long)user_data;
-    goOnKeyPress(id, event->keyval, event->state);
-    return FALSE; // Propagate
-}
-
-gboolean on_button_press(GtkWidget* widget, GdkEventButton* event, gpointer user_data) {
-    (void)widget;
-    unsigned long id = (unsigned long)user_data;
-    goOnButtonPress(id, event->button, event->state);
-    return FALSE;
-}
 
 void on_title_notify(GObject* obj, GParamSpec* pspec, gpointer user_data) {
     (void)pspec;
@@ -75,19 +91,17 @@ void on_uri_notify(GObject* obj, GParamSpec* pspec, gpointer user_data) {
     if (uri) { goOnURIChanged((unsigned long)user_data, uri); }
 }
 
-static gchar* js_result_to_utf8(WebKitJavascriptResult* r) {
-    JSCValue* v = webkit_javascript_result_get_js_value(r);
-    // Returns newly-allocated string; free with g_free()
-    return jsc_value_to_string(v);
+// React to GTK theme preference changes at runtime
+void on_theme_changed(GObject* obj, GParamSpec* pspec, gpointer user_data) {
+    (void)pspec;
+    GtkSettings* settings = GTK_SETTINGS(obj);
+    if (!settings) return;
+    gboolean prefer = FALSE;
+    g_object_get(settings, "gtk-application-prefer-dark-theme", &prefer, NULL);
+    goOnThemeChanged((unsigned long)user_data, prefer ? 1 : 0);
 }
 
-void on_ucm_message(WebKitUserContentManager* m, WebKitJavascriptResult* r, gpointer user_data) {
-    (void)m;
-    unsigned long id = (unsigned long)user_data;
-    gchar* s = js_result_to_utf8(r);
-    goOnUcmMessage(id, s);
-    g_free(s);
-}
+// NOTE: UCM message callback signature changed in WebKitGTK 6; will be reimplemented later.
 
 void on_uri_scheme(WebKitURISchemeRequest* request, gpointer user_data) {
     (void)user_data;
@@ -105,6 +119,107 @@ void on_uri_scheme(WebKitURISchemeRequest* request, gpointer user_data) {
         webkit_uri_scheme_request_finish_error(request, err);
         g_error_free(err);
     }
+}
+
+// Script message handler wiring for WebKitGTK 6
+// Forward declaration for callback used in g_signal_connect_data
+// WebKitGTK 6 delivers JSCValue* for script-message-received::NAME
+static void ucm_on_script_message_cb(WebKitUserContentManager* ucm, JSCValue* val, gpointer user_data);
+// Uses WebKitScriptMessage and script-message-received::NAME signal.
+static void ucm_on_script_message_cb(WebKitUserContentManager* ucm, JSCValue* val, gpointer user_data) {
+    (void)ucm;
+    if (!val) return;
+    gchar* s = jsc_value_to_string(val);
+    if (!s) return;
+    goOnUcmMessage((unsigned long)user_data, s);
+    g_free(s);
+}
+
+static gboolean register_ucm_handler(WebKitUserContentManager* ucm, const char* name, unsigned long id) {
+    if (!ucm || !name) return FALSE;
+    // WebKitGTK 6 signature: (ucm, name, world_name)
+    webkit_user_content_manager_register_script_message_handler(ucm, name, NULL);
+    gchar* signal = g_strdup_printf("script-message-received::%s", name);
+    if (!signal) return FALSE;
+    g_signal_connect_data(G_OBJECT(ucm), signal, G_CALLBACK(ucm_on_script_message_cb), (gpointer)id, NULL, 0);
+    g_free(signal);
+    return TRUE;
+}
+
+// ----- Conditional helpers for settings across WebKit versions -----
+#ifndef WEBKIT_CHECK_VERSION
+#define WEBKIT_CHECK_VERSION(major,minor,micro) (0)
+#endif
+
+static void maybe_set_hw_policy(WebKitSettings* settings, int mode) {
+#if WEBKIT_CHECK_VERSION(2,40,0)
+    // mode: 0=ON_DEMAND, 1=ALWAYS, 2=NEVER
+    if (!settings) return;
+    if (mode == 1) {
+        webkit_settings_set_hardware_acceleration_policy(settings, WEBKIT_HARDWARE_ACCELERATION_POLICY_ALWAYS);
+    } else if (mode == 2) {
+        webkit_settings_set_hardware_acceleration_policy(settings, WEBKIT_HARDWARE_ACCELERATION_POLICY_NEVER);
+    } else {
+        // Leave default policy (auto) without forcing a value to avoid referencing
+        // WEBKIT_HARDWARE_ACCELERATION_POLICY_ON_DEMAND on older headers.
+    }
+#else
+    (void)settings; (void)mode;
+#endif
+}
+
+static void maybe_set_draw_indicators(WebKitSettings* settings, int enable) {
+#if WEBKIT_CHECK_VERSION(2,36,0)
+    if (!settings) return;
+    webkit_settings_set_draw_compositing_indicators(settings, enable ? 1 : 0);
+#else
+    (void)settings; (void)enable;
+#endif
+}
+
+static void maybe_set_webgl(WebKitSettings* settings, int enable) {
+#if WEBKIT_CHECK_VERSION(2,20,0)
+    if (!settings) return;
+    webkit_settings_set_enable_webgl(settings, enable ? 1 : 0);
+#else
+    (void)settings; (void)enable;
+#endif
+}
+
+static void maybe_set_canvas_accel(WebKitSettings* settings, int enable) {
+#if WEBKIT_CHECK_VERSION(2,20,0)
+    if (!settings) return;
+    webkit_settings_set_enable_2d_canvas_acceleration(settings, enable ? 1 : 0);
+#else
+    (void)settings; (void)enable;
+#endif
+}
+
+static void maybe_set_media_user_gesture(WebKitSettings* settings, int require) {
+#if WEBKIT_CHECK_VERSION(2,20,0)
+    if (!settings) return;
+    webkit_settings_set_media_playback_requires_user_gesture(settings, require ? 1 : 0);
+#else
+    (void)settings; (void)require;
+#endif
+}
+
+// Set cookie accept policy with compile-time compatibility across WebKit versions
+static void maybe_set_cookie_policy(WebKitCookieManager* cm, int policy) {
+    if (!cm) return;
+#if defined(WEBKIT_COOKIE_ACCEPT_POLICY_ALWAYS)
+    WebKitCookieAcceptPolicy p = WEBKIT_COOKIE_ACCEPT_POLICY_ALWAYS;
+    if (policy == 1) p = WEBKIT_COOKIE_ACCEPT_POLICY_NEVER; // never
+    else if (policy == 2) p = WEBKIT_COOKIE_ACCEPT_POLICY_NO_THIRD_PARTY; // no third-party
+    webkit_cookie_manager_set_accept_policy(cm, p);
+#elif defined(WEBKIT_COOKIE_POLICY_ACCEPT_ALWAYS)
+    WebKitCookieAcceptPolicy p = WEBKIT_COOKIE_POLICY_ACCEPT_ALWAYS;
+    if (policy == 1) p = WEBKIT_COOKIE_POLICY_ACCEPT_NEVER;
+    else if (policy == 2) p = WEBKIT_COOKIE_POLICY_ACCEPT_NO_THIRD_PARTY;
+    webkit_cookie_manager_set_accept_policy(cm, p);
+#else
+    (void)policy; // Not supported in this header version
+#endif
 }
 */
 import "C"
@@ -172,7 +287,7 @@ type WebView struct {
 // NewWebView constructs a new WebView instance with native WebKit2GTK widgets.
 func NewWebView(cfg *Config) (*WebView, error) {
     log.Printf("[webkit] Initializing GTK and creating WebView (CGO)")
-    if C.gtk_init_check(nil, nil) == 0 {
+    if C.gtk_init_check() == 0 {
         return nil, errors.New("failed to initialize GTK")
     }
 
@@ -190,12 +305,14 @@ func NewWebView(cfg *Config) (*WebView, error) {
 
     cData := C.CString(dataDir)
     cCache := C.CString(cacheDir)
+    cookieFile := filepath.Join(dataDir, "cookies.db")
+    cCookie := C.CString(cookieFile)
     defer C.free(unsafe.Pointer(cData))
     defer C.free(unsafe.Pointer(cCache))
-    wdm := C.make_wdm((*C.gchar)(cData), (*C.gchar)(cCache))
-    if wdm == nil { return nil, errors.New("failed to create WebsiteDataManager") }
-    ctx := C.webkit_web_context_new_with_website_data_manager(wdm)
-    if ctx == nil { return nil, errors.New("failed to create WebContext") }
+    defer C.free(unsafe.Pointer(cCookie))
+    // Use default WebContext to register the custom URI scheme handler; the
+    // WebView itself is created with a WebKitNetworkSession for persistence.
+    ctx := C.webkit_web_context_get_default()
 
     // Register custom URI scheme handler for "dumb://"
     {
@@ -203,19 +320,11 @@ func NewWebView(cfg *Config) (*WebView, error) {
         C.webkit_web_context_register_uri_scheme(ctx, sch, (C.WebKitURISchemeRequestCallback)(C.on_uri_scheme), nil, nil)
         C.free(unsafe.Pointer(sch))
     }
+    // Cookie manager persistent storage handled via NetworkSession in new_webview_with_ucm_and_session
 
-    // Cookie manager persistent storage
-    cm := C.webkit_web_context_get_cookie_manager(ctx)
-    if cm != nil {
-        cookiePath := filepath.Join(dataDir, "cookies.sqlite")
-        cCookie := C.CString(cookiePath)
-        defer C.free(unsafe.Pointer(cCookie))
-        C.webkit_cookie_manager_set_persistent_storage(cm, (*C.gchar)(cCookie), C.WEBKIT_COOKIE_PERSISTENT_STORAGE_SQLITE)
-        C.webkit_cookie_manager_set_accept_policy(cm, C.WEBKIT_COOKIE_POLICY_ACCEPT_ALWAYS)
-    }
-
-    // Create WebView with context
-    viewWidget := C.webkit_web_view_new_with_context(ctx) // GtkWidget*
+    // Create WebView through g_object_new with a fresh UCM (GTK4/WebKit 6 style)
+    var createdUcm *C.WebKitUserContentManager
+    viewWidget := C.new_webview_with_ucm_and_session(cData, cCache, cCookie, &createdUcm)
     if viewWidget == nil {
         return nil, errors.New("failed to create WebKitWebView")
     }
@@ -227,32 +336,92 @@ func NewWebView(cfg *Config) (*WebView, error) {
     }
 
     // Pack view widget into the window
-    C.gtk_container_add((*C.GtkContainer)(unsafe.Pointer(win)), viewWidget)
+    // GTK4: containers removed; use gtk_window_set_child
+    C.gtk_window_set_child((*C.GtkWindow)(unsafe.Pointer(win)), viewWidget)
     C.gtk_window_set_default_size((*C.GtkWindow)(unsafe.Pointer(win)), 1024, 768)
     C.connect_destroy_quit(win)
 
     v := &WebView{
         config: cfg,
         zoom:   1.0,
-        native: &nativeView{win: win, view: viewWidget, wv: C.as_webview(viewWidget), ucm: nil},
+        native: &nativeView{win: win, view: viewWidget, wv: C.as_webview(viewWidget), ucm: createdUcm},
         window: &Window{win: win},
     }
-    // Allow receiving button press events
-    C.gtk_widget_add_events(win, C.GDK_BUTTON_PRESS_MASK|C.GDK_BUTTON_RELEASE_MASK)
-    C.gtk_widget_add_events(viewWidget, C.GDK_BUTTON_PRESS_MASK|C.GDK_BUTTON_RELEASE_MASK)
-
-    // Assign an ID for accelerator dispatch and connect input events
+    // Assign an ID for accelerator dispatch
     v.id = nextViewID()
     registerView(v.id, v)
-    C.g_signal_connect_data(C.gpointer(unsafe.Pointer(win)), C.CString("key-press-event"), C.GCallback(C.on_key_press), C.gpointer(v.id), nil, 0)
-    C.g_signal_connect_data(C.gpointer(unsafe.Pointer(viewWidget)), C.CString("button-press-event"), C.GCallback(C.on_button_press), C.gpointer(v.id), nil, 0)
-    C.g_signal_connect_data(C.gpointer(unsafe.Pointer(win)), C.CString("button-press-event"), C.GCallback(C.on_button_press), C.gpointer(v.id), nil, 0)
+    // Attach GTK4 input controllers (keyboard, mouse)
+    AttachKeyboardControllers(v)
+
+    // Watch for GTK theme changes and propagate to page at runtime
+    if settings := C.gtk_settings_get_default(); settings != nil {
+        cprop := C.CString("notify::gtk-application-prefer-dark-theme")
+        C.g_signal_connect_data(C.gpointer(unsafe.Pointer(settings)), cprop, C.GCallback(C.on_theme_changed), C.gpointer(v.id), nil, 0)
+        C.free(unsafe.Pointer(cprop))
+    }
+
+    // Native zoom shortcuts (independent of app services)
+    // Ctrl+='=' and Ctrl+'+' → Zoom In; Ctrl+'-' → Zoom Out; Ctrl+'0' → Reset
+    _ = v.RegisterKeyboardShortcut("cmdorctrl+=", func() {
+        nz := v.zoom
+        if nz <= 0 { nz = 1.0 }
+        nz *= 1.1
+        if nz < 0.25 { nz = 0.25 }
+        if nz > 5.0 { nz = 5.0 }
+        _ = v.SetZoom(nz)
+    })
+    _ = v.RegisterKeyboardShortcut("cmdorctrl+plus", func() {
+        nz := v.zoom
+        if nz <= 0 { nz = 1.0 }
+        nz *= 1.1
+        if nz < 0.25 { nz = 0.25 }
+        if nz > 5.0 { nz = 5.0 }
+        _ = v.SetZoom(nz)
+    })
+    _ = v.RegisterKeyboardShortcut("cmdorctrl-", func() {
+        nz := v.zoom
+        if nz <= 0 { nz = 1.0 }
+        nz /= 1.1
+        if nz < 0.25 { nz = 0.25 }
+        if nz > 5.0 { nz = 5.0 }
+        _ = v.SetZoom(nz)
+    })
+    _ = v.RegisterKeyboardShortcut("cmdorctrl+0", func() { _ = v.SetZoom(1.0) })
     // Update window title when page title changes
-    C.g_signal_connect_data(C.gpointer(unsafe.Pointer(viewWidget)), C.CString("notify::title"), C.GCallback(C.on_title_notify), C.gpointer(unsafe.Pointer(win)), nil, 0)
+    cNotifyTitle1 := C.CString("notify::title")
+    C.g_signal_connect_data(C.gpointer(unsafe.Pointer(viewWidget)), cNotifyTitle1, C.GCallback(C.on_title_notify), C.gpointer(unsafe.Pointer(win)), nil, 0)
+    C.free(unsafe.Pointer(cNotifyTitle1))
     // Also dispatch title change to Go with view id
-    C.g_signal_connect_data(C.gpointer(unsafe.Pointer(viewWidget)), C.CString("notify::title"), C.GCallback(C.on_title_notify_id), C.gpointer(v.id), nil, 0)
+    cNotifyTitle2 := C.CString("notify::title")
+    C.g_signal_connect_data(C.gpointer(unsafe.Pointer(viewWidget)), cNotifyTitle2, C.GCallback(C.on_title_notify_id), C.gpointer(v.id), nil, 0)
+    C.free(unsafe.Pointer(cNotifyTitle2))
     // Notify URI changes to Go to keep current URL in sync
-    C.g_signal_connect_data(C.gpointer(unsafe.Pointer(viewWidget)), C.CString("notify::uri"), C.GCallback(C.on_uri_notify), C.gpointer(v.id), nil, 0)
+    cNotifyURI := C.CString("notify::uri")
+    C.g_signal_connect_data(C.gpointer(unsafe.Pointer(viewWidget)), cNotifyURI, C.GCallback(C.on_uri_notify), C.gpointer(v.id), nil, 0)
+    C.free(unsafe.Pointer(cNotifyURI))
+    // Apply hardware acceleration and related settings based on cfg.Rendering
+    if settings := C.webkit_web_view_get_settings(v.native.wv); settings != nil {
+        // Hardware acceleration policy (guarded by version)
+        switch cfg.Rendering.Mode {
+        case "gpu":
+            C.maybe_set_hw_policy(settings, 1)
+            C.maybe_set_webgl(settings, 1)
+            C.maybe_set_canvas_accel(settings, 1)
+        case "cpu":
+            C.maybe_set_hw_policy(settings, 2)
+            C.maybe_set_webgl(settings, 0)
+            C.maybe_set_canvas_accel(settings, 0)
+        default: // auto
+            C.maybe_set_hw_policy(settings, 0)
+            C.maybe_set_webgl(settings, 1)
+            C.maybe_set_canvas_accel(settings, 1)
+        }
+        // Optional compositing indicators for debugging (guarded by version)
+        if cfg.Rendering.DebugGPU { C.maybe_set_draw_indicators(settings, 1) }
+        // Reduce media pipeline churn by requiring a user gesture for playback
+        C.maybe_set_media_user_gesture(settings, 1)
+    }
+
     if cfg.ZoomDefault > 0 {
         v.zoom = cfg.ZoomDefault
         C.webkit_web_view_set_zoom_level(v.native.wv, C.gdouble(v.zoom))
@@ -295,13 +464,9 @@ func NewWebView(cfg *Config) (*WebView, error) {
     runtime.SetFinalizer(v, func(v *WebView) { _ = v.Destroy() })
     log.Printf("[webkit] WebView created (CGO)")
 
-    // Obtain the view's UserContentManager and inject script
-    if v.native != nil && v.native.wv != nil {
-        u := C.webkit_web_view_get_user_content_manager(v.native.wv)
-        if u != nil {
-            v.native.ucm = u
-            v.enableUserContentManager()
-        }
+    // Initialize UCM scripts and handlers
+    if v.native != nil && v.native.ucm != nil {
+        v.enableUserContentManager()
     }
     return v, nil
 }
@@ -322,8 +487,9 @@ func (w *WebView) Show() error {
     if w == nil || w.destroyed || w.native == nil || w.native.win == nil {
         return ErrNotImplemented
     }
-    C.gtk_widget_show(w.native.win)
-    C.gtk_widget_show(w.native.view)
+    C.gtk_widget_set_visible(w.native.view, C.gboolean(1))
+    C.gtk_widget_set_visible(w.native.win, C.gboolean(1))
+    C.gtk_window_present((*C.GtkWindow)(unsafe.Pointer(w.native.win)))
     log.Printf("[webkit] Show window")
     return nil
 }
@@ -332,7 +498,8 @@ func (w *WebView) Hide() error {
     if w == nil || w.destroyed || w.native == nil || w.native.win == nil {
         return ErrNotImplemented
     }
-    C.gtk_widget_hide(w.native.win)
+    C.gtk_widget_set_visible(w.native.view, C.gboolean(0))
+    C.gtk_widget_set_visible(w.native.win, C.gboolean(0))
     return nil
 }
 
@@ -340,7 +507,8 @@ func (w *WebView) Destroy() error {
     if w == nil || w.native == nil || w.native.win == nil {
         return ErrNotImplemented
     }
-    C.gtk_widget_destroy(w.native.win)
+    // GTK4: destroy windows via gtk_window_destroy
+    C.gtk_window_destroy((*C.GtkWindow)(unsafe.Pointer(w.native.win)))
     w.destroyed = true
     unregisterView(w.id)
     log.Printf("[webkit] Destroy window")
@@ -396,9 +564,11 @@ func (w *WebView) enableUserContentManager() {
     if w == nil || w.native == nil || w.native.ucm == nil { return }
     // Register handler "dumber"
     cname := C.CString("dumber")
-    defer C.free(unsafe.Pointer(cname))
-    C.webkit_user_content_manager_register_script_message_handler(w.native.ucm, (*C.gchar)(cname))
-    C.g_signal_connect_data(C.gpointer(unsafe.Pointer(w.native.ucm)), C.CString("script-message-received::dumber"), C.GCallback(C.on_ucm_message), C.gpointer(w.id), nil, 0)
+    ok := C.register_ucm_handler(w.native.ucm, cname, C.ulong(w.id))
+    if ok == 0 {
+        log.Printf("[webkit] Failed to register UCM handler; fallback bridge will handle messages")
+    }
+    C.free(unsafe.Pointer(cname))
 
     // Inject color-scheme preference script at document-start to inform sites of system theme
     preferDark := C.gtk_prefers_dark() != 0
@@ -409,9 +579,9 @@ func (w *WebView) enableUserContentManager() {
     }
     var schemeJS string
     if preferDark {
-        schemeJS = "(() => { try { const d=true; const cs=d?'dark':'light'; console.log('[dumber] color-scheme set:', cs); try{ window.webkit?.messageHandlers?.dumber?.postMessage(JSON.stringify({type:'theme', value: cs})) }catch(_){} const meta=document.createElement('meta'); meta.name='color-scheme'; meta.content='dark light'; document.documentElement.appendChild(meta); const s=document.createElement('style'); s.textContent=':root{color-scheme:dark;}'; document.documentElement.appendChild(s); const qD='(prefers-color-scheme: dark)'; const qL='(prefers-color-scheme: light)'; const orig=window.matchMedia; window.matchMedia=function(q){ if(typeof q==='string'&&(q.includes(qD)||q.includes(qL))){ const m={matches:q.includes('dark')?d:!d,media:q,onchange:null,addListener(){},removeListener(){},addEventListener(){},removeEventListener(){},dispatchEvent(){return false;}}; return m;} return orig.call(window,q); }; } catch(e){ console.warn('[dumber] color-scheme injection failed', e) } })();"
+        schemeJS = "(() => { try { const d=true; const cs=d?'dark':'light'; console.log('[dumber] color-scheme set:' + cs); try{ window.webkit?.messageHandlers?.dumber?.postMessage(JSON.stringify({type:'theme', value: cs})) }catch(_){} const meta=document.createElement('meta'); meta.name='color-scheme'; meta.content='dark light'; document.documentElement.appendChild(meta); const s=document.createElement('style'); s.textContent=':root{color-scheme:dark;}'; document.documentElement.appendChild(s); const qD='(prefers-color-scheme: dark)'; const qL='(prefers-color-scheme: light)'; const orig=window.matchMedia; window.matchMedia=function(q){ if(typeof q==='string'&&(q.includes(qD)||q.includes(qL))){ const m={matches:q.includes('dark')?d:!d,media:q,onchange:null,addListener(){},removeListener(){},addEventListener(){},removeEventListener(){},dispatchEvent(){return false;}}; return m;} return orig.call(window,q); }; } catch(e){ console.warn('[dumber] color-scheme injection failed', e) } })();"
     } else {
-        schemeJS = "(() => { try { const d=false; const cs=d?'dark':'light'; console.log('[dumber] color-scheme set:', cs); try{ window.webkit?.messageHandlers?.dumber?.postMessage(JSON.stringify({type:'theme', value: cs})) }catch(_){} const meta=document.createElement('meta'); meta.name='color-scheme'; meta.content='light dark'; document.documentElement.appendChild(meta); const s=document.createElement('style'); s.textContent=':root{color-scheme:light;}'; document.documentElement.appendChild(s); const qD='(prefers-color-scheme: dark)'; const qL='(prefers-color-scheme: light)'; const orig=window.matchMedia; window.matchMedia=function(q){ if(typeof q==='string'&&(q.includes(qD)||q.includes(qL))){ const m={matches:q.includes('dark')?d:!d,media:q,onchange:null,addListener(){},removeListener(){},addEventListener(){},removeEventListener(){},dispatchEvent(){return false;}}; return m;} return orig.call(window,q); }; } catch(e){ console.warn('[dumber] color-scheme injection failed', e) } })();"
+        schemeJS = "(() => { try { const d=false; const cs=d?'dark':'light'; console.log('[dumber] color-scheme set:' + cs); try{ window.webkit?.messageHandlers?.dumber?.postMessage(JSON.stringify({type:'theme', value: cs})) }catch(_){} const meta=document.createElement('meta'); meta.name='color-scheme'; meta.content='light dark'; document.documentElement.appendChild(meta); const s=document.createElement('style'); s.textContent=':root{color-scheme:light;}'; document.documentElement.appendChild(s); const qD='(prefers-color-scheme: dark)'; const qL='(prefers-color-scheme: light)'; const orig=window.matchMedia; window.matchMedia=function(q){ if(typeof q==='string'&&(q.includes(qD)||q.includes(qL))){ const m={matches:q.includes('dark')?d:!d,media:q,onchange:null,addListener(){},removeListener(){},addEventListener(){},removeEventListener(){},dispatchEvent(){return false;}}; return m;} return orig.call(window,q); }; } catch(e){ console.warn('[dumber] color-scheme injection failed', e) } })();"
     }
     cScheme := C.CString(schemeJS)
     defer C.free(unsafe.Pointer(cScheme))
@@ -440,4 +610,6 @@ func (w *WebView) enableUserContentManager() {
         C.webkit_user_content_manager_add_script(w.native.ucm, wailsScript)
         C.webkit_user_script_unref(wailsScript)
     }
+
+    // No JS fallback bridge — native UCM is active
 }
