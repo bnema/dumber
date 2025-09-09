@@ -61,6 +61,7 @@ func DefaultConfig() *Config {
             MonospaceFont:  "Fira Code",
             DefaultFontSize: 16,
         },
+        RenderingMode: RenderingModeAuto,
     }
 }
 

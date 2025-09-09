@@ -3,18 +3,25 @@
 package webkit
 
 /*
-#cgo pkg-config: gtk+-3.0
+#cgo pkg-config: gtk4
 #include <gtk/gtk.h>
+#include <glib.h>
 */
 import "C"
 
-// RunMainLoop enters the GTK main loop and blocks until quit.
+var mainLoop *C.GMainLoop
+
+// RunMainLoop enters the GLib main loop (GTK4) and blocks until quit.
 func RunMainLoop() {
-    C.gtk_main()
+    if mainLoop == nil {
+        mainLoop = C.g_main_loop_new(nil, C.gboolean(0))
+    }
+    C.g_main_loop_run(mainLoop)
 }
 
-// QuitMainLoop requests the GTK main loop to exit.
+// QuitMainLoop requests the main loop to exit.
 func QuitMainLoop() {
-    C.gtk_main_quit()
+    if mainLoop != nil {
+        C.g_main_loop_quit(mainLoop)
+    }
 }
-
