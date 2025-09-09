@@ -78,6 +78,15 @@ export class DOMRenderer {
     const line = document.createElement('div');
     line.className = 'history-line';
 
+    // Favicon chip
+    const icon = document.createElement('img');
+    icon.className = 'history-favicon';
+    icon.width = 16; icon.height = 16;
+    icon.loading = 'lazy';
+    icon.referrerPolicy = 'no-referrer';
+    icon.src = this.buildFaviconURL(item.url);
+    icon.addEventListener('error', () => { icon.style.display = 'none'; });
+
     const titleEl = document.createElement('span');
     titleEl.className = 'history-title';
     titleEl.textContent = title;
@@ -98,6 +107,7 @@ export class DOMRenderer {
     urlEl.className = 'history-url';
     urlEl.textContent = item.url;
 
+    line.appendChild(icon);
     line.appendChild(titleEl);
     line.appendChild(sep1);
     line.appendChild(domainEl);
@@ -184,6 +194,16 @@ export class DOMRenderer {
       return { host: u.host };
     } catch {
       return { host: '' };
+    }
+  }
+
+  private buildFaviconURL(raw: string): string {
+    try {
+      const u = new URL(raw);
+      const scheme = u.protocol && u.protocol !== ':' ? u.protocol : 'https:';
+      return `${scheme}//${u.host}/favicon.ico`;
+    } catch {
+      return '';
     }
   }
 }

@@ -115,6 +115,19 @@ export class HTMLBuilder {
             min-width: 0; /* allow flex children to shrink */
         }
 
+        .history-favicon {
+            flex: 0 0 20px;
+            width: 16px; height: 16px;
+            padding: 2px;
+            box-sizing: content-box;
+            border-radius: 50%;
+            background: #ccc;
+            border: 1px solid rgba(0,0,0,.12);
+            box-shadow: 0 1px 2px rgba(0,0,0,.12);
+            filter: brightness(1.06) contrast(1.03);
+            image-rendering: -webkit-optimize-contrast;
+        }
+
         .history-title { font-size: 0.95rem; color: #e6e6e6; flex: 0 0 auto; }
         .history-domain { font-size: 0.9rem; color: #a5a5a5; flex: 0 0 auto; }
         .history-sep { color: #666; flex: 0 0 auto; }
