@@ -1,19 +1,19 @@
-# Dumber — a tiny, dumb browser for Wayland
+# Dumber, fully unfeatured unbloated browser for tiling WMs
 
-Dumber is a minimalist browser and launcher companion focused on speed and simplicity. It ships a built‑in WebKit2GTK window for navigation and a CLI with dmenu‑style launcher integration (rofi, fuzzel).
+Dumber is a minimalist browser and launcher companion focused on speed and simplicity. It ships a built‑in WebKitGTK (GTK4) window for navigation and a CLI with dmenu‑style launcher integration (rofi, fuzzel).
 
-- Native GUI via WebKit2GTK (CGO) with an embedded homepage UI.
+- Native GUI via WebKitGTK 6 (GTK4, CGO) with an embedded homepage UI.
 - CLI that parses URLs, supports search shortcuts (e.g., `g:query`), and integrates with rofi/dmenu.
 - Persistent history and per‑domain zoom levels (SQLite, XDG locations).
 - Configurable via `config.json` and environment variables, with live reload.
 
 ## Wayland‑First
-- Dumb on purpose, designed for Wayland window managers (Sway, Hyprland, River, Niri, etc..) — a tiny companion that plays nicely with your launcher.
-- Uses a native WebKit2GTK window; no external browser required and no X11/XWayland dependency.
+- Dumb on purpose, designed for Wayland window managers (Sway, Hyprland, River, Niri, etc..) it's a tiny companion that interact nicely with your launcher.
+- Uses a native WebKitGTKdo i window; no external browser required and no X11/XWayland dependency.
 - Optimized for dmenu‑style launchers (rofi, fuzzel, wofi) and keyboard‑driven workflows.
 
 ## Status
-- Very early stage — expect sharp edges and breaking changes, but it works well enough to browse and play with the launcher flows.
+- Very early stage, expect sharp edges and breaking changes, but it works well enough to browse and play with the launcher flows.
 
 ## Features
 - Built‑in browser window (no external browser needed)
@@ -27,9 +27,9 @@ Dumber is a minimalist browser and launcher companion focused on speed and simpl
 Prerequisites:
 - Go 1.25+
 - Node.js 20+ (for building the embedded frontend)
-- For GUI build: WebKit2GTK and GTK dev packages (examples)
-  - Debian/Ubuntu: `libwebkit2gtk-4.1-dev libgtk-3-dev build-essential`
-  - Arch: `webkit2gtk gtk3 base-devel`
+- For GUI build: WebKitGTK 6 and GTK4 dev packages (examples)
+  - Debian/Ubuntu: `libwebkitgtk-6.0-dev libgtk-4-dev build-essential`
+  - Arch: `webkitgtk-6.0 gtk4 base-devel`
 
 Build options:
 - GUI (recommended):
@@ -104,14 +104,29 @@ SQLite tables (created automatically):
 - `shortcuts(shortcut, url_template, description, created_at)`
 - `zoom_levels(domain PRIMARY KEY, zoom_factor, updated_at)`
 
-## Building With WebKit2GTK
+## Building With WebKitGTK 6 (GTK4)
 - The GUI requires building with `-tags=webkit_cgo` and CGO enabled.
-- Ensure WebKit2GTK and GTK dev headers are installed (see prerequisites).
+- Ensure WebKitGTK 6 and GTK4 dev headers are installed (see prerequisites).
 - Make targets handle both frontend and Go build steps:
   - `make build-gui` (CGO enabled)
   - `make build` (CGO enabled by default in the Makefile’s main build)
 
 Without the native tag, a stub backend is used: you can still run CLI flows and see logs, but no native window is displayed.
+
+## Media (GStreamer) Requirements
+
+WebKitGTK uses GStreamer for media playback. Install the following packages to ensure audio/video work correctly.
+
+- Arch Linux:
+  - `sudo pacman -S gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-plugin-pipewire pipewire pipewire-pulse`
+  - Optional hardware accel: `gstreamer-vaapi`
+- Debian/Ubuntu:
+  - `sudo apt install gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-pipewire`
+  - Optional hardware accel: `gstreamer1.0-vaapi`
+
+## Theme and Runtime Updates
+- The homepage and pages respect your system’s light/dark preference.
+- The app updates color‑scheme live when your GTK theme changes (no relaunch needed).
 
 ## Project Structure
 - `main.go`: CLI/GUI entrypoint, `dumb://` scheme, service wiring
@@ -127,6 +142,8 @@ Without the native tag, a stub backend is used: you can still run CLI flows and 
 - The `tmp/` directory is ignored by Git and kept out of history.
 
 ## Roadmap
+- WebKitGTK 6 (GTK4) migration — almost complete (GPU/Vulkan path landed).
+- GPU rendering (Vulkan via GTK4 renderer) with graceful CPU fallback.
 - Full Vim-style motion and keyboard navigation across pages and UI.
 - Performance work: faster startup, lower memory, snappier UI.
 - Basic ad-block extension — because fuck ads.

@@ -1,0 +1,153 @@
+# Rendering Configuration Contract
+# Defines the interface for GPU/CPU rendering configuration
+
+version: "1.0.0"
+component: "RenderingConfig"
+
+# Configuration Interface
+config:
+  rendering_mode:
+    type: "enum"
+    values:
+      - name: "auto"
+        description: "Automatically detect GPU availability and use if present"
+        default: true
+      - name: "gpu"
+        description: "Force GPU acceleration (fail if unavailable)"
+        default: false
+      - name: "cpu"
+        description: "Force software rendering (disable GPU)"
+        default: false
+  
+  settings:
+    enable_2d_canvas:
+      type: "boolean"
+      default: true
+      description: "Enable hardware acceleration for 2D canvas"
+    
+    enable_webgl:
+      type: "boolean"
+      default: true
+      description: "Enable WebGL for 3D content"
+    
+    draw_compositing_indicators:
+      type: "boolean"
+      default: false
+      description: "Show GPU compositing borders (debug)"
+
+# CLI Interface
+cli:
+  flags:
+    - name: "--rendering-mode"
+      type: "string"
+      values: ["auto", "gpu", "cpu"]
+      default: "auto"
+      description: "Set rendering mode"
+    
+    - name: "--disable-gpu"
+      type: "boolean"
+      default: false
+      description: "Shorthand for --rendering-mode=cpu"
+    
+    - name: "--force-gpu"
+      type: "boolean"
+      default: false
+      description: "Shorthand for --rendering-mode=gpu"
+    
+    - name: "--debug-gpu"
+      type: "boolean"
+      default: false
+      description: "Enable GPU compositing indicators"
+
+# Environment Variables
+environment:
+  - name: "DUMBER_RENDERING_MODE"
+    values: ["auto", "gpu", "cpu"]
+    description: "Override rendering mode"
+  
+  - name: "WEBKIT_DISABLE_COMPOSITING_MODE"
+    values: ["1", "0"]
+    description: "WebKit native disable flag"
+
+# Status API
+status:
+  endpoint: "/api/rendering/status"
+  response:
+    mode:
+      type: "string"
+      enum: ["auto", "gpu", "cpu"]
+    
+    gpu_active:
+      type: "boolean"
+      description: "Whether GPU acceleration is currently active"
+    
+    gpu_available:
+      type: "boolean"
+      description: "Whether GPU hardware is available"
+    
+    vulkan_enabled:
+      type: "boolean"
+      description: "Whether Vulkan renderer is active"
+    
+    errors:
+      type: "array"
+      items:
+        type: "object"
+        properties:
+          code: "string"
+          message: "string"
+          fallback_used: "boolean"
+    
+    performance:
+      type: "object"
+      properties:
+        fps: "number"
+        cpu_usage_percent: "number"
+        gpu_usage_percent: "number"
+        memory_mb: "integer"
+
+# Validation Rules
+validation:
+  startup:
+    - check: "GPU availability if mode=gpu"
+      error: "GPU acceleration requested but not available"
+      action: "fail_startup"
+    
+    - check: "Vulkan support if GPU active"
+      warning: "Vulkan not available, using OpenGL"
+      action: "log_warning"
+    
+    - check: "Driver compatibility"
+      error: "GPU driver incompatible"
+      action: "fallback_to_cpu"
+  
+  runtime:
+    - check: "GPU memory < 500MB"
+      warning: "High GPU memory usage"
+      action: "log_metric"
+    
+    - check: "FPS > 30"
+      warning: "Low frame rate detected"
+      action: "log_metric"
+
+# Error Codes
+errors:
+  GPU_NOT_AVAILABLE:
+    code: "E001"
+    message: "GPU hardware not detected"
+    severity: "error"
+  
+  VULKAN_INIT_FAILED:
+    code: "E002"
+    message: "Failed to initialize Vulkan renderer"
+    severity: "warning"
+  
+  DRIVER_INCOMPATIBLE:
+    code: "E003"
+    message: "GPU driver version incompatible"
+    severity: "error"
+  
+  MEMORY_EXCEEDED:
+    code: "W001"
+    message: "GPU memory usage exceeded threshold"
+    severity: "warning"

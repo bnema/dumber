@@ -3,8 +3,8 @@
 package webkit
 
 /*
-#cgo pkg-config: webkit2gtk-4.0 gtk+-3.0
-#include <webkit2/webkit2.h>
+#cgo pkg-config: webkitgtk-6.0 gtk4
+#include <webkit/webkit.h>
 */
 import "C"
 
@@ -23,4 +23,3 @@ func (w *WebView) CloseDevTools() error {
     C.webkit_web_inspector_close(insp)
     return nil
 }
-
