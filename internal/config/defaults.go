@@ -7,7 +7,7 @@ import (
 
 // DefaultConfig returns the default configuration values for dumber.
 func DefaultConfig() *Config {
-	return &Config{
+    return &Config{
 		Database: DatabaseConfig{
 			MaxConnections: 1,
 			MaxIdleTime:    time.Minute * 5,
@@ -46,16 +46,22 @@ func DefaultConfig() *Config {
 			DateFormat:       "2006-01-02 15:04",
 			SortByVisitCount: true,
 		},
-		Logging: LoggingConfig{
-			Level:      "info",
-			Format:     "text", // text or json
-			Filename:   "",     // empty means stdout
-			MaxSize:    100,    // MB
-			MaxBackups: 3,
-			MaxAge:     7, // days
-			Compress:   true,
-		},
-	}
+        Logging: LoggingConfig{
+            Level:      "info",
+            Format:     "text", // text or json
+            Filename:   "",     // empty means stdout
+            MaxSize:    100,    // MB
+            MaxBackups: 3,
+            MaxAge:     7, // days
+            Compress:   true,
+        },
+        Appearance: AppearanceConfig{
+            SansFont:       "Fira Sans",
+            SerifFont:      "Fira Sans",
+            MonospaceFont:  "Fira Code",
+            DefaultFontSize: 16,
+        },
+    }
 }
 
 // GetDefaultSearchShortcuts returns the default search shortcuts.
@@ -104,4 +110,4 @@ func GetDefaultSearchShortcuts() map[string]SearchShortcut {
 	}
 }
 
-// Note: We build our own browser with Wails, so no external browser commands needed
+// Note: We build our own browser, so no external browser commands needed

@@ -12,7 +12,6 @@ import (
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/db"
 	"github.com/bnema/dumber/services"
-	"github.com/wailsapp/wails/v3/pkg/application"
 	_ "github.com/ncruces/go-sqlite3/driver" // SQLite driver
 	_ "github.com/ncruces/go-sqlite3/embed"  // Embed SQLite
 )
@@ -24,11 +23,10 @@ type MockWindowUpdater struct {
 }
 
 // Implement the WindowTitleUpdater interface method
-func (m *MockWindowUpdater) SetTitle(title string) application.Window {
+func (m *MockWindowUpdater) SetTitle(title string) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.titles = append(m.titles, title)
-	return nil
 }
 
 // setupTestDB creates a temporary SQLite database for integration testing
@@ -43,31 +41,30 @@ func setupTestDB(t *testing.T) (*sql.DB, *db.Queries, func()) {
 	}
 	
 	// Create tables using the migration schema
-	createTablesSQL := `
-	CREATE TABLE IF NOT EXISTS history (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		url TEXT NOT NULL,
-		title TEXT,
-		visit_count INTEGER DEFAULT 1,
-		last_visited DATETIME DEFAULT CURRENT_TIMESTAMP,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);
-	
-	CREATE TABLE IF NOT EXISTS shortcuts (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		shortcut TEXT NOT NULL UNIQUE,
-		url_template TEXT NOT NULL,
-		description TEXT,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);
-	
-	CREATE TABLE IF NOT EXISTS zoom_settings (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		url TEXT NOT NULL UNIQUE,
-		zoom_level REAL NOT NULL DEFAULT 1.0,
-		last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
-	);
-	`
+    createTablesSQL := `
+    CREATE TABLE IF NOT EXISTS history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        url TEXT NOT NULL,
+        title TEXT,
+        visit_count INTEGER DEFAULT 1,
+        last_visited DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    CREATE TABLE IF NOT EXISTS shortcuts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        shortcut TEXT NOT NULL UNIQUE,
+        url_template TEXT NOT NULL,
+        description TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    CREATE TABLE IF NOT EXISTS zoom_levels (
+        domain TEXT NOT NULL UNIQUE,
+        zoom_factor REAL NOT NULL DEFAULT 1.0,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    `
 	
 	if _, err := database.Exec(createTablesSQL); err != nil {
 		t.Fatalf("Failed to create test tables: %v", err)

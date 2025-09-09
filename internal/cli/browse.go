@@ -157,7 +157,7 @@ func openURL(url string) error {
 	return openURLWithConfig(url, nil)
 }
 
-// openURLWithConfig opens a URL using our built-in Wails browser
+// openURLWithConfig opens a URL using our built-in browser
 func openURLWithConfig(url string, cfg *config.Config) error {
 	// Get the path to our own executable
 	executable, err := os.Executable()

@@ -10,7 +10,6 @@ import (
 	"github.com/bnema/dumber/services"
 	"github.com/bnema/dumber/internal/config"
 	mock_db "github.com/bnema/dumber/internal/db/mocks"
-	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/golang/mock/gomock"
 )
 
@@ -42,10 +41,9 @@ type MockWindowTitleUpdater struct {
 	callCount int
 }
 
-func (m *MockWindowTitleUpdater) SetTitle(title string) application.Window {
+func (m *MockWindowTitleUpdater) SetTitle(title string) {
 	m.lastTitle = title
 	m.callCount++
-	return nil
 }
 
 // Contract Test: BrowserService Zoom Controls

@@ -9,7 +9,7 @@
  * - URL copying
  * - Mouse navigation buttons
  * 
- * Zoom controls are handled natively by Wails in main.go
+ * Zoom controls are handled natively by the GTK backend
  */
 
 (function() {

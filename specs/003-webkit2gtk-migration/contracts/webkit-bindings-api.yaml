@@ -1,0 +1,279 @@
+openapi: 3.0.3
+info:
+  title: WebKit2GTK Go Bindings API
+  description: Contract for pkg/webkit Go bindings to WebKit2GTK native browser engine
+  version: 1.0.0
+  contact:
+    name: Dumber Browser WebKit Integration
+    
+paths:
+  # Note: This is a native library API, not REST endpoints
+  # These represent Go function signatures for contract testing
+
+components:
+  schemas:
+    WebViewConfig:
+      type: object
+      properties:
+        width:
+          type: integer
+          minimum: 800
+          description: Initial window width
+        height:
+          type: integer  
+          minimum: 600
+          description: Initial window height
+        userAgent:
+          type: string
+          description: Browser user agent string
+        enableDevTools:
+          type: boolean
+          default: true
+          description: Enable WebKit developer tools
+        enableJavaScript:
+          type: boolean
+          default: true
+          description: Enable JavaScript execution
+      required:
+        - width
+        - height
+        
+    NavigationRequest:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Target URL for navigation
+        timeout:
+          type: integer
+          default: 30000
+          description: Navigation timeout in milliseconds
+      required:
+        - url
+        
+    NavigationResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Navigation success status
+        finalURL:
+          type: string
+          format: uri
+          description: Final URL after redirects
+        loadTime:
+          type: integer
+          description: Page load time in milliseconds
+        error:
+          type: string
+          nullable: true
+          description: Error message if navigation failed
+          
+    KeyboardShortcut:
+      type: object
+      properties:
+        modifiers:
+          type: array
+          items:
+            type: string
+            enum: [ctrl, alt, shift, cmd]
+          description: Modifier keys required
+        key:
+          type: string
+          description: Primary key (e.g., 'c', 'Left', 'Right')
+        action:
+          type: string
+          enum: [navigate_back, navigate_forward, copy_url, zoom_in, zoom_out, zoom_reset]
+          description: Action to perform
+      required:
+        - key
+        - action
+        
+    ScriptInjectionRequest:
+      type: object
+      properties:
+        script:
+          type: string
+          description: JavaScript code to inject
+        runAtEnd:
+          type: boolean
+          default: false
+          description: Run script after DOM content loaded
+        worldName:
+          type: string
+          default: "dumber-browser"
+          description: WebKit user script world name
+      required:
+        - script
+        
+    ScriptInjectionResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Script injection success status
+        error:
+          type: string
+          nullable: true
+          description: Error message if injection failed
+          
+    ZoomRequest:
+      type: object
+      properties:
+        level:
+          type: number
+          minimum: 0.25
+          maximum: 5.0
+          description: Zoom level (1.0 = 100%)
+      required:
+        - level
+        
+    ZoomResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Zoom operation success status
+        actualLevel:
+          type: number
+          description: Actual zoom level set by WebKit
+        error:
+          type: string
+          nullable: true
+          description: Error message if zoom failed
+          
+    BrowserError:
+      type: object
+      properties:
+        code:
+          type: string
+          enum: [
+            WEBKIT_INIT_FAILED,
+            GTK_INIT_FAILED, 
+            NAVIGATION_FAILED,
+            SCRIPT_INJECTION_FAILED,
+            KEYBOARD_BINDING_FAILED,
+            MEMORY_LIMIT_EXCEEDED
+          ]
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: string
+          nullable: true
+          description: Technical error details
+      required:
+        - code
+        - message
+
+# Contract Test Functions (Go function signatures)
+# These will be implemented as integration tests
+
+x-go-functions:
+  
+  # WebView Management
+  NewWebView:
+    description: Create new WebKit browser instance
+    parameters:
+      - name: config
+        schema: WebViewConfig
+    returns:
+      - name: webview
+        type: "*WebView"
+      - name: error
+        type: error
+        
+  LoadURL:
+    description: Navigate to specified URL
+    parameters:
+      - name: webview
+        type: "*WebView"
+      - name: request
+        schema: NavigationRequest
+    returns:
+      - name: result
+        schema: NavigationResult
+      - name: error
+        type: error
+        
+  # Keyboard Shortcuts
+  RegisterKeyboardShortcut:
+    description: Register keyboard shortcut handler
+    parameters:
+      - name: webview
+        type: "*WebView" 
+      - name: shortcut
+        schema: KeyboardShortcut
+      - name: callback
+        type: "func()"
+    returns:
+      - name: error
+        type: error
+        
+  # Script Injection
+  InjectScript:
+    description: Inject JavaScript into current page
+    parameters:
+      - name: webview
+        type: "*WebView"
+      - name: request
+        schema: ScriptInjectionRequest
+    returns:
+      - name: result
+        schema: ScriptInjectionResult
+      - name: error
+        type: error
+        
+  # Zoom Control  
+  SetZoom:
+    description: Set browser zoom level
+    parameters:
+      - name: webview
+        type: "*WebView"
+      - name: request
+        schema: ZoomRequest
+    returns:
+      - name: result
+        schema: ZoomResult
+      - name: error
+        type: error
+        
+  GetZoom:
+    description: Get current browser zoom level
+    parameters:
+      - name: webview
+        type: "*WebView"
+    returns:
+      - name: level
+        type: float64
+      - name: error
+        type: error
+        
+  # Lifecycle Management
+  Show:
+    description: Display browser window
+    parameters:
+      - name: webview
+        type: "*WebView"
+    returns:
+      - name: error
+        type: error
+        
+  Hide:
+    description: Hide browser window
+    parameters:
+      - name: webview
+        type: "*WebView"
+    returns:
+      - name: error
+        type: error
+        
+  Destroy:
+    description: Clean up browser resources
+    parameters:
+      - name: webview
+        type: "*WebView"
+    returns:
+      - name: error
+        type: error
