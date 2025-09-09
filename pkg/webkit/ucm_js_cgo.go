@@ -63,8 +63,16 @@ func getOmniboxScript() string {
             H.toggle(false);
           } else if (H.mode==='find' && e.key === 'Enter'){
             e.preventDefault();
-            if (e.shiftKey) { H.jump(-1); }
-            else { H.revealSelection(); H.close(); }
+            if (e.shiftKey) {
+              H.jump(-1);
+            } else if (e.altKey) {
+              // Center on current match but keep overlay open for further navigation
+              H.revealSelection();
+            } else {
+              // Default: center and close
+              H.revealSelection();
+              H.close();
+            }
           } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp'){
             e.preventDefault();
             const n = (H.mode==='find'? H.matches.length : H.suggestions.length);
@@ -162,7 +170,7 @@ func getOmniboxScript() string {
             H.highlightNodes.push({span, text: match});
             const leftCtx = before.nodeValue.slice(-30);
             let rightRaw = afterVal.slice(0, 30);
-            const boundaryIdx = rightRaw.search(/[.,-]/);
+            const boundaryIdx = rightRaw.search(/[\.,;:\-]/);
             if (boundaryIdx !== -1) {
               rightRaw = rightRaw.slice(0, boundaryIdx+1);
             }
