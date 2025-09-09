@@ -57,3 +57,6 @@ config.local.*
 # Build artifacts and caches
 .cache/
 *.prof
+
+# Node/TypeScript related
+node_modules/

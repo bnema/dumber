@@ -1,10 +1,10 @@
 # Makefile for dumber
 
-.PHONY: build test lint clean install-tools dev generate help
+.PHONY: build build-frontend test lint clean install-tools dev generate help
 
 # Variables
 BINARY_NAME=dumber
-MAIN_PATH=./cmd/dumber
+MAIN_PATH=.
 DIST_DIR=dist
 
 # Version information from git
@@ -21,15 +21,20 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 # Build targets
-build: ## Build the binary
-	@echo "Building $(BINARY_NAME) $(VERSION)..."
+build: build-frontend ## Build the Wails app (builds frontend, then wails3 build)
+	@echo "Building $(BINARY_NAME) $(VERSION) with Wails..."
 	@mkdir -p $(DIST_DIR)
-	CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	CGO_ENABLED=1 wails3 build
 
-build-wails: ## Build with CGO enabled for Wails (when needed)
-	@echo "Building $(BINARY_NAME) $(VERSION) with CGO enabled..."
+build-frontend: ## Build TypeScript frontend
+	@echo "Building TypeScript frontend..."
+	@cd frontend && npm ci --silent && npm run build
+	@echo "Frontend build complete"
+
+build-static: ## Build static binary (CGO disabled, CLI-only functionality)
+	@echo "Building static $(BINARY_NAME) $(VERSION) (CLI-only)..."
 	@mkdir -p $(DIST_DIR)
-	CGO_ENABLED=1 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME)-static $(MAIN_PATH)
 
 # Development targets
 dev: ## Run in development mode
@@ -72,6 +77,7 @@ clean: ## Clean build artifacts
 	@echo "Cleaning build artifacts..."
 	rm -rf $(DIST_DIR)
 	rm -f $(BINARY_NAME)  # Remove any old binaries in root
+	rm -rf frontend/dist frontend/node_modules
 	go clean -cache
 	go clean -testcache
 
