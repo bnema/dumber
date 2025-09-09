@@ -63,7 +63,17 @@ export class AppService {
   async loadShortcuts(): Promise<void> {
     try {
       const cfg = await fetch('/api/config').then(r => r.json());
-      this.shortcuts = cfg?.search_shortcuts || {};
+      const raw = cfg?.search_shortcuts || {};
+      // Normalize field casing from backend (supports URL/Description and url/description)
+      const normalized: Record<string, { description: string; url: string }> = {};
+      for (const [key, value] of Object.entries(raw)) {
+        const v: any = value as any;
+        normalized[key] = {
+          description: v.description ?? v.Description ?? '',
+          url: v.url ?? v.URL ?? ''
+        };
+      }
+      this.shortcuts = normalized;
     } catch (error) {
       console.error('Failed to load shortcuts:', error);
       // Mock shortcuts for development/fallback

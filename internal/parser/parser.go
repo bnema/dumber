@@ -1,11 +1,12 @@
 package parser
 
 import (
-	"fmt"
-	"strings"
-	"time"
+    "fmt"
+    "strings"
+    "time"
+    neturl "net/url"
 
-	"github.com/bnema/dumber/internal/config"
+    "github.com/bnema/dumber/internal/config"
 )
 
 // ParseInput parses user input and returns a ParseResult with URL and metadata.
@@ -156,10 +157,12 @@ func (p *Parser) parseFallbackSearch(cleanInput, originalInput string, startTime
 
 // processShortcut processes a search shortcut and builds the final URL.
 func (p *Parser) processShortcut(shortcutKey, query string, shortcut config.SearchShortcut) (string, error) {
-	urlTemplate := shortcut.URL
+    urlTemplate := shortcut.URL
 
-	// Replace placeholder with query
-	finalURL := strings.ReplaceAll(urlTemplate, "{query}", query)
+    // Replace placeholder with query
+    q := neturl.QueryEscape(query)
+    finalURL := strings.ReplaceAll(urlTemplate, "{query}", q)
+    finalURL = strings.ReplaceAll(finalURL, "%s", q)
 
 	// Validate the resulting URL
 	validator := NewURLValidator()
@@ -172,24 +175,28 @@ func (p *Parser) processShortcut(shortcutKey, query string, shortcut config.Sear
 
 // buildSearchURL builds a search URL using the default search engine.
 func (p *Parser) buildSearchURL(searchEngine, query string) string {
-	// If no specific search engine, use Google as default
-	if searchEngine == "" {
-		defaultShortcut, exists := p.config.SearchShortcuts["g"]
-		if exists {
-			url := strings.ReplaceAll(defaultShortcut.URL, "{query}", query)
-			return url
-		}
-		// Fallback to Google if no "g" shortcut configured
-		return fmt.Sprintf("https://www.google.com/search?q=%s", query)
-	}
+    q := neturl.QueryEscape(query)
+    // If no specific search engine, use Google as default
+    if searchEngine == "" {
+        defaultShortcut, exists := p.config.SearchShortcuts["g"]
+        if exists {
+            url := strings.ReplaceAll(defaultShortcut.URL, "{query}", q)
+            url = strings.ReplaceAll(url, "%s", q)
+            return url
+        }
+        // Fallback to Google if no "g" shortcut configured
+        return fmt.Sprintf("https://www.google.com/search?q=%s", q)
+    }
 
-	// Use specified search engine
-	shortcut, exists := p.config.SearchShortcuts[searchEngine]
-	if !exists {
-		return fmt.Sprintf("https://www.google.com/search?q=%s", query)
-	}
+    // Use specified search engine
+    shortcut, exists := p.config.SearchShortcuts[searchEngine]
+    if !exists {
+        return fmt.Sprintf("https://www.google.com/search?q=%s", q)
+    }
 
-	return strings.ReplaceAll(shortcut.URL, "{query}", query)
+    u := strings.ReplaceAll(shortcut.URL, "{query}", q)
+    u = strings.ReplaceAll(u, "%s", q)
+    return u
 }
 
 // FuzzySearchHistory performs fuzzy search on history and returns ranked matches.

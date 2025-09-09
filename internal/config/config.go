@@ -52,8 +52,8 @@ type HistoryConfig struct {
 
 // SearchShortcut represents a search shortcut configuration.
 type SearchShortcut struct {
-	URL         string `mapstructure:"url" yaml:"url"`
-	Description string `mapstructure:"description" yaml:"description"`
+    URL         string `mapstructure:"url" yaml:"url" json:"url"`
+    Description string `mapstructure:"description" yaml:"description" json:"description"`
 }
 
 // DmenuConfig holds dmenu/rofi integration configuration.
