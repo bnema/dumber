@@ -109,21 +109,24 @@ export class HTMLBuilder {
             display: flex;
             gap: 0.5rem;
             white-space: nowrap;
-            align-items: baseline;
+            align-items: center;
             overflow: hidden;
             width: 100%;
             min-width: 0; /* allow flex children to shrink */
         }
-
-        .history-favicon {
+        .history-favicon-chip {
             flex: 0 0 20px;
-            width: 16px; height: 16px;
-            padding: 2px;
-            box-sizing: content-box;
+            width: 20px; height: 20px;
             border-radius: 50%;
             background: #ccc;
             border: 1px solid rgba(0,0,0,.12);
             box-shadow: 0 1px 2px rgba(0,0,0,.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .history-favicon-img {
+            width: 16px; height: 16px;
             filter: brightness(1.06) contrast(1.03);
             image-rendering: -webkit-optimize-contrast;
         }

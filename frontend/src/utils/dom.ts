@@ -78,14 +78,17 @@ export class DOMRenderer {
     const line = document.createElement('div');
     line.className = 'history-line';
 
-    // Favicon chip
+    // Favicon chip (wrapper ensures perfect circle sizing)
+    const iconWrap = document.createElement('div');
+    iconWrap.className = 'history-favicon-chip';
     const icon = document.createElement('img');
-    icon.className = 'history-favicon';
+    icon.className = 'history-favicon-img';
     icon.width = 16; icon.height = 16;
     icon.loading = 'lazy';
     icon.referrerPolicy = 'no-referrer';
     icon.src = this.buildFaviconURL(item.url);
-    icon.addEventListener('error', () => { icon.style.display = 'none'; });
+    icon.addEventListener('error', () => { iconWrap.style.display = 'none'; });
+    iconWrap.appendChild(icon);
 
     const titleEl = document.createElement('span');
     titleEl.className = 'history-title';
@@ -107,7 +110,7 @@ export class DOMRenderer {
     urlEl.className = 'history-url';
     urlEl.textContent = item.url;
 
-    line.appendChild(icon);
+    line.appendChild(iconWrap);
     line.appendChild(titleEl);
     line.appendChild(sep1);
     line.appendChild(domainEl);
