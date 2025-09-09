@@ -65,3 +65,11 @@ tmp/
 
 # Node/TypeScript related
 node_modules/
+
+# Development/tooling files
+CLAUDE.md
+.claude/
+memory/
+scripts/
+specs/
+templates/
