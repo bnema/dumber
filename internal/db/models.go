@@ -24,3 +24,9 @@ type Shortcut struct {
 	Description sql.NullString `json:"description"`
 	CreatedAt   sql.NullTime   `json:"created_at"`
 }
+
+type ZoomLevel struct {
+	Domain     string       `json:"domain"`
+	ZoomFactor float64      `json:"zoom_factor"`
+	UpdatedAt  sql.NullTime `json:"updated_at"`
+}

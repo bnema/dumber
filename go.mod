@@ -4,6 +4,7 @@ go 1.25.1
 
 require (
 	github.com/fsnotify/fsnotify v1.9.0
+	github.com/golang/mock v1.6.0
 	github.com/ncruces/go-sqlite3 v0.29.0
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/viper v1.21.0

@@ -11,9 +11,21 @@ import (
 
 type Querier interface {
 	AddOrUpdateHistory(ctx context.Context, url string, title sql.NullString) error
+	// Cleanup zoom level entries older than specified days
+	CleanupOldZoomLevels(ctx context.Context, dollar_1 sql.NullString) error
+	// Delete zoom level setting for a domain
+	DeleteZoomLevel(ctx context.Context, domain string) error
 	GetHistory(ctx context.Context, limit int64) ([]History, error)
 	GetShortcuts(ctx context.Context) ([]Shortcut, error)
+	// Get zoom level for a specific domain
+	GetZoomLevel(ctx context.Context, domain string) (float64, error)
+	// Get zoom level for domain with default fallback
+	GetZoomLevelWithDefault(ctx context.Context, domain string) (interface{}, error)
+	// List all zoom level settings ordered by most recently updated
+	ListZoomLevels(ctx context.Context) ([]ZoomLevel, error)
 	SearchHistory(ctx context.Context, column1 sql.NullString, column2 sql.NullString, limit int64) ([]History, error)
+	// Set or update zoom level for a domain with validation
+	SetZoomLevel(ctx context.Context, domain string, zoomFactor float64) error
 }
 
 var _ Querier = (*Queries)(nil)

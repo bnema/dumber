@@ -83,6 +83,15 @@ func initializeSchema(db *sql.DB) error {
 		description TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
+
+	-- Zoom persistence per domain (not full URL)
+	CREATE TABLE IF NOT EXISTS zoom_levels (
+		domain TEXT PRIMARY KEY,
+		zoom_factor REAL NOT NULL DEFAULT 1.0 CHECK(zoom_factor >= 0.3 AND zoom_factor <= 5.0),
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_zoom_levels_updated_at ON zoom_levels(updated_at);
 	`
 
 	// Execute schema creation

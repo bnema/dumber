@@ -1,0 +1,258 @@
+openapi: 3.0.3
+info:
+  title: Browser Controls API
+  description: Wails backend API for browser keyboard and mouse controls
+  version: 0.1.0
+
+paths:
+  /zoom/in:
+    post:
+      summary: Zoom in to next higher level
+      description: Increases zoom level to next Firefox standard zoom level (FR-001)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                domain:
+                  type: string
+                  description: Current website domain for persistence
+                  example: "github.com"
+              required:
+                - domain
+      responses:
+        '200':
+          description: Zoom level successfully increased
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoomResponse'
+        '400':
+          description: Invalid domain or already at maximum zoom
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /zoom/out:
+    post:
+      summary: Zoom out to next lower level
+      description: Decreases zoom level to next Firefox standard zoom level (FR-002)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                domain:
+                  type: string
+                  description: Current website domain for persistence
+                  example: "stackoverflow.com"
+              required:
+                - domain
+      responses:
+        '200':
+          description: Zoom level successfully decreased
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoomResponse'
+        '400':
+          description: Invalid domain or already at minimum zoom
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /navigation/back:
+    post:
+      summary: Navigate to previous page in history
+      description: Navigates to previous page if history exists (FR-003, FR-010)
+      responses:
+        '200':
+          description: Successfully navigated back
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NavigationResponse'
+        '204':
+          description: No history available, no action taken
+        '500':
+          description: Navigation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /navigation/forward:
+    post:
+      summary: Navigate to next page in history
+      description: Navigates to next page if forward history exists (FR-004, FR-010)
+      responses:
+        '200':
+          description: Successfully navigated forward
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NavigationResponse'
+        '204':
+          description: No forward history available, no action taken
+        '500':
+          description: Navigation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /clipboard/copy-url:
+    post:
+      summary: Copy current URL to system clipboard
+      description: Copies current page URL using wlcopy/xclip/xsel fallback (FR-005, FR-006, FR-011)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url:
+                  type: string
+                  format: uri
+                  description: Current page URL to copy
+                  example: "https://github.com/bnema/dumber"
+              required:
+                - url
+      responses:
+        '200':
+          description: URL successfully copied to clipboard
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  tool_used:
+                    type: string
+                    enum: ["wlcopy", "xclip", "xsel"]
+                    example: "wlcopy"
+                  message:
+                    type: string
+                    example: "URL copied to clipboard using wlcopy"
+        '500':
+          description: All clipboard tools failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /zoom/get-level:
+    get:
+      summary: Get current zoom level for domain
+      description: Retrieves persisted zoom level for specific domain (FR-009)
+      parameters:
+        - name: domain
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Website domain to query
+          example: "reddit.com"
+      responses:
+        '200':
+          description: Zoom level retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoomResponse'
+        '404':
+          description: No zoom level stored for domain (defaults to 100%)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoomResponse'
+
+components:
+  schemas:
+    ZoomResponse:
+      type: object
+      properties:
+        zoom_factor:
+          type: number
+          format: float
+          description: Current zoom level as decimal (1.0 = 100%)
+          minimum: 0.3
+          maximum: 5.0
+          example: 1.2
+        zoom_percentage:
+          type: integer
+          description: Zoom level as percentage for UI display
+          minimum: 30
+          maximum: 500
+          example: 120
+        is_firefox_level:
+          type: boolean
+          description: Whether zoom level matches Firefox standard levels
+          example: true
+        domain:
+          type: string
+          description: Domain this zoom level applies to
+          example: "github.com"
+
+    NavigationResponse:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Target URL to navigate to
+          example: "https://previous-page.com"
+        title:
+          type: string
+          description: Page title if available
+          example: "Previous Page Title"
+        history_index:
+          type: integer
+          description: New position in history after navigation
+          example: 2
+        can_go_back:
+          type: boolean
+          description: Whether back navigation is still available
+          example: true
+        can_go_forward:
+          type: boolean
+          description: Whether forward navigation is available
+          example: false
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: "Already at maximum zoom level"
+        error_code:
+          type: string
+          description: Machine-readable error identifier
+          example: "MAX_ZOOM_REACHED"
+        timestamp:
+          type: string
+          format: date-time
+          description: Error occurrence timestamp
+          example: "2025-09-09T10:30:00Z"
+
+# Wails Service Methods (Go Implementation)
+# These correspond to the HTTP API but are called directly via Wails context:
+#
+# type BrowserControlService struct{}
+#
+# func (s *BrowserControlService) ZoomIn(ctx context.Context, domain string) (*ZoomResponse, error)
+# func (s *BrowserControlService) ZoomOut(ctx context.Context, domain string) (*ZoomResponse, error)
+# func (s *BrowserControlService) NavigateBack(ctx context.Context) (*NavigationResponse, error)  
+# func (s *BrowserControlService) NavigateForward(ctx context.Context) (*NavigationResponse, error)
+# func (s *BrowserControlService) CopyCurrentURL(ctx context.Context, url string) (*ClipboardResponse, error)
+# func (s *BrowserControlService) GetZoomLevel(ctx context.Context, domain string) (*ZoomResponse, error)
