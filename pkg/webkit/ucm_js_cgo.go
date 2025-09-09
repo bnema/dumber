@@ -172,8 +172,8 @@ func getOmniboxScript() string {
             const icon = document.createElement('img');
             icon.src = s.favicon || '';
             icon.width = 16; icon.height = 16; icon.loading = 'lazy';
-            // Ensure dark favicons remain visible on dark overlay: light chip + mild lift
-            icon.style.cssText = 'flex:0 0 20px;width:16px;height:16px;padding:2px;box-sizing:content-box;border-radius:6px;background:#fff;border:1px solid rgba(0,0,0,.15);box-shadow:0 1px 2px rgba(0,0,0,.15);filter:brightness(1.12) contrast(1.04);';
+            // Circular chip with light gray background for consistent contrast
+            icon.style.cssText = 'flex:0 0 20px;width:16px;height:16px;padding:2px;box-sizing:content-box;border-radius:50%;background:#ccc;border:1px solid rgba(0,0,0,.12);box-shadow:0 1px 2px rgba(0,0,0,.12);filter:brightness(1.06) contrast(1.03);';
             icon.onerror = ()=>{ icon.style.display='none'; };
             // Text line: Domain | full path (one line, fade at end)
             let domain = '', path = '';
