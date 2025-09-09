@@ -2,13 +2,22 @@
 
 .PHONY: build build-frontend test lint clean install-tools dev generate help check init build-static
 
+# Load local overrides from .env.local if present (Makefile syntax)
+ifneq (,$(wildcard .env.local))
+include .env.local
+export
+endif
+
 # Variables
 BINARY_NAME=dumber
 MAIN_PATH=.
 DIST_DIR=dist
 
-# Local caches to avoid $HOME permission issues in sandboxed environments
-GOENV=GOMODCACHE=$(PWD)/tmp/go-mod GOCACHE=$(PWD)/tmp/go-cache GOTMPDIR=$(PWD)/tmp
+# Local caches to avoid $HOME permission issues (override via .env.local)
+GOMODCACHE?=$(CURDIR)/tmp/go-mod
+GOCACHE?=$(CURDIR)/tmp/go-cache
+GOTMPDIR?=$(CURDIR)/tmp
+GOENV=GOMODCACHE=$(GOMODCACHE) GOCACHE=$(GOCACHE) GOTMPDIR=$(GOTMPDIR)
 
 # Version information from git
 VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "v0.0.0-dev")
