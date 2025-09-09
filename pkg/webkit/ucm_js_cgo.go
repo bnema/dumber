@@ -14,6 +14,7 @@ func getOmniboxScript() string {
     const MAX_MATCHES = 2000;
     const H = {
       el: null,
+      box: null,
       input: null,
       list: null,
       visible: false,
@@ -23,6 +24,8 @@ func getOmniboxScript() string {
       selectedIndex: -1,
       debounceTimer: 0,
       highlightNodes: [],
+      faded: false,
+      prevOverflow: '',
       post(msg){ try { window.webkit?.messageHandlers?.dumber?.postMessage(JSON.stringify(msg)); } catch(_){} },
       render(){
         if (!H.el) H.mount();
@@ -31,10 +34,47 @@ func getOmniboxScript() string {
         H.input.placeholder = H.mode === 'find' ? 'Find in page…' : 'Type URL or search…';
         H.input.focus();
       },
-      setMode(m){ H.mode = m === 'find' ? 'find' : 'omnibox'; H.selectedIndex = -1; H.paintList(); },
+      setMode(m){ H.mode = m === 'find' ? 'find' : 'omnibox'; H.selectedIndex = -1; H.setFaded(false); H.paintList(); },
       open(mode, initial){ H.setMode(mode||'omnibox'); H.toggle(true); if (typeof initial==='string') { H.input.value = initial; H.onInput(); } },
-      close(){ if (H.mode==='find') H.clearHighlights(); H.toggle(false); },
-      toggle(v){ H.visible = (typeof v==='boolean')? v : !H.visible; H.render(); },
+      close(){ if (H.mode==='find') H.clearHighlights(); H.setFaded(false); H.toggle(false); },
+      toggle(v){
+        const newState = (typeof v==='boolean')? v : !H.visible;
+        if (newState && !H.visible) {
+          // Disable page scrolling while overlay is visible
+          H.prevOverflow = document.documentElement.style.overflow;
+          document.documentElement.style.overflow = 'hidden';
+        } else if (!newState && H.visible) {
+          // Restore page scrolling on close
+          document.documentElement.style.overflow = H.prevOverflow || '';
+          H.prevOverflow = '';
+        }
+        H.visible = newState;
+        H.render();
+      },
+      setFaded(v){
+        H.faded = !!v;
+        if (!H.box || !H.input || !H.list) return;
+        if (H.faded) {
+          H.box.style.background = 'rgba(27,27,27,0.25)';
+          H.input.style.background = 'rgba(18,18,18,0.35)';
+          H.input.style.color = '#eee';
+        } else {
+          H.box.style.background = '#1b1b1b';
+          H.input.style.background = '#121212';
+          H.input.style.color = '#eee';
+        }
+      },
+      scrollListToSelection(){
+        if (!H.list) return;
+        let idx = H.selectedIndex|0;
+        if (idx < 0) return;
+        // Account for header in find mode
+        const childIdx = (H.mode==='find' ? 1 : 0) + idx;
+        const el = H.list.children[childIdx];
+        if (el && el.scrollIntoView) {
+          try { el.scrollIntoView({block:'nearest'}); } catch(_) { el.scrollIntoView(); }
+        }
+      },
       mount(){
         const root = document.createElement('div');
         root.id = 'dumber-omnibox-root';
@@ -51,9 +91,12 @@ func getOmniboxScript() string {
         style.textContent = '.dumber-find-highlight{background:#ffeb3b;color:#000;padding:0 1px;border-radius:2px;box-shadow:0 0 0 1px #c8b900 inset}';
         document.documentElement.appendChild(style);
         box.appendChild(input); box.appendChild(list); root.appendChild(box); document.documentElement.appendChild(root);
+        H.box = box;
         // Focus and select input on hover for quick typing
         input.addEventListener('mouseenter', ()=>{ if (H.visible) { try { input.focus({preventScroll:true}); input.select(); } catch(_) { input.focus(); } } });
         root.addEventListener('mouseenter', ()=>{ if (H.visible) { try { input.focus({preventScroll:true}); } catch(_) { input.focus(); } } });
+        // Clear fading when user goes back to input typing
+        input.addEventListener('focus', ()=> H.setFaded(false));
         input.addEventListener('keydown', (e)=>{
           if (e.key === 'Escape'){ H.close(); }
           else if (H.mode==='omnibox' && e.key === 'Enter'){
@@ -74,13 +117,14 @@ func getOmniboxScript() string {
               H.close();
             }
           } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp'){
-            e.preventDefault();
+            e.preventDefault(); e.stopPropagation();
             const n = (H.mode==='find'? H.matches.length : H.suggestions.length);
             if (n){
               H.selectedIndex = (H.selectedIndex||0) + (e.key==='ArrowDown'?1:-1);
               if (H.selectedIndex<0) H.selectedIndex = n-1; if (H.selectedIndex>=n) H.selectedIndex = 0;
               H.paintList();
-              H.revealSelection();
+              H.scrollListToSelection();
+              if (H.mode==='find') { H.revealSelection(); H.setFaded(true); }
             }
           }
         });
@@ -105,7 +149,7 @@ func getOmniboxScript() string {
             const url = document.createElement('div'); url.textContent = s.url || ''; url.style.cssText = 'flex:1;color:#9ad;word-break:break-all;';
             const title = document.createElement('div'); title.textContent = s.title || ''; title.style.cssText = 'flex:1;color:#ccc;opacity:.9;';
             item.appendChild(title); item.appendChild(url);
-            item.addEventListener('mouseenter', ()=>{ H.selectedIndex = i; H.paintList(); });
+            item.addEventListener('mouseenter', ()=>{ H.selectedIndex = i; H.paintList(); H.scrollListToSelection(); });
             item.addEventListener('click',()=>{ H.post({type:'navigate', url:s.url}); H.toggle(false); });
             list.appendChild(item);
           });
@@ -120,7 +164,7 @@ func getOmniboxScript() string {
             item.style.cssText = 'padding:8px 10px;cursor:pointer;border-bottom:1px solid #2a2a2a;'+(i===H.selectedIndex?'background:#0a0a0a;':'');
             const ctx = document.createElement('div'); ctx.textContent = m.context || ''; ctx.style.cssText = 'color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
             item.appendChild(ctx);
-            item.addEventListener('mouseenter', ()=>{ H.selectedIndex = i; H.paintList(); });
+            item.addEventListener('mouseenter', ()=>{ H.selectedIndex = i; H.paintList(); H.scrollListToSelection(); H.setFaded(true); });
             item.addEventListener('click',()=>{ H.selectedIndex=i; H.revealSelection(); H.paintList(); H.close(); });
             list.appendChild(item);
           });
