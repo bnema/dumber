@@ -1,7 +1,7 @@
 # Data Model: Project Initialization
 
 **Date**: 2025-01-09  
-**Context**: Data structures for dumb-browser project initialization
+**Context**: Data structures for dumber project initialization
 
 ## Core Entities
 
@@ -11,7 +11,7 @@
 **Structure**:
 ```go
 type ModuleConfig struct {
-    Name         string `validate:"required"`           // "dumb-browser"
+    Name         string `validate:"required"`           // "dumber"
     Version      string `validate:"required,semver"`    // "v0.1.0"
     GoVersion    string `validate:"required"`           // Go version requirement
     Dependencies []Dependency `validate:"dive"`
@@ -155,9 +155,9 @@ NotStarted → InProgress → Success
 ## Integration Points
 
 ### With CLI Commands
-- `dumb-browser init` → Creates **ModuleConfig** and **ProjectStructure**
-- `dumb-browser deps install` → Updates **InstallationStatus**
-- `dumb-browser deps verify` → Validates all **Dependencies**
+- `dumber init` → Creates **ModuleConfig** and **ProjectStructure**
+- `dumber deps install` → Updates **InstallationStatus**
+- `dumber deps verify` → Validates all **Dependencies**
 
 ### With Configuration Files
 - **go.mod**: Generated from **ModuleConfig**

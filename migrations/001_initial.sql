@@ -1,4 +1,4 @@
--- Initial database schema for dumb-browser
+-- Initial database schema for dumber
 -- History tracking for visited URLs
 
 CREATE TABLE IF NOT EXISTS history (

@@ -26,15 +26,15 @@ pacman -Q webkit2gtk gtk3
 Navigate to project root and initialize:
 
 ```bash
-cd /home/brice/dev/projects/dumb-browser
+cd /home/brice/dev/projects/dumber
 
 # Initialize with verbose output to see progress
-dumb-browser init --verbose
+dumber init --verbose
 ```
 
 **Expected Output**:
 ```
-✓ Initializing Go module: dumb-browser
+✓ Initializing Go module: dumber
 ✓ Installing CLI dependencies: cobra, viper
 ✓ Installing database dependencies: ncruces/go-sqlite3, sqlc
 ✓ Installing validation: go-playground/validator
@@ -48,8 +48,8 @@ Project initialized successfully!
 
 Next steps:
   1. Review generated configs/
-  2. Run: go build ./cmd/dumb-browser
-  3. Start development: dumb-browser --help
+  2. Run: go build ./cmd/dumber
+  3. Start development: dumber --help
 ```
 
 ## Step 2: Verify Installation
@@ -58,7 +58,7 @@ Check that all components are correctly installed:
 
 ```bash
 # Verify project status
-dumb-browser init status
+dumber init status
 
 # Expected output:
 # Project Status: ✓ Initialized
@@ -72,7 +72,7 @@ Detailed verification:
 ```bash
 # Check go.mod exists and is valid
 test -f go.mod && echo "✓ go.mod exists"
-grep -q "module dumb-browser" go.mod && echo "✓ Module name correct"
+grep -q "module dumber" go.mod && echo "✓ Module name correct"
 
 # Verify dependencies are downloadable
 go mod download && echo "✓ Dependencies resolved"
@@ -110,10 +110,10 @@ Test the full application with Wails:
 export CGO_ENABLED=1
 
 # Test full application build
-go build ./cmd/dumb-browser && echo "✓ Full build successful"
+go build ./cmd/dumber && echo "✓ Full build successful"
 
 # Clean up test binary
-rm -f dumb-browser
+rm -f dumber
 ```
 
 ## Step 5: Test Project Structure
@@ -145,7 +145,7 @@ test -f configs/sqlc.yaml && echo "✓ SQLC config exists"
 sqlc compile -f configs/sqlc.yaml && echo "✓ SQLC config valid"
 
 # Check basic project files exist (if generated)
-test -f cmd/dumb-browser/main.go && echo "✓ Main entry point exists"
+test -f cmd/dumber/main.go && echo "✓ Main entry point exists"
 ```
 
 ## Step 7: Test Module Dependencies
@@ -186,7 +186,7 @@ go test -race ./... && echo "✓ No race conditions detected"
 **Solution** (Arch Linux):
 ```bash
 sudo pacman -S webkit2gtk gtk3
-dumb-browser init deps --only=wails
+dumber init deps --only=wails
 ```
 
 ### Issue: CGO disabled for Wails
@@ -194,7 +194,7 @@ dumb-browser init deps --only=wails
 **Solution**:
 ```bash
 export CGO_ENABLED=1
-go build ./cmd/dumb-browser
+go build ./cmd/dumber
 ```
 
 ### Issue: Wrong SQLite driver
@@ -211,7 +211,7 @@ grep sqlite3 go.mod
 ```bash
 go env -w GOPROXY=proxy.golang.org,direct
 go env -w GOSUMDB=sum.golang.org
-dumb-browser init deps
+dumber init deps
 ```
 
 ## Success Criteria

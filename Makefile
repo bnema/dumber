@@ -1,10 +1,10 @@
-# Makefile for dumb-browser
+# Makefile for dumber
 
 .PHONY: build test lint clean install-tools dev generate help
 
 # Variables
-BINARY_NAME=dumb-browser
-MAIN_PATH=./cmd/dumb-browser
+BINARY_NAME=dumber
+MAIN_PATH=./cmd/dumber
 DIST_DIR=dist
 
 # Version information from git

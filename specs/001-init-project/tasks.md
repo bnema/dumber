@@ -1,6 +1,6 @@
 # Tasks: Project Initialization with Dependencies
 
-**Input**: Design documents from `/home/brice/dev/projects/dumb-browser/specs/001-init-project/`
+**Input**: Design documents from `/home/brice/dev/projects/dumber/specs/001-init-project/`
 **Prerequisites**: plan.md, research.md, data-model.md, contracts/
 
 ## Execution Flow (main)
@@ -15,8 +15,8 @@ Single project structure: `cmd/`, `internal/`, `tests/` at repository root per c
 
 ## Phase 3.1: Setup and Structure
 
-- [ ] T001 Initialize Go module with `go mod init dumb-browser` in project root
-- [ ] T002 Create project directory structure: `cmd/dumb-browser/`, `internal/{cli,db,parser,browser}/`, `migrations/`, `configs/`, `tests/{contract,integration,unit}/`
+- [ ] T001 Initialize Go module with `go mod init dumber` in project root
+- [ ] T002 Create project directory structure: `cmd/dumber/`, `internal/{cli,db,parser,browser}/`, `migrations/`, `configs/`, `tests/{contract,integration,unit}/`
 - [ ] T003 [P] Configure Git repository with .gitignore for Go projects
 
 ## Phase 3.2: Dependency Installation
@@ -44,7 +44,7 @@ Single project structure: `cmd/`, `internal/`, `tests/` at repository root per c
 - [ ] T016 [P] ModuleConfig model in `internal/models/module.go`
 - [ ] T017 [P] ProjectStructure model in `internal/models/structure.go`
 - [ ] T018 [P] InstallationStatus model in `internal/models/status.go`
-- [ ] T019 CLI root command setup in `cmd/dumb-browser/main.go`
+- [ ] T019 CLI root command setup in `cmd/dumber/main.go`
 - [ ] T020 CLI init command implementation in `internal/cli/init.go`
 - [ ] T021 Dependency installer service in `internal/services/installer.go`
 - [ ] T022 Project structure creator in `internal/services/structure.go`

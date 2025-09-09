@@ -1,7 +1,7 @@
 # Implementation Plan: Project Initialization with Dependencies
 
 **Branch**: `001-init-project` | **Date**: 2025-01-09 | **Spec**: [spec.md](./spec.md)
-**Input**: Feature specification from `/home/brice/dev/projects/dumb-browser/specs/001-init-project/spec.md`
+**Input**: Feature specification from `/home/brice/dev/projects/dumber/specs/001-init-project/spec.md`
 
 ## Execution Flow (/plan command scope)
 ```
@@ -29,7 +29,7 @@
 - Phase 3-4: Implementation execution (manual or via tools)
 
 ## Summary
-Initialize a Go project with all required dependencies for the dumb-browser application, following the constitution's technical stack: Go + Wails v3-alpha + WebKit2GTK + SQLite with CLI (Cobra + Viper), database (SQLC), and validation (go-playground/validator) components. Use `go get @latest` for all dependencies.
+Initialize a Go project with all required dependencies for the dumber application, following the constitution's technical stack: Go + Wails v3-alpha + WebKit2GTK + SQLite with CLI (Cobra + Viper), database (SQLC), and validation (go-playground/validator) components. Use `go get @latest` for all dependencies.
 
 ## Technical Context
 **User Details**: We need to add all deps using go get @latest
@@ -47,7 +47,7 @@ Initialize a Go project with all required dependencies for the dumb-browser appl
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 **Simplicity**:
-- Projects: 1 (single desktop app - dumb-browser)
+- Projects: 1 (single desktop app - dumber)
 - Using framework directly? YES (Wails, Cobra, Viper directly)
 - Single data model? YES (SQLite schema matches Go structs via SQLC)
 - Avoiding patterns? YES (no unnecessary abstractions for initialization)

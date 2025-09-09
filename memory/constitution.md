@@ -12,7 +12,7 @@
 - Support any dmenu-compatible launcher (fuzzel, rofi, tofi, wofi, bemenu)
 - Standard stdin/stdout protocol - no launcher-specific integrations
 - Clean text-based format for history/suggestions
-- Pipeline-friendly: `dumb-browser --dmenu | launcher | dumb-browser --dmenu`
+- Pipeline-friendly: `dumber --dmenu | launcher | dumber --dmenu`
 
 ### III. Smart URL Handling
 - Direct URL detection: `reddit.com` → navigate directly
