@@ -1,30 +1,30 @@
 package services
 
 import (
-    "context"
-    "fmt"
-    "os"
-    "path/filepath"
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
 
-    "github.com/bnema/dumber/internal/config"
-    "strings"
+	"github.com/bnema/dumber/internal/config"
+	"strings"
 )
 
 // ConfigService handles configuration operations for the application.
 type ConfigService struct {
-    config     *config.Config
-    configPath string
+	config     *config.Config
+	configPath string
 }
 
 const defaultDirPerm = 0o750
 
 // ConfigInfo represents configuration information for the frontend.
 type ConfigInfo struct {
-    ConfigPath      string                            `json:"config_path"`
-    DatabasePath    string                            `json:"database_path"`
-    SearchShortcuts map[string]config.SearchShortcut  `json:"search_shortcuts"`
-    DmenuSettings   *config.DmenuConfig              `json:"dmenu_settings"`
-    RenderingMode   string                           `json:"rendering_mode"`
+	ConfigPath      string                           `json:"config_path"`
+	DatabasePath    string                           `json:"database_path"`
+	SearchShortcuts map[string]config.SearchShortcut `json:"search_shortcuts"`
+	DmenuSettings   *config.DmenuConfig              `json:"dmenu_settings"`
+	RenderingMode   string                           `json:"rendering_mode"`
 }
 
 // NewConfigService creates a new ConfigService instance.
@@ -37,29 +37,29 @@ func NewConfigService(cfg *config.Config, configPath string) *ConfigService {
 
 // GetConfigInfo returns comprehensive configuration information.
 func (s *ConfigService) GetConfigInfo(ctx context.Context) (*ConfigInfo, error) {
-    _ = ctx
-    return &ConfigInfo{
-        ConfigPath:      s.configPath,
-        DatabasePath:    s.config.Database.Path,
-        SearchShortcuts: s.config.SearchShortcuts,
-        DmenuSettings:   &s.config.Dmenu,
-        RenderingMode:   string(s.config.RenderingMode),
-    }, nil
+	_ = ctx
+	return &ConfigInfo{
+		ConfigPath:      s.configPath,
+		DatabasePath:    s.config.Database.Path,
+		SearchShortcuts: s.config.SearchShortcuts,
+		DmenuSettings:   &s.config.Dmenu,
+		RenderingMode:   string(s.config.RenderingMode),
+	}, nil
 }
 
 // GetSearchShortcuts returns all configured search shortcuts.
 func (s *ConfigService) GetSearchShortcuts(ctx context.Context) (map[string]config.SearchShortcut, error) {
-    _ = ctx
-    return s.config.SearchShortcuts, nil
+	_ = ctx
+	return s.config.SearchShortcuts, nil
 }
 
 // AddSearchShortcut adds a new search shortcut.
 func (s *ConfigService) AddSearchShortcut(ctx context.Context, key string, shortcut config.SearchShortcut) error {
-    _ = ctx
-    if key == "" {
-        return fmt.Errorf("shortcut key cannot be empty")
-    }
-	
+	_ = ctx
+	if key == "" {
+		return fmt.Errorf("shortcut key cannot be empty")
+	}
+
 	if shortcut.URL == "" {
 		return fmt.Errorf("shortcut URL cannot be empty")
 	}
@@ -74,10 +74,10 @@ func (s *ConfigService) AddSearchShortcut(ctx context.Context, key string, short
 
 // UpdateSearchShortcut updates an existing search shortcut.
 func (s *ConfigService) UpdateSearchShortcut(ctx context.Context, key string, shortcut config.SearchShortcut) error {
-    _ = ctx
-    if key == "" {
-        return fmt.Errorf("shortcut key cannot be empty")
-    }
+	_ = ctx
+	if key == "" {
+		return fmt.Errorf("shortcut key cannot be empty")
+	}
 
 	if _, exists := s.config.SearchShortcuts[key]; !exists {
 		return fmt.Errorf("shortcut '%s' does not exist", key)
@@ -93,10 +93,10 @@ func (s *ConfigService) UpdateSearchShortcut(ctx context.Context, key string, sh
 
 // DeleteSearchShortcut removes a search shortcut.
 func (s *ConfigService) DeleteSearchShortcut(ctx context.Context, key string) error {
-    _ = ctx
-    if key == "" {
-        return fmt.Errorf("shortcut key cannot be empty")
-    }
+	_ = ctx
+	if key == "" {
+		return fmt.Errorf("shortcut key cannot be empty")
+	}
 
 	if _, exists := s.config.SearchShortcuts[key]; !exists {
 		return fmt.Errorf("shortcut '%s' does not exist", key)
@@ -108,16 +108,16 @@ func (s *ConfigService) DeleteSearchShortcut(ctx context.Context, key string) er
 
 // GetDmenuSettings returns current dmenu settings.
 func (s *ConfigService) GetDmenuSettings(ctx context.Context) (*config.DmenuConfig, error) {
-    _ = ctx
-    return &s.config.Dmenu, nil
+	_ = ctx
+	return &s.config.Dmenu, nil
 }
 
 // UpdateDmenuSettings updates dmenu configuration.
 func (s *ConfigService) UpdateDmenuSettings(ctx context.Context, settings *config.DmenuConfig) error {
-    _ = ctx
-    if settings == nil {
-        return fmt.Errorf("dmenu settings cannot be nil")
-    }
+	_ = ctx
+	if settings == nil {
+		return fmt.Errorf("dmenu settings cannot be nil")
+	}
 
 	s.config.Dmenu = *settings
 	return s.saveConfig()
@@ -125,22 +125,22 @@ func (s *ConfigService) UpdateDmenuSettings(ctx context.Context, settings *confi
 
 // GetDatabasePath returns the current database path.
 func (s *ConfigService) GetDatabasePath(ctx context.Context) (string, error) {
-    _ = ctx
-    return s.config.Database.Path, nil
+	_ = ctx
+	return s.config.Database.Path, nil
 }
 
 // SetDatabasePath updates the database path.
 func (s *ConfigService) SetDatabasePath(ctx context.Context, path string) error {
-    _ = ctx
-    if path == "" {
-        return fmt.Errorf("database path cannot be empty")
-    }
+	_ = ctx
+	if path == "" {
+		return fmt.Errorf("database path cannot be empty")
+	}
 
 	// Validate that the directory exists or can be created
 	dir := filepath.Dir(path)
-    if err := os.MkdirAll(dir, defaultDirPerm); err != nil {
-        return fmt.Errorf("failed to create database directory: %w", err)
-    }
+	if err := os.MkdirAll(dir, defaultDirPerm); err != nil {
+		return fmt.Errorf("failed to create database directory: %w", err)
+	}
 
 	s.config.Database.Path = path
 	return s.saveConfig()
@@ -148,28 +148,28 @@ func (s *ConfigService) SetDatabasePath(ctx context.Context, path string) error 
 
 // GetDefaultBrowser returns the default browser setting.
 func (s *ConfigService) GetDefaultBrowser(ctx context.Context) (string, error) {
-    _ = ctx
-    // Default browser is now built into the app
-    return "dumber (built-in)", nil
+	_ = ctx
+	// Default browser is now built into the app
+	return "dumber (built-in)", nil
 }
 
 // SetDefaultBrowser updates the default browser setting.
 func (s *ConfigService) SetDefaultBrowser(ctx context.Context, browser string) error {
-    _ = ctx
-    _ = browser
-    // Default browser setting is not needed for built-in browser
-    return fmt.Errorf("default browser is built-in and cannot be changed")
+	_ = ctx
+	_ = browser
+	// Default browser setting is not needed for built-in browser
+	return fmt.Errorf("default browser is built-in and cannot be changed")
 }
 
 // ReloadConfig reloads configuration from file.
 func (s *ConfigService) ReloadConfig(ctx context.Context) error {
-    _ = ctx
-    // Create new manager and load config
-    manager, err := config.NewManager()
-    if err != nil {
-        return fmt.Errorf("failed to create config manager: %w", err)
-    }
-	
+	_ = ctx
+	// Create new manager and load config
+	manager, err := config.NewManager()
+	if err != nil {
+		return fmt.Errorf("failed to create config manager: %w", err)
+	}
+
 	if err := manager.Load(); err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
@@ -180,8 +180,8 @@ func (s *ConfigService) ReloadConfig(ctx context.Context) error {
 
 // ValidateConfig validates the current configuration.
 func (s *ConfigService) ValidateConfig(ctx context.Context) ([]string, error) {
-    _ = ctx
-    var errors []string
+	_ = ctx
+	var errors []string
 
 	// Validate database path
 	if s.config.Database.Path == "" {
@@ -219,16 +219,16 @@ func (s *ConfigService) ValidateConfig(ctx context.Context) ([]string, error) {
 
 // GetConfigPath returns the path to the configuration file.
 func (s *ConfigService) GetConfigPath(ctx context.Context) (string, error) {
-    _ = ctx
-    return s.configPath, nil
+	_ = ctx
+	return s.configPath, nil
 }
 
 // ExportConfig returns the current configuration as JSON.
 func (s *ConfigService) ExportConfig(ctx context.Context) (*config.Config, error) {
-    _ = ctx
-    // Return a copy of the config to prevent modifications
-    configCopy := *s.config
-    return &configCopy, nil
+	_ = ctx
+	// Return a copy of the config to prevent modifications
+	configCopy := *s.config
+	return &configCopy, nil
 }
 
 // ImportConfig imports configuration from a Config object.
@@ -255,21 +255,21 @@ func (s *ConfigService) ImportConfig(ctx context.Context, newConfig *config.Conf
 
 // GetRenderingMode returns the current rendering mode (auto|gpu|cpu).
 func (s *ConfigService) GetRenderingMode(ctx context.Context) (string, error) {
-    _ = ctx
-    return string(s.config.RenderingMode), nil
+	_ = ctx
+	return string(s.config.RenderingMode), nil
 }
 
 // SetRenderingMode updates the rendering mode (auto|gpu|cpu).
 func (s *ConfigService) SetRenderingMode(ctx context.Context, mode string) error {
-    _ = ctx
-    m := strings.ToLower(strings.TrimSpace(mode))
-    switch m {
-    case "auto", "gpu", "cpu":
-        s.config.RenderingMode = config.RenderingMode(m)
-        return s.saveConfig()
-    default:
-        return fmt.Errorf("invalid rendering mode: %s", mode)
-    }
+	_ = ctx
+	m := strings.ToLower(strings.TrimSpace(mode))
+	switch m {
+	case "auto", "gpu", "cpu":
+		s.config.RenderingMode = config.RenderingMode(m)
+		return s.saveConfig()
+	default:
+		return fmt.Errorf("invalid rendering mode: %s", mode)
+	}
 }
 
 // saveConfig saves the current configuration to file.

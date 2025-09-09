@@ -16,23 +16,23 @@ import (
 
 // Config represents the complete configuration for dumber.
 type Config struct {
-    Database        DatabaseConfig            `mapstructure:"database" yaml:"database"`
-    History         HistoryConfig             `mapstructure:"history" yaml:"history"`
-    SearchShortcuts map[string]SearchShortcut `mapstructure:"search_shortcuts" yaml:"search_shortcuts"`
-    Dmenu           DmenuConfig               `mapstructure:"dmenu" yaml:"dmenu"`
-    Logging         LoggingConfig             `mapstructure:"logging" yaml:"logging"`
-    Appearance      AppearanceConfig          `mapstructure:"appearance" yaml:"appearance"`
-    // RenderingMode controls GPU/CPU rendering selection for WebKit
-    RenderingMode   RenderingMode             `mapstructure:"rendering_mode" yaml:"rendering_mode"`
+	Database        DatabaseConfig            `mapstructure:"database" yaml:"database"`
+	History         HistoryConfig             `mapstructure:"history" yaml:"history"`
+	SearchShortcuts map[string]SearchShortcut `mapstructure:"search_shortcuts" yaml:"search_shortcuts"`
+	Dmenu           DmenuConfig               `mapstructure:"dmenu" yaml:"dmenu"`
+	Logging         LoggingConfig             `mapstructure:"logging" yaml:"logging"`
+	Appearance      AppearanceConfig          `mapstructure:"appearance" yaml:"appearance"`
+	// RenderingMode controls GPU/CPU rendering selection for WebKit
+	RenderingMode RenderingMode `mapstructure:"rendering_mode" yaml:"rendering_mode"`
 }
 
 // RenderingMode selects GPU vs CPU rendering.
 type RenderingMode string
 
 const (
-    RenderingModeAuto RenderingMode = "auto"
-    RenderingModeGPU  RenderingMode = "gpu"
-    RenderingModeCPU  RenderingMode = "cpu"
+	RenderingModeAuto RenderingMode = "auto"
+	RenderingModeGPU  RenderingMode = "gpu"
+	RenderingModeCPU  RenderingMode = "cpu"
 )
 
 // DatabaseConfig holds database-related configuration.
@@ -52,8 +52,8 @@ type HistoryConfig struct {
 
 // SearchShortcut represents a search shortcut configuration.
 type SearchShortcut struct {
-    URL         string `mapstructure:"url" yaml:"url" json:"url"`
-    Description string `mapstructure:"description" yaml:"description" json:"description"`
+	URL         string `mapstructure:"url" yaml:"url" json:"url"`
+	Description string `mapstructure:"description" yaml:"description" json:"description"`
 }
 
 // DmenuConfig holds dmenu/rofi integration configuration.
@@ -81,12 +81,12 @@ type LoggingConfig struct {
 
 // AppearanceConfig holds UI/rendering preferences.
 type AppearanceConfig struct {
-    // Default fonts for pages that do not specify fonts.
-    SansFont       string `mapstructure:"sans_font" yaml:"sans_font"`
-    SerifFont      string `mapstructure:"serif_font" yaml:"serif_font"`
-    MonospaceFont  string `mapstructure:"monospace_font" yaml:"monospace_font"`
-    // Default font size in CSS pixels (approx).
-    DefaultFontSize int   `mapstructure:"default_font_size" yaml:"default_font_size"`
+	// Default fonts for pages that do not specify fonts.
+	SansFont      string `mapstructure:"sans_font" yaml:"sans_font"`
+	SerifFont     string `mapstructure:"serif_font" yaml:"serif_font"`
+	MonospaceFont string `mapstructure:"monospace_font" yaml:"monospace_font"`
+	// Default font size in CSS pixels (approx).
+	DefaultFontSize int `mapstructure:"default_font_size" yaml:"default_font_size"`
 }
 
 // Manager handles configuration loading, watching, and reloading.
@@ -119,7 +119,7 @@ func NewManager() (*Manager, error) {
 	v.AutomaticEnv()
 
 	// Bind specific environment variables
-    bindings := map[string]string{
+	bindings := map[string]string{
 		"database.path":             "DATABASE_PATH",
 		"database.max_connections":  "DATABASE_MAX_CONNECTIONS",
 		"database.max_idle_time":    "DATABASE_MAX_IDLE_TIME",
@@ -147,16 +147,16 @@ func NewManager() (*Manager, error) {
 		"logging.compress":          "LOGGING_COMPRESS",
 	}
 
-    for key, env := range bindings {
-        if err := v.BindEnv(key, "DUMB_BROWSER_"+env); err != nil {
-            return nil, fmt.Errorf("failed to bind environment variable %s: %w", env, err)
-        }
-    }
+	for key, env := range bindings {
+		if err := v.BindEnv(key, "DUMB_BROWSER_"+env); err != nil {
+			return nil, fmt.Errorf("failed to bind environment variable %s: %w", env, err)
+		}
+	}
 
-    // Explicit binding for rendering mode via dedicated env var
-    if err := v.BindEnv("rendering_mode", "DUMBER_RENDERING_MODE"); err != nil {
-        return nil, fmt.Errorf("failed to bind DUMBER_RENDERING_MODE: %w", err)
-    }
+	// Explicit binding for rendering mode via dedicated env var
+	if err := v.BindEnv("rendering_mode", "DUMBER_RENDERING_MODE"); err != nil {
+		return nil, fmt.Errorf("failed to bind DUMBER_RENDERING_MODE: %w", err)
+	}
 
 	return &Manager{
 		viper:     v,
@@ -189,11 +189,11 @@ func (m *Manager) Load() error {
 		}
 	}
 
-    // Unmarshal into config struct
-    config := &Config{}
-    if err := m.viper.Unmarshal(config); err != nil {
-        return fmt.Errorf("failed to unmarshal config: %w", err)
-    }
+	// Unmarshal into config struct
+	config := &Config{}
+	if err := m.viper.Unmarshal(config); err != nil {
+		return fmt.Errorf("failed to unmarshal config: %w", err)
+	}
 
 	// Set database path if not specified
 	if config.Database.Path == "" {
@@ -204,20 +204,20 @@ func (m *Manager) Load() error {
 		config.Database.Path = dbPath
 	}
 
-    // Normalize/validate rendering mode
-    switch strings.ToLower(string(config.RenderingMode)) {
-    case "", string(RenderingModeAuto):
-        config.RenderingMode = RenderingModeAuto
-    case string(RenderingModeGPU):
-        config.RenderingMode = RenderingModeGPU
-    case string(RenderingModeCPU):
-        config.RenderingMode = RenderingModeCPU
-    default:
-        config.RenderingMode = RenderingModeAuto
-    }
+	// Normalize/validate rendering mode
+	switch strings.ToLower(string(config.RenderingMode)) {
+	case "", string(RenderingModeAuto):
+		config.RenderingMode = RenderingModeAuto
+	case string(RenderingModeGPU):
+		config.RenderingMode = RenderingModeGPU
+	case string(RenderingModeCPU):
+		config.RenderingMode = RenderingModeCPU
+	default:
+		config.RenderingMode = RenderingModeAuto
+	}
 
-    m.config = config
-    return nil
+	m.config = config
+	return nil
 }
 
 // Get returns the current configuration (thread-safe).
@@ -277,10 +277,10 @@ func (m *Manager) reload() error {
 		return err
 	}
 
-    config := &Config{}
-    if err := m.viper.Unmarshal(config); err != nil {
-        return err
-    }
+	config := &Config{}
+	if err := m.viper.Unmarshal(config); err != nil {
+		return err
+	}
 
 	// Set database path if not specified
 	if config.Database.Path == "" {
@@ -291,25 +291,25 @@ func (m *Manager) reload() error {
 		config.Database.Path = dbPath
 	}
 
-    // Normalize/validate rendering mode
-    switch strings.ToLower(string(config.RenderingMode)) {
-    case "", string(RenderingModeAuto):
-        config.RenderingMode = RenderingModeAuto
-    case string(RenderingModeGPU):
-        config.RenderingMode = RenderingModeGPU
-    case string(RenderingModeCPU):
-        config.RenderingMode = RenderingModeCPU
-    default:
-        config.RenderingMode = RenderingModeAuto
-    }
+	// Normalize/validate rendering mode
+	switch strings.ToLower(string(config.RenderingMode)) {
+	case "", string(RenderingModeAuto):
+		config.RenderingMode = RenderingModeAuto
+	case string(RenderingModeGPU):
+		config.RenderingMode = RenderingModeGPU
+	case string(RenderingModeCPU):
+		config.RenderingMode = RenderingModeCPU
+	default:
+		config.RenderingMode = RenderingModeAuto
+	}
 
-    m.config = config
-    return nil
+	m.config = config
+	return nil
 }
 
 // setDefaults sets default configuration values in Viper.
 func (m *Manager) setDefaults() {
-    defaults := DefaultConfig()
+	defaults := DefaultConfig()
 
 	// Database defaults
 	m.viper.SetDefault("database.max_connections", defaults.Database.MaxConnections)
@@ -336,23 +336,23 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("dmenu.date_format", defaults.Dmenu.DateFormat)
 	m.viper.SetDefault("dmenu.sort_by_visit_count", defaults.Dmenu.SortByVisitCount)
 
-    // Logging defaults
-    m.viper.SetDefault("logging.level", defaults.Logging.Level)
-    m.viper.SetDefault("logging.format", defaults.Logging.Format)
-    m.viper.SetDefault("logging.filename", defaults.Logging.Filename)
-    m.viper.SetDefault("logging.max_size", defaults.Logging.MaxSize)
-    m.viper.SetDefault("logging.max_backups", defaults.Logging.MaxBackups)
-    m.viper.SetDefault("logging.max_age", defaults.Logging.MaxAge)
-    m.viper.SetDefault("logging.compress", defaults.Logging.Compress)
+	// Logging defaults
+	m.viper.SetDefault("logging.level", defaults.Logging.Level)
+	m.viper.SetDefault("logging.format", defaults.Logging.Format)
+	m.viper.SetDefault("logging.filename", defaults.Logging.Filename)
+	m.viper.SetDefault("logging.max_size", defaults.Logging.MaxSize)
+	m.viper.SetDefault("logging.max_backups", defaults.Logging.MaxBackups)
+	m.viper.SetDefault("logging.max_age", defaults.Logging.MaxAge)
+	m.viper.SetDefault("logging.compress", defaults.Logging.Compress)
 
-    // Appearance defaults
-    m.viper.SetDefault("appearance.sans_font", defaults.Appearance.SansFont)
-    m.viper.SetDefault("appearance.serif_font", defaults.Appearance.SerifFont)
-    m.viper.SetDefault("appearance.monospace_font", defaults.Appearance.MonospaceFont)
-    m.viper.SetDefault("appearance.default_font_size", defaults.Appearance.DefaultFontSize)
+	// Appearance defaults
+	m.viper.SetDefault("appearance.sans_font", defaults.Appearance.SansFont)
+	m.viper.SetDefault("appearance.serif_font", defaults.Appearance.SerifFont)
+	m.viper.SetDefault("appearance.monospace_font", defaults.Appearance.MonospaceFont)
+	m.viper.SetDefault("appearance.default_font_size", defaults.Appearance.DefaultFontSize)
 
-    // Rendering defaults
-    m.viper.SetDefault("rendering_mode", string(RenderingModeAuto))
+	// Rendering defaults
+	m.viper.SetDefault("rendering_mode", string(RenderingModeAuto))
 }
 
 // createDefaultConfig creates a default configuration file.

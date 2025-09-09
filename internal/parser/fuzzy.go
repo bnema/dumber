@@ -437,12 +437,12 @@ func (fm *FuzzyMatcher) isDomainMatch(query, url string) bool {
 	if domain == query {
 		return true
 	}
-	
-	// Check if query is part of domain (e.g., "github" in "github.com" or "www.github.com")  
+
+	// Check if query is part of domain (e.g., "github" in "github.com" or "www.github.com")
 	if strings.HasSuffix(domain, "."+query) || strings.HasPrefix(domain, query+".") {
 		return true
 	}
-	
+
 	// Check if query matches a significant part of domain (not just a substring)
 	// Split domain by dots and check if any part matches query
 	domainParts := strings.Split(domain, ".")
@@ -451,7 +451,7 @@ func (fm *FuzzyMatcher) isDomainMatch(query, url string) bool {
 			return true
 		}
 	}
-	
+
 	return false
 }
 

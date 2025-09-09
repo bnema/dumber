@@ -3,81 +3,82 @@
 package webkit
 
 import (
-    "fmt"
-    "log"
+	"fmt"
+	"log"
 )
 
 // WebView represents a browser view powered by WebKit2GTK.
 // Methods are currently stubs returning ErrNotImplemented to satisfy TDD ordering.
 type WebView struct {
-    config  *Config
-    visible bool
-    zoom    float64
-    url     string
-    destroyed bool
-    window  *Window
-    msgHandler func(payload string)
-    titleHandler func(title string)
-    uriHandler   func(uri string)
+	config       *Config
+	visible      bool
+	zoom         float64
+	url          string
+	destroyed    bool
+	window       *Window
+	msgHandler   func(payload string)
+	titleHandler func(title string)
+	uriHandler   func(uri string)
+	zoomHandler  func(level float64)
 }
 
 // NewWebView constructs a new WebView instance.
 func NewWebView(cfg *Config) (*WebView, error) {
-    if cfg == nil {
-        cfg = &Config{}
-    }
-    log.Printf("[webkit] NewWebView (non-CGO stub) — UI will not be displayed. Build with -tags=webkit_cgo for native window.")
-    wv := &WebView{config: cfg}
-    if cfg.ZoomDefault <= 0 {
-        wv.zoom = 1.0
-    } else {
-        wv.zoom = cfg.ZoomDefault
-    }
-    // Construction succeeds; create a logical window placeholder.
-    wv.window = &Window{Title: "Dumber Browser"}
-    return wv, nil
+	if cfg == nil {
+		cfg = &Config{}
+	}
+	log.Printf("[webkit] NewWebView (non-CGO stub) — UI will not be displayed. Build with -tags=webkit_cgo for native window.")
+	wv := &WebView{config: cfg}
+	if cfg.ZoomDefault <= 0 {
+		wv.zoom = 1.0
+	} else {
+		wv.zoom = cfg.ZoomDefault
+	}
+	// Construction succeeds; create a logical window placeholder.
+	wv.window = &Window{Title: "Dumber Browser"}
+	return wv, nil
 }
 
 // LoadURL navigates the webview to the specified URL.
 func (w *WebView) LoadURL(rawURL string) error {
-    if w == nil || w.destroyed {
-        return ErrNotImplemented
-    }
-    if rawURL == "" {
-        return fmt.Errorf("url cannot be empty")
-    }
-    // Minimal validation; actual navigation handled by CGO bridge later.
-    w.url = rawURL
-    log.Printf("[webkit] LoadURL (non-CGO stub): %s", rawURL)
-    return nil
+	if w == nil || w.destroyed {
+		return ErrNotImplemented
+	}
+	if rawURL == "" {
+		return fmt.Errorf("url cannot be empty")
+	}
+	// Minimal validation; actual navigation handled by CGO bridge later.
+	w.url = rawURL
+	log.Printf("[webkit] LoadURL (non-CGO stub): %s", rawURL)
+	return nil
 }
 
 // Show makes the WebView visible.
 func (w *WebView) Show() error {
-    if w == nil || w.destroyed {
-        return ErrNotImplemented
-    }
-    w.visible = true
-    log.Printf("[webkit] Show (non-CGO stub): no native window will appear")
-    return nil
+	if w == nil || w.destroyed {
+		return ErrNotImplemented
+	}
+	w.visible = true
+	log.Printf("[webkit] Show (non-CGO stub): no native window will appear")
+	return nil
 }
 
 // Hide hides the WebView window.
 func (w *WebView) Hide() error {
-    if w == nil || w.destroyed {
-        return ErrNotImplemented
-    }
-    w.visible = false
-    return nil
+	if w == nil || w.destroyed {
+		return ErrNotImplemented
+	}
+	w.visible = false
+	return nil
 }
 
 // Destroy releases native resources.
 func (w *WebView) Destroy() error {
-    if w == nil {
-        return ErrNotImplemented
-    }
-    w.destroyed = true
-    return nil
+	if w == nil {
+		return ErrNotImplemented
+	}
+	w.destroyed = true
+	return nil
 }
 
 // Window returns the associated native window wrapper (non-nil).
@@ -88,11 +89,13 @@ func (w *WebView) GetCurrentURL() string { return w.url }
 
 // GoBack is not supported in the non-CGO stub.
 func (w *WebView) GoBack() error { return ErrNotImplemented }
+
 // GoForward is not supported in the non-CGO stub.
 func (w *WebView) GoForward() error { return ErrNotImplemented }
 
 // ShowDevTools is a no-op in the non-CGO build.
 func (w *WebView) ShowDevTools() error { return nil }
+
 // CloseDevTools is a no-op in the non-CGO build.
 func (w *WebView) CloseDevTools() error { return nil }
 
@@ -100,19 +103,34 @@ func (w *WebView) CloseDevTools() error { return nil }
 func (w *WebView) RegisterScriptMessageHandler(cb func(payload string)) { w.msgHandler = cb }
 
 func (w *WebView) dispatchScriptMessage(payload string) {
-    if w != nil && w.msgHandler != nil { w.msgHandler(payload) }
+	if w != nil && w.msgHandler != nil {
+		w.msgHandler(payload)
+	}
 }
 
 // RegisterTitleChangedHandler registers a callback invoked when the page title changes.
 func (w *WebView) RegisterTitleChangedHandler(cb func(title string)) { w.titleHandler = cb }
 
 func (w *WebView) dispatchTitleChanged(title string) {
-    if w != nil && w.titleHandler != nil { w.titleHandler(title) }
+	if w != nil && w.titleHandler != nil {
+		w.titleHandler(title)
+	}
 }
 
 // RegisterURIChangedHandler registers a callback invoked when the current page URI changes.
 func (w *WebView) RegisterURIChangedHandler(cb func(uri string)) { w.uriHandler = cb }
 
 func (w *WebView) dispatchURIChanged(uri string) {
-    if w != nil && w.uriHandler != nil { w.uriHandler(uri) }
+	if w != nil && w.uriHandler != nil {
+		w.uriHandler(uri)
+	}
+}
+
+// RegisterZoomChangedHandler registers a callback invoked when zoom level changes.
+func (w *WebView) RegisterZoomChangedHandler(cb func(level float64)) { w.zoomHandler = cb }
+
+func (w *WebView) dispatchZoomChanged(level float64) {
+	if w != nil && w.zoomHandler != nil {
+		w.zoomHandler(level)
+	}
 }

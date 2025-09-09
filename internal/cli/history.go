@@ -102,7 +102,7 @@ func listHistory(cmd *cobra.Command, _ []string) error {
 	}()
 
 	ctx := context.Background()
-	
+
 	limit, _ := cmd.Flags().GetInt("limit")
 	verbose, _ := cmd.Flags().GetBool("verbose")
 
@@ -123,7 +123,7 @@ func listHistory(cmd *cobra.Command, _ []string) error {
 	if verbose {
 		fmt.Fprintln(w, "ID\tVISITS\tLAST VISITED\tURL\tTITLE")
 		fmt.Fprintln(w, "--\t------\t------------\t---\t-----")
-		
+
 		for _, entry := range history {
 			visits := "1"
 			if entry.VisitCount.Valid {
@@ -143,7 +143,7 @@ func listHistory(cmd *cobra.Command, _ []string) error {
 			url := truncateString(entry.Url, 50)
 			title = truncateString(title, 40)
 
-			fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n", 
+			fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n",
 				entry.ID, visits, lastVisited, url, title)
 		}
 	} else {
@@ -250,7 +250,7 @@ func clearHistory(cmd *cobra.Command, _ []string) error {
 		var response string
 		_, _ = fmt.Scanln(&response)
 		response = strings.ToLower(strings.TrimSpace(response))
-		
+
 		if response != "y" && response != "yes" {
 			fmt.Println("Operation cancelled.")
 			return nil
@@ -340,20 +340,20 @@ func showStats(_ *cobra.Command, _ []string) error {
 	fmt.Println("Browsing History Statistics")
 	fmt.Println("==========================")
 	fmt.Printf("Total unique URLs: %d\n", totalEntries)
-	
+
 	if totalVisits.Valid {
 		fmt.Printf("Total visits: %d\n", totalVisits.Int64)
 	}
 
 	if oldestDate.Valid && newestDate.Valid {
-		fmt.Printf("Date range: %s to %s\n", 
-			oldestDate.Time.Format("2006-01-02"), 
+		fmt.Printf("Date range: %s to %s\n",
+			oldestDate.Time.Format("2006-01-02"),
 			newestDate.Time.Format("2006-01-02"))
 	}
 
 	fmt.Println("\nTop 5 domains:")
 	fmt.Println("--------------")
-	
+
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	defer w.Flush()
 
@@ -363,7 +363,7 @@ func showStats(_ *cobra.Command, _ []string) error {
 	for rows.Next() {
 		var domain string
 		var urlCount, visitCount int64
-		
+
 		if err := rows.Scan(&domain, &urlCount, &visitCount); err != nil {
 			continue
 		}
