@@ -12,6 +12,10 @@ All notable changes to this project will be documented in this file.
     - `DUMBER_MEMORY_CONSERVATIVE`, `DUMBER_MEMORY_STRICT`, `DUMBER_MEMORY_KILL`
     - `DUMBER_GC_INTERVAL`, `DUMBER_RECYCLE_THRESHOLD`
   - Version‑guarded CGO wrappers for memory pressure and GC hooks; safe no‑ops on unsupported WebKitGTK builds.
+ - Find in page (Ctrl/Cmd+F):
+   - Reuses omnibox as a reusable component with a dedicated "find" mode.
+   - Highlights matches in yellow and lists match contexts; Enter/Shift+Enter jumps.
+   - Native accelerator registered; JS capture fallback ensures reliability.
 
 ### Changed
 - Performance‑first defaults retained:

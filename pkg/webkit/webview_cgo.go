@@ -554,6 +554,8 @@ func NewWebView(cfg *Config) (*WebView, error) {
 		_ = v.SetZoom(nz)
 	})
 	_ = v.RegisterKeyboardShortcut("cmdorctrl+0", func() { _ = v.SetZoom(1.0) })
+	// Find in page (Ctrl/Cmd+F) reuses omnibox component in find mode
+	_ = v.RegisterKeyboardShortcut("cmdorctrl+f", func() { _ = v.OpenFind("") })
 	// Navigation with Alt+Arrow keys
 	_ = v.RegisterKeyboardShortcut("alt+ArrowLeft", func() { _ = v.GoBack() })
 	_ = v.RegisterKeyboardShortcut("alt+ArrowRight", func() { _ = v.GoForward() })
