@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- Homepage Recent History layout:
+  - Show single-line entries as “{Title} – {Domain} – {URL}”.
+  - Truncate long URLs with a gradient fade; prevent horizontal overflow.
+  - Adjusted styling so URL is darker for readability.
+- Search shortcuts and config interop:
+  - Backend SearchShortcut now serializes `url`/`description` with JSON tags.
+  - Frontend normalizes field casing and extracts base URLs, handling `%s` and `{query}` templates.
+  - Omnibox shortcut parsing now URL-encodes queries and supports `%s` placeholders.
+- Input and navigation reliability (GTK4/WebKitGTK 6):
+  - Capture-phase key controller to ensure accelerators fire consistently.
+  - Do not consume normal left/right clicks; only mouse buttons 8/9 trigger back/forward.
+  - Added Alt+ArrowLeft/Right navigation and enabled two-finger swipe back/forward when supported.
+  - Added Ctrl+scroll zoom in/out; refined accelerator matching so Ctrl− works across layouts.
+  - Removed layout-specific hacks; added diagnostic logs for raw minus key events.
+- Zoom persistence:
+  - Added WebView zoom-changed hook; save per-domain zoom to SQLite on every change.
+  - Log on successful save: “saved X.XX for domain.tld” and on load: “loaded X.XX for domain.tld”.
+  - Load and log initial zoom level on startup and on every navigation.
+- Build/dev ergonomics:
+  - Makefile loads `.env.local`; supports overriding `GOMODCACHE`, `GOCACHE`, `GOTMPDIR` for sandboxed builds.
+
 ## [0.2.0] - 2025-09-10
 
 ### Added
