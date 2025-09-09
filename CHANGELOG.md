@@ -13,9 +13,15 @@ All notable changes to this project will be documented in this file.
     - `DUMBER_GC_INTERVAL`, `DUMBER_RECYCLE_THRESHOLD`
   - Version‑guarded CGO wrappers for memory pressure and GC hooks; safe no‑ops on unsupported WebKitGTK builds.
  - Find in page (Ctrl/Cmd+F):
-   - Reuses omnibox as a reusable component with a dedicated "find" mode.
-   - Highlights matches in yellow and lists match contexts; Enter/Shift+Enter jumps.
-   - Native accelerator registered; JS capture fallback ensures reliability.
+   - Omnibox refactored into a reusable component with dedicated "find" mode.
+   - Highlighting: yellow for all matches; active match in orange for clarity.
+   - Match list with context (right side stops at nearest punctuation: . , ; : -).
+   - Navigation UX:
+     - ArrowUp/Down move selection and scroll the overlay list (page scroll disabled while open).
+     - Enter centers on the active match and closes; Shift+Enter goes to previous; Alt+Enter centers without closing.
+     - Hover focuses input and selects list items; click outside closes the overlay.
+     - Faded overlay with subtle blur when reviewing matches; opacity restores on input focus/typing.
+   - Programmatic API: `OpenFind(initial)`, `FindQuery(q)`, `CloseFind()` on `WebView`.
 
 ### Changed
 - Performance‑first defaults retained:
