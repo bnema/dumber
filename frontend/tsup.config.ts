@@ -15,7 +15,7 @@ export default defineConfig([
     bundle: true,
     splitting: false,
     external: [],
-    noExternal: ['@wailsio/runtime'],
+    // noExternal: [],
   },
   // Injectable controls script (minified for injection)
   {

@@ -83,49 +83,7 @@ export class DebugConsoleService {
         event.preventDefault();
         this.toggle();
       }
-      
-      // F11 to inspect window.go in detail
-      if (event.key === 'F11') {
-        event.preventDefault();
-        this.inspectWailsServices();
-      }
     });
-  }
-
-  private inspectWailsServices(): void {
-    this.addLog('info', 'frontend', 'debug', '=== WAILS SERVICES INSPECTION ===');
-    this.addLog('info', 'frontend', 'debug', `typeof window: ${typeof window}`);
-    this.addLog('info', 'frontend', 'debug', `window.go exists: ${!!window.go}`);
-    
-    if (window.go) {
-      this.addLog('info', 'frontend', 'debug', `typeof window.go: ${typeof window.go}`, window.go);
-      this.addLog('info', 'frontend', 'debug', `window.go.services exists: ${!!window.go.services}`);
-      
-      if (window.go.services) {
-        const services = window.go.services;
-        this.addLog('info', 'frontend', 'debug', `typeof window.go.services: ${typeof services}`, services);
-        
-        const serviceNames = Object.keys(services);
-        this.addLog('info', 'frontend', 'debug', `Service count: ${serviceNames.length}`);
-        this.addLog('info', 'frontend', 'debug', `Service names: [${serviceNames.join(', ')}]`);
-        
-        serviceNames.forEach(name => {
-          const service = services[name];
-          this.addLog('info', 'frontend', 'debug', `${name}: ${typeof service}`, service);
-          
-          if (service && typeof service === 'object') {
-            const methods = Object.getOwnPropertyNames(service).filter(prop => typeof service[prop] === 'function');
-            this.addLog('info', 'frontend', 'debug', `${name} methods: [${methods.join(', ')}]`);
-          }
-        });
-      } else {
-        this.addLog('error', 'frontend', 'debug', 'window.go.services is null/undefined');
-      }
-    } else {
-      this.addLog('error', 'frontend', 'debug', 'window.go is null/undefined');
-    }
-    
-    this.addLog('info', 'frontend', 'debug', '=== END INSPECTION ===');
   }
 
   private interceptConsole(): void {

@@ -1,12 +1,17 @@
-import { BrowserService, ConfigService, HistoryEntry } from '../../bindings/github.com/bnema/dumber/services/index';
+type HistoryEntry = {
+  id: number;
+  url: string;
+  title: string;
+  visit_count: number;
+  last_visited: string | null;
+  created_at: string | null;
+}
 
 export class AppService {
   private history: HistoryEntry[] = [];
   private shortcuts: Record<string, any> = {};
 
-  constructor() {
-    // Using Wails v3 service bindings directly
-  }
+  constructor() {}
 
   async initialize(): Promise<void> {
     try {
@@ -21,7 +26,7 @@ export class AppService {
 
   async loadHistory(): Promise<void> {
     try {
-      const recentHistory = await BrowserService.GetRecentHistory(50);
+      const recentHistory: HistoryEntry[] = await fetch('/api/history/recent?limit=50').then(r => r.json());
       this.history = recentHistory;
     } catch (error) {
       console.error('Failed to load history:', error);
@@ -57,8 +62,8 @@ export class AppService {
 
   async loadShortcuts(): Promise<void> {
     try {
-      const shortcutsData = await BrowserService.GetSearchShortcuts();
-      this.shortcuts = shortcutsData;
+      const cfg = await fetch('/api/config').then(r => r.json());
+      this.shortcuts = cfg?.search_shortcuts || {};
     } catch (error) {
       console.error('Failed to load shortcuts:', error);
       // Mock shortcuts for development/fallback

@@ -1,6 +1,6 @@
 # Makefile for dumber
 
-.PHONY: build build-frontend test lint clean install-tools dev generate help
+.PHONY: build build-frontend test lint clean install-tools dev generate help check init build-static
 
 # Variables
 BINARY_NAME=dumber
@@ -21,20 +21,31 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 # Build targets
-build: build-frontend ## Build the Wails app (builds frontend, then wails3 build)
-	@echo "Building $(BINARY_NAME) $(VERSION) with Wails..."
+build: build-frontend ## Build the application (frontend assets, then Go binary)
+	@echo "Building $(BINARY_NAME) $(VERSION)..."
 	@mkdir -p $(DIST_DIR)
-	CGO_ENABLED=1 wails3 build
+	CGO_ENABLED=1 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 
 build-frontend: ## Build TypeScript frontend
 	@echo "Building TypeScript frontend..."
-	@cd frontend && npm ci --silent && npm run build
+	@cd frontend && npm install --silent && npm run build
 	@echo "Frontend build complete"
 
 build-static: ## Build static binary (CGO disabled, CLI-only functionality)
 	@echo "Building static $(BINARY_NAME) $(VERSION) (CLI-only)..."
 	@mkdir -p $(DIST_DIR)
 	CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME)-static $(MAIN_PATH)
+
+# GUI build with WebKit2GTK
+.PHONY: build-gui run-gui
+build-gui: build-frontend ## Build GUI binary with native WebKit2GTK (requires dev packages)
+	@echo "Building $(BINARY_NAME) (GUI, webkit_cgo)…"
+	@mkdir -p $(DIST_DIR)
+	CGO_ENABLED=1 go build $(LDFLAGS) -tags=webkit_cgo -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+
+run-gui: ## Run the GUI with native WebKit2GTK (requires dev packages)
+	@echo "Running GUI (webkit_cgo)…"
+	CGO_ENABLED=1 go run -tags=webkit_cgo $(MAIN_PATH)
 
 # Development targets
 dev: ## Run in development mode
@@ -68,7 +79,6 @@ lint-fix: ## Run golangci-lint with --fix
 install-tools: ## Install development tools
 	@echo "Installing development tools..."
 	go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
-	go install github.com/wailsapp/wails/v3/cmd/wails3@latest
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	@echo "Tools installed successfully"
 
@@ -93,8 +103,6 @@ check: ## Check that all tools and dependencies are working
 	@go version
 	@echo "\nSQLC version:"
 	@sqlc version
-	@echo "\nWails version:"
-	@wails3 version
 	@echo "\nGolangci-lint version:"
 	@golangci-lint version
 	@echo "\nBuilding project..."
