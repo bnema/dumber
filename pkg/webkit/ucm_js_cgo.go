@@ -165,9 +165,25 @@ func getOmniboxScript() string {
           H.suggestions.forEach((s, i)=>{
             const item = document.createElement('div');
             item.style.cssText = 'padding:8px 10px;display:flex;gap:10px;align-items:center;cursor:pointer;border-bottom:1px solid #2a2a2a;'+(i===H.selectedIndex?'background:#0a0a0a;':'');
-            const url = document.createElement('div'); url.textContent = s.url || ''; url.style.cssText = 'flex:1;color:#9ad;word-break:break-all;';
-            const title = document.createElement('div'); title.textContent = s.title || ''; title.style.cssText = 'flex:1;color:#ccc;opacity:.9;';
-            item.appendChild(title); item.appendChild(url);
+            // Favicon
+            const icon = document.createElement('img');
+            icon.src = s.favicon || '';
+            icon.width = 18; icon.height = 18; icon.loading = 'lazy';
+            icon.style.cssText = 'flex:0 0 18px;width:18px;height:18px;border-radius:4px;opacity:.95;';
+            icon.onerror = ()=>{ icon.style.display='none'; };
+            // Text line: Domain | full path (one line, fade at end)
+            let domain = '', path = '';
+            try { const u = new URL(s.url, window.location.href); domain = u.hostname; path = (u.pathname||'') + (u.search||'') + (u.hash||''); } catch(_) { domain = s.url || ''; }
+            const text = document.createElement('div');
+            text.style.cssText = 'flex:1;min-width:0;display:flex;gap:8px;align-items:center;white-space:nowrap;overflow:hidden;';
+            // Apply gradient fade using mask for WebKit
+            text.style.webkitMaskImage = 'linear-gradient(90deg, black 85%, transparent 100%)';
+            text.style.maskImage = 'linear-gradient(90deg, black 85%, transparent 100%)';
+            const domainEl = document.createElement('span'); domainEl.textContent = domain; domainEl.style.cssText = 'color:#e6e6e6;opacity:.95;';
+            const sep = document.createElement('span'); sep.textContent = ' | '; sep.style.cssText = 'color:#777;';
+            const pathEl = document.createElement('span'); pathEl.textContent = path || '/'; pathEl.style.cssText = 'color:#9ad;';
+            text.appendChild(domainEl); text.appendChild(sep); text.appendChild(pathEl);
+            item.appendChild(icon); item.appendChild(text);
             item.addEventListener('mouseenter', ()=>{ H.selectedIndex = i; H.paintList(); H.scrollListToSelection(); });
             item.addEventListener('click',()=>{ H.post({type:'navigate', url:s.url}); H.toggle(false); });
             list.appendChild(item);
