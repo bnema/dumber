@@ -104,7 +104,7 @@ func getOmniboxScript() string {
         box.addEventListener('mousedown', (e)=>{ e.stopPropagation(); }, true);
         // Focus and select input on hover for quick typing
         input.addEventListener('mouseenter', ()=>{ if (H.visible) { try { input.focus({preventScroll:true}); input.select(); } catch(_) { input.focus(); } } });
-        root.addEventListener('mouseenter', ()=>{ if (H.visible) { try { input.focus({preventScroll:true}); } catch(_) { input.focus(); } } });
+        root.addEventListener('mouseenter', ()=>{ if (H.visible) { try { input.focus({preventScroll:true}); } catch(_) { input.focus(); } H.setFaded(false); } });
         // Clear fading when user goes back to input typing
         input.addEventListener('focus', ()=> H.setFaded(false));
         input.addEventListener('keydown', (e)=>{
@@ -136,9 +136,13 @@ func getOmniboxScript() string {
               H.scrollListToSelection();
               if (H.mode==='find') { H.revealSelection(); H.setFaded(true); }
             }
+          } else {
+            if (H.mode==='find') H.setFaded(false);
           }
         });
-        input.addEventListener('input', ()=> H.onInput());
+        input.addEventListener('input', ()=> { H.onInput(); if (H.mode==='find') H.setFaded(false); });
+        input.addEventListener('mousedown', ()=> H.setFaded(false));
+        input.addEventListener('click', ()=> H.setFaded(false));
         H.el = root; H.input = input; H.list = list; H.selectedIndex = -1; H.paintList();
       },
       onInput(){
