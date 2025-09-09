@@ -22,6 +22,7 @@ func getOmniboxScript() string {
       suggestions: [],
       matches: [], // {el, context}
       selectedIndex: -1,
+      activeIndex: -1,
       debounceTimer: 0,
       highlightNodes: [],
       faded: false,
@@ -92,7 +93,7 @@ func getOmniboxScript() string {
         const list = document.createElement('div');
         list.style.cssText = 'margin-top:8px;max-height:50vh;overflow:auto;border-top:1px solid #333;';
         const style = document.createElement('style');
-        style.textContent = '.dumber-find-highlight{background:#ffeb3b;color:#000;padding:0 1px;border-radius:2px;box-shadow:0 0 0 1px #c8b900 inset}';
+        style.textContent = '.dumber-find-highlight{background:#ffeb3b;color:#000;padding:0 1px;border-radius:2px;box-shadow:0 0 0 1px #c8b900 inset}.dumber-find-active{background:#ff9800 !important;color:#000;box-shadow:0 0 0 1px #b36b00 inset}';
         document.documentElement.appendChild(style);
         box.appendChild(input); box.appendChild(list); root.appendChild(box); document.documentElement.appendChild(root);
         H.box = box;
@@ -199,6 +200,7 @@ func getOmniboxScript() string {
         H.highlightNodes = [];
         H.matches = [];
         H.selectedIndex = -1;
+        H.activeIndex = -1;
         H.paintList();
       },
       find(q){
@@ -248,7 +250,11 @@ func getOmniboxScript() string {
         H.revealSelection();
       },
       revealSelection(){
+        const prev = H.matches[H.activeIndex|0];
+        if (prev && prev.el && prev.el.classList) { prev.el.classList.remove('dumber-find-active'); }
         const m = H.matches[H.selectedIndex|0]; if (!m) return;
+        if (m.el && m.el.classList) { m.el.classList.add('dumber-find-active'); }
+        H.activeIndex = H.selectedIndex|0;
         try { m.el.scrollIntoView({block:'center', inline:'nearest'}); } catch(_){ m.el.scrollIntoView(); }
       },
       jump(delta){
