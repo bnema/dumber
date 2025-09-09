@@ -171,8 +171,9 @@ func getOmniboxScript() string {
             // Favicon
             const icon = document.createElement('img');
             icon.src = s.favicon || '';
-            icon.width = 18; icon.height = 18; icon.loading = 'lazy';
-            icon.style.cssText = 'flex:0 0 18px;width:18px;height:18px;border-radius:4px;opacity:.95;';
+            icon.width = 16; icon.height = 16; icon.loading = 'lazy';
+            // Ensure dark favicons remain visible on dark overlay: light chip + mild lift
+            icon.style.cssText = 'flex:0 0 20px;width:16px;height:16px;padding:2px;box-sizing:content-box;border-radius:6px;background:#fff;border:1px solid rgba(0,0,0,.15);box-shadow:0 1px 2px rgba(0,0,0,.15);filter:brightness(1.12) contrast(1.04);';
             icon.onerror = ()=>{ icon.style.display='none'; };
             // Text line: Domain | full path (one line, fade at end)
             let domain = '', path = '';
