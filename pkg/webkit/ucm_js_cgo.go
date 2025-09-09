@@ -1,10 +1,12 @@
+//go:build webkit_cgo
+
 package webkit
 
-// ucmOmniboxScript is injected at document-start via WebKit UserContentManager.
-// It provides a reusable overlay component with two modes:
-// - "omnibox": navigation/search suggestions (Ctrl/Cmd+L)
-// - "find": in-page find with yellow highlights and match list (Ctrl/Cmd+F)
-const ucmOmniboxScript = `(() => {
+// getOmniboxScript returns the injected omnibox/find component script.
+// Kept in a cgo-tagged file to ensure availability when referenced
+// from other cgo files in this package.
+func getOmniboxScript() string {
+    return `(() => {
   try {
     if (window.__dumber_omnibox_loaded) return; // idempotent
     window.__dumber_omnibox_loaded = true;
@@ -38,7 +40,7 @@ const ucmOmniboxScript = `(() => {
         root.id = 'dumber-omnibox-root';
         root.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:none;';
         const box = document.createElement('div');
-        box.style.cssText = 'max-width:720px;margin:8vh auto;padding:8px 10px;background:#1b1b1b;color:#eee;border:1px solid #444;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.6);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,\"Helvetica Neue\",Arial,sans-serif;';
+        box.style.cssText = 'max-width:720px;margin:8vh auto;padding:8px 10px;background:#1b1b1b;color:#eee;border:1px solid #444;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.6);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;';
         const input = document.createElement('input');
         input.type = 'text';
         input.placeholder = 'Type URL or search…';
@@ -57,9 +59,9 @@ const ucmOmniboxScript = `(() => {
             if (v) H.post({type:'navigate', url:v});
             H.toggle(false);
           } else if (H.mode==='find' && e.key === 'Enter'){
-            e.preventDefault(); H.jump(1);
-          } else if (H.mode==='find' && e.key === 'Enter' && e.shiftKey){
-            e.preventDefault(); H.jump(-1);
+            e.preventDefault();
+            if (e.shiftKey) { H.jump(-1); }
+            else { H.revealSelection(); H.close(); }
           } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp'){
             e.preventDefault();
             const n = (H.mode==='find'? H.matches.length : H.suggestions.length);
@@ -106,7 +108,7 @@ const ucmOmniboxScript = `(() => {
             item.style.cssText = 'padding:8px 10px;cursor:pointer;border-bottom:1px solid #2a2a2a;'+(i===H.selectedIndex?'background:#0a0a0a;':'');
             const ctx = document.createElement('div'); ctx.textContent = m.context || ''; ctx.style.cssText = 'color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
             item.appendChild(ctx);
-            item.addEventListener('click',()=>{ H.selectedIndex=i; H.revealSelection(); H.paintList(); });
+            item.addEventListener('click',()=>{ H.selectedIndex=i; H.revealSelection(); H.paintList(); H.close(); });
             list.appendChild(item);
           });
         }
@@ -153,7 +155,13 @@ const ucmOmniboxScript = `(() => {
             parent.insertBefore(span, text);
             text.nodeValue = afterVal;
             H.highlightNodes.push({span, text: match});
-            const context = (before.nodeValue.slice(-30) + match.nodeValue + afterVal.slice(0, 30)).replace(/\s+/g,' ').trim();
+            const leftCtx = before.nodeValue.slice(-30);
+            let rightRaw = afterVal.slice(0, 30);
+            const boundaryIdx = rightRaw.search(/[.,-]/);
+            if (boundaryIdx !== -1) {
+              rightRaw = rightRaw.slice(0, boundaryIdx+1);
+            }
+            const context = (leftCtx + match.nodeValue + rightRaw).replace(/\s+/g,' ').trim();
             H.matches.push({el: span, context});
             if (H.matches.length >= MAX_MATCHES) break;
             s = afterVal;
@@ -190,3 +198,4 @@ const ucmOmniboxScript = `(() => {
     window.__dumber_find_query = (q)=> { if (H.mode!=='find') H.setMode('find'); if (!H.visible) H.toggle(true); H.input.value = q||''; H.find(q||''); };
   } catch (e) { /* no-op */ }
 })();`
+}
