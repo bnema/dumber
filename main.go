@@ -554,11 +554,6 @@ func runBrowser() {
 			log.Printf("Shortcut: Omnibox toggle")
 			_ = view.InjectScript("window.__dumber_toggle && window.__dumber_toggle()")
 		})
-		// Find in page (Ctrl/Cmd+F): open find overlay
-		_ = view.RegisterKeyboardShortcut("cmdorctrl+f", func() {
-			log.Printf("Shortcut: Find in page")
-			_ = view.OpenFind("")
-		})
 		// Zoom handled natively in webkit package (built-in shortcuts)
 	}
 
