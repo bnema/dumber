@@ -428,6 +428,20 @@ func runBrowser() {
 			}
 			key := services.ZoomKeyForLog(url)
 			log.Printf("[zoom] saved %.2f for %s", level, key)
+			
+			// Show zoom toast notification
+			js := fmt.Sprintf(`try { 
+				if (typeof window.__dumber_showZoomToast === 'function') {
+					window.__dumber_showZoomToast(%f);
+				} else {
+					console.warn('[dumber] Zoom toast function not available yet');
+				}
+			} catch(e) { 
+				console.error('[dumber] Zoom toast error:', e); 
+			}`, level)
+			if err := view.InjectScript(js); err != nil {
+				log.Printf("[zoom] failed to show toast: %v", err)
+			}
 		})
 		// Bridge UCM messages: navigate + history queries
 		view.RegisterScriptMessageHandler(func(payload string) {
