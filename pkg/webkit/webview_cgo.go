@@ -869,6 +869,16 @@ func (w *WebView) enableUserContentManager() {
 		log.Printf("[webkit] UCM omnibox script injected at document-start")
 	}
 
+	// Add user script at document-start (toast notification system)
+	toastSrc := C.CString(getToastScript())
+	defer C.free(unsafe.Pointer(toastSrc))
+	toastScript := C.webkit_user_script_new((*C.gchar)(toastSrc), C.WEBKIT_USER_CONTENT_INJECT_ALL_FRAMES, C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, nil, nil)
+	if toastScript != nil {
+		C.webkit_user_content_manager_add_script(w.native.ucm, toastScript)
+		C.webkit_user_script_unref(toastScript)
+		log.Printf("[webkit] UCM toast script injected at document-start")
+	}
+
 	// Inject Wails runtime fetch interceptor for homepage bridging
 	wailsBridge := `(() => { try { const origFetch = window.fetch.bind(window); const waiters = Object.create(null); window.__dumber_wails_resolve = (id, json) => { const w = waiters[id]; if(!w) return; delete waiters[id]; try { const headers = new Headers({"Content-Type":"application/json"}); w.resolve(new Response(json, { headers })); } catch(e){ w.reject(e); } }; window.fetch = (input, init) => { try { const url = new URL(input instanceof Request ? input.url : input, window.location.origin); if (url.pathname === '/wails/runtime') { const args = url.searchParams.get('args'); let payload = {}; try { payload = args ? JSON.parse(args) : {}; } catch(_){} const id = String(Date.now()) + '-' + Math.random().toString(36).slice(2); return new Promise((resolve, reject) => { waiters[id] = { resolve, reject }; try { window.webkit?.messageHandlers?.dumber?.postMessage(JSON.stringify({ type: 'wails', id, payload })); } catch (e) { reject(e); } }); } } catch(_){} return origFetch(input, init); }; } catch(_){} })();`
 	cWails := C.CString(wailsBridge)

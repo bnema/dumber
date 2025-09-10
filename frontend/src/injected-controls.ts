@@ -6,7 +6,6 @@
  * 
  * Only includes essential controls that can work cross-origin:
  * - Navigation (back/forward)
- * - URL copying
  * - Mouse navigation buttons
  * 
  * Zoom controls are handled natively by the GTK backend
@@ -31,22 +30,6 @@
     const isCmd = ctrlKey || metaKey;
     
     try {
-      // Copy URL (Cmd+Shift+C)
-      if (isCmd && shiftKey && key === 'C') {
-        event.preventDefault();
-        event.stopPropagation();
-        
-        // Copy current URL to clipboard
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(window.location.href)
-            .then(() => console.log('🔗 URL copied:', window.location.href))
-            .catch((err) => console.error('❌ Failed to copy URL:', err));
-        } else {
-          console.warn('⚠️ Clipboard API not available');
-        }
-        return;
-      }
-      
       // Navigation: Alt + Left Arrow (Back)
       if (altKey && key === 'ArrowLeft') {
         event.preventDefault();

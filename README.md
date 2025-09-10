@@ -39,6 +39,7 @@ Dumber is a minimalist browser and launcher companion focused on speed and simpl
 | **Ctrl/Cmd++** | Zoom In | Alternative plus key |
 | **Ctrl/Cmd+-** | Zoom Out | Works across keyboard layouts |
 | **Ctrl/Cmd+0** | Reset Zoom | Return to 100% zoom |
+| **Ctrl/Cmd+Shift+C** | Copy URL | Copy current URL to clipboard with toast |
 | **Alt+←** | Navigate Back | Go to previous page |
 | **Alt+→** | Navigate Forward | Go to next page |
 

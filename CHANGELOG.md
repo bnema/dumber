@@ -22,6 +22,11 @@ All notable changes to this project will be documented in this file.
   - Browser data includes cookies, localStorage, sessionStorage
   - Confirmation prompt with `--force` flag to skip
   - Targets all data locations: SQLite database, WebKit cache/data, dmenu fuzzy cache, configuration files
+- Ctrl+Shift+C keyboard shortcut to copy current URL to clipboard:
+  - Cross-platform clipboard support with wl-copy (Wayland) and xclip (X11) fallback
+  - Reusable toast notification system for user feedback
+  - Injectable JavaScript component for consistent styling across all websites
+  - Native backend integration for reliable clipboard access
 
 ### Changed
 - Dmenu performance dramatically improved: 5 seconds → 4ms (99.92% faster)
