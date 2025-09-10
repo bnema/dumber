@@ -1,8 +1,10 @@
+// Package cache provides binary format serialization for fuzzy cache data structures.
 package cache
 
 import (
 	"encoding/binary"
 	"fmt"
+	"log"
 	"os"
 	"syscall"
 	"unsafe"
@@ -13,6 +15,7 @@ import (
 // Entries:   [url_len:2][url:N][title_len:2][title:N][visit:2][lastVisit:4][score:2]
 // Index:     [trigramCount:4][trigram:3][count:4][ids:4*count]...
 
+// Binary format constants for cache file structure
 const (
 	CacheMagic   = 0x44554d42 // "DUMB" in little-endian
 	CacheVersion = 1
@@ -37,11 +40,15 @@ func (c *DmenuFuzzyCache) SaveToBinary(filename string) error {
 	totalSize := c.calculateFileSize()
 
 	// Create the file with the exact size needed
-	file, err := os.Create(filename)
+	file, err := os.Create(filename) //nolint:gosec // G304: filename is controlled by cache configuration, not user input
 	if err != nil {
 		return fmt.Errorf("failed to create cache file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			log.Printf("Warning: failed to close cache file: %v", closeErr)
+		}
+	}()
 
 	// Pre-allocate file space
 	if err := file.Truncate(int64(totalSize)); err != nil {
@@ -49,11 +56,15 @@ func (c *DmenuFuzzyCache) SaveToBinary(filename string) error {
 	}
 
 	// Memory map the file for fast writing
-	data, err := syscall.Mmap(int(file.Fd()), 0, int(totalSize), syscall.PROT_WRITE, syscall.MAP_SHARED)
+	data, err := syscall.Mmap(int(file.Fd()), 0, totalSize, syscall.PROT_WRITE, syscall.MAP_SHARED)
 	if err != nil {
 		return fmt.Errorf("failed to mmap file: %w", err)
 	}
-	defer syscall.Munmap(data)
+	defer func() {
+		if unmapErr := syscall.Munmap(data); unmapErr != nil {
+			log.Printf("Warning: failed to unmap cache file: %v", unmapErr)
+		}
+	}()
 
 	// Write data using unsafe pointer operations for maximum speed
 	offset := 0
@@ -79,11 +90,15 @@ func (c *DmenuFuzzyCache) SaveToBinary(filename string) error {
 
 // LoadFromBinary loads cache from a binary file using memory mapping.
 func (c *DmenuFuzzyCache) LoadFromBinary(filename string) error {
-	file, err := os.Open(filename)
+	file, err := os.Open(filename) //nolint:gosec // G304: filename is controlled by cache configuration, not user input
 	if err != nil {
 		return fmt.Errorf("failed to open cache file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			log.Printf("Warning: failed to close cache file: %v", closeErr)
+		}
+	}()
 
 	// Get file size
 	stat, err := file.Stat()
@@ -107,7 +122,9 @@ func (c *DmenuFuzzyCache) LoadFromBinary(filename string) error {
 	// Parse header
 	header, err := c.parseHeader(data)
 	if err != nil {
-		syscall.Munmap(data)
+		if unmapErr := syscall.Munmap(data); unmapErr != nil {
+			log.Printf("Warning: failed to unmap cache file: %v", unmapErr)
+		}
 		return fmt.Errorf("failed to parse header: %w", err)
 	}
 
@@ -117,21 +134,30 @@ func (c *DmenuFuzzyCache) LoadFromBinary(filename string) error {
 	// Parse entries
 	entries, err := c.parseEntries(data, HeaderSize, header.EntryCount)
 	if err != nil {
-		syscall.Munmap(data)
+		if unmapErr := syscall.Munmap(data); unmapErr != nil {
+			log.Printf("Warning: failed to unmap cache file: %v", unmapErr)
+		}
 		return fmt.Errorf("failed to parse entries: %w", err)
 	}
 
 	// Parse trigram index
-	trigramIndex, trigramEndOffset, err := c.parseTrigramIndex(data, int(header.IndexOffset))
+	if header.IndexOffset > uint64(^uint(0)>>1) { // Check if it exceeds int max
+		return fmt.Errorf("index offset too large: %d", header.IndexOffset)
+	}
+	trigramIndex, trigramEndOffset, err := c.parseTrigramIndex(data, int(header.IndexOffset)) //nolint:gosec // G115: bounds checked above
 	if err != nil {
-		syscall.Munmap(data)
+		if unmapErr := syscall.Munmap(data); unmapErr != nil {
+			log.Printf("Warning: failed to unmap cache file: %v", unmapErr)
+		}
 		return fmt.Errorf("failed to parse trigram index: %w", err)
 	}
 
 	// Parse sorted index
 	sortedIndex, err := c.parseSortedIndex(data, trigramEndOffset)
 	if err != nil {
-		syscall.Munmap(data)
+		if unmapErr := syscall.Munmap(data); unmapErr != nil {
+			log.Printf("Warning: failed to unmap cache file: %v", unmapErr)
+		}
 		return fmt.Errorf("failed to parse sorted index: %w", err)
 	}
 
@@ -171,17 +197,27 @@ func (c *DmenuFuzzyCache) calculateFileSize() int {
 
 // writeHeader writes the binary header.
 func (c *DmenuFuzzyCache) writeHeader(data []byte, offset int, totalSize int) int {
+	log.Printf("[cache] Writing header: totalSize=%d bytes", totalSize)
 	// Calculate index offset (header + all entries)
 	indexOffset := HeaderSize
 	for _, entry := range c.entries {
 		indexOffset += 2 + len(entry.URL) + 2 + len(entry.Title) + 8
 	}
 
+	// Check bounds for integer conversions
+	if len(c.entries) > 0xFFFFFFFF { // uint32 max
+		log.Printf("Warning: too many entries for binary format: %d, truncating", len(c.entries))
+	}
+	if indexOffset < 0 {
+		log.Printf("Warning: negative index offset: %d, using 0", indexOffset)
+		indexOffset = 0
+	}
+
 	header := BinaryHeader{
 		Magic:        CacheMagic,
 		Version:      CacheVersion,
-		EntryCount:   uint32(len(c.entries)),
-		IndexOffset:  uint64(indexOffset),
+		EntryCount:   uint32(len(c.entries)),   //nolint:gosec // G115: bounds checked above
+		IndexOffset:  uint64(indexOffset),      //nolint:gosec // G115: bounds checked above
 		LastModified: c.lastModified,
 	}
 
@@ -403,7 +439,11 @@ func IsValidCacheFile(filename string) bool {
 	if err != nil {
 		return false
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			log.Printf("Warning: failed to close cache validation file: %v", closeErr)
+		}
+	}()
 
 	var header BinaryHeader
 	err = binary.Read(file, binary.LittleEndian, &header)

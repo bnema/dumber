@@ -115,7 +115,7 @@ func EnsureDirectories() error {
 	}
 
 	for _, dir := range directories {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, dirPerm); err != nil {
 			return err
 		}
 	}

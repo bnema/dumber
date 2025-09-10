@@ -102,7 +102,7 @@ func (w *WebView) CloseDevTools() error { return nil }
 // RegisterScriptMessageHandler registers a callback invoked when the content script posts a message.
 func (w *WebView) RegisterScriptMessageHandler(cb func(payload string)) { w.msgHandler = cb }
 
-func (w *WebView) dispatchScriptMessage(payload string) {
+func (w *WebView) dispatchScriptMessage(payload string) { //nolint:unused // Called from CGO WebKit callbacks
 	if w != nil && w.msgHandler != nil {
 		w.msgHandler(payload)
 	}
@@ -111,7 +111,7 @@ func (w *WebView) dispatchScriptMessage(payload string) {
 // RegisterTitleChangedHandler registers a callback invoked when the page title changes.
 func (w *WebView) RegisterTitleChangedHandler(cb func(title string)) { w.titleHandler = cb }
 
-func (w *WebView) dispatchTitleChanged(title string) {
+func (w *WebView) dispatchTitleChanged(title string) { //nolint:unused // Called from CGO WebKit callbacks
 	if w != nil && w.titleHandler != nil {
 		w.titleHandler(title)
 	}
@@ -120,7 +120,7 @@ func (w *WebView) dispatchTitleChanged(title string) {
 // RegisterURIChangedHandler registers a callback invoked when the current page URI changes.
 func (w *WebView) RegisterURIChangedHandler(cb func(uri string)) { w.uriHandler = cb }
 
-func (w *WebView) dispatchURIChanged(uri string) {
+func (w *WebView) dispatchURIChanged(uri string) { //nolint:unused // Called from CGO WebKit callbacks
 	if w != nil && w.uriHandler != nil {
 		w.uriHandler(uri)
 	}

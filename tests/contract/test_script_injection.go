@@ -6,7 +6,7 @@ import (
 )
 
 // Contract: InjectScript executes JS without error once implemented.
-func Test_InjectScript_Contract(t *testing.T) {
+func TestInjectScriptContract(t *testing.T) {
 	view, err := webkit.NewWebView(&webkit.Config{})
 	if err != nil {
 		t.Fatalf("NewWebView failed: %v", err)

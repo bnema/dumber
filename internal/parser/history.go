@@ -122,6 +122,19 @@ func (hs *HistorySearcher) SearchWithFuzzy(query string, options ...SearchOption
 
 // SearchByDomain searches history entries by domain with fuzzy matching.
 func (hs *HistorySearcher) SearchByDomain(domain string, options ...SearchOption) (*HistorySearchResult, error) {
+	// Apply search options
+	searchConfig := &SearchConfig{
+		Limit:                  hs.fuzzyConfig.MaxResults,
+		MinSimilarityThreshold: hs.fuzzyConfig.MinSimilarityThreshold,
+		IncludeExactMatches:    true,
+		IncludeFuzzyMatches:    true,
+		SortByRelevance:        true,
+	}
+
+	for _, opt := range options {
+		opt(searchConfig)
+	}
+
 	// Get all history entries
 	allHistory, err := hs.provider.GetAllHistory()
 	if err != nil {
@@ -143,18 +156,28 @@ func (hs *HistorySearcher) SearchByDomain(domain string, options ...SearchOption
 	matches := make([]FuzzyMatch, 0)
 	for _, entry := range domainEntries {
 		match := hs.fuzzyMatcher.matchHistoryEntry(domain, entry)
-		matches = append(matches, match)
+		// Apply similarity threshold filter
+		if match.Score >= searchConfig.MinSimilarityThreshold {
+			matches = append(matches, match)
+		}
 	}
 
-	// Sort by score
-	matches = hs.fuzzyMatcher.RankMatches(matches, domain)
+	// Sort by score if requested
+	if searchConfig.SortByRelevance {
+		matches = hs.fuzzyMatcher.RankMatches(matches, domain)
+	}
+
+	// Apply limit
+	if searchConfig.Limit > 0 && len(matches) > searchConfig.Limit {
+		matches = matches[:searchConfig.Limit]
+	}
 
 	return &HistorySearchResult{
 		Query:         domain,
 		TotalEntries:  len(allHistory),
 		MatchCount:    len(matches),
 		RankedMatches: matches,
-		SearchTime:    time.Since(time.Now()),
+		SearchTime:    0, // Set by caller if needed
 	}, nil
 }
 

@@ -3,6 +3,7 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,12 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
+)
+
+// File permission constants
+const (
+	dirPerm  = 0755 // Standard directory permissions (rwxr-xr-x)
+	filePerm = 0644 // Standard file permissions (rw-r--r--)
 )
 
 // Config represents the complete configuration for dumber.
@@ -179,7 +186,8 @@ func (m *Manager) Load() error {
 
 	// Read config file if it exists
 	if err := m.viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+		var configFileNotFoundError viper.ConfigFileNotFoundError
+		if errors.As(err, &configFileNotFoundError) {
 			// Config file not found, create default one
 			if err := m.createDefaultConfig(); err != nil {
 				return fmt.Errorf("failed to create default config: %w", err)
@@ -363,7 +371,7 @@ func (m *Manager) createDefaultConfig() error {
 	}
 
 	// Create config directory if it doesn't exist
-	if err := os.MkdirAll(filepath.Dir(configFile), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(configFile), dirPerm); err != nil {
 		return err
 	}
 
@@ -377,7 +385,7 @@ func (m *Manager) createDefaultConfig() error {
 	}
 
 	// Write JSON config file
-	if err := os.WriteFile(configFile, configData, 0644); err != nil {
+	if err := os.WriteFile(configFile, configData, filePerm); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 

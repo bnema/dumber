@@ -4,6 +4,7 @@ package cli
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -13,6 +14,11 @@ import (
 	_ "github.com/ncruces/go-sqlite3/driver" // SQLite driver for database/sql
 	_ "github.com/ncruces/go-sqlite3/embed"  // Embed SQLite for cross-platform compatibility
 	"github.com/spf13/cobra"
+)
+
+// File permission constants
+const (
+	dirPerm = 0755 // Standard directory permissions (rwxr-xr-x)
 )
 
 // CLI holds the database connection, queries, and configuration for the CLI commands
@@ -39,7 +45,7 @@ func NewCLI() (*CLI, error) {
 	}
 
 	// Ensure database directory exists
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dbPath), dirPerm); err != nil {
 		return nil, fmt.Errorf("failed to create database directory: %w", err)
 	}
 
@@ -51,13 +57,17 @@ func NewCLI() (*CLI, error) {
 
 	// Test the connection
 	if err := database.Ping(); err != nil {
-		database.Close()
+		if err := database.Close(); err != nil {
+			log.Printf("Warning: failed to close database: %v", err)
+		}
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
 	// Initialize database schema with configuration-based shortcuts
 	if err := initializeDatabase(database, cfg); err != nil {
-		database.Close()
+		if err := database.Close(); err != nil {
+			log.Printf("Warning: failed to close database: %v", err)
+		}
 		return nil, fmt.Errorf("failed to initialize database: %w", err)
 	}
 
@@ -166,19 +176,6 @@ func NewRootCmd(version, commit, buildDate string) *cobra.Command {
 	return rootCmd
 }
 
-// getDatabasePath returns the path to the SQLite database file (legacy function for compatibility)
-func getDatabasePath() (string, error) {
-	return config.GetDatabaseFile()
-}
-
-// getDatabasePathOrDefault returns the database path or a default message (legacy function for compatibility)
-func getDatabasePathOrDefault() string {
-	path, err := config.GetDatabaseFile()
-	if err != nil {
-		return "~/.local/state/dumber/history.db"
-	}
-	return path
-}
 
 // initializeDatabase creates the database schema if it doesn't exist
 func initializeDatabase(db *sql.DB, cfg *config.Config) error {

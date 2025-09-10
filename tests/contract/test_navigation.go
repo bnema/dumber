@@ -6,7 +6,7 @@ import (
 )
 
 // Contract: LoadURL navigates to a valid URL without error.
-func Test_LoadURL_Navigation_Contract(t *testing.T) {
+func TestLoadURLNavigationContract(t *testing.T) {
 	view, err := webkit.NewWebView(&webkit.Config{})
 	if err != nil {
 		t.Fatalf("NewWebView failed: %v", err)

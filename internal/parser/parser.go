@@ -167,7 +167,7 @@ func (p *Parser) processShortcut(shortcutKey, query string, shortcut config.Sear
 	// Validate the resulting URL
 	validator := NewURLValidator()
 	if !validator.IsValidURL(finalURL) && !strings.HasPrefix(finalURL, "http") {
-		return "", fmt.Errorf("invalid URL generated from shortcut template: %s", finalURL)
+		return "", fmt.Errorf("invalid URL generated from shortcut '%s' template: %s", shortcutKey, finalURL)
 	}
 
 	return finalURL, nil

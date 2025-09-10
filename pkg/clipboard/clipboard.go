@@ -2,6 +2,7 @@ package clipboard
 
 import (
 	"fmt"
+	"log"
 	"os/exec"
 )
 
@@ -39,7 +40,9 @@ func tryWlCopy(text string) error {
 
 	// Start the command
 	if err := cmd.Start(); err != nil {
-		stdin.Close()
+		if closeErr := stdin.Close(); closeErr != nil {
+			log.Printf("Warning: failed to close stdin: %v", closeErr)
+		}
 		return fmt.Errorf("failed to start wl-copy: %w", err)
 	}
 
@@ -76,7 +79,9 @@ func tryXclip(text string) error {
 
 	// Start the command
 	if err := cmd.Start(); err != nil {
-		stdin.Close()
+		if closeErr := stdin.Close(); closeErr != nil {
+			log.Printf("Warning: failed to close stdin: %v", closeErr)
+		}
 		return fmt.Errorf("failed to start xclip: %w", err)
 	}
 

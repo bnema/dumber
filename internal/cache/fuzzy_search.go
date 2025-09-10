@@ -8,6 +8,14 @@ import (
 	"time"
 )
 
+// Fuzzy search constants
+const (
+	prefixMatchBonus = 0.9   // Score bonus for prefix matches
+	prefixLength     = 4     // Maximum prefix length to check
+	recencyDecayDays = 30.0  // Days over which recency score decays
+	maxVisitNormal   = 1000.0 // Maximum visits for normalization
+)
+
 // FuzzySearcher provides high-performance fuzzy search capabilities.
 type FuzzySearcher struct {
 	config     *CacheConfig
@@ -140,23 +148,23 @@ func (fs *FuzzySearcher) scoreEntry(query string, entry *CompactEntry) FuzzyMatc
 
 	// Boost exact matches
 	if strings.Contains(urlNorm, queryNorm) {
-		match.URLScore = math.Max(match.URLScore, 0.95)
+		match.URLScore = math.Max(match.URLScore, exactMatchBonus)
 		match.MatchType = MatchTypeExact
 	}
 	if strings.Contains(titleNorm, queryNorm) {
-		match.TitleScore = math.Max(match.TitleScore, 0.95)
+		match.TitleScore = math.Max(match.TitleScore, exactMatchBonus)
 		match.MatchType = MatchTypeExact
 	}
 
 	// Boost prefix matches
 	if strings.HasPrefix(urlNorm, queryNorm) {
-		match.URLScore = math.Max(match.URLScore, 0.9)
+		match.URLScore = math.Max(match.URLScore, prefixMatchBonus)
 		if match.MatchType != MatchTypeExact {
 			match.MatchType = MatchTypePrefix
 		}
 	}
 	if strings.HasPrefix(titleNorm, queryNorm) {
-		match.TitleScore = math.Max(match.TitleScore, 0.9)
+		match.TitleScore = math.Max(match.TitleScore, prefixMatchBonus)
 		if match.MatchType != MatchTypeExact {
 			match.MatchType = MatchTypePrefix
 		}
@@ -201,10 +209,9 @@ func (fs *FuzzySearcher) calculateTextSimilarity(query, text string) float64 {
 	} else if len(query) <= 10 {
 		// For medium queries, use Jaro-Winkler
 		return fs.jaroWinklerSimilarity(query, text)
-	} else {
-		// For long queries, use tokenized matching
-		return fs.tokenizedSimilarity(query, text)
 	}
+	// For long queries, use tokenized matching
+	return fs.tokenizedSimilarity(query, text)
 }
 
 // substringSimilarity calculates similarity based on substring matches with position weighting.
@@ -245,7 +252,7 @@ func (fs *FuzzySearcher) jaroWinklerSimilarity(s1, s2 string) float64 {
 	}
 
 	// Calculate match window
-	matchWindow := (max(len1, len2) / 2) - 1
+	matchWindow := (maxInt(len1, len2) / 2) - 1
 	if matchWindow < 0 {
 		matchWindow = 0
 	}
@@ -256,8 +263,8 @@ func (fs *FuzzySearcher) jaroWinklerSimilarity(s1, s2 string) float64 {
 
 	// Find matches
 	for i := 0; i < len1; i++ {
-		start := max(0, i-matchWindow)
-		end := min(i+matchWindow+1, len2)
+		start := maxInt(0, i-matchWindow)
+		end := minInt(i+matchWindow+1, len2)
 
 		for j := start; j < end; j++ {
 			if matches2[j] || s1[i] != s2[j] {
@@ -302,7 +309,7 @@ func (fs *FuzzySearcher) jaroWinklerSimilarity(s1, s2 string) float64 {
 
 	// Common prefix (up to 4 characters)
 	prefix := 0
-	for i := 0; i < min(min(len1, len2), 4); i++ {
+	for i := 0; i < minInt(minInt(len1, len2), prefixLength); i++ {
 		if s1[i] == s2[i] {
 			prefix++
 		} else {
@@ -357,7 +364,7 @@ func (fs *FuzzySearcher) calculateRecencyScore(lastVisitDays uint32) float64 {
 	daysSince := now.Sub(lastVisit).Hours() / 24
 
 	// Exponential decay over 30 days
-	return math.Exp(-daysSince / 30.0)
+	return math.Exp(-daysSince / recencyDecayDays)
 }
 
 // calculateVisitScore calculates score based on visit count with logarithmic scaling.
@@ -367,7 +374,7 @@ func (fs *FuzzySearcher) calculateVisitScore(visitCount uint16) float64 {
 	}
 
 	// Logarithmic scaling to prevent highly visited sites from dominating
-	score := math.Log1p(float64(visitCount)) / math.Log1p(1000.0)
+	score := math.Log1p(float64(visitCount)) / math.Log1p(maxVisitNormal)
 	if score > 1.0 {
 		score = 1.0
 	}
@@ -376,14 +383,14 @@ func (fs *FuzzySearcher) calculateVisitScore(visitCount uint16) float64 {
 }
 
 // Helper functions
-func max(a, b int) int {
+func maxInt(a, b int) int {
 	if a > b {
 		return a
 	}
 	return b
 }
 
-func min(a, b int) int {
+func minInt(a, b int) int {
 	if a < b {
 		return a
 	}

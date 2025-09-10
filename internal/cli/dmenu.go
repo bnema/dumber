@@ -12,6 +12,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	historyType = "history"
+)
+
 // NewDmenuCmd creates the dmenu command for launcher integration
 func NewDmenuCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -112,7 +116,7 @@ func generateOptions(cli *CLI) error {
 		options = append(options, DmenuOption{
 			Display:     fmt.Sprintf("🕒 %s", display),
 			Value:       entry.URL,
-			Type:        "history",
+			Type:        historyType,
 			Description: entry.URL,
 		})
 	}
@@ -121,11 +125,11 @@ func generateOptions(cli *CLI) error {
 	sort.Slice(options, func(i, j int) bool {
 		if options[i].Type != options[j].Type {
 			// Order: input, shortcut, history
-			typeOrder := map[string]int{"input": 0, "shortcut": 1, "history": 2} //nolint:mnd
+			typeOrder := map[string]int{"input": 0, "shortcut": 1, historyType: 2} //nolint:mnd
 			return typeOrder[options[i].Type] < typeOrder[options[j].Type]
 		}
 
-		if options[i].Type == "history" && options[j].Type == "history" {
+		if options[i].Type == historyType && options[j].Type == historyType {
 			// History already sorted by cache relevance score
 			return i < j
 		}
@@ -201,7 +205,7 @@ func generateOptionsFallback(cli *CLI) error {
 		options = append(options, DmenuOption{
 			Display:     fmt.Sprintf("🕒 %s", display),
 			Value:       entry.Url,
-			Type:        "history",
+			Type:        historyType,
 			Description: entry.Url,
 		})
 	}
@@ -210,11 +214,11 @@ func generateOptionsFallback(cli *CLI) error {
 	sort.Slice(options, func(i, j int) bool {
 		if options[i].Type != options[j].Type {
 			// Order: input, shortcut, history
-			typeOrder := map[string]int{"input": 0, "shortcut": 1, "history": 2} //nolint:mnd
+			typeOrder := map[string]int{"input": 0, "shortcut": 1, historyType: 2} //nolint:mnd
 			return typeOrder[options[i].Type] < typeOrder[options[j].Type]
 		}
 
-		if options[i].Type == "history" && options[j].Type == "history" {
+		if options[i].Type == historyType && options[j].Type == historyType {
 			// History already sorted by recency from database
 			return i < j
 		}

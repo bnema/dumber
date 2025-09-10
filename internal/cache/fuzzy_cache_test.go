@@ -69,7 +69,11 @@ func TestCacheManager_BuildCache(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Warning: failed to remove temp dir %s: %v", tempDir, err)
+		}
+	}()
 
 	config := DefaultCacheConfig()
 	config.CacheFile = filepath.Join(tempDir, "test_cache.bin")
@@ -98,6 +102,21 @@ func TestCacheManager_BuildCache(t *testing.T) {
 	}
 }
 
+// validateSimilarityScore is a helper function to validate similarity scores
+func validateSimilarityScore(t *testing.T, result, expected, delta float64, testName string) {
+	if result < 0.0 || result > 1.0 {
+		t.Errorf("Score %f should be between 0.0 and 1.0", result)
+	}
+
+	diff := result - expected
+	if diff < 0 {
+		diff = -diff
+	}
+	if diff > delta {
+		t.Errorf("%s: Expected %f ±%f, got %f", testName, expected, delta, result)
+	}
+}
+
 func TestFuzzySearcher_JaroWinklerSimilarity(t *testing.T) {
 	config := DefaultCacheConfig()
 	searcher := NewFuzzySearcher(config)
@@ -120,18 +139,7 @@ func TestFuzzySearcher_JaroWinklerSimilarity(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := searcher.jaroWinklerSimilarity(tt.s1, tt.s2)
-
-			if result < 0.0 || result > 1.0 {
-				t.Errorf("Score %f should be between 0.0 and 1.0", result)
-			}
-
-			diff := result - tt.expected
-			if diff < 0 {
-				diff = -diff
-			}
-			if diff > tt.delta {
-				t.Errorf("Expected %f ±%f, got %f", tt.expected, tt.delta, result)
-			}
+			validateSimilarityScore(t, result, tt.expected, tt.delta, tt.name)
 		})
 	}
 }
@@ -158,18 +166,7 @@ func TestFuzzySearcher_SubstringSimilarity(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := searcher.substringSimilarity(tt.query, tt.text)
-
-			if result < 0.0 || result > 1.0 {
-				t.Errorf("Score %f should be between 0.0 and 1.0", result)
-			}
-
-			diff := result - tt.expected
-			if diff < 0 {
-				diff = -diff
-			}
-			if diff > tt.delta {
-				t.Errorf("Expected %f ±%f, got %f", tt.expected, tt.delta, result)
-			}
+			validateSimilarityScore(t, result, tt.expected, tt.delta, tt.name)
 		})
 	}
 }
@@ -380,7 +377,11 @@ func TestFuzzySearch_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Warning: failed to remove temp dir %s: %v", tempDir, err)
+		}
+	}()
 
 	config := DefaultCacheConfig()
 	config.CacheFile = filepath.Join(tempDir, "search_cache.bin")
@@ -498,7 +499,11 @@ func TestCacheInvalidation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Warning: failed to remove temp dir %s: %v", tempDir, err)
+		}
+	}()
 
 	config := DefaultCacheConfig()
 	config.CacheFile = filepath.Join(tempDir, "invalidation_cache.bin")
@@ -593,7 +598,11 @@ func BenchmarkGetTopEntries(b *testing.B) {
 	if err != nil {
 		b.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			b.Logf("Warning: failed to remove temp dir %s: %v", tempDir, err)
+		}
+	}()
 	
 	config := DefaultCacheConfig()
 	config.CacheFile = filepath.Join(tempDir, "benchmark_cache.bin")
@@ -639,7 +648,11 @@ func BenchmarkGetTopEntriesParallel(b *testing.B) {
 	if err != nil {
 		b.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			b.Logf("Warning: failed to remove temp dir %s: %v", tempDir, err)
+		}
+	}()
 	
 	config := DefaultCacheConfig()
 	config.CacheFile = filepath.Join(tempDir, "benchmark_parallel_cache.bin")

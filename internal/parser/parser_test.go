@@ -2,6 +2,7 @@ package parser
 
 import (
 	"database/sql"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,14 +27,18 @@ func (m *MockHistoryProvider) GetAllHistory() ([]*db.History, error) {
 }
 
 func (m *MockHistoryProvider) SearchHistory(query string, limit int) ([]*db.History, error) {
-	// Simple mock search - just return entries that contain the query
+	// Simple mock search - return entries that contain the query in URL or title
 	result := make([]*db.History, 0)
+	queryLower := strings.ToLower(query)
 	for _, entry := range m.history {
 		if len(result) >= limit {
 			break
 		}
-		// Simple contains check
-		result = append(result, entry)
+		// Check if query matches URL or title
+		if strings.Contains(strings.ToLower(entry.Url), queryLower) ||
+			(entry.Title.Valid && strings.Contains(strings.ToLower(entry.Title.String), queryLower)) {
+			result = append(result, entry)
+		}
 	}
 	return result, nil
 }
@@ -196,7 +201,7 @@ func TestParser_ParseInput_SearchShortcut(t *testing.T) {
 			name:        "Google search",
 			input:       "g: golang tutorial",
 			expectType:  InputTypeSearchShortcut,
-			expectURL:   "https://www.google.com/search?q=golang tutorial",
+			expectURL:   "https://www.google.com/search?q=golang+tutorial",
 			expectKey:   "g",
 			expectQuery: "golang tutorial",
 		},
@@ -204,7 +209,7 @@ func TestParser_ParseInput_SearchShortcut(t *testing.T) {
 			name:        "GitHub search",
 			input:       "gh: cobra cli",
 			expectType:  InputTypeSearchShortcut,
-			expectURL:   "https://github.com/search?q=cobra cli",
+			expectURL:   "https://github.com/search?q=cobra+cli",
 			expectKey:   "gh",
 			expectQuery: "cobra cli",
 		},
@@ -212,7 +217,7 @@ func TestParser_ParseInput_SearchShortcut(t *testing.T) {
 			name:        "Stack Overflow search",
 			input:       "so: how to fuzzy search",
 			expectType:  InputTypeSearchShortcut,
-			expectURL:   "https://stackoverflow.com/search?q=how to fuzzy search",
+			expectURL:   "https://stackoverflow.com/search?q=how+to+fuzzy+search",
 			expectKey:   "so",
 			expectQuery: "how to fuzzy search",
 		},
@@ -425,7 +430,7 @@ func TestParser_ProcessShortcut(t *testing.T) {
 			name:      "Google shortcut",
 			shortcut:  "g",
 			query:     "test query",
-			expectURL: "https://www.google.com/search?q=test query",
+			expectURL: "https://www.google.com/search?q=test+query",
 			expectErr: false,
 		},
 		{

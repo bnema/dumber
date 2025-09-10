@@ -8,6 +8,21 @@ import (
 	"github.com/bnema/dumber/internal/db"
 )
 
+// validateSimilarityScore is a helper function to validate similarity scores
+func validateSimilarityScore(t *testing.T, result, expected, delta float64, testName string) {
+	if result < 0.0 || result > 1.0 {
+		t.Errorf("%s: score %f should be between 0.0 and 1.0", testName, result)
+	}
+
+	diff := result - expected
+	if diff < 0 {
+		diff = -diff
+	}
+	if diff > delta {
+		t.Errorf("%s: expected %f ±%f, got %f", testName, expected, delta, result)
+	}
+}
+
 func TestFuzzyMatcher_JaroWinklerSimilarity(t *testing.T) {
 	fuzzyMatcher := NewFuzzyMatcher(DefaultFuzzyConfig())
 
@@ -95,18 +110,7 @@ func TestFuzzyMatcher_LevenshteinSimilarity(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.s1+"_vs_"+tt.s2, func(t *testing.T) {
 			result := fuzzyMatcher.LevenshteinSimilarity(tt.s1, tt.s2)
-
-			if result < 0.0 || result > 1.0 {
-				t.Errorf("LevenshteinSimilarity() = %v, should be between 0.0 and 1.0", result)
-			}
-
-			diff := result - tt.expected
-			if diff < 0 {
-				diff = -diff
-			}
-			if diff > tt.delta {
-				t.Errorf("LevenshteinSimilarity(%q, %q) = %v, want %v ±%v", tt.s1, tt.s2, result, tt.expected, tt.delta)
-			}
+			validateSimilarityScore(t, result, tt.expected, tt.delta, "LevenshteinSimilarity("+tt.s1+", "+tt.s2+")")
 		})
 	}
 }
@@ -166,18 +170,7 @@ func TestFuzzyMatcher_TokenizedMatch(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.query+"_vs_"+tt.text, func(t *testing.T) {
 			result := fuzzyMatcher.TokenizedMatch(tt.query, tt.text)
-
-			if result < 0.0 || result > 1.0 {
-				t.Errorf("TokenizedMatch() = %v, should be between 0.0 and 1.0", result)
-			}
-
-			diff := result - tt.expected
-			if diff < 0 {
-				diff = -diff
-			}
-			if diff > tt.delta {
-				t.Errorf("TokenizedMatch(%q, %q) = %v, want %v ±%v", tt.query, tt.text, result, tt.expected, tt.delta)
-			}
+			validateSimilarityScore(t, result, tt.expected, tt.delta, "TokenizedMatch("+tt.query+", "+tt.text+")")
 		})
 	}
 }

@@ -6,10 +6,21 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/bnema/dumber/internal/config"
 	"github.com/spf13/cobra"
 )
+
+// toTitle capitalizes the first letter of the string
+func toTitle(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	runes := []rune(s)
+	runes[0] = unicode.ToUpper(runes[0])
+	return string(runes)
+}
 
 // PurgeFlags holds all the purge command flags
 type PurgeFlags struct {
@@ -201,7 +212,7 @@ func confirmPurge(items []string, paths map[string][]string) bool {
 	fmt.Printf("This will delete the following:\n\n")
 
 	for _, item := range items {
-		fmt.Printf("• %s:\n", strings.Title(item))
+		fmt.Printf("• %s:\n", toTitle(item))
 		for _, path := range paths[item] {
 			// Check if path exists
 			if _, err := os.Stat(path); err == nil {
