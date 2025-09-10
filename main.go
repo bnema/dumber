@@ -10,10 +10,12 @@ import (
 	neturl "net/url"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/bnema/dumber/internal/cli"
 	"github.com/bnema/dumber/internal/config"
@@ -566,13 +568,27 @@ func runBrowser() {
 		// Zoom handled natively in webkit package (built-in shortcuts)
 	}
 
+	// Set up signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
 	// Enter GTK main loop only when native backend is available.
 	if webkit.IsNativeAvailable() {
+		// Handle signals in a goroutine to quit the main loop
+		go func() {
+			sig := <-sigChan
+			log.Printf("Received signal %v - shutting down gracefully", sig)
+			webkit.QuitMainLoop()
+		}()
+
 		log.Printf("Entering GTK main loop…")
 		webkit.RunMainLoop()
 		log.Printf("GTK main loop exited")
 	} else {
 		log.Printf("Not entering GUI loop (non-CGO build)")
+		// In non-CGO mode, just wait for signals
+		sig := <-sigChan
+		log.Printf("Received signal %v - exiting", sig)
 	}
 }
 

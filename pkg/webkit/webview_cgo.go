@@ -14,8 +14,22 @@ package webkit
 #include <gio/gio.h>
 
 static GtkWidget* new_window() { return GTK_WIDGET(gtk_window_new()); }
-// GTK4: gtk_main_quit removed; leave as no-op for now (Quit handled in Go)
-static void connect_destroy_quit(GtkWidget* w) { (void)w; }
+
+// Forward declaration
+extern void goQuitMainLoop();
+
+// GTK4 close-request signal handler
+static gboolean on_close_request(GtkWindow* window, gpointer user_data) {
+    (void)window; (void)user_data;
+    goQuitMainLoop();
+    return FALSE; // Allow the window to close
+}
+
+// Connect window close signal to quit main loop
+static void connect_destroy_quit(GtkWidget* w) {
+    if (!w) return;
+    g_signal_connect(G_OBJECT(w), "close-request", G_CALLBACK(on_close_request), NULL);
+}
 static WebKitWebView* as_webview(GtkWidget* w) { return WEBKIT_WEB_VIEW(w); }
 // WebsiteDataManager creation will be handled via GTK4/WebKit6 APIs in Go code.
 

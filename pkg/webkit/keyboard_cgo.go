@@ -350,3 +350,9 @@ func goOnButtonPress(id C.ulong, button C.guint, state C.GdkModifierType) {
 		_ = vw.GoForward()
 	}
 }
+
+//export goQuitMainLoop
+func goQuitMainLoop() {
+	log.Printf("[webkit] Window close requested - quitting main loop")
+	QuitMainLoop()
+}
