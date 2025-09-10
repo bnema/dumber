@@ -127,6 +127,7 @@ func goOnKeyPress(id C.ulong, keyval C.guint, state C.GdkModifierType) {
 func dispatchAccelerator(uid uintptr, keyval uint, state uint) {
 	ctrl := (state & uint(C.GDK_CONTROL_MASK)) != 0
 	alt := (state & uint(C.GDK_ALT_MASK)) != 0
+	shift := (state & uint(C.GDK_SHIFT_MASK)) != 0
 	// Map keyval to string names
 	var keyName string
 	switch keyval {
@@ -144,6 +145,8 @@ func dispatchAccelerator(uid uintptr, keyval uint, state uint) {
 		keyName = "ArrowRight"
 	case uint(C.GDK_KEY_F12):
 		keyName = "F12"
+	case uint(C.GDK_KEY_c), uint(C.GDK_KEY_C):
+		keyName = "c"
 	default:
 		// If Control held, log unknown keyval for diagnostics
 		if ctrl {
@@ -154,7 +157,10 @@ func dispatchAccelerator(uid uintptr, keyval uint, state uint) {
 
 	// Candidate accelerator strings in order
 	candidates := []string{keyName}
-	if ctrl {
+	if ctrl && shift {
+		// Ctrl+Shift combinations
+		candidates = append([]string{"cmdorctrl+shift+" + keyName, "ctrl+shift+" + keyName}, candidates...)
+	} else if ctrl {
 		// Common style: modifier + '+' + keyName (e.g., cmdorctrl+=)
 		candidates = append([]string{"cmdorctrl+" + keyName, "ctrl+" + keyName}, candidates...)
 		// Also accept style without the extra '+' for punctuation keys (e.g., cmdorctrl-)

@@ -20,6 +20,7 @@ import (
 	"github.com/bnema/dumber/internal/cli"
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/db"
+	"github.com/bnema/dumber/pkg/clipboard"
 	"github.com/bnema/dumber/pkg/webkit"
 	"github.com/bnema/dumber/services"
 )
@@ -564,6 +565,24 @@ func runBrowser() {
 		_ = view.RegisterKeyboardShortcut("cmdorctrl+l", func() {
 			log.Printf("Shortcut: Omnibox toggle")
 			_ = view.InjectScript("window.__dumber_toggle && window.__dumber_toggle()")
+		})
+		// Copy URL (Ctrl+Shift+C)
+		_ = view.RegisterKeyboardShortcut("cmdorctrl+shift+c", func() {
+			log.Printf("Shortcut: Copy URL")
+			currentURL := view.GetCurrentURL()
+			if currentURL == "" {
+				log.Printf("No URL to copy")
+				_ = view.InjectScript(`window.__dumber_showToast && window.__dumber_showToast("No URL to copy", 2000)`)
+				return
+			}
+			
+			if err := clipboard.CopyToClipboard(currentURL); err != nil {
+				log.Printf("Failed to copy URL to clipboard: %v", err)
+				_ = view.InjectScript(`window.__dumber_showToast && window.__dumber_showToast("Failed to copy URL", 2000)`)
+			} else {
+				log.Printf("URL copied to clipboard: %s", currentURL)
+				_ = view.InjectScript(`window.__dumber_showToast && window.__dumber_showToast("URL copied to clipboard", 2000)`)
+			}
 		})
 		// Zoom handled natively in webkit package (built-in shortcuts)
 	}
