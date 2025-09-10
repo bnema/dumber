@@ -5,6 +5,7 @@ package webkit
 /*
 #cgo pkg-config: webkitgtk-6.0 gtk4 javascriptcoregtk-6.0
 #include <stdlib.h>
+#include <string.h>
 #include <gtk/gtk.h>
 #include <webkit/webkit.h>
 #include <glib-object.h>
@@ -72,11 +73,38 @@ static GtkWidget* new_webview_with_ucm_and_session(const char* data_dir, const c
 }
 
 static gboolean gtk_prefers_dark() {
+    // Method 1: Check GNOME desktop interface color-scheme (primary method)
+    GSettings* desktop_settings = g_settings_new("org.gnome.desktop.interface");
+    if (desktop_settings) {
+        gchar* color_scheme = g_settings_get_string(desktop_settings, "color-scheme");
+        if (color_scheme) {
+            gboolean prefer_dark = (g_strcmp0(color_scheme, "prefer-dark") == 0);
+            g_free(color_scheme);
+            g_object_unref(desktop_settings);
+            if (prefer_dark) return TRUE;
+        }
+        g_object_unref(desktop_settings);
+    }
+    
+    // Method 2: Check GTK theme name for dark variants
     GtkSettings* settings = gtk_settings_get_default();
-    if (!settings) return FALSE;
-    gboolean prefer = FALSE;
-    g_object_get(settings, "gtk-application-prefer-dark-theme", &prefer, NULL);
-    return prefer;
+    if (settings) {
+        gchar* theme_name = NULL;
+        g_object_get(settings, "gtk-theme-name", &theme_name, NULL);
+        if (theme_name) {
+            gboolean is_dark = (strstr(theme_name, "-dark") != NULL || 
+                               strstr(theme_name, "-Dark") != NULL);
+            g_free(theme_name);
+            if (is_dark) return TRUE;
+        }
+        
+        // Method 3: Check gtk-application-prefer-dark-theme (fallback)
+        gboolean prefer = FALSE;
+        g_object_get(settings, "gtk-application-prefer-dark-theme", &prefer, NULL);
+        if (prefer) return TRUE;
+    }
+    
+    return FALSE;
 }
 
 // Note: preferred color scheme is handled via a user script injection to support
