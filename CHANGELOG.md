@@ -34,6 +34,7 @@ All notable changes to this project will be documented in this file.
 - Cache build time reduced to ~300μs for typical history datasets
 
 ### Fixed
+- Dark theme detection now properly reads GNOME desktop interface color-scheme setting (`org.gnome.desktop.interface color-scheme`) instead of only checking `gtk-application-prefer-dark-theme`
 - Eliminated O(n log n) sorting bottleneck on every dmenu call
 - Memory-efficient compact entry storage with minimal footprint
 - Concurrent cache access with proper read/write locking
