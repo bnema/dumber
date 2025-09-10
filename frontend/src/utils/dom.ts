@@ -74,10 +74,37 @@ export class DOMRenderer {
     historyItem.className = 'history-item';
     const parsed = this.safeParseURL(item.url);
     const title = item.title && item.title.trim() !== '' ? item.title : (parsed.host || 'Untitled');
-    historyItem.innerHTML = `
-      <div class="history-url">${this.escapeHtml(item.url)}</div>
-      <div class="history-title">${this.escapeHtml(title)}</div>
-    `;
+
+    const line = document.createElement('div');
+    line.className = 'history-line';
+
+    const titleEl = document.createElement('span');
+    titleEl.className = 'history-title';
+    titleEl.textContent = title;
+
+    const sep1 = document.createElement('span');
+    sep1.className = 'history-sep';
+    sep1.textContent = ' - ';
+
+    const domainEl = document.createElement('span');
+    domainEl.className = 'history-domain';
+    domainEl.textContent = parsed.host || '';
+
+    const sep2 = document.createElement('span');
+    sep2.className = 'history-sep';
+    sep2.textContent = ' - ';
+
+    const urlEl = document.createElement('span');
+    urlEl.className = 'history-url';
+    urlEl.textContent = item.url;
+
+    line.appendChild(titleEl);
+    line.appendChild(sep1);
+    line.appendChild(domainEl);
+    line.appendChild(sep2);
+    line.appendChild(urlEl);
+
+    historyItem.appendChild(line);
     
     historyItem.addEventListener('click', () => {
       this.navigateToUrl(item.url);
@@ -110,20 +137,29 @@ export class DOMRenderer {
 
   private extractBaseUrl(templateUrl: string): string {
     try {
-      const url = new URL(templateUrl);
-      // Remove query parameters that contain %s template
+      // Support both %s and {query} placeholders
+      const candidate = templateUrl.replace(/%s|\{query\}/g, "");
+      const url = new URL(candidate);
+      // Remove empty query params left after placeholder removal
       const params = new URLSearchParams(url.search);
-      for (const [key, value] of params.entries()) {
-        if (value.includes('%s')) {
+      for (const key of Array.from(params.keys())) {
+        const v = params.get(key);
+        if (v === null || v === "") {
           params.delete(key);
         }
       }
       url.search = params.toString();
       return url.toString();
     } catch (error) {
-      // If URL parsing fails, return the original URL
+      // Fallbacks: try to return origin or stripped placeholder
       console.warn('Failed to parse shortcut URL:', templateUrl);
-      return templateUrl;
+      try {
+        const pre = templateUrl.split('%s')[0] || templateUrl.split('{query}')[0] || templateUrl;
+        const u = new URL(pre);
+        return `${u.protocol}//${u.host}`;
+      } catch {
+        return templateUrl.replace(/%s|\{query\}/g, "");
+      }
     }
   }
 

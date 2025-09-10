@@ -47,6 +47,7 @@ export class HTMLBuilder {
             height: 100vh;
             display: flex;
             flex-direction: column;
+            overflow-x: hidden; /* prevent horizontal scroll from long content */
         }
         
         .container {
@@ -57,16 +58,19 @@ export class HTMLBuilder {
             width: 100%;
             padding: 2rem;
             gap: 2rem;
+            overflow-x: hidden;
         }
         
         .history-section {
             flex: 1;
             min-height: 0;
+            min-width: 0; /* allow flex child to shrink */
         }
         
         .shortcuts-section {
             flex: 1;
             min-height: 0;
+            min-width: 0; /* allow flex child to shrink */
         }
         
         .section-title {
@@ -79,7 +83,9 @@ export class HTMLBuilder {
         
         .history-list {
             overflow-y: auto;
+            overflow-x: hidden;
             max-height: calc(100vh - 8rem);
+            max-width: 100%;
         }
         
         .history-item {
@@ -90,6 +96,8 @@ export class HTMLBuilder {
             cursor: pointer;
             transition: background 0.2s;
             border-left: 3px solid #404040;
+            overflow: hidden;
+            max-width: 100%;
         }
         
         .history-item:hover {
@@ -97,19 +105,28 @@ export class HTMLBuilder {
             border-left-color: #0066cc;
         }
         
+        .history-line {
+            display: flex;
+            gap: 0.5rem;
+            white-space: nowrap;
+            align-items: baseline;
+            overflow: hidden;
+            width: 100%;
+            min-width: 0; /* allow flex children to shrink */
+        }
+
+        .history-title { font-size: 0.95rem; color: #e6e6e6; flex: 0 0 auto; }
+        .history-domain { font-size: 0.9rem; color: #a5a5a5; flex: 0 0 auto; }
+        .history-sep { color: #666; flex: 0 0 auto; }
         .history-url {
             font-size: 0.9rem;
-            color: #cccccc;
-            margin-bottom: 0.25rem;
-            word-break: break-all;
-        }
-        
-        .history-title {
-            font-size: 0.8rem;
-            color: #888;
+            color: #7a7a7a; /* darker than domain */
+            flex: 1 1 auto;
+            min-width: 0; /* critical for flex truncation */
             overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            text-overflow: ellipsis; /* fallback */
+            -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%);
+            mask-image: linear-gradient(to right, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%);
         }
         
         .shortcuts-grid {
