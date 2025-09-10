@@ -103,6 +103,11 @@ Development:
 - Launcher integration (dmenu‑style examples):
   - rofi:   `dumber dmenu | rofi -dmenu -p "Browse: " | dumber dmenu --select`
   - fuzzel: `dumber dmenu | fuzzel --dmenu -p "Browse: " | dumber dmenu --select`
+- Clean up data and cache:
+  - `dumber purge`                     # purge all data (with confirmation)
+  - `dumber purge --force`             # purge all data (no confirmation)
+  - `dumber purge --database --cache`  # purge only database and caches
+  - `dumber purge --webkit-data`       # purge only WebKit data (cookies, etc.)
 
 ### Dmenu mode invocation
 You can invoke dmenu mode in two ways:
