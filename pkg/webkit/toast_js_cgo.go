@@ -28,7 +28,7 @@ func getToastScript() string {
         // Add CSS styles
         const style = document.createElement('style');
         style.textContent = ` +
-"`" + `
+		"`" + `
           .dumber-toast {
             background: rgba(18, 18, 18, 0.95);
             color: #eee;
