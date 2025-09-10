@@ -13,13 +13,14 @@ import (
 
 // PurgeFlags holds all the purge command flags
 type PurgeFlags struct {
-	Database   bool
-	Cache      bool
-	State      bool
-	WebkitData bool
-	Config     bool
-	All        bool
-	Force      bool
+	Database     bool
+	HistoryCache bool
+	BrowserCache bool
+	BrowserData  bool
+	State        bool
+	Config       bool
+	All          bool
+	Force        bool
 }
 
 // NewPurgeCmd creates the purge command
@@ -32,20 +33,21 @@ func NewPurgeCmd() *cobra.Command {
 		Long: `Purge various dumber data and cache files. By default, purges everything.
 
 Available purge targets:
-  --database, -d     Purge the SQLite database (history, shortcuts, zoom levels)
-  --cache, -c        Purge WebKit cache and dmenu fuzzy search cache
-  --state, -s        Purge all state data (includes database and caches)
-  --webkit-data, -w  Purge WebKit data (cookies, local storage, session data)
-  --config           Purge configuration files
-  --all, -a          Purge everything (default if no specific flags are provided)
+  --database, -d       Purge the SQLite database (history, shortcuts, zoom levels)
+  --history-cache, -H  Purge dmenu fuzzy search cache for history
+  --browser-cache, -c  Purge WebKit browser cache (cached images, files, etc.)
+  --browser-data, -b   Purge WebKit browser data (cookies, localStorage, sessionStorage)
+  --state, -s          Purge all state data (includes database and caches)
+  --config             Purge configuration files
+  --all, -a            Purge everything (default if no specific flags are provided)
 
 Use --force to skip the confirmation prompt.
 
 Examples:
   dumber purge                     # Purge everything (with confirmation)
   dumber purge --force             # Purge everything (no confirmation)
-  dumber purge -d -c               # Purge only database and caches
-  dumber purge --webkit-data -f    # Force purge WebKit data only`,
+  dumber purge -d -H -c            # Purge database and both caches
+  dumber purge --browser-data -f   # Force purge browser data only`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			// Initialize CLI to get config paths
 			cli, err := NewCLI()
@@ -64,9 +66,10 @@ Examples:
 
 	// Add flags
 	cmd.Flags().BoolVarP(&flags.Database, "database", "d", false, "Purge the SQLite database")
-	cmd.Flags().BoolVarP(&flags.Cache, "cache", "c", false, "Purge WebKit cache and dmenu fuzzy cache")
+	cmd.Flags().BoolVarP(&flags.HistoryCache, "history-cache", "H", false, "Purge dmenu fuzzy search cache")
+	cmd.Flags().BoolVarP(&flags.BrowserCache, "browser-cache", "c", false, "Purge WebKit browser cache")
+	cmd.Flags().BoolVarP(&flags.BrowserData, "browser-data", "b", false, "Purge WebKit browser data (cookies, localStorage)")
 	cmd.Flags().BoolVarP(&flags.State, "state", "s", false, "Purge all state data")
-	cmd.Flags().BoolVarP(&flags.WebkitData, "webkit-data", "w", false, "Purge WebKit data (cookies, local storage)")
 	cmd.Flags().BoolVar(&flags.Config, "config", false, "Purge configuration files")
 	cmd.Flags().BoolVarP(&flags.All, "all", "a", false, "Purge everything")
 	cmd.Flags().BoolVarP(&flags.Force, "force", "f", false, "Skip confirmation prompt")
@@ -106,23 +109,26 @@ func determinePurgeItems(flags PurgeFlags) []string {
 	var items []string
 
 	// If no specific flags are set, or --all is set, purge everything
-	if flags.All || (!flags.Database && !flags.Cache && !flags.State && !flags.WebkitData && !flags.Config) {
-		return []string{"database", "cache", "webkit-data", "config"}
+	if flags.All || (!flags.Database && !flags.HistoryCache && !flags.BrowserCache && !flags.BrowserData && !flags.State && !flags.Config) {
+		return []string{"database", "history-cache", "browser-cache", "browser-data", "config"}
 	}
 
 	// Add items based on flags
 	if flags.Database {
 		items = append(items, "database")
 	}
-	if flags.Cache {
-		items = append(items, "cache")
+	if flags.HistoryCache {
+		items = append(items, "history-cache")
+	}
+	if flags.BrowserCache {
+		items = append(items, "browser-cache")
+	}
+	if flags.BrowserData {
+		items = append(items, "browser-data")
 	}
 	if flags.State {
-		// State includes database and caches
-		items = append(items, "database", "cache")
-	}
-	if flags.WebkitData {
-		items = append(items, "webkit-data")
+		// State includes database and both caches
+		items = append(items, "database", "history-cache", "browser-cache")
 	}
 	if flags.Config {
 		items = append(items, "config")
@@ -154,24 +160,23 @@ func getPurgePaths(items []string) (map[string][]string, error) {
 			}
 			paths[item] = []string{dbPath}
 
-		case "cache":
-			var cachePaths []string
+		case "history-cache":
+			stateDir, err := config.GetStateDir()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get state directory: %w", err)
+			}
+			dmenuCache := filepath.Join(stateDir, "dmenu_fuzzy_cache.bin")
+			paths[item] = []string{dmenuCache}
 
-			// WebKit cache
+		case "browser-cache":
 			stateDir, err := config.GetStateDir()
 			if err != nil {
 				return nil, fmt.Errorf("failed to get state directory: %w", err)
 			}
 			webkitCache := filepath.Join(stateDir, "webkit-cache")
-			cachePaths = append(cachePaths, webkitCache)
+			paths[item] = []string{webkitCache}
 
-			// Dmenu fuzzy cache
-			dmenuCache := filepath.Join(stateDir, "dmenu_fuzzy_cache.bin")
-			cachePaths = append(cachePaths, dmenuCache)
-
-			paths[item] = cachePaths
-
-		case "webkit-data":
+		case "browser-data":
 			dataDir, err := config.GetDataDir()
 			if err != nil {
 				return nil, fmt.Errorf("failed to get data directory: %w", err)

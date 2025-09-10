@@ -17,7 +17,9 @@ All notable changes to this project will be documented in this file.
   - Atomic operations for concurrent access control
   - Dependency injection using interfaces and gomock for testing
 - Purge command for cleaning up dumber data and cache files:
-  - Selective purging with flags: `--database`, `--cache`, `--webkit-data`, `--state`, `--config`
+  - Selective purging with flags: `--database`, `--history-cache`, `--browser-cache`, `--browser-data`, `--state`, `--config`
+  - Clear distinction between history cache (dmenu fuzzy search) and browser cache (WebKit)
+  - Browser data includes cookies, localStorage, sessionStorage
   - Confirmation prompt with `--force` flag to skip
   - Targets all data locations: SQLite database, WebKit cache/data, dmenu fuzzy cache, configuration files
 
