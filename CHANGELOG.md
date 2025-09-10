@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-01-11
+
 ### Added
 - WebKit memory controls (opt‑in):
   - Env vars to tune memory/perf trade‑offs without code changes:
