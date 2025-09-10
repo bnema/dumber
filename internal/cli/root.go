@@ -161,6 +161,7 @@ func NewRootCmd(version, commit, buildDate string) *cobra.Command {
 	rootCmd.AddCommand(NewBrowseCmd())
 	rootCmd.AddCommand(NewDmenuCmd())
 	rootCmd.AddCommand(NewHistoryCmd())
+	rootCmd.AddCommand(NewPurgeCmd())
 
 	return rootCmd
 }

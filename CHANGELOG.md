@@ -16,6 +16,10 @@ All notable changes to this project will be documented in this file.
   - XDG Base Directory Specification compliance (cache stored in state directory)
   - Atomic operations for concurrent access control
   - Dependency injection using interfaces and gomock for testing
+- Purge command for cleaning up dumber data and cache files:
+  - Selective purging with flags: `--database`, `--cache`, `--webkit-data`, `--state`, `--config`
+  - Confirmation prompt with `--force` flag to skip
+  - Targets all data locations: SQLite database, WebKit cache/data, dmenu fuzzy cache, configuration files
 
 ### Changed
 - Dmenu performance dramatically improved: 5 seconds → 4ms (99.92% faster)
