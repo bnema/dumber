@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.4.0] - 2025-09-10
 
 ### Added
 - High-performance fuzzy cache system for dmenu history:
