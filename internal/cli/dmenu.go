@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/bnema/dumber/internal/cache"
 	"github.com/spf13/cobra"
 )
 
@@ -48,8 +49,103 @@ Usage with dmenu:
 	return cmd
 }
 
-// generateOptions outputs all available options for the launcher
+// generateOptions outputs all available options for the launcher using fuzzy cache
 func generateOptions(cli *CLI) error {
+	ctx := context.Background()
+
+	// Initialize cache manager
+	cacheConfig := cache.DefaultCacheConfig()
+	cacheConfig.MaxResults = 50 // Match the old maxHistoryEntries
+	cacheManager := cache.NewCacheManager(cli.Queries, cacheConfig)
+
+	// Get top entries from cache (this is blazingly fast!)
+	result, err := cacheManager.GetTopEntries(ctx)
+	if err != nil {
+		// Fallback to old method if cache fails
+		return generateOptionsFallback(cli)
+	}
+
+	// Get shortcuts for display
+	shortcuts, err := cli.Queries.GetShortcuts(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get shortcuts: %w", err)
+	}
+
+	// Generate options
+	options := make([]DmenuOption, 0, len(result.Matches)+len(shortcuts)+1)
+
+	// Add direct URL input option
+	options = append(options, DmenuOption{
+		Display:     "🌐 Enter URL or search query...",
+		Value:       "",
+		Type:        "input",
+		Description: "Type any URL or search term",
+	})
+
+	// Add shortcuts with examples
+	for _, shortcut := range shortcuts {
+		desc := shortcut.Description.String
+		if !shortcut.Description.Valid {
+			desc = "Custom shortcut"
+		}
+
+		options = append(options, DmenuOption{
+			Display:     fmt.Sprintf("🔍 %s: (%s)", shortcut.Shortcut, desc),
+			Value:       shortcut.Shortcut + ":",
+			Type:        "shortcut",
+			Description: desc,
+		})
+	}
+
+	// Add history entries from cache (already sorted by relevance!)
+	for _, match := range result.Matches {
+		entry := match.Entry
+		title := entry.URL
+		if entry.Title != "" {
+			title = entry.Title
+		}
+
+		const maxDisplayLength = 80
+		// Truncate long titles/URLs for display
+		display := truncateString(title, maxDisplayLength)
+
+		options = append(options, DmenuOption{
+			Display:     fmt.Sprintf("🕒 %s", display),
+			Value:       entry.URL,
+			Type:        "history",
+			Description: entry.URL,
+		})
+	}
+
+	// Sort options: input first, then shortcuts, then history (already sorted by cache)
+	sort.Slice(options, func(i, j int) bool {
+		if options[i].Type != options[j].Type {
+			// Order: input, shortcut, history
+			typeOrder := map[string]int{"input": 0, "shortcut": 1, "history": 2} //nolint:mnd
+			return typeOrder[options[i].Type] < typeOrder[options[j].Type]
+		}
+
+		if options[i].Type == "history" && options[j].Type == "history" {
+			// History already sorted by cache relevance score
+			return i < j
+		}
+
+		return options[i].Display < options[j].Display
+	})
+
+	// Output options to stdout
+	for _, option := range options {
+		fmt.Println(option.Display)
+	}
+
+	// Trigger background cache refresh for next time if needed
+	defer cacheManager.OnApplicationExit(ctx)
+
+	return nil
+}
+
+// generateOptionsFallback is the old method used as a fallback if cache fails
+func generateOptionsFallback(cli *CLI) error {
 	ctx := context.Background()
 
 	const maxHistoryEntries = 50

@@ -81,6 +81,7 @@ func GetStateDir() (string, error) {
 	return dirs.StateHome, nil
 }
 
+
 // GetConfigFile returns the path to the main configuration file.
 func GetConfigFile() (string, error) {
 	configDir, err := GetConfigDir()
