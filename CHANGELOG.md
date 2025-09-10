@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- TLS certificate error handling with user confirmation dialog:
+  - Comprehensive certificate information display (subject, issuer, validity dates)
+  - Interactive warning dialog for untrusted certificate authorities
+  - Certificate exception management with per-host persistence
+  - Manual load triggering after user accepts certificate exceptions
+  - Proper integration with WebKitGTK 6.0 network session API
+
+### Fixed
+- WebView background set to black to improve user experience during page loads
+
 ## [0.4.0] - 2025-09-10
 
 ### Added

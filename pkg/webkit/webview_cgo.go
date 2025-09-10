@@ -13,18 +13,12 @@ package webkit
 #include <jsc/jsc.h>
 #include <glib.h>
 #include <gio/gio.h>
+#include "webview_callbacks.h"
 
 static GtkWidget* new_window() { return GTK_WIDGET(gtk_window_new()); }
 
 // Forward declaration
 extern void goQuitMainLoop();
-
-// GTK4 close-request signal handler
-static gboolean on_close_request(GtkWindow* window, gpointer user_data) {
-    (void)window; (void)user_data;
-    goQuitMainLoop();
-    return FALSE; // Allow the window to close
-}
 
 // Connect window close signal to quit main loop
 static void connect_destroy_quit(GtkWidget* w) {
@@ -36,6 +30,25 @@ static WebKitWebView* as_webview(GtkWidget* w) { return WEBKIT_WEB_VIEW(w); }
 
 // Forward declare helpers used below
 static void maybe_set_cookie_policy(WebKitCookieManager* cm, int policy);
+
+// TLS error handling forward declarations
+extern gboolean goHandleTLSError(char* failing_uri, char* host, int error_flags, char* cert_info);
+static gboolean on_load_failed_with_tls_errors(WebKitWebView *web_view,
+                                               const char *failing_uri,
+                                               GTlsCertificate *certificate,
+                                               GTlsCertificateFlags errors,
+                                               gpointer user_data);
+static void connect_tls_error_handler(WebKitWebView* wv);
+
+// Dialog callback structure for TLS warnings
+typedef struct {
+    gboolean user_accepted;
+    gboolean dialog_completed;
+} TLSDialogData;
+
+static void on_tls_dialog_response(GtkDialog *dialog, gint response_id, gpointer user_data);
+static gboolean show_tls_warning_dialog_sync(GtkWindow *parent, const char* hostname, const char* error_msg);
+static char* extract_certificate_info(GTlsCertificate* certificate);
 
 // Construct a WebKitWebView via g_object_new with a fresh UserContentManager.
 static GtkWidget* new_webview_with_ucm_and_session(const char* data_dir, const char* cache_dir, const char* cookie_path, WebKitUserContentManager** out_ucm, WebKitMemoryPressureSettings* pressure_settings) {
@@ -62,12 +75,20 @@ static GtkWidget* new_webview_with_ucm_and_session(const char* data_dir, const c
     }
     // Persist credentials (HTTP auth, etc.)
     webkit_network_session_set_persistent_credential_storage_enabled(sess, TRUE);
+    // Configure TLS errors to emit signals instead of failing silently
+    webkit_network_session_set_tls_errors_policy(sess, WEBKIT_TLS_ERRORS_POLICY_FAIL);
     GtkWidget* w = GTK_WIDGET(g_object_new(WEBKIT_TYPE_WEB_VIEW,
         "user-content-manager", u,
         "network-session", sess,
         NULL));
     // WebView holds refs to provided objects; drop our temporary refs
     g_object_unref(sess);
+    // Set WebView background to black (easier on eyes when pages are loading)
+    GdkRGBA black_color = { 0.0, 0.0, 0.0, 1.0 };
+    webkit_web_view_set_background_color(WEBKIT_WEB_VIEW(w), &black_color);
+    
+    // Connect TLS error handler
+    connect_tls_error_handler(WEBKIT_WEB_VIEW(w));
     if (out_ucm) { *out_ucm = u; }
     return w;
 }
@@ -85,87 +106,57 @@ static gboolean gtk_prefers_dark() {
         }
         g_object_unref(desktop_settings);
     }
-    
+
     // Method 2: Check GTK theme name for dark variants
     GtkSettings* settings = gtk_settings_get_default();
     if (settings) {
         gchar* theme_name = NULL;
         g_object_get(settings, "gtk-theme-name", &theme_name, NULL);
         if (theme_name) {
-            gboolean is_dark = (strstr(theme_name, "-dark") != NULL || 
+            gboolean is_dark = (strstr(theme_name, "-dark") != NULL ||
                                strstr(theme_name, "-Dark") != NULL);
             g_free(theme_name);
             if (is_dark) return TRUE;
         }
-        
+
         // Method 3: Check gtk-application-prefer-dark-theme (fallback)
         gboolean prefer = FALSE;
         g_object_get(settings, "gtk-application-prefer-dark-theme", &prefer, NULL);
         if (prefer) return TRUE;
     }
-    
+
     return FALSE;
 }
 
 // Note: preferred color scheme is handled via a user script injection to support
 // older WebKitGTK versions without the color-scheme API. See enableUserContentManager.
 
-extern void goOnUcmMessage(unsigned long id, const char* json);
-extern void goOnTitleChanged(unsigned long id, const char* title);
-extern void goOnURIChanged(unsigned long id, const char* uri);
-extern void goOnThemeChanged(unsigned long id, int prefer_dark);
-extern void* goResolveURIScheme(char* uri, size_t* out_len, char** out_mime);
+extern void goOnUcmMessage(unsigned long id, char* json);
 
-void on_title_notify(GObject* obj, GParamSpec* pspec, gpointer user_data) {
-    (void)pspec;
-    WebKitWebView* view = WEBKIT_WEB_VIEW(obj);
-    const gchar* title = webkit_web_view_get_title(view);
-    GtkWindow* win = GTK_WINDOW(user_data);
-    if (title && win) {
-        gtk_window_set_title(win, title);
-    }
+// Helper functions to connect signals using static callbacks
+static void connect_title_notify(GtkWidget* widget, GtkWindow* window) {
+    if (!widget) return;
+    g_signal_connect_data(G_OBJECT(widget), "notify::title", G_CALLBACK(on_title_notify), G_OBJECT(window), NULL, 0);
 }
 
-void on_title_notify_id(GObject* obj, GParamSpec* pspec, gpointer user_data) {
-    (void)pspec; (void)obj;
-    const gchar* title = webkit_web_view_get_title(WEBKIT_WEB_VIEW(obj));
-    if (title) { goOnTitleChanged((unsigned long)user_data, title); }
+static void connect_title_notify_with_id(GtkWidget* widget, unsigned long id) {
+    if (!widget) return;
+    g_signal_connect_data(G_OBJECT(widget), "notify::title", G_CALLBACK(on_title_notify_id), (gpointer)id, NULL, 0);
 }
 
-void on_uri_notify(GObject* obj, GParamSpec* pspec, gpointer user_data) {
-    (void)pspec; (void)obj;
-    const gchar* uri = webkit_web_view_get_uri(WEBKIT_WEB_VIEW(obj));
-    if (uri) { goOnURIChanged((unsigned long)user_data, uri); }
+static void connect_uri_notify_with_id(GtkWidget* widget, unsigned long id) {
+    if (!widget) return;
+    g_signal_connect_data(G_OBJECT(widget), "notify::uri", G_CALLBACK(on_uri_notify), (gpointer)id, NULL, 0);
 }
 
-// React to GTK theme preference changes at runtime
-void on_theme_changed(GObject* obj, GParamSpec* pspec, gpointer user_data) {
-    (void)pspec;
-    GtkSettings* settings = GTK_SETTINGS(obj);
+static void connect_theme_changed_with_id(GtkSettings* settings, unsigned long id) {
     if (!settings) return;
-    gboolean prefer = FALSE;
-    g_object_get(settings, "gtk-application-prefer-dark-theme", &prefer, NULL);
-    goOnThemeChanged((unsigned long)user_data, prefer ? 1 : 0);
+    g_signal_connect_data(G_OBJECT(settings), "notify::gtk-application-prefer-dark-theme", G_CALLBACK(on_theme_changed), (gpointer)id, NULL, 0);
 }
 
-// NOTE: UCM message callback signature changed in WebKitGTK 6; will be reimplemented later.
-
-void on_uri_scheme(WebKitURISchemeRequest* request, gpointer user_data) {
-    (void)user_data;
-    const gchar* uri = webkit_uri_scheme_request_get_uri(request);
-    size_t n = 0;
-    char* mime = NULL;
-    void* buf = goResolveURIScheme((char*)uri, &n, &mime);
-    if (buf && n > 0 && mime) {
-        GInputStream* stream = g_memory_input_stream_new_from_data(buf, (gssize)n, g_free);
-        webkit_uri_scheme_request_finish(request, stream, (gint64)n, mime);
-        g_object_unref(stream);
-        g_free(mime);
-    } else {
-        GError* err = g_error_new_literal(g_quark_from_string("dumber"), 404, "Not found");
-        webkit_uri_scheme_request_finish_error(request, err);
-        g_error_free(err);
-    }
+static void register_uri_scheme_handler(WebKitWebContext* context, const char* scheme) {
+    if (!context || !scheme) return;
+    webkit_web_context_register_uri_scheme(context, scheme, (WebKitURISchemeRequestCallback)on_uri_scheme, NULL, NULL);
 }
 
 // Script message handler wiring for WebKitGTK 6
@@ -357,6 +348,195 @@ static void maybe_collect_js(WebKitWebContext* context) {
     // Disabled by default due to API availability variance across 6.0 builds.
     (void)context;
 }
+
+// TLS error handling implementation
+static gboolean on_load_failed_with_tls_errors(WebKitWebView *web_view,
+                                               const char *failing_uri,
+                                               GTlsCertificate *certificate,
+                                               GTlsCertificateFlags errors,
+                                               gpointer user_data) {
+    (void)user_data;
+
+    // Extract host from URI for the Go callback
+    const char* host = failing_uri;
+    char* host_copy = NULL;
+    
+    if (strstr(failing_uri, "://")) {
+        host = strstr(failing_uri, "://") + 3;
+        char* slash = strchr(host, '/');
+        if (slash) {
+            // Create a temporary null-terminated host string
+            size_t host_len = slash - host;
+            host_copy = malloc(host_len + 1);
+            if (host_copy) {
+                strncpy(host_copy, host, host_len);
+                host_copy[host_len] = '\0';
+                host = host_copy;
+            }
+        }
+    }
+
+    // Extract certificate information
+    char* cert_info = extract_certificate_info(certificate);
+    
+    gboolean should_proceed = goHandleTLSError((char*)failing_uri, (char*)host, (int)errors, cert_info);
+
+    // If user accepted, allow the certificate for this host
+    if (should_proceed && certificate) {
+        printf("[dumber] User accepted certificate - adding exception and triggering new load\n");
+        fflush(stdout);
+        // Get the network session from the web view
+        WebKitNetworkSession* session = webkit_web_view_get_network_session(web_view);
+        if (session) {
+            webkit_network_session_allow_tls_certificate_for_host(session, certificate, host);
+            printf("[dumber] Certificate exception added for host: %s\n", host);
+            fflush(stdout);
+            
+            // Try loading the URL again after adding the exception
+            webkit_web_view_load_uri(web_view, failing_uri);
+            printf("[dumber] Triggered new load of %s with certificate exception\n", failing_uri);
+            fflush(stdout);
+        }
+    }
+    
+    // Free the certificate info string
+    if (cert_info) {
+        g_free(cert_info);
+    }
+
+    if (host_copy) {
+        free(host_copy);
+    }
+
+    return should_proceed;
+}
+
+// Extract certificate information for display
+static char* extract_certificate_info(GTlsCertificate* certificate) {
+    if (!certificate) {
+        return g_strdup("Certificate information not available");
+    }
+    
+    printf("[dumber] Extracting certificate information...\n");
+    fflush(stdout);
+    
+    GString* info = g_string_new("Certificate Information:\n");
+    
+    // Try to get certificate properties - but these might not be available in all GTK versions
+    gchar* subject = NULL;
+    gchar* issuer = NULL;
+    GDateTime* not_valid_before = NULL;
+    GDateTime* not_valid_after = NULL;
+    
+    // Try property access but handle failures gracefully
+    g_object_get(certificate,
+                 "subject-name", &subject,
+                 "issuer-name", &issuer,
+                 "not-valid-before", &not_valid_before,
+                 "not-valid-after", &not_valid_after,
+                 NULL);
+    
+    if (subject) {
+        g_string_append_printf(info, "Subject: %s\n", subject);
+        g_free(subject);
+        printf("[dumber] Found subject info\n");
+    } else {
+        g_string_append(info, "Subject: Information not available\n");
+    }
+    
+    if (issuer) {
+        g_string_append_printf(info, "Issued by: %s\n", issuer);
+        g_free(issuer);
+        printf("[dumber] Found issuer info\n");
+    } else {
+        g_string_append(info, "Issued by: Information not available\n");
+    }
+    
+    if (not_valid_before) {
+        gchar* date_str = g_date_time_format(not_valid_before, "%Y-%m-%d %H:%M:%S UTC");
+        g_string_append_printf(info, "Valid from: %s\n", date_str);
+        g_free(date_str);
+        g_date_time_unref(not_valid_before);
+    } else {
+        g_string_append(info, "Valid from: Information not available\n");
+    }
+    
+    if (not_valid_after) {
+        gchar* date_str = g_date_time_format(not_valid_after, "%Y-%m-%d %H:%M:%S UTC");
+        g_string_append_printf(info, "Valid until: %s\n", date_str);
+        g_free(date_str);
+        g_date_time_unref(not_valid_after);
+    } else {
+        g_string_append(info, "Valid until: Information not available\n");
+    }
+    
+    char* result = g_string_free(info, FALSE);
+    printf("[dumber] Certificate info: %s\n", result);
+    fflush(stdout);
+    return result;
+}
+
+static void connect_tls_error_handler(WebKitWebView* wv) {
+    if (!wv) return;
+    g_signal_connect(G_OBJECT(wv), "load-failed-with-tls-errors",
+                     G_CALLBACK(on_load_failed_with_tls_errors), NULL);
+}
+
+// TLS dialog response callback
+static void on_tls_dialog_response(GtkDialog *dialog, gint response_id, gpointer user_data) {
+    TLSDialogData *data = (TLSDialogData*)user_data;
+    data->user_accepted = (response_id == GTK_RESPONSE_ACCEPT);
+    data->dialog_completed = TRUE;
+    printf("[dumber] TLS dialog response: %s (response_id=%d)\n", 
+           data->user_accepted ? "ACCEPTED" : "REJECTED", response_id);
+    fflush(stdout);
+    gtk_window_destroy(GTK_WINDOW(dialog));
+}
+
+// Show TLS warning dialog synchronously using GTK4 patterns
+static gboolean show_tls_warning_dialog_sync(GtkWindow *parent, const char* hostname, const char* error_msg) {
+    printf("[dumber] Creating TLS warning dialog for hostname: %s\n", hostname);
+    printf("[dumber] Error message: %s\n", error_msg);
+    fflush(stdout);
+    
+    // Create the dialog
+    GtkWidget *dialog = gtk_message_dialog_new(
+        parent,
+        GTK_DIALOG_MODAL,
+        GTK_MESSAGE_WARNING,
+        GTK_BUTTONS_NONE,
+        "Certificate Error for %s", hostname
+    );
+
+    // Set secondary text with error details
+    gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog), "%s", error_msg);
+
+    // Add buttons
+    gtk_dialog_add_button(GTK_DIALOG(dialog), "Go Back", GTK_RESPONSE_CANCEL);
+    GtkWidget *proceed_btn = gtk_dialog_add_button(GTK_DIALOG(dialog), "Proceed Anyway (Unsafe)", GTK_RESPONSE_ACCEPT);
+
+    // Style the proceed button as destructive (red)
+    gtk_widget_add_css_class(proceed_btn, "destructive-action");
+
+    // Set default response to cancel (safer option)
+    gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
+
+    // Set up dialog data
+    TLSDialogData dialog_data = { FALSE, FALSE };
+
+    // Connect response signal
+    g_signal_connect(dialog, "response", G_CALLBACK(on_tls_dialog_response), &dialog_data);
+
+    // Show the dialog
+    gtk_window_present(GTK_WINDOW(dialog));
+
+    // Run a nested main loop until dialog is completed
+    while (!dialog_data.dialog_completed) {
+        g_main_context_iteration(NULL, TRUE);
+    }
+
+    return dialog_data.user_accepted;
+}
 */
 import "C"
 
@@ -378,7 +558,6 @@ func boolToInt(b bool) int {
 	return 0
 }
 
-
 type nativeView struct {
 	win  *C.GtkWidget
 	view *C.GtkWidget
@@ -394,20 +573,21 @@ type memoryStats struct {
 
 // WebView represents a browser view powered by WebKit2GTK.
 type WebView struct {
-	config       *Config
-	zoom         float64
-	url          string
-	destroyed    bool
-	native       *nativeView
-	window       *Window
-	id           uintptr
-	msgHandler   func(payload string)
-	titleHandler func(title string)
-	uriHandler   func(uri string)
-	zoomHandler  func(level float64)
-	memStats     *memoryStats
-	gcTicker     *time.Ticker
-	gcDone       chan struct{}
+	config        *Config
+	zoom          float64
+	url           string
+	destroyed     bool
+	native        *nativeView
+	window        *Window
+	id            uintptr
+	msgHandler    func(payload string)
+	titleHandler  func(title string)
+	uriHandler    func(uri string)
+	zoomHandler   func(level float64)
+	memStats      *memoryStats
+	gcTicker      *time.Ticker
+	gcDone        chan struct{}
+	tlsExceptions map[string]bool // host -> whether user allowed certificate exception
 }
 
 // NewWebView constructs a new WebView instance with native WebKit2GTK widgets.
@@ -488,7 +668,7 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	// Register custom URI scheme handler for "dumb://"
 	{
 		sch := C.CString("dumb")
-		C.webkit_web_context_register_uri_scheme(ctx, sch, (C.WebKitURISchemeRequestCallback)(C.on_uri_scheme), nil, nil)
+		C.register_uri_scheme_handler(ctx, sch)
 		C.free(unsafe.Pointer(sch))
 	}
 	// Cookie manager persistent storage handled via NetworkSession in new_webview_with_ucm_and_session
@@ -522,7 +702,8 @@ func NewWebView(cfg *Config) (*WebView, error) {
 			lastGCTime:             time.Now(),
 			memoryPressureSettings: pressureSettings,
 		},
-		gcDone: make(chan struct{}),
+		gcDone:        make(chan struct{}),
+		tlsExceptions: make(map[string]bool),
 	}
 	// Assign an ID for accelerator dispatch
 	v.id = nextViewID()
@@ -546,9 +727,7 @@ func NewWebView(cfg *Config) (*WebView, error) {
 
 	// Watch for GTK theme changes and propagate to page at runtime
 	if settings := C.gtk_settings_get_default(); settings != nil {
-		cprop := C.CString("notify::gtk-application-prefer-dark-theme")
-		C.g_signal_connect_data(C.gpointer(unsafe.Pointer(settings)), cprop, C.GCallback(C.on_theme_changed), C.gpointer(v.id), nil, 0)
-		C.free(unsafe.Pointer(cprop))
+		C.connect_theme_changed_with_id(settings, C.ulong(v.id))
 	}
 
 	// Native zoom shortcuts (independent of app services)
@@ -602,17 +781,11 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	_ = v.RegisterKeyboardShortcut("alt+ArrowLeft", func() { _ = v.GoBack() })
 	_ = v.RegisterKeyboardShortcut("alt+ArrowRight", func() { _ = v.GoForward() })
 	// Update window title when page title changes
-	cNotifyTitle1 := C.CString("notify::title")
-	C.g_signal_connect_data(C.gpointer(unsafe.Pointer(viewWidget)), cNotifyTitle1, C.GCallback(C.on_title_notify), C.gpointer(unsafe.Pointer(win)), nil, 0)
-	C.free(unsafe.Pointer(cNotifyTitle1))
+	C.connect_title_notify(viewWidget, (*C.GtkWindow)(unsafe.Pointer(win)))
 	// Also dispatch title change to Go with view id
-	cNotifyTitle2 := C.CString("notify::title")
-	C.g_signal_connect_data(C.gpointer(unsafe.Pointer(viewWidget)), cNotifyTitle2, C.GCallback(C.on_title_notify_id), C.gpointer(v.id), nil, 0)
-	C.free(unsafe.Pointer(cNotifyTitle2))
+	C.connect_title_notify_with_id(viewWidget, C.ulong(v.id))
 	// Notify URI changes to Go to keep current URL in sync
-	cNotifyURI := C.CString("notify::uri")
-	C.g_signal_connect_data(C.gpointer(unsafe.Pointer(viewWidget)), cNotifyURI, C.GCallback(C.on_uri_notify), C.gpointer(v.id), nil, 0)
-	C.free(unsafe.Pointer(cNotifyURI))
+	C.connect_uri_notify_with_id(viewWidget, C.ulong(v.id))
 	// Apply hardware acceleration and related settings based on cfg.Rendering
 	if settings := C.webkit_web_view_get_settings(v.native.wv); settings != nil {
 		// Hardware acceleration policy (guarded by version)
@@ -887,8 +1060,8 @@ func (w *WebView) enableUserContentManager() {
 		C.webkit_user_script_unref(schemeScript)
 	}
 
-    // Add user script at document-start (omnibox/find reusable component)
-    src := C.CString(getOmniboxScript())
+	// Add user script at document-start (omnibox/find reusable component)
+	src := C.CString(getOmniboxScript())
 	defer C.free(unsafe.Pointer(src))
 	script := C.webkit_user_script_new((*C.gchar)(src), C.WEBKIT_USER_CONTENT_INJECT_ALL_FRAMES, C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, nil, nil)
 	if script != nil {
@@ -1006,4 +1179,116 @@ func (w *WebView) TriggerMemoryCleanup() {
 	if w.config.Memory.EnableMemoryMonitoring {
 		log.Printf("[webkit] Manual memory cleanup triggered")
 	}
+}
+
+//export goHandleTLSError
+func goHandleTLSError(failingURI *C.char, host *C.char, errorFlags C.int, certInfo *C.char) C.gboolean {
+	uri := C.GoString(failingURI)
+	hostname := C.GoString(host)
+	certificateInfo := C.GoString(certInfo)
+
+	log.Printf("[tls] Certificate error for %s (URI: %s, flags: %d)", hostname, uri, int(errorFlags))
+
+	// Find the WebView that triggered this error
+	// For now, we'll get the most recently created view
+	// In a more sophisticated implementation, we'd pass the view ID through user_data
+	var webView *WebView
+	regMu.RLock()
+	for _, v := range viewByID {
+		if v != nil {
+			webView = v
+			break
+		}
+	}
+	regMu.RUnlock()
+
+	if webView == nil {
+		log.Printf("[tls] No WebView found to handle TLS error")
+		return C.FALSE // Don't proceed
+	}
+
+	// Check if we've already allowed this host
+	if allowed, exists := webView.tlsExceptions[hostname]; exists && allowed {
+		log.Printf("[tls] Certificate exception already granted for %s", hostname)
+		return C.TRUE // Proceed with the load
+	}
+
+	// Show warning dialog and get user decision
+	if webView.showTLSWarningDialog(hostname, uri, int(errorFlags), certificateInfo) {
+		webView.tlsExceptions[hostname] = true
+		log.Printf("[tls] User accepted certificate exception for %s", hostname)
+		return C.TRUE // Proceed with the load
+	}
+
+	log.Printf("[tls] User rejected certificate for %s", hostname)
+	return C.FALSE // Don't proceed
+}
+
+// showTLSWarningDialog displays a warning dialog for TLS certificate errors
+func (w *WebView) showTLSWarningDialog(hostname, uri string, errorFlags int, certificateInfo string) bool {
+	if w == nil || w.native == nil || w.native.win == nil {
+		log.Printf("[tls] Cannot show dialog: WebView or window is nil")
+		return false
+	}
+
+	log.Printf("[tls] Showing certificate error dialog for %s", hostname)
+
+	// Format the error message with certificate information
+	errorMsg := formatTLSErrorMessage(hostname, uri, errorFlags, certificateInfo)
+
+	// Convert strings to C strings
+	cHostname := C.CString(hostname)
+	defer C.free(unsafe.Pointer(cHostname))
+
+	cErrorMsg := C.CString(errorMsg)
+	defer C.free(unsafe.Pointer(cErrorMsg))
+
+	// Show the dialog and get user response
+	result := C.show_tls_warning_dialog_sync(
+		(*C.GtkWindow)(unsafe.Pointer(w.native.win)),
+		cHostname,
+		cErrorMsg,
+	)
+
+	userAccepted := result != 0
+	log.Printf("[tls] User %s certificate for %s",
+		map[bool]string{true: "accepted", false: "rejected"}[userAccepted],
+		hostname)
+
+	return userAccepted
+}
+
+// formatTLSErrorMessage creates a detailed error message based on the error flags
+func formatTLSErrorMessage(hostname, uri string, errorFlags int, certificateInfo string) string {
+	msg := "Website: " + hostname + "\n\n"
+
+	// Add certificate information
+	if certificateInfo != "" {
+		msg += "Certificate Details:\n" + certificateInfo + "\n"
+	}
+
+	msg += "Security Issues:\n"
+	// Decode GTlsCertificateFlags (common values)
+	if errorFlags&1 != 0 { // G_TLS_CERTIFICATE_UNKNOWN_CA
+		msg += "• Certificate authority is not trusted\n"
+	}
+	if errorFlags&2 != 0 { // G_TLS_CERTIFICATE_BAD_IDENTITY
+		msg += "• Certificate does not match the website identity\n"
+	}
+	if errorFlags&4 != 0 { // G_TLS_CERTIFICATE_NOT_ACTIVATED
+		msg += "• Certificate is not yet valid\n"
+	}
+	if errorFlags&8 != 0 { // G_TLS_CERTIFICATE_EXPIRED
+		msg += "• Certificate has expired\n"
+	}
+	if errorFlags&16 != 0 { // G_TLS_CERTIFICATE_REVOKED
+		msg += "• Certificate has been revoked\n"
+	}
+	if errorFlags&32 != 0 { // G_TLS_CERTIFICATE_INSECURE
+		msg += "• Certificate uses weak cryptography\n"
+	}
+
+	msg += "\nProceeding may expose your data to attackers.\nOnly continue if you trust this website."
+
+	return msg
 }
