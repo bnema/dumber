@@ -29,7 +29,7 @@ All notable changes to this project will be documented in this file.
   - Native backend integration for reliable clipboard access
 
 ### Changed
-- Dmenu performance dramatically improved: 5 seconds → 4ms (99.92% faster)
+- Dmenu performance dramatically improved: 200ms → 4ms (98% faster)
 - GetTopEntries optimized from O(n log n) to O(1) using pre-sorted indices
 - Cache build time reduced to ~300μs for typical history datasets
 
