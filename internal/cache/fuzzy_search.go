@@ -10,9 +10,9 @@ import (
 
 // Fuzzy search constants
 const (
-	prefixMatchBonus = 0.9   // Score bonus for prefix matches
-	prefixLength     = 4     // Maximum prefix length to check
-	recencyDecayDays = 30.0  // Days over which recency score decays
+	prefixMatchBonus = 0.9    // Score bonus for prefix matches
+	prefixLength     = 4      // Maximum prefix length to check
+	recencyDecayDays = 30.0   // Days over which recency score decays
 	maxVisitNormal   = 1000.0 // Maximum visits for normalization
 )
 

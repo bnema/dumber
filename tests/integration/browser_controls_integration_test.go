@@ -373,7 +373,7 @@ func verifyZoomInDatabase(t *testing.T, queries *db.Queries, url string, expecte
 
 	// Extract domain from URL (zoom is stored per domain, not full URL)
 	domain := extractDomain(url)
-	
+
 	// Get zoom level from database
 	zoom, err := queries.GetZoomLevel(ctx, domain)
 	if err != nil {

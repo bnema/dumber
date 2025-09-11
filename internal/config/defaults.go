@@ -8,10 +8,10 @@ import (
 // Default configuration constants
 const (
 	// Database defaults
-	defaultMaxIdleTimeMin   = 5  // minutes
-	defaultQueryTimeoutSec  = 30 // seconds
+	defaultMaxIdleTimeMin  = 5  // minutes
+	defaultQueryTimeoutSec = 30 // seconds
 
-	// History defaults  
+	// History defaults
 	defaultMaxHistoryEntries = 10000 // entries
 	defaultRetentionDays     = 365   // 1 year
 
@@ -78,20 +78,20 @@ func DefaultConfig() *Config {
 			SortByVisitCount: true,
 		},
 		Logging: LoggingConfig{
-			Level:         "info",
-			Format:        "text", // text or json
-			Filename:      "",     // empty means stdout
-			MaxSize:       defaultMaxLogSizeMB, // MB
-			MaxBackups:    defaultMaxBackups,
-			MaxAge:        defaultMaxLogAgeDays, // days
-			Compress:      true,
-			LogDir:        getDefaultLogDir(),
-			EnableFileLog: true,
-			CaptureStdout: false,
-			CaptureStderr: false,
+			Level:          "info",
+			Format:         "text",              // text or json
+			Filename:       "",                  // empty means stdout
+			MaxSize:        defaultMaxLogSizeMB, // MB
+			MaxBackups:     defaultMaxBackups,
+			MaxAge:         defaultMaxLogAgeDays, // days
+			Compress:       true,
+			LogDir:         getDefaultLogDir(),
+			EnableFileLog:  true,
+			CaptureStdout:  false,
+			CaptureStderr:  false,
 			CaptureCOutput: false, // Disabled by default to avoid performance impact
-			DebugFile:     "debug.log",
-			VerboseWebKit: false,
+			DebugFile:      "debug.log",
+			VerboseWebKit:  false,
 		},
 		Appearance: AppearanceConfig{
 			SansFont:        "Fira Sans",
@@ -105,6 +105,18 @@ func DefaultConfig() *Config {
 			VAAPIDriverName:  "", // Will be auto-detected
 			EnableAllDrivers: true,
 			LegacyVAAPI:      false,
+		},
+		CodecPreferences: CodecConfig{
+			PreferredCodecs:    "av1,h264",                                                                                              // AV1 first, but allow VP9 fallback for higher resolutions
+			ForceAV1:           false,                                                                                                   // Use smart AV1 negotiation instead of forcing
+			BlockVP9:           false,                                                                                                   // Allow VP9 for higher resolutions
+			BlockVP8:           true,                                                                                                    // Still block VP8 as it's outdated
+			AV1HardwareOnly:    false,                                                                                                   // Allow software AV1 fallback
+			DisableVP9Hardware: false,                                                                                                   // Allow VP9 hardware for high res content
+			VideoBufferSizeMB:  16,                                                                                                      // Larger buffer for AV1 streams
+			QueueBufferTimeSec: 10,                                                                                                      // More buffering time for smooth playback
+			CustomUserAgent:    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", // Chrome UA with AV1 support
+			AV1MaxResolution:   "1080p",                                                                                                 // Optimal AV1 up to 1080p, fallback to VP9 for higher res
 		},
 		RenderingMode: RenderingModeAuto,
 	}

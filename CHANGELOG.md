@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Smart AV1 codec negotiation system for YouTube high-resolution streaming**:
+  - **Resolution-aware MediaCapabilities API reporting**: Intelligent codec capability reporting based on video resolution, enabling YouTube to select optimal codecs for different quality levels
+  - **YouTube format manifest manipulation**: Real-time format list reordering to prioritize AV1 for ≤1080p content while allowing VP9 fallback for higher resolutions
+  - **Graduated codec preference system**: Smart localStorage preference (`2048`) instead of forced AV1 (`8192`), giving YouTube flexibility for optimal codec selection
+  - **4K HDR 60fps AV1 support**: Successfully enables YouTube delivery of premium quality 4K HDR content with AV1 codec, HDR10 (PQ) color space, and BT.2020 wide color gamut
+  - **Configurable AV1 resolution limits**: New `av1_max_resolution` config option with environment variable support (`DUMBER_AV1_MAX_RES`)
+  - **Automatic codec fallback logic**: Seamless VP9 fallback for resolutions where AV1 performance may be suboptimal
+  - **High bitrate streaming support**: Enables premium quality streaming (650+ Mbps) with proper buffer management
+  - Fixes previous limitation where forcing AV1 would cap YouTube playback at 1080p maximum
 - Page refresh functionality with standard keyboard shortcuts:
   - **Ctrl+R** / **Cmd+R**: Reload current page
   - **Ctrl+Shift+R** / **Cmd+Shift+R**: Hard reload (bypass cache)

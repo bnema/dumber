@@ -88,7 +88,6 @@ func browse(cli *CLI, input string) error {
 	return openURLWithConfig(finalURL, cli.Config)
 }
 
-
 // recordVisit adds or updates a URL visit in the history
 func recordVisit(ctx context.Context, cli *CLI, url, title string) error {
 	var sqlTitle sql.NullString
@@ -119,7 +118,7 @@ func openURLWithConfig(url string, cfg *config.Config) error {
 	// 1. Config file defaults
 	// 2. Environment variables (override config)
 	// 3. Command line flags (override both)
-	// 
+	//
 	// We don't convert config to env vars here because that would break precedence.
 	// The cfg parameter ensures we use the same config source in both processes.
 
@@ -167,4 +166,3 @@ func updateFavicon(ctx context.Context, cli *CLI, pageURL string) {
 		faviconCache.CacheAsync(faviconURL)
 	}
 }
-

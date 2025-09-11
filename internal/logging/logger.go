@@ -103,7 +103,7 @@ func Init(logDir string, level string, format string, enableFileLog bool, maxSiz
 	}
 
 	outputs := []io.Writer{}
-	
+
 	// Always include stdout
 	outputs = append(outputs, os.Stdout)
 
@@ -142,7 +142,7 @@ func (l *Logger) Write(p []byte) (n int, err error) {
 	if message == "" {
 		return len(p), nil
 	}
-	
+
 	l.writeLog(INFO, message, "")
 	return len(p), nil
 }

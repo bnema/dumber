@@ -40,11 +40,11 @@ static gboolean on_load_failed_with_tls_errors(WebKitWebView *web_view,
                                                gpointer user_data);
 
 // Handle create signal for _blank links - redirect to current window
-static WebKitWebView* on_create_new_window(WebKitWebView* web_view, 
+static WebKitWebView* on_create_new_window(WebKitWebView* web_view,
                                            WebKitNavigationAction* navigation_action,
                                            gpointer user_data) {
     (void)user_data;
-    
+
     // Get the request from navigation action
     WebKitURIRequest* request = webkit_navigation_action_get_request(navigation_action);
     if (request) {
@@ -54,7 +54,7 @@ static WebKitWebView* on_create_new_window(WebKitWebView* web_view,
             webkit_web_view_load_uri(web_view, uri);
         }
     }
-    
+
     // Return NULL to prevent new window creation
     return NULL;
 }
@@ -78,7 +78,7 @@ static void setup_video_acceleration(const char* driver_name, int enable_all, in
         // Don't set other env vars in legacy mode to avoid conflicts
         return;
     }
-    
+
     // Modern mode (default): use improved VA-API handling
     if (driver_name && strlen(driver_name) > 0) {
         if (strcmp(driver_name, "nvidia") == 0) {
@@ -93,7 +93,7 @@ static void setup_video_acceleration(const char* driver_name, int enable_all, in
             setenv("LIBVA_DRIVER_NAME", driver_name, 1);
         }
     }
-    
+
     if (enable_all) {
         setenv("GST_VAAPI_ALL_DRIVERS", "1", 1);
     }
@@ -135,10 +135,10 @@ static GtkWidget* new_webview_with_ucm_and_session(const char* data_dir, const c
     // Set WebView background to black (easier on eyes when pages are loading)
     GdkRGBA black_color = { 0.0, 0.0, 0.0, 1.0 };
     webkit_web_view_set_background_color(WEBKIT_WEB_VIEW(w), &black_color);
-    
+
     // Handle create signal to redirect _blank links to current window
     g_signal_connect(G_OBJECT(w), "create", G_CALLBACK(on_create_new_window), NULL);
-    
+
     // Connect TLS error handler
     connect_tls_error_handler(WEBKIT_WEB_VIEW(w));
     if (out_ucm) { *out_ucm = u; }
@@ -412,7 +412,7 @@ static gboolean on_load_failed_with_tls_errors(WebKitWebView *web_view,
     // Extract host from URI for the Go callback
     const char* host = failing_uri;
     char* host_copy = NULL;
-    
+
     if (strstr(failing_uri, "://")) {
         host = strstr(failing_uri, "://") + 3;
         char* slash = strchr(host, '/');
@@ -430,7 +430,7 @@ static gboolean on_load_failed_with_tls_errors(WebKitWebView *web_view,
 
     // Extract certificate information
     char* cert_info = extract_certificate_info(certificate);
-    
+
     gboolean should_proceed = goHandleTLSError((char*)failing_uri, (char*)host, (int)errors, cert_info);
 
     // If user accepted, allow the certificate for this host
@@ -443,14 +443,14 @@ static gboolean on_load_failed_with_tls_errors(WebKitWebView *web_view,
             webkit_network_session_allow_tls_certificate_for_host(session, certificate, host);
             printf("[dumber] Certificate exception added for host: %s\n", host);
             fflush(stdout);
-            
+
             // Try loading the URL again after adding the exception
             webkit_web_view_load_uri(web_view, failing_uri);
             printf("[dumber] Triggered new load of %s with certificate exception\n", failing_uri);
             fflush(stdout);
         }
     }
-    
+
     // Free the certificate info string
     if (cert_info) {
         g_free(cert_info);
@@ -468,18 +468,18 @@ static char* extract_certificate_info(GTlsCertificate* certificate) {
     if (!certificate) {
         return g_strdup("Certificate information not available");
     }
-    
+
     printf("[dumber] Extracting certificate information...\n");
     fflush(stdout);
-    
+
     GString* info = g_string_new("Certificate Information:\n");
-    
+
     // Try to get certificate properties - but these might not be available in all GTK versions
     gchar* subject = NULL;
     gchar* issuer = NULL;
     GDateTime* not_valid_before = NULL;
     GDateTime* not_valid_after = NULL;
-    
+
     // Try property access but handle failures gracefully
     g_object_get(certificate,
                  "subject-name", &subject,
@@ -487,7 +487,7 @@ static char* extract_certificate_info(GTlsCertificate* certificate) {
                  "not-valid-before", &not_valid_before,
                  "not-valid-after", &not_valid_after,
                  NULL);
-    
+
     if (subject) {
         g_string_append_printf(info, "Subject: %s\n", subject);
         g_free(subject);
@@ -495,7 +495,7 @@ static char* extract_certificate_info(GTlsCertificate* certificate) {
     } else {
         g_string_append(info, "Subject: Information not available\n");
     }
-    
+
     if (issuer) {
         g_string_append_printf(info, "Issued by: %s\n", issuer);
         g_free(issuer);
@@ -503,7 +503,7 @@ static char* extract_certificate_info(GTlsCertificate* certificate) {
     } else {
         g_string_append(info, "Issued by: Information not available\n");
     }
-    
+
     if (not_valid_before) {
         gchar* date_str = g_date_time_format(not_valid_before, "%Y-%m-%d %H:%M:%S UTC");
         g_string_append_printf(info, "Valid from: %s\n", date_str);
@@ -512,7 +512,7 @@ static char* extract_certificate_info(GTlsCertificate* certificate) {
     } else {
         g_string_append(info, "Valid from: Information not available\n");
     }
-    
+
     if (not_valid_after) {
         gchar* date_str = g_date_time_format(not_valid_after, "%Y-%m-%d %H:%M:%S UTC");
         g_string_append_printf(info, "Valid until: %s\n", date_str);
@@ -521,7 +521,7 @@ static char* extract_certificate_info(GTlsCertificate* certificate) {
     } else {
         g_string_append(info, "Valid until: Information not available\n");
     }
-    
+
     char* result = g_string_free(info, FALSE);
     printf("[dumber] Certificate info: %s\n", result);
     fflush(stdout);
@@ -539,7 +539,7 @@ static void on_tls_dialog_response(GtkDialog *dialog, gint response_id, gpointer
     TLSDialogData *data = (TLSDialogData*)user_data;
     data->user_accepted = (response_id == GTK_RESPONSE_ACCEPT);
     data->dialog_completed = TRUE;
-    printf("[dumber] TLS dialog response: %s (response_id=%d)\n", 
+    printf("[dumber] TLS dialog response: %s (response_id=%d)\n",
            data->user_accepted ? "ACCEPTED" : "REJECTED", response_id);
     fflush(stdout);
     gtk_window_destroy(GTK_WINDOW(dialog));
@@ -550,7 +550,7 @@ static gboolean show_tls_warning_dialog_sync(GtkWindow *parent, const char* host
     printf("[dumber] Creating TLS warning dialog for hostname: %s\n", hostname);
     printf("[dumber] Error message: %s\n", error_msg);
     fflush(stdout);
-    
+
     // Create the dialog
     GtkWidget *dialog = gtk_message_dialog_new(
         parent,
@@ -904,6 +904,24 @@ func NewWebView(cfg *Config) (*WebView, error) {
 			C.webkit_settings_set_enable_developer_extras(settings, C.gboolean(1))
 		}
 	}
+
+	// Apply custom User-Agent for codec negotiation
+	if settings := C.webkit_web_view_get_settings(v.native.wv); settings != nil {
+		if cfg.CodecPreferences.CustomUserAgent != "" {
+			cUserAgent := C.CString(cfg.CodecPreferences.CustomUserAgent)
+			C.webkit_settings_set_user_agent(settings, (*C.gchar)(cUserAgent))
+			C.free(unsafe.Pointer(cUserAgent))
+			log.Printf("[webkit] Set custom User-Agent: %s", cfg.CodecPreferences.CustomUserAgent)
+		} else if cfg.CodecPreferences.ForceAV1 {
+			// Use modern Chrome UA that signals AV1 support
+			av1UA := "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+			cAV1UA := C.CString(av1UA)
+			C.webkit_settings_set_user_agent(settings, (*C.gchar)(cAV1UA))
+			C.free(unsafe.Pointer(cAV1UA))
+			log.Printf("[webkit] Set AV1-optimized User-Agent")
+		}
+	}
+
 	// Apply default fonts if provided in cfg
 	if settings := C.webkit_web_view_get_settings(v.native.wv); settings != nil {
 		if cfg.DefaultSansFont != "" {
@@ -938,7 +956,7 @@ func NewWebView(cfg *Config) (*WebView, error) {
 
 	// Initialize UCM scripts and handlers
 	if v.native != nil && v.native.ucm != nil {
-		v.enableUserContentManager()
+		v.enableUserContentManager(cfg)
 	}
 
 	// Start periodic JavaScript garbage collection if configured
@@ -1112,7 +1130,7 @@ func (w *WebView) dispatchZoomChanged(level float64) {
 }
 
 // enableUserContentManager registers the 'dumber' message handler and injects the omnibox script.
-func (w *WebView) enableUserContentManager() {
+func (w *WebView) enableUserContentManager(cfg *Config) {
 	if w == nil || w.native == nil || w.native.ucm == nil {
 		return
 	}
@@ -1173,6 +1191,23 @@ func (w *WebView) enableUserContentManager() {
 	if wailsScript != nil {
 		C.webkit_user_content_manager_add_script(w.native.ucm, wailsScript)
 		C.webkit_user_script_unref(wailsScript)
+	}
+
+	// Inject codec control script if codec preferences are configured
+	if cfg != nil && (cfg.CodecPreferences.ForceAV1 || len(cfg.CodecPreferences.BlockedCodecs) > 0 || len(cfg.CodecPreferences.PreferredCodecs) > 0) {
+		codecScript := GenerateCodecControlScript(cfg.CodecPreferences)
+		cCodec := C.CString(codecScript)
+		defer C.free(unsafe.Pointer(cCodec))
+		codecUserScript := C.webkit_user_script_new(
+			(*C.gchar)(cCodec),
+			C.WEBKIT_USER_CONTENT_INJECT_ALL_FRAMES,
+			C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START,
+			nil, nil)
+		if codecUserScript != nil {
+			C.webkit_user_content_manager_add_script(w.native.ucm, codecUserScript)
+			C.webkit_user_script_unref(codecUserScript)
+			log.Printf("[webkit] Codec control script injected")
+		}
 	}
 
 	// No JS fallback bridge — native UCM is active

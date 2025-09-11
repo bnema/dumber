@@ -43,7 +43,7 @@ func NewLogRotator(baseDir string, maxSizeMB, maxBackups, maxAgeDays int, compre
 
 func (r *LogRotator) openCurrentFile() error {
 	logPath := filepath.Join(r.baseDir, r.baseName)
-	
+
 	// Get current file size if it exists
 	if info, err := os.Stat(logPath); err == nil {
 		r.currentSize = info.Size()
@@ -92,7 +92,7 @@ func (r *LogRotator) rotate() error {
 	// Generate backup filename with timestamp
 	timestamp := time.Now().Format("2006-01-02-15-04-05")
 	backupName := fmt.Sprintf("%s.%s", r.baseName, timestamp)
-	
+
 	currentPath := filepath.Join(r.baseDir, r.baseName)
 	backupPath := filepath.Join(r.baseDir, backupName)
 
@@ -191,7 +191,7 @@ func (r *LogRotator) cleanup() {
 func (r *LogRotator) Close() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	if r.currentFile != nil {
 		return r.currentFile.Close()
 	}

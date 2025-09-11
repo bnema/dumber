@@ -192,7 +192,6 @@ func NewRootCmd(version, commit, buildDate string) *cobra.Command {
 	return rootCmd
 }
 
-
 // initializeDatabase runs embedded migrations and ensures database is up to date
 func initializeDatabase(db *sql.DB, cfg *config.Config) error {
 	// Run embedded migrations - this will create all tables and apply any new migrations
