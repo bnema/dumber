@@ -13,7 +13,7 @@ Dumber is a minimalist browser and launcher companion focused on speed and simpl
 
 ## Wayland‑First
 - Dumb on purpose, designed for Wayland window managers (Sway, Hyprland, River, Niri, etc..) it's a tiny companion that interact nicely with your launcher.
-- Uses a native WebKitGTKdo i window; no external browser required and no X11/XWayland dependency.
+- Uses a native Wayland WebKitGTK-6.0 window; no external browser required and no X11/XWayland dependency.
 - Optimized for dmenu‑style launchers (rofi, fuzzel, wofi) and keyboard‑driven workflows.
 
 ## Status
@@ -105,9 +105,18 @@ Development:
   - `dumber browse g:golang`           # Google search via shortcut
 - Launch the GUI directly:
   - `dumber`                           # no args → opens GUI homepage
+- Show version information:
+  - `dumber version`                   # display version, commit, and build date
 - Launcher integration (dmenu‑style examples):
   - rofi:   `dumber dmenu | rofi -dmenu -p "Browse: " | dumber dmenu --select`
   - fuzzel: `dumber dmenu | fuzzel --dmenu -p "Browse: " | dumber dmenu --select`
+- Manage browsing history:
+  - `dumber history`                   # list recent history (default: 20 entries)
+  - `dumber history list -n 50`       # list 50 recent entries
+  - `dumber history search golang`    # search history for "golang"
+  - `dumber history stats`            # show history statistics
+  - `dumber history clear`            # clear all history (with confirmation)
+  - `dumber history clear --force`    # clear all history (no confirmation)
 - Clean up data and cache:
   - `dumber purge`                        # purge all data (with confirmation)
   - `dumber purge --force`                # purge all data (no confirmation)
