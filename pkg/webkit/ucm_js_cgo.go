@@ -85,18 +85,37 @@ func getOmniboxScript() string {
         root.id = 'dumber-omnibox-root';
         root.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:none;';
         const box = document.createElement('div');
-        box.style.cssText = 'max-width:720px;margin:8vh auto;padding:8px 10px;background:#1b1b1b;color:#eee;border:1px solid #444;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.6);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;';
+        box.style.cssText = 'width:min(90vw, 720px);margin:8vh auto;padding:8px 12px;background:#1b1b1b;color:#eee;border:1px solid #444;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.6);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;';
         const input = document.createElement('input');
         input.type = 'text';
         input.placeholder = 'Type URL or search…';
-        input.style.cssText = 'width:100%;padding:10px 12px;border-radius:6px;border:1px solid #555;background:#121212;color:#eee;font-size:16px;outline:none;';
+        input.style.cssText = 'width:100%;box-sizing:border-box;padding:10px 12px;border-radius:6px;border:1px solid #555;background:#121212;color:#eee;font-size:16px;outline:none;';
         const list = document.createElement('div');
-        list.style.cssText = 'margin-top:8px;max-height:50vh;overflow:auto;border-top:1px solid #333;';
+        list.style.cssText = 'margin-top:8px;max-height:50vh;overflow:auto;';
         const style = document.createElement('style');
         style.textContent = '.dumber-find-highlight{background:#ffeb3b;color:#000;padding:0 1px;border-radius:2px;box-shadow:0 0 0 1px #c8b900 inset}.dumber-find-active{background:#ff9800 !important;color:#000;box-shadow:0 0 0 1px #b36b00 inset}';
         document.documentElement.appendChild(style);
         box.appendChild(input); box.appendChild(list); root.appendChild(box); document.documentElement.appendChild(root);
         H.box = box;
+        // Dynamic style updater for responsive behavior
+        const updateStyles = () => {
+          const vw = window.innerWidth;
+          const isSmall = vw < 640;
+          const isLarge = vw > 1920;
+          
+          if (box) {
+            box.style.width = isSmall ? '95vw' : isLarge ? 'min(90vw, 840px)' : 'min(90vw, 720px)';
+            box.style.padding = isSmall ? '6px 8px' : '8px 12px';
+          }
+          
+          if (input) {
+            input.style.fontSize = isSmall ? '14px' : isLarge ? '17px' : '16px';
+            input.style.padding = isSmall ? '8px 10px' : '10px 12px';
+            input.style.boxSizing = 'border-box';
+          }
+        };
+        updateStyles();
+        window.addEventListener('resize', updateStyles);
         // Click outside the box closes the overlay
         root.addEventListener('mousedown', (e)=>{
           const tgt = e.target;
@@ -164,6 +183,11 @@ func getOmniboxScript() string {
       },
       paintList(){
         const list = H.list; if (!list) return; list.textContent = '';
+        
+        // Show/hide separator based on content
+        const hasContent = (H.mode==='omnibox' && H.suggestions.length > 0) || (H.mode==='find' && H.matches.length > 0);
+        list.style.borderTop = hasContent ? '1px solid #333' : 'none';
+        
         if (H.mode==='omnibox'){
           H.suggestions.forEach((s, i)=>{
             const item = document.createElement('div');
@@ -173,7 +197,7 @@ func getOmniboxScript() string {
             chip.style.cssText = 'flex:0 0 20px;width:20px;height:20px;border-radius:50%;background:#ccc;border:1px solid rgba(0,0,0,.12);box-shadow:0 1px 2px rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center;';
             const icon = document.createElement('img');
             icon.src = s.favicon || '';
-            icon.width = 16; icon.height = 16; icon.loading = 'lazy';
+            icon.loading = 'lazy';
             icon.style.cssText = 'width:16px;height:16px;filter:brightness(1.06) contrast(1.03);image-rendering:-webkit-optimize-contrast;';
             icon.onerror = ()=>{ chip.style.display='none'; };
             chip.appendChild(icon);
