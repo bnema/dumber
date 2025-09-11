@@ -6,7 +6,7 @@ package webkit
 // Kept in a cgo-tagged file to ensure availability when referenced
 // from other cgo files in this package.
 func getOmniboxScript() string {
-    return `(() => {
+	return `(() => {
   try {
     if (window.__dumber_omnibox_loaded) return; // idempotent
     window.__dumber_omnibox_loaded = true;
