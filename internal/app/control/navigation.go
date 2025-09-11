@@ -1,0 +1,79 @@
+package control
+
+import (
+	"context"
+	"log"
+	"os"
+
+	"github.com/bnema/dumber/pkg/webkit"
+	"github.com/bnema/dumber/services"
+)
+
+// NavigationController manages navigation functionality
+type NavigationController struct {
+	parserService  *services.ParserService
+	browserService *services.BrowserService
+	webView        *webkit.WebView
+	zoomController *ZoomController
+}
+
+// NewNavigationController creates a new navigation controller
+func NewNavigationController(
+	parserService *services.ParserService,
+	browserService *services.BrowserService,
+	webView *webkit.WebView,
+	zoomController *ZoomController,
+) *NavigationController {
+	return &NavigationController{
+		parserService:  parserService,
+		browserService: browserService,
+		webView:        webView,
+		zoomController: zoomController,
+	}
+}
+
+// NavigateToURL parses input and navigates to the resulting URL
+func (n *NavigationController) NavigateToURL(input string) error {
+	ctx := context.Background()
+	result, err := n.parserService.ParseInput(ctx, input)
+	if err != nil {
+		return err
+	}
+
+	// Record navigation in browser service
+	if _, navErr := n.browserService.Navigate(ctx, result.URL); navErr != nil {
+		log.Printf("Warning: failed to navigate to %s: %v", result.URL, navErr)
+	}
+
+	// Load URL in WebView
+	if err := n.webView.LoadURL(result.URL); err != nil {
+		return err
+	}
+
+	// Apply zoom for the new URL
+	n.zoomController.ApplyZoomForURL(result.URL)
+
+	return nil
+}
+
+// HandleBrowseCommand processes the browse command line argument
+func (n *NavigationController) HandleBrowseCommand() {
+	if len(os.Args) >= 3 && os.Args[1] == "browse" {
+		log.Printf("Browse command detected: %s", os.Args[2])
+		ctx := context.Background()
+		result, err := n.parserService.ParseInput(ctx, os.Args[2])
+		if err == nil {
+			log.Printf("Parsed input → URL: %s", result.URL)
+			if _, navErr := n.browserService.Navigate(ctx, result.URL); navErr != nil {
+				log.Printf("Warning: failed to navigate to %s: %v", result.URL, navErr)
+			}
+			if n.webView != nil {
+				log.Printf("Loading URL in WebView: %s", result.URL)
+				if err := n.webView.LoadURL(result.URL); err != nil {
+					log.Printf("Warning: failed to load URL: %v", err)
+				}
+				n.zoomController.ApplyZoomForURL(result.URL)
+			}
+		}
+	}
+}
