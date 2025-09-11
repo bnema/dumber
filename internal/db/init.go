@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -30,13 +31,17 @@ func InitDB(dbPath string) (*sql.DB, error) {
 
 	// Test the connection
 	if err := database.Ping(); err != nil {
-		database.Close()
+		if err := database.Close(); err != nil {
+			log.Printf("Warning: failed to close database: %v", err)
+		}
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
 	// Initialize database schema
 	if err := initializeSchema(database); err != nil {
-		database.Close()
+		if err := database.Close(); err != nil {
+			log.Printf("Warning: failed to close database: %v", err)
+		}
 		return nil, fmt.Errorf("failed to initialize database schema: %w", err)
 	}
 
@@ -52,7 +57,9 @@ func InitDBWithConfig(dbPath string, cfg *config.Config) (*sql.DB, error) {
 
 	// Initialize shortcuts from configuration
 	if err := initializeShortcuts(db, cfg); err != nil {
-		db.Close()
+		if err := db.Close(); err != nil {
+			log.Printf("Warning: failed to close database: %v", err)
+		}
 		return nil, fmt.Errorf("failed to initialize shortcuts: %w", err)
 	}
 

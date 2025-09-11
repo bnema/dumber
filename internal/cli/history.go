@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -118,11 +119,19 @@ func listHistory(cmd *cobra.Command, _ []string) error {
 
 	// Create tabwriter for aligned output
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	defer w.Flush()
+	defer func() {
+		if err := w.Flush(); err != nil {
+			log.Printf("Warning: failed to flush output: %v", err)
+		}
+	}()
 
 	if verbose {
-		fmt.Fprintln(w, "ID\tVISITS\tLAST VISITED\tURL\tTITLE")
-		fmt.Fprintln(w, "--\t------\t------------\t---\t-----")
+		if _, err := fmt.Fprintln(w, "ID\tVISITS\tLAST VISITED\tURL\tTITLE"); err != nil {
+			log.Printf("Warning: failed to write header: %v", err)
+		}
+		if _, err := fmt.Fprintln(w, "--\t------\t------------\t---\t-----"); err != nil {
+			log.Printf("Warning: failed to write separator: %v", err)
+		}
 
 		for _, entry := range history {
 			visits := "1"
@@ -140,15 +149,21 @@ func listHistory(cmd *cobra.Command, _ []string) error {
 				title = "-"
 			}
 
-			url := truncateString(entry.Url, 50)
-			title = truncateString(title, 40)
+			url := truncateString(entry.Url, maxURLDisplay)
+			title = truncateString(title, maxTitleDisplay)
 
-			fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n",
-				entry.ID, visits, lastVisited, url, title)
+			if _, err := fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n",
+				entry.ID, visits, lastVisited, url, title); err != nil {
+				log.Printf("Warning: failed to write history entry: %v", err)
+			}
 		}
 	} else {
-		fmt.Fprintln(w, "VISITS\tLAST VISITED\tURL")
-		fmt.Fprintln(w, "------\t------------\t---")
+		if _, err := fmt.Fprintln(w, "VISITS\tLAST VISITED\tURL"); err != nil {
+			log.Printf("Warning: failed to write header: %v", err)
+		}
+		if _, err := fmt.Fprintln(w, "------\t------------\t---"); err != nil {
+			log.Printf("Warning: failed to write separator: %v", err)
+		}
 
 		for _, entry := range history {
 			visits := "1"
@@ -167,11 +182,13 @@ func listHistory(cmd *cobra.Command, _ []string) error {
 			}
 
 			url := entry.Url
-			if len(url) > 60 {
+			if len(url) > maxURLCompact {
 				url = url[:57] + "..."
 			}
 
-			fmt.Fprintf(w, "%s\t%s\t%s\n", visits, lastVisited, url)
+			if _, err := fmt.Fprintf(w, "%s\t%s\t%s\n", visits, lastVisited, url); err != nil {
+				log.Printf("Warning: failed to write history entry: %v", err)
+			}
 		}
 	}
 
@@ -210,10 +227,18 @@ func searchHistory(cmd *cobra.Command, args []string) error {
 
 	// Create tabwriter for aligned output
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	defer w.Flush()
+	defer func() {
+		if err := w.Flush(); err != nil {
+			log.Printf("Warning: failed to flush output: %v", err)
+		}
+	}()
 
-	fmt.Fprintln(w, "VISITS\tLAST VISITED\tURL\tTITLE")
-	fmt.Fprintln(w, "------\t------------\t---\t-----")
+	if _, err := fmt.Fprintln(w, "VISITS\tLAST VISITED\tURL\tTITLE"); err != nil {
+		log.Printf("Warning: failed to write header: %v", err)
+	}
+	if _, err := fmt.Fprintln(w, "------\t------------\t---\t-----"); err != nil {
+		log.Printf("Warning: failed to write separator: %v", err)
+	}
 
 	for _, entry := range results {
 		visits := "1"
@@ -231,10 +256,12 @@ func searchHistory(cmd *cobra.Command, args []string) error {
 			title = "-"
 		}
 
-		url := truncateString(entry.Url, 50)
-		title = truncateString(title, 30)
+		url := truncateString(entry.Url, maxURLDisplay)
+		title = truncateString(title, maxTitleCompact)
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", visits, lastVisited, url, title)
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", visits, lastVisited, url, title); err != nil {
+			log.Printf("Warning: failed to write history entry: %v", err)
+		}
 	}
 
 	return nil
@@ -335,7 +362,11 @@ func showStats(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get top domains: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Warning: failed to close rows: %v", err)
+		}
+	}()
 
 	fmt.Println("Browsing History Statistics")
 	fmt.Println("==========================")
@@ -355,10 +386,18 @@ func showStats(_ *cobra.Command, _ []string) error {
 	fmt.Println("--------------")
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	defer w.Flush()
+	defer func() {
+		if err := w.Flush(); err != nil {
+			log.Printf("Warning: failed to flush output: %v", err)
+		}
+	}()
 
-	fmt.Fprintln(w, "DOMAIN\tURLs\tVISITS")
-	fmt.Fprintln(w, "------\t----\t------")
+	if _, err := fmt.Fprintln(w, "DOMAIN\tURLs\tVISITS"); err != nil {
+		log.Printf("Warning: failed to write header: %v", err)
+	}
+	if _, err := fmt.Fprintln(w, "------\t----\t------"); err != nil {
+		log.Printf("Warning: failed to write separator: %v", err)
+	}
 
 	for rows.Next() {
 		var domain string
@@ -373,7 +412,9 @@ func showStats(_ *cobra.Command, _ []string) error {
 			domain = domain[:idx]
 		}
 
-		fmt.Fprintf(w, "%s\t%d\t%d\n", domain, urlCount, visitCount)
+		if _, err := fmt.Fprintf(w, "%s\t%d\t%d\n", domain, urlCount, visitCount); err != nil {
+			log.Printf("Warning: failed to write domain entry: %v", err)
+		}
 	}
 
 	return nil

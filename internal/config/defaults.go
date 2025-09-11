@@ -5,18 +5,40 @@ import (
 	"time"
 )
 
+// Default configuration constants
+const (
+	// Database defaults
+	defaultMaxIdleTimeMin   = 5  // minutes
+	defaultQueryTimeoutSec  = 30 // seconds
+
+	// History defaults  
+	defaultMaxHistoryEntries = 10000 // entries
+	defaultRetentionDays     = 365   // 1 year
+
+	// Dmenu defaults
+	defaultMaxHistoryItems = 20 // items
+
+	// Logging defaults
+	defaultMaxLogSizeMB  = 100 // MB
+	defaultMaxBackups    = 3   // backup files
+	defaultMaxLogAgeDays = 7   // days
+
+	// Appearance defaults
+	defaultFontSize = 16 // points
+)
+
 // DefaultConfig returns the default configuration values for dumber.
 func DefaultConfig() *Config {
 	return &Config{
 		Database: DatabaseConfig{
 			MaxConnections: 1,
-			MaxIdleTime:    time.Minute * 5,
-			QueryTimeout:   time.Second * 30,
+			MaxIdleTime:    time.Minute * defaultMaxIdleTimeMin,
+			QueryTimeout:   time.Second * defaultQueryTimeoutSec,
 		},
 		History: HistoryConfig{
-			MaxEntries:          10000,
-			RetentionPeriodDays: 365, // 1 year
-			CleanupIntervalDays: 1,   // daily cleanup
+			MaxEntries:          defaultMaxHistoryEntries,
+			RetentionPeriodDays: defaultRetentionDays, // 1 year
+			CleanupIntervalDays: 1,                    // daily cleanup
 		},
 		SearchShortcuts: map[string]SearchShortcut{
 			"g": {
@@ -37,7 +59,7 @@ func DefaultConfig() *Config {
 			},
 		},
 		Dmenu: DmenuConfig{
-			MaxHistoryItems:  20,
+			MaxHistoryItems:  defaultMaxHistoryItems,
 			ShowVisitCount:   true,
 			ShowLastVisited:  true,
 			HistoryPrefix:    "🕒",
@@ -50,16 +72,16 @@ func DefaultConfig() *Config {
 			Level:      "info",
 			Format:     "text", // text or json
 			Filename:   "",     // empty means stdout
-			MaxSize:    100,    // MB
-			MaxBackups: 3,
-			MaxAge:     7, // days
+			MaxSize:    defaultMaxLogSizeMB, // MB
+			MaxBackups: defaultMaxBackups,
+			MaxAge:     defaultMaxLogAgeDays, // days
 			Compress:   true,
 		},
 		Appearance: AppearanceConfig{
 			SansFont:        "Fira Sans",
 			SerifFont:       "Fira Sans",
 			MonospaceFont:   "Fira Code",
-			DefaultFontSize: 16,
+			DefaultFontSize: defaultFontSize,
 		},
 		RenderingMode: RenderingModeAuto,
 	}

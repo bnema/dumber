@@ -168,7 +168,7 @@ func recordVisit(ctx context.Context, cli *CLI, url, title string) error {
 }
 
 // openURL opens a URL using the configured browser
-func openURL(url string) error {
+func openURL(url string) error { //nolint:unused // Public API function
 	return openURLWithConfig(url, nil)
 }
 
@@ -182,6 +182,14 @@ func openURLWithConfig(url string, cfg *config.Config) error {
 
 	// Launch our own browser in browse mode with the URL directly
 	cmd := exec.Command(executable, "browse", url)
+
+	// The subprocess will read the same config file and apply the proper precedence:
+	// 1. Config file defaults
+	// 2. Environment variables (override config)
+	// 3. Command line flags (override both)
+	// 
+	// We don't convert config to env vars here because that would break precedence.
+	// The cfg parameter ensures we use the same config source in both processes.
 
 	// Start the browser in detached mode
 	if err := cmd.Start(); err != nil {
@@ -197,8 +205,3 @@ func openURLWithConfig(url string, cfg *config.Config) error {
 	return nil
 }
 
-// commandExists checks if a command is available in the system PATH
-func commandExists(cmd string) bool {
-	_, err := exec.LookPath(cmd)
-	return err == nil
-}

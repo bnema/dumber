@@ -4,11 +4,21 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
+)
+
+// Cache update constants
+const (
+	updateWaitIntervalMs = 10              // Milliseconds to wait during concurrent cache build
+	dbHashTimeoutSec     = 5               // Seconds timeout for database hash calculation
+	recentHistoryLimit   = 20              // Number of recent entries to check for changes
+	exactMatchBonus      = 0.95            // Score bonus for exact matches
+	dirPerm              = 0755            // Directory permissions
 )
 
 // CacheManager handles the lifecycle of the fuzzy cache with smart invalidation.
@@ -122,7 +132,7 @@ func (cm *CacheManager) buildCacheFromDB(ctx context.Context) (*DmenuFuzzyCache,
 	if !atomic.CompareAndSwapInt32(&cm.updating, 0, 1) {
 		// Another goroutine is building, wait for it
 		for atomic.LoadInt32(&cm.updating) == 1 {
-			time.Sleep(10 * time.Millisecond)
+			time.Sleep(updateWaitIntervalMs * time.Millisecond)
 		}
 		return cm.cache, nil
 	}
@@ -199,7 +209,9 @@ func (cm *CacheManager) InvalidateAndRefresh(ctx context.Context) {
 		cm.lastDBHash = ""
 
 		// Remove cache file
-		os.Remove(cm.config.CacheFile)
+		if err := os.Remove(cm.config.CacheFile); err != nil {
+			log.Printf("Warning: failed to remove cache file %s: %v", cm.config.CacheFile, err)
+		}
 
 		// Build new cache
 		_, err := cm.buildCacheFromDB(ctx)
@@ -216,7 +228,7 @@ func (cm *CacheManager) OnApplicationExit(ctx context.Context) {
 	if !cm.isCacheValid(ctx) {
 		// Refresh cache in background for next startup
 		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), dbHashTimeoutSec*time.Second)
 			defer cancel()
 
 			_, err := cm.buildCacheFromDB(ctx)
@@ -231,7 +243,7 @@ func (cm *CacheManager) OnApplicationExit(ctx context.Context) {
 func (cm *CacheManager) saveToFilesystemAsync() {
 	// Create cache directory if it doesn't exist
 	cacheDir := filepath.Dir(cm.config.CacheFile)
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+	if err := os.MkdirAll(cacheDir, dirPerm); err != nil {
 		fmt.Printf("Warning: failed to create cache directory: %v\n", err)
 		return
 	}
@@ -240,21 +252,25 @@ func (cm *CacheManager) saveToFilesystemAsync() {
 	tempFile := cm.config.CacheFile + ".tmp"
 	if err := cm.cache.SaveToBinary(tempFile); err != nil {
 		fmt.Printf("Warning: failed to save cache: %v\n", err)
-		os.Remove(tempFile)
+		if err := os.Remove(tempFile); err != nil {
+			log.Printf("Warning: failed to remove temp file %s: %v", tempFile, err)
+		}
 		return
 	}
 
 	// Atomic rename
 	if err := os.Rename(tempFile, cm.config.CacheFile); err != nil {
 		fmt.Printf("Warning: failed to rename cache file: %v\n", err)
-		os.Remove(tempFile)
+		if err := os.Remove(tempFile); err != nil {
+			log.Printf("Warning: failed to remove temp file %s: %v", tempFile, err)
+		}
 	}
 }
 
 // calculateDBHash creates a hash of the current database state to detect changes.
 func (cm *CacheManager) calculateDBHash(ctx context.Context) (string, error) {
 	// Get a small sample of recent entries to create a fingerprint
-	recentHistory, err := cm.queries.GetHistory(ctx, 20) // Just check recent 20 entries
+	recentHistory, err := cm.queries.GetHistory(ctx, recentHistoryLimit) // Just check recent entries
 	if err != nil {
 		return "", err
 	}
@@ -264,7 +280,9 @@ func (cm *CacheManager) calculateDBHash(ctx context.Context) (string, error) {
 	for _, entry := range recentHistory {
 		hasher.Write([]byte(entry.Url))
 		if entry.VisitCount.Valid {
-			hasher.Write([]byte(fmt.Sprintf("%d", entry.VisitCount.Int64)))
+			if _, err := fmt.Fprintf(hasher, "%d", entry.VisitCount.Int64); err != nil {
+				log.Printf("Warning: failed to write visit count to hasher: %v", err)
+			}
 		}
 		if entry.LastVisited.Valid {
 			hasher.Write([]byte(entry.LastVisited.Time.Format(time.RFC3339)))

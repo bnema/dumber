@@ -6,7 +6,7 @@ import (
 )
 
 // Contract: Show/Hide/Destroy lifecycle operations succeed without error.
-func Test_Lifecycle_Contract(t *testing.T) {
+func TestLifecycleContract(t *testing.T) {
 	view, err := webkit.NewWebView(&webkit.Config{})
 	if err != nil {
 		t.Fatalf("NewWebView failed: %v", err)

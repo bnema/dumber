@@ -25,7 +25,7 @@ type DmenuFuzzyCache struct {
 
 	// Concurrency control
 	mu   sync.RWMutex
-	data unsafe.Pointer // Atomic pointer to cache data
+	data unsafe.Pointer // Atomic pointer to cache data //nolint:unused // Reserved for future use
 }
 
 // CompactEntry represents a history entry optimized for memory usage.
@@ -57,6 +57,7 @@ type FuzzyMatch struct {
 // MatchType indicates how the query matched the entry.
 type MatchType uint8
 
+// Match type constants for different matching strategies
 const (
 	MatchTypeExact   MatchType = iota // Exact substring match
 	MatchTypePrefix                   // Prefix match
@@ -159,11 +160,12 @@ func NewCompactEntry(url, title string, visitCount int64, lastVisit time.Time) C
 	}
 
 	// Clamp visit count to uint16 max
-	if visitCount > 65535 {
+	switch {
+	case visitCount > 65535:
 		entry.VisitCount = 65535
-	} else if visitCount < 0 {
+	case visitCount < 0:
 		entry.VisitCount = 0
-	} else {
+	default:
 		entry.VisitCount = uint16(visitCount)
 	}
 

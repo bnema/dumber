@@ -12,7 +12,6 @@ var (
 	domainRegex = regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?$`)
 
 	// ipRegex matches IPv4 addresses
-	ipRegex = regexp.MustCompile(`^(\d{1,3}\.){3}\d{1,3}$`)
 
 	// urlSchemeRegex matches URL schemes
 	urlSchemeRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9+.-]*://`)

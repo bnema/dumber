@@ -32,6 +32,22 @@ var (
 	buildDate = "unknown"
 )
 
+// Constants for repeated strings
+const (
+	contentTypeJSON = "application/json; charset=utf-8"
+	homepagePath    = "homepage"
+	indexHTML       = "index.html"
+)
+
+// Parsing and utility constants
+const (
+	colonSplitParts = 2          // Number of parts when splitting on colon
+	dirPerm         = 0o755      // Directory permissions
+	// JavaScript hash constants (auto-generated, should not be changed)
+	hashGetRecentHistory    = 3708519028 // BrowserService.GetRecentHistory(limit)
+	hashGetSearchShortcuts  = 4078533762 // BrowserService.GetSearchShortcuts()
+)
+
 func main() {
 	// Check if we should run the CLI mode
 	if shouldRunCLI() {
@@ -100,6 +116,9 @@ func runCLI() {
 		dmenuCmd := cli.NewDmenuCmd()
 		if err := dmenuCmd.RunE(dmenuCmd, []string{}); err != nil {
 			fmt.Fprintf(os.Stderr, "Error in dmenu mode: %v\n", err)
+			if closeErr := cliInstance.Close(); closeErr != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to close database: %v\n", closeErr)
+			}
 			os.Exit(1)
 		}
 		return
@@ -129,21 +148,31 @@ func runBrowser() {
 	if os.Getenv("DUMBER_MEDIA_SAFE") != "0" {
 		// Demote VAAPI-related elements so they won't be auto-picked
 		if os.Getenv("GST_PLUGIN_FEATURE_RANK") == "" {
-			os.Setenv("GST_PLUGIN_FEATURE_RANK", "vaapisink:0,vaapidecodebin:0,vaapih264dec:0,vaapivideoconvert:0")
+			if err := os.Setenv("GST_PLUGIN_FEATURE_RANK", "vaapisink:0,vaapidecodebin:0,vaapih264dec:0,vaapivideoconvert:0"); err != nil {
+			log.Printf("Warning: failed to set GST_PLUGIN_FEATURE_RANK: %v", err)
+		}
 		}
 		// Provide a safe audio sink to avoid autoaudiosink failures
 		if os.Getenv("GST_AUDIO_SINK") == "" {
-			os.Setenv("GST_AUDIO_SINK", "fakesink")
+			if err := os.Setenv("GST_AUDIO_SINK", "fakesink"); err != nil {
+			log.Printf("Warning: failed to set GST_AUDIO_SINK: %v", err)
+		}
 		}
 		// Optionally disable media stream features that can engage complex pipelines
 		if os.Getenv("WEBKIT_DISABLE_MEDIA_STREAM") == "" {
-			os.Setenv("WEBKIT_DISABLE_MEDIA_STREAM", "1")
+			if err := os.Setenv("WEBKIT_DISABLE_MEDIA_STREAM", "1"); err != nil {
+			log.Printf("Warning: failed to set WEBKIT_DISABLE_MEDIA_STREAM: %v", err)
+		}
 		}
 		log.Printf("[media] Safe mode enabled (override with DUMBER_MEDIA_SAFE=0)")
 	}
 
 	if err := config.Init(); err != nil {
-		log.Fatalf("Failed to initialize config: %v", err)
+		log.Printf("Failed to initialize config: %v", err)
+		if webkit.IsNativeAvailable() {
+			runtime.UnlockOSThread()
+		}
+		os.Exit(1)
 	}
 	cfg := config.Get()
 	log.Printf("Config initialized")
@@ -154,9 +183,17 @@ func runBrowser() {
 	// Initialize database
 	database, err := db.InitDB(cfg.Database.Path)
 	if err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+		log.Printf("Failed to initialize database: %v", err)
+		if webkit.IsNativeAvailable() {
+			runtime.UnlockOSThread()
+		}
+		os.Exit(1)
 	}
-	defer database.Close()
+	defer func() {
+		if closeErr := database.Close(); closeErr != nil {
+			log.Printf("Warning: failed to close database: %v", closeErr)
+		}
+	}()
 	queries := db.New(database)
 	log.Printf("Database opened at %s", cfg.Database.Path)
 
@@ -186,8 +223,8 @@ func runBrowser() {
 			path := u.Path
 			if path == "" && u.Opaque != "" {
 				// e.g., dumb:api/config or dumb:api/history/recent
-				parts := strings.SplitN(u.Opaque, ":", 2)
-				if len(parts) == 2 {
+				parts := strings.SplitN(u.Opaque, ":", colonSplitParts)
+				if len(parts) == colonSplitParts {
 					path = "/" + parts[1]
 				}
 			}
@@ -205,7 +242,7 @@ func runBrowser() {
 					Mode string `json:"mode"`
 				}{Mode: string(cfg.RenderingMode)}
 				b, _ := json.Marshal(resp)
-				return "application/json; charset=utf-8", b, true
+				return contentTypeJSON, b, true
 			case strings.HasPrefix(path, "/config"):
 				log.Printf("[api] GET /config")
 				// Build config info
@@ -222,7 +259,7 @@ func runBrowser() {
 					Appearance:      cfg.Appearance,
 				}
 				b, _ := json.Marshal(info)
-				return "application/json; charset=utf-8", b, true
+				return contentTypeJSON, b, true
 			case strings.HasPrefix(path, "/history/recent"):
 				log.Printf("[api] GET /history/recent%s", u.RawQuery)
 				// Parse limit
@@ -236,10 +273,10 @@ func runBrowser() {
 				ctx := context.Background()
 				entries, err := browserService.GetRecentHistory(ctx, limit)
 				if err != nil {
-					return "application/json; charset=utf-8", []byte("[]"), true
+					return contentTypeJSON, []byte("[]"), true
 				}
 				b, _ := json.Marshal(entries)
-				return "application/json; charset=utf-8", b, true
+				return contentTypeJSON, b, true
 			case strings.HasPrefix(path, "/history/search"):
 				log.Printf("[api] GET /history/search%s", u.RawQuery)
 				q := u.Query()
@@ -253,45 +290,46 @@ func runBrowser() {
 				ctx := context.Background()
 				entries, err := browserService.SearchHistory(ctx, query, limit)
 				if err != nil {
-					return "application/json; charset=utf-8", []byte("[]"), true
+					return contentTypeJSON, []byte("[]"), true
 				}
 				b, _ := json.Marshal(entries)
-				return "application/json; charset=utf-8", b, true
+				return contentTypeJSON, b, true
 			case strings.HasPrefix(path, "/history/stats"):
 				log.Printf("[api] GET /history/stats")
 				ctx := context.Background()
 				stats, err := browserService.GetHistoryStats(ctx)
 				if err != nil {
-					return "application/json; charset=utf-8", []byte("{}"), true
+					return contentTypeJSON, []byte("{}"), true
 				}
 				b, _ := json.Marshal(stats)
-				return "application/json; charset=utf-8", b, true
+				return contentTypeJSON, b, true
 			default:
-				return "application/json; charset=utf-8", []byte("{}"), true
+				return contentTypeJSON, []byte("{}"), true
 			}
 		}
 		// Resolve target path inside embed FS
 		var rel string
-		if u.Opaque == "homepage" || (u.Host == "homepage" && (u.Path == "" || u.Path == "/")) || (u.Host == "" && (u.Path == "" || u.Path == "/")) {
-			rel = "index.html"
+		if u.Opaque == homepagePath || (u.Host == homepagePath && (u.Path == "" || u.Path == "/")) || (u.Host == "" && (u.Path == "" || u.Path == "/")) {
+			rel = indexHTML
 		} else {
 			host := u.Host
 			p := strings.TrimPrefix(u.Path, "/")
-			if host == "app" && p == "" {
-				rel = "index.html"
-			} else if host == "app" {
+			switch {
+			case host == "app" && p == "":
+				rel = indexHTML
+			case host == "app":
 				rel = p
-			} else if host == "homepage" && p != "" {
+			case host == homepagePath && p != "":
 				// dumb://homepage/<asset>
 				rel = p
-			} else if p != "" {
+			case p != "":
 				rel = p
-			} else {
-				rel = "index.html"
+			default:
+				rel = indexHTML
 			}
 		}
 		// Special-case homepage favicon: map .ico request to embedded SVG file
-		if (u.Host == "homepage" || u.Opaque == "homepage") && strings.EqualFold(rel, "favicon.ico") {
+		if (u.Host == homepagePath || u.Opaque == homepagePath) && strings.EqualFold(rel, "favicon.ico") {
 			log.Printf("[scheme] asset: rel=%s (host=%s path=%s) → mapping to favicon.svg", rel, u.Host, u.Path)
 			data, rerr := assets.ReadFile(filepath.ToSlash(filepath.Join("frontend", "dist", "favicon.svg")))
 			if rerr == nil {
@@ -331,8 +369,8 @@ func runBrowser() {
 	stateDir, _ := config.GetStateDir()
 	webkitData := filepath.Join(dataDir, "webkit")
 	webkitCache := filepath.Join(stateDir, "webkit-cache")
-	_ = os.MkdirAll(webkitData, 0o755)
-	_ = os.MkdirAll(webkitCache, 0o755)
+	_ = os.MkdirAll(webkitData, dirPerm)
+	_ = os.MkdirAll(webkitCache, dirPerm)
 	view, err := webkit.NewWebView(&webkit.Config{
 		InitialURL:            "dumb://homepage",
 		ZoomDefault:           1.0,
@@ -413,7 +451,9 @@ func runBrowser() {
 				res, err := parserService.ParseInput(ctx, m.URL)
 				if err == nil {
 					currentURL = res.URL
-					browserService.Navigate(ctx, currentURL)
+					if _, navErr := browserService.Navigate(ctx, currentURL); navErr != nil {
+						log.Printf("Warning: failed to navigate to %s: %v", currentURL, navErr)
+					}
 					_ = view.LoadURL(currentURL)
 					if z, zerr := browserService.GetZoomLevel(ctx, currentURL); zerr == nil {
 						_ = view.SetZoom(z)
@@ -469,7 +509,7 @@ func runBrowser() {
 				}
 				// Only implement the IDs we need
 				switch p.MethodID {
-				case 3708519028: // BrowserService.GetRecentHistory(limit)
+				case hashGetRecentHistory: // BrowserService.GetRecentHistory(limit)
 					var args []interface{}
 					_ = json.Unmarshal(p.Args, &args)
 					limit := 50
@@ -485,7 +525,7 @@ func runBrowser() {
 					}
 					resp, _ := json.Marshal(entries)
 					_ = view.InjectScript("window.__dumber_wails_resolve('" + m.ID + "', " + string(resp) + ")")
-				case 4078533762: // BrowserService.GetSearchShortcuts()
+				case hashGetSearchShortcuts: // BrowserService.GetSearchShortcuts()
 					ctx := context.Background()
 					shortcuts, err := browserService.GetSearchShortcuts(ctx)
 					if err != nil {
@@ -523,10 +563,8 @@ func runBrowser() {
 		log.Printf("Showing WebView window…")
 		if err := view.Show(); err != nil {
 			log.Printf("Warning: failed to show WebView: %v", err)
-		} else {
-			if !webkit.IsNativeAvailable() {
-				log.Printf("Notice: running without webkit_cgo tag — no native window will be displayed.")
-			}
+		} else if !webkit.IsNativeAvailable() {
+			log.Printf("Notice: running without webkit_cgo tag — no native window will be displayed.")
 		}
 	}
 
@@ -538,7 +576,9 @@ func runBrowser() {
 		if err == nil {
 			currentURL = result.URL
 			log.Printf("Parsed input → URL: %s", currentURL)
-			browserService.Navigate(ctx, currentURL)
+			if _, navErr := browserService.Navigate(ctx, currentURL); navErr != nil {
+				log.Printf("Warning: failed to navigate to %s: %v", currentURL, navErr)
+			}
 			if view != nil {
 				log.Printf("Loading URL in WebView: %s", currentURL)
 				if err := view.LoadURL(currentURL); err != nil {
@@ -727,8 +767,8 @@ func detectAndSetKeyboardLocale() {
 			for _, line := range strings.Split(s, "\n") {
 				line = strings.TrimSpace(line)
 				if strings.HasPrefix(strings.ToLower(line), "x11 layout:") || strings.HasPrefix(strings.ToLower(line), "keyboard layout:") {
-					parts := strings.SplitN(line, ":", 2)
-					if len(parts) == 2 {
+					parts := strings.SplitN(line, ":", colonSplitParts)
+					if len(parts) == colonSplitParts {
 						cand := strings.TrimSpace(parts[1])
 						if cand != "" {
 							locale = cand
@@ -745,8 +785,8 @@ func detectAndSetKeyboardLocale() {
 			for _, line := range strings.Split(s, "\n") {
 				line = strings.TrimSpace(line)
 				if strings.HasPrefix(strings.ToLower(line), "layout:") {
-					parts := strings.SplitN(line, ":", 2)
-					if len(parts) == 2 {
+					parts := strings.SplitN(line, ":", colonSplitParts)
+					if len(parts) == colonSplitParts {
 						cand := strings.TrimSpace(parts[1])
 						if cand != "" {
 							locale = cand
