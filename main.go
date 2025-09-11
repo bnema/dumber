@@ -7,6 +7,7 @@ import (
 
 	"github.com/bnema/dumber/internal/app/browser"
 	"github.com/bnema/dumber/internal/app/cli"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/pkg/webkit"
 )
 
@@ -21,6 +22,9 @@ var (
 )
 
 func main() {
+	// Setup basic crash handling early (before any potential crashes)
+	logging.SetupCrashHandler()
+
 	// Check if we should run the CLI mode
 	if shouldRunCLI() {
 		cli.Execute(version, commit, buildDate)
