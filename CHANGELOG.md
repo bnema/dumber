@@ -11,9 +11,22 @@ All notable changes to this project will be documented in this file.
   - Certificate exception management with per-host persistence
   - Manual load triggering after user accepts certificate exceptions
   - Proper integration with WebKitGTK 6.0 network session API
+- Zoom level toast notifications:
+  - Real-time zoom level display with format: "Zoom level: ±X% (Y%)"
+  - Smart debouncing to prevent notification spam during rapid zoom changes
+  - Automatic cleanup of stuck or colliding toast messages
+  - 150ms debounce timer with 2-second display duration
+  - Emergency cleanup function for orphaned toast elements
 
 ### Fixed
 - WebView background set to black to improve user experience during page loads
+- Multiple linting issues and code quality improvements (reduced from 211 to ~150 issues)
+- Omnibox responsive scaling and layout issues:
+  - Fixed over-aggressive viewport scaling that made omnibox disproportionately large at high zoom levels
+  - Resolved input field overflow extending beyond container boundaries
+  - Improved box-sizing model to prevent layout issues
+  - Added conditional separator display (hidden when no search results)
+  - Omnibox now scales proportionally with webpage content across all zoom levels
 
 ## [0.4.0] - 2025-09-10
 
