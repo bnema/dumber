@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Performance-optimized WebKit memory configuration system**:
+  - **New `WebkitMemoryConfig`** configuration section with performance-focused defaults for faster page loading
+  - **Aggressive caching strategy**: `web_browser` cache model with page cache enabled for instant back/forward navigation
+  - **Balanced memory pressure management**: Conservative (40%), strict (60%), and kill (80%) thresholds optimized for performance vs stability
+  - **Smart garbage collection**: 2-minute JavaScript GC intervals with process recycling after 50 page loads
+  - **Reduced monitoring overhead**: 45-second memory monitoring intervals to minimize performance impact
+  - **Environment variable overrides**: All memory settings configurable via `DUMBER_*` environment variables (`DUMBER_CACHE_MODEL`, `DUMBER_MEMORY_CONSERVATIVE`, etc.)
+- **Early crash handling initialization**: Moved crash handler setup to application entry point for better crash recovery
+
+### Changed
+- **Major main.go refactoring**: Massive code reduction from 1071 lines to 61 lines (~95% reduction)
+  - **Extracted browser application logic** to dedicated `internal/app/browser` package for better separation of concerns
+  - **Streamlined entry point**: Clean main function focusing only on CLI vs GUI mode detection and application bootstrapping  
+  - **Improved maintainability**: Modular architecture with clear responsibilities between CLI and browser components
+- **Refactored memory configuration architecture**: 
+  - Integrated WebKit memory settings into unified config system with Viper environment variable bindings
+  - Eliminated redundant environment variable parsing in favor of centralized configuration management
+  - Simplified webview initialization with direct config-to-WebKit conversion
+- **Improved CLI logs command description**: Enhanced help text for better user experience
+
 ## [0.6.0] - 2025-09-12
 
 ### Added
