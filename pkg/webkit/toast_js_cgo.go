@@ -14,6 +14,8 @@ func getToastScript() string {
       container: null,
       toasts: [], // {id, element, timeout}
       counter: 0,
+      zoomToastId: null,
+      zoomDebounceTimer: null,
 
       init() {
         if (T.container) return;
@@ -99,6 +101,11 @@ func getToastScript() string {
         const toast = T.toasts[toastIndex];
         clearTimeout(toast.timeout);
         
+        // Clear zoom toast tracking if this is the zoom toast
+        if (T.zoomToastId === id) {
+          T.zoomToastId = null;
+        }
+        
         // Animate out
         toast.element.style.transform = 'translateX(100%)';
         toast.element.style.opacity = '0';
@@ -119,6 +126,9 @@ func getToastScript() string {
           }
         });
         T.toasts = [];
+        T.zoomToastId = null;
+        clearTimeout(T.zoomDebounceTimer);
+        T.zoomDebounceTimer = null;
       }
     };
 
@@ -126,6 +136,59 @@ func getToastScript() string {
     window.__dumber_showToast = (message, duration) => T.show(message, duration);
     window.__dumber_dismissToast = (id) => T.dismiss(id);
     window.__dumber_clearToasts = () => T.clear();
+    window.__dumber_showZoomToast = (zoomLevel) => {
+      console.log('[dumber] showZoomToast called with level:', zoomLevel);
+      
+      // Clear existing debounce timer
+      clearTimeout(T.zoomDebounceTimer);
+      
+      // Force remove ALL zoom toasts immediately (aggressive cleanup)
+      for (let i = T.toasts.length - 1; i >= 0; i--) {
+        const toast = T.toasts[i];
+        if (toast.element && (toast.element.textContent.includes('Zoom level:') || toast.id === T.zoomToastId)) {
+          clearTimeout(toast.timeout);
+          if (toast.element.parentNode) {
+            toast.element.parentNode.removeChild(toast.element);
+          }
+          T.toasts.splice(i, 1);
+        }
+      }
+      T.zoomToastId = null;
+      
+      // Also cleanup any orphaned zoom toast elements in DOM
+      const orphanedZoomToasts = document.querySelectorAll('.dumber-toast');
+      orphanedZoomToasts.forEach(el => {
+        if (el.textContent.includes('Zoom level:')) {
+          el.parentNode && el.parentNode.removeChild(el);
+        }
+      });
+      
+      // Debounce the toast display
+      T.zoomDebounceTimer = setTimeout(() => {
+        const percentage = Math.round(zoomLevel * 100);
+        const sign = percentage > 100 ? '+' : '';
+        const diff = percentage - 100;
+        const message = 'Zoom level: ' + sign + diff + '% (' + percentage + '%)';
+        console.log('[dumber] Showing zoom toast:', message);
+        T.zoomToastId = T.show(message, 2000);
+      }, 150);
+    };
+    
+    // Test function for manual debugging
+    window.__dumber_testToast = () => {
+      console.log('[dumber] Testing toast system...');
+      return T.show('Toast system is working!', 2000);
+    };
+    
+    // Emergency cleanup function for stuck toasts
+    window.__dumber_forceCleanupToasts = () => {
+      console.log('[dumber] Force cleaning up all toasts...');
+      T.clear();
+      // Also force remove any orphaned toast elements
+      const orphans = document.querySelectorAll('.dumber-toast');
+      orphans.forEach(el => el.parentNode && el.parentNode.removeChild(el));
+      console.log('[dumber] Cleanup complete, removed', orphans.length, 'orphaned toasts');
+    };
 
     console.log('✅ Dumber Browser toast system loaded');
     
