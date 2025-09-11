@@ -146,6 +146,9 @@ type CodecConfig struct {
 
 	// Maximum resolution for AV1 codec (720p, 1080p, 1440p, 4k, unlimited)
 	AV1MaxResolution string `mapstructure:"av1_max_resolution" yaml:"av1_max_resolution"`
+
+	// Site-specific codec control settings
+	DisableTwitchCodecControl bool `mapstructure:"disable_twitch_codec_control" yaml:"disable_twitch_codec_control"`
 }
 
 // Manager handles configuration loading, watching, and reloading.
@@ -234,16 +237,17 @@ func NewManager() (*Manager, error) {
 
 	// Codec preferences environment variable bindings
 	codecEnvBindings := map[string]string{
-		"codec_preferences.preferred_codecs":      "DUMBER_PREFERRED_CODECS",
-		"codec_preferences.force_av1":             "DUMBER_FORCE_AV1",
-		"codec_preferences.block_vp9":             "DUMBER_BLOCK_VP9",
-		"codec_preferences.block_vp8":             "DUMBER_BLOCK_VP8",
-		"codec_preferences.av1_hardware_only":     "DUMBER_AV1_HW_ONLY",
-		"codec_preferences.disable_vp9_hardware":  "DUMBER_DISABLE_VP9_HW",
-		"codec_preferences.video_buffer_size_mb":  "DUMBER_VIDEO_BUFFER_MB",
-		"codec_preferences.queue_buffer_time_sec": "DUMBER_QUEUE_BUFFER_SEC",
-		"codec_preferences.custom_user_agent":     "DUMBER_CUSTOM_UA",
-		"codec_preferences.av1_max_resolution":    "DUMBER_AV1_MAX_RES",
+		"codec_preferences.preferred_codecs":             "DUMBER_PREFERRED_CODECS",
+		"codec_preferences.force_av1":                    "DUMBER_FORCE_AV1",
+		"codec_preferences.block_vp9":                    "DUMBER_BLOCK_VP9",
+		"codec_preferences.block_vp8":                    "DUMBER_BLOCK_VP8",
+		"codec_preferences.av1_hardware_only":            "DUMBER_AV1_HW_ONLY",
+		"codec_preferences.disable_vp9_hardware":         "DUMBER_DISABLE_VP9_HW",
+		"codec_preferences.video_buffer_size_mb":         "DUMBER_VIDEO_BUFFER_MB",
+		"codec_preferences.queue_buffer_time_sec":        "DUMBER_QUEUE_BUFFER_SEC",
+		"codec_preferences.custom_user_agent":            "DUMBER_CUSTOM_UA",
+		"codec_preferences.av1_max_resolution":           "DUMBER_AV1_MAX_RES",
+		"codec_preferences.disable_twitch_codec_control": "DUMBER_DISABLE_TWITCH_CODEC",
 	}
 
 	for key, env := range codecEnvBindings {
@@ -493,6 +497,7 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("codec_preferences.queue_buffer_time_sec", defaults.CodecPreferences.QueueBufferTimeSec)
 	m.viper.SetDefault("codec_preferences.custom_user_agent", defaults.CodecPreferences.CustomUserAgent)
 	m.viper.SetDefault("codec_preferences.av1_max_resolution", defaults.CodecPreferences.AV1MaxResolution)
+	m.viper.SetDefault("codec_preferences.disable_twitch_codec_control", defaults.CodecPreferences.DisableTwitchCodecControl)
 
 	// Rendering defaults
 	m.viper.SetDefault("rendering_mode", string(RenderingModeAuto))

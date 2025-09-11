@@ -455,10 +455,11 @@ func runBrowser() {
 		},
 		Memory: readMemoryConfigFromEnv(),
 		CodecPreferences: webkit.CodecPreferencesConfig{
-			PreferredCodecs: strings.Split(cfg.CodecPreferences.PreferredCodecs, ","),
-			BlockedCodecs:   buildBlockedCodecsList(cfg.CodecPreferences),
-			ForceAV1:        cfg.CodecPreferences.ForceAV1,
-			CustomUserAgent: cfg.CodecPreferences.CustomUserAgent,
+			PreferredCodecs:           strings.Split(cfg.CodecPreferences.PreferredCodecs, ","),
+			BlockedCodecs:             buildBlockedCodecsList(cfg.CodecPreferences),
+			ForceAV1:                  cfg.CodecPreferences.ForceAV1,
+			CustomUserAgent:           cfg.CodecPreferences.CustomUserAgent,
+			DisableTwitchCodecControl: cfg.CodecPreferences.DisableTwitchCodecControl,
 		},
 	})
 	if err != nil {

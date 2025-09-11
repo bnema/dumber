@@ -41,10 +41,11 @@ type Config struct {
 
 // CodecPreferencesConfig holds codec preferences for WebKit media playback
 type CodecPreferencesConfig struct {
-	PreferredCodecs []string
-	BlockedCodecs   []string
-	ForceAV1        bool
-	CustomUserAgent string
+	PreferredCodecs           []string
+	BlockedCodecs             []string
+	ForceAV1                  bool
+	CustomUserAgent           string
+	DisableTwitchCodecControl bool
 }
 
 // RenderingConfig controls hardware acceleration preferences.
