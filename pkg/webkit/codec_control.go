@@ -45,7 +45,6 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
 	hasBlockedCodecs := len(blockedCodecs) > 0
 	hasPreferredCodecs := len(preferredCodecs) > 0
 
-
 	// Convert preferredCodecs slice to proper JavaScript array syntax
 	preferredCodecsJS := "[" + strings.Join(func() []string {
 		var quoted []string
@@ -504,4 +503,3 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
 
 	return js.String()
 }
-
