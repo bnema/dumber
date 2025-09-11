@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-09-12
+
 ### Added
 - **Smart AV1 codec negotiation system for YouTube high-resolution streaming**:
   - **Resolution-aware MediaCapabilities API reporting**: Intelligent codec capability reporting based on video resolution, enabling YouTube to select optimal codecs for different quality levels
