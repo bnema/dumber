@@ -145,8 +145,14 @@ func dispatchAccelerator(uid uintptr, keyval uint, state uint) {
 		keyName = "ArrowRight"
 	case uint(C.GDK_KEY_F12):
 		keyName = "F12"
+	case uint(C.GDK_KEY_F5):
+		keyName = "F5"
 	case uint(C.GDK_KEY_c), uint(C.GDK_KEY_C):
 		keyName = "c"
+	case uint(C.GDK_KEY_r), uint(C.GDK_KEY_R):
+		keyName = "r"
+	case uint(C.GDK_KEY_l), uint(C.GDK_KEY_L):
+		keyName = "l"
 	default:
 		// If Control held, log unknown keyval for diagnostics
 		if ctrl {

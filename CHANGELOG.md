@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Page refresh functionality with standard keyboard shortcuts:
+  - **Ctrl+R** / **Cmd+R**: Reload current page
+  - **Ctrl+Shift+R** / **Cmd+Shift+R**: Hard reload (bypass cache)
+  - **F5**: Alternative reload key
+  - WebKit integration with proper `webkit_web_view_reload()` and `webkit_web_view_reload_bypass_cache()` calls
+
+### Fixed
+- Zoom level toast no longer shows on every page navigation within the same domain:
+  - Added smart detection to differentiate user-initiated vs programmatic zoom changes
+  - Toast now only appears when manually adjusting zoom or entering a new domain
+  - Prevents annoying notifications during regular browsing within the same site
+- Links with `target="_blank"` now load in current window instead of being ignored:
+  - Added WebKit `create` signal handler to intercept new window requests
+  - Redirects popup/new tab links to current window for seamless single-window browsing
+  - Maintains user experience consistency in tab-less browser architecture
+
 ## [0.5.0] - 2025-09-12
 
 ### Added

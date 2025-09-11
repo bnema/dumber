@@ -260,6 +260,12 @@ func runBrowser() {
 	// Track current URL for zoom persistence
 	// Initialize to the initial homepage so shortcuts work immediately
 	var currentURL string = "dumb://homepage"
+	
+	// Track last zoom domain to avoid showing toaster on every navigation within same domain
+	var lastZoomDomain string
+	
+	// Flag to prevent showing toast when programmatically setting zoom (not user-initiated)
+	var programmaticZoomChange bool
 
 	// Register custom scheme resolver for dumb://
 	webkit.SetURISchemeResolver(func(uri string) (string, []byte, bool) {
@@ -471,10 +477,28 @@ func runBrowser() {
 				return
 			}
 			ctx := context.Background()
+			currentDomain := services.ZoomKeyForLog(u)
+			
 			if z, err := browserService.GetZoomLevel(ctx, u); err == nil {
+				programmaticZoomChange = true
 				_ = view.SetZoom(z)
-				key := services.ZoomKeyForLog(u)
-				log.Printf("[zoom] loaded %.2f for %s", z, key)
+				programmaticZoomChange = false
+				log.Printf("[zoom] loaded %.2f for %s", z, currentDomain)
+				
+				// Only show toast when entering a new domain (not on first load)
+				if currentDomain != lastZoomDomain && lastZoomDomain != "" {
+					js := fmt.Sprintf(`try { 
+						if (typeof window.__dumber_showZoomToast === 'function') {
+							window.__dumber_showZoomToast(%f);
+						}
+					} catch(e) { 
+						console.error('[dumber] Zoom toast error:', e); 
+					}`, z)
+					if err := view.InjectScript(js); err != nil {
+						log.Printf("[zoom] failed to show domain change toast: %v", err)
+					}
+				}
+				lastZoomDomain = currentDomain
 			}
 		})
 		// Persist zoom changes per-domain
@@ -491,18 +515,20 @@ func runBrowser() {
 			key := services.ZoomKeyForLog(url)
 			log.Printf("[zoom] saved %.2f for %s", level, key)
 			
-			// Show zoom toast notification
-			js := fmt.Sprintf(`try { 
-				if (typeof window.__dumber_showZoomToast === 'function') {
-					window.__dumber_showZoomToast(%f);
-				} else {
-					console.warn('[dumber] Zoom toast function not available yet');
+			// Only show toast for user-initiated zoom changes, not programmatic ones
+			if !programmaticZoomChange {
+				js := fmt.Sprintf(`try { 
+					if (typeof window.__dumber_showZoomToast === 'function') {
+						window.__dumber_showZoomToast(%f);
+					} else {
+						console.warn('[dumber] Zoom toast function not available yet');
+					}
+				} catch(e) { 
+					console.error('[dumber] Zoom toast error:', e); 
+				}`, level)
+				if err := view.InjectScript(js); err != nil {
+					log.Printf("[zoom] failed to show toast: %v", err)
 				}
-			} catch(e) { 
-				console.error('[dumber] Zoom toast error:', e); 
-			}`, level)
-			if err := view.InjectScript(js); err != nil {
-				log.Printf("[zoom] failed to show toast: %v", err)
 			}
 		})
 		// Bridge UCM messages: navigate + history queries
@@ -532,7 +558,9 @@ func runBrowser() {
 					}
 					_ = view.LoadURL(currentURL)
 					if z, zerr := browserService.GetZoomLevel(ctx, currentURL); zerr == nil {
+						programmaticZoomChange = true
 						_ = view.SetZoom(z)
+						programmaticZoomChange = false
 					}
 				}
 			case "query":
@@ -627,12 +655,14 @@ func runBrowser() {
 				u = "dumb://homepage"
 			}
 			if z, zerr := browserService.GetZoomLevel(ctx, u); zerr == nil {
+				programmaticZoomChange = true
 				if err := view.SetZoom(z); err != nil {
 					log.Printf("Warning: failed to set initial zoom: %v", err)
 				} else {
 					key := services.ZoomKeyForLog(u)
 					log.Printf("[zoom] loaded %.2f for %s", z, key)
 				}
+				programmaticZoomChange = false
 			}
 		}
 
@@ -661,12 +691,14 @@ func runBrowser() {
 					log.Printf("Warning: failed to load URL: %v", err)
 				}
 				if z, zerr := browserService.GetZoomLevel(ctx, currentURL); zerr == nil {
+					programmaticZoomChange = true
 					if err := view.SetZoom(z); err != nil {
 						log.Printf("Warning: failed to set zoom: %v", err)
 					} else {
 						key := services.ZoomKeyForLog(currentURL)
 						log.Printf("[zoom] loaded %.2f for %s", z, key)
 					}
+					programmaticZoomChange = false
 				}
 				// No JS injection; native accelerators handle zoom/devtools.
 			}
@@ -699,6 +731,19 @@ func runBrowser() {
 				log.Printf("URL copied to clipboard: %s", currentURL)
 				_ = view.InjectScript(`window.__dumber_showToast && window.__dumber_showToast("URL copied to clipboard", 2000)`)
 			}
+		})
+		// Page refresh shortcuts
+		_ = view.RegisterKeyboardShortcut("cmdorctrl+r", func() {
+			log.Printf("Shortcut: Reload page")
+			_ = view.Reload()
+		})
+		_ = view.RegisterKeyboardShortcut("cmdorctrl+shift+r", func() {
+			log.Printf("Shortcut: Hard reload page")
+			_ = view.ReloadBypassCache()
+		})
+		_ = view.RegisterKeyboardShortcut("F5", func() {
+			log.Printf("Shortcut: F5 reload")
+			_ = view.Reload()
 		})
 		// Zoom handled natively in webkit package (built-in shortcuts)
 	}
