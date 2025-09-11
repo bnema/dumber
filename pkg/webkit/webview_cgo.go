@@ -60,13 +60,14 @@ static WebKitWebView* on_create_new_window(WebKitWebView* web_view,
 }
 static void connect_tls_error_handler(WebKitWebView* wv);
 
-// Dialog callback structure for TLS warnings
+// Dialog callback structure for modern AlertDialog async handling
 typedef struct {
-    gboolean user_accepted;
-    gboolean dialog_completed;
-} TLSDialogData;
+    int response;
+    gboolean completed;
+    GMainLoop *loop;
+} AlertDialogResponse;
 
-static void on_tls_dialog_response(GtkDialog *dialog, gint response_id, gpointer user_data);
+static void on_alert_dialog_choose_done(GObject *source, GAsyncResult *result, gpointer user_data);
 static gboolean show_tls_warning_dialog_sync(GtkWindow *parent, const char* hostname, const char* error_msg);
 static char* extract_certificate_info(GTlsCertificate* certificate);
 
@@ -534,72 +535,82 @@ static void connect_tls_error_handler(WebKitWebView* wv) {
                      G_CALLBACK(on_load_failed_with_tls_errors), NULL);
 }
 
-// TLS dialog response callback
-static void on_tls_dialog_response(GtkDialog *dialog, gint response_id, gpointer user_data) {
-    TLSDialogData *data = (TLSDialogData*)user_data;
-    data->user_accepted = (response_id == GTK_RESPONSE_ACCEPT);
-    data->dialog_completed = TRUE;
-    printf("[dumber] TLS dialog response: %s (response_id=%d)\n",
-           data->user_accepted ? "ACCEPTED" : "REJECTED", response_id);
+// Modern AlertDialog async callback
+static void on_alert_dialog_choose_done(GObject *source, GAsyncResult *result, gpointer user_data) {
+    AlertDialogResponse *data = (AlertDialogResponse*)user_data;
+    GError *error = NULL;
+    data->response = gtk_alert_dialog_choose_finish(GTK_ALERT_DIALOG(source), result, &error);
+    if (error) {
+        printf("[dumber] AlertDialog error: %s\n", error->message);
+        g_error_free(error);
+        data->response = 0;
+    }
+    data->completed = TRUE;
+    const char *response_names[] = {"GO_BACK", "PROCEED_ONCE", "ALWAYS_ACCEPT"};
+    const char *response_name = (data->response >= 0 && data->response <= 2) ? 
+                               response_names[data->response] : "UNKNOWN";
+    printf("[dumber] TLS dialog response: %s (button_index=%d)\n", response_name, data->response);
     fflush(stdout);
-    gtk_window_destroy(GTK_WINDOW(dialog));
+    if (data->loop) {
+        g_main_loop_quit(data->loop);
+    }
 }
 
-// Show TLS warning dialog synchronously using GTK4 patterns
+// Show TLS warning dialog synchronously using modern GtkAlertDialog API
 static gboolean show_tls_warning_dialog_sync(GtkWindow *parent, const char* hostname, const char* error_msg) {
     printf("[dumber] Creating TLS warning dialog for hostname: %s\n", hostname);
     printf("[dumber] Error message: %s\n", error_msg);
     fflush(stdout);
 
-    // Create the dialog
-    GtkWidget *dialog = gtk_message_dialog_new(
-        parent,
-        GTK_DIALOG_MODAL,
-        GTK_MESSAGE_WARNING,
-        GTK_BUTTONS_NONE,
-        "Certificate Error for %s", hostname
-    );
-
-    // Set secondary text with error details
-    gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog), "%s", error_msg);
-
-    // Add buttons
-    gtk_dialog_add_button(GTK_DIALOG(dialog), "Go Back", GTK_RESPONSE_CANCEL);
-    GtkWidget *proceed_btn = gtk_dialog_add_button(GTK_DIALOG(dialog), "Proceed Anyway (Unsafe)", GTK_RESPONSE_ACCEPT);
-
-    // Style the proceed button as destructive (red)
-    gtk_widget_add_css_class(proceed_btn, "destructive-action");
-
-    // Set default response to cancel (safer option)
-    gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
-
-    // Set up dialog data
-    TLSDialogData dialog_data = { FALSE, FALSE };
-
-    // Connect response signal
-    g_signal_connect(dialog, "response", G_CALLBACK(on_tls_dialog_response), &dialog_data);
-
-    // Show the dialog
-    gtk_window_present(GTK_WINDOW(dialog));
-
-    // Run a nested main loop until dialog is completed
-    while (!dialog_data.dialog_completed) {
-        g_main_context_iteration(NULL, TRUE);
-    }
-
-    return dialog_data.user_accepted;
+    // Create the modern AlertDialog
+    GtkAlertDialog *dialog = gtk_alert_dialog_new("Certificate Error for %s", hostname);
+    
+    // Set modal behavior and error details
+    gtk_alert_dialog_set_modal(dialog, TRUE);
+    gtk_alert_dialog_set_detail(dialog, error_msg);
+    
+    // Configure buttons (Go Back = 0, Proceed Once = 1, Always Accept = 2)
+    const char *buttons[] = {"Go Back", "Proceed Once (Unsafe)", "Always Accept This Site", NULL};
+    gtk_alert_dialog_set_buttons(dialog, buttons);
+    gtk_alert_dialog_set_default_button(dialog, 0);
+    gtk_alert_dialog_set_cancel_button(dialog, 0);
+    
+    // Set up response data with main loop for sync behavior
+    AlertDialogResponse response_data = {0, FALSE, g_main_loop_new(NULL, FALSE)};
+    
+    // Start async operation
+    gtk_alert_dialog_choose(dialog, parent, NULL, 
+                           on_alert_dialog_choose_done, &response_data);
+    
+    // Run event loop until dialog completes
+    g_main_loop_run(response_data.loop);
+    g_main_loop_unref(response_data.loop);
+    
+    // Clean up
+    g_object_unref(dialog);
+    
+    // Return response code: 0=Go Back, 1=Proceed Once, 2=Always Accept
+    return response_data.response;
 }
 */
 import "C"
 
 import (
+	"context"
+	"crypto/sha256"
+	"database/sql"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"runtime"
 	"time"
 	"unsafe"
+
+	"github.com/bnema/dumber/internal/config"
+	"github.com/bnema/dumber/internal/db"
+	_ "github.com/ncruces/go-sqlite3"
 )
 
 // Helper function to convert bool to int for C interop
@@ -608,6 +619,91 @@ func boolToInt(b bool) int {
 		return 1
 	}
 	return 0
+}
+
+// getCertificateHash generates a SHA256 hash of the certificate info for storage
+func getCertificateHash(certificateInfo string) string {
+	hash := sha256.Sum256([]byte(certificateInfo))
+	return fmt.Sprintf("%x", hash)
+}
+
+// getDBConnection opens a database connection and returns queries
+func getDBConnection() (*db.Queries, *sql.DB, error) {
+	cfg := config.Get()
+	if cfg == nil {
+		return nil, nil, fmt.Errorf("config not available")
+	}
+
+	dbPath := cfg.Database.Path
+	if dbPath == "" {
+		var err error
+		dbPath, err = config.GetDatabaseFile()
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get database path: %w", err)
+		}
+	}
+
+	database, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to open database: %w", err)
+	}
+
+	queries := db.New(database)
+	return queries, database, nil
+}
+
+// checkStoredCertificateDecision checks if user has previously decided on this certificate
+func checkStoredCertificateDecision(hostname, certificateInfo string) (string, bool) {
+	queries, database, err := getDBConnection()
+	if err != nil {
+		log.Printf("[tls] Failed to connect to database: %v", err)
+		return "", false
+	}
+	defer database.Close()
+
+	certHash := getCertificateHash(certificateInfo)
+	ctx := context.Background()
+
+	validation, err := queries.GetCertificateValidation(ctx, hostname, certHash)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", false // No previous decision
+		}
+		log.Printf("[tls] Failed to query certificate validation: %v", err)
+		return "", false
+	}
+
+	log.Printf("[tls] Found stored certificate decision for %s: %s", hostname, validation.UserDecision)
+	return validation.UserDecision, true
+}
+
+// storeCertificateDecision stores the user's decision about a certificate
+func storeCertificateDecision(hostname, certificateInfo, decision string, permanent bool) error {
+	queries, database, err := getDBConnection()
+	if err != nil {
+		return fmt.Errorf("failed to connect to database: %w", err)
+	}
+	defer database.Close()
+
+	certHash := getCertificateHash(certificateInfo)
+	ctx := context.Background()
+
+	var expiresAt sql.NullTime
+	if !permanent {
+		// For temporary decisions, expire after 24 hours
+		expiresAt = sql.NullTime{
+			Time:  time.Now().Add(24 * time.Hour),
+			Valid: true,
+		}
+	}
+
+	err = queries.StoreCertificateValidation(ctx, hostname, certHash, decision, expiresAt)
+	if err != nil {
+		return fmt.Errorf("failed to store certificate validation: %w", err)
+	}
+
+	log.Printf("[tls] Stored certificate decision for %s: %s (permanent: %t)", hostname, decision, permanent)
+	return nil
 }
 
 type nativeView struct {
@@ -1344,11 +1440,25 @@ func goHandleTLSError(failingURI *C.char, host *C.char, errorFlags C.int, certIn
 	return C.FALSE // Don't proceed
 }
 
-// showTLSWarningDialog displays a warning dialog for TLS certificate errors
+// showTLSWarningDialog displays a warning dialog for TLS certificate errors with storage capability
 func (w *WebView) showTLSWarningDialog(hostname, uri string, errorFlags int, certificateInfo string) bool {
 	if w == nil || w.native == nil || w.native.win == nil {
 		log.Printf("[tls] Cannot show dialog: WebView or window is nil")
 		return false
+	}
+
+	// Check if we have a stored decision for this certificate
+	if storedDecision, hasStored := checkStoredCertificateDecision(hostname, certificateInfo); hasStored {
+		switch storedDecision {
+		case "accepted":
+			log.Printf("[tls] Using stored ACCEPT decision for %s", hostname)
+			return true
+		case "rejected":
+			log.Printf("[tls] Using stored REJECT decision for %s", hostname)
+			return false
+		default:
+			log.Printf("[tls] Unknown stored decision '%s' for %s, showing dialog", storedDecision, hostname)
+		}
 	}
 
 	log.Printf("[tls] Showing certificate error dialog for %s", hostname)
@@ -1363,19 +1473,40 @@ func (w *WebView) showTLSWarningDialog(hostname, uri string, errorFlags int, cer
 	cErrorMsg := C.CString(errorMsg)
 	defer C.free(unsafe.Pointer(cErrorMsg))
 
-	// Show the dialog and get user response
+	// Show the dialog and get user response (0=Go Back, 1=Proceed Once, 2=Always Accept)
 	result := C.show_tls_warning_dialog_sync(
 		(*C.GtkWindow)(unsafe.Pointer(w.native.win)),
 		cHostname,
 		cErrorMsg,
 	)
 
-	userAccepted := result != 0
-	log.Printf("[tls] User %s certificate for %s",
-		map[bool]string{true: "accepted", false: "rejected"}[userAccepted],
-		hostname)
-
-	return userAccepted
+	responseCode := int(result)
+	
+	switch responseCode {
+	case 0: // Go Back
+		log.Printf("[tls] User chose to GO BACK for %s", hostname)
+		return false
+		
+	case 1: // Proceed Once
+		log.Printf("[tls] User chose to PROCEED ONCE for %s", hostname)
+		// Store temporary decision (expires in 24 hours)
+		if err := storeCertificateDecision(hostname, certificateInfo, "accepted", false); err != nil {
+			log.Printf("[tls] Warning: Failed to store temporary certificate decision: %v", err)
+		}
+		return true
+		
+	case 2: // Always Accept
+		log.Printf("[tls] User chose to ALWAYS ACCEPT for %s", hostname)
+		// Store permanent decision
+		if err := storeCertificateDecision(hostname, certificateInfo, "accepted", true); err != nil {
+			log.Printf("[tls] Warning: Failed to store permanent certificate decision: %v", err)
+		}
+		return true
+		
+	default:
+		log.Printf("[tls] Unknown response code %d for %s, defaulting to reject", responseCode, hostname)
+		return false
+	}
 }
 
 // formatTLSErrorMessage creates a detailed error message based on the error flags

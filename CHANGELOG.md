@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Persistent TLS certificate validation system**:
+  - **Three-option certificate dialog**: "Go Back", "Proceed Once (Unsafe)", and "Always Accept This Site" 
+  - **Database-backed certificate storage**: SQLite-based persistence for user certificate decisions with SHA256 certificate hashing
+  - **Smart decision handling**: Automatic application of stored decisions without repeated prompts
+  - **Temporary vs permanent choices**: "Proceed Once" expires after 24 hours, "Always Accept" persists indefinitely
+  - **Seamless user experience**: No more repetitive certificate warnings for trusted sites
 - **Performance-optimized WebKit memory configuration system**:
   - **New `WebkitMemoryConfig`** configuration section with performance-focused defaults for faster page loading
   - **Aggressive caching strategy**: `web_browser` cache model with page cache enabled for instant back/forward navigation
@@ -15,6 +21,10 @@ All notable changes to this project will be documented in this file.
 - **Early crash handling initialization**: Moved crash handler setup to application entry point for better crash recovery
 
 ### Changed
+- **Modernized GTK dialog system**: Migrated from deprecated GTK 4.10 dialog functions to modern `GtkAlertDialog` API
+  - **Future-proof implementation**: Eliminated all deprecation warnings by replacing `gtk_message_dialog_*` and `gtk_dialog_*` functions
+  - **Async-first architecture**: Native async dialog handling with proper event loop integration
+  - **Improved accessibility**: Better screen reader support and GTK4 theme integration
 - **Major main.go refactoring**: Massive code reduction from 1071 lines to 61 lines (~95% reduction)
   - **Extracted browser application logic** to dedicated `internal/app/browser` package for better separation of concerns
   - **Streamlined entry point**: Clean main function focusing only on CLI vs GUI mode detection and application bootstrapping  
