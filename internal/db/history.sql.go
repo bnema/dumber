@@ -26,7 +26,7 @@ func (q *Queries) AddOrUpdateHistory(ctx context.Context, url string, title sql.
 }
 
 const GetHistory = `-- name: GetHistory :many
-SELECT id, url, title, visit_count, last_visited, created_at
+SELECT id, url, title, visit_count, last_visited, created_at, favicon_url
 FROM history
 ORDER BY last_visited DESC
 LIMIT ?
@@ -48,6 +48,7 @@ func (q *Queries) GetHistory(ctx context.Context, limit int64) ([]History, error
 			&i.VisitCount,
 			&i.LastVisited,
 			&i.CreatedAt,
+			&i.FaviconUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -98,7 +99,7 @@ func (q *Queries) GetShortcuts(ctx context.Context) ([]Shortcut, error) {
 }
 
 const SearchHistory = `-- name: SearchHistory :many
-SELECT id, url, title, visit_count, last_visited, created_at
+SELECT id, url, title, visit_count, last_visited, created_at, favicon_url
 FROM history 
 WHERE url LIKE '%' || ? || '%' OR title LIKE '%' || ? || '%'
 ORDER BY visit_count DESC, last_visited DESC
@@ -121,6 +122,7 @@ func (q *Queries) SearchHistory(ctx context.Context, column1 sql.NullString, col
 			&i.VisitCount,
 			&i.LastVisited,
 			&i.CreatedAt,
+			&i.FaviconUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -133,4 +135,15 @@ func (q *Queries) SearchHistory(ctx context.Context, column1 sql.NullString, col
 		return nil, err
 	}
 	return items, nil
+}
+
+const UpdateHistoryFavicon = `-- name: UpdateHistoryFavicon :exec
+UPDATE history 
+SET favicon_url = ?
+WHERE url = ?
+`
+
+func (q *Queries) UpdateHistoryFavicon(ctx context.Context, faviconUrl sql.NullString, url string) error {
+	_, err := q.db.ExecContext(ctx, UpdateHistoryFavicon, faviconUrl, url)
+	return err
 }

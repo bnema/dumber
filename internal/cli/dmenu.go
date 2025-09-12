@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -20,15 +21,15 @@ const (
 func NewDmenuCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dmenu",
-		Short: "Run in dmenu mode for launcher integration",
-		Long: `Run in dmenu mode to integrate with rofi, dmenu, or other launchers.
-This mode reads from stdin and outputs selectable options to stdout.
+		Short: "Fast fuzzy history browser for launcher integration",
+		Long: `Fast dmenu mode showing cached browsing history with fuzzy search.
+Uses binary tree cache for sub-millisecond performance.
 
 Usage with rofi:
   dumber dmenu | rofi -dmenu -p "Browse: " | dumber dmenu --select
 
-Usage with dmenu:
-  dumber dmenu | dmenu -p "Browse: " | dumber dmenu --select`,
+Usage with fuzzel:
+  dumber dmenu | fuzzel --dmenu -p "Browse: " | dumber dmenu --select`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			selectFlag := cmd.Flag("select").Changed
 
@@ -62,6 +63,13 @@ func generateOptions(cli *CLI) error {
 	cacheConfig.MaxResults = 50 // Match the old maxHistoryEntries
 	cacheManager := cache.NewCacheManager(cli.Queries, cacheConfig)
 
+	// Initialize favicon cache
+	faviconCache, err := cache.NewFaviconCache()
+	if err != nil {
+		// Continue without favicon cache if it fails
+		faviconCache = nil
+	}
+
 	// Get top entries from cache (this is blazingly fast!)
 	result, err := cacheManager.GetTopEntries(ctx)
 	if err != nil {
@@ -69,77 +77,74 @@ func generateOptions(cli *CLI) error {
 		return generateOptionsFallback(cli)
 	}
 
-	// Get shortcuts for display
-	shortcuts, err := cli.Queries.GetShortcuts(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get shortcuts: %w", err)
-	}
+	// Fast dmenu mode: only shows cached history entries sorted by relevance
 
-	// Generate options
-	options := make([]DmenuOption, 0, len(result.Matches)+len(shortcuts)+1)
-
-	// Add direct URL input option
-	options = append(options, DmenuOption{
-		Display:     "🌐 Enter URL or search query...",
-		Value:       "",
-		Type:        "input",
-		Description: "Type any URL or search term",
-	})
-
-	// Add shortcuts with examples
-	for _, shortcut := range shortcuts {
-		desc := shortcut.Description.String
-		if !shortcut.Description.Valid {
-			desc = "Custom shortcut"
-		}
-
-		options = append(options, DmenuOption{
-			Display:     fmt.Sprintf("🔍 %s: (%s)", shortcut.Shortcut, desc),
-			Value:       shortcut.Shortcut + ":",
-			Type:        "shortcut",
-			Description: desc,
-		})
-	}
+	// Generate options - only show history entries from fast cache
+	options := make([]DmenuOption, 0, len(result.Matches))
 
 	// Add history entries from cache (already sorted by relevance!)
 	for _, match := range result.Matches {
 		entry := match.Entry
-		title := entry.URL
-		if entry.Title != "" {
-			title = entry.Title
+		
+		// Parse URL for domain extraction
+		parsedURL, err := url.Parse(entry.URL)
+		var domain string
+		if err != nil || parsedURL.Host == "" {
+			domain = "local"
+		} else {
+			domain = parsedURL.Host
 		}
+		
+		// Determine title
+		title := entry.Title
+		if title == "" || title == entry.URL {
+			// Use meaningful fallback for untitled pages
+			if parsedURL != nil && parsedURL.Path != "" && parsedURL.Path != "/" {
+				title = fmt.Sprintf("[%s%s]", domain, parsedURL.Path)
+			} else {
+				title = fmt.Sprintf("[%s]", domain)
+			}
+		}
+		
+		// Check if it's a Google search result and format accordingly
+		isGoogleSearch := domain == "www.google.com" && strings.Contains(entry.URL, "/search?q=")
+		if isGoogleSearch {
+			if parsedURL != nil {
+				if q := parsedURL.Query().Get("q"); q != "" {
+					title = fmt.Sprintf("Google: \"%s\"", q)
+				}
+			}
+		}
+		
+		// Format: "Title | domain.com | full-url"
+		// Using pipe separator for rofi/dmenu compatibility
+		display := fmt.Sprintf("%s | %s | %s", 
+			truncateString(title, 50),
+			domain,
+			truncateString(entry.URL, 70))
 
-		const maxDisplayLength = 80
-		// Truncate long titles/URLs for display
-		display := truncateString(title, maxDisplayLength)
-
+		// Get favicon URL from cached entry
+		faviconURL := match.Entry.FaviconURL
+		
 		options = append(options, DmenuOption{
-			Display:     fmt.Sprintf("🕒 %s", display),
+			Display:     display,
 			Value:       entry.URL,
 			Type:        historyType,
 			Description: entry.URL,
+			FaviconURL:  faviconURL,
 		})
 	}
 
-	// Sort options: input first, then shortcuts, then history (already sorted by cache)
-	sort.Slice(options, func(i, j int) bool {
-		if options[i].Type != options[j].Type {
-			// Order: input, shortcut, history
-			typeOrder := map[string]int{"input": 0, "shortcut": 1, historyType: 2} //nolint:mnd
-			return typeOrder[options[i].Type] < typeOrder[options[j].Type]
-		}
+	// No sorting needed - history entries are already sorted by relevance from cache
 
-		if options[i].Type == historyType && options[j].Type == historyType {
-			// History already sorted by cache relevance score
-			return i < j
-		}
-
-		return options[i].Display < options[j].Display
-	})
-
-	// Output options to stdout
+	// Output options to stdout with icon specifications
 	for _, option := range options {
-		fmt.Println(option.Display)
+		iconName := getIconName(option, faviconCache)
+		if iconName != "" {
+			fmt.Printf("%s\x00icon\x1f%s\n", option.Display, iconName)
+		} else {
+			fmt.Println(option.Display)
+		}
 	}
 
 	// Trigger background cache refresh for next time if needed
@@ -148,9 +153,16 @@ func generateOptions(cli *CLI) error {
 	return nil
 }
 
-// generateOptionsFallback is the old method used as a fallback if cache fails
+// generateOptionsFallback is the legacy method used as a fallback if fast cache fails
 func generateOptionsFallback(cli *CLI) error {
 	ctx := context.Background()
+
+	// Initialize favicon cache
+	faviconCache, err := cache.NewFaviconCache()
+	if err != nil {
+		// Continue without favicon cache if it fails
+		faviconCache = nil
+	}
 
 	const maxHistoryEntries = 50
 	// Get history entries
@@ -226,9 +238,14 @@ func generateOptionsFallback(cli *CLI) error {
 		return options[i].Display < options[j].Display
 	})
 
-	// Output options to stdout
+	// Output options to stdout with icon specifications
 	for _, option := range options {
-		fmt.Println(option.Display)
+		iconName := getIconName(option, faviconCache)
+		if iconName != "" {
+			fmt.Printf("%s\x00icon\x1f%s\n", option.Display, iconName)
+		} else {
+			fmt.Println(option.Display)
+		}
 	}
 
 	return nil
@@ -246,25 +263,28 @@ func handleSelection(cli *CLI) error {
 		return fmt.Errorf("empty selection")
 	}
 
-	// Parse the selection to get the actual input
-	input := parseSelection(selection)
 
-	// If it's just the input prompt, read another line for the actual input
-	if input == "" || input == "Enter URL or search query..." {
-		fmt.Print("Enter URL or search query: ")
-		if !scanner.Scan() {
-			return fmt.Errorf("no input received")
-		}
-		input = strings.TrimSpace(scanner.Text())
-	}
+	// Parse the selection to get the actual URL from history entry
+	input := parseSelection(selection)
 
 	if input == "" {
 		return fmt.Errorf("empty input")
 	}
 
 	// Browse the selected/entered URL
-	return browse(cli, input)
+	err := browse(cli, input)
+	
+	// After successful browse, invalidate cache so next dmenu shows updated order
+	if err == nil {
+		ctx := context.Background()
+		cacheConfig := cache.DefaultCacheConfig()
+		cacheManager := cache.NewCacheManager(cli.Queries, cacheConfig)
+		cacheManager.InvalidateAndRefresh(ctx)
+	}
+	
+	return err
 }
+
 
 // DmenuOption represents a selectable option in dmenu mode
 type DmenuOption struct {
@@ -272,16 +292,36 @@ type DmenuOption struct {
 	Value       string
 	Type        string // "input", "shortcut", "history"
 	Description string
+	FaviconURL  string // URL to favicon for this entry
 }
 
-// parseSelection extracts the actual URL/query from a dmenu selection
+// parseSelection extracts the actual URL from a dmenu selection
 func parseSelection(selection string) string {
-	// Remove emoji prefixes and clean up the selection
 	selection = strings.TrimSpace(selection)
 
-	// Handle different option types
+	// Strip icon protocol if present (format: "text\0icon\x1ficonname")
+	if iconIndex := strings.Index(selection, "\x00icon\x1f"); iconIndex > 0 {
+		selection = selection[:iconIndex]
+	}
+
+	// 1. Handle new pipe-separated format: "Title | domain.com | full-url"
+	if strings.Contains(selection, " | ") {
+		parts := strings.Split(selection, " | ")
+		if len(parts) >= 3 {
+			// The URL is the last part (third field)
+			return strings.TrimSpace(parts[len(parts)-1])
+		} else if len(parts) == 2 {
+			// Might be "title | url" format, check if second part looks like URL
+			lastPart := strings.TrimSpace(parts[1])
+			if strings.Contains(lastPart, "://") || strings.Contains(lastPart, ".") {
+				return lastPart
+			}
+		}
+	}
+
+	// Legacy format handling for backward compatibility
 	if strings.HasPrefix(selection, "🌐 ") {
-		// Input option selected
+		// Input option selected (shouldn't happen with new format but just in case)
 		return ""
 	}
 
@@ -294,13 +334,37 @@ func parseSelection(selection string) string {
 	}
 
 	if strings.HasPrefix(selection, "🕒 ") {
-		// History entry selected - this is the display title, need to extract URL
-		// For now, we'll assume the display is the URL or close enough
-		return strings.TrimPrefix(selection, "🕒 ")
+		// History entry selected - remove emoji prefix
+		selection = strings.TrimPrefix(selection, "🕒 ")
 	}
 
-	// Fallback: return the selection as-is
+	// If no pipes and looks like a URL, return as-is
+	if strings.Contains(selection, "://") {
+		return selection
+	}
+
+	// Fallback: treat as search query
 	return selection
+}
+
+// getIconName determines the appropriate icon name for a dmenu option
+func getIconName(option DmenuOption, faviconCache *cache.FaviconCache) string {
+	if option.Type != historyType {
+		return ""
+	}
+	
+	// Only use cached favicons - no system theme fallbacks for consistent sizing
+	if option.FaviconURL != "" && faviconCache != nil {
+		cachedPath := faviconCache.GetCachedPath(option.FaviconURL)
+		if cachedPath != "" {
+			return cachedPath
+		}
+		// Start async download for next time
+		faviconCache.CacheAsync(option.FaviconURL)
+	}
+	
+	// No favicon available - return empty string to show no icon
+	return ""
 }
 
 // truncateString truncates a string to the specified length with ellipsis

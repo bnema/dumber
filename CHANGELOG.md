@@ -27,6 +27,17 @@ All notable changes to this project will be documented in this file.
   - Improved box-sizing model to prevent layout issues
   - Added conditional separator display (hidden when no search results)
   - Omnibox now scales proportionally with webpage content across all zoom levels
+- Dmenu history favicon display:
+  - Complete favicon caching system for fuzzel/dmenu integration with real website icons
+  - ICO file support using go-ico library for perfect Windows icon conversion to PNG
+  - Smart brightness detection and color inversion for dark theme visibility
+  - All cached favicons normalized to consistent 32x32 PNG format for uniform display
+  - Anti-aliasing preservation during color inversion to prevent edge noise and pixelation
+  - Asynchronous favicon downloading and caching with 7-day freshness and 30-day cleanup
+  - Fuzzel icon protocol integration (`\0icon\x1f<path>`) for native icon display
+  - Favicon URLs extracted from webpage metadata and stored in database during navigation
+  - Fallback system removed to ensure consistent sizing - shows real favicons or no icon
+  - XDG Base Directory compliance for favicon cache storage
 
 ## [0.4.0] - 2025-09-10
 

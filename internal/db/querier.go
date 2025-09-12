@@ -26,6 +26,7 @@ type Querier interface {
 	SearchHistory(ctx context.Context, column1 sql.NullString, column2 sql.NullString, limit int64) ([]History, error)
 	// Set or update zoom level for a domain with validation
 	SetZoomLevel(ctx context.Context, domain string, zoomFactor float64) error
+	UpdateHistoryFavicon(ctx context.Context, faviconUrl sql.NullString, url string) error
 }
 
 var _ Querier = (*Queries)(nil)

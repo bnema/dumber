@@ -15,6 +15,7 @@ type History struct {
 	VisitCount  sql.NullInt64  `json:"visit_count"`
 	LastVisited sql.NullTime   `json:"last_visited"`
 	CreatedAt   sql.NullTime   `json:"created_at"`
+	FaviconUrl  sql.NullString `json:"favicon_url"`
 }
 
 type Shortcut struct {
