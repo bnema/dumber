@@ -38,6 +38,26 @@ static gboolean on_load_failed_with_tls_errors(WebKitWebView *web_view,
                                                GTlsCertificate *certificate,
                                                GTlsCertificateFlags errors,
                                                gpointer user_data);
+
+// Handle create signal for _blank links - redirect to current window
+static WebKitWebView* on_create_new_window(WebKitWebView* web_view, 
+                                           WebKitNavigationAction* navigation_action,
+                                           gpointer user_data) {
+    (void)user_data;
+    
+    // Get the request from navigation action
+    WebKitURIRequest* request = webkit_navigation_action_get_request(navigation_action);
+    if (request) {
+        const gchar* uri = webkit_uri_request_get_uri(request);
+        if (uri) {
+            // Load in current window instead of creating new one
+            webkit_web_view_load_uri(web_view, uri);
+        }
+    }
+    
+    // Return NULL to prevent new window creation
+    return NULL;
+}
 static void connect_tls_error_handler(WebKitWebView* wv);
 
 // Dialog callback structure for TLS warnings
@@ -115,6 +135,9 @@ static GtkWidget* new_webview_with_ucm_and_session(const char* data_dir, const c
     // Set WebView background to black (easier on eyes when pages are loading)
     GdkRGBA black_color = { 0.0, 0.0, 0.0, 1.0 };
     webkit_web_view_set_background_color(WEBKIT_WEB_VIEW(w), &black_color);
+    
+    // Handle create signal to redirect _blank links to current window
+    g_signal_connect(G_OBJECT(w), "create", G_CALLBACK(on_create_new_window), NULL);
     
     // Connect TLS error handler
     connect_tls_error_handler(WEBKIT_WEB_VIEW(w));
@@ -1031,6 +1054,24 @@ func (w *WebView) GoForward() error {
 		return ErrNotImplemented
 	}
 	C.webkit_web_view_go_forward(w.native.wv)
+	return nil
+}
+
+func (w *WebView) Reload() error {
+	if w == nil || w.destroyed || w.native == nil || w.native.wv == nil {
+		return ErrNotImplemented
+	}
+	C.webkit_web_view_reload(w.native.wv)
+	log.Printf("[webkit] Reload page")
+	return nil
+}
+
+func (w *WebView) ReloadBypassCache() error {
+	if w == nil || w.destroyed || w.native == nil || w.native.wv == nil {
+		return ErrNotImplemented
+	}
+	C.webkit_web_view_reload_bypass_cache(w.native.wv)
+	log.Printf("[webkit] Hard reload page (bypass cache)")
 	return nil
 }
 

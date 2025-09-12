@@ -93,6 +93,12 @@ func (w *WebView) GoBack() error { return ErrNotImplemented }
 // GoForward is not supported in the non-CGO stub.
 func (w *WebView) GoForward() error { return ErrNotImplemented }
 
+// Reload is not supported in the non-CGO stub.
+func (w *WebView) Reload() error { return ErrNotImplemented }
+
+// ReloadBypassCache is not supported in the non-CGO stub.
+func (w *WebView) ReloadBypassCache() error { return ErrNotImplemented }
+
 // ShowDevTools is a no-op in the non-CGO build.
 func (w *WebView) ShowDevTools() error { return nil }
 
