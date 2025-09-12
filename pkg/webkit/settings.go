@@ -29,6 +29,9 @@ type Config struct {
 	// Rendering controls GPU/CPU selection and debug options
 	Rendering RenderingConfig
 
+	// VideoAcceleration controls video hardware acceleration settings
+	VideoAcceleration VideoAccelerationConfig
+
 	// Memory controls memory optimization settings
 	Memory MemoryConfig
 }
@@ -39,6 +42,15 @@ type Config struct {
 type RenderingConfig struct {
 	Mode     string
 	DebugGPU bool
+}
+
+// VideoAccelerationConfig controls video hardware acceleration settings.
+type VideoAccelerationConfig struct {
+	EnableVAAPI      bool
+	AutoDetectGPU    bool
+	VAAPIDriverName  string
+	EnableAllDrivers bool
+	LegacyVAAPI      bool
 }
 
 // CacheModel represents WebKit cache model options for memory optimization.

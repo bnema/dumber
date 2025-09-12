@@ -437,7 +437,14 @@ func runBrowser() {
 		DefaultMonospaceFont:  cfg.Appearance.MonospaceFont,
 		DefaultFontSize:       cfg.Appearance.DefaultFontSize,
 		Rendering:             webkit.RenderingConfig{Mode: string(cfg.RenderingMode)},
-		Memory:                readMemoryConfigFromEnv(),
+		VideoAcceleration: webkit.VideoAccelerationConfig{
+			EnableVAAPI:      cfg.VideoAcceleration.EnableVAAPI,
+			AutoDetectGPU:    cfg.VideoAcceleration.AutoDetectGPU,
+			VAAPIDriverName:  cfg.VideoAcceleration.VAAPIDriverName,
+			EnableAllDrivers: cfg.VideoAcceleration.EnableAllDrivers,
+			LegacyVAAPI:      cfg.VideoAcceleration.LegacyVAAPI,
+		},
+		Memory: readMemoryConfigFromEnv(),
 	})
 	if err != nil {
 		log.Printf("Warning: failed to create WebView: %v", err)
