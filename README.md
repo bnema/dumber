@@ -277,12 +277,16 @@ WebKitGTK uses GStreamer for media playback. Dumber includes automatic hardware 
 - The app updates color‑scheme live when your GTK theme changes (no relaunch needed).
 
 ## Project Structure
-- `main.go`: CLI/GUI entrypoint, `dumb://` scheme, service wiring
+- `main.go`: Entry point with CLI/GUI routing
+- `internal/app/cli`: CLI application logic and Cobra commands
+- `internal/app/browser`: Browser application logic and WebKit integration
 - `internal/cli`: Cobra commands (`browse`, `dmenu`, `version`)
 - `internal/config`: Viper‑backed config, XDG helpers, defaults
 - `internal/db`: SQLite schema init and sqlc‑generated queries
-- `services`: app services (parser/history/config/browser)
+- `internal/logging`: Structured logging system with file rotation
+- `services`: Application services (parser/history/config/browser)
 - `pkg/webkit`: WebKit2GTK bindings (CGO and stub implementations)
+- `pkg/clipboard`: Cross-platform clipboard operations
 - `frontend`: TypeScript homepage UI bundled into the binary
 
 ## Security & Privacy
