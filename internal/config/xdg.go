@@ -81,6 +81,16 @@ func GetStateDir() (string, error) {
 	return dirs.StateHome, nil
 }
 
+// GetLogDir returns the XDG-compliant log directory for dumber.
+// Logs are stored in XDG_STATE_HOME as per specification.
+func GetLogDir() (string, error) {
+	stateDir, err := GetStateDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(stateDir, "logs"), nil
+}
+
 
 // GetConfigFile returns the path to the main configuration file.
 func GetConfigFile() (string, error) {

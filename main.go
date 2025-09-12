@@ -20,6 +20,7 @@ import (
 	"github.com/bnema/dumber/internal/cli"
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/db"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/pkg/clipboard"
 	"github.com/bnema/dumber/pkg/webkit"
 	"github.com/bnema/dumber/services"
@@ -88,6 +89,21 @@ func runCLI() {
 	if err := config.Init(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error initializing configuration: %v\n", err)
 		os.Exit(1)
+	}
+
+	// Initialize logging system for CLI mode (file logging only, no output capture)
+	cfg := config.Get()
+	if err := logging.Init(
+		cfg.Logging.LogDir,
+		cfg.Logging.Level,
+		cfg.Logging.Format,
+		cfg.Logging.EnableFileLog,
+		cfg.Logging.MaxSize,
+		cfg.Logging.MaxBackups,
+		cfg.Logging.MaxAge,
+		cfg.Logging.Compress,
+	); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to initialize logging: %v\n", err)
 	}
 
 	// Start configuration watching for live reload
@@ -175,6 +191,45 @@ func runBrowser() {
 		os.Exit(1)
 	}
 	cfg := config.Get()
+	
+	// Initialize logging system early
+	if err := logging.Init(
+		cfg.Logging.LogDir,
+		cfg.Logging.Level,
+		cfg.Logging.Format,
+		cfg.Logging.EnableFileLog,
+		cfg.Logging.MaxSize,
+		cfg.Logging.MaxBackups,
+		cfg.Logging.MaxAge,
+		cfg.Logging.Compress,
+	); err != nil {
+		log.Printf("Warning: failed to initialize logging: %v", err)
+	}
+
+	// Output capture disabled by default to avoid interference with normal operations
+	// Can be enabled via config if needed for debugging
+	var outputCapture *logging.OutputCapture
+	if cfg.Logging.CaptureStdout || cfg.Logging.CaptureStderr {
+		log.Printf("Warning: stdout/stderr capture is experimental and may interfere with normal operations")
+		if logger := logging.GetLogger(); logger != nil {
+			outputCapture = logging.NewOutputCapture(logger)
+			if err := outputCapture.Start(); err != nil {
+				log.Printf("Warning: failed to start output capture: %v", err)
+			} else {
+				defer outputCapture.Stop()
+			}
+		}
+	}
+
+	// Initialize WebKit log capture if configured
+	if cfg.Logging.CaptureCOutput {
+		if err := webkit.InitWebKitLogCapture(); err != nil {
+			log.Printf("Warning: failed to initialize WebKit log capture: %v", err)
+		} else {
+			defer webkit.StopWebKitLogCapture()
+		}
+	}
+
 	log.Printf("Config initialized")
 
 	// Detect keyboard layout/locale and hint to webkit layer

@@ -27,6 +27,15 @@ const (
 	defaultFontSize = 16 // points
 )
 
+// getDefaultLogDir returns the default log directory, falls back to empty string on error
+func getDefaultLogDir() string {
+	logDir, err := GetLogDir()
+	if err != nil {
+		return ""
+	}
+	return logDir
+}
+
 // DefaultConfig returns the default configuration values for dumber.
 func DefaultConfig() *Config {
 	return &Config{
@@ -69,13 +78,20 @@ func DefaultConfig() *Config {
 			SortByVisitCount: true,
 		},
 		Logging: LoggingConfig{
-			Level:      "info",
-			Format:     "text", // text or json
-			Filename:   "",     // empty means stdout
-			MaxSize:    defaultMaxLogSizeMB, // MB
-			MaxBackups: defaultMaxBackups,
-			MaxAge:     defaultMaxLogAgeDays, // days
-			Compress:   true,
+			Level:         "info",
+			Format:        "text", // text or json
+			Filename:      "",     // empty means stdout
+			MaxSize:       defaultMaxLogSizeMB, // MB
+			MaxBackups:    defaultMaxBackups,
+			MaxAge:        defaultMaxLogAgeDays, // days
+			Compress:      true,
+			LogDir:        getDefaultLogDir(),
+			EnableFileLog: true,
+			CaptureStdout: false,
+			CaptureStderr: false,
+			CaptureCOutput: false, // Disabled by default to avoid performance impact
+			DebugFile:     "debug.log",
+			VerboseWebKit: false,
 		},
 		Appearance: AppearanceConfig{
 			SansFont:        "Fira Sans",

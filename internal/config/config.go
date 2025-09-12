@@ -77,13 +77,26 @@ type DmenuConfig struct {
 
 // LoggingConfig holds logging configuration.
 type LoggingConfig struct {
-	Level      string `mapstructure:"level" yaml:"level"`
-	Format     string `mapstructure:"format" yaml:"format"`
-	Filename   string `mapstructure:"filename" yaml:"filename"`
-	MaxSize    int    `mapstructure:"max_size" yaml:"max_size"`
-	MaxBackups int    `mapstructure:"max_backups" yaml:"max_backups"`
-	MaxAge     int    `mapstructure:"max_age" yaml:"max_age"`
-	Compress   bool   `mapstructure:"compress" yaml:"compress"`
+	Level         string `mapstructure:"level" yaml:"level"`
+	Format        string `mapstructure:"format" yaml:"format"`
+	Filename      string `mapstructure:"filename" yaml:"filename"`
+	MaxSize       int    `mapstructure:"max_size" yaml:"max_size"`
+	MaxBackups    int    `mapstructure:"max_backups" yaml:"max_backups"`
+	MaxAge        int    `mapstructure:"max_age" yaml:"max_age"`
+	Compress      bool   `mapstructure:"compress" yaml:"compress"`
+
+	// File output configuration
+	LogDir        string `mapstructure:"log_dir" yaml:"log_dir"`
+	EnableFileLog bool   `mapstructure:"enable_file_log" yaml:"enable_file_log"`
+
+	// Capture settings
+	CaptureStdout  bool `mapstructure:"capture_stdout" yaml:"capture_stdout"`
+	CaptureStderr  bool `mapstructure:"capture_stderr" yaml:"capture_stderr"`
+	CaptureCOutput bool `mapstructure:"capture_c_output" yaml:"capture_c_output"`
+
+	// Debug output
+	DebugFile     string `mapstructure:"debug_file" yaml:"debug_file"`
+	VerboseWebKit bool   `mapstructure:"verbose_webkit" yaml:"verbose_webkit"`
 }
 
 // AppearanceConfig holds UI/rendering preferences.
@@ -352,6 +365,13 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("logging.max_backups", defaults.Logging.MaxBackups)
 	m.viper.SetDefault("logging.max_age", defaults.Logging.MaxAge)
 	m.viper.SetDefault("logging.compress", defaults.Logging.Compress)
+	m.viper.SetDefault("logging.log_dir", defaults.Logging.LogDir)
+	m.viper.SetDefault("logging.enable_file_log", defaults.Logging.EnableFileLog)
+	m.viper.SetDefault("logging.capture_stdout", defaults.Logging.CaptureStdout)
+	m.viper.SetDefault("logging.capture_stderr", defaults.Logging.CaptureStderr)
+	m.viper.SetDefault("logging.capture_c_output", defaults.Logging.CaptureCOutput)
+	m.viper.SetDefault("logging.debug_file", defaults.Logging.DebugFile)
+	m.viper.SetDefault("logging.verbose_webkit", defaults.Logging.VerboseWebKit)
 
 	// Appearance defaults
 	m.viper.SetDefault("appearance.sans_font", defaults.Appearance.SansFont)

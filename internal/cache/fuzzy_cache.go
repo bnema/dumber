@@ -4,12 +4,13 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/bnema/dumber/internal/logging"
 )
 
 // Cache update constants
@@ -199,7 +200,10 @@ func (cm *CacheManager) buildCacheFromDB(ctx context.Context) (*DmenuFuzzyCache,
 	// Save to filesystem in background
 	go cm.saveToFilesystemAsync()
 
-	log.Printf("Cache built in %v with %d entries\n", time.Since(startTime), len(history))
+	// Log cache timing to file only (not stdout) to avoid interfering with dmenu
+	if logger := logging.GetLogger(); logger != nil {
+		logger.WriteFileOnly(logging.LogLevelInfo(), fmt.Sprintf("built in %v with %d entries", time.Since(startTime), len(history)), "CACHE")
+	}
 	return cm.cache, nil
 }
 
@@ -216,13 +220,13 @@ func (cm *CacheManager) InvalidateAndRefresh(ctx context.Context) {
 
 		// Remove cache file
 		if err := os.Remove(cm.config.CacheFile); err != nil {
-			log.Printf("Warning: failed to remove cache file %s: %v", cm.config.CacheFile, err)
+			logging.Warn(fmt.Sprintf("failed to remove cache file %s: %v", cm.config.CacheFile, err))
 		}
 
 		// Build new cache
 		_, err := cm.buildCacheFromDB(ctx)
 		if err != nil {
-			log.Printf("Warning: failed to refresh cache: %v\n", err)
+			logging.Warn(fmt.Sprintf("failed to refresh cache: %v", err))
 		}
 	}()
 }
@@ -239,7 +243,7 @@ func (cm *CacheManager) OnApplicationExit(ctx context.Context) {
 
 			_, err := cm.buildCacheFromDB(ctx)
 			if err != nil {
-				log.Printf("Warning: failed to refresh cache on exit: %v\n", err)
+				logging.Warn(fmt.Sprintf("failed to refresh cache on exit: %v", err))
 			}
 		}()
 	}
@@ -250,25 +254,25 @@ func (cm *CacheManager) saveToFilesystemAsync() {
 	// Create cache directory if it doesn't exist
 	cacheDir := filepath.Dir(cm.config.CacheFile)
 	if err := os.MkdirAll(cacheDir, dirPerm); err != nil {
-		log.Printf("Warning: failed to create cache directory: %v\n", err)
+		logging.Warn(fmt.Sprintf("failed to create cache directory: %v", err))
 		return
 	}
 
 	// Save to temporary file first, then atomic rename
 	tempFile := cm.config.CacheFile + ".tmp"
 	if err := cm.cache.SaveToBinary(tempFile); err != nil {
-		log.Printf("Warning: failed to save cache: %v\n", err)
+		logging.Warn(fmt.Sprintf("failed to save cache: %v", err))
 		if err := os.Remove(tempFile); err != nil {
-			log.Printf("Warning: failed to remove temp file %s: %v", tempFile, err)
+			logging.Warn(fmt.Sprintf("failed to remove temp file %s: %v", tempFile, err))
 		}
 		return
 	}
 
 	// Atomic rename
 	if err := os.Rename(tempFile, cm.config.CacheFile); err != nil {
-		log.Printf("Warning: failed to rename cache file: %v\n", err)
+		logging.Warn(fmt.Sprintf("failed to rename cache file: %v", err))
 		if err := os.Remove(tempFile); err != nil {
-			log.Printf("Warning: failed to remove temp file %s: %v", tempFile, err)
+			logging.Warn(fmt.Sprintf("failed to remove temp file %s: %v", tempFile, err))
 		}
 	}
 }
@@ -287,7 +291,7 @@ func (cm *CacheManager) calculateDBHash(ctx context.Context) (string, error) {
 		hasher.Write([]byte(entry.Url))
 		if entry.VisitCount.Valid {
 			if _, err := fmt.Fprintf(hasher, "%d", entry.VisitCount.Int64); err != nil {
-				log.Printf("Warning: failed to write visit count to hasher: %v", err)
+				logging.Warn(fmt.Sprintf("failed to write visit count to hasher: %v", err))
 			}
 		}
 		if entry.LastVisited.Valid {
