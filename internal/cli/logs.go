@@ -180,7 +180,7 @@ func listLogFiles(logDir string) error {
 		if file.IsDir() {
 			continue
 		}
-		
+
 		name := file.Name()
 		if strings.HasSuffix(name, ".log") || strings.Contains(name, "dumber.log") {
 			info, err := file.Info()
@@ -204,7 +204,7 @@ func listLogFiles(logDir string) error {
 	// Display files
 	fmt.Printf("%-30s %-20s %-10s\n", "FILENAME", "MODIFIED", "SIZE")
 	fmt.Printf("%-30s %-20s %-10s\n", "--------", "--------", "----")
-	
+
 	for _, file := range logFiles {
 		size := formatSize(file.Size())
 		modTime := file.ModTime().Format("2006-01-02 15:04:05")
@@ -253,9 +253,9 @@ func cleanOldLogs(logDir string, maxAge int, dryRun bool) error {
 
 		if info.ModTime().Before(cutoffTime) {
 			filePath := filepath.Join(logDir, name)
-			
+
 			if dryRun {
-				fmt.Printf("Would delete: %s (%.2f KB, modified %s)\n", 
+				fmt.Printf("Would delete: %s (%.2f KB, modified %s)\n",
 					name, float64(info.Size())/1024, info.ModTime().Format("2006-01-02 15:04:05"))
 			} else {
 				err := os.Remove(filePath)
@@ -265,17 +265,17 @@ func cleanOldLogs(logDir string, maxAge int, dryRun bool) error {
 					fmt.Printf("Deleted: %s (%.2f KB)\n", name, float64(info.Size())/1024)
 				}
 			}
-			
+
 			deletedCount++
 			deletedSize += info.Size()
 		}
 	}
 
 	if dryRun {
-		fmt.Printf("\nDry run complete. Would delete %d files (%.2f KB total)\n", 
+		fmt.Printf("\nDry run complete. Would delete %d files (%.2f KB total)\n",
 			deletedCount, float64(deletedSize)/1024)
 	} else {
-		fmt.Printf("\nCleaned %d files (%.2f KB total)\n", 
+		fmt.Printf("\nCleaned %d files (%.2f KB total)\n",
 			deletedCount, float64(deletedSize)/1024)
 	}
 

@@ -34,6 +34,17 @@ type Config struct {
 
 	// Memory controls memory optimization settings
 	Memory MemoryConfig
+
+	// CodecPreferences for media playback
+	CodecPreferences CodecPreferencesConfig
+}
+
+// CodecPreferencesConfig holds codec preferences for WebKit media playback
+type CodecPreferencesConfig struct {
+	PreferredCodecs []string
+	BlockedCodecs   []string
+	ForceAV1        bool
+	CustomUserAgent string
 }
 
 // RenderingConfig controls hardware acceleration preferences.

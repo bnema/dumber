@@ -127,7 +127,7 @@ func (p *Parser) parseInputUsingCLILogic(input string) (string, error) {
 		if commonTLDs.MatchString(input) {
 			return "https://" + input, nil
 		}
-		
+
 		// If it has a dot but uncommon TLD, still try as URL
 		return "https://" + input, nil
 	}

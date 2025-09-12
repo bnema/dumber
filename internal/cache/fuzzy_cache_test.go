@@ -487,11 +487,11 @@ func TestCacheInvalidation(t *testing.T) {
 
 	// First call returns initial history
 	firstHistory := createTestHistory()[:3] // Only 3 entries
-	secondHistory := createTestHistory() // All 5 entries
-	
+	secondHistory := createTestHistory()    // All 5 entries
+
 	// Set up multiple expectations for the different calls
 	gomock.InOrder(
-		mockQuerier.EXPECT().GetHistory(gomock.Any(), gomock.Any()).Return(firstHistory, nil).Times(2), // Build + hash
+		mockQuerier.EXPECT().GetHistory(gomock.Any(), gomock.Any()).Return(firstHistory, nil).Times(2),    // Build + hash
 		mockQuerier.EXPECT().GetHistory(gomock.Any(), gomock.Any()).Return(secondHistory, nil).AnyTimes(), // Subsequent calls
 	)
 
@@ -542,7 +542,7 @@ func TestCacheInvalidation(t *testing.T) {
 func create40TestEntries() []db.History {
 	now := time.Now()
 	entries := make([]db.History, 40)
-	
+
 	urls := []string{
 		"https://github.com", "https://stackoverflow.com", "https://golang.org", "https://news.ycombinator.com",
 		"https://youtube.com", "https://google.com", "https://reddit.com", "https://twitter.com",
@@ -555,7 +555,7 @@ func create40TestEntries() []db.History {
 		"https://instagram.com", "https://tiktok.com", "https://netflix.com", "https://spotify.com",
 		"https://apple.com", "https://microsoft.com", "https://amazon.com", "https://wikipedia.org",
 	}
-	
+
 	titles := []string{
 		"GitHub", "Stack Overflow", "Go Programming Language", "Hacker News",
 		"YouTube", "Google", "Reddit", "Twitter",
@@ -568,7 +568,7 @@ func create40TestEntries() []db.History {
 		"Instagram", "TikTok", "Netflix", "Spotify",
 		"Apple", "Microsoft", "Amazon", "Wikipedia",
 	}
-	
+
 	for i := 0; i < 40; i++ {
 		entries[i] = db.History{
 			ID:          int64(i + 1),
@@ -578,7 +578,7 @@ func create40TestEntries() []db.History {
 			LastVisited: sql.NullTime{Time: now.Add(-time.Duration(i) * time.Hour), Valid: true},
 		}
 	}
-	
+
 	return entries
 }
 
@@ -586,13 +586,13 @@ func create40TestEntries() []db.History {
 func BenchmarkGetTopEntries(b *testing.B) {
 	ctrl := gomock.NewController(b)
 	defer ctrl.Finish()
-	
+
 	mockQuerier := mock_cache.NewMockHistoryQuerier(ctrl)
-	
+
 	// Setup 40 test entries
 	testHistory := create40TestEntries()
 	mockQuerier.EXPECT().GetHistory(gomock.Any(), gomock.Any()).Return(testHistory, nil).AnyTimes()
-	
+
 	// Create temporary directory for cache file
 	tempDir, err := os.MkdirTemp("", "cache_benchmark")
 	if err != nil {
@@ -603,23 +603,23 @@ func BenchmarkGetTopEntries(b *testing.B) {
 			b.Logf("Warning: failed to remove temp dir %s: %v", tempDir, err)
 		}
 	}()
-	
+
 	config := DefaultCacheConfig()
 	config.CacheFile = filepath.Join(tempDir, "benchmark_cache.bin")
 	config.MaxResults = 50
-	
+
 	manager := NewCacheManager(mockQuerier, config)
 	ctx := context.Background()
-	
+
 	// Pre-build cache once (this isn't part of the benchmark)
 	_, err = manager.GetCache(ctx)
 	if err != nil {
 		b.Fatalf("Failed to pre-build cache: %v", err)
 	}
-	
+
 	b.ResetTimer() // Start timing from here
 	b.ReportAllocs()
-	
+
 	// This is the critical path that needs to be under 2ms
 	for i := 0; i < b.N; i++ {
 		result, err := manager.GetTopEntries(ctx)
@@ -636,13 +636,13 @@ func BenchmarkGetTopEntries(b *testing.B) {
 func BenchmarkGetTopEntriesParallel(b *testing.B) {
 	ctrl := gomock.NewController(b)
 	defer ctrl.Finish()
-	
+
 	mockQuerier := mock_cache.NewMockHistoryQuerier(ctrl)
-	
+
 	// Setup 40 test entries
 	testHistory := create40TestEntries()
 	mockQuerier.EXPECT().GetHistory(gomock.Any(), gomock.Any()).Return(testHistory, nil).AnyTimes()
-	
+
 	// Create temporary directory for cache file
 	tempDir, err := os.MkdirTemp("", "cache_benchmark_parallel")
 	if err != nil {
@@ -653,23 +653,23 @@ func BenchmarkGetTopEntriesParallel(b *testing.B) {
 			b.Logf("Warning: failed to remove temp dir %s: %v", tempDir, err)
 		}
 	}()
-	
+
 	config := DefaultCacheConfig()
 	config.CacheFile = filepath.Join(tempDir, "benchmark_parallel_cache.bin")
 	config.MaxResults = 50
-	
+
 	manager := NewCacheManager(mockQuerier, config)
 	ctx := context.Background()
-	
+
 	// Pre-build cache once (this isn't part of the benchmark)
 	_, err = manager.GetCache(ctx)
 	if err != nil {
 		b.Fatalf("Failed to pre-build cache: %v", err)
 	}
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			result, err := manager.GetTopEntries(ctx)

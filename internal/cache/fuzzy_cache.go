@@ -15,11 +15,11 @@ import (
 
 // Cache update constants
 const (
-	updateWaitIntervalMs = 10              // Milliseconds to wait during concurrent cache build
-	dbHashTimeoutSec     = 5               // Seconds timeout for database hash calculation
-	recentHistoryLimit   = 20              // Number of recent entries to check for changes
-	exactMatchBonus      = 0.95            // Score bonus for exact matches
-	dirPerm              = 0755            // Directory permissions
+	updateWaitIntervalMs = 10   // Milliseconds to wait during concurrent cache build
+	dbHashTimeoutSec     = 5    // Seconds timeout for database hash calculation
+	recentHistoryLimit   = 20   // Number of recent entries to check for changes
+	exactMatchBonus      = 0.95 // Score bonus for exact matches
+	dirPerm              = 0755 // Directory permissions
 )
 
 // CacheManager handles the lifecycle of the fuzzy cache with smart invalidation.

@@ -221,8 +221,8 @@ func (c *DmenuFuzzyCache) writeHeader(data []byte, offset int, totalSize int) in
 	header := BinaryHeader{
 		Magic:        CacheMagic,
 		Version:      CacheVersion,
-		EntryCount:   uint32(len(c.entries)),   //nolint:gosec // G115: bounds checked above
-		IndexOffset:  uint64(indexOffset),      //nolint:gosec // G115: bounds checked above
+		EntryCount:   uint32(len(c.entries)), //nolint:gosec // G115: bounds checked above
+		IndexOffset:  uint64(indexOffset),    //nolint:gosec // G115: bounds checked above
 		LastModified: c.lastModified,
 	}
 

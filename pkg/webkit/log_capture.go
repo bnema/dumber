@@ -21,7 +21,7 @@ var webkitCaptureChan chan struct{}
 func goWebKitLogHandler(domain *C.char, level C.int, message *C.char) {
 	goDomain := C.GoString(domain)
 	goMessage := C.GoString(message)
-	
+
 	var levelStr string
 	switch level {
 	case C.G_LOG_LEVEL_ERROR:
@@ -39,12 +39,12 @@ func goWebKitLogHandler(domain *C.char, level C.int, message *C.char) {
 	default:
 		levelStr = "UNKNOWN"
 	}
-	
+
 	logMessage := goMessage
 	if goDomain != "" {
 		logMessage = "[" + goDomain + "] " + goMessage
 	}
-	
+
 	// Send to logging system with appropriate level
 	if logger := logging.GetLogger(); logger != nil {
 		logger.WriteTagged("WEBKIT-"+levelStr, logMessage)
@@ -56,19 +56,19 @@ func InitWebKitLogCapture() error {
 	if webkitCaptureActive {
 		return nil
 	}
-	
+
 	// Initialize C-level log capture
 	C.webkit_init_log_capture()
-	
+
 	// Set up GLib log handlers
 	C.webkit_setup_glib_log_handlers()
-	
+
 	// Create channel for stopping capture
 	webkitCaptureChan = make(chan struct{})
-	
+
 	// Start goroutine to read captured C output
 	go webkitLogReader()
-	
+
 	webkitCaptureActive = true
 	return nil
 }
@@ -78,20 +78,20 @@ func StopWebKitLogCapture() {
 	if !webkitCaptureActive {
 		return
 	}
-	
+
 	// Signal the reader goroutine to stop
 	close(webkitCaptureChan)
-	
+
 	// Stop C-level capture
 	C.webkit_stop_log_capture()
-	
+
 	webkitCaptureActive = false
 }
 
 // webkitLogReader reads captured C output in a goroutine
 func webkitLogReader() {
 	buffer := make([]byte, 4096)
-	
+
 	for {
 		select {
 		case <-webkitCaptureChan:
@@ -105,7 +105,7 @@ func webkitLogReader() {
 					logger.WriteTagged("WEBKIT-PRINTF", message)
 				}
 			}
-			
+
 			// Small delay to prevent busy waiting
 			time.Sleep(10 * time.Millisecond)
 		}

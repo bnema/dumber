@@ -91,7 +91,6 @@ func GetLogDir() (string, error) {
 	return filepath.Join(stateDir, "logs"), nil
 }
 
-
 // GetConfigFile returns the path to the main configuration file.
 func GetConfigFile() (string, error) {
 	configDir, err := GetConfigDir()

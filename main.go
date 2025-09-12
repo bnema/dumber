@@ -42,11 +42,11 @@ const (
 
 // Parsing and utility constants
 const (
-	colonSplitParts = 2          // Number of parts when splitting on colon
-	dirPerm         = 0o755      // Directory permissions
+	colonSplitParts = 2     // Number of parts when splitting on colon
+	dirPerm         = 0o755 // Directory permissions
 	// JavaScript hash constants (auto-generated, should not be changed)
-	hashGetRecentHistory    = 3708519028 // BrowserService.GetRecentHistory(limit)
-	hashGetSearchShortcuts  = 4078533762 // BrowserService.GetSearchShortcuts()
+	hashGetRecentHistory   = 3708519028 // BrowserService.GetRecentHistory(limit)
+	hashGetSearchShortcuts = 4078533762 // BrowserService.GetSearchShortcuts()
 )
 
 func main() {
@@ -165,20 +165,20 @@ func runBrowser() {
 		// Demote VAAPI-related elements so they won't be auto-picked
 		if os.Getenv("GST_PLUGIN_FEATURE_RANK") == "" {
 			if err := os.Setenv("GST_PLUGIN_FEATURE_RANK", "vaapisink:0,vaapidecodebin:0,vaapih264dec:0,vaapivideoconvert:0"); err != nil {
-			log.Printf("Warning: failed to set GST_PLUGIN_FEATURE_RANK: %v", err)
-		}
+				log.Printf("Warning: failed to set GST_PLUGIN_FEATURE_RANK: %v", err)
+			}
 		}
 		// Provide a safe audio sink to avoid autoaudiosink failures
 		if os.Getenv("GST_AUDIO_SINK") == "" {
 			if err := os.Setenv("GST_AUDIO_SINK", "fakesink"); err != nil {
-			log.Printf("Warning: failed to set GST_AUDIO_SINK: %v", err)
-		}
+				log.Printf("Warning: failed to set GST_AUDIO_SINK: %v", err)
+			}
 		}
 		// Optionally disable media stream features that can engage complex pipelines
 		if os.Getenv("WEBKIT_DISABLE_MEDIA_STREAM") == "" {
 			if err := os.Setenv("WEBKIT_DISABLE_MEDIA_STREAM", "1"); err != nil {
-			log.Printf("Warning: failed to set WEBKIT_DISABLE_MEDIA_STREAM: %v", err)
-		}
+				log.Printf("Warning: failed to set WEBKIT_DISABLE_MEDIA_STREAM: %v", err)
+			}
 		}
 		log.Printf("[media] Safe mode enabled (override with DUMBER_MEDIA_SAFE=0)")
 	}
@@ -191,7 +191,10 @@ func runBrowser() {
 		os.Exit(1)
 	}
 	cfg := config.Get()
-	
+
+	// Apply codec preferences configuration
+	applyCodecConfiguration(cfg.CodecPreferences)
+
 	// Initialize logging system early
 	if err := logging.Init(
 		cfg.Logging.LogDir,
@@ -260,10 +263,10 @@ func runBrowser() {
 	// Track current URL for zoom persistence
 	// Initialize to the initial homepage so shortcuts work immediately
 	var currentURL string = "dumb://homepage"
-	
+
 	// Track last zoom domain to avoid showing toaster on every navigation within same domain
 	var lastZoomDomain string
-	
+
 	// Flag to prevent showing toast when programmatically setting zoom (not user-initiated)
 	var programmaticZoomChange bool
 
@@ -451,6 +454,12 @@ func runBrowser() {
 			LegacyVAAPI:      cfg.VideoAcceleration.LegacyVAAPI,
 		},
 		Memory: readMemoryConfigFromEnv(),
+		CodecPreferences: webkit.CodecPreferencesConfig{
+			PreferredCodecs: strings.Split(cfg.CodecPreferences.PreferredCodecs, ","),
+			BlockedCodecs:   buildBlockedCodecsList(cfg.CodecPreferences),
+			ForceAV1:        cfg.CodecPreferences.ForceAV1,
+			CustomUserAgent: cfg.CodecPreferences.CustomUserAgent,
+		},
 	})
 	if err != nil {
 		log.Printf("Warning: failed to create WebView: %v", err)
@@ -478,13 +487,13 @@ func runBrowser() {
 			}
 			ctx := context.Background()
 			currentDomain := services.ZoomKeyForLog(u)
-			
+
 			if z, err := browserService.GetZoomLevel(ctx, u); err == nil {
 				programmaticZoomChange = true
 				_ = view.SetZoom(z)
 				programmaticZoomChange = false
 				log.Printf("[zoom] loaded %.2f for %s", z, currentDomain)
-				
+
 				// Only show toast when entering a new domain (not on first load)
 				if currentDomain != lastZoomDomain && lastZoomDomain != "" {
 					js := fmt.Sprintf(`try { 
@@ -514,7 +523,7 @@ func runBrowser() {
 			}
 			key := services.ZoomKeyForLog(url)
 			log.Printf("[zoom] saved %.2f for %s", level, key)
-			
+
 			// Only show toast for user-initiated zoom changes, not programmatic ones
 			if !programmaticZoomChange {
 				js := fmt.Sprintf(`try { 
@@ -723,7 +732,7 @@ func runBrowser() {
 				_ = view.InjectScript(`window.__dumber_showToast && window.__dumber_showToast("No URL to copy", 2000)`)
 				return
 			}
-			
+
 			if err := clipboard.CopyToClipboard(currentURL); err != nil {
 				log.Printf("Failed to copy URL to clipboard: %v", err)
 				_ = view.InjectScript(`window.__dumber_showToast && window.__dumber_showToast("Failed to copy URL", 2000)`)
@@ -924,6 +933,136 @@ func detectAndSetKeyboardLocale() {
 	}
 	// No layout-specific remaps; log for diagnostics only
 	log.Printf("[locale] keyboard locale detected: %s", locale)
+}
+
+// applyCodecConfiguration applies codec preferences to environment variables and GStreamer settings
+func applyCodecConfiguration(codecPrefs config.CodecConfig) {
+	log.Printf("[codec] Applying codec preferences: preferred=%s, force_av1=%t, block_vp9=%t",
+		codecPrefs.PreferredCodecs, codecPrefs.ForceAV1, codecPrefs.BlockVP9)
+
+	// Build comprehensive GStreamer plugin rankings
+	var rankSettings []string
+
+	// Get existing GST_PLUGIN_FEATURE_RANK or start fresh
+	existingRank := os.Getenv("GST_PLUGIN_FEATURE_RANK")
+	if existingRank != "" {
+		rankSettings = strings.Split(existingRank, ",")
+	}
+
+	// AV1 decoder promotions (high priority)
+	if codecPrefs.ForceAV1 || strings.Contains(codecPrefs.PreferredCodecs, "av1") {
+		av1Ranks := []string{
+			"vaav1dec:768",  // VA-API AV1 decoder (highest priority)
+			"nvav1dec:512",  // NVDEC AV1 decoder
+			"av1dec:384",    // Software AV1 decoder (fallback)
+			"avdec_av1:256", // libav AV1 decoder
+		}
+		rankSettings = append(rankSettings, av1Ranks...)
+		log.Printf("[codec] Promoted AV1 decoders for maximum priority")
+	}
+
+	// H.264 decoder management
+	if strings.Contains(codecPrefs.PreferredCodecs, "h264") {
+		h264Ranks := []string{
+			"vah264dec:512",  // VA-API H.264 decoder
+			"nvh264dec:384",  // NVDEC H.264 decoder
+			"avdec_h264:256", // Software H.264 decoder
+		}
+		rankSettings = append(rankSettings, h264Ranks...)
+	}
+
+	// VP9 decoder demotion/blocking
+	if codecPrefs.DisableVP9Hardware || codecPrefs.BlockVP9 {
+		vp9Demotions := []string{
+			"vaapivp9dec:0", // Block VA-API VP9
+			"nvvp9dec:0",    // Block NVDEC VP9
+		}
+		if codecPrefs.BlockVP9 {
+			vp9Demotions = append(vp9Demotions, "vp9dec:0", "avdec_vp9:0") // Block all VP9
+		} else {
+			// Allow software VP9 with low priority
+			vp9Demotions = append(vp9Demotions, "vp9dec:64", "avdec_vp9:64")
+		}
+		rankSettings = append(rankSettings, vp9Demotions...)
+		log.Printf("[codec] Demoted/blocked VP9 decoders")
+	}
+
+	// VP8 decoder blocking
+	if codecPrefs.BlockVP8 {
+		vp8Demotions := []string{
+			"vaapivp8dec:0",
+			"vp8dec:0",
+			"avdec_vp8:0",
+		}
+		rankSettings = append(rankSettings, vp8Demotions...)
+		log.Printf("[codec] Blocked VP8 decoders")
+	}
+
+	// Apply the complete ranking system
+	if len(rankSettings) > 0 {
+		finalRank := strings.Join(rankSettings, ",")
+		if err := os.Setenv("GST_PLUGIN_FEATURE_RANK", finalRank); err != nil {
+			log.Printf("[codec] Warning: failed to set GST_PLUGIN_FEATURE_RANK: %v", err)
+		} else {
+			log.Printf("[codec] Set comprehensive GST_PLUGIN_FEATURE_RANK: %s", finalRank)
+		}
+	}
+
+	// Set video buffer sizes if specified
+	if codecPrefs.VideoBufferSizeMB > 0 {
+		bufferSize := strconv.Itoa(codecPrefs.VideoBufferSizeMB * 1024 * 1024)
+
+		if err := os.Setenv("GST_BUFFER_SIZE", bufferSize); err != nil {
+			log.Printf("[codec] Warning: failed to set GST_BUFFER_SIZE: %v", err)
+		}
+
+		if err := os.Setenv("GST_QUEUE2_MAX_SIZE_BYTES", bufferSize); err != nil {
+			log.Printf("[codec] Warning: failed to set GST_QUEUE2_MAX_SIZE_BYTES: %v", err)
+		}
+
+		log.Printf("[codec] Set video buffer size to %dMB", codecPrefs.VideoBufferSizeMB)
+	}
+
+	// Set queue buffer time if specified
+	if codecPrefs.QueueBufferTimeSec > 0 {
+		// Convert seconds to nanoseconds for GStreamer
+		bufferTime := strconv.Itoa(codecPrefs.QueueBufferTimeSec * 1000000000)
+
+		if err := os.Setenv("GST_QUEUE2_MAX_SIZE_TIME", bufferTime); err != nil {
+			log.Printf("[codec] Warning: failed to set GST_QUEUE2_MAX_SIZE_TIME: %v", err)
+		} else {
+			log.Printf("[codec] Set queue buffer time to %ds", codecPrefs.QueueBufferTimeSec)
+		}
+	}
+
+	// Set additional codec-specific environment variables
+	if codecPrefs.ForceAV1 {
+		// Enable AV1 hardware decoding if available
+		if err := os.Setenv("GST_AV1_DECODER_ENABLE_HW", "1"); err != nil {
+			log.Printf("[codec] Warning: failed to set GST_AV1_DECODER_ENABLE_HW: %v", err)
+		}
+	}
+
+	// Disable video post-processing to avoid VA-API issues
+	if err := os.Setenv("GST_VAAPI_DISABLE_VPP", "1"); err != nil {
+		log.Printf("[codec] Warning: failed to set GST_VAAPI_DISABLE_VPP: %v", err)
+	}
+
+	log.Printf("[codec] Codec configuration applied successfully")
+}
+
+// buildBlockedCodecsList converts config codec blocking preferences to a string slice
+func buildBlockedCodecsList(codecPrefs config.CodecConfig) []string {
+	var blocked []string
+
+	if codecPrefs.BlockVP9 {
+		blocked = append(blocked, "vp9")
+	}
+	if codecPrefs.BlockVP8 {
+		blocked = append(blocked, "vp8")
+	}
+
+	return blocked
 }
 
 // getHomepageFaviconSVG returns the SVG used as a favicon for the homepage

@@ -85,7 +85,7 @@ func generateOptions(cli *CLI) error {
 	// Add history entries from cache (already sorted by relevance!)
 	for _, match := range result.Matches {
 		entry := match.Entry
-		
+
 		// Parse URL for domain extraction
 		parsedURL, err := url.Parse(entry.URL)
 		var domain string
@@ -94,7 +94,7 @@ func generateOptions(cli *CLI) error {
 		} else {
 			domain = parsedURL.Host
 		}
-		
+
 		// Determine title
 		title := entry.Title
 		if title == "" || title == entry.URL {
@@ -105,7 +105,7 @@ func generateOptions(cli *CLI) error {
 				title = fmt.Sprintf("[%s]", domain)
 			}
 		}
-		
+
 		// Check if it's a Google search result and format accordingly
 		isGoogleSearch := domain == "www.google.com" && strings.Contains(entry.URL, "/search?q=")
 		if isGoogleSearch {
@@ -115,17 +115,17 @@ func generateOptions(cli *CLI) error {
 				}
 			}
 		}
-		
+
 		// Format: "Title | domain.com | full-url"
 		// Using pipe separator for rofi/dmenu compatibility
-		display := fmt.Sprintf("%s | %s | %s", 
+		display := fmt.Sprintf("%s | %s | %s",
 			truncateString(title, 50),
 			domain,
 			truncateString(entry.URL, 70))
 
 		// Get favicon URL from cached entry
 		faviconURL := match.Entry.FaviconURL
-		
+
 		options = append(options, DmenuOption{
 			Display:     display,
 			Value:       entry.URL,
@@ -263,7 +263,6 @@ func handleSelection(cli *CLI) error {
 		return fmt.Errorf("empty selection")
 	}
 
-
 	// Parse the selection to get the actual URL from history entry
 	input := parseSelection(selection)
 
@@ -273,7 +272,7 @@ func handleSelection(cli *CLI) error {
 
 	// Browse the selected/entered URL
 	err := browse(cli, input)
-	
+
 	// After successful browse, invalidate cache so next dmenu shows updated order
 	if err == nil {
 		ctx := context.Background()
@@ -281,10 +280,9 @@ func handleSelection(cli *CLI) error {
 		cacheManager := cache.NewCacheManager(cli.Queries, cacheConfig)
 		cacheManager.InvalidateAndRefresh(ctx)
 	}
-	
+
 	return err
 }
-
 
 // DmenuOption represents a selectable option in dmenu mode
 type DmenuOption struct {
@@ -352,7 +350,7 @@ func getIconName(option DmenuOption, faviconCache *cache.FaviconCache) string {
 	if option.Type != historyType {
 		return ""
 	}
-	
+
 	// Only use cached favicons - no system theme fallbacks for consistent sizing
 	if option.FaviconURL != "" && faviconCache != nil {
 		cachedPath := faviconCache.GetCachedPath(option.FaviconURL)
@@ -362,7 +360,7 @@ func getIconName(option DmenuOption, faviconCache *cache.FaviconCache) string {
 		// Start async download for next time
 		faviconCache.CacheAsync(option.FaviconURL)
 	}
-	
+
 	// No favicon available - return empty string to show no icon
 	return ""
 }

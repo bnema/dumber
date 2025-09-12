@@ -31,7 +31,7 @@ func CopyToClipboard(text string) error {
 func tryWlCopy(text string) error {
 	cmd := exec.Command("wl-copy")
 	cmd.Stdin = nil
-	
+
 	// Set up stdin pipe to pass the text
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -70,7 +70,7 @@ func tryWlCopy(text string) error {
 // tryXclip attempts to copy text using xclip (X11 clipboard)
 func tryXclip(text string) error {
 	cmd := exec.Command("xclip", "-selection", "clipboard")
-	
+
 	// Set up stdin pipe to pass the text
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -112,11 +112,11 @@ func IsAvailable() bool {
 	if _, err := exec.LookPath("wl-copy"); err == nil {
 		return true
 	}
-	
+
 	// Check if xclip is available
 	if _, err := exec.LookPath("xclip"); err == nil {
 		return true
 	}
-	
+
 	return false
 }

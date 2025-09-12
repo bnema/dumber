@@ -24,13 +24,14 @@ const (
 
 // Config represents the complete configuration for dumber.
 type Config struct {
-	Database        DatabaseConfig            `mapstructure:"database" yaml:"database"`
-	History         HistoryConfig             `mapstructure:"history" yaml:"history"`
-	SearchShortcuts map[string]SearchShortcut `mapstructure:"search_shortcuts" yaml:"search_shortcuts"`
-	Dmenu           DmenuConfig               `mapstructure:"dmenu" yaml:"dmenu"`
-	Logging         LoggingConfig             `mapstructure:"logging" yaml:"logging"`
-	Appearance        AppearanceConfig        `mapstructure:"appearance" yaml:"appearance"`
-	VideoAcceleration VideoAccelerationConfig `mapstructure:"video_acceleration" yaml:"video_acceleration"`
+	Database          DatabaseConfig            `mapstructure:"database" yaml:"database"`
+	History           HistoryConfig             `mapstructure:"history" yaml:"history"`
+	SearchShortcuts   map[string]SearchShortcut `mapstructure:"search_shortcuts" yaml:"search_shortcuts"`
+	Dmenu             DmenuConfig               `mapstructure:"dmenu" yaml:"dmenu"`
+	Logging           LoggingConfig             `mapstructure:"logging" yaml:"logging"`
+	Appearance        AppearanceConfig          `mapstructure:"appearance" yaml:"appearance"`
+	VideoAcceleration VideoAccelerationConfig   `mapstructure:"video_acceleration" yaml:"video_acceleration"`
+	CodecPreferences  CodecConfig               `mapstructure:"codec_preferences" yaml:"codec_preferences"`
 	// RenderingMode controls GPU/CPU rendering selection for WebKit
 	RenderingMode RenderingMode `mapstructure:"rendering_mode" yaml:"rendering_mode"`
 }
@@ -79,13 +80,13 @@ type DmenuConfig struct {
 
 // LoggingConfig holds logging configuration.
 type LoggingConfig struct {
-	Level         string `mapstructure:"level" yaml:"level"`
-	Format        string `mapstructure:"format" yaml:"format"`
-	Filename      string `mapstructure:"filename" yaml:"filename"`
-	MaxSize       int    `mapstructure:"max_size" yaml:"max_size"`
-	MaxBackups    int    `mapstructure:"max_backups" yaml:"max_backups"`
-	MaxAge        int    `mapstructure:"max_age" yaml:"max_age"`
-	Compress      bool   `mapstructure:"compress" yaml:"compress"`
+	Level      string `mapstructure:"level" yaml:"level"`
+	Format     string `mapstructure:"format" yaml:"format"`
+	Filename   string `mapstructure:"filename" yaml:"filename"`
+	MaxSize    int    `mapstructure:"max_size" yaml:"max_size"`
+	MaxBackups int    `mapstructure:"max_backups" yaml:"max_backups"`
+	MaxAge     int    `mapstructure:"max_age" yaml:"max_age"`
+	Compress   bool   `mapstructure:"compress" yaml:"compress"`
 
 	// File output configuration
 	LogDir        string `mapstructure:"log_dir" yaml:"log_dir"`
@@ -118,6 +119,33 @@ type VideoAccelerationConfig struct {
 	VAAPIDriverName  string `mapstructure:"vaapi_driver_name" yaml:"vaapi_driver_name"`
 	EnableAllDrivers bool   `mapstructure:"enable_all_drivers" yaml:"enable_all_drivers"`
 	LegacyVAAPI      bool   `mapstructure:"legacy_vaapi" yaml:"legacy_vaapi"`
+}
+
+// CodecConfig holds video codec preferences and handling
+type CodecConfig struct {
+	// Codec preference order (e.g., "av1,h264,vp8")
+	PreferredCodecs string `mapstructure:"preferred_codecs" yaml:"preferred_codecs"`
+
+	// Force specific codec for platforms
+	ForceAV1 bool `mapstructure:"force_av1" yaml:"force_av1"`
+
+	// Block problematic codecs
+	BlockVP9 bool `mapstructure:"block_vp9" yaml:"block_vp9"`
+	BlockVP8 bool `mapstructure:"block_vp8" yaml:"block_vp8"`
+
+	// Hardware acceleration per codec
+	AV1HardwareOnly    bool `mapstructure:"av1_hardware_only" yaml:"av1_hardware_only"`
+	DisableVP9Hardware bool `mapstructure:"disable_vp9_hardware" yaml:"disable_vp9_hardware"`
+
+	// Buffer configuration for smooth playback
+	VideoBufferSizeMB  int `mapstructure:"video_buffer_size_mb" yaml:"video_buffer_size_mb"`
+	QueueBufferTimeSec int `mapstructure:"queue_buffer_time_sec" yaml:"queue_buffer_time_sec"`
+
+	// Custom User-Agent for codec negotiation
+	CustomUserAgent string `mapstructure:"custom_user_agent" yaml:"custom_user_agent"`
+
+	// Maximum resolution for AV1 codec (720p, 1080p, 1440p, 4k, unlimited)
+	AV1MaxResolution string `mapstructure:"av1_max_resolution" yaml:"av1_max_resolution"`
 }
 
 // Manager handles configuration loading, watching, and reloading.
@@ -194,11 +222,31 @@ func NewManager() (*Manager, error) {
 		"video_acceleration.enable_vaapi":       "DUMBER_VIDEO_ACCELERATION_ENABLE",
 		"video_acceleration.auto_detect_gpu":    "DUMBER_VIDEO_AUTO_DETECT",
 		"video_acceleration.vaapi_driver_name":  "LIBVA_DRIVER_NAME",
-		"video_acceleration.enable_all_drivers": "GST_VAAPI_ALL_DRIVERS", 
+		"video_acceleration.enable_all_drivers": "GST_VAAPI_ALL_DRIVERS",
 		"video_acceleration.legacy_vaapi":       "WEBKIT_GST_ENABLE_LEGACY_VAAPI",
 	}
 
 	for key, env := range videoAccelEnvBindings {
+		if err := v.BindEnv(key, env); err != nil {
+			return nil, fmt.Errorf("failed to bind environment variable %s: %w", env, err)
+		}
+	}
+
+	// Codec preferences environment variable bindings
+	codecEnvBindings := map[string]string{
+		"codec_preferences.preferred_codecs":      "DUMBER_PREFERRED_CODECS",
+		"codec_preferences.force_av1":             "DUMBER_FORCE_AV1",
+		"codec_preferences.block_vp9":             "DUMBER_BLOCK_VP9",
+		"codec_preferences.block_vp8":             "DUMBER_BLOCK_VP8",
+		"codec_preferences.av1_hardware_only":     "DUMBER_AV1_HW_ONLY",
+		"codec_preferences.disable_vp9_hardware":  "DUMBER_DISABLE_VP9_HW",
+		"codec_preferences.video_buffer_size_mb":  "DUMBER_VIDEO_BUFFER_MB",
+		"codec_preferences.queue_buffer_time_sec": "DUMBER_QUEUE_BUFFER_SEC",
+		"codec_preferences.custom_user_agent":     "DUMBER_CUSTOM_UA",
+		"codec_preferences.av1_max_resolution":    "DUMBER_AV1_MAX_RES",
+	}
+
+	for key, env := range codecEnvBindings {
 		if err := v.BindEnv(key, env); err != nil {
 			return nil, fmt.Errorf("failed to bind environment variable %s: %w", env, err)
 		}
@@ -270,6 +318,9 @@ func (m *Manager) Load() error {
 			config.VideoAcceleration.VAAPIDriverName = gpuInfo.GetVAAPIDriverName()
 		}
 	}
+
+	// Validate and configure codec preferences
+	config = m.validateAndConfigureCodecPreferences(config)
 
 	m.config = config
 	return nil
@@ -366,6 +417,9 @@ func (m *Manager) reload() error {
 		}
 	}
 
+	// Validate and configure codec preferences
+	config = m.validateAndConfigureCodecPreferences(config)
+
 	m.config = config
 	return nil
 }
@@ -427,6 +481,18 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("video_acceleration.vaapi_driver_name", defaults.VideoAcceleration.VAAPIDriverName)
 	m.viper.SetDefault("video_acceleration.enable_all_drivers", defaults.VideoAcceleration.EnableAllDrivers)
 	m.viper.SetDefault("video_acceleration.legacy_vaapi", defaults.VideoAcceleration.LegacyVAAPI)
+
+	// Codec preferences defaults
+	m.viper.SetDefault("codec_preferences.preferred_codecs", defaults.CodecPreferences.PreferredCodecs)
+	m.viper.SetDefault("codec_preferences.force_av1", defaults.CodecPreferences.ForceAV1)
+	m.viper.SetDefault("codec_preferences.block_vp9", defaults.CodecPreferences.BlockVP9)
+	m.viper.SetDefault("codec_preferences.block_vp8", defaults.CodecPreferences.BlockVP8)
+	m.viper.SetDefault("codec_preferences.av1_hardware_only", defaults.CodecPreferences.AV1HardwareOnly)
+	m.viper.SetDefault("codec_preferences.disable_vp9_hardware", defaults.CodecPreferences.DisableVP9Hardware)
+	m.viper.SetDefault("codec_preferences.video_buffer_size_mb", defaults.CodecPreferences.VideoBufferSizeMB)
+	m.viper.SetDefault("codec_preferences.queue_buffer_time_sec", defaults.CodecPreferences.QueueBufferTimeSec)
+	m.viper.SetDefault("codec_preferences.custom_user_agent", defaults.CodecPreferences.CustomUserAgent)
+	m.viper.SetDefault("codec_preferences.av1_max_resolution", defaults.CodecPreferences.AV1MaxResolution)
 
 	// Rendering defaults
 	m.viper.SetDefault("rendering_mode", string(RenderingModeAuto))
@@ -507,4 +573,50 @@ func OnConfigChange(callback func(*Config)) {
 		return
 	}
 	globalManager.OnConfigChange(callback)
+}
+
+// validateAndConfigureCodecPreferences validates and auto-configures codec preferences based on GPU capabilities
+func (m *Manager) validateAndConfigureCodecPreferences(config *Config) *Config {
+	// Validate codec preferences
+	if config.CodecPreferences.PreferredCodecs == "" {
+		config.CodecPreferences.PreferredCodecs = "av1,h264,vp8"
+		fmt.Printf("Config: Set default codec preferences: %s\n", config.CodecPreferences.PreferredCodecs)
+	}
+
+	// Auto-configure based on GPU capabilities
+	if config.VideoAcceleration.AutoDetectGPU {
+		gpuInfo := gpu.DetectGPU()
+
+		// Check AV1 hardware support
+		if config.CodecPreferences.AV1HardwareOnly && !gpuInfo.SupportsAV1Hardware() {
+			// Disable AV1 hardware-only if GPU doesn't support it
+			config.CodecPreferences.AV1HardwareOnly = false
+			fmt.Printf("Config: GPU doesn't support AV1 hardware, enabling software fallback\n")
+		}
+
+		// Get detailed AV1 capabilities
+		av1Caps := gpuInfo.GetAV1HardwareCapabilities()
+		if av1Caps["decode"] {
+			fmt.Printf("Config: GPU supports AV1 hardware decode\n")
+
+			// If GPU supports AV1, prefer it over VP9
+			if !config.CodecPreferences.ForceAV1 &&
+				!strings.HasPrefix(config.CodecPreferences.PreferredCodecs, "av1") {
+				config.CodecPreferences.PreferredCodecs = "av1," + config.CodecPreferences.PreferredCodecs
+				fmt.Printf("Config: Auto-enabled AV1 preference due to hardware support\n")
+			}
+		} else {
+			// If no AV1 support, ensure VP9 hardware is disabled to prevent issues
+			if !config.CodecPreferences.DisableVP9Hardware {
+				config.CodecPreferences.DisableVP9Hardware = true
+				fmt.Printf("Config: Auto-disabled VP9 hardware acceleration (no AV1 fallback)\n")
+			}
+		}
+
+		// Log GPU-specific codec capabilities
+		fmt.Printf("Config: %s GPU codec capabilities - AV1: decode=%t, encode=%t, 10bit=%t\n",
+			gpuInfo.Vendor, av1Caps["decode"], av1Caps["encode"], av1Caps["10bit"])
+	}
+
+	return config
 }
