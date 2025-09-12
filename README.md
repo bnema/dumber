@@ -21,6 +21,7 @@ Dumber is a minimalist browser and launcher companion focused on speed and simpl
 
 ## Features
 - Built‑in browser window (no external browser needed)
+- Hardware video acceleration with automatic GPU detection (VA-API/VDPAU)
 - Custom `dumb://` scheme serving embedded frontend assets
 - Keyboard and mouse controls: comprehensive shortcuts and gestures
 - Persistent history with search and stats
@@ -109,6 +110,10 @@ Development:
   - `dumber purge --force`                # purge all data (no confirmation)
   - `dumber purge -d -H -c`               # purge database and both caches
   - `dumber purge --browser-data`         # purge WebKit data (cookies, etc.)
+- Manage logs:
+  - `dumber logs list`                    # list available log files
+  - `dumber logs tail`                    # tail current log file
+  - `dumber logs clean`                   # clean up old log files
 
 ### Dmenu mode invocation
 You can invoke dmenu mode in two ways:
@@ -246,16 +251,23 @@ dumber browse --rendering-mode=gpu https://example.com
 
 Without the native tag, a stub backend is used: you can still run CLI flows and see logs, but no native window is displayed.
 
-## Media (GStreamer) Requirements
+## Media (GStreamer) & Hardware Acceleration
 
-WebKitGTK uses GStreamer for media playback. Install the following packages to ensure audio/video work correctly.
+WebKitGTK uses GStreamer for media playback. Dumber includes automatic hardware video acceleration support that detects your GPU and configures the appropriate drivers.
 
+**Hardware Acceleration Features:**
+- Automatic GPU detection (AMD, NVIDIA, Intel)
+- VA-API and VDPAU driver configuration
+- Support for H.264, HEVC, VP9, and AV1 codecs
+- Significantly reduced CPU usage during video streaming
+
+**Required packages:**
 - Arch Linux:
   - `sudo pacman -S gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-plugin-pipewire pipewire pipewire-pulse`
-  - Optional hardware accel: `gstreamer-vaapi`
+  - Hardware accel: `gstreamer-vaapi libva-mesa-driver` (AMD), `libva-vdpau-driver` (NVIDIA), `intel-media-driver` (Intel)
 - Debian/Ubuntu:
   - `sudo apt install gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-pipewire`
-  - Optional hardware accel: `gstreamer1.0-vaapi`
+  - Hardware accel: `gstreamer1.0-vaapi va-driver-all` (covers most GPUs)
 
 ## Theme and Runtime Updates
 - The homepage and pages respect your system’s light/dark preference.
