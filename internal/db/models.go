@@ -8,6 +8,15 @@ import (
 	"database/sql"
 )
 
+type CertificateValidation struct {
+	ID              int64        `json:"id"`
+	Hostname        string       `json:"hostname"`
+	CertificateHash string       `json:"certificate_hash"`
+	UserDecision    string       `json:"user_decision"`
+	CreatedAt       sql.NullTime `json:"created_at"`
+	ExpiresAt       sql.NullTime `json:"expires_at"`
+}
+
 type History struct {
 	ID          int64          `json:"id"`
 	Url         string         `json:"url"`

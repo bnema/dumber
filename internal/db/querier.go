@@ -13,8 +13,11 @@ type Querier interface {
 	AddOrUpdateHistory(ctx context.Context, url string, title sql.NullString) error
 	// Cleanup zoom level entries older than specified days
 	CleanupOldZoomLevels(ctx context.Context, dollar_1 sql.NullString) error
+	DeleteCertificateValidation(ctx context.Context, hostname string, certificateHash string) error
+	DeleteExpiredCertificateValidations(ctx context.Context) error
 	// Delete zoom level setting for a domain
 	DeleteZoomLevel(ctx context.Context, domain string) error
+	GetCertificateValidation(ctx context.Context, hostname string, certificateHash string) (CertificateValidation, error)
 	GetHistory(ctx context.Context, limit int64) ([]History, error)
 	GetShortcuts(ctx context.Context) ([]Shortcut, error)
 	// Get zoom level for a specific domain
@@ -26,6 +29,7 @@ type Querier interface {
 	SearchHistory(ctx context.Context, column1 sql.NullString, column2 sql.NullString, limit int64) ([]History, error)
 	// Set or update zoom level for a domain with validation
 	SetZoomLevel(ctx context.Context, domain string, zoomFactor float64) error
+	StoreCertificateValidation(ctx context.Context, hostname string, certificateHash string, userDecision string, expiresAt sql.NullTime) error
 	UpdateHistoryFavicon(ctx context.Context, faviconUrl sql.NullString, url string) error
 }
 
