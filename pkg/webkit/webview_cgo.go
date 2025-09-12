@@ -50,6 +50,35 @@ static void on_tls_dialog_response(GtkDialog *dialog, gint response_id, gpointer
 static gboolean show_tls_warning_dialog_sync(GtkWindow *parent, const char* hostname, const char* error_msg);
 static char* extract_certificate_info(GTlsCertificate* certificate);
 
+// Setup video acceleration environment variables
+static void setup_video_acceleration(const char* driver_name, int enable_all, int legacy) {
+    if (legacy) {
+        // Legacy mode: force old VA-API plugins, disable modern ones
+        setenv("WEBKIT_GST_ENABLE_LEGACY_VAAPI", "1", 1);
+        // Don't set other env vars in legacy mode to avoid conflicts
+        return;
+    }
+    
+    // Modern mode (default): use improved VA-API handling
+    if (driver_name && strlen(driver_name) > 0) {
+        if (strcmp(driver_name, "nvidia") == 0) {
+            // NVIDIA uses different env vars for hardware video acceleration
+            setenv("VDPAU_DRIVER", "nvidia", 1);
+            setenv("LIBVA_DRIVER_NAME", "vdpau", 1);
+        } else if (strcmp(driver_name, "vdpau") == 0) {
+            // Explicit VDPAU backend (for NVIDIA via VA-API)
+            setenv("LIBVA_DRIVER_NAME", "vdpau", 1);
+        } else {
+            // AMD/Intel use VA-API directly
+            setenv("LIBVA_DRIVER_NAME", driver_name, 1);
+        }
+    }
+    
+    if (enable_all) {
+        setenv("GST_VAAPI_ALL_DRIVERS", "1", 1);
+    }
+}
+
 // Construct a WebKitWebView via g_object_new with a fresh UserContentManager.
 static GtkWidget* new_webview_with_ucm_and_session(const char* data_dir, const char* cache_dir, const char* cookie_path, WebKitUserContentManager** out_ucm, WebKitMemoryPressureSettings* pressure_settings) {
     WebKitUserContentManager* u = webkit_user_content_manager_new();
@@ -599,6 +628,21 @@ func NewWebView(cfg *Config) (*WebView, error) {
 
 	if cfg == nil {
 		cfg = &Config{}
+	}
+
+	// Setup video acceleration environment variables before creating WebView
+	if cfg.VideoAcceleration.EnableVAAPI {
+		driverName := C.CString(cfg.VideoAcceleration.VAAPIDriverName)
+		enableAll := 0
+		if cfg.VideoAcceleration.EnableAllDrivers {
+			enableAll = 1
+		}
+		legacy := 0
+		if cfg.VideoAcceleration.LegacyVAAPI {
+			legacy = 1
+		}
+		C.setup_video_acceleration(driverName, C.int(enableAll), C.int(legacy))
+		C.free(unsafe.Pointer(driverName))
 	}
 
 	// Prepare persistent website data/caches

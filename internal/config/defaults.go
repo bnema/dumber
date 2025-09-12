@@ -99,6 +99,13 @@ func DefaultConfig() *Config {
 			MonospaceFont:   "Fira Code",
 			DefaultFontSize: defaultFontSize,
 		},
+		VideoAcceleration: VideoAccelerationConfig{
+			EnableVAAPI:      true,
+			AutoDetectGPU:    true,
+			VAAPIDriverName:  "", // Will be auto-detected
+			EnableAllDrivers: true,
+			LegacyVAAPI:      false,
+		},
 		RenderingMode: RenderingModeAuto,
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bnema/dumber/pkg/gpu"
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 )
@@ -28,7 +29,8 @@ type Config struct {
 	SearchShortcuts map[string]SearchShortcut `mapstructure:"search_shortcuts" yaml:"search_shortcuts"`
 	Dmenu           DmenuConfig               `mapstructure:"dmenu" yaml:"dmenu"`
 	Logging         LoggingConfig             `mapstructure:"logging" yaml:"logging"`
-	Appearance      AppearanceConfig          `mapstructure:"appearance" yaml:"appearance"`
+	Appearance        AppearanceConfig        `mapstructure:"appearance" yaml:"appearance"`
+	VideoAcceleration VideoAccelerationConfig `mapstructure:"video_acceleration" yaml:"video_acceleration"`
 	// RenderingMode controls GPU/CPU rendering selection for WebKit
 	RenderingMode RenderingMode `mapstructure:"rendering_mode" yaml:"rendering_mode"`
 }
@@ -109,6 +111,15 @@ type AppearanceConfig struct {
 	DefaultFontSize int `mapstructure:"default_font_size" yaml:"default_font_size"`
 }
 
+// VideoAccelerationConfig holds video hardware acceleration preferences.
+type VideoAccelerationConfig struct {
+	EnableVAAPI      bool   `mapstructure:"enable_vaapi" yaml:"enable_vaapi"`
+	AutoDetectGPU    bool   `mapstructure:"auto_detect_gpu" yaml:"auto_detect_gpu"`
+	VAAPIDriverName  string `mapstructure:"vaapi_driver_name" yaml:"vaapi_driver_name"`
+	EnableAllDrivers bool   `mapstructure:"enable_all_drivers" yaml:"enable_all_drivers"`
+	LegacyVAAPI      bool   `mapstructure:"legacy_vaapi" yaml:"legacy_vaapi"`
+}
+
 // Manager handles configuration loading, watching, and reloading.
 type Manager struct {
 	config    *Config
@@ -178,6 +189,21 @@ func NewManager() (*Manager, error) {
 		return nil, fmt.Errorf("failed to bind DUMBER_RENDERING_MODE: %w", err)
 	}
 
+	// Video acceleration environment variable bindings
+	videoAccelEnvBindings := map[string]string{
+		"video_acceleration.enable_vaapi":       "DUMBER_VIDEO_ACCELERATION_ENABLE",
+		"video_acceleration.auto_detect_gpu":    "DUMBER_VIDEO_AUTO_DETECT",
+		"video_acceleration.vaapi_driver_name":  "LIBVA_DRIVER_NAME",
+		"video_acceleration.enable_all_drivers": "GST_VAAPI_ALL_DRIVERS", 
+		"video_acceleration.legacy_vaapi":       "WEBKIT_GST_ENABLE_LEGACY_VAAPI",
+	}
+
+	for key, env := range videoAccelEnvBindings {
+		if err := v.BindEnv(key, env); err != nil {
+			return nil, fmt.Errorf("failed to bind environment variable %s: %w", env, err)
+		}
+	}
+
 	return &Manager{
 		viper:     v,
 		callbacks: make([]func(*Config), 0),
@@ -235,6 +261,14 @@ func (m *Manager) Load() error {
 		config.RenderingMode = RenderingModeCPU
 	default:
 		config.RenderingMode = RenderingModeAuto
+	}
+
+	// Auto-detect GPU if enabled and driver name is not set
+	if config.VideoAcceleration.AutoDetectGPU && config.VideoAcceleration.VAAPIDriverName == "" {
+		gpuInfo := gpu.DetectGPU()
+		if gpuInfo.SupportsVAAPI() {
+			config.VideoAcceleration.VAAPIDriverName = gpuInfo.GetVAAPIDriverName()
+		}
 	}
 
 	m.config = config
@@ -324,6 +358,14 @@ func (m *Manager) reload() error {
 		config.RenderingMode = RenderingModeAuto
 	}
 
+	// Auto-detect GPU if enabled and driver name is not set
+	if config.VideoAcceleration.AutoDetectGPU && config.VideoAcceleration.VAAPIDriverName == "" {
+		gpuInfo := gpu.DetectGPU()
+		if gpuInfo.SupportsVAAPI() {
+			config.VideoAcceleration.VAAPIDriverName = gpuInfo.GetVAAPIDriverName()
+		}
+	}
+
 	m.config = config
 	return nil
 }
@@ -378,6 +420,13 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("appearance.serif_font", defaults.Appearance.SerifFont)
 	m.viper.SetDefault("appearance.monospace_font", defaults.Appearance.MonospaceFont)
 	m.viper.SetDefault("appearance.default_font_size", defaults.Appearance.DefaultFontSize)
+
+	// Video acceleration defaults
+	m.viper.SetDefault("video_acceleration.enable_vaapi", defaults.VideoAcceleration.EnableVAAPI)
+	m.viper.SetDefault("video_acceleration.auto_detect_gpu", defaults.VideoAcceleration.AutoDetectGPU)
+	m.viper.SetDefault("video_acceleration.vaapi_driver_name", defaults.VideoAcceleration.VAAPIDriverName)
+	m.viper.SetDefault("video_acceleration.enable_all_drivers", defaults.VideoAcceleration.EnableAllDrivers)
+	m.viper.SetDefault("video_acceleration.legacy_vaapi", defaults.VideoAcceleration.LegacyVAAPI)
 
 	// Rendering defaults
 	m.viper.SetDefault("rendering_mode", string(RenderingModeAuto))
