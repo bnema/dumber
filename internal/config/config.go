@@ -33,6 +33,7 @@ type Config struct {
 	Appearance        AppearanceConfig          `mapstructure:"appearance" yaml:"appearance"`
 	VideoAcceleration VideoAccelerationConfig   `mapstructure:"video_acceleration" yaml:"video_acceleration"`
 	CodecPreferences  CodecConfig               `mapstructure:"codec_preferences" yaml:"codec_preferences"`
+	WebkitMemory      WebkitMemoryConfig        `mapstructure:"webkit_memory" yaml:"webkit_memory"`
 	// RenderingMode controls GPU/CPU rendering selection for WebKit
 	RenderingMode RenderingMode `mapstructure:"rendering_mode" yaml:"rendering_mode"`
 }
@@ -152,6 +153,35 @@ type CodecConfig struct {
 	DisableTwitchCodecControl bool `mapstructure:"disable_twitch_codec_control" yaml:"disable_twitch_codec_control"`
 }
 
+// WebkitMemoryConfig holds WebKit memory optimization settings
+type WebkitMemoryConfig struct {
+	// Cache model (document_viewer | web_browser | primary_web_browser)
+	CacheModel string `mapstructure:"cache_model" yaml:"cache_model"`
+
+	// Enable page cache for back/forward navigation
+	EnablePageCache bool `mapstructure:"enable_page_cache" yaml:"enable_page_cache"`
+
+	// Memory limit in MB (0 = system default)
+	MemoryLimitMB int `mapstructure:"memory_limit_mb" yaml:"memory_limit_mb"`
+
+	// Memory pressure thresholds (0.0-1.0)
+	ConservativeThreshold float64 `mapstructure:"conservative_threshold" yaml:"conservative_threshold"`
+	StrictThreshold       float64 `mapstructure:"strict_threshold" yaml:"strict_threshold"`
+	KillThreshold         float64 `mapstructure:"kill_threshold" yaml:"kill_threshold"`
+
+	// Memory monitoring interval in seconds
+	PollIntervalSeconds float64 `mapstructure:"poll_interval_seconds" yaml:"poll_interval_seconds"`
+
+	// Garbage collection interval in seconds (0 = disabled)
+	EnableGCInterval int `mapstructure:"enable_gc_interval" yaml:"enable_gc_interval"`
+
+	// Process recycling threshold (number of page loads)
+	ProcessRecycleThreshold int `mapstructure:"process_recycle_threshold" yaml:"process_recycle_threshold"`
+
+	// Enable memory monitoring logs
+	EnableMemoryMonitoring bool `mapstructure:"enable_memory_monitoring" yaml:"enable_memory_monitoring"`
+}
+
 // Manager handles configuration loading, watching, and reloading.
 type Manager struct {
 	config    *Config
@@ -252,6 +282,26 @@ func NewManager() (*Manager, error) {
 	}
 
 	for key, env := range codecEnvBindings {
+		if err := v.BindEnv(key, env); err != nil {
+			return nil, fmt.Errorf("failed to bind environment variable %s: %w", env, err)
+		}
+	}
+
+	// WebKit memory environment variable bindings
+	memoryEnvBindings := map[string]string{
+		"webkit_memory.cache_model":               "DUMBER_CACHE_MODEL",
+		"webkit_memory.enable_page_cache":         "DUMBER_ENABLE_PAGE_CACHE",
+		"webkit_memory.memory_limit_mb":           "DUMBER_MEMORY_LIMIT_MB",
+		"webkit_memory.conservative_threshold":    "DUMBER_MEMORY_CONSERVATIVE",
+		"webkit_memory.strict_threshold":          "DUMBER_MEMORY_STRICT",
+		"webkit_memory.kill_threshold":            "DUMBER_MEMORY_KILL",
+		"webkit_memory.poll_interval_seconds":     "DUMBER_MEMORY_POLL_INTERVAL",
+		"webkit_memory.enable_gc_interval":        "DUMBER_GC_INTERVAL",
+		"webkit_memory.process_recycle_threshold": "DUMBER_RECYCLE_THRESHOLD",
+		"webkit_memory.enable_memory_monitoring":  "DUMBER_ENABLE_MEMORY_MONITORING",
+	}
+
+	for key, env := range memoryEnvBindings {
 		if err := v.BindEnv(key, env); err != nil {
 			return nil, fmt.Errorf("failed to bind environment variable %s: %w", env, err)
 		}
@@ -499,6 +549,18 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("codec_preferences.custom_user_agent", defaults.CodecPreferences.CustomUserAgent)
 	m.viper.SetDefault("codec_preferences.av1_max_resolution", defaults.CodecPreferences.AV1MaxResolution)
 	m.viper.SetDefault("codec_preferences.disable_twitch_codec_control", defaults.CodecPreferences.DisableTwitchCodecControl)
+
+	// WebKit memory defaults
+	m.viper.SetDefault("webkit_memory.cache_model", defaults.WebkitMemory.CacheModel)
+	m.viper.SetDefault("webkit_memory.enable_page_cache", defaults.WebkitMemory.EnablePageCache)
+	m.viper.SetDefault("webkit_memory.memory_limit_mb", defaults.WebkitMemory.MemoryLimitMB)
+	m.viper.SetDefault("webkit_memory.conservative_threshold", defaults.WebkitMemory.ConservativeThreshold)
+	m.viper.SetDefault("webkit_memory.strict_threshold", defaults.WebkitMemory.StrictThreshold)
+	m.viper.SetDefault("webkit_memory.kill_threshold", defaults.WebkitMemory.KillThreshold)
+	m.viper.SetDefault("webkit_memory.poll_interval_seconds", defaults.WebkitMemory.PollIntervalSeconds)
+	m.viper.SetDefault("webkit_memory.enable_gc_interval", defaults.WebkitMemory.EnableGCInterval)
+	m.viper.SetDefault("webkit_memory.process_recycle_threshold", defaults.WebkitMemory.ProcessRecycleThreshold)
+	m.viper.SetDefault("webkit_memory.enable_memory_monitoring", defaults.WebkitMemory.EnableMemoryMonitoring)
 
 	// Rendering defaults
 	m.viper.SetDefault("rendering_mode", string(RenderingModeAuto))

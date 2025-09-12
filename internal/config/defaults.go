@@ -119,6 +119,18 @@ func DefaultConfig() *Config {
 			AV1MaxResolution:          "1080p",                                                                                                 // Optimal AV1 up to 1080p, fallback to VP9 for higher res
 			DisableTwitchCodecControl: true,                                                                                                    // Disable codec control on Twitch by default (prevents theater/fullscreen freezing)
 		},
+		WebkitMemory: WebkitMemoryConfig{
+			CacheModel:              "web_browser", // Aggressive caching for fast page loads
+			EnablePageCache:         true,          // Instant back/forward navigation
+			MemoryLimitMB:           0,             // Use system default
+			ConservativeThreshold:   0.4,           // Start cleanup at 40%
+			StrictThreshold:         0.6,           // Strict cleanup at 60%
+			KillThreshold:           0.8,           // Kill processes at 80%
+			PollIntervalSeconds:     45.0,          // Check every 45 seconds
+			EnableGCInterval:        120,           // GC every 2 minutes
+			ProcessRecycleThreshold: 50,            // Recycle after 50 page loads
+			EnableMemoryMonitoring:  true,          // Monitor for production tuning
+		},
 		RenderingMode: RenderingModeAuto,
 	}
 }
