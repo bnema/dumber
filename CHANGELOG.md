@@ -19,6 +19,10 @@ All notable changes to this project will be documented in this file.
   - **Ctrl+Shift+R** / **Cmd+Shift+R**: Hard reload (bypass cache)
   - **F5**: Alternative reload key
   - WebKit integration with proper `webkit_web_view_reload()` and `webkit_web_view_reload_bypass_cache()` calls
+- **Twitch theater mode and fullscreen stability fix**:
+  - **Complete removal of codec interference on Twitch**: Eliminates aggressive codec control that caused theater mode and fullscreen freezing
+  - **Native Twitch codec selection**: Allows Twitch to handle codec negotiation without browser intervention
+  - Fixes theater mode freeze and fullscreen black screen issues on Twitch
 
 ### Fixed
 - Zoom level toast no longer shows on every page navigation within the same domain:

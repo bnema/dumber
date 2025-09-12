@@ -44,10 +44,7 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
 	blockedPattern := strings.Join(blockedCodecs, "|")
 	hasBlockedCodecs := len(blockedCodecs) > 0
 	hasPreferredCodecs := len(preferredCodecs) > 0
-	firstPreferredCodec := ""
-	if len(preferredCodecs) > 0 {
-		firstPreferredCodec = preferredCodecs[0]
-	}
+
 
 	// Convert preferredCodecs slice to proper JavaScript array syntax
 	preferredCodecsJS := "[" + strings.Join(func() []string {
@@ -120,6 +117,13 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
         fullscreenTransitionInProgress = true;
         
         console.log('[dumber-codec] WebKit fullscreen transition detected');
+        
+        // Skip fullscreen recovery on Twitch to prevent theater/fullscreen freezing
+        if (location.hostname.includes('twitch.tv')) {
+            console.log('[dumber-codec] Skipping fullscreen recovery on Twitch for stability');
+            fullscreenTransitionInProgress = false;
+            return;
+        }
         
         const videos = document.querySelectorAll('video');
         const isEntering = !!(document.fullscreenElement || document.webkitFullscreenElement);
@@ -468,114 +472,10 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
         };
     }
     
-    // Twitch-specific codec control
+    // Twitch: No codec interference - let Twitch handle codec selection natively
     if (location.hostname.includes('twitch.tv')) {
-        console.log('[dumber-codec] Applying Twitch codec preferences');
-        
-        // Intercept Twitch Enhanced Broadcasting API calls
-        const originalFetch = window.fetch;
-        window.fetch = function(input, init) {
-            const url = typeof input === 'string' ? input : input.url;
-            
-            // Intercept Enhanced Broadcasting API calls
-            if (url && url.includes('/api/channel/hls') || url.includes('/enhanced_broadcasting')) {
-                console.log('[dumber-codec] Twitch: Intercepting Enhanced Broadcasting API call');
-                
-                // Modify request to prefer AV1 if available
-                if (init && init.body) {
-                    try {
-                        const body = JSON.parse(init.body);
-                        if (body.supported_codecs) {`)
-
-	if prefs.ForceAV1 || hasPreferredCodecs {
-		js.WriteString(`
-                            // Reorder supported codecs to prioritize AV1
-                            const preferredOrder = ['av01', 'avc1', 'vp9', 'vp8'];
-                            body.supported_codecs.sort((a, b) => {
-                                const aIdx = preferredOrder.indexOf(a.toLowerCase()) !== -1 ? 
-                                           preferredOrder.indexOf(a.toLowerCase()) : 999;
-                                const bIdx = preferredOrder.indexOf(b.toLowerCase()) !== -1 ? 
-                                           preferredOrder.indexOf(b.toLowerCase()) : 999;
-                                return aIdx - bIdx;
-                            });
-                            console.log('[dumber-codec] Twitch: Reordered supported codecs:', body.supported_codecs);`)
-	}
-
-	js.WriteString(`
-                        }
-                        init.body = JSON.stringify(body);
-                    } catch (e) {
-                        // Non-JSON body, ignore
-                    }
-                }
-            }
-            
-            // Intercept HLS manifest requests for codec modification
-            if (url && (url.includes('.m3u8') || url.includes('/playlist/'))) {
-                return originalFetch.call(this, input, init).then(response => {
-                    if (response.ok && response.headers.get('content-type')?.includes('application/vnd.apple.mpegurl')) {
-                        return response.text().then(text => {`)
-
-	if hasBlockedCodecs {
-		js.WriteString(`
-                            // Remove blocked codecs from HLS manifest
-                            const blockedCodecs = ` + preferredCodecsJS + `.join('|');
-                            const blockedRegex = new RegExp('CODECS="[^"]*(' + blockedCodecs + ')[^"]*"', 'gi');
-                            text = text.replace(blockedRegex, '');`)
-	}
-
-	js.WriteString(`
-                            
-                            console.log('[dumber-codec] Twitch: Modified HLS manifest');
-                            return new Response(text, {
-                                status: response.status,
-                                statusText: response.statusText,
-                                headers: response.headers
-                            });
-                        });
-                    }
-                    return response;
-                });
-            }
-            
-            return originalFetch.call(this, input, init);
-        };
-        
-        // Override Twitch player codec selection
-        const originalDefineProperty = Object.defineProperty;
-        Object.defineProperty = function(obj, prop, descriptor) {
-            // Intercept video codec settings
-            if (prop === 'videoCodec' && descriptor.value) {`)
-
-	if prefs.ForceAV1 && hasPreferredCodecs {
-		js.WriteString(`
-                if (true) {
-                    descriptor.value = 'av01';
-                    console.log('[dumber-codec] Twitch: Forced AV1 codec');
-                }`)
-	} else if hasPreferredCodecs && firstPreferredCodec != "" {
-		twitchCodec := firstPreferredCodec
-		switch strings.ToLower(firstPreferredCodec) {
-		case "av1", "av01":
-			twitchCodec = "av01"
-		case "h264", "avc1":
-			twitchCodec = "avc1"
-		default:
-			twitchCodec = firstPreferredCodec
-		}
-		js.WriteString(`
-                else if (true && "` + firstPreferredCodec + `" !== "") {
-                    const twitchCodec = "` + twitchCodec + `";
-                    descriptor.value = twitchCodec;
-                    console.log('[dumber-codec] Twitch: Set preferred codec:', twitchCodec);
-                }`)
-	}
-
-	js.WriteString(`
-            }
-            
-            return originalDefineProperty.call(this, obj, prop, descriptor);
-        };
+        console.log('[dumber-codec] Detected Twitch domain - no codec interference for stability');
+        // Twitch codec control completely removed to prevent theater/fullscreen freezing
     }
     
     // Passive video monitoring without interfering with element creation
@@ -605,12 +505,3 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
 	return js.String()
 }
 
-// convertConfigCodecsToWebKitCodecs converts config codec preferences to WebKit format
-func convertConfigCodecsToWebKitCodecs(codecPrefs interface{}) CodecPreferencesConfig {
-	// This function will be called from the main browser service to convert
-	// the config.CodecConfig to webkit.CodecPreferencesConfig
-
-	// We'll need to import the config package for this conversion
-	// For now, return empty config and implement the conversion later
-	return CodecPreferencesConfig{}
-}

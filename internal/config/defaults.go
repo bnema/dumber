@@ -107,16 +107,17 @@ func DefaultConfig() *Config {
 			LegacyVAAPI:      false,
 		},
 		CodecPreferences: CodecConfig{
-			PreferredCodecs:    "av1,h264",                                                                                              // AV1 first, but allow VP9 fallback for higher resolutions
-			ForceAV1:           false,                                                                                                   // Use smart AV1 negotiation instead of forcing
-			BlockVP9:           false,                                                                                                   // Allow VP9 for higher resolutions
-			BlockVP8:           true,                                                                                                    // Still block VP8 as it's outdated
-			AV1HardwareOnly:    false,                                                                                                   // Allow software AV1 fallback
-			DisableVP9Hardware: false,                                                                                                   // Allow VP9 hardware for high res content
-			VideoBufferSizeMB:  16,                                                                                                      // Larger buffer for AV1 streams
-			QueueBufferTimeSec: 10,                                                                                                      // More buffering time for smooth playback
-			CustomUserAgent:    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", // Chrome UA with AV1 support
-			AV1MaxResolution:   "1080p",                                                                                                 // Optimal AV1 up to 1080p, fallback to VP9 for higher res
+			PreferredCodecs:           "av1,h264",                                                                                              // AV1 first, but allow VP9 fallback for higher resolutions
+			ForceAV1:                  false,                                                                                                   // Use smart AV1 negotiation instead of forcing
+			BlockVP9:                  false,                                                                                                   // Allow VP9 for higher resolutions
+			BlockVP8:                  true,                                                                                                    // Still block VP8 as it's outdated
+			AV1HardwareOnly:           false,                                                                                                   // Allow software AV1 fallback
+			DisableVP9Hardware:        false,                                                                                                   // Allow VP9 hardware for high res content
+			VideoBufferSizeMB:         16,                                                                                                      // Larger buffer for AV1 streams
+			QueueBufferTimeSec:        10,                                                                                                      // More buffering time for smooth playback
+			CustomUserAgent:           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", // Chrome UA with AV1 support
+			AV1MaxResolution:          "1080p",                                                                                                 // Optimal AV1 up to 1080p, fallback to VP9 for higher res
+			DisableTwitchCodecControl: true,                                                                                                    // Disable codec control on Twitch by default (prevents theater/fullscreen freezing)
 		},
 		RenderingMode: RenderingModeAuto,
 	}
