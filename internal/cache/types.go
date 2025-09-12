@@ -32,6 +32,7 @@ type DmenuFuzzyCache struct {
 type CompactEntry struct {
 	URL        string // Original URL
 	Title      string // Page title
+	FaviconURL string // URL to favicon for this entry
 	VisitCount uint16 // Max 65535 visits (sufficient for most use cases)
 	LastVisit  uint32 // Days since Unix epoch (saves 4 bytes vs time.Time)
 	Score      uint16 // Pre-computed base score (0-65535)
@@ -153,10 +154,11 @@ func TimeFromDays(days uint32) time.Time {
 }
 
 // NewCompactEntry creates a CompactEntry from database values.
-func NewCompactEntry(url, title string, visitCount int64, lastVisit time.Time) CompactEntry {
+func NewCompactEntry(url, title, faviconURL string, visitCount int64, lastVisit time.Time) CompactEntry {
 	entry := CompactEntry{
-		URL:   url,
-		Title: title,
+		URL:        url,
+		Title:      title,
+		FaviconURL: faviconURL,
 	}
 
 	// Clamp visit count to uint16 max

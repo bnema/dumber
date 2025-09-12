@@ -171,9 +171,15 @@ func (cm *CacheManager) buildCacheFromDB(ctx context.Context) (*DmenuFuzzyCache,
 			lastVisited = entry.LastVisited.Time
 		}
 
+		faviconURL := ""
+		if entry.FaviconUrl.Valid {
+			faviconURL = entry.FaviconUrl.String
+		}
+
 		newCache.entries[i] = NewCompactEntry(
 			entry.Url,
 			title,
+			faviconURL,
 			visitCount,
 			lastVisited,
 		)
@@ -193,7 +199,7 @@ func (cm *CacheManager) buildCacheFromDB(ctx context.Context) (*DmenuFuzzyCache,
 	// Save to filesystem in background
 	go cm.saveToFilesystemAsync()
 
-	fmt.Printf("Cache built in %v with %d entries\n", time.Since(startTime), len(history))
+	log.Printf("Cache built in %v with %d entries\n", time.Since(startTime), len(history))
 	return cm.cache, nil
 }
 
@@ -216,7 +222,7 @@ func (cm *CacheManager) InvalidateAndRefresh(ctx context.Context) {
 		// Build new cache
 		_, err := cm.buildCacheFromDB(ctx)
 		if err != nil {
-			fmt.Printf("Warning: failed to refresh cache: %v\n", err)
+			log.Printf("Warning: failed to refresh cache: %v\n", err)
 		}
 	}()
 }
@@ -233,7 +239,7 @@ func (cm *CacheManager) OnApplicationExit(ctx context.Context) {
 
 			_, err := cm.buildCacheFromDB(ctx)
 			if err != nil {
-				fmt.Printf("Warning: failed to refresh cache on exit: %v\n", err)
+				log.Printf("Warning: failed to refresh cache on exit: %v\n", err)
 			}
 		}()
 	}
@@ -244,14 +250,14 @@ func (cm *CacheManager) saveToFilesystemAsync() {
 	// Create cache directory if it doesn't exist
 	cacheDir := filepath.Dir(cm.config.CacheFile)
 	if err := os.MkdirAll(cacheDir, dirPerm); err != nil {
-		fmt.Printf("Warning: failed to create cache directory: %v\n", err)
+		log.Printf("Warning: failed to create cache directory: %v\n", err)
 		return
 	}
 
 	// Save to temporary file first, then atomic rename
 	tempFile := cm.config.CacheFile + ".tmp"
 	if err := cm.cache.SaveToBinary(tempFile); err != nil {
-		fmt.Printf("Warning: failed to save cache: %v\n", err)
+		log.Printf("Warning: failed to save cache: %v\n", err)
 		if err := os.Remove(tempFile); err != nil {
 			log.Printf("Warning: failed to remove temp file %s: %v", tempFile, err)
 		}
@@ -260,7 +266,7 @@ func (cm *CacheManager) saveToFilesystemAsync() {
 
 	// Atomic rename
 	if err := os.Rename(tempFile, cm.config.CacheFile); err != nil {
-		fmt.Printf("Warning: failed to rename cache file: %v\n", err)
+		log.Printf("Warning: failed to rename cache file: %v\n", err)
 		if err := os.Remove(tempFile); err != nil {
 			log.Printf("Warning: failed to remove temp file %s: %v", tempFile, err)
 		}

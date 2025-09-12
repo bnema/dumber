@@ -1,5 +1,5 @@
 -- name: GetHistory :many
-SELECT id, url, title, visit_count, last_visited, created_at
+SELECT *
 FROM history
 ORDER BY last_visited DESC
 LIMIT ?;
@@ -14,11 +14,16 @@ DO UPDATE SET
     title = EXCLUDED.title;
 
 -- name: SearchHistory :many
-SELECT id, url, title, visit_count, last_visited, created_at
+SELECT *
 FROM history 
 WHERE url LIKE '%' || ? || '%' OR title LIKE '%' || ? || '%'
 ORDER BY visit_count DESC, last_visited DESC
 LIMIT ?;
+
+-- name: UpdateHistoryFavicon :exec
+UPDATE history 
+SET favicon_url = ?
+WHERE url = ?;
 
 -- name: GetShortcuts :many
 SELECT id, shortcut, url_template, description, created_at

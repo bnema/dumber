@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	neturl "net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -10,57 +11,137 @@ import (
 )
 
 // ParseInput parses user input and returns a ParseResult with URL and metadata.
-//
-// Learning Behavior: When users search with shortcuts like "g: viper cli" and visit
-// results, those URLs are recorded in history. Future searches for "viper cli" will
-// find the GitHub page in history via fuzzy matching, creating intelligent learning.
+// Now uses the proven CLI parsing logic for consistent behavior.
 func (p *Parser) ParseInput(input string) (*ParseResult, error) {
 	startTime := time.Now()
 
-	// Sanitize input
-	validator := NewURLValidator()
-	cleanInput := validator.SanitizeInput(input)
-
-	if cleanInput == "" {
+	if input == "" {
 		return &ParseResult{
 			Type:           InputTypeFallbackSearch,
-			URL:            p.buildSearchURL("", cleanInput),
+			URL:            "https://www.google.com/search?q=",
 			Query:          input,
 			Confidence:     0.0,
 			ProcessingTime: time.Since(startTime),
 		}, nil
 	}
 
-	// Determine input type
-	inputType := validator.GetURLType(cleanInput)
-
-	switch inputType {
-	case InputTypeDirectURL:
-		return p.parseDirectURL(cleanInput, input, startTime)
-
-	case InputTypeSearchShortcut:
-		return p.parseSearchShortcut(cleanInput, input, startTime)
-
-	case InputTypeHistorySearch:
-		return p.parseHistorySearch(cleanInput, input, startTime)
-
-	default:
-		return p.parseFallbackSearch(cleanInput, input, startTime)
+	// Use the working CLI parsing logic
+	finalURL, err := p.parseInputUsingCLILogic(input)
+	if err != nil {
+		// If parsing fails, fall back to search
+		finalURL = fmt.Sprintf("https://www.google.com/search?q=%s", neturl.QueryEscape(input))
 	}
+
+	// Determine result type based on the URL
+	var resultType InputType = InputTypeFallbackSearch
+	confidence := 0.1
+
+	if strings.Contains(finalURL, "google.com/search") {
+		resultType = InputTypeFallbackSearch
+		confidence = 0.1
+	} else if strings.HasPrefix(finalURL, "http://") || strings.HasPrefix(finalURL, "https://") {
+		resultType = InputTypeDirectURL
+		confidence = 1.0
+	}
+
+	// Check if it was a shortcut
+	if idx := strings.Index(input, ":"); idx > 0 && idx < 10 && !strings.Contains(input, "://") {
+		shortcut := strings.TrimSpace(input[:idx])
+		if _, exists := p.config.SearchShortcuts[shortcut]; exists {
+			resultType = InputTypeSearchShortcut
+			confidence = 0.95
+		}
+	}
+
+	return &ParseResult{
+		Type:           resultType,
+		URL:            finalURL,
+		Query:          input,
+		Confidence:     confidence,
+		ProcessingTime: time.Since(startTime),
+	}, nil
 }
 
-// parseDirectURL handles direct URL inputs.
+// parseDirectURL handles direct URL inputs using CLI logic.
 func (p *Parser) parseDirectURL(cleanInput, originalInput string, startTime time.Time) (*ParseResult, error) {
-	validator := NewURLValidator()
-	normalizedURL := validator.NormalizeURL(cleanInput)
+	// Use the working CLI parsing logic instead
+	finalURL, err := p.parseInputUsingCLILogic(cleanInput)
+	if err != nil {
+		return nil, err
+	}
 
 	return &ParseResult{
 		Type:           InputTypeDirectURL,
-		URL:            normalizedURL,
+		URL:            finalURL,
 		Query:          originalInput,
-		Confidence:     1.0, // High confidence for direct URLs
+		Confidence:     1.0,
 		ProcessingTime: time.Since(startTime),
 	}, nil
+}
+
+// parseInputUsingCLILogic implements the working CLI parsing logic
+func (p *Parser) parseInputUsingCLILogic(input string) (string, error) {
+	input = strings.TrimSpace(input)
+
+	// 1. Check if it's a shortcut (format: "prefix:query")
+	if idx := strings.Index(input, ":"); idx > 0 && idx < 10 && !strings.Contains(input, "://") {
+		shortcut := strings.TrimSpace(input[:idx])
+		query := strings.TrimSpace(input[idx+1:])
+
+		if query != "" {
+			// First check configuration-based shortcuts
+			if shortcutCfg, exists := p.config.SearchShortcuts[shortcut]; exists {
+				return fmt.Sprintf(shortcutCfg.URL, neturl.QueryEscape(query)), nil
+			}
+
+			return "", fmt.Errorf("unknown shortcut '%s'", shortcut)
+		}
+	}
+
+	// 2. Already a full URL with protocol
+	if regexp.MustCompile(`^https?://`).MatchString(input) {
+		return input, nil
+	}
+
+	// 3. File protocol
+	if strings.HasPrefix(input, "file://") {
+		return input, nil
+	}
+
+	// 4. Localhost/development URLs
+	if regexp.MustCompile(`^(localhost|127\.0\.0\.1|0\.0\.0\.0|::1)(:\d+)?(/.*)?$`).MatchString(input) {
+		return "http://" + input, nil
+	}
+
+	// 5. Local network IPs
+	if regexp.MustCompile(`^(192\.168|10\.|172\.(1[6-9]|2[0-9]|3[01]))\.\d+\.\d+(:\d+)?(/.*)?$`).MatchString(input) {
+		return "http://" + input, nil
+	}
+
+	// 6. Domain with TLD (must have dot and valid TLD)
+	// More comprehensive TLD pattern for better URL detection
+	domainPattern := regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(/.*)?$`)
+	if domainPattern.MatchString(input) {
+		// Additional check for common TLDs to reduce false positives
+		commonTLDs := regexp.MustCompile(`\.(com|org|net|edu|gov|io|co|uk|de|fr|jp|cn|in|br|au|ca|ru|nl|it|es|se|no|fi|dk|pl|ch|at|be|cz|gr|il|mx|nz|sg|kr|tw|hk|my|th|vn|id|ph|za|eg|ng|ke|dev|app|xyz|tech|site|online|store|blog|info|biz|name|pro)(/.*)?$`)
+		if commonTLDs.MatchString(input) {
+			return "https://" + input, nil
+		}
+		
+		// If it has a dot but uncommon TLD, still try as URL
+		return "https://" + input, nil
+	}
+
+	// 7. Possible local hostname (single word, might be on local network)
+	singleHostPattern := regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?$`)
+	if singleHostPattern.MatchString(input) && len(input) <= 63 {
+		// Could be local hostname, try as URL but don't validate
+		return "http://" + input, nil
+	}
+
+	// 8. Everything else is a search query
+	// This includes: multi-word phrases, questions, special characters, etc.
+	return fmt.Sprintf("https://www.google.com/search?q=%s", neturl.QueryEscape(input)), nil
 }
 
 // parseSearchShortcut handles search shortcut inputs.

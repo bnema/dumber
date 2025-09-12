@@ -8,8 +8,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/bnema/dumber/internal/cache"
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/db"
+	"github.com/bnema/dumber/internal/migrations"
+	"github.com/bnema/dumber/services"
 
 	_ "github.com/ncruces/go-sqlite3/driver" // SQLite driver for database/sql
 	_ "github.com/ncruces/go-sqlite3/embed"  // Embed SQLite for cross-platform compatibility
@@ -23,9 +26,10 @@ const (
 
 // CLI holds the database connection, queries, and configuration for the CLI commands
 type CLI struct {
-	DB      *sql.DB
-	Queries *db.Queries
-	Config  *config.Config
+	DB            *sql.DB
+	Queries       *db.Queries
+	Config        *config.Config
+	ParserService *services.ParserService
 }
 
 // NewCLI creates a new CLI instance with database connection and configuration
@@ -71,10 +75,21 @@ func NewCLI() (*CLI, error) {
 		return nil, fmt.Errorf("failed to initialize database: %w", err)
 	}
 
+	queries := db.New(database)
+	parserService := services.NewParserService(cfg, queries)
+
+	// Clean old cached favicons on startup (async, non-blocking)
+	go func() {
+		if faviconCache, err := cache.NewFaviconCache(); err == nil {
+			faviconCache.CleanOld()
+		}
+	}()
+
 	return &CLI{
-		DB:      database,
-		Queries: db.New(database),
-		Config:  cfg,
+		DB:            database,
+		Queries:       queries,
+		Config:        cfg,
+		ParserService: parserService,
 	}, nil
 }
 
@@ -177,38 +192,14 @@ func NewRootCmd(version, commit, buildDate string) *cobra.Command {
 }
 
 
-// initializeDatabase creates the database schema if it doesn't exist
+// initializeDatabase runs embedded migrations and ensures database is up to date
 func initializeDatabase(db *sql.DB, cfg *config.Config) error {
-	schema := `
-	-- History tracking for visited URLs
-	CREATE TABLE IF NOT EXISTS history (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		url TEXT NOT NULL UNIQUE,
-		title TEXT,
-		visit_count INTEGER DEFAULT 1,
-		last_visited DATETIME DEFAULT CURRENT_TIMESTAMP,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);
-
-	CREATE INDEX IF NOT EXISTS idx_history_url ON history(url);
-	CREATE INDEX IF NOT EXISTS idx_history_last_visited ON history(last_visited);
-
-	-- URL shortcuts configuration
-	CREATE TABLE IF NOT EXISTS shortcuts (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		shortcut TEXT NOT NULL UNIQUE,
-		url_template TEXT NOT NULL,
-		description TEXT,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);
-	`
-
-	// Execute schema creation
-	if _, err := db.Exec(schema); err != nil {
-		return err
+	// Run embedded migrations - this will create all tables and apply any new migrations
+	if err := migrations.RunEmbeddedMigrations(db); err != nil {
+		return fmt.Errorf("failed to run database migrations: %w", err)
 	}
 
-	// Insert configured shortcuts
+	// Insert configured shortcuts (these are additive, won't override existing)
 	for shortcut, shortcutCfg := range cfg.SearchShortcuts {
 		_, err := db.Exec(
 			"INSERT OR IGNORE INTO shortcuts (shortcut, url_template, description) VALUES (?, ?, ?)",

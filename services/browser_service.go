@@ -11,6 +11,7 @@ import (
 	neturl "net/url"
 	"time"
 
+	"github.com/bnema/dumber/internal/cache"
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/db"
 	"github.com/bnema/dumber/pkg/webkit"
@@ -139,6 +140,9 @@ func (s *BrowserService) Navigate(ctx context.Context, url string) (*NavigationR
 		// Don't fail navigation if history recording fails
 		fmt.Printf("Failed to record history: %v\n", err)
 	}
+
+	// Update favicon asynchronously after navigation
+	go s.updateFavicon(ctx, url)
 
 	return &NavigationResult{
 		URL:      url,
@@ -486,3 +490,34 @@ func zoomKeyFromURL(raw string) string {
 
 // ZoomKeyForLog exposes the derived zoom key (host or raw URL) for logging from other packages.
 func ZoomKeyForLog(raw string) string { return zoomKeyFromURL(raw) }
+
+// updateFavicon fetches and stores favicon URL for a given page URL
+func (s *BrowserService) updateFavicon(ctx context.Context, pageURL string) {
+	parsedURL, err := neturl.Parse(pageURL)
+	if err != nil {
+		return // Silently fail for invalid URLs
+	}
+
+	// Skip favicon update for localhost, file://, or special schemes
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return
+	}
+	if parsedURL.Host == "localhost" || parsedURL.Host == "127.0.0.1" {
+		return
+	}
+
+	// Standard favicon location
+	faviconURL := fmt.Sprintf("%s://%s/favicon.ico", parsedURL.Scheme, parsedURL.Host)
+
+	// Update in database
+	faviconNullString := sql.NullString{String: faviconURL, Valid: true}
+	if err := s.dbQueries.UpdateHistoryFavicon(ctx, faviconNullString, pageURL); err != nil {
+		// Silently fail - favicon is not critical
+		return
+	}
+
+	// Also cache the favicon for dmenu use
+	if faviconCache, err := cache.NewFaviconCache(); err == nil {
+		faviconCache.CacheAsync(faviconURL)
+	}
+}

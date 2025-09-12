@@ -7,9 +7,9 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"regexp"
 	"strings"
 
+	"github.com/bnema/dumber/internal/cache"
 	"github.com/bnema/dumber/internal/config"
 
 	"github.com/spf13/cobra"
@@ -67,11 +67,13 @@ Direct URLs are also supported:
 func browse(cli *CLI, input string) error {
 	ctx := context.Background()
 
-	// Parse the input to determine URL or shortcut
-	finalURL, err := parseInput(ctx, cli, input)
+	// Parse the input using parser service
+	result, err := cli.ParserService.ParseInput(ctx, input)
 	if err != nil {
 		return fmt.Errorf("failed to parse input: %w", err)
 	}
+
+	finalURL := result.URL
 
 	// Record in history
 	if err := recordVisit(ctx, cli, finalURL, ""); err != nil {
@@ -79,83 +81,13 @@ func browse(cli *CLI, input string) error {
 		fmt.Fprintf(os.Stderr, "Warning: failed to record history: %v\n", err)
 	}
 
+	// Update favicon asynchronously (non-blocking)
+	go updateFavicon(ctx, cli, finalURL)
+
 	// Open URL using configuration
 	return openURLWithConfig(finalURL, cli.Config)
 }
 
-// parseInput processes user input and returns the final URL to browse
-func parseInput(ctx context.Context, cli *CLI, input string) (string, error) {
-	// Check if it's a shortcut (format: "prefix:query")
-	if strings.Contains(input, ":") && !strings.Contains(input, "://") {
-		parts := strings.SplitN(input, ":", 2) //nolint:mnd // split on first colon only
-		if len(parts) == 2 {                   //nolint:mnd // expect prefix and query parts
-			shortcut := strings.TrimSpace(parts[0])
-			query := strings.TrimSpace(parts[1])
-
-			if query == "" {
-				return "", fmt.Errorf("empty query for shortcut '%s'", shortcut)
-			}
-
-			// First check configuration-based shortcuts
-			if shortcutCfg, exists := cli.Config.SearchShortcuts[shortcut]; exists {
-				return fmt.Sprintf(shortcutCfg.URL, url.QueryEscape(query)), nil
-			}
-
-			// Fallback to database shortcuts for backward compatibility
-			shortcuts, err := cli.Queries.GetShortcuts(ctx)
-			if err != nil {
-				return "", fmt.Errorf("failed to get shortcuts: %w", err)
-			}
-
-			for _, s := range shortcuts {
-				if s.Shortcut == shortcut {
-					return fmt.Sprintf(s.UrlTemplate, url.QueryEscape(query)), nil
-				}
-			}
-
-			return "", fmt.Errorf("unknown shortcut '%s'", shortcut)
-		}
-	}
-
-	// Check if it's already a valid URL
-	if isValidURL(input) {
-		return input, nil
-	}
-
-	// Try to make it a URL by adding https://
-	if !strings.Contains(input, "://") {
-		candidate := "https://" + input
-		if isValidURL(candidate) {
-			return candidate, nil
-		}
-	}
-
-	// If all else fails, search Google for it
-	return fmt.Sprintf("https://www.google.com/search?q=%s", url.QueryEscape(input)), nil
-}
-
-// isValidURL checks if a string is a valid URL
-func isValidURL(str string) bool {
-	u, err := url.Parse(str)
-	if err != nil {
-		return false
-	}
-
-	// Must have a scheme and host
-	if u.Scheme == "" || u.Host == "" {
-		return false
-	}
-
-	// Must be http or https
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return false
-	}
-
-	// Basic domain validation
-	domainRegex := regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?` +
-		`(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$`)
-	return domainRegex.MatchString(u.Host)
-}
 
 // recordVisit adds or updates a URL visit in the history
 func recordVisit(ctx context.Context, cli *CLI, url, title string) error {
@@ -203,5 +135,36 @@ func openURLWithConfig(url string, cfg *config.Config) error {
 
 	fmt.Printf("Opening: %s (using built-in browser)\n", url)
 	return nil
+}
+
+// updateFavicon fetches and stores favicon URL for a given page URL
+func updateFavicon(ctx context.Context, cli *CLI, pageURL string) {
+	parsedURL, err := url.Parse(pageURL)
+	if err != nil {
+		return // Silently fail for invalid URLs
+	}
+
+	// Skip favicon update for localhost, file://, or special schemes
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return
+	}
+	if strings.Contains(parsedURL.Host, "localhost") || strings.Contains(parsedURL.Host, "127.0.0.1") {
+		return
+	}
+
+	// Standard favicon location
+	faviconURL := fmt.Sprintf("%s://%s/favicon.ico", parsedURL.Scheme, parsedURL.Host)
+
+	// Update in database using the new sqlc-generated method
+	faviconNullString := sql.NullString{String: faviconURL, Valid: true}
+	if err := cli.Queries.UpdateHistoryFavicon(ctx, faviconNullString, pageURL); err != nil {
+		// Silently fail - favicon is not critical
+		return
+	}
+
+	// Also cache the favicon for dmenu use
+	if faviconCache, err := cache.NewFaviconCache(); err == nil {
+		faviconCache.CacheAsync(faviconURL)
+	}
 }
 
