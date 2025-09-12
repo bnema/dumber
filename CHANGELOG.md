@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- Hardware video acceleration with automatic GPU detection:
+  - Multi-vendor GPU detection (AMD, NVIDIA, Intel) using glxinfo, lspci, and sysfs
+  - Automatic VA-API driver selection (radeonsi for AMD, vdpau for NVIDIA, iHD for Intel)
+  - WebKitGTK integration with GStreamer hardware acceleration backends
+  - Environment variable configuration support (LIBVA_DRIVER_NAME, GST_VAAPI_ALL_DRIVERS)
+  - Legacy VA-API fallback mode for compatibility with older systems
+  - Video decoding acceleration for H.264, HEVC, VP9, and AV1 codecs
+  - Significantly reduced CPU usage during video streaming (Twitch, YouTube, etc.)
+  - Smart conflict prevention between legacy and modern VA-API implementations
 - TLS certificate error handling with user confirmation dialog:
   - Comprehensive certificate information display (subject, issuer, validity dates)
   - Interactive warning dialog for untrusted certificate authorities
