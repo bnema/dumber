@@ -17,6 +17,15 @@ All notable changes to this project will be documented in this file.
   - Automatic cleanup of stuck or colliding toast messages
   - 150ms debounce timer with 2-second display duration
   - Emergency cleanup function for orphaned toast elements
+- Comprehensive XDG-compliant logging system:
+  - Complete application output capture (Go logs, fmt prints, WebKit C logs)
+  - XDG Base Directory specification compliance (`~/.local/state/dumber/logs/`)
+  - Automatic log rotation with size/age-based cleanup and compression
+  - WebKit CGO log capture with GLib log handler integration
+  - CLI log management commands (`dumber logs list`, `logs tail`, `logs clean`)
+  - File-only logging for cache operations to prevent dmenu interference
+  - Multi-output support with timestamped, tagged log entries
+  - Configurable log levels, formats (text/JSON), and retention policies
 
 ### Fixed
 - WebView background set to black to improve user experience during page loads
