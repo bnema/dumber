@@ -19,7 +19,7 @@ func NewLogsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logs",
 		Short: "View and manage application logs",
-		Long:  "Access logs stored in XDG-compliant directory for debugging purposes",
+		Long:  "Access logs of the aplication, including viewing recent entries, listing log files, cleaning old logs, and showing the log directory path.",
 	}
 
 	cmd.AddCommand(newLogsTailCmd())
