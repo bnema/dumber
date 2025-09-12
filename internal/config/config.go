@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/pkg/gpu"
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
@@ -602,7 +603,7 @@ func (m *Manager) validateAndConfigureCodecPreferences(config *Config) *Config {
 		// Get detailed AV1 capabilities
 		av1Caps := gpuInfo.GetAV1HardwareCapabilities()
 		if av1Caps["decode"] {
-			fmt.Printf("Config: GPU supports AV1 hardware decode\n")
+			logging.Info("GPU supports AV1 hardware decode")
 
 			// If GPU supports AV1, prefer it over VP9
 			if !config.CodecPreferences.ForceAV1 &&
@@ -619,8 +620,8 @@ func (m *Manager) validateAndConfigureCodecPreferences(config *Config) *Config {
 		}
 
 		// Log GPU-specific codec capabilities
-		fmt.Printf("Config: %s GPU codec capabilities - AV1: decode=%t, encode=%t, 10bit=%t\n",
-			gpuInfo.Vendor, av1Caps["decode"], av1Caps["encode"], av1Caps["10bit"])
+		logging.Info(fmt.Sprintf("%s GPU codec capabilities - AV1: decode=%t, encode=%t, 10bit=%t",
+			gpuInfo.Vendor, av1Caps["decode"], av1Caps["encode"], av1Caps["10bit"]))
 	}
 
 	return config
