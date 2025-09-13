@@ -16,6 +16,7 @@ type Handler struct {
 	parserService  *services.ParserService
 	browserService *services.BrowserService
 	webView        *webkit.WebView
+	lastTheme      string
 }
 
 // Message represents a script message from the WebView
@@ -176,7 +177,8 @@ func (h *Handler) handleWailsBridge(msg Message) {
 
 // handleTheme processes theme-related messages
 func (h *Handler) handleTheme(msg Message) {
-	if msg.Value != "" {
-		log.Printf("[theme] page reported color-scheme: %s", msg.Value)
+	if msg.Value != "" && msg.Value != h.lastTheme {
+		log.Printf("[theme] color-scheme changed: %s", msg.Value)
+		h.lastTheme = msg.Value
 	}
 }
