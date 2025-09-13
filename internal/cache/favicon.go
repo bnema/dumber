@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/bnema/dumber/internal/config"
@@ -92,9 +91,15 @@ func (fc *FaviconCache) downloadFavicon(faviconURL string) error {
 		}
 	}
 
-	// Create HTTP client with timeout
+	// Create HTTP client with timeout and redirect handling
 	client := &http.Client{
 		Timeout: 10 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return fmt.Errorf("too many redirects")
+			}
+			return nil
+		},
 	}
 
 	resp, err := client.Get(faviconURL)
@@ -102,6 +107,11 @@ func (fc *FaviconCache) downloadFavicon(faviconURL string) error {
 		return fmt.Errorf("failed to download favicon: %w", err)
 	}
 	defer resp.Body.Close()
+
+	// Log redirects for debugging
+	if resp.Request.URL.String() != faviconURL {
+		log.Printf("[favicon] Redirected from %s to %s", faviconURL, resp.Request.URL.String())
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to download favicon: status %d", resp.StatusCode)
@@ -135,13 +145,7 @@ func (fc *FaviconCache) downloadFavicon(faviconURL string) error {
 
 // convertToPNG converts a favicon file to PNG format
 func (fc *FaviconCache) convertToPNG(inputPath, outputPath, faviconURL string) error {
-	// Check if it's an ICO file based on URL or content type
-	if strings.Contains(strings.ToLower(faviconURL), ".ico") {
-		log.Printf("[favicon] ICO file detected for %s, using go-ico decoder", faviconURL)
-		return fc.convertICOWithGoICO(inputPath, outputPath, faviconURL)
-	}
-
-	// Try standard Go image decoder for other formats (PNG, JPEG, GIF)
+	// Try standard Go image decoder first for all formats (PNG, JPEG, GIF)
 	if img, err := fc.tryStandardImageDecode(inputPath); err == nil {
 		log.Printf("[favicon] Successfully decoded %s with standard library", faviconURL)
 
@@ -152,7 +156,7 @@ func (fc *FaviconCache) convertToPNG(inputPath, outputPath, faviconURL string) e
 		return fc.savePNG(img, outputPath)
 	}
 
-	// Standard decode failed, fallback to go-ico
+	// Standard decode failed, try go-ico decoder for ICO files
 	log.Printf("[favicon] Standard decode failed for %s, trying go-ico decoder", faviconURL)
 	return fc.convertICOWithGoICO(inputPath, outputPath, faviconURL)
 }
