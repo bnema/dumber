@@ -601,6 +601,12 @@ func (m *Manager) GetConfigFile() string {
 	return m.viper.ConfigFileUsed()
 }
 
+// New returns a new default configuration instance.
+// This is a convenience function for getting default config without the full manager.
+func New() *Config {
+	return DefaultConfig()
+}
+
 // Global configuration manager instance
 var globalManager *Manager
 var globalManagerOnce sync.Once
