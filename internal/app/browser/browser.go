@@ -84,20 +84,6 @@ func (app *BrowserApp) Initialize() error {
 	// Apply environment configurations
 	environment.ApplyCodecConfiguration(app.config.CodecPreferences)
 
-	// Initialize logging
-	if err := logging.Init(
-		app.config.Logging.LogDir,
-		app.config.Logging.Level,
-		app.config.Logging.Format,
-		app.config.Logging.EnableFileLog,
-		app.config.Logging.MaxSize,
-		app.config.Logging.MaxBackups,
-		app.config.Logging.MaxAge,
-		app.config.Logging.Compress,
-	); err != nil {
-		log.Printf("Warning: failed to initialize logging: %v", err)
-	}
-
 	// Setup crash handler
 	logging.SetupCrashHandler()
 
