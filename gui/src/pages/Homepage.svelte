@@ -139,6 +139,7 @@
   const loading = $derived(historyLoading || shortcutsLoading);
 </script>
 
+<div class="homepage-container">
 <div class="container">
   <div class="history-section">
     <h2 class="section-title">Recent History</h2>
@@ -198,23 +199,28 @@
     </div>
   </div>
 </div>
+</div>
 
 <style>
-  /* Global styles - using CSS to match the original design */
-  :global(*) {
+  /* Scoped homepage container to prevent global CSS conflicts */
+  .homepage-container {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #1a1a1a;
+    color: #ffffff;
+    min-height: 100vh;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
     margin: 0;
     padding: 0;
     box-sizing: border-box;
   }
 
-  :global(body) {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #1a1a1a;
-    color: #ffffff;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow-x: hidden;
+  /* Reset styles for children, but scoped to homepage only */
+  .homepage-container * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
   }
 
   .container {
