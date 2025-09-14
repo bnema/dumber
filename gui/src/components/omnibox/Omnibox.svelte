@@ -20,6 +20,14 @@
   let boxElement: HTMLDivElement;
   let inputElement = $state<HTMLInputElement>();
 
+  // Responsive styling state
+  let responsiveStyles = $state({
+    width: 'min(90vw, 720px)',
+    padding: '8px 12px',
+    fontSize: '16px',
+    inputPadding: '10px 12px'
+  });
+
   // Handle click outside to close
   function handleOverlayClick(event: MouseEvent) {
     const target = event.target as HTMLElement;
@@ -45,6 +53,20 @@
       }
       omniboxStore.setFaded(false);
     }
+  }
+
+  // Update responsive styles based on viewport width (handles zoom levels)
+  function updateResponsiveStyles() {
+    const vw = window.innerWidth;
+    const isSmall = vw < 640;
+    const isLarge = vw > 1920;
+
+    responsiveStyles = {
+      width: isSmall ? '95vw' : isLarge ? 'min(90vw, 840px)' : 'min(90vw, 720px)',
+      padding: isSmall ? '6px 8px' : '8px 12px',
+      fontSize: isSmall ? '14px' : isLarge ? '17px' : '16px',
+      inputPadding: isSmall ? '8px 10px' : '10px 12px'
+    };
   }
 
   // Focus input when component becomes visible
@@ -91,6 +113,12 @@
 
   onMount(() => {
     console.log('🔧 Omnibox component mounted');
+
+    // Initialize responsive styles
+    updateResponsiveStyles();
+
+    // Add resize listener for responsive updates (handles zoom changes)
+    window.addEventListener('resize', updateResponsiveStyles);
 
     // Add global click listener
     document.addEventListener('click', handleGlobalClick, true);
@@ -156,6 +184,9 @@
   });
 
   onDestroy(() => {
+    // Cleanup resize listener
+    window.removeEventListener('resize', updateResponsiveStyles);
+
     // Cleanup global click listener
     document.removeEventListener('click', handleGlobalClick, true);
 
@@ -172,19 +203,35 @@
 <!-- Overlay container -->
 <div
   class="fixed inset-0 z-[2147483647]"
-  style="display: {visible ? 'block' : 'none'}"
+  style="display: {visible ? 'block' : 'none'};
+         position: fixed !important;
+         top: 0 !important;
+         left: 0 !important;
+         right: 0 !important;
+         bottom: 0 !important;
+         z-index: 2147483647 !important;
+         pointer-events: none !important;
+         margin: 0 !important;
+         padding: 0 !important;
+         isolation: isolate;"
   onmousedown={handleOverlayClick}
   role="presentation"
 >
   <!-- Main omnibox container -->
   <div
     bind:this={boxElement}
-    class="w-[min(90vw,720px)] mx-auto mt-[8vh] p-3
-           bg-[#1b1b1b] border border-[#444] rounded-lg shadow-[0_10px_30px_rgba(0,0,0,0.6)]
-           text-[#eee]
-           sm:w-[95vw] sm:p-2
-           xl:w-[min(90vw,840px)]"
-    style="font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, 'Helvetica Neue', Arial, sans-serif"
+    class="bg-[#1b1b1b] border border-[#444] rounded-lg shadow-[0_10px_30px_rgba(0,0,0,0.6)] text-[#eee]"
+    style="position: relative !important;
+           left: 50% !important;
+           transform: translateX(-50%) !important;
+           margin-top: 8vh !important;
+           margin-left: 0 !important;
+           margin-right: 0 !important;
+           width: {responsiveStyles.width};
+           padding: {responsiveStyles.padding};
+           font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, 'Helvetica Neue', Arial, sans-serif;
+           pointer-events: auto !important;
+           box-sizing: border-box !important;"
     onmousedown={handleBoxClick}
     onmouseenter={handleMouseEnter}
     role="dialog"
@@ -193,7 +240,7 @@
     aria-label={mode === 'find' ? 'Find in page' : 'Omnibox search'}
   >
     <!-- Input component -->
-    <OmniboxInput bind:inputElement />
+    <OmniboxInput bind:inputElement {responsiveStyles} />
 
     <!-- Content based on mode -->
     {#if mode === 'omnibox'}
