@@ -21,7 +21,7 @@ Dumber is a minimalist browser and launcher companion focused on speed and simpl
 
 ## Features
 - Built‑in browser window (no external browser needed)
-- Content blocking system (early stage UBlock-based ad blocking with EasyList integration)
+- Content filtering system (early stage UBlock-based filtering with EasyList integration)
 - Hardware video acceleration with automatic GPU detection (VA-API/VDPAU)
 - Custom `dumb://` scheme serving embedded frontend assets
 - Keyboard and mouse controls: comprehensive shortcuts and gestures
@@ -306,7 +306,7 @@ WebKitGTK uses GStreamer for media playback. Dumber includes automatic hardware 
 ## Roadmap
 - ✅ WebKitGTK 6 (GTK4) migration (GPU/Vulkan path complete)
 - ✅ GPU rendering (Vulkan via GTK4 renderer) with graceful CPU fallback
-- 🚧 UBlock-based ad blocking (early stage - blocking works, cosmetic filtering needs work)
+- 🚧 UBlock-based content filtering (early stage - network blocking works, cosmetic filtering needs work)
 - Full Vim-style motion and keyboard navigation across pages and UI
 - Performance work: faster startup, lower memory, snappier UI
 - Other shiny things I'm not yet aware of
