@@ -1241,7 +1241,6 @@ func (w *WebView) dispatchZoomChanged(level float64) {
 	}
 }
 
-
 // enableUserContentManager registers the 'dumber' message handler and injects the omnibox script.
 func (w *WebView) enableUserContentManager(cfg *Config) {
 	if w == nil || w.native == nil || w.native.ucm == nil {
@@ -1254,7 +1253,6 @@ func (w *WebView) enableUserContentManager(cfg *Config) {
 		log.Printf("[webkit] Failed to register UCM handler; fallback bridge will handle messages")
 	}
 	C.free(unsafe.Pointer(cname))
-
 
 	// Inject color-scheme preference script at document-start to inform sites of system theme
 	preferDark := C.gtk_prefers_dark() != 0
