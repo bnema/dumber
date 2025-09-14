@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.7.0] - 2025-09-14
+
 ### Added
 - **Content blocking system**: Native WebKit ad blocking with EasyList integration, cosmetic filtering, and filter cache management
 - **Filter cache purging**: New `--filter-cache/-F` flag in purge command
@@ -16,7 +18,7 @@ All notable changes to this project will be documented in this file.
 - **Anti-breakage scriptlets**: Safer JavaScript modifications that avoid WebKit internal conflicts
 - **Build system**: Added parallel compilation with automatic core detection and success indicators
 - **Persistent TLS certificate validation system**:
-  - **Three-option certificate dialog**: "Go Back", "Proceed Once (Unsafe)", and "Always Accept This Site" 
+  - **Three-option certificate dialog**: "Go Back", "Proceed Once (Unsafe)", and "Always Accept This Site"
   - **Database-backed certificate storage**: SQLite-based persistence for user certificate decisions with SHA256 certificate hashing
   - **Smart decision handling**: Automatic application of stored decisions without repeated prompts
   - **Temporary vs permanent choices**: "Proceed Once" expires after 24 hours, "Always Accept" persists indefinitely
@@ -37,9 +39,9 @@ All notable changes to this project will be documented in this file.
   - **Improved accessibility**: Better screen reader support and GTK4 theme integration
 - **Major main.go refactoring**: Massive code reduction from 1071 lines to 61 lines (~95% reduction)
   - **Extracted browser application logic** to dedicated `internal/app/browser` package for better separation of concerns
-  - **Streamlined entry point**: Clean main function focusing only on CLI vs GUI mode detection and application bootstrapping  
+  - **Streamlined entry point**: Clean main function focusing only on CLI vs GUI mode detection and application bootstrapping
   - **Improved maintainability**: Modular architecture with clear responsibilities between CLI and browser components
-- **Refactored memory configuration architecture**: 
+- **Refactored memory configuration architecture**:
   - Integrated WebKit memory settings into unified config system with Viper environment variable bindings
   - Eliminated redundant environment variable parsing in favor of centralized configuration management
   - Simplified webview initialization with direct config-to-WebKit conversion
