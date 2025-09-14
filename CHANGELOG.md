@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Content blocking system**: Native WebKit ad blocking with EasyList integration, cosmetic filtering, and filter cache management
+- **Filter cache purging**: New `--filter-cache/-F` flag in purge command
+- **WebKit debug system**: Comprehensive debugging support with configurable categories for troubleshooting WebKit internal errors
+- **Enhanced error handling**: Robust content filter injection with retry mechanisms and graceful fallbacks
+- **Parallel compilation**: Multi-core GCC compilation support for faster builds
+
+### Improved
+- **Content filter timing**: Optimized script injection timing to prevent interference with WebKit preconnect operations
+- **Anti-breakage scriptlets**: Safer JavaScript modifications that avoid WebKit internal conflicts
+- **Build system**: Added parallel compilation with automatic core detection and success indicators
 - **Persistent TLS certificate validation system**:
   - **Three-option certificate dialog**: "Go Back", "Proceed Once (Unsafe)", and "Always Accept This Site" 
   - **Database-backed certificate storage**: SQLite-based persistence for user certificate decisions with SHA256 certificate hashing

@@ -6,11 +6,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/bnema/dumber/internal/app/constants"
 	"github.com/bnema/dumber/internal/app/control"
 	"github.com/bnema/dumber/internal/app/environment"
 	"github.com/bnema/dumber/internal/config"
+	"github.com/bnema/dumber/internal/filtering"
 	"github.com/bnema/dumber/pkg/webkit"
 )
 
@@ -149,4 +151,80 @@ func (app *BrowserApp) setupControllers() {
 func (app *BrowserApp) setupKeyboardShortcuts() {
 	app.shortcutHandler = NewShortcutHandler(app.webView, app.clipboardController)
 	app.shortcutHandler.RegisterShortcuts()
+}
+
+// setupContentBlocking initializes the content blocking system with proper timing
+func (app *BrowserApp) setupContentBlocking() error {
+	log.Printf("Initializing content blocking system...")
+
+	// Enable WebKit debug logging if requested
+	webkit.SetupWebKitDebugLogging(app.config)
+
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Content blocking setup panic recovered: %v", r)
+		}
+	}()
+
+	// Setup filter system
+	filterManager, err := filtering.SetupFilterSystem()
+	if err != nil {
+		log.Printf("Warning: Failed to setup filter system: %v", err)
+		return nil // Don't fail browser startup, continue without filters
+	}
+
+	// Store reference to filter manager
+	app.filterManager = filterManager
+
+	// Set up callback to re-apply network filters when they become ready
+	// This callback will be called from the async filter loading process
+	filterManager.SetFiltersReadyCallback(func() {
+		// Add small delay to avoid race conditions with WebView initialization
+		go func() {
+			time.Sleep(300 * time.Millisecond)
+			if app.webView != nil {
+				if err := app.webView.UpdateContentFilters(filterManager); err != nil {
+					log.Printf("Failed to apply filters after loading: %v", err)
+				} else {
+					log.Printf("Successfully applied filters after async loading")
+				}
+			}
+		}()
+	})
+
+	// Start async filter loading early (before WebView content blocking initialization)
+	// This allows filters to be ready when the WebView needs them
+	go func() {
+		if err := filtering.InitializeFiltersAsync(filterManager); err != nil {
+			log.Printf("Warning: failed to initialize filters asynchronously: %v", err)
+		}
+	}()
+
+	// Initialize content blocking in WebView with delay
+	// Wait for WebView to be fully loaded before setting up content blocking
+	go func() {
+		// Wait extra time for the first navigation to avoid preconnect interference
+		log.Printf("Waiting for WebView to complete initial load before enabling content blocking...")
+		time.Sleep(3000 * time.Millisecond) // 3 seconds for first load stability
+
+		if err := app.webView.InitializeContentBlocking(filterManager); err != nil {
+			log.Printf("Warning: Failed to initialize content blocking: %v", err)
+			// Continue without content blocking rather than failing
+		}
+
+		// Register navigation handler for domain-specific filtering
+		// Only register after content blocking is initialized
+		app.webView.RegisterURIChangedHandler(func(uri string) {
+			// Add small delay to avoid conflicts with page load
+			go func() {
+				time.Sleep(200 * time.Millisecond) // Slightly longer delay for stability
+				if app.filterManager != nil {
+					app.webView.OnNavigate(uri, app.filterManager)
+				}
+			}()
+		})
+	}()
+
+	log.Printf("Content blocking system initialization started")
+	return nil
 }
