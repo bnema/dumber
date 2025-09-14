@@ -26,6 +26,7 @@ All notable changes to this project will be documented in this file.
 - **State persistence**: Proper cleanup when switching between Ctrl+L and Ctrl+F modes
 - **Homepage protocol**: Fixed dumb://homepage not working after GUI migration with proper Svelte 5 component and API integration
 - **Omnibox positioning on homepage**: Fixed omnibox stuck in top-left corner by isolating homepage CSS styles and strengthening omnibox positioning with explicit fixed positioning and CSS isolation
+- **Find mode persistence**: Fixed find view persisting after pressing Esc when reopening with Ctrl+L by ensuring toggle() resets mode to 'omnibox'
 
 ## [0.7.0] - 2025-09-14
 
