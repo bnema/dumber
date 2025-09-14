@@ -25,6 +25,10 @@ UPDATE history
 SET favicon_url = ?
 WHERE url = ?;
 
+-- name: DeleteHistory :exec
+DELETE FROM history
+WHERE id = ?;
+
 -- name: GetShortcuts :many
 SELECT id, shortcut, url_template, description, created_at
 FROM shortcuts

@@ -25,6 +25,16 @@ func (q *Queries) AddOrUpdateHistory(ctx context.Context, url string, title sql.
 	return err
 }
 
+const DeleteHistory = `-- name: DeleteHistory :exec
+DELETE FROM history
+WHERE id = ?
+`
+
+func (q *Queries) DeleteHistory(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, DeleteHistory, id)
+	return err
+}
+
 const GetHistory = `-- name: GetHistory :many
 SELECT id, url, title, visit_count, last_visited, created_at, favicon_url
 FROM history

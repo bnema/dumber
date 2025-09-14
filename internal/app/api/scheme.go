@@ -85,6 +85,8 @@ func (s *SchemeHandler) handleAPIRoute(u *neturl.URL, cfg *config.Config) (strin
 		return s.apiHandler.HandleHistorySearch(u)
 	case strings.HasPrefix(path, "/history/stats"):
 		return s.apiHandler.HandleHistoryStats()
+	case strings.HasPrefix(path, "/history/delete"):
+		return s.apiHandler.HandleHistoryDelete(u)
 	default:
 		return s.apiHandler.HandleDefault()
 	}

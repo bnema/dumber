@@ -20,6 +20,7 @@ type HistoryQuerier interface {
 	SearchHistory(ctx context.Context, column1 sql.NullString, column2 sql.NullString, limit int64) ([]History, error)
 	AddOrUpdateHistory(ctx context.Context, url string, title sql.NullString) error
 	UpdateHistoryFavicon(ctx context.Context, faviconUrl sql.NullString, url string) error
+	DeleteHistory(ctx context.Context, id int64) error
 }
 
 // ShortcutQuerier defines the interface for shortcut-related database operations
