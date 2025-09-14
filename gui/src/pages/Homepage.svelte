@@ -33,7 +33,13 @@
   let topVisitedLoading = $state(true);
   let shortcutsLoading = $state(true);
   let statsLoading = $state(true);
-  let deletingIds = $state<Set<number>>(new Set());
+  let deletingIds = $state<number[]>([]);
+  let historyOffset = $state(0);
+  let hasMoreHistory = $state(true);
+  let loadingMoreHistory = $state(false);
+
+  // Function for checking if an item is being deleted
+  const isDeleting = (id: number) => deletingIds.includes(id);
 
   // Initialize shortcuts (these are browser shortcuts, not dynamic from API)
   const initializeShortcuts = () => {
@@ -109,15 +115,47 @@
       if (response.ok) {
         const data = await response.json();
         historyItems = Array.isArray(data) ? data : [];
+        historyOffset = historyItems.length;
+        hasMoreHistory = data.length === 20; // If we got full batch, there might be more
       } else {
         console.warn('Failed to fetch history:', response.status);
         historyItems = [];
+        hasMoreHistory = false;
       }
     } catch (error) {
       console.error('Error fetching history:', error);
       historyItems = [];
+      hasMoreHistory = false;
     } finally {
       historyLoading = false;
+    }
+  };
+
+  // Load more history items for infinite scroll
+  const loadMoreHistory = async () => {
+    if (loadingMoreHistory || !hasMoreHistory) return;
+
+    loadingMoreHistory = true;
+    try {
+      const response = await fetch(`dumb://homepage/api/history/recent?limit=20&offset=${historyOffset}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data) && data.length > 0) {
+          historyItems = [...historyItems, ...data];
+          historyOffset += data.length;
+          hasMoreHistory = data.length === 20; // If we got full batch, there might be more
+        } else {
+          hasMoreHistory = false;
+        }
+      } else {
+        console.warn('Failed to fetch more history:', response.status);
+        hasMoreHistory = false;
+      }
+    } catch (error) {
+      console.error('Error fetching more history:', error);
+      hasMoreHistory = false;
+    } finally {
+      loadingMoreHistory = false;
     }
   };
 
@@ -130,8 +168,10 @@
   const deleteHistoryEntry = async (id: number, event: Event) => {
     event.stopPropagation(); // Prevent navigation
 
-    // Add to deleting set for animation
-    deletingIds = new Set([...deletingIds, id]);
+    // Add to deleting array for animation
+    if (!deletingIds.includes(id)) {
+      deletingIds = [...deletingIds, id];
+    }
 
     try {
       const response = await fetch(`dumb://homepage/api/history/delete?id=${id}`);
@@ -139,23 +179,25 @@
         // Wait a bit for the fade animation to complete
         await new Promise(resolve => setTimeout(resolve, 200));
 
-        // Refresh history after successful deletion
+        // Reset pagination and refresh history after successful deletion
+        historyOffset = 0;
+        hasMoreHistory = true;
         await fetchHistory();
         await fetchStats();
         await fetchTopVisited();
       } else {
         console.error('Failed to delete history entry:', response.status);
-        // Remove from deleting set if failed
-        deletingIds = new Set([...deletingIds].filter(deletingId => deletingId !== id));
+        // Remove from deleting array if failed
+        deletingIds = deletingIds.filter(i => i !== id);
       }
     } catch (error) {
       console.error('Error deleting history entry:', error);
-      // Remove from deleting set if failed
-      deletingIds = new Set([...deletingIds].filter(deletingId => deletingId !== id));
+      // Remove from deleting array if failed
+      deletingIds = deletingIds.filter(i => i !== id);
     }
 
-    // Remove from deleting set after refresh
-    deletingIds = new Set([...deletingIds].filter(deletingId => deletingId !== id));
+    // Remove from deleting array after refresh
+    deletingIds = deletingIds.filter(i => i !== id);
   };
 
   // Get domain from URL
@@ -227,9 +269,36 @@
     }
   };
 
+  // Intersection Observer for infinite scroll
+  let historyScrollSentinel = $state<HTMLElement | null>(null);
+
+  const setupInfiniteScroll = () => {
+    if (!historyScrollSentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry && entry.isIntersecting && hasMoreHistory && !loadingMoreHistory) {
+          loadMoreHistory();
+        }
+      },
+      {
+        threshold: 0.1,
+        rootMargin: '50px'
+      }
+    );
+
+    observer.observe(historyScrollSentinel);
+
+    return () => observer.disconnect();
+  };
+
   onMount(() => {
     initializeShortcuts();
-    fetchHistory();
+    fetchHistory().then(() => {
+      // Setup infinite scroll after initial history is loaded
+      setTimeout(setupInfiniteScroll, 100);
+    });
     fetchStats();
     fetchTopVisited();
   });
@@ -252,7 +321,7 @@
         {#each historyItems as item (item.url)}
           <div
             class="history-item"
-            class:deleting={deletingIds.has(item.id)}
+            class:deleting={isDeleting(item.id)}
             role="button"
             tabindex="0"
             onclick={() => navigateTo(item.url)}
@@ -309,6 +378,14 @@
             </div>
           </div>
         {/each}
+
+        <!-- Infinite scroll sentinel and loading indicator -->
+        {#if hasMoreHistory}
+          <div bind:this={historyScrollSentinel} class="scroll-sentinel"></div>
+          {#if loadingMoreHistory}
+            <div class="loading-more">Loading more history...</div>
+          {/if}
+        {/if}
       {/if}
     </div>
   </div>
@@ -723,6 +800,18 @@
     padding: 2rem;
     text-align: center;
     color: #888;
+  }
+
+  .scroll-sentinel {
+    height: 1px;
+    width: 100%;
+  }
+
+  .loading-more {
+    padding: 1rem;
+    text-align: center;
+    color: #888;
+    font-size: 0.9rem;
   }
 
   .empty-state {
