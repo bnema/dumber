@@ -13,6 +13,9 @@ BINARY_NAME=dumber
 MAIN_PATH=.
 DIST_DIR=dist
 
+# Detect number of CPU cores for parallel compilation
+NPROCS?=$(shell nproc 2>/dev/null || echo 1)
+
 # Local caches to avoid $HOME permission issues (override via .env.local)
 GOMODCACHE?=$(CURDIR)/tmp/go-mod
 GOCACHE?=$(CURDIR)/tmp/go-cache
@@ -34,9 +37,10 @@ help: ## Show this help message
 
 # Build targets
 build: build-frontend ## Build the application with GUI (frontend assets, then Go binary with WebKitGTK)
-	@echo "Building $(BINARY_NAME) $(VERSION) with GUI..."
+	@echo "Building $(BINARY_NAME) $(VERSION) with GUI using $(NPROCS) cores..."
 	@mkdir -p $(DIST_DIR) tmp tmp/go-cache tmp/go-mod
-	$(GOENV) CGO_ENABLED=1 go build $(LDFLAGS) -tags=webkit_cgo -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	$(GOENV) CGO_ENABLED=1 go build -p $(NPROCS) $(LDFLAGS) -tags=webkit_cgo -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	@echo "✅ Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
 
 build-frontend: ## Build TypeScript frontend
 	@echo "Building TypeScript frontend..."
@@ -44,9 +48,10 @@ build-frontend: ## Build TypeScript frontend
 	@echo "Frontend build complete"
 
 build-no-gui: build-frontend ## Build binary without GUI (CGO disabled, CLI-only functionality)
-	@echo "Building $(BINARY_NAME) $(VERSION) (CLI-only, no GUI)..."
+	@echo "Building $(BINARY_NAME) $(VERSION) (CLI-only, no GUI) using $(NPROCS) cores..."
 	@mkdir -p $(DIST_DIR) tmp tmp/go-cache tmp/go-mod
-	$(GOENV) CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME)-no-gui $(MAIN_PATH)
+	$(GOENV) CGO_ENABLED=0 go build -p $(NPROCS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME)-no-gui $(MAIN_PATH)
+	@echo "✅ Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)-no-gui"
 
 build-static: build-no-gui ## Alias for build-no-gui (backward compatibility)
 	@echo "Note: build-static is deprecated, use build-no-gui instead"
@@ -57,9 +62,9 @@ build-gui: build ## Alias for default build (backward compatibility)
 	@echo "Note: build-gui is now the default 'build' target"
 
 run-gui: ## Run the GUI with native WebKitGTK 6.0 (requires GTK4/WebKitGTK 6 dev packages)
-	@echo "Running GUI (webkit_cgo)…"
+	@echo "Running GUI (webkit_cgo) using $(NPROCS) cores…"
 	@mkdir -p tmp tmp/go-cache tmp/go-mod
-	$(GOENV) CGO_ENABLED=1 go run -tags=webkit_cgo $(MAIN_PATH)
+	$(GOENV) CGO_ENABLED=1 go run -p $(NPROCS) -tags=webkit_cgo $(MAIN_PATH)
 
 .PHONY: check-webkit
 check-webkit: ## Check system has GTK4/WebKitGTK 6.0/JavaScriptCore 6.0

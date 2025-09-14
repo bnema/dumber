@@ -4,6 +4,7 @@ package webkit
 
 /*
 #cgo pkg-config: webkitgtk-6.0 gtk4
+#cgo CFLAGS: -I/usr/include/webkitgtk-6.0
 #include <webkit/webkit.h>
 */
 import "C"

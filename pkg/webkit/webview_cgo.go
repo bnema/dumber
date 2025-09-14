@@ -4,6 +4,7 @@ package webkit
 
 /*
 #cgo pkg-config: webkitgtk-6.0 gtk4 javascriptcoregtk-6.0
+#cgo CFLAGS: -I/usr/include/webkitgtk-6.0
 #include <stdlib.h>
 #include <string.h>
 #include <gtk/gtk.h>
@@ -547,7 +548,7 @@ static void on_alert_dialog_choose_done(GObject *source, GAsyncResult *result, g
     }
     data->completed = TRUE;
     const char *response_names[] = {"GO_BACK", "PROCEED_ONCE", "ALWAYS_ACCEPT"};
-    const char *response_name = (data->response >= 0 && data->response <= 2) ? 
+    const char *response_name = (data->response >= 0 && data->response <= 2) ?
                                response_names[data->response] : "UNKNOWN";
     printf("[dumber] TLS dialog response: %s (button_index=%d)\n", response_name, data->response);
     fflush(stdout);
@@ -564,31 +565,31 @@ static gboolean show_tls_warning_dialog_sync(GtkWindow *parent, const char* host
 
     // Create the modern AlertDialog
     GtkAlertDialog *dialog = gtk_alert_dialog_new("Certificate Error for %s", hostname);
-    
+
     // Set modal behavior and error details
     gtk_alert_dialog_set_modal(dialog, TRUE);
     gtk_alert_dialog_set_detail(dialog, error_msg);
-    
+
     // Configure buttons (Go Back = 0, Proceed Once = 1, Always Accept = 2)
     const char *buttons[] = {"Go Back", "Proceed Once (Unsafe)", "Always Accept This Site", NULL};
     gtk_alert_dialog_set_buttons(dialog, buttons);
     gtk_alert_dialog_set_default_button(dialog, 0);
     gtk_alert_dialog_set_cancel_button(dialog, 0);
-    
+
     // Set up response data with main loop for sync behavior
     AlertDialogResponse response_data = {0, FALSE, g_main_loop_new(NULL, FALSE)};
-    
+
     // Start async operation
-    gtk_alert_dialog_choose(dialog, parent, NULL, 
+    gtk_alert_dialog_choose(dialog, parent, NULL,
                            on_alert_dialog_choose_done, &response_data);
-    
+
     // Run event loop until dialog completes
     g_main_loop_run(response_data.loop);
     g_main_loop_unref(response_data.loop);
-    
+
     // Clean up
     g_object_unref(dialog);
-    
+
     // Return response code: 0=Go Back, 1=Proceed Once, 2=Always Accept
     return response_data.response;
 }
@@ -605,13 +606,22 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 	"unsafe"
 
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/db"
+	"github.com/bnema/dumber/internal/logging"
 	_ "github.com/ncruces/go-sqlite3"
 )
+
+// FilterManager interface for content blocking integration
+type FilterManager interface {
+	GetNetworkFilters() ([]byte, error)
+	GetCosmeticScript() string
+	GetCosmeticScriptForDomain(domain string) string
+}
 
 // Helper function to convert bool to int for C interop
 func boolToInt(b bool) int {
@@ -1481,12 +1491,12 @@ func (w *WebView) showTLSWarningDialog(hostname, uri string, errorFlags int, cer
 	)
 
 	responseCode := int(result)
-	
+
 	switch responseCode {
 	case 0: // Go Back
 		log.Printf("[tls] User chose to GO BACK for %s", hostname)
 		return false
-		
+
 	case 1: // Proceed Once
 		log.Printf("[tls] User chose to PROCEED ONCE for %s", hostname)
 		// Store temporary decision (expires in 24 hours)
@@ -1494,7 +1504,7 @@ func (w *WebView) showTLSWarningDialog(hostname, uri string, errorFlags int, cer
 			log.Printf("[tls] Warning: Failed to store temporary certificate decision: %v", err)
 		}
 		return true
-		
+
 	case 2: // Always Accept
 		log.Printf("[tls] User chose to ALWAYS ACCEPT for %s", hostname)
 		// Store permanent decision
@@ -1502,7 +1512,7 @@ func (w *WebView) showTLSWarningDialog(hostname, uri string, errorFlags int, cer
 			log.Printf("[tls] Warning: Failed to store permanent certificate decision: %v", err)
 		}
 		return true
-		
+
 	default:
 		log.Printf("[tls] Unknown response code %d for %s, defaulting to reject", responseCode, hostname)
 		return false
@@ -1542,4 +1552,163 @@ func formatTLSErrorMessage(hostname, uri string, errorFlags int, certificateInfo
 	msg += "\nProceeding may expose your data to attackers.\nOnly continue if you trust this website."
 
 	return msg
+}
+
+// InitializeContentBlocking initializes WebKit content blocking with filter manager
+func (w *WebView) InitializeContentBlocking(filterManager FilterManager) error {
+	if w == nil || w.destroyed || w.native == nil || w.native.wv == nil {
+		return ErrWebViewNotInitialized
+	}
+
+	// Load filters asynchronously with proper error recovery
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logging.Error(fmt.Sprintf("[webkit] Content blocking initialization panic: %v", r))
+			}
+		}()
+
+		// Wait longer for WebView to be ready before applying filters on first load
+		// This prevents interference with WebKit's preconnect operations
+		time.Sleep(1500 * time.Millisecond)
+
+		// Retry mechanism with exponential backoff
+		maxRetries := 5
+		baseDelay := 200 * time.Millisecond
+
+		// Apply network filters with error recovery
+		for i := 0; i < maxRetries; i++ {
+			if w.destroyed {
+				logging.Debug("[webkit] WebView destroyed, aborting filter loading")
+				return
+			}
+
+			if filters, err := filterManager.GetNetworkFilters(); err == nil {
+				if len(filters) > 10 && string(filters) != "null" {
+					logging.Info("[webkit] Loading network filters from filter manager (" + fmt.Sprintf("%d", len(filters)) + " bytes)")
+					if err := w.ApplyContentFilters(filters, "network-filters"); err != nil {
+						logging.Error("Failed to apply network filters (retry " + fmt.Sprintf("%d", i+1) + "): " + err.Error())
+						if i == maxRetries-1 {
+							logging.Warn("[webkit] Network filtering disabled due to errors")
+							break
+						}
+						time.Sleep(baseDelay * time.Duration(1<<uint(i))) // Exponential backoff
+						continue
+					}
+					break
+				}
+			} else if i == maxRetries-1 {
+				logging.Error("Failed to get network filters after retries: " + err.Error())
+			}
+		}
+
+		// Apply cosmetic filtering with error recovery
+		time.Sleep(200 * time.Millisecond) // Additional delay to ensure network setup is complete
+
+		for i := 0; i < maxRetries; i++ {
+			if w.destroyed {
+				logging.Debug("[webkit] WebView destroyed, aborting cosmetic filter loading")
+				return
+			}
+
+			script := filterManager.GetCosmeticScript()
+			if len(script) > 0 {
+				logging.Info("[webkit] Loading cosmetic script from filter manager (" + fmt.Sprintf("%d", len(script)) + " chars)")
+				if err := w.InjectCosmeticFilter(script); err != nil {
+					logging.Error("Failed to inject cosmetic filter (retry " + fmt.Sprintf("%d", i+1) + "): " + err.Error())
+					if i == maxRetries-1 {
+						logging.Warn("[webkit] Cosmetic filtering disabled due to errors")
+					} else {
+						time.Sleep(baseDelay * time.Duration(1<<uint(i)))
+						continue
+					}
+				}
+				break
+			}
+		}
+
+		logging.Info("Content blocking initialization completed")
+	}()
+
+	return nil
+}
+
+// OnNavigate sets up domain-specific cosmetic filtering on navigation
+func (w *WebView) OnNavigate(url string, filterManager FilterManager) {
+	if w == nil || w.destroyed {
+		return
+	}
+
+	domain := extractDomain(url)
+	if domain == "" {
+		return
+	}
+
+	// Get domain-specific cosmetic rules
+	script := filterManager.GetCosmeticScriptForDomain(domain)
+	if script != "" {
+		// Inject domain-specific cosmetic rules
+		logging.Info("[webkit] Applying domain-specific cosmetic rules for: " + domain + " (" + fmt.Sprintf("%d", len(script)) + " chars)")
+		w.InjectScript(fmt.Sprintf(
+			"if (typeof window.__dumber_cosmetic_init === 'function') { %s }",
+			script,
+		))
+	} else {
+		logging.Debug("[webkit] No domain-specific cosmetic rules found for: " + domain)
+	}
+}
+
+// UpdateContentFilters updates the content filters dynamically
+func (w *WebView) UpdateContentFilters(filterManager FilterManager) error {
+	if w == nil || w.destroyed || w.native == nil || w.native.wv == nil {
+		return ErrWebViewNotInitialized
+	}
+
+	// Clear existing filters first
+	if err := w.ClearAllFilters(); err != nil {
+		return fmt.Errorf("failed to clear existing filters: %w", err)
+	}
+
+	// Apply new filters
+	if filters, err := filterManager.GetNetworkFilters(); err == nil {
+		logging.Info("[webkit] Updating network filters (" + fmt.Sprintf("%d", len(filters)) + " bytes)")
+		if err := w.ApplyContentFilters(filters, "network-filters-updated"); err != nil {
+			return fmt.Errorf("failed to apply updated network filters: %w", err)
+		}
+	}
+
+	// Update cosmetic filtering
+	script := filterManager.GetCosmeticScript()
+	logging.Info("[webkit] Updating cosmetic script (" + fmt.Sprintf("%d", len(script)) + " chars)")
+	if err := w.InjectCosmeticFilter(script); err != nil {
+		return fmt.Errorf("failed to inject updated cosmetic filter: %w", err)
+	}
+
+	logging.Info("Content filters updated successfully")
+	return nil
+}
+
+// extractDomain extracts the domain from a URL
+func extractDomain(url string) string {
+	if url == "" {
+		return ""
+	}
+
+	// Simple domain extraction - remove protocol and path
+	start := strings.Index(url, "://")
+	if start != -1 {
+		url = url[start+3:]
+	}
+
+	end := strings.Index(url, "/")
+	if end != -1 {
+		url = url[:end]
+	}
+
+	// Remove port if present
+	if portIdx := strings.Index(url, ":"); portIdx != -1 {
+		url = url[:portIdx]
+	}
+
+	return url
 }

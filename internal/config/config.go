@@ -34,6 +34,7 @@ type Config struct {
 	VideoAcceleration VideoAccelerationConfig   `mapstructure:"video_acceleration" yaml:"video_acceleration"`
 	CodecPreferences  CodecConfig               `mapstructure:"codec_preferences" yaml:"codec_preferences"`
 	WebkitMemory      WebkitMemoryConfig        `mapstructure:"webkit_memory" yaml:"webkit_memory"`
+	Debug             DebugConfig               `mapstructure:"debug" yaml:"debug"`
 	// RenderingMode controls GPU/CPU rendering selection for WebKit
 	RenderingMode RenderingMode `mapstructure:"rendering_mode" yaml:"rendering_mode"`
 }
@@ -180,6 +181,31 @@ type WebkitMemoryConfig struct {
 
 	// Enable memory monitoring logs
 	EnableMemoryMonitoring bool `mapstructure:"enable_memory_monitoring" yaml:"enable_memory_monitoring"`
+}
+
+// DebugConfig holds debug and troubleshooting options
+type DebugConfig struct {
+	// Enable WebKit internal debug logging
+	EnableWebKitDebug bool `mapstructure:"enable_webkit_debug" yaml:"enable_webkit_debug"`
+
+	// WebKit debug categories (comma-separated)
+	// Common values: "Network:preconnectTo", "ContentFilters", "Loading", "JavaScript"
+	WebKitDebugCategories string `mapstructure:"webkit_debug_categories" yaml:"webkit_debug_categories"`
+
+	// Enable content filtering debug logs
+	EnableFilteringDebug bool `mapstructure:"enable_filtering_debug" yaml:"enable_filtering_debug"`
+
+	// Enable detailed WebView state logging
+	EnableWebViewDebug bool `mapstructure:"enable_webview_debug" yaml:"enable_webview_debug"`
+
+	// Log WebKit crashes and errors to file
+	LogWebKitCrashes bool `mapstructure:"log_webkit_crashes" yaml:"log_webkit_crashes"`
+
+	// Enable script injection debug logs
+	EnableScriptDebug bool `mapstructure:"enable_script_debug" yaml:"enable_script_debug"`
+
+	// Enable general debug mode (equivalent to DUMBER_DEBUG env var)
+	EnableGeneralDebug bool `mapstructure:"enable_general_debug" yaml:"enable_general_debug"`
 }
 
 // Manager handles configuration loading, watching, and reloading.

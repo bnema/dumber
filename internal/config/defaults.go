@@ -131,6 +131,15 @@ func DefaultConfig() *Config {
 			ProcessRecycleThreshold: 50,            // Recycle after 50 page loads
 			EnableMemoryMonitoring:  true,          // Monitor for production tuning
 		},
+		Debug: DebugConfig{
+			EnableWebKitDebug:     false,
+			WebKitDebugCategories: "Network:preconnectTo,ContentFilters",
+			EnableFilteringDebug:  false,
+			EnableWebViewDebug:    false,
+			LogWebKitCrashes:      true, // Always log crashes
+			EnableScriptDebug:     false,
+			EnableGeneralDebug:    false,
+		},
 		RenderingMode: RenderingModeAuto,
 	}
 }

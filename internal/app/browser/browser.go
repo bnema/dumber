@@ -15,6 +15,7 @@ import (
 	"github.com/bnema/dumber/internal/app/messaging"
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/db"
+	"github.com/bnema/dumber/internal/filtering"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/pkg/webkit"
 	"github.com/bnema/dumber/services"
@@ -41,6 +42,9 @@ type BrowserApp struct {
 	zoomController       *control.ZoomController
 	navigationController *control.NavigationController
 	clipboardController  *control.ClipboardController
+
+	// Content filtering
+	filterManager *filtering.FilterManager
 
 	// Handlers
 	schemeHandler   *api.SchemeHandler
@@ -140,6 +144,12 @@ func (app *BrowserApp) Run() {
 	if err := app.createWebView(); err != nil {
 		log.Printf("Warning: failed to create WebView: %v", err)
 		return
+	}
+
+	// Initialize content blocking
+	if err := app.setupContentBlocking(); err != nil {
+		log.Printf("Warning: failed to setup content blocking: %v", err)
+		// Continue without content blocking
 	}
 
 	// Handle browse command if present
