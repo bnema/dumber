@@ -5,6 +5,7 @@
     id: number;
     url: string;
     title: string;
+    favicon_url?: string;
     visit_count: number;
     last_visited: string;
     created_at: string;
@@ -135,8 +136,6 @@
     fetchHistory();
   });
 
-  // Combined loading state
-  const loading = $derived(historyLoading || shortcutsLoading);
 </script>
 
 <div class="homepage-container">
@@ -162,7 +161,31 @@
           >
             <div class="history-line">
               <div class="history-favicon-chip">
-                <div class="history-favicon-fallback">🌐</div>
+                {#if item.favicon_url}
+                  <img
+                    src={item.favicon_url}
+                    alt=""
+                    class="history-favicon-img"
+                    onerror={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      if (target) {
+                        target.style.display='none';
+                        const fallback = target.nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display='block';
+                      }
+                    }}
+                    onload={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      if (target) {
+                        const fallback = target.nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display='none';
+                      }
+                    }}
+                  />
+                  <div class="history-favicon-fallback" style="display: none;">🌐</div>
+                {:else}
+                  <div class="history-favicon-fallback">🌐</div>
+                {/if}
               </div>
               <div class="history-title">{item.title || 'Untitled'}</div>
               <div class="history-sep">•</div>
