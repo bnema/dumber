@@ -25,6 +25,7 @@ All notable changes to this project will be documented in this file.
 - **Browser freeze**: Removed infinite loop in mode switching reactive effects
 - **State persistence**: Proper cleanup when switching between Ctrl+L and Ctrl+F modes
 - **Homepage protocol**: Fixed dumb://homepage not working after GUI migration with proper Svelte 5 component and API integration
+- **Omnibox positioning on homepage**: Fixed omnibox stuck in top-left corner by isolating homepage CSS styles and strengthening omnibox positioning with explicit fixed positioning and CSS isolation
 
 ## [0.7.0] - 2025-09-14
 
