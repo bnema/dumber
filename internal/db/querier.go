@@ -15,6 +15,7 @@ type Querier interface {
 	CleanupOldZoomLevels(ctx context.Context, dollar_1 sql.NullString) error
 	DeleteCertificateValidation(ctx context.Context, hostname string, certificateHash string) error
 	DeleteExpiredCertificateValidations(ctx context.Context) error
+	DeleteHistory(ctx context.Context, id int64) error
 	// Delete zoom level setting for a domain
 	DeleteZoomLevel(ctx context.Context, domain string) error
 	GetCertificateValidation(ctx context.Context, hostname string, certificateHash string) (CertificateValidation, error)

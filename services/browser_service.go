@@ -287,11 +287,7 @@ func (s *BrowserService) SearchHistory(ctx context.Context, query string, limit 
 
 // DeleteHistoryEntry removes a specific history entry.
 func (s *BrowserService) DeleteHistoryEntry(ctx context.Context, id int64) error {
-	_ = ctx
-	_ = id
-	// Note: DeleteHistory method doesn't exist in current schema
-	// This would need to be implemented in the database layer
-	return fmt.Errorf("delete history not implemented yet")
+	return s.dbQueries.DeleteHistory(ctx, id)
 }
 
 // ClearHistory removes all history entries.

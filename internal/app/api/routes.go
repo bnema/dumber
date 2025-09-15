@@ -107,6 +107,26 @@ func (h *Handler) HandleHistoryStats() (string, []byte, bool) {
 	return constants.ContentTypeJSON, b, true
 }
 
+// HandleHistoryDelete handles GET /history/delete endpoint
+func (h *Handler) HandleHistoryDelete(u *neturl.URL) (string, []byte, bool) {
+	log.Printf("[api] GET /history/delete%s", u.RawQuery)
+	q := u.Query()
+	idStr := q.Get("id")
+	if idStr == "" {
+		return constants.ContentTypeJSON, []byte(`{"error":"id parameter required"}`), true
+	}
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		return constants.ContentTypeJSON, []byte(`{"error":"invalid id parameter"}`), true
+	}
+	ctx := context.Background()
+	err = h.browserService.DeleteHistoryEntry(ctx, id)
+	if err != nil {
+		return constants.ContentTypeJSON, []byte(`{"error":"failed to delete entry"}`), true
+	}
+	return constants.ContentTypeJSON, []byte(`{"success":true}`), true
+}
+
 // HandleDefault returns empty JSON for unknown endpoints
 func (h *Handler) HandleDefault() (string, []byte, bool) {
 	return constants.ContentTypeJSON, []byte("{}"), true

@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
 - **Click-anywhere-to-close**: Omnibox closes when clicking outside for better UX
 - **Homepage Svelte 5 component**: New standalone homepage with history display and keyboard shortcuts reference
 - **Page generator system**: Vite plugin for generating dumb:// protocol pages (homepage, config, about) with extensible architecture
+- **History deletion API**: New DELETE endpoint at `/history/delete?id=N` for removing individual history entries
+- **Lucide icons integration**: Professional SVG icons replacing emoji throughout the UI
 
 ### Improved
 - **Omnibox/Find system**: Complete migration from 500-line raw JavaScript to modular Svelte 5 components
@@ -18,6 +20,9 @@ All notable changes to this project will be documented in this file.
 - **GUI build pipeline**: Vite-based bundling with hot reload and TypeScript support
 - **Keyboard shortcuts**: Fixed Ctrl+F not working by adding missing 'f' key to keyboard dispatcher
 - **State management**: Proper cleanup between omnibox and find modes prevents state conflicts
+- **Homepage UX**: Enhanced layout with 70/30 flex ratio, compact keyboard shortcuts table, and statistics display
+- **Interactive delete**: History entries show trash icon on hover with smooth fade-out animation on deletion
+- **Top 5 most visited**: New section displaying frequently accessed sites with visit counts
 - **Performance**: Instant shortcut response with pre-mounted DOM elements
 
 ### Fixed
