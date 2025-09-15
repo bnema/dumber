@@ -153,6 +153,8 @@ func dispatchAccelerator(uid uintptr, keyval uint, state uint) {
 		keyName = "r"
 	case uint(C.GDK_KEY_l), uint(C.GDK_KEY_L):
 		keyName = "l"
+	case uint(C.GDK_KEY_f), uint(C.GDK_KEY_F):
+		keyName = "f"
 	default:
 		// If Control held, log unknown keyval for diagnostics
 		if ctrl {
@@ -304,6 +306,7 @@ s.textContent=':root{color-scheme:' + (d?'dark':'light') + ';}';
 } catch(e) { console.warn('[dumber] theme runtime update failed', e); } })();`, dval)
 	_ = vw.InjectScript(js)
 }
+
 
 //export goOnUcmMessage
 func goOnUcmMessage(id C.ulong, json *C.char) {
