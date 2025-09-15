@@ -6,6 +6,7 @@
 
 import { mount } from 'svelte';
 import { Omnibox } from '../../components/omnibox';
+import { ensureShadowMount } from './shadowHost';
 import type { OmniboxConfig } from '../../components/omnibox/types';
 
 let omniboxComponent: ReturnType<typeof mount> | null = null;
@@ -19,7 +20,7 @@ export interface OmniboxInitConfig extends OmniboxConfig {
 /**
  * Initialize the omnibox component system
  */
-export async function initializeOmnibox(config: OmniboxInitConfig = {}): Promise<void> {
+export async function initializeOmnibox(_config: OmniboxInitConfig = {}): Promise<void> {
   if (isInitialized) {
     console.warn('Omnibox already initialized');
     return;
@@ -38,34 +39,10 @@ export async function initializeOmnibox(config: OmniboxInitConfig = {}): Promise
       return;
     }
 
-    // Create container element
-    const containerId = config.containerId || 'dumber-omnibox-root';
-    let container = document.getElementById(containerId);
-
-    if (!container) {
-      container = document.createElement('div');
-      container.id = containerId;
-      container.style.cssText = `
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        bottom: 0 !important;
-        z-index: 2147483647 !important;
-        pointer-events: none !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        border: none !important;
-        background: none !important;
-        isolation: isolate !important;
-        contain: layout style !important;
-      `;
-      document.documentElement.appendChild(container);
-    }
-
-    // Mount the Svelte component
+    // Mount omnibox into the shared global Shadow DOM host
+    const mountEl = ensureShadowMount('dumber-omnibox');
     omniboxComponent = mount(Omnibox, {
-      target: container
+      target: mountEl as unknown as Element
     });
 
     // Wait for the component to mount and set up the global API
@@ -75,6 +52,12 @@ export async function initializeOmnibox(config: OmniboxInitConfig = {}): Promise
           console.log('✅ Omnibox component system initialized');
           console.log('🔧 Global API is available:', Object.keys(window.__dumber_omnibox));
           isInitialized = true;
+          // Notify isolated bundle listeners that omnibox is ready
+          try {
+            document.dispatchEvent(new CustomEvent('dumber:omnibox-ready'));
+          } catch (e) {
+            console.warn('Failed to dispatch omnibox-ready event', e);
+          }
           resolve();
         } else {
           setTimeout(checkAPI, 10); // Check again in 10ms
@@ -82,6 +65,30 @@ export async function initializeOmnibox(config: OmniboxInitConfig = {}): Promise
       };
       checkAPI();
     });
+
+    // Bridge: listen for page-world events carrying suggestions and forward to API
+    const handleSuggestionsEvent = (e: Event) => {
+      try {
+        const detail = (e as CustomEvent).detail;
+        const suggestions = detail?.suggestions ?? detail;
+        if (Array.isArray(suggestions) && window.__dumber_omnibox?.setSuggestions) {
+          console.log('🔗 [Bridge] Received page-world suggestions event:', suggestions.length);
+          window.__dumber_omnibox.setSuggestions(suggestions);
+        } else {
+          console.warn('🔗 [Bridge] Suggestions event received but API not ready or invalid payload');
+        }
+      } catch (err) {
+        console.warn('🔗 [Bridge] Failed handling suggestions event:', err);
+      }
+    };
+
+    document.addEventListener(
+      'dumber:omnibox-suggestions',
+      handleSuggestionsEvent,
+      false
+    );
+    // Unified event name
+    document.addEventListener('dumber:omnibox:suggestions', handleSuggestionsEvent, false);
 
   } catch (error) {
     console.error('❌ Failed to initialize omnibox component:', error);
@@ -109,10 +116,7 @@ export function cleanupOmnibox(): void {
     omniboxComponent = null;
   }
 
-  const container = document.getElementById('dumber-omnibox-root');
-  if (container) {
-    container.remove();
-  }
+  // The shared shadow host remains persistent; just log cleanup
 
   isInitialized = false;
   console.log('🧹 Omnibox component cleaned up');

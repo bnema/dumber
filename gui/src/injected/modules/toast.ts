@@ -7,6 +7,7 @@
 
 import { mount, flushSync } from 'svelte';
 import ToastContainer from '$components/toast/ToastContainer.svelte';
+import { ensureShadowMount } from './shadowHost';
 import '$lib/styles.css';
 
 export interface ToastConfig {
@@ -78,17 +79,8 @@ export async function initializeToast(config?: ToastConfig): Promise<void> {
   }
 
   try {
-    // Find or create browser component root
-    let rootElement = document.querySelector('.browser-component-root') as HTMLDivElement;
-    if (!rootElement) {
-      console.log('🔧 Creating browser-component-root');
-      rootElement = document.createElement('div');
-      rootElement.className = 'browser-component-root';
-      rootElement.style.cssText = 'position: fixed; top: 0; left: 0; pointer-events: none; z-index: 2147483647;';
-      document.documentElement.appendChild(rootElement);
-    } else {
-      console.log('✅ Found existing browser-component-root');
-    }
+    // Use the global Shadow DOM host for isolation
+    const rootElement = ensureShadowMount('dumber-toast');
 
     // Initialize theme
     const initialTheme = config?.theme || window.__dumber_initial_theme;
@@ -98,8 +90,35 @@ export async function initializeToast(config?: ToastConfig): Promise<void> {
 
     // Mount the Svelte toast container (Svelte 5 syntax)
     mount(ToastContainer, {
-      target: rootElement
+      target: rootElement as unknown as Element
     });
+
+    // Signal isolated GUI readiness for page-world bridge
+    try {
+      document.documentElement.setAttribute('data-dumber-gui', 'ready');
+      document.dispatchEvent(new CustomEvent('dumber:gui-ready'));
+    } catch {
+      // Ignore errors in GUI readiness signaling
+    }
+
+    // Listen for page-world bridge events and forward to internal toast functions
+    const handleShowToast = (e: Event) => {
+      const detail = (e as CustomEvent).detail || {};
+      if (typeof window.__dumber_showToast === 'function') {
+        window.__dumber_showToast(detail.message, detail.duration, detail.type);
+      }
+    };
+    document.addEventListener('dumber:showToast', handleShowToast);
+    document.addEventListener('dumber:toast:show', handleShowToast);
+
+    const handleZoomToast = (e: Event) => {
+      const detail = (e as CustomEvent).detail || {};
+      if (typeof window.__dumber_showZoomToast === 'function') {
+        window.__dumber_showZoomToast(detail.level);
+      }
+    };
+    document.addEventListener('dumber:showZoomToast', handleZoomToast);
+    document.addEventListener('dumber:toast:zoom', handleZoomToast);
 
     // Force immediate effect execution to ensure onMount callbacks run
     flushSync();

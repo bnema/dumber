@@ -18,6 +18,8 @@ interface DumberGUI {
   isReady: boolean;
 }
 
+// (legacy suggestions normalization removed; omnibox now fetches suggestions directly via API)
+
 // DOM readiness utility - handles all document ready states
 function whenDOMReady(callback: () => void) {
   if (document.readyState === 'loading') {
@@ -31,6 +33,9 @@ function whenDOMReady(callback: () => void) {
   }
 }
 
+// Install a page-world bridge so Go can call window.__dumber_omnibox_suggestions()
+// Page-world bridge is injected by WebKit at document-start; no-op here to avoid duplicates.
+
 // Create global namespace
 declare global {
   interface Window {
@@ -43,7 +48,6 @@ declare global {
     __dumber_toggle?: () => void;
     __dumber_find_open?: (query?: string) => void;
     __dumber_find_close?: () => void;
-    __dumber_setSuggestions?: (suggestions: any[]) => void;
     __dumber_find_query?: (query: string) => void;
   }
 }
@@ -59,6 +63,8 @@ if (!window.__dumber_gui_ready) {
   // Initialize Svelte GUI systems immediately
   whenDOMReady(async () => {
     try {
+  // Page-world bridge is injected by WebKit; avoid duplicate injection here
+
       // Initialize toast system first
       await initializeToast();
 
@@ -151,6 +157,16 @@ if (!window.__dumber_gui_ready) {
     }, true);
 
     console.log('✅ KeyboardService initialized with global listeners');
+
+    // Listen to bridge keyboard events from page-world and forward to KeyboardService
+    document.addEventListener('dumber:key', (e: Event) => {
+      const detail = (e as CustomEvent).detail || {};
+      if (detail && typeof detail.shortcut === 'string') {
+        keyboardService.handleNativeShortcut(detail.shortcut);
+      }
+    });
+
+    // Suggestions are now fetched via API directly by the omnibox component; no page-bridge handlers needed
   });
 
   // Legacy compatibility functions for existing Go code
@@ -187,13 +203,6 @@ if (!window.__dumber_gui_ready) {
       window.__dumber_omnibox.close();
     } else {
       keyboardService.handleNativeShortcut('escape');
-    }
-  };
-
-  // Key function that Go uses to send search suggestions
-  window.__dumber_setSuggestions = (suggestions: any[]) => {
-    if (window.__dumber_omnibox?.setSuggestions) {
-      window.__dumber_omnibox.setSuggestions(suggestions);
     }
   };
 
