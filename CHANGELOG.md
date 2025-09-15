@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Complete Svelte 5 GUI migration**: Omnibox and find components migrated from raw JavaScript to modern Svelte 5 with runes
+- **Tailwind CSS v4 integration**: Unified design system with PostCSS and JIT compilation
+- **TypeScript keyboard service**: Centralized shortcut management with full type safety
+- **Click-anywhere-to-close**: Omnibox closes when clicking outside for better UX
+- **Homepage Svelte 5 component**: New standalone homepage with history display and keyboard shortcuts reference
+- **Page generator system**: Vite plugin for generating dumb:// protocol pages (homepage, config, about) with extensible architecture
+
+### Improved
+- **Omnibox/Find system**: Complete migration from 500-line raw JavaScript to modular Svelte 5 components
+- **Toast notifications**: Migrated from raw JavaScript to Svelte 5 components with proper animations
+- **GUI build pipeline**: Vite-based bundling with hot reload and TypeScript support
+- **Keyboard shortcuts**: Fixed Ctrl+F not working by adding missing 'f' key to keyboard dispatcher
+- **State management**: Proper cleanup between omnibox and find modes prevents state conflicts
+- **Performance**: Instant shortcut response with pre-mounted DOM elements
+
+### Fixed
+- **Ctrl+F shortcut**: Added missing 'f' key case in keyboard_cgo.go dispatcher
+- **Browser freeze**: Removed infinite loop in mode switching reactive effects
+- **State persistence**: Proper cleanup when switching between Ctrl+L and Ctrl+F modes
+- **Homepage protocol**: Fixed dumb://homepage not working after GUI migration with proper Svelte 5 component and API integration
+
 ## [0.7.0] - 2025-09-14
 
 ### Added
