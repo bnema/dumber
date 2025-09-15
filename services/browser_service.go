@@ -64,6 +64,7 @@ type HistoryEntry struct {
 	ID          int64     `json:"id"`
 	URL         string    `json:"url"`
 	Title       string    `json:"title"`
+	FaviconURL  string    `json:"favicon_url"`
 	VisitCount  int32     `json:"visit_count"`
 	LastVisited time.Time `json:"last_visited"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -239,6 +240,7 @@ func (s *BrowserService) GetRecentHistory(ctx context.Context, limit int) ([]His
 			ID:          entry.ID,
 			URL:         entry.Url,
 			Title:       entry.Title.String,
+			FaviconURL:  entry.FaviconUrl.String,
 			VisitCount:  vc,
 			LastVisited: entry.LastVisited.Time,
 			CreatedAt:   entry.CreatedAt.Time,
@@ -273,6 +275,7 @@ func (s *BrowserService) SearchHistory(ctx context.Context, query string, limit 
 			ID:          entry.ID,
 			URL:         entry.Url,
 			Title:       entry.Title.String,
+			FaviconURL:  entry.FaviconUrl.String,
 			VisitCount:  vc,
 			LastVisited: entry.LastVisited.Time,
 			CreatedAt:   entry.CreatedAt.Time,

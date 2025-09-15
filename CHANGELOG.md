@@ -27,6 +27,7 @@ All notable changes to this project will be documented in this file.
 - **Homepage protocol**: Fixed dumb://homepage not working after GUI migration with proper Svelte 5 component and API integration
 - **Omnibox positioning on homepage**: Fixed omnibox stuck in top-left corner by isolating homepage CSS styles and strengthening omnibox positioning with explicit fixed positioning and CSS isolation
 - **Find mode persistence**: Fixed find view persisting after pressing Esc when reopening with Ctrl+L by ensuring toggle() resets mode to 'omnibox'
+- **Favicon display**: Fixed missing favicons in homepage history after Svelte 5 migration by adding FaviconURL field to API response and implementing proper fallback display logic
 
 ## [0.7.0] - 2025-09-14
 
