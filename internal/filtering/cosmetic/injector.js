@@ -182,16 +182,18 @@ const CosmeticFilter = (() => {
         antiBreakage.neutralizeAdPromises();
         antiBreakage.cleanupLoadingIndicators();
 
-        // Parse and categorize rules
-        rules.forEach(rule => {
-            if (rule.includes(':has(') || rule.includes(':not(')) {
-                selectors.procedural.push(rule);
-            } else if (rule.domain === window.location.hostname) {
-                selectors.specific.push(rule.selector);
-            } else {
-                selectors.generic.push(rule.selector);
-            }
-        });
+        // Parse and categorize rules (with null safety)
+        if (rules && Array.isArray(rules)) {
+            rules.forEach(rule => {
+                if (rule.includes(':has(') || rule.includes(':not(')) {
+                    selectors.procedural.push(rule);
+                } else if (rule.domain === window.location.hostname) {
+                    selectors.specific.push(rule.selector);
+                } else {
+                    selectors.generic.push(rule.selector);
+                }
+            });
+        }
 
         // Apply initial hiding
         hideElements([...selectors.generic, ...selectors.specific]);

@@ -86,19 +86,45 @@ func (z *ZoomController) handleZoomChange(level float64) {
 	}
 }
 
-// showZoomToast displays a zoom level notification
+// showZoomToast displays a zoom level notification using TypeScript toast system
 func (z *ZoomController) showZoomToast(level float64) {
-	js := fmt.Sprintf(`try { 
-		if (typeof window.__dumber_showZoomToast === 'function') {
-			window.__dumber_showZoomToast(%f);
-		} else {
-			console.warn('[dumber] Zoom toast function not available yet');
+	log.Printf("[zoom] Attempting to show zoom toast for level %.2f", level)
+
+	percentage := int(level * 100)
+
+	// Enhanced approach that ensures toast always appears
+	js := fmt.Sprintf(`(function() {
+		try {
+			console.log('[dumber] Attempting to show zoom toast...');
+			const zoomLevel = %f;
+			const percentage = %d;
+			let toastShown = false;
+
+			// Strategy 1: Try the Svelte toast system first
+			if (typeof window.__dumber_showZoomToast === 'function') {
+				console.log('[dumber] Using Svelte zoom toast system');
+				window.__dumber_showZoomToast(zoomLevel);
+				toastShown = true;
+			} else if (typeof window.__dumber_showToast === 'function') {
+				console.log('[dumber] Using Svelte general toast system');
+				window.__dumber_showToast('Zoom: ' + percentage + '%%', 1500, 'info');
+				toastShown = true;
+			}
+
+
+			if (!toastShown) {
+				console.warn('[dumber] Failed to show zoom toast - no DOM body available');
+			}
+
+		} catch(e) {
+			console.error('[dumber] Zoom toast error:', e);
 		}
-	} catch(e) { 
-		console.error('[dumber] Zoom toast error:', e); 
-	}`, level)
+	})();`, level, percentage)
+
 	if err := z.webView.InjectScript(js); err != nil {
 		log.Printf("[zoom] failed to show toast: %v", err)
+	} else {
+		log.Printf("[zoom] Toast script injected successfully")
 	}
 }
 
