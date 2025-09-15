@@ -52,9 +52,38 @@
   aria-label="Dismiss notification"
   title="Click to dismiss"
 >
-  <div class="w-full min-w-36 px-5 py-4 text-center text-white font-semibold text-sm rounded-xl shadow-2xl backdrop-blur-md border transition-all duration-250 {type === 'success' ? 'bg-gradient-to-br from-green-500/90 to-green-700/90 border-green-300/30' : type === 'error' ? 'bg-gradient-to-br from-red-500/90 to-red-700/90 border-red-300/30' : 'bg-gradient-to-br from-blue-500/90 to-blue-700/90 border-blue-300/30'}">
+  <div class="toast-content">
     {message || 'Notification'}
   </div>
+  <style>
+    .toast-content {
+      width: 100%;
+      min-width: 9rem; /* ~min-w-36 */
+      padding: 1rem 1.25rem; /* px-5 py-4 */
+      text-align: center;
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.875rem; /* text-sm */
+      border-radius: 0.75rem; /* rounded-xl */
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); /* shadow-2xl */
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255,255,255,0.18);
+      transition: all 250ms ease;
+    }
+
+    .toast-success .toast-content {
+      background: linear-gradient(135deg, rgba(34,197,94,0.9), rgba(21,128,61,0.9));
+      border-color: rgba(134,239,172,0.3);
+    }
+    .toast-error .toast-content {
+      background: linear-gradient(135deg, rgba(239,68,68,0.9), rgba(185,28,28,0.9));
+      border-color: rgba(252,165,165,0.3);
+    }
+    .toast-info .toast-content {
+      background: linear-gradient(135deg, rgba(59,130,246,0.9), rgba(29,78,216,0.9));
+      border-color: rgba(147,197,253,0.3);
+    }
+  </style>
 </button>
 
 <style>

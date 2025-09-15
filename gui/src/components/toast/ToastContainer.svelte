@@ -124,7 +124,22 @@
   });
 </script>
 
-<div class="fixed top-5 left-5 z-[2147483647] pointer-events-none flex flex-col gap-2 max-w-80 visible opacity-100 backdrop-blur-sm">
+<div
+  class="toast-container"
+  style="
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 2147483647;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 320px;
+    opacity: 1;
+    backdrop-filter: blur(2px);
+  "
+>
   {#each toasts as toast (toast.id)}
     <Toast
       id={toast.id}
@@ -137,8 +152,6 @@
 </div>
 
 <style>
-  :global(.toast-base) {
-    pointer-events: auto;
-    will-change: transform, opacity;
-  }
+  .toast-container { contain: layout style; }
+  /* The Toast button handles its own pointer events */
 </style>
