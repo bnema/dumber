@@ -212,6 +212,18 @@ static void register_uri_scheme_handler(WebKitWebContext* context, const char* s
     if (!context || !scheme) return;
     webkit_web_context_register_uri_scheme(context, scheme, (WebKitURISchemeRequestCallback)on_uri_scheme, NULL, NULL);
 }
+static void register_uri_scheme_security(WebKitWebContext* context, const char* scheme) {
+	if (!context || !scheme) return;
+	WebKitSecurityManager* sm = webkit_web_context_get_security_manager(context);
+	if (!sm) return;
+
+	// Mark as secure to avoid mixed-content warnings when requested by https pages
+	webkit_security_manager_register_uri_scheme_as_secure(sm, scheme);
+	// Treat as local scheme
+	webkit_security_manager_register_uri_scheme_as_local(sm, scheme);
+	// Allow cross-origin requests to this scheme (bypass CORS header checks for this scheme)
+	webkit_security_manager_register_uri_scheme_as_cors_enabled(sm, scheme);
+}
 
 // Script message handler wiring for WebKitGTK 6
 // Forward declaration for callback used in g_signal_connect_data
@@ -236,6 +248,17 @@ static gboolean register_ucm_handler(WebKitUserContentManager* ucm, const char* 
     g_signal_connect_data(G_OBJECT(ucm), signal, G_CALLBACK(ucm_on_script_message_cb), (gpointer)id, NULL, 0);
     g_free(signal);
     return TRUE;
+}
+
+// Register a script message handler for a specific JavaScript world
+static gboolean register_ucm_handler_world(WebKitUserContentManager* ucm, const char* name, const char* world_name, unsigned long id) {
+	if (!ucm || !name || !world_name) return FALSE;
+	webkit_user_content_manager_register_script_message_handler(ucm, name, world_name);
+	gchar* signal = g_strdup_printf("script-message-received::%s", name);
+	if (!signal) return FALSE;
+	g_signal_connect_data(G_OBJECT(ucm), signal, G_CALLBACK(ucm_on_script_message_cb), (gpointer)id, NULL, 0);
+	g_free(signal);
+	return TRUE;
 }
 
 // ----- Conditional helpers for settings across WebKit versions -----
@@ -842,6 +865,7 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	{
 		sch := C.CString("dumb")
 		C.register_uri_scheme_handler(ctx, sch)
+		C.register_uri_scheme_security(ctx, sch)
 		C.free(unsafe.Pointer(sch))
 	}
 	// Cookie manager persistent storage handled via NetworkSession in new_webview_with_ucm_and_session
@@ -950,14 +974,14 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	_ = v.RegisterKeyboardShortcut("cmdorctrl+0", func() { _ = v.SetZoom(1.0) })
 	// Find in page (Ctrl/Cmd+F): use new keyboard service bridge
 	_ = v.RegisterKeyboardShortcut("cmdorctrl+f", func() {
-		_ = v.InjectScript("window.__dumber_keyboard && window.__dumber_keyboard.handleNativeShortcut('cmdorctrl+f')")
+		_ = v.InjectScript("document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:'cmdorctrl+f'}}))")
 	})
 	// Navigation with Alt+Arrow keys: use new keyboard service bridge
 	_ = v.RegisterKeyboardShortcut("alt+ArrowLeft", func() {
-		_ = v.InjectScript("window.__dumber_keyboard && window.__dumber_keyboard.handleNativeShortcut('alt+arrowleft')")
+		_ = v.InjectScript("document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:'alt+arrowleft'}}))")
 	})
 	_ = v.RegisterKeyboardShortcut("alt+ArrowRight", func() {
-		_ = v.InjectScript("window.__dumber_keyboard && window.__dumber_keyboard.handleNativeShortcut('alt+arrowright')")
+		_ = v.InjectScript("document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:'alt+arrowright'}}))")
 	})
 	// Update window title when page title changes
 	C.connect_title_notify(viewWidget, (*C.GtkWindow)(unsafe.Pointer(win)))
@@ -1246,13 +1270,23 @@ func (w *WebView) enableUserContentManager(cfg *Config) {
 	if w == nil || w.native == nil || w.native.ucm == nil {
 		return
 	}
-	// Register handler "dumber"
+	// Register handler "dumber" for main world
 	cname := C.CString("dumber")
 	ok := C.register_ucm_handler(w.native.ucm, cname, C.ulong(w.id))
 	if ok == 0 {
 		log.Printf("[webkit] Failed to register UCM handler; fallback bridge will handle messages")
 	}
 	C.free(unsafe.Pointer(cname))
+
+	// Also register handler for the isolated GUI world so GUI can post messages to native
+	cworld := C.CString("dumber-gui")
+	cname2 := C.CString("dumber")
+	ok2 := C.register_ucm_handler_world(w.native.ucm, cname2, cworld, C.ulong(w.id))
+	if ok2 == 0 {
+		log.Printf("[webkit] Failed to register UCM handler for isolated world 'dumber-gui'")
+	}
+	C.free(unsafe.Pointer(cworld))
+	C.free(unsafe.Pointer(cname2))
 
 	// Inject color-scheme preference script at document-start to inform sites of system theme
 	preferDark := C.gtk_prefers_dark() != 0
@@ -1285,14 +1319,101 @@ func (w *WebView) enableUserContentManager(cfg *Config) {
 			cGui := C.CString(guiScript)
 			defer C.free(unsafe.Pointer(cGui))
 
-			log.Printf("[webkit] Creating GUI user script for document-start injection in main world")
-			guiUserScript := C.webkit_user_script_new((*C.gchar)(cGui), C.WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, nil, nil)
+			log.Printf("[webkit] Creating GUI user script for document-start injection in isolated world 'dumber-gui'")
+			world := C.CString("dumber-gui")
+			defer C.free(unsafe.Pointer(world))
+			guiUserScript := C.webkit_user_script_new_for_world((*C.gchar)(cGui), C.WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, (*C.gchar)(world), nil, nil)
 			if guiUserScript != nil {
 				C.webkit_user_content_manager_add_script(w.native.ucm, guiUserScript)
 				C.webkit_user_script_unref(guiUserScript)
-				log.Printf("[webkit] GUI bundle successfully injected as user script at document-start in main world")
+				log.Printf("[webkit] GUI bundle successfully injected as user script at document-start in isolated world")
 			} else {
 				log.Printf("[webkit] ERROR: Failed to create GUI user script")
+			}
+
+			// Inject a unified page-world bridge to dispatch standard events and expose unified API
+			bridge := `(() => { try {
+              if (window.__dumber_page_bridge_installed) return; 
+              window.__dumber_page_bridge_installed = true;
+              // Ensure unified API object
+              window.__dumber = window.__dumber || {};
+              // Toast namespace
+              window.__dumber.toast = window.__dumber.toast || {
+                show: function(message, duration, type) {
+                  try {
+                    document.dispatchEvent(new CustomEvent('dumber:toast:show', { detail: { message, duration, type } }));
+                    // Legacy compatibility
+                    document.dispatchEvent(new CustomEvent('dumber:showToast', { detail: { message, duration, type } }));
+                  } catch(e) { /* ignore */ }
+                },
+                zoom: function(level) {
+                  try {
+                    document.dispatchEvent(new CustomEvent('dumber:toast:zoom', { detail: { level } }));
+                    // Legacy compatibility
+                    document.dispatchEvent(new CustomEvent('dumber:showZoomToast', { detail: { level } }));
+                  } catch(e) { /* ignore */ }
+                }
+              };
+              // Back-compat global helpers
+              window.__dumber_showToast = function(message, duration, type) { window.__dumber.toast.show(message, duration, type); };
+              window.__dumber_showZoomToast = function(level) { window.__dumber.toast.zoom(level); };
+
+              // Omnibox suggestions bridge (with queue before ready)
+              let __omniboxQueue = [];
+              let __omniboxReady = false;
+              function __omniboxDispatch(suggestions) {
+                try {
+                  document.dispatchEvent(new CustomEvent('dumber:omnibox:suggestions', { detail: { suggestions } }));
+                  // Legacy compatibility event name
+                  document.dispatchEvent(new CustomEvent('dumber:omnibox-suggestions', { detail: { suggestions } }));
+                } catch (e) { /* ignore */ }
+              }
+              window.__dumber_omnibox_suggestions = function(suggestions) {
+                if (__omniboxReady) {
+                  __omniboxDispatch(suggestions);
+                } else {
+                  try { __omniboxQueue.push(suggestions); } catch (_) { /* ignore */ }
+                }
+              };
+              document.addEventListener('dumber:omnibox-ready', function() {
+                __omniboxReady = true;
+                if (__omniboxQueue && __omniboxQueue.length) {
+                  const items = __omniboxQueue.slice();
+                  __omniboxQueue.length = 0;
+                  for (const s of items) __omniboxDispatch(s);
+                }
+              });
+              // Unified omnibox API for page-world callers
+              window.__dumber.omnibox = window.__dumber.omnibox || {
+                suggestions: function(suggestions) { window.__dumber_omnibox_suggestions(suggestions); }
+              };
+            } catch (e) { console.warn('[dumber] unified bridge init failed', e); } })();`
+			cBridge := C.CString(bridge)
+			defer C.free(unsafe.Pointer(cBridge))
+			bridgeScript := C.webkit_user_script_new((*C.gchar)(cBridge), C.WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, nil, nil)
+			if bridgeScript != nil {
+				C.webkit_user_content_manager_add_script(w.native.ucm, bridgeScript)
+				C.webkit_user_script_unref(bridgeScript)
+				log.Printf("[webkit] Page-world toast bridge injected")
+			}
+
+			// If an API token is provided, inject a fetch wrapper in the isolated GUI world
+			if cfg.APIToken != "" {
+				wrapper := "(() => { try {" +
+					"const TOKEN='" + cfg.APIToken + "';" +
+					"const appendToken=(u)=>{ try { let url; try { url = new URL(u); } catch(_) { url = new URL(u, 'dumb://homepage'); } if(url.protocol==='dumb:' && url.pathname.startsWith('/api')){ url.searchParams.set('token', TOKEN); return url.toString(); } } catch(_){} return u; };" +
+					"const _fetch=window.fetch.bind(window); window.fetch=(input, init)=>{ try { if(typeof input==='string'){ input=appendToken(input); } else if(input && input.url){ const nu=appendToken(input.url); if(nu!==input.url){ input=new Request(nu, input); } } } catch(_){} return _fetch(input, init); };" +
+					"} catch(e) { console.warn('[dumber] api token wrapper failed', e); } })();"
+				cWrap := C.CString(wrapper)
+				defer C.free(unsafe.Pointer(cWrap))
+				world := C.CString("dumber-gui")
+				defer C.free(unsafe.Pointer(world))
+				wrapScript := C.webkit_user_script_new_for_world((*C.gchar)(cWrap), C.WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, (*C.gchar)(world), nil, nil)
+				if wrapScript != nil {
+					C.webkit_user_content_manager_add_script(w.native.ucm, wrapScript)
+					C.webkit_user_script_unref(wrapScript)
+					log.Printf("[webkit] API token fetch wrapper injected in isolated GUI world")
+				}
 			}
 		} else {
 			log.Printf("[webkit] ERROR: Failed to load GUI bundle from assets: %v", err)
