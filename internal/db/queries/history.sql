@@ -4,6 +4,12 @@ FROM history
 ORDER BY last_visited DESC
 LIMIT ?;
 
+-- name: GetHistoryWithOffset :many
+SELECT *
+FROM history
+ORDER BY last_visited DESC
+LIMIT ? OFFSET ?;
+
 -- name: AddOrUpdateHistory :exec
 INSERT INTO history (url, title) 
 VALUES (?, ?)

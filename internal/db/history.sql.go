@@ -73,6 +73,44 @@ func (q *Queries) GetHistory(ctx context.Context, limit int64) ([]History, error
 	return items, nil
 }
 
+const GetHistoryWithOffset = `-- name: GetHistoryWithOffset :many
+SELECT id, url, title, visit_count, last_visited, created_at, favicon_url
+FROM history
+ORDER BY last_visited DESC
+LIMIT ? OFFSET ?
+`
+
+func (q *Queries) GetHistoryWithOffset(ctx context.Context, limit int64, offset int64) ([]History, error) {
+	rows, err := q.db.QueryContext(ctx, GetHistoryWithOffset, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []History{}
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.Title,
+			&i.VisitCount,
+			&i.LastVisited,
+			&i.CreatedAt,
+			&i.FaviconUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const GetShortcuts = `-- name: GetShortcuts :many
 SELECT id, shortcut, url_template, description, created_at
 FROM shortcuts

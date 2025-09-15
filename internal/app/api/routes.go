@@ -58,19 +58,48 @@ func (h *Handler) HandleConfig(cfg *config.Config) (string, []byte, bool) {
 // HandleHistoryRecent handles GET /history/recent endpoint
 func (h *Handler) HandleHistoryRecent(u *neturl.URL) (string, []byte, bool) {
 	log.Printf("[api] GET /history/recent%s", u.RawQuery)
-	// Parse limit
+	// Parse limit and offset
 	q := u.Query()
-	limit := 50
+	limit := 20
 	if l := q.Get("limit"); l != "" {
 		if n, err := strconv.Atoi(l); err == nil && n > 0 {
 			limit = n
 		}
 	}
-	ctx := context.Background()
-	entries, err := h.browserService.GetRecentHistory(ctx, limit)
-	if err != nil {
-		return constants.ContentTypeJSON, []byte("[]"), true
+	offset := 0
+	if o := q.Get("offset"); o != "" {
+		if n, err := strconv.Atoi(o); err == nil && n >= 0 {
+			offset = n
+		}
 	}
+
+	ctx := context.Background()
+	var entries []interface{}
+
+	// Use paginated version if offset is provided
+	if offset > 0 || q.Has("offset") {
+		histEntries, err := h.browserService.GetRecentHistoryWithOffset(ctx, limit, offset)
+		if err != nil {
+			return constants.ContentTypeJSON, []byte("[]"), true
+		}
+		// Convert to interface slice for JSON marshaling
+		entries = make([]interface{}, len(histEntries))
+		for i, entry := range histEntries {
+			entries[i] = entry
+		}
+	} else {
+		// Use original method for backward compatibility
+		histEntries, err := h.browserService.GetRecentHistory(ctx, limit)
+		if err != nil {
+			return constants.ContentTypeJSON, []byte("[]"), true
+		}
+		// Convert to interface slice for JSON marshaling
+		entries = make([]interface{}, len(histEntries))
+		for i, entry := range histEntries {
+			entries[i] = entry
+		}
+	}
+
 	b, _ := json.Marshal(entries)
 	return constants.ContentTypeJSON, b, true
 }
