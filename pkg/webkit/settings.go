@@ -3,6 +3,9 @@ package webkit
 // Config holds initialization settings for the WebKit-based browser components.
 // This will map to WebKit2GTK and GTK settings in the real implementation.
 type Config struct {
+	// Assets provides access to embedded GUI files
+	Assets interface{ ReadFile(string) ([]byte, error) }
+
 	// InitialURL is the first URL to load when creating a WebView.
 	InitialURL string
 

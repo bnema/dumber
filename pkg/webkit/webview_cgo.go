@@ -948,11 +948,17 @@ func NewWebView(cfg *Config) (*WebView, error) {
 		_ = v.SetZoom(nz)
 	})
 	_ = v.RegisterKeyboardShortcut("cmdorctrl+0", func() { _ = v.SetZoom(1.0) })
-	// Find in page (Ctrl/Cmd+F) reuses omnibox component in find mode
-	_ = v.RegisterKeyboardShortcut("cmdorctrl+f", func() { _ = v.OpenFind("") })
-	// Navigation with Alt+Arrow keys
-	_ = v.RegisterKeyboardShortcut("alt+ArrowLeft", func() { _ = v.GoBack() })
-	_ = v.RegisterKeyboardShortcut("alt+ArrowRight", func() { _ = v.GoForward() })
+	// Find in page (Ctrl/Cmd+F): use new keyboard service bridge
+	_ = v.RegisterKeyboardShortcut("cmdorctrl+f", func() {
+		_ = v.InjectScript("window.__dumber_keyboard && window.__dumber_keyboard.handleNativeShortcut('cmdorctrl+f')")
+	})
+	// Navigation with Alt+Arrow keys: use new keyboard service bridge
+	_ = v.RegisterKeyboardShortcut("alt+ArrowLeft", func() {
+		_ = v.InjectScript("window.__dumber_keyboard && window.__dumber_keyboard.handleNativeShortcut('alt+arrowleft')")
+	})
+	_ = v.RegisterKeyboardShortcut("alt+ArrowRight", func() {
+		_ = v.InjectScript("window.__dumber_keyboard && window.__dumber_keyboard.handleNativeShortcut('alt+arrowright')")
+	})
 	// Update window title when page title changes
 	C.connect_title_notify(viewWidget, (*C.GtkWindow)(unsafe.Pointer(win)))
 	// Also dispatch title change to Go with view id
@@ -1235,6 +1241,7 @@ func (w *WebView) dispatchZoomChanged(level float64) {
 	}
 }
 
+
 // enableUserContentManager registers the 'dumber' message handler and injects the omnibox script.
 func (w *WebView) enableUserContentManager(cfg *Config) {
 	if w == nil || w.native == nil || w.native.ucm == nil {
@@ -1247,6 +1254,7 @@ func (w *WebView) enableUserContentManager(cfg *Config) {
 		log.Printf("[webkit] Failed to register UCM handler; fallback bridge will handle messages")
 	}
 	C.free(unsafe.Pointer(cname))
+
 
 	// Inject color-scheme preference script at document-start to inform sites of system theme
 	preferDark := C.gtk_prefers_dark() != 0
@@ -1263,37 +1271,64 @@ func (w *WebView) enableUserContentManager(cfg *Config) {
 	}
 	cScheme := C.CString(schemeJS)
 	defer C.free(unsafe.Pointer(cScheme))
-	schemeScript := C.webkit_user_script_new((*C.gchar)(cScheme), C.WEBKIT_USER_CONTENT_INJECT_ALL_FRAMES, C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, nil, nil)
+	schemeScript := C.webkit_user_script_new((*C.gchar)(cScheme), C.WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, nil, nil)
 	if schemeScript != nil {
 		C.webkit_user_content_manager_add_script(w.native.ucm, schemeScript)
 		C.webkit_user_script_unref(schemeScript)
 	}
 
-	// Add user script at document-start (omnibox/find reusable component)
-	src := C.CString(getOmniboxScript())
-	defer C.free(unsafe.Pointer(src))
-	script := C.webkit_user_script_new((*C.gchar)(src), C.WEBKIT_USER_CONTENT_INJECT_ALL_FRAMES, C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, nil, nil)
-	if script != nil {
-		C.webkit_user_content_manager_add_script(w.native.ucm, script)
-		C.webkit_user_script_unref(script)
-		log.Printf("[webkit] UCM omnibox script injected at document-start")
-	}
+	// Add GUI bundle as user script at document-start (contains toast, omnibox, and controls)
+	if cfg != nil && cfg.Assets != nil {
+		log.Printf("[webkit] Attempting to load GUI bundle from assets/gui/gui.min.js")
+		if guiBytes, err := cfg.Assets.ReadFile("assets/gui/gui.min.js"); err == nil {
+			guiScript := string(guiBytes)
+			log.Printf("[webkit] GUI bundle loaded successfully, size: %d bytes", len(guiBytes))
 
-	// Add user script at document-start (toast notification system)
-	toastSrc := C.CString(getToastScript())
-	defer C.free(unsafe.Pointer(toastSrc))
-	toastScript := C.webkit_user_script_new((*C.gchar)(toastSrc), C.WEBKIT_USER_CONTENT_INJECT_ALL_FRAMES, C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, nil, nil)
-	if toastScript != nil {
-		C.webkit_user_content_manager_add_script(w.native.ucm, toastScript)
-		C.webkit_user_script_unref(toastScript)
-		log.Printf("[webkit] UCM toast script injected at document-start")
+			cGui := C.CString(guiScript)
+			defer C.free(unsafe.Pointer(cGui))
+
+			log.Printf("[webkit] Creating GUI user script for document-start injection in main world")
+			guiUserScript := C.webkit_user_script_new((*C.gchar)(cGui), C.WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, nil, nil)
+			if guiUserScript != nil {
+				C.webkit_user_content_manager_add_script(w.native.ucm, guiUserScript)
+				C.webkit_user_script_unref(guiUserScript)
+				log.Printf("[webkit] GUI bundle successfully injected as user script at document-start in main world")
+			} else {
+				log.Printf("[webkit] ERROR: Failed to create GUI user script")
+			}
+		} else {
+			log.Printf("[webkit] ERROR: Failed to load GUI bundle from assets: %v", err)
+		}
+
+		// Add GUI CSS styles as user stylesheet using WebKit native API
+		if cssBytes, err := cfg.Assets.ReadFile("assets/gui/style.css"); err == nil {
+			cssContent := string(cssBytes)
+			cCss := C.CString(cssContent)
+			defer C.free(unsafe.Pointer(cCss))
+
+			styleSheet := C.webkit_user_style_sheet_new(
+				(*C.gchar)(cCss),
+				C.WEBKIT_USER_CONTENT_INJECT_TOP_FRAME,
+				C.WEBKIT_USER_STYLE_LEVEL_AUTHOR,
+				nil, // allow_list
+				nil, // block_list
+			)
+			if styleSheet != nil {
+				C.webkit_user_content_manager_add_style_sheet(w.native.ucm, styleSheet)
+				C.webkit_user_style_sheet_unref(styleSheet)
+			} else {
+				log.Printf("[webkit] ERROR: Failed to create GUI stylesheet")
+			}
+		} else {
+			log.Printf("[webkit] ERROR: Failed to load GUI CSS from assets: %v", err)
+		}
 	}
 
 	// Inject Wails runtime fetch interceptor for homepage bridging
 	wailsBridge := `(() => { try { const origFetch = window.fetch.bind(window); const waiters = Object.create(null); window.__dumber_wails_resolve = (id, json) => { const w = waiters[id]; if(!w) return; delete waiters[id]; try { const headers = new Headers({"Content-Type":"application/json"}); w.resolve(new Response(json, { headers })); } catch(e){ w.reject(e); } }; window.fetch = (input, init) => { try { const url = new URL(input instanceof Request ? input.url : input, window.location.origin); if (url.pathname === '/wails/runtime') { const args = url.searchParams.get('args'); let payload = {}; try { payload = args ? JSON.parse(args) : {}; } catch(_){} const id = String(Date.now()) + '-' + Math.random().toString(36).slice(2); return new Promise((resolve, reject) => { waiters[id] = { resolve, reject }; try { window.webkit?.messageHandlers?.dumber?.postMessage(JSON.stringify({ type: 'wails', id, payload })); } catch (e) { reject(e); } }); } } catch(_){} return origFetch(input, init); }; } catch(_){} })();`
 	cWails := C.CString(wailsBridge)
 	defer C.free(unsafe.Pointer(cWails))
-	wailsScript := C.webkit_user_script_new((*C.gchar)(cWails), C.WEBKIT_USER_CONTENT_INJECT_ALL_FRAMES, C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, nil, nil)
+	wailsScript := C.webkit_user_script_new((*C.gchar)(cWails), C.WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, nil, nil)
 	if wailsScript != nil {
 		C.webkit_user_content_manager_add_script(w.native.ucm, wailsScript)
 		C.webkit_user_script_unref(wailsScript)

@@ -140,3 +140,18 @@ func (w *WebView) dispatchZoomChanged(level float64) {
 		w.zoomHandler(level)
 	}
 }
+
+// InitializeContentBlocking initializes WebKit content blocking with filter manager (stub)
+func (w *WebView) InitializeContentBlocking(filterManager interface{}) error {
+	return ErrNotImplemented
+}
+
+// OnNavigate sets up domain-specific cosmetic filtering on navigation (stub)
+func (w *WebView) OnNavigate(url string, filterManager interface{}) {
+	// No-op in stub
+}
+
+// UpdateContentFilters updates the content filters dynamically (stub)
+func (w *WebView) UpdateContentFilters(filterManager interface{}) error {
+	return ErrNotImplemented
+}

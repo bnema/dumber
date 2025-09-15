@@ -59,8 +59,13 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
 
 	js.WriteString(`(() => {
     'use strict';
-    
-    console.log('[dumber-codec] Initializing codec control');
+
+    const isMainFrame = (window.self === window.top);
+    function log(msg) {
+        if (isMainFrame) console.log('[dumber-codec] ' + msg);
+    }
+
+    log('Initializing codec control');
     
     // Smart fullscreen handling that works with WebKit's native behavior
     const videoFullscreenStates = new WeakMap();
@@ -80,7 +85,7 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
         };
         
         videoFullscreenStates.set(video, state);
-        console.log('[dumber-codec] Tracking video for fullscreen - playing:', state.wasPlaying, 'time:', state.currentTime);
+        log('Tracking video for fullscreen - playing: ' + state.wasPlaying + ', time: ' + state.currentTime);
     }
     
     // Gentle recovery without forcing reloads
@@ -88,20 +93,20 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
         const state = videoFullscreenStates.get(video);
         if (!state) return;
         
-        console.log('[dumber-codec] Recovering video after fullscreen transition');
+        log('Recovering video after fullscreen transition');
         
         // Only intervene if video is stuck in a loading state
         const isStuck = video.readyState < 2 && video.networkState === 2; // NETWORK_LOADING but not ready
         const hasLostTime = Math.abs(video.currentTime - state.currentTime) > 2;
         
         if (isStuck || hasLostTime) {
-            console.log('[dumber-codec] Video appears stuck, applying gentle recovery');
+            log('Video appears stuck, applying gentle recovery');
             
             // Gentle nudge - just try to resume if it was playing
             if (state.wasPlaying && video.paused) {
                 setTimeout(() => {
                     if (video.readyState >= 2) {
-                        video.play().catch(e => console.log('[dumber-codec] Play failed:', e));
+                        video.play().catch(e => log('Play failed: ' + e));
                     }
                 }, 200);
             }
@@ -115,11 +120,11 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
         if (fullscreenTransitionInProgress) return;
         fullscreenTransitionInProgress = true;
         
-        console.log('[dumber-codec] WebKit fullscreen transition detected');
+        log('WebKit fullscreen transition detected');
         
         // Skip fullscreen recovery on Twitch to prevent theater/fullscreen freezing
         if (location.hostname.includes('twitch.tv')) {
-            console.log('[dumber-codec] Skipping fullscreen recovery on Twitch for stability');
+            log('Skipping fullscreen recovery on Twitch for stability');
             fullscreenTransitionInProgress = false;
             return;
         }
@@ -148,7 +153,7 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
     // Override canPlayType for HTMLMediaElement (primary codec detection)
     const originalCanPlayType = HTMLMediaElement.prototype.canPlayType;
     HTMLMediaElement.prototype.canPlayType = function(type) {
-        console.log('[dumber-codec] canPlayType called with:', type);
+        log('canPlayType called with: ' + type);
         
         // Block unwanted codecs`)
 
@@ -156,7 +161,7 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
 		js.WriteString(`
         const blockedRegex = /` + blockedPattern + `/i;
         if (blockedRegex.test(type)) {
-            console.log('[dumber-codec] Blocking codec via canPlayType:', type);
+            log('Blocking codec via canPlayType: ' + type);
             return '';
         }`)
 	}
@@ -168,7 +173,7 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
         const preferredCodecs = ` + preferredCodecsJS + `;
         for (const preferred of preferredCodecs) {
             if (type.toLowerCase().includes(preferred)) {
-                console.log('[dumber-codec] Boosting preferred codec via canPlayType:', type);
+                log('Boosting preferred codec via canPlayType: ' + type);
                 return 'probably';
             }
         }`)
@@ -184,7 +189,7 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
     if (window.MediaSource && MediaSource.isTypeSupported) {
         const originalIsTypeSupported = MediaSource.isTypeSupported.bind(MediaSource);
         MediaSource.isTypeSupported = function(type) {
-            console.log('[dumber-codec] MediaSource.isTypeSupported called with:', type);`)
+            log('MediaSource.isTypeSupported called with: ' + type);`)
 
 	if hasBlockedCodecs {
 		js.WriteString(`
@@ -192,7 +197,7 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
             // Block unwanted codecs
             const blockedRegex = /` + blockedPattern + `/i;
             if (blockedRegex.test(type)) {
-                console.log('[dumber-codec] Blocking codec via MediaSource.isTypeSupported:', type);
+                log('Blocking codec via MediaSource.isTypeSupported: ' + type);
                 return false;
             }`)
 	}
@@ -204,7 +209,7 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
             const preferredCodecs = ` + preferredCodecsJS + `;
             for (const preferred of preferredCodecs) {
                 if (type.toLowerCase().includes(preferred)) {
-                    console.log('[dumber-codec] Boosting preferred codec via MediaSource.isTypeSupported:', type);
+                    log('Boosting preferred codec via MediaSource.isTypeSupported: ' + type);
                     return true;
                 }
             }`)
@@ -237,8 +242,8 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
             const is1080p60 = (height >= 1080 || width >= 1920) && 
                              (config.video?.framerate >= 50 || config.video?.frameRate >= 50);
             
-            console.log('[dumber-codec] MediaCapabilities query - contentType:', contentType, 
-                       'resolution:', width + 'x' + height, 'highRes:', isHighRes, '4K:', is4K, '1080p60:', is1080p60);
+            log('MediaCapabilities query - contentType: ' + contentType +
+                       ', resolution: ' + width + 'x' + height + ', highRes: ' + isHighRes + ', 4K: ' + is4K + ', 1080p60: ' + is1080p60);
             
             // Block unwanted codecs`)
 
@@ -246,7 +251,7 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
 		js.WriteString(`
             const blockedRegex = /` + blockedPattern + `/i;
             if (blockedRegex.test(contentType)) {
-                console.log('[dumber-codec] Blocking codec:', contentType);
+                log('Blocking codec: ' + contentType);
                 return {
                     supported: false,
                     smooth: false,
@@ -264,7 +269,7 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
             const preferredCodecs = ` + preferredCodecsJS + `;
             for (const preferred of preferredCodecs) {
                 if (contentType.toLowerCase().includes(preferred)) {
-                    console.log('[dumber-codec] Boosting preferred codec:', contentType);
+                    log('Boosting preferred codec: ' + contentType);
                     
                     // Resolution-aware capability reporting for AV1
                     if (preferred === 'av01' || preferred === 'av1') {
@@ -328,7 +333,7 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
     
     // YouTube-specific codec forcing
     if (location.hostname.includes('youtube.com')) {
-        console.log('[dumber-codec] Applying YouTube codec preferences');
+        log('Applying YouTube codec preferences');
         
         // Set YouTube's localStorage preferences for smart AV1 usage
         // 2048 = prefer AV1 for lower resolutions, fallback to VP9 for higher res
@@ -340,7 +345,7 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
                 writable: false,
                 configurable: false
             });
-            console.log('[dumber-codec] YouTube: Set smart AV1 localStorage preference (2048)');
+            log('YouTube: Set smart AV1 localStorage preference (2048)');
         } catch (e) {
             console.warn('[dumber-codec] YouTube: Failed to set localStorage:', e);
         }
@@ -358,7 +363,7 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
 		js.WriteString(`
                     // Force AV1 if enabled
                     player.config.args.preferred_codecs = 'av01';
-                    console.log('[dumber-codec] YouTube: Forced AV1 codec');`)
+                    log('YouTube: Forced AV1 codec');`)
 	}
 
 	if hasPreferredCodecs {
@@ -375,7 +380,7 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
                         }
                     }).join(',');
                     player.config.args.preferred_codecs = codecOrder;
-                    console.log('[dumber-codec] YouTube: Set codec order:', codecOrder);`)
+                    log('YouTube: Set codec order: ' + codecOrder);`)
 	}
 
 	js.WriteString(`
@@ -388,7 +393,7 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
         const originalFetch = window.fetch;
         window.fetch = function(input, init) {
             if (typeof input === 'string' && input.includes('/youtubei/v1/player')) {
-                console.log('[dumber-codec] YouTube: Intercepting player request');`)
+                log('YouTube: Intercepting player request');`)
 
 	if hasPreferredCodecs {
 		js.WriteString(`
@@ -422,7 +427,7 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
                             
                             // Manipulate streaming data if present
                             if (data.streamingData && data.streamingData.formats) {
-                                console.log('[dumber-codec] YouTube: Processing format manifest');
+                                log('YouTube: Processing format manifest');
                                 
                                 // Sort formats to prioritize AV1 for lower resolutions, VP9 for higher
                                 data.streamingData.formats.sort((a, b) => {
@@ -447,7 +452,7 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
                                     return 0;
                                 });
                                 
-                                console.log('[dumber-codec] YouTube: Reordered formats for optimal codec selection');
+                                log('YouTube: Reordered formats for optimal codec selection');
                             }
                             
                             return new Response(JSON.stringify(data), {
@@ -473,7 +478,7 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
     
     // Twitch: No codec interference - let Twitch handle codec selection natively
     if (location.hostname.includes('twitch.tv')) {
-        console.log('[dumber-codec] Detected Twitch domain - no codec interference for stability');
+        log('Detected Twitch domain - no codec interference for stability');
         // Twitch codec control completely removed to prevent theater/fullscreen freezing
     }
     
@@ -483,11 +488,11 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
         videos.forEach(video => {
             if (!video.__codecMonitored) {
                 video.__codecMonitored = true;
-                console.log('[dumber-codec] Found video element, adding passive monitoring');
+                log('Found video element, adding passive monitoring');
                 
                 // Passive codec detection only
                 video.addEventListener('canplay', function() {
-                    console.log('[dumber-codec] Video can play - resolution:', this.videoWidth + 'x' + this.videoHeight);
+                    log('Video can play - resolution: ' + this.videoWidth + 'x' + this.videoHeight);
                 }, { passive: true, once: true });
             }
         });
@@ -495,10 +500,21 @@ func GenerateCodecControlScript(prefs CodecPreferencesConfig) string {
     
     // Monitor for video elements periodically without overriding createElement
     const videoObserver = new MutationObserver(monitorExistingVideos);
-    videoObserver.observe(document.body, { childList: true, subtree: true });
-    monitorExistingVideos(); // Check existing videos
+
+    // Wait for document.body to be available before observing
+    function startVideoObserver() {
+        if (document.body) {
+            videoObserver.observe(document.body, { childList: true, subtree: true });
+            monitorExistingVideos(); // Check existing videos
+            log('Video observer started');
+        } else {
+            // Retry after a short delay if body not ready
+            setTimeout(startVideoObserver, 50);
+        }
+    }
+    startVideoObserver();
     
-    console.log('[dumber-codec] Codec control initialization complete');
+    log('Codec control initialization complete');
 })();`)
 
 	return js.String()
