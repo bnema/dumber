@@ -39,7 +39,7 @@ func (p *Parser) ParseInput(input string) (*ParseResult, error) {
 	if strings.Contains(finalURL, "google.com/search") {
 		resultType = InputTypeFallbackSearch
 		confidence = 0.1
-	} else if strings.HasPrefix(finalURL, "http://") || strings.HasPrefix(finalURL, "https://") {
+	} else if strings.HasPrefix(finalURL, "http://") || strings.HasPrefix(finalURL, "https://") || strings.HasPrefix(finalURL, "dumb://") || strings.HasPrefix(finalURL, "file://") {
 		resultType = InputTypeDirectURL
 		confidence = 1.0
 	}
@@ -108,17 +108,22 @@ func (p *Parser) parseInputUsingCLILogic(input string) (string, error) {
 		return input, nil
 	}
 
-	// 4. Localhost/development URLs
+	// 4. Dumb protocol for custom browser pages
+	if strings.HasPrefix(input, "dumb://") {
+		return input, nil
+	}
+
+	// 5. Localhost/development URLs
 	if regexp.MustCompile(`^(localhost|127\.0\.0\.1|0\.0\.0\.0|::1)(:\d+)?(/.*)?$`).MatchString(input) {
 		return "http://" + input, nil
 	}
 
-	// 5. Local network IPs
+	// 6. Local network IPs
 	if regexp.MustCompile(`^(192\.168|10\.|172\.(1[6-9]|2[0-9]|3[01]))\.\d+\.\d+(:\d+)?(/.*)?$`).MatchString(input) {
 		return "http://" + input, nil
 	}
 
-	// 6. Domain with TLD (must have dot and valid TLD)
+	// 7. Domain with TLD (must have dot and valid TLD)
 	// More comprehensive TLD pattern for better URL detection
 	domainPattern := regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(/.*)?$`)
 	if domainPattern.MatchString(input) {
@@ -132,15 +137,9 @@ func (p *Parser) parseInputUsingCLILogic(input string) (string, error) {
 		return "https://" + input, nil
 	}
 
-	// 7. Possible local hostname (single word, might be on local network)
-	singleHostPattern := regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?$`)
-	if singleHostPattern.MatchString(input) && len(input) <= 63 {
-		// Could be local hostname, try as URL but don't validate
-		return "http://" + input, nil
-	}
-
 	// 8. Everything else is a search query
-	// This includes: multi-word phrases, questions, special characters, etc.
+	// This includes: single words, multi-word phrases, questions, special characters, etc.
+	// Single words without TLDs should be treated as search queries, not hostnames
 	return fmt.Sprintf("https://www.google.com/search?q=%s", neturl.QueryEscape(input)), nil
 }
 

@@ -40,7 +40,7 @@ func (s *SchemeHandler) Handle(uri string, cfg *config.Config) (string, []byte, 
 	log.Printf("[scheme] request: %s", uri)
 	// Known forms:
 	// - dumb://homepage or dumb:homepage → index.html
-	// - dumb://app/index.html, dumb://app/<path> → serve from frontend/dist/<path>
+	// - dumb://app/index.html, dumb://app/<path> → serve from gui/<path>
 	// - dumb://<anything> without path → index.html
 	u, err := neturl.Parse(uri)
 	if err != nil || u.Scheme != "dumb" {
@@ -117,14 +117,14 @@ func (s *SchemeHandler) handleAsset(u *neturl.URL) (string, []byte, bool) {
 	// Special-case homepage favicon: map .ico request to embedded SVG file
 	if (u.Host == constants.HomepagePath || u.Opaque == constants.HomepagePath) && strings.EqualFold(rel, "favicon.ico") {
 		log.Printf("[scheme] asset: rel=%s (host=%s path=%s) → mapping to favicon.svg", rel, u.Host, u.Path)
-		data, rerr := s.assets.ReadFile(filepath.ToSlash(filepath.Join("frontend", "dist", "favicon.svg")))
+		data, rerr := s.assets.ReadFile(filepath.ToSlash(filepath.Join("assets", "gui", "favicon.svg")))
 		if rerr == nil {
 			return "image/svg+xml", data, true
 		}
 	}
 
 	log.Printf("[scheme] asset: rel=%s (host=%s path=%s)", rel, u.Host, u.Path)
-	data, rerr := s.assets.ReadFile(filepath.ToSlash(filepath.Join("frontend", "dist", rel)))
+	data, rerr := s.assets.ReadFile(filepath.ToSlash(filepath.Join("assets", "gui", rel)))
 	if rerr != nil {
 		log.Printf("[scheme] not found: %s", rel)
 		return "", nil, false

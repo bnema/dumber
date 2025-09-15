@@ -13,7 +13,7 @@ import (
 	"github.com/bnema/dumber/pkg/webkit"
 )
 
-//go:embed frontend/dist assets
+//go:embed assets
 var assets embed.FS
 
 // Build information set via ldflags
