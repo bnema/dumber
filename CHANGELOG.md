@@ -13,6 +13,8 @@ All notable changes to this project will be documented in this file.
 - **Page generator system**: Vite plugin for generating dumb:// protocol pages (homepage, config, about) with extensible architecture
 - **History deletion API**: New DELETE endpoint at `/history/delete?id=N` for removing individual history entries
 - **Lucide icons integration**: Professional SVG icons replacing emoji throughout the UI
+- **Global Shadow DOM system**: Unified shadow host utility for component isolation with shared ShadowRoot and CSS reset management
+- **Unified page-world bridge**: Integrated API bridge with event-driven communication between page-world and isolated-world contexts
 
 ### Improved
 - **Omnibox/Find system**: Complete migration from 500-line raw JavaScript to modular Svelte 5 components
@@ -25,6 +27,14 @@ All notable changes to this project will be documented in this file.
 - **Top 5 most visited**: New section displaying frequently accessed sites with visit counts
 - **Performance**: Instant shortcut response with pre-mounted DOM elements
 
+### Changed
+- **Major architecture shift**: Removed HTTP API routes in favor of direct WebKit message bridge communication for better performance and reduced complexity
+- **API token support**: Added optional API security configuration with token-based authentication system
+- **Shadow DOM improvements**: Enhanced isolation with WeakSet tracking to prevent duplicate reset injection and global shadow host utility for component sharing
+- **Message handler refactoring**: Unified keyboard shortcut forwarding between native handlers and GUI components with DOM event bridge
+- **Omnibox suggestions**: Native Go-based suggestion computation with search shortcuts and history integration, eliminating HTTP fetch dependencies
+- **Toast styling**: Migrated from Tailwind CSS classes to inline styles within component scope for better Shadow DOM compatibility and isolation
+
 ### Fixed
 - **Ctrl+F shortcut**: Added missing 'f' key case in keyboard_cgo.go dispatcher
 - **Browser freeze**: Removed infinite loop in mode switching reactive effects
@@ -33,6 +43,9 @@ All notable changes to this project will be documented in this file.
 - **Omnibox positioning on homepage**: Fixed omnibox stuck in top-left corner by isolating homepage CSS styles and strengthening omnibox positioning with explicit fixed positioning and CSS isolation
 - **Find mode persistence**: Fixed find view persisting after pressing Esc when reopening with Ctrl+L by ensuring toggle() resets mode to 'omnibox'
 - **Favicon display**: Fixed missing favicons in homepage history after Svelte 5 migration by adding FaviconURL field to API response and implementing proper fallback display logic
+- **Homepage API communication**: Migrated from HTTP fetch to WebKit message bridge for all homepage API calls (history, stats, search) with proper callback handling and timeout management
+- **Omnibox accessibility**: Added keyboard navigation support with Tab/Enter activation for suggestion items and proper ARIA attributes for screen readers
+- **Omnibox suggestions race conditions**: Fixed timing issues where suggestions arrived before API was ready by implementing pending suggestions queue and proper event bridging between page-world and isolated-world contexts
 
 ## [0.7.0] - 2025-09-14
 
