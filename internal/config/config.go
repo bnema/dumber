@@ -35,6 +35,7 @@ type Config struct {
 	CodecPreferences  CodecConfig               `mapstructure:"codec_preferences" yaml:"codec_preferences"`
 	WebkitMemory      WebkitMemoryConfig        `mapstructure:"webkit_memory" yaml:"webkit_memory"`
 	Debug             DebugConfig               `mapstructure:"debug" yaml:"debug"`
+	APISecurity       APISecurityConfig         `mapstructure:"api_security" yaml:"api_security"`
 	// RenderingMode controls GPU/CPU rendering selection for WebKit
 	RenderingMode RenderingMode `mapstructure:"rendering_mode" yaml:"rendering_mode"`
 }
@@ -208,6 +209,14 @@ type DebugConfig struct {
 	EnableGeneralDebug bool `mapstructure:"enable_general_debug" yaml:"enable_general_debug"`
 }
 
+// APISecurityConfig holds optional API key protection for dumb://api endpoints
+type APISecurityConfig struct {
+	// If non-empty, token that requests must present via `token` query param
+	Token string `mapstructure:"token" yaml:"token"`
+	// If true, require token for all API endpoints (except a minimal allowlist)
+	RequireToken bool `mapstructure:"require_token" yaml:"require_token"`
+}
+
 // Manager handles configuration loading, watching, and reloading.
 type Manager struct {
 	config    *Config
@@ -264,6 +273,9 @@ func NewManager() (*Manager, error) {
 		"logging.max_backups":       "LOGGING_MAX_BACKUPS",
 		"logging.max_age":           "LOGGING_MAX_AGE",
 		"logging.compress":          "LOGGING_COMPRESS",
+		// API security
+		"api_security.token":         "API_TOKEN",
+		"api_security.require_token": "API_REQUIRE_TOKEN",
 	}
 
 	for key, env := range bindings {

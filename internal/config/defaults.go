@@ -140,6 +140,10 @@ func DefaultConfig() *Config {
 			EnableScriptDebug:     false,
 			EnableGeneralDebug:    false,
 		},
+		APISecurity: APISecurityConfig{
+			Token:        "",
+			RequireToken: false,
+		},
 		RenderingMode: RenderingModeAuto,
 	}
 }
