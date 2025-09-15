@@ -100,13 +100,21 @@ func (z *ZoomController) showZoomToast(level float64) {
 			const percentage = %d;
 			let toastShown = false;
 
-			// Strategy 1: Try the Svelte toast system first
-			if (typeof window.__dumber_showZoomToast === 'function') {
-				console.log('[dumber] Using Svelte zoom toast system');
+			// Prefer unified page-world API
+			if (window.__dumber && window.__dumber.toast && typeof window.__dumber.toast.zoom === 'function') {
+				console.log('[dumber] Using unified toast.zoom');
+				window.__dumber.toast.zoom(zoomLevel);
+				toastShown = true;
+			} else if (typeof window.__dumber_showZoomToast === 'function') {
+				console.log('[dumber] Using legacy zoom toast');
 				window.__dumber_showZoomToast(zoomLevel);
 				toastShown = true;
+			} else if (window.__dumber && window.__dumber.toast && typeof window.__dumber.toast.show === 'function') {
+				console.log('[dumber] Using unified toast.show');
+				window.__dumber.toast.show('Zoom: ' + percentage + '%%', 1500, 'info');
+				toastShown = true;
 			} else if (typeof window.__dumber_showToast === 'function') {
-				console.log('[dumber] Using Svelte general toast system');
+				console.log('[dumber] Using legacy toast.show');
 				window.__dumber_showToast('Zoom: ' + percentage + '%%', 1500, 'info');
 				toastShown = true;
 			}

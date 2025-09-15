@@ -11,7 +11,8 @@ func (w *WebView) OpenFind(initial string) error {
 		return ErrNotImplemented
 	}
 	quoted := strconv.Quote(initial)
-	js := fmt.Sprintf("window.__dumber_find_open && window.__dumber_find_open(%s)", quoted)
+	// Prefer unified omnibox open via keyboard shortcut; fallback to legacy helper
+	js := fmt.Sprintf("(window.__dumber?.omnibox?.open ? window.__dumber.omnibox.open('find', %s) : (window.__dumber_find_open && window.__dumber_find_open(%s)))", quoted, quoted)
 	return w.InjectScript(js)
 }
 
@@ -21,7 +22,7 @@ func (w *WebView) FindQuery(q string) error {
 		return ErrNotImplemented
 	}
 	quoted := strconv.Quote(q)
-	js := fmt.Sprintf("window.__dumber_find_query && window.__dumber_find_query(%s)", quoted)
+	js := fmt.Sprintf("(window.__dumber?.omnibox?.findQuery ? window.__dumber.omnibox.findQuery(%s) : (window.__dumber_find_query && window.__dumber_find_query(%s)))", quoted, quoted)
 	return w.InjectScript(js)
 }
 
@@ -30,5 +31,5 @@ func (w *WebView) CloseFind() error {
 	if w == nil {
 		return ErrNotImplemented
 	}
-	return w.InjectScript("window.__dumber_find_close && window.__dumber_find_close()")
+	return w.InjectScript("(window.__dumber?.omnibox?.close ? window.__dumber.omnibox.close() : (window.__dumber_find_close && window.__dumber_find_close()))")
 }

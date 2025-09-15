@@ -31,20 +31,20 @@ func (s *ShortcutHandler) RegisterShortcuts() {
 
 	// Omnibox (Ctrl+L): use new keyboard service bridge
 	_ = s.webView.RegisterKeyboardShortcut("cmdorctrl+l", func() {
-		log.Printf("Shortcut: Omnibox toggle via keyboard service")
-		_ = s.webView.InjectScript("window.__dumber_keyboard && window.__dumber_keyboard.handleNativeShortcut('cmdorctrl+l')")
+		log.Printf("Shortcut: Omnibox toggle")
+		// Handled in GUI KeyboardService via unified 'dumber:key' event
 	})
 
 	// Find in page (Ctrl+F): use keyboard service bridge
 	_ = s.webView.RegisterKeyboardShortcut("cmdorctrl+f", func() {
-		log.Printf("Shortcut: Find in page via keyboard service")
-		_ = s.webView.InjectScript("window.__dumber_keyboard && window.__dumber_keyboard.handleNativeShortcut('cmdorctrl+f')")
+		log.Printf("Shortcut: Find in page")
+		// Handled in GUI KeyboardService via unified 'dumber:key' event
 	})
 
 	// Copy URL (Ctrl+Shift+C): use keyboard service with native fallback
 	_ = s.webView.RegisterKeyboardShortcut("cmdorctrl+shift+c", func() {
-		log.Printf("Shortcut: Copy URL via keyboard service")
-		_ = s.webView.InjectScript("window.__dumber_keyboard && window.__dumber_keyboard.handleNativeShortcut('cmdorctrl+shift+c')")
+		log.Printf("Shortcut: Copy URL")
+		// Handled in GUI KeyboardService via unified 'dumber:key' event
 	})
 
 	// Page refresh shortcuts

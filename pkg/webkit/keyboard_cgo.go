@@ -178,6 +178,30 @@ func dispatchAccelerator(uid uintptr, keyval uint, state uint) {
 		candidates = append([]string{"alt+" + keyName}, candidates...)
 	}
 
+	// Compute a single normalized shortcut string to forward to GUI (single source of truth)
+	normalized := ""
+	if ctrl && shift {
+		normalized = "cmdorctrl+shift+" + keyName
+	} else if ctrl {
+		normalized = "cmdorctrl+" + keyName
+	} else if alt {
+		normalized = "alt+" + keyName
+	} else if keyName != "" {
+		// For future modes like Vim, we may want to forward non-modified keys
+		// For now, only forward if a modifier is present to avoid noise
+		normalized = ""
+	}
+
+	// Forward normalized shortcut to GUI KeyboardService via DOM event if present
+	if normalized != "" {
+		regMu.RLock()
+		vw := viewByID[uid]
+		regMu.RUnlock()
+		if vw != nil {
+			_ = vw.InjectScript(fmt.Sprintf("document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:'%s'}}));", normalized))
+		}
+	}
+
 	regMu.RLock()
 	reg := viewShortcuts[uid]
 	regMu.RUnlock()
@@ -202,6 +226,16 @@ func dispatchAccelerator(uid uintptr, keyval uint, state uint) {
 			regMu.Unlock()
 			log.Printf("[accelerator] %s", name)
 			cb()
+			// Additionally forward well-known GUI shortcuts to the in-page GUI via a DOM event
+			// so the isolated user content world KeyboardService can handle them uniformly.
+			if name == "cmdorctrl+l" || name == "cmdorctrl+f" || name == "cmdorctrl+shift+c" {
+				regMu.RLock()
+				vw := viewByID[uid]
+				regMu.RUnlock()
+				if vw != nil {
+					_ = vw.InjectScript(fmt.Sprintf("document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:'%s'}}));", name))
+				}
+			}
 			break
 		}
 	}
@@ -306,7 +340,6 @@ s.textContent=':root{color-scheme:' + (d?'dark':'light') + ';}';
 } catch(e) { console.warn('[dumber] theme runtime update failed', e); } })();`, dval)
 	_ = vw.InjectScript(js)
 }
-
 
 //export goOnUcmMessage
 func goOnUcmMessage(id C.ulong, json *C.char) {
