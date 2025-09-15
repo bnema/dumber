@@ -1,0 +1,252 @@
+@import "tailwindcss";
+
+/* Define custom theme colors for v4 */
+@theme {
+  /* Light theme colors (default) */
+  --color-browser-bg: rgb(255 255 255);        /* white */
+  --color-browser-surface: rgb(249 250 251);   /* gray-50 */
+  --color-browser-text: rgb(17 24 39);         /* gray-900 */
+  --color-browser-muted: rgb(107 114 128);     /* gray-500 */
+  --color-browser-accent: rgb(59 130 246);     /* blue-500 */
+  --color-browser-border: rgb(229 231 235);    /* gray-200 */
+}
+
+/* Dynamic theme switching via CSS variables */
+:root {
+  --dynamic-bg: var(--color-browser-bg);
+  --dynamic-surface: var(--color-browser-surface);
+  --dynamic-text: var(--color-browser-text);
+  --dynamic-muted: var(--color-browser-muted);
+  --dynamic-accent: var(--color-browser-accent);
+  --dynamic-border: var(--color-browser-border);
+}
+
+/* Dark theme colors (applied via .dark class from GTK) */
+.dark {
+  --dynamic-bg: rgb(17 24 39);        /* gray-900 */
+  --dynamic-surface: rgb(31 41 55);   /* gray-800 */
+  --dynamic-text: rgb(243 244 246);   /* gray-100 */
+  --dynamic-muted: rgb(156 163 175);  /* gray-400 */
+  --dynamic-accent: rgb(96 165 250);  /* blue-400 */
+  --dynamic-border: rgb(55 65 81);    /* gray-700 */
+}
+
+/* Base styles for browser UI components */
+.browser-ui {
+  background-color: var(--dynamic-bg);
+  color: var(--dynamic-text);
+  border-color: var(--dynamic-border);
+  transition: colors 250ms;
+}
+
+/* Toast notification styles */
+.toast-base {
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  padding: 0.75rem 1rem;
+  max-width: 24rem;
+  pointer-events: auto;
+}
+
+.toast-success {
+  background-color: rgb(240 253 244);
+  color: rgb(22 163 74);
+  border: 1px solid rgb(187 247 208);
+}
+
+.dark .toast-success {
+  background-color: rgb(22 163 74 / 0.2);
+  color: rgb(187 247 208);
+  border-color: rgb(22 163 74);
+}
+
+.toast-error {
+  background-color: rgb(254 242 242);
+  color: rgb(220 38 38);
+  border: 1px solid rgb(254 202 202);
+}
+
+.dark .toast-error {
+  background-color: rgb(220 38 38 / 0.2);
+  color: rgb(254 202 202);
+  border-color: rgb(220 38 38);
+}
+
+.toast-info {
+  background-color: rgb(239 246 255);
+  color: rgb(59 130 246);
+  border: 1px solid rgb(191 219 254);
+}
+
+.dark .toast-info {
+  background-color: rgb(59 130 246 / 0.2);
+  color: rgb(191 219 254);
+  border-color: rgb(59 130 246);
+}
+
+/* Omnibox/Find bar styles */
+.omnibox-base {
+  background-color: var(--dynamic-bg);
+  color: var(--dynamic-text);
+  border: 2px solid var(--dynamic-border);
+  border-radius: 0.375rem;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  transition: all 150ms;
+}
+
+.omnibox-base:focus-within {
+  border-color: var(--dynamic-accent);
+}
+
+.omnibox-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background-color: transparent;
+  color: var(--dynamic-text);
+  outline: none;
+  font-size: 0.875rem;
+}
+
+.omnibox-input::placeholder {
+  color: var(--dynamic-muted);
+}
+
+.omnibox-results {
+  background-color: var(--dynamic-bg);
+  border: 1px solid var(--dynamic-border);
+  border-radius: 0.375rem;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  max-height: 24rem;
+  overflow-y: auto;
+}
+
+.omnibox-item {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: colors 150ms;
+  border-bottom: 1px solid var(--dynamic-border);
+}
+
+.omnibox-item:hover,
+.omnibox-item:focus {
+  background-color: var(--dynamic-surface);
+  outline: none;
+}
+
+.omnibox-item.selected {
+  background-color: color-mix(in srgb, var(--dynamic-accent) 10%, transparent);
+  color: var(--dynamic-accent);
+}
+
+/* Find bar specific styles */
+.findbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.findbar-input {
+  flex: 1;
+  background-color: transparent;
+  color: var(--dynamic-text);
+  outline: none;
+  font-size: 0.875rem;
+}
+
+.findbar-input::placeholder {
+  color: var(--dynamic-muted);
+}
+
+.findbar-button {
+  padding: 0.25rem 0.5rem;
+  color: var(--dynamic-muted);
+  transition: colors 150ms;
+  font-size: 0.875rem;
+}
+
+.findbar-button:hover {
+  color: var(--dynamic-text);
+}
+
+.findbar-count {
+  font-size: 0.75rem;
+  color: var(--dynamic-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Animation utilities */
+.slide-in-top {
+  animation: slide-in-top 0.25s ease-out;
+}
+
+.slide-out-top {
+  animation: slide-out-top 0.25s ease-in;
+}
+
+.fade-in {
+  animation: fade-in 0.15s ease-out;
+}
+
+.fade-out {
+  animation: fade-out 0.15s ease-in;
+}
+
+@keyframes slide-in-top {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-out-top {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Find highlighting styles for in-page search */
+.find-highlight {
+  background-color: rgb(255 235 59);  /* yellow-400 */
+  color: rgb(0 0 0);                  /* black */
+  padding: 0 0.125rem;                /* px-0.5 */
+  border-radius: 0.125rem;            /* rounded-sm */
+  box-shadow: 0 0 0 1px rgb(200 185 0) inset;
+}
+
+.find-active {
+  background-color: rgb(255 152 0) !important;  /* orange-500 */
+  color: rgb(0 0 0);                             /* black */
+  box-shadow: 0 0 0 1px rgb(179 107 0) inset !important;
+}
+
+/* Utility for isolating component styles */
+.browser-component-root {
+  /* Reset any inherited styles from the website */
+  all: initial;
+  /* Apply our design system */
+  font-family: Fira Sans, system-ui, -apple-system, sans-serif;
+  box-sizing: border-box;
+  * {
+    box-sizing: border-box;
+  }
+}

@@ -1,0 +1,223 @@
+/**
+ * Unified GUI Bundle Entry Point
+ *
+ * Single entry point for all WebKit GUI functionality.
+ * Loads immediately and provides modular initialization system.
+ */
+
+// Import all GUI modules
+import { initializeToast, type ToastConfig } from './modules/toast';
+import { initializeOmnibox, type OmniboxInitConfig } from './modules/omnibox';
+import { keyboardService, type KeyboardService } from '../lib/keyboard';
+
+// Global interface for the unified GUI system
+interface DumberGUI {
+  initializeToast: (config?: ToastConfig) => Promise<void>;
+  initializeOmnibox: (config?: OmniboxInitConfig) => Promise<void>;
+  keyboard: KeyboardService;
+  isReady: boolean;
+}
+
+// DOM readiness utility - handles all document ready states
+function whenDOMReady(callback: () => void) {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', callback, { once: true });
+  } else if (document.readyState === 'interactive' && !document.body) {
+    // Interactive but no body yet, wait a bit more
+    setTimeout(() => whenDOMReady(callback), 10);
+  } else {
+    // DOM ready and body exists
+    callback();
+  }
+}
+
+// Create global namespace
+declare global {
+  interface Window {
+    __dumber_gui?: DumberGUI;
+    __dumber_gui_ready?: boolean;
+    __dumber_showToast?: (message: string, duration?: number, type?: 'info' | 'success' | 'error') => number | void;
+    __dumber_showZoomToast?: (level: number) => void;
+    __dumber_keyboard?: KeyboardService;
+    // Legacy compatibility functions for Go bridge
+    __dumber_toggle?: () => void;
+    __dumber_find_open?: (query?: string) => void;
+    __dumber_find_close?: () => void;
+    __dumber_setSuggestions?: (suggestions: any[]) => void;
+    __dumber_find_query?: (query: string) => void;
+  }
+}
+
+// Prevent multiple initialization with enhanced logging
+if (!window.__dumber_gui_ready) {
+  // Skip initialization in iframes - GUI only needed in main frame
+  if (window.self !== window.top) {
+    console.log('🚫 Dumber GUI skipped in iframe');
+  } else {
+    window.__dumber_gui_ready = true;
+
+  // Initialize Svelte GUI systems immediately
+  whenDOMReady(async () => {
+    try {
+      // Initialize toast system first
+      await initializeToast();
+
+      // Verify toast functions are available
+      if (typeof window.__dumber_showToast !== 'function') {
+        throw new Error('Toast functions not exposed after initialization');
+      }
+
+      // Initialize omnibox system
+      await initializeOmnibox();
+
+      console.log('✅ All GUI systems initialized successfully');
+    } catch (e) {
+      console.error('❌ Failed to initialize Svelte toast system:', e);
+
+      // Enhanced fallback with better error recovery
+      window.__dumber_showToast = (message: string, duration: number = 2500) => {
+        // Remove existing toasts to prevent overlap
+        document.querySelectorAll('.dumber-fallback-toast').forEach(el => el.remove());
+
+        const toast = document.createElement('div');
+        toast.className = 'dumber-fallback-toast';
+        toast.textContent = message;
+        toast.style.cssText = `
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          background: rgba(0,0,0,0.9);
+          color: white;
+          padding: 12px 16px;
+          border-radius: 6px;
+          z-index: 2147483647;
+          font-family: system-ui, -apple-system, sans-serif;
+          font-size: 14px;
+          opacity: 0;
+          transform: translateX(100%);
+          transition: all 0.3s ease;
+          max-width: 300px;
+          word-wrap: break-word;
+        `;
+
+        if (document.body) {
+          document.body.appendChild(toast);
+
+          // Animate in
+          requestAnimationFrame(() => {
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateX(0)';
+          });
+
+          // Animate out and remove
+          setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(100%)';
+            setTimeout(() => toast.remove(), 300);
+          }, duration);
+
+        }
+      };
+
+      window.__dumber_showZoomToast = (level: number) => {
+        const percentage = Math.round(level * 100);
+        window.__dumber_showToast!(`Zoom: ${percentage}%`, 1500);
+      };
+
+      // Expose other required functions
+      window.__dumber_dismissToast = () => {
+        document.querySelectorAll('.dumber-fallback-toast').forEach(el => el.remove());
+      };
+
+      window.__dumber_clearToasts = () => {
+        document.querySelectorAll('.dumber-fallback-toast').forEach(el => el.remove());
+      };
+    }
+  });
+
+  // Expose keyboard service globally for Go bridge
+  window.__dumber_keyboard = keyboardService;
+
+  // Initialize global keyboard and mouse event listeners for the keyboard service
+  whenDOMReady(() => {
+    // Global keyboard event listener (capture phase for high priority)
+    document.addEventListener('keydown', (event) => {
+      keyboardService.handleKeyboardEvent(event);
+    }, true);
+
+    // Global mouse event listener for navigation buttons
+    document.addEventListener('mousedown', (event) => {
+      keyboardService.handleMouseEvent(event);
+    }, true);
+
+    console.log('✅ KeyboardService initialized with global listeners');
+  });
+
+  // Legacy compatibility functions for existing Go code
+  window.__dumber_toggle = () => {
+    try {
+      console.log('🎯 __dumber_toggle called');
+      console.log('🔧 Omnibox API available:', !!window.__dumber_omnibox);
+      if (window.__dumber_omnibox?.toggle) {
+        console.log('✅ Using Svelte omnibox toggle');
+        window.__dumber_omnibox.toggle();
+      } else {
+        console.log('⚠️ Falling back to keyboard service');
+        keyboardService.handleNativeShortcut('cmdorctrl+l');
+      }
+    } catch (error) {
+      console.error('❌ Error in __dumber_toggle:', error);
+    }
+  };
+
+  window.__dumber_find_open = (query?: string) => {
+    try {
+      if (window.__dumber_omnibox?.open) {
+        window.__dumber_omnibox.open('find', query);
+      } else {
+        keyboardService.handleNativeShortcut('cmdorctrl+f');
+      }
+    } catch (error) {
+      console.error('❌ Error in __dumber_find_open:', error);
+    }
+  };
+
+  window.__dumber_find_close = () => {
+    if (window.__dumber_omnibox?.close) {
+      window.__dumber_omnibox.close();
+    } else {
+      keyboardService.handleNativeShortcut('escape');
+    }
+  };
+
+  // Key function that Go uses to send search suggestions
+  window.__dumber_setSuggestions = (suggestions: any[]) => {
+    if (window.__dumber_omnibox?.setSuggestions) {
+      window.__dumber_omnibox.setSuggestions(suggestions);
+    }
+  };
+
+  // Find query function that Go uses to set find query
+  window.__dumber_find_query = (query: string) => {
+    if (window.__dumber_omnibox?.findQuery) {
+      window.__dumber_omnibox.findQuery(query);
+    }
+  };
+
+  // Create the global GUI object
+  window.__dumber_gui = {
+    initializeToast: async (config?: ToastConfig) => {
+      return await initializeToast(config);
+    },
+
+    initializeOmnibox: async (config?: OmniboxInitConfig) => {
+      return await initializeOmnibox(config);
+    },
+
+    keyboard: keyboardService,
+
+    isReady: true
+  };
+
+  }
+}
