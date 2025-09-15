@@ -62,6 +62,7 @@ config.local.*
 tmp/go-cache/
 tmp/go-mod/
 tmp/
+assets/gui
 
 # Node/TypeScript related
 node_modules/

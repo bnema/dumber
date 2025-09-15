@@ -42,10 +42,10 @@ build: build-frontend ## Build the application with GUI (frontend assets, then G
 	$(GOENV) CGO_ENABLED=1 go build -p $(NPROCS) $(LDFLAGS) -tags=webkit_cgo -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@echo "✅ Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
 
-build-frontend: ## Build TypeScript frontend
-	@echo "Building TypeScript frontend..."
-	@cd frontend && npm install --silent && npm run build
-	@echo "Frontend build complete"
+build-frontend: ## Build Svelte GUI with Tailwind CSS
+	@echo "Building Svelte GUI with Tailwind CSS..."
+	@cd gui && npm install --silent && npm run build
+	@echo "GUI build complete"
 
 build-no-gui: build-frontend ## Build binary without GUI (CGO disabled, CLI-only functionality)
 	@echo "Building $(BINARY_NAME) $(VERSION) (CLI-only, no GUI) using $(NPROCS) cores..."
@@ -116,7 +116,7 @@ clean: ## Clean build artifacts
 	@echo "Cleaning build artifacts..."
 	rm -rf $(DIST_DIR)
 	rm -f $(BINARY_NAME)  # Remove any old binaries in root
-	rm -rf frontend/dist frontend/node_modules
+	rm -rf gui/dist gui/node_modules
 	go clean -cache
 	go clean -testcache
 
