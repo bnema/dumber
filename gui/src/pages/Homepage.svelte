@@ -108,20 +108,110 @@
     shortcutsLoading = false;
   };
 
-  // Fetch recent history from the API
+  // Setup message bridge callbacks (once)
+  let callbacksInitialized = false;
+  const pendingRequests = new Map();
+
+  const initializeCallbacks = () => {
+    if (callbacksInitialized) return;
+
+    (window as any).__dumber_history_recent = (data: any[], requestId?: string) => {
+      const request = pendingRequests.get(requestId || 'default');
+      if (request) {
+        request.resolve(data);
+        pendingRequests.delete(requestId || 'default');
+      }
+    };
+
+    (window as any).__dumber_history_error = (error: string, requestId?: string) => {
+      const request = pendingRequests.get(requestId || 'default');
+      if (request) {
+        request.reject(new Error(error));
+        pendingRequests.delete(requestId || 'default');
+      }
+    };
+
+    // Omnibox suggestions callback - forward to injected script via DOM event bridge
+    let _pendingSuggestions: any[] | null = null;
+    (window as any).__dumber_omnibox_suggestions = (suggestions: any[]) => {
+      try {
+        console.log('🎯 [HOMEPAGE] Received omnibox suggestions:', suggestions?.length || 0, 'items');
+        // Dispatch an event that injected-world listener can consume
+        const evt = new CustomEvent('dumber:omnibox-suggestions', {
+          detail: { suggestions }
+        });
+        document.dispatchEvent(evt);
+        _pendingSuggestions = null; // clear cache on successful dispatch
+      } catch (err) {
+        console.warn('⚠️ [HOMEPAGE] Failed to dispatch suggestions event, caching:', err);
+        _pendingSuggestions = suggestions;
+      }
+    };
+
+    // If omnibox gets ready later, re-send any pending suggestions
+    document.addEventListener('dumber:omnibox-ready', () => {
+      if (_pendingSuggestions && Array.isArray(_pendingSuggestions)) {
+        try {
+          const evt = new CustomEvent('dumber:omnibox-suggestions', {
+            detail: { suggestions: _pendingSuggestions }
+          });
+          document.dispatchEvent(evt);
+          _pendingSuggestions = null;
+          console.log('🔄 [HOMEPAGE] Re-dispatched pending suggestions after omnibox-ready');
+        } catch (e) {
+          console.warn('⚠️ [HOMEPAGE] Failed to re-dispatch pending suggestions:', e);
+        }
+      }
+    });
+
+    callbacksInitialized = true;
+  };
+
+  const sendHistoryRequest = (type: string, params: any): Promise<any[]> => {
+    initializeCallbacks();
+
+    const requestId = `${type}_${Date.now()}_${Math.random()}`;
+
+    return new Promise((resolve, reject) => {
+      pendingRequests.set(requestId, { resolve, reject });
+
+      // Timeout after 10 seconds
+      setTimeout(() => {
+        if (pendingRequests.has(requestId)) {
+          pendingRequests.delete(requestId);
+          reject(new Error('Request timeout'));
+        }
+      }, 10000);
+
+      try {
+        const bridge = (window as any).webkit?.messageHandlers?.dumber;
+        if (bridge && typeof bridge.postMessage === 'function') {
+          bridge.postMessage(JSON.stringify({
+            ...params,
+            type,
+            requestId
+          }));
+        } else {
+          reject(new Error('WebKit message handler not available'));
+        }
+      } catch (error) {
+        pendingRequests.delete(requestId);
+        reject(error);
+      }
+    });
+  };
+
+  // Fetch recent history via message bridge
   const fetchHistory = async () => {
     try {
-      const response = await fetch('dumb://homepage/api/history/recent?limit=20');
-      if (response.ok) {
-        const data = await response.json();
-        historyItems = Array.isArray(data) ? data : [];
-        historyOffset = historyItems.length;
-        hasMoreHistory = data.length === 20; // If we got full batch, there might be more
-      } else {
-        console.warn('Failed to fetch history:', response.status);
-        historyItems = [];
-        hasMoreHistory = false;
-      }
+      const data = await sendHistoryRequest('history_recent', {
+        limit: 20,
+        offset: 0
+      });
+
+      historyItems = Array.isArray(data) ? data : [];
+      historyOffset = historyItems.length;
+      hasMoreHistory = data.length === 20;
     } catch (error) {
       console.error('Error fetching history:', error);
       historyItems = [];
@@ -137,18 +227,16 @@
 
     loadingMoreHistory = true;
     try {
-      const response = await fetch(`dumb://homepage/api/history/recent?limit=20&offset=${historyOffset}`);
-      if (response.ok) {
-        const data = await response.json();
-        if (Array.isArray(data) && data.length > 0) {
-          historyItems = [...historyItems, ...data];
-          historyOffset += data.length;
-          hasMoreHistory = data.length === 20; // If we got full batch, there might be more
-        } else {
-          hasMoreHistory = false;
-        }
+      const data = await sendHistoryRequest('history_recent', {
+        limit: 20,
+        offset: historyOffset
+      });
+
+      if (Array.isArray(data) && data.length > 0) {
+        historyItems = [...historyItems, ...data];
+        historyOffset += data.length;
+        hasMoreHistory = data.length === 20; // If we got full batch, there might be more
       } else {
-        console.warn('Failed to fetch more history:', response.status);
         hasMoreHistory = false;
       }
     } catch (error) {
@@ -174,8 +262,8 @@
     }
 
     try {
-      const response = await fetch(`dumb://homepage/api/history/delete?id=${id}`);
-      if (response.ok) {
+      // Set up response handlers
+      (window as any).__dumber_history_deleted = async () => {
         // Wait a bit for the fade animation to complete
         await new Promise(resolve => setTimeout(resolve, 200));
 
@@ -185,19 +273,32 @@
         await fetchHistory();
         await fetchStats();
         await fetchTopVisited();
-      } else {
-        console.error('Failed to delete history entry:', response.status);
+
+        // Remove from deleting array after refresh
+        deletingIds = deletingIds.filter(i => i !== id);
+      };
+
+      (window as any).__dumber_history_error = (error: string) => {
+        console.error('Error deleting history entry:', error);
         // Remove from deleting array if failed
         deletingIds = deletingIds.filter(i => i !== id);
+      };
+
+      // Send message to Go backend
+      const bridge = (window as any).webkit?.messageHandlers?.dumber;
+      if (bridge && typeof bridge.postMessage === 'function') {
+        bridge.postMessage(JSON.stringify({
+          type: 'history_delete',
+          historyId: id.toString()
+        }));
+      } else {
+        throw new Error('WebKit message handler not available');
       }
     } catch (error) {
-      console.error('Error deleting history entry:', error);
+      console.error('Error sending delete request:', error);
       // Remove from deleting array if failed
       deletingIds = deletingIds.filter(i => i !== id);
     }
-
-    // Remove from deleting array after refresh
-    deletingIds = deletingIds.filter(i => i !== id);
   };
 
   // Get domain from URL
@@ -231,40 +332,66 @@
     }
   };
 
-  // Fetch history stats from the API
+  // Fetch history stats via message bridge
   const fetchStats = async () => {
     try {
-      const response = await fetch('dumb://homepage/api/history/stats');
-      if (response.ok) {
-        const data = await response.json();
+      // Set up response handler
+      (window as any).__dumber_history_stats = (data: any) => {
         stats = data;
-      } else {
-        console.warn('Failed to fetch stats:', response.status);
+        statsLoading = false;
+      };
+
+      (window as any).__dumber_history_error = (error: string) => {
+        console.error('Error fetching stats:', error);
         stats = null;
+        statsLoading = false;
+      };
+
+      // Send message to Go backend
+      const bridge = (window as any).webkit?.messageHandlers?.dumber;
+      if (bridge && typeof bridge.postMessage === 'function') {
+        bridge.postMessage(JSON.stringify({
+          type: 'history_stats'
+        }));
+      } else {
+        throw new Error('WebKit message handler not available');
       }
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error('Error sending stats request:', error);
       stats = null;
-    } finally {
       statsLoading = false;
     }
   };
 
-  // Fetch top visited sites using search endpoint sorted by visit count
+  // Fetch top visited sites via message bridge
   const fetchTopVisited = async () => {
     try {
-      const response = await fetch('dumb://homepage/api/history/search?q=&limit=5');
-      if (response.ok) {
-        const data = await response.json();
+      // Set up response handler
+      (window as any).__dumber_history_search = (data: any[]) => {
         topVisited = Array.isArray(data) ? data.slice(0, 5) : [];
-      } else {
-        console.warn('Failed to fetch top visited:', response.status);
+        topVisitedLoading = false;
+      };
+
+      (window as any).__dumber_history_error = (error: string) => {
+        console.error('Error fetching top visited:', error);
         topVisited = [];
+        topVisitedLoading = false;
+      };
+
+      // Send message to Go backend
+      const bridge = (window as any).webkit?.messageHandlers?.dumber;
+      if (bridge && typeof bridge.postMessage === 'function') {
+        bridge.postMessage(JSON.stringify({
+          type: 'history_search',
+          q: '',
+          limit: 5
+        }));
+      } else {
+        throw new Error('WebKit message handler not available');
       }
     } catch (error) {
-      console.error('Error fetching top visited:', error);
+      console.error('Error sending top visited request:', error);
       topVisited = [];
-    } finally {
       topVisitedLoading = false;
     }
   };
