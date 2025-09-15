@@ -15,12 +15,16 @@
   let suggestions = $derived(omniboxStore.suggestions);
   let matches = $derived(omniboxStore.matches);
 
-  // Input element ref (props for parent to bind)
+  // Input element ref and responsive styles (props for parent to bind)
   interface Props {
     inputElement?: HTMLInputElement;
+    responsiveStyles?: {
+      fontSize: string;
+      inputPadding: string;
+    };
   }
 
-  let { inputElement = $bindable() }: Props = $props();
+  let { inputElement = $bindable(), responsiveStyles }: Props = $props();
 
   // Computed placeholder
   let placeholder = $derived(
@@ -185,13 +189,10 @@
   type="text"
   {placeholder}
   value={inputValue}
-  class="w-full box-border px-3 py-2.5
-         bg-[#121212] text-[#eee]
-         border border-[#555] rounded-md
-         focus:outline-none
-         text-base
-         sm:px-2.5 sm:py-2 sm:text-sm
-         xl:text-lg xl:px-3 xl:py-3"
+  class="w-full box-border bg-[#121212] text-[#eee] border border-[#555] rounded-md focus:outline-none"
+  style="padding: {responsiveStyles?.inputPadding || '10px 12px'};
+         font-size: {responsiveStyles?.fontSize || '16px'};
+         box-sizing: border-box"
   oninput={handleInput}
   onkeydown={handleKeyDown}
   onmousedown={handleMouseDown}
