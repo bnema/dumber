@@ -100,9 +100,13 @@ func (ci *CosmeticInjector) GetScriptForDomain(domain string) string {
 (function() {
     if (typeof window.__dumber_cosmetic_init === 'function') {
         window.__dumber_cosmetic_init(%s);
-        console.log('[dumber] Cosmetic filtering initialized with %d rules');
+        if (window.self === window.top) {
+            console.log('[dumber] Cosmetic filtering initialized with %d rules');
+        }
     } else {
-        console.warn('[dumber] Cosmetic filtering not available');
+        if (window.self === window.top) {
+            console.warn('[dumber] Cosmetic filtering not available');
+        }
     }
 })();`, domain, string(rulesJSON), len(rules))
 
@@ -149,7 +153,9 @@ func (ci *CosmeticInjector) GetUpdateScript(newSelectors []string) string {
 (function() {
     if (typeof window.__dumber_cosmetic_update === 'function') {
         window.__dumber_cosmetic_update(%s);
-        console.log('[dumber] Updated cosmetic rules with %d new selectors');
+        if (window.self === window.top) {
+            console.log('[dumber] Updated cosmetic rules with %d new selectors');
+        }
     }
 })();`, string(selectorsJSON), len(newSelectors))
 }
@@ -160,7 +166,9 @@ func (ci *CosmeticInjector) GetCleanupScript() string {
 (function() {
     if (typeof window.__dumber_cosmetic_cleanup === 'function') {
         window.__dumber_cosmetic_cleanup();
-        console.log('[dumber] Cosmetic filtering cleaned up');
+        if (window.self === window.top) {
+            console.log('[dumber] Cosmetic filtering cleaned up');
+        }
     }
 })();`
 }

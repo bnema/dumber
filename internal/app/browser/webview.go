@@ -54,6 +54,7 @@ func (app *BrowserApp) createWebView() error {
 	_ = os.MkdirAll(webkitCache, constants.DirPerm)
 
 	view, err := webkit.NewWebView(&webkit.Config{
+		Assets:                app.assets,
 		InitialURL:            "dumb://homepage",
 		ZoomDefault:           1.0,
 		EnableDeveloperExtras: true,
@@ -107,6 +108,10 @@ func (app *BrowserApp) createWebView() error {
 // setupWebViewIntegration connects the WebView to browser services
 func (app *BrowserApp) setupWebViewIntegration() {
 	app.browserService.AttachWebView(app.webView)
+
+	// GUI bundle is loaded via WebKit user scripts in enableUserContentManager
+	// No need to load separately in browser service
+
 	// Use native window as title updater
 	if win := app.webView.Window(); win != nil {
 		app.browserService.SetWindowTitleUpdater(win)
@@ -129,6 +134,7 @@ func (app *BrowserApp) setupWebViewHandlers() {
 	// Set WebView reference for message handler and register script messages
 	app.messageHandler.SetWebView(app.webView)
 	app.webView.RegisterScriptMessageHandler(app.messageHandler.Handle)
+
 }
 
 // setupControllers initializes and configures controller objects
@@ -212,15 +218,20 @@ func (app *BrowserApp) setupContentBlocking() error {
 			// Continue without content blocking rather than failing
 		}
 
-		// Register navigation handler for domain-specific filtering
+		// Register navigation handler for domain-specific filtering and GUI injection
 		// Only register after content blocking is initialized
 		app.webView.RegisterURIChangedHandler(func(uri string) {
 			// Add small delay to avoid conflicts with page load
 			go func() {
 				time.Sleep(200 * time.Millisecond) // Slightly longer delay for stability
+
+				// Apply content filtering if available
 				if app.filterManager != nil {
 					app.webView.OnNavigate(uri, app.filterManager)
 				}
+
+				// Note: GUI bundle (controls and toast) is now injected as User Script
+				// in WebKit's enableUserContentManager, so it persists across all navigations
 			}()
 		})
 	}()
