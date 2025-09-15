@@ -142,7 +142,13 @@ export const omniboxStore = {
   },
 
   toggle() {
-    this.setVisible(!visible);
+    if (!visible) {
+      // When opening via toggle (Ctrl+L), always open in omnibox mode
+      this.setMode('omnibox');
+      this.setVisible(true);
+    } else {
+      this.setVisible(false);
+    }
   },
 
   updateSuggestions(newSuggestions: Suggestion[]) {
