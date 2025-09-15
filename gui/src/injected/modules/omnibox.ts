@@ -45,7 +45,21 @@ export async function initializeOmnibox(config: OmniboxInitConfig = {}): Promise
     if (!container) {
       container = document.createElement('div');
       container.id = containerId;
-      container.style.cssText = 'position:fixed;inset:0;z-index:2147483647;pointer-events:none;';
+      container.style.cssText = `
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        z-index: 2147483647 !important;
+        pointer-events: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        background: none !important;
+        isolation: isolate !important;
+        contain: layout style !important;
+      `;
       document.documentElement.appendChild(container);
     }
 
