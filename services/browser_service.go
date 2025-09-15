@@ -7,6 +7,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	neturl "net/url"
 	"time"
@@ -40,7 +41,7 @@ type BrowserService struct {
 	windowTitleUpdater WindowTitleUpdater
 	webView            *webkit.WebView
 	initialURL         string
-	injectableScript   string
+	guiBundle          string
 }
 
 // ServiceName returns the service name for frontend binding
@@ -76,7 +77,7 @@ func NewBrowserService(cfg *config.Config, queries db.DatabaseQuerier) *BrowserS
 		windowTitleUpdater: nil,
 		webView:            nil,
 		initialURL:         "",
-		injectableScript:   "",
+		guiBundle:          "",
 	}
 }
 
@@ -90,32 +91,78 @@ func (s *BrowserService) AttachWebView(view *webkit.WebView) {
 	s.webView = view
 }
 
-// LoadInjectableScript loads the minified injectable controls script from assets
-func (s *BrowserService) LoadInjectableScript(assets embed.FS) error {
-	scriptBytes, err := assets.ReadFile("frontend/dist/injected-controls.min.js")
+// LoadGUIBundle loads the unified GUI bundle from assets
+func (s *BrowserService) LoadGUIBundle(assets embed.FS) error {
+	log.Printf("[browser] Attempting to load GUI bundle from assets/gui/gui.min.js")
+	bundleBytes, err := assets.ReadFile("assets/gui/gui.min.js")
 	if err != nil {
-		return fmt.Errorf("failed to load injectable script: %w", err)
+		log.Printf("[browser] ERROR: Failed to load GUI bundle: %v", err)
+		return fmt.Errorf("failed to load GUI bundle: %w", err)
 	}
-	s.injectableScript = string(scriptBytes)
+	s.guiBundle = string(bundleBytes)
+	log.Printf("[browser] GUI bundle loaded successfully into browser service, size: %d bytes", len(bundleBytes))
 	return nil
 }
 
-// InjectControlScript injects the global controls script into the current page
-func (s *BrowserService) InjectControlScript(ctx context.Context) error {
+// GetGUIBundle returns the loaded GUI bundle string
+func (s *BrowserService) GetGUIBundle() string {
+	return s.guiBundle
+}
+
+// InjectGUIBundle injects the unified GUI bundle and initializes controls
+func (s *BrowserService) InjectGUIBundle(ctx context.Context) error {
 	_ = ctx
 	if s.webView == nil {
 		return fmt.Errorf("webview not attached")
 	}
-	if s.injectableScript == "" {
-		return fmt.Errorf("injectable script not loaded")
+	if s.guiBundle == "" {
+		return fmt.Errorf("GUI bundle not loaded")
 	}
-	wrappedScript := "(function(){try{" +
-		"if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){try{" +
-		s.injectableScript +
-		"}catch(e){console.warn('Dumber Browser controls failed to load on DOMContentLoaded:', e);}});}else{" +
-		s.injectableScript +
-		"}}catch(e){console.warn('Dumber Browser controls injection failed:', e);}})();"
-	return s.webView.InjectScript(wrappedScript)
+
+	// Inject the unified GUI bundle first
+	bundleScript := s.guiBundle +
+		";(function(){" +
+		"if(window.__dumber_gui && window.__dumber_gui.initializeControls){" +
+		"window.__dumber_gui.initializeControls();" +
+		"console.log('✅ Controls initialized via GUI bundle');" +
+		"}else{console.error('❌ GUI bundle not properly loaded');}" +
+		"})();"
+
+	return s.webView.InjectScript(bundleScript)
+}
+
+// InjectToastSystem injects the GUI bundle and initializes the toast system
+func (s *BrowserService) InjectToastSystem(ctx context.Context, theme string) error {
+	_ = ctx
+	if s.webView == nil {
+		return fmt.Errorf("webview not attached")
+	}
+	if s.guiBundle == "" {
+		return fmt.Errorf("GUI bundle not loaded")
+	}
+
+	// Set theme if provided
+	themeScript := ""
+	if theme != "" {
+		themeScript = fmt.Sprintf("window.__dumber_initial_theme = '%s';", theme)
+	}
+
+	// Inject the unified GUI bundle and initialize toast system after DOM ready
+	toastScript := s.guiBundle + ";" + themeScript +
+		"(function(){" +
+		"function initToast(){" +
+		"if(window.__dumber_gui && window.__dumber_gui.initializeToast){" +
+		"window.__dumber_gui.initializeToast().then(function(){" +
+		"console.log('✅ Toast system initialized via GUI bundle');" +
+		"}).catch(function(e){console.error('❌ Toast initialization failed:', e);});" +
+		"}else{console.error('❌ GUI bundle not properly loaded');}" +
+		"}" +
+		"if(document.readyState==='loading'){" +
+		"document.addEventListener('DOMContentLoaded',initToast);" +
+		"}else{initToast();}" +
+		"})();"
+
+	return s.webView.InjectScript(toastScript)
 }
 
 // Navigate handles navigation to a URL and records it in history.
