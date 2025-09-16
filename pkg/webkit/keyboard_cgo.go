@@ -78,8 +78,10 @@ static void attach_mouse_legacy(GtkWidget* widget, unsigned long id) {
 import "C"
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -149,10 +151,11 @@ func dispatchAccelerator(uid uintptr, keyval uint, state uint) {
 	shift := (state & uint(C.GDK_SHIFT_MASK)) != 0
 	// Map keyval to string names
 	var keyName string
+	logMinusEvent := false
 	switch keyval {
 	case uint(C.GDK_KEY_minus), uint(C.GDK_KEY_KP_Subtract), uint(C.GDK_KEY_underscore):
 		// Normalize minus; log raw detection for diagnostics
-		log.Printf("[accelerator-raw] minus key detected ctrl=%v alt=%v keyval=0x%x", ctrl, alt, keyval)
+		logMinusEvent = true
 		keyName = "-"
 	case uint(C.GDK_KEY_equal), uint(C.GDK_KEY_KP_Add):
 		keyName = "="
@@ -180,6 +183,16 @@ func dispatchAccelerator(uid uintptr, keyval uint, state uint) {
 			log.Printf("[accelerator-miss] ctrl keyval=0x%x", keyval)
 		}
 		return
+	}
+
+	now := time.Now()
+	rawKey := fmt.Sprintf("raw:%v:%v:%v:%s", ctrl, alt, shift, keyName)
+	if shouldDebounceShortcut(uid, rawKey, now) {
+		return
+	}
+
+	if logMinusEvent {
+		log.Printf("[accelerator-raw] minus key detected ctrl=%v alt=%v keyval=0x%x", ctrl, alt, keyval)
 	}
 
 	// Candidate accelerator strings in order
@@ -211,7 +224,6 @@ func dispatchAccelerator(uid uintptr, keyval uint, state uint) {
 		normalized = ""
 	}
 
-	now := time.Now()
 	// Forward normalized shortcut to GUI KeyboardService via DOM event if present
 	if normalized != "" && !shouldDebounceShortcut(uid, "dom:"+normalized, now) {
 		regMu.RLock()
@@ -369,6 +381,12 @@ func goOnUcmMessage(id C.ulong, json *C.char) {
 		return
 	}
 	goPayload := C.GoString(json)
+
+	// Handle rendering backend detection messages specially
+	if handleRenderingBackendMessage(goPayload) {
+		return
+	}
+
 	vw.dispatchScriptMessage(goPayload)
 }
 
@@ -421,4 +439,51 @@ func goOnButtonPress(id C.ulong, button C.guint, state C.GdkModifierType) {
 func goQuitMainLoop() {
 	log.Printf("[webkit] Window close requested - quitting main loop")
 	QuitMainLoop()
+}
+
+// handleRenderingBackendMessage processes rendering backend detection messages
+func handleRenderingBackendMessage(payload string) bool {
+	// Parse JSON to check if this is a rendering backend detection message
+	if !strings.Contains(payload, "rendering_backend_detection") {
+		return false
+	}
+
+	// Simple JSON parsing for the specific structure we expect
+	// {"type":"rendering_backend_detection","data":{...}}
+	var msg struct {
+		Type string `json:"type"`
+		Data struct {
+			WebGLAvailable         bool   `json:"webgl_available"`
+			Renderer               string `json:"renderer"`
+			Vendor                 string `json:"vendor"`
+			Version                string `json:"version"`
+			ShadingLanguageVersion string `json:"shading_language_version"`
+			MaxTextureSize         int    `json:"max_texture_size"`
+			HardwareAccelerated    bool   `json:"hardware_accelerated"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal([]byte(payload), &msg); err != nil {
+		log.Printf("[webkit] Failed to parse rendering backend message: %v", err)
+		return false
+	}
+
+	if msg.Type != "rendering_backend_detection" {
+		return false
+	}
+
+	// Log the detected rendering backend information
+	backendType := "SOFTWARE"
+	if msg.Data.HardwareAccelerated {
+		backendType = "HARDWARE"
+	}
+
+	log.Printf("[webkit] Detected rendering backend: %s", backendType)
+	log.Printf("[webkit] WebGL available: %v", msg.Data.WebGLAvailable)
+	log.Printf("[webkit] Renderer: %s", msg.Data.Renderer)
+	log.Printf("[webkit] Vendor: %s", msg.Data.Vendor)
+	log.Printf("[webkit] Version: %s", msg.Data.Version)
+	log.Printf("[webkit] Max texture size: %d", msg.Data.MaxTextureSize)
+
+	return true
 }
