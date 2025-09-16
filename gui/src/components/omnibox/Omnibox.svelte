@@ -18,6 +18,7 @@
 
   // Component refs
   let boxElement: HTMLDivElement;
+  let blurLayerElement: HTMLDivElement;
   let inputElement = $state<HTMLInputElement>();
 
   // Responsive styling state
@@ -78,23 +79,52 @@
 
 
   // Apply faded styling effect (matching original JS implementation)
+  // NOTE: to avoid text becoming blurry while animating, we animate the
+  // blur via an absolutely-positioned layer's opacity instead of
+  // animating `backdrop-filter` on the container. This keeps the text
+  // on a separate compositing layer and prevents browser antialiasing
+  // artifacts during transitions.
   $effect(() => {
-    if (!boxElement || !inputElement) return;
+    if (!boxElement || !inputElement || !blurLayerElement) return;
+
+    // Ensure subtle transitions are present on the container so
+    // background-color (and other cheap properties) animate smoothly.
+    try {
+      // container transitions (background & color)
+      if (!boxElement.style.transition) {
+        boxElement.style.transition = 'background-color 120ms ease';
+      }
+    } catch (e) {
+      // defensive: ignore if setting styles fails for some reason
+    }
 
     if (faded) {
-      // Faded state - semi-transparent with backdrop blur
-      boxElement.style.background = 'rgba(27,27,27,0.25)';
-      boxElement.style.backdropFilter = 'blur(2px) saturate(110%)';
-      (boxElement.style as any).webkitBackdropFilter = 'blur(2px) saturate(110%)';
+      // Faded state - semi-transparent backgrounds. The blur itself
+      // is provided by the blur layer whose opacity we animate.
+      boxElement.style.background = 'rgba(27,27,27,0.35)';
       inputElement.style.background = 'rgba(18,18,18,0.35)';
       inputElement.style.color = '#eee';
+
+      // Small black text border/shadow (2px, 75% opacity) when faded.
+      // Keep this immediate to avoid animating text-shadow (which can
+      // trigger repaints that blur text).
+      const textShadow = '1px 1px 1px rgba(0,0,0,0.75)';
+      inputElement.style.textShadow = textShadow;
+      boxElement.style.textShadow = textShadow;
+
+      // Show the blur layer (opacity animation defined in CSS)
+      blurLayerElement.style.opacity = '1';
     } else {
-      // Normal state - solid background
+      // Normal state - solid background, hide blur layer.
       boxElement.style.background = '#1b1b1b';
-      boxElement.style.backdropFilter = '';
-      (boxElement.style as any).webkitBackdropFilter = '';
       inputElement.style.background = '#121212';
       inputElement.style.color = '#eee';
+
+      // Remove text shadow in normal state
+      inputElement.style.textShadow = '';
+      boxElement.style.textShadow = '';
+
+      blurLayerElement.style.opacity = '0';
     }
   });
 
@@ -178,6 +208,14 @@
       };
 
       console.log('✅ Omnibox API exposed:', Object.keys(window.__dumber_omnibox));
+      
+      // Check for pending suggestions that arrived before API was ready
+      if ((window as any).__dumber_omnibox_pending_suggestions) {
+        console.log('🔄 [OMNIBOX] Processing pending suggestions');
+        const pending = (window as any).__dumber_omnibox_pending_suggestions;
+        omniboxBridge.setSuggestions(pending);
+        delete (window as any).__dumber_omnibox_pending_suggestions;
+      }
     } catch (error) {
       console.error('❌ Failed to set up omnibox global API:', error);
     }
@@ -220,7 +258,7 @@
   <!-- Main omnibox container -->
   <div
     bind:this={boxElement}
-    class="bg-[#1b1b1b] border border-[#444] rounded-lg shadow-[0_10px_30px_rgba(0,0,0,0.6)] text-[#eee]"
+    class="bg-[#1b1b1b] border border-[#121212] rounded shadow-[0_10px_30px_rgba(0,0,0,0.6)] text-[#eee]"
     style="position: relative !important;
            left: 50% !important;
            transform: translateX(-50%) !important;
@@ -229,7 +267,7 @@
            margin-right: 0 !important;
            width: {responsiveStyles.width};
            padding: {responsiveStyles.padding};
-           font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, 'Helvetica Neue', Arial, sans-serif;
+           font-family: 'Fira sans', system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, 'Helvetica Neue', Arial, sans-serif;
            pointer-events: auto !important;
            box-sizing: border-box !important;"
     onmousedown={handleBoxClick}
@@ -239,18 +277,48 @@
     aria-modal="true"
     aria-label={mode === 'find' ? 'Find in page' : 'Omnibox search'}
   >
-    <!-- Input component -->
-    <OmniboxInput bind:inputElement {responsiveStyles} />
+    <!-- Blur layer: absolute full-cover element providing backdrop blur.
+         We animate its opacity rather than the container's backdrop-filter
+         to avoid causing text to blur during transitions. -->
+    <div
+      bind:this={blurLayerElement}
+      class="dumber-omnibox-blur-layer"
+      aria-hidden="true"
+      style="position: absolute; inset: 0; pointer-events: none; border-radius: inherit; opacity: 0;"
+    ></div>
+    <div class="dumber-omnibox-content">
+      <!-- Input component -->
+      <OmniboxInput bind:inputElement {responsiveStyles} />
 
-    <!-- Content based on mode -->
-    {#if mode === 'omnibox'}
-      <OmniboxSuggestions />
-    {:else if mode === 'find'}
-      <OmniboxFind />
-    {/if}
+      <!-- Content based on mode -->
+      {#if mode === 'omnibox'}
+        <OmniboxSuggestions />
+      {:else if mode === 'find'}
+        <OmniboxFind />
+      {/if}
+    </div>
   </div>
 </div>
 
 <style>
+  /* Blur layer styles: use `backdrop-filter` but animate opacity only. */
+  .dumber-omnibox-blur-layer {
+    backdrop-filter: blur(2px) saturate(110%);
+    -webkit-backdrop-filter: blur(2px) saturate(110%);
+    background: rgba(0,0,0,0.12); /* slight tint so blur looks natural */
+    transition: opacity 160ms ease;
+    will-change: opacity;
+    z-index: 0;
+    mix-blend-mode: normal;
+  }
+
+  /* Ensure the actual content (input, suggestions) sits above the blur layer */
+  .dumber-omnibox-content {
+    position: relative;
+    z-index: 1;
+    /* promote to its own layer to avoid being rasterized with the blur */
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
   /* Additional custom styles if needed */
 </style>

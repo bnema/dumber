@@ -189,7 +189,7 @@
   type="text"
   {placeholder}
   value={inputValue}
-  class="w-full box-border bg-[#121212] text-[#eee] border border-[#555] rounded-md focus:outline-none"
+  class="w-full box-border bg-[#121212] text-[#eee] border border-[#333] rounded focus:outline-none"
   style="padding: {responsiveStyles?.inputPadding || '10px 12px'};
          font-size: {responsiveStyles?.fontSize || '16px'};
          box-sizing: border-box"

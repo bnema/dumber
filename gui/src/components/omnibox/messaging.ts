@@ -8,22 +8,30 @@ import type { OmniboxMessage, OmniboxMessageBridge, Suggestion } from './types';
 import { omniboxStore } from './stores.svelte.ts';
 
 export class OmniboxBridge implements OmniboxMessageBridge {
-  /**
-   * Send message to Go backend via WebKit message handler
-   */
+  // Forward messages to the native WebKit message handler when available
+  // Fallback: for navigate, perform direct location change
   postMessage(msg: OmniboxMessage): void {
-    try {
-      console.log('📨 Sending message to Go backend:', msg);
-      const messageHandler = window.webkit?.messageHandlers?.dumber;
-      if (messageHandler && messageHandler.postMessage) {
-        const jsonMsg = JSON.stringify(msg);
-        console.log('📨 JSON message:', jsonMsg);
-        messageHandler.postMessage(jsonMsg);
-      } else {
-        console.warn('WebKit message handler not available');
+    console.log('📤 [DEBUG] Posting message to backend:', msg);
+    // NOTE: Do NOT detach postMessage from its receiver. In WKWebView,
+    // postMessage must be called on the UserMessageHandler instance.
+    const bridge = window.webkit?.messageHandlers?.dumber;
+    if (bridge && typeof bridge.postMessage === 'function') {
+      try {
+        console.log('📱 [DEBUG] Using webkit message handler');
+        bridge.postMessage(JSON.stringify(msg));
+        return;
+      } catch (e) {
+        console.warn('postMessage to native handler failed, using fallback:', e);
       }
-    } catch (error) {
-      console.error('Failed to send message to Go backend:', error);
+    }
+    console.log('⚠️ [DEBUG] No webkit bridge available');
+    // Fallback navigation if no native bridge is available
+    if (msg.type === 'navigate' && typeof msg.url === 'string' && msg.url) {
+      try {
+        window.location.href = msg.url;
+      } catch (e) {
+        console.error('Fallback navigation failed:', e);
+      }
     }
   }
 
@@ -31,6 +39,7 @@ export class OmniboxBridge implements OmniboxMessageBridge {
    * Update suggestions from Go backend
    */
   setSuggestions(suggestions: Suggestion[]): void {
+    console.log('📝 [DEBUG] Received suggestions from backend:', suggestions);
     omniboxStore.updateSuggestions(suggestions);
   }
 
@@ -39,22 +48,21 @@ export class OmniboxBridge implements OmniboxMessageBridge {
    */
   navigate(url: string): void {
     console.log('🚀 Omnibox navigate called with:', url);
-    this.postMessage({
-      type: 'navigate',
-      url
-    });
+    this.postMessage({ type: 'navigate', url });
   }
 
   /**
    * Handle search query
    */
   query(searchTerm: string, limit?: number): void {
-    this.postMessage({
-      type: 'query',
-      q: searchTerm,
-      limit: limit || omniboxStore.config.defaultLimit
-    });
+    const q = searchTerm ?? '';
+    const lim = limit || omniboxStore.config.defaultLimit;
+    console.log('🔍 [DEBUG] Sending query to backend:', { q, limit: lim });
+    // Send to native handler; Go will compute suggestions and call setSuggestions
+    this.postMessage({ type: 'query', q, limit: lim });
   }
+
+  // Suggestions are returned via setSuggestions() when native handler responds
 }
 
 // Singleton instance

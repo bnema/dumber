@@ -30,6 +30,14 @@
     omniboxStore.close();
   }
 
+  // Handle keyboard activation on suggestion item
+  function handleItemKeyDown(event: KeyboardEvent, suggestion: any) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleItemClick(suggestion);
+    }
+  }
+
   // Scroll list to show selected item
   function scrollToSelection() {
     const selectedItem = document.getElementById(`omnibox-item-${selectedIndex}`);
@@ -92,10 +100,11 @@
                border-b border-[#2a2a2a] last:border-b-0
                {isSelected ? 'bg-[#0a0a0a]' : ''}"
         role="option"
-        tabindex="-1"
+        tabindex={isSelected ? 0 : -1}
         aria-selected={isSelected}
         onmouseenter={() => handleItemMouseEnter(index)}
         onclick={() => handleItemClick(suggestion)}
+        onkeydown={(e) => handleItemKeyDown(e, suggestion)}
       >
         <!-- Favicon chip -->
         {#if suggestion.favicon}
