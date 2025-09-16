@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Improved
+- WebKit integration now forces GPU compositing by default while still honoring explicit config overrides.
+- Smooth scrolling is enabled (when supported) so wheel and gesture animations feel closer to Chromium/Firefox.
+- Title updates, zoom persistence, and domain zoom lookups are now done off the GTK main thread with results marshalled back safely, eliminating UI hitches during navigation.
+- Added optional DOM-level zoom (enabled by default) to avoid native viewport rescaling; falls back to WebKit zoom if the CSS path fails.
+- DOM zoom now seeds the saved level before the first paint and reuses it during document-start scripts, preventing pages from flashing back to 100%.
+- Native accelerator bridge debounces duplicate GTK key events earlier, so Ctrl±/Ctrl+0 only fires once per physical key press.
+- Omnibox-triggered navigations now reuse the navigation controller, so saved zoom levels are applied before first paint and redundant lookups are avoided.
+- Configuration loading writes the missing `use_dom_zoom` flag into existing config files so DOM zoom defaults persist without manual edits.
+
 ## [0.8.0] - 2025-09-17
 
 ### Added
