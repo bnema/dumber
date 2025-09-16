@@ -60,6 +60,7 @@ func (app *BrowserApp) createWebView() error {
 		EnableDeveloperExtras: true,
 		DataDir:               webkitData,
 		CacheDir:              webkitCache,
+		APIToken:              app.config.APISecurity.Token,
 		DefaultSansFont:       app.config.Appearance.SansFont,
 		DefaultSerifFont:      app.config.Appearance.SerifFont,
 		DefaultMonospaceFont:  app.config.Appearance.MonospaceFont,
