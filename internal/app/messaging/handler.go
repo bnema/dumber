@@ -10,16 +10,18 @@ import (
 	"strings"
 
 	"github.com/bnema/dumber/internal/app/constants"
+	"github.com/bnema/dumber/internal/app/control"
 	"github.com/bnema/dumber/pkg/webkit"
 	"github.com/bnema/dumber/services"
 )
 
 // Handler processes script messages from the WebView
 type Handler struct {
-	parserService  *services.ParserService
-	browserService *services.BrowserService
-	webView        *webkit.WebView
-	lastTheme      string
+	parserService        *services.ParserService
+	browserService       *services.BrowserService
+	webView              *webkit.WebView
+	navigationController *control.NavigationController
+	lastTheme            string
 }
 
 // Message represents a script message from the WebView
@@ -45,6 +47,11 @@ func NewHandler(parserService *services.ParserService, browserService *services.
 		parserService:  parserService,
 		browserService: browserService,
 	}
+}
+
+// SetNavigationController injects the navigation controller for unified navigation flow.
+func (h *Handler) SetNavigationController(controller *control.NavigationController) {
+	h.navigationController = controller
 }
 
 // Handle processes incoming script messages
@@ -85,17 +92,40 @@ func (h *Handler) SetWebView(webView *webkit.WebView) {
 
 // handleNavigation processes navigation requests from the frontend
 func (h *Handler) handleNavigation(msg Message) {
+	if h.navigationController != nil {
+		if err := h.navigationController.NavigateToURL(msg.URL); err != nil {
+			log.Printf("[messaging] Navigation controller failed for input %q: %v", msg.URL, err)
+			h.legacyNavigate(msg)
+		}
+		return
+	}
+
+	h.legacyNavigate(msg)
+}
+
+func (h *Handler) legacyNavigate(msg Message) {
 	ctx := context.Background()
 	res, err := h.parserService.ParseInput(ctx, msg.URL)
-	if err == nil {
-		if _, navErr := h.browserService.Navigate(ctx, res.URL); navErr != nil {
-			log.Printf("Warning: failed to navigate to %s: %v", res.URL, navErr)
-		}
-		if h.webView != nil {
-			_ = h.webView.LoadURL(res.URL)
-			if z, zerr := h.browserService.GetZoomLevel(ctx, res.URL); zerr == nil {
-				_ = h.webView.SetZoom(z)
-			}
+	if err != nil {
+		log.Printf("[messaging] Legacy navigation parse failed for %q: %v", msg.URL, err)
+		return
+	}
+
+	if _, navErr := h.browserService.Navigate(ctx, res.URL); navErr != nil {
+		log.Printf("Warning: failed to navigate to %s: %v", res.URL, navErr)
+	}
+
+	if h.webView == nil {
+		return
+	}
+
+	if err := h.webView.LoadURL(res.URL); err != nil {
+		log.Printf("[messaging] Legacy LoadURL failed for %s: %v", res.URL, err)
+	}
+
+	if z, zerr := h.browserService.GetZoomLevel(ctx, res.URL); zerr == nil {
+		if err := h.webView.SetZoom(z); err != nil {
+			log.Printf("[messaging] Legacy SetZoom failed for %s: %v", res.URL, err)
 		}
 	}
 }
