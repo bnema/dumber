@@ -26,8 +26,31 @@ export class AppService {
 
   async loadHistory(): Promise<void> {
     try {
-      const recentHistory: HistoryEntry[] = await fetch('/api/history/recent?limit=50').then(r => r.json());
-      this.history = recentHistory;
+      // Use message bridge instead of fetch
+      return new Promise((resolve, reject) => {
+        // Set up response handler
+        (window as any).__dumber_history_recent = (data: HistoryEntry[]) => {
+          this.history = Array.isArray(data) ? data : [];
+          resolve();
+        };
+
+        (window as any).__dumber_history_error = (error: string) => {
+          console.error('Failed to load history:', error);
+          reject(new Error(error));
+        };
+
+        // Send message to Go backend
+        const bridge = (window as any).webkit?.messageHandlers?.dumber;
+        if (bridge && typeof bridge.postMessage === 'function') {
+          bridge.postMessage(JSON.stringify({
+            type: 'history_recent',
+            limit: 50,
+            offset: 0
+          }));
+        } else {
+          reject(new Error('WebKit message handler not available'));
+        }
+      });
     } catch (error) {
       console.error('Failed to load history:', error);
       // Mock history for development/fallback
