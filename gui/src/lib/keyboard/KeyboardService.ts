@@ -21,6 +21,7 @@ export class KeyboardService {
   private globalShortcuts: ShortcutConfig[] = [];
   private eventListeners = new Map<KeyboardEventType, Set<(event: KeyboardEvent) => void>>();
   private debug: boolean = false;
+  // Mode-aware keymaps (e.g., 'vim', 'emacs') are deferred for now
 
   constructor(config: KeyboardServiceConfig = {}) {
     this.debug = config.debug ?? false;
