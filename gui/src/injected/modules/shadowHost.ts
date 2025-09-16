@@ -14,18 +14,7 @@ import globalStyles from '../../styles/tailwind.css?inline';
 // Track shadow-root initialization to avoid duplicate reset injection
 const shadowResetApplied = new WeakSet<ShadowRoot>();
 
-export const GLOBAL_SHADOW_HOST_ID = 'dumber-ui-root';
-
-/**
- * Ensure and return the global ShadowRoot used by injected UI.
- */
-export function getGlobalShadowRoot(): ShadowRoot {
-  // Create or find the host container
-  let host = document.getElementById(GLOBAL_SHADOW_HOST_ID) as HTMLElement | null;
-  if (!host) {
-    host = document.createElement('div');
-    host.id = GLOBAL_SHADOW_HOST_ID;
-    host.style.cssText = `
+const HOST_STYLES = `
       position: fixed !important;
       top: 0 !important;
       left: 0 !important;
@@ -40,8 +29,62 @@ export function getGlobalShadowRoot(): ShadowRoot {
       isolation: isolate !important;
       contain: layout style !important;
     `;
-    document.documentElement.appendChild(host);
+
+let cachedHost: HTMLElement | null = null;
+let hostObserver: MutationObserver | null = null;
+let hostKeepaliveTimer: number | null = null;
+
+function ensureHostPresence(host: HTMLElement): void {
+  const docEl = document.documentElement;
+  if (docEl && !host.isConnected) {
+    docEl.appendChild(host);
   }
+
+  if (typeof MutationObserver !== 'undefined') {
+    if (!hostObserver) {
+      hostObserver = new MutationObserver(() => {
+        if (cachedHost && !cachedHost.isConnected && document.documentElement) {
+          document.documentElement.appendChild(cachedHost);
+        }
+      });
+    }
+
+    try {
+      hostObserver.disconnect();
+      if (docEl) {
+        hostObserver.observe(docEl, { childList: true });
+      }
+    } catch {
+      // MutationObserver might not be allowed by the page; fall back to polling in that case.
+    }
+  }
+
+  if (hostKeepaliveTimer === null && typeof window !== 'undefined') {
+    hostKeepaliveTimer = window.setInterval(() => {
+      if (cachedHost && !cachedHost.isConnected && document.documentElement) {
+        document.documentElement.appendChild(cachedHost);
+      }
+    }, 2000);
+  }
+}
+
+export const GLOBAL_SHADOW_HOST_ID = 'dumber-ui-root';
+
+/**
+ * Ensure and return the global ShadowRoot used by injected UI.
+ */
+export function getGlobalShadowRoot(): ShadowRoot {
+  // Create or find the host container
+  let host = document.getElementById(GLOBAL_SHADOW_HOST_ID) as HTMLElement | null;
+  if (!host) {
+    host = document.createElement('div');
+    host.id = GLOBAL_SHADOW_HOST_ID;
+  }
+
+  host.style.cssText = HOST_STYLES;
+
+  cachedHost = host;
+  ensureHostPresence(host);
 
   const shadowRoot = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
 

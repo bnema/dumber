@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - Omnibox-triggered navigations now reuse the navigation controller, so saved zoom levels are applied before first paint and redundant lookups are avoided.
 - Configuration loading writes the missing `use_dom_zoom` flag into existing config files so DOM zoom defaults persist without manual edits.
 - Omnibox UI now relies on shared Tailwind theme tokens and the injected color-scheme service for light/dark parity.
+- Omnibox overlay now self-heals if hostile pages remove the injected shadow host, ensuring Ctrl/Cmd+L works everywhere.
 
 ## [0.8.0] - 2025-09-17
 
