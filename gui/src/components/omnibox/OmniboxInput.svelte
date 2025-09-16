@@ -26,6 +26,23 @@
 
   let { inputElement = $bindable(), responsiveStyles }: Props = $props();
 
+  const ACCENT_FALLBACK = 'var(--dynamic-accent)';
+
+  function resolveAccentColor(): string {
+    if (!inputElement) return ACCENT_FALLBACK;
+    const inlineAccent = inputElement.style.getPropertyValue('--dumber-input-accent');
+    if (inlineAccent && inlineAccent.trim()) {
+      return inlineAccent.trim();
+    }
+    try {
+      const computedAccent = getComputedStyle(inputElement).getPropertyValue('--dynamic-accent');
+      if (computedAccent && computedAccent.trim()) {
+        return computedAccent.trim();
+      }
+    } catch { /* no-op */ }
+    return ACCENT_FALLBACK;
+  }
+
   // Computed placeholder
   let placeholder = $derived(
     mode === 'find' ? 'Find in page…' : 'Type URL or search…'
@@ -170,6 +187,17 @@
 
   function handleFocus() {
     omniboxStore.setFaded(false);
+    if (inputElement) {
+      const accent = resolveAccentColor();
+      inputElement.style.setProperty('--dumber-input-border-color', accent);
+    }
+  }
+
+  function handleBlur() {
+    if (!inputElement) return;
+    const base = inputElement.style.getPropertyValue('--dumber-input-border-base');
+    const fallback = (base && base.trim()) || 'var(--dynamic-border)';
+    inputElement.style.setProperty('--dumber-input-border-color', fallback);
   }
 
   function handleMouseEnter() {
@@ -189,15 +217,16 @@
   type="text"
   {placeholder}
   value={inputValue}
-  class="w-full box-border bg-[#121212] text-[#eee] border border-[#333] rounded focus:outline-none"
+  class="w-full box-border omnibox-input omnibox-input-field rounded focus:outline-none"
   style="padding: {responsiveStyles?.inputPadding || '10px 12px'};
          font-size: {responsiveStyles?.fontSize || '16px'};
-         box-sizing: border-box"
+         box-sizing: border-box;"
   oninput={handleInput}
   onkeydown={handleKeyDown}
   onmousedown={handleMouseDown}
   onclick={handleClick}
   onfocus={handleFocus}
+  onblur={handleBlur}
   onmouseenter={handleMouseEnter}
   autocomplete="off"
   spellcheck="false"
@@ -208,3 +237,20 @@
   aria-owns="omnibox-list"
   aria-activedescendant={selectedIndex >= 0 ? `omnibox-item-${selectedIndex}` : undefined}
 />
+
+<style>
+  .omnibox-input-field {
+    background: var(--dumber-input-bg, var(--dynamic-bg));
+    color: var(--dynamic-text);
+    border: 2px solid var(--dumber-input-border-color, var(--dynamic-border));
+    transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+  }
+
+  .omnibox-input-field::placeholder {
+    color: var(--dynamic-muted);
+  }
+
+  .omnibox-input-field:focus {
+    color: var(--dynamic-text);
+  }
+</style>

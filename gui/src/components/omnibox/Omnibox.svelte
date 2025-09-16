@@ -29,6 +29,52 @@
     inputPadding: '10px 12px'
   });
 
+  // Track theme mode derived from injected color-scheme module
+  let isDarkMode = $state(false);
+  let themeObserver: MutationObserver | null = null;
+
+  function syncTheme() {
+    if (typeof document === 'undefined') return;
+
+    const globalWindow = typeof window === 'undefined' ? undefined : window;
+
+    if (document.documentElement.classList.contains('dark')) {
+      isDarkMode = true;
+      return;
+    }
+
+    if (globalWindow?.matchMedia) {
+      try {
+        const prefersDark = globalWindow.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (typeof prefersDark === 'boolean') {
+          isDarkMode = prefersDark;
+          return;
+        }
+      } catch {
+        // matchMedia might be unavailable in some environments
+      }
+    }
+
+    // Fallback to injected GTK preference flag if available
+    isDarkMode = Boolean((globalWindow as any)?.__dumber_gtk_prefers_dark);
+  }
+
+  function observeThemeChanges() {
+    if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') {
+      return;
+    }
+
+    if (themeObserver) {
+      themeObserver.disconnect();
+    }
+
+    themeObserver = new MutationObserver(syncTheme);
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+  }
+
   // Handle click outside to close
   function handleOverlayClick(event: MouseEvent) {
     const target = event.target as HTMLElement;
@@ -90,40 +136,71 @@
     // Ensure subtle transitions are present on the container so
     // background-color (and other cheap properties) animate smoothly.
     try {
-      // container transitions (background & color)
       if (!boxElement.style.transition) {
-        boxElement.style.transition = 'background-color 120ms ease';
+        boxElement.style.transition = 'background-color 120ms ease, border-color 120ms ease';
       }
     } catch (e) {
       // defensive: ignore if setting styles fails for some reason
     }
 
-    if (faded) {
-      // Faded state - semi-transparent backgrounds. The blur itself
-      // is provided by the blur layer whose opacity we animate.
-      boxElement.style.background = 'rgba(27,27,27,0.35)';
-      inputElement.style.background = 'rgba(18,18,18,0.35)';
-      inputElement.style.color = '#eee';
+    const surfaceMix = isDarkMode ? '65%' : '92%';
+    const inputMix = isDarkMode ? '60%' : '94%';
+    const borderMix = isDarkMode ? '70%' : '90%';
+    const blurMix = isDarkMode ? '28%' : '16%';
 
-      // Small black text border/shadow (2px, 75% opacity) when faded.
-      // Keep this immediate to avoid animating text-shadow (which can
-      // trigger repaints that blur text).
-      const textShadow = '1px 1px 1px rgba(0,0,0,0.75)';
+    const containerBackground = faded
+      ? `color-mix(in srgb, var(--dynamic-surface) ${surfaceMix}, transparent)`
+      : 'var(--dynamic-surface)';
+    const inputBackground = faded
+      ? `color-mix(in srgb, var(--dynamic-bg) ${inputMix}, transparent)`
+      : 'var(--dynamic-bg)';
+    const borderColor = faded
+      ? `color-mix(in srgb, var(--dynamic-border) ${borderMix}, transparent)`
+      : 'var(--dynamic-border)';
+    const blurTint = `color-mix(in srgb, var(--dynamic-bg) ${blurMix}, transparent)`;
+
+    boxElement.style.background = containerBackground;
+    boxElement.style.color = 'var(--dynamic-text)';
+    boxElement.style.setProperty('--dumber-border-color', borderColor);
+    boxElement.style.setProperty('--dumber-omnibox-surface', containerBackground);
+
+    inputElement.style.background = inputBackground;
+    inputElement.style.color = 'var(--dynamic-text)';
+    inputElement.style.setProperty('--dumber-input-bg', inputBackground);
+    inputElement.style.setProperty('--dumber-input-border-base', borderColor);
+    inputElement.style.setProperty('--dumber-placeholder-color', 'var(--dynamic-muted)');
+
+    blurLayerElement.style.setProperty('--dumber-blur-color', blurTint);
+    blurLayerElement.style.background = 'var(--dumber-blur-color)';
+
+    let accentColor = 'var(--dynamic-accent)';
+    try {
+      const computedAccent = getComputedStyle(boxElement).getPropertyValue('--dynamic-accent');
+      if (computedAccent && computedAccent.trim()) {
+        accentColor = computedAccent.trim();
+      }
+    } catch {
+      // If computed styles fail, keep fallback accent color
+    }
+    inputElement.style.setProperty('--dumber-input-accent', accentColor);
+    boxElement.style.setProperty('--dumber-input-accent', accentColor);
+
+    const isFocused = document.activeElement === inputElement;
+
+    if (!isFocused) {
+      inputElement.style.setProperty('--dumber-input-border-color', borderColor);
+    }
+
+    if (faded) {
+      const textShadow = isDarkMode
+        ? '1px 1px 1px rgba(0,0,0,0.65)'
+        : '1px 1px 1px rgba(255,255,255,0.65)';
       inputElement.style.textShadow = textShadow;
       boxElement.style.textShadow = textShadow;
-
-      // Show the blur layer (opacity animation defined in CSS)
       blurLayerElement.style.opacity = '1';
     } else {
-      // Normal state - solid background, hide blur layer.
-      boxElement.style.background = '#1b1b1b';
-      inputElement.style.background = '#121212';
-      inputElement.style.color = '#eee';
-
-      // Remove text shadow in normal state
       inputElement.style.textShadow = '';
       boxElement.style.textShadow = '';
-
       blurLayerElement.style.opacity = '0';
     }
   });
@@ -142,6 +219,9 @@
   }
 
   onMount(() => {
+    syncTheme();
+    observeThemeChanges();
+
     console.log('🔧 Omnibox component mounted');
 
     // Initialize responsive styles
@@ -228,6 +308,11 @@
     // Cleanup global click listener
     document.removeEventListener('click', handleGlobalClick, true);
 
+    if (themeObserver) {
+      themeObserver.disconnect();
+      themeObserver = null;
+    }
+
     // Reset omnibox state completely
     omniboxStore.reset();
 
@@ -258,7 +343,7 @@
   <!-- Main omnibox container -->
   <div
     bind:this={boxElement}
-    class="bg-[#1b1b1b] border border-[#121212] rounded shadow-[0_10px_30px_rgba(0,0,0,0.6)] text-[#eee]"
+    class="dumber-omnibox-container omnibox-base rounded shadow-[0_10px_30px_rgba(0,0,0,0.6)]"
     style="position: relative !important;
            left: 50% !important;
            transform: translateX(-50%) !important;
@@ -269,7 +354,11 @@
            padding: {responsiveStyles.padding};
            font-family: 'Fira sans', system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, 'Helvetica Neue', Arial, sans-serif;
            pointer-events: auto !important;
-           box-sizing: border-box !important;"
+           box-sizing: border-box !important;
+           background: var(--dumber-omnibox-surface, var(--dynamic-surface));
+           color: var(--dynamic-text);
+           border: 2px solid var(--dumber-border-color, var(--dynamic-border));
+           --dumber-border-color: var(--dynamic-border);"
     onmousedown={handleBoxClick}
     onmouseenter={handleMouseEnter}
     role="dialog"
@@ -301,11 +390,33 @@
 </div>
 
 <style>
+  .dumber-omnibox-container {
+    background: var(--dumber-omnibox-surface, var(--dynamic-surface));
+    color: var(--dynamic-text);
+    border: 2px solid var(--dumber-border-color, var(--dynamic-border));
+    transition: background-color 160ms ease, border-color 160ms ease;
+  }
+
+  .dumber-omnibox-container:focus-within {
+    border-color: var(--dumber-input-accent, var(--dynamic-accent));
+  }
+
+  :global(.dumber-omnibox-container input) {
+    background: var(--dumber-input-bg, var(--dynamic-bg));
+    color: var(--dynamic-text);
+    border-color: var(--dumber-input-border-color, var(--dynamic-border));
+    transition: border-color 120ms ease, background-color 120ms ease;
+  }
+
+  :global(.dumber-omnibox-container input::placeholder) {
+    color: var(--dynamic-muted);
+  }
+
   /* Blur layer styles: use `backdrop-filter` but animate opacity only. */
   .dumber-omnibox-blur-layer {
     backdrop-filter: blur(2px) saturate(110%);
     -webkit-backdrop-filter: blur(2px) saturate(110%);
-    background: rgba(0,0,0,0.12); /* slight tint so blur looks natural */
+    background: var(--dumber-blur-color, color-mix(in srgb, var(--dynamic-bg) 16%, transparent));
     transition: opacity 160ms ease;
     will-change: opacity;
     z-index: 0;
