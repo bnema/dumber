@@ -16,7 +16,6 @@ import (
 // SchemeHandler handles custom dumb:// scheme resolution
 type SchemeHandler struct {
 	assets         embed.FS
-	apiHandler     *Handler
 	parserService  *services.ParserService
 	browserService *services.BrowserService
 }
@@ -29,7 +28,6 @@ func NewSchemeHandler(
 ) *SchemeHandler {
 	return &SchemeHandler{
 		assets:         assets,
-		apiHandler:     NewHandler(browserService),
 		parserService:  parserService,
 		browserService: browserService,
 	}
@@ -47,49 +45,8 @@ func (s *SchemeHandler) Handle(uri string, cfg *config.Config) (string, []byte, 
 		return "", nil, false
 	}
 
-	// API routes
-	if u.Host == "api" || strings.HasPrefix(u.Opaque, "api") || strings.HasPrefix(u.Path, "/api") {
-		return s.handleAPIRoute(u, cfg)
-	}
-
 	// Static assets
 	return s.handleAsset(u)
-}
-
-// handleAPIRoute processes API requests
-func (s *SchemeHandler) handleAPIRoute(u *neturl.URL, cfg *config.Config) (string, []byte, bool) {
-	// Normalize path for opaque or hierarchical forms
-	path := u.Path
-	if path == "" && u.Opaque != "" {
-		// e.g., dumb:api/config or dumb:api/history/recent
-		parts := strings.SplitN(u.Opaque, ":", constants.ColonSplitParts)
-		if len(parts) == constants.ColonSplitParts {
-			path = "/" + parts[1]
-		}
-	}
-	if strings.HasPrefix(path, "/api/") {
-		path = strings.TrimPrefix(path, "/api")
-	}
-	if path == "/api" {
-		path = "/"
-	}
-
-	switch {
-	case strings.HasPrefix(path, "/rendering/status"):
-		return s.apiHandler.HandleRenderingStatus(cfg)
-	case strings.HasPrefix(path, "/config"):
-		return s.apiHandler.HandleConfig(cfg)
-	case strings.HasPrefix(path, "/history/recent"):
-		return s.apiHandler.HandleHistoryRecent(u)
-	case strings.HasPrefix(path, "/history/search"):
-		return s.apiHandler.HandleHistorySearch(u)
-	case strings.HasPrefix(path, "/history/stats"):
-		return s.apiHandler.HandleHistoryStats()
-	case strings.HasPrefix(path, "/history/delete"):
-		return s.apiHandler.HandleHistoryDelete(u)
-	default:
-		return s.apiHandler.HandleDefault()
-	}
 }
 
 // handleAsset serves static assets from embedded filesystem
