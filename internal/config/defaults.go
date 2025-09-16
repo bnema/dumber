@@ -144,7 +144,8 @@ func DefaultConfig() *Config {
 			Token:        "",
 			RequireToken: false,
 		},
-		RenderingMode: RenderingModeAuto,
+		RenderingMode: RenderingModeGPU,
+		UseDomZoom:    false,
 	}
 }
 

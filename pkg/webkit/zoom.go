@@ -19,6 +19,9 @@ func (w *WebView) SetZoom(level float64) error {
 		level = zoomMax
 	}
 	w.zoom = level
+	if w.useDomZoom {
+		w.SeedDomZoom(level)
+	}
 	w.dispatchZoomChanged(w.zoom)
 	return nil
 }

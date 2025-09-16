@@ -25,6 +25,7 @@ type ConfigInfo struct {
 	SearchShortcuts map[string]config.SearchShortcut `json:"search_shortcuts"`
 	DmenuSettings   *config.DmenuConfig              `json:"dmenu_settings"`
 	RenderingMode   string                           `json:"rendering_mode"`
+	UseDomZoom      bool                             `json:"use_dom_zoom"`
 }
 
 // NewConfigService creates a new ConfigService instance.
@@ -44,6 +45,7 @@ func (s *ConfigService) GetConfigInfo(ctx context.Context) (*ConfigInfo, error) 
 		SearchShortcuts: s.config.SearchShortcuts,
 		DmenuSettings:   &s.config.Dmenu,
 		RenderingMode:   string(s.config.RenderingMode),
+		UseDomZoom:      s.config.UseDomZoom,
 	}, nil
 }
 
@@ -270,6 +272,19 @@ func (s *ConfigService) SetRenderingMode(ctx context.Context, mode string) error
 	default:
 		return fmt.Errorf("invalid rendering mode: %s", mode)
 	}
+}
+
+// GetUseDomZoom reports whether DOM-based zoom is enabled.
+func (s *ConfigService) GetUseDomZoom(ctx context.Context) (bool, error) {
+	_ = ctx
+	return s.config.UseDomZoom, nil
+}
+
+// SetUseDomZoom toggles DOM-based zoom.
+func (s *ConfigService) SetUseDomZoom(ctx context.Context, enabled bool) error {
+	_ = ctx
+	s.config.UseDomZoom = enabled
+	return s.saveConfig()
 }
 
 // saveConfig saves the current configuration to file.

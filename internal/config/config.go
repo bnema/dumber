@@ -38,6 +38,8 @@ type Config struct {
 	APISecurity       APISecurityConfig         `mapstructure:"api_security" yaml:"api_security"`
 	// RenderingMode controls GPU/CPU rendering selection for WebKit
 	RenderingMode RenderingMode `mapstructure:"rendering_mode" yaml:"rendering_mode"`
+	// UseDomZoom toggles DOM-based zoom instead of native WebKit zoom.
+	UseDomZoom bool `mapstructure:"use_dom_zoom" yaml:"use_dom_zoom"`
 }
 
 // RenderingMode selects GPU vs CPU rendering.
@@ -288,6 +290,9 @@ func NewManager() (*Manager, error) {
 	if err := v.BindEnv("rendering_mode", "DUMBER_RENDERING_MODE"); err != nil {
 		return nil, fmt.Errorf("failed to bind DUMBER_RENDERING_MODE: %w", err)
 	}
+	if err := v.BindEnv("use_dom_zoom", "DUMBER_USE_DOM_ZOOM"); err != nil {
+		return nil, fmt.Errorf("failed to bind DUMBER_USE_DOM_ZOOM: %w", err)
+	}
 
 	// Video acceleration environment variable bindings
 	videoAccelEnvBindings := map[string]string{
@@ -415,6 +420,8 @@ func (m *Manager) Load() error {
 	// Validate and configure codec preferences
 	config = m.validateAndConfigureCodecPreferences(config)
 
+	m.ensurePersistedDefaults(config)
+
 	m.config = config
 	return nil
 }
@@ -513,6 +520,8 @@ func (m *Manager) reload() error {
 	// Validate and configure codec preferences
 	config = m.validateAndConfigureCodecPreferences(config)
 
+	m.ensurePersistedDefaults(config)
+
 	m.config = config
 	return nil
 }
@@ -601,7 +610,36 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("webkit_memory.enable_memory_monitoring", defaults.WebkitMemory.EnableMemoryMonitoring)
 
 	// Rendering defaults
-	m.viper.SetDefault("rendering_mode", string(RenderingModeAuto))
+	m.viper.SetDefault("rendering_mode", string(RenderingModeGPU))
+	m.viper.SetDefault("use_dom_zoom", defaults.UseDomZoom)
+}
+
+func (m *Manager) ensurePersistedDefaults(cfg *Config) {
+	if cfg == nil {
+		return
+	}
+
+	if m.viper == nil {
+		return
+	}
+
+	// Only persist when the key is missing from the user config file.
+	if m.viper.InConfig("use_dom_zoom") {
+		return
+	}
+
+	cfgFile := m.viper.ConfigFileUsed()
+	if cfgFile == "" {
+		return
+	}
+
+	m.viper.Set("use_dom_zoom", cfg.UseDomZoom)
+	if err := m.viper.WriteConfig(); err != nil {
+		logging.Warn(fmt.Sprintf("Config: failed to persist use_dom_zoom default to %s: %v", cfgFile, err))
+		return
+	}
+
+	logging.Info(fmt.Sprintf("Config: persisted missing use_dom_zoom default (%v) to %s", cfg.UseDomZoom, cfgFile))
 }
 
 // createDefaultConfig creates a default configuration file.
