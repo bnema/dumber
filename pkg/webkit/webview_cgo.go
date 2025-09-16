@@ -1557,7 +1557,8 @@ func (w *WebView) enableUserContentManager(cfg *Config) {
 			log.Printf("[webkit] ERROR: Failed to load GUI bundle from assets: %v", err)
 		}
 
-		// Add GUI CSS styles as user stylesheet using WebKit native API
+		// Add GUI CSS styles as user stylesheet when a legacy bundle is present.
+		// Modern builds inline Tailwind output inside gui.min.js, so this file is optional.
 		if cssBytes, err := cfg.Assets.ReadFile("assets/gui/style.css"); err == nil {
 			cssContent := string(cssBytes)
 			cCss := C.CString(cssContent)
@@ -1576,8 +1577,10 @@ func (w *WebView) enableUserContentManager(cfg *Config) {
 			} else {
 				log.Printf("[webkit] ERROR: Failed to create GUI stylesheet")
 			}
+		} else if errors.Is(err, os.ErrNotExist) {
+			log.Printf("[webkit] GUI stylesheet not found; assuming inline Tailwind bundle and skipping separate injection")
 		} else {
-			log.Printf("[webkit] ERROR: Failed to load GUI CSS from assets: %v", err)
+			log.Printf("[webkit] Warning: Failed to load GUI CSS from assets, skipping separate stylesheet injection: %v", err)
 		}
 	}
 
