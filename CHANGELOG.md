@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.8.0] - 2025-09-17
+
 ### Added
 - **GTK color scheme bridge**: Dedicated document-start module keeps WebKit theme in sync with GTK preferences and exposes unified runtime updater
 - **Color scheme build pipeline**: Separate Vite entry produces reusable `color-scheme.js` asset shared between native and injected contexts
@@ -41,6 +43,7 @@ All notable changes to this project will be documented in this file.
 - **Message handler refactoring**: Unified keyboard shortcut forwarding between native handlers and GUI components with DOM event bridge
 - **Omnibox suggestions**: Native Go-based suggestion computation with search shortcuts and history integration, eliminating HTTP fetch dependencies
 - **Toast styling**: Migrated from Tailwind CSS classes to inline styles within component scope for better Shadow DOM compatibility and isolation
+- **JS to Svelte migration**: Replaced legacy inline injected scripts (see `pkg/webkit/ucm_js_cgo.go.deprecated`) with structured Svelte components mounted via the shared shadow root.
 
 ### Fixed
 - **Service worker residue**: Homepage clears stale caches and unregisters old service workers to avoid 404s for legacy `_app` assets

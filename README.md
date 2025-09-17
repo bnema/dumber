@@ -19,6 +19,9 @@ Dumber is a minimalist browser and launcher companion focused on speed and simpl
 ## Status
 - Very early stage, expect sharp edges and breaking changes, but it works well enough to browse and play with the launcher flows.
 
+## Latest Release
+- `0.8.0` (2025-09-17): Migrated injected UI from inline scripts to structured Svelte components with a shared shadow host, plus Tailwind v4 theming, GTK color sync, and refreshed omnibox/find flows.
+
 ## Features
 - Built‑in browser window (no external browser needed)
 - Content filtering system (early stage UBlock-based filtering with EasyList integration)
