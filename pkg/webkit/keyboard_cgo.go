@@ -96,6 +96,25 @@ var (
 	lastKeyTime   = make(map[uintptr]map[string]time.Time)
 )
 
+const shortcutDebounceWindow = 120 * time.Millisecond
+
+// shouldDebounceShortcut returns true when the given key should be skipped
+// because it was delivered within the debounce window for the same view.
+func shouldDebounceShortcut(uid uintptr, key string, now time.Time) bool {
+	regMu.Lock()
+	defer regMu.Unlock()
+
+	if _, ok := lastKeyTime[uid]; !ok {
+		lastKeyTime[uid] = make(map[string]time.Time)
+	}
+	last := lastKeyTime[uid][key]
+	if now.Sub(last) < shortcutDebounceWindow {
+		return true
+	}
+	lastKeyTime[uid][key] = now
+	return false
+}
+
 // Locale hint function removed; no layout-specific remaps.
 
 // RegisterKeyboardShortcut registers a callback under an accelerator string.
@@ -192,8 +211,9 @@ func dispatchAccelerator(uid uintptr, keyval uint, state uint) {
 		normalized = ""
 	}
 
+	now := time.Now()
 	// Forward normalized shortcut to GUI KeyboardService via DOM event if present
-	if normalized != "" {
+	if normalized != "" && !shouldDebounceShortcut(uid, "dom:"+normalized, now) {
 		regMu.RLock()
 		vw := viewByID[uid]
 		regMu.RUnlock()
@@ -210,32 +230,11 @@ func dispatchAccelerator(uid uintptr, keyval uint, state uint) {
 	}
 	for _, name := range candidates {
 		if cb, ok := reg[name]; ok {
-			// Debounce duplicates within 120ms for the same view+key
-			regMu.Lock()
-			if _, ok := lastKeyTime[uid]; !ok {
-				lastKeyTime[uid] = make(map[string]time.Time)
-			}
-			last := lastKeyTime[uid][name]
-			now := time.Now()
-			if now.Sub(last) < 120*time.Millisecond {
-				// Skip duplicate
-				regMu.Unlock()
+			if shouldDebounceShortcut(uid, "shortcut:"+name, now) {
 				return
 			}
-			lastKeyTime[uid][name] = now
-			regMu.Unlock()
 			log.Printf("[accelerator] %s", name)
 			cb()
-			// Additionally forward well-known GUI shortcuts to the in-page GUI via a DOM event
-			// so the isolated user content world KeyboardService can handle them uniformly.
-			if name == "cmdorctrl+l" || name == "cmdorctrl+f" || name == "cmdorctrl+shift+c" {
-				regMu.RLock()
-				vw := viewByID[uid]
-				regMu.RUnlock()
-				if vw != nil {
-					_ = vw.InjectScript(fmt.Sprintf("document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:'%s'}}));", name))
-				}
-			}
 			break
 		}
 	}
@@ -337,6 +336,25 @@ m.setAttribute('content', d ? 'dark light' : 'light dark');
 let s=document.getElementById('__dumber_theme_style');
 if(!s){ s=document.createElement('style'); s.id='__dumber_theme_style'; document.documentElement.appendChild(s); }
 s.textContent=':root{color-scheme:' + (d?'dark':'light') + ';}';
+// Call the unified theme setter for Tailwind dark mode
+if (window.__dumber_setTheme) {
+  window.__dumber_setTheme(cs);
+} else {
+  // Retry after a short delay in case bridge hasn't loaded yet
+  setTimeout(() => {
+    if (window.__dumber_setTheme) {
+      window.__dumber_setTheme(cs);
+    } else {
+      // Fallback: directly apply dark class
+      console.warn('[dumber] Theme setter not available, using fallback');
+      if (d) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+  }, 100);
+}
 } catch(e) { console.warn('[dumber] theme runtime update failed', e); } })();`, dval)
 	_ = vw.InjectScript(js)
 }

@@ -87,6 +87,7 @@
         aria-selected={isSelected}
         onmouseenter={() => handleItemMouseEnter(index)}
         onclick={() => handleItemClick(index)}
+        onkeydown={(e) => e.key === 'Enter' && handleItemClick(index)}
       >
         <!-- Match context -->
         <div

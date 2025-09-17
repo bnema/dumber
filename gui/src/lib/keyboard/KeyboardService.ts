@@ -385,12 +385,10 @@ export const keyboardService = new KeyboardService({
           if (window.__dumber_omnibox?.toggle) {
             console.log('🎯 Using omnibox API directly');
             window.__dumber_omnibox.toggle();
-          } else if (typeof window.__dumber_toggle === 'function') {
-            console.log('🎯 Using legacy toggle function');
-            window.__dumber_toggle();
-          } else {
-            console.warn('⚠️ No omnibox toggle function available');
+            return;
           }
+
+          console.error('❌ Omnibox toggle requested but API is unavailable');
         } catch (error) {
           console.error('❌ Error in omnibox open handler:', error);
         }
@@ -404,12 +402,10 @@ export const keyboardService = new KeyboardService({
           if (window.__dumber_omnibox?.open) {
             console.log('🔍 Using omnibox find API directly');
             window.__dumber_omnibox.open('find');
-          } else if (typeof window.__dumber_find_open === 'function') {
-            console.log('🔍 Using legacy find function');
-            window.__dumber_find_open();
-          } else {
-            console.warn('⚠️ No find function available');
+            return;
           }
+
+          console.error('❌ Omnibox find requested but API is unavailable');
         } catch (error) {
           console.error('❌ Error in find open handler:', error);
         }
