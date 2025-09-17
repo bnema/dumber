@@ -1,5 +1,4 @@
-type HistoryEntry = { id: number; url: string; title: string };
-type SearchShortcut = { description: string; url: string };
+import type { History, Shortcut } from '../types/generated.js';
 
 export class DOMRenderer {
   private historyListElement: HTMLElement | null = null;
@@ -10,7 +9,7 @@ export class DOMRenderer {
     this.shortcutsElement = document.getElementById('shortcuts');
   }
 
-  displayHistory(historyEntries: HistoryEntry[]): void {
+  displayHistory(historyEntries: History[]): void {
     if (!this.historyListElement) return;
 
     if (!historyEntries || historyEntries.length === 0) {
@@ -30,7 +29,7 @@ export class DOMRenderer {
     });
   }
 
-  displayShortcuts(shortcutsData: Record<string, SearchShortcut>): void {
+  displayShortcuts(shortcutsData: Record<string, Shortcut>): void {
     if (!this.shortcutsElement) return;
 
     if (!shortcutsData || Object.keys(shortcutsData).length === 0) {
@@ -69,7 +68,7 @@ export class DOMRenderer {
     }
   }
 
-  private createHistoryItem(item: HistoryEntry): HTMLElement {
+  private createHistoryItem(item: History): HTMLElement {
     const historyItem = document.createElement('div');
     historyItem.className = 'history-item';
     const parsed = this.safeParseURL(item.url);
@@ -126,17 +125,17 @@ export class DOMRenderer {
     return historyItem;
   }
 
-  private createShortcutElement(key: string, shortcut: SearchShortcut): HTMLElement {
+  private createShortcutElement(key: string, shortcut: Shortcut): HTMLElement {
     const shortcutEl = document.createElement('div');
     shortcutEl.className = 'shortcut';
     shortcutEl.innerHTML = `
       <div class="shortcut-key">${this.escapeHtml(key)}:</div>
-      <div class="shortcut-desc">${this.escapeHtml(shortcut.description)}</div>
+      <div class="shortcut-desc">${this.escapeHtml(shortcut.description || 'No description')}</div>
     `;
     
     shortcutEl.addEventListener('click', () => {
       // Navigate to the base URL of the shortcut (remove %s template parameter)
-      const baseUrl = this.extractBaseUrl(shortcut.url);
+      const baseUrl = this.extractBaseUrl(shortcut.url_template);
       this.navigateToUrl(baseUrl);
     });
     

@@ -4,7 +4,7 @@ export interface DebugLogEntry {
   source: 'frontend' | 'backend';
   category: string;
   message: string;
-  data?: any;
+  data?: unknown;
 }
 
 export class DebugConsoleService {
@@ -121,7 +121,7 @@ export class DebugConsoleService {
     };
   }
 
-  public addLog(level: DebugLogEntry['level'], source: DebugLogEntry['source'], category: string, message: string, data?: any): void {
+  public addLog(level: DebugLogEntry['level'], source: DebugLogEntry['source'], category: string, message: string, data?: unknown): void {
     const entry: DebugLogEntry = {
       timestamp: new Date().toISOString().split('T')[1]?.split('.')[0] || '', // HH:MM:SS format
       level,
@@ -205,7 +205,7 @@ export class DebugConsoleService {
     });
   }
 
-  public logServiceCall(serviceName: string, methodName: string, params: any[], result?: any, error?: Error): void {
+  public logServiceCall(serviceName: string, methodName: string, params: unknown[], result?: unknown, error?: Error): void {
     if (error) {
       this.addLog('error', 'frontend', 'service', `${serviceName}.${methodName}() failed`, {
         params,
@@ -219,7 +219,7 @@ export class DebugConsoleService {
     }
   }
 
-  public logBackendMessage(message: string, data?: any): void {
+  public logBackendMessage(message: string, data?: unknown): void {
     this.addLog('info', 'backend', 'service', message, data);
   }
 
