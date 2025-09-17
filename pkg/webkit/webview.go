@@ -20,6 +20,8 @@ type WebView struct {
 	titleHandler func(title string)
 	uriHandler   func(uri string)
 	zoomHandler  func(level float64)
+	useDomZoom   bool
+	domZoomSeed  float64
 }
 
 // NewWebView constructs a new WebView instance.
@@ -28,12 +30,13 @@ func NewWebView(cfg *Config) (*WebView, error) {
 		cfg = &Config{}
 	}
 	log.Printf("[webkit] NewWebView (non-CGO stub) — UI will not be displayed. Build with -tags=webkit_cgo for native window.")
-	wv := &WebView{config: cfg}
+	wv := &WebView{config: cfg, useDomZoom: cfg.UseDomZoom}
 	if cfg.ZoomDefault <= 0 {
 		wv.zoom = 1.0
 	} else {
 		wv.zoom = cfg.ZoomDefault
 	}
+	wv.domZoomSeed = wv.zoom
 	// Construction succeeds; create a logical window placeholder.
 	wv.window = &Window{Title: "Dumber Browser"}
 	return wv, nil
@@ -139,6 +142,31 @@ func (w *WebView) dispatchZoomChanged(level float64) {
 	if w != nil && w.zoomHandler != nil {
 		w.zoomHandler(level)
 	}
+}
+
+// RunOnMainThread executes fn immediately in non-CGO builds.
+func (w *WebView) RunOnMainThread(fn func()) {
+	if fn != nil {
+		fn()
+	}
+}
+
+// UsesDomZoom reports whether DOM-based zoom is enabled in this WebView.
+func (w *WebView) UsesDomZoom() bool {
+	return w != nil && w.useDomZoom
+}
+
+// SeedDomZoom stores the desired DOM zoom level for the next navigation (stub implementation).
+func (w *WebView) SeedDomZoom(level float64) {
+	if w == nil || !w.useDomZoom {
+		return
+	}
+	if level < 0.25 {
+		level = 0.25
+	} else if level > 5.0 {
+		level = 5.0
+	}
+	w.domZoomSeed = level
 }
 
 // InitializeContentBlocking initializes WebKit content blocking with filter manager (stub)

@@ -44,6 +44,9 @@ type Config struct {
 	// APIToken holds the per-session token used to authenticate dumb://api requests
 	// It's optional; if empty, API token enforcement may be disabled by the app.
 	APIToken string
+
+	// UseDomZoom toggles CSS/DOM-based zoom instead of WebKit's native zoom.
+	UseDomZoom bool
 }
 
 // CodecPreferencesConfig holds codec preferences for WebKit media playback

@@ -7,6 +7,7 @@ package webkit
 #cgo CFLAGS: -I/usr/include/webkitgtk-6.0
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include <gtk/gtk.h>
 #include <webkit/webkit.h>
 #include <glib-object.h>
@@ -20,6 +21,16 @@ static GtkWidget* new_window() { return GTK_WIDGET(gtk_window_new()); }
 
 // Forward declaration
 extern void goQuitMainLoop();
+extern void goInvokeHandle(uintptr_t handle);
+
+static gboolean invoke_handle_cb(gpointer data) {
+    goInvokeHandle((uintptr_t)data);
+    return G_SOURCE_REMOVE;
+}
+
+static void schedule_on_main_thread(uintptr_t handle) {
+    g_idle_add_full(G_PRIORITY_DEFAULT, invoke_handle_cb, (gpointer)handle, NULL);
+}
 
 // Connect window close signal to quit main loop
 static void connect_destroy_quit(GtkWidget* w) {
@@ -318,6 +329,15 @@ static void maybe_set_media_user_gesture(WebKitSettings* settings, int require) 
     webkit_settings_set_media_playback_requires_user_gesture(settings, require ? 1 : 0);
 #else
     (void)settings; (void)require;
+#endif
+}
+
+static void maybe_set_smooth_scrolling(WebKitSettings* settings, int enable) {
+#if WEBKIT_CHECK_VERSION(2,10,0)
+    if (!settings) return;
+    webkit_settings_set_enable_smooth_scrolling(settings, enable ? TRUE : FALSE);
+#else
+    (void)settings; (void)enable;
 #endif
 }
 
@@ -628,9 +648,12 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/cgo"
+	"strconv"
 	"strings"
 	"time"
 	"unsafe"
@@ -648,12 +671,141 @@ type FilterManager interface {
 	GetCosmeticScriptForDomain(domain string) string
 }
 
+const domBridgeTemplate = `(() => { try {
+              if (window.__dumber_page_bridge_installed) return; 
+              window.__dumber_page_bridge_installed = true;
+              
+              const __dumberInitialZoom = __DOM_ZOOM_DEFAULT__;
+              window.__dumber_dom_zoom_seed = __dumberInitialZoom;
+              
+              // Theme setter function for GTK theme integration
+              window.__dumber_setTheme = (theme) => {
+                window.__dumber_initial_theme = theme;
+                console.log('[dumber] Setting theme to:', theme);
+                if (theme === 'dark') {
+                  document.documentElement.classList.add('dark');
+                } else {
+                  document.documentElement.classList.remove('dark');
+                }
+              };
+              
+              // Ensure unified API object
+              window.__dumber = window.__dumber || {};
+              // Toast namespace
+              window.__dumber.toast = window.__dumber.toast || {
+                show: function(message, duration, type) {
+                  try {
+                    document.dispatchEvent(new CustomEvent('dumber:toast:show', { detail: { message, duration, type } }));
+                    // Legacy compatibility
+                    document.dispatchEvent(new CustomEvent('dumber:showToast', { detail: { message, duration, type } }));
+                  } catch(e) { /* ignore */ }
+                },
+                zoom: function(level) {
+                  try {
+                    document.dispatchEvent(new CustomEvent('dumber:toast:zoom', { detail: { level } }));
+                    // Legacy compatibility
+                    document.dispatchEvent(new CustomEvent('dumber:showZoomToast', { detail: { level } }));
+                  } catch(e) { /* ignore */ }
+                }
+              };
+              // Back-compat global helpers
+              window.__dumber_showToast = function(message, duration, type) { window.__dumber.toast.show(message, duration, type); };
+              window.__dumber_showZoomToast = function(level) { window.__dumber.toast.zoom(level); };
+
+              // DOM zoom helpers (optional native override)
+              if (typeof window.__dumber_dom_zoom_level !== 'number') {
+                window.__dumber_dom_zoom_level = __dumberInitialZoom;
+              }
+              const __dumberApplyZoomStyles = function(node, level) {
+                if (!node) return;
+                if (Math.abs(level - 1.0) < 1e-6) {
+                  node.style.removeProperty('zoom');
+                  node.style.removeProperty('transform');
+                  node.style.removeProperty('transform-origin');
+                  node.style.removeProperty('width');
+                  node.style.removeProperty('min-width');
+                  node.style.removeProperty('height');
+                  node.style.removeProperty('min-height');
+                  return;
+                }
+                const scale = level;
+                const inversePercent = 100 / scale;
+                const widthValue = inversePercent + '%';
+                node.style.removeProperty('zoom');
+                node.style.transform = 'scale(' + scale + ')';
+                node.style.transformOrigin = '0 0';
+                node.style.width = widthValue;
+                node.style.minWidth = widthValue;
+                node.style.minHeight = '100%';
+              };
+              window.__dumber_applyDomZoom = function(level) {
+                try {
+                  window.__dumber_dom_zoom_level = level;
+                  window.__dumber_dom_zoom_seed = level;
+                  __dumberApplyZoomStyles(document.documentElement, level);
+                  if (document.body) {
+                    __dumberApplyZoomStyles(document.body, level);
+                  }
+                } catch (e) {
+                  console.error('[dumber] DOM zoom error', e);
+                }
+              };
+              // Apply immediately so first paint uses the desired zoom, then reapply when body exists.
+              window.__dumber_applyDomZoom(window.__dumber_dom_zoom_level);
+              if (!document.body) {
+                document.addEventListener('DOMContentLoaded', function() {
+                  if (typeof window.__dumber_dom_zoom_level === 'number') {
+                    window.__dumber_applyDomZoom(window.__dumber_dom_zoom_level);
+                  }
+                }, { once: true });
+              }
+
+              // Omnibox suggestions bridge (with queue before ready)
+              let __omniboxQueue = [];
+              let __omniboxReady = false;
+              function __omniboxDispatch(suggestions) {
+                try {
+                  document.dispatchEvent(new CustomEvent('dumber:omnibox:suggestions', { detail: { suggestions } }));
+                  // Legacy compatibility event name
+                  document.dispatchEvent(new CustomEvent('dumber:omnibox-suggestions', { detail: { suggestions } }));
+                } catch (e) { /* ignore */ }
+              }
+              window.__dumber_omnibox_suggestions = function(suggestions) {
+                if (__omniboxReady) {
+                  __omniboxDispatch(suggestions);
+                } else {
+                  try { __omniboxQueue.push(suggestions); } catch (_) { /* ignore */ }
+                }
+              };
+              document.addEventListener('dumber:omnibox-ready', function() {
+                __omniboxReady = true;
+                if (__omniboxQueue && __omniboxQueue.length) {
+                  const items = __omniboxQueue.slice();
+                  __omniboxQueue.length = 0;
+                  for (const s of items) __omniboxDispatch(s);
+                }
+              });
+              // Unified omnibox API for page-world callers
+              window.__dumber.omnibox = window.__dumber.omnibox || {
+                suggestions: function(suggestions) { window.__dumber_omnibox_suggestions(suggestions); }
+              };
+            } catch (e) { console.warn('[dumber] unified bridge init failed', e); } })();`
+
 // Helper function to convert bool to int for C interop
 func boolToInt(b bool) int {
 	if b {
 		return 1
 	}
 	return 0
+}
+
+//export goInvokeHandle
+func goInvokeHandle(handle C.uintptr_t) {
+	h := cgo.Handle(handle)
+	if fn, ok := h.Value().(func()); ok {
+		fn()
+	}
+	h.Delete()
 }
 
 // getCertificateHash generates a SHA256 hash of the certificate info for storage
@@ -756,21 +908,24 @@ type memoryStats struct {
 
 // WebView represents a browser view powered by WebKit2GTK.
 type WebView struct {
-	config        *Config
-	zoom          float64
-	url           string
-	destroyed     bool
-	native        *nativeView
-	window        *Window
-	id            uintptr
-	msgHandler    func(payload string)
-	titleHandler  func(title string)
-	uriHandler    func(uri string)
-	zoomHandler   func(level float64)
-	memStats      *memoryStats
-	gcTicker      *time.Ticker
-	gcDone        chan struct{}
-	tlsExceptions map[string]bool // host -> whether user allowed certificate exception
+	config          *Config
+	zoom            float64
+	url             string
+	destroyed       bool
+	native          *nativeView
+	window          *Window
+	id              uintptr
+	msgHandler      func(payload string)
+	titleHandler    func(title string)
+	uriHandler      func(uri string)
+	zoomHandler     func(level float64)
+	memStats        *memoryStats
+	gcTicker        *time.Ticker
+	gcDone          chan struct{}
+	tlsExceptions   map[string]bool // host -> whether user allowed certificate exception
+	useDomZoom      bool
+	domZoomSeed     float64
+	domBridgeScript *C.WebKitUserScript
 }
 
 // NewWebView constructs a new WebView instance with native WebKit2GTK widgets.
@@ -891,11 +1046,18 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	C.gtk_window_set_default_size((*C.GtkWindow)(unsafe.Pointer(win)), 1024, 768)
 	C.connect_destroy_quit(win)
 
+	seed := 1.0
+	if cfg.ZoomDefault > 0 {
+		seed = cfg.ZoomDefault
+	}
+
 	v := &WebView{
-		config: cfg,
-		zoom:   1.0,
-		native: &nativeView{win: win, view: viewWidget, wv: C.as_webview(viewWidget), ucm: createdUcm},
-		window: &Window{win: win},
+		config:      cfg,
+		zoom:        1.0,
+		useDomZoom:  cfg.UseDomZoom,
+		domZoomSeed: seed,
+		native:      &nativeView{win: win, view: viewWidget, wv: C.as_webview(viewWidget), ucm: createdUcm},
+		window:      &Window{win: win},
 		memStats: &memoryStats{
 			pageLoadCount:          0,
 			lastGCTime:             time.Now(),
@@ -996,17 +1158,22 @@ func NewWebView(cfg *Config) (*WebView, error) {
 		// Hardware acceleration policy (guarded by version)
 		switch cfg.Rendering.Mode {
 		case "gpu":
+			log.Printf("[webkit] Applying GPU rendering mode")
 			C.maybe_set_hw_policy(settings, 1)
 			C.maybe_set_webgl(settings, 1)
 			C.maybe_set_canvas_accel(settings, 1)
 		case "cpu":
+			log.Printf("[webkit] Applying CPU rendering mode")
 			C.maybe_set_hw_policy(settings, 2)
 			C.maybe_set_webgl(settings, 0)
 			C.maybe_set_canvas_accel(settings, 0)
 		default: // auto
+			log.Printf("[webkit] Applying AUTO rendering mode - detecting actual backend...")
 			C.maybe_set_hw_policy(settings, 0)
 			C.maybe_set_webgl(settings, 1)
 			C.maybe_set_canvas_accel(settings, 1)
+			// Detect actual rendering backend after applying auto settings
+			v.detectAndLogRenderingBackend()
 		}
 		// Optional compositing indicators for debugging (guarded by version)
 		if cfg.Rendering.DebugGPU {
@@ -1016,6 +1183,8 @@ func NewWebView(cfg *Config) (*WebView, error) {
 		C.maybe_set_media_user_gesture(settings, 1)
 		// Enable trackpad back/forward gestures when available
 		C.maybe_set_back_forward_gestures(settings, 1)
+		// Smooth scrolling for wheel/pinch gestures when supported
+		C.maybe_set_smooth_scrolling(settings, 1)
 
 		// Keep page cache enabled by default for performance
 		enablePageCache := true
@@ -1174,6 +1343,12 @@ func (w *WebView) Destroy() error {
 		globalMemoryManager.UnregisterWebView(w.id)
 	}
 
+	if w.native != nil && w.native.ucm != nil && w.domBridgeScript != nil {
+		C.webkit_user_content_manager_remove_script(w.native.ucm, w.domBridgeScript)
+		C.webkit_user_script_unref(w.domBridgeScript)
+		w.domBridgeScript = nil
+	}
+
 	// GTK4: destroy windows via gtk_window_destroy
 	C.gtk_window_destroy((*C.GtkWindow)(unsafe.Pointer(w.native.win)))
 	w.destroyed = true
@@ -1256,6 +1431,15 @@ func (w *WebView) dispatchURIChanged(uri string) {
 	if w != nil && w.uriHandler != nil {
 		w.uriHandler(uri)
 	}
+}
+
+// RunOnMainThread schedules fn to execute on the GTK main thread.
+func (w *WebView) RunOnMainThread(fn func()) {
+	if w == nil || fn == nil {
+		return
+	}
+	h := cgo.NewHandle(fn)
+	C.schedule_on_main_thread(C.uintptr_t(h))
 }
 
 // RegisterZoomChangedHandler registers a callback invoked when zoom level changes.
@@ -1349,82 +1533,7 @@ func (w *WebView) enableUserContentManager(cfg *Config) {
 			}
 
 			// Inject a unified page-world bridge to dispatch standard events and expose unified API
-			bridge := `(() => { try {
-              if (window.__dumber_page_bridge_installed) return; 
-              window.__dumber_page_bridge_installed = true;
-              
-              // Theme setter function for GTK theme integration
-              window.__dumber_setTheme = (theme) => {
-                window.__dumber_initial_theme = theme;
-                console.log('[dumber] Setting theme to:', theme);
-                if (theme === 'dark') {
-                  document.documentElement.classList.add('dark');
-                } else {
-                  document.documentElement.classList.remove('dark');
-                }
-              };
-              
-              // Ensure unified API object
-              window.__dumber = window.__dumber || {};
-              // Toast namespace
-              window.__dumber.toast = window.__dumber.toast || {
-                show: function(message, duration, type) {
-                  try {
-                    document.dispatchEvent(new CustomEvent('dumber:toast:show', { detail: { message, duration, type } }));
-                    // Legacy compatibility
-                    document.dispatchEvent(new CustomEvent('dumber:showToast', { detail: { message, duration, type } }));
-                  } catch(e) { /* ignore */ }
-                },
-                zoom: function(level) {
-                  try {
-                    document.dispatchEvent(new CustomEvent('dumber:toast:zoom', { detail: { level } }));
-                    // Legacy compatibility
-                    document.dispatchEvent(new CustomEvent('dumber:showZoomToast', { detail: { level } }));
-                  } catch(e) { /* ignore */ }
-                }
-              };
-              // Back-compat global helpers
-              window.__dumber_showToast = function(message, duration, type) { window.__dumber.toast.show(message, duration, type); };
-              window.__dumber_showZoomToast = function(level) { window.__dumber.toast.zoom(level); };
-
-              // Omnibox suggestions bridge (with queue before ready)
-              let __omniboxQueue = [];
-              let __omniboxReady = false;
-              function __omniboxDispatch(suggestions) {
-                try {
-                  document.dispatchEvent(new CustomEvent('dumber:omnibox:suggestions', { detail: { suggestions } }));
-                  // Legacy compatibility event name
-                  document.dispatchEvent(new CustomEvent('dumber:omnibox-suggestions', { detail: { suggestions } }));
-                } catch (e) { /* ignore */ }
-              }
-              window.__dumber_omnibox_suggestions = function(suggestions) {
-                if (__omniboxReady) {
-                  __omniboxDispatch(suggestions);
-                } else {
-                  try { __omniboxQueue.push(suggestions); } catch (_) { /* ignore */ }
-                }
-              };
-              document.addEventListener('dumber:omnibox-ready', function() {
-                __omniboxReady = true;
-                if (__omniboxQueue && __omniboxQueue.length) {
-                  const items = __omniboxQueue.slice();
-                  __omniboxQueue.length = 0;
-                  for (const s of items) __omniboxDispatch(s);
-                }
-              });
-              // Unified omnibox API for page-world callers
-              window.__dumber.omnibox = window.__dumber.omnibox || {
-                suggestions: function(suggestions) { window.__dumber_omnibox_suggestions(suggestions); }
-              };
-            } catch (e) { console.warn('[dumber] unified bridge init failed', e); } })();`
-			cBridge := C.CString(bridge)
-			defer C.free(unsafe.Pointer(cBridge))
-			bridgeScript := C.webkit_user_script_new((*C.gchar)(cBridge), C.WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, nil, nil)
-			if bridgeScript != nil {
-				C.webkit_user_content_manager_add_script(w.native.ucm, bridgeScript)
-				C.webkit_user_script_unref(bridgeScript)
-				log.Printf("[webkit] Page-world toast bridge injected")
-			}
+			w.installDomBridgeScript()
 
 			// If an API token is provided, inject a fetch wrapper in the isolated GUI world
 			if cfg.APIToken != "" {
@@ -1500,6 +1609,70 @@ func (w *WebView) enableUserContentManager(cfg *Config) {
 	}
 
 	// No JS fallback bridge — native UCM is active
+}
+
+func clampDomZoom(level float64) float64 {
+	if level < 0.25 {
+		return 0.25
+	}
+	if level > 5.0 {
+		return 5.0
+	}
+	return level
+}
+
+func buildDomBridgeScript(initialZoom float64) string {
+	zoom := clampDomZoom(initialZoom)
+	zoomStr := strconv.FormatFloat(zoom, 'f', -1, 64)
+	return strings.ReplaceAll(domBridgeTemplate, "__DOM_ZOOM_DEFAULT__", zoomStr)
+}
+
+func (w *WebView) UsesDomZoom() bool {
+	return w != nil && w.useDomZoom
+}
+
+func (w *WebView) installDomBridgeScript() {
+	if w == nil || w.native == nil || w.native.ucm == nil {
+		return
+	}
+
+	w.domZoomSeed = clampDomZoom(w.domZoomSeed)
+
+	if w.domBridgeScript != nil {
+		C.webkit_user_content_manager_remove_script(w.native.ucm, w.domBridgeScript)
+		C.webkit_user_script_unref(w.domBridgeScript)
+		w.domBridgeScript = nil
+	}
+
+	source := buildDomBridgeScript(w.domZoomSeed)
+	cBridge := C.CString(source)
+	defer C.free(unsafe.Pointer(cBridge))
+
+	script := C.webkit_user_script_new((*C.gchar)(cBridge), C.WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, nil, nil)
+	if script == nil {
+		log.Printf("[webkit] ERROR: Failed to create GUI user script")
+		return
+	}
+
+	C.webkit_user_content_manager_add_script(w.native.ucm, script)
+	w.domBridgeScript = script
+	log.Printf("[webkit] Page-world toast bridge injected (dom zoom seed=%.2f)", w.domZoomSeed)
+}
+
+// SeedDomZoom updates the document-start bridge so the upcoming page paints with the saved DOM zoom level.
+func (w *WebView) SeedDomZoom(level float64) {
+	if w == nil || w.destroyed || !w.useDomZoom {
+		return
+	}
+
+	seed := clampDomZoom(level)
+	if math.Abs(w.domZoomSeed-seed) < 1e-6 {
+		return
+	}
+	w.domZoomSeed = seed
+	w.RunOnMainThread(func() {
+		w.installDomBridgeScript()
+	})
 }
 
 // startPeriodicGC starts a ticker to trigger JavaScript garbage collection periodically
@@ -1894,4 +2067,60 @@ func extractDomain(url string) string {
 	}
 
 	return url
+}
+
+// detectAndLogRenderingBackend detects and logs the actual rendering backend being used
+func (w *WebView) detectAndLogRenderingBackend() {
+	if w == nil {
+		return
+	}
+
+	// Use a small delay to let WebKit initialize
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+
+		// Inject a script to detect rendering capabilities
+		detectionScript := `
+			(() => {
+				try {
+					const canvas = document.createElement('canvas');
+					const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+					const info = {
+						webgl_available: !!gl,
+						renderer: gl ? gl.getParameter(gl.RENDERER) : 'N/A',
+						vendor: gl ? gl.getParameter(gl.VENDOR) : 'N/A',
+						version: gl ? gl.getParameter(gl.VERSION) : 'N/A',
+						shading_language_version: gl ? gl.getParameter(gl.SHADING_LANGUAGE_VERSION) : 'N/A',
+						max_texture_size: gl ? gl.getParameter(gl.MAX_TEXTURE_SIZE) : 0,
+						hardware_accelerated: false
+					};
+					
+					// Check if renderer indicates hardware acceleration
+					if (gl && info.renderer) {
+						const renderer = info.renderer.toLowerCase();
+						// Look for GPU indicators
+						info.hardware_accelerated = (
+							renderer.includes('nvidia') ||
+							renderer.includes('amd') ||
+							renderer.includes('intel') ||
+							renderer.includes('radeon') ||
+							renderer.includes('geforce') ||
+							renderer.includes('quadro') ||
+							(renderer.includes('mesa') && !renderer.includes('software')) ||
+							!renderer.includes('software')
+						);
+					}
+					
+					window.webkit?.messageHandlers?.dumber?.postMessage(JSON.stringify({
+						type: 'rendering_backend_detection',
+						data: info
+					}));
+				} catch (e) {
+					console.error('[dumber] Rendering backend detection failed:', e);
+				}
+			})();
+		`
+
+		w.InjectScript(detectionScript)
+	}()
 }
