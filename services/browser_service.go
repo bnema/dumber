@@ -215,7 +215,14 @@ func (s *BrowserService) UpdatePageTitle(ctx context.Context, url, title string)
 	// Update the window title if we have a title updater
 	if s.windowTitleUpdater != nil && title != "" {
 		windowTitle := fmt.Sprintf("Dumber - %s", title)
-		s.windowTitleUpdater.SetTitle(windowTitle)
+		updater := s.windowTitleUpdater
+		if s.webView != nil {
+			s.webView.RunOnMainThread(func() {
+				updater.SetTitle(windowTitle)
+			})
+		} else {
+			updater.SetTitle(windowTitle)
+		}
 	}
 
 	return nil

@@ -66,6 +66,7 @@ func (app *BrowserApp) createWebView() error {
 		DefaultMonospaceFont:  app.config.Appearance.MonospaceFont,
 		DefaultFontSize:       app.config.Appearance.DefaultFontSize,
 		Rendering:             webkit.RenderingConfig{Mode: string(app.config.RenderingMode)},
+		UseDomZoom:            app.config.UseDomZoom,
 		VideoAcceleration: webkit.VideoAccelerationConfig{
 			EnableVAAPI:      app.config.VideoAcceleration.EnableVAAPI,
 			AutoDetectGPU:    app.config.VideoAcceleration.AutoDetectGPU,
@@ -123,13 +124,19 @@ func (app *BrowserApp) setupWebViewIntegration() {
 func (app *BrowserApp) setupWebViewHandlers() {
 	// Persist page titles to DB when they change
 	app.webView.RegisterTitleChangedHandler(func(title string) {
-		ctx := context.Background()
+		if title == "" {
+			return
+		}
 		url := app.webView.GetCurrentURL()
-		if url != "" && title != "" {
+		if url == "" {
+			return
+		}
+		go func(url, title string) {
+			ctx := context.Background()
 			if err := app.browserService.UpdatePageTitle(ctx, url, title); err != nil {
 				log.Printf("Warning: failed to update page title: %v", err)
 			}
-		}
+		}(url, title)
 	})
 
 	// Set WebView reference for message handler and register script messages
@@ -149,6 +156,10 @@ func (app *BrowserApp) setupControllers() {
 		app.zoomController,
 	)
 	app.clipboardController = control.NewClipboardController(app.webView)
+
+	if app.messageHandler != nil && app.navigationController != nil {
+		app.messageHandler.SetNavigationController(app.navigationController)
+	}
 
 	// Register controller handlers
 	app.zoomController.RegisterHandlers()

@@ -48,22 +48,8 @@ func (z *ZoomController) handleURIChange(url string) {
 	if url == "" {
 		return
 	}
-	ctx := context.Background()
 	currentDomain := services.ZoomKeyForLog(url)
-
-	if zoomLevel, err := z.browserService.GetZoomLevel(ctx, url); err == nil {
-		z.programmaticChange = true
-		if err := z.webView.SetZoom(zoomLevel); err == nil {
-			log.Printf("[zoom] loaded %.2f for %s", zoomLevel, currentDomain)
-
-			// Only show toast when entering a new domain (not on first load)
-			if currentDomain != z.lastZoomDomain && z.lastZoomDomain != "" {
-				z.showZoomToast(zoomLevel)
-			}
-			z.lastZoomDomain = currentDomain
-		}
-		z.programmaticChange = false
-	}
+	z.loadZoomLevelAsync(url, currentDomain, true)
 }
 
 // handleZoomChange responds to zoom level changes and persists them
@@ -72,13 +58,15 @@ func (z *ZoomController) handleZoomChange(level float64) {
 	if url == "" {
 		return
 	}
-	ctx := context.Background()
-	if err := z.browserService.SetZoomLevel(ctx, url, level); err != nil {
-		log.Printf("[zoom] failed to save level %.2f for %s: %v", level, url, err)
-		return
-	}
-	key := services.ZoomKeyForLog(url)
-	log.Printf("[zoom] saved %.2f for %s", level, key)
+	go func(url string, level float64) {
+		ctx := context.Background()
+		if err := z.browserService.SetZoomLevel(ctx, url, level); err != nil {
+			log.Printf("[zoom] failed to save level %.2f for %s: %v", level, url, err)
+			return
+		}
+		key := services.ZoomKeyForLog(url)
+		log.Printf("[zoom] saved %.2f for %s", level, key)
+	}(url, level)
 
 	// Only show toast for user-initiated zoom changes, not programmatic ones
 	if !z.programmaticChange {
@@ -144,28 +132,67 @@ func (z *ZoomController) ApplyInitialZoom() {
 		url = "dumb://homepage"
 	}
 	if zoomLevel, err := z.browserService.GetZoomLevel(ctx, url); err == nil {
-		z.programmaticChange = true
-		if err := z.webView.SetZoom(zoomLevel); err != nil {
-			log.Printf("Warning: failed to set initial zoom: %v", err)
-		} else {
-			key := services.ZoomKeyForLog(url)
-			log.Printf("[zoom] loaded %.2f for %s", zoomLevel, key)
-		}
-		z.programmaticChange = false
+		z.applyZoomLevel(url, services.ZoomKeyForLog(url), zoomLevel, false)
 	}
 }
 
 // ApplyZoomForURL applies zoom for a specific URL (used for navigation)
 func (z *ZoomController) ApplyZoomForURL(url string) {
-	ctx := context.Background()
-	if zoomLevel, err := z.browserService.GetZoomLevel(ctx, url); err == nil {
+	if url == "" {
+		return
+	}
+	currentDomain := services.ZoomKeyForLog(url)
+	z.loadZoomLevelAsync(url, currentDomain, false)
+}
+
+// ApplyZoomForURLWithLevel applies a known zoom level without hitting the database again.
+func (z *ZoomController) ApplyZoomForURLWithLevel(url string, zoomLevel float64, allowToast bool) {
+	if z == nil || url == "" {
+		return
+	}
+	z.applyZoomLevel(url, services.ZoomKeyForLog(url), zoomLevel, allowToast)
+}
+
+func (z *ZoomController) loadZoomLevelAsync(url, domain string, allowToast bool) {
+	if z.browserService == nil || z.webView == nil || url == "" {
+		return
+	}
+	go func(url, domain string, allowToast bool) {
+		ctx := context.Background()
+		zoomLevel, err := z.browserService.GetZoomLevel(ctx, url)
+		if err != nil {
+			return
+		}
+
+		z.applyZoomLevel(url, domain, zoomLevel, allowToast)
+	}(url, domain, allowToast)
+}
+
+func (z *ZoomController) applyZoomLevel(url, domain string, zoomLevel float64, allowToast bool) {
+	if z == nil || z.webView == nil || url == "" {
+		return
+	}
+
+	z.webView.RunOnMainThread(func() {
+		if z.webView == nil {
+			return
+		}
+		if z.currentURL != url {
+			z.currentURL = url
+		}
+
 		z.programmaticChange = true
+		defer func() { z.programmaticChange = false }()
+
 		if err := z.webView.SetZoom(zoomLevel); err != nil {
 			log.Printf("Warning: failed to set zoom: %v", err)
-		} else {
-			key := services.ZoomKeyForLog(url)
-			log.Printf("[zoom] loaded %.2f for %s", zoomLevel, key)
+			return
 		}
-		z.programmaticChange = false
-	}
+
+		log.Printf("[zoom] loaded %.2f for %s", zoomLevel, domain)
+		if allowToast && domain != z.lastZoomDomain && z.lastZoomDomain != "" {
+			z.showZoomToast(zoomLevel)
+		}
+		z.lastZoomDomain = domain
+	})
 }
