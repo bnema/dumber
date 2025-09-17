@@ -9,6 +9,7 @@
 import { initializeToast, type ToastConfig } from './modules/toast';
 import { initializeOmnibox, type OmniboxInitConfig } from './modules/omnibox';
 import { keyboardService, type KeyboardService } from '../lib/keyboard';
+// Note: color-scheme module is loaded separately at document-start by WebKit
 
 // Global interface for the unified GUI system
 interface DumberGUI {
@@ -177,10 +178,10 @@ if (!window.__dumber_gui_ready) {
       if (window.__dumber_omnibox?.toggle) {
         console.log('✅ Using Svelte omnibox toggle');
         window.__dumber_omnibox.toggle();
-      } else {
-        console.log('⚠️ Falling back to keyboard service');
-        keyboardService.handleNativeShortcut('cmdorctrl+l');
+        return;
       }
+
+      throw new Error('Omnibox toggle requested but API is unavailable');
     } catch (error) {
       console.error('❌ Error in __dumber_toggle:', error);
     }
@@ -190,9 +191,10 @@ if (!window.__dumber_gui_ready) {
     try {
       if (window.__dumber_omnibox?.open) {
         window.__dumber_omnibox.open('find', query);
-      } else {
-        keyboardService.handleNativeShortcut('cmdorctrl+f');
+        return;
       }
+
+      throw new Error('Omnibox find requested but API is unavailable');
     } catch (error) {
       console.error('❌ Error in __dumber_find_open:', error);
     }
@@ -201,9 +203,11 @@ if (!window.__dumber_gui_ready) {
   window.__dumber_find_close = () => {
     if (window.__dumber_omnibox?.close) {
       window.__dumber_omnibox.close();
-    } else {
-      keyboardService.handleNativeShortcut('escape');
+      return;
     }
+
+    const error = new Error('Omnibox close requested but API is unavailable');
+    console.error('❌ Error in __dumber_find_close:', error);
   };
 
   // Find query function that Go uses to set find query
