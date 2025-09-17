@@ -7,6 +7,40 @@
 import type { FindMatch, HighlightNode } from './types';
 import { omniboxStore } from './stores.svelte.ts';
 
+// Track whether we've injected highlight styles into the main document.
+let findStylesInjected = false;
+
+function ensureFindStyles(): void {
+  if (findStylesInjected) {
+    return;
+  }
+
+  try {
+    const style = document.createElement('style');
+    style.id = 'dumber-find-styles';
+    style.textContent = `
+      .find-highlight {
+        background-color: rgb(255 235 59);
+        color: rgb(0 0 0);
+        padding: 0 0.125rem;
+        border-radius: 0.125rem;
+        box-shadow: 0 0 0 1px rgb(200 185 0) inset;
+      }
+
+      .find-active {
+        background-color: rgb(255 152 0) !important;
+        color: rgb(0 0 0);
+        box-shadow: 0 0 0 1px rgb(179 107 0) inset !important;
+      }
+    `;
+
+    (document.head || document.documentElement).appendChild(style);
+    findStylesInjected = true;
+  } catch (error) {
+    console.warn('Failed to inject find styles:', error);
+  }
+}
+
 /**
  * Find text in the current page and highlight matches
  */
@@ -23,6 +57,8 @@ export function findInPage(query: string): void {
   if (!body) {
     return;
   }
+
+  ensureFindStyles();
 
   // Get omnibox root to exclude from search
   const omniboxRoot = document.getElementById('dumber-omnibox-root');
