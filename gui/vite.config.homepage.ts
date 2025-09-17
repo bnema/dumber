@@ -10,9 +10,9 @@ export default defineConfig({
       {
         name: 'homepage',
         title: 'Dumber Browser',
-        script: 'homepage.min.js',
+        script: 'homepage.js',
         css: 'homepage.css',
-        filename: 'index.html', // Special case: homepage uses index.html
+        filename: 'index.html',
       }
     ]),
   ],
@@ -21,29 +21,20 @@ export default defineConfig({
       input: resolve(__dirname, 'src/pages/homepage.ts'),
       output: {
         dir: '../assets/gui',
-        format: 'iife',
         entryFileNames: 'homepage.min.js',
-        name: '__dumberHomepage',
-        inlineDynamicImports: true,
-        assetFileNames: (assetInfo) => {
-          // Keep CSS as homepage.css to avoid conflicts with the main GUI
-          if (assetInfo.name?.endsWith('.css')) {
-            return 'homepage.[ext]';
-          }
-          return '[name].[ext]';
-        },
+        chunkFileNames: '[name].js',
+        assetFileNames: '[name].[ext]',
       },
     },
-    emptyOutDir: false, // Don't clear the directory (shared with GUI build)
+    emptyOutDir: false,
     target: ['es2020', 'chrome91', 'firefox90'],
     minify: true,
     sourcemap: false,
-    cssCodeSplit: false, // Keep CSS in single file
-    assetsInlineLimit: 0, // Don't inline assets by default
+    cssCodeSplit: true,
+    assetsInlineLimit: 4096,
   },
   resolve: {
     alias: {
-      // Alias for easier imports
       '$lib': resolve(__dirname, 'src/lib'),
       '$components': resolve(__dirname, 'src/components'),
     },
