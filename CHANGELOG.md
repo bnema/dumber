@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **GTK color scheme bridge**: Dedicated document-start module keeps WebKit theme in sync with GTK preferences and exposes unified runtime updater
+- **Color scheme build pipeline**: Separate Vite entry produces reusable `color-scheme.js` asset shared between native and injected contexts
 - **Complete Svelte 5 GUI migration**: Omnibox and find components migrated from raw JavaScript to modern Svelte 5 with runes
 - **Tailwind CSS v4 integration**: Unified design system with PostCSS and JIT compilation
 - **TypeScript keyboard service**: Centralized shortcut management with full type safety
@@ -12,11 +14,15 @@ All notable changes to this project will be documented in this file.
 - **Homepage Svelte 5 component**: New standalone homepage with history display and keyboard shortcuts reference
 - **Page generator system**: Vite plugin for generating dumb:// protocol pages (homepage, config, about) with extensible architecture
 - **History deletion API**: New DELETE endpoint at `/history/delete?id=N` for removing individual history entries
-- **Lucide icons integration**: Professional SVG icons replacing emoji throughout the UI
+- **Database migrations**: Embedded migrations now run automatically at startup to keep sqlite schema in sync
+- **Inline CSS type declarations**: Ambient module definitions for raw CSS imports improve TypeScript ergonomics in injected bundles
 - **Global Shadow DOM system**: Unified shadow host utility for component isolation with shared ShadowRoot and CSS reset management
 - **Unified page-world bridge**: Integrated API bridge with event-driven communication between page-world and isolated-world contexts
 
 ### Improved
+- **Asset MIME detection**: Expanded scheme handler lookup covers fonts, images, and JSON to prevent incorrect `text/plain` responses
+- **Toast theming**: Runtime theme observer syncs toast styling with the browser's dark mode state for consistent visuals
+- **Shadow host styling**: Injected GUI now adopts Tailwind design tokens inside the shared shadow root with automatic dark-mode mirroring
 - **Omnibox/Find system**: Complete migration from 500-line raw JavaScript to modular Svelte 5 components
 - **Toast notifications**: Migrated from raw JavaScript to Svelte 5 components with proper animations
 - **GUI build pipeline**: Vite-based bundling with hot reload and TypeScript support
@@ -28,6 +34,7 @@ All notable changes to this project will be documented in this file.
 - **Performance**: Instant shortcut response with pre-mounted DOM elements
 
 ### Changed
+- **Homepage icons**: Replaced Lucide dependency with inline SVG/Unicode fallbacks to shrink bundle size while debugging upstream build issues
 - **Major architecture shift**: Removed HTTP API routes in favor of direct WebKit message bridge communication for better performance and reduced complexity
 - **API token support**: Added optional API security configuration with token-based authentication system
 - **Shadow DOM improvements**: Enhanced isolation with WeakSet tracking to prevent duplicate reset injection and global shadow host utility for component sharing
@@ -36,6 +43,8 @@ All notable changes to this project will be documented in this file.
 - **Toast styling**: Migrated from Tailwind CSS classes to inline styles within component scope for better Shadow DOM compatibility and isolation
 
 ### Fixed
+- **Service worker residue**: Homepage clears stale caches and unregisters old service workers to avoid 404s for legacy `_app` assets
+- **Keyboard debounce**: Native accelerator bridge filters duplicate shortcut events within 120ms for DOM and CGO handlers
 - **Ctrl+F shortcut**: Added missing 'f' key case in keyboard_cgo.go dispatcher
 - **Browser freeze**: Removed infinite loop in mode switching reactive effects
 - **State persistence**: Proper cleanup when switching between Ctrl+L and Ctrl+F modes
