@@ -124,22 +124,7 @@
   });
 </script>
 
-<div
-  class="toast-container"
-  style="
-    position: fixed;
-    top: 20px;
-    left: 20px;
-    z-index: 2147483647;
-    pointer-events: none;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-width: 320px;
-    opacity: 1;
-    backdrop-filter: blur(2px);
-  "
->
+<div class="browser-component-root toast-container">
   {#each toasts as toast (toast.id)}
     <Toast
       id={toast.id}
@@ -152,6 +137,15 @@
 </div>
 
 <style>
-  .toast-container { contain: layout style; }
-  /* The Toast button handles its own pointer events */
+  .toast-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    left: 0.5rem;
+    max-width: 20rem;
+    pointer-events: none;
+    position: fixed;
+    top: 0.5rem;
+    z-index: 2147483647;
+  }
 </style>

@@ -4,11 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "npm run build:gui && npm run build:homepage",
+    "build": "npm run build:color-scheme && npm run build:gui && npm run build:homepage",
     "build:gui": "vite build --config vite.config.gui.ts",
     "build:homepage": "vite build --config vite.config.homepage.ts",
+    "build:color-scheme": "vite build --config vite.config.color-scheme.ts",
     "dev": "npm run build:gui -- --watch",
     "dev:homepage": "npm run build:homepage -- --watch",
+    "dev:color-scheme": "npm run build:color-scheme -- --watch",
     "check": "svelte-check",
     "lint": "eslint src --fix",
     "generate:types": "node ../scripts/generate-types.js"
@@ -29,8 +31,5 @@
     "typescript": "^5.3.0",
     "typescript-eslint": "^8.43.0",
     "vite": "^5.0.0"
-  },
-  "dependencies": {
-    "@lucide/svelte": "^0.544.0"
   }
 }

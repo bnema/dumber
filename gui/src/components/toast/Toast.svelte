@@ -12,18 +12,35 @@
   let { id, message, duration = 2500, type = 'info', onDismiss }: ToastProps = $props();
 
   let isExiting = $state(false);
+  let isDarkMode = $state(false);
+  let themeObserver: MutationObserver | undefined;
   let timeoutId: number | undefined;
 
   onMount(() => {
     timeoutId = window.setTimeout(() => {
       dismiss();
     }, duration);
+
+    syncTheme();
+
+    if (typeof window !== 'undefined' && 'MutationObserver' in window) {
+      themeObserver = new MutationObserver(syncTheme);
+      themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class']
+      });
+    }
   });
 
   onDestroy(() => {
     if (timeoutId) {
       window.clearTimeout(timeoutId);
       timeoutId = undefined;
+    }
+
+    if (themeObserver) {
+      themeObserver.disconnect();
+      themeObserver = undefined;
     }
   });
 
@@ -42,109 +59,124 @@
   function handleClick() {
     dismiss();
   }
+
+  function syncTheme() {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    const prefersDark = document.documentElement.classList.contains('dark');
+
+    if (prefersDark) {
+      isDarkMode = true;
+      return;
+    }
+
+    try {
+      isDarkMode = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+    } catch {
+      isDarkMode = false;
+    }
+  }
 </script>
 
 <button
-  class="toast-base {type === 'success' ? 'toast-success' : type === 'error' ? 'toast-error' : 'toast-info'} {isExiting ? 'exiting' : ''}"
+  class={`toast ${isDarkMode ? 'toast-dark' : 'toast-light'} toast-${type} ${isExiting ? 'toast-exit' : 'toast-enter'}`}
   onclick={handleClick}
   data-toast-id={id}
   type="button"
   aria-label="Dismiss notification"
   title="Click to dismiss"
 >
-  <div class="toast-content">
+  <div class="toast-message">
     {message || 'Notification'}
   </div>
-  <style>
-    .toast-content {
-      width: 100%;
-      min-width: 9rem; /* ~min-w-36 */
-      padding: 1rem 1.25rem; /* px-5 py-4 */
-      text-align: center;
-      color: #fff;
-      font-weight: 600;
-      font-size: 0.875rem; /* text-sm */
-      border-radius: 0.75rem; /* rounded-xl */
-      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); /* shadow-2xl */
-      backdrop-filter: blur(6px);
-      border: 1px solid rgba(255,255,255,0.18);
-      transition: all 250ms ease;
-    }
-
-    .toast-success .toast-content {
-      background: linear-gradient(135deg, rgba(34,197,94,0.9), rgba(21,128,61,0.9));
-      border-color: rgba(134,239,172,0.3);
-    }
-    .toast-error .toast-content {
-      background: linear-gradient(135deg, rgba(239,68,68,0.9), rgba(185,28,28,0.9));
-      border-color: rgba(252,165,165,0.3);
-    }
-    .toast-info .toast-content {
-      background: linear-gradient(135deg, rgba(59,130,246,0.9), rgba(29,78,216,0.9));
-      border-color: rgba(147,197,253,0.3);
-    }
-  </style>
 </button>
 
 <style>
-  .toast-base {
-    /* Reset button styles */
-    border: none;
-    background: none;
-    padding: 0;
-    font: inherit;
-    text-align: left;
-
-    /* Toast functionality */
+  .toast {
+    background-color: var(--dynamic-surface);
+    border: 1px solid var(--dynamic-border);
+    border-radius: 0;
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.08);
     cursor: pointer;
-    user-select: none;
-    position: relative;
-    overflow: visible;
-
-    /* Layout */
-    display: block;
-    visibility: visible;
-    z-index: 2147483647;
+    display: inline-flex;
+    margin: 0;
     pointer-events: auto;
-
-    /* Animations */
-    animation: slideIn 0.3s ease-out forwards;
-    transition: transform 0.2s ease, filter 0.2s ease;
+    padding: 0;
+    transition: transform 0.2s ease, opacity 0.2s ease;
   }
 
-  .toast-base.exiting {
-    animation: slideOut 0.25s ease-in forwards;
+  .toast-enter {
+    opacity: 1;
+    transform: translateY(0);
   }
 
-  @keyframes slideIn {
-    from {
-      transform: translateX(-100%);
-      opacity: 0;
-    }
-    to {
-      transform: translateX(0);
-      opacity: 1;
-    }
+  .toast-exit {
+    opacity: 0;
+    transform: translateY(-16px);
   }
 
-  @keyframes slideOut {
-    from {
-      transform: translateX(0);
-      opacity: 1;
-    }
-    to {
-      transform: translateX(-100%);
-      opacity: 0;
-    }
+  .toast-message {
+    color: var(--dynamic-text);
+    font-size: 0.875rem;
+    font-weight: 600;
+    min-width: 9rem;
+    padding: 0.75rem 1rem;
+    text-align: center;
   }
 
-  .toast-base:hover {
-    filter: brightness(1.1);
-    transform: scale(1.02);
+  .toast-light.toast-info {
+    background-color: rgb(239 246 255);
+    border-color: rgb(191 219 254);
   }
 
-  .toast-base:active {
-    transform: scale(0.98);
+  .toast-dark.toast-info {
+    background-color: rgb(59 130 246 / 0.2);
+    border-color: rgb(59 130 246);
   }
 
+  .toast-light.toast-success {
+    background-color: rgb(240 253 244);
+    border-color: rgb(187 247 208);
+  }
+
+  .toast-dark.toast-success {
+    background-color: rgb(22 163 74 / 0.2);
+    border-color: rgb(22 163 74);
+  }
+
+  .toast-light.toast-error {
+    background-color: rgb(254 242 242);
+    border-color: rgb(254 202 202);
+  }
+
+  .toast-dark.toast-error {
+    background-color: rgb(220 38 38 / 0.2);
+    border-color: rgb(220 38 38);
+  }
+
+  .toast-light.toast-info .toast-message {
+    color: rgb(59 130 246);
+  }
+
+  .toast-dark.toast-info .toast-message {
+    color: rgb(191 219 254);
+  }
+
+  .toast-light.toast-success .toast-message {
+    color: rgb(22 163 74);
+  }
+
+  .toast-dark.toast-success .toast-message {
+    color: rgb(187 247 208);
+  }
+
+  .toast-light.toast-error .toast-message {
+    color: rgb(220 38 38);
+  }
+
+  .toast-dark.toast-error .toast-message {
+    color: rgb(254 202 202);
+  }
 </style>

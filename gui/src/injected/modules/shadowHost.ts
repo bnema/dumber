@@ -5,6 +5,12 @@
  * (omnibox, toast, etc.), with a minimal CSS reset applied once.
  */
 
+// Import the compiled Tailwind bundle as a string so we can inject it
+// directly into the shadow root. The ?inline suffix makes Vite embed the
+// processed CSS, ensuring all utility classes are available without relying
+// on runtime @import resolution (which fails inside the injected shadow DOM).
+import globalStyles from '../../styles/tailwind.css?inline';
+
 // Track shadow-root initialization to avoid duplicate reset injection
 const shadowResetApplied = new WeakSet<ShadowRoot>();
 
@@ -39,6 +45,17 @@ export function getGlobalShadowRoot(): ShadowRoot {
 
   const shadowRoot = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
 
+  // Reflect current theme from document root to the shadow host so :host(.dark) works
+  try {
+    const isDark = document.documentElement.classList.contains('dark');
+    host.classList.toggle('dark', isDark);
+    // Keep it in sync if the theme toggles later
+    const observer = new MutationObserver(() => {
+      host.classList.toggle('dark', document.documentElement.classList.contains('dark'));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+  } catch { /* no-op */ }
+
   // Inject a minimal reset and base styles into the shadow root once
   if (!shadowResetApplied.has(shadowRoot)) {
     const resetStyle = document.createElement('style');
@@ -48,6 +65,53 @@ export function getGlobalShadowRoot(): ShadowRoot {
       :host { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, 'Helvetica Neue', Arial, sans-serif; }
     `;
     shadowRoot.appendChild(resetStyle);
+
+    // Ensure dynamic design tokens exist within the shadow tree. Tailwind v4
+    // utilities rely on these CSS variables. We set light defaults and a dark variant on :host.
+    const tokensStyle = document.createElement('style');
+    tokensStyle.textContent = `
+      :host {
+        --dynamic-bg: var(--color-browser-bg);
+        --dynamic-surface: var(--color-browser-surface);
+        --dynamic-text: var(--color-browser-text);
+        --dynamic-muted: var(--color-browser-muted);
+        --dynamic-accent: var(--color-browser-accent);
+        --dynamic-border: var(--color-browser-border);
+      }
+      :host(.dark) {
+        --dynamic-bg: rgb(17 24 39);
+        --dynamic-surface: rgb(31 41 55);
+        --dynamic-text: rgb(243 244 246);
+        --dynamic-muted: rgb(156 163 175);
+        --dynamic-accent: rgb(96 165 250);
+        --dynamic-border: rgb(55 65 81);
+      }
+    `;
+    shadowRoot.appendChild(tokensStyle);
+
+    // Inject the global GUI stylesheet so components rendered inside the shadow
+    // root (e.g., toasts, omnibox) receive their styles
+    try {
+      // Prefer constructable stylesheets when available
+      const hasConstructable = typeof CSSStyleSheet !== 'undefined';
+      const supportsAdopted = 'adoptedStyleSheets' in shadowRoot;
+      if (supportsAdopted && hasConstructable) {
+        const sheet = new CSSStyleSheet();
+        sheet.replaceSync(globalStyles);
+        const rootWithSheets = shadowRoot as ShadowRoot & { adoptedStyleSheets: CSSStyleSheet[] };
+        rootWithSheets.adoptedStyleSheets = [...(rootWithSheets.adoptedStyleSheets ?? []), sheet];
+      } else {
+        // Fallback: append a <style> element with the global CSS
+        const styleTag = document.createElement('style');
+        styleTag.textContent = globalStyles;
+        shadowRoot.appendChild(styleTag);
+      }
+    } catch {
+      // Final fallback if anything above fails
+      const styleTag = document.createElement('style');
+      styleTag.textContent = globalStyles;
+      shadowRoot.appendChild(styleTag);
+    }
     shadowResetApplied.add(shadowRoot);
   }
 
