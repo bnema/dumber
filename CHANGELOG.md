@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Native accelerator bridge debounces duplicate GTK key events earlier, so Ctrl±/Ctrl+0 only fires once per physical key press.
 - Omnibox-triggered navigations now reuse the navigation controller, so saved zoom levels are applied before first paint and redundant lookups are avoided.
 - Configuration loading writes the missing `use_dom_zoom` flag into existing config files so DOM zoom defaults persist without manual edits.
+- Omnibox UI now relies on shared Tailwind theme tokens and the injected color-scheme service for light/dark parity.
 
 ## [0.8.0] - 2025-09-17
 
