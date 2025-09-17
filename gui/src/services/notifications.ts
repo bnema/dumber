@@ -1,5 +1,9 @@
 import type { NotificationOptions } from '../types/app.js';
 
+interface TimerElement extends HTMLElement {
+  timeout?: ReturnType<typeof setTimeout>;
+}
+
 export class NotificationService {
   private zoomNotification: HTMLElement | null = null;
   private generalNotification: HTMLElement | null = null;
@@ -63,13 +67,13 @@ export class NotificationService {
     element.style.opacity = '1';
 
     // Clear any existing timeout
-    const existingTimeout = (element as any).timeout;
-    if (existingTimeout) {
-      clearTimeout(existingTimeout);
+    const timerElement = element as TimerElement;
+    if (timerElement.timeout) {
+      clearTimeout(timerElement.timeout);
     }
 
     // Hide after duration
-    (element as any).timeout = setTimeout(() => {
+    timerElement.timeout = setTimeout(() => {
       element.style.opacity = '0';
     }, duration);
   }

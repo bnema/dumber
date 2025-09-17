@@ -1,3 +1,5 @@
+import type { HistoryEntry, SearchShortcut } from '../types/generated.js';
+
 // Global window API types for browser integration
 declare global {
   interface Window {
@@ -11,6 +13,14 @@ declare global {
     // Theme integration
     __dumber_initial_theme?: string;
     __dumber_setTheme?: (theme: 'light' | 'dark') => void;
+
+    // History callbacks
+    __dumber_history_recent?: (data: HistoryEntry[]) => void;
+    __dumber_history_error?: (error: string) => void;
+
+    // Shortcuts callbacks
+    __dumber_shortcuts_loaded?: (data: Record<string, SearchShortcut>) => void;
+    __dumber_shortcuts_error?: (error: string) => void;
 
     // WebKit message handler
     webkit?: {

@@ -1,15 +1,8 @@
-type HistoryEntry = {
-  id: number;
-  url: string;
-  title: string;
-  visit_count: number;
-  last_visited: string | null;
-  created_at: string | null;
-}
+import type { HistoryEntry, SearchShortcut } from '../types/generated.js';
 
 export class AppService {
   private history: HistoryEntry[] = [];
-  private shortcuts: Record<string, any> = {};
+  private shortcuts: Record<string, SearchShortcut> = {};
 
   constructor() {}
 
@@ -29,18 +22,18 @@ export class AppService {
       // Use message bridge instead of fetch
       return new Promise((resolve, reject) => {
         // Set up response handler
-        (window as any).__dumber_history_recent = (data: HistoryEntry[]) => {
+        window.__dumber_history_recent = (data: HistoryEntry[]) => {
           this.history = Array.isArray(data) ? data : [];
           resolve();
         };
 
-        (window as any).__dumber_history_error = (error: string) => {
+        window.__dumber_history_error = (error: string) => {
           console.error('Failed to load history:', error);
           reject(new Error(error));
         };
 
         // Send message to Go backend
-        const bridge = (window as any).webkit?.messageHandlers?.dumber;
+        const bridge = window.webkit?.messageHandlers?.dumber;
         if (bridge && typeof bridge.postMessage === 'function') {
           bridge.postMessage(JSON.stringify({
             type: 'history_recent',
@@ -88,12 +81,15 @@ export class AppService {
       const cfg = await fetch('/api/config').then(r => r.json());
       const raw = cfg?.search_shortcuts || {};
       // Normalize field casing from backend (supports URL/Description and url/description)
-      const normalized: Record<string, { description: string; url: string }> = {};
+      const normalized: Record<string, SearchShortcut> = {};
       for (const [key, value] of Object.entries(raw)) {
-        const v: any = value as any;
+        const v = value as Record<string, unknown>;
         normalized[key] = {
-          description: v.description ?? v.Description ?? '',
-          url: v.url ?? v.URL ?? ''
+          id: 0,
+          shortcut: key,
+          url_template: (v.url ?? v.URL ?? '') as string,
+          description: (v.description ?? v.Description ?? '') as string,
+          created_at: null
         };
       }
       this.shortcuts = normalized;
@@ -101,10 +97,10 @@ export class AppService {
       console.error('Failed to load shortcuts:', error);
       // Mock shortcuts for development/fallback
       this.shortcuts = {
-        'g': { description: 'Google Search', url: 'https://google.com/search?q={query}' },
-        'gh': { description: 'GitHub Search', url: 'https://github.com/search?q={query}' },
-        'so': { description: 'Stack Overflow', url: 'https://stackoverflow.com/search?q={query}' },
-        'w': { description: 'Wikipedia', url: 'https://en.wikipedia.org/wiki/Special:Search?search={query}' }
+        'g': { id: 0, shortcut: 'g', url_template: 'https://google.com/search?q={query}', description: 'Google Search', created_at: null },
+        'gh': { id: 0, shortcut: 'gh', url_template: 'https://github.com/search?q={query}', description: 'GitHub Search', created_at: null },
+        'so': { id: 0, shortcut: 'so', url_template: 'https://stackoverflow.com/search?q={query}', description: 'Stack Overflow', created_at: null },
+        'w': { id: 0, shortcut: 'w', url_template: 'https://en.wikipedia.org/wiki/Special:Search?search={query}', description: 'Wikipedia', created_at: null }
       };
     }
   }
@@ -113,7 +109,7 @@ export class AppService {
     return this.history;
   }
 
-  getShortcuts(): Record<string, any> {
+  getShortcuts(): Record<string, SearchShortcut> {
     return this.shortcuts;
   }
 
