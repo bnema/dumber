@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Trash2, Globe } from '@lucide/svelte';
+  // Icons disabled for investigation: removed @lucide/svelte imports
 
   interface HistoryItem {
     id: number;
@@ -478,11 +478,19 @@
                     }}
                   />
                   <div class="history-favicon-fallback" style="display: none;">
-                    <Globe size={12} />
+                    <!-- inline globe placeholder -->
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M2 12h20" />
+                    </svg>
                   </div>
                 {:else}
                   <div class="history-favicon-fallback">
-                    <Globe size={12} />
+                    <!-- inline globe placeholder -->
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M2 12h20" />
+                    </svg>
                   </div>
                 {/if}
               </div>
@@ -500,7 +508,8 @@
                 onkeydown={(e) => e.key === 'Enter' && deleteHistoryEntry(item.id, e)}
                 title="Delete this entry"
               >
-                <Trash2 size={16} />
+                <!-- inline delete placeholder -->
+                <span aria-hidden="true" style="display:inline-block;line-height:1;">×</span>
               </div>
             </div>
           </div>
@@ -588,6 +597,13 @@
 </div>
 
 <style>
+  /* Remove default browser margins/padding on the page */
+  :global(html), :global(body) {
+    margin: 0;
+    padding: 0;
+    background: #1a1a1a;
+  }
+
   /* Scoped homepage container to prevent global CSS conflicts */
   .homepage-container {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
