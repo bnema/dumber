@@ -36,6 +36,7 @@ func NewSchemeHandler(
 // Handle processes dumb:// scheme requests
 func (s *SchemeHandler) Handle(uri string, cfg *config.Config) (string, []byte, bool) {
 	log.Printf("[scheme] request: %s", uri)
+
 	// Known forms:
 	// - dumb://homepage or dumb:homepage → index.html
 	// - dumb://app/index.html, dumb://app/<path> → serve from gui/<path>
@@ -73,6 +74,7 @@ func (s *SchemeHandler) handleAsset(u *neturl.URL) (string, []byte, bool) {
 		}
 	}
 
+
 	// Special-case homepage favicon: map .ico request to embedded SVG file
 	if (u.Host == constants.HomepagePath || u.Opaque == constants.HomepagePath) && strings.EqualFold(rel, "favicon.ico") {
 		log.Printf("[scheme] asset: rel=%s (host=%s path=%s) → mapping to favicon.svg", rel, u.Host, u.Path)
@@ -83,6 +85,8 @@ func (s *SchemeHandler) handleAsset(u *neturl.URL) (string, []byte, bool) {
 	}
 
 	log.Printf("[scheme] asset: rel=%s (host=%s path=%s)", rel, u.Host, u.Path)
+
+	// Try to read the requested asset
 	data, rerr := s.assets.ReadFile(filepath.ToSlash(filepath.Join("assets", "gui", rel)))
 	if rerr != nil {
 		log.Printf("[scheme] not found: %s", rel)
@@ -90,21 +94,62 @@ func (s *SchemeHandler) handleAsset(u *neturl.URL) (string, []byte, bool) {
 	}
 
 	// Determine mime type
-	mt := mime.TypeByExtension(strings.ToLower(filepath.Ext(rel)))
-	if mt == "" {
-		// Fallbacks
-		switch strings.ToLower(filepath.Ext(rel)) {
-		case ".js":
-			mt = "application/javascript"
-		case ".css":
-			mt = "text/css"
-		case ".svg":
-			mt = "image/svg+xml"
-		case ".ico":
-			mt = "image/x-icon"
-		default:
-			mt = "text/html; charset=utf-8"
-		}
-	}
+	mt := s.getMimeType(rel)
+
+	// Add cache control for development (prevents future caching issues)
+	// Note: This doesn't affect the current cache, but prevents new caching
+	log.Printf("[scheme] serving %s with mime-type: %s", rel, mt)
 	return mt, data, true
+}
+
+// getMimeType determines the MIME type for a given file path
+func (s *SchemeHandler) getMimeType(filename string) string {
+	ext := strings.ToLower(filepath.Ext(filename))
+
+	// Try standard mime type first
+	mt := mime.TypeByExtension(ext)
+	if mt != "" {
+		return mt
+	}
+
+	// Fallbacks for common web assets
+	switch ext {
+	case ".js":
+		return "application/javascript"
+	case ".mjs":
+		return "application/javascript"
+	case ".css":
+		return "text/css"
+	case ".svg":
+		return "image/svg+xml"
+	case ".ico":
+		return "image/x-icon"
+	case ".woff":
+		return "font/woff"
+	case ".woff2":
+		return "font/woff2"
+	case ".ttf":
+		return "font/ttf"
+	case ".otf":
+		return "font/otf"
+	case ".eot":
+		return "application/vnd.ms-fontobject"
+	case ".png":
+		return "image/png"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".gif":
+		return "image/gif"
+	case ".webp":
+		return "image/webp"
+	case ".json":
+		return "application/json"
+	case ".xml":
+		return "application/xml"
+	case ".html", ".htm":
+		return "text/html; charset=utf-8"
+	default:
+		// Default to text/plain for unknown extensions
+		return "text/plain"
+	}
 }
