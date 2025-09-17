@@ -45,13 +45,43 @@ func (n *NavigationController) NavigateToURL(input string) error {
 		log.Printf("Warning: failed to navigate to %s: %v", result.URL, navErr)
 	}
 
+	var (
+		zoomLevel float64
+		haveZoom  bool
+	)
+	if n.browserService != nil {
+		if level, err := n.browserService.GetZoomLevel(ctx, result.URL); err == nil {
+			zoomLevel = level
+			haveZoom = true
+			if n.webView != nil {
+				if n.webView.UsesDomZoom() {
+					n.webView.SeedDomZoom(zoomLevel)
+				} else {
+					n.webView.RunOnMainThread(func() {
+						if err := n.webView.SetZoom(zoomLevel); err != nil {
+							log.Printf("Warning: failed to prime native zoom for %s: %v", result.URL, err)
+						}
+					})
+				}
+			}
+		} else {
+			log.Printf("Warning: failed to lookup zoom for %s: %v", result.URL, err)
+		}
+	}
+
 	// Load URL in WebView
 	if err := n.webView.LoadURL(result.URL); err != nil {
 		return err
 	}
 
-	// Apply zoom for the new URL
-	n.zoomController.ApplyZoomForURL(result.URL)
+	// Apply zoom for the new URL using the cached level when available.
+	if n.zoomController != nil {
+		if haveZoom {
+			n.zoomController.ApplyZoomForURLWithLevel(result.URL, zoomLevel, false)
+		} else {
+			n.zoomController.ApplyZoomForURL(result.URL)
+		}
+	}
 
 	return nil
 }
@@ -69,10 +99,37 @@ func (n *NavigationController) HandleBrowseCommand() {
 			}
 			if n.webView != nil {
 				log.Printf("Loading URL in WebView: %s", result.URL)
+				var (
+					zoomLevel float64
+					haveZoom  bool
+				)
+				if n.browserService != nil {
+					if level, err := n.browserService.GetZoomLevel(ctx, result.URL); err == nil {
+						zoomLevel = level
+						haveZoom = true
+						if n.webView.UsesDomZoom() {
+							n.webView.SeedDomZoom(zoomLevel)
+						} else {
+							n.webView.RunOnMainThread(func() {
+								if err := n.webView.SetZoom(zoomLevel); err != nil {
+									log.Printf("Warning: failed to prime native zoom for %s: %v", result.URL, err)
+								}
+							})
+						}
+					} else {
+						log.Printf("Warning: failed to lookup zoom for %s: %v", result.URL, err)
+					}
+				}
 				if err := n.webView.LoadURL(result.URL); err != nil {
 					log.Printf("Warning: failed to load URL: %v", err)
 				}
-				n.zoomController.ApplyZoomForURL(result.URL)
+				if n.zoomController != nil {
+					if haveZoom {
+						n.zoomController.ApplyZoomForURLWithLevel(result.URL, zoomLevel, false)
+					} else {
+						n.zoomController.ApplyZoomForURL(result.URL)
+					}
+				}
 			}
 		}
 	}
