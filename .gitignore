@@ -74,3 +74,4 @@ memory/
 scripts/
 specs/
 templates/
+.serena/
