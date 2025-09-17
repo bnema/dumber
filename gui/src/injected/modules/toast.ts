@@ -8,7 +8,6 @@
 import { mount, flushSync } from 'svelte';
 import ToastContainer from '$components/toast/ToastContainer.svelte';
 import { ensureShadowMount } from './shadowHost';
-import '$lib/styles.css';
 
 export interface ToastConfig {
   theme?: 'light' | 'dark';

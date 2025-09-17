@@ -61,6 +61,7 @@ static WebKitWebView* on_create_new_window(WebKitWebView* web_view,
 }
 static void connect_tls_error_handler(WebKitWebView* wv);
 
+
 // Dialog callback structure for modern AlertDialog async handling
 typedef struct {
     int response;
@@ -143,6 +144,7 @@ static GtkWidget* new_webview_with_ucm_and_session(const char* data_dir, const c
 
     // Connect TLS error handler
     connect_tls_error_handler(WEBKIT_WEB_VIEW(w));
+
     if (out_ucm) { *out_ucm = u; }
     return w;
 }
@@ -1295,11 +1297,26 @@ func (w *WebView) enableUserContentManager(cfg *Config) {
 	} else {
 		log.Printf("[theme] GTK prefers: light")
 	}
+	// Load color scheme script from compiled GUI assets instead of inline
 	var schemeJS string
-	if preferDark {
-		schemeJS = "(() => { try { const d=true; const cs=d?'dark':'light'; console.log('[dumber] color-scheme set:' + cs); try{ window.webkit?.messageHandlers?.dumber?.postMessage(JSON.stringify({type:'theme', value: cs})) }catch(_){} const meta=document.createElement('meta'); meta.name='color-scheme'; meta.content='dark light'; document.documentElement.appendChild(meta); const s=document.createElement('style'); s.textContent=':root{color-scheme:dark;}'; document.documentElement.appendChild(s); const qD='(prefers-color-scheme: dark)'; const qL='(prefers-color-scheme: light)'; const orig=window.matchMedia; window.matchMedia=function(q){ if(typeof q==='string'&&(q.includes(qD)||q.includes(qL))){ const m={matches:q.includes('dark')?d:!d,media:q,onchange:null,addListener(){},removeListener(){},addEventListener(){},removeEventListener(){},dispatchEvent(){return false;}}; return m;} return orig.call(window,q); }; } catch(e){ console.warn('[dumber] color-scheme injection failed', e) } })();"
-	} else {
-		schemeJS = "(() => { try { const d=false; const cs=d?'dark':'light'; console.log('[dumber] color-scheme set:' + cs); try{ window.webkit?.messageHandlers?.dumber?.postMessage(JSON.stringify({type:'theme', value: cs})) }catch(_){} const meta=document.createElement('meta'); meta.name='color-scheme'; meta.content='light dark'; document.documentElement.appendChild(meta); const s=document.createElement('style'); s.textContent=':root{color-scheme:light;}'; document.documentElement.appendChild(s); const qD='(prefers-color-scheme: dark)'; const qL='(prefers-color-scheme: light)'; const orig=window.matchMedia; window.matchMedia=function(q){ if(typeof q==='string'&&(q.includes(qD)||q.includes(qL))){ const m={matches:q.includes('dark')?d:!d,media:q,onchange:null,addListener(){},removeListener(){},addEventListener(){},removeEventListener(){},dispatchEvent(){return false;}}; return m;} return orig.call(window,q); }; } catch(e){ console.warn('[dumber] color-scheme injection failed', e) } })();"
+	if cfg != nil && cfg.Assets != nil {
+		if schemeBytes, err := cfg.Assets.ReadFile("assets/gui/color-scheme.js"); err == nil {
+			baseScript := string(schemeBytes)
+			// Inject the GTK preference as a parameter
+			if preferDark {
+				schemeJS = fmt.Sprintf("window.__dumber_gtk_prefers_dark = true; %s", baseScript)
+			} else {
+				schemeJS = fmt.Sprintf("window.__dumber_gtk_prefers_dark = false; %s", baseScript)
+			}
+		} else {
+			log.Printf("[webkit] Warning: Failed to load color-scheme.js from assets, falling back to basic theme detection: %v", err)
+			// Simple fallback if the compiled script is not available
+			if preferDark {
+				schemeJS = `console.log('[dumber] GTK detected color mode: dark'); document.documentElement.classList.add('dark');`
+			} else {
+				schemeJS = `console.log('[dumber] GTK detected color mode: light'); document.documentElement.classList.remove('dark');`
+			}
+		}
 	}
 	cScheme := C.CString(schemeJS)
 	defer C.free(unsafe.Pointer(cScheme))
@@ -1335,6 +1352,18 @@ func (w *WebView) enableUserContentManager(cfg *Config) {
 			bridge := `(() => { try {
               if (window.__dumber_page_bridge_installed) return; 
               window.__dumber_page_bridge_installed = true;
+              
+              // Theme setter function for GTK theme integration
+              window.__dumber_setTheme = (theme) => {
+                window.__dumber_initial_theme = theme;
+                console.log('[dumber] Setting theme to:', theme);
+                if (theme === 'dark') {
+                  document.documentElement.classList.add('dark');
+                } else {
+                  document.documentElement.classList.remove('dark');
+                }
+              };
+              
               // Ensure unified API object
               window.__dumber = window.__dumber || {};
               // Toast namespace
