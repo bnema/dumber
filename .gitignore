@@ -72,6 +72,7 @@ CLAUDE.md
 .claude/
 memory/
 scripts/
+!scripts/generate-types.js
 specs/
 templates/
 .serena/
