@@ -13,6 +13,7 @@
     "dev:color-scheme": "npm run build:color-scheme -- --watch",
     "check": "svelte-check",
     "lint": "eslint src --fix",
+    "fmt": "prettier --write .",
     "generate:types": "node ../scripts/generate-types.js"
   },
   "devDependencies": {

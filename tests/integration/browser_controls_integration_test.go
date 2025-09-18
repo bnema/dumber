@@ -12,7 +12,7 @@ import (
 
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/db"
-	"github.com/bnema/dumber/services"
+	"github.com/bnema/dumber/internal/services"
 	_ "github.com/ncruces/go-sqlite3/driver" // SQLite driver
 	_ "github.com/ncruces/go-sqlite3/embed"  // Embed SQLite
 )

@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/bnema/dumber/pkg/webkit"
-	"github.com/bnema/dumber/services"
+	"github.com/bnema/dumber/internal/services"
 )
 
 // NavigationController manages navigation functionality

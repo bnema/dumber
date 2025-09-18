@@ -12,7 +12,7 @@ import (
 	"github.com/bnema/dumber/internal/app/constants"
 	"github.com/bnema/dumber/internal/app/control"
 	"github.com/bnema/dumber/pkg/webkit"
-	"github.com/bnema/dumber/services"
+	"github.com/bnema/dumber/internal/services"
 )
 
 // Handler processes script messages from the WebView

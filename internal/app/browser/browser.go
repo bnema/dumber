@@ -20,7 +20,7 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/migrations"
 	"github.com/bnema/dumber/pkg/webkit"
-	"github.com/bnema/dumber/services"
+	"github.com/bnema/dumber/internal/services"
 )
 
 // BrowserApp represents the main browser application

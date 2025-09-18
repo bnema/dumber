@@ -9,7 +9,7 @@ import (
 
 	"github.com/bnema/dumber/internal/config"
 	mock_db "github.com/bnema/dumber/internal/db/mocks"
-	"github.com/bnema/dumber/services"
+	"github.com/bnema/dumber/internal/services"
 	"github.com/golang/mock/gomock"
 )
 

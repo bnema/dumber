@@ -10,7 +10,7 @@ import (
 
 	"github.com/bnema/dumber/internal/app/constants"
 	"github.com/bnema/dumber/internal/config"
-	"github.com/bnema/dumber/services"
+	"github.com/bnema/dumber/internal/services"
 )
 
 // SchemeHandler handles custom dumb:// scheme resolution
