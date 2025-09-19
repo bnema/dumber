@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - **Multi-pane WebView architecture**: Container-based widget management with proper reparenting, lifecycle handling, and per-pane controllers
 - **Window-level global shortcuts**: Centralized shortcut handling to prevent conflicts between multiple WebView instances
 - **Workspace configuration**: New config section with Zellij controls toggle, pane mode bindings, tab shortcuts, and popup behavior settings
+- **Configurable workspace styling**: Pane border appearance (width, color, transition duration, radius) now customizable via config with proper viewport stability
 
 ### Improved
 - WebKit integration now forces GPU compositing by default while still honoring explicit config overrides.
