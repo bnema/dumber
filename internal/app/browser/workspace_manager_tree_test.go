@@ -507,6 +507,194 @@ func TestEdgeCases(t *testing.T) {
 	})
 }
 
+func TestInfiniteSiblingsClosingIssue(t *testing.T) {
+	t.Run("Infinite siblings issue reproduction", func(t *testing.T) {
+		wm := newTestWorkspaceManagerWithMocksForTree(t)
+
+		// Reproduce the scenario: Create multiple siblings by repeatedly splitting right
+		original := wm.root
+		rightPane1, err := wm.splitNode(original, "right")
+		if err != nil {
+			t.Fatalf("First split failed: %v", err)
+		}
+
+		// Split the right pane down to create a nested structure
+		downPane, err := wm.splitNode(rightPane1, "down")
+		if err != nil {
+			t.Fatalf("Down split failed: %v", err)
+		}
+
+		// Verify tree structure is correct
+		validateTreeStructure(t, wm.root)
+
+		// Count initial panes
+		initialLeaves, initialBranches := countNodes(wm.root)
+		if initialLeaves != 3 {
+			t.Errorf("Expected 3 leaves after splits, got %d", initialLeaves)
+		}
+		if initialBranches != 2 {
+			t.Errorf("Expected 2 branches after splits, got %d", initialBranches)
+		}
+
+		// Update app.panes to reflect the actual structure
+		wm.app.panes = []*BrowserPane{original.pane, rightPane1.pane, downPane.pane}
+
+		// First close the downPane (the non-direct sibling)
+		err = wm.closePane(downPane)
+		if err != nil {
+			t.Fatalf("Close downPane failed: %v", err)
+		}
+
+		validateTreeStructure(t, wm.root)
+
+		// Now try to close rightPane1 (which should leave only original)
+		// This should cause the promotion of original to root
+		err = wm.closePane(rightPane1)
+		if err != nil {
+			t.Fatalf("Close rightPane1 failed: %v", err)
+		}
+
+		validateTreeStructure(t, wm.root)
+
+		// Final tree should have only original as root
+		if wm.root != original {
+			t.Error("Original should be promoted to root after closing siblings")
+		}
+		if !wm.root.isLeaf {
+			t.Error("Root should be a leaf after closing all siblings")
+		}
+
+		finalLeaves, finalBranches := countNodes(wm.root)
+		if finalLeaves != 1 {
+			t.Errorf("Expected 1 leaf after closing siblings, got %d", finalLeaves)
+		}
+		if finalBranches != 0 {
+			t.Errorf("Expected 0 branches after closing siblings, got %d", finalBranches)
+		}
+	})
+
+	t.Run("Closing direct sibling of root reproduces GTK error", func(t *testing.T) {
+		wm := newTestWorkspaceManagerWithMocksForTree(t)
+
+		// Create a simple two-pane layout (root + sibling)
+		original := wm.root
+		sibling, err := wm.splitNode(original, "right")
+		if err != nil {
+			t.Fatalf("Split failed: %v", err)
+		}
+
+		// Update app.panes
+		wm.app.panes = []*BrowserPane{original.pane, sibling.pane}
+
+		validateTreeStructure(t, wm.root)
+
+		// Now close the sibling - this should promote original back to root
+		// and should NOT cause GTK-CRITICAL errors
+		err = wm.closePane(sibling)
+		if err != nil {
+			t.Fatalf("Close sibling failed: %v", err)
+		}
+
+		validateTreeStructure(t, wm.root)
+
+		// Verify the tree is properly cleaned up
+		if wm.root != original {
+			t.Error("Original should be promoted to root")
+		}
+		if !wm.root.isLeaf {
+			t.Error("Root should be a leaf after closing sibling")
+		}
+		if wm.root.parent != nil {
+			t.Error("Root should have no parent")
+		}
+	})
+
+	t.Run("Complex closing sequence without direct root sibling", func(t *testing.T) {
+		wm := newTestWorkspaceManagerWithMocksForTree(t)
+
+		// Create a more complex tree that can test the issue where
+		// closing requires closing until only the direct sibling of root remains
+
+		// Start with root (A)
+		A := wm.root
+
+		// Split right to create B
+		B, err := wm.splitNode(A, "right")
+		if err != nil {
+			t.Fatalf("Split A->B failed: %v", err)
+		}
+
+		// Split B down to create C (B becomes internal node, C is new leaf)
+		C, err := wm.splitNode(B, "down")
+		if err != nil {
+			t.Fatalf("Split B->C failed: %v", err)
+		}
+		// After this split, the tree structure is:
+		// Root(horizontal) -> A (left), Parent(vertical) (right)
+		//                           -> B (top), C (bottom)
+
+		// Split C right to create D
+		D, err := wm.splitNode(C, "right")
+		if err != nil {
+			t.Fatalf("Split C->D failed: %v", err)
+		}
+
+		// Update app.panes to reflect actual panes
+		wm.app.panes = []*BrowserPane{A.pane, B.pane, C.pane, D.pane}
+
+		validateTreeStructure(t, wm.root)
+
+		// Count nodes to verify structure
+		leaves, branches := countNodes(wm.root)
+		if leaves != 4 {
+			t.Errorf("Expected 4 leaves, got %d", leaves)
+		}
+		if branches != 3 {
+			t.Errorf("Expected 3 branches, got %d", branches)
+		}
+
+		// Now start closing panes in a sequence that would eventually
+		// require promoting siblings and potentially trigger the GTK error
+
+		// Close D first
+		err = wm.closePane(D)
+		if err != nil {
+			t.Fatalf("Close D failed: %v", err)
+		}
+		validateTreeStructure(t, wm.root)
+
+		// Close C next
+		err = wm.closePane(C)
+		if err != nil {
+			t.Fatalf("Close C failed: %v", err)
+		}
+		validateTreeStructure(t, wm.root)
+
+		// Close B next - this should leave only A and trigger the root sibling issue
+		err = wm.closePane(B)
+		if err != nil {
+			t.Fatalf("Close B failed: %v", err)
+		}
+		validateTreeStructure(t, wm.root)
+
+		// Verify final state
+		if wm.root != A {
+			t.Error("A should be the final root")
+		}
+		if !wm.root.isLeaf {
+			t.Error("Final root should be a leaf")
+		}
+
+		finalLeaves, finalBranches := countNodes(wm.root)
+		if finalLeaves != 1 {
+			t.Errorf("Expected 1 final leaf, got %d", finalLeaves)
+		}
+		if finalBranches != 0 {
+			t.Errorf("Expected 0 final branches, got %d", finalBranches)
+		}
+	})
+}
+
 func TestViewToNodeMapping(t *testing.T) {
 	t.Run("ViewToNode map updates correctly", func(t *testing.T) {
 		wm := newTestWorkspaceManagerWithMocksForTree(t)

@@ -1035,6 +1035,17 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 	} else {
 		// Parent has a grandparent, so promote sibling to take parent's place
 		log.Printf("[workspace] promoting sibling to parent's position: sibling=%#x grand=%#x", sibling.container, grand.container)
+
+		// First unparent the sibling from its current parent to avoid GTK-CRITICAL errors
+		if parent.container != 0 && !parent.isLeaf {
+			if parent.left == sibling {
+				webkit.PanedSetStartChild(parent.container, 0)
+			} else if parent.right == sibling {
+				webkit.PanedSetEndChild(parent.container, 0)
+			}
+		}
+
+		// Now safely reparent the sibling to the grandparent
 		sibling.parent = grand
 		if grand.container != 0 && !grand.isLeaf {
 			if grand.left == parent {
