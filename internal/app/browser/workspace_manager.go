@@ -48,12 +48,17 @@ type WorkspaceManager struct {
 
 const (
 	// TODO : should be defined via Config + Defaults
-	activePaneCSS = `.workspace-pane-active {
-	  border: 2px solid @theme_selected_bg_color;
-	  border-radius: 0px;
-	  transition: border-color 120ms ease-in-out;
-}`
+	activePaneCSS = `.workspace-pane {
+	  box-shadow: inset 0 0 0 0px transparent;
+	  transition: box-shadow 150ms ease-in-out;
+	}
+
+	.workspace-pane-active {
+	  box-shadow: inset 0 0 0 2px @theme_selected_bg_color;
+	}`
 	activePaneClass = "workspace-pane-active"
+	basePaneClass   = "workspace-pane"
+	multiPaneClass  = "workspace-multi-pane"
 )
 
 // registerWorkspaceShortcuts registers global workspace navigation shortcuts on the given webView.
@@ -146,6 +151,8 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 	app.workspace = manager
 	manager.focusNode(root)
 	manager.registerWorkspaceShortcuts(root.pane.webView)
+	// Ensure initial CSS classes are applied
+	manager.ensurePaneBaseClasses()
 	return manager
 }
 
@@ -274,7 +281,8 @@ func (wm *WorkspaceManager) focusNode(node *paneNode) {
 		}
 	}
 
-	if wm.active != nil && wm.active.container != 0 {
+	// Remove active class from previous pane only if we have multiple panes
+	if wm.active != nil && wm.active.container != 0 && wm.hasMultiplePanes() {
 		webkit.WidgetRemoveCSSClass(wm.active.container, activePaneClass)
 	}
 
@@ -298,10 +306,16 @@ func (wm *WorkspaceManager) focusNode(node *paneNode) {
 		wm.app.browserService.AttachWebView(node.pane.webView)
 	}
 
+	// Ensure all panes have proper base classes
+	wm.ensurePaneBaseClasses()
+
 	container := node.container
 	viewWidget := node.pane.webView.Widget()
 	if container != 0 && container != previousContainer {
-		webkit.WidgetAddCSSClass(container, activePaneClass)
+		// Only add active class if we have multiple panes (no border for single pane)
+		if wm.hasMultiplePanes() {
+			webkit.WidgetAddCSSClass(container, activePaneClass)
+		}
 		if !webkit.WidgetIsValid(container) {
 			log.Printf("[workspace] focus aborted: container invalid widget=%#x", container)
 			return
@@ -361,6 +375,30 @@ func (wm *WorkspaceManager) ensureStyles() {
 	}
 	webkit.AddCSSProvider(activePaneCSS)
 	wm.cssInitialized = true
+}
+
+// hasMultiplePanes returns true if there are multiple panes in the workspace
+func (wm *WorkspaceManager) hasMultiplePanes() bool {
+	return wm != nil && wm.app != nil && len(wm.app.panes) > 1
+}
+
+// ensurePaneBaseClasses ensures all panes have the proper base CSS classes
+func (wm *WorkspaceManager) ensurePaneBaseClasses() {
+	if wm == nil {
+		return
+	}
+
+	leaves := wm.collectLeaves()
+	for _, leaf := range leaves {
+		if leaf != nil && leaf.container != 0 {
+			webkit.WidgetAddCSSClass(leaf.container, basePaneClass)
+			if wm.hasMultiplePanes() {
+				webkit.WidgetAddCSSClass(leaf.container, multiPaneClass)
+			} else {
+				webkit.WidgetRemoveCSSClass(leaf.container, multiPaneClass)
+			}
+		}
+	}
 }
 
 func (wm *WorkspaceManager) focusByView(view *webkit.WebView) {
@@ -818,6 +856,9 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string) (*pane
 		newPane.zoomController.ApplyInitialZoom()
 	}
 
+	// Update CSS classes for all panes now that we have multiple panes
+	wm.ensurePaneBaseClasses()
+
 	webkit.IdleAdd(func() bool {
 		if newContainer != 0 {
 			webkit.WidgetShow(newContainer)
@@ -958,6 +999,8 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 		}
 
 		wm.updateMainPane()
+		// Update CSS classes after pane count changes
+		wm.ensurePaneBaseClasses()
 		log.Printf("[workspace] root pane closed and delegated; panes remaining=%d", len(wm.app.panes))
 		return nil
 	}
@@ -1087,6 +1130,8 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 	}
 
 	wm.updateMainPane()
+	// Update CSS classes after pane count changes
+	wm.ensurePaneBaseClasses()
 	log.Printf("[workspace] pane closed; panes remaining=%d", len(wm.app.panes))
 	return nil
 }
