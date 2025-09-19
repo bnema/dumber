@@ -276,7 +276,7 @@ func (fm *FilterManager) applyFilters(filters *CompiledFilters) {
 	antiBreakageRules := []converter.WebKitRule{
 		{
 			Trigger: converter.Trigger{
-				URLFilter: "googlesyndication.com",
+				URLFilter:    "googlesyndication.com",
 				ResourceType: []string{converter.ResourceTypeScript},
 			},
 			Action: converter.Action{
@@ -293,7 +293,7 @@ func (fm *FilterManager) applyFilters(filters *CompiledFilters) {
 		},
 		{
 			Trigger: converter.Trigger{
-				URLFilter: "googletagservices.com/tag/js/gpt.js",
+				URLFilter:    "googletagservices.com/tag/js/gpt.js",
 				ResourceType: []string{converter.ResourceTypeScript},
 			},
 			Action: converter.Action{
