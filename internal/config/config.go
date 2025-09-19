@@ -40,6 +40,8 @@ type Config struct {
 	RenderingMode RenderingMode `mapstructure:"rendering_mode" yaml:"rendering_mode"`
 	// UseDomZoom toggles DOM-based zoom instead of native WebKit zoom.
 	UseDomZoom bool `mapstructure:"use_dom_zoom" yaml:"use_dom_zoom"`
+	// Workspace defines workspace, pane, and tab handling behaviour.
+	Workspace WorkspaceConfig `mapstructure:"workspace" yaml:"workspace"`
 }
 
 // RenderingMode selects GPU vs CPU rendering.
@@ -209,6 +211,9 @@ type DebugConfig struct {
 
 	// Enable general debug mode (equivalent to DUMBER_DEBUG env var)
 	EnableGeneralDebug bool `mapstructure:"enable_general_debug" yaml:"enable_general_debug"`
+
+	// Enable workspace navigation and focus debug logs
+	EnableWorkspaceDebug bool `mapstructure:"enable_workspace_debug" yaml:"enable_workspace_debug"`
 }
 
 // APISecurityConfig holds optional API key protection for dumb://api endpoints
@@ -217,6 +222,40 @@ type APISecurityConfig struct {
 	Token string `mapstructure:"token" yaml:"token"`
 	// If true, require token for all API endpoints (except a minimal allowlist)
 	RequireToken bool `mapstructure:"require_token" yaml:"require_token"`
+}
+
+// WorkspaceConfig captures layout, pane, and tab behaviour preferences.
+type WorkspaceConfig struct {
+	// EnableZellijControls toggles Zellij-inspired keybindings.
+	EnableZellijControls bool `mapstructure:"enable_zellij_controls" yaml:"enable_zellij_controls" json:"enable_zellij_controls"`
+	// PaneMode defines modal pane behaviour and bindings.
+	PaneMode PaneModeConfig `mapstructure:"pane_mode" yaml:"pane_mode" json:"pane_mode"`
+	// Tabs holds classic browser tab shortcuts.
+	Tabs TabKeyConfig `mapstructure:"tabs" yaml:"tabs" json:"tabs"`
+	// Popups configures default popup placement rules.
+	Popups PopupBehaviorConfig `mapstructure:"popups" yaml:"popups" json:"popups"`
+}
+
+// PaneModeConfig defines modal behaviour for pane management.
+type PaneModeConfig struct {
+	ActivationShortcut  string            `mapstructure:"activation_shortcut" yaml:"activation_shortcut" json:"activation_shortcut"`
+	TimeoutMilliseconds int               `mapstructure:"timeout_ms" yaml:"timeout_ms" json:"timeout_ms"`
+	ActionBindings      map[string]string `mapstructure:"action_bindings" yaml:"action_bindings" json:"action_bindings"`
+}
+
+// TabKeyConfig defines Zellij-inspired tab shortcuts.
+type TabKeyConfig struct {
+	NewTab      string `mapstructure:"new_tab" yaml:"new_tab" json:"new_tab"`
+	CloseTab    string `mapstructure:"close_tab" yaml:"close_tab" json:"close_tab"`
+	NextTab     string `mapstructure:"next_tab" yaml:"next_tab" json:"next_tab"`
+	PreviousTab string `mapstructure:"previous_tab" yaml:"previous_tab" json:"previous_tab"`
+}
+
+// PopupBehaviorConfig defines handling for popup windows.
+type PopupBehaviorConfig struct {
+	Placement         string `mapstructure:"placement" yaml:"placement" json:"placement"`
+	OpenInNewPane     bool   `mapstructure:"open_in_new_pane" yaml:"open_in_new_pane" json:"open_in_new_pane"`
+	FollowPaneContext bool   `mapstructure:"follow_pane_context" yaml:"follow_pane_context" json:"follow_pane_context"`
 }
 
 // Manager handles configuration loading, watching, and reloading.
@@ -612,6 +651,19 @@ func (m *Manager) setDefaults() {
 	// Rendering defaults
 	m.viper.SetDefault("rendering_mode", string(RenderingModeGPU))
 	m.viper.SetDefault("use_dom_zoom", defaults.UseDomZoom)
+
+	// Workspace defaults
+	m.viper.SetDefault("workspace.enable_zellij_controls", defaults.Workspace.EnableZellijControls)
+	m.viper.SetDefault("workspace.pane_mode.activation_shortcut", defaults.Workspace.PaneMode.ActivationShortcut)
+	m.viper.SetDefault("workspace.pane_mode.timeout_ms", defaults.Workspace.PaneMode.TimeoutMilliseconds)
+	m.viper.SetDefault("workspace.pane_mode.action_bindings", defaults.Workspace.PaneMode.ActionBindings)
+	m.viper.SetDefault("workspace.tabs.new_tab", defaults.Workspace.Tabs.NewTab)
+	m.viper.SetDefault("workspace.tabs.close_tab", defaults.Workspace.Tabs.CloseTab)
+	m.viper.SetDefault("workspace.tabs.next_tab", defaults.Workspace.Tabs.NextTab)
+	m.viper.SetDefault("workspace.tabs.previous_tab", defaults.Workspace.Tabs.PreviousTab)
+	m.viper.SetDefault("workspace.popups.placement", defaults.Workspace.Popups.Placement)
+	m.viper.SetDefault("workspace.popups.open_in_new_pane", defaults.Workspace.Popups.OpenInNewPane)
+	m.viper.SetDefault("workspace.popups.follow_pane_context", defaults.Workspace.Popups.FollowPaneContext)
 }
 
 func (m *Manager) ensurePersistedDefaults(cfg *Config) {

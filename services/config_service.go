@@ -26,6 +26,7 @@ type ConfigInfo struct {
 	DmenuSettings   *config.DmenuConfig              `json:"dmenu_settings"`
 	RenderingMode   string                           `json:"rendering_mode"`
 	UseDomZoom      bool                             `json:"use_dom_zoom"`
+	Workspace       config.WorkspaceConfig           `json:"workspace"`
 }
 
 // NewConfigService creates a new ConfigService instance.
@@ -46,6 +47,7 @@ func (s *ConfigService) GetConfigInfo(ctx context.Context) (*ConfigInfo, error) 
 		DmenuSettings:   &s.config.Dmenu,
 		RenderingMode:   string(s.config.RenderingMode),
 		UseDomZoom:      s.config.UseDomZoom,
+		Workspace:       s.config.Workspace,
 	}, nil
 }
 
@@ -214,6 +216,20 @@ func (s *ConfigService) ValidateConfig(ctx context.Context) ([]string, error) {
 	// Validate dmenu settings
 	if s.config.Dmenu.MaxHistoryItems < 1 {
 		errors = append(errors, "dmenu max_history_items must be at least 1")
+	}
+
+	// Validate workspace configuration when enabled
+	if s.config.Workspace.EnableZellijControls {
+		if strings.TrimSpace(s.config.Workspace.PaneMode.ActivationShortcut) == "" {
+			errors = append(errors, "workspace pane_mode activation_shortcut is empty")
+		}
+		if len(s.config.Workspace.PaneMode.ActionBindings) == 0 {
+			errors = append(errors, "workspace pane_mode action_bindings are empty")
+		}
+	}
+
+	if strings.TrimSpace(s.config.Workspace.Popups.Placement) == "" {
+		errors = append(errors, "workspace popups placement is empty")
 	}
 
 	return errors, nil
