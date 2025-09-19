@@ -77,13 +77,23 @@ func TestInfiniteRecursionProtection(t *testing.T) {
 		wm := newTestWorkspaceManagerWithMocksForTree(t)
 
 		// Create a tree with geometry
-		right, _ := wm.splitNode(wm.root, "right")
-		bottom, _ := wm.splitNode(wm.root, "down")
+		right, err := wm.splitNode(wm.root, "right")
+		if err != nil {
+			t.Fatalf("Failed to split right: %v", err)
+		}
+		bottom, err := wm.splitNode(right, "down")
+		if err != nil {
+			t.Fatalf("Failed to split down: %v", err)
+		}
 
 		// Set widget bounds
 		webkit.SetWidgetBoundsForTesting(wm.root.container, webkit.WidgetBounds{X: 0, Y: 0, Width: 100, Height: 100})
-		webkit.SetWidgetBoundsForTesting(right.container, webkit.WidgetBounds{X: 120, Y: 0, Width: 100, Height: 100})
-		webkit.SetWidgetBoundsForTesting(bottom.container, webkit.WidgetBounds{X: 0, Y: 120, Width: 100, Height: 100})
+		if right != nil {
+			webkit.SetWidgetBoundsForTesting(right.container, webkit.WidgetBounds{X: 120, Y: 0, Width: 100, Height: 100})
+		}
+		if bottom != nil {
+			webkit.SetWidgetBoundsForTesting(bottom.container, webkit.WidgetBounds{X: 0, Y: 120, Width: 100, Height: 100})
+		}
 
 		// Test that focus neighbor calculations complete quickly
 		start := time.Now()

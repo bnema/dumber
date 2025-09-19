@@ -81,3 +81,8 @@ type BrowserAppInterface interface {
 type WindowInterface interface {
 	SetChild(widget uintptr)
 }
+
+// WindowShortcutHandlerInterface abstracts window shortcut handling for testing
+type WindowShortcutHandlerInterface interface {
+	Cleanup()
+}

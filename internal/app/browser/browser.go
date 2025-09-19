@@ -54,10 +54,10 @@ type BrowserApp struct {
 	filterManager *filtering.FilterManager
 
 	// Handlers
-	schemeHandler   *api.SchemeHandler
-	messageHandler  *messaging.Handler
-	shortcutHandler *ShortcutHandler
-	// windowShortcutHandler disabled for testing
+	schemeHandler         *api.SchemeHandler
+	messageHandler        *messaging.Handler
+	shortcutHandler       *ShortcutHandler
+	windowShortcutHandler WindowShortcutHandlerInterface
 }
 
 // Run starts the browser application
@@ -180,8 +180,12 @@ func (app *BrowserApp) Run() {
 func (app *BrowserApp) cleanup() {
 	log.Printf("Starting browser cleanup...")
 
-	// Cleanup window shortcuts first - disabled for testing
-	log.Printf("Window-level shortcuts cleanup disabled for testing")
+	// Cleanup window shortcuts first
+	if app.windowShortcutHandler != nil {
+		log.Printf("Cleaning up window shortcuts")
+		app.windowShortcutHandler.Cleanup()
+		app.windowShortcutHandler = nil
+	}
 
 	// Cleanup all panes
 	if app.panes != nil {

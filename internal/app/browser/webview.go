@@ -256,8 +256,12 @@ func (app *BrowserApp) createWebView() error {
 
 	// Initialize window-level global shortcuts AFTER workspace is set up
 	if window := view.Window(); window != nil {
-		// app.windowShortcutHandler = NewWindowShortcutHandler(window, app) // disabled for testing
-		log.Printf("Window-level global shortcuts disabled for testing")
+		app.windowShortcutHandler = NewWindowShortcutHandler(window, app)
+		if app.windowShortcutHandler != nil {
+			log.Printf("Window-level global shortcuts initialized")
+		} else {
+			log.Printf("Warning: failed to initialize window-level shortcuts")
+		}
 	}
 
 	app.setupWebViewIntegration()
