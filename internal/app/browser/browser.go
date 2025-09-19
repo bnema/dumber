@@ -182,7 +182,7 @@ func (app *BrowserApp) cleanup() {
 
 	// Cleanup window shortcuts first
 	if app.windowShortcutHandler != nil {
-		log.Printf("Cleaning up window-level shortcuts")
+		log.Printf("Cleaning up window shortcuts")
 		app.windowShortcutHandler.Cleanup()
 		app.windowShortcutHandler = nil
 	}
