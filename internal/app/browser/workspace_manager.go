@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/app/messaging"
+	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/pkg/webkit"
 )
 
@@ -47,15 +48,6 @@ type WorkspaceManager struct {
 }
 
 const (
-	// TODO : should be defined via Config + Defaults
-	activePaneCSS = `.workspace-pane {
-	  box-shadow: inset 0 0 0 0px transparent;
-	  transition: box-shadow 150ms ease-in-out;
-	}
-
-	.workspace-pane-active {
-	  box-shadow: inset 0 0 0 2px @theme_selected_bg_color;
-	}`
 	activePaneClass = "workspace-pane-active"
 	basePaneClass   = "workspace-pane"
 	multiPaneClass  = "workspace-multi-pane"
@@ -281,8 +273,8 @@ func (wm *WorkspaceManager) focusNode(node *paneNode) {
 		}
 	}
 
-	// Remove active class from previous pane only if we have multiple panes
-	if wm.active != nil && wm.active.container != 0 && wm.hasMultiplePanes() {
+	// Remove active class from previous pane (border stays, just color changes)
+	if wm.active != nil && wm.active.container != 0 {
 		webkit.WidgetRemoveCSSClass(wm.active.container, activePaneClass)
 	}
 
@@ -312,10 +304,8 @@ func (wm *WorkspaceManager) focusNode(node *paneNode) {
 	container := node.container
 	viewWidget := node.pane.webView.Widget()
 	if container != 0 && container != previousContainer {
-		// Only add active class if we have multiple panes (no border for single pane)
-		if wm.hasMultiplePanes() {
-			webkit.WidgetAddCSSClass(container, activePaneClass)
-		}
+		// Always add active class (border visibility controlled by CSS multi-pane rules)
+		webkit.WidgetAddCSSClass(container, activePaneClass)
 		if !webkit.WidgetIsValid(container) {
 			log.Printf("[workspace] focus aborted: container invalid widget=%#x", container)
 			return
@@ -369,10 +359,39 @@ func (wm *WorkspaceManager) focusNode(node *paneNode) {
 	}
 }
 
+// generateActivePaneCSS generates the CSS for workspace panes based on config
+func (wm *WorkspaceManager) generateActivePaneCSS() string {
+	cfg := config.Get()
+	styling := cfg.Workspace.Styling
+
+	return fmt.Sprintf(`.workspace-pane {
+	  border: %dpx solid transparent;
+	  transition: border-color %dms ease-in-out;
+	  border-radius: %dpx;
+	}
+
+	.workspace-pane.workspace-multi-pane {
+	  border: %dpx solid transparent;
+	  border-radius: %dpx;
+	}
+
+	.workspace-pane.workspace-multi-pane.workspace-pane-active {
+	  border-color: %s;
+	}`,
+		styling.BorderWidth,
+		styling.TransitionDuration,
+		styling.BorderRadius,
+		styling.BorderWidth,
+		styling.BorderRadius,
+		styling.BorderColor,
+	)
+}
+
 func (wm *WorkspaceManager) ensureStyles() {
 	if wm == nil || wm.cssInitialized {
 		return
 	}
+	activePaneCSS := wm.generateActivePaneCSS()
 	webkit.AddCSSProvider(activePaneCSS)
 	wm.cssInitialized = true
 }

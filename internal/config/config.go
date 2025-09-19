@@ -234,6 +234,8 @@ type WorkspaceConfig struct {
 	Tabs TabKeyConfig `mapstructure:"tabs" yaml:"tabs" json:"tabs"`
 	// Popups configures default popup placement rules.
 	Popups PopupBehaviorConfig `mapstructure:"popups" yaml:"popups" json:"popups"`
+	// Styling configures workspace visual appearance.
+	Styling WorkspaceStylingConfig `mapstructure:"styling" yaml:"styling" json:"styling"`
 }
 
 // PaneModeConfig defines modal behaviour for pane management.
@@ -256,6 +258,18 @@ type PopupBehaviorConfig struct {
 	Placement         string `mapstructure:"placement" yaml:"placement" json:"placement"`
 	OpenInNewPane     bool   `mapstructure:"open_in_new_pane" yaml:"open_in_new_pane" json:"open_in_new_pane"`
 	FollowPaneContext bool   `mapstructure:"follow_pane_context" yaml:"follow_pane_context" json:"follow_pane_context"`
+}
+
+// WorkspaceStylingConfig defines visual styling for workspace panes.
+type WorkspaceStylingConfig struct {
+	// BorderWidth in pixels for pane borders
+	BorderWidth int `mapstructure:"border_width" yaml:"border_width" json:"border_width"`
+	// BorderColor for focused panes (CSS color value or theme variable)
+	BorderColor string `mapstructure:"border_color" yaml:"border_color" json:"border_color"`
+	// TransitionDuration in milliseconds for border animations
+	TransitionDuration int `mapstructure:"transition_duration" yaml:"transition_duration" json:"transition_duration"`
+	// BorderRadius in pixels for pane border corners
+	BorderRadius int `mapstructure:"border_radius" yaml:"border_radius" json:"border_radius"`
 }
 
 // Manager handles configuration loading, watching, and reloading.
@@ -664,6 +678,10 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("workspace.popups.placement", defaults.Workspace.Popups.Placement)
 	m.viper.SetDefault("workspace.popups.open_in_new_pane", defaults.Workspace.Popups.OpenInNewPane)
 	m.viper.SetDefault("workspace.popups.follow_pane_context", defaults.Workspace.Popups.FollowPaneContext)
+	m.viper.SetDefault("workspace.styling.border_width", defaults.Workspace.Styling.BorderWidth)
+	m.viper.SetDefault("workspace.styling.border_color", defaults.Workspace.Styling.BorderColor)
+	m.viper.SetDefault("workspace.styling.transition_duration", defaults.Workspace.Styling.TransitionDuration)
+	m.viper.SetDefault("workspace.styling.border_radius", defaults.Workspace.Styling.BorderRadius)
 }
 
 func (m *Manager) ensurePersistedDefaults(cfg *Config) {

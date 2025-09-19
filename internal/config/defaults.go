@@ -30,6 +30,12 @@ const (
 	defaultPaneActivationShortcut  = "cmdorctrl+p"
 	defaultPaneTimeoutMilliseconds = 3000
 	defaultPopupPlacement          = "right"
+
+	// Workspace styling defaults
+	defaultBorderWidth        = 2
+	defaultBorderColor        = "@theme_selected_bg_color"
+	defaultTransitionDuration = 120
+	defaultBorderRadius       = 0
 )
 
 // getDefaultLogDir returns the default log directory, falls back to empty string on error
@@ -180,6 +186,12 @@ func DefaultConfig() *Config {
 				Placement:         defaultPopupPlacement,
 				OpenInNewPane:     true,
 				FollowPaneContext: true,
+			},
+			Styling: WorkspaceStylingConfig{
+				BorderWidth:        defaultBorderWidth,
+				BorderColor:        defaultBorderColor,
+				TransitionDuration: defaultTransitionDuration,
+				BorderRadius:       defaultBorderRadius,
 			},
 		},
 	}
