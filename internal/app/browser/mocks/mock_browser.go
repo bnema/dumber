@@ -715,3 +715,38 @@ func (mr *MockWindowInterfaceMockRecorder) SetChild(widget interface{}) *gomock.
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetChild", reflect.TypeOf((*MockWindowInterface)(nil).SetChild), widget)
 }
+
+// MockWindowShortcutHandlerInterface is a mock of WindowShortcutHandlerInterface interface.
+type MockWindowShortcutHandlerInterface struct {
+	ctrl     *gomock.Controller
+	recorder *MockWindowShortcutHandlerInterfaceMockRecorder
+}
+
+// MockWindowShortcutHandlerInterfaceMockRecorder is the mock recorder for MockWindowShortcutHandlerInterface.
+type MockWindowShortcutHandlerInterfaceMockRecorder struct {
+	mock *MockWindowShortcutHandlerInterface
+}
+
+// NewMockWindowShortcutHandlerInterface creates a new mock instance.
+func NewMockWindowShortcutHandlerInterface(ctrl *gomock.Controller) *MockWindowShortcutHandlerInterface {
+	mock := &MockWindowShortcutHandlerInterface{ctrl: ctrl}
+	mock.recorder = &MockWindowShortcutHandlerInterfaceMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockWindowShortcutHandlerInterface) EXPECT() *MockWindowShortcutHandlerInterfaceMockRecorder {
+	return m.recorder
+}
+
+// Cleanup mocks base method.
+func (m *MockWindowShortcutHandlerInterface) Cleanup() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Cleanup")
+}
+
+// Cleanup indicates an expected call of Cleanup.
+func (mr *MockWindowShortcutHandlerInterfaceMockRecorder) Cleanup() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cleanup", reflect.TypeOf((*MockWindowShortcutHandlerInterface)(nil).Cleanup))
+}

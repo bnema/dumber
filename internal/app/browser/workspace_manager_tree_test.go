@@ -553,10 +553,14 @@ func newTestWorkspaceManagerWithMocksForTree(t *testing.T) *WorkspaceManager {
 		id:      "root",
 	}
 
+	// Create mock window shortcut handler
+	mockWindowShortcutHandler := &mockWindowShortcutHandler{}
+
 	app := &BrowserApp{
-		panes:      []*BrowserPane{rootPane},
-		activePane: rootPane,
-		webView:    rootView,
+		panes:                 []*BrowserPane{rootPane},
+		activePane:            rootPane,
+		webView:               rootView,
+		windowShortcutHandler: mockWindowShortcutHandler,
 	}
 
 	wm := &WorkspaceManager{
