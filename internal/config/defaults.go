@@ -25,6 +25,11 @@ const (
 
 	// Appearance defaults
 	defaultFontSize = 16 // points
+
+	// Workspace defaults
+	defaultPaneActivationShortcut  = "cmdorctrl+p"
+	defaultPaneTimeoutMilliseconds = 3000
+	defaultPopupPlacement          = "right"
 )
 
 // getDefaultLogDir returns the default log directory, falls back to empty string on error
@@ -146,6 +151,37 @@ func DefaultConfig() *Config {
 		},
 		RenderingMode: RenderingModeGPU,
 		UseDomZoom:    false,
+		Workspace: WorkspaceConfig{
+			EnableZellijControls: true,
+			PaneMode: PaneModeConfig{
+				ActivationShortcut:  defaultPaneActivationShortcut,
+				TimeoutMilliseconds: defaultPaneTimeoutMilliseconds,
+				ActionBindings: map[string]string{
+					"arrowright": "split-right",
+					"arrowleft":  "split-left",
+					"arrowup":    "split-up",
+					"arrowdown":  "split-down",
+					"r":          "split-right",
+					"l":          "split-left",
+					"u":          "split-up",
+					"d":          "split-down",
+					"x":          "close-pane",
+					"enter":      "confirm",
+					"escape":     "cancel",
+				},
+			},
+			Tabs: TabKeyConfig{
+				NewTab:      "cmdorctrl+t",
+				CloseTab:    "cmdorctrl+w",
+				NextTab:     "cmdorctrl+tab",
+				PreviousTab: "cmdorctrl+shift+tab",
+			},
+			Popups: PopupBehaviorConfig{
+				Placement:         defaultPopupPlacement,
+				OpenInNewPane:     true,
+				FollowPaneContext: true,
+			},
+		},
 	}
 }
 
