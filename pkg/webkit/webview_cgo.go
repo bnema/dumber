@@ -22,6 +22,7 @@ static GtkWidget* new_window() { return GTK_WIDGET(gtk_window_new()); }
 // Forward declaration
 extern void goQuitMainLoop();
 extern void goInvokeHandle(uintptr_t handle);
+extern gboolean goOnPopupRequest(unsigned long id, char* uri);
 
 static gboolean invoke_handle_cb(gpointer data) {
     goInvokeHandle((uintptr_t)data);
@@ -51,20 +52,24 @@ static gboolean on_load_failed_with_tls_errors(WebKitWebView *web_view,
                                                GTlsCertificateFlags errors,
                                                gpointer user_data);
 
-// Handle create signal for _blank links - redirect to current window
+// Handle create signal for _blank links - delegate to Go workspace manager
 static WebKitWebView* on_create_new_window(WebKitWebView* web_view,
                                            WebKitNavigationAction* navigation_action,
                                            gpointer user_data) {
-    (void)user_data;
+    unsigned long view_id = (unsigned long)user_data;
+    const gchar* uri = NULL;
 
     // Get the request from navigation action
     WebKitURIRequest* request = webkit_navigation_action_get_request(navigation_action);
     if (request) {
-        const gchar* uri = webkit_uri_request_get_uri(request);
-        if (uri) {
-            // Load in current window instead of creating new one
-            webkit_web_view_load_uri(web_view, uri);
-        }
+        uri = webkit_uri_request_get_uri(request);
+    }
+
+    gboolean handled = goOnPopupRequest(view_id, (char*)uri);
+
+    if (!handled && uri) {
+        // Load in current window instead of creating new one
+        webkit_web_view_load_uri(web_view, uri);
     }
 
     // Return NULL to prevent new window creation
@@ -150,14 +155,16 @@ static GtkWidget* new_webview_with_ucm_and_session(const char* data_dir, const c
     GdkRGBA black_color = { 0.0, 0.0, 0.0, 1.0 };
     webkit_web_view_set_background_color(WEBKIT_WEB_VIEW(w), &black_color);
 
-    // Handle create signal to redirect _blank links to current window
-    g_signal_connect(G_OBJECT(w), "create", G_CALLBACK(on_create_new_window), NULL);
-
     // Connect TLS error handler
     connect_tls_error_handler(WEBKIT_WEB_VIEW(w));
 
     if (out_ucm) { *out_ucm = u; }
     return w;
+}
+
+static void connect_create_handler(WebKitWebView* web_view, unsigned long id) {
+    if (!web_view) return;
+    g_signal_connect_data(G_OBJECT(web_view), "create", G_CALLBACK(on_create_new_window), (gpointer)id, NULL, 0);
 }
 
 static gboolean gtk_prefers_dark() {
@@ -638,6 +645,7 @@ static gboolean show_tls_warning_dialog_sync(GtkWindow *parent, const char* host
     // Return response code: 0=Go Back, 1=Proceed Once, 2=Always Accept
     return response_data.response;
 }
+
 */
 import "C"
 
@@ -655,6 +663,7 @@ import (
 	"runtime/cgo"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -791,6 +800,21 @@ const domBridgeTemplate = `(() => { try {
               };
             } catch (e) { console.warn('[dumber] unified bridge init failed', e); } })();`
 
+var registerSchemeOnce sync.Once
+
+func registerDumbScheme(ctx *C.WebKitWebContext) {
+	if ctx == nil {
+		return
+	}
+
+	registerSchemeOnce.Do(func() {
+		sch := C.CString("dumb")
+		defer C.free(unsafe.Pointer(sch))
+		C.register_uri_scheme_handler(ctx, sch)
+		C.register_uri_scheme_security(ctx, sch)
+	})
+}
+
 // Helper function to convert bool to int for C interop
 func boolToInt(b bool) int {
 	if b {
@@ -894,10 +918,11 @@ func storeCertificateDecision(hostname, certificateInfo, decision string, perman
 }
 
 type nativeView struct {
-	win  *C.GtkWidget
-	view *C.GtkWidget
-	wv   *C.WebKitWebView
-	ucm  *C.WebKitUserContentManager
+	win       *C.GtkWidget
+	container *C.GtkWidget
+	view      *C.GtkWidget
+	wv        *C.WebKitWebView
+	ucm       *C.WebKitUserContentManager
 }
 
 type memoryStats struct {
@@ -919,6 +944,7 @@ type WebView struct {
 	titleHandler    func(title string)
 	uriHandler      func(uri string)
 	zoomHandler     func(level float64)
+	popupHandler    func(string) bool
 	memStats        *memoryStats
 	gcTicker        *time.Ticker
 	gcDone          chan struct{}
@@ -926,6 +952,7 @@ type WebView struct {
 	useDomZoom      bool
 	domZoomSeed     float64
 	domBridgeScript *C.WebKitUserScript
+	wasReparented   bool // Track if this WebView has been reparented
 }
 
 // NewWebView constructs a new WebView instance with native WebKit2GTK widgets.
@@ -1018,13 +1045,7 @@ func NewWebView(cfg *Config) (*WebView, error) {
 		}
 	}
 
-	// Register custom URI scheme handler for "dumb://"
-	{
-		sch := C.CString("dumb")
-		C.register_uri_scheme_handler(ctx, sch)
-		C.register_uri_scheme_security(ctx, sch)
-		C.free(unsafe.Pointer(sch))
-	}
+	registerDumbScheme(ctx)
 	// Cookie manager persistent storage handled via NetworkSession in new_webview_with_ucm_and_session
 
 	// Create WebView through g_object_new with a fresh UCM (GTK4/WebKit 6 style)
@@ -1034,17 +1055,35 @@ func NewWebView(cfg *Config) (*WebView, error) {
 		return nil, errors.New("failed to create WebKitWebView")
 	}
 
-	// Create a top-level window to host the view
-	win := C.new_window()
-	if win == nil {
-		return nil, errors.New("failed to create GtkWindow")
+	var win *C.GtkWidget
+	var window *Window
+	container := C.gtk_box_new(C.GtkOrientation(C.GTK_ORIENTATION_VERTICAL), 0)
+	if container == nil {
+		return nil, errors.New("failed to create GtkBox container")
 	}
+	// Hold a strong reference so the WebView keeps the container alive across reparenting.
+	C.g_object_ref_sink(C.gpointer(container))
+	C.gtk_widget_set_hexpand(container, C.gboolean(1))
+	C.gtk_widget_set_vexpand(container, C.gboolean(1))
+	C.gtk_widget_set_hexpand(viewWidget, C.gboolean(1))
+	C.gtk_widget_set_vexpand(viewWidget, C.gboolean(1))
+	C.gtk_box_append((*C.GtkBox)(unsafe.Pointer(container)), viewWidget)
 
-	// Pack view widget into the window
-	// GTK4: containers removed; use gtk_window_set_child
-	C.gtk_window_set_child((*C.GtkWindow)(unsafe.Pointer(win)), viewWidget)
-	C.gtk_window_set_default_size((*C.GtkWindow)(unsafe.Pointer(win)), 1024, 768)
-	C.connect_destroy_quit(win)
+	// Only create window if requested
+	if cfg.CreateWindow {
+		// Create a top-level window to host the view
+		win = C.new_window()
+		if win == nil {
+			return nil, errors.New("failed to create GtkWindow")
+		}
+
+		// Pack view widget into the window
+		// GTK4: containers removed; use gtk_window_set_child
+		C.gtk_window_set_child((*C.GtkWindow)(unsafe.Pointer(win)), container)
+		C.gtk_window_set_default_size((*C.GtkWindow)(unsafe.Pointer(win)), 1024, 768)
+		C.connect_destroy_quit(win)
+		window = &Window{win: win}
+	}
 
 	seed := 1.0
 	if cfg.ZoomDefault > 0 {
@@ -1056,8 +1095,8 @@ func NewWebView(cfg *Config) (*WebView, error) {
 		zoom:        1.0,
 		useDomZoom:  cfg.UseDomZoom,
 		domZoomSeed: seed,
-		native:      &nativeView{win: win, view: viewWidget, wv: C.as_webview(viewWidget), ucm: createdUcm},
-		window:      &Window{win: win},
+		native:      &nativeView{win: win, container: container, view: viewWidget, wv: C.as_webview(viewWidget), ucm: createdUcm},
+		window:      window,
 		memStats: &memoryStats{
 			pageLoadCount:          0,
 			lastGCTime:             time.Now(),
@@ -1069,6 +1108,7 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	// Assign an ID for accelerator dispatch
 	v.id = nextViewID()
 	registerView(v.id, v)
+	C.connect_create_handler(v.native.wv, C.ulong(v.id))
 
 	// Register with global memory manager if monitoring is enabled
 	if cfg.Memory.EnableMemoryMonitoring {
@@ -1140,12 +1180,12 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	_ = v.RegisterKeyboardShortcut("cmdorctrl+f", func() {
 		_ = v.InjectScript("document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:'cmdorctrl+f'}}))")
 	})
-	// Navigation with Alt+Arrow keys: use new keyboard service bridge
-	_ = v.RegisterKeyboardShortcut("alt+ArrowLeft", func() {
-		_ = v.InjectScript("document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:'alt+arrowleft'}}))")
+	// Navigation with Ctrl/Cmd + Arrow keys: forward to keyboard service bridge
+	_ = v.RegisterKeyboardShortcut("cmdorctrl+ArrowLeft", func() {
+		_ = v.InjectScript("document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:'cmdorctrl+arrowleft'}}))")
 	})
-	_ = v.RegisterKeyboardShortcut("alt+ArrowRight", func() {
-		_ = v.InjectScript("document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:'alt+arrowright'}}))")
+	_ = v.RegisterKeyboardShortcut("cmdorctrl+ArrowRight", func() {
+		_ = v.InjectScript("document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:'cmdorctrl+arrowright'}}))")
 	})
 	// Update window title when page title changes
 	C.connect_title_notify(viewWidget, (*C.GtkWindow)(unsafe.Pointer(win)))
@@ -1305,10 +1345,18 @@ func (w *WebView) LoadURL(rawURL string) error {
 }
 
 func (w *WebView) Show() error {
-	if w == nil || w.destroyed || w.native == nil || w.native.win == nil {
+	if w == nil || w.destroyed || w.native == nil {
 		return ErrNotImplemented
 	}
-	C.gtk_widget_set_visible(w.native.view, C.gboolean(1))
+	if w.native.container != nil {
+		C.gtk_widget_set_visible(w.native.container, C.gboolean(1))
+	}
+	if w.native.view != nil {
+		C.gtk_widget_set_visible(w.native.view, C.gboolean(1))
+	}
+	if w.native.win == nil {
+		return ErrNotImplemented
+	}
 	C.gtk_widget_set_visible(w.native.win, C.gboolean(1))
 	C.gtk_window_present((*C.GtkWindow)(unsafe.Pointer(w.native.win)))
 	log.Printf("[webkit] Show window")
@@ -1316,16 +1364,24 @@ func (w *WebView) Show() error {
 }
 
 func (w *WebView) Hide() error {
-	if w == nil || w.destroyed || w.native == nil || w.native.win == nil {
+	if w == nil || w.destroyed || w.native == nil {
 		return ErrNotImplemented
 	}
-	C.gtk_widget_set_visible(w.native.view, C.gboolean(0))
+	if w.native.container != nil {
+		C.gtk_widget_set_visible(w.native.container, C.gboolean(0))
+	}
+	if w.native.view != nil {
+		C.gtk_widget_set_visible(w.native.view, C.gboolean(0))
+	}
+	if w.native.win == nil {
+		return ErrNotImplemented
+	}
 	C.gtk_widget_set_visible(w.native.win, C.gboolean(0))
 	return nil
 }
 
 func (w *WebView) Destroy() error {
-	if w == nil || w.native == nil || w.native.win == nil {
+	if w == nil || w.native == nil {
 		return ErrNotImplemented
 	}
 
@@ -1349,12 +1405,30 @@ func (w *WebView) Destroy() error {
 		w.domBridgeScript = nil
 	}
 
-	// GTK4: destroy windows via gtk_window_destroy
-	C.gtk_window_destroy((*C.GtkWindow)(unsafe.Pointer(w.native.win)))
+	// GTK4: destroy windows via gtk_window_destroy if we created one
+	if w.native.win != nil {
+		C.gtk_window_destroy((*C.GtkWindow)(unsafe.Pointer(w.native.win)))
+		w.native.win = nil
+		if w.window != nil {
+			w.window.win = nil
+		}
+		log.Printf("[webkit] Destroy window")
+	}
+
+	w.releaseNativeWidgets()
 	w.destroyed = true
 	unregisterView(w.id)
-	log.Printf("[webkit] Destroy window")
 	return nil
+}
+
+func (w *WebView) releaseNativeWidgets() {
+	if w == nil || w.native == nil {
+		return
+	}
+	if w.native.container != nil {
+		C.g_object_unref(C.gpointer(w.native.container))
+		w.native.container = nil
+	}
 }
 
 // Window returns the associated native window.
@@ -1409,10 +1483,19 @@ func (w *WebView) ReloadBypassCache() error {
 // RegisterScriptMessageHandler registers a callback invoked when the content script posts a message.
 func (w *WebView) RegisterScriptMessageHandler(cb func(payload string)) { w.msgHandler = cb }
 
+func (w *WebView) RegisterPopupHandler(cb func(string) bool) { w.popupHandler = cb }
+
 func (w *WebView) dispatchScriptMessage(payload string) {
 	if w != nil && w.msgHandler != nil {
 		w.msgHandler(payload)
 	}
+}
+
+func (w *WebView) dispatchPopupRequest(uri string) bool {
+	if w != nil && w.popupHandler != nil {
+		return w.popupHandler(uri)
+	}
+	return false
 }
 
 // RegisterTitleChangedHandler registers a callback invoked when the page title changes.
@@ -1448,6 +1531,72 @@ func (w *WebView) RegisterZoomChangedHandler(cb func(level float64)) { w.zoomHan
 func (w *WebView) dispatchZoomChanged(level float64) {
 	if w != nil && w.zoomHandler != nil {
 		w.zoomHandler(level)
+	}
+}
+
+// Widget returns the underlying GtkWidget pointer for the WebView.
+func (w *WebView) Widget() uintptr {
+	if w == nil || w.native == nil || w.native.view == nil {
+		return 0
+	}
+	return uintptr(unsafe.Pointer(w.native.view))
+}
+
+// RootWidget returns the container widget that should be reparented for pane management.
+func (w *WebView) RootWidget() uintptr {
+	if w == nil || w.native == nil || w.native.container == nil {
+		return 0
+	}
+	return uintptr(unsafe.Pointer(w.native.container))
+}
+
+// DestroyWindow destroys the toplevel window hosting this WebView, if any.
+func (w *WebView) DestroyWindow() {
+	if w == nil || w.native == nil || w.native.win == nil {
+		return
+	}
+	C.gtk_window_destroy((*C.GtkWindow)(unsafe.Pointer(w.native.win)))
+	w.native.win = nil
+	if w.window != nil {
+		w.window.win = nil
+	}
+}
+
+// PrepareForReparenting prepares the WebView widget for being moved to a new parent
+func (w *WebView) PrepareForReparenting() {
+	if w == nil || w.native == nil || w.native.container == nil {
+		return
+	}
+
+	// Mark that this view is being reparented
+	w.wasReparented = true
+
+	// Ensure the widget is visible and properly sized for reparenting
+	C.gtk_widget_set_visible(w.native.container, C.gboolean(1))
+	C.gtk_widget_set_size_request(w.native.container, 100, 100)
+	C.gtk_widget_queue_draw(w.native.container)
+}
+
+// RefreshAfterReparenting refreshes the WebView after it has been reparented
+func (w *WebView) RefreshAfterReparenting() {
+	if w == nil || w.native == nil || w.native.wv == nil {
+		return
+	}
+
+	if w.wasReparented {
+		widgetHandle := w.RootWidget()
+		parentHandle := WidgetGetParent(widgetHandle)
+		if parentHandle == 0 {
+			log.Printf("[workspace] RefreshAfterReparenting deferred: widget=%#x parent=%#x url=%s", widgetHandle, parentHandle, w.url)
+			return
+		}
+		log.Printf("[workspace] RefreshAfterReparenting: widget=%#x parent=%#x url=%s", widgetHandle, parentHandle, w.url)
+		// Force WebKit to refresh its rendering context by triggering a reload
+		// This ensures the rendering context is properly reinitialized after reparenting
+		if w.url != "" {
+			w.LoadURL(w.url) // Reload current URL to refresh rendering context
+		}
+		w.wasReparented = false
 	}
 }
 

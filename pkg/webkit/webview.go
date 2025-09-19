@@ -20,8 +20,10 @@ type WebView struct {
 	titleHandler func(title string)
 	uriHandler   func(uri string)
 	zoomHandler  func(level float64)
+	popupHandler func(string) bool
 	useDomZoom   bool
 	domZoomSeed  float64
+	container    uintptr
 }
 
 // NewWebView constructs a new WebView instance.
@@ -39,6 +41,7 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	wv.domZoomSeed = wv.zoom
 	// Construction succeeds; create a logical window placeholder.
 	wv.window = &Window{Title: "Dumber Browser"}
+	wv.container = newWidgetHandle()
 	return wv, nil
 }
 
@@ -111,10 +114,19 @@ func (w *WebView) CloseDevTools() error { return nil }
 // RegisterScriptMessageHandler registers a callback invoked when the content script posts a message.
 func (w *WebView) RegisterScriptMessageHandler(cb func(payload string)) { w.msgHandler = cb }
 
+func (w *WebView) RegisterPopupHandler(cb func(string) bool) { w.popupHandler = cb }
+
 func (w *WebView) dispatchScriptMessage(payload string) { //nolint:unused // Called from CGO WebKit callbacks
 	if w != nil && w.msgHandler != nil {
 		w.msgHandler(payload)
 	}
+}
+
+func (w *WebView) dispatchPopupRequest(uri string) bool { //nolint:unused // Called from CGO WebKit callbacks
+	if w != nil && w.popupHandler != nil {
+		return w.popupHandler(uri)
+	}
+	return false
 }
 
 // RegisterTitleChangedHandler registers a callback invoked when the page title changes.
@@ -144,12 +156,27 @@ func (w *WebView) dispatchZoomChanged(level float64) {
 	}
 }
 
+// Widget returns an empty handle in stub builds.
+func (w *WebView) Widget() uintptr { return 0 }
+
+// RootWidget returns the container widget handle in CGO builds. Stub returns 0.
+func (w *WebView) RootWidget() uintptr { return w.container }
+
+// DestroyWindow is a no-op in stub builds.
+func (w *WebView) DestroyWindow() {}
+
 // RunOnMainThread executes fn immediately in non-CGO builds.
 func (w *WebView) RunOnMainThread(fn func()) {
 	if fn != nil {
 		fn()
 	}
 }
+
+// PrepareForReparenting is a no-op in stub builds.
+func (w *WebView) PrepareForReparenting() {}
+
+// RefreshAfterReparenting is a no-op in stub builds.
+func (w *WebView) RefreshAfterReparenting() {}
 
 // UsesDomZoom reports whether DOM-based zoom is enabled in this WebView.
 func (w *WebView) UsesDomZoom() bool {

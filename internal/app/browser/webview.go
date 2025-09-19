@@ -2,6 +2,7 @@ package browser
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"github.com/bnema/dumber/internal/app/constants"
 	"github.com/bnema/dumber/internal/app/control"
 	"github.com/bnema/dumber/internal/app/environment"
+	"github.com/bnema/dumber/internal/app/messaging"
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/filtering"
 	"github.com/bnema/dumber/pkg/webkit"
@@ -43,17 +45,26 @@ func buildMemoryConfig(cfg config.WebkitMemoryConfig) webkit.MemoryConfig {
 	return mc
 }
 
-// createWebView creates and configures the WebView
-func (app *BrowserApp) createWebView() error {
-	log.Printf("Creating WebView (native backend expected: %v)", webkit.IsNativeAvailable())
-	dataDir, _ := config.GetDataDir()
-	stateDir, _ := config.GetStateDir()
+func (app *BrowserApp) buildWebkitConfig() (*webkit.Config, error) {
+	dataDir, err := config.GetDataDir()
+	if err != nil {
+		return nil, err
+	}
+	stateDir, err := config.GetStateDir()
+	if err != nil {
+		return nil, err
+	}
+
 	webkitData := filepath.Join(dataDir, "webkit")
 	webkitCache := filepath.Join(stateDir, "webkit-cache")
-	_ = os.MkdirAll(webkitData, constants.DirPerm)
-	_ = os.MkdirAll(webkitCache, constants.DirPerm)
+	if err := os.MkdirAll(webkitData, constants.DirPerm); err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(webkitCache, constants.DirPerm); err != nil {
+		return nil, err
+	}
 
-	view, err := webkit.NewWebView(&webkit.Config{
+	cfg := &webkit.Config{
 		Assets:                app.assets,
 		InitialURL:            "dumb://homepage",
 		ZoomDefault:           1.0,
@@ -82,17 +93,178 @@ func (app *BrowserApp) createWebView() error {
 			CustomUserAgent:           app.config.CodecPreferences.CustomUserAgent,
 			DisableTwitchCodecControl: app.config.CodecPreferences.DisableTwitchCodecControl,
 		},
+	}
+
+	return cfg, nil
+}
+
+func (app *BrowserApp) buildPane(view *webkit.WebView) (*BrowserPane, error) {
+	pane := &BrowserPane{
+		webView: view,
+	}
+
+	pane.clipboardController = control.NewClipboardController(view)
+	pane.zoomController = control.NewZoomController(app.browserService, view)
+	pane.navigationController = control.NewNavigationController(
+		app.parserService,
+		app.browserService,
+		view,
+		pane.zoomController,
+	)
+	pane.messageHandler = messaging.NewHandler(app.parserService, app.browserService)
+	pane.messageHandler.SetWebView(view)
+	pane.messageHandler.SetNavigationController(pane.navigationController)
+	pane.shortcutHandler = NewShortcutHandler(view, pane.clipboardController, app.config, app)
+
+	pane.zoomController.RegisterHandlers()
+	pane.shortcutHandler.RegisterShortcuts()
+
+	return pane, nil
+}
+
+func (app *BrowserApp) createPaneForView(view *webkit.WebView) (*BrowserPane, error) {
+	pane, err := app.buildPane(view)
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate unique pane ID
+	pane.SetID(fmt.Sprintf("pane-%d-%p", time.Now().Unix(), view))
+	pane.initializeGUITracking()
+
+	// Inject minimal bootstrap script for pane initialization
+	bootstrapScript := fmt.Sprintf(`
+		window.__dumber_pane = {
+			id: '%s',
+			created: %d,
+			active: false
+		};
+
+		// GUI manager will be loaded on-demand
+		window.__dumber_gui_ready = true;
+
+		console.log('[pane] Initialized pane %s');
+	`, pane.ID(), time.Now().UnixMilli(), pane.ID())
+
+	if err := view.InjectScript(bootstrapScript); err != nil {
+		log.Printf("[pane-%s] Failed to inject bootstrap: %v", pane.ID(), err)
+	}
+
+	app.attachPaneHandlers(pane)
+	return pane, nil
+}
+
+func (app *BrowserApp) attachPaneHandlers(pane *BrowserPane) {
+	if pane == nil || pane.webView == nil {
+		return
+	}
+
+	pane.webView.RegisterTitleChangedHandler(func(title string) {
+		if title == "" {
+			return
+		}
+		url := pane.webView.GetCurrentURL()
+		if url == "" {
+			return
+		}
+		go func(url, title string) {
+			ctx := context.Background()
+			if err := app.browserService.UpdatePageTitle(ctx, url, title); err != nil {
+				log.Printf("Warning: failed to update page title: %v", err)
+			}
+		}(url, title)
 	})
+
+	pane.webView.RegisterScriptMessageHandler(func(payload string) {
+		if app.workspace != nil {
+			app.workspace.focusByView(pane.webView)
+		}
+		pane.messageHandler.Handle(payload)
+	})
+
+	if pane.messageHandler != nil && pane.navigationController != nil {
+		pane.messageHandler.SetNavigationController(pane.navigationController)
+	}
+
+	pane.webView.RegisterPopupHandler(func(uri string) bool {
+		handled := false
+		if app.workspace != nil {
+			handled = app.workspace.HandlePopup(pane.webView, uri)
+		}
+		if handled {
+			return true
+		}
+
+		if pane.navigationController != nil && uri != "" {
+			if err := pane.navigationController.NavigateToURL(uri); err != nil {
+				log.Printf("[workspace] popup fallback navigation failed: %v", err)
+				if pane.webView != nil {
+					if loadErr := pane.webView.LoadURL(uri); loadErr != nil {
+						log.Printf("[workspace] popup fallback load failed: %v", loadErr)
+					}
+				}
+			}
+			return true
+		}
+
+		if pane.webView != nil && uri != "" {
+			if err := pane.webView.LoadURL(uri); err != nil {
+				log.Printf("[workspace] popup direct load failed: %v", err)
+			}
+			return true
+		}
+
+		return false
+	})
+}
+
+// createWebView creates and configures the WebView
+func (app *BrowserApp) createWebView() error {
+	log.Printf("Creating WebView (native backend expected: %v)", webkit.IsNativeAvailable())
+
+	cfg, err := app.buildWebkitConfig()
+	if err != nil {
+		return err
+	}
+
+	// Main window needs a top-level window
+	cfg.CreateWindow = true
+
+	view, err := webkit.NewWebView(cfg)
 
 	if err != nil {
 		return err
 	}
 
+	pane, err := app.createPaneForView(view)
+	if err != nil {
+		return err
+	}
+
 	app.webView = view
+	app.zoomController = pane.zoomController
+	app.navigationController = pane.navigationController
+	app.clipboardController = pane.clipboardController
+	app.messageHandler = pane.messageHandler
+	app.shortcutHandler = pane.shortcutHandler
+	app.panes = []*BrowserPane{pane}
+	app.activePane = pane
+
+	if app.workspace == nil {
+		app.workspace = NewWorkspaceManager(app, pane)
+	}
+
+	// Initialize window-level global shortcuts AFTER workspace is set up
+	if window := view.Window(); window != nil {
+		app.windowShortcutHandler = NewWindowShortcutHandler(window, app)
+		if app.windowShortcutHandler != nil {
+			log.Printf("Window-level global shortcuts initialized")
+		} else {
+			log.Printf("Warning: Failed to initialize window-level shortcuts")
+		}
+	}
+
 	app.setupWebViewIntegration()
-	app.setupWebViewHandlers()
-	app.setupControllers()
-	app.setupKeyboardShortcuts()
 
 	// Apply initial zoom and show window
 	app.zoomController.ApplyInitialZoom()
@@ -118,57 +290,6 @@ func (app *BrowserApp) setupWebViewIntegration() {
 	if win := app.webView.Window(); win != nil {
 		app.browserService.SetWindowTitleUpdater(win)
 	}
-}
-
-// setupWebViewHandlers configures WebView event handlers
-func (app *BrowserApp) setupWebViewHandlers() {
-	// Persist page titles to DB when they change
-	app.webView.RegisterTitleChangedHandler(func(title string) {
-		if title == "" {
-			return
-		}
-		url := app.webView.GetCurrentURL()
-		if url == "" {
-			return
-		}
-		go func(url, title string) {
-			ctx := context.Background()
-			if err := app.browserService.UpdatePageTitle(ctx, url, title); err != nil {
-				log.Printf("Warning: failed to update page title: %v", err)
-			}
-		}(url, title)
-	})
-
-	// Set WebView reference for message handler and register script messages
-	app.messageHandler.SetWebView(app.webView)
-	app.webView.RegisterScriptMessageHandler(app.messageHandler.Handle)
-
-}
-
-// setupControllers initializes and configures controller objects
-func (app *BrowserApp) setupControllers() {
-	// Initialize controllers
-	app.zoomController = control.NewZoomController(app.browserService, app.webView)
-	app.navigationController = control.NewNavigationController(
-		app.parserService,
-		app.browserService,
-		app.webView,
-		app.zoomController,
-	)
-	app.clipboardController = control.NewClipboardController(app.webView)
-
-	if app.messageHandler != nil && app.navigationController != nil {
-		app.messageHandler.SetNavigationController(app.navigationController)
-	}
-
-	// Register controller handlers
-	app.zoomController.RegisterHandlers()
-}
-
-// setupKeyboardShortcuts registers keyboard shortcuts
-func (app *BrowserApp) setupKeyboardShortcuts() {
-	app.shortcutHandler = NewShortcutHandler(app.webView, app.clipboardController)
-	app.shortcutHandler.RegisterShortcuts()
 }
 
 // setupContentBlocking initializes the content blocking system with proper timing

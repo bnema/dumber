@@ -17,8 +17,8 @@ import (
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/db"
 	"github.com/bnema/dumber/internal/filtering"
-	"github.com/bnema/dumber/internal/migrations"
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/dumber/internal/migrations"
 	"github.com/bnema/dumber/pkg/webkit"
 	"github.com/bnema/dumber/services"
 )
@@ -45,13 +45,19 @@ type BrowserApp struct {
 	navigationController *control.NavigationController
 	clipboardController  *control.ClipboardController
 
+	// Pane workspace management
+	panes      []*BrowserPane
+	activePane *BrowserPane
+	workspace  *WorkspaceManager
+
 	// Content filtering
 	filterManager *filtering.FilterManager
 
 	// Handlers
-	schemeHandler   *api.SchemeHandler
-	messageHandler  *messaging.Handler
-	shortcutHandler *ShortcutHandler
+	schemeHandler         *api.SchemeHandler
+	messageHandler        *messaging.Handler
+	shortcutHandler       *ShortcutHandler
+	windowShortcutHandler *WindowShortcutHandler
 }
 
 // Run starts the browser application
@@ -172,11 +178,43 @@ func (app *BrowserApp) Run() {
 
 // cleanup handles cleanup on shutdown
 func (app *BrowserApp) cleanup() {
+	log.Printf("Starting browser cleanup...")
+
+	// Cleanup window shortcuts first
+	if app.windowShortcutHandler != nil {
+		log.Printf("Cleaning up window-level shortcuts")
+		app.windowShortcutHandler.Cleanup()
+		app.windowShortcutHandler = nil
+	}
+
+	// Cleanup all panes
+	if app.panes != nil {
+		log.Printf("Cleaning up %d panes", len(app.panes))
+		for i, pane := range app.panes {
+			if pane != nil {
+				log.Printf("Cleaning up pane %d (%s)", i, pane.ID())
+				pane.Cleanup()
+			}
+		}
+		app.panes = nil
+	}
+
+	// Cleanup workspace manager
+	if app.workspace != nil {
+		log.Printf("Cleaning up workspace manager")
+		// WorkspaceManager doesn't have explicit cleanup yet, but we clear the reference
+		app.workspace = nil
+	}
+
+	// Close database last
 	if app.database != nil {
+		log.Printf("Closing database")
 		if closeErr := app.database.Close(); closeErr != nil {
 			log.Printf("Warning: failed to close database: %v", closeErr)
 		}
 	}
+
+	log.Printf("Browser cleanup completed")
 }
 
 // setupOutputCapture initializes stdout/stderr capture if configured

@@ -1,9 +1,12 @@
 package browser
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 
 	"github.com/bnema/dumber/internal/app/control"
+	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/pkg/webkit"
 )
 
@@ -11,57 +14,105 @@ import (
 type ShortcutHandler struct {
 	webView             *webkit.WebView
 	clipboardController *control.ClipboardController
+	config              *config.Config
+	app                 *BrowserApp
 }
 
 // NewShortcutHandler creates a new shortcut handler
-func NewShortcutHandler(webView *webkit.WebView, clipboardController *control.ClipboardController) *ShortcutHandler {
+func NewShortcutHandler(webView *webkit.WebView, clipboardController *control.ClipboardController, cfg *config.Config, app *BrowserApp) *ShortcutHandler {
 	return &ShortcutHandler{
 		webView:             webView,
 		clipboardController: clipboardController,
+		config:              cfg,
+		app:                 app,
 	}
 }
 
-// RegisterShortcuts registers all keyboard shortcuts
+func (s *ShortcutHandler) isActivePane() bool {
+	if s == nil || s.webView == nil {
+		log.Printf("[shortcut] isActivePane: handler or webView is nil")
+		return false
+	}
+	if s.app == nil || s.app.activePane == nil {
+		log.Printf("[shortcut] isActivePane: app or activePane is nil, returning true")
+		return true
+	}
+	isActive := s.app.activePane.webView == s.webView
+	log.Printf("[shortcut] isActivePane: handler webView=%p activePane webView=%p isActive=%v", s.webView, s.app.activePane.webView, isActive)
+	return isActive
+}
+
+// RegisterShortcuts registers pane-specific keyboard shortcuts with focus guards
 func (s *ShortcutHandler) RegisterShortcuts() {
-	// DevTools
-	_ = s.webView.RegisterKeyboardShortcut("F12", func() {
-		log.Printf("Shortcut: F12 (devtools)")
-		_ = s.webView.ShowDevTools()
-	})
+	s.exposeWorkspaceConfig()
 
-	// Omnibox (Ctrl+L): use new keyboard service bridge
-	_ = s.webView.RegisterKeyboardShortcut("cmdorctrl+l", func() {
-		log.Printf("Shortcut: Omnibox toggle")
-		// Handled in GUI KeyboardService via unified 'dumber:key' event
-	})
-
-	// Find in page (Ctrl+F): use keyboard service bridge
-	_ = s.webView.RegisterKeyboardShortcut("cmdorctrl+f", func() {
-		log.Printf("Shortcut: Find in page")
-		// Handled in GUI KeyboardService via unified 'dumber:key' event
-	})
-
-	// Copy URL (Ctrl+Shift+C): use keyboard service with native fallback
-	_ = s.webView.RegisterKeyboardShortcut("cmdorctrl+shift+c", func() {
-		log.Printf("Shortcut: Copy URL")
-		// Handled in GUI KeyboardService via unified 'dumber:key' event
-	})
+	// NOTE: Global shortcuts (Ctrl+L, Ctrl+F, Ctrl+Shift+C, F12) are now handled
+	// by WindowShortcutHandler at the window level to prevent duplicates
 
 	// Page refresh shortcuts
 	_ = s.webView.RegisterKeyboardShortcut("cmdorctrl+r", func() {
+		if !s.isActivePane() {
+			return
+		}
 		log.Printf("Shortcut: Reload page")
 		_ = s.webView.Reload()
 	})
 
 	_ = s.webView.RegisterKeyboardShortcut("cmdorctrl+shift+r", func() {
+		if !s.isActivePane() {
+			return
+		}
 		log.Printf("Shortcut: Hard reload page")
 		_ = s.webView.ReloadBypassCache()
 	})
 
 	_ = s.webView.RegisterKeyboardShortcut("F5", func() {
+		if !s.isActivePane() {
+			return
+		}
 		log.Printf("Shortcut: F5 reload")
 		_ = s.webView.Reload()
 	})
 
+	// Note: Workspace pane navigation shortcuts (Alt + Arrow keys) are now handled
+	// by the WorkspaceManager to ensure they work properly across all panes
+
 	// Zoom handled natively in webkit package (built-in shortcuts)
+}
+
+func (s *ShortcutHandler) dispatchUIShortcut(action string, extra map[string]any) error {
+	if s == nil || s.webView == nil {
+		return fmt.Errorf("webview unavailable for action %s", action)
+	}
+
+	detail := map[string]any{
+		"action": action,
+	}
+	for k, v := range extra {
+		detail[k] = v
+	}
+
+	return s.webView.DispatchCustomEvent("dumber:ui:shortcut", detail)
+}
+
+func (s *ShortcutHandler) exposeWorkspaceConfig() {
+	if s.webView == nil || s.config == nil {
+		return
+	}
+
+	payload, err := json.Marshal(s.config.Workspace)
+	if err != nil {
+		log.Printf("Shortcut: failed to marshal workspace config: %v", err)
+		return
+	}
+
+	script := fmt.Sprintf(`(function(){
+	const cfg = %s;
+	window.__dumber_workspace_config = cfg;
+	document.dispatchEvent(new CustomEvent('dumber:workspace-config',{detail:cfg}));
+})();`, string(payload))
+
+	if err := s.webView.InjectScript(script); err != nil {
+		log.Printf("Shortcut: failed to expose workspace config: %v", err)
+	}
 }
