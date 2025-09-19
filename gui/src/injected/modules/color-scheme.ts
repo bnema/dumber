@@ -9,13 +9,13 @@
 declare global {
   interface Window {
     __dumber_gtk_prefers_dark?: boolean;
-    __dumber_setTheme?: (theme: string) => void;
+    __dumber_setTheme?: (theme: 'light' | 'dark') => void;
   }
 }
 
 interface ColorSchemeConfig {
   isDark: boolean;
-  colorScheme: string;
+  colorScheme: 'light' | 'dark';
   metaContent: string;
   rootStyle: string;
 }
@@ -70,7 +70,7 @@ class ColorSchemeManager {
           value: this.config.colorScheme
         })
       );
-    } catch (error) {
+    } catch {
       // Ignore errors - native layer may not be available
     }
   }

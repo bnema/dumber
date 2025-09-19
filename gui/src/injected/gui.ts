@@ -8,7 +8,8 @@
 // Import all GUI modules
 import { initializeToast, type ToastConfig } from './modules/toast';
 import { initializeOmnibox, type OmniboxInitConfig } from './modules/omnibox';
-import { keyboardService, type KeyboardService } from '../lib/keyboard';
+import { initializeWorkspace, type WorkspaceConfigPayload, type WorkspaceRuntime } from './modules/workspace';
+import { keyboardService, type KeyboardService } from '$lib/keyboard';
 // Note: color-scheme module is loaded separately at document-start by WebKit
 
 // Global interface for the unified GUI system
@@ -45,6 +46,8 @@ declare global {
     __dumber_showToast?: (message: string, duration?: number, type?: 'info' | 'success' | 'error') => number | void;
     __dumber_showZoomToast?: (level: number) => void;
     __dumber_keyboard?: KeyboardService;
+    __dumber_workspace_config?: WorkspaceConfigPayload;
+    __dumber_workspace?: WorkspaceRuntime;
     // Legacy compatibility functions for Go bridge
     __dumber_toggle?: () => void;
     __dumber_find_open?: (query?: string) => void;
@@ -61,6 +64,43 @@ if (!window.__dumber_gui_ready) {
   } else {
     window.__dumber_gui_ready = true;
 
+  let workspaceHasFocus = document.hasFocus();
+  let currentPaneId = window.__dumber_pane?.id || 'unknown';
+
+  document.addEventListener('dumber:workspace-focus', (event: Event) => {
+    const detail = (event as CustomEvent).detail || {};
+    console.log('[workspace focus event]', detail, 'prev focus=', workspaceHasFocus);
+
+    // Update focus state
+    if (typeof detail?.active === 'boolean') {
+      workspaceHasFocus = detail.active;
+    } else {
+      workspaceHasFocus = detail !== false;
+    }
+
+    // Update pane tracking
+    if (detail?.paneId) {
+      currentPaneId = detail.paneId;
+    }
+
+    // Update global pane state
+    if (window.__dumber_pane) {
+      window.__dumber_pane.active = workspaceHasFocus;
+    }
+
+    console.log('[workspace focus updated] focus=', workspaceHasFocus, 'paneId=', currentPaneId);
+
+    // Handle GUI visibility based on focus
+    if (window.__dumber_omnibox) {
+      if (workspaceHasFocus) {
+        window.__dumber_omnibox.setActive?.(true);
+      } else {
+        window.__dumber_omnibox.setActive?.(false);
+        window.__dumber_omnibox.close?.();
+      }
+    }
+  });
+
   // Initialize Svelte GUI systems immediately
   whenDOMReady(async () => {
     try {
@@ -76,6 +116,9 @@ if (!window.__dumber_gui_ready) {
 
       // Initialize omnibox system
       await initializeOmnibox();
+
+      // Initialize workspace controls (pane/tab scaffolding)
+      initializeWorkspace(window.__dumber_workspace_config);
 
       console.log('✅ All GUI systems initialized successfully');
     } catch (e) {
@@ -167,6 +210,55 @@ if (!window.__dumber_gui_ready) {
       }
     });
 
+    document.addEventListener('dumber:ui:shortcut', (e: Event) => {
+      const detail = (e as CustomEvent).detail || {};
+      const action = detail?.action;
+      const eventPaneId = detail?.paneId;
+      const source = detail?.source || 'unknown';
+
+      if (typeof action !== 'string') {
+        return;
+      }
+
+      // Enhanced focus checking with pane ID validation
+      const isForThisPane = !eventPaneId || eventPaneId === currentPaneId;
+      const shouldHandle = workspaceHasFocus && isForThisPane;
+
+      if (!shouldHandle) {
+        console.log('[dumber shortcuts] ignored action', {
+          action,
+          workspaceHasFocus,
+          isForThisPane,
+          eventPaneId,
+          currentPaneId,
+          source,
+          detail
+        });
+        return;
+      }
+
+      console.log('[dumber shortcuts] handling action', { action, source, paneId: currentPaneId });
+
+      const omnibox = window.__dumber_omnibox;
+
+      switch (action) {
+        case 'omnibox-toggle':
+          omnibox?.toggle?.();
+          break;
+        case 'omnibox-open':
+          omnibox?.open?.('omnibox', detail?.query);
+          break;
+        case 'omnibox-find':
+          omnibox?.open?.('find', detail?.query);
+          break;
+        case 'omnibox-close':
+          omnibox?.close?.();
+          break;
+        default:
+          console.warn('[dumber] Unknown UI shortcut action:', action);
+      }
+    });
+
     // Suggestions are now fetched via API directly by the omnibox component; no page-bridge handlers needed
   });
 
@@ -230,6 +322,25 @@ if (!window.__dumber_gui_ready) {
     keyboard: keyboardService,
 
     isReady: true
+  };
+
+  // Bootstrap function for lazy GUI initialization by workspace manager
+  window.__dumber_gui_bootstrap = function(paneId: string) {
+    console.log(`[gui-bootstrap] Initializing GUI for pane ${paneId}`);
+
+    // Update current pane ID
+    currentPaneId = paneId;
+
+    // Ensure omnibox is available for this pane
+    if (!window.__dumber_omnibox) {
+      console.log(`[gui-bootstrap] Omnibox not yet available for pane ${paneId}, will be loaded when needed`);
+    } else {
+      console.log(`[gui-bootstrap] Omnibox already available for pane ${paneId}`);
+      // Ensure omnibox is aware of the current pane
+      window.__dumber_omnibox.setActive?.(workspaceHasFocus);
+    }
+
+    console.log(`[gui-bootstrap] GUI bootstrap complete for pane ${paneId}`);
   };
 
   }
