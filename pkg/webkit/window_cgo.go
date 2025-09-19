@@ -10,10 +10,17 @@ package webkit
 */
 import "C"
 
-import "unsafe"
+import (
+	"sync"
+	"unsafe"
+)
 
 type Window struct {
-	win *C.GtkWidget
+	win                *C.GtkWidget
+	shortcutController *C.GtkShortcutController
+	shortcutCallbacks  map[string]func()
+	shortcutHandles    map[string]uintptr
+	shortcutMu         sync.Mutex
 }
 
 func NewWindow(title string) (*Window, error) {
@@ -38,4 +45,16 @@ func (w *Window) SetTitle(title string) {
 	ctitle := C.CString(title)
 	defer C.free(unsafe.Pointer(ctitle))
 	C.gtk_window_set_title((*C.GtkWindow)(unsafe.Pointer(w.win)), (*C.gchar)(ctitle))
+}
+
+// SetChild assigns the given widget as the GtkWindow child. Passing 0 removes the child.
+func (w *Window) SetChild(child uintptr) {
+	if w == nil || w.win == nil {
+		return
+	}
+	var widget *C.GtkWidget
+	if child != 0 {
+		widget = (*C.GtkWidget)(unsafe.Pointer(child))
+	}
+	C.gtk_window_set_child((*C.GtkWindow)(unsafe.Pointer(w.win)), widget)
 }

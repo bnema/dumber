@@ -18,3 +18,8 @@ func NewWindow(title string) (*Window, error) {
 func (w *Window) SetTitle(title string) {
 	w.Title = title
 }
+
+// SetChild is a stubbed window child setter for non-CGO builds.
+func (w *Window) SetChild(child uintptr) {
+	_ = child
+}

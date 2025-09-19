@@ -8,15 +8,14 @@ package webkit
 #include <gdk/gdk.h>
 
 // Declarations for Go callbacks
-extern void goOnKeyPress(unsigned long id, unsigned int keyval, GdkModifierType state);
+extern gboolean goOnKeyPress(unsigned long id, unsigned int keyval, GdkModifierType state);
 extern void goOnButtonPress(unsigned long id, unsigned int button, GdkModifierType state);
 extern void goOnScroll(unsigned long id, double dx, double dy, GdkModifierType state);
 
 // Key controller callback -> forward to Go
 static gboolean on_key_pressed(GtkEventControllerKey* controller, guint keyval, guint keycode, GdkModifierType state, gpointer user_data) {
     (void)controller; (void)keycode;
-    goOnKeyPress((unsigned long)user_data, keyval, state);
-    return FALSE; // do not stop other handlers
+    return goOnKeyPress((unsigned long)user_data, keyval, state);
 }
 
 // Mouse click gesture -> forward side buttons to Go
@@ -137,15 +136,18 @@ func (w *WebView) RegisterKeyboardShortcut(accel string, callback func()) error 
 }
 
 //export goOnKeyPress
-func goOnKeyPress(id C.ulong, keyval C.guint, state C.GdkModifierType) {
+func goOnKeyPress(id C.ulong, keyval C.guint, state C.GdkModifierType) C.gboolean {
 	// Normalize and dispatch
 	uid := uintptr(id)
 	kv := uint(keyval)
 	st := uint(state)
-	dispatchAccelerator(uid, kv, st)
+	if dispatchAccelerator(uid, kv, st) {
+		return C.gboolean(1)
+	}
+	return C.gboolean(0)
 }
 
-func dispatchAccelerator(uid uintptr, keyval uint, state uint) {
+func dispatchAccelerator(uid uintptr, keyval uint, state uint) bool {
 	ctrl := (state & uint(C.GDK_CONTROL_MASK)) != 0
 	alt := (state & uint(C.GDK_ALT_MASK)) != 0
 	shift := (state & uint(C.GDK_SHIFT_MASK)) != 0
@@ -165,6 +167,18 @@ func dispatchAccelerator(uid uintptr, keyval uint, state uint) {
 		keyName = "ArrowLeft"
 	case uint(C.GDK_KEY_Right):
 		keyName = "ArrowRight"
+	case uint(C.GDK_KEY_Up):
+		keyName = "ArrowUp"
+	case uint(C.GDK_KEY_Down):
+		keyName = "ArrowDown"
+	case uint(C.GDK_KEY_KP_Left):
+		keyName = "ArrowLeft"
+	case uint(C.GDK_KEY_KP_Right):
+		keyName = "ArrowRight"
+	case uint(C.GDK_KEY_KP_Up):
+		keyName = "ArrowUp"
+	case uint(C.GDK_KEY_KP_Down):
+		keyName = "ArrowDown"
 	case uint(C.GDK_KEY_F12):
 		keyName = "F12"
 	case uint(C.GDK_KEY_F5):
@@ -177,18 +191,20 @@ func dispatchAccelerator(uid uintptr, keyval uint, state uint) {
 		keyName = "l"
 	case uint(C.GDK_KEY_f), uint(C.GDK_KEY_F):
 		keyName = "f"
+	case uint(C.GDK_KEY_p), uint(C.GDK_KEY_P):
+		keyName = "p"
 	default:
 		// If Control held, log unknown keyval for diagnostics
 		if ctrl {
 			log.Printf("[accelerator-miss] ctrl keyval=0x%x", keyval)
 		}
-		return
+		return false
 	}
 
 	now := time.Now()
 	rawKey := fmt.Sprintf("raw:%v:%v:%v:%s", ctrl, alt, shift, keyName)
 	if shouldDebounceShortcut(uid, rawKey, now) {
-		return
+		return false
 	}
 
 	if logMinusEvent {
@@ -196,6 +212,7 @@ func dispatchAccelerator(uid uintptr, keyval uint, state uint) {
 	}
 
 	// Candidate accelerator strings in order
+	handled := false
 	candidates := []string{keyName}
 	if ctrl && shift {
 		// Ctrl+Shift combinations
@@ -238,18 +255,21 @@ func dispatchAccelerator(uid uintptr, keyval uint, state uint) {
 	reg := viewShortcuts[uid]
 	regMu.RUnlock()
 	if reg == nil {
-		return
+		return handled
 	}
 	for _, name := range candidates {
 		if cb, ok := reg[name]; ok {
 			if shouldDebounceShortcut(uid, "shortcut:"+name, now) {
-				return
+				return handled
 			}
 			log.Printf("[accelerator] %s", name)
 			cb()
+			handled = true
 			break
 		}
 	}
+
+	return handled
 }
 
 func nextViewID() uintptr {
@@ -414,6 +434,25 @@ func goOnURIChanged(id C.ulong, curi *C.char) {
 	}
 	uri := C.GoString(curi)
 	vw.dispatchURIChanged(uri)
+}
+
+//export goOnPopupRequest
+func goOnPopupRequest(id C.ulong, curi *C.char) C.gboolean {
+	uid := uintptr(id)
+	regMu.RLock()
+	vw := viewByID[uid]
+	regMu.RUnlock()
+	if vw == nil {
+		return C.gboolean(0)
+	}
+	var uri string
+	if curi != nil {
+		uri = C.GoString(curi)
+	}
+	if vw.dispatchPopupRequest(uri) {
+		return C.gboolean(1)
+	}
+	return C.gboolean(0)
 }
 
 //export goOnButtonPress

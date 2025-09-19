@@ -47,6 +47,10 @@ type Config struct {
 
 	// UseDomZoom toggles CSS/DOM-based zoom instead of WebKit's native zoom.
 	UseDomZoom bool
+
+	// CreateWindow controls whether to create a window during WebView initialization.
+	// Set to false when creating WebViews for workspace panes that will be reparented.
+	CreateWindow bool
 }
 
 // CodecPreferencesConfig holds codec preferences for WebKit media playback
