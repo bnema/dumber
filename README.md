@@ -23,6 +23,7 @@ Dumber is a minimalist browser and launcher companion focused on speed and simpl
 - `0.8.0` (2025-09-17): Migrated injected UI from inline scripts to structured Svelte components with a shared shadow host, plus Tailwind v4 theming, GTK color sync, and refreshed omnibox/find flows.
 
 ## Features
+- **Zellij-inspired pane management**: Split browser into multiple panes with keyboard shortcuts (Ctrl+P to enter pane mode)
 - Built‑in browser window (no external browser needed)
 - Content filtering system (early stage UBlock-based filtering with EasyList integration)
 - Hardware video acceleration with automatic GPU detection (VA-API/VDPAU)
@@ -35,6 +36,8 @@ Dumber is a minimalist browser and launcher companion focused on speed and simpl
 ## Controls & Shortcuts
 
 ### Keyboard Shortcuts
+
+#### Browser Controls
 | Shortcut | Action | Notes |
 |----------|--------|-------|
 | **F12** | Open Developer Tools | WebKit inspector |
@@ -45,11 +48,23 @@ Dumber is a minimalist browser and launcher companion focused on speed and simpl
 | **Ctrl/Cmd+-** | Zoom Out | Works across keyboard layouts |
 | **Ctrl/Cmd+0** | Reset Zoom | Return to 100% zoom |
 | **Ctrl/Cmd+Shift+C** | Copy URL | Copy current URL to clipboard with toast |
-| **Ctrl/Cmd+R** | Reload Page | Refresh current page |
+| **Ctrl/Cmd+R** / **F5** | Reload Page | Refresh current page |
 | **Ctrl/Cmd+Shift+R** | Hard Reload | Refresh ignoring cache |
-| **F5** | Reload Page | Alternative reload key |
-| **Alt+←** | Navigate Back | Go to previous page |
-| **Alt+→** | Navigate Forward | Go to next page |
+| **Ctrl+←** / **Ctrl+→** | Navigate Back/Forward | Browser history navigation |
+
+#### Zellij-Inspired Pane Management
+| Shortcut | Action | Notes |
+|----------|--------|-------|
+| **Ctrl/Cmd+P** | Enter Pane Mode | Modal mode for pane operations |
+| **→** / **R** (in pane mode) | Split Right | Create new pane to the right |
+| **←** / **L** (in pane mode) | Split Left | Create new pane to the left |
+| **↑** / **U** (in pane mode) | Split Up | Create new pane above |
+| **↓** / **D** (in pane mode) | Split Down | Create new pane below |
+| **X** (in pane mode) | Close Pane | Close current pane |
+| **Enter** (in pane mode) | Confirm Action | Confirm pane operation |
+| **Escape** (in pane mode) | Exit Pane Mode | Return to normal navigation |
+| **Alt+Arrow Keys** | Navigate Panes | Move focus between panes |
+| **Ctrl/Cmd+↑** / **Ctrl/Cmd+↓** | Navigate Panes Up/Down | Vertical pane navigation |
 
 ### Mouse Controls
 | Action | Result | Notes |
@@ -139,6 +154,54 @@ You can invoke dmenu mode in two ways:
 Note: The root flag path only generates options; for processing a selection (`--select`), use the `dmenu` subcommand as the receiving command.
 
 In GUI mode the app serves an embedded homepage via `dumb://homepage`, and frontend assets under `dumb://app/...`.
+
+## Pane Management (Zellij-Inspired)
+
+Dumber features a Zellij-inspired pane management system that allows you to split your browser window into multiple panes, each running independent web sessions.
+
+### How it Works
+1. **Enter Pane Mode**: Press `Ctrl+P` to enter pane mode (modal interface with timeout)
+2. **Split Panes**: Use arrow keys or letter shortcuts to split:
+   - `→` or `R` - Split right
+   - `←` or `L` - Split left
+   - `↑` or `U` - Split up
+   - `↓` or `D` - Split down
+3. **Navigate**: Use `Alt+Arrow Keys` to move focus between panes
+4. **Close**: Press `X` in pane mode to close the current pane
+
+### Features
+- **Binary tree layout**: Panes are organized in a binary tree structure for optimal space usage
+- **Focus management**: Visual borders and hover-to-focus for intuitive navigation
+- **Independent sessions**: Each pane maintains its own browsing session, history, and zoom level
+- **Popup handling**: Configurable popup placement (new pane, same pane, etc.)
+- **Keyboard-driven**: All operations accessible via keyboard shortcuts
+
+### Configuration
+The pane system is fully configurable via `config.json`:
+```json
+"workspace": {
+  "enable_zellij_controls": true,
+  "pane_mode": {
+    "activation_shortcut": "cmdorctrl+p",
+    "timeout_ms": 3000,
+    "action_bindings": {
+      "arrowright": "split-right",
+      "r": "split-right",
+      "x": "close-pane",
+      // ... full key mappings
+    }
+  },
+  "popups": {
+    "placement": "right",
+    "open_in_new_pane": true
+  },
+  "styling": {
+    "border_width": 2,
+    "border_color": "@theme_selected_bg_color",
+    "transition_duration": 120
+  }
+}
+```
 
 ## Configuration
 
@@ -309,8 +372,10 @@ WebKitGTK uses GStreamer for media playback. Dumber includes automatic hardware 
 ## Roadmap
 - ✅ WebKitGTK 6 (GTK4) migration (GPU/Vulkan path complete)
 - ✅ GPU rendering (Vulkan via GTK4 renderer) with graceful CPU fallback
+- ✅ Zellij-inspired pane management with binary tree layout and keyboard-driven workflow
 - 🚧 UBlock-based content filtering (early stage - network blocking works, cosmetic filtering needs work)
 - Full Vim-style motion and keyboard navigation across pages and UI
+- Tab management system (browser tabs in addition to panes)
 - Performance work: faster startup, lower memory, snappier UI
 - Other shiny things I'm not yet aware of
 
