@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Zellij-style workspace management**: Complete pane splitting system with binary tree layout, focus tracking, and Zellij-inspired keybindings (Ctrl+P for pane mode, arrow keys for splits, 'x' to close)
+- **Multi-pane WebView architecture**: Container-based widget management with proper reparenting, lifecycle handling, and per-pane controllers
+- **Window-level global shortcuts**: Centralized shortcut handling to prevent conflicts between multiple WebView instances
+- **Workspace configuration**: New config section with Zellij controls toggle, pane mode bindings, tab shortcuts, and popup behavior settings
+
 ### Improved
 - WebKit integration now forces GPU compositing by default while still honoring explicit config overrides.
 - Smooth scrolling is enabled (when supported) so wheel and gesture animations feel closer to Chromium/Firefox.
@@ -15,6 +21,8 @@ All notable changes to this project will be documented in this file.
 - Configuration loading writes the missing `use_dom_zoom` flag into existing config files so DOM zoom defaults persist without manual edits.
 - Omnibox UI now relies on shared Tailwind theme tokens and the injected color-scheme service for light/dark parity.
 - Omnibox overlay now self-heals if hostile pages remove the injected shadow host, ensuring Ctrl/Cmd+L works everywhere.
+- Navigation shortcuts changed from Alt+Arrow to Ctrl/Cmd+Arrow for better workspace compatibility.
+- GUI components now support workspace-aware focus management with pane-specific event handling.
 
 ## [0.8.0] - 2025-09-17
 
