@@ -13,7 +13,7 @@ import type {
   KeyboardEvent,
   KeyboardEventType
 } from './types';
-import { COMMON_SHORTCUTS } from './types';
+// COMMON_SHORTCUTS not needed since global shortcuts moved to native handlers
 
 export class KeyboardService {
   private components = new Map<string, ComponentShortcuts>();
@@ -362,82 +362,27 @@ export const keyboardService = new KeyboardService({
   globalShortcuts: [
     // Navigation shortcuts (migrated from controls module)
     {
-      key: 'alt+arrowleft',
+      key: 'cmdorctrl+arrowleft',
       handler: () => {
         if (window.history.length > 1) {
           window.history.back();
         }
       },
-      description: 'Navigate back (Alt+Left Arrow)'
+      description: 'Navigate back (Ctrl/Cmd+Left Arrow)'
     },
     {
-      key: 'alt+arrowright',
+      key: 'cmdorctrl+arrowright',
       handler: () => {
         window.history.forward();
       },
-      description: 'Navigate forward (Alt+Right Arrow)'
+      description: 'Navigate forward (Ctrl/Cmd+Right Arrow)'
     },
-    // Global UI shortcuts (migrated from UCM JavaScript)
-    {
-      key: COMMON_SHORTCUTS.OMNIBOX_OPEN,
-      handler: () => {
-        try {
-          if (window.__dumber_omnibox?.toggle) {
-            console.log('🎯 Using omnibox API directly');
-            window.__dumber_omnibox.toggle();
-            return;
-          }
-
-          console.error('❌ Omnibox toggle requested but API is unavailable');
-        } catch (error) {
-          console.error('❌ Error in omnibox open handler:', error);
-        }
-      },
-      description: 'Open omnibox (Ctrl/Cmd+L)'
-    },
-    {
-      key: COMMON_SHORTCUTS.FIND_OPEN,
-      handler: () => {
-        try {
-          if (window.__dumber_omnibox?.open) {
-            console.log('🔍 Using omnibox find API directly');
-            window.__dumber_omnibox.open('find');
-            return;
-          }
-
-          console.error('❌ Omnibox find requested but API is unavailable');
-        } catch (error) {
-          console.error('❌ Error in find open handler:', error);
-        }
-      },
-      description: 'Open find bar (Ctrl/Cmd+F)'
-    },
-    // Copy URL shortcut (Ctrl/Cmd+Shift+C)
-    {
-      key: 'cmdorctrl+shift+c',
-      handler: async () => {
-        try {
-          const url = window.location.href;
-          await navigator.clipboard.writeText(url);
-
-          // Show toast notification
-          if (typeof window.__dumber_showToast === 'function') {
-            window.__dumber_showToast('URL copied to clipboard!', 2000, 'success');
-          }
-        } catch (error) {
-          console.error('Failed to copy URL:', error);
-
-          // Show error toast
-          if (typeof window.__dumber_showToast === 'function') {
-            window.__dumber_showToast('Failed to copy URL', 2000, 'error');
-          }
-        }
-      },
-      description: 'Copy current URL to clipboard (Ctrl/Cmd+Shift+C)'
-    }
+    // Note: Global UI shortcuts (Ctrl+L, Ctrl+F, Ctrl+Shift+C) are now handled
+    // directly by the native Go shortcut handlers to ensure proper active pane detection.
+    // This avoids conflicts between multiple webview instances.
   ]
 });
 
 // Export types for use in components
 export type { ShortcutConfig, ComponentShortcuts, KeyboardServiceConfig } from './types';
-export { COMMON_SHORTCUTS } from './types';
+// COMMON_SHORTCUTS export not needed since global shortcuts moved to native handlers
