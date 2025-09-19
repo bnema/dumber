@@ -260,7 +260,7 @@ func (app *BrowserApp) createWebView() error {
 		if app.windowShortcutHandler != nil {
 			log.Printf("Window-level global shortcuts initialized")
 		} else {
-			log.Printf("Warning: Failed to initialize window-level shortcuts")
+			log.Printf("Warning: failed to initialize window-level shortcuts")
 		}
 	}
 

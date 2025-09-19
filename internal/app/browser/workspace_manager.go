@@ -599,6 +599,17 @@ func (wm *WorkspaceManager) closestLeafFromSubtree(node *paneNode, cx, cy float6
 }
 
 func (wm *WorkspaceManager) boundaryFallback(node *paneNode, direction string) *paneNode {
+	return wm.boundaryFallbackWithDepth(node, direction, 0)
+}
+
+func (wm *WorkspaceManager) boundaryFallbackWithDepth(node *paneNode, direction string, depth int) *paneNode {
+	// Prevent infinite recursion - max tree depth should be reasonable
+	const maxDepth = 50
+	if depth > maxDepth {
+		log.Printf("[workspace] boundaryFallback: max depth exceeded, possible tree corruption")
+		return nil
+	}
+
 	if node == nil {
 		return nil
 	}
@@ -607,25 +618,25 @@ func (wm *WorkspaceManager) boundaryFallback(node *paneNode, direction string) *
 	}
 	switch direction {
 	case "up":
-		if leaf := wm.boundaryFallback(node.right, direction); leaf != nil {
+		if leaf := wm.boundaryFallbackWithDepth(node.right, direction, depth+1); leaf != nil {
 			return leaf
 		}
-		return wm.boundaryFallback(node.left, direction)
+		return wm.boundaryFallbackWithDepth(node.left, direction, depth+1)
 	case "down":
-		if leaf := wm.boundaryFallback(node.left, direction); leaf != nil {
+		if leaf := wm.boundaryFallbackWithDepth(node.left, direction, depth+1); leaf != nil {
 			return leaf
 		}
-		return wm.boundaryFallback(node.right, direction)
+		return wm.boundaryFallbackWithDepth(node.right, direction, depth+1)
 	case "left":
-		if leaf := wm.boundaryFallback(node.right, direction); leaf != nil {
+		if leaf := wm.boundaryFallbackWithDepth(node.right, direction, depth+1); leaf != nil {
 			return leaf
 		}
-		return wm.boundaryFallback(node.left, direction)
+		return wm.boundaryFallbackWithDepth(node.left, direction, depth+1)
 	case "right":
-		if leaf := wm.boundaryFallback(node.left, direction); leaf != nil {
+		if leaf := wm.boundaryFallbackWithDepth(node.left, direction, depth+1); leaf != nil {
 			return leaf
 		}
-		return wm.boundaryFallback(node.right, direction)
+		return wm.boundaryFallbackWithDepth(node.right, direction, depth+1)
 	default:
 		return nil
 	}
@@ -637,19 +648,29 @@ func (wm *WorkspaceManager) collectLeaves() []*paneNode {
 
 func (wm *WorkspaceManager) collectLeavesFrom(node *paneNode) []*paneNode {
 	var leaves []*paneNode
-	var walk func(*paneNode)
-	walk = func(n *paneNode) {
-		if n == nil {
+	visited := make(map[*paneNode]bool)
+
+	var walk func(*paneNode, int)
+	walk = func(n *paneNode, depth int) {
+		// Prevent infinite recursion and cycles
+		const maxDepth = 50
+		if n == nil || depth > maxDepth {
 			return
 		}
+		if visited[n] {
+			log.Printf("[workspace] collectLeavesFrom: cycle detected in tree")
+			return
+		}
+		visited[n] = true
+
 		if n.isLeaf {
 			leaves = append(leaves, n)
 			return
 		}
-		walk(n.left)
-		walk(n.right)
+		walk(n.left, depth+1)
+		walk(n.right, depth+1)
 	}
-	walk(node)
+	walk(node, 0)
 	return leaves
 }
 
