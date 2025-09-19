@@ -57,7 +57,7 @@ type BrowserApp struct {
 	schemeHandler         *api.SchemeHandler
 	messageHandler        *messaging.Handler
 	shortcutHandler       *ShortcutHandler
-	windowShortcutHandler *WindowShortcutHandler
+	windowShortcutHandler WindowShortcutHandlerInterface
 }
 
 // Run starts the browser application

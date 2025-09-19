@@ -17,10 +17,14 @@ func newTestWorkspaceManager(t *testing.T) *WorkspaceManager {
 
 	rootPane := &BrowserPane{webView: rootView}
 
+	// Create mock window shortcut handler
+	mockWindowShortcutHandler := &mockWindowShortcutHandler{}
+
 	app := &BrowserApp{}
 	app.panes = []*BrowserPane{rootPane}
 	app.activePane = rootPane
 	app.webView = rootView
+	app.windowShortcutHandler = mockWindowShortcutHandler
 
 	wm := NewWorkspaceManager(app, rootPane)
 	wm.createWebViewFn = func() (*webkit.WebView, error) {
