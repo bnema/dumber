@@ -25,15 +25,33 @@ func (c *ClipboardController) CopyCurrentURL() {
 	currentURL := c.webView.GetCurrentURL()
 	if currentURL == "" {
 		log.Printf("No URL to copy")
-		_ = c.webView.InjectScript(`(window.__dumber?.toast?.show ? window.__dumber.toast.show("No URL to copy", 2000) : (window.__dumber_showToast && window.__dumber_showToast("No URL to copy", 2000)))`)
+		c.showToast("No URL to copy", "error")
 		return
 	}
 
 	if err := clipboard.CopyToClipboard(currentURL); err != nil {
 		log.Printf("Failed to copy URL to clipboard: %v", err)
-		_ = c.webView.InjectScript(`(window.__dumber?.toast?.show ? window.__dumber.toast.show("Failed to copy URL", 2000) : (window.__dumber_showToast && window.__dumber_showToast("Failed to copy URL", 2000)))`)
+		c.showToast("Failed to copy URL", "error")
 	} else {
 		log.Printf("URL copied to clipboard: %s", currentURL)
-		_ = c.webView.InjectScript(`(window.__dumber?.toast?.show ? window.__dumber.toast.show("URL copied to clipboard", 2000) : (window.__dumber_showToast && window.__dumber_showToast("URL copied to clipboard", 2000)))`)
+		c.showToast("URL copied to clipboard", "success")
+	}
+}
+
+func (c *ClipboardController) showToast(message, toastType string) {
+	if c == nil || c.webView == nil {
+		return
+	}
+
+	detail := map[string]any{
+		"message":  message,
+		"duration": 2000,
+	}
+	if toastType != "" {
+		detail["type"] = toastType
+	}
+
+	if err := c.webView.DispatchCustomEvent("dumber:showToast", detail); err != nil {
+		log.Printf("Failed to dispatch toast event: %v", err)
 	}
 }

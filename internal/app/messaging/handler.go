@@ -16,22 +16,31 @@ import (
 )
 
 // Handler processes script messages from the WebView
+type WorkspaceObserver interface {
+	OnWorkspaceMessage(source *webkit.WebView, msg Message)
+}
+
 type Handler struct {
 	parserService        *services.ParserService
 	browserService       *services.BrowserService
 	webView              *webkit.WebView
 	navigationController *control.NavigationController
 	lastTheme            string
+	workspaceObserver    WorkspaceObserver
 }
 
 // Message represents a script message from the WebView
 type Message struct {
-	Type   string `json:"type"`
-	URL    string `json:"url"`
-	Q      string `json:"q"`
-	Limit  int    `json:"limit"`
-	Offset int    `json:"offset"`
-	Value  string `json:"value"`
+	Type      string `json:"type"`
+	URL       string `json:"url"`
+	Q         string `json:"q"`
+	Limit     int    `json:"limit"`
+	Offset    int    `json:"offset"`
+	Value     string `json:"value"`
+	Event     string `json:"event"`
+	Action    string `json:"action"`
+	Direction string `json:"direction"`
+	PaneID    string `json:"paneId"`
 	// History operations
 	HistoryID string `json:"historyId"`
 	// Request tracking
@@ -52,6 +61,11 @@ func NewHandler(parserService *services.ParserService, browserService *services.
 // SetNavigationController injects the navigation controller for unified navigation flow.
 func (h *Handler) SetNavigationController(controller *control.NavigationController) {
 	h.navigationController = controller
+}
+
+// SetWorkspaceObserver registers a workspace event observer.
+func (h *Handler) SetWorkspaceObserver(observer WorkspaceObserver) {
+	h.workspaceObserver = observer
 }
 
 // Handle processes incoming script messages
@@ -82,6 +96,8 @@ func (h *Handler) Handle(payload string) {
 		h.handleHistorySearch(msg)
 	case "history_delete":
 		h.handleHistoryDelete(msg)
+	case "workspace":
+		h.handleWorkspace(msg)
 	}
 }
 
@@ -132,6 +148,19 @@ func (h *Handler) legacyNavigate(msg Message) {
 
 // (legacy query handler removed; omnibox suggestions now fetched via dumb://api/omnibox/suggestions)
 // handleQuery computes omnibox suggestions natively and returns them to the GUI without fetch
+func (h *Handler) handleWorkspace(msg Message) {
+	if h.workspaceObserver == nil {
+		log.Printf("[workspace] Received workspace event %q but no observer registered", msg.Event)
+		return
+	}
+	if h.webView == nil {
+		log.Printf("[workspace] Ignoring workspace event %q: webview not attached", msg.Event)
+		return
+	}
+	log.Printf("[workspace] Forwarding workspace event: event=%s direction=%s action=%s", msg.Event, msg.Direction, msg.Action)
+	h.workspaceObserver.OnWorkspaceMessage(h.webView, msg)
+}
+
 func (h *Handler) handleQuery(msg Message) {
 	log.Printf("[DEBUG] handleQuery called: q='%s', limit=%d", msg.Q, msg.Limit)
 	if h.webView == nil {

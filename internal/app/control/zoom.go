@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/bnema/dumber/pkg/webkit"
@@ -78,49 +77,13 @@ func (z *ZoomController) handleZoomChange(level float64) {
 func (z *ZoomController) showZoomToast(level float64) {
 	log.Printf("[zoom] Attempting to show zoom toast for level %.2f", level)
 
-	percentage := int(level * 100)
+	if z.webView == nil {
+		log.Printf("[zoom] webview unavailable for zoom toast")
+		return
+	}
 
-	// Enhanced approach that ensures toast always appears
-	js := fmt.Sprintf(`(function() {
-		try {
-			console.log('[dumber] Attempting to show zoom toast...');
-			const zoomLevel = %f;
-			const percentage = %d;
-			let toastShown = false;
-
-			// Prefer unified page-world API
-			if (window.__dumber && window.__dumber.toast && typeof window.__dumber.toast.zoom === 'function') {
-				console.log('[dumber] Using unified toast.zoom');
-				window.__dumber.toast.zoom(zoomLevel);
-				toastShown = true;
-			} else if (typeof window.__dumber_showZoomToast === 'function') {
-				console.log('[dumber] Using legacy zoom toast');
-				window.__dumber_showZoomToast(zoomLevel);
-				toastShown = true;
-			} else if (window.__dumber && window.__dumber.toast && typeof window.__dumber.toast.show === 'function') {
-				console.log('[dumber] Using unified toast.show');
-				window.__dumber.toast.show('Zoom: ' + percentage + '%%', 1500, 'info');
-				toastShown = true;
-			} else if (typeof window.__dumber_showToast === 'function') {
-				console.log('[dumber] Using legacy toast.show');
-				window.__dumber_showToast('Zoom: ' + percentage + '%%', 1500, 'info');
-				toastShown = true;
-			}
-
-
-			if (!toastShown) {
-				console.warn('[dumber] Failed to show zoom toast - no DOM body available');
-			}
-
-		} catch(e) {
-			console.error('[dumber] Zoom toast error:', e);
-		}
-	})();`, level, percentage)
-
-	if err := z.webView.InjectScript(js); err != nil {
-		log.Printf("[zoom] failed to show toast: %v", err)
-	} else {
-		log.Printf("[zoom] Toast script injected successfully")
+	if err := z.webView.DispatchCustomEvent("dumber:toast:zoom", map[string]any{"level": level}); err != nil {
+		log.Printf("[zoom] failed to dispatch zoom toast: %v", err)
 	}
 }
 
