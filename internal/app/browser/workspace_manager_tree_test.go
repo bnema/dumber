@@ -389,7 +389,10 @@ func TestErrorHandling(t *testing.T) {
 		wm := newTestWorkspaceManagerWithMocksForTree(t)
 
 		// Create a branch node
-		wm.splitNode(wm.root, "right")
+		_, err := wm.splitNode(wm.root, "right")
+		if err != nil {
+			t.Fatalf("Failed to create branch node: %v", err)
+		}
 
 		// Try to split the branch (root is now a branch)
 		_, err := wm.splitNode(wm.root, "down")
@@ -402,7 +405,10 @@ func TestErrorHandling(t *testing.T) {
 	t.Run("Cannot close non-leaf", func(t *testing.T) {
 		wm := newTestWorkspaceManagerWithMocksForTree(t)
 
-		wm.splitNode(wm.root, "right")
+		_, err := wm.splitNode(wm.root, "right")
+		if err != nil {
+			t.Fatalf("Failed to create branch node: %v", err)
+		}
 
 		// Try to close the branch node
 		err := wm.closePane(wm.root)
@@ -717,7 +723,10 @@ func TestViewToNodeMapping(t *testing.T) {
 		}
 
 		// Close should remove mapping
-		wm.closePane(newNode)
+		err := wm.closePane(newNode)
+		if err != nil {
+			t.Fatalf("Failed to close pane: %v", err)
+		}
 
 		if _, ok := wm.viewToNode[newView]; ok {
 			t.Error("Closed pane's webview should be removed from mapping")

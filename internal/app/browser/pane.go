@@ -87,11 +87,13 @@ func (p *BrowserPane) Cleanup() {
 
 	// Notify JS to cleanup GUI
 	if p.webView != nil && p.hasGUI {
-		p.webView.InjectScript(`
+		if err := p.webView.InjectScript(`
 			if (window.__dumber_gui_manager) {
 				window.__dumber_gui_manager.destroy();
 			}
-		`)
+		`); err != nil {
+			log.Printf("[pane-%s] failed to inject cleanup script: %v", p.id, err)
+		}
 	}
 
 	// Clear tracking

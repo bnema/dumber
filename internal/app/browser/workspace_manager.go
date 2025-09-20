@@ -113,7 +113,9 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 		if err != nil {
 			return nil, err
 		}
-		cfg.CreateWindow = false
+		// Keep CreateWindow = true for popup WebViews to ensure proper window features initialization
+		// This prevents WindowFeatures optional crashes when WebKit accesses popup properties
+		cfg.CreateWindow = true
 		return webkit.NewWebView(cfg)
 	}
 	manager.createPaneFn = func(view *webkit.WebView) (*BrowserPane, error) {
@@ -808,7 +810,7 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string) (*pane
 
 	// Detach existing container from its current GTK parent before inserting into new paned.
 	if parent == nil {
-		// Target is the root - remove it from the window
+		// Target is the root - remove it from the window and unparent it
 		log.Printf("[workspace] removing existing container=%#x from window", existingContainer)
 		if wm.window != nil {
 			wm.window.SetChild(0)
@@ -821,51 +823,71 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string) (*pane
 		} else if parent.right == target {
 			webkit.PanedSetEndChild(parent.container, 0)
 		}
+	}
+
+	// Properly unparent the widget from GTK's perspective
+	webkit.WidgetUnparent(existingContainer)
+	if parent != nil && parent.container != 0 {
 		webkit.WidgetQueueAllocate(parent.container)
 	}
 
-	// Add both containers to the new paned
-	// Note: GTK4 may emit a critical error about widget parenting here when splitting
-	// the root pane, but the operation still succeeds. This is a limitation of GTK's
-	// widget hierarchy tracking when widgets are moved between window and paned containers.
+	// Set up the tree structure first
 	if existingFirst {
 		split.left = target
 		split.right = newLeaf
-		webkit.PanedSetStartChild(paned, existingContainer)
-		webkit.PanedSetEndChild(paned, newContainer)
-		log.Printf("[workspace] added existing=%#x as start child, new=%#x as end child", existingContainer, newContainer)
 	} else {
 		split.left = newLeaf
 		split.right = target
-		webkit.PanedSetStartChild(paned, newContainer)
-		webkit.PanedSetEndChild(paned, existingContainer)
-		log.Printf("[workspace] added new=%#x as start child, existing=%#x as end child", newContainer, existingContainer)
 	}
 
 	target.parent = split
 	newLeaf.parent = split
 
+	// Update tree root/parent references
 	if parent == nil {
 		wm.root = split
-		if wm.window != nil {
-			wm.window.SetChild(paned)
-			webkit.WidgetQueueAllocate(paned)
-			log.Printf("[workspace] paned set as window child: paned=%#x", paned)
-		}
 	} else {
 		if parent.left == target {
 			parent.left = split
-			webkit.PanedSetStartChild(parent.container, paned)
 		} else if parent.right == target {
 			parent.right = split
-			webkit.PanedSetEndChild(parent.container, paned)
 		}
-		webkit.WidgetQueueAllocate(parent.container)
-		webkit.WidgetQueueAllocate(paned)
-		log.Printf("[workspace] paned inserted into parent=%#x", parent.container)
 	}
 
-	webkit.WidgetShow(paned)
+	// Use idle callback to ensure widget unparenting is complete before re-parenting
+	webkit.IdleAdd(func() bool {
+		// Add both containers to the new paned
+		if existingFirst {
+			webkit.PanedSetStartChild(paned, existingContainer)
+			webkit.PanedSetEndChild(paned, newContainer)
+			log.Printf("[workspace] added existing=%#x as start child, new=%#x as end child", existingContainer, newContainer)
+		} else {
+			webkit.PanedSetStartChild(paned, newContainer)
+			webkit.PanedSetEndChild(paned, existingContainer)
+			log.Printf("[workspace] added new=%#x as start child, existing=%#x as end child", newContainer, existingContainer)
+		}
+
+		// Attach the new paned to its parent
+		if parent == nil {
+			if wm.window != nil {
+				wm.window.SetChild(paned)
+				webkit.WidgetQueueAllocate(paned)
+				log.Printf("[workspace] paned set as window child: paned=%#x", paned)
+			}
+		} else {
+			if parent.left == split {
+				webkit.PanedSetStartChild(parent.container, paned)
+			} else if parent.right == split {
+				webkit.PanedSetEndChild(parent.container, paned)
+			}
+			webkit.WidgetQueueAllocate(parent.container)
+			webkit.WidgetQueueAllocate(paned)
+			log.Printf("[workspace] paned inserted into parent=%#x", parent.container)
+		}
+
+		webkit.WidgetShow(paned)
+		return false // Run once
+	})
 
 	wm.viewToNode[newPane.webView] = newLeaf
 	wm.ensureHover(newLeaf)
@@ -939,7 +961,9 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 	if willBeLastPane && wm.root == node {
 		log.Printf("[workspace] closing final pane; exiting browser")
 		wm.detachHover(node)
-		node.pane.webView.Destroy()
+		if err := node.pane.webView.Destroy(); err != nil {
+			log.Printf("[workspace] failed to destroy webview: %v", err)
+		}
 		webkit.QuitMainLoop()
 		return nil
 	}
@@ -957,7 +981,9 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 			// No other panes exist, this is the final pane
 			log.Printf("[workspace] closing final pane; exiting browser")
 			wm.detachHover(node)
-			node.pane.webView.Destroy()
+			if err := node.pane.webView.Destroy(); err != nil {
+				log.Printf("[workspace] failed to destroy webview: %v", err)
+			}
 			webkit.QuitMainLoop()
 			return nil
 		}
@@ -1010,7 +1036,9 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 		wm.detachHover(node)
 		if willBeLastPane {
 			// This is the last pane, safe to destroy completely
-			node.pane.webView.Destroy()
+			if err := node.pane.webView.Destroy(); err != nil {
+				log.Printf("[workspace] failed to destroy webview: %v", err)
+			}
 		} else {
 			// Multiple panes remain, don't destroy the window - just clean up the webview
 			log.Printf("[workspace] skipping webview destruction to preserve window (panes remaining: %d)", remaining-1)
@@ -1141,7 +1169,9 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 	wm.detachHover(node)
 	if willBeLastPane {
 		// This is the last pane, safe to destroy completely
-		node.pane.webView.Destroy()
+		if err := node.pane.webView.Destroy(); err != nil {
+			log.Printf("[workspace] failed to destroy webview: %v", err)
+		}
 	} else {
 		// Multiple panes remain, don't destroy the window - just clean up the webview
 		log.Printf("[workspace] skipping webview destruction to preserve window (panes remaining: %d)", remaining-1)
@@ -1222,70 +1252,219 @@ func (wm *WorkspaceManager) updateMainPane() {
 	}
 }
 
-func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) bool {
+func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *webkit.WebView {
+	log.Printf("[workspace] HandlePopup called for URL: %s", url)
+
 	if wm == nil || source == nil {
-		return false
+		log.Printf("[workspace] HandlePopup: nil workspace manager or source - allowing native popup")
+		return nil
 	}
 
 	node := wm.viewToNode[source]
 	if node == nil {
-		log.Printf("[workspace] popup from unknown webview")
-		return false
+		log.Printf("[workspace] popup from unknown webview - allowing native popup")
+		return nil
 	}
 
 	cfg := wm.app.config
 	if cfg == nil {
-		return false
+		log.Printf("[workspace] HandlePopup: nil config - allowing native popup")
+		return nil
 	}
+
 
 	popCfg := cfg.Workspace.Popups
+	log.Printf("[workspace] Popup config - OpenInNewPane: %v, Placement: %s", popCfg.OpenInNewPane, popCfg.Placement)
+
 	if !popCfg.OpenInNewPane {
-		return false
+		log.Printf("[workspace] Popup creation disabled in config - allowing native popup")
+		return nil
 	}
 
+	// Create a new WebView related to the source for process sharing and proper WindowFeatures
+	webkitCfg, err := wm.app.buildWebkitConfig()
+	if err != nil {
+		log.Printf("[workspace] failed to build webkit config: %v - allowing native popup", err)
+		return nil
+	}
+	// Don't create window initially - we'll embed directly in workspace
+	webkitCfg.CreateWindow = false
+
+	newView, err := webkit.NewWebViewWithRelated(webkitCfg, source)
+	if err != nil {
+		log.Printf("[workspace] failed to create related popup WebView: %v - allowing native popup", err)
+		return nil
+	}
+
+	// Create a pane for the new WebView
+	newPane, err := wm.createPane(newView)
+	if err != nil {
+		log.Printf("[workspace] failed to create popup pane: %v - allowing native popup", err)
+		return nil
+	}
+
+	// Determine placement direction
 	direction := strings.ToLower(popCfg.Placement)
 	if direction == "" {
 		direction = "right"
 	}
 
+	// Determine target node for splitting
 	target := node
 	if !popCfg.FollowPaneContext && wm.active != nil {
 		target = wm.active
 	}
 
-	newNode, err := wm.splitNode(target, direction)
-	if err != nil {
-		log.Printf("[workspace] popup split failed: %v", err)
+	// Add the popup pane to the workspace using manual pane insertion
+	if err := wm.insertPopupPane(target, newPane, direction); err != nil {
+		log.Printf("[workspace] popup pane insertion failed: %v - allowing native popup", err)
+		return nil
+	}
+
+	// Load the URL if provided
+	if url != "" {
+		if err := newView.LoadURL(url); err != nil {
+			log.Printf("[workspace] failed to load popup URL: %v", err)
+		}
+	}
+
+	log.Printf("[workspace] Created popup pane for URL: %s", url)
+	return newView
+}
+
+
+// insertPopupPane inserts a pre-created popup pane into the workspace
+func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPane, direction string) error {
+	if target == nil || !target.isLeaf || target.pane == nil {
+		return errors.New("insert target must be a leaf pane")
+	}
+
+	if newPane == nil || newPane.webView == nil {
+		return errors.New("new pane missing webview")
+	}
+
+	if handler := newPane.MessageHandler(); handler != nil {
+		handler.SetWorkspaceObserver(wm)
+	}
+
+	newContainer := newPane.webView.RootWidget()
+	if newContainer == 0 {
+		return errors.New("new pane missing container")
+	}
+
+	webkit.WidgetSetHExpand(newContainer, true)
+	webkit.WidgetSetVExpand(newContainer, true)
+	webkit.WidgetRealizeInContainer(newContainer)
+
+	existingContainer := target.container
+	if existingContainer == 0 {
+		return errors.New("existing pane missing container")
+	}
+
+	orientation, existingFirst := mapDirection(direction)
+	log.Printf("[workspace] inserting popup direction=%s orientation=%v existingFirst=%v target.parent=%p", direction, orientation, existingFirst, target.parent)
+
+	paned := webkit.NewPaned(orientation)
+	if paned == 0 {
+		return errors.New("failed to create GtkPaned")
+	}
+	webkit.WidgetSetHExpand(paned, true)
+	webkit.WidgetSetVExpand(paned, true)
+	webkit.PanedSetResizeStart(paned, true)
+	webkit.PanedSetResizeEnd(paned, true)
+
+	newLeaf := &paneNode{
+		pane:      newPane,
+		container: newContainer,
+		isLeaf:    true,
+	}
+	split := &paneNode{
+		parent:      target.parent,
+		container:   paned,
+		orientation: orientation,
+		isLeaf:      false,
+	}
+
+	parent := split.parent
+
+	// Detach existing container from its current GTK parent before inserting into new paned.
+	if parent == nil {
+		// Target is the root - remove it from the window
+		log.Printf("[workspace] removing existing container=%#x from window", existingContainer)
+		if wm.window != nil {
+			wm.window.SetChild(0)
+		}
+	} else if parent.container != 0 {
+		// Target has a parent paned - unparent it from there
+		log.Printf("[workspace] unparenting existing container=%#x from parent paned=%#x", existingContainer, parent.container)
+		if parent.left == target {
+			webkit.PanedSetStartChild(parent.container, 0)
+		} else if parent.right == target {
+			webkit.PanedSetEndChild(parent.container, 0)
+		}
+		webkit.WidgetQueueAllocate(parent.container)
+	}
+
+	// Add both containers to the new paned
+	if existingFirst {
+		split.left = target
+		split.right = newLeaf
+		webkit.PanedSetStartChild(paned, existingContainer)
+		webkit.PanedSetEndChild(paned, newContainer)
+		log.Printf("[workspace] added existing=%#x as start child, new=%#x as end child", existingContainer, newContainer)
+	} else {
+		split.left = newLeaf
+		split.right = target
+		webkit.PanedSetStartChild(paned, newContainer)
+		webkit.PanedSetEndChild(paned, existingContainer)
+		log.Printf("[workspace] added new=%#x as start child, existing=%#x as end child", newContainer, existingContainer)
+	}
+
+	target.parent = split
+	newLeaf.parent = split
+
+	if parent == nil {
+		wm.root = split
+		if wm.window != nil {
+			wm.window.SetChild(paned)
+			webkit.WidgetQueueAllocate(paned)
+			log.Printf("[workspace] paned set as window child: paned=%#x", paned)
+		}
+	} else {
+		if parent.left == target {
+			parent.left = split
+			webkit.PanedSetStartChild(parent.container, paned)
+		} else if parent.right == target {
+			parent.right = split
+			webkit.PanedSetEndChild(parent.container, paned)
+		}
+		webkit.WidgetQueueAllocate(parent.container)
+		webkit.WidgetQueueAllocate(paned)
+		log.Printf("[workspace] paned inserted into parent=%#x", parent.container)
+	}
+
+	webkit.WidgetShow(paned)
+
+	wm.viewToNode[newPane.webView] = newLeaf
+	wm.ensureHover(newLeaf)
+	wm.ensureHover(target)
+	wm.app.panes = append(wm.app.panes, newPane)
+	if newPane.zoomController != nil {
+		newPane.zoomController.ApplyInitialZoom()
+	}
+
+	// Update CSS classes for all panes now that we have multiple panes
+	wm.ensurePaneBaseClasses()
+
+	webkit.IdleAdd(func() bool {
+		if newContainer != 0 {
+			webkit.WidgetShow(newContainer)
+		}
+		wm.focusNode(newLeaf)
 		return false
-	}
+	})
 
-	if url == "" {
-		return true
-	}
-
-	if newNode == nil || newNode.pane == nil {
-		return true
-	}
-
-	if newNode.pane.navigationController != nil {
-		if err := newNode.pane.navigationController.NavigateToURL(url); err != nil {
-			log.Printf("[workspace] popup navigation failed: %v", err)
-			if newNode.pane.webView != nil {
-				if loadErr := newNode.pane.webView.LoadURL(url); loadErr != nil {
-					log.Printf("[workspace] popup load fallback failed: %v", loadErr)
-				}
-			}
-		}
-		return true
-	}
-
-	if newNode.pane.webView != nil {
-		if err := newNode.pane.webView.LoadURL(url); err != nil {
-			log.Printf("[workspace] popup load failed: %v", err)
-		}
-	}
-
-	return true
+	return nil
 }
 
 // ensureGUIInPane lazily loads GUI components into a pane when it gains focus
