@@ -438,7 +438,7 @@ func goOnURIChanged(id C.ulong, curi *C.char) {
 }
 
 //export goHandleNewWindowPolicy
-func goHandleNewWindowPolicy(id C.ulong, curi *C.char, navType C.int) C.gboolean {
+func goHandleNewWindowPolicy(id C.ulong, curi *C.char, navType C.int, cframeName *C.char, isUserGesture C.gboolean, modifiers C.guint, mouseButton C.guint) C.gboolean {
 	uid := uintptr(id)
 	regMu.RLock()
 	vw := viewByID[uid]
@@ -452,6 +452,11 @@ func goHandleNewWindowPolicy(id C.ulong, curi *C.char, navType C.int) C.gboolean
 	uri := ""
 	if curi != nil {
 		uri = C.GoString(curi)
+	}
+
+	frameName := ""
+	if cframeName != nil {
+		frameName = C.GoString(cframeName)
 	}
 
 	// Navigation type constants from WebKit headers
@@ -469,23 +474,94 @@ func goHandleNewWindowPolicy(id C.ulong, curi *C.char, navType C.int) C.gboolean
 		navTypeName = fmt.Sprintf("UNKNOWN(%d)", int(navType))
 	}
 
-	log.Printf("[webkit] Policy decision for new window: URI=%s, NavType=%s", uri, navTypeName)
+	// Convert parameters for analysis
+	userGesture := isUserGesture != 0
+	mods := uint(modifiers)
+	button := uint(mouseButton)
 
-	// Check if we have a popup handler and if popups are enabled
-	if vw.popupHandler != nil {
-		log.Printf("[webkit] Calling popup handler for URI: %s", uri)
-		// Call popup handler synchronously to get immediate result
-		result := vw.popupHandler(uri)
-		if result != nil {
-			log.Printf("[webkit] Popup handler created new WebView for: %s - blocking default popup", uri)
-			return 1 // TRUE - we handled it, block the default popup
-		} else {
-			log.Printf("[webkit] Popup handler declined to create WebView for: %s - allowing native popup", uri)
-			return 0 // FALSE - we didn't handle it, allow default popup
+	// Check for modifier keys that indicate new tab intent
+	const (
+		GDK_CONTROL_MASK = 0x04
+		GDK_META_MASK    = 0x10000000 // Command key on macOS
+	)
+	hasCtrlOrCmd := (mods&GDK_CONTROL_MASK != 0) || (mods&GDK_META_MASK != 0)
+
+	log.Printf("[webkit] Policy decision for new window: URI=%s, NavType=%s, FrameName=%s, UserGesture=%v, Modifiers=0x%x, Button=%d, CtrlOrCmd=%v",
+		uri, navTypeName, frameName, userGesture, mods, button, hasCtrlOrCmd)
+
+	// Enhanced detection logic for _blank vs popup using reliable heuristics
+	isRegularPane := false
+
+	// Criteria for treating as regular pane (new panel):
+	// 1. Explicit _blank frame name (target="_blank" links)
+	// 2. User gesture with Ctrl/Cmd+click (open in new panel intent)
+	// 3. User-initiated OTHER navigation with no frame name (window.open("url", "_blank"))
+	if frameName == "_blank" {
+		isRegularPane = true
+		log.Printf("[webkit] _blank frame detected - will handle as new panel")
+	} else if userGesture && hasCtrlOrCmd && (navType == 0 || navType == 5) {
+		// WEBKIT_NAVIGATION_TYPE_LINK_CLICKED = 0, WEBKIT_NAVIGATION_TYPE_OTHER = 5
+		isRegularPane = true
+		log.Printf("[webkit] Ctrl/Cmd+click detected - will handle as new panel")
+	} else if userGesture && navType == 5 && frameName == "" {
+		// window.open("url", "_blank") typically: user gesture + OTHER + no frame name
+		isRegularPane = true
+		log.Printf("[webkit] User-initiated window.open() detected - will handle as new panel")
+	}
+
+	// Handle _blank targets by creating new panels directly (prevent WindowFeatures crash)
+	if isRegularPane {
+		log.Printf("[webkit] Creating new panel for _blank target: %s", uri)
+
+		// Create new panel through workspace manager using existing popup handler
+		if vw.popupHandler != nil {
+			// Call popup handler to create a new panel
+			// The workspace manager will handle this as a regular panel based on URI markers
+			vw.popupHandler(uri + "#__dumber_frame_blank")
 		}
+
+		return 1 // TRUE - we handled it by creating a new panel
+	}
+
+	// For actual popups, let the create signal handle it
+	if vw.popupHandler != nil {
+		log.Printf("[webkit] Letting popup go through create signal for WindowFeatures handling: %s", uri)
+		return 0 // FALSE - let WebKit call create signal for popup handling
 	} else {
 		log.Printf("[webkit] No popup handler registered - allowing native popup for: %s", uri)
 		return 0 // FALSE - no handler, allow default popup
+	}
+}
+
+//export goNotifyWebViewCreated
+func goNotifyWebViewCreated(parentID C.ulong, webViewPtr C.ulong, curi *C.char) {
+	uid := uintptr(parentID)
+	regMu.RLock()
+	parentView := viewByID[uid]
+	regMu.RUnlock()
+
+	if parentView == nil {
+		log.Printf("[webkit] Notify WebView created: no parent WebView found for ID %d", uid)
+		return
+	}
+
+	uri := ""
+	if curi != nil {
+		uri = C.GoString(curi)
+	}
+
+	log.Printf("[webkit] Notify WebView created: parent_id=%d, webview_ptr=%d, uri=%s", uid, uintptr(webViewPtr), uri)
+
+	// Handle the new WebView through the popup handler
+	if parentView.popupHandler != nil {
+		result := parentView.popupHandler(uri)
+		if result != nil {
+			log.Printf("[webkit] Popup handler accepted WebView for: %s", uri)
+		} else {
+			log.Printf("[webkit] Popup handler declined WebView for: %s", uri)
+		}
+	} else {
+		log.Printf("[webkit] No popup handler registered for WebView notification")
 	}
 }
 
@@ -563,6 +639,34 @@ func goHandleWebViewClose(id C.ulong) {
 		vw.closeHandler()
 	} else {
 		log.Printf("[webkit] No close handler registered for view_id: %d", uid)
+	}
+}
+
+//export goCreateNewPanel
+func goCreateNewPanel(id C.ulong, curi *C.char) {
+	uid := uintptr(id)
+	regMu.RLock()
+	vw := viewByID[uid]
+	regMu.RUnlock()
+
+	if vw == nil {
+		log.Printf("[webkit] Create panel: no WebView found for ID %d", uid)
+		return
+	}
+
+	uri := ""
+	if curi != nil {
+		uri = C.GoString(curi)
+	}
+
+	log.Printf("[webkit] Creating new panel for _blank target: %s", uri)
+
+	// Create new panel through popup handler if available
+	if vw.popupHandler != nil {
+		vw.popupHandler(uri)
+		log.Printf("[webkit] New panel creation handled by popup handler")
+	} else {
+		log.Printf("[webkit] No popup handler available for panel creation")
 	}
 }
 

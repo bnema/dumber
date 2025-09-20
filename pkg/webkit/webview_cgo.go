@@ -22,11 +22,13 @@ static GtkWidget* new_window() { return GTK_WIDGET(gtk_window_new()); }
 // Forward declaration
 extern void goQuitMainLoop();
 extern void goInvokeHandle(uintptr_t handle);
-extern gboolean goHandleNewWindowPolicy(unsigned long id, char* uri, int nav_type);
+extern gboolean goHandleNewWindowPolicy(unsigned long id, char* uri, int nav_type, char* frame_name, gboolean is_user_gesture, guint modifiers, guint mouse_button);
 extern void goHandlePopupGeometry(unsigned long id, int x, int y, int width, int height);
 extern GtkWidget* goHandleCreateWebView(unsigned long id, char* uri);
+extern void goNotifyWebViewCreated(unsigned long parent_id, unsigned long webview_ptr, char* uri);
 extern void goHandleLoadChanged(unsigned long id, char* uri, int load_event);
 extern void goHandleWebViewClose(unsigned long id);
+extern void goCreateNewPanel(unsigned long id, char* uri);
 static gboolean invoke_handle_cb(gpointer data) {
     goInvokeHandle((uintptr_t)data);
     return G_SOURCE_REMOVE;
@@ -57,17 +59,32 @@ static gboolean on_load_failed_with_tls_errors(WebKitWebView *web_view,
 
 // Handle ready-to-show signal for popup windows to properly initialize window properties
 static void on_popup_ready_to_show(WebKitWebView* web_view, gpointer user_data) {
-    // Get window properties to ensure they're properly initialized
+    printf("[webkit-ready] Ready-to-show signal for popup WebView\n");
+
+    // Get window properties - this should be safe for actual popups
     WebKitWindowProperties* props = webkit_web_view_get_window_properties(web_view);
     if (props) {
-        // Access properties to ensure WindowFeatures are initialized
-        GdkRectangle geometry;
-        webkit_window_properties_get_geometry(props, &geometry);
+        // Try to access geometry safely for popup positioning
+        GdkRectangle geometry = {0, 0, 800, 600}; // Default fallback
+
+        // Check if properties are actually available (defensive programming)
+        if (G_IS_OBJECT(props)) {
+            webkit_window_properties_get_geometry(props, &geometry);
+            printf("[webkit-ready] Retrieved popup geometry: %dx%d at (%d,%d)\n",
+                   geometry.width, geometry.height, geometry.x, geometry.y);
+        } else {
+            printf("[webkit-ready] WindowProperties object invalid, using defaults\n");
+        }
 
         // Pass geometry to Go for workspace positioning
         unsigned long view_id = (unsigned long)user_data;
         goHandlePopupGeometry(view_id, geometry.x, geometry.y,
                              geometry.width, geometry.height);
+    } else {
+        printf("[webkit-ready] No window properties available for popup\n");
+        // Still notify Go layer with default geometry
+        unsigned long view_id = (unsigned long)user_data;
+        goHandlePopupGeometry(view_id, 0, 0, 800, 600);
     }
 }
 
@@ -97,28 +114,130 @@ static GtkWidget* on_create_web_view(WebKitWebView *web_view,
     WebKitURIRequest *request = webkit_navigation_action_get_request(navigation_action);
     const char* uri = webkit_uri_request_get_uri(request);
 
-    printf("[webkit-create] Create signal for URI: %s\n", uri ? uri : "NULL");
+    // Extract additional navigation properties for enhanced _blank detection
+    const char* frame_name = webkit_navigation_action_get_frame_name(navigation_action);
+    gboolean is_user_gesture = webkit_navigation_action_is_user_gesture(navigation_action);
+    guint modifiers = webkit_navigation_action_get_modifiers(navigation_action);
+    WebKitNavigationType nav_type = webkit_navigation_action_get_navigation_type(navigation_action);
 
+    printf("[webkit-create] Create signal for URI: %s, FrameName: %s, UserGesture: %s, Modifiers: 0x%x, NavType: %d\n",
+           uri ? uri : "NULL",
+           frame_name ? frame_name : "NULL",
+           is_user_gesture ? "true" : "false",
+           modifiers,
+           nav_type);
+
+    // Enhanced detection logic for _blank vs popup using reliable heuristics
+    gboolean is_regular_pane = FALSE;
+    const guint GDK_CONTROL_MASK = 0x04;
+    const guint GDK_META_MASK = 0x10000000; // Command key on macOS
+    gboolean has_ctrl_or_cmd = (modifiers & GDK_CONTROL_MASK) || (modifiers & GDK_META_MASK);
+
+    // Criteria for treating as regular pane:
+    // 1. Explicit _blank frame name (target="_blank" links)
+    // 2. User gesture with Ctrl/Cmd+click (open in new tab intent)
+    // 3. User-initiated OTHER navigation with no frame name (window.open("url", "_blank"))
+    if (frame_name && strcmp(frame_name, "_blank") == 0) {
+        is_regular_pane = TRUE;
+        printf("[webkit-create] _blank frame detected - will let WebKit handle natively to avoid WindowFeatures crash\n");
+    } else if (is_user_gesture && has_ctrl_or_cmd && (nav_type == 0 || nav_type == 5)) {
+        // WEBKIT_NAVIGATION_TYPE_LINK_CLICKED = 0, WEBKIT_NAVIGATION_TYPE_OTHER = 5
+        is_regular_pane = TRUE;
+        printf("[webkit-create] Ctrl/Cmd+click detected - will let WebKit handle natively\n");
+    } else if (is_user_gesture && nav_type == 5 && (!frame_name || strlen(frame_name) == 0)) {
+        // window.open("url", "_blank") typically: user gesture + OTHER + no frame name
+        is_regular_pane = TRUE;
+        printf("[webkit-create] User-initiated window.open() detected (nav_type=%d, frame_name=%s) - will let WebKit handle natively\n",
+               nav_type, frame_name ? frame_name : "NULL");
+    } else {
+        // Default to popup for non-user gestures or other navigation types
+        is_regular_pane = FALSE;
+        printf("[webkit-create] Non-user gesture or other navigation type - treating as popup (user_gesture=%s, nav_type=%d, frame_name=%s)\n",
+               is_user_gesture ? "true" : "false", nav_type, frame_name ? frame_name : "NULL");
+    }
+
+    // Add marker to URI for workspace manager based on detection
+    char* marked_uri = NULL;
+    if (uri) {
+        if (is_regular_pane) {
+            // Add marker for regular pane
+            size_t len = strlen(uri) + strlen("#__dumber_frame_blank") + 1;
+            marked_uri = malloc(len);
+            snprintf(marked_uri, len, "%s#__dumber_frame_blank", uri);
+            printf("[webkit-create] Marked as regular pane: %s\n", marked_uri);
+        } else {
+            // Add marker for popup
+            size_t len = strlen(uri) + strlen("#__dumber_frame_popup") + 1;
+            marked_uri = malloc(len);
+            snprintf(marked_uri, len, "%s#__dumber_frame_popup", uri);
+            printf("[webkit-create] Marked as popup: %s\n", marked_uri);
+        }
+    }
+
+    // CRITICAL FIX: Return NULL for _blank targets to prevent WindowFeatures crash
+    if (is_regular_pane) {
+        // For _blank targets, return NULL to let WebKit handle it naturally
+        // This prevents WebKit from trying to access uninitialized WindowFeatures
+        printf("[webkit-create] _blank target detected - returning NULL to prevent WindowFeatures crash\n");
+        printf("[webkit-create] Creating new panel directly for _blank target\n");
+
+        // Create new panel directly through Go layer
+        unsigned long view_id = (unsigned long)user_data;
+        goCreateNewPanel(view_id, marked_uri ? marked_uri : (char*)uri);
+
+        // Clean up allocated memory
+        if (marked_uri) {
+            free(marked_uri);
+        }
+
+        return NULL; // Critical: Don't return a widget for _blank targets
+    }
+
+    // Only create WebView for actual popups (window.open with features)
+    printf("[webkit-create] Creating popup WebView with shared context from parent\n");
+
+    // Get the web context from the parent WebView to share settings and session
+    WebKitWebContext* parent_context = webkit_web_view_get_context(web_view);
+    WebKitSettings* parent_settings = webkit_web_view_get_settings(web_view);
+    WebKitUserContentManager* parent_content_manager = webkit_web_view_get_user_content_manager(web_view);
+
+    // Create new WebView with same context, settings, and content manager as parent
+    GtkWidget* new_webview = GTK_WIDGET(g_object_new(WEBKIT_TYPE_WEB_VIEW,
+        "web-context", parent_context,
+        "settings", parent_settings,
+        "user-content-manager", parent_content_manager,
+        NULL));
+
+    // Now inform Go layer about the new popup WebView for workspace management
     unsigned long view_id = (unsigned long)user_data;
-    GtkWidget* new_webview = goHandleCreateWebView(view_id, (char*)uri);
+    goNotifyWebViewCreated(view_id, (unsigned long)new_webview, marked_uri ? marked_uri : (char*)uri);
+
+    // Clean up allocated memory
+    if (marked_uri) {
+        free(marked_uri);
+    }
 
     if (new_webview) {
-        printf("[webkit-create] Go handler provided WebView - using workspace pane\n");
+        printf("[webkit-create] Created popup WebView - connecting popup management signals\n");
 
-        // Connect load_changed signal to the new popup WebView for OAuth detection
+        // Connect ready-to-show signal for popup WindowFeatures handling
+        g_signal_connect(new_webview, "ready-to-show",
+                         G_CALLBACK(on_popup_ready_to_show), user_data);
+        printf("[webkit-create] Connected ready-to-show signal for popup WindowFeatures\n");
+
         WebKitWebView* popup_webview = WEBKIT_WEB_VIEW(new_webview);
         g_signal_connect_data(G_OBJECT(popup_webview), "load-changed",
                              G_CALLBACK(on_load_changed), user_data, NULL, 0);
-        printf("[webkit-create] Connected load-changed signal to popup for OAuth detection\n");
+        printf("[webkit-create] Connected load-changed signal to popup for navigation tracking\n");
 
-        // Connect close signal to handle window.close() from OAuth providers
+        // Connect close signal to handle window.close() from any popup (OAuth, ads, etc.)
         g_signal_connect_data(G_OBJECT(popup_webview), "close",
                              G_CALLBACK(on_webview_close), user_data, NULL, 0);
-        printf("[webkit-create] Connected close signal to popup for OAuth auto-close\n");
+        printf("[webkit-create] Connected close signal to popup for auto-close handling\n");
 
         return new_webview;
     } else {
-        printf("[webkit-create] Go handler declined - allowing native popup window\n");
+        printf("[webkit-create] Go handler declined popup - allowing native popup window\n");
         return NULL; // Let WebKit create native popup window
     }
 }
@@ -145,9 +264,18 @@ static gboolean on_decide_policy(WebKitWebView *web_view,
         // Get navigation type to understand how popup was triggered
         WebKitNavigationType nav_type = webkit_navigation_action_get_navigation_type(action);
 
+        // Get frame name to distinguish _blank from other popups
+        const char* frame_name = webkit_navigation_action_get_frame_name(action);
+
+        // Get additional properties to better distinguish _blank from popups
+        gboolean is_user_gesture = webkit_navigation_action_is_user_gesture(action);
+        guint modifiers = webkit_navigation_action_get_modifiers(action);
+        guint mouse_button = webkit_navigation_action_get_mouse_button(action);
+
         // Call Go handler for popup creation
         unsigned long view_id = (unsigned long)user_data;
-        gboolean handled = goHandleNewWindowPolicy(view_id, (char*)uri, nav_type);
+        gboolean handled = goHandleNewWindowPolicy(view_id, (char*)uri, nav_type, (char*)frame_name,
+                                                 is_user_gesture, modifiers, mouse_button);
 
         if (handled) {
             webkit_policy_decision_ignore(decision);
@@ -284,7 +412,7 @@ static GtkWidget* new_webview_related(WebKitWebView* related_view, WebKitUserCon
 static void connect_policy_handler(WebKitWebView* web_view, unsigned long id) {
     if (!web_view) return;
     g_signal_connect_data(G_OBJECT(web_view), "decide-policy", G_CALLBACK(on_decide_policy), (gpointer)id, NULL, 0);
-    // Connect create signal for popup window support
+    // Keep create signal for JavaScript window.open() and other cases not caught by decide-policy
     g_signal_connect_data(G_OBJECT(web_view), "create", G_CALLBACK(on_create_web_view), (gpointer)id, NULL, 0);
 }
 
@@ -1072,9 +1200,9 @@ type WebView struct {
 	titleHandler    func(title string)
 	uriHandler      func(uri string)
 	zoomHandler     func(level float64)
-	popupHandler func(string) *WebView
-	closeHandler func()
-	memStats     *memoryStats
+	popupHandler    func(string) *WebView
+	closeHandler    func()
+	memStats        *memoryStats
 	gcTicker        *time.Ticker
 	gcDone          chan struct{}
 	tlsExceptions   map[string]bool // host -> whether user allowed certificate exception
@@ -1544,6 +1672,11 @@ func NewWebViewWithRelated(cfg *Config, relatedView *WebView) (*WebView, error) 
 		v.zoom = 1.0
 	}
 	v.domZoomSeed = v.zoom
+
+	// Initialize UCM scripts and handlers (same as NewWebView)
+	if v.native != nil && v.native.ucm != nil {
+		v.enableUserContentManager(cfg)
+	}
 
 	return v, nil
 }
