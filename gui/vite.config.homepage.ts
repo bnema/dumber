@@ -10,7 +10,7 @@ export default defineConfig({
       {
         name: 'homepage',
         title: 'Dumber Browser',
-        script: 'homepage.js',
+        script: 'homepage.min.js',
         css: 'homepage.css',
         filename: 'index.html',
       }
