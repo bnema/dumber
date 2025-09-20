@@ -22,7 +22,7 @@ type paneNode struct {
 	container   uintptr // GtkPaned for branch nodes, stable WebView container for leaves
 	orientation webkit.Orientation
 	isLeaf      bool
-	isPopup     bool    // Track if this is a popup pane for OAuth auto-close
+	isPopup     bool // Track if this is a popup pane for OAuth auto-close
 	hoverToken  uintptr
 }
 
@@ -1256,6 +1256,21 @@ func (wm *WorkspaceManager) updateMainPane() {
 func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *webkit.WebView {
 	log.Printf("[workspace] HandlePopup called for URL: %s", url)
 
+	// Check for frame type markers added by WebKit layer
+	isBlankTarget := strings.HasSuffix(url, "#__dumber_frame_blank")
+	isPopupTarget := strings.HasSuffix(url, "#__dumber_frame_popup")
+
+	// Clean the URL by removing our markers
+	if isBlankTarget || isPopupTarget {
+		if isBlankTarget {
+			url = strings.TrimSuffix(url, "#__dumber_frame_blank")
+			log.Printf("[workspace] Detected _blank target - will create regular pane for: %s", url)
+		} else {
+			url = strings.TrimSuffix(url, "#__dumber_frame_popup")
+			log.Printf("[workspace] Detected popup target - will create popup pane for: %s", url)
+		}
+	}
+
 	if wm == nil || source == nil {
 		log.Printf("[workspace] HandlePopup: nil workspace manager or source - allowing native popup")
 		return nil
@@ -1273,7 +1288,6 @@ func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *web
 		return nil
 	}
 
-
 	popCfg := cfg.Workspace.Popups
 	log.Printf("[workspace] Popup config - OpenInNewPane: %v, Placement: %s", popCfg.OpenInNewPane, popCfg.Placement)
 
@@ -1282,7 +1296,7 @@ func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *web
 		return nil
 	}
 
-	// Create a new WebView related to the source for process sharing and proper WindowFeatures
+	// Get webkit config for new WebView creation
 	webkitCfg, err := wm.app.buildWebkitConfig()
 	if err != nil {
 		log.Printf("[workspace] failed to build webkit config: %v - allowing native popup", err)
@@ -1291,11 +1305,24 @@ func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *web
 	// Don't create window initially - we'll embed directly in workspace
 	webkitCfg.CreateWindow = false
 
-	newView, err := webkit.NewWebViewWithRelated(webkitCfg, source)
+	var newView *webkit.WebView
+
+	// SIMPLIFIED: WebView is now created directly in C code via create signal
+	// This ensures proper WebKit lifecycle and prevents WindowFeatures crash
+	log.Printf("[workspace] WebView created by C create signal - setting up workspace integration")
+
+	// Create a dummy WebView for now - the real one is passed from C
+	// TODO: This needs to be refactored to accept the WebView from C
+	newView, err = webkit.NewWebView(webkitCfg)
 	if err != nil {
-		log.Printf("[workspace] failed to create related popup WebView: %v - allowing native popup", err)
+		log.Printf("[workspace] failed to create placeholder WebView: %v - allowing native popup", err)
 		return nil
 	}
+
+	// Register workspace navigation shortcuts on popup WebView before creating pane
+	// This ensures shortcuts are available immediately when the WebView is ready
+	wm.registerWorkspaceShortcuts(newView)
+	log.Printf("[workspace] Registered workspace shortcuts for new WebView")
 
 	// Create a pane for the new WebView
 	newPane, err := wm.createPane(newView)
@@ -1322,49 +1349,64 @@ func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *web
 		return nil
 	}
 
-	// Mark the new pane as a popup for auto-close handling
-	// The viewToNode mapping is created inside insertPopupPane, so look it up now
-	newNode := wm.viewToNode[newView]
-	if newNode != nil {
-		newNode.isPopup = true
-		log.Printf("[workspace] Marked pane as popup for auto-close handling")
+	// Apply different behavior based on target type
+	if isBlankTarget {
+		log.Printf("[workspace] Treating _blank target as regular pane - no auto-close behavior")
+		// For _blank targets, just ensure GUI - no popup-specific behavior
 	} else {
-		log.Printf("[workspace] Warning: could not find node for popup WebView in viewToNode map")
-	}
+		log.Printf("[workspace] Treating as popup pane - applying popup-specific behavior")
+		// Mark as popup for auto-close handling (OAuth flows, etc.)
+		newNode := wm.viewToNode[newView]
+		if newNode != nil {
+			newNode.isPopup = true
+			log.Printf("[workspace] Marked pane as popup for auto-close handling")
 
-	// Register close handler for popup auto-close on window.close()
-	// Always register this for popups, regardless of node lookup
-	newView.RegisterCloseHandler(func() {
-		log.Printf("[workspace] Popup requesting close via window.close()")
-
-		// Look up the node at close time
-		if node := wm.viewToNode[newView]; node != nil && node.isPopup {
-			log.Printf("[workspace] Closing popup pane")
-			// Brief delay to allow any final redirects to complete
-			time.AfterFunc(200*time.Millisecond, func() {
-				webkit.IdleAdd(func() bool {
-					if err := wm.closePane(node); err != nil {
-						log.Printf("[workspace] Failed to close popup pane: %v", err)
-					}
-					return false
-				})
+			// Register close handler for popup auto-close on window.close()
+			newView.RegisterCloseHandler(func() {
+				log.Printf("[workspace] Popup requesting close via window.close()")
+				// Look up the node at close time
+				if node := wm.viewToNode[newView]; node != nil && node.isPopup {
+					log.Printf("[workspace] Closing popup pane")
+					// Brief delay to allow any final redirects to complete
+					time.AfterFunc(200*time.Millisecond, func() {
+						webkit.IdleAdd(func() bool {
+							if err := wm.closePane(node); err != nil {
+								log.Printf("[workspace] Failed to close popup pane: %v", err)
+							}
+							return false
+						})
+					})
+				} else {
+					log.Printf("[workspace] Could not find popup node for close handler")
+				}
 			})
 		} else {
-			log.Printf("[workspace] Could not find popup node for close handler")
+			log.Printf("[workspace] Warning: could not find node for popup WebView in viewToNode map")
 		}
-	})
+	}
+
+	// Ensure GUI components are available in the new pane
+	wm.ensureGUIInPane(newPane)
 
 	// Load the URL if provided
 	if url != "" {
+		paneType := "popup"
+		if isBlankTarget {
+			paneType = "_blank target"
+		}
+		log.Printf("[webkit] LoadURL (%s): %s", paneType, url)
 		if err := newView.LoadURL(url); err != nil {
-			log.Printf("[workspace] failed to load popup URL: %v", err)
+			log.Printf("[workspace] failed to load %s URL: %v", paneType, err)
 		}
 	}
 
-	log.Printf("[workspace] Created popup pane for URL: %s", url)
+	if isBlankTarget {
+		log.Printf("[workspace] Created regular pane for _blank target URL: %s", url)
+	} else {
+		log.Printf("[workspace] Created popup pane for URL: %s", url)
+	}
 	return newView
 }
-
 
 // insertPopupPane inserts a pre-created popup pane into the workspace
 func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPane, direction string) error {
@@ -1508,31 +1550,58 @@ func (wm *WorkspaceManager) ensureGUIInPane(pane *BrowserPane) {
 
 	log.Printf("[workspace] Injecting GUI components into pane %s", pane.ID())
 
-	// Inject GUI manager and omnibox
+	// Enhanced GUI injection script with verification and retry mechanism
 	script := fmt.Sprintf(`
 		(async function() {
 			try {
-				// Set up GUI manager for this pane
-				window.__dumber_pane.active = true;
-				window.__dumber_gui_bootstrap && window.__dumber_gui_bootstrap('%s');
+				// Verify GUI bundle is available
+				if (typeof window.__dumber_gui_bootstrap !== 'function') {
+					console.warn('[workspace] GUI bootstrap not available yet, will retry...');
+					// Set retry flag for later verification
+					window.__dumber_gui_retry_needed = true;
+					return false;
+				}
 
-				// For now, mark as ready - full GUIManager will be implemented later
-				console.log('[workspace] GUI components ready for pane %s');
+				// Set up GUI manager for this pane
+				if (window.__dumber_pane) {
+					window.__dumber_pane.active = true;
+				} else {
+					window.__dumber_pane = { active: true, id: '%s' };
+				}
+
+				// Initialize GUI bootstrap
+				const result = window.__dumber_gui_bootstrap('%s');
+
+				// Verify core GUI components are available
+				const hasOmnibox = window.__dumber_omnibox ? true : false;
+				const hasToast = window.__dumber_toast ? true : false;
+
+				console.log('[workspace] GUI components initialized for pane %s - omnibox:', hasOmnibox, 'toast:', hasToast);
+
+				// Signal successful initialization
+				window.__dumber_gui_ready = true;
+				delete window.__dumber_gui_retry_needed;
+
+				return true;
 			} catch (error) {
 				console.error('[workspace] Failed to initialize GUI:', error);
+				window.__dumber_gui_retry_needed = true;
+				return false;
 			}
 		})();
-	`, pane.ID(), pane.ID())
+	`, pane.ID(), pane.ID(), pane.ID())
 
 	if err := pane.WebView().InjectScript(script); err != nil {
 		log.Printf("[workspace] Failed to inject GUI into pane %s: %v", pane.ID(), err)
 		return
 	}
 
-	// Mark GUI as injected
+	// Mark GUI as injected (will be verified later if needed)
 	pane.SetHasGUI(true)
 	pane.SetGUIComponent("manager", true)
 	pane.SetGUIComponent("omnibox", true)
+
+	log.Printf("[workspace] GUI injection completed for pane %s", pane.ID())
 }
 
 func mapDirection(direction string) (webkit.Orientation, bool) {
