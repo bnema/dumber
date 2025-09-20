@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import Footer from '$components/Footer.svelte';
   // Icons disabled for investigation: removed @lucide/svelte imports
 
   interface HistoryItem {
@@ -401,7 +402,10 @@
     try {
       // Set up response handler
       (window as any).__dumber_history_search = (data: any[]) => {
-        topVisited = Array.isArray(data) ? data.slice(0, 5) : [];
+        // Sort by visit_count in descending order and take top 5
+        const sortedData = Array.isArray(data) ?
+          data.sort((a, b) => (b.visit_count || 0) - (a.visit_count || 0)).slice(0, 5) : [];
+        topVisited = sortedData;
         topVisitedLoading = false;
       };
 
@@ -417,7 +421,7 @@
         bridge.postMessage(JSON.stringify({
           type: 'history_search',
           q: '',
-          limit: 5
+          limit: 50  // Get more results to sort properly
         }));
       } else {
         throw new Error('WebKit message handler not available');
@@ -565,33 +569,16 @@
       {#if shortcutsLoading}
         <div class="loading">Loading shortcuts...</div>
       {:else}
-        <table class="shortcuts-table">
-          <tbody>
-            {#each shortcuts as shortcut (shortcut.key)}
-              <tr class="shortcut-row">
-                <td class="shortcut-key">{shortcut.key}</td>
-                <td class="shortcut-desc">{shortcut.description}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      {/if}
-    </div>
-
-    <h2 class="section-title stats-title">Statistics</h2>
-    <div class="stats-container">
-      {#if statsLoading}
-        <div class="loading">Loading stats...</div>
-      {:else if stats}
-        <div class="stats-grid">
-          <div class="stat-item">
-            <div class="stat-value">{stats.total_entries}</div>
-            <div class="stat-label">History Entries</div>
-          </div>
-        </div>
-      {:else}
-        <div class="empty-state">
-          <p>No statistics available</p>
+        <div class="shortcuts-card">
+          {#each shortcuts as shortcut, index (shortcut.key)}
+            <div class="shortcut-item">
+              <div class="shortcut-key-badge">{shortcut.key}</div>
+              <div class="shortcut-desc">{shortcut.description}</div>
+            </div>
+            {#if index < shortcuts.length - 1}
+              <div class="shortcut-separator"></div>
+            {/if}
+          {/each}
         </div>
       {/if}
     </div>
@@ -625,8 +612,28 @@
         </div>
       {/if}
     </div>
+
+    <h2 class="section-title stats-title">Statistics</h2>
+    <div class="stats-container">
+      {#if statsLoading}
+        <div class="loading">Loading stats...</div>
+      {:else if stats}
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-value">{stats.total_entries}</div>
+            <div class="stat-label">History Entries</div>
+          </div>
+        </div>
+      {:else}
+        <div class="empty-state">
+          <p>No statistics available</p>
+        </div>
+      {/if}
+    </div>
   </div>
 </div>
+
+<Footer />
 </div>
 
 <style>
@@ -661,6 +668,7 @@
   .container {
     flex: 1;
     display: flex;
+    align-items: stretch;
     max-width: 1200px;
     margin: 0 auto;
     width: 100%;
@@ -673,6 +681,8 @@
     flex: 2;
     min-height: 0;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   .shortcuts-section {
@@ -692,8 +702,8 @@
   .history-list {
     overflow-y: auto;
     overflow-x: hidden;
-    max-height: calc(100vh - 8rem);
     max-width: 100%;
+    max-height: calc(100vh - 8rem);
   }
 
   .history-item {
@@ -829,45 +839,55 @@
   }
 
   .shortcuts-container {
-    max-height: calc(100vh - 8rem);
-    overflow-y: auto;
+    /* Remove height limit to show all shortcuts */
   }
 
-  .shortcuts-table {
-    width: 100%;
-    border-collapse: collapse;
+  .shortcuts-card {
     background: #2d2d2d;
-    border-radius: 6px;
-    overflow: hidden;
+    border-radius: 8px;
+    border: 1px solid #404040;
+    padding: 1rem;
   }
 
-  .shortcut-row {
-    border-bottom: 1px solid #404040;
-    transition: background 0.2s;
+  .shortcut-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    transition: all 0.2s ease;
   }
 
-  .shortcut-row:last-child {
-    border-bottom: none;
+  .shortcut-item:hover {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 4px;
+    padding: 0.5rem;
+    margin: 0 -0.5rem;
   }
 
-  .shortcut-row:hover {
-    background: #3d3d3d;
+  .shortcut-separator {
+    height: 1px;
+    background: #404040;
+    margin: 0.25rem 0;
   }
 
-  .shortcut-key {
-    padding: 0.4rem 0.8rem;
-    font-weight: bold;
-    color: #0066cc;
-    font-size: 0.85rem;
+  .shortcut-key-badge {
+    background: linear-gradient(135deg, #0066cc, #004499);
+    color: #ffffff;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 600;
     white-space: nowrap;
-    width: 1%;
+    box-shadow: 0 1px 2px rgba(0, 102, 204, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    min-width: fit-content;
   }
 
   .shortcut-desc {
-    padding: 0.4rem 0.8rem;
     color: #e6e6e6;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
+    flex: 1;
   }
 
   .stats-title {
