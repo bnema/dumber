@@ -395,7 +395,7 @@ func TestErrorHandling(t *testing.T) {
 		}
 
 		// Try to split the branch (root is now a branch)
-		_, err := wm.splitNode(wm.root, "down")
+		_, err = wm.splitNode(wm.root, "down")
 
 		if err == nil {
 			t.Error("Should not allow splitting branch nodes")
@@ -411,7 +411,7 @@ func TestErrorHandling(t *testing.T) {
 		}
 
 		// Try to close the branch node
-		err := wm.closePane(wm.root)
+		err = wm.closePane(wm.root)
 
 		if err == nil {
 			t.Error("Should not allow closing branch nodes")
