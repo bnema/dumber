@@ -76,9 +76,9 @@
         action: () => console.log('F12 triggered')
       },
       {
-        key: 'Alt+← / Alt+→',
+        key: 'Ctrl+← / Ctrl+→',
         description: 'Navigate back/forward',
-        action: () => console.log('Alt+Arrow triggered')
+        action: () => console.log('Ctrl+Arrow triggered')
       },
       {
         key: 'Ctrl+0',
@@ -136,11 +136,6 @@
         key: 'Alt+Arrow Keys',
         description: 'Navigate between panes',
         action: () => console.log('Navigate panes triggered')
-      },
-      {
-        key: 'Ctrl+↑ / Ctrl+↓',
-        description: 'Navigate panes up/down',
-        action: () => console.log('Navigate vertical triggered')
       }
     ];
     shortcutsLoading = false;

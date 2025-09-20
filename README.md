@@ -17,21 +17,17 @@ Dumber is a minimalist browser and launcher companion focused on speed and simpl
 - Optimized for dmenu‑style launchers (rofi, fuzzel, wofi) and keyboard‑driven workflows.
 
 ## Status
-- Very early stage, expect sharp edges and breaking changes, but it works well enough to browse and play with the launcher flows.
-
-## Latest Release
-- `0.8.0` (2025-09-17): Migrated injected UI from inline scripts to structured Svelte components with a shared shadow host, plus Tailwind v4 theming, GTK color sync, and refreshed omnibox/find flows.
+- Very early stage, expect sharp edges and breaking changes, but it works well enough to browse and play with the launcher flows and the pane management system.
 
 ## Features
 - **Zellij-inspired pane management**: Split browser into multiple panes with keyboard shortcuts (Ctrl+P to enter pane mode)
-- Built‑in browser window (no external browser needed)
-- Content filtering system (early stage UBlock-based filtering with EasyList integration)
-- Hardware video acceleration with automatic GPU detection (VA-API/VDPAU)
-- Custom `dumb://` scheme serving embedded frontend assets
+- GPU Rendering and Hardware video acceleration
+- Built-in ad blocker (UBlock-based, work in progress)
+- dmenu‑style launcher integration (rofi, fuzzel) with history and shortcut suggestions
 - Keyboard and mouse controls: comprehensive shortcuts and gestures
 - Persistent history with search and stats
 - Per‑domain zoom persistence
-- dmenu‑style launcher integration (rofi, fuzzel) with history and shortcut suggestions
+- One config file, fully customizable
 
 ## Controls & Shortcuts
 
@@ -64,7 +60,6 @@ Dumber is a minimalist browser and launcher companion focused on speed and simpl
 | **Enter** (in pane mode) | Confirm Action | Confirm pane operation |
 | **Escape** (in pane mode) | Exit Pane Mode | Return to normal navigation |
 | **Alt+Arrow Keys** | Navigate Panes | Move focus between panes |
-| **Ctrl/Cmd+↑** / **Ctrl/Cmd+↓** | Navigate Panes Up/Down | Vertical pane navigation |
 
 ### Mouse Controls
 | Action | Result | Notes |
