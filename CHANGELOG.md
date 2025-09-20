@@ -10,6 +10,8 @@ All notable changes to this project will be documented in this file.
 - **Window-level global shortcuts**: Centralized shortcut handling to prevent conflicts between multiple WebView instances
 - **Workspace configuration**: New config section with Zellij controls toggle, pane mode bindings, tab shortcuts, and popup behavior settings
 - **Configurable workspace styling**: Pane border appearance (width, color, transition duration, radius) now customizable via config with proper viewport stability
+- **Popup handling for tiling WM**: Complete popup window support where popups open as workspace panes instead of floating windows, respecting tiling window manager design principles
+- **Universal popup auto-close**: Popup windows (OAuth, window.open(), etc.) automatically close when JavaScript calls window.close(), providing standard browser behavior adapted for workspace panes
 
 ### Improved
 - WebKit integration now forces GPU compositing by default while still honoring explicit config overrides.
