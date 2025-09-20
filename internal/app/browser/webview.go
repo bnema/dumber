@@ -186,35 +186,20 @@ func (app *BrowserApp) attachPaneHandlers(pane *BrowserPane) {
 		pane.messageHandler.SetNavigationController(pane.navigationController)
 	}
 
-	pane.webView.RegisterPopupHandler(func(uri string) bool {
-		handled := false
+	pane.webView.RegisterPopupHandler(func(uri string) *webkit.WebView {
 		if app.workspace != nil {
-			handled = app.workspace.HandlePopup(pane.webView, uri)
-		}
-		if handled {
-			return true
+			return app.workspace.HandlePopup(pane.webView, uri)
 		}
 
-		if pane.navigationController != nil && uri != "" {
-			if err := pane.navigationController.NavigateToURL(uri); err != nil {
-				log.Printf("[workspace] popup fallback navigation failed: %v", err)
-				if pane.webView != nil {
-					if loadErr := pane.webView.LoadURL(uri); loadErr != nil {
-						log.Printf("[workspace] popup fallback load failed: %v", loadErr)
-					}
+		// No workspace manager - just navigate in current pane
+		if uri != "" && pane.navigationController != nil {
+			go func() {
+				if err := pane.navigationController.NavigateToURL(uri); err != nil {
+					log.Printf("[webview] failed to navigate to URL %s: %v", uri, err)
 				}
-			}
-			return true
+			}()
 		}
-
-		if pane.webView != nil && uri != "" {
-			if err := pane.webView.LoadURL(uri); err != nil {
-				log.Printf("[workspace] popup direct load failed: %v", err)
-			}
-			return true
-		}
-
-		return false
+		return nil
 	})
 }
 

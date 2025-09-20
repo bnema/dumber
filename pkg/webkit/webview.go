@@ -5,6 +5,7 @@ package webkit
 import (
 	"fmt"
 	"log"
+	"unsafe"
 )
 
 // WebView represents a browser view powered by WebKit2GTK.
@@ -20,7 +21,7 @@ type WebView struct {
 	titleHandler func(title string)
 	uriHandler   func(uri string)
 	zoomHandler  func(level float64)
-	popupHandler func(string) bool
+	popupHandler func(string) *WebView
 	useDomZoom   bool
 	domZoomSeed  float64
 	container    uintptr
@@ -43,6 +44,12 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	wv.window = &Window{Title: "Dumber Browser"}
 	wv.container = newWidgetHandle()
 	return wv, nil
+}
+
+// NewWebViewWithRelated creates a new WebView related to an existing one (non-CGO stub)
+func NewWebViewWithRelated(cfg *Config, relatedView *WebView) (*WebView, error) {
+	// In non-CGO build, just create a regular WebView
+	return NewWebView(cfg)
 }
 
 // LoadURL navigates the webview to the specified URL.
@@ -114,7 +121,7 @@ func (w *WebView) CloseDevTools() error { return nil }
 // RegisterScriptMessageHandler registers a callback invoked when the content script posts a message.
 func (w *WebView) RegisterScriptMessageHandler(cb func(payload string)) { w.msgHandler = cb }
 
-func (w *WebView) RegisterPopupHandler(cb func(string) bool) { w.popupHandler = cb }
+func (w *WebView) RegisterPopupHandler(cb func(string) *WebView) { w.popupHandler = cb }
 
 func (w *WebView) dispatchScriptMessage(payload string) { //nolint:unused // Called from CGO WebKit callbacks
 	if w != nil && w.msgHandler != nil {
@@ -122,11 +129,16 @@ func (w *WebView) dispatchScriptMessage(payload string) { //nolint:unused // Cal
 	}
 }
 
-func (w *WebView) dispatchPopupRequest(uri string) bool { //nolint:unused // Called from CGO WebKit callbacks
+func (w *WebView) dispatchPopupRequest(uri string) *WebView { //nolint:unused // Called from CGO WebKit callbacks
 	if w != nil && w.popupHandler != nil {
 		return w.popupHandler(uri)
 	}
-	return false
+	return nil
+}
+
+// GetNativePointer returns nil for non-CGO build (stub implementation)
+func (w *WebView) GetNativePointer() unsafe.Pointer { //nolint:unused // Needed for interface compatibility
+	return nil
 }
 
 // RegisterTitleChangedHandler registers a callback invoked when the page title changes.

@@ -84,6 +84,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unsafe"
 )
 
 // Registry of accelerators per view id.
@@ -436,23 +437,110 @@ func goOnURIChanged(id C.ulong, curi *C.char) {
 	vw.dispatchURIChanged(uri)
 }
 
-//export goOnPopupRequest
-func goOnPopupRequest(id C.ulong, curi *C.char) C.gboolean {
+//export goHandleNewWindowPolicy
+func goHandleNewWindowPolicy(id C.ulong, curi *C.char, navType C.int) C.gboolean {
 	uid := uintptr(id)
 	regMu.RLock()
 	vw := viewByID[uid]
 	regMu.RUnlock()
+
 	if vw == nil {
-		return C.gboolean(0)
+		log.Printf("[webkit] Policy decision: no WebView found for ID %d", uid)
+		return 0 // FALSE
 	}
-	var uri string
+
+	uri := ""
 	if curi != nil {
 		uri = C.GoString(curi)
 	}
-	if vw.dispatchPopupRequest(uri) {
-		return C.gboolean(1)
+
+	// Navigation type constants from WebKit headers
+	navTypeNames := map[int]string{
+		0: "LINK_CLICKED",
+		1: "FORM_SUBMITTED",
+		2: "BACK_FORWARD",
+		3: "RELOAD",
+		4: "FORM_RESUBMITTED",
+		5: "OTHER",
 	}
-	return C.gboolean(0)
+
+	navTypeName := navTypeNames[int(navType)]
+	if navTypeName == "" {
+		navTypeName = fmt.Sprintf("UNKNOWN(%d)", int(navType))
+	}
+
+	log.Printf("[webkit] Policy decision for new window: URI=%s, NavType=%s", uri, navTypeName)
+
+	// Check if we have a popup handler and if popups are enabled
+	if vw.popupHandler != nil {
+		log.Printf("[webkit] Calling popup handler for URI: %s", uri)
+		// Call popup handler synchronously to get immediate result
+		result := vw.popupHandler(uri)
+		if result != nil {
+			log.Printf("[webkit] Popup handler created new WebView for: %s - blocking default popup", uri)
+			return 1 // TRUE - we handled it, block the default popup
+		} else {
+			log.Printf("[webkit] Popup handler declined to create WebView for: %s - allowing native popup", uri)
+			return 0 // FALSE - we didn't handle it, allow default popup
+		}
+	} else {
+		log.Printf("[webkit] No popup handler registered - allowing native popup for: %s", uri)
+		return 0 // FALSE - no handler, allow default popup
+	}
+}
+
+//export goHandleCreateWebView
+func goHandleCreateWebView(id C.ulong, curi *C.char) *C.GtkWidget {
+	uid := uintptr(id)
+	regMu.RLock()
+	vw := viewByID[uid]
+	regMu.RUnlock()
+
+	if vw == nil {
+		log.Printf("[webkit] Create signal: no WebView found for ID %d", uid)
+		return nil // Fallback to native popup
+	}
+
+	uri := ""
+	if curi != nil {
+		uri = C.GoString(curi)
+	}
+
+	log.Printf("[webkit] Create signal: creating new pane for URI=%s", uri)
+
+	// Check if we have a popup handler
+	if vw.popupHandler == nil {
+		log.Printf("[webkit] Create signal: no popup handler registered")
+		return nil // Fallback to native popup
+	}
+
+	// Always use the popup handler to create workspace pane (tiling WM design)
+	newView := vw.popupHandler(uri)
+	if newView != nil {
+		widget := newView.Widget()
+		if widget != 0 {
+			log.Printf("[webkit] Create signal: created new workspace pane for popup")
+			return (*C.GtkWidget)(unsafe.Pointer(widget))
+		}
+	}
+
+	log.Printf("[webkit] Create signal: popup handler failed to create pane, falling back to native")
+	return nil // Fallback to native popup if workspace creation fails
+}
+
+
+//export goHandlePopupGeometry
+func goHandlePopupGeometry(id C.ulong, x, y, width, height C.int) {
+	// Store geometry for workspace manager to use
+	uid := uintptr(id)
+	regMu.Lock()
+	if vw := viewByID[uid]; vw != nil {
+		// For now, we'll store this in a simple way
+		// The workspace manager will handle the geometry
+		log.Printf("[webkit] Popup geometry: %dx%d at (%d,%d)",
+			int(width), int(height), int(x), int(y))
+	}
+	regMu.Unlock()
 }
 
 //export goOnButtonPress

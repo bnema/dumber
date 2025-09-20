@@ -22,8 +22,9 @@ static GtkWidget* new_window() { return GTK_WIDGET(gtk_window_new()); }
 // Forward declaration
 extern void goQuitMainLoop();
 extern void goInvokeHandle(uintptr_t handle);
-extern gboolean goOnPopupRequest(unsigned long id, char* uri);
-
+extern gboolean goHandleNewWindowPolicy(unsigned long id, char* uri, int nav_type);
+extern void goHandlePopupGeometry(unsigned long id, int x, int y, int width, int height);
+extern GtkWidget* goHandleCreateWebView(unsigned long id, char* uri);
 static gboolean invoke_handle_cb(gpointer data) {
     goInvokeHandle((uintptr_t)data);
     return G_SOURCE_REMOVE;
@@ -52,29 +53,79 @@ static gboolean on_load_failed_with_tls_errors(WebKitWebView *web_view,
                                                GTlsCertificateFlags errors,
                                                gpointer user_data);
 
-// Handle create signal for _blank links - delegate to Go workspace manager
-static WebKitWebView* on_create_new_window(WebKitWebView* web_view,
-                                           WebKitNavigationAction* navigation_action,
-                                           gpointer user_data) {
-    unsigned long view_id = (unsigned long)user_data;
-    const gchar* uri = NULL;
+// Handle ready-to-show signal for popup windows to properly initialize window properties
+static void on_popup_ready_to_show(WebKitWebView* web_view, gpointer user_data) {
+    // Get window properties to ensure they're properly initialized
+    WebKitWindowProperties* props = webkit_web_view_get_window_properties(web_view);
+    if (props) {
+        // Access properties to ensure WindowFeatures are initialized
+        GdkRectangle geometry;
+        webkit_window_properties_get_geometry(props, &geometry);
 
-    // Get the request from navigation action
-    WebKitURIRequest* request = webkit_navigation_action_get_request(navigation_action);
-    if (request) {
-        uri = webkit_uri_request_get_uri(request);
+        // Pass geometry to Go for workspace positioning
+        unsigned long view_id = (unsigned long)user_data;
+        goHandlePopupGeometry(view_id, geometry.x, geometry.y,
+                             geometry.width, geometry.height);
     }
-
-    gboolean handled = goOnPopupRequest(view_id, (char*)uri);
-
-    if (!handled && uri) {
-        // Load in current window instead of creating new one
-        webkit_web_view_load_uri(web_view, uri);
-    }
-
-    // Return NULL to prevent new window creation
-    return NULL;
 }
+
+// Handle create signal for popup windows - essential for window.open() support
+static GtkWidget* on_create_web_view(WebKitWebView *web_view,
+                                     WebKitNavigationAction *navigation_action,
+                                     gpointer user_data) {
+    WebKitURIRequest *request = webkit_navigation_action_get_request(navigation_action);
+    const char* uri = webkit_uri_request_get_uri(request);
+
+    printf("[webkit-create] Create signal for URI: %s\n", uri ? uri : "NULL");
+
+    unsigned long view_id = (unsigned long)user_data;
+    GtkWidget* new_webview = goHandleCreateWebView(view_id, (char*)uri);
+
+    if (new_webview) {
+        printf("[webkit-create] Go handler provided WebView - using workspace pane\n");
+        return new_webview;
+    } else {
+        printf("[webkit-create] Go handler declined - allowing native popup window\n");
+        return NULL; // Let WebKit create native popup window
+    }
+}
+
+// Handle decide-policy signal for new window requests - more robust than create signal
+static gboolean on_decide_policy(WebKitWebView *web_view,
+                                 WebKitPolicyDecision *decision,
+                                 WebKitPolicyDecisionType type,
+                                 gpointer user_data) {
+    // Debug: log all policy decisions
+    const char* type_names[] = {"NAVIGATION_ACTION", "NEW_WINDOW_ACTION", "RESPONSE"};
+    const char* type_name = (type >= 0 && type < 3) ? type_names[type] : "UNKNOWN";
+    printf("[webkit-policy] Policy decision: type=%s (%d)\n", type_name, type);
+
+    if (type == WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION) {
+        WebKitNavigationPolicyDecision *nav_decision =
+            WEBKIT_NAVIGATION_POLICY_DECISION(decision);
+        WebKitNavigationAction *action =
+            webkit_navigation_policy_decision_get_navigation_action(nav_decision);
+        WebKitURIRequest *request =
+            webkit_navigation_action_get_request(action);
+        const char* uri = webkit_uri_request_get_uri(request);
+
+        // Get navigation type to understand how popup was triggered
+        WebKitNavigationType nav_type = webkit_navigation_action_get_navigation_type(action);
+
+        // Call Go handler for popup creation
+        unsigned long view_id = (unsigned long)user_data;
+        gboolean handled = goHandleNewWindowPolicy(view_id, (char*)uri, nav_type);
+
+        if (handled) {
+            webkit_policy_decision_ignore(decision);
+        } else {
+            webkit_policy_decision_use(decision);
+        }
+        return TRUE;
+    }
+    return FALSE;
+}
+
 static void connect_tls_error_handler(WebKitWebView* wv);
 
 
@@ -162,9 +213,46 @@ static GtkWidget* new_webview_with_ucm_and_session(const char* data_dir, const c
     return w;
 }
 
-static void connect_create_handler(WebKitWebView* web_view, unsigned long id) {
+// Create a new WebView related to an existing one for process sharing
+static GtkWidget* new_webview_related(WebKitWebView* related_view, WebKitUserContentManager** out_ucm) {
+    if (!related_view) {
+        // Fallback to regular WebView creation - we need to provide the required parameters
+        return new_webview_with_ucm_and_session(NULL, NULL, NULL, out_ucm, NULL);
+    }
+
+    // Get the network session and user content manager from the related view
+    WebKitNetworkSession* related_session = webkit_web_view_get_network_session(related_view);
+    WebKitUserContentManager* related_ucm = webkit_web_view_get_user_content_manager(related_view);
+
+    // Create content manager if needed
+    WebKitUserContentManager* u = related_ucm;
+    if (!u) {
+        u = webkit_user_content_manager_new();
+    } else {
+        g_object_ref(u); // Add ref since we'll pass it to new WebView
+    }
+
+    // Create WebView with same session and content manager for process sharing
+    GtkWidget* w = GTK_WIDGET(g_object_new(WEBKIT_TYPE_WEB_VIEW,
+        "user-content-manager", u,
+        "network-session", related_session,
+        "related-view", related_view,
+        NULL));
+
+    // Connect TLS error handler
+    connect_tls_error_handler(WEBKIT_WEB_VIEW(w));
+
+    // WebView holds refs to provided objects; drop our temporary refs
+    g_object_unref(u);
+    if (out_ucm) { *out_ucm = u; }
+    return w;
+}
+
+static void connect_policy_handler(WebKitWebView* web_view, unsigned long id) {
     if (!web_view) return;
-    g_signal_connect_data(G_OBJECT(web_view), "create", G_CALLBACK(on_create_new_window), (gpointer)id, NULL, 0);
+    g_signal_connect_data(G_OBJECT(web_view), "decide-policy", G_CALLBACK(on_decide_policy), (gpointer)id, NULL, 0);
+    // Connect create signal for popup window support
+    g_signal_connect_data(G_OBJECT(web_view), "create", G_CALLBACK(on_create_web_view), (gpointer)id, NULL, 0);
 }
 
 static gboolean gtk_prefers_dark() {
@@ -944,8 +1032,8 @@ type WebView struct {
 	titleHandler    func(title string)
 	uriHandler      func(uri string)
 	zoomHandler     func(level float64)
-	popupHandler    func(string) bool
-	memStats        *memoryStats
+	popupHandler func(string) *WebView
+	memStats     *memoryStats
 	gcTicker        *time.Ticker
 	gcDone          chan struct{}
 	tlsExceptions   map[string]bool // host -> whether user allowed certificate exception
@@ -1108,7 +1196,7 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	// Assign an ID for accelerator dispatch
 	v.id = nextViewID()
 	registerView(v.id, v)
-	C.connect_create_handler(v.native.wv, C.ulong(v.id))
+	C.connect_policy_handler(v.native.wv, C.ulong(v.id))
 
 	// Register with global memory manager if monitoring is enabled
 	if cfg.Memory.EnableMemoryMonitoring {
@@ -1252,6 +1340,13 @@ func NewWebView(cfg *Config) (*WebView, error) {
 		}
 	}
 
+	// Enable JavaScript popup windows for workspace popup handling
+	settings := C.webkit_web_view_get_settings(v.native.wv)
+	if settings != nil {
+		C.webkit_settings_set_javascript_can_open_windows_automatically(settings, C.gboolean(1))
+		log.Printf("[webkit] Enabled JavaScript popup windows")
+	}
+
 	// Apply custom User-Agent for codec negotiation
 	if settings := C.webkit_web_view_get_settings(v.native.wv); settings != nil {
 		if cfg.CodecPreferences.CustomUserAgent != "" {
@@ -1313,6 +1408,101 @@ func NewWebView(cfg *Config) (*WebView, error) {
 			log.Printf("[webkit] Periodic GC enabled: interval=%ds", cfg.Memory.EnableGCInterval)
 		}
 	}
+
+	return v, nil
+}
+
+// NewWebViewWithRelated creates a new WebView related to an existing one for process sharing
+func NewWebViewWithRelated(cfg *Config, relatedView *WebView) (*WebView, error) {
+	if relatedView == nil || relatedView.native == nil || relatedView.native.wv == nil {
+		// Fallback to regular WebView creation
+		return NewWebView(cfg)
+	}
+
+	log.Printf("[webkit] Creating related WebView for process sharing (CGO)")
+	if C.gtk_init_check() == 0 {
+		return nil, errors.New("failed to initialize GTK")
+	}
+
+	if cfg == nil {
+		cfg = &Config{}
+	}
+
+	// Create WebView related to the existing one
+	var createdUcm *C.WebKitUserContentManager
+	viewWidget := C.new_webview_related(relatedView.native.wv, &createdUcm)
+	if viewWidget == nil {
+		return nil, errors.New("failed to create related WebKitWebView")
+	}
+
+	var win *C.GtkWidget
+	var window *Window
+	container := C.gtk_box_new(C.GtkOrientation(C.GTK_ORIENTATION_VERTICAL), 0)
+	if container == nil {
+		return nil, errors.New("failed to create GtkBox container")
+	}
+
+	C.gtk_box_append((*C.GtkBox)(unsafe.Pointer(container)), viewWidget)
+
+	if cfg.CreateWindow {
+		win = C.new_window()
+		if win == nil {
+			return nil, errors.New("failed to create native window")
+		}
+		C.connect_destroy_quit(win)
+		C.gtk_window_set_child((*C.GtkWindow)(unsafe.Pointer(win)), container)
+		window = &Window{win: win}
+	} else {
+		window = &Window{}
+	}
+
+	v := &WebView{
+		config: cfg,
+		window: window,
+		zoom:   cfg.ZoomDefault,
+		native: &nativeView{
+			win:       win,
+			container: container,
+			view:      viewWidget,
+			wv:        (*C.WebKitWebView)(unsafe.Pointer(viewWidget)),
+			ucm:       createdUcm,
+		},
+		useDomZoom:    cfg.UseDomZoom,
+		domZoomSeed:   cfg.ZoomDefault,
+		gcDone:        make(chan struct{}),
+		tlsExceptions: make(map[string]bool),
+	}
+
+	// Enable JavaScript popup windows for workspace popup handling
+	settings := C.webkit_web_view_get_settings(v.native.wv)
+	if settings != nil {
+		C.webkit_settings_set_javascript_can_open_windows_automatically(settings, C.gboolean(1))
+		log.Printf("[webkit] Enabled JavaScript popup windows for related WebView")
+	}
+
+	// Assign an ID for accelerator dispatch
+	v.id = nextViewID()
+	registerView(v.id, v)
+	C.connect_policy_handler(v.native.wv, C.ulong(v.id))
+
+	// Register with memory manager if enabled
+	if cfg.Memory.EnableMemoryMonitoring {
+		if globalMemoryManager == nil {
+			InitializeGlobalMemoryManager(
+				cfg.Memory.EnableMemoryMonitoring,
+				cfg.Memory.ProcessRecycleThreshold,
+				30*time.Second,
+			)
+		}
+		if globalMemoryManager != nil {
+			globalMemoryManager.RegisterWebView(v)
+		}
+	}
+
+	if cfg.ZoomDefault <= 0 {
+		v.zoom = 1.0
+	}
+	v.domZoomSeed = v.zoom
 
 	return v, nil
 }
@@ -1483,7 +1673,7 @@ func (w *WebView) ReloadBypassCache() error {
 // RegisterScriptMessageHandler registers a callback invoked when the content script posts a message.
 func (w *WebView) RegisterScriptMessageHandler(cb func(payload string)) { w.msgHandler = cb }
 
-func (w *WebView) RegisterPopupHandler(cb func(string) bool) { w.popupHandler = cb }
+func (w *WebView) RegisterPopupHandler(cb func(string) *WebView) { w.popupHandler = cb }
 
 func (w *WebView) dispatchScriptMessage(payload string) {
 	if w != nil && w.msgHandler != nil {
@@ -1491,11 +1681,19 @@ func (w *WebView) dispatchScriptMessage(payload string) {
 	}
 }
 
-func (w *WebView) dispatchPopupRequest(uri string) bool {
+func (w *WebView) dispatchPopupRequest(uri string) *WebView {
 	if w != nil && w.popupHandler != nil {
 		return w.popupHandler(uri)
 	}
-	return false
+	return nil
+}
+
+// GetNativePointer returns the native WebView pointer for CGO callbacks
+func (w *WebView) GetNativePointer() unsafe.Pointer {
+	if w != nil && w.native != nil && w.native.wv != nil {
+		return unsafe.Pointer(w.native.wv)
+	}
+	return nil
 }
 
 // RegisterTitleChangedHandler registers a callback invoked when the page title changes.
