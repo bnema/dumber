@@ -200,7 +200,6 @@ func (h *WindowShortcutHandler) handleUIToggle(lastToggle *time.Time, featureNam
 	}
 }
 
-
 // Cleanup releases resources
 func (h *WindowShortcutHandler) Cleanup() {
 	if h.shortcuts != nil {
