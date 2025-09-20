@@ -25,6 +25,8 @@ extern void goInvokeHandle(uintptr_t handle);
 extern gboolean goHandleNewWindowPolicy(unsigned long id, char* uri, int nav_type);
 extern void goHandlePopupGeometry(unsigned long id, int x, int y, int width, int height);
 extern GtkWidget* goHandleCreateWebView(unsigned long id, char* uri);
+extern void goHandleLoadChanged(unsigned long id, char* uri, int load_event);
+extern void goHandleWebViewClose(unsigned long id);
 static gboolean invoke_handle_cb(gpointer data) {
     goInvokeHandle((uintptr_t)data);
     return G_SOURCE_REMOVE;
@@ -69,6 +71,25 @@ static void on_popup_ready_to_show(WebKitWebView* web_view, gpointer user_data) 
     }
 }
 
+// Handle load_changed signal for OAuth completion detection
+static void on_load_changed(WebKitWebView *web_view, WebKitLoadEvent load_event, gpointer user_data) {
+    const char* uri = webkit_web_view_get_uri(web_view);
+    unsigned long view_id = (unsigned long)user_data;
+
+    // Only process WEBKIT_LOAD_FINISHED events
+    if (load_event == WEBKIT_LOAD_FINISHED && uri) {
+        printf("[webkit-load] Load finished for URI: %s\n", uri);
+        goHandleLoadChanged(view_id, (char*)uri, load_event);
+    }
+}
+
+// Handle close signal when JavaScript calls window.close()
+static void on_webview_close(WebKitWebView* web_view, gpointer user_data) {
+    unsigned long view_id = (unsigned long)user_data;
+    printf("[webkit-close] WebView close signal from view_id: %lu\n", view_id);
+    goHandleWebViewClose(view_id);
+}
+
 // Handle create signal for popup windows - essential for window.open() support
 static GtkWidget* on_create_web_view(WebKitWebView *web_view,
                                      WebKitNavigationAction *navigation_action,
@@ -83,6 +104,18 @@ static GtkWidget* on_create_web_view(WebKitWebView *web_view,
 
     if (new_webview) {
         printf("[webkit-create] Go handler provided WebView - using workspace pane\n");
+
+        // Connect load_changed signal to the new popup WebView for OAuth detection
+        WebKitWebView* popup_webview = WEBKIT_WEB_VIEW(new_webview);
+        g_signal_connect_data(G_OBJECT(popup_webview), "load-changed",
+                             G_CALLBACK(on_load_changed), user_data, NULL, 0);
+        printf("[webkit-create] Connected load-changed signal to popup for OAuth detection\n");
+
+        // Connect close signal to handle window.close() from OAuth providers
+        g_signal_connect_data(G_OBJECT(popup_webview), "close",
+                             G_CALLBACK(on_webview_close), user_data, NULL, 0);
+        printf("[webkit-create] Connected close signal to popup for OAuth auto-close\n");
+
         return new_webview;
     } else {
         printf("[webkit-create] Go handler declined - allowing native popup window\n");
@@ -253,6 +286,13 @@ static void connect_policy_handler(WebKitWebView* web_view, unsigned long id) {
     g_signal_connect_data(G_OBJECT(web_view), "decide-policy", G_CALLBACK(on_decide_policy), (gpointer)id, NULL, 0);
     // Connect create signal for popup window support
     g_signal_connect_data(G_OBJECT(web_view), "create", G_CALLBACK(on_create_web_view), (gpointer)id, NULL, 0);
+}
+
+// Connect close signal to a WebView for popup auto-close functionality
+static void connect_close_signal(WebKitWebView* web_view, unsigned long id) {
+    if (!web_view) return;
+    g_signal_connect_data(G_OBJECT(web_view), "close", G_CALLBACK(on_webview_close), (gpointer)id, NULL, 0);
+    printf("[webkit-connect] Connected close signal to WebView with id: %lu\n", id);
 }
 
 static gboolean gtk_prefers_dark() {
@@ -1033,6 +1073,7 @@ type WebView struct {
 	uriHandler      func(uri string)
 	zoomHandler     func(level float64)
 	popupHandler func(string) *WebView
+	closeHandler func()
 	memStats     *memoryStats
 	gcTicker        *time.Ticker
 	gcDone          chan struct{}
@@ -1674,6 +1715,14 @@ func (w *WebView) ReloadBypassCache() error {
 func (w *WebView) RegisterScriptMessageHandler(cb func(payload string)) { w.msgHandler = cb }
 
 func (w *WebView) RegisterPopupHandler(cb func(string) *WebView) { w.popupHandler = cb }
+
+func (w *WebView) RegisterCloseHandler(cb func()) {
+	w.closeHandler = cb
+	// Also connect the CGO close signal to ensure window.close() is detected
+	if w.native != nil && w.native.wv != nil {
+		C.connect_close_signal(w.native.wv, C.ulong(w.id))
+	}
+}
 
 func (w *WebView) dispatchScriptMessage(payload string) {
 	if w != nil && w.msgHandler != nil {

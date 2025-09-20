@@ -528,6 +528,43 @@ func goHandleCreateWebView(id C.ulong, curi *C.char) *C.GtkWidget {
 	return nil // Fallback to native popup if workspace creation fails
 }
 
+//export goHandleLoadChanged
+func goHandleLoadChanged(id C.ulong, curi *C.char, loadEvent C.int) {
+	uid := uintptr(id)
+	regMu.RLock()
+	vw := viewByID[uid]
+	regMu.RUnlock()
+
+	if vw == nil {
+		return
+	}
+
+	// OAuth auto-close is handled via WebKit's "close" signal when providers call window.close()
+	// No need to detect OAuth callback URLs - let the providers handle it
+	_ = curi // Suppress unused parameter warning
+}
+
+//export goHandleWebViewClose
+func goHandleWebViewClose(id C.ulong) {
+	uid := uintptr(id)
+	regMu.RLock()
+	vw := viewByID[uid]
+	regMu.RUnlock()
+
+	if vw == nil {
+		log.Printf("[webkit] WebView close signal: no WebView found for ID %d", uid)
+		return
+	}
+
+	log.Printf("[webkit] WebView close signal received for view_id: %d", uid)
+
+	if vw.closeHandler != nil {
+		log.Printf("[webkit] Calling close handler for view_id: %d", uid)
+		vw.closeHandler()
+	} else {
+		log.Printf("[webkit] No close handler registered for view_id: %d", uid)
+	}
+}
 
 //export goHandlePopupGeometry
 func goHandlePopupGeometry(id C.ulong, x, y, width, height C.int) {

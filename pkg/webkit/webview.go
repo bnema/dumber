@@ -22,6 +22,7 @@ type WebView struct {
 	uriHandler   func(uri string)
 	zoomHandler  func(level float64)
 	popupHandler func(string) *WebView
+	closeHandler func()
 	useDomZoom   bool
 	domZoomSeed  float64
 	container    uintptr
@@ -122,6 +123,8 @@ func (w *WebView) CloseDevTools() error { return nil }
 func (w *WebView) RegisterScriptMessageHandler(cb func(payload string)) { w.msgHandler = cb }
 
 func (w *WebView) RegisterPopupHandler(cb func(string) *WebView) { w.popupHandler = cb }
+
+func (w *WebView) RegisterCloseHandler(cb func()) { w.closeHandler = cb }
 
 func (w *WebView) dispatchScriptMessage(payload string) { //nolint:unused // Called from CGO WebKit callbacks
 	if w != nil && w.msgHandler != nil {
