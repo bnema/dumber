@@ -106,7 +106,11 @@ func (fc *FaviconCache) downloadFavicon(faviconURL string) error {
 	if err != nil {
 		return fmt.Errorf("failed to download favicon: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("[favicon] failed to close response body: %v", err)
+		}
+	}()
 
 	// Log redirects for debugging
 	if resp.Request.URL.String() != faviconURL {
@@ -126,14 +130,20 @@ func (fc *FaviconCache) downloadFavicon(faviconURL string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create download temp file: %w", err)
 	}
-	defer downloadFile.Close()
+	defer func() {
+		if err := downloadFile.Close(); err != nil {
+			log.Printf("[favicon] failed to close download file: %v", err)
+		}
+	}()
 	defer os.Remove(tempDownloadFile)
 
 	// Save raw favicon data
 	if _, err := io.Copy(downloadFile, limitedBody); err != nil {
 		return fmt.Errorf("failed to save favicon data: %w", err)
 	}
-	downloadFile.Close()
+	if err := downloadFile.Close(); err != nil {
+		log.Printf("[favicon] failed to close download file: %v", err)
+	}
 
 	// Detect if it's an ICO file and convert with ffmpeg if needed
 	if err := fc.convertToPNG(tempDownloadFile, cachedPath, faviconURL); err != nil {

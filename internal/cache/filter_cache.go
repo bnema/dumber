@@ -3,6 +3,7 @@ package cache
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"os"
 	"syscall"
 	"time"
@@ -233,7 +234,7 @@ func (fc *FilterCache) Write(data *FilterData) error {
 		return fmt.Errorf("failed to write header: %w", err)
 	}
 
-	dataStart, _ := file.Seek(0, os.SEEK_CUR)
+	dataStart, _ := file.Seek(0, io.SeekCurrent)
 
 	// Write network rules
 	for _, rule := range data.NetworkRules {
@@ -252,11 +253,11 @@ func (fc *FilterCache) Write(data *FilterData) error {
 	}
 
 	// Calculate data size
-	dataEnd, _ := file.Seek(0, os.SEEK_CUR)
+	dataEnd, _ := file.Seek(0, io.SeekCurrent)
 	dataSize := uint64(dataEnd - dataStart)
 
 	// Update header with data size
-	if _, err := file.Seek(0, os.SEEK_SET); err != nil {
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		os.Remove(tmpPath)
 		return err
 	}
