@@ -17,10 +17,11 @@ DIST_DIR=dist
 NPROCS?=$(shell nproc 2>/dev/null || echo 1)
 
 # Local caches to avoid $HOME permission issues (override via .env.local)
-GOMODCACHE?=$(CURDIR)/tmp/go-mod
-GOCACHE?=$(CURDIR)/tmp/go-cache
-GOTMPDIR?=$(CURDIR)/tmp
-GOENV=GOMODCACHE=$(GOMODCACHE) GOCACHE=$(GOCACHE) GOTMPDIR=$(GOTMPDIR)
+# GOMODCACHE?=$(CURDIR)/tmp/go-mod
+# GOCACHE?=$(CURDIR)/tmp/go-cache
+# GOTMPDIR?=$(CURDIR)/tmp
+# GOENV=GOMODCACHE=$(GOMODCACHE) GOCACHE=$(GOCACHE) GOTMPDIR=$(GOTMPDIR)
+GOENV=
 
 # Version information from git
 VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "v0.0.0-dev")
@@ -120,7 +121,7 @@ clean: ## Clean build artifacts
 	go clean -cache
 	go clean -testcache
 
-# Project initialization 
+# Project initialization
 init: install-tools ## Initialize project dependencies and tools
 	@echo "Project dependencies and tools installed!"
 	@echo "Ready for development. Run 'make help' for available commands."
