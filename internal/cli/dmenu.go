@@ -331,10 +331,8 @@ func parseSelection(selection string) string {
 		}
 	}
 
-	if strings.HasPrefix(selection, "🕒 ") {
-		// History entry selected - remove emoji prefix
-		selection = strings.TrimPrefix(selection, "🕒 ")
-	}
+	// History entry selected - remove emoji prefix if present
+	selection = strings.TrimPrefix(selection, "🕒 ")
 
 	// If no pipes and looks like a URL, return as-is
 	if strings.Contains(selection, "://") {
