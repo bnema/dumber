@@ -22,6 +22,7 @@ type paneNode struct {
 	container   uintptr // GtkPaned for branch nodes, stable WebView container for leaves
 	orientation webkit.Orientation
 	isLeaf      bool
+	isPopup     bool    // Track if this is a popup pane for OAuth auto-close
 	hoverToken  uintptr
 }
 
@@ -1320,6 +1321,38 @@ func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *web
 		log.Printf("[workspace] popup pane insertion failed: %v - allowing native popup", err)
 		return nil
 	}
+
+	// Mark the new pane as a popup for auto-close handling
+	// The viewToNode mapping is created inside insertPopupPane, so look it up now
+	newNode := wm.viewToNode[newView]
+	if newNode != nil {
+		newNode.isPopup = true
+		log.Printf("[workspace] Marked pane as popup for auto-close handling")
+	} else {
+		log.Printf("[workspace] Warning: could not find node for popup WebView in viewToNode map")
+	}
+
+	// Register close handler for popup auto-close on window.close()
+	// Always register this for popups, regardless of node lookup
+	newView.RegisterCloseHandler(func() {
+		log.Printf("[workspace] Popup requesting close via window.close()")
+
+		// Look up the node at close time
+		if node := wm.viewToNode[newView]; node != nil && node.isPopup {
+			log.Printf("[workspace] Closing popup pane")
+			// Brief delay to allow any final redirects to complete
+			time.AfterFunc(200*time.Millisecond, func() {
+				webkit.IdleAdd(func() bool {
+					if err := wm.closePane(node); err != nil {
+						log.Printf("[workspace] Failed to close popup pane: %v", err)
+					}
+					return false
+				})
+			})
+		} else {
+			log.Printf("[workspace] Could not find popup node for close handler")
+		}
+	})
 
 	// Load the URL if provided
 	if url != "" {
