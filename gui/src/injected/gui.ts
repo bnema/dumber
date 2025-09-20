@@ -64,12 +64,15 @@ if (!window.__dumber_gui_ready) {
   } else {
     window.__dumber_gui_ready = true;
 
-  let workspaceHasFocus = document.hasFocus();
+  let workspaceHasFocus = true; // Assume focus initially, will be corrected by focus events
   let currentPaneId = window.__dumber_pane?.id || 'unknown';
+  let hasReceivedFocusEvent = false; // Track if we've received any workspace focus events
 
   document.addEventListener('dumber:workspace-focus', (event: Event) => {
     const detail = (event as CustomEvent).detail || {};
     console.log('[workspace focus event]', detail, 'prev focus=', workspaceHasFocus);
+    
+    hasReceivedFocusEvent = true;
 
     // Update focus state
     if (typeof detail?.active === 'boolean') {
@@ -222,7 +225,9 @@ if (!window.__dumber_gui_ready) {
 
       // Enhanced focus checking with pane ID validation
       const isForThisPane = !eventPaneId || eventPaneId === currentPaneId;
-      const shouldHandle = workspaceHasFocus && isForThisPane;
+      // Only apply strict focus checking to omnibox actions, be permissive for others
+      const isOmniboxAction = action.startsWith('omnibox-');
+      const shouldHandle = isForThisPane && (isOmniboxAction ? (hasReceivedFocusEvent ? workspaceHasFocus : true) : true);
 
       if (!shouldHandle) {
         console.log('[dumber shortcuts] ignored action', {
@@ -232,7 +237,8 @@ if (!window.__dumber_gui_ready) {
           eventPaneId,
           currentPaneId,
           source,
-          detail
+          detail,
+          hasReceivedFocusEvent
         });
         return;
       }
@@ -242,13 +248,13 @@ if (!window.__dumber_gui_ready) {
       const omnibox = window.__dumber_omnibox;
 
       switch (action) {
-        case 'omnibox-toggle':
-          omnibox?.toggle?.();
+        case 'omnibox-nav-toggle':
+          omnibox?.open?.('omnibox', detail?.query);
           break;
         case 'omnibox-open':
           omnibox?.open?.('omnibox', detail?.query);
           break;
-        case 'omnibox-find':
+        case 'omnibox-find-toggle':
           omnibox?.open?.('find', detail?.query);
           break;
         case 'omnibox-close':

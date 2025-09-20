@@ -74,64 +74,11 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 }
 
 func (h *WindowShortcutHandler) handleOmniboxToggle() {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	// Debounce: 50ms minimum between toggles
-	if time.Since(h.lastOmniboxToggle) < 50*time.Millisecond {
-		log.Printf("[window-shortcuts] Omnibox toggle debounced")
-		return
-	}
-	h.lastOmniboxToggle = time.Now()
-
-	if h.app.activePane == nil || h.app.activePane.webView == nil {
-		log.Printf("[window-shortcuts] No active pane for omnibox")
-		return
-	}
-
-	log.Printf("[window-shortcuts] Omnibox toggle -> pane %p", h.app.activePane.webView)
-
-	// Ensure GUI is available in active pane
-	h.ensureGUIInActivePane("omnibox")
-
-	// Dispatch to active pane only
-	if err := h.app.activePane.webView.DispatchCustomEvent("dumber:ui:shortcut", map[string]any{
-		"action":    "omnibox-toggle",
-		"paneId":    h.getPaneId(h.app.activePane),
-		"timestamp": time.Now().UnixMilli(),
-		"source":    "window-global",
-	}); err != nil {
-		log.Printf("[window-shortcuts] Failed to dispatch omnibox toggle: %v", err)
-	}
+	h.handleUIToggle(&h.lastOmniboxToggle, "omnibox", "omnibox-nav-toggle")
 }
 
 func (h *WindowShortcutHandler) handleFindToggle() {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	if time.Since(h.lastFindToggle) < 50*time.Millisecond {
-		log.Printf("[window-shortcuts] Find toggle debounced")
-		return
-	}
-	h.lastFindToggle = time.Now()
-
-	if h.app.activePane == nil || h.app.activePane.webView == nil {
-		log.Printf("[window-shortcuts] No active pane for find")
-		return
-	}
-
-	log.Printf("[window-shortcuts] Find toggle -> pane %p", h.app.activePane.webView)
-
-	h.ensureGUIInActivePane("omnibox")
-
-	if err := h.app.activePane.webView.DispatchCustomEvent("dumber:ui:shortcut", map[string]any{
-		"action":    "omnibox-find",
-		"paneId":    h.getPaneId(h.app.activePane),
-		"timestamp": time.Now().UnixMilli(),
-		"source":    "window-global",
-	}); err != nil {
-		log.Printf("[window-shortcuts] Failed to dispatch find toggle: %v", err)
-	}
+	h.handleUIToggle(&h.lastFindToggle, "find", "omnibox-find-toggle")
 }
 
 func (h *WindowShortcutHandler) handleCopyURL() {
@@ -223,6 +170,36 @@ func (h *WindowShortcutHandler) getPaneId(pane *BrowserPane) string {
 	}
 	return pane.ID()
 }
+
+func (h *WindowShortcutHandler) handleUIToggle(lastToggle *time.Time, featureName, action string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if time.Since(*lastToggle) < 50*time.Millisecond {
+		log.Printf("[window-shortcuts] %s toggle debounced", featureName)
+		return
+	}
+	*lastToggle = time.Now()
+
+	if h.app.activePane == nil || h.app.activePane.webView == nil {
+		log.Printf("[window-shortcuts] No active pane for %s", featureName)
+		return
+	}
+
+	log.Printf("[window-shortcuts] %s toggle -> pane %p", featureName, h.app.activePane.webView)
+
+	h.ensureGUIInActivePane("omnibox")
+
+	if err := h.app.activePane.webView.DispatchCustomEvent("dumber:ui:shortcut", map[string]any{
+		"action":    action,
+		"paneId":    h.getPaneId(h.app.activePane),
+		"timestamp": time.Now().UnixMilli(),
+		"source":    "window-global",
+	}); err != nil {
+		log.Printf("[window-shortcuts] Failed to dispatch %s toggle: %v", featureName, err)
+	}
+}
+
 
 // Cleanup releases resources
 func (h *WindowShortcutHandler) Cleanup() {
