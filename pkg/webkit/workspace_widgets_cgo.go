@@ -256,11 +256,25 @@ func NewPaned(orientation Orientation) uintptr {
 
 // PanedSetStartChild assigns the start child of a GtkPaned.
 func PanedSetStartChild(paned uintptr, child uintptr) {
+	if child != 0 {
+		// Check if widget already has a parent and force unparent if needed
+		parent := C.gtk_widget_get_parent((*C.GtkWidget)(unsafe.Pointer(child)))
+		if parent != nil {
+			C.gtk_widget_unparent((*C.GtkWidget)(unsafe.Pointer(child)))
+		}
+	}
 	C.gtk_paned_set_start_child((*C.GtkPaned)(unsafe.Pointer(paned)), (*C.GtkWidget)(unsafe.Pointer(child)))
 }
 
 // PanedSetEndChild assigns the end child of a GtkPaned.
 func PanedSetEndChild(paned uintptr, child uintptr) {
+	if child != 0 {
+		// Check if widget already has a parent and force unparent if needed
+		parent := C.gtk_widget_get_parent((*C.GtkWidget)(unsafe.Pointer(child)))
+		if parent != nil {
+			C.gtk_widget_unparent((*C.GtkWidget)(unsafe.Pointer(child)))
+		}
+	}
 	C.gtk_paned_set_end_child((*C.GtkPaned)(unsafe.Pointer(paned)), (*C.GtkWidget)(unsafe.Pointer(child)))
 }
 
