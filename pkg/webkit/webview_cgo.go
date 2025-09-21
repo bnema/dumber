@@ -1304,10 +1304,7 @@ func NewWebView(cfg *Config) (*WebView, error) {
 		_ = v.SetZoom(nz)
 	})
 	_ = v.RegisterKeyboardShortcut("cmdorctrl+0", func() { _ = v.SetZoom(1.0) })
-	// Find in page (Ctrl/Cmd+F): use new keyboard service bridge
-	_ = v.RegisterKeyboardShortcut("cmdorctrl+f", func() {
-		_ = v.InjectScript("document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:'cmdorctrl+f'}}))")
-	})
+	// Find in page (Ctrl/Cmd+F): handled by window-level shortcuts in window_shortcuts.go
 	// Navigation with Ctrl/Cmd + Arrow keys: forward to keyboard service bridge
 	_ = v.RegisterKeyboardShortcut("cmdorctrl+ArrowLeft", func() {
 		_ = v.InjectScript("document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:'cmdorctrl+arrowleft'}}))")
