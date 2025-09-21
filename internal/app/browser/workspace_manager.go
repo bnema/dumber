@@ -1359,6 +1359,10 @@ func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *web
 		if err := newView.LoadURL(url); err != nil {
 			log.Printf("[workspace] failed to load popup URL: %v", err)
 		}
+		// Ensure the WebView is visible after loading URL
+		if err := newView.Show(); err != nil {
+			log.Printf("[workspace] failed to show popup WebView: %v", err)
+		}
 	}
 
 	log.Printf("[workspace] Created popup pane for URL: %s", url)
@@ -1388,6 +1392,12 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 	webkit.WidgetSetHExpand(newContainer, true)
 	webkit.WidgetSetVExpand(newContainer, true)
 	webkit.WidgetRealizeInContainer(newContainer)
+
+	// Also realize the WebView widget itself for proper popup rendering
+	webViewWidget := newPane.webView.Widget()
+	if webViewWidget != 0 {
+		webkit.WidgetRealizeInContainer(webViewWidget)
+	}
 
 	existingContainer := target.container
 	if existingContainer == 0 {

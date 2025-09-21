@@ -265,10 +265,9 @@ static GtkWidget* new_webview_related(WebKitWebView* related_view, WebKitUserCon
         g_object_ref(u); // Add ref since we'll pass it to new WebView
     }
 
-    // Create WebView with same session and content manager for process sharing
+    // Create WebView with related view for process sharing (network session is inherited)
     GtkWidget* w = GTK_WIDGET(g_object_new(WEBKIT_TYPE_WEB_VIEW,
         "user-content-manager", u,
-        "network-session", related_session,
         "related-view", related_view,
         NULL));
 
@@ -1484,6 +1483,17 @@ func NewWebViewWithRelated(cfg *Config, relatedView *WebView) (*WebView, error) 
 	}
 
 	C.gtk_box_append((*C.GtkBox)(unsafe.Pointer(container)), viewWidget)
+
+	// Make the WebView widget visible and expandable for popup rendering
+	C.gtk_widget_set_visible(viewWidget, C.gboolean(1))
+	C.gtk_widget_set_visible(container, C.gboolean(1))
+	C.gtk_widget_set_hexpand(viewWidget, C.gboolean(1))
+	C.gtk_widget_set_vexpand(viewWidget, C.gboolean(1))
+	C.gtk_widget_set_hexpand(container, C.gboolean(1))
+	C.gtk_widget_set_vexpand(container, C.gboolean(1))
+	// Remove any size constraints from popup WebView to let it fill the pane
+	C.gtk_widget_set_size_request(viewWidget, -1, -1)
+	C.gtk_widget_set_size_request(container, -1, -1)
 
 	if cfg.CreateWindow {
 		win = C.new_window()
