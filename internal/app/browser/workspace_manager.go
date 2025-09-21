@@ -1354,6 +1354,9 @@ func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *web
 		}
 	})
 
+	// Inject GUI components into the popup pane
+	wm.ensureGUIInPane(newPane)
+
 	// Load the URL if provided
 	if url != "" {
 		if err := newView.LoadURL(url); err != nil {
