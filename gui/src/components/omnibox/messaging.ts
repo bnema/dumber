@@ -98,6 +98,7 @@ declare global {
       open: (mode?: string, query?: string) => void;
       close: () => void;
       findQuery: (query: string) => void;
+      setActive: (active: boolean) => void;
     };
   }
 }

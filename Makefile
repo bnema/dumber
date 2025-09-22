@@ -43,8 +43,8 @@ build: build-frontend ## Build the application with GUI (frontend assets, then G
 	$(GOENV) CGO_ENABLED=1 go build -p $(NPROCS) $(LDFLAGS) -tags=webkit_cgo -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@echo "✅ Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
 
-build-frontend: ## Build Svelte GUI with Tailwind CSS
-	@echo "Building Svelte GUI with Tailwind CSS..."
+build-frontend: ## Build Svelte GUI with Tailwind CSS and main-world script
+	@echo "Building Svelte GUI with Tailwind CSS and main-world script..."
 	@cd gui && npm install --silent && npm run build
 	@echo "GUI build complete"
 

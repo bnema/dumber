@@ -101,9 +101,10 @@ type LoggingConfig struct {
 	EnableFileLog bool   `mapstructure:"enable_file_log" yaml:"enable_file_log"`
 
 	// Capture settings
-	CaptureStdout  bool `mapstructure:"capture_stdout" yaml:"capture_stdout"`
-	CaptureStderr  bool `mapstructure:"capture_stderr" yaml:"capture_stderr"`
-	CaptureCOutput bool `mapstructure:"capture_c_output" yaml:"capture_c_output"`
+	CaptureStdout  bool `mapstructure:"capture_stdout" yaml:"capture_stdout" json:"capture_stdout"`
+	CaptureStderr  bool `mapstructure:"capture_stderr" yaml:"capture_stderr" json:"capture_stderr"`
+	CaptureCOutput bool `mapstructure:"capture_c_output" yaml:"capture_c_output" json:"capture_c_output"`
+	CaptureConsole bool `mapstructure:"capture_console" yaml:"capture_console" json:"capture_console"`
 
 	// Debug output
 	DebugFile     string `mapstructure:"debug_file" yaml:"debug_file"`
@@ -258,6 +259,15 @@ type PopupBehaviorConfig struct {
 	Placement         string `mapstructure:"placement" yaml:"placement" json:"placement"`
 	OpenInNewPane     bool   `mapstructure:"open_in_new_pane" yaml:"open_in_new_pane" json:"open_in_new_pane"`
 	FollowPaneContext bool   `mapstructure:"follow_pane_context" yaml:"follow_pane_context" json:"follow_pane_context"`
+
+	// New fields for distinguishing window types and behaviors
+	// BlankTargetBehavior determines how to handle window.open(url, "_blank") intents
+	// Accepted values: "pane" (default) or "tab" (future support)
+	BlankTargetBehavior string `mapstructure:"blank_target_behavior" yaml:"blank_target_behavior" json:"blank_target_behavior"`
+	// EnableSmartDetection uses WebKitWindowProperties to detect popup vs tab intents
+	EnableSmartDetection bool `mapstructure:"enable_smart_detection" yaml:"enable_smart_detection" json:"enable_smart_detection"`
+	// OAuthAutoClose enables auto-closing OAuth popups after successful auth redirects
+	OAuthAutoClose bool `mapstructure:"oauth_auto_close" yaml:"oauth_auto_close" json:"oauth_auto_close"`
 }
 
 // WorkspaceStylingConfig defines visual styling for workspace panes.
@@ -678,6 +688,10 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("workspace.popups.placement", defaults.Workspace.Popups.Placement)
 	m.viper.SetDefault("workspace.popups.open_in_new_pane", defaults.Workspace.Popups.OpenInNewPane)
 	m.viper.SetDefault("workspace.popups.follow_pane_context", defaults.Workspace.Popups.FollowPaneContext)
+	// New popup behaviour defaults
+	m.viper.SetDefault("workspace.popups.blank_target_behavior", defaults.Workspace.Popups.BlankTargetBehavior)
+	m.viper.SetDefault("workspace.popups.enable_smart_detection", defaults.Workspace.Popups.EnableSmartDetection)
+	m.viper.SetDefault("workspace.popups.oauth_auto_close", defaults.Workspace.Popups.OAuthAutoClose)
 	m.viper.SetDefault("workspace.styling.border_width", defaults.Workspace.Styling.BorderWidth)
 	m.viper.SetDefault("workspace.styling.border_color", defaults.Workspace.Styling.BorderColor)
 	m.viper.SetDefault("workspace.styling.transition_duration", defaults.Workspace.Styling.TransitionDuration)

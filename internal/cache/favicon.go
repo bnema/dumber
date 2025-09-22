@@ -135,7 +135,11 @@ func (fc *FaviconCache) downloadFavicon(faviconURL string) error {
 			log.Printf("[favicon] failed to close download file: %v", err)
 		}
 	}()
-	defer os.Remove(tempDownloadFile)
+	defer func() {
+		if err := os.Remove(tempDownloadFile); err != nil {
+			log.Printf("[favicon] failed to remove temp download file: %v", err)
+		}
+	}()
 
 	// Save raw favicon data
 	if _, err := io.Copy(downloadFile, limitedBody); err != nil {
@@ -177,7 +181,11 @@ func (fc *FaviconCache) tryStandardImageDecode(filePath string) (image.Image, er
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Printf("[favicon] failed to close file: %v", err)
+		}
+	}()
 
 	img, _, err := image.Decode(file)
 	return img, err
@@ -190,10 +198,16 @@ func (fc *FaviconCache) savePNG(img image.Image, outputPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Printf("[favicon] failed to close file: %v", err)
+		}
+	}()
 
 	if err := png.Encode(file, img); err != nil {
-		os.Remove(tempFile)
+		if removeErr := os.Remove(tempFile); removeErr != nil {
+			log.Printf("[favicon] failed to remove temp file: %v", removeErr)
+		}
 		return fmt.Errorf("failed to encode PNG: %w", err)
 	}
 

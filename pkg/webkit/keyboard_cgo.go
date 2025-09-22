@@ -3,9 +3,10 @@
 package webkit
 
 /*
-#cgo pkg-config: gtk4
+#cgo pkg-config: gtk4 webkitgtk-6.0
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
+#include <webkit/webkit.h>
 
 // Declarations for Go callbacks
 extern gboolean goOnKeyPress(unsigned long id, unsigned int keyval, GdkModifierType state);
@@ -84,7 +85,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"unsafe"
 )
 
 // Registry of accelerators per view id.
@@ -487,45 +487,6 @@ func goHandleNewWindowPolicy(id C.ulong, curi *C.char, navType C.int) C.gboolean
 		log.Printf("[webkit] No popup handler registered - allowing native popup for: %s", uri)
 		return 0 // FALSE - no handler, allow default popup
 	}
-}
-
-//export goHandleCreateWebView
-func goHandleCreateWebView(id C.ulong, curi *C.char) *C.GtkWidget {
-	uid := uintptr(id)
-	regMu.RLock()
-	vw := viewByID[uid]
-	regMu.RUnlock()
-
-	if vw == nil {
-		log.Printf("[webkit] Create signal: no WebView found for ID %d", uid)
-		return nil // Fallback to native popup
-	}
-
-	uri := ""
-	if curi != nil {
-		uri = C.GoString(curi)
-	}
-
-	log.Printf("[webkit] Create signal: creating new pane for URI=%s", uri)
-
-	// Check if we have a popup handler
-	if vw.popupHandler == nil {
-		log.Printf("[webkit] Create signal: no popup handler registered")
-		return nil // Fallback to native popup
-	}
-
-	// Always use the popup handler to create workspace pane (tiling WM design)
-	newView := vw.popupHandler(uri)
-	if newView != nil {
-		widget := newView.Widget()
-		if widget != 0 {
-			log.Printf("[webkit] Create signal: created new workspace pane for popup")
-			return (*C.GtkWidget)(unsafe.Pointer(widget))
-		}
-	}
-
-	log.Printf("[webkit] Create signal: popup handler failed to create pane, falling back to native")
-	return nil // Fallback to native popup if workspace creation fails
 }
 
 //export goHandleLoadChanged

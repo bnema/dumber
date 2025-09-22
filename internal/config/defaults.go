@@ -101,6 +101,7 @@ func DefaultConfig() *Config {
 			CaptureStdout:  false,
 			CaptureStderr:  false,
 			CaptureCOutput: false, // Disabled by default to avoid performance impact
+			CaptureConsole: false, // Disabled by default
 			DebugFile:      "debug.log",
 			VerboseWebKit:  false,
 		},
@@ -183,9 +184,12 @@ func DefaultConfig() *Config {
 				PreviousTab: "cmdorctrl+shift+tab",
 			},
 			Popups: PopupBehaviorConfig{
-				Placement:         defaultPopupPlacement,
-				OpenInNewPane:     true,
-				FollowPaneContext: true,
+				Placement:            defaultPopupPlacement,
+				OpenInNewPane:        true,
+				FollowPaneContext:    true,
+				BlankTargetBehavior:  "pane", // Default to pane, future: "tab"
+				EnableSmartDetection: true,   // Use WindowProperties to detect popup vs tab
+				OAuthAutoClose:       true,   // Auto-close OAuth popups on success
 			},
 			Styling: WorkspaceStylingConfig{
 				BorderWidth:        defaultBorderWidth,

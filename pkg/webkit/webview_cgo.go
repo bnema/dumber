@@ -24,7 +24,6 @@ extern void goQuitMainLoop();
 extern void goInvokeHandle(uintptr_t handle);
 extern gboolean goHandleNewWindowPolicy(unsigned long id, char* uri, int nav_type);
 extern void goHandlePopupGeometry(unsigned long id, int x, int y, int width, int height);
-extern GtkWidget* goHandleCreateWebView(unsigned long id, char* uri);
 extern void goHandleLoadChanged(unsigned long id, char* uri, int load_event);
 extern void goHandleWebViewClose(unsigned long id);
 static gboolean invoke_handle_cb(gpointer data) {
@@ -49,27 +48,17 @@ static void maybe_set_cookie_policy(WebKitCookieManager* cm, int policy);
 
 // TLS error handling forward declarations
 extern gboolean goHandleTLSError(char* failing_uri, char* host, int error_flags, char* cert_info);
+
+// Console message handling forward declarations
+extern void goHandleConsoleMessage(char* message);
+
 static gboolean on_load_failed_with_tls_errors(WebKitWebView *web_view,
                                                const char *failing_uri,
                                                GTlsCertificate *certificate,
                                                GTlsCertificateFlags errors,
                                                gpointer user_data);
 
-// Handle ready-to-show signal for popup windows to properly initialize window properties
-static void on_popup_ready_to_show(WebKitWebView* web_view, gpointer user_data) {
-    // Get window properties to ensure they're properly initialized
-    WebKitWindowProperties* props = webkit_web_view_get_window_properties(web_view);
-    if (props) {
-        // Access properties to ensure WindowFeatures are initialized
-        GdkRectangle geometry;
-        webkit_window_properties_get_geometry(props, &geometry);
 
-        // Pass geometry to Go for workspace positioning
-        unsigned long view_id = (unsigned long)user_data;
-        goHandlePopupGeometry(view_id, geometry.x, geometry.y,
-                             geometry.width, geometry.height);
-    }
-}
 
 // Handle load_changed signal for OAuth completion detection
 static void on_load_changed(WebKitWebView *web_view, WebKitLoadEvent load_event, gpointer user_data) {
@@ -90,38 +79,6 @@ static void on_webview_close(WebKitWebView* web_view, gpointer user_data) {
     goHandleWebViewClose(view_id);
 }
 
-// Handle create signal for popup windows - essential for window.open() support
-static GtkWidget* on_create_web_view(WebKitWebView *web_view,
-                                     WebKitNavigationAction *navigation_action,
-                                     gpointer user_data) {
-    WebKitURIRequest *request = webkit_navigation_action_get_request(navigation_action);
-    const char* uri = webkit_uri_request_get_uri(request);
-
-    printf("[webkit-create] Create signal for URI: %s\n", uri ? uri : "NULL");
-
-    unsigned long view_id = (unsigned long)user_data;
-    GtkWidget* new_webview = goHandleCreateWebView(view_id, (char*)uri);
-
-    if (new_webview) {
-        printf("[webkit-create] Go handler provided WebView - using workspace pane\n");
-
-        // Connect load_changed signal to the new popup WebView for OAuth detection
-        WebKitWebView* popup_webview = WEBKIT_WEB_VIEW(new_webview);
-        g_signal_connect_data(G_OBJECT(popup_webview), "load-changed",
-                             G_CALLBACK(on_load_changed), user_data, NULL, 0);
-        printf("[webkit-create] Connected load-changed signal to popup for OAuth detection\n");
-
-        // Connect close signal to handle window.close() from OAuth providers
-        g_signal_connect_data(G_OBJECT(popup_webview), "close",
-                             G_CALLBACK(on_webview_close), user_data, NULL, 0);
-        printf("[webkit-create] Connected close signal to popup for OAuth auto-close\n");
-
-        return new_webview;
-    } else {
-        printf("[webkit-create] Go handler declined - allowing native popup window\n");
-        return NULL; // Let WebKit create native popup window
-    }
-}
 
 // Handle decide-policy signal for new window requests - more robust than create signal
 static gboolean on_decide_policy(WebKitWebView *web_view,
@@ -282,9 +239,9 @@ static GtkWidget* new_webview_related(WebKitWebView* related_view, WebKitUserCon
 
 static void connect_policy_handler(WebKitWebView* web_view, unsigned long id) {
     if (!web_view) return;
-    g_signal_connect_data(G_OBJECT(web_view), "decide-policy", G_CALLBACK(on_decide_policy), (gpointer)id, NULL, 0);
-    // Connect create signal for popup window support
-    g_signal_connect_data(G_OBJECT(web_view), "create", G_CALLBACK(on_create_web_view), (gpointer)id, NULL, 0);
+    // Create signal is now handled in window_handler_cgo.go
+    // Use ConnectCreateSignal from Go to connect the signal
+    printf("[webkit-debug] Policy handler connected (create signal handled separately)\n");
 }
 
 // Connect close signal to a WebView for popup auto-close functionality
@@ -780,6 +737,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -807,125 +765,7 @@ type FilterManager interface {
 	GetCosmeticScriptForDomain(domain string) string
 }
 
-const domBridgeTemplate = `(() => { try {
-              if (window.__dumber_page_bridge_installed) return; 
-              window.__dumber_page_bridge_installed = true;
-              
-              const __dumberInitialZoom = __DOM_ZOOM_DEFAULT__;
-              window.__dumber_dom_zoom_seed = __dumberInitialZoom;
-              
-              // Theme setter function for GTK theme integration
-              window.__dumber_setTheme = (theme) => {
-                window.__dumber_initial_theme = theme;
-                console.log('[dumber] Setting theme to:', theme);
-                if (theme === 'dark') {
-                  document.documentElement.classList.add('dark');
-                } else {
-                  document.documentElement.classList.remove('dark');
-                }
-              };
-              
-              // Ensure unified API object
-              window.__dumber = window.__dumber || {};
-              // Toast namespace
-              window.__dumber.toast = window.__dumber.toast || {
-                show: function(message, duration, type) {
-                  try {
-                    document.dispatchEvent(new CustomEvent('dumber:toast:show', { detail: { message, duration, type } }));
-                    // Legacy compatibility
-                    document.dispatchEvent(new CustomEvent('dumber:showToast', { detail: { message, duration, type } }));
-                  } catch(e) { /* ignore */ }
-                },
-                zoom: function(level) {
-                  try {
-                    document.dispatchEvent(new CustomEvent('dumber:toast:zoom', { detail: { level } }));
-                    // Legacy compatibility
-                    document.dispatchEvent(new CustomEvent('dumber:showZoomToast', { detail: { level } }));
-                  } catch(e) { /* ignore */ }
-                }
-              };
-              // Back-compat global helpers
-              window.__dumber_showToast = function(message, duration, type) { window.__dumber.toast.show(message, duration, type); };
-              window.__dumber_showZoomToast = function(level) { window.__dumber.toast.zoom(level); };
-
-              // DOM zoom helpers (optional native override)
-              if (typeof window.__dumber_dom_zoom_level !== 'number') {
-                window.__dumber_dom_zoom_level = __dumberInitialZoom;
-              }
-              const __dumberApplyZoomStyles = function(node, level) {
-                if (!node) return;
-                if (Math.abs(level - 1.0) < 1e-6) {
-                  node.style.removeProperty('zoom');
-                  node.style.removeProperty('transform');
-                  node.style.removeProperty('transform-origin');
-                  node.style.removeProperty('width');
-                  node.style.removeProperty('min-width');
-                  node.style.removeProperty('height');
-                  node.style.removeProperty('min-height');
-                  return;
-                }
-                const scale = level;
-                const inversePercent = 100 / scale;
-                const widthValue = inversePercent + '%';
-                node.style.removeProperty('zoom');
-                node.style.transform = 'scale(' + scale + ')';
-                node.style.transformOrigin = '0 0';
-                node.style.width = widthValue;
-                node.style.minWidth = widthValue;
-                node.style.minHeight = '100%';
-              };
-              window.__dumber_applyDomZoom = function(level) {
-                try {
-                  window.__dumber_dom_zoom_level = level;
-                  window.__dumber_dom_zoom_seed = level;
-                  __dumberApplyZoomStyles(document.documentElement, level);
-                  if (document.body) {
-                    __dumberApplyZoomStyles(document.body, level);
-                  }
-                } catch (e) {
-                  console.error('[dumber] DOM zoom error', e);
-                }
-              };
-              // Apply immediately so first paint uses the desired zoom, then reapply when body exists.
-              window.__dumber_applyDomZoom(window.__dumber_dom_zoom_level);
-              if (!document.body) {
-                document.addEventListener('DOMContentLoaded', function() {
-                  if (typeof window.__dumber_dom_zoom_level === 'number') {
-                    window.__dumber_applyDomZoom(window.__dumber_dom_zoom_level);
-                  }
-                }, { once: true });
-              }
-
-              // Omnibox suggestions bridge (with queue before ready)
-              let __omniboxQueue = [];
-              let __omniboxReady = false;
-              function __omniboxDispatch(suggestions) {
-                try {
-                  document.dispatchEvent(new CustomEvent('dumber:omnibox:suggestions', { detail: { suggestions } }));
-                  // Legacy compatibility event name
-                  document.dispatchEvent(new CustomEvent('dumber:omnibox-suggestions', { detail: { suggestions } }));
-                } catch (e) { /* ignore */ }
-              }
-              window.__dumber_omnibox_suggestions = function(suggestions) {
-                if (__omniboxReady) {
-                  __omniboxDispatch(suggestions);
-                } else {
-                  try { __omniboxQueue.push(suggestions); } catch (_) { /* ignore */ }
-                }
-              };
-              document.addEventListener('dumber:omnibox-ready', function() {
-                __omniboxReady = true;
-                if (__omniboxQueue && __omniboxQueue.length) {
-                  const items = __omniboxQueue.slice();
-                  __omniboxQueue.length = 0;
-                  for (const s of items) __omniboxDispatch(s);
-                }
-              });
-              // Unified omnibox API for page-world callers
-              window.__dumber.omnibox = window.__dumber.omnibox || {
-                suggestions: function(suggestions) { window.__dumber_omnibox_suggestions(suggestions); }
-              };
-            } catch (e) { console.warn('[dumber] unified bridge init failed', e); } })();`
+// domBridgeTemplate removed - now loading compiled main-world.min.js
 
 var registerSchemeOnce sync.Once
 
@@ -1071,9 +911,9 @@ type WebView struct {
 	titleHandler    func(title string)
 	uriHandler      func(uri string)
 	zoomHandler     func(level float64)
-	popupHandler func(string) *WebView
-	closeHandler func()
-	memStats     *memoryStats
+	popupHandler    func(string) *WebView
+	closeHandler    func()
+	memStats        *memoryStats
 	gcTicker        *time.Ticker
 	gcDone          chan struct{}
 	tlsExceptions   map[string]bool // host -> whether user allowed certificate exception
@@ -1081,6 +921,13 @@ type WebView struct {
 	domZoomSeed     float64
 	domBridgeScript *C.WebKitUserScript
 	wasReparented   bool // Track if this WebView has been reparented
+
+	// Window type detection and relationships
+	windowType         WindowType
+	windowFeatures     *WindowFeatures
+	windowTypeCallback func(WindowType, *WindowFeatures)
+	parentWebView      *WebView
+	isRelated          bool
 }
 
 // NewWebView constructs a new WebView instance with native WebKit2GTK widgets.
@@ -1237,6 +1084,7 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	v.id = nextViewID()
 	registerView(v.id, v)
 	C.connect_policy_handler(v.native.wv, C.ulong(v.id))
+	ConnectCreateSignal(v) // Connect create signal for window.open support
 
 	// Register with global memory manager if monitoring is enabled
 	if cfg.Memory.EnableMemoryMonitoring {
@@ -1446,7 +1294,122 @@ func NewWebView(cfg *Config) (*WebView, error) {
 		}
 	}
 
+	// Setup console message logging
+	v.setupConsoleLogging()
+
 	return v, nil
+}
+
+// setupConsoleLogging enables console message capture for the WebView
+func (v *WebView) setupConsoleLogging() {
+	if v.native == nil || v.native.wv == nil {
+		return
+	}
+	
+	// Check if console capture is enabled in config
+	cfg := config.Get()
+	if !cfg.Logging.CaptureConsole {
+		// Disable console messages to stdout (always, to keep backend clean)
+		if settings := C.webkit_web_view_get_settings(v.native.wv); settings != nil {
+			C.webkit_settings_set_enable_write_console_messages_to_stdout(settings, C.gboolean(0))
+		}
+		return
+	}
+	
+	// If console capture is enabled, disable stdout and enable our capture
+	if settings := C.webkit_web_view_get_settings(v.native.wv); settings != nil {
+		C.webkit_settings_set_enable_write_console_messages_to_stdout(settings, C.gboolean(0))
+		log.Printf("[webkit] Console message capture enabled - redirecting to console.log file")
+	}
+	
+	// TODO: Implement JavaScript injection for console capture
+	// This will inject code to intercept console.log/error/warn and send to Go
+}
+
+// setupGlobalConsoleCapture sets up a global stdout filter to capture console messages
+func setupGlobalConsoleCapture() {
+	// This should be called once globally, not per WebView
+	logging.StartConsoleCapture()
+}
+
+// injectConsoleCapture injects JavaScript to capture console messages
+func (v *WebView) injectConsoleCapture() {
+	consoleScript := `
+(function() {
+	const originalLog = console.log;
+	const originalWarn = console.warn;
+	const originalError = console.error;
+	const originalInfo = console.info;
+	const originalDebug = console.debug;
+	
+	function sendToGo(level, args) {
+		const message = args.map(arg => 
+			typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+		).join(' ');
+		
+		const formattedMessage = '[' + level + '] ' + window.location.href + ' ' + message;
+		
+		// Send to Go via user script message
+		if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.dumberBridge) {
+			window.webkit.messageHandlers.dumberBridge.postMessage({
+				type: 'console',
+				data: formattedMessage
+			});
+		}
+	}
+	
+	console.log = function(...args) {
+		originalLog.apply(console, args);
+		sendToGo('LOG', args);
+	};
+	
+	console.warn = function(...args) {
+		originalWarn.apply(console, args);
+		sendToGo('WARN', args);
+	};
+	
+	console.error = function(...args) {
+		originalError.apply(console, args);
+		sendToGo('ERROR', args);
+	};
+	
+	console.info = function(...args) {
+		originalInfo.apply(console, args);
+		sendToGo('INFO', args);
+	};
+	
+	console.debug = function(...args) {
+		originalDebug.apply(console, args);
+		sendToGo('DEBUG', args);
+	};
+})();
+`
+	_ = v.InjectScript(consoleScript)
+}
+
+// handleConsoleMessage processes console messages from JavaScript
+func (v *WebView) handleConsoleMessage(payload string) {
+	// Parse the message payload to check if it's a console message
+	var msg struct {
+		Type string `json:"type"`
+		Data string `json:"data"`
+	}
+	
+	if err := json.Unmarshal([]byte(payload), &msg); err != nil {
+		return
+	}
+	
+	if msg.Type == "console" {
+		// Send to logging system with [CONSOLE] tag
+		logging.CaptureWebKitLog(msg.Data)
+	}
+}
+
+// startConsoleCapture starts capturing stdout to filter console messages
+func (v *WebView) startConsoleCapture() {
+	// This is a simplified approach - we'll rely on the existing OutputCapture
+	// mechanism in internal/logging/capture.go to handle stdout capture
+	// and filter for console messages in the log processing
 }
 
 // NewWebViewWithRelated creates a new WebView related to an existing one for process sharing
@@ -1532,6 +1495,7 @@ func NewWebViewWithRelated(cfg *Config, relatedView *WebView) (*WebView, error) 
 	v.id = nextViewID()
 	registerView(v.id, v)
 	C.connect_policy_handler(v.native.wv, C.ulong(v.id))
+	ConnectCreateSignal(v) // Connect create signal for window.open support
 
 	// Register with memory manager if enabled
 	if cfg.Memory.EnableMemoryMonitoring {
@@ -1742,6 +1706,46 @@ func (w *WebView) dispatchPopupRequest(uri string) *WebView {
 		return w.popupHandler(uri)
 	}
 	return nil
+}
+
+// CreateRelatedView creates a WebView that shares process/context with this view
+func (w *WebView) CreateRelatedView() *WebView {
+	if w == nil || w.native == nil || w.native.wv == nil {
+		return nil
+	}
+	// Build a minimal config inheriting from current view
+	cfg := &Config{
+		Assets:                w.config.Assets,
+		ZoomDefault:           w.config.ZoomDefault,
+		EnableDeveloperExtras: w.config.EnableDeveloperExtras,
+		DataDir:               w.config.DataDir,
+		CacheDir:              w.config.CacheDir,
+		APIToken:              w.config.APIToken,
+		DefaultSansFont:       w.config.DefaultSansFont,
+		DefaultSerifFont:      w.config.DefaultSerifFont,
+		DefaultMonospaceFont:  w.config.DefaultMonospaceFont,
+		DefaultFontSize:       w.config.DefaultFontSize,
+		Rendering:             w.config.Rendering,
+		UseDomZoom:            w.config.UseDomZoom,
+		VideoAcceleration:     w.config.VideoAcceleration,
+		Memory:                w.config.Memory,
+		CodecPreferences:      w.config.CodecPreferences,
+		CreateWindow:          false,
+	}
+	related, err := NewWebViewWithRelated(cfg, w)
+	if err != nil {
+		log.Printf("[webkit] CreateRelatedView failed: %v", err)
+		return nil
+	}
+	return related
+}
+
+// OnWindowTypeDetected registers a callback invoked when window type is detected
+func (w *WebView) OnWindowTypeDetected(callback func(WindowType, *WindowFeatures)) {
+	if w == nil {
+		return
+	}
+	w.windowTypeCallback = callback
 }
 
 // GetNativePointer returns the native WebView pointer for CGO callbacks
@@ -2027,10 +2031,26 @@ func clampDomZoom(level float64) float64 {
 	return level
 }
 
-func buildDomBridgeScript(initialZoom float64) string {
+func buildDomBridgeScript(cfg *Config, initialZoom float64) string {
+	if cfg == nil || cfg.Assets == nil {
+		log.Printf("[webkit] Config or assets not available for main-world script")
+		return ""
+	}
+
+	// Load the compiled main-world script
+	scriptBytes, err := cfg.Assets.ReadFile("assets/gui/main-world.min.js")
+	if err != nil {
+		log.Printf("[webkit] Failed to load main-world script: %v", err)
+		return ""
+	}
+
+	// Replace the zoom placeholder with the actual value
 	zoom := clampDomZoom(initialZoom)
 	zoomStr := strconv.FormatFloat(zoom, 'f', -1, 64)
-	return strings.ReplaceAll(domBridgeTemplate, "__DOM_ZOOM_DEFAULT__", zoomStr)
+	script := strings.ReplaceAll(string(scriptBytes), "__DOM_ZOOM_DEFAULT__", zoomStr)
+
+	log.Printf("[webkit] Loaded main-world script successfully, size: %d bytes", len(scriptBytes))
+	return script
 }
 
 func (w *WebView) UsesDomZoom() bool {
@@ -2050,7 +2070,7 @@ func (w *WebView) installDomBridgeScript() {
 		w.domBridgeScript = nil
 	}
 
-	source := buildDomBridgeScript(w.domZoomSeed)
+	source := buildDomBridgeScript(w.config, w.domZoomSeed)
 	cBridge := C.CString(source)
 	defer C.free(unsafe.Pointer(cBridge))
 
@@ -2076,8 +2096,11 @@ func (w *WebView) SeedDomZoom(level float64) {
 		return
 	}
 	w.domZoomSeed = seed
+	// Instead of re-injecting the entire script, just update the zoom level
 	w.RunOnMainThread(func() {
-		w.installDomBridgeScript()
+		zoomStr := strconv.FormatFloat(seed, 'f', -1, 64)
+		script := fmt.Sprintf("if (window.__dumber_applyDomZoom) { window.__dumber_applyDomZoom(%s); }", zoomStr)
+		w.InjectScript(script)
 	})
 }
 
@@ -2210,6 +2233,13 @@ func goHandleTLSError(failingURI *C.char, host *C.char, errorFlags C.int, certIn
 
 	log.Printf("[tls] User rejected certificate for %s", hostname)
 	return C.FALSE // Don't proceed
+}
+
+//export goHandleConsoleMessage
+//export goHandleConsoleMessage
+func goHandleConsoleMessage(message *C.char) {
+	messageText := C.GoString(message)
+	logging.CaptureWebKitLog(messageText)
 }
 
 // showTLSWarningDialog displays a warning dialog for TLS certificate errors with storage capability
@@ -2529,4 +2559,9 @@ func (w *WebView) detectAndLogRenderingBackend() {
 
 		w.InjectScript(detectionScript)
 	}()
+}
+
+// SetWindowFeatures sets the window features for this WebView
+func (w *WebView) SetWindowFeatures(features *WindowFeatures) {
+	w.windowFeatures = features
 }

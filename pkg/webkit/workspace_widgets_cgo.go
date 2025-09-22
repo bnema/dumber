@@ -306,6 +306,14 @@ func PanedSetResizeEnd(paned uintptr, resize bool) {
 	C.gtk_paned_set_resize_end_child((*C.GtkPaned)(unsafe.Pointer(paned)), goBool(resize))
 }
 
+// PanedSetPosition sets the pixel position of the divider.
+func PanedSetPosition(paned uintptr, pos int) {
+	if paned == 0 {
+		return
+	}
+	C.gtk_paned_set_position((*C.GtkPaned)(unsafe.Pointer(paned)), C.int(pos))
+}
+
 // WidgetUnparent detaches a widget from its current parent.
 func WidgetUnparent(widget uintptr) {
 	if widget == 0 {

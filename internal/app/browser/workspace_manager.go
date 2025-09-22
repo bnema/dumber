@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	neturl "net/url"
 	"strings"
 	"sync"
 	"time"
@@ -22,8 +23,14 @@ type paneNode struct {
 	container   uintptr // GtkPaned for branch nodes, stable WebView container for leaves
 	orientation webkit.Orientation
 	isLeaf      bool
-	isPopup     bool    // Track if this is a popup pane for OAuth auto-close
-	hoverToken  uintptr
+	isPopup     bool // Deprecated: use windowType instead
+	// Window type tracking
+	windowType     webkit.WindowType      // Tab or Popup
+	windowFeatures *webkit.WindowFeatures // Features if popup
+	isRelated      bool                   // Shares context
+	parentPane     *paneNode              // Parent for related views
+	autoClose      bool                   // Auto-close on OAuth success
+	hoverToken     uintptr
 }
 
 // WorkspaceManager coordinates Zellij-style pane operations.
@@ -241,6 +248,45 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 		}
 		wm.clonePaneState(node, newNode)
 		wm.splitting = false
+	case "create-pane":
+		log.Printf("[workspace] create-pane requested: url=%s action=%s", msg.URL, msg.Action)
+
+		if msg.URL == "" {
+			log.Printf("[workspace] create-pane: empty URL, ignoring")
+			break
+		}
+
+		// Create a basic window intent from the message
+		intent := &messaging.WindowIntent{
+			URL:        msg.URL,
+			WindowType: msg.Action, // "tab" or "popup"
+		}
+
+		// Use the existing methods to handle tab vs popup creation
+		switch strings.ToLower(msg.Action) {
+		case "tab":
+			newView := wm.handleIntentAsTab(node, msg.URL, intent)
+			if newView != nil {
+				log.Printf("[workspace] create-pane: tab created successfully")
+			} else {
+				log.Printf("[workspace] create-pane: failed to create tab")
+			}
+		case "popup":
+			newView := wm.handleIntentAsPopup(node, msg.URL, intent)
+			if newView != nil {
+				log.Printf("[workspace] create-pane: popup created successfully")
+			} else {
+				log.Printf("[workspace] create-pane: failed to create popup")
+			}
+		default:
+			log.Printf("[workspace] create-pane: unknown action '%s', defaulting to tab", msg.Action)
+			newView := wm.handleIntentAsTab(node, msg.URL, intent)
+			if newView != nil {
+				log.Printf("[workspace] create-pane: default tab created successfully")
+			} else {
+				log.Printf("[workspace] create-pane: failed to create default tab")
+			}
+		}
 	default:
 		log.Printf("[workspace] unhandled workspace event: %s", msg.Event)
 	}
@@ -1267,12 +1313,13 @@ func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *web
 		return nil
 	}
 
+	// Note: HandlePopup is now obsolete - window.open is handled directly via JavaScript bypass
+
 	cfg := wm.app.config
 	if cfg == nil {
 		log.Printf("[workspace] HandlePopup: nil config - allowing native popup")
 		return nil
 	}
-
 
 	popCfg := cfg.Workspace.Popups
 	log.Printf("[workspace] Popup config - OpenInNewPane: %v, Placement: %s", popCfg.OpenInNewPane, popCfg.Placement)
@@ -1282,15 +1329,50 @@ func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *web
 		return nil
 	}
 
-	// Create a new WebView related to the source for process sharing and proper WindowFeatures
+	// Smart detection path: create temporary view and decide placement once type is known
+	if popCfg.EnableSmartDetection {
+		webkitCfg, err := wm.app.buildWebkitConfig()
+		if err != nil {
+			log.Printf("[workspace] failed to build webkit config: %v - allowing native popup", err)
+			return nil
+		}
+		webkitCfg.CreateWindow = false
+		// Create as related to avoid WindowFeatures crash; we'll decide final placement later
+		newView, err := webkit.NewWebViewWithRelated(webkitCfg, source)
+		if err != nil {
+			log.Printf("[workspace] failed to create temp WebView: %v - allowing native popup", err)
+			return nil
+		}
+
+		// Register detection callback
+		newView.OnWindowTypeDetected(func(t webkit.WindowType, feat *webkit.WindowFeatures) {
+			wm.RunOnUI(func() {
+				wm.handleDetectedWindowType(node, newView, url, t, feat)
+			})
+		})
+
+		// Fallback: if detection never fires, treat as popup as before
+		go func() {
+			time.Sleep(1500 * time.Millisecond)
+			if newView != nil {
+				wm.RunOnUI(func() {
+					if wm.viewToNode[newView] == nil { // not yet placed
+						wm.handleDetectedWindowType(node, newView, url, webkit.WindowTypePopup, nil)
+					}
+				})
+			}
+		}()
+
+		return newView
+	}
+
+	// Legacy path preserved
 	webkitCfg, err := wm.app.buildWebkitConfig()
 	if err != nil {
 		log.Printf("[workspace] failed to build webkit config: %v - allowing native popup", err)
 		return nil
 	}
-	// Don't create window initially - we'll embed directly in workspace
 	webkitCfg.CreateWindow = false
-
 	newView, err := webkit.NewWebViewWithRelated(webkitCfg, source)
 	if err != nil {
 		log.Printf("[workspace] failed to create related popup WebView: %v - allowing native popup", err)
@@ -1372,6 +1454,386 @@ func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *web
 	return newView
 }
 
+// handleIntentAsTab creates an independent tab pane based on window.open intent
+func (wm *WorkspaceManager) registerOAuthAutoClose(view *webkit.WebView, url string) {
+	initial := strings.TrimSpace(strings.ToLower(url))
+	closed := false
+	view.RegisterURIChangedHandler(func(uri string) {
+		if closed {
+			return
+		}
+		if uri == "" {
+			return
+		}
+		u := strings.ToLower(uri)
+		if u == "about:blank" || u == initial {
+			return
+		}
+
+		should := false
+		if strings.Contains(u, "auth/callback") || strings.Contains(u, "callback") || strings.Contains(u, "redirect") {
+			should = true
+		}
+		if !should {
+			if parsed, err := neturl.Parse(uri); err == nil {
+				q := parsed.Query()
+				if q.Has("code") || q.Has("access_token") || q.Has("id_token") {
+					should = true
+				}
+				if !should && parsed.Fragment != "" {
+					frag := strings.ToLower(parsed.Fragment)
+					if strings.Contains(frag, "access_token=") || strings.Contains(frag, "id_token=") || strings.Contains(frag, "code=") {
+						should = true
+					}
+				}
+			}
+		}
+
+		if should {
+			log.Printf("[workspace] OAuth URL-based auto-close triggered for: %s", uri)
+			closed = true
+			time.AfterFunc(200*time.Millisecond, func() {
+				webkit.IdleAdd(func() bool {
+					if n := wm.viewToNode[view]; n != nil && n.isPopup {
+						if err := wm.closePane(n); err != nil {
+							log.Printf("[workspace] Failed to close OAuth popup pane: %v", err)
+						}
+					}
+					return false
+				})
+			})
+		}
+	})
+}
+
+func (wm *WorkspaceManager) applyWindowFeatures(view *webkit.WebView, intent *messaging.WindowIntent, isPopup bool) {
+	if intent == nil {
+		return
+	}
+
+	features := &webkit.WindowFeatures{}
+
+	// Apply dimensions if specified
+	if intent.Width != nil {
+		features.Width = *intent.Width
+	}
+	if intent.Height != nil {
+		features.Height = *intent.Height
+	}
+
+	// Apply visibility features based on window type
+	defaultToolbar := !isPopup
+	defaultLocation := !isPopup
+	defaultMenubar := !isPopup
+
+	if intent.Toolbar != nil {
+		features.ToolbarVisible = *intent.Toolbar
+	} else {
+		features.ToolbarVisible = defaultToolbar
+	}
+
+	if intent.Location != nil {
+		features.LocationbarVisible = *intent.Location
+	} else {
+		features.LocationbarVisible = defaultLocation
+	}
+
+	if intent.Menubar != nil {
+		features.MenubarVisible = *intent.Menubar
+	} else {
+		features.MenubarVisible = defaultMenubar
+	}
+
+	if intent.Resizable != nil {
+		features.Resizable = *intent.Resizable
+	} else {
+		features.Resizable = true // Usually resizable unless explicitly disabled
+	}
+
+	view.SetWindowFeatures(features)
+	windowTypeStr := "tab"
+	if isPopup {
+		windowTypeStr = "popup"
+	}
+	log.Printf("[workspace] Applied %s window features from intent: size=%dx%d, toolbar=%t, location=%t, menubar=%t, resizable=%t",
+		windowTypeStr, features.Width, features.Height, features.ToolbarVisible, features.LocationbarVisible, features.MenubarVisible, features.Resizable)
+}
+
+func (wm *WorkspaceManager) handleIntentAsTab(sourceNode *paneNode, url string, intent *messaging.WindowIntent) *webkit.WebView {
+	log.Printf("[workspace] Handling intent as tab: %s", url)
+
+	webkitCfg, err := wm.app.buildWebkitConfig()
+	if err != nil {
+		log.Printf("[workspace] failed to build webkit config: %v - allowing native popup", err)
+		return nil
+	}
+	webkitCfg.CreateWindow = false
+
+	newView, err := webkit.NewWebView(webkitCfg)
+	if err != nil {
+		log.Printf("[workspace] failed to create tab WebView: %v - allowing native popup", err)
+		return nil
+	}
+
+	newPane, err := wm.createPane(newView)
+	if err != nil {
+		log.Printf("[workspace] failed to create tab pane: %v - allowing native popup", err)
+		return nil
+	}
+
+	direction := strings.ToLower(wm.app.config.Workspace.Popups.Placement)
+	if direction == "" {
+		direction = "right"
+	}
+
+	if err := wm.insertPopupPane(sourceNode, newPane, direction); err != nil {
+		log.Printf("[workspace] tab pane insertion failed: %v - allowing native popup", err)
+		return nil
+	}
+
+	node := wm.viewToNode[newView]
+	if node != nil {
+		node.windowType = webkit.WindowTypeTab
+		node.isRelated = false
+
+		// Apply window features from JavaScript intent
+		wm.applyWindowFeatures(newView, intent, false)
+	}
+
+	wm.ensureGUIInPane(newPane)
+
+	if url != "" {
+		if err := newView.LoadURL(url); err != nil {
+			log.Printf("[workspace] failed to load tab URL: %v", err)
+		}
+		if err := newView.Show(); err != nil {
+			log.Printf("[workspace] failed to show tab WebView: %v", err)
+		}
+	}
+
+	log.Printf("[workspace] Created tab pane for URL: %s", url)
+	return newView
+}
+
+// handleIntentAsPopup creates a related popup pane based on window.open intent
+func (wm *WorkspaceManager) handleIntentAsPopup(sourceNode *paneNode, url string, intent *messaging.WindowIntent) *webkit.WebView {
+	log.Printf("[workspace] Handling intent as popup: %s", url)
+
+	webkitCfg, err := wm.app.buildWebkitConfig()
+	if err != nil {
+		log.Printf("[workspace] failed to build webkit config: %v - allowing native popup", err)
+		return nil
+	}
+	webkitCfg.CreateWindow = false
+
+	newView, err := webkit.NewWebViewWithRelated(webkitCfg, sourceNode.pane.webView)
+	if err != nil {
+		log.Printf("[workspace] failed to create popup WebView: %v - allowing native popup", err)
+		return nil
+	}
+
+	newPane, err := wm.createPane(newView)
+	if err != nil {
+		log.Printf("[workspace] failed to create popup pane: %v - allowing native popup", err)
+		return nil
+	}
+
+	direction := strings.ToLower(wm.app.config.Workspace.Popups.Placement)
+	if direction == "" {
+		direction = "right"
+	}
+
+	if err := wm.insertPopupPane(sourceNode, newPane, direction); err != nil {
+		log.Printf("[workspace] popup pane insertion failed: %v - allowing native popup", err)
+		return nil
+	}
+
+	node := wm.viewToNode[newView]
+	if node != nil {
+		node.windowType = webkit.WindowTypePopup
+		node.isRelated = true
+		node.parentPane = sourceNode
+		node.isPopup = true
+		node.autoClose = wm.shouldAutoClose(url)
+
+		// Apply window features from JavaScript intent
+		wm.applyWindowFeatures(newView, intent, true)
+	}
+
+	// Register close handler for popup auto-close
+	newView.RegisterCloseHandler(func() {
+		log.Printf("[workspace] Popup requesting close via window.close()")
+		if n := wm.viewToNode[newView]; n != nil && n.isPopup {
+			time.AfterFunc(200*time.Millisecond, func() {
+				webkit.IdleAdd(func() bool {
+					if err := wm.closePane(n); err != nil {
+						log.Printf("[workspace] Failed to close popup pane: %v", err)
+					}
+					return false
+				})
+			})
+		}
+	})
+
+	// URL-based auto-close for OAuth popups
+	if node != nil && node.isPopup && node.autoClose {
+		wm.registerOAuthAutoClose(newView, url)
+	}
+
+	wm.ensureGUIInPane(newPane)
+
+	if url != "" {
+		if err := newView.LoadURL(url); err != nil {
+			log.Printf("[workspace] failed to load popup URL: %v", err)
+		}
+		if err := newView.Show(); err != nil {
+			log.Printf("[workspace] failed to show popup WebView: %v", err)
+		}
+	}
+
+	log.Printf("[workspace] Created popup pane for URL: %s", url)
+	return newView
+}
+
+// insertIndependentPane inserts a new independent pane next to the source
+func (wm *WorkspaceManager) insertIndependentPane(sourceNode *paneNode, webView *webkit.WebView, url string) error {
+	newPane, err := wm.createPane(webView)
+	if err != nil {
+		return err
+	}
+	direction := strings.ToLower(wm.app.config.Workspace.Popups.Placement)
+	if direction == "" {
+		direction = "right"
+	}
+	if err := wm.insertPopupPane(sourceNode, newPane, direction); err != nil { // reuse insertion primitive
+		return err
+	}
+	node := wm.viewToNode[webView]
+	if node != nil {
+		node.windowType = webkit.WindowTypeTab
+		node.isRelated = false
+	}
+	if url != "" {
+		_ = webView.LoadURL(url)
+	}
+	return nil
+}
+
+// configureRelatedPopup creates a related view and inserts it
+func (wm *WorkspaceManager) configureRelatedPopup(sourceNode *paneNode, webView *webkit.WebView, url string, feat *webkit.WindowFeatures) {
+	// Use the WebView that was already created and returned to WebKit
+	related := webView
+	newPane, err := wm.createPane(related)
+	if err != nil {
+		log.Printf("[workspace] failed to create related popup pane: %v", err)
+		return
+	}
+	direction := strings.ToLower(wm.app.config.Workspace.Popups.Placement)
+	if direction == "" {
+		direction = "right"
+	}
+	if err := wm.insertPopupPane(sourceNode, newPane, direction); err != nil {
+		log.Printf("[workspace] failed to insert related popup pane: %v", err)
+		return
+	}
+	node := wm.viewToNode[related]
+	if node != nil {
+		node.windowType = webkit.WindowTypePopup
+		node.windowFeatures = feat
+		node.isRelated = true
+		node.parentPane = sourceNode
+		node.isPopup = true
+		// Heuristic + config for auto-close intent
+		node.autoClose = wm.shouldAutoClose(url)
+	}
+	// Pipe into existing auto-close flow only for popups (confirmed by detection)
+	related.RegisterCloseHandler(func() {
+		log.Printf("[workspace] Popup requesting close via window.close()")
+		if n := wm.viewToNode[related]; n != nil && n.isPopup {
+			time.AfterFunc(200*time.Millisecond, func() {
+				webkit.IdleAdd(func() bool {
+					if err := wm.closePane(n); err != nil {
+						log.Printf("[workspace] Failed to close popup pane: %v", err)
+					}
+					return false
+				})
+			})
+		}
+	})
+
+	// URL-based fallback: if providers don't call window.close(), auto-close on OAuth callback URLs
+	if node != nil && node.isPopup && node.autoClose {
+		wm.registerOAuthAutoClose(related, url)
+	}
+	if url != "" {
+		_ = related.LoadURL(url)
+	}
+}
+
+// shouldAutoClose checks simple OAuth-like URL patterns and config flag
+func (wm *WorkspaceManager) shouldAutoClose(url string) bool {
+	if wm == nil || wm.app == nil || wm.app.config == nil {
+		return true
+	}
+	if !wm.app.config.Workspace.Popups.OAuthAutoClose {
+		return false
+	}
+	u := strings.ToLower(url)
+	patterns := []string{"oauth", "authorize", "login/oauth", "auth/callback", "connect/authorize"}
+	for _, p := range patterns {
+		if strings.Contains(u, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// RunOnUI schedules a function; here simply executes inline as GTK main loop is single-threaded
+func (wm *WorkspaceManager) RunOnUI(fn func()) {
+	if fn != nil {
+		fn()
+	}
+}
+
+// handleDetectedWindowType handles window type detection from smart detection path
+func (wm *WorkspaceManager) handleDetectedWindowType(sourceNode *paneNode, webView *webkit.WebView, url string, windowType webkit.WindowType, features *webkit.WindowFeatures) {
+	if wm.viewToNode[webView] != nil {
+		return // Already placed
+	}
+
+	log.Printf("[workspace] Smart detection result: type=%d url=%s", windowType, url)
+
+	switch windowType {
+	case webkit.WindowTypeTab:
+		// For tabs, create a NEW independent WebView (can't use the related one)
+		webkitCfg, err := wm.app.buildWebkitConfig()
+		if err != nil {
+			log.Printf("[workspace] failed to build webkit config for tab: %v", err)
+			return
+		}
+		webkitCfg.CreateWindow = false
+
+		// Create independent WebView like handleIntentAsTab does
+		independentView, err := webkit.NewWebView(webkitCfg)
+		if err != nil {
+			log.Printf("[workspace] failed to create independent tab WebView: %v", err)
+			return
+		}
+
+		// The related webView was just for detection - we don't use it for tabs
+		// Insert the new independent view as a tab
+		if err := wm.insertIndependentPane(sourceNode, independentView, url); err != nil {
+			log.Printf("[workspace] Failed to insert independent pane: %v", err)
+		}
+
+	case webkit.WindowTypePopup:
+		// For popups, use the related WebView we already created
+		wm.configureRelatedPopup(sourceNode, webView, url, features)
+	default:
+		// Fallback to popup behavior
+		wm.configureRelatedPopup(sourceNode, webView, url, features)
+	}
+}
 
 // insertPopupPane inserts a pre-created popup pane into the workspace
 func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPane, direction string) error {

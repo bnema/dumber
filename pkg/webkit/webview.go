@@ -26,6 +26,11 @@ type WebView struct {
 	useDomZoom   bool
 	domZoomSeed  float64
 	container    uintptr
+
+	// Window type fields (no-op in stub)
+	windowType         WindowType
+	windowFeatures     *WindowFeatures
+	windowTypeCallback func(WindowType, *WindowFeatures)
 }
 
 // NewWebView constructs a new WebView instance.
@@ -211,6 +216,19 @@ func (w *WebView) SeedDomZoom(level float64) {
 	w.domZoomSeed = level
 }
 
+// CreateRelatedView returns a new WebView (stub creates independent)
+func (w *WebView) CreateRelatedView() *WebView {
+	nw, _ := NewWebView(w.config)
+	return nw
+}
+
+// OnWindowTypeDetected registers a callback (stored but never invoked in stub)
+func (w *WebView) OnWindowTypeDetected(callback func(WindowType, *WindowFeatures)) {
+	if w != nil {
+		w.windowTypeCallback = callback
+	}
+}
+
 // InitializeContentBlocking initializes WebKit content blocking with filter manager (stub)
 func (w *WebView) InitializeContentBlocking(filterManager interface{}) error {
 	return ErrNotImplemented
@@ -224,4 +242,9 @@ func (w *WebView) OnNavigate(url string, filterManager interface{}) {
 // UpdateContentFilters updates the content filters dynamically (stub)
 func (w *WebView) UpdateContentFilters(filterManager interface{}) error {
 	return ErrNotImplemented
+}
+
+// SetWindowFeatures sets the window features for this WebView (stub)
+func (w *WebView) SetWindowFeatures(features *WindowFeatures) {
+	w.windowFeatures = features
 }

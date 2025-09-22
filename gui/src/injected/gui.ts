@@ -9,7 +9,9 @@
 import { initializeToast, type ToastConfig } from './modules/toast';
 import { initializeOmnibox, type OmniboxInitConfig } from './modules/omnibox';
 import { initializeWorkspace, type WorkspaceConfigPayload, type WorkspaceRuntime } from './modules/workspace';
+import { initializeWindowOpenInterceptor } from './modules/window-open';
 import { keyboardService, type KeyboardService } from '$lib/keyboard';
+import type { Suggestion } from '../components/omnibox/types';
 // Note: color-scheme module is loaded separately at document-start by WebKit
 
 // Global interface for the unified GUI system
@@ -48,6 +50,16 @@ declare global {
     __dumber_keyboard?: KeyboardService;
     __dumber_workspace_config?: WorkspaceConfigPayload;
     __dumber_workspace?: WorkspaceRuntime;
+    __dumber_pane?: { id: string; active: boolean };
+    __dumber_omnibox?: {
+      setSuggestions: (suggestions: Suggestion[]) => void;
+      toggle: () => void;
+      open: (mode?: string, query?: string) => void;
+      close: () => void;
+      findQuery: (query: string) => void;
+      setActive: (active: boolean) => void;
+    };
+    __dumber_gui_bootstrap?: () => void;
     // Legacy compatibility functions for Go bridge
     __dumber_toggle?: () => void;
     __dumber_find_open?: (query?: string) => void;
@@ -96,10 +108,10 @@ if (!window.__dumber_gui_ready) {
     // Handle GUI visibility based on focus
     if (window.__dumber_omnibox) {
       if (workspaceHasFocus) {
-        window.__dumber_omnibox.setActive?.(true);
+        window.__dumber_omnibox.setActive(true);
       } else {
-        window.__dumber_omnibox.setActive?.(false);
-        window.__dumber_omnibox.close?.();
+        window.__dumber_omnibox.setActive(false);
+        window.__dumber_omnibox.close();
       }
     }
   });
@@ -108,6 +120,9 @@ if (!window.__dumber_gui_ready) {
   whenDOMReady(async () => {
     try {
   // Page-world bridge is injected by WebKit; avoid duplicate injection here
+
+      // Initialize window.open interceptor first (must be early)
+      initializeWindowOpenInterceptor();
 
       // Initialize toast system first
       await initializeToast();
@@ -331,22 +346,21 @@ if (!window.__dumber_gui_ready) {
   };
 
   // Bootstrap function for lazy GUI initialization by workspace manager
-  window.__dumber_gui_bootstrap = function(paneId: string) {
-    console.log(`[gui-bootstrap] Initializing GUI for pane ${paneId}`);
+  window.__dumber_gui_bootstrap = function() {
+    console.log('[gui-bootstrap] Initializing GUI for workspace');
 
-    // Update current pane ID
-    currentPaneId = paneId;
+    // Pane ID will be updated via focus events
 
     // Ensure omnibox is available for this pane
     if (!window.__dumber_omnibox) {
-      console.log(`[gui-bootstrap] Omnibox not yet available for pane ${paneId}, will be loaded when needed`);
+      console.log(`[gui-bootstrap] Omnibox not yet available for pane ${currentPaneId}, will be loaded when needed`);
     } else {
-      console.log(`[gui-bootstrap] Omnibox already available for pane ${paneId}`);
+      console.log(`[gui-bootstrap] Omnibox already available for pane ${currentPaneId}`);
       // Ensure omnibox is aware of the current pane
-      window.__dumber_omnibox.setActive?.(workspaceHasFocus);
+      window.__dumber_omnibox.setActive(workspaceHasFocus);
     }
 
-    console.log(`[gui-bootstrap] GUI bootstrap complete for pane ${paneId}`);
+    console.log(`[gui-bootstrap] GUI bootstrap complete for pane ${currentPaneId}`);
   };
 
   }

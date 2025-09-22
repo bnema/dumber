@@ -284,6 +284,15 @@
           } catch (error) {
             console.error('Error in findQuery:', error);
           }
+        },
+        setActive: (active) => {
+          try {
+            console.log('🎯 Omnibox setActive called with:', active);
+            // For now, this is a no-op but maintains API compatibility
+            // In the future, this could control focus management or visibility
+          } catch (error) {
+            console.error('Error in setActive:', error);
+          }
         }
       };
 
