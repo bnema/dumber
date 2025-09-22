@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **Workspace theme integration**: Fixed white borders on inactive panes by implementing dynamic border colors based on GTK theme preference (dark mode: #333333 borders, light mode: #dddddd borders)
+- **GTK window background**: Added theme-aware window and pane background colors to prevent white bleeding through transparent elements
+
 ## [0.9.0] - 2025-09-22
 
 ### Added

@@ -485,27 +485,55 @@ func (wm *WorkspaceManager) generateActivePaneCSS() string {
 	cfg := config.Get()
 	styling := cfg.Workspace.Styling
 
-	return fmt.Sprintf(`.workspace-pane {
-	  border: %dpx solid transparent;
+	// Get appropriate border colors based on GTK theme preference
+	var inactiveBorderColor, windowBackgroundColor string
+	isDark := webkit.PrefersDarkTheme()
+	if isDark {
+		inactiveBorderColor = "#333333" // Dark border for dark theme
+		windowBackgroundColor = "#2b2b2b" // Dark window background
+	} else {
+		inactiveBorderColor = "#dddddd" // Light border for light theme
+		windowBackgroundColor = "#ffffff" // Light window background
+	}
+
+	// Log the border color values for debugging
+	log.Printf("[workspace] GTK prefers dark: %v, inactive border color: %s", isDark, inactiveBorderColor)
+
+	css := fmt.Sprintf(`window {
+	  background-color: %s;
+	}
+
+	.workspace-pane {
+	  background-color: %s;
+	  border: %dpx solid %s;
 	  transition: border-color %dms ease-in-out;
 	  border-radius: %dpx;
 	}
 
 	.workspace-pane.workspace-multi-pane {
-	  border: %dpx solid transparent;
+	  border: %dpx solid %s;
 	  border-radius: %dpx;
 	}
 
 	.workspace-pane.workspace-multi-pane.workspace-pane-active {
 	  border-color: %s;
 	}`,
+		windowBackgroundColor,
+		windowBackgroundColor,
 		styling.BorderWidth,
+		inactiveBorderColor,
 		styling.TransitionDuration,
 		styling.BorderRadius,
 		styling.BorderWidth,
+		inactiveBorderColor,
 		styling.BorderRadius,
 		styling.BorderColor,
 	)
+
+	// Log the actual CSS being generated
+	log.Printf("[workspace] Generated CSS: %s", css)
+
+	return css
 }
 
 func (wm *WorkspaceManager) ensureStyles() {
