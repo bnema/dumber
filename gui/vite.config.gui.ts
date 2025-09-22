@@ -1,6 +1,6 @@
-import { defineConfig } from 'vite';
-import { svelte } from '@sveltejs/vite-plugin-svelte';
-import { resolve } from 'path';
+import { defineConfig } from "vite";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
+import { resolve } from "path";
 
 export default defineConfig({
   plugins: [
@@ -10,19 +10,19 @@ export default defineConfig({
   ],
   build: {
     rollupOptions: {
-      input: resolve(__dirname, 'src/injected/gui.ts'),
+      input: resolve(__dirname, "src/injected/gui.ts"),
       output: {
-        dir: '../assets/gui',
-        format: 'iife',
-        entryFileNames: 'gui.min.js',
-        name: '__dumberGUI',
+        dir: "../assets/gui",
+        format: "iife",
+        entryFileNames: "gui.min.js",
+        name: "__dumberGUI",
         inlineDynamicImports: true,
         manualChunks: undefined, // Prevent chunk splitting
-        assetFileNames: '[name].[ext]', // Don't hash asset names since they're inlined
+        assetFileNames: "[name].[ext]", // Don't hash asset names since they're inlined
       },
     },
     emptyOutDir: false,
-    target: ['es2020', 'chrome91', 'firefox90'],
+    target: ["es2020", "chrome91", "firefox90"],
     minify: true,
     sourcemap: false,
     cssCodeSplit: false, // Prevent CSS code splitting
@@ -31,8 +31,8 @@ export default defineConfig({
   resolve: {
     alias: {
       // Alias for easier imports
-      '$lib': resolve(__dirname, 'src/lib'),
-      '$components': resolve(__dirname, 'src/components'),
+      $lib: resolve(__dirname, "src/lib"),
+      $components: resolve(__dirname, "src/components"),
     },
   },
 });

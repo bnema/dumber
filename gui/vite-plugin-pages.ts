@@ -1,6 +1,6 @@
-import type { Plugin } from 'vite';
-import { writeFileSync, readFileSync } from 'fs';
-import { resolve } from 'path';
+import type { Plugin } from "vite";
+import { writeFileSync, readFileSync } from "fs";
+import { resolve } from "path";
 
 interface PageConfig {
   /** Page name (used for filename and script name) */
@@ -17,23 +17,25 @@ interface PageConfig {
 
 // Load the favicon SVG from assets
 function getFaviconSVG(): string {
-  const logoPath = resolve(__dirname, '..', 'assets', 'logo.svg');
-  return readFileSync(logoPath, 'utf-8');
+  const logoPath = resolve(__dirname, "..", "assets", "logo.svg");
+  return readFileSync(logoPath, "utf-8");
 }
 
 // Create favicon data URL for inline usage
 function getFaviconDataURL(): string {
   const svg = getFaviconSVG();
   const encoded = encodeURIComponent(svg)
-    .replace(/'/g, '%27')
-    .replace(/\(/g, '%28')
-    .replace(/\)/g, '%29');
+    .replace(/'/g, "%27")
+    .replace(/\(/g, "%28")
+    .replace(/\)/g, "%29");
   return `data:image/svg+xml;utf8,${encoded}`;
 }
 
 // Generate HTML content for a page
 function generatePageHTML(config: PageConfig): string {
-  const cssLink = config.css ? `<link rel="stylesheet" href="./${config.css}">` : '';
+  const cssLink = config.css
+    ? `<link rel="stylesheet" href="./${config.css}">`
+    : "";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -56,9 +58,9 @@ function generatePageHTML(config: PageConfig): string {
  */
 export function pageGenerator(pages: PageConfig[]): Plugin {
   return {
-    name: 'dumb-page-generator',
+    name: "dumb-page-generator",
     writeBundle() {
-      const assetsDir = resolve(__dirname, '..', 'assets', 'gui');
+      const assetsDir = resolve(__dirname, "..", "assets", "gui");
 
       try {
         // Generate HTML files for each page
@@ -71,14 +73,13 @@ export function pageGenerator(pages: PageConfig[]): Plugin {
 
         // Generate favicon.svg for scheme handler lookups
         const faviconContent = getFaviconSVG();
-        writeFileSync(resolve(assetsDir, 'favicon.svg'), faviconContent);
-        console.log('✓ Generated favicon.svg');
-
+        writeFileSync(resolve(assetsDir, "favicon.svg"), faviconContent);
+        console.log("✓ Generated favicon.svg");
       } catch (error) {
-        console.error('✗ Failed to generate page files:', error);
+        console.error("✗ Failed to generate page files:", error);
         throw error;
       }
-    }
+    },
   };
 }
 
@@ -89,10 +90,10 @@ export function pageGenerator(pages: PageConfig[]): Plugin {
 export function homepageGenerator(): Plugin {
   return pageGenerator([
     {
-      name: 'homepage',
-      title: 'Dumber Browser',
-      script: 'homepage.min.js',
-      filename: 'index.html', // Special case: homepage uses index.html
-    }
+      name: "homepage",
+      title: "Dumber Browser",
+      script: "homepage.min.js",
+      filename: "index.html", // Special case: homepage uses index.html
+    },
   ]);
 }

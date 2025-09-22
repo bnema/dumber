@@ -18,7 +18,7 @@ export function initializeWindowOpenInterceptor(): void {
 
   // No-op - window.open handled directly via page-world bridge
   isInitialized = true;
-  console.log('[window-open] ✅ Interceptor initialized (bypass mode)');
+  console.log("[window-open] ✅ Interceptor initialized (bypass mode)");
 }
 
 /**

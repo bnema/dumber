@@ -9,7 +9,7 @@
 // directly into the shadow root. The ?inline suffix makes Vite embed the
 // processed CSS, ensuring all utility classes are available without relying
 // on runtime @import resolution (which fails inside the injected shadow DOM).
-import globalStyles from '../../styles/tailwind.css?inline';
+import globalStyles from "../../styles/tailwind.css?inline";
 
 // Track shadow-root initialization to avoid duplicate reset injection
 const shadowResetApplied = new WeakSet<ShadowRoot>();
@@ -40,7 +40,7 @@ function ensureHostPresence(host: HTMLElement): void {
     docEl.appendChild(host);
   }
 
-  if (typeof MutationObserver !== 'undefined') {
+  if (typeof MutationObserver !== "undefined") {
     if (!hostObserver) {
       hostObserver = new MutationObserver(() => {
         if (cachedHost && !cachedHost.isConnected && document.documentElement) {
@@ -59,7 +59,7 @@ function ensureHostPresence(host: HTMLElement): void {
     }
   }
 
-  if (hostKeepaliveTimer === null && typeof window !== 'undefined') {
+  if (hostKeepaliveTimer === null && typeof window !== "undefined") {
     hostKeepaliveTimer = window.setInterval(() => {
       if (cachedHost && !cachedHost.isConnected && document.documentElement) {
         document.documentElement.appendChild(cachedHost);
@@ -68,16 +68,18 @@ function ensureHostPresence(host: HTMLElement): void {
   }
 }
 
-export const GLOBAL_SHADOW_HOST_ID = 'dumber-ui-root';
+export const GLOBAL_SHADOW_HOST_ID = "dumber-ui-root";
 
 /**
  * Ensure and return the global ShadowRoot used by injected UI.
  */
 export function getGlobalShadowRoot(): ShadowRoot {
   // Create or find the host container
-  let host = document.getElementById(GLOBAL_SHADOW_HOST_ID) as HTMLElement | null;
+  let host = document.getElementById(
+    GLOBAL_SHADOW_HOST_ID,
+  ) as HTMLElement | null;
   if (!host) {
-    host = document.createElement('div');
+    host = document.createElement("div");
     host.id = GLOBAL_SHADOW_HOST_ID;
   }
 
@@ -86,22 +88,30 @@ export function getGlobalShadowRoot(): ShadowRoot {
   cachedHost = host;
   ensureHostPresence(host);
 
-  const shadowRoot = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
+  const shadowRoot = host.shadowRoot ?? host.attachShadow({ mode: "open" });
 
   // Reflect current theme from document root to the shadow host so :host(.dark) works
   try {
-    const isDark = document.documentElement.classList.contains('dark');
-    host.classList.toggle('dark', isDark);
+    const isDark = document.documentElement.classList.contains("dark");
+    host.classList.toggle("dark", isDark);
     // Keep it in sync if the theme toggles later
     const observer = new MutationObserver(() => {
-      host.classList.toggle('dark', document.documentElement.classList.contains('dark'));
+      host.classList.toggle(
+        "dark",
+        document.documentElement.classList.contains("dark"),
+      );
     });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-  } catch { /* no-op */ }
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+  } catch {
+    /* no-op */
+  }
 
   // Inject a minimal reset and base styles into the shadow root once
   if (!shadowResetApplied.has(shadowRoot)) {
-    const resetStyle = document.createElement('style');
+    const resetStyle = document.createElement("style");
     resetStyle.textContent = `
       :host { all: initial; }
       *, *::before, *::after { box-sizing: border-box; }
@@ -111,7 +121,7 @@ export function getGlobalShadowRoot(): ShadowRoot {
 
     // Ensure dynamic design tokens exist within the shadow tree. Tailwind v4
     // utilities rely on these CSS variables. We set light defaults and a dark variant on :host.
-    const tokensStyle = document.createElement('style');
+    const tokensStyle = document.createElement("style");
     tokensStyle.textContent = `
       :host {
         --dynamic-bg: var(--color-browser-bg);
@@ -136,22 +146,27 @@ export function getGlobalShadowRoot(): ShadowRoot {
     // root (e.g., toasts, omnibox) receive their styles
     try {
       // Prefer constructable stylesheets when available
-      const hasConstructable = typeof CSSStyleSheet !== 'undefined';
-      const supportsAdopted = 'adoptedStyleSheets' in shadowRoot;
+      const hasConstructable = typeof CSSStyleSheet !== "undefined";
+      const supportsAdopted = "adoptedStyleSheets" in shadowRoot;
       if (supportsAdopted && hasConstructable) {
         const sheet = new CSSStyleSheet();
         sheet.replaceSync(globalStyles);
-        const rootWithSheets = shadowRoot as ShadowRoot & { adoptedStyleSheets: CSSStyleSheet[] };
-        rootWithSheets.adoptedStyleSheets = [...(rootWithSheets.adoptedStyleSheets ?? []), sheet];
+        const rootWithSheets = shadowRoot as ShadowRoot & {
+          adoptedStyleSheets: CSSStyleSheet[];
+        };
+        rootWithSheets.adoptedStyleSheets = [
+          ...(rootWithSheets.adoptedStyleSheets ?? []),
+          sheet,
+        ];
       } else {
         // Fallback: append a <style> element with the global CSS
-        const styleTag = document.createElement('style');
+        const styleTag = document.createElement("style");
         styleTag.textContent = globalStyles;
         shadowRoot.appendChild(styleTag);
       }
     } catch {
       // Final fallback if anything above fails
-      const styleTag = document.createElement('style');
+      const styleTag = document.createElement("style");
       styleTag.textContent = globalStyles;
       shadowRoot.appendChild(styleTag);
     }
@@ -169,7 +184,7 @@ export function ensureShadowMount(mountId: string): HTMLElement {
   const root = getGlobalShadowRoot();
   let mount = root.getElementById?.(mountId) as HTMLElement | null;
   if (!mount) {
-    mount = document.createElement('div');
+    mount = document.createElement("div");
     mount.id = mountId;
     mount.style.cssText = `
       position: relative;

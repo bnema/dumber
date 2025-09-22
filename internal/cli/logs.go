@@ -342,12 +342,12 @@ func tailConsoleMessages(filePath string, lines int, level string) error {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
-		
+
 		// Filter for [CONSOLE] tagged messages
 		if !strings.Contains(line, "[CONSOLE]") {
 			continue
 		}
-		
+
 		// Filter by level if specified
 		if level != "" {
 			levelFilter := fmt.Sprintf("[%s]", strings.ToUpper(level))
@@ -355,7 +355,7 @@ func tailConsoleMessages(filePath string, lines int, level string) error {
 				continue
 			}
 		}
-		
+
 		consoleLines = append(consoleLines, line)
 	}
 

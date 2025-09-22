@@ -1,4 +1,4 @@
-import type { HistoryEntry, SearchShortcut } from './generated.js';
+import type { HistoryEntry, SearchShortcut } from "./generated.js";
 
 export interface AppState {
   currentURL: string;
@@ -10,7 +10,7 @@ export interface AppState {
 
 export interface NotificationOptions {
   message: string;
-  type?: 'info' | 'success' | 'error';
+  type?: "info" | "success" | "error";
   duration?: number;
 }
 
@@ -23,4 +23,4 @@ export interface KeyboardShortcut {
   handler: () => void | Promise<void>;
 }
 
-export { HistoryEntry, SearchShortcut } from './generated.js';
+export { HistoryEntry, SearchShortcut } from "./generated.js";

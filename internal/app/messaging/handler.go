@@ -47,6 +47,9 @@ type Message struct {
 	HistoryID string `json:"historyId"`
 	// Request tracking
 	RequestID string `json:"requestId"`
+	// Popup close tracking
+	WebViewID string `json:"webviewId"`
+	Reason    string `json:"reason"`
 	// Wails fetch bridge
 	ID      string          `json:"id"`
 	Payload json.RawMessage `json:"payload"`
@@ -54,13 +57,15 @@ type Message struct {
 
 // WindowIntent represents an intercepted window.open call from JavaScript
 type WindowIntent struct {
-	URL        string `json:"url"`
-	Target     string `json:"target"`
-	Features   string `json:"features"`
-	Timestamp  int64  `json:"timestamp"`
-	WindowType string `json:"windowType"` // "tab", "popup", "unknown"
-	IsPopup    bool   `json:"isPopup"`
-	IsTab      bool   `json:"isTab"`
+	URL           string `json:"url"`
+	Target        string `json:"target"`
+	Features      string `json:"features"`
+	Timestamp     int64  `json:"timestamp"`
+	WindowType    string `json:"windowType"` // "tab", "popup", "unknown"
+	IsPopup       bool   `json:"isPopup"`
+	IsTab         bool   `json:"isTab"`
+	RequestID     string `json:"requestId"`     // NEW: Unique request identifier
+	UserTriggered bool   `json:"userTriggered"` // NEW: Whether this was user-initiated
 	// Parsed features
 	Width     *int  `json:"width,omitempty"`
 	Height    *int  `json:"height,omitempty"`
@@ -120,6 +125,8 @@ func (h *Handler) Handle(payload string) {
 		h.handleWorkspace(msg)
 	case "handle-window-open":
 		h.handleWindowOpen(msg)
+	case "close-popup":
+		h.handleClosePopup(msg)
 	case "console-message":
 		h.handleConsoleMessage(msg)
 	}
@@ -183,6 +190,30 @@ func (h *Handler) handleWorkspace(msg Message) {
 	}
 	log.Printf("[workspace] Forwarding workspace event: event=%s direction=%s action=%s", msg.Event, msg.Direction, msg.Action)
 	h.workspaceObserver.OnWorkspaceMessage(h.webView, msg)
+}
+
+func (h *Handler) handleClosePopup(msg Message) {
+	log.Printf("[messaging] Received close-popup request: webviewId=%s reason=%s", msg.WebViewID, msg.Reason)
+
+	if h.workspaceObserver == nil {
+		log.Printf("[messaging] No workspace observer registered for close-popup request")
+		return
+	}
+	if h.webView == nil {
+		log.Printf("[messaging] No webview attached for close-popup request")
+		return
+	}
+
+	// Forward close-popup request to workspace manager via observer
+	closeMsg := Message{
+		Type:      "workspace",
+		Event:     "close-popup",
+		WebViewID: msg.WebViewID,
+		Reason:    msg.Reason,
+	}
+
+	log.Printf("[messaging] Forwarding close-popup to workspace: webviewId=%s reason=%s", msg.WebViewID, msg.Reason)
+	h.workspaceObserver.OnWorkspaceMessage(h.webView, closeMsg)
 }
 
 func (h *Handler) handleQuery(msg Message) {
@@ -529,16 +560,17 @@ func (h *Handler) handleWindowOpen(msg Message) {
 		return
 	}
 
-	log.Printf("[messaging] Handling direct window.open request: url=%s type=%s", intent.URL, intent.WindowType)
+	log.Printf("[messaging] Handling direct window.open request: url=%s type=%s requestId=%s", intent.URL, intent.WindowType, intent.RequestID)
 
 	// Forward to workspace observer if available
 	if h.workspaceObserver != nil && h.webView != nil {
 		// Create a workspace message to trigger pane creation
 		workspaceMsg := Message{
-			Type:   "workspace",
-			Event:  "create-pane",
-			URL:    intent.URL,
-			Action: intent.WindowType, // "tab" or "popup"
+			Type:      "workspace",
+			Event:     "create-pane",
+			URL:       intent.URL,
+			Action:    intent.WindowType, // "tab" or "popup"
+			RequestID: intent.RequestID,  // NEW: Pass through request ID
 		}
 		log.Printf("[messaging] Forwarding to workspace: %+v", workspaceMsg)
 		h.workspaceObserver.OnWorkspaceMessage(h.webView, workspaceMsg)

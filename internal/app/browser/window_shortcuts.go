@@ -58,6 +58,11 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 		{"ctrl+f", h.handleFindToggle, "Find in page"},
 		{"ctrl+shift+c", h.handleCopyURL, "Copy URL"},
 		{"F12", h.handleDevTools, "Developer tools"},
+		// Zoom shortcuts - global level for proper active pane targeting
+		{"ctrl+plus", h.handleZoomIn, "Zoom in"},
+		{"ctrl+equal", h.handleZoomIn, "Zoom in (=)"},
+		{"ctrl+minus", h.handleZoomOut, "Zoom out"},
+		{"ctrl+0", h.handleZoomReset, "Zoom reset"},
 	}
 
 	for _, shortcut := range shortcuts {
@@ -141,6 +146,64 @@ func (h *WindowShortcutHandler) handleDevTools() {
 
 	if err := h.app.activePane.webView.ShowDevTools(); err != nil {
 		log.Printf("[window-shortcuts] Failed to show devtools: %v", err)
+	}
+}
+
+// handleZoomIn increases zoom level by 10%
+func (h *WindowShortcutHandler) handleZoomIn() {
+	h.handleZoom("in", 1.1)
+}
+
+// handleZoomOut decreases zoom level by 10%
+func (h *WindowShortcutHandler) handleZoomOut() {
+	h.handleZoom("out", 1.0/1.1)
+}
+
+// handleZoomReset resets zoom to 100%
+func (h *WindowShortcutHandler) handleZoomReset() {
+	h.handleZoom("reset", 1.0)
+}
+
+// handleZoom applies zoom changes to the active pane
+func (h *WindowShortcutHandler) handleZoom(action string, multiplier float64) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if h.app.activePane == nil || h.app.activePane.webView == nil {
+		log.Printf("[window-shortcuts] No active pane for zoom %s", action)
+		return
+	}
+
+	activeWebView := h.app.activePane.webView
+	log.Printf("[window-shortcuts] Zoom %s -> pane %p", action, activeWebView)
+
+	// Get current zoom level
+	currentZoom, err := activeWebView.GetZoom()
+	if err != nil {
+		log.Printf("[window-shortcuts] Failed to get current zoom: %v", err)
+		return
+	}
+
+	// Calculate new zoom level
+	var newZoom float64
+	if action == "reset" {
+		newZoom = 1.0
+	} else {
+		newZoom = currentZoom * multiplier
+		// Apply zoom limits
+		if newZoom < 0.25 {
+			newZoom = 0.25
+		}
+		if newZoom > 5.0 {
+			newZoom = 5.0
+		}
+	}
+
+	log.Printf("[window-shortcuts] Zoom %s: %.2f -> %.2f", action, currentZoom, newZoom)
+
+	// Apply zoom to active pane
+	if err := activeWebView.SetZoom(newZoom); err != nil {
+		log.Printf("[window-shortcuts] Failed to set zoom: %v", err)
 	}
 }
 

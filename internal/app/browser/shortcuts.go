@@ -91,10 +91,8 @@ func (s *ShortcutHandler) RegisterShortcuts() {
 		_ = s.webView.Reload()
 	})
 
-	// Note: Workspace pane navigation shortcuts (Alt + Arrow keys) are now handled
-	// by the WorkspaceManager to ensure they work properly across all panes
-
-	// Zoom handled natively in webkit package (built-in shortcuts)
+	// Note: Workspace pane navigation shortcuts (Alt + Arrow keys) are handled by WorkspaceManager
+	// and zoom shortcuts (Ctrl +/-/0) are handled by WindowShortcutHandler to ensure they work properly across all panes
 }
 
 func (s *ShortcutHandler) dispatchUIShortcut(action string, extra map[string]any) error {

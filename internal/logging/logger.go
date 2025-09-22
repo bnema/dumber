@@ -163,7 +163,7 @@ func (l *Logger) writeLog(level LogLevel, message string, source string) {
 }
 
 func (l *Logger) WriteTagged(source string, message string) {
-	l.writeLog(INFO, message, source)
+	l.WriteFileOnly(INFO, message, source)
 }
 
 // WriteFileOnly writes a log entry only to the file (not stdout) to avoid interfering with CLI operations

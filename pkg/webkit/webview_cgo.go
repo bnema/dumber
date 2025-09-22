@@ -928,6 +928,7 @@ type WebView struct {
 	windowTypeCallback func(WindowType, *WindowFeatures)
 	parentWebView      *WebView
 	isRelated          bool
+	isActive           bool // Track if this WebView is currently active/focused
 }
 
 // NewWebView constructs a new WebView instance with native WebKit2GTK widgets.
@@ -1107,51 +1108,8 @@ func NewWebView(cfg *Config) (*WebView, error) {
 		C.connect_theme_changed_with_id(settings, C.ulong(v.id))
 	}
 
-	// Native zoom shortcuts (independent of app services)
-	// Ctrl+='=' and Ctrl+'+' → Zoom In; Ctrl+'-' → Zoom Out; Ctrl+'0' → Reset
-	_ = v.RegisterKeyboardShortcut("cmdorctrl+=", func() {
-		nz := v.zoom
-		if nz <= 0 {
-			nz = 1.0
-		}
-		nz *= 1.1
-		if nz < 0.25 {
-			nz = 0.25
-		}
-		if nz > 5.0 {
-			nz = 5.0
-		}
-		_ = v.SetZoom(nz)
-	})
-	_ = v.RegisterKeyboardShortcut("cmdorctrl+plus", func() {
-		nz := v.zoom
-		if nz <= 0 {
-			nz = 1.0
-		}
-		nz *= 1.1
-		if nz < 0.25 {
-			nz = 0.25
-		}
-		if nz > 5.0 {
-			nz = 5.0
-		}
-		_ = v.SetZoom(nz)
-	})
-	_ = v.RegisterKeyboardShortcut("cmdorctrl-", func() {
-		nz := v.zoom
-		if nz <= 0 {
-			nz = 1.0
-		}
-		nz /= 1.1
-		if nz < 0.25 {
-			nz = 0.25
-		}
-		if nz > 5.0 {
-			nz = 5.0
-		}
-		_ = v.SetZoom(nz)
-	})
-	_ = v.RegisterKeyboardShortcut("cmdorctrl+0", func() { _ = v.SetZoom(1.0) })
+	// Zoom shortcuts are now handled by application-level workspace shortcuts
+	// in workspace_manager.go to ensure proper active pane targeting
 	// Find in page (Ctrl/Cmd+F): handled by window-level shortcuts in window_shortcuts.go
 	// Navigation with Ctrl/Cmd + Arrow keys: forward to keyboard service bridge
 	_ = v.RegisterKeyboardShortcut("cmdorctrl+ArrowLeft", func() {
@@ -1305,7 +1263,7 @@ func (v *WebView) setupConsoleLogging() {
 	if v.native == nil || v.native.wv == nil {
 		return
 	}
-	
+
 	// Check if console capture is enabled in config
 	cfg := config.Get()
 	if !cfg.Logging.CaptureConsole {
@@ -1315,13 +1273,13 @@ func (v *WebView) setupConsoleLogging() {
 		}
 		return
 	}
-	
+
 	// If console capture is enabled, disable stdout and enable our capture
 	if settings := C.webkit_web_view_get_settings(v.native.wv); settings != nil {
 		C.webkit_settings_set_enable_write_console_messages_to_stdout(settings, C.gboolean(0))
 		log.Printf("[webkit] Console message capture enabled - redirecting to console.log file")
 	}
-	
+
 	// TODO: Implement JavaScript injection for console capture
 	// This will inject code to intercept console.log/error/warn and send to Go
 }
@@ -1394,11 +1352,11 @@ func (v *WebView) handleConsoleMessage(payload string) {
 		Type string `json:"type"`
 		Data string `json:"data"`
 	}
-	
+
 	if err := json.Unmarshal([]byte(payload), &msg); err != nil {
 		return
 	}
-	
+
 	if msg.Type == "console" {
 		// Send to logging system with [CONSOLE] tag
 		logging.CaptureWebKitLog(msg.Data)
@@ -2031,7 +1989,7 @@ func clampDomZoom(level float64) float64 {
 	return level
 }
 
-func buildDomBridgeScript(cfg *Config, initialZoom float64) string {
+func buildDomBridgeScript(cfg *Config, initialZoom float64, webViewId uintptr, w *WebView) string {
 	if cfg == nil || cfg.Assets == nil {
 		log.Printf("[webkit] Config or assets not available for main-world script")
 		return ""
@@ -2048,6 +2006,15 @@ func buildDomBridgeScript(cfg *Config, initialZoom float64) string {
 	zoom := clampDomZoom(initialZoom)
 	zoomStr := strconv.FormatFloat(zoom, 'f', -1, 64)
 	script := strings.ReplaceAll(string(scriptBytes), "__DOM_ZOOM_DEFAULT__", zoomStr)
+
+	// Inject WebView ID and active state
+	webViewIdStr := strconv.FormatUint(uint64(webViewId), 10)
+	script = strings.ReplaceAll(script, "__WEBVIEW_ID__", webViewIdStr)
+	// Default to active for the initial WebView, since it will be focused immediately
+	// For single WebView scenarios, assume it should be active
+	activeState := "true"
+	log.Printf("[webkit] Building script with WebView %s, active state: %s", webViewIdStr, activeState)
+	script = strings.ReplaceAll(script, "\"__WEBVIEW_ACTIVE__\"", activeState)
 
 	log.Printf("[webkit] Loaded main-world script successfully, size: %d bytes", len(scriptBytes))
 	return script
@@ -2070,7 +2037,7 @@ func (w *WebView) installDomBridgeScript() {
 		w.domBridgeScript = nil
 	}
 
-	source := buildDomBridgeScript(w.config, w.domZoomSeed)
+	source := buildDomBridgeScript(w.config, w.domZoomSeed, w.id, w)
 	cBridge := C.CString(source)
 	defer C.free(unsafe.Pointer(cBridge))
 
@@ -2564,4 +2531,37 @@ func (w *WebView) detectAndLogRenderingBackend() {
 // SetWindowFeatures sets the window features for this WebView
 func (w *WebView) SetWindowFeatures(features *WindowFeatures) {
 	w.windowFeatures = features
+}
+
+// SetActive sets whether this WebView is currently active/focused
+func (w *WebView) SetActive(active bool) {
+	if w == nil || w.destroyed {
+		return
+	}
+
+	if w.isActive != active {
+		w.isActive = active
+		log.Printf("[webkit] WebView %d active state changed to: %v", w.id, active)
+
+		// Update the active state in the JavaScript context
+		activeStr := "false"
+		if active {
+			activeStr = "true"
+		}
+		script := fmt.Sprintf("window.__dumber_is_active = %s;", activeStr)
+		w.InjectScript(script)
+	}
+}
+
+// IsActive returns whether this WebView is currently active/focused
+func (w *WebView) IsActive() bool {
+	return w != nil && w.isActive
+}
+
+// ID returns the unique identifier for this WebView as a string
+func (w *WebView) ID() string {
+	if w == nil {
+		return ""
+	}
+	return strconv.FormatUint(uint64(w.id), 10)
 }

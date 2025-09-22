@@ -12,6 +12,10 @@ All notable changes to this project will be documented in this file.
 - **Configurable workspace styling**: Pane border appearance (width, color, transition duration, radius) now customizable via config with proper viewport stability
 - **Popup handling for tiling WM**: Complete popup window support where popups open as workspace panes instead of floating windows, respecting tiling window manager design principles
 - **Universal popup auto-close**: Popup windows (OAuth, window.open(), etc.) automatically close when JavaScript calls window.close(), providing standard browser behavior adapted for workspace panes
+- **Advanced popup deduplication system**: Intelligent duplicate popup prevention with SHA256 fingerprinting and 200ms debounce window to eliminate popup spam
+- **OAuth auto-close integration**: RFC 6749 compliant OAuth callback detection with automatic popup closure for seamless authentication flows
+- **Cross-WebView popup communication**: localStorage-based parent-popup bridge enabling proper `window.opener` functionality in tiling workspace environment
+- **WebView identity tracking**: Unique WebView ID system for precise popup targeting and enhanced debugging capabilities
 
 ### Improved
 - WebKit integration now forces GPU compositing by default while still honoring explicit config overrides.
@@ -26,6 +30,13 @@ All notable changes to this project will be documented in this file.
 - Omnibox overlay now self-heals if hostile pages remove the injected shadow host, ensuring Ctrl/Cmd+L works everywhere.
 - Navigation shortcuts changed from Alt+Arrow to Ctrl/Cmd+Arrow for better workspace compatibility.
 - GUI components now support workspace-aware focus management with pane-specific event handling.
+- **Global zoom shortcuts**: Unified zoom handling at window level (Ctrl+/=/0/-) ensuring zoom applies to currently active pane in multi-pane workspace
+- **Workspace focus management**: Enhanced focus throttling (100ms) and active state tracking to prevent infinite loops and conflicts between panes
+- **Popup management**: Intelligent popup vs tab detection based on window features, with improved auto-close logic for OAuth and login flows
+- **Console logging**: WebView ID context injection for better debugging and log correlation across multiple panes
+
+### Changed
+- **Zoom shortcuts architecture**: Moved from per-WebView registration to centralized window-level handling for consistency with other global shortcuts
 
 ## [0.8.0] - 2025-09-17
 
