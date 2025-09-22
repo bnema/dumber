@@ -17,17 +17,19 @@ Dumber is a minimalist browser and launcher companion focused on speed and simpl
 - Optimized for dmenu‑style launchers (rofi, fuzzel, wofi) and keyboard‑driven workflows.
 
 ## Status
-- Very early stage, expect sharp edges and breaking changes, but it works well enough to browse and play with the launcher flows and the pane management system.
+- Early development stage with regular releases. The workspace management system is fully functional and the browser works well for daily use. Expect some rough edges but core features are stable.
 
 ## Features
-- **Zellij-inspired pane management**: Split browser into multiple panes with keyboard shortcuts (Ctrl+P to enter pane mode)
-- GPU Rendering and Hardware video acceleration
-- Built-in ad blocker (UBlock-based, work in progress)
-- dmenu‑style launcher integration (rofi, fuzzel) with history and shortcut suggestions
-- Keyboard and mouse controls: comprehensive shortcuts and gestures
-- Persistent history with search and stats
-- Per‑domain zoom persistence
-- One config file, fully customizable
+- **Complete workspace management**: Zellij-inspired pane splitting with binary tree layout, focus tracking, and modal keyboard controls
+- **Multi-pane WebView architecture**: Independent browsing sessions per pane with proper lifecycle management
+- **Advanced popup handling**: Intelligent popup management for tiling WMs - OAuth flows, window.open(), and popup deduplication
+- **Window-level global shortcuts**: Centralized shortcut handling to prevent conflicts between multiple WebView instances
+- **GPU rendering and hardware video acceleration**: Automatic GPU detection with VA-API/VDPAU support
+- **Built-in ad blocker**: UBlock-based content filtering (network blocking functional, cosmetic filtering in progress)
+- **dmenu‑style launcher integration**: rofi, fuzzel integration with history and shortcut suggestions
+- **Comprehensive keyboard controls**: Complete keyboard-driven workflow with shortcuts and gestures
+- **Persistent history and zoom**: SQLite-based history with per‑domain zoom persistence
+- **Fully configurable**: Single config file with live reload and environment variable overrides
 
 ## Controls & Shortcuts
 
@@ -166,10 +168,12 @@ Dumber features a Zellij-inspired pane management system that allows you to spli
 
 ### Features
 - **Binary tree layout**: Panes are organized in a binary tree structure for optimal space usage
-- **Focus management**: Visual borders and hover-to-focus for intuitive navigation
+- **Focus management**: Visual borders, hover-to-focus, and enhanced focus throttling (100ms) for intuitive navigation
 - **Independent sessions**: Each pane maintains its own browsing session, history, and zoom level
-- **Popup handling**: Configurable popup placement (new pane, same pane, etc.)
-- **Keyboard-driven**: All operations accessible via keyboard shortcuts
+- **Advanced popup handling**: Intelligent popup vs tab detection, OAuth auto-close, and popup deduplication with SHA256 fingerprinting
+- **Cross-WebView communication**: localStorage-based parent-popup bridge enabling proper `window.opener` functionality
+- **WebView identity tracking**: Unique WebView ID system for precise popup targeting and enhanced debugging
+- **Keyboard-driven**: All operations accessible via keyboard shortcuts with modal pane mode
 
 ### Configuration
 The pane system is fully configurable via `config.json`:
