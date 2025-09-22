@@ -59,6 +59,7 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 		{"ctrl+f", h.handleFindToggle, "Find in page"},
 		{"ctrl+shift+c", h.handleCopyURL, "Copy URL"},
 		{"ctrl+shift+p", h.handlePrint, "Print page"},
+		{"ctrl+w", h.handleClosePane, "Close current pane"},
 		{"F12", h.handleDevTools, "Developer tools"},
 		// Zoom shortcuts - global level for proper active pane targeting
 		{"ctrl+plus", h.handleZoomIn, "Zoom in"},
@@ -304,6 +305,23 @@ func (h *WindowShortcutHandler) handleWorkspaceNavigation(direction string) {
 	} else {
 		log.Printf("[window-shortcuts] Workspace navigation %s failed", direction)
 	}
+}
+
+func (h *WindowShortcutHandler) handleClosePane() {
+	if h.app == nil || h.app.workspace == nil {
+		log.Printf("[window-shortcuts] No workspace for close pane")
+		return
+	}
+
+	if h.app.activePane == nil {
+		log.Printf("[window-shortcuts] No active pane to close")
+		return
+	}
+
+	log.Printf("[window-shortcuts] Closing current pane")
+
+	// Use the existing closeCurrentPane method from workspace manager
+	h.app.workspace.closeCurrentPane()
 }
 
 // Cleanup releases resources

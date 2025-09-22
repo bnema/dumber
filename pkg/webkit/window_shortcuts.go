@@ -71,13 +71,15 @@ func (ws *WindowShortcuts) RegisterGlobalShortcut(key string, callback func()) e
 		return err
 	}
 
-	// Add Alt+Arrow shortcuts to global blocking registry with callback handle for C-level triggering
+	// Only add Alt+Arrow and Ctrl+W shortcuts to global blocking registry
+	// All other window shortcuts should bubble up to GTK for proper handling
 	if strings.HasPrefix(key, "alt+Arrow") {
 		RegisterGlobalShortcutWithHandle(key, handle)
-	} else {
-		// For non-Alt+Arrow shortcuts, just register for blocking without callback handle
-		RegisterGlobalShortcut(key)
+	} else if key == "ctrl+w" {
+		// Ctrl+W should also have callback handle for consistent pane closing
+		RegisterGlobalShortcutWithHandle(key, handle)
 	}
+	// Other shortcuts (Ctrl+L, Ctrl+F, zoom) are NOT registered for blocking
 
 	log.Printf("[window-shortcuts] Registered global shortcut: %s -> %s", key, gtkKey)
 	return nil
