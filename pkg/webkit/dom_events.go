@@ -7,7 +7,7 @@ import (
 
 // DispatchCustomEvent sends a CustomEvent into the page world with the provided detail payload.
 func (w *WebView) DispatchCustomEvent(eventName string, detail map[string]any) error {
-	if w == nil {
+	if w == nil || w.IsDestroyed() {
 		return ErrNotImplemented
 	}
 
