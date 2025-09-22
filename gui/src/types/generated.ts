@@ -86,4 +86,4 @@ export enum InputType {
 // Type aliases for frontend usage
 export type HistoryEntry = History;
 export type SearchShortcut = Shortcut;
-export type ZoomEntry = ZoomSetting;
+export type ZoomEntry = ZoomLevel;

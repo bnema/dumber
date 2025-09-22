@@ -404,7 +404,7 @@ function detectWindowType(features?: string | null): string {
     setupPopupOpenerBridge();
 
     // Parent window message polling - only for OAuth scenarios
-    let parentPollingInterval = null;
+    let parentPollingInterval: ReturnType<typeof setInterval> | null = null;
 
     const setupParentMessagePolling = () => {
       // Only start polling if we have popup mappings or OAuth callbacks

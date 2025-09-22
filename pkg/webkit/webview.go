@@ -278,3 +278,8 @@ func (w *WebView) ID() string {
 	}
 	return strconv.FormatUint(uint64(w.id), 10)
 }
+
+// PrefersDarkTheme returns true if GTK is configured to prefer dark theme (stub)
+func PrefersDarkTheme() bool {
+	return false // Fallback to light theme when not using CGO
+}

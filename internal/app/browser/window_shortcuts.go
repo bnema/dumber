@@ -227,11 +227,11 @@ func (h *WindowShortcutHandler) ensureGUIInActivePane(component string) {
 	}
 }
 
-func (h *WindowShortcutHandler) getPaneId(pane *BrowserPane) string {
-	if pane == nil {
+func (h *WindowShortcutHandler) getWebViewId(pane *BrowserPane) string {
+	if pane == nil || pane.webView == nil {
 		return "unknown"
 	}
-	return pane.ID()
+	return pane.webView.ID()
 }
 
 func (h *WindowShortcutHandler) handleUIToggle(lastToggle *time.Time, featureName, action string) {
@@ -255,7 +255,7 @@ func (h *WindowShortcutHandler) handleUIToggle(lastToggle *time.Time, featureNam
 
 	if err := h.app.activePane.webView.DispatchCustomEvent("dumber:ui:shortcut", map[string]any{
 		"action":    action,
-		"paneId":    h.getPaneId(h.app.activePane),
+		"webviewId": h.getWebViewId(h.app.activePane),
 		"timestamp": time.Now().UnixMilli(),
 		"source":    "window-global",
 	}); err != nil {

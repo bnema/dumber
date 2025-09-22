@@ -119,6 +119,11 @@ func (app *BrowserApp) buildPane(view *webkit.WebView) (*BrowserPane, error) {
 	pane.zoomController.RegisterHandlers()
 	pane.shortcutHandler.RegisterShortcuts()
 
+	// Register navigation handler for workspace focus events if workspace exists
+	if app.workspace != nil {
+		app.workspace.RegisterNavigationHandler(view)
+	}
+
 	return pane, nil
 }
 
@@ -132,23 +137,8 @@ func (app *BrowserApp) createPaneForView(view *webkit.WebView) (*BrowserPane, er
 	pane.SetID(fmt.Sprintf("pane-%d-%p", time.Now().Unix(), view))
 	pane.initializeGUITracking()
 
-	// Inject minimal bootstrap script for pane initialization
-	bootstrapScript := fmt.Sprintf(`
-		window.__dumber_pane = {
-			id: '%s',
-			created: %d,
-			active: false
-		};
-
-		// GUI manager will be loaded on-demand
-		window.__dumber_gui_ready = true;
-
-		console.log('[pane] Initialized pane %s');
-	`, pane.ID(), time.Now().UnixMilli(), pane.ID())
-
-	if err := view.InjectScript(bootstrapScript); err != nil {
-		log.Printf("[pane-%s] Failed to inject bootstrap: %v", pane.ID(), err)
-	}
+	// GUI manager will be loaded on-demand when needed
+	log.Printf("[webview] Created pane for webview: %s", view.ID())
 
 	app.attachPaneHandlers(pane)
 	return pane, nil

@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bnema/dumber/internal/app/constants"
 	"github.com/bnema/dumber/internal/app/control"
@@ -42,7 +43,6 @@ type Message struct {
 	Event     string `json:"event"`
 	Action    string `json:"action"`
 	Direction string `json:"direction"`
-	PaneID    string `json:"paneId"`
 	// History operations
 	HistoryID string `json:"historyId"`
 	// Request tracking
@@ -129,6 +129,8 @@ func (h *Handler) Handle(payload string) {
 		h.handleClosePopup(msg)
 	case "console-message":
 		h.handleConsoleMessage(msg)
+	case "request-webview-id":
+		h.handleWebViewIDRequest(msg)
 	}
 }
 
@@ -601,4 +603,23 @@ func (h *Handler) handleConsoleMessage(msg Message) {
 
 	// Send to logging system with [CONSOLE] tag
 	logging.CaptureWebKitLog(consolePayload.Message)
+}
+
+// handleWebViewIDRequest responds to JavaScript requests for the webview ID
+func (h *Handler) handleWebViewIDRequest(msg Message) {
+	if h.webView == nil {
+		log.Printf("[messaging] Cannot provide webview ID - no webview available")
+		return
+	}
+
+	webViewID := h.webView.ID()
+	log.Printf("[messaging] Sending webview ID %s to JavaScript", webViewID)
+
+	// Send the webview ID back to JavaScript via custom event
+	if err := h.webView.DispatchCustomEvent("dumber:webview-id", map[string]any{
+		"webviewId": webViewID,
+		"timestamp": time.Now().UnixMilli(),
+	}); err != nil {
+		log.Printf("[messaging] Failed to send webview ID: %v", err)
+	}
 }

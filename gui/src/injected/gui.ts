@@ -58,7 +58,6 @@ declare global {
     __dumber_keyboard?: KeyboardService;
     __dumber_workspace_config?: WorkspaceConfigPayload;
     __dumber_workspace?: WorkspaceRuntime;
-    __dumber_pane?: { id: string; active: boolean };
     __dumber_omnibox?: {
       setSuggestions: (suggestions: Suggestion[]) => void;
       toggle: () => void;
@@ -85,8 +84,31 @@ if (!window.__dumber_gui_ready) {
     window.__dumber_gui_ready = true;
 
     let workspaceHasFocus = true; // Assume focus initially, will be corrected by focus events
-    let currentPaneId = window.__dumber_pane?.id || "unknown";
+    let currentWebViewId = window.__dumber_webview_id || "unknown";
     let hasReceivedFocusEvent = false; // Track if we've received any workspace focus events
+
+    // Request webview ID from Go if it's unknown (needed for stub builds)
+    if (currentWebViewId === "unknown" || currentWebViewId === "__WEBVIEW_ID__") {
+      console.log("[workspace] WebView ID unknown, requesting from Go backend");
+      if (window.webkit?.messageHandlers?.dumber) {
+        window.webkit.messageHandlers.dumber.postMessage(
+          JSON.stringify({
+            type: "request-webview-id",
+            payload: { timestamp: Date.now() }
+          })
+        );
+      }
+    }
+
+    // Listen for webview ID from Go backend
+    document.addEventListener("dumber:webview-id", (event: Event) => {
+      const detail = (event as CustomEvent).detail || {};
+      if (detail.webviewId) {
+        currentWebViewId = detail.webviewId;
+        window.__dumber_webview_id = detail.webviewId;
+        console.log("[workspace] Received webview ID from Go:", detail.webviewId);
+      }
+    });
 
     document.addEventListener("dumber:workspace-focus", (event: Event) => {
       const detail = (event as CustomEvent).detail || {};
@@ -106,21 +128,11 @@ if (!window.__dumber_gui_ready) {
         workspaceHasFocus = detail !== false;
       }
 
-      // Update pane tracking
-      if (detail?.paneId) {
-        currentPaneId = detail.paneId;
-      }
-
-      // Update global pane state
-      if (window.__dumber_pane) {
-        window.__dumber_pane.active = workspaceHasFocus;
-      }
-
       console.log(
         "[workspace focus updated] focus=",
         workspaceHasFocus,
-        "paneId=",
-        currentPaneId,
+        "webviewId=",
+        currentWebViewId,
       );
 
       // Handle GUI visibility based on focus
@@ -265,19 +277,19 @@ if (!window.__dumber_gui_ready) {
       document.addEventListener("dumber:ui:shortcut", (e: Event) => {
         const detail = (e as CustomEvent).detail || {};
         const action = detail?.action;
-        const eventPaneId = detail?.paneId;
+        const eventWebViewId = detail?.webviewId;
         const source = detail?.source || "unknown";
 
         if (typeof action !== "string") {
           return;
         }
 
-        // Enhanced focus checking with pane ID validation
-        const isForThisPane = !eventPaneId || eventPaneId === currentPaneId;
+        // Enhanced focus checking with webview ID validation
+        const isForThisWebView = !eventWebViewId || eventWebViewId === currentWebViewId;
         // Only apply strict focus checking to omnibox actions, be permissive for others
         const isOmniboxAction = action.startsWith("omnibox-");
         const shouldHandle =
-          isForThisPane &&
+          isForThisWebView &&
           (isOmniboxAction
             ? hasReceivedFocusEvent
               ? workspaceHasFocus
@@ -288,9 +300,9 @@ if (!window.__dumber_gui_ready) {
           console.log("[dumber shortcuts] ignored action", {
             action,
             workspaceHasFocus,
-            isForThisPane,
-            eventPaneId,
-            currentPaneId,
+            isForThisWebView,
+            eventWebViewId,
+            currentWebViewId,
             source,
             detail,
             hasReceivedFocusEvent,
@@ -301,7 +313,7 @@ if (!window.__dumber_gui_ready) {
         console.log("[dumber shortcuts] handling action", {
           action,
           source,
-          paneId: currentPaneId,
+          webviewId: currentWebViewId,
         });
 
         const omnibox = window.__dumber_omnibox;
@@ -398,18 +410,18 @@ if (!window.__dumber_gui_ready) {
       // Ensure omnibox is available for this pane
       if (!window.__dumber_omnibox) {
         console.log(
-          `[gui-bootstrap] Omnibox not yet available for pane ${currentPaneId}, will be loaded when needed`,
+          `[gui-bootstrap] Omnibox not yet available for webview ${currentWebViewId}, will be loaded when needed`,
         );
       } else {
         console.log(
-          `[gui-bootstrap] Omnibox already available for pane ${currentPaneId}`,
+          `[gui-bootstrap] Omnibox already available for webview ${currentWebViewId}`,
         );
         // Ensure omnibox is aware of the current pane
         window.__dumber_omnibox.setActive(workspaceHasFocus);
       }
 
       console.log(
-        `[gui-bootstrap] GUI bootstrap complete for pane ${currentPaneId}`,
+        `[gui-bootstrap] GUI bootstrap complete for webview ${currentWebViewId}`,
       );
     };
   }

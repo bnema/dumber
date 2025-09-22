@@ -354,6 +354,47 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 	}
 }
 
+// GetActiveNode returns the currently active pane node
+func (wm *WorkspaceManager) GetActiveNode() *paneNode {
+	return wm.active
+}
+
+// GetNodeForWebView returns the pane node associated with a WebView
+func (wm *WorkspaceManager) GetNodeForWebView(webView *webkit.WebView) *paneNode {
+	return wm.viewToNode[webView]
+}
+
+// RegisterNavigationHandler sets up navigation handling for a webview (simplified)
+func (wm *WorkspaceManager) RegisterNavigationHandler(webView *webkit.WebView) {
+	if webView == nil {
+		return
+	}
+
+	log.Printf("[workspace] Registered navigation handler for webview: %s", webView.ID())
+}
+
+// DispatchPaneFocusEvent sends a workspace focus event to a pane's webview
+func (wm *WorkspaceManager) DispatchPaneFocusEvent(node *paneNode, active bool) {
+	if node == nil || node.pane == nil || node.pane.webView == nil {
+		return
+	}
+
+	detail := map[string]any{
+		"active":    active,
+		"webview":   fmt.Sprintf("%p", node.pane.webView),
+		"webviewId": node.pane.webView.ID(),
+		"hasGUI":    node.pane.HasGUI(),
+		"timestamp": time.Now().UnixMilli(),
+	}
+
+	if err := node.pane.webView.DispatchCustomEvent("dumber:workspace-focus", detail); err != nil {
+		log.Printf("[workspace] failed to dispatch focus event: %v", err)
+	} else if wm.app.config != nil && wm.app.config.Debug.EnableWorkspaceDebug {
+		log.Printf("[workspace] dispatched focus event for webview %s (active=%v)", node.pane.webView.ID(), active)
+	}
+}
+
+
 func (wm *WorkspaceManager) focusNode(node *paneNode) {
 	if node == nil || !node.isLeaf || node.pane == nil || node.pane.webView == nil {
 		return
@@ -371,17 +412,7 @@ func (wm *WorkspaceManager) focusNode(node *paneNode) {
 	if previous != nil && previous != node && previous.pane != nil && previous.pane.webView != nil {
 		previousContainer = previous.container
 		previousWebView = previous.pane.webView
-		detail := map[string]any{
-			"active":    false,
-			"webview":   fmt.Sprintf("%p", previous.pane.webView),
-			"paneId":    previous.pane.ID(),
-			"timestamp": time.Now().UnixMilli(),
-		}
-		if err := previous.pane.webView.DispatchCustomEvent("dumber:workspace-focus", detail); err != nil {
-			log.Printf("[workspace] failed to notify focus loss: %v", err)
-		} else if wm.app.config != nil && wm.app.config.Debug.EnableWorkspaceDebug {
-			log.Printf("[workspace] notified focus loss for pane %s", previous.pane.ID())
-		}
+		wm.DispatchPaneFocusEvent(previous, false)
 	}
 
 	// Set previously active WebView as inactive
@@ -453,25 +484,13 @@ func (wm *WorkspaceManager) focusNode(node *paneNode) {
 		})
 	}
 
-	if node.pane != nil && node.pane.webView != nil && node.pane.webView != previousWebView {
+	if node.pane != nil && node.pane.webView != nil {
 		// Update pane focus time
 		node.pane.UpdateLastFocus()
 
-		// Enhanced focus event with pane ID and GUI status
-		detail := map[string]any{
-			"active":    true,
-			"webview":   fmt.Sprintf("%p", node.pane.webView),
-			"paneId":    node.pane.ID(),
-			"hasGUI":    node.pane.HasGUI(),
-			"timestamp": time.Now().UnixMilli(),
-		}
-
-		// Dispatch focus event to new active pane
-		if err := node.pane.webView.DispatchCustomEvent("dumber:workspace-focus", detail); err != nil {
-			log.Printf("[workspace] failed to notify focus gain: %v", err)
-		} else if wm.app.config != nil && wm.app.config.Debug.EnableWorkspaceDebug {
-			log.Printf("[workspace] notified focus gain for pane %s", node.pane.ID())
-		}
+		// Always dispatch focus event to ensure JavaScript side knows the active pane
+		// This fixes the issue where navigation within the same pane doesn't update JS state
+		wm.DispatchPaneFocusEvent(node, true)
 
 		// Lazy-load GUI components if first focus
 		if !node.pane.HasGUI() {

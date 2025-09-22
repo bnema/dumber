@@ -54,6 +54,7 @@ export class AppService {
           visit_count: 3,
           last_visited: new Date().toISOString(),
           created_at: new Date().toISOString(),
+          favicon_url: null,
         },
         {
           id: 2,
@@ -62,6 +63,7 @@ export class AppService {
           visit_count: 2,
           last_visited: new Date().toISOString(),
           created_at: new Date().toISOString(),
+          favicon_url: null,
         },
         {
           id: 3,
@@ -70,6 +72,7 @@ export class AppService {
           visit_count: 1,
           last_visited: new Date().toISOString(),
           created_at: new Date().toISOString(),
+          favicon_url: null,
         },
       ];
     }
