@@ -1,6 +1,6 @@
 // GENERATED FROM GO FILES: SEE THE GENERATOR SCRIPT
 // Auto-generated TypeScript types from Go structs
-// Generated on: 2025-09-22T12:41:57.478Z
+// Generated on: 2025-09-22T12:41:27.395Z
 // Generator script: scripts/generate-types.js
 // Source files: internal/db/models.go, internal/parser/types.go
 // Do not edit manually - run 'node scripts/generate-types.js' to regenerate
@@ -76,12 +76,6 @@ export interface FuzzyConfig {
 }
 
 // Manual types and enums
-export enum InputType {
-  InputTypeDirectURL = 0,
-  InputTypeSearchShortcut = 1,
-  InputTypeHistorySearch = 2,
-  InputTypeFallbackSearch = 3,
-}
 
 // Type aliases for frontend usage
 export type HistoryEntry = History;

@@ -1,33 +1,36 @@
-import { defineConfig } from 'vite';
-import { svelte } from '@sveltejs/vite-plugin-svelte';
-import { resolve } from 'path';
-import { pageGenerator } from './vite-plugin-pages';
+import { defineConfig } from "vite";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
+import { resolve } from "path";
+import { pageGenerator } from "./vite-plugin-pages";
 
 export default defineConfig({
   plugins: [
     svelte(),
     pageGenerator([
       {
-        name: 'homepage',
-        title: 'Dumber Browser',
-        script: 'homepage.min.js',
-        css: 'homepage.css',
-        filename: 'index.html',
-      }
+        name: "homepage",
+        title: "Dumber Browser",
+        script: "homepage.min.js",
+        css: "homepage.css",
+        filename: "index.html",
+      },
     ]),
   ],
   build: {
     rollupOptions: {
-      input: resolve(__dirname, 'src/pages/homepage.ts'),
+      input: resolve(__dirname, "src/pages/homepage.ts"),
       output: {
-        dir: '../assets/gui',
-        entryFileNames: 'homepage.min.js',
-        chunkFileNames: '[name].js',
-        assetFileNames: '[name].[ext]',
+        dir: "../assets/gui",
+        entryFileNames: "homepage.min.js",
+        chunkFileNames: "[name].js",
+        assetFileNames: "[name].[ext]",
+        manualChunks: undefined,
+        format: 'iife',
+        name: 'DumberHomepage'
       },
     },
     emptyOutDir: false,
-    target: ['es2020', 'chrome91', 'firefox90'],
+    target: ["es2020", "chrome91", "firefox90"],
     minify: true,
     sourcemap: false,
     cssCodeSplit: true,
@@ -35,8 +38,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '$lib': resolve(__dirname, 'src/lib'),
-      '$components': resolve(__dirname, 'src/components'),
+      $lib: resolve(__dirname, "src/lib"),
+      $components: resolve(__dirname, "src/components"),
     },
   },
 });

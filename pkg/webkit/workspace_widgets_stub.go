@@ -93,6 +93,9 @@ func PanedSetResizeStart(paned uintptr, resize bool) {}
 
 func PanedSetResizeEnd(paned uintptr, resize bool) {}
 
+// PanedSetPosition is a no-op in stub builds.
+func PanedSetPosition(paned uintptr, pos int) {}
+
 func WidgetUnparent(widget uintptr) {}
 
 func WidgetSetHExpand(widget uintptr, expand bool) {}

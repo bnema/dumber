@@ -163,7 +163,7 @@ func (l *Logger) writeLog(level LogLevel, message string, source string) {
 }
 
 func (l *Logger) WriteTagged(source string, message string) {
-	l.writeLog(INFO, message, source)
+	l.WriteFileOnly(INFO, message, source)
 }
 
 // WriteFileOnly writes a log entry only to the file (not stdout) to avoid interfering with CLI operations
@@ -218,8 +218,15 @@ func Fatal(message string) {
 
 func CaptureWebKitLog(message string) {
 	if l := GetLogger(); l != nil {
-		l.WriteTagged("WEBKIT", message)
+		l.WriteTagged("CONSOLE", message)
 	}
+}
+
+// StartConsoleCapture starts capturing stdout for console messages
+// StartConsoleCapture starts capturing stdout for console messages and writing to console.log
+// StartConsoleCapture - placeholder for console message capture
+func StartConsoleCapture() {
+	// Placeholder - console message capture will be implemented differently
 }
 
 // LogLevelInfo returns the INFO log level constant for external packages

@@ -1,7 +1,7 @@
 export interface DebugLogEntry {
   timestamp: string;
-  level: 'info' | 'warn' | 'error' | 'debug';
-  source: 'frontend' | 'backend';
+  level: "info" | "warn" | "error" | "debug";
+  source: "frontend" | "backend";
   category: string;
   message: string;
   data?: unknown;
@@ -22,8 +22,8 @@ export class DebugConsoleService {
 
   private createDebugUI(): void {
     // Create debug panel
-    this.debugElement = document.createElement('div');
-    this.debugElement.id = 'debug-console';
+    this.debugElement = document.createElement("div");
+    this.debugElement.id = "debug-console";
     this.debugElement.style.cssText = `
       position: fixed;
       top: 0;
@@ -40,7 +40,7 @@ export class DebugConsoleService {
     `;
 
     // Create header
-    const header = document.createElement('div');
+    const header = document.createElement("div");
     header.style.cssText = `
       padding: 10px;
       background: rgba(0, 255, 0, 0.1);
@@ -60,7 +60,7 @@ export class DebugConsoleService {
     `;
 
     // Create logs container
-    this.logsContainer = document.createElement('div');
+    this.logsContainer = document.createElement("div");
     this.logsContainer.style.cssText = `
       height: calc(100% - 50px);
       overflow-y: auto;
@@ -72,14 +72,18 @@ export class DebugConsoleService {
     document.body.appendChild(this.debugElement);
 
     // Setup button handlers
-    header.querySelector('#clear-logs')?.addEventListener('click', () => this.clearLogs());
-    header.querySelector('#close-debug')?.addEventListener('click', () => this.hide());
+    header
+      .querySelector("#clear-logs")
+      ?.addEventListener("click", () => this.clearLogs());
+    header
+      .querySelector("#close-debug")
+      ?.addEventListener("click", () => this.hide());
   }
 
   private setupKeyboardShortcut(): void {
-    document.addEventListener('keydown', (event) => {
+    document.addEventListener("keydown", (event) => {
       // F12 to toggle debug console
-      if (event.key === 'F12') {
+      if (event.key === "F12") {
         event.preventDefault();
         this.toggle();
       }
@@ -92,47 +96,53 @@ export class DebugConsoleService {
       warn: console.warn,
       error: console.error,
       info: console.info,
-      debug: console.debug
+      debug: console.debug,
     };
 
     console.log = (...args) => {
-      this.addLog('info', 'frontend', 'console', args.join(' '));
+      this.addLog("info", "frontend", "console", args.join(" "));
       originalConsole.log(...args);
     };
 
     console.warn = (...args) => {
-      this.addLog('warn', 'frontend', 'console', args.join(' '));
+      this.addLog("warn", "frontend", "console", args.join(" "));
       originalConsole.warn(...args);
     };
 
     console.error = (...args) => {
-      this.addLog('error', 'frontend', 'console', args.join(' '));
+      this.addLog("error", "frontend", "console", args.join(" "));
       originalConsole.error(...args);
     };
 
     console.info = (...args) => {
-      this.addLog('info', 'frontend', 'console', args.join(' '));
+      this.addLog("info", "frontend", "console", args.join(" "));
       originalConsole.info(...args);
     };
 
     console.debug = (...args) => {
-      this.addLog('debug', 'frontend', 'console', args.join(' '));
+      this.addLog("debug", "frontend", "console", args.join(" "));
       originalConsole.debug(...args);
     };
   }
 
-  public addLog(level: DebugLogEntry['level'], source: DebugLogEntry['source'], category: string, message: string, data?: unknown): void {
+  public addLog(
+    level: DebugLogEntry["level"],
+    source: DebugLogEntry["source"],
+    category: string,
+    message: string,
+    data?: unknown,
+  ): void {
     const entry: DebugLogEntry = {
-      timestamp: new Date().toISOString().split('T')[1]?.split('.')[0] || '', // HH:MM:SS format
+      timestamp: new Date().toISOString().split("T")[1]?.split(".")[0] || "", // HH:MM:SS format
       level,
       source,
       category,
       message,
-      data
+      data,
     };
 
     this.logs.push(entry);
-    
+
     // Keep only the last maxLogs entries
     if (this.logs.length > this.maxLogs) {
       this.logs.shift();
@@ -144,96 +154,123 @@ export class DebugConsoleService {
   private updateDisplay(): void {
     if (!this.logsContainer) return;
 
-    const logHTML = this.logs.map(log => {
-      const levelColor = {
-        info: '#00ff00',
-        warn: '#ffff00', 
-        error: '#ff0000',
-        debug: '#00ffff'
-      }[log.level];
+    const logHTML = this.logs
+      .map((log) => {
+        const levelColor = {
+          info: "#00ff00",
+          warn: "#ffff00",
+          error: "#ff0000",
+          debug: "#00ffff",
+        }[log.level];
 
-      const sourceIcon = log.source === 'backend' ? '🖥️' : '🌐';
+        const sourceIcon = log.source === "backend" ? "🖥️" : "🌐";
 
-      return `
+        return `
         <div style="margin-bottom: 2px; font-size: 11px;">
           <span style="color: #888;">[${log.timestamp}]</span>
           <span style="color: ${levelColor};">${sourceIcon} ${log.level.toUpperCase()}</span>
           <span style="color: #aaa;">[${log.category}]</span>
           <span style="color: #fff;">${log.message}</span>
-          ${log.data ? `<pre style="color: #ccc; font-size: 10px; margin: 2px 0;">${JSON.stringify(log.data, null, 2)}</pre>` : ''}
+          ${log.data ? `<pre style="color: #ccc; font-size: 10px; margin: 2px 0;">${JSON.stringify(log.data, null, 2)}</pre>` : ""}
         </div>
       `;
-    }).join('');
+      })
+      .join("");
 
     this.logsContainer.innerHTML = logHTML;
-    
+
     // Auto-scroll to bottom
     this.logsContainer.scrollTop = this.logsContainer.scrollHeight;
   }
 
   public logKeyboardEvent(event: KeyboardEvent): void {
     const modifiers = [];
-    if (event.ctrlKey) modifiers.push('Ctrl');
-    if (event.shiftKey) modifiers.push('Shift');
-    if (event.altKey) modifiers.push('Alt');
-    if (event.metaKey) modifiers.push('Meta');
+    if (event.ctrlKey) modifiers.push("Ctrl");
+    if (event.shiftKey) modifiers.push("Shift");
+    if (event.altKey) modifiers.push("Alt");
+    if (event.metaKey) modifiers.push("Meta");
 
-    const shortcut = modifiers.length > 0 ? `${modifiers.join('+')}+${event.key}` : event.key;
-    
-    this.addLog('info', 'frontend', 'keyboard', `Key pressed: ${shortcut}`, {
+    const shortcut =
+      modifiers.length > 0 ? `${modifiers.join("+")}+${event.key}` : event.key;
+
+    this.addLog("info", "frontend", "keyboard", `Key pressed: ${shortcut}`, {
       key: event.key,
       code: event.code,
       modifiers,
-      target: event.target?.constructor.name
+      target: event.target?.constructor.name,
     });
   }
 
   public logMouseEvent(event: MouseEvent): void {
     const buttonNames: Record<number, string> = {
-      0: 'Left',
-      1: 'Middle',
-      2: 'Right',
-      3: 'Back',
-      4: 'Forward'
+      0: "Left",
+      1: "Middle",
+      2: "Right",
+      3: "Back",
+      4: "Forward",
     };
 
-    this.addLog('info', 'frontend', 'mouse', `Mouse ${event.type}: ${buttonNames[event.button] || `Button${event.button}`}`, {
-      button: event.button,
-      clientX: event.clientX,
-      clientY: event.clientY,
-      target: event.target?.constructor.name
-    });
+    this.addLog(
+      "info",
+      "frontend",
+      "mouse",
+      `Mouse ${event.type}: ${buttonNames[event.button] || `Button${event.button}`}`,
+      {
+        button: event.button,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        target: event.target?.constructor.name,
+      },
+    );
   }
 
-  public logServiceCall(serviceName: string, methodName: string, params: unknown[], result?: unknown, error?: Error): void {
+  public logServiceCall(
+    serviceName: string,
+    methodName: string,
+    params: unknown[],
+    result?: unknown,
+    error?: Error,
+  ): void {
     if (error) {
-      this.addLog('error', 'frontend', 'service', `${serviceName}.${methodName}() failed`, {
-        params,
-        error: error.message
-      });
+      this.addLog(
+        "error",
+        "frontend",
+        "service",
+        `${serviceName}.${methodName}() failed`,
+        {
+          params,
+          error: error.message,
+        },
+      );
     } else {
-      this.addLog('info', 'frontend', 'service', `${serviceName}.${methodName}() called`, {
-        params,
-        result
-      });
+      this.addLog(
+        "info",
+        "frontend",
+        "service",
+        `${serviceName}.${methodName}() called`,
+        {
+          params,
+          result,
+        },
+      );
     }
   }
 
   public logBackendMessage(message: string, data?: unknown): void {
-    this.addLog('info', 'backend', 'service', message, data);
+    this.addLog("info", "backend", "service", message, data);
   }
 
   public show(): void {
     if (this.debugElement) {
-      this.debugElement.style.display = 'block';
+      this.debugElement.style.display = "block";
       this.isVisible = true;
-      this.addLog('info', 'frontend', 'debug', 'Debug console opened');
+      this.addLog("info", "frontend", "debug", "Debug console opened");
     }
   }
 
   public hide(): void {
     if (this.debugElement) {
-      this.debugElement.style.display = 'none';
+      this.debugElement.style.display = "none";
       this.isVisible = false;
     }
   }
@@ -249,7 +286,7 @@ export class DebugConsoleService {
   public clearLogs(): void {
     this.logs = [];
     this.updateDisplay();
-    this.addLog('info', 'frontend', 'debug', 'Logs cleared');
+    this.addLog("info", "frontend", "debug", "Logs cleared");
   }
 
   public isDebugVisible(): boolean {

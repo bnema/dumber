@@ -30,16 +30,33 @@ func NewShortcutHandler(webView *webkit.WebView, clipboardController *control.Cl
 
 func (s *ShortcutHandler) isActivePane() bool {
 	if s == nil || s.webView == nil {
-		log.Printf("[shortcut] isActivePane: handler or webView is nil")
 		return false
 	}
-	if s.app == nil || s.app.activePane == nil {
-		log.Printf("[shortcut] isActivePane: app or activePane is nil, returning true")
-		return true
+	if s.app == nil || s.app.workspace == nil {
+		return true // No workspace context; allow
 	}
-	isActive := s.app.activePane.webView == s.webView
-	log.Printf("[shortcut] isActivePane: handler webView=%p activePane webView=%p isActive=%v", s.webView, s.app.activePane.webView, isActive)
-	return isActive
+
+	// Find node for this WebView
+	node := s.app.workspace.viewToNode[s.webView]
+	if node == nil {
+		return false
+	}
+
+	// For related popups, they're active if parent chain contains the active node
+	if node.isRelated && node.parentPane != nil {
+		activeNode := s.app.workspace.active
+		cur := node
+		for cur != nil {
+			if cur == activeNode {
+				return true
+			}
+			cur = cur.parentPane
+		}
+		return false
+	}
+
+	// Independent panes: equal to active node
+	return node == s.app.workspace.active
 }
 
 // RegisterShortcuts registers pane-specific keyboard shortcuts with focus guards
@@ -74,10 +91,8 @@ func (s *ShortcutHandler) RegisterShortcuts() {
 		_ = s.webView.Reload()
 	})
 
-	// Note: Workspace pane navigation shortcuts (Alt + Arrow keys) are now handled
-	// by the WorkspaceManager to ensure they work properly across all panes
-
-	// Zoom handled natively in webkit package (built-in shortcuts)
+	// Note: Workspace pane navigation shortcuts (Alt + Arrow keys) are handled by WorkspaceManager
+	// and zoom shortcuts (Ctrl +/-/0) are handled by WindowShortcutHandler to ensure they work properly across all panes
 }
 
 func (s *ShortcutHandler) dispatchUIShortcut(action string, extra map[string]any) error {

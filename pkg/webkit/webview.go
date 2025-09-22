@@ -5,8 +5,18 @@ package webkit
 import (
 	"fmt"
 	"log"
+	"strconv"
+	"sync/atomic"
 	"unsafe"
 )
+
+// Package-level ID counter for stub WebViews
+var stubViewIDCounter uint64
+
+// nextStubViewID generates a unique ID for stub WebViews
+func nextStubViewID() uintptr {
+	return uintptr(atomic.AddUint64(&stubViewIDCounter, 1))
+}
 
 // WebView represents a browser view powered by WebKit2GTK.
 // Methods are currently stubs returning ErrNotImplemented to satisfy TDD ordering.
@@ -26,6 +36,12 @@ type WebView struct {
 	useDomZoom   bool
 	domZoomSeed  float64
 	container    uintptr
+	id           uintptr // WebView unique identifier
+
+	// Window type fields (no-op in stub)
+	windowType         WindowType
+	windowFeatures     *WindowFeatures
+	windowTypeCallback func(WindowType, *WindowFeatures)
 }
 
 // NewWebView constructs a new WebView instance.
@@ -41,6 +57,7 @@ func NewWebView(cfg *Config) (*WebView, error) {
 		wv.zoom = cfg.ZoomDefault
 	}
 	wv.domZoomSeed = wv.zoom
+	wv.id = nextStubViewID() // Assign unique ID
 	// Construction succeeds; create a logical window placeholder.
 	wv.window = &Window{Title: "Dumber Browser"}
 	wv.container = newWidgetHandle()
@@ -211,6 +228,19 @@ func (w *WebView) SeedDomZoom(level float64) {
 	w.domZoomSeed = level
 }
 
+// CreateRelatedView returns a new WebView (stub creates independent)
+func (w *WebView) CreateRelatedView() *WebView {
+	nw, _ := NewWebView(w.config)
+	return nw
+}
+
+// OnWindowTypeDetected registers a callback (stored but never invoked in stub)
+func (w *WebView) OnWindowTypeDetected(callback func(WindowType, *WindowFeatures)) {
+	if w != nil {
+		w.windowTypeCallback = callback
+	}
+}
+
 // InitializeContentBlocking initializes WebKit content blocking with filter manager (stub)
 func (w *WebView) InitializeContentBlocking(filterManager interface{}) error {
 	return ErrNotImplemented
@@ -224,4 +254,27 @@ func (w *WebView) OnNavigate(url string, filterManager interface{}) {
 // UpdateContentFilters updates the content filters dynamically (stub)
 func (w *WebView) UpdateContentFilters(filterManager interface{}) error {
 	return ErrNotImplemented
+}
+
+// SetWindowFeatures sets the window features for this WebView (stub)
+func (w *WebView) SetWindowFeatures(features *WindowFeatures) {
+	w.windowFeatures = features
+}
+
+// SetActive sets whether this WebView is currently active/focused (stub)
+func (w *WebView) SetActive(active bool) {
+	// No-op in stub
+}
+
+// IsActive returns whether this WebView is currently active/focused (stub)
+func (w *WebView) IsActive() bool {
+	return false
+}
+
+// ID returns the unique identifier for this WebView as a string (stub)
+func (w *WebView) ID() string {
+	if w == nil {
+		return ""
+	}
+	return strconv.FormatUint(uint64(w.id), 10)
 }

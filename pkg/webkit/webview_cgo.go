@@ -24,8 +24,6 @@ extern void goQuitMainLoop();
 extern void goInvokeHandle(uintptr_t handle);
 extern gboolean goHandleNewWindowPolicy(unsigned long id, char* uri, int nav_type, char* frame_name, gboolean is_user_gesture, guint modifiers, guint mouse_button);
 extern void goHandlePopupGeometry(unsigned long id, int x, int y, int width, int height);
-extern GtkWidget* goHandleCreateWebView(unsigned long id, char* uri);
-extern void goNotifyWebViewCreated(unsigned long parent_id, unsigned long webview_ptr, char* uri);
 extern void goHandleLoadChanged(unsigned long id, char* uri, int load_event);
 extern void goHandleWebViewClose(unsigned long id);
 extern void goCreateNewPanel(unsigned long id, char* uri);
@@ -51,42 +49,16 @@ static void maybe_set_cookie_policy(WebKitCookieManager* cm, int policy);
 
 // TLS error handling forward declarations
 extern gboolean goHandleTLSError(char* failing_uri, char* host, int error_flags, char* cert_info);
+
+// Console message handling forward declarations
+extern void goHandleConsoleMessage(char* message);
+
 static gboolean on_load_failed_with_tls_errors(WebKitWebView *web_view,
                                                const char *failing_uri,
                                                GTlsCertificate *certificate,
                                                GTlsCertificateFlags errors,
                                                gpointer user_data);
 
-// Handle ready-to-show signal for popup windows to properly initialize window properties
-static void on_popup_ready_to_show(WebKitWebView* web_view, gpointer user_data) {
-    printf("[webkit-ready] Ready-to-show signal for popup WebView\n");
-
-    // Get window properties - this should be safe for actual popups
-    WebKitWindowProperties* props = webkit_web_view_get_window_properties(web_view);
-    if (props) {
-        // Try to access geometry safely for popup positioning
-        GdkRectangle geometry = {0, 0, 800, 600}; // Default fallback
-
-        // Check if properties are actually available (defensive programming)
-        if (G_IS_OBJECT(props)) {
-            webkit_window_properties_get_geometry(props, &geometry);
-            printf("[webkit-ready] Retrieved popup geometry: %dx%d at (%d,%d)\n",
-                   geometry.width, geometry.height, geometry.x, geometry.y);
-        } else {
-            printf("[webkit-ready] WindowProperties object invalid, using defaults\n");
-        }
-
-        // Pass geometry to Go for workspace positioning
-        unsigned long view_id = (unsigned long)user_data;
-        goHandlePopupGeometry(view_id, geometry.x, geometry.y,
-                             geometry.width, geometry.height);
-    } else {
-        printf("[webkit-ready] No window properties available for popup\n");
-        // Still notify Go layer with default geometry
-        unsigned long view_id = (unsigned long)user_data;
-        goHandlePopupGeometry(view_id, 0, 0, 800, 600);
-    }
-}
 
 // Handle load_changed signal for OAuth completion detection
 static void on_load_changed(WebKitWebView *web_view, WebKitLoadEvent load_event, gpointer user_data) {
@@ -107,140 +79,6 @@ static void on_webview_close(WebKitWebView* web_view, gpointer user_data) {
     goHandleWebViewClose(view_id);
 }
 
-// Handle create signal for popup windows - essential for window.open() support
-static GtkWidget* on_create_web_view(WebKitWebView *web_view,
-                                     WebKitNavigationAction *navigation_action,
-                                     gpointer user_data) {
-    WebKitURIRequest *request = webkit_navigation_action_get_request(navigation_action);
-    const char* uri = webkit_uri_request_get_uri(request);
-
-    // Extract additional navigation properties for enhanced _blank detection
-    const char* frame_name = webkit_navigation_action_get_frame_name(navigation_action);
-    gboolean is_user_gesture = webkit_navigation_action_is_user_gesture(navigation_action);
-    guint modifiers = webkit_navigation_action_get_modifiers(navigation_action);
-    WebKitNavigationType nav_type = webkit_navigation_action_get_navigation_type(navigation_action);
-
-    printf("[webkit-create] Create signal for URI: %s, FrameName: %s, UserGesture: %s, Modifiers: 0x%x, NavType: %d\n",
-           uri ? uri : "NULL",
-           frame_name ? frame_name : "NULL",
-           is_user_gesture ? "true" : "false",
-           modifiers,
-           nav_type);
-
-    // Enhanced detection logic for _blank vs popup using reliable heuristics
-    gboolean is_regular_pane = FALSE;
-    const guint GDK_CONTROL_MASK = 0x04;
-    const guint GDK_META_MASK = 0x10000000; // Command key on macOS
-    gboolean has_ctrl_or_cmd = (modifiers & GDK_CONTROL_MASK) || (modifiers & GDK_META_MASK);
-
-    // Criteria for treating as regular pane:
-    // 1. Explicit _blank frame name (target="_blank" links)
-    // 2. User gesture with Ctrl/Cmd+click (open in new tab intent)
-    // 3. User-initiated OTHER navigation with no frame name (window.open("url", "_blank"))
-    if (frame_name && strcmp(frame_name, "_blank") == 0) {
-        is_regular_pane = TRUE;
-        printf("[webkit-create] _blank frame detected - will let WebKit handle natively to avoid WindowFeatures crash\n");
-    } else if (is_user_gesture && has_ctrl_or_cmd && (nav_type == 0 || nav_type == 5)) {
-        // WEBKIT_NAVIGATION_TYPE_LINK_CLICKED = 0, WEBKIT_NAVIGATION_TYPE_OTHER = 5
-        is_regular_pane = TRUE;
-        printf("[webkit-create] Ctrl/Cmd+click detected - will let WebKit handle natively\n");
-    } else if (is_user_gesture && nav_type == 5 && (!frame_name || strlen(frame_name) == 0)) {
-        // window.open("url", "_blank") typically: user gesture + OTHER + no frame name
-        is_regular_pane = TRUE;
-        printf("[webkit-create] User-initiated window.open() detected (nav_type=%d, frame_name=%s) - will let WebKit handle natively\n",
-               nav_type, frame_name ? frame_name : "NULL");
-    } else {
-        // Default to popup for non-user gestures or other navigation types
-        is_regular_pane = FALSE;
-        printf("[webkit-create] Non-user gesture or other navigation type - treating as popup (user_gesture=%s, nav_type=%d, frame_name=%s)\n",
-               is_user_gesture ? "true" : "false", nav_type, frame_name ? frame_name : "NULL");
-    }
-
-    // Add marker to URI for workspace manager based on detection
-    char* marked_uri = NULL;
-    if (uri) {
-        if (is_regular_pane) {
-            // Add marker for regular pane
-            size_t len = strlen(uri) + strlen("#__dumber_frame_blank") + 1;
-            marked_uri = malloc(len);
-            snprintf(marked_uri, len, "%s#__dumber_frame_blank", uri);
-            printf("[webkit-create] Marked as regular pane: %s\n", marked_uri);
-        } else {
-            // Add marker for popup
-            size_t len = strlen(uri) + strlen("#__dumber_frame_popup") + 1;
-            marked_uri = malloc(len);
-            snprintf(marked_uri, len, "%s#__dumber_frame_popup", uri);
-            printf("[webkit-create] Marked as popup: %s\n", marked_uri);
-        }
-    }
-
-    // CRITICAL FIX: Return NULL for _blank targets to prevent WindowFeatures crash
-    if (is_regular_pane) {
-        // For _blank targets, return NULL to let WebKit handle it naturally
-        // This prevents WebKit from trying to access uninitialized WindowFeatures
-        printf("[webkit-create] _blank target detected - returning NULL to prevent WindowFeatures crash\n");
-        printf("[webkit-create] Creating new panel directly for _blank target\n");
-
-        // Create new panel directly through Go layer
-        unsigned long view_id = (unsigned long)user_data;
-        goCreateNewPanel(view_id, marked_uri ? marked_uri : (char*)uri);
-
-        // Clean up allocated memory
-        if (marked_uri) {
-            free(marked_uri);
-        }
-
-        return NULL; // Critical: Don't return a widget for _blank targets
-    }
-
-    // Only create WebView for actual popups (window.open with features)
-    printf("[webkit-create] Creating popup WebView with shared context from parent\n");
-
-    // Get the web context from the parent WebView to share settings and session
-    WebKitWebContext* parent_context = webkit_web_view_get_context(web_view);
-    WebKitSettings* parent_settings = webkit_web_view_get_settings(web_view);
-    WebKitUserContentManager* parent_content_manager = webkit_web_view_get_user_content_manager(web_view);
-
-    // Create new WebView with same context, settings, and content manager as parent
-    GtkWidget* new_webview = GTK_WIDGET(g_object_new(WEBKIT_TYPE_WEB_VIEW,
-        "web-context", parent_context,
-        "settings", parent_settings,
-        "user-content-manager", parent_content_manager,
-        NULL));
-
-    // Now inform Go layer about the new popup WebView for workspace management
-    unsigned long view_id = (unsigned long)user_data;
-    goNotifyWebViewCreated(view_id, (unsigned long)new_webview, marked_uri ? marked_uri : (char*)uri);
-
-    // Clean up allocated memory
-    if (marked_uri) {
-        free(marked_uri);
-    }
-
-    if (new_webview) {
-        printf("[webkit-create] Created popup WebView - connecting popup management signals\n");
-
-        // Connect ready-to-show signal for popup WindowFeatures handling
-        g_signal_connect(new_webview, "ready-to-show",
-                         G_CALLBACK(on_popup_ready_to_show), user_data);
-        printf("[webkit-create] Connected ready-to-show signal for popup WindowFeatures\n");
-
-        WebKitWebView* popup_webview = WEBKIT_WEB_VIEW(new_webview);
-        g_signal_connect_data(G_OBJECT(popup_webview), "load-changed",
-                             G_CALLBACK(on_load_changed), user_data, NULL, 0);
-        printf("[webkit-create] Connected load-changed signal to popup for navigation tracking\n");
-
-        // Connect close signal to handle window.close() from any popup (OAuth, ads, etc.)
-        g_signal_connect_data(G_OBJECT(popup_webview), "close",
-                             G_CALLBACK(on_webview_close), user_data, NULL, 0);
-        printf("[webkit-create] Connected close signal to popup for auto-close handling\n");
-
-        return new_webview;
-    } else {
-        printf("[webkit-create] Go handler declined popup - allowing native popup window\n");
-        return NULL; // Let WebKit create native popup window
-    }
-}
 
 // Handle decide-policy signal for new window requests - more robust than create signal
 static gboolean on_decide_policy(WebKitWebView *web_view,
@@ -393,10 +231,9 @@ static GtkWidget* new_webview_related(WebKitWebView* related_view, WebKitUserCon
         g_object_ref(u); // Add ref since we'll pass it to new WebView
     }
 
-    // Create WebView with same session and content manager for process sharing
+    // Create WebView with related view for process sharing (network session is inherited)
     GtkWidget* w = GTK_WIDGET(g_object_new(WEBKIT_TYPE_WEB_VIEW,
         "user-content-manager", u,
-        "network-session", related_session,
         "related-view", related_view,
         NULL));
 
@@ -411,9 +248,9 @@ static GtkWidget* new_webview_related(WebKitWebView* related_view, WebKitUserCon
 
 static void connect_policy_handler(WebKitWebView* web_view, unsigned long id) {
     if (!web_view) return;
-    g_signal_connect_data(G_OBJECT(web_view), "decide-policy", G_CALLBACK(on_decide_policy), (gpointer)id, NULL, 0);
-    // Keep create signal for JavaScript window.open() and other cases not caught by decide-policy
-    g_signal_connect_data(G_OBJECT(web_view), "create", G_CALLBACK(on_create_web_view), (gpointer)id, NULL, 0);
+    // Create signal is now handled in window_handler_cgo.go
+    // Use ConnectCreateSignal from Go to connect the signal
+    printf("[webkit-debug] Policy handler connected (create signal handled separately)\n");
 }
 
 // Connect close signal to a WebView for popup auto-close functionality
@@ -909,6 +746,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -936,125 +774,7 @@ type FilterManager interface {
 	GetCosmeticScriptForDomain(domain string) string
 }
 
-const domBridgeTemplate = `(() => { try {
-              if (window.__dumber_page_bridge_installed) return; 
-              window.__dumber_page_bridge_installed = true;
-              
-              const __dumberInitialZoom = __DOM_ZOOM_DEFAULT__;
-              window.__dumber_dom_zoom_seed = __dumberInitialZoom;
-              
-              // Theme setter function for GTK theme integration
-              window.__dumber_setTheme = (theme) => {
-                window.__dumber_initial_theme = theme;
-                console.log('[dumber] Setting theme to:', theme);
-                if (theme === 'dark') {
-                  document.documentElement.classList.add('dark');
-                } else {
-                  document.documentElement.classList.remove('dark');
-                }
-              };
-              
-              // Ensure unified API object
-              window.__dumber = window.__dumber || {};
-              // Toast namespace
-              window.__dumber.toast = window.__dumber.toast || {
-                show: function(message, duration, type) {
-                  try {
-                    document.dispatchEvent(new CustomEvent('dumber:toast:show', { detail: { message, duration, type } }));
-                    // Legacy compatibility
-                    document.dispatchEvent(new CustomEvent('dumber:showToast', { detail: { message, duration, type } }));
-                  } catch(e) { /* ignore */ }
-                },
-                zoom: function(level) {
-                  try {
-                    document.dispatchEvent(new CustomEvent('dumber:toast:zoom', { detail: { level } }));
-                    // Legacy compatibility
-                    document.dispatchEvent(new CustomEvent('dumber:showZoomToast', { detail: { level } }));
-                  } catch(e) { /* ignore */ }
-                }
-              };
-              // Back-compat global helpers
-              window.__dumber_showToast = function(message, duration, type) { window.__dumber.toast.show(message, duration, type); };
-              window.__dumber_showZoomToast = function(level) { window.__dumber.toast.zoom(level); };
-
-              // DOM zoom helpers (optional native override)
-              if (typeof window.__dumber_dom_zoom_level !== 'number') {
-                window.__dumber_dom_zoom_level = __dumberInitialZoom;
-              }
-              const __dumberApplyZoomStyles = function(node, level) {
-                if (!node) return;
-                if (Math.abs(level - 1.0) < 1e-6) {
-                  node.style.removeProperty('zoom');
-                  node.style.removeProperty('transform');
-                  node.style.removeProperty('transform-origin');
-                  node.style.removeProperty('width');
-                  node.style.removeProperty('min-width');
-                  node.style.removeProperty('height');
-                  node.style.removeProperty('min-height');
-                  return;
-                }
-                const scale = level;
-                const inversePercent = 100 / scale;
-                const widthValue = inversePercent + '%';
-                node.style.removeProperty('zoom');
-                node.style.transform = 'scale(' + scale + ')';
-                node.style.transformOrigin = '0 0';
-                node.style.width = widthValue;
-                node.style.minWidth = widthValue;
-                node.style.minHeight = '100%';
-              };
-              window.__dumber_applyDomZoom = function(level) {
-                try {
-                  window.__dumber_dom_zoom_level = level;
-                  window.__dumber_dom_zoom_seed = level;
-                  __dumberApplyZoomStyles(document.documentElement, level);
-                  if (document.body) {
-                    __dumberApplyZoomStyles(document.body, level);
-                  }
-                } catch (e) {
-                  console.error('[dumber] DOM zoom error', e);
-                }
-              };
-              // Apply immediately so first paint uses the desired zoom, then reapply when body exists.
-              window.__dumber_applyDomZoom(window.__dumber_dom_zoom_level);
-              if (!document.body) {
-                document.addEventListener('DOMContentLoaded', function() {
-                  if (typeof window.__dumber_dom_zoom_level === 'number') {
-                    window.__dumber_applyDomZoom(window.__dumber_dom_zoom_level);
-                  }
-                }, { once: true });
-              }
-
-              // Omnibox suggestions bridge (with queue before ready)
-              let __omniboxQueue = [];
-              let __omniboxReady = false;
-              function __omniboxDispatch(suggestions) {
-                try {
-                  document.dispatchEvent(new CustomEvent('dumber:omnibox:suggestions', { detail: { suggestions } }));
-                  // Legacy compatibility event name
-                  document.dispatchEvent(new CustomEvent('dumber:omnibox-suggestions', { detail: { suggestions } }));
-                } catch (e) { /* ignore */ }
-              }
-              window.__dumber_omnibox_suggestions = function(suggestions) {
-                if (__omniboxReady) {
-                  __omniboxDispatch(suggestions);
-                } else {
-                  try { __omniboxQueue.push(suggestions); } catch (_) { /* ignore */ }
-                }
-              };
-              document.addEventListener('dumber:omnibox-ready', function() {
-                __omniboxReady = true;
-                if (__omniboxQueue && __omniboxQueue.length) {
-                  const items = __omniboxQueue.slice();
-                  __omniboxQueue.length = 0;
-                  for (const s of items) __omniboxDispatch(s);
-                }
-              });
-              // Unified omnibox API for page-world callers
-              window.__dumber.omnibox = window.__dumber.omnibox || {
-                suggestions: function(suggestions) { window.__dumber_omnibox_suggestions(suggestions); }
-              };
-            } catch (e) { console.warn('[dumber] unified bridge init failed', e); } })();`
+// domBridgeTemplate removed - now loading compiled main-world.min.js
 
 var registerSchemeOnce sync.Once
 
@@ -1210,6 +930,14 @@ type WebView struct {
 	domZoomSeed     float64
 	domBridgeScript *C.WebKitUserScript
 	wasReparented   bool // Track if this WebView has been reparented
+
+	// Window type detection and relationships
+	windowType         WindowType
+	windowFeatures     *WindowFeatures
+	windowTypeCallback func(WindowType, *WindowFeatures)
+	parentWebView      *WebView
+	isRelated          bool
+	isActive           bool // Track if this WebView is currently active/focused
 }
 
 // NewWebView constructs a new WebView instance with native WebKit2GTK widgets.
@@ -1366,6 +1094,7 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	v.id = nextViewID()
 	registerView(v.id, v)
 	C.connect_policy_handler(v.native.wv, C.ulong(v.id))
+	ConnectCreateSignal(v) // Connect create signal for window.open support
 
 	// Register with global memory manager if monitoring is enabled
 	if cfg.Memory.EnableMemoryMonitoring {
@@ -1388,55 +1117,9 @@ func NewWebView(cfg *Config) (*WebView, error) {
 		C.connect_theme_changed_with_id(settings, C.ulong(v.id))
 	}
 
-	// Native zoom shortcuts (independent of app services)
-	// Ctrl+='=' and Ctrl+'+' → Zoom In; Ctrl+'-' → Zoom Out; Ctrl+'0' → Reset
-	_ = v.RegisterKeyboardShortcut("cmdorctrl+=", func() {
-		nz := v.zoom
-		if nz <= 0 {
-			nz = 1.0
-		}
-		nz *= 1.1
-		if nz < 0.25 {
-			nz = 0.25
-		}
-		if nz > 5.0 {
-			nz = 5.0
-		}
-		_ = v.SetZoom(nz)
-	})
-	_ = v.RegisterKeyboardShortcut("cmdorctrl+plus", func() {
-		nz := v.zoom
-		if nz <= 0 {
-			nz = 1.0
-		}
-		nz *= 1.1
-		if nz < 0.25 {
-			nz = 0.25
-		}
-		if nz > 5.0 {
-			nz = 5.0
-		}
-		_ = v.SetZoom(nz)
-	})
-	_ = v.RegisterKeyboardShortcut("cmdorctrl-", func() {
-		nz := v.zoom
-		if nz <= 0 {
-			nz = 1.0
-		}
-		nz /= 1.1
-		if nz < 0.25 {
-			nz = 0.25
-		}
-		if nz > 5.0 {
-			nz = 5.0
-		}
-		_ = v.SetZoom(nz)
-	})
-	_ = v.RegisterKeyboardShortcut("cmdorctrl+0", func() { _ = v.SetZoom(1.0) })
-	// Find in page (Ctrl/Cmd+F): use new keyboard service bridge
-	_ = v.RegisterKeyboardShortcut("cmdorctrl+f", func() {
-		_ = v.InjectScript("document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:'cmdorctrl+f'}}))")
-	})
+	// Zoom shortcuts are now handled by application-level workspace shortcuts
+	// in workspace_manager.go to ensure proper active pane targeting
+	// Find in page (Ctrl/Cmd+F): handled by window-level shortcuts in window_shortcuts.go
 	// Navigation with Ctrl/Cmd + Arrow keys: forward to keyboard service bridge
 	_ = v.RegisterKeyboardShortcut("cmdorctrl+ArrowLeft", func() {
 		_ = v.InjectScript("document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:'cmdorctrl+arrowleft'}}))")
@@ -1578,7 +1261,122 @@ func NewWebView(cfg *Config) (*WebView, error) {
 		}
 	}
 
+	// Setup console message logging
+	v.setupConsoleLogging()
+
 	return v, nil
+}
+
+// setupConsoleLogging enables console message capture for the WebView
+func (v *WebView) setupConsoleLogging() {
+	if v.native == nil || v.native.wv == nil {
+		return
+	}
+
+	// Check if console capture is enabled in config
+	cfg := config.Get()
+	if !cfg.Logging.CaptureConsole {
+		// Disable console messages to stdout (always, to keep backend clean)
+		if settings := C.webkit_web_view_get_settings(v.native.wv); settings != nil {
+			C.webkit_settings_set_enable_write_console_messages_to_stdout(settings, C.gboolean(0))
+		}
+		return
+	}
+
+	// If console capture is enabled, disable stdout and enable our capture
+	if settings := C.webkit_web_view_get_settings(v.native.wv); settings != nil {
+		C.webkit_settings_set_enable_write_console_messages_to_stdout(settings, C.gboolean(0))
+		log.Printf("[webkit] Console message capture enabled - redirecting to console.log file")
+	}
+
+	// TODO: Implement JavaScript injection for console capture
+	// This will inject code to intercept console.log/error/warn and send to Go
+}
+
+// setupGlobalConsoleCapture sets up a global stdout filter to capture console messages
+func setupGlobalConsoleCapture() {
+	// This should be called once globally, not per WebView
+	logging.StartConsoleCapture()
+}
+
+// injectConsoleCapture injects JavaScript to capture console messages
+func (v *WebView) injectConsoleCapture() {
+	consoleScript := `
+(function() {
+	const originalLog = console.log;
+	const originalWarn = console.warn;
+	const originalError = console.error;
+	const originalInfo = console.info;
+	const originalDebug = console.debug;
+	
+	function sendToGo(level, args) {
+		const message = args.map(arg => 
+			typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+		).join(' ');
+		
+		const formattedMessage = '[' + level + '] ' + window.location.href + ' ' + message;
+		
+		// Send to Go via user script message
+		if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.dumberBridge) {
+			window.webkit.messageHandlers.dumberBridge.postMessage({
+				type: 'console',
+				data: formattedMessage
+			});
+		}
+	}
+	
+	console.log = function(...args) {
+		originalLog.apply(console, args);
+		sendToGo('LOG', args);
+	};
+	
+	console.warn = function(...args) {
+		originalWarn.apply(console, args);
+		sendToGo('WARN', args);
+	};
+	
+	console.error = function(...args) {
+		originalError.apply(console, args);
+		sendToGo('ERROR', args);
+	};
+	
+	console.info = function(...args) {
+		originalInfo.apply(console, args);
+		sendToGo('INFO', args);
+	};
+	
+	console.debug = function(...args) {
+		originalDebug.apply(console, args);
+		sendToGo('DEBUG', args);
+	};
+})();
+`
+	_ = v.InjectScript(consoleScript)
+}
+
+// handleConsoleMessage processes console messages from JavaScript
+func (v *WebView) handleConsoleMessage(payload string) {
+	// Parse the message payload to check if it's a console message
+	var msg struct {
+		Type string `json:"type"`
+		Data string `json:"data"`
+	}
+
+	if err := json.Unmarshal([]byte(payload), &msg); err != nil {
+		return
+	}
+
+	if msg.Type == "console" {
+		// Send to logging system with [CONSOLE] tag
+		logging.CaptureWebKitLog(msg.Data)
+	}
+}
+
+// startConsoleCapture starts capturing stdout to filter console messages
+func (v *WebView) startConsoleCapture() {
+	// This is a simplified approach - we'll rely on the existing OutputCapture
+	// mechanism in internal/logging/capture.go to handle stdout capture
+	// and filter for console messages in the log processing
 }
 
 // NewWebViewWithRelated creates a new WebView related to an existing one for process sharing
@@ -1612,6 +1410,17 @@ func NewWebViewWithRelated(cfg *Config, relatedView *WebView) (*WebView, error) 
 	}
 
 	C.gtk_box_append((*C.GtkBox)(unsafe.Pointer(container)), viewWidget)
+
+	// Make the WebView widget visible and expandable for popup rendering
+	C.gtk_widget_set_visible(viewWidget, C.gboolean(1))
+	C.gtk_widget_set_visible(container, C.gboolean(1))
+	C.gtk_widget_set_hexpand(viewWidget, C.gboolean(1))
+	C.gtk_widget_set_vexpand(viewWidget, C.gboolean(1))
+	C.gtk_widget_set_hexpand(container, C.gboolean(1))
+	C.gtk_widget_set_vexpand(container, C.gboolean(1))
+	// Remove any size constraints from popup WebView to let it fill the pane
+	C.gtk_widget_set_size_request(viewWidget, -1, -1)
+	C.gtk_widget_set_size_request(container, -1, -1)
 
 	if cfg.CreateWindow {
 		win = C.new_window()
@@ -1653,6 +1462,7 @@ func NewWebViewWithRelated(cfg *Config, relatedView *WebView) (*WebView, error) 
 	v.id = nextViewID()
 	registerView(v.id, v)
 	C.connect_policy_handler(v.native.wv, C.ulong(v.id))
+	ConnectCreateSignal(v) // Connect create signal for window.open support
 
 	// Register with memory manager if enabled
 	if cfg.Memory.EnableMemoryMonitoring {
@@ -1868,6 +1678,46 @@ func (w *WebView) dispatchPopupRequest(uri string) *WebView {
 		return w.popupHandler(uri)
 	}
 	return nil
+}
+
+// CreateRelatedView creates a WebView that shares process/context with this view
+func (w *WebView) CreateRelatedView() *WebView {
+	if w == nil || w.native == nil || w.native.wv == nil {
+		return nil
+	}
+	// Build a minimal config inheriting from current view
+	cfg := &Config{
+		Assets:                w.config.Assets,
+		ZoomDefault:           w.config.ZoomDefault,
+		EnableDeveloperExtras: w.config.EnableDeveloperExtras,
+		DataDir:               w.config.DataDir,
+		CacheDir:              w.config.CacheDir,
+		APIToken:              w.config.APIToken,
+		DefaultSansFont:       w.config.DefaultSansFont,
+		DefaultSerifFont:      w.config.DefaultSerifFont,
+		DefaultMonospaceFont:  w.config.DefaultMonospaceFont,
+		DefaultFontSize:       w.config.DefaultFontSize,
+		Rendering:             w.config.Rendering,
+		UseDomZoom:            w.config.UseDomZoom,
+		VideoAcceleration:     w.config.VideoAcceleration,
+		Memory:                w.config.Memory,
+		CodecPreferences:      w.config.CodecPreferences,
+		CreateWindow:          false,
+	}
+	related, err := NewWebViewWithRelated(cfg, w)
+	if err != nil {
+		log.Printf("[webkit] CreateRelatedView failed: %v", err)
+		return nil
+	}
+	return related
+}
+
+// OnWindowTypeDetected registers a callback invoked when window type is detected
+func (w *WebView) OnWindowTypeDetected(callback func(WindowType, *WindowFeatures)) {
+	if w == nil {
+		return
+	}
+	w.windowTypeCallback = callback
 }
 
 // GetNativePointer returns the native WebView pointer for CGO callbacks
@@ -2153,10 +2003,35 @@ func clampDomZoom(level float64) float64 {
 	return level
 }
 
-func buildDomBridgeScript(initialZoom float64) string {
+func buildDomBridgeScript(cfg *Config, initialZoom float64, webViewId uintptr, w *WebView) string {
+	if cfg == nil || cfg.Assets == nil {
+		log.Printf("[webkit] Config or assets not available for main-world script")
+		return ""
+	}
+
+	// Load the compiled main-world script
+	scriptBytes, err := cfg.Assets.ReadFile("assets/gui/main-world.min.js")
+	if err != nil {
+		log.Printf("[webkit] Failed to load main-world script: %v", err)
+		return ""
+	}
+
+	// Replace the zoom placeholder with the actual value
 	zoom := clampDomZoom(initialZoom)
 	zoomStr := strconv.FormatFloat(zoom, 'f', -1, 64)
-	return strings.ReplaceAll(domBridgeTemplate, "__DOM_ZOOM_DEFAULT__", zoomStr)
+	script := strings.ReplaceAll(string(scriptBytes), "__DOM_ZOOM_DEFAULT__", zoomStr)
+
+	// Inject WebView ID and active state
+	webViewIdStr := strconv.FormatUint(uint64(webViewId), 10)
+	script = strings.ReplaceAll(script, "__WEBVIEW_ID__", webViewIdStr)
+	// Default to active for the initial WebView, since it will be focused immediately
+	// For single WebView scenarios, assume it should be active
+	activeState := "true"
+	log.Printf("[webkit] Building script with WebView %s, active state: %s", webViewIdStr, activeState)
+	script = strings.ReplaceAll(script, "\"__WEBVIEW_ACTIVE__\"", activeState)
+
+	log.Printf("[webkit] Loaded main-world script successfully, size: %d bytes", len(scriptBytes))
+	return script
 }
 
 func (w *WebView) UsesDomZoom() bool {
@@ -2176,7 +2051,7 @@ func (w *WebView) installDomBridgeScript() {
 		w.domBridgeScript = nil
 	}
 
-	source := buildDomBridgeScript(w.domZoomSeed)
+	source := buildDomBridgeScript(w.config, w.domZoomSeed, w.id, w)
 	cBridge := C.CString(source)
 	defer C.free(unsafe.Pointer(cBridge))
 
@@ -2202,8 +2077,11 @@ func (w *WebView) SeedDomZoom(level float64) {
 		return
 	}
 	w.domZoomSeed = seed
+	// Instead of re-injecting the entire script, just update the zoom level
 	w.RunOnMainThread(func() {
-		w.installDomBridgeScript()
+		zoomStr := strconv.FormatFloat(seed, 'f', -1, 64)
+		script := fmt.Sprintf("if (window.__dumber_applyDomZoom) { window.__dumber_applyDomZoom(%s); }", zoomStr)
+		w.InjectScript(script)
 	})
 }
 
@@ -2336,6 +2214,13 @@ func goHandleTLSError(failingURI *C.char, host *C.char, errorFlags C.int, certIn
 
 	log.Printf("[tls] User rejected certificate for %s", hostname)
 	return C.FALSE // Don't proceed
+}
+
+//export goHandleConsoleMessage
+//export goHandleConsoleMessage
+func goHandleConsoleMessage(message *C.char) {
+	messageText := C.GoString(message)
+	logging.CaptureWebKitLog(messageText)
 }
 
 // showTLSWarningDialog displays a warning dialog for TLS certificate errors with storage capability
@@ -2655,4 +2540,42 @@ func (w *WebView) detectAndLogRenderingBackend() {
 
 		w.InjectScript(detectionScript)
 	}()
+}
+
+// SetWindowFeatures sets the window features for this WebView
+func (w *WebView) SetWindowFeatures(features *WindowFeatures) {
+	w.windowFeatures = features
+}
+
+// SetActive sets whether this WebView is currently active/focused
+func (w *WebView) SetActive(active bool) {
+	if w == nil || w.destroyed {
+		return
+	}
+
+	if w.isActive != active {
+		w.isActive = active
+		log.Printf("[webkit] WebView %d active state changed to: %v", w.id, active)
+
+		// Update the active state in the JavaScript context
+		activeStr := "false"
+		if active {
+			activeStr = "true"
+		}
+		script := fmt.Sprintf("window.__dumber_is_active = %s;", activeStr)
+		w.InjectScript(script)
+	}
+}
+
+// IsActive returns whether this WebView is currently active/focused
+func (w *WebView) IsActive() bool {
+	return w != nil && w.isActive
+}
+
+// ID returns the unique identifier for this WebView as a string
+func (w *WebView) ID() string {
+	if w == nil {
+		return ""
+	}
+	return strconv.FormatUint(uint64(w.id), 10)
 }

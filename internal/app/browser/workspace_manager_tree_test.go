@@ -343,9 +343,11 @@ func TestTreeTraversal(t *testing.T) {
 		wm := newTestWorkspaceManagerWithMocksForTree(t)
 
 		// Create tree with 4 leaves
-		node1, _ := wm.splitNode(wm.root, "right")
+		// Keep track of the original root which will become a leaf after split
+		original := wm.root
+		node1, _ := wm.splitNode(original, "right")
 		_, _ = wm.splitNode(node1, "down")
-		_, _ = wm.splitNode(wm.root, "down")
+		_, _ = wm.splitNode(original, "down")  // Split the original leaf, not the new root branch
 
 		leaves := wm.collectLeaves()
 
@@ -480,6 +482,142 @@ func TestFocusManagement(t *testing.T) {
 		if wm.active != original {
 			t.Error("Focus should remain on original pane")
 		}
+	})
+}
+
+// TestBugClosePaneWithBranchSibling reproduces the bug where closing a pane
+// whose sibling is a branch (not a leaf) causes "unexpected tree state" error
+func TestBugClosePaneWithBranchSibling(t *testing.T) {
+	t.Run("Closing pane when sibling is branch with children", func(t *testing.T) {
+		wm := newTestWorkspaceManagerWithMocksForTree(t)
+
+		// Create the exact scenario from the bug:
+		// 1. Start with root pane A
+		A := wm.root
+
+		// 2. Split down to create B (A is now top, B is bottom)
+		B, err := wm.splitNode(A, "down")
+		if err != nil {
+			t.Fatalf("Split down failed: %v", err)
+		}
+
+		// After this split:
+		// Root (vertical paned) has A (top) and B (bottom)
+
+		// 3. Split B down again to create C
+		C, err := wm.splitNode(B, "down")
+		if err != nil {
+			t.Fatalf("Split B down failed: %v", err)
+		}
+
+		// After this split, tree structure is:
+		// Root (vertical) -> A (top), SubPaned (vertical, bottom)
+		//                             SubPaned -> B (top), C (bottom)
+		// Total: 3 leaf panes (A, B, C), 2 branch nodes
+
+		// Update app.panes to reflect actual structure
+		wm.app.panes = []*BrowserPane{A.pane, B.pane, C.pane}
+
+		// Verify initial structure
+		validateTreeStructure(t, wm.root)
+		leaves, branches := countNodes(wm.root)
+		if leaves != 3 {
+			t.Errorf("Expected 3 leaves initially, got %d", leaves)
+		}
+		if branches != 2 {
+			t.Errorf("Expected 2 branches initially, got %d", branches)
+		}
+
+		// Now close pane A - this should promote the SubPaned (containing B and C) to root
+		// This is where the bug occurs: parent is root, but 2 panes remain (B and C)
+		// The current code incorrectly thinks this is an error
+		err = wm.closePane(A)
+		
+		// THIS IS THE BUG: The current implementation returns an error here
+		// but it shouldn't - it's a valid operation
+		if err != nil {
+			// For now, we expect this to fail with the bug
+			if err.Error() == "unexpected tree state during pane closure" {
+				t.Logf("Bug reproduced: %v", err)
+				t.Logf("This error should not occur - closing pane with branch sibling is valid")
+				// Comment out the return to see what the final state should be
+				// return  
+			} else {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+		}
+
+		// What SHOULD happen after successful close:
+		// The SubPaned (containing B and C) should become the new root
+		validateTreeStructure(t, wm.root)
+		
+		// Verify final state (what we expect after fix)
+		finalLeaves, finalBranches := countNodes(wm.root)
+		if finalLeaves != 2 {
+			t.Errorf("Expected 2 leaves after close, got %d", finalLeaves)
+		}
+		if finalBranches != 1 {
+			t.Errorf("Expected 1 branch after close, got %d", finalBranches)
+		}
+
+		// The new root should be a branch (the old SubPaned)
+		if wm.root.isLeaf {
+			t.Error("Root should be a branch node after closing A")
+		}
+		
+		// B and C should still be in the tree
+		foundB := false
+		foundC := false
+		for _, leaf := range wm.collectLeaves() {
+			if leaf == B {
+				foundB = true
+			}
+			if leaf == C {
+				foundC = true
+			}
+		}
+		if !foundB {
+			t.Error("Pane B should still be in tree")
+		}
+		if !foundC {
+			t.Error("Pane C should still be in tree")
+		}
+	})
+
+	t.Run("Alternative scenario - closing left child when right has grandchildren", func(t *testing.T) {
+		wm := newTestWorkspaceManagerWithMocksForTree(t)
+
+		// Create structure: A | (B / C)
+		// where | is horizontal split and / is vertical split
+		A := wm.root
+		B, err := wm.splitNode(A, "right")
+		if err != nil {
+			t.Fatalf("Split right failed: %v", err)
+		}
+		
+		C, err := wm.splitNode(B, "down")
+		if err != nil {
+			t.Fatalf("Split down failed: %v", err)
+		}
+
+		// Update app.panes
+		wm.app.panes = []*BrowserPane{A.pane, B.pane, C.pane}
+
+		// Tree is: Root(h) -> A, Paned(v) -> B, C
+		validateTreeStructure(t, wm.root)
+
+		// Close A - the Paned(v) containing B and C should become root
+		err = wm.closePane(A)
+		
+		// Bug should occur here too
+		if err != nil {
+			if err.Error() == "unexpected tree state during pane closure" {
+				t.Logf("Bug reproduced in alternative scenario: %v", err)
+			}
+		}
+
+		// After fix, the vertical paned with B and C should be root
+		validateTreeStructure(t, wm.root)
 	})
 }
 

@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"log"
+	"time"
 
 	"github.com/bnema/dumber/internal/services"
 	"github.com/bnema/dumber/pkg/webkit"
@@ -13,6 +14,7 @@ type ZoomController struct {
 	currentURL         string
 	lastZoomDomain     string
 	programmaticChange bool
+	programmaticTimer  *time.Timer
 	browserService     *services.BrowserService
 	webView            *webkit.WebView
 }
@@ -48,7 +50,7 @@ func (z *ZoomController) handleURIChange(url string) {
 		return
 	}
 	currentDomain := services.ZoomKeyForLog(url)
-	z.loadZoomLevelAsync(url, currentDomain, true)
+	z.loadZoomLevelAsync(url, currentDomain, false)
 }
 
 // handleZoomChange responds to zoom level changes and persists them
@@ -57,6 +59,7 @@ func (z *ZoomController) handleZoomChange(level float64) {
 	if url == "" {
 		return
 	}
+	
 	go func(url string, level float64) {
 		ctx := context.Background()
 		if err := z.browserService.SetZoomLevel(ctx, url, level); err != nil {
@@ -144,8 +147,18 @@ func (z *ZoomController) applyZoomLevel(url, domain string, zoomLevel float64, a
 			z.currentURL = url
 		}
 
+		// Clear any existing timer
+		if z.programmaticTimer != nil {
+			z.programmaticTimer.Stop()
+		}
+
 		z.programmaticChange = true
-		defer func() { z.programmaticChange = false }()
+
+		// Reset programmatic change flag after a delay to handle async zoom events
+		z.programmaticTimer = time.AfterFunc(200*time.Millisecond, func() {
+			z.programmaticChange = false
+			z.programmaticTimer = nil
+		})
 
 		if err := z.webView.SetZoom(zoomLevel); err != nil {
 			log.Printf("Warning: failed to set zoom: %v", err)

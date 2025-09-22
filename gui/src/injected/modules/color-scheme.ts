@@ -9,13 +9,13 @@
 declare global {
   interface Window {
     __dumber_gtk_prefers_dark?: boolean;
-    __dumber_setTheme?: (theme: 'light' | 'dark') => void;
+    __dumber_setTheme?: (theme: "light" | "dark") => void;
   }
 }
 
 interface ColorSchemeConfig {
   isDark: boolean;
-  colorScheme: 'light' | 'dark';
+  colorScheme: "light" | "dark";
   metaContent: string;
   rootStyle: string;
 }
@@ -29,9 +29,11 @@ class ColorSchemeManager {
 
     this.config = {
       isDark: prefersDark,
-      colorScheme: prefersDark ? 'dark' : 'light',
-      metaContent: prefersDark ? 'dark light' : 'light dark',
-      rootStyle: prefersDark ? ':root{color-scheme:dark;}' : ':root{color-scheme:light;}'
+      colorScheme: prefersDark ? "dark" : "light",
+      metaContent: prefersDark ? "dark light" : "light dark",
+      rootStyle: prefersDark
+        ? ":root{color-scheme:dark;}"
+        : ":root{color-scheme:light;}",
     };
 
     this.initialize();
@@ -40,7 +42,9 @@ class ColorSchemeManager {
   private initialize(): void {
     try {
       console.log(`[dumber] color-scheme set: ${this.config.colorScheme}`);
-      console.log(`[dumber] GTK detected color mode: ${this.config.colorScheme}`);
+      console.log(
+        `[dumber] GTK detected color mode: ${this.config.colorScheme}`,
+      );
 
       // Notify native layer of theme preference
       this.notifyNativeLayer();
@@ -56,9 +60,8 @@ class ColorSchemeManager {
 
       // Set up theme integration with existing UI components
       this.setupThemeIntegration();
-
     } catch (error) {
-      console.warn('[dumber] color-scheme injection failed', error);
+      console.warn("[dumber] color-scheme injection failed", error);
     }
   }
 
@@ -66,9 +69,9 @@ class ColorSchemeManager {
     try {
       (window as any).webkit?.messageHandlers?.dumber?.postMessage(
         JSON.stringify({
-          type: 'theme',
-          value: this.config.colorScheme
-        })
+          type: "theme",
+          value: this.config.colorScheme,
+        }),
       );
     } catch {
       // Ignore errors - native layer may not be available
@@ -76,27 +79,32 @@ class ColorSchemeManager {
   }
 
   private injectColorSchemeMeta(): void {
-    const meta = document.createElement('meta');
-    meta.name = 'color-scheme';
+    const meta = document.createElement("meta");
+    meta.name = "color-scheme";
     meta.content = this.config.metaContent;
     document.documentElement.appendChild(meta);
   }
 
   private applyRootStyles(): void {
-    const style = document.createElement('style');
+    const style = document.createElement("style");
     style.textContent = this.config.rootStyle;
     document.documentElement.appendChild(style);
   }
 
   private overrideMatchMedia(): void {
-    const darkQuery = '(prefers-color-scheme: dark)';
-    const lightQuery = '(prefers-color-scheme: light)';
+    const darkQuery = "(prefers-color-scheme: dark)";
+    const lightQuery = "(prefers-color-scheme: light)";
     const originalMatchMedia = window.matchMedia;
 
     window.matchMedia = (query: string): MediaQueryList => {
-      if (typeof query === 'string' && (query.includes(darkQuery) || query.includes(lightQuery))) {
+      if (
+        typeof query === "string" &&
+        (query.includes(darkQuery) || query.includes(lightQuery))
+      ) {
         // Create a mock MediaQueryList that reflects our GTK preference
-        const matches = query.includes('dark') ? this.config.isDark : !this.config.isDark;
+        const matches = query.includes("dark")
+          ? this.config.isDark
+          : !this.config.isDark;
 
         return {
           matches,
@@ -106,7 +114,7 @@ class ColorSchemeManager {
           removeListener: () => {},
           addEventListener: () => {},
           removeEventListener: () => {},
-          dispatchEvent: () => false
+          dispatchEvent: () => false,
         } as MediaQueryList;
       }
 
@@ -126,11 +134,11 @@ class ColorSchemeManager {
           window.__dumber_setTheme(this.config.colorScheme);
         } else {
           // Fallback: directly apply dark class for Tailwind compatibility
-          console.warn('[dumber] Theme setter not available, using fallback');
+          console.warn("[dumber] Theme setter not available, using fallback");
           if (this.config.isDark) {
-            document.documentElement.classList.add('dark');
+            document.documentElement.classList.add("dark");
           } else {
-            document.documentElement.classList.remove('dark');
+            document.documentElement.classList.remove("dark");
           }
         }
       }, 100);
@@ -143,9 +151,11 @@ class ColorSchemeManager {
    */
   public updateColorScheme(isDark: boolean): void {
     this.config.isDark = isDark;
-    this.config.colorScheme = isDark ? 'dark' : 'light';
-    this.config.metaContent = isDark ? 'dark light' : 'light dark';
-    this.config.rootStyle = isDark ? ':root{color-scheme:dark;}' : ':root{color-scheme:light;}';
+    this.config.colorScheme = isDark ? "dark" : "light";
+    this.config.metaContent = isDark ? "dark light" : "light dark";
+    this.config.rootStyle = isDark
+      ? ":root{color-scheme:dark;}"
+      : ":root{color-scheme:light;}";
 
     // Re-apply all configurations
     this.initialize();

@@ -10,7 +10,7 @@ export interface Suggestion {
 }
 
 export interface OmniboxMessage {
-  type: 'navigate' | 'query';
+  type: "navigate" | "query";
   url?: string;
   q?: string;
   limit?: number;
@@ -26,7 +26,7 @@ export interface HighlightNode {
   text: Text;
 }
 
-export type OmniboxMode = 'omnibox' | 'find';
+export type OmniboxMode = "omnibox" | "find";
 
 export interface OmniboxConfig {
   maxMatches?: number;

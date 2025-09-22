@@ -62,11 +62,11 @@ export interface KeyboardServiceConfig {
  * Event types for keyboard service
  */
 export type KeyboardEventType =
-  | 'shortcut-triggered'
-  | 'component-focused'
-  | 'component-blurred'
-  | 'shortcut-registered'
-  | 'shortcut-unregistered';
+  | "shortcut-triggered"
+  | "component-focused"
+  | "component-blurred"
+  | "shortcut-registered"
+  | "shortcut-unregistered";
 
 export interface KeyboardEvent {
   type: KeyboardEventType;
@@ -77,25 +77,25 @@ export interface KeyboardEvent {
  * Keyboard modifiers mapping
  */
 export const MODIFIER_KEYS = {
-  ctrl: 'ctrlKey',
-  cmd: 'metaKey',
-  cmdorctrl: navigator.platform.includes('Mac') ? 'metaKey' : 'ctrlKey',
-  alt: 'altKey',
-  shift: 'shiftKey'
+  ctrl: "ctrlKey",
+  cmd: "metaKey",
+  cmdorctrl: navigator.platform.includes("Mac") ? "metaKey" : "ctrlKey",
+  alt: "altKey",
+  shift: "shiftKey",
 } as const;
 
 /**
  * Common shortcut patterns used throughout the application
  */
 export const COMMON_SHORTCUTS = {
-  OMNIBOX_OPEN: 'cmdorctrl+l',
-  FIND_OPEN: 'cmdorctrl+f',
-  ESCAPE: 'escape',
-  ENTER: 'enter',
-  ARROW_UP: 'arrowup',
-  ARROW_DOWN: 'arrowdown',
-  ARROW_LEFT: 'arrowleft',
-  ARROW_RIGHT: 'arrowright',
-  TAB: 'tab',
-  SHIFT_TAB: 'shift+tab'
+  OMNIBOX_OPEN: "cmdorctrl+l",
+  FIND_OPEN: "cmdorctrl+f",
+  ESCAPE: "escape",
+  ENTER: "enter",
+  ARROW_UP: "arrowup",
+  ARROW_DOWN: "arrowdown",
+  ARROW_LEFT: "arrowleft",
+  ARROW_RIGHT: "arrowright",
+  TAB: "tab",
+  SHIFT_TAB: "shift+tab",
 } as const;

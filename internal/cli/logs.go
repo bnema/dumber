@@ -26,6 +26,7 @@ func NewLogsCmd() *cobra.Command {
 	cmd.AddCommand(newLogsListCmd())
 	cmd.AddCommand(newLogsCleanCmd())
 	cmd.AddCommand(newLogsPathCmd())
+	cmd.AddCommand(newLogsConsoleCmd())
 
 	return cmd
 }
@@ -122,6 +123,32 @@ func newLogsPathCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	return cmd
+}
+
+// newLogsConsoleCmd creates the console subcommand for filtering console logs
+func newLogsConsoleCmd() *cobra.Command {
+	var lines int
+	var level string
+
+	cmd := &cobra.Command{
+		Use:   "console",
+		Short: "View console logs from WebKit",
+		Long:  "Display console.log, console.error, and other console messages from web pages.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			logDir, err := config.GetLogDir()
+			if err != nil {
+				return fmt.Errorf("failed to get log directory: %w", err)
+			}
+
+			currentLog := filepath.Join(logDir, "dumber.log")
+			return tailConsoleMessages(currentLog, lines, level)
+		},
+	}
+
+	cmd.Flags().IntVarP(&lines, "lines", "n", 50, "Number of lines to show")
+	cmd.Flags().StringVarP(&level, "level", "l", "", "Filter by console level (error, warn, info, log, debug)")
 
 	return cmd
 }
@@ -296,4 +323,64 @@ func formatSize(size int64) string {
 	}
 
 	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
+}
+
+// tailConsoleMessages displays console messages from the log file
+func tailConsoleMessages(filePath string, lines int, level string) error {
+	file, err := os.Open(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Printf("Log file does not exist: %s\n", filePath)
+			return nil
+		}
+		return fmt.Errorf("failed to open log file: %w", err)
+	}
+	defer file.Close()
+
+	// Read all lines and filter for console messages
+	var consoleLines []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// Filter for [CONSOLE] tagged messages
+		if !strings.Contains(line, "[CONSOLE]") {
+			continue
+		}
+
+		// Filter by level if specified
+		if level != "" {
+			levelFilter := fmt.Sprintf("[%s]", strings.ToUpper(level))
+			if !strings.Contains(line, levelFilter) {
+				continue
+			}
+		}
+
+		consoleLines = append(consoleLines, line)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("error reading log file: %w", err)
+	}
+
+	if len(consoleLines) == 0 {
+		if level != "" {
+			fmt.Printf("No console messages found with level '%s'\n", level)
+		} else {
+			fmt.Println("No console messages found")
+		}
+		return nil
+	}
+
+	// Display last N lines
+	start := len(consoleLines) - lines
+	if start < 0 {
+		start = 0
+	}
+
+	for i := start; i < len(consoleLines); i++ {
+		fmt.Println(consoleLines[i])
+	}
+
+	return nil
 }
