@@ -95,13 +95,11 @@ func (h *Handler) SetWorkspaceObserver(observer WorkspaceObserver) {
 
 // Handle processes incoming script messages
 func (h *Handler) Handle(payload string) {
-	log.Printf("[DEBUG] Received message: %s", payload)
 	var msg Message
 	if err := json.Unmarshal([]byte(payload), &msg); err != nil {
 		log.Printf("[ERROR] Failed to unmarshal message: %v", err)
 		return
 	}
-	log.Printf("[DEBUG] Parsed message type: %s", msg.Type)
 
 	switch msg.Type {
 	case "navigate":
@@ -609,6 +607,12 @@ func (h *Handler) handleConsoleMessage(msg Message) {
 func (h *Handler) handleWebViewIDRequest(msg Message) {
 	if h.webView == nil {
 		log.Printf("[messaging] Cannot provide webview ID - no webview available")
+		return
+	}
+
+	// Check if WebView is destroyed before attempting any operations
+	if h.webView.IsDestroyed() {
+		log.Printf("[messaging] Cannot provide webview ID - webview is destroyed")
 		return
 	}
 

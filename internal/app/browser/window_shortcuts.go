@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bnema/dumber/internal/app/messaging"
 	"github.com/bnema/dumber/pkg/webkit"
 )
 
@@ -313,15 +314,43 @@ func (h *WindowShortcutHandler) handleClosePane() {
 		return
 	}
 
-	if h.app.activePane == nil {
-		log.Printf("[window-shortcuts] No active pane to close")
+	// Find the currently active WebView
+	var activeWebView *webkit.WebView
+	log.Printf("[window-shortcuts] Searching for active WebView among %d WebViews", len(h.app.workspace.viewToNode))
+	for webView := range h.app.workspace.viewToNode {
+		if webView != nil {
+			isActive := webView.IsActive()
+			log.Printf("[window-shortcuts] WebView %s: IsActive=%t", webView.ID(), isActive)
+			if isActive {
+				activeWebView = webView
+				log.Printf("[window-shortcuts] Found active WebView: %s", webView.ID())
+				break
+			}
+		}
+	}
+
+	if activeWebView == nil {
+		log.Printf("[window-shortcuts] No active WebView found, using workspace closeCurrentPane")
+		h.app.workspace.closeCurrentPane()
 		return
 	}
 
-	log.Printf("[window-shortcuts] Closing current pane")
-
-	// Use the existing closeCurrentPane method from workspace manager
-	h.app.workspace.closeCurrentPane()
+	// Check if the active WebView is a popup
+	node := h.app.workspace.viewToNode[activeWebView]
+	if node != nil && node.isPopup {
+		log.Printf("[window-shortcuts] Closing popup via OnWorkspaceMessage")
+		// Use the proper close-popup message for popups
+		msg := messaging.Message{
+			Event:     "close-popup",
+			WebViewID: activeWebView.ID(),
+			Reason:    "user-ctrl-w",
+		}
+		h.app.workspace.OnWorkspaceMessage(activeWebView, msg)
+	} else {
+		log.Printf("[window-shortcuts] Closing regular pane via workspace closeCurrentPane")
+		// Use regular close for non-popup panes
+		h.app.workspace.closeCurrentPane()
+	}
 }
 
 // Cleanup releases resources

@@ -2617,6 +2617,11 @@ func (w *WebView) IsActive() bool {
 	return w != nil && w.isActive
 }
 
+// IsDestroyed returns whether this WebView has been destroyed
+func (w *WebView) IsDestroyed() bool {
+	return w == nil || w.destroyed
+}
+
 // ID returns the unique identifier for this WebView as a string
 func (w *WebView) ID() string {
 	if w == nil {

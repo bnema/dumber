@@ -153,6 +153,36 @@ func goOnKeyPress(id C.ulong, keyval C.guint, state C.GdkModifierType) C.gboolea
 	return C.gboolean(0)
 }
 
+// getCLevelBridgeShortcut returns the shortcut string for shortcuts that need C-level bridge handling.
+// These shortcuts are blocked at the webpage level and have their callbacks triggered directly from C code.
+// Returns empty string if the shortcut doesn't need C-level handling.
+func getCLevelBridgeShortcut(ctrl, alt, shift bool, keyName string) string {
+	// Alt+Arrow shortcuts - for workspace pane navigation
+	if alt && !ctrl && !shift {
+		switch keyName {
+		case "ArrowLeft":
+			return "alt+arrowleft"
+		case "ArrowRight":
+			return "alt+arrowright"
+		case "ArrowUp":
+			return "alt+arrowup"
+		case "ArrowDown":
+			return "alt+arrowdown"
+		}
+	}
+
+	// Ctrl+W shortcut - for closing current pane via workspace manager
+	if ctrl && !alt && !shift && keyName == "w" {
+		return "ctrl+w"
+	}
+
+	// Add other C-level bridge shortcuts here as needed
+	// Note: Most shortcuts (Ctrl+L, Ctrl+F, zoom) should NOT be here
+	// They work fine through normal GTK4 handling without C-level intervention
+
+	return ""
+}
+
 func dispatchAccelerator(uid uintptr, keyval uint, state uint) bool {
 	ctrl := (state & uint(C.GDK_CONTROL_MASK)) != 0
 	alt := (state & uint(C.GDK_ALT_MASK)) != 0
@@ -199,6 +229,8 @@ func dispatchAccelerator(uid uintptr, keyval uint, state uint) bool {
 		keyName = "f"
 	case uint(C.GDK_KEY_p), uint(C.GDK_KEY_P):
 		keyName = "p"
+	case uint(C.GDK_KEY_w), uint(C.GDK_KEY_W):
+		keyName = "w"
 	default:
 		// Filter out modifier keys themselves (like Ctrl, Alt, Shift)
 		// These keyvals shouldn't be logged as misses
@@ -220,21 +252,18 @@ func dispatchAccelerator(uid uintptr, keyval uint, state uint) bool {
 		return false
 	}
 
-	// Check for Alt+Arrow shortcuts that need C-level handling
-	if alt && !ctrl && !shift {
-		if keyName == "ArrowLeft" || keyName == "ArrowRight" || keyName == "ArrowUp" || keyName == "ArrowDown" {
-			// Build shortcut string for Alt+Arrow
-			shortcutStr := "alt+arrow" + strings.ToLower(strings.TrimPrefix(keyName, "Arrow"))
+	// Check for shortcuts that need C-level handling and trigger if found
+	shortcut := getCLevelBridgeShortcut(ctrl, alt, shift, keyName)
+	if shortcut != "" {
+		// For all C-level bridge shortcuts (Alt+Arrow and Ctrl+W), use global window shortcut handler
+		// The window shortcut handler now properly handles both popup and regular panes
+		shortcutsRegistryMu.RLock()
+		handle, exists := globalShortcutHandles[shortcut]
+		shortcutsRegistryMu.RUnlock()
 
-			// Look up callback handle and trigger if found
-			shortcutsRegistryMu.RLock()
-			handle, exists := globalShortcutHandles[shortcutStr]
-			shortcutsRegistryMu.RUnlock()
-
-			if exists && handle != 0 {
-				invokeWindowShortcutCallback(handle)
-				return true
-			}
+		if exists && handle != 0 {
+			invokeWindowShortcutCallback(handle)
+			return true
 		}
 	}
 

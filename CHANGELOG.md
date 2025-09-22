@@ -8,6 +8,8 @@ All notable changes to this project will be documented in this file.
 - **Print functionality**: Added Ctrl+Shift+P shortcut to open native print dialogs from any pane. Ctrl+P is blocked at WebKit level to prevent conflicts with pane mode shortcuts
 
 ### Fixed
+- **Ctrl+W pane closing**: Fixed Ctrl+W shortcut to properly close active panes including popups. Implemented active WebView detection and proper popup vs regular pane handling via OnWorkspaceMessage for consistent cleanup
+- **WebView script injection segfault**: Fixed segmentation violation when injecting JavaScript into destroyed WebViews during message handling. Added IsDestroyed() safety check to prevent GTK widget corruption
 - **Alt+Arrow workspace navigation**: Fixed Alt+Arrow keys not working for pane navigation after WebView focus changes. Implemented C-level to GTK4 shortcut bridge that ensures workspace navigation works consistently across all panes
 - **Global shortcuts protection**: Fixed window shortcuts (Ctrl+L, Ctrl+F, F12) not working in new panes due to overly aggressive webpage protection. Window shortcuts now properly bubble up to GTK while pane shortcuts remain blocked from webpages. Resolves omnibox and developer tools not responding to keyboard shortcuts in newly created panes
 - **Omnibox keyboard event isolation**: Fixed keyboard event leakage from omnibox to underlying webpages that caused unintended page actions (e.g., typing 's' in omnibox triggering GitHub search). Implemented WebKit-level main-world event blocking that activates when omnibox opens, preventing page JavaScript from receiving keyboard events while preserving native GTK shortcuts (Ctrl+L, Ctrl+F, etc.) and omnibox functionality
