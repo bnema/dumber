@@ -758,7 +758,7 @@ func handleRenderingBackendMessage(payload string) bool {
 
 // handleKeyboardBlockingMessage handles keyboard blocking control messages from omnibox
 func handleKeyboardBlockingMessage(vw *WebView, payload string) bool {
-	if vw == nil {
+	if vw == nil || vw.IsDestroyed() {
 		return false
 	}
 

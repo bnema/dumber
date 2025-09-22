@@ -529,7 +529,10 @@ func (w *WebView) DisablePageKeyboardBlocking() error {
 			console.log('[dumber] Page keyboard event blocking disabled');
 		}
 	`
-	w.InjectScript(cleanupScript)
+	// Double-check WebView is still valid before script injection
+	if !w.IsDestroyed() {
+		w.InjectScript(cleanupScript)
+	}
 
 	// Remove the user script if it exists
 	if keyboardBlockerScript != nil {
