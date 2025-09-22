@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.9.0] - 2025-09-22
+
 ### Added
 - **Zellij-style workspace management**: Complete pane splitting system with binary tree layout, focus tracking, and Zellij-inspired keybindings (Ctrl+P for pane mode, arrow keys for splits, 'x' to close)
 - **Multi-pane WebView architecture**: Container-based widget management with proper reparenting, lifecycle handling, and per-pane controllers
