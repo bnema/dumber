@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **Active pane detection**: Replaced complex pane ID abstraction with persistent webview IDs, fixing omnibox unresponsiveness after navigation. Omnibox now works immediately after page navigation without requiring mouse movement
+- **Workspace architecture**: Simplified focus tracking by removing URI change handlers and pane ID injection complexity, improving reliability and reducing codebase by 85 lines
+- **WebView ID propagation**: Added webview ID request/response mechanism for stub builds to ensure JavaScript side knows its webview ID for proper focus validation
 - **Workspace theme integration**: Fixed white borders on inactive panes by implementing dynamic border colors based on GTK theme preference (dark mode: #333333 borders, light mode: #dddddd borders)
 - **GTK window background**: Added theme-aware window and pane background colors to prevent white bleeding through transparent elements
 
