@@ -136,6 +136,9 @@ func (w *WebView) ShowDevTools() error { return nil }
 // CloseDevTools is a no-op in the non-CGO build.
 func (w *WebView) CloseDevTools() error { return nil }
 
+// ShowPrintDialog is a no-op in the non-CGO build.
+func (w *WebView) ShowPrintDialog() error { return nil }
+
 // RegisterScriptMessageHandler registers a callback invoked when the content script posts a message.
 func (w *WebView) RegisterScriptMessageHandler(cb func(payload string)) { w.msgHandler = cb }
 

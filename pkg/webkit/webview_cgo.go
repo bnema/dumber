@@ -260,6 +260,26 @@ static void connect_close_signal(WebKitWebView* web_view, unsigned long id) {
     printf("[webkit-connect] Connected close signal to WebView with id: %lu\n", id);
 }
 
+// Callback for print signal - intercepts Ctrl+P and can redirect behavior
+static gboolean on_print_request(WebKitWebView* web_view, WebKitPrintOperation* print_operation, gpointer user_data) {
+    (void)web_view;
+    (void)print_operation;
+    (void)user_data;
+
+    // Return TRUE to prevent default print dialog
+    // Return FALSE to allow default print behavior
+    // For now, we'll block the print dialog entirely since Ctrl+P should trigger pane mode
+    printf("[webkit-print] Print request intercepted - blocking to prevent conflict with pane mode\n");
+    return TRUE;  // Block the print dialog
+}
+
+// Connect print signal to a WebView to intercept Ctrl+P
+static void connect_print_signal(WebKitWebView* web_view, unsigned long id) {
+    if (!web_view) return;
+    g_signal_connect_data(G_OBJECT(web_view), "print", G_CALLBACK(on_print_request), (gpointer)id, NULL, 0);
+    printf("[webkit-connect] Connected print signal to WebView with id: %lu\n", id);
+}
+
 static gboolean gtk_prefers_dark() {
     // Method 1: Check GNOME desktop interface color-scheme (primary method)
     GSettings* desktop_settings = g_settings_new("org.gnome.desktop.interface");
@@ -1112,6 +1132,9 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	// Attach GTK4 input controllers (keyboard, mouse)
 	AttachKeyboardControllers(v)
 
+	// Enable print interception to prevent Ctrl+P conflicts with pane mode
+	v.EnablePrintInterception()
+
 	// Watch for GTK theme changes and propagate to page at runtime
 	if settings := C.gtk_settings_get_default(); settings != nil {
 		C.connect_theme_changed_with_id(settings, C.ulong(v.id))
@@ -1580,7 +1603,7 @@ func (w *WebView) Destroy() error {
 	}
 
 	// GTK4: destroy windows via gtk_window_destroy if we created one
-	if w.native.win != nil {
+	if w.native.win != nil && w.config != nil && w.config.CreateWindow {
 		C.gtk_window_destroy((*C.GtkWindow)(unsafe.Pointer(w.native.win)))
 		w.native.win = nil
 		if w.window != nil {
@@ -1664,6 +1687,13 @@ func (w *WebView) RegisterCloseHandler(cb func()) {
 	// Also connect the CGO close signal to ensure window.close() is detected
 	if w.native != nil && w.native.wv != nil {
 		C.connect_close_signal(w.native.wv, C.ulong(w.id))
+	}
+}
+
+// EnablePrintInterception connects the print signal to intercept Ctrl+P
+func (w *WebView) EnablePrintInterception() {
+	if w.native != nil && w.native.wv != nil {
+		C.connect_print_signal(w.native.wv, C.ulong(w.id))
 	}
 }
 
@@ -1785,10 +1815,13 @@ func (w *WebView) DestroyWindow() {
 	if w == nil || w.native == nil || w.native.win == nil {
 		return
 	}
-	C.gtk_window_destroy((*C.GtkWindow)(unsafe.Pointer(w.native.win)))
-	w.native.win = nil
-	if w.window != nil {
-		w.window.win = nil
+	// Only destroy if we actually created a window
+	if w.config != nil && w.config.CreateWindow {
+		C.gtk_window_destroy((*C.GtkWindow)(unsafe.Pointer(w.native.win)))
+		w.native.win = nil
+		if w.window != nil {
+			w.window.win = nil
+		}
 	}
 }
 

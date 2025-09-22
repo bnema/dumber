@@ -59,7 +59,7 @@ func (z *ZoomController) handleZoomChange(level float64) {
 	if url == "" {
 		return
 	}
-	
+
 	go func(url string, level float64) {
 		ctx := context.Background()
 		if err := z.browserService.SetZoomLevel(ctx, url, level); err != nil {

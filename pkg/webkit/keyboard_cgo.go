@@ -199,7 +199,20 @@ func dispatchAccelerator(uid uintptr, keyval uint, state uint) bool {
 	case uint(C.GDK_KEY_p), uint(C.GDK_KEY_P):
 		keyName = "p"
 	default:
-		// If Control held, log unknown keyval for diagnostics
+		// Filter out modifier keys themselves (like Ctrl, Alt, Shift)
+		// These keyvals shouldn't be logged as misses
+		switch keyval {
+		case 0xffe1, 0xffe2: // GDK_KEY_Shift_L, GDK_KEY_Shift_R
+			return false
+		case 0xffe3, 0xffe4: // GDK_KEY_Control_L, GDK_KEY_Control_R
+			return false
+		case 0xffe9, 0xffea: // GDK_KEY_Alt_L, GDK_KEY_Alt_R
+			return false
+		case 0xffeb, 0xffec: // GDK_KEY_Super_L, GDK_KEY_Super_R
+			return false
+		}
+
+		// If Control held, log unknown keyval for diagnostics (but not modifier keys)
 		if ctrl {
 			log.Printf("[accelerator-miss] ctrl keyval=0x%x", keyval)
 		}

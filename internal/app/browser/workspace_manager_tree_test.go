@@ -347,7 +347,7 @@ func TestTreeTraversal(t *testing.T) {
 		original := wm.root
 		node1, _ := wm.splitNode(original, "right")
 		_, _ = wm.splitNode(node1, "down")
-		_, _ = wm.splitNode(original, "down")  // Split the original leaf, not the new root branch
+		_, _ = wm.splitNode(original, "down") // Split the original leaf, not the new root branch
 
 		leaves := wm.collectLeaves()
 
@@ -532,7 +532,7 @@ func TestBugClosePaneWithBranchSibling(t *testing.T) {
 		// This is where the bug occurs: parent is root, but 2 panes remain (B and C)
 		// The current code incorrectly thinks this is an error
 		err = wm.closePane(A)
-		
+
 		// THIS IS THE BUG: The current implementation returns an error here
 		// but it shouldn't - it's a valid operation
 		if err != nil {
@@ -541,7 +541,7 @@ func TestBugClosePaneWithBranchSibling(t *testing.T) {
 				t.Logf("Bug reproduced: %v", err)
 				t.Logf("This error should not occur - closing pane with branch sibling is valid")
 				// Comment out the return to see what the final state should be
-				// return  
+				// return
 			} else {
 				t.Fatalf("Unexpected error: %v", err)
 			}
@@ -550,7 +550,7 @@ func TestBugClosePaneWithBranchSibling(t *testing.T) {
 		// What SHOULD happen after successful close:
 		// The SubPaned (containing B and C) should become the new root
 		validateTreeStructure(t, wm.root)
-		
+
 		// Verify final state (what we expect after fix)
 		finalLeaves, finalBranches := countNodes(wm.root)
 		if finalLeaves != 2 {
@@ -564,7 +564,7 @@ func TestBugClosePaneWithBranchSibling(t *testing.T) {
 		if wm.root.isLeaf {
 			t.Error("Root should be a branch node after closing A")
 		}
-		
+
 		// B and C should still be in the tree
 		foundB := false
 		foundC := false
@@ -594,7 +594,7 @@ func TestBugClosePaneWithBranchSibling(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Split right failed: %v", err)
 		}
-		
+
 		C, err := wm.splitNode(B, "down")
 		if err != nil {
 			t.Fatalf("Split down failed: %v", err)
@@ -608,7 +608,7 @@ func TestBugClosePaneWithBranchSibling(t *testing.T) {
 
 		// Close A - the Paned(v) containing B and C should become root
 		err = wm.closePane(A)
-		
+
 		// Bug should occur here too
 		if err != nil {
 			if err.Error() == "unexpected tree state during pane closure" {

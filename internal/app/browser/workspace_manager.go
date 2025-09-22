@@ -394,7 +394,6 @@ func (wm *WorkspaceManager) DispatchPaneFocusEvent(node *paneNode, active bool) 
 	}
 }
 
-
 func (wm *WorkspaceManager) focusNode(node *paneNode) {
 	if node == nil || !node.isLeaf || node.pane == nil || node.pane.webView == nil {
 		return
@@ -508,10 +507,10 @@ func (wm *WorkspaceManager) generateActivePaneCSS() string {
 	var inactiveBorderColor, windowBackgroundColor string
 	isDark := webkit.PrefersDarkTheme()
 	if isDark {
-		inactiveBorderColor = "#333333" // Dark border for dark theme
+		inactiveBorderColor = "#333333"   // Dark border for dark theme
 		windowBackgroundColor = "#2b2b2b" // Dark window background
 	} else {
-		inactiveBorderColor = "#dddddd" // Light border for light theme
+		inactiveBorderColor = "#dddddd"   // Light border for light theme
 		windowBackgroundColor = "#ffffff" // Light window background
 	}
 

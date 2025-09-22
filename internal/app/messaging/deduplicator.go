@@ -102,13 +102,12 @@ func (d *PaneRequestDeduplicator) ClearRequestID(requestID string) {
 	if requestID == "" {
 		return
 	}
-	
+
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	
+
 	if d.requestIDs[requestID] {
 		delete(d.requestIDs, requestID)
 		log.Printf("[deduplicator] Cleared request ID: %s", requestID)
 	}
 }
-

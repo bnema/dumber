@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Print functionality**: Added Ctrl+Shift+P shortcut to open native print dialogs from any pane. Ctrl+P is blocked at WebKit level to prevent conflicts with pane mode shortcuts
+
 ### Fixed
 - **Global shortcuts protection**: Fixed window shortcuts (Ctrl+L, Ctrl+F, F12) not working in new panes due to overly aggressive webpage protection. Window shortcuts now properly bubble up to GTK while pane shortcuts remain blocked from webpages. Resolves omnibox and developer tools not responding to keyboard shortcuts in newly created panes
 - **Omnibox keyboard event isolation**: Fixed keyboard event leakage from omnibox to underlying webpages that caused unintended page actions (e.g., typing 's' in omnibox triggering GitHub search). Implemented WebKit-level main-world event blocking that activates when omnibox opens, preventing page JavaScript from receiving keyboard events while preserving native GTK shortcuts (Ctrl+L, Ctrl+F, etc.) and omnibox functionality
@@ -12,6 +15,8 @@ All notable changes to this project will be documented in this file.
 - **WebView ID propagation**: Added webview ID request/response mechanism for stub builds to ensure JavaScript side knows its webview ID for proper focus validation
 - **Workspace theme integration**: Fixed white borders on inactive panes by implementing dynamic border colors based on GTK theme preference (dark mode: #333333 borders, light mode: #dddddd borders)
 - **GTK window background**: Added theme-aware window and pane background colors to prevent white bleeding through transparent elements
+- **Print dialog window handling**: Fixed GTK window destroy errors during WebView cleanup by only destroying windows when CreateWindow was actually enabled
+- **Modifier key logging noise**: Filtered out Ctrl, Shift, Alt, and Super key presses from accelerator miss logging to reduce console spam
 
 ## [0.9.0] - 2025-09-22
 

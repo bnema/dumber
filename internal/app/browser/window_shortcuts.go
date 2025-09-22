@@ -21,6 +21,7 @@ type WindowShortcutHandler struct {
 	lastFindToggle    time.Time
 	lastCopyURL       time.Time
 	lastDevTools      time.Time
+	lastPrint         time.Time
 }
 
 // NewWindowShortcutHandler creates a new window-level shortcut handler
@@ -57,6 +58,7 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 		{"ctrl+l", h.handleOmniboxToggle, "Omnibox toggle"},
 		{"ctrl+f", h.handleFindToggle, "Find in page"},
 		{"ctrl+shift+c", h.handleCopyURL, "Copy URL"},
+		{"ctrl+shift+p", h.handlePrint, "Print page"},
 		{"F12", h.handleDevTools, "Developer tools"},
 		// Zoom shortcuts - global level for proper active pane targeting
 		{"ctrl+plus", h.handleZoomIn, "Zoom in"},
@@ -146,6 +148,27 @@ func (h *WindowShortcutHandler) handleDevTools() {
 
 	if err := h.app.activePane.webView.ShowDevTools(); err != nil {
 		log.Printf("[window-shortcuts] Failed to show devtools: %v", err)
+	}
+}
+
+func (h *WindowShortcutHandler) handlePrint() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if time.Since(h.lastPrint) < 200*time.Millisecond {
+		return
+	}
+	h.lastPrint = time.Now()
+
+	if h.app.activePane == nil || h.app.activePane.webView == nil {
+		log.Printf("[window-shortcuts] No active pane for print")
+		return
+	}
+
+	log.Printf("[window-shortcuts] Print -> pane %p", h.app.activePane.webView)
+
+	if err := h.app.activePane.webView.ShowPrintDialog(); err != nil {
+		log.Printf("[window-shortcuts] Failed to show print dialog: %v", err)
 	}
 }
 
