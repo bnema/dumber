@@ -3,6 +3,7 @@
 package webkit
 
 import (
+	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -149,21 +150,47 @@ func AddShortcutToController(controller uintptr, key string, handle uintptr) err
 var (
 	globalShortcutsRegistry = make(map[string]bool)
 	shortcutsRegistryMu     sync.RWMutex
+	// Map from shortcut key to callback handle for C-level triggering
+	globalShortcutHandles = make(map[string]uintptr)
+)
+
+// WebView tracking for dynamic protection refresh
+var (
+	activeWebViews   = make(map[*WebView]bool)
+	activeWebViewsMu sync.RWMutex
 )
 
 // RegisterGlobalShortcut adds a shortcut to the global registry for automatic webpage blocking
 func RegisterGlobalShortcut(shortcut string) {
 	shortcutsRegistryMu.Lock()
-	defer shortcutsRegistryMu.Unlock()
-
 	// Normalize shortcut format (convert to lowercase, standardize modifiers)
 	normalized := normalizeShortcut(shortcut)
 
-	// Only log if this is a new shortcut registration
-	if !globalShortcutsRegistry[normalized] {
+	// Only proceed if this is a new shortcut registration
+	wasNew := !globalShortcutsRegistry[normalized]
+	if wasNew {
 		globalShortcutsRegistry[normalized] = true
 		log.Printf("[shortcuts] Registered global shortcut for blocking: %s -> %s", shortcut, normalized)
 	}
+	shortcutsRegistryMu.Unlock()
+
+	// If we added a new shortcut, refresh protection on all active WebViews
+	if wasNew {
+		RefreshGlobalShortcutsProtection()
+	}
+}
+
+// RegisterGlobalShortcutWithHandle adds a shortcut with its callback handle for C-level triggering
+func RegisterGlobalShortcutWithHandle(shortcut string, handle uintptr) {
+	// First register the shortcut for blocking
+	RegisterGlobalShortcut(shortcut)
+
+	// Then store the callback handle for C-level triggering
+	shortcutsRegistryMu.Lock()
+	normalized := normalizeShortcut(shortcut)
+	globalShortcutHandles[normalized] = handle
+	log.Printf("[shortcuts] Registered callback handle for shortcut: %s", shortcut)
+	shortcutsRegistryMu.Unlock()
 }
 
 // GetRegisteredShortcuts returns a copy of all registered shortcuts
@@ -178,6 +205,51 @@ func GetRegisteredShortcuts() []string {
 	return shortcuts
 }
 
+// RegisterActiveWebView adds a WebView to the active registry for dynamic protection updates
+func RegisterActiveWebView(w *WebView) {
+	if w == nil {
+		return
+	}
+	activeWebViewsMu.Lock()
+	defer activeWebViewsMu.Unlock()
+	activeWebViews[w] = true
+	// WebView registered for protection updates
+}
+
+// UnregisterActiveWebView removes a WebView from the active registry
+func UnregisterActiveWebView(w *WebView) {
+	if w == nil {
+		return
+	}
+	activeWebViewsMu.Lock()
+	defer activeWebViewsMu.Unlock()
+	delete(activeWebViews, w)
+	// WebView unregistered from protection updates
+}
+
+// RefreshGlobalShortcutsProtection updates all active WebViews with current shortcut protection
+func RefreshGlobalShortcutsProtection() {
+	activeWebViewsMu.RLock()
+	webViews := make([]*WebView, 0, len(activeWebViews))
+	for wv := range activeWebViews {
+		webViews = append(webViews, wv)
+	}
+	activeWebViewsMu.RUnlock()
+
+	if len(webViews) == 0 {
+		return
+	}
+
+	for _, wv := range webViews {
+		if wv != nil && !wv.destroyed {
+			// Re-enable protection which will inject updated shortcut list
+			if err := wv.EnableGlobalShortcutsProtection(); err != nil {
+				log.Printf("[shortcuts] Failed to refresh protection for WebView: %v", err)
+			}
+		}
+	}
+}
+
 // normalizeShortcut converts shortcuts to a standardized format for JavaScript blocking
 func normalizeShortcut(shortcut string) string {
 	// Convert to lowercase and replace common variations
@@ -188,11 +260,19 @@ func normalizeShortcut(shortcut string) string {
 	normalized = strings.ReplaceAll(normalized, "cmd+", "ctrl+") // Treat cmd as ctrl for blocking
 	normalized = strings.ReplaceAll(normalized, "control+", "ctrl+")
 
-	// Standardize key names
-	normalized = strings.ReplaceAll(normalized, "arrowleft", "arrowleft")
-	normalized = strings.ReplaceAll(normalized, "arrowright", "arrowright")
-	normalized = strings.ReplaceAll(normalized, "arrowup", "arrowup")
-	normalized = strings.ReplaceAll(normalized, "arrowdown", "arrowdown")
+	// Standardize arrow key names (handle both formats)
+	normalized = strings.ReplaceAll(normalized, "left", "arrowleft")
+	normalized = strings.ReplaceAll(normalized, "right", "arrowright")
+	normalized = strings.ReplaceAll(normalized, "up", "arrowup")
+	normalized = strings.ReplaceAll(normalized, "down", "arrowdown")
+
+	// Fix double arrow prefixes that might occur from above replacements
+	normalized = strings.ReplaceAll(normalized, "arrowarrowleft", "arrowleft")
+	normalized = strings.ReplaceAll(normalized, "arrowarrowright", "arrowright")
+	normalized = strings.ReplaceAll(normalized, "arrowarrowup", "arrowup")
+	normalized = strings.ReplaceAll(normalized, "arrowarrowdown", "arrowdown")
+
+	// Other key normalizations
 	normalized = strings.ReplaceAll(normalized, "equal", "equal") // For Ctrl+=
 	normalized = strings.ReplaceAll(normalized, "plus", "equal")  // Normalize + to =
 
@@ -227,15 +307,25 @@ func (w *WebView) EnableGlobalShortcutsProtection() error {
 	}
 	shortcutsJS += "]"
 
-	// Create the blocking script that only blocks registered global shortcuts
+	// Create a version-based blocking script that can be updated dynamically
+	protectionVersion := len(shortcuts) // Use shortcuts count as version
 	globalProtectionScript := `
 		(() => {
-			if (!window.__dumber_global_shortcuts_protection) {
-				window.__dumber_global_shortcuts_protection = true;
+			const newVersion = ` + fmt.Sprintf("%d", protectionVersion) + `;
+			const currentVersion = window.__dumber_shortcuts_protection_version || 0;
+
+			// Only update if this is a newer version or first time
+			if (newVersion > currentVersion) {
+				// Clean up old protection if it exists
+				if (window.__dumber_cleanup_global_shortcuts) {
+					window.__dumber_cleanup_global_shortcuts();
+				}
+
+				window.__dumber_shortcuts_protection_version = newVersion;
 
 				// List of global shortcuts to block from reaching the webpage
 				const globalShortcuts = ` + shortcutsJS + `;
-				console.log('[dumber] Protecting global shortcuts:', globalShortcuts);
+				console.log('[dumber] Protecting global shortcuts (v' + newVersion + '):', globalShortcuts);
 
 				// Function to check if a key event matches any global shortcut
 				const isGlobalShortcut = (e) => {
@@ -260,7 +350,12 @@ func (w *WebView) EnableGlobalShortcutsProtection() error {
 						'f12': ['f12'],
 						'ctrl+r': ['ctrl+r'],
 						'ctrl+shift+r': ['ctrl+shift+r'],
-						'f5': ['f5']
+						'f5': ['f5'],
+						// Alt+Arrow key mappings (handle both key and code variations)
+						'alt+arrowleft': ['alt+left', 'alt+arrowleft'],
+						'alt+arrowright': ['alt+right', 'alt+arrowright'],
+						'alt+arrowup': ['alt+up', 'alt+arrowup'],
+						'alt+arrowdown': ['alt+down', 'alt+arrowdown']
 					};
 
 					// Check direct matches
@@ -302,12 +397,14 @@ func (w *WebView) EnableGlobalShortcutsProtection() error {
 					document.removeEventListener('keydown', blockGlobalShortcut, true);
 					document.removeEventListener('keyup', blockGlobalShortcut, true);
 					document.removeEventListener('keypress', blockGlobalShortcut, true);
-					delete window.__dumber_global_shortcuts_protection;
+					delete window.__dumber_shortcuts_protection_version;
 					delete window.__dumber_cleanup_global_shortcuts;
 					console.log('[dumber] Global shortcuts protection disabled');
 				};
 
-				console.log('[dumber] Global shortcuts protection enabled for', globalShortcuts.length, 'shortcuts');
+				console.log('[dumber] Global shortcuts protection enabled for', globalShortcuts.length, 'shortcuts (v' + newVersion + ')');
+			} else {
+				console.log('[dumber] Global shortcuts protection already up to date (v' + currentVersion + ')');
 			}
 		})();
 	`

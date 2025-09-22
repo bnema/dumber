@@ -146,6 +146,7 @@ func goOnKeyPress(id C.ulong, keyval C.guint, state C.GdkModifierType) C.gboolea
 	uid := uintptr(id)
 	kv := uint(keyval)
 	st := uint(state)
+
 	if dispatchAccelerator(uid, kv, st) {
 		return C.gboolean(1)
 	}
@@ -219,6 +220,11 @@ func dispatchAccelerator(uid uintptr, keyval uint, state uint) bool {
 		return false
 	}
 
+	// GTK-level fallback blocking for global shortcuts
+	if checkGlobalShortcutBlocking(keyName, ctrl, alt, shift) {
+		return true // Block the event from reaching WebKit
+	}
+
 	now := time.Now()
 	rawKey := fmt.Sprintf("raw:%v:%v:%v:%s", ctrl, alt, shift, keyName)
 	if shouldDebounceShortcut(uid, rawKey, now) {
@@ -275,6 +281,7 @@ func dispatchAccelerator(uid uintptr, keyval uint, state uint) bool {
 	if reg == nil {
 		return handled
 	}
+
 	for _, name := range candidates {
 		if cb, ok := reg[name]; ok {
 			if shouldDebounceShortcut(uid, "shortcut:"+name, now) {
@@ -288,6 +295,62 @@ func dispatchAccelerator(uid uintptr, keyval uint, state uint) bool {
 	}
 
 	return handled
+}
+
+// checkGlobalShortcutBlocking checks if a keyboard event should be blocked at GTK level
+// This provides defense-in-depth protection when JavaScript-level blocking fails
+func checkGlobalShortcutBlocking(keyName string, ctrl, alt, shift bool) bool {
+	if keyName == "" {
+		return false
+	}
+
+	// Build shortcut string similar to the JavaScript protection logic
+	var shortcut strings.Builder
+	if ctrl {
+		shortcut.WriteString("ctrl+")
+	}
+	if alt {
+		shortcut.WriteString("alt+")
+	}
+	if shift {
+		shortcut.WriteString("shift+")
+	}
+	shortcut.WriteString(strings.ToLower(keyName))
+
+	shortcutStr := shortcut.String()
+
+	// Check if this shortcut is in the global registry
+	shortcuts := GetRegisteredShortcuts()
+	for _, registered := range shortcuts {
+		if registered == shortcutStr {
+			// Trigger the callback handle if available (especially for Alt+Arrow shortcuts)
+			triggerGlobalShortcutCallback(registered)
+			return true
+		}
+		// Also check common variations
+		if registered == strings.ReplaceAll(shortcutStr, "arrowleft", "left") ||
+			registered == strings.ReplaceAll(shortcutStr, "arrowright", "right") ||
+			registered == strings.ReplaceAll(shortcutStr, "arrowup", "up") ||
+			registered == strings.ReplaceAll(shortcutStr, "arrowdown", "down") {
+			// Trigger the callback handle for the registered variant
+			triggerGlobalShortcutCallback(registered)
+			return true
+		}
+	}
+
+	return false
+}
+
+// triggerGlobalShortcutCallback looks up and invokes the callback handle for a given shortcut
+func triggerGlobalShortcutCallback(shortcut string) {
+	// Access the global shortcut handles map from shortcuts_cgo.go
+	shortcutsRegistryMu.RLock()
+	handle, exists := globalShortcutHandles[shortcut]
+	shortcutsRegistryMu.RUnlock()
+
+	if exists && handle != 0 {
+		invokeWindowShortcutCallback(handle)
+	}
 }
 
 func nextViewID() uintptr {

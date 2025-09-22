@@ -67,52 +67,7 @@ const (
 	multiPaneClass  = "workspace-multi-pane"
 )
 
-// registerWorkspaceShortcuts registers global workspace navigation shortcuts on the given webView.
-func (wm *WorkspaceManager) registerWorkspaceShortcuts(webView *webkit.WebView) {
-	if wm == nil || webView == nil {
-		return
-	}
-
-	registerFocusMove := func(key, dir string) {
-		_ = webView.RegisterKeyboardShortcut(key, func() {
-			log.Printf("[workspace] %s callback triggered on webView=%p", key, webView)
-			if wm.app == nil {
-				log.Printf("[workspace] %s rejected: app is nil", key)
-				return
-			}
-
-			// Only allow the active webview to handle workspace navigation shortcuts
-			if wm.app.activePane == nil || wm.app.activePane.webView != webView {
-				log.Printf("[workspace] %s rejected: not active pane (active=%p, caller=%p)",
-					key, wm.app.activePane.webView, webView)
-				return
-			}
-
-			log.Printf("[workspace] %s calling FocusNeighbor(%s)", key, dir)
-			if wm.FocusNeighbor(dir) {
-				log.Printf("Shortcut: focus pane %s", dir)
-			} else {
-				log.Printf("[workspace] FocusNeighbor(%s) returned false", dir)
-			}
-		})
-	}
-
-	// Pane navigation shortcuts
-	registerFocusMove("alt+ArrowLeft", "left")
-	registerFocusMove("alt+ArrowRight", "right")
-	registerFocusMove("alt+ArrowUp", "up")
-	registerFocusMove("alt+ArrowDown", "down")
-	registerFocusMove("cmdorctrl+ArrowUp", "up")
-	registerFocusMove("cmdorctrl+ArrowDown", "down")
-
-	// Zoom shortcuts are now handled by global window shortcuts in window_shortcuts.go
-	// for consistency with other global shortcuts like Ctrl+L, Ctrl+F, etc.
-
-	// Reduced logging: only log shortcuts registration during initialization, not on every hover
-	if wm.app.config != nil && wm.app.config.Debug.EnableWorkspaceDebug {
-		log.Printf("[workspace] registered navigation shortcuts on webView=%p", webView)
-	}
-}
+// Workspace navigation shortcuts are now handled globally by WindowShortcutHandler
 
 // NewWorkspaceManager builds a workspace manager rooted at the provided pane.
 func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManager {
@@ -163,7 +118,7 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 
 	app.workspace = manager
 	manager.focusNode(root)
-	manager.registerWorkspaceShortcuts(root.pane.webView)
+	// Workspace navigation shortcuts are now handled globally by WindowShortcutHandler
 	// Ensure initial CSS classes are applied
 	manager.ensurePaneBaseClasses()
 	return manager
@@ -433,8 +388,7 @@ func (wm *WorkspaceManager) focusNode(node *paneNode) {
 		node.pane.webView.SetActive(true)
 	}
 
-	// Re-register workspace navigation shortcuts on the newly focused webView
-	wm.registerWorkspaceShortcuts(node.pane.webView)
+	// Shortcuts are registered once during webView creation, no need to re-register on focus
 
 	if handler := node.pane.messageHandler; handler != nil {
 		handler.SetWorkspaceObserver(wm)
@@ -1514,10 +1468,7 @@ func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *web
 		return nil
 	}
 
-	// Register workspace navigation shortcuts on popup WebView before creating pane
-	// This ensures shortcuts are available immediately when the WebView is ready
-	wm.registerWorkspaceShortcuts(newView)
-	log.Printf("[workspace] Registered workspace shortcuts for new WebView")
+	// Workspace navigation shortcuts are now handled globally by WindowShortcutHandler
 
 	// Create a pane for the new WebView
 	newPane, err := wm.createPane(newView)

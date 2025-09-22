@@ -71,8 +71,13 @@ func (ws *WindowShortcuts) RegisterGlobalShortcut(key string, callback func()) e
 		return err
 	}
 
-	// Window shortcuts should NOT be added to global blocking registry
-	// They need to bubble up to GTK for proper handling
+	// Add Alt+Arrow shortcuts to global blocking registry with callback handle for C-level triggering
+	if strings.HasPrefix(key, "alt+Arrow") {
+		RegisterGlobalShortcutWithHandle(key, handle)
+	} else {
+		// For non-Alt+Arrow shortcuts, just register for blocking without callback handle
+		RegisterGlobalShortcut(key)
+	}
 
 	log.Printf("[window-shortcuts] Registered global shortcut: %s -> %s", key, gtkKey)
 	return nil

@@ -191,3 +191,81 @@ func TestFocusNeighborWithoutPeer(t *testing.T) {
 		t.Fatalf("expected focus move to fail when only one pane exists")
 	}
 }
+
+// TestWorkspaceNavigationAfterFocusChanges tests that workspace navigation
+// works correctly after focus changes between panes. This validates that
+// the FocusNeighbor functionality works regardless of which pane previously
+// had focus (since Alt+Arrow shortcuts are now handled globally).
+func TestWorkspaceNavigationAfterFocusChanges(t *testing.T) {
+	wm := newTestWorkspaceManager(t)
+
+	// Split to create two panes
+	right, err := wm.splitNode(wm.root, "right")
+	if err != nil {
+		t.Fatalf("split failed: %v", err)
+	}
+
+	left := right.parent.left
+
+	// Set up geometry for navigation calculations
+	webkit.SetWidgetBoundsForTesting(left.container, webkit.WidgetBounds{X: 0, Y: 0, Width: 100, Height: 100})
+	webkit.SetWidgetBoundsForTesting(right.container, webkit.WidgetBounds{X: 120, Y: 0, Width: 100, Height: 100})
+
+	// Initially, the active pane should be the right one (newly created)
+	if wm.GetActiveNode() != right {
+		t.Fatalf("expected right pane to be active initially")
+	}
+
+	// Test that navigation works from right to left
+	if !wm.FocusNeighbor("left") {
+		t.Fatalf("expected focus neighbor left to succeed from right pane")
+	}
+
+	if wm.GetActiveNode() != left {
+		t.Fatalf("expected focus to move to left pane")
+	}
+
+	// Test that navigation works from left to right
+	if !wm.FocusNeighbor("right") {
+		t.Fatalf("expected focus neighbor right to succeed from left pane")
+	}
+
+	if wm.GetActiveNode() != right {
+		t.Fatalf("expected focus to move back to right pane")
+	}
+
+	// Simulate multiple focus changes to verify that workspace navigation
+	// works consistently (the old bug was per-webview shortcut registration)
+	for i := 0; i < 3; i++ {
+		// Move focus left
+		wm.focusNode(left)
+		if wm.GetActiveNode() != left {
+			t.Fatalf("expected left pane to be active after focusNode call %d", i)
+		}
+
+		// Test navigation still works
+		if !wm.FocusNeighbor("right") {
+			t.Fatalf("expected navigation right to work after focus change %d", i)
+		}
+
+		// Move focus right
+		wm.focusNode(right)
+		if wm.GetActiveNode() != right {
+			t.Fatalf("expected right pane to be active after focusNode call %d", i)
+		}
+
+		// Test navigation still works
+		if !wm.FocusNeighbor("left") {
+			t.Fatalf("expected navigation left to work after focus change %d", i)
+		}
+	}
+
+	// Final verification that we can navigate in both directions
+	if !wm.FocusNeighbor("right") {
+		t.Fatalf("expected final navigation right to work")
+	}
+
+	if wm.GetActiveNode() != right {
+		t.Fatalf("expected final active pane to be right")
+	}
+}

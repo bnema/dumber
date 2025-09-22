@@ -65,6 +65,11 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 		{"ctrl+equal", h.handleZoomIn, "Zoom in (=)"},
 		{"ctrl+minus", h.handleZoomOut, "Zoom out"},
 		{"ctrl+0", h.handleZoomReset, "Zoom reset"},
+		// Workspace navigation shortcuts - global level for proper active pane targeting
+		{"alt+ArrowLeft", func() { h.handleWorkspaceNavigation("left") }, "Navigate left pane"},
+		{"alt+ArrowRight", func() { h.handleWorkspaceNavigation("right") }, "Navigate right pane"},
+		{"alt+ArrowUp", func() { h.handleWorkspaceNavigation("up") }, "Navigate up pane"},
+		{"alt+ArrowDown", func() { h.handleWorkspaceNavigation("down") }, "Navigate down pane"},
 	}
 
 	for _, shortcut := range shortcuts {
@@ -283,6 +288,21 @@ func (h *WindowShortcutHandler) handleUIToggle(lastToggle *time.Time, featureNam
 		"source":    "window-global",
 	}); err != nil {
 		log.Printf("[window-shortcuts] Failed to dispatch %s toggle: %v", featureName, err)
+	}
+}
+
+func (h *WindowShortcutHandler) handleWorkspaceNavigation(direction string) {
+	if h.app == nil || h.app.workspace == nil {
+		log.Printf("[window-shortcuts] No workspace for navigation")
+		return
+	}
+
+	log.Printf("[window-shortcuts] Workspace navigation: %s", direction)
+
+	if h.app.workspace.FocusNeighbor(direction) {
+		log.Printf("[window-shortcuts] Workspace navigation %s successful", direction)
+	} else {
+		log.Printf("[window-shortcuts] Workspace navigation %s failed", direction)
 	}
 }
 

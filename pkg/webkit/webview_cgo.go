@@ -1614,6 +1614,10 @@ func (w *WebView) Destroy() error {
 
 	w.releaseNativeWidgets()
 	w.destroyed = true
+
+	// Unregister from dynamic protection updates
+	UnregisterActiveWebView(w)
+
 	unregisterView(w.id)
 	return nil
 }
@@ -2027,6 +2031,9 @@ func (w *WebView) enableUserContentManager(cfg *Config) {
 	if err := w.EnableGlobalShortcutsProtection(); err != nil {
 		log.Printf("[webkit] Warning: Failed to enable global shortcuts protection: %v", err)
 	}
+
+	// Register this WebView for dynamic protection updates
+	RegisterActiveWebView(w)
 
 	// No JS fallback bridge — native UCM is active
 }
