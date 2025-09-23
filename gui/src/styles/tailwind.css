@@ -3,17 +3,19 @@
 /* Define custom theme colors for v4 */
 @theme {
   /* Light theme colors (default) */
-  --color-browser-bg: rgb(255 255 255); /* white */
-  --color-browser-surface: rgb(249 250 251); /* gray-50 */
-  --color-browser-text: rgb(17 24 39); /* gray-900 */
-  --color-browser-muted: rgb(107 114 128); /* gray-500 */
-  --color-browser-accent: rgb(59 130 246); /* blue-500 */
-  --color-browser-border: rgb(229 231 235); /* gray-200 */
+  --color-browser-bg: rgb(253 252 250); 
+  --color-browser-surface: rgb(245 245 240); 
+  --color-browser-surface-variant: rgb(253 250 245); 
+  --color-browser-text: rgb(17 24 39); 
+  --color-browser-muted: rgb(107 114 128);
+  --color-browser-accent: rgb(59 130 246); 
+  --color-browser-border: rgb(229 231 235); 
 }
 
 /* Dynamic theme switching via CSS variables */
 :root {
   --dynamic-bg: var(--color-browser-bg);
+  --dynamic-surface-variant: var(--color-browser-surface-variant);
   --dynamic-surface: var(--color-browser-surface);
   --dynamic-text: var(--color-browser-text);
   --dynamic-muted: var(--color-browser-muted);
@@ -23,12 +25,13 @@
 
 /* Dark theme colors (applied via .dark class from GTK) */
 .dark {
-  --dynamic-bg: rgb(17 24 39); /* gray-900 */
-  --dynamic-surface: rgb(31 41 55); /* gray-800 */
-  --dynamic-text: rgb(243 244 246); /* gray-100 */
-  --dynamic-muted: rgb(156 163 175); /* gray-400 */
-  --dynamic-accent: rgb(96 165 250); /* blue-400 */
-  --dynamic-border: rgb(55 65 81); /* gray-700 */
+  --dynamic-bg: rgb(17 24 39);
+  --dynamic-surface-variant: rgb(21 30 50); 
+  --dynamic-surface: rgb(31 41 55); 
+  --dynamic-text: rgb(243 244 246); 
+  --dynamic-muted: rgb(156 163 175);
+  --dynamic-accent: rgb(96 165 250);
+  --dynamic-border: rgb(55 65 81);
 }
 
 /* Base styles for browser UI components */
@@ -94,7 +97,6 @@
   background-color: var(--dynamic-bg);
   color: var(--dynamic-text);
   border: 2px solid var(--dynamic-border);
-  border-radius: 0.375rem;
   box-shadow:
     0 4px 6px -1px rgb(0 0 0 / 0.1),
     0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -270,4 +272,13 @@
   * {
     box-sizing: border-box;
   }
+}
+
+/* Global body styles */
+body {
+  background-color: var(--dynamic-bg);
+  color: var(--dynamic-text);
+  transition:
+    background-color 200ms ease,
+    color 200ms ease;
 }
