@@ -116,12 +116,46 @@
     };
   }
 
-  // Focus input when component becomes visible
+  // Focus input when component becomes visible and manage page event blocking
   $effect(() => {
     if (visible && inputElement) {
       inputElement.focus();
+      // Enable keyboard event blocking in main world when omnibox opens
+      enablePageEventBlocking();
+    } else if (!visible) {
+      // Disable keyboard event blocking when omnibox closes
+      disablePageEventBlocking();
     }
   });
+
+  // Functions to control main-world event blocking
+  function enablePageEventBlocking() {
+    try {
+      // Send message to Go backend to enable keyboard blocking
+      if (window.webkit?.messageHandlers?.dumber) {
+        window.webkit.messageHandlers.dumber.postMessage(JSON.stringify({
+          type: 'keyboard_blocking',
+          action: 'enable'
+        }));
+      }
+    } catch (error) {
+      console.warn('[omnibox] Failed to enable page event blocking:', error);
+    }
+  }
+
+  function disablePageEventBlocking() {
+    try {
+      // Send message to Go backend to disable keyboard blocking
+      if (window.webkit?.messageHandlers?.dumber) {
+        window.webkit.messageHandlers.dumber.postMessage(JSON.stringify({
+          type: 'keyboard_blocking',
+          action: 'disable'
+        }));
+      }
+    } catch (error) {
+      console.warn('[omnibox] Failed to disable page event blocking:', error);
+    }
+  }
 
 
   // Apply faded styling effect (matching original JS implementation)
@@ -217,6 +251,8 @@
       omniboxStore.close();
     }
   }
+
+
 
   onMount(() => {
     syncTheme();

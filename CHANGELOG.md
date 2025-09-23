@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **Omnibox keyboard event isolation**: Fixed keyboard event leakage from omnibox to underlying webpages that caused unintended page actions (e.g., typing 's' in omnibox triggering GitHub search). Implemented WebKit-level main-world event blocking that activates when omnibox opens, preventing page JavaScript from receiving keyboard events while preserving native GTK shortcuts (Ctrl+L, Ctrl+F, etc.) and omnibox functionality
 - **Active pane detection**: Replaced complex pane ID abstraction with persistent webview IDs, fixing omnibox unresponsiveness after navigation. Omnibox now works immediately after page navigation without requiring mouse movement
 - **Workspace architecture**: Simplified focus tracking by removing URI change handlers and pane ID injection complexity, improving reliability and reducing codebase by 85 lines
 - **WebView ID propagation**: Added webview ID request/response mechanism for stub builds to ensure JavaScript side knows its webview ID for proper focus validation

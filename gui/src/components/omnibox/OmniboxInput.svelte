@@ -69,11 +69,14 @@
   function handleKeyDown(event: KeyboardEvent) {
     switch (event.key) {
       case 'Escape':
+        event.preventDefault();
+        event.stopPropagation();
         omniboxStore.close();
         break;
 
       case 'Enter':
         event.preventDefault();
+        event.stopPropagation();
         handleEnterKey(event);
         break;
 
@@ -85,6 +88,9 @@
         break;
 
       default:
+        // For normal typing keys, only stop propagation to prevent page handlers
+        // but don't prevent default so typing still works in the input
+        event.stopPropagation();
         // Any other key should restore full opacity
         omniboxStore.setFaded(false);
         break;

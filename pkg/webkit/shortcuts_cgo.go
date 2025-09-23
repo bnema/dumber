@@ -5,6 +5,7 @@ package webkit
 /*
 #cgo pkg-config: gtk4 webkitgtk-6.0
 #include <gtk/gtk.h>
+#include <webkit/webkit.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -139,6 +140,107 @@ func AddShortcutToController(controller uintptr, key string, handle uintptr) err
 		keyStr,
 		C.uintptr_t(handle),
 	)
+
+	return nil
+}
+
+// Keyboard event blocking functionality for omnibox isolation
+
+// keyboardBlockerScript holds reference to the main-world keyboard blocking script
+var keyboardBlockerScript *C.WebKitUserScript = nil
+
+// EnablePageKeyboardBlocking injects a script into the main world to block all keyboard events
+// This prevents page JavaScript from receiving keyboard events while omnibox is active
+func (w *WebView) EnablePageKeyboardBlocking() error {
+	if w == nil || w.destroyed || w.native == nil || w.native.ucm == nil {
+		return ErrWebViewNotInitialized
+	}
+
+	// Remove any existing blocker script first
+	w.DisablePageKeyboardBlocking()
+
+	// Script to block all keyboard and related events in the main world
+	blockingScript := `
+		(() => {
+			// Store original state to restore later
+			if (!window.__dumber_event_blocker_installed) {
+				window.__dumber_event_blocker_installed = true;
+
+				// List of events to block
+				const eventTypes = [
+					'keydown', 'keyup', 'keypress',
+					'input', 'beforeinput',
+					'compositionstart', 'compositionupdate', 'compositionend'
+				];
+
+				// Block all keyboard-related events at capture phase
+				const blockEvent = (e) => {
+					e.stopImmediatePropagation();
+					e.preventDefault();
+					e.stopPropagation();
+					return false;
+				};
+
+				// Install capture-phase event blockers
+				eventTypes.forEach(type => {
+					document.addEventListener(type, blockEvent, true);
+				});
+
+				// Store cleanup function
+				window.__dumber_cleanup_event_blocker = () => {
+					eventTypes.forEach(type => {
+						document.removeEventListener(type, blockEvent, true);
+					});
+					delete window.__dumber_event_blocker_installed;
+					delete window.__dumber_cleanup_event_blocker;
+				};
+
+				console.log('[dumber] Page keyboard event blocking enabled');
+			}
+		})();
+	`
+
+	cScript := C.CString(blockingScript)
+	defer C.free(unsafe.Pointer(cScript))
+
+	// Inject into main world (nil world parameter = main world)
+	keyboardBlockerScript = C.webkit_user_script_new(
+		(*C.gchar)(cScript),
+		C.WEBKIT_USER_CONTENT_INJECT_TOP_FRAME,
+		C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START,
+		nil, nil) // nil = main world
+
+	if keyboardBlockerScript == nil {
+		return ErrNotImplemented
+	}
+
+	C.webkit_user_content_manager_add_script(w.native.ucm, keyboardBlockerScript)
+	log.Printf("[webkit] Page keyboard event blocking enabled")
+	return nil
+}
+
+// DisablePageKeyboardBlocking removes the keyboard blocking script and restores normal page behavior
+func (w *WebView) DisablePageKeyboardBlocking() error {
+	if w == nil || w.destroyed || w.native == nil || w.native.ucm == nil {
+		return ErrWebViewNotInitialized
+	}
+
+	// Execute cleanup script to remove event listeners
+	cleanupScript := `
+		if (window.__dumber_cleanup_event_blocker) {
+			window.__dumber_cleanup_event_blocker();
+			console.log('[dumber] Page keyboard event blocking disabled');
+		}
+	`
+	w.InjectScript(cleanupScript)
+
+	// Remove the user script if it exists
+	if keyboardBlockerScript != nil {
+		C.webkit_user_content_manager_remove_script(w.native.ucm, keyboardBlockerScript)
+		C.webkit_user_script_unref(keyboardBlockerScript)
+		keyboardBlockerScript = nil
+		log.Printf("[webkit] Keyboard blocker script removed")
+	}
 
 	return nil
 }

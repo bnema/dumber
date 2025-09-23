@@ -408,6 +408,11 @@ func goOnUcmMessage(id C.ulong, json *C.char) {
 		return
 	}
 
+	// Handle keyboard blocking messages
+	if handleKeyboardBlockingMessage(vw, goPayload) {
+		return
+	}
+
 	vw.dispatchScriptMessage(goPayload)
 }
 
@@ -681,6 +686,43 @@ func handleRenderingBackendMessage(payload string) bool {
 	log.Printf("[webkit] Vendor: %s", msg.Data.Vendor)
 	log.Printf("[webkit] Version: %s", msg.Data.Version)
 	log.Printf("[webkit] Max texture size: %d", msg.Data.MaxTextureSize)
+
+	return true
+}
+
+// handleKeyboardBlockingMessage handles keyboard blocking control messages from omnibox
+func handleKeyboardBlockingMessage(vw *WebView, payload string) bool {
+	if vw == nil {
+		return false
+	}
+
+	var msg struct {
+		Type   string `json:"type"`
+		Action string `json:"action"`
+	}
+
+	if err := json.Unmarshal([]byte(payload), &msg); err != nil {
+		return false
+	}
+
+	if msg.Type != "keyboard_blocking" {
+		return false
+	}
+
+	switch msg.Action {
+	case "enable":
+		log.Printf("[webkit] Enabling page keyboard blocking for omnibox")
+		if err := vw.EnablePageKeyboardBlocking(); err != nil {
+			log.Printf("[webkit] Failed to enable keyboard blocking: %v", err)
+		}
+	case "disable":
+		log.Printf("[webkit] Disabling page keyboard blocking")
+		if err := vw.DisablePageKeyboardBlocking(); err != nil {
+			log.Printf("[webkit] Failed to disable keyboard blocking: %v", err)
+		}
+	default:
+		log.Printf("[webkit] Unknown keyboard blocking action: %s", msg.Action)
+	}
 
 	return true
 }
