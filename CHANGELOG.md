@@ -6,8 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **Print functionality**: Added Ctrl+Shift+P shortcut to open native print dialogs from any pane. Ctrl+P is blocked at WebKit level to prevent conflicts with pane mode shortcuts
+- **WebKit native favicon detection**: Implemented WebKit's built-in favicon database for automatic favicon detection and URI storage. Enhanced favicon support for all formats (PNG, SVG, ICO) without external dependencies
+
+### Changed
+- **Homepage redesign**: Brutal design with component-scoped styling, dynamic height matching, inline domain-URL layout with fade effects, and tighter spacing
 
 ### Fixed
+- **WebView teardown and memory management**: Implemented comprehensive cleanup system to prevent crashes during WebView destruction. Added JavaScript teardown functionality with cleanup handlers for all event listeners, intervals, and global state. Enhanced pane cleanup with proper controller detachment and GTK widget detachment sequencing. Added WebView validity checks before JavaScript evaluation and improved workspace manager pane closing logic with better popup handling
 - **Ctrl+W pane closing**: Fixed Ctrl+W shortcut to properly close active panes including popups. Implemented active WebView detection and proper popup vs regular pane handling via OnWorkspaceMessage for consistent cleanup
 - **WebView script injection segfault**: Fixed segmentation violation when injecting JavaScript into destroyed WebViews during message handling. Added IsDestroyed() safety check to prevent GTK widget corruption
 - **Alt+Arrow workspace navigation**: Fixed Alt+Arrow keys not working for pane navigation after WebView focus changes. Implemented C-level to GTK4 shortcut bridge that ensures workspace navigation works consistently across all panes
