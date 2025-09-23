@@ -336,6 +336,28 @@ static void connect_uri_notify_with_id(GtkWidget* widget, unsigned long id) {
     g_signal_connect_data(G_OBJECT(widget), "notify::uri", G_CALLBACK(on_uri_notify), (gpointer)id, NULL, 0);
 }
 
+static void connect_favicon_changed_with_id(GtkWidget* widget, unsigned long id) {
+    if (!widget) return;
+    WebKitWebView* web_view = WEBKIT_WEB_VIEW(widget);
+    WebKitNetworkSession* network_session = webkit_web_view_get_network_session(web_view);
+    if (network_session) {
+        WebKitWebsiteDataManager* data_manager = webkit_network_session_get_website_data_manager(network_session);
+        if (data_manager) {
+            WebKitFaviconDatabase* favicon_db = webkit_website_data_manager_get_favicon_database(data_manager);
+            if (favicon_db) {
+                g_signal_connect_data(G_OBJECT(favicon_db), "favicon-changed", G_CALLBACK(on_favicon_changed), (gpointer)id, NULL, 0);
+                printf("[favicon-c] Connected favicon-changed signal for WebView ID %lu\n", id);
+            } else {
+                printf("[favicon-c] Failed to get favicon database\n");
+            }
+        } else {
+            printf("[favicon-c] Failed to get website data manager for favicon signal\n");
+        }
+    } else {
+        printf("[favicon-c] Failed to get network session\n");
+    }
+}
+
 static void connect_theme_changed_with_id(GtkSettings* settings, unsigned long id) {
     if (!settings) return;
     g_signal_connect_data(G_OBJECT(settings), "notify::gtk-application-prefer-dark-theme", G_CALLBACK(on_theme_changed), (gpointer)id, NULL, 0);
@@ -356,6 +378,17 @@ static void register_uri_scheme_security(WebKitWebContext* context, const char* 
 	webkit_security_manager_register_uri_scheme_as_local(sm, scheme);
 	// Allow cross-origin requests to this scheme (bypass CORS header checks for this scheme)
 	webkit_security_manager_register_uri_scheme_as_cors_enabled(sm, scheme);
+}
+
+static void enable_favicon_database(WebKitNetworkSession* session) {
+	if (!session) return;
+	WebKitWebsiteDataManager* data_manager = webkit_network_session_get_website_data_manager(session);
+	if (data_manager) {
+		webkit_website_data_manager_set_favicons_enabled(data_manager, TRUE);
+		printf("[favicon-c] Favicon database enabled\n");
+	} else {
+		printf("[favicon-c] Failed to get website data manager\n");
+	}
 }
 
 // Script message handler wiring for WebKitGTK 6
@@ -929,27 +962,29 @@ type memoryStats struct {
 
 // WebView represents a browser view powered by WebKit2GTK.
 type WebView struct {
-	config          *Config
-	zoom            float64
-	url             string
-	destroyed       bool
-	native          *nativeView
-	window          *Window
-	id              uintptr
-	msgHandler      func(payload string)
-	titleHandler    func(title string)
-	uriHandler      func(uri string)
-	zoomHandler     func(level float64)
-	popupHandler    func(string) *WebView
-	closeHandler    func()
-	memStats        *memoryStats
-	gcTicker        *time.Ticker
-	gcDone          chan struct{}
-	tlsExceptions   map[string]bool // host -> whether user allowed certificate exception
-	useDomZoom      bool
-	domZoomSeed     float64
-	domBridgeScript *C.WebKitUserScript
-	wasReparented   bool // Track if this WebView has been reparented
+	config            *Config
+	zoom              float64
+	url               string
+	destroyed         bool
+	native            *nativeView
+	window            *Window
+	id                uintptr
+	msgHandler        func(payload string)
+	titleHandler      func(title string)
+	uriHandler        func(uri string)
+	faviconHandler    func(data []byte)
+	faviconURIHandler func(pageURI, faviconURI string)
+	zoomHandler       func(level float64)
+	popupHandler      func(string) *WebView
+	closeHandler      func()
+	memStats          *memoryStats
+	gcTicker          *time.Ticker
+	gcDone            chan struct{}
+	tlsExceptions     map[string]bool // host -> whether user allowed certificate exception
+	useDomZoom        bool
+	domZoomSeed       float64
+	domBridgeScript   *C.WebKitUserScript
+	wasReparented     bool // Track if this WebView has been reparented
 
 	// Window type detection and relationships
 	windowType         WindowType
@@ -1008,6 +1043,8 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	// Use default WebContext to register the custom URI scheme handler; the
 	// WebView itself is created with a WebKitNetworkSession for persistence.
 	ctx := C.webkit_web_context_get_default()
+
+	// Enable favicon database - we'll do this per WebView when created since we need NetworkSession
 
 	// Apply cache model to WebContext
 	// Default to WEBKIT_CACHE_MODEL_WEB_BROWSER to keep caching enabled
@@ -1156,6 +1193,13 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	C.connect_title_notify_with_id(viewWidget, C.ulong(v.id))
 	// Notify URI changes to Go to keep current URL in sync
 	C.connect_uri_notify_with_id(viewWidget, C.ulong(v.id))
+	// Enable favicon database for this WebView's NetworkSession
+	networkSession := C.webkit_web_view_get_network_session(v.native.wv)
+	C.enable_favicon_database(networkSession)
+
+	// Notify favicon changes to Go for caching
+	log.Printf("[favicon] Connecting favicon signal for WebView ID %d", v.id)
+	C.connect_favicon_changed_with_id(viewWidget, C.ulong(v.id))
 	// Apply hardware acceleration and related settings based on cfg.Rendering
 	if settings := C.webkit_web_view_get_settings(v.native.wv); settings != nil {
 		// Hardware acceleration policy (guarded by version)
@@ -1782,6 +1826,33 @@ func (w *WebView) RegisterURIChangedHandler(cb func(uri string)) { w.uriHandler 
 func (w *WebView) dispatchURIChanged(uri string) {
 	if w != nil && w.uriHandler != nil {
 		w.uriHandler(uri)
+	}
+}
+
+// RegisterFaviconChangedHandler registers a callback invoked when the page favicon changes.
+func (w *WebView) RegisterFaviconChangedHandler(cb func(data []byte)) {
+	if w != nil {
+		w.faviconHandler = cb
+	}
+}
+
+// RegisterFaviconURIChangedHandler registers a callback invoked when WebKit detects a favicon URI.
+func (w *WebView) RegisterFaviconURIChangedHandler(cb func(pageURI, faviconURI string)) {
+	if w != nil {
+		w.faviconURIHandler = cb
+	}
+}
+
+func (w *WebView) dispatchFaviconChanged(data []byte) {
+	if w != nil && w.faviconHandler != nil {
+		w.faviconHandler(data)
+	}
+}
+
+func (w *WebView) dispatchFaviconURIChanged(pageURI, faviconURI string) {
+	log.Printf("[favicon] Page %s has favicon at %s", pageURI, faviconURI)
+	if w != nil && w.faviconURIHandler != nil {
+		w.faviconURIHandler(pageURI, faviconURI)
 	}
 }
 

@@ -73,6 +73,38 @@ func (fc *FaviconCache) CacheAsync(faviconURL string) {
 	}()
 }
 
+// CachePNGData caches PNG favicon data directly for a URL
+func (fc *FaviconCache) CachePNGData(pageURL string, pngData []byte) error {
+	if pageURL == "" || len(pngData) == 0 {
+		return fmt.Errorf("invalid input: empty URL or data")
+	}
+
+	filename := fc.getFilename(pageURL)
+	cachedPath := filepath.Join(fc.cacheDir, filename)
+
+	// Write PNG data directly to cache
+	return os.WriteFile(cachedPath, pngData, 0644)
+}
+
+// GetCachedPathForURL returns the cached path for a page URL (not favicon URL)
+func (fc *FaviconCache) GetCachedPathForURL(pageURL string) string {
+	if pageURL == "" {
+		return ""
+	}
+
+	filename := fc.getFilename(pageURL)
+	cachedPath := filepath.Join(fc.cacheDir, filename)
+
+	// Check if file exists and is not too old (7 days)
+	if info, err := os.Stat(cachedPath); err == nil {
+		if time.Since(info.ModTime()) < 7*24*time.Hour {
+			return cachedPath
+		}
+	}
+
+	return ""
+}
+
 // getFilename generates a safe filename for a favicon URL - always PNG for fuzzel compatibility
 func (fc *FaviconCache) getFilename(faviconURL string) string {
 	hash := fmt.Sprintf("%x", md5.Sum([]byte(faviconURL)))

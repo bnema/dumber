@@ -21,22 +21,24 @@ func nextStubViewID() uintptr {
 // WebView represents a browser view powered by WebKit2GTK.
 // Methods are currently stubs returning ErrNotImplemented to satisfy TDD ordering.
 type WebView struct {
-	config       *Config
-	visible      bool
-	zoom         float64
-	url          string
-	destroyed    bool
-	window       *Window
-	msgHandler   func(payload string)
-	titleHandler func(title string)
-	uriHandler   func(uri string)
-	zoomHandler  func(level float64)
-	popupHandler func(string) *WebView
-	closeHandler func()
-	useDomZoom   bool
-	domZoomSeed  float64
-	container    uintptr
-	id           uintptr // WebView unique identifier
+	config            *Config
+	visible           bool
+	zoom              float64
+	url               string
+	destroyed         bool
+	window            *Window
+	msgHandler        func(payload string)
+	titleHandler      func(title string)
+	uriHandler        func(uri string)
+	faviconHandler    func(data []byte)
+	faviconURIHandler func(pageURI, faviconURI string)
+	zoomHandler       func(level float64)
+	popupHandler      func(string) *WebView
+	closeHandler      func()
+	useDomZoom        bool
+	domZoomSeed       float64
+	container         uintptr
+	id                uintptr // WebView unique identifier
 
 	// Window type fields (no-op in stub)
 	windowType         WindowType
@@ -112,6 +114,11 @@ func (w *WebView) Destroy() error {
 	return nil
 }
 
+// IsDestroyed returns whether this WebView has been destroyed
+func (w *WebView) IsDestroyed() bool {
+	return w != nil && w.destroyed
+}
+
 // Window returns the associated native window wrapper (non-nil).
 func (w *WebView) Window() *Window { return w.window }
 
@@ -179,6 +186,20 @@ func (w *WebView) RegisterURIChangedHandler(cb func(uri string)) { w.uriHandler 
 func (w *WebView) dispatchURIChanged(uri string) { //nolint:unused // Called from CGO WebKit callbacks
 	if w != nil && w.uriHandler != nil {
 		w.uriHandler(uri)
+	}
+}
+
+// RegisterFaviconChangedHandler registers a callback invoked when the page favicon changes.
+func (w *WebView) RegisterFaviconChangedHandler(cb func(data []byte)) { w.faviconHandler = cb }
+
+// RegisterFaviconURIChangedHandler registers a callback invoked when WebKit detects a favicon URI.
+func (w *WebView) RegisterFaviconURIChangedHandler(cb func(pageURI, faviconURI string)) {
+	w.faviconURIHandler = cb
+}
+
+func (w *WebView) dispatchFaviconChanged(data []byte) { //nolint:unused // Called from CGO WebKit callbacks
+	if w != nil && w.faviconHandler != nil {
+		w.faviconHandler(data)
 	}
 }
 

@@ -9,6 +9,7 @@
 extern void goOnTitleChanged(unsigned long id, char* title);
 extern void goOnURIChanged(unsigned long id, char* uri);
 extern void goOnThemeChanged(unsigned long id, int prefer_dark);
+extern void goOnFaviconURIChanged(unsigned long id, char* page_uri, char* favicon_uri);
 extern void* goResolveURIScheme(char* uri, size_t* out_len, char** out_mime);
 extern void goQuitMainLoop();
 
@@ -60,6 +61,21 @@ static inline void on_uri_scheme(WebKitURISchemeRequest* request, gpointer user_
         webkit_uri_scheme_request_finish_error(request, err);
         g_error_free(err);
     }
+}
+
+static inline void on_favicon_changed(WebKitFaviconDatabase* database, gchar* page_uri, gchar* favicon_uri, gpointer user_data) {
+    (void)database;
+    printf("[favicon-c] Favicon changed - page: %s, favicon: %s, WebView ID: %lu\n",
+           page_uri ? page_uri : "NULL", favicon_uri ? favicon_uri : "NULL", (unsigned long)user_data);
+
+    if (!favicon_uri || !page_uri) {
+        printf("[favicon-c] Invalid favicon or page URI for WebView ID %lu\n", (unsigned long)user_data);
+        return;
+    }
+
+    // Pass the page URI and favicon URI to Go
+    // WebKit manages the actual favicon data - we just need to store the URI mapping
+    goOnFaviconURIChanged((unsigned long)user_data, page_uri, favicon_uri);
 }
 
 // GTK4 close-request signal handler
