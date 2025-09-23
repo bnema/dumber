@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **Global shortcuts protection**: Fixed window shortcuts (Ctrl+L, Ctrl+F, F12) not working in new panes due to overly aggressive webpage protection. Window shortcuts now properly bubble up to GTK while pane shortcuts remain blocked from webpages. Resolves omnibox and developer tools not responding to keyboard shortcuts in newly created panes
 - **Omnibox keyboard event isolation**: Fixed keyboard event leakage from omnibox to underlying webpages that caused unintended page actions (e.g., typing 's' in omnibox triggering GitHub search). Implemented WebKit-level main-world event blocking that activates when omnibox opens, preventing page JavaScript from receiving keyboard events while preserving native GTK shortcuts (Ctrl+L, Ctrl+F, etc.) and omnibox functionality
 - **Active pane detection**: Replaced complex pane ID abstraction with persistent webview IDs, fixing omnibox unresponsiveness after navigation. Omnibox now works immediately after page navigation without requiring mouse movement
 - **Workspace architecture**: Simplified focus tracking by removing URI change handlers and pane ID injection complexity, improving reliability and reducing codebase by 85 lines
