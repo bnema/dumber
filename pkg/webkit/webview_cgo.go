@@ -1627,7 +1627,12 @@ func (w *WebView) releaseNativeWidgets() {
 		return
 	}
 	if w.native.container != nil {
-		C.g_object_unref(C.gpointer(w.native.container))
+		containerPtr := uintptr(unsafe.Pointer(w.native.container))
+		if containerPtr != 0 && widgetIsValid(containerPtr) {
+			C.g_object_unref(C.gpointer(w.native.container))
+		} else {
+			log.Printf("[webkit] skipping container unref; widget invalid=%#x", containerPtr)
+		}
 		w.native.container = nil
 	}
 }

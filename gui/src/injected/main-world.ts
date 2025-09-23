@@ -29,6 +29,7 @@ declare global {
     __dumber_omnibox_suggestions?: (suggestions: Suggestion[]) => void;
     __dumber_webview_id?: string;
     __dumber_is_active?: boolean;
+    __dumber_teardown?: () => void;
     webkit?: {
       messageHandlers?: {
         dumber?: {
@@ -100,6 +101,9 @@ function detectWindowType(features?: string | null): string {
       return;
     }
     window.__dumber_page_bridge_installed = true;
+
+    const cleanupHandlers: Array<() => void> = [];
+    let teardownExecuted = false;
 
     // Initialize zoom level placeholder (will be replaced by Go)
     const initialZoom = 1.0; // __DOM_ZOOM_DEFAULT__ will be replaced by Go
@@ -267,13 +271,18 @@ function detectWindowType(features?: string | null): string {
       }
     };
 
-    document.addEventListener("dumber:omnibox-ready", () => {
+    const handleOmniboxReady = () => {
       omniboxReady = true;
       if (omniboxQueue && omniboxQueue.length) {
         const items = omniboxQueue.slice();
         omniboxQueue.length = 0;
         items.forEach((s) => omniboxDispatch([s]));
       }
+    };
+
+    document.addEventListener("dumber:omnibox-ready", handleOmniboxReady);
+    cleanupHandlers.push(() => {
+      document.removeEventListener("dumber:omnibox-ready", handleOmniboxReady);
     });
 
     // Unified omnibox API
@@ -282,6 +291,9 @@ function detectWindowType(features?: string | null): string {
         window.__dumber_omnibox_suggestions!(suggestions);
       },
     };
+
+    let popupMessageInterval: ReturnType<typeof setInterval> | null = null;
+    let oauthUrlCheckInterval: ReturnType<typeof setInterval> | null = null;
 
     // Popup window.opener bridge using shared localStorage
     const setupPopupOpenerBridge = () => {
@@ -391,7 +403,13 @@ function detectWindowType(features?: string | null): string {
           };
 
           // Poll for messages every 100ms
-          setInterval(pollForParentMessages, 100);
+          popupMessageInterval = setInterval(pollForParentMessages, 100);
+          cleanupHandlers.push(() => {
+            if (popupMessageInterval) {
+              clearInterval(popupMessageInterval);
+              popupMessageInterval = null;
+            }
+          });
 
           console.log(`[dumber-popup] window.opener bridge established successfully`);
         }
@@ -405,6 +423,7 @@ function detectWindowType(features?: string | null): string {
 
     // Parent window message polling - only for OAuth scenarios
     let parentPollingInterval: ReturnType<typeof setInterval> | null = null;
+    let parentPollingHeartbeat: ReturnType<typeof setInterval> | null = null;
 
     const setupParentMessagePolling = () => {
       // Only start polling if we have popup mappings or OAuth callbacks
@@ -511,15 +530,27 @@ function detectWindowType(features?: string | null): string {
         if (!parentPollingInterval && hasRelevantData()) {
           console.log(`[dumber-parent] Starting OAuth/popup message polling`);
           parentPollingInterval = setInterval(pollForPopupMessages, 100);
+          cleanupHandlers.push(() => {
+            if (parentPollingInterval) {
+              clearInterval(parentPollingInterval);
+              parentPollingInterval = null;
+            }
+          });
         }
       };
 
       // Check periodically if polling should start
-      setInterval(() => {
+      parentPollingHeartbeat = setInterval(() => {
         if (hasRelevantData()) {
           startPollingForOAuthCallbacks();
         }
       }, 1000);
+      cleanupHandlers.push(() => {
+        if (parentPollingHeartbeat) {
+          clearInterval(parentPollingHeartbeat);
+          parentPollingHeartbeat = null;
+        }
+      });
     };
 
     // Setup conditional parent message polling
@@ -602,16 +633,26 @@ function detectWindowType(features?: string | null): string {
 
       // Monitor for URL changes (for SPAs that don't reload)
       let lastUrl = window.location.href;
-      setInterval(() => {
+      oauthUrlCheckInterval = setInterval(() => {
         if (window.location.href !== lastUrl) {
           lastUrl = window.location.href;
           detectOAuthCallback();
         }
       }, 500);
+      cleanupHandlers.push(() => {
+        if (oauthUrlCheckInterval) {
+          clearInterval(oauthUrlCheckInterval);
+          oauthUrlCheckInterval = null;
+        }
+      });
 
       // Also check on navigation events
       window.addEventListener('popstate', detectOAuthCallback);
       window.addEventListener('hashchange', detectOAuthCallback);
+      cleanupHandlers.push(() => {
+        window.removeEventListener('popstate', detectOAuthCallback);
+        window.removeEventListener('hashchange', detectOAuthCallback);
+      });
     };
 
     // Setup OAuth callback detection
@@ -759,8 +800,14 @@ function detectWindowType(features?: string | null): string {
 
 
     // Track user interactions for popup validation
-    ["click", "mousedown", "keydown", "touchstart"].forEach((eventType) => {
+    const interactionEvents = ["click", "mousedown", "keydown", "touchstart"] as const;
+    interactionEvents.forEach((eventType) => {
       document.addEventListener(eventType, trackUserInteraction, true);
+    });
+    cleanupHandlers.push(() => {
+      interactionEvents.forEach((eventType) => {
+        document.removeEventListener(eventType, trackUserInteraction, true);
+      });
     });
 
     console.log(
@@ -866,6 +913,50 @@ function detectWindowType(features?: string | null): string {
       }
     }
 
+    const teardown = () => {
+      if (teardownExecuted) {
+        return;
+      }
+      teardownExecuted = true;
+
+      while (cleanupHandlers.length) {
+        const cleanup = cleanupHandlers.pop();
+        if (!cleanup) {
+          continue;
+        }
+        try {
+          cleanup();
+        } catch (cleanupErr) {
+          console.warn('[dumber] Cleanup handler failed', cleanupErr);
+        }
+      }
+
+      omniboxQueue.length = 0;
+      omniboxReady = false;
+
+      window.__dumber_window_open_intercepted = false;
+      window.__dumber_page_bridge_installed = false;
+      window.__dumber_teardown = undefined;
+      window.__dumber_omnibox_suggestions = undefined;
+      window.__dumber_showToast = undefined;
+      window.__dumber_showZoomToast = undefined;
+      window.__dumber_applyDomZoom = undefined;
+
+      if (window.__dumber) {
+        delete window.__dumber.omnibox;
+        delete window.__dumber.toast;
+      }
+    };
+
+    window.__dumber_teardown = teardown;
+    window.addEventListener('pagehide', teardown, { once: true });
+    window.addEventListener('beforeunload', teardown, { once: true });
+    cleanupHandlers.push(() => {
+      window.removeEventListener('pagehide', teardown);
+      window.removeEventListener('beforeunload', teardown);
+      window.__dumber_teardown = undefined;
+    });
+
     // Console capture functionality
     const setupConsoleCapture = () => {
       const originalConsole = {
@@ -921,6 +1012,14 @@ function detectWindowType(features?: string | null): string {
       console.error = createConsoleWrapper(originalConsole.error, "ERROR");
       console.info = createConsoleWrapper(originalConsole.info, "INFO");
       console.debug = createConsoleWrapper(originalConsole.debug, "DEBUG");
+
+      cleanupHandlers.push(() => {
+        console.log = originalConsole.log;
+        console.warn = originalConsole.warn;
+        console.error = originalConsole.error;
+        console.info = originalConsole.info;
+        console.debug = originalConsole.debug;
+      });
     };
 
     // Initialize console capture

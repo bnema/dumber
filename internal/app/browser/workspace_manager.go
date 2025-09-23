@@ -1086,10 +1086,106 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 		return errors.New("close target missing webview")
 	}
 
+	if node.parent != nil && node.parent.container != 0 {
+		if node.parent.left == node {
+			webkit.PanedSetStartChild(node.parent.container, 0)
+		} else if node.parent.right == node {
+			webkit.PanedSetEndChild(node.parent.container, 0)
+		}
+	}
+
+	if node.container != 0 {
+		webkit.WidgetUnparent(node.container)
+	}
+
 	remaining := len(wm.app.panes)
 	willBeLastPane := remaining <= 1
+	paneCleaned := false
+	ensureCleanup := func() {
+		if paneCleaned {
+			return
+		}
+		node.pane.Cleanup()
+		paneCleaned = true
+	}
+
+	if remaining == 2 {
+		var sibling *paneNode
+		if node.parent != nil {
+			if node.parent.left == node {
+				sibling = node.parent.right
+			} else if node.parent.right == node {
+				sibling = node.parent.left
+			}
+		}
+		if sibling != nil && sibling.isLeaf && sibling.pane != nil && sibling.pane.webView != nil {
+			if sibling.isPopup && !node.isPopup {
+				parentNode := node.parent
+				parentContainer := uintptr(0)
+				if parentNode != nil {
+					parentContainer = parentNode.container
+				}
+
+				// Detach remaining GTK widgets before destroying the WebViews so GTK
+				// does not attempt to dispose still-parented children.
+				if parentContainer != 0 {
+					if parentNode.left == sibling {
+						webkit.PanedSetStartChild(parentContainer, 0)
+					} else if parentNode.right == sibling {
+						webkit.PanedSetEndChild(parentContainer, 0)
+					}
+				}
+				if sibling.container != 0 {
+					webkit.WidgetUnparent(sibling.container)
+				}
+				if parentContainer != 0 && wm.window != nil {
+					wm.window.SetChild(0)
+				}
+
+				log.Printf("[workspace] closing primary pane with related popup present; exiting")
+				ensureCleanup()
+				sibling.pane.Cleanup()
+
+				wm.detachHover(node)
+				wm.detachHover(sibling)
+
+				delete(wm.viewToNode, node.pane.webView)
+				delete(wm.viewToNode, sibling.pane.webView)
+				delete(wm.lastSplitMsg, node.pane.webView)
+				delete(wm.lastSplitMsg, sibling.pane.webView)
+				delete(wm.lastExitMsg, node.pane.webView)
+				delete(wm.lastExitMsg, sibling.pane.webView)
+
+				for i := 0; i < len(wm.app.panes); i++ {
+					if wm.app.panes[i] == node.pane || wm.app.panes[i] == sibling.pane {
+						wm.app.panes = append(wm.app.panes[:i], wm.app.panes[i+1:]...)
+						i--
+					}
+				}
+
+				if node.pane.webView != nil {
+					if err := node.pane.webView.Destroy(); err != nil {
+						log.Printf("[workspace] failed to destroy primary webview: %v", err)
+					}
+				}
+				if sibling.pane.webView != nil {
+					if err := sibling.pane.webView.Destroy(); err != nil {
+						log.Printf("[workspace] failed to destroy popup webview: %v", err)
+					}
+				}
+
+				wm.root = nil
+				wm.active = nil
+				wm.mainPane = nil
+
+				webkit.QuitMainLoop()
+				return nil
+			}
+		}
+	}
 	if willBeLastPane && wm.root == node {
 		log.Printf("[workspace] closing final pane; exiting browser")
+		ensureCleanup()
 		wm.detachHover(node)
 		if err := node.pane.webView.Destroy(); err != nil {
 			log.Printf("[workspace] failed to destroy webview: %v", err)
@@ -1110,6 +1206,7 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 		if replacement == nil {
 			// No other panes exist, this is the final pane
 			log.Printf("[workspace] closing final pane; exiting browser")
+			ensureCleanup()
 			wm.detachHover(node)
 			if err := node.pane.webView.Destroy(); err != nil {
 				log.Printf("[workspace] failed to destroy webview: %v", err)
@@ -1163,13 +1260,19 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 
 		// Destroy the webview and detach hover AFTER rearranging hierarchy
 		// Only destroy the webview if this is the final pane, otherwise just clean up
+		ensureCleanup()
 		wm.detachHover(node)
-		if willBeLastPane {
+		switch {
+		case node.isPopup:
+			if err := node.pane.webView.Destroy(); err != nil {
+				log.Printf("[workspace] failed to destroy popup webview: %v", err)
+			}
+		case willBeLastPane:
 			// This is the last pane, safe to destroy completely
 			if err := node.pane.webView.Destroy(); err != nil {
 				log.Printf("[workspace] failed to destroy webview: %v", err)
 			}
-		} else {
+		default:
 			// Multiple panes remain, don't destroy the window - just clean up the webview
 			log.Printf("[workspace] skipping webview destruction to preserve window (panes remaining: %d)", remaining-1)
 			// TODO: Add a method to destroy just the webview without the window
@@ -1286,14 +1389,19 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 	}
 
 	// Destroy the webview and detach hover AFTER all hierarchy changes are complete
-	// Only destroy the webview if this is the final pane, otherwise just clean up
+	ensureCleanup()
 	wm.detachHover(node)
-	if willBeLastPane {
+	switch {
+	case node.isPopup:
+		if err := node.pane.webView.Destroy(); err != nil {
+			log.Printf("[workspace] failed to destroy popup webview: %v", err)
+		}
+	case willBeLastPane:
 		// This is the last pane, safe to destroy completely
 		if err := node.pane.webView.Destroy(); err != nil {
 			log.Printf("[workspace] failed to destroy webview: %v", err)
 		}
-	} else {
+	default:
 		// Multiple panes remain, don't destroy the window - just clean up the webview
 		log.Printf("[workspace] skipping webview destruction to preserve window (panes remaining: %d)", remaining-1)
 		// TODO: Add a method to destroy just the webview without the window

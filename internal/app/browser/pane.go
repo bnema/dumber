@@ -79,19 +79,44 @@ func (p *BrowserPane) SetGUIComponent(component string, loaded bool) {
 
 // Cleanup releases pane resources
 func (p *BrowserPane) Cleanup() {
-	// Cleanup shortcuts
+	if p == nil {
+		return
+	}
+
 	if p.shortcutHandler != nil {
-		// TODO: Add cleanup method to ShortcutHandler
+		p.shortcutHandler.Detach()
 		log.Printf("[pane-%s] Cleaned up shortcuts", p.id)
 	}
 
+	if p.navigationController != nil {
+		p.navigationController.Detach()
+	}
+
+	if p.zoomController != nil {
+		p.zoomController.DetachWebView()
+	}
+
+	if p.clipboardController != nil {
+		p.clipboardController.Detach()
+	}
+
+	if p.messageHandler != nil {
+		p.messageHandler.SetWebView(nil)
+	}
+
 	// Notify JS to cleanup GUI
-	if p.webView != nil && p.hasGUI {
-		if err := p.webView.InjectScript(`
-			if (window.__dumber_gui_manager) {
-				window.__dumber_gui_manager.destroy();
-			}
-		`); err != nil {
+	if p.webView != nil && p.hasGUI && !p.webView.IsDestroyed() {
+		cleanupScript := `try {
+	if (typeof window.__dumber_teardown === 'function') {
+		window.__dumber_teardown();
+	}
+	if (window.__dumber_gui_manager) {
+		window.__dumber_gui_manager.destroy();
+	}
+} catch (err) {
+	console.warn('[dumber] GUI teardown failed', err);
+}`
+		if err := p.webView.InjectScript(cleanupScript); err != nil {
 			log.Printf("[pane-%s] failed to inject cleanup script: %v", p.id, err)
 		}
 	}

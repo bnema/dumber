@@ -55,3 +55,11 @@ func (c *ClipboardController) showToast(message, toastType string) {
 		log.Printf("Failed to dispatch toast event: %v", err)
 	}
 }
+
+// Detach releases the WebView reference when the pane is closed.
+func (c *ClipboardController) Detach() {
+	if c == nil {
+		return
+	}
+	c.webView = nil
+}

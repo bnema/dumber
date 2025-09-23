@@ -7,13 +7,32 @@ package webkit
 #cgo CFLAGS: -I/usr/include/webkitgtk-6.0
 #include <stdlib.h>
 #include <webkit/webkit.h>
+
+static gboolean dumber_is_valid_web_view(WebKitWebView *wv) {
+    return WEBKIT_IS_WEB_VIEW(wv);
+}
 */
 import "C"
 
 import "unsafe"
 
-func (w *WebView) InjectScript(js string) error {
+func (w *WebView) canEvaluateJavaScript() bool {
 	if w == nil || w.destroyed || w.native == nil || w.native.wv == nil {
+		return false
+	}
+	if C.dumber_is_valid_web_view(w.native.wv) == C.gboolean(0) {
+		if w.native != nil {
+			w.native.wv = nil
+			w.native.view = nil
+		}
+		w.destroyed = true
+		return false
+	}
+	return true
+}
+
+func (w *WebView) InjectScript(js string) error {
+	if !w.canEvaluateJavaScript() {
 		return ErrNotImplemented
 	}
 	cjs := C.CString(js)
@@ -35,7 +54,7 @@ func (w *WebView) InjectScript(js string) error {
 
 // InjectScriptIntoWorld evaluates JavaScript in the specified script world.
 func (w *WebView) InjectScriptIntoWorld(js string, worldName string) error {
-	if w == nil || w.destroyed || w.native == nil || w.native.wv == nil {
+	if !w.canEvaluateJavaScript() {
 		return ErrNotImplemented
 	}
 	cjs := C.CString(js)

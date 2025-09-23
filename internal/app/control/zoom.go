@@ -172,3 +172,15 @@ func (z *ZoomController) applyZoomLevel(url, domain string, zoomLevel float64, a
 		z.lastZoomDomain = domain
 	})
 }
+
+// DetachWebView releases the WebView reference and stops timers.
+func (z *ZoomController) DetachWebView() {
+	if z == nil {
+		return
+	}
+	if z.programmaticTimer != nil {
+		z.programmaticTimer.Stop()
+		z.programmaticTimer = nil
+	}
+	z.webView = nil
+}

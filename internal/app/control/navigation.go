@@ -134,3 +134,11 @@ func (n *NavigationController) HandleBrowseCommand() {
 		}
 	}
 }
+
+// Detach releases the associated WebView to avoid calls after destruction.
+func (n *NavigationController) Detach() {
+	if n == nil {
+		return
+	}
+	n.webView = nil
+}

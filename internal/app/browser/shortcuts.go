@@ -131,3 +131,11 @@ func (s *ShortcutHandler) exposeWorkspaceConfig() {
 		log.Printf("Shortcut: failed to expose workspace config: %v", err)
 	}
 }
+
+// Detach releases the WebView reference to prevent post-destruction usage.
+func (s *ShortcutHandler) Detach() {
+	if s == nil {
+		return
+	}
+	s.webView = nil
+}

@@ -106,6 +106,10 @@ func (h *Handler) Handle(payload string) {
 		h.handleNavigation(msg)
 	case "query":
 		log.Printf("[DEBUG] Handling query message: q=%s, limit=%d", msg.Q, msg.Limit)
+		if h.webView == nil {
+			log.Printf("[WARN] Dropping query response: webview unavailable for suggestions")
+			return
+		}
 		h.handleQuery(msg)
 	case "wails":
 		h.handleWailsBridge(msg)
@@ -217,11 +221,11 @@ func (h *Handler) handleClosePopup(msg Message) {
 }
 
 func (h *Handler) handleQuery(msg Message) {
-	log.Printf("[DEBUG] handleQuery called: q='%s', limit=%d", msg.Q, msg.Limit)
 	if h.webView == nil {
-		log.Printf("[ERROR] handleQuery: webView is nil")
+		log.Printf("[WARN] Skipping query handling: webview is nil")
 		return
 	}
+	log.Printf("[DEBUG] handleQuery called: q='%s', limit=%d", msg.Q, msg.Limit)
 	if h.browserService == nil {
 		log.Printf("[ERROR] handleQuery: browserService is nil")
 		return
