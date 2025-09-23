@@ -133,6 +133,10 @@ func (w *WebView) RegisterKeyboardShortcut(accel string, callback func()) error 
 	}
 	viewShortcuts[w.id][accel] = callback
 	regMu.Unlock()
+
+	// Register in global shortcuts registry for automatic webpage blocking
+	RegisterGlobalShortcut(accel)
+
 	return nil
 }
 

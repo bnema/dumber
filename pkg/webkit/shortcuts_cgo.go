@@ -2,6 +2,14 @@
 
 package webkit
 
+import (
+	"log"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"unsafe"
+)
+
 /*
 #cgo pkg-config: gtk4 webkitgtk-6.0
 #include <gtk/gtk.h>
@@ -58,13 +66,6 @@ static void add_shortcut_to_controller(GtkShortcutController* controller,
 }
 */
 import "C"
-
-import (
-	"log"
-	"sync"
-	"sync/atomic"
-	"unsafe"
-)
 
 var (
 	globalShortcutMu        sync.Mutex
@@ -144,10 +145,209 @@ func AddShortcutToController(controller uintptr, key string, handle uintptr) err
 	return nil
 }
 
-// Keyboard event blocking functionality for omnibox isolation
+// Global shortcuts registry to track all registered shortcuts for automatic blocking
+var (
+	globalShortcutsRegistry = make(map[string]bool)
+	shortcutsRegistryMu     sync.RWMutex
+)
+
+// RegisterGlobalShortcut adds a shortcut to the global registry for automatic webpage blocking
+func RegisterGlobalShortcut(shortcut string) {
+	shortcutsRegistryMu.Lock()
+	defer shortcutsRegistryMu.Unlock()
+
+	// Normalize shortcut format (convert to lowercase, standardize modifiers)
+	normalized := normalizeShortcut(shortcut)
+
+	// Only log if this is a new shortcut registration
+	if !globalShortcutsRegistry[normalized] {
+		globalShortcutsRegistry[normalized] = true
+		log.Printf("[shortcuts] Registered global shortcut for blocking: %s -> %s", shortcut, normalized)
+	}
+}
+
+// GetRegisteredShortcuts returns a copy of all registered shortcuts
+func GetRegisteredShortcuts() []string {
+	shortcutsRegistryMu.RLock()
+	defer shortcutsRegistryMu.RUnlock()
+
+	shortcuts := make([]string, 0, len(globalShortcutsRegistry))
+	for shortcut := range globalShortcutsRegistry {
+		shortcuts = append(shortcuts, shortcut)
+	}
+	return shortcuts
+}
+
+// normalizeShortcut converts shortcuts to a standardized format for JavaScript blocking
+func normalizeShortcut(shortcut string) string {
+	// Convert to lowercase and replace common variations
+	normalized := strings.ToLower(shortcut)
+
+	// Standardize modifier keys
+	normalized = strings.ReplaceAll(normalized, "cmdorctrl+", "ctrl+")
+	normalized = strings.ReplaceAll(normalized, "cmd+", "ctrl+") // Treat cmd as ctrl for blocking
+	normalized = strings.ReplaceAll(normalized, "control+", "ctrl+")
+
+	// Standardize key names
+	normalized = strings.ReplaceAll(normalized, "arrowleft", "arrowleft")
+	normalized = strings.ReplaceAll(normalized, "arrowright", "arrowright")
+	normalized = strings.ReplaceAll(normalized, "arrowup", "arrowup")
+	normalized = strings.ReplaceAll(normalized, "arrowdown", "arrowdown")
+	normalized = strings.ReplaceAll(normalized, "equal", "equal") // For Ctrl+=
+	normalized = strings.ReplaceAll(normalized, "plus", "equal")  // Normalize + to =
+
+	return normalized
+}
+
+// Keyboard event blocking functionality for global shortcuts protection
 
 // keyboardBlockerScript holds reference to the main-world keyboard blocking script
 var keyboardBlockerScript *C.WebKitUserScript = nil
+
+// EnableGlobalShortcutsProtection injects a script to block all registered global shortcuts from reaching webpages
+func (w *WebView) EnableGlobalShortcutsProtection() error {
+	if w == nil || w.destroyed || w.native == nil || w.native.ucm == nil {
+		return ErrWebViewNotInitialized
+	}
+
+	// Get all registered shortcuts
+	shortcuts := GetRegisteredShortcuts()
+	if len(shortcuts) == 0 {
+		log.Printf("[shortcuts] No global shortcuts registered, skipping protection")
+		return nil
+	}
+
+	// Generate JavaScript array of shortcuts to block
+	shortcutsJS := "["
+	for i, shortcut := range shortcuts {
+		if i > 0 {
+			shortcutsJS += ","
+		}
+		shortcutsJS += `"` + shortcut + `"`
+	}
+	shortcutsJS += "]"
+
+	// Create the blocking script that only blocks registered global shortcuts
+	globalProtectionScript := `
+		(() => {
+			if (!window.__dumber_global_shortcuts_protection) {
+				window.__dumber_global_shortcuts_protection = true;
+
+				// List of global shortcuts to block from reaching the webpage
+				const globalShortcuts = ` + shortcutsJS + `;
+				console.log('[dumber] Protecting global shortcuts:', globalShortcuts);
+
+				// Function to check if a key event matches any global shortcut
+				const isGlobalShortcut = (e) => {
+					const key = e.key.toLowerCase();
+					const code = e.code.toLowerCase();
+
+					// Build shortcut string (similar to GTK format)
+					let shortcut = '';
+					if (e.ctrlKey) shortcut += 'ctrl+';
+					if (e.altKey) shortcut += 'alt+';
+					if (e.shiftKey) shortcut += 'shift+';
+					if (e.metaKey) shortcut += 'meta+';
+
+					// Try both key and code for matching
+					const keyShortcut = shortcut + key;
+					const codeShortcut = shortcut + code;
+
+					// Special case mappings for common shortcuts
+					const specialMappings = {
+						'ctrl+equal': ['ctrl+=', 'ctrl+plus'],
+						'ctrl+minus': ['ctrl+-'],
+						'f12': ['f12'],
+						'ctrl+r': ['ctrl+r'],
+						'ctrl+shift+r': ['ctrl+shift+r'],
+						'f5': ['f5']
+					};
+
+					// Check direct matches
+					if (globalShortcuts.includes(keyShortcut) || globalShortcuts.includes(codeShortcut)) {
+						return true;
+					}
+
+					// Check special mappings
+					for (const [canonical, variants] of Object.entries(specialMappings)) {
+						if (variants.includes(keyShortcut) || variants.includes(codeShortcut)) {
+							if (globalShortcuts.includes(canonical)) {
+								return true;
+							}
+						}
+					}
+
+					return false;
+				};
+
+				// Block only global shortcuts at capture phase
+				const blockGlobalShortcut = (e) => {
+					if (isGlobalShortcut(e)) {
+						console.log('[dumber] Blocked global shortcut from reaching page:', e.key, e.ctrlKey, e.altKey, e.shiftKey);
+						e.stopImmediatePropagation();
+						e.preventDefault();
+						e.stopPropagation();
+						return false;
+					}
+					// Let other key events through normally
+				};
+
+				// Install listeners for keyboard events
+				document.addEventListener('keydown', blockGlobalShortcut, true);
+				document.addEventListener('keyup', blockGlobalShortcut, true);
+				document.addEventListener('keypress', blockGlobalShortcut, true);
+
+				// Store cleanup function
+				window.__dumber_cleanup_global_shortcuts = () => {
+					document.removeEventListener('keydown', blockGlobalShortcut, true);
+					document.removeEventListener('keyup', blockGlobalShortcut, true);
+					document.removeEventListener('keypress', blockGlobalShortcut, true);
+					delete window.__dumber_global_shortcuts_protection;
+					delete window.__dumber_cleanup_global_shortcuts;
+					console.log('[dumber] Global shortcuts protection disabled');
+				};
+
+				console.log('[dumber] Global shortcuts protection enabled for', globalShortcuts.length, 'shortcuts');
+			}
+		})();
+	`
+
+	// Inject the script into the main world at document start
+	cScript := C.CString(globalProtectionScript)
+	defer C.free(unsafe.Pointer(cScript))
+
+	script := C.webkit_user_script_new(
+		(*C.gchar)(cScript),
+		C.WEBKIT_USER_CONTENT_INJECT_TOP_FRAME,
+		C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START,
+		nil, nil) // nil = main world
+
+	if script == nil {
+		return ErrNotImplemented
+	}
+
+	C.webkit_user_content_manager_add_script(w.native.ucm, script)
+	C.webkit_user_script_unref(script) // Clean up reference
+
+	log.Printf("[shortcuts] Global shortcuts protection enabled for %d shortcuts", len(shortcuts))
+	return nil
+}
+
+// DisableGlobalShortcutsProtection removes the global shortcuts protection
+func (w *WebView) DisableGlobalShortcutsProtection() error {
+	if w == nil || w.destroyed || w.native == nil {
+		return ErrWebViewNotInitialized
+	}
+
+	// Execute cleanup script
+	cleanupScript := `
+		if (window.__dumber_cleanup_global_shortcuts) {
+			window.__dumber_cleanup_global_shortcuts();
+		}
+	`
+
+	return w.InjectScript(cleanupScript)
+}
 
 // EnablePageKeyboardBlocking injects a script into the main world to block all keyboard events
 // This prevents page JavaScript from receiving keyboard events while omnibox is active

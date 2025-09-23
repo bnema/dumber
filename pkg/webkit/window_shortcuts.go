@@ -71,6 +71,9 @@ func (ws *WindowShortcuts) RegisterGlobalShortcut(key string, callback func()) e
 		return err
 	}
 
+	// Window shortcuts should NOT be added to global blocking registry
+	// They need to bubble up to GTK for proper handling
+
 	log.Printf("[window-shortcuts] Registered global shortcut: %s -> %s", key, gtkKey)
 	return nil
 }

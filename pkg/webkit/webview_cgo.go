@@ -1990,6 +1990,11 @@ func (w *WebView) enableUserContentManager(cfg *Config) {
 		}
 	}
 
+	// Enable global shortcuts protection to prevent shortcuts from leaking to webpages
+	if err := w.EnableGlobalShortcutsProtection(); err != nil {
+		log.Printf("[webkit] Warning: Failed to enable global shortcuts protection: %v", err)
+	}
+
 	// No JS fallback bridge — native UCM is active
 }
 
@@ -2579,7 +2584,6 @@ func (w *WebView) ID() string {
 	}
 	return strconv.FormatUint(uint64(w.id), 10)
 }
-
 
 // PrefersDarkTheme returns true if GTK is configured to prefer dark theme
 func PrefersDarkTheme() bool {
