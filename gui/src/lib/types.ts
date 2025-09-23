@@ -1,5 +1,10 @@
 import type { HistoryEntry, SearchShortcut } from "../types/generated.js";
 
+type ThemeManagerAPI = {
+  setUserPreference: (theme: "light" | "dark") => void;
+  getCurrentTheme: () => "light" | "dark";
+};
+
 // Global window API types for browser integration
 declare global {
   interface Window {
@@ -17,6 +22,7 @@ declare global {
     // Theme integration
     __dumber_initial_theme?: string;
     __dumber_setTheme?: (theme: "light" | "dark") => void;
+    __dumber_color_scheme_manager?: ThemeManagerAPI;
 
     // History callbacks
     __dumber_history_recent?: (data: HistoryEntry[]) => void;

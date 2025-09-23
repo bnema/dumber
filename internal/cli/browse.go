@@ -136,8 +136,12 @@ func openURLWithConfig(url string, cfg *config.Config) error {
 	return nil
 }
 
-// updateFavicon fetches and stores favicon URL for a given page URL
+// updateFavicon is now deprecated in favor of WebKit's native favicon API
+// When using the built-in browser, WebKit automatically handles favicon detection
+// This function is kept for CLI compatibility but may use fallback behavior
 func updateFavicon(ctx context.Context, cli *CLI, pageURL string) {
+	// For CLI usage (non-GUI), we still use the fallback method
+	// The GUI browser handles favicons through WebKit signals
 	parsedURL, err := url.Parse(pageURL)
 	if err != nil {
 		return // Silently fail for invalid URLs
@@ -151,7 +155,7 @@ func updateFavicon(ctx context.Context, cli *CLI, pageURL string) {
 		return
 	}
 
-	// Standard favicon location
+	// Standard favicon location (fallback)
 	faviconURL := fmt.Sprintf("%s://%s/favicon.ico", parsedURL.Scheme, parsedURL.Host)
 
 	// Update in database using the new sqlc-generated method

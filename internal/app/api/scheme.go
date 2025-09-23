@@ -74,12 +74,12 @@ func (s *SchemeHandler) handleAsset(u *neturl.URL) (string, []byte, bool) {
 		}
 	}
 
-	// Special-case homepage favicon: map .ico request to embedded SVG file
+	// Special-case homepage favicon: map .ico request to embedded PNG file
 	if (u.Host == constants.HomepagePath || u.Opaque == constants.HomepagePath) && strings.EqualFold(rel, "favicon.ico") {
-		log.Printf("[scheme] asset: rel=%s (host=%s path=%s) → mapping to favicon.svg", rel, u.Host, u.Path)
-		data, rerr := s.assets.ReadFile(filepath.ToSlash(filepath.Join("assets", "gui", "favicon.svg")))
+		log.Printf("[scheme] asset: rel=%s (host=%s path=%s) → mapping to favicon.png", rel, u.Host, u.Path)
+		data, rerr := s.assets.ReadFile(filepath.ToSlash(filepath.Join("assets", "gui", "favicon.png")))
 		if rerr == nil {
-			return "image/svg+xml", data, true
+			return "image/png", data, true
 		}
 	}
 

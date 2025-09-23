@@ -508,6 +508,25 @@ func goOnURIChanged(id C.ulong, curi *C.char) {
 	vw.dispatchURIChanged(uri)
 }
 
+//export goOnFaviconURIChanged
+func goOnFaviconURIChanged(id C.ulong, pageURI *C.char, faviconURI *C.char) {
+	uid := uintptr(id)
+	pageURLStr := C.GoString(pageURI)
+	faviconURLStr := C.GoString(faviconURI)
+
+	log.Printf("[favicon] WebKit favicon URI changed for WebView ID %d - page: %s, favicon: %s", uid, pageURLStr, faviconURLStr)
+
+	regMu.RLock()
+	vw := viewByID[uid]
+	regMu.RUnlock()
+	if vw == nil {
+		log.Printf("[favicon] WebView not found for ID %d", uid)
+		return
+	}
+
+	vw.dispatchFaviconURIChanged(pageURLStr, faviconURLStr)
+}
+
 //export goHandleNewWindowPolicy
 func goHandleNewWindowPolicy(id C.ulong, curi *C.char, navType C.int, cframeName *C.char, isUserGesture C.gboolean, modifiers C.guint, mouseButton C.guint) C.gboolean {
 	uid := uintptr(id)
