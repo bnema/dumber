@@ -84,7 +84,12 @@ function detectWindowType(features?: string | null): string {
   const hasNoLocation = /location=0|location=no/.test(featuresStr);
 
   // OAuth/login popups typically have size constraints and disabled UI elements
-  const popupIndicators = [hasSize, hasNoToolbar, hasNoMenubar, hasNoLocation].filter(Boolean).length;
+  const popupIndicators = [
+    hasSize,
+    hasNoToolbar,
+    hasNoMenubar,
+    hasNoLocation,
+  ].filter(Boolean).length;
 
   // If 2 or more popup indicators are present, treat as popup
   if (popupIndicators >= 2) {
@@ -302,14 +307,19 @@ function detectWindowType(features?: string | null): string {
         const findParentPopupId = () => {
           const keys = Object.keys(localStorage);
           for (const key of keys) {
-            if (key.startsWith('popup_') && key.endsWith('_parent_info')) {
-              const popupId = key.replace('popup_', '').replace('_parent_info', '');
-              const parentInfo = JSON.parse(localStorage.getItem(key) || '{}');
+            if (key.startsWith("popup_") && key.endsWith("_parent_info")) {
+              const popupId = key
+                .replace("popup_", "")
+                .replace("_parent_info", "");
+              const parentInfo = JSON.parse(localStorage.getItem(key) || "{}");
 
               // Check if this popup info is recent (within last 30 seconds)
               const age = Date.now() - (parentInfo.timestamp || 0);
               if (age < 30000) {
-                console.log(`[dumber-popup] Found parent info for popup ID: ${popupId}`, parentInfo);
+                console.log(
+                  `[dumber-popup] Found parent info for popup ID: ${popupId}`,
+                  parentInfo,
+                );
                 return { popupId, parentInfo };
               }
             }
@@ -321,55 +331,78 @@ function detectWindowType(features?: string | null): string {
         if (parentData && !window.opener) {
           const { popupId, parentInfo } = parentData;
 
-          console.log(`[dumber-popup] Setting up window.opener bridge for popup ID: ${popupId}`);
+          console.log(
+            `[dumber-popup] Setting up window.opener bridge for popup ID: ${popupId}`,
+          );
 
           // Create window.opener proxy that uses localStorage for communication
           window.opener = {
             postMessage: (data: unknown, targetOrigin?: string) => {
               try {
-                localStorage.setItem(`popup_${popupId}_message_to_parent`, JSON.stringify({
+                localStorage.setItem(
+                  `popup_${popupId}_message_to_parent`,
+                  JSON.stringify({
+                    data,
+                    origin: targetOrigin || "*",
+                    timestamp: Date.now(),
+                    source: "popup",
+                  }),
+                );
+                console.log(
+                  `[dumber-popup] Sent message to parent via localStorage:`,
                   data,
-                  origin: targetOrigin || '*',
-                  timestamp: Date.now(),
-                  source: 'popup',
-                }));
-                console.log(`[dumber-popup] Sent message to parent via localStorage:`, data);
+                );
               } catch (err) {
-                console.warn(`[dumber-popup] Failed to send message to parent:`, err);
+                console.warn(
+                  `[dumber-popup] Failed to send message to parent:`,
+                  err,
+                );
               }
             },
 
             focus: () => {
               try {
-                localStorage.setItem(`popup_${popupId}_parent_action`, JSON.stringify({
-                  action: 'focus',
-                  timestamp: Date.now(),
-                }));
+                localStorage.setItem(
+                  `popup_${popupId}_parent_action`,
+                  JSON.stringify({
+                    action: "focus",
+                    timestamp: Date.now(),
+                  }),
+                );
               } catch (err) {
-                console.warn(`[dumber-popup] Failed to request parent focus:`, err);
+                console.warn(
+                  `[dumber-popup] Failed to request parent focus:`,
+                  err,
+                );
               }
             },
 
             blur: () => {
               try {
-                localStorage.setItem(`popup_${popupId}_parent_action`, JSON.stringify({
-                  action: 'blur',
-                  timestamp: Date.now(),
-                }));
+                localStorage.setItem(
+                  `popup_${popupId}_parent_action`,
+                  JSON.stringify({
+                    action: "blur",
+                    timestamp: Date.now(),
+                  }),
+                );
               } catch (err) {
-                console.warn(`[dumber-popup] Failed to request parent blur:`, err);
+                console.warn(
+                  `[dumber-popup] Failed to request parent blur:`,
+                  err,
+                );
               }
             },
 
             location: {
-              href: parentInfo.parentUrl || '',
-              origin: new URL(parentInfo.parentUrl || 'about:blank').origin,
+              href: parentInfo.parentUrl || "",
+              origin: new URL(parentInfo.parentUrl || "about:blank").origin,
             },
 
             closed: false,
 
             // Support for custom properties/methods that websites might use
-            [Symbol.for('popup.bridge')]: true,
+            [Symbol.for("popup.bridge")]: true,
           } as unknown as Window;
 
           // Set up message polling to receive messages from parent
@@ -383,12 +416,15 @@ function detectWindowType(features?: string | null): string {
 
                 // Check if message is recent (within last 5 seconds)
                 if (Date.now() - timestamp < 5000) {
-                  console.log(`[dumber-popup] Received message from parent:`, data);
+                  console.log(
+                    `[dumber-popup] Received message from parent:`,
+                    data,
+                  );
 
                   // Dispatch as MessageEvent to window
-                  const event = new MessageEvent('message', {
+                  const event = new MessageEvent("message", {
                     data,
-                    origin: origin || parentInfo.parentUrl || '',
+                    origin: origin || parentInfo.parentUrl || "",
                     source: window.opener,
                   });
                   window.dispatchEvent(event);
@@ -398,7 +434,10 @@ function detectWindowType(features?: string | null): string {
                 localStorage.removeItem(messageKey);
               }
             } catch (err) {
-              console.warn(`[dumber-popup] Failed to poll for parent messages:`, err);
+              console.warn(
+                `[dumber-popup] Failed to poll for parent messages:`,
+                err,
+              );
             }
           };
 
@@ -411,10 +450,15 @@ function detectWindowType(features?: string | null): string {
             }
           });
 
-          console.log(`[dumber-popup] window.opener bridge established successfully`);
+          console.log(
+            `[dumber-popup] window.opener bridge established successfully`,
+          );
         }
       } catch (err) {
-        console.warn(`[dumber-popup] Failed to setup window.opener bridge:`, err);
+        console.warn(
+          `[dumber-popup] Failed to setup window.opener bridge:`,
+          err,
+        );
       }
     };
 
@@ -430,10 +474,11 @@ function detectWindowType(features?: string | null): string {
       const hasRelevantData = () => {
         try {
           const keys = Object.keys(localStorage);
-          return keys.some(key =>
-            key.startsWith('popup_mapping_') ||
-            key.startsWith('oauth_callback_') ||
-            key.includes('message_to_parent')
+          return keys.some(
+            (key) =>
+              key.startsWith("popup_mapping_") ||
+              key.startsWith("oauth_callback_") ||
+              key.includes("message_to_parent"),
           );
         } catch {
           return false;
@@ -451,19 +496,23 @@ function detectWindowType(features?: string | null): string {
 
           for (const key of keys) {
             // Handle popup messages to parent
-            if (key.includes('message_to_parent')) {
+            if (key.includes("message_to_parent")) {
               const messageData = localStorage.getItem(key);
               if (!messageData) continue;
 
               try {
-                const { data, origin, timestamp, source } = JSON.parse(messageData);
+                const { data, origin, timestamp, source } =
+                  JSON.parse(messageData);
 
                 // Check if message is recent (within last 5 seconds) and from a popup
-                if (Date.now() - timestamp < 5000 && source === 'popup') {
-                  console.log(`[dumber-parent] Received message from popup:`, data);
+                if (Date.now() - timestamp < 5000 && source === "popup") {
+                  console.log(
+                    `[dumber-parent] Received message from popup:`,
+                    data,
+                  );
 
                   // Dispatch as MessageEvent to parent window
-                  const event = new MessageEvent('message', {
+                  const event = new MessageEvent("message", {
                     data,
                     origin: origin || window.location.origin,
                     source: null, // popup reference would be here in real browser
@@ -474,54 +523,75 @@ function detectWindowType(features?: string | null): string {
                   localStorage.removeItem(key);
                 }
               } catch (err) {
-                console.warn(`[dumber-parent] Failed to parse popup message:`, err);
+                console.warn(
+                  `[dumber-parent] Failed to parse popup message:`,
+                  err,
+                );
                 localStorage.removeItem(key); // Clean up invalid message
               }
             }
 
             // Handle OAuth callback detection from popups
-            if (key.startsWith('oauth_callback_')) {
+            if (key.startsWith("oauth_callback_")) {
               const callbackData = localStorage.getItem(key);
               if (!callbackData) continue;
 
               try {
-                const { url, webviewId, timestamp, isOAuthCallback } = JSON.parse(callbackData);
+                const { url, webviewId, timestamp, isOAuthCallback } =
+                  JSON.parse(callbackData);
 
                 // Check if callback is recent (within last 10 seconds) and is an OAuth callback
                 if (Date.now() - timestamp < 10000 && isOAuthCallback) {
-                  console.log(`[dumber-parent] OAuth callback detected for webview ${webviewId}:`, url);
+                  console.log(
+                    `[dumber-parent] OAuth callback detected for webview ${webviewId}:`,
+                    url,
+                  );
 
                   // Send close request to backend for this popup webview
                   const bridge = window.webkit?.messageHandlers?.dumber;
-                  if (bridge && typeof bridge.postMessage === 'function') {
+                  if (bridge && typeof bridge.postMessage === "function") {
                     try {
                       const closeMessage = {
-                        type: 'close-popup',
+                        type: "close-popup",
                         webviewId,
-                        reason: 'oauth-callback-success',
-                        timestamp: Date.now()
+                        reason: "oauth-callback-success",
+                        timestamp: Date.now(),
                       };
 
-                      console.log(`[dumber-parent] Sending popup close request:`, closeMessage);
+                      console.log(
+                        `[dumber-parent] Sending popup close request:`,
+                        closeMessage,
+                      );
                       bridge.postMessage(JSON.stringify(closeMessage));
                     } catch (err) {
-                      console.warn(`[dumber-parent] Failed to send popup close request:`, err);
+                      console.warn(
+                        `[dumber-parent] Failed to send popup close request:`,
+                        err,
+                      );
                     }
                   } else {
-                    console.warn(`[dumber-parent] No webkit bridge available for popup close request`);
+                    console.warn(
+                      `[dumber-parent] No webkit bridge available for popup close request`,
+                    );
                   }
 
                   // Clean up OAuth callback data
                   localStorage.removeItem(key);
                 }
               } catch (err) {
-                console.warn(`[dumber-parent] Failed to parse OAuth callback data:`, err);
+                console.warn(
+                  `[dumber-parent] Failed to parse OAuth callback data:`,
+                  err,
+                );
                 localStorage.removeItem(key); // Clean up invalid data
               }
             }
           }
         } catch (err) {
-          console.warn(`[dumber-parent] Failed to poll for popup messages:`, err);
+          console.warn(
+            `[dumber-parent] Failed to poll for popup messages:`,
+            err,
+          );
         }
       };
 
@@ -562,20 +632,19 @@ function detectWindowType(features?: string | null): string {
         const url = window.location.href.toLowerCase();
 
         // Check for OAuth callback patterns - be more specific to avoid false positives
-        const isCallback = (
+        const isCallback =
           // OAuth callback URLs typically have these parameters
-          url.includes('code=') ||
-          url.includes('access_token=') ||
-          url.includes('id_token=') ||
+          url.includes("code=") ||
+          url.includes("access_token=") ||
+          url.includes("id_token=") ||
           // OAuth error responses
-          url.includes('error=access_denied') ||
-          url.includes('error=unauthorized') ||
+          url.includes("error=access_denied") ||
+          url.includes("error=unauthorized") ||
           // OAuth callback paths (more specific than just "callback" or "redirect")
-          url.includes('/oauth/callback') ||
-          url.includes('/auth/callback') ||
-          url.includes('oauth2callback') ||
-          url.includes('googlepopupcallback')
-        );
+          url.includes("/oauth/callback") ||
+          url.includes("/auth/callback") ||
+          url.includes("oauth2callback") ||
+          url.includes("googlepopupcallback");
 
         if (isCallback) {
           try {
@@ -593,13 +662,18 @@ function detectWindowType(features?: string | null): string {
                 const age = Date.now() - (mapping.timestamp || 0);
                 if (age < 60000 && mapping.popupId) {
                   targetWebViewId = mapping.popupId;
-                  console.log(`[oauth-callback] Parent detected OAuth callback, targeting popup webview: ${targetWebViewId}`);
+                  console.log(
+                    `[oauth-callback] Parent detected OAuth callback, targeting popup webview: ${targetWebViewId}`,
+                  );
 
                   // Clean up the mapping since we're using it
                   localStorage.removeItem(popupMappingKey);
                 }
               } catch (err) {
-                console.warn(`[oauth-callback] Failed to parse popup mapping:`, err);
+                console.warn(
+                  `[oauth-callback] Failed to parse popup mapping:`,
+                  err,
+                );
               }
             }
 
@@ -610,20 +684,34 @@ function detectWindowType(features?: string | null): string {
               isOAuthCallback: true,
             };
 
-            localStorage.setItem(`oauth_callback_${targetWebViewId}`, JSON.stringify(callbackData));
-            console.log(`[oauth-callback] Detected OAuth callback, targeting webview ${targetWebViewId}:`, callbackData);
+            localStorage.setItem(
+              `oauth_callback_${targetWebViewId}`,
+              JSON.stringify(callbackData),
+            );
+            console.log(
+              `[oauth-callback] Detected OAuth callback, targeting webview ${targetWebViewId}:`,
+              callbackData,
+            );
 
             // Auto-cleanup sensitive OAuth data after 10 seconds
             setTimeout(() => {
               try {
                 localStorage.removeItem(`oauth_callback_${targetWebViewId}`);
-                console.log(`[oauth-callback] Cleaned up OAuth callback data from localStorage`);
+                console.log(
+                  `[oauth-callback] Cleaned up OAuth callback data from localStorage`,
+                );
               } catch (err) {
-                console.warn(`[oauth-callback] Failed to cleanup OAuth callback data:`, err);
+                console.warn(
+                  `[oauth-callback] Failed to cleanup OAuth callback data:`,
+                  err,
+                );
               }
             }, 10000);
           } catch (err) {
-            console.warn(`[oauth-callback] Failed to store OAuth callback data:`, err);
+            console.warn(
+              `[oauth-callback] Failed to store OAuth callback data:`,
+              err,
+            );
           }
         }
       };
@@ -647,11 +735,11 @@ function detectWindowType(features?: string | null): string {
       });
 
       // Also check on navigation events
-      window.addEventListener('popstate', detectOAuthCallback);
-      window.addEventListener('hashchange', detectOAuthCallback);
+      window.addEventListener("popstate", detectOAuthCallback);
+      window.addEventListener("hashchange", detectOAuthCallback);
       cleanupHandlers.push(() => {
-        window.removeEventListener('popstate', detectOAuthCallback);
-        window.removeEventListener('hashchange', detectOAuthCallback);
+        window.removeEventListener("popstate", detectOAuthCallback);
+        window.removeEventListener("hashchange", detectOAuthCallback);
       });
     };
 
@@ -737,23 +825,32 @@ function detectWindowType(features?: string | null): string {
       return timeSinceInteraction <= INTERACTION_TIMEOUT;
     };
 
-
     const createFakeWindow = (url: string, popupId?: string): WindowProxy => {
       // Generate unique popup ID if not provided
-      const actualPopupId = popupId || `${window.__dumber_webview_id}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+      const actualPopupId =
+        popupId ||
+        `${window.__dumber_webview_id}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 
       // Set up communication channel via shared localStorage
       try {
-        localStorage.setItem(`popup_${actualPopupId}_parent_info`, JSON.stringify({
-          parentUrl: window.location.href,
-          parentWebViewId: window.__dumber_webview_id,
-          timestamp: Date.now(),
-          popupUrl: url,
-        }));
+        localStorage.setItem(
+          `popup_${actualPopupId}_parent_info`,
+          JSON.stringify({
+            parentUrl: window.location.href,
+            parentWebViewId: window.__dumber_webview_id,
+            timestamp: Date.now(),
+            popupUrl: url,
+          }),
+        );
 
-        console.log(`[window-open] [WebView ${window.__dumber_webview_id}] Set up shared storage communication for popup ID: ${actualPopupId}`);
+        console.log(
+          `[window-open] [WebView ${window.__dumber_webview_id}] Set up shared storage communication for popup ID: ${actualPopupId}`,
+        );
       } catch (err) {
-        console.warn(`[window-open] [WebView ${window.__dumber_webview_id}] Failed to set up shared storage:`, err);
+        console.warn(
+          `[window-open] [WebView ${window.__dumber_webview_id}] Failed to set up shared storage:`,
+          err,
+        );
       }
 
       return {
@@ -764,33 +861,45 @@ function detectWindowType(features?: string | null): string {
         },
         focus: () => {
           try {
-            localStorage.setItem(`popup_${actualPopupId}_parent_action`, JSON.stringify({
-              action: 'focus',
-              timestamp: Date.now(),
-            }));
+            localStorage.setItem(
+              `popup_${actualPopupId}_parent_action`,
+              JSON.stringify({
+                action: "focus",
+                timestamp: Date.now(),
+              }),
+            );
           } catch (err) {
             console.warn(`[window-open] Failed to store focus action:`, err);
           }
         },
         blur: () => {
           try {
-            localStorage.setItem(`popup_${actualPopupId}_parent_action`, JSON.stringify({
-              action: 'blur',
-              timestamp: Date.now(),
-            }));
+            localStorage.setItem(
+              `popup_${actualPopupId}_parent_action`,
+              JSON.stringify({
+                action: "blur",
+                timestamp: Date.now(),
+              }),
+            );
           } catch (err) {
             console.warn(`[window-open] Failed to store blur action:`, err);
           }
         },
         postMessage: (data: unknown, targetOrigin?: string) => {
           try {
-            localStorage.setItem(`popup_${actualPopupId}_message_to_popup`, JSON.stringify({
+            localStorage.setItem(
+              `popup_${actualPopupId}_message_to_popup`,
+              JSON.stringify({
+                data,
+                origin: targetOrigin || "*",
+                timestamp: Date.now(),
+                source: "parent",
+              }),
+            );
+            console.log(
+              `[window-open] [WebView ${window.__dumber_webview_id}] Stored message for popup ${actualPopupId}:`,
               data,
-              origin: targetOrigin || '*',
-              timestamp: Date.now(),
-              source: 'parent',
-            }));
-            console.log(`[window-open] [WebView ${window.__dumber_webview_id}] Stored message for popup ${actualPopupId}:`, data);
+            );
           } catch (err) {
             console.warn(`[window-open] Failed to store postMessage:`, err);
           }
@@ -798,9 +907,13 @@ function detectWindowType(features?: string | null): string {
       } as unknown as WindowProxy;
     };
 
-
     // Track user interactions for popup validation
-    const interactionEvents = ["click", "mousedown", "keydown", "touchstart"] as const;
+    const interactionEvents = [
+      "click",
+      "mousedown",
+      "keydown",
+      "touchstart",
+    ] as const;
     interactionEvents.forEach((eventType) => {
       document.addEventListener(eventType, trackUserInteraction, true);
     });
@@ -813,7 +926,6 @@ function detectWindowType(features?: string | null): string {
     console.log(
       `[window-open] [WebView ${window.__dumber_webview_id}] User interaction tracking enabled`,
     );
-
 
     // Window.open interceptor - only install once
     if (!window.__dumber_window_open_intercepted) {
@@ -836,7 +948,6 @@ function detectWindowType(features?: string | null): string {
             target,
             features,
           );
-
 
           // Enhanced duplicate check
           if (windowOpenDebouncer.isDuplicate(urlString, webviewId)) {
@@ -927,7 +1038,7 @@ function detectWindowType(features?: string | null): string {
         try {
           cleanup();
         } catch (cleanupErr) {
-          console.warn('[dumber] Cleanup handler failed', cleanupErr);
+          console.warn("[dumber] Cleanup handler failed", cleanupErr);
         }
       }
 
@@ -942,18 +1053,20 @@ function detectWindowType(features?: string | null): string {
       window.__dumber_showZoomToast = undefined;
       window.__dumber_applyDomZoom = undefined;
 
-      if (window.__dumber) {
-        delete window.__dumber.omnibox;
-        delete window.__dumber.toast;
+      const globalState = window.__dumber;
+      if (globalState) {
+        const mutableState = globalState as unknown as Record<string, unknown>;
+        delete mutableState.omnibox;
+        delete mutableState.toast;
       }
     };
 
     window.__dumber_teardown = teardown;
-    window.addEventListener('pagehide', teardown, { once: true });
-    window.addEventListener('beforeunload', teardown, { once: true });
+    window.addEventListener("pagehide", teardown, { once: true });
+    window.addEventListener("beforeunload", teardown, { once: true });
     cleanupHandlers.push(() => {
-      window.removeEventListener('pagehide', teardown);
-      window.removeEventListener('beforeunload', teardown);
+      window.removeEventListener("pagehide", teardown);
+      window.removeEventListener("beforeunload", teardown);
       window.__dumber_teardown = undefined;
     });
 

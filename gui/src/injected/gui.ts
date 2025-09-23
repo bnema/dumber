@@ -88,14 +88,17 @@ if (!window.__dumber_gui_ready) {
     let hasReceivedFocusEvent = false; // Track if we've received any workspace focus events
 
     // Request webview ID from Go if it's unknown (needed for stub builds)
-    if (currentWebViewId === "unknown" || currentWebViewId === "__WEBVIEW_ID__") {
+    if (
+      currentWebViewId === "unknown" ||
+      currentWebViewId === "__WEBVIEW_ID__"
+    ) {
       console.log("[workspace] WebView ID unknown, requesting from Go backend");
       if (window.webkit?.messageHandlers?.dumber) {
         window.webkit.messageHandlers.dumber.postMessage(
           JSON.stringify({
             type: "request-webview-id",
-            payload: { timestamp: Date.now() }
-          })
+            payload: { timestamp: Date.now() },
+          }),
         );
       }
     }
@@ -106,7 +109,10 @@ if (!window.__dumber_gui_ready) {
       if (detail.webviewId) {
         currentWebViewId = detail.webviewId;
         window.__dumber_webview_id = detail.webviewId;
-        console.log("[workspace] Received webview ID from Go:", detail.webviewId);
+        console.log(
+          "[workspace] Received webview ID from Go:",
+          detail.webviewId,
+        );
       }
     });
 
@@ -285,7 +291,8 @@ if (!window.__dumber_gui_ready) {
         }
 
         // Enhanced focus checking with webview ID validation
-        const isForThisWebView = !eventWebViewId || eventWebViewId === currentWebViewId;
+        const isForThisWebView =
+          !eventWebViewId || eventWebViewId === currentWebViewId;
         // Only apply strict focus checking to omnibox actions, be permissive for others
         const isOmniboxAction = action.startsWith("omnibox-");
         const shouldHandle =

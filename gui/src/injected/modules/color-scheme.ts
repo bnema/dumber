@@ -22,10 +22,23 @@ interface ColorSchemeConfig {
 
 class ColorSchemeManager {
   private config: ColorSchemeConfig;
+  private metaElement: HTMLMetaElement | null = null;
+  private styleElement: HTMLStyleElement | null = null;
+  private userPreference: "light" | "dark" | null = null;
+  private static readonly STORAGE_KEY = "dumber.theme";
+  private static instance: ColorSchemeManager | null = null;
+  private static matchMediaPatched = false;
+  private static originalMatchMedia: typeof window.matchMedia | null = null;
 
   constructor() {
+    ColorSchemeManager.instance = this;
+
+    this.userPreference = this.getStoredPreference();
+
     // Use GTK preference if available, otherwise detect from system
-    const prefersDark = window.__dumber_gtk_prefers_dark ?? false;
+    const prefersDark = this.userPreference
+      ? this.userPreference === "dark"
+      : (window.__dumber_gtk_prefers_dark ?? false);
 
     this.config = {
       isDark: prefersDark,
@@ -79,32 +92,60 @@ class ColorSchemeManager {
   }
 
   private injectColorSchemeMeta(): void {
-    const meta = document.createElement("meta");
+    if (this.metaElement && this.metaElement.isConnected) {
+      this.metaElement.content = this.config.metaContent;
+      return;
+    }
+
+    const existing = document.querySelector(
+      'meta[name="color-scheme"]',
+    ) as HTMLMetaElement | null;
+    const meta = existing ?? document.createElement("meta");
     meta.name = "color-scheme";
     meta.content = this.config.metaContent;
-    document.documentElement.appendChild(meta);
+    if (!existing) {
+      document.documentElement.appendChild(meta);
+    }
+    this.metaElement = meta;
   }
 
   private applyRootStyles(): void {
-    const style = document.createElement("style");
+    if (this.styleElement && this.styleElement.isConnected) {
+      this.styleElement.textContent = this.config.rootStyle;
+      return;
+    }
+
+    const existing = document.querySelector(
+      "style[data-dumber-color-scheme]",
+    ) as HTMLStyleElement | null;
+    const style = existing ?? document.createElement("style");
+    style.setAttribute("data-dumber-color-scheme", "");
     style.textContent = this.config.rootStyle;
-    document.documentElement.appendChild(style);
+    if (!existing) {
+      document.documentElement.appendChild(style);
+    }
+    this.styleElement = style;
   }
 
   private overrideMatchMedia(): void {
+    if (ColorSchemeManager.matchMediaPatched) {
+      return;
+    }
+
     const darkQuery = "(prefers-color-scheme: dark)";
     const lightQuery = "(prefers-color-scheme: light)";
-    const originalMatchMedia = window.matchMedia;
+    ColorSchemeManager.originalMatchMedia = window.matchMedia.bind(window);
 
     window.matchMedia = (query: string): MediaQueryList => {
+      const manager = ColorSchemeManager.instance;
       if (
+        manager &&
         typeof query === "string" &&
         (query.includes(darkQuery) || query.includes(lightQuery))
       ) {
-        // Create a mock MediaQueryList that reflects our GTK preference
         const matches = query.includes("dark")
-          ? this.config.isDark
-          : !this.config.isDark;
+          ? manager.config.isDark
+          : !manager.config.isDark;
 
         return {
           matches,
@@ -118,9 +159,15 @@ class ColorSchemeManager {
         } as MediaQueryList;
       }
 
-      // For non-color-scheme queries, use the original implementation
-      return originalMatchMedia.call(window, query);
+      const original = ColorSchemeManager.originalMatchMedia;
+      if (!original) {
+        throw new Error("Original matchMedia not available");
+      }
+
+      return original.call(window, query);
     };
+
+    ColorSchemeManager.matchMediaPatched = true;
   }
 
   private setupThemeIntegration(): void {
@@ -160,6 +207,42 @@ class ColorSchemeManager {
     // Re-apply all configurations
     this.initialize();
   }
+
+  private getStoredPreference(): "light" | "dark" | null {
+    try {
+      const value = localStorage.getItem(ColorSchemeManager.STORAGE_KEY);
+      if (value === "light" || value === "dark") {
+        return value;
+      }
+    } catch (error) {
+      console.warn("[dumber] Failed to read stored theme preference", error);
+    }
+    return null;
+  }
+
+  private storePreference(theme: "light" | "dark"): void {
+    try {
+      localStorage.setItem(ColorSchemeManager.STORAGE_KEY, theme);
+    } catch (error) {
+      console.warn("[dumber] Failed to persist theme preference", error);
+    }
+  }
+
+  /**
+   * Persist and apply an explicit user preference
+   */
+  public setUserPreference(theme: "light" | "dark"): void {
+    if (this.userPreference === theme && this.config.colorScheme === theme) {
+      return;
+    }
+    this.userPreference = theme;
+    this.storePreference(theme);
+    this.updateColorScheme(theme === "dark");
+  }
+
+  public getCurrentTheme(): "light" | "dark" {
+    return this.config.colorScheme;
+  }
 }
 
 // Initialize color scheme management
@@ -169,3 +252,12 @@ const colorSchemeManager = new ColorSchemeManager();
 (window as any).__dumber_color_scheme_manager = colorSchemeManager;
 
 export default colorSchemeManager;
+
+declare global {
+  interface Window {
+    __dumber_color_scheme_manager?: {
+      setUserPreference: (theme: "light" | "dark") => void;
+      getCurrentTheme: () => "light" | "dark";
+    };
+  }
+}
