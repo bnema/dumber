@@ -25,8 +25,8 @@ export default defineConfig({
         chunkFileNames: "[name].js",
         assetFileNames: "[name].[ext]",
         manualChunks: undefined,
-        format: 'iife',
-        name: 'DumberHomepage'
+        format: "iife",
+        name: "DumberHomepage",
       },
     },
     emptyOutDir: false,

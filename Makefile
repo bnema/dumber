@@ -105,6 +105,11 @@ lint-fix: ## Run golangci-lint with --fix
 	@echo "Running golangci-lint with --fix..."
 	golangci-lint run --fix
 
+# Format code
+fmt: ## Format Go code with gofmt
+	@echo "Formatting Go code with gofmt..."
+	go fmt ./...
+
 # Tools installation
 install-tools: ## Install development tools
 	@echo "Installing development tools..."

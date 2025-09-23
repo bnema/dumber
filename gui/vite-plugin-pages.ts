@@ -1,5 +1,5 @@
 import type { Plugin } from "vite";
-import { writeFileSync, readFileSync } from "fs";
+import { writeFileSync, readFileSync, existsSync, copyFileSync } from "fs";
 import { resolve } from "path";
 
 interface PageConfig {
@@ -21,15 +21,6 @@ function getFaviconSVG(): string {
   return readFileSync(logoPath, "utf-8");
 }
 
-// Create favicon data URL for inline usage
-function getFaviconDataURL(): string {
-  const svg = getFaviconSVG();
-  const encoded = encodeURIComponent(svg)
-    .replace(/'/g, "%27")
-    .replace(/\(/g, "%28")
-    .replace(/\)/g, "%29");
-  return `data:image/svg+xml;utf8,${encoded}`;
-}
 
 // Generate HTML content for a page
 function generatePageHTML(config: PageConfig): string {
@@ -43,7 +34,7 @@ function generatePageHTML(config: PageConfig): string {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${config.title}</title>
-    <link rel="icon" type="image/svg+xml" href="${getFaviconDataURL()}">
+    <link rel="icon" type="image/x-icon" href="dumb://homepage/favicon.ico">
     ${cssLink}
 </head>
 <body>
@@ -71,10 +62,29 @@ export function pageGenerator(pages: PageConfig[]): Plugin {
           console.log(`✓ Generated ${filename} for dumb://${page.name}`);
         }
 
-        // Generate favicon.svg for scheme handler lookups
+        // Generate favicon files for scheme handler lookups
         const faviconContent = getFaviconSVG();
         writeFileSync(resolve(assetsDir, "favicon.svg"), faviconContent);
         console.log("✓ Generated favicon.svg");
+
+        // Copy pre-generated PNG and ICO favicons if they exist
+        const sourceDir = resolve(__dirname, "..", "assets", "gui");
+        try {
+          const pngPath = resolve(sourceDir, "favicon.png");
+          const icoPath = resolve(sourceDir, "favicon.ico");
+
+          if (existsSync(pngPath)) {
+            copyFileSync(pngPath, resolve(assetsDir, "favicon.png"));
+            console.log("✓ Copied favicon.png");
+          }
+
+          if (existsSync(icoPath)) {
+            copyFileSync(icoPath, resolve(assetsDir, "favicon.ico"));
+            console.log("✓ Copied favicon.ico");
+          }
+        } catch (err) {
+          console.warn("⚠ Could not copy favicon PNG/ICO files:", err);
+        }
       } catch (error) {
         console.error("✗ Failed to generate page files:", error);
         throw error;
