@@ -53,7 +53,7 @@ func TestSplitNodeCreatesExpectedTree(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			wm := newTestWorkspaceManager(t)
-			original := wm.active
+			original := wm.currentlyFocused
 
 			newLeaf, err := wm.splitNode(original, tc.direction)
 			if err != nil {
@@ -103,7 +103,7 @@ func TestSplitNodeCreatesExpectedTree(t *testing.T) {
 
 func TestClosePanePromotesSibling(t *testing.T) {
 	wm := newTestWorkspaceManager(t)
-	original := wm.active
+	original := wm.currentlyFocused
 
 	newLeaf, err := wm.splitNode(original, "right")
 	if err != nil {
@@ -130,14 +130,14 @@ func TestClosePanePromotesSibling(t *testing.T) {
 		t.Fatalf("expected remaining pane to match original")
 	}
 
-	if wm.active != original {
+	if wm.currentlyFocused != original {
 		t.Fatalf("expected focus to move to promoted pane")
 	}
 }
 
 func TestFocusNeighborWithBounds(t *testing.T) {
 	wm := newTestWorkspaceManager(t)
-	left := wm.active
+	left := wm.currentlyFocused
 
 	right, err := wm.splitNode(left, "right")
 	if err != nil {
@@ -156,7 +156,7 @@ func TestFocusNeighborWithBounds(t *testing.T) {
 		t.Fatalf("expected focus neighbor left to succeed")
 	}
 
-	if wm.active != left {
+	if wm.currentlyFocused != left {
 		t.Fatalf("expected focus to move to left pane")
 	}
 
@@ -172,7 +172,7 @@ func TestFocusNeighborWithBounds(t *testing.T) {
 	webkit.SetWidgetBoundsForTesting(bottom.container, webkit.WidgetBounds{X: 0, Y: 120, Width: 100, Height: 90})
 
 	// Active pane should be bottom after split. Move focus up.
-	if wm.active != bottom {
+	if wm.currentlyFocused != bottom {
 		t.Fatalf("expected bottom pane to be active after split")
 	}
 
@@ -180,7 +180,7 @@ func TestFocusNeighborWithBounds(t *testing.T) {
 		t.Fatalf("expected focus neighbor up to succeed")
 	}
 
-	if wm.active != top {
+	if wm.currentlyFocused != top {
 		t.Fatalf("expected focus to move to top pane")
 	}
 }
@@ -238,7 +238,8 @@ func TestWorkspaceNavigationAfterFocusChanges(t *testing.T) {
 	// works consistently (the old bug was per-webview shortcut registration)
 	for i := 0; i < 3; i++ {
 		// Move focus left
-		wm.focusNode(left)
+		wm.currentlyFocused = left
+		wm.focusManager.SetActivePane(left)
 		if wm.GetActiveNode() != left {
 			t.Fatalf("expected left pane to be active after focusNode call %d", i)
 		}
@@ -249,7 +250,8 @@ func TestWorkspaceNavigationAfterFocusChanges(t *testing.T) {
 		}
 
 		// Move focus right
-		wm.focusNode(right)
+		wm.currentlyFocused = right
+		wm.focusManager.SetActivePane(right)
 		if wm.GetActiveNode() != right {
 			t.Fatalf("expected right pane to be active after focusNode call %d", i)
 		}
