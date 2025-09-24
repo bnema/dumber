@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.10.0] - 2025-09-24
+
 ### Added
 - **Print functionality**: Added Ctrl+Shift+P shortcut to open native print dialogs from any pane. Ctrl+P is blocked at WebKit level to prevent conflicts with pane mode shortcuts
 - **WebKit native favicon detection**: Implemented WebKit's built-in favicon database for automatic favicon detection and URI storage. Enhanced favicon support for all formats (PNG, SVG, ICO) without external dependencies
