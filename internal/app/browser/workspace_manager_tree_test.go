@@ -449,7 +449,7 @@ func TestFocusManagement(t *testing.T) {
 		newNode, _ := wm.splitNode(original, "right")
 
 		// Set new node as active
-		wm.active = newNode
+		wm.currentlyFocused = newNode
 
 		// Close the active node
 		err := wm.closePane(newNode)
@@ -458,7 +458,7 @@ func TestFocusManagement(t *testing.T) {
 		}
 
 		// Focus should transfer to original
-		if wm.active != original {
+		if wm.currentlyFocused != original {
 			t.Error("Focus should transfer to remaining pane")
 		}
 	})
@@ -470,7 +470,7 @@ func TestFocusManagement(t *testing.T) {
 		newNode, _ := wm.splitNode(original, "right")
 
 		// Keep original as active
-		wm.active = original
+		wm.currentlyFocused = original
 
 		// Close the non-active node
 		err := wm.closePane(newNode)
@@ -479,7 +479,7 @@ func TestFocusManagement(t *testing.T) {
 		}
 
 		// Focus should remain on original
-		if wm.active != original {
+		if wm.currentlyFocused != original {
 			t.Error("Focus should remain on original pane")
 		}
 	})
@@ -925,7 +925,7 @@ func newTestWorkspaceManagerWithMocksForTree(t *testing.T) *WorkspaceManager {
 		isLeaf:    true,
 	}
 	wm.root = root
-	wm.active = root
+	wm.currentlyFocused = root
 	wm.mainPane = root
 	wm.viewToNode[rootView] = root
 

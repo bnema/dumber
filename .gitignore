@@ -66,6 +66,8 @@ assets/gui
 
 # Node/TypeScript related
 node_modules/
+.pnpm-store/
+
 
 # Development/tooling files
 CLAUDE.md

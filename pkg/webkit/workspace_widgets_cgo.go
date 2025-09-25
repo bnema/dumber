@@ -5,6 +5,7 @@ package webkit
 /*
 #cgo pkg-config: gtk4
 #include <gtk/gtk.h>
+#include <gtk/gtktestutils.h>
 #include <gdk/gdk.h>
 #include <glib.h>
 #include <glib-object.h>
@@ -179,6 +180,7 @@ static void widget_set_visible(GtkWidget* widget, gboolean visible) {
     gtk_widget_set_visible(widget, visible);
 }
 
+
 static gboolean widget_get_visible(GtkWidget* widget) {
     if (!widget) return FALSE;
     return gtk_widget_get_visible(widget);
@@ -192,6 +194,18 @@ static void widget_hide(GtkWidget* widget) {
 static void widget_show(GtkWidget* widget) {
     if (!widget) return;
     gtk_widget_set_visible(widget, TRUE);
+}
+
+static void workspace_gtk_test_init(void) {
+    // Create dummy argc/argv for GTK test initialization
+    // GTK test framework requires valid argc/argv pointers, not NULL
+    static int test_argc = 1;
+    static char test_prog[] = "dumber-test";
+    static char* test_argv[] = { test_prog, NULL };
+    static char** test_argv_ptr = test_argv;
+
+    // Initialize GTK test framework with proper arguments
+    gtk_test_init(&test_argc, &test_argv_ptr, NULL);
 }
 
 // Label helpers for title bars
@@ -212,6 +226,11 @@ static const char* label_get_text(GtkWidget* label) {
 static void label_set_ellipsize(GtkWidget* label, int mode) {
     if (!label) return;
     gtk_label_set_ellipsize(GTK_LABEL(label), (PangoEllipsizeMode)mode);
+}
+
+static void label_set_max_width_chars(GtkWidget* label, int n_chars) {
+    if (!label) return;
+    gtk_label_set_max_width_chars(GTK_LABEL(label), n_chars);
 }
 */
 import "C"
@@ -235,6 +254,7 @@ var (
 	hoverCallbacks           = make(map[uintptr]func())
 	hoverControllers         = make(map[uintptr]uintptr)
 	nextHoverID      uintptr = 1
+	gtkTestInitOnce  sync.Once
 )
 
 func widgetIsValid(widget uintptr) bool {
@@ -733,4 +753,27 @@ func LabelSetEllipsize(label uintptr, mode EllipsizeMode) {
 		return
 	}
 	C.label_set_ellipsize((*C.GtkWidget)(unsafe.Pointer(label)), C.int(mode))
+}
+
+// LabelSetMaxWidthChars sets the maximum width in characters for a GtkLabel.
+func LabelSetMaxWidthChars(label uintptr, nChars int) {
+	if label == 0 {
+		return
+	}
+	C.label_set_max_width_chars((*C.GtkWidget)(unsafe.Pointer(label)), C.int(nChars))
+}
+
+// WidgetWaitForDraw ensures widget operations are complete (GTK test pattern)
+// This replaces the problematic IdleAdd pattern with proper widget synchronization
+func WidgetWaitForDraw(widget uintptr) {
+	if widget == 0 {
+		return
+	}
+	if !widgetIsValid(widget) {
+		log.Panicf("gtk_test_widget_wait_for_draw: widget=%#x invalid", widget)
+	}
+	gtkTestInitOnce.Do(func() {
+		C.workspace_gtk_test_init()
+	})
+	C.gtk_test_widget_wait_for_draw((*C.GtkWidget)(unsafe.Pointer(widget)))
 }

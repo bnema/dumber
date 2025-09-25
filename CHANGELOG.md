@@ -16,6 +16,10 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - **Mobile URL overflow**: Fixed long URLs breaking layout on narrow screens by adding proper width constraints and CSS fixes
 - **GTK shortcut GLib-CRITICAL error**: Fixed NULL string assertion in shortcut callback system
+- **Focus management architecture**: Refactored workspace focus system from `active` field to `currentlyFocused` with dedicated FocusManager for improved reliability and consistency across pane operations
+- **Stacked pane focus conflicts**: Fixed focus stealing issues in stacked panes by implementing focus-aware navigation that preserves active pane when spawning siblings
+- **WebView title updates**: Enhanced webview title change handling to properly update stacked pane title bars in addition to database storage
+- **GTK4 widget lifecycle**: Improved widget parenting/unparenting operations with proper GTK4 validation and automatic cleanup to prevent critical warnings
 
 ## [0.10.0] - 2025-09-24
 

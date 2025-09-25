@@ -144,7 +144,7 @@ func BenchmarkFocusAdjacent(b *testing.B) {
 	webkit.SetWidgetBoundsForTesting(right.container, webkit.WidgetBounds{X: 120, Y: 0, Width: 100, Height: 100})
 	webkit.SetWidgetBoundsForTesting(bottom.container, webkit.WidgetBounds{X: 0, Y: 120, Width: 100, Height: 100})
 
-	wm.active = wm.root
+	wm.currentlyFocused = wm.root
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -336,7 +336,7 @@ func newTestWorkspaceManagerWithMocks(tb testing.TB) *WorkspaceManager {
 		isLeaf:    true,
 	}
 	wm.root = root
-	wm.active = root
+	wm.currentlyFocused = root
 	wm.mainPane = root
 	wm.viewToNode[rootView] = root
 
