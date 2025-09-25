@@ -38,53 +38,56 @@
   let historyOffset = $state(0);
   let hasMoreHistory = $state(true);
   let loadingMoreHistory = $state(false);
-  const MAX_QUICK_ACCESS_ITEMS = 9;
+  const MIN_VISIT_COUNT_FOR_QUICK_ACCESS = 2;
   type ThemeMode = "light" | "dark";
   const THEME_STORAGE_KEY = "dumber.theme";
   let themeMode = $state<ThemeMode>("dark");
   let themeObserver: MutationObserver | null = null;
-  let historyHeaderRef = $state<HTMLElement | null>(null);
-  let historyBodyRef = $state<HTMLElement | null>(null);
-  let insightsPanelRef = $state<HTMLElement | null>(null);
-  let resizeSyncRaf = 0;
-
-  const syncHistoryPanelSize = () => {
-    if (!historyBodyRef || !historyHeaderRef || !insightsPanelRef) return;
-
-    if (window.innerWidth <= 960) {
-      historyBodyRef.style.maxHeight = "";
-      return;
-    }
-
-    const insightsHeight = insightsPanelRef.getBoundingClientRect().height;
-    if (!insightsHeight || Number.isNaN(insightsHeight)) {
-      historyBodyRef.style.maxHeight = "";
-      return;
-    }
-
-    const headerHeight = historyHeaderRef.getBoundingClientRect().height;
-    const bodyStyles = getComputedStyle(historyBodyRef);
-    const paddingTop = parseFloat(bodyStyles.paddingTop) || 0;
-    const paddingBottom = parseFloat(bodyStyles.paddingBottom) || 0;
-    const maxHeight = insightsHeight - headerHeight - paddingTop - paddingBottom;
-
-    if (maxHeight > 0) {
-      historyBodyRef.style.maxHeight = `${maxHeight}px`;
-    } else {
-      historyBodyRef.style.maxHeight = "";
-    }
-  };
-
-  const scheduleHistoryPanelSync = () => {
-    if (resizeSyncRaf) cancelAnimationFrame(resizeSyncRaf);
-    resizeSyncRaf = requestAnimationFrame(() => {
-      resizeSyncRaf = 0;
-      syncHistoryPanelSize();
-    });
-  };
+  const INITIAL_HISTORY_DISPLAY = 15;
+  let showAllHistory = $state(false);
+  const PINNED_SITES_STORAGE_KEY = "dumber.pinnedSites";
+  let pinnedSites = $state<Set<string>>(new Set());
+  let displayedHistoryItems = $derived(
+    showAllHistory ? historyItems : historyItems.slice(0, INITIAL_HISTORY_DISPLAY)
+  );
 
   // Function for checking if an item is being deleted
   const isDeleting = (id: number) => deletingIds.includes(id);
+
+  // Pinned sites management
+  const loadPinnedSites = () => {
+    try {
+      const stored = localStorage.getItem(PINNED_SITES_STORAGE_KEY);
+      if (stored) {
+        const urls = JSON.parse(stored) as string[];
+        pinnedSites = new Set(urls);
+      }
+    } catch (error) {
+      console.warn("[homepage] Failed to load pinned sites", error);
+      pinnedSites = new Set();
+    }
+  };
+
+  const savePinnedSites = () => {
+    try {
+      const urls = Array.from(pinnedSites);
+      localStorage.setItem(PINNED_SITES_STORAGE_KEY, JSON.stringify(urls));
+    } catch (error) {
+      console.warn("[homepage] Failed to save pinned sites", error);
+    }
+  };
+
+  const isPinned = (url: string): boolean => pinnedSites.has(url);
+
+  const togglePin = (url: string) => {
+    if (pinnedSites.has(url)) {
+      pinnedSites.delete(url);
+    } else {
+      pinnedSites.add(url);
+    }
+    pinnedSites = new Set(pinnedSites); // Trigger reactivity
+    savePinnedSites();
+  };
 
   // Initialize shortcuts (these are browser shortcuts, not dynamic from API)
   const initializeShortcuts = () => {
@@ -396,6 +399,23 @@
     return domain || item.url;
   };
 
+  const highlightDomainInUrl = (url: string): string => {
+    try {
+      const urlObj = new URL(url);
+      const domain = urlObj.hostname;
+      const domainStart = url.indexOf(domain);
+
+      if (domainStart === -1) return url;
+
+      const beforeDomain = url.slice(0, domainStart);
+      const afterDomain = url.slice(domainStart + domain.length);
+
+      return `${beforeDomain}<span class="history-url-domain">${domain}</span>${afterDomain}`;
+    } catch {
+      return url;
+    }
+  };
+
   // Format relative time
   const formatTime = (timestamp: string): string => {
     try {
@@ -444,27 +464,42 @@
 
     const pushItem = (item: HistoryItem | null | undefined) => {
       if (!item) return;
-      const domain = getDomain(item.url);
-      const key = domain || item.url;
-      if (seen.has(key)) return;
-      seen.add(key);
+      if (seen.has(item.url)) return;
+      seen.add(item.url);
       picks.push(item);
     };
 
+    // First, add pinned sites (no visit count requirement for pinned)
     for (const item of topVisited ?? []) {
-      pushItem(item);
-      if (picks.length >= MAX_QUICK_ACCESS_ITEMS) return picks;
+      if (pinnedSites.has(item.url)) {
+        pushItem(item);
+      }
     }
 
     for (const item of historyItems ?? []) {
-      pushItem(item);
-      if (picks.length >= MAX_QUICK_ACCESS_ITEMS) break;
+      if (pinnedSites.has(item.url)) {
+        pushItem(item);
+      }
+    }
+
+    // Then add most visited sites (non-pinned, with minimum visit count)
+    for (const item of topVisited ?? []) {
+      if (!pinnedSites.has(item.url) && item.visit_count >= MIN_VISIT_COUNT_FOR_QUICK_ACCESS) {
+        pushItem(item);
+      }
+    }
+
+    // Finally add recent history (non-pinned, with minimum visit count)
+    for (const item of historyItems ?? []) {
+      if (!pinnedSites.has(item.url) && item.visit_count >= MIN_VISIT_COUNT_FOR_QUICK_ACCESS) {
+        pushItem(item);
+      }
     }
 
     return picks;
   };
 
-  let quickAccess = $derived<HistoryItem[]>(buildQuickAccess());
+  let quickAccess = $derived<HistoryItem[]>((pinnedSites.size, buildQuickAccess()));
   let quickAccessLoading = $derived(topVisitedLoading || historyLoading);
 
   const persistTheme = (mode: ThemeMode) => {
@@ -598,6 +633,7 @@
   };
 
   onMount(() => {
+    loadPinnedSites();
     initializeShortcuts();
     fetchHistory().then(() => {
       // Setup infinite scroll after initial history is loaded
@@ -619,33 +655,12 @@
       attributeFilter: ["class"],
     });
 
-    window.addEventListener('resize', scheduleHistoryPanelSync);
-
     return () => {
       themeObserver?.disconnect();
       themeObserver = null;
-      window.removeEventListener('resize', scheduleHistoryPanelSync);
-      if (resizeSyncRaf) {
-        cancelAnimationFrame(resizeSyncRaf);
-        resizeSyncRaf = 0;
-      }
     };
   });
 
-  $effect(() => {
-    historyItems;
-    topVisited;
-    stats;
-    shortcuts;
-    scheduleHistoryPanelSync();
-  });
-
-  $effect(() => {
-    historyHeaderRef;
-    historyBodyRef;
-    insightsPanelRef;
-    scheduleHistoryPanelSync();
-  });
 
 </script>
 
@@ -691,86 +706,13 @@
         {/if}
       </button>
     </div>
-
-    <section class="hero-panel brutal-panel">
-      <div class="hero-heading">
-        <h1 class="hero-title">Jump back in</h1>
-        <p class="hero-subtitle">Direct access to the sites you visit the most, plus what you just explored.</p>
-      </div>
-      <div class="quick-access-wrapper">
-        {#if quickAccessLoading}
-          <div class="loading quick-access-loading">Preparing your shortcuts...</div>
-        {:else if quickAccess.length === 0}
-          <div class="empty-state quick-access-empty">
-            <h3>No quick links yet</h3>
-            <p>Browse a few sites and we’ll surface your frequent destinations here.</p>
-          </div>
-        {:else}
-          <div class="quick-access-grid">
-            {#each quickAccess as item (item.id)}
-              <div
-                class="quick-access-item"
-                role="button"
-                tabindex="0"
-                onclick={() => navigateTo(item.url)}
-                onkeydown={(e) => e.key === 'Enter' && navigateTo(item.url)}
-              >
-                <div class="quick-access-favicon">
-                  {#if item.favicon_url}
-                    <img
-                      src={item.favicon_url}
-                      alt=""
-                      class="quick-access-favicon-img"
-                      onerror={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        if (target) {
-                          target.style.display = 'none';
-                          const fallback = target.nextElementSibling as HTMLElement;
-                          if (fallback) fallback.style.display = 'flex';
-                        }
-                      }}
-                      onload={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        if (target) {
-                          const fallback = target.nextElementSibling as HTMLElement;
-                          if (fallback) fallback.style.display = 'none';
-                        }
-                      }}
-                    />
-                    <div class="quick-access-fallback" style="display: none;">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="M2 12h20" />
-                      </svg>
-                    </div>
-                  {:else}
-                    <div class="quick-access-fallback">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="M2 12h20" />
-                      </svg>
-                    </div>
-                  {/if}
-                </div>
-                <div class="quick-access-meta">
-                  <div class="quick-access-title">{getDisplayTitle(item)}</div>
-                  <div class="quick-access-domain">{getDomain(item.url)}</div>
-                </div>
-                <div class="quick-access-visits">{formatVisitLabel(item.visit_count)}</div>
-              </div>
-            {/each}
-          </div>
-        {/if}
-      </div>
-    </section>
-
     <div class="main-panels">
       <section class="history-panel brutal-panel">
-        <div class="panel-header" bind:this={historyHeaderRef}>
+        <div class="panel-header">
           <h2 class="panel-title">Recent History</h2>
           <p class="panel-subtitle">Scroll to revisit anything from your latest sessions.</p>
         </div>
-        <div class="panel-body history-body" bind:this={historyBodyRef}>
+        <div class="panel-body history-body">
           {#if historyLoading}
             <div class="loading">Loading history...</div>
           {:else if historyItems.length === 0}
@@ -780,7 +722,7 @@
             </div>
           {:else}
             <div class="history-list">
-              {#each historyItems as item (item.id)}
+              {#each displayedHistoryItems as item (item.id)}
                 <div
                   class="history-item"
                   class:deleting={isDeleting(item.id)}
@@ -827,29 +769,54 @@
                     {/if}
                   </div>
                   <div class="history-item-content">
-                    <div class="history-item-top">
+                    <div class="history-item-main">
                       <div class="history-title">{getDisplayTitle(item)}</div>
                       <div class="history-time">{formatTime(item.last_visited)}</div>
                     </div>
-                    <div class="history-item-bottom">
-                      <div class="history-domain">{getDomain(item.url)}</div>
-                      <div class="history-url">{item.url}</div>
-                    </div>
+                    <div class="history-url">{@html highlightDomainInUrl(item.url)}</div>
                   </div>
-                  <div
-                    class="history-delete"
-                    role="button"
-                    tabindex="0"
-                    onclick={(e) => deleteHistoryEntry(item.id, e)}
-                    onkeydown={(e) => e.key === 'Enter' && deleteHistoryEntry(item.id, e)}
-                    title="Delete this entry"
-                  >
-                    <span aria-hidden="true">×</span>
+                  <div class="history-actions">
+                    <div
+                      class="history-pin"
+                      role="button"
+                      tabindex="0"
+                      onclick={(e) => { e.stopPropagation(); togglePin(item.url); }}
+                      onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); togglePin(item.url); } }}
+                      title={isPinned(item.url) ? "Unpin from favorites" : "Pin to favorites"}
+                    >
+                      {#if isPinned(item.url)}
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        </svg>
+                      {:else}
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        </svg>
+                      {/if}
+                    </div>
+                    <div
+                      class="history-delete"
+                      role="button"
+                      tabindex="0"
+                      onclick={(e) => deleteHistoryEntry(item.id, e)}
+                      onkeydown={(e) => e.key === 'Enter' && deleteHistoryEntry(item.id, e)}
+                      title="Delete this entry"
+                    >
+                      <span aria-hidden="true">×</span>
+                    </div>
                   </div>
                 </div>
               {/each}
 
-              {#if hasMoreHistory}
+              {#if !showAllHistory && historyItems.length > INITIAL_HISTORY_DISPLAY}
+                <button
+                  class="show-more-button"
+                  onclick={() => showAllHistory = true}
+                  type="button"
+                >
+                  Show {historyItems.length - INITIAL_HISTORY_DISPLAY} more items
+                </button>
+              {:else if showAllHistory && hasMoreHistory}
                 <div bind:this={historyScrollSentinel} class="scroll-sentinel"></div>
                 {#if loadingMoreHistory}
                   <div class="loading-more">Loading more history...</div>
@@ -860,75 +827,95 @@
         </div>
       </section>
 
-      <section class="insights-panel brutal-panel" bind:this={insightsPanelRef}>
+      <section class="quick-access-panel brutal-panel">
         <div class="panel-header">
-          <h2 class="panel-title">Usage Insights</h2>
-          <p class="panel-subtitle">Your browsing patterns at a glance.</p>
+          <h2 class="panel-title">Jump back in</h2>
+          <p class="panel-subtitle">Direct access to the sites you like the most.</p>
         </div>
-        <div class="panel-body insights-body">
-            <div class="insight-block">
-              <h3 class="block-title">Top sites</h3>
-              {#if topVisitedLoading}
-                <div class="loading">Loading usage insights...</div>
-              {:else if topVisited.length === 0}
-                <div class="empty-state compact">
-                  <p>No visit data available</p>
-                </div>
-              {:else}
-                <div class="insights-list">
-                  {#each topVisited as item, index (item.id)}
+        <div class="panel-body quick-access-body">
+          {#if quickAccessLoading}
+            <div class="loading">Preparing your shortcuts...</div>
+          {:else if quickAccess.length === 0}
+            <div class="empty-state compact">
+              <h3>No quick links yet</h3>
+              <p>Browse a few sites and we'll surface your frequent destinations here.</p>
+            </div>
+          {:else}
+            <div class="quick-access-grid-compact">
+              {#each quickAccess as item (item.id)}
+                <div
+                  class="quick-access-item-compact"
+                  role="button"
+                  tabindex="0"
+                  onclick={() => navigateTo(item.url)}
+                  onkeydown={(e) => e.key === 'Enter' && navigateTo(item.url)}
+                >
+                  <div class="quick-access-favicon-compact">
+                    {#if item.favicon_url}
+                      <img
+                        src={item.favicon_url}
+                        alt=""
+                        class="quick-access-favicon-img-compact"
+                        onerror={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          if (target) {
+                            target.style.display = 'none';
+                            const fallback = target.nextElementSibling as HTMLElement;
+                            if (fallback) fallback.style.display = 'flex';
+                          }
+                        }}
+                        onload={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          if (target) {
+                            const fallback = target.nextElementSibling as HTMLElement;
+                            if (fallback) fallback.style.display = 'none';
+                          }
+                        }}
+                      />
+                      <div class="quick-access-fallback-compact" style="display: none;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="M2 12h20" />
+                        </svg>
+                      </div>
+                    {:else}
+                      <div class="quick-access-fallback-compact">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="M2 12h20" />
+                        </svg>
+                      </div>
+                    {/if}
+                  </div>
+                  <div class="quick-access-meta-compact">
+                    <div class="quick-access-title-compact">{getDisplayTitle(item)}</div>
+                    <div class="quick-access-domain-compact">{getDomain(item.url)}</div>
+                  </div>
+                  <div class="quick-access-actions-compact">
                     <div
-                      class="insight-item"
+                      class="quick-access-pin-compact"
                       role="button"
                       tabindex="0"
-                      onclick={() => navigateTo(item.url)}
-                      onkeydown={(e) => e.key === 'Enter' && navigateTo(item.url)}
+                      onclick={(e) => { e.stopPropagation(); togglePin(item.url); }}
+                      onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); togglePin(item.url); } }}
+                      title={isPinned(item.url) ? "Unpin from favorites" : "Pin to favorites"}
                     >
-                      <div class="insight-rank">{index + 1}</div>
-                      <div class="insight-body">
-                        <div class="insight-title">{getDisplayTitle(item)}</div>
-                        <div class="insight-domain">{getDomain(item.url)}</div>
-                      </div>
-                      <div class="insight-visits">{formatVisitLabel(item.visit_count)}</div>
+                      {#if isPinned(item.url)}
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        </svg>
+                      {:else}
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        </svg>
+                      {/if}
                     </div>
-                  {/each}
-                </div>
-              {/if}
-            </div>
-
-            <div class="insight-block">
-              <h3 class="block-title">History snapshot</h3>
-              {#if statsLoading}
-                <div class="loading">Loading stats...</div>
-              {:else if stats}
-                <div class="stats-grid">
-                  <div class="stat-item">
-                    <div class="stat-value">{stats.total_entries}</div>
-                    <div class="stat-label">Entries Stored</div>
+                    <div class="quick-access-visits-compact">{formatVisitLabel(item.visit_count)}</div>
                   </div>
-                  <div class="stat-item">
-                    <div class="stat-value">{stats.recent_count}</div>
-                    <div class="stat-label">Recent Window</div>
-                  </div>
-                  {#if stats.newest_entry}
-                    <div class="stat-item">
-                      <div class="stat-value">{formatTime(stats.newest_entry)}</div>
-                      <div class="stat-label">Newest Visit</div>
-                    </div>
-                  {/if}
-                  {#if stats.oldest_entry}
-                    <div class="stat-item">
-                      <div class="stat-value">{formatCalendarDate(stats.oldest_entry)}</div>
-                      <div class="stat-label">Oldest Entry Loaded</div>
-                    </div>
-                  {/if}
                 </div>
-              {:else}
-                <div class="empty-state compact">
-                  <p>No statistics available</p>
-                </div>
-              {/if}
+              {/each}
             </div>
+          {/if}
         </div>
       </section>
     </div>
@@ -953,6 +940,47 @@
         {/if}
       </div>
     </section>
+
+
+    <section class="stats-panel brutal-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Usage Stats</h2>
+        <p class="panel-subtitle">Your browsing activity at a glance.</p>
+      </div>
+      <div class="panel-body">
+        {#if statsLoading}
+          <div class="loading">Loading stats...</div>
+        {:else if stats}
+          <div class="stats-grid-horizontal">
+            <div class="stat-item-horizontal">
+              <div class="stat-value">{stats.total_entries}</div>
+              <div class="stat-label">Entries Stored</div>
+            </div>
+            <div class="stat-item-horizontal">
+              <div class="stat-value">{stats.recent_count}</div>
+              <div class="stat-label">Recent Window</div>
+            </div>
+            {#if stats.newest_entry}
+              <div class="stat-item-horizontal">
+                <div class="stat-value">{formatTime(stats.newest_entry)}</div>
+                <div class="stat-label">Newest Visit</div>
+              </div>
+            {/if}
+            {#if stats.oldest_entry}
+              <div class="stat-item-horizontal">
+                <div class="stat-value">{formatCalendarDate(stats.oldest_entry)}</div>
+                <div class="stat-label">Oldest Entry</div>
+              </div>
+            {/if}
+          </div>
+        {:else}
+          <div class="empty-state compact">
+            <p>No statistics available</p>
+          </div>
+        {/if}
+      </div>
+    </section>
+
   </div>
 
   <Footer />
@@ -1039,126 +1067,7 @@
   gap: 0;
 }
 
-.hero-panel {
-  gap: clamp(1.25rem, 2vw, 1.75rem);
-  padding: clamp(1.75rem, 2.2vw, 2.5rem);
-}
 
-.hero-heading {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  max-width: 36rem;
-}
-
-.hero-title {
-  font-size: clamp(2rem, 3vw, 2.75rem);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  margin: 0;
-}
-
-.hero-subtitle {
-  font-size: 1rem;
-  line-height: 1.6;
-  color: var(--dynamic-muted);
-  margin: 0;
-}
-
-.quick-access-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.quick-access-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.quick-access-item {
-  flex: 1 1 min(16rem, 100%);
-  min-width: 12rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  border: 2px solid var(--dynamic-border);
-  background-color: var(--dynamic-surface-variant);
-  padding: 0.9rem 1.1rem;
-  cursor: pointer;
-  border-radius: 0;
-  transition:
-    border-color 200ms ease,
-    background-color 200ms ease;
-}
-
-.quick-access-item:hover,
-.quick-access-item:focus-visible {
-  border-color: var(--dynamic-accent);
-  outline: none;
-}
-
-.quick-access-favicon {
-  width: 48px;
-  height: 48px;
-  border: 2px solid var(--dynamic-border);
-  background-color: var(--dynamic-surface);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  border-radius: 0;
-}
-
-.quick-access-favicon-img {
-  width: 70%;
-  height: 70%;
-  object-fit: contain;
-}
-
-.quick-access-fallback {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--dynamic-muted);
-}
-
-.quick-access-meta {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.quick-access-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--dynamic-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.quick-access-domain {
-  font-size: 0.85rem;
-  color: var(--dynamic-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.quick-access-visits {
-  font-size: 0.82rem;
-  color: var(--dynamic-accent);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
-  flex-shrink: 0;
-}
 
 .loading {
   padding: 1.25rem;
@@ -1211,7 +1120,7 @@
   min-height: 0;
 }
 
-.insights-panel {
+.quick-access-panel {
   flex: 1 1 35%;
   min-width: min(24rem, 100%);
   display: flex;
@@ -1264,28 +1173,31 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding-right: 0.5rem;
+  background-color: var(--dynamic-surface-variant);
+  border: 2px solid var(--dynamic-border);
+  padding: 0.5rem;
 }
 
 .history-item {
   display: flex;
   align-items: flex-start;
-  gap: 1rem;
-  border: 2px solid var(--dynamic-border);
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--dynamic-border);
   background-color: var(--dynamic-surface-variant);
-  padding: 1rem 1.1rem;
+  padding: 0.75rem 0.5rem;
   cursor: pointer;
-  min-height: 80px;
-  border-radius: 0;
   transition:
-    border-color 200ms ease,
-    background-color 200ms ease;
+    background-color 200ms ease,
+    border-color 200ms ease;
+}
+
+.history-item:last-child {
+  border-bottom: none;
 }
 
 .history-item:hover,
 .history-item:focus-visible {
-  border-color: var(--dynamic-accent);
-  background-color: var(--dynamic-bg);
+  background-color: var(--dynamic-surface);
   outline: none;
 }
 
@@ -1327,11 +1239,12 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: 0.25rem;
   justify-content: center;
+  overflow: hidden;
 }
 
-.history-item-top {
+.history-item-main {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1343,28 +1256,16 @@
   color: var(--dynamic-text);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 1;
+  position: relative;
+  mask-image: linear-gradient(to right, black 70%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black 70%, transparent 100%);
 }
+
 
 .history-time {
   font-size: 0.85rem;
   color: var(--dynamic-muted);
-  flex-shrink: 0;
-}
-
-.history-item-bottom {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  overflow: hidden;
-  position: relative;
-}
-
-.history-domain {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--dynamic-text);
-  white-space: nowrap;
   flex-shrink: 0;
 }
 
@@ -1379,9 +1280,39 @@
     monospace;
   overflow: hidden;
   flex: 1;
+  min-width: 0;
   position: relative;
   mask-image: linear-gradient(to right, black 70%, transparent 100%);
   -webkit-mask-image: linear-gradient(to right, black 70%, transparent 100%);
+}
+
+.history-url :global(.history-url-domain) {
+  color: var(--dynamic-text) !important;
+  font-weight: 600;
+}
+
+.history-actions {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.history-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  border-left: 2px solid var(--dynamic-border);
+  background-color: var(--dynamic-surface);
+  color: var(--dynamic-muted);
+  transition: background-color 200ms ease, color 200ms ease;
+  cursor: pointer;
+}
+
+.history-pin:hover,
+.history-pin:focus-visible {
+  color: var(--dynamic-accent);
+  background-color: var(--dynamic-bg);
+  outline: none;
 }
 
 .history-delete {
@@ -1416,66 +1347,68 @@
   font-size: 0.85rem;
 }
 
-.insights-body {
-  gap: 1.5rem;
+.quick-access-body {
+  gap: 1rem;
 }
 
-.insight-block {
+.quick-access-grid-compact {
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
+  gap: 0.5rem;
+  background-color: var(--dynamic-surface-variant);
+  border: 2px solid var(--dynamic-border);
+  padding: 0.5rem;
 }
 
-.block-title {
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--dynamic-muted);
-  margin: 0;
-}
-
-.insights-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.insight-item {
+.quick-access-item-compact {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  border: 2px solid var(--dynamic-border);
+  border-bottom: 1px solid var(--dynamic-border);
   background-color: var(--dynamic-surface-variant);
-  padding: 0.85rem 1rem;
+  padding: 0.5rem 0.25rem;
   cursor: pointer;
-  border-radius: 0;
-  transition:
-    border-color 200ms ease,
-    background-color 200ms ease;
+  transition: background-color 200ms ease;
 }
 
-.insight-item:hover,
-.insight-item:focus-visible {
-  border-color: var(--dynamic-accent);
+.quick-access-item-compact:last-child {
+  border-bottom: none;
+}
+
+.quick-access-item-compact:hover,
+.quick-access-item-compact:focus-visible {
+  background-color: var(--dynamic-surface);
   outline: none;
 }
 
-.insight-rank {
-  width: 2rem;
-  height: 2rem;
+.quick-access-favicon-compact {
+  width: 32px;
+  height: 32px;
   border: 2px solid var(--dynamic-border);
-  background-color: var(--dynamic-surface);
+  background-color: var(--dynamic-surface-variant);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--dynamic-accent);
   flex-shrink: 0;
   border-radius: 0;
 }
 
-.insight-body {
+.quick-access-favicon-img-compact {
+  width: 70%;
+  height: 70%;
+  object-fit: contain;
+}
+
+.quick-access-fallback-compact {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dynamic-muted);
+}
+
+.quick-access-meta-compact {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -1483,24 +1416,55 @@
   gap: 0.125rem;
 }
 
-.insight-title {
+.quick-access-title-compact {
+  font-size: 0.95rem;
   font-weight: 600;
   color: var(--dynamic-text);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
+  position: relative;
+  mask-image: linear-gradient(to right, black 70%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black 70%, transparent 100%);
 }
 
-.insight-domain {
-  font-size: 0.85rem;
+.quick-access-domain-compact {
+  font-size: 0.8rem;
   color: var(--dynamic-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.insight-visits {
-  font-size: 0.78rem;
+.quick-access-actions-compact {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.quick-access-pin-compact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--dynamic-border);
+  background-color: var(--dynamic-surface-variant);
+  color: var(--dynamic-muted);
+  transition: background-color 200ms ease, color 200ms ease;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.quick-access-pin-compact:hover,
+.quick-access-pin-compact:focus-visible {
+  color: var(--dynamic-accent);
+  background-color: var(--dynamic-surface);
+  outline: none;
+}
+
+.quick-access-visits-compact {
+  font-size: 0.75rem;
   color: var(--dynamic-accent);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1508,22 +1472,6 @@
   flex-shrink: 0;
 }
 
-.stats-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.85rem;
-}
-
-.stat-item {
-  flex: 1 1 160px;
-  border: 2px solid var(--dynamic-border);
-  background-color: var(--dynamic-surface-variant);
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  border-radius: 0;
-}
 
 .stat-value {
   font-size: 1.4rem;
@@ -1536,6 +1484,26 @@
   color: var(--dynamic-muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+.stats-grid-horizontal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.stat-item-horizontal {
+  flex: 1;
+  min-width: 120px;
+  border: 2px solid var(--dynamic-border);
+  background-color: var(--dynamic-surface-variant);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  text-align: center;
+  border-radius: 0;
 }
 
 .shortcuts-panel {
@@ -1587,7 +1555,7 @@
 /* Responsive Design */
 @media (max-width: 1200px) {
   .history-panel,
-  .insights-panel {
+  .quick-access-panel {
     min-width: min(28rem, 100%);
   }
 }
@@ -1602,13 +1570,12 @@
   }
 
   .history-panel,
-  .insights-panel {
+  .quick-access-panel {
     min-width: 100%;
+    max-width: 100%;
+    width: 100%;
   }
 
-  .quick-access-item {
-    flex: 1 1 calc(50% - 1rem);
-  }
 }
 
 @media (max-width: 640px) {
@@ -1618,29 +1585,33 @@
   }
 
   .panel-body,
-  .panel-header,
-  .hero-panel {
+  .panel-header {
     padding-left: 1.25rem;
     padding-right: 1.25rem;
   }
 
-  .quick-access-item {
-    flex: 1 1 100%;
-  }
 
   .history-item {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .history-delete {
+  .history-actions {
     width: 100%;
-    border-left: 0;
     border-top: 2px solid var(--dynamic-border);
-    align-self: stretch;
   }
 
-  .history-item-top {
+  .history-pin,
+  .history-delete {
+    flex: 1;
+    border-left: 0;
+  }
+
+  .history-pin {
+    border-right: 1px solid var(--dynamic-border);
+  }
+
+  .history-item-main {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.35rem;
@@ -1649,5 +1620,37 @@
   .history-time {
     order: 3;
   }
+
+  .stats-grid-horizontal {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .stat-item-horizontal {
+    min-width: 100%;
+  }
+}
+
+.show-more-button {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--dynamic-border);
+  background-color: var(--dynamic-surface-variant);
+  color: var(--dynamic-text);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease;
+  border-radius: 0;
+  margin-top: 0.5rem;
+}
+
+.show-more-button:hover,
+.show-more-button:focus-visible {
+  background-color: var(--dynamic-surface);
+  border-color: var(--dynamic-accent);
+  outline: none;
 }
 </style>

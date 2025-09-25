@@ -4,7 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Pin/favorite sites**: Pin websites from history or quick access to prioritize them in "Jump back in" section. Uses localStorage persistence with star icons for pin/unpin actions
+
+### Changed
+- **History item layout**: Removed "• domain" from titles, now highlight domain within the full URL using same color as title text
+- **Quick access logic**: Removed 20-item limit, now shows all sites with 2+ visits (pinned sites bypass visit requirement)
+- **History pagination**: Show 15 items initially (up from 10) with "Show N more" button
+
 ### Fixed
+- **Mobile URL overflow**: Fixed long URLs breaking layout on narrow screens by adding proper width constraints and CSS fixes
 - **GTK shortcut GLib-CRITICAL error**: Fixed NULL string assertion in shortcut callback system
 
 ## [0.10.0] - 2025-09-24
