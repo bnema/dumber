@@ -109,19 +109,22 @@ func (fm *FocusManager) setGTKFocus(node *paneNode) {
 func (fm *FocusManager) updateVisualState(newPane *paneNode) {
 	activePaneClass := "workspace-pane-active"
 
-	// ROBUST: Remove active class from ALL leaf panes to prevent multiple active states
-	// This ensures we never have a race condition or missed cleanup
-	leaves := fm.wm.collectLeaves()
-	for _, leaf := range leaves {
-		if leaf != nil && leaf.container != 0 {
-			webkit.WidgetRemoveCSSClass(leaf.container, activePaneClass)
-		}
-	}
+	log.Printf("[focus-manager] updateVisualState: setting active pane to %p", newPane)
+
+	// CRITICAL: For stacked panes, we need to remove active class from ALL panes in ALL stacks
+	// collectLeaves() only returns the currently active pane in each stack, missing the others
+	fm.removeActiveCSSFromAllPanes(activePaneClass)
 
 	// Add active class to new pane only
-	if newPane != nil && newPane.container != 0 {
-		webkit.WidgetAddCSSClass(newPane.container, activePaneClass)
-		webkit.WidgetQueueDraw(newPane.container)
+	if newPane != nil && newPane.container != nil {
+		newPane.container.Execute(func(containerPtr uintptr) error {
+			log.Printf("[focus-manager] Adding CSS class '%s' to new active pane: container=%#x", activePaneClass, containerPtr)
+			webkit.WidgetAddCSSClass(containerPtr, activePaneClass)
+			webkit.WidgetQueueDraw(containerPtr)
+			return nil
+		})
+	} else {
+		log.Printf("[focus-manager] WARNING: newPane is nil or has no container, cannot add active CSS class")
 	}
 
 	// FATAL CHECK: Ensure only ONE pane has active class
@@ -129,6 +132,63 @@ func (fm *FocusManager) updateVisualState(newPane *paneNode) {
 
 	// Handle stacked panes visibility
 	fm.updateStackedPaneVisibility(newPane)
+}
+
+// removeActiveCSSFromAllPanes removes the active CSS class from ALL panes, including stacked panes
+// This is critical for stacked panes where collectLeaves() only returns the active pane
+// removeActiveCSSFromAllPanes removes the active CSS class from ALL panes, including stacked panes
+// This is critical for stacked panes where collectLeaves() only returns the active pane
+func (fm *FocusManager) removeActiveCSSFromAllPanes(activePaneClass string) {
+	if fm.wm == nil || fm.wm.root == nil {
+		return
+	}
+
+	log.Printf("[focus-manager] removeActiveCSSFromAllPanes: starting CSS cleanup for class '%s'", activePaneClass)
+
+	// Walk the entire tree and remove active class from ALL leaf panes
+	// This includes both regular panes and ALL panes within stacks
+	var walkAndRemove func(*paneNode, int)
+	walkAndRemove = func(n *paneNode, depth int) {
+		const maxDepth = 50
+		if n == nil || depth > maxDepth {
+			return
+		}
+
+		if n.isLeaf {
+			// Regular leaf pane - remove active class
+			if n.container != nil {
+				n.container.Execute(func(containerPtr uintptr) error {
+					log.Printf("[focus-manager] Removing CSS class '%s' from regular pane: container=%#x", activePaneClass, containerPtr)
+					webkit.WidgetRemoveCSSClass(containerPtr, activePaneClass)
+					return nil
+				})
+			}
+			return
+		}
+
+		if n.isStacked && len(n.stackedPanes) > 0 {
+			// CRITICAL: For stacked panes, remove active class from ALL panes in the stack
+			// not just the currently active one (which is what collectLeaves() returns)
+			log.Printf("[focus-manager] Processing stacked pane: activeIndex=%d stackSize=%d", n.activeStackIndex, len(n.stackedPanes))
+			for i, stackedPane := range n.stackedPanes {
+				if stackedPane != nil && stackedPane.container != nil {
+					stackedPane.container.Execute(func(containerPtr uintptr) error {
+						log.Printf("[focus-manager] Removing CSS class '%s' from stacked pane[%d]: container=%#x", activePaneClass, i, containerPtr)
+						webkit.WidgetRemoveCSSClass(containerPtr, activePaneClass)
+						return nil
+					})
+				}
+			}
+			return
+		}
+
+		// Handle regular split nodes
+		walkAndRemove(n.left, depth+1)
+		walkAndRemove(n.right, depth+1)
+	}
+
+	walkAndRemove(fm.wm.root, 0)
+	log.Printf("[focus-manager] removeActiveCSSFromAllPanes: completed CSS cleanup")
 }
 
 // updateStackedPaneVisibility handles special case for stacked panes
@@ -164,19 +224,31 @@ func (fm *FocusManager) updateStackVisibility(stackNode *paneNode) {
 	// Hide all panes in stack
 	for i, pane := range stackNode.stackedPanes {
 		if i != activeIndex {
-			webkit.WidgetSetVisible(pane.container, false)
-			webkit.WidgetSetVisible(pane.titleBar, true)
-			webkit.WidgetRemoveCSSClass(pane.container, "stacked-pane-active")
-			webkit.WidgetAddCSSClass(pane.container, "stacked-pane-collapsed")
+			pane.container.Execute(func(containerPtr uintptr) error {
+				webkit.WidgetSetVisible(containerPtr, false)
+				webkit.WidgetRemoveCSSClass(containerPtr, "stacked-pane-active")
+				webkit.WidgetAddCSSClass(containerPtr, "stacked-pane-collapsed")
+				return nil
+			})
+			pane.titleBar.Execute(func(titleBarPtr uintptr) error {
+				webkit.WidgetSetVisible(titleBarPtr, true)
+				return nil
+			})
 		}
 	}
 
 	// Show active pane
 	activePaneNode := stackNode.stackedPanes[activeIndex]
-	webkit.WidgetSetVisible(activePaneNode.container, true)
-	webkit.WidgetSetVisible(activePaneNode.titleBar, false)
-	webkit.WidgetAddCSSClass(activePaneNode.container, "stacked-pane-active")
-	webkit.WidgetRemoveCSSClass(activePaneNode.container, "stacked-pane-collapsed")
+	activePaneNode.container.Execute(func(containerPtr uintptr) error {
+		webkit.WidgetSetVisible(containerPtr, true)
+		webkit.WidgetAddCSSClass(containerPtr, "stacked-pane-active")
+		webkit.WidgetRemoveCSSClass(containerPtr, "stacked-pane-collapsed")
+		return nil
+	})
+	activePaneNode.titleBar.Execute(func(titleBarPtr uintptr) error {
+		webkit.WidgetSetVisible(titleBarPtr, false)
+		return nil
+	})
 }
 
 // notifyJavaScript dispatches focus events to the JavaScript bridge
@@ -275,11 +347,14 @@ func (fm *FocusManager) verifyOnlyOneActivePaneOrPanic() {
 	// Check all leaf panes in the workspace
 	leaves := fm.wm.collectLeaves()
 	for _, leaf := range leaves {
-		if leaf != nil && leaf.container != 0 {
-			if webkit.WidgetHasCSSClass(leaf.container, activePaneClass) {
-				activeCount++
-				activePanes = append(activePanes, leaf.container)
-			}
+		if leaf != nil && leaf.container != nil {
+			leaf.container.Execute(func(containerPtr uintptr) error {
+				if webkit.WidgetHasCSSClass(containerPtr, activePaneClass) {
+					activeCount++
+					activePanes = append(activePanes, containerPtr)
+				}
+				return nil
+			})
 		}
 	}
 
