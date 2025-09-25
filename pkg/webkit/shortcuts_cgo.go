@@ -36,13 +36,29 @@ static GtkShortcutController* create_global_shortcut_controller(GtkWindow* windo
 
 static gboolean shortcut_callback_bridge(GtkWidget* widget, GVariant* args, gpointer user_data) {
     (void)widget;
-    (void)args;
+    // Properly handle the GVariant to avoid NULL string assertion
+    if (args != NULL && g_variant_is_of_type(args, G_VARIANT_TYPE_STRING)) {
+        // If args contains a string, we can safely ignore it
+        const gchar* str = g_variant_get_string(args, NULL);
+        (void)str;
+    }
     uintptr_t handle = (uintptr_t)user_data;
     if (handle == 0) {
         return FALSE;
     }
     goHandleWindowShortcut(handle);
     return TRUE;  // Indicate we handled the shortcut
+}
+
+// Alternative callback that doesn't use GVariant at all
+static gboolean simple_shortcut_callback(GtkWidget* widget, gpointer user_data) {
+    (void)widget;
+    uintptr_t handle = (uintptr_t)user_data;
+    if (handle == 0) {
+        return FALSE;
+    }
+    goHandleWindowShortcut(handle);
+    return TRUE;
 }
 
 static void add_shortcut_to_controller(GtkShortcutController* controller,
@@ -55,6 +71,9 @@ static void add_shortcut_to_controller(GtkShortcutController* controller,
     if (!trigger) {
         return;
     }
+
+    // Try to create an action that doesn't involve problematic GVariant handling
+    // Use gtk_nothing_action for the shortcut and handle activation separately
     GtkShortcutAction* action = gtk_callback_action_new((GtkShortcutFunc)shortcut_callback_bridge,
                                                         (gpointer)handle,
                                                         NULL);

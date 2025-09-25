@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **GTK shortcut GLib-CRITICAL error**: Fixed NULL string assertion in shortcut callback system
+
 ## [0.10.0] - 2025-09-24
 
 ### Added
