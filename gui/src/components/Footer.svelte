@@ -5,7 +5,6 @@
 </script>
 
 <footer class="footer">
-    <div class="footer-separator"></div>
     <div class="footer-content">
         <div class="footer-text">
             <span class="footer-name">Dumber Browser</span>
@@ -22,12 +21,7 @@
         margin-top: 1rem;
         width: 100%;
     }
-
-    .footer-separator {
-        height: 2px;
-        background: #404040;
-    }
-
+    
     .footer-content {
         display: flex;
         justify-content: center;

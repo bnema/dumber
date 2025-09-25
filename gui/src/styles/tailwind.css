@@ -3,13 +3,13 @@
 /* Define custom theme colors for v4 */
 @theme {
   /* Light theme colors (default) */
-  --color-browser-bg: rgb(253 252 250); 
-  --color-browser-surface: rgb(245 245 240); 
-  --color-browser-surface-variant: rgb(253 250 245); 
-  --color-browser-text: rgb(17 24 39); 
+  --color-browser-bg: rgb(253 252 250);
+  --color-browser-surface: rgb(245 245 240);
+  --color-browser-surface-variant: rgb(253 250 245);
+  --color-browser-text: rgb(17 24 39);
   --color-browser-muted: rgb(107 114 128);
-  --color-browser-accent: rgb(59 130 246); 
-  --color-browser-border: rgb(229 231 235); 
+  --color-browser-accent: rgb(59 130 246);
+  --color-browser-border: rgb(229 231 235);
 }
 
 /* Dynamic theme switching via CSS variables */
@@ -26,9 +26,9 @@
 /* Dark theme colors (applied via .dark class from GTK) */
 .dark {
   --dynamic-bg: rgb(17 24 39);
-  --dynamic-surface-variant: rgb(21 30 50); 
-  --dynamic-surface: rgb(31 41 55); 
-  --dynamic-text: rgb(243 244 246); 
+  --dynamic-surface-variant: rgb(21 30 50);
+  --dynamic-surface: rgb(31 41 55);
+  --dynamic-text: rgb(243 244 246);
   --dynamic-muted: rgb(156 163 175);
   --dynamic-accent: rgb(96 165 250);
   --dynamic-border: rgb(55 65 81);

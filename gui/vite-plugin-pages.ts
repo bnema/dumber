@@ -21,7 +21,6 @@ function getFaviconSVG(): string {
   return readFileSync(logoPath, "utf-8");
 }
 
-
 // Generate HTML content for a page
 function generatePageHTML(config: PageConfig): string {
   const cssLink = config.css
