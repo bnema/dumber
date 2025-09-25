@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"time"
+	"unsafe"
 
 	"github.com/bnema/dumber/pkg/webkit"
 )
@@ -468,9 +469,28 @@ func (spm *StackedPaneManager) UpdateTitleBar(webView *webkit.WebView, title str
 
 	// Check if this pane is in a stack and has a title bar
 	if node.parent != nil && node.parent.isStacked && node.titleBar != 0 {
-		// Update the title bar label with the new title
-		spm.updateTitleBarLabel(node, title)
-		log.Printf("[workspace] updated title bar for WebView %s: %s", webView.ID(), title)
+		// CRITICAL: Only update title bar for INACTIVE panes
+		// Active panes should never show their title bar
+		stackNode := node.parent
+		activeIndex := stackNode.activeStackIndex
+
+		// Find this pane's index in the stack
+		paneIndex := -1
+		for i, pane := range stackNode.stackedPanes {
+			if pane == node {
+				paneIndex = i
+				break
+			}
+		}
+
+		if paneIndex != -1 && paneIndex != activeIndex {
+			// This is an INACTIVE pane - safe to update title bar
+			spm.updateTitleBarLabel(node, title)
+			log.Printf("[workspace] updated title bar for INACTIVE WebView %s: %s", webView.ID(), title)
+		} else {
+			// This is the ACTIVE pane - title bar should remain hidden
+			log.Printf("[workspace] skipped title bar update for ACTIVE WebView %s: %s", webView.ID(), title)
+		}
 	}
 }
 
@@ -632,13 +652,65 @@ func (spm *StackedPaneManager) CloseStackedPane(node *paneNode) error {
 		lastPane.stackedPanes = nil
 		lastPane.titleBar = 0
 
+		// CRITICAL: Ensure the container is visible after reparenting
+		// The container may have been hidden during stack operations
+		webkit.WidgetSetVisible(lastPaneContainer, true)
+
 		// Update the viewToNode mapping to point to the lastPane, not stackNode
 		spm.wm.viewToNode[lastPane.pane.webView] = lastPane
 
-		// Focus the remaining pane if it was the active one being closed
-		if spm.wm.currentlyFocused == node {
-			spm.wm.currentlyFocused = lastPane
+		// FIXED: Focus the remaining pane if any pane from this stack was currently focused
+		// Check if currentlyFocused is part of this stack (including the pane being closed)
+		shouldFocus := false
+		if spm.wm.currentlyFocused != nil {
+			log.Printf("[workspace] DEBUG: currentlyFocused=%p, node being closed=%p, lastPane=%p", 
+				spm.wm.currentlyFocused, node, lastPane)
+			// Check if currentlyFocused is the pane being closed
+			if spm.wm.currentlyFocused == node {
+				shouldFocus = true
+				log.Printf("[workspace] DEBUG: shouldFocus=true (closing focused pane)")
+			} else if spm.wm.currentlyFocused.parent == stackNode {
+				// Check if currentlyFocused is another pane in this stack
+				shouldFocus = true
+				log.Printf("[workspace] DEBUG: shouldFocus=true (focused pane in same stack)")
+			}
+		}
+
+		if shouldFocus {
+			log.Printf("[workspace] focusing remaining pane after stack conversion")
+
+			// Log widget state before focus operations
+			if lastPaneWidget := lastPane.pane.webView.Widget(); lastPaneWidget != 0 {
+				visible := webkit.WidgetGetVisible(lastPaneWidget)
+				log.Printf("[workspace] Widget state before focus: widget=%p visible=%v",
+					unsafe.Pointer(lastPaneWidget), visible)
+			}
+
+			// Update CSS classes (mirror finalizeStackCreation)
+			spm.wm.ensurePaneBaseClasses()
+
+			// Mirror the exact logic from finalizeStackCreation that works perfectly:
+			// 1. First call SetActivePane (this does all the focus work)
+			// 2. Then set currentlyFocused
 			spm.wm.focusManager.SetActivePane(lastPane)
+			spm.wm.currentlyFocused = lastPane
+
+			// CRITICAL: Ensure widget visibility and focus after reparenting
+			// The widget may need explicit show/focus calls after being reparented
+			if lastPaneWidget := lastPane.pane.webView.Widget(); lastPaneWidget != 0 {
+				log.Printf("[workspace] Ensuring widget visibility after reparenting")
+				webkit.WidgetShow(lastPaneWidget)
+				webkit.WidgetGrabFocus(lastPaneWidget)
+
+				// Log widget state after focus operations
+				visible := webkit.WidgetGetVisible(lastPaneWidget)
+				log.Printf("[workspace] Widget state after focus: widget=%p visible=%v",
+					unsafe.Pointer(lastPaneWidget), visible)
+			}
+
+			log.Printf("[workspace] DEBUG: applied finalizeStackCreation focus logic in reverse")
+		} else {
+			log.Printf("[workspace] DEBUG: not focusing remaining pane (shouldFocus=false)")
 		}
 
 		log.Printf("[workspace] converted single-pane stack back to regular pane")

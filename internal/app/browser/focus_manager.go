@@ -180,6 +180,9 @@ func (fm *FocusManager) updateStackVisibility(stackNode *paneNode) {
 func (fm *FocusManager) notifyJavaScript(oldPane, newPane *paneNode) {
 	// Notify old pane it lost focus
 	if oldPane != nil && oldPane.pane != nil && oldPane.pane.webView != nil {
+		// Update WebView internal active state
+		oldPane.pane.webView.SetActive(false)
+		
 		oldDetail := map[string]any{
 			"active": false,
 			"paneId": fm.getPaneID(oldPane),
@@ -191,6 +194,9 @@ func (fm *FocusManager) notifyJavaScript(oldPane, newPane *paneNode) {
 
 	// Notify new pane it gained focus
 	if newPane != nil && newPane.pane != nil && newPane.pane.webView != nil {
+		// Update WebView internal active state
+		newPane.pane.webView.SetActive(true)
+		
 		newDetail := map[string]any{
 			"active": true,
 			"paneId": fm.getPaneID(newPane),
