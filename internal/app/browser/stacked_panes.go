@@ -134,9 +134,29 @@ func (spm *StackedPaneManager) addPaneToExistingStack(target, newLeaf *paneNode)
 		webkit.WidgetUnparent(newLeaf.container)
 	}
 
-	// Add the new widgets to the internal stack box (not the wrapper)
-	webkit.BoxAppend(stackNode.stackWrapper, newLeaf.titleBar)
-	webkit.BoxAppend(stackNode.stackWrapper, newLeaf.container)
+	// Insert widgets at correct position for Zellij-style layout
+	// Each pane has 2 widgets (titleBar, container), so position = insertIndex * 2
+
+	// Find the widget to insert after (based on insertIndex)
+	var insertAfterWidget uintptr = 0
+	if insertIndex > 0 {
+		// Insert after the previous pane's container
+		prevPane := stackNode.stackedPanes[insertIndex-1]
+		insertAfterWidget = prevPane.container
+	}
+
+	if insertAfterWidget != 0 {
+		// Insert titleBar after the previous pane's container
+		webkit.BoxInsertChildAfter(stackNode.stackWrapper, newLeaf.titleBar, insertAfterWidget)
+		// Insert container after the newly inserted titleBar
+		webkit.BoxInsertChildAfter(stackNode.stackWrapper, newLeaf.container, newLeaf.titleBar)
+		log.Printf("[workspace] inserted widgets at position %d (after widget %p)", insertIndex, insertAfterWidget)
+	} else {
+		// Insert at the beginning (insertIndex = 0)
+		webkit.BoxPrepend(stackNode.stackWrapper, newLeaf.container)
+		webkit.BoxPrepend(stackNode.stackWrapper, newLeaf.titleBar)
+		log.Printf("[workspace] prepended widgets at position 0")
+	}
 
 	return stackNode, insertIndex, nil
 }
@@ -286,6 +306,19 @@ func (spm *StackedPaneManager) finalizeStackCreation(stackNode, newLeaf *paneNod
 	// Mark stack operation timestamp to prevent focus conflicts
 	spm.wm.lastStackOperation = time.Now()
 
+	// This ensures Zellij-style layout where the previously active pane shows its current title
+	currentActiveIndex := stackNode.activeStackIndex
+	if currentActiveIndex >= 0 && currentActiveIndex < len(stackNode.stackedPanes) && currentActiveIndex != insertIndex {
+		currentlyActivePane := stackNode.stackedPanes[currentActiveIndex]
+		if currentlyActivePane.pane != nil && currentlyActivePane.pane.webView != nil && currentlyActivePane.titleBar != 0 {
+			currentTitle := currentlyActivePane.pane.webView.GetTitle()
+			if currentTitle != "" {
+				spm.updateTitleBarLabel(currentlyActivePane, currentTitle)
+				log.Printf("[workspace] updated title bar for pane becoming inactive during stack creation: %s", currentTitle)
+			}
+		}
+	}
+
 	// Immediately switch to the new pane (don't use deprecated IdleAdd)
 	stackNode.activeStackIndex = insertIndex
 	spm.UpdateStackVisibility(stackNode)
@@ -398,6 +431,17 @@ func (spm *StackedPaneManager) NavigateStack(direction string) bool {
 
 	if newIndex == currentIndex {
 		return false // No change
+	}
+
+	// Update title bar for the pane transitioning from ACTIVE to INACTIVE
+	// This ensures the collapsed pane shows its current page title (Zellij-style layout)
+	currentActivePane := stackNode.stackedPanes[currentIndex]
+	if currentActivePane.pane != nil && currentActivePane.pane.webView != nil && currentActivePane.titleBar != 0 {
+		currentTitle := currentActivePane.pane.webView.GetTitle()
+		if currentTitle != "" {
+			spm.updateTitleBarLabel(currentActivePane, currentTitle)
+			log.Printf("[workspace] updated title bar for pane transitioning to INACTIVE: %s", currentTitle)
+		}
 	}
 
 	// Update active stack index and visibility
@@ -515,16 +559,32 @@ func (spm *StackedPaneManager) updateTitleBarLabel(node *paneNode, title string)
 
 	// Replace the old title bar in the stack
 	if node.parent != nil && node.parent.isStacked && node.parent.stackWrapper != 0 {
+		// Find the correct insertion position based on the pane's index in the stack
+		paneIndex := -1
+		for i, stackedPane := range node.parent.stackedPanes {
+			if stackedPane == node {
+				paneIndex = i
+				break
+			}
+		}
+
 		// Remove old title bar
 		webkit.WidgetUnparent(node.titleBar)
 
 		// Update the node's title bar reference
 		node.titleBar = newTitleBar
 
-		// Add new title bar to the stack (need to find correct position)
-		webkit.BoxPrepend(node.parent.stackWrapper, newTitleBar)
+		// Insert the new title bar at the correct position
+		if paneIndex == 0 {
+			// First pane - insert at the beginning
+			webkit.BoxPrepend(node.parent.stackWrapper, newTitleBar)
+		} else {
+			// Insert after the previous pane's container
+			prevPane := node.parent.stackedPanes[paneIndex-1]
+			webkit.BoxInsertChildAfter(node.parent.stackWrapper, newTitleBar, prevPane.container)
+		}
 
-		log.Printf("[workspace] replaced title bar for pane: %p", node)
+		log.Printf("[workspace] replaced title bar for pane %d: %p", paneIndex, node)
 	}
 }
 
