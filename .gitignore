@@ -71,6 +71,7 @@ node_modules/
 CLAUDE.md
 .claude/
 memory/
+notes/
 scripts/
 !scripts/generate-types.js
 specs/

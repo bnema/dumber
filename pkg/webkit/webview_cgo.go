@@ -1696,6 +1696,18 @@ func (w *WebView) GetCurrentURL() string {
 	return C.GoString((*C.char)(unsafe.Pointer(uri)))
 }
 
+// GetTitle returns the current page title from WebKit.
+func (w *WebView) GetTitle() string {
+	if w == nil || w.native == nil || w.native.wv == nil {
+		return ""
+	}
+	title := C.webkit_web_view_get_title(w.native.wv)
+	if title == nil {
+		return ""
+	}
+	return C.GoString((*C.char)(unsafe.Pointer(title)))
+}
+
 func (w *WebView) GoBack() error {
 	if w == nil || w.native == nil || w.native.wv == nil {
 		return ErrNotImplemented

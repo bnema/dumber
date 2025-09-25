@@ -80,6 +80,7 @@ const DEFAULT_CONFIG: WorkspaceConfigNormalized = {
       l: "split-left",
       u: "split-up",
       d: "split-down",
+      s: "stack-pane",
       x: "close-pane",
       enter: "confirm",
       escape: "cancel",
@@ -338,6 +339,14 @@ class WorkspaceController implements WorkspaceRuntime {
         this.bridge({ event: "pane-split", direction: "down" });
         this.showToast("Split pane downwards");
         this.exitPaneMode("split-down");
+        break;
+      case "stack-pane":
+        this.emitWorkspaceEvent("pane-stack", {
+          config: this.config,
+        });
+        this.bridge({ event: "pane-stack" });
+        this.showToast("Stacked pane");
+        this.exitPaneMode("stack-pane");
         break;
       case "close-pane":
         this.emitWorkspaceEvent("pane-closed", { key, config: this.config });

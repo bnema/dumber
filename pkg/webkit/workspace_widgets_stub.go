@@ -186,3 +186,47 @@ func AddCSSProvider(css string) {}
 func WidgetAddCSSClass(widget uintptr, class string) {}
 
 func WidgetRemoveCSSClass(widget uintptr, class string) {}
+
+// GtkBox functions for stacked panes (stub implementations)
+
+func NewBox(orientation Orientation, spacing int) uintptr {
+	return newWidgetHandle()
+}
+
+func BoxAppend(box uintptr, child uintptr) {}
+
+func BoxPrepend(box uintptr, child uintptr) {}
+
+func BoxRemove(box uintptr, child uintptr) {}
+
+func BoxInsertChildAfter(box uintptr, child uintptr, sibling uintptr) {}
+
+// Widget visibility functions for stacked panes (stub implementations)
+
+func WidgetSetVisible(widget uintptr, visible bool) {}
+
+func WidgetGetVisible(widget uintptr) bool { return true }
+
+func WidgetHide(widget uintptr) {}
+
+// Label functions for title bars (stub implementations)
+
+func NewLabel(text string) uintptr {
+	return newWidgetHandle()
+}
+
+func LabelSetText(label uintptr, text string) {}
+
+func LabelGetText(label uintptr) string { return "" }
+
+// EllipsizeMode represents PangoEllipsizeMode values in stub builds.
+type EllipsizeMode int
+
+const (
+	EllipsizeNone   EllipsizeMode = 0
+	EllipsizeStart  EllipsizeMode = 1
+	EllipsizeMiddle EllipsizeMode = 2
+	EllipsizeEnd    EllipsizeMode = 3
+)
+
+func LabelSetEllipsize(label uintptr, mode EllipsizeMode) {}

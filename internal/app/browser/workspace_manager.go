@@ -19,7 +19,7 @@ type paneNode struct {
 	parent      *paneNode
 	left        *paneNode
 	right       *paneNode
-	container   uintptr // GtkPaned for branch nodes, stable WebView container for leaves
+	container   uintptr // GtkPaned for branch nodes, GtkBox for stacked nodes, stable WebView container for leaves
 	orientation webkit.Orientation
 	isLeaf      bool
 	isPopup     bool // Deprecated: use windowType instead
@@ -30,6 +30,11 @@ type paneNode struct {
 	parentPane     *paneNode              // Parent for related views
 	autoClose      bool                   // Auto-close on OAuth success
 	hoverToken     uintptr
+	// Stacked panes support
+	isStacked        bool        // Whether this node contains stacked panes
+	stackedPanes     []*paneNode // List of stacked panes (if isStacked)
+	activeStackIndex int         // Index of currently visible pane in stack
+	titleBar         uintptr     // GtkBox for title bar (when collapsed)
 }
 
 // WorkspaceManager coordinates Zellij-style pane operations.
@@ -214,6 +219,28 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 		}
 		wm.clonePaneState(node, newNode)
 		wm.splitting = false
+	case "pane-stack":
+		wm.focusNode(node)
+		if last, ok := wm.lastSplitMsg[source]; ok {
+			if time.Since(last) < 200*time.Millisecond {
+				log.Printf("[workspace] stack ignored: debounce (%.0fms)", time.Since(last).Seconds()*1000)
+				return
+			}
+		}
+		if wm.splitting {
+			log.Printf("[workspace] stack ignored: operation already in progress")
+			return
+		}
+		wm.splitting = true
+		wm.lastSplitMsg[source] = time.Now()
+		newNode, err := wm.stackPane(node)
+		if err != nil {
+			log.Printf("[workspace] stack failed: %v", err)
+			wm.splitting = false
+			return
+		}
+		wm.clonePaneState(node, newNode)
+		wm.splitting = false
 	case "create-pane":
 		log.Printf("[workspace] create-pane requested: url=%s action=%s requestId=%s", msg.URL, msg.Action, msg.RequestID)
 
@@ -360,6 +387,22 @@ func (wm *WorkspaceManager) focusNode(node *paneNode) {
 		return
 	}
 
+	// Handle stacked pane focus: ensure the pane is active in its stack
+	if node.parent != nil && node.parent.isStacked {
+		stackNode := node.parent
+		// Find the index of this node in the stack
+		for i, stackedPane := range stackNode.stackedPanes {
+			if stackedPane == node {
+				if stackNode.activeStackIndex != i {
+					stackNode.activeStackIndex = i
+					wm.updateStackVisibility(stackNode)
+					log.Printf("[workspace] updated stack focus: activeIndex=%d for pane=%p", i, node)
+				}
+				break
+			}
+		}
+	}
+
 	previous := wm.active
 	var previousContainer uintptr
 	var previousWebView *webkit.WebView
@@ -452,6 +495,28 @@ func (wm *WorkspaceManager) focusNode(node *paneNode) {
 	}
 }
 
+// Helper functions for stacked pane CSS colors
+func getStackTitleBg(isDark bool) string {
+	if isDark {
+		return "#404040"
+	}
+	return "#f0f0f0"
+}
+
+func getStackTitleHoverBg(isDark bool) string {
+	if isDark {
+		return "#505050"
+	}
+	return "#e0e0e0"
+}
+
+func getStackTitleTextColor(isDark bool) string {
+	if isDark {
+		return "#ffffff"
+	}
+	return "#333333"
+}
+
 // generateActivePaneCSS generates the CSS for workspace panes based on config
 func (wm *WorkspaceManager) generateActivePaneCSS() string {
 	cfg := config.Get()
@@ -489,6 +554,38 @@ func (wm *WorkspaceManager) generateActivePaneCSS() string {
 
 	.workspace-pane.workspace-multi-pane.workspace-pane-active {
 	  border-color: %s;
+	}
+
+	/* Stacked panes styling */
+	.stacked-pane-container {
+	  background-color: %s;
+	  border-radius: %dpx;
+	}
+
+	.stacked-pane-title {
+	  background-color: %s;
+	  border-bottom: 1px solid %s;
+	  padding: 4px 8px;
+	  min-height: 24px;
+	  transition: background-color %dms ease-in-out;
+	}
+
+	.stacked-pane-title:hover {
+	  background-color: %s;
+	}
+
+	.stacked-pane-title-text {
+	  font-size: 12px;
+	  color: %s;
+	  font-weight: 500;
+	}
+
+	.stacked-pane-active {
+	  /* Active pane is fully visible */
+	}
+
+	.stacked-pane-collapsed {
+	  /* Collapsed panes are hidden - handled in code via widget visibility */
 	}`,
 		windowBackgroundColor,
 		windowBackgroundColor,
@@ -500,6 +597,14 @@ func (wm *WorkspaceManager) generateActivePaneCSS() string {
 		inactiveBorderColor,
 		styling.BorderRadius,
 		styling.BorderColor,
+		// Additional parameters for stacked pane styles
+		windowBackgroundColor,          // stacked-pane-container background
+		styling.BorderRadius,           // stacked-pane-container border-radius
+		getStackTitleBg(isDark),        // stacked-pane-title background
+		inactiveBorderColor,            // stacked-pane-title border-bottom
+		styling.TransitionDuration,     // stacked-pane-title transition
+		getStackTitleHoverBg(isDark),   // stacked-pane-title:hover background
+		getStackTitleTextColor(isDark), // stacked-pane-title-text color
 	)
 
 	// Log the actual CSS being generated
@@ -592,17 +697,97 @@ func (wm *WorkspaceManager) detachHover(node *paneNode) {
 }
 
 // FocusNeighbor moves focus to the nearest pane in the requested direction using the
-// actual widget geometry to determine adjacency.
+// actual widget geometry to determine adjacency. For stacked panes, "up" and "down"
+// navigate within the stack.
 func (wm *WorkspaceManager) FocusNeighbor(direction string) bool {
 	if wm == nil {
 		return false
 	}
 	switch strings.ToLower(direction) {
-	case "left", "right", "up", "down":
+	case "up", "down":
+		// Check if current pane is part of a stack and handle stack navigation
+		if wm.navigateStack(strings.ToLower(direction)) {
+			return true
+		}
+		// Fall back to regular adjacency navigation
+		return wm.focusAdjacent(strings.ToLower(direction))
+	case "left", "right":
 		return wm.focusAdjacent(strings.ToLower(direction))
 	default:
 		return false
 	}
+}
+
+// navigateStack handles navigation within a stacked pane container.
+func (wm *WorkspaceManager) navigateStack(direction string) bool {
+	if wm.active == nil {
+		return false
+	}
+
+	// Find the stack container this pane belongs to
+	var stackNode *paneNode
+	current := wm.active
+
+	// Check if current pane is directly in a stack
+	if current.parent != nil && current.parent.isStacked {
+		stackNode = current.parent
+	} else {
+		// Current pane might be the stack container itself if it was the first pane converted to stack
+		if current.isStacked {
+			stackNode = current
+		}
+	}
+
+	if stackNode == nil || !stackNode.isStacked || len(stackNode.stackedPanes) <= 1 {
+		return false // Not in a stack or stack has only one pane
+	}
+
+	// Find current pane's index in the stack
+	currentIndex := -1
+	for i, pane := range stackNode.stackedPanes {
+		if pane == current || (pane.pane != nil && current.pane != nil && pane.pane.webView == current.pane.webView) {
+			currentIndex = i
+			break
+		}
+	}
+
+	if currentIndex == -1 {
+		log.Printf("[workspace] navigateStack: current pane not found in stack")
+		return false
+	}
+
+	// Calculate new index based on direction
+	var newIndex int
+	switch direction {
+	case "up":
+		newIndex = currentIndex - 1
+		if newIndex < 0 {
+			newIndex = len(stackNode.stackedPanes) - 1 // Wrap to last
+		}
+	case "down":
+		newIndex = currentIndex + 1
+		if newIndex >= len(stackNode.stackedPanes) {
+			newIndex = 0 // Wrap to first
+		}
+	default:
+		return false
+	}
+
+	if newIndex == currentIndex {
+		return false // No change
+	}
+
+	// Update active stack index and visibility
+	stackNode.activeStackIndex = newIndex
+	wm.updateStackVisibility(stackNode)
+
+	// Focus the new active pane
+	newActivePane := stackNode.stackedPanes[newIndex]
+	wm.focusNode(newActivePane)
+
+	log.Printf("[workspace] navigated stack: direction=%s from=%d to=%d stackSize=%d",
+		direction, currentIndex, newIndex, len(stackNode.stackedPanes))
+	return true
 }
 
 const focusEpsilon = 1e-3
@@ -1041,6 +1226,227 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string) (*pane
 	return newLeaf, nil
 }
 
+// stackPane creates a new pane stacked on top of the target pane.
+// Similar to splitNode but creates a stack container instead of a paned widget.
+func (wm *WorkspaceManager) stackPane(target *paneNode) (*paneNode, error) {
+	if target == nil || !target.isLeaf || target.pane == nil {
+		return nil, errors.New("stack target must be a leaf pane")
+	}
+
+	newView, err := wm.createWebView()
+	if err != nil {
+		return nil, err
+	}
+
+	newPane, err := wm.createPane(newView)
+	if err != nil {
+		return nil, err
+	}
+
+	if handler := newPane.MessageHandler(); handler != nil {
+		handler.SetWorkspaceObserver(wm)
+	}
+
+	newContainer := newPane.webView.RootWidget()
+	if newContainer == 0 {
+		return nil, errors.New("new pane missing container")
+	}
+	webkit.WidgetSetHExpand(newContainer, true)
+	webkit.WidgetSetVExpand(newContainer, true)
+	webkit.WidgetRealizeInContainer(newContainer)
+
+	// If target is not already stacked, convert it to a stacked node
+	if !target.isStacked {
+		log.Printf("[workspace] converting pane to stacked: %p", target)
+
+		// Create a vertical box container for the stack
+		stackContainer := webkit.NewBox(webkit.OrientationVertical, 0)
+		if stackContainer == 0 {
+			return nil, errors.New("failed to create stack container")
+		}
+		webkit.WidgetSetHExpand(stackContainer, true)
+		webkit.WidgetSetVExpand(stackContainer, true)
+
+		// Get the existing container and parent info
+		existingContainer := target.container
+		parent := target.parent
+
+		// Detach existing container from its parent
+		if parent == nil {
+			// Target is the root - remove it from window
+			if wm.window != nil {
+				wm.window.SetChild(0)
+			}
+		} else if parent.container != 0 {
+			// Target has a parent - unparent it
+			if parent.left == target {
+				webkit.PanedSetStartChild(parent.container, 0)
+			} else if parent.right == target {
+				webkit.PanedSetEndChild(parent.container, 0)
+			}
+		}
+
+		webkit.WidgetUnparent(existingContainer)
+
+		// Create title bar for the existing pane
+		titleBar := wm.createTitleBar(target)
+
+		// Add ONLY the title bar for the first pane to the stack container initially
+		// The webview content will be added when this pane becomes active
+		webkit.BoxAppend(stackContainer, titleBar)
+		webkit.BoxAppend(stackContainer, existingContainer)
+
+		// Convert target to a stacked node but keep it as a leaf for content management
+		target.isStacked = true
+		target.isLeaf = true                 // Keep as leaf so updateStackVisibility works correctly
+		target.container = existingContainer // Keep original container for visibility control
+		target.titleBar = titleBar
+
+		// Create a parent stacked container node
+		stackNode := &paneNode{
+			isStacked:        true,
+			isLeaf:           false,
+			container:        stackContainer,
+			stackedPanes:     []*paneNode{target},
+			activeStackIndex: 1, // NEW PANE WILL BE ACTIVE (index 1)
+			parent:           parent,
+		}
+
+		// Update target's parent to be the stack node
+		target.parent = stackNode
+
+		// Update parent references
+		if parent == nil {
+			wm.root = stackNode
+			if wm.window != nil {
+				wm.window.SetChild(stackContainer)
+			}
+		} else {
+			if parent.left == target {
+				parent.left = stackNode
+				webkit.PanedSetStartChild(parent.container, stackContainer)
+			} else if parent.right == target {
+				parent.right = stackNode
+				webkit.PanedSetEndChild(parent.container, stackContainer)
+			}
+		}
+
+		// Update target to point to the stack node for further operations
+		target = stackNode
+	}
+
+	// Create new leaf node for the new pane
+	newLeaf := &paneNode{
+		pane:      newPane,
+		parent:    target,
+		container: newContainer,
+		isLeaf:    true,
+	}
+
+	// Create title bar for the new pane
+	newTitleBar := wm.createTitleBar(newLeaf)
+	newLeaf.titleBar = newTitleBar
+
+	// Add new pane to the stack
+	target.stackedPanes = append(target.stackedPanes, newLeaf)
+	webkit.BoxAppend(target.container, newTitleBar)
+
+	// Unparent the new container before adding it to the stack
+	webkit.WidgetUnparent(newContainer)
+	webkit.BoxAppend(target.container, newContainer)
+
+	// Ensure the activeStackIndex is correct (should be 1 for the new pane)
+	target.activeStackIndex = len(target.stackedPanes) - 1
+
+	// Update workspace state FIRST
+	wm.viewToNode[newPane.webView] = newLeaf
+	wm.ensureHover(newLeaf)
+	wm.app.panes = append(wm.app.panes, newPane)
+	if newPane.zoomController != nil {
+		newPane.zoomController.ApplyInitialZoom()
+	}
+
+	// Update CSS classes
+	wm.ensurePaneBaseClasses()
+
+	// Show the new container immediately
+	webkit.WidgetShow(newContainer)
+
+	// Update stack visibility to show the new pane as active
+	wm.updateStackVisibility(target)
+
+	// Focus the new pane IMMEDIATELY (not in IdleAdd)
+	wm.focusNode(newLeaf)
+
+	log.Printf("[workspace] stacked new pane: target=%p newLeaf=%p stackSize=%d activeIndex=%d", target, newLeaf, len(target.stackedPanes), target.activeStackIndex)
+	return newLeaf, nil
+}
+
+// createTitleBar creates a title bar widget for a pane in a stack.
+func (wm *WorkspaceManager) createTitleBar(pane *paneNode) uintptr {
+	titleBox := webkit.NewBox(webkit.OrientationHorizontal, 8)
+	if titleBox == 0 {
+		log.Printf("[workspace] failed to create title bar box")
+		return 0
+	}
+
+	webkit.WidgetSetHExpand(titleBox, true)
+	webkit.WidgetSetVExpand(titleBox, false)
+
+	// Create label for page title and domain
+	title := "New Tab"
+	if pane.pane != nil && pane.pane.webView != nil {
+		if pageTitle := pane.pane.webView.GetTitle(); pageTitle != "" {
+			title = pageTitle
+		}
+	}
+
+	label := webkit.NewLabel(title)
+	if label != 0 {
+		webkit.LabelSetEllipsize(label, webkit.EllipsizeEnd)
+		webkit.WidgetSetHExpand(label, true)
+		webkit.BoxAppend(titleBox, label)
+	}
+
+	// Add CSS classes
+	webkit.WidgetAddCSSClass(titleBox, "stacked-pane-title")
+	webkit.WidgetAddCSSClass(label, "stacked-pane-title-text")
+
+	log.Printf("[workspace] created title bar: box=%#x label=%#x title=%s", titleBox, label, title)
+	return titleBox
+}
+
+// updateStackVisibility updates the visibility of panes in a stack.
+func (wm *WorkspaceManager) updateStackVisibility(stackNode *paneNode) {
+	if !stackNode.isStacked || len(stackNode.stackedPanes) == 0 {
+		return
+	}
+
+	activeIndex := stackNode.activeStackIndex
+	if activeIndex < 0 || activeIndex >= len(stackNode.stackedPanes) {
+		activeIndex = 0
+		stackNode.activeStackIndex = activeIndex
+	}
+
+	log.Printf("[workspace] updating stack visibility: activeIndex=%d stackSize=%d", activeIndex, len(stackNode.stackedPanes))
+
+	for i, pane := range stackNode.stackedPanes {
+		if i == activeIndex {
+			// Show active pane's content, hide its title bar
+			webkit.WidgetSetVisible(pane.container, true)
+			webkit.WidgetSetVisible(pane.titleBar, false)
+			webkit.WidgetAddCSSClass(pane.container, "stacked-pane-active")
+			webkit.WidgetRemoveCSSClass(pane.container, "stacked-pane-collapsed")
+		} else {
+			// Hide inactive pane's content, show its title bar
+			webkit.WidgetSetVisible(pane.container, false)
+			webkit.WidgetSetVisible(pane.titleBar, true)
+			webkit.WidgetAddCSSClass(pane.container, "stacked-pane-collapsed")
+			webkit.WidgetRemoveCSSClass(pane.container, "stacked-pane-active")
+		}
+	}
+}
+
 func (wm *WorkspaceManager) clonePaneState(_ *paneNode, target *paneNode) {
 	if wm == nil || target == nil {
 		return
@@ -1084,6 +1490,11 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 	}
 	if node.pane == nil || node.pane.webView == nil {
 		return errors.New("close target missing webview")
+	}
+
+	// Handle closing panes in a stack
+	if node.parent != nil && node.parent.isStacked {
+		return wm.closeStackedPane(node)
 	}
 
 	if node.parent != nil && node.parent.container != 0 {
@@ -1462,6 +1873,141 @@ func (wm *WorkspaceManager) findReplacementRoot(excludeNode *paneNode) *paneNode
 			return leaf
 		}
 	}
+
+	return nil
+}
+
+// closeStackedPane handles closing a pane that is part of a stack.
+func (wm *WorkspaceManager) closeStackedPane(node *paneNode) error {
+	if node.parent == nil || !node.parent.isStacked {
+		return errors.New("node is not part of a stacked pane")
+	}
+
+	stackNode := node.parent
+
+	// Find the index of the node to be closed
+	nodeIndex := -1
+	for i, stackedPane := range stackNode.stackedPanes {
+		if stackedPane == node {
+			nodeIndex = i
+			break
+		}
+	}
+
+	if nodeIndex == -1 {
+		return errors.New("node not found in stack")
+	}
+
+	log.Printf("[workspace] closing stacked pane: index=%d stackSize=%d", nodeIndex, len(stackNode.stackedPanes))
+
+	// Clean up the pane
+	wm.detachHover(node)
+	delete(wm.viewToNode, node.pane.webView)
+
+	// Remove from app.panes
+	for i, pane := range wm.app.panes {
+		if pane == node.pane {
+			wm.app.panes = append(wm.app.panes[:i], wm.app.panes[i+1:]...)
+			break
+		}
+	}
+
+	// Remove the pane's widgets from the stack container
+	if node.titleBar != 0 {
+		webkit.BoxRemove(stackNode.container, node.titleBar)
+	}
+	if node.container != 0 {
+		webkit.BoxRemove(stackNode.container, node.container)
+		webkit.WidgetUnparent(node.container)
+	}
+
+	// Clean up the pane
+	node.pane.Cleanup()
+
+	// Remove from the stack
+	stackNode.stackedPanes = append(stackNode.stackedPanes[:nodeIndex], stackNode.stackedPanes[nodeIndex+1:]...)
+
+	// Handle the remaining panes in the stack
+	if len(stackNode.stackedPanes) == 0 {
+		// No panes left in stack - this should not happen normally
+		log.Printf("[workspace] warning: empty stack after closing pane")
+		return errors.New("stack became empty")
+	} else if len(stackNode.stackedPanes) == 1 {
+		// Only one pane left - convert back to a regular pane
+		lastPane := stackNode.stackedPanes[0]
+
+		// Remove the title bar since we're going back to single pane
+		if lastPane.titleBar != 0 {
+			webkit.BoxRemove(stackNode.container, lastPane.titleBar)
+		}
+
+		// Replace the stack container with the pane's container
+		parent := stackNode.parent
+		lastPaneContainer := lastPane.container
+
+		// Unparent from stack container
+		webkit.BoxRemove(stackNode.container, lastPaneContainer)
+		webkit.WidgetUnparent(lastPaneContainer)
+
+		// Convert back to regular pane structure
+		lastPane.parent = parent
+		lastPane.isStacked = false
+		lastPane.stackedPanes = nil
+		lastPane.titleBar = 0
+		stackNode.isStacked = false
+		stackNode.stackedPanes = nil
+		stackNode.container = lastPaneContainer
+		stackNode.isLeaf = true
+		stackNode.pane = lastPane.pane
+
+		// Update parent references
+		if parent == nil {
+			wm.root = stackNode
+			if wm.window != nil {
+				wm.window.SetChild(lastPaneContainer)
+			}
+		} else {
+			if parent.left == stackNode {
+				webkit.PanedSetStartChild(parent.container, lastPaneContainer)
+			} else if parent.right == stackNode {
+				webkit.PanedSetEndChild(parent.container, lastPaneContainer)
+			}
+		}
+
+		// Update the viewToNode mapping
+		wm.viewToNode[lastPane.pane.webView] = stackNode
+
+		// Focus the remaining pane if it was the active one being closed
+		if wm.active == node {
+			wm.focusNode(stackNode)
+		}
+
+		log.Printf("[workspace] converted single-pane stack back to regular pane")
+	} else {
+		// Multiple panes remain in stack - adjust active index
+		if stackNode.activeStackIndex >= nodeIndex && stackNode.activeStackIndex > 0 {
+			stackNode.activeStackIndex--
+		}
+		if stackNode.activeStackIndex >= len(stackNode.stackedPanes) {
+			stackNode.activeStackIndex = len(stackNode.stackedPanes) - 1
+		}
+
+		// Update visibility for remaining panes
+		wm.updateStackVisibility(stackNode)
+
+		// Focus the new active pane if we closed the currently active one
+		if wm.active == node {
+			newActivePaneInStack := stackNode.stackedPanes[stackNode.activeStackIndex]
+			wm.focusNode(newActivePaneInStack)
+		}
+
+		log.Printf("[workspace] closed pane from stack: remaining=%d activeIndex=%d",
+			len(stackNode.stackedPanes), stackNode.activeStackIndex)
+	}
+
+	// Update CSS classes after pane count changes
+	wm.ensurePaneBaseClasses()
+	log.Printf("[workspace] stacked pane closed; panes remaining=%d", len(wm.app.panes))
 
 	return nil
 }

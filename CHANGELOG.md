@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **Pin/favorite sites**: Pin websites from history or quick access to prioritize them in "Jump back in" section. Uses localStorage persistence with star icons for pin/unpin actions
+- **Zellij-style stacked panes**: Added Ctrl+P → 's' to stack panes instead of splitting, with Alt+Up/Down navigation between stacked panes. Features collapsed title bars showing "Page Title - domain" for inactive panes and full WebView interaction for the active pane. Includes GTK4 CSS styling for proper visual feedback
 
 ### Changed
 - **History item layout**: Removed "• domain" from titles, now highlight domain within the full URL using same color as title text

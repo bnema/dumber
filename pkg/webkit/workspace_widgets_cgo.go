@@ -147,6 +147,72 @@ static void widget_remove_css_class(GtkWidget* widget, const char* name) {
     if (!widget || !name) return;
     gtk_widget_remove_css_class(widget, name);
 }
+
+// GtkBox helpers for stacked panes
+static GtkWidget* box_new(GtkOrientation orientation, int spacing) {
+    return gtk_box_new(orientation, spacing);
+}
+
+static void box_append(GtkWidget* box, GtkWidget* child) {
+    if (!box || !child) return;
+    gtk_box_append(GTK_BOX(box), child);
+}
+
+static void box_prepend(GtkWidget* box, GtkWidget* child) {
+    if (!box || !child) return;
+    gtk_box_prepend(GTK_BOX(box), child);
+}
+
+static void box_remove(GtkWidget* box, GtkWidget* child) {
+    if (!box || !child) return;
+    gtk_box_remove(GTK_BOX(box), child);
+}
+
+static void box_insert_child_after(GtkWidget* box, GtkWidget* child, GtkWidget* sibling) {
+    if (!box || !child) return;
+    gtk_box_insert_child_after(GTK_BOX(box), child, sibling);
+}
+
+// Widget visibility helpers for stacked panes
+static void widget_set_visible(GtkWidget* widget, gboolean visible) {
+    if (!widget) return;
+    gtk_widget_set_visible(widget, visible);
+}
+
+static gboolean widget_get_visible(GtkWidget* widget) {
+    if (!widget) return FALSE;
+    return gtk_widget_get_visible(widget);
+}
+
+static void widget_hide(GtkWidget* widget) {
+    if (!widget) return;
+    gtk_widget_set_visible(widget, FALSE);
+}
+
+static void widget_show(GtkWidget* widget) {
+    if (!widget) return;
+    gtk_widget_set_visible(widget, TRUE);
+}
+
+// Label helpers for title bars
+static GtkWidget* label_new(const char* text) {
+    return gtk_label_new(text);
+}
+
+static void label_set_text(GtkWidget* label, const char* text) {
+    if (!label || !text) return;
+    gtk_label_set_text(GTK_LABEL(label), text);
+}
+
+static const char* label_get_text(GtkWidget* label) {
+    if (!label) return NULL;
+    return gtk_label_get_text(GTK_LABEL(label));
+}
+
+static void label_set_ellipsize(GtkWidget* label, int mode) {
+    if (!label) return;
+    gtk_label_set_ellipsize(GTK_LABEL(label), (PangoEllipsizeMode)mode);
+}
 */
 import "C"
 
@@ -545,4 +611,126 @@ func goHoverCallback(handle C.uintptr_t) {
 	if fn != nil {
 		fn()
 	}
+}
+
+// GtkBox functions for stacked panes
+
+// NewBox creates a new GtkBox widget with the specified orientation and spacing.
+func NewBox(orientation Orientation, spacing int) uintptr {
+	box := C.box_new(C.GtkOrientation(orientation), C.int(spacing))
+	return uintptr(unsafe.Pointer(box))
+}
+
+// BoxAppend adds a child widget to the end of a GtkBox.
+func BoxAppend(box uintptr, child uintptr) {
+	if box == 0 || child == 0 {
+		return
+	}
+	log.Printf("[workspace] BoxAppend box=%#x child=%#x", box, child)
+	C.box_append((*C.GtkWidget)(unsafe.Pointer(box)), (*C.GtkWidget)(unsafe.Pointer(child)))
+}
+
+// BoxPrepend adds a child widget to the beginning of a GtkBox.
+func BoxPrepend(box uintptr, child uintptr) {
+	if box == 0 || child == 0 {
+		return
+	}
+	log.Printf("[workspace] BoxPrepend box=%#x child=%#x", box, child)
+	C.box_prepend((*C.GtkWidget)(unsafe.Pointer(box)), (*C.GtkWidget)(unsafe.Pointer(child)))
+}
+
+// BoxRemove removes a child widget from a GtkBox.
+func BoxRemove(box uintptr, child uintptr) {
+	if box == 0 || child == 0 {
+		return
+	}
+	log.Printf("[workspace] BoxRemove box=%#x child=%#x", box, child)
+	C.box_remove((*C.GtkWidget)(unsafe.Pointer(box)), (*C.GtkWidget)(unsafe.Pointer(child)))
+}
+
+// BoxInsertChildAfter inserts a child widget after a sibling in a GtkBox.
+func BoxInsertChildAfter(box uintptr, child uintptr, sibling uintptr) {
+	if box == 0 || child == 0 {
+		return
+	}
+	log.Printf("[workspace] BoxInsertChildAfter box=%#x child=%#x sibling=%#x", box, child, sibling)
+	C.box_insert_child_after((*C.GtkWidget)(unsafe.Pointer(box)), (*C.GtkWidget)(unsafe.Pointer(child)), (*C.GtkWidget)(unsafe.Pointer(sibling)))
+}
+
+// Widget visibility functions for stacked panes
+
+// WidgetSetVisible sets the visibility state of a widget.
+func WidgetSetVisible(widget uintptr, visible bool) {
+	if widget == 0 {
+		return
+	}
+	log.Printf("[workspace] WidgetSetVisible widget=%#x visible=%v", widget, visible)
+	C.widget_set_visible((*C.GtkWidget)(unsafe.Pointer(widget)), goBool(visible))
+}
+
+// WidgetGetVisible returns the visibility state of a widget.
+func WidgetGetVisible(widget uintptr) bool {
+	if widget == 0 {
+		return false
+	}
+	return C.widget_get_visible((*C.GtkWidget)(unsafe.Pointer(widget))) != 0
+}
+
+// WidgetHide hides a widget.
+func WidgetHide(widget uintptr) {
+	if widget == 0 {
+		return
+	}
+	log.Printf("[workspace] WidgetHide widget=%#x", widget)
+	C.widget_hide((*C.GtkWidget)(unsafe.Pointer(widget)))
+}
+
+// Label functions for title bars
+
+// NewLabel creates a new GtkLabel widget with the specified text.
+func NewLabel(text string) uintptr {
+	cstr := C.CString(text)
+	defer C.free(unsafe.Pointer(cstr))
+	label := C.label_new(cstr)
+	return uintptr(unsafe.Pointer(label))
+}
+
+// LabelSetText sets the text of a GtkLabel.
+func LabelSetText(label uintptr, text string) {
+	if label == 0 {
+		return
+	}
+	cstr := C.CString(text)
+	defer C.free(unsafe.Pointer(cstr))
+	C.label_set_text((*C.GtkWidget)(unsafe.Pointer(label)), cstr)
+}
+
+// LabelGetText returns the text of a GtkLabel.
+func LabelGetText(label uintptr) string {
+	if label == 0 {
+		return ""
+	}
+	cstr := C.label_get_text((*C.GtkWidget)(unsafe.Pointer(label)))
+	if cstr == nil {
+		return ""
+	}
+	return C.GoString(cstr)
+}
+
+// EllipsizeMode represents PangoEllipsizeMode values.
+type EllipsizeMode int
+
+const (
+	EllipsizeNone   EllipsizeMode = 0 // PANGO_ELLIPSIZE_NONE
+	EllipsizeStart  EllipsizeMode = 1 // PANGO_ELLIPSIZE_START
+	EllipsizeMiddle EllipsizeMode = 2 // PANGO_ELLIPSIZE_MIDDLE
+	EllipsizeEnd    EllipsizeMode = 3 // PANGO_ELLIPSIZE_END
+)
+
+// LabelSetEllipsize sets the ellipsization mode for a GtkLabel.
+func LabelSetEllipsize(label uintptr, mode EllipsizeMode) {
+	if label == 0 {
+		return
+	}
+	C.label_set_ellipsize((*C.GtkWidget)(unsafe.Pointer(label)), C.int(mode))
 }

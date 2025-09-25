@@ -589,7 +589,6 @@ func zoomKeyFromURL(raw string) string {
 // ZoomKeyForLog exposes the derived zoom key (host or raw URL) for logging from other packages.
 func ZoomKeyForLog(raw string) string { return zoomKeyFromURL(raw) }
 
-
 // handleFaviconChanged processes favicon data received from WebKit (legacy binary data method)
 func (s *BrowserService) handleFaviconChanged(pageURL string, pngData []byte) {
 	log.Printf("[favicon] Processing favicon for %s, data size: %d bytes", pageURL, len(pngData))
