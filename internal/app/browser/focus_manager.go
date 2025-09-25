@@ -64,7 +64,7 @@ func (fm *FocusManager) SetActivePane(node *paneNode) {
 	fm.setGTKFocus(node)
 
 	// Step 2: Update visual indicators
-	fm.updateVisualState(oldPane, node)
+	fm.updateVisualState(node)
 
 	// Step 3: Notify JavaScript bridge
 	fm.notifyJavaScript(oldPane, node)
@@ -106,17 +106,20 @@ func (fm *FocusManager) setGTKFocus(node *paneNode) {
 }
 
 // updateVisualState manages CSS classes and visibility
-func (fm *FocusManager) updateVisualState(oldPane, newPane *paneNode) {
+func (fm *FocusManager) updateVisualState(newPane *paneNode) {
 	activePaneClass := "workspace-pane-active"
 
-	// Remove active class from old pane
-	if oldPane != nil && oldPane.container != 0 {
-		webkit.WidgetRemoveCSSClass(oldPane.container, activePaneClass)
-		webkit.WidgetQueueDraw(oldPane.container)
+	// ROBUST: Remove active class from ALL leaf panes to prevent multiple active states
+	// This ensures we never have a race condition or missed cleanup
+	leaves := fm.wm.collectLeaves()
+	for _, leaf := range leaves {
+		if leaf != nil && leaf.container != 0 {
+			webkit.WidgetRemoveCSSClass(leaf.container, activePaneClass)
+		}
 	}
 
-	// Add active class to new pane
-	if newPane.container != 0 {
+	// Add active class to new pane only
+	if newPane != nil && newPane.container != 0 {
 		webkit.WidgetAddCSSClass(newPane.container, activePaneClass)
 		webkit.WidgetQueueDraw(newPane.container)
 	}
@@ -182,7 +185,7 @@ func (fm *FocusManager) notifyJavaScript(oldPane, newPane *paneNode) {
 	if oldPane != nil && oldPane.pane != nil && oldPane.pane.webView != nil {
 		// Update WebView internal active state
 		oldPane.pane.webView.SetActive(false)
-		
+
 		oldDetail := map[string]any{
 			"active": false,
 			"paneId": fm.getPaneID(oldPane),
@@ -196,7 +199,7 @@ func (fm *FocusManager) notifyJavaScript(oldPane, newPane *paneNode) {
 	if newPane != nil && newPane.pane != nil && newPane.pane.webView != nil {
 		// Update WebView internal active state
 		newPane.pane.webView.SetActive(true)
-		
+
 		newDetail := map[string]any{
 			"active": true,
 			"paneId": fm.getPaneID(newPane),
@@ -233,20 +236,9 @@ func (fm *FocusManager) isValidNode(node *paneNode) bool {
 
 // findStackContainer finds the stack container that contains this node
 func (fm *FocusManager) findStackContainer(node *paneNode) *paneNode {
-	// Traverse up the tree looking for a stack container
-	current := node
-	for current != nil {
-		if current.stackedPanes != nil {
-			// This is a stack container, check if it contains our node
-			for _, stackedPane := range current.stackedPanes {
-				if stackedPane == node {
-					return current
-				}
-			}
-		}
-		// Move up the tree (we'd need parent pointers for this)
-		// For now, traverse the entire tree
-		break
+	// Check if the immediate parent is a stack container
+	if node != nil && node.parent != nil && node.parent.isStacked {
+		return node.parent
 	}
 	return nil
 }

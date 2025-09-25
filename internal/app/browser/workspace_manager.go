@@ -77,9 +77,8 @@ type WorkspaceManager struct {
 }
 
 const (
-	activePaneClass = "workspace-pane-active"
-	basePaneClass   = "workspace-pane"
-	multiPaneClass  = "workspace-multi-pane"
+	basePaneClass  = "workspace-pane"
+	multiPaneClass = "workspace-multi-pane"
 )
 
 // Workspace navigation shortcuts are now handled globally by WindowShortcutHandler
@@ -976,10 +975,14 @@ func (wm *WorkspaceManager) collectLeavesFrom(node *paneNode) []*paneNode {
 			return
 		}
 
-		// Handle stacked panes - traverse the stacked panes list
+		// Handle stacked panes - only include the currently ACTIVE pane as a leaf
+		// This prevents multiple CSS classes and ensures correct focus management
 		if n.isStacked && len(n.stackedPanes) > 0 {
-			for _, stackedPane := range n.stackedPanes {
-				walk(stackedPane, depth+1)
+			activeIndex := n.activeStackIndex
+			if activeIndex >= 0 && activeIndex < len(n.stackedPanes) {
+				// Only the active pane in the stack counts as a leaf for focus/navigation
+				activePaneInStack := n.stackedPanes[activeIndex]
+				walk(activePaneInStack, depth+1)
 			}
 			return
 		}
@@ -1071,8 +1074,11 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string) (*pane
 		webkit.WidgetSetVExpand(splitTargetContainer, true)
 		webkit.WidgetRealizeInContainer(splitTargetContainer)
 	} else if splitTarget.isStacked {
-		// For stacked containers, the wrapper should already be properly configured
-		log.Printf("[workspace] skipping GTK setup for stack wrapper: %#x", splitTargetContainer)
+		// Stack containers need the same setup as regular panes for proper splitting
+		webkit.WidgetSetHExpand(splitTargetContainer, true)
+		webkit.WidgetSetVExpand(splitTargetContainer, true)
+		webkit.WidgetRealizeInContainer(splitTargetContainer)
+		log.Printf("[workspace] configured stack wrapper for split: %#x", splitTargetContainer)
 	}
 
 	orientation, existingFirst := mapDirection(direction)
@@ -1184,10 +1190,10 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string) (*pane
 	wm.viewToNode[newPane.webView] = newLeaf
 	wm.ensureHover(newLeaf)
 
-	// For stacked panes, we need to ensure hover on the original target, not the stack container
-	if originalTarget != target {
-		wm.ensureHover(originalTarget)
-	} else {
+	// Don't ensure hover on originalTarget when splitting from stack - it competes with new pane focus
+	// The originalTarget is still in the stack and should not interfere with the new split pane
+	if originalTarget == target {
+		// Only ensure hover on target if it's a regular (non-stack) split
 		wm.ensureHover(target)
 	}
 
@@ -1338,19 +1344,9 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 				wm.detachHover(node)
 				wm.detachHover(sibling)
 
-				delete(wm.viewToNode, node.pane.webView)
-				delete(wm.viewToNode, sibling.pane.webView)
-				delete(wm.lastSplitMsg, node.pane.webView)
-				delete(wm.lastSplitMsg, sibling.pane.webView)
-				delete(wm.lastExitMsg, node.pane.webView)
-				delete(wm.lastExitMsg, sibling.pane.webView)
-
-				for i := 0; i < len(wm.app.panes); i++ {
-					if wm.app.panes[i] == node.pane || wm.app.panes[i] == sibling.pane {
-						wm.app.panes = append(wm.app.panes[:i], wm.app.panes[i+1:]...)
-						i--
-					}
-				}
+				// Clean up workspace tracking for both panes
+				node.pane.CleanupFromWorkspace(wm)
+				sibling.pane.CleanupFromWorkspace(wm)
 
 				if node.pane.webView != nil {
 					if err := node.pane.webView.Destroy(); err != nil {
@@ -1407,17 +1403,8 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 		// We have a replacement - delegate root status and close this pane
 		log.Printf("[workspace] delegating root status from node=%#x to replacement=%#x", node.container, replacement.container)
 
-		// Clean up references first
-		delete(wm.viewToNode, node.pane.webView)
-		delete(wm.lastSplitMsg, node.pane.webView)
-		delete(wm.lastExitMsg, node.pane.webView)
-
-		for i, pane := range wm.app.panes {
-			if pane == node.pane {
-				wm.app.panes = append(wm.app.panes[:i], wm.app.panes[i+1:]...)
-				break
-			}
-		}
+		// Clean up workspace tracking
+		node.pane.CleanupFromWorkspace(wm)
 
 		if wm.mainPane == node {
 			wm.mainPane = nil
@@ -1493,25 +1480,19 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 		focusTarget = wm.leftmostLeaf(wm.root)
 	}
 
-	// Clean up references first
-	delete(wm.viewToNode, node.pane.webView)
-	delete(wm.lastSplitMsg, node.pane.webView)
-	delete(wm.lastExitMsg, node.pane.webView)
-
-	for i, pane := range wm.app.panes {
-		if pane == node.pane {
-			wm.app.panes = append(wm.app.panes[:i], wm.app.panes[i+1:]...)
-			break
-		}
-	}
+	// Clean up workspace tracking
+	node.pane.CleanupFromWorkspace(wm)
 
 	if wm.mainPane == node {
 		wm.mainPane = nil
 	}
 
-	// Clear current active if it's the node being closed
+	// Clear current active if it's the node being closed and immediately set focus to target
 	if wm.currentlyFocused == node {
-		wm.currentlyFocused = nil
+		wm.currentlyFocused = focusTarget
+		if focusTarget != nil {
+			wm.focusManager.SetActivePane(focusTarget)
+		}
 	}
 
 	grand := parent.parent
@@ -1519,29 +1500,46 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 		// Parent is the root node. Promote sibling to become the new root.
 		// The sibling can be either a leaf (when only 2 panes total) or a branch (when more panes exist)
 		log.Printf("[workspace] promoting sibling to root: container=%#x, isLeaf=%v", sibling.container, sibling.isLeaf)
+
+		// CRITICAL: Check widget validity before any GTK operations to prevent segfault
+		if !webkit.WidgetIsValid(sibling.container) {
+			log.Printf("[workspace] ERROR: sibling container %#x is not a valid GTK widget, skipping root promotion", sibling.container)
+			return errors.New("sibling container is not a valid GTK widget")
+		}
+
 		wm.root = sibling
 		sibling.parent = nil
 
 		// Unparent the sibling from the paned first, then set it as window child
 		if wm.window != nil {
 			// GTK requires explicit unparenting before reparenting
-			if parent.left == sibling {
-				webkit.PanedSetStartChild(parent.container, 0)
-			} else {
-				webkit.PanedSetEndChild(parent.container, 0)
+			if parent.container != 0 && webkit.WidgetIsValid(parent.container) {
+				if parent.left == sibling {
+					webkit.PanedSetStartChild(parent.container, 0)
+				} else {
+					webkit.PanedSetEndChild(parent.container, 0)
+				}
 			}
-			// Now we can safely set it as window child
+			// Now we can safely set it as window child (widget validity already checked above)
 			wm.window.SetChild(sibling.container)
-			if sibling.container != 0 {
-				webkit.WidgetQueueAllocate(sibling.container)
-			}
+			webkit.WidgetQueueAllocate(sibling.container)
 		}
 	} else {
 		// Parent has a grandparent, so promote sibling to take parent's place
 		log.Printf("[workspace] promoting sibling to parent's position: sibling=%#x grand=%#x", sibling.container, grand.container)
 
+		// CRITICAL: Check widget validity before any GTK operations to prevent segfault
+		if !webkit.WidgetIsValid(sibling.container) {
+			log.Printf("[workspace] ERROR: sibling container %#x is not a valid GTK widget, skipping promotion", sibling.container)
+			return errors.New("sibling container is not a valid GTK widget")
+		}
+		if !webkit.WidgetIsValid(grand.container) {
+			log.Printf("[workspace] ERROR: grand container %#x is not a valid GTK widget, skipping promotion", grand.container)
+			return errors.New("grand container is not a valid GTK widget")
+		}
+
 		// First unparent the sibling from its current parent to avoid GTK-CRITICAL errors
-		if parent.container != 0 && !parent.isLeaf {
+		if parent.container != 0 && !parent.isLeaf && webkit.WidgetIsValid(parent.container) {
 			if parent.left == sibling {
 				webkit.PanedSetStartChild(parent.container, 0)
 			} else if parent.right == sibling {
@@ -1553,7 +1551,7 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 		// GTK4 automatically handles focus state synchronization during reparenting
 
 		sibling.parent = grand
-		if grand.container != 0 && !grand.isLeaf {
+		if grand.container != 0 && !grand.isLeaf && webkit.WidgetIsValid(grand.container) && webkit.WidgetIsValid(sibling.container) {
 			if grand.left == parent {
 				grand.left = sibling
 				webkit.PanedSetStartChild(grand.container, sibling.container)
@@ -1566,7 +1564,7 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 	}
 
 	// Keep sibling subtree visible
-	if sibling.container != 0 {
+	if sibling.container != 0 && webkit.WidgetIsValid(sibling.container) {
 		webkit.WidgetShow(sibling.container)
 	}
 
@@ -1575,11 +1573,7 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 	parent.right = nil
 	node.parent = nil
 
-	// Focus the target pane
-	if focusTarget != nil && focusTarget != node {
-		wm.currentlyFocused = focusTarget
-		wm.focusManager.SetActivePane(focusTarget)
-	}
+	// Focus handling was moved earlier to avoid state gaps
 
 	// Destroy the webview and detach hover AFTER all hierarchy changes are complete
 	ensureCleanup()
@@ -1655,143 +1649,6 @@ func (wm *WorkspaceManager) findReplacementRoot(excludeNode *paneNode) *paneNode
 			return leaf
 		}
 	}
-
-	return nil
-}
-
-// closeStackedPane handles closing a pane that is part of a stack.
-func (wm *WorkspaceManager) closeStackedPane(node *paneNode) error {
-	if node.parent == nil || !node.parent.isStacked {
-		return errors.New("node is not part of a stacked pane")
-	}
-
-	stackNode := node.parent
-
-	// Find the index of the node to be closed
-	nodeIndex := -1
-	for i, stackedPane := range stackNode.stackedPanes {
-		if stackedPane == node {
-			nodeIndex = i
-			break
-		}
-	}
-
-	if nodeIndex == -1 {
-		return errors.New("node not found in stack")
-	}
-
-	log.Printf("[workspace] closing stacked pane: index=%d stackSize=%d", nodeIndex, len(stackNode.stackedPanes))
-
-	// Clean up the pane
-	wm.detachHover(node)
-	delete(wm.viewToNode, node.pane.webView)
-
-	// Remove from app.panes
-	for i, pane := range wm.app.panes {
-		if pane == node.pane {
-			wm.app.panes = append(wm.app.panes[:i], wm.app.panes[i+1:]...)
-			break
-		}
-	}
-
-	// Remove the pane's widgets from the stack container
-	stackBox := stackNode.stackWrapper
-	if stackBox == 0 {
-		stackBox = stackNode.container
-	}
-
-	if node.titleBar != 0 {
-		webkit.BoxRemove(stackBox, node.titleBar)
-	}
-	if node.container != 0 {
-		webkit.BoxRemove(stackBox, node.container)
-		// BoxRemove automatically unparents in GTK4, no manual unparent needed
-	}
-
-	// Clean up the pane
-	node.pane.Cleanup()
-
-	// Remove from the stack
-	stackNode.stackedPanes = append(stackNode.stackedPanes[:nodeIndex], stackNode.stackedPanes[nodeIndex+1:]...)
-
-	// Handle the remaining panes in the stack
-	if len(stackNode.stackedPanes) == 0 {
-		// No panes left in stack - this should not happen normally
-		log.Printf("[workspace] warning: empty stack after closing pane")
-		return errors.New("stack became empty")
-	} else if len(stackNode.stackedPanes) == 1 {
-		// Only one pane left - convert back to a regular pane
-		lastPane := stackNode.stackedPanes[0]
-		parent := stackNode.parent
-		lastPaneContainer := lastPane.container
-
-		// Remove the title bar since we're going back to single pane
-		if lastPane.titleBar != 0 {
-			webkit.BoxRemove(stackBox, lastPane.titleBar)
-		}
-
-		// Unparent the pane container from stack wrapper
-		webkit.BoxRemove(stackBox, lastPaneContainer)
-
-		// CRITICAL FIX: Replace the stackNode completely with lastPane
-		// Update parent child references FIRST
-		if parent == nil {
-			wm.root = lastPane
-			if wm.window != nil {
-				wm.window.SetChild(lastPaneContainer)
-			}
-		} else {
-			if parent.left == stackNode {
-				parent.left = lastPane
-				webkit.PanedSetStartChild(parent.container, lastPaneContainer)
-			} else if parent.right == stackNode {
-				parent.right = lastPane
-				webkit.PanedSetEndChild(parent.container, lastPaneContainer)
-			}
-		}
-
-		// Convert lastPane back to regular pane
-		lastPane.parent = parent
-		lastPane.isStacked = false
-		lastPane.stackedPanes = nil
-		lastPane.titleBar = 0
-
-		// Update the viewToNode mapping to point to the lastPane, not stackNode
-		wm.viewToNode[lastPane.pane.webView] = lastPane
-
-		// Focus the remaining pane if it was the active one being closed
-		if wm.currentlyFocused == node {
-			wm.currentlyFocused = lastPane
-			wm.focusManager.SetActivePane(lastPane)
-		}
-
-		log.Printf("[workspace] converted single-pane stack back to regular pane")
-	} else {
-		// Multiple panes remain in stack - adjust active index
-		if stackNode.activeStackIndex >= nodeIndex && stackNode.activeStackIndex > 0 {
-			stackNode.activeStackIndex--
-		}
-		if stackNode.activeStackIndex >= len(stackNode.stackedPanes) {
-			stackNode.activeStackIndex = len(stackNode.stackedPanes) - 1
-		}
-
-		// Update visibility for remaining panes
-		wm.stackedPaneManager.UpdateStackVisibility(stackNode)
-
-		// Focus the new active pane if we closed the currently active one
-		if wm.currentlyFocused == node {
-			newActivePaneInStack := stackNode.stackedPanes[stackNode.activeStackIndex]
-			wm.currentlyFocused = newActivePaneInStack
-			wm.focusManager.SetActivePane(newActivePaneInStack)
-		}
-
-		log.Printf("[workspace] closed pane from stack: remaining=%d activeIndex=%d",
-			len(stackNode.stackedPanes), stackNode.activeStackIndex)
-	}
-
-	// Update CSS classes after pane count changes
-	wm.ensurePaneBaseClasses()
-	log.Printf("[workspace] stacked pane closed; panes remaining=%d", len(wm.app.panes))
 
 	return nil
 }
@@ -2584,5 +2441,35 @@ func mapDirection(direction string) (webkit.Orientation, bool) {
 		return webkit.OrientationVertical, true
 	default:
 		return webkit.OrientationHorizontal, true
+	}
+}
+
+// Helper methods to support clean pane removal from workspace tracking
+// These methods implement the interface expected by BrowserPane.CleanupFromWorkspace()
+
+// removeFromMaps removes a WebView from all workspace tracking maps
+func (wm *WorkspaceManager) removeFromMaps(webView *webkit.WebView) {
+	if wm == nil || webView == nil {
+		return
+	}
+
+	delete(wm.viewToNode, webView)
+	delete(wm.lastSplitMsg, webView)
+	delete(wm.lastExitMsg, webView)
+	log.Printf("[workspace] removed webview %p from tracking maps", webView)
+}
+
+// removeFromAppPanes removes a BrowserPane from the app.panes slice
+func (wm *WorkspaceManager) removeFromAppPanes(pane *BrowserPane) {
+	if wm == nil || wm.app == nil || pane == nil {
+		return
+	}
+
+	for i, p := range wm.app.panes {
+		if p == pane {
+			wm.app.panes = append(wm.app.panes[:i], wm.app.panes[i+1:]...)
+			log.Printf("[workspace] removed pane from app.panes slice, remaining: %d", len(wm.app.panes))
+			return
+		}
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"time"
-	"unsafe"
 
 	"github.com/bnema/dumber/pkg/webkit"
 )
@@ -32,7 +31,7 @@ func (spm *StackedPaneManager) StackPane(target *paneNode) (*paneNode, error) {
 	// Create the new pane first
 	newLeaf, err := spm.prepareNewStackedPane()
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare new stacked pane: %v", err)
+		return nil, fmt.Errorf("failed to prepare new stacked pane: %w", err)
 	}
 
 	var stackNode *paneNode
@@ -43,13 +42,13 @@ func (spm *StackedPaneManager) StackPane(target *paneNode) (*paneNode, error) {
 		// Target is already in a stack - add to existing stack
 		stackNode, insertIndex, err = spm.addPaneToExistingStack(target, newLeaf)
 		if err != nil {
-			return nil, fmt.Errorf("failed to add pane to existing stack: %v", err)
+			return nil, fmt.Errorf("failed to add pane to existing stack: %w", err)
 		}
 	} else {
 		// Target is not stacked - create initial stack
 		stackNode, insertIndex, err = spm.convertToStackedContainer(target, newLeaf)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert to stacked container: %v", err)
+			return nil, fmt.Errorf("failed to convert to stacked container: %w", err)
 		}
 	}
 
@@ -150,7 +149,7 @@ func (spm *StackedPaneManager) addPaneToExistingStack(target, newLeaf *paneNode)
 		webkit.BoxInsertChildAfter(stackNode.stackWrapper, newLeaf.titleBar, insertAfterWidget)
 		// Insert container after the newly inserted titleBar
 		webkit.BoxInsertChildAfter(stackNode.stackWrapper, newLeaf.container, newLeaf.titleBar)
-		log.Printf("[workspace] inserted widgets at position %d (after widget %p)", insertIndex, insertAfterWidget)
+		log.Printf("[workspace] inserted widgets at position %d (after widget %#x)", insertIndex, insertAfterWidget)
 	} else {
 		// Insert at the beginning (insertIndex = 0)
 		webkit.BoxPrepend(stackNode.stackWrapper, newLeaf.container)
@@ -172,6 +171,7 @@ func (spm *StackedPaneManager) convertToStackedContainer(target, newLeaf *paneNo
 	}
 	webkit.WidgetSetHExpand(stackWrapperContainer, true)
 	webkit.WidgetSetVExpand(stackWrapperContainer, true)
+	webkit.WidgetRealizeInContainer(stackWrapperContainer) // Ensures size request is set like regular panes
 
 	// Create the internal box for the actual stacked widgets (titles + webviews)
 	stackInternalBox := webkit.NewBox(webkit.OrientationVertical, 0)
@@ -551,7 +551,7 @@ func (spm *StackedPaneManager) updateTitleBarLabel(node *paneNode, title string)
 	}
 
 	// Create new title bar with updated title
-	newTitleBar := spm.createTitleBarWithTitle(node, displayTitle)
+	newTitleBar := spm.createTitleBarWithTitle(displayTitle)
 	if newTitleBar == 0 {
 		log.Printf("[workspace] failed to create new title bar")
 		return
@@ -589,7 +589,7 @@ func (spm *StackedPaneManager) updateTitleBarLabel(node *paneNode, title string)
 }
 
 // createTitleBarWithTitle creates a title bar with a specific title
-func (spm *StackedPaneManager) createTitleBarWithTitle(pane *paneNode, title string) uintptr {
+func (spm *StackedPaneManager) createTitleBarWithTitle(title string) uintptr {
 	titleBox := webkit.NewBox(webkit.OrientationHorizontal, 8)
 	if titleBox == 0 {
 		return 0
@@ -641,15 +641,7 @@ func (spm *StackedPaneManager) CloseStackedPane(node *paneNode) error {
 
 	// Clean up the pane
 	spm.wm.detachHover(node)
-	delete(spm.wm.viewToNode, node.pane.webView)
-
-	// Remove from app.panes
-	for i, pane := range spm.wm.app.panes {
-		if pane == node.pane {
-			spm.wm.app.panes = append(spm.wm.app.panes[:i], spm.wm.app.panes[i+1:]...)
-			break
-		}
-	}
+	node.pane.CleanupFromWorkspace(spm.wm)
 
 	// Remove the pane's widgets from the stack container
 	stackBox := stackNode.stackWrapper
@@ -723,7 +715,7 @@ func (spm *StackedPaneManager) CloseStackedPane(node *paneNode) error {
 		// Check if currentlyFocused is part of this stack (including the pane being closed)
 		shouldFocus := false
 		if spm.wm.currentlyFocused != nil {
-			log.Printf("[workspace] DEBUG: currentlyFocused=%p, node being closed=%p, lastPane=%p", 
+			log.Printf("[workspace] DEBUG: currentlyFocused=%p, node being closed=%p, lastPane=%p",
 				spm.wm.currentlyFocused, node, lastPane)
 			// Check if currentlyFocused is the pane being closed
 			if spm.wm.currentlyFocused == node {
@@ -742,8 +734,8 @@ func (spm *StackedPaneManager) CloseStackedPane(node *paneNode) error {
 			// Log widget state before focus operations
 			if lastPaneWidget := lastPane.pane.webView.Widget(); lastPaneWidget != 0 {
 				visible := webkit.WidgetGetVisible(lastPaneWidget)
-				log.Printf("[workspace] Widget state before focus: widget=%p visible=%v",
-					unsafe.Pointer(lastPaneWidget), visible)
+				log.Printf("[workspace] Widget state before focus: widget=%#x visible=%v",
+					lastPaneWidget, visible)
 			}
 
 			// Update CSS classes (mirror finalizeStackCreation)
@@ -764,8 +756,8 @@ func (spm *StackedPaneManager) CloseStackedPane(node *paneNode) error {
 
 				// Log widget state after focus operations
 				visible := webkit.WidgetGetVisible(lastPaneWidget)
-				log.Printf("[workspace] Widget state after focus: widget=%p visible=%v",
-					unsafe.Pointer(lastPaneWidget), visible)
+				log.Printf("[workspace] Widget state after focus: widget=%#x visible=%v",
+					lastPaneWidget, visible)
 			}
 
 			log.Printf("[workspace] DEBUG: applied finalizeStackCreation focus logic in reverse")
