@@ -21,6 +21,7 @@ All notable changes to this project will be documented in this file.
 - **WebView title updates**: Enhanced webview title change handling to properly update stacked pane title bars in addition to database storage
 - **GTK4 widget lifecycle**: Improved widget parenting/unparenting operations with proper GTK4 validation and automatic cleanup to prevent critical warnings
 - **Stacked pane close behavior**: Fixed remaining pane becoming non-interactable (gray background) when closing stacked panes via Ctrl+W or Ctrl+P+X. Added proper widget visibility restoration and focus management during stack-to-regular conversion
+- **Stacked pane title updates**: Fixed collapsed panes not showing current page titles when switching between stacked panes. Now follows Zellij-style layout where hidden panes display their up-to-date page titles in title bars with correct positioning above and below the active pane
 
 ## [0.10.0] - 2025-09-24
 
