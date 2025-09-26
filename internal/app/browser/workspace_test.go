@@ -92,7 +92,7 @@ func (twm *TestWorkspaceManager) createTestStack(t *testing.T, numPanes int) *pa
 	target := twm.root
 
 	// Stack the root pane to create the first stack with 2 panes
-	newLeaf, err := twm.stackPane(target)
+	newLeaf, err := twm.stackedPaneManager.StackPane(target)
 	if err != nil {
 		t.Fatalf("Failed to create initial stack: %v", err)
 	}
@@ -107,7 +107,7 @@ func (twm *TestWorkspaceManager) createTestStack(t *testing.T, numPanes int) *pa
 	// Add additional panes to the existing stack
 	for i := 2; i < numPanes; i++ {
 		// Create a new pane by stacking one of the existing panes in the stack
-		additionalPane, err := twm.stackPane(stackContainer.stackedPanes[0])
+		additionalPane, err := twm.stackedPaneManager.StackPane(stackContainer.stackedPanes[0])
 		if err != nil {
 			t.Fatalf("Failed to stack pane %d: %v", i, err)
 		}
@@ -324,7 +324,7 @@ func TestStackCreation(t *testing.T) {
 	}
 
 	// Create first stack
-	newPane, err := twm.stackPane(twm.root)
+	newPane, err := twm.stackedPaneManager.StackPane(twm.root)
 	if err != nil {
 		t.Fatalf("Failed to create stack: %v", err)
 	}
@@ -779,7 +779,7 @@ func TestMultipleStacksNavigation(t *testing.T) {
 			t.Fatalf("Failed to create split for second stack: %v", err)
 		}
 
-		stackB, err := twm.stackPane(newPane)
+		stackB, err := twm.stackedPaneManager.StackPane(newPane)
 		if err != nil {
 			t.Fatalf("Failed to create second stack: %v", err)
 		}
@@ -830,7 +830,7 @@ func TestMultipleStacksNavigation(t *testing.T) {
 		}
 
 		// Create second stack
-		stackB, err := twm.stackPane(rightPane)
+		stackB, err := twm.stackedPaneManager.StackPane(rightPane)
 		if err != nil {
 			t.Fatalf("Failed to create stack B: %v", err)
 		}
@@ -875,7 +875,7 @@ func TestMultipleStacksNavigation(t *testing.T) {
 		}
 
 		// Create stackB on right
-		stackB, err := twm.stackPane(rightPane)
+		stackB, err := twm.stackedPaneManager.StackPane(rightPane)
 		if err != nil {
 			t.Fatalf("Failed to create stackB: %v", err)
 		}
@@ -887,7 +887,7 @@ func TestMultipleStacksNavigation(t *testing.T) {
 			t.Fatalf("Failed to split stackB: %v", err)
 		}
 
-		stackC, err := twm.stackPane(bottomPane)
+		stackC, err := twm.stackedPaneManager.StackPane(bottomPane)
 		if err != nil {
 			t.Fatalf("Failed to create stackC: %v", err)
 		}
@@ -1031,7 +1031,7 @@ func TestUserScenarioCtrlPSCtrlPR(t *testing.T) {
 
 		// Step 2: Ctrl+P S - Stack the root pane (simulates user's Ctrl+P S)
 		rootPaneContainer := twm.root.container
-		_, err := twm.stackPane(twm.root)
+		_, err := twm.stackedPaneManager.StackPane(twm.root)
 		if err != nil {
 			t.Fatalf("Stack pane failed: %v", err)
 		}
@@ -1114,7 +1114,7 @@ func TestUserScenarioCtrlPSCtrlPR(t *testing.T) {
 		}
 
 		// Step 2: Ctrl+P S - Stack the root pane
-		_, err := twm.stackPane(twm.root)
+		_, err := twm.stackedPaneManager.StackPane(twm.root)
 		if err != nil {
 			t.Fatalf("Stack pane failed: %v", err)
 		}
@@ -1272,7 +1272,7 @@ func TestSiblingPromotionFix(t *testing.T) {
 		// When Target is closed, Stack gets promoted to replace Split
 
 		// Step 1: Create a stack
-		_, err := twm.stackPane(twm.root)
+		_, err := twm.stackedPaneManager.StackPane(twm.root)
 		if err != nil {
 			t.Fatalf("Stack creation failed: %v", err)
 		}
