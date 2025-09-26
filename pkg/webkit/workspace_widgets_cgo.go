@@ -196,17 +196,7 @@ static void widget_show(GtkWidget* widget) {
     gtk_widget_set_visible(widget, TRUE);
 }
 
-static void workspace_gtk_test_init(void) {
-    // Create dummy argc/argv for GTK test initialization
-    // GTK test framework requires valid argc/argv pointers, not NULL
-    static int test_argc = 1;
-    static char test_prog[] = "dumber-test";
-    static char* test_argv[] = { test_prog, NULL };
-    static char** test_argv_ptr = test_argv;
-
-    // Initialize GTK test framework with proper arguments
-    gtk_test_init(&test_argc, &test_argv_ptr, NULL);
-}
+// workspace_gtk_test_init removed - moved to test files only
 
 // Label helpers for title bars
 static GtkWidget* label_new(const char* text) {
@@ -254,7 +244,7 @@ var (
 	hoverCallbacks           = make(map[uintptr]func())
 	hoverControllers         = make(map[uintptr]uintptr)
 	nextHoverID      uintptr = 1
-	gtkTestInitOnce  sync.Once
+	// gtkTestInitOnce removed - no longer needed
 )
 
 func widgetIsValid(widget uintptr) bool {
@@ -763,17 +753,29 @@ func LabelSetMaxWidthChars(label uintptr, nChars int) {
 	C.label_set_max_width_chars((*C.GtkWidget)(unsafe.Pointer(label)), C.int(nChars))
 }
 
-// WidgetWaitForDraw ensures widget operations are complete (GTK test pattern)
-// This replaces the problematic IdleAdd pattern with proper widget synchronization
+// WidgetWaitForDraw is deprecated - GTK4 handles widget operations automatically
+// This function is kept for compatibility but does nothing in production
 func WidgetWaitForDraw(widget uintptr) {
-	if widget == 0 {
+	// GTK4 documentation states: never force a redraw
+	// Widget operations are handled automatically by the GTK4 main loop
+	// This function is a no-op in production code
+}
+
+// WidgetQueueDraw safely queues a redraw operation (GTK4 recommended approach)
+func WidgetQueueDraw(widget uintptr) {
+	if widget == 0 || !widgetIsValid(widget) {
 		return
 	}
-	if !widgetIsValid(widget) {
-		log.Panicf("gtk_test_widget_wait_for_draw: widget=%#x invalid", widget)
+	C.gtk_widget_queue_draw((*C.GtkWidget)(unsafe.Pointer(widget)))
+}
+
+// WidgetHasCSSClass checks if a widget has a specific CSS class
+func WidgetHasCSSClass(widget uintptr, class string) bool {
+	if widget == 0 || class == "" || !widgetIsValid(widget) {
+		return false
 	}
-	gtkTestInitOnce.Do(func() {
-		C.workspace_gtk_test_init()
-	})
-	C.gtk_test_widget_wait_for_draw((*C.GtkWidget)(unsafe.Pointer(widget)))
+	cstr := C.CString(class)
+	defer C.free(unsafe.Pointer(cstr))
+	result := C.gtk_widget_has_css_class((*C.GtkWidget)(unsafe.Pointer(widget)), cstr)
+	return result != 0
 }

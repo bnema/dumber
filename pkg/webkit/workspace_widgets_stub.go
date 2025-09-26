@@ -361,6 +361,15 @@ func WidgetAddCSSClass(widget uintptr, class string) {}
 
 func WidgetRemoveCSSClass(widget uintptr, class string) {}
 
+func WidgetHasCSSClass(widget uintptr, class string) bool {
+	// In stub mode, we don't track CSS classes
+	return false
+}
+
+func WidgetQueueDraw(widget uintptr) {
+	// Stub implementation - no-op
+}
+
 // SimulateFocusForTesting gives focus to a widget for test scenarios
 func SimulateFocusForTesting(widget uintptr) {
 	WidgetGrabFocus(widget)

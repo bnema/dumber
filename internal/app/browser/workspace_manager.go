@@ -610,8 +610,8 @@ func (wm *WorkspaceManager) ensureHover(node *paneNode) {
 		if wm == nil {
 			return
 		}
-		wm.currentlyFocused = node
 		wm.focusManager.SetActivePane(node)
+		wm.currentlyFocused = node
 	})
 	node.hoverToken = token
 	if token == 0 {
@@ -714,8 +714,8 @@ func (wm *WorkspaceManager) navigateStack(direction string) bool {
 
 	// Focus the new active pane
 	newActivePane := stackNode.stackedPanes[newIndex]
-	wm.currentlyFocused = newActivePane
 	wm.focusManager.SetActivePane(newActivePane)
+	wm.currentlyFocused = newActivePane
 
 	log.Printf("[workspace] navigated stack: direction=%s from=%d to=%d stackSize=%d",
 		direction, currentIndex, newIndex, len(stackNode.stackedPanes))
@@ -730,8 +730,8 @@ func (wm *WorkspaceManager) focusAdjacent(direction string) bool {
 	}
 
 	if neighbor := wm.structuralNeighbor(wm.currentlyFocused, direction); neighbor != nil {
-		wm.currentlyFocused = neighbor
 		wm.focusManager.SetActivePane(neighbor)
+		wm.currentlyFocused = neighbor
 		return true
 	}
 
@@ -798,8 +798,8 @@ func (wm *WorkspaceManager) focusAdjacent(direction string) bool {
 	}
 
 	if best != nil {
-		wm.currentlyFocused = best
 		wm.focusManager.SetActivePane(best)
+		wm.currentlyFocused = best
 		return true
 	}
 
@@ -1148,9 +1148,7 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string) (*pane
 		}
 	}
 
-	// Ensure widget operations are complete before re-parenting (GTK test pattern)
-	webkit.WidgetWaitForDraw(splitTargetContainer)
-	webkit.WidgetWaitForDraw(newContainer)
+	// GTK4 handles widget operations automatically - no need to force redraw
 
 	// Add both containers to the new paned
 	if existingFirst {
@@ -1889,11 +1887,7 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 		}
 
 		// Now safely reparent the sibling to the grandparent
-		// Ensure GTK focus state is synchronized before reparenting to prevent
-		// GTK-WARNING: "Error finding last focus widget of GtkPaned, gtk_paned_set_focus_child
-		// was called on widget (nil) which is not child"
-		webkit.WidgetWaitForDraw(sibling.container)
-		webkit.WidgetWaitForDraw(grand.container)
+		// GTK4 automatically handles focus state synchronization during reparenting
 
 		sibling.parent = grand
 		if grand.container != 0 && !grand.isLeaf {
