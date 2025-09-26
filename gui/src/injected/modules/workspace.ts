@@ -255,7 +255,6 @@ class WorkspaceController implements WorkspaceRuntime {
       clearTimeout(this.paneModeTimer);
       this.paneModeTimer = null;
     }
-    this.emitWorkspaceEvent("pane-mode-exited", { action: reason });
     this.bridge({ event: "pane-mode-exited", reason });
   }
 
@@ -341,9 +340,6 @@ class WorkspaceController implements WorkspaceRuntime {
         this.exitPaneMode("split-down");
         break;
       case "stack-pane":
-        this.emitWorkspaceEvent("pane-stack", {
-          config: this.config,
-        });
         this.bridge({ event: "pane-stack", action: "stack-pane" });
         this.showToast("Stacked pane");
         this.exitPaneMode("stack-pane");
