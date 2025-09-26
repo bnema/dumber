@@ -16,7 +16,6 @@
   interface Shortcut {
     key: string;
     description: string;
-    action: () => void;
   }
 
   interface HistoryStats {
@@ -95,95 +94,77 @@
       // Browser shortcuts
       {
         key: 'Ctrl+L',
-        description: 'Focus address bar',
-        action: () => console.log('Ctrl+L triggered')
+        description: 'Focus address bar'
       },
       {
         key: 'Ctrl+F',
-        description: 'Find in page',
-        action: () => console.log('Ctrl+F triggered')
+        description: 'Find in page'
       },
       {
         key: 'Ctrl+Shift+C',
-        description: 'Copy URL',
-        action: () => console.log('Ctrl+Shift+C triggered')
+        description: 'Copy URL'
       },
       {
         key: 'Ctrl+R / F5',
-        description: 'Reload page',
-        action: () => window.location.reload()
+        description: 'Reload page'
       },
       {
         key: 'Ctrl+Shift+R',
-        description: 'Hard reload',
-        action: () => console.log('Ctrl+Shift+R triggered')
+        description: 'Hard reload'
       },
       {
         key: 'F12',
-        description: 'DevTools',
-        action: () => console.log('F12 triggered')
+        description: 'DevTools'
       },
       {
         key: 'Ctrl+← / Ctrl+→',
-        description: 'Navigate back/forward',
-        action: () => console.log('Ctrl+Arrow triggered')
+        description: 'Navigate back/forward'
       },
       {
         key: 'Ctrl+0',
-        description: 'Reset zoom',
-        action: () => console.log('Ctrl+0 triggered')
+        description: 'Reset zoom'
       },
       {
         key: 'Ctrl++ / Ctrl+-',
-        description: 'Zoom in/out',
-        action: () => console.log('Ctrl+Zoom triggered')
+        description: 'Zoom in/out'
       },
       // Workspace pane mode
       {
         key: 'Ctrl+P',
-        description: 'Enter pane mode',
-        action: () => console.log('Ctrl+P triggered')
+        description: 'Enter pane mode'
       },
       {
         key: '→ / R (pane mode)',
-        description: 'Split pane right',
-        action: () => console.log('Split right triggered')
+        description: 'Split pane right'
       },
       {
         key: '← / L (pane mode)',
-        description: 'Split pane left',
-        action: () => console.log('Split left triggered')
+        description: 'Split pane left'
       },
       {
         key: '↑ / U (pane mode)',
-        description: 'Split pane up',
-        action: () => console.log('Split up triggered')
+        description: 'Split pane up'
       },
       {
         key: '↓ / D (pane mode)',
-        description: 'Split pane down',
-        action: () => console.log('Split down triggered')
+        description: 'Split pane down'
       },
       {
         key: 'X (pane mode)',
-        description: 'Close current pane',
-        action: () => console.log('Close pane triggered')
+        description: 'Close current pane'
       },
       {
         key: 'Enter (pane mode)',
-        description: 'Confirm action',
-        action: () => console.log('Confirm triggered')
+        description: 'Confirm action'
       },
       {
         key: 'Escape (pane mode)',
-        description: 'Exit pane mode',
-        action: () => console.log('Exit pane mode triggered')
+        description: 'Exit pane mode'
       },
       // Workspace navigation
       {
         key: 'Alt+Arrow Keys',
-        description: 'Navigate between panes',
-        action: () => console.log('Navigate panes triggered')
+        description: 'Navigate between panes'
       }
     ];
     shortcutsLoading = false;
