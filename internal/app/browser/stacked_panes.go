@@ -285,18 +285,13 @@ func (spm *StackedPaneManager) finalizeStackCreation(stackNode, newLeaf *paneNod
 	// Mark stack operation timestamp to prevent focus conflicts
 	spm.wm.lastStackOperation = time.Now()
 
-	// Update stack visibility to show current state (existing pane still active)
+	// Immediately switch to the new pane (don't use deprecated IdleAdd)
+	stackNode.activeStackIndex = insertIndex
 	spm.UpdateStackVisibility(stackNode)
 
-	// Transition to the new pane after a brief delay to avoid rendering conflicts
-	webkit.IdleAdd(func() bool {
-		// Now switch to the new pane
-		stackNode.activeStackIndex = insertIndex
-		spm.UpdateStackVisibility(stackNode)
-		spm.wm.currentlyFocused = newLeaf
-		spm.wm.focusManager.SetActivePane(newLeaf)
-		return false // Remove idle callback
-	})
+	// Set focus on the new pane synchronously
+	spm.wm.focusManager.SetActivePane(newLeaf)
+	spm.wm.currentlyFocused = newLeaf
 
 	log.Printf("[workspace] stacked new pane: stackNode=%p newLeaf=%p stackSize=%d activeIndex=%d insertIndex=%d",
 		stackNode, newLeaf, len(stackNode.stackedPanes), stackNode.activeStackIndex, insertIndex)
@@ -331,16 +326,17 @@ func (spm *StackedPaneManager) UpdateStackVisibility(stackNode *paneNode) {
 
 	log.Printf("[workspace] updating stack visibility: activeIndex=%d stackSize=%d", activeIndex, len(stackNode.stackedPanes))
 
-	// First, ensure the active pane is visible (prevents rendering gaps)
-	activePane := stackNode.stackedPanes[activeIndex]
-	webkit.WidgetSetVisible(activePane.container, true)
-	webkit.WidgetSetVisible(activePane.titleBar, false)
-	webkit.WidgetAddCSSClass(activePane.container, "stacked-pane-active")
-	webkit.WidgetRemoveCSSClass(activePane.container, "stacked-pane-collapsed")
-
-	// Then hide other panes and show their title bars
+	// CRITICAL: Process ALL panes in a single pass to prevent flickering
 	for i, pane := range stackNode.stackedPanes {
-		if i != activeIndex {
+		if i == activeIndex {
+			// Active pane: show container, NEVER show title bar
+			webkit.WidgetSetVisible(pane.container, true)
+			webkit.WidgetSetVisible(pane.titleBar, false) // ABSOLUTE RULE: never visible for active pane
+			webkit.WidgetAddCSSClass(pane.container, "stacked-pane-active")
+			webkit.WidgetRemoveCSSClass(pane.container, "stacked-pane-collapsed")
+			log.Printf("[workspace] active pane %d: container=visible, titleBar=HIDDEN", i)
+		} else {
+			// Inactive panes: hide container, show title bar
 			webkit.WidgetSetVisible(pane.container, false)
 			webkit.WidgetSetVisible(pane.titleBar, true)
 			webkit.WidgetAddCSSClass(pane.container, "stacked-pane-collapsed")
@@ -409,8 +405,8 @@ func (spm *StackedPaneManager) NavigateStack(direction string) bool {
 
 	// Focus the new active pane
 	newActivePane := stackNode.stackedPanes[newIndex]
-	spm.wm.currentlyFocused = newActivePane
 	spm.wm.focusManager.SetActivePane(newActivePane)
+	spm.wm.currentlyFocused = newActivePane
 
 	log.Printf("[workspace] navigated stack: direction=%s from=%d to=%d stackSize=%d",
 		direction, currentIndex, newIndex, len(stackNode.stackedPanes))

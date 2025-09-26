@@ -67,9 +67,15 @@ func (fm *FocusManager) SetActivePane(node *paneNode) {
 	fm.updateVisualState(oldPane, node)
 
 	// Step 3: Notify JavaScript bridge
-	fm.notifyJavaScript(node)
+	fm.notifyJavaScript(oldPane, node)
 
-	// Step 4: Execute callbacks
+	// Step 4: Sync app.activePane for window shortcuts
+	if fm.wm != nil && fm.wm.app != nil && node.pane != nil {
+		fm.wm.app.activePane = node.pane
+		log.Printf("[focus-manager] Synced app.activePane to %p", node.pane.webView)
+	}
+
+	// Step 5: Execute callbacks
 	fm.executeCallbacks(oldPane, node)
 }
 
@@ -171,18 +177,27 @@ func (fm *FocusManager) updateStackVisibility(stackNode *paneNode) {
 }
 
 // notifyJavaScript dispatches focus events to the JavaScript bridge
-func (fm *FocusManager) notifyJavaScript(node *paneNode) {
-	if node.pane == nil || node.pane.webView == nil {
-		return
+func (fm *FocusManager) notifyJavaScript(oldPane, newPane *paneNode) {
+	// Notify old pane it lost focus
+	if oldPane != nil && oldPane.pane != nil && oldPane.pane.webView != nil {
+		oldDetail := map[string]any{
+			"active": false,
+			"paneId": fm.getPaneID(oldPane),
+		}
+		if err := oldPane.pane.webView.DispatchCustomEvent("dumber:workspace-focus", oldDetail); err != nil {
+			log.Printf("[focus-manager] Failed to dispatch blur event: %v", err)
+		}
 	}
 
-	detail := map[string]any{
-		"hasFocus": true,
-		"paneId":   fm.getPaneID(node),
-	}
-
-	if err := node.pane.webView.DispatchCustomEvent("dumber:workspace-focus", detail); err != nil {
-		log.Printf("[focus-manager] Failed to dispatch focus event: %v", err)
+	// Notify new pane it gained focus
+	if newPane != nil && newPane.pane != nil && newPane.pane.webView != nil {
+		newDetail := map[string]any{
+			"active": true,
+			"paneId": fm.getPaneID(newPane),
+		}
+		if err := newPane.pane.webView.DispatchCustomEvent("dumber:workspace-focus", newDetail); err != nil {
+			log.Printf("[focus-manager] Failed to dispatch focus event: %v", err)
+		}
 	}
 }
 
