@@ -40,6 +40,46 @@ type paneNode struct {
 	activeStackIndex int         // Index of currently visible pane in stack
 	titleBar         *SafeWidget // GtkBox for title bar (when collapsed)
 	stackWrapper     *SafeWidget // Internal GtkBox containing the actual stacked widgets (titles + webviews)
+
+	// Phase 2: Unified Pane Type System
+	metadata *PaneMetadata // Unified metadata for all pane types
+}
+
+// initializePaneMetadata creates and initializes metadata for a pane node
+func (wm *WorkspaceManager) initializePaneMetadata(node *paneNode, paneType PaneType) {
+	if node == nil {
+		return
+	}
+	
+	// Generate ID based on the pane
+	var paneID string
+	if node.pane != nil && node.pane.webView != nil {
+		paneID = node.pane.webView.ID()
+	} else {
+		paneID = fmt.Sprintf("pane_%p_%d", node, time.Now().UnixNano())
+	}
+	
+	node.metadata = NewPaneMetadata(paneID, paneType)
+	
+	// Set initial state based on pane type
+	if node.isLeaf && node.pane != nil {
+		node.metadata.SetState(PaneStateActive)
+		if node.pane.webView != nil {
+			node.metadata.SetURL(node.pane.webView.GetURI())
+			node.metadata.SetTitle(node.pane.webView.GetTitle())
+		}
+	} else {
+		node.metadata.SetState(PaneStateInactive)
+	}
+	
+	// Set stack-specific metadata
+	if node.isStacked {
+		node.metadata.StackSize = len(node.stackedPanes)
+		node.metadata.StackIndex = node.activeStackIndex
+	}
+	
+	log.Printf("[metadata] Initialized metadata for pane %s (type: %s, state: %s)", 
+		node.metadata.ID, node.metadata.Type, node.metadata.State)
 }
 
 // WorkspaceManager coordinates Zellij-style pane operations.
@@ -134,6 +174,8 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 	}
 	// Initialize widgets properly
 	manager.initializePaneWidgets(root, rootContainer)
+	// Initialize metadata
+	manager.initializePaneMetadata(root, PaneTypeRegular)
 
 	manager.root = root
 	manager.mainPane = root
@@ -501,6 +543,12 @@ func (wm *WorkspaceManager) generateActivePaneCSS() string {
 	  border-color: %s !important;
 	}
 
+	/* Active border for stacked panes (they use different CSS class) */
+	.stacked-pane-active {
+	  border: 2px solid %s !important;
+	  border-radius: 4px;
+	}
+
 	/* Stacked panes styling */
 	.stacked-pane-container {
 	  background-color: %s;
@@ -543,6 +591,7 @@ func (wm *WorkspaceManager) generateActivePaneCSS() string {
 		styling.BorderRadius,
 		styling.BorderColor,
 		styling.BorderColor,                // NEW: .workspace-pane.workspace-pane-active border-color
+		styling.BorderColor,                // NEW: .stacked-pane-active border-color
 		// Additional parameters for stacked pane styles
 		windowBackgroundColor,          // stacked-pane-container background
 		styling.BorderRadius,           // stacked-pane-container border-radius
@@ -1154,6 +1203,7 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string) (*pane
 		isLeaf: true,
 	}
 	wm.initializePaneWidgets(newLeaf, newContainer)
+	wm.initializePaneMetadata(newLeaf, PaneTypeRegular)
 
 	split := &paneNode{
 		parent:      splitTarget.parent,
@@ -1161,6 +1211,7 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string) (*pane
 		isLeaf:      false,
 	}
 	wm.initializePaneWidgets(split, paned)
+	wm.initializePaneMetadata(split, PaneTypeRegular)
 
 	parent := split.parent
 
@@ -2460,6 +2511,7 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 		isLeaf: true,
 	}
 	wm.initializePaneWidgets(newLeaf, newContainer)
+	wm.initializePaneMetadata(newLeaf, PaneTypeRegular)
 
 	split := &paneNode{
 		parent:      target.parent,
@@ -2467,6 +2519,7 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 		isLeaf:      false,
 	}
 	wm.initializePaneWidgets(split, paned)
+	wm.initializePaneMetadata(split, PaneTypeRegular)
 
 	parent := split.parent
 

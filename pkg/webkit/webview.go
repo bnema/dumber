@@ -128,6 +128,9 @@ func (w *WebView) GetCurrentURL() string { return w.url }
 // GetTitle returns a stub page title.
 func (w *WebView) GetTitle() string { return "New Tab" }
 
+// GetURI returns a stub page URI.
+func (w *WebView) GetURI() string { return w.url }
+
 // GoBack is not supported in the non-CGO stub.
 func (w *WebView) GoBack() error { return ErrNotImplemented }
 

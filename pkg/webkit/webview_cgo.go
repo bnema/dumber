@@ -1708,6 +1708,18 @@ func (w *WebView) GetTitle() string {
 	return C.GoString((*C.char)(unsafe.Pointer(title)))
 }
 
+// GetURI returns the current page URI from WebKit.
+func (w *WebView) GetURI() string {
+	if w == nil || w.native == nil || w.native.wv == nil {
+		return ""
+	}
+	uri := C.webkit_web_view_get_uri(w.native.wv)
+	if uri == nil {
+		return ""
+	}
+	return C.GoString((*C.char)(unsafe.Pointer(uri)))
+}
+
 func (w *WebView) GoBack() error {
 	if w == nil || w.native == nil || w.native.wv == nil {
 		return ErrNotImplemented
