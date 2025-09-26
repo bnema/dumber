@@ -309,7 +309,7 @@ class WorkspaceController implements WorkspaceRuntime {
           direction: "right",
           config: this.config,
         });
-        this.bridge({ event: "pane-split", direction: "right" });
+        this.bridge({ event: "pane-split", direction: "right", action: "split-right" });
         this.showToast("Split pane to the right");
         this.exitPaneMode("split-right");
         break;
@@ -318,7 +318,7 @@ class WorkspaceController implements WorkspaceRuntime {
           direction: "left",
           config: this.config,
         });
-        this.bridge({ event: "pane-split", direction: "left" });
+        this.bridge({ event: "pane-split", direction: "left", action: "split-left" });
         this.showToast("Split pane to the left");
         this.exitPaneMode("split-left");
         break;
@@ -327,7 +327,7 @@ class WorkspaceController implements WorkspaceRuntime {
           direction: "up",
           config: this.config,
         });
-        this.bridge({ event: "pane-split", direction: "up" });
+        this.bridge({ event: "pane-split", direction: "up", action: "split-up" });
         this.showToast("Split pane upwards");
         this.exitPaneMode("split-up");
         break;
@@ -336,7 +336,7 @@ class WorkspaceController implements WorkspaceRuntime {
           direction: "down",
           config: this.config,
         });
-        this.bridge({ event: "pane-split", direction: "down" });
+        this.bridge({ event: "pane-split", direction: "down", action: "split-down" });
         this.showToast("Split pane downwards");
         this.exitPaneMode("split-down");
         break;
@@ -344,7 +344,7 @@ class WorkspaceController implements WorkspaceRuntime {
         this.emitWorkspaceEvent("pane-stack", {
           config: this.config,
         });
-        this.bridge({ event: "pane-stack" });
+        this.bridge({ event: "pane-stack", action: "stack-pane" });
         this.showToast("Stacked pane");
         this.exitPaneMode("stack-pane");
         break;
