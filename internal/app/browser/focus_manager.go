@@ -106,12 +106,17 @@ func (fm *FocusManager) updateVisualState(oldPane, newPane *paneNode) {
 	// Remove active class from old pane
 	if oldPane != nil && oldPane.container != 0 {
 		webkit.WidgetRemoveCSSClass(oldPane.container, activePaneClass)
+		webkit.WidgetQueueDraw(oldPane.container)
 	}
 
 	// Add active class to new pane
 	if newPane.container != 0 {
 		webkit.WidgetAddCSSClass(newPane.container, activePaneClass)
+		webkit.WidgetQueueDraw(newPane.container)
 	}
+
+	// FATAL CHECK: Ensure only ONE pane has active class
+	fm.verifyOnlyOneActivePaneOrPanic()
 
 	// Handle stacked panes visibility
 	fm.updateStackedPaneVisibility(newPane)
@@ -241,4 +246,39 @@ func (fm *FocusManager) SetActivePaneByView(view *webkit.WebView) {
 	} else {
 		log.Printf("[focus-manager] WARNING: SetActivePaneByView called with unknown view %p", view)
 	}
+}
+
+// verifyOnlyOneActivePaneOrPanic performs a FATAL check to ensure only one pane is active
+// This is a fundamental rule that MUST NEVER be violated
+func (fm *FocusManager) verifyOnlyOneActivePaneOrPanic() {
+	if fm == nil || fm.wm == nil {
+		return
+	}
+
+	activePaneClass := "workspace-pane-active"
+	activeCount := 0
+	var activePanes []uintptr
+
+	// Check all leaf panes in the workspace
+	leaves := fm.wm.collectLeaves()
+	for _, leaf := range leaves {
+		if leaf != nil && leaf.container != 0 {
+			if webkit.WidgetHasCSSClass(leaf.container, activePaneClass) {
+				activeCount++
+				activePanes = append(activePanes, leaf.container)
+			}
+		}
+	}
+
+	// FATAL: Multiple active panes detected
+	if activeCount > 1 {
+		log.Fatalf("[focus-manager] FATAL: Multiple active panes detected! Count=%d, Containers=%v. Only ONE pane can be active at a time. This violates a fundamental rule.", activeCount, activePanes)
+	}
+
+	// FATAL: No active panes when there should be one
+	if activeCount == 0 && len(leaves) > 0 {
+		log.Fatalf("[focus-manager] FATAL: No active panes detected but %d panes exist. There should always be exactly ONE active pane.", len(leaves))
+	}
+
+	log.Printf("[focus-manager] ✓ Single active pane rule verified: %d active out of %d total panes", activeCount, len(leaves))
 }
