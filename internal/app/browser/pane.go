@@ -125,3 +125,21 @@ func (p *BrowserPane) Cleanup() {
 	p.guiComponents = nil
 	p.hasGUI = false
 }
+
+// CleanupFromWorkspace removes this pane from workspace tracking maps and app.panes slice
+// This should be called before Cleanup() to ensure proper workspace state management
+func (p *BrowserPane) CleanupFromWorkspace(wm interface{}) {
+	if p == nil || p.webView == nil {
+		return
+	}
+
+	// Type assert to avoid circular import - workspace manager will pass itself
+	if workspaceManager, ok := wm.(interface {
+		removeFromMaps(*webkit.WebView)
+		removeFromAppPanes(*BrowserPane)
+	}); ok {
+		workspaceManager.removeFromMaps(p.webView)
+		workspaceManager.removeFromAppPanes(p)
+		log.Printf("[pane-%s] Cleaned up from workspace tracking", p.id)
+	}
+}

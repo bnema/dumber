@@ -537,8 +537,9 @@ func TestRelativePaneOperations(t *testing.T) {
 
 	t.Run("Pane relationships", func(t *testing.T) {
 		// Test parent-child relationships
-		if twm.root.parent != twm.root.parent {
+		if twm.root != nil && twm.root.parent != nil {
 			// Root's parent should be consistent (either nil or split container)
+			t.Logf("Root has parent: %p", twm.root.parent)
 		}
 
 		// Test that all leaves have proper parent relationships
@@ -686,7 +687,7 @@ func TestAutoDestackingBehavior(t *testing.T) {
 
 		// Close 2 panes, leaving only 1
 		paneToClose1 := stackContainer.stackedPanes[0]
-		err := twm.closeStackedPane(paneToClose1)
+		err := twm.stackedPaneManager.CloseStackedPane(paneToClose1)
 		if err != nil {
 			t.Fatalf("Failed to close first stacked pane: %v", err)
 		}
@@ -701,7 +702,7 @@ func TestAutoDestackingBehavior(t *testing.T) {
 
 		// Close another pane - this should trigger auto-destacking
 		paneToClose2 := stackContainer.stackedPanes[0]
-		err = twm.closeStackedPane(paneToClose2)
+		err = twm.stackedPaneManager.CloseStackedPane(paneToClose2)
 		if err != nil {
 			t.Fatalf("Failed to close second stacked pane: %v", err)
 		}
@@ -740,7 +741,7 @@ func TestAutoDestackingBehavior(t *testing.T) {
 		}
 
 		// Close one pane - should trigger auto-destacking
-		err := twm.closeStackedPane(pane1)
+		err := twm.stackedPaneManager.CloseStackedPane(pane1)
 		if err != nil {
 			t.Fatalf("Failed to close pane: %v", err)
 		}
