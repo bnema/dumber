@@ -54,11 +54,16 @@ func (fm *FocusManager) SetActivePane(node *paneNode) {
 
 	// No-op if already active
 	if oldPane == node {
-		log.Printf("[focus-manager] SetActivePane: %p already active", node)
+		// Pane already active, no change needed
 		return
 	}
 
-	log.Printf("[focus-manager] SetActivePane: %p -> %p", oldPane, node)
+	// Setting active pane
+
+	// CRITICAL: Update currentlyFocused FIRST to prevent infinite loops
+	if fm.wm != nil {
+		fm.wm.currentlyFocused = node
+	}
 
 	// Step 1: GTK4 Focus (Single Source of Truth)
 	fm.setGTKFocus(node)
@@ -72,7 +77,7 @@ func (fm *FocusManager) SetActivePane(node *paneNode) {
 	// Step 4: Sync app.activePane for window shortcuts
 	if fm.wm != nil && fm.wm.app != nil && node.pane != nil {
 		fm.wm.app.activePane = node.pane
-		log.Printf("[focus-manager] Synced app.activePane to %p", node.pane.webView)
+		// Synced app.activePane
 	}
 
 	// Step 5: Execute callbacks
@@ -109,7 +114,7 @@ func (fm *FocusManager) setGTKFocus(node *paneNode) {
 func (fm *FocusManager) updateVisualState(newPane *paneNode) {
 	activePaneClass := "workspace-pane-active"
 
-	log.Printf("[focus-manager] updateVisualState: setting active pane to %p", newPane)
+	// Updating visual state
 
 	// CRITICAL: For stacked panes, we need to remove active class from ALL panes in ALL stacks
 	// collectLeaves() only returns the currently active pane in each stack, missing the others
@@ -118,7 +123,7 @@ func (fm *FocusManager) updateVisualState(newPane *paneNode) {
 	// Add active class to new pane only
 	if newPane != nil && newPane.container != nil {
 		newPane.container.Execute(func(containerPtr uintptr) error {
-			log.Printf("[focus-manager] Adding CSS class '%s' to new active pane: container=%#x", activePaneClass, containerPtr)
+			// Adding CSS class to new active pane
 			webkit.WidgetAddCSSClass(containerPtr, activePaneClass)
 			webkit.WidgetQueueDraw(containerPtr)
 			return nil
@@ -143,7 +148,7 @@ func (fm *FocusManager) removeActiveCSSFromAllPanes(activePaneClass string) {
 		return
 	}
 
-	log.Printf("[focus-manager] removeActiveCSSFromAllPanes: starting CSS cleanup for class '%s'", activePaneClass)
+	// Starting CSS cleanup
 
 	// Walk the entire tree and remove active class from ALL leaf panes
 	// This includes both regular panes and ALL panes within stacks
@@ -158,7 +163,7 @@ func (fm *FocusManager) removeActiveCSSFromAllPanes(activePaneClass string) {
 			// Regular leaf pane - remove active class
 			if n.container != nil {
 				n.container.Execute(func(containerPtr uintptr) error {
-					log.Printf("[focus-manager] Removing CSS class '%s' from regular pane: container=%#x", activePaneClass, containerPtr)
+					// Removing CSS class from regular pane
 					webkit.WidgetRemoveCSSClass(containerPtr, activePaneClass)
 					return nil
 				})
@@ -169,11 +174,11 @@ func (fm *FocusManager) removeActiveCSSFromAllPanes(activePaneClass string) {
 		if n.isStacked && len(n.stackedPanes) > 0 {
 			// CRITICAL: For stacked panes, remove active class from ALL panes in the stack
 			// not just the currently active one (which is what collectLeaves() returns)
-			log.Printf("[focus-manager] Processing stacked pane: activeIndex=%d stackSize=%d", n.activeStackIndex, len(n.stackedPanes))
-			for i, stackedPane := range n.stackedPanes {
+			// Processing stacked pane CSS cleanup
+			for _, stackedPane := range n.stackedPanes {
 				if stackedPane != nil && stackedPane.container != nil {
 					stackedPane.container.Execute(func(containerPtr uintptr) error {
-						log.Printf("[focus-manager] Removing CSS class '%s' from stacked pane[%d]: container=%#x", activePaneClass, i, containerPtr)
+						// Removing CSS class from stacked pane
 						webkit.WidgetRemoveCSSClass(containerPtr, activePaneClass)
 						return nil
 					})
@@ -188,7 +193,7 @@ func (fm *FocusManager) removeActiveCSSFromAllPanes(activePaneClass string) {
 	}
 
 	walkAndRemove(fm.wm.root, 0)
-	log.Printf("[focus-manager] removeActiveCSSFromAllPanes: completed CSS cleanup")
+	// CSS cleanup completed
 }
 
 // updateStackedPaneVisibility handles special case for stacked panes
@@ -368,5 +373,87 @@ func (fm *FocusManager) verifyOnlyOneActivePaneOrPanic() {
 		log.Fatalf("[focus-manager] FATAL: No active panes detected but %d panes exist. There should always be exactly ONE active pane.", len(leaves))
 	}
 
-	log.Printf("[focus-manager] ✓ Single active pane rule verified: %d active out of %d total panes", activeCount, len(leaves))
+	// Single active pane rule verified
+}
+
+// FocusDirection moves focus in the specified direction
+func (fm *FocusManager) FocusDirection(direction string) {
+	if fm.wm == nil {
+		return
+	}
+	
+	// Use the existing focus neighbor functionality
+	fm.FocusNeighbor(direction)
+}
+
+// FocusPane focuses a specific pane by WebView
+func (fm *FocusManager) FocusPane(source *webkit.WebView) {
+	if fm.wm == nil || source == nil {
+		return
+	}
+	
+	// Find the node for this WebView
+	node, exists := fm.wm.viewToNode[source]
+	if !exists {
+		log.Printf("[focus] WebView not found in workspace: %s", fm.wm.idManager.FormatWebView(source))
+		return
+	}
+	
+	// Set this pane as active
+	fm.SetActivePane(node)
+}
+
+// FocusNeighbor moves focus to the nearest pane in the requested direction
+func (fm *FocusManager) FocusNeighbor(direction string) bool {
+	if fm.wm == nil {
+		return false
+	}
+	
+	current := fm.GetActivePane()
+	if current == nil {
+		return false
+	}
+	
+	// If we're in a stacked pane, handle stack navigation first
+	if current.parent != nil && current.parent.isStacked {
+		if direction == "up" || direction == "down" {
+			if fm.wm.stackedPaneManager != nil {
+				fm.wm.stackedPaneManager.NavigateStack(direction)
+				return true
+			}
+		}
+	}
+	
+	// TODO: Implement geometric neighbor finding
+	// This would need to examine the tree structure and find the closest pane
+	// in the requested direction based on widget bounds
+	log.Printf("[focus] FocusNeighbor %s not yet fully implemented", direction)
+	return false
+}
+
+// GetActiveNode returns the currently active pane node
+func (fm *FocusManager) GetActiveNode() *paneNode {
+	if fm.wm == nil {
+		return nil
+	}
+	
+	// Use the existing GetActivePane method
+	return fm.GetActivePane()
+}
+
+// FocusByView focuses a pane by its WebView
+func (fm *FocusManager) FocusByView(view *webkit.WebView) bool {
+	if fm.wm == nil || view == nil {
+		return false
+	}
+	
+	// Find the node for this WebView
+	node, exists := fm.wm.viewToNode[view]
+	if !exists {
+		return false
+	}
+	
+	// Set this pane as active
+	fm.SetActivePane(node)
+	return true
 }

@@ -600,10 +600,10 @@ func (spm *StackedPaneManager) UpdateTitleBar(webView *webkit.WebView, title str
 		if paneIndex != -1 && paneIndex != activeIndex {
 			// This is an INACTIVE pane - safe to update title bar
 			spm.updateTitleBarLabel(node, title)
-			log.Printf("[workspace] updated title bar for INACTIVE WebView %s: %s", webView.ID(), title)
+			log.Printf("[workspace] updated title bar for INACTIVE %s: %s", spm.wm.idManager.FormatWebView(webView), title)
 		} else {
 			// This is the ACTIVE pane - title bar should remain hidden
-			log.Printf("[workspace] skipped title bar update for ACTIVE WebView %s: %s", webView.ID(), title)
+			log.Printf("[workspace] skipped title bar update for ACTIVE %s: %s", spm.wm.idManager.FormatWebView(webView), title)
 		}
 	}
 }
@@ -959,5 +959,27 @@ func (spm *StackedPaneManager) CloseStackedPane(node *paneNode) error {
 	spm.wm.ensurePaneBaseClasses()
 	log.Printf("[workspace] stacked pane closed; panes remaining=%d", len(spm.wm.app.panes))
 
+	return nil
+}
+
+// CreateStack creates a new stack from the given source WebView
+func (spm *StackedPaneManager) CreateStack(source *webkit.WebView) error {
+	if spm.wm == nil || source == nil {
+		return fmt.Errorf("invalid parameters for CreateStack")
+	}
+	
+	// Find the source node
+	sourceNode, exists := spm.wm.viewToNode[source]
+	if !exists {
+		return fmt.Errorf("source view not found in workspace")
+	}
+	
+	// Use existing StackPane method to create the stack
+	_, err := spm.StackPane(sourceNode)
+	if err != nil {
+		return fmt.Errorf("failed to create stack: %w", err)
+	}
+	
+	log.Printf("[stacked] Created new stack from source %s", spm.wm.idManager.FormatWebView(source))
 	return nil
 }

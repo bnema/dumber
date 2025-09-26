@@ -138,7 +138,7 @@ func (app *BrowserApp) createPaneForView(view *webkit.WebView) (*BrowserPane, er
 	pane.initializeGUITracking()
 
 	// GUI manager will be loaded on-demand when needed
-	log.Printf("[webview] Created pane for webview: %s", view.ID())
+	log.Printf("[webview] Created pane for webview: %s", view.ID()) // Will be converted to readable ID when workspace is available
 
 	app.attachPaneHandlers(pane)
 	return pane, nil
@@ -271,6 +271,15 @@ func (app *BrowserApp) setupWebViewIntegration() {
 	// Use native window as title updater
 	if win := app.webView.Window(); win != nil {
 		app.browserService.SetWindowTitleUpdater(win)
+	}
+
+	// CRITICAL: Register workspace manager as observer for JS events
+	if app.messageHandler != nil && app.workspace != nil {
+		app.messageHandler.SetWorkspaceObserver(app.workspace)
+		log.Printf("[webview] Workspace observer registered - JS events will now reach Go handlers")
+	} else {
+		log.Printf("[webview] WARNING: Could not register workspace observer - messageHandler=%v workspace=%v",
+			app.messageHandler != nil, app.workspace != nil)
 	}
 }
 

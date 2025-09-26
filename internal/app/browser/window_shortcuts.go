@@ -109,7 +109,7 @@ func (h *WindowShortcutHandler) handleCopyURL() {
 		return
 	}
 
-	log.Printf("[window-shortcuts] Copy URL -> pane %p", h.app.activePane.webView)
+	log.Printf("[window-shortcuts] Copy URL -> %s", h.app.workspace.idManager.FormatWebView(h.app.activePane.webView))
 
 	// Execute copy URL script directly on active pane
 	script := `
@@ -151,7 +151,7 @@ func (h *WindowShortcutHandler) handleDevTools() {
 		return
 	}
 
-	log.Printf("[window-shortcuts] DevTools -> pane %p", h.app.activePane.webView)
+	log.Printf("[window-shortcuts] DevTools -> %s", h.app.workspace.idManager.FormatWebView(h.app.activePane.webView))
 
 	if err := h.app.activePane.webView.ShowDevTools(); err != nil {
 		log.Printf("[window-shortcuts] Failed to show devtools: %v", err)
@@ -172,7 +172,7 @@ func (h *WindowShortcutHandler) handlePrint() {
 		return
 	}
 
-	log.Printf("[window-shortcuts] Print -> pane %p", h.app.activePane.webView)
+	log.Printf("[window-shortcuts] Print -> %s", h.app.workspace.idManager.FormatWebView(h.app.activePane.webView))
 
 	if err := h.app.activePane.webView.ShowPrintDialog(); err != nil {
 		log.Printf("[window-shortcuts] Failed to show print dialog: %v", err)
@@ -205,7 +205,7 @@ func (h *WindowShortcutHandler) handleZoom(action string, multiplier float64) {
 	}
 
 	activeWebView := h.app.activePane.webView
-	log.Printf("[window-shortcuts] Zoom %s -> pane %p", action, activeWebView)
+	log.Printf("[window-shortcuts] Zoom %s -> %s", action, h.app.workspace.idManager.FormatWebView(activeWebView))
 
 	// Get current zoom level
 	currentZoom, err := activeWebView.GetZoom()
@@ -246,7 +246,10 @@ func (h *WindowShortcutHandler) ensureGUIInActivePane(component string) {
 	if !pane.HasGUI() {
 		log.Printf("[window-shortcuts] Injecting GUI into pane %s for %s", pane.ID(), component)
 		if h.app.workspace != nil {
-			h.app.workspace.ensureGUIInPane(pane)
+			// Find the paneNode for this BrowserPane
+			if node, exists := h.app.workspace.viewToNode[pane.webView]; exists {
+				h.app.workspace.ensureGUIInPane(node)
+			}
 		}
 	}
 
@@ -279,7 +282,7 @@ func (h *WindowShortcutHandler) handleUIToggle(lastToggle *time.Time, featureNam
 		return
 	}
 
-	log.Printf("[window-shortcuts] %s toggle -> pane %p", featureName, h.app.activePane.webView)
+	log.Printf("[window-shortcuts] %s toggle -> %s", featureName, h.app.workspace.idManager.FormatWebView(h.app.activePane.webView))
 
 	h.ensureGUIInActivePane("omnibox")
 
@@ -320,10 +323,10 @@ func (h *WindowShortcutHandler) handleClosePane() {
 	for webView := range h.app.workspace.viewToNode {
 		if webView != nil {
 			isActive := webView.IsActive()
-			log.Printf("[window-shortcuts] WebView %s: IsActive=%t", webView.ID(), isActive)
+			log.Printf("[window-shortcuts] %s: IsActive=%t", h.app.workspace.idManager.FormatWebView(webView), isActive)
 			if isActive {
 				activeWebView = webView
-				log.Printf("[window-shortcuts] Found active WebView: %s", webView.ID())
+				log.Printf("[window-shortcuts] Found active WebView: %s", h.app.workspace.idManager.FormatWebView(webView))
 				break
 			}
 		}
@@ -342,7 +345,7 @@ func (h *WindowShortcutHandler) handleClosePane() {
 		// Use the proper close-popup message for popups
 		msg := messaging.Message{
 			Event:     "close-popup",
-			WebViewID: activeWebView.ID(),
+			WebViewID: activeWebView.ID(), // Keep original ID for messaging
 			Reason:    "user-ctrl-w",
 		}
 		h.app.workspace.OnWorkspaceMessage(activeWebView, msg)

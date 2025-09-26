@@ -2,7 +2,9 @@ package browser
 
 import (
 	"errors"
+	"fmt"
 	"log"
+	"strings"
 
 	"github.com/bnema/dumber/pkg/webkit"
 )
@@ -208,4 +210,98 @@ func (lm *LayoutManager) UpdateMainPane() {
 	if lm.wm.root != nil && lm.wm.root.isLeaf {
 		lm.wm.mainPane = lm.wm.root
 	}
+}
+
+// SplitPane creates a new split with the given direction
+func (lm *LayoutManager) SplitPane(source *webkit.WebView, direction string) error {
+	if lm.wm == nil {
+		return fmt.Errorf("layout manager not initialized")
+	}
+	
+	// Find the source node
+	sourceNode, exists := lm.wm.viewToNode[source]
+	if !exists {
+		return fmt.Errorf("source view not found in workspace")
+	}
+	
+	// Convert direction string to webkit.Orientation
+	var orientation webkit.Orientation
+	switch direction {
+	case "right", "left":
+		orientation = webkit.OrientationHorizontal
+	case "up", "down":
+		orientation = webkit.OrientationVertical
+	default:
+		orientation = webkit.OrientationHorizontal // default
+	}
+	
+	// Use existing SplitNode method
+	_, err := lm.SplitNode(sourceNode, orientation)
+	return err
+}
+
+// CreatePopup creates a popup window for the given URL
+func (lm *LayoutManager) CreatePopup(source *webkit.WebView, targetURL string) error {
+	// TODO: Implement popup creation logic
+	// This should create a new popup window with the given URL
+	log.Printf("[layout] CreatePopup called for URL: %s", targetURL)
+	return fmt.Errorf("popup creation not yet implemented")
+}
+
+// EnsureGUIInPane ensures GUI content is loaded in the specified pane
+func (lm *LayoutManager) EnsureGUIInPane(pane *paneNode) error {
+	if pane == nil || pane.pane == nil || pane.pane.webView == nil {
+		return fmt.Errorf("invalid pane for GUI initialization")
+	}
+	
+	// Check if GUI is already loaded
+	currentURL := pane.pane.webView.GetURI()
+	if currentURL != "" && !strings.Contains(currentURL, "about:blank") {
+		return nil // GUI already loaded
+	}
+	
+	// Load GUI into the pane
+	// TODO: Get actual GUI URL from config
+	guiURL := "file:///gui/index.html" // placeholder
+	pane.pane.webView.LoadURL(guiURL)
+	
+	log.Printf("[layout] Loaded GUI into pane %s", pane.pane.id)
+	return nil
+}
+
+// RegisterNavigationHandler registers a navigation handler
+func (lm *LayoutManager) RegisterNavigationHandler(handler interface{}) {
+	// TODO: Implement navigation handler registration
+	log.Printf("[layout] Navigation handler registered: %T", handler)
+}
+
+// UpdateTitleBar updates the title bar for a specific pane
+func (lm *LayoutManager) UpdateTitleBar(view *webkit.WebView, title string) {
+	if lm.wm == nil || view == nil {
+		return
+	}
+	
+	// Find the node associated with this view
+	node, exists := lm.wm.viewToNode[view]
+	if !exists {
+		return
+	}
+	
+	// If this is a stacked pane, update its title bar
+	if node.parent != nil && node.parent.isStacked {
+		if lm.wm.stackedPaneManager != nil {
+			lm.wm.stackedPaneManager.UpdateTitleBar(view, title)
+		}
+	}
+	
+	log.Printf("[layout] Updated title bar for %s: %s", lm.wm.idManager.FormatWebView(view), title)
+}
+
+// HandlePopup handles popup window creation
+func (lm *LayoutManager) HandlePopup(sourceView *webkit.WebView, targetURL string) *webkit.WebView {
+	// TODO: Implement actual popup handling
+	log.Printf("[layout] HandlePopup called - source: %s, URL: %s", lm.wm.idManager.FormatWebView(sourceView), targetURL)
+	
+	// For now, just return nil (no popup created)
+	return nil
 }

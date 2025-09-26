@@ -140,6 +140,19 @@ func (w *SafeWidget) String() string {
 	return fmt.Sprintf("SafeWidget(%s:%#x, destroyed=%v)", w.typeInfo, w.ptr, destroyed)
 }
 
+// StringWithID returns a string representation with readable ID (requires IDManager)
+func (w *SafeWidget) StringWithID(idManager *IDManager) string {
+	if w == nil {
+		return "SafeWidget(nil)"
+	}
+	if idManager == nil {
+		return w.String()
+	}
+	destroyed := atomic.LoadInt32(&w.destroyed) == 1
+	readableID := idManager.GetWidgetID(w.ptr)
+	return fmt.Sprintf("SafeWidget(%s:widget:%d, destroyed=%v)", w.typeInfo, readableID, destroyed)
+}
+
 // WidgetRegistry tracks all widgets to prevent accessing destroyed widgets
 type WidgetRegistry struct {
 	widgets map[uintptr]*SafeWidget

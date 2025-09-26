@@ -30,27 +30,22 @@ func (cm *CSSManager) EnsureStyles() {
 		return
 	}
 
-	styling := config.GetStyling()
-	if styling == nil {
-		log.Printf("[css] No styling config found, using defaults")
+	cfg := config.Get()
+	if cfg == nil {
+		log.Printf("[css] No config found, using defaults")
 		return
 	}
 
-	css := cm.generateActivePaneCSS(styling)
+	css := cm.generateActivePaneCSS(&cfg.Workspace.Styling)
 
-	if cm.wm.window != nil {
-		if err := cm.wm.window.InjectCSS(css); err != nil {
-			log.Printf("[css] Failed to inject workspace CSS: %v", err)
-		} else {
-			log.Printf("[css] Injected workspace CSS")
-		}
-	}
+	webkit.AddCSSProvider(css)
+	log.Printf("[css] Added workspace CSS provider")
 
 	cm.cssInitialized = true
 }
 
 // generateActivePaneCSS creates CSS for active pane styling
-func (cm *CSSManager) generateActivePaneCSS(styling *config.StylingConfig) string {
+func (cm *CSSManager) generateActivePaneCSS(styling *config.WorkspaceStylingConfig) string {
 	// Get stack title colors
 	stackTitleBg := getStackTitleBg(styling)
 	stackTitleHoverBg := getStackTitleHoverBg(styling)
@@ -144,25 +139,19 @@ func (cm *CSSManager) EnsurePaneBaseClasses() {
 }
 
 // getStackTitleBg returns the background color for stack titles
-func getStackTitleBg(styling *config.StylingConfig) string {
-	if styling.StackTitleBg != "" {
-		return styling.StackTitleBg
-	}
+func getStackTitleBg(styling *config.WorkspaceStylingConfig) string {
+	// TODO: Add stack-specific styling fields to config when needed
 	return "#2d2d2d" // Default dark background
 }
 
 // getStackTitleHoverBg returns the hover background color for stack titles
-func getStackTitleHoverBg(styling *config.StylingConfig) string {
-	if styling.StackTitleHoverBg != "" {
-		return styling.StackTitleHoverBg
-	}
+func getStackTitleHoverBg(styling *config.WorkspaceStylingConfig) string {
+	// TODO: Add stack-specific styling fields to config when needed
 	return "#404040" // Default hover background
 }
 
 // getStackTitleTextColor returns the text color for stack titles
-func getStackTitleTextColor(styling *config.StylingConfig) string {
-	if styling.StackTitleTextColor != "" {
-		return styling.StackTitleTextColor
-	}
+func getStackTitleTextColor(styling *config.WorkspaceStylingConfig) string {
+	// TODO: Add stack-specific styling fields to config when needed
 	return "#ffffff" // Default white text
 }
