@@ -338,9 +338,6 @@ func (spm *StackedPaneManager) finalizeStackCreation(stackNode, newLeaf *paneNod
 		newLeaf.pane.zoomController.ApplyInitialZoom()
 	}
 
-	// Update CSS classes
-	spm.wm.ensurePaneBaseClasses()
-
 	// Mark stack operation timestamp to prevent focus conflicts
 	spm.wm.lastStackOperation = time.Now()
 
@@ -362,8 +359,7 @@ func (spm *StackedPaneManager) finalizeStackCreation(stackNode, newLeaf *paneNod
 	spm.UpdateStackVisibility(stackNode)
 
 	// Set focus on the new pane synchronously
-	spm.wm.focusManager.SetActivePane(newLeaf)
-	spm.wm.currentlyFocused = newLeaf
+	spm.wm.SetActivePane(newLeaf, SourceSplit)
 
 	log.Printf("[workspace] stacked new pane: stackNode=%p newLeaf=%p stackSize=%d activeIndex=%d insertIndex=%d",
 		stackNode, newLeaf, len(stackNode.stackedPanes), stackNode.activeStackIndex, insertIndex)
@@ -404,8 +400,6 @@ func (spm *StackedPaneManager) UpdateStackVisibility(stackNode *paneNode) {
 			// Active pane: show container, NEVER show title bar
 			if pane.container != nil {
 				webkit.WidgetSetVisible(pane.container.Ptr(), true)
-				webkit.WidgetAddCSSClass(pane.container.Ptr(), "stacked-pane-active")
-				webkit.WidgetRemoveCSSClass(pane.container.Ptr(), "stacked-pane-collapsed")
 			}
 			if pane.titleBar != nil {
 				webkit.WidgetSetVisible(pane.titleBar.Ptr(), false) // ABSOLUTE RULE: never visible for active pane
@@ -415,13 +409,9 @@ func (spm *StackedPaneManager) UpdateStackVisibility(stackNode *paneNode) {
 			// Inactive panes: hide container, show title bar
 			if pane.container != nil {
 				webkit.WidgetSetVisible(pane.container.Ptr(), false)
-				webkit.WidgetAddCSSClass(pane.container.Ptr(), "stacked-pane-collapsed")
 			}
 			if pane.titleBar != nil {
 				webkit.WidgetSetVisible(pane.titleBar.Ptr(), true)
-			}
-			if pane.container != nil {
-				webkit.WidgetRemoveCSSClass(pane.container.Ptr(), "stacked-pane-active")
 			}
 		}
 	}
@@ -429,13 +419,13 @@ func (spm *StackedPaneManager) UpdateStackVisibility(stackNode *paneNode) {
 
 // NavigateStack handles navigation within a stacked pane container
 func (spm *StackedPaneManager) NavigateStack(direction string) bool {
-	if spm.wm.currentlyFocused == nil {
+	if spm.wm.GetActiveNode() == nil {
 		return false
 	}
 
 	// Find the stack container this pane belongs to
 	var stackNode *paneNode
-	current := spm.wm.currentlyFocused
+	current := spm.wm.GetActiveNode()
 
 	// Check if current pane is directly in a stack
 	if current.parent != nil && current.parent.isStacked {
@@ -498,8 +488,7 @@ func (spm *StackedPaneManager) NavigateStack(direction string) bool {
 
 	// Focus the new active pane
 	newActivePane := stackNode.stackedPanes[newIndex]
-	spm.wm.focusManager.SetActivePane(newActivePane)
-	spm.wm.currentlyFocused = newActivePane
+	spm.wm.SetActivePane(newActivePane, SourceStackNav)
 
 	log.Printf("[workspace] navigated stack: direction=%s from=%d to=%d stackSize=%d",
 		direction, currentIndex, newIndex, len(stackNode.stackedPanes))
@@ -787,14 +776,15 @@ func (spm *StackedPaneManager) CloseStackedPane(node *paneNode) error {
 		// FIXED: Focus the remaining pane if any pane from this stack was currently focused
 		// Check if currentlyFocused is part of this stack (including the pane being closed)
 		shouldFocus := false
-		if spm.wm.currentlyFocused != nil {
+		currentlyFocused := spm.wm.GetActiveNode()
+		if currentlyFocused != nil {
 			log.Printf("[workspace] DEBUG: currentlyFocused=%p, node being closed=%p, lastPane=%p",
-				spm.wm.currentlyFocused, node, lastPane)
+				currentlyFocused, node, lastPane)
 			// Check if currentlyFocused is the pane being closed
-			if spm.wm.currentlyFocused == node {
+			if currentlyFocused == node {
 				shouldFocus = true
 				log.Printf("[workspace] DEBUG: shouldFocus=true (closing focused pane)")
-			} else if spm.wm.currentlyFocused.parent == stackNode {
+			} else if currentlyFocused.parent == stackNode {
 				// Check if currentlyFocused is another pane in this stack
 				shouldFocus = true
 				log.Printf("[workspace] DEBUG: shouldFocus=true (focused pane in same stack)")
@@ -811,14 +801,10 @@ func (spm *StackedPaneManager) CloseStackedPane(node *paneNode) error {
 					lastPaneWidget, visible)
 			}
 
-			// Update CSS classes (mirror finalizeStackCreation)
-			spm.wm.ensurePaneBaseClasses()
-
 			// Mirror the exact logic from finalizeStackCreation that works perfectly:
 			// 1. First call SetActivePane (this does all the focus work)
 			// 2. Then set currentlyFocused
-			spm.wm.focusManager.SetActivePane(lastPane)
-			spm.wm.currentlyFocused = lastPane
+			spm.wm.SetActivePane(lastPane, SourceClose)
 
 			// CRITICAL: Ensure widget visibility and focus after reparenting
 			// The widget may need explicit show/focus calls after being reparented
@@ -852,18 +838,15 @@ func (spm *StackedPaneManager) CloseStackedPane(node *paneNode) error {
 		spm.UpdateStackVisibility(stackNode)
 
 		// Focus the new active pane if we closed the currently active one
-		if spm.wm.currentlyFocused == node {
+		if spm.wm.GetActiveNode() == node {
 			newActivePaneInStack := stackNode.stackedPanes[stackNode.activeStackIndex]
-			spm.wm.currentlyFocused = newActivePaneInStack
-			spm.wm.focusManager.SetActivePane(newActivePaneInStack)
+			spm.wm.SetActivePane(newActivePaneInStack, SourceClose)
 		}
 
 		log.Printf("[workspace] closed pane from stack: remaining=%d activeIndex=%d",
 			len(stackNode.stackedPanes), stackNode.activeStackIndex)
 	}
 
-	// Update CSS classes after pane count changes
-	spm.wm.ensurePaneBaseClasses()
 	log.Printf("[workspace] stacked pane closed; panes remaining=%d", len(spm.wm.app.panes))
 
 	return nil

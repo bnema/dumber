@@ -19,6 +19,8 @@ package webkit
 // Callback function for idle handling following the existing pattern
 extern gboolean goIdleCallback(uintptr_t handle);
 extern void goHoverCallback(uintptr_t handle);
+extern void goFocusEnterCallback(uintptr_t handle);
+extern void goFocusLeaveCallback(uintptr_t handle);
 
 static gboolean idle_callback_wrapper(gpointer data) {
     return goIdleCallback((uintptr_t)data);
@@ -222,6 +224,41 @@ static void label_set_max_width_chars(GtkWidget* label, int n_chars) {
     if (!label) return;
     gtk_label_set_max_width_chars(GTK_LABEL(label), n_chars);
 }
+
+// GTK4 Focus Controller helpers for focus state machine
+static void focus_enter_cb(GtkEventControllerFocus* controller, gpointer user_data) {
+    (void)controller;
+    uintptr_t nodePtr = (uintptr_t)user_data;
+    goFocusEnterCallback(nodePtr);
+}
+
+static void focus_leave_cb(GtkEventControllerFocus* controller, gpointer user_data) {
+    (void)controller;
+    uintptr_t nodePtr = (uintptr_t)user_data;
+    goFocusLeaveCallback(nodePtr);
+}
+
+static GtkEventController* widget_add_focus_controller(GtkWidget* widget, uintptr_t nodePtr) {
+    if (!widget) {
+        return NULL;
+    }
+    GtkEventController* focus = gtk_event_controller_focus_new();
+    if (!focus) {
+        return NULL;
+    }
+    gtk_event_controller_set_propagation_phase(focus, GTK_PHASE_CAPTURE);
+    g_signal_connect(focus, "enter", G_CALLBACK(focus_enter_cb), (gpointer)nodePtr);
+    g_signal_connect(focus, "leave", G_CALLBACK(focus_leave_cb), (gpointer)nodePtr);
+    gtk_widget_add_controller(widget, focus);
+    return focus;
+}
+
+static void widget_remove_focus_controller(GtkWidget* widget, GtkEventController* controller) {
+    if (!widget || !controller) {
+        return;
+    }
+    gtk_widget_remove_controller(widget, controller);
+}
 */
 import "C"
 
@@ -239,12 +276,24 @@ type WidgetBounds struct {
 	Height float64
 }
 
+// FocusCallbacks holds the enter and leave callbacks for focus events
+type FocusCallbacks struct {
+	OnEnter func()
+	OnLeave func()
+}
+
 var (
 	hoverMu          sync.Mutex
 	hoverCallbacks           = make(map[uintptr]func())
 	hoverControllers         = make(map[uintptr]uintptr)
 	nextHoverID      uintptr = 1
 	// gtkTestInitOnce removed - no longer needed
+
+	// Focus controller management
+	focusMu          sync.Mutex
+	focusCallbacks           = make(map[uintptr]FocusCallbacks)
+	focusControllers         = make(map[uintptr]uintptr)
+	nextFocusID      uintptr = 1
 )
 
 func widgetIsValid(widget uintptr) bool {
@@ -778,4 +827,85 @@ func WidgetHasCSSClass(widget uintptr, class string) bool {
 	defer C.free(unsafe.Pointer(cstr))
 	result := C.gtk_widget_has_css_class((*C.GtkWidget)(unsafe.Pointer(widget)), cstr)
 	return result != 0
+}
+
+// GTK4 Focus Controller functions for focus state machine
+
+// WidgetAddFocusController registers focus callbacks for the given widget and
+// returns a token that can be used to detach it later.
+func WidgetAddFocusController(widget uintptr, onEnter, onLeave func()) uintptr {
+	if widget == 0 || !widgetIsValid(widget) {
+		return 0
+	}
+
+	focusMu.Lock()
+	token := nextFocusID
+	nextFocusID++
+
+	callbacks := FocusCallbacks{
+		OnEnter: onEnter,
+		OnLeave: onLeave,
+	}
+	focusCallbacks[token] = callbacks
+	focusMu.Unlock()
+
+	controller := C.widget_add_focus_controller((*C.GtkWidget)(unsafe.Pointer(widget)), C.uintptr_t(token))
+	if controller == nil {
+		focusMu.Lock()
+		delete(focusCallbacks, token)
+		focusMu.Unlock()
+		return 0
+	}
+
+	focusMu.Lock()
+	focusControllers[token] = uintptr(unsafe.Pointer(controller))
+	focusMu.Unlock()
+	return token
+}
+
+// WidgetRemoveFocusController removes a previously registered focus controller.
+func WidgetRemoveFocusController(widget uintptr, token uintptr) {
+	if token == 0 {
+		return
+	}
+
+	focusMu.Lock()
+	controller := focusControllers[token]
+	delete(focusCallbacks, token)
+	delete(focusControllers, token)
+	focusMu.Unlock()
+
+	if controller == 0 {
+		return
+	}
+
+	if widget == 0 || !widgetIsValid(widget) {
+		return
+	}
+
+	C.widget_remove_focus_controller((*C.GtkWidget)(unsafe.Pointer(widget)), (*C.GtkEventController)(unsafe.Pointer(controller)))
+}
+
+//export goFocusEnterCallback
+func goFocusEnterCallback(handle C.uintptr_t) {
+	token := uintptr(handle)
+	focusMu.Lock()
+	callbacks := focusCallbacks[token]
+	focusMu.Unlock()
+
+	if callbacks.OnEnter != nil {
+		callbacks.OnEnter()
+	}
+}
+
+//export goFocusLeaveCallback
+func goFocusLeaveCallback(handle C.uintptr_t) {
+	token := uintptr(handle)
+	focusMu.Lock()
+	callbacks := focusCallbacks[token]
+	focusMu.Unlock()
+
+	if callbacks.OnLeave != nil {
+		callbacks.OnLeave()
+	}
 }

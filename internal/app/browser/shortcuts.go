@@ -44,7 +44,7 @@ func (s *ShortcutHandler) isActivePane() bool {
 
 	// For related popups, they're active if parent chain contains the active node
 	if node.isRelated && node.parentPane != nil {
-		activeNode := s.app.workspace.currentlyFocused
+		activeNode := s.app.workspace.GetActiveNode()
 		cur := node
 		for cur != nil {
 			if cur == activeNode {
@@ -56,7 +56,7 @@ func (s *ShortcutHandler) isActivePane() bool {
 	}
 
 	// Independent panes: equal to active node
-	return node == s.app.workspace.currentlyFocused
+	return node == s.app.workspace.GetActiveNode()
 }
 
 // RegisterShortcuts registers pane-specific keyboard shortcuts with focus guards
