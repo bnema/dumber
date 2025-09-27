@@ -3,6 +3,7 @@ package browser
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/pkg/webkit"
@@ -34,8 +35,19 @@ func getStackTitleTextColor(isDark bool) string {
 	return "#333333"
 }
 
-// getActivePaneBorderColor returns the border color for active panes based on theme
-func getActivePaneBorderColor(isDark bool) string {
+// getActivePaneBorderColor returns the border color for active panes based on config and theme
+func getActivePaneBorderColor(styling config.WorkspaceStylingConfig, isDark bool) string {
+	// Use configured border color if set
+	if styling.BorderColor != "" {
+		// Check if it's a GTK theme variable (starts with @)
+		if strings.HasPrefix(styling.BorderColor, "@") {
+			return styling.BorderColor
+		}
+		// Return the configured color as-is (could be hex, rgb, etc.)
+		return styling.BorderColor
+	}
+
+	// Fallback to hardcoded colors based on theme
 	if isDark {
 		return "#4A90E2" // Deeper blue pastel for dark theme
 	}
@@ -58,17 +70,22 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 		windowBackgroundColor = "#ffffff" // Light window background
 	}
 
-	activeBorderColor := getActivePaneBorderColor(isDark)
+	activeBorderColor := getActivePaneBorderColor(styling, isDark)
 
 	css := fmt.Sprintf(`window {
 	  background-color: %s;
 	}
 
-	/* Active pane border styling using outline (no layout impact) */
-	.workspace-pane-active {
-	  outline: 2px solid %s;
+	/* Base pane styling - transparent outline for smooth transitions */
+	.workspace-pane, .stacked-pane-container {
+	  outline: 2px solid transparent;
 	  outline-offset: -2px;
 	  transition: outline-color %dms ease-in-out;
+	}
+
+	/* Active pane border styling using outline (no layout impact) */
+	.workspace-pane-active {
+	  outline-color: %s;
 	}
 
 	/* Stacked panes styling */
@@ -77,11 +94,9 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  border-radius: %dpx;
 	}
 
-	/* Active stacked pane container gets the outline */
+	/* Active stacked pane container gets the outline color */
 	.stacked-pane-container.workspace-pane-active {
-	  outline: 2px solid %s;
-	  outline-offset: -2px;
-	  transition: outline-color %dms ease-in-out;
+	  outline-color: %s;
 	}
 
 	.stacked-pane-title {
@@ -110,12 +125,11 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  /* Collapsed panes are hidden - handled in code via widget visibility */
 	}`,
 		windowBackgroundColor,          // window background
-		activeBorderColor,              // workspace-pane-active border
-		styling.TransitionDuration,     // workspace-pane-active transition
+		styling.TransitionDuration,     // base pane outline transition
+		activeBorderColor,              // workspace-pane-active outline-color
 		windowBackgroundColor,          // stacked-pane-container background
 		styling.BorderRadius,           // stacked-pane-container border-radius
-		activeBorderColor,              // stacked-pane-container.workspace-pane-active border
-		styling.TransitionDuration,     // stacked-pane-container.workspace-pane-active transition
+		activeBorderColor,              // stacked-pane-container.workspace-pane-active outline-color
 		getStackTitleBg(isDark),        // stacked-pane-title background
 		inactiveBorderColor,            // stacked-pane-title border-bottom
 		styling.TransitionDuration,     // stacked-pane-title transition
