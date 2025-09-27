@@ -35,8 +35,8 @@ func getStackTitleTextColor(isDark bool) string {
 	return "#333333"
 }
 
-// generateActivePaneCSS generates the CSS for workspace panes based on config
-func (wm *WorkspaceManager) generateActivePaneCSS() string {
+// generateStackedPaneCSS generates the CSS for stacked pane title bars
+func (wm *WorkspaceManager) generateStackedPaneCSS() string {
 	cfg := config.Get()
 	styling := cfg.Workspace.Styling
 
@@ -51,32 +51,8 @@ func (wm *WorkspaceManager) generateActivePaneCSS() string {
 		windowBackgroundColor = "#ffffff" // Light window background
 	}
 
-	// Log the border color values for debugging
-	log.Printf("[workspace] GTK prefers dark: %v, inactive border color: %s", isDark, inactiveBorderColor)
-
 	css := fmt.Sprintf(`window {
 	  background-color: %s;
-	}
-
-	.workspace-pane {
-	  background-color: %s;
-	  border: %dpx solid %s;
-	  transition: border-color %dms ease-in-out;
-	  border-radius: %dpx;
-	}
-
-	.workspace-pane.workspace-multi-pane {
-	  border: %dpx solid %s;
-	  border-radius: %dpx;
-	}
-
-	.workspace-pane.workspace-multi-pane.workspace-pane-active {
-	  border-color: %s;
-	}
-
-	/* Active border for ALL workspace panes (including stacked panes) */
-	.workspace-pane.workspace-pane-active {
-	  border-color: %s !important;
 	}
 
 	/* Stacked panes styling */
@@ -110,18 +86,7 @@ func (wm *WorkspaceManager) generateActivePaneCSS() string {
 	.stacked-pane-collapsed {
 	  /* Collapsed panes are hidden - handled in code via widget visibility */
 	}`,
-		windowBackgroundColor,
-		windowBackgroundColor,
-		styling.BorderWidth,
-		inactiveBorderColor,
-		styling.TransitionDuration,
-		styling.BorderRadius,
-		styling.BorderWidth,
-		inactiveBorderColor,
-		styling.BorderRadius,
-		styling.BorderColor,
-		styling.BorderColor, // NEW: .workspace-pane.workspace-pane-active border-color
-		// Additional parameters for stacked pane styles
+		windowBackgroundColor,          // window background
 		windowBackgroundColor,          // stacked-pane-container background
 		styling.BorderRadius,           // stacked-pane-container border-radius
 		getStackTitleBg(isDark),        // stacked-pane-title background
@@ -131,40 +96,15 @@ func (wm *WorkspaceManager) generateActivePaneCSS() string {
 		getStackTitleTextColor(isDark), // stacked-pane-title-text color
 	)
 
-	// Log the actual CSS being generated
-	log.Printf("[workspace] Generated CSS: %s", css)
-
 	return css
 }
 
-// ensureStyles ensures that CSS styles are applied to the workspace
-func (wm *WorkspaceManager) ensureStyles() {
+// ensureStackedPaneStyles ensures that CSS styles are applied for stacked panes
+func (wm *WorkspaceManager) ensureStackedPaneStyles() {
 	if wm == nil || wm.cssInitialized {
 		return
 	}
-	activePaneCSS := wm.generateActivePaneCSS()
-	webkit.AddCSSProvider(activePaneCSS)
+	stackedPaneCSS := wm.generateStackedPaneCSS()
+	webkit.AddCSSProvider(stackedPaneCSS)
 	wm.cssInitialized = true
-}
-
-// ensurePaneBaseClasses ensures all panes have the proper base CSS classes
-func (wm *WorkspaceManager) ensurePaneBaseClasses() {
-	if wm == nil {
-		return
-	}
-
-	leaves := wm.collectLeaves()
-	for _, leaf := range leaves {
-		if leaf != nil && leaf.container != nil {
-			leaf.container.Execute(func(containerPtr uintptr) error {
-				webkit.WidgetAddCSSClass(containerPtr, basePaneClass)
-				if wm.hasMultiplePanes() {
-					webkit.WidgetAddCSSClass(containerPtr, multiPaneClass)
-				} else {
-					webkit.WidgetRemoveCSSClass(containerPtr, multiPaneClass)
-				}
-				return nil
-			})
-		}
-	}
 }

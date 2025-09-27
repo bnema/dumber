@@ -52,15 +52,13 @@ func (wm *WorkspaceManager) focusRespectingStack(node *paneNode, reason string) 
 				if reason != "" {
 					log.Printf("[workspace] %s: preserving active stacked pane index=%d", reason, activeIndex)
 				}
-				wm.currentlyFocused = activePane
-				wm.focusManager.SetActivePane(activePane)
+				wm.SetActivePane(activePane, SourceKeyboard)
 				return
 			}
 		}
 	}
 
-	wm.currentlyFocused = node
-	wm.focusManager.SetActivePane(node)
+	wm.SetActivePane(node, SourceKeyboard)
 }
 
 // focusByView changes focus to the pane containing the specified WebView
@@ -80,7 +78,7 @@ func (wm *WorkspaceManager) focusByView(view *webkit.WebView) {
 	wm.focusThrottleMutex.Unlock()
 
 	if node, ok := wm.viewToNode[view]; ok {
-		if wm.currentlyFocused != node {
+		if wm.GetActiveNode() != node {
 			wm.focusRespectingStack(node, "focus-by-view")
 		}
 	}
@@ -101,8 +99,7 @@ func (wm *WorkspaceManager) ensureHover(node *paneNode) {
 			if wm == nil {
 				return
 			}
-			wm.focusManager.SetActivePane(node)
-			wm.currentlyFocused = node
+			wm.SetActivePane(node, SourceMouse)
 		})
 		return nil
 	})
@@ -148,13 +145,14 @@ func (wm *WorkspaceManager) FocusNeighbor(direction string) bool {
 
 // navigateStack handles navigation within a stacked pane container.
 func (wm *WorkspaceManager) navigateStack(direction string) bool {
-	if wm.currentlyFocused == nil {
+	currentFocused := wm.GetActiveNode()
+	if currentFocused == nil {
 		return false
 	}
 
 	// Find the stack container this pane belongs to
 	var stackNode *paneNode
-	current := wm.currentlyFocused
+	current := currentFocused
 
 	// Check if current pane is directly in a stack
 	if current.parent != nil && current.parent.isStacked {
@@ -211,8 +209,7 @@ func (wm *WorkspaceManager) navigateStack(direction string) bool {
 
 	// Focus the new active pane
 	newActivePane := stackNode.stackedPanes[newIndex]
-	wm.focusManager.SetActivePane(newActivePane)
-	wm.currentlyFocused = newActivePane
+	wm.SetActivePane(newActivePane, SourceStackNav)
 
 	log.Printf("[workspace] navigated stack: direction=%s from=%d to=%d stackSize=%d",
 		direction, currentIndex, newIndex, len(stackNode.stackedPanes))
@@ -221,19 +218,19 @@ func (wm *WorkspaceManager) navigateStack(direction string) bool {
 
 // focusAdjacent uses geometry-based calculations to find and focus adjacent panes
 func (wm *WorkspaceManager) focusAdjacent(direction string) bool {
-	if wm.currentlyFocused == nil || !wm.currentlyFocused.isLeaf || wm.currentlyFocused.container == nil {
+	currentFocused := wm.GetActiveNode()
+	if currentFocused == nil || !currentFocused.isLeaf || currentFocused.container == nil {
 		return false
 	}
 
-	if neighbor := wm.structuralNeighbor(wm.currentlyFocused, direction); neighbor != nil {
-		wm.focusManager.SetActivePane(neighbor)
-		wm.currentlyFocused = neighbor
+	if neighbor := wm.structuralNeighbor(currentFocused, direction); neighbor != nil {
+		wm.SetActivePane(neighbor, SourceKeyboard)
 		return true
 	}
 
 	var currentBounds webkit.WidgetBounds
 	var ok bool
-	wm.currentlyFocused.container.Execute(func(containerPtr uintptr) error {
+	currentFocused.container.Execute(func(containerPtr uintptr) error {
 		currentBounds, ok = webkit.WidgetGetBounds(containerPtr)
 		return nil
 	})
@@ -251,7 +248,7 @@ func (wm *WorkspaceManager) focusAdjacent(direction string) bool {
 	var debugCandidates []string
 
 	for _, candidate := range leaves {
-		if candidate == nil || candidate == wm.currentlyFocused || candidate.container == nil {
+		if candidate == nil || candidate == currentFocused || candidate.container == nil {
 			continue
 		}
 		var bounds webkit.WidgetBounds
@@ -305,13 +302,12 @@ func (wm *WorkspaceManager) focusAdjacent(direction string) bool {
 	}
 
 	if best != nil {
-		wm.focusManager.SetActivePane(best)
-		wm.currentlyFocused = best
+		wm.SetActivePane(best, SourceKeyboard)
 		return true
 	}
 
 	if len(debugCandidates) > 0 {
-		log.Printf("[workspace] focusAdjacent no candidate direction=%s current=%#x candidates=%s", direction, wm.currentlyFocused.container, strings.Join(debugCandidates, "; "))
+		log.Printf("[workspace] focusAdjacent no candidate direction=%s current=%#x candidates=%s", direction, currentFocused.container, strings.Join(debugCandidates, "; "))
 	}
 	return false
 }

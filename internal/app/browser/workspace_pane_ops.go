@@ -103,10 +103,10 @@ func (wm *WorkspaceManager) clonePaneState(_ *paneNode, target *paneNode) {
 
 // closeCurrentPane closes the currently focused pane
 func (wm *WorkspaceManager) closeCurrentPane() {
-	if wm == nil || wm.currentlyFocused == nil {
+	if wm == nil || wm.GetActiveNode() == nil {
 		return
 	}
-	if err := wm.closePane(wm.currentlyFocused); err != nil {
+	if err := wm.closePane(wm.GetActiveNode()); err != nil {
 		log.Printf("[workspace] close current pane failed: %v", err)
 	}
 }
@@ -174,8 +174,8 @@ func (wm *WorkspaceManager) updateMainPane() {
 	}
 
 	if wm.mainPane == nil || !wm.mainPane.isLeaf {
-		if wm.currentlyFocused != nil && wm.currentlyFocused.isLeaf {
-			wm.mainPane = wm.currentlyFocused
+		if wm.GetActiveNode() != nil && wm.GetActiveNode().isLeaf {
+			wm.mainPane = wm.GetActiveNode()
 		}
 	}
 }
@@ -365,14 +365,16 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 	}
 
 	// Update CSS classes for all panes now that we have multiple panes
-	wm.ensurePaneBaseClasses()
 
 	webkit.IdleAdd(func() bool {
 		if newContainer != 0 {
 			webkit.WidgetShow(newContainer)
 		}
-		wm.currentlyFocused = newLeaf
-		wm.focusManager.SetActivePane(newLeaf)
+		// Attach GTK focus controller to new pane
+		if wm.focusStateMachine != nil {
+			wm.focusStateMachine.attachGTKController(newLeaf)
+		}
+		wm.SetActivePane(newLeaf, SourceSplit)
 		return false
 	})
 
@@ -596,14 +598,16 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string) (*pane
 	}
 
 	// Update CSS classes for all panes now that we have multiple panes
-	wm.ensurePaneBaseClasses()
 
 	webkit.IdleAdd(func() bool {
 		if newContainer != 0 {
 			webkit.WidgetShow(newContainer)
 		}
-		wm.currentlyFocused = newLeaf
-		wm.focusManager.SetActivePane(newLeaf)
+		// Attach GTK focus controller to new pane
+		if wm.focusStateMachine != nil {
+			wm.focusStateMachine.attachGTKController(newLeaf)
+		}
+		wm.SetActivePane(newLeaf, SourceSplit)
 		return false
 	})
 
@@ -718,7 +722,6 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 				}
 
 				wm.root = nil
-				wm.currentlyFocused = nil
 				wm.mainPane = nil
 
 				webkit.QuitMainLoop()
@@ -769,8 +772,7 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 		}
 
 		// Clear current active if it's the node being closed
-		if wm.currentlyFocused == node {
-			wm.currentlyFocused = nil
+		if wm.GetActiveNode() == node {
 		}
 
 		// Set replacement as new root
@@ -790,8 +792,7 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 		// Focus a suitable pane
 		focusTarget := wm.leftmostLeaf(replacement)
 		if focusTarget != nil {
-			wm.currentlyFocused = focusTarget
-			wm.focusManager.SetActivePane(focusTarget)
+			wm.SetActivePane(focusTarget, SourceClose)
 		}
 
 		// Destroy the webview and detach hover AFTER rearranging hierarchy
@@ -816,7 +817,6 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 
 		wm.updateMainPane()
 		// Update CSS classes after pane count changes
-		wm.ensurePaneBaseClasses()
 		log.Printf("[workspace] root pane closed and delegated; panes remaining=%d", len(wm.app.panes))
 		return nil
 	}
@@ -841,8 +841,7 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 	}
 
 	// Clear current active if it's the node being closed
-	if wm.currentlyFocused == node {
-		wm.currentlyFocused = nil
+	if wm.GetActiveNode() == node {
 	}
 
 	grand := parent.parent
@@ -897,8 +896,7 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 	// Find a suitable focus target
 	focusTarget := wm.leftmostLeaf(sibling)
 	if focusTarget != nil {
-		wm.currentlyFocused = focusTarget
-		wm.focusManager.SetActivePane(focusTarget)
+		wm.SetActivePane(focusTarget, SourceClose)
 	}
 
 	// Clean up the node being closed
@@ -923,7 +921,6 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 
 	wm.updateMainPane()
 	// Update CSS classes after pane count changes
-	wm.ensurePaneBaseClasses()
 	log.Printf("[workspace] pane closed; panes remaining=%d", len(wm.app.panes))
 	return nil
 }

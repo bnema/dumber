@@ -45,10 +45,7 @@ type WorkspaceManager struct {
 
 	// Specialized managers for different pane operations
 	stackedPaneManager *StackedPaneManager
-	focusManager       *FocusManager
-
-	// Current focused pane (Single Source of Truth for focus)
-	currentlyFocused *paneNode
+	focusStateMachine  *FocusStateMachine
 
 	// Widget operation synchronization to prevent GTK race conditions
 	widgetMutex    sync.Mutex
@@ -71,7 +68,7 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 
 	// Initialize specialized managers
 	manager.stackedPaneManager = NewStackedPaneManager(manager)
-	manager.focusManager = NewFocusManager(manager)
+	manager.focusStateMachine = NewFocusStateMachine(manager)
 	manager.createWebViewFn = func() (*webkit.WebView, error) {
 		if manager.app == nil {
 			return nil, errors.New("workspace manager missing app reference")
@@ -91,7 +88,7 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 		}
 		return manager.app.createPaneForView(view)
 	}
-	manager.ensureStyles()
+	manager.ensureStackedPaneStyles()
 
 	rootContainer := rootPane.webView.RootWidget()
 	root := &paneNode{
@@ -111,11 +108,21 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 	}
 
 	app.workspace = manager
-	manager.currentlyFocused = root
-	manager.focusManager.SetActivePane(root)
-	// Workspace navigation shortcuts are now handled globally by WindowShortcutHandler
-	// Ensure initial CSS classes are applied
-	manager.ensurePaneBaseClasses()
+
+	// Configure debug settings from app config
+	if app.config != nil {
+		manager.focusStateMachine.ConfigureDebug(
+			app.config.Debug.EnableFocusDebug,
+			false, // CSS debug removed
+			app.config.Debug.EnableFocusMetrics,
+		)
+	}
+
+	// Initialize focus state machine after all setup is complete
+	if err := manager.focusStateMachine.Initialize(); err != nil {
+		log.Printf("[workspace] Failed to initialize focus state machine: %v", err)
+	}
+
 	return manager
 }
 
@@ -151,8 +158,7 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 		wm.paneModeActive = true
 		wm.paneModeSource = source
 		wm.lastPaneModeEntry = time.Now()
-		wm.currentlyFocused = node
-		wm.focusManager.SetActivePane(node)
+		wm.SetActivePane(node, SourceProgrammatic)
 	case "pane-confirmed", "pane-cancelled", "pane-mode-exited":
 		// Debounce pane-mode-exited events to prevent duplicate focus calls
 		if event == "pane-mode-exited" {
@@ -185,8 +191,7 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 		// Don't focus the node that's about to be closed - closeCurrentPane() will handle focus
 		wm.closeCurrentPane()
 	case "pane-split":
-		wm.currentlyFocused = node
-		wm.focusManager.SetActivePane(node)
+		wm.SetActivePane(node, SourceProgrammatic)
 		direction := strings.ToLower(msg.Direction)
 		if direction == "" {
 			direction = "right"
@@ -212,8 +217,7 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 		wm.clonePaneState(node, newNode)
 		wm.splitting = false
 	case "pane-stack":
-		wm.currentlyFocused = node
-		wm.focusManager.SetActivePane(node)
+		wm.SetActivePane(node, SourceProgrammatic)
 		if last, ok := wm.lastSplitMsg[source]; ok {
 			if time.Since(last) < 200*time.Millisecond {
 				log.Printf("[workspace] stack ignored: debounce (%.0fms)", time.Since(last).Seconds()*1000)
@@ -331,7 +335,14 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 
 // GetActiveNode returns the currently active pane node
 func (wm *WorkspaceManager) GetActiveNode() *paneNode {
-	return wm.currentlyFocused
+	return wm.focusStateMachine.GetActivePane()
+}
+
+// SetActivePane requests focus change through the focus state machine
+func (wm *WorkspaceManager) SetActivePane(node *paneNode, source FocusSource) {
+	if err := wm.focusStateMachine.RequestFocus(node, source); err != nil {
+		log.Printf("[workspace] Focus request failed: %v", err)
+	}
 }
 
 // GetNodeForWebView returns the pane node associated with a WebView

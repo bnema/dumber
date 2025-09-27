@@ -370,6 +370,16 @@ func WidgetQueueDraw(widget uintptr) {
 	// Stub implementation - no-op
 }
 
+// Focus controller functions for GTK4 EventControllerFocus (stub implementations)
+func WidgetAddFocusController(widget uintptr, onEnter, onLeave func()) uintptr {
+	// Stub implementation - return a fake token
+	return nextHoverToken
+}
+
+func WidgetRemoveFocusController(widget uintptr, token uintptr) {
+	// Stub implementation - no-op
+}
+
 // SimulateFocusForTesting gives focus to a widget for test scenarios
 func SimulateFocusForTesting(widget uintptr) {
 	WidgetGrabFocus(widget)

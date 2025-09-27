@@ -124,8 +124,8 @@ func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *web
 
 	// Determine target node for splitting
 	target := node
-	if !popCfg.FollowPaneContext && wm.currentlyFocused != nil {
-		target = wm.currentlyFocused
+	if !popCfg.FollowPaneContext && wm.GetActiveNode() != nil {
+		target = wm.GetActiveNode()
 	}
 
 	// Add the popup pane to the workspace using manual pane insertion

@@ -215,6 +215,15 @@ type DebugConfig struct {
 
 	// Enable workspace navigation and focus debug logs
 	EnableWorkspaceDebug bool `mapstructure:"enable_workspace_debug" yaml:"enable_workspace_debug"`
+
+	// Enable focus state machine debug logs
+	EnableFocusDebug bool `mapstructure:"enable_focus_debug" yaml:"enable_focus_debug"`
+
+	// Enable CSS reconciler debug logs
+	EnableCSSDebug bool `mapstructure:"enable_css_debug" yaml:"enable_css_debug"`
+
+	// Enable focus metrics tracking
+	EnableFocusMetrics bool `mapstructure:"enable_focus_metrics" yaml:"enable_focus_metrics"`
 }
 
 // APISecurityConfig holds optional API key protection for dumb://api endpoints
@@ -633,6 +642,19 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("logging.capture_c_output", defaults.Logging.CaptureCOutput)
 	m.viper.SetDefault("logging.debug_file", defaults.Logging.DebugFile)
 	m.viper.SetDefault("logging.verbose_webkit", defaults.Logging.VerboseWebKit)
+
+	// Debug defaults
+	m.viper.SetDefault("debug.enable_webkit_debug", defaults.Debug.EnableWebKitDebug)
+	m.viper.SetDefault("debug.webkit_debug_categories", defaults.Debug.WebKitDebugCategories)
+	m.viper.SetDefault("debug.enable_filtering_debug", defaults.Debug.EnableFilteringDebug)
+	m.viper.SetDefault("debug.enable_webview_debug", defaults.Debug.EnableWebViewDebug)
+	m.viper.SetDefault("debug.log_webkit_crashes", defaults.Debug.LogWebKitCrashes)
+	m.viper.SetDefault("debug.enable_script_debug", defaults.Debug.EnableScriptDebug)
+	m.viper.SetDefault("debug.enable_general_debug", defaults.Debug.EnableGeneralDebug)
+	m.viper.SetDefault("debug.enable_workspace_debug", defaults.Debug.EnableWorkspaceDebug)
+	m.viper.SetDefault("debug.enable_focus_debug", defaults.Debug.EnableFocusDebug)
+	m.viper.SetDefault("debug.enable_css_debug", defaults.Debug.EnableCSSDebug)
+	m.viper.SetDefault("debug.enable_focus_metrics", defaults.Debug.EnableFocusMetrics)
 
 	// Appearance defaults
 	m.viper.SetDefault("appearance.sans_font", defaults.Appearance.SansFont)
