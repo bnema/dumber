@@ -237,7 +237,7 @@ func (spm *StackedPaneManager) convertToStackedContainer(target, newLeaf *paneNo
 		parent:           parent,
 	}
 	spm.wm.setContainer(stackNode, stackWrapperContainer, "stack-wrapper") // Wrapper for GTK operations (splits, etc.)
-	spm.wm.setStackWrapper(stackNode, stackInternalBox)                     // Internal box for stack operations
+	spm.wm.setStackWrapper(stackNode, stackInternalBox)                    // Internal box for stack operations
 
 	// Update target's parent to be the stack node
 	target.parent = stackNode
