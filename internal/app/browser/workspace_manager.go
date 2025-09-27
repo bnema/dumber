@@ -15,16 +15,16 @@ import (
 )
 
 type paneNode struct {
-	pane        *BrowserPane
-	parent      *paneNode
-	left        *paneNode
-	right       *paneNode
+	pane   *BrowserPane
+	parent *paneNode
+	left   *paneNode
+	right  *paneNode
 
 	// Widget management with proper lifecycle tracking
-	container    *SafeWidget // Main container (GtkPaned for branch nodes, wrapper GtkBox for stacked nodes, WebView container for leaves)
-	orientation  webkit.Orientation
-	isLeaf       bool
-	isPopup      bool // Deprecated: use windowType instead
+	container   *SafeWidget // Main container (GtkPaned for branch nodes, wrapper GtkBox for stacked nodes, WebView container for leaves)
+	orientation webkit.Orientation
+	isLeaf      bool
+	isPopup     bool // Deprecated: use windowType instead
 
 	// Window type tracking
 	windowType     webkit.WindowType      // Tab or Popup
@@ -100,7 +100,7 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 		lastSplitMsg:     make(map[*webkit.WebView]time.Time),
 		lastExitMsg:      make(map[*webkit.WebView]time.Time),
 		paneDeduplicator: messaging.NewPaneRequestDeduplicator(), // NEW: Initialize deduplicator
-		widgetRegistry:   NewWidgetRegistry(),                     // Initialize widget registry
+		widgetRegistry:   NewWidgetRegistry(),                    // Initialize widget registry
 	}
 
 	// Initialize specialized managers
@@ -542,7 +542,7 @@ func (wm *WorkspaceManager) generateActivePaneCSS() string {
 		inactiveBorderColor,
 		styling.BorderRadius,
 		styling.BorderColor,
-		styling.BorderColor,                // NEW: .workspace-pane.workspace-pane-active border-color
+		styling.BorderColor, // NEW: .workspace-pane.workspace-pane-active border-color
 		// Additional parameters for stacked pane styles
 		windowBackgroundColor,          // stacked-pane-container background
 		styling.BorderRadius,           // stacked-pane-container border-radius
