@@ -221,14 +221,26 @@ func (wm *WorkspaceManager) applyActivePaneBorder(node *paneNode) {
 
 	// Apply CSS classes to border container (provides border styling)
 	if ctx.borderContainer != nil {
+		// Check if this container already has the active class to avoid redundant operations
+		var alreadyActive bool
 		ctx.borderContainer.Execute(func(containerPtr uintptr) error {
-			// Only add the active class - base classes should already be set
-			webkit.WidgetAddCSSClass(containerPtr, activePaneClass)
+			// Safety check: verify container pointer is valid
+			if containerPtr == 0 {
+				return fmt.Errorf("invalid container pointer")
+			}
+			alreadyActive = webkit.WidgetHasCSSClass(containerPtr, activePaneClass)
 			return nil
 		})
-	}
 
-	log.Printf("[workspace] Applied border to %s pane: %p", ctx.paneType, node)
+		// Only apply if not already active (prevents redundant GTK operations)
+		if !alreadyActive {
+			ctx.borderContainer.Execute(func(containerPtr uintptr) error {
+				webkit.WidgetAddCSSClass(containerPtr, activePaneClass)
+				return nil
+			})
+			log.Printf("[workspace] Applied border to %s pane: %p", ctx.paneType, node)
+		}
+	}
 }
 
 // removeActivePaneBorder removes the active pane visual border using the centralized system
@@ -240,16 +252,26 @@ func (wm *WorkspaceManager) removeActivePaneBorder(node *paneNode) {
 
 	// Remove CSS classes from border container
 	if ctx.borderContainer != nil {
+		// Check if this container has the active class before attempting removal
+		var hasActiveClass bool
 		ctx.borderContainer.Execute(func(containerPtr uintptr) error {
-			// Only remove the active class if it exists
-			if webkit.WidgetHasCSSClass(containerPtr, activePaneClass) {
-				webkit.WidgetRemoveCSSClass(containerPtr, activePaneClass)
+			// Safety check: verify container pointer is valid
+			if containerPtr == 0 {
+				return fmt.Errorf("invalid container pointer")
 			}
+			hasActiveClass = webkit.WidgetHasCSSClass(containerPtr, activePaneClass)
 			return nil
 		})
-	}
 
-	log.Printf("[workspace] Removed border from %s pane: %p", ctx.paneType, node)
+		// Only remove if it actually has the class (prevents redundant GTK operations)
+		if hasActiveClass {
+			ctx.borderContainer.Execute(func(containerPtr uintptr) error {
+				webkit.WidgetRemoveCSSClass(containerPtr, activePaneClass)
+				return nil
+			})
+			log.Printf("[workspace] Removed border from %s pane: %p", ctx.paneType, node)
+		}
+	}
 }
 
 // removeActivePaneBorderFromAll removes active pane borders from all containers using centralized system
