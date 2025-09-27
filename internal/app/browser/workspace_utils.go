@@ -4,6 +4,7 @@ package browser
 import (
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/bnema/dumber/pkg/webkit"
 )
@@ -97,6 +98,14 @@ func (wm *WorkspaceManager) initializePaneWidgets(node *paneNode, containerPtr u
 	// Register the main container
 	node.container = wm.registerWidget(containerPtr, "pane-container")
 
+	// Add base CSS class to the container
+	if node.container != nil {
+		node.container.Execute(func(ptr uintptr) error {
+			webkit.WidgetAddCSSClass(ptr, basePaneClass)
+			return nil
+		})
+	}
+
 	// Initialize other widget fields as nil (will be set when needed)
 	node.titleBar = nil
 	node.stackWrapper = nil
@@ -141,4 +150,145 @@ func (wm *WorkspaceManager) setTitleBar(node *paneNode, ptr uintptr) {
 // setStackWrapper sets the SafeWidget stackWrapper
 func (wm *WorkspaceManager) setStackWrapper(node *paneNode, ptr uintptr) {
 	node.stackWrapper = wm.registerWidget(ptr, "stack-wrapper")
+}
+
+// Centralized Active Pane Border Management System
+// Handles all pane types: regular, popup, stacked, split panes
+
+// PaneBorderContext holds the context for applying borders to any pane type
+type PaneBorderContext struct {
+	webViewWidget   uintptr     // The WebView's native widget (for margin)
+	borderContainer *SafeWidget // The container that gets background color
+	cssClasses      []string    // Additional CSS classes to apply
+	paneType        string      // Description for debugging
+}
+
+// determineBorderContext analyzes a pane node and determines the correct border context
+func (wm *WorkspaceManager) determineBorderContext(node *paneNode) *PaneBorderContext {
+	if node == nil {
+		return nil
+	}
+
+	ctx := &PaneBorderContext{}
+
+	// Step 1: Get WebView widget for margin (same for all pane types)
+	if node.pane != nil && node.pane.webView != nil {
+		ctx.webViewWidget = node.pane.webView.RootWidget()
+	}
+
+	// Step 2: Determine border container and CSS classes based on pane hierarchy and type
+	switch {
+	case node.parent != nil && node.parent.isStacked:
+		// STACKED PANE: Border goes on the stack container
+		ctx.borderContainer = node.parent.container
+		ctx.cssClasses = []string{stackContainerClass, activePaneClass}
+		ctx.paneType = "stacked"
+
+	case node.windowType == webkit.WindowTypePopup:
+		// POPUP PANE: Border goes on the popup's own container
+		ctx.borderContainer = node.container
+		ctx.cssClasses = []string{basePaneClass, activePaneClass}
+		ctx.paneType = "popup"
+
+	case node.isLeaf && !node.isStacked:
+		// REGULAR LEAF PANE: Border goes on the pane's container
+		ctx.borderContainer = node.container
+		ctx.cssClasses = []string{basePaneClass, activePaneClass}
+		ctx.paneType = "regular-leaf"
+
+	case !node.isLeaf:
+		// SPLIT PANE (branch node): Border goes on the split container
+		ctx.borderContainer = node.container
+		ctx.cssClasses = []string{basePaneClass, multiPaneClass, activePaneClass}
+		ctx.paneType = "split-branch"
+
+	default:
+		// FALLBACK: Use the node's own container
+		ctx.borderContainer = node.container
+		ctx.cssClasses = []string{basePaneClass, activePaneClass}
+		ctx.paneType = "fallback"
+	}
+
+	return ctx
+}
+
+// applyActivePaneBorder adds the active pane visual border using the centralized system
+func (wm *WorkspaceManager) applyActivePaneBorder(node *paneNode) {
+	ctx := wm.determineBorderContext(node)
+	if ctx == nil {
+		return
+	}
+
+	// Apply CSS classes to border container (provides border styling)
+	if ctx.borderContainer != nil {
+		ctx.borderContainer.Execute(func(containerPtr uintptr) error {
+			// Only add the active class - base classes should already be set
+			webkit.WidgetAddCSSClass(containerPtr, activePaneClass)
+			return nil
+		})
+	}
+
+	log.Printf("[workspace] Applied border to %s pane: %p", ctx.paneType, node)
+}
+
+// removeActivePaneBorder removes the active pane visual border using the centralized system
+func (wm *WorkspaceManager) removeActivePaneBorder(node *paneNode) {
+	ctx := wm.determineBorderContext(node)
+	if ctx == nil {
+		return
+	}
+
+	// Remove CSS classes from border container
+	if ctx.borderContainer != nil {
+		ctx.borderContainer.Execute(func(containerPtr uintptr) error {
+			// Only remove the active class if it exists
+			if webkit.WidgetHasCSSClass(containerPtr, activePaneClass) {
+				webkit.WidgetRemoveCSSClass(containerPtr, activePaneClass)
+			}
+			return nil
+		})
+	}
+
+	log.Printf("[workspace] Removed border from %s pane: %p", ctx.paneType, node)
+}
+
+// removeActivePaneBorderFromAll removes active pane borders from all containers using centralized system
+func (wm *WorkspaceManager) removeActivePaneBorderFromAll() {
+	if wm == nil {
+		return
+	}
+
+	log.Printf("[workspace] Removing active borders from all panes")
+
+	// Use the centralized system for each pane
+	for _, node := range wm.viewToNode {
+		if node != nil {
+			wm.removeActivePaneBorder(node)
+		}
+	}
+}
+
+// isActivePaneBorderApplied checks if the active pane border is currently applied to a node using centralized system
+func (wm *WorkspaceManager) isActivePaneBorderApplied(node *paneNode) bool {
+	ctx := wm.determineBorderContext(node)
+	if ctx == nil || ctx.borderContainer == nil {
+		return false
+	}
+
+	var hasClass bool
+	ctx.borderContainer.Execute(func(containerPtr uintptr) error {
+		hasClass = webkit.WidgetHasCSSClass(containerPtr, activePaneClass)
+		return nil
+	})
+
+	return hasClass
+}
+
+// getBorderContextInfo returns debugging information about a pane's border context
+func (wm *WorkspaceManager) getBorderContextInfo(node *paneNode) string {
+	ctx := wm.determineBorderContext(node)
+	if ctx == nil {
+		return "no-context"
+	}
+	return ctx.paneType
 }
