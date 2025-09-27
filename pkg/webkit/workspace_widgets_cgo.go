@@ -829,6 +829,52 @@ func WidgetHasCSSClass(widget uintptr, class string) bool {
 	return result != 0
 }
 
+// Widget margin functions for creating visual borders
+
+// WidgetSetMargin sets all margins (top, right, bottom, left) to the same value
+func WidgetSetMargin(widget uintptr, margin int) {
+	if widget == 0 || !widgetIsValid(widget) {
+		return
+	}
+	w := (*C.GtkWidget)(unsafe.Pointer(widget))
+	C.gtk_widget_set_margin_top(w, C.int(margin))
+	C.gtk_widget_set_margin_bottom(w, C.int(margin))
+	C.gtk_widget_set_margin_start(w, C.int(margin))
+	C.gtk_widget_set_margin_end(w, C.int(margin))
+}
+
+// WidgetSetMarginTop sets the top margin
+func WidgetSetMarginTop(widget uintptr, margin int) {
+	if widget == 0 || !widgetIsValid(widget) {
+		return
+	}
+	C.gtk_widget_set_margin_top((*C.GtkWidget)(unsafe.Pointer(widget)), C.int(margin))
+}
+
+// WidgetSetMarginBottom sets the bottom margin
+func WidgetSetMarginBottom(widget uintptr, margin int) {
+	if widget == 0 || !widgetIsValid(widget) {
+		return
+	}
+	C.gtk_widget_set_margin_bottom((*C.GtkWidget)(unsafe.Pointer(widget)), C.int(margin))
+}
+
+// WidgetSetMarginStart sets the start (left in LTR) margin
+func WidgetSetMarginStart(widget uintptr, margin int) {
+	if widget == 0 || !widgetIsValid(widget) {
+		return
+	}
+	C.gtk_widget_set_margin_start((*C.GtkWidget)(unsafe.Pointer(widget)), C.int(margin))
+}
+
+// WidgetSetMarginEnd sets the end (right in LTR) margin
+func WidgetSetMarginEnd(widget uintptr, margin int) {
+	if widget == 0 || !widgetIsValid(widget) {
+		return
+	}
+	C.gtk_widget_set_margin_end((*C.GtkWidget)(unsafe.Pointer(widget)), C.int(margin))
+}
+
 // GTK4 Focus Controller functions for focus state machine
 
 // WidgetAddFocusController registers focus callbacks for the given widget and

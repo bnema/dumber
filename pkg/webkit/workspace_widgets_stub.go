@@ -366,6 +366,18 @@ func WidgetHasCSSClass(widget uintptr, class string) bool {
 	return false
 }
 
+// Widget margin functions for creating visual borders (stub implementations)
+
+func WidgetSetMargin(widget uintptr, margin int) {}
+
+func WidgetSetMarginTop(widget uintptr, margin int) {}
+
+func WidgetSetMarginBottom(widget uintptr, margin int) {}
+
+func WidgetSetMarginStart(widget uintptr, margin int) {}
+
+func WidgetSetMarginEnd(widget uintptr, margin int) {}
+
 func WidgetQueueDraw(widget uintptr) {
 	// Stub implementation - no-op
 }
