@@ -189,6 +189,9 @@ func (spm *StackedPaneManager) convertToStackedContainer(target, newLeaf *paneNo
 	webkit.WidgetSetVExpand(stackWrapperContainer, true)
 	webkit.WidgetRealizeInContainer(stackWrapperContainer) // Ensures size request is set like regular panes
 
+	// Add CSS class to the stack container for proper styling
+	webkit.WidgetAddCSSClass(stackWrapperContainer, stackContainerClass)
+
 	// Create the internal box for the actual stacked widgets (titles + webviews)
 	stackInternalBox := webkit.NewBox(webkit.OrientationVertical, 0)
 	if stackInternalBox == 0 {
