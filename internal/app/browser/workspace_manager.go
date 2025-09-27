@@ -50,6 +50,11 @@ type WorkspaceManager struct {
 	// Widget operation synchronization to prevent GTK race conditions
 	widgetMutex    sync.Mutex
 	widgetRegistry *WidgetRegistry
+
+	// Focus debouncing to prevent rapid oscillation from any source
+	lastFocusTime   time.Time
+	lastFocusTarget *paneNode
+	focusDebounce   time.Duration
 }
 
 // Workspace navigation shortcuts are now handled globally by WindowShortcutHandler
@@ -64,6 +69,7 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 		lastExitMsg:      make(map[*webkit.WebView]time.Time),
 		paneDeduplicator: messaging.NewPaneRequestDeduplicator(), // NEW: Initialize deduplicator
 		widgetRegistry:   NewWidgetRegistry(),                    // Initialize widget registry
+		focusDebounce:    150 * time.Millisecond,                 // 150ms focus debouncing for all sources
 	}
 
 	// Initialize specialized managers
@@ -88,7 +94,7 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 		}
 		return manager.app.createPaneForView(view)
 	}
-	manager.ensureStackedPaneStyles()
+	manager.ensureWorkspaceStyles()
 
 	rootContainer := rootPane.webView.RootWidget()
 	root := &paneNode{
@@ -338,8 +344,20 @@ func (wm *WorkspaceManager) GetActiveNode() *paneNode {
 	return wm.focusStateMachine.GetActivePane()
 }
 
-// SetActivePane requests focus change through the focus state machine
+// SetActivePane requests focus change through the focus state machine with debouncing
 func (wm *WorkspaceManager) SetActivePane(node *paneNode, source FocusSource) {
+	now := time.Now()
+
+	// Check if we should debounce this focus request (except for urgent system events)
+	if source != SourceSystem && now.Sub(wm.lastFocusTime) < wm.focusDebounce && wm.lastFocusTarget == node {
+		// Too soon and same target - ignore this request to prevent rapid oscillation
+		return
+	}
+
+	// Update tracking and proceed with focus change
+	wm.lastFocusTime = now
+	wm.lastFocusTarget = node
+
 	if err := wm.focusStateMachine.RequestFocus(node, source); err != nil {
 		log.Printf("[workspace] Focus request failed: %v", err)
 	}
