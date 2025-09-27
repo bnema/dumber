@@ -38,8 +38,11 @@ type paneNode struct {
 
 // Workspace CSS class constants
 const (
-	basePaneClass  = "workspace-pane"
-	multiPaneClass = "workspace-multi-pane"
+	basePaneClass       = "workspace-pane"
+	multiPaneClass      = "workspace-multi-pane"
+	activePaneClass     = "workspace-pane-active"
+	outlinePaneClass    = "workspace-pane-active-outline"
+	stackContainerClass = "stacked-pane-container"
 )
 
 // Focus calculation epsilon for geometric comparisons
