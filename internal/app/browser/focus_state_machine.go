@@ -568,6 +568,11 @@ func (fsm *FocusStateMachine) applyInitialFocus(node *paneNode) error {
 		return fmt.Errorf("failed to apply GTK focus: %w", err)
 	}
 
+	// Apply initial visual border
+	if fsm.wm != nil {
+		fsm.wm.applyActivePaneBorder(node)
+	}
+
 	// Update state
 	fsm.activePane = node
 
@@ -722,6 +727,16 @@ func (fsm *FocusStateMachine) executeFocusChange(request FocusRequest) error {
 		transition.Error = err
 		fsm.historyRing.Add(transition)
 		return fmt.Errorf("failed to apply GTK focus: %w", err)
+	}
+
+	// Apply visual border changes
+	if fsm.wm != nil {
+		// Remove border from old pane
+		if oldPane != nil {
+			fsm.wm.removeActivePaneBorder(oldPane)
+		}
+		// Add border to new pane
+		fsm.wm.applyActivePaneBorder(newPane)
 	}
 
 	// Update state
