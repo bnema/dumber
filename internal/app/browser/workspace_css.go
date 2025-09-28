@@ -146,13 +146,29 @@ func (wm *WorkspaceManager) generateStackedPaneCSS() string {
 	return wm.generateWorkspaceCSS()
 }
 
+// Global CSS provider tracking to prevent duplication
+var (
+	globalCSSInitialized bool
+	globalCSSContent     string
+)
+
 // ensureWorkspaceStyles ensures that CSS styles are applied for workspace panes
+// Improved to prevent CSS provider duplication by using global CSS tracking
 func (wm *WorkspaceManager) ensureWorkspaceStyles() {
-	if wm == nil || wm.cssInitialized {
+	if wm == nil {
 		return
 	}
+
+	// Generate CSS content
 	workspaceCSS := wm.generateWorkspaceCSS()
-	webkit.AddCSSProvider(workspaceCSS)
+
+	// Only apply CSS if it hasn't been applied globally or if content changed
+	if !globalCSSInitialized || globalCSSContent != workspaceCSS {
+		webkit.AddCSSProvider(workspaceCSS)
+		globalCSSInitialized = true
+		globalCSSContent = workspaceCSS
+	}
+
 	wm.cssInitialized = true
 }
 
