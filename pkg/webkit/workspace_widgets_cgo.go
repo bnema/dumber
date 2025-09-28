@@ -10,6 +10,7 @@ package webkit
 #include <glib.h>
 #include <glib-object.h>
 #include <graphene.h>
+#include <pthread.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -21,6 +22,11 @@ extern gboolean goIdleCallback(uintptr_t handle);
 extern void goHoverCallback(uintptr_t handle);
 extern void goFocusEnterCallback(uintptr_t handle);
 extern void goFocusLeaveCallback(uintptr_t handle);
+
+// Main thread helpers implemented in thread_helpers.c
+void store_main_thread_id();
+int is_main_thread();
+int iterate_main_loop();
 
 static gboolean idle_callback_wrapper(gpointer data) {
     return goIdleCallback((uintptr_t)data);
@@ -79,6 +85,89 @@ static gboolean widget_get_bounds(GtkWidget* widget, double* x, double* y, doubl
 // Widget validation helper to prevent crashes from invalid widget pointers
 static gboolean is_valid_widget(gpointer widget) {
     return widget != NULL && GTK_IS_WIDGET(widget);
+}
+
+// Forward declarations for focus controller callbacks defined later in this file
+static void focus_enter_cb(GtkEventControllerFocus* controller, gpointer user_data);
+static void focus_leave_cb(GtkEventControllerFocus* controller, gpointer user_data);
+
+typedef struct {
+    GtkEventController* controller;
+    GtkWidget* widget;
+    gboolean is_attached;
+} ControllerTracker;
+
+static GHashTable* controller_registry = NULL;
+
+static void init_controller_registry(void) {
+    if (controller_registry == NULL) {
+        controller_registry = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_free);
+    }
+}
+
+static void controller_on_widget_destroy(GtkWidget* widget, gpointer user_data) {
+    (void)widget;
+    ControllerTracker* tracker = (ControllerTracker*)user_data;
+    if (!tracker) {
+        return;
+    }
+    tracker->is_attached = FALSE;
+}
+
+static GtkEventController* widget_add_focus_controller(GtkWidget* widget, uintptr_t nodePtr) {
+    if (!widget) {
+        return NULL;
+    }
+
+    init_controller_registry();
+
+    GtkEventController* focus = gtk_event_controller_focus_new();
+    if (!focus) {
+        return NULL;
+    }
+
+    gtk_event_controller_set_propagation_phase(focus, GTK_PHASE_CAPTURE);
+    g_signal_connect(focus, "enter", G_CALLBACK(focus_enter_cb), (gpointer)nodePtr);
+    g_signal_connect(focus, "leave", G_CALLBACK(focus_leave_cb), (gpointer)nodePtr);
+
+    ControllerTracker* tracker = g_new0(ControllerTracker, 1);
+    tracker->controller = focus;
+    tracker->widget = widget;
+    tracker->is_attached = TRUE;
+
+    g_hash_table_insert(controller_registry, focus, tracker);
+
+    g_signal_connect(widget, "destroy", G_CALLBACK(controller_on_widget_destroy), tracker);
+
+    gtk_widget_add_controller(widget, focus);
+    return focus;
+}
+
+static void widget_remove_focus_controller(GtkWidget* widget, GtkEventController* controller) {
+    if (!controller_registry || !controller) {
+        return;
+    }
+
+    ControllerTracker* tracker = g_hash_table_lookup(controller_registry, controller);
+    if (!tracker) {
+        return;
+    }
+
+    if (!tracker->is_attached) {
+        return;
+    }
+
+    if (!GTK_IS_WIDGET(widget)) {
+        tracker->is_attached = FALSE;
+        return;
+    }
+
+    GtkWidget* owner = gtk_event_controller_get_widget(controller);
+    if (GTK_IS_WIDGET(owner) && owner == widget) {
+        gtk_widget_remove_controller(widget, controller);
+    }
+
+    tracker->is_attached = FALSE;
 }
 
 static GtkWidget* paned_get_start_child(GtkWidget* paned) {
@@ -238,26 +327,27 @@ static void focus_leave_cb(GtkEventControllerFocus* controller, gpointer user_da
     goFocusLeaveCallback(nodePtr);
 }
 
-static GtkEventController* widget_add_focus_controller(GtkWidget* widget, uintptr_t nodePtr) {
-    if (!widget) {
-        return NULL;
-    }
-    GtkEventController* focus = gtk_event_controller_focus_new();
-    if (!focus) {
-        return NULL;
-    }
-    gtk_event_controller_set_propagation_phase(focus, GTK_PHASE_CAPTURE);
-    g_signal_connect(focus, "enter", G_CALLBACK(focus_enter_cb), (gpointer)nodePtr);
-    g_signal_connect(focus, "leave", G_CALLBACK(focus_leave_cb), (gpointer)nodePtr);
-    gtk_widget_add_controller(widget, focus);
-    return focus;
-}
-
-static void widget_remove_focus_controller(GtkWidget* widget, GtkEventController* controller) {
-    if (!widget || !controller) {
+// Widget allocation helper using modern GTK4 API
+static void widget_get_allocation_modern(GtkWidget* widget, int* x, int* y, int* width, int* height) {
+    if (!widget || !x || !y || !width || !height) {
+        *x = *y = *width = *height = 0;
         return;
     }
-    gtk_widget_remove_controller(widget, controller);
+
+    graphene_rect_t bounds;
+    // Compute bounds relative to the widget itself (pass widget as target)
+    if (gtk_widget_compute_bounds(widget, widget, &bounds)) {
+        // Extract integer coordinates from the graphene rect
+        *x = (int)bounds.origin.x;
+        *y = (int)bounds.origin.y;
+        *width = (int)bounds.size.width;
+        *height = (int)bounds.size.height;
+    } else {
+        // Fallback if compute_bounds fails
+        *x = *y = 0;
+        *width = gtk_widget_get_width(widget);
+        *height = gtk_widget_get_height(widget);
+    }
 }
 */
 import "C"
@@ -282,6 +372,14 @@ type FocusCallbacks struct {
 	OnLeave func()
 }
 
+// WidgetAllocation represents a widget's allocation (position and size)
+type WidgetAllocation struct {
+	X      int
+	Y      int
+	Width  int
+	Height int
+}
+
 var (
 	hoverMu          sync.Mutex
 	hoverCallbacks           = make(map[uintptr]func())
@@ -294,7 +392,25 @@ var (
 	focusCallbacks           = make(map[uintptr]FocusCallbacks)
 	focusControllers         = make(map[uintptr]uintptr)
 	nextFocusID      uintptr = 1
+
+	mainThreadInitialized bool
 )
+
+// InitMainThread should be called once during gtk_init to store the main thread ID.
+func InitMainThread() {
+	if !mainThreadInitialized {
+		C.store_main_thread_id()
+		mainThreadInitialized = true
+	}
+}
+
+// IsMainThread returns true if the current goroutine is running on the GTK main thread.
+func IsMainThread() bool {
+	if !mainThreadInitialized {
+		return false
+	}
+	return C.is_main_thread() == 1
+}
 
 func widgetIsValid(widget uintptr) bool {
 	if widget == 0 {
@@ -441,22 +557,45 @@ func PanedSetPosition(paned uintptr, pos int) {
 
 // WidgetUnparent detaches a widget from its current parent.
 func WidgetUnparent(widget uintptr) {
+	if ok := WidgetUnparentChecked(widget); !ok {
+		log.Printf("[workspace] WidgetUnparent skipped for widget=%#x", widget)
+	}
+}
+
+// WidgetUnparentChecked safely detaches a widget from its parent if still valid.
+// Returns true when the widget was unparented or already detached.
+func WidgetUnparentChecked(widget uintptr) bool {
 	if widget == 0 {
-		return
+		log.Printf("[workspace] WidgetUnparentChecked: widget=0")
+		return false
 	}
+
 	if !widgetIsValid(widget) {
-		log.Printf("[workspace] WidgetUnparent skipped invalid widget=%#x", widget)
-		return
+		log.Printf("[workspace] WidgetUnparentChecked: widget=%#x invalid before unparent", widget)
+		return false
 	}
-	before := widgetRefCount(widget)
-	log.Printf("[workspace] WidgetUnparent widget=%#x ref_before=%d", widget, before)
+
+	parentBefore := WidgetGetParent(widget)
+	if parentBefore == 0 {
+		log.Printf("[workspace] WidgetUnparentChecked: widget=%#x has no parent", widget)
+		return true
+	}
+
+	refBefore := widgetRefCount(widget)
+	log.Printf("[workspace] WidgetUnparentChecked: widget=%#x parent=%#x ref_before=%d", widget, parentBefore, refBefore)
+
 	C.gtk_widget_unparent((*C.GtkWidget)(unsafe.Pointer(widget)))
-	if widgetIsValid(widget) {
-		after := widgetRefCount(widget)
-		log.Printf("[workspace] WidgetUnparent widget=%#x ref_after=%d", widget, after)
-	} else {
-		log.Printf("[workspace] WidgetUnparent widget=%#x now invalid", widget)
+
+	if !widgetIsValid(widget) {
+		log.Printf("[workspace] WidgetUnparentChecked: widget=%#x invalid after unparent", widget)
+		return true
 	}
+
+	parentAfter := WidgetGetParent(widget)
+	refAfter := widgetRefCount(widget)
+	log.Printf("[workspace] WidgetUnparentChecked: widget=%#x parent_after=%#x ref_after=%d", widget, parentAfter, refAfter)
+
+	return parentAfter == 0 || parentAfter != parentBefore
 }
 
 // WidgetSetHExpand configures horizontal expand for a widget.
@@ -489,6 +628,14 @@ func WidgetSetVExpand(widget uintptr, expand bool) {
 	}
 	log.Printf("[workspace] WidgetSetVExpand widget=%#x expand=%v", widget, expand)
 	C.gtk_widget_set_vexpand((*C.GtkWidget)(unsafe.Pointer(widget)), goBool(expand))
+}
+
+// WidgetResetSizeRequest clears explicit size constraints so GTK can recalculate allocation.
+func WidgetResetSizeRequest(widget uintptr) {
+	if widget == 0 || !widgetIsValid(widget) {
+		return
+	}
+	C.gtk_widget_set_size_request((*C.GtkWidget)(unsafe.Pointer(widget)), C.int(-1), C.int(-1))
 }
 
 // WidgetShow makes the widget visible.
@@ -648,6 +795,11 @@ func IdleAdd(fn func() bool) {
 	nextIdleID++
 	idleCallbacks[id] = fn
 	C.add_idle_callback(C.uintptr_t(id))
+}
+
+// IterateMainLoop processes a single GTK main loop iteration and reports if work was handled.
+func IterateMainLoop() bool {
+	return C.iterate_main_loop() == 1
 }
 
 //export goIdleCallback
@@ -953,5 +1105,22 @@ func goFocusLeaveCallback(handle C.uintptr_t) {
 
 	if callbacks.OnLeave != nil {
 		callbacks.OnLeave()
+	}
+}
+
+// WidgetGetAllocation gets the bounds (position and size) of a widget using modern GTK4 API
+func WidgetGetAllocation(widget uintptr) WidgetAllocation {
+	var x, y, width, height C.int
+
+	C.widget_get_allocation_modern(
+		(*C.GtkWidget)(unsafe.Pointer(widget)),
+		&x, &y, &width, &height,
+	)
+
+	return WidgetAllocation{
+		X:      int(x),
+		Y:      int(y),
+		Width:  int(width),
+		Height: int(height),
 	}
 }

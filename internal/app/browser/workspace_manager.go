@@ -7,6 +7,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bnema/dumber/internal/app/messaging"
@@ -23,7 +24,7 @@ type WorkspaceManager struct {
 	lastSplitMsg    map[*webkit.WebView]time.Time
 	lastExitMsg     map[*webkit.WebView]time.Time
 	paneModeActive  bool
-	splitting       bool
+	splitting       int32 // atomic: 0=false, 1=true
 	cssInitialized  bool
 	createWebViewFn func() (*webkit.WebView, error)
 	createPaneFn    func(*webkit.WebView) (*BrowserPane, error)
@@ -55,6 +56,15 @@ type WorkspaceManager struct {
 	lastFocusTime   time.Time
 	lastFocusTarget *paneNode
 	focusDebounce   time.Duration
+
+	// BULLETPROOF COMPONENTS: Enhanced validation and safety systems
+	treeValidator         *TreeValidator
+	widgetTxManager       *WidgetTransactionManager
+	concurrencyController *ConcurrencyController
+	treeRebalancer        *TreeRebalancer
+	geometryValidator     *GeometryValidator
+	stackLifecycleManager *StackLifecycleManager
+	stateTombstoneManager *StateTombstoneManager
 }
 
 // Workspace navigation shortcuts are now handled globally by WindowShortcutHandler
@@ -72,7 +82,23 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 		focusDebounce:    150 * time.Millisecond,                 // 150ms focus debouncing for all sources
 	}
 
-	// Initialize specialized managers
+	// Initialize bulletproof components first
+	manager.treeValidator = NewTreeValidator(true, false) // enabled, debug off
+	manager.widgetTxManager = NewWidgetTransactionManager()
+	manager.geometryValidator = NewGeometryValidator()
+	manager.stateTombstoneManager = NewStateTombstoneManager(manager)
+
+	// Initialize concurrency controller with bulletproof components
+	manager.concurrencyController = NewConcurrencyController(2, manager.widgetTxManager, manager.treeValidator)
+	manager.concurrencyController.SetWorkspaceManager(manager)
+
+	// Initialize tree rebalancer
+	manager.treeRebalancer = NewTreeRebalancer(manager, manager.treeValidator, manager.widgetTxManager)
+
+	// Initialize stack lifecycle manager with bulletproof components
+	manager.stackLifecycleManager = NewStackLifecycleManager(manager, manager.treeValidator, manager.widgetTxManager)
+
+	// Initialize existing specialized managers (now enhanced with bulletproof components)
 	manager.stackedPaneManager = NewStackedPaneManager(manager)
 	manager.focusStateMachine = NewFocusStateMachine(manager)
 	manager.createWebViewFn = func() (*webkit.WebView, error) {
@@ -208,20 +234,34 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 				return
 			}
 		}
-		if wm.splitting {
+
+		// CRITICAL FIX: Use atomic operations for splitting flag to prevent race conditions
+		if !atomic.CompareAndSwapInt32(&wm.splitting, 0, 1) {
 			log.Printf("[workspace] split ignored: operation already in progress")
 			return
 		}
-		wm.splitting = true
+
+		// CRITICAL FIX: Always clear splitting flag on exit (panic recovery)
+		defer func() {
+			atomic.StoreInt32(&wm.splitting, 0)
+			if r := recover(); r != nil {
+				log.Printf("[workspace] split operation panicked, flag cleared: %v", r)
+				panic(r) // Re-panic to maintain error handling
+			}
+		}()
+
 		wm.lastSplitMsg[source] = time.Now()
-		newNode, err := wm.splitNode(node, direction)
+
+		newNode, err := wm.BulletproofSplitNode(node, direction)
 		if err != nil {
 			log.Printf("[workspace] split failed: %v", err)
-			wm.splitting = false
+			// CRITICAL FIX: Pump GTK events after validation failure to clear pending operations
+			if webkit.IsMainThread() {
+				webkit.IterateMainLoop()
+			}
 			return
 		}
 		wm.clonePaneState(node, newNode)
-		wm.splitting = false
 	case "pane-stack":
 		wm.SetActivePane(node, SourceProgrammatic)
 		if last, ok := wm.lastSplitMsg[source]; ok {
@@ -230,20 +270,34 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 				return
 			}
 		}
-		if wm.splitting {
+
+		// CRITICAL FIX: Use atomic operations for splitting flag
+		if !atomic.CompareAndSwapInt32(&wm.splitting, 0, 1) {
 			log.Printf("[workspace] stack ignored: operation already in progress")
 			return
 		}
-		wm.splitting = true
+
+		// CRITICAL FIX: Always clear splitting flag on exit (panic recovery)
+		defer func() {
+			atomic.StoreInt32(&wm.splitting, 0)
+			if r := recover(); r != nil {
+				log.Printf("[workspace] stack operation panicked, flag cleared: %v", r)
+				panic(r) // Re-panic to maintain error handling
+			}
+		}()
+
 		wm.lastSplitMsg[source] = time.Now()
+
 		newNode, err := wm.stackedPaneManager.StackPane(node)
 		if err != nil {
 			log.Printf("[workspace] stack failed: %v", err)
-			wm.splitting = false
+			// CRITICAL FIX: Pump GTK events after stack failure
+			if webkit.IsMainThread() {
+				webkit.IterateMainLoop()
+			}
 			return
 		}
 		wm.clonePaneState(node, newNode)
-		wm.splitting = false
 	case "create-pane":
 		log.Printf("[workspace] create-pane requested: url=%s action=%s requestId=%s", msg.URL, msg.Action, msg.RequestID)
 
@@ -329,7 +383,7 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 		log.Printf("[workspace] Closing popup pane due to %s", msg.Reason)
 
 		// Close the popup pane
-		if err := wm.closePane(targetNode); err != nil {
+		if err := wm.BulletproofClosePane(targetNode); err != nil {
 			log.Printf("[workspace] Failed to close popup pane: %v", err)
 		} else {
 			log.Printf("[workspace] Successfully closed popup pane: %s", msg.WebViewID)

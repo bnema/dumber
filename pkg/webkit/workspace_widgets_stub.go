@@ -20,6 +20,14 @@ type WidgetBounds struct {
 	Height float64
 }
 
+// WidgetAllocation represents a widget's allocation (position and size) in stub builds
+type WidgetAllocation struct {
+	X      int
+	Y      int
+	Width  int
+	Height int
+}
+
 type widgetStub struct {
 	startChild uintptr
 	endChild   uintptr
@@ -271,6 +279,8 @@ func WidgetQueueAllocate(widget uintptr) {}
 
 func WidgetRealizeInContainer(widget uintptr) {}
 
+func WidgetResetSizeRequest(widget uintptr) {}
+
 func WidgetHookDestroy(widget uintptr) {}
 
 func WidgetIsValid(widget uintptr) bool {
@@ -490,4 +500,28 @@ func LabelSetMaxWidthChars(label uintptr, nChars int) {}
 // SetTestContainer is a testing helper to set the container field for WebView in stub builds
 func (w *WebView) SetTestContainer(container uintptr) {
 	w.container = container
+}
+
+// WidgetGetAllocation returns a stub allocation for the widget
+func WidgetGetAllocation(widget uintptr) WidgetAllocation {
+	widgetMu.Lock()
+	defer widgetMu.Unlock()
+
+	// Return stub allocation based on widget bounds if available
+	if stub, ok := widgetState[widget]; ok && stub.hasBounds {
+		return WidgetAllocation{
+			X:      int(stub.bounds.X),
+			Y:      int(stub.bounds.Y),
+			Width:  int(stub.bounds.Width),
+			Height: int(stub.bounds.Height),
+		}
+	}
+
+	// Default stub allocation for testing
+	return WidgetAllocation{
+		X:      0,
+		Y:      0,
+		Width:  400,
+		Height: 300,
+	}
 }

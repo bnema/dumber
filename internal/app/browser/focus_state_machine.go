@@ -889,8 +889,13 @@ func (fsm *FocusStateMachine) attachGTKController(node *paneNode) {
 		return
 	}
 
+	if node.focusControllerToken != 0 {
+		log.Printf("[FSM] Controller already attached to pane %p", node)
+		return
+	}
+
 	widget := node.pane.webView.Widget()
-	if widget == 0 {
+	if widget == 0 || !webkit.WidgetIsValid(widget) {
 		return
 	}
 
@@ -909,7 +914,7 @@ func (fsm *FocusStateMachine) attachGTKController(node *paneNode) {
 	// Add the focus controller and store the token for cleanup
 	token := webkit.WidgetAddFocusController(widget, onEnter, onLeave)
 	if token != 0 {
-		// Store the controller token for later cleanup (we could add this to paneNode if needed)
+		node.focusControllerToken = token
 		log.Printf("[FSM] Attached GTK focus controller to pane %p with token %d", node, token)
 	}
 }
@@ -920,8 +925,15 @@ func (fsm *FocusStateMachine) detachGTKController(node *paneNode, token uintptr)
 		return
 	}
 
+	if node.focusControllerToken != token {
+		log.Printf("[FSM] Token mismatch, skipping detach for pane %p", node)
+		return
+	}
+
+	node.focusControllerToken = 0
+
 	widget := node.pane.webView.Widget()
-	if widget == 0 {
+	if widget == 0 || !webkit.WidgetIsValid(widget) {
 		return
 	}
 

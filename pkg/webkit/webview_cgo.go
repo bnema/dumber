@@ -1002,6 +1002,8 @@ func NewWebView(cfg *Config) (*WebView, error) {
 		return nil, errors.New("failed to initialize GTK")
 	}
 
+	InitMainThread()
+
 	if cfg == nil {
 		cfg = &Config{}
 	}
@@ -1457,6 +1459,8 @@ func NewWebViewWithRelated(cfg *Config, relatedView *WebView) (*WebView, error) 
 	if C.gtk_init_check() == 0 {
 		return nil, errors.New("failed to initialize GTK")
 	}
+
+	InitMainThread()
 
 	if cfg == nil {
 		cfg = &Config{}
