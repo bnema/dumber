@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"time"
 
 	"github.com/bnema/dumber/pkg/webkit"
 )
@@ -125,12 +126,8 @@ func (tr *TreeRebalancer) RebalanceAfterClose(closedNode *paneNode, promotedNode
 		tr.widgetTxManager.FinishTransaction(txID, true, "")
 
 		if tr.wm != nil && tr.wm.geometryValidator != nil {
-			geom := tr.wm.geometryValidator.GetPaneGeometry(promotedNode)
-			if !geom.IsValid || geom.Width <= 0 || geom.Height <= 0 {
-				log.Printf("[tree-rebalancer] WARNING: promoted pane geometry invalid after promotion (%dx%d)", geom.Width, geom.Height)
-			} else {
-				log.Printf("[tree-rebalancer] Promotion geometry validated: %dx%d", geom.Width, geom.Height)
-			}
+			tr.logInitialPromotionGeometry(promotedNode)
+			tr.schedulePromotionValidation(promotedNode)
 		}
 	}
 
@@ -576,6 +573,7 @@ func (tr *TreeRebalancer) executePromotion(node *paneNode, tx *WidgetTransaction
 	}
 
 	log.Printf("[tree-rebalancer] Promoting node %p (parent=%p)", node, node.parent)
+	promotionStart := time.Now()
 
 	// Ensure the promoted widget can expand to occupy available space
 	expandOp := &WidgetOperation{
@@ -583,6 +581,7 @@ func (tr *TreeRebalancer) executePromotion(node *paneNode, tx *WidgetTransaction
 		Description: "Ensure promoted pane expands to fill space",
 		Priority:    200,
 		Execute: func() error {
+			log.Printf("[tree-rebalancer] promotion expand for %p executing at +%s", node, time.Since(promotionStart).Round(time.Millisecond))
 			return node.container.Execute(func(ptr uintptr) error {
 				if ptr == 0 || !webkit.WidgetIsValid(ptr) {
 					return fmt.Errorf("promotion expand: invalid widget pointer")
@@ -607,15 +606,57 @@ func (tr *TreeRebalancer) executePromotion(node *paneNode, tx *WidgetTransaction
 				Description: "Attach promoted pane to window root",
 				Priority:    190,
 				Execute: func() error {
+					log.Printf("[tree-rebalancer] promotion window attach for %p executing at +%s", node, time.Since(promotionStart).Round(time.Millisecond))
 					return node.container.Execute(func(ptr uintptr) error {
 						if ptr == 0 || !webkit.WidgetIsValid(ptr) {
 							return fmt.Errorf("promotion attach window: invalid widget pointer")
 						}
-						if webkit.WidgetGetParent(ptr) != 0 {
-							webkit.WidgetUnparent(ptr)
+
+						currentParent := webkit.WidgetGetParent(ptr)
+						if currentParent != 0 {
+							// Check if parent is a container widget (paned or box) that we need to unparent from
+							if webkit.IsPaned(currentParent) {
+								log.Printf("[tree-rebalancer] unparenting widget from paned %#x", currentParent)
+								webkit.WidgetUnparent(ptr)
+							} else if webkit.IsBox(currentParent) {
+								log.Printf("[tree-rebalancer] unparenting widget from box (stack) %#x", currentParent)
+								webkit.WidgetUnparent(ptr)
+							} else {
+								// Parent is not a container - likely already attached to window
+								log.Printf("[tree-rebalancer] widget already attached to non-container parent %#x, skipping unparent", currentParent)
+								// Just ensure proper expansion and visibility
+								webkit.WidgetSetHExpand(ptr, true)
+								webkit.WidgetSetVExpand(ptr, true)
+								webkit.WidgetQueueAllocate(ptr)
+								webkit.WidgetShow(ptr)
+								log.Printf("[tree-rebalancer] promotion window attach successful: widget %#x already has parent %#x", ptr, currentParent)
+								return nil
+							}
 						}
+
+						// Ensure widget is configured for window child
+						webkit.WidgetSetHExpand(ptr, true)
+						webkit.WidgetSetVExpand(ptr, true)
+
+						// Set as window child
 						tr.wm.window.SetChild(ptr)
 						webkit.WidgetQueueAllocate(ptr)
+						webkit.WidgetShow(ptr)
+
+						// Verify the attachment worked
+						finalParent := webkit.WidgetGetParent(ptr)
+						if finalParent == 0 {
+							log.Printf("[tree-rebalancer] WARNING: SetChild failed, widget still has no parent")
+							// Try one more time
+							tr.wm.window.SetChild(ptr)
+							webkit.WidgetQueueAllocate(ptr)
+							finalParent = webkit.WidgetGetParent(ptr)
+							if finalParent == 0 {
+								return fmt.Errorf("failed to attach widget %#x to window after multiple attempts", ptr)
+							}
+						}
+
+						log.Printf("[tree-rebalancer] promotion window attach successful: widget %#x now has parent %#x", ptr, finalParent)
 						return nil
 					})
 				},
@@ -637,6 +678,7 @@ func (tr *TreeRebalancer) executePromotion(node *paneNode, tx *WidgetTransaction
 			Description: "Attach promoted pane to parent container",
 			Priority:    190,
 			Execute: func() error {
+				log.Printf("[tree-rebalancer] promotion reparent for %p executing at +%s", node, time.Since(promotionStart).Round(time.Millisecond))
 				return parent.container.Execute(func(parentPtr uintptr) error {
 					if parentPtr == 0 || !webkit.WidgetIsValid(parentPtr) {
 						return fmt.Errorf("promotion reparent: invalid parent widget")
@@ -678,6 +720,7 @@ func (tr *TreeRebalancer) executePromotion(node *paneNode, tx *WidgetTransaction
 			Description: "Queue allocation for promoted pane ancestors",
 			Priority:    150,
 			Execute: func() error {
+				log.Printf("[tree-rebalancer] promotion allocation queue for %p executing at +%s (ancestors=%d)", node, time.Since(promotionStart).Round(time.Millisecond), len(ancestorPtrs))
 				for _, ancestorPtr := range ancestorPtrs {
 					if ancestorPtr == 0 || !webkit.WidgetIsValid(ancestorPtr) {
 						continue
@@ -698,6 +741,7 @@ func (tr *TreeRebalancer) executePromotion(node *paneNode, tx *WidgetTransaction
 		Description: "Validate promoted pane allocation",
 		Priority:    100,
 		Execute: func() error {
+			log.Printf("[tree-rebalancer] promotion immediate validation for %p executing at +%s", node, time.Since(promotionStart).Round(time.Millisecond))
 			return node.container.Execute(func(ptr uintptr) error {
 				if ptr == 0 || !webkit.WidgetIsValid(ptr) {
 					return fmt.Errorf("promotion validate: invalid widget pointer")
@@ -730,6 +774,98 @@ func (tr *TreeRebalancer) executeRestructure(node *paneNode, tx *WidgetTransacti
 
 	// TODO: Implement restructure logic
 	return fmt.Errorf("restructure operation not yet implemented")
+}
+
+func (tr *TreeRebalancer) logInitialPromotionGeometry(node *paneNode) {
+	if tr == nil || tr.wm == nil || tr.wm.geometryValidator == nil || node == nil {
+		return
+	}
+	if node.container == nil || !node.container.IsValid() {
+		log.Printf("[tree-rebalancer] Promotion geometry skipped: container invalid for %p", node)
+		return
+	}
+	tr.ensureRootAttachment(node)
+	geom := tr.wm.geometryValidator.GetPaneGeometry(node)
+	if !geom.IsValid || geom.Width <= 0 || geom.Height <= 0 {
+		log.Printf("[tree-rebalancer] Promotion geometry pending after commit: valid=%v size=%dx%d", geom.IsValid, geom.Width, geom.Height)
+		return
+	}
+	log.Printf("[tree-rebalancer] Promotion geometry validated immediately: %dx%d", geom.Width, geom.Height)
+}
+
+func (tr *TreeRebalancer) schedulePromotionValidation(node *paneNode) {
+	if tr == nil || tr.wm == nil || tr.wm.geometryValidator == nil || node == nil {
+		return
+	}
+
+	const maxAttempts = 5
+	start := time.Now()
+	attempt := 0
+
+	var retry func() bool
+	retry = func() bool {
+		attempt++
+		elapsed := time.Since(start).Round(time.Millisecond)
+		if node.container == nil || !node.container.IsValid() {
+			log.Printf("[tree-rebalancer] Deferred promotion geometry aborted after %s (attempt %d): container invalid", elapsed, attempt)
+			return false
+		}
+		tr.ensureRootAttachment(node)
+		geom := tr.wm.geometryValidator.GetPaneGeometry(node)
+		if geom.IsValid && geom.Width > 0 && geom.Height > 0 {
+			log.Printf("[tree-rebalancer] Deferred promotion geometry validated after %s (attempt %d): %dx%d", elapsed, attempt, geom.Width, geom.Height)
+			return false
+		}
+
+		if attempt >= maxAttempts {
+			log.Printf("[tree-rebalancer] Deferred promotion geometry still invalid after %s (attempt %d): valid=%v size=%dx%d", elapsed, attempt, geom.IsValid, geom.Width, geom.Height)
+			return false
+		}
+
+		log.Printf("[tree-rebalancer] Promotion geometry still pending after %s (attempt %d); rescheduling", elapsed, attempt)
+		webkit.IdleAdd(retry)
+		return false
+	}
+
+	webkit.IdleAdd(retry)
+}
+
+func (tr *TreeRebalancer) ensureRootAttachment(node *paneNode) {
+	if tr == nil || tr.wm == nil || node == nil || node.parent != nil {
+		return
+	}
+	if node.container == nil || !node.container.IsValid() {
+		return
+	}
+
+	_ = node.container.Execute(func(ptr uintptr) error {
+		parent := webkit.WidgetGetParent(ptr)
+		if parent != 0 {
+			// Widget is properly attached, no action needed
+			return nil
+		}
+		if tr.wm.window == nil {
+			log.Printf("[tree-rebalancer] Root pane %#x missing parent but window unavailable", ptr)
+			return nil
+		}
+
+		// This should not happen if promotion worked correctly - log as error
+		log.Printf("[tree-rebalancer] ERROR: Root pane %#x lost window attachment (this indicates a promotion bug); attempting recovery", ptr)
+
+		// Recovery attempt
+		tr.wm.window.SetChild(ptr)
+		webkit.WidgetQueueAllocate(ptr)
+		webkit.WidgetShow(ptr)
+
+		// Verify recovery
+		recoveredParent := webkit.WidgetGetParent(ptr)
+		if recoveredParent == 0 {
+			log.Printf("[tree-rebalancer] CRITICAL: Failed to recover window attachment for %#x", ptr)
+		} else {
+			log.Printf("[tree-rebalancer] Recovery successful: widget %#x now has parent %#x", ptr, recoveredParent)
+		}
+		return nil
+	})
 }
 
 // collectAncestorContainers returns the widget pointers for the promoted node and all ancestors up to the root.

@@ -38,6 +38,7 @@ type widgetStub struct {
 	parent      uintptr
 	isDestroyed bool
 	refCount    uint
+	widgetType  string // Track widget type for IsPaned, etc.
 	// GTK focus management simulation
 	hasFocus     bool
 	canFocus     bool
@@ -93,7 +94,16 @@ func ResetWidgetStubsForTesting() {
 }
 
 func NewPaned(orientation Orientation) uintptr {
-	return newWidgetHandle()
+	widgetMu.Lock()
+	defer widgetMu.Unlock()
+	id := nextWidgetID
+	nextWidgetID++
+	widgetState[id] = &widgetStub{
+		refCount:   1,
+		canFocus:   true,
+		widgetType: "paned", // Mark as paned widget
+	}
+	return id
 }
 
 func PanedSetStartChild(paned uintptr, child uintptr) {
@@ -295,6 +305,32 @@ func WidgetIsValid(widget uintptr) bool {
 	return false
 }
 
+// IsPaned checks if a widget is a GtkPaned container.
+func IsPaned(widget uintptr) bool {
+	widgetMu.Lock()
+	defer widgetMu.Unlock()
+	if widget == 0 {
+		return false
+	}
+	if stub, ok := widgetState[widget]; ok && !stub.isDestroyed {
+		return stub.widgetType == "paned"
+	}
+	return false
+}
+
+// IsBox checks if a widget is a GtkBox container.
+func IsBox(widget uintptr) bool {
+	widgetMu.Lock()
+	defer widgetMu.Unlock()
+	if widget == 0 {
+		return false
+	}
+	if stub, ok := widgetState[widget]; ok && !stub.isDestroyed {
+		return stub.widgetType == "box"
+	}
+	return false
+}
+
 func WidgetRefCount(widget uintptr) uint {
 	if WidgetIsValid(widget) {
 		return 1
@@ -410,7 +446,16 @@ func SimulateFocusForTesting(widget uintptr) {
 // GtkBox functions for stacked panes (stub implementations)
 
 func NewBox(orientation Orientation, spacing int) uintptr {
-	return newWidgetHandle()
+	widgetMu.Lock()
+	defer widgetMu.Unlock()
+	id := nextWidgetID
+	nextWidgetID++
+	widgetState[id] = &widgetStub{
+		refCount:   1,
+		canFocus:   true,
+		widgetType: "box", // Mark as box widget
+	}
+	return id
 }
 
 func BoxAppend(box uintptr, child uintptr) {
