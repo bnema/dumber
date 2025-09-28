@@ -6,6 +6,8 @@ package webkit
 #cgo pkg-config: gtk4
 #include <gtk/gtk.h>
 #include <gtk/gtktestutils.h>
+#include <gtk/gtkbox.h>
+#include <gtk/gtkpaned.h>
 #include <gdk/gdk.h>
 #include <glib.h>
 #include <glib-object.h>
@@ -16,6 +18,15 @@ package webkit
 
 // Logging helper for diagnostics
 #define WORKSPACE_LOG(fmt, ...) g_printerr("[workspace-cgo] " fmt "\n", ##__VA_ARGS__)
+
+// Helper functions for widget type checking
+static gboolean is_paned_widget(GtkWidget *widget) {
+    return GTK_IS_PANED(widget);
+}
+
+static gboolean is_box_widget(GtkWidget *widget) {
+    return GTK_IS_BOX(widget);
+}
 
 // Callback function for idle handling following the existing pattern
 extern gboolean goIdleCallback(uintptr_t handle);
@@ -429,6 +440,22 @@ func widgetRefCount(widget uintptr) uint {
 // WidgetIsValid exposes GTK_IS_WIDGET checks for diagnostics in Go.
 func WidgetIsValid(widget uintptr) bool {
 	return widgetIsValid(widget)
+}
+
+// IsPaned checks if a widget is a GtkPaned container.
+func IsPaned(widget uintptr) bool {
+	if widget == 0 {
+		return false
+	}
+	return C.is_paned_widget((*C.GtkWidget)(unsafe.Pointer(widget))) != 0
+}
+
+// IsBox checks if a widget is a GtkBox container.
+func IsBox(widget uintptr) bool {
+	if widget == 0 {
+		return false
+	}
+	return C.is_box_widget((*C.GtkWidget)(unsafe.Pointer(widget))) != 0
 }
 
 // WidgetRefCount exposes the widget reference count for debugging.

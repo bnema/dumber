@@ -1010,32 +1010,50 @@ func (wm *WorkspaceManager) closePane(node *paneNode) (*paneNode, error) {
 		wm.root = sibling
 		sibling.parent = nil // Critical: clear parent pointer for new root
 
-		// For root promotion, must unparent first to satisfy GTK4 assertion
+		// For root promotion, handle the widget transition carefully
 		if wm.window != nil && sibling.container != nil {
 			sibling.container.Execute(func(containerPtr uintptr) error {
 				parentBefore := webkit.WidgetGetParent(containerPtr)
 				log.Printf("[workspace] root promotion: sibling parent before=%#x", parentBefore)
 
-				if parentBefore == 0 {
-					log.Printf("[workspace] root promotion: sibling already detached")
-				} else {
+				// Only unparent if it has a parent (the paned)
+				if parentBefore != 0 {
+					// Get info about the paned before we destroy it
 					oldParentStart := webkit.PanedGetStartChild(parentBefore)
 					oldParentEnd := webkit.PanedGetEndChild(parentBefore)
 					log.Printf("[workspace] root promotion: old parent start=%#x end=%#x", oldParentStart, oldParentEnd)
-				}
 
-				// Unparent from current parent before setting as window child
-				if webkit.WidgetGetParent(containerPtr) != 0 {
+					// Unparent the sibling from the paned
 					webkit.WidgetUnparent(containerPtr)
+
+					// Ensure the widget is properly configured for window child
+					webkit.WidgetSetHExpand(containerPtr, true)
+					webkit.WidgetSetVExpand(containerPtr, true)
 				}
 
+				// Set as window child
 				wm.window.SetChild(containerPtr)
+
+				// Queue draw and allocation to ensure proper rendering
 				webkit.WidgetQueueAllocate(containerPtr)
 				webkit.WidgetShow(containerPtr)
 
+				// Verify attachment succeeded
 				parentAfter := webkit.WidgetGetParent(containerPtr)
+				if parentAfter == 0 {
+					log.Printf("[workspace] WARNING: root promotion attachment failed, widget has no parent")
+					// Force another attempt at setting the child
+					wm.window.SetChild(containerPtr)
+					webkit.WidgetQueueAllocate(containerPtr)
+					parentAfter = webkit.WidgetGetParent(containerPtr)
+				}
+
 				log.Printf("[workspace] root promotion: sibling parent after=%#x", parentAfter)
-				log.Printf("[workspace] successfully promoted sibling to root: %#x", containerPtr)
+				if parentAfter != 0 {
+					log.Printf("[workspace] successfully promoted sibling to root: %#x", containerPtr)
+				} else {
+					log.Printf("[workspace] ERROR: failed to attach promoted sibling as window child: %#x", containerPtr)
+				}
 				return nil
 			})
 		}
