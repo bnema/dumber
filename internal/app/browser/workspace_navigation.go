@@ -114,11 +114,21 @@ func (wm *WorkspaceManager) detachHover(node *paneNode) {
 	if wm == nil || node == nil || node.hoverToken == 0 {
 		return
 	}
+
+	if node.container == nil || !node.container.IsValid() {
+		node.hoverToken = 0
+		return
+	}
+
+	token := node.hoverToken
+	node.hoverToken = 0
+
 	node.container.Execute(func(containerPtr uintptr) error {
-		webkit.WidgetRemoveHoverHandler(containerPtr, node.hoverToken)
+		if containerPtr != 0 && webkit.WidgetIsValid(containerPtr) {
+			webkit.WidgetRemoveHoverHandler(containerPtr, token)
+		}
 		return nil
 	})
-	node.hoverToken = 0
 }
 
 // FocusNeighbor moves focus to the nearest pane in the requested direction using the

@@ -21,12 +21,15 @@ type paneNode struct {
 	isPopup     bool // Deprecated: use windowType instead
 
 	// Window type tracking
-	windowType     webkit.WindowType      // Tab or Popup
-	windowFeatures *webkit.WindowFeatures // Features if popup
-	isRelated      bool                   // Shares context
-	parentPane     *paneNode              // Parent for related views
-	autoClose      bool                   // Auto-close on OAuth success
-	hoverToken     uintptr
+	windowType           webkit.WindowType      // Tab or Popup
+	windowFeatures       *webkit.WindowFeatures // Features if popup
+	isRelated            bool                   // Shares context
+	parentPane           *paneNode              // Parent for related views
+	autoClose            bool                   // Auto-close on OAuth success
+	hoverToken           uintptr
+	focusControllerToken uintptr
+	pendingHoverReattach bool
+	pendingFocusReattach bool
 
 	// Stacked panes support with proper widget management
 	isStacked        bool        // Whether this node contains stacked panes

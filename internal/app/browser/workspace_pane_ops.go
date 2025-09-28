@@ -3,6 +3,7 @@ package browser
 
 import (
 	"errors"
+	"fmt"
 	"log"
 
 	"github.com/bnema/dumber/pkg/webkit"
@@ -101,12 +102,48 @@ func (wm *WorkspaceManager) clonePaneState(_ *paneNode, target *paneNode) {
 	})
 }
 
+// safelyDetachControllersBeforeReparent removes GTK controllers that GTK will auto-clean up during reparenting.
+// It marks nodes for reattachment once the widget hierarchy settles after the split operation.
+func (wm *WorkspaceManager) safelyDetachControllersBeforeReparent(node *paneNode) {
+	if wm == nil || node == nil {
+		return
+	}
+
+	markForDetachment := func(target *paneNode) {
+		if target == nil {
+			return
+		}
+
+		if target.hoverToken != 0 {
+			target.pendingHoverReattach = true
+			wm.detachHover(target)
+		}
+
+		if wm.focusStateMachine != nil && target.focusControllerToken != 0 {
+			token := target.focusControllerToken
+			target.pendingFocusReattach = true
+			wm.focusStateMachine.detachGTKController(target, token)
+		}
+	}
+
+	if node.isStacked {
+		for _, child := range node.stackedPanes {
+			markForDetachment(child)
+		}
+		return
+	}
+
+	if node.isLeaf {
+		markForDetachment(node)
+	}
+}
+
 // closeCurrentPane closes the currently focused pane
 func (wm *WorkspaceManager) closeCurrentPane() {
 	if wm == nil || wm.GetActiveNode() == nil {
 		return
 	}
-	if err := wm.closePane(wm.GetActiveNode()); err != nil {
+	if err := wm.BulletproofClosePane(wm.GetActiveNode()); err != nil {
 		log.Printf("[workspace] close current pane failed: %v", err)
 	}
 }
@@ -283,6 +320,9 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 
 	parent := split.parent
 
+	// Prevent GTK from auto-removing controllers while the widget is temporarily unparented.
+	wm.safelyDetachControllersBeforeReparent(target)
+
 	// Detach existing container from its current GTK parent before inserting into new paned.
 	existingContainer := target.getContainerPtr()
 	if parent == nil {
@@ -366,6 +406,11 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 
 	// Update CSS classes for all panes now that we have multiple panes
 
+	reattachTargets := []*paneNode{target}
+	if target != nil && target.isStacked {
+		reattachTargets = append(reattachTargets, target.stackedPanes...)
+	}
+
 	webkit.IdleAdd(func() bool {
 		if newContainer != 0 {
 			webkit.WidgetShow(newContainer)
@@ -374,6 +419,25 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 		if wm.focusStateMachine != nil {
 			wm.focusStateMachine.attachGTKController(newLeaf)
 		}
+
+		for _, candidate := range reattachTargets {
+			if candidate == nil {
+				continue
+			}
+			if candidate.pendingHoverReattach {
+				wm.ensureHover(candidate)
+				if candidate.hoverToken != 0 {
+					candidate.pendingHoverReattach = false
+				}
+			}
+			if candidate.pendingFocusReattach && wm.focusStateMachine != nil {
+				wm.focusStateMachine.attachGTKController(candidate)
+				if candidate.focusControllerToken != 0 {
+					candidate.pendingFocusReattach = false
+				}
+			}
+		}
+
 		wm.SetActivePane(newLeaf, SourceSplit)
 		return false
 	})
@@ -589,7 +653,9 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string) (*pane
 	// The originalTarget is still in the stack and should not interfere with the new split pane
 	if originalTarget == target {
 		// Only ensure hover on target if it's a regular (non-stack) split
-		wm.ensureHover(target)
+		if !target.pendingHoverReattach {
+			wm.ensureHover(target)
+		}
 	}
 
 	wm.app.panes = append(wm.app.panes, newPane)
@@ -599,6 +665,11 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string) (*pane
 
 	// Update CSS classes for all panes now that we have multiple panes
 
+	reattachTargets := []*paneNode{splitTarget}
+	if splitTarget != nil && splitTarget.isStacked {
+		reattachTargets = append(reattachTargets, splitTarget.stackedPanes...)
+	}
+
 	webkit.IdleAdd(func() bool {
 		if newContainer != 0 {
 			webkit.WidgetShow(newContainer)
@@ -606,6 +677,24 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string) (*pane
 		// Attach GTK focus controller to new pane
 		if wm.focusStateMachine != nil {
 			wm.focusStateMachine.attachGTKController(newLeaf)
+		}
+
+		for _, candidate := range reattachTargets {
+			if candidate == nil {
+				continue
+			}
+			if candidate.pendingHoverReattach {
+				wm.ensureHover(candidate)
+				if candidate.hoverToken != 0 {
+					candidate.pendingHoverReattach = false
+				}
+			}
+			if candidate.pendingFocusReattach && wm.focusStateMachine != nil {
+				wm.focusStateMachine.attachGTKController(candidate)
+				if candidate.focusControllerToken != 0 {
+					candidate.pendingFocusReattach = false
+				}
+			}
 		}
 		wm.SetActivePane(newLeaf, SourceSplit)
 		return false
@@ -615,17 +704,19 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string) (*pane
 }
 
 // closePane closes a specific pane and handles tree restructuring
-func (wm *WorkspaceManager) closePane(node *paneNode) error {
+func (wm *WorkspaceManager) closePane(node *paneNode) (*paneNode, error) {
 	if wm == nil || node == nil || !node.isLeaf {
-		return errors.New("close target must be a leaf pane")
+		return nil, errors.New("close target must be a leaf pane")
 	}
 	if node.pane == nil || node.pane.webView == nil {
-		return errors.New("close target missing webview")
+		return nil, errors.New("close target missing webview")
 	}
+
+	var promoted *paneNode
 
 	// Handle closing panes in a stack
 	if node.parent != nil && node.parent.isStacked {
-		return wm.stackedPaneManager.CloseStackedPane(node)
+		return nil, wm.stackedPaneManager.CloseStackedPane(node)
 	}
 
 	if node.parent != nil && node.parent.container != nil {
@@ -724,8 +815,8 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 				wm.root = nil
 				wm.mainPane = nil
 
-				webkit.QuitMainLoop()
-				return nil
+					webkit.QuitMainLoop()
+					return nil, nil
 			}
 		}
 	}
@@ -737,14 +828,14 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 			log.Printf("[workspace] failed to destroy webview: %v", err)
 		}
 		webkit.QuitMainLoop()
-		return nil
+		return nil, nil
 	}
 
 	parent := node.parent
 	if parent == nil {
 		// This is the root pane (no parent in tree structure)
 		if node != wm.root {
-			return errors.New("inconsistent state: node has no parent but is not root")
+			return nil, errors.New("inconsistent state: node has no parent but is not root")
 		}
 
 		// Check if we can find a replacement root
@@ -758,7 +849,7 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 				log.Printf("[workspace] failed to destroy webview: %v", err)
 			}
 			webkit.QuitMainLoop()
-			return nil
+			return nil, nil
 		}
 
 		// We have a replacement - delegate root status and close this pane
@@ -777,11 +868,16 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 
 		// Set replacement as new root
 		wm.root = replacement
-		replacement.parent = nil
+		replacement.parent = nil // Critical: clear parent pointer for new root
+		promoted = replacement
 
-		// Replace window child directly (GTK handles reparenting automatically)
+		// Replace window child - must unparent first to satisfy GTK4 assertion
 		if wm.window != nil && replacement.container != nil {
 			replacement.container.Execute(func(containerPtr uintptr) error {
+				// Unparent from current parent before setting as window child
+				if webkit.WidgetGetParent(containerPtr) != 0 {
+					webkit.WidgetUnparent(containerPtr)
+				}
 				wm.window.SetChild(containerPtr)
 				webkit.WidgetQueueAllocate(containerPtr)
 				webkit.WidgetShow(containerPtr)
@@ -818,7 +914,7 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 		wm.updateMainPane()
 		// Update CSS classes after pane count changes
 		log.Printf("[workspace] root pane closed and delegated; panes remaining=%d", len(wm.app.panes))
-		return nil
+		return promoted, nil
 	}
 
 	var sibling *paneNode
@@ -828,7 +924,68 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 		sibling = parent.left
 	}
 	if sibling == nil {
-		return errors.New("pane close failed: missing sibling")
+		return nil, errors.New("pane close failed: missing sibling")
+	}
+
+	grand := parent.parent
+
+	ensureSafeWidget := func(owner string, widget **SafeWidget) error {
+		if widget == nil {
+			return nil
+		}
+		current := *widget
+		if current == nil {
+			return fmt.Errorf("%s widget missing", owner)
+		}
+		if current.IsValid() {
+			return nil
+		}
+
+		ptr := current.Ptr()
+		typeInfo := current.typeInfo
+		current.Invalidate()
+		if wm.widgetRegistry != nil && ptr != 0 {
+			wm.widgetRegistry.Unregister(ptr)
+		}
+
+		if ptr == 0 || !webkit.WidgetIsValid(ptr) {
+			*widget = nil
+			return fmt.Errorf("%s widget %#x invalidated", owner, ptr)
+		}
+
+		if wm.widgetRegistry == nil {
+			return fmt.Errorf("%s widget registry unavailable", owner)
+		}
+
+		reRegistered := wm.widgetRegistry.Register(ptr, typeInfo)
+		if reRegistered == nil {
+			return fmt.Errorf("%s widget %#x re-registration failed", owner, ptr)
+		}
+		*widget = reRegistered
+		log.Printf("[workspace] re-registered %s widget: ptr=%#x type=%s", owner, ptr, typeInfo)
+		return nil
+	}
+
+	if err := ensureSafeWidget("sibling", &sibling.container); err != nil {
+		log.Printf("[workspace] close aborted: %v", err)
+		return nil, err
+	}
+	if parent.container != nil {
+		if err := ensureSafeWidget("parent", &parent.container); err != nil {
+			log.Printf("[workspace] close aborted: %v", err)
+			return nil, err
+		}
+	}
+	if grand != nil && grand.container != nil {
+		if err := ensureSafeWidget("grandparent", &grand.container); err != nil {
+			log.Printf("[workspace] close aborted: %v", err)
+			return nil, err
+		}
+	}
+
+	if err := wm.validateWidgetsForReparenting(sibling, parent, grand); err != nil {
+		log.Printf("[workspace] invalid widget state prior to close: %v", err)
+		return nil, err
 	}
 
 	log.Printf("[workspace] closing pane: target=%#x parent=%#x sibling=%#x remaining=%d", node.container, parent.container, sibling.container, remaining)
@@ -844,21 +1001,40 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 	if wm.GetActiveNode() == node {
 	}
 
-	grand := parent.parent
+	promoted = sibling
 	if grand == nil {
 		// Parent is the root node. Promote sibling to become the new root.
 		log.Printf("[workspace] promoting sibling to root: container=%#x, isLeaf=%v", sibling.container, sibling.isLeaf)
 
 		// Update tree structure first
 		wm.root = sibling
-		sibling.parent = nil
+		sibling.parent = nil // Critical: clear parent pointer for new root
 
-		// For root promotion, GTK4 handles unparenting automatically when we set the new window child
+		// For root promotion, must unparent first to satisfy GTK4 assertion
 		if wm.window != nil && sibling.container != nil {
 			sibling.container.Execute(func(containerPtr uintptr) error {
+				parentBefore := webkit.WidgetGetParent(containerPtr)
+				log.Printf("[workspace] root promotion: sibling parent before=%#x", parentBefore)
+
+				if parentBefore == 0 {
+					log.Printf("[workspace] root promotion: sibling already detached")
+				} else {
+					oldParentStart := webkit.PanedGetStartChild(parentBefore)
+					oldParentEnd := webkit.PanedGetEndChild(parentBefore)
+					log.Printf("[workspace] root promotion: old parent start=%#x end=%#x", oldParentStart, oldParentEnd)
+				}
+
+				// Unparent from current parent before setting as window child
+				if webkit.WidgetGetParent(containerPtr) != 0 {
+					webkit.WidgetUnparent(containerPtr)
+				}
+
 				wm.window.SetChild(containerPtr)
 				webkit.WidgetQueueAllocate(containerPtr)
 				webkit.WidgetShow(containerPtr)
+
+				parentAfter := webkit.WidgetGetParent(containerPtr)
+				log.Printf("[workspace] root promotion: sibling parent after=%#x", parentAfter)
 				log.Printf("[workspace] successfully promoted sibling to root: %#x", containerPtr)
 				return nil
 			})
@@ -879,19 +1055,52 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 		// GTK4 handles unparenting automatically when we set the new paned child
 		grand.container.Execute(func(grandPtr uintptr) error {
 			sibling.container.Execute(func(siblingPtr uintptr) error {
+				parentBefore := webkit.WidgetGetParent(siblingPtr)
+				log.Printf("[workspace] promotion: sibling current parent=%#x grand=%#x", parentBefore, grandPtr)
+
+				startBefore := webkit.PanedGetStartChild(grandPtr)
+				endBefore := webkit.PanedGetEndChild(grandPtr)
+				log.Printf("[workspace] promotion: grand start before=%#x end before=%#x", startBefore, endBefore)
+
 				if grand.left == sibling {
 					webkit.PanedSetStartChild(grandPtr, siblingPtr)
 				} else {
 					webkit.PanedSetEndChild(grandPtr, siblingPtr)
 				}
+
+				webkit.WidgetQueueAllocate(grandPtr)
 				webkit.WidgetQueueAllocate(siblingPtr)
 				webkit.WidgetShow(siblingPtr)
+
+				parentAfter := webkit.WidgetGetParent(siblingPtr)
+				startAfter := webkit.PanedGetStartChild(grandPtr)
+				endAfter := webkit.PanedGetEndChild(grandPtr)
+				log.Printf("[workspace] promotion: sibling parent after=%#x", parentAfter)
+				log.Printf("[workspace] promotion: grand start after=%#x end after=%#x", startAfter, endAfter)
+				if parentAfter == 0 {
+					log.Printf("[workspace] WARNING: sibling widget %#x has no parent after promotion", siblingPtr)
+				}
 				log.Printf("[workspace] successfully promoted sibling to parent position: %#x", siblingPtr)
 				return nil
 			})
+
+			// Also queue allocate the grandparent to ensure layout updates
 			return nil
 		})
 	}
+
+	// Parent container is now detached; ensure it is cleaned up to avoid lingering invalid widgets
+	if parent.container != nil {
+		ptr := parent.container.Ptr()
+		parent.container.Invalidate()
+		if wm.widgetRegistry != nil && ptr != 0 {
+			wm.widgetRegistry.Unregister(ptr)
+		}
+		parent.container = nil
+	}
+	parent.left = nil
+	parent.right = nil
+	parent.parent = nil
 
 	// Find a suitable focus target
 	focusTarget := wm.leftmostLeaf(sibling)
@@ -922,5 +1131,5 @@ func (wm *WorkspaceManager) closePane(node *paneNode) error {
 	wm.updateMainPane()
 	// Update CSS classes after pane count changes
 	log.Printf("[workspace] pane closed; panes remaining=%d", len(wm.app.panes))
-	return nil
+	return promoted, nil
 }
