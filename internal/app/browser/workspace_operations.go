@@ -10,18 +10,18 @@ import (
 	"github.com/bnema/dumber/pkg/webkit"
 )
 
-// BulletproofSplitNode performs a bulletproof split operation with all safety checks
-func (wm *WorkspaceManager) BulletproofSplitNode(target *paneNode, direction string) (*paneNode, error) {
+// SplitPane performs a split operation with validation and safety checks
+func (wm *WorkspaceManager) SplitPane(target *paneNode, direction string) (*paneNode, error) {
 	if wm == nil {
 		return nil, fmt.Errorf("workspace manager is nil")
 	}
 
-	log.Printf("[bulletproof] Starting bulletproof split operation: target=%p direction=%s", target, direction)
+	log.Printf("[workspace] Starting split operation: target=%p direction=%s", target, direction)
 
 	// Step 1: Capture state tombstone for rollback
 	tombstone, err := wm.stateTombstoneManager.CaptureState("split")
 	if err != nil {
-		log.Printf("[bulletproof] Failed to capture state tombstone: %v", err)
+		log.Printf("[workspace] Failed to capture state tombstone: %v", err)
 		// Continue anyway - tombstone is for rollback safety
 	}
 
@@ -33,7 +33,7 @@ func (wm *WorkspaceManager) BulletproofSplitNode(target *paneNode, direction str
 
 	// Log if re-validation will be needed due to pending widget allocation
 	if validation.RequiresRevalidation {
-		log.Printf("[bulletproof] Split validation passed with pending allocation - operation will proceed")
+		log.Printf("[workspace] Split validation passed with pending allocation - operation will proceed")
 	}
 
 	// Step 3: Validate tree invariants before operation
@@ -43,24 +43,24 @@ func (wm *WorkspaceManager) BulletproofSplitNode(target *paneNode, direction str
 
 	// Step 4: Execute directly if we're already on the GTK main thread
 	if webkit.IsMainThread() {
-		log.Printf("[bulletproof] Already on main thread, executing split directly")
+		log.Printf("[workspace] Already on main thread, executing split directly")
 		newNode, err := wm.splitNode(target, direction)
 		if err != nil {
 			if tombstone != nil {
 				if rollbackErr := wm.stateTombstoneManager.RestoreState(tombstone.ID); rollbackErr != nil {
-					log.Printf("[bulletproof] Rollback failed after split failure: %v", rollbackErr)
+					log.Printf("[workspace] Rollback failed after split failure: %v", rollbackErr)
 				}
 			}
 			return nil, err
 		}
 
 		if err := wm.treeValidator.ValidateTree(wm.root, "after_split"); err != nil {
-			log.Printf("[bulletproof] Tree validation failed after split: %v", err)
+			log.Printf("[workspace] Tree validation failed after split: %v", err)
 		}
 
 		// Tree rebalancing is only needed after close promotions. Splits have correct allocation from GTK.
 
-		log.Printf("[bulletproof] Split operation completed successfully (direct execution): newNode=%p", newNode)
+		log.Printf("[workspace] Split operation completed successfully (direct execution): newNode=%p", newNode)
 		return newNode, nil
 	}
 
@@ -79,7 +79,7 @@ func (wm *WorkspaceManager) BulletproofSplitNode(target *paneNode, direction str
 
 	resultChan := wm.concurrencyController.SubmitOperation(opReq)
 
-	log.Printf("[bulletproof] Waiting for operation result while pumping GTK events")
+	log.Printf("[workspace] Waiting for operation result while pumping GTK events")
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
 
@@ -99,12 +99,12 @@ func (wm *WorkspaceManager) BulletproofSplitNode(target *paneNode, direction str
 			}
 
 			if err := wm.treeValidator.ValidateTree(wm.root, "after_split"); err != nil {
-				log.Printf("[bulletproof] Tree validation failed after split: %v", err)
+				log.Printf("[workspace] Tree validation failed after split: %v", err)
 			}
 
 			// Tree rebalancing is only needed after close promotions. Splits have correct allocation from GTK.
 
-			log.Printf("[bulletproof] Split operation completed successfully: newNode=%p", result.NewNode)
+			log.Printf("[workspace] Split operation completed successfully: newNode=%p", result.NewNode)
 			return result.NewNode, nil
 
 		case <-ticker.C:
@@ -118,20 +118,20 @@ func (wm *WorkspaceManager) BulletproofSplitNode(target *paneNode, direction str
 	}
 }
 
-// BulletproofClosePane performs a bulletproof close operation with all safety checks
-func (wm *WorkspaceManager) BulletproofClosePane(node *paneNode) error {
+// ClosePane performs a close operation with validation and safety checks
+func (wm *WorkspaceManager) ClosePane(node *paneNode) error {
 	if wm == nil {
 		return fmt.Errorf("workspace manager is nil")
 	}
 
-	log.Printf("[bulletproof] Starting bulletproof close operation: node=%p", node)
+	log.Printf("[workspace] Starting close operation: node=%p", node)
 	wm.paneCloseLogf("start bulletproof close node=%p", node)
 	wm.dumpTreeState("before_close")
 
 	// Step 1: Capture state tombstone for rollback
 	tombstone, err := wm.stateTombstoneManager.CaptureState("close")
 	if err != nil {
-		log.Printf("[bulletproof] Failed to capture state tombstone: %v", err)
+		log.Printf("[workspace] Failed to capture state tombstone: %v", err)
 	}
 
 	// Step 2: Validate tree invariants before operation
@@ -141,13 +141,13 @@ func (wm *WorkspaceManager) BulletproofClosePane(node *paneNode) error {
 
 	// Step 3: Check if this is a stacked pane and use enhanced lifecycle management
 	if node.parent != nil && node.parent.isStacked {
-		log.Printf("[bulletproof] Using enhanced stack lifecycle management for close")
+		log.Printf("[workspace] Using enhanced stack lifecycle management for close")
 		return wm.stackLifecycleManager.CloseStackedPaneWithLifecycle(node)
 	}
 
 	// Step 4: Execute directly when already on the GTK main thread
 	if webkit.IsMainThread() {
-		log.Printf("[bulletproof] Already on main thread, executing close directly")
+		log.Printf("[workspace] Already on main thread, executing close directly")
 
 		wm.paneCloseLogf("invoking closePane node=%p", node)
 		promoted, err := wm.closePane(node)
@@ -156,30 +156,30 @@ func (wm *WorkspaceManager) BulletproofClosePane(node *paneNode) error {
 			wm.dumpTreeState("after_close_error")
 			if tombstone != nil {
 				if rollbackErr := wm.stateTombstoneManager.RestoreState(tombstone.ID); rollbackErr != nil {
-					log.Printf("[bulletproof] Rollback failed after close failure: %v", rollbackErr)
+					log.Printf("[workspace] Rollback failed after close failure: %v", rollbackErr)
 				}
 			}
 			return err
 		}
 
 		if err := wm.treeValidator.ValidateTree(wm.root, "after_close"); err != nil {
-			log.Printf("[bulletproof] Tree validation failed after close: %v", err)
+			log.Printf("[workspace] Tree validation failed after close: %v", err)
 		}
 		wm.paneCloseLogf("closePane succeeded node=%p promoted=%p root=%p", node, promoted, wm.root)
 		wm.dumpTreeState("after_close_success")
 
 		if wm.treeRebalancer != nil {
 			if err := wm.treeRebalancer.RebalanceAfterClose(node, promoted); err != nil {
-				log.Printf("[bulletproof] Tree rebalancing failed after close: %v", err)
+				log.Printf("[workspace] Tree rebalancing failed after close: %v", err)
 			}
 		}
 
-		log.Printf("[bulletproof] Close operation completed successfully (direct execution)")
+		log.Printf("[workspace] Close operation completed successfully (direct execution)")
 		return nil
 	}
 
 	// Step 5: Not on main thread, marshal through concurrency controller
-	log.Printf("[bulletproof] Not on main thread, using concurrency controller")
+	log.Printf("[workspace] Not on main thread, using concurrency controller")
 	opReq := &OperationRequest{
 		ID:         fmt.Sprintf("close_%p_%d", node, time.Now().UnixNano()),
 		Type:       OpTypeClose,
@@ -191,7 +191,7 @@ func (wm *WorkspaceManager) BulletproofClosePane(node *paneNode) error {
 
 	resultChan := wm.concurrencyController.SubmitOperation(opReq)
 
-	log.Printf("[bulletproof] Waiting for operation result while pumping GTK events")
+	log.Printf("[workspace] Waiting for operation result while pumping GTK events")
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
 
@@ -206,25 +206,25 @@ func (wm *WorkspaceManager) BulletproofClosePane(node *paneNode) error {
 				wm.dumpTreeState("after_close_error")
 				if tombstone != nil {
 					if rollbackErr := wm.stateTombstoneManager.RestoreState(tombstone.ID); rollbackErr != nil {
-						log.Printf("[bulletproof] Rollback failed after close failure: %v", rollbackErr)
+						log.Printf("[workspace] Rollback failed after close failure: %v", rollbackErr)
 					}
 				}
 				return result.Error
 			}
 
 			if err := wm.treeValidator.ValidateTree(wm.root, "after_close"); err != nil {
-				log.Printf("[bulletproof] Tree validation failed after close: %v", err)
+				log.Printf("[workspace] Tree validation failed after close: %v", err)
 			}
 			wm.paneCloseLogf("async close succeeded node=%p promoted=%p root=%p", node, result.NewNode, wm.root)
 			wm.dumpTreeState("after_close_success")
 
 			if wm.treeRebalancer != nil {
 				if err := wm.treeRebalancer.RebalanceAfterClose(node, result.NewNode); err != nil {
-					log.Printf("[bulletproof] Tree rebalancing failed after close: %v", err)
+					log.Printf("[workspace] Tree rebalancing failed after close: %v", err)
 				}
 			}
 
-			log.Printf("[bulletproof] Close operation completed successfully")
+			log.Printf("[workspace] Close operation completed successfully")
 			return nil
 
 		case <-ticker.C:
@@ -238,13 +238,13 @@ func (wm *WorkspaceManager) BulletproofClosePane(node *paneNode) error {
 	}
 }
 
-// BulletproofStackPane performs a bulletproof stack operation
-func (wm *WorkspaceManager) BulletproofStackPane(target *paneNode) (*paneNode, error) {
+// StackPane performs a stack operation with validation and safety checks
+func (wm *WorkspaceManager) StackPane(target *paneNode) (*paneNode, error) {
 	if wm == nil {
 		return nil, fmt.Errorf("workspace manager is nil")
 	}
 
-	log.Printf("[bulletproof] Starting bulletproof stack operation: target=%p", target)
+	log.Printf("[workspace] Starting stack operation: target=%p", target)
 
 	// Step 1: Validate stack operation constraints
 	validation := wm.geometryValidator.ValidateStackOperation(target)
@@ -254,13 +254,13 @@ func (wm *WorkspaceManager) BulletproofStackPane(target *paneNode) (*paneNode, e
 
 	// Log if re-validation will be needed due to pending widget allocation
 	if validation.RequiresRevalidation {
-		log.Printf("[bulletproof] Stack validation passed with pending allocation - operation will proceed")
+		log.Printf("[workspace] Stack validation passed with pending allocation - operation will proceed")
 	}
 
 	// Step 2: Capture state tombstone for rollback
 	tombstone, err := wm.stateTombstoneManager.CaptureState("stack")
 	if err != nil {
-		log.Printf("[bulletproof] Failed to capture state tombstone: %v", err)
+		log.Printf("[workspace] Failed to capture state tombstone: %v", err)
 	}
 
 	// Step 3: Validate tree invariants before operation
@@ -270,7 +270,7 @@ func (wm *WorkspaceManager) BulletproofStackPane(target *paneNode) (*paneNode, e
 
 	// Step 4: Execute directly if already on the GTK main thread
 	if webkit.IsMainThread() {
-		log.Printf("[bulletproof] Already on main thread, executing stack directly")
+		log.Printf("[workspace] Already on main thread, executing stack directly")
 		newNode, err := wm.stackedPaneManager.StackPane(target)
 		if err != nil {
 			if tombstone != nil {
@@ -282,10 +282,10 @@ func (wm *WorkspaceManager) BulletproofStackPane(target *paneNode) (*paneNode, e
 		}
 
 		if err := wm.treeValidator.ValidateTree(wm.root, "after_stack"); err != nil {
-			log.Printf("[bulletproof] Tree validation failed after stack: %v", err)
+			log.Printf("[workspace] Tree validation failed after stack: %v", err)
 		}
 
-		log.Printf("[bulletproof] Stack operation completed successfully (direct execution): newNode=%p", newNode)
+		log.Printf("[workspace] Stack operation completed successfully (direct execution): newNode=%p", newNode)
 		return newNode, nil
 	}
 
@@ -301,7 +301,7 @@ func (wm *WorkspaceManager) BulletproofStackPane(target *paneNode) (*paneNode, e
 
 	resultChan := wm.concurrencyController.SubmitOperation(opReq)
 
-	log.Printf("[bulletproof] Waiting for operation result while pumping GTK events")
+	log.Printf("[workspace] Waiting for operation result while pumping GTK events")
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
 
@@ -321,10 +321,10 @@ func (wm *WorkspaceManager) BulletproofStackPane(target *paneNode) (*paneNode, e
 			}
 
 			if err := wm.treeValidator.ValidateTree(wm.root, "after_stack"); err != nil {
-				log.Printf("[bulletproof] Tree validation failed after stack: %v", err)
+				log.Printf("[workspace] Tree validation failed after stack: %v", err)
 			}
 
-			log.Printf("[bulletproof] Stack operation completed successfully: newNode=%p", result.NewNode)
+			log.Printf("[workspace] Stack operation completed successfully: newNode=%p", result.NewNode)
 			return result.NewNode, nil
 
 		case <-ticker.C:
@@ -338,41 +338,41 @@ func (wm *WorkspaceManager) BulletproofStackPane(target *paneNode) (*paneNode, e
 	}
 }
 
-// EnableBulletproofMode enables all bulletproof features
-func (wm *WorkspaceManager) EnableBulletproofMode() {
+// EnableEnhancedMode enables all enhanced validation features
+func (wm *WorkspaceManager) EnableEnhancedMode() {
 	if wm.treeValidator != nil {
 		wm.treeValidator.Enable()
 	}
 	if wm.treeRebalancer != nil {
 		wm.treeRebalancer.Enable()
 	}
-	log.Printf("[bulletproof] Bulletproof mode enabled")
+	log.Printf("[workspace] Enhanced validation mode enabled")
 }
 
-// DisableBulletproofMode disables bulletproof features for performance
-func (wm *WorkspaceManager) DisableBulletproofMode() {
+// DisableEnhancedMode disables enhanced features for performance
+func (wm *WorkspaceManager) DisableEnhancedMode() {
 	if wm.treeValidator != nil {
 		wm.treeValidator.Disable()
 	}
 	if wm.treeRebalancer != nil {
 		wm.treeRebalancer.Disable()
 	}
-	log.Printf("[bulletproof] Bulletproof mode disabled")
+	log.Printf("[workspace] Enhanced validation mode disabled")
 }
 
-// SetBulletproofDebugMode enables/disables debug mode for all bulletproof components
-func (wm *WorkspaceManager) SetBulletproofDebugMode(debug bool) {
+// SetEnhancedDebugMode enables/disables debug mode for all enhanced validation components
+func (wm *WorkspaceManager) SetEnhancedDebugMode(debug bool) {
 	if wm.treeValidator != nil {
 		wm.treeValidator.SetDebugMode(debug)
 	}
 	if wm.geometryValidator != nil {
 		wm.geometryValidator.SetDebugMode(debug)
 	}
-	log.Printf("[bulletproof] Debug mode set to: %v", debug)
+	log.Printf("[workspace] Enhanced debug mode set to: %v", debug)
 }
 
-// GetBulletproofStats returns comprehensive statistics about all bulletproof components
-func (wm *WorkspaceManager) GetBulletproofStats() map[string]interface{} {
+// GetEnhancedStats returns comprehensive statistics about all enhanced validation components
+func (wm *WorkspaceManager) GetEnhancedStats() map[string]interface{} {
 	stats := make(map[string]interface{})
 
 	if wm.treeValidator != nil {
@@ -404,7 +404,7 @@ func (wm *WorkspaceManager) GetBulletproofStats() map[string]interface{} {
 
 // ValidateWorkspaceIntegrity performs a comprehensive validation of the workspace
 func (wm *WorkspaceManager) ValidateWorkspaceIntegrity() error {
-	log.Printf("[bulletproof] Performing comprehensive workspace integrity check")
+	log.Printf("[workspace] Performing comprehensive workspace integrity check")
 
 	// Tree structure validation
 	if wm.treeValidator != nil {
@@ -418,24 +418,24 @@ func (wm *WorkspaceManager) ValidateWorkspaceIntegrity() error {
 		results := wm.geometryValidator.ValidateWorkspaceLayout(wm.root)
 		for i, result := range results {
 			if !result.IsValid {
-				log.Printf("[bulletproof] Geometry validation failed for pane %d: %s", i, result.Reason)
+				log.Printf("[workspace] Geometry validation failed for pane %d: %s", i, result.Reason)
 				// Don't fail the entire check for geometry issues
 			}
 		}
 	}
 
-	log.Printf("[bulletproof] Workspace integrity check completed successfully")
+	log.Printf("[workspace] Workspace integrity check completed successfully")
 	return nil
 }
 
-// ShutdownBulletproofComponents gracefully shuts down all bulletproof components
-func (wm *WorkspaceManager) ShutdownBulletproofComponents() {
-	log.Printf("[bulletproof] Shutting down bulletproof components")
+// ShutdownEnhancedComponents gracefully shuts down all enhanced validation components
+func (wm *WorkspaceManager) ShutdownEnhancedComponents() {
+	log.Printf("[workspace] Shutting down enhanced validation components")
 
 	if wm.concurrencyController != nil {
 		wm.concurrencyController.Shutdown()
 	}
 
 	// Other components don't require explicit shutdown currently
-	log.Printf("[bulletproof] Bulletproof components shutdown complete")
+	log.Printf("[workspace] Enhanced validation components shutdown complete")
 }

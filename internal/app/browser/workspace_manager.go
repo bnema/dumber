@@ -267,7 +267,7 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 
 		wm.lastSplitMsg[source] = time.Now()
 
-		newNode, err := wm.BulletproofSplitNode(node, direction)
+		newNode, err := wm.SplitPane(node, direction)
 		if err != nil {
 			log.Printf("[workspace] split failed: %v", err)
 			// CRITICAL FIX: Pump GTK events after validation failure to clear pending operations
@@ -398,7 +398,7 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 		log.Printf("[workspace] Closing popup pane due to %s", msg.Reason)
 
 		// Close the popup pane
-		if err := wm.BulletproofClosePane(targetNode); err != nil {
+		if err := wm.ClosePane(targetNode); err != nil {
 			log.Printf("[workspace] Failed to close popup pane: %v", err)
 		} else {
 			log.Printf("[workspace] Successfully closed popup pane: %s", msg.WebViewID)
