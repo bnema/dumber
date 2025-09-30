@@ -2,18 +2,36 @@
 
 ## Problem Analysis Summary
 
-The current implementation has **THREE CRITICAL BUGS**:
-1. **Multiple Pane Closure**: Sibling identification logic at lines 920-928 incorrectly identifies siblings
-2. **Invalid Widget Promotion**: Lines 1042-1090 operate on destroyed widgets
-3. **Race Conditions**: Widget cleanup happens before promotion completes
+The current implementation in `internal/app/browser/workspace_pane_ops.go:707`+ exhibits **three interlocked failure modes**:
+1. **Multiple Pane Closure**: The promotion branch (around `workspace_pane_ops.go:990`) iterates over invalid parent/child references, causing both siblings to be detached when `wm.app.panes` still counts them. This yields double-close behaviour during rapid shortcuts.
+2. **Invalid Widget Promotion**: The root promotion path (roughly `workspace_pane_ops.go:878-948`) manipulates widgets after `Cleanup()` invalidates their `SafeWidget` guard, which leads to sporadic `GTK_IS_WIDGET` assertions.
+3. **Race Conditions**: Cleanup (`ensureCleanup`) and hover-detach run while asynchronous `IdleAdd` callbacks still reference the old nodes, so hover/focus reattachment runs against freed memory during reproduction of issue #1429.
+
+> Baseline reproduction: trigger repeated `closePane` via Ctrl+W on a layout with nested root + stack; log spew shows `[workspace] close aborted` alongside panics in `ensureSafeWidget`.
+
+### Environment Constraints
+- `stackedPaneManager.CloseStackedPane` is tightly coupled to `wm.stackedPaneManager`, so any refactor must either reimplement its logic or provide compatibility shims.
+- `BulletproofClosePane` wraps `closePane`, retrying on specific errors; changes to panic/zero-return semantics must preserve that contract.
+- Hover/focus controller lifecycles (`wm.ensureHover`, `focusStateMachine.attachGTKController`) must remain intact after tree restructuring.
+
+### Preconditions & Guardrails
+1. Capture baseline behaviour with `go test ./tests/workspace/...` (currently incomplete; we will add targeted tests in Phase 5).
+2. Add temporary structured logging with `log.Printf("[pane-close] ...")` gated behind an environment toggle to avoid production noise.
+3. Ensure unit test scaffolding can construct `WorkspaceManager` with fake `webkit` bindings (see `tests/browser/fakes`).
+
+## PHASE 0: Stabilise & Instrument
+
+1. Wrap `BulletproofClosePane` with structured logging (log key: `pane-close-stage`) guarded by `wm.debugInstrumentation` flag.
+2. Add `WorkspaceDiagnostics` helper capturing tree snapshots (`wm.dumpTreeState`) before and after `closePane`.
+3. Add regression harness in `tests/browser/workspace_close_test.go` that constructs a representative tree and exercises edge cases (root-only, nested split, stack + split).
+4. Verify reproduction steps still fail prior to refactor to ensure harness is meaningful.
 
 ## PHASE 1: New Simplified Architecture
 
-### 1.1 Create New File Structure
+### 1.1 Keep File Layout, Replace Implementation In-Place
 ```
-workspace_pane_close_v2.go      # New simplified close logic
-workspace_pane_close_legacy.go  # Rename current implementation
-workspace_pane_close_test.go    # Comprehensive tests
+internal/app/browser/workspace_pane_ops.go   # Replace existing closePane implementation with new logic
+internal/app/browser/workspace_types.go      # Extend paneNode metadata
 ```
 
 ### 1.2 Core Data Structure Changes
@@ -22,82 +40,58 @@ workspace_pane_close_test.go    # Comprehensive tests
 type paneNode struct {
     // ... existing fields ...
 
-    // New field to track widget validity
-    widgetValid bool  // Set to false when widget destroyed
+    widgetValid bool       // Guard flagged before GTK destruction
+    cleanupGeneration uint // Helps assert that asynchronous callbacks skip stale nodes
+}
+
+// Add to WorkspaceManager
+type WorkspaceManager struct {
+    // ... existing fields ...
+
+    cleanupCounter uint
 }
 ```
 
 ## PHASE 2: Detailed New closePane Implementation
 
-### 2.1 Main Close Function (50-70 lines total)
+### 2.1 Main Close Function (60-80 lines total)
 ```go
-func (wm *WorkspaceManager) closePaneV2(node *paneNode) (*paneNode, error) {
-    // STEP 1: Basic validation (5 lines)
-    if node == nil || !node.isLeaf {
-        return nil, errors.New("invalid close target")
+func (wm *WorkspaceManager) closePane(node *paneNode) (*paneNode, error) {
+    ctx := wm.beginClose(node)
+    defer ctx.finish()
+
+    // STEP 1: Basic validation (quick fail)
+    if ctx.err != nil {
+        return nil, ctx.err
     }
 
-    // STEP 2: Handle special cases (15 lines)
-    // 2a. Stacked pane
+    // STEP 2: Handle stacked panes via compatibility shim
     if node.parent != nil && node.parent.isStacked {
-        return wm.closeStackedPaneSimple(node)
+        return wm.closeStackedPaneCompat(node)
     }
 
-    // 2b. Last pane
-    if wm.countPanes() == 1 {
-        wm.cleanupAndExit(node)
-        return nil, nil
+    // STEP 3: Handle trivial exit cases
+    if ctx.remaining == 1 {
+        return wm.cleanupAndExit(node)
     }
-
-    // 2c. Root pane with others
     if node == wm.root {
-        return wm.promoteNewRoot(node)
+        return wm.promoteNewRoot(ctx, node)
     }
 
-    // STEP 3: Standard close - promote sibling (30 lines)
+    // STEP 4: Promote sibling in-place
     parent := node.parent
     sibling := wm.getSibling(node)
     grandparent := parent.parent
+    wm.ensureWidgets(grandparent, parent, sibling)
 
-    // Critical: Update tree structure FIRST
-    sibling.parent = grandparent
-    if grandparent != nil {
-        if grandparent.left == parent {
-            grandparent.left = sibling
-        } else {
-            grandparent.right = sibling
-        }
-    } else {
-        wm.root = sibling
-    }
+    wm.promoteSibling(grandparent, parent, sibling)
 
-    // STEP 4: Update GTK widgets (using GTK4 auto-unparenting)
-    if grandparent != nil && grandparent.container != nil {
-        grandparent.container.Execute(func(gpPtr uintptr) error {
-            sibling.container.Execute(func(sibPtr uintptr) error {
-                // GTK4 automatically unparents old child when setting new
-                if grandparent.left == sibling {
-                    webkit.PanedSetStartChild(gpPtr, sibPtr)
-                } else {
-                    webkit.PanedSetEndChild(gpPtr, sibPtr)
-                }
-                return nil
-            })
-            return nil
-        })
-    } else if sibling == wm.root {
-        // Sibling is new root
-        sibling.container.Execute(func(sibPtr uintptr) error {
-            wm.window.SetChild(sibPtr)
-            return nil
-        })
-    }
+    // STEP 5: GTK updates leverage auto-unparenting
+    wm.swapContainers(grandparent, sibling)
 
-    // STEP 5: Cleanup (10 lines)
-    wm.cleanupPane(node)
-    wm.cleanupPane(parent) // Parent paned is no longer needed
-
-    // STEP 6: Update focus
+    // STEP 6: Cleanup & focus
+    wm.cleanupPane(node, ctx.Generation())
+    wm.decommissionParent(parent, ctx.Generation())
     wm.setFocusToLeaf(sibling)
 
     return sibling, nil
@@ -120,81 +114,163 @@ func (wm *WorkspaceManager) getSibling(node *paneNode) *paneNode {
 }
 ```
 
-#### promoteNewRoot - Handle Root Replacement
+#### beginClose / closeContext
 ```go
-func (wm *WorkspaceManager) promoteNewRoot(oldRoot *paneNode) (*paneNode, error) {
-    // Find first non-root pane by traversing tree
-    var newRoot *paneNode
+type closeContext struct {
+    wm         *WorkspaceManager
+    target     *paneNode
+    remaining  int
+    err        error
+    generation uint
+}
 
-    // Try left subtree first
-    if oldRoot.left != nil {
-        newRoot = oldRoot.left
-    } else if oldRoot.right != nil {
-        newRoot = oldRoot.right
-    } else {
-        // No other panes - shouldn't happen
-        return nil, errors.New("no replacement root found")
+func (wm *WorkspaceManager) beginClose(node *paneNode) closeContext {
+    ctx := closeContext{wm: wm, target: node, generation: wm.nextCleanupGeneration()}
+    switch {
+    case wm == nil:
+        ctx.err = errors.New("workspace manager nil")
+    case node == nil || !node.isLeaf:
+        ctx.err = errors.New("invalid close target")
+    case node.pane == nil || node.pane.webView == nil:
+        ctx.err = errors.New("close target missing webview")
+    default:
+        ctx.remaining = len(wm.app.panes)
     }
+    return ctx
+}
 
-    // Detach new root from its parent
-    if newRoot.parent != nil {
-        sibling := wm.getSibling(newRoot)
-        parent := newRoot.parent
+func (ctx closeContext) Generation() uint { return ctx.generation }
 
-        // Promote sibling to parent's position
-        if parent.parent != nil {
-            // Has grandparent - attach sibling to it
-            grand := parent.parent
-            sibling.parent = grand
-            if grand.left == parent {
-                grand.left = sibling
-            } else {
-                grand.right = sibling
-            }
+func (ctx closeContext) finish() {
+    if ctx.err == nil {
+        ctx.wm.updateMainPane()
+    }
+}
+```
 
-            // Update GTK widget
-            grand.container.Execute(func(gPtr uintptr) error {
-                sibling.container.Execute(func(sPtr uintptr) error {
-                    if grand.left == sibling {
-                        webkit.PanedSetStartChild(gPtr, sPtr)
-                    } else {
-                        webkit.PanedSetEndChild(gPtr, sPtr)
-                    }
-                    return nil
-                })
-                return nil
-            })
+#### ensureWidgets
+```go
+func (wm *WorkspaceManager) ensureWidgets(nodes ...*paneNode) {
+    for _, n := range nodes {
+        if n == nil || n.container == nil {
+            continue
         }
+        if n.container.IsValid() {
+            continue
+        }
+        ptr := n.container.Ptr()
+        n.container = wm.widgetRegistry.Recover(ptr, n.container.typeInfo)
     }
+}
+```
 
-    // Make newRoot the root
-    newRoot.parent = nil
-    wm.root = newRoot
+#### promoteSibling
+```go
+func (wm *WorkspaceManager) promoteSibling(grand *paneNode, parent *paneNode, sibling *paneNode) {
+    if grand == nil {
+        wm.root = sibling
+        sibling.parent = nil
+        return
+    }
+    sibling.parent = grand
+    if grand.left == parent {
+        grand.left = sibling
+    } else {
+        grand.right = sibling
+    }
+}
+```
 
-    // Attach to window
-    newRoot.container.Execute(func(ptr uintptr) error {
-        wm.window.SetChild(ptr)
+#### swapContainers
+```go
+func (wm *WorkspaceManager) swapContainers(grand *paneNode, sibling *paneNode) {
+    if grand == nil {
+        wm.attachRoot(sibling)
+        return
+    }
+    grand.container.Execute(func(gPtr uintptr) error {
+        sibling.container.Execute(func(sPtr uintptr) error {
+            if grand.left == sibling {
+                webkit.PanedSetStartChild(gPtr, sPtr)
+            } else {
+                webkit.PanedSetEndChild(gPtr, sPtr)
+            }
+            return nil
+        })
         return nil
     })
+}
+```
 
-    // Cleanup old root
-    wm.cleanupPane(oldRoot)
+#### decommissionParent
+```go
+func (wm *WorkspaceManager) decommissionParent(parent *paneNode, generation uint) {
+    if parent == nil {
+        return
+    }
+    wm.cleanupPane(parent, generation)
+}
+```
 
-    return newRoot, nil
+#### nextCleanupGeneration
+```go
+func (wm *WorkspaceManager) nextCleanupGeneration() uint {
+    wm.cleanupCounter++
+    return wm.cleanupCounter
+}
+```
+
+#### attachRoot
+```go
+func (wm *WorkspaceManager) attachRoot(root *paneNode) {
+    if root == nil || root.container == nil || wm.window == nil {
+        return
+    }
+    root.container.Execute(func(ptr uintptr) error {
+        wm.window.SetChild(ptr)
+        webkit.WidgetQueueAllocate(ptr)
+        webkit.WidgetShow(ptr)
+        return nil
+    })
+}
+```
+
+#### promoteNewRoot - Handle Root Replacement
+```go
+func (wm *WorkspaceManager) promoteNewRoot(ctx closeContext, oldRoot *paneNode) (*paneNode, error) {
+    candidate := wm.findReplacementRoot(oldRoot)
+    if candidate == nil {
+        return wm.cleanupAndExit(oldRoot)
+    }
+
+    sibling := wm.getSibling(candidate)
+    if sibling != nil {
+        wm.promoteSibling(candidate.parent.parent, candidate.parent, sibling)
+    }
+
+    candidate.parent = nil
+    wm.root = candidate
+
+    wm.attachRoot(candidate)
+
+    wm.cleanupPane(oldRoot, ctx.Generation())
+    return candidate, nil
 }
 ```
 
 #### cleanupPane - Safe Cleanup
 ```go
-func (wm *WorkspaceManager) cleanupPane(node *paneNode) {
-    if node == nil || node.widgetValid == false {
-        return // Already cleaned
+func (wm *WorkspaceManager) cleanupPane(node *paneNode, generation uint) {
+    if node == nil {
+        return
+    }
+    if !node.widgetValid {
+        return
     }
 
-    // Mark as invalid immediately
     node.widgetValid = false
+    node.cleanupGeneration = generation
 
-    // Clean up pane resources
     if node.pane != nil {
         node.pane.CleanupFromWorkspace(wm)
         if node.pane.webView != nil {
@@ -202,13 +278,11 @@ func (wm *WorkspaceManager) cleanupPane(node *paneNode) {
         }
     }
 
-    // Invalidate container
     if node.container != nil {
         node.container.Invalidate()
         node.container = nil
     }
 
-    // Clear tree pointers
     node.parent = nil
     node.left = nil
     node.right = nil
@@ -217,9 +291,9 @@ func (wm *WorkspaceManager) cleanupPane(node *paneNode) {
 
 ## PHASE 3: Stack Container Simplification
 
-### 3.1 Simplified Stack Close
+### 3.1 Compatibility Layer for Stacked Panes
 ```go
-func (wm *WorkspaceManager) closeStackedPaneSimple(node *paneNode) (*paneNode, error) {
+func (wm *WorkspaceManager) closeStackedPaneCompat(node *paneNode) (*paneNode, error) {
     stack := node.parent
 
     // Find index
@@ -276,7 +350,7 @@ func (wm *WorkspaceManager) closeStackedPaneSimple(node *paneNode) (*paneNode, e
         }
 
         // Cleanup stack container
-        wm.cleanupPane(stack)
+        wm.cleanupPane(stack, wm.nextCleanupGeneration())
 
         return remaining, nil
     }
@@ -305,7 +379,7 @@ func (wm *WorkspaceManager) closeStackedPaneSimple(node *paneNode) (*paneNode, e
     }
 
     // Cleanup closed pane
-    wm.cleanupPane(node)
+    wm.cleanupPane(node, wm.nextCleanupGeneration())
 
     return stack, nil
 }
@@ -341,40 +415,13 @@ webkit.BoxAppend(box, widget)  // Auto-unparents from old parent
 ## PHASE 5: Migration Strategy
 
 ### 5.1 Step-by-Step Migration
-1. **Week 1**: Implement new functions alongside old ones
-2. **Week 2**: Add comprehensive logging to both paths
-3. **Week 3**: A/B test with feature flag
-4. **Week 4**: Full migration after stability proven
-
-### 5.2 Testing Scenarios
-```go
-func TestClosePaneScenarios(t *testing.T) {
-    tests := []struct{
-        name string
-        setup func() *paneNode
-        target string  // path to target node
-        expectPanes int
-        expectRoot string
-    }{
-        {
-            name: "close_right_child_simple_split",
-            // A[B,C] -> close C -> A becomes B
-        },
-        {
-            name: "close_middle_nested_split",
-            // A[B[D,E],C] -> close B -> A[sibling(D,E),C]
-        },
-        {
-            name: "close_in_stack",
-            // Stack[A,B,C] -> close B -> Stack[A,C]
-        },
-        {
-            name: "close_last_in_stack",
-            // A[Stack[B,C],D] -> close C -> A[B,D]
-        },
-    }
-}
-```
+1. Land instrumentation (`beginClose` logging, `dumpTreeState`) behind `DebugPaneClose` flag.
+2. Extend data structures (`widgetValid`, `cleanupGeneration`, `cleanupCounter`).
+3. Introduce helper scaffolding (`closeContext`, `ensureWidgets`, `promoteSibling`, `swapContainers`).
+4. Replace core `closePane` logic and keep compatibility helpers stubbed.
+5. Rewrite stacked close handling to call `closeStackedPaneCompat` while keeping `StackedPaneManager` API surface intact.
+6. Add regression tests + golden tree dumps; run `go test ./tests/browser/...` and `make build`.
+7. Remove verbose logging, keep assertions + generation checks.
 
 ## PHASE 6: Validation & Safety
 
@@ -394,47 +441,47 @@ if err := wm.validateTreeConsistency(); err != nil {
 ### 6.2 Comprehensive Logging
 ```go
 // Before operation:
-log.Printf("[CLOSE] Starting: node=%p parent=%p sibling=%p",
+log.Printf("[pane-close] start node=%p parent=%p sibling=%p",
     node, node.parent, sibling)
 
 // After tree update:
-log.Printf("[CLOSE] Tree updated: new_root=%p promoted=%p",
-    wm.root, promoted)
+log.Printf("[pane-close] tree updated new_root=%p promoted=%p gen=%d",
+    wm.root, promoted, ctx.Generation())
 
 // After GTK update:
-log.Printf("[CLOSE] GTK updated: widget=%#x parent=%#x",
+log.Printf("[pane-close] gtk updated widget=%#x parent=%#x",
     widgetPtr, parentPtr)
 ```
 
 ## Expected Results
 
 ### Before (Current Issues):
-- 400+ lines of complex code
+- 400+ lines of defensive code
 - Segfaults on complex layouts
 - Multiple panes closed incorrectly
 - Widget corruption errors
 
 ### After (New Implementation):
-- ~150 lines total
+- ≤200 lines of cohesive logic
 - Clean GTK4 lifecycle adherence
 - Predictable single-pane closure
-- No widget corruption
+- Deterministic hover/focus cleanup using generations
 
 ## Implementation Order
-1. Implement `closePaneV2` function
-2. Implement helper functions
-3. Add comprehensive logging
-4. Create test suite
-5. Run side-by-side with flag
-6. Migrate after proven stable
+1. Land instrumentation + regression harness (Phase 0)
+2. Introduce data-structure additions (`widgetValid`, generation counter)
+3. Implement new `closePane` + helper set in-place (Phase 2)
+4. Wire stacked pane compatibility shim (Phase 3)
+5. Run tests (`go test ./tests/browser/...`) and `make build`
+6. Trim temporary logging once confidence is regained
 
 ## Key Files to Modify
 
-1. `workspace_types.go:8` - Add `widgetValid bool` field to `paneNode`
-2. `workspace_pane_ops.go:707` - Current `closePane` function (rename to `closePaneLegacy`)
-3. **NEW** `workspace_pane_close_v2.go` - Simplified implementation
-4. **NEW** `workspace_pane_close_test.go` - Comprehensive test suite
-5. `stacked_panes.go` - Simplify `CloseStackedPane` function
+1. `internal/app/browser/workspace_types.go` - Add `widgetValid` and `cleanupGeneration`
+2. `internal/app/browser/workspace_manager.go` - Introduce `cleanupCounter` + helper
+3. `internal/app/browser/workspace_pane_ops.go` - Replace `closePane`, add helpers, call into compat shim
+4. `internal/app/browser/stacked_panes.go` - Point manager to `closeStackedPaneCompat`
+5. `tests/browser/workspace_close_test.go` - Add regression scenarios
 
 ## Critical Success Metrics
 
