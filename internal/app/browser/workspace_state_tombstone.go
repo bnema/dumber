@@ -18,7 +18,7 @@ type StateTombstone struct {
 	ID          string
 	Timestamp   time.Time
 	Operation   string
-	TreeState   *TreeSnapshot
+	TreeState   *TombstoneTreeSnapshot
 	WidgetState *WidgetSnapshot
 	FocusState  *FocusSnapshot
 	StackState  *StackSnapshot
@@ -26,8 +26,8 @@ type StateTombstone struct {
 	Size        int
 }
 
-// TreeSnapshot captures the tree structure
-type TreeSnapshot struct {
+// TombstoneTreeSnapshot captures the tree structure for state tombstones
+type TombstoneTreeSnapshot struct {
 	RootID      string
 	MainPaneID  string
 	Nodes       map[string]*NodeSnapshot
@@ -106,7 +106,7 @@ var gobRegisterOnce sync.Once
 
 func registerTombstoneGobTypes() {
 	gobRegisterOnce.Do(func() {
-		gob.Register(&TreeSnapshot{})
+		gob.Register(&TombstoneTreeSnapshot{})
 		gob.Register(&NodeSnapshot{})
 		gob.Register(&WidgetSnapshot{})
 		gob.Register(&FocusSnapshot{})
@@ -207,8 +207,8 @@ func (stm *StateTombstoneManager) CaptureState(operation string) (*StateTombston
 }
 
 // captureTreeState captures the current tree structure
-func (stm *StateTombstoneManager) captureTreeState() (*TreeSnapshot, error) {
-	snapshot := &TreeSnapshot{
+func (stm *StateTombstoneManager) captureTreeState() (*TombstoneTreeSnapshot, error) {
+	snapshot := &TombstoneTreeSnapshot{
 		Nodes:       make(map[string]*NodeSnapshot),
 		ParentLinks: make(map[string]string),
 		ChildLinks:  make(map[string][2]string),
@@ -232,7 +232,7 @@ func (stm *StateTombstoneManager) captureTreeState() (*TreeSnapshot, error) {
 }
 
 // captureNodeRecursive recursively captures node information
-func (stm *StateTombstoneManager) captureNodeRecursive(node *paneNode, snapshot *TreeSnapshot) {
+func (stm *StateTombstoneManager) captureNodeRecursive(node *paneNode, snapshot *TombstoneTreeSnapshot) {
 	if node == nil {
 		return
 	}

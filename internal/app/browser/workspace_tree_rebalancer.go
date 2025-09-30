@@ -622,15 +622,14 @@ func (tr *TreeRebalancer) executePromotion(node *paneNode, tx *WidgetTransaction
 								log.Printf("[tree-rebalancer] unparenting widget from box (stack) %#x", currentParent)
 								webkit.WidgetUnparent(ptr)
 							} else {
-								// Parent is not a container - likely already attached to window
-								log.Printf("[tree-rebalancer] widget already attached to non-container parent %#x, skipping unparent", currentParent)
-								// Just ensure proper expansion and visibility
-								webkit.WidgetSetHExpand(ptr, true)
-								webkit.WidgetSetVExpand(ptr, true)
-								webkit.WidgetQueueAllocate(ptr)
-								webkit.WidgetShow(ptr)
-								log.Printf("[tree-rebalancer] promotion window attach successful: widget %#x already has parent %#x", ptr, currentParent)
-								return nil
+								// Parent is likely a window or other non-container widget
+								// For safety, check if it's a toplevel window by attempting unparent
+								log.Printf("[tree-rebalancer] widget %#x has non-container parent %#x, checking if unparent needed", ptr, currentParent)
+								if webkit.WidgetIsValid(currentParent) {
+									// If parent is valid but not a container, try unparent for safety
+									webkit.WidgetUnparent(ptr)
+									log.Printf("[tree-rebalancer] unparented widget %#x from non-container parent %#x", ptr, currentParent)
+								}
 							}
 						}
 
@@ -687,16 +686,39 @@ func (tr *TreeRebalancer) executePromotion(node *paneNode, tx *WidgetTransaction
 						if childPtr == 0 || !webkit.WidgetIsValid(childPtr) {
 							return fmt.Errorf("promotion reparent: invalid child widget")
 						}
-						if webkit.WidgetGetParent(childPtr) != 0 {
+
+						// Check if widget is already correctly parented (closePane.swapContainers already did the work)
+						currentParent := webkit.WidgetGetParent(childPtr)
+						if currentParent == parentPtr {
+							log.Printf("[tree-rebalancer] widget %#x already correctly parented to %#x, skipping reparent", childPtr, parentPtr)
+							// Just ensure properties are set correctly
+							webkit.WidgetResetSizeRequest(childPtr)
+							webkit.WidgetSetHExpand(childPtr, true)
+							webkit.WidgetSetVExpand(childPtr, true)
+							webkit.WidgetQueueAllocate(childPtr)
+							webkit.WidgetQueueAllocate(parentPtr)
+							return nil
+						}
+
+						// Widget needs reparenting - unparent from wrong parent if needed
+						if currentParent != 0 {
+							log.Printf("[tree-rebalancer] unparenting widget %#x from incorrect parent %#x", childPtr, currentParent)
 							webkit.WidgetUnparent(childPtr)
 						}
 
-						// Reattach promoted widget to the GtkPaned and request full allocation
+						// Reattach promoted widget to the GtkPaned
 						if parent.left == node {
 							webkit.PanedSetStartChild(parentPtr, childPtr)
 						} else {
 							webkit.PanedSetEndChild(parentPtr, childPtr)
 						}
+
+						// Verify attachment succeeded before setting properties
+						finalParent := webkit.WidgetGetParent(childPtr)
+						if finalParent != parentPtr {
+							return fmt.Errorf("failed to attach widget %#x to parent %#x (current parent: %#x)", childPtr, parentPtr, finalParent)
+						}
+
 						webkit.WidgetResetSizeRequest(childPtr)
 						webkit.WidgetSetHExpand(childPtr, true)
 						webkit.WidgetSetVExpand(childPtr, true)
