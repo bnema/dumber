@@ -11,17 +11,15 @@ import (
 
 // StackLifecycleManager manages the complete lifecycle of stack containers
 type StackLifecycleManager struct {
-	wm              *WorkspaceManager
-	treeValidator   *TreeValidator
-	widgetTxManager *WidgetTransactionManager
+	wm            *WorkspaceManager
+	treeValidator *TreeValidator
 }
 
 // NewStackLifecycleManager creates a new stack lifecycle manager
-func NewStackLifecycleManager(wm *WorkspaceManager, treeValidator *TreeValidator, widgetTxManager *WidgetTransactionManager) *StackLifecycleManager {
+func NewStackLifecycleManager(wm *WorkspaceManager, treeValidator *TreeValidator) *StackLifecycleManager {
 	return &StackLifecycleManager{
-		wm:              wm,
-		treeValidator:   treeValidator,
-		widgetTxManager: widgetTxManager,
+		wm:            wm,
+		treeValidator: treeValidator,
 	}
 }
 
@@ -74,34 +72,13 @@ func (slm *StackLifecycleManager) CloseStackedPaneWithLifecycle(node *paneNode) 
 func (slm *StackLifecycleManager) removeEmptyStackContainer(stackNode *paneNode, closingNode *paneNode) error {
 	log.Printf("[stack-lifecycle] Removing empty stack container: stack=%p", stackNode)
 
-	// Create transaction for this operation
-	txID := fmt.Sprintf("remove_empty_stack_%p", stackNode)
-	tx := slm.widgetTxManager.BeginTransaction(txID)
-
 	// Clean up the closing pane first
 	slm.cleanupPaneResources(closingNode)
 
 	// Remove stack from tree structure
-	if err := slm.removeStackFromTree(stackNode, tx); err != nil {
-		tx.Rollback()
-		slm.widgetTxManager.FinishTransaction(txID, false, err.Error())
+	if err := slm.removeStackFromTree(stackNode); err != nil {
 		return fmt.Errorf("failed to remove stack from tree: %w", err)
 	}
-
-	// Execute widget operations
-	if err := tx.Execute(); err != nil {
-		tx.Rollback()
-		slm.widgetTxManager.FinishTransaction(txID, false, err.Error())
-		return fmt.Errorf("failed to execute widget operations: %w", err)
-	}
-
-	// Commit transaction
-	if err := tx.Commit(); err != nil {
-		slm.widgetTxManager.FinishTransaction(txID, false, err.Error())
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	slm.widgetTxManager.FinishTransaction(txID, true, "")
 
 	// Validate final state
 	if slm.treeValidator != nil {
@@ -131,34 +108,13 @@ func (slm *StackLifecycleManager) unstackLastPane(stackNode *paneNode, closingNo
 		return errors.New("could not find remaining pane in stack")
 	}
 
-	// Create transaction for this operation
-	txID := fmt.Sprintf("unstack_last_%p", stackNode)
-	tx := slm.widgetTxManager.BeginTransaction(txID)
-
 	// Clean up the closing pane
 	slm.cleanupPaneResources(closingNode)
 
 	// Convert remaining pane back to regular pane
-	if err := slm.convertStackToRegularPane(stackNode, remainingPane, tx); err != nil {
-		tx.Rollback()
-		slm.widgetTxManager.FinishTransaction(txID, false, err.Error())
+	if err := slm.convertStackToRegularPane(stackNode, remainingPane); err != nil {
 		return fmt.Errorf("failed to convert stack to regular pane: %w", err)
 	}
-
-	// Execute widget operations
-	if err := tx.Execute(); err != nil {
-		tx.Rollback()
-		slm.widgetTxManager.FinishTransaction(txID, false, err.Error())
-		return fmt.Errorf("failed to execute widget operations: %w", err)
-	}
-
-	// Commit transaction
-	if err := tx.Commit(); err != nil {
-		slm.widgetTxManager.FinishTransaction(txID, false, err.Error())
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	slm.widgetTxManager.FinishTransaction(txID, true, "")
 
 	// Validate final state
 	if slm.treeValidator != nil {
@@ -175,37 +131,16 @@ func (slm *StackLifecycleManager) unstackLastPane(stackNode *paneNode, closingNo
 func (slm *StackLifecycleManager) removePaneFromStack(stackNode *paneNode, closingNode *paneNode, closingIndex int) error {
 	log.Printf("[stack-lifecycle] Removing pane from stack: pane=%p index=%d", closingNode, closingIndex)
 
-	// Create transaction for this operation
-	txID := fmt.Sprintf("remove_from_stack_%p_%d", stackNode, closingIndex)
-	tx := slm.widgetTxManager.BeginTransaction(txID)
-
 	// Clean up the closing pane
 	slm.cleanupPaneResources(closingNode)
 
 	// Remove pane widgets from stack container
-	if err := slm.removePaneWidgetsFromStack(stackNode, closingNode, tx); err != nil {
-		tx.Rollback()
-		slm.widgetTxManager.FinishTransaction(txID, false, err.Error())
+	if err := slm.removePaneWidgetsFromStack(stackNode, closingNode); err != nil {
 		return fmt.Errorf("failed to remove pane widgets: %w", err)
 	}
 
 	// Update stack data structures
 	slm.updateStackAfterRemoval(stackNode, closingIndex)
-
-	// Execute widget operations
-	if err := tx.Execute(); err != nil {
-		tx.Rollback()
-		slm.widgetTxManager.FinishTransaction(txID, false, err.Error())
-		return fmt.Errorf("failed to execute widget operations: %w", err)
-	}
-
-	// Commit transaction
-	if err := tx.Commit(); err != nil {
-		slm.widgetTxManager.FinishTransaction(txID, false, err.Error())
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	slm.widgetTxManager.FinishTransaction(txID, true, "")
 
 	// Update stack visibility after removal
 	if slm.wm.stackedPaneManager != nil {
@@ -224,42 +159,33 @@ func (slm *StackLifecycleManager) removePaneFromStack(stackNode *paneNode, closi
 }
 
 // removeStackFromTree removes the stack container from the tree structure
-func (slm *StackLifecycleManager) removeStackFromTree(stackNode *paneNode, tx *WidgetTransaction) error {
+func (slm *StackLifecycleManager) removeStackFromTree(stackNode *paneNode) error {
 	if stackNode == nil {
 		return errors.New("stack node is nil")
 	}
 
 	parent := stackNode.parent
 
-	// Add operation to unparent stack container when still valid
+	// Unparent stack container when still valid
 	if stackNode.container != nil {
 		if !stackNode.container.IsValid() {
 			log.Printf("[stack-lifecycle] stack container already invalid, skipping unparent: node=%p", stackNode)
 			slm.invalidateSafeWidget(&stackNode.container)
 			slm.invalidateSafeWidget(&stackNode.stackWrapper)
 		} else {
-			op := CreateWidgetUnparentOperation(
-				fmt.Sprintf("unparent_stack_%p", stackNode),
-				stackNode.container,
-			)
-			if err := tx.AddOperation(op); err != nil {
-				return fmt.Errorf("failed to add unparent operation: %w", err)
+			// Directly unparent the widget
+			if err := stackNode.container.Execute(func(ptr uintptr) error {
+				if webkit.WidgetGetParent(ptr) != 0 {
+					webkit.WidgetUnparent(ptr)
+				}
+				return nil
+			}); err != nil {
+				return fmt.Errorf("failed to unparent stack container: %w", err)
 			}
 
-			// Schedule cleanup of stack container and wrapper after unparent
-			cleanupOp := &WidgetOperation{
-				ID:          fmt.Sprintf("cleanup_stack_widgets_%p", stackNode),
-				Description: "Invalidate stack container and wrapper",
-				Priority:    10,
-				Execute: func() error {
-					slm.invalidateSafeWidget(&stackNode.container)
-					slm.invalidateSafeWidget(&stackNode.stackWrapper)
-					return nil
-				},
-			}
-			if err := tx.AddOperation(cleanupOp); err != nil {
-				return fmt.Errorf("failed to add stack cleanup operation: %w", err)
-			}
+			// Cleanup stack container and wrapper
+			slm.invalidateSafeWidget(&stackNode.container)
+			slm.invalidateSafeWidget(&stackNode.stackWrapper)
 		}
 	}
 
@@ -286,7 +212,7 @@ func (slm *StackLifecycleManager) removeStackFromTree(stackNode *paneNode, tx *W
 				remainingChild = parent.right
 			}
 
-			if err := slm.promoteChildNode(parent, remainingChild, tx); err != nil {
+			if err := slm.promoteChildNode(parent, remainingChild); err != nil {
 				return fmt.Errorf("failed to promote child node: %w", err)
 			}
 		}
@@ -296,17 +222,18 @@ func (slm *StackLifecycleManager) removeStackFromTree(stackNode *paneNode, tx *W
 }
 
 // convertStackToRegularPane converts a stack container to a regular pane
-func (slm *StackLifecycleManager) convertStackToRegularPane(stackNode *paneNode, remainingPane *paneNode, tx *WidgetTransaction) error {
+func (slm *StackLifecycleManager) convertStackToRegularPane(stackNode *paneNode, remainingPane *paneNode) error {
 	parent := stackNode.parent
 
 	// Remove remaining pane from stack container
-	if remainingPane.container != nil {
-		op := CreateWidgetUnparentOperation(
-			fmt.Sprintf("unparent_remaining_%p", remainingPane),
-			remainingPane.container,
-		)
-		if err := tx.AddOperation(op); err != nil {
-			return fmt.Errorf("failed to add unparent operation: %w", err)
+	if remainingPane.container != nil && remainingPane.container.IsValid() {
+		if err := remainingPane.container.Execute(func(ptr uintptr) error {
+			if webkit.WidgetGetParent(ptr) != 0 {
+				webkit.WidgetUnparent(ptr)
+			}
+			return nil
+		}); err != nil {
+			return fmt.Errorf("failed to unparent remaining pane: %w", err)
 		}
 	}
 
@@ -324,22 +251,14 @@ func (slm *StackLifecycleManager) convertStackToRegularPane(stackNode *paneNode,
 		slm.wm.mainPane = remainingPane
 
 		// Reparent to window
-		if remainingPane.container != nil && slm.wm.window != nil {
-			op := &WidgetOperation{
-				ID:          fmt.Sprintf("reparent_to_window_%p", remainingPane),
-				Description: "Reparent remaining pane to window",
-				Priority:    200,
-				Execute: func() error {
-					return remainingPane.container.Execute(func(ptr uintptr) error {
-						slm.wm.window.SetChild(ptr)
-						webkit.WidgetQueueAllocate(ptr)
-						webkit.WidgetShow(ptr)
-						return nil
-					})
-				},
-			}
-			if err := tx.AddOperation(op); err != nil {
-				return fmt.Errorf("failed to add reparent operation: %w", err)
+		if remainingPane.container != nil && remainingPane.container.IsValid() && slm.wm.window != nil {
+			if err := remainingPane.container.Execute(func(ptr uintptr) error {
+				slm.wm.window.SetChild(ptr)
+				webkit.WidgetQueueAllocate(ptr)
+				webkit.WidgetShow(ptr)
+				return nil
+			}); err != nil {
+				return fmt.Errorf("failed to reparent to window: %w", err)
 			}
 		}
 	} else {
@@ -351,16 +270,25 @@ func (slm *StackLifecycleManager) convertStackToRegularPane(stackNode *paneNode,
 		}
 
 		// Reparent to parent container
-		if remainingPane.container != nil && parent.container != nil {
+		if remainingPane.container != nil && remainingPane.container.IsValid() && parent.container != nil && parent.container.IsValid() {
 			isStart := parent.left == remainingPane
-			op := CreateWidgetReparentOperation(
-				fmt.Sprintf("reparent_remaining_%p", remainingPane),
-				remainingPane.container,
-				parent.container.Ptr(),
-				isStart,
-			)
-			if err := tx.AddOperation(op); err != nil {
-				return fmt.Errorf("failed to add reparent operation: %w", err)
+			parentPtr := parent.container.Ptr()
+
+			if err := remainingPane.container.Execute(func(ptr uintptr) error {
+				// Unparent first if needed
+				if webkit.WidgetGetParent(ptr) != 0 {
+					webkit.WidgetUnparent(ptr)
+				}
+
+				// Reparent to parent
+				if isStart {
+					webkit.PanedSetStartChild(parentPtr, ptr)
+				} else {
+					webkit.PanedSetEndChild(parentPtr, ptr)
+				}
+				return nil
+			}); err != nil {
+				return fmt.Errorf("failed to reparent to parent: %w", err)
 			}
 		}
 	}
@@ -369,19 +297,20 @@ func (slm *StackLifecycleManager) convertStackToRegularPane(stackNode *paneNode,
 }
 
 // removePaneWidgetsFromStack removes a pane's widgets from the stack container
-func (slm *StackLifecycleManager) removePaneWidgetsFromStack(stackNode *paneNode, closingNode *paneNode, tx *WidgetTransaction) error {
+func (slm *StackLifecycleManager) removePaneWidgetsFromStack(stackNode *paneNode, closingNode *paneNode) error {
 	// Remove title bar if it exists
 	if closingNode.titleBar != nil {
 		if !closingNode.titleBar.IsValid() {
 			log.Printf("[stack-lifecycle] title bar already invalid, skipping removal: pane=%p", closingNode)
 			slm.invalidateSafeWidget(&closingNode.titleBar)
 		} else {
-			op := CreateWidgetUnparentOperation(
-				fmt.Sprintf("remove_titlebar_%p", closingNode),
-				closingNode.titleBar,
-			)
-			if err := tx.AddOperation(op); err != nil {
-				return fmt.Errorf("failed to add titlebar removal operation: %w", err)
+			if err := closingNode.titleBar.Execute(func(ptr uintptr) error {
+				if webkit.WidgetGetParent(ptr) != 0 {
+					webkit.WidgetUnparent(ptr)
+				}
+				return nil
+			}); err != nil {
+				return fmt.Errorf("failed to unparent titlebar: %w", err)
 			}
 		}
 	}
@@ -392,29 +321,20 @@ func (slm *StackLifecycleManager) removePaneWidgetsFromStack(stackNode *paneNode
 			log.Printf("[stack-lifecycle] pane container already invalid, skipping removal: pane=%p", closingNode)
 			slm.invalidateSafeWidget(&closingNode.container)
 		} else {
-			op := CreateWidgetUnparentOperation(
-				fmt.Sprintf("remove_container_%p", closingNode),
-				closingNode.container,
-			)
-			if err := tx.AddOperation(op); err != nil {
-				return fmt.Errorf("failed to add container removal operation: %w", err)
+			if err := closingNode.container.Execute(func(ptr uintptr) error {
+				if webkit.WidgetGetParent(ptr) != 0 {
+					webkit.WidgetUnparent(ptr)
+				}
+				return nil
+			}); err != nil {
+				return fmt.Errorf("failed to unparent container: %w", err)
 			}
 		}
 	}
 
-	cleanupOp := &WidgetOperation{
-		ID:          fmt.Sprintf("cleanup_removed_pane_%p", closingNode),
-		Description: "Invalidate removed pane widgets",
-		Priority:    10,
-		Execute: func() error {
-			slm.invalidateSafeWidget(&closingNode.titleBar)
-			slm.invalidateSafeWidget(&closingNode.container)
-			return nil
-		},
-	}
-	if err := tx.AddOperation(cleanupOp); err != nil {
-		return fmt.Errorf("failed to add pane widget cleanup operation: %w", err)
-	}
+	// Cleanup removed pane widgets
+	slm.invalidateSafeWidget(&closingNode.titleBar)
+	slm.invalidateSafeWidget(&closingNode.container)
 
 	return nil
 }
@@ -447,7 +367,7 @@ func (slm *StackLifecycleManager) updateStackAfterRemoval(stackNode *paneNode, r
 }
 
 // promoteChildNode promotes a child node to replace its parent
-func (slm *StackLifecycleManager) promoteChildNode(parent *paneNode, child *paneNode, tx *WidgetTransaction) error {
+func (slm *StackLifecycleManager) promoteChildNode(parent *paneNode, child *paneNode) error {
 	grandparent := parent.parent
 
 	// Update child's parent pointer
@@ -462,22 +382,14 @@ func (slm *StackLifecycleManager) promoteChildNode(parent *paneNode, child *pane
 		}
 
 		// Reparent to window
-		if child.container != nil && slm.wm.window != nil {
-			op := &WidgetOperation{
-				ID:          fmt.Sprintf("promote_to_root_%p", child),
-				Description: "Promote child to root",
-				Priority:    200,
-				Execute: func() error {
-					return child.container.Execute(func(ptr uintptr) error {
-						slm.wm.window.SetChild(ptr)
-						webkit.WidgetQueueAllocate(ptr)
-						webkit.WidgetShow(ptr)
-						return nil
-					})
-				},
-			}
-			if err := tx.AddOperation(op); err != nil {
-				return fmt.Errorf("failed to add promote operation: %w", err)
+		if child.container != nil && child.container.IsValid() && slm.wm.window != nil {
+			if err := child.container.Execute(func(ptr uintptr) error {
+				slm.wm.window.SetChild(ptr)
+				webkit.WidgetQueueAllocate(ptr)
+				webkit.WidgetShow(ptr)
+				return nil
+			}); err != nil {
+				return fmt.Errorf("failed to promote to root: %w", err)
 			}
 		}
 	} else {
@@ -489,16 +401,25 @@ func (slm *StackLifecycleManager) promoteChildNode(parent *paneNode, child *pane
 		}
 
 		// Reparent widget to grandparent
-		if child.container != nil && grandparent.container != nil {
+		if child.container != nil && child.container.IsValid() && grandparent.container != nil && grandparent.container.IsValid() {
 			isStart := grandparent.left == child
-			op := CreateWidgetReparentOperation(
-				fmt.Sprintf("promote_child_%p", child),
-				child.container,
-				grandparent.container.Ptr(),
-				isStart,
-			)
-			if err := tx.AddOperation(op); err != nil {
-				return fmt.Errorf("failed to add promote reparent operation: %w", err)
+			grandparentPtr := grandparent.container.Ptr()
+
+			if err := child.container.Execute(func(ptr uintptr) error {
+				// Unparent first if needed
+				if webkit.WidgetGetParent(ptr) != 0 {
+					webkit.WidgetUnparent(ptr)
+				}
+
+				// Reparent to grandparent
+				if isStart {
+					webkit.PanedSetStartChild(grandparentPtr, ptr)
+				} else {
+					webkit.PanedSetEndChild(grandparentPtr, ptr)
+				}
+				return nil
+			}); err != nil {
+				return fmt.Errorf("failed to promote child: %w", err)
 			}
 		}
 	}

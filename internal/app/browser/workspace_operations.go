@@ -324,9 +324,6 @@ func (wm *WorkspaceManager) GetEnhancedStats() map[string]interface{} {
 		stats["tree_validation"] = wm.treeValidator.GetValidationStats()
 	}
 
-	if wm.widgetTxManager != nil {
-		stats["widget_transactions"] = wm.widgetTxManager.GetTransactionStats()
-	}
 
 
 	if wm.treeRebalancer != nil {

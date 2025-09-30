@@ -12,11 +12,10 @@ import (
 
 // TreeRebalancer provides algorithms for rebalancing the binary tree after operations
 type TreeRebalancer struct {
-	wm              *WorkspaceManager
-	treeValidator   *TreeValidator
-	widgetTxManager *WidgetTransactionManager
-	maxImbalance    int  // Maximum allowed imbalance before rebalancing
-	enabled         bool // Whether rebalancing is enabled
+	wm            *WorkspaceManager
+	treeValidator *TreeValidator
+	maxImbalance  int  // Maximum allowed imbalance before rebalancing
+	enabled       bool // Whether rebalancing is enabled
 }
 
 // RebalanceOperation represents a tree rebalancing operation
@@ -63,13 +62,12 @@ type TreeMetrics struct {
 }
 
 // NewTreeRebalancer creates a new tree rebalancer
-func NewTreeRebalancer(wm *WorkspaceManager, treeValidator *TreeValidator, widgetTxManager *WidgetTransactionManager) *TreeRebalancer {
+func NewTreeRebalancer(wm *WorkspaceManager, treeValidator *TreeValidator) *TreeRebalancer {
 	return &TreeRebalancer{
-		wm:              wm,
-		treeValidator:   treeValidator,
-		widgetTxManager: widgetTxManager,
-		maxImbalance:    2, // Allow up to 2 levels of imbalance
-		enabled:         true,
+		wm:            wm,
+		treeValidator: treeValidator,
+		maxImbalance:  2, // Allow up to 2 levels of imbalance
+		enabled:       true,
 	}
 }
 
@@ -99,31 +97,9 @@ func (tr *TreeRebalancer) RebalanceAfterClose(closedNode *paneNode, promotedNode
 	log.Printf("[tree-rebalancer] Analyzing tree for rebalancing after close operation")
 
 	if promotedNode != nil {
-		txID := fmt.Sprintf("promotion_tx_%p", promotedNode)
-		tx := tr.widgetTxManager.BeginTransaction(txID)
-
-		if err := tr.executePromotion(promotedNode, tx); err != nil {
-			if rollbackErr := tx.Rollback(); rollbackErr != nil {
-				log.Printf("[tree-rebalancer] Failed to rollback promotion transaction %s: %v", txID, rollbackErr)
-			}
-			tr.widgetTxManager.FinishTransaction(txID, false, err.Error())
+		if err := tr.executePromotion(promotedNode); err != nil {
 			return fmt.Errorf("promotion execution failed: %w", err)
 		}
-
-		if err := tx.Execute(); err != nil {
-			if rollbackErr := tx.Rollback(); rollbackErr != nil {
-				log.Printf("[tree-rebalancer] Failed to rollback promotion transaction %s: %v", txID, rollbackErr)
-			}
-			tr.widgetTxManager.FinishTransaction(txID, false, err.Error())
-			return fmt.Errorf("promotion widget execution failed: %w", err)
-		}
-
-		if err := tx.Commit(); err != nil {
-			tr.widgetTxManager.FinishTransaction(txID, false, err.Error())
-			return fmt.Errorf("failed to commit promotion transaction: %w", err)
-		}
-
-		tr.widgetTxManager.FinishTransaction(txID, true, "")
 
 		if tr.wm != nil && tr.wm.geometryValidator != nil {
 			tr.logInitialPromotionGeometry(promotedNode)
@@ -385,10 +361,6 @@ func (tr *TreeRebalancer) executeRebalancingOperations(operations []RebalanceOpe
 		return nil
 	}
 
-	// Create transaction for all rebalancing operations
-	txID := fmt.Sprintf("rebalance_%d_ops", len(operations))
-	tx := tr.widgetTxManager.BeginTransaction(txID)
-
 	log.Printf("[tree-rebalancer] Executing %d rebalancing operations", len(operations))
 
 	// Execute each operation
@@ -398,39 +370,22 @@ func (tr *TreeRebalancer) executeRebalancingOperations(operations []RebalanceOpe
 		var err error
 		switch operation.Type {
 		case RebalanceRotateLeft:
-			err = tr.executeLeftRotation(operation.Node, tx)
+			err = tr.executeLeftRotation(operation.Node)
 		case RebalanceRotateRight:
-			err = tr.executeRightRotation(operation.Node, tx)
+			err = tr.executeRightRotation(operation.Node)
 		case RebalancePromote:
-			err = tr.executePromotion(operation.Node, tx)
+			err = tr.executePromotion(operation.Node)
 		case RebalanceRestructure:
-			err = tr.executeRestructure(operation.Node, tx)
+			err = tr.executeRestructure(operation.Node)
 		default:
 			err = fmt.Errorf("unknown rebalance operation type: %s", operation.Type)
 		}
 
 		if err != nil {
 			log.Printf("[tree-rebalancer] Operation failed: %v", err)
-			tx.Rollback()
-			tr.widgetTxManager.FinishTransaction(txID, false, err.Error())
 			return fmt.Errorf("rebalancing operation failed: %w", err)
 		}
 	}
-
-	// Execute widget transaction
-	if err := tx.Execute(); err != nil {
-		tx.Rollback()
-		tr.widgetTxManager.FinishTransaction(txID, false, err.Error())
-		return fmt.Errorf("failed to execute rebalancing widget operations: %w", err)
-	}
-
-	// Commit transaction
-	if err := tx.Commit(); err != nil {
-		tr.widgetTxManager.FinishTransaction(txID, false, err.Error())
-		return fmt.Errorf("failed to commit rebalancing transaction: %w", err)
-	}
-
-	tr.widgetTxManager.FinishTransaction(txID, true, "")
 
 	// Validate tree after rebalancing
 	if tr.treeValidator != nil {
@@ -441,14 +396,14 @@ func (tr *TreeRebalancer) executeRebalancingOperations(operations []RebalanceOpe
 
 	// Calculate new metrics
 	newMetrics := tr.CalculateTreeMetrics(tr.wm.root)
-	log.Printf("[tree-rebalancer] Rebalancing completed: new imbalance=%d (was %d)",
-		newMetrics.ImbalanceScore, newMetrics.ImbalanceScore)
+	log.Printf("[tree-rebalancer] Rebalancing completed: new imbalance=%d",
+		newMetrics.ImbalanceScore)
 
 	return nil
 }
 
 // executeLeftRotation performs a left rotation on the given node
-func (tr *TreeRebalancer) executeLeftRotation(node *paneNode, tx *WidgetTransaction) error {
+func (tr *TreeRebalancer) executeLeftRotation(node *paneNode) error {
 	if node == nil || node.right == nil {
 		return fmt.Errorf("cannot perform left rotation: invalid node structure")
 	}
@@ -479,12 +434,12 @@ func (tr *TreeRebalancer) executeLeftRotation(node *paneNode, tx *WidgetTransact
 		parent.right = rightChild
 	}
 
-	// Add widget operations for the rotation
-	return tr.addRotationWidgetOperations(node, rightChild, tx, "left")
+	// Update widget hierarchy for the rotation
+	return tr.updateRotationWidgets(node, rightChild, "left")
 }
 
 // executeRightRotation performs a right rotation on the given node
-func (tr *TreeRebalancer) executeRightRotation(node *paneNode, tx *WidgetTransaction) error {
+func (tr *TreeRebalancer) executeRightRotation(node *paneNode) error {
 	if node == nil || node.left == nil {
 		return fmt.Errorf("cannot perform right rotation: invalid node structure")
 	}
@@ -515,12 +470,12 @@ func (tr *TreeRebalancer) executeRightRotation(node *paneNode, tx *WidgetTransac
 		parent.right = leftChild
 	}
 
-	// Add widget operations for the rotation
-	return tr.addRotationWidgetOperations(node, leftChild, tx, "right")
+	// Update widget hierarchy for the rotation
+	return tr.updateRotationWidgets(node, leftChild, "right")
 }
 
-// addRotationWidgetOperations adds widget operations needed for tree rotation
-func (tr *TreeRebalancer) addRotationWidgetOperations(oldRoot, newRoot *paneNode, tx *WidgetTransaction, rotationType string) error {
+// updateRotationWidgets updates widget hierarchy after tree rotation
+func (tr *TreeRebalancer) updateRotationWidgets(oldRoot, newRoot *paneNode, rotationType string) error {
 	// The widget hierarchy needs to be updated to match the new tree structure
 	// This is complex because GTK widgets need to be reparented correctly
 
@@ -528,40 +483,23 @@ func (tr *TreeRebalancer) addRotationWidgetOperations(oldRoot, newRoot *paneNode
 		return fmt.Errorf("rotation nodes missing containers")
 	}
 
-	// Add operation to update widget hierarchy
-	op := &WidgetOperation{
-		ID:          fmt.Sprintf("rotation_%s_%p_%p", rotationType, oldRoot, newRoot),
-		Description: fmt.Sprintf("%s rotation widget update", rotationType),
-		Priority:    300, // High priority for structural changes
-		Execute: func() error {
-			// This is a simplified version - in practice, you'd need to:
-			// 1. Unparent both widgets
-			// 2. Re-establish the parent-child relationships
-			// 3. Update any size allocations
+	log.Printf("[tree-rebalancer] Updating widget hierarchy for %s rotation", rotationType)
 
-			log.Printf("[tree-rebalancer] Updating widget hierarchy for %s rotation", rotationType)
-
-			// Force a layout update
-			if newRoot.container != nil {
-				return newRoot.container.Execute(func(ptr uintptr) error {
-					webkit.WidgetQueueAllocate(ptr)
-					return nil
-				})
+	// Force a layout update
+	if newRoot.container != nil {
+		return newRoot.container.Execute(func(ptr uintptr) error {
+			if ptr == 0 || !webkit.WidgetIsValid(ptr) {
+				return fmt.Errorf("rotation widget update: invalid widget pointer")
 			}
+			webkit.WidgetQueueAllocate(ptr)
 			return nil
-		},
-		Rollback: func() error {
-			// Rotation rollback would require reversing the rotation
-			log.Printf("[tree-rebalancer] Rolling back %s rotation", rotationType)
-			return nil
-		},
+		})
 	}
-
-	return tx.AddOperation(op)
+	return nil
 }
 
 // executePromotion promotes a child node to replace its parent
-func (tr *TreeRebalancer) executePromotion(node *paneNode, tx *WidgetTransaction) error {
+func (tr *TreeRebalancer) executePromotion(node *paneNode) error {
 	if node == nil {
 		return fmt.Errorf("promotion target is nil")
 	}
@@ -576,95 +514,81 @@ func (tr *TreeRebalancer) executePromotion(node *paneNode, tx *WidgetTransaction
 	promotionStart := time.Now()
 
 	// Ensure the promoted widget can expand to occupy available space
-	expandOp := &WidgetOperation{
-		ID:          fmt.Sprintf("promotion_expand_%p", node),
-		Description: "Ensure promoted pane expands to fill space",
-		Priority:    200,
-		Execute: func() error {
-			log.Printf("[tree-rebalancer] promotion expand for %p executing at +%s", node, time.Since(promotionStart).Round(time.Millisecond))
-			return node.container.Execute(func(ptr uintptr) error {
-				if ptr == 0 || !webkit.WidgetIsValid(ptr) {
-					return fmt.Errorf("promotion expand: invalid widget pointer")
-				}
-				webkit.WidgetResetSizeRequest(ptr)
-				webkit.WidgetSetHExpand(ptr, true)
-				webkit.WidgetSetVExpand(ptr, true)
-				webkit.WidgetQueueAllocate(ptr)
-				return nil
-			})
-		},
-	}
-	if err := tx.AddOperation(expandOp); err != nil {
-		return fmt.Errorf("failed to add promotion expand operation: %w", err)
+	log.Printf("[tree-rebalancer] promotion expand for %p executing at +%s", node, time.Since(promotionStart).Round(time.Millisecond))
+	if err := node.container.Execute(func(ptr uintptr) error {
+		if ptr == 0 || !webkit.WidgetIsValid(ptr) {
+			return fmt.Errorf("promotion expand: invalid widget pointer")
+		}
+		webkit.WidgetResetSizeRequest(ptr)
+		webkit.WidgetSetHExpand(ptr, true)
+		webkit.WidgetSetVExpand(ptr, true)
+		webkit.WidgetQueueAllocate(ptr)
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to expand promoted widget: %w", err)
 	}
 
 	parent := node.parent
 	if parent == nil {
+		// Attach to window root
 		if tr.wm != nil && tr.wm.window != nil {
-			op := &WidgetOperation{
-				ID:          fmt.Sprintf("promotion_attach_window_%p", node),
-				Description: "Attach promoted pane to window root",
-				Priority:    190,
-				Execute: func() error {
-					log.Printf("[tree-rebalancer] promotion window attach for %p executing at +%s", node, time.Since(promotionStart).Round(time.Millisecond))
-					return node.container.Execute(func(ptr uintptr) error {
-						if ptr == 0 || !webkit.WidgetIsValid(ptr) {
-							return fmt.Errorf("promotion attach window: invalid widget pointer")
+			log.Printf("[tree-rebalancer] promotion window attach for %p executing at +%s", node, time.Since(promotionStart).Round(time.Millisecond))
+			if err := node.container.Execute(func(ptr uintptr) error {
+				if ptr == 0 || !webkit.WidgetIsValid(ptr) {
+					return fmt.Errorf("promotion attach window: invalid widget pointer")
+				}
+
+				currentParent := webkit.WidgetGetParent(ptr)
+				if currentParent != 0 {
+					// Check if parent is a container widget (paned or box) that we need to unparent from
+					if webkit.IsPaned(currentParent) {
+						log.Printf("[tree-rebalancer] unparenting widget from paned %#x", currentParent)
+						webkit.WidgetUnparent(ptr)
+					} else if webkit.IsBox(currentParent) {
+						log.Printf("[tree-rebalancer] unparenting widget from box (stack) %#x", currentParent)
+						webkit.WidgetUnparent(ptr)
+					} else {
+						// Parent is likely a window or other non-container widget
+						// For safety, check if it's a toplevel window by attempting unparent
+						log.Printf("[tree-rebalancer] widget %#x has non-container parent %#x, checking if unparent needed", ptr, currentParent)
+						if webkit.WidgetIsValid(currentParent) {
+							// If parent is valid but not a container, try unparent for safety
+							webkit.WidgetUnparent(ptr)
+							log.Printf("[tree-rebalancer] unparented widget %#x from non-container parent %#x", ptr, currentParent)
 						}
+					}
+				}
 
-						currentParent := webkit.WidgetGetParent(ptr)
-						if currentParent != 0 {
-							// Check if parent is a container widget (paned or box) that we need to unparent from
-							if webkit.IsPaned(currentParent) {
-								log.Printf("[tree-rebalancer] unparenting widget from paned %#x", currentParent)
-								webkit.WidgetUnparent(ptr)
-							} else if webkit.IsBox(currentParent) {
-								log.Printf("[tree-rebalancer] unparenting widget from box (stack) %#x", currentParent)
-								webkit.WidgetUnparent(ptr)
-							} else {
-								// Parent is likely a window or other non-container widget
-								// For safety, check if it's a toplevel window by attempting unparent
-								log.Printf("[tree-rebalancer] widget %#x has non-container parent %#x, checking if unparent needed", ptr, currentParent)
-								if webkit.WidgetIsValid(currentParent) {
-									// If parent is valid but not a container, try unparent for safety
-									webkit.WidgetUnparent(ptr)
-									log.Printf("[tree-rebalancer] unparented widget %#x from non-container parent %#x", ptr, currentParent)
-								}
-							}
-						}
+				// Ensure widget is configured for window child
+				webkit.WidgetSetHExpand(ptr, true)
+				webkit.WidgetSetVExpand(ptr, true)
 
-						// Ensure widget is configured for window child
-						webkit.WidgetSetHExpand(ptr, true)
-						webkit.WidgetSetVExpand(ptr, true)
+				// Set as window child
+				tr.wm.window.SetChild(ptr)
+				webkit.WidgetQueueAllocate(ptr)
+				webkit.WidgetShow(ptr)
 
-						// Set as window child
-						tr.wm.window.SetChild(ptr)
-						webkit.WidgetQueueAllocate(ptr)
-						webkit.WidgetShow(ptr)
+				// Verify the attachment worked
+				finalParent := webkit.WidgetGetParent(ptr)
+				if finalParent == 0 {
+					log.Printf("[tree-rebalancer] WARNING: SetChild failed, widget still has no parent")
+					// Try one more time
+					tr.wm.window.SetChild(ptr)
+					webkit.WidgetQueueAllocate(ptr)
+					finalParent = webkit.WidgetGetParent(ptr)
+					if finalParent == 0 {
+						return fmt.Errorf("failed to attach widget %#x to window after multiple attempts", ptr)
+					}
+				}
 
-						// Verify the attachment worked
-						finalParent := webkit.WidgetGetParent(ptr)
-						if finalParent == 0 {
-							log.Printf("[tree-rebalancer] WARNING: SetChild failed, widget still has no parent")
-							// Try one more time
-							tr.wm.window.SetChild(ptr)
-							webkit.WidgetQueueAllocate(ptr)
-							finalParent = webkit.WidgetGetParent(ptr)
-							if finalParent == 0 {
-								return fmt.Errorf("failed to attach widget %#x to window after multiple attempts", ptr)
-							}
-						}
-
-						log.Printf("[tree-rebalancer] promotion window attach successful: widget %#x now has parent %#x", ptr, finalParent)
-						return nil
-					})
-				},
-			}
-			if err := tx.AddOperation(op); err != nil {
-				return fmt.Errorf("failed to add window attachment operation: %w", err)
+				log.Printf("[tree-rebalancer] promotion window attach successful: widget %#x now has parent %#x", ptr, finalParent)
+				return nil
+			}); err != nil {
+				return fmt.Errorf("failed to attach widget to window: %w", err)
 			}
 		}
 	} else {
+		// Attach to parent container
 		if parent.container == nil {
 			return fmt.Errorf("promotion parent missing container")
 		}
@@ -672,125 +596,97 @@ func (tr *TreeRebalancer) executePromotion(node *paneNode, tx *WidgetTransaction
 			return fmt.Errorf("promotion parent container %s invalid", parent.container.String())
 		}
 
-		attachOp := &WidgetOperation{
-			ID:          fmt.Sprintf("promotion_reparent_%p", node),
-			Description: "Attach promoted pane to parent container",
-			Priority:    190,
-			Execute: func() error {
-				log.Printf("[tree-rebalancer] promotion reparent for %p executing at +%s", node, time.Since(promotionStart).Round(time.Millisecond))
-				return parent.container.Execute(func(parentPtr uintptr) error {
-					if parentPtr == 0 || !webkit.WidgetIsValid(parentPtr) {
-						return fmt.Errorf("promotion reparent: invalid parent widget")
-					}
-					return node.container.Execute(func(childPtr uintptr) error {
-						if childPtr == 0 || !webkit.WidgetIsValid(childPtr) {
-							return fmt.Errorf("promotion reparent: invalid child widget")
-						}
+		log.Printf("[tree-rebalancer] promotion reparent for %p executing at +%s", node, time.Since(promotionStart).Round(time.Millisecond))
+		if err := parent.container.Execute(func(parentPtr uintptr) error {
+			if parentPtr == 0 || !webkit.WidgetIsValid(parentPtr) {
+				return fmt.Errorf("promotion reparent: invalid parent widget")
+			}
+			return node.container.Execute(func(childPtr uintptr) error {
+				if childPtr == 0 || !webkit.WidgetIsValid(childPtr) {
+					return fmt.Errorf("promotion reparent: invalid child widget")
+				}
 
-						// Check if widget is already correctly parented (closePane.swapContainers already did the work)
-						currentParent := webkit.WidgetGetParent(childPtr)
-						if currentParent == parentPtr {
-							log.Printf("[tree-rebalancer] widget %#x already correctly parented to %#x, skipping reparent", childPtr, parentPtr)
-							// Just ensure properties are set correctly
-							webkit.WidgetResetSizeRequest(childPtr)
-							webkit.WidgetSetHExpand(childPtr, true)
-							webkit.WidgetSetVExpand(childPtr, true)
-							webkit.WidgetQueueAllocate(childPtr)
-							webkit.WidgetQueueAllocate(parentPtr)
-							return nil
-						}
+				// Check if widget is already correctly parented (closePane.swapContainers already did the work)
+				currentParent := webkit.WidgetGetParent(childPtr)
+				if currentParent == parentPtr {
+					log.Printf("[tree-rebalancer] widget %#x already correctly parented to %#x, skipping reparent", childPtr, parentPtr)
+					// Just ensure properties are set correctly
+					webkit.WidgetResetSizeRequest(childPtr)
+					webkit.WidgetSetHExpand(childPtr, true)
+					webkit.WidgetSetVExpand(childPtr, true)
+					webkit.WidgetQueueAllocate(childPtr)
+					webkit.WidgetQueueAllocate(parentPtr)
+					return nil
+				}
 
-						// Widget needs reparenting - unparent from wrong parent if needed
-						if currentParent != 0 {
-							log.Printf("[tree-rebalancer] unparenting widget %#x from incorrect parent %#x", childPtr, currentParent)
-							webkit.WidgetUnparent(childPtr)
-						}
+				// Widget needs reparenting - unparent from wrong parent if needed
+				if currentParent != 0 {
+					log.Printf("[tree-rebalancer] unparenting widget %#x from incorrect parent %#x", childPtr, currentParent)
+					webkit.WidgetUnparent(childPtr)
+				}
 
-						// Reattach promoted widget to the GtkPaned
-						if parent.left == node {
-							webkit.PanedSetStartChild(parentPtr, childPtr)
-						} else {
-							webkit.PanedSetEndChild(parentPtr, childPtr)
-						}
+				// Reattach promoted widget to the GtkPaned
+				if parent.left == node {
+					webkit.PanedSetStartChild(parentPtr, childPtr)
+				} else {
+					webkit.PanedSetEndChild(parentPtr, childPtr)
+				}
 
-						// Verify attachment succeeded before setting properties
-						finalParent := webkit.WidgetGetParent(childPtr)
-						if finalParent != parentPtr {
-							return fmt.Errorf("failed to attach widget %#x to parent %#x (current parent: %#x)", childPtr, parentPtr, finalParent)
-						}
+				// Verify attachment succeeded before setting properties
+				finalParent := webkit.WidgetGetParent(childPtr)
+				if finalParent != parentPtr {
+					return fmt.Errorf("failed to attach widget %#x to parent %#x (current parent: %#x)", childPtr, parentPtr, finalParent)
+				}
 
-						webkit.WidgetResetSizeRequest(childPtr)
-						webkit.WidgetSetHExpand(childPtr, true)
-						webkit.WidgetSetVExpand(childPtr, true)
-						webkit.WidgetQueueAllocate(childPtr)
-						webkit.WidgetQueueAllocate(parentPtr)
-						return nil
-					})
-				})
-			},
-		}
-		if err := tx.AddOperation(attachOp); err != nil {
-			return fmt.Errorf("failed to add promotion reparent operation: %w", err)
+				webkit.WidgetResetSizeRequest(childPtr)
+				webkit.WidgetSetHExpand(childPtr, true)
+				webkit.WidgetSetVExpand(childPtr, true)
+				webkit.WidgetQueueAllocate(childPtr)
+				webkit.WidgetQueueAllocate(parentPtr)
+				return nil
+			})
+		}); err != nil {
+			return fmt.Errorf("failed to reparent promoted widget: %w", err)
 		}
 	}
 
 	// Propagate allocation updates up the ancestor chain so GTK recalculates sizes
 	ancestorPtrs := tr.collectAncestorContainers(node)
 	if len(ancestorPtrs) > 0 {
-		allocationOp := &WidgetOperation{
-			ID:          fmt.Sprintf("promotion_allocate_%p", node),
-			Description: "Queue allocation for promoted pane ancestors",
-			Priority:    150,
-			Execute: func() error {
-				log.Printf("[tree-rebalancer] promotion allocation queue for %p executing at +%s (ancestors=%d)", node, time.Since(promotionStart).Round(time.Millisecond), len(ancestorPtrs))
-				for _, ancestorPtr := range ancestorPtrs {
-					if ancestorPtr == 0 || !webkit.WidgetIsValid(ancestorPtr) {
-						continue
-					}
-					webkit.WidgetQueueAllocate(ancestorPtr)
-				}
-				return nil
-			},
-		}
-		if err := tx.AddOperation(allocationOp); err != nil {
-			return fmt.Errorf("failed to add promotion allocation operation: %w", err)
+		log.Printf("[tree-rebalancer] promotion allocation queue for %p executing at +%s (ancestors=%d)", node, time.Since(promotionStart).Round(time.Millisecond), len(ancestorPtrs))
+		for _, ancestorPtr := range ancestorPtrs {
+			if ancestorPtr == 0 || !webkit.WidgetIsValid(ancestorPtr) {
+				continue
+			}
+			webkit.WidgetQueueAllocate(ancestorPtr)
 		}
 	}
 
 	// Validate allocation after promotion for debugging purposes
-	validateOp := &WidgetOperation{
-		ID:          fmt.Sprintf("promotion_validate_%p", node),
-		Description: "Validate promoted pane allocation",
-		Priority:    100,
-		Execute: func() error {
-			log.Printf("[tree-rebalancer] promotion immediate validation for %p executing at +%s", node, time.Since(promotionStart).Round(time.Millisecond))
-			return node.container.Execute(func(ptr uintptr) error {
-				if ptr == 0 || !webkit.WidgetIsValid(ptr) {
-					return fmt.Errorf("promotion validate: invalid widget pointer")
-				}
-				bounds, ok := webkit.WidgetGetBounds(ptr)
-				if !ok {
-					log.Printf("[tree-rebalancer] promotion validation: failed to read bounds for %#x", ptr)
-					return nil
-				}
-				if bounds.Width <= 1 || bounds.Height <= 1 {
-					log.Printf("[tree-rebalancer] WARNING: promoted pane %#x has tiny allocation %.1fx%.1f", ptr, bounds.Width, bounds.Height)
-				} else {
-					log.Printf("[tree-rebalancer] Promotion allocation verified for %#x: %.1fx%.1f", ptr, bounds.Width, bounds.Height)
-				}
-				return nil
-			})
-		},
-	}
-	if err := tx.AddOperation(validateOp); err != nil {
-		return fmt.Errorf("failed to add promotion validation operation: %w", err)
-	}
+	log.Printf("[tree-rebalancer] promotion immediate validation for %p executing at +%s", node, time.Since(promotionStart).Round(time.Millisecond))
+	_ = node.container.Execute(func(ptr uintptr) error {
+		if ptr == 0 || !webkit.WidgetIsValid(ptr) {
+			log.Printf("[tree-rebalancer] promotion validate: invalid widget pointer")
+			return nil
+		}
+		bounds, ok := webkit.WidgetGetBounds(ptr)
+		if !ok {
+			log.Printf("[tree-rebalancer] promotion validation: failed to read bounds for %#x", ptr)
+			return nil
+		}
+		if bounds.Width <= 1 || bounds.Height <= 1 {
+			log.Printf("[tree-rebalancer] WARNING: promoted pane %#x has tiny allocation %.1fx%.1f", ptr, bounds.Width, bounds.Height)
+		} else {
+			log.Printf("[tree-rebalancer] Promotion allocation verified for %#x: %.1fx%.1f", ptr, bounds.Width, bounds.Height)
+		}
+		return nil
+	})
 
 	return nil
 }
 
 // executeRestructure performs a complete restructure of a subtree
-func (tr *TreeRebalancer) executeRestructure(node *paneNode, tx *WidgetTransaction) error {
+func (tr *TreeRebalancer) executeRestructure(node *paneNode) error {
 	// This would be used for more complex rebalancing scenarios
 	log.Printf("[tree-rebalancer] Restructuring subtree at node %p", node)
 
