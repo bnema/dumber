@@ -125,6 +125,8 @@ func (wm *WorkspaceManager) BulletproofClosePane(node *paneNode) error {
 	}
 
 	log.Printf("[bulletproof] Starting bulletproof close operation: node=%p", node)
+	wm.paneCloseLogf("start bulletproof close node=%p", node)
+	wm.dumpTreeState("before_close")
 
 	// Step 1: Capture state tombstone for rollback
 	tombstone, err := wm.stateTombstoneManager.CaptureState("close")
@@ -147,8 +149,11 @@ func (wm *WorkspaceManager) BulletproofClosePane(node *paneNode) error {
 	if webkit.IsMainThread() {
 		log.Printf("[bulletproof] Already on main thread, executing close directly")
 
+		wm.paneCloseLogf("invoking closePane node=%p", node)
 		promoted, err := wm.closePane(node)
 		if err != nil {
+			wm.paneCloseLogf("closePane failed node=%p err=%v", node, err)
+			wm.dumpTreeState("after_close_error")
 			if tombstone != nil {
 				if rollbackErr := wm.stateTombstoneManager.RestoreState(tombstone.ID); rollbackErr != nil {
 					log.Printf("[bulletproof] Rollback failed after close failure: %v", rollbackErr)
@@ -160,6 +165,8 @@ func (wm *WorkspaceManager) BulletproofClosePane(node *paneNode) error {
 		if err := wm.treeValidator.ValidateTree(wm.root, "after_close"); err != nil {
 			log.Printf("[bulletproof] Tree validation failed after close: %v", err)
 		}
+		wm.paneCloseLogf("closePane succeeded node=%p promoted=%p root=%p", node, promoted, wm.root)
+		wm.dumpTreeState("after_close_success")
 
 		if wm.treeRebalancer != nil {
 			if err := wm.treeRebalancer.RebalanceAfterClose(node, promoted); err != nil {
@@ -195,6 +202,8 @@ func (wm *WorkspaceManager) BulletproofClosePane(node *paneNode) error {
 		select {
 		case result := <-resultChan:
 			if !result.Success {
+				wm.paneCloseLogf("async close failed node=%p err=%v", node, result.Error)
+				wm.dumpTreeState("after_close_error")
 				if tombstone != nil {
 					if rollbackErr := wm.stateTombstoneManager.RestoreState(tombstone.ID); rollbackErr != nil {
 						log.Printf("[bulletproof] Rollback failed after close failure: %v", rollbackErr)
@@ -206,6 +215,8 @@ func (wm *WorkspaceManager) BulletproofClosePane(node *paneNode) error {
 			if err := wm.treeValidator.ValidateTree(wm.root, "after_close"); err != nil {
 				log.Printf("[bulletproof] Tree validation failed after close: %v", err)
 			}
+			wm.paneCloseLogf("async close succeeded node=%p promoted=%p root=%p", node, result.NewNode, wm.root)
+			wm.dumpTreeState("after_close_success")
 
 			if wm.treeRebalancer != nil {
 				if err := wm.treeRebalancer.RebalanceAfterClose(node, result.NewNode); err != nil {
