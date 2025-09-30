@@ -65,6 +65,13 @@ type WorkspaceManager struct {
 	geometryValidator     *GeometryValidator
 	stackLifecycleManager *StackLifecycleManager
 	stateTombstoneManager *StateTombstoneManager
+
+	// Debug instrumentation helpers
+	debugPaneClose bool
+	diagnostics    *WorkspaceDiagnostics
+
+	// Enhanced pane close refactoring fields
+	cleanupCounter uint
 }
 
 // Workspace navigation shortcuts are now handled globally by WindowShortcutHandler
@@ -148,11 +155,19 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 			false, // CSS debug removed
 			app.config.Debug.EnableFocusMetrics,
 		)
+
+		manager.debugPaneClose = app.config.Debug.EnablePaneCloseDebug
 	}
+
+	manager.diagnostics = NewWorkspaceDiagnostics(manager.debugPaneClose)
 
 	// Initialize focus state machine after all setup is complete
 	if err := manager.focusStateMachine.Initialize(); err != nil {
 		log.Printf("[workspace] Failed to initialize focus state machine: %v", err)
+	}
+
+	if manager.debugPaneClose {
+		manager.dumpTreeState("workspace_init")
 	}
 
 	return manager

@@ -37,6 +37,10 @@ type paneNode struct {
 	activeStackIndex int         // Index of currently visible pane in stack
 	titleBar         *SafeWidget // GtkBox for title bar (when collapsed)
 	stackWrapper     *SafeWidget // Internal GtkBox containing the actual stacked widgets (titles + webviews)
+
+	// Enhanced pane close refactoring fields
+	widgetValid       bool // Guard flagged before GTK destruction
+	cleanupGeneration uint // Helps assert that asynchronous callbacks skip stale nodes
 }
 
 // Workspace CSS class constants
