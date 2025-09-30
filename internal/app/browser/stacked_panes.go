@@ -225,8 +225,10 @@ func (spm *StackedPaneManager) convertToStackedContainer(target, newLeaf *paneNo
 	// Immediately reattach the stack wrapper to minimize visibility gap
 	spm.reattachToParent(stackWrapperContainer, target, parent)
 
-	// Convert target to a stacked leaf node
-	target.isStacked = true
+	// Keep target as a regular leaf node (it's just inside a stack now)
+	// Individual panes within a stack should NOT be marked as isStacked
+	// Only the stack container itself has isStacked=true
+	target.isStacked = false
 	target.isLeaf = true
 	// container stays the same (existingContainer)
 	spm.wm.setTitleBar(target, titleBar)
@@ -264,10 +266,17 @@ func (spm *StackedPaneManager) convertToStackedContainer(target, newLeaf *paneNo
 	stackNode.stackedPanes = append(stackNode.stackedPanes, newLeaf)
 
 	// Unparent the new container before adding it to the stack
+	// This is critical: even freshly created WebViews might have internal parent refs
 	if newLeaf.container != nil {
 		newLeaf.container.Execute(func(containerPtr uintptr) error {
-			if webkit.WidgetGetParent(containerPtr) != 0 {
+			parent := webkit.WidgetGetParent(containerPtr)
+			if parent != 0 {
+				log.Printf("[workspace] unparenting new pane container %#x from parent %#x before stack append", containerPtr, parent)
 				webkit.WidgetUnparent(containerPtr)
+				// Verify unparent succeeded
+				if finalParent := webkit.WidgetGetParent(containerPtr); finalParent != 0 {
+					log.Printf("[workspace] WARNING: container %#x still has parent %#x after unparent", containerPtr, finalParent)
+				}
 			}
 			return nil
 		})

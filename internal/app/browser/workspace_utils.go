@@ -2,7 +2,6 @@
 package browser
 
 import (
-	"errors"
 	"fmt"
 	"log"
 
@@ -55,36 +54,6 @@ func mapDirection(direction string) (webkit.Orientation, bool) {
 
 // Widget management utilities
 
-// validateWidgetsForReparenting validates that all widgets needed for reparenting are valid
-func (wm *WorkspaceManager) validateWidgetsForReparenting(sibling, parent, grand *paneNode) error {
-	// Validate sibling container (this is the most critical one)
-	if sibling.container == nil {
-		return errors.New("sibling container is nil")
-	}
-	if !sibling.container.IsValid() {
-		return fmt.Errorf("sibling container %s is not valid", sibling.container.String())
-	}
-
-	// Validate parent container if present
-	if parent != nil && parent.container != nil && !parent.container.IsValid() {
-		return fmt.Errorf("parent container %s is not valid", parent.container.String())
-	}
-
-	// Validate grandparent container if present
-	if grand != nil && grand.container != nil && !grand.container.IsValid() {
-		return fmt.Errorf("grandparent container %s is not valid", grand.container.String())
-	}
-
-	return nil
-}
-
-// safeWidgetOperation performs a widget operation with proper locking and validation
-func (wm *WorkspaceManager) safeWidgetOperation(operation func() error) error {
-	wm.widgetMutex.Lock()
-	defer wm.widgetMutex.Unlock()
-	return operation()
-}
-
 // registerWidget registers a widget with the registry and returns a SafeWidget
 func (wm *WorkspaceManager) registerWidget(ptr uintptr, typeInfo string) *SafeWidget {
 	if ptr == 0 {
@@ -109,6 +78,10 @@ func (wm *WorkspaceManager) initializePaneWidgets(node *paneNode, containerPtr u
 	// Initialize other widget fields as nil (will be set when needed)
 	node.titleBar = nil
 	node.stackWrapper = nil
+
+	// Initialize enhanced close refactoring fields
+	node.widgetValid = true
+	node.cleanupGeneration = 0
 }
 
 // Helper functions for safe widget operations
@@ -223,9 +196,9 @@ func (wm *WorkspaceManager) applyActivePaneBorder(node *paneNode) {
 	if ctx.borderContainer != nil {
 		var applied bool
 		if err := ctx.borderContainer.Execute(func(containerPtr uintptr) error {
-			// Safety check: verify container pointer is valid
-			if containerPtr == 0 {
-				return fmt.Errorf("invalid container pointer")
+			// Safety check: verify container pointer is valid and widget still exists
+			if containerPtr == 0 || !webkit.WidgetIsValid(containerPtr) {
+				return fmt.Errorf("invalid container pointer or destroyed widget")
 			}
 			if webkit.WidgetHasCSSClass(containerPtr, activePaneClass) {
 				return nil
@@ -252,9 +225,9 @@ func (wm *WorkspaceManager) removeActivePaneBorder(node *paneNode) {
 	if ctx.borderContainer != nil {
 		var removed bool
 		if err := ctx.borderContainer.Execute(func(containerPtr uintptr) error {
-			// Safety check: verify container pointer is valid
-			if containerPtr == 0 {
-				return fmt.Errorf("invalid container pointer")
+			// Safety check: verify container pointer is valid and widget still exists
+			if containerPtr == 0 || !webkit.WidgetIsValid(containerPtr) {
+				return fmt.Errorf("invalid container pointer or destroyed widget")
 			}
 			if !webkit.WidgetHasCSSClass(containerPtr, activePaneClass) {
 				return nil
