@@ -155,6 +155,7 @@ func DefaultConfig() *Config {
 			EnableFocusDebug:      false,
 			EnableCSSDebug:        false,
 			EnableFocusMetrics:    false,
+			EnablePaneCloseDebug:  false,
 		},
 		APISecurity: APISecurityConfig{
 			Token:        "",

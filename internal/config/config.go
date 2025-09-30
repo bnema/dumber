@@ -224,6 +224,9 @@ type DebugConfig struct {
 
 	// Enable focus metrics tracking
 	EnableFocusMetrics bool `mapstructure:"enable_focus_metrics" yaml:"enable_focus_metrics"`
+
+	// Enable detailed pane close instrumentation and tree snapshots
+	EnablePaneCloseDebug bool `mapstructure:"enable_pane_close_debug" yaml:"enable_pane_close_debug"`
 }
 
 // APISecurityConfig holds optional API key protection for dumb://api endpoints
@@ -655,6 +658,7 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("debug.enable_focus_debug", defaults.Debug.EnableFocusDebug)
 	m.viper.SetDefault("debug.enable_css_debug", defaults.Debug.EnableCSSDebug)
 	m.viper.SetDefault("debug.enable_focus_metrics", defaults.Debug.EnableFocusMetrics)
+	m.viper.SetDefault("debug.enable_pane_close_debug", defaults.Debug.EnablePaneCloseDebug)
 
 	// Appearance defaults
 	m.viper.SetDefault("appearance.sans_font", defaults.Appearance.SansFont)
