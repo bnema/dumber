@@ -179,7 +179,7 @@ func (wm *WorkspaceManager) closeCurrentPane() {
 	if wm == nil || wm.GetActiveNode() == nil {
 		return
 	}
-	if err := wm.BulletproofClosePane(wm.GetActiveNode()); err != nil {
+	if err := wm.ClosePane(wm.GetActiveNode()); err != nil {
 		log.Printf("[workspace] close current pane failed: %v", err)
 	}
 }
