@@ -91,8 +91,8 @@ classDiagram
         +uintptr focusControllerToken
         +bool pendingHoverReattach
         +bool pendingFocusReattach
-        +bool isStacked
-        +[]*paneNode stackedPanes
+        +bool isStacked              // TRUE: stack container, FALSE: regular pane or pane within stack
+        +[]*paneNode stackedPanes    // Non-empty only if isStacked=true
         +int activeStackIndex
         +SafeWidget titleBar
         +SafeWidget stackWrapper
@@ -193,6 +193,26 @@ graph TD
 
 ## Binary Tree Operations
 
+### Stacked Pane Node Semantics
+
+**Critical Implementation Detail**: The `isStacked` flag has precise semantics that are essential for correct operation:
+
+- **Stack Container Node**: `isStacked=true`, `isLeaf=false`, `stackedPanes` contains the individual panes
+- **Panes Within Stack**: `isStacked=false`, `isLeaf=true`, `parent` points to the stack container
+
+Individual panes within a stack are **NOT** marked as stacked themselves. Only the container node managing the stack has `isStacked=true`. This allows:
+- Split validation to accept individual panes within stacks
+- Split operations to automatically target the stack container (not the individual pane)
+- Proper tree traversal and focus management
+
+**Splitting from Stacked Panes**: When splitting from a pane inside a stack, the system automatically:
+1. Detects `target.parent.isStacked == true`
+2. Promotes the split target to the stack container
+3. Splits around the **entire stack**, not the individual pane
+4. Creates a new sibling to the stack container in the tree
+
+This ensures stacks remain cohesive units in the tree structure.
+
 ### Split Operation Flow
 
 ```mermaid
@@ -249,14 +269,15 @@ sequenceDiagram
         BP->>WM: closePane(target)
         WM->>WM: Find sibling/replacement node
         WM->>GTK: Unparent target widget
-        WM->>GTK: Promote sibling to new position
+        WM->>WM: swapContainers (skips attachRoot if TreeRebalancer enabled)
+        WM->>GTK: Promote sibling in tree structure
         WM->>WM: Update tree structure
         WM-->>BP: Return promoted node
         BP->>TV: ValidateTree(after_close)
         BP->>TR: RebalanceAfterClose(closed, promoted)
         TR->>TR: Execute promotion transaction
         TR->>GTK: WidgetResetSizeRequest(promoted)
-        TR->>GTK: Reattach with proper expansion
+        TR->>GTK: Attach to window/parent (handles double-attachment prevention)
         TR->>GTK: Queue allocation on ancestors
         TR->>TR: Validate geometry
         TR-->>BP: Promotion completed
@@ -682,6 +703,15 @@ sequenceDiagram
 - **Size Constraint Management**: Explicit constraint reset prevents GTK layout conflicts
 - **Async Consistency**: Identical behavior between sync and async operation paths
 
+### Widget Safety Enhancements
+
+Recent improvements prevent GTK assertion failures and widget corruption:
+
+- **CSS Class Safety**: All CSS class operations verify `WidgetIsValid()` before modification to prevent GTK bloom filter corruption when widgets are destroyed mid-operation
+- **Paned Child Clearing**: Before destroying paned widgets, verifies `WidgetGetParent(child) == paned_ptr` to avoid unparenting already-reparented children
+- **Double-Attachment Prevention**: `swapContainers` skips `attachRoot` when `TreeRebalancer` is enabled, delegating widget attachment to the promotion transaction
+- **Unparent Verification**: Stack container creation includes explicit unparent checks and logging for freshly-created WebView widgets
+
 ## Thread Safety
 
 The system implements comprehensive thread safety:
@@ -690,5 +720,23 @@ The system implements comprehensive thread safety:
 - **Focus Management**: Queue-based serialization with priority
 - **State Changes**: Mutex protection for critical sections
 - **Tree Modifications**: Atomic operations with rollback capability
+
+## Known Constraints and Design Decisions
+
+### Stacked Pane Management
+
+1. **Individual panes within stacks have `isStacked=false`**: Only the container node has `isStacked=true`. This enables split validation and proper tree operations.
+
+2. **Splitting targets the stack container**: When splitting from a pane inside a stack, the operation automatically promotes to split the entire stack container, not the individual pane.
+
+3. **Widget attachment coordination**: When `TreeRebalancer` is enabled, `closePane` delegates widget attachment to the rebalancer's promotion transaction to prevent double-attachment race conditions.
+
+### GTK Widget Lifecycle
+
+1. **Reparenting invalidates container references**: When widgets are reparented via `PanedSetStartChild/EndChild` or `window.SetChild`, GTK automatically unparents them from the old container. Code must check `WidgetGetParent(child) == old_parent` before attempting cleanup.
+
+2. **CSS operations require validity checks**: CSS class manipulation on destroyed widgets corrupts GTK's internal bloom filter. All CSS operations verify `WidgetIsValid()` before proceeding.
+
+3. **WebView containers may have implicit parents**: Freshly created WebView widgets may have internal GTK parent references that require explicit unparenting before box/paned insertion.
 
 This architecture provides a robust, efficient, and safe pane management system that can handle complex window layouts while maintaining excellent performance and user experience.
