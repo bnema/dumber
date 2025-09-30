@@ -57,10 +57,9 @@ type WorkspaceManager struct {
 	lastFocusTarget *paneNode
 	focusDebounce   time.Duration
 
-	// BULLETPROOF COMPONENTS: Enhanced validation and safety systems
+	// ENHANCED COMPONENTS: Validation and safety systems (opt-in for debugging)
 	treeValidator         *TreeValidator
 	widgetTxManager       *WidgetTransactionManager
-	concurrencyController *ConcurrencyController
 	treeRebalancer        *TreeRebalancer
 	geometryValidator     *GeometryValidator
 	stackLifecycleManager *StackLifecycleManager
@@ -95,14 +94,10 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 	manager.geometryValidator = NewGeometryValidator()
 	manager.stateTombstoneManager = NewStateTombstoneManager(manager)
 
-	// Initialize concurrency controller with bulletproof components
-	manager.concurrencyController = NewConcurrencyController(2, manager.widgetTxManager, manager.treeValidator)
-	manager.concurrencyController.SetWorkspaceManager(manager)
-
 	// Initialize tree rebalancer
 	manager.treeRebalancer = NewTreeRebalancer(manager, manager.treeValidator, manager.widgetTxManager)
 
-	// Initialize stack lifecycle manager with bulletproof components
+	// Initialize stack lifecycle manager with enhanced components
 	manager.stackLifecycleManager = NewStackLifecycleManager(manager, manager.treeValidator, manager.widgetTxManager)
 
 	// Initialize existing specialized managers (now enhanced with bulletproof components)

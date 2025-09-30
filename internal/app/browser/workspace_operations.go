@@ -1,11 +1,9 @@
-// workspace_bulletproof_operations.go - Bulletproof wrapper methods for all tree operations
+// workspace_operations.go - Workspace operation methods with validation and safety
 package browser
 
 import (
-	"context"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/bnema/dumber/pkg/webkit"
 )
@@ -64,58 +62,37 @@ func (wm *WorkspaceManager) SplitPane(target *paneNode, direction string) (*pane
 		return newNode, nil
 	}
 
-	// Step 5: Not on main thread, marshal through concurrency controller
-	opReq := &OperationRequest{
-		ID:         fmt.Sprintf("split_%p_%d", target, time.Now().UnixNano()),
-		Type:       OpTypeSplit,
-		TargetNode: target,
-		Direction:  direction,
-		Parameters: map[string]interface{}{
-			"direction": direction,
-		},
-		Context:    context.Background(),
-		MaxRetries: 3,
-	}
+	// Step 5: Not on main thread, marshal via IdleAdd
+	log.Printf("[workspace] Not on main thread, marshalling split via IdleAdd")
+	var newNode *paneNode
+	var splitErr error
+	done := make(chan struct{})
 
-	resultChan := wm.concurrencyController.SubmitOperation(opReq)
-
-	log.Printf("[workspace] Waiting for operation result while pumping GTK events")
-	ticker := time.NewTicker(10 * time.Millisecond)
-	defer ticker.Stop()
-
-	timeout := time.NewTimer(30 * time.Second)
-	defer timeout.Stop()
-
-	for {
-		select {
-		case result := <-resultChan:
-			if !result.Success {
-				if tombstone != nil {
-					if rollbackErr := wm.stateTombstoneManager.RestoreState(tombstone.ID); rollbackErr != nil {
-						log.Printf("[bulletproof] Rollback failed after split failure: %v", rollbackErr)
-					}
+	webkit.IdleAdd(func() bool {
+		newNode, splitErr = wm.splitNode(target, direction)
+		if splitErr != nil {
+			if tombstone != nil {
+				if rollbackErr := wm.stateTombstoneManager.RestoreState(tombstone.ID); rollbackErr != nil {
+					log.Printf("[workspace] Rollback failed after split failure: %v", rollbackErr)
 				}
-				return nil, result.Error
 			}
-
-			if err := wm.treeValidator.ValidateTree(wm.root, "after_split"); err != nil {
-				log.Printf("[workspace] Tree validation failed after split: %v", err)
+		} else {
+			if verr := wm.treeValidator.ValidateTree(wm.root, "after_split"); verr != nil {
+				log.Printf("[workspace] Tree validation failed after split: %v", verr)
 			}
-
-			// Tree rebalancing is only needed after close promotions. Splits have correct allocation from GTK.
-
-			log.Printf("[workspace] Split operation completed successfully: newNode=%p", result.NewNode)
-			return result.NewNode, nil
-
-		case <-ticker.C:
-			if webkit.IsMainThread() {
-				webkit.IterateMainLoop()
-			}
-
-		case <-timeout.C:
-			return nil, fmt.Errorf("split operation timed out")
 		}
+		close(done)
+		return false
+	})
+
+	<-done
+
+	if splitErr != nil {
+		return nil, splitErr
 	}
+
+	log.Printf("[workspace] Split operation completed successfully: newNode=%p", newNode)
+	return newNode, nil
 }
 
 // ClosePane performs a close operation with validation and safety checks
@@ -178,64 +155,48 @@ func (wm *WorkspaceManager) ClosePane(node *paneNode) error {
 		return nil
 	}
 
-	// Step 5: Not on main thread, marshal through concurrency controller
-	log.Printf("[workspace] Not on main thread, using concurrency controller")
-	opReq := &OperationRequest{
-		ID:         fmt.Sprintf("close_%p_%d", node, time.Now().UnixNano()),
-		Type:       OpTypeClose,
-		TargetNode: node,
-		Parameters: map[string]interface{}{},
-		Context:    context.Background(),
-		MaxRetries: 3,
-	}
+	// Step 5: Not on main thread, marshal via IdleAdd
+	log.Printf("[workspace] Not on main thread, marshalling close via IdleAdd")
+	var promoted *paneNode
+	var closeErr error
+	done := make(chan struct{})
 
-	resultChan := wm.concurrencyController.SubmitOperation(opReq)
-
-	log.Printf("[workspace] Waiting for operation result while pumping GTK events")
-	ticker := time.NewTicker(10 * time.Millisecond)
-	defer ticker.Stop()
-
-	timeout := time.NewTimer(30 * time.Second)
-	defer timeout.Stop()
-
-	for {
-		select {
-		case result := <-resultChan:
-			if !result.Success {
-				wm.paneCloseLogf("async close failed node=%p err=%v", node, result.Error)
-				wm.dumpTreeState("after_close_error")
-				if tombstone != nil {
-					if rollbackErr := wm.stateTombstoneManager.RestoreState(tombstone.ID); rollbackErr != nil {
-						log.Printf("[workspace] Rollback failed after close failure: %v", rollbackErr)
-					}
+	webkit.IdleAdd(func() bool {
+		wm.paneCloseLogf("invoking closePane node=%p", node)
+		promoted, closeErr = wm.closePane(node)
+		if closeErr != nil {
+			wm.paneCloseLogf("closePane failed node=%p err=%v", node, closeErr)
+			wm.dumpTreeState("after_close_error")
+			if tombstone != nil {
+				if rollbackErr := wm.stateTombstoneManager.RestoreState(tombstone.ID); rollbackErr != nil {
+					log.Printf("[workspace] Rollback failed after close failure: %v", rollbackErr)
 				}
-				return result.Error
 			}
-
-			if err := wm.treeValidator.ValidateTree(wm.root, "after_close"); err != nil {
-				log.Printf("[workspace] Tree validation failed after close: %v", err)
+		} else {
+			if verr := wm.treeValidator.ValidateTree(wm.root, "after_close"); verr != nil {
+				log.Printf("[workspace] Tree validation failed after close: %v", verr)
 			}
-			wm.paneCloseLogf("async close succeeded node=%p promoted=%p root=%p", node, result.NewNode, wm.root)
+			wm.paneCloseLogf("closePane succeeded node=%p promoted=%p root=%p", node, promoted, wm.root)
 			wm.dumpTreeState("after_close_success")
 
 			if wm.treeRebalancer != nil {
-				if err := wm.treeRebalancer.RebalanceAfterClose(node, result.NewNode); err != nil {
-					log.Printf("[workspace] Tree rebalancing failed after close: %v", err)
+				if rerr := wm.treeRebalancer.RebalanceAfterClose(node, promoted); rerr != nil {
+					log.Printf("[workspace] Tree rebalancing failed after close: %v", rerr)
 				}
 			}
-
-			log.Printf("[workspace] Close operation completed successfully")
-			return nil
-
-		case <-ticker.C:
-			if webkit.IsMainThread() {
-				webkit.IterateMainLoop()
-			}
-
-		case <-timeout.C:
-			return fmt.Errorf("close operation timed out")
 		}
+		close(done)
+		return false
+	})
+
+	<-done
+
+	if closeErr != nil {
+		return closeErr
 	}
+
+	log.Printf("[workspace] Close operation completed successfully")
+	return nil
 }
 
 // StackPane performs a stack operation with validation and safety checks
@@ -275,7 +236,7 @@ func (wm *WorkspaceManager) StackPane(target *paneNode) (*paneNode, error) {
 		if err != nil {
 			if tombstone != nil {
 				if rollbackErr := wm.stateTombstoneManager.RestoreState(tombstone.ID); rollbackErr != nil {
-					log.Printf("[bulletproof] Rollback failed after stack failure: %v", rollbackErr)
+					log.Printf("[workspace] Rollback failed after stack failure: %v", rollbackErr)
 				}
 			}
 			return nil, err
@@ -289,53 +250,37 @@ func (wm *WorkspaceManager) StackPane(target *paneNode) (*paneNode, error) {
 		return newNode, nil
 	}
 
-	// Step 5: Not on main thread, marshal through concurrency controller
-	opReq := &OperationRequest{
-		ID:         fmt.Sprintf("stack_%p_%d", target, time.Now().UnixNano()),
-		Type:       OpTypeStack,
-		TargetNode: target,
-		Parameters: map[string]interface{}{},
-		Context:    context.Background(),
-		MaxRetries: 3,
-	}
+	// Step 5: Not on main thread, marshal via IdleAdd
+	log.Printf("[workspace] Not on main thread, marshalling stack via IdleAdd")
+	var newNode *paneNode
+	var stackErr error
+	done := make(chan struct{})
 
-	resultChan := wm.concurrencyController.SubmitOperation(opReq)
-
-	log.Printf("[workspace] Waiting for operation result while pumping GTK events")
-	ticker := time.NewTicker(10 * time.Millisecond)
-	defer ticker.Stop()
-
-	timeout := time.NewTimer(30 * time.Second)
-	defer timeout.Stop()
-
-	for {
-		select {
-		case result := <-resultChan:
-			if !result.Success {
-				if tombstone != nil {
-					if rollbackErr := wm.stateTombstoneManager.RestoreState(tombstone.ID); rollbackErr != nil {
-						log.Printf("[bulletproof] Rollback failed after stack failure: %v", rollbackErr)
-					}
+	webkit.IdleAdd(func() bool {
+		newNode, stackErr = wm.stackedPaneManager.StackPane(target)
+		if stackErr != nil {
+			if tombstone != nil {
+				if rollbackErr := wm.stateTombstoneManager.RestoreState(tombstone.ID); rollbackErr != nil {
+					log.Printf("[workspace] Rollback failed after stack failure: %v", rollbackErr)
 				}
-				return nil, result.Error
 			}
-
-			if err := wm.treeValidator.ValidateTree(wm.root, "after_stack"); err != nil {
-				log.Printf("[workspace] Tree validation failed after stack: %v", err)
+		} else {
+			if verr := wm.treeValidator.ValidateTree(wm.root, "after_stack"); verr != nil {
+				log.Printf("[workspace] Tree validation failed after stack: %v", verr)
 			}
-
-			log.Printf("[workspace] Stack operation completed successfully: newNode=%p", result.NewNode)
-			return result.NewNode, nil
-
-		case <-ticker.C:
-			if webkit.IsMainThread() {
-				webkit.IterateMainLoop()
-			}
-
-		case <-timeout.C:
-			return nil, fmt.Errorf("stack operation timed out")
 		}
+		close(done)
+		return false
+	})
+
+	<-done
+
+	if stackErr != nil {
+		return nil, stackErr
 	}
+
+	log.Printf("[workspace] Stack operation completed successfully: newNode=%p", newNode)
+	return newNode, nil
 }
 
 // EnableEnhancedMode enables all enhanced validation features
@@ -383,9 +328,6 @@ func (wm *WorkspaceManager) GetEnhancedStats() map[string]interface{} {
 		stats["widget_transactions"] = wm.widgetTxManager.GetTransactionStats()
 	}
 
-	if wm.concurrencyController != nil {
-		stats["concurrency"] = wm.concurrencyController.GetConcurrencyStats()
-	}
 
 	if wm.treeRebalancer != nil {
 		stats["tree_rebalancing"] = wm.treeRebalancer.GetRebalancingStats()
@@ -432,9 +374,6 @@ func (wm *WorkspaceManager) ValidateWorkspaceIntegrity() error {
 func (wm *WorkspaceManager) ShutdownEnhancedComponents() {
 	log.Printf("[workspace] Shutting down enhanced validation components")
 
-	if wm.concurrencyController != nil {
-		wm.concurrencyController.Shutdown()
-	}
 
 	// Other components don't require explicit shutdown currently
 	log.Printf("[workspace] Enhanced validation components shutdown complete")
