@@ -395,10 +395,16 @@ func WidgetWaitForDraw(widget uintptr) {
 }
 
 // IdleAdd simulates GTK's idle callback system - DEPRECATED, use WidgetWaitForDraw instead
-func IdleAdd(fn func() bool) {
+func IdleAdd(fn func() bool) uintptr {
 	if fn != nil {
 		fn()
 	}
+	return 0
+}
+
+// IdleRemove cancels a simulated idle callback (no-op in stub builds).
+func IdleRemove(handle uintptr) {
+	_ = handle
 }
 
 func AddCSSProvider(css string) {}

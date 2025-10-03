@@ -48,54 +48,59 @@ type WorkspaceManager struct {
 	stackedPaneManager *StackedPaneManager
 	focusStateMachine  *FocusStateMachine
 
-	// Widget operation synchronization to prevent GTK race conditions
-	widgetMutex    sync.Mutex
-	widgetRegistry *WidgetRegistry
-
 	// Focus debouncing to prevent rapid oscillation from any source
 	lastFocusTime   time.Time
 	lastFocusTarget *paneNode
 	focusDebounce   time.Duration
 
-	// ENHANCED COMPONENTS: Validation and safety systems (opt-in for debugging)
-	treeValidator         *TreeValidator
-	treeRebalancer        *TreeRebalancer
-	geometryValidator     *GeometryValidator
-	stackLifecycleManager *StackLifecycleManager
-	stateTombstoneManager *StateTombstoneManager
+	// Validation and safety systems (debug-only, controlled by DUMBER_DEBUG_WORKSPACE env)
+	treeValidator         *TreeValidator         // Debug-only tree validation
+	treeRebalancer        *TreeRebalancer        // Rebalance after close operations
+	geometryValidator     *GeometryValidator     // Validate split constraints
+	stackLifecycleManager *StackLifecycleManager // Stack pane lifecycle
 
 	// Debug instrumentation helpers
+	debugLevel     DebugLevel
 	debugPaneClose bool
 	diagnostics    *WorkspaceDiagnostics
 
-	// Enhanced pane close refactoring fields
+	// Cleanup tracking
 	cleanupCounter uint
+	pendingIdle    map[uintptr][]*paneNode
 }
 
 // Workspace navigation shortcuts are now handled globally by WindowShortcutHandler
 
 // NewWorkspaceManager builds a workspace manager rooted at the provided pane.
 func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManager {
+	debugLevel := getDebugLevel()
+
 	manager := &WorkspaceManager{
 		app:              app,
 		window:           rootPane.webView.Window(),
 		viewToNode:       make(map[*webkit.WebView]*paneNode),
 		lastSplitMsg:     make(map[*webkit.WebView]time.Time),
 		lastExitMsg:      make(map[*webkit.WebView]time.Time),
-		paneDeduplicator: messaging.NewPaneRequestDeduplicator(), // NEW: Initialize deduplicator
-		widgetRegistry:   NewWidgetRegistry(),                    // Initialize widget registry
-		focusDebounce:    150 * time.Millisecond,                 // 150ms focus debouncing for all sources
+		paneDeduplicator: messaging.NewPaneRequestDeduplicator(),
+		focusDebounce:    150 * time.Millisecond,
+		debugLevel:       debugLevel,
 	}
 
-	// Initialize enhanced components first
-	manager.treeValidator = NewTreeValidator(true, false) // enabled, debug off
-	manager.geometryValidator = NewGeometryValidator()
-	manager.stateTombstoneManager = NewStateTombstoneManager(manager)
+	// Initialize validation components (opt-in based on debug level)
+	if debugLevel >= DebugBasic {
+		manager.treeValidator = NewTreeValidator(true, debugLevel == DebugFull)
+		manager.geometryValidator = NewGeometryValidator()
+		manager.geometryValidator.SetDebugMode(debugLevel == DebugFull)
+	} else {
+		// Production mode: disable validators
+		manager.treeValidator = NewTreeValidator(false, false)
+		manager.geometryValidator = NewGeometryValidator()
+	}
 
-	// Initialize tree rebalancer
+	// Initialize tree rebalancer (always needed for proper close operations)
 	manager.treeRebalancer = NewTreeRebalancer(manager, manager.treeValidator)
 
-	// Initialize stack lifecycle manager with enhanced components
+	// Initialize stack lifecycle manager
 	manager.stackLifecycleManager = NewStackLifecycleManager(manager, manager.treeValidator)
 
 	// Initialize existing specialized managers (now enhanced with bulletproof components)
@@ -109,9 +114,11 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 		if err != nil {
 			return nil, err
 		}
-		// Keep CreateWindow = true for popup WebViews to ensure proper window features initialization
-		// This prevents WindowFeatures optional crashes when WebKit accesses popup properties
-		cfg.CreateWindow = true
+		// Pane WebViews are embedded inside the main application window, so they do not
+		// need their own toplevel GtkWindow. Avoid creating per-pane windows to keep GTK
+		// ownership simple (Epiphany follows the same pattern) and to prevent premature
+		// swapchain destruction when panes are closed.
+		cfg.CreateWindow = false
 		return webkit.NewWebView(cfg)
 	}
 	manager.createPaneFn = func(view *webkit.WebView) (*BrowserPane, error) {

@@ -1,3 +1,5 @@
+// +build webkit_cgo
+
 #include <glib.h>
 #include <pthread.h>
 

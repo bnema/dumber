@@ -529,17 +529,11 @@ func (fsm *FocusStateMachine) findTopLeftPane(leaves []*paneNode) *paneNode {
 	var bestScore float64 = 1e9
 
 	for _, leaf := range leaves {
-		if leaf.container == nil {
+		if leaf.container == 0 || !webkit.WidgetIsValid(leaf.container) {
 			continue
 		}
 
-		var bounds webkit.WidgetBounds
-		var ok bool
-		leaf.container.Execute(func(containerPtr uintptr) error {
-			bounds, ok = webkit.WidgetGetBounds(containerPtr)
-			return nil
-		})
-
+		bounds, ok := webkit.WidgetGetBounds(leaf.container)
 		if !ok {
 			continue
 		}
@@ -570,7 +564,8 @@ func (fsm *FocusStateMachine) applyInitialFocus(node *paneNode) error {
 
 	// Apply initial visual border
 	if fsm.wm != nil {
-		fsm.wm.applyActivePaneBorder(node)
+		ctx := fsm.wm.determineBorderContext(node)
+		fsm.wm.applyActivePaneBorder(ctx)
 	}
 
 	// Update state
@@ -736,7 +731,8 @@ func (fsm *FocusStateMachine) executeFocusChange(request FocusRequest) error {
 			fsm.wm.removeActivePaneBorder(oldPane)
 		}
 		// Add border to new pane
-		fsm.wm.applyActivePaneBorder(newPane)
+		ctx := fsm.wm.determineBorderContext(newPane)
+		fsm.wm.applyActivePaneBorder(ctx)
 	}
 
 	// Update state

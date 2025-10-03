@@ -110,6 +110,7 @@ func (app *BrowserApp) Initialize() error {
 			log.Printf("Warning: failed to initialize WebKit log capture: %v", err)
 		} else {
 			defer webkit.StopWebKitLogCapture()
+			webkit.StartWebKitOutputCapture()
 		}
 	}
 
@@ -220,6 +221,13 @@ func (app *BrowserApp) cleanup() {
 // setupOutputCapture initializes stdout/stderr capture if configured
 func (app *BrowserApp) setupOutputCapture() error {
 	if app.config.Logging.CaptureStdout || app.config.Logging.CaptureStderr {
+		// Capturing stdout/stderr works for non-GTK builds, but in native GTK mode
+		// it interferes with WebKit's own pipe management and crashes immediately.
+		if webkit.IsNativeAvailable() {
+			log.Printf("Warning: stdout/stderr capture is not supported in native GTK mode; skipping")
+			return nil
+		}
+
 		log.Printf("Warning: stdout/stderr capture is experimental and may interfere with normal operations")
 		if logger := logging.GetLogger(); logger != nil {
 			outputCapture := logging.NewOutputCapture(logger)

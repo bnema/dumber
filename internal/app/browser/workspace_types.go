@@ -2,20 +2,55 @@
 package browser
 
 import (
+	"os"
+
 	"github.com/bnema/dumber/pkg/webkit"
 )
+
+// DebugLevel controls validation and safety checks
+type DebugLevel int
+
+const (
+	// DebugOff disables all validation (production mode)
+	DebugOff DebugLevel = iota
+	// DebugBasic enables basic validation only (development default)
+	DebugBasic
+	// DebugFull enables all validation and detailed logging (testing)
+	DebugFull
+)
+
+// getDebugLevel reads debug level from environment variable
+func getDebugLevel() DebugLevel {
+	switch os.Getenv("DUMBER_DEBUG_WORKSPACE") {
+	case "off", "0":
+		return DebugOff
+	case "basic", "1":
+		return DebugBasic
+	case "full", "2":
+		return DebugFull
+	default:
+		// Default to basic for development
+		return DebugBasic
+	}
+}
 
 // paneNode represents a node in the workspace pane tree structure.
 // It can be either a leaf node (containing a browser pane) or a branch node
 // (containing child nodes for split panes or stacked panes).
+//
+// Node Types:
+// 1. Regular Leaf (isLeaf=true, windowType=Tab): Normal browsing pane
+// 2. Popup Leaf (isLeaf=true, windowType=Popup): OAuth/feature-restricted popup
+// 3. Stacked Container (isStacked=true, no left/right): Terminal branch with stackedPanes[]
+// 4. Split Branch (isLeaf=false, has left+right): Pure layout node with GtkPaned
 type paneNode struct {
 	pane   *BrowserPane
 	parent *paneNode
 	left   *paneNode
 	right  *paneNode
 
-	// Widget management with proper lifecycle tracking
-	container   *SafeWidget // Main container (GtkPaned for branch nodes, wrapper GtkBox for stacked nodes, WebView container for leaves)
+	// Widget management - direct GTK pointers (all ops on main thread)
+	container   uintptr // Main container: GtkPaned (branch), GtkBox (stack), or WebView container (leaf)
 	orientation webkit.Orientation
 	isLeaf      bool
 	isPopup     bool // Deprecated: use windowType instead
@@ -31,16 +66,17 @@ type paneNode struct {
 	pendingHoverReattach bool
 	pendingFocusReattach bool
 
-	// Stacked panes support with proper widget management
+	// Stacked panes support - terminal branch nodes
 	isStacked        bool        // Whether this node contains stacked panes
 	stackedPanes     []*paneNode // List of stacked panes (if isStacked)
 	activeStackIndex int         // Index of currently visible pane in stack
-	titleBar         *SafeWidget // GtkBox for title bar (when collapsed)
-	stackWrapper     *SafeWidget // Internal GtkBox containing the actual stacked widgets (titles + webviews)
+	titleBar         uintptr     // GtkBox for title bar (when collapsed)
+	stackWrapper     uintptr     // Internal GtkBox containing the actual stacked widgets (titles + webviews)
 
-	// Enhanced pane close refactoring fields
-	widgetValid       bool // Guard flagged before GTK destruction
-	cleanupGeneration uint // Helps assert that asynchronous callbacks skip stale nodes
+	// Cleanup tracking
+	widgetValid        bool                 // Guard flagged before GTK destruction
+	cleanupGeneration  uint                 // Helps assert that asynchronous callbacks skip stale nodes
+	pendingIdleHandles map[uintptr]struct{} // Idle callbacks touching this node
 }
 
 // Workspace CSS class constants

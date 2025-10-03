@@ -89,19 +89,15 @@ func (wm *WorkspaceManager) ensureHover(node *paneNode) {
 	if wm == nil || node == nil || !node.isLeaf {
 		return
 	}
-	if node.container == nil || node.hoverToken != 0 {
+	if node.container == 0 || node.hoverToken != 0 {
 		return
 	}
 
-	var token uintptr
-	node.container.Execute(func(containerPtr uintptr) error {
-		token = webkit.WidgetAddHoverHandler(containerPtr, func() {
-			if wm == nil {
-				return
-			}
-			wm.SetActivePane(node, SourceMouse)
-		})
-		return nil
+	token := webkit.WidgetAddHoverHandler(node.container, func() {
+		if wm == nil {
+			return
+		}
+		wm.SetActivePane(node, SourceMouse)
 	})
 	node.hoverToken = token
 	if token == 0 {
@@ -115,7 +111,7 @@ func (wm *WorkspaceManager) detachHover(node *paneNode) {
 		return
 	}
 
-	if node.container == nil || !node.container.IsValid() {
+	if node.container == 0 || !webkit.WidgetIsValid(node.container) {
 		node.hoverToken = 0
 		return
 	}
@@ -123,12 +119,22 @@ func (wm *WorkspaceManager) detachHover(node *paneNode) {
 	token := node.hoverToken
 	node.hoverToken = 0
 
-	node.container.Execute(func(containerPtr uintptr) error {
-		if containerPtr != 0 && webkit.WidgetIsValid(containerPtr) {
-			webkit.WidgetRemoveHoverHandler(containerPtr, token)
-		}
-		return nil
-	})
+	if webkit.WidgetIsValid(node.container) {
+		webkit.WidgetRemoveHoverHandler(node.container, token)
+	}
+}
+
+// detachFocus removes the GTK focus controller attached to a pane, if any.
+func (wm *WorkspaceManager) detachFocus(node *paneNode) {
+	if wm == nil || node == nil || node.focusControllerToken == 0 {
+		return
+	}
+
+	if wm.focusStateMachine != nil {
+		wm.focusStateMachine.detachGTKController(node, node.focusControllerToken)
+	}
+
+	node.focusControllerToken = 0
 }
 
 // FocusNeighbor moves focus to the nearest pane in the requested direction using the
@@ -229,7 +235,7 @@ func (wm *WorkspaceManager) navigateStack(direction string) bool {
 // focusAdjacent uses geometry-based calculations to find and focus adjacent panes
 func (wm *WorkspaceManager) focusAdjacent(direction string) bool {
 	currentFocused := wm.GetActiveNode()
-	if currentFocused == nil || !currentFocused.isLeaf || currentFocused.container == nil {
+	if currentFocused == nil || !currentFocused.isLeaf || currentFocused.container == 0 {
 		return false
 	}
 
@@ -238,12 +244,7 @@ func (wm *WorkspaceManager) focusAdjacent(direction string) bool {
 		return true
 	}
 
-	var currentBounds webkit.WidgetBounds
-	var ok bool
-	currentFocused.container.Execute(func(containerPtr uintptr) error {
-		currentBounds, ok = webkit.WidgetGetBounds(containerPtr)
-		return nil
-	})
+	currentBounds, ok := webkit.WidgetGetBounds(currentFocused.container)
 	if !ok {
 		log.Printf("[workspace] unable to compute bounds for active pane")
 		return false
@@ -258,16 +259,11 @@ func (wm *WorkspaceManager) focusAdjacent(direction string) bool {
 	var debugCandidates []string
 
 	for _, candidate := range leaves {
-		if candidate == nil || candidate == currentFocused || candidate.container == nil {
+		if candidate == nil || candidate == currentFocused || candidate.container == 0 {
 			continue
 		}
-		var bounds webkit.WidgetBounds
-		var boundsOk bool
-		candidate.container.Execute(func(containerPtr uintptr) error {
-			bounds, boundsOk = webkit.WidgetGetBounds(containerPtr)
-			return nil
-		})
-		ok := boundsOk
+
+		bounds, ok := webkit.WidgetGetBounds(candidate.container)
 		if !ok {
 			continue
 		}
@@ -324,16 +320,11 @@ func (wm *WorkspaceManager) focusAdjacent(direction string) bool {
 
 // structuralNeighbor finds neighbors based on the tree structure rather than geometry
 func (wm *WorkspaceManager) structuralNeighbor(node *paneNode, direction string) *paneNode {
-	if node == nil || node.container == nil {
+	if node == nil || node.container == 0 {
 		return nil
 	}
 
-	var refBounds webkit.WidgetBounds
-	var ok bool
-	node.container.Execute(func(containerPtr uintptr) error {
-		refBounds, ok = webkit.WidgetGetBounds(containerPtr)
-		return nil
-	})
+	refBounds, ok := webkit.WidgetGetBounds(node.container)
 	if !ok {
 		return nil
 	}
@@ -379,16 +370,11 @@ func (wm *WorkspaceManager) closestLeafFromSubtree(node *paneNode, cx, cy float6
 	bestScore := math.MaxFloat64
 	var best *paneNode
 	for _, leaf := range leaves {
-		if leaf == nil || leaf.container == nil {
+		if leaf == nil || leaf.container == 0 {
 			continue
 		}
-		var bounds webkit.WidgetBounds
-		var boundsOk bool
-		leaf.container.Execute(func(containerPtr uintptr) error {
-			bounds, boundsOk = webkit.WidgetGetBounds(containerPtr)
-			return nil
-		})
-		ok := boundsOk
+
+		bounds, ok := webkit.WidgetGetBounds(leaf.container)
 		if !ok {
 			continue
 		}
