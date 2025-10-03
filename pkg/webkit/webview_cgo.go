@@ -1630,21 +1630,26 @@ func (w *WebView) Destroy() error {
 		return ErrNotImplemented
 	}
 
+	log.Printf("[webkit-destroy] begin destroy: id=%d container=%p win=%p view=%p", w.id, w.native.container, w.native.win, w.native.view)
 	// Stop periodic GC if running
 	w.stopPeriodicGC()
+	log.Printf("[webkit-destroy] periodic GC stopped: id=%d", w.id)
 
 	// Clean up memory pressure settings
 	if w.memStats != nil && w.memStats.memoryPressureSettings != nil {
 		// WebKit will clean up the memory pressure settings when context is destroyed
 		w.memStats.memoryPressureSettings = nil
+		log.Printf("[webkit-destroy] cleared memory pressure settings: id=%d", w.id)
 	}
 
 	// Unregister from memory manager
 	if globalMemoryManager != nil {
 		globalMemoryManager.UnregisterWebView(w.id)
+		log.Printf("[webkit-destroy] unregistered from memory manager: id=%d", w.id)
 	}
 
 	if w.native != nil && w.native.ucm != nil && w.domBridgeScript != nil {
+		log.Printf("[webkit-destroy] removing DOM bridge script: id=%d", w.id)
 		C.webkit_user_content_manager_remove_script(w.native.ucm, w.domBridgeScript)
 		C.webkit_user_script_unref(w.domBridgeScript)
 		w.domBridgeScript = nil
@@ -1652,6 +1657,7 @@ func (w *WebView) Destroy() error {
 
 	// GTK4: destroy windows via gtk_window_destroy if we created one
 	if w.native.win != nil && w.config != nil && w.config.CreateWindow {
+		log.Printf("[webkit-destroy] destroying GTK window: id=%d win=%p", w.id, w.native.win)
 		C.gtk_window_destroy((*C.GtkWindow)(unsafe.Pointer(w.native.win)))
 		w.native.win = nil
 		if w.window != nil {
@@ -1660,13 +1666,17 @@ func (w *WebView) Destroy() error {
 		log.Printf("[webkit] Destroy window")
 	}
 
+	log.Printf("[webkit-destroy] releasing native widgets: id=%d", w.id)
 	w.releaseNativeWidgets()
+	log.Printf("[webkit-destroy] native widgets released: id=%d", w.id)
 	w.destroyed = true
 
 	// Unregister from dynamic protection updates
 	UnregisterActiveWebView(w)
+	log.Printf("[webkit-destroy] unregistered active view: id=%d", w.id)
 
 	unregisterView(w.id)
+	log.Printf("[webkit-destroy] destroy complete: id=%d", w.id)
 	return nil
 }
 

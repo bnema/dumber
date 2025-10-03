@@ -154,12 +154,15 @@ func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *web
 					log.Printf("[workspace] Closing popup pane")
 					// Brief delay to allow any final redirects to complete
 					time.AfterFunc(200*time.Millisecond, func() {
-						webkit.IdleAdd(func() bool {
+						wm.scheduleIdleGuarded(func() bool {
+							if node == nil || !node.widgetValid {
+								return false
+							}
 							if err := wm.ClosePane(node); err != nil {
 								log.Printf("[workspace] Failed to close popup pane: %v", err)
 							}
 							return false
-						})
+						}, node)
 					})
 				} else {
 					log.Printf("[workspace] Could not find popup node for close handler")
@@ -408,12 +411,15 @@ func (wm *WorkspaceManager) handleIntentAsPopup(sourceNode *paneNode, url string
 
 		if n := wm.viewToNode[newView]; n != nil && n.isPopup {
 			time.AfterFunc(200*time.Millisecond, func() {
-				webkit.IdleAdd(func() bool {
+				wm.scheduleIdleGuarded(func() bool {
+					if n == nil || !n.widgetValid {
+						return false
+					}
 					if err := wm.ClosePane(n); err != nil {
 						log.Printf("[workspace] Failed to close popup pane: %v", err)
 					}
 					return false
-				})
+				}, n)
 			})
 		}
 	})
@@ -494,12 +500,15 @@ func (wm *WorkspaceManager) configureRelatedPopup(sourceNode *paneNode, webView 
 		log.Printf("[workspace] Popup requesting close via window.close()")
 		if n := wm.viewToNode[related]; n != nil && n.isPopup {
 			time.AfterFunc(200*time.Millisecond, func() {
-				webkit.IdleAdd(func() bool {
+				wm.scheduleIdleGuarded(func() bool {
+					if n == nil || !n.widgetValid {
+						return false
+					}
 					if err := wm.ClosePane(n); err != nil {
 						log.Printf("[workspace] Failed to close popup pane: %v", err)
 					}
 					return false
-				})
+				}, n)
 			})
 		}
 	})

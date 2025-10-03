@@ -134,8 +134,8 @@ func describePaneNode(node *paneNode) string {
 		parts = append(parts, fmt.Sprintf("split orientation=%d", node.orientation))
 	}
 
-	if node.container != nil {
-		parts = append(parts, fmt.Sprintf("widget=%#x", node.container.Ptr()))
+	if node.container != 0 {
+		parts = append(parts, fmt.Sprintf("widget=%#x", node.container))
 	}
 
 	if node.parent != nil {

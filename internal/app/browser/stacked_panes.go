@@ -130,13 +130,10 @@ func (spm *StackedPaneManager) addPaneToExistingStack(target, newLeaf *paneNode)
 	stackNode.stackedPanes[insertIndex] = newLeaf                                      // Insert new pane
 
 	// Unparent the new container before adding it to the stack (only if it has a parent)
-	if newLeaf.container != nil {
-		newLeaf.container.Execute(func(containerPtr uintptr) error {
-			if webkit.WidgetGetParent(containerPtr) != 0 {
-				webkit.WidgetUnparent(containerPtr)
-			}
-			return nil
-		})
+	if newLeaf.container != 0 && webkit.WidgetIsValid(newLeaf.container) {
+		if webkit.WidgetGetParent(newLeaf.container) != 0 {
+			webkit.WidgetUnparent(newLeaf.container)
+		}
 	}
 
 	// Insert widgets at correct position for Zellij-style layout
@@ -147,28 +144,28 @@ func (spm *StackedPaneManager) addPaneToExistingStack(target, newLeaf *paneNode)
 	if insertIndex > 0 {
 		// Insert after the previous pane's container
 		prevPane := stackNode.stackedPanes[insertIndex-1]
-		if prevPane.container != nil {
-			insertAfterWidget = prevPane.container.Ptr()
+		if prevPane.container != 0 {
+			insertAfterWidget = prevPane.container
 		}
 	}
 
 	if insertAfterWidget != 0 {
 		// Insert titleBar after the previous pane's container
-		if stackNode.stackWrapper != nil && newLeaf.titleBar != nil {
-			webkit.BoxInsertChildAfter(stackNode.stackWrapper.Ptr(), newLeaf.titleBar.Ptr(), insertAfterWidget)
+		if stackNode.stackWrapper != 0 && newLeaf.titleBar != 0 {
+			webkit.BoxInsertChildAfter(stackNode.stackWrapper, newLeaf.titleBar, insertAfterWidget)
 		}
 		// Insert container after the newly inserted titleBar
-		if stackNode.stackWrapper != nil && newLeaf.container != nil && newLeaf.titleBar != nil {
-			webkit.BoxInsertChildAfter(stackNode.stackWrapper.Ptr(), newLeaf.container.Ptr(), newLeaf.titleBar.Ptr())
+		if stackNode.stackWrapper != 0 && newLeaf.container != 0 && newLeaf.titleBar != 0 {
+			webkit.BoxInsertChildAfter(stackNode.stackWrapper, newLeaf.container, newLeaf.titleBar)
 		}
 		log.Printf("[workspace] inserted widgets at position %d (after widget %#x)", insertIndex, insertAfterWidget)
 	} else {
 		// Insert at the beginning (insertIndex = 0)
-		if stackNode.stackWrapper != nil && newLeaf.container != nil {
-			webkit.BoxPrepend(stackNode.stackWrapper.Ptr(), newLeaf.container.Ptr())
+		if stackNode.stackWrapper != 0 && newLeaf.container != 0 {
+			webkit.BoxPrepend(stackNode.stackWrapper, newLeaf.container)
 		}
-		if stackNode.stackWrapper != nil && newLeaf.titleBar != nil {
-			webkit.BoxPrepend(stackNode.stackWrapper.Ptr(), newLeaf.titleBar.Ptr())
+		if stackNode.stackWrapper != 0 && newLeaf.titleBar != 0 {
+			webkit.BoxPrepend(stackNode.stackWrapper, newLeaf.titleBar)
 		}
 		log.Printf("[workspace] prepended widgets at position 0")
 	}
@@ -218,8 +215,8 @@ func (spm *StackedPaneManager) convertToStackedContainer(target, newLeaf *paneNo
 
 	// Build the complete stack structure with hidden widgets
 	webkit.BoxAppend(stackInternalBox, titleBar)
-	if existingContainer != nil {
-		webkit.BoxAppend(stackInternalBox, existingContainer.Ptr())
+	if existingContainer != 0 {
+		webkit.BoxAppend(stackInternalBox, existingContainer)
 	}
 
 	// Immediately reattach the stack wrapper to minimize visibility gap
@@ -267,27 +264,24 @@ func (spm *StackedPaneManager) convertToStackedContainer(target, newLeaf *paneNo
 
 	// Unparent the new container before adding it to the stack
 	// This is critical: even freshly created WebViews might have internal parent refs
-	if newLeaf.container != nil {
-		newLeaf.container.Execute(func(containerPtr uintptr) error {
-			parent := webkit.WidgetGetParent(containerPtr)
-			if parent != 0 {
-				log.Printf("[workspace] unparenting new pane container %#x from parent %#x before stack append", containerPtr, parent)
-				webkit.WidgetUnparent(containerPtr)
-				// Verify unparent succeeded
-				if finalParent := webkit.WidgetGetParent(containerPtr); finalParent != 0 {
-					log.Printf("[workspace] WARNING: container %#x still has parent %#x after unparent", containerPtr, finalParent)
-				}
+	if newLeaf.container != 0 && webkit.WidgetIsValid(newLeaf.container) {
+		parent := webkit.WidgetGetParent(newLeaf.container)
+		if parent != 0 {
+			log.Printf("[workspace] unparenting new pane container %#x from parent %#x before stack append", newLeaf.container, parent)
+			webkit.WidgetUnparent(newLeaf.container)
+			// Verify unparent succeeded
+			if finalParent := webkit.WidgetGetParent(newLeaf.container); finalParent != 0 {
+				log.Printf("[workspace] WARNING: container %#x still has parent %#x after unparent", newLeaf.container, finalParent)
 			}
-			return nil
-		})
+		}
 	}
 
 	// Add the new widgets to the internal stack box
-	if stackNode.stackWrapper != nil && newLeaf.titleBar != nil {
-		webkit.BoxAppend(stackNode.stackWrapper.Ptr(), newLeaf.titleBar.Ptr())
+	if stackNode.stackWrapper != 0 && newLeaf.titleBar != 0 {
+		webkit.BoxAppend(stackNode.stackWrapper, newLeaf.titleBar)
 	}
-	if stackNode.stackWrapper != nil && newLeaf.container != nil {
-		webkit.BoxAppend(stackNode.stackWrapper.Ptr(), newLeaf.container.Ptr())
+	if stackNode.stackWrapper != 0 && newLeaf.container != 0 {
+		webkit.BoxAppend(stackNode.stackWrapper, newLeaf.container)
 	}
 
 	return stackNode, insertIndex, nil
@@ -301,24 +295,18 @@ func (spm *StackedPaneManager) detachFromParent(target *paneNode, parent *paneNo
 			spm.wm.window.SetChild(0)
 		}
 		// Unparent if it has a GTK parent
-		if target.container != nil {
-			target.container.Execute(func(containerPtr uintptr) error {
-				if webkit.WidgetGetParent(containerPtr) != 0 {
-					webkit.WidgetUnparent(containerPtr)
-				}
-				return nil
-			})
-		}
-	} else if parent.container != nil {
-		// Target has a parent paned - remove it (automatically unparents in GTK4)
-		parent.container.Execute(func(panedPtr uintptr) error {
-			if parent.left == target {
-				webkit.PanedSetStartChild(panedPtr, 0)
-			} else if parent.right == target {
-				webkit.PanedSetEndChild(panedPtr, 0)
+		if target.container != 0 && webkit.WidgetIsValid(target.container) {
+			if webkit.WidgetGetParent(target.container) != 0 {
+				webkit.WidgetUnparent(target.container)
 			}
-			return nil
-		})
+		}
+	} else if parent.container != 0 && webkit.WidgetIsValid(parent.container) {
+		// Target has a parent paned - remove it (automatically unparents in GTK4)
+		if parent.left == target {
+			webkit.PanedSetStartChild(parent.container, 0)
+		} else if parent.right == target {
+			webkit.PanedSetEndChild(parent.container, 0)
+		}
 	}
 }
 
@@ -328,15 +316,12 @@ func (spm *StackedPaneManager) reattachToParent(container uintptr, target *paneN
 		if spm.wm.window != nil {
 			spm.wm.window.SetChild(container)
 		}
-	} else if parent.container != nil {
-		parent.container.Execute(func(panedPtr uintptr) error {
-			if parent.left == target {
-				webkit.PanedSetStartChild(panedPtr, container)
-			} else if parent.right == target {
-				webkit.PanedSetEndChild(panedPtr, container)
-			}
-			return nil
-		})
+	} else if parent.container != 0 && webkit.WidgetIsValid(parent.container) {
+		if parent.left == target {
+			webkit.PanedSetStartChild(parent.container, container)
+		} else if parent.right == target {
+			webkit.PanedSetEndChild(parent.container, container)
+		}
 	}
 }
 
@@ -357,7 +342,7 @@ func (spm *StackedPaneManager) finalizeStackCreation(stackNode, newLeaf *paneNod
 	currentActiveIndex := stackNode.activeStackIndex
 	if currentActiveIndex >= 0 && currentActiveIndex < len(stackNode.stackedPanes) && currentActiveIndex != insertIndex {
 		currentlyActivePane := stackNode.stackedPanes[currentActiveIndex]
-		if currentlyActivePane.pane != nil && currentlyActivePane.pane.webView != nil && currentlyActivePane.titleBar != nil {
+		if currentlyActivePane.pane != nil && currentlyActivePane.pane.webView != nil && currentlyActivePane.titleBar != 0 {
 			currentTitle := currentlyActivePane.pane.webView.GetTitle()
 			if currentTitle != "" {
 				spm.updateTitleBarLabel(currentlyActivePane, currentTitle)
@@ -410,20 +395,20 @@ func (spm *StackedPaneManager) UpdateStackVisibility(stackNode *paneNode) {
 	for i, pane := range stackNode.stackedPanes {
 		if i == activeIndex {
 			// Active pane: show container, NEVER show title bar
-			if pane.container != nil {
-				webkit.WidgetSetVisible(pane.container.Ptr(), true)
+			if pane.container != 0 {
+				webkit.WidgetSetVisible(pane.container, true)
 			}
-			if pane.titleBar != nil {
-				webkit.WidgetSetVisible(pane.titleBar.Ptr(), false) // ABSOLUTE RULE: never visible for active pane
+			if pane.titleBar != 0 {
+				webkit.WidgetSetVisible(pane.titleBar, false) // ABSOLUTE RULE: never visible for active pane
 			}
 			log.Printf("[workspace] active pane %d: container=visible, titleBar=HIDDEN", i)
 		} else {
 			// Inactive panes: hide container, show title bar
-			if pane.container != nil {
-				webkit.WidgetSetVisible(pane.container.Ptr(), false)
+			if pane.container != 0 {
+				webkit.WidgetSetVisible(pane.container, false)
 			}
-			if pane.titleBar != nil {
-				webkit.WidgetSetVisible(pane.titleBar.Ptr(), true)
+			if pane.titleBar != 0 {
+				webkit.WidgetSetVisible(pane.titleBar, true)
 			}
 		}
 	}
@@ -486,7 +471,7 @@ func (spm *StackedPaneManager) NavigateStack(direction string) bool {
 	// Update title bar for the pane transitioning from ACTIVE to INACTIVE
 	// This ensures the collapsed pane shows its current page title (Zellij-style layout)
 	currentActivePane := stackNode.stackedPanes[currentIndex]
-	if currentActivePane.pane != nil && currentActivePane.pane.webView != nil && currentActivePane.titleBar != nil {
+	if currentActivePane.pane != nil && currentActivePane.pane.webView != nil && currentActivePane.titleBar != 0 {
 		currentTitle := currentActivePane.pane.webView.GetTitle()
 		if currentTitle != "" {
 			spm.updateTitleBarLabel(currentActivePane, currentTitle)
@@ -561,7 +546,7 @@ func (spm *StackedPaneManager) UpdateTitleBar(webView *webkit.WebView, title str
 	}
 
 	// Check if this pane is in a stack and has a title bar
-	if node.parent != nil && node.parent.isStacked && node.titleBar != nil {
+	if node.parent != nil && node.parent.isStacked && node.titleBar != 0 {
 		// CRITICAL: Only update title bar for INACTIVE panes
 		// Active panes should never show their title bar
 		stackNode := node.parent
@@ -589,7 +574,7 @@ func (spm *StackedPaneManager) UpdateTitleBar(webView *webkit.WebView, title str
 
 // updateTitleBarLabel updates the label widget within a title bar by recreating it
 func (spm *StackedPaneManager) updateTitleBarLabel(node *paneNode, title string) {
-	if node == nil || node.titleBar == nil || node.parent == nil || !node.parent.isStacked {
+	if node == nil || node.titleBar == 0 || node.parent == nil || !node.parent.isStacked {
 		return
 	}
 
@@ -607,7 +592,7 @@ func (spm *StackedPaneManager) updateTitleBarLabel(node *paneNode, title string)
 	}
 
 	// Replace the old title bar in the stack
-	if node.parent != nil && node.parent.isStacked && node.parent.stackWrapper != nil {
+	if node.parent != nil && node.parent.isStacked && node.parent.stackWrapper != 0 {
 		// Find the correct insertion position based on the pane's index in the stack
 		paneIndex := -1
 		for i, stackedPane := range node.parent.stackedPanes {
@@ -618,11 +603,8 @@ func (spm *StackedPaneManager) updateTitleBarLabel(node *paneNode, title string)
 		}
 
 		// Remove old title bar
-		if node.titleBar != nil {
-			node.titleBar.Execute(func(titleBarPtr uintptr) error {
-				webkit.WidgetUnparent(titleBarPtr)
-				return nil
-			})
+		if node.titleBar != 0 && webkit.WidgetIsValid(node.titleBar) {
+			webkit.WidgetUnparent(node.titleBar)
 		}
 
 		// Update the node's title bar reference
@@ -631,14 +613,14 @@ func (spm *StackedPaneManager) updateTitleBarLabel(node *paneNode, title string)
 		// Insert the new title bar at the correct position
 		if paneIndex == 0 {
 			// First pane - insert at the beginning
-			if node.parent.stackWrapper != nil {
-				webkit.BoxPrepend(node.parent.stackWrapper.Ptr(), newTitleBar)
+			if node.parent.stackWrapper != 0 {
+				webkit.BoxPrepend(node.parent.stackWrapper, newTitleBar)
 			}
 		} else {
 			// Insert after the previous pane's container
 			prevPane := node.parent.stackedPanes[paneIndex-1]
-			if node.parent.stackWrapper != nil && prevPane.container != nil {
-				webkit.BoxInsertChildAfter(node.parent.stackWrapper.Ptr(), newTitleBar, prevPane.container.Ptr())
+			if node.parent.stackWrapper != 0 && prevPane.container != 0 {
+				webkit.BoxInsertChildAfter(node.parent.stackWrapper, newTitleBar, prevPane.container)
 			}
 		}
 
@@ -674,15 +656,18 @@ func (spm *StackedPaneManager) createTitleBarWithTitle(title string) uintptr {
 	return titleBox
 }
 
-// CloseStackedPane handles closing a pane that is part of a stack
+// CloseStackedPane handles closing a pane that is part of a stack.
+// The logic mirrors the regular close path: we rebuild the tree, update focus,
+// and let WorkspaceManager perform the actual cleanup/destroy work so that all
+// bookkeeping stays consistent.
 func (spm *StackedPaneManager) CloseStackedPane(node *paneNode) error {
-	if node.parent == nil || !node.parent.isStacked {
+	if node == nil || node.parent == nil || !node.parent.isStacked {
 		return errors.New("node is not part of a stacked pane")
 	}
 
 	stackNode := node.parent
 
-	// Find the index of the node to be closed
+	// Locate the pane inside the stack slice.
 	nodeIndex := -1
 	for i, stackedPane := range stackNode.stackedPanes {
 		if stackedPane == node {
@@ -690,155 +675,162 @@ func (spm *StackedPaneManager) CloseStackedPane(node *paneNode) error {
 			break
 		}
 	}
-
 	if nodeIndex == -1 {
 		return errors.New("node not found in stack")
 	}
 
 	log.Printf("[workspace] closing stacked pane: index=%d stackSize=%d", nodeIndex, len(stackNode.stackedPanes))
 
-	// Clean up the pane
-	spm.wm.detachHover(node)
-	node.pane.CleanupFromWorkspace(spm.wm)
+	// Detach hover/focus controllers before tearing down widgets to avoid GTK
+	// callbacks referencing freed memory during destruction.
+	if spm.wm != nil {
+		spm.wm.detachHover(node)
+		spm.wm.detachFocus(node)
+	}
 
-	// Remove the pane's widgets from the stack container
-	var stackBox *SafeWidget = stackNode.stackWrapper
-	if stackBox == nil {
+	// Remove the pane widgets from the stack container before mutating the tree.
+	stackBox := stackNode.stackWrapper
+	if stackBox == 0 {
 		stackBox = stackNode.container
 	}
-
-	if stackBox != nil {
-		if node.titleBar != nil {
-			webkit.BoxRemove(stackBox.Ptr(), node.titleBar.Ptr())
+	if stackBox != 0 {
+		if node.titleBar != 0 {
+			webkit.BoxRemove(stackBox, node.titleBar)
 		}
-		if node.container != nil {
-			webkit.BoxRemove(stackBox.Ptr(), node.container.Ptr())
+		if node.container != 0 {
+			webkit.BoxRemove(stackBox, node.container)
 		}
 	}
 
-	// Clean up the pane
-	node.pane.Cleanup()
-
-	// Remove from the stack
+	// Remove the pane from the stack slice.
 	stackNode.stackedPanes = append(stackNode.stackedPanes[:nodeIndex], stackNode.stackedPanes[nodeIndex+1:]...)
 
-	// Handle the remaining panes in the stack
-	if len(stackNode.stackedPanes) == 0 {
-		// No panes left in stack - this should not happen normally
-		log.Printf("[workspace] warning: empty stack after closing pane")
-		return errors.New("stack became empty")
-	} else if len(stackNode.stackedPanes) == 1 {
-		// Only one pane left - convert back to a regular pane
+	switch len(stackNode.stackedPanes) {
+	case 0:
+		// Stack container is now empty: remove it from the layout entirely.
+		parent := stackNode.parent
+		if parent == nil {
+			// Stack was the root of the workspace — closing this pane exits the app.
+			if stackNode.container != 0 && webkit.WidgetIsValid(stackNode.container) {
+				if webkit.WidgetGetParent(stackNode.container) != 0 {
+					webkit.WidgetUnparent(stackNode.container)
+				}
+			}
+			if spm.wm.window != nil {
+				spm.wm.window.SetChild(0)
+			}
+			_, err := spm.wm.cleanupAndExit(node)
+			return err
+		}
+
+		// Detach the empty stack container from its GtkPaned parent.
+		if parent.container != 0 && webkit.WidgetIsValid(parent.container) {
+			if parent.left == stackNode {
+				webkit.PanedSetStartChild(parent.container, 0)
+			} else if parent.right == stackNode {
+				webkit.PanedSetEndChild(parent.container, 0)
+			}
+			webkit.WidgetQueueAllocate(parent.container)
+		}
+		if stackNode.container != 0 && webkit.WidgetIsValid(stackNode.container) {
+			if webkit.WidgetGetParent(stackNode.container) != 0 {
+				webkit.WidgetUnparent(stackNode.container)
+			}
+		}
+
+		sibling := spm.wm.getSibling(stackNode)
+		grandparent := parent.parent
+
+		spm.wm.promoteSibling(grandparent, parent, sibling)
+		spm.wm.swapContainers(grandparent, sibling)
+
+		generation := spm.wm.nextCleanupGeneration()
+		spm.wm.cleanupPane(node, generation)
+		spm.wm.decommissionParent(parent, generation)
+
+		if sibling != nil {
+			spm.wm.setFocusToLeaf(sibling)
+		} else {
+			spm.wm.updateMainPane()
+		}
+
+		stackNode.parent = nil
+		stackNode.container = 0
+		stackNode.stackWrapper = 0
+		stackNode.stackedPanes = nil
+
+		return nil
+
+	case 1:
+		// Promote the remaining pane back to a regular leaf node.
 		lastPane := stackNode.stackedPanes[0]
 		parent := stackNode.parent
 		lastPaneContainer := lastPane.container
 
-		// Remove the title bar since we're going back to single pane
-		if lastPane.titleBar != nil && stackBox != nil {
-			webkit.BoxRemove(stackBox.Ptr(), lastPane.titleBar.Ptr())
+		if lastPane.titleBar != 0 && stackBox != 0 {
+			webkit.BoxRemove(stackBox, lastPane.titleBar)
+		}
+		if stackBox != 0 && lastPaneContainer != 0 {
+			webkit.BoxRemove(stackBox, lastPaneContainer)
+		}
+		if stackNode.container != 0 && webkit.WidgetIsValid(stackNode.container) {
+			if webkit.WidgetGetParent(stackNode.container) != 0 {
+				webkit.WidgetUnparent(stackNode.container)
+			}
 		}
 
-		// Unparent the pane container from stack wrapper
-		if stackBox != nil && lastPaneContainer != nil {
-			webkit.BoxRemove(stackBox.Ptr(), lastPaneContainer.Ptr())
-		}
-
-		// CRITICAL FIX: Replace the stackNode completely with lastPane
-		// Update parent child references FIRST
 		if parent == nil {
 			spm.wm.root = lastPane
-			if spm.wm.window != nil && lastPaneContainer != nil {
-				spm.wm.window.SetChild(lastPaneContainer.Ptr())
+			lastPane.parent = nil
+			if spm.wm.window != nil && lastPaneContainer != 0 {
+				spm.wm.window.SetChild(lastPaneContainer)
+				webkit.WidgetQueueAllocate(lastPaneContainer)
+				webkit.WidgetShow(lastPaneContainer)
 			}
 		} else {
 			if parent.left == stackNode {
 				parent.left = lastPane
-				if parent.container != nil && lastPaneContainer != nil {
-					parent.container.Execute(func(panedPtr uintptr) error {
-						webkit.PanedSetStartChild(panedPtr, lastPaneContainer.Ptr())
-						return nil
-					})
-				}
 			} else if parent.right == stackNode {
 				parent.right = lastPane
-				if parent.container != nil && lastPaneContainer != nil {
-					parent.container.Execute(func(panedPtr uintptr) error {
-						webkit.PanedSetEndChild(panedPtr, lastPaneContainer.Ptr())
-						return nil
-					})
+			}
+			lastPane.parent = parent
+			if parent.container != 0 && webkit.WidgetIsValid(parent.container) && lastPaneContainer != 0 {
+				if parent.left == lastPane {
+					webkit.PanedSetStartChild(parent.container, lastPaneContainer)
+				} else {
+					webkit.PanedSetEndChild(parent.container, lastPaneContainer)
 				}
+				webkit.WidgetQueueAllocate(parent.container)
+			}
+			if lastPaneContainer != 0 {
+				webkit.WidgetSetVisible(lastPaneContainer, true)
 			}
 		}
 
-		// Convert lastPane back to regular pane
-		lastPane.parent = parent
 		lastPane.isStacked = false
 		lastPane.stackedPanes = nil
-		lastPane.titleBar = nil
-
-		// CRITICAL: Ensure the container is visible after reparenting
-		// The container may have been hidden during stack operations
-		if lastPaneContainer != nil {
-			webkit.WidgetSetVisible(lastPaneContainer.Ptr(), true)
-		}
-
-		// Update the viewToNode mapping to point to the lastPane, not stackNode
+		lastPane.titleBar = 0
 		spm.wm.viewToNode[lastPane.pane.webView] = lastPane
 
-		// FIXED: Focus the remaining pane if any pane from this stack was currently focused
-		// Check if currentlyFocused is part of this stack (including the pane being closed)
-		shouldFocus := false
-		currentlyFocused := spm.wm.GetActiveNode()
-		if currentlyFocused != nil {
-			log.Printf("[workspace] DEBUG: currentlyFocused=%p, node being closed=%p, lastPane=%p",
-				currentlyFocused, node, lastPane)
-			// Check if currentlyFocused is the pane being closed
-			if currentlyFocused == node {
-				shouldFocus = true
-				log.Printf("[workspace] DEBUG: shouldFocus=true (closing focused pane)")
-			} else if currentlyFocused.parent == stackNode {
-				// Check if currentlyFocused is another pane in this stack
-				shouldFocus = true
-				log.Printf("[workspace] DEBUG: shouldFocus=true (focused pane in same stack)")
-			}
+		generation := spm.wm.nextCleanupGeneration()
+		spm.wm.cleanupPane(node, generation)
+
+		spm.wm.SetActivePane(lastPane, SourceClose)
+		if lastPaneWidget := lastPane.pane.webView.Widget(); lastPaneWidget != 0 {
+			webkit.WidgetShow(lastPaneWidget)
+			webkit.WidgetGrabFocus(lastPaneWidget)
 		}
 
-		if shouldFocus {
-			log.Printf("[workspace] focusing remaining pane after stack conversion")
+		stackNode.parent = nil
+		stackNode.container = 0
+		stackNode.stackWrapper = 0
+		stackNode.stackedPanes = nil
 
-			// Log widget state before focus operations
-			if lastPaneWidget := lastPane.pane.webView.Widget(); lastPaneWidget != 0 {
-				visible := webkit.WidgetGetVisible(lastPaneWidget)
-				log.Printf("[workspace] Widget state before focus: widget=%#x visible=%v",
-					lastPaneWidget, visible)
-			}
+		log.Printf("[workspace] converted stack back to regular pane")
+		return nil
 
-			// Mirror the exact logic from finalizeStackCreation that works perfectly:
-			// 1. First call SetActivePane (this does all the focus work)
-			// 2. Then set currentlyFocused
-			spm.wm.SetActivePane(lastPane, SourceClose)
-
-			// CRITICAL: Ensure widget visibility and focus after reparenting
-			// The widget may need explicit show/focus calls after being reparented
-			if lastPaneWidget := lastPane.pane.webView.Widget(); lastPaneWidget != 0 {
-				log.Printf("[workspace] Ensuring widget visibility after reparenting")
-				webkit.WidgetShow(lastPaneWidget)
-				webkit.WidgetGrabFocus(lastPaneWidget)
-
-				// Log widget state after focus operations
-				visible := webkit.WidgetGetVisible(lastPaneWidget)
-				log.Printf("[workspace] Widget state after focus: widget=%#x visible=%v",
-					lastPaneWidget, visible)
-			}
-
-			log.Printf("[workspace] DEBUG: applied finalizeStackCreation focus logic in reverse")
-		} else {
-			log.Printf("[workspace] DEBUG: not focusing remaining pane (shouldFocus=false)")
-		}
-
-		log.Printf("[workspace] converted single-pane stack back to regular pane")
-	} else {
-		// Multiple panes remain in stack - adjust active index
+	default:
+		// Still multiple panes in stack — adjust active index and visibility.
 		if stackNode.activeStackIndex >= nodeIndex && stackNode.activeStackIndex > 0 {
 			stackNode.activeStackIndex--
 		}
@@ -846,20 +838,17 @@ func (spm *StackedPaneManager) CloseStackedPane(node *paneNode) error {
 			stackNode.activeStackIndex = len(stackNode.stackedPanes) - 1
 		}
 
-		// Update visibility for remaining panes
 		spm.UpdateStackVisibility(stackNode)
-
-		// Focus the new active pane if we closed the currently active one
 		if spm.wm.GetActiveNode() == node {
-			newActivePaneInStack := stackNode.stackedPanes[stackNode.activeStackIndex]
-			spm.wm.SetActivePane(newActivePaneInStack, SourceClose)
+			newActivePane := stackNode.stackedPanes[stackNode.activeStackIndex]
+			spm.wm.SetActivePane(newActivePane, SourceClose)
 		}
+
+		generation := spm.wm.nextCleanupGeneration()
+		spm.wm.cleanupPane(node, generation)
 
 		log.Printf("[workspace] closed pane from stack: remaining=%d activeIndex=%d",
 			len(stackNode.stackedPanes), stackNode.activeStackIndex)
+		return nil
 	}
-
-	log.Printf("[workspace] stacked pane closed; panes remaining=%d", len(spm.wm.app.panes))
-
-	return nil
 }

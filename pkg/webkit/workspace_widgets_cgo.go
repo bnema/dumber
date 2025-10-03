@@ -43,8 +43,12 @@ static gboolean idle_callback_wrapper(gpointer data) {
     return goIdleCallback((uintptr_t)data);
 }
 
-static void add_idle_callback(uintptr_t handle) {
-    g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, idle_callback_wrapper, (gpointer)handle, NULL);
+static guint add_idle_callback(uintptr_t handle) {
+    return g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, idle_callback_wrapper, (gpointer)handle, NULL);
+}
+
+static gboolean remove_idle_callback(uintptr_t handle) {
+    return g_idle_remove_by_data((gpointer)handle);
 }
 
 static void motion_enter_cb(GtkEventControllerMotion* controller, gdouble x, gdouble y, gpointer user_data) {
@@ -817,11 +821,27 @@ var (
 )
 
 // IdleAdd schedules a function to be called when the main loop is idle.
-func IdleAdd(fn func() bool) {
+func IdleAdd(fn func() bool) uintptr {
+	if fn == nil {
+		return 0
+	}
 	id := nextIdleID
 	nextIdleID++
 	idleCallbacks[id] = fn
-	C.add_idle_callback(C.uintptr_t(id))
+	if C.add_idle_callback(C.uintptr_t(id)) == 0 {
+		delete(idleCallbacks, id)
+		return 0
+	}
+	return id
+}
+
+// IdleRemove cancels a previously scheduled idle callback.
+func IdleRemove(handle uintptr) {
+	if handle == 0 {
+		return
+	}
+	C.remove_idle_callback(C.uintptr_t(handle))
+	delete(idleCallbacks, handle)
 }
 
 // IterateMainLoop processes a single GTK main loop iteration and reports if work was handled.

@@ -16,44 +16,42 @@ func (wm *WorkspaceManager) SplitPane(target *paneNode, direction string) (*pane
 
 	log.Printf("[workspace] Starting split operation: target=%p direction=%s", target, direction)
 
-	// Step 1: Capture state tombstone for rollback
-	tombstone, err := wm.stateTombstoneManager.CaptureState("split")
-	if err != nil {
-		log.Printf("[workspace] Failed to capture state tombstone: %v", err)
-		// Continue anyway - tombstone is for rollback safety
+	// Step 1: Validate geometry constraints (only in DebugBasic+)
+	if wm.debugLevel >= DebugBasic {
+		validation := wm.geometryValidator.ValidateSplit(target, direction)
+		if !validation.IsValid {
+			if wm.debugLevel == DebugFull {
+				return nil, fmt.Errorf("split validation failed: %s", validation.Reason)
+			}
+			log.Printf("[workspace] WARNING: Split validation failed but allowing operation: %s", validation.Reason)
+		}
+
+		// Log if re-validation will be needed due to pending widget allocation
+		if validation.RequiresRevalidation {
+			log.Printf("[workspace] Split validation passed with pending allocation - operation will proceed")
+		}
+
+		// Step 3: Validate tree invariants before operation
+		if err := wm.treeValidator.ValidateTree(wm.root, "before_split"); err != nil {
+			if wm.debugLevel == DebugFull {
+				return nil, fmt.Errorf("tree validation failed before split: %w", err)
+			}
+			log.Printf("[workspace] WARNING: Tree validation failed before split but allowing operation: %v", err)
+		}
 	}
 
-	// Step 2: Validate geometry constraints
-	validation := wm.geometryValidator.ValidateSplit(target, direction)
-	if !validation.IsValid {
-		return nil, fmt.Errorf("split validation failed: %s", validation.Reason)
-	}
-
-	// Log if re-validation will be needed due to pending widget allocation
-	if validation.RequiresRevalidation {
-		log.Printf("[workspace] Split validation passed with pending allocation - operation will proceed")
-	}
-
-	// Step 3: Validate tree invariants before operation
-	if err := wm.treeValidator.ValidateTree(wm.root, "before_split"); err != nil {
-		return nil, fmt.Errorf("tree validation failed before split: %w", err)
-	}
-
-	// Step 4: Execute directly if we're already on the GTK main thread
+	// Step 2: Execute directly if we're already on the GTK main thread
 	if webkit.IsMainThread() {
 		log.Printf("[workspace] Already on main thread, executing split directly")
 		newNode, err := wm.splitNode(target, direction)
 		if err != nil {
-			if tombstone != nil {
-				if rollbackErr := wm.stateTombstoneManager.RestoreState(tombstone.ID); rollbackErr != nil {
-					log.Printf("[workspace] Rollback failed after split failure: %v", rollbackErr)
-				}
-			}
 			return nil, err
 		}
 
-		if err := wm.treeValidator.ValidateTree(wm.root, "after_split"); err != nil {
-			log.Printf("[workspace] Tree validation failed after split: %v", err)
+		if wm.debugLevel >= DebugBasic {
+			if err := wm.treeValidator.ValidateTree(wm.root, "after_split"); err != nil {
+				log.Printf("[workspace] Tree validation failed after split: %v", err)
+			}
 		}
 
 		// Tree rebalancing is only needed after close promotions. Splits have correct allocation from GTK.
@@ -62,23 +60,19 @@ func (wm *WorkspaceManager) SplitPane(target *paneNode, direction string) (*pane
 		return newNode, nil
 	}
 
-	// Step 5: Not on main thread, marshal via IdleAdd
+	// Step 3: Not on main thread, marshal via IdleAdd
 	log.Printf("[workspace] Not on main thread, marshalling split via IdleAdd")
 	var newNode *paneNode
 	var splitErr error
 	done := make(chan struct{})
 
-	webkit.IdleAdd(func() bool {
+	_ = webkit.IdleAdd(func() bool {
 		newNode, splitErr = wm.splitNode(target, direction)
-		if splitErr != nil {
-			if tombstone != nil {
-				if rollbackErr := wm.stateTombstoneManager.RestoreState(tombstone.ID); rollbackErr != nil {
-					log.Printf("[workspace] Rollback failed after split failure: %v", rollbackErr)
+		if splitErr == nil {
+			if wm.debugLevel >= DebugBasic {
+				if verr := wm.treeValidator.ValidateTree(wm.root, "after_split"); verr != nil {
+					log.Printf("[workspace] Tree validation failed after split: %v", verr)
 				}
-			}
-		} else {
-			if verr := wm.treeValidator.ValidateTree(wm.root, "after_split"); verr != nil {
-				log.Printf("[workspace] Tree validation failed after split: %v", verr)
 			}
 		}
 		close(done)
@@ -105,15 +99,14 @@ func (wm *WorkspaceManager) ClosePane(node *paneNode) error {
 	wm.paneCloseLogf("start bulletproof close node=%p", node)
 	wm.dumpTreeState("before_close")
 
-	// Step 1: Capture state tombstone for rollback
-	tombstone, err := wm.stateTombstoneManager.CaptureState("close")
-	if err != nil {
-		log.Printf("[workspace] Failed to capture state tombstone: %v", err)
-	}
-
-	// Step 2: Validate tree invariants before operation
-	if err := wm.treeValidator.ValidateTree(wm.root, "before_close"); err != nil {
-		return fmt.Errorf("tree validation failed before close: %w", err)
+	// Step 1: Validate tree invariants before operation (only in DebugBasic+)
+	if wm.debugLevel >= DebugBasic {
+		if err := wm.treeValidator.ValidateTree(wm.root, "before_close"); err != nil {
+			if wm.debugLevel == DebugFull {
+				return fmt.Errorf("tree validation failed before close: %w", err)
+			}
+			log.Printf("[workspace] WARNING: Tree validation failed before close but allowing operation: %v", err)
+		}
 	}
 
 	// Step 3: Check if this is a stacked pane and use enhanced lifecycle management
@@ -131,16 +124,13 @@ func (wm *WorkspaceManager) ClosePane(node *paneNode) error {
 		if err != nil {
 			wm.paneCloseLogf("closePane failed node=%p err=%v", node, err)
 			wm.dumpTreeState("after_close_error")
-			if tombstone != nil {
-				if rollbackErr := wm.stateTombstoneManager.RestoreState(tombstone.ID); rollbackErr != nil {
-					log.Printf("[workspace] Rollback failed after close failure: %v", rollbackErr)
-				}
-			}
 			return err
 		}
 
-		if err := wm.treeValidator.ValidateTree(wm.root, "after_close"); err != nil {
-			log.Printf("[workspace] Tree validation failed after close: %v", err)
+		if wm.debugLevel >= DebugBasic {
+			if err := wm.treeValidator.ValidateTree(wm.root, "after_close"); err != nil {
+				log.Printf("[workspace] Tree validation failed after close: %v", err)
+			}
 		}
 		wm.paneCloseLogf("closePane succeeded node=%p promoted=%p root=%p", node, promoted, wm.root)
 		wm.dumpTreeState("after_close_success")
@@ -161,20 +151,17 @@ func (wm *WorkspaceManager) ClosePane(node *paneNode) error {
 	var closeErr error
 	done := make(chan struct{})
 
-	webkit.IdleAdd(func() bool {
+	_ = webkit.IdleAdd(func() bool {
 		wm.paneCloseLogf("invoking closePane node=%p", node)
 		promoted, closeErr = wm.closePane(node)
 		if closeErr != nil {
 			wm.paneCloseLogf("closePane failed node=%p err=%v", node, closeErr)
 			wm.dumpTreeState("after_close_error")
-			if tombstone != nil {
-				if rollbackErr := wm.stateTombstoneManager.RestoreState(tombstone.ID); rollbackErr != nil {
-					log.Printf("[workspace] Rollback failed after close failure: %v", rollbackErr)
-				}
-			}
 		} else {
-			if verr := wm.treeValidator.ValidateTree(wm.root, "after_close"); verr != nil {
-				log.Printf("[workspace] Tree validation failed after close: %v", verr)
+			if wm.debugLevel >= DebugBasic {
+				if verr := wm.treeValidator.ValidateTree(wm.root, "after_close"); verr != nil {
+					log.Printf("[workspace] Tree validation failed after close: %v", verr)
+				}
 			}
 			wm.paneCloseLogf("closePane succeeded node=%p promoted=%p root=%p", node, promoted, wm.root)
 			wm.dumpTreeState("after_close_success")
@@ -207,66 +194,63 @@ func (wm *WorkspaceManager) StackPane(target *paneNode) (*paneNode, error) {
 
 	log.Printf("[workspace] Starting stack operation: target=%p", target)
 
-	// Step 1: Validate stack operation constraints
-	validation := wm.geometryValidator.ValidateStackOperation(target)
-	if !validation.IsValid {
-		return nil, fmt.Errorf("stack validation failed: %s", validation.Reason)
+	// Step 1: Validate stack operation constraints (only in DebugBasic+)
+	if wm.debugLevel >= DebugBasic {
+		validation := wm.geometryValidator.ValidateStackOperation(target)
+		if !validation.IsValid {
+			if wm.debugLevel == DebugFull {
+				return nil, fmt.Errorf("stack validation failed: %s", validation.Reason)
+			}
+			log.Printf("[workspace] WARNING: Stack validation failed but allowing operation: %s", validation.Reason)
+		}
+
+		// Log if re-validation will be needed due to pending widget allocation
+		if validation.RequiresRevalidation {
+			log.Printf("[workspace] Stack validation passed with pending allocation - operation will proceed")
+		}
 	}
 
-	// Log if re-validation will be needed due to pending widget allocation
-	if validation.RequiresRevalidation {
-		log.Printf("[workspace] Stack validation passed with pending allocation - operation will proceed")
+	// Step 2: Validate tree invariants before operation (only in DebugBasic+)
+	if wm.debugLevel >= DebugBasic {
+		if err := wm.treeValidator.ValidateTree(wm.root, "before_stack"); err != nil {
+			if wm.debugLevel == DebugFull {
+				return nil, fmt.Errorf("tree validation failed before stack: %w", err)
+			}
+			log.Printf("[workspace] WARNING: Tree validation failed before stack but allowing operation: %v", err)
+		}
 	}
 
-	// Step 2: Capture state tombstone for rollback
-	tombstone, err := wm.stateTombstoneManager.CaptureState("stack")
-	if err != nil {
-		log.Printf("[workspace] Failed to capture state tombstone: %v", err)
-	}
-
-	// Step 3: Validate tree invariants before operation
-	if err := wm.treeValidator.ValidateTree(wm.root, "before_stack"); err != nil {
-		return nil, fmt.Errorf("tree validation failed before stack: %w", err)
-	}
-
-	// Step 4: Execute directly if already on the GTK main thread
+	// Step 3: Execute directly if already on the GTK main thread
 	if webkit.IsMainThread() {
 		log.Printf("[workspace] Already on main thread, executing stack directly")
 		newNode, err := wm.stackedPaneManager.StackPane(target)
 		if err != nil {
-			if tombstone != nil {
-				if rollbackErr := wm.stateTombstoneManager.RestoreState(tombstone.ID); rollbackErr != nil {
-					log.Printf("[workspace] Rollback failed after stack failure: %v", rollbackErr)
-				}
-			}
 			return nil, err
 		}
 
-		if err := wm.treeValidator.ValidateTree(wm.root, "after_stack"); err != nil {
-			log.Printf("[workspace] Tree validation failed after stack: %v", err)
+		if wm.debugLevel >= DebugBasic {
+			if err := wm.treeValidator.ValidateTree(wm.root, "after_stack"); err != nil {
+				log.Printf("[workspace] Tree validation failed after stack: %v", err)
+			}
 		}
 
 		log.Printf("[workspace] Stack operation completed successfully (direct execution): newNode=%p", newNode)
 		return newNode, nil
 	}
 
-	// Step 5: Not on main thread, marshal via IdleAdd
+	// Step 4: Not on main thread, marshal via IdleAdd
 	log.Printf("[workspace] Not on main thread, marshalling stack via IdleAdd")
 	var newNode *paneNode
 	var stackErr error
 	done := make(chan struct{})
 
-	webkit.IdleAdd(func() bool {
+	_ = webkit.IdleAdd(func() bool {
 		newNode, stackErr = wm.stackedPaneManager.StackPane(target)
-		if stackErr != nil {
-			if tombstone != nil {
-				if rollbackErr := wm.stateTombstoneManager.RestoreState(tombstone.ID); rollbackErr != nil {
-					log.Printf("[workspace] Rollback failed after stack failure: %v", rollbackErr)
+		if stackErr == nil {
+			if wm.debugLevel >= DebugBasic {
+				if verr := wm.treeValidator.ValidateTree(wm.root, "after_stack"); verr != nil {
+					log.Printf("[workspace] Tree validation failed after stack: %v", verr)
 				}
-			}
-		} else {
-			if verr := wm.treeValidator.ValidateTree(wm.root, "after_stack"); verr != nil {
-				log.Printf("[workspace] Tree validation failed after stack: %v", verr)
 			}
 		}
 		close(done)
@@ -324,19 +308,11 @@ func (wm *WorkspaceManager) GetEnhancedStats() map[string]interface{} {
 		stats["tree_validation"] = wm.treeValidator.GetValidationStats()
 	}
 
-
-
 	if wm.treeRebalancer != nil {
 		stats["tree_rebalancing"] = wm.treeRebalancer.GetRebalancingStats()
 	}
 
-	if wm.geometryValidator != nil {
-		stats["geometry"] = wm.geometryValidator.GetGeometryStats(wm.root)
-	}
-
-	if wm.stateTombstoneManager != nil {
-		stats["tombstones"] = wm.stateTombstoneManager.GetTombstoneStats()
-	}
+	// Geometry validator no longer tracks stats - simplified
 
 	return stats
 }
@@ -352,16 +328,7 @@ func (wm *WorkspaceManager) ValidateWorkspaceIntegrity() error {
 		}
 	}
 
-	// Geometry validation
-	if wm.geometryValidator != nil {
-		results := wm.geometryValidator.ValidateWorkspaceLayout(wm.root)
-		for i, result := range results {
-			if !result.IsValid {
-				log.Printf("[workspace] Geometry validation failed for pane %d: %s", i, result.Reason)
-				// Don't fail the entire check for geometry issues
-			}
-		}
-	}
+	// Geometry validation simplified - ValidateWorkspaceLayout removed
 
 	log.Printf("[workspace] Workspace integrity check completed successfully")
 	return nil
@@ -370,7 +337,6 @@ func (wm *WorkspaceManager) ValidateWorkspaceIntegrity() error {
 // ShutdownEnhancedComponents gracefully shuts down all enhanced validation components
 func (wm *WorkspaceManager) ShutdownEnhancedComponents() {
 	log.Printf("[workspace] Shutting down enhanced validation components")
-
 
 	// Other components don't require explicit shutdown currently
 	log.Printf("[workspace] Enhanced validation components shutdown complete")
