@@ -420,6 +420,33 @@ func (fsm *FocusStateMachine) GetActivePane() *paneNode {
 	return fsm.activePane
 }
 
+// InvalidateActivePane clears the active pane if it matches the provided node.
+// This is used when panes are destroyed so the focus state machine doesn't keep
+// references to invalid widgets.
+func (fsm *FocusStateMachine) InvalidateActivePane(node *paneNode) {
+	if node == nil {
+		return
+	}
+
+	fsm.mu.Lock()
+	defer fsm.mu.Unlock()
+
+	if fsm.activePane != node {
+		return
+	}
+
+	log.Printf("[FSM] Active pane invalidated: %p", node)
+	fsm.activePane = nil
+
+	if fsm.wm != nil && fsm.wm.app != nil {
+		fsm.wm.app.activePane = nil
+	}
+
+	if fsm.currentState == StateFocused {
+		fsm.currentState = StateIdle
+	}
+}
+
 // GetCurrentState returns the current state of the focus system
 func (fsm *FocusStateMachine) GetCurrentState() FocusState {
 	fsm.mu.RLock()
