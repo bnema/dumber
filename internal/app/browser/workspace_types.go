@@ -60,7 +60,9 @@ type paneNode struct {
 	windowFeatures       *webkit.WindowFeatures // Features if popup
 	isRelated            bool                   // Shares context
 	parentPane           *paneNode              // Parent for related views
+	activePopupChildren  []string               // WebView IDs of active popup children (for tracking related popups)
 	autoClose            bool                   // Auto-close on OAuth success
+	requestID            string                 // Request ID for popup (used for localStorage cleanup)
 	hoverToken           uintptr
 	focusControllerToken uintptr
 	pendingHoverReattach bool

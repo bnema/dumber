@@ -397,11 +397,100 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 
 		log.Printf("[workspace] Closing popup pane due to %s", msg.Reason)
 
+		// Remove this popup from parent's activePopupChildren before closing
+		if targetNode.parentPane != nil {
+			parentNode := targetNode.parentPane
+			for i, childID := range parentNode.activePopupChildren {
+				if childID == msg.WebViewID {
+					parentNode.activePopupChildren = append(parentNode.activePopupChildren[:i], parentNode.activePopupChildren[i+1:]...)
+					log.Printf("[workspace] Removed popup %s from parent's activePopupChildren (remaining: %d)", msg.WebViewID, len(parentNode.activePopupChildren))
+					break
+				}
+			}
+
+			// Clean up ALL localStorage entries for this popup in parent WebView
+			// This includes popup_<requestId>_parent_info, popup_<requestId>_parent_action, etc.
+			if parentNode.pane != nil && parentNode.pane.WebView() != nil && targetNode.requestID != "" {
+				parentWebViewID := parentNode.pane.WebView().ID()
+				requestID := targetNode.requestID
+
+				cleanupScript := fmt.Sprintf(`
+					try {
+						// Clean up popup_mapping_<parentId> (from Go code)
+						localStorage.removeItem('popup_mapping_%s');
+
+						// Clean up popup_<requestId>_* entries (from JavaScript)
+						const requestId = '%s';
+						const keysToRemove = [
+							'popup_' + requestId + '_parent_info',
+							'popup_' + requestId + '_parent_action',
+							'popup_' + requestId + '_message_to_popup',
+							'popup_' + requestId + '_message_to_parent',
+							'oauth_callback_' + '%s'
+						];
+
+						keysToRemove.forEach(key => {
+							try {
+								localStorage.removeItem(key);
+							} catch(e) {}
+						});
+
+						console.log('[workspace] Cleaned up popup localStorage for requestId:', requestId);
+					} catch(e) {
+						console.warn('[workspace] Failed to clean popup localStorage:', e);
+					}
+				`, parentWebViewID, requestID, msg.WebViewID)
+
+				if err := parentNode.pane.WebView().InjectScript(cleanupScript); err != nil {
+					log.Printf("[workspace] Failed to inject localStorage cleanup script: %v", err)
+				} else {
+					log.Printf("[workspace] Cleaned up localStorage for popup requestId=%s webviewId=%s", requestID, msg.WebViewID)
+				}
+			}
+		}
+
 		// Close the popup pane
 		if err := wm.ClosePane(targetNode); err != nil {
 			log.Printf("[workspace] Failed to close popup pane: %v", err)
 		} else {
 			log.Printf("[workspace] Successfully closed popup pane: %s", msg.WebViewID)
+
+			// Fix GTK rendering for parent pane after popup closes
+			// The parent pane's rendering can become corrupted after popup closes
+			if targetNode.parentPane != nil {
+				parentNode := targetNode.parentPane
+				if parentNode.container != 0 && webkit.WidgetIsValid(parentNode.container) {
+					log.Printf("[workspace] Fixing parent pane rendering after popup close")
+
+					// CRITICAL: Hide parent container to disconnect WebKitGTK rendering pipeline
+					webkit.WidgetHide(parentNode.container)
+
+					// Schedule showing and forcing GTK to reconnect rendering
+					wm.scheduleIdleGuarded(func() bool {
+						if parentNode == nil || !parentNode.widgetValid || parentNode.container == 0 {
+							return false
+						}
+						// Show widget to reconnect WebKit rendering pipeline
+						webkit.WidgetShow(parentNode.container)
+						// Force GTK to recalculate size and recreate rendering surface
+						webkit.WidgetQueueResize(parentNode.container)
+						webkit.WidgetQueueDraw(parentNode.container)
+
+						// Also queue resize+draw on the WebView widget itself
+						if parentNode.pane != nil && parentNode.pane.WebView() != nil {
+							webViewWidget := parentNode.pane.WebView().Widget()
+							if webViewWidget != 0 && webkit.WidgetIsValid(webViewWidget) {
+								webkit.WidgetQueueResize(webViewWidget)
+								webkit.WidgetQueueDraw(webViewWidget)
+								log.Printf("[workspace] Queued resize+draw for parent WebView widget")
+							}
+						}
+
+						log.Printf("[workspace] Shown and queued resize+draw for parent pane after popup close")
+						return false
+					}, parentNode)
+				}
+			}
 		}
 	default:
 		log.Printf("[workspace] unhandled workspace event: %s", msg.Event)

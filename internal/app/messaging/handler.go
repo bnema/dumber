@@ -355,7 +355,7 @@ func (h *Handler) handleQuery(msg Message) {
 	} else {
 		// Prefer unified page-world API; fallback to legacy global function
 		script := "(window.__dumber?.omnibox?.suggestions ? window.__dumber.omnibox.suggestions(" + string(b) + ") : (window.__dumber_omnibox_suggestions && window.__dumber_omnibox_suggestions(" + string(b) + ")))"
-		log.Printf("[DEBUG] Injecting omnibox suggestions: %s", script)
+		log.Print("[DEBUG] Injecting omnibox suggestions")
 		if injErr := h.webView.InjectScript(script); injErr != nil {
 			log.Printf("[ERROR] Failed to inject suggestions script: %v", injErr)
 		} else {
