@@ -586,6 +586,14 @@ func PanedSetPosition(paned uintptr, pos int) {
 	C.gtk_paned_set_position((*C.GtkPaned)(unsafe.Pointer(paned)), C.int(pos))
 }
 
+// PanedGetPosition gets the current position of the divider in a GtkPaned
+func PanedGetPosition(paned uintptr) int {
+	if paned == 0 {
+		return 0
+	}
+	return int(C.gtk_paned_get_position((*C.GtkPaned)(unsafe.Pointer(paned))))
+}
+
 // WidgetUnparent detaches a widget from its current parent.
 func WidgetUnparent(widget uintptr) {
 	if ok := WidgetUnparentChecked(widget); !ok {
@@ -659,6 +667,16 @@ func WidgetSetVExpand(widget uintptr, expand bool) {
 	}
 	log.Printf("[workspace] WidgetSetVExpand widget=%#x expand=%v", widget, expand)
 	C.gtk_widget_set_vexpand((*C.GtkWidget)(unsafe.Pointer(widget)), goBool(expand))
+}
+
+// WidgetSetSizeRequest sets the minimum size request for a widget.
+// Use -1 for width or height to unset that dimension.
+func WidgetSetSizeRequest(widget uintptr, width, height int) {
+	if widget == 0 || !widgetIsValid(widget) {
+		return
+	}
+	log.Printf("[workspace] WidgetSetSizeRequest widget=%#x width=%d height=%d", widget, width, height)
+	C.gtk_widget_set_size_request((*C.GtkWidget)(unsafe.Pointer(widget)), C.int(width), C.int(height))
 }
 
 // WidgetResetSizeRequest clears explicit size constraints so GTK can recalculate allocation.
@@ -735,6 +753,20 @@ func WidgetQueueAllocate(widget uintptr) {
 	}
 	log.Printf("[workspace] WidgetQueueAllocate widget=%#x", widget)
 	C.gtk_widget_queue_allocate((*C.GtkWidget)(unsafe.Pointer(widget)))
+}
+
+// WidgetQueueResize forces GTK to recalculate the widget's layout and size allocation.
+// This is useful when a widget's size requirements have changed (e.g., after adding children).
+func WidgetQueueResize(widget uintptr) {
+	if widget == 0 {
+		return
+	}
+	if !widgetIsValid(widget) {
+		log.Printf("[workspace] WidgetQueueResize skipped invalid widget=%#x", widget)
+		return
+	}
+	log.Printf("[workspace] WidgetQueueResize widget=%#x", widget)
+	C.gtk_widget_queue_resize((*C.GtkWidget)(unsafe.Pointer(widget)))
 }
 
 // WidgetRealizeInContainer ensures a widget is properly realized within a container

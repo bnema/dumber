@@ -341,8 +341,10 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 	}
 	webkit.WidgetSetHExpand(paned, true)
 	webkit.WidgetSetVExpand(paned, true)
-	webkit.PanedSetResizeStart(paned, true)
-	webkit.PanedSetResizeEnd(paned, true)
+	// For popup panes: preserve existing pane size, let popup take remaining space
+	webkit.PanedSetResizeStart(paned, false) // existing pane keeps its size
+	webkit.PanedSetResizeEnd(paned, true)    // popup can resize
+	log.Printf("[workspace] configured paned for popup: start=fixed, end=flexible")
 
 	newLeaf := &paneNode{
 		pane:   newPane,
@@ -359,16 +361,43 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 
 	parent := split.parent
 
+	// CRITICAL: Capture parent paned's divider position BEFORE reparenting to preserve layout
+	var parentDividerPos int
+	if parent != nil && parent.container != 0 && webkit.WidgetIsValid(parent.container) {
+		parentDividerPos = webkit.PanedGetPosition(parent.container)
+		log.Printf("[workspace] captured parent divider position: %d", parentDividerPos)
+	}
+
+	// Clear CSS classes before reparenting to avoid GTK bloom filter corruption
+	existingContainer := target.container
+	if existingContainer != 0 && webkit.WidgetIsValid(existingContainer) {
+		// Remove active border class if present (prevents GTK bloom filter corruption during unparent)
+		if webkit.WidgetHasCSSClass(existingContainer, activePaneClass) {
+			webkit.WidgetRemoveCSSClass(existingContainer, activePaneClass)
+		}
+
+		// CRITICAL: Hide widget before reparenting to disconnect WebKitGTK rendering pipeline
+		// This forces WebKit to detach its compositor, preventing rendering corruption
+		webkit.WidgetHide(existingContainer)
+		log.Printf("[workspace] Hidden existing container before reparenting: %#x", existingContainer)
+	}
+
 	// Prevent GTK from auto-removing controllers while the widget is temporarily unparented.
 	wm.safelyDetachControllersBeforeReparent(target)
 
 	// Detach existing container from its current GTK parent before inserting into new paned.
-	existingContainer := target.container
 	if parent == nil {
 		// Target is the root - remove it from the window
 		log.Printf("[workspace] removing existing container=%#x from window", existingContainer)
 		if wm.window != nil {
 			wm.window.SetChild(0)
+		}
+		// For root widgets, manually unparent if they have a GTK parent (like splitNode does)
+		if webkit.WidgetIsValid(existingContainer) {
+			if webkit.WidgetGetParent(existingContainer) != 0 {
+				webkit.WidgetUnparent(existingContainer)
+				log.Printf("[workspace] manually unparented root widget: %#x", existingContainer)
+			}
 		}
 	} else if parent.container != 0 {
 		// Target has a parent paned - unparent it from there
@@ -422,10 +451,55 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 			webkit.WidgetQueueAllocate(parent.container)
 			webkit.WidgetQueueAllocate(paned)
 			log.Printf("[workspace] paned inserted into parent successfully")
+
+			// CRITICAL: Restore parent paned's divider position to preserve existing layout
+			if parentDividerPos > 0 {
+				webkit.PanedSetPosition(parent.container, parentDividerPos)
+				log.Printf("[workspace] restored parent divider position: %d", parentDividerPos)
+			}
 		}
 	}
 
 	webkit.WidgetShow(paned)
+
+	// CRITICAL: Set initial 50/50 split position after showing paned
+	// GTK needs the widget to be realized before we can set position based on allocation
+	// Schedule this to run after GTK has allocated space to the paned
+	wm.scheduleIdleGuarded(func() bool {
+		if !webkit.WidgetIsValid(paned) {
+			return false
+		}
+		// Get paned allocation to calculate 50% position
+		alloc := webkit.WidgetGetAllocation(paned)
+		var splitPos int
+		if orientation == webkit.OrientationHorizontal {
+			splitPos = alloc.Width / 2
+		} else {
+			splitPos = alloc.Height / 2
+		}
+		if splitPos > 0 {
+			webkit.PanedSetPosition(paned, splitPos)
+			log.Printf("[workspace] Set initial paned position to 50%%: %d (orientation=%d, size=%dx%d)", splitPos, orientation, alloc.Width, alloc.Height)
+		}
+		return false
+	}, split)
+
+	// CRITICAL: Show the existing container and force GTK to recreate rendering surface after reparenting
+	// This reconnects WebKitGTK's rendering pipeline and fixes compositor sync issues
+	if target != nil && target.container != 0 {
+		wm.scheduleIdleGuarded(func() bool {
+			if target == nil || !target.widgetValid || target.container == 0 {
+				return false
+			}
+			// Show widget to reconnect WebKit rendering pipeline
+			webkit.WidgetShow(target.container)
+			// Force GTK to recalculate size and recreate rendering surface
+			webkit.WidgetQueueResize(target.container)
+			webkit.WidgetQueueDraw(target.container)
+			log.Printf("[workspace] Shown and queued resize+draw for target container after reparenting")
+			return false
+		}, target)
+	}
 
 	wm.viewToNode[newPane.webView] = newLeaf
 	wm.ensureHover(newLeaf)
@@ -683,6 +757,45 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string) (*pane
 	}
 
 	webkit.WidgetShow(paned)
+
+	// CRITICAL: Set initial 50/50 split position after showing paned
+	// GTK needs the widget to be realized before we can set position based on allocation
+	// Schedule this to run after GTK has allocated space to the paned
+	wm.scheduleIdleGuarded(func() bool {
+		if !webkit.WidgetIsValid(paned) {
+			return false
+		}
+		// Get paned allocation to calculate 50% position
+		alloc := webkit.WidgetGetAllocation(paned)
+		var splitPos int
+		if orientation == webkit.OrientationHorizontal {
+			splitPos = alloc.Width / 2
+		} else {
+			splitPos = alloc.Height / 2
+		}
+		if splitPos > 0 {
+			webkit.PanedSetPosition(paned, splitPos)
+			log.Printf("[workspace] Set initial paned position to 50%%: %d (orientation=%d, size=%dx%d)", splitPos, orientation, alloc.Width, alloc.Height)
+		}
+		return false
+	}, split)
+
+	// CRITICAL: Show the existing container and force GTK to recreate rendering surface after reparenting
+	// This reconnects WebKitGTK's rendering pipeline and fixes compositor sync issues
+	if target != nil && target.container != 0 {
+		wm.scheduleIdleGuarded(func() bool {
+			if target == nil || !target.widgetValid || target.container == 0 {
+				return false
+			}
+			// Show widget to reconnect WebKit rendering pipeline
+			webkit.WidgetShow(target.container)
+			// Force GTK to recalculate size and recreate rendering surface
+			webkit.WidgetQueueResize(target.container)
+			webkit.WidgetQueueDraw(target.container)
+			log.Printf("[workspace] Shown and queued resize+draw for target container after reparenting")
+			return false
+		}, target)
+	}
 
 	wm.viewToNode[newPane.webView] = newLeaf
 	wm.ensureHover(newLeaf)

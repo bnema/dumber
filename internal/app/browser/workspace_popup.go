@@ -134,21 +134,55 @@ func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *web
 		return nil
 	}
 
+	// Get the new node and popup WebView ID for tracking
+	newNode := wm.viewToNode[newView]
+	popupWebViewID := newView.ID()
+
 	// Apply different behavior based on target type
 	if isBlankTarget {
 		log.Printf("[workspace] Treating _blank target as regular pane - no auto-close behavior")
-		// For _blank targets, just ensure GUI - no popup-specific behavior
+		// For _blank targets, set up parent relationship but no auto-close
+		if newNode != nil {
+			newNode.parentPane = node
+		}
+
+		// Register close handler to clean up activePopupChildren tracking
+		newView.RegisterCloseHandler(func() {
+			log.Printf("[workspace] _blank popup requesting close via window.close()")
+			// Remove this popup from parent's activePopupChildren
+			if node != nil && popupWebViewID != "" {
+				for i, childID := range node.activePopupChildren {
+					if childID == popupWebViewID {
+						node.activePopupChildren = append(node.activePopupChildren[:i], node.activePopupChildren[i+1:]...)
+						log.Printf("[workspace] Removed _blank popup %s from parent's activePopupChildren (remaining: %d)", popupWebViewID, len(node.activePopupChildren))
+						break
+					}
+				}
+			}
+		})
 	} else {
 		log.Printf("[workspace] Treating as popup pane - applying popup-specific behavior")
 		// Mark as popup for auto-close handling (OAuth flows, etc.)
-		newNode := wm.viewToNode[newView]
 		if newNode != nil {
 			newNode.isPopup = true
+			newNode.parentPane = node
 			log.Printf("[workspace] Marked pane as popup for auto-close handling")
 
 			// Register close handler for popup auto-close on window.close()
 			newView.RegisterCloseHandler(func() {
 				log.Printf("[workspace] Popup requesting close via window.close()")
+
+				// Remove this popup from parent's activePopupChildren
+				if node != nil && popupWebViewID != "" {
+					for i, childID := range node.activePopupChildren {
+						if childID == popupWebViewID {
+							node.activePopupChildren = append(node.activePopupChildren[:i], node.activePopupChildren[i+1:]...)
+							log.Printf("[workspace] Removed popup %s from parent's activePopupChildren (remaining: %d)", popupWebViewID, len(node.activePopupChildren))
+							break
+						}
+					}
+				}
+
 				// Look up the node at close time
 				if node := wm.viewToNode[newView]; node != nil && node.isPopup {
 					log.Printf("[workspace] Closing popup pane")
@@ -170,6 +204,37 @@ func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *web
 			})
 		} else {
 			log.Printf("[workspace] Warning: could not find node for popup WebView in viewToNode map")
+		}
+	}
+
+	// Track this popup in the parent's activePopupChildren (for both _blank and popup types)
+	// This is critical to prevent OAuth flows from hijacking the parent pane via window.opener
+	if node != nil && popupWebViewID != "" {
+		if node.activePopupChildren == nil {
+			node.activePopupChildren = make([]string, 0)
+		}
+		node.activePopupChildren = append(node.activePopupChildren, popupWebViewID)
+		log.Printf("[workspace] Added popup %s to parent's activePopupChildren (count: %d)", popupWebViewID, len(node.activePopupChildren))
+
+		// Register navigation policy handler for parent to block script-initiated navigations
+		// when it has active popup children (prevents OAuth from hijacking parent pane)
+		if node.pane != nil && node.pane.WebView() != nil {
+			node.pane.WebView().RegisterNavigationPolicyHandler(func(url string, isUserGesture bool) bool {
+				// Always allow user-initiated navigations
+				if isUserGesture {
+					return true
+				}
+
+				// Block script-initiated navigations if this pane has active popup children
+				if len(node.activePopupChildren) > 0 {
+					log.Printf("[workspace] BLOCKED script-initiated navigation in parent pane (has %d active popups): %s", len(node.activePopupChildren), url)
+					return false
+				}
+
+				// Allow if no active popups
+				return true
+			})
+			log.Printf("[workspace] Registered navigation policy handler for parent pane")
 		}
 	}
 
@@ -391,13 +456,56 @@ func (wm *WorkspaceManager) handleIntentAsPopup(sourceNode *paneNode, url string
 		node.isPopup = true
 		node.autoClose = wm.shouldAutoClose(url)
 
+		// Track this popup in the parent's activePopupChildren
+		if sourceNode != nil {
+			if sourceNode.activePopupChildren == nil {
+				sourceNode.activePopupChildren = make([]string, 0)
+			}
+			sourceNode.activePopupChildren = append(sourceNode.activePopupChildren, popupWebViewID)
+			log.Printf("[workspace] Added popup %s to parent's activePopupChildren (count: %d)", popupWebViewID, len(sourceNode.activePopupChildren))
+
+			// Register navigation policy handler for parent to block script-initiated navigations
+			// when it has active popup children (prevents OAuth from hijacking parent pane)
+			if sourceNode.pane != nil && sourceNode.pane.WebView() != nil {
+				sourceNode.pane.WebView().RegisterNavigationPolicyHandler(func(url string, isUserGesture bool) bool {
+					// Always allow user-initiated navigations
+					if isUserGesture {
+						return true
+					}
+
+					// Block script-initiated navigations if this pane has active popup children
+					if len(sourceNode.activePopupChildren) > 0 {
+						log.Printf("[workspace] BLOCKED script-initiated navigation in parent pane (has %d active popups): %s", len(sourceNode.activePopupChildren), url)
+						return false
+					}
+
+					// Allow if no active popups
+					return true
+				})
+				log.Printf("[workspace] Registered navigation policy handler for parent pane")
+			}
+		}
+
 		// Store requestID for deduplication cleanup
 		if intent != nil {
 			requestID = intent.RequestID
+			node.requestID = requestID
 		}
 
 		// Apply window features from JavaScript intent
 		wm.applyWindowFeatures(newView, intent, true)
+
+		// Apply minimum size constraints to prevent compression
+		var width, height int
+		if intent != nil {
+			if intent.Width != nil {
+				width = *intent.Width
+			}
+			if intent.Height != nil {
+				height = *intent.Height
+			}
+		}
+		wm.applyPopupSizeConstraints(newView, width, height)
 	}
 
 	// Register close handler for popup auto-close
@@ -407,6 +515,17 @@ func (wm *WorkspaceManager) handleIntentAsPopup(sourceNode *paneNode, url string
 		// Clear the RequestID from deduplicator to allow new popups with same ID
 		if requestID != "" && wm.paneDeduplicator != nil {
 			wm.paneDeduplicator.ClearRequestID(requestID)
+		}
+
+		// Remove this popup from parent's activePopupChildren
+		if sourceNode != nil && popupWebViewID != "" {
+			for i, childID := range sourceNode.activePopupChildren {
+				if childID == popupWebViewID {
+					sourceNode.activePopupChildren = append(sourceNode.activePopupChildren[:i], sourceNode.activePopupChildren[i+1:]...)
+					log.Printf("[workspace] Removed popup %s from parent's activePopupChildren (remaining: %d)", popupWebViewID, len(sourceNode.activePopupChildren))
+					break
+				}
+			}
 		}
 
 		if n := wm.viewToNode[newView]; n != nil && n.isPopup {
@@ -486,6 +605,8 @@ func (wm *WorkspaceManager) configureRelatedPopup(sourceNode *paneNode, webView 
 		return
 	}
 	node := wm.viewToNode[related]
+	popupWebViewID := related.ID()
+
 	if node != nil {
 		node.windowType = webkit.WindowTypePopup
 		node.windowFeatures = feat
@@ -494,10 +615,62 @@ func (wm *WorkspaceManager) configureRelatedPopup(sourceNode *paneNode, webView 
 		node.isPopup = true
 		// Heuristic + config for auto-close intent
 		node.autoClose = wm.shouldAutoClose(url)
+
+		// Apply minimum size constraints to prevent compression
+		var width, height int
+		if feat != nil {
+			width = feat.Width
+			height = feat.Height
+		}
+		wm.applyPopupSizeConstraints(related, width, height)
 	}
+
+	// Track this popup in the parent's activePopupChildren
+	// This is critical to prevent OAuth flows from hijacking the parent pane via window.opener
+	if sourceNode != nil && popupWebViewID != "" {
+		if sourceNode.activePopupChildren == nil {
+			sourceNode.activePopupChildren = make([]string, 0)
+		}
+		sourceNode.activePopupChildren = append(sourceNode.activePopupChildren, popupWebViewID)
+		log.Printf("[workspace] Added popup %s to parent's activePopupChildren (count: %d)", popupWebViewID, len(sourceNode.activePopupChildren))
+
+		// Register navigation policy handler for parent to block script-initiated navigations
+		// when it has active popup children (prevents OAuth from hijacking parent pane)
+		if sourceNode.pane != nil && sourceNode.pane.WebView() != nil {
+			sourceNode.pane.WebView().RegisterNavigationPolicyHandler(func(url string, isUserGesture bool) bool {
+				// Always allow user-initiated navigations
+				if isUserGesture {
+					return true
+				}
+
+				// Block script-initiated navigations if this pane has active popup children
+				if len(sourceNode.activePopupChildren) > 0 {
+					log.Printf("[workspace] BLOCKED script-initiated navigation in parent pane (has %d active popups): %s", len(sourceNode.activePopupChildren), url)
+					return false
+				}
+
+				// Allow if no active popups
+				return true
+			})
+			log.Printf("[workspace] Registered navigation policy handler for parent pane")
+		}
+	}
+
 	// Pipe into existing auto-close flow only for popups (confirmed by detection)
 	related.RegisterCloseHandler(func() {
 		log.Printf("[workspace] Popup requesting close via window.close()")
+
+		// Remove this popup from parent's activePopupChildren
+		if sourceNode != nil && popupWebViewID != "" {
+			for i, childID := range sourceNode.activePopupChildren {
+				if childID == popupWebViewID {
+					sourceNode.activePopupChildren = append(sourceNode.activePopupChildren[:i], sourceNode.activePopupChildren[i+1:]...)
+					log.Printf("[workspace] Removed popup %s from parent's activePopupChildren (remaining: %d)", popupWebViewID, len(sourceNode.activePopupChildren))
+					break
+				}
+			}
+		}
+
 		if n := wm.viewToNode[related]; n != nil && n.isPopup {
 			time.AfterFunc(200*time.Millisecond, func() {
 				wm.scheduleIdleGuarded(func() bool {
@@ -519,6 +692,34 @@ func (wm *WorkspaceManager) configureRelatedPopup(sourceNode *paneNode, webView 
 	}
 	if url != "" {
 		_ = related.LoadURL(url)
+	}
+}
+
+// applyPopupSizeConstraints applies minimum size constraints to prevent OAuth popup compression
+func (wm *WorkspaceManager) applyPopupSizeConstraints(view *webkit.WebView, width, height int) {
+	minWidth := 500  // Default minimum width
+	minHeight := 600 // Default minimum height
+
+	// Use provided dimensions if valid
+	if width > 0 {
+		minWidth = width
+	}
+	if height > 0 {
+		minHeight = height
+	}
+
+	// Apply to container
+	if container := view.RootWidget(); container != 0 && webkit.WidgetIsValid(container) {
+		webkit.WidgetSetSizeRequest(container, minWidth, minHeight)
+		webkit.WidgetQueueResize(container)
+		log.Printf("[workspace] Applied minimum size %dx%d to popup container=%#x", minWidth, minHeight, container)
+	}
+
+	// Apply to WebView widget
+	if webViewWidget := view.Widget(); webViewWidget != 0 && webkit.WidgetIsValid(webViewWidget) {
+		webkit.WidgetSetSizeRequest(webViewWidget, minWidth, minHeight)
+		webkit.WidgetQueueResize(webViewWidget)
+		log.Printf("[workspace] Applied minimum size %dx%d to popup webview=%#x", minWidth, minHeight, webViewWidget)
 	}
 }
 

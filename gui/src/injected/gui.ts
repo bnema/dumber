@@ -13,7 +13,6 @@ import {
   type WorkspaceConfigPayload,
   type WorkspaceRuntime,
 } from "./modules/workspace";
-import { initializeWindowOpenInterceptor } from "./modules/window-open";
 import { keyboardService, type KeyboardService } from "$lib/keyboard";
 import type { Suggestion } from "../components/omnibox/types";
 // Note: color-scheme module is loaded separately at document-start by WebKit
@@ -156,9 +155,7 @@ if (!window.__dumber_gui_ready) {
     whenDOMReady(async () => {
       try {
         // Page-world bridge is injected by WebKit; avoid duplicate injection here
-
-        // Initialize window.open interceptor first (must be early)
-        initializeWindowOpenInterceptor();
+        // window.open interceptor is now in main-world.ts (page-world context)
 
         // Initialize toast system first
         await initializeToast();

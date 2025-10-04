@@ -662,7 +662,5 @@ func (s *BrowserService) handleFaviconURIChanged(pageURL string, faviconURI stri
 	faviconNullString := sql.NullString{String: faviconURI, Valid: true}
 	if err := s.dbQueries.UpdateHistoryFavicon(ctx, faviconNullString, pageURL); err != nil {
 		log.Printf("[browser] Failed to update favicon URI in database for %s: %v", pageURL, err)
-	} else {
-		log.Printf("[browser] Successfully stored favicon URI for %s: %s", pageURL, faviconURI)
 	}
 }

@@ -199,6 +199,9 @@ func PanedSetResizeEnd(paned uintptr, resize bool) {}
 // PanedSetPosition is a no-op in stub builds.
 func PanedSetPosition(paned uintptr, pos int) {}
 
+// PanedGetPosition gets the current position of the divider in a GtkPaned (stub)
+func PanedGetPosition(paned uintptr) int { return 0 }
+
 func WidgetUnparent(widget uintptr) {
 	widgetMu.Lock()
 	defer widgetMu.Unlock()
@@ -289,7 +292,11 @@ func WidgetQueueAllocate(widget uintptr) {}
 
 func WidgetRealizeInContainer(widget uintptr) {}
 
+func WidgetSetSizeRequest(widget uintptr, width, height int) {}
+
 func WidgetResetSizeRequest(widget uintptr) {}
+
+func WidgetQueueResize(widget uintptr) {}
 
 func WidgetHookDestroy(widget uintptr) {}
 
