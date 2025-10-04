@@ -190,6 +190,18 @@ func (wm *WorkspaceManager) closeCurrentPane() {
 // leftmostLeaf finds the leftmost leaf node in a subtree
 func (wm *WorkspaceManager) leftmostLeaf(node *paneNode) *paneNode {
 	for node != nil && !node.isLeaf {
+		if node.isStacked {
+			if node.activeStackIndex >= 0 && node.activeStackIndex < len(node.stackedPanes) {
+				candidate := node.stackedPanes[node.activeStackIndex]
+				if candidate != nil {
+					return candidate
+				}
+			}
+			if len(node.stackedPanes) > 0 {
+				return node.stackedPanes[0]
+			}
+			return nil
+		}
 		if node.left != nil {
 			node = node.left
 			continue
@@ -1019,23 +1031,48 @@ func (wm *WorkspaceManager) attachRoot(root *paneNode) {
 		return
 	}
 
-	// Clear any existing window child to avoid GTK warnings when swapping roots.
-	wm.window.SetChild(0)
+	// Hold a transient reference so GTK does not destroy the widget while detached
+	releaseRef := webkit.WidgetRef(root.container)
+	if !releaseRef {
+		log.Printf("[workspace] WARNING: failed to acquire temporary ref for widget %#x; aborting attachRoot", root.container)
+		return
+	}
+	defer func() {
+		if webkit.WidgetIsValid(root.container) {
+			webkit.WidgetUnref(root.container)
+		}
+	}()
 
-	// Unparent from the previous container (paned, stack, etc.) before reattaching.
+	// Detach from previous container (paned, stack, etc.) before replacing the window child.
 	if parent := webkit.WidgetGetParent(root.container); parent != 0 {
 		log.Printf("[workspace] unparenting widget %#x from parent %#x before window attach", root.container, parent)
 		webkit.WidgetUnparent(root.container)
+		if !webkit.WidgetIsValid(root.container) {
+			log.Printf("[workspace] WARNING: widget %#x became invalid during unparent; aborting attachRoot", root.container)
+			return
+		}
 	}
 
-	webkit.WidgetSetHExpand(root.container, true)
-	webkit.WidgetSetVExpand(root.container, true)
+	// Clear any existing window child to avoid GTK warnings when swapping roots.
+	wm.window.SetChild(0)
+
+	if webkit.WidgetIsValid(root.container) {
+		webkit.WidgetSetHExpand(root.container, true)
+		webkit.WidgetSetVExpand(root.container, true)
+	}
+
+	if !webkit.WidgetIsValid(root.container) {
+		log.Printf("[workspace] WARNING: widget %#x invalid prior to window attach", root.container)
+		return
+	}
 
 	wm.window.SetChild(root.container)
-	webkit.WidgetQueueAllocate(root.container)
-	webkit.WidgetShow(root.container)
-	webkit.WidgetQueueResize(root.container)
-	webkit.WidgetQueueDraw(root.container)
+	if webkit.WidgetIsValid(root.container) {
+		webkit.WidgetQueueAllocate(root.container)
+		webkit.WidgetShow(root.container)
+		webkit.WidgetQueueResize(root.container)
+		webkit.WidgetQueueDraw(root.container)
+	}
 
 	wm.scheduleIdleGuarded(func() bool {
 		if root == nil || !root.widgetValid {
@@ -1063,6 +1100,10 @@ func (wm *WorkspaceManager) cleanupPane(node *paneNode, generation uint) {
 	}
 	if !node.widgetValid {
 		return
+	}
+
+	if wm.focusStateMachine != nil {
+		wm.focusStateMachine.InvalidateActivePane(node)
 	}
 
 	wm.cancelIdleHandles(node)
