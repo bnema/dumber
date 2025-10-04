@@ -392,13 +392,7 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 		if wm.window != nil {
 			wm.window.SetChild(0)
 		}
-		// For root widgets, manually unparent if they have a GTK parent (like splitNode does)
-		if webkit.WidgetIsValid(existingContainer) {
-			if webkit.WidgetGetParent(existingContainer) != 0 {
-				webkit.WidgetUnparent(existingContainer)
-				log.Printf("[workspace] manually unparented root widget: %#x", existingContainer)
-			}
-		}
+		// GTK4 will auto-unparent when we add to new paned - no manual unparent needed
 	} else if parent.container != 0 {
 		// Target has a parent paned - unparent it from there
 		log.Printf("[workspace] unparenting existing container from parent paned")
@@ -676,12 +670,7 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string) (*pane
 		if wm.window != nil {
 			wm.window.SetChild(0)
 		}
-		// For root widgets, only unparent if they actually have a GTK parent
-		if webkit.WidgetIsValid(splitTargetContainer) {
-			if webkit.WidgetGetParent(splitTargetContainer) != 0 {
-				webkit.WidgetUnparent(splitTargetContainer)
-			}
-		}
+		// GTK4 will auto-unparent when we add to new paned - no manual unparent needed
 	} else if parent.container != 0 {
 		// Split target has a parent paned - remove it (automatically unparents in GTK4)
 		log.Printf("[workspace] unparenting split target container=%#x from parent paned=%#x", splitTargetContainer, parent.container)
@@ -957,11 +946,7 @@ func (wm *WorkspaceManager) cascadePromotion(singleChildPaned *paneNode) {
 
 		// Attach to window
 		if onlyChild.container != 0 && webkit.WidgetIsValid(onlyChild.container) {
-			// Unparent from old container if needed
-			if parent := webkit.WidgetGetParent(onlyChild.container); parent != 0 {
-				webkit.WidgetUnparent(onlyChild.container)
-			}
-
+			// GTK4 window.SetChild automatically handles unparenting
 			wm.window.SetChild(onlyChild.container)
 			webkit.WidgetSetHExpand(onlyChild.container, true)
 			webkit.WidgetSetVExpand(onlyChild.container, true)
@@ -983,12 +968,7 @@ func (wm *WorkspaceManager) cascadePromotion(singleChildPaned *paneNode) {
 
 		// Reparent widget in GTK
 		if onlyChild.container != 0 && webkit.WidgetIsValid(onlyChild.container) && greatGrandparent.container != 0 && webkit.WidgetIsValid(greatGrandparent.container) {
-			// Unparent from old container
-			if parent := webkit.WidgetGetParent(onlyChild.container); parent != 0 {
-				webkit.WidgetUnparent(onlyChild.container)
-			}
-
-			// Attach to great-grandparent
+			// GTK4 PanedSet*Child automatically handles unparenting
 			if greatGrandparent.left == onlyChild {
 				webkit.PanedSetStartChild(greatGrandparent.container, onlyChild.container)
 			} else {
@@ -1029,13 +1009,8 @@ func (wm *WorkspaceManager) attachRoot(root *paneNode) {
 		return
 	}
 	if webkit.WidgetIsValid(root.container) {
-		// Check if widget has a parent and unparent it first
-		if parent := webkit.WidgetGetParent(root.container); parent != 0 {
-			log.Printf("[workspace] unparenting widget %#x from parent %#x before window attach", root.container, parent)
-			webkit.WidgetUnparent(root.container)
-		}
-
-		// Now safe to set as window child
+		// GTK4 window.SetChild automatically handles unparenting from old parent
+		// DO NOT unparent manually as it can destroy complex widgets like GtkBox
 		wm.window.SetChild(root.container)
 		webkit.WidgetQueueAllocate(root.container)
 		webkit.WidgetShow(root.container)
