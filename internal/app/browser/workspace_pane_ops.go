@@ -456,6 +456,18 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 
 	webkit.WidgetShow(paned)
 
+	// Force GTK to re-layout the new GtkPaned container once both children are attached.
+	wm.scheduleIdleGuarded(func() bool {
+		if split == nil || !split.widgetValid {
+			return false
+		}
+		if split.container != 0 && webkit.WidgetIsValid(split.container) {
+			webkit.WidgetQueueResize(split.container)
+			webkit.WidgetQueueDraw(split.container)
+		}
+		return false
+	}, split)
+
 	// CRITICAL: Set initial 50/50 split position after showing paned
 	// GTK needs the widget to be realized before we can set position based on allocation
 	// Schedule this to run after GTK has allocated space to the paned
@@ -946,12 +958,7 @@ func (wm *WorkspaceManager) cascadePromotion(singleChildPaned *paneNode) {
 
 		// Attach to window
 		if onlyChild.container != 0 && webkit.WidgetIsValid(onlyChild.container) {
-			// GTK4 window.SetChild automatically handles unparenting
-			wm.window.SetChild(onlyChild.container)
-			webkit.WidgetSetHExpand(onlyChild.container, true)
-			webkit.WidgetSetVExpand(onlyChild.container, true)
-			webkit.WidgetQueueAllocate(onlyChild.container)
-			webkit.WidgetShow(onlyChild.container)
+			wm.attachRoot(onlyChild)
 		}
 
 		// Cleanup the now-orphaned paned
@@ -1008,19 +1015,44 @@ func (wm *WorkspaceManager) attachRoot(root *paneNode) {
 	if root == nil || root.container == 0 || wm.window == nil {
 		return
 	}
-	if webkit.WidgetIsValid(root.container) {
-		// GTK4 window.SetChild automatically handles unparenting from old parent
-		// DO NOT unparent manually as it can destroy complex widgets like GtkBox
-		wm.window.SetChild(root.container)
-		webkit.WidgetQueueAllocate(root.container)
-		webkit.WidgetShow(root.container)
+	if !webkit.WidgetIsValid(root.container) {
+		return
+	}
 
-		// Verify attachment succeeded
-		if finalParent := webkit.WidgetGetParent(root.container); finalParent == 0 {
-			log.Printf("[workspace] WARNING: widget %#x has no parent after SetChild", root.container)
-		} else {
-			log.Printf("[workspace] attachRoot successful: widget %#x now child of %#x", root.container, finalParent)
+	// Clear any existing window child to avoid GTK warnings when swapping roots.
+	wm.window.SetChild(0)
+
+	// Unparent from the previous container (paned, stack, etc.) before reattaching.
+	if parent := webkit.WidgetGetParent(root.container); parent != 0 {
+		log.Printf("[workspace] unparenting widget %#x from parent %#x before window attach", root.container, parent)
+		webkit.WidgetUnparent(root.container)
+	}
+
+	webkit.WidgetSetHExpand(root.container, true)
+	webkit.WidgetSetVExpand(root.container, true)
+
+	wm.window.SetChild(root.container)
+	webkit.WidgetQueueAllocate(root.container)
+	webkit.WidgetShow(root.container)
+	webkit.WidgetQueueResize(root.container)
+	webkit.WidgetQueueDraw(root.container)
+
+	wm.scheduleIdleGuarded(func() bool {
+		if root == nil || !root.widgetValid {
+			return false
 		}
+		if root.container != 0 && webkit.WidgetIsValid(root.container) {
+			webkit.WidgetQueueResize(root.container)
+			webkit.WidgetQueueDraw(root.container)
+		}
+		return false
+	}, root)
+
+	// Verify attachment succeeded
+	if finalParent := webkit.WidgetGetParent(root.container); finalParent == 0 {
+		log.Printf("[workspace] WARNING: widget %#x has no parent after SetChild", root.container)
+	} else {
+		log.Printf("[workspace] attachRoot successful: widget %#x now child of %#x", root.container, finalParent)
 	}
 }
 
