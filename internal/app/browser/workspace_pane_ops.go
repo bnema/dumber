@@ -910,7 +910,7 @@ func (wm *WorkspaceManager) swapContainers(grand *paneNode, sibling *paneNode) {
 
 	if webkit.WidgetIsValid(grand.container) && webkit.WidgetIsValid(sibling.container) {
 		// GTK4 PanedSetStartChild/EndChild auto-unparent from current parent
-		// Log current parent for debugging, but this is normal GTK4 behavior
+		// Focus was already cleared before unparenting closed pane
 		if parent := webkit.WidgetGetParent(sibling.container); parent != 0 && parent != grand.container {
 			log.Printf("[workspace] widget %#x reparenting from %#x to %#x (GTK4 will auto-unparent)", sibling.container, parent, grand.container)
 		}
@@ -999,6 +999,17 @@ func (wm *WorkspaceManager) cascadePromotion(singleChildPaned *paneNode) {
 			webkit.WidgetSetVExpand(onlyChild.container, true)
 			webkit.WidgetQueueAllocate(onlyChild.container)
 			webkit.WidgetQueueAllocate(greatGrandparent.container)
+			wm.scheduleIdleGuarded(func() bool {
+				if onlyChild == nil || !onlyChild.widgetValid {
+					return false
+				}
+				if onlyChild.container != 0 && webkit.WidgetIsValid(onlyChild.container) {
+					webkit.WidgetShow(onlyChild.container)
+					webkit.WidgetQueueResize(onlyChild.container)
+					webkit.WidgetQueueDraw(onlyChild.container)
+				}
+				return false
+			}, onlyChild)
 		}
 
 		// Cleanup the now-orphaned paned
@@ -1160,6 +1171,12 @@ func (wm *WorkspaceManager) closePane(node *paneNode) (*paneNode, error) {
 	sibling := wm.getSibling(node)
 	grandparent := parent.parent
 
+	// Clear grandparent's focus child BEFORE unparenting closed pane
+	// GTK propagates focus events upward, so we must clear grandparent focus first
+	if grandparent != nil && grandparent.container != 0 && webkit.WidgetIsValid(grandparent.container) {
+		webkit.WidgetSetFocusChild(grandparent.container, 0)
+	}
+
 	// Unparent the closed pane's container from the paned BEFORE promoting sibling
 	if node.container != 0 && webkit.WidgetIsValid(node.container) {
 		if containerParent := webkit.WidgetGetParent(node.container); containerParent == parent.container {
@@ -1178,6 +1195,21 @@ func (wm *WorkspaceManager) closePane(node *paneNode) (*paneNode, error) {
 	// STEP 6: GTK handles all reparenting automatically
 	// PanedSetStartChild/EndChild and window.SetChild auto-unparent widgets
 	wm.swapContainers(grandparent, sibling)
+
+	// Reconnect the promoted sibling's rendering pipeline after GTK reparenting.
+	if sibling != nil && sibling.container != 0 {
+		wm.scheduleIdleGuarded(func() bool {
+			if sibling == nil || !sibling.widgetValid {
+				return false
+			}
+			if sibling.container != 0 && webkit.WidgetIsValid(sibling.container) {
+				webkit.WidgetShow(sibling.container)
+				webkit.WidgetQueueResize(sibling.container)
+				webkit.WidgetQueueDraw(sibling.container)
+			}
+			return false
+		}, sibling)
+	}
 
 	// STEP 7: Check if grandparent now has only one child (cascade promotion needed)
 	if grandparent != nil && ((grandparent.left == nil) != (grandparent.right == nil)) {

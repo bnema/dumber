@@ -709,6 +709,24 @@ func WidgetGrabFocus(widget uintptr) {
 	C.gtk_widget_grab_focus((*C.GtkWidget)(unsafe.Pointer(widget)))
 }
 
+// WidgetSetFocusChild sets or clears the focus child of a widget.
+// Pass 0 as child to clear the focus child (prevents GTK focus chain warnings during reparenting).
+func WidgetSetFocusChild(widget uintptr, child uintptr) {
+	if widget == 0 {
+		return
+	}
+	if !widgetIsValid(widget) {
+		log.Printf("[workspace] WidgetSetFocusChild skipped invalid widget=%#x", widget)
+		return
+	}
+	var childPtr *C.GtkWidget
+	if child != 0 {
+		childPtr = (*C.GtkWidget)(unsafe.Pointer(child))
+	}
+	C.gtk_widget_set_focus_child((*C.GtkWidget)(unsafe.Pointer(widget)), childPtr)
+	log.Printf("[workspace] WidgetSetFocusChild widget=%#x child=%#x", widget, child)
+}
+
 // WidgetRef increments the reference count to keep the widget alive during reparenting.
 func WidgetRef(widget uintptr) bool {
 	if widget == 0 {

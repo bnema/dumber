@@ -279,6 +279,24 @@ func WidgetGrabFocus(widget uintptr) {
 	}
 }
 
+// WidgetSetFocusChild sets or clears the focus child of a widget.
+// Pass 0 as child to clear the focus child (prevents GTK focus chain warnings during reparenting).
+func WidgetSetFocusChild(widget uintptr, child uintptr) {
+	widgetMu.Lock()
+	defer widgetMu.Unlock()
+
+	if widget == 0 {
+		return
+	}
+
+	stub, ok := widgetState[widget]
+	if !ok || stub.isDestroyed {
+		return
+	}
+
+	stub.focusedChild = child
+}
+
 func WidgetRef(widget uintptr) bool {
 	widgetMu.Lock()
 	defer widgetMu.Unlock()
