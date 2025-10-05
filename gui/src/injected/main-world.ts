@@ -628,7 +628,13 @@ function detectWindowType(features?: string | null): string {
 
     // OAuth callback detection for auto-close
     const setupOAuthCallbackDetection = () => {
+      let oauthCallbackHandled = false;
+
       const detectOAuthCallback = () => {
+        if (oauthCallbackHandled) {
+          return;
+        }
+
         const url = window.location.href.toLowerCase();
 
         // Check for OAuth callback patterns - be more specific to avoid false positives
@@ -647,69 +653,67 @@ function detectWindowType(features?: string | null): string {
           url.includes("googlepopupcallback");
 
         if (isCallback) {
+          oauthCallbackHandled = true;
           try {
-            // Determine which webview should be closed
+            // Determine which WebView should close as part of this callback
             let targetWebViewId = window.__dumber_webview_id;
 
-            // If this is a parent window detecting OAuth callback, find the associated popup
+            // When the parent window detects the callback, look up its popup mapping
             const popupMappingKey = `popup_mapping_${window.__dumber_webview_id}`;
-            const popupMappingData = localStorage.getItem(popupMappingKey);
-
-            if (popupMappingData) {
-              try {
+            try {
+              const popupMappingData = localStorage.getItem(popupMappingKey);
+              if (popupMappingData) {
                 const mapping = JSON.parse(popupMappingData);
-                // Check if mapping is recent (within last 60 seconds)
                 const age = Date.now() - (mapping.timestamp || 0);
                 if (age < 60000 && mapping.popupId) {
                   targetWebViewId = mapping.popupId;
                   console.log(
                     `[oauth-callback] Parent detected OAuth callback, targeting popup webview: ${targetWebViewId}`,
                   );
-
-                  // Clean up the mapping since we're using it
                   localStorage.removeItem(popupMappingKey);
                 }
-              } catch (err) {
-                console.warn(
-                  `[oauth-callback] Failed to parse popup mapping:`,
-                  err,
-                );
               }
+            } catch (err) {
+              console.warn(
+                `[oauth-callback] Failed to resolve popup mapping:`,
+                err,
+              );
             }
 
-            const callbackData = {
-              url: window.location.href,
-              webviewId: targetWebViewId,
-              timestamp: Date.now(),
-              isOAuthCallback: true,
-            };
-
-            localStorage.setItem(
-              `oauth_callback_${targetWebViewId}`,
-              JSON.stringify(callbackData),
-            );
             console.log(
-              `[oauth-callback] Detected OAuth callback, targeting webview ${targetWebViewId}:`,
-              callbackData,
+              `[oauth-callback] Detected OAuth callback, closing popup webview: ${targetWebViewId}`,
             );
 
-            // Auto-cleanup sensitive OAuth data after 10 seconds
-            setTimeout(() => {
+            // Send close request to backend for this popup webview
+            const bridge = window.webkit?.messageHandlers?.dumber;
+            if (bridge && typeof bridge.postMessage === "function") {
               try {
-                localStorage.removeItem(`oauth_callback_${targetWebViewId}`);
+                const closeMessage = {
+                  type: "close-popup",
+                  webviewId: targetWebViewId,
+                  reason: "oauth-callback-success",
+                  timestamp: Date.now(),
+                };
+
                 console.log(
-                  `[oauth-callback] Cleaned up OAuth callback data from localStorage`,
+                  `[oauth-callback] Sending popup close request:`,
+                  closeMessage,
                 );
+                bridge.postMessage(JSON.stringify(closeMessage));
               } catch (err) {
                 console.warn(
-                  `[oauth-callback] Failed to cleanup OAuth callback data:`,
+                  `[oauth-callback] Failed to send popup close request:`,
                   err,
                 );
               }
-            }, 10000);
+            } else {
+              console.warn(
+                `[oauth-callback] No webkit bridge available for popup close request`,
+              );
+            }
           } catch (err) {
             console.warn(
-              `[oauth-callback] Failed to store OAuth callback data:`,
+              `[oauth-callback] Failed to handle OAuth callback:`,
               err,
             );
           }

@@ -73,6 +73,13 @@ func (wm *WorkspaceManager) initializePaneWidgets(node *paneNode, containerPtr u
 func (wm *WorkspaceManager) setContainer(node *paneNode, ptr uintptr, typeInfo string) {
 	_ = typeInfo // Type info kept for API compatibility but not used
 	node.container = ptr
+
+	// Mark widget validity based on container presence so idle guards run for stacks too
+	if ptr != 0 {
+		node.widgetValid = true
+	} else {
+		node.widgetValid = false
+	}
 }
 
 // setTitleBar sets the titleBar widget pointer

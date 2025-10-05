@@ -184,9 +184,8 @@ static void widget_remove_focus_controller(GtkWidget* widget, GtkEventController
 
     tracker->is_attached = FALSE;
 
-    // Remove from registry and unref controller to avoid leaks
+    // Remove from registry; GTK drops the final reference when removing controller
     g_hash_table_remove(controller_registry, controller);
-    g_object_unref(controller);
 }
 
 static GtkWidget* paned_get_start_child(GtkWidget* paned) {
