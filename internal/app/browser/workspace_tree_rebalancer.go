@@ -32,6 +32,8 @@ const (
 type TreeMetrics struct{}
 
 // NewTreeRebalancer returns a disabled stub implementation.
+// NOTE: Tree rebalancing logic has been temporarily disabled in favor of manual geometry management.
+// Future work may restore automatic rebalancing or replace it with an alternative approach.
 func NewTreeRebalancer(_ *WorkspaceManager, _ *TreeValidator) *TreeRebalancer {
 	return &TreeRebalancer{}
 }

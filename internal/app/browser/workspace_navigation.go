@@ -11,6 +11,11 @@ import (
 	"github.com/bnema/dumber/pkg/webkit"
 )
 
+const (
+	// focusThrottleInterval prevents rapid focus changes that could cause infinite loops
+	focusThrottleInterval = 100 * time.Millisecond
+)
+
 // DispatchPaneFocusEvent sends a workspace focus event to a pane's webview
 func (wm *WorkspaceManager) DispatchPaneFocusEvent(node *paneNode, active bool) {
 	if node == nil || node.pane == nil || node.pane.webView == nil {
@@ -69,7 +74,6 @@ func (wm *WorkspaceManager) focusByView(view *webkit.WebView) {
 
 	// Throttle focus changes to prevent infinite loops
 	wm.focusThrottleMutex.Lock()
-	const focusThrottleInterval = 100 * time.Millisecond
 	if time.Since(wm.lastFocusChange) < focusThrottleInterval {
 		wm.focusThrottleMutex.Unlock()
 		return
@@ -155,6 +159,7 @@ func (wm *WorkspaceManager) FocusNeighbor(direction string) bool {
 	case "left", "right":
 		return wm.focusAdjacent(strings.ToLower(direction))
 	default:
+		log.Printf("[workspace] invalid focus direction: %s (expected: up, down, left, right)", direction)
 		return false
 	}
 }

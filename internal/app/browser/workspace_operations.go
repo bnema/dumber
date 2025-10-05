@@ -14,6 +14,17 @@ func (wm *WorkspaceManager) SplitPane(target *paneNode, direction string) (*pane
 		return nil, fmt.Errorf("workspace manager is nil")
 	}
 
+	// Validate direction parameter
+	validDirections := map[string]bool{
+		"left":  true,
+		"right": true,
+		"up":    true,
+		"down":  true,
+	}
+	if !validDirections[direction] {
+		return nil, fmt.Errorf("invalid split direction '%s', expected one of: left, right, up, down", direction)
+	}
+
 	log.Printf("[workspace] Starting split operation: target=%p direction=%s", target, direction)
 
 	// Step 1: Validate geometry constraints (only in DebugBasic+)
