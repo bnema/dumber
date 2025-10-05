@@ -514,7 +514,7 @@ func goOnFaviconURIChanged(id C.ulong, pageURI *C.char, faviconURI *C.char) {
 	pageURLStr := C.GoString(pageURI)
 	faviconURLStr := C.GoString(faviconURI)
 
-	log.Printf("[favicon] WebKit favicon URI changed for WebView ID %d - page: %s, favicon: %s", uid, pageURLStr, faviconURLStr)
+	log.Printf("[favicon] WebKit favicon URI changed for WebView ID %d - favicon: %s", uid, faviconURLStr)
 
 	regMu.RLock()
 	vw := viewByID[uid]

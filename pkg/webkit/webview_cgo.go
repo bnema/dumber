@@ -1020,7 +1020,7 @@ type WebView struct {
 	windowTypeCallback      func(WindowType, *WindowFeatures)
 	parentWebView           *WebView
 	isRelated               bool
-	isActive                bool // Track if this WebView is currently active/focused
+	isActive                bool                                      // Track if this WebView is currently active/focused
 	navigationPolicyHandler func(url string, isUserGesture bool) bool // Handler to decide if navigation should be allowed
 }
 
@@ -1229,7 +1229,6 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	C.enable_favicon_database(networkSession)
 
 	// Notify favicon changes to Go for caching
-	log.Printf("[favicon] Connecting favicon signal for WebView ID %d", v.id)
 	C.connect_favicon_changed_with_id(viewWidget, C.ulong(v.id))
 	// Apply hardware acceleration and related settings based on cfg.Rendering
 	if settings := C.webkit_web_view_get_settings(v.native.wv); settings != nil {
@@ -1910,7 +1909,6 @@ func (w *WebView) dispatchFaviconChanged(data []byte) {
 }
 
 func (w *WebView) dispatchFaviconURIChanged(pageURI, faviconURI string) {
-	log.Printf("[favicon] Page %s has favicon at %s", pageURI, faviconURI)
 	if w != nil && w.faviconURIHandler != nil {
 		w.faviconURIHandler(pageURI, faviconURI)
 	}

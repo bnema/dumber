@@ -340,12 +340,39 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 		webkit.WidgetRealizeInContainer(webViewWidget)
 	}
 
-	if target.container == 0 {
-		return errors.New("existing pane missing container")
+	// CRITICAL: Handle stacked panes correctly - same logic as splitNode
+	// When the target is inside a stacked pane, we need to split around the entire stack,
+	// not the individual pane within the stack
+	originalTarget := target
+	var stackContainer *paneNode
+	if target.parent != nil && target.parent.isStacked {
+		// Target is in a stack - we'll create the split around the entire stack
+		stackContainer = target.parent
+		log.Printf("[workspace] target is in stack, will split around the stack: originalTarget=%p stackContainer=%p", originalTarget, stackContainer)
+	}
+
+	// Determine what we're actually splitting
+	var splitTarget *paneNode
+	var splitTargetContainer uintptr
+
+	if stackContainer != nil {
+		// Case: splitting from inside a stack - we split around the entire stack
+		splitTarget = stackContainer
+		splitTargetContainer = stackContainer.container
+		log.Printf("[workspace] splitting around stack: stackContainer=%p", splitTarget)
+	} else {
+		// Case: normal split from a simple pane or direct stack target
+		splitTarget = target
+		splitTargetContainer = target.container
+		log.Printf("[workspace] normal split from pane: target=%p", splitTarget)
+	}
+
+	if splitTargetContainer == 0 {
+		return errors.New("split target missing container")
 	}
 
 	orientation, existingFirst := mapDirection(direction)
-	log.Printf("[workspace] inserting popup direction=%s orientation=%v existingFirst=%v target.parent=%p", direction, orientation, existingFirst, target.parent)
+	log.Printf("[workspace] inserting popup direction=%s orientation=%v existingFirst=%v splitTarget.parent=%p", direction, orientation, existingFirst, splitTarget.parent)
 
 	paned := webkit.NewPaned(orientation)
 	if paned == 0 {
@@ -365,7 +392,7 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 	wm.initializePaneWidgets(newLeaf, newContainer)
 
 	split := &paneNode{
-		parent:      target.parent,
+		parent:      splitTarget.parent,
 		orientation: orientation,
 		isLeaf:      false,
 	}
@@ -374,45 +401,47 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 	parent := split.parent
 
 	// CRITICAL: Capture parent paned's divider position BEFORE reparenting to preserve layout
+	// Only attempt this if the parent container is actually a paned widget
 	var parentDividerPos int
-	if parent != nil && parent.container != 0 && webkit.WidgetIsValid(parent.container) {
+	if parent != nil && parent.container != 0 && webkit.WidgetIsValid(parent.container) && webkit.IsPaned(parent.container) {
 		parentDividerPos = webkit.PanedGetPosition(parent.container)
 		log.Printf("[workspace] captured parent divider position: %d", parentDividerPos)
+	} else if parent != nil && parent.container != 0 {
+		log.Printf("[workspace] parent container is not a paned widget (likely a stacked container)")
 	}
 
 	// Clear CSS classes before reparenting to avoid GTK bloom filter corruption
-	existingContainer := target.container
-	if existingContainer != 0 && webkit.WidgetIsValid(existingContainer) {
+	if splitTargetContainer != 0 && webkit.WidgetIsValid(splitTargetContainer) {
 		// Remove active border class if present (prevents GTK bloom filter corruption during unparent)
-		if webkit.WidgetHasCSSClass(existingContainer, activePaneClass) {
-			webkit.WidgetRemoveCSSClass(existingContainer, activePaneClass)
+		if webkit.WidgetHasCSSClass(splitTargetContainer, activePaneClass) {
+			webkit.WidgetRemoveCSSClass(splitTargetContainer, activePaneClass)
 		}
 
 		// CRITICAL: Hide widget before reparenting to disconnect WebKitGTK rendering pipeline
 		// This forces WebKit to detach its compositor, preventing rendering corruption
-		webkit.WidgetHide(existingContainer)
-		log.Printf("[workspace] Hidden existing container before reparenting: %#x", existingContainer)
+		webkit.WidgetHide(splitTargetContainer)
+		log.Printf("[workspace] Hidden split target container before reparenting: %#x", splitTargetContainer)
 	}
 
 	// Prevent GTK from auto-removing controllers while the widget is temporarily unparented.
-	wm.safelyDetachControllersBeforeReparent(target)
+	wm.safelyDetachControllersBeforeReparent(splitTarget)
 
 	// Detach existing container from its current GTK parent before inserting into new paned.
 	if parent == nil {
-		// Target is the root - remove it from the window
-		log.Printf("[workspace] removing existing container=%#x from window", existingContainer)
+		// Split target is the root - remove it from the window
+		log.Printf("[workspace] removing split target container=%#x from window", splitTargetContainer)
 		if wm.window != nil {
 			wm.window.SetChild(0)
 		}
 		// GTK4 will auto-unparent when we add to new paned - no manual unparent needed
 	} else if parent.container != 0 {
-		// Target has a parent paned - unparent it from there
-		log.Printf("[workspace] unparenting existing container from parent paned")
+		// Split target has a parent paned - unparent it from there
+		log.Printf("[workspace] unparenting split target container from parent paned")
 		if webkit.WidgetIsValid(parent.container) {
 			log.Printf("[workspace] executing unparent: parentPtr=%#x", parent.container)
-			if parent.left == target {
+			if parent.left == splitTarget {
 				webkit.PanedSetStartChild(parent.container, 0)
-			} else if parent.right == target {
+			} else if parent.right == splitTarget {
 				webkit.PanedSetEndChild(parent.container, 0)
 			}
 			webkit.WidgetQueueAllocate(parent.container)
@@ -421,20 +450,20 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 
 	// Add both containers to the new paned
 	if existingFirst {
-		split.left = target
+		split.left = splitTarget
 		split.right = newLeaf
-		webkit.PanedSetStartChild(paned, existingContainer)
+		webkit.PanedSetStartChild(paned, splitTargetContainer)
 		webkit.PanedSetEndChild(paned, newContainer)
-		log.Printf("[workspace] added existing=%#x as start child, new=%#x as end child", existingContainer, newContainer)
+		log.Printf("[workspace] added splitTarget=%#x as start child, new=%#x as end child", splitTargetContainer, newContainer)
 	} else {
 		split.left = newLeaf
-		split.right = target
+		split.right = splitTarget
 		webkit.PanedSetStartChild(paned, newContainer)
-		webkit.PanedSetEndChild(paned, existingContainer)
-		log.Printf("[workspace] added new=%#x as start child, existing=%#x as end child", newContainer, existingContainer)
+		webkit.PanedSetEndChild(paned, splitTargetContainer)
+		log.Printf("[workspace] added new=%#x as start child, splitTarget=%#x as end child", newContainer, splitTargetContainer)
 	}
 
-	target.parent = split
+	splitTarget.parent = split
 	newLeaf.parent = split
 
 	if parent == nil {
@@ -447,10 +476,10 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 	} else {
 		if webkit.WidgetIsValid(parent.container) {
 			log.Printf("[workspace] executing parent reparent: parentPtr=%#x, paned=%#x", parent.container, paned)
-			if parent.left == target {
+			if parent.left == splitTarget {
 				parent.left = split
 				webkit.PanedSetStartChild(parent.container, paned)
-			} else if parent.right == target {
+			} else if parent.right == splitTarget {
 				parent.right = split
 				webkit.PanedSetEndChild(parent.container, paned)
 			}
@@ -459,7 +488,8 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 			log.Printf("[workspace] paned inserted into parent successfully")
 
 			// CRITICAL: Restore parent paned's divider position to preserve existing layout
-			if parentDividerPos > 0 {
+			// Only attempt this if we captured a position and the parent is actually a paned widget
+			if parentDividerPos > 0 && webkit.IsPaned(parent.container) {
 				webkit.PanedSetPosition(parent.container, parentDividerPos)
 				log.Printf("[workspace] restored parent divider position: %d", parentDividerPos)
 			}
@@ -502,26 +532,26 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 		return false
 	}, split)
 
-	// CRITICAL: Show the existing container and force GTK to recreate rendering surface after reparenting
+	// CRITICAL: Show the split target container and force GTK to recreate rendering surface after reparenting
 	// This reconnects WebKitGTK's rendering pipeline and fixes compositor sync issues
-	if target != nil && target.container != 0 {
+	if splitTarget != nil && splitTarget.container != 0 {
 		wm.scheduleIdleGuarded(func() bool {
-			if target == nil || !target.widgetValid || target.container == 0 {
+			if splitTarget == nil || !splitTarget.widgetValid || splitTarget.container == 0 {
 				return false
 			}
 			// Show widget to reconnect WebKit rendering pipeline
-			webkit.WidgetShow(target.container)
+			webkit.WidgetShow(splitTarget.container)
 			// Force GTK to recalculate size and recreate rendering surface
-			webkit.WidgetQueueResize(target.container)
-			webkit.WidgetQueueDraw(target.container)
-			log.Printf("[workspace] Shown and queued resize+draw for target container after reparenting")
+			webkit.WidgetQueueResize(splitTarget.container)
+			webkit.WidgetQueueDraw(splitTarget.container)
+			log.Printf("[workspace] Shown and queued resize+draw for split target container after reparenting")
 			return false
-		}, target)
+		}, splitTarget)
 	}
 
 	wm.viewToNode[newPane.webView] = newLeaf
 	wm.ensureHover(newLeaf)
-	wm.ensureHover(target)
+	wm.ensureHover(splitTarget)
 	wm.app.panes = append(wm.app.panes, newPane)
 	if newPane.zoomController != nil {
 		newPane.zoomController.ApplyInitialZoom()
@@ -529,9 +559,9 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 
 	// Update CSS classes for all panes now that we have multiple panes
 
-	reattachTargets := []*paneNode{target}
-	if target != nil && target.isStacked {
-		reattachTargets = append(reattachTargets, target.stackedPanes...)
+	reattachTargets := []*paneNode{splitTarget}
+	if splitTarget != nil && splitTarget.isStacked {
+		reattachTargets = append(reattachTargets, splitTarget.stackedPanes...)
 	}
 	guardNodes := append([]*paneNode{newLeaf}, reattachTargets...)
 	wm.scheduleIdleGuarded(func() bool {

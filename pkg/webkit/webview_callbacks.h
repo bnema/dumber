@@ -63,18 +63,40 @@ static inline void on_uri_scheme(WebKitURISchemeRequest* request, gpointer user_
     }
 }
 
+static inline char* mask_uri_for_log(const char* uri) {
+    if (!uri) return g_strdup("NULL");
+    const char* p = strstr(uri, "://");
+    const char* start = p ? p + 3 : uri;
+    const char* slash = strchr(start, '/');
+    size_t host_len = slash ? (size_t)(slash - start) : strlen(start);
+    const size_t max_len = 64;
+    if (host_len <= max_len) {
+        return g_strndup(start, host_len);
+    } else {
+        char* prefix = g_strndup(start, max_len);
+        char* res = g_strdup_printf("%s...", prefix);
+        g_free(prefix);
+        return res;
+    }
+}
+
 static inline void on_favicon_changed(WebKitFaviconDatabase* database, gchar* page_uri, gchar* favicon_uri, gpointer user_data) {
     (void)database;
-    printf("[favicon-c] Favicon changed - page: %s, favicon: %s, WebView ID: %lu\n",
-           page_uri ? page_uri : "NULL", favicon_uri ? favicon_uri : "NULL", (unsigned long)user_data);
 
     if (!favicon_uri || !page_uri) {
         printf("[favicon-c] Invalid favicon or page URI for WebView ID %lu\n", (unsigned long)user_data);
         return;
     }
 
-    // Pass the page URI and favicon URI to Go
-    // WebKit manages the actual favicon data - we just need to store the URI mapping
+    // Log only a masked/shortened form of the URIs (no full URIs)
+    char* masked_page = mask_uri_for_log(page_uri);
+    char* masked_favicon = mask_uri_for_log(favicon_uri);
+    printf("[favicon-c] Favicon changed - page: %s, favicon: %s, WebView ID: %lu\n",
+           masked_page, masked_favicon, (unsigned long)user_data);
+    g_free(masked_page);
+    g_free(masked_favicon);
+
+    // Pass the full page URI and favicon URI to Go
     goOnFaviconURIChanged((unsigned long)user_data, page_uri, favicon_uri);
 }
 
