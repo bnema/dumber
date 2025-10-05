@@ -461,8 +461,10 @@ func WidgetQueueDraw(widget uintptr) {
 
 // Focus controller functions for GTK4 EventControllerFocus (stub implementations)
 func WidgetAddFocusController(widget uintptr, onEnter, onLeave func()) uintptr {
-	// Stub implementation - return a fake token
-	return nextHoverToken
+	// Stub implementation - return a unique token
+	token := nextHoverToken
+	nextHoverToken++
+	return token
 }
 
 func WidgetRemoveFocusController(widget uintptr, token uintptr) {

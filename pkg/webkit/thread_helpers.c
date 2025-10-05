@@ -1,3 +1,4 @@
+//go:build webkit_cgo
 // +build webkit_cgo
 
 #include <glib.h>
