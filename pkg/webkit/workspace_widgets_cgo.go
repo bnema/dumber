@@ -183,6 +183,10 @@ static void widget_remove_focus_controller(GtkWidget* widget, GtkEventController
     }
 
     tracker->is_attached = FALSE;
+
+    // Remove from registry and unref controller to avoid leaks
+    g_hash_table_remove(controller_registry, controller);
+    g_object_unref(controller);
 }
 
 static GtkWidget* paned_get_start_child(GtkWidget* paned) {
@@ -589,6 +593,9 @@ func PanedSetPosition(paned uintptr, pos int) {
 // PanedGetPosition gets the current position of the divider in a GtkPaned
 func PanedGetPosition(paned uintptr) int {
 	if paned == 0 {
+		return 0
+	}
+	if !widgetIsValid(paned) {
 		return 0
 	}
 	return int(C.gtk_paned_get_position((*C.GtkPaned)(unsafe.Pointer(paned))))
