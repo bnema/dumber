@@ -79,3 +79,4 @@ scripts/
 specs/
 templates/
 .serena/
+config.yaml
