@@ -59,10 +59,12 @@ Dumber is a minimalist browser and launcher companion focused on speed and simpl
 | **←** / **L** (in pane mode) | Split Left | Create new pane to the left |
 | **↑** / **U** (in pane mode) | Split Up | Create new pane above |
 | **↓** / **D** (in pane mode) | Split Down | Create new pane below |
+| **S** (in pane mode) | Stack Pane | Create stacked pane (Zellij-style) |
 | **X** (in pane mode) | Close Pane | Close current pane |
 | **Enter** (in pane mode) | Confirm Action | Confirm pane operation |
 | **Escape** (in pane mode) | Exit Pane Mode | Return to normal navigation |
 | **Alt+Arrow Keys** | Navigate Panes | Move focus between panes |
+| **Alt+Up/Down** | Navigate Stack | Navigate between stacked panes |
 
 ### Mouse Controls
 | Action | Result | Notes |
@@ -159,16 +161,18 @@ Dumber features a Zellij-inspired pane management system that allows you to spli
 
 ### How it Works
 1. **Enter Pane Mode**: Press `Ctrl+P` to enter pane mode (modal interface with timeout)
-2. **Split Panes**: Use arrow keys or letter shortcuts to split:
+2. **Split or Stack Panes**: Use arrow keys or letter shortcuts:
    - `→` or `R` - Split right
    - `←` or `L` - Split left
    - `↑` or `U` - Split up
    - `↓` or `D` - Split down
-3. **Navigate**: Use `Alt+Arrow Keys` to move focus between panes
+   - `S` - Stack panes (Zellij-style, shows title bars for collapsed panes)
+3. **Navigate**: Use `Alt+Arrow Keys` to move focus between split panes, or `Alt+Up/Down` to navigate within stacked panes
 4. **Close**: Press `X` in pane mode to close the current pane
 
 ### Features
 - **Binary tree layout**: Panes are organized in a binary tree structure for optimal space usage
+- **Stacked panes**: Zellij-style stacking with collapsed title bars showing "Page Title - domain" for inactive panes
 - **Focus management**: Visual borders, hover-to-focus, and enhanced focus throttling (100ms) for intuitive navigation
 - **Independent sessions**: Each pane maintains its own browsing session, history, and zoom level
 - **Advanced popup handling**: Intelligent popup vs tab detection, OAuth auto-close, and popup deduplication with SHA256 fingerprinting

@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **Pin/favorite sites**: Pin websites from history or quick access to prioritize them in "Jump back in" section. Uses localStorage persistence with star icons for pin/unpin actions
+- **Zellij-style stacked panes**: Added Ctrl+P → 's' to stack panes instead of splitting, with Alt+Up/Down navigation between stacked panes. Features collapsed page title bars showing  for inactive panes and full WebView interaction for the active pane. Includes GTK4 CSS styling for proper visual feedback
 
 ### Changed
 - **History item layout**: Removed "• domain" from titles, now highlight domain within the full URL using same color as title text
@@ -15,6 +16,12 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - **Mobile URL overflow**: Fixed long URLs breaking layout on narrow screens by adding proper width constraints and CSS fixes
 - **GTK shortcut GLib-CRITICAL error**: Fixed NULL string assertion in shortcut callback system
+- **Focus management architecture**: Refactored workspace focus system from `active` field to `currentlyFocused` with dedicated FocusManager for improved reliability and consistency across pane operations
+- **Stacked pane focus conflicts**: Fixed focus stealing issues in stacked panes by implementing focus-aware navigation that preserves active pane when spawning siblings
+- **WebView title updates**: Enhanced webview title change handling to properly update stacked pane title bars in addition to database storage
+- **GTK4 widget lifecycle**: Improved widget parenting/unparenting operations with proper GTK4 validation and automatic cleanup to prevent critical warnings
+- **Stacked pane close behavior**: Fixed remaining pane becoming non-interactable (gray background) when closing stacked panes via Ctrl+W or Ctrl+P+X. Added proper widget visibility restoration and focus management during stack-to-regular conversion
+- **Stacked pane title updates**: Fixed collapsed panes not showing current page titles when switching between stacked panes. Now follows Zellij-style layout where hidden panes display their up-to-date page titles in title bars with correct positioning above and below the active pane
 
 ## [0.10.0] - 2025-09-24
 

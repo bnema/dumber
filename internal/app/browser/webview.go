@@ -157,12 +157,19 @@ func (app *BrowserApp) attachPaneHandlers(pane *BrowserPane) {
 		if url == "" {
 			return
 		}
+
+		// Update database with new title
 		go func(url, title string) {
 			ctx := context.Background()
 			if err := app.browserService.UpdatePageTitle(ctx, url, title); err != nil {
 				log.Printf("Warning: failed to update page title: %v", err)
 			}
 		}(url, title)
+
+		// Update stacked pane title bar if this pane is in a stack
+		if app.workspace != nil {
+			app.workspace.UpdateTitleBar(pane.webView, title)
+		}
 	})
 
 	pane.webView.RegisterScriptMessageHandler(func(payload string) {

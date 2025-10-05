@@ -27,6 +27,7 @@ type WebViewMemoryManager struct {
 	recycleThreshold   int
 	monitoringInterval time.Duration
 	stopMonitoring     chan struct{}
+	lastLoggedMemory   int64
 }
 
 // NewWebViewMemoryManager creates a new memory manager
@@ -105,9 +106,19 @@ func (mgr *WebViewMemoryManager) checkMemoryUsage() {
 		totalMemory += proc.VmRSS
 	}
 
+	// Only log if memory usage changed by more than 10MB (10240 KB)
+	const memoryChangeThreshold = 10240 // 10MB in KB
 	if mgr.enableMonitoring {
-		log.Printf("[webkit] Memory usage: %d processes, total %.1f MB RSS",
-			len(processes), float64(totalMemory)/1024.0)
+		memoryDiff := totalMemory - mgr.lastLoggedMemory
+		if memoryDiff < 0 {
+			memoryDiff = -memoryDiff
+		}
+
+		if mgr.lastLoggedMemory == 0 || memoryDiff >= memoryChangeThreshold {
+			log.Printf("[webkit] Memory usage: %d processes, total %.1f MB RSS",
+				len(processes), float64(totalMemory)/1024.0)
+			mgr.lastLoggedMemory = totalMemory
+		}
 	}
 
 	// Check for recycling needs

@@ -151,6 +151,11 @@ func DefaultConfig() *Config {
 			LogWebKitCrashes:      true, // Always log crashes
 			EnableScriptDebug:     false,
 			EnableGeneralDebug:    false,
+			EnableWorkspaceDebug:  false,
+			EnableFocusDebug:      false,
+			EnableCSSDebug:        false,
+			EnableFocusMetrics:    false,
+			EnablePaneCloseDebug:  false,
 		},
 		APISecurity: APISecurityConfig{
 			Token:        "",

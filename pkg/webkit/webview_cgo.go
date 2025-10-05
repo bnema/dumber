@@ -80,7 +80,10 @@ static void on_webview_close(WebKitWebView* web_view, gpointer user_data) {
 }
 
 
-// Handle decide-policy signal for new window requests - more robust than create signal
+// Forward declare navigation policy handler
+extern gboolean goHandleNavigationPolicy(unsigned long view_id, char* uri, gboolean is_user_gesture);
+
+// Handle decide-policy signal for new window requests and navigations
 static gboolean on_decide_policy(WebKitWebView *web_view,
                                  WebKitPolicyDecision *decision,
                                  WebKitPolicyDecisionType type,
@@ -89,6 +92,32 @@ static gboolean on_decide_policy(WebKitWebView *web_view,
     const char* type_names[] = {"NAVIGATION_ACTION", "NEW_WINDOW_ACTION", "RESPONSE"};
     const char* type_name = (type >= 0 && type < 3) ? type_names[type] : "UNKNOWN";
     printf("[webkit-policy] Policy decision: type=%s (%d)\n", type_name, type);
+
+    unsigned long view_id = (unsigned long)user_data;
+
+    if (type == WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION) {
+        WebKitNavigationPolicyDecision *nav_decision =
+            WEBKIT_NAVIGATION_POLICY_DECISION(decision);
+        WebKitNavigationAction *action =
+            webkit_navigation_policy_decision_get_navigation_action(nav_decision);
+        WebKitURIRequest *request =
+            webkit_navigation_action_get_request(action);
+        const char* uri = webkit_uri_request_get_uri(request);
+        gboolean is_user_gesture = webkit_navigation_action_is_user_gesture(action);
+
+        // Ask Go if this navigation should be allowed
+        gboolean allowed = goHandleNavigationPolicy(view_id, (char*)uri, is_user_gesture);
+
+        if (!allowed) {
+            printf("[webkit-policy] Navigation BLOCKED by Go handler: uri=%s is_user_gesture=%d\n", uri, is_user_gesture);
+            webkit_policy_decision_ignore(decision);
+            return TRUE;
+        }
+
+        // Allow navigation
+        webkit_policy_decision_use(decision);
+        return TRUE;
+    }
 
     if (type == WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION) {
         WebKitNavigationPolicyDecision *nav_decision =
@@ -111,7 +140,6 @@ static gboolean on_decide_policy(WebKitWebView *web_view,
         guint mouse_button = webkit_navigation_action_get_mouse_button(action);
 
         // Call Go handler for popup creation
-        unsigned long view_id = (unsigned long)user_data;
         gboolean handled = goHandleNewWindowPolicy(view_id, (char*)uri, nav_type, (char*)frame_name,
                                                  is_user_gesture, modifiers, mouse_button);
 
@@ -248,9 +276,9 @@ static GtkWidget* new_webview_related(WebKitWebView* related_view, WebKitUserCon
 
 static void connect_policy_handler(WebKitWebView* web_view, unsigned long id) {
     if (!web_view) return;
-    // Create signal is now handled in window_handler_cgo.go
-    // Use ConnectCreateSignal from Go to connect the signal
-    printf("[webkit-debug] Policy handler connected (create signal handled separately)\n");
+    // Connect decide-policy signal for navigation control
+    g_signal_connect_data(G_OBJECT(web_view), "decide-policy", G_CALLBACK(on_decide_policy), (gpointer)id, NULL, 0);
+    printf("[webkit-debug] Policy handler connected for WebView id: %lu\n", id);
 }
 
 // Connect close signal to a WebView for popup auto-close functionality
@@ -987,12 +1015,13 @@ type WebView struct {
 	wasReparented     bool // Track if this WebView has been reparented
 
 	// Window type detection and relationships
-	windowType         WindowType
-	windowFeatures     *WindowFeatures
-	windowTypeCallback func(WindowType, *WindowFeatures)
-	parentWebView      *WebView
-	isRelated          bool
-	isActive           bool // Track if this WebView is currently active/focused
+	windowType              WindowType
+	windowFeatures          *WindowFeatures
+	windowTypeCallback      func(WindowType, *WindowFeatures)
+	parentWebView           *WebView
+	isRelated               bool
+	isActive                bool // Track if this WebView is currently active/focused
+	navigationPolicyHandler func(url string, isUserGesture bool) bool // Handler to decide if navigation should be allowed
 }
 
 // NewWebView constructs a new WebView instance with native WebKit2GTK widgets.
@@ -1001,6 +1030,8 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	if C.gtk_init_check() == 0 {
 		return nil, errors.New("failed to initialize GTK")
 	}
+
+	InitMainThread()
 
 	if cfg == nil {
 		cfg = &Config{}
@@ -1458,6 +1489,8 @@ func NewWebViewWithRelated(cfg *Config, relatedView *WebView) (*WebView, error) 
 		return nil, errors.New("failed to initialize GTK")
 	}
 
+	InitMainThread()
+
 	if cfg == nil {
 		cfg = &Config{}
 	}
@@ -1626,21 +1659,26 @@ func (w *WebView) Destroy() error {
 		return ErrNotImplemented
 	}
 
+	log.Printf("[webkit-destroy] begin destroy: id=%d container=%p win=%p view=%p", w.id, w.native.container, w.native.win, w.native.view)
 	// Stop periodic GC if running
 	w.stopPeriodicGC()
+	log.Printf("[webkit-destroy] periodic GC stopped: id=%d", w.id)
 
 	// Clean up memory pressure settings
 	if w.memStats != nil && w.memStats.memoryPressureSettings != nil {
 		// WebKit will clean up the memory pressure settings when context is destroyed
 		w.memStats.memoryPressureSettings = nil
+		log.Printf("[webkit-destroy] cleared memory pressure settings: id=%d", w.id)
 	}
 
 	// Unregister from memory manager
 	if globalMemoryManager != nil {
 		globalMemoryManager.UnregisterWebView(w.id)
+		log.Printf("[webkit-destroy] unregistered from memory manager: id=%d", w.id)
 	}
 
 	if w.native != nil && w.native.ucm != nil && w.domBridgeScript != nil {
+		log.Printf("[webkit-destroy] removing DOM bridge script: id=%d", w.id)
 		C.webkit_user_content_manager_remove_script(w.native.ucm, w.domBridgeScript)
 		C.webkit_user_script_unref(w.domBridgeScript)
 		w.domBridgeScript = nil
@@ -1648,6 +1686,7 @@ func (w *WebView) Destroy() error {
 
 	// GTK4: destroy windows via gtk_window_destroy if we created one
 	if w.native.win != nil && w.config != nil && w.config.CreateWindow {
+		log.Printf("[webkit-destroy] destroying GTK window: id=%d win=%p", w.id, w.native.win)
 		C.gtk_window_destroy((*C.GtkWindow)(unsafe.Pointer(w.native.win)))
 		w.native.win = nil
 		if w.window != nil {
@@ -1656,13 +1695,17 @@ func (w *WebView) Destroy() error {
 		log.Printf("[webkit] Destroy window")
 	}
 
+	log.Printf("[webkit-destroy] releasing native widgets: id=%d", w.id)
 	w.releaseNativeWidgets()
+	log.Printf("[webkit-destroy] native widgets released: id=%d", w.id)
 	w.destroyed = true
 
 	// Unregister from dynamic protection updates
 	UnregisterActiveWebView(w)
+	log.Printf("[webkit-destroy] unregistered active view: id=%d", w.id)
 
 	unregisterView(w.id)
+	log.Printf("[webkit-destroy] destroy complete: id=%d", w.id)
 	return nil
 }
 
@@ -1694,6 +1737,18 @@ func (w *WebView) GetCurrentURL() string {
 		return ""
 	}
 	return C.GoString((*C.char)(unsafe.Pointer(uri)))
+}
+
+// GetTitle returns the current page title from WebKit.
+func (w *WebView) GetTitle() string {
+	if w == nil || w.native == nil || w.native.wv == nil {
+		return ""
+	}
+	title := C.webkit_web_view_get_title(w.native.wv)
+	if title == nil {
+		return ""
+	}
+	return C.GoString((*C.char)(unsafe.Pointer(title)))
 }
 
 func (w *WebView) GoBack() error {
@@ -1741,6 +1796,11 @@ func (w *WebView) RegisterCloseHandler(cb func()) {
 	if w.native != nil && w.native.wv != nil {
 		C.connect_close_signal(w.native.wv, C.ulong(w.id))
 	}
+}
+
+// RegisterNavigationPolicyHandler sets a handler to control navigation decisions
+func (w *WebView) RegisterNavigationPolicyHandler(cb func(url string, isUserGesture bool) bool) {
+	w.navigationPolicyHandler = cb
 }
 
 // EnablePrintInterception connects the print signal to intercept Ctrl+P
@@ -2342,6 +2402,37 @@ func goHandleTLSError(failingURI *C.char, host *C.char, errorFlags C.int, certIn
 func goHandleConsoleMessage(message *C.char) {
 	messageText := C.GoString(message)
 	logging.CaptureWebKitLog(messageText)
+}
+
+//export goHandleNavigationPolicy
+func goHandleNavigationPolicy(viewID C.ulong, uri *C.char, isUserGesture C.gboolean) C.gboolean {
+	id := uintptr(viewID)
+	urlStr := C.GoString(uri)
+	userGesture := isUserGesture != 0
+
+	log.Printf("[navigation-policy] WebView %d navigating to: %s (user_gesture=%t)", id, urlStr, userGesture)
+
+	// Find the WebView
+	regMu.RLock()
+	view, exists := viewByID[id]
+	regMu.RUnlock()
+
+	if !exists || view == nil {
+		log.Printf("[navigation-policy] WebView %d not found, allowing navigation", id)
+		return C.TRUE // Allow by default if view not found
+	}
+
+	// Check if this webview has a navigation policy handler
+	if view.navigationPolicyHandler != nil {
+		allowed := view.navigationPolicyHandler(urlStr, userGesture)
+		if !allowed {
+			log.Printf("[navigation-policy] WebView %d: Navigation BLOCKED by handler", id)
+			return C.FALSE
+		}
+	}
+
+	// Allow navigation
+	return C.TRUE
 }
 
 // showTLSWarningDialog displays a warning dialog for TLS certificate errors with storage capability

@@ -66,13 +66,17 @@ assets/gui
 
 # Node/TypeScript related
 node_modules/
+.pnpm-store/
+
 
 # Development/tooling files
 CLAUDE.md
 .claude/
 memory/
+notes/
 scripts/
 !scripts/generate-types.js
 specs/
 templates/
 .serena/
+config.yaml

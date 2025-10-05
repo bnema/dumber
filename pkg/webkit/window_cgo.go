@@ -27,6 +27,8 @@ func NewWindow(title string) (*Window, error) {
 	if C.gtk_init_check() == 0 {
 		return nil, ErrNotImplemented
 	}
+
+	InitMainThread()
 	// GTK4: gtk_window_new() returns GtkWindow*, no toplevel enum
 	w := (*C.GtkWidget)(unsafe.Pointer(C.gtk_window_new()))
 	if w == nil {

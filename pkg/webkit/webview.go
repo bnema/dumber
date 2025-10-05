@@ -32,13 +32,14 @@ type WebView struct {
 	uriHandler        func(uri string)
 	faviconHandler    func(data []byte)
 	faviconURIHandler func(pageURI, faviconURI string)
-	zoomHandler       func(level float64)
-	popupHandler      func(string) *WebView
-	closeHandler      func()
-	useDomZoom        bool
-	domZoomSeed       float64
-	container         uintptr
-	id                uintptr // WebView unique identifier
+	zoomHandler              func(level float64)
+	popupHandler             func(string) *WebView
+	closeHandler             func()
+	navigationPolicyHandler  func(url string, isUserGesture bool) bool
+	useDomZoom               bool
+	domZoomSeed              float64
+	container                uintptr
+	id                       uintptr // WebView unique identifier
 
 	// Window type fields (no-op in stub)
 	windowType         WindowType
@@ -125,6 +126,9 @@ func (w *WebView) Window() *Window { return w.window }
 // GetCurrentURL returns the last requested URL (non-CGO build approximation).
 func (w *WebView) GetCurrentURL() string { return w.url }
 
+// GetTitle returns a stub page title.
+func (w *WebView) GetTitle() string { return "New Tab" }
+
 // GoBack is not supported in the non-CGO stub.
 func (w *WebView) GoBack() error { return ErrNotImplemented }
 
@@ -152,6 +156,10 @@ func (w *WebView) RegisterScriptMessageHandler(cb func(payload string)) { w.msgH
 func (w *WebView) RegisterPopupHandler(cb func(string) *WebView) { w.popupHandler = cb }
 
 func (w *WebView) RegisterCloseHandler(cb func()) { w.closeHandler = cb }
+
+func (w *WebView) RegisterNavigationPolicyHandler(cb func(url string, isUserGesture bool) bool) {
+	w.navigationPolicyHandler = cb
+}
 
 func (w *WebView) dispatchScriptMessage(payload string) { //nolint:unused // Called from CGO WebKit callbacks
 	if w != nil && w.msgHandler != nil {
