@@ -609,7 +609,14 @@ func WidgetUnparent(widget uintptr) {
 }
 
 // WidgetUnparentChecked safely detaches a widget from its parent if still valid.
-// Returns true when the widget was unparented or already detached.
+//
+// Return semantics:
+//   - Returns false if the widget pointer is zero or not a valid GTK widget (invalid input).
+//   - Returns true if the widget has no parent (already detached).
+//   - Returns true if the widget was successfully unparented (parent changed or is now nil).
+//   - Returns false if the widget is still valid and the parent did not change (unparent failed).
+//
+// Callers can use the return value to distinguish between invalid input, already-detached widgets, and successful unparenting.
 func WidgetUnparentChecked(widget uintptr) bool {
 	if widget == 0 {
 		log.Printf("[workspace] WidgetUnparentChecked: widget=0")
@@ -728,6 +735,10 @@ func WidgetSetFocusChild(widget uintptr, child uintptr) {
 	}
 	var childPtr *C.GtkWidget
 	if child != 0 {
+		if !widgetIsValid(child) {
+			log.Printf("[workspace] WidgetSetFocusChild skipped invalid child=%#x", child)
+			return
+		}
 		childPtr = (*C.GtkWidget)(unsafe.Pointer(child))
 	}
 	C.gtk_widget_set_focus_child((*C.GtkWidget)(unsafe.Pointer(widget)), childPtr)

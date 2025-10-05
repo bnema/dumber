@@ -11,6 +11,12 @@ import (
 	"github.com/bnema/dumber/pkg/webkit"
 )
 
+const (
+	// Default popup window dimensions - sized for OAuth flows
+	defaultPopupMinWidth  = 500 // Minimum width for OAuth popups
+	defaultPopupMinHeight = 600 // Minimum height for OAuth popups
+)
+
 // HandlePopup handles popup window creation requests from WebViews
 func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *webkit.WebView {
 	log.Printf("[workspace] HandlePopup called for URL: %s", url)
@@ -697,8 +703,8 @@ func (wm *WorkspaceManager) configureRelatedPopup(sourceNode *paneNode, webView 
 
 // applyPopupSizeConstraints applies minimum size constraints to prevent OAuth popup compression
 func (wm *WorkspaceManager) applyPopupSizeConstraints(view *webkit.WebView, width, height int) {
-	minWidth := 500  // Default minimum width
-	minHeight := 600 // Default minimum height
+	minWidth := defaultPopupMinWidth
+	minHeight := defaultPopupMinHeight
 
 	// Use provided dimensions if valid
 	if width > 0 {

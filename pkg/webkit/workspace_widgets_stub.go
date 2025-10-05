@@ -401,8 +401,10 @@ func WidgetGetBounds(widget uintptr) (WidgetBounds, bool) {
 	return stub.bounds, true
 }
 
-// WidgetWaitForDraw ensures widget operations are complete (GTK test pattern)
-// This replaces the problematic IdleAdd pattern with proper widget synchronization
+// WidgetWaitForDraw is a no-op validation stub in this build.
+// It does NOT provide any synchronization or guarantee that widget draw operations are complete.
+// In the stub, it only validates the widget state and does not wait for any operations.
+// In real GTK builds, this would wait for all pending draw operations to complete.
 func WidgetWaitForDraw(widget uintptr) {
 	gtkTestInitOnce.Do(func() {})
 	widgetMu.Lock()
@@ -415,8 +417,6 @@ func WidgetWaitForDraw(widget uintptr) {
 			panic("GTK-CRITICAL simulation: gtk_test_widget_wait_for_draw: widget is invalid")
 		}
 	}
-	// In real GTK, this would wait for all pending draw operations to complete
-	// In our stub, we just validate the widget state
 }
 
 // IdleAdd simulates GTK's idle callback system - DEPRECATED, use WidgetWaitForDraw instead
