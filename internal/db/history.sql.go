@@ -73,6 +73,28 @@ func (q *Queries) GetHistory(ctx context.Context, limit int64) ([]History, error
 	return items, nil
 }
 
+const GetHistoryEntry = `-- name: GetHistoryEntry :one
+SELECT id, url, title, visit_count, last_visited, created_at, favicon_url
+FROM history
+WHERE url = ?
+LIMIT 1
+`
+
+func (q *Queries) GetHistoryEntry(ctx context.Context, url string) (History, error) {
+	row := q.db.QueryRowContext(ctx, GetHistoryEntry, url)
+	var i History
+	err := row.Scan(
+		&i.ID,
+		&i.Url,
+		&i.Title,
+		&i.VisitCount,
+		&i.LastVisited,
+		&i.CreatedAt,
+		&i.FaviconUrl,
+	)
+	return i, err
+}
+
 const GetHistoryWithOffset = `-- name: GetHistoryWithOffset :many
 SELECT id, url, title, visit_count, last_visited, created_at, favicon_url
 FROM history
@@ -186,7 +208,7 @@ func (q *Queries) SearchHistory(ctx context.Context, column1 sql.NullString, col
 }
 
 const UpdateHistoryFavicon = `-- name: UpdateHistoryFavicon :exec
-UPDATE history 
+UPDATE history
 SET favicon_url = ?
 WHERE url = ?
 `
