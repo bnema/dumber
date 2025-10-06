@@ -86,7 +86,7 @@ func (app *BrowserApp) buildWebkitConfig() (*webkit.Config, error) {
 	cfg := &webkit.Config{
 		Assets:                app.assets,
 		InitialURL:            "dumb://homepage",
-		ZoomDefault:           1.0,
+		ZoomDefault:           app.config.DefaultZoom,
 		EnableDeveloperExtras: true,
 		DataDir:               webkitData,
 		CacheDir:              webkitCache,

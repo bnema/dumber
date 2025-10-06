@@ -40,6 +40,8 @@ type Config struct {
 	RenderingMode RenderingMode `mapstructure:"rendering_mode" yaml:"rendering_mode"`
 	// UseDomZoom toggles DOM-based zoom instead of native WebKit zoom.
 	UseDomZoom bool `mapstructure:"use_dom_zoom" yaml:"use_dom_zoom"`
+	// DefaultZoom sets the default zoom level for pages without saved zoom settings (1.0 = 100%, 1.2 = 120%)
+	DefaultZoom float64 `mapstructure:"default_zoom" yaml:"default_zoom"`
 	// Workspace defines workspace, pane, and tab handling behaviour.
 	Workspace WorkspaceConfig `mapstructure:"workspace" yaml:"workspace"`
 }
@@ -381,6 +383,9 @@ func NewManager() (*Manager, error) {
 	if err := v.BindEnv("use_dom_zoom", "DUMBER_USE_DOM_ZOOM"); err != nil {
 		return nil, fmt.Errorf("failed to bind DUMBER_USE_DOM_ZOOM: %w", err)
 	}
+	if err := v.BindEnv("default_zoom", "DUMBER_DEFAULT_ZOOM"); err != nil {
+		return nil, fmt.Errorf("failed to bind DUMBER_DEFAULT_ZOOM: %w", err)
+	}
 
 	// Video acceleration environment variable bindings
 	videoAccelEnvBindings := map[string]string{
@@ -716,6 +721,7 @@ func (m *Manager) setDefaults() {
 	// Rendering defaults
 	m.viper.SetDefault("rendering_mode", string(RenderingModeGPU))
 	m.viper.SetDefault("use_dom_zoom", defaults.UseDomZoom)
+	m.viper.SetDefault("default_zoom", defaults.DefaultZoom)
 
 	// Workspace defaults
 	m.viper.SetDefault("workspace.enable_zellij_controls", defaults.Workspace.EnableZellijControls)
@@ -765,6 +771,31 @@ func (m *Manager) ensurePersistedDefaults(cfg *Config) {
 	}
 
 	logging.Info(fmt.Sprintf("Config: persisted missing use_dom_zoom default (%v) to %s", cfg.UseDomZoom, cfgFile))
+}
+
+// persistDefaultZoomIfMissing persists the default_zoom value to the config file if it's not already set.
+func (m *Manager) persistDefaultZoomIfMissing(cfg *Config) {
+	if cfg == nil {
+		return
+	}
+
+	// Only persist when the key is missing from the user config file.
+	if m.viper.InConfig("default_zoom") {
+		return
+	}
+
+	cfgFile := m.viper.ConfigFileUsed()
+	if cfgFile == "" {
+		return
+	}
+
+	m.viper.Set("default_zoom", cfg.DefaultZoom)
+	if err := m.viper.WriteConfig(); err != nil {
+		logging.Warn(fmt.Sprintf("Config: failed to persist default_zoom default to %s: %v", cfgFile, err))
+		return
+	}
+
+	logging.Info(fmt.Sprintf("Config: persisted missing default_zoom default (%.2f) to %s", cfg.DefaultZoom, cfgFile))
 }
 
 // createDefaultConfig creates a default configuration file.

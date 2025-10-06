@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Configurable default zoom**: Added `default_zoom` config (defaults to 1.2/120%). Per-domain zoom still overrides this
 - **Pin/favorite sites**: Pin websites from history or quick access to prioritize them in "Jump back in" section. Uses localStorage persistence with star icons for pin/unpin actions
 - **Zellij-style stacked panes**: Added Ctrl+P → 's' to stack panes instead of splitting, with Alt+Up/Down navigation between stacked panes. Features collapsed page title bars showing  for inactive panes and full WebView interaction for the active pane. Includes GTK4 CSS styling for proper visual feedback
 - **Stacked pane favicons**: Title bars display site favicons with async caching. Click title bars to switch between stacked panes

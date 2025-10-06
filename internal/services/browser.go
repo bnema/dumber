@@ -446,7 +446,7 @@ func (s *BrowserService) ResetZoom(ctx context.Context, url string) (float64, er
 // GetZoomLevel retrieves the saved zoom level for a URL.
 func (s *BrowserService) GetZoomLevel(ctx context.Context, url string) (float64, error) {
 	if url == "" {
-		return 1.0, nil
+		return s.config.DefaultZoom, nil
 	}
 
 	key := zoomKeyFromURL(url)
@@ -458,10 +458,10 @@ func (s *BrowserService) GetZoomLevel(ctx context.Context, url string) (float64,
 			if err2 == nil {
 				return zl, nil
 			}
-			// No zoom setting found, return default
-			return 1.0, nil
+			// No zoom setting found, return configured default
+			return s.config.DefaultZoom, nil
 		}
-		return 1.0, err
+		return s.config.DefaultZoom, err
 	}
 
 	return zoomLevel, nil

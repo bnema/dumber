@@ -164,6 +164,7 @@ func DefaultConfig() *Config {
 		},
 		RenderingMode: RenderingModeGPU,
 		UseDomZoom:    false,
+		DefaultZoom:   1.2, // 120% default zoom for better readability
 		Workspace: WorkspaceConfig{
 			EnableZellijControls: true,
 			PaneMode: PaneModeConfig{
