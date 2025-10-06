@@ -144,6 +144,15 @@ func (app *BrowserApp) buildPane(view *webkit.WebView) (*BrowserPane, error) {
 		app.workspace.RegisterNavigationHandler(view)
 	}
 
+	// Register favicon handlers for this webview (needed for each pane)
+	// This ensures favicons are detected and cached for all panes, not just the main webview
+	view.RegisterFaviconURIChangedHandler(func(pageURI, faviconURI string) {
+		// Call the private handler through a public wrapper or directly via browserService
+		// We can't call handleFaviconURIChanged directly as it's private, so we need to expose it
+		// For now, duplicate the minimal logic here
+		app.browserService.ProcessFaviconURI(pageURI, faviconURI)
+	})
+
 	return pane, nil
 }
 

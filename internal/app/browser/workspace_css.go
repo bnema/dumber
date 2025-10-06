@@ -117,6 +117,10 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  font-weight: 500;
 	}
 
+	.stacked-pane-favicon {
+	  margin-right: 4px;
+	}
+
 	.stacked-pane-active {
 	  /* Active pane is fully visible */
 	}
