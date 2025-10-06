@@ -18,53 +18,63 @@
 
 <style>
     .footer {
-        margin-top: 1rem;
+        margin-top: 1.5rem;
         width: 100%;
+        border-top: 1px solid var(--dynamic-border);
+        background: color-mix(in srgb, var(--dynamic-bg) 92%, var(--dynamic-surface) 8%);
     }
     
     .footer-content {
         display: flex;
         justify-content: center;
         align-items: center;
-        padding: 1rem 0;
+        padding: 0.75rem 0;
     }
 
     .footer-text {
         display: flex;
         align-items: center;
         gap: 0.75rem;
-        font-size: 0.85rem;
-        color: #888;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--dynamic-muted);
     }
 
     .footer-name {
-        color: #aaa;
-        font-weight: 500;
+        color: var(--dynamic-text);
+        font-weight: 600;
     }
 
     .footer-dot {
-        color: #666;
+        color: var(--dynamic-border);
     }
 
     .footer-link {
         background: none;
         border: none;
-        color: #0066cc;
+        color: var(--dynamic-muted);
         text-decoration: none;
         cursor: pointer;
         font-size: 0.85rem;
         padding: 0;
-        transition: color 0.2s ease;
+        transition: color 0.2s ease, letter-spacing 0.2s ease;
+        font-family:
+            "JetBrains Mono",
+            "Fira Code",
+            "SFMono-Regular",
+            Menlo,
+            monospace;
     }
 
     .footer-link:hover {
-        color: #4d94ff;
-        text-decoration: underline;
+        color: var(--dynamic-text);
+        letter-spacing: 0.16em;
     }
 
     .footer-link:focus {
-        outline: 1px solid #0066cc;
+        outline: 1px solid var(--dynamic-border);
         outline-offset: 2px;
-        border-radius: 2px;
+        border-radius: 0;
     }
 </style>
