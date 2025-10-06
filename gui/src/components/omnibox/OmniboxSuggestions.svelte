@@ -20,7 +20,7 @@
   // Handle suggestion item mouse enter
   function handleItemMouseEnter(index: number) {
     omniboxStore.setSelectedIndex(index);
-    omniboxStore.setFaded(true);
+    omniboxStore.setFaded(false);
     scrollToSelection();
   }
 
@@ -86,7 +86,7 @@
 {#if hasContent}
   <div
     id="omnibox-list"
-    class="mt-2 max-h-[50vh] overflow-auto border-t border-[#333]"
+    class="suggestion-list"
     role="listbox"
     aria-label="Search suggestions"
   >
@@ -96,9 +96,7 @@
 
       <div
         id="omnibox-item-{index}"
-        class="px-2.5 py-2 flex gap-2.5 items-center cursor-pointer
-               border-b border-[#2a2a2a] last:border-b-0
-               {isSelected ? 'bg-[#0a0a0a]' : ''}"
+        class={isSelected ? 'suggestion-item selected' : 'suggestion-item'}
         role="option"
         tabindex={isSelected ? 0 : -1}
         aria-selected={isSelected}
@@ -108,15 +106,11 @@
       >
         <!-- Favicon chip -->
         {#if suggestion.favicon}
-          <div
-            class="flex-shrink-0 w-5 h-5 rounded-full
-                   bg-[#ccc] border border-black/12
-                   shadow-sm flex items-center justify-center"
-          >
+          <div class="suggestion-favicon">
             <img
               src={suggestion.favicon}
               alt=""
-              class="w-4 h-4 filter brightness-105 contrast-103"
+              class="suggestion-favicon-img"
               loading="lazy"
               onerror={handleFaviconError}
               style="image-rendering: -webkit-optimize-contrast;"
@@ -125,24 +119,19 @@
         {/if}
 
         <!-- URL text with gradient fade -->
-        <div
-          class="flex-1 min-w-0 flex gap-2 items-center
-                 whitespace-nowrap overflow-hidden
-                 [mask-image:linear-gradient(90deg,black_85%,transparent_100%)]
-                 [-webkit-mask-image:linear-gradient(90deg,black_85%,transparent_100%)]"
-        >
+        <div class="suggestion-text">
           <!-- Domain -->
-          <span class="text-[#e6e6e6] opacity-95">
+          <span class="suggestion-domain">
             {domain}
           </span>
 
           <!-- Separator -->
-          <span class="text-[#777]">
+          <span class="suggestion-separator">
             {' | '}
           </span>
 
           <!-- Path -->
-          <span class="text-[#99aadd]">
+          <span class="suggestion-path">
             {path || '/'}
           </span>
         </div>
@@ -151,3 +140,79 @@
   </div>
 {/if}
 
+
+
+<style>
+  .suggestion-list {
+    margin-top: 0.75rem;
+    max-height: 50vh;
+    overflow-y: auto;
+    border-top: 1px solid var(--dynamic-border);
+    background: color-mix(in srgb, var(--dynamic-bg) 94%, var(--dynamic-surface) 6%);
+  }
+
+  .suggestion-item {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.65rem 0.85rem;
+    border-bottom: 1px dashed var(--dynamic-border);
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease;
+    letter-spacing: 0.04em;
+  }
+
+  .suggestion-item:last-child {
+    border-bottom: none;
+  }
+
+  .suggestion-item.selected,
+  .suggestion-item:hover,
+  .suggestion-item:focus-visible {
+    background: color-mix(in srgb, var(--dynamic-bg) 60%, var(--dynamic-surface) 40%);
+    color: var(--dynamic-text);
+    outline: none;
+  }
+
+  .suggestion-item .suggestion-domain {
+    color: var(--dynamic-text);
+    opacity: 0.95;
+  }
+
+  .suggestion-item .suggestion-separator {
+    color: var(--dynamic-muted);
+  }
+
+  .suggestion-item .suggestion-path {
+    color: var(--dynamic-muted);
+  }
+
+  .suggestion-favicon {
+    width: 20px;
+    height: 20px;
+    border: 1px solid var(--dynamic-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--dynamic-bg);
+  }
+
+  .suggestion-favicon-img {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+  }
+
+  .suggestion-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    mask-image: linear-gradient(90deg, black 85%, transparent 100%);
+    -webkit-mask-image: linear-gradient(90deg, black 85%, transparent 100%);
+  }
+</style>
