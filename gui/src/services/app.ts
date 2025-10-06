@@ -79,21 +79,48 @@ export class AppService {
   }
 
   async loadShortcuts(): Promise<void> {
-    const cfg = await fetch("/api/config").then((r) => r.json());
-    const raw = cfg?.search_shortcuts || {};
-    // Normalize field casing from backend (supports URL/Description and url/description)
-    const normalized: Record<string, SearchShortcut> = {};
-    for (const [key, value] of Object.entries(raw)) {
-      const v = value as Record<string, unknown>;
-      normalized[key] = {
-        id: 0,
-        shortcut: key,
-        url_template: (v.url ?? v.URL ?? "") as string,
-        description: (v.description ?? v.Description ?? "") as string,
-        created_at: null,
+    return new Promise((resolve, reject) => {
+      // Set up response handler
+      window.__dumber_search_shortcuts = (data: unknown) => {
+        // Type guard
+        if (typeof data !== "object" || data === null) {
+          reject(new Error("Invalid shortcuts data"));
+          return;
+        }
+        const dataObj = data as Record<string, unknown>;
+        // Normalize field casing from backend (supports URL/Description and url/description)
+        const normalized: Record<string, SearchShortcut> = {};
+        for (const [key, value] of Object.entries(dataObj)) {
+          const v = value as Record<string, unknown>;
+          normalized[key] = {
+            id: 0,
+            shortcut: key,
+            url_template: (v.url ?? v.URL ?? "") as string,
+            description: (v.description ?? v.Description ?? "") as string,
+            created_at: null,
+          };
+        }
+        this.shortcuts = normalized;
+        resolve();
       };
-    }
-    this.shortcuts = normalized;
+
+      window.__dumber_search_shortcuts_error = (error: string) => {
+        console.error("Failed to load shortcuts:", error);
+        reject(new Error(error));
+      };
+
+      // Send message to Go backend
+      const bridge = window.webkit?.messageHandlers?.dumber;
+      if (bridge && typeof bridge.postMessage === "function") {
+        bridge.postMessage(
+          JSON.stringify({
+            type: "get_search_shortcuts",
+          }),
+        );
+      } else {
+        reject(new Error("WebKit message handler not available"));
+      }
+    });
   }
 
   getHistory(): HistoryEntry[] {

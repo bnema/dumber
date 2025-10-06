@@ -677,3 +677,20 @@ func (s *BrowserService) handleFaviconURIChanged(pageURL string, faviconURI stri
 		log.Printf("[favicon] Failed to create favicon cache: %v", err)
 	}
 }
+
+// ColorPalettesResponse holds light and dark palettes for JSON marshaling
+type ColorPalettesResponse struct {
+	Light config.ColorPalette `json:"light"`
+	Dark  config.ColorPalette `json:"dark"`
+}
+
+// GetColorPalettesForMessaging returns the color palettes from config
+func (s *BrowserService) GetColorPalettesForMessaging() ColorPalettesResponse {
+	if s.config == nil {
+		return ColorPalettesResponse{}
+	}
+	return ColorPalettesResponse{
+		Light: s.config.Appearance.LightPalette,
+		Dark:  s.config.Appearance.DarkPalette,
+	}
+}

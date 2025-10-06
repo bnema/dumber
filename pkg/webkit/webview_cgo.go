@@ -2212,19 +2212,7 @@ func buildDomBridgeScript(cfg *Config, initialZoom float64, webViewId uintptr, w
 	log.Printf("[webkit] Building script with WebView %s, active state: %s", webViewIdStr, activeState)
 	script = strings.ReplaceAll(script, "\"__WEBVIEW_ACTIVE__\"", activeState)
 
-	// Inject color palette JSON
-	if cfg != nil {
-		if paletteJSON, err := json.Marshal(cfg.Colors); err == nil && len(paletteJSON) > 0 {
-			script = strings.ReplaceAll(script, "\"__PALETTE_JSON__\"", string(paletteJSON))
-		} else {
-			if err != nil {
-				log.Printf("[webkit] Failed to marshal color palettes: %v", err)
-			}
-			script = strings.ReplaceAll(script, "\"__PALETTE_JSON__\"", "null")
-		}
-	} else {
-		script = strings.ReplaceAll(script, "\"__PALETTE_JSON__\"", "null")
-	}
+	// Color palettes and search shortcuts are now loaded via messaging bridge
 
 	log.Printf("[webkit] Loaded main-world script successfully, size: %d bytes", len(scriptBytes))
 	return script

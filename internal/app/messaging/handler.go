@@ -131,6 +131,10 @@ func (h *Handler) Handle(payload string) {
 		h.handleConsoleMessage(msg)
 	case "request-webview-id":
 		h.handleWebViewIDRequest(msg)
+	case "get_search_shortcuts":
+		h.handleGetSearchShortcuts(msg)
+	case "get_color_palettes":
+		h.handleGetColorPalettes(msg)
 	}
 }
 
@@ -600,4 +604,65 @@ func (h *Handler) handleWebViewIDRequest(msg Message) {
 	}); err != nil {
 		log.Printf("[messaging] Failed to send webview ID: %v", err)
 	}
+}
+
+// handleGetSearchShortcuts sends search shortcuts configuration to JavaScript
+func (h *Handler) handleGetSearchShortcuts(msg Message) {
+	if h.webView == nil {
+		log.Printf("[messaging] Cannot provide search shortcuts - no webview available")
+		return
+	}
+
+	if h.webView.IsDestroyed() {
+		log.Printf("[messaging] Cannot provide search shortcuts - webview is destroyed")
+		return
+	}
+
+	// Get search shortcuts from browser service config
+	shortcuts, err := h.browserService.GetSearchShortcuts(context.Background())
+	if err != nil {
+		log.Printf("[messaging] Failed to get search shortcuts: %v", err)
+		_ = h.webView.InjectScript("window.__dumber_search_shortcuts_error && window.__dumber_search_shortcuts_error('Failed to get search shortcuts')")
+		return
+	}
+
+	// Marshal to JSON
+	b, err := json.Marshal(shortcuts)
+	if err != nil {
+		log.Printf("[messaging] Failed to marshal search shortcuts: %v", err)
+		_ = h.webView.InjectScript("window.__dumber_search_shortcuts_error && window.__dumber_search_shortcuts_error('Failed to load search shortcuts')")
+		return
+	}
+
+	// Inject the search shortcuts into the page
+	log.Printf("[messaging] Sending search shortcuts to JavaScript")
+	_ = h.webView.InjectScript("window.__dumber_search_shortcuts && window.__dumber_search_shortcuts(" + string(b) + ")")
+}
+
+// handleGetColorPalettes sends color palettes configuration to JavaScript
+func (h *Handler) handleGetColorPalettes(msg Message) {
+	if h.webView == nil {
+		log.Printf("[messaging] Cannot provide color palettes - no webview available")
+		return
+	}
+
+	if h.webView.IsDestroyed() {
+		log.Printf("[messaging] Cannot provide color palettes - webview is destroyed")
+		return
+	}
+
+	// Get color palettes from browser service config
+	palettes := h.browserService.GetColorPalettesForMessaging()
+
+	// Marshal to JSON
+	b, err := json.Marshal(palettes)
+	if err != nil {
+		log.Printf("[messaging] Failed to marshal color palettes: %v", err)
+		_ = h.webView.InjectScript("window.__dumber_color_palettes_error && window.__dumber_color_palettes_error('Failed to load color palettes')")
+		return
+	}
+
+	// Inject the color palettes into the page
+	log.Printf("[messaging] Sending color palettes to JavaScript")
+	_ = h.webView.InjectScript("window.__dumber_color_palettes && window.__dumber_color_palettes(" + string(b) + ")")
 }

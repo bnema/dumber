@@ -139,7 +139,7 @@ func (app *BrowserApp) Initialize() error {
 	app.browserService = services.NewBrowserService(app.config, app.queries)
 
 	// Initialize handlers
-	app.schemeHandler = api.NewSchemeHandler(app.assets, app.parserService, app.browserService, app.config)
+	app.schemeHandler = api.NewSchemeHandler(app.assets, app.parserService, app.browserService)
 	app.messageHandler = messaging.NewHandler(app.parserService, app.browserService)
 
 	return nil
