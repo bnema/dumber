@@ -636,6 +636,11 @@ func (s *BrowserService) handleFaviconChanged(pageURL string, pngData []byte) {
 	}
 }
 
+// ProcessFaviconURI is a public wrapper for handling favicon URI changes from any webview
+func (s *BrowserService) ProcessFaviconURI(pageURL string, faviconURI string) {
+	s.handleFaviconURIChanged(pageURL, faviconURI)
+}
+
 // handleFaviconURIChanged processes favicon URI changes from WebKit's native favicon database
 func (s *BrowserService) handleFaviconURIChanged(pageURL string, faviconURI string) {
 	log.Printf("[favicon] Processing favicon URI for %s: %s", pageURL, faviconURI)
@@ -662,5 +667,13 @@ func (s *BrowserService) handleFaviconURIChanged(pageURL string, faviconURI stri
 	faviconNullString := sql.NullString{String: faviconURI, Valid: true}
 	if err := s.dbQueries.UpdateHistoryFavicon(ctx, faviconNullString, pageURL); err != nil {
 		log.Printf("[browser] Failed to update favicon URI in database for %s: %v", pageURL, err)
+	}
+
+	// Download and cache the favicon asynchronously (same approach as dmenu)
+	if faviconCache, err := cache.NewFaviconCache(); err == nil {
+		faviconCache.CacheAsync(faviconURI)
+		log.Printf("[favicon] Started async download of favicon from %s for page %s", faviconURI, pageURL)
+	} else {
+		log.Printf("[favicon] Failed to create favicon cache: %v", err)
 	}
 }
