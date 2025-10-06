@@ -2,6 +2,7 @@ package api
 
 import (
 	"embed"
+	"encoding/json"
 	"log"
 	"mime"
 	neturl "net/url"
@@ -18,6 +19,7 @@ type SchemeHandler struct {
 	assets         embed.FS
 	parserService  *services.ParserService
 	browserService *services.BrowserService
+	config         *config.Config
 }
 
 // NewSchemeHandler creates a new scheme handler
@@ -25,11 +27,13 @@ func NewSchemeHandler(
 	assets embed.FS,
 	parserService *services.ParserService,
 	browserService *services.BrowserService,
+	cfg *config.Config,
 ) *SchemeHandler {
 	return &SchemeHandler{
 		assets:         assets,
 		parserService:  parserService,
 		browserService: browserService,
+		config:         cfg,
 	}
 }
 
@@ -52,6 +56,11 @@ func (s *SchemeHandler) Handle(uri string, cfg *config.Config) (string, []byte, 
 
 // handleAsset serves static assets from embedded filesystem
 func (s *SchemeHandler) handleAsset(u *neturl.URL) (string, []byte, bool) {
+	// Check if this is an API route
+	if strings.HasPrefix(u.Path, "/api/") {
+		return s.handleAPI(u)
+	}
+
 	// Resolve target path inside embed FS
 	var rel string
 	if u.Opaque == constants.HomepagePath || (u.Host == constants.HomepagePath && (u.Path == "" || u.Path == "/")) || (u.Host == "" && (u.Path == "" || u.Path == "/")) {
@@ -99,6 +108,38 @@ func (s *SchemeHandler) handleAsset(u *neturl.URL) (string, []byte, bool) {
 	// Note: This doesn't affect the current cache, but prevents new caching
 	log.Printf("[scheme] serving %s with mime-type: %s", rel, mt)
 	return mt, data, true
+}
+
+// handleAPI handles API routes
+func (s *SchemeHandler) handleAPI(u *neturl.URL) (string, []byte, bool) {
+	switch u.Path {
+	case "/api/config":
+		return s.handleConfigAPI()
+	default:
+		log.Printf("[scheme] API route not found: %s", u.Path)
+		return "", nil, false
+	}
+}
+
+// handleConfigAPI returns the application configuration as JSON
+func (s *SchemeHandler) handleConfigAPI() (string, []byte, bool) {
+	if s.config == nil {
+		log.Printf("[scheme] config is nil, cannot serve /api/config")
+		return "", nil, false
+	}
+
+	// Create a response with search shortcuts
+	response := map[string]interface{}{
+		"search_shortcuts": s.config.SearchShortcuts,
+	}
+
+	data, err := json.Marshal(response)
+	if err != nil {
+		log.Printf("[scheme] failed to marshal config: %v", err)
+		return "", nil, false
+	}
+
+	return "application/json", data, true
 }
 
 // getMimeType determines the MIME type for a given file path
