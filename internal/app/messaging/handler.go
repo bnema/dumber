@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	neturl "net/url"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -273,45 +271,10 @@ func (h *Handler) handleQuery(msg Message) {
 		return scheme + "://" + host + "/favicon.ico"
 	}
 
-	expandShortcut := func(tpl string, query string) string {
-		esc := neturl.QueryEscape(query)
-		u := strings.ReplaceAll(tpl, "{query}", esc)
-		u = strings.ReplaceAll(u, "%s", esc)
-		return u
-	}
-
 	results := make([]suggestion, 0, limit)
 	seen := make(map[string]struct{}, limit*2)
 
-	// Shortcuts
-	if shortcuts, err := h.browserService.GetSearchShortcuts(ctx); err != nil {
-		log.Printf("[ERROR] Failed to get search shortcuts: %v", err)
-	} else if len(shortcuts) > 0 {
-		log.Printf("[DEBUG] Found %d search shortcuts", len(shortcuts))
-		keys := make([]string, 0, len(shortcuts))
-		for k := range shortcuts {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			sc := shortcuts[k]
-			url := expandShortcut(sc.URL, q)
-			log.Printf("[DEBUG] Shortcut %s -> %s", k, url)
-			if url == "" {
-				continue
-			}
-			if _, ok := seen[url]; ok {
-				continue
-			}
-			results = append(results, suggestion{URL: url, Favicon: buildFavicon(url)})
-			seen[url] = struct{}{}
-			if len(results) >= limit {
-				break
-			}
-		}
-	} else {
-		log.Printf("[DEBUG] No search shortcuts found")
-	}
+	// Shortcuts intentionally omitted; rely on explicit prefix commands (e.g., gh:) or history results
 
 	// History
 	if len(results) < limit {
@@ -339,7 +302,14 @@ func (h *Handler) handleQuery(msg Message) {
 				if _, ok := seen[url]; ok {
 					continue
 				}
-				results = append(results, suggestion{URL: url, Favicon: buildFavicon(url)})
+				// Use favicon_url from database if available, otherwise build it
+				favicon := ""
+				if s, ok := m["favicon_url"].(string); ok && s != "" {
+					favicon = s
+				} else {
+					favicon = buildFavicon(url)
+				}
+				results = append(results, suggestion{URL: url, Favicon: favicon})
 				seen[url] = struct{}{}
 				if len(results) >= limit {
 					break

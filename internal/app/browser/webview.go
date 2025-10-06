@@ -45,6 +45,25 @@ func buildMemoryConfig(cfg config.WebkitMemoryConfig) webkit.MemoryConfig {
 	return mc
 }
 
+func buildColorPalettes(cfg config.AppearanceConfig) webkit.ColorPalettes {
+	toPalette := func(src config.ColorPalette) webkit.ColorPalette {
+		return webkit.ColorPalette{
+			Background:     src.Background,
+			Surface:        src.Surface,
+			SurfaceVariant: src.SurfaceVariant,
+			Text:           src.Text,
+			Muted:          src.Muted,
+			Accent:         src.Accent,
+			Border:         src.Border,
+		}
+	}
+
+	return webkit.ColorPalettes{
+		Light: toPalette(cfg.LightPalette),
+		Dark:  toPalette(cfg.DarkPalette),
+	}
+}
+
 func (app *BrowserApp) buildWebkitConfig() (*webkit.Config, error) {
 	dataDir, err := config.GetDataDir()
 	if err != nil {
@@ -93,6 +112,7 @@ func (app *BrowserApp) buildWebkitConfig() (*webkit.Config, error) {
 			CustomUserAgent:           app.config.CodecPreferences.CustomUserAgent,
 			DisableTwitchCodecControl: app.config.CodecPreferences.DisableTwitchCodecControl,
 		},
+		Colors: buildColorPalettes(app.config.Appearance),
 	}
 
 	return cfg, nil

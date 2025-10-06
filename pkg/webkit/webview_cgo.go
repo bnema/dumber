@@ -1305,7 +1305,7 @@ func NewWebView(cfg *Config) (*WebView, error) {
 			log.Printf("[webkit] Set custom User-Agent: %s", cfg.CodecPreferences.CustomUserAgent)
 		} else if cfg.CodecPreferences.ForceAV1 {
 			// Use modern Chrome UA that signals AV1 support
-			av1UA := "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+			av1UA := "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
 			cAV1UA := C.CString(av1UA)
 			C.webkit_settings_set_user_agent(settings, (*C.gchar)(cAV1UA))
 			C.free(unsafe.Pointer(cAV1UA))
@@ -1844,6 +1844,7 @@ func (w *WebView) CreateRelatedView() *WebView {
 		VideoAcceleration:     w.config.VideoAcceleration,
 		Memory:                w.config.Memory,
 		CodecPreferences:      w.config.CodecPreferences,
+		Colors:                w.config.Colors,
 		CreateWindow:          false,
 	}
 	related, err := NewWebViewWithRelated(cfg, w)
@@ -2058,6 +2059,59 @@ func (w *WebView) enableUserContentManager(cfg *Config) {
 	if schemeScript != nil {
 		C.webkit_user_content_manager_add_script(w.native.ucm, schemeScript)
 		C.webkit_user_script_unref(schemeScript)
+	}
+
+	// Inject color palette tokens sourced from Go configuration
+	if cfg != nil {
+		if paletteJSON, err := json.Marshal(cfg.Colors); err == nil && len(paletteJSON) > 0 {
+			paletteScript := fmt.Sprintf(`(function(){try{
+  window.__dumber_palette=%s;
+  var normalized={};
+  if(window.__dumber_palette){
+    for (var key in window.__dumber_palette){
+      if(Object.prototype.hasOwnProperty.call(window.__dumber_palette,key)){
+        normalized[key.toLowerCase()] = window.__dumber_palette[key];
+      }
+    }
+    window.__dumber_palette = normalized;
+  }
+  var tokenMap={Background:'--color-browser-bg',Surface:'--color-browser-surface',SurfaceVariant:'--color-browser-surface-variant',Text:'--color-browser-text',Muted:'--color-browser-muted',Accent:'--color-browser-accent',Border:'--color-browser-border'};
+  var dynamicMap={Background:'--dynamic-bg',Surface:'--dynamic-surface',SurfaceVariant:'--dynamic-surface-variant',Text:'--dynamic-text',Muted:'--dynamic-muted',Accent:'--dynamic-accent',Border:'--dynamic-border'};
+  var apply=function(theme){
+    var palette=(window.__dumber_palette && (window.__dumber_palette[theme] || window.__dumber_palette.light)) || null;
+    if(!palette){return;}
+    var root=document.documentElement;
+    for(var key in tokenMap){
+      if(Object.prototype.hasOwnProperty.call(tokenMap,key) && palette[key]){
+        root.style.setProperty(tokenMap[key], palette[key]);
+        if(Object.prototype.hasOwnProperty.call(dynamicMap,key)){
+          root.style.setProperty(dynamicMap[key], palette[key]);
+        }
+      }
+    }
+    document.dispatchEvent(new CustomEvent('dumber:palette-updated',{detail:{theme:theme}}));
+  };
+  window.__dumber_applyPalette=function(theme){
+    apply(theme==='dark'?'dark':'light');
+  };
+  var initial=document.documentElement.classList.contains('dark')?'dark':'light';
+  if(window.__dumber_initial_theme){
+    initial=window.__dumber_initial_theme;
+  }
+  apply(initial);
+}catch(err){console.error('[dumber] Failed to apply palette',err);}})();`, string(paletteJSON))
+			cPalette := C.CString(paletteScript)
+			defer C.free(unsafe.Pointer(cPalette))
+			paletteUserScript := C.webkit_user_script_new((*C.gchar)(cPalette), C.WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, nil, nil)
+			if paletteUserScript != nil {
+				C.webkit_user_content_manager_add_script(w.native.ucm, paletteUserScript)
+				C.webkit_user_script_unref(paletteUserScript)
+			} else {
+				log.Printf("[webkit] Failed to create palette user script")
+			}
+		} else if err != nil {
+			log.Printf("[webkit] Failed to marshal color palettes: %v", err)
+		}
 	}
 
 	// Add GUI bundle as user script at document-start (contains toast, omnibox, and controls)
