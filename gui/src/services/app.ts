@@ -1,4 +1,5 @@
 import type { HistoryEntry, SearchShortcut } from "../types/generated.js";
+import { DEFAULT_SHORTCUTS } from "../constants/shortcuts.js";
 
 export class AppService {
   private history: HistoryEntry[] = [];
@@ -97,38 +98,19 @@ export class AppService {
       this.shortcuts = normalized;
     } catch (error) {
       console.error("Failed to load shortcuts:", error);
-      // Mock shortcuts for development/fallback
-      this.shortcuts = {
-        g: {
-          id: 0,
-          shortcut: "g",
-          url_template: "https://google.com/search?q={query}",
-          description: "Google Search",
-          created_at: null,
-        },
-        gh: {
-          id: 0,
-          shortcut: "gh",
-          url_template: "https://github.com/search?q={query}",
-          description: "GitHub Search",
-          created_at: null,
-        },
-        so: {
-          id: 0,
-          shortcut: "so",
-          url_template: "https://stackoverflow.com/search?q={query}",
-          description: "Stack Overflow",
-          created_at: null,
-        },
-        w: {
-          id: 0,
-          shortcut: "w",
-          url_template:
-            "https://en.wikipedia.org/wiki/Special:Search?search={query}",
-          description: "Wikipedia",
-          created_at: null,
-        },
-      };
+      // Mock shortcuts for development/fallback using shared constants
+      this.shortcuts = Object.fromEntries(
+        Object.entries(DEFAULT_SHORTCUTS).map(([key, def]) => [
+          key,
+          {
+            id: 0,
+            shortcut: def.shortcut,
+            url_template: def.url_template,
+            description: def.description,
+            created_at: null,
+          },
+        ])
+      );
     }
   }
 
