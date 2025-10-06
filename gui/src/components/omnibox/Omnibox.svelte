@@ -329,13 +329,19 @@
       };
 
       console.log('✅ Omnibox API exposed:', Object.keys(window.__dumber_omnibox));
-      
+
       // Check for pending suggestions that arrived before API was ready
       if ((window as any).__dumber_omnibox_pending_suggestions) {
         console.log('🔄 [OMNIBOX] Processing pending suggestions');
         const pending = (window as any).__dumber_omnibox_pending_suggestions;
         omniboxBridge.setSuggestions(pending);
         delete (window as any).__dumber_omnibox_pending_suggestions;
+      }
+
+      // Auto-open omnibox on about:blank pages
+      if (window.location.href === 'about:blank') {
+        console.log('🚀 Auto-opening omnibox for about:blank');
+        omniboxStore.open('omnibox');
       }
     } catch (error) {
       console.error('❌ Failed to set up omnibox global API:', error);
