@@ -4,7 +4,7 @@
  * TypeScript interface for Go-JavaScript communication
  */
 
-import type { OmniboxMessage, OmniboxMessageBridge, Suggestion } from "./types";
+import type { OmniboxMessage, OmniboxMessageBridge, Suggestion, SearchShortcut } from "./types";
 import { omniboxStore } from "./stores.svelte.ts";
 
 export class OmniboxBridge implements OmniboxMessageBridge {
@@ -47,6 +47,14 @@ export class OmniboxBridge implements OmniboxMessageBridge {
   }
 
   /**
+   * Update search shortcuts from Go backend
+   */
+  setSearchShortcuts(shortcuts: Record<string, SearchShortcut>): void {
+    console.log("📝 [DEBUG] Received search shortcuts from backend:", shortcuts);
+    omniboxStore.updateSearchShortcuts(shortcuts);
+  }
+
+  /**
    * Handle navigation request
    */
   navigate(url: string): void {
@@ -63,6 +71,28 @@ export class OmniboxBridge implements OmniboxMessageBridge {
     console.log("🔍 [DEBUG] Sending query to backend:", { q, limit: lim });
     // Send to native handler; Go will compute suggestions and call setSuggestions
     this.postMessage({ type: "query", q, limit: lim });
+  }
+
+  /**
+   * Fetch search shortcuts from backend config
+   */
+  async fetchSearchShortcuts(): Promise<void> {
+    try {
+      const cfg = await fetch("/api/config").then((r) => r.json());
+      const raw = cfg?.search_shortcuts || {};
+      // Normalize to match our SearchShortcut type
+      const normalized: Record<string, SearchShortcut> = {};
+      for (const [key, value] of Object.entries(raw)) {
+        const v = value as Record<string, unknown>;
+        normalized[key] = {
+          url: (v.url ?? v.URL ?? "") as string,
+          description: (v.description ?? v.Description ?? "") as string,
+        };
+      }
+      this.setSearchShortcuts(normalized);
+    } catch (error) {
+      console.error("Failed to fetch search shortcuts:", error);
+    }
   }
 
   // Suggestions are returned via setSuggestions() when native handler responds
