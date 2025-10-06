@@ -118,7 +118,20 @@ type AppearanceConfig struct {
 	SerifFont     string `mapstructure:"serif_font" yaml:"serif_font"`
 	MonospaceFont string `mapstructure:"monospace_font" yaml:"monospace_font"`
 	// Default font size in CSS pixels (approx).
-	DefaultFontSize int `mapstructure:"default_font_size" yaml:"default_font_size"`
+	DefaultFontSize int          `mapstructure:"default_font_size" yaml:"default_font_size"`
+	LightPalette    ColorPalette `mapstructure:"light_palette" yaml:"light_palette"`
+	DarkPalette     ColorPalette `mapstructure:"dark_palette" yaml:"dark_palette"`
+}
+
+// ColorPalette contains semantic color tokens for light/dark themes.
+type ColorPalette struct {
+	Background     string `mapstructure:"background" yaml:"background" json:"background"`
+	Surface        string `mapstructure:"surface" yaml:"surface" json:"surface"`
+	SurfaceVariant string `mapstructure:"surface_variant" yaml:"surface_variant" json:"surface_variant"`
+	Text           string `mapstructure:"text" yaml:"text" json:"text"`
+	Muted          string `mapstructure:"muted" yaml:"muted" json:"muted"`
+	Accent         string `mapstructure:"accent" yaml:"accent" json:"accent"`
+	Border         string `mapstructure:"border" yaml:"border" json:"border"`
 }
 
 // VideoAccelerationConfig holds video hardware acceleration preferences.
@@ -665,6 +678,8 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("appearance.serif_font", defaults.Appearance.SerifFont)
 	m.viper.SetDefault("appearance.monospace_font", defaults.Appearance.MonospaceFont)
 	m.viper.SetDefault("appearance.default_font_size", defaults.Appearance.DefaultFontSize)
+	m.viper.SetDefault("appearance.light_palette", defaults.Appearance.LightPalette)
+	m.viper.SetDefault("appearance.dark_palette", defaults.Appearance.DarkPalette)
 
 	// Video acceleration defaults
 	m.viper.SetDefault("video_acceleration.enable_vaapi", defaults.VideoAcceleration.EnableVAAPI)
@@ -768,6 +783,7 @@ func (m *Manager) createDefaultConfig() error {
 	defaultConfig := DefaultConfig()
 
 	// Marshal to JSON with proper indentation
+	// Note: Go 1.20+ automatically sorts map keys in JSON output
 	configData, err := json.MarshalIndent(defaultConfig, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal default config: %w", err)
