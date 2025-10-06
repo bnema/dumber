@@ -74,25 +74,55 @@ export class OmniboxBridge implements OmniboxMessageBridge {
   }
 
   /**
-   * Fetch search shortcuts from backend config
+   * Fetch search shortcuts from backend via messaging bridge
    */
   async fetchSearchShortcuts(): Promise<void> {
-    try {
-      const cfg = await fetch("/api/config").then((r) => r.json());
-      const raw = cfg?.search_shortcuts || {};
-      // Normalize to match our SearchShortcut type
-      const normalized: Record<string, SearchShortcut> = {};
-      for (const [key, value] of Object.entries(raw)) {
-        const v = value as Record<string, unknown>;
-        normalized[key] = {
-          url: (v.url ?? v.URL ?? "") as string,
-          description: (v.description ?? v.Description ?? "") as string,
-        };
+    return new Promise((resolve, reject) => {
+      // Set up one-time response handler
+      const originalCallback = (window as any).__dumber_search_shortcuts;
+      (window as any).__dumber_search_shortcuts = (data: unknown) => {
+        try {
+          // Type guard
+          if (typeof data !== "object" || data === null) {
+            reject(new Error("Invalid shortcuts data"));
+            return;
+          }
+          const dataObj = data as Record<string, unknown>;
+          // Normalize to match our SearchShortcut type
+          const normalized: Record<string, SearchShortcut> = {};
+          for (const [key, value] of Object.entries(dataObj)) {
+            const v = value as Record<string, unknown>;
+            normalized[key] = {
+              url: (v.url ?? v.URL ?? "") as string,
+              description: (v.description ?? v.Description ?? "") as string,
+            };
+          }
+          this.setSearchShortcuts(normalized);
+
+          // Restore original callback if it existed
+          if (originalCallback) {
+            (window as any).__dumber_search_shortcuts = originalCallback;
+          }
+
+          resolve();
+        } catch (error) {
+          console.error("Failed to process search shortcuts:", error);
+          reject(error);
+        }
+      };
+
+      // Send message to Go backend
+      const bridge = window.webkit?.messageHandlers?.dumber;
+      if (bridge && typeof bridge.postMessage === "function") {
+        bridge.postMessage(
+          JSON.stringify({
+            type: "get_search_shortcuts",
+          }),
+        );
+      } else {
+        reject(new Error("WebKit message handler not available"));
       }
-      this.setSearchShortcuts(normalized);
-    } catch (error) {
-      console.error("Failed to fetch search shortcuts:", error);
-    }
+    });
   }
 
   // Suggestions are returned via setSuggestions() when native handler responds
