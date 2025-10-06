@@ -482,6 +482,39 @@
 
   let quickAccess = $derived<HistoryItem[]>((pinnedSites.size, buildQuickAccess()));
   let quickAccessLoading = $derived(topVisitedLoading || historyLoading);
+  interface LatestVisitMeta {
+    entry: HistoryItem;
+    relative: string;
+    absolute: string;
+    domain: string;
+    title: string;
+  }
+
+  const latestVisitInfo = $derived<LatestVisitMeta | null>((() => {
+    if (!historyItems.length) return null;
+
+    let latest: HistoryItem | null = null;
+    let latestEpoch = Number.NEGATIVE_INFINITY;
+
+    for (const entry of historyItems) {
+      const epoch = Number(new Date(entry.last_visited));
+      if (!Number.isFinite(epoch)) continue;
+      if (epoch > latestEpoch) {
+        latest = entry;
+        latestEpoch = epoch;
+      }
+    }
+
+    if (!latest) return null;
+
+    return {
+      entry: latest,
+      relative: formatTime(latest.last_visited),
+      absolute: formatCalendarDate(latest.last_visited),
+      domain: getDomain(latest.url),
+      title: getDisplayTitle(latest)
+    };
+  })());
 
   const persistTheme = (mode: ThemeMode) => {
     try {
@@ -613,6 +646,28 @@
     return () => observer.disconnect();
   };
 
+  // Helper to check if text overflows and apply truncation class
+  const checkOverflow = (node: HTMLElement) => {
+    const check = () => {
+      if (node.scrollWidth > node.clientWidth) {
+        node.classList.add('truncated');
+      } else {
+        node.classList.remove('truncated');
+      }
+    };
+
+    check();
+
+    const resizeObserver = new ResizeObserver(check);
+    resizeObserver.observe(node);
+
+    return {
+      destroy() {
+        resizeObserver.disconnect();
+      }
+    };
+  };
+
   onMount(() => {
     loadPinnedSites();
     initializeShortcuts();
@@ -651,8 +706,16 @@
 </svelte:head>
 
 <div class="homepage-shell">
-  <div class="homepage-content">
-    <div class="top-bar">
+  <div class="terminal-frame">
+    <header class="terminal-header">
+      <div class="terminal-heading">
+        <span class="terminal-path">dumb://home</span>
+        <span class="terminal-meta">
+          {statsLoading ? 'syncing…' : `${stats?.recent_count ?? 0} recent`}
+          · {historyItems.length} entries
+          · {pinnedSites.size} pinned
+        </span>
+      </div>
       <button
         class="theme-toggle-button"
         type="button"
@@ -667,7 +730,9 @@
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path
               fill="currentColor"
-              d="M21 12.79A9 9 0 0111.21 3 7 7 0 0012 17a7 7 0 009-4.21z"
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+              d="M17.293 13.293A8 8 0 0 1 10.707 2.997a8.001 8.001 0 1 0 6.586 10.296z"
             />
           </svg>
         {:else}
@@ -686,9 +751,57 @@
           </svg>
         {/if}
       </button>
-    </div>
-    <div class="main-panels">
-      <section class="history-panel brutal-panel">
+    </header>
+
+    <div class="terminal-body">
+      <div class="terminal-status-row">
+        <div class="status-chip">
+          <span class="chip-label">history</span>
+          <span class="chip-value">{historyItems.length}</span>
+        </div>
+        <div class="status-chip">
+          <span class="chip-label">pinned</span>
+          <span class="chip-value">{pinnedSites.size}</span>
+        </div>
+        <div class="status-chip">
+          <span class="chip-label">quick-links</span>
+          <span class="chip-value">{quickAccess.length}</span>
+        </div>
+        {#if stats && stats.total_entries}
+          <div class="status-chip">
+            <span class="chip-label">stored</span>
+            <span class="chip-value">{stats.total_entries}</span>
+          </div>
+        {/if}
+      </div>
+
+      <div
+        class="last-visit-banner"
+        role="button"
+        tabindex={latestVisitInfo ? 0 : -1}
+        onclick={() => latestVisitInfo && navigateTo(latestVisitInfo.entry.url)}
+        onkeydown={(event) => {
+          if (event.key === 'Enter' && latestVisitInfo) {
+            navigateTo(latestVisitInfo.entry.url);
+          }
+        }}
+        aria-label={latestVisitInfo ? `Open ${latestVisitInfo.title}` : 'No recorded visits'}
+      >
+        <span class="banner-label">last-visit</span>
+        {#if latestVisitInfo}
+          <span class="banner-title" use:checkOverflow>
+            {latestVisitInfo.title}
+          </span>
+          <span class="banner-domain">{latestVisitInfo.domain}</span>
+          <span class="banner-time">{latestVisitInfo.relative}</span>
+          <span class="banner-absolute">{latestVisitInfo.absolute}</span>
+        {:else}
+          <span class="banner-empty">none recorded yet</span>
+        {/if}
+      </div>
+
+      <div class="terminal-grid main-panels">
+        <section class="history-panel terminal-pane">
         <div class="panel-header">
           <h2 class="panel-title">Recent History</h2>
           <p class="panel-subtitle">Scroll to revisit anything from your latest sessions.</p>
@@ -751,10 +864,14 @@
                   </div>
                   <div class="history-item-content">
                     <div class="history-item-main">
-                      <div class="history-title">{getDisplayTitle(item)}</div>
+                      <div class="history-title" use:checkOverflow>
+                        {getDisplayTitle(item)}
+                      </div>
                       <div class="history-time">{formatTime(item.last_visited)}</div>
                     </div>
-                    <div class="history-url">{@html highlightDomainInUrl(item.url)}</div>
+                    <div class="history-url" use:checkOverflow>
+                      {@html highlightDomainInUrl(item.url)}
+                    </div>
                   </div>
                   <div class="history-actions">
                     <div
@@ -770,7 +887,7 @@
                           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                         </svg>
                       {:else}
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
                           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                         </svg>
                       {/if}
@@ -808,7 +925,7 @@
         </div>
       </section>
 
-      <section class="quick-access-panel brutal-panel">
+        <section class="quick-access-panel terminal-pane">
         <div class="panel-header">
           <h2 class="panel-title">Jump back in</h2>
           <p class="panel-subtitle">Direct access to the sites you like the most.</p>
@@ -869,7 +986,9 @@
                     {/if}
                   </div>
                   <div class="quick-access-meta-compact">
-                    <div class="quick-access-title-compact">{getDisplayTitle(item)}</div>
+                    <div class="quick-access-title-compact" use:checkOverflow>
+                      {getDisplayTitle(item)}
+                    </div>
                     <div class="quick-access-domain-compact">{getDomain(item.url)}</div>
                   </div>
                   <div class="quick-access-actions-compact">
@@ -886,7 +1005,7 @@
                           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                         </svg>
                       {:else}
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
                           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                         </svg>
                       {/if}
@@ -899,132 +1018,165 @@
           {/if}
         </div>
       </section>
+      </div>
+
+      <div class="terminal-grid supporting-panels">
+        <section class="stats-panel terminal-pane">
+          <div class="panel-header">
+            <h2 class="panel-title">Usage Stats</h2>
+            <p class="panel-subtitle">Your browsing activity at a glance.</p>
+          </div>
+          <div class="panel-body">
+            {#if statsLoading}
+              <div class="loading">Loading stats...</div>
+            {:else if stats}
+              <div class="stats-grid-horizontal">
+                <div class="stat-item-horizontal">
+                  <div class="stat-value">{stats.total_entries}</div>
+                  <div class="stat-label">Entries Stored</div>
+                </div>
+                <div class="stat-item-horizontal">
+                  <div class="stat-value">{stats.recent_count}</div>
+                  <div class="stat-label">Recent Window</div>
+                </div>
+                {#if stats.newest_entry}
+                  <div class="stat-item-horizontal">
+                    <div class="stat-value">{formatTime(stats.newest_entry)}</div>
+                    <div class="stat-label">Newest Visit</div>
+                  </div>
+                {/if}
+                {#if stats.oldest_entry}
+                  <div class="stat-item-horizontal">
+                    <div class="stat-value">{formatCalendarDate(stats.oldest_entry)}</div>
+                    <div class="stat-label">Oldest Entry</div>
+                  </div>
+                {/if}
+              </div>
+            {:else}
+              <div class="empty-state compact">
+                <p>No statistics available</p>
+              </div>
+            {/if}
+          </div>
+        </section>
+
+        <section class="shortcuts-panel terminal-pane">
+          <div class="panel-header">
+            <h2 class="panel-title">Keyboard Shortcuts</h2>
+            <p class="panel-subtitle">Stay quick with the essentials.</p>
+          </div>
+          <div class="panel-body">
+            {#if shortcutsLoading}
+              <div class="loading">Loading shortcuts...</div>
+            {:else}
+              <div class="shortcuts-list">
+                {#each shortcuts as shortcut (shortcut.key)}
+                  <div class="shortcut-item">
+                    <div class="shortcut-key-badge">{shortcut.key}</div>
+                    <div class="shortcut-desc">{shortcut.description}</div>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        </section>
+      </div>
     </div>
-
-    <section class="shortcuts-panel brutal-panel">
-      <div class="panel-header">
-        <h2 class="panel-title">Keyboard Shortcuts</h2>
-        <p class="panel-subtitle">Stay quick with the essentials.</p>
-      </div>
-      <div class="panel-body">
-        {#if shortcutsLoading}
-          <div class="loading">Loading shortcuts...</div>
-        {:else}
-          <div class="shortcuts-list">
-            {#each shortcuts as shortcut (shortcut.key)}
-              <div class="shortcut-item">
-                <div class="shortcut-key-badge">{shortcut.key}</div>
-                <div class="shortcut-desc">{shortcut.description}</div>
-              </div>
-            {/each}
-          </div>
-        {/if}
-      </div>
-    </section>
-
-
-    <section class="stats-panel brutal-panel">
-      <div class="panel-header">
-        <h2 class="panel-title">Usage Stats</h2>
-        <p class="panel-subtitle">Your browsing activity at a glance.</p>
-      </div>
-      <div class="panel-body">
-        {#if statsLoading}
-          <div class="loading">Loading stats...</div>
-        {:else if stats}
-          <div class="stats-grid-horizontal">
-            <div class="stat-item-horizontal">
-              <div class="stat-value">{stats.total_entries}</div>
-              <div class="stat-label">Entries Stored</div>
-            </div>
-            <div class="stat-item-horizontal">
-              <div class="stat-value">{stats.recent_count}</div>
-              <div class="stat-label">Recent Window</div>
-            </div>
-            {#if stats.newest_entry}
-              <div class="stat-item-horizontal">
-                <div class="stat-value">{formatTime(stats.newest_entry)}</div>
-                <div class="stat-label">Newest Visit</div>
-              </div>
-            {/if}
-            {#if stats.oldest_entry}
-              <div class="stat-item-horizontal">
-                <div class="stat-value">{formatCalendarDate(stats.oldest_entry)}</div>
-                <div class="stat-label">Oldest Entry</div>
-              </div>
-            {/if}
-          </div>
-        {:else}
-          <div class="empty-state compact">
-            <p>No statistics available</p>
-          </div>
-        {/if}
-      </div>
-    </section>
-
   </div>
 
   <Footer />
 </div>
 
 <style>
-/* Homepage Layout Styles */
 .homepage-shell {
   min-height: 100vh;
   background-color: var(--dynamic-bg);
   color: var(--dynamic-text);
   display: flex;
   flex-direction: column;
-  padding: clamp(1.75rem, 3vw, 3rem);
-  font-family: "Fira Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  font-family:
+    "JetBrains Mono",
+    "Fira Code",
+    "SFMono-Regular",
+    Menlo,
+    monospace;
+  line-height: 1.45;
 }
 
 .homepage-shell * {
   box-sizing: border-box;
 }
 
-.homepage-content {
+.terminal-frame {
   flex: 1;
   width: 100%;
-  max-width: 1180px;
+  max-width: 1160px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: clamp(1.75rem, 2.6vw, 2.75rem);
+  border: 1px solid var(--dynamic-border);
+  background: color-mix(in srgb, var(--dynamic-surface) 80%, var(--dynamic-bg) 20%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--dynamic-border) 30%, transparent),
+    0 16px 28px -24px rgb(0 0 0 / 0.6);
 }
 
-.top-bar {
+.terminal-header {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid var(--dynamic-border);
+  background: color-mix(in srgb, var(--dynamic-bg) 92%, var(--dynamic-surface) 8%);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.78rem;
+}
+
+.terminal-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.terminal-path {
+  font-weight: 600;
+  color: var(--dynamic-text);
+}
+
+.terminal-meta {
+  color: var(--dynamic-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
 }
 
 .theme-toggle-button {
-  width: 3rem;
-  height: 3rem;
+  width: 2.5rem;
+  height: 2.5rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid var(--dynamic-border);
+  border: 1px solid var(--dynamic-border);
+  background-color: var(--dynamic-bg);
+  color: var(--dynamic-muted);
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
   border-radius: 0;
-  background-color: var(--dynamic-surface);
-  color: var(--dynamic-text);
-  transition:
-    background-color 200ms ease,
-    color 200ms ease,
-    border-color 200ms ease;
   cursor: pointer;
 }
 
 .theme-toggle-button:hover,
 .theme-toggle-button:focus-visible {
-  border-color: var(--dynamic-accent);
-  color: var(--dynamic-accent);
+  border-color: color-mix(in srgb, var(--dynamic-border) 45%, var(--dynamic-text) 55%);
+  color: var(--dynamic-text);
+  background-color: color-mix(in srgb, var(--dynamic-bg) 80%, var(--dynamic-surface) 20%);
   outline: none;
 }
 
 .theme-toggle-button svg {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.3rem;
+  height: 1.3rem;
 }
 
 .sr-only {
@@ -1039,99 +1191,158 @@
   border: 0;
 }
 
-.brutal-panel {
-  border: 2px solid var(--dynamic-border);
-  background-color: var(--dynamic-surface);
-  border-radius: 0;
+.terminal-body {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem 1.5rem;
+  background: var(--dynamic-bg);
 }
 
-
-
-.loading {
-  padding: 1.25rem;
-  text-align: center;
-  color: var(--dynamic-muted);
-  border: 2px dashed var(--dynamic-border);
-  background-color: var(--dynamic-bg);
-}
-
-.empty-state {
-  border: 2px dashed var(--dynamic-border);
-  padding: 1.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  text-align: center;
-  align-items: center;
-  color: var(--dynamic-muted);
-  background-color: var(--dynamic-bg);
-}
-
-.empty-state h3 {
-  margin: 0;
-  color: var(--dynamic-text);
-  font-size: 1.1rem;
-}
-
-.empty-state p {
-  margin: 0;
-  color: var(--dynamic-muted);
-}
-
-.empty-state.compact {
-  padding: 1.25rem;
-}
-
-/* Main panels with height matching */
-.main-panels {
+.terminal-status-row {
   display: flex;
   flex-wrap: wrap;
-  gap: clamp(1.5rem, 2vw, 2rem);
-  align-items: flex-start;
+  gap: 0.75rem;
 }
 
-.history-panel {
-  flex: 1 1 55%;
-  min-width: min(32rem, 100%);
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--dynamic-border);
+  background: color-mix(in srgb, var(--dynamic-bg) 92%, var(--dynamic-surface) 8%);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dynamic-muted);
+}
+
+.status-chip .chip-value {
+  color: var(--dynamic-text);
+  font-weight: 600;
+}
+
+.last-visit-banner {
+  margin-top: 0.9rem;
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(120px, auto) minmax(120px, auto) minmax(120px, auto);
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--dynamic-border);
+  background: color-mix(in srgb, var(--dynamic-bg) 90%, var(--dynamic-surface) 10%);
+  color: var(--dynamic-text);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: background-color 150ms ease, border-color 150ms ease;
+  cursor: pointer;
+}
+
+.last-visit-banner:hover,
+.last-visit-banner:focus-visible {
+  background: color-mix(in srgb, var(--dynamic-bg) 72%, var(--dynamic-surface) 28%);
+  border-color: color-mix(in srgb, var(--dynamic-border) 45%, var(--dynamic-text) 55%);
+  outline: none;
+}
+
+.last-visit-banner[tabindex="-1"],
+.last-visit-banner[tabindex="-1"]:hover {
+  cursor: default;
+  background: color-mix(in srgb, var(--dynamic-bg) 95%, var(--dynamic-surface) 5%);
+}
+
+.banner-label {
+  color: var(--dynamic-muted);
+  font-size: 0.68rem;
+}
+
+.banner-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  letter-spacing: 0.06em;
+}
+
+:global(.banner-title.truncated) {
+  mask-image: linear-gradient(to right, black 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+}
+
+.banner-domain {
+  color: var(--dynamic-muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+}
+
+.banner-time {
+  font-size: 0.72rem;
+  color: var(--dynamic-text);
+  white-space: nowrap;
+}
+
+.banner-absolute {
+  font-size: 0.68rem;
+  color: var(--dynamic-muted);
+  white-space: nowrap;
+}
+
+.banner-empty {
+  grid-column: 2 / -1;
+  color: var(--dynamic-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+}
+
+.terminal-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.main-panels {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+
+.supporting-panels {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.terminal-pane {
+  border: 1px solid var(--dynamic-border);
+  background: color-mix(in srgb, var(--dynamic-bg) 88%, var(--dynamic-surface) 12%);
   display: flex;
   flex-direction: column;
   min-height: 0;
-}
-
-.quick-access-panel {
-  flex: 1 1 35%;
-  min-width: min(24rem, 100%);
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dynamic-border) 18%, transparent);
 }
 
 .panel-header {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  padding: clamp(1.25rem, 2vw, 1.75rem) clamp(1.5rem, 2.5vw, 2rem);
-  border-bottom: 2px solid var(--dynamic-border);
-  background-color: var(--dynamic-surface);
+  gap: 0.3rem;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid var(--dynamic-border);
+  background: color-mix(in srgb, var(--dynamic-bg) 75%, transparent);
 }
 
 .panel-title {
   margin: 0;
-  font-size: 1.3rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--dynamic-text);
 }
 
 .panel-subtitle {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.72rem;
   color: var(--dynamic-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .panel-body {
-  padding: clamp(1.25rem, 2vw, 1.75rem) clamp(1.5rem, 2.5vw, 2rem);
+  padding: 1.1rem 1.1rem 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 1.1rem;
@@ -1139,8 +1350,48 @@
   overflow: hidden;
 }
 
+.loading {
+  padding: 0.9rem;
+  text-align: center;
+  color: var(--dynamic-muted);
+  border: 1px dashed var(--dynamic-border);
+  background-color: color-mix(in srgb, var(--dynamic-bg) 85%, var(--dynamic-surface) 15%);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+}
+
+.empty-state {
+  border: 1px dashed var(--dynamic-border);
+  padding: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+  text-align: center;
+  color: var(--dynamic-muted);
+  background-color: color-mix(in srgb, var(--dynamic-bg) 90%, var(--dynamic-surface) 10%);
+  letter-spacing: 0.06em;
+}
+
+.empty-state h3 {
+  margin: 0;
+  color: var(--dynamic-text);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 0.72rem;
+}
+
+.empty-state.compact {
+  padding: 1rem;
+}
+
 .history-body {
-  gap: 1rem;
+  gap: 0.75rem;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -1150,26 +1401,21 @@
 .history-list {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  background-color: var(--dynamic-surface-variant);
-  border: 2px solid var(--dynamic-border);
-  padding: 0.5rem;
+  border: 1px solid var(--dynamic-border);
+  background: color-mix(in srgb, var(--dynamic-bg) 95%, var(--dynamic-surface) 5%);
 }
 
 .history-item {
-  display: flex;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
   gap: 0.75rem;
-  border-bottom: 1px solid var(--dynamic-border);
-  background-color: var(--dynamic-surface-variant);
-  padding: 0.75rem 0.5rem;
-  cursor: pointer;
-  transition:
-    background-color 200ms ease,
-    border-color 200ms ease;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px dashed var(--dynamic-border);
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 
 .history-item:last-child {
@@ -1178,26 +1424,25 @@
 
 .history-item:hover,
 .history-item:focus-visible {
-  background-color: var(--dynamic-surface);
+  background: color-mix(in srgb, var(--dynamic-bg) 65%, var(--dynamic-surface) 35%);
   outline: none;
 }
 
 .history-item.deleting {
-  opacity: 0.4;
+  opacity: 0.35;
   pointer-events: none;
-  transform: translateX(6px);
+  transform: translateX(4px);
 }
 
 .history-item-leading {
-  width: 44px;
-  height: 44px;
-  border: 2px solid var(--dynamic-border);
-  background-color: var(--dynamic-surface);
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--dynamic-border);
+  background-color: var(--dynamic-bg);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  border-radius: 0;
 }
 
 .history-favicon-img {
@@ -1215,21 +1460,22 @@
   color: var(--dynamic-muted);
 }
 
+.history-favicon-fallback svg {
+  opacity: 0.55;
+}
+
 .history-item-content {
-  flex: 1;
-  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  justify-content: center;
-  overflow: hidden;
+  gap: 0.2rem;
+  min-width: 0;
 }
 
 .history-item-main {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .history-title {
@@ -1237,34 +1483,35 @@
   color: var(--dynamic-text);
   white-space: nowrap;
   overflow: hidden;
-  flex: 1;
-  position: relative;
-  mask-image: linear-gradient(to right, black 70%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to right, black 70%, transparent 100%);
 }
 
+:global(.history-title.truncated) {
+  mask-image: linear-gradient(to right, black 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+}
+
+.history-title:hover {
+  cursor: pointer;
+}
 
 .history-time {
-  font-size: 0.85rem;
+  font-size: 0.72rem;
   color: var(--dynamic-muted);
-  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
 }
 
 .history-url {
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   color: var(--dynamic-muted);
   white-space: nowrap;
-  font-family:
-    "JetBrains Mono",
-    "SFMono-Regular",
-    Menlo,
-    monospace;
   overflow: hidden;
-  flex: 1;
-  min-width: 0;
-  position: relative;
-  mask-image: linear-gradient(to right, black 70%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to right, black 70%, transparent 100%);
+}
+
+:global(.history-url.truncated) {
+  mask-image: linear-gradient(to right, black 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
 }
 
 .history-url :global(.history-url-domain) {
@@ -1274,364 +1521,313 @@
 
 .history-actions {
   display: flex;
-  flex-shrink: 0;
+  gap: 0.35rem;
 }
 
-.history-pin {
-  display: flex;
+.history-pin,
+.history-delete {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  border-left: 2px solid var(--dynamic-border);
-  background-color: var(--dynamic-surface);
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--dynamic-border);
   color: var(--dynamic-muted);
-  transition: background-color 200ms ease, color 200ms ease;
-  cursor: pointer;
+  background: transparent;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
 }
 
 .history-pin:hover,
-.history-pin:focus-visible {
-  color: var(--dynamic-accent);
-  background-color: var(--dynamic-bg);
-  outline: none;
-}
-
-.history-delete {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  border-left: 2px solid var(--dynamic-border);
-  background-color: var(--dynamic-surface);
-  color: var(--dynamic-muted);
-  font-size: 1.1rem;
-  transition: background-color 200ms ease, color 200ms ease;
-  flex-shrink: 0;
-}
-
+.history-pin:focus-visible,
 .history-delete:hover,
 .history-delete:focus-visible {
-  color: var(--dynamic-accent);
-  background-color: var(--dynamic-bg);
+  color: var(--dynamic-text);
+  border-color: color-mix(in srgb, var(--dynamic-border) 45%, var(--dynamic-text) 55%);
+  background: color-mix(in srgb, var(--dynamic-bg) 80%, var(--dynamic-surface) 20%);
   outline: none;
 }
 
 .scroll-sentinel {
-  width: 100%;
   height: 1px;
 }
 
 .loading-more {
   padding: 0.75rem;
+  font-size: 0.7rem;
   text-align: center;
   color: var(--dynamic-muted);
-  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .quick-access-body {
-  gap: 1rem;
+  gap: 0.9rem;
 }
 
 .quick-access-grid-compact {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  background-color: var(--dynamic-surface-variant);
-  border: 2px solid var(--dynamic-border);
-  padding: 0.5rem;
+  gap: 0.75rem;
 }
 
 .quick-access-item-compact {
-  display: flex;
-  align-items: center;
+  border: 1px solid var(--dynamic-border);
+  background: color-mix(in srgb, var(--dynamic-bg) 92%, var(--dynamic-surface) 8%);
+  padding: 0.75rem 0.9rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   gap: 0.75rem;
-  border-bottom: 1px solid var(--dynamic-border);
-  background-color: var(--dynamic-surface-variant);
-  padding: 0.5rem 0.25rem;
+  align-items: center;
+  transition: background-color 150ms ease, border-color 150ms ease;
   cursor: pointer;
-  transition: background-color 200ms ease;
-}
-
-.quick-access-item-compact:last-child {
-  border-bottom: none;
 }
 
 .quick-access-item-compact:hover,
 .quick-access-item-compact:focus-visible {
-  background-color: var(--dynamic-surface);
+  border-color: color-mix(in srgb, var(--dynamic-border) 45%, var(--dynamic-text) 55%);
+  background: color-mix(in srgb, var(--dynamic-bg) 70%, var(--dynamic-surface) 30%);
   outline: none;
 }
 
 .quick-access-favicon-compact {
-  width: 32px;
-  height: 32px;
-  border: 2px solid var(--dynamic-border);
-  background-color: var(--dynamic-surface-variant);
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--dynamic-border);
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  border-radius: 0;
+  background: var(--dynamic-bg);
 }
 
 .quick-access-favicon-img-compact {
-  width: 70%;
-  height: 70%;
+  width: 60%;
+  height: 60%;
   object-fit: contain;
 }
 
 .quick-access-fallback-compact {
-  width: 100%;
-  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  height: 100%;
   color: var(--dynamic-muted);
+}
+
+.quick-access-fallback-compact svg {
+  opacity: 0.55;
 }
 
 .quick-access-meta-compact {
-  flex: 1;
-  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: 0.2rem;
+  min-width: 0;
 }
 
 .quick-access-title-compact {
-  font-size: 0.95rem;
-  font-weight: 600;
   color: var(--dynamic-text);
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
-  position: relative;
-  mask-image: linear-gradient(to right, black 70%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to right, black 70%, transparent 100%);
+}
+
+:global(.quick-access-title-compact.truncated) {
+  mask-image: linear-gradient(to right, black 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+}
+
+.quick-access-title-compact:hover {
+  cursor: pointer;
 }
 
 .quick-access-domain-compact {
-  font-size: 0.8rem;
   color: var(--dynamic-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .quick-access-actions-compact {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-shrink: 0;
+  flex-direction: column;
+  gap: 0.3rem;
+  align-items: flex-end;
+  justify-content: center;
 }
 
 .quick-access-pin-compact {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border: 1px solid var(--dynamic-border);
-  background-color: var(--dynamic-surface-variant);
   color: var(--dynamic-muted);
-  transition: background-color 200ms ease, color 200ms ease;
+  background: transparent;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
   cursor: pointer;
-  border-radius: 0;
 }
 
 .quick-access-pin-compact:hover,
 .quick-access-pin-compact:focus-visible {
-  color: var(--dynamic-accent);
-  background-color: var(--dynamic-surface);
+  color: var(--dynamic-text);
+  border-color: color-mix(in srgb, var(--dynamic-border) 45%, var(--dynamic-text) 55%);
+  background: color-mix(in srgb, var(--dynamic-bg) 80%, var(--dynamic-surface) 20%);
   outline: none;
 }
 
+.quick-access-pin-compact svg {
+  width: 14px;
+  height: 14px;
+}
+
 .quick-access-visits-compact {
-  font-size: 0.75rem;
-  color: var(--dynamic-accent);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-
-
-.stat-value {
-  font-size: 1.4rem;
-  font-weight: 600;
-  color: var(--dynamic-text);
-}
-
-.stat-label {
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   color: var(--dynamic-muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-}
-
-.stats-grid-horizontal {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  justify-content: space-between;
-}
-
-.stat-item-horizontal {
-  flex: 1;
-  min-width: 120px;
-  border: 2px solid var(--dynamic-border);
-  background-color: var(--dynamic-surface-variant);
-  padding: 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  text-align: center;
-  border-radius: 0;
-}
-
-.shortcuts-panel {
-  gap: 0;
-}
-
-.shortcuts-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.85rem;
-}
-
-.shortcut-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  border: 2px solid var(--dynamic-border);
-  background-color: var(--dynamic-bg);
-  padding: 0.75rem 1rem;
-  border-radius: 0;
-}
-
-.shortcut-key-badge {
-  font-family:
-    "JetBrains Mono",
-    "SFMono-Regular",
-    Menlo,
-    monospace;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 0.35rem 0.65rem;
-  border: 2px solid var(--dynamic-border);
-  background-color: var(--dynamic-surface-variant);
-  color: var(--dynamic-muted);
-  font-weight: 500;
-  border-radius: 0;
-}
-
-.shortcut-desc {
-  font-size: 0.95rem;
-  color: var(--dynamic-text);
-}
-
-.shortcuts-panel .loading {
-  border-style: solid;
-}
-
-/* Responsive Design */
-@media (max-width: 1200px) {
-  .history-panel,
-  .quick-access-panel {
-    min-width: min(28rem, 100%);
-  }
-}
-
-@media (max-width: 960px) {
-  .homepage-shell {
-    padding: clamp(1.25rem, 5vw, 2rem);
-  }
-
-  .main-panels {
-    flex-direction: column;
-  }
-
-  .history-panel,
-  .quick-access-panel {
-    min-width: 100%;
-    max-width: 100%;
-    width: 100%;
-  }
-
-}
-
-@media (max-width: 640px) {
-  .theme-toggle-button {
-    width: 2.75rem;
-    height: 2.75rem;
-  }
-
-  .panel-body,
-  .panel-header {
-    padding-left: 1.25rem;
-    padding-right: 1.25rem;
-  }
-
-
-  .history-item {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .history-actions {
-    width: 100%;
-    border-top: 2px solid var(--dynamic-border);
-  }
-
-  .history-pin,
-  .history-delete {
-    flex: 1;
-    border-left: 0;
-  }
-
-  .history-pin {
-    border-right: 1px solid var(--dynamic-border);
-  }
-
-  .history-item-main {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.35rem;
-  }
-
-  .history-time {
-    order: 3;
-  }
-
-  .stats-grid-horizontal {
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .stat-item-horizontal {
-    min-width: 100%;
-  }
 }
 
 .show-more-button {
   width: 100%;
-  padding: 0.75rem 1rem;
-  border: 2px solid var(--dynamic-border);
-  background-color: var(--dynamic-surface-variant);
-  color: var(--dynamic-text);
-  font-size: 0.9rem;
-  font-weight: 500;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--dynamic-border);
+  background: transparent;
+  color: var(--dynamic-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   cursor: pointer;
-  transition:
-    background-color 200ms ease,
-    border-color 200ms ease;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
   border-radius: 0;
-  margin-top: 0.5rem;
 }
 
 .show-more-button:hover,
 .show-more-button:focus-visible {
-  background-color: var(--dynamic-surface);
-  border-color: var(--dynamic-accent);
+  background: color-mix(in srgb, var(--dynamic-bg) 75%, var(--dynamic-surface) 25%);
+  color: var(--dynamic-text);
+  border-color: color-mix(in srgb, var(--dynamic-border) 45%, var(--dynamic-text) 55%);
   outline: none;
+}
+
+.stats-grid-horizontal {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.stat-item-horizontal {
+  border: 1px solid var(--dynamic-border);
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  background: color-mix(in srgb, var(--dynamic-bg) 92%, var(--dynamic-surface) 8%);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.stat-value {
+  font-size: 0.95rem;
+  color: var(--dynamic-text);
+  font-weight: 600;
+}
+
+.stat-label {
+  font-size: 0.68rem;
+  color: var(--dynamic-muted);
+}
+
+.shortcuts-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.shortcut-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.6rem;
+  align-items: center;
+  border: 1px solid var(--dynamic-border);
+  padding: 0.6rem 0.75rem;
+  background: color-mix(in srgb, var(--dynamic-bg) 92%, var(--dynamic-surface) 8%);
+}
+
+.shortcut-key-badge {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--dynamic-border);
+  color: var(--dynamic-text);
+  background: color-mix(in srgb, var(--dynamic-bg) 80%, var(--dynamic-surface) 20%);
+}
+
+.shortcut-desc {
+  font-size: 0.72rem;
+  color: var(--dynamic-muted);
+  letter-spacing: 0.06em;
+}
+
+@media (max-width: 960px) {
+  .terminal-body {
+    padding: 1.1rem;
+  }
+
+  .terminal-grid {
+    gap: 0.75rem;
+  }
+
+  .main-panels {
+    grid-template-columns: 1fr;
+  }
+
+  .last-visit-banner {
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+    grid-template-rows: repeat(3, auto);
+    gap: 0.5rem 0.75rem;
+  }
+
+  .banner-time,
+  .banner-absolute {
+    justify-self: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .homepage-shell {
+    padding: 1.25rem;
+  }
+
+  .terminal-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .theme-toggle-button {
+    align-self: flex-end;
+  }
+
+  .terminal-status-row {
+    gap: 0.5rem;
+  }
+
+  .status-chip {
+    padding: 0.35rem 0.65rem;
+  }
+
+  .last-visit-banner {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(4, auto);
+  }
+
+  .banner-label,
+  .banner-title,
+  .banner-domain,
+  .banner-time,
+  .banner-absolute {
+    justify-self: flex-start;
+  }
 }
 </style>
