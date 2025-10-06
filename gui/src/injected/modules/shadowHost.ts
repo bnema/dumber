@@ -69,6 +69,41 @@ function ensureHostPresence(host: HTMLElement): void {
 }
 
 export const GLOBAL_SHADOW_HOST_ID = "dumber-ui-root";
+const TOKEN_KEYS = [
+  "--color-browser-bg",
+  "--color-browser-surface",
+  "--color-browser-surface-variant",
+  "--color-browser-text",
+  "--color-browser-muted",
+  "--color-browser-accent",
+  "--color-browser-border",
+  "--dynamic-bg",
+  "--dynamic-surface",
+  "--dynamic-surface-variant",
+  "--dynamic-text",
+  "--dynamic-muted",
+  "--dynamic-accent",
+  "--dynamic-border",
+] as const;
+
+function syncHostTokens(host: HTMLElement) {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return;
+  }
+
+  try {
+    const root = document.documentElement;
+    const computed = getComputedStyle(root);
+    for (const token of TOKEN_KEYS) {
+      const value = computed.getPropertyValue(token);
+      if (value && value.trim()) {
+        host.style.setProperty(token, value.trim());
+      }
+    }
+  } catch (error) {
+    console.warn("[shadowHost] Failed to sync color tokens", error);
+  }
+}
 
 /**
  * Ensure and return the global ShadowRoot used by injected UI.
@@ -87,6 +122,7 @@ export function getGlobalShadowRoot(): ShadowRoot {
 
   cachedHost = host;
   ensureHostPresence(host);
+  syncHostTokens(host);
 
   const shadowRoot = host.shadowRoot ?? host.attachShadow({ mode: "open" });
 
@@ -100,10 +136,21 @@ export function getGlobalShadowRoot(): ShadowRoot {
         "dark",
         document.documentElement.classList.contains("dark"),
       );
+      syncHostTokens(host);
     });
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["class"],
+    });
+  } catch {
+    /* no-op */
+  }
+
+  try {
+    document.addEventListener("dumber:palette-updated", () => {
+      if (cachedHost) {
+        syncHostTokens(cachedHost);
+      }
     });
   } catch {
     /* no-op */
@@ -125,19 +172,12 @@ export function getGlobalShadowRoot(): ShadowRoot {
     tokensStyle.textContent = `
       :host {
         --dynamic-bg: var(--color-browser-bg);
+        --dynamic-surface-variant: var(--color-browser-surface-variant);
         --dynamic-surface: var(--color-browser-surface);
         --dynamic-text: var(--color-browser-text);
         --dynamic-muted: var(--color-browser-muted);
         --dynamic-accent: var(--color-browser-accent);
         --dynamic-border: var(--color-browser-border);
-      }
-      :host(.dark) {
-        --dynamic-bg: rgb(17 24 39);
-        --dynamic-surface: rgb(31 41 55);
-        --dynamic-text: rgb(243 244 246);
-        --dynamic-muted: rgb(156 163 175);
-        --dynamic-accent: rgb(96 165 250);
-        --dynamic-border: rgb(55 65 81);
       }
     `;
     shadowRoot.appendChild(tokensStyle);

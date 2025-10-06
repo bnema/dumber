@@ -19,6 +19,7 @@ declare global {
     __dumber_dom_zoom_level?: number;
     __dumber_initial_theme?: string;
     __dumber_setTheme?: (theme: "light" | "dark") => void;
+    __dumber_applyPalette?: (theme: "light" | "dark") => void;
     __dumber_applyDomZoom?: (level: number) => void;
     __dumber_showToast?: (
       message: string,
@@ -126,6 +127,16 @@ function detectWindowType(features?: string | null): string {
         document.documentElement.classList.add("dark");
       } else {
         document.documentElement.classList.remove("dark");
+      }
+      try {
+        if (typeof window.__dumber_applyPalette === "function") {
+          window.__dumber_applyPalette(theme);
+        }
+        document.dispatchEvent(
+          new CustomEvent("dumber:theme-change", { detail: { theme } }),
+        );
+      } catch (error) {
+        console.warn("[dumber] Failed to apply runtime palette", error);
       }
     };
 

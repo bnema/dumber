@@ -8,6 +8,7 @@ import { mount } from "svelte";
 import { Omnibox } from "../../components/omnibox";
 import { ensureShadowMount } from "./shadowHost";
 import type { OmniboxConfig } from "../../components/omnibox/types";
+import { omniboxBridge } from "../../components/omnibox/messaging";
 
 let omniboxComponent: ReturnType<typeof mount> | null = null;
 let isInitialized = false;
@@ -60,6 +61,12 @@ export async function initializeOmnibox(
             Object.keys(window.__dumber_omnibox),
           );
           isInitialized = true;
+
+          // Fetch search shortcuts from backend
+          omniboxBridge.fetchSearchShortcuts().catch((err) => {
+            console.warn("Failed to fetch search shortcuts:", err);
+          });
+
           // Notify isolated bundle listeners that omnibox is ready
           try {
             document.dispatchEvent(new CustomEvent("dumber:omnibox-ready"));
