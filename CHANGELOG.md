@@ -7,11 +7,20 @@ All notable changes to this project will be documented in this file.
 ### Added
 - **Pin/favorite sites**: Pin websites from history or quick access to prioritize them in "Jump back in" section. Uses localStorage persistence with star icons for pin/unpin actions
 - **Zellij-style stacked panes**: Added Ctrl+P → 's' to stack panes instead of splitting, with Alt+Up/Down navigation between stacked panes. Features collapsed page title bars showing  for inactive panes and full WebView interaction for the active pane. Includes GTK4 CSS styling for proper visual feedback
+- **Color palette configuration**: Light and dark color palettes now configurable in `appearance` config with semantic tokens (background, surface, text, muted, accent, border). Injected as CSS custom properties at document start
+- **Search shortcut badges**: Visual badges in omnibox input showing active shortcut prefix (e.g., "gh:", "npm:") with description labels
+- **Search shortcuts API**: Frontend bridge to fetch search shortcuts from backend `/api/config` endpoint with automatic normalization
 
 ### Changed
+- **Terminal-style UI theme**: Monospace fonts (JetBrains Mono, Fira Code), sharp corners (no border-radius), dashed borders, adjusted shadows and spacing throughout omnibox components
+- **History suggestions**: Use favicon from database when available, omit automatic search shortcuts from suggestions (rely on explicit prefix commands)
+- **Search shortcuts defaults**: Updated defaults to include ddg, go, mdn, npm packages while reordering others
+- **Chrome user agent**: Updated to version 141.0.0.0 for better site compatibility
+- **CSS color system**: Removed hardcoded theme colors, now use dynamic CSS custom properties from Go-injected palette
 - **History item layout**: Removed "• domain" from titles, now highlight domain within the full URL using same color as title text
 - **Quick access logic**: Removed 20-item limit, now shows all sites with 2+ visits (pinned sites bypass visit requirement)
 - **History pagination**: Show 15 items initially (up from 10) with "Show N more" button
+- **Homepage layout**: Redesigned with improved visual hierarchy and dynamic color tokens
 
 ### Fixed
 - **Mobile URL overflow**: Fixed long URLs breaking layout on narrow screens by adding proper width constraints and CSS fixes
