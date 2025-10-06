@@ -140,6 +140,12 @@ func (wm *WorkspaceManager) applyActivePaneBorder(ctx *PaneBorderContext) {
 		return
 	}
 
+	// Skip applying border if there's only one pane
+	if !wm.hasMultiplePanes() {
+		log.Printf("[workspace] Skipping active border: only one pane exists")
+		return
+	}
+
 	// Apply margin to WebView widget (creates space for border)
 	if ctx.webViewWidget != 0 && webkit.WidgetIsValid(ctx.webViewWidget) {
 		webkit.WidgetSetMargin(ctx.webViewWidget, 2)
