@@ -12,6 +12,11 @@ import (
 	"github.com/bnema/dumber/pkg/webkit"
 )
 
+const (
+	// faviconPlaceholder is the emoji displayed when no favicon is available
+	faviconPlaceholder = "🌐"
+)
+
 // StackedPaneManager handles all stacked pane operations
 type StackedPaneManager struct {
 	wm              *WorkspaceManager
@@ -711,7 +716,7 @@ func (spm *StackedPaneManager) createTitleBarWithTitle(title string, pageURL str
 		webkit.WidgetShow(faviconImg)
 	} else {
 		// DEBUG: Add visible placeholder label to show code is running
-		placeholderLabel := webkit.NewLabel("🌐")
+		placeholderLabel := webkit.NewLabel(faviconPlaceholder)
 		if placeholderLabel != 0 {
 			webkit.WidgetAddCSSClass(placeholderLabel, "stacked-pane-favicon-placeholder")
 			webkit.BoxAppend(titleBox, placeholderLabel)

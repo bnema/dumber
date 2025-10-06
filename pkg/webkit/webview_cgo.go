@@ -2061,58 +2061,7 @@ func (w *WebView) enableUserContentManager(cfg *Config) {
 		C.webkit_user_script_unref(schemeScript)
 	}
 
-	// Inject color palette tokens sourced from Go configuration
-	if cfg != nil {
-		if paletteJSON, err := json.Marshal(cfg.Colors); err == nil && len(paletteJSON) > 0 {
-			paletteScript := fmt.Sprintf(`(function(){try{
-  window.__dumber_palette=%s;
-  var normalized={};
-  if(window.__dumber_palette){
-    for (var key in window.__dumber_palette){
-      if(Object.prototype.hasOwnProperty.call(window.__dumber_palette,key)){
-        normalized[key.toLowerCase()] = window.__dumber_palette[key];
-      }
-    }
-    window.__dumber_palette = normalized;
-  }
-  var tokenMap={Background:'--color-browser-bg',Surface:'--color-browser-surface',SurfaceVariant:'--color-browser-surface-variant',Text:'--color-browser-text',Muted:'--color-browser-muted',Accent:'--color-browser-accent',Border:'--color-browser-border'};
-  var dynamicMap={Background:'--dynamic-bg',Surface:'--dynamic-surface',SurfaceVariant:'--dynamic-surface-variant',Text:'--dynamic-text',Muted:'--dynamic-muted',Accent:'--dynamic-accent',Border:'--dynamic-border'};
-  var apply=function(theme){
-    var palette=(window.__dumber_palette && (window.__dumber_palette[theme] || window.__dumber_palette.light)) || null;
-    if(!palette){return;}
-    var root=document.documentElement;
-    for(var key in tokenMap){
-      if(Object.prototype.hasOwnProperty.call(tokenMap,key) && palette[key]){
-        root.style.setProperty(tokenMap[key], palette[key]);
-        if(Object.prototype.hasOwnProperty.call(dynamicMap,key)){
-          root.style.setProperty(dynamicMap[key], palette[key]);
-        }
-      }
-    }
-    document.dispatchEvent(new CustomEvent('dumber:palette-updated',{detail:{theme:theme}}));
-  };
-  window.__dumber_applyPalette=function(theme){
-    apply(theme==='dark'?'dark':'light');
-  };
-  var initial=document.documentElement.classList.contains('dark')?'dark':'light';
-  if(window.__dumber_initial_theme){
-    initial=window.__dumber_initial_theme;
-  }
-  apply(initial);
-}catch(err){console.error('[dumber] Failed to apply palette',err);}})();`, string(paletteJSON))
-			cPalette := C.CString(paletteScript)
-			defer C.free(unsafe.Pointer(cPalette))
-			paletteUserScript := C.webkit_user_script_new((*C.gchar)(cPalette), C.WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, C.WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, nil, nil)
-			if paletteUserScript != nil {
-				C.webkit_user_content_manager_add_script(w.native.ucm, paletteUserScript)
-				C.webkit_user_script_unref(paletteUserScript)
-			} else {
-				log.Printf("[webkit] Failed to create palette user script")
-			}
-		} else if err != nil {
-			log.Printf("[webkit] Failed to marshal color palettes: %v", err)
-		}
-	}
+	// Color palette injection now handled in main-world.ts via __PALETTE_JSON__ placeholder
 
 	// Add GUI bundle as user script at document-start (contains toast, omnibox, and controls)
 	if cfg != nil && cfg.Assets != nil {
@@ -2262,6 +2211,20 @@ func buildDomBridgeScript(cfg *Config, initialZoom float64, webViewId uintptr, w
 	activeState := "true"
 	log.Printf("[webkit] Building script with WebView %s, active state: %s", webViewIdStr, activeState)
 	script = strings.ReplaceAll(script, "\"__WEBVIEW_ACTIVE__\"", activeState)
+
+	// Inject color palette JSON
+	if cfg != nil {
+		if paletteJSON, err := json.Marshal(cfg.Colors); err == nil && len(paletteJSON) > 0 {
+			script = strings.ReplaceAll(script, "\"__PALETTE_JSON__\"", string(paletteJSON))
+		} else {
+			if err != nil {
+				log.Printf("[webkit] Failed to marshal color palettes: %v", err)
+			}
+			script = strings.ReplaceAll(script, "\"__PALETTE_JSON__\"", "null")
+		}
+	} else {
+		script = strings.ReplaceAll(script, "\"__PALETTE_JSON__\"", "null")
+	}
 
 	log.Printf("[webkit] Loaded main-world script successfully, size: %d bytes", len(scriptBytes))
 	return script

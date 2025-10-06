@@ -20,6 +20,7 @@ declare global {
     __dumber_initial_theme?: string;
     __dumber_setTheme?: (theme: "light" | "dark") => void;
     __dumber_applyPalette?: (theme: "light" | "dark") => void;
+    __dumber_palette?: { light?: Record<string, string>; dark?: Record<string, string> };
     __dumber_applyDomZoom?: (level: number) => void;
     __dumber_showToast?: (
       message: string,
@@ -118,6 +119,83 @@ function detectWindowType(features?: string | null): string {
     // Initialize WebView ID and active state (will be replaced by Go)
     window.__dumber_webview_id = "__WEBVIEW_ID__";
     window.__dumber_is_active = "__WEBVIEW_ACTIVE__" as unknown as boolean;
+
+    // Initialize color palette (will be replaced by Go with actual palette JSON)
+    // Placeholder: __PALETTE_JSON__
+    try {
+      const paletteData = "__PALETTE_JSON__";
+      if (paletteData && paletteData !== "__PALETTE_JSON__") {
+        window.__dumber_palette = JSON.parse(paletteData);
+
+        // Normalize palette keys to lowercase
+        const normalized: typeof window.__dumber_palette = {};
+        if (window.__dumber_palette) {
+          for (const key in window.__dumber_palette) {
+            if (Object.prototype.hasOwnProperty.call(window.__dumber_palette, key)) {
+              normalized[key.toLowerCase()] = window.__dumber_palette[key];
+            }
+          }
+          window.__dumber_palette = normalized;
+        }
+      }
+    } catch (err) {
+      console.error("[dumber] Failed to parse palette JSON", err);
+    }
+
+    // Palette application function
+    window.__dumber_applyPalette = (theme: "light" | "dark") => {
+      try {
+        const palette = window.__dumber_palette?.[theme] || window.__dumber_palette?.light;
+        if (!palette) {
+          return;
+        }
+
+        const tokenMap: Record<string, string> = {
+          Background: "--color-browser-bg",
+          Surface: "--color-browser-surface",
+          SurfaceVariant: "--color-browser-surface-variant",
+          Text: "--color-browser-text",
+          Muted: "--color-browser-muted",
+          Accent: "--color-browser-accent",
+          Border: "--color-browser-border",
+        };
+
+        const dynamicMap: Record<string, string> = {
+          Background: "--dynamic-bg",
+          Surface: "--dynamic-surface",
+          SurfaceVariant: "--dynamic-surface-variant",
+          Text: "--dynamic-text",
+          Muted: "--dynamic-muted",
+          Accent: "--dynamic-accent",
+          Border: "--dynamic-border",
+        };
+
+        const root = document.documentElement;
+        for (const key in tokenMap) {
+          if (Object.prototype.hasOwnProperty.call(tokenMap, key) && palette[key]) {
+            root.style.setProperty(tokenMap[key], palette[key]);
+            if (Object.prototype.hasOwnProperty.call(dynamicMap, key)) {
+              root.style.setProperty(dynamicMap[key], palette[key]);
+            }
+          }
+        }
+
+        document.dispatchEvent(
+          new CustomEvent("dumber:palette-updated", { detail: { theme } })
+        );
+      } catch (err) {
+        console.error("[dumber] Failed to apply palette", err);
+      }
+    };
+
+    // Apply initial palette based on theme
+    try {
+      const initialTheme = document.documentElement.classList.contains("dark") ? "dark" : "light";
+      window.__dumber_initial_theme = window.__dumber_initial_theme || initialTheme;
+      window.__dumber_applyPalette(window.__dumber_initial_theme);
+    } catch (err) {
+      console.error("[dumber] Failed to apply initial palette", err);
+    }
 
     // Theme setter function for GTK theme integration
     window.__dumber_setTheme = (theme: "light" | "dark") => {

@@ -1,5 +1,4 @@
 import type { HistoryEntry, SearchShortcut } from "../types/generated.js";
-import { DEFAULT_SHORTCUTS } from "../constants/shortcuts.js";
 
 export class AppService {
   private history: HistoryEntry[] = [];
@@ -80,38 +79,21 @@ export class AppService {
   }
 
   async loadShortcuts(): Promise<void> {
-    try {
-      const cfg = await fetch("/api/config").then((r) => r.json());
-      const raw = cfg?.search_shortcuts || {};
-      // Normalize field casing from backend (supports URL/Description and url/description)
-      const normalized: Record<string, SearchShortcut> = {};
-      for (const [key, value] of Object.entries(raw)) {
-        const v = value as Record<string, unknown>;
-        normalized[key] = {
-          id: 0,
-          shortcut: key,
-          url_template: (v.url ?? v.URL ?? "") as string,
-          description: (v.description ?? v.Description ?? "") as string,
-          created_at: null,
-        };
-      }
-      this.shortcuts = normalized;
-    } catch (error) {
-      console.error("Failed to load shortcuts:", error);
-      // Mock shortcuts for development/fallback using shared constants
-      this.shortcuts = Object.fromEntries(
-        Object.entries(DEFAULT_SHORTCUTS).map(([key, def]) => [
-          key,
-          {
-            id: 0,
-            shortcut: def.shortcut,
-            url_template: def.url_template,
-            description: def.description,
-            created_at: null,
-          },
-        ])
-      );
+    const cfg = await fetch("/api/config").then((r) => r.json());
+    const raw = cfg?.search_shortcuts || {};
+    // Normalize field casing from backend (supports URL/Description and url/description)
+    const normalized: Record<string, SearchShortcut> = {};
+    for (const [key, value] of Object.entries(raw)) {
+      const v = value as Record<string, unknown>;
+      normalized[key] = {
+        id: 0,
+        shortcut: key,
+        url_template: (v.url ?? v.URL ?? "") as string,
+        description: (v.description ?? v.Description ?? "") as string,
+        created_at: null,
+      };
     }
+    this.shortcuts = normalized;
   }
 
   getHistory(): HistoryEntry[] {
