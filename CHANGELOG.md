@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.11.0] - 2025-10-07
+
 ### Added
 - **Auto-open omnibox on blank panes**: Omnibox automatically opens when a new pane is created with about:blank, providing immediate search/navigation access
 - **Configurable default zoom**: Added `default_zoom` config (defaults to 1.2/120%). Per-domain zoom still overrides this
