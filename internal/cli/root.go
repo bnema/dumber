@@ -188,6 +188,7 @@ func NewRootCmd(version, commit, buildDate string) *cobra.Command {
 	rootCmd.AddCommand(NewHistoryCmd())
 	rootCmd.AddCommand(NewPurgeCmd())
 	rootCmd.AddCommand(NewLogsCmd())
+	rootCmd.AddCommand(NewConfigCmd())
 
 	return rootCmd
 }

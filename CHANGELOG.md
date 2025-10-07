@@ -7,10 +7,14 @@ All notable changes to this project will be documented in this file.
 ### Added
 - ENV=dev support to isolate test builds from production config/data in .dev/dumber/ directory
 - Content filtering whitelist config (Twitch enabled by default)
+- `dumber config` command to open config file in $VISUAL/$EDITOR or print path with `--path`
 
 ### Fixed
 - Enabled missing WebKitGTK6 features: WebRTC, MediaSource, LocalStorage, WebAudio, MediaStream, Clipboard
 - Cosmetic filter duplicate injection in frames
+- Config file duplicate keys (snake_case/camelCase) by using Viper's SafeWriteConfigAs
+- Config not reading newly created default config file
+- Config writing to disk on every load/reload
 
 ## [0.11.0] - 2025-10-07
 

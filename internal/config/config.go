@@ -2,7 +2,6 @@
 package config
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -472,6 +471,10 @@ func (m *Manager) Load() error {
 			if err := m.createDefaultConfig(); err != nil {
 				return fmt.Errorf("failed to create default config: %w", err)
 			}
+			// Re-read the newly created config file
+			if err := m.viper.ReadInConfig(); err != nil {
+				return fmt.Errorf("failed to read newly created config: %w", err)
+			}
 		} else {
 			return fmt.Errorf("failed to read config file: %w", err)
 		}
@@ -514,8 +517,6 @@ func (m *Manager) Load() error {
 
 	// Validate and configure codec preferences
 	config = m.validateAndConfigureCodecPreferences(config)
-
-	m.ensurePersistedDefaults(config)
 
 	m.config = config
 	return nil
@@ -614,8 +615,6 @@ func (m *Manager) reload() error {
 
 	// Validate and configure codec preferences
 	config = m.validateAndConfigureCodecPreferences(config)
-
-	m.ensurePersistedDefaults(config)
 
 	m.config = config
 	return nil
@@ -747,59 +746,6 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("workspace.styling.border_radius", defaults.Workspace.Styling.BorderRadius)
 }
 
-func (m *Manager) ensurePersistedDefaults(cfg *Config) {
-	if cfg == nil {
-		return
-	}
-
-	if m.viper == nil {
-		return
-	}
-
-	// Only persist when the key is missing from the user config file.
-	if m.viper.InConfig("use_dom_zoom") {
-		return
-	}
-
-	cfgFile := m.viper.ConfigFileUsed()
-	if cfgFile == "" {
-		return
-	}
-
-	m.viper.Set("use_dom_zoom", cfg.UseDomZoom)
-	if err := m.viper.WriteConfig(); err != nil {
-		logging.Warn(fmt.Sprintf("Config: failed to persist use_dom_zoom default to %s: %v", cfgFile, err))
-		return
-	}
-
-	logging.Info(fmt.Sprintf("Config: persisted missing use_dom_zoom default (%v) to %s", cfg.UseDomZoom, cfgFile))
-}
-
-// persistDefaultZoomIfMissing persists the default_zoom value to the config file if it's not already set.
-func (m *Manager) persistDefaultZoomIfMissing(cfg *Config) {
-	if cfg == nil {
-		return
-	}
-
-	// Only persist when the key is missing from the user config file.
-	if m.viper.InConfig("default_zoom") {
-		return
-	}
-
-	cfgFile := m.viper.ConfigFileUsed()
-	if cfgFile == "" {
-		return
-	}
-
-	m.viper.Set("default_zoom", cfg.DefaultZoom)
-	if err := m.viper.WriteConfig(); err != nil {
-		logging.Warn(fmt.Sprintf("Config: failed to persist default_zoom default to %s: %v", cfgFile, err))
-		return
-	}
-
-	logging.Info(fmt.Sprintf("Config: persisted missing default_zoom default (%.2f) to %s", cfg.DefaultZoom, cfgFile))
-}
-
 // createDefaultConfig creates a default configuration file.
 func (m *Manager) createDefaultConfig() error {
 	configFile, err := GetConfigFile()
@@ -812,18 +758,8 @@ func (m *Manager) createDefaultConfig() error {
 		return err
 	}
 
-	// Get the default configuration
-	defaultConfig := DefaultConfig()
-
-	// Marshal to JSON with proper indentation
-	// Note: Go 1.20+ automatically sorts map keys in JSON output
-	configData, err := json.MarshalIndent(defaultConfig, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal default config: %w", err)
-	}
-
-	// Write JSON config file
-	if err := os.WriteFile(configFile, configData, filePerm); err != nil {
+	// Use Viper's SafeWriteConfigAs to avoid duplicate keys
+	if err := m.viper.SafeWriteConfigAs(configFile); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
