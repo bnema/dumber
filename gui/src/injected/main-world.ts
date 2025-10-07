@@ -19,6 +19,12 @@ declare global {
     __dumber_dom_zoom_level?: number;
     __dumber_initial_theme?: string;
     __dumber_setTheme?: (theme: "light" | "dark") => void;
+    __dumber_applyPalette?: (theme: "light" | "dark") => void;
+    __dumber_palette?: Record<string, Record<string, string>>;
+    __dumber_color_palettes?: (palettes: unknown) => void;
+    __dumber_color_palettes_error?: (error: string) => void;
+    __dumber_search_shortcuts?: (data: unknown) => void;
+    __dumber_search_shortcuts_error?: (error: string) => void;
     __dumber_applyDomZoom?: (level: number) => void;
     __dumber_showToast?: (
       message: string,
@@ -118,6 +124,134 @@ function detectWindowType(features?: string | null): string {
     window.__dumber_webview_id = "__WEBVIEW_ID__";
     window.__dumber_is_active = "__WEBVIEW_ACTIVE__" as unknown as boolean;
 
+    // Request color palettes from Go backend
+    try {
+      console.log("[dumber-palette] Initializing color palette loading");
+      const bridge = window.webkit?.messageHandlers?.dumber;
+
+      if (!bridge || typeof bridge.postMessage !== "function") {
+        console.error("[dumber-palette] ERROR: No webkit message bridge available");
+        return;
+      }
+
+      console.log("[dumber-palette] WebKit bridge found, setting up handlers");
+
+      // Set up callback handler before requesting
+      window.__dumber_color_palettes = (palettes: unknown) => {
+        console.log("[dumber-palette] Received palettes from backend:", palettes);
+        try {
+          // Type guard to ensure palettes is a valid object
+          if (typeof palettes !== "object" || palettes === null) {
+            console.error("[dumber-palette] ERROR: Invalid palettes received - type:", typeof palettes);
+            return;
+          }
+
+          window.__dumber_palette = palettes as Record<string, Record<string, string>>;
+          console.log("[dumber-palette] Palette keys:", Object.keys(window.__dumber_palette || {}));
+
+          // Normalize palette keys to lowercase
+          const normalized: Record<string, Record<string, string>> = {};
+          if (window.__dumber_palette) {
+            for (const key in window.__dumber_palette) {
+              if (Object.prototype.hasOwnProperty.call(window.__dumber_palette, key)) {
+                const paletteValue = window.__dumber_palette[key];
+                if (paletteValue) {
+                  normalized[key.toLowerCase()] = paletteValue;
+                  console.log(`[dumber-palette] Normalized: ${key} -> ${key.toLowerCase()}, colors:`, Object.keys(paletteValue));
+                }
+              }
+            }
+            window.__dumber_palette = normalized;
+          }
+
+          // Apply palette now that we have it
+          const initialTheme: "light" | "dark" = document.documentElement.classList.contains("dark") ? "dark" : "light";
+          console.log(`[dumber-palette] Initial theme detected: ${initialTheme}`);
+          window.__dumber_initial_theme = initialTheme;
+
+          if (window.__dumber_applyPalette) {
+            console.log("[dumber-palette] Applying palette...");
+            window.__dumber_applyPalette(initialTheme);
+          } else {
+            console.error("[dumber-palette] ERROR: __dumber_applyPalette function not found");
+          }
+        } catch (err) {
+          console.error("[dumber-palette] ERROR: Failed to apply received palette:", err);
+        }
+      };
+
+      window.__dumber_color_palettes_error = (error: string) => {
+        console.error("[dumber-palette] ERROR from backend:", error);
+      };
+
+      // Request color palettes
+      console.log("[dumber-palette] Sending get_color_palettes request to backend");
+      bridge.postMessage(JSON.stringify({ type: "get_color_palettes" }));
+      console.log("[dumber-palette] Request sent, waiting for response...");
+    } catch (err) {
+      console.error("[dumber-palette] EXCEPTION requesting color palettes:", err);
+    }
+
+    // Palette application function
+    window.__dumber_applyPalette = (theme: "light" | "dark") => {
+      console.log(`[dumber-palette] applyPalette called with theme: ${theme}`);
+      try {
+        const palette = window.__dumber_palette?.[theme] || window.__dumber_palette?.["light"];
+        if (!palette) {
+          console.error(`[dumber-palette] ERROR: No palette found for theme "${theme}". Available:`, Object.keys(window.__dumber_palette || {}));
+          return;
+        }
+        console.log(`[dumber-palette] Found palette for theme "${theme}":`, palette);
+
+        const tokenMap: Record<string, string> = {
+          background: "--color-browser-bg",
+          surface: "--color-browser-surface",
+          surface_variant: "--color-browser-surface-variant",
+          text: "--color-browser-text",
+          muted: "--color-browser-muted",
+          accent: "--color-browser-accent",
+          border: "--color-browser-border",
+        };
+
+        const dynamicMap: Record<string, string> = {
+          background: "--dynamic-bg",
+          surface: "--dynamic-surface",
+          surface_variant: "--dynamic-surface-variant",
+          text: "--dynamic-text",
+          muted: "--dynamic-muted",
+          accent: "--dynamic-accent",
+          border: "--dynamic-border",
+        };
+
+        const root = document.documentElement;
+        let appliedCount = 0;
+        for (const key in tokenMap) {
+          if (Object.prototype.hasOwnProperty.call(tokenMap, key)) {
+            const colorValue = palette[key];
+            const tokenVar = tokenMap[key];
+            const dynamicVar = dynamicMap[key];
+            if (colorValue && typeof colorValue === "string" && tokenVar) {
+              root.style.setProperty(tokenVar, colorValue);
+              if (dynamicVar) {
+                root.style.setProperty(dynamicVar, colorValue);
+              }
+              console.log(`[dumber-palette] Applied ${key}: ${colorValue} -> ${tokenVar}`);
+              appliedCount++;
+            } else {
+              console.warn(`[dumber-palette] Skipped ${key}: colorValue=${colorValue}, tokenVar=${tokenVar}`);
+            }
+          }
+        }
+
+        console.log(`[dumber-palette] Applied ${appliedCount} colors successfully`);
+        document.dispatchEvent(
+          new CustomEvent("dumber:palette-updated", { detail: { theme } })
+        );
+      } catch (err) {
+        console.error("[dumber-palette] EXCEPTION applying palette:", err);
+      }
+    };
+
     // Theme setter function for GTK theme integration
     window.__dumber_setTheme = (theme: "light" | "dark") => {
       window.__dumber_initial_theme = theme;
@@ -126,6 +260,16 @@ function detectWindowType(features?: string | null): string {
         document.documentElement.classList.add("dark");
       } else {
         document.documentElement.classList.remove("dark");
+      }
+      try {
+        if (typeof window.__dumber_applyPalette === "function") {
+          window.__dumber_applyPalette(theme);
+        }
+        document.dispatchEvent(
+          new CustomEvent("dumber:theme-change", { detail: { theme } }),
+        );
+      } catch (error) {
+        console.warn("[dumber] Failed to apply runtime palette", error);
       }
     };
 

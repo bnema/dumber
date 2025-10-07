@@ -60,24 +60,7 @@ func DefaultConfig() *Config {
 			RetentionPeriodDays: defaultRetentionDays, // 1 year
 			CleanupIntervalDays: 1,                    // daily cleanup
 		},
-		SearchShortcuts: map[string]SearchShortcut{
-			"g": {
-				URL:         "https://www.google.com/search?q=%s",
-				Description: "Google search",
-			},
-			"gh": {
-				URL:         "https://github.com/search?q=%s",
-				Description: "GitHub search",
-			},
-			"yt": {
-				URL:         "https://www.youtube.com/results?search_query=%s",
-				Description: "YouTube search",
-			},
-			"w": {
-				URL:         "https://en.wikipedia.org/wiki/%s",
-				Description: "Wikipedia search",
-			},
-		},
+		SearchShortcuts: GetDefaultSearchShortcuts(),
 		Dmenu: DmenuConfig{
 			MaxHistoryItems:  defaultMaxHistoryItems,
 			ShowVisitCount:   true,
@@ -110,6 +93,24 @@ func DefaultConfig() *Config {
 			SerifFont:       "Fira Sans",
 			MonospaceFont:   "Fira Code",
 			DefaultFontSize: defaultFontSize,
+			LightPalette: ColorPalette{
+				Background:     "#f8f8f8",
+				Surface:        "#f2f2f2",
+				SurfaceVariant: "#ececec",
+				Text:           "#1a1a1a",
+				Muted:          "#6e6e6e",
+				Accent:         "#404040",
+				Border:         "#d2d2d2",
+			},
+			DarkPalette: ColorPalette{
+				Background:     "#0e0e0e",
+				Surface:        "#1a1a1a",
+				SurfaceVariant: "#141414",
+				Text:           "#e4e4e4",
+				Muted:          "#848484",
+				Accent:         "#a8a8a8",
+				Border:         "#363636",
+			},
 		},
 		VideoAcceleration: VideoAccelerationConfig{
 			EnableVAAPI:      true,
@@ -127,7 +128,7 @@ func DefaultConfig() *Config {
 			DisableVP9Hardware:        false,                                                                                                   // Allow VP9 hardware for high res content
 			VideoBufferSizeMB:         16,                                                                                                      // Larger buffer for AV1 streams
 			QueueBufferTimeSec:        10,                                                                                                      // More buffering time for smooth playback
-			CustomUserAgent:           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", // Chrome UA with AV1 support
+			CustomUserAgent:           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36", // Chrome UA with AV1 support
 			AV1MaxResolution:          "1080p",                                                                                                 // Optimal AV1 up to 1080p, fallback to VP9 for higher res
 			DisableTwitchCodecControl: true,                                                                                                    // Disable codec control on Twitch by default (prevents theater/fullscreen freezing)
 		},
@@ -163,6 +164,7 @@ func DefaultConfig() *Config {
 		},
 		RenderingMode: RenderingModeGPU,
 		UseDomZoom:    false,
+		DefaultZoom:   1.2, // 120% default zoom for better readability
 		Workspace: WorkspaceConfig{
 			EnableZellijControls: true,
 			PaneMode: PaneModeConfig{
@@ -209,6 +211,10 @@ func DefaultConfig() *Config {
 // GetDefaultSearchShortcuts returns the default search shortcuts.
 func GetDefaultSearchShortcuts() map[string]SearchShortcut {
 	return map[string]SearchShortcut{
+		"ddg": {
+			URL:         "https://duckduckgo.com/?q=%s",
+			Description: "DuckDuckGo search",
+		},
 		"g": {
 			URL:         "https://www.google.com/search?q=%s",
 			Description: "Google search",
@@ -217,30 +223,6 @@ func GetDefaultSearchShortcuts() map[string]SearchShortcut {
 			URL:         "https://github.com/search?q=%s",
 			Description: "GitHub search",
 		},
-		"yt": {
-			URL:         "https://www.youtube.com/results?search_query=%s",
-			Description: "YouTube search",
-		},
-		"w": {
-			URL:         "https://en.wikipedia.org/wiki/%s",
-			Description: "Wikipedia search",
-		},
-		"ddg": {
-			URL:         "https://duckduckgo.com/?q=%s",
-			Description: "DuckDuckGo search",
-		},
-		"so": {
-			URL:         "https://stackoverflow.com/search?q=%s",
-			Description: "Stack Overflow search",
-		},
-		"r": {
-			URL:         "https://www.reddit.com/search?q=%s",
-			Description: "Reddit search",
-		},
-		"npm": {
-			URL:         "https://www.npmjs.com/search?q=%s",
-			Description: "npm package search",
-		},
 		"go": {
 			URL:         "https://pkg.go.dev/search?q=%s",
 			Description: "Go package search",
@@ -248,6 +230,26 @@ func GetDefaultSearchShortcuts() map[string]SearchShortcut {
 		"mdn": {
 			URL:         "https://developer.mozilla.org/en-US/search?q=%s",
 			Description: "MDN Web Docs search",
+		},
+		"npm": {
+			URL:         "https://www.npmjs.com/search?q=%s",
+			Description: "npm package search",
+		},
+		"r": {
+			URL:         "https://www.reddit.com/search?q=%s",
+			Description: "Reddit search",
+		},
+		"so": {
+			URL:         "https://stackoverflow.com/search?q=%s",
+			Description: "Stack Overflow search",
+		},
+		"w": {
+			URL:         "https://en.wikipedia.org/wiki/%s",
+			Description: "Wikipedia search",
+		},
+		"yt": {
+			URL:         "https://www.youtube.com/results?search_query=%s",
+			Description: "YouTube search",
 		},
 	}
 }

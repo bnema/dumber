@@ -54,17 +54,9 @@
   });
 </script>
 
-<div
-  id="find-list"
-  class="mt-2 max-h-[50vh] overflow-auto border-t border-[#333]"
-  role="listbox"
-  aria-label="Find results"
->
+<div id="find-list" class="find-list" role="listbox" aria-label="Find results">
   <!-- Header with match count -->
-  <div
-    class="px-2.5 py-1.5 text-xs text-[#bbb]
-           border-b border-[#2a2a2a]"
-  >
+  <div class="find-header">
     {#if totalMatches > 0}
       {totalMatches} match{totalMatches === 1 ? '' : 'es'}
     {:else}
@@ -79,9 +71,7 @@
 
       <div
         id="find-item-{index}"
-        class="px-2.5 py-2 cursor-pointer
-               border-b border-[#2a2a2a] last:border-b-0
-               {isSelected ? 'bg-[#0a0a0a]' : ''}"
+        class={isSelected ? 'find-item selected' : 'find-item'}
         role="option"
         tabindex="-1"
         aria-selected={isSelected}
@@ -90,10 +80,7 @@
         onkeydown={(e) => e.key === 'Enter' && handleItemClick(index)}
       >
         <!-- Match context -->
-        <div
-          class="text-[#ddd] text-sm
-                 whitespace-nowrap overflow-hidden text-ellipsis"
-        >
+        <div class="find-context">
           {match.context || ''}
         </div>
       </div>
@@ -101,3 +88,48 @@
   {/if}
 </div>
 
+<style>
+  .find-list {
+    margin-top: 0.75rem;
+    max-height: 50vh;
+    overflow-y: auto;
+    border-top: 1px solid var(--dynamic-border);
+    background: color-mix(in srgb, var(--dynamic-bg) 94%, var(--dynamic-surface) 6%);
+  }
+
+  .find-header {
+    padding: 0.65rem 0.85rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--dynamic-muted);
+    border-bottom: 1px dashed var(--dynamic-border);
+  }
+
+  .find-item {
+    padding: 0.65rem 0.85rem;
+    border-bottom: 1px dashed var(--dynamic-border);
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+
+  .find-item:last-child {
+    border-bottom: none;
+  }
+
+  .find-item.selected,
+  .find-item:hover,
+  .find-item:focus-visible {
+    background: color-mix(in srgb, var(--dynamic-bg) 75%, var(--dynamic-surface) 25%);
+    color: var(--dynamic-text);
+    outline: none;
+  }
+
+  .find-context {
+    color: var(--dynamic-text);
+    font-size: 0.75rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+</style>

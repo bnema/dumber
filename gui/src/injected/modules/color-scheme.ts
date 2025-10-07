@@ -187,6 +187,13 @@ class ColorSchemeManager {
           } else {
             document.documentElement.classList.remove("dark");
           }
+          try {
+            window.__dumber_applyPalette?.(
+              this.config.isDark ? "dark" : "light",
+            );
+          } catch {
+            /* noop */
+          }
         }
       }, 100);
     }

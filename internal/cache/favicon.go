@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/bnema/dumber/internal/config"
@@ -113,6 +114,12 @@ func (fc *FaviconCache) getFilename(faviconURL string) string {
 
 // downloadFavicon downloads a favicon and saves it to cache
 func (fc *FaviconCache) downloadFavicon(faviconURL string) error {
+	// Skip SVG files - we can't convert them to PNG without additional dependencies
+	if strings.HasSuffix(strings.ToLower(faviconURL), ".svg") {
+		log.Printf("[favicon] Skipping SVG favicon: %s", faviconURL)
+		return nil
+	}
+
 	filename := fc.getFilename(faviconURL)
 	cachedPath := filepath.Join(fc.cacheDir, filename)
 
@@ -177,9 +184,7 @@ func (fc *FaviconCache) downloadFavicon(faviconURL string) error {
 	if _, err := io.Copy(downloadFile, limitedBody); err != nil {
 		return fmt.Errorf("failed to save favicon data: %w", err)
 	}
-	if err := downloadFile.Close(); err != nil {
-		log.Printf("[favicon] failed to close download file: %v", err)
-	}
+	// Note: downloadFile will be closed by the defer above, no need to close explicitly
 
 	// Detect if it's an ICO file and convert with ffmpeg if needed
 	if err := fc.convertToPNG(tempDownloadFile, cachedPath, faviconURL); err != nil {

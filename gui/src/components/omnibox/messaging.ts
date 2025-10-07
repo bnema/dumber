@@ -4,7 +4,7 @@
  * TypeScript interface for Go-JavaScript communication
  */
 
-import type { OmniboxMessage, OmniboxMessageBridge, Suggestion } from "./types";
+import type { OmniboxMessage, OmniboxMessageBridge, Suggestion, SearchShortcut } from "./types";
 import { omniboxStore } from "./stores.svelte.ts";
 
 export class OmniboxBridge implements OmniboxMessageBridge {
@@ -47,6 +47,14 @@ export class OmniboxBridge implements OmniboxMessageBridge {
   }
 
   /**
+   * Update search shortcuts from Go backend
+   */
+  setSearchShortcuts(shortcuts: Record<string, SearchShortcut>): void {
+    console.log("📝 [DEBUG] Received search shortcuts from backend:", shortcuts);
+    omniboxStore.updateSearchShortcuts(shortcuts);
+  }
+
+  /**
    * Handle navigation request
    */
   navigate(url: string): void {
@@ -63,6 +71,58 @@ export class OmniboxBridge implements OmniboxMessageBridge {
     console.log("🔍 [DEBUG] Sending query to backend:", { q, limit: lim });
     // Send to native handler; Go will compute suggestions and call setSuggestions
     this.postMessage({ type: "query", q, limit: lim });
+  }
+
+  /**
+   * Fetch search shortcuts from backend via messaging bridge
+   */
+  async fetchSearchShortcuts(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      // Set up one-time response handler
+      const originalCallback = (window as any).__dumber_search_shortcuts;
+      (window as any).__dumber_search_shortcuts = (data: unknown) => {
+        try {
+          // Type guard
+          if (typeof data !== "object" || data === null) {
+            reject(new Error("Invalid shortcuts data"));
+            return;
+          }
+          const dataObj = data as Record<string, unknown>;
+          // Normalize to match our SearchShortcut type
+          const normalized: Record<string, SearchShortcut> = {};
+          for (const [key, value] of Object.entries(dataObj)) {
+            const v = value as Record<string, unknown>;
+            normalized[key] = {
+              url: (v.url ?? v.URL ?? "") as string,
+              description: (v.description ?? v.Description ?? "") as string,
+            };
+          }
+          this.setSearchShortcuts(normalized);
+
+          // Restore original callback if it existed
+          if (originalCallback) {
+            (window as any).__dumber_search_shortcuts = originalCallback;
+          }
+
+          resolve();
+        } catch (error) {
+          console.error("Failed to process search shortcuts:", error);
+          reject(error);
+        }
+      };
+
+      // Send message to Go backend
+      const bridge = window.webkit?.messageHandlers?.dumber;
+      if (bridge && typeof bridge.postMessage === "function") {
+        bridge.postMessage(
+          JSON.stringify({
+            type: "get_search_shortcuts",
+          }),
+        );
+      } else {
+        reject(new Error("WebKit message handler not available"));
+      }
+    });
   }
 
   // Suggestions are returned via setSuggestions() when native handler responds
