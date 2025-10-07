@@ -1,317 +1,397 @@
-//go:build !webkit_cgo
-
 package webkit
 
 import (
 	"fmt"
-	"log"
-	"strconv"
+	"sync"
 	"sync/atomic"
-	"unsafe"
+
+	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
+	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
-// Package-level ID counter for stub WebViews
-var stubViewIDCounter uint64
+var (
+	viewIDCounter uint64
+	viewRegistry  = make(map[uint64]*WebView)
+	viewMu        sync.RWMutex
+)
 
-// nextStubViewID generates a unique ID for stub WebViews
-func nextStubViewID() uintptr {
-	return uintptr(atomic.AddUint64(&stubViewIDCounter, 1))
-}
-
-// WebView represents a browser view powered by WebKit2GTK.
-// Methods are currently stubs returning ErrNotImplemented to satisfy TDD ordering.
+// WebView wraps a WebKitGTK WebView
 type WebView struct {
-	config            *Config
-	visible           bool
-	zoom              float64
-	url               string
-	destroyed         bool
-	window            *Window
-	msgHandler        func(payload string)
-	titleHandler      func(title string)
-	uriHandler        func(uri string)
-	faviconHandler    func(data []byte)
-	faviconURIHandler func(pageURI, faviconURI string)
-	zoomHandler              func(level float64)
-	popupHandler             func(string) *WebView
-	closeHandler             func()
-	navigationPolicyHandler  func(url string, isUserGesture bool) bool
-	useDomZoom               bool
-	domZoomSeed              float64
-	container                uintptr
-	id                       uintptr // WebView unique identifier
+	view *webkit.WebView
+	id   uint64
 
-	// Window type fields (no-op in stub)
-	windowType         WindowType
-	windowFeatures     *WindowFeatures
-	windowTypeCallback func(WindowType, *WindowFeatures)
+	// State
+	config    *Config
+	destroyed bool
+	mu        sync.RWMutex
+
+	// Event handlers
+	onScriptMessage         func(string)
+	onTitleChanged          func(string)
+	onURIChanged            func(string)
+	onFaviconChanged        func([]byte)
+	onFaviconURIChanged     func(pageURI, faviconURI string)
+	onZoomChanged           func(float64)
+	onPopup                 func(string) *WebView
+	onClose                 func()
+	onNavigationPolicy      func(url string, isUserGesture bool) bool
+	onWindowTypeDetected    func(WindowType, *WindowFeatures)
 }
 
-// NewWebView constructs a new WebView instance.
+// NewWebView creates a new WebView with the given configuration
 func NewWebView(cfg *Config) (*WebView, error) {
 	if cfg == nil {
-		cfg = &Config{}
+		cfg = GetDefaultConfig()
 	}
-	log.Printf("[webkit] NewWebView (non-CGO stub) — UI will not be displayed. Build with -tags=webkit_cgo for native window.")
-	wv := &WebView{config: cfg, useDomZoom: cfg.UseDomZoom}
-	if cfg.ZoomDefault <= 0 {
-		wv.zoom = 1.0
-	} else {
-		wv.zoom = cfg.ZoomDefault
+
+	InitMainThread()
+
+	// Create WebKitGTK WebView
+	wkView := webkit.NewWebView()
+	if wkView == nil {
+		return nil, ErrWebViewNotInitialized
 	}
-	wv.domZoomSeed = wv.zoom
-	wv.id = nextStubViewID() // Assign unique ID
-	// Construction succeeds; create a logical window placeholder.
-	wv.window = &Window{Title: "Dumber Browser"}
-	wv.container = newWidgetHandle()
+
+	// Generate unique ID
+	id := atomic.AddUint64(&viewIDCounter, 1)
+
+	wv := &WebView{
+		view:   wkView,
+		id:     id,
+		config: cfg,
+	}
+
+	// Apply configuration
+	if err := wv.applyConfig(); err != nil {
+		return nil, err
+	}
+
+	// Setup event handlers
+	wv.setupEventHandlers()
+
+	// Register in global registry
+	viewMu.Lock()
+	viewRegistry[id] = wv
+	viewMu.Unlock()
+
 	return wv, nil
 }
 
-// NewWebViewWithRelated creates a new WebView related to an existing one (non-CGO stub)
-func NewWebViewWithRelated(cfg *Config, relatedView *WebView) (*WebView, error) {
-	// In non-CGO build, just create a regular WebView
+// NewWebViewWithRelated creates a new WebView related to an existing one
+// (shares process context)
+func NewWebViewWithRelated(cfg *Config, related *WebView) (*WebView, error) {
+	if related == nil {
+		return NewWebView(cfg)
+	}
+
+	// TODO: Implement related view creation using webkit.NewWebViewWithRelatedView
+	// For now, create a regular view
 	return NewWebView(cfg)
 }
 
-// LoadURL navigates the webview to the specified URL.
-func (w *WebView) LoadURL(rawURL string) error {
-	if w == nil || w.destroyed {
-		return ErrNotImplemented
+// applyConfig applies the configuration to the WebView settings
+func (w *WebView) applyConfig() error {
+	settings := w.view.Settings()
+	if settings == nil {
+		return fmt.Errorf("webkit: failed to get settings")
 	}
-	if rawURL == "" {
-		return fmt.Errorf("url cannot be empty")
+
+	// Apply settings from config
+	settings.SetEnableJavascript(w.config.EnableJavaScript)
+	settings.SetEnableWebgl(w.config.EnableWebGL)
+	settings.SetDefaultFontSize(uint(w.config.DefaultFontSize))
+	settings.SetMinimumFontSize(uint(w.config.MinimumFontSize))
+
+	if w.config.UserAgent != "" {
+		settings.SetUserAgent(w.config.UserAgent)
 	}
-	// Minimal validation; actual navigation handled by CGO bridge later.
-	w.url = rawURL
-	log.Printf("[webkit] LoadURL (non-CGO stub): %s", rawURL)
+
+	// Enable hardware acceleration if configured
+	settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyAlways)
+
 	return nil
 }
 
-// Show makes the WebView visible.
-func (w *WebView) Show() error {
-	if w == nil || w.destroyed {
-		return ErrNotImplemented
+// setupEventHandlers connects GTK signals to internal handlers
+func (w *WebView) setupEventHandlers() {
+	// Title changed
+	w.view.ConnectNotify("title", func() {
+		if w.onTitleChanged != nil {
+			title := w.view.Title()
+			w.onTitleChanged(title)
+		}
+	})
+
+	// URI changed
+	w.view.ConnectNotify("uri", func() {
+		if w.onURIChanged != nil {
+			uri := w.view.URI()
+			w.onURIChanged(uri)
+		}
+	})
+
+	// Load changed
+	w.view.ConnectLoadChanged(func(event webkit.LoadEvent) {
+		// Handle load events if needed
+	})
+
+	// Close
+	w.view.ConnectClose(func() {
+		if w.onClose != nil {
+			w.onClose()
+		}
+	})
+}
+
+// LoadURL loads the given URL in the WebView
+func (w *WebView) LoadURL(url string) error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
 	}
-	w.visible = true
-	log.Printf("[webkit] Show (non-CGO stub): no native window will appear")
+
+	if url == "" {
+		return ErrInvalidURL
+	}
+
+	w.view.LoadURI(url)
 	return nil
 }
 
-// Hide hides the WebView window.
-func (w *WebView) Hide() error {
-	if w == nil || w.destroyed {
-		return ErrNotImplemented
-	}
-	w.visible = false
-	return nil
-}
+// GetCurrentURL returns the current URL
+func (w *WebView) GetCurrentURL() string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 
-// Destroy releases native resources.
-func (w *WebView) Destroy() error {
-	if w == nil {
-		return ErrNotImplemented
-	}
-	w.destroyed = true
-	return nil
-}
-
-// IsDestroyed returns whether this WebView has been destroyed
-func (w *WebView) IsDestroyed() bool {
-	return w != nil && w.destroyed
-}
-
-// Window returns the associated native window wrapper (non-nil).
-func (w *WebView) Window() *Window { return w.window }
-
-// GetCurrentURL returns the last requested URL (non-CGO build approximation).
-func (w *WebView) GetCurrentURL() string { return w.url }
-
-// GetTitle returns a stub page title.
-func (w *WebView) GetTitle() string { return "New Tab" }
-
-// GoBack is not supported in the non-CGO stub.
-func (w *WebView) GoBack() error { return ErrNotImplemented }
-
-// GoForward is not supported in the non-CGO stub.
-func (w *WebView) GoForward() error { return ErrNotImplemented }
-
-// Reload is not supported in the non-CGO stub.
-func (w *WebView) Reload() error { return ErrNotImplemented }
-
-// ReloadBypassCache is not supported in the non-CGO stub.
-func (w *WebView) ReloadBypassCache() error { return ErrNotImplemented }
-
-// ShowDevTools is a no-op in the non-CGO build.
-func (w *WebView) ShowDevTools() error { return nil }
-
-// CloseDevTools is a no-op in the non-CGO build.
-func (w *WebView) CloseDevTools() error { return nil }
-
-// ShowPrintDialog is a no-op in the non-CGO build.
-func (w *WebView) ShowPrintDialog() error { return nil }
-
-// RegisterScriptMessageHandler registers a callback invoked when the content script posts a message.
-func (w *WebView) RegisterScriptMessageHandler(cb func(payload string)) { w.msgHandler = cb }
-
-func (w *WebView) RegisterPopupHandler(cb func(string) *WebView) { w.popupHandler = cb }
-
-func (w *WebView) RegisterCloseHandler(cb func()) { w.closeHandler = cb }
-
-func (w *WebView) RegisterNavigationPolicyHandler(cb func(url string, isUserGesture bool) bool) {
-	w.navigationPolicyHandler = cb
-}
-
-func (w *WebView) dispatchScriptMessage(payload string) { //nolint:unused // Called from CGO WebKit callbacks
-	if w != nil && w.msgHandler != nil {
-		w.msgHandler(payload)
-	}
-}
-
-func (w *WebView) dispatchPopupRequest(uri string) *WebView { //nolint:unused // Called from CGO WebKit callbacks
-	if w != nil && w.popupHandler != nil {
-		return w.popupHandler(uri)
-	}
-	return nil
-}
-
-// GetNativePointer returns nil for non-CGO build (stub implementation)
-func (w *WebView) GetNativePointer() unsafe.Pointer { //nolint:unused // Needed for interface compatibility
-	return nil
-}
-
-// RegisterTitleChangedHandler registers a callback invoked when the page title changes.
-func (w *WebView) RegisterTitleChangedHandler(cb func(title string)) { w.titleHandler = cb }
-
-func (w *WebView) dispatchTitleChanged(title string) { //nolint:unused // Called from CGO WebKit callbacks
-	if w != nil && w.titleHandler != nil {
-		w.titleHandler(title)
-	}
-}
-
-// RegisterURIChangedHandler registers a callback invoked when the current page URI changes.
-func (w *WebView) RegisterURIChangedHandler(cb func(uri string)) { w.uriHandler = cb }
-
-func (w *WebView) dispatchURIChanged(uri string) { //nolint:unused // Called from CGO WebKit callbacks
-	if w != nil && w.uriHandler != nil {
-		w.uriHandler(uri)
-	}
-}
-
-// RegisterFaviconChangedHandler registers a callback invoked when the page favicon changes.
-func (w *WebView) RegisterFaviconChangedHandler(cb func(data []byte)) { w.faviconHandler = cb }
-
-// RegisterFaviconURIChangedHandler registers a callback invoked when WebKit detects a favicon URI.
-func (w *WebView) RegisterFaviconURIChangedHandler(cb func(pageURI, faviconURI string)) {
-	w.faviconURIHandler = cb
-}
-
-func (w *WebView) dispatchFaviconChanged(data []byte) { //nolint:unused // Called from CGO WebKit callbacks
-	if w != nil && w.faviconHandler != nil {
-		w.faviconHandler(data)
-	}
-}
-
-// RegisterZoomChangedHandler registers a callback invoked when zoom level changes.
-func (w *WebView) RegisterZoomChangedHandler(cb func(level float64)) { w.zoomHandler = cb }
-
-func (w *WebView) dispatchZoomChanged(level float64) {
-	if w != nil && w.zoomHandler != nil {
-		w.zoomHandler(level)
-	}
-}
-
-// Widget returns an empty handle in stub builds.
-func (w *WebView) Widget() uintptr { return 0 }
-
-// RootWidget returns the container widget handle in CGO builds. Stub returns 0.
-func (w *WebView) RootWidget() uintptr { return w.container }
-
-// DestroyWindow is a no-op in stub builds.
-func (w *WebView) DestroyWindow() {}
-
-// RunOnMainThread executes fn immediately in non-CGO builds.
-func (w *WebView) RunOnMainThread(fn func()) {
-	if fn != nil {
-		fn()
-	}
-}
-
-// PrepareForReparenting is a no-op in stub builds.
-func (w *WebView) PrepareForReparenting() {}
-
-// RefreshAfterReparenting is a no-op in stub builds.
-func (w *WebView) RefreshAfterReparenting() {}
-
-// UsesDomZoom reports whether DOM-based zoom is enabled in this WebView.
-func (w *WebView) UsesDomZoom() bool {
-	return w != nil && w.useDomZoom
-}
-
-// SeedDomZoom stores the desired DOM zoom level for the next navigation (stub implementation).
-func (w *WebView) SeedDomZoom(level float64) {
-	if w == nil || !w.useDomZoom {
-		return
-	}
-	if level < 0.25 {
-		level = 0.25
-	} else if level > 5.0 {
-		level = 5.0
-	}
-	w.domZoomSeed = level
-}
-
-// CreateRelatedView returns a new WebView (stub creates independent)
-func (w *WebView) CreateRelatedView() *WebView {
-	nw, _ := NewWebView(w.config)
-	return nw
-}
-
-// OnWindowTypeDetected registers a callback (stored but never invoked in stub)
-func (w *WebView) OnWindowTypeDetected(callback func(WindowType, *WindowFeatures)) {
-	if w != nil {
-		w.windowTypeCallback = callback
-	}
-}
-
-// InitializeContentBlocking initializes WebKit content blocking with filter manager (stub)
-func (w *WebView) InitializeContentBlocking(filterManager interface{}) error {
-	return ErrNotImplemented
-}
-
-// OnNavigate sets up domain-specific cosmetic filtering on navigation (stub)
-func (w *WebView) OnNavigate(url string, filterManager interface{}, whitelist []string) {
-	// No-op in stub
-}
-
-// UpdateContentFilters updates the content filters dynamically (stub)
-func (w *WebView) UpdateContentFilters(filterManager interface{}) error {
-	return ErrNotImplemented
-}
-
-// SetWindowFeatures sets the window features for this WebView (stub)
-func (w *WebView) SetWindowFeatures(features *WindowFeatures) {
-	w.windowFeatures = features
-}
-
-// SetActive sets whether this WebView is currently active/focused (stub)
-func (w *WebView) SetActive(active bool) {
-	// No-op in stub
-}
-
-// IsActive returns whether this WebView is currently active/focused (stub)
-func (w *WebView) IsActive() bool {
-	return false
-}
-
-// ID returns the unique identifier for this WebView as a string (stub)
-func (w *WebView) ID() string {
-	if w == nil {
+	if w.destroyed {
 		return ""
 	}
-	return strconv.FormatUint(uint64(w.id), 10)
+
+	return w.view.URI()
 }
 
-// PrefersDarkTheme returns true if GTK is configured to prefer dark theme (stub)
-func PrefersDarkTheme() bool {
-	return false // Fallback to light theme when not using CGO
+// GetTitle returns the current page title
+func (w *WebView) GetTitle() string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ""
+	}
+
+	return w.view.Title()
+}
+
+// GoBack navigates back in history
+func (w *WebView) GoBack() error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	w.view.GoBack()
+	return nil
+}
+
+// GoForward navigates forward in history
+func (w *WebView) GoForward() error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	w.view.GoForward()
+	return nil
+}
+
+// Reload reloads the current page
+func (w *WebView) Reload() error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	w.view.Reload()
+	return nil
+}
+
+// ReloadBypassCache reloads the current page, bypassing cache
+func (w *WebView) ReloadBypassCache() error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	w.view.ReloadBypassCache()
+	return nil
+}
+
+// Show makes the WebView visible
+func (w *WebView) Show() error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	w.view.Show()
+	return nil
+}
+
+// Hide makes the WebView invisible
+func (w *WebView) Hide() error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	w.view.Hide()
+	return nil
+}
+
+// Destroy destroys the WebView and releases resources
+func (w *WebView) Destroy() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.destroyed {
+		return nil
+	}
+
+	w.destroyed = true
+
+	// Unregister from global registry
+	viewMu.Lock()
+	delete(viewRegistry, w.id)
+	viewMu.Unlock()
+
+	// The GTK widget will be cleaned up by Go GC
+	return nil
+}
+
+// IsDestroyed returns true if the WebView has been destroyed
+func (w *WebView) IsDestroyed() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.destroyed
+}
+
+// ID returns the unique identifier for this WebView
+func (w *WebView) ID() uint64 {
+	return w.id
+}
+
+// AsWidget returns the WebView as a gtk.Widgetter
+func (w *WebView) AsWidget() gtk.Widgetter {
+	if w == nil || w.view == nil {
+		return nil
+	}
+	return w.view
+}
+
+// Event handler registration methods
+
+// RegisterScriptMessageHandler registers a handler for script messages
+func (w *WebView) RegisterScriptMessageHandler(handler func(string)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onScriptMessage = handler
+}
+
+// RegisterTitleChangedHandler registers a handler for title changes
+func (w *WebView) RegisterTitleChangedHandler(handler func(string)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onTitleChanged = handler
+}
+
+// RegisterURIChangedHandler registers a handler for URI changes
+func (w *WebView) RegisterURIChangedHandler(handler func(string)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onURIChanged = handler
+}
+
+// RegisterFaviconChangedHandler registers a handler for favicon changes
+func (w *WebView) RegisterFaviconChangedHandler(handler func([]byte)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onFaviconChanged = handler
+}
+
+// RegisterFaviconURIChangedHandler registers a handler for favicon URI changes
+func (w *WebView) RegisterFaviconURIChangedHandler(handler func(pageURI, faviconURI string)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onFaviconURIChanged = handler
+}
+
+// RegisterZoomChangedHandler registers a handler for zoom changes
+func (w *WebView) RegisterZoomChangedHandler(handler func(float64)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onZoomChanged = handler
+}
+
+// RegisterPopupHandler registers a handler for popup requests
+func (w *WebView) RegisterPopupHandler(handler func(string) *WebView) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onPopup = handler
+}
+
+// RegisterCloseHandler registers a handler for close requests
+func (w *WebView) RegisterCloseHandler(handler func()) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onClose = handler
+}
+
+// RegisterNavigationPolicyHandler registers a handler for navigation policy decisions
+func (w *WebView) RegisterNavigationPolicyHandler(handler func(url string, isUserGesture bool) bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onNavigationPolicy = handler
+}
+
+// OnWindowTypeDetected registers a handler for window type detection
+func (w *WebView) OnWindowTypeDetected(handler func(WindowType, *WindowFeatures)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onWindowTypeDetected = handler
+}
+
+// RunOnMainThread executes a function on the GTK main thread
+func (w *WebView) RunOnMainThread(fn func()) {
+	RunOnMainThread(fn)
+}
+
+// GetWebView returns the underlying webkit.WebView for advanced operations
+func (w *WebView) GetWebView() *webkit.WebView {
+	return w.view
+}
+
+// Widget returns the WebView widget (for compatibility with old code expecting uintptr)
+// Deprecated: Use AsWidget() instead
+func (w *WebView) Widget() gtk.Widgetter {
+	return w.AsWidget()
+}
+
+// RootWidget returns the root container widget for this WebView
+// In the new architecture, this is just the WebView itself
+func (w *WebView) RootWidget() gtk.Widgetter {
+	return w.AsWidget()
 }

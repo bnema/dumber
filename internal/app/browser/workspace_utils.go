@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/bnema/dumber/pkg/webkit"
+	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
 // hasMultiplePanes returns true if there are multiple panes in the workspace
@@ -36,60 +37,60 @@ func (wm *WorkspaceManager) ensureGUIInPane(pane *BrowserPane) {
 }
 
 // mapDirection maps a direction string to GTK orientation and positioning
-func mapDirection(direction string) (webkit.Orientation, bool) {
+func mapDirection(direction string) (gtk.Orientation, bool) {
 	switch direction {
 	case "left":
-		return webkit.OrientationHorizontal, false
+		return gtk.OrientationHorizontal, false
 	case "up":
-		return webkit.OrientationVertical, false
+		return gtk.OrientationVertical, false
 	case "down":
-		return webkit.OrientationVertical, true
+		return gtk.OrientationVertical, true
 	default:
-		return webkit.OrientationHorizontal, true
+		return gtk.OrientationHorizontal, true
 	}
 }
 
 // Widget management utilities
 
 // initializePaneWidgets sets up widgets for a paneNode
-func (wm *WorkspaceManager) initializePaneWidgets(node *paneNode, containerPtr uintptr) {
-	node.container = containerPtr
+func (wm *WorkspaceManager) initializePaneWidgets(node *paneNode, widget gtk.Widgetter) {
+	node.container = widget
 
 	// Add base CSS class to the container
-	if node.container != 0 && webkit.WidgetIsValid(node.container) {
-		webkit.WidgetAddCSSClass(node.container, basePaneClass)
+	if node.container != nil {
+		node.container.AddCSSClass(basePaneClass)
 	}
 
-	// Initialize other widget fields as zero (will be set when needed)
-	node.titleBar = 0
-	node.stackWrapper = 0
+	// Initialize other widget fields as nil (will be set when needed)
+	node.titleBar = nil
+	node.stackWrapper = nil
 
 	// Initialize cleanup tracking fields
 	node.widgetValid = true
 	node.cleanupGeneration = 0
 }
 
-// setContainer sets the container widget pointer
-func (wm *WorkspaceManager) setContainer(node *paneNode, ptr uintptr, typeInfo string) {
+// setContainer sets the container widget
+func (wm *WorkspaceManager) setContainer(node *paneNode, widget gtk.Widgetter, typeInfo string) {
 	_ = typeInfo // Type info kept for API compatibility but not used
-	node.container = ptr
+	node.container = widget
 
 	// Mark widget validity based on container presence so idle guards run for stacks too
-	if ptr != 0 {
+	if widget != nil {
 		node.widgetValid = true
 	} else {
 		node.widgetValid = false
 	}
 }
 
-// setTitleBar sets the titleBar widget pointer
-func (wm *WorkspaceManager) setTitleBar(node *paneNode, ptr uintptr) {
-	node.titleBar = ptr
+// setTitleBar sets the titleBar widget
+func (wm *WorkspaceManager) setTitleBar(node *paneNode, widget gtk.Widgetter) {
+	node.titleBar = widget
 }
 
-// setStackWrapper sets the stackWrapper widget pointer
-func (wm *WorkspaceManager) setStackWrapper(node *paneNode, ptr uintptr) {
-	node.stackWrapper = ptr
+// setStackWrapper sets the stackWrapper widget
+func (wm *WorkspaceManager) setStackWrapper(node *paneNode, widget gtk.Widgetter) {
+	node.stackWrapper = widget
 }
 
 // Centralized Active Pane Border Management System

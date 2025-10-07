@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/bnema/dumber/pkg/webkit"
+	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
 // DebugLevel controls validation and safety checks
@@ -49,9 +50,9 @@ type paneNode struct {
 	left   *paneNode
 	right  *paneNode
 
-	// Widget management - direct GTK pointers (all ops on main thread)
-	container   uintptr // Main container: GtkPaned (branch), GtkBox (stack), or WebView container (leaf)
-	orientation webkit.Orientation
+	// Widget management - gotk4 widgets (all ops on main thread)
+	container   gtk.Widgetter // Main container: *gtk.Paned (branch), *gtk.Box (stack), or WebView widget (leaf)
+	orientation gtk.Orientation
 	isLeaf      bool
 	isPopup     bool // Deprecated: use windowType instead
 
@@ -72,8 +73,8 @@ type paneNode struct {
 	isStacked        bool        // Whether this node contains stacked panes
 	stackedPanes     []*paneNode // List of stacked panes (if isStacked)
 	activeStackIndex int         // Index of currently visible pane in stack
-	titleBar         uintptr     // GtkBox for title bar (when collapsed)
-	stackWrapper     uintptr     // Internal GtkBox containing the actual stacked widgets (titles + webviews)
+	titleBar         gtk.Widgetter     // *gtk.Box for title bar (when collapsed)
+	stackWrapper     gtk.Widgetter     // Internal *gtk.Box containing the actual stacked widgets (titles + webviews)
 
 	// Cleanup tracking
 	widgetValid        bool                 // Guard flagged before GTK destruction

@@ -66,7 +66,7 @@ type WorkspaceManager struct {
 
 	// Cleanup tracking
 	cleanupCounter uint
-	pendingIdle    map[uintptr][]*paneNode
+	pendingIdle    map[gtk.Widgetter][]*paneNode
 }
 
 // Workspace navigation shortcuts are now handled globally by WindowShortcutHandler
