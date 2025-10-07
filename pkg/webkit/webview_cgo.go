@@ -1305,7 +1305,7 @@ func NewWebView(cfg *Config) (*WebView, error) {
 			log.Printf("[webkit] Set custom User-Agent: %s", cfg.CodecPreferences.CustomUserAgent)
 		} else if cfg.CodecPreferences.ForceAV1 {
 			// Use modern Chrome UA that signals AV1 support
-			av1UA := "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+			av1UA := "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
 			cAV1UA := C.CString(av1UA)
 			C.webkit_settings_set_user_agent(settings, (*C.gchar)(cAV1UA))
 			C.free(unsafe.Pointer(cAV1UA))
@@ -1844,6 +1844,7 @@ func (w *WebView) CreateRelatedView() *WebView {
 		VideoAcceleration:     w.config.VideoAcceleration,
 		Memory:                w.config.Memory,
 		CodecPreferences:      w.config.CodecPreferences,
+		Colors:                w.config.Colors,
 		CreateWindow:          false,
 	}
 	related, err := NewWebViewWithRelated(cfg, w)
@@ -2060,6 +2061,8 @@ func (w *WebView) enableUserContentManager(cfg *Config) {
 		C.webkit_user_script_unref(schemeScript)
 	}
 
+	// Color palette injection now handled in main-world.ts via __PALETTE_JSON__ placeholder
+
 	// Add GUI bundle as user script at document-start (contains toast, omnibox, and controls)
 	if cfg != nil && cfg.Assets != nil {
 		log.Printf("[webkit] Attempting to load GUI bundle from assets/gui/gui.min.js")
@@ -2208,6 +2211,8 @@ func buildDomBridgeScript(cfg *Config, initialZoom float64, webViewId uintptr, w
 	activeState := "true"
 	log.Printf("[webkit] Building script with WebView %s, active state: %s", webViewIdStr, activeState)
 	script = strings.ReplaceAll(script, "\"__WEBVIEW_ACTIVE__\"", activeState)
+
+	// Color palettes and search shortcuts are now loaded via messaging bridge
 
 	log.Printf("[webkit] Loaded main-world script successfully, size: %d bytes", len(scriptBytes))
 	return script

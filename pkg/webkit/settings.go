@@ -48,9 +48,29 @@ type Config struct {
 	// UseDomZoom toggles CSS/DOM-based zoom instead of WebKit's native zoom.
 	UseDomZoom bool
 
+	// Colors defines the light/dark palette tokens for the GUI.
+	Colors ColorPalettes
+
 	// CreateWindow controls whether to create a window during WebView initialization.
 	// Set to false when creating WebViews for workspace panes that will be reparented.
 	CreateWindow bool
+}
+
+// ColorPalette holds semantic UI tokens for a theme.
+type ColorPalette struct {
+	Background     string
+	Surface        string
+	SurfaceVariant string
+	Text           string
+	Muted          string
+	Accent         string
+	Border         string
+}
+
+// ColorPalettes hosts both light and dark color palettes.
+type ColorPalettes struct {
+	Light ColorPalette
+	Dark  ColorPalette
 }
 
 // CodecPreferencesConfig holds codec preferences for WebKit media playback

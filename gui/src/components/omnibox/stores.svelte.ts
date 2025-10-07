@@ -10,6 +10,7 @@ import type {
   FindMatch,
   HighlightNode,
   OmniboxConfig,
+  SearchShortcut,
 } from "./types";
 
 // Default configuration
@@ -31,6 +32,7 @@ let inputValue = $state("");
 let highlightNodes = $state<HighlightNode[]>([]);
 let prevOverflow = $state("");
 let debounceTimer = $state(0);
+let searchShortcuts = $state<Record<string, SearchShortcut>>({});
 
 // Configuration
 let config = $state<Required<OmniboxConfig>>(DEFAULT_CONFIG);
@@ -69,6 +71,9 @@ export const omniboxStore = {
   },
   get config() {
     return config;
+  },
+  get searchShortcuts() {
+    return searchShortcuts;
   },
 
   // Computed getters
@@ -231,6 +236,10 @@ export const omniboxStore = {
 
   updateConfig(newConfig: Partial<OmniboxConfig>) {
     config = { ...config, ...newConfig };
+  },
+
+  updateSearchShortcuts(shortcuts: Record<string, SearchShortcut>) {
+    searchShortcuts = shortcuts;
   },
 
   reset() {

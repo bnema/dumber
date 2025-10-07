@@ -33,6 +33,7 @@ extern gboolean goIdleCallback(uintptr_t handle);
 extern void goHoverCallback(uintptr_t handle);
 extern void goFocusEnterCallback(uintptr_t handle);
 extern void goFocusLeaveCallback(uintptr_t handle);
+extern void goTitleBarClickCallback(uintptr_t handle);
 
 // Main thread helpers implemented in thread_helpers.c
 void store_main_thread_id();
@@ -49,6 +50,26 @@ static guint add_idle_callback(uintptr_t handle) {
 
 static gboolean remove_idle_callback(uintptr_t handle) {
     return g_idle_remove_by_data((gpointer)handle);
+}
+
+// Title bar click callback
+static void title_bar_click_cb(GtkGestureClick* gesture, gint n_press, gdouble x, gdouble y, gpointer user_data) {
+    (void)gesture; (void)n_press; (void)x; (void)y;
+    uintptr_t handle = (uintptr_t)user_data;
+    goTitleBarClickCallback(handle);
+}
+
+// Attach click handler to a widget (for title bars)
+static void widget_attach_click_handler(GtkWidget* widget, uintptr_t handle) {
+    if (!widget) {
+        return;
+    }
+    GtkGesture* click = gtk_gesture_click_new();
+    if (!click) {
+        return;
+    }
+    g_signal_connect_data(click, "pressed", G_CALLBACK(title_bar_click_cb), (gpointer)handle, NULL, 0);
+    gtk_widget_add_controller(widget, GTK_EVENT_CONTROLLER(click));
 }
 
 static void motion_enter_cb(GtkEventControllerMotion* controller, gdouble x, gdouble y, gpointer user_data) {
@@ -367,6 +388,26 @@ static void widget_get_allocation_modern(GtkWidget* widget, int* x, int* y, int*
         *height = gtk_widget_get_height(widget);
     }
 }
+
+// GtkImage helpers for favicon display
+static GtkWidget* image_new(void) {
+    return gtk_image_new();
+}
+
+static GtkWidget* image_new_from_file(const char* filename) {
+    if (!filename) return NULL;
+    return gtk_image_new_from_file(filename);
+}
+
+static void image_set_from_file(GtkWidget* image, const char* filename) {
+    if (!image || !filename) return;
+    gtk_image_set_from_file(GTK_IMAGE(image), filename);
+}
+
+static void image_set_pixel_size(GtkWidget* image, int pixel_size) {
+    if (!image) return;
+    gtk_image_set_pixel_size(GTK_IMAGE(image), pixel_size);
+}
 */
 import "C"
 
@@ -410,6 +451,11 @@ var (
 	focusCallbacks           = make(map[uintptr]FocusCallbacks)
 	focusControllers         = make(map[uintptr]uintptr)
 	nextFocusID      uintptr = 1
+
+	// Title bar click management
+	titleBarMu       sync.Mutex
+	titleBarCallbacks = make(map[uintptr]func())
+	nextTitleBarID   uintptr = 1
 
 	mainThreadInitialized bool
 )
@@ -862,6 +908,22 @@ func WidgetRemoveHoverHandler(widget uintptr, token uintptr) {
 	C.widget_remove_controller((*C.GtkWidget)(unsafe.Pointer(widget)), (*C.GtkEventController)(unsafe.Pointer(controller)))
 }
 
+// WidgetAttachClickHandler attaches a click handler to any widget (for title bars)
+func WidgetAttachClickHandler(widget uintptr, fn func()) uintptr {
+	if widget == 0 || fn == nil || !widgetIsValid(widget) {
+		return 0
+	}
+	titleBarMu.Lock()
+	token := nextTitleBarID
+	nextTitleBarID++
+	titleBarCallbacks[token] = fn
+	titleBarMu.Unlock()
+
+	C.widget_attach_click_handler((*C.GtkWidget)(unsafe.Pointer(widget)), C.uintptr_t(token))
+
+	return token
+}
+
 // WidgetGetBounds returns the absolute bounds of the widget relative to the root window.
 func WidgetGetBounds(widget uintptr) (WidgetBounds, bool) {
 	if widget == 0 || !widgetIsValid(widget) {
@@ -933,6 +995,17 @@ func goHoverCallback(handle C.uintptr_t) {
 	hoverMu.Lock()
 	fn := hoverCallbacks[token]
 	hoverMu.Unlock()
+	if fn != nil {
+		fn()
+	}
+}
+
+//export goTitleBarClickCallback
+func goTitleBarClickCallback(handle C.uintptr_t) {
+	token := uintptr(handle)
+	titleBarMu.Lock()
+	fn := titleBarCallbacks[token]
+	titleBarMu.Unlock()
 	if fn != nil {
 		fn()
 	}
@@ -1237,4 +1310,41 @@ func WidgetGetAllocation(widget uintptr) WidgetAllocation {
 		Width:  int(width),
 		Height: int(height),
 	}
+}
+
+// GtkImage functions for favicon display
+
+// NewImage creates a new empty GtkImage widget.
+func NewImage() uintptr {
+	image := C.image_new()
+	return uintptr(unsafe.Pointer(image))
+}
+
+// ImageNewFromFile creates a new GtkImage widget from a file path.
+func ImageNewFromFile(filename string) uintptr {
+	if filename == "" {
+		return 0
+	}
+	cstr := C.CString(filename)
+	defer C.free(unsafe.Pointer(cstr))
+	image := C.image_new_from_file(cstr)
+	return uintptr(unsafe.Pointer(image))
+}
+
+// ImageSetFromFile updates an existing GtkImage to display an image from a file.
+func ImageSetFromFile(image uintptr, filename string) {
+	if image == 0 || filename == "" {
+		return
+	}
+	cstr := C.CString(filename)
+	defer C.free(unsafe.Pointer(cstr))
+	C.image_set_from_file((*C.GtkWidget)(unsafe.Pointer(image)), cstr)
+}
+
+// ImageSetPixelSize sets the pixel size for the image (used for scaling icons).
+func ImageSetPixelSize(image uintptr, pixelSize int) {
+	if image == 0 {
+		return
+	}
+	C.image_set_pixel_size((*C.GtkWidget)(unsafe.Pointer(image)), C.int(pixelSize))
 }

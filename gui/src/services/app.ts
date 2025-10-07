@@ -79,57 +79,48 @@ export class AppService {
   }
 
   async loadShortcuts(): Promise<void> {
-    try {
-      const cfg = await fetch("/api/config").then((r) => r.json());
-      const raw = cfg?.search_shortcuts || {};
-      // Normalize field casing from backend (supports URL/Description and url/description)
-      const normalized: Record<string, SearchShortcut> = {};
-      for (const [key, value] of Object.entries(raw)) {
-        const v = value as Record<string, unknown>;
-        normalized[key] = {
-          id: 0,
-          shortcut: key,
-          url_template: (v.url ?? v.URL ?? "") as string,
-          description: (v.description ?? v.Description ?? "") as string,
-          created_at: null,
-        };
-      }
-      this.shortcuts = normalized;
-    } catch (error) {
-      console.error("Failed to load shortcuts:", error);
-      // Mock shortcuts for development/fallback
-      this.shortcuts = {
-        g: {
-          id: 0,
-          shortcut: "g",
-          url_template: "https://google.com/search?q={query}",
-          description: "Google Search",
-          created_at: null,
-        },
-        gh: {
-          id: 0,
-          shortcut: "gh",
-          url_template: "https://github.com/search?q={query}",
-          description: "GitHub Search",
-          created_at: null,
-        },
-        so: {
-          id: 0,
-          shortcut: "so",
-          url_template: "https://stackoverflow.com/search?q={query}",
-          description: "Stack Overflow",
-          created_at: null,
-        },
-        w: {
-          id: 0,
-          shortcut: "w",
-          url_template:
-            "https://en.wikipedia.org/wiki/Special:Search?search={query}",
-          description: "Wikipedia",
-          created_at: null,
-        },
+    return new Promise((resolve, reject) => {
+      // Set up response handler
+      window.__dumber_search_shortcuts = (data: unknown) => {
+        // Type guard
+        if (typeof data !== "object" || data === null) {
+          reject(new Error("Invalid shortcuts data"));
+          return;
+        }
+        const dataObj = data as Record<string, unknown>;
+        // Normalize field casing from backend (supports URL/Description and url/description)
+        const normalized: Record<string, SearchShortcut> = {};
+        for (const [key, value] of Object.entries(dataObj)) {
+          const v = value as Record<string, unknown>;
+          normalized[key] = {
+            id: 0,
+            shortcut: key,
+            url_template: (v.url ?? v.URL ?? "") as string,
+            description: (v.description ?? v.Description ?? "") as string,
+            created_at: null,
+          };
+        }
+        this.shortcuts = normalized;
+        resolve();
       };
-    }
+
+      window.__dumber_search_shortcuts_error = (error: string) => {
+        console.error("Failed to load shortcuts:", error);
+        reject(new Error(error));
+      };
+
+      // Send message to Go backend
+      const bridge = window.webkit?.messageHandlers?.dumber;
+      if (bridge && typeof bridge.postMessage === "function") {
+        bridge.postMessage(
+          JSON.stringify({
+            type: "get_search_shortcuts",
+          }),
+        );
+      } else {
+        reject(new Error("WebKit message handler not available"));
+      }
+    });
   }
 
   getHistory(): HistoryEntry[] {

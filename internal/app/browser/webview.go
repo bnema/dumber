@@ -45,6 +45,25 @@ func buildMemoryConfig(cfg config.WebkitMemoryConfig) webkit.MemoryConfig {
 	return mc
 }
 
+func buildColorPalettes(cfg config.AppearanceConfig) webkit.ColorPalettes {
+	toPalette := func(src config.ColorPalette) webkit.ColorPalette {
+		return webkit.ColorPalette{
+			Background:     src.Background,
+			Surface:        src.Surface,
+			SurfaceVariant: src.SurfaceVariant,
+			Text:           src.Text,
+			Muted:          src.Muted,
+			Accent:         src.Accent,
+			Border:         src.Border,
+		}
+	}
+
+	return webkit.ColorPalettes{
+		Light: toPalette(cfg.LightPalette),
+		Dark:  toPalette(cfg.DarkPalette),
+	}
+}
+
 func (app *BrowserApp) buildWebkitConfig() (*webkit.Config, error) {
 	dataDir, err := config.GetDataDir()
 	if err != nil {
@@ -67,7 +86,7 @@ func (app *BrowserApp) buildWebkitConfig() (*webkit.Config, error) {
 	cfg := &webkit.Config{
 		Assets:                app.assets,
 		InitialURL:            "dumb://homepage",
-		ZoomDefault:           1.0,
+		ZoomDefault:           app.config.DefaultZoom,
 		EnableDeveloperExtras: true,
 		DataDir:               webkitData,
 		CacheDir:              webkitCache,
@@ -93,6 +112,7 @@ func (app *BrowserApp) buildWebkitConfig() (*webkit.Config, error) {
 			CustomUserAgent:           app.config.CodecPreferences.CustomUserAgent,
 			DisableTwitchCodecControl: app.config.CodecPreferences.DisableTwitchCodecControl,
 		},
+		Colors: buildColorPalettes(app.config.Appearance),
 	}
 
 	return cfg, nil
@@ -123,6 +143,15 @@ func (app *BrowserApp) buildPane(view *webkit.WebView) (*BrowserPane, error) {
 	if app.workspace != nil {
 		app.workspace.RegisterNavigationHandler(view)
 	}
+
+	// Register favicon handlers for this webview (needed for each pane)
+	// This ensures favicons are detected and cached for all panes, not just the main webview
+	view.RegisterFaviconURIChangedHandler(func(pageURI, faviconURI string) {
+		// Call the private handler through a public wrapper or directly via browserService
+		// We can't call handleFaviconURIChanged directly as it's private, so we need to expose it
+		// For now, duplicate the minimal logic here
+		app.browserService.ProcessFaviconURI(pageURI, faviconURI)
+	})
 
 	return pane, nil
 }

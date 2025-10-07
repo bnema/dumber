@@ -1,23 +1,34 @@
 package browser
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
+	"sync/atomic"
 	"time"
 
+	"github.com/bnema/dumber/internal/cache"
 	"github.com/bnema/dumber/pkg/webkit"
+)
+
+const (
+	// faviconPlaceholder is the emoji displayed when no favicon is available
+	faviconPlaceholder = "🌐"
 )
 
 // StackedPaneManager handles all stacked pane operations
 type StackedPaneManager struct {
-	wm *WorkspaceManager
+	wm              *WorkspaceManager
+	titleBarToPane  map[uintptr]*paneNode
+	nextTitleBarID  uint64
 }
 
 // NewStackedPaneManager creates a new stacked pane manager
 func NewStackedPaneManager(wm *WorkspaceManager) *StackedPaneManager {
 	return &StackedPaneManager{
-		wm: wm,
+		wm:             wm,
+		titleBarToPane: make(map[uintptr]*paneNode),
 	}
 }
 
@@ -409,6 +420,15 @@ func (spm *StackedPaneManager) UpdateStackVisibility(stackNode *paneNode) {
 			}
 			if pane.titleBar != 0 {
 				webkit.WidgetSetVisible(pane.titleBar, true)
+
+				// Refresh title bar to pick up any newly downloaded favicons
+				if pane.pane != nil && pane.pane.webView != nil {
+					title := pane.pane.webView.GetTitle()
+					if title == "" {
+						title = "New Tab"
+					}
+					spm.updateTitleBarLabel(pane, title)
+				}
 			}
 		}
 	}
@@ -494,43 +514,31 @@ func (spm *StackedPaneManager) NavigateStack(direction string) bool {
 
 // createTitleBar creates a title bar widget for a pane in a stack
 func (spm *StackedPaneManager) createTitleBar(pane *paneNode) uintptr {
-	titleBox := webkit.NewBox(webkit.OrientationHorizontal, 8)
-	if titleBox == 0 {
-		log.Printf("[workspace] failed to create title box")
-		return 0
-	}
-
-	webkit.WidgetAddCSSClass(titleBox, "stacked-pane-title")
-	webkit.WidgetSetHExpand(titleBox, true)
-	webkit.WidgetSetVExpand(titleBox, false)
-
-	// Get the actual title from the WebView instead of hardcoding "New Tab"
-	var titleText string
+	// Get the actual title and URL from the WebView
+	var titleText, pageURL string
 	if pane.pane != nil && pane.pane.webView != nil {
 		titleText = pane.pane.webView.GetTitle()
 		if titleText == "" {
 			titleText = "New Tab" // Fallback only when title is actually empty
 		}
+		pageURL = pane.pane.webView.GetCurrentURL()
 	} else {
 		titleText = "New Tab"
 	}
 
-	// Create title label with the actual title
-	titleLabel := webkit.NewLabel(titleText)
-	if titleLabel == 0 {
-		log.Printf("[workspace] failed to create title label")
-		return titleBox
+	titleBar := spm.createTitleBarWithTitle(titleText, pageURL)
+	if titleBar != 0 {
+		// Store the mapping from titleBar ID to pane
+		titleBarID := atomic.AddUint64(&spm.nextTitleBarID, 1)
+		spm.titleBarToPane[uintptr(titleBarID)] = pane
+
+		// Attach click handler
+		webkit.WidgetAttachClickHandler(titleBar, func() {
+			spm.handleTitleBarClick(uintptr(titleBarID))
+		})
 	}
 
-	webkit.WidgetAddCSSClass(titleLabel, "stacked-pane-title-text")
-	webkit.LabelSetMaxWidthChars(titleLabel, 50)
-	webkit.LabelSetEllipsize(titleLabel, webkit.EllipsizeEnd)
-
-	webkit.BoxAppend(titleBox, titleLabel)
-	webkit.WidgetShow(titleBox)
-	webkit.WidgetShow(titleLabel)
-
-	return titleBox
+	return titleBar
 }
 
 // UpdateTitleBar updates the title bar label for a WebView in stacked panes
@@ -578,18 +586,27 @@ func (spm *StackedPaneManager) updateTitleBarLabel(node *paneNode, title string)
 		return
 	}
 
-	// Format the title for display
-	displayTitle := title
-	if len(displayTitle) > 50 {
-		displayTitle = displayTitle[:47] + "..."
+	// Get the current URL from the WebView for favicon
+	var pageURL string
+	if node.pane != nil && node.pane.webView != nil {
+		pageURL = node.pane.webView.GetCurrentURL()
 	}
 
-	// Create new title bar with updated title
-	newTitleBar := spm.createTitleBarWithTitle(displayTitle)
+	// Create new title bar with updated title and favicon
+	newTitleBar := spm.createTitleBarWithTitle(title, pageURL)
 	if newTitleBar == 0 {
 		log.Printf("[workspace] failed to create new title bar")
 		return
 	}
+
+	// Store the mapping from titleBar ID to pane and attach click handler
+	titleBarID := atomic.AddUint64(&spm.nextTitleBarID, 1)
+	spm.titleBarToPane[uintptr(titleBarID)] = node
+
+	// Attach click handler
+	webkit.WidgetAttachClickHandler(newTitleBar, func() {
+		spm.handleTitleBarClick(uintptr(titleBarID))
+	})
 
 	// Replace the old title bar in the stack
 	if node.parent != nil && node.parent.isStacked && node.parent.stackWrapper != 0 {
@@ -628,8 +645,8 @@ func (spm *StackedPaneManager) updateTitleBarLabel(node *paneNode, title string)
 	}
 }
 
-// createTitleBarWithTitle creates a title bar with a specific title
-func (spm *StackedPaneManager) createTitleBarWithTitle(title string) uintptr {
+// createTitleBarWithTitle creates a title bar with a specific title and optional favicon
+func (spm *StackedPaneManager) createTitleBarWithTitle(title string, pageURL string) uintptr {
 	titleBox := webkit.NewBox(webkit.OrientationHorizontal, 8)
 	if titleBox == 0 {
 		return 0
@@ -639,6 +656,75 @@ func (spm *StackedPaneManager) createTitleBarWithTitle(title string) uintptr {
 	webkit.WidgetSetHExpand(titleBox, true)
 	webkit.WidgetSetVExpand(titleBox, false)
 
+	// Add favicon placeholder for debugging (always visible)
+	var faviconImg uintptr
+	var debugReason string
+
+	if pageURL == "" {
+		debugReason = "empty pageURL"
+	} else if spm.wm == nil {
+		debugReason = "nil workspace manager"
+	} else if spm.wm.app == nil {
+		debugReason = "nil app"
+	} else if spm.wm.app.queries == nil {
+		debugReason = "nil queries"
+	} else {
+		// Query database for favicon URL
+		ctx := context.Background()
+		entry, err := spm.wm.app.queries.GetHistoryEntry(ctx, pageURL)
+		if err != nil {
+			debugReason = fmt.Sprintf("DB query failed: %v", err)
+			log.Printf("[favicon] Failed to get history entry for %s: %v", pageURL, err)
+		} else if !entry.FaviconUrl.Valid || entry.FaviconUrl.String == "" {
+			debugReason = "no favicon URL in DB"
+			log.Printf("[favicon] No favicon URL in DB for %s", pageURL)
+		} else {
+			faviconURL := entry.FaviconUrl.String
+			log.Printf("[favicon] Found favicon URL in DB for %s: %s", pageURL, faviconURL)
+
+			// Use favicon cache with favicon URL (same as dmenu)
+			faviconCache, err := cache.NewFaviconCache()
+			if err != nil {
+				debugReason = fmt.Sprintf("cache init failed: %v", err)
+				log.Printf("[favicon] Failed to create cache: %v", err)
+			} else {
+				faviconPath := faviconCache.GetCachedPath(faviconURL)
+				if faviconPath != "" {
+					log.Printf("[favicon] Loading cached favicon from: %s", faviconPath)
+					faviconImg = webkit.ImageNewFromFile(faviconPath)
+					if faviconImg != 0 {
+						webkit.ImageSetPixelSize(faviconImg, 16)
+						webkit.WidgetAddCSSClass(faviconImg, "stacked-pane-favicon")
+						log.Printf("[favicon] Successfully created favicon image widget")
+					} else {
+						debugReason = "image widget creation failed"
+						log.Printf("[favicon] Failed to create image widget from %s", faviconPath)
+					}
+				} else {
+					debugReason = "not cached yet"
+					log.Printf("[favicon] Favicon not cached yet, starting download: %s", faviconURL)
+					// Start async download for next time (same as dmenu)
+					faviconCache.CacheAsync(faviconURL)
+				}
+			}
+		}
+	}
+
+	// Add favicon or placeholder
+	if faviconImg != 0 {
+		webkit.BoxAppend(titleBox, faviconImg)
+		webkit.WidgetShow(faviconImg)
+	} else {
+		// DEBUG: Add visible placeholder label to show code is running
+		placeholderLabel := webkit.NewLabel(faviconPlaceholder)
+		if placeholderLabel != 0 {
+			webkit.WidgetAddCSSClass(placeholderLabel, "stacked-pane-favicon-placeholder")
+			webkit.BoxAppend(titleBox, placeholderLabel)
+			webkit.WidgetShow(placeholderLabel)
+			log.Printf("[favicon] Using placeholder for %s (reason: %s)", pageURL, debugReason)
+		}
+	}
+
 	// Create title label with the specified title
 	titleLabel := webkit.NewLabel(title)
 	if titleLabel == 0 {
@@ -646,7 +732,6 @@ func (spm *StackedPaneManager) createTitleBarWithTitle(title string) uintptr {
 	}
 
 	webkit.WidgetAddCSSClass(titleLabel, "stacked-pane-title-text")
-	webkit.LabelSetMaxWidthChars(titleLabel, 50)
 	webkit.LabelSetEllipsize(titleLabel, webkit.EllipsizeEnd)
 
 	webkit.BoxAppend(titleBox, titleLabel)
@@ -850,5 +935,40 @@ func (spm *StackedPaneManager) CloseStackedPane(node *paneNode) error {
 		log.Printf("[workspace] closed pane from stack: remaining=%d activeIndex=%d",
 			len(stackNode.stackedPanes), stackNode.activeStackIndex)
 		return nil
+	}
+}
+
+// handleTitleBarClick handles clicks on title bars to switch the active pane
+func (spm *StackedPaneManager) handleTitleBarClick(titleBarID uintptr) {
+	pane, exists := spm.titleBarToPane[titleBarID]
+	if !exists || pane == nil || pane.parent == nil || !pane.parent.isStacked {
+		return
+	}
+
+	stackNode := pane.parent
+
+	// Find the index of the clicked pane
+	for i, p := range stackNode.stackedPanes {
+		if p == pane {
+			// Only switch if it's not already active
+			if i != stackNode.activeStackIndex {
+				log.Printf("[workspace] title bar clicked: switching from pane %d to pane %d",
+					stackNode.activeStackIndex, i)
+
+				// Update title bar for the pane transitioning from ACTIVE to INACTIVE
+				currentActivePane := stackNode.stackedPanes[stackNode.activeStackIndex]
+				if currentActivePane.pane != nil && currentActivePane.pane.webView != nil && currentActivePane.titleBar != 0 {
+					currentTitle := currentActivePane.pane.webView.GetTitle()
+					if currentTitle != "" {
+						spm.updateTitleBarLabel(currentActivePane, currentTitle)
+					}
+				}
+
+				stackNode.activeStackIndex = i
+				spm.UpdateStackVisibility(stackNode)
+				spm.wm.SetActivePane(pane, SourceStackNav)
+			}
+			return
+		}
 	}
 }

@@ -23,7 +23,7 @@ function ensureFindStyles(): void {
         background-color: rgb(255 235 59);
         color: rgb(0 0 0);
         padding: 0 0.125rem;
-        border-radius: 0.125rem;
+        border-radius: 0;
         box-shadow: 0 0 0 1px rgb(200 185 0) inset;
       }
 

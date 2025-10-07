@@ -446,7 +446,7 @@ func (s *BrowserService) ResetZoom(ctx context.Context, url string) (float64, er
 // GetZoomLevel retrieves the saved zoom level for a URL.
 func (s *BrowserService) GetZoomLevel(ctx context.Context, url string) (float64, error) {
 	if url == "" {
-		return 1.0, nil
+		return s.config.DefaultZoom, nil
 	}
 
 	key := zoomKeyFromURL(url)
@@ -458,10 +458,10 @@ func (s *BrowserService) GetZoomLevel(ctx context.Context, url string) (float64,
 			if err2 == nil {
 				return zl, nil
 			}
-			// No zoom setting found, return default
-			return 1.0, nil
+			// No zoom setting found, return configured default
+			return s.config.DefaultZoom, nil
 		}
-		return 1.0, err
+		return s.config.DefaultZoom, err
 	}
 
 	return zoomLevel, nil
@@ -636,6 +636,11 @@ func (s *BrowserService) handleFaviconChanged(pageURL string, pngData []byte) {
 	}
 }
 
+// ProcessFaviconURI is a public wrapper for handling favicon URI changes from any webview
+func (s *BrowserService) ProcessFaviconURI(pageURL string, faviconURI string) {
+	s.handleFaviconURIChanged(pageURL, faviconURI)
+}
+
 // handleFaviconURIChanged processes favicon URI changes from WebKit's native favicon database
 func (s *BrowserService) handleFaviconURIChanged(pageURL string, faviconURI string) {
 	log.Printf("[favicon] Processing favicon URI for %s: %s", pageURL, faviconURI)
@@ -662,5 +667,30 @@ func (s *BrowserService) handleFaviconURIChanged(pageURL string, faviconURI stri
 	faviconNullString := sql.NullString{String: faviconURI, Valid: true}
 	if err := s.dbQueries.UpdateHistoryFavicon(ctx, faviconNullString, pageURL); err != nil {
 		log.Printf("[browser] Failed to update favicon URI in database for %s: %v", pageURL, err)
+	}
+
+	// Download and cache the favicon asynchronously (same approach as dmenu)
+	if faviconCache, err := cache.NewFaviconCache(); err == nil {
+		faviconCache.CacheAsync(faviconURI)
+		log.Printf("[favicon] Started async download of favicon from %s for page %s", faviconURI, pageURL)
+	} else {
+		log.Printf("[favicon] Failed to create favicon cache: %v", err)
+	}
+}
+
+// ColorPalettesResponse holds light and dark palettes for JSON marshaling
+type ColorPalettesResponse struct {
+	Light config.ColorPalette `json:"light"`
+	Dark  config.ColorPalette `json:"dark"`
+}
+
+// GetColorPalettesForMessaging returns the color palettes from config
+func (s *BrowserService) GetColorPalettesForMessaging() ColorPalettesResponse {
+	if s.config == nil {
+		return ColorPalettesResponse{}
+	}
+	return ColorPalettesResponse{
+		Light: s.config.Appearance.LightPalette,
+		Dark:  s.config.Appearance.DarkPalette,
 	}
 }

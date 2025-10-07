@@ -177,18 +177,20 @@
       // defensive: ignore if setting styles fails for some reason
     }
 
-    const surfaceMix = isDarkMode ? '65%' : '92%';
-    const inputMix = isDarkMode ? '60%' : '94%';
-    const borderMix = isDarkMode ? '70%' : '90%';
-    const blurMix = isDarkMode ? '28%' : '16%';
+    const surfaceMix = isDarkMode ? '55%' : '88%';
+    const inputMix = isDarkMode ? '52%' : '90%';
+    const borderMix = isDarkMode ? '62%' : '85%';
+    const blurMix = isDarkMode ? '22%' : '12%';
 
-    const containerBackground = faded
+    const applyFade = faded && mode === 'find';
+
+    const containerBackground = applyFade
       ? `color-mix(in srgb, var(--dynamic-surface) ${surfaceMix}, transparent)`
       : 'var(--dynamic-surface)';
-    const inputBackground = faded
+    const inputBackground = applyFade
       ? `color-mix(in srgb, var(--dynamic-bg) ${inputMix}, transparent)`
       : 'var(--dynamic-bg)';
-    const borderColor = faded
+    const borderColor = applyFade
       ? `color-mix(in srgb, var(--dynamic-border) ${borderMix}, transparent)`
       : 'var(--dynamic-border)';
     const blurTint = `color-mix(in srgb, var(--dynamic-bg) ${blurMix}, transparent)`;
@@ -196,7 +198,8 @@
     boxElement.style.background = containerBackground;
     boxElement.style.color = 'var(--dynamic-text)';
     boxElement.style.setProperty('--dumber-border-color', borderColor);
-    boxElement.style.setProperty('--dumber-omnibox-surface', containerBackground);
+    // Force the omnibox to use our neutral surfaces so it stays in sync with the shell palette
+    boxElement.style.setProperty('--dumber-omnibox-surface', 'color-mix(in srgb, var(--dynamic-bg) 88%, var(--dynamic-surface) 12%)');
 
     inputElement.style.background = inputBackground;
     inputElement.style.color = 'var(--dynamic-text)';
@@ -217,24 +220,17 @@
       // If computed styles fail, keep fallback accent color
     }
     inputElement.style.setProperty('--dumber-input-accent', accentColor);
-    boxElement.style.setProperty('--dumber-input-accent', accentColor);
+    boxElement.style.setProperty('--dumber-input-accent', 'var(--dynamic-muted)');
 
     const isFocused = document.activeElement === inputElement;
 
     if (!isFocused) {
-      inputElement.style.setProperty('--dumber-input-border-color', borderColor);
+      inputElement.style.setProperty('--dumber-input-border-color', 'var(--dynamic-border)');
     }
 
-    if (faded) {
-      const textShadow = isDarkMode
-        ? '1px 1px 1px rgba(0,0,0,0.65)'
-        : '1px 1px 1px rgba(255,255,255,0.65)';
-      inputElement.style.textShadow = textShadow;
-      boxElement.style.textShadow = textShadow;
+    if (applyFade) {
       blurLayerElement.style.opacity = '1';
     } else {
-      inputElement.style.textShadow = '';
-      boxElement.style.textShadow = '';
       blurLayerElement.style.opacity = '0';
     }
   });
@@ -333,13 +329,19 @@
       };
 
       console.log('✅ Omnibox API exposed:', Object.keys(window.__dumber_omnibox));
-      
+
       // Check for pending suggestions that arrived before API was ready
       if ((window as any).__dumber_omnibox_pending_suggestions) {
         console.log('🔄 [OMNIBOX] Processing pending suggestions');
         const pending = (window as any).__dumber_omnibox_pending_suggestions;
         omniboxBridge.setSuggestions(pending);
         delete (window as any).__dumber_omnibox_pending_suggestions;
+      }
+
+      // Auto-open omnibox on about:blank pages
+      if (window.location.href === 'about:blank') {
+        console.log('🚀 Auto-opening omnibox for about:blank');
+        omniboxStore.open('omnibox');
       }
     } catch (error) {
       console.error('❌ Failed to set up omnibox global API:', error);
@@ -388,21 +390,26 @@
   <!-- Main omnibox container -->
   <div
     bind:this={boxElement}
-    class="dumber-omnibox-container omnibox-base rounded shadow-[0_10px_30px_rgba(0,0,0,0.6)]"
+    class="dumber-omnibox-container omnibox-base terminal-omnibox"
     style="position: relative !important;
            left: 50% !important;
            transform: translateX(-50%) !important;
-           margin-top: 8vh !important;
+           margin-top: 20vh !important;
            margin-left: 0 !important;
            margin-right: 0 !important;
            width: {responsiveStyles.width};
            padding: {responsiveStyles.padding};
-           font-family: 'Fira sans', system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, 'Helvetica Neue', Arial, sans-serif;
+           font-family: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Menlo, monospace;
            pointer-events: auto !important;
            box-sizing: border-box !important;
-           background: var(--dumber-omnibox-surface, var(--dynamic-surface));
+           background: var(--dumber-omnibox-surface, color-mix(in srgb, var(--dynamic-bg) 88%, var(--dynamic-surface) 12%));
            color: var(--dynamic-text);
-           border: 2px solid var(--dumber-border-color, var(--dynamic-border));
+           border: 1px solid var(--dumber-border-color, var(--dynamic-border));
+           box-shadow:
+             0 20px 60px rgba(0, 0, 0, 0.45),
+             0 10px 30px rgba(0, 0, 0, 0.35),
+             0 5px 15px rgba(0, 0, 0, 0.25),
+             inset 0 0 0 1px color-mix(in srgb, var(--dynamic-border) 22%, transparent);
            --dumber-border-color: var(--dynamic-border);"
     onmousedown={handleBoxClick}
     onmouseenter={handleMouseEnter}
@@ -418,7 +425,7 @@
       bind:this={blurLayerElement}
       class="dumber-omnibox-blur-layer"
       aria-hidden="true"
-      style="position: absolute; inset: 0; pointer-events: none; border-radius: inherit; opacity: 0;"
+      style="position: absolute; inset: 0; pointer-events: none; border-radius: 0; opacity: 0;"
     ></div>
     <div class="dumber-omnibox-content">
       <!-- Input component -->
@@ -436,36 +443,59 @@
 
 <style>
   .dumber-omnibox-container {
-    background: var(--dumber-omnibox-surface, var(--dynamic-surface));
+    background: var(--dumber-omnibox-surface, color-mix(in srgb, var(--dynamic-bg) 88%, var(--dynamic-surface) 12%));
     color: var(--dynamic-text);
-    border: 2px solid var(--dumber-border-color, var(--dynamic-border));
-    transition: background-color 160ms ease, border-color 160ms ease;
+    border: 1px solid var(--dumber-border-color, var(--dynamic-border));
+    transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+    border-radius: 0;
+    box-shadow:
+      0 20px 60px rgba(0, 0, 0, 0.45),
+      0 10px 30px rgba(0, 0, 0, 0.35),
+      0 5px 15px rgba(0, 0, 0, 0.25),
+      inset 0 0 0 1px color-mix(in srgb, var(--dynamic-border) 22%, transparent);
   }
 
   .dumber-omnibox-container:focus-within {
-    border-color: var(--dumber-input-accent, var(--dynamic-accent));
+    border-color: color-mix(in srgb, var(--dumber-border-color, var(--dynamic-border)) 55%, var(--dynamic-text) 45%);
+    box-shadow:
+      0 25px 75px rgba(0, 0, 0, 0.5),
+      0 15px 40px rgba(0, 0, 0, 0.4),
+      0 8px 20px rgba(0, 0, 0, 0.3),
+      inset 0 0 0 1px color-mix(in srgb, var(--dynamic-border) 28%, transparent);
   }
 
   :global(.dumber-omnibox-container input) {
-    background: var(--dumber-input-bg, var(--dynamic-bg));
+    background: var(--dumber-input-bg, color-mix(in srgb, var(--dynamic-bg) 92%, var(--dynamic-surface) 8%));
     color: var(--dynamic-text);
-    border-color: var(--dumber-input-border-color, var(--dynamic-border));
-    transition: border-color 120ms ease, background-color 120ms ease;
+    border: 1px solid var(--dumber-input-border-color, var(--dynamic-border));
+    transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+    font-family:
+      "JetBrains Mono",
+      "Fira Code",
+      "SFMono-Regular",
+      Menlo,
+      monospace;
+    font-size: inherit;
+    letter-spacing: 0.05em;
+    text-transform: none;
   }
 
   :global(.dumber-omnibox-container input::placeholder) {
     color: var(--dynamic-muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 
   /* Blur layer styles: use `backdrop-filter` but animate opacity only. */
   .dumber-omnibox-blur-layer {
-    backdrop-filter: blur(2px) saturate(110%);
-    -webkit-backdrop-filter: blur(2px) saturate(110%);
-    background: var(--dumber-blur-color, color-mix(in srgb, var(--dynamic-bg) 16%, transparent));
-    transition: opacity 160ms ease;
+    backdrop-filter: blur(1.5px) saturate(105%);
+    -webkit-backdrop-filter: blur(1.5px) saturate(105%);
+    background: var(--dumber-blur-color, color-mix(in srgb, var(--dynamic-bg) 12%, transparent));
+    transition: opacity 140ms ease;
     will-change: opacity;
     z-index: 0;
     mix-blend-mode: normal;
+    border-radius: 0;
   }
 
   /* Ensure the actual content (input, suggestions) sits above the blur layer */

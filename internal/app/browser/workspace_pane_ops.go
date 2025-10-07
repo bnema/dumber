@@ -124,21 +124,7 @@ func (wm *WorkspaceManager) clonePaneState(_ *paneNode, target *paneNode) {
 		log.Printf("[workspace] failed to prepare blank pane: %v", err)
 	}
 
-	// Wait for about:blank to load before opening omnibox
-	target.pane.webView.RegisterURIChangedHandler(func(uri string) {
-		if uri == blankURL {
-			// Defer omnibox opening to allow page to fully initialize
-			wm.scheduleIdleGuarded(func() bool {
-				if target == nil || target.pane == nil || target.pane.webView == nil {
-					return false
-				}
-				if injErr := target.pane.webView.InjectScript("window.__dumber_omnibox?.open('omnibox');"); injErr != nil {
-					log.Printf("[workspace] failed to open omnibox: %v", injErr)
-				}
-				return false // Remove idle callback
-			}, target)
-		}
-	})
+	// Omnibox will auto-open on about:blank via client-side detection
 }
 
 // safelyDetachControllersBeforeReparent removes GTK controllers that GTK will auto-clean up during reparenting.

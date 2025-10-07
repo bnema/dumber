@@ -27,9 +27,15 @@ ORDER BY visit_count DESC, last_visited DESC
 LIMIT ?;
 
 -- name: UpdateHistoryFavicon :exec
-UPDATE history 
+UPDATE history
 SET favicon_url = ?
 WHERE url = ?;
+
+-- name: GetHistoryEntry :one
+SELECT *
+FROM history
+WHERE url = ?
+LIMIT 1;
 
 -- name: DeleteHistory :exec
 DELETE FROM history

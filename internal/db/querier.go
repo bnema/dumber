@@ -20,6 +20,7 @@ type Querier interface {
 	DeleteZoomLevel(ctx context.Context, domain string) error
 	GetCertificateValidation(ctx context.Context, hostname string, certificateHash string) (CertificateValidation, error)
 	GetHistory(ctx context.Context, limit int64) ([]History, error)
+	GetHistoryEntry(ctx context.Context, url string) (History, error)
 	GetHistoryWithOffset(ctx context.Context, limit int64, offset int64) ([]History, error)
 	GetShortcuts(ctx context.Context) ([]Shortcut, error)
 	// Get zoom level for a specific domain

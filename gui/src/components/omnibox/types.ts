@@ -9,8 +9,13 @@ export interface Suggestion {
   favicon?: string;
 }
 
+export interface SearchShortcut {
+  url: string;
+  description: string;
+}
+
 export interface OmniboxMessage {
-  type: "navigate" | "query";
+  type: "navigate" | "query" | "get_search_shortcuts";
   url?: string;
   q?: string;
   limit?: number;
@@ -45,6 +50,7 @@ export interface OmniboxState {
   inputValue: string;
   highlightNodes: HighlightNode[];
   prevOverflow: string;
+  searchShortcuts: Record<string, SearchShortcut>;
 }
 
 // Message bridge interface for Go communication

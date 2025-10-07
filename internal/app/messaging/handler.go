@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	neturl "net/url"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -133,6 +131,10 @@ func (h *Handler) Handle(payload string) {
 		h.handleConsoleMessage(msg)
 	case "request-webview-id":
 		h.handleWebViewIDRequest(msg)
+	case "get_search_shortcuts":
+		h.handleGetSearchShortcuts(msg)
+	case "get_color_palettes":
+		h.handleGetColorPalettes(msg)
 	}
 }
 
@@ -273,45 +275,10 @@ func (h *Handler) handleQuery(msg Message) {
 		return scheme + "://" + host + "/favicon.ico"
 	}
 
-	expandShortcut := func(tpl string, query string) string {
-		esc := neturl.QueryEscape(query)
-		u := strings.ReplaceAll(tpl, "{query}", esc)
-		u = strings.ReplaceAll(u, "%s", esc)
-		return u
-	}
-
 	results := make([]suggestion, 0, limit)
 	seen := make(map[string]struct{}, limit*2)
 
-	// Shortcuts
-	if shortcuts, err := h.browserService.GetSearchShortcuts(ctx); err != nil {
-		log.Printf("[ERROR] Failed to get search shortcuts: %v", err)
-	} else if len(shortcuts) > 0 {
-		log.Printf("[DEBUG] Found %d search shortcuts", len(shortcuts))
-		keys := make([]string, 0, len(shortcuts))
-		for k := range shortcuts {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			sc := shortcuts[k]
-			url := expandShortcut(sc.URL, q)
-			log.Printf("[DEBUG] Shortcut %s -> %s", k, url)
-			if url == "" {
-				continue
-			}
-			if _, ok := seen[url]; ok {
-				continue
-			}
-			results = append(results, suggestion{URL: url, Favicon: buildFavicon(url)})
-			seen[url] = struct{}{}
-			if len(results) >= limit {
-				break
-			}
-		}
-	} else {
-		log.Printf("[DEBUG] No search shortcuts found")
-	}
+	// Shortcuts intentionally omitted; rely on explicit prefix commands (e.g., gh:) or history results
 
 	// History
 	if len(results) < limit {
@@ -339,7 +306,14 @@ func (h *Handler) handleQuery(msg Message) {
 				if _, ok := seen[url]; ok {
 					continue
 				}
-				results = append(results, suggestion{URL: url, Favicon: buildFavicon(url)})
+				// Use favicon_url from database if available, otherwise build it
+				favicon := ""
+				if s, ok := m["favicon_url"].(string); ok && s != "" {
+					favicon = s
+				} else {
+					favicon = buildFavicon(url)
+				}
+				results = append(results, suggestion{URL: url, Favicon: favicon})
 				seen[url] = struct{}{}
 				if len(results) >= limit {
 					break
@@ -630,4 +604,65 @@ func (h *Handler) handleWebViewIDRequest(msg Message) {
 	}); err != nil {
 		log.Printf("[messaging] Failed to send webview ID: %v", err)
 	}
+}
+
+// handleGetSearchShortcuts sends search shortcuts configuration to JavaScript
+func (h *Handler) handleGetSearchShortcuts(msg Message) {
+	if h.webView == nil {
+		log.Printf("[messaging] Cannot provide search shortcuts - no webview available")
+		return
+	}
+
+	if h.webView.IsDestroyed() {
+		log.Printf("[messaging] Cannot provide search shortcuts - webview is destroyed")
+		return
+	}
+
+	// Get search shortcuts from browser service config
+	shortcuts, err := h.browserService.GetSearchShortcuts(context.Background())
+	if err != nil {
+		log.Printf("[messaging] Failed to get search shortcuts: %v", err)
+		_ = h.webView.InjectScript("window.__dumber_search_shortcuts_error && window.__dumber_search_shortcuts_error('Failed to get search shortcuts')")
+		return
+	}
+
+	// Marshal to JSON
+	b, err := json.Marshal(shortcuts)
+	if err != nil {
+		log.Printf("[messaging] Failed to marshal search shortcuts: %v", err)
+		_ = h.webView.InjectScript("window.__dumber_search_shortcuts_error && window.__dumber_search_shortcuts_error('Failed to load search shortcuts')")
+		return
+	}
+
+	// Inject the search shortcuts into the page
+	log.Printf("[messaging] Sending search shortcuts to JavaScript")
+	_ = h.webView.InjectScript("window.__dumber_search_shortcuts && window.__dumber_search_shortcuts(" + string(b) + ")")
+}
+
+// handleGetColorPalettes sends color palettes configuration to JavaScript
+func (h *Handler) handleGetColorPalettes(msg Message) {
+	if h.webView == nil {
+		log.Printf("[messaging] Cannot provide color palettes - no webview available")
+		return
+	}
+
+	if h.webView.IsDestroyed() {
+		log.Printf("[messaging] Cannot provide color palettes - webview is destroyed")
+		return
+	}
+
+	// Get color palettes from browser service config
+	palettes := h.browserService.GetColorPalettesForMessaging()
+
+	// Marshal to JSON
+	b, err := json.Marshal(palettes)
+	if err != nil {
+		log.Printf("[messaging] Failed to marshal color palettes: %v", err)
+		_ = h.webView.InjectScript("window.__dumber_color_palettes_error && window.__dumber_color_palettes_error('Failed to load color palettes')")
+		return
+	}
+
+	// Inject the color palettes into the page
+	log.Printf("[messaging] Sending color palettes to JavaScript")
+	_ = h.webView.InjectScript("window.__dumber_color_palettes && window.__dumber_color_palettes(" + string(b) + ")")
 }

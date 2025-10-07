@@ -40,6 +40,8 @@ type Config struct {
 	RenderingMode RenderingMode `mapstructure:"rendering_mode" yaml:"rendering_mode"`
 	// UseDomZoom toggles DOM-based zoom instead of native WebKit zoom.
 	UseDomZoom bool `mapstructure:"use_dom_zoom" yaml:"use_dom_zoom"`
+	// DefaultZoom sets the default zoom level for pages without saved zoom settings (1.0 = 100%, 1.2 = 120%)
+	DefaultZoom float64 `mapstructure:"default_zoom" yaml:"default_zoom"`
 	// Workspace defines workspace, pane, and tab handling behaviour.
 	Workspace WorkspaceConfig `mapstructure:"workspace" yaml:"workspace"`
 }
@@ -118,7 +120,20 @@ type AppearanceConfig struct {
 	SerifFont     string `mapstructure:"serif_font" yaml:"serif_font"`
 	MonospaceFont string `mapstructure:"monospace_font" yaml:"monospace_font"`
 	// Default font size in CSS pixels (approx).
-	DefaultFontSize int `mapstructure:"default_font_size" yaml:"default_font_size"`
+	DefaultFontSize int          `mapstructure:"default_font_size" yaml:"default_font_size"`
+	LightPalette    ColorPalette `mapstructure:"light_palette" yaml:"light_palette"`
+	DarkPalette     ColorPalette `mapstructure:"dark_palette" yaml:"dark_palette"`
+}
+
+// ColorPalette contains semantic color tokens for light/dark themes.
+type ColorPalette struct {
+	Background     string `mapstructure:"background" yaml:"background" json:"background"`
+	Surface        string `mapstructure:"surface" yaml:"surface" json:"surface"`
+	SurfaceVariant string `mapstructure:"surface_variant" yaml:"surface_variant" json:"surface_variant"`
+	Text           string `mapstructure:"text" yaml:"text" json:"text"`
+	Muted          string `mapstructure:"muted" yaml:"muted" json:"muted"`
+	Accent         string `mapstructure:"accent" yaml:"accent" json:"accent"`
+	Border         string `mapstructure:"border" yaml:"border" json:"border"`
 }
 
 // VideoAccelerationConfig holds video hardware acceleration preferences.
@@ -367,6 +382,9 @@ func NewManager() (*Manager, error) {
 	}
 	if err := v.BindEnv("use_dom_zoom", "DUMBER_USE_DOM_ZOOM"); err != nil {
 		return nil, fmt.Errorf("failed to bind DUMBER_USE_DOM_ZOOM: %w", err)
+	}
+	if err := v.BindEnv("default_zoom", "DUMBER_DEFAULT_ZOOM"); err != nil {
+		return nil, fmt.Errorf("failed to bind DUMBER_DEFAULT_ZOOM: %w", err)
 	}
 
 	// Video acceleration environment variable bindings
@@ -665,6 +683,8 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("appearance.serif_font", defaults.Appearance.SerifFont)
 	m.viper.SetDefault("appearance.monospace_font", defaults.Appearance.MonospaceFont)
 	m.viper.SetDefault("appearance.default_font_size", defaults.Appearance.DefaultFontSize)
+	m.viper.SetDefault("appearance.light_palette", defaults.Appearance.LightPalette)
+	m.viper.SetDefault("appearance.dark_palette", defaults.Appearance.DarkPalette)
 
 	// Video acceleration defaults
 	m.viper.SetDefault("video_acceleration.enable_vaapi", defaults.VideoAcceleration.EnableVAAPI)
@@ -701,6 +721,7 @@ func (m *Manager) setDefaults() {
 	// Rendering defaults
 	m.viper.SetDefault("rendering_mode", string(RenderingModeGPU))
 	m.viper.SetDefault("use_dom_zoom", defaults.UseDomZoom)
+	m.viper.SetDefault("default_zoom", defaults.DefaultZoom)
 
 	// Workspace defaults
 	m.viper.SetDefault("workspace.enable_zellij_controls", defaults.Workspace.EnableZellijControls)
@@ -752,6 +773,31 @@ func (m *Manager) ensurePersistedDefaults(cfg *Config) {
 	logging.Info(fmt.Sprintf("Config: persisted missing use_dom_zoom default (%v) to %s", cfg.UseDomZoom, cfgFile))
 }
 
+// persistDefaultZoomIfMissing persists the default_zoom value to the config file if it's not already set.
+func (m *Manager) persistDefaultZoomIfMissing(cfg *Config) {
+	if cfg == nil {
+		return
+	}
+
+	// Only persist when the key is missing from the user config file.
+	if m.viper.InConfig("default_zoom") {
+		return
+	}
+
+	cfgFile := m.viper.ConfigFileUsed()
+	if cfgFile == "" {
+		return
+	}
+
+	m.viper.Set("default_zoom", cfg.DefaultZoom)
+	if err := m.viper.WriteConfig(); err != nil {
+		logging.Warn(fmt.Sprintf("Config: failed to persist default_zoom default to %s: %v", cfgFile, err))
+		return
+	}
+
+	logging.Info(fmt.Sprintf("Config: persisted missing default_zoom default (%.2f) to %s", cfg.DefaultZoom, cfgFile))
+}
+
 // createDefaultConfig creates a default configuration file.
 func (m *Manager) createDefaultConfig() error {
 	configFile, err := GetConfigFile()
@@ -768,6 +814,7 @@ func (m *Manager) createDefaultConfig() error {
 	defaultConfig := DefaultConfig()
 
 	// Marshal to JSON with proper indentation
+	// Note: Go 1.20+ automatically sorts map keys in JSON output
 	configData, err := json.MarshalIndent(defaultConfig, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal default config: %w", err)
