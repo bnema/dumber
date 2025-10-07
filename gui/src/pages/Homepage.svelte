@@ -25,6 +25,11 @@
     newest_entry?: string;
   }
 
+  interface SearchShortcut {
+    url: string;
+    description: string;
+  }
+
   let historyItems = $state<HistoryItem[]>([]);
   let topVisited = $state<HistoryItem[]>([]);
   let shortcuts = $state<Shortcut[]>([]);
@@ -33,6 +38,8 @@
   let topVisitedLoading = $state(true);
   let shortcutsLoading = $state(true);
   let statsLoading = $state(true);
+  let searchShortcuts = $state<Record<string, SearchShortcut>>({});
+  let searchShortcutsLoading = $state(true);
   let deletingIds = $state<number[]>([]);
   let historyOffset = $state(0);
   let hasMoreHistory = $state(true);
@@ -622,6 +629,49 @@
     }
   };
 
+  // Fetch search shortcuts via message bridge
+  const fetchSearchShortcuts = async () => {
+    try {
+      // Set up response handler
+      (window as any).__dumber_search_shortcuts = (data: unknown) => {
+        try {
+          if (typeof data !== 'object' || data === null) {
+            throw new Error('Invalid shortcuts data');
+          }
+          const dataObj = data as Record<string, unknown>;
+          const normalized: Record<string, SearchShortcut> = {};
+          for (const [key, value] of Object.entries(dataObj)) {
+            const v = value as Record<string, unknown>;
+            normalized[key] = {
+              url: (v.url ?? v.URL ?? '') as string,
+              description: (v.description ?? v.Description ?? '') as string,
+            };
+          }
+          searchShortcuts = normalized;
+          searchShortcutsLoading = false;
+        } catch (error) {
+          console.error('Failed to process search shortcuts:', error);
+          searchShortcuts = {};
+          searchShortcutsLoading = false;
+        }
+      };
+
+      // Send message to Go backend
+      const bridge = (window as any).webkit?.messageHandlers?.dumber;
+      if (bridge && typeof bridge.postMessage === 'function') {
+        bridge.postMessage(JSON.stringify({
+          type: 'get_search_shortcuts'
+        }));
+      } else {
+        throw new Error('WebKit message handler not available');
+      }
+    } catch (error) {
+      console.error('Error fetching search shortcuts:', error);
+      searchShortcuts = {};
+      searchShortcutsLoading = false;
+    }
+  };
+
   // Intersection Observer for infinite scroll
   let historyScrollSentinel = $state<HTMLElement | null>(null);
 
@@ -649,16 +699,26 @@
   // Helper to check if text overflows and apply truncation class
   const checkOverflow = (node: HTMLElement) => {
     const check = () => {
-      if (node.scrollWidth > node.clientWidth) {
+      // Add 1px tolerance for sub-pixel rendering differences
+      // This prevents false positives from rounding errors
+      const isOverflowing = node.scrollWidth > (node.clientWidth + 1);
+
+      if (isOverflowing) {
         node.classList.add('truncated');
       } else {
         node.classList.remove('truncated');
       }
     };
 
-    check();
+    // Delay initial check to ensure layout is complete
+    requestAnimationFrame(() => {
+      requestAnimationFrame(check);
+    });
 
-    const resizeObserver = new ResizeObserver(check);
+    const resizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(check);
+    });
+
     resizeObserver.observe(node);
 
     return {
@@ -677,6 +737,7 @@
     });
     fetchStats();
     fetchTopVisited();
+    fetchSearchShortcuts();
 
     // Theme synchronization
     const syncThemeState = () => {
@@ -703,6 +764,24 @@
 <svelte:head>
   <title>Dumber Browser - Homepage</title>
   <meta name="description" content="Fast Wayland Browser - Your browsing patterns at a glance" />
+
+  {@html `<style>
+    html { background: #0a0a0a; }
+    body { background: #0a0a0a; color: #e5e5e5; }
+    html.light { background: #ffffff; }
+    html.light body { background: #ffffff; color: #171717; }
+  </style>`}
+
+  {@html `<script>
+    (function() {
+      const theme = localStorage.getItem('dumber.theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const shouldBeLight = theme === 'light' || (theme !== 'dark' && !prefersDark);
+      if (shouldBeLight) {
+        document.documentElement.classList.add('light');
+      }
+    })();
+  </script>`}
 </svelte:head>
 
 <div class="homepage-shell">
@@ -1020,67 +1099,91 @@
       </section>
       </div>
 
-      <div class="terminal-grid supporting-panels">
-        <section class="stats-panel terminal-pane">
-          <div class="panel-header">
-            <h2 class="panel-title">Usage Stats</h2>
-            <p class="panel-subtitle">Your browsing activity at a glance.</p>
-          </div>
-          <div class="panel-body">
-            {#if statsLoading}
-              <div class="loading">Loading stats...</div>
-            {:else if stats}
-              <div class="stats-grid-horizontal">
-                <div class="stat-item-horizontal">
-                  <div class="stat-value">{stats.total_entries}</div>
-                  <div class="stat-label">Entries Stored</div>
+      <section class="search-shortcuts-panel terminal-pane full-width">
+        <div class="panel-header">
+          <h2 class="panel-title">Search Shortcuts</h2>
+          <p class="panel-subtitle">Quick search prefixes for faster browsing.</p>
+        </div>
+        <div class="panel-body">
+          {#if searchShortcutsLoading}
+            <div class="loading">Loading search shortcuts...</div>
+          {:else if Object.keys(searchShortcuts).length === 0}
+            <div class="empty-state compact">
+              <h3>No shortcuts configured</h3>
+              <p>Add search shortcuts to your config file.</p>
+            </div>
+          {:else}
+            <div class="shortcuts-list">
+              {#each Object.entries(searchShortcuts) as [key, shortcut] (key)}
+                <div class="shortcut-item">
+                  <div class="shortcut-key-badge">{key}:</div>
+                  <div class="shortcut-desc">{shortcut.description.toLowerCase()}</div>
                 </div>
-                <div class="stat-item-horizontal">
-                  <div class="stat-value">{stats.recent_count}</div>
-                  <div class="stat-label">Recent Window</div>
-                </div>
-                {#if stats.newest_entry}
-                  <div class="stat-item-horizontal">
-                    <div class="stat-value">{formatTime(stats.newest_entry)}</div>
-                    <div class="stat-label">Newest Visit</div>
-                  </div>
-                {/if}
-                {#if stats.oldest_entry}
-                  <div class="stat-item-horizontal">
-                    <div class="stat-value">{formatCalendarDate(stats.oldest_entry)}</div>
-                    <div class="stat-label">Oldest Entry</div>
-                  </div>
-                {/if}
-              </div>
-            {:else}
-              <div class="empty-state compact">
-                <p>No statistics available</p>
-              </div>
-            {/if}
-          </div>
-        </section>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      </section>
 
-        <section class="shortcuts-panel terminal-pane">
-          <div class="panel-header">
-            <h2 class="panel-title">Keyboard Shortcuts</h2>
-            <p class="panel-subtitle">Stay quick with the essentials.</p>
-          </div>
-          <div class="panel-body">
-            {#if shortcutsLoading}
-              <div class="loading">Loading shortcuts...</div>
-            {:else}
-              <div class="shortcuts-list">
-                {#each shortcuts as shortcut (shortcut.key)}
-                  <div class="shortcut-item">
-                    <div class="shortcut-key-badge">{shortcut.key}</div>
-                    <div class="shortcut-desc">{shortcut.description}</div>
-                  </div>
-                {/each}
+      <section class="shortcuts-panel terminal-pane full-width">
+        <div class="panel-header">
+          <h2 class="panel-title">Keyboard Shortcuts</h2>
+          <p class="panel-subtitle">Stay quick with the essentials.</p>
+        </div>
+        <div class="panel-body">
+          {#if shortcutsLoading}
+            <div class="loading">Loading shortcuts...</div>
+          {:else}
+            <div class="shortcuts-list">
+              {#each shortcuts as shortcut (shortcut.key)}
+                <div class="shortcut-item">
+                  <div class="shortcut-key-badge">{shortcut.key}</div>
+                  <div class="shortcut-desc">{shortcut.description}</div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      </section>
+
+      <section class="stats-panel terminal-pane full-width">
+        <div class="panel-header">
+          <h2 class="panel-title">Usage Stats</h2>
+          <p class="panel-subtitle">Your browsing activity at a glance.</p>
+        </div>
+        <div class="panel-body">
+          {#if statsLoading}
+            <div class="loading">Loading stats...</div>
+          {:else if stats}
+            <div class="stats-grid-horizontal">
+              <div class="stat-item-horizontal">
+                <div class="stat-value">{stats.total_entries}</div>
+                <div class="stat-label">Entries Stored</div>
               </div>
-            {/if}
-          </div>
-        </section>
-      </div>
+              <div class="stat-item-horizontal">
+                <div class="stat-value">{stats.recent_count}</div>
+                <div class="stat-label">Recent Window</div>
+              </div>
+              {#if stats.newest_entry}
+                <div class="stat-item-horizontal">
+                  <div class="stat-value">{formatTime(stats.newest_entry)}</div>
+                  <div class="stat-label">Newest Visit</div>
+                </div>
+              {/if}
+              {#if stats.oldest_entry}
+                <div class="stat-item-horizontal">
+                  <div class="stat-value">{formatCalendarDate(stats.oldest_entry)}</div>
+                  <div class="stat-label">Oldest Entry</div>
+                </div>
+              {/if}
+            </div>
+          {:else}
+            <div class="empty-state compact">
+              <p>No statistics available</p>
+            </div>
+          {/if}
+        </div>
+      </section>
     </div>
   </div>
 
@@ -1303,10 +1406,6 @@
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
 }
 
-.supporting-panels {
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-}
-
 .terminal-pane {
   border: 1px solid var(--dynamic-border);
   background: color-mix(in srgb, var(--dynamic-bg) 88%, var(--dynamic-surface) 12%);
@@ -1314,6 +1413,11 @@
   flex-direction: column;
   min-height: 0;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dynamic-border) 18%, transparent);
+}
+
+.terminal-pane.full-width {
+  width: 100%;
+  grid-column: 1 / -1;
 }
 
 .panel-header {
@@ -1741,6 +1845,7 @@
 
 .shortcuts-list {
   display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 0.6rem;
 }
 
@@ -1828,6 +1933,10 @@
   .banner-time,
   .banner-absolute {
     justify-self: flex-start;
+  }
+
+  .shortcuts-list {
+    grid-template-columns: 1fr;
   }
 }
 </style>
