@@ -20,15 +20,17 @@ Dumber is a minimalist browser and launcher companion focused on speed and simpl
 - Early development stage with regular releases. The workspace management system is fully functional and the browser works well for daily use. Expect some rough edges but core features are stable.
 
 ## Features
-- **Complete workspace management**: Zellij-inspired pane splitting with binary tree layout, focus tracking, and modal keyboard controls
+- **Complete workspace management**: Zellij-inspired pane splitting with binary tree layout, stacked panes with title bars, focus tracking, and modal keyboard controls
 - **Multi-pane WebView architecture**: Independent browsing sessions per pane with proper lifecycle management
 - **Advanced popup handling**: Intelligent popup management for tiling WMs - OAuth flows, window.open(), and popup deduplication
 - **Window-level global shortcuts**: Centralized shortcut handling to prevent conflicts between multiple WebView instances
 - **GPU rendering and hardware video acceleration**: Automatic GPU detection with VA-API/VDPAU support
 - **Built-in ad blocker**: UBlock-based content filtering (network blocking functional, cosmetic filtering in progress)
-- **dmenu‑style launcher integration**: rofi, fuzzel integration with history and shortcut suggestions
+- **Configurable color palettes**: Customizable light and dark themes with semantic color tokens injected as CSS custom properties
+- **Terminal-style UI design**: Monospace fonts, sharp corners, dashed borders with configurable appearance settings
+- **dmenu‑style launcher integration**: rofi, fuzzel integration with favicon display, history and search shortcut suggestions
 - **Comprehensive keyboard controls**: Complete keyboard-driven workflow with shortcuts and gestures
-- **Persistent history and zoom**: SQLite-based history with per‑domain zoom persistence
+- **Persistent history and zoom**: SQLite-based history with configurable default zoom and per‑domain zoom persistence
 - **Fully configurable**: Single config file with live reload and environment variable overrides
 
 ## Controls & Shortcuts
@@ -284,9 +286,28 @@ A default `config.json` is created on first run. Config changes are watched and 
 ```json
 "appearance": {
   "sans_font": "Fira Sans",
-  "serif_font": "Fira Sans", 
+  "serif_font": "Fira Sans",
   "monospace_font": "Fira Code",
-  "default_font_size": 16
+  "default_font_size": 16,
+  "default_zoom": 1.2,
+  "color_palette": {
+    "light": {
+      "background": "#ffffff",
+      "surface": "#f5f5f5",
+      "text": "#1a1a1a",
+      "text_muted": "#6b7280",
+      "accent": "#3b82f6",
+      "border": "#e5e7eb"
+    },
+    "dark": {
+      "background": "#0a0a0a",
+      "surface": "#1a1a1a",
+      "text": "#e5e7eb",
+      "text_muted": "#9ca3af",
+      "accent": "#60a5fa",
+      "border": "#374151"
+    }
+  }
 }
 ```
 
