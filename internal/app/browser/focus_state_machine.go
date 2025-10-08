@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/pkg/webkit"
+	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
 // FocusState represents the current state of the focus management system
@@ -556,17 +557,17 @@ func (fsm *FocusStateMachine) findTopLeftPane(leaves []*paneNode) *paneNode {
 	var bestScore float64 = 1e9
 
 	for _, leaf := range leaves {
-		if leaf.container == 0 || !webkit.WidgetIsValid(leaf.container) {
+		if leaf.container == nil {
 			continue
 		}
 
-		bounds, ok := webkit.WidgetGetBounds(leaf.container)
-		if !ok {
+		bounds := leaf.container.Allocation()
+		if bounds == nil {
 			continue
 		}
 
 		// Score based on distance from top-left corner (0,0)
-		score := bounds.X + bounds.Y
+		score := float64(bounds.X()) + float64(bounds.Y())
 		if score < bestScore {
 			bestScore = score
 			bestPane = leaf
@@ -625,11 +626,11 @@ func (fsm *FocusStateMachine) applyGTKFocus(node *paneNode) error {
 	}
 
 	viewWidget := node.pane.webView.Widget()
-	if viewWidget == 0 {
+	if viewWidget == nil {
 		return fmt.Errorf("webview has no valid widget")
 	}
 
-	webkit.WidgetGrabFocus(viewWidget)
+	viewWidget.GrabFocus()
 	return nil
 }
 
@@ -918,27 +919,32 @@ func (fsm *FocusStateMachine) attachGTKController(node *paneNode) {
 	}
 
 	widget := node.pane.webView.Widget()
-	if widget == 0 || !webkit.WidgetIsValid(widget) {
+	if widget == nil {
 		return
 	}
 
-	// Create focus enter/leave callbacks for this specific node
-	onEnter := func() {
+	// Create focus controller for GTK4
+	controller := gtk.NewEventControllerFocus()
+
+	// Connect focus enter/leave callbacks for this specific node
+	controller.ConnectEnter(func() {
 		log.Printf("[FSM] GTK focus enter: %p", node)
 		// Don't automatically change focus on GTK enter - let user interactions drive this
 		// This prevents infinite loops with our own focus changes
-	}
+	})
 
-	onLeave := func() {
+	controller.ConnectLeave(func() {
 		log.Printf("[FSM] GTK focus leave: %p", node)
 		// Similarly, don't react to GTK leave events automatically
-	}
+	})
 
-	// Add the focus controller and store the token for cleanup
-	token := webkit.WidgetAddFocusController(widget, onEnter, onLeave)
-	if token != 0 {
-		node.focusControllerToken = token
-		log.Printf("[FSM] Attached GTK focus controller to pane %p with token %d", node, token)
+	// Add controller to widget
+	widget.AddController(controller)
+
+	// Store controller pointer as token for later removal
+	node.focusControllerToken = uintptr(controller.Native())
+	if node.focusControllerToken != 0 {
+		log.Printf("[FSM] Attached GTK focus controller to pane %p with token %d", node, node.focusControllerToken)
 	}
 }
 
@@ -955,12 +961,8 @@ func (fsm *FocusStateMachine) detachGTKController(node *paneNode, token uintptr)
 
 	node.focusControllerToken = 0
 
-	widget := node.pane.webView.Widget()
-	if widget == 0 || !webkit.WidgetIsValid(widget) {
-		return
-	}
-
-	webkit.WidgetRemoveFocusController(widget, token)
+	// Note: In GTK4, controllers are automatically removed when widget is destroyed
+	// We just need to clear our token reference
 	log.Printf("[FSM] Detached GTK focus controller from pane %p", node)
 }
 

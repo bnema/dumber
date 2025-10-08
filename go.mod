@@ -3,6 +3,7 @@ module github.com/bnema/dumber
 go 1.25.1
 
 require (
+	github.com/diamondburned/gotk4-webkitgtk/pkg v0.0.0-20240108031600-dee1973cf440
 	github.com/diamondburned/gotk4/pkg v0.3.1
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/golang/mock v1.6.0
@@ -14,7 +15,6 @@ require (
 
 require (
 	github.com/KarpelesLab/weak v0.1.1 // indirect
-	github.com/diamondburned/gotk4-webkitgtk/pkg v0.0.0-20240108031600-dee1973cf440 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect

@@ -59,7 +59,7 @@ func (wm *WorkspaceManager) initializePaneWidgets(node *paneNode, widget gtk.Wid
 
 	// Add base CSS class to the container
 	if node.container != nil {
-		node.container.AddCSSClass(basePaneClass)
+		webkit.WidgetAddCSSClass(node.container, basePaneClass)
 	}
 
 	// Initialize other widget fields as nil (will be set when needed)
@@ -157,16 +157,13 @@ func (wm *WorkspaceManager) applyActivePaneBorder(ctx *PaneBorderContext) {
 
 	// Apply margin to WebView widget (creates space for border)
 	if ctx.webViewWidget != nil {
-		ctx.webViewWidget.SetMarginTop(2)
-		ctx.webViewWidget.SetMarginBottom(2)
-		ctx.webViewWidget.SetMarginStart(2)
-		ctx.webViewWidget.SetMarginEnd(2)
+		webkit.WidgetSetMargin(ctx.webViewWidget, 2)
 	}
 
 	// Apply CSS classes to border container
 	if ctx.borderContainer != nil {
 		for _, class := range ctx.cssClasses {
-			ctx.borderContainer.AddCSSClass(class)
+			webkit.WidgetAddCSSClass(ctx.borderContainer, class)
 		}
 	}
 
@@ -187,16 +184,13 @@ func (wm *WorkspaceManager) removeActivePaneBorder(node *paneNode) {
 
 	// Remove margin from WebView widget
 	if ctx.webViewWidget != nil {
-		ctx.webViewWidget.SetMarginTop(0)
-		ctx.webViewWidget.SetMarginBottom(0)
-		ctx.webViewWidget.SetMarginStart(0)
-		ctx.webViewWidget.SetMarginEnd(0)
+		webkit.WidgetSetMargin(ctx.webViewWidget, 0)
 	}
 
 	// Remove CSS classes from border container
 	if ctx.borderContainer != nil {
 		for _, class := range ctx.cssClasses {
-			ctx.borderContainer.RemoveCSSClass(class)
+			webkit.WidgetRemoveCSSClass(ctx.borderContainer, class)
 		}
 	}
 
@@ -309,7 +303,7 @@ func (wm *WorkspaceManager) cancelIdleHandle(handle uintptr) {
 		return
 	}
 	wm.releaseIdleHandle(handle)
-	glib.SourceRemove(uint(handle))
+	glib.SourceRemove(glib.SourceHandle(handle))
 }
 
 func (wm *WorkspaceManager) cancelIdleHandles(node *paneNode) {

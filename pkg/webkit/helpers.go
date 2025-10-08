@@ -38,6 +38,34 @@ func WidgetSetMargin(w gtk.Widgetter, margin int) {
 	}
 }
 
+// WidgetSetMarginTop sets the top margin for a widget
+func WidgetSetMarginTop(w gtk.Widgetter, margin int) {
+	if widget := getWidget(w); widget != nil {
+		widget.SetMarginTop(margin)
+	}
+}
+
+// WidgetSetMarginBottom sets the bottom margin for a widget
+func WidgetSetMarginBottom(w gtk.Widgetter, margin int) {
+	if widget := getWidget(w); widget != nil {
+		widget.SetMarginBottom(margin)
+	}
+}
+
+// WidgetSetMarginStart sets the start margin for a widget
+func WidgetSetMarginStart(w gtk.Widgetter, margin int) {
+	if widget := getWidget(w); widget != nil {
+		widget.SetMarginStart(margin)
+	}
+}
+
+// WidgetSetMarginEnd sets the end margin for a widget
+func WidgetSetMarginEnd(w gtk.Widgetter, margin int) {
+	if widget := getWidget(w); widget != nil {
+		widget.SetMarginEnd(margin)
+	}
+}
+
 // WidgetAddCSSClass adds a CSS class to a widget
 func WidgetAddCSSClass(w gtk.Widgetter, className string) {
 	if widget := getWidget(w); widget != nil {
@@ -76,6 +104,13 @@ func WidgetSetVExpand(w gtk.Widgetter, expand bool) {
 
 // WidgetRealizeInContainer realizes a widget within a container
 func WidgetRealizeInContainer(w gtk.Widgetter, container gtk.Widgetter) {
+	if widget := getWidget(w); widget != nil {
+		widget.Realize()
+	}
+}
+
+// WidgetRealize realizes a widget
+func WidgetRealize(w gtk.Widgetter) {
 	if widget := getWidget(w); widget != nil {
 		widget.Realize()
 	}
@@ -163,6 +198,18 @@ func WidgetRemoveFocusController(w gtk.Widgetter, controller *gtk.EventControlle
 	if widget := getWidget(w); widget != nil && controller != nil {
 		widget.RemoveController(controller)
 	}
+}
+
+// WidgetAddController adds an event controller to a widget
+func WidgetAddController(w gtk.Widgetter, controller gtk.EventControllerer) {
+	if widget := getWidget(w); widget != nil && controller != nil {
+		widget.AddController(controller)
+	}
+}
+
+// WidgetAllocation returns the widget's allocation (alias for WidgetGetAllocation)
+func WidgetAllocation(w gtk.Widgetter) (x, y, width, height int) {
+	return WidgetGetAllocation(w)
 }
 
 // PrefersDarkTheme checks if the system prefers dark theme

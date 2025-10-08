@@ -13,8 +13,7 @@ pkg/webkit/
 ├── memory.go           # Memory management (if needed)
 ├── types.go            # Common types (WindowType, WindowFeatures, etc.)
 ├── errors.go           # Error definitions
-└── internal/
-    └── convert.go      # Conversion helpers (gotk4 <-> legacy APIs)
+
 ```
 
 ## Core Types
