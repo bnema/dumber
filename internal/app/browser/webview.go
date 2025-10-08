@@ -2,6 +2,7 @@ package browser
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -39,10 +40,7 @@ func (app *BrowserApp) buildWebkitConfig() (*webkit.Config, error) {
 		return nil, err
 	}
 
-	// Note: WebKit data/cache directories are now handled by WebContext
-	// Application-level config (colors, memory, video acceleration) is handled separately
-
-	// Build basic WebKit configuration
+	// Build WebKit configuration with data directories for persistence
 	cfg := &webkit.Config{
 		UserAgent:            buildUserAgent(app.config),
 		EnableJavaScript:     true,
@@ -51,6 +49,8 @@ func (app *BrowserApp) buildWebkitConfig() (*webkit.Config, error) {
 		HardwareAcceleration: true,
 		DefaultFontSize:      app.config.Appearance.DefaultFontSize,
 		MinimumFontSize:      8,
+		DataDir:              webkitData,
+		CacheDir:             webkitCache,
 	}
 
 	return cfg, nil
@@ -245,6 +245,67 @@ func (app *BrowserApp) setupWebViewIntegration() {
 	// Use native window as title updater
 	if win := app.webView.Window(); win != nil {
 		app.browserService.SetWindowTitleUpdater(win)
+	}
+
+	// Expose appearance configuration to the injected GUI modules
+	app.exposeAppearanceConfig(app.webView)
+}
+
+// exposeAppearanceConfig injects appearance configuration as a typed global
+// This makes color palettes and font preferences available to TypeScript modules
+func (app *BrowserApp) exposeAppearanceConfig(view *webkit.WebView) {
+	if view == nil || app.config == nil {
+		return
+	}
+
+	// Build appearance config matching the TypeScript AppearanceConfig interface
+	// Note: Theme preference comes from GTK system settings (via color-scheme.ts),
+	// not from config file. We default to "light" here.
+	appearanceConfig := map[string]interface{}{
+		"theme": "light", // Default theme - color-scheme.ts will detect actual GTK preference
+		"palettes": map[string]interface{}{
+			"light": map[string]string{
+				"background":     app.config.Appearance.LightPalette.Background,
+				"surface":        app.config.Appearance.LightPalette.Surface,
+				"surfaceVariant": app.config.Appearance.LightPalette.SurfaceVariant,
+				"text":           app.config.Appearance.LightPalette.Text,
+				"muted":          app.config.Appearance.LightPalette.Muted,
+				"accent":         app.config.Appearance.LightPalette.Accent,
+				"border":         app.config.Appearance.LightPalette.Border,
+			},
+			"dark": map[string]string{
+				"background":     app.config.Appearance.DarkPalette.Background,
+				"surface":        app.config.Appearance.DarkPalette.Surface,
+				"surfaceVariant": app.config.Appearance.DarkPalette.SurfaceVariant,
+				"text":           app.config.Appearance.DarkPalette.Text,
+				"muted":          app.config.Appearance.DarkPalette.Muted,
+				"accent":         app.config.Appearance.DarkPalette.Accent,
+				"border":         app.config.Appearance.DarkPalette.Border,
+			},
+		},
+		"fonts": map[string]interface{}{
+			"sans":        app.config.Appearance.SansFont,
+			"serif":       app.config.Appearance.SerifFont,
+			"monospace":   app.config.Appearance.MonospaceFont,
+			"defaultSize": app.config.Appearance.DefaultFontSize,
+		},
+	}
+
+	// Convert to JSON
+	payload, err := json.Marshal(appearanceConfig)
+	if err != nil {
+		log.Printf("[webview] Failed to marshal appearance config: %v", err)
+		return
+	}
+
+	// Inject as global variable before any modules load
+	// The appearance-config.ts module will detect and apply this
+	script := fmt.Sprintf(`window.__dumber_appearance_config = %s;`, string(payload))
+
+	if err := view.InjectScript(script); err != nil {
+		log.Printf("[webview] Failed to expose appearance config: %v", err)
+	} else {
+		log.Printf("[webview] Appearance config exposed with default theme=light")
 	}
 }
 
