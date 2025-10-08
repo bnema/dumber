@@ -1,6 +1,7 @@
 package webkit
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/bnema/dumber/assets"
@@ -9,7 +10,7 @@ import (
 
 // SetupUserContentManager configures UserContentManager for the WebView
 // This injects GUI scripts at document-start and registers message handlers
-func SetupUserContentManager(view *webkit.WebView) error {
+func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string) error {
 	if view == nil {
 		return nil
 	}
@@ -19,6 +20,33 @@ func SetupUserContentManager(view *webkit.WebView) error {
 	if ucm == nil {
 		log.Printf("[webkit] UserContentManager is nil, skipping script injection")
 		return nil
+	}
+
+	// Inject GTK theme detection FIRST, before color-scheme script
+	// The color-scheme.ts expects window.__dumber_gtk_prefers_dark to be set
+	prefersDark := PrefersDarkTheme()
+	gtkThemeScript := fmt.Sprintf(`window.__dumber_gtk_prefers_dark = %t;`, prefersDark)
+	ucm.AddScript(webkit.NewUserScript(
+		gtkThemeScript,
+		webkit.UserContentInjectAllFrames,
+		webkit.UserScriptInjectAtDocumentStart,
+		nil,
+		nil,
+	))
+	log.Printf("[webkit] Injected GTK theme preference: prefersDark=%t", prefersDark)
+
+	// Inject palette config SECOND, before GUI scripts
+	// The GUI expects window.__dumber_palette = { "light": {...}, "dark": {...} }
+	if appearanceConfigJSON != "" {
+		paletteScript := fmt.Sprintf(`window.__dumber_palette = %s;`, appearanceConfigJSON)
+		ucm.AddScript(webkit.NewUserScript(
+			paletteScript,
+			webkit.UserContentInjectAllFrames,
+			webkit.UserScriptInjectAtDocumentStart,
+			nil,
+			nil,
+		))
+		log.Printf("[webkit] Injected palette config at document-start (%d bytes)", len(paletteScript))
 	}
 
 	// Inject color-scheme script at document-start

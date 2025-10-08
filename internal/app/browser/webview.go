@@ -51,6 +51,7 @@ func (app *BrowserApp) buildWebkitConfig() (*webkit.Config, error) {
 		MinimumFontSize:      8,
 		DataDir:              webkitData,
 		CacheDir:             webkitCache,
+		AppearanceConfigJSON: app.buildAppearanceConfigJSON(),
 	}
 
 	return cfg, nil
@@ -63,6 +64,45 @@ func buildUserAgent(cfg *config.Config) string {
 	}
 	// Use default WebKit user agent
 	return "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
+}
+
+// buildAppearanceConfigJSON builds the palette configuration as JSON
+// The GUI expects window.__dumber_palette with just the palette data
+func (app *BrowserApp) buildAppearanceConfigJSON() string {
+	if app.config == nil {
+		return ""
+	}
+
+	// Build palette config in the format main-world.ts expects
+	// It looks for window.__dumber_palette = { "light": {...}, "dark": {...} }
+	paletteConfig := map[string]interface{}{
+		"light": map[string]string{
+			"background":       app.config.Appearance.LightPalette.Background,
+			"surface":          app.config.Appearance.LightPalette.Surface,
+			"surface_variant":  app.config.Appearance.LightPalette.SurfaceVariant,
+			"text":             app.config.Appearance.LightPalette.Text,
+			"muted":            app.config.Appearance.LightPalette.Muted,
+			"accent":           app.config.Appearance.LightPalette.Accent,
+			"border":           app.config.Appearance.LightPalette.Border,
+		},
+		"dark": map[string]string{
+			"background":       app.config.Appearance.DarkPalette.Background,
+			"surface":          app.config.Appearance.DarkPalette.Surface,
+			"surface_variant":  app.config.Appearance.DarkPalette.SurfaceVariant,
+			"text":             app.config.Appearance.DarkPalette.Text,
+			"muted":            app.config.Appearance.DarkPalette.Muted,
+			"accent":           app.config.Appearance.DarkPalette.Accent,
+			"border":           app.config.Appearance.DarkPalette.Border,
+		},
+	}
+
+	payload, err := json.Marshal(paletteConfig)
+	if err != nil {
+		log.Printf("[webview] Failed to marshal palette config: %v", err)
+		return ""
+	}
+
+	return string(payload)
 }
 
 func (app *BrowserApp) buildPane(view *webkit.WebView) (*BrowserPane, error) {
@@ -239,73 +279,12 @@ func (app *BrowserApp) createWebView() error {
 func (app *BrowserApp) setupWebViewIntegration() {
 	app.browserService.AttachWebView(app.webView)
 
-	// GUI bundle is loaded via WebKit user scripts in enableUserContentManager
-	// No need to load separately in browser service
+	// GUI bundle is loaded via WebKit user scripts in SetupUserContentManager
+	// Appearance config is also injected at document-start via UserContentManager
 
 	// Use native window as title updater
 	if win := app.webView.Window(); win != nil {
 		app.browserService.SetWindowTitleUpdater(win)
-	}
-
-	// Expose appearance configuration to the injected GUI modules
-	app.exposeAppearanceConfig(app.webView)
-}
-
-// exposeAppearanceConfig injects appearance configuration as a typed global
-// This makes color palettes and font preferences available to TypeScript modules
-func (app *BrowserApp) exposeAppearanceConfig(view *webkit.WebView) {
-	if view == nil || app.config == nil {
-		return
-	}
-
-	// Build appearance config matching the TypeScript AppearanceConfig interface
-	// Note: Theme preference comes from GTK system settings (via color-scheme.ts),
-	// not from config file. We default to "light" here.
-	appearanceConfig := map[string]interface{}{
-		"theme": "light", // Default theme - color-scheme.ts will detect actual GTK preference
-		"palettes": map[string]interface{}{
-			"light": map[string]string{
-				"background":     app.config.Appearance.LightPalette.Background,
-				"surface":        app.config.Appearance.LightPalette.Surface,
-				"surfaceVariant": app.config.Appearance.LightPalette.SurfaceVariant,
-				"text":           app.config.Appearance.LightPalette.Text,
-				"muted":          app.config.Appearance.LightPalette.Muted,
-				"accent":         app.config.Appearance.LightPalette.Accent,
-				"border":         app.config.Appearance.LightPalette.Border,
-			},
-			"dark": map[string]string{
-				"background":     app.config.Appearance.DarkPalette.Background,
-				"surface":        app.config.Appearance.DarkPalette.Surface,
-				"surfaceVariant": app.config.Appearance.DarkPalette.SurfaceVariant,
-				"text":           app.config.Appearance.DarkPalette.Text,
-				"muted":          app.config.Appearance.DarkPalette.Muted,
-				"accent":         app.config.Appearance.DarkPalette.Accent,
-				"border":         app.config.Appearance.DarkPalette.Border,
-			},
-		},
-		"fonts": map[string]interface{}{
-			"sans":        app.config.Appearance.SansFont,
-			"serif":       app.config.Appearance.SerifFont,
-			"monospace":   app.config.Appearance.MonospaceFont,
-			"defaultSize": app.config.Appearance.DefaultFontSize,
-		},
-	}
-
-	// Convert to JSON
-	payload, err := json.Marshal(appearanceConfig)
-	if err != nil {
-		log.Printf("[webview] Failed to marshal appearance config: %v", err)
-		return
-	}
-
-	// Inject as global variable before any modules load
-	// The appearance-config.ts module will detect and apply this
-	script := fmt.Sprintf(`window.__dumber_appearance_config = %s;`, string(payload))
-
-	if err := view.InjectScript(script); err != nil {
-		log.Printf("[webview] Failed to expose appearance config: %v", err)
-	} else {
-		log.Printf("[webview] Appearance config exposed with default theme=light")
 	}
 }
 

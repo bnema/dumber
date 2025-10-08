@@ -93,7 +93,7 @@ func NewWebView(cfg *Config) (*WebView, error) {
 
 	// Setup UserContentManager and inject GUI scripts
 	// This must be done BEFORE any pages are loaded
-	if err := SetupUserContentManager(wkView); err != nil {
+	if err := SetupUserContentManager(wkView, cfg.AppearanceConfigJSON); err != nil {
 		return nil, fmt.Errorf("failed to setup user content manager: %w", err)
 	}
 

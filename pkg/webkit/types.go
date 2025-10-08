@@ -50,6 +50,10 @@ type Config struct {
 
 	// CacheDir is the directory for HTTP cache
 	CacheDir string
+
+	// AppearanceConfigJSON is the JSON string for appearance configuration
+	// This will be injected at document-start via UserContentManager
+	AppearanceConfigJSON string
 }
 
 // GetDefaultConfig returns a Config with sensible defaults
