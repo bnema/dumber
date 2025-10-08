@@ -1,3 +1,7 @@
+// Guard against duplicate injection in multiple frames
+if (typeof window.__DUMBER_COSMETIC_LOADED === 'undefined') {
+window.__DUMBER_COSMETIC_LOADED = true;
+
 const CosmeticFilter = (() => {
     const hiddenElements = new WeakSet();
     const selectors = {
@@ -237,3 +241,5 @@ const CosmeticFilter = (() => {
 window.__dumber_cosmetic_init = (rules) => CosmeticFilter.init(rules);
 window.__dumber_cosmetic_update = (rules) => CosmeticFilter.updateRules(rules);
 window.__dumber_cosmetic_cleanup = () => CosmeticFilter.cleanup();
+
+} // End guard against duplicate injection
