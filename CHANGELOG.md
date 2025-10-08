@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- ENV=dev support to isolate test builds from production config/data in .dev/dumber/ directory
+- Content filtering whitelist config (Twitch enabled by default)
+
+### Fixed
+- Enabled missing WebKitGTK6 features: WebRTC, MediaSource, LocalStorage, WebAudio, MediaStream, Clipboard
+- Cosmetic filter duplicate injection in frames
+
 ## [0.11.0] - 2025-10-07
 
 ### Added
