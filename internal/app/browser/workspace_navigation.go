@@ -107,7 +107,7 @@ func (wm *WorkspaceManager) ensureHover(node *paneNode) {
 		wm.SetActivePane(node, SourceMouse)
 	})
 
-	node.container.AddController(controller)
+	webkit.WidgetAddController(node.container, controller)
 	// Store controller pointer as token for later removal
 	node.hoverToken = uintptr(controller.Native())
 	if node.hoverToken == 0 {
@@ -252,14 +252,9 @@ func (wm *WorkspaceManager) focusAdjacent(direction string) bool {
 		return true
 	}
 
-	currentBounds := currentFocused.container.Allocation()
-	if currentBounds == nil {
-		log.Printf("[workspace] unable to compute bounds for active pane")
-		return false
-	}
-
-	cx := float64(currentBounds.X()) + float64(currentBounds.Width())/2.0
-	cy := float64(currentBounds.Y()) + float64(currentBounds.Height())/2.0
+	curX, curY, curWidth, curHeight := webkit.WidgetGetAllocation(currentFocused.container)
+	cx := float64(curX) + float64(curWidth)/2.0
+	cy := float64(curY) + float64(curHeight)/2.0
 
 	leaves := wm.collectLeaves()
 	bestScore := math.MaxFloat64
@@ -271,12 +266,9 @@ func (wm *WorkspaceManager) focusAdjacent(direction string) bool {
 			continue
 		}
 
-		bounds := candidate.container.Allocation()
-		if bounds == nil {
-			continue
-		}
-		tx := float64(bounds.X()) + float64(bounds.Width())/2.0
-		ty := float64(bounds.Y()) + float64(bounds.Height())/2.0
+		x, y, width, height := webkit.WidgetGetAllocation(candidate.container)
+		tx := float64(x) + float64(width)/2.0
+		ty := float64(y) + float64(height)/2.0
 
 		dx := tx - cx
 		dy := ty - cy
@@ -332,12 +324,9 @@ func (wm *WorkspaceManager) structuralNeighbor(node *paneNode, direction string)
 		return nil
 	}
 
-	refBounds := node.container.Allocation()
-	if refBounds == nil {
-		return nil
-	}
-	cx := float64(refBounds.X()) + float64(refBounds.Width())/2.0
-	cy := float64(refBounds.Y()) + float64(refBounds.Height())/2.0
+	refX, refY, refWidth, refHeight := webkit.WidgetGetAllocation(node.container)
+	cx := float64(refX) + float64(refWidth)/2.0
+	cy := float64(refY) + float64(refHeight)/2.0
 	axisVertical := direction == "up" || direction == "down"
 
 	for parent := node.parent; parent != nil; parent = parent.parent {
@@ -382,12 +371,9 @@ func (wm *WorkspaceManager) closestLeafFromSubtree(node *paneNode, cx, cy float6
 			continue
 		}
 
-		bounds := leaf.container.Allocation()
-		if bounds == nil {
-			continue
-		}
-		tx := float64(bounds.X()) + float64(bounds.Width())/2.0
-		ty := float64(bounds.Y()) + float64(bounds.Height())/2.0
+		x, y, width, height := webkit.WidgetGetAllocation(leaf.container)
+		tx := float64(x) + float64(width)/2.0
+		ty := float64(y) + float64(height)/2.0
 		dx := tx - cx
 		dy := ty - cy
 		var score float64
