@@ -1,0 +1,69 @@
+package webkit
+
+import (
+	"log"
+
+	"github.com/bnema/dumber/assets"
+	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
+)
+
+// SetupUserContentManager configures UserContentManager for the WebView
+// This injects GUI scripts at document-start and registers message handlers
+func SetupUserContentManager(view *webkit.WebView) error {
+	if view == nil {
+		return nil
+	}
+
+	// Get the UserContentManager from the WebView
+	ucm := view.UserContentManager()
+	if ucm == nil {
+		log.Printf("[webkit] UserContentManager is nil, skipping script injection")
+		return nil
+	}
+
+	// Inject color-scheme script at document-start
+	if assets.ColorSchemeScript != "" {
+		ucm.AddScript(webkit.NewUserScript(
+			assets.ColorSchemeScript,
+			webkit.UserContentInjectAllFrames,
+			webkit.UserScriptInjectAtDocumentStart,
+			nil, // whitelist (nil = all)
+			nil, // blacklist (nil = none)
+		))
+		log.Printf("[webkit] Injected color-scheme script (%d bytes)", len(assets.ColorSchemeScript))
+	}
+
+	// Inject main-world script at document-start
+	if assets.MainWorldScript != "" {
+		ucm.AddScript(webkit.NewUserScript(
+			assets.MainWorldScript,
+			webkit.UserContentInjectAllFrames,
+			webkit.UserScriptInjectAtDocumentStart,
+			nil,
+			nil,
+		))
+		log.Printf("[webkit] Injected main-world script (%d bytes)", len(assets.MainWorldScript))
+	}
+
+	// Inject GUI controls script at document-start
+	if assets.GUIScript != "" {
+		ucm.AddScript(webkit.NewUserScript(
+			assets.GUIScript,
+			webkit.UserContentInjectAllFrames,
+			webkit.UserScriptInjectAtDocumentStart,
+			nil,
+			nil,
+		))
+		log.Printf("[webkit] Injected GUI controls script (%d bytes)", len(assets.GUIScript))
+	}
+
+	// Register script message handler "dumber" for communication from JS
+	// Pass empty string for worldName to use the default world
+	if !ucm.RegisterScriptMessageHandler("dumber", "") {
+		log.Printf("[webkit] Warning: failed to register 'dumber' script message handler")
+	} else {
+		log.Printf("[webkit] Registered 'dumber' script message handler")
+	}
+
+	return nil
+}

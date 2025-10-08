@@ -91,6 +91,12 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	cookieManager.SetPersistentStorage(cookiePath, webkit.CookiePersistentStorageSqlite)
 	cookieManager.SetAcceptPolicy(webkit.CookiePolicyAcceptNoThirdParty)
 
+	// Setup UserContentManager and inject GUI scripts
+	// This must be done BEFORE any pages are loaded
+	if err := SetupUserContentManager(wkView); err != nil {
+		return nil, fmt.Errorf("failed to setup user content manager: %w", err)
+	}
+
 	// Generate unique ID
 	id := atomic.AddUint64(&viewIDCounter, 1)
 
