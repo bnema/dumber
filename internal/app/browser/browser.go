@@ -150,10 +150,11 @@ func (app *BrowserApp) Run() {
 	defer app.cleanup()
 	defer logging.SetupPanicRecovery()
 
-	// Register custom scheme resolver
-	webkit.SetURISchemeResolver(func(uri string) (string, []byte, bool) {
-		return app.schemeHandler.Handle(uri, app.config)
-	})
+	// Set config on scheme handler
+	app.schemeHandler.SetConfig(app.config)
+
+	// Register custom scheme resolver for "dumb://" URIs
+	webkit.SetURISchemeResolver("dumb", app.schemeHandler.Handle)
 
 	// Create and setup WebView
 	if err := app.createWebView(); err != nil {

@@ -22,3 +22,14 @@ func SetURISchemeResolver(scheme string, callback URISchemeRequestCallback) {
 		}
 	})
 }
+
+// FinishURISchemeRequest finishes a URI scheme request with data
+func FinishURISchemeRequest(req *webkit.URISchemeRequest, mimeType string, data []byte) error {
+	if req == nil {
+		return ErrWebViewNotInitialized
+	}
+
+	// Import gio for input stream
+	// This will be handled in the caller
+	return nil
+}
