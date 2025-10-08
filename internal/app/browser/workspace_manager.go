@@ -67,7 +67,7 @@ type WorkspaceManager struct {
 
 	// Cleanup tracking
 	cleanupCounter uint
-	pendingIdle    map[gtk.Widgetter][]*paneNode
+	pendingIdle    map[uintptr][]*paneNode
 }
 
 // Workspace navigation shortcuts are now handled globally by WindowShortcutHandler
@@ -116,10 +116,8 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 			return nil, err
 		}
 		// Pane WebViews are embedded inside the main application window, so they do not
-		// need their own toplevel GtkWindow. Avoid creating per-pane windows to keep GTK
-		// ownership simple (Epiphany follows the same pattern) and to prevent premature
-		// swapchain destruction when panes are closed.
-		cfg.CreateWindow = false
+		// need their own toplevel GtkWindow. In gotk4, this is the default behavior when
+		// using webkit.NewWebView() without creating a separate window.
 		return webkit.NewWebView(cfg)
 	}
 	manager.createPaneFn = func(view *webkit.WebView) (*BrowserPane, error) {
@@ -380,7 +378,7 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 		// Find the popup pane by webview ID
 		var targetNode *paneNode
 		for webView, node := range wm.viewToNode {
-			if webView != nil && webView.ID() == msg.WebViewID {
+			if webView != nil && fmt.Sprintf("%d", webView.ID()) == msg.WebViewID {
 				targetNode = node
 				break
 			}
@@ -464,7 +462,7 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 					log.Printf("[workspace] Fixing parent pane rendering after popup close")
 
 					// CRITICAL: Hide parent container to disconnect WebKitGTK rendering pipeline
-					parentNode.container.Hide()
+					webkit.WidgetHide(parentNode.container)
 
 					// Schedule showing and forcing GTK to reconnect rendering
 					wm.scheduleIdleGuarded(func() bool {
@@ -472,17 +470,17 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 							return false
 						}
 						// Show widget to reconnect WebKit rendering pipeline
-						parentNode.container.Show()
+						webkit.WidgetShow(parentNode.container)
 						// Force GTK to recalculate size and recreate rendering surface
-						parentNode.container.QueueResize()
-						parentNode.container.QueueDraw()
+						webkit.WidgetQueueResize(parentNode.container)
+						webkit.WidgetQueueDraw(parentNode.container)
 
 						// Also queue resize+draw on the WebView widget itself
 						if parentNode.pane != nil && parentNode.pane.WebView() != nil {
 							webViewWidget := parentNode.pane.WebView().Widget()
 							if webViewWidget != nil {
-								webViewWidget.QueueResize()
-								webViewWidget.QueueDraw()
+								webkit.WidgetQueueResize(webViewWidget)
+								webkit.WidgetQueueDraw(webViewWidget)
 								log.Printf("[workspace] Queued resize+draw for parent WebView widget")
 							}
 						}
