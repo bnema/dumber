@@ -2,6 +2,7 @@ package webkit
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -292,6 +293,22 @@ func (w *WebView) IsDestroyed() bool {
 // ID returns the unique identifier for this WebView
 func (w *WebView) ID() uint64 {
 	return w.id
+}
+
+// IDString returns the WebView ID as a string
+// This is a convenience method for compatibility with code expecting string IDs
+func (w *WebView) IDString() string {
+	return fmt.Sprintf("%d", w.id)
+}
+
+// ParseWebViewID converts a string WebView ID to uint64
+// Returns 0 if the string cannot be parsed
+func ParseWebViewID(idStr string) uint64 {
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		return 0
+	}
+	return id
 }
 
 // AsWidget returns the WebView as a gtk.Widgetter
