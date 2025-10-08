@@ -9,7 +9,6 @@ import (
 
 	"github.com/bnema/dumber/internal/app/messaging"
 	"github.com/bnema/dumber/pkg/webkit"
-	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
 const (
@@ -71,7 +70,6 @@ func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *web
 			log.Printf("[workspace] failed to build webkit config: %v - allowing native popup", err)
 			return nil
 		}
-		webkitCfg.CreateWindow = false
 		// Create as related to avoid WindowFeatures crash; we'll decide final placement later
 		newView, err := webkit.NewWebViewWithRelated(webkitCfg, source)
 		if err != nil {
@@ -107,7 +105,6 @@ func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *web
 		log.Printf("[workspace] failed to build webkit config: %v - allowing native popup", err)
 		return nil
 	}
-	webkitCfg.CreateWindow = false
 	newView, err := webkit.NewWebViewWithRelated(webkitCfg, source)
 	if err != nil {
 		log.Printf("[workspace] failed to create placeholder WebView: %v - allowing native popup", err)
@@ -143,7 +140,7 @@ func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *web
 
 	// Get the new node and popup WebView ID for tracking
 	newNode := wm.viewToNode[newView]
-	popupWebViewID := newView.ID()
+	popupWebViewID := newView.IDString()
 
 	// Apply different behavior based on target type
 	if isBlankTarget {
@@ -345,7 +342,6 @@ func (wm *WorkspaceManager) handleIntentAsTab(sourceNode *paneNode, url string, 
 		log.Printf("[workspace] failed to build webkit config: %v - allowing native popup", err)
 		return nil
 	}
-	webkitCfg.CreateWindow = false
 
 	newView, err := webkit.NewWebView(webkitCfg)
 	if err != nil {
@@ -402,7 +398,6 @@ func (wm *WorkspaceManager) handleIntentAsPopup(sourceNode *paneNode, url string
 		log.Printf("[workspace] failed to build webkit config: %v - allowing native popup", err)
 		return nil
 	}
-	webkitCfg.CreateWindow = false
 
 	newView, err := webkit.NewWebViewWithRelated(webkitCfg, sourceNode.pane.webView)
 	if err != nil {
@@ -411,8 +406,8 @@ func (wm *WorkspaceManager) handleIntentAsPopup(sourceNode *paneNode, url string
 	}
 
 	// Log the parent-popup WebView ID relationship for OAuth auto-close
-	parentWebViewID := sourceNode.pane.webView.ID()
-	popupWebViewID := newView.ID()
+	parentWebViewID := sourceNode.pane.webView.IDString()
+	popupWebViewID := newView.IDString()
 	log.Printf("[workspace] Created popup WebView: parentID=%s popupID=%s url=%s", parentWebViewID, popupWebViewID, url)
 
 	// Store popup WebView ID in parent's localStorage for OAuth callback lookup
@@ -612,7 +607,7 @@ func (wm *WorkspaceManager) configureRelatedPopup(sourceNode *paneNode, webView 
 		return
 	}
 	node := wm.viewToNode[related]
-	popupWebViewID := related.ID()
+	popupWebViewID := related.IDString()
 
 	if node != nil {
 		node.windowType = webkit.WindowTypePopup
@@ -717,15 +712,15 @@ func (wm *WorkspaceManager) applyPopupSizeConstraints(view *webkit.WebView, widt
 
 	// Apply to container
 	if container := view.RootWidget(); container != nil {
-		container.SetSizeRequest(minWidth, minHeight)
-		container.QueueResize()
+		webkit.WidgetSetSizeRequest(container, minWidth, minHeight)
+		webkit.WidgetQueueResize(container)
 		log.Printf("[workspace] Applied minimum size %dx%d to popup container=%p", minWidth, minHeight, container)
 	}
 
 	// Apply to WebView widget
 	if webViewWidget := view.Widget(); webViewWidget != nil {
-		webViewWidget.SetSizeRequest(minWidth, minHeight)
-		webViewWidget.QueueResize()
+		webkit.WidgetSetSizeRequest(webViewWidget, minWidth, minHeight)
+		webkit.WidgetQueueResize(webViewWidget)
 		log.Printf("[workspace] Applied minimum size %dx%d to popup webview=%p", minWidth, minHeight, webViewWidget)
 	}
 }
@@ -797,7 +792,6 @@ func (wm *WorkspaceManager) handleDetectedWindowType(sourceNode *paneNode, webVi
 			log.Printf("[workspace] failed to build webkit config for tab: %v", err)
 			return
 		}
-		webkitCfg.CreateWindow = false
 
 		// Create independent WebView like handleIntentAsTab does
 		independentView, err := webkit.NewWebView(webkitCfg)
