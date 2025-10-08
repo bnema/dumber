@@ -2666,7 +2666,7 @@ func (w *WebView) OnNavigate(url string, filterManager FilterManager, whitelist 
 
 	// Skip cosmetic filtering for whitelisted domains (e.g., Twitch with Arkose Labs bot detection)
 	for _, whitelistedDomain := range whitelist {
-		if strings.Contains(domain, whitelistedDomain) {
+		if domain == whitelistedDomain || strings.HasSuffix(domain, "."+whitelistedDomain) {
 			logging.Info("[webkit] Skipping cosmetic filtering for whitelisted domain: " + domain)
 			return
 		}
