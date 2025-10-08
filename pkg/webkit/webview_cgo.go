@@ -1296,6 +1296,38 @@ func NewWebView(cfg *Config) (*WebView, error) {
 		log.Printf("[webkit] Enabled JavaScript popup windows")
 	}
 
+	// Enable critical web platform features for modern websites (Twitch, YouTube, etc.)
+	if settings := C.webkit_web_view_get_settings(v.native.wv); settings != nil {
+		// MediaSource Extensions - CRITICAL for video streaming (Twitch, YouTube, Netflix)
+		C.webkit_settings_set_enable_mediasource(settings, C.gboolean(1))
+
+		// Encrypted Media Extensions - for DRM protected content
+		C.webkit_settings_set_enable_encrypted_media(settings, C.gboolean(1))
+
+		// Media Capabilities API - for codec/quality detection
+		C.webkit_settings_set_enable_media_capabilities(settings, C.gboolean(1))
+
+		// WebAudio API - for advanced audio processing
+		C.webkit_settings_set_enable_webaudio(settings, C.gboolean(1))
+
+		// HTML5 LocalStorage - for site data persistence
+		C.webkit_settings_set_enable_html5_local_storage(settings, C.gboolean(1))
+
+		// HTML5 Database/IndexedDB - for offline storage
+		C.webkit_settings_set_enable_html5_database(settings, C.gboolean(1))
+
+		// WebRTC - for real-time communication
+		C.webkit_settings_set_enable_webrtc(settings, C.gboolean(1))
+
+		// Media Stream API - for camera/microphone access
+		C.webkit_settings_set_enable_media_stream(settings, C.gboolean(1))
+
+		// JavaScript Clipboard API - for copy/paste in web apps
+		C.webkit_settings_set_javascript_can_access_clipboard(settings, C.gboolean(1))
+
+		log.Printf("[webkit] Enabled web platform features: MSE, EME, MediaCapabilities, WebAudio, Storage, WebRTC, Clipboard")
+	}
+
 	// Apply custom User-Agent for codec negotiation
 	if settings := C.webkit_web_view_get_settings(v.native.wv); settings != nil {
 		if cfg.CodecPreferences.CustomUserAgent != "" {
