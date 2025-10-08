@@ -124,3 +124,5 @@ issues:
 run:
   timeout: 5m
   modules-download-mode: readonly
+  build-tags:
+    - webkit_cgo
