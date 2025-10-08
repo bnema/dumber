@@ -561,13 +561,10 @@ func (fsm *FocusStateMachine) findTopLeftPane(leaves []*paneNode) *paneNode {
 			continue
 		}
 
-		bounds := leaf.container.Allocation()
-		if bounds == nil {
-			continue
-		}
+		x, y, _, _ := webkit.WidgetGetAllocation(leaf.container)
 
 		// Score based on distance from top-left corner (0,0)
-		score := float64(bounds.X()) + float64(bounds.Y())
+		score := float64(x) + float64(y)
 		if score < bestScore {
 			bestScore = score
 			bestPane = leaf
@@ -630,7 +627,7 @@ func (fsm *FocusStateMachine) applyGTKFocus(node *paneNode) error {
 		return fmt.Errorf("webview has no valid widget")
 	}
 
-	viewWidget.GrabFocus()
+	webkit.WidgetGrabFocus(viewWidget)
 	return nil
 }
 
@@ -939,7 +936,7 @@ func (fsm *FocusStateMachine) attachGTKController(node *paneNode) {
 	})
 
 	// Add controller to widget
-	widget.AddController(controller)
+	webkit.WidgetAddController(widget, controller)
 
 	// Store controller pointer as token for later removal
 	node.focusControllerToken = uintptr(controller.Native())
