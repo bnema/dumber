@@ -21,6 +21,20 @@ type XDGDirs struct {
 // - $XDG_DATA_HOME/dumber (default: ~/.local/share/dumber)
 // - $XDG_STATE_HOME/dumber (default: ~/.local/state/dumber)
 func GetXDGDirs() (*XDGDirs, error) {
+	// Development mode: use .dev directory in current working directory
+	if os.Getenv("ENV") == "dev" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return nil, err
+		}
+		devDir := filepath.Join(cwd, ".dev", appName)
+		return &XDGDirs{
+			ConfigHome: devDir,
+			DataHome:   devDir,
+			StateHome:  devDir,
+		}, nil
+	}
+
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err

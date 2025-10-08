@@ -80,3 +80,4 @@ specs/
 templates/
 .serena/
 config.yaml
+.dev/
