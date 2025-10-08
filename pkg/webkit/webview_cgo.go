@@ -2654,7 +2654,7 @@ func (w *WebView) InitializeContentBlocking(filterManager FilterManager) error {
 }
 
 // OnNavigate sets up domain-specific cosmetic filtering on navigation
-func (w *WebView) OnNavigate(url string, filterManager FilterManager) {
+func (w *WebView) OnNavigate(url string, filterManager FilterManager, whitelist []string) {
 	if w == nil || w.destroyed {
 		return
 	}
@@ -2662,6 +2662,14 @@ func (w *WebView) OnNavigate(url string, filterManager FilterManager) {
 	domain := extractDomain(url)
 	if domain == "" {
 		return
+	}
+
+	// Skip cosmetic filtering for whitelisted domains (e.g., Twitch with Arkose Labs bot detection)
+	for _, whitelistedDomain := range whitelist {
+		if strings.Contains(domain, whitelistedDomain) {
+			logging.Info("[webkit] Skipping cosmetic filtering for whitelisted domain: " + domain)
+			return
+		}
 	}
 
 	// Get domain-specific cosmetic rules

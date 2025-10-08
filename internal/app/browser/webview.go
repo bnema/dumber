@@ -371,7 +371,7 @@ func (app *BrowserApp) setupContentBlocking() error {
 
 				// Apply content filtering if available
 				if app.filterManager != nil {
-					app.webView.OnNavigate(uri, app.filterManager)
+					app.webView.OnNavigate(uri, app.filterManager, app.config.ContentFilteringWhitelist)
 				}
 
 				// Note: GUI bundle (controls and toast) is now injected as User Script

@@ -44,6 +44,8 @@ type Config struct {
 	DefaultZoom float64 `mapstructure:"default_zoom" yaml:"default_zoom"`
 	// Workspace defines workspace, pane, and tab handling behaviour.
 	Workspace WorkspaceConfig `mapstructure:"workspace" yaml:"workspace"`
+	// ContentFilteringWhitelist domains skip ad blocking (e.g. Twitch breaks with bot detection)
+	ContentFilteringWhitelist []string `mapstructure:"content_filtering_whitelist" yaml:"content_filtering_whitelist"`
 }
 
 // RenderingMode selects GPU vs CPU rendering.

@@ -279,7 +279,7 @@ func (w *WebView) InitializeContentBlocking(filterManager interface{}) error {
 }
 
 // OnNavigate sets up domain-specific cosmetic filtering on navigation (stub)
-func (w *WebView) OnNavigate(url string, filterManager interface{}) {
+func (w *WebView) OnNavigate(url string, filterManager interface{}, whitelist []string) {
 	// No-op in stub
 }
 

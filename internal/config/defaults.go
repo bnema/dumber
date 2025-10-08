@@ -205,6 +205,11 @@ func DefaultConfig() *Config {
 				BorderRadius:       defaultBorderRadius,
 			},
 		},
+		ContentFilteringWhitelist: []string{
+			"twitch.tv",          // Arkose Labs bot detection breaks with filtering
+			"passport.twitch.tv", // Auth subdomain
+			"gql.twitch.tv",      // GraphQL API
+		},
 	}
 }
 
