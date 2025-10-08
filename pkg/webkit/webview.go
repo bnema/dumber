@@ -99,8 +99,8 @@ func (w *WebView) applyConfig() error {
 	// Apply settings from config
 	settings.SetEnableJavascript(w.config.EnableJavaScript)
 	settings.SetEnableWebgl(w.config.EnableWebGL)
-	settings.SetDefaultFontSize(uint(w.config.DefaultFontSize))
-	settings.SetMinimumFontSize(uint(w.config.MinimumFontSize))
+	settings.SetDefaultFontSize(uint32(w.config.DefaultFontSize))
+	settings.SetMinimumFontSize(uint32(w.config.MinimumFontSize))
 
 	if w.config.UserAgent != "" {
 		settings.SetUserAgent(w.config.UserAgent)
@@ -114,16 +114,16 @@ func (w *WebView) applyConfig() error {
 
 // setupEventHandlers connects GTK signals to internal handlers
 func (w *WebView) setupEventHandlers() {
-	// Title changed
-	w.view.ConnectNotify("title", func() {
+	// Title changed - connect to notify::title signal
+	w.view.Connect("notify::title", func() {
 		if w.onTitleChanged != nil {
 			title := w.view.Title()
 			w.onTitleChanged(title)
 		}
 	})
 
-	// URI changed
-	w.view.ConnectNotify("uri", func() {
+	// URI changed - connect to notify::uri signal
+	w.view.Connect("notify::uri", func() {
 		if w.onURIChanged != nil {
 			uri := w.view.URI()
 			w.onURIChanged(uri)
@@ -245,7 +245,7 @@ func (w *WebView) Show() error {
 		return ErrWebViewDestroyed
 	}
 
-	w.view.Show()
+	w.view.SetVisible(true)
 	return nil
 }
 
@@ -258,7 +258,7 @@ func (w *WebView) Hide() error {
 		return ErrWebViewDestroyed
 	}
 
-	w.view.Hide()
+	w.view.SetVisible(false)
 	return nil
 }
 
@@ -394,4 +394,185 @@ func (w *WebView) Widget() gtk.Widgetter {
 // In the new architecture, this is just the WebView itself
 func (w *WebView) RootWidget() gtk.Widgetter {
 	return w.AsWidget()
+}
+
+// SetZoom sets the zoom level of the WebView
+func (w *WebView) SetZoom(zoom float64) error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	w.view.SetZoomLevel(zoom)
+	return nil
+}
+
+// GetZoom returns the current zoom level
+func (w *WebView) GetZoom() float64 {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return 1.0
+	}
+
+	return w.view.ZoomLevel()
+}
+
+// UsesDomZoom indicates if this WebView uses DOM-based zoom
+// In gotk4/WebKitGTK, zoom is always viewport-based
+func (w *WebView) UsesDomZoom() bool {
+	return false
+}
+
+// SeedDomZoom is a no-op in gotk4 as we use viewport zoom
+func (w *WebView) SeedDomZoom(zoom float64) error {
+	// Not needed in gotk4 - zoom is handled differently
+	return nil
+}
+
+// InjectScript executes JavaScript in the WebView
+func (w *WebView) InjectScript(script string) error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	// Execute JavaScript using our CGO wrapper
+	EvaluateJavascript(w.view, script)
+	return nil
+}
+
+// DispatchCustomEvent dispatches a custom event via JavaScript
+func (w *WebView) DispatchCustomEvent(eventName string, data interface{}) error {
+	// TODO: Implement proper event dispatching with data serialization
+	script := fmt.Sprintf(`
+		window.dispatchEvent(new CustomEvent('%s', { detail: %v }));
+	`, eventName, data)
+	return w.InjectScript(script)
+}
+
+// ShowDevTools opens the WebKit inspector/developer tools
+func (w *WebView) ShowDevTools() error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	inspector := w.view.Inspector()
+	if inspector != nil {
+		inspector.Show()
+	}
+	return nil
+}
+
+// ShowPrintDialog shows the print dialog for the current page
+func (w *WebView) ShowPrintDialog() error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	// TODO: Implement print operation
+	// printOp := webkit.NewPrintOperation(w.view)
+	// printOp.RunDialog(nil)
+	return nil
+}
+
+// RegisterKeyboardShortcut registers a keyboard shortcut handler
+// This is a compatibility method - actual shortcut handling is done at the window level
+func (w *WebView) RegisterKeyboardShortcut(key string, modifiers uint, handler func()) error {
+	// TODO: Implement keyboard shortcut registration if needed
+	// For now, shortcuts are handled at the window/application level
+	return nil
+}
+
+// SetWindowFeatures sets window features for popup windows
+func (w *WebView) SetWindowFeatures(features *WindowFeatures) {
+	// This is typically used for popup windows
+	// The features would be applied when creating the window
+}
+
+// IsActive returns whether this WebView is currently active/focused
+func (w *WebView) IsActive() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return false
+	}
+
+	widget := w.view
+	if widget != nil {
+		return widget.IsFocus()
+	}
+	return false
+}
+
+// Window returns the parent Window of this WebView
+func (w *WebView) Window() *Window {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return nil
+	}
+
+	// Get the root window
+	widget := getWidget(w.view)
+	if widget != nil {
+		root := widget.Root()
+		if root != nil {
+			// Try to cast the native widget to a gtk.Window
+			if obj := root.Cast(); obj != nil {
+				if gtkWin, ok := obj.(*gtk.Window); ok {
+					return &Window{win: gtkWin}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// UpdateContentFilters updates the content filtering rules
+func (w *WebView) UpdateContentFilters(rules string) error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	// TODO: Implement content filtering using WebKit's UserContentManager
+	return nil
+}
+
+// InitializeContentBlocking initializes content blocking with filter lists
+func (w *WebView) InitializeContentBlocking(filterLists []string) error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	// TODO: Implement content blocking initialization
+	return nil
+}
+
+// OnNavigate registers a navigation handler
+func (w *WebView) OnNavigate(handler func(url string)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	// This wraps the URI changed handler
+	w.onURIChanged = handler
 }

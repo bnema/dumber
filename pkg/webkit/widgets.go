@@ -238,50 +238,62 @@ func (i *Image) AsWidget() gtk.Widgetter {
 
 // Widget helper functions for common operations
 
+// getWidget extracts the underlying *gtk.Widget from a Widgetter
+// This is needed because some methods are only available on *gtk.Widget
+func getWidget(w gtk.Widgetter) *gtk.Widget {
+	if w == nil {
+		return nil
+	}
+	// The Widgetter interface provides a way to get the base widget
+	// In gotk4, we can cast to get access to the underlying widget
+	if widget, ok := w.(interface{ Widget() *gtk.Widget }); ok {
+		return widget.Widget()
+	}
+	// Fallback: try to type assert directly
+	if widget, ok := w.(*gtk.Widget); ok {
+		return widget
+	}
+	return nil
+}
+
 // WidgetShow makes a widget visible
 func WidgetShow(w gtk.Widgetter) {
-	if w == nil {
-		return
+	if widget := getWidget(w); widget != nil {
+		widget.SetVisible(true)
 	}
-	w.Show()
 }
 
 // WidgetHide makes a widget invisible
 func WidgetHide(w gtk.Widgetter) {
-	if w == nil {
-		return
+	if widget := getWidget(w); widget != nil {
+		widget.SetVisible(false)
 	}
-	w.Hide()
 }
 
 // WidgetSetVisible sets the visibility of a widget
 func WidgetSetVisible(w gtk.Widgetter, visible bool) {
-	if w == nil {
-		return
+	if widget := getWidget(w); widget != nil {
+		widget.SetVisible(visible)
 	}
-	w.SetVisible(visible)
 }
 
 // WidgetSetSizeRequest sets the minimum size request
 func WidgetSetSizeRequest(w gtk.Widgetter, width, height int) {
-	if w == nil {
-		return
+	if widget := getWidget(w); widget != nil {
+		widget.SetSizeRequest(width, height)
 	}
-	w.SetSizeRequest(width, height)
 }
 
 // WidgetQueueResize queues a resize operation
 func WidgetQueueResize(w gtk.Widgetter) {
-	if w == nil {
-		return
+	if widget := getWidget(w); widget != nil {
+		widget.QueueResize()
 	}
-	w.QueueResize()
 }
 
 // WidgetGrabFocus gives focus to a widget
 func WidgetGrabFocus(w gtk.Widgetter) {
-	if w == nil {
-		return
+	if widget := getWidget(w); widget != nil {
+		widget.GrabFocus()
 	}
-	w.GrabFocus()
 }

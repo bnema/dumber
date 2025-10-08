@@ -41,11 +41,12 @@ func (w *Window) SetChild(child gtk.Widgetter) {
 }
 
 // Show makes the window visible
+// Note: In GTK4, Show() is deprecated. Use SetVisible(true) instead.
 func (w *Window) Show() {
 	if w == nil || w.win == nil {
 		return
 	}
-	w.win.Show()
+	w.win.SetVisible(true)
 }
 
 // Present brings the window to the front
@@ -71,3 +72,21 @@ func (w *Window) AsWindow() *gtk.Window {
 	}
 	return w.win
 }
+
+// SetDefaultSize sets the default window size
+func (w *Window) SetDefaultSize(width, height int) {
+	if w == nil || w.win == nil {
+		return
+	}
+	w.win.SetDefaultSize(width, height)
+}
+
+// Destroy destroys the window
+func (w *Window) Destroy() {
+	if w == nil || w.win == nil {
+		return
+	}
+	w.win.Destroy()
+}
+
+// InitializeGlobalShortcuts is defined in shortcuts.go and implemented there
