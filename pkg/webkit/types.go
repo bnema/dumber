@@ -44,6 +44,12 @@ type Config struct {
 
 	// MinimumFontSize in pixels
 	MinimumFontSize int
+
+	// DataDir is the directory for persistent data (cookies, localStorage, etc.)
+	DataDir string
+
+	// CacheDir is the directory for HTTP cache
+	CacheDir string
 }
 
 // GetDefaultConfig returns a Config with sensible defaults

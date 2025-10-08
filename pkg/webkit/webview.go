@@ -18,8 +18,9 @@ var (
 
 // WebView wraps a WebKitGTK WebView
 type WebView struct {
-	view *webkit.WebView
-	id   uint64
+	view   *webkit.WebView
+	window *Window
+	id     uint64
 
 	// State
 	config    *Config
@@ -47,17 +48,55 @@ func NewWebView(cfg *Config) (*WebView, error) {
 
 	InitMainThread()
 
-	// Create WebKitGTK WebView
+	// Create GTK Window
+	window, err := NewWindow("Dumb Browser")
+	if err != nil {
+		return nil, err
+	}
+
+	// Initialize persistent session - REQUIRED, no ephemeral fallback
+	// This must be done BEFORE creating the WebView
+	if cfg.DataDir == "" || cfg.CacheDir == "" {
+		return nil, fmt.Errorf("data and cache directories are required for persistent storage")
+	}
+
+	if err := InitPersistentSession(cfg.DataDir, cfg.CacheDir); err != nil {
+		return nil, fmt.Errorf("failed to initialize persistent storage: %w", err)
+	}
+
+	// Create WebView - it will automatically use the persistent session
+	// Per WebKitGTK 6.0: newly created session becomes the default for all WebViews
 	wkView := webkit.NewWebView()
 	if wkView == nil {
 		return nil, ErrWebViewNotInitialized
 	}
+
+	// Verify the WebView is using the persistent session
+	viewSession := wkView.NetworkSession()
+	if viewSession == nil {
+		return nil, fmt.Errorf("WebView has no network session")
+	}
+	if viewSession.IsEphemeral() {
+		return nil, fmt.Errorf("WebView is using ephemeral session despite persistent session initialization")
+	}
+
+	// CRITICAL: Configure CookieManager on the WebView's actual session
+	// This ensures cookies are persisted regardless of whether the WebView
+	// uses our global session or creates its own
+	cookieManager := viewSession.CookieManager()
+	if cookieManager == nil {
+		return nil, fmt.Errorf("failed to get cookie manager from WebView's network session")
+	}
+	cookiePath := cfg.DataDir + "/cookies.db"
+	cookieManager.SetPersistentStorage(cookiePath, webkit.CookiePersistentStorageSqlite)
+	cookieManager.SetAcceptPolicy(webkit.CookiePolicyAcceptNoThirdParty)
 
 	// Generate unique ID
 	id := atomic.AddUint64(&viewIDCounter, 1)
 
 	wv := &WebView{
 		view:   wkView,
+		window: window,
 		id:     id,
 		config: cfg,
 	}
@@ -69,6 +108,9 @@ func NewWebView(cfg *Config) (*WebView, error) {
 
 	// Setup event handlers
 	wv.setupEventHandlers()
+
+	// Add WebView as child of window
+	window.SetChild(wkView)
 
 	// Register in global registry
 	viewMu.Lock()
@@ -106,6 +148,9 @@ func (w *WebView) applyConfig() error {
 	if w.config.UserAgent != "" {
 		settings.SetUserAgent(w.config.UserAgent)
 	}
+
+	// Enable developer tools (F12, inspector)
+	settings.SetEnableDeveloperExtras(true)
 
 	// Enable hardware acceleration if configured
 	settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyAlways)
@@ -246,7 +291,14 @@ func (w *WebView) Show() error {
 		return ErrWebViewDestroyed
 	}
 
+	// Make the WebView widget visible
 	w.view.SetVisible(true)
+
+	// Show the window containing the WebView
+	if w.window != nil {
+		w.window.Show()
+	}
+
 	return nil
 }
 
@@ -543,20 +595,7 @@ func (w *WebView) Window() *Window {
 		return nil
 	}
 
-	// Get the root window
-	widget := getWidget(w.view)
-	if widget != nil {
-		root := widget.Root()
-		if root != nil {
-			// Try to cast the native widget to a gtk.Window
-			if obj := root.Cast(); obj != nil {
-				if gtkWin, ok := obj.(*gtk.Window); ok {
-					return &Window{win: gtkWin}
-				}
-			}
-		}
-	}
-	return nil
+	return w.window
 }
 
 // UpdateContentFilters updates the content filtering rules
