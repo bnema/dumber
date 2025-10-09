@@ -313,18 +313,18 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 	}
 
 	newContainer := newPane.webView.RootWidget()
-	if newContainer == 0 {
+	if newContainer == nil {
 		return errors.New("new pane missing container")
 	}
 
-	webkit.WidgetSetHExpand(newContainer, true)
-	webkit.WidgetSetVExpand(newContainer, true)
-	webkit.WidgetRealizeInContainer(newContainer)
+	newContainer.SetHExpand(true)
+	newContainer.SetVExpand(true)
+	newContainer.Realize()
 
 	// Also realize the WebView widget itself for proper popup rendering
 	webViewWidget := newPane.webView.Widget()
-	if webViewWidget != 0 {
-		webkit.WidgetRealizeInContainer(webViewWidget)
+	if webViewWidget != nil {
+		webViewWidget.Realize()
 	}
 
 	// CRITICAL: Handle stacked panes correctly - same logic as splitNode
