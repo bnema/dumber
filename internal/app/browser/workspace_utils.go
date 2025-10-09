@@ -10,11 +10,6 @@ import (
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
-// hasMultiplePanes returns true if there are multiple panes in the workspace
-func (wm *WorkspaceManager) hasMultiplePanes() bool {
-	return wm != nil && wm.app != nil && len(wm.app.panes) > 1
-}
-
 // UpdateTitleBar updates the title bar label for a WebView in stacked panes
 func (wm *WorkspaceManager) UpdateTitleBar(webView *webkit.WebView, title string) {
 	// Delegate to StackedPaneManager which has the correct logic
@@ -97,106 +92,85 @@ func (wm *WorkspaceManager) setStackWrapper(node *paneNode, widget gtk.Widgetter
 // Centralized Active Pane Border Management System
 // Handles all pane types: regular, popup, stacked, split panes
 
-// PaneBorderContext holds the context for applying borders to any pane type
-type PaneBorderContext struct {
-	webViewWidget   gtk.Widgetter // The WebView's native widget (for margin)
-	borderContainer gtk.Widgetter // The container that gets background color
-	cssClasses      []string      // Additional CSS classes to apply
-	paneType        string        // Description for debugging
-}
-
-// determineBorderContext analyzes a pane node and determines the correct border context
-func (wm *WorkspaceManager) determineBorderContext(node *paneNode) *PaneBorderContext {
+// borderTargets returns the widgets that should reflect the pane border state.
+func (wm *WorkspaceManager) borderTargets(node *paneNode) []gtk.Widgetter {
 	if node == nil {
 		return nil
 	}
 
-	ctx := &PaneBorderContext{}
+	targets := make([]gtk.Widgetter, 0, 4)
+	seen := make(map[*gtk.Widget]struct{})
+	add := func(widget gtk.Widgetter) {
+		if widget == nil {
+			return
+		}
+		if base := gtk.BaseWidget(widget); base != nil {
+			if _, exists := seen[base]; exists {
+				return
+			}
+			seen[base] = struct{}{}
+		}
+		targets = append(targets, widget)
+	}
 
-	// Step 1: Get WebView widget for margin (same for all pane types)
-	// Use AsWidget() to get the actual WebView widget, not the container
+	// Primary container for this node.
+	add(node.container)
+	add(node.stackWrapper)
+
+	// Highlight stacks via their outer container as well.
+	if node.parent != nil && node.parent.isStacked {
+		add(node.parent.container)
+		add(node.parent.stackWrapper)
+	}
+
+	// Fallback to the WebView root widget to cover any edge cases where the
+	// container reference is temporarily nil.
 	if node.pane != nil && node.pane.webView != nil {
-		ctx.webViewWidget = node.pane.webView.AsWidget()
+		add(node.pane.webView.RootWidget())
 	}
 
-	// Step 2: Determine the border container based on pane type
-	switch {
-	case node.windowType == webkit.WindowTypePopup:
-		// Popup panes: Border on popup container
-		ctx.borderContainer = node.container
-		ctx.cssClasses = []string{activePaneClass}
-		ctx.paneType = "popup"
-
-	case node.parent != nil && node.parent.isStacked:
-		// Pane in stack: Border on stack wrapper container
-		ctx.borderContainer = node.parent.stackWrapper
-		ctx.cssClasses = []string{activePaneClass}
-		ctx.paneType = "stacked"
-
-	default:
-		// Regular pane: Border on pane container
-		ctx.borderContainer = node.container
-		ctx.cssClasses = []string{activePaneClass}
-		ctx.paneType = "regular"
+	if len(targets) == 0 {
+		return nil
 	}
-
-	return ctx
+	return targets
 }
 
-// applyActivePaneBorder applies the active pane border using the border context
-func (wm *WorkspaceManager) applyActivePaneBorder(ctx *PaneBorderContext) {
-	if ctx == nil {
-		log.Printf("[workspace] applyActivePaneBorder: nil context")
+// applyActivePaneBorder marks the target widgets as active for CSS styling.
+func (wm *WorkspaceManager) applyActivePaneBorder(node *paneNode) {
+	if wm == nil || node == nil {
 		return
 	}
 
-	// Skip applying border if there's only one pane
-	if !wm.hasMultiplePanes() {
-		log.Printf("[workspace] Skipping active border: only one pane exists")
-		return
-	}
-
-	// Apply margin to WebView widget (creates space for border)
-	if ctx.webViewWidget != nil {
-		webkit.WidgetSetMargin(ctx.webViewWidget, 2)
-	}
-
-	// Apply CSS classes to border container
-	if ctx.borderContainer != nil {
-		for _, class := range ctx.cssClasses {
-			webkit.WidgetAddCSSClass(ctx.borderContainer, class)
+	targets := wm.borderTargets(node)
+	for _, widget := range targets {
+		if widget == nil {
+			continue
+		}
+		// Only add CSS class if it doesn't already exist to prevent bloom filter errors
+		if !webkit.WidgetHasCSSClass(widget, activePaneClass) {
+			webkit.WidgetAddCSSClass(widget, activePaneClass)
+			log.Printf("[workspace] Applied active border to pane %p (widget=%p)", node, widget)
 		}
 	}
-
-	log.Printf("[workspace] Applied active border: type=%s webView=%p container=%p",
-		ctx.paneType, ctx.webViewWidget, ctx.borderContainer)
 }
 
-// removeActivePaneBorder removes the active pane border from a node
+// removeActivePaneBorder clears the active styling from a pane.
 func (wm *WorkspaceManager) removeActivePaneBorder(node *paneNode) {
-	if node == nil {
+	if wm == nil || node == nil {
 		return
 	}
 
-	ctx := wm.determineBorderContext(node)
-	if ctx == nil {
-		return
-	}
-
-	// Remove margin from WebView widget
-	if ctx.webViewWidget != nil {
-		webkit.WidgetSetMargin(ctx.webViewWidget, 0)
-	}
-
-	// Remove CSS classes from border container
-	if ctx.borderContainer != nil {
-		for _, class := range ctx.cssClasses {
-			webkit.WidgetRemoveCSSClass(ctx.borderContainer, class)
+	targets := wm.borderTargets(node)
+	for _, widget := range targets {
+		if widget == nil {
+			continue
+		}
+		// Only remove CSS class if it exists to prevent bloom filter errors
+		if webkit.WidgetHasCSSClass(widget, activePaneClass) {
+			webkit.WidgetRemoveCSSClass(widget, activePaneClass)
+			log.Printf("[workspace] Removed active border from pane %p (widget=%p)", node, widget)
 		}
 	}
-
-	log.Printf("[workspace] Removed active border: type=%s webView=%p container=%p",
-		ctx.paneType, ctx.webViewWidget, ctx.borderContainer)
 }
 
 // Widget cleanup utilities

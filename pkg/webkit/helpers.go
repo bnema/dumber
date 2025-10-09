@@ -200,6 +200,31 @@ func WidgetRemoveFocusController(w gtk.Widgetter, controller *gtk.EventControlle
 	}
 }
 
+// WidgetAddHoverHandler registers a hover callback for the given widget and
+// returns a controller that can be used to detach it later.
+func WidgetAddHoverHandler(w gtk.Widgetter, fn func()) *gtk.EventControllerMotion {
+	if widget := getWidget(w); widget != nil && fn != nil {
+		motion := gtk.NewEventControllerMotion()
+		motion.SetPropagationPhase(gtk.PhaseCapture)
+
+		// Connect to enter signal - triggered when mouse enters the widget
+		motion.ConnectEnter(func(x, y float64) {
+			fn()
+		})
+
+		widget.AddController(motion)
+		return motion
+	}
+	return nil
+}
+
+// WidgetRemoveHoverHandler removes a previously registered hover controller
+func WidgetRemoveHoverHandler(w gtk.Widgetter, controller *gtk.EventControllerMotion) {
+	if widget := getWidget(w); widget != nil && controller != nil {
+		widget.RemoveController(controller)
+	}
+}
+
 // WidgetAddController adds an event controller to a widget
 func WidgetAddController(w gtk.Widgetter, controller gtk.EventControllerer) {
 	if widget := getWidget(w); widget != nil && controller != nil {

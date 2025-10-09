@@ -63,11 +63,12 @@ type paneNode struct {
 	parentPane           *paneNode              // Parent for related views
 	activePopupChildren  []string               // WebView IDs of active popup children (for tracking related popups)
 	autoClose            bool                   // Auto-close on OAuth success
-	requestID            string                 // Request ID for popup (used for localStorage cleanup)
-	hoverToken           uintptr
-	focusControllerToken uintptr
-	pendingHoverReattach bool
-	pendingFocusReattach bool
+	requestID             string                       // Request ID for popup (used for localStorage cleanup)
+	hoverToken            *gtk.EventControllerMotion   // Hover event controller for mouse-based focus
+	focusControllerToken  uintptr                      // Focus controller token (stored as native pointer)
+	pendingHoverReattach  bool                         // Needs hover reattachment after reparent
+	pendingFocusReattach  bool                         // Needs focus reattachment after reparent
+	lastHoverTime         int64                        // Timestamp of last hover event (for debouncing)
 
 	// Stacked panes support - terminal branch nodes
 	isStacked        bool        // Whether this node contains stacked panes
