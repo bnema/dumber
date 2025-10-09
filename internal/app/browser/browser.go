@@ -153,13 +153,18 @@ func (app *BrowserApp) Run() {
 	// Set config on scheme handler
 	app.schemeHandler.SetConfig(app.config)
 
-	// Register custom scheme resolver for "dumb://" URIs
-	webkit.SetURISchemeResolver("dumb", app.schemeHandler.Handle)
+	// Register custom scheme resolver for "dumb://" URIs (will be applied after WebView creation)
+	webkit.RegisterURIScheme("dumb", app.schemeHandler.Handle)
 
 	// Create and setup WebView
 	if err := app.createWebView(); err != nil {
 		log.Printf("Warning: failed to create WebView: %v", err)
 		return
+	}
+
+	// Apply URI scheme handlers after WebView creation
+	if err := webkit.ApplyURISchemeHandlers(app.webView.GetWebView()); err != nil {
+		log.Printf("Warning: failed to register URI scheme handlers: %v", err)
 	}
 
 	// Initialize content blocking

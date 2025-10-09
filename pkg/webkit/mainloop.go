@@ -4,6 +4,7 @@ import (
 	"runtime"
 
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
+	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
 var (
@@ -12,11 +13,15 @@ var (
 	isInitialized bool
 )
 
-// InitMainThread locks the current goroutine to the OS thread for GTK operations.
-// This must be called before any GTK operations.
+// InitMainThread locks the current goroutine to the OS thread for GTK operations
+// and initializes GTK. This must be called before any GTK operations.
 func InitMainThread() {
 	if !isInitialized {
 		runtime.LockOSThread()
+
+		// Initialize GTK - this is required before creating any GTK widgets
+		gtk.Init()
+
 		isInitialized = true
 	}
 }

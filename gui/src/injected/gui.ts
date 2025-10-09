@@ -283,7 +283,15 @@ if (!window.__dumber_gui_ready) {
         const eventWebViewId = detail?.webviewId;
         const source = detail?.source || "unknown";
 
+        console.log("[dumber shortcuts] Event received", {
+          action,
+          eventWebViewId,
+          currentWebViewId,
+          detail,
+        });
+
         if (typeof action !== "string") {
+          console.log("[dumber shortcuts] No action in event, ignoring");
           return;
         }
 

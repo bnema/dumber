@@ -120,9 +120,14 @@ function detectWindowType(features?: string | null): string {
     const initialZoom = 1.0; // __DOM_ZOOM_DEFAULT__ will be replaced by Go
     window.__dumber_dom_zoom_seed = initialZoom;
 
-    // Initialize WebView ID and active state (will be replaced by Go)
-    window.__dumber_webview_id = "__WEBVIEW_ID__";
-    window.__dumber_is_active = "__WEBVIEW_ACTIVE__" as unknown as boolean;
+    // Initialize WebView ID and active state (injected by Go at document-start)
+    // Only set fallback values if not already injected
+    if (typeof window.__dumber_webview_id === 'undefined') {
+      window.__dumber_webview_id = "__WEBVIEW_ID__";
+    }
+    if (typeof window.__dumber_is_active === 'undefined') {
+      window.__dumber_is_active = "__WEBVIEW_ACTIVE__" as unknown as boolean;
+    }
 
     // Request color palettes from Go backend
     try {

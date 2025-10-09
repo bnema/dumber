@@ -226,6 +226,30 @@ func (h *WindowShortcutHandler) handleZoom(action string, multiplier float64) {
 	// Apply zoom to active pane
 	if err := activeWebView.SetZoom(newZoom); err != nil {
 		log.Printf("[window-shortcuts] Failed to set zoom: %v", err)
+		return
+	}
+
+	// Show zoom toast notification
+	zoomPercent := int(newZoom * 100)
+	toastScript := fmt.Sprintf(`
+		(function() {
+			try {
+				if (typeof window.__dumber_showZoomToast === 'function') {
+					window.__dumber_showZoomToast(%f);
+				} else {
+					// Fallback: dispatch toast event directly
+					document.dispatchEvent(new CustomEvent('dumber:showToast', {
+						detail: { message: 'Zoom: %d%%', duration: 1500, type: 'info' }
+					}));
+				}
+			} catch (e) {
+				console.error('[zoom] Failed to show toast:', e);
+			}
+		})();
+	`, newZoom, zoomPercent)
+
+	if err := activeWebView.InjectScript(toastScript); err != nil {
+		log.Printf("[window-shortcuts] Failed to show zoom toast: %v", err)
 	}
 }
 

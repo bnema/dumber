@@ -10,7 +10,7 @@ import (
 
 // SetupUserContentManager configures UserContentManager for the WebView
 // This injects GUI scripts at document-start and registers message handlers
-func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string) error {
+func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, webviewID uint64) error {
 	if view == nil {
 		return nil
 	}
@@ -22,7 +22,21 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string) 
 		return nil
 	}
 
-	// Inject GTK theme detection FIRST, before color-scheme script
+	// Inject webview ID FIRST, so GUI scripts can access it immediately
+	webviewIDScript := fmt.Sprintf(`
+		window.__dumber_webview_id = "%d";
+		console.log('[webkit] WebView ID set in JavaScript:', window.__dumber_webview_id);
+	`, webviewID)
+	ucm.AddScript(webkit.NewUserScript(
+		webviewIDScript,
+		webkit.UserContentInjectAllFrames,
+		webkit.UserScriptInjectAtDocumentStart,
+		nil,
+		nil,
+	))
+	log.Printf("[webkit] Injected webview ID script for ID: %d", webviewID)
+
+	// Inject GTK theme detection SECOND, before color-scheme script
 	// The color-scheme.ts expects window.__dumber_gtk_prefers_dark to be set
 	prefersDark := PrefersDarkTheme()
 	gtkThemeScript := fmt.Sprintf(`window.__dumber_gtk_prefers_dark = %t;`, prefersDark)

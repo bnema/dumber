@@ -1,7 +1,9 @@
 package webkit
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -45,6 +47,10 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	if cfg == nil {
 		cfg = GetDefaultConfig()
 	}
+
+	// Generate unique ID immediately
+	id := atomic.AddUint64(&viewIDCounter, 1)
+	log.Printf("[webkit] Generated WebView ID: %d", id)
 
 	InitMainThread()
 
@@ -91,14 +97,11 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	cookieManager.SetPersistentStorage(cookiePath, webkit.CookiePersistentStorageSqlite)
 	cookieManager.SetAcceptPolicy(webkit.CookiePolicyAcceptNoThirdParty)
 
-	// Setup UserContentManager and inject GUI scripts
+	// Setup UserContentManager and inject GUI scripts (including webview ID)
 	// This must be done BEFORE any pages are loaded
-	if err := SetupUserContentManager(wkView, cfg.AppearanceConfigJSON); err != nil {
+	if err := SetupUserContentManager(wkView, cfg.AppearanceConfigJSON, id); err != nil {
 		return nil, fmt.Errorf("failed to setup user content manager: %w", err)
 	}
-
-	// Generate unique ID
-	id := atomic.AddUint64(&viewIDCounter, 1)
 
 	wv := &WebView{
 		view:   wkView,
@@ -114,6 +117,9 @@ func NewWebView(cfg *Config) (*WebView, error) {
 
 	// Setup event handlers
 	wv.setupEventHandlers()
+
+	// Attach keyboard bridge to forward keyboard events to JavaScript
+	wv.AttachKeyboardBridge()
 
 	// Add WebView as child of window
 	window.SetChild(wkView)
@@ -193,6 +199,23 @@ func (w *WebView) setupEventHandlers() {
 			w.onClose()
 		}
 	})
+
+	// Script message received - connect to UserContentManager's script-message-received signal
+	// This receives messages from JavaScript via webkit.messageHandlers.dumber.postMessage()
+	// The signal name includes the handler name as a detail: "script-message-received::dumber"
+	ucm := w.view.UserContentManager()
+	if ucm != nil {
+		// GTK signals pass the sender as the first parameter, the actual signal data as subsequent parameters
+		ucm.Connect("script-message-received::dumber", func(sender interface{}, jscValue interface{}) {
+			if w.onScriptMessage != nil && jscValue != nil {
+				// Convert JSCValue to string using gotk4 javascriptcore bindings
+				valueStr := JSCValueToString(jscValue)
+				if valueStr != "" {
+					w.onScriptMessage(valueStr)
+				}
+			}
+		})
+	}
 }
 
 // LoadURL loads the given URL in the WebView
@@ -524,10 +547,27 @@ func (w *WebView) InjectScript(script string) error {
 
 // DispatchCustomEvent dispatches a custom event via JavaScript
 func (w *WebView) DispatchCustomEvent(eventName string, data interface{}) error {
-	// TODO: Implement proper event dispatching with data serialization
+	// Serialize data to JSON
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal event data: %w", err)
+	}
+
+	log.Printf("[webkit] Dispatching event '%s' to WebView ID %d with data: %s", eventName, w.id, string(jsonData))
+
+	// Use document.dispatchEvent (not window) so events cross JavaScript world boundaries
+	// The GUI scripts run in an isolated world but share the same Document object
 	script := fmt.Sprintf(`
-		window.dispatchEvent(new CustomEvent('%s', { detail: %v }));
-	`, eventName, data)
+		(function() {
+			try {
+				var detail = %s;
+				console.log('[dumber] Dispatching event: %s', detail);
+				document.dispatchEvent(new CustomEvent('%s', { detail: detail }));
+			} catch (e) {
+				console.error('[dumber] Failed to dispatch %s', e);
+			}
+		})();
+	`, string(jsonData), eventName, eventName, eventName)
 	return w.InjectScript(script)
 }
 
