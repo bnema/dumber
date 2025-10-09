@@ -12,6 +12,7 @@ import (
 
 	"github.com/bnema/dumber/internal/app/messaging"
 	"github.com/bnema/dumber/pkg/webkit"
+	"github.com/diamondburned/gotk4/pkg/glib/v2"
 )
 
 // WorkspaceManager coordinates Zellij-style pane operations.
@@ -271,8 +272,8 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 		if err != nil {
 			log.Printf("[workspace] split failed: %v", err)
 			// CRITICAL FIX: Pump GTK events after validation failure to clear pending operations
-			if webkit.IsMainThread() {
-				webkit.IterateMainLoop()
+			if glib.MainContextDefault().IsOwner() {
+				glib.MainContextDefault().Iteration(false)
 			}
 			return
 		}
@@ -307,8 +308,8 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 		if err != nil {
 			log.Printf("[workspace] stack failed: %v", err)
 			// CRITICAL FIX: Pump GTK events after stack failure
-			if webkit.IsMainThread() {
-				webkit.IterateMainLoop()
+			if glib.MainContextDefault().IsOwner() {
+				glib.MainContextDefault().Iteration(false)
 			}
 			return
 		}
@@ -459,29 +460,29 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 			// The parent pane's rendering can become corrupted after popup closes
 			if targetNode.parentPane != nil {
 				parentNode := targetNode.parentPane
-				if parentNode.container != 0 && webkit.WidgetIsValid(parentNode.container) {
+				if parentNode.container != nil {
 					log.Printf("[workspace] Fixing parent pane rendering after popup close")
 
 					// CRITICAL: Hide parent container to disconnect WebKitGTK rendering pipeline
-					webkit.WidgetHide(parentNode.container)
+					parentNode.container.Hide()
 
 					// Schedule showing and forcing GTK to reconnect rendering
 					wm.scheduleIdleGuarded(func() bool {
-						if parentNode == nil || !parentNode.widgetValid || parentNode.container == 0 {
+						if parentNode == nil || !parentNode.widgetValid || parentNode.container == nil {
 							return false
 						}
 						// Show widget to reconnect WebKit rendering pipeline
-						webkit.WidgetShow(parentNode.container)
+						parentNode.container.Show()
 						// Force GTK to recalculate size and recreate rendering surface
-						webkit.WidgetQueueResize(parentNode.container)
-						webkit.WidgetQueueDraw(parentNode.container)
+						parentNode.container.QueueResize()
+						parentNode.container.QueueDraw()
 
 						// Also queue resize+draw on the WebView widget itself
 						if parentNode.pane != nil && parentNode.pane.WebView() != nil {
 							webViewWidget := parentNode.pane.WebView().Widget()
-							if webViewWidget != 0 && webkit.WidgetIsValid(webViewWidget) {
-								webkit.WidgetQueueResize(webViewWidget)
-								webkit.WidgetQueueDraw(webViewWidget)
+							if webViewWidget != nil {
+								webViewWidget.QueueResize()
+								webViewWidget.QueueDraw()
 								log.Printf("[workspace] Queued resize+draw for parent WebView widget")
 							}
 						}
