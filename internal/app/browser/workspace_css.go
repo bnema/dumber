@@ -75,6 +75,8 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 
 	css := fmt.Sprintf(`window {
 	  background-color: %s;
+	  padding: 0;
+	  margin: 0;
 	}
 
 	/* Base pane styling - subtle border for inactive panes */
@@ -82,6 +84,7 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  border: 2px solid %s;
 	  border-radius: %dpx;
 	  transition: border-color %dms ease-in-out;
+	  margin: 0;
 	}
 
 	/* Active pane border styling */
