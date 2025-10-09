@@ -337,10 +337,10 @@ func (h *WindowShortcutHandler) handleClosePane() {
 	for webView := range h.app.workspace.viewToNode {
 		if webView != nil {
 			isActive := webView.IsActive()
-			log.Printf("[window-shortcuts] WebView %s: IsActive=%t", webView.ID(), isActive)
+			log.Printf("[window-shortcuts] WebView %d: IsActive=%t", webView.ID(), isActive)
 			if isActive {
 				activeWebView = webView
-				log.Printf("[window-shortcuts] Found active WebView: %s", webView.ID())
+				log.Printf("[window-shortcuts] Found active WebView: %d", webView.ID())
 				break
 			}
 		}

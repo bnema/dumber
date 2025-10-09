@@ -307,7 +307,7 @@ func formatPaneInfo(node *paneNode) string {
 	if node.isLeaf {
 		info = fmt.Sprintf("leaf(container=%p", node.container)
 		if node.pane != nil && node.pane.webView != nil {
-			info += fmt.Sprintf(" webview=%s", node.pane.webView.ID())
+			info += fmt.Sprintf(" webview=%d", node.pane.webView.ID())
 		}
 		if node.windowType == webkit.WindowTypePopup {
 			info += " popup"

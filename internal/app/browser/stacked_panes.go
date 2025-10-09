@@ -579,10 +579,10 @@ func (spm *StackedPaneManager) UpdateTitleBar(webView *webkit.WebView, title str
 		if paneIndex != -1 && paneIndex != activeIndex {
 			// This is an INACTIVE pane - safe to update title bar
 			spm.updateTitleBarLabel(node, title)
-			log.Printf("[workspace] updated title bar for INACTIVE WebView %s: %s", webView.ID(), title)
+			log.Printf("[workspace] updated title bar for INACTIVE WebView %d: %s", webView.ID(), title)
 		} else {
 			// This is the ACTIVE pane - title bar should remain hidden
-			log.Printf("[workspace] skipped title bar update for ACTIVE WebView %s: %s", webView.ID(), title)
+			log.Printf("[workspace] skipped title bar update for ACTIVE WebView %d: %s", webView.ID(), title)
 		}
 	}
 }

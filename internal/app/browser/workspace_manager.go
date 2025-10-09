@@ -420,7 +420,7 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 				cleanupScript := fmt.Sprintf(`
 					try {
 						// Clean up popup_mapping_<parentId> (from Go code)
-						localStorage.removeItem('popup_mapping_%s');
+						localStorage.removeItem('popup_mapping_%d');
 
 						// Clean up popup_<requestId>_* entries (from JavaScript)
 						const requestId = '%s';
@@ -535,5 +535,5 @@ func (wm *WorkspaceManager) RegisterNavigationHandler(webView *webkit.WebView) {
 		return
 	}
 
-	log.Printf("[workspace] Registered navigation handler for webview: %s", webView.ID())
+	log.Printf("[workspace] Registered navigation handler for webview: %d", webView.ID())
 }

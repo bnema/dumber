@@ -34,7 +34,7 @@ func (wm *WorkspaceManager) DispatchPaneFocusEvent(node *paneNode, active bool) 
 	if err := node.pane.webView.DispatchCustomEvent("dumber:workspace-focus", detail); err != nil {
 		log.Printf("[workspace] failed to dispatch focus event: %v", err)
 	} else if wm.app.config != nil && wm.app.config.Debug.EnableWorkspaceDebug {
-		log.Printf("[workspace] dispatched focus event for webview %s (active=%v)", node.pane.webView.ID(), active)
+		log.Printf("[workspace] dispatched focus event for webview %d (active=%v)", node.pane.webView.ID(), active)
 	}
 }
 
