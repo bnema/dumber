@@ -226,7 +226,15 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 		wm.paneModeSource = nil
 		wm.paneMutex.Unlock()
 
-		wm.focusAfterPaneMode(node)
+		// Only restore focus if the currently active pane is the same as the exiting pane.
+		// If focus has moved (e.g., due to a split), don't steal it back.
+		currentActive := wm.GetActiveNode()
+		if currentActive == node {
+			wm.focusAfterPaneMode(node)
+		} else {
+			log.Printf("[workspace] pane-mode-exited but focus already on different pane (%p != %p), preserving current focus",
+				node, currentActive)
+		}
 	case "pane-close":
 		if !wm.paneModeActive {
 			log.Printf("[workspace] close requested outside pane mode; ignoring")
@@ -458,42 +466,13 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 		} else {
 			log.Printf("[workspace] Successfully closed popup pane: %s", msg.WebViewID)
 
-			// Fix GTK rendering for parent pane after popup closes
-			// The parent pane's rendering can become corrupted after popup closes
-			if targetNode.parentPane != nil {
-				parentNode := targetNode.parentPane
-				if parentNode.container != nil {
-					log.Printf("[workspace] Fixing parent pane rendering after popup close")
-
-					// CRITICAL: Hide parent container to disconnect WebKitGTK rendering pipeline
-					webkit.WidgetHide(parentNode.container)
-
-					// Schedule showing and forcing GTK to reconnect rendering
-					wm.scheduleIdleGuarded(func() bool {
-						if parentNode == nil || !parentNode.widgetValid || parentNode.container == nil {
-							return false
-						}
-						// Show widget to reconnect WebKit rendering pipeline
-						webkit.WidgetShow(parentNode.container)
-						// Force GTK to recalculate size and recreate rendering surface
-						webkit.WidgetQueueResize(parentNode.container)
-						webkit.WidgetQueueDraw(parentNode.container)
-
-						// Also queue resize+draw on the WebView widget itself
-						if parentNode.pane != nil && parentNode.pane.WebView() != nil {
-							webViewWidget := parentNode.pane.WebView().Widget()
-							if webViewWidget != nil {
-								webkit.WidgetQueueResize(webViewWidget)
-								webkit.WidgetQueueDraw(webViewWidget)
-								log.Printf("[workspace] Queued resize+draw for parent WebView widget")
-							}
-						}
-
-						log.Printf("[workspace] Shown and queued resize+draw for parent pane after popup close")
-						return false
-					}, parentNode)
-				}
-			}
+			// REMOVED: Hide/show parent container sequence
+			// This was causing a race condition with the focus change scheduled by ClosePane().
+			// GTK was sending focus events to widgets during hide/show operations, causing SIGSEGV.
+			// ClosePane() already handles focus restoration properly via setFocusToLeaf().
+			//
+			// If rendering issues occur after popup close, they should be fixed with a different
+			// approach that doesn't manipulate widget visibility during focus transitions.
 		}
 	default:
 		log.Printf("[workspace] unhandled workspace event: %s", msg.Event)
@@ -502,6 +481,9 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 
 // GetActiveNode returns the currently active pane node
 func (wm *WorkspaceManager) GetActiveNode() *paneNode {
+	if wm == nil || wm.focusStateMachine == nil {
+		return nil
+	}
 	return wm.focusStateMachine.GetActivePane()
 }
 
@@ -529,11 +511,19 @@ func (wm *WorkspaceManager) GetNodeForWebView(webView *webkit.WebView) *paneNode
 	return wm.viewToNode[webView]
 }
 
-// RegisterNavigationHandler sets up navigation handling for a webview (simplified)
+// RegisterNavigationHandler sets up navigation handling for a webview
 func (wm *WorkspaceManager) RegisterNavigationHandler(webView *webkit.WebView) {
 	if webView == nil {
 		return
 	}
+
+	// Register workspace navigation callback for alt+arrow pane navigation
+	webView.RegisterWorkspaceNavigationHandler(func(direction string) bool {
+		if wm == nil {
+			return false
+		}
+		return wm.FocusNeighbor(direction)
+	})
 
 	log.Printf("[workspace] Registered navigation handler for webview: %d", webView.ID())
 }
