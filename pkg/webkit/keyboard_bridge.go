@@ -55,11 +55,12 @@ type ShortcutRouting struct {
 // shortcutRoutingTable maps normalized shortcuts to their routing behavior
 // This centralizes all routing decisions in one place, avoiding magic strings and scattered logic
 var shortcutRoutingTable = map[string]ShortcutRouting{
-	// Workspace pane navigation - handled by GTK window-level shortcuts only
-	"alt+arrowleft":  {forwardToJS: false, blockWebKit: true, description: "Navigate to left pane (GTK handler)"},
-	"alt+arrowright": {forwardToJS: false, blockWebKit: true, description: "Navigate to right pane (GTK handler)"},
-	"alt+arrowup":    {forwardToJS: false, blockWebKit: true, description: "Navigate to upper pane (GTK handler)"},
-	"alt+arrowdown":  {forwardToJS: false, blockWebKit: true, description: "Navigate to lower pane (GTK handler)"},
+	// Workspace pane navigation - block WebKit to prevent page scrolling
+	// Navigation is triggered via workspace navigation callback
+	"alt+arrowleft":  {forwardToJS: false, blockWebKit: true, description: "Navigate to left pane (callback handler)"},
+	"alt+arrowright": {forwardToJS: false, blockWebKit: true, description: "Navigate to right pane (callback handler)"},
+	"alt+arrowup":    {forwardToJS: false, blockWebKit: true, description: "Navigate to upper pane (callback handler)"},
+	"alt+arrowdown":  {forwardToJS: false, blockWebKit: true, description: "Navigate to lower pane (callback handler)"},
 
 	// Pane mode - forward to JavaScript but block WebKit's print dialog
 	"cmdorctrl+p": {forwardToJS: true, blockWebKit: true, description: "Enter pane mode (JS handler + block print dialog)"},
@@ -165,6 +166,33 @@ func (w *WebView) AttachKeyboardBridge() {
 			routing, exists := shortcutRoutingTable[shortcut]
 			if !exists {
 				routing = defaultRouting
+			}
+
+			// Handle workspace navigation shortcuts via callback
+			if shortcut == "alt+arrowup" || shortcut == "alt+arrowdown" || shortcut == "alt+arrowleft" || shortcut == "alt+arrowright" {
+				w.mu.RLock()
+				handler := w.onWorkspaceNavigation
+				w.mu.RUnlock()
+
+				if handler != nil {
+					var direction string
+					switch shortcut {
+					case "alt+arrowup":
+						direction = "up"
+					case "alt+arrowdown":
+						direction = "down"
+					case "alt+arrowleft":
+						direction = "left"
+					case "alt+arrowright":
+						direction = "right"
+					}
+					if handler(direction) {
+						log.Printf("[keyboard-bridge] Workspace navigation: %s (handled)", direction)
+						return true // Block WebKit
+					}
+				}
+				log.Printf("[keyboard-bridge] Shortcut %s: %s (no handler or not handled)", shortcut, routing.description)
+				return true // Block WebKit anyway to prevent scrolling
 			}
 
 			// Dispatch to JavaScript if routing says to

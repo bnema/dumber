@@ -249,6 +249,9 @@ func (app *BrowserApp) createWebView() error {
 
 	if app.workspace == nil {
 		app.workspace = NewWorkspaceManager(app, pane)
+		// CRITICAL: Register navigation handler for the root webview
+		// This is needed because buildPane() couldn't register it when workspace was nil
+		app.workspace.RegisterNavigationHandler(view)
 	}
 
 	// Initialize window-level global shortcuts AFTER workspace is set up

@@ -41,6 +41,7 @@ type WebView struct {
 	onClose                 func()
 	onNavigationPolicy      func(url string, isUserGesture bool) bool
 	onWindowTypeDetected    func(WindowType, *WindowFeatures)
+	onWorkspaceNavigation   func(direction string) bool // Workspace pane navigation
 }
 
 // NewWebView creates a new WebView with the given configuration
@@ -702,4 +703,12 @@ func (w *WebView) OnNavigate(handler func(url string)) {
 
 	// This wraps the URI changed handler
 	w.onURIChanged = handler
+}
+
+// RegisterWorkspaceNavigationHandler registers a handler for workspace pane navigation
+// The handler receives the direction ("up", "down", "left", "right") and returns true if handled
+func (w *WebView) RegisterWorkspaceNavigationHandler(handler func(direction string) bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onWorkspaceNavigation = handler
 }
