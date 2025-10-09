@@ -29,21 +29,48 @@ const (
 
 // Key name constants for shortcut mapping
 const (
-	keyP         = "p"
-	keyL         = "l"
-	keyF         = "f"
-	keyC         = "c"
-	keyW         = "w"
-	keyR         = "r"
-	keyArrowLeft = "arrowleft"
+	keyP          = "p"
+	keyL          = "l"
+	keyF          = "f"
+	keyC          = "c"
+	keyW          = "w"
+	keyR          = "r"
+	keyArrowLeft  = "arrowleft"
 	keyArrowRight = "arrowright"
-	keyArrowUp   = "arrowup"
-	keyArrowDown = "arrowdown"
-	keyF12       = "F12"
-	keyPlus      = "plus"
-	keyMinus     = "minus"
-	keyZero      = "0"
+	keyArrowUp    = "arrowup"
+	keyArrowDown  = "arrowdown"
+	keyF12        = "F12"
+	keyPlus       = "plus"
+	keyMinus      = "minus"
+	keyZero       = "0"
 )
+
+// ShortcutRouting defines how a keyboard shortcut should be handled by the bridge
+type ShortcutRouting struct {
+	forwardToJS bool   // Should dispatch dumber:key event to JavaScript
+	blockWebKit bool   // Should block WebKit's default handling (return true from handler)
+	description string // Human-readable description for debugging
+}
+
+// shortcutRoutingTable maps normalized shortcuts to their routing behavior
+// This centralizes all routing decisions in one place, avoiding magic strings and scattered logic
+var shortcutRoutingTable = map[string]ShortcutRouting{
+	// Workspace pane navigation - handled by GTK window-level shortcuts only
+	"alt+arrowleft":  {forwardToJS: false, blockWebKit: true, description: "Navigate to left pane (GTK handler)"},
+	"alt+arrowright": {forwardToJS: false, blockWebKit: true, description: "Navigate to right pane (GTK handler)"},
+	"alt+arrowup":    {forwardToJS: false, blockWebKit: true, description: "Navigate to upper pane (GTK handler)"},
+	"alt+arrowdown":  {forwardToJS: false, blockWebKit: true, description: "Navigate to lower pane (GTK handler)"},
+
+	// Pane mode - forward to JavaScript but block WebKit's print dialog
+	"cmdorctrl+p": {forwardToJS: true, blockWebKit: true, description: "Enter pane mode (JS handler + block print dialog)"},
+}
+
+// defaultRouting defines the default behavior for shortcuts not in the routing table
+var defaultRouting = ShortcutRouting{
+	forwardToJS: true,  // Forward all shortcuts to JS by default
+	blockWebKit: false, // Allow WebKit to handle (for reload, devtools, zoom, etc.)
+	description: "Default: forward to JS, allow WebKit",
+}
 
 // AttachKeyboardBridge attaches an EventControllerKey to bridge keyboard events to JavaScript
 // This is critical for allowing JavaScript KeyboardService to receive keyboard events
@@ -134,33 +161,25 @@ func (w *WebView) AttachKeyboardBridge() {
 		}
 
 		if shortcut != "" {
-			// Dispatch custom dumber:key event to JavaScript
-			script := fmt.Sprintf(`document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:'%s'}}));`, shortcut)
-			if err := w.InjectScript(script); err != nil {
-				log.Printf("[keyboard-bridge] Failed to dispatch key event: %v", err)
-			}
-			log.Printf("[keyboard-bridge] Forwarded shortcut to JS: %s", shortcut)
-
-			// Only block WebKit's default handling for shortcuts that would conflict:
-			// - Alt+Arrow: WebKit uses these for back/forward navigation -> BLOCK
-			// - Ctrl+P: Pane mode, would trigger print dialog -> BLOCK
-			// - Ctrl+R, Ctrl+Shift+R: Page reload, WebKit should handle -> ALLOW
-			// - F12: DevTools, WebKit should handle -> ALLOW
-			// - All others: Custom app handlers, don't conflict with WebKit -> ALLOW
-			if len(parts) >= 2 {
-				modifier := parts[0]
-				if modifier == modifierAlt {
-					// Alt+Arrow keys - block WebKit's back/forward navigation
-					return true
-				}
-				if modifier == modifierCmdOrCtrl && keyName == keyP {
-					// Ctrl+P (with or without shift) - block WebKit's print dialog
-					return true
-				}
+			// Look up routing behavior from table, use default if not found
+			routing, exists := shortcutRoutingTable[shortcut]
+			if !exists {
+				routing = defaultRouting
 			}
 
-			// Allow WebKit to also handle this event (for reload, devtools, zoom, etc.)
-			return false
+			// Dispatch to JavaScript if routing says to
+			if routing.forwardToJS {
+				script := fmt.Sprintf(`document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:'%s'}}));`, shortcut)
+				if err := w.InjectScript(script); err != nil {
+					log.Printf("[keyboard-bridge] Failed to dispatch key event: %v", err)
+				}
+				log.Printf("[keyboard-bridge] Forwarded shortcut to JS: %s", shortcut)
+			} else {
+				log.Printf("[keyboard-bridge] Shortcut %s: %s (not forwarded to JS)", shortcut, routing.description)
+			}
+
+			// Return routing decision to block or allow WebKit
+			return routing.blockWebKit
 		}
 
 		// No shortcut matched - allow WebKit to handle normally
