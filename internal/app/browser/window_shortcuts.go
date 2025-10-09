@@ -60,6 +60,7 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 		{"ctrl+f", h.handleFindToggle, "Find in page"},
 		{"ctrl+shift+c", h.handleCopyURL, "Copy URL"},
 		{"ctrl+shift+p", h.handlePrint, "Print page"},
+		{"ctrl+t", h.handleNewTab, "New tab (no-op)"},
 		{"ctrl+w", h.handleClosePane, "Close current pane"},
 		{"F12", h.handleDevTools, "Developer tools"},
 		// Zoom shortcuts - global level for proper active pane targeting
@@ -367,6 +368,13 @@ func (h *WindowShortcutHandler) handleClosePane() {
 		// Use regular close for non-popup panes
 		h.app.workspace.closeCurrentPane()
 	}
+}
+
+// handleNewTab is a no-op handler for Ctrl+T
+// This prevents the default browser behavior and allows for future implementation
+func (h *WindowShortcutHandler) handleNewTab() {
+	log.Printf("[window-shortcuts] Ctrl+T pressed (no-op - tabs not yet implemented)")
+	// TODO: Implement new tab functionality
 }
 
 // Cleanup releases resources
