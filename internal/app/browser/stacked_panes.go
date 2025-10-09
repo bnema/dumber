@@ -442,7 +442,7 @@ func (spm *StackedPaneManager) UpdateStackVisibility(stackNode *paneNode) {
 
 // NavigateStack handles navigation within a stacked pane container
 func (spm *StackedPaneManager) NavigateStack(direction string) bool {
-	if spm.wm.GetActiveNode() == nil {
+	if spm == nil || spm.wm == nil || spm.wm.GetActiveNode() == nil {
 		return false
 	}
 
