@@ -128,8 +128,10 @@ func (wm *WorkspaceManager) clonePaneState(_ *paneNode, target *paneNode) {
 	// Omnibox will auto-open on about:blank via client-side detection
 }
 
-// safelyDetachControllersBeforeReparent removes GTK controllers that GTK will auto-clean up during reparenting.
-// It marks nodes for reattachment once the widget hierarchy settles after the split operation.
+// safelyDetachControllersBeforeReparent marks nodes for controller reattachment after reparenting.
+// GTK4 automatically removes controllers when widgets are unparented, so we just clear our
+// references and mark for reattachment. Manually removing controllers causes GTK bloom filter
+// corruption (double-removal assertion failure).
 func (wm *WorkspaceManager) safelyDetachControllersBeforeReparent(node *paneNode) {
 	if wm == nil || node == nil {
 		return
@@ -140,15 +142,18 @@ func (wm *WorkspaceManager) safelyDetachControllersBeforeReparent(node *paneNode
 			return
 		}
 
+		// Just mark for reattachment and clear our references
+		// GTK4 will auto-remove controllers during unparent
 		if target.hoverToken != nil {
 			target.pendingHoverReattach = true
-			wm.detachHover(target)
+			target.hoverToken = nil // Clear reference, don't manually remove
+			log.Printf("[workspace] Marked hover controller for reattach on pane %p (GTK will auto-remove)", target)
 		}
 
-		if wm.focusStateMachine != nil && target.focusControllerToken != 0 {
-			token := target.focusControllerToken
+		if target.focusControllerToken != 0 {
 			target.pendingFocusReattach = true
-			wm.focusStateMachine.detachGTKController(target, token)
+			target.focusControllerToken = 0 // Clear reference, don't manually remove
+			log.Printf("[workspace] Marked focus controller for reattach on pane %p (GTK will auto-remove)", target)
 		}
 	}
 
