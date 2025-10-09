@@ -3,6 +3,7 @@ package browser
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/bnema/dumber/internal/config"
@@ -76,9 +77,9 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  background-color: %s;
 	}
 
-	/* Base pane styling - transparent outline for smooth transitions */
+	/* Base pane styling - subtle border for inactive panes */
 	.workspace-pane, .stacked-pane-container {
-	  outline: 2px solid transparent;
+	  outline: 2px solid %s;
 	  outline-offset: -2px;
 	  transition: outline-color %dms ease-in-out;
 	}
@@ -129,6 +130,7 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  /* Collapsed panes are hidden - handled in code via widget visibility */
 	}`,
 		windowBackgroundColor,          // window background
+		inactiveBorderColor,            // base pane outline color (inactive)
 		styling.TransitionDuration,     // base pane outline transition
 		activeBorderColor,              // workspace-pane-active outline-color
 		windowBackgroundColor,          // stacked-pane-container background
@@ -171,6 +173,8 @@ func (wm *WorkspaceManager) ensureWorkspaceStyles() {
 		webkit.AddCSSProvider(workspaceCSS)
 		globalCSSInitialized = true
 		globalCSSContent = workspaceCSS
+		log.Printf("[workspace] Applied workspace CSS styles (%d bytes)", len(workspaceCSS))
+		log.Printf("[workspace] CSS preview: %s...", workspaceCSS[:min(200, len(workspaceCSS))])
 	}
 
 	wm.cssInitialized = true

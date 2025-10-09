@@ -140,9 +140,30 @@ func (w *WebView) AttachKeyboardBridge() {
 				log.Printf("[keyboard-bridge] Failed to dispatch key event: %v", err)
 			}
 			log.Printf("[keyboard-bridge] Forwarded shortcut to JS: %s", shortcut)
+
+			// Only block WebKit's default handling for shortcuts that would conflict:
+			// - Alt+Arrow: WebKit uses these for back/forward navigation -> BLOCK
+			// - Ctrl+P: Pane mode, would trigger print dialog -> BLOCK
+			// - Ctrl+R, Ctrl+Shift+R: Page reload, WebKit should handle -> ALLOW
+			// - F12: DevTools, WebKit should handle -> ALLOW
+			// - All others: Custom app handlers, don't conflict with WebKit -> ALLOW
+			if len(parts) >= 2 {
+				modifier := parts[0]
+				if modifier == modifierAlt {
+					// Alt+Arrow keys - block WebKit's back/forward navigation
+					return true
+				}
+				if modifier == modifierCmdOrCtrl && keyName == keyP {
+					// Ctrl+P (with or without shift) - block WebKit's print dialog
+					return true
+				}
+			}
+
+			// Allow WebKit to also handle this event (for reload, devtools, zoom, etc.)
+			return false
 		}
 
-		// Return false to allow GTK shortcuts to also handle this
+		// No shortcut matched - allow WebKit to handle normally
 		return false
 	})
 

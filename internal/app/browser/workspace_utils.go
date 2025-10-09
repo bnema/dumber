@@ -114,8 +114,9 @@ func (wm *WorkspaceManager) determineBorderContext(node *paneNode) *PaneBorderCo
 	ctx := &PaneBorderContext{}
 
 	// Step 1: Get WebView widget for margin (same for all pane types)
+	// Use AsWidget() to get the actual WebView widget, not the container
 	if node.pane != nil && node.pane.webView != nil {
-		ctx.webViewWidget = node.pane.webView.RootWidget()
+		ctx.webViewWidget = node.pane.webView.AsWidget()
 	}
 
 	// Step 2: Determine the border container based on pane type
