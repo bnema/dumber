@@ -9,6 +9,7 @@ import (
 
 	"github.com/bnema/dumber/internal/app/messaging"
 	"github.com/bnema/dumber/pkg/webkit"
+	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
 const (
@@ -715,17 +716,17 @@ func (wm *WorkspaceManager) applyPopupSizeConstraints(view *webkit.WebView, widt
 	}
 
 	// Apply to container
-	if container := view.RootWidget(); container != 0 && webkit.WidgetIsValid(container) {
-		webkit.WidgetSetSizeRequest(container, minWidth, minHeight)
-		webkit.WidgetQueueResize(container)
-		log.Printf("[workspace] Applied minimum size %dx%d to popup container=%#x", minWidth, minHeight, container)
+	if container := view.RootWidget(); container != nil {
+		container.SetSizeRequest(minWidth, minHeight)
+		container.QueueResize()
+		log.Printf("[workspace] Applied minimum size %dx%d to popup container=%p", minWidth, minHeight, container)
 	}
 
 	// Apply to WebView widget
-	if webViewWidget := view.Widget(); webViewWidget != 0 && webkit.WidgetIsValid(webViewWidget) {
-		webkit.WidgetSetSizeRequest(webViewWidget, minWidth, minHeight)
-		webkit.WidgetQueueResize(webViewWidget)
-		log.Printf("[workspace] Applied minimum size %dx%d to popup webview=%#x", minWidth, minHeight, webViewWidget)
+	if webViewWidget := view.Widget(); webViewWidget != nil {
+		webViewWidget.SetSizeRequest(minWidth, minHeight)
+		webViewWidget.QueueResize()
+		log.Printf("[workspace] Applied minimum size %dx%d to popup webview=%p", minWidth, minHeight, webViewWidget)
 	}
 }
 
