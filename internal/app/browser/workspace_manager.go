@@ -166,6 +166,9 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 		log.Printf("[workspace] Failed to initialize focus state machine: %v", err)
 	}
 
+	// Ensure hover controllers are attached to all panes for mouse-driven focus changes
+	manager.attachHoverHandlersToAllPanes()
+
 	if manager.debugPaneClose {
 		manager.dumpTreeState("workspace_init")
 	}

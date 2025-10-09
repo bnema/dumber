@@ -159,7 +159,7 @@ func NewRequestDeduplicator(ttl time.Duration) *RequestDeduplicator {
 }
 
 // IsDuplicate checks if a request is a duplicate within the TTL window
-func (rd *RequestDeduplicator) IsDuplicate(req FocusRequest) bool {
+func (rd *RequestDeduplicator) IsDuplicate(req FocusRequest, isActiveTarget bool) bool {
 	rd.mu.Lock()
 	defer rd.mu.Unlock()
 
@@ -174,12 +174,16 @@ func (rd *RequestDeduplicator) IsDuplicate(req FocusRequest) bool {
 	// Generate signature for this request
 	sig := fmt.Sprintf("%p:%s", req.TargetNode, req.Source)
 
-	// Check if this signature exists
-	if _, exists := rd.recentSigs[sig]; exists {
-		return true
+	// Always record latest timestamp so future checks use fresh window
+	// Prevent duplicates only when the target is already active; otherwise we
+	// want to process the request to move focus back to that pane.
+	if timestamp, exists := rd.recentSigs[sig]; exists {
+		if isActiveTarget && now.Sub(timestamp) <= rd.ttl {
+			rd.recentSigs[sig] = now
+			return true
+		}
 	}
 
-	// Record this signature
 	rd.recentSigs[sig] = now
 	return false
 }
@@ -367,8 +371,11 @@ func (fsm *FocusStateMachine) RequestFocus(node *paneNode, source FocusSource) e
 		fsm.mu.Unlock()
 	}
 
-	// Check for duplicates
-	if fsm.deduplicator.IsDuplicate(request) {
+	activePane := fsm.GetActivePane()
+
+	// Check for duplicates (only dedupe when the request targets the currently
+	// active pane to avoid suppressing necessary focus transitions).
+	if fsm.deduplicator.IsDuplicate(request, activePane == node) {
 		if fsm.metricsEnabled {
 			fsm.mu.Lock()
 			fsm.metrics.DuplicateRequests++
@@ -589,8 +596,7 @@ func (fsm *FocusStateMachine) applyInitialFocus(node *paneNode) error {
 
 	// Apply initial visual border
 	if fsm.wm != nil {
-		ctx := fsm.wm.determineBorderContext(node)
-		fsm.wm.applyActivePaneBorder(ctx)
+		fsm.wm.applyActivePaneBorder(node)
 	}
 
 	// Update state
@@ -756,8 +762,7 @@ func (fsm *FocusStateMachine) executeFocusChange(request FocusRequest) error {
 			fsm.wm.removeActivePaneBorder(oldPane)
 		}
 		// Add border to new pane
-		ctx := fsm.wm.determineBorderContext(newPane)
-		fsm.wm.applyActivePaneBorder(ctx)
+		fsm.wm.applyActivePaneBorder(newPane)
 	}
 
 	// Update state

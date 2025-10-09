@@ -244,16 +244,7 @@ func getWidget(w gtk.Widgetter) *gtk.Widget {
 	if w == nil {
 		return nil
 	}
-	// The Widgetter interface provides a way to get the base widget
-	// In gotk4, we can cast to get access to the underlying widget
-	if widget, ok := w.(interface{ Widget() *gtk.Widget }); ok {
-		return widget.Widget()
-	}
-	// Fallback: try to type assert directly
-	if widget, ok := w.(*gtk.Widget); ok {
-		return widget
-	}
-	return nil
+	return gtk.BaseWidget(w)
 }
 
 // WidgetShow makes a widget visible

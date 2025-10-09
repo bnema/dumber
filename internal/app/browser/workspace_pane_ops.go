@@ -140,7 +140,7 @@ func (wm *WorkspaceManager) safelyDetachControllersBeforeReparent(node *paneNode
 			return
 		}
 
-		if target.hoverToken != 0 {
+		if target.hoverToken != nil {
 			target.pendingHoverReattach = true
 			wm.detachHover(target)
 		}
@@ -319,13 +319,6 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 
 	webkit.WidgetSetHExpand(newContainer, true)
 	webkit.WidgetSetVExpand(newContainer, true)
-	webkit.WidgetRealize(newContainer)
-
-	// Also realize the WebView widget itself for proper popup rendering
-	webViewWidget := newPane.webView.Widget()
-	if webViewWidget != nil {
-		webkit.WidgetRealize(webViewWidget)
-	}
 
 	// CRITICAL: Handle stacked panes correctly - same logic as splitNode
 	// When the target is inside a stacked pane, we need to split around the entire stack,
@@ -571,7 +564,7 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 			}
 			if candidate.pendingHoverReattach {
 				wm.ensureHover(candidate)
-				if candidate.hoverToken != 0 {
+				if candidate.hoverToken != nil {
 					candidate.pendingHoverReattach = false
 				}
 			}
@@ -642,7 +635,6 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string) (*pane
 	}
 	webkit.WidgetSetHExpand(newContainer, true)
 	webkit.WidgetSetVExpand(newContainer, true)
-	webkit.WidgetRealize(newContainer)
 
 	// Use the determined split target container
 	if splitTargetContainer == nil {
@@ -655,14 +647,12 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string) (*pane
 		if splitTargetContainer != nil {
 			webkit.WidgetSetHExpand(splitTargetContainer, true)
 			webkit.WidgetSetVExpand(splitTargetContainer, true)
-			webkit.WidgetRealize(splitTargetContainer)
 		}
 	} else if splitTarget.isStacked {
 		// Stack containers need the same setup as regular panes for proper splitting
 		if splitTargetContainer != nil {
 			webkit.WidgetSetHExpand(splitTargetContainer, true)
 			webkit.WidgetSetVExpand(splitTargetContainer, true)
-			webkit.WidgetRealize(splitTargetContainer)
 			log.Printf("[workspace] configured stack wrapper for split: %p", splitTargetContainer)
 		}
 	}
@@ -871,7 +861,7 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string) (*pane
 			}
 			if candidate.pendingHoverReattach {
 				wm.ensureHover(candidate)
-				if candidate.hoverToken != 0 {
+				if candidate.hoverToken != nil {
 					candidate.pendingHoverReattach = false
 				}
 			}

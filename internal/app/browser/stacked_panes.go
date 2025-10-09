@@ -20,9 +20,9 @@ const (
 
 // StackedPaneManager handles all stacked pane operations
 type StackedPaneManager struct {
-	wm              *WorkspaceManager
-	titleBarToPane  map[uint64]*paneNode
-	nextTitleBarID  uint64
+	wm             *WorkspaceManager
+	titleBarToPane map[uint64]*paneNode
+	nextTitleBarID uint64
 }
 
 // NewStackedPaneManager creates a new stacked pane manager
@@ -90,7 +90,6 @@ func (spm *StackedPaneManager) prepareNewStackedPane() (*paneNode, error) {
 	}
 	webkit.WidgetSetHExpand(newContainer, true)
 	webkit.WidgetSetVExpand(newContainer, true)
-	webkit.WidgetRealize(newContainer)
 
 	// Create the new leaf node
 	newLeaf := &paneNode{

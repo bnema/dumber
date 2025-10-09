@@ -79,25 +79,24 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 
 	/* Base pane styling - subtle border for inactive panes */
 	.workspace-pane, .stacked-pane-container {
-	  outline: 2px solid %s;
-	  outline-offset: -2px;
-	  transition: outline-color %dms ease-in-out;
+	  border: 2px solid %s;
+	  border-radius: %dpx;
+	  transition: border-color %dms ease-in-out;
 	}
 
-	/* Active pane border styling using outline (no layout impact) */
+	/* Active pane border styling */
 	.workspace-pane-active {
-	  outline-color: %s;
+	  border-color: %s;
 	}
 
 	/* Stacked panes styling */
 	.stacked-pane-container {
 	  background-color: %s;
-	  border-radius: %dpx;
 	}
 
 	/* Active stacked pane container gets the outline color */
 	.stacked-pane-container.workspace-pane-active {
-	  outline-color: %s;
+	  border-color: %s;
 	}
 
 	.stacked-pane-title {
@@ -130,12 +129,12 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  /* Collapsed panes are hidden - handled in code via widget visibility */
 	}`,
 		windowBackgroundColor,          // window background
-		inactiveBorderColor,            // base pane outline color (inactive)
-		styling.TransitionDuration,     // base pane outline transition
-		activeBorderColor,              // workspace-pane-active outline-color
+		inactiveBorderColor,            // base pane border color (inactive)
+		styling.BorderRadius,           // base pane border radius
+		styling.TransitionDuration,     // base pane border transition
+		activeBorderColor,              // workspace-pane-active border color
 		windowBackgroundColor,          // stacked-pane-container background
-		styling.BorderRadius,           // stacked-pane-container border-radius
-		activeBorderColor,              // stacked-pane-container.workspace-pane-active outline-color
+		activeBorderColor,              // stacked-pane-container.workspace-pane-active border color
 		getStackTitleBg(isDark),        // stacked-pane-title background
 		inactiveBorderColor,            // stacked-pane-title border-bottom
 		styling.TransitionDuration,     // stacked-pane-title transition

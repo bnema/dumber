@@ -89,47 +89,7 @@ func (wm *WorkspaceManager) focusByView(view *webkit.WebView) {
 	}
 }
 
-// ensureHover sets up hover handlers for a pane node
-func (wm *WorkspaceManager) ensureHover(node *paneNode) {
-	if wm == nil || node == nil || !node.isLeaf {
-		return
-	}
-	if node.container == nil || node.hoverToken != 0 {
-		return
-	}
-
-	// Create motion controller for hover detection
-	controller := gtk.NewEventControllerMotion()
-	controller.ConnectEnter(func(x, y float64) {
-		if wm == nil {
-			return
-		}
-		wm.SetActivePane(node, SourceMouse)
-	})
-
-	webkit.WidgetAddController(node.container, controller)
-	// Store controller pointer as token for later removal
-	node.hoverToken = uintptr(controller.Native())
-	if node.hoverToken == 0 {
-		log.Printf("[workspace] failed to attach hover handler")
-	}
-}
-
-// detachHover removes hover handlers from a pane node
-func (wm *WorkspaceManager) detachHover(node *paneNode) {
-	if wm == nil || node == nil || node.hoverToken == 0 {
-		return
-	}
-
-	if node.container == nil {
-		node.hoverToken = 0
-		return
-	}
-
-	// Note: In GTK4, controllers are automatically removed when widget is destroyed
-	// We just need to clear our token reference
-	node.hoverToken = 0
-}
+// Note: ensureHover and detachHover are now implemented in workspace_hover.go
 
 // detachFocus removes the GTK focus controller attached to a pane, if any.
 func (wm *WorkspaceManager) detachFocus(node *paneNode) {
