@@ -70,6 +70,8 @@ func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *web
 			log.Printf("[workspace] failed to build webkit config: %v - allowing native popup", err)
 			return nil
 		}
+		// Popups are embedded in workspace paned containers - no separate window needed
+		webkitCfg.CreateWindow = false
 		// Create as related to avoid WindowFeatures crash; we'll decide final placement later
 		newView, err := webkit.NewWebViewWithRelated(webkitCfg, source)
 		if err != nil {
@@ -105,6 +107,8 @@ func (wm *WorkspaceManager) HandlePopup(source *webkit.WebView, url string) *web
 		log.Printf("[workspace] failed to build webkit config: %v - allowing native popup", err)
 		return nil
 	}
+	// Popups are embedded in workspace paned containers - no separate window needed
+	webkitCfg.CreateWindow = false
 	newView, err := webkit.NewWebViewWithRelated(webkitCfg, source)
 	if err != nil {
 		log.Printf("[workspace] failed to create placeholder WebView: %v - allowing native popup", err)
@@ -342,6 +346,8 @@ func (wm *WorkspaceManager) handleIntentAsTab(sourceNode *paneNode, url string, 
 		log.Printf("[workspace] failed to build webkit config: %v - allowing native popup", err)
 		return nil
 	}
+	// Tabs are embedded in workspace paned containers - no separate window needed
+	webkitCfg.CreateWindow = false
 
 	newView, err := webkit.NewWebView(webkitCfg)
 	if err != nil {
@@ -398,6 +404,8 @@ func (wm *WorkspaceManager) handleIntentAsPopup(sourceNode *paneNode, url string
 		log.Printf("[workspace] failed to build webkit config: %v - allowing native popup", err)
 		return nil
 	}
+	// Popups are embedded in workspace paned containers - no separate window needed
+	webkitCfg.CreateWindow = false
 
 	newView, err := webkit.NewWebViewWithRelated(webkitCfg, sourceNode.pane.webView)
 	if err != nil {
@@ -792,6 +800,8 @@ func (wm *WorkspaceManager) handleDetectedWindowType(sourceNode *paneNode, webVi
 			log.Printf("[workspace] failed to build webkit config for tab: %v", err)
 			return
 		}
+		// Tabs are embedded in workspace paned containers - no separate window needed
+		webkitCfg.CreateWindow = false
 
 		// Create independent WebView like handleIntentAsTab does
 		independentView, err := webkit.NewWebView(webkitCfg)

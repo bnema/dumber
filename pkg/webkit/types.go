@@ -54,6 +54,10 @@ type Config struct {
 	// AppearanceConfigJSON is the JSON string for appearance configuration
 	// This will be injected at document-start via UserContentManager
 	AppearanceConfigJSON string
+
+	// CreateWindow controls whether to create a standalone GTK Window for this WebView
+	// Set to false for WebViews that will be embedded in workspace panes
+	CreateWindow bool
 }
 
 // GetDefaultConfig returns a Config with sensible defaults
@@ -66,5 +70,6 @@ func GetDefaultConfig() *Config {
 		HardwareAcceleration: true,
 		DefaultFontSize:      16,
 		MinimumFontSize:      8,
+		CreateWindow:         true, // Default to standalone window
 	}
 }

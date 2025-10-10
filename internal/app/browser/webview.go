@@ -52,6 +52,7 @@ func (app *BrowserApp) buildWebkitConfig() (*webkit.Config, error) {
 		DataDir:              webkitData,
 		CacheDir:             webkitCache,
 		AppearanceConfigJSON: app.buildAppearanceConfigJSON(),
+		CreateWindow:         true, // Default to creating a window for standalone WebViews
 	}
 
 	return cfg, nil

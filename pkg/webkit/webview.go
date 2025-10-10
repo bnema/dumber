@@ -20,9 +20,10 @@ var (
 
 // WebView wraps a WebKitGTK WebView
 type WebView struct {
-	view   *webkit.WebView
-	window *Window
-	id     uint64
+	view      *webkit.WebView
+	container *gtk.Box   // Container that holds the WebView
+	window    *Window    // Optional window (only if CreateWindow=true)
+	id        uint64
 
 	// State
 	config    *Config
@@ -50,15 +51,9 @@ func NewWebView(cfg *Config) (*WebView, error) {
 
 	// Generate unique ID immediately
 	id := atomic.AddUint64(&viewIDCounter, 1)
-	log.Printf("[webkit] Generated WebView ID: %d", id)
+	log.Printf("[webkit] Generated WebView ID: %d (CreateWindow=%v)", id, cfg.CreateWindow)
 
 	InitMainThread()
-
-	// Create GTK Window
-	window, err := NewWindow("Dumb Browser")
-	if err != nil {
-		return nil, err
-	}
 
 	// Initialize persistent session - REQUIRED, no ephemeral fallback
 	// This must be done BEFORE creating the WebView
@@ -103,11 +98,25 @@ func NewWebView(cfg *Config) (*WebView, error) {
 		return nil, fmt.Errorf("failed to setup user content manager: %w", err)
 	}
 
+	// Create container (GtkBox) to hold the WebView
+	// This allows the WebView to be reparented into workspace panes
+	container := gtk.NewBox(gtk.OrientationVertical, 0)
+	container.SetHExpand(true)
+	container.SetVExpand(true)
+
+	// Configure WebView widget for expansion
+	wkView.SetHExpand(true)
+	wkView.SetVExpand(true)
+
+	// Add WebView to container
+	container.Append(wkView)
+
 	wv := &WebView{
-		view:   wkView,
-		window: window,
-		id:     id,
-		config: cfg,
+		view:      wkView,
+		container: container,
+		window:    nil, // Will be set below if CreateWindow is true
+		id:        id,
+		config:    cfg,
 	}
 
 	// Apply configuration
@@ -121,8 +130,20 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	// Attach keyboard bridge to forward keyboard events to JavaScript
 	wv.AttachKeyboardBridge()
 
-	// Add WebView as child of window
-	window.SetChild(wkView)
+	// Only create window if requested (standalone WebViews)
+	// Workspace panes will set CreateWindow=false and manage the container themselves
+	if cfg.CreateWindow {
+		window, err := NewWindow("Dumber Browser")
+		if err != nil {
+			return nil, err
+		}
+		wv.window = window
+		// Add container as child of window
+		window.SetChild(container)
+		log.Printf("[webkit] Created standalone window for WebView ID %d", id)
+	} else {
+		log.Printf("[webkit] Created WebView ID %d without window (for workspace embedding)", id)
+	}
 
 	// Register in global registry
 	viewMu.Lock()
@@ -489,8 +510,12 @@ func (w *WebView) Widget() gtk.Widgetter {
 }
 
 // RootWidget returns the root container widget for this WebView
-// In the new architecture, this is just the WebView itself
+// This is the GtkBox container that holds the WebView and can be reparented
 func (w *WebView) RootWidget() gtk.Widgetter {
+	if w.container != nil {
+		return w.container
+	}
+	// Fallback to WebView if container is not available (shouldn't happen)
 	return w.AsWidget()
 }
 

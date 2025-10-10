@@ -115,9 +115,10 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 		if err != nil {
 			return nil, err
 		}
-		// Pane WebViews are embedded inside the main application window, so they do not
-		// need their own toplevel GtkWindow. In gotk4, this is the default behavior when
-		// using webkit.NewWebView() without creating a separate window.
+		// CRITICAL: Pane WebViews are embedded inside the workspace paned containers,
+		// so they do not need their own toplevel GtkWindow. Setting CreateWindow=false
+		// prevents GTK "widget already has parent" errors when adding to paned containers.
+		cfg.CreateWindow = false
 		return webkit.NewWebView(cfg)
 	}
 	manager.createPaneFn = func(view *webkit.WebView) (*BrowserPane, error) {
