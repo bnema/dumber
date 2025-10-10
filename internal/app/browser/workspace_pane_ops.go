@@ -1051,13 +1051,12 @@ func (wm *WorkspaceManager) attachRoot(root *paneNode) {
 	// No need for manual Ref()/Unref() calls
 
 	// Detach from previous container (paned, stack, etc.) before replacing the window child.
+	// While GTK4 auto-unparents for paned operations, window.SetChild requires manual unparent
 	if parent := webkit.WidgetGetParent(root.container); parent != nil {
 		log.Printf("[workspace] unparenting widget %p from parent %p before window attach", root.container, parent)
 		webkit.WidgetUnparent(root.container)
-		if root.container == nil {
-			log.Printf("[workspace] WARNING: widget %p became invalid during unparent; aborting attachRoot", root.container)
-			return
-		}
+		// Note: In gotk4, the Go object reference remains valid after unparent
+		// Only the GTK parent relationship is cleared
 	}
 
 	// Clear any existing window child to avoid GTK warnings when swapping roots.
@@ -1068,11 +1067,7 @@ func (wm *WorkspaceManager) attachRoot(root *paneNode) {
 		webkit.WidgetSetVExpand(root.container, true)
 	}
 
-	if root.container == nil {
-		log.Printf("[workspace] WARNING: widget %p invalid prior to window attach", root.container)
-		return
-	}
-
+	// GTK4 will automatically unparent root.container from its previous parent when we attach it here
 	wm.window.SetChild(root.container)
 	if root.container != nil {
 		webkit.WidgetQueueAllocate(root.container)
@@ -1251,11 +1246,25 @@ func (wm *WorkspaceManager) closePane(node *paneNode) (*paneNode, error) {
 		}
 	}
 
-	// STEP 5: Promote sibling in-place (tree structure)
+	// STEP 5: Unparent sibling from parent paned BEFORE promotion
+	// The sibling needs to be detached from the parent paned before we can attach it elsewhere
+	if sibling.container != nil && parent.container != nil {
+		if parentPaned, ok := parent.container.(*gtk.Paned); ok && parentPaned != nil {
+			if parent.left == sibling {
+				parentPaned.SetStartChild(nil)
+			} else if parent.right == sibling {
+				parentPaned.SetEndChild(nil)
+			}
+			log.Printf("[workspace] unparented sibling container %p from parent paned %p", sibling.container, parent.container)
+		}
+	}
+
+	// STEP 6: Promote sibling in-place (tree structure)
 	wm.promoteSibling(grandparent, parent, sibling)
 
-	// STEP 6: GTK handles all reparenting automatically
-	// PanedSetStartChild/EndChild and window.SetChild auto-unparent widgets
+	// STEP 7: GTK widget reparenting
+	// For paned containers: GTK4 PanedSetStartChild/EndChild auto-unparent from current parent
+	// For window: we already manually unparented above, so now we can safely attach
 	wm.swapContainers(grandparent, sibling)
 
 	// Reconnect the promoted sibling's rendering pipeline after GTK reparenting.
@@ -1273,14 +1282,14 @@ func (wm *WorkspaceManager) closePane(node *paneNode) (*paneNode, error) {
 		}, sibling)
 	}
 
-	// STEP 7: Check if grandparent now has only one child (cascade promotion needed)
+	// STEP 8: Check if grandparent now has only one child (cascade promotion needed)
 	if grandparent != nil && ((grandparent.left == nil) != (grandparent.right == nil)) {
 		// Grandparent has exactly one child - it should be promoted too
 		log.Printf("[workspace] Grandparent %p now has only one child, cascading promotion", grandparent)
 		wm.cascadePromotion(grandparent)
 	}
 
-	// STEP 8: Cleanup & focus
+	// STEP 9: Cleanup & focus
 	wm.cleanupPane(node, ctx.Generation())
 	wm.decommissionParent(parent, ctx.Generation())
 	if sibling != nil {
