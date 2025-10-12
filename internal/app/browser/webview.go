@@ -78,22 +78,22 @@ func (app *BrowserApp) buildAppearanceConfigJSON() string {
 	// It looks for window.__dumber_palette = { "light": {...}, "dark": {...} }
 	paletteConfig := map[string]interface{}{
 		"light": map[string]string{
-			"background":       app.config.Appearance.LightPalette.Background,
-			"surface":          app.config.Appearance.LightPalette.Surface,
-			"surface_variant":  app.config.Appearance.LightPalette.SurfaceVariant,
-			"text":             app.config.Appearance.LightPalette.Text,
-			"muted":            app.config.Appearance.LightPalette.Muted,
-			"accent":           app.config.Appearance.LightPalette.Accent,
-			"border":           app.config.Appearance.LightPalette.Border,
+			"background":      app.config.Appearance.LightPalette.Background,
+			"surface":         app.config.Appearance.LightPalette.Surface,
+			"surface_variant": app.config.Appearance.LightPalette.SurfaceVariant,
+			"text":            app.config.Appearance.LightPalette.Text,
+			"muted":           app.config.Appearance.LightPalette.Muted,
+			"accent":          app.config.Appearance.LightPalette.Accent,
+			"border":          app.config.Appearance.LightPalette.Border,
 		},
 		"dark": map[string]string{
-			"background":       app.config.Appearance.DarkPalette.Background,
-			"surface":          app.config.Appearance.DarkPalette.Surface,
-			"surface_variant":  app.config.Appearance.DarkPalette.SurfaceVariant,
-			"text":             app.config.Appearance.DarkPalette.Text,
-			"muted":            app.config.Appearance.DarkPalette.Muted,
-			"accent":           app.config.Appearance.DarkPalette.Accent,
-			"border":           app.config.Appearance.DarkPalette.Border,
+			"background":      app.config.Appearance.DarkPalette.Background,
+			"surface":         app.config.Appearance.DarkPalette.Surface,
+			"surface_variant": app.config.Appearance.DarkPalette.SurfaceVariant,
+			"text":            app.config.Appearance.DarkPalette.Text,
+			"muted":           app.config.Appearance.DarkPalette.Muted,
+			"accent":          app.config.Appearance.DarkPalette.Accent,
+			"border":          app.config.Appearance.DarkPalette.Border,
 		},
 	}
 
@@ -190,7 +190,7 @@ func (app *BrowserApp) attachPaneHandlers(pane *BrowserPane) {
 	})
 
 	pane.webView.RegisterScriptMessageHandler(func(payload string) {
-		if app.workspace != nil {
+		if app.workspace != nil && shouldFocusForScriptMessage(payload) {
 			app.workspace.focusByView(pane.webView)
 		}
 		pane.messageHandler.Handle(payload)
@@ -207,6 +207,23 @@ func (app *BrowserApp) attachPaneHandlers(pane *BrowserPane) {
 			app.workspace.setupPopupHandling(pane.webView, node)
 			log.Printf("[webview] Setup native popup handling for WebView ID: %d", pane.webView.ID())
 		}
+	}
+}
+
+// shouldFocusForScriptMessage filters out bootstrap messages that fire without user
+// interaction (palette sync, shortcut preload, etc.). Only actionable payloads should
+// bump the pane back to the front.
+func shouldFocusForScriptMessage(payload string) bool {
+	var msg messaging.Message
+	if err := json.Unmarshal([]byte(payload), &msg); err != nil {
+		return true // keep legacy behaviour if parsing fails
+	}
+
+	switch msg.Type {
+	case "get_color_palettes", "get_search_shortcuts", "request-webview-id", "console-message":
+		return false
+	default:
+		return true
 	}
 }
 
