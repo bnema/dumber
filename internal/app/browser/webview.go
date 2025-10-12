@@ -210,9 +210,10 @@ func (app *BrowserApp) attachPaneHandlers(pane *BrowserPane) {
 	}
 }
 
-// shouldFocusForScriptMessage filters out bootstrap messages that fire without user
-// interaction (palette sync, shortcut preload, etc.). Only actionable payloads should
-// bump the pane back to the front.
+// shouldFocusForScriptMessage filters script messages and only allows focus handoff
+// for explicit user-driven actions (navigation, history commands, popup lifecycle).
+// Background bootstrap messages (palette sync, workspace bridge chatter, etc.) are
+// ignored so they don't steal focus from the user's active pane.
 func shouldFocusForScriptMessage(payload string) bool {
 	var msg messaging.Message
 	if err := json.Unmarshal([]byte(payload), &msg); err != nil {
@@ -220,10 +221,10 @@ func shouldFocusForScriptMessage(payload string) bool {
 	}
 
 	switch msg.Type {
-	case "get_color_palettes", "get_search_shortcuts", "request-webview-id", "console-message", "workspace":
-		return false
-	default:
+	case "navigate", "query", "wails", "history_recent", "history_stats", "history_search", "history_delete", "close-popup":
 		return true
+	default:
+		return false
 	}
 }
 
