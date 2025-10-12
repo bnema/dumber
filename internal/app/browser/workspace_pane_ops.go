@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/bnema/dumber/pkg/webkit"
+	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
@@ -497,27 +498,8 @@ func (wm *WorkspaceManager) insertPopupPane(target *paneNode, newPane *BrowserPa
 		return false
 	}, split)
 
-	// CRITICAL: Set initial 50/50 split position after showing paned
-	// GTK needs the widget to be realized before we can set position based on allocation
-	// Schedule this to run after GTK has allocated space to the paned
-	wm.scheduleIdleGuarded(func() bool {
-		if paned == nil {
-			return false
-		}
-		// Get paned allocation to calculate 50% position
-		alloc := paned.Allocation()
-		var splitPos int
-		if orientation == gtk.OrientationHorizontal {
-			splitPos = alloc.Width() / 2
-		} else {
-			splitPos = alloc.Height() / 2
-		}
-		if splitPos > 0 {
-			paned.SetPosition(splitPos)
-			log.Printf("[workspace] Set initial paned position to 50%%: %d (orientation=%d, size=%dx%d)", splitPos, orientation, alloc.Width(), alloc.Height())
-		}
-		return false
-	}, split)
+	// Synchronize the divider once the paned has a meaningful allocation.
+	wm.syncPanedDivider(paned, orientation, split)
 
 	// CRITICAL: Show the split target container and force GTK to recreate rendering surface after reparenting
 	// This reconnects WebKitGTK's rendering pipeline and fixes compositor sync issues
@@ -785,27 +767,8 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string) (*pane
 
 	paned.Show()
 
-	// CRITICAL: Set initial 50/50 split position after showing paned
-	// GTK needs the widget to be realized before we can set position based on allocation
-	// Schedule this to run after GTK has allocated space to the paned
-	wm.scheduleIdleGuarded(func() bool {
-		if paned == nil {
-			return false
-		}
-		// Get paned allocation to calculate 50% position
-		alloc := paned.Allocation()
-		var splitPos int
-		if orientation == gtk.OrientationHorizontal {
-			splitPos = alloc.Width() / 2
-		} else {
-			splitPos = alloc.Height() / 2
-		}
-		if splitPos > 0 {
-			paned.SetPosition(splitPos)
-			log.Printf("[workspace] Set initial paned position to 50%%: %d (orientation=%d, size=%dx%d)", splitPos, orientation, alloc.Width(), alloc.Height())
-		}
-		return false
-	}, split)
+	// Synchronize the divider once the paned has a meaningful allocation.
+	wm.syncPanedDivider(paned, orientation, split)
 
 	// CRITICAL: Show the existing container and force GTK to recreate rendering surface after reparenting
 	// This reconnects WebKitGTK's rendering pipeline and fixes compositor sync issues
@@ -1380,4 +1343,78 @@ func (wm *WorkspaceManager) closeStackedPaneCompat(node *paneNode) (*paneNode, e
 	wm.cleanupPane(node, wm.nextCleanupGeneration())
 
 	return stack, nil
+}
+
+// syncPanedDivider waits until a GtkPaned has a meaningful allocation before snapping
+// the divider to an even split. GTK often reports near-zero allocations for a few frames
+// after insertion, so we retry on map/tick/idle until the size stabilizes.
+func (wm *WorkspaceManager) syncPanedDivider(paned *gtk.Paned, orientation gtk.Orientation, guard *paneNode) {
+	if wm == nil || paned == nil {
+		return
+	}
+
+	const (
+		minDimension = 32
+		maxFrames    = 120
+	)
+
+	setPosition := func() bool {
+		if guard != nil && !guard.widgetValid {
+			return true
+		}
+
+		alloc := paned.Allocation()
+		dimension := alloc.Width()
+		if orientation == gtk.OrientationVertical {
+			dimension = alloc.Height()
+		}
+
+		if dimension < minDimension {
+			return false
+		}
+
+		pos := dimension / 2
+		if pos <= 0 {
+			return false
+		}
+
+		paned.SetPosition(pos)
+		log.Printf("[workspace] Set paned position to 50%%: %d (orientation=%d, size=%dx%d)", pos, orientation, alloc.Width(), alloc.Height())
+		return true
+	}
+
+	// Attempt immediately with the current allocation.
+	if setPosition() {
+		return
+	}
+
+	var frames uint
+
+	paned.ConnectMap(func() {
+		setPosition()
+	})
+
+	paned.AddTickCallback(func(widget gtk.Widgetter, _ gdk.FrameClocker) bool {
+		if guard != nil && !guard.widgetValid {
+			return false
+		}
+
+		frames++
+		if setPosition() {
+			return false
+		}
+
+		if frames >= maxFrames {
+			alloc := paned.Allocation()
+			log.Printf("[workspace] Unable to stabilize paned position after %d frames (size=%dx%d)", frames, alloc.Width(), alloc.Height())
+			return false
+		}
+
+		return true
+	})
+
+	wm.scheduleIdleGuarded(func() bool {
+		setPosition()
+		return false
+	}, guard)
 }

@@ -57,25 +57,26 @@ type paneNode struct {
 	isPopup     bool // Deprecated: use windowType instead
 
 	// Window type tracking
-	windowType           webkit.WindowType      // Tab or Popup
-	windowFeatures       *webkit.WindowFeatures // Features if popup
-	isRelated            bool                   // Shares context
-	parentPane           *paneNode              // Parent for related views
-	activePopupChildren  []string               // WebView IDs of active popup children (for tracking related popups)
-	autoClose            bool                   // Auto-close on OAuth success
-	requestID             string                       // Request ID for popup (used for localStorage cleanup)
-	hoverToken            *gtk.EventControllerMotion   // Hover event controller for mouse-based focus
-	focusControllerToken  uintptr                      // Focus controller token (stored as native pointer)
-	pendingHoverReattach  bool                         // Needs hover reattachment after reparent
-	pendingFocusReattach  bool                         // Needs focus reattachment after reparent
-	lastHoverTime         int64                        // Timestamp of last hover event (for debouncing)
+	windowType           webkit.WindowType          // Tab or Popup
+	windowFeatures       *webkit.WindowFeatures     // Features if popup
+	isRelated            bool                       // Shares context
+	parentPane           *paneNode                  // Parent for related views
+	activePopupChildren  []string                   // WebView IDs of active popup children (for tracking related popups)
+	autoClose            bool                       // Auto-close on OAuth success
+	requestID            string                     // Request ID for popup (used for localStorage cleanup)
+	popupID              uint64                     // Unique popup ID (for bare WebView lifecycle tracking)
+	hoverToken           *gtk.EventControllerMotion // Hover event controller for mouse-based focus
+	focusControllerToken uintptr                    // Focus controller token (stored as native pointer)
+	pendingHoverReattach bool                       // Needs hover reattachment after reparent
+	pendingFocusReattach bool                       // Needs focus reattachment after reparent
+	lastHoverTime        int64                      // Timestamp of last hover event (for debouncing)
 
 	// Stacked panes support - terminal branch nodes
-	isStacked        bool        // Whether this node contains stacked panes
-	stackedPanes     []*paneNode // List of stacked panes (if isStacked)
-	activeStackIndex int         // Index of currently visible pane in stack
-	titleBar         gtk.Widgetter     // *gtk.Box for title bar (when collapsed)
-	stackWrapper     gtk.Widgetter     // Internal *gtk.Box containing the actual stacked widgets (titles + webviews)
+	isStacked        bool          // Whether this node contains stacked panes
+	stackedPanes     []*paneNode   // List of stacked panes (if isStacked)
+	activeStackIndex int           // Index of currently visible pane in stack
+	titleBar         gtk.Widgetter // *gtk.Box for title bar (when collapsed)
+	stackWrapper     gtk.Widgetter // Internal *gtk.Box containing the actual stacked widgets (titles + webviews)
 
 	// Cleanup tracking
 	widgetValid        bool                 // Guard flagged before GTK destruction
@@ -91,6 +92,16 @@ const (
 	outlinePaneClass    = "workspace-pane-active-outline"
 	stackContainerClass = "stacked-pane-container"
 )
+
+// pendingPopup tracks a popup WebView that has been created by WebKit but not
+// yet fully initialized/inserted into the workspace. It allows the ready-to-show
+// handler to finish setup once WebKit has configured window properties.
+type pendingPopup struct {
+	wrappedView *webkit.WebView
+	parentView  *webkit.WebView
+	parentNode  *paneNode
+	url         string
+}
 
 // Focus calculation epsilon for geometric comparisons
 const focusEpsilon = 1e-3

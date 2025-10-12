@@ -43,7 +43,8 @@ type WorkspaceManager struct {
 	lastStackOperation time.Time // When a stack operation was last performed
 
 	// NEW: Pane creation deduplicator
-	paneDeduplicator *messaging.PaneRequestDeduplicator
+	// Popups waiting for ready-to-show lifecycle callback
+	pendingPopups map[uint64]*pendingPopup
 
 	// Specialized managers for different pane operations
 	stackedPaneManager *StackedPaneManager
@@ -77,14 +78,14 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 	debugLevel := getDebugLevel()
 
 	manager := &WorkspaceManager{
-		app:              app,
-		window:           rootPane.webView.Window(),
-		viewToNode:       make(map[*webkit.WebView]*paneNode),
-		lastSplitMsg:     make(map[*webkit.WebView]time.Time),
-		lastExitMsg:      make(map[*webkit.WebView]time.Time),
-		paneDeduplicator: messaging.NewPaneRequestDeduplicator(),
-		focusDebounce:    150 * time.Millisecond,
-		debugLevel:       debugLevel,
+		app:           app,
+		window:        rootPane.webView.Window(),
+		viewToNode:    make(map[*webkit.WebView]*paneNode),
+		lastSplitMsg:  make(map[*webkit.WebView]time.Time),
+		lastExitMsg:   make(map[*webkit.WebView]time.Time),
+		pendingPopups: make(map[uint64]*pendingPopup),
+		focusDebounce: 150 * time.Millisecond,
+		debugLevel:    debugLevel,
 	}
 
 	// Initialize validation components (opt-in based on debug level)
@@ -325,60 +326,7 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 		}
 		wm.clonePaneState(node, newNode)
 	case "create-pane":
-		log.Printf("[workspace] create-pane requested: url=%s action=%s requestId=%s", msg.URL, msg.Action, msg.RequestID)
-
-		if msg.URL == "" {
-			log.Printf("[workspace] create-pane: empty URL, ignoring")
-			break
-		}
-
-		// NEW: Get WebView ID for deduplication
-		webViewID := "unknown"
-		if source != nil {
-			// Try to get a unique identifier for the WebView
-			webViewID = fmt.Sprintf("%p", source)
-		}
-
-		// NEW: Create intent for deduplication check
-		intent := &messaging.WindowIntent{
-			URL:           msg.URL,
-			WindowType:    msg.Action,
-			Timestamp:     time.Now().UnixMilli(),
-			RequestID:     msg.RequestID,
-			UserTriggered: true,
-		}
-
-		// NEW: Check for duplicates
-		if isDup, reason := wm.paneDeduplicator.IsDuplicate(intent, webViewID); isDup {
-			log.Printf("[workspace] create-pane BLOCKED: %s", reason)
-			break
-		}
-
-		// Use the existing methods to handle tab vs popup creation
-		switch strings.ToLower(msg.Action) {
-		case "tab":
-			newView := wm.handleIntentAsTab(node, msg.URL, intent)
-			if newView != nil {
-				log.Printf("[workspace] create-pane: tab created successfully")
-			} else {
-				log.Printf("[workspace] create-pane: failed to create tab")
-			}
-		case "popup":
-			newView := wm.handleIntentAsPopup(node, msg.URL, intent)
-			if newView != nil {
-				log.Printf("[workspace] create-pane: popup created successfully")
-			} else {
-				log.Printf("[workspace] create-pane: failed to create popup")
-			}
-		default:
-			log.Printf("[workspace] create-pane: unknown action '%s', defaulting to tab", msg.Action)
-			newView := wm.handleIntentAsTab(node, msg.URL, intent)
-			if newView != nil {
-				log.Printf("[workspace] create-pane: default tab created successfully")
-			} else {
-				log.Printf("[workspace] create-pane: failed to create default tab")
-			}
-		}
+		log.Printf("[workspace] create-pane message ignored (native popup lifecycle enabled)")
 	case "close-popup":
 		log.Printf("[workspace] close-popup requested: webviewId=%s reason=%s", msg.WebViewID, msg.Reason)
 

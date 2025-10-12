@@ -200,21 +200,14 @@ func (app *BrowserApp) attachPaneHandlers(pane *BrowserPane) {
 		pane.messageHandler.SetNavigationController(pane.navigationController)
 	}
 
-	pane.webView.RegisterPopupHandler(func(uri string) *webkit.WebView {
-		if app.workspace != nil {
-			return app.workspace.HandlePopup(pane.webView, uri)
+	// Setup WebKit-native popup lifecycle using create/ready-to-show/close signals
+	if app.workspace != nil {
+		node := app.workspace.GetNodeForWebView(pane.webView)
+		if node != nil {
+			app.workspace.setupPopupHandling(pane.webView, node)
+			log.Printf("[webview] Setup native popup handling for WebView ID: %d", pane.webView.ID())
 		}
-
-		// No workspace manager - just navigate in current pane
-		if uri != "" && pane.navigationController != nil {
-			go func() {
-				if err := pane.navigationController.NavigateToURL(uri); err != nil {
-					log.Printf("[webview] failed to navigate to URL %s: %v", uri, err)
-				}
-			}()
-		}
-		return nil
-	})
+	}
 }
 
 // createWebView creates and configures the WebView
@@ -252,6 +245,16 @@ func (app *BrowserApp) createWebView() error {
 		// CRITICAL: Register navigation handler for the root webview
 		// This is needed because buildPane() couldn't register it when workspace was nil
 		app.workspace.RegisterNavigationHandler(view)
+
+		// CRITICAL: Setup popup handling for the root webview
+		// This must be done after workspace is created so WebKit's create signal is connected
+		node := app.workspace.GetNodeForWebView(view)
+		if node != nil {
+			app.workspace.setupPopupHandling(view, node)
+			log.Printf("[webview] Setup native popup handling for root WebView ID: %d", view.ID())
+		} else {
+			log.Printf("[webview] WARNING: Could not find node for root WebView ID: %d", view.ID())
+		}
 	}
 
 	// Initialize window-level global shortcuts AFTER workspace is set up
