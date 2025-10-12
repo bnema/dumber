@@ -282,18 +282,42 @@ type TabKeyConfig struct {
 	PreviousTab string `mapstructure:"previous_tab" yaml:"previous_tab" json:"previous_tab"`
 }
 
+// PopupBehavior defines how popup windows should be opened
+type PopupBehavior string
+
+const (
+	// PopupBehaviorSplit opens popups in a split pane (default)
+	PopupBehaviorSplit PopupBehavior = "split"
+	// PopupBehaviorStacked opens popups in a stacked pane
+	PopupBehaviorStacked PopupBehavior = "stacked"
+	// PopupBehaviorTabbed opens popups as a new tab
+	PopupBehaviorTabbed PopupBehavior = "tabbed"
+	// PopupBehaviorWindowed opens popups in a new workspace window
+	PopupBehaviorWindowed PopupBehavior = "windowed"
+)
+
 // PopupBehaviorConfig defines handling for popup windows.
 type PopupBehaviorConfig struct {
-	Placement         string `mapstructure:"placement" yaml:"placement" json:"placement"`
-	OpenInNewPane     bool   `mapstructure:"open_in_new_pane" yaml:"open_in_new_pane" json:"open_in_new_pane"`
-	FollowPaneContext bool   `mapstructure:"follow_pane_context" yaml:"follow_pane_context" json:"follow_pane_context"`
+	// Behavior determines how popups are opened (split/stacked/tabbed/windowed)
+	Behavior PopupBehavior `mapstructure:"behavior" yaml:"behavior" json:"behavior"`
 
-	// New fields for distinguishing window types and behaviors
+	// Placement specifies direction for split behavior ("right", "left", "top", "bottom")
+	// Only used when Behavior is "split"
+	Placement string `mapstructure:"placement" yaml:"placement" json:"placement"`
+
+	// OpenInNewPane controls whether popups are opened in workspace or blocked
+	OpenInNewPane bool `mapstructure:"open_in_new_pane" yaml:"open_in_new_pane" json:"open_in_new_pane"`
+
+	// FollowPaneContext determines if popup placement follows parent pane context
+	FollowPaneContext bool `mapstructure:"follow_pane_context" yaml:"follow_pane_context" json:"follow_pane_context"`
+
 	// BlankTargetBehavior determines how to handle window.open(url, "_blank") intents
 	// Accepted values: "pane" (default) or "tab" (future support)
 	BlankTargetBehavior string `mapstructure:"blank_target_behavior" yaml:"blank_target_behavior" json:"blank_target_behavior"`
+
 	// EnableSmartDetection uses WebKitWindowProperties to detect popup vs tab intents
 	EnableSmartDetection bool `mapstructure:"enable_smart_detection" yaml:"enable_smart_detection" json:"enable_smart_detection"`
+
 	// OAuthAutoClose enables auto-closing OAuth popups after successful auth redirects
 	OAuthAutoClose bool `mapstructure:"oauth_auto_close" yaml:"oauth_auto_close" json:"oauth_auto_close"`
 }
@@ -733,6 +757,7 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("workspace.tabs.close_tab", defaults.Workspace.Tabs.CloseTab)
 	m.viper.SetDefault("workspace.tabs.next_tab", defaults.Workspace.Tabs.NextTab)
 	m.viper.SetDefault("workspace.tabs.previous_tab", defaults.Workspace.Tabs.PreviousTab)
+	m.viper.SetDefault("workspace.popups.behavior", string(defaults.Workspace.Popups.Behavior))
 	m.viper.SetDefault("workspace.popups.placement", defaults.Workspace.Popups.Placement)
 	m.viper.SetDefault("workspace.popups.open_in_new_pane", defaults.Workspace.Popups.OpenInNewPane)
 	m.viper.SetDefault("workspace.popups.follow_pane_context", defaults.Workspace.Popups.FollowPaneContext)

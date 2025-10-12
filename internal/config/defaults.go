@@ -191,6 +191,7 @@ func DefaultConfig() *Config {
 				PreviousTab: "cmdorctrl+shift+tab",
 			},
 			Popups: PopupBehaviorConfig{
+				Behavior:             PopupBehaviorSplit, // Default: open popups in split panes
 				Placement:            defaultPopupPlacement,
 				OpenInNewPane:        true,
 				FollowPaneContext:    true,
