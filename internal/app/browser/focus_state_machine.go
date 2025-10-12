@@ -619,6 +619,11 @@ func (fsm *FocusStateMachine) applyInitialFocus(node *paneNode) error {
 		fsm.wm.app.activePane = node.pane
 	}
 
+	// Notify JS runtime about focus state
+	if fsm.wm != nil {
+		fsm.wm.DispatchPaneFocusEvent(node, true)
+	}
+
 	return nil
 }
 
@@ -785,6 +790,16 @@ func (fsm *FocusStateMachine) executeFocusChange(request FocusRequest) error {
 	// Notify workspace manager
 	if fsm.wm != nil && fsm.wm.app != nil && newPane.pane != nil {
 		fsm.wm.app.activePane = newPane.pane
+	}
+
+	// Notify JS runtimes about focus change
+	if fsm.wm != nil {
+		if oldPane != nil {
+			fsm.wm.DispatchPaneFocusEvent(oldPane, false)
+		}
+		if newPane != nil {
+			fsm.wm.DispatchPaneFocusEvent(newPane, true)
+		}
 	}
 
 	// Start settling timer
