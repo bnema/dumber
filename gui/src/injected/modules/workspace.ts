@@ -143,7 +143,7 @@ class WorkspaceController implements WorkspaceRuntime {
   private paneModeTimer: ReturnType<typeof setTimeout> | null = null;
   private instanceId: string;
   private lastActiveCheckTime = 0;
-  private workspaceHasFocus = true;
+  private workspaceHasFocus = false;
   private focusEventReceived = false;
 
   constructor() {

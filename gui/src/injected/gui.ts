@@ -82,7 +82,7 @@ if (!window.__dumber_gui_ready) {
   } else {
     window.__dumber_gui_ready = true;
 
-    let workspaceHasFocus = true; // Assume focus initially, will be corrected by focus events
+    let workspaceHasFocus = false; // Start inactive until first focus event
     let currentWebViewId = window.__dumber_webview_id || "unknown";
     let hasReceivedFocusEvent = false; // Track if we've received any workspace focus events
 
