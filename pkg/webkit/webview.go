@@ -37,7 +37,9 @@ type WebView struct {
 	onFaviconChanged        func([]byte)
 	onFaviconURIChanged     func(pageURI, faviconURI string)
 	onZoomChanged           func(float64)
-	onPopup                 func(string) *WebView
+	onPopup                 func(string) *WebView // Deprecated: Use onPopupCreate instead
+	onPopupCreate           func(*webkit.NavigationAction) *WebView // New WebKit create signal handler
+	onReadyToShow           func() // WebKit ready-to-show signal handler
 	onClose                 func()
 	onNavigationPolicy      func(url string, isUserGesture bool) bool
 	onWindowTypeDetected    func(WindowType, *WindowFeatures)
@@ -219,6 +221,34 @@ func (w *WebView) setupEventHandlers() {
 	w.view.ConnectClose(func() {
 		if w.onClose != nil {
 			w.onClose()
+		}
+	})
+
+	// Create signal - for popup lifecycle management
+	w.view.ConnectCreate(func(navigationAction *webkit.NavigationAction) gtk.Widgetter {
+		log.Printf("[webkit] ConnectCreate callback fired for parent WebView ID=%d", w.id)
+		if w.onPopupCreate != nil {
+			log.Printf("[webkit] Calling onPopupCreate handler")
+			newWebView := w.onPopupCreate(navigationAction)
+			if newWebView != nil {
+				log.Printf("[webkit] onPopupCreate returned WebView wrapper ID=%d", newWebView.id)
+				log.Printf("[webkit] Extracting underlying gotk4 WebView from wrapper")
+				underlyingView := newWebView.view
+				log.Printf("[webkit] Extracted gotk4 WebView=%p, about to return to WebKit", underlyingView)
+				// Return the underlying WebView widget to WebKit
+				return underlyingView
+			}
+			log.Printf("[webkit] onPopupCreate returned nil, blocking popup")
+		}
+		// Return nil to cancel popup creation
+		log.Printf("[webkit] No onPopupCreate handler, blocking popup")
+		return nil
+	})
+
+	// Ready-to-show signal - emitted when popup is ready to be displayed
+	w.view.ConnectReadyToShow(func() {
+		if w.onReadyToShow != nil {
+			w.onReadyToShow()
 		}
 	})
 
@@ -480,6 +510,25 @@ func (w *WebView) RegisterCloseHandler(handler func()) {
 	w.onClose = handler
 }
 
+// RegisterPopupCreateHandler registers a handler for WebKit's create signal
+// This is called when JavaScript calls window.open() or a link with target="_blank" is clicked
+// The handler should create and return a new WebView for the popup, or return nil to block it
+// The returned WebView should NOT be shown yet - WebKit will emit ready-to-show when it's ready
+func (w *WebView) RegisterPopupCreateHandler(handler func(*webkit.NavigationAction) *WebView) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onPopupCreate = handler
+}
+
+// RegisterReadyToShowHandler registers a handler for WebKit's ready-to-show signal
+// This is called when a popup WebView is ready to be displayed
+// At this point it's safe to insert the popup into the UI (workspace, window, etc.)
+func (w *WebView) RegisterReadyToShowHandler(handler func()) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onReadyToShow = handler
+}
+
 // RegisterNavigationPolicyHandler registers a handler for navigation policy decisions
 func (w *WebView) RegisterNavigationPolicyHandler(handler func(url string, isUserGesture bool) bool) {
 	w.mu.Lock()
@@ -711,4 +760,98 @@ func (w *WebView) RegisterWorkspaceNavigationHandler(handler func(direction stri
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.onWorkspaceNavigation = handler
+}
+
+// GtkWebView returns the underlying gotk4 WebView for advanced operations
+// This is used when creating related views (popups) that need to share the same session
+func (w *WebView) GtkWebView() *webkit.WebView {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.view
+}
+
+// WrapBareWebView creates a minimal WebView wrapper around a bare gotk4 WebView
+// This is used during popup creation to return a WebView to WebKit before initialization
+// Full initialization (container, scripts, event handlers) should be done later
+func WrapBareWebView(bareView *webkit.WebView) *WebView {
+	if bareView == nil {
+		return nil
+	}
+
+	// Generate unique ID
+	id := atomic.AddUint64(&viewIDCounter, 1)
+	log.Printf("[webkit] Created minimal wrapper for bare WebView (ID: %d)", id)
+
+	// Create minimal wrapper - NO initialization yet
+	wv := &WebView{
+		view:      bareView,
+		container: nil, // Will be created during full initialization
+		window:    nil,
+		id:        id,
+		config:    nil, // Will be set during full initialization
+	}
+
+	// Register in global registry
+	viewMu.Lock()
+	viewRegistry[id] = wv
+	viewMu.Unlock()
+
+	return wv
+}
+
+// InitializeFromBare completes initialization of a bare WebView wrapper
+// This should be called in ready-to-show after WebKit has configured the view
+func (w *WebView) InitializeFromBare(cfg *Config) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.config != nil {
+		return fmt.Errorf("WebView already initialized")
+	}
+
+	if cfg == nil {
+		cfg = GetDefaultConfig()
+	}
+
+	w.config = cfg
+
+	// Verify persistent session
+	viewSession := w.view.NetworkSession()
+	if viewSession == nil {
+		return fmt.Errorf("WebView has no network session")
+	}
+
+	// Setup UserContentManager and inject GUI scripts
+	if err := SetupUserContentManager(w.view, cfg.AppearanceConfigJSON, w.id); err != nil {
+		return fmt.Errorf("failed to setup user content manager: %w", err)
+	}
+
+	// Create container (GtkBox) to hold the WebView
+	container := gtk.NewBox(gtk.OrientationVertical, 0)
+	container.SetHExpand(true)
+	container.SetVExpand(true)
+
+	// Configure WebView widget for expansion
+	w.view.SetHExpand(true)
+	w.view.SetVExpand(true)
+
+	// Add WebView to container
+	container.Append(w.view)
+
+	w.container = container
+
+	// Apply configuration
+	if err := w.applyConfig(); err != nil {
+		return err
+	}
+
+	// Setup event handlers
+	w.setupEventHandlers()
+
+	// Attach keyboard bridge
+	w.AttachKeyboardBridge()
+
+	log.Printf("[webkit] Completed initialization for WebView ID %d", w.id)
+
+	return nil
 }
