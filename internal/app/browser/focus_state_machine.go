@@ -709,8 +709,17 @@ func (fsm *FocusStateMachine) handleFocusRequest(request FocusRequest) {
 	log.Printf("[FSM] Processing focus request %s: %s -> %p",
 		request.ID, request.Source, request.TargetNode)
 
-	// Execute focus change
-	if err := fsm.executeFocusChange(request); err != nil {
+	// GTK operations must run on main thread - always use IdleAdd for simplicity
+	var err error
+	done := make(chan struct{})
+	_ = webkit.IdleAdd(func() bool {
+		err = fsm.executeFocusChange(request)
+		close(done)
+		return false
+	})
+	<-done
+
+	if err != nil {
 		fsm.mu.Lock()
 		fsm.metrics.FailedRequests++
 		fsm.mu.Unlock()

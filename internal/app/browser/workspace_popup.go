@@ -533,10 +533,8 @@ func (wm *WorkspaceManager) handlePopupReadyToShow(popupID uint64) {
 
 	wm.ensureGUIInPane(popupPane)
 
-	// WebKit handles loading the URL automatically, just ensure visibility
-	if err := wrappedView.Show(); err != nil {
-		log.Printf("[workspace] failed to show popup WebView: %v", err)
-	}
+	// Widgets are already shown by splitNode - no need to show again
+	// GTK4 handles visibility automatically during reparenting
 
 	log.Printf("[workspace] Popup pane inserted and visible for URL: %s", info.url)
 }
