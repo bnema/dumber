@@ -143,12 +143,35 @@ class WorkspaceController implements WorkspaceRuntime {
   private paneModeTimer: ReturnType<typeof setTimeout> | null = null;
   private instanceId: string;
   private lastActiveCheckTime = 0;
+  private workspaceHasFocus = true;
+  private focusEventReceived = false;
 
   constructor() {
     // Generate unique instance ID for this webview
     this.instanceId = `workspace-${Date.now()}-${Math.random().toString(36).substring(2)}`;
     console.log(
       `[workspace] Created WorkspaceController instance: ${this.instanceId}`,
+    );
+
+    document.addEventListener(
+      "dumber:workspace-focus",
+      (event: Event) => {
+        const detail = (event as CustomEvent).detail ?? {};
+        this.focusEventReceived = true;
+
+        if (typeof detail?.active === "boolean") {
+          this.workspaceHasFocus = detail.active;
+        } else {
+          this.workspaceHasFocus = detail !== false;
+        }
+
+        if (!this.workspaceHasFocus) {
+          console.log(
+            `[workspace] Instance ${this.instanceId} marked inactive via focus event`,
+          );
+        }
+      },
+      { passive: true },
     );
   }
 
@@ -160,9 +183,18 @@ class WorkspaceController implements WorkspaceRuntime {
     // Cache active check for 50ms to avoid excessive checks
     const now = Date.now();
     if (now - this.lastActiveCheckTime < 50) {
-      return true; // Assume active within debounce window
+      return this.workspaceHasFocus;
     }
     this.lastActiveCheckTime = now;
+
+    if (this.focusEventReceived) {
+      if (!this.workspaceHasFocus) {
+        console.log(
+          `[workspace] Instance ${this.instanceId} not active (focus event state)`,
+        );
+      }
+      return this.workspaceHasFocus;
+    }
 
     // Check if this webview has focus by attempting to query document.hasFocus()
     // In a multi-pane environment, only the focused webview should handle pane mode
@@ -170,6 +202,8 @@ class WorkspaceController implements WorkspaceRuntime {
       const hasFocus = document.hasFocus();
       const isVisible = document.visibilityState === "visible";
       const isActive = hasFocus && isVisible;
+
+      this.workspaceHasFocus = isActive;
 
       if (!isActive) {
         console.log(
