@@ -928,6 +928,10 @@ func (fsm *FocusStateMachine) attachGTKController(node *paneNode) {
 	// Create focus controller for GTK4
 	controller := gtk.NewEventControllerFocus()
 
+	// Set propagation phase to TARGET only to avoid duplicate events from parent widgets
+	// GTK_PHASE_TARGET means we only get events for this specific widget, not bubbled events
+	controller.SetPropagationPhase(gtk.PhaseTarget)
+
 	// Connect focus enter/leave callbacks for this specific node
 	controller.ConnectEnter(func() {
 		log.Printf("[FSM] GTK focus enter: %p", node)
