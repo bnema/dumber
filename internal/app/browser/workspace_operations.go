@@ -54,7 +54,7 @@ func (wm *WorkspaceManager) SplitPane(target *paneNode, direction string) (*pane
 	// Step 2: Execute directly if we're already on the GTK main thread
 	if webkit.IsMainThread() {
 		log.Printf("[workspace] Already on main thread, executing split directly")
-		newNode, err := wm.splitNode(target, direction)
+		newNode, err := wm.splitNode(target, direction, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -78,7 +78,7 @@ func (wm *WorkspaceManager) SplitPane(target *paneNode, direction string) (*pane
 	done := make(chan struct{})
 
 	_ = webkit.IdleAdd(func() bool {
-		newNode, splitErr = wm.splitNode(target, direction)
+		newNode, splitErr = wm.splitNode(target, direction, nil)
 		if splitErr == nil {
 			if wm.debugLevel >= DebugBasic {
 				if verr := wm.treeValidator.ValidateTree(wm.root, "after_split"); verr != nil {
