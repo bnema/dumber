@@ -191,11 +191,6 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 		wm.paneMutex.Lock()
 		defer wm.paneMutex.Unlock()
 
-		if active := wm.GetActiveNode(); active != nil && active != node {
-			log.Printf("[workspace] pane-mode-entered ignored: source pane is not active (current=%p, source=%p)", active, node)
-			return
-		}
-
 		// Check if pane mode was already entered recently (within 200ms debounce window)
 		if time.Since(wm.lastPaneModeEntry) < 200*time.Millisecond {
 			log.Printf("[workspace] pane-mode-entered rejected: debounce protection (%.0fms ago) source=%p",
