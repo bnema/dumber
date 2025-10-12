@@ -220,7 +220,7 @@ func shouldFocusForScriptMessage(payload string) bool {
 	}
 
 	switch msg.Type {
-	case "get_color_palettes", "get_search_shortcuts", "request-webview-id", "console-message":
+	case "get_color_palettes", "get_search_shortcuts", "request-webview-id", "console-message", "workspace":
 		return false
 	default:
 		return true
