@@ -8,6 +8,11 @@ All notable changes to this project will be documented in this file.
 - ENV=dev support to isolate test builds from production config/data in .dev/dumber/ directory
 - Content filtering whitelist config (Twitch enabled by default)
 - `dumber config` command to open config file in $VISUAL/$EDITOR or print path with `--path`
+- **Native WebKit popup lifecycle**: Implemented WebKit's create/ready-to-show/close signals for proper popup management, eliminating manual WebView creation that bypassed WebKit's internal architecture
+- **Popup behavior configuration**: Added `popup_behavior` config with four modes: `split` (default), `stacked`, `tabbed`, and `windowed` for user control over popup placement
+
+### Changed
+- **Popup architecture refactoring**: Removed ~280 lines of JavaScript window.open interception in favor of WebKit's native popup signals. Popups now follow WebKitGTK's expected lifecycle instead of being intercepted and manually created
 
 ### Fixed
 - Enabled missing WebKitGTK6 features: WebRTC, MediaSource, LocalStorage, WebAudio, MediaStream, Clipboard
@@ -15,6 +20,7 @@ All notable changes to this project will be documented in this file.
 - Config file duplicate keys (snake_case/camelCase) by using Viper's SafeWriteConfigAs
 - Config not reading newly created default config file
 - Config writing to disk on every load/reload
+- **Popup SIGSEGV crashes**: Eliminated segmentation violations during popup lifecycle by respecting WebKit's signal-based popup management. Fixes OAuth popup crashes and GTK bloom filter corruption
 
 ## [0.11.0] - 2025-10-07
 
