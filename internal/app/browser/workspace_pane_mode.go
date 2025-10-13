@@ -144,10 +144,14 @@ func (wm *WorkspaceManager) handlePaneSplit(node *paneNode, action string) {
 	wm.dispatchPaneModeEvent("action", action)
 
 	// Perform the split (pass nil so it creates a fresh pane, not popup mode)
-	if _, err := wm.splitNode(node, direction, nil); err != nil {
+	newNode, err := wm.splitNode(node, direction, nil)
+	if err != nil {
 		log.Printf("[pane-mode] Failed to split pane: %v", err)
 		return
 	}
+
+	// Load initial URL in the new pane so scripts execute
+	wm.clonePaneState(node, newNode)
 
 	log.Printf("[pane-mode] Split successful: direction=%s", direction)
 }

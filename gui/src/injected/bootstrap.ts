@@ -262,6 +262,14 @@ export function bootstrapGUI(): void {
     try {
       await initializeOmnibox();
       console.log("✅ Omnibox system initialized successfully");
+
+      // Auto-open omnibox on about:blank pages
+      if (window.location.href === "about:blank" && window.__dumber_omnibox) {
+        console.log("[about:blank] Auto-opening omnibox");
+        setTimeout(() => {
+          window.__dumber_omnibox?.open?.("omnibox", "");
+        }, 100);
+      }
     } catch (omniboxError) {
       console.error("❌ Failed to initialize omnibox system:", omniboxError);
     }

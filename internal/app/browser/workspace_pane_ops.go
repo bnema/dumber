@@ -114,19 +114,23 @@ func (wm *WorkspaceManager) createPane(view *webkit.WebView) (*BrowserPane, erro
 // clonePaneState sets up a new pane with cloned state from another pane
 func (wm *WorkspaceManager) clonePaneState(_ *paneNode, target *paneNode) {
 	if wm == nil || target == nil {
+		log.Printf("[workspace] clonePaneState: wm or target is nil")
 		return
 	}
 	if target.pane == nil || target.pane.webView == nil {
+		log.Printf("[workspace] clonePaneState: target pane or webView is nil")
 		return
 	}
 
+	// Load about:blank and auto-open omnibox
 	const blankURL = "about:blank"
 
+	log.Printf("[workspace] clonePaneState: loading %s in pane %p", blankURL, target.pane)
 	if err := target.pane.webView.LoadURL(blankURL); err != nil {
-		log.Printf("[workspace] failed to prepare blank pane: %v", err)
+		log.Printf("[workspace] failed to load blank page in new pane: %v", err)
+	} else {
+		log.Printf("[workspace] successfully initiated load of %s", blankURL)
 	}
-
-	// Omnibox will auto-open on about:blank via client-side detection
 }
 
 // safelyDetachControllersBeforeReparent marks nodes for controller reattachment after reparenting.
