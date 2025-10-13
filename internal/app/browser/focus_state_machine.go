@@ -956,14 +956,28 @@ func (fsm *FocusStateMachine) attachGTKController(node *paneNode) {
 	// GTK_PHASE_TARGET means we only get events for this specific widget, not bubbled events
 	controller.SetPropagationPhase(gtk.PhaseTarget)
 
-	// Connect focus enter/leave callbacks for this specific node
+	// Connect focus enter/leave callbacks with timestamp-based deduplication
 	controller.ConnectEnter(func() {
+		// Deduplicate: WebKitGTK nested widgets can fire multiple events in same millisecond
+		now := time.Now().UnixMilli()
+		if node.lastFocusEnterTime == now {
+			return // Duplicate event in same millisecond
+		}
+		node.lastFocusEnterTime = now
+
 		log.Printf("[FSM] GTK focus enter: %p", node)
 		// Don't automatically change focus on GTK enter - let user interactions drive this
 		// This prevents infinite loops with our own focus changes
 	})
 
 	controller.ConnectLeave(func() {
+		// Deduplicate: WebKitGTK nested widgets can fire multiple events in same millisecond
+		now := time.Now().UnixMilli()
+		if node.lastFocusLeaveTime == now {
+			return // Duplicate event in same millisecond
+		}
+		node.lastFocusLeaveTime = now
+
 		log.Printf("[FSM] GTK focus leave: %p", node)
 		// Similarly, don't react to GTK leave events automatically
 	})

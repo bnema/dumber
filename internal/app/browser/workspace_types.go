@@ -70,6 +70,8 @@ type paneNode struct {
 	pendingHoverReattach bool                       // Needs hover reattachment after reparent
 	pendingFocusReattach bool                       // Needs focus reattachment after reparent
 	lastHoverTime        int64                      // Timestamp of last hover event (for debouncing)
+	lastFocusEnterTime   int64                      // Timestamp of last focus enter event (for deduplication)
+	lastFocusLeaveTime   int64                      // Timestamp of last focus leave event (for deduplication)
 
 	// Stacked panes support - terminal branch nodes
 	isStacked        bool          // Whether this node contains stacked panes
