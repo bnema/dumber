@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file.
 - **Native WebKit popup lifecycle**: Implemented WebKit's create/ready-to-show/close signals for proper popup management, eliminating manual WebView creation that bypassed WebKit's internal architecture
 - **Popup behavior configuration**: Added `popup_behavior` config with four modes: `split` (default), `stacked`, `tabbed`, and `windowed` for user control over popup placement
 - **Backend-driven pane mode**: Complete rewrite of pane mode from JavaScript to Go backend with native keyboard handling. Ctrl+P enters mode, x/l/r/d/u/arrows for actions, Escape exits. Blocks all other keys during mode.
-- **Pane mode visual feedback**: Zellij-style orange border around workspace root when pane mode is active
+- **Pane mode visual border**: Zellij-style border around workspace root when pane mode is active, replacing old toast notification system. Uses GTK margins with configurable `pane_mode_border_color` (defaults to #FFA500 orange). Window background color shows through margins to create visible border effect
 
 ### Changed
 - **Popup architecture refactoring**: Removed ~280 lines of JavaScript window.open interception in favor of WebKit's native popup signals. Popups now follow WebKitGTK's expected lifecycle instead of being intercepted and manually created
@@ -27,6 +27,7 @@ All notable changes to this project will be documented in this file.
 - **Popup SIGSEGV crashes**: Eliminated segmentation violations during popup lifecycle by respecting WebKit's signal-based popup management. Fixes OAuth popup crashes and GTK bloom filter corruption
 - **GTK focus event duplicates**: Added timestamp-based deduplication to prevent multiple focus enter/leave events in the same millisecond from WebKitGTK nested widgets
 - **Popup close behavior**: Fixed app exit when closing popups by excluding them from remaining pane count check
+- **Pane mode border cleanup**: Fixed border persisting after pane splits by saving container reference when applying margins. Ensures proper cleanup even when workspace tree structure changes during split operations
 
 ## [0.11.0] - 2025-10-07
 
