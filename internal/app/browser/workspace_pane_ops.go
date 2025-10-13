@@ -940,7 +940,8 @@ func (wm *WorkspaceManager) closePane(node *paneNode) (*paneNode, error) {
 	wm.detachFocus(node)
 
 	// STEP 3: Handle trivial exit cases
-	if ctx.remaining == 1 {
+	// Don't exit if closing a popup - popups aren't counted in app.panes
+	if ctx.remaining == 1 && !node.isPopup {
 		return wm.cleanupAndExit(node)
 	}
 	if node == wm.root {

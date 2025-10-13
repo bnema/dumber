@@ -32,7 +32,7 @@ func (wm *WorkspaceManager) ensureHover(node *paneNode) {
 
 		// Debounce hover events to prevent rapid focus changes (minimum 150ms between hover-triggered focus changes)
 		now := glib.GetMonotonicTime()
-		if node.lastHoverTime > 0 && (now - node.lastHoverTime) < 150000 { // 150ms in microseconds
+		if node.lastHoverTime > 0 && (now-node.lastHoverTime) < 150000 { // 150ms in microseconds
 			return
 		}
 		node.lastHoverTime = now

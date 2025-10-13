@@ -172,7 +172,7 @@ func (h *Handler) handleWorkspace(msg Message) {
 		log.Printf("[workspace] Ignoring workspace event %q: webview not attached", msg.Event)
 		return
 	}
-	log.Printf("[workspace] Forwarding workspace event: event=%s direction=%s action=%s", msg.Event, msg.Direction, msg.Action)
+	log.Printf("[workspace] Forwarding workspace event: event=%s direction=%s action=%s webviewId=%s", msg.Event, msg.Direction, msg.Action, msg.WebViewID)
 	h.workspaceObserver.OnWorkspaceMessage(h.webView, msg)
 }
 
