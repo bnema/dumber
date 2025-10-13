@@ -73,10 +73,27 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 
 	activeBorderColor := getActivePaneBorderColor(styling, isDark)
 
+	// Pane mode border color (brighter/more prominent than active pane border)
+	paneModeColor := "#FFA500" // Orange for pane mode
+	if styling.BorderColor != "" && strings.HasPrefix(styling.BorderColor, "@") {
+		paneModeColor = styling.BorderColor // Use theme variable if configured
+	}
+
 	css := fmt.Sprintf(`window {
 	  background-color: %s;
 	  padding: 0;
 	  margin: 0;
+	}
+
+	/* Workspace root container - normal state */
+	paned, box {
+	  border: 0px solid transparent;
+	  transition: border-width 150ms ease-in-out, border-color 150ms ease-in-out;
+	}
+
+	/* Pane mode active - thick orange border around workspace root */
+	.workspace-pane-mode-active {
+	  border: 4px solid %s !important;
 	}
 
 	/* Base pane styling - subtle border for inactive panes */
@@ -132,6 +149,7 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  /* Collapsed panes are hidden - handled in code via widget visibility */
 	}`,
 		windowBackgroundColor,          // window background
+		paneModeColor,                  // workspace-pane-mode-active border color
 		inactiveBorderColor,            // base pane border color (inactive)
 		styling.BorderRadius,           // base pane border radius
 		styling.TransitionDuration,     // base pane border transition
