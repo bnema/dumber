@@ -17,24 +17,29 @@ const (
 
 // GDK key constants for special keys
 const (
-	gdkKeyLeft  = 0xff51
-	gdkKeyRight = 0xff53
-	gdkKeyUp    = 0xff52
-	gdkKeyDown  = 0xff54
-	gdkKeyF12   = 0xffbe
-	gdkKeyPlus  = 0x2b
-	gdkKeyEqual = 0x3d
-	gdkKeyMinus = 0x2d
+	gdkKeyLeft   = 0xff51
+	gdkKeyRight  = 0xff53
+	gdkKeyUp     = 0xff52
+	gdkKeyDown   = 0xff54
+	gdkKeyEscape = 0xff1b
+	gdkKeyF12    = 0xffbe
+	gdkKeyPlus   = 0x2b
+	gdkKeyEqual  = 0x3d
+	gdkKeyMinus  = 0x2d
 )
 
 // Key name constants for shortcut mapping
 const (
 	keyP          = "p"
 	keyL          = "l"
+	keyR          = "r"
+	keyD          = "d"
+	keyU          = "u"
 	keyF          = "f"
 	keyC          = "c"
 	keyW          = "w"
-	keyR          = "r"
+	keyX          = "x"
+	keyEscape     = "escape"
 	keyArrowLeft  = "arrowleft"
 	keyArrowRight = "arrowright"
 	keyArrowUp    = "arrowup"
@@ -43,34 +48,46 @@ const (
 	keyPlus       = "plus"
 	keyMinus      = "minus"
 	keyZero       = "0"
+	altmod        = "alt"
 )
 
-// ShortcutRouting defines how a keyboard shortcut should be handled by the bridge
-type ShortcutRouting struct {
-	forwardToJS bool   // Should dispatch dumber:key event to JavaScript
-	blockWebKit bool   // Should block WebKit's default handling (return true from handler)
-	description string // Human-readable description for debugging
-}
+// Pane mode action constants
+const (
+	actionClose      = "close"
+	actionSplitLeft  = "split-left"
+	actionSplitRight = "split-right"
+	actionSplitDown  = "split-down"
+	actionSplitUp    = "split-up"
+	actionExit       = "exit"
+	actionEnter      = "enter"
+)
 
-// shortcutRoutingTable maps normalized shortcuts to their routing behavior
-// This centralizes all routing decisions in one place, avoiding magic strings and scattered logic
-var shortcutRoutingTable = map[string]ShortcutRouting{
-	// Workspace pane navigation - block WebKit to prevent page scrolling
-	// Navigation is triggered via workspace navigation callback
-	"alt+arrowleft":  {forwardToJS: false, blockWebKit: true, description: "Navigate to left pane (callback handler)"},
-	"alt+arrowright": {forwardToJS: false, blockWebKit: true, description: "Navigate to right pane (callback handler)"},
-	"alt+arrowup":    {forwardToJS: false, blockWebKit: true, description: "Navigate to upper pane (callback handler)"},
-	"alt+arrowdown":  {forwardToJS: false, blockWebKit: true, description: "Navigate to lower pane (callback handler)"},
+// Navigation direction constants
+const (
+	directionLeft  = "left"
+	directionRight = "right"
+	directionUp    = "up"
+	directionDown  = "down"
+)
 
-	// Pane mode - forward to JavaScript but block WebKit's print dialog
-	"cmdorctrl+p": {forwardToJS: true, blockWebKit: true, description: "Enter pane mode (JS handler + block print dialog)"},
-}
+// Map shortcuts to actions (unified for all keyboard handling)
+var shortcutActions = map[string]string{
+	// Pane mode actions (no modifier)
+	keyX:          actionClose,
+	keyL:          actionSplitLeft,
+	keyR:          actionSplitRight,
+	keyD:          actionSplitDown,
+	keyU:          actionSplitUp,
+	keyArrowLeft:  actionSplitLeft,
+	keyArrowRight: actionSplitRight,
+	keyArrowDown:  actionSplitDown,
+	keyArrowUp:    actionSplitUp,
 
-// defaultRouting defines the default behavior for shortcuts not in the routing table
-var defaultRouting = ShortcutRouting{
-	forwardToJS: true,  // Forward all shortcuts to JS by default
-	blockWebKit: false, // Allow WebKit to handle (for reload, devtools, zoom, etc.)
-	description: "Default: forward to JS, allow WebKit",
+	// Navigation (alt modifier)
+	altmod + "+" + keyArrowLeft:  directionLeft,
+	altmod + "+" + keyArrowRight: directionRight,
+	altmod + "+" + keyArrowDown:  directionDown,
+	altmod + "+" + keyArrowUp:    directionUp,
 }
 
 // AttachKeyboardBridge attaches an EventControllerKey to bridge keyboard events to JavaScript
@@ -89,6 +106,13 @@ func (w *WebView) AttachKeyboardBridge() {
 
 	// Connect to key-pressed signal
 	keyController.ConnectKeyPressed(func(keyval, keycode uint, state gdk.ModifierType) bool {
+		// Check if pane mode is active - block ALL keys except pane mode actions
+		w.mu.RLock()
+		paneModeChecker := w.isPaneModeActive
+		w.mu.RUnlock()
+
+		isPaneModeActive := paneModeChecker != nil && paneModeChecker()
+
 		// Build normalized shortcut string
 		var parts []string
 
@@ -117,14 +141,20 @@ func (w *WebView) AttachKeyboardBridge() {
 			keyName = keyP
 		case 'l', 'L':
 			keyName = keyL
+		case 'r', 'R':
+			keyName = keyR
+		case 'd', 'D':
+			keyName = keyD
+		case 'u', 'U':
+			keyName = keyU
 		case 'f', 'F':
 			keyName = keyF
 		case 'c', 'C':
 			keyName = keyC
 		case 'w', 'W':
 			keyName = keyW
-		case 'r', 'R':
-			keyName = keyR
+		case 'x', 'X':
+			keyName = keyX
 		case gdkKeyLeft:
 			keyName = keyArrowLeft
 		case gdkKeyRight:
@@ -133,6 +163,8 @@ func (w *WebView) AttachKeyboardBridge() {
 			keyName = keyArrowUp
 		case gdkKeyDown:
 			keyName = keyArrowDown
+		case gdkKeyEscape:
+			keyName = keyEscape
 		case gdkKeyF12:
 			keyName = keyF12
 		case gdkKeyPlus, gdkKeyEqual:
@@ -162,55 +194,76 @@ func (w *WebView) AttachKeyboardBridge() {
 		}
 
 		if shortcut != "" {
-			// Look up routing behavior from table, use default if not found
-			routing, exists := shortcutRoutingTable[shortcut]
-			if !exists {
-				routing = defaultRouting
-			}
-
-			// Handle workspace navigation shortcuts via callback
-			if shortcut == "alt+arrowup" || shortcut == "alt+arrowdown" || shortcut == "alt+arrowleft" || shortcut == "alt+arrowright" {
+			// Special case: Ctrl+P enters pane mode
+			if shortcut == modifierCmdOrCtrl+"+"+keyP {
 				w.mu.RLock()
-				handler := w.onWorkspaceNavigation
+				handler := w.onPaneModeShortcut
 				w.mu.RUnlock()
-
-				if handler != nil {
-					var direction string
-					switch shortcut {
-					case "alt+arrowup":
-						direction = "up"
-					case "alt+arrowdown":
-						direction = "down"
-					case "alt+arrowleft":
-						direction = "left"
-					case "alt+arrowright":
-						direction = "right"
-					}
-					if handler(direction) {
-						log.Printf("[keyboard-bridge] Workspace navigation: %s (handled)", direction)
-						return true // Block WebKit
-					}
+				if handler != nil && handler(actionEnter) {
+					log.Printf("[keyboard-bridge] Pane mode: enter")
+					return true
 				}
-				log.Printf("[keyboard-bridge] Shortcut %s: %s (no handler or not handled)", shortcut, routing.description)
-				return true // Block WebKit anyway to prevent scrolling
+				return true // Block even if no handler
 			}
 
-			// Dispatch to JavaScript if routing says to
-			if routing.forwardToJS {
-				script := fmt.Sprintf(`document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:'%s'}}));`, shortcut)
-				if err := w.InjectScript(script); err != nil {
-					log.Printf("[keyboard-bridge] Failed to dispatch key event: %v", err)
+			// Special case: Escape exits active mode
+			if shortcut == keyEscape {
+				w.mu.RLock()
+				handler := w.onPaneModeShortcut
+				w.mu.RUnlock()
+				if handler != nil && handler(actionExit) {
+					log.Printf("[keyboard-bridge] Escape: exited mode")
+					return true
 				}
-				log.Printf("[keyboard-bridge] Forwarded shortcut to JS: %s", shortcut)
-			} else {
-				log.Printf("[keyboard-bridge] Shortcut %s: %s (not forwarded to JS)", shortcut, routing.description)
+				return false // Pass through to DOM if no active mode
 			}
 
-			// Return routing decision to block or allow WebKit
-			return routing.blockWebKit
+			// Check if shortcut maps to an action
+			if action, exists := shortcutActions[shortcut]; exists {
+				// Navigation actions (alt+arrow)
+				if action == directionLeft || action == directionRight || action == directionUp || action == directionDown {
+					w.mu.RLock()
+					handler := w.onWorkspaceNavigation
+					w.mu.RUnlock()
+					if handler != nil && handler(action) {
+						log.Printf("[keyboard-bridge] Navigation: %s", action)
+						return true
+					}
+					return true // Block anyway to prevent scrolling
+				}
+
+				// Pane mode actions (x, l, r, d, u, arrows)
+				w.mu.RLock()
+				handler := w.onPaneModeShortcut
+				w.mu.RUnlock()
+				if handler != nil && handler(action) {
+					log.Printf("[keyboard-bridge] Pane mode action: %s", action)
+					return true
+				}
+				return false // Not in pane mode, pass through
+			}
+
+			// Pane mode active: block all other shortcuts
+			if isPaneModeActive {
+				log.Printf("[keyboard-bridge] Blocking '%s' during pane mode", shortcut)
+				return true
+			}
+
+			// Forward to JavaScript
+			script := fmt.Sprintf(`document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:'%s'}}));`, shortcut)
+			if err := w.InjectScript(script); err != nil {
+				log.Printf("[keyboard-bridge] Failed to dispatch: %v", err)
+			}
+			return false // Allow WebKit to handle
 		}
 
-		// No shortcut matched - allow WebKit to handle normally
+		// Pane mode active: block ALL non-shortcut keys
+		if isPaneModeActive {
+			log.Printf("[keyboard-bridge] Blocking key during pane mode: keyval=%d", keyval)
+			return true // Block all other keys
+		}
+
+		// No shortcut matched and not in pane mode - allow WebKit to handle normally
 		return false
 	})
 

@@ -31,9 +31,9 @@ type WorkspaceManager struct {
 	createPaneFn    func(*webkit.WebView) (*BrowserPane, error)
 
 	// Coordination fields for preventing duplicate events
-	paneModeSource    *webkit.WebView // Which webview initiated pane mode
-	lastPaneModeEntry time.Time       // When pane mode was last entered
-	paneMutex         sync.Mutex      // Protects pane mode state
+	paneModeSource     *webkit.WebView // Which webview initiated pane mode
+	paneModeActivePane *paneNode       // Which pane node has pane mode active
+	paneMutex          sync.Mutex      // Protects pane mode state
 
 	// Focus throttling fields to prevent infinite loops
 	lastFocusChange    time.Time  // When focus was last changed
@@ -177,170 +177,139 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 	return manager
 }
 
+// shouldDebounce checks if an operation should be debounced based on timing
+func (wm *WorkspaceManager) shouldDebounce(source *webkit.WebView, threshold time.Duration) bool {
+	if last, ok := wm.lastSplitMsg[source]; ok {
+		if elapsed := time.Since(last); elapsed < threshold {
+			log.Printf("[workspace] operation debounced: %.0fms", elapsed.Seconds()*1000)
+			return true
+		}
+	}
+	wm.lastSplitMsg[source] = time.Now()
+	return false
+}
+
+// withSplitLock executes an operation with atomic splitting lock protection
+func (wm *WorkspaceManager) withSplitLock(operation string, fn func() error) error {
+	if !atomic.CompareAndSwapInt32(&wm.splitting, 0, 1) {
+		log.Printf("[workspace] %s ignored: operation in progress", operation)
+		return fmt.Errorf("operation in progress")
+	}
+
+	defer func() {
+		atomic.StoreInt32(&wm.splitting, 0)
+		if r := recover(); r != nil {
+			log.Printf("[workspace] %s panicked: %v", operation, r)
+			panic(r)
+		}
+	}()
+
+	return fn()
+}
+
+// cleanupPopupStorage removes localStorage entries for a closed popup
+func (wm *WorkspaceManager) cleanupPopupStorage(parentNode, targetNode *paneNode, webviewID string) {
+	if parentNode.pane == nil || parentNode.pane.WebView() == nil || targetNode.requestID == "" {
+		return
+	}
+
+	requestID := targetNode.requestID
+	parentWebViewID := parentNode.pane.WebView().ID()
+
+	script := fmt.Sprintf(`
+		try {
+			localStorage.removeItem('popup_mapping_%d');
+			const keys = ['popup_%s_parent_info', 'popup_%s_parent_action',
+			             'popup_%s_message_to_popup', 'popup_%s_message_to_parent',
+			             'oauth_callback_%s'];
+			keys.forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
+			console.log('[workspace] Cleaned popup localStorage');
+		} catch(e) { console.warn('[workspace] localStorage cleanup failed:', e); }
+	`, parentWebViewID, requestID, requestID, requestID, requestID, webviewID)
+
+	if err := parentNode.pane.WebView().InjectScript(script); err != nil {
+		log.Printf("[workspace] localStorage cleanup failed: %v", err)
+	} else {
+		log.Printf("[workspace] Cleaned localStorage for popup requestId=%s webviewId=%s", requestID, webviewID)
+	}
+}
+
 // OnWorkspaceMessage implements messaging.WorkspaceObserver.
 func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messaging.Message) {
 	node := wm.viewToNode[source]
+
+	if msg.WebViewID != "" {
+		if explicitNode := wm.findNodeByWebViewID(msg.WebViewID); explicitNode != nil {
+			if explicitNode.pane != nil && explicitNode.pane.webView != nil {
+				node = explicitNode
+				source = explicitNode.pane.webView
+			}
+		}
+	}
+
 	if node == nil {
-		log.Printf("[workspace] message from unknown webview: event=%s", msg.Event)
+		log.Printf("[workspace] message from unknown webview: event=%s webviewId=%s", msg.Event, msg.WebViewID)
 		return
 	}
 
 	switch event := strings.ToLower(msg.Event); event {
-	case "pane-mode-entered":
-		// Use mutex to prevent race conditions when multiple webviews try to enter pane mode
-		wm.paneMutex.Lock()
-		defer wm.paneMutex.Unlock()
-
-		if active := wm.GetActiveNode(); active != nil && active != node {
-			log.Printf("[workspace] pane-mode-entered ignored: source pane is not active (current=%p, source=%p)", active, node)
-			return
-		}
-
-		// Check if pane mode was already entered recently (within 200ms debounce window)
-		if time.Since(wm.lastPaneModeEntry) < 200*time.Millisecond {
-			log.Printf("[workspace] pane-mode-entered rejected: debounce protection (%.0fms ago) source=%p",
-				time.Since(wm.lastPaneModeEntry).Seconds()*1000, source)
-			return
-		}
-
-		// Check if pane mode is already active from a different source
-		if wm.paneModeActive && wm.paneModeSource != nil && wm.paneModeSource != source {
-			log.Printf("[workspace] pane-mode-entered rejected: already active from different source (current=%p, new=%p)",
-				wm.paneModeSource, source)
-			return
-		}
-
-		log.Printf("[workspace] pane-mode-entered accepted: source=%p", source)
-		wm.paneModeActive = true
-		wm.paneModeSource = source
-		wm.lastPaneModeEntry = time.Now()
-		wm.SetActivePane(node, SourceProgrammatic)
-	case "pane-confirmed", "pane-cancelled", "pane-mode-exited":
-		// Debounce pane-mode-exited events to prevent duplicate focus calls
-		if event == "pane-mode-exited" {
-			if last, ok := wm.lastExitMsg[source]; ok {
-				if time.Since(last) < 100*time.Millisecond {
-					log.Printf("[workspace] pane-mode-exited ignored: debounce (%.0fms)", time.Since(last).Seconds()*1000)
-					return
-				}
-			}
-			wm.lastExitMsg[source] = time.Now()
-		}
-
-		wm.paneMutex.Lock()
-		wm.paneModeActive = false
-		wm.paneModeSource = nil
-		wm.paneMutex.Unlock()
-
-		// Only restore focus if the currently active pane is the same as the exiting pane.
-		// If focus has moved (e.g., due to a split), don't steal it back.
-		currentActive := wm.GetActiveNode()
-		if currentActive == node {
-			wm.focusAfterPaneMode(node)
-		} else {
-			log.Printf("[workspace] pane-mode-exited but focus already on different pane (%p != %p), preserving current focus",
-				node, currentActive)
-		}
-	case "pane-close":
-		if !wm.paneModeActive {
-			log.Printf("[workspace] close requested outside pane mode; ignoring")
-			break
-		}
-
-		wm.paneMutex.Lock()
-		wm.paneModeActive = false
-		wm.paneModeSource = nil
-		wm.paneMutex.Unlock()
-
-		// Don't focus the node that's about to be closed - closeCurrentPane() will handle focus
-		wm.closeCurrentPane()
 	case "pane-split":
 		wm.SetActivePane(node, SourceProgrammatic)
 		direction := strings.ToLower(msg.Direction)
 		if direction == "" {
 			direction = "right"
 		}
-		if last, ok := wm.lastSplitMsg[source]; ok {
-			if time.Since(last) < 200*time.Millisecond {
-				log.Printf("[workspace] split ignored: debounce (%.0fms)", time.Since(last).Seconds()*1000)
-				return
-			}
-		}
 
-		// CRITICAL FIX: Use atomic operations for splitting flag to prevent race conditions
-		if !atomic.CompareAndSwapInt32(&wm.splitting, 0, 1) {
-			log.Printf("[workspace] split ignored: operation already in progress")
+		if wm.shouldDebounce(source, 200*time.Millisecond) {
 			return
 		}
 
-		// CRITICAL FIX: Always clear splitting flag on exit (panic recovery)
-		defer func() {
-			atomic.StoreInt32(&wm.splitting, 0)
-			if r := recover(); r != nil {
-				log.Printf("[workspace] split operation panicked, flag cleared: %v", r)
-				panic(r) // Re-panic to maintain error handling
+		err := wm.withSplitLock("split", func() error {
+			newNode, err := wm.SplitPane(node, direction)
+			if err != nil {
+				if glib.MainContextDefault().IsOwner() {
+					glib.MainContextDefault().Iteration(false)
+				}
+				return err
 			}
-		}()
+			wm.clonePaneState(node, newNode)
+			return nil
+		})
 
-		wm.lastSplitMsg[source] = time.Now()
-
-		newNode, err := wm.SplitPane(node, direction)
 		if err != nil {
 			log.Printf("[workspace] split failed: %v", err)
-			// CRITICAL FIX: Pump GTK events after validation failure to clear pending operations
-			if glib.MainContextDefault().IsOwner() {
-				glib.MainContextDefault().Iteration(false)
-			}
-			return
 		}
-		wm.clonePaneState(node, newNode)
+
 	case "pane-stack":
 		wm.SetActivePane(node, SourceProgrammatic)
-		if last, ok := wm.lastSplitMsg[source]; ok {
-			if time.Since(last) < 200*time.Millisecond {
-				log.Printf("[workspace] stack ignored: debounce (%.0fms)", time.Since(last).Seconds()*1000)
-				return
-			}
-		}
 
-		// CRITICAL FIX: Use atomic operations for splitting flag
-		if !atomic.CompareAndSwapInt32(&wm.splitting, 0, 1) {
-			log.Printf("[workspace] stack ignored: operation already in progress")
+		if wm.shouldDebounce(source, 200*time.Millisecond) {
 			return
 		}
 
-		// CRITICAL FIX: Always clear splitting flag on exit (panic recovery)
-		defer func() {
-			atomic.StoreInt32(&wm.splitting, 0)
-			if r := recover(); r != nil {
-				log.Printf("[workspace] stack operation panicked, flag cleared: %v", r)
-				panic(r) // Re-panic to maintain error handling
+		err := wm.withSplitLock("stack", func() error {
+			newNode, err := wm.stackedPaneManager.StackPane(node)
+			if err != nil {
+				if glib.MainContextDefault().IsOwner() {
+					glib.MainContextDefault().Iteration(false)
+				}
+				return err
 			}
-		}()
+			wm.clonePaneState(node, newNode)
+			return nil
+		})
 
-		wm.lastSplitMsg[source] = time.Now()
-
-		newNode, err := wm.stackedPaneManager.StackPane(node)
 		if err != nil {
 			log.Printf("[workspace] stack failed: %v", err)
-			// CRITICAL FIX: Pump GTK events after stack failure
-			if glib.MainContextDefault().IsOwner() {
-				glib.MainContextDefault().Iteration(false)
-			}
-			return
 		}
-		wm.clonePaneState(node, newNode)
-	case "create-pane":
-		log.Printf("[workspace] create-pane message ignored (native popup lifecycle enabled)")
-	case "close-popup":
-		log.Printf("[workspace] close-popup requested: webviewId=%s reason=%s", msg.WebViewID, msg.Reason)
 
+	case "close-popup":
 		if msg.WebViewID == "" {
 			log.Printf("[workspace] close-popup: empty webviewId, ignoring")
-			break
+			return
 		}
 
-		// Find the popup pane by webview ID
+		// Find popup pane by webview ID
 		var targetNode *paneNode
 		for webView, node := range wm.viewToNode {
 			if webView != nil && fmt.Sprintf("%d", webView.ID()) == msg.WebViewID {
@@ -351,85 +320,50 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 
 		if targetNode == nil {
 			log.Printf("[workspace] close-popup: webview not found: %s", msg.WebViewID)
-			break
+			return
 		}
 
 		if !targetNode.isPopup {
 			log.Printf("[workspace] close-popup: target is not a popup: %s", msg.WebViewID)
-			break
+			return
 		}
 
-		log.Printf("[workspace] Closing popup pane due to %s", msg.Reason)
+		log.Printf("[workspace] Closing popup due to %s", msg.Reason)
 
-		// Remove this popup from parent's activePopupChildren before closing
+		// Remove from parent's active popup list
 		if targetNode.parentPane != nil {
 			parentNode := targetNode.parentPane
 			for i, childID := range parentNode.activePopupChildren {
 				if childID == msg.WebViewID {
 					parentNode.activePopupChildren = append(parentNode.activePopupChildren[:i], parentNode.activePopupChildren[i+1:]...)
-					log.Printf("[workspace] Removed popup %s from parent's activePopupChildren (remaining: %d)", msg.WebViewID, len(parentNode.activePopupChildren))
+					log.Printf("[workspace] Removed popup from parent (remaining: %d)", len(parentNode.activePopupChildren))
 					break
 				}
 			}
 
-			// Clean up ALL localStorage entries for this popup in parent WebView
-			// This includes popup_<requestId>_parent_info, popup_<requestId>_parent_action, etc.
-			if parentNode.pane != nil && parentNode.pane.WebView() != nil && targetNode.requestID != "" {
-				parentWebViewID := parentNode.pane.WebView().ID()
-				requestID := targetNode.requestID
-
-				cleanupScript := fmt.Sprintf(`
-					try {
-						// Clean up popup_mapping_<parentId> (from Go code)
-						localStorage.removeItem('popup_mapping_%d');
-
-						// Clean up popup_<requestId>_* entries (from JavaScript)
-						const requestId = '%s';
-						const keysToRemove = [
-							'popup_' + requestId + '_parent_info',
-							'popup_' + requestId + '_parent_action',
-							'popup_' + requestId + '_message_to_popup',
-							'popup_' + requestId + '_message_to_parent',
-							'oauth_callback_' + '%s'
-						];
-
-						keysToRemove.forEach(key => {
-							try {
-								localStorage.removeItem(key);
-							} catch(e) {}
-						});
-
-						console.log('[workspace] Cleaned up popup localStorage for requestId:', requestId);
-					} catch(e) {
-						console.warn('[workspace] Failed to clean popup localStorage:', e);
-					}
-				`, parentWebViewID, requestID, msg.WebViewID)
-
-				if err := parentNode.pane.WebView().InjectScript(cleanupScript); err != nil {
-					log.Printf("[workspace] Failed to inject localStorage cleanup script: %v", err)
-				} else {
-					log.Printf("[workspace] Cleaned up localStorage for popup requestId=%s webviewId=%s", requestID, msg.WebViewID)
-				}
-			}
+			wm.cleanupPopupStorage(parentNode, targetNode, msg.WebViewID)
 		}
 
-		// Close the popup pane
 		if err := wm.ClosePane(targetNode); err != nil {
-			log.Printf("[workspace] Failed to close popup pane: %v", err)
-		} else {
-			log.Printf("[workspace] Successfully closed popup pane: %s", msg.WebViewID)
-
-			// REMOVED: Hide/show parent container sequence
-			// This was causing a race condition with the focus change scheduled by ClosePane().
-			// GTK was sending focus events to widgets during hide/show operations, causing SIGSEGV.
-			// ClosePane() already handles focus restoration properly via setFocusToLeaf().
-			//
-			// If rendering issues occur after popup close, they should be fixed with a different
-			// approach that doesn't manipulate widget visibility during focus transitions.
+			log.Printf("[workspace] Failed to close popup: %v", err)
 		}
+
 	default:
 		log.Printf("[workspace] unhandled workspace event: %s", msg.Event)
 	}
+}
+
+func (wm *WorkspaceManager) findNodeByWebViewID(id string) *paneNode {
+	if wm == nil || id == "" {
+		return nil
+	}
+
+	for webView, node := range wm.viewToNode {
+		if webView != nil && webView.IDString() == id {
+			return node
+		}
+	}
+	return nil
 }
 
 // GetActiveNode returns the currently active pane node
@@ -476,6 +410,49 @@ func (wm *WorkspaceManager) RegisterNavigationHandler(webView *webkit.WebView) {
 			return false
 		}
 		return wm.FocusNeighbor(direction)
+	})
+
+	// Register pane mode callbacks for Ctrl+P and pane mode actions
+	webView.RegisterPaneModeHandler(func(action string) bool {
+		if wm == nil {
+			return false
+		}
+
+		if action == "enter" {
+			wm.EnterPaneMode()
+			return true
+		}
+
+		if action == "exit" {
+			// Check if pane mode is active
+			wm.paneMutex.Lock()
+			wasActive := wm.paneModeActive
+			wm.paneMutex.Unlock()
+
+			if wasActive {
+				wm.ExitPaneMode("escape")
+				return true // Mode was active, we handled it
+			}
+			return false // No mode active, pass through to DOM
+		}
+
+		// For other actions, only handle if pane mode is active
+		wm.paneMutex.Lock()
+		isActive := wm.paneModeActive
+		wm.paneMutex.Unlock()
+
+		if !isActive {
+			return false // Not in pane mode, allow normal behavior
+		}
+
+		// Pane mode is active, handle the action
+		wm.HandlePaneAction(action)
+		return true
+	}, func() bool {
+		// Check if pane mode is currently active
+		wm.paneMutex.Lock()
+		defer wm.paneMutex.Unlock()
+		return wm.paneModeActive
 	})
 
 	log.Printf("[workspace] Registered navigation handler for webview: %d", webView.ID())

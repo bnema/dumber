@@ -21,8 +21,8 @@ var (
 // WebView wraps a WebKitGTK WebView
 type WebView struct {
 	view      *webkit.WebView
-	container *gtk.Box   // Container that holds the WebView
-	window    *Window    // Optional window (only if CreateWindow=true)
+	container *gtk.Box // Container that holds the WebView
+	window    *Window  // Optional window (only if CreateWindow=true)
 	id        uint64
 
 	// State
@@ -31,19 +31,21 @@ type WebView struct {
 	mu        sync.RWMutex
 
 	// Event handlers
-	onScriptMessage         func(string)
-	onTitleChanged          func(string)
-	onURIChanged            func(string)
-	onFaviconChanged        func([]byte)
-	onFaviconURIChanged     func(pageURI, faviconURI string)
-	onZoomChanged           func(float64)
-	onPopup                 func(string) *WebView // Deprecated: Use onPopupCreate instead
-	onPopupCreate           func(*webkit.NavigationAction) *WebView // New WebKit create signal handler
-	onReadyToShow           func() // WebKit ready-to-show signal handler
-	onClose                 func()
-	onNavigationPolicy      func(url string, isUserGesture bool) bool
-	onWindowTypeDetected    func(WindowType, *WindowFeatures)
-	onWorkspaceNavigation   func(direction string) bool // Workspace pane navigation
+	onScriptMessage       func(string)
+	onTitleChanged        func(string)
+	onURIChanged          func(string)
+	onFaviconChanged      func([]byte)
+	onFaviconURIChanged   func(pageURI, faviconURI string)
+	onZoomChanged         func(float64)
+	onPopup               func(string) *WebView                   // Deprecated: Use onPopupCreate instead
+	onPopupCreate         func(*webkit.NavigationAction) *WebView // New WebKit create signal handler
+	onReadyToShow         func()                                  // WebKit ready-to-show signal handler
+	onClose               func()
+	onNavigationPolicy    func(url string, isUserGesture bool) bool
+	onWindowTypeDetected  func(WindowType, *WindowFeatures)
+	onWorkspaceNavigation func(direction string) bool // Workspace pane navigation
+	onPaneModeShortcut    func(action string) bool    // Pane mode shortcuts (enter, actions, exit)
+	isPaneModeActive      func() bool                 // Check if pane mode is active
 }
 
 // NewWebView creates a new WebView with the given configuration
@@ -760,6 +762,15 @@ func (w *WebView) RegisterWorkspaceNavigationHandler(handler func(direction stri
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.onWorkspaceNavigation = handler
+}
+
+// RegisterPaneModeHandler registers a handler for pane mode shortcuts
+// The handler receives the action ("enter", "close", "split-right", etc.) and returns true if handled
+func (w *WebView) RegisterPaneModeHandler(handler func(action string) bool, isActiveChecker func() bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onPaneModeShortcut = handler
+	w.isPaneModeActive = isActiveChecker
 }
 
 // GtkWebView returns the underlying gotk4 WebView for advanced operations
