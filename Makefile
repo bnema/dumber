@@ -123,6 +123,7 @@ clean: ## Clean build artifacts
 	rm -rf $(DIST_DIR)
 	rm -f $(BINARY_NAME)  # Remove any old binaries in root
 	rm -rf gui/dist gui/node_modules
+	rm -f assets/gui/gui.min.js assets/gui/homepage.min.js assets/gui/homepage.css assets/gui/main-world.min.js assets/gui/color-scheme.js
 	go clean -cache
 	go clean -testcache
 

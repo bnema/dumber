@@ -124,28 +124,6 @@ func (s *BrowserService) GetGUIBundle() string {
 	return s.guiBundle
 }
 
-// InjectGUIBundle injects the unified GUI bundle and initializes controls
-func (s *BrowserService) InjectGUIBundle(ctx context.Context) error {
-	_ = ctx
-	if s.webView == nil {
-		return fmt.Errorf("webview not attached")
-	}
-	if s.guiBundle == "" {
-		return fmt.Errorf("GUI bundle not loaded")
-	}
-
-	// Inject the unified GUI bundle first
-	bundleScript := s.guiBundle +
-		";(function(){" +
-		"if(window.__dumber_gui && window.__dumber_gui.initializeControls){" +
-		"window.__dumber_gui.initializeControls();" +
-		"console.log('✅ Controls initialized via GUI bundle');" +
-		"}else{console.error('❌ GUI bundle not properly loaded');}" +
-		"})();"
-
-	return s.webView.InjectScript(bundleScript)
-}
-
 // InjectToastSystem injects the GUI bundle and initializes the toast system
 func (s *BrowserService) InjectToastSystem(ctx context.Context, theme string) error {
 	_ = ctx
