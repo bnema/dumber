@@ -181,7 +181,7 @@ export function bootstrapGUI(): void {
     console.log("[GUI] DOM ready, starting initialization");
     let toastInitialized = false;
 
-    if (typeof window.__dumber_showToast === "function") {
+    if (typeof window.__dumber_showToast === "function" && typeof window.__dumber_showZoomToast === "function") {
       console.log("[GUI] Toast already initialized, skipping");
       toastInitialized = true;
     } else {
@@ -195,67 +195,7 @@ export function bootstrapGUI(): void {
         console.log("[GUI] Toast initialized successfully");
       } catch (e) {
         console.error("❌ Failed to initialize Svelte toast system:", e);
-        window.__dumber_showToast = (
-          message: string,
-          duration: number = 2500,
-        ) => {
-          document
-            .querySelectorAll(".dumber-fallback-toast")
-            .forEach((el) => el.remove());
-
-          const toast = document.createElement("div");
-          toast.className = "dumber-fallback-toast";
-          toast.textContent = message;
-          toast.style.cssText = `
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: rgba(0,0,0,0.9);
-            color: white;
-            padding: 12px 16px;
-            border-radius: 6px;
-            z-index: 2147483647;
-            font-family: system-ui, -apple-system, sans-serif;
-            font-size: 14px;
-            opacity: 0;
-            transform: translateX(100%);
-            transition: all 0.3s ease;
-            max-width: 300px;
-            word-wrap: break-word;
-          `;
-
-          if (document.body) {
-            document.body.appendChild(toast);
-
-            requestAnimationFrame(() => {
-              toast.style.opacity = "1";
-              toast.style.transform = "translateX(0)";
-            });
-
-            setTimeout(() => {
-              toast.style.opacity = "0";
-              toast.style.transform = "translateX(100%)";
-              setTimeout(() => toast.remove(), 300);
-            }, duration);
-          }
-        };
-
-        window.__dumber_showZoomToast = (level: number) => {
-          const percentage = Math.round(level * 100);
-          window.__dumber_showToast!(`Zoom: ${percentage}%`, 1500);
-        };
-
-        window.__dumber_dismissToast = (_id?: number) => {
-          document
-            .querySelectorAll(".dumber-fallback-toast")
-            .forEach((el) => el.remove());
-        };
-
-        window.__dumber_clearToasts = () => {
-          document
-            .querySelectorAll(".dumber-fallback-toast")
-            .forEach((el) => el.remove());
-        };
+        throw e;
       }
     }
 

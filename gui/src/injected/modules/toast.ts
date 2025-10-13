@@ -96,78 +96,18 @@ export async function initializeToast(config?: ToastConfig): Promise<void> {
       updateTheme(initialTheme === "dark");
     }
 
-    // Mount the Svelte toast container (Svelte 5 syntax)
+    // Mount the Svelte toast container - this exposes all toast functions to window
     mount(ToastContainer, {
       target: rootElement as unknown as Element,
     });
 
-    // Signal isolated GUI readiness for page-world bridge
-    try {
-      document.documentElement.setAttribute("data-dumber-gui", "ready");
-      document.dispatchEvent(new CustomEvent("dumber:gui-ready"));
-    } catch {
-      // Ignore errors in GUI readiness signaling
-    }
-
-    // Listen for page-world bridge events and forward to internal toast functions
-    const handleShowToast = (e: Event) => {
-      const detail = (e as CustomEvent).detail || {};
-      if (typeof window.__dumber_showToast === "function") {
-        window.__dumber_showToast(detail.message, detail.duration, detail.type);
-      }
-    };
-    document.addEventListener("dumber:showToast", handleShowToast);
-    document.addEventListener("dumber:toast:show", handleShowToast);
-
-    const handleZoomToast = (e: Event) => {
-      const detail = (e as CustomEvent).detail || {};
-      if (typeof window.__dumber_showZoomToast === "function") {
-        window.__dumber_showZoomToast(detail.level);
-      }
-    };
-    document.addEventListener("dumber:showZoomToast", handleZoomToast);
-    document.addEventListener("dumber:toast:zoom", handleZoomToast);
-
-    // Force immediate effect execution to ensure onMount callbacks run
+    // Force immediate effect execution to ensure component functions are exposed
     flushSync();
 
-    // Toast functions are now exposed by the component itself
-    console.log("✅ Toast functions exposed via component instantiation");
-
     toastInitialized = true;
-    console.log("✅ Toast system initialized with Svelte 5");
+    console.log("✅ Toast system initialized - functions exposed by ToastContainer");
   } catch (error) {
     console.error("❌ Failed to initialize toast system:", error);
-
-    // Fallback to basic toast system if Svelte fails
-    initializeFallbackToast();
+    throw error;
   }
-}
-
-function exposeToastFunctions(): void {
-  // The Svelte ToastContainer component already exposes these functions
-  // We just need to make sure they exist, they're handled by the component
-  console.log("✅ Toast functions will be exposed by ToastContainer component");
-}
-
-function initializeFallbackToast(): void {
-  console.warn("🔄 Falling back to basic toast system");
-
-  // Create basic toast container for fallback
-  const fallbackContainer = document.createElement("div");
-  fallbackContainer.id = "dumber-fallback-toast";
-  fallbackContainer.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 10000;
-    pointer-events: none;
-  `;
-  document.documentElement.appendChild(fallbackContainer);
-
-  // Expose toast functions for fallback too
-  exposeToastFunctions();
-
-  toastInitialized = true;
-  console.log("✅ Fallback toast system ready");
 }

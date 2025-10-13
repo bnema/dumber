@@ -51,14 +51,6 @@ interface Suggestion {
 }
 
 interface DumberAPI {
-  toast: {
-    show: (
-      message: string,
-      duration?: number,
-      type?: "info" | "success" | "error",
-    ) => void;
-    zoom: (level: number) => void;
-  };
   omnibox: {
     suggestions: (suggestions: Suggestion[]) => void;
   };
@@ -237,58 +229,8 @@ interface DumberAPI {
       }
     };
 
-    // Initialize unified API object
+    // Initialize unified API object (toast functions are exposed by ToastContainer.svelte)
     window.__dumber = window.__dumber || ({} as DumberAPI);
-
-    // Toast bridge
-    window.__dumber.toast = window.__dumber.toast || {
-      show: (message: string, duration?: number, type?: string) => {
-        try {
-          document.dispatchEvent(
-            new CustomEvent("dumber:toast:show", {
-              detail: { message, duration, type },
-            }),
-          );
-          // Legacy compatibility
-          document.dispatchEvent(
-            new CustomEvent("dumber:showToast", {
-              detail: { message, duration, type },
-            }),
-          );
-        } catch {
-          // ignore
-        }
-      },
-      zoom: (level: number) => {
-        try {
-          document.dispatchEvent(
-            new CustomEvent("dumber:toast:zoom", {
-              detail: { level },
-            }),
-          );
-          // Legacy compatibility
-          document.dispatchEvent(
-            new CustomEvent("dumber:showZoomToast", {
-              detail: { level },
-            }),
-          );
-        } catch {
-          // ignore
-        }
-      },
-    };
-
-    // Legacy toast helpers
-    window.__dumber_showToast = (
-      message: string,
-      duration?: number,
-      type?: "info" | "success" | "error",
-    ) => {
-      window.__dumber.toast.show(message, duration, type);
-    };
-    window.__dumber_showZoomToast = (level: number) => {
-      window.__dumber.toast.zoom(level);
-    };
 
     // DOM zoom functionality
     if (typeof window.__dumber_dom_zoom_level !== "number") {
@@ -890,7 +832,6 @@ interface DumberAPI {
       if (globalState) {
         const mutableState = globalState as unknown as Record<string, unknown>;
         delete mutableState.omnibox;
-        delete mutableState.toast;
       }
     };
 
