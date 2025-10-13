@@ -73,10 +73,10 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 
 	activeBorderColor := getActivePaneBorderColor(styling, isDark)
 
-	// Pane mode border color (brighter/more prominent than active pane border)
-	paneModeColor := "#FFA500" // Orange for pane mode
-	if styling.BorderColor != "" && strings.HasPrefix(styling.BorderColor, "@") {
-		paneModeColor = styling.BorderColor // Use theme variable if configured
+	// Pane mode border color - use configured value or fallback to orange
+	paneModeColor := styling.PaneModeBorderColor
+	if paneModeColor == "" {
+		paneModeColor = "#FFA500" // Fallback to orange if not configured
 	}
 
 	css := fmt.Sprintf(`window {
@@ -85,15 +85,15 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  margin: 0;
 	}
 
-	/* Workspace root container - normal state */
-	paned, box {
-	  border: 0px solid transparent;
-	  transition: border-width 150ms ease-in-out, border-color 150ms ease-in-out;
+	/* Pane mode active - change window background to border color */
+	window.pane-mode-active {
+	  background-color: %s;
 	}
 
-	/* Pane mode active - thick orange border around workspace root */
-	.workspace-pane-mode-active {
-	  border: 4px solid %s !important;
+	/* Workspace root container */
+	paned, box {
+	  background-color: %s;
+	  transition: margin 150ms ease-in-out;
 	}
 
 	/* Base pane styling - subtle border for inactive panes */
@@ -149,7 +149,8 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  /* Collapsed panes are hidden - handled in code via widget visibility */
 	}`,
 		windowBackgroundColor,          // window background
-		paneModeColor,                  // workspace-pane-mode-active border color
+		paneModeColor,                  // window.pane-mode-active background (border color)
+		windowBackgroundColor,          // paned, box background
 		inactiveBorderColor,            // base pane border color (inactive)
 		styling.BorderRadius,           // base pane border radius
 		styling.TransitionDuration,     // base pane border transition

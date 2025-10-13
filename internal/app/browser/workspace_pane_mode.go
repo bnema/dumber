@@ -173,28 +173,66 @@ func (wm *WorkspaceManager) dispatchPaneModeEvent(event string, detail string) {
 	}
 }
 
-// applyPaneModeBorder adds the pane mode CSS class to the workspace root container
+// applyPaneModeBorder applies pane mode visual indicator using GTK margins
 func (wm *WorkspaceManager) applyPaneModeBorder() {
-	if wm.root == nil || wm.root.container == nil {
+	if wm.root == nil || wm.root.container == nil || wm.window == nil {
 		return
 	}
 
-	// Add CSS class to root container for Zellij-style border
-	if !webkit.WidgetHasCSSClass(wm.root.container, "workspace-pane-mode-active") {
-		webkit.WidgetAddCSSClass(wm.root.container, "workspace-pane-mode-active")
-		log.Printf("[pane-mode] Applied border to workspace root")
-	}
+	// Save the container reference so we can remove margins from it later
+	// (even if wm.root.container changes due to splits)
+	wm.paneModeContainer = wm.root.container
+
+	// Apply 4px margins to root container to create space for the border
+	webkit.WidgetSetMargin(wm.root.container, 4)
+
+	// Add CSS class to window for background color (the "border" color shows in the margin space)
+	webkit.WidgetAddCSSClass(wm.window.AsWindow(), "pane-mode-active")
+
+	// Force resize/allocation to apply margin changes immediately
+	webkit.WidgetQueueResize(wm.root.container)
+	webkit.WidgetQueueAllocate(wm.root.container)
+
+	// Queue redraw to show changes
+	webkit.WidgetQueueDraw(wm.window.AsWindow())
+	webkit.WidgetQueueDraw(wm.root.container)
+
+	log.Printf("[pane-mode] Applied border to workspace root using margins (container=%p)", wm.root.container)
 }
 
-// removePaneModeBorder removes the pane mode CSS class from the workspace root container
+// removePaneModeBorder removes the pane mode visual indicator
 func (wm *WorkspaceManager) removePaneModeBorder() {
-	if wm.root == nil || wm.root.container == nil {
+	if wm.window == nil {
 		return
 	}
 
-	// Remove CSS class from root container
-	if webkit.WidgetHasCSSClass(wm.root.container, "workspace-pane-mode-active") {
-		webkit.WidgetRemoveCSSClass(wm.root.container, "workspace-pane-mode-active")
-		log.Printf("[pane-mode] Removed border from workspace root")
+	// Use the saved container reference (the one that had margins applied)
+	// This is important because wm.root.container may have changed due to splits
+	container := wm.paneModeContainer
+	if container == nil {
+		log.Printf("[pane-mode] Warning: no saved container, trying current root")
+		if wm.root == nil || wm.root.container == nil {
+			return
+		}
+		container = wm.root.container
 	}
+
+	// Remove margins from the container that had them applied
+	webkit.WidgetSetMargin(container, 0)
+
+	// Remove CSS class from window
+	webkit.WidgetRemoveCSSClass(wm.window.AsWindow(), "pane-mode-active")
+
+	// Force resize/allocation to apply margin changes immediately
+	webkit.WidgetQueueResize(container)
+	webkit.WidgetQueueAllocate(container)
+
+	// Queue redraw to show changes
+	webkit.WidgetQueueDraw(wm.window.AsWindow())
+	webkit.WidgetQueueDraw(container)
+
+	// Clear the saved container reference
+	wm.paneModeContainer = nil
+
+	log.Printf("[pane-mode] Removed border from workspace root (container=%p)", container)
 }

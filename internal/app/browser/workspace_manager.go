@@ -13,6 +13,7 @@ import (
 	"github.com/bnema/dumber/internal/app/messaging"
 	"github.com/bnema/dumber/pkg/webkit"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
+	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
 // WorkspaceManager coordinates Zellij-style pane operations.
@@ -33,6 +34,7 @@ type WorkspaceManager struct {
 	// Coordination fields for preventing duplicate events
 	paneModeSource     *webkit.WebView // Which webview initiated pane mode
 	paneModeActivePane *paneNode       // Which pane node has pane mode active
+	paneModeContainer  gtk.Widgetter   // The container widget that has margin applied
 	paneMutex          sync.Mutex      // Protects pane mode state
 
 	// Focus throttling fields to prevent infinite loops

@@ -328,6 +328,9 @@ type WorkspaceStylingConfig struct {
 	BorderWidth int `mapstructure:"border_width" yaml:"border_width" json:"border_width"`
 	// BorderColor for focused panes (CSS color value or theme variable)
 	BorderColor string `mapstructure:"border_color" yaml:"border_color" json:"border_color"`
+	// PaneModeBorderColor for the pane mode indicator border (CSS color value or theme variable)
+	// Defaults to "#FFA500" (orange) if not set
+	PaneModeBorderColor string `mapstructure:"pane_mode_border_color" yaml:"pane_mode_border_color" json:"pane_mode_border_color"`
 	// TransitionDuration in milliseconds for border animations
 	TransitionDuration int `mapstructure:"transition_duration" yaml:"transition_duration" json:"transition_duration"`
 	// BorderRadius in pixels for pane border corners
@@ -767,6 +770,7 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("workspace.popups.oauth_auto_close", defaults.Workspace.Popups.OAuthAutoClose)
 	m.viper.SetDefault("workspace.styling.border_width", defaults.Workspace.Styling.BorderWidth)
 	m.viper.SetDefault("workspace.styling.border_color", defaults.Workspace.Styling.BorderColor)
+	m.viper.SetDefault("workspace.styling.pane_mode_border_color", defaults.Workspace.Styling.PaneModeBorderColor)
 	m.viper.SetDefault("workspace.styling.transition_duration", defaults.Workspace.Styling.TransitionDuration)
 	m.viper.SetDefault("workspace.styling.border_radius", defaults.Workspace.Styling.BorderRadius)
 }
