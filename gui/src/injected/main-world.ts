@@ -32,7 +32,7 @@ declare global {
     ) => number | void;
     __dumber_showZoomToast?: (level: number) => void;
     __dumber_omnibox_suggestions?: (suggestions: Suggestion[]) => void;
-    __dumber_webview_id?: string;
+    __dumber_webview_id?: string | number;
     __dumber_is_active?: boolean;
     __dumber_teardown?: () => void;
     webkit?: {
