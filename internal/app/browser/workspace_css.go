@@ -114,7 +114,7 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  background-color: %s;
 	}
 
-	/* Active stacked pane container gets the outline color */
+	/* Stacked pane containers never get active border - focus is shown via WebKit */
 	.stacked-pane-container.workspace-pane-active {
 	  border-color: %s;
 	}
@@ -156,7 +156,7 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 		styling.TransitionDuration,     // base pane border transition
 		activeBorderColor,              // workspace-pane-active border color
 		windowBackgroundColor,          // stacked-pane-container background
-		activeBorderColor,              // stacked-pane-container.workspace-pane-active border color
+		inactiveBorderColor,            // stacked-pane-container.workspace-pane-active border color (keep subtle)
 		getStackTitleBg(isDark),        // stacked-pane-title background
 		inactiveBorderColor,            // stacked-pane-title border-bottom
 		styling.TransitionDuration,     // stacked-pane-title transition
