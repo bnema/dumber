@@ -7,7 +7,7 @@ import (
 
 // Integration: basic WebKit window and navigation works.
 func Test_WebKit_BasicWindow_Integration(t *testing.T) {
-	view, err := webkit.NewWebView(&webkit.Config{InitialURL: "about:blank"})
+	view, err := webkit.NewWebView(&webkit.Config{})
 	if err != nil {
 		t.Fatalf("NewWebView failed: %v", err)
 	}
