@@ -28,6 +28,9 @@ All notable changes to this project will be documented in this file.
 - **GTK focus event duplicates**: Added timestamp-based deduplication to prevent multiple focus enter/leave events in the same millisecond from WebKitGTK nested widgets
 - **Popup close behavior**: Fixed app exit when closing popups by excluding them from remaining pane count check
 - **Pane mode border cleanup**: Fixed border persisting after pane splits by saving container reference when applying margins. Ensures proper cleanup even when workspace tree structure changes during split operations
+- **Stacked pane active border**: Fixed active border incorrectly appearing on stacked pane containers instead of individual panes
+- **Stacked pane creation**: Fixed premature Realize() call causing widget lifecycle issues during stack creation
+- **Browser exit on last pane close**: Fixed browser not properly quitting when closing the last webview via Ctrl+P x by calling GTK main loop quit instead of window close
 
 ## [0.11.0] - 2025-10-07
 
