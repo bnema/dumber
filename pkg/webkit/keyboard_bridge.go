@@ -39,6 +39,7 @@ const (
 	keyC          = "c"
 	keyW          = "w"
 	keyX          = "x"
+	keyS          = "s"
 	keyEscape     = "escape"
 	keyArrowLeft  = "arrowleft"
 	keyArrowRight = "arrowright"
@@ -58,6 +59,7 @@ const (
 	actionSplitRight = "split-right"
 	actionSplitDown  = "split-down"
 	actionSplitUp    = "split-up"
+	actionStack      = "stack"
 	actionExit       = "exit"
 	actionEnter      = "enter"
 )
@@ -74,6 +76,7 @@ const (
 var shortcutActions = map[string]string{
 	// Pane mode actions (no modifier)
 	keyX:          actionClose,
+	keyS:          actionStack,
 	keyL:          actionSplitLeft,
 	keyR:          actionSplitRight,
 	keyD:          actionSplitDown,
@@ -155,6 +158,8 @@ func (w *WebView) AttachKeyboardBridge() {
 			keyName = keyW
 		case 'x', 'X':
 			keyName = keyX
+		case 's', 'S':
+			keyName = keyS
 		case gdkKeyLeft:
 			keyName = keyArrowLeft
 		case gdkKeyRight:

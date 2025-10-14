@@ -91,6 +91,8 @@ func (wm *WorkspaceManager) HandlePaneAction(action string) {
 		wm.handlePaneClose(activePane)
 	case "split-right", "split-left", "split-up", "split-down":
 		wm.handlePaneSplit(activePane, action)
+	case "stack":
+		wm.handlePaneStack(activePane)
 	default:
 		log.Printf("[pane-mode] Unknown action: %s", action)
 	}
@@ -154,6 +156,30 @@ func (wm *WorkspaceManager) handlePaneSplit(node *paneNode, action string) {
 	wm.clonePaneState(node, newNode)
 
 	log.Printf("[pane-mode] Split successful: direction=%s", direction)
+}
+
+// handlePaneStack creates a stacked pane
+func (wm *WorkspaceManager) handlePaneStack(node *paneNode) {
+	if node == nil {
+		return
+	}
+
+	log.Printf("[pane-mode] Stacking pane %p", node)
+
+	// Notify JavaScript first so it can show toast
+	wm.dispatchPaneModeEvent("action", "stack")
+
+	// Perform the stack operation
+	newNode, err := wm.stackedPaneManager.StackPane(node)
+	if err != nil {
+		log.Printf("[pane-mode] Failed to stack pane: %v", err)
+		return
+	}
+
+	// Load initial URL in the new pane so scripts execute
+	wm.clonePaneState(node, newNode)
+
+	log.Printf("[pane-mode] Stack successful")
 }
 
 // dispatchPaneModeEvent sends a pane mode event to JavaScript for UI updates
