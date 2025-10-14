@@ -167,12 +167,6 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	return css
 }
 
-// generateStackedPaneCSS generates the CSS for stacked pane title bars (deprecated - use generateWorkspaceCSS)
-func (wm *WorkspaceManager) generateStackedPaneCSS() string {
-	// Delegate to the new comprehensive CSS generator
-	return wm.generateWorkspaceCSS()
-}
-
 // Global CSS provider tracking to prevent duplication
 var (
 	globalCSSInitialized bool
@@ -199,9 +193,4 @@ func (wm *WorkspaceManager) ensureWorkspaceStyles() {
 	}
 
 	wm.cssInitialized = true
-}
-
-// ensureStackedPaneStyles ensures that CSS styles are applied for stacked panes (deprecated - use ensureWorkspaceStyles)
-func (wm *WorkspaceManager) ensureStackedPaneStyles() {
-	wm.ensureWorkspaceStyles()
 }
