@@ -38,7 +38,7 @@ declare global {
     __dumber_find_open?: (query?: string) => void;
     __dumber_find_close?: () => void;
     __dumber_find_query?: (query: string) => void;
-    __dumber_dismissToast?: () => void;
+    __dumber_dismissToast?: (id: number) => void;
     __dumber_clearToasts?: () => void;
   }
 }
