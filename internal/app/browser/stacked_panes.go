@@ -197,7 +197,7 @@ func (spm *StackedPaneManager) convertToStackedContainer(target, newLeaf *paneNo
 	}
 	stackWrapperContainer.SetHExpand(true)
 	stackWrapperContainer.SetVExpand(true)
-	stackWrapperContainer.Realize() // Ensures size request is set like regular panes
+	// Note: Don't call Realize() here - GTK4 will realize automatically when added to toplevel
 
 	// Add CSS class to the stack container for proper styling
 	stackWrapperContainer.AddCSSClass(stackContainerClass)
