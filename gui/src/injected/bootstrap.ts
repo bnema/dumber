@@ -16,7 +16,7 @@ import type { Suggestion } from "../components/omnibox/types";
 declare global {
   interface Window {
     __dumber_gui?: DumberGUI;
-    __dumber_gui_ready?: boolean;
+    __dumber_gui_ready?: boo
     __dumber_gui_ready_for?: Document | null;
     __dumber_showToast?: (
       message: string,
