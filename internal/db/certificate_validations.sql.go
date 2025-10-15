@@ -31,14 +31,36 @@ func (q *Queries) DeleteExpiredCertificateValidations(ctx context.Context) error
 }
 
 const GetCertificateValidation = `-- name: GetCertificateValidation :one
-SELECT id, hostname, certificate_hash, user_decision, created_at, expires_at FROM certificate_validations 
-WHERE hostname = ? AND certificate_hash = ? 
+SELECT id, hostname, certificate_hash, user_decision, created_at, expires_at FROM certificate_validations
+WHERE hostname = ? AND certificate_hash = ?
 AND (expires_at IS NULL OR expires_at > datetime('now'))
 LIMIT 1
 `
 
 func (q *Queries) GetCertificateValidation(ctx context.Context, hostname string, certificateHash string) (CertificateValidation, error) {
 	row := q.db.QueryRowContext(ctx, GetCertificateValidation, hostname, certificateHash)
+	var i CertificateValidation
+	err := row.Scan(
+		&i.ID,
+		&i.Hostname,
+		&i.CertificateHash,
+		&i.UserDecision,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
+const GetCertificateValidationByHostname = `-- name: GetCertificateValidationByHostname :one
+SELECT id, hostname, certificate_hash, user_decision, created_at, expires_at FROM certificate_validations
+WHERE hostname = ?
+AND (expires_at IS NULL OR expires_at > datetime('now'))
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetCertificateValidationByHostname(ctx context.Context, hostname string) (CertificateValidation, error) {
+	row := q.db.QueryRowContext(ctx, GetCertificateValidationByHostname, hostname)
 	var i CertificateValidation
 	err := row.Scan(
 		&i.ID,

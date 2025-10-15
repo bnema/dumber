@@ -38,12 +38,10 @@ func (wv *WebView) setupTLSErrorHandler() {
 			return false // Let WebKit handle it
 		}
 
-		// Get certificate info string for hashing
-		certInfo := formatCertificateInfo(certificate)
-		certHash := getCertificateHash(certInfo)
-
-		// Check if user has previously made a decision about this certificate
-		decision, exists := checkStoredCertificateDecision(hostname, certHash)
+		// Check if user has previously made a decision for this hostname
+		// Note: We use hostname-only matching because certificate properties
+		// from GIO are unstable (GDateTime objects change on each access)
+		decision, exists := checkStoredCertificateDecision(hostname)
 		if exists {
 			if decision == "accepted" {
 				log.Printf("[tls] Certificate previously accepted for %s, allowing", hostname)
@@ -57,7 +55,7 @@ func (wv *WebView) setupTLSErrorHandler() {
 
 		// No stored decision - show dialog to user
 		log.Printf("[tls] No stored decision for %s, showing dialog", hostname)
-		wv.showTLSErrorDialog(failingUri, hostname, certificate, certHash, errors)
+		wv.showTLSErrorDialog(failingUri, hostname, certificate, errors)
 
 		return true // Signal handled - we're managing the error
 	})
@@ -116,8 +114,8 @@ func getCertificateHash(certificateInfo string) string {
 	return fmt.Sprintf("%x", hash)
 }
 
-// checkStoredCertificateDecision checks if user has previously decided on this certificate
-func checkStoredCertificateDecision(hostname, certHash string) (string, bool) {
+// checkStoredCertificateDecision checks if user has previously decided on this hostname
+func checkStoredCertificateDecision(hostname string) (string, bool) {
 	cfg := config.Get()
 	if cfg == nil {
 		log.Printf("[tls] Config not available, cannot check stored decisions")
@@ -140,7 +138,8 @@ func checkStoredCertificateDecision(hostname, certHash string) (string, bool) {
 	queries := db.New(database)
 	ctx := context.Background()
 
-	validation, err := queries.GetCertificateValidation(ctx, hostname, certHash)
+	// Get any validation for this hostname (we don't verify cert hash anymore)
+	validation, err := queries.GetCertificateValidationByHostname(ctx, hostname)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return "", false
@@ -152,8 +151,8 @@ func checkStoredCertificateDecision(hostname, certHash string) (string, bool) {
 	return validation.UserDecision, true
 }
 
-// storeCertificateDecision stores the user's decision about a certificate
-func storeCertificateDecision(hostname, certHash, decision string, expiresAt sql.NullTime) error {
+// storeCertificateDecision stores the user's decision about a hostname
+func storeCertificateDecision(hostname, decision string, expiresAt sql.NullTime) error {
 	cfg := config.Get()
 	if cfg == nil {
 		return fmt.Errorf("config not available")
@@ -173,10 +172,11 @@ func storeCertificateDecision(hostname, certHash, decision string, expiresAt sql
 	queries := db.New(database)
 	ctx := context.Background()
 
-	log.Printf("[tls] Saving certificate decision to database: hostname=%s, certHash=%s, decision=%s, expiresAt=%v",
-		hostname, certHash[:16]+"...", decision, expiresAt)
+	log.Printf("[tls] Saving certificate decision to database: hostname=%s, decision=%s, expiresAt=%v",
+		hostname, decision, expiresAt)
 
-	if err := queries.StoreCertificateValidation(ctx, hostname, certHash, decision, expiresAt); err != nil {
+	// Use empty string for cert hash since we're doing hostname-only matching
+	if err := queries.StoreCertificateValidation(ctx, hostname, "", decision, expiresAt); err != nil {
 		log.Printf("[tls] Failed to save certificate decision to database: %v", err)
 		return err
 	}
@@ -231,7 +231,7 @@ func getTLSErrorMessages(errors gio.TLSCertificateFlags) []string {
 }
 
 // showTLSErrorDialog shows a dialog asking the user how to handle the TLS error
-func (wv *WebView) showTLSErrorDialog(failingUri, hostname string, certificate gio.TLSCertificater, certHash string, errors gio.TLSCertificateFlags) {
+func (wv *WebView) showTLSErrorDialog(failingUri, hostname string, certificate gio.TLSCertificater, errors gio.TLSCertificateFlags) {
 	// This must run on the main thread
 	wv.RunOnMainThread(func() {
 		// Get error messages
@@ -290,7 +290,7 @@ func (wv *WebView) showTLSErrorDialog(failingUri, hostname string, certificate g
 					Time:  time.Now().Add(30 * 24 * time.Hour),
 					Valid: true,
 				}
-				if err := storeCertificateDecision(hostname, certHash, "accepted", expiresAt); err != nil {
+				if err := storeCertificateDecision(hostname, "accepted", expiresAt); err != nil {
 					log.Printf("[tls] Failed to store certificate decision: %v", err)
 				} else {
 					log.Printf("[tls] Stored certificate acceptance for %s (expires in 30 days)", hostname)

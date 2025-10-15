@@ -22,7 +22,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - **TLS certificate validation restored**: Re-implemented persistent certificate error handling (broken during gotk4 migration)
   - Interactive three-option dialog: "Go Back", "Proceed Once (Unsafe)", and "Always Accept This Site"
-  - SQLite-based certificate decision storage with SHA256 certificate fingerprinting
+  - SQLite-based hostname decision storage (hostname-only matching - GIO certificate properties are unstable)
   - Smart expiration: "Proceed Once" temporary (not stored), "Always Accept" persists for 30 days
   - Automatic cleanup of expired validations on application startup
   - **Known issue**: Accepted certificates not pre-loaded into WebKit session on startup - stored decisions only apply when TLS error occurs again
