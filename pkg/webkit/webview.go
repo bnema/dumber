@@ -209,6 +209,9 @@ func (w *WebView) setupEventHandlers() {
 		// Handle load events if needed
 	})
 
+	// TLS error handling - connect to load-failed-with-tls-errors signal
+	w.setupTLSErrorHandler()
+
 	// Close
 	w.view.ConnectClose(func() {
 		if w.onClose != nil {

@@ -20,6 +20,12 @@ All notable changes to this project will be documented in this file.
 - **Workspace pane mode**: Moved ~450 lines of JavaScript state machine to Go backend for more reliable keyboard handling and eliminated race conditions between webviews
 
 ### Fixed
+- **TLS certificate validation restored**: Re-implemented persistent certificate error handling (broken during gotk4 migration)
+  - Interactive three-option dialog: "Go Back", "Proceed Once (Unsafe)", and "Always Accept This Site"
+  - SQLite-based certificate decision storage with SHA256 certificate fingerprinting
+  - Smart expiration: "Proceed Once" temporary (not stored), "Always Accept" persists for 30 days
+  - Automatic cleanup of expired validations on application startup
+  - **Known issue**: Accepted certificates not pre-loaded into WebKit session on startup - stored decisions only apply when TLS error occurs again
 - **Content blocking restored**: Re-implemented WebKit native ad/tracker blocking (broken during gotk4 migration) using UserContentFilterStore API
 - **Script injection spam**: Fixed 100+ duplicate "Sending color palettes" messages by injecting scripts only in top frame instead of all iframes
 - **Favicon race conditions**: Eliminated duplicate downloads and file handle errors via mutex protection and proper handler registration

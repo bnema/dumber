@@ -77,6 +77,11 @@ func InitPersistentSession(dataDir, cacheDir string) error {
 	// Enable persistent credential storage (HTTP auth, etc.)
 	session.SetPersistentCredentialStorageEnabled(true)
 
+	// Configure TLS errors to emit signals instead of failing silently
+	// This enables the load-failed-with-tls-errors signal
+	session.SetTLSErrorsPolicy(webkit.TLSErrorsPolicyFail)
+	log.Printf("[webkit] TLS errors policy set to FAIL (signals enabled)")
+
 	// Verify this is indeed the default session now
 	defaultSession := webkit.NetworkSessionGetDefault()
 	if defaultSession == nil {

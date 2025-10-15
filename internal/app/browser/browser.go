@@ -3,7 +3,6 @@ package browser
 import (
 	"database/sql"
 	"embed"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -18,7 +17,6 @@ import (
 	"github.com/bnema/dumber/internal/db"
 	"github.com/bnema/dumber/internal/filtering"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/dumber/internal/migrations"
 	"github.com/bnema/dumber/internal/services"
 	"github.com/bnema/dumber/pkg/webkit"
 )
@@ -119,20 +117,19 @@ func (app *BrowserApp) Initialize() error {
 	// Detect keyboard layout
 	environment.DetectAndSetKeyboardLocale()
 
-	// Initialize database
+	// Initialize database (migrations run automatically in InitDB)
 	database, err := db.InitDB(app.config.Database.Path)
 	if err != nil {
 		return err
 	}
 	app.database = database
-
-	// Run database migrations
-	if err := migrations.RunEmbeddedMigrations(database); err != nil {
-		return fmt.Errorf("failed to run database migrations: %w", err)
-	}
-
 	app.queries = db.New(database)
 	log.Printf("Database opened at %s", app.config.Database.Path)
+
+	// Cleanup expired certificate validations
+	if err := webkit.CleanupExpiredCertificateValidations(); err != nil {
+		log.Printf("Warning: failed to cleanup expired certificate validations: %v", err)
+	}
 
 	// Initialize services
 	app.parserService = services.NewParserService(app.config, app.queries)
