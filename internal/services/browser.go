@@ -93,6 +93,8 @@ func (s *BrowserService) AttachWebView(view *webkit.WebView) {
 	s.webView = view
 
 	// Register legacy favicon change handler (binary data - fallback)
+	// This is kept for backward compatibility but is rarely used
+	// Modern favicon handling uses the URI-based handler registered in buildPane()
 	view.RegisterFaviconChangedHandler(func(data []byte) {
 		if currentURL := view.GetCurrentURL(); currentURL != "" {
 			log.Printf("[favicon] Favicon detected for %s, data size: %d bytes", currentURL, len(data))
@@ -100,10 +102,9 @@ func (s *BrowserService) AttachWebView(view *webkit.WebView) {
 		}
 	})
 
-	// Register favicon URI change handler (WebKit native)
-	view.RegisterFaviconURIChangedHandler(func(pageURI, faviconURI string) {
-		s.handleFaviconURIChanged(pageURI, faviconURI)
-	})
+	// Note: RegisterFaviconURIChangedHandler is now only called in buildPane()
+	// to avoid duplicate handler registration which causes multiple downloads
+	// of the same favicon and file handle race conditions
 }
 
 // LoadGUIBundle loads the unified GUI bundle from assets
@@ -122,28 +123,6 @@ func (s *BrowserService) LoadGUIBundle(assets embed.FS) error {
 // GetGUIBundle returns the loaded GUI bundle string
 func (s *BrowserService) GetGUIBundle() string {
 	return s.guiBundle
-}
-
-// InjectGUIBundle injects the unified GUI bundle and initializes controls
-func (s *BrowserService) InjectGUIBundle(ctx context.Context) error {
-	_ = ctx
-	if s.webView == nil {
-		return fmt.Errorf("webview not attached")
-	}
-	if s.guiBundle == "" {
-		return fmt.Errorf("GUI bundle not loaded")
-	}
-
-	// Inject the unified GUI bundle first
-	bundleScript := s.guiBundle +
-		";(function(){" +
-		"if(window.__dumber_gui && window.__dumber_gui.initializeControls){" +
-		"window.__dumber_gui.initializeControls();" +
-		"console.log('✅ Controls initialized via GUI bundle');" +
-		"}else{console.error('❌ GUI bundle not properly loaded');}" +
-		"})();"
-
-	return s.webView.InjectScript(bundleScript)
 }
 
 // InjectToastSystem injects the GUI bundle and initializes the toast system
@@ -628,7 +607,7 @@ func (s *BrowserService) handleFaviconChanged(pageURL string, pngData []byte) {
 
 	// Store a reference to the cached file in the database
 	// We use a consistent path format for the favicon URL
-	faviconCacheURL := fmt.Sprintf("dumber://favicon/%x.png", md5.Sum([]byte(pageURL)))
+	faviconCacheURL := fmt.Sprintf("dumb://favicon/%x.png", md5.Sum([]byte(pageURL)))
 	faviconNullString := sql.NullString{String: faviconCacheURL, Valid: true}
 	if err := s.dbQueries.UpdateHistoryFavicon(ctx, faviconNullString, pageURL); err != nil {
 		// Silently fail - favicon is not critical

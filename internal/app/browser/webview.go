@@ -2,69 +2,26 @@ package browser
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/bnema/dumber/internal/app/constants"
 	"github.com/bnema/dumber/internal/app/control"
-	"github.com/bnema/dumber/internal/app/environment"
 	"github.com/bnema/dumber/internal/app/messaging"
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/filtering"
 	"github.com/bnema/dumber/pkg/webkit"
 )
 
-// buildMemoryConfig converts config.WebkitMemoryConfig to webkit.MemoryConfig
-func buildMemoryConfig(cfg config.WebkitMemoryConfig) webkit.MemoryConfig {
-	mc := webkit.MemoryConfig{
-		MemoryLimitMB:           cfg.MemoryLimitMB,
-		ConservativeThreshold:   cfg.ConservativeThreshold,
-		StrictThreshold:         cfg.StrictThreshold,
-		KillThreshold:           cfg.KillThreshold,
-		PollIntervalSeconds:     cfg.PollIntervalSeconds,
-		EnableGCInterval:        cfg.EnableGCInterval,
-		ProcessRecycleThreshold: cfg.ProcessRecycleThreshold,
-		EnablePageCache:         cfg.EnablePageCache,
-		EnableMemoryMonitoring:  cfg.EnableMemoryMonitoring,
-	}
-
-	// Convert string cache model to webkit constant
-	switch strings.ToLower(cfg.CacheModel) {
-	case "document_viewer", "documentviewer", "doc":
-		mc.CacheModel = webkit.CacheModelDocumentViewer
-	case "primary_web_browser", "primary", "primarywebbrowser":
-		mc.CacheModel = webkit.CacheModelPrimaryWebBrowser
-	default:
-		mc.CacheModel = webkit.CacheModelWebBrowser
-	}
-
-	return mc
-}
-
-func buildColorPalettes(cfg config.AppearanceConfig) webkit.ColorPalettes {
-	toPalette := func(src config.ColorPalette) webkit.ColorPalette {
-		return webkit.ColorPalette{
-			Background:     src.Background,
-			Surface:        src.Surface,
-			SurfaceVariant: src.SurfaceVariant,
-			Text:           src.Text,
-			Muted:          src.Muted,
-			Accent:         src.Accent,
-			Border:         src.Border,
-		}
-	}
-
-	return webkit.ColorPalettes{
-		Light: toPalette(cfg.LightPalette),
-		Dark:  toPalette(cfg.DarkPalette),
-	}
-}
+// Note: Memory management and color palettes are now handled at the application level
+// The gotk4 webkit.Config only contains basic WebKit settings
 
 func (app *BrowserApp) buildWebkitConfig() (*webkit.Config, error) {
+	// Ensure data directories exist for WebKit
 	dataDir, err := config.GetDataDir()
 	if err != nil {
 		return nil, err
@@ -83,39 +40,70 @@ func (app *BrowserApp) buildWebkitConfig() (*webkit.Config, error) {
 		return nil, err
 	}
 
+	// Build WebKit configuration with data directories for persistence
 	cfg := &webkit.Config{
-		Assets:                app.assets,
-		InitialURL:            "dumb://homepage",
-		ZoomDefault:           app.config.DefaultZoom,
-		EnableDeveloperExtras: true,
-		DataDir:               webkitData,
-		CacheDir:              webkitCache,
-		APIToken:              app.config.APISecurity.Token,
-		DefaultSansFont:       app.config.Appearance.SansFont,
-		DefaultSerifFont:      app.config.Appearance.SerifFont,
-		DefaultMonospaceFont:  app.config.Appearance.MonospaceFont,
-		DefaultFontSize:       app.config.Appearance.DefaultFontSize,
-		Rendering:             webkit.RenderingConfig{Mode: string(app.config.RenderingMode)},
-		UseDomZoom:            app.config.UseDomZoom,
-		VideoAcceleration: webkit.VideoAccelerationConfig{
-			EnableVAAPI:      app.config.VideoAcceleration.EnableVAAPI,
-			AutoDetectGPU:    app.config.VideoAcceleration.AutoDetectGPU,
-			VAAPIDriverName:  app.config.VideoAcceleration.VAAPIDriverName,
-			EnableAllDrivers: app.config.VideoAcceleration.EnableAllDrivers,
-			LegacyVAAPI:      app.config.VideoAcceleration.LegacyVAAPI,
-		},
-		Memory: buildMemoryConfig(app.config.WebkitMemory),
-		CodecPreferences: webkit.CodecPreferencesConfig{
-			PreferredCodecs:           strings.Split(app.config.CodecPreferences.PreferredCodecs, ","),
-			BlockedCodecs:             environment.BuildBlockedCodecsList(app.config.CodecPreferences),
-			ForceAV1:                  app.config.CodecPreferences.ForceAV1,
-			CustomUserAgent:           app.config.CodecPreferences.CustomUserAgent,
-			DisableTwitchCodecControl: app.config.CodecPreferences.DisableTwitchCodecControl,
-		},
-		Colors: buildColorPalettes(app.config.Appearance),
+		UserAgent:            buildUserAgent(app.config),
+		EnableJavaScript:     true,
+		EnableWebGL:          true,
+		EnableMediaStream:    true,
+		HardwareAcceleration: true,
+		DefaultFontSize:      app.config.Appearance.DefaultFontSize,
+		MinimumFontSize:      8,
+		DataDir:              webkitData,
+		CacheDir:             webkitCache,
+		AppearanceConfigJSON: app.buildAppearanceConfigJSON(),
+		CreateWindow:         true, // Default to creating a window for standalone WebViews
 	}
 
 	return cfg, nil
+}
+
+// buildUserAgent constructs the user agent string from config
+func buildUserAgent(cfg *config.Config) string {
+	if cfg.CodecPreferences.CustomUserAgent != "" {
+		return cfg.CodecPreferences.CustomUserAgent
+	}
+	// Use default WebKit user agent
+	return "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
+}
+
+// buildAppearanceConfigJSON builds the palette configuration as JSON
+// The GUI expects window.__dumber_palette with just the palette data
+func (app *BrowserApp) buildAppearanceConfigJSON() string {
+	if app.config == nil {
+		return ""
+	}
+
+	// Build palette config in the format main-world.ts expects
+	// It looks for window.__dumber_palette = { "light": {...}, "dark": {...} }
+	paletteConfig := map[string]interface{}{
+		"light": map[string]string{
+			"background":      app.config.Appearance.LightPalette.Background,
+			"surface":         app.config.Appearance.LightPalette.Surface,
+			"surface_variant": app.config.Appearance.LightPalette.SurfaceVariant,
+			"text":            app.config.Appearance.LightPalette.Text,
+			"muted":           app.config.Appearance.LightPalette.Muted,
+			"accent":          app.config.Appearance.LightPalette.Accent,
+			"border":          app.config.Appearance.LightPalette.Border,
+		},
+		"dark": map[string]string{
+			"background":      app.config.Appearance.DarkPalette.Background,
+			"surface":         app.config.Appearance.DarkPalette.Surface,
+			"surface_variant": app.config.Appearance.DarkPalette.SurfaceVariant,
+			"text":            app.config.Appearance.DarkPalette.Text,
+			"muted":           app.config.Appearance.DarkPalette.Muted,
+			"accent":          app.config.Appearance.DarkPalette.Accent,
+			"border":          app.config.Appearance.DarkPalette.Border,
+		},
+	}
+
+	payload, err := json.Marshal(paletteConfig)
+	if err != nil {
+		log.Printf("[webview] Failed to marshal palette config: %v", err)
+		return ""
+	}
+
+	return string(payload)
 }
 
 func (app *BrowserApp) buildPane(view *webkit.WebView) (*BrowserPane, error) {
@@ -167,7 +155,7 @@ func (app *BrowserApp) createPaneForView(view *webkit.WebView) (*BrowserPane, er
 	pane.initializeGUITracking()
 
 	// GUI manager will be loaded on-demand when needed
-	log.Printf("[webview] Created pane for webview: %s", view.ID())
+	log.Printf("[webview] Created pane for webview: %d", view.ID())
 
 	app.attachPaneHandlers(pane)
 	return pane, nil
@@ -202,7 +190,7 @@ func (app *BrowserApp) attachPaneHandlers(pane *BrowserPane) {
 	})
 
 	pane.webView.RegisterScriptMessageHandler(func(payload string) {
-		if app.workspace != nil {
+		if app.workspace != nil && shouldFocusForScriptMessage(payload) {
 			app.workspace.focusByView(pane.webView)
 		}
 		pane.messageHandler.Handle(payload)
@@ -212,21 +200,32 @@ func (app *BrowserApp) attachPaneHandlers(pane *BrowserPane) {
 		pane.messageHandler.SetNavigationController(pane.navigationController)
 	}
 
-	pane.webView.RegisterPopupHandler(func(uri string) *webkit.WebView {
-		if app.workspace != nil {
-			return app.workspace.HandlePopup(pane.webView, uri)
+	// Setup WebKit-native popup lifecycle using create/ready-to-show/close signals
+	if app.workspace != nil {
+		node := app.workspace.GetNodeForWebView(pane.webView)
+		if node != nil {
+			app.workspace.setupPopupHandling(pane.webView, node)
+			log.Printf("[webview] Setup native popup handling for WebView ID: %d", pane.webView.ID())
 		}
+	}
+}
 
-		// No workspace manager - just navigate in current pane
-		if uri != "" && pane.navigationController != nil {
-			go func() {
-				if err := pane.navigationController.NavigateToURL(uri); err != nil {
-					log.Printf("[webview] failed to navigate to URL %s: %v", uri, err)
-				}
-			}()
-		}
-		return nil
-	})
+// shouldFocusForScriptMessage filters script messages and only allows focus handoff
+// for explicit user-driven actions (navigation, history commands, popup lifecycle).
+// Background bootstrap messages (palette sync, workspace bridge chatter, etc.) are
+// ignored so they don't steal focus from the user's active pane.
+func shouldFocusForScriptMessage(payload string) bool {
+	var msg messaging.Message
+	if err := json.Unmarshal([]byte(payload), &msg); err != nil {
+		return true // keep legacy behaviour if parsing fails
+	}
+
+	switch msg.Type {
+	case "navigate", "query", "wails", "history_recent", "history_stats", "history_search", "history_delete", "close-popup":
+		return true
+	default:
+		return false
+	}
 }
 
 // createWebView creates and configures the WebView
@@ -238,9 +237,7 @@ func (app *BrowserApp) createWebView() error {
 		return err
 	}
 
-	// Main window needs a top-level window
-	cfg.CreateWindow = true
-
+	// Note: Window creation is now handled automatically by webkit.NewWebView
 	view, err := webkit.NewWebView(cfg)
 
 	if err != nil {
@@ -263,6 +260,19 @@ func (app *BrowserApp) createWebView() error {
 
 	if app.workspace == nil {
 		app.workspace = NewWorkspaceManager(app, pane)
+		// CRITICAL: Register navigation handler for the root webview
+		// This is needed because buildPane() couldn't register it when workspace was nil
+		app.workspace.RegisterNavigationHandler(view)
+
+		// CRITICAL: Setup popup handling for the root webview
+		// This must be done after workspace is created so WebKit's create signal is connected
+		node := app.workspace.GetNodeForWebView(view)
+		if node != nil {
+			app.workspace.setupPopupHandling(view, node)
+			log.Printf("[webview] Setup native popup handling for root WebView ID: %d", view.ID())
+		} else {
+			log.Printf("[webview] WARNING: Could not find node for root WebView ID: %d", view.ID())
+		}
 	}
 
 	// Initialize window-level global shortcuts AFTER workspace is set up
@@ -294,8 +304,8 @@ func (app *BrowserApp) createWebView() error {
 func (app *BrowserApp) setupWebViewIntegration() {
 	app.browserService.AttachWebView(app.webView)
 
-	// GUI bundle is loaded via WebKit user scripts in enableUserContentManager
-	// No need to load separately in browser service
+	// GUI bundle is loaded via WebKit user scripts in SetupUserContentManager
+	// Appearance config is also injected at document-start via UserContentManager
 
 	// Use native window as title updater
 	if win := app.webView.Window(); win != nil {
@@ -308,7 +318,7 @@ func (app *BrowserApp) setupContentBlocking() error {
 	log.Printf("Initializing content blocking system...")
 
 	// Enable WebKit debug logging if requested
-	webkit.SetupWebKitDebugLogging(app.config)
+	webkit.SetupWebKitDebugLogging()
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -326,58 +336,44 @@ func (app *BrowserApp) setupContentBlocking() error {
 	// Store reference to filter manager
 	app.filterManager = filterManager
 
-	// Set up callback to re-apply network filters when they become ready
+	// Set up callback to apply network filters when they become ready
 	// This callback will be called from the async filter loading process
 	filterManager.SetFiltersReadyCallback(func() {
-		// Add small delay to avoid race conditions with WebView initialization
-		go func() {
-			time.Sleep(300 * time.Millisecond)
-			if app.webView != nil {
-				if err := app.webView.UpdateContentFilters(filterManager); err != nil {
-					log.Printf("Failed to apply filters after loading: %v", err)
+		log.Printf("[filtering] Filters ready, applying to WebView...")
+
+		// Get the WebKit JSON rules from filter manager
+		filterJSON, err := filterManager.GetNetworkFilters()
+		if err != nil {
+			log.Printf("[filtering] Failed to get network filters: %v", err)
+			return
+		}
+
+		if len(filterJSON) == 0 {
+			log.Printf("[filtering] No network filters to apply")
+			return
+		}
+
+		log.Printf("[filtering] Got %d bytes of WebKit JSON rules", len(filterJSON))
+
+		// Apply filters to the WebView
+		// This must be done on the main thread since it touches GTK/WebKit
+		if app.webView != nil {
+			app.webView.RunOnMainThread(func() {
+				if err := app.webView.InitializeContentBlocking(filterJSON); err != nil {
+					log.Printf("[filtering] Failed to apply content filters: %v", err)
 				} else {
-					log.Printf("Successfully applied filters after async loading")
+					log.Printf("[filtering] ✅ Content blocking enabled successfully")
 				}
-			}
-		}()
+			})
+		}
 	})
 
-	// Start async filter loading early (before WebView content blocking initialization)
-	// This allows filters to be ready when the WebView needs them
+	// Start async filter loading
+	// This allows filters to compile in the background while the browser starts
 	go func() {
 		if err := filtering.InitializeFiltersAsync(filterManager); err != nil {
 			log.Printf("Warning: failed to initialize filters asynchronously: %v", err)
 		}
-	}()
-
-	// Initialize content blocking in WebView with delay
-	// Wait for WebView to be fully loaded before setting up content blocking
-	go func() {
-		// Wait extra time for the first navigation to avoid preconnect interference
-		log.Printf("Waiting for WebView to complete initial load before enabling content blocking...")
-		time.Sleep(3000 * time.Millisecond) // 3 seconds for first load stability
-
-		if err := app.webView.InitializeContentBlocking(filterManager); err != nil {
-			log.Printf("Warning: Failed to initialize content blocking: %v", err)
-			// Continue without content blocking rather than failing
-		}
-
-		// Register navigation handler for domain-specific filtering and GUI injection
-		// Only register after content blocking is initialized
-		app.webView.RegisterURIChangedHandler(func(uri string) {
-			// Add small delay to avoid conflicts with page load
-			go func() {
-				time.Sleep(200 * time.Millisecond) // Slightly longer delay for stability
-
-				// Apply content filtering if available
-				if app.filterManager != nil {
-					app.webView.OnNavigate(uri, app.filterManager, app.config.ContentFilteringWhitelist)
-				}
-
-				// Note: GUI bundle (controls and toast) is now injected as User Script
-				// in WebKit's enableUserContentManager, so it persists across all navigations
-			}()
-		})
 	}()
 
 	log.Printf("Content blocking system initialization started")

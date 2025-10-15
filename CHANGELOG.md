@@ -5,16 +5,45 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Native favicon support**: WebKit FaviconDatabase integration with automatic detection and caching for all panes
 - ENV=dev support to isolate test builds from production config/data in .dev/dumber/ directory
 - Content filtering whitelist config (Twitch enabled by default)
 - `dumber config` command to open config file in $VISUAL/$EDITOR or print path with `--path`
+- **Native WebKit popup lifecycle**: Implemented WebKit's create/ready-to-show/close signals for proper popup management, eliminating manual WebView creation that bypassed WebKit's internal architecture
+- **Popup behavior configuration**: Added `popup_behavior` config with four modes: `split` (default), `stacked`, `tabbed`, and `windowed` for user control over popup placement
+- **Backend-driven pane mode**: Complete rewrite of pane mode from JavaScript to Go backend with native keyboard handling. Ctrl+P enters mode, x/l/r/d/u/arrows for actions, Escape exits. Blocks all other keys during mode.
+- **Pane mode visual border**: Zellij-style border around workspace root when pane mode is active, replacing old toast notification system. Uses GTK margins with configurable `pane_mode_border_color` (defaults to #FFA500 orange). Window background color shows through margins to create visible border effect
+
+### Changed
+- **Popup architecture refactoring**: Removed ~280 lines of JavaScript window.open interception in favor of WebKit's native popup signals. Popups now follow WebKitGTK's expected lifecycle instead of being intercepted and manually created
+- **GUI bootstrap refactoring**: Extracted 400+ lines of common initialization logic into reusable bootstrap.ts module shared between injected pages and special schemes (homepage, etc.)
+- **Workspace pane mode**: Moved ~450 lines of JavaScript state machine to Go backend for more reliable keyboard handling and eliminated race conditions between webviews
 
 ### Fixed
+- **TLS certificate validation restored**: Re-implemented persistent certificate error handling (broken during gotk4 migration)
+  - Interactive three-option dialog: "Go Back", "Proceed Once (Unsafe)", and "Always Accept This Site"
+  - SQLite-based hostname decision storage (hostname-only matching - GIO certificate properties are unstable)
+  - Smart expiration: "Proceed Once" temporary (not stored), "Always Accept" persists for 30 days
+  - Automatic cleanup of expired validations on application startup
+  - **Known issue**: Accepted certificates not pre-loaded into WebKit session on startup - stored decisions only apply when TLS error occurs again
+- **Content blocking restored**: Re-implemented WebKit native ad/tracker blocking (broken during gotk4 migration) using UserContentFilterStore API
+- **Script injection spam**: Fixed 100+ duplicate "Sending color palettes" messages by injecting scripts only in top frame instead of all iframes
+- **Favicon race conditions**: Eliminated duplicate downloads and file handle errors via mutex protection and proper handler registration
+- **Homepage theme switching**: Fixed color palette application for proper light/dark mode transitions
+- **Workspace pane borders**: Hide active pane border when only one pane exists to match Zellij UX
 - Enabled missing WebKitGTK6 features: WebRTC, MediaSource, LocalStorage, WebAudio, MediaStream, Clipboard
 - Cosmetic filter duplicate injection in frames
 - Config file duplicate keys (snake_case/camelCase) by using Viper's SafeWriteConfigAs
 - Config not reading newly created default config file
 - Config writing to disk on every load/reload
+- **Popup SIGSEGV crashes**: Eliminated segmentation violations during popup lifecycle by respecting WebKit's signal-based popup management. Fixes OAuth popup crashes and GTK bloom filter corruption
+- **GTK focus event duplicates**: Added timestamp-based deduplication to prevent multiple focus enter/leave events in the same millisecond from WebKitGTK nested widgets
+- **Popup close behavior**: Fixed app exit when closing popups by excluding them from remaining pane count check
+- **Pane mode border cleanup**: Fixed border persisting after pane splits by saving container reference when applying margins. Ensures proper cleanup even when workspace tree structure changes during split operations
+- **Stacked pane active border**: Fixed active border incorrectly appearing on stacked pane containers instead of individual panes
+- **Stacked pane creation**: Fixed premature Realize() call causing widget lifecycle issues during stack creation
+- **Browser exit on last pane close**: Fixed browser not properly quitting when closing the last webview via Ctrl+P x by calling GTK main loop quit instead of window close
+- **Zoom level persistence restored**: Fixed per-domain zoom settings not being saved to database (broken during gotk4 migration). Added missing `notify::zoom-level` signal connection in setupEventHandlers to properly persist zoom changes
 
 ## [0.11.0] - 2025-10-07
 

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/pkg/webkit"
+	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
 // FocusState represents the current state of the focus management system
@@ -158,7 +159,7 @@ func NewRequestDeduplicator(ttl time.Duration) *RequestDeduplicator {
 }
 
 // IsDuplicate checks if a request is a duplicate within the TTL window
-func (rd *RequestDeduplicator) IsDuplicate(req FocusRequest) bool {
+func (rd *RequestDeduplicator) IsDuplicate(req FocusRequest, isActiveTarget bool) bool {
 	rd.mu.Lock()
 	defer rd.mu.Unlock()
 
@@ -173,12 +174,16 @@ func (rd *RequestDeduplicator) IsDuplicate(req FocusRequest) bool {
 	// Generate signature for this request
 	sig := fmt.Sprintf("%p:%s", req.TargetNode, req.Source)
 
-	// Check if this signature exists
-	if _, exists := rd.recentSigs[sig]; exists {
-		return true
+	// Always record latest timestamp so future checks use fresh window
+	// Prevent duplicates only when the target is already active; otherwise we
+	// want to process the request to move focus back to that pane.
+	if timestamp, exists := rd.recentSigs[sig]; exists {
+		if isActiveTarget && now.Sub(timestamp) <= rd.ttl {
+			rd.recentSigs[sig] = now
+			return true
+		}
 	}
 
-	// Record this signature
 	rd.recentSigs[sig] = now
 	return false
 }
@@ -366,8 +371,11 @@ func (fsm *FocusStateMachine) RequestFocus(node *paneNode, source FocusSource) e
 		fsm.mu.Unlock()
 	}
 
-	// Check for duplicates
-	if fsm.deduplicator.IsDuplicate(request) {
+	activePane := fsm.GetActivePane()
+
+	// Check for duplicates (only dedupe when the request targets the currently
+	// active pane to avoid suppressing necessary focus transitions).
+	if fsm.deduplicator.IsDuplicate(request, activePane == node) {
 		if fsm.metricsEnabled {
 			fsm.mu.Lock()
 			fsm.metrics.DuplicateRequests++
@@ -556,17 +564,14 @@ func (fsm *FocusStateMachine) findTopLeftPane(leaves []*paneNode) *paneNode {
 	var bestScore float64 = 1e9
 
 	for _, leaf := range leaves {
-		if leaf.container == 0 || !webkit.WidgetIsValid(leaf.container) {
+		if leaf.container == nil {
 			continue
 		}
 
-		bounds, ok := webkit.WidgetGetBounds(leaf.container)
-		if !ok {
-			continue
-		}
+		x, y, _, _ := webkit.WidgetGetAllocation(leaf.container)
 
 		// Score based on distance from top-left corner (0,0)
-		score := bounds.X + bounds.Y
+		score := float64(x) + float64(y)
 		if score < bestScore {
 			bestScore = score
 			bestPane = leaf
@@ -591,8 +596,7 @@ func (fsm *FocusStateMachine) applyInitialFocus(node *paneNode) error {
 
 	// Apply initial visual border
 	if fsm.wm != nil {
-		ctx := fsm.wm.determineBorderContext(node)
-		fsm.wm.applyActivePaneBorder(ctx)
+		fsm.wm.applyActivePaneBorder(node)
 	}
 
 	// Update state
@@ -615,6 +619,11 @@ func (fsm *FocusStateMachine) applyInitialFocus(node *paneNode) error {
 		fsm.wm.app.activePane = node.pane
 	}
 
+	// Notify JS runtime about focus state
+	if fsm.wm != nil {
+		fsm.wm.DispatchPaneFocusEvent(node, true)
+	}
+
 	return nil
 }
 
@@ -625,7 +634,7 @@ func (fsm *FocusStateMachine) applyGTKFocus(node *paneNode) error {
 	}
 
 	viewWidget := node.pane.webView.Widget()
-	if viewWidget == 0 {
+	if viewWidget == nil {
 		return fmt.Errorf("webview has no valid widget")
 	}
 
@@ -705,8 +714,17 @@ func (fsm *FocusStateMachine) handleFocusRequest(request FocusRequest) {
 	log.Printf("[FSM] Processing focus request %s: %s -> %p",
 		request.ID, request.Source, request.TargetNode)
 
-	// Execute focus change
-	if err := fsm.executeFocusChange(request); err != nil {
+	// GTK operations must run on main thread - always use IdleAdd for simplicity
+	var err error
+	done := make(chan struct{})
+	_ = webkit.IdleAdd(func() bool {
+		err = fsm.executeFocusChange(request)
+		close(done)
+		return false
+	})
+	<-done
+
+	if err != nil {
 		fsm.mu.Lock()
 		fsm.metrics.FailedRequests++
 		fsm.mu.Unlock()
@@ -758,8 +776,7 @@ func (fsm *FocusStateMachine) executeFocusChange(request FocusRequest) error {
 			fsm.wm.removeActivePaneBorder(oldPane)
 		}
 		// Add border to new pane
-		ctx := fsm.wm.determineBorderContext(newPane)
-		fsm.wm.applyActivePaneBorder(ctx)
+		fsm.wm.applyActivePaneBorder(newPane)
 	}
 
 	// Update state
@@ -773,6 +790,16 @@ func (fsm *FocusStateMachine) executeFocusChange(request FocusRequest) error {
 	// Notify workspace manager
 	if fsm.wm != nil && fsm.wm.app != nil && newPane.pane != nil {
 		fsm.wm.app.activePane = newPane.pane
+	}
+
+	// Notify JS runtimes about focus change
+	if fsm.wm != nil {
+		if oldPane != nil {
+			fsm.wm.DispatchPaneFocusEvent(oldPane, false)
+		}
+		if newPane != nil {
+			fsm.wm.DispatchPaneFocusEvent(newPane, true)
+		}
 	}
 
 	// Start settling timer
@@ -918,27 +945,50 @@ func (fsm *FocusStateMachine) attachGTKController(node *paneNode) {
 	}
 
 	widget := node.pane.webView.Widget()
-	if widget == 0 || !webkit.WidgetIsValid(widget) {
+	if widget == nil {
 		return
 	}
 
-	// Create focus enter/leave callbacks for this specific node
-	onEnter := func() {
+	// Create focus controller for GTK4
+	controller := gtk.NewEventControllerFocus()
+
+	// Set propagation phase to TARGET only to avoid duplicate events from parent widgets
+	// GTK_PHASE_TARGET means we only get events for this specific widget, not bubbled events
+	controller.SetPropagationPhase(gtk.PhaseTarget)
+
+	// Connect focus enter/leave callbacks with timestamp-based deduplication
+	controller.ConnectEnter(func() {
+		// Deduplicate: WebKitGTK nested widgets can fire multiple events in same millisecond
+		now := time.Now().UnixMilli()
+		if node.lastFocusEnterTime == now {
+			return // Duplicate event in same millisecond
+		}
+		node.lastFocusEnterTime = now
+
 		log.Printf("[FSM] GTK focus enter: %p", node)
 		// Don't automatically change focus on GTK enter - let user interactions drive this
 		// This prevents infinite loops with our own focus changes
-	}
+	})
 
-	onLeave := func() {
+	controller.ConnectLeave(func() {
+		// Deduplicate: WebKitGTK nested widgets can fire multiple events in same millisecond
+		now := time.Now().UnixMilli()
+		if node.lastFocusLeaveTime == now {
+			return // Duplicate event in same millisecond
+		}
+		node.lastFocusLeaveTime = now
+
 		log.Printf("[FSM] GTK focus leave: %p", node)
 		// Similarly, don't react to GTK leave events automatically
-	}
+	})
 
-	// Add the focus controller and store the token for cleanup
-	token := webkit.WidgetAddFocusController(widget, onEnter, onLeave)
-	if token != 0 {
-		node.focusControllerToken = token
-		log.Printf("[FSM] Attached GTK focus controller to pane %p with token %d", node, token)
+	// Add controller to widget
+	webkit.WidgetAddController(widget, controller)
+
+	// Store controller pointer as token for later removal
+	node.focusControllerToken = uintptr(controller.Native())
+	if node.focusControllerToken != 0 {
+		log.Printf("[FSM] Attached GTK focus controller to pane %p with token %d", node, node.focusControllerToken)
 	}
 }
 
@@ -955,12 +1005,8 @@ func (fsm *FocusStateMachine) detachGTKController(node *paneNode, token uintptr)
 
 	node.focusControllerToken = 0
 
-	widget := node.pane.webView.Widget()
-	if widget == 0 || !webkit.WidgetIsValid(widget) {
-		return
-	}
-
-	webkit.WidgetRemoveFocusController(widget, token)
+	// Note: In GTK4, controllers are automatically removed when widget is destroyed
+	// We just need to clear our token reference
 	log.Printf("[FSM] Detached GTK focus controller from pane %p", node)
 }
 

@@ -3,6 +3,7 @@ package browser
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/bnema/dumber/internal/config"
@@ -72,31 +73,50 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 
 	activeBorderColor := getActivePaneBorderColor(styling, isDark)
 
+	// Pane mode border color - use configured value or fallback to orange
+	paneModeColor := styling.PaneModeBorderColor
+	if paneModeColor == "" {
+		paneModeColor = "#FFA500" // Fallback to orange if not configured
+	}
+
 	css := fmt.Sprintf(`window {
+	  background-color: %s;
+	  padding: 0;
+	  margin: 0;
+	}
+
+	/* Pane mode active - change window background to border color */
+	window.pane-mode-active {
 	  background-color: %s;
 	}
 
-	/* Base pane styling - transparent outline for smooth transitions */
-	.workspace-pane, .stacked-pane-container {
-	  outline: 2px solid transparent;
-	  outline-offset: -2px;
-	  transition: outline-color %dms ease-in-out;
+	/* Workspace root container */
+	paned, box {
+	  background-color: %s;
+	  transition: margin 150ms ease-in-out;
 	}
 
-	/* Active pane border styling using outline (no layout impact) */
+	/* Base pane styling - subtle border for inactive panes */
+	.workspace-pane, .stacked-pane-container {
+	  border: 2px solid %s;
+	  border-radius: %dpx;
+	  transition: border-color %dms ease-in-out;
+	  margin: 0;
+	}
+
+	/* Active pane border styling */
 	.workspace-pane-active {
-	  outline-color: %s;
+	  border-color: %s;
 	}
 
 	/* Stacked panes styling */
 	.stacked-pane-container {
 	  background-color: %s;
-	  border-radius: %dpx;
 	}
 
-	/* Active stacked pane container gets the outline color */
+	/* Stacked pane containers never get active border - focus is shown via WebKit */
 	.stacked-pane-container.workspace-pane-active {
-	  outline-color: %s;
+	  border-color: %s;
 	}
 
 	.stacked-pane-title {
@@ -129,11 +149,14 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  /* Collapsed panes are hidden - handled in code via widget visibility */
 	}`,
 		windowBackgroundColor,          // window background
-		styling.TransitionDuration,     // base pane outline transition
-		activeBorderColor,              // workspace-pane-active outline-color
+		paneModeColor,                  // window.pane-mode-active background (border color)
+		windowBackgroundColor,          // paned, box background
+		inactiveBorderColor,            // base pane border color (inactive)
+		styling.BorderRadius,           // base pane border radius
+		styling.TransitionDuration,     // base pane border transition
+		activeBorderColor,              // workspace-pane-active border color
 		windowBackgroundColor,          // stacked-pane-container background
-		styling.BorderRadius,           // stacked-pane-container border-radius
-		activeBorderColor,              // stacked-pane-container.workspace-pane-active outline-color
+		inactiveBorderColor,            // stacked-pane-container.workspace-pane-active border color (keep subtle)
 		getStackTitleBg(isDark),        // stacked-pane-title background
 		inactiveBorderColor,            // stacked-pane-title border-bottom
 		styling.TransitionDuration,     // stacked-pane-title transition
@@ -142,12 +165,6 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	)
 
 	return css
-}
-
-// generateStackedPaneCSS generates the CSS for stacked pane title bars (deprecated - use generateWorkspaceCSS)
-func (wm *WorkspaceManager) generateStackedPaneCSS() string {
-	// Delegate to the new comprehensive CSS generator
-	return wm.generateWorkspaceCSS()
 }
 
 // Global CSS provider tracking to prevent duplication
@@ -171,12 +188,9 @@ func (wm *WorkspaceManager) ensureWorkspaceStyles() {
 		webkit.AddCSSProvider(workspaceCSS)
 		globalCSSInitialized = true
 		globalCSSContent = workspaceCSS
+		log.Printf("[workspace] Applied workspace CSS styles (%d bytes)", len(workspaceCSS))
+		log.Printf("[workspace] CSS preview: %s...", workspaceCSS[:min(200, len(workspaceCSS))])
 	}
 
 	wm.cssInitialized = true
-}
-
-// ensureStackedPaneStyles ensures that CSS styles are applied for stacked panes (deprecated - use ensureWorkspaceStyles)
-func (wm *WorkspaceManager) ensureStackedPaneStyles() {
-	wm.ensureWorkspaceStyles()
 }

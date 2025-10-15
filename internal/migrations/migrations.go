@@ -78,6 +78,10 @@ func RunEmbeddedMigrations(db *sql.DB) error {
 		return fmt.Errorf("failed to create migrations table: %w", err)
 	}
 
+	// NOTE: Legacy databases without migration tracking should be deleted and recreated.
+	// All new databases will have migration tracking from the start.
+	// Backfill logic was removed to maintain idempotency - migrations are the single source of truth.
+
 	migrations, err := GetMigrations()
 	if err != nil {
 		return fmt.Errorf("failed to load migrations: %w", err)
@@ -187,4 +191,46 @@ func GetAppliedMigrations(db *sql.DB) ([]int, error) {
 	}
 
 	return versions, nil
+}
+
+// VerifyAllMigrationsApplied scans all embedded migrations and verifies they have been applied
+// Returns an error if any migrations are missing or if verification fails
+func VerifyAllMigrationsApplied(db *sql.DB) error {
+	// Get all embedded migrations
+	allMigrations, err := GetMigrations()
+	if err != nil {
+		return fmt.Errorf("failed to get embedded migrations: %w", err)
+	}
+
+	// Get applied migrations from database
+	appliedVersions, err := GetAppliedMigrations(db)
+	if err != nil {
+		return fmt.Errorf("failed to get applied migrations: %w", err)
+	}
+
+	// Create map for quick lookup
+	appliedMap := make(map[int]bool)
+	for _, version := range appliedVersions {
+		appliedMap[version] = true
+	}
+
+	// Check each migration is applied
+	var missingMigrations []Migration
+	for _, migration := range allMigrations {
+		if !appliedMap[migration.Version] {
+			missingMigrations = append(missingMigrations, migration)
+		}
+	}
+
+	// Report results
+	if len(missingMigrations) > 0 {
+		log.Printf("WARNING: %d migrations are not applied:", len(missingMigrations))
+		for _, migration := range missingMigrations {
+			log.Printf("  - Migration %03d: %s", migration.Version, migration.Name)
+		}
+		return fmt.Errorf("%d migrations are not applied", len(missingMigrations))
+	}
+
+	log.Printf("Migration verification: All %d migrations are applied ✓", len(allMigrations))
+	return nil
 }

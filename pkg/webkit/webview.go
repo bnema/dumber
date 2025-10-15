@@ -1,317 +1,914 @@
-//go:build !webkit_cgo
-
 package webkit
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
+	"sync"
 	"sync/atomic"
-	"unsafe"
+
+	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
+	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
-// Package-level ID counter for stub WebViews
-var stubViewIDCounter uint64
+var (
+	viewIDCounter uint64
+	viewRegistry  = make(map[uint64]*WebView)
+	viewMu        sync.RWMutex
+)
 
-// nextStubViewID generates a unique ID for stub WebViews
-func nextStubViewID() uintptr {
-	return uintptr(atomic.AddUint64(&stubViewIDCounter, 1))
-}
-
-// WebView represents a browser view powered by WebKit2GTK.
-// Methods are currently stubs returning ErrNotImplemented to satisfy TDD ordering.
+// WebView wraps a WebKitGTK WebView
 type WebView struct {
-	config            *Config
-	visible           bool
-	zoom              float64
-	url               string
-	destroyed         bool
-	window            *Window
-	msgHandler        func(payload string)
-	titleHandler      func(title string)
-	uriHandler        func(uri string)
-	faviconHandler    func(data []byte)
-	faviconURIHandler func(pageURI, faviconURI string)
-	zoomHandler              func(level float64)
-	popupHandler             func(string) *WebView
-	closeHandler             func()
-	navigationPolicyHandler  func(url string, isUserGesture bool) bool
-	useDomZoom               bool
-	domZoomSeed              float64
-	container                uintptr
-	id                       uintptr // WebView unique identifier
+	view      *webkit.WebView
+	container *gtk.Box // Container that holds the WebView
+	window    *Window  // Optional window (only if CreateWindow=true)
+	id        uint64
 
-	// Window type fields (no-op in stub)
-	windowType         WindowType
-	windowFeatures     *WindowFeatures
-	windowTypeCallback func(WindowType, *WindowFeatures)
+	// State
+	config    *Config
+	destroyed bool
+	mu        sync.RWMutex
+
+	// Event handlers
+	onScriptMessage       func(string)
+	onTitleChanged        func(string)
+	onURIChanged          func(string)
+	onFaviconChanged      func([]byte)
+	onFaviconURIChanged   func(pageURI, faviconURI string)
+	onZoomChanged         func(float64)
+	onPopupCreate         func(*webkit.NavigationAction) *WebView // New WebKit create signal handler
+	onReadyToShow         func()                                  // WebKit ready-to-show signal handler
+	onClose               func()
+	onNavigationPolicy    func(url string, isUserGesture bool) bool
+	onWindowTypeDetected  func(WindowType, *WindowFeatures)
+	onWorkspaceNavigation func(direction string) bool // Workspace pane navigation
+	onPaneModeShortcut    func(action string) bool    // Pane mode shortcuts (enter, actions, exit)
+	isPaneModeActive      func() bool                 // Check if pane mode is active
 }
 
-// NewWebView constructs a new WebView instance.
+// NewWebView creates a new WebView with the given configuration
 func NewWebView(cfg *Config) (*WebView, error) {
 	if cfg == nil {
-		cfg = &Config{}
+		cfg = GetDefaultConfig()
 	}
-	log.Printf("[webkit] NewWebView (non-CGO stub) — UI will not be displayed. Build with -tags=webkit_cgo for native window.")
-	wv := &WebView{config: cfg, useDomZoom: cfg.UseDomZoom}
-	if cfg.ZoomDefault <= 0 {
-		wv.zoom = 1.0
+
+	// Generate unique ID immediately
+	id := atomic.AddUint64(&viewIDCounter, 1)
+	log.Printf("[webkit] Generated WebView ID: %d (CreateWindow=%v)", id, cfg.CreateWindow)
+
+	InitMainThread()
+
+	// Initialize persistent session - REQUIRED, no ephemeral fallback
+	// This must be done BEFORE creating the WebView
+	if cfg.DataDir == "" || cfg.CacheDir == "" {
+		return nil, fmt.Errorf("data and cache directories are required for persistent storage")
+	}
+
+	if err := InitPersistentSession(cfg.DataDir, cfg.CacheDir); err != nil {
+		return nil, fmt.Errorf("failed to initialize persistent storage: %w", err)
+	}
+
+	// Create WebView - it will automatically use the persistent session
+	// Per WebKitGTK 6.0: newly created session becomes the default for all WebViews
+	wkView := webkit.NewWebView()
+	if wkView == nil {
+		return nil, ErrWebViewNotInitialized
+	}
+
+	// Verify the WebView is using the persistent session
+	viewSession := wkView.NetworkSession()
+	if viewSession == nil {
+		return nil, fmt.Errorf("WebView has no network session")
+	}
+	if viewSession.IsEphemeral() {
+		return nil, fmt.Errorf("WebView is using ephemeral session despite persistent session initialization")
+	}
+
+	// CRITICAL: Configure CookieManager on the WebView's actual session
+	// This ensures cookies are persisted regardless of whether the WebView
+	// uses our global session or creates its own
+	cookieManager := viewSession.CookieManager()
+	if cookieManager == nil {
+		return nil, fmt.Errorf("failed to get cookie manager from WebView's network session")
+	}
+	cookiePath := cfg.DataDir + "/cookies.db"
+	cookieManager.SetPersistentStorage(cookiePath, webkit.CookiePersistentStorageSqlite)
+	cookieManager.SetAcceptPolicy(webkit.CookiePolicyAcceptNoThirdParty)
+
+	// Setup UserContentManager and inject GUI scripts (including webview ID)
+	// This must be done BEFORE any pages are loaded
+	if err := SetupUserContentManager(wkView, cfg.AppearanceConfigJSON, id); err != nil {
+		return nil, fmt.Errorf("failed to setup user content manager: %w", err)
+	}
+
+	// Create container (GtkBox) to hold the WebView
+	// This allows the WebView to be reparented into workspace panes
+	container := gtk.NewBox(gtk.OrientationVertical, 0)
+	container.SetHExpand(true)
+	container.SetVExpand(true)
+
+	// Configure WebView widget for expansion
+	wkView.SetHExpand(true)
+	wkView.SetVExpand(true)
+
+	// Add WebView to container
+	container.Append(wkView)
+
+	wv := &WebView{
+		view:      wkView,
+		container: container,
+		window:    nil, // Will be set below if CreateWindow is true
+		id:        id,
+		config:    cfg,
+	}
+
+	// Apply configuration
+	if err := wv.applyConfig(); err != nil {
+		return nil, err
+	}
+
+	// Setup event handlers
+	wv.setupEventHandlers()
+
+	// Attach keyboard bridge to forward keyboard events to JavaScript
+	wv.AttachKeyboardBridge()
+
+	// Only create window if requested (standalone WebViews)
+	// Workspace panes will set CreateWindow=false and manage the container themselves
+	if cfg.CreateWindow {
+		window, err := NewWindow("Dumber Browser")
+		if err != nil {
+			return nil, err
+		}
+		wv.window = window
+		// Add container as child of window
+		window.SetChild(container)
+		log.Printf("[webkit] Created standalone window for WebView ID %d", id)
 	} else {
-		wv.zoom = cfg.ZoomDefault
+		log.Printf("[webkit] Created WebView ID %d without window (for workspace embedding)", id)
 	}
-	wv.domZoomSeed = wv.zoom
-	wv.id = nextStubViewID() // Assign unique ID
-	// Construction succeeds; create a logical window placeholder.
-	wv.window = &Window{Title: "Dumber Browser"}
-	wv.container = newWidgetHandle()
+
+	// Register in global registry
+	viewMu.Lock()
+	viewRegistry[id] = wv
+	viewMu.Unlock()
+
 	return wv, nil
 }
 
-// NewWebViewWithRelated creates a new WebView related to an existing one (non-CGO stub)
-func NewWebViewWithRelated(cfg *Config, relatedView *WebView) (*WebView, error) {
-	// In non-CGO build, just create a regular WebView
-	return NewWebView(cfg)
-}
+// applyConfig applies the configuration to the WebView settings
+func (w *WebView) applyConfig() error {
+	settings := w.view.Settings()
+	if settings == nil {
+		return fmt.Errorf("webkit: failed to get settings")
+	}
 
-// LoadURL navigates the webview to the specified URL.
-func (w *WebView) LoadURL(rawURL string) error {
-	if w == nil || w.destroyed {
-		return ErrNotImplemented
+	// Apply settings from config
+	settings.SetEnableJavascript(w.config.EnableJavaScript)
+	settings.SetEnableWebgl(w.config.EnableWebGL)
+	settings.SetDefaultFontSize(uint32(w.config.DefaultFontSize))
+	settings.SetMinimumFontSize(uint32(w.config.MinimumFontSize))
+
+	if w.config.UserAgent != "" {
+		settings.SetUserAgent(w.config.UserAgent)
 	}
-	if rawURL == "" {
-		return fmt.Errorf("url cannot be empty")
-	}
-	// Minimal validation; actual navigation handled by CGO bridge later.
-	w.url = rawURL
-	log.Printf("[webkit] LoadURL (non-CGO stub): %s", rawURL)
+
+	// Enable developer tools (F12, inspector)
+	settings.SetEnableDeveloperExtras(true)
+
+	// Enable hardware acceleration if configured
+	settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyAlways)
+
 	return nil
 }
 
-// Show makes the WebView visible.
+// setupEventHandlers connects GTK signals to internal handlers
+func (w *WebView) setupEventHandlers() {
+	// Title changed - connect to notify::title signal
+	w.view.Connect("notify::title", func() {
+		if w.onTitleChanged != nil {
+			title := w.view.Title()
+			w.onTitleChanged(title)
+		}
+	})
+
+	// URI changed - connect to notify::uri signal
+	w.view.Connect("notify::uri", func() {
+		if w.onURIChanged != nil {
+			uri := w.view.URI()
+			w.onURIChanged(uri)
+		}
+	})
+
+	// Zoom level changed - connect to notify::zoom-level signal
+	w.view.Connect("notify::zoom-level", func() {
+		if w.onZoomChanged != nil {
+			zoomLevel := w.view.ZoomLevel()
+			w.onZoomChanged(zoomLevel)
+		}
+	})
+
+	// Favicon changed - connect to FaviconDatabase
+	w.setupFaviconHandlers()
+
+	// Load changed
+	w.view.ConnectLoadChanged(func(event webkit.LoadEvent) {
+		// Handle load events if needed
+	})
+
+	// TLS error handling - connect to load-failed-with-tls-errors signal
+	w.setupTLSErrorHandler()
+
+	// Close
+	w.view.ConnectClose(func() {
+		if w.onClose != nil {
+			w.onClose()
+		}
+	})
+
+	// Create signal - for popup lifecycle management
+	w.view.ConnectCreate(func(navigationAction *webkit.NavigationAction) gtk.Widgetter {
+		log.Printf("[webkit] ConnectCreate callback fired for parent WebView ID=%d", w.id)
+		if w.onPopupCreate != nil {
+			log.Printf("[webkit] Calling onPopupCreate handler")
+			newWebView := w.onPopupCreate(navigationAction)
+			if newWebView != nil {
+				log.Printf("[webkit] onPopupCreate returned WebView wrapper ID=%d", newWebView.id)
+				log.Printf("[webkit] Extracting underlying gotk4 WebView from wrapper")
+				underlyingView := newWebView.view
+				log.Printf("[webkit] Extracted gotk4 WebView=%p, about to return to WebKit", underlyingView)
+				// Return the underlying WebView widget to WebKit
+				return underlyingView
+			}
+			log.Printf("[webkit] onPopupCreate returned nil, blocking popup")
+		}
+		// Return nil to cancel popup creation
+		log.Printf("[webkit] No onPopupCreate handler, blocking popup")
+		return nil
+	})
+
+	// Ready-to-show signal - emitted when popup is ready to be displayed
+	w.view.ConnectReadyToShow(func() {
+		if w.onReadyToShow != nil {
+			w.onReadyToShow()
+		}
+	})
+
+	// Script message received - connect to UserContentManager's script-message-received signal
+	// This receives messages from JavaScript via webkit.messageHandlers.dumber.postMessage()
+	// The signal name includes the handler name as a detail: "script-message-received::dumber"
+	ucm := w.view.UserContentManager()
+	if ucm != nil {
+		// GTK signals pass the sender as the first parameter, the actual signal data as subsequent parameters
+		ucm.Connect("script-message-received::dumber", func(sender interface{}, jscValue interface{}) {
+			if w.onScriptMessage != nil && jscValue != nil {
+				// Convert JSCValue to string using gotk4 javascriptcore bindings
+				valueStr := JSCValueToString(jscValue)
+				if valueStr != "" {
+					w.onScriptMessage(valueStr)
+				}
+			}
+		})
+	}
+}
+
+// LoadURL loads the given URL in the WebView
+func (w *WebView) LoadURL(url string) error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	if url == "" {
+		return ErrInvalidURL
+	}
+
+	w.view.LoadURI(url)
+	return nil
+}
+
+// GetCurrentURL returns the current URL
+func (w *WebView) GetCurrentURL() string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ""
+	}
+
+	return w.view.URI()
+}
+
+// GetTitle returns the current page title
+func (w *WebView) GetTitle() string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ""
+	}
+
+	return w.view.Title()
+}
+
+// GoBack navigates back in history
+func (w *WebView) GoBack() error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	w.view.GoBack()
+	return nil
+}
+
+// GoForward navigates forward in history
+func (w *WebView) GoForward() error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	w.view.GoForward()
+	return nil
+}
+
+// Reload reloads the current page
+func (w *WebView) Reload() error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	w.view.Reload()
+	return nil
+}
+
+// ReloadBypassCache reloads the current page, bypassing cache
+func (w *WebView) ReloadBypassCache() error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	w.view.ReloadBypassCache()
+	return nil
+}
+
+// Show makes the WebView visible
 func (w *WebView) Show() error {
-	if w == nil || w.destroyed {
-		return ErrNotImplemented
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
 	}
-	w.visible = true
-	log.Printf("[webkit] Show (non-CGO stub): no native window will appear")
+
+	// Make the WebView widget visible
+	w.view.SetVisible(true)
+
+	// Show the window containing the WebView
+	if w.window != nil {
+		w.window.Show()
+	}
+
 	return nil
 }
 
-// Hide hides the WebView window.
+// Hide makes the WebView invisible
 func (w *WebView) Hide() error {
-	if w == nil || w.destroyed {
-		return ErrNotImplemented
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
 	}
-	w.visible = false
+
+	w.view.SetVisible(false)
 	return nil
 }
 
-// Destroy releases native resources.
+// Destroy destroys the WebView and releases resources
 func (w *WebView) Destroy() error {
-	if w == nil {
-		return ErrNotImplemented
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.destroyed {
+		return nil
 	}
+
 	w.destroyed = true
+
+	// Unregister from global registry
+	viewMu.Lock()
+	delete(viewRegistry, w.id)
+	viewMu.Unlock()
+
+	// The GTK widget will be cleaned up by Go GC
 	return nil
 }
 
-// IsDestroyed returns whether this WebView has been destroyed
+// IsDestroyed returns true if the WebView has been destroyed
 func (w *WebView) IsDestroyed() bool {
-	return w != nil && w.destroyed
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.destroyed
 }
 
-// Window returns the associated native window wrapper (non-nil).
-func (w *WebView) Window() *Window { return w.window }
-
-// GetCurrentURL returns the last requested URL (non-CGO build approximation).
-func (w *WebView) GetCurrentURL() string { return w.url }
-
-// GetTitle returns a stub page title.
-func (w *WebView) GetTitle() string { return "New Tab" }
-
-// GoBack is not supported in the non-CGO stub.
-func (w *WebView) GoBack() error { return ErrNotImplemented }
-
-// GoForward is not supported in the non-CGO stub.
-func (w *WebView) GoForward() error { return ErrNotImplemented }
-
-// Reload is not supported in the non-CGO stub.
-func (w *WebView) Reload() error { return ErrNotImplemented }
-
-// ReloadBypassCache is not supported in the non-CGO stub.
-func (w *WebView) ReloadBypassCache() error { return ErrNotImplemented }
-
-// ShowDevTools is a no-op in the non-CGO build.
-func (w *WebView) ShowDevTools() error { return nil }
-
-// CloseDevTools is a no-op in the non-CGO build.
-func (w *WebView) CloseDevTools() error { return nil }
-
-// ShowPrintDialog is a no-op in the non-CGO build.
-func (w *WebView) ShowPrintDialog() error { return nil }
-
-// RegisterScriptMessageHandler registers a callback invoked when the content script posts a message.
-func (w *WebView) RegisterScriptMessageHandler(cb func(payload string)) { w.msgHandler = cb }
-
-func (w *WebView) RegisterPopupHandler(cb func(string) *WebView) { w.popupHandler = cb }
-
-func (w *WebView) RegisterCloseHandler(cb func()) { w.closeHandler = cb }
-
-func (w *WebView) RegisterNavigationPolicyHandler(cb func(url string, isUserGesture bool) bool) {
-	w.navigationPolicyHandler = cb
+// ID returns the unique identifier for this WebView
+func (w *WebView) ID() uint64 {
+	return w.id
 }
 
-func (w *WebView) dispatchScriptMessage(payload string) { //nolint:unused // Called from CGO WebKit callbacks
-	if w != nil && w.msgHandler != nil {
-		w.msgHandler(payload)
+// IDString returns the WebView ID as a string
+// This is a convenience method for compatibility with code expecting string IDs
+func (w *WebView) IDString() string {
+	return fmt.Sprintf("%d", w.id)
+}
+
+// ParseWebViewID converts a string WebView ID to uint64
+// Returns 0 if the string cannot be parsed
+func ParseWebViewID(idStr string) uint64 {
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		return 0
 	}
+	return id
 }
 
-func (w *WebView) dispatchPopupRequest(uri string) *WebView { //nolint:unused // Called from CGO WebKit callbacks
-	if w != nil && w.popupHandler != nil {
-		return w.popupHandler(uri)
+// AsWidget returns the WebView as a gtk.Widgetter
+func (w *WebView) AsWidget() gtk.Widgetter {
+	if w == nil || w.view == nil {
+		return nil
 	}
-	return nil
+	return w.view
 }
 
-// GetNativePointer returns nil for non-CGO build (stub implementation)
-func (w *WebView) GetNativePointer() unsafe.Pointer { //nolint:unused // Needed for interface compatibility
-	return nil
+// Event handler registration methods
+
+// RegisterScriptMessageHandler registers a handler for script messages
+func (w *WebView) RegisterScriptMessageHandler(handler func(string)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onScriptMessage = handler
 }
 
-// RegisterTitleChangedHandler registers a callback invoked when the page title changes.
-func (w *WebView) RegisterTitleChangedHandler(cb func(title string)) { w.titleHandler = cb }
-
-func (w *WebView) dispatchTitleChanged(title string) { //nolint:unused // Called from CGO WebKit callbacks
-	if w != nil && w.titleHandler != nil {
-		w.titleHandler(title)
-	}
+// RegisterTitleChangedHandler registers a handler for title changes
+func (w *WebView) RegisterTitleChangedHandler(handler func(string)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onTitleChanged = handler
 }
 
-// RegisterURIChangedHandler registers a callback invoked when the current page URI changes.
-func (w *WebView) RegisterURIChangedHandler(cb func(uri string)) { w.uriHandler = cb }
-
-func (w *WebView) dispatchURIChanged(uri string) { //nolint:unused // Called from CGO WebKit callbacks
-	if w != nil && w.uriHandler != nil {
-		w.uriHandler(uri)
-	}
+// RegisterURIChangedHandler registers a handler for URI changes
+func (w *WebView) RegisterURIChangedHandler(handler func(string)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onURIChanged = handler
 }
 
-// RegisterFaviconChangedHandler registers a callback invoked when the page favicon changes.
-func (w *WebView) RegisterFaviconChangedHandler(cb func(data []byte)) { w.faviconHandler = cb }
-
-// RegisterFaviconURIChangedHandler registers a callback invoked when WebKit detects a favicon URI.
-func (w *WebView) RegisterFaviconURIChangedHandler(cb func(pageURI, faviconURI string)) {
-	w.faviconURIHandler = cb
+// RegisterFaviconChangedHandler registers a handler for favicon changes
+func (w *WebView) RegisterFaviconChangedHandler(handler func([]byte)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onFaviconChanged = handler
 }
 
-func (w *WebView) dispatchFaviconChanged(data []byte) { //nolint:unused // Called from CGO WebKit callbacks
-	if w != nil && w.faviconHandler != nil {
-		w.faviconHandler(data)
-	}
+// RegisterFaviconURIChangedHandler registers a handler for favicon URI changes
+func (w *WebView) RegisterFaviconURIChangedHandler(handler func(pageURI, faviconURI string)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onFaviconURIChanged = handler
 }
 
-// RegisterZoomChangedHandler registers a callback invoked when zoom level changes.
-func (w *WebView) RegisterZoomChangedHandler(cb func(level float64)) { w.zoomHandler = cb }
-
-func (w *WebView) dispatchZoomChanged(level float64) {
-	if w != nil && w.zoomHandler != nil {
-		w.zoomHandler(level)
-	}
+// RegisterZoomChangedHandler registers a handler for zoom changes
+func (w *WebView) RegisterZoomChangedHandler(handler func(float64)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onZoomChanged = handler
 }
 
-// Widget returns an empty handle in stub builds.
-func (w *WebView) Widget() uintptr { return 0 }
+// RegisterCloseHandler registers a handler for close requests
+func (w *WebView) RegisterCloseHandler(handler func()) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onClose = handler
+}
 
-// RootWidget returns the container widget handle in CGO builds. Stub returns 0.
-func (w *WebView) RootWidget() uintptr { return w.container }
+// RegisterPopupCreateHandler registers a handler for WebKit's create signal
+// This is called when JavaScript calls window.open() or a link with target="_blank" is clicked
+// The handler should create and return a new WebView for the popup, or return nil to block it
+// The returned WebView should NOT be shown yet - WebKit will emit ready-to-show when it's ready
+func (w *WebView) RegisterPopupCreateHandler(handler func(*webkit.NavigationAction) *WebView) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onPopupCreate = handler
+}
 
-// DestroyWindow is a no-op in stub builds.
-func (w *WebView) DestroyWindow() {}
+// RegisterReadyToShowHandler registers a handler for WebKit's ready-to-show signal
+// This is called when a popup WebView is ready to be displayed
+// At this point it's safe to insert the popup into the UI (workspace, window, etc.)
+func (w *WebView) RegisterReadyToShowHandler(handler func()) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onReadyToShow = handler
+}
 
-// RunOnMainThread executes fn immediately in non-CGO builds.
+// RegisterNavigationPolicyHandler registers a handler for navigation policy decisions
+func (w *WebView) RegisterNavigationPolicyHandler(handler func(url string, isUserGesture bool) bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onNavigationPolicy = handler
+}
+
+// OnWindowTypeDetected registers a handler for window type detection
+func (w *WebView) OnWindowTypeDetected(handler func(WindowType, *WindowFeatures)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onWindowTypeDetected = handler
+}
+
+// RunOnMainThread executes a function on the GTK main thread
 func (w *WebView) RunOnMainThread(fn func()) {
-	if fn != nil {
-		fn()
-	}
+	RunOnMainThread(fn)
 }
 
-// PrepareForReparenting is a no-op in stub builds.
-func (w *WebView) PrepareForReparenting() {}
+// GetWebView returns the underlying webkit.WebView for advanced operations
+func (w *WebView) GetWebView() *webkit.WebView {
+	return w.view
+}
 
-// RefreshAfterReparenting is a no-op in stub builds.
-func (w *WebView) RefreshAfterReparenting() {}
+// Widget returns the WebView widget (for compatibility with old code expecting uintptr)
+// Deprecated: Use AsWidget() instead
+func (w *WebView) Widget() gtk.Widgetter {
+	return w.AsWidget()
+}
 
-// UsesDomZoom reports whether DOM-based zoom is enabled in this WebView.
+// RootWidget returns the root container widget for this WebView
+// This is the GtkBox container that holds the WebView and can be reparented
+func (w *WebView) RootWidget() gtk.Widgetter {
+	if w.container != nil {
+		return w.container
+	}
+	// Fallback to WebView if container is not available (shouldn't happen)
+	return w.AsWidget()
+}
+
+// SetZoom sets the zoom level of the WebView
+func (w *WebView) SetZoom(zoom float64) error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	w.view.SetZoomLevel(zoom)
+	return nil
+}
+
+// GetZoom returns the current zoom level
+func (w *WebView) GetZoom() float64 {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return 1.0
+	}
+
+	return w.view.ZoomLevel()
+}
+
+// UsesDomZoom indicates if this WebView uses DOM-based zoom
+// In gotk4/WebKitGTK, zoom is always viewport-based
 func (w *WebView) UsesDomZoom() bool {
-	return w != nil && w.useDomZoom
-}
-
-// SeedDomZoom stores the desired DOM zoom level for the next navigation (stub implementation).
-func (w *WebView) SeedDomZoom(level float64) {
-	if w == nil || !w.useDomZoom {
-		return
-	}
-	if level < 0.25 {
-		level = 0.25
-	} else if level > 5.0 {
-		level = 5.0
-	}
-	w.domZoomSeed = level
-}
-
-// CreateRelatedView returns a new WebView (stub creates independent)
-func (w *WebView) CreateRelatedView() *WebView {
-	nw, _ := NewWebView(w.config)
-	return nw
-}
-
-// OnWindowTypeDetected registers a callback (stored but never invoked in stub)
-func (w *WebView) OnWindowTypeDetected(callback func(WindowType, *WindowFeatures)) {
-	if w != nil {
-		w.windowTypeCallback = callback
-	}
-}
-
-// InitializeContentBlocking initializes WebKit content blocking with filter manager (stub)
-func (w *WebView) InitializeContentBlocking(filterManager interface{}) error {
-	return ErrNotImplemented
-}
-
-// OnNavigate sets up domain-specific cosmetic filtering on navigation (stub)
-func (w *WebView) OnNavigate(url string, filterManager interface{}, whitelist []string) {
-	// No-op in stub
-}
-
-// UpdateContentFilters updates the content filters dynamically (stub)
-func (w *WebView) UpdateContentFilters(filterManager interface{}) error {
-	return ErrNotImplemented
-}
-
-// SetWindowFeatures sets the window features for this WebView (stub)
-func (w *WebView) SetWindowFeatures(features *WindowFeatures) {
-	w.windowFeatures = features
-}
-
-// SetActive sets whether this WebView is currently active/focused (stub)
-func (w *WebView) SetActive(active bool) {
-	// No-op in stub
-}
-
-// IsActive returns whether this WebView is currently active/focused (stub)
-func (w *WebView) IsActive() bool {
 	return false
 }
 
-// ID returns the unique identifier for this WebView as a string (stub)
-func (w *WebView) ID() string {
-	if w == nil {
-		return ""
-	}
-	return strconv.FormatUint(uint64(w.id), 10)
+// SeedDomZoom is a no-op in gotk4 as we use viewport zoom
+func (w *WebView) SeedDomZoom(zoom float64) error {
+	// Not needed in gotk4 - zoom is handled differently
+	return nil
 }
 
-// PrefersDarkTheme returns true if GTK is configured to prefer dark theme (stub)
-func PrefersDarkTheme() bool {
-	return false // Fallback to light theme when not using CGO
+// InjectScript executes JavaScript in the WebView
+func (w *WebView) InjectScript(script string) error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	// Execute JavaScript using our CGO wrapper
+	EvaluateJavascript(w.view, script)
+	return nil
+}
+
+// DispatchCustomEvent dispatches a custom event via JavaScript
+func (w *WebView) DispatchCustomEvent(eventName string, data interface{}) error {
+	// Serialize data to JSON
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal event data: %w", err)
+	}
+
+	log.Printf("[webkit] Dispatching event '%s' to WebView ID %d with data: %s", eventName, w.id, string(jsonData))
+
+	// Use document.dispatchEvent (not window) so events cross JavaScript world boundaries
+	// The GUI scripts run in an isolated world but share the same Document object
+	script := fmt.Sprintf(`
+		(function() {
+			try {
+				var detail = %s;
+				console.log('[dumber] Dispatching event: %s', detail);
+				document.dispatchEvent(new CustomEvent('%s', { detail: detail }));
+			} catch (e) {
+				console.error('[dumber] Failed to dispatch %s', e);
+			}
+		})();
+	`, string(jsonData), eventName, eventName, eventName)
+	return w.InjectScript(script)
+}
+
+// ShowDevTools opens the WebKit inspector/developer tools
+func (w *WebView) ShowDevTools() error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	inspector := w.view.Inspector()
+	if inspector != nil {
+		inspector.Show()
+	}
+	return nil
+}
+
+// ShowPrintDialog shows the print dialog for the current page
+func (w *WebView) ShowPrintDialog() error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	// Create and run print operation with GTK print dialog
+	printOp := webkit.NewPrintOperation(w.view)
+	printOp.RunDialog(nil) // nil = no parent window, uses active window
+	return nil
+}
+
+// RegisterKeyboardShortcut registers a keyboard shortcut handler
+// This is a compatibility method - actual shortcut handling is done at the window level
+func (w *WebView) RegisterKeyboardShortcut(key string, modifiers uint, handler func()) error {
+	// TODO: Implement keyboard shortcut registration if needed
+	// For now, shortcuts are handled at the window/application level
+	return nil
+}
+
+// SetWindowFeatures sets window features for popup windows
+func (w *WebView) SetWindowFeatures(features *WindowFeatures) {
+	// This is typically used for popup windows
+	// The features would be applied when creating the window
+}
+
+// IsActive returns whether this WebView is currently active/focused
+func (w *WebView) IsActive() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return false
+	}
+
+	widget := w.view
+	if widget != nil {
+		return widget.IsFocus()
+	}
+	return false
+}
+
+// Window returns the parent Window of this WebView
+func (w *WebView) Window() *Window {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return nil
+	}
+
+	return w.window
+}
+
+// UpdateContentFilters updates the content filtering rules
+func (w *WebView) UpdateContentFilters(rules string) error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	// Note: Content filtering is handled via InitializeContentBlocking()
+	// This method is kept for backward compatibility but is deprecated
+	log.Printf("[webkit] UpdateContentFilters called but is deprecated - use InitializeContentBlocking instead")
+	return nil
+}
+
+// InitializeContentBlocking initializes content blocking with filter lists
+func (w *WebView) InitializeContentBlocking(filterJSON []byte) error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return ErrWebViewDestroyed
+	}
+
+	if len(filterJSON) == 0 {
+		return fmt.Errorf("no filter rules provided")
+	}
+
+	// Apply filters using the content blocking API
+	return ApplyFiltersToWebView(w, filterJSON)
+}
+
+// OnNavigate registers a navigation handler
+func (w *WebView) OnNavigate(handler func(url string)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	// This wraps the URI changed handler
+	w.onURIChanged = handler
+}
+
+// RegisterWorkspaceNavigationHandler registers a handler for workspace pane navigation
+// The handler receives the direction ("up", "down", "left", "right") and returns true if handled
+func (w *WebView) RegisterWorkspaceNavigationHandler(handler func(direction string) bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onWorkspaceNavigation = handler
+}
+
+// RegisterPaneModeHandler registers a handler for pane mode shortcuts
+// The handler receives the action ("enter", "close", "split-right", etc.) and returns true if handled
+func (w *WebView) RegisterPaneModeHandler(handler func(action string) bool, isActiveChecker func() bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onPaneModeShortcut = handler
+	w.isPaneModeActive = isActiveChecker
+}
+
+// setupFaviconHandlers connects to the FaviconDatabase signals
+func (w *WebView) setupFaviconHandlers() {
+	// Get the NetworkSession from the WebView
+	session := w.view.NetworkSession()
+	if session == nil {
+		log.Printf("[webkit] Warning: No NetworkSession available for favicon handling")
+		return
+	}
+
+	// Get the WebsiteDataManager from the NetworkSession
+	dataManager := session.WebsiteDataManager()
+	if dataManager == nil {
+		log.Printf("[webkit] Warning: No WebsiteDataManager available for favicon handling")
+		return
+	}
+
+	// Enable favicons if not already enabled
+	if !dataManager.FaviconsEnabled() {
+		dataManager.SetFaviconsEnabled(true)
+		log.Printf("[webkit] Enabled favicons for WebView ID %d", w.id)
+	}
+
+	// Get the FaviconDatabase
+	faviconDB := dataManager.FaviconDatabase()
+	if faviconDB == nil {
+		log.Printf("[webkit] Warning: No FaviconDatabase available")
+		return
+	}
+
+	// Connect to the favicon-changed signal
+	faviconDB.ConnectFaviconChanged(func(pageURI, faviconURI string) {
+		log.Printf("[favicon] Favicon changed for %s: %s", pageURI, faviconURI)
+
+		// Call the URI handler if registered
+		w.mu.RLock()
+		handler := w.onFaviconURIChanged
+		w.mu.RUnlock()
+
+		if handler != nil {
+			handler(pageURI, faviconURI)
+		}
+	})
+
+	log.Printf("[webkit] Connected to FaviconDatabase for WebView ID %d", w.id)
+}
+
+// GtkWebView returns the underlying gotk4 WebView for advanced operations
+// This is used when creating related views (popups) that need to share the same session
+func (w *WebView) GtkWebView() *webkit.WebView {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.view
+}
+
+// WrapBareWebView creates a minimal WebView wrapper around a bare gotk4 WebView
+// This is used during popup creation to return a WebView to WebKit before initialization
+// Full initialization (container, scripts, event handlers) should be done later
+func WrapBareWebView(bareView *webkit.WebView) *WebView {
+	if bareView == nil {
+		return nil
+	}
+
+	// Generate unique ID
+	id := atomic.AddUint64(&viewIDCounter, 1)
+	log.Printf("[webkit] Created minimal wrapper for bare WebView (ID: %d)", id)
+
+	// Create minimal wrapper - NO initialization yet
+	wv := &WebView{
+		view:      bareView,
+		container: nil, // Will be created during full initialization
+		window:    nil,
+		id:        id,
+		config:    nil, // Will be set during full initialization
+	}
+
+	// Register in global registry
+	viewMu.Lock()
+	viewRegistry[id] = wv
+	viewMu.Unlock()
+
+	return wv
+}
+
+// InitializeFromBare completes initialization of a bare WebView wrapper
+// This should be called in ready-to-show after WebKit has configured the view
+func (w *WebView) InitializeFromBare(cfg *Config) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.config != nil {
+		return fmt.Errorf("WebView already initialized")
+	}
+
+	if cfg == nil {
+		cfg = GetDefaultConfig()
+	}
+
+	w.config = cfg
+
+	// Verify persistent session
+	viewSession := w.view.NetworkSession()
+	if viewSession == nil {
+		return fmt.Errorf("WebView has no network session")
+	}
+
+	// Setup UserContentManager and inject GUI scripts
+	if err := SetupUserContentManager(w.view, cfg.AppearanceConfigJSON, w.id); err != nil {
+		return fmt.Errorf("failed to setup user content manager: %w", err)
+	}
+
+	// Create container (GtkBox) to hold the WebView
+	container := gtk.NewBox(gtk.OrientationVertical, 0)
+	container.SetHExpand(true)
+	container.SetVExpand(true)
+
+	// Configure WebView widget for expansion
+	w.view.SetHExpand(true)
+	w.view.SetVExpand(true)
+
+	// Add WebView to container
+	container.Append(w.view)
+
+	w.container = container
+
+	// Apply configuration
+	if err := w.applyConfig(); err != nil {
+		return err
+	}
+
+	// Setup event handlers
+	w.setupEventHandlers()
+
+	// Attach keyboard bridge
+	w.AttachKeyboardBridge()
+
+	log.Printf("[webkit] Completed initialization for WebView ID %d", w.id)
+
+	return nil
 }

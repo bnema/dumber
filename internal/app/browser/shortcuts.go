@@ -67,7 +67,7 @@ func (s *ShortcutHandler) RegisterShortcuts() {
 	// by WindowShortcutHandler at the window level to prevent duplicates
 
 	// Page refresh shortcuts
-	_ = s.webView.RegisterKeyboardShortcut("cmdorctrl+r", func() {
+	_ = s.webView.RegisterKeyboardShortcut("cmdorctrl+r", 0, func() {
 		if !s.isActivePane() {
 			return
 		}
@@ -75,7 +75,7 @@ func (s *ShortcutHandler) RegisterShortcuts() {
 		_ = s.webView.Reload()
 	})
 
-	_ = s.webView.RegisterKeyboardShortcut("cmdorctrl+shift+r", func() {
+	_ = s.webView.RegisterKeyboardShortcut("cmdorctrl+shift+r", 0, func() {
 		if !s.isActivePane() {
 			return
 		}
@@ -83,7 +83,7 @@ func (s *ShortcutHandler) RegisterShortcuts() {
 		_ = s.webView.ReloadBypassCache()
 	})
 
-	_ = s.webView.RegisterKeyboardShortcut("F5", func() {
+	_ = s.webView.RegisterKeyboardShortcut("F5", 0, func() {
 		if !s.isActivePane() {
 			return
 		}

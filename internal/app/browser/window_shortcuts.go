@@ -41,8 +41,8 @@ func NewWindowShortcutHandler(window *webkit.Window, app *BrowserApp) *WindowSho
 }
 
 func (h *WindowShortcutHandler) initialize() error {
-	// Initialize GTK4 global shortcuts
-	h.shortcuts = h.window.InitializeGlobalShortcuts()
+	// Create WindowShortcuts manager
+	h.shortcuts = webkit.NewWindowShortcuts(h.window)
 	if h.shortcuts == nil {
 		return ErrFailedToInitialize
 	}
@@ -60,6 +60,7 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 		{"ctrl+f", h.handleFindToggle, "Find in page"},
 		{"ctrl+shift+c", h.handleCopyURL, "Copy URL"},
 		{"ctrl+shift+p", h.handlePrint, "Print page"},
+		{"ctrl+t", h.handleNewTab, "New tab (no-op)"},
 		{"ctrl+w", h.handleClosePane, "Close current pane"},
 		{"F12", h.handleDevTools, "Developer tools"},
 		// Zoom shortcuts - global level for proper active pane targeting
@@ -75,11 +76,7 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 	}
 
 	for _, shortcut := range shortcuts {
-		if err := h.shortcuts.RegisterGlobalShortcut(shortcut.key, shortcut.handler); err != nil {
-			log.Printf("[window-shortcuts] Failed to register %s (%s): %v",
-				shortcut.key, shortcut.desc, err)
-			return err
-		}
+		h.shortcuts.RegisterShortcut(shortcut.key, shortcut.handler)
 		log.Printf("[window-shortcuts] Registered global shortcut: %s (%s)",
 			shortcut.key, shortcut.desc)
 	}
@@ -208,11 +205,7 @@ func (h *WindowShortcutHandler) handleZoom(action string, multiplier float64) {
 	log.Printf("[window-shortcuts] Zoom %s -> pane %p", action, activeWebView)
 
 	// Get current zoom level
-	currentZoom, err := activeWebView.GetZoom()
-	if err != nil {
-		log.Printf("[window-shortcuts] Failed to get current zoom: %v", err)
-		return
-	}
+	currentZoom := activeWebView.GetZoom()
 
 	// Calculate new zoom level
 	var newZoom float64
@@ -234,6 +227,27 @@ func (h *WindowShortcutHandler) handleZoom(action string, multiplier float64) {
 	// Apply zoom to active pane
 	if err := activeWebView.SetZoom(newZoom); err != nil {
 		log.Printf("[window-shortcuts] Failed to set zoom: %v", err)
+		return
+	}
+
+	// Ensure GUI/toast component is loaded before showing toast
+	h.ensureGUIInActivePane("toast")
+
+	// Show zoom toast notification
+	toastScript := fmt.Sprintf(`
+		(function() {
+			try {
+				if (typeof window.__dumber_showZoomToast === 'function') {
+					window.__dumber_showZoomToast(%f);
+				}
+			} catch (e) {
+				console.error('[window-shortcuts] Failed to show zoom toast:', e);
+			}
+		})();
+	`, newZoom)
+
+	if err := activeWebView.InjectScript(toastScript); err != nil {
+		log.Printf("[window-shortcuts] Failed to show zoom toast: %v", err)
 	}
 }
 
@@ -261,7 +275,7 @@ func (h *WindowShortcutHandler) getWebViewId(pane *BrowserPane) string {
 	if pane == nil || pane.webView == nil {
 		return "unknown"
 	}
-	return pane.webView.ID()
+	return pane.webView.IDString()
 }
 
 func (h *WindowShortcutHandler) handleUIToggle(lastToggle *time.Time, featureName, action string) {
@@ -320,10 +334,10 @@ func (h *WindowShortcutHandler) handleClosePane() {
 	for webView := range h.app.workspace.viewToNode {
 		if webView != nil {
 			isActive := webView.IsActive()
-			log.Printf("[window-shortcuts] WebView %s: IsActive=%t", webView.ID(), isActive)
+			log.Printf("[window-shortcuts] WebView %d: IsActive=%t", webView.ID(), isActive)
 			if isActive {
 				activeWebView = webView
-				log.Printf("[window-shortcuts] Found active WebView: %s", webView.ID())
+				log.Printf("[window-shortcuts] Found active WebView: %d", webView.ID())
 				break
 			}
 		}
@@ -342,7 +356,7 @@ func (h *WindowShortcutHandler) handleClosePane() {
 		// Use the proper close-popup message for popups
 		msg := messaging.Message{
 			Event:     "close-popup",
-			WebViewID: activeWebView.ID(),
+			WebViewID: activeWebView.IDString(),
 			Reason:    "user-ctrl-w",
 		}
 		h.app.workspace.OnWorkspaceMessage(activeWebView, msg)
@@ -353,12 +367,17 @@ func (h *WindowShortcutHandler) handleClosePane() {
 	}
 }
 
+// handleNewTab is a no-op handler for Ctrl+T
+// This prevents the default browser behavior and allows for future implementation
+func (h *WindowShortcutHandler) handleNewTab() {
+	log.Printf("[window-shortcuts] Ctrl+T pressed (no-op - tabs not yet implemented)")
+	// TODO: Implement new tab functionality
+}
+
 // Cleanup releases resources
 func (h *WindowShortcutHandler) Cleanup() {
-	if h.shortcuts != nil {
-		h.shortcuts.Cleanup()
-		h.shortcuts = nil
-	}
+	// WindowShortcuts doesn't require explicit cleanup
+	h.shortcuts = nil
 }
 
 // Error definitions

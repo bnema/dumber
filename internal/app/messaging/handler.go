@@ -53,26 +53,6 @@ type Message struct {
 	Payload json.RawMessage `json:"payload"`
 }
 
-// WindowIntent represents an intercepted window.open call from JavaScript
-type WindowIntent struct {
-	URL           string `json:"url"`
-	Target        string `json:"target"`
-	Features      string `json:"features"`
-	Timestamp     int64  `json:"timestamp"`
-	WindowType    string `json:"windowType"` // "tab", "popup", "unknown"
-	IsPopup       bool   `json:"isPopup"`
-	IsTab         bool   `json:"isTab"`
-	RequestID     string `json:"requestId"`     // NEW: Unique request identifier
-	UserTriggered bool   `json:"userTriggered"` // NEW: Whether this was user-initiated
-	// Parsed features
-	Width     *int  `json:"width,omitempty"`
-	Height    *int  `json:"height,omitempty"`
-	Toolbar   *bool `json:"toolbar,omitempty"`
-	Location  *bool `json:"location,omitempty"`
-	Menubar   *bool `json:"menubar,omitempty"`
-	Resizable *bool `json:"resizable,omitempty"`
-}
-
 // NewHandler creates a new message handler
 func NewHandler(parserService *services.ParserService, browserService *services.BrowserService) *Handler {
 	return &Handler{
@@ -123,8 +103,6 @@ func (h *Handler) Handle(payload string) {
 		h.handleHistoryDelete(msg)
 	case "workspace":
 		h.handleWorkspace(msg)
-	case "handle-window-open":
-		h.handleWindowOpen(msg)
 	case "close-popup":
 		h.handleClosePopup(msg)
 	case "console-message":
@@ -194,7 +172,7 @@ func (h *Handler) handleWorkspace(msg Message) {
 		log.Printf("[workspace] Ignoring workspace event %q: webview not attached", msg.Event)
 		return
 	}
-	log.Printf("[workspace] Forwarding workspace event: event=%s direction=%s action=%s", msg.Event, msg.Direction, msg.Action)
+	log.Printf("[workspace] Forwarding workspace event: event=%s direction=%s action=%s webviewId=%s", msg.Event, msg.Direction, msg.Action, msg.WebViewID)
 	h.workspaceObserver.OnWorkspaceMessage(h.webView, msg)
 }
 
@@ -530,33 +508,6 @@ func (h *Handler) handleHistoryDelete(msg Message) {
 	_ = h.webView.InjectScript("window.__dumber_history_deleted && window.__dumber_history_deleted(" + string(b) + ")")
 }
 
-// handleWindowOpen processes handle-window-open messages to create panes directly
-func (h *Handler) handleWindowOpen(msg Message) {
-	var intent WindowIntent
-	if err := json.Unmarshal(msg.Payload, &intent); err != nil {
-		log.Printf("[messaging] Failed to unmarshal handle-window-open: %v", err)
-		return
-	}
-
-	log.Printf("[messaging] Handling direct window.open request: url=%s type=%s requestId=%s", intent.URL, intent.WindowType, intent.RequestID)
-
-	// Forward to workspace observer if available
-	if h.workspaceObserver != nil && h.webView != nil {
-		// Create a workspace message to trigger pane creation
-		workspaceMsg := Message{
-			Type:      "workspace",
-			Event:     "create-pane",
-			URL:       intent.URL,
-			Action:    intent.WindowType, // "tab" or "popup"
-			RequestID: intent.RequestID,  // NEW: Pass through request ID
-		}
-		log.Printf("[messaging] Forwarding to workspace: %+v", workspaceMsg)
-		h.workspaceObserver.OnWorkspaceMessage(h.webView, workspaceMsg)
-	} else {
-		log.Printf("[messaging] No workspace observer available for direct window.open")
-	}
-}
-
 // handleConsoleMessage processes console-message from JavaScript
 func (h *Handler) handleConsoleMessage(msg Message) {
 	// Check if console capture is enabled
@@ -595,7 +546,7 @@ func (h *Handler) handleWebViewIDRequest(msg Message) {
 	}
 
 	webViewID := h.webView.ID()
-	log.Printf("[messaging] Sending webview ID %s to JavaScript", webViewID)
+	log.Printf("[messaging] Sending webview ID %d to JavaScript", webViewID)
 
 	// Send the webview ID back to JavaScript via custom event
 	if err := h.webView.DispatchCustomEvent("dumber:webview-id", map[string]any{

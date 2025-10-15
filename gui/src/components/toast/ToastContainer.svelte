@@ -110,15 +110,15 @@
   $effect(() => {
     console.log('🔄 ToastContainer initialized, functions exposed');
 
-    // Monitor container periodically for debugging
-    const monitorInterval = setInterval(() => {
-      const container = document.querySelector('.toast-container');
-      const browserRoot = document.querySelector('.browser-component-root');
-      console.log('[dumber] Periodic check - container:', !!container, 'browser-root:', !!browserRoot, 'toasts:', toasts.length);
-    }, 5000);
+    // Monitor container periodically for debugging (disabled)
+    // const monitorInterval = setInterval(() => {
+    //   const container = document.querySelector('.toast-container');
+    //   const browserRoot = document.querySelector('.browser-component-root');
+    //   console.log('[dumber] Periodic check - container:', !!container, 'browser-root:', !!browserRoot, 'toasts:', toasts.length);
+    // }, 5000);
 
     return () => {
-      clearInterval(monitorInterval);
+      // clearInterval(monitorInterval);
       console.log('🗑️ ToastContainer cleanup');
     };
   });

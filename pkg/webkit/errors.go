@@ -1,13 +1,20 @@
-// Package webkit provides a WebKit2GTK-backed browser view and window.
 package webkit
 
 import "errors"
 
-// ErrNotImplemented is returned by stub implementations pending WebKit2GTK migration.
-var ErrNotImplemented = errors.New("webkit: not implemented")
+var (
+	// ErrNotImplemented indicates a feature is not yet implemented
+	ErrNotImplemented = errors.New("webkit: not implemented")
 
-// ErrWebViewNotInitialized is returned when WebView operations are attempted on uninitialized WebView
-var ErrWebViewNotInitialized = errors.New("webkit: webview not initialized")
+	// ErrWebViewNotInitialized indicates the WebView was not properly initialized
+	ErrWebViewNotInitialized = errors.New("webkit: webview not initialized")
 
-// ErrContentManagerNotFound is returned when WebKit user content manager cannot be retrieved
-var ErrContentManagerNotFound = errors.New("webkit: user content manager not found")
+	// ErrWebViewDestroyed indicates the WebView has been destroyed
+	ErrWebViewDestroyed = errors.New("webkit: webview destroyed")
+
+	// ErrInvalidURL indicates an invalid URL was provided
+	ErrInvalidURL = errors.New("webkit: invalid URL")
+
+	// ErrMainThreadRequired indicates an operation must be called from the main thread
+	ErrMainThreadRequired = errors.New("webkit: operation must be called from main thread")
+)
