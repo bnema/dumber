@@ -37,7 +37,6 @@ type WebView struct {
 	onFaviconChanged      func([]byte)
 	onFaviconURIChanged   func(pageURI, faviconURI string)
 	onZoomChanged         func(float64)
-	onPopup               func(string) *WebView                   // Deprecated: Use onPopupCreate instead
 	onPopupCreate         func(*webkit.NavigationAction) *WebView // New WebKit create signal handler
 	onReadyToShow         func()                                  // WebKit ready-to-show signal handler
 	onClose               func()
@@ -156,18 +155,6 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	viewMu.Unlock()
 
 	return wv, nil
-}
-
-// NewWebViewWithRelated creates a new WebView related to an existing one
-// (shares process context)
-func NewWebViewWithRelated(cfg *Config, related *WebView) (*WebView, error) {
-	if related == nil {
-		return NewWebView(cfg)
-	}
-
-	// TODO: Implement related view creation using webkit.NewWebViewWithRelatedView
-	// For now, create a regular view
-	return NewWebView(cfg)
 }
 
 // applyConfig applies the configuration to the WebView settings
@@ -498,13 +485,6 @@ func (w *WebView) RegisterZoomChangedHandler(handler func(float64)) {
 	w.onZoomChanged = handler
 }
 
-// RegisterPopupHandler registers a handler for popup requests
-func (w *WebView) RegisterPopupHandler(handler func(string) *WebView) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.onPopup = handler
-}
-
 // RegisterCloseHandler registers a handler for close requests
 func (w *WebView) RegisterCloseHandler(handler func()) {
 	w.mu.Lock()
@@ -673,9 +653,9 @@ func (w *WebView) ShowPrintDialog() error {
 		return ErrWebViewDestroyed
 	}
 
-	// TODO: Implement print operation
-	// printOp := webkit.NewPrintOperation(w.view)
-	// printOp.RunDialog(nil)
+	// Create and run print operation with GTK print dialog
+	printOp := webkit.NewPrintOperation(w.view)
+	printOp.RunDialog(nil) // nil = no parent window, uses active window
 	return nil
 }
 

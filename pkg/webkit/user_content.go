@@ -23,8 +23,9 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 	}
 
 	// Inject webview ID FIRST, so GUI scripts can access it immediately
+	// Note: webviewID is uint64, formatted as number (not string) to avoid any injection concerns
 	webviewIDScript := fmt.Sprintf(`
-		window.__dumber_webview_id = "%d";
+		window.__dumber_webview_id = %d;
 		console.log('[webkit] WebView ID set in JavaScript:', window.__dumber_webview_id);
 	`, webviewID)
 	ucm.AddScript(webkit.NewUserScript(

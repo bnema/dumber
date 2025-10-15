@@ -1,6 +1,7 @@
 package webkit
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 
@@ -254,8 +255,13 @@ func (w *WebView) AttachKeyboardBridge() {
 				return true
 			}
 
-			// Forward to JavaScript
-			script := fmt.Sprintf(`document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:'%s'}}));`, shortcut)
+			// Forward to JavaScript using proper JSON marshaling to prevent any potential injection
+			shortcutJSON, err := json.Marshal(shortcut)
+			if err != nil {
+				log.Printf("[keyboard-bridge] Failed to marshal shortcut: %v", err)
+				return false
+			}
+			script := fmt.Sprintf(`document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:%s}}));`, shortcutJSON)
 			if err := w.InjectScript(script); err != nil {
 				log.Printf("[keyboard-bridge] Failed to dispatch: %v", err)
 			}
