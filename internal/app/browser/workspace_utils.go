@@ -141,6 +141,12 @@ func (wm *WorkspaceManager) applyActivePaneBorder(node *paneNode) {
 		return
 	}
 
+	// Only show active border if there are 2+ panes
+	leaves := wm.collectLeaves()
+	if len(leaves) < 2 {
+		return
+	}
+
 	targets := wm.borderTargets(node)
 	for _, widget := range targets {
 		if widget == nil {
