@@ -549,10 +549,15 @@
       return;
     }
 
-    if (mode === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
+    switch (mode) {
+      case "light":
+        document.documentElement.classList.add("light");
+        document.documentElement.classList.remove("dark");
+        break;
+      case "dark":
+        document.documentElement.classList.remove("light");
+        document.documentElement.classList.add("dark");
+        break;
     }
     persistTheme(mode);
   };
@@ -766,10 +771,8 @@
   <meta name="description" content="Fast Wayland Browser - Your browsing patterns at a glance" />
 
   {@html `<style>
-    html { background: #0a0a0a; }
-    body { background: #0a0a0a; color: #e5e5e5; }
-    html.light { background: #ffffff; }
-    html.light body { background: #ffffff; color: #171717; }
+    html { background: var(--dynamic-bg, #0a0a0a); }
+    body { background: var(--dynamic-bg, #0a0a0a); color: var(--dynamic-text, #e5e5e5); }
   </style>`}
 
   {@html `<script>
@@ -806,13 +809,8 @@
           {themeMode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
         </span>
         {#if themeMode === "dark"}
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path
-              fill="currentColor"
-              fill-rule="evenodd"
-              clip-rule="evenodd"
-              d="M17.293 13.293A8 8 0 0 1 10.707 2.997a8.001 8.001 0 1 0 6.586 10.296z"
-            />
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
           </svg>
         {:else}
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1193,7 +1191,6 @@
 <style>
 .homepage-shell {
   min-height: 100vh;
-  background-color: var(--dynamic-bg);
   color: var(--dynamic-text);
   display: flex;
   flex-direction: column;
