@@ -93,6 +93,8 @@ func (s *BrowserService) AttachWebView(view *webkit.WebView) {
 	s.webView = view
 
 	// Register legacy favicon change handler (binary data - fallback)
+	// This is kept for backward compatibility but is rarely used
+	// Modern favicon handling uses the URI-based handler registered in buildPane()
 	view.RegisterFaviconChangedHandler(func(data []byte) {
 		if currentURL := view.GetCurrentURL(); currentURL != "" {
 			log.Printf("[favicon] Favicon detected for %s, data size: %d bytes", currentURL, len(data))
@@ -100,10 +102,9 @@ func (s *BrowserService) AttachWebView(view *webkit.WebView) {
 		}
 	})
 
-	// Register favicon URI change handler (WebKit native)
-	view.RegisterFaviconURIChangedHandler(func(pageURI, faviconURI string) {
-		s.handleFaviconURIChanged(pageURI, faviconURI)
-	})
+	// Note: RegisterFaviconURIChangedHandler is now only called in buildPane()
+	// to avoid duplicate handler registration which causes multiple downloads
+	// of the same favicon and file handle race conditions
 }
 
 // LoadGUIBundle loads the unified GUI bundle from assets
