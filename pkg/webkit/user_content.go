@@ -30,7 +30,7 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 	`, webviewID)
 	ucm.AddScript(webkit.NewUserScript(
 		webviewIDScript,
-		webkit.UserContentInjectAllFrames,
+		webkit.UserContentInjectTopFrame, // Only top frame needs the webview ID
 		webkit.UserScriptInjectAtDocumentStart,
 		nil,
 		nil,
@@ -43,7 +43,7 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 	gtkThemeScript := fmt.Sprintf(`window.__dumber_gtk_prefers_dark = %t;`, prefersDark)
 	ucm.AddScript(webkit.NewUserScript(
 		gtkThemeScript,
-		webkit.UserContentInjectAllFrames,
+		webkit.UserContentInjectTopFrame, // Only top frame needs theme preference
 		webkit.UserScriptInjectAtDocumentStart,
 		nil,
 		nil,
@@ -56,7 +56,7 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 		paletteScript := fmt.Sprintf(`window.__dumber_palette = %s;`, appearanceConfigJSON)
 		ucm.AddScript(webkit.NewUserScript(
 			paletteScript,
-			webkit.UserContentInjectAllFrames,
+			webkit.UserContentInjectTopFrame, // Only top frame needs palette config
 			webkit.UserScriptInjectAtDocumentStart,
 			nil,
 			nil,
@@ -68,7 +68,7 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 	if assets.ColorSchemeScript != "" {
 		ucm.AddScript(webkit.NewUserScript(
 			assets.ColorSchemeScript,
-			webkit.UserContentInjectAllFrames,
+			webkit.UserContentInjectTopFrame, // Only top frame needs color scheme detection
 			webkit.UserScriptInjectAtDocumentStart,
 			nil, // whitelist (nil = all)
 			nil, // blacklist (nil = none)
@@ -80,7 +80,7 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 	if assets.MainWorldScript != "" {
 		ucm.AddScript(webkit.NewUserScript(
 			assets.MainWorldScript,
-			webkit.UserContentInjectAllFrames,
+			webkit.UserContentInjectTopFrame, // Only top frame needs bridge/UI functionality
 			webkit.UserScriptInjectAtDocumentStart,
 			nil,
 			nil,
@@ -92,7 +92,7 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 	if assets.GUIScript != "" {
 		ucm.AddScript(webkit.NewUserScript(
 			assets.GUIScript,
-			webkit.UserContentInjectAllFrames,
+			webkit.UserContentInjectTopFrame, // Only top frame needs GUI controls
 			webkit.UserScriptInjectAtDocumentStart,
 			nil,
 			nil,
