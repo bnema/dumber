@@ -5,13 +5,14 @@ import { pageGenerator } from "./vite-plugin-pages";
 
 export default defineConfig({
   plugins: [
-    svelte(),
+    svelte({
+      emitCss: false, // Inline component CSS for shadow DOM compatibility
+    }),
     pageGenerator([
       {
         name: "homepage",
         title: "Dumber Browser",
         script: "homepage.min.js",
-        css: "homepage.css",
         filename: "index.html",
       },
     ]),
@@ -33,7 +34,7 @@ export default defineConfig({
     target: ["es2020", "chrome91", "firefox90"],
     minify: true,
     sourcemap: false,
-    cssCodeSplit: true,
+    cssCodeSplit: false,
     assetsInlineLimit: 4096,
   },
   resolve: {

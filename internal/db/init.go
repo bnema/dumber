@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/bnema/dumber/internal/config"
+	"github.com/bnema/dumber/internal/migrations"
 	_ "github.com/ncruces/go-sqlite3/driver" // SQLite driver
 	_ "github.com/ncruces/go-sqlite3/embed"  // Embed SQLite
 )
@@ -37,12 +38,20 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	// Initialize database schema
-	if err := initializeSchema(database); err != nil {
+	// Run embedded migrations - single source of truth for schema initialization
+	if err := migrations.RunEmbeddedMigrations(database); err != nil {
 		if err := database.Close(); err != nil {
 			log.Printf("Warning: failed to close database: %v", err)
 		}
-		return nil, fmt.Errorf("failed to initialize database schema: %w", err)
+		return nil, fmt.Errorf("failed to run database migrations: %w", err)
+	}
+
+	// Verify all migrations are applied
+	if err := migrations.VerifyAllMigrationsApplied(database); err != nil {
+		if err := database.Close(); err != nil {
+			log.Printf("Warning: failed to close database: %v", err)
+		}
+		return nil, fmt.Errorf("migration verification failed: %w", err)
 	}
 
 	return database, nil
@@ -64,46 +73,6 @@ func InitDBWithConfig(dbPath string, cfg *config.Config) (*sql.DB, error) {
 	}
 
 	return db, nil
-}
-
-// initializeSchema creates the database schema if it doesn't exist
-func initializeSchema(db *sql.DB) error {
-	schema := `
-	-- History tracking for visited URLs
-	CREATE TABLE IF NOT EXISTS history (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		url TEXT NOT NULL UNIQUE,
-		title TEXT,
-		visit_count INTEGER DEFAULT 1,
-		last_visited DATETIME DEFAULT CURRENT_TIMESTAMP,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);
-
-	CREATE INDEX IF NOT EXISTS idx_history_url ON history(url);
-	CREATE INDEX IF NOT EXISTS idx_history_last_visited ON history(last_visited);
-
-	-- URL shortcuts configuration
-	CREATE TABLE IF NOT EXISTS shortcuts (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		shortcut TEXT NOT NULL UNIQUE,
-		url_template TEXT NOT NULL,
-		description TEXT,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);
-
-	-- Zoom persistence per domain (not full URL)
-	CREATE TABLE IF NOT EXISTS zoom_levels (
-		domain TEXT PRIMARY KEY,
-		zoom_factor REAL NOT NULL DEFAULT 1.0 CHECK(zoom_factor >= 0.3 AND zoom_factor <= 5.0),
-		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-	);
-
-	CREATE INDEX IF NOT EXISTS idx_zoom_levels_updated_at ON zoom_levels(updated_at);
-	`
-
-	// Execute schema creation
-	_, err := db.Exec(schema)
-	return err
 }
 
 // initializeShortcuts inserts configured shortcuts into the database

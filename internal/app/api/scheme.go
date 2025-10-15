@@ -2,15 +2,20 @@ package api
 
 import (
 	"embed"
+	"fmt"
 	"log"
 	"mime"
 	neturl "net/url"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/bnema/dumber/internal/app/constants"
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/services"
+	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
+	"github.com/diamondburned/gotk4/pkg/gio/v2"
+	"github.com/diamondburned/gotk4/pkg/glib/v2"
 )
 
 // SchemeHandler handles custom dumb:// scheme resolution
@@ -18,6 +23,7 @@ type SchemeHandler struct {
 	assets         embed.FS
 	parserService  *services.ParserService
 	browserService *services.BrowserService
+	cfg            *config.Config
 }
 
 // NewSchemeHandler creates a new scheme handler
@@ -33,25 +39,39 @@ func NewSchemeHandler(
 	}
 }
 
-// Handle processes dumb:// scheme requests
-func (s *SchemeHandler) Handle(uri string, cfg *config.Config) (string, []byte, bool) {
+// SetConfig sets the configuration for the scheme handler
+func (s *SchemeHandler) SetConfig(cfg *config.Config) {
+	s.cfg = cfg
+}
+
+// Handle processes dumb:// scheme requests using the new URISchemeRequest API
+func (s *SchemeHandler) Handle(req *webkit.URISchemeRequest) {
+	uri := req.URI()
 	log.Printf("[scheme] request: %s", uri)
 
 	// Known forms:
 	// - dumb://homepage or dumb:homepage → index.html
 	// - dumb://app/index.html, dumb://app/<path> → serve from gui/<path>
+	// - dumb://favicon/<hash>.png → serve cached favicon
 	// - dumb://<anything> without path → index.html
 	u, err := neturl.Parse(uri)
 	if err != nil || u.Scheme != "dumb" {
-		return "", nil, false
+		req.FinishError(fmt.Errorf("invalid URI: %s", uri))
+		return
+	}
+
+	// Check if this is a favicon request
+	if u.Host == "favicon" || (u.Host == "" && strings.HasPrefix(u.Path, "/favicon/")) {
+		s.handleFavicon(req, u)
+		return
 	}
 
 	// Static assets
-	return s.handleAsset(u)
+	s.handleAsset(req, u)
 }
 
 // handleAsset serves static assets from embedded filesystem
-func (s *SchemeHandler) handleAsset(u *neturl.URL) (string, []byte, bool) {
+func (s *SchemeHandler) handleAsset(req *webkit.URISchemeRequest, u *neturl.URL) {
 	// Resolve target path inside embed FS
 	var rel string
 	if u.Opaque == constants.HomepagePath || (u.Host == constants.HomepagePath && (u.Path == "" || u.Path == "/")) || (u.Host == "" && (u.Path == "" || u.Path == "/")) {
@@ -79,7 +99,8 @@ func (s *SchemeHandler) handleAsset(u *neturl.URL) (string, []byte, bool) {
 		log.Printf("[scheme] asset: rel=%s (host=%s path=%s) → mapping to favicon.png", rel, u.Host, u.Path)
 		data, rerr := s.assets.ReadFile(filepath.ToSlash(filepath.Join("assets", "gui", "favicon.png")))
 		if rerr == nil {
-			return "image/png", data, true
+			s.finishRequest(req, "image/png", data, "favicon.png")
+			return
 		}
 	}
 
@@ -89,16 +110,34 @@ func (s *SchemeHandler) handleAsset(u *neturl.URL) (string, []byte, bool) {
 	data, rerr := s.assets.ReadFile(filepath.ToSlash(filepath.Join("assets", "gui", rel)))
 	if rerr != nil {
 		log.Printf("[scheme] not found: %s", rel)
-		return "", nil, false
+		req.FinishError(fmt.Errorf("asset not found: %s", rel))
+		return
 	}
 
 	// Determine mime type
 	mt := s.getMimeType(rel)
 
-	// Add cache control for development (prevents future caching issues)
-	// Note: This doesn't affect the current cache, but prevents new caching
+	// Finish the request with the data
 	log.Printf("[scheme] serving %s with mime-type: %s", rel, mt)
-	return mt, data, true
+	s.finishRequest(req, mt, data, rel)
+}
+
+// finishRequest completes a URI scheme request with the provided data
+func (s *SchemeHandler) finishRequest(req *webkit.URISchemeRequest, mimeType string, data []byte, filename string) {
+	// Convert byte slice to GLib Bytes
+	gbytes := glib.NewBytes(data)
+
+	// Create an input stream from the bytes
+	stream := gio.NewMemoryInputStreamFromBytes(gbytes)
+	if stream == nil {
+		req.FinishError(fmt.Errorf("failed to create input stream for: %s", filename))
+		log.Printf("[scheme] failed to create stream for: %s", filename)
+		return
+	}
+
+	// Finish the request with the stream
+	contentLength := int64(len(data))
+	req.Finish(stream, contentLength, mimeType)
 }
 
 // getMimeType determines the MIME type for a given file path
@@ -151,4 +190,43 @@ func (s *SchemeHandler) getMimeType(filename string) string {
 		// Default to text/plain for unknown extensions
 		return "text/plain"
 	}
+}
+
+// handleFavicon serves cached favicon files
+func (s *SchemeHandler) handleFavicon(req *webkit.URISchemeRequest, u *neturl.URL) {
+	// Extract the filename from the URL
+	// URL format: dumb://favicon/<hash>.png
+	var filename string
+	if u.Host == "favicon" {
+		filename = strings.TrimPrefix(u.Path, "/")
+	} else {
+		filename = strings.TrimPrefix(u.Path, "/favicon/")
+	}
+
+	if filename == "" {
+		log.Printf("[scheme] favicon: empty filename")
+		req.FinishError(fmt.Errorf("invalid favicon path"))
+		return
+	}
+
+	// Get the favicon cache directory path
+	dataDir, err := config.GetDataDir()
+	if err != nil {
+		log.Printf("[scheme] favicon: failed to get data directory: %v", err)
+		req.FinishError(fmt.Errorf("failed to get data directory"))
+		return
+	}
+
+	faviconPath := filepath.Join(dataDir, "favicons", filename)
+
+	// Read the favicon file
+	data, err := os.ReadFile(faviconPath)
+	if err != nil {
+		log.Printf("[scheme] favicon: file not found: %s", faviconPath)
+		req.FinishError(fmt.Errorf("favicon not found: %s", filename))
+		return
+	}
+
+	log.Printf("[scheme] favicon: serving %s (%d bytes)", filename, len(data))
+	s.finishRequest(req, "image/png", data, filename)
 }

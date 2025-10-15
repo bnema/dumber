@@ -50,7 +50,7 @@ func (gv *GeometryValidator) SetDebugMode(debug bool) {
 func (gv *GeometryValidator) GetPaneGeometry(node *paneNode) PaneGeometry {
 	geometry := PaneGeometry{IsValid: false}
 
-	if node == nil || node.container == 0 {
+	if node == nil || node.container == nil {
 		if gv.debugMode {
 			log.Printf("[geometry] Invalid node or missing container")
 		}
@@ -58,12 +58,12 @@ func (gv *GeometryValidator) GetPaneGeometry(node *paneNode) PaneGeometry {
 	}
 
 	// Get widget allocation directly - GTK operations are always on main thread
-	allocation := webkit.WidgetGetAllocation(node.container)
+	x, y, width, height := webkit.WidgetGetAllocation(node.container)
 
-	geometry.X = allocation.X
-	geometry.Y = allocation.Y
-	geometry.Width = allocation.Width
-	geometry.Height = allocation.Height
+	geometry.X = x
+	geometry.Y = y
+	geometry.Width = width
+	geometry.Height = height
 	geometry.IsValid = true
 
 	if gv.debugMode {

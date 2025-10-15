@@ -221,7 +221,7 @@ func TestRequestDeduplicator_DetectsDuplicates(t *testing.T) {
 	}
 
 	// First request should not be duplicate
-	if dedup.IsDuplicate(req1) {
+	if dedup.IsDuplicate(req1, false) {
 		t.Error("first request should not be duplicate")
 	}
 
@@ -232,7 +232,7 @@ func TestRequestDeduplicator_DetectsDuplicates(t *testing.T) {
 		Timestamp:  time.Now(),
 	}
 
-	if !dedup.IsDuplicate(req2) {
+	if !dedup.IsDuplicate(req2, true) {
 		t.Error("second identical request should be duplicate")
 	}
 }
@@ -253,10 +253,10 @@ func TestRequestDeduplicator_DifferentSourcesNotDuplicate(t *testing.T) {
 		Source:     SourceMouse,
 	}
 
-	dedup.IsDuplicate(req1)
+	dedup.IsDuplicate(req1, false)
 
 	// Different source should not be duplicate
-	if dedup.IsDuplicate(req2) {
+	if dedup.IsDuplicate(req2, false) {
 		t.Error("requests with different sources should not be duplicates")
 	}
 }
@@ -274,12 +274,12 @@ func TestRequestDeduplicator_ExpiresOldSignatures(t *testing.T) {
 	}
 
 	// First request
-	if dedup.IsDuplicate(req) {
+	if dedup.IsDuplicate(req, false) {
 		t.Error("first request should not be duplicate")
 	}
 
 	// Immediate duplicate
-	if !dedup.IsDuplicate(req) {
+	if !dedup.IsDuplicate(req, true) {
 		t.Error("immediate duplicate should be detected")
 	}
 
@@ -287,7 +287,7 @@ func TestRequestDeduplicator_ExpiresOldSignatures(t *testing.T) {
 	time.Sleep(ttl + 10*time.Millisecond)
 
 	// Should not be duplicate after expiration
-	if dedup.IsDuplicate(req) {
+	if dedup.IsDuplicate(req, false) {
 		t.Error("request after TTL should not be duplicate")
 	}
 }
@@ -312,7 +312,7 @@ func TestRequestDeduplicator_ConcurrentAccess(t *testing.T) {
 					TargetNode: nodes[idx%len(nodes)],
 					Source:     SourceKeyboard,
 				}
-				_ = dedup.IsDuplicate(req)
+				_ = dedup.IsDuplicate(req, false)
 				time.Sleep(time.Microsecond)
 			}
 		}(i)

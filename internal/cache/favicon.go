@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bnema/dumber/internal/config"
@@ -22,7 +23,8 @@ import (
 
 // FaviconCache manages favicon caching to local files
 type FaviconCache struct {
-	cacheDir string
+	cacheDir      string
+	downloadMutex sync.Mutex // Prevents concurrent downloads of the same favicon
 }
 
 // NewFaviconCache creates a new favicon cache
@@ -123,7 +125,13 @@ func (fc *FaviconCache) downloadFavicon(faviconURL string) error {
 	filename := fc.getFilename(faviconURL)
 	cachedPath := filepath.Join(fc.cacheDir, filename)
 
-	// Don't download if already exists and is recent
+	// Lock to prevent concurrent downloads of the same favicon
+	// This prevents race conditions on temp files and duplicate downloads
+	fc.downloadMutex.Lock()
+	defer fc.downloadMutex.Unlock()
+
+	// Double-check if already exists after acquiring lock
+	// Another goroutine might have downloaded it while we were waiting
 	if info, err := os.Stat(cachedPath); err == nil {
 		if time.Since(info.ModTime()) < 7*24*time.Hour {
 			return nil
@@ -175,8 +183,11 @@ func (fc *FaviconCache) downloadFavicon(faviconURL string) error {
 		}
 	}()
 	defer func() {
-		if err := os.Remove(tempDownloadFile); err != nil {
-			log.Printf("[favicon] failed to remove temp download file: %v", err)
+		// Clean up temp download file if it still exists
+		if _, err := os.Stat(tempDownloadFile); err == nil {
+			if err := os.Remove(tempDownloadFile); err != nil {
+				log.Printf("[favicon] failed to remove temp download file: %v", err)
+			}
 		}
 	}()
 
@@ -235,9 +246,14 @@ func (fc *FaviconCache) savePNG(img image.Image, outputPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
+
+	// Track if we've already closed the file
+	closed := false
 	defer func() {
-		if err := file.Close(); err != nil {
-			log.Printf("[favicon] failed to close file: %v", err)
+		if !closed {
+			if err := file.Close(); err != nil {
+				log.Printf("[favicon] failed to close file: %v", err)
+			}
 		}
 	}()
 
@@ -248,7 +264,11 @@ func (fc *FaviconCache) savePNG(img image.Image, outputPath string) error {
 		return fmt.Errorf("failed to encode PNG: %w", err)
 	}
 
-	file.Close()
+	// Close the file before renaming (required on Windows, good practice on all platforms)
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("failed to close file before rename: %w", err)
+	}
+	closed = true
 
 	// Atomic move
 	if err := os.Rename(tempFile, outputPath); err != nil {

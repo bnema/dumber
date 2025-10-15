@@ -1,59 +1,92 @@
-//go:build !webkit_cgo
-
 package webkit
 
-import "sync"
+import (
+	"github.com/diamondburned/gotk4/pkg/gtk/v4"
+)
 
-// Window represents a top-level application window hosting a WebView.
-// Stub for future GTK application window management.
+// Window wraps a GTK Window for the browser
 type Window struct {
-	Title string
-	child uintptr
-	mu    sync.Mutex
+	win *gtk.Window
 }
 
-// NewWindow constructs a Window. In real implementation, this would create a GTK window.
+// NewWindow creates a new GTK window with the given title
 func NewWindow(title string) (*Window, error) {
-	_ = title
-	return &Window{Title: title}, ErrNotImplemented
+	InitMainThread()
+
+	win := gtk.NewWindow()
+	if win == nil {
+		return nil, ErrWebViewNotInitialized
+	}
+
+	win.SetTitle(title)
+	win.SetDefaultSize(1024, 768)
+
+	return &Window{win: win}, nil
 }
 
-// SetTitle updates the window title (no-op in non-CGO build).
+// SetTitle updates the window title
 func (w *Window) SetTitle(title string) {
-	w.Title = title
-}
-
-// SetChild is a stubbed window child setter for non-CGO builds.
-// Simulates GTK4 behavior where setting child to 0 unparents the current child.
-func (w *Window) SetChild(child uintptr) {
-	if w == nil {
+	if w == nil || w.win == nil {
 		return
 	}
-
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	// GTK4 behavior: Setting child to 0 removes and potentially invalidates the current child
-	if child == 0 && w.child != 0 {
-		// GTK4 automatically unparents the current child but keeps the widget alive
-		widgetMu.Lock()
-		if stub, ok := widgetState[w.child]; ok {
-			stub.parent = 0
-		}
-		widgetMu.Unlock()
-	}
-
-	// GTK4 validation: if child is not 0, it must be a valid widget
-	if child != 0 {
-		widgetMu.Lock()
-		childStub, childExists := widgetState[child]
-		if !childExists || childStub.isDestroyed {
-			widgetMu.Unlock()
-			panic("GTK-CRITICAL simulation: gtk_window_set_child: assertion 'GTK_IS_WIDGET (widget)' failed - child is invalid")
-		}
-		childStub.parent = 1 // Simplified window handle
-		widgetMu.Unlock()
-	}
-
-	w.child = child
+	w.win.SetTitle(title)
 }
+
+// SetChild sets the child widget of the window
+func (w *Window) SetChild(child gtk.Widgetter) {
+	if w == nil || w.win == nil {
+		return
+	}
+	w.win.SetChild(child)
+}
+
+// Show makes the window visible
+// Note: In GTK4, Show() is deprecated. Use SetVisible(true) instead.
+func (w *Window) Show() {
+	if w == nil || w.win == nil {
+		return
+	}
+	w.win.SetVisible(true)
+}
+
+// Present brings the window to the front
+func (w *Window) Present() {
+	if w == nil || w.win == nil {
+		return
+	}
+	w.win.Present()
+}
+
+// Close destroys the window
+func (w *Window) Close() {
+	if w == nil || w.win == nil {
+		return
+	}
+	w.win.Close()
+}
+
+// AsWindow returns the underlying gtk.Window for advanced operations
+func (w *Window) AsWindow() *gtk.Window {
+	if w == nil {
+		return nil
+	}
+	return w.win
+}
+
+// SetDefaultSize sets the default window size
+func (w *Window) SetDefaultSize(width, height int) {
+	if w == nil || w.win == nil {
+		return
+	}
+	w.win.SetDefaultSize(width, height)
+}
+
+// Destroy destroys the window
+func (w *Window) Destroy() {
+	if w == nil || w.win == nil {
+		return
+	}
+	w.win.Destroy()
+}
+
+// InitializeGlobalShortcuts is defined in shortcuts.go and implemented there

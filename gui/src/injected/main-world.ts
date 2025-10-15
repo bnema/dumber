@@ -14,7 +14,6 @@ declare global {
   interface Window {
     __dumber: DumberAPI;
     __dumber_page_bridge_installed?: boolean;
-    __dumber_window_open_intercepted?: boolean;
     __dumber_dom_zoom_seed?: number;
     __dumber_dom_zoom_level?: number;
     __dumber_initial_theme?: string;
@@ -33,7 +32,7 @@ declare global {
     ) => number | void;
     __dumber_showZoomToast?: (level: number) => void;
     __dumber_omnibox_suggestions?: (suggestions: Suggestion[]) => void;
-    __dumber_webview_id?: string;
+    __dumber_webview_id?: string | number;
     __dumber_is_active?: boolean;
     __dumber_teardown?: () => void;
     webkit?: {
@@ -46,63 +45,15 @@ declare global {
   }
 }
 
-interface WindowIntent {
-  url: string;
-  target: string;
-  features: string;
-  timestamp: number;
-  userTriggered: boolean;
-  requestId: string;
-  windowType: string; // "tab", "popup", "unknown"
-}
-
 interface Suggestion {
   // Define proper suggestion types based on your needs
   [key: string]: unknown;
 }
 
 interface DumberAPI {
-  toast: {
-    show: (
-      message: string,
-      duration?: number,
-      type?: "info" | "success" | "error",
-    ) => void;
-    zoom: (level: number) => void;
-  };
   omnibox: {
     suggestions: (suggestions: Suggestion[]) => void;
   };
-}
-
-// Function to detect if window.open call is for a popup based on features
-function detectWindowType(features?: string | null): string {
-  if (!features) {
-    return "tab"; // Default to tab if no features specified
-  }
-
-  const featuresStr = features.toLowerCase();
-
-  // Check for typical popup characteristics
-  const hasSize = /width=\d+|height=\d+/.test(featuresStr);
-  const hasNoToolbar = /toolbar=0|toolbar=no/.test(featuresStr);
-  const hasNoMenubar = /menubar=0|menubar=no/.test(featuresStr);
-  const hasNoLocation = /location=0|location=no/.test(featuresStr);
-
-  // OAuth/login popups typically have size constraints and disabled UI elements
-  const popupIndicators = [
-    hasSize,
-    hasNoToolbar,
-    hasNoMenubar,
-    hasNoLocation,
-  ].filter(Boolean).length;
-
-  // If 2 or more popup indicators are present, treat as popup
-  if (popupIndicators >= 2) {
-    return "popup";
-  }
-
-  return "tab";
 }
 
 (() => {
@@ -120,9 +71,14 @@ function detectWindowType(features?: string | null): string {
     const initialZoom = 1.0; // __DOM_ZOOM_DEFAULT__ will be replaced by Go
     window.__dumber_dom_zoom_seed = initialZoom;
 
-    // Initialize WebView ID and active state (will be replaced by Go)
-    window.__dumber_webview_id = "__WEBVIEW_ID__";
-    window.__dumber_is_active = "__WEBVIEW_ACTIVE__" as unknown as boolean;
+    // Initialize WebView ID and active state (injected by Go at document-start)
+    // Only set fallback values if not already injected
+    if (typeof window.__dumber_webview_id === 'undefined') {
+      window.__dumber_webview_id = "__WEBVIEW_ID__";
+    }
+    if (typeof window.__dumber_is_active === 'undefined') {
+      window.__dumber_is_active = "__WEBVIEW_ACTIVE__" as unknown as boolean;
+    }
 
     // Request color palettes from Go backend
     try {
@@ -273,58 +229,8 @@ function detectWindowType(features?: string | null): string {
       }
     };
 
-    // Initialize unified API object
+    // Initialize unified API object (toast functions are exposed by ToastContainer.svelte)
     window.__dumber = window.__dumber || ({} as DumberAPI);
-
-    // Toast bridge
-    window.__dumber.toast = window.__dumber.toast || {
-      show: (message: string, duration?: number, type?: string) => {
-        try {
-          document.dispatchEvent(
-            new CustomEvent("dumber:toast:show", {
-              detail: { message, duration, type },
-            }),
-          );
-          // Legacy compatibility
-          document.dispatchEvent(
-            new CustomEvent("dumber:showToast", {
-              detail: { message, duration, type },
-            }),
-          );
-        } catch {
-          // ignore
-        }
-      },
-      zoom: (level: number) => {
-        try {
-          document.dispatchEvent(
-            new CustomEvent("dumber:toast:zoom", {
-              detail: { level },
-            }),
-          );
-          // Legacy compatibility
-          document.dispatchEvent(
-            new CustomEvent("dumber:showZoomToast", {
-              detail: { level },
-            }),
-          );
-        } catch {
-          // ignore
-        }
-      },
-    };
-
-    // Legacy toast helpers
-    window.__dumber_showToast = (
-      message: string,
-      duration?: number,
-      type?: "info" | "success" | "error",
-    ) => {
-      window.__dumber.toast.show(message, duration, type);
-    };
-    window.__dumber_showZoomToast = (level: number) => {
-      window.__dumber.toast.zoom(level);
-    };
 
     // DOM zoom functionality
     if (typeof window.__dumber_dom_zoom_level !== "number") {
@@ -894,284 +800,6 @@ function detectWindowType(features?: string | null): string {
     // Setup OAuth callback detection
     setupOAuthCallbackDetection();
 
-    // Enhanced window.open deduplication system
-    interface PendingRequest {
-      id: string;
-      url: string;
-      timestamp: number;
-      webviewId: string;
-      resolved: boolean;
-    }
-
-    class WindowOpenDebouncer {
-      private pendingRequests = new Map<string, PendingRequest>();
-      private readonly DEBOUNCE_WINDOW = 150; // Increased from 100ms
-      private readonly CLEANUP_INTERVAL = 1000; // Clean old entries every 1s
-
-      generateRequestId(): string {
-        return `${window.__dumber_webview_id}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-      }
-
-      isDuplicate(url: string, webviewId: string): boolean {
-        const key = this.createKey(url, webviewId);
-        const existing = this.pendingRequests.get(key);
-
-        if (!existing) return false;
-
-        const timeDiff = Date.now() - existing.timestamp;
-        return timeDiff < this.DEBOUNCE_WINDOW && !existing.resolved;
-      }
-
-      registerRequest(url: string, webviewId: string): string {
-        const requestId = this.generateRequestId();
-        const key = this.createKey(url, webviewId);
-
-        this.pendingRequests.set(key, {
-          id: requestId,
-          url,
-          timestamp: Date.now(),
-          webviewId,
-          resolved: false,
-        });
-
-        // Schedule cleanup
-        setTimeout(() => this.markResolved(key), this.DEBOUNCE_WINDOW);
-        return requestId;
-      }
-
-      private createKey(url: string, webviewId: string): string {
-        return `${webviewId}:${url}`;
-      }
-
-      private markResolved(key: string): void {
-        const request = this.pendingRequests.get(key);
-        if (request) {
-          request.resolved = true;
-          // Clean up after additional delay
-          setTimeout(
-            () => this.pendingRequests.delete(key),
-            this.CLEANUP_INTERVAL,
-          );
-        }
-      }
-    }
-
-    // Global debouncer instance
-    const windowOpenDebouncer = new WindowOpenDebouncer();
-
-    // User interaction tracking
-    let lastUserInteraction = 0;
-    const INTERACTION_TIMEOUT = 5000; // 5 seconds
-
-    const trackUserInteraction = () => {
-      lastUserInteraction = Date.now();
-    };
-
-    const isUserInteraction = (): boolean => {
-      const now = Date.now();
-      const timeSinceInteraction = now - lastUserInteraction;
-      return timeSinceInteraction <= INTERACTION_TIMEOUT;
-    };
-
-    const createFakeWindow = (url: string, popupId?: string): WindowProxy => {
-      // Generate unique popup ID if not provided
-      const actualPopupId =
-        popupId ||
-        `${window.__dumber_webview_id}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-
-      // Set up communication channel via shared localStorage
-      try {
-        localStorage.setItem(
-          `popup_${actualPopupId}_parent_info`,
-          JSON.stringify({
-            parentUrl: window.location.href,
-            parentWebViewId: window.__dumber_webview_id,
-            timestamp: Date.now(),
-            popupUrl: url,
-          }),
-        );
-
-        console.log(
-          `[window-open] [WebView ${window.__dumber_webview_id}] Set up shared storage communication for popup ID: ${actualPopupId}`,
-        );
-      } catch (err) {
-        console.warn(
-          `[window-open] [WebView ${window.__dumber_webview_id}] Failed to set up shared storage:`,
-          err,
-        );
-      }
-
-      return {
-        closed: false,
-        location: { href: url },
-        close() {
-          (this as { closed: boolean }).closed = true;
-        },
-        focus: () => {
-          try {
-            localStorage.setItem(
-              `popup_${actualPopupId}_parent_action`,
-              JSON.stringify({
-                action: "focus",
-                timestamp: Date.now(),
-              }),
-            );
-          } catch (err) {
-            console.warn(`[window-open] Failed to store focus action:`, err);
-          }
-        },
-        blur: () => {
-          try {
-            localStorage.setItem(
-              `popup_${actualPopupId}_parent_action`,
-              JSON.stringify({
-                action: "blur",
-                timestamp: Date.now(),
-              }),
-            );
-          } catch (err) {
-            console.warn(`[window-open] Failed to store blur action:`, err);
-          }
-        },
-        postMessage: (data: unknown, targetOrigin?: string) => {
-          try {
-            localStorage.setItem(
-              `popup_${actualPopupId}_message_to_popup`,
-              JSON.stringify({
-                data,
-                origin: targetOrigin || "*",
-                timestamp: Date.now(),
-                source: "parent",
-              }),
-            );
-            console.log(
-              `[window-open] [WebView ${window.__dumber_webview_id}] Stored message for popup ${actualPopupId}:`,
-              data,
-            );
-          } catch (err) {
-            console.warn(`[window-open] Failed to store postMessage:`, err);
-          }
-        },
-      } as unknown as WindowProxy;
-    };
-
-    // Track user interactions for popup validation
-    const interactionEvents = [
-      "click",
-      "mousedown",
-      "keydown",
-      "touchstart",
-    ] as const;
-    interactionEvents.forEach((eventType) => {
-      document.addEventListener(eventType, trackUserInteraction, true);
-    });
-    cleanupHandlers.push(() => {
-      interactionEvents.forEach((eventType) => {
-        document.removeEventListener(eventType, trackUserInteraction, true);
-      });
-    });
-
-    console.log(
-      `[window-open] [WebView ${window.__dumber_webview_id}] User interaction tracking enabled`,
-    );
-
-    // Window.open interceptor - only install once
-    if (!window.__dumber_window_open_intercepted) {
-      try {
-        window.open = function (
-          url?: string | URL | null,
-          target?: string | null,
-          features?: string | null,
-        ): WindowProxy | null {
-          const urlString = url
-            ? typeof url === "string"
-              ? url
-              : url.toString()
-            : "";
-          const webviewId = window.__dumber_webview_id || "unknown";
-
-          console.log(
-            `[window-open] [WebView ${webviewId}] Bridge called with:`,
-            urlString,
-            target,
-            features,
-          );
-
-          // Enhanced duplicate check
-          if (windowOpenDebouncer.isDuplicate(urlString, webviewId)) {
-            console.log(
-              `[window-open] [WebView ${webviewId}] BLOCKED: Duplicate request within debounce window`,
-            );
-            return createFakeWindow(urlString);
-          }
-
-          // Active WebView check
-          if (!window.__dumber_is_active) {
-            console.log(
-              `[window-open] [WebView ${webviewId}] BLOCKED: Inactive WebView`,
-            );
-            return createFakeWindow(urlString);
-          }
-
-          // User interaction check
-          if (!isUserInteraction()) {
-            console.log(
-              `[window-open] [WebView ${webviewId}] BLOCKED: No recent user interaction`,
-            );
-            return createFakeWindow("");
-          }
-
-          // Register request and get unique ID
-          const requestId = windowOpenDebouncer.registerRequest(
-            urlString,
-            webviewId,
-          );
-
-          const intent: WindowIntent = {
-            url: urlString,
-            target: target || "_blank",
-            features: features || "",
-            timestamp: Date.now(),
-            userTriggered: true,
-            requestId, // NEW: Add unique request ID
-            windowType: detectWindowType(features), // Detect popup vs tab
-          };
-
-          // Send to Go backend
-          try {
-            if (window.webkit?.messageHandlers?.dumber) {
-              window.webkit.messageHandlers.dumber.postMessage(
-                JSON.stringify({
-                  type: "handle-window-open",
-                  payload: intent,
-                }),
-              );
-              console.log(
-                `[window-open] [WebView ${webviewId}] Sent request ${requestId} to Go backend`,
-              );
-            }
-          } catch (err) {
-            console.error(
-              `[window-open] [WebView ${webviewId}] Failed to send request ${requestId}:`,
-              err,
-            );
-          }
-
-          return createFakeWindow(urlString, requestId);
-        };
-
-        window.__dumber_window_open_intercepted = true;
-        console.log(
-          `[window-open] [WebView ${window.__dumber_webview_id}] ✅ Page-world bridge installed`,
-        );
-      } catch (error) {
-        console.error(
-          `[window-open] [WebView ${window.__dumber_webview_id}] ❌ Failed to install page-world bridge:`,
-          error,
-        );
-      }
-    }
-
     const teardown = () => {
       if (teardownExecuted) {
         return;
@@ -1193,7 +821,6 @@ function detectWindowType(features?: string | null): string {
       omniboxQueue.length = 0;
       omniboxReady = false;
 
-      window.__dumber_window_open_intercepted = false;
       window.__dumber_page_bridge_installed = false;
       window.__dumber_teardown = undefined;
       window.__dumber_omnibox_suggestions = undefined;
@@ -1205,7 +832,6 @@ function detectWindowType(features?: string | null): string {
       if (globalState) {
         const mutableState = globalState as unknown as Record<string, unknown>;
         delete mutableState.omnibox;
-        delete mutableState.toast;
       }
     };
 

@@ -11,7 +11,6 @@ import (
 	"github.com/bnema/dumber/internal/cache"
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/db"
-	"github.com/bnema/dumber/internal/migrations"
 	"github.com/bnema/dumber/internal/services"
 
 	_ "github.com/ncruces/go-sqlite3/driver" // SQLite driver for database/sql
@@ -193,16 +192,12 @@ func NewRootCmd(version, commit, buildDate string) *cobra.Command {
 	return rootCmd
 }
 
-// initializeDatabase runs embedded migrations and ensures database is up to date
-func initializeDatabase(db *sql.DB, cfg *config.Config) error {
-	// Run embedded migrations - this will create all tables and apply any new migrations
-	if err := migrations.RunEmbeddedMigrations(db); err != nil {
-		return fmt.Errorf("failed to run database migrations: %w", err)
-	}
-
+// initializeDatabase ensures configured shortcuts are inserted
+// Migrations are run automatically in db.InitDB()
+func initializeDatabase(database *sql.DB, cfg *config.Config) error {
 	// Insert configured shortcuts (these are additive, won't override existing)
 	for shortcut, shortcutCfg := range cfg.SearchShortcuts {
-		_, err := db.Exec(
+		_, err := database.Exec(
 			"INSERT OR IGNORE INTO shortcuts (shortcut, url_template, description) VALUES (?, ?, ?)",
 			shortcut, shortcutCfg.URL, shortcutCfg.Description,
 		)
