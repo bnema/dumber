@@ -201,6 +201,14 @@ func (w *WebView) setupEventHandlers() {
 		}
 	})
 
+	// Zoom level changed - connect to notify::zoom-level signal
+	w.view.Connect("notify::zoom-level", func() {
+		if w.onZoomChanged != nil {
+			zoomLevel := w.view.ZoomLevel()
+			w.onZoomChanged(zoomLevel)
+		}
+	})
+
 	// Favicon changed - connect to FaviconDatabase
 	w.setupFaviconHandlers()
 

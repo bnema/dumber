@@ -43,6 +43,7 @@ All notable changes to this project will be documented in this file.
 - **Stacked pane active border**: Fixed active border incorrectly appearing on stacked pane containers instead of individual panes
 - **Stacked pane creation**: Fixed premature Realize() call causing widget lifecycle issues during stack creation
 - **Browser exit on last pane close**: Fixed browser not properly quitting when closing the last webview via Ctrl+P x by calling GTK main loop quit instead of window close
+- **Zoom level persistence restored**: Fixed per-domain zoom settings not being saved to database (broken during gotk4 migration). Added missing `notify::zoom-level` signal connection in setupEventHandlers to properly persist zoom changes
 
 ## [0.11.0] - 2025-10-07
 
