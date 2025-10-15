@@ -336,51 +336,44 @@ func (app *BrowserApp) setupContentBlocking() error {
 	// Store reference to filter manager
 	app.filterManager = filterManager
 
-	// Set up callback to re-apply network filters when they become ready
+	// Set up callback to apply network filters when they become ready
 	// This callback will be called from the async filter loading process
 	filterManager.SetFiltersReadyCallback(func() {
-		// Add small delay to avoid race conditions with WebView initialization
-		go func() {
-			time.Sleep(300 * time.Millisecond)
-			if app.webView != nil {
-				// Note: Content filtering is now handled via WebKit's UserContentManager
-				// UpdateContentFilters would need to be implemented if needed
-				log.Printf("Filters loaded - content blocking via UserContentManager")
-			}
-		}()
+		log.Printf("[filtering] Filters ready, applying to WebView...")
+
+		// Get the WebKit JSON rules from filter manager
+		filterJSON, err := filterManager.GetNetworkFilters()
+		if err != nil {
+			log.Printf("[filtering] Failed to get network filters: %v", err)
+			return
+		}
+
+		if len(filterJSON) == 0 {
+			log.Printf("[filtering] No network filters to apply")
+			return
+		}
+
+		log.Printf("[filtering] Got %d bytes of WebKit JSON rules", len(filterJSON))
+
+		// Apply filters to the WebView
+		// This must be done on the main thread since it touches GTK/WebKit
+		if app.webView != nil {
+			app.webView.RunOnMainThread(func() {
+				if err := app.webView.InitializeContentBlocking(filterJSON); err != nil {
+					log.Printf("[filtering] Failed to apply content filters: %v", err)
+				} else {
+					log.Printf("[filtering] ✅ Content blocking enabled successfully")
+				}
+			})
+		}
 	})
 
-	// Start async filter loading early (before WebView content blocking initialization)
-	// This allows filters to be ready when the WebView needs them
+	// Start async filter loading
+	// This allows filters to compile in the background while the browser starts
 	go func() {
 		if err := filtering.InitializeFiltersAsync(filterManager); err != nil {
 			log.Printf("Warning: failed to initialize filters asynchronously: %v", err)
 		}
-	}()
-
-	// Initialize content blocking in WebView with delay
-	// Wait for WebView to be fully loaded before setting up content blocking
-	go func() {
-		// Wait extra time for the first navigation to avoid preconnect interference
-		log.Printf("Waiting for WebView to complete initial load before enabling content blocking...")
-		time.Sleep(3000 * time.Millisecond) // 3 seconds for first load stability
-
-		// Note: Content blocking is now handled via WebKit's UserContentManager
-		// The InitializeContentBlocking API would need to be implemented if needed
-		log.Printf("Content blocking enabled via UserContentManager")
-
-		// Register navigation handler for GUI injection
-		// Content filtering is handled by UserContentManager automatically
-		app.webView.RegisterURIChangedHandler(func(uri string) {
-			// Add small delay to avoid conflicts with page load
-			go func() {
-				time.Sleep(200 * time.Millisecond)
-
-				// Note: Content filtering is automatic via UserContentManager
-				// GUI bundle (controls and toast) is injected as User Script
-				log.Printf("[webview] Navigated to: %s", uri)
-			}()
-		})
 	}()
 
 	log.Printf("Content blocking system initialization started")
