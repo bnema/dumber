@@ -201,6 +201,9 @@ func (w *WebView) setupEventHandlers() {
 		}
 	})
 
+	// Favicon changed - connect to FaviconDatabase
+	w.setupFaviconHandlers()
+
 	// Load changed
 	w.view.ConnectLoadChanged(func(event webkit.LoadEvent) {
 		// Handle load events if needed
@@ -751,6 +754,52 @@ func (w *WebView) RegisterPaneModeHandler(handler func(action string) bool, isAc
 	defer w.mu.Unlock()
 	w.onPaneModeShortcut = handler
 	w.isPaneModeActive = isActiveChecker
+}
+
+// setupFaviconHandlers connects to the FaviconDatabase signals
+func (w *WebView) setupFaviconHandlers() {
+	// Get the NetworkSession from the WebView
+	session := w.view.NetworkSession()
+	if session == nil {
+		log.Printf("[webkit] Warning: No NetworkSession available for favicon handling")
+		return
+	}
+
+	// Get the WebsiteDataManager from the NetworkSession
+	dataManager := session.WebsiteDataManager()
+	if dataManager == nil {
+		log.Printf("[webkit] Warning: No WebsiteDataManager available for favicon handling")
+		return
+	}
+
+	// Enable favicons if not already enabled
+	if !dataManager.FaviconsEnabled() {
+		dataManager.SetFaviconsEnabled(true)
+		log.Printf("[webkit] Enabled favicons for WebView ID %d", w.id)
+	}
+
+	// Get the FaviconDatabase
+	faviconDB := dataManager.FaviconDatabase()
+	if faviconDB == nil {
+		log.Printf("[webkit] Warning: No FaviconDatabase available")
+		return
+	}
+
+	// Connect to the favicon-changed signal
+	faviconDB.ConnectFaviconChanged(func(pageURI, faviconURI string) {
+		log.Printf("[favicon] Favicon changed for %s: %s", pageURI, faviconURI)
+
+		// Call the URI handler if registered
+		w.mu.RLock()
+		handler := w.onFaviconURIChanged
+		w.mu.RUnlock()
+
+		if handler != nil {
+			handler(pageURI, faviconURI)
+		}
+	})
+
+	log.Printf("[webkit] Connected to FaviconDatabase for WebView ID %d", w.id)
 }
 
 // GtkWebView returns the underlying gotk4 WebView for advanced operations

@@ -6,6 +6,7 @@ import (
 	"log"
 	"mime"
 	neturl "net/url"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -51,10 +52,17 @@ func (s *SchemeHandler) Handle(req *webkit.URISchemeRequest) {
 	// Known forms:
 	// - dumb://homepage or dumb:homepage → index.html
 	// - dumb://app/index.html, dumb://app/<path> → serve from gui/<path>
+	// - dumb://favicon/<hash>.png → serve cached favicon
 	// - dumb://<anything> without path → index.html
 	u, err := neturl.Parse(uri)
 	if err != nil || u.Scheme != "dumb" {
 		req.FinishError(fmt.Errorf("invalid URI: %s", uri))
+		return
+	}
+
+	// Check if this is a favicon request
+	if u.Host == "favicon" || (u.Host == "" && strings.HasPrefix(u.Path, "/favicon/")) {
+		s.handleFavicon(req, u)
 		return
 	}
 
@@ -182,4 +190,43 @@ func (s *SchemeHandler) getMimeType(filename string) string {
 		// Default to text/plain for unknown extensions
 		return "text/plain"
 	}
+}
+
+// handleFavicon serves cached favicon files
+func (s *SchemeHandler) handleFavicon(req *webkit.URISchemeRequest, u *neturl.URL) {
+	// Extract the filename from the URL
+	// URL format: dumb://favicon/<hash>.png
+	var filename string
+	if u.Host == "favicon" {
+		filename = strings.TrimPrefix(u.Path, "/")
+	} else {
+		filename = strings.TrimPrefix(u.Path, "/favicon/")
+	}
+
+	if filename == "" {
+		log.Printf("[scheme] favicon: empty filename")
+		req.FinishError(fmt.Errorf("invalid favicon path"))
+		return
+	}
+
+	// Get the favicon cache directory path
+	dataDir, err := config.GetDataDir()
+	if err != nil {
+		log.Printf("[scheme] favicon: failed to get data directory: %v", err)
+		req.FinishError(fmt.Errorf("failed to get data directory"))
+		return
+	}
+
+	faviconPath := filepath.Join(dataDir, "favicons", filename)
+
+	// Read the favicon file
+	data, err := os.ReadFile(faviconPath)
+	if err != nil {
+		log.Printf("[scheme] favicon: file not found: %s", faviconPath)
+		req.FinishError(fmt.Errorf("favicon not found: %s", filename))
+		return
+	}
+
+	log.Printf("[scheme] favicon: serving %s (%d bytes)", filename, len(data))
+	s.finishRequest(req, "image/png", data, filename)
 }

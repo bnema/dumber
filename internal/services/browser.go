@@ -606,7 +606,7 @@ func (s *BrowserService) handleFaviconChanged(pageURL string, pngData []byte) {
 
 	// Store a reference to the cached file in the database
 	// We use a consistent path format for the favicon URL
-	faviconCacheURL := fmt.Sprintf("dumber://favicon/%x.png", md5.Sum([]byte(pageURL)))
+	faviconCacheURL := fmt.Sprintf("dumb://favicon/%x.png", md5.Sum([]byte(pageURL)))
 	faviconNullString := sql.NullString{String: faviconCacheURL, Valid: true}
 	if err := s.dbQueries.UpdateHistoryFavicon(ctx, faviconNullString, pageURL); err != nil {
 		// Silently fail - favicon is not critical
