@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Native favicon support**: WebKit FaviconDatabase integration with automatic detection and caching for all panes
 - ENV=dev support to isolate test builds from production config/data in .dev/dumber/ directory
 - Content filtering whitelist config (Twitch enabled by default)
 - `dumber config` command to open config file in $VISUAL/$EDITOR or print path with `--path`
@@ -19,6 +20,11 @@ All notable changes to this project will be documented in this file.
 - **Workspace pane mode**: Moved ~450 lines of JavaScript state machine to Go backend for more reliable keyboard handling and eliminated race conditions between webviews
 
 ### Fixed
+- **Content blocking restored**: Re-implemented WebKit native ad/tracker blocking (broken during gotk4 migration) using UserContentFilterStore API
+- **Script injection spam**: Fixed 100+ duplicate "Sending color palettes" messages by injecting scripts only in top frame instead of all iframes
+- **Favicon race conditions**: Eliminated duplicate downloads and file handle errors via mutex protection and proper handler registration
+- **Homepage theme switching**: Fixed color palette application for proper light/dark mode transitions
+- **Workspace pane borders**: Hide active pane border when only one pane exists to match Zellij UX
 - Enabled missing WebKitGTK6 features: WebRTC, MediaSource, LocalStorage, WebAudio, MediaStream, Clipboard
 - Cosmetic filter duplicate injection in frames
 - Config file duplicate keys (snake_case/camelCase) by using Viper's SafeWriteConfigAs
