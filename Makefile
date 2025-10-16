@@ -148,3 +148,15 @@ check: ## Check that all tools and dependencies are working
 	@echo "\nRunning tests..."
 	@$(MAKE) test
 	@echo "\n✅ All checks passed! Project is ready for development."
+
+# Docker-based release targets
+.PHONY: docker-build docker-release docker-check
+
+docker-check: ## Check goreleaser config using Docker
+	docker compose run --rm check
+
+docker-build: ## Build snapshot using Docker (no git tags required)
+	GITHUB_TOKEN=$$(gh auth token) docker compose run --rm goreleaser
+
+docker-release: ## Create full release using Docker
+	GITHUB_TOKEN=$$(gh auth token) docker compose run --rm release

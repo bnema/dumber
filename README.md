@@ -368,7 +368,7 @@ WebKitGTK uses GStreamer for media playback. Dumber includes automatic hardware 
 **Required packages:**
 - Arch Linux:
   - `sudo pacman -S gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-plugin-pipewire pipewire pipewire-pulse`
-  - Hardware accel: `gstreamer-vaapi libva-mesa-driver` (AMD), `libva-vdpau-driver` (NVIDIA), `intel-media-driver` (Intel)
+  - Hardware accel: `gstreamer-vaapi mesa` (AMD), `libva-nvidia-driver` (NVIDIA), `libva-intel-driver intel-media-driver` (Intel)
 - Debian/Ubuntu:
   - `sudo apt install gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-pipewire`
   - Hardware accel: `gstreamer1.0-vaapi va-driver-all` (covers most GPUs)
