@@ -21,7 +21,6 @@ builds:
 
     goarch:
       - amd64
-      - arm64
 
     # Version information via ldflags (matching your Makefile)
     ldflags:
@@ -104,7 +103,7 @@ release:
   header: |
     ## New Release {{.Tag}}
 
-    **Built with Go {{.Env.GOVERSION | default "1.25.1"}}** on {{.Date}}
+    **Built with Go {{.Env.GOVERSION | default "1.25.1"}}** on {{.Date}} (amd64 Linux)
 
   # Footer with installation instructions
   footer: |
@@ -116,13 +115,6 @@ release:
     ```bash
     wget https://github.com/bnema/dumber/releases/download/{{.Tag}}/dumber_{{.Version}}_linux_x86_64.tar.gz
     tar -xzf dumber_{{.Version}}_linux_x86_64.tar.gz
-    sudo install -m 755 dumber /usr/local/bin/
-    ```
-
-    ### Linux (arm64)
-    ```bash
-    wget https://github.com/bnema/dumber/releases/download/{{.Tag}}/dumber_{{.Version}}_linux_arm64.tar.gz
-    tar -xzf dumber_{{.Version}}_linux_arm64.tar.gz
     sudo install -m 755 dumber /usr/local/bin/
     ```
 
