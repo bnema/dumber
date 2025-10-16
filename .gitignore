@@ -71,6 +71,7 @@ node_modules/
 
 # Development/tooling files
 CLAUDE.md
+CLAUDE.local.md
 .claude/
 memory/
 notes/
