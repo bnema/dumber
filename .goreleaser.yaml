@@ -103,7 +103,7 @@ release:
   header: |
     ## New Release {{.Tag}}
 
-    **Built with Go {{.Env.GOVERSION | default "1.25.1"}}** on {{.Date}} (amd64 Linux)
+    **Built with Go {{ envOrDefault "GOVERSION" "1.25.1" }}** on {{.Date}} (amd64 Linux)
 
   # Footer with installation instructions
   footer: |
