@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.12.0] - 2025-10-16
+
 ### Added
 - **Native favicon support**: WebKit FaviconDatabase integration with automatic detection and caching for all panes
 - ENV=dev support to isolate test builds from production config/data in .dev/dumber/ directory
