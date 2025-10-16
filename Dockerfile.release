@@ -2,9 +2,24 @@
 # Uses goreleaser-cross which includes cross-compilers for CGO builds
 FROM ghcr.io/goreleaser/goreleaser-cross:latest
 
-# Install Node.js and npm for building frontend
+# Enable multiarch support for cross-compilation
+RUN dpkg --add-architecture arm64
+
+# Install Node.js, npm, pkg-config, and WebKitGTK/GTK4 development packages for both amd64 and arm64
 RUN apt-get update && \
-    apt-get install -y curl && \
+    apt-get install -y \
+    curl \
+    pkg-config \
+    libwebkit2gtk-6.0-dev \
+    libwebkit2gtk-6.0-dev:arm64 \
+    libgtk-4-dev \
+    libgtk-4-dev:arm64 \
+    libglib2.0-dev \
+    libglib2.0-dev:arm64 \
+    libgstreamer1.0-dev \
+    libgstreamer1.0-dev:arm64 \
+    libgstreamer-plugins-base1.0-dev \
+    libgstreamer-plugins-base1.0-dev:arm64 && \
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs && \
     apt-get clean && \
