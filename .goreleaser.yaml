@@ -101,9 +101,9 @@ release:
 
   # Header for release notes
   header: |
-    ## New Release {{.Tag}}
+    ## {{.Tag}} Release (amd64 Linux)
 
-    **Built with Go {{ envOrDefault "GOVERSION" "1.25.1" }}** on {{.Date}} (amd64 Linux)
+    Released on {{.Date}}
 
   # Footer with installation instructions
   footer: |
