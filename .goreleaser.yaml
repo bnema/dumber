@@ -21,7 +21,6 @@ builds:
 
     goarch:
       - amd64
-      - arm64
 
     # Version information via ldflags (matching your Makefile)
     ldflags:
@@ -33,21 +32,6 @@ builds:
     # Build tags for WebKitGTK
     tags:
       - webkit_cgo
-
-    # CGO cross-compilation requires proper toolchain setup
-    # For local builds, you'll need cross-compilers installed
-    # For CI/CD, use goreleaser-cross Docker images
-    overrides:
-      - goos: linux
-        goarch: amd64
-        env:
-          - CC=x86_64-linux-gnu-gcc
-          - CXX=x86_64-linux-gnu-g++
-      - goos: linux
-        goarch: arm64
-        env:
-          - CC=aarch64-linux-gnu-gcc
-          - CXX=aarch64-linux-gnu-g++
 
 archives:
   - id: default
