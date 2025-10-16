@@ -1,0 +1,183 @@
+# GoReleaser configuration for dumber browser
+# https://goreleaser.com
+version: 2
+
+before:
+  hooks:
+    # Build frontend assets before building binaries
+    - make build-frontend
+
+builds:
+  # Main build with CGO for WebKitGTK
+  - id: dumber
+    main: .
+    binary: dumber
+
+    env:
+      - CGO_ENABLED=1
+
+    goos:
+      - linux
+
+    goarch:
+      - amd64
+      - arm64
+
+    # Version information via ldflags (matching your Makefile)
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.buildDate={{.Date}}
+
+    # Build tags for WebKitGTK
+    tags:
+      - webkit_cgo
+
+    # CGO cross-compilation requires proper toolchain setup
+    # For local builds, you'll need cross-compilers installed
+    # For CI/CD, use goreleaser-cross Docker images
+    overrides:
+      - goos: linux
+        goarch: amd64
+        env:
+          - CC=x86_64-linux-gnu-gcc
+          - CXX=x86_64-linux-gnu-g++
+      - goos: linux
+        goarch: arm64
+        env:
+          - CC=aarch64-linux-gnu-gcc
+          - CXX=aarch64-linux-gnu-g++
+
+archives:
+  - id: default
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+    format_overrides:
+      - goos: linux
+        format: tar.gz
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^chore:'
+      - '^build\(deps\):'
+      - 'Merge pull request'
+      - 'Merge branch'
+  groups:
+    - title: 'Features'
+      regexp: '^feat(\(.+\))?:'
+      order: 0
+    - title: 'Bug Fixes'
+      regexp: '^fix(\(.+\))?:'
+      order: 1
+    - title: 'Performance'
+      regexp: '^perf(\(.+\))?:'
+      order: 2
+    - title: 'Refactoring'
+      regexp: '^refactor(\(.+\))?:'
+      order: 3
+    - title: 'Documentation'
+      regexp: '^docs(\(.+\))?:'
+      order: 4
+    - title: 'Other Changes'
+      order: 999
+
+release:
+  github:
+    owner: bnema
+    name: dumber
+
+  # Don't auto-publish as draft initially
+  draft: false
+
+  # Replace existing draft if it exists
+  replace_existing_draft: true
+
+  # Header for release notes
+  header: |
+    ## New Release {{.Tag}}
+
+    **Built with Go {{.Env.GOVERSION | default "1.25.1"}}** on {{.Date}}
+
+  # Footer with installation instructions
+  footer: |
+    ---
+
+    ## Installation
+
+    ### Linux (x86_64/amd64)
+    ```bash
+    wget https://github.com/bnema/dumber/releases/download/{{.Tag}}/dumber_{{.Version}}_linux_x86_64.tar.gz
+    tar -xzf dumber_{{.Version}}_linux_x86_64.tar.gz
+    sudo install -m 755 dumber /usr/local/bin/
+    ```
+
+    ### Linux (arm64)
+    ```bash
+    wget https://github.com/bnema/dumber/releases/download/{{.Tag}}/dumber_{{.Version}}_linux_arm64.tar.gz
+    tar -xzf dumber_{{.Version}}_linux_arm64.tar.gz
+    sudo install -m 755 dumber /usr/local/bin/
+    ```
+
+    ### Dependencies
+
+    **Arch Linux:**
+    ```bash
+    # Core WebKitGTK 6.0 and GTK4
+    sudo pacman -S webkitgtk-6.0 gtk4
+
+    # GStreamer for media playback
+    sudo pacman -S gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-plugin-pipewire pipewire pipewire-pulse
+
+    # Hardware acceleration (choose based on your GPU)
+    # AMD: sudo pacman -S gstreamer-vaapi mesa
+    # NVIDIA: sudo pacman -S gstreamer-vaapi libva-nvidia-driver
+    # Intel: sudo pacman -S gstreamer-vaapi libva-intel-driver intel-media-driver
+    ```
+
+    **Debian/Ubuntu:**
+    ```bash
+    # Core WebKitGTK and GTK4
+    sudo apt install libwebkitgtk-6.0-4 libgtk-4-1
+
+    # GStreamer for media playback
+    sudo apt install gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-pipewire
+
+    # Hardware acceleration
+    sudo apt install gstreamer1.0-vaapi va-driver-all
+    ```
+
+    ---
+
+    **Full Changelog**: https://github.com/bnema/dumber/compare/{{.PreviousTag}}...{{.Tag}}
+
+  # Auto-detect prerelease from version (v1.0.0-rc1, v1.0.0-alpha, etc.)
+  prerelease: auto
+
+  # Mark as latest release
+  make_latest: true
+
+  # Replace existing release notes
+  mode: replace

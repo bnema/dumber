@@ -6,8 +6,9 @@ import (
 	"io"
 	"os"
 	"strings"
-	"syscall"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 type OutputCapture struct {
@@ -61,8 +62,8 @@ func (c *OutputCapture) Start() error {
 	os.Stderr = stderrW
 
 	// Also redirect file descriptors at syscall level for C code
-	syscall.Dup2(int(stdoutW.Fd()), 1)
-	syscall.Dup2(int(stderrW.Fd()), 2)
+	unix.Dup3(int(stdoutW.Fd()), 1, 0)
+	unix.Dup3(int(stderrW.Fd()), 2, 0)
 
 	// Start goroutines to read and log
 	go c.pipeToLogger(stdoutR, "STDOUT")
@@ -84,8 +85,8 @@ func (c *OutputCapture) Stop() {
 	os.Stderr = c.originalStderr
 
 	// Restore file descriptors
-	syscall.Dup2(int(c.originalStdout.Fd()), 1)
-	syscall.Dup2(int(c.originalStderr.Fd()), 2)
+	unix.Dup3(int(c.originalStdout.Fd()), 1, 0)
+	unix.Dup3(int(c.originalStderr.Fd()), 2, 0)
 
 	// Close pipes
 	if c.stdoutWrite != nil {
