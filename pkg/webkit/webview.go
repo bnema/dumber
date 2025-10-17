@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
+	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
@@ -75,6 +76,16 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	if wkView == nil {
 		return nil, ErrWebViewNotInitialized
 	}
+
+	// Set background color based on user's theme preference to prevent white/black flash
+	// This must be done before any content loads
+	var bg gdk.RGBA
+	if PrefersDarkTheme() {
+		bg = gdk.NewRGBA(0.11, 0.11, 0.11, 1.0) // #1c1c1c - dark background
+	} else {
+		bg = gdk.NewRGBA(0.96, 0.96, 0.96, 1.0) // #f5f5f5 - light background
+	}
+	wkView.SetBackgroundColor(&bg)
 
 	// Verify the WebView is using the persistent session
 	viewSession := wkView.NetworkSession()
