@@ -1,6 +1,8 @@
 package webkit
 
 import (
+	"log"
+
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
@@ -20,6 +22,17 @@ func NewWindow(title string) (*Window, error) {
 
 	win.SetTitle(title)
 	win.SetDefaultSize(1024, 768)
+
+	// Connect close-request signal to handle Cmd+Q and window close button
+	// Returning true prevents the default close behavior and allows graceful shutdown
+	win.ConnectCloseRequest(func() bool {
+		log.Printf("[window] Close request received (Cmd+Q or close button) - initiating graceful shutdown")
+		// Quit the main loop gracefully, which will trigger cleanup
+		QuitMainLoop()
+		// Return true to prevent GTK from destroying the window immediately
+		// The cleanup process will handle window destruction
+		return true
+	})
 
 	return &Window{win: win}, nil
 }
