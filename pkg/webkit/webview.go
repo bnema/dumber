@@ -726,6 +726,29 @@ func (w *WebView) Window() *Window {
 	return w.window
 }
 
+// GetFaviconDatabase returns the WebKit FaviconDatabase for this WebView
+// Returns nil if the favicon database is not available
+func (w *WebView) GetFaviconDatabase() *webkit.FaviconDatabase {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed || w.view == nil {
+		return nil
+	}
+
+	session := w.view.NetworkSession()
+	if session == nil {
+		return nil
+	}
+
+	dataManager := session.WebsiteDataManager()
+	if dataManager == nil {
+		return nil
+	}
+
+	return dataManager.FaviconDatabase()
+}
+
 // UpdateContentFilters updates the content filtering rules
 func (w *WebView) UpdateContentFilters(rules string) error {
 	w.mu.RLock()
@@ -784,7 +807,9 @@ func (w *WebView) RegisterPaneModeHandler(handler func(action string) bool, isAc
 	w.isPaneModeActive = isActiveChecker
 }
 
-// setupFaviconHandlers connects to the FaviconDatabase signals
+// setupFaviconHandlers enables favicons for this WebView
+// Note: The actual favicon-changed handler is registered ONCE at the FaviconService level
+// to avoid duplicate handlers when multiple WebViews exist
 func (w *WebView) setupFaviconHandlers() {
 	// Get the NetworkSession from the WebView
 	session := w.view.NetworkSession()
@@ -806,28 +831,6 @@ func (w *WebView) setupFaviconHandlers() {
 		log.Printf("[webkit] Enabled favicons for WebView ID %d", w.id)
 	}
 
-	// Get the FaviconDatabase
-	faviconDB := dataManager.FaviconDatabase()
-	if faviconDB == nil {
-		log.Printf("[webkit] Warning: No FaviconDatabase available")
-		return
-	}
-
-	// Connect to the favicon-changed signal
-	faviconDB.ConnectFaviconChanged(func(pageURI, faviconURI string) {
-		log.Printf("[favicon] Favicon changed for %s: %s", pageURI, faviconURI)
-
-		// Call the URI handler if registered
-		w.mu.RLock()
-		handler := w.onFaviconURIChanged
-		w.mu.RUnlock()
-
-		if handler != nil {
-			handler(pageURI, faviconURI)
-		}
-	})
-
-	log.Printf("[webkit] Connected to FaviconDatabase for WebView ID %d", w.id)
 }
 
 // GtkWebView returns the underlying gotk4 WebView for advanced operations
