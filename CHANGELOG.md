@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.12.1] - 2025-10-18
+
 ### Added
 - **Favicon refactoring**: WebKitGTK FaviconDatabase as single source of truth, removing fragile file-based cache and ico/bmp conversion dependencies
   - Native favicon detection and automatic PNG export at 32x32 for CLI (dmenu)
