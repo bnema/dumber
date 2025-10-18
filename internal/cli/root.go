@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/bnema/dumber/internal/cache"
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/db"
 	"github.com/bnema/dumber/internal/services"
@@ -76,13 +75,6 @@ func NewCLI() (*CLI, error) {
 
 	queries := db.New(database)
 	parserService := services.NewParserService(cfg, queries)
-
-	// Clean old cached favicons on startup (async, non-blocking)
-	go func() {
-		if faviconCache, err := cache.NewFaviconCache(); err == nil {
-			faviconCache.CleanOld()
-		}
-	}()
 
 	return &CLI{
 		DB:            database,
