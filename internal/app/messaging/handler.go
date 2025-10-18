@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"log"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/bnema/dumber/internal/app/constants"
@@ -226,33 +225,6 @@ func (h *Handler) handleQuery(msg Message) {
 		Favicon string `json:"favicon,omitempty"`
 	}
 
-	buildFavicon := func(raw string) string {
-		if raw == "" {
-			return ""
-		}
-		scheme := "https"
-		host := raw
-		if i := strings.Index(raw, "://"); i >= 0 {
-			if i > 0 {
-				scheme = raw[:i]
-			}
-			rest := raw[i+3:]
-			if j := strings.IndexByte(rest, '/'); j >= 0 {
-				host = rest[:j]
-			} else {
-				host = rest
-			}
-		} else {
-			if j := strings.IndexByte(raw, '/'); j >= 0 {
-				host = raw[:j]
-			}
-		}
-		if host == "" {
-			return ""
-		}
-		return scheme + "://" + host + "/favicon.ico"
-	}
-
 	results := make([]suggestion, 0, limit)
 	seen := make(map[string]struct{}, limit*2)
 
@@ -284,12 +256,10 @@ func (h *Handler) handleQuery(msg Message) {
 				if _, ok := seen[url]; ok {
 					continue
 				}
-				// Use favicon_url from database if available, otherwise build it
+				// Use favicon_url from database (populated by FaviconService)
 				favicon := ""
 				if s, ok := m["favicon_url"].(string); ok && s != "" {
 					favicon = s
-				} else {
-					favicon = buildFavicon(url)
 				}
 				results = append(results, suggestion{URL: url, Favicon: favicon})
 				seen[url] = struct{}{}
