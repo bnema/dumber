@@ -109,9 +109,6 @@ func (fs *FaviconService) OnFaviconChanged(pageURL, faviconURI string) error {
 	return nil
 }
 
-// preloadFavicon renders and exports a favicon in the background
-// This is called immediately when OnFaviconChanged fires to ensure
-// favicons are ready for omnibox suggestions as soon as possible
 // propagateFaviconToDomain updates all history entries from the same domain
 // with the favicon. This ensures multiple paths on the same domain share the favicon
 // even if WebKit only signals it once per domain (KISS + DRY principle).
@@ -160,6 +157,9 @@ func (fs *FaviconService) propagateFaviconToDomain(pageURL, faviconURI string) {
 	}
 }
 
+// preloadFavicon renders and exports a favicon in the background.
+// This is called immediately when OnFaviconChanged fires to ensure
+// favicons are ready for omnibox suggestions as soon as possible.
 func (fs *FaviconService) preloadFavicon(pageURL, faviconURI string) {
 	ctx, cancel := context.WithTimeout(context.Background(), FaviconTimeout)
 	defer cancel()
