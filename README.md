@@ -172,16 +172,6 @@ Dumber features a Zellij-inspired pane management system that allows you to spli
 3. **Navigate**: Use `Alt+Arrow Keys` to move focus between split panes, or `Alt+Up/Down` to navigate within stacked panes
 4. **Close**: Press `X` in pane mode to close the current pane
 
-### Features
-- **Binary tree layout**: Panes are organized in a binary tree structure for optimal space usage
-- **Stacked panes**: Zellij-style stacking with collapsed title bars showing "Page Title - domain" for inactive panes
-- **Focus management**: Visual borders, hover-to-focus, and enhanced focus throttling (100ms) for intuitive navigation
-- **Independent sessions**: Each pane maintains its own browsing session, history, and zoom level
-- **Advanced popup handling**: Intelligent popup vs tab detection, OAuth auto-close, and popup deduplication with SHA256 fingerprinting
-- **Cross-WebView communication**: localStorage-based parent-popup bridge enabling proper `window.opener` functionality
-- **WebView identity tracking**: Unique WebView ID system for precise popup targeting and enhanced debugging
-- **Keyboard-driven**: All operations accessible via keyboard shortcuts with modal pane mode
-
 ### Configuration
 The pane system is fully configurable via `config.json`:
 ```json
@@ -373,22 +363,8 @@ WebKitGTK uses GStreamer for media playback. Dumber includes automatic hardware 
   - `sudo apt install gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-pipewire`
   - Hardware accel: `gstreamer1.0-vaapi va-driver-all` (covers most GPUs)
 
-## Theme and Runtime Updates
-- The homepage and pages respect your system’s light/dark preference.
-- The app updates color‑scheme live when your GTK theme changes (no relaunch needed).
-
-## Project Structure
-- `main.go`: Entry point with CLI/GUI routing
-- `internal/app/cli`: CLI application logic and Cobra commands
-- `internal/app/browser`: Browser application logic and WebKit integration
-- `internal/cli`: Cobra commands (`browse`, `dmenu`, `version`)
-- `internal/config`: Viper‑backed config, XDG helpers, defaults
-- `internal/db`: SQLite schema init and sqlc‑generated queries
-- `internal/logging`: Structured logging system with file rotation
-- `services`: Application services (parser/history/config/browser)
-- `pkg/webkit`: WebKit2GTK bindings (CGO and stub implementations)
-- `pkg/clipboard`: Cross-platform clipboard operations
-- `frontend`: TypeScript homepage UI bundled into the binary
+## Contribute
+I will gladly accept contributions, especially related to UI/UX enhancements. Feel free to open an issue and let's discuss it!
 
 ## Security & Privacy
 - History and zoom settings are stored locally in SQLite under XDG state.
