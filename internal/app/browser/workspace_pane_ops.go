@@ -908,7 +908,7 @@ func (wm *WorkspaceManager) cleanupAndExit(node *paneNode) (*paneNode, error) {
 	log.Printf("[workspace] closing final pane; exiting browser")
 	wm.cleanupPane(node, wm.nextCleanupGeneration())
 	wm.detachHover(node)
-	
+
 	// Gracefully quit the GTK main loop
 	webkit.QuitMainLoop()
 	return nil, nil
