@@ -180,10 +180,8 @@ func (w *WebView) AttachKeyboardBridge() {
 		case '0':
 			keyName = keyZero
 		default:
-			// Only forward shortcuts with modifiers
-			if !ctrl && !alt && !shift {
-				return false
-			}
+			// For unknown keys, let WebView handle them
+			// This allows web apps to receive Ctrl+C, Ctrl+V, Ctrl+A, etc.
 			return false
 		}
 
