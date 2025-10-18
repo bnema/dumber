@@ -62,9 +62,9 @@ func main() {
 
 // shouldRunCLI determines if we should run in CLI mode based on arguments
 func shouldRunCLI() bool {
-	// No args = GUI landing page mode
+	// No args = show CLI help with available commands
 	if len(os.Args) <= 1 {
-		return false
+		return true
 	}
 
 	// Check for GUI-specific flags

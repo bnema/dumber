@@ -145,6 +145,12 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	// Attach keyboard bridge to forward keyboard events to JavaScript
 	wv.AttachKeyboardBridge()
 
+	// Attach mouse gesture controls for hardware navigation buttons
+	wv.AttachMouseGestures()
+
+	// Attach touchpad gesture controls for swipe navigation
+	wv.AttachTouchpadGestures()
+
 	// Only create window if requested (standalone WebViews)
 	// Workspace panes will set CreateWindow=false and manage the container themselves
 	if cfg.CreateWindow {
@@ -921,6 +927,12 @@ func (w *WebView) InitializeFromBare(cfg *Config) error {
 
 	// Attach keyboard bridge
 	w.AttachKeyboardBridge()
+
+	// Attach mouse gesture controls
+	w.AttachMouseGestures()
+
+	// Attach touchpad gesture controls
+	w.AttachTouchpadGestures()
 
 	log.Printf("[webkit] Completed initialization for WebView ID %d", w.id)
 

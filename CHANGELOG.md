@@ -16,8 +16,13 @@ All notable changes to this project will be documented in this file.
 - Simplified omnibox favicon handling: uses database favicon_url only
 
 ### Fixed
+- Mouse button navigation: Added support for hardware mouse buttons 8/9 (back/forward)
+- Touchpad gestures: Two-finger horizontal swipe for back/forward navigation
+- Web app shortcuts: Ctrl+C, Ctrl+V, Ctrl+A now work in Gmail, VSCode web, etc.
 - Dark mode flash on startup: Set GTK dark theme preference and WebView background color before window/content creation
 - Cmd+Q and window close button now trigger graceful shutdown instead of killing the browser process
+- WebView cleanup: Properly destroy WebViews to prevent memory leaks and duplicate handler registrations when closing stacked panes
+- CLI help: Running `dumber` without arguments now shows available commands (use `--gui` or `browse` to launch GUI)
 
 ## [0.12.0] - 2025-10-16
 
