@@ -14,6 +14,7 @@ import (
 	"github.com/bnema/dumber/internal/app/messaging"
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/filtering"
+	"github.com/bnema/dumber/internal/services"
 	"github.com/bnema/dumber/pkg/webkit"
 )
 
@@ -131,15 +132,6 @@ func (app *BrowserApp) buildPane(view *webkit.WebView) (*BrowserPane, error) {
 	if app.workspace != nil {
 		app.workspace.RegisterNavigationHandler(view)
 	}
-
-	// Register favicon handlers for this webview (needed for each pane)
-	// This ensures favicons are detected and cached for all panes, not just the main webview
-	view.RegisterFaviconURIChangedHandler(func(pageURI, faviconURI string) {
-		// Call the private handler through a public wrapper or directly via browserService
-		// We can't call handleFaviconURIChanged directly as it's private, so we need to expose it
-		// For now, duplicate the minimal logic here
-		app.browserService.ProcessFaviconURI(pageURI, faviconURI)
-	})
 
 	return pane, nil
 }
@@ -287,6 +279,12 @@ func (app *BrowserApp) createWebView() error {
 
 	app.setupWebViewIntegration()
 
+	// Initialize FaviconService after WebView is created
+	if err := app.initializeFaviconService(); err != nil {
+		log.Printf("Warning: failed to initialize favicon service: %v", err)
+		// Continue without favicon service - not critical
+	}
+
 	// Apply initial zoom and show window
 	app.zoomController.ApplyInitialZoom()
 
@@ -311,6 +309,32 @@ func (app *BrowserApp) setupWebViewIntegration() {
 	if win := app.webView.Window(); win != nil {
 		app.browserService.SetWindowTitleUpdater(win)
 	}
+}
+
+// initializeFaviconService creates and initializes the FaviconService
+func (app *BrowserApp) initializeFaviconService() error {
+	// Get the FaviconDatabase from the WebView
+	faviconDB := app.webView.GetFaviconDatabase()
+	if faviconDB == nil {
+		return fmt.Errorf("favicon database not available")
+	}
+
+	// Get the WebKit data directory
+	dataDir, err := config.GetDataDir()
+	if err != nil {
+		return fmt.Errorf("failed to get data directory: %w", err)
+	}
+	webkitData := filepath.Join(dataDir, "webkit")
+
+	// Create FaviconService
+	faviconService, err := services.NewFaviconService(faviconDB, app.queries, webkitData)
+	if err != nil {
+		return fmt.Errorf("failed to create favicon service: %w", err)
+	}
+
+	app.faviconService = faviconService
+	log.Printf("[favicon] FaviconService initialized successfully")
+	return nil
 }
 
 // setupContentBlocking initializes the content blocking system with proper timing

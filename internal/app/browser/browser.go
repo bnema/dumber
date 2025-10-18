@@ -36,6 +36,7 @@ type BrowserApp struct {
 	// Services
 	parserService  *services.ParserService
 	browserService *services.BrowserService
+	faviconService *services.FaviconService
 
 	// WebView and controllers
 	webView              *webkit.WebView
