@@ -418,10 +418,10 @@ func TestExpectedTablesExistAfterMigrations(t *testing.T) {
 
 	// Expected tables based on current migrations
 	expectedTables := []string{
-		"schema_migrations",      // Migration tracking
-		"history",                // 001_initial.sql
-		"shortcuts",              // 001_initial.sql
-		"zoom_levels",            // 003_add_zoom_levels.sql
+		"schema_migrations",       // Migration tracking
+		"history",                 // 001_initial.sql
+		"shortcuts",               // 001_initial.sql
+		"zoom_levels",             // 003_add_zoom_levels.sql
 		"certificate_validations", // 005_add_certificate_validations.sql
 	}
 

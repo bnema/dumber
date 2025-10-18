@@ -25,6 +25,7 @@ import (
 
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
 	coreglib "github.com/diamondburned/gotk4/pkg/core/glib"
+	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
@@ -41,7 +42,7 @@ func NewBareRelatedWebView(parentView *webkit.WebView) *webkit.WebView {
 	}
 
 	// Get the native C pointer from the gotk4 WebView
-	parentObj := coreglib.InternObject(parentView)
+	parentObj := glib.BaseObject(parentView)
 	if parentObj == nil {
 		log.Printf("[webkit] NewBareRelatedWebView: failed to get parent object, creating unrelated WebView")
 		return webkit.NewWebView()

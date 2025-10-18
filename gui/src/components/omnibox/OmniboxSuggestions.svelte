@@ -190,17 +190,22 @@
   .suggestion-favicon {
     width: 20px;
     height: 20px;
-    border: 1px solid var(--dynamic-border);
+    border: none;
+    border-radius: 3px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--dynamic-bg);
+    flex-shrink: 0;
+    overflow: hidden;
   }
 
   .suggestion-favicon-img {
     width: 16px;
     height: 16px;
     object-fit: contain;
+    image-rendering: -webkit-optimize-contrast;
+    -ms-interpolation-mode: nearest-neighbor;
   }
 
   .suggestion-text {

@@ -3,7 +3,6 @@ package services
 
 import (
 	"context"
-	"crypto/md5"
 	"database/sql"
 	"embed"
 	"errors"
@@ -13,7 +12,6 @@ import (
 	neturl "net/url"
 	"time"
 
-	"github.com/bnema/dumber/internal/cache"
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/db"
 	"github.com/bnema/dumber/pkg/webkit"
@@ -91,20 +89,7 @@ func (s *BrowserService) SetWindowTitleUpdater(updater WindowTitleUpdater) {
 // AttachWebView connects a native WebKit WebView to this service for integration.
 func (s *BrowserService) AttachWebView(view *webkit.WebView) {
 	s.webView = view
-
-	// Register legacy favicon change handler (binary data - fallback)
-	// This is kept for backward compatibility but is rarely used
-	// Modern favicon handling uses the URI-based handler registered in buildPane()
-	view.RegisterFaviconChangedHandler(func(data []byte) {
-		if currentURL := view.GetCurrentURL(); currentURL != "" {
-			log.Printf("[favicon] Favicon detected for %s, data size: %d bytes", currentURL, len(data))
-			s.handleFaviconChanged(currentURL, data)
-		}
-	})
-
-	// Note: RegisterFaviconURIChangedHandler is now only called in buildPane()
-	// to avoid duplicate handler registration which causes multiple downloads
-	// of the same favicon and file handle race conditions
+	// Favicon handling is now managed by FaviconService
 }
 
 // LoadGUIBundle loads the unified GUI bundle from assets
@@ -302,11 +287,13 @@ func (s *BrowserService) SearchHistory(ctx context.Context, query string, limit 
 	result := make([]HistoryEntry, len(entries))
 	for i, entry := range entries {
 		vc := clampToInt32(entry.VisitCount.Int64)
+		// For omnibox display, convert favicon URI to file path when available
+		faviconURL := entry.FaviconUrl.String
 		result[i] = HistoryEntry{
 			ID:          entry.ID,
 			URL:         entry.Url,
 			Title:       entry.Title.String,
-			FaviconURL:  entry.FaviconUrl.String,
+			FaviconURL:  faviconURL,
 			VisitCount:  vc,
 			LastVisited: entry.LastVisited.Time,
 			CreatedAt:   entry.CreatedAt.Time,
@@ -567,95 +554,6 @@ func zoomKeyFromURL(raw string) string {
 
 // ZoomKeyForLog exposes the derived zoom key (host or raw URL) for logging from other packages.
 func ZoomKeyForLog(raw string) string { return zoomKeyFromURL(raw) }
-
-// handleFaviconChanged processes favicon data received from WebKit (legacy binary data method)
-func (s *BrowserService) handleFaviconChanged(pageURL string, pngData []byte) {
-	log.Printf("[favicon] Processing favicon for %s, data size: %d bytes", pageURL, len(pngData))
-
-	if len(pngData) == 0 {
-		log.Printf("[favicon] No favicon data for %s", pageURL)
-		return
-	}
-
-	ctx := context.Background()
-
-	// Parse URL for validation
-	parsedURL, err := neturl.Parse(pageURL)
-	if err != nil {
-		return
-	}
-
-	// Skip favicon update for localhost, file://, or special schemes
-	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
-		return
-	}
-	if parsedURL.Host == "localhost" || parsedURL.Host == "127.0.0.1" {
-		return
-	}
-
-	// Cache the PNG data directly
-	if faviconCache, err := cache.NewFaviconCache(); err == nil {
-		if err := faviconCache.CachePNGData(pageURL, pngData); err != nil {
-			// Log error but don't fail
-			log.Printf("[favicon] Failed to cache favicon for %s: %v", pageURL, err)
-		} else {
-			log.Printf("[favicon] Successfully cached favicon for %s (%d bytes)", pageURL, len(pngData))
-		}
-	} else {
-		log.Printf("[favicon] Failed to create favicon cache: %v", err)
-	}
-
-	// Store a reference to the cached file in the database
-	// We use a consistent path format for the favicon URL
-	faviconCacheURL := fmt.Sprintf("dumb://favicon/%x.png", md5.Sum([]byte(pageURL)))
-	faviconNullString := sql.NullString{String: faviconCacheURL, Valid: true}
-	if err := s.dbQueries.UpdateHistoryFavicon(ctx, faviconNullString, pageURL); err != nil {
-		// Silently fail - favicon is not critical
-		log.Printf("[browser] Failed to update favicon URL in database for %s: %v", pageURL, err)
-	}
-}
-
-// ProcessFaviconURI is a public wrapper for handling favicon URI changes from any webview
-func (s *BrowserService) ProcessFaviconURI(pageURL string, faviconURI string) {
-	s.handleFaviconURIChanged(pageURL, faviconURI)
-}
-
-// handleFaviconURIChanged processes favicon URI changes from WebKit's native favicon database
-func (s *BrowserService) handleFaviconURIChanged(pageURL string, faviconURI string) {
-	log.Printf("[favicon] Processing favicon URI for %s: %s", pageURL, faviconURI)
-
-	ctx := context.Background()
-
-	// Parse URL for validation
-	parsedURL, err := neturl.Parse(pageURL)
-	if err != nil {
-		log.Printf("[favicon] Invalid page URL: %s", pageURL)
-		return
-	}
-
-	// Skip favicon update for localhost, file://, or special schemes
-	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
-		return
-	}
-	if parsedURL.Host == "localhost" || parsedURL.Host == "127.0.0.1" {
-		return
-	}
-
-	// Store the favicon URI directly in the database
-	// The frontend will handle SVG vs PNG/ICO detection
-	faviconNullString := sql.NullString{String: faviconURI, Valid: true}
-	if err := s.dbQueries.UpdateHistoryFavicon(ctx, faviconNullString, pageURL); err != nil {
-		log.Printf("[browser] Failed to update favicon URI in database for %s: %v", pageURL, err)
-	}
-
-	// Download and cache the favicon asynchronously (same approach as dmenu)
-	if faviconCache, err := cache.NewFaviconCache(); err == nil {
-		faviconCache.CacheAsync(faviconURI)
-		log.Printf("[favicon] Started async download of favicon from %s for page %s", faviconURI, pageURL)
-	} else {
-		log.Printf("[favicon] Failed to create favicon cache: %v", err)
-	}
-}
 
 // ColorPalettesResponse holds light and dark palettes for JSON marshaling
 type ColorPalettesResponse struct {

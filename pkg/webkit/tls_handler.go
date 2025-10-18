@@ -18,8 +18,8 @@ import (
 
 // TLSCertificateInfo holds information about a TLS certificate for display
 type TLSCertificateInfo struct {
-	Subject  string
-	Issuer   string
+	Subject   string
+	Issuer    string
 	NotBefore string
 	NotAfter  string
 	IsExpired bool

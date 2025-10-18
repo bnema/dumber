@@ -32,11 +32,11 @@ const (
 	defaultPopupPlacement          = "right"
 
 	// Workspace styling defaults
-	defaultBorderWidth          = 2
-	defaultBorderColor          = "@theme_selected_bg_color"
-	defaultPaneModeBorderColor  = "#FFA500" // Orange for pane mode indicator
-	defaultTransitionDuration   = 120
-	defaultBorderRadius         = 0
+	defaultBorderWidth         = 2
+	defaultBorderColor         = "@theme_selected_bg_color"
+	defaultPaneModeBorderColor = "#FFA500" // Orange for pane mode indicator
+	defaultTransitionDuration  = 120
+	defaultBorderRadius        = 0
 )
 
 // getDefaultLogDir returns the default log directory, falls back to empty string on error
