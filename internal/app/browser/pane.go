@@ -121,6 +121,15 @@ func (p *BrowserPane) Cleanup() {
 		}
 	}
 
+	// Destroy WebView to unregister from global registry and release resources
+	if p.webView != nil && !p.webView.IsDestroyed() {
+		if err := p.webView.Destroy(); err != nil {
+			log.Printf("[pane-%s] failed to destroy webview: %v", p.id, err)
+		} else {
+			log.Printf("[pane-%s] successfully destroyed webview", p.id)
+		}
+	}
+
 	// Clear tracking
 	p.guiComponents = nil
 	p.hasGUI = false
