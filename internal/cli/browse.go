@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/bnema/dumber/internal/cache"
 	"github.com/bnema/dumber/internal/config"
 
 	"github.com/spf13/cobra"
@@ -161,12 +160,6 @@ func updateFavicon(ctx context.Context, cli *CLI, pageURL string) {
 	// Update in database using the new sqlc-generated method
 	faviconNullString := sql.NullString{String: faviconURL, Valid: true}
 	if err := cli.Queries.UpdateHistoryFavicon(ctx, faviconNullString, pageURL); err != nil {
-		// Silently fail - favicon is not critical
 		return
-	}
-
-	// Also cache the favicon for dmenu use
-	if faviconCache, err := cache.NewFaviconCache(); err == nil {
-		faviconCache.CacheAsync(faviconURL)
 	}
 }

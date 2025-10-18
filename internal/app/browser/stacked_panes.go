@@ -1,15 +1,14 @@
 package browser
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log"
 	"sync/atomic"
 	"time"
 
-	"github.com/bnema/dumber/internal/cache"
 	"github.com/bnema/dumber/pkg/webkit"
+	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
@@ -664,75 +663,39 @@ func (spm *StackedPaneManager) createTitleBarWithTitle(title string, pageURL str
 	titleBox.SetHExpand(true)
 	titleBox.SetVExpand(false)
 
-	// Add favicon placeholder for debugging (always visible)
-	var faviconImg gtk.Widgetter
-	var debugReason string
-
-	if pageURL == "" {
-		debugReason = "empty pageURL"
-	} else if spm.wm == nil {
-		debugReason = "nil workspace manager"
-	} else if spm.wm.app == nil {
-		debugReason = "nil app"
-	} else if spm.wm.app.queries == nil {
-		debugReason = "nil queries"
-	} else {
-		// Query database for favicon URL
-		ctx := context.Background()
-		entry, err := spm.wm.app.queries.GetHistoryEntry(ctx, pageURL)
-		if err != nil {
-			debugReason = fmt.Sprintf("DB query failed: %v", err)
-			log.Printf("[favicon] Failed to get history entry for %s: %v", pageURL, err)
-		} else if !entry.FaviconUrl.Valid || entry.FaviconUrl.String == "" {
-			debugReason = "no favicon URL in DB"
-			log.Printf("[favicon] No favicon URL in DB for %s", pageURL)
-		} else {
-			faviconURL := entry.FaviconUrl.String
-			log.Printf("[favicon] Found favicon URL in DB for %s: %s", pageURL, faviconURL)
-
-			// Use favicon cache with favicon URL (same as dmenu)
-			faviconCache, err := cache.NewFaviconCache()
-			if err != nil {
-				debugReason = fmt.Sprintf("cache init failed: %v", err)
-				log.Printf("[favicon] Failed to create cache: %v", err)
-			} else {
-				faviconPath := faviconCache.GetCachedPath(faviconURL)
-				if faviconPath != "" {
-					log.Printf("[favicon] Loading cached favicon from: %s", faviconPath)
-					faviconImg = gtk.NewImageFromFile(faviconPath)
-					if faviconImg != nil {
-						if img, ok := faviconImg.(*gtk.Image); ok {
-							img.SetPixelSize(16)
-						}
-						webkit.WidgetAddCSSClass(faviconImg, "stacked-pane-favicon")
-						log.Printf("[favicon] Successfully created favicon image widget")
-					} else {
-						debugReason = "image widget creation failed"
-						log.Printf("[favicon] Failed to create image widget from %s", faviconPath)
-					}
-				} else {
-					debugReason = "not cached yet"
-					log.Printf("[favicon] Favicon not cached yet, starting download: %s", faviconURL)
-					// Start async download for next time (same as dmenu)
-					faviconCache.CacheAsync(faviconURL)
-				}
-			}
-		}
+	placeholderLabel := gtk.NewLabel(faviconPlaceholder)
+	if placeholderLabel != nil {
+		placeholderLabel.AddCSSClass("stacked-pane-favicon-placeholder")
+		titleBox.Append(placeholderLabel)
+		webkit.WidgetSetVisible(placeholderLabel, true)
 	}
 
-	// Add favicon or placeholder
-	if faviconImg != nil {
-		titleBox.Append(faviconImg)
-		webkit.WidgetShow(faviconImg)
-	} else {
-		// DEBUG: Add visible placeholder label to show code is running
-		placeholderLabel := gtk.NewLabel(faviconPlaceholder)
-		if placeholderLabel != nil {
-			placeholderLabel.AddCSSClass("stacked-pane-favicon-placeholder")
-			titleBox.Append(placeholderLabel)
-			placeholderLabel.Show()
-			log.Printf("[favicon] Using placeholder for %s (reason: %s)", pageURL, debugReason)
-		}
+	if pageURL != "" && spm.wm != nil && spm.wm.app != nil && spm.wm.app.faviconService != nil {
+		spm.wm.app.faviconService.GetFaviconTexture(pageURL, func(texture *gdk.Texture, err error) {
+			if err != nil {
+				log.Printf("[favicon] Failed to load favicon for title bar: %s - %v", pageURL, err)
+				return
+			}
+
+			if texture != nil && titleBox != nil {
+				log.Printf("[favicon] Favicon ready to display in title bar for: %s", pageURL)
+
+				// Create favicon image
+				faviconImg := gtk.NewImageFromPaintable(texture)
+				faviconImg.SetPixelSize(16)
+				webkit.WidgetAddCSSClass(faviconImg, "stacked-pane-favicon")
+
+				// IDEMPOTENT: Remove placeholder only if it still has titleBox as parent
+				// This handles the case where multiple async callbacks fire for the same title bar
+				if placeholderLabel != nil && webkit.WidgetGetParent(placeholderLabel) != nil {
+					titleBox.Remove(placeholderLabel)
+				}
+
+				// Prepend favicon image (multiple calls are safe - GTK handles it)
+				titleBox.Prepend(faviconImg)
+				webkit.WidgetSetVisible(faviconImg, true)
+			}
+		})
 	}
 
 	// Create title label with the specified title
@@ -742,11 +705,11 @@ func (spm *StackedPaneManager) createTitleBarWithTitle(title string, pageURL str
 	}
 
 	titleLabel.AddCSSClass("stacked-pane-title-text")
-	titleLabel.SetEllipsize(2) // pango.EllipsizeEnd = 2
+	titleLabel.SetEllipsize(2)
 
 	titleBox.Append(titleLabel)
-	titleBox.Show()
-	titleLabel.Show()
+	webkit.WidgetSetVisible(titleBox, true)
+	webkit.WidgetSetVisible(titleLabel, true)
 
 	return titleBox
 }

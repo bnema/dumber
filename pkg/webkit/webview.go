@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
+	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
@@ -75,6 +76,16 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	if wkView == nil {
 		return nil, ErrWebViewNotInitialized
 	}
+
+	// Set background color based on user's theme preference to prevent white/black flash
+	// This must be done before any content loads
+	var bg gdk.RGBA
+	if PrefersDarkTheme() {
+		bg = gdk.NewRGBA(0.11, 0.11, 0.11, 1.0) // #1c1c1c - dark background
+	} else {
+		bg = gdk.NewRGBA(0.96, 0.96, 0.96, 1.0) // #f5f5f5 - light background
+	}
+	wkView.SetBackgroundColor(&bg)
 
 	// Verify the WebView is using the persistent session
 	viewSession := wkView.NetworkSession()
@@ -715,6 +726,29 @@ func (w *WebView) Window() *Window {
 	return w.window
 }
 
+// GetFaviconDatabase returns the WebKit FaviconDatabase for this WebView
+// Returns nil if the favicon database is not available
+func (w *WebView) GetFaviconDatabase() *webkit.FaviconDatabase {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed || w.view == nil {
+		return nil
+	}
+
+	session := w.view.NetworkSession()
+	if session == nil {
+		return nil
+	}
+
+	dataManager := session.WebsiteDataManager()
+	if dataManager == nil {
+		return nil
+	}
+
+	return dataManager.FaviconDatabase()
+}
+
 // UpdateContentFilters updates the content filtering rules
 func (w *WebView) UpdateContentFilters(rules string) error {
 	w.mu.RLock()
@@ -773,7 +807,9 @@ func (w *WebView) RegisterPaneModeHandler(handler func(action string) bool, isAc
 	w.isPaneModeActive = isActiveChecker
 }
 
-// setupFaviconHandlers connects to the FaviconDatabase signals
+// setupFaviconHandlers enables favicons for this WebView
+// Note: The actual favicon-changed handler is registered ONCE at the FaviconService level
+// to avoid duplicate handlers when multiple WebViews exist
 func (w *WebView) setupFaviconHandlers() {
 	// Get the NetworkSession from the WebView
 	session := w.view.NetworkSession()
@@ -795,28 +831,6 @@ func (w *WebView) setupFaviconHandlers() {
 		log.Printf("[webkit] Enabled favicons for WebView ID %d", w.id)
 	}
 
-	// Get the FaviconDatabase
-	faviconDB := dataManager.FaviconDatabase()
-	if faviconDB == nil {
-		log.Printf("[webkit] Warning: No FaviconDatabase available")
-		return
-	}
-
-	// Connect to the favicon-changed signal
-	faviconDB.ConnectFaviconChanged(func(pageURI, faviconURI string) {
-		log.Printf("[favicon] Favicon changed for %s: %s", pageURI, faviconURI)
-
-		// Call the URI handler if registered
-		w.mu.RLock()
-		handler := w.onFaviconURIChanged
-		w.mu.RUnlock()
-
-		if handler != nil {
-			handler(pageURI, faviconURI)
-		}
-	})
-
-	log.Printf("[webkit] Connected to FaviconDatabase for WebView ID %d", w.id)
 }
 
 // GtkWebView returns the underlying gotk4 WebView for advanced operations
