@@ -8,8 +8,11 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/bnema/dumber/internal/cache"
+	"github.com/bnema/dumber/internal/config"
+	"github.com/bnema/dumber/internal/services"
 	"github.com/spf13/cobra"
 )
 
@@ -63,11 +66,10 @@ func generateOptions(cli *CLI) error {
 	cacheConfig.MaxResults = 50 // Match the old maxHistoryEntries
 	cacheManager := cache.NewCacheManager(cli.Queries, cacheConfig)
 
-	// Initialize favicon cache
-	faviconCache, err := cache.NewFaviconCache()
+	// Get data directory for favicon exports
+	dataDir, err := config.GetDataDir()
 	if err != nil {
-		// Continue without favicon cache if it fails
-		faviconCache = nil
+		dataDir = "" // Continue without favicons if data dir fails
 	}
 
 	// Get top entries from cache (this is blazingly fast!)
@@ -139,7 +141,7 @@ func generateOptions(cli *CLI) error {
 
 	// Output options to stdout with icon specifications
 	for _, option := range options {
-		iconName := getIconName(option, faviconCache)
+		iconName := getIconName(option, dataDir)
 		if iconName != "" {
 			fmt.Printf("%s\x00icon\x1f%s\n", option.Display, iconName)
 		} else {
@@ -157,11 +159,10 @@ func generateOptions(cli *CLI) error {
 func generateOptionsFallback(cli *CLI) error {
 	ctx := context.Background()
 
-	// Initialize favicon cache
-	faviconCache, err := cache.NewFaviconCache()
+	// Get data directory for favicon exports
+	dataDir, err := config.GetDataDir()
 	if err != nil {
-		// Continue without favicon cache if it fails
-		faviconCache = nil
+		dataDir = "" // Continue without favicons if data dir fails
 	}
 
 	const maxHistoryEntries = 50
@@ -240,7 +241,7 @@ func generateOptionsFallback(cli *CLI) error {
 
 	// Output options to stdout with icon specifications
 	for _, option := range options {
-		iconName := getIconName(option, faviconCache)
+		iconName := getIconName(option, dataDir)
 		if iconName != "" {
 			fmt.Printf("%s\x00icon\x1f%s\n", option.Display, iconName)
 		} else {
@@ -344,19 +345,21 @@ func parseSelection(selection string) string {
 }
 
 // getIconName determines the appropriate icon name for a dmenu option
-func getIconName(option DmenuOption, faviconCache *cache.FaviconCache) string {
+func getIconName(option DmenuOption, dataDir string) string {
 	if option.Type != historyType {
 		return ""
 	}
 
-	// Only use cached favicons - no system theme fallbacks for consistent sizing
-	if option.FaviconURL != "" && faviconCache != nil {
-		cachedPath := faviconCache.GetCachedPath(option.FaviconURL)
-		if cachedPath != "" {
-			return cachedPath
+	// Get exported favicon path from FaviconService
+	// FaviconService exports all favicons as 32x32 PNG files for CLI access
+	if option.Value != "" {
+		faviconPath := services.GetExportedFaviconPath(dataDir, option.Value)
+		// Check if file exists and is recent (within 7 days)
+		if info, err := os.Stat(faviconPath); err == nil {
+			if time.Since(info.ModTime()) < 7*24*time.Hour {
+				return faviconPath
+			}
 		}
-		// Start async download for next time
-		faviconCache.CacheAsync(option.FaviconURL)
 	}
 
 	// No favicon available - return empty string to show no icon
