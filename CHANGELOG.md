@@ -22,6 +22,7 @@ All notable changes to this project will be documented in this file.
 - Dark mode flash on startup: Set GTK dark theme preference and WebView background color before window/content creation
 - Cmd+Q and window close button now trigger graceful shutdown instead of killing the browser process
 - WebView cleanup: Properly destroy WebViews to prevent memory leaks and duplicate handler registrations when closing stacked panes
+- CLI help: Running `dumber` without arguments now shows available commands (use `--gui` or `browse` to launch GUI)
 
 ## [0.12.0] - 2025-10-16
 
