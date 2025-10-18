@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Favicon refactoring**: WebKitGTK FaviconDatabase as single source of truth, removing fragile file-based cache and ico/bmp conversion dependencies
+  - Native favicon detection and automatic PNG export at 32x32 for CLI (dmenu)
+  - SVG favicon rasterization support
+  - Async texture loading with callbacks for non-blocking UI updates
+  - FaviconService handles favicon collection across all panes
+
+### Changed
+- Removed old favicon cache system (go-ico, go-bmp dependencies)
+- Simplified omnibox favicon handling: uses database favicon_url only
+
 ### Fixed
 - Dark mode flash on startup: Set GTK dark theme preference and WebView background color before window/content creation
 - Cmd+Q and window close button now trigger graceful shutdown instead of killing the browser process
