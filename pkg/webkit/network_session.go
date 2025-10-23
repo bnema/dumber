@@ -102,3 +102,16 @@ func InitPersistentSession(dataDir, cacheDir string) error {
 func GetGlobalNetworkSession() *webkit.NetworkSession {
 	return globalNetworkSession
 }
+
+// PrefetchDNS prefetches DNS for the given hostname to speed up future requests.
+// This is useful for preloading DNS for links that the user might click.
+// Safe to call even if the hostname is invalid or session is not initialized.
+func PrefetchDNS(hostname string) {
+	if globalNetworkSession == nil {
+		return // Session not initialized yet
+	}
+	if hostname == "" {
+		return // Nothing to prefetch
+	}
+	globalNetworkSession.PrefetchDns(hostname)
+}
