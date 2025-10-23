@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bnema/dumber/internal/cache"
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/db"
 	"github.com/bnema/dumber/pkg/webkit"
@@ -47,9 +48,16 @@ type BrowserService struct {
 	webView            *webkit.WebView
 	initialURL         string
 	guiBundle          string
-	zoomCache          sync.Map           // In-memory cache: key = domain/URL, value = float64 zoom level
-	historyQueue       chan historyUpdate // Queue for batched history writes
-	historyFlushDone   chan bool          // Signal when history flush is complete (buffered)
+	zoomCache          *cache.ZoomCache              // In-memory cache for zoom levels
+	certCache          *cache.CertValidationsCache   // In-memory cache for certificate validations
+	fuzzyCache         *cache.CacheManager           // Async fuzzy search cache for dmenu
+	historyQueue       chan historyUpdate            // Queue for batched history writes
+	historyFlushDone   chan bool                     // Signal when history flush is complete (buffered)
+	flushOnce          sync.Once                     // Ensures FlushHistoryQueue only runs once
+
+	// Fuzzy cache refresh tracking
+	historySinceRefresh int       // Count of history entries added since last cache refresh
+	lastCacheRefresh    time.Time // Timestamp of last fuzzy cache refresh
 }
 
 // ServiceName returns the service name for frontend binding
@@ -81,14 +89,19 @@ type HistoryEntry struct {
 // NewBrowserService creates a new BrowserService instance.
 func NewBrowserService(cfg *config.Config, queries db.DatabaseQuerier) *BrowserService {
 	s := &BrowserService{
-		config:             cfg,
-		dbQueries:          queries,
-		windowTitleUpdater: nil,
-		webView:            nil,
-		initialURL:         "",
-		guiBundle:          "",
-		historyQueue:       make(chan historyUpdate, 100), // Buffer 100 history updates
-		historyFlushDone:   make(chan bool, 1),            // Buffered to prevent blocking
+		config:              cfg,
+		dbQueries:           queries,
+		windowTitleUpdater:  nil,
+		webView:             nil,
+		initialURL:          "",
+		guiBundle:           "",
+		zoomCache:           cache.NewZoomCache(queries),
+		certCache:           cache.NewCertValidationsCache(queries),
+		fuzzyCache:          cache.NewCacheManager(queries, nil), // nil = use defaults
+		historyQueue:        make(chan historyUpdate, 100),       // Buffer 100 history updates
+		historyFlushDone:    make(chan bool, 1),                  // Buffered to prevent blocking
+		historySinceRefresh: 0,
+		lastCacheRefresh:    time.Now(), // Initialize to now
 	}
 
 	// Start background batch processor for history writes
@@ -419,7 +432,29 @@ func (s *BrowserService) processHistoryQueue() {
 		}
 
 		log.Printf("Flushed %d history updates to database", len(batch))
+
+		// Track history entries for fuzzy cache refresh
+		batchSize := len(batch)
 		batch = batch[:0] // Clear batch
+
+		// Smart fuzzy cache refresh: rebuild after N entries AND M minutes
+		const minEntries = 10                // Minimum new entries before refresh
+		const minInterval = 5 * time.Minute  // Minimum time between refreshes
+
+		s.historySinceRefresh += batchSize
+		timeSinceRefresh := time.Since(s.lastCacheRefresh)
+
+		if s.historySinceRefresh >= minEntries && timeSinceRefresh >= minInterval {
+			log.Printf("[cache] Triggering async fuzzy cache refresh (%d new entries, %v since last refresh)",
+				s.historySinceRefresh, timeSinceRefresh)
+
+			// Async refresh in background (non-blocking)
+			s.fuzzyCache.InvalidateAndRefresh(ctx)
+
+			// Reset counters
+			s.historySinceRefresh = 0
+			s.lastCacheRefresh = time.Now()
+		}
 	}
 
 	for {
@@ -443,11 +478,23 @@ func (s *BrowserService) processHistoryQueue() {
 }
 
 // FlushHistoryQueue flushes any pending history writes and stops the processor.
-// Call this during graceful shutdown.
-func (s *BrowserService) FlushHistoryQueue() {
-	close(s.historyQueue)
-	<-s.historyFlushDone // Wait for completion signal
-	log.Printf("History queue flushed and closed")
+// Call this during graceful shutdown. Safe to call multiple times.
+// Respects context cancellation with a timeout to prevent hanging.
+func (s *BrowserService) FlushHistoryQueue(ctx context.Context) error {
+	var flushErr error
+	s.flushOnce.Do(func() {
+		close(s.historyQueue)
+
+		// Wait for completion with context cancellation support
+		select {
+		case <-s.historyFlushDone:
+			log.Printf("History queue flushed and closed")
+		case <-ctx.Done():
+			flushErr = fmt.Errorf("history queue flush cancelled: %w", ctx.Err())
+			log.Printf("Warning: %v", flushErr)
+		}
+	})
+	return flushErr
 }
 
 // Firefox zoom levels: 30%, 50%, 67%, 80%, 90%, 100%, 110%, 120%, 133%, 150%, 170%, 200%, 240%, 300%, 400%, 500%
@@ -493,18 +540,64 @@ func (s *BrowserService) ResetZoom(ctx context.Context, url string) (float64, er
 // LoadZoomCacheFromDB loads all zoom levels from database into memory cache on startup.
 // This eliminates database reads during page transitions.
 func (s *BrowserService) LoadZoomCacheFromDB(ctx context.Context) error {
-	zoomLevels, err := s.dbQueries.ListZoomLevels(ctx)
-	if err != nil {
+	if err := s.zoomCache.Load(ctx); err != nil {
 		return fmt.Errorf("failed to load zoom levels: %w", err)
 	}
 
-	loadedCount := 0
-	for _, zl := range zoomLevels {
-		s.zoomCache.Store(zl.Domain, zl.ZoomFactor)
-		loadedCount++
+	loadedCount := len(s.zoomCache.List())
+	log.Printf("Loaded %d zoom levels into cache", loadedCount)
+	return nil
+}
+
+// LoadCertCacheFromDB loads all certificate validations from the database into the cache.
+// This is typically called once at startup for fast RAM-first access.
+func (s *BrowserService) LoadCertCacheFromDB(ctx context.Context) error {
+	if err := s.certCache.Load(ctx); err != nil {
+		return fmt.Errorf("failed to load certificate validations: %w", err)
 	}
 
-	log.Printf("Loaded %d zoom levels into cache", loadedCount)
+	loadedCount := len(s.certCache.List())
+	log.Printf("Loaded %d certificate validations into cache", loadedCount)
+	return nil
+}
+
+// LoadFuzzyCacheFromDB builds or loads the fuzzy search cache from database history.
+// This ensures dmenu has instant access to pre-built search structures.
+func (s *BrowserService) LoadFuzzyCacheFromDB(ctx context.Context) error {
+	// GetCache automatically loads from binary file if valid, or builds from DB
+	_, err := s.fuzzyCache.GetCache(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load fuzzy cache: %w", err)
+	}
+
+	stats := s.fuzzyCache.Stats()
+	log.Printf("Loaded fuzzy cache: %d entries, %d trigrams",
+		stats.EntryCount, stats.TrigramCount)
+	return nil
+}
+
+// FlushAllCaches flushes all in-memory caches to ensure pending writes complete.
+// This is typically called during shutdown to prevent data loss.
+func (s *BrowserService) FlushAllCaches(ctx context.Context) error {
+	// Flush zoom cache
+	if err := s.zoomCache.Flush(); err != nil {
+		return fmt.Errorf("failed to flush zoom cache: %w", err)
+	}
+
+	// Flush certificate validation cache
+	if err := s.certCache.Flush(); err != nil {
+		return fmt.Errorf("failed to flush cert cache: %w", err)
+	}
+
+	// Save fuzzy cache to binary file for instant dmenu access
+	s.fuzzyCache.OnApplicationExit(ctx)
+
+	// Flush history queue (existing mechanism)
+	if err := s.FlushHistoryQueue(ctx); err != nil {
+		return fmt.Errorf("failed to flush history queue: %w", err)
+	}
+
+	log.Printf("All caches flushed successfully")
 	return nil
 }
 
@@ -518,18 +611,14 @@ func (s *BrowserService) GetZoomLevel(ctx context.Context, url string) (float64,
 	key := zoomKeyFromURL(url)
 
 	// Check cache first (fast RAM lookup)
-	if cachedZoom, ok := s.zoomCache.Load(key); ok {
-		if zoom, ok := cachedZoom.(float64); ok {
-			return zoom, nil
-		}
+	if zoom, ok := s.zoomCache.Get(key); ok {
+		return zoom, nil
 	}
 
 	// Fallback to exact URL record for backward compatibility (cache miss)
 	if key != url {
-		if cachedZoom, ok := s.zoomCache.Load(url); ok {
-			if zoom, ok := cachedZoom.(float64); ok {
-				return zoom, nil
-			}
+		if zoom, ok := s.zoomCache.Get(url); ok {
+			return zoom, nil
 		}
 	}
 
@@ -553,18 +642,8 @@ func (s *BrowserService) SetZoomLevel(ctx context.Context, url string, zoomLevel
 
 	key := zoomKeyFromURL(url)
 
-	// Update cache immediately (fast, synchronous)
-	s.zoomCache.Store(key, zoomLevel)
-
-	// Persist to database asynchronously (non-blocking)
-	go func() {
-		bgCtx := context.Background()
-		if err := s.dbQueries.SetZoomLevel(bgCtx, key, zoomLevel); err != nil {
-			log.Printf("Warning: failed to persist zoom level to DB for %s: %v", key, err)
-		}
-	}()
-
-	return nil
+	// Update cache immediately (fast, synchronous) and persist async
+	return s.zoomCache.Set(key, zoomLevel)
 }
 
 // GetCurrentURL returns the current URL (this would be implemented by the frontend)
