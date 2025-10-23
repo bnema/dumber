@@ -5,11 +5,11 @@ import (
 	"context"
 	"database/sql"
 	"embed"
-	"errors"
 	"fmt"
 	"log"
 	"math"
 	neturl "net/url"
+	"sync"
 	"time"
 
 	"github.com/bnema/dumber/internal/config"
@@ -33,6 +33,12 @@ type WindowTitleUpdater interface {
 	SetTitle(title string)
 }
 
+// historyUpdate represents a pending history write operation
+type historyUpdate struct {
+	url   string
+	title sql.NullString
+}
+
 // BrowserService handles browser-related operations for the built-in browser.
 type BrowserService struct {
 	config             *config.Config
@@ -41,6 +47,9 @@ type BrowserService struct {
 	webView            *webkit.WebView
 	initialURL         string
 	guiBundle          string
+	zoomCache          sync.Map           // In-memory cache: key = domain/URL, value = float64 zoom level
+	historyQueue       chan historyUpdate // Queue for batched history writes
+	historyFlushDone   chan struct{}      // Signal when history flush is complete
 }
 
 // ServiceName returns the service name for frontend binding
@@ -71,14 +80,21 @@ type HistoryEntry struct {
 
 // NewBrowserService creates a new BrowserService instance.
 func NewBrowserService(cfg *config.Config, queries db.DatabaseQuerier) *BrowserService {
-	return &BrowserService{
+	s := &BrowserService{
 		config:             cfg,
 		dbQueries:          queries,
 		windowTitleUpdater: nil,
 		webView:            nil,
 		initialURL:         "",
 		guiBundle:          "",
+		historyQueue:       make(chan historyUpdate, 100), // Buffer 100 history updates
+		historyFlushDone:   make(chan struct{}),
 	}
+
+	// Start background batch processor for history writes
+	go s.processHistoryQueue()
+
+	return s
 }
 
 // SetWindowTitleUpdater sets the window title updater interface
@@ -359,14 +375,79 @@ func (s *BrowserService) GetSearchShortcuts(ctx context.Context) (map[string]con
 }
 
 // recordHistory adds or updates a history entry.
+// Now queues the update for batched processing instead of immediate DB write.
 func (s *BrowserService) recordHistory(ctx context.Context, url, title string) error {
-	// Use AddOrUpdateHistory which handles both cases
 	titleNull := sql.NullString{Valid: false}
 	if title != "" {
 		titleNull = sql.NullString{String: title, Valid: true}
 	}
 
-	return s.dbQueries.AddOrUpdateHistory(ctx, url, titleNull)
+	// Queue the history update (non-blocking with buffer)
+	select {
+	case s.historyQueue <- historyUpdate{url: url, title: titleNull}:
+		// Successfully queued
+		return nil
+	default:
+		// Queue full, write directly (fallback)
+		log.Printf("Warning: history queue full, writing directly")
+		return s.dbQueries.AddOrUpdateHistory(ctx, url, titleNull)
+	}
+}
+
+// processHistoryQueue processes batched history writes in the background.
+// Flushes every 5 seconds or when a batch reaches 50 items.
+func (s *BrowserService) processHistoryQueue() {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	batch := make([]historyUpdate, 0, 50)
+	const maxBatchSize = 50
+
+	flush := func() {
+		if len(batch) == 0 {
+			return
+		}
+
+		ctx := context.Background()
+		// Process all updates in the batch
+		// Note: We can't use a transaction with sqlc-generated code easily,
+		// but we can still batch the operations to reduce overhead
+		for _, update := range batch {
+			if err := s.dbQueries.AddOrUpdateHistory(ctx, update.url, update.title); err != nil {
+				log.Printf("Warning: failed to write history for %s: %v", update.url, err)
+			}
+		}
+
+		log.Printf("Flushed %d history updates to database", len(batch))
+		batch = batch[:0] // Clear batch
+	}
+
+	for {
+		select {
+		case update, ok := <-s.historyQueue:
+			if !ok {
+				// Channel closed, flush remaining and exit
+				flush()
+				close(s.historyFlushDone)
+				return
+			}
+			batch = append(batch, update)
+			if len(batch) >= maxBatchSize {
+				flush()
+			}
+
+		case <-ticker.C:
+			flush()
+		}
+	}
+}
+
+// FlushHistoryQueue flushes any pending history writes and stops the processor.
+// Call this during graceful shutdown.
+func (s *BrowserService) FlushHistoryQueue() {
+	close(s.historyQueue)
+	<-s.historyFlushDone // Wait for flush to complete
+	log.Printf("History queue flushed and closed")
 }
 
 // Firefox zoom levels: 30%, 50%, 67%, 80%, 90%, 100%, 110%, 120%, 133%, 150%, 170%, 200%, 240%, 300%, 400%, 500%
@@ -409,31 +490,55 @@ func (s *BrowserService) ResetZoom(ctx context.Context, url string) (float64, er
 	return s.setZoom(ctx, url, 1.0)
 }
 
+// LoadZoomCacheFromDB loads all zoom levels from database into memory cache on startup.
+// This eliminates database reads during page transitions.
+func (s *BrowserService) LoadZoomCacheFromDB(ctx context.Context) error {
+	zoomLevels, err := s.dbQueries.ListZoomLevels(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load zoom levels: %w", err)
+	}
+
+	loadedCount := 0
+	for _, zl := range zoomLevels {
+		s.zoomCache.Store(zl.Domain, zl.ZoomFactor)
+		loadedCount++
+	}
+
+	log.Printf("Loaded %d zoom levels into cache", loadedCount)
+	return nil
+}
+
 // GetZoomLevel retrieves the saved zoom level for a URL.
+// Now reads from in-memory cache instead of database for instant access.
 func (s *BrowserService) GetZoomLevel(ctx context.Context, url string) (float64, error) {
 	if url == "" {
 		return s.config.DefaultZoom, nil
 	}
 
 	key := zoomKeyFromURL(url)
-	zoomLevel, err := s.dbQueries.GetZoomLevel(ctx, key)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			// Fallback to exact URL record if present (backward compatibility)
-			zl, err2 := s.dbQueries.GetZoomLevel(ctx, url)
-			if err2 == nil {
-				return zl, nil
-			}
-			// No zoom setting found, return configured default
-			return s.config.DefaultZoom, nil
+
+	// Check cache first (fast RAM lookup)
+	if cachedZoom, ok := s.zoomCache.Load(key); ok {
+		if zoom, ok := cachedZoom.(float64); ok {
+			return zoom, nil
 		}
-		return s.config.DefaultZoom, err
 	}
 
-	return zoomLevel, nil
+	// Fallback to exact URL record for backward compatibility (cache miss)
+	if key != url {
+		if cachedZoom, ok := s.zoomCache.Load(url); ok {
+			if zoom, ok := cachedZoom.(float64); ok {
+				return zoom, nil
+			}
+		}
+	}
+
+	// No zoom setting found, return configured default
+	return s.config.DefaultZoom, nil
 }
 
 // SetZoomLevel sets the zoom level for a URL.
+// Updates cache immediately (instant) and persists to DB asynchronously.
 func (s *BrowserService) SetZoomLevel(ctx context.Context, url string, zoomLevel float64) error {
 	if url == "" {
 		return fmt.Errorf("URL cannot be empty")
@@ -447,7 +552,19 @@ func (s *BrowserService) SetZoomLevel(ctx context.Context, url string, zoomLevel
 	}
 
 	key := zoomKeyFromURL(url)
-	return s.dbQueries.SetZoomLevel(ctx, key, zoomLevel)
+
+	// Update cache immediately (fast, synchronous)
+	s.zoomCache.Store(key, zoomLevel)
+
+	// Persist to database asynchronously (non-blocking)
+	go func() {
+		bgCtx := context.Background()
+		if err := s.dbQueries.SetZoomLevel(bgCtx, key, zoomLevel); err != nil {
+			log.Printf("Warning: failed to persist zoom level to DB for %s: %v", key, err)
+		}
+	}()
+
+	return nil
 }
 
 // GetCurrentURL returns the current URL (this would be implemented by the frontend)
