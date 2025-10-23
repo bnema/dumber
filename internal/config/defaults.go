@@ -112,6 +112,7 @@ func DefaultConfig() *Config {
 				Accent:         "#a8a8a8",
 				Border:         "#363636",
 			},
+			ColorScheme: "default", // default follows system theme
 		},
 		VideoAcceleration: VideoAccelerationConfig{
 			EnableVAAPI:      true,

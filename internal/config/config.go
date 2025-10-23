@@ -124,6 +124,8 @@ type AppearanceConfig struct {
 	DefaultFontSize int          `mapstructure:"default_font_size" yaml:"default_font_size"`
 	LightPalette    ColorPalette `mapstructure:"light_palette" yaml:"light_palette"`
 	DarkPalette     ColorPalette `mapstructure:"dark_palette" yaml:"dark_palette"`
+	// ColorScheme controls the initial theme preference: "prefer-dark", "prefer-light", or "default" (follows system)
+	ColorScheme string `mapstructure:"color_scheme" yaml:"color_scheme"`
 }
 
 // ColorPalette contains semantic color tokens for light/dark themes.
@@ -545,6 +547,9 @@ func (m *Manager) Load() error {
 	// Validate and configure codec preferences
 	config = m.validateAndConfigureCodecPreferences(config)
 
+	// Validate ColorScheme setting
+	m.validateColorScheme(config)
+
 	m.config = config
 	return nil
 }
@@ -643,6 +648,9 @@ func (m *Manager) reload() error {
 	// Validate and configure codec preferences
 	config = m.validateAndConfigureCodecPreferences(config)
 
+	// Validate ColorScheme setting
+	m.validateColorScheme(config)
+
 	m.config = config
 	return nil
 }
@@ -713,6 +721,7 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("appearance.default_font_size", defaults.Appearance.DefaultFontSize)
 	m.viper.SetDefault("appearance.light_palette", defaults.Appearance.LightPalette)
 	m.viper.SetDefault("appearance.dark_palette", defaults.Appearance.DarkPalette)
+	m.viper.SetDefault("appearance.color_scheme", defaults.Appearance.ColorScheme)
 
 	// Video acceleration defaults
 	m.viper.SetDefault("video_acceleration.enable_vaapi", defaults.VideoAcceleration.EnableVAAPI)
@@ -893,4 +902,22 @@ func (m *Manager) validateAndConfigureCodecPreferences(config *Config) *Config {
 	}
 
 	return config
+}
+
+// validateColorScheme validates and normalizes the ColorScheme setting
+func (m *Manager) validateColorScheme(config *Config) {
+	switch config.Appearance.ColorScheme {
+	case "prefer-dark", "prefer-light", "default", "":
+		// Valid values - no changes needed
+		// Empty string is treated the same as "default"
+		if config.Appearance.ColorScheme == "" {
+			config.Appearance.ColorScheme = "default"
+			logging.Info("Config: ColorScheme not set, defaulting to 'default' (follows system)")
+		}
+	default:
+		// Invalid value - warn and reset to default
+		logging.Info(fmt.Sprintf("Config: Invalid color_scheme value '%s', valid values are: 'prefer-dark', 'prefer-light', 'default'. Resetting to 'default'",
+			config.Appearance.ColorScheme))
+		config.Appearance.ColorScheme = "default"
+	}
 }
