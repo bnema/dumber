@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -138,7 +139,11 @@ func (fu *FilterUpdater) checkSingleUpdate(ctx context.Context, url string) (*Fi
 	if err != nil {
 		return nil, fmt.Errorf("HEAD request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("warning: failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HEAD request returned %d", resp.StatusCode)
@@ -183,7 +188,11 @@ func (fu *FilterUpdater) downloadUpdate(ctx context.Context, url, lastModified, 
 	if err != nil {
 		return nil, fmt.Errorf("GET request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("warning: failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GET request returned %d", resp.StatusCode)

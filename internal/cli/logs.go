@@ -163,7 +163,11 @@ func tailFile(filePath string, lines int) error {
 		}
 		return fmt.Errorf("failed to open log file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to close log file: %v\n", err)
+		}
+	}()
 
 	// Read all lines
 	var allLines []string
@@ -335,7 +339,11 @@ func tailConsoleMessages(filePath string, lines int, level string) error {
 		}
 		return fmt.Errorf("failed to open log file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to close log file: %v\n", err)
+		}
+	}()
 
 	// Read all lines and filter for console messages
 	var consoleLines []string

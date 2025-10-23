@@ -9,7 +9,6 @@ import (
 
 var (
 	mainLoop      *glib.MainLoop
-	mainThreadID  = runtime.LockOSThread // Store the main thread
 	isInitialized bool
 )
 

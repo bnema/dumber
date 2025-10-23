@@ -133,41 +133,6 @@ func (q *Queries) GetHistoryWithOffset(ctx context.Context, limit int64, offset 
 	return items, nil
 }
 
-const GetShortcuts = `-- name: GetShortcuts :many
-SELECT id, shortcut, url_template, description, created_at
-FROM shortcuts
-ORDER BY shortcut
-`
-
-func (q *Queries) GetShortcuts(ctx context.Context) ([]Shortcut, error) {
-	rows, err := q.db.QueryContext(ctx, GetShortcuts)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Shortcut{}
-	for rows.Next() {
-		var i Shortcut
-		if err := rows.Scan(
-			&i.ID,
-			&i.Shortcut,
-			&i.UrlTemplate,
-			&i.Description,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const SearchHistory = `-- name: SearchHistory :many
 SELECT id, url, title, visit_count, last_visited, created_at, favicon_url
 FROM history 

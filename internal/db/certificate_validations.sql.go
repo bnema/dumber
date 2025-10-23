@@ -11,7 +11,7 @@ import (
 )
 
 const DeleteCertificateValidation = `-- name: DeleteCertificateValidation :exec
-DELETE FROM certificate_validations 
+DELETE FROM certificate_validations
 WHERE hostname = ? AND certificate_hash = ?
 `
 
@@ -71,6 +71,42 @@ func (q *Queries) GetCertificateValidationByHostname(ctx context.Context, hostna
 		&i.ExpiresAt,
 	)
 	return i, err
+}
+
+const ListCertificateValidations = `-- name: ListCertificateValidations :many
+SELECT id, hostname, certificate_hash, user_decision, created_at, expires_at FROM certificate_validations
+WHERE (expires_at IS NULL OR expires_at > datetime('now'))
+ORDER BY hostname
+`
+
+func (q *Queries) ListCertificateValidations(ctx context.Context) ([]CertificateValidation, error) {
+	rows, err := q.db.QueryContext(ctx, ListCertificateValidations)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CertificateValidation{}
+	for rows.Next() {
+		var i CertificateValidation
+		if err := rows.Scan(
+			&i.ID,
+			&i.Hostname,
+			&i.CertificateHash,
+			&i.UserDecision,
+			&i.CreatedAt,
+			&i.ExpiresAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const StoreCertificateValidation = `-- name: StoreCertificateValidation :exec

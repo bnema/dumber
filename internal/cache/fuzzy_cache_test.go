@@ -10,7 +10,7 @@ import (
 
 	mock_cache "github.com/bnema/dumber/internal/cache/mocks"
 	"github.com/bnema/dumber/internal/db"
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 )
 
 func createTestHistory() []db.History {
