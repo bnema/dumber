@@ -10,15 +10,20 @@ All notable changes to this project will be documented in this file.
 - **Page cache (bfcache)**: Enabled WebKit back/forward cache for instant navigation
 - **Smooth scrolling**: Enabled WebKit smooth scrolling for better UX
 - **JSON Schema**: Auto-generated config schema for IDE autocompletion and validation
+- **Parallel cache loading**: Zoom, certificate, and fuzzy caches load concurrently at startup (<100ms target)
+- **Certificate validation cache**: In-memory cache for TLS certificate decisions with graceful shutdown flushing
 
 ### Changed
 - **Database performance**: Enabled WAL mode with optimized PRAGMAs (64MB cache, memory-mapped I/O, 5s busy timeout) for 70k reads/sec, 3.6k writes/sec
 - **Zoom performance**: In-memory cache eliminates database reads during page transitions
 - **History writes**: Batched writes with background processor (flush every 5s or 50 items) to reduce I/O overhead
 - **BREAKING: Keyboard shortcuts**: All shortcuts now use `ctrl+` instead of `cmdorctrl+`. Existing configs with `cmdorctrl` still work via backward compatibility. Delete `~/.config/dumber/config.json` to regenerate with new defaults.
+- **Cache management**: Graceful cache flushing on shutdown prevents data loss; startup timing instrumentation with performance warnings
 
 ### Fixed
 - **Graceful shutdown deadlock**: Resolved GTK main loop deadlock on Ctrl+Q by removing mutex locks and GTK calls after main loop exit
+- **CSS provider error handling**: Now properly handles errors from GTK CSS provider with logging
+- **Cache operations**: Added context timeouts to cache flush and history queue operations for graceful failure
 - Command typos now show proper error instead of opening in browser
 - History queue now uses buffered channel to prevent blocking on shutdown
 
