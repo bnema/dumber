@@ -16,10 +16,10 @@ func (wm *WorkspaceManager) SplitPane(target *paneNode, direction string) (*pane
 
 	// Validate direction parameter
 	validDirections := map[string]bool{
-		"left":  true,
-		"right": true,
-		"up":    true,
-		"down":  true,
+		DirectionLeft:  true,
+		DirectionRight: true,
+		DirectionUp:    true,
+		DirectionDown:  true,
 	}
 	if !validDirections[direction] {
 		return nil, fmt.Errorf("invalid split direction '%s', expected one of: left, right, up, down", direction)
