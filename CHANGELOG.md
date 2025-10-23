@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Color scheme config**: `appearance.color_scheme` setting to force dark/light theme (`"prefer-dark"`, `"prefer-light"`, `"default"`)
+
 ## [0.12.1] - 2025-10-18
 
 ### Added
