@@ -20,5 +20,10 @@ DELETE FROM certificate_validations
 WHERE expires_at IS NOT NULL AND expires_at <= datetime('now');
 
 -- name: DeleteCertificateValidation :exec
-DELETE FROM certificate_validations 
+DELETE FROM certificate_validations
 WHERE hostname = ? AND certificate_hash = ?;
+
+-- name: ListCertificateValidations :many
+SELECT * FROM certificate_validations
+WHERE (expires_at IS NULL OR expires_at > datetime('now'))
+ORDER BY hostname;

@@ -97,7 +97,7 @@ func Init(logDir string, level string, format string, enableFileLog bool, maxSiz
 	globalLoggerMux.Lock()
 	defer globalLoggerMux.Unlock()
 
-	err := os.MkdirAll(logDir, 0755)
+	err := os.MkdirAll(logDir, 0750)
 	if err != nil {
 		return fmt.Errorf("failed to create log directory: %w", err)
 	}
@@ -158,7 +158,9 @@ func (l *Logger) writeLog(level LogLevel, message string, source string) {
 	formatted := l.formatter.Format(level, message, source)
 
 	for _, output := range l.outputs {
-		output.Write([]byte(formatted))
+		if _, err := output.Write([]byte(formatted)); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to write log output: %v\n", err)
+		}
 	}
 }
 
@@ -180,7 +182,9 @@ func (l *Logger) WriteFileOnly(level LogLevel, message string, source string) {
 	// Write only to file outputs (skip stdout)
 	for _, output := range l.outputs {
 		if output != os.Stdout {
-			output.Write([]byte(formatted))
+			if _, err := output.Write([]byte(formatted)); err != nil {
+				fmt.Fprintf(os.Stderr, "failed to write log output: %v\n", err)
+			}
 		}
 	}
 }

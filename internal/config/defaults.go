@@ -1,16 +1,8 @@
 // Package config provides default configuration values for dumber.
 package config
 
-import (
-	"time"
-)
-
 // Default configuration constants
 const (
-	// Database defaults
-	defaultMaxIdleTimeMin  = 5  // minutes
-	defaultQueryTimeoutSec = 30 // seconds
-
 	// History defaults
 	defaultMaxHistoryEntries = 10000 // entries
 	defaultRetentionDays     = 365   // 1 year
@@ -27,7 +19,7 @@ const (
 	defaultFontSize = 16 // points
 
 	// Workspace defaults
-	defaultPaneActivationShortcut  = "cmdorctrl+p"
+	defaultPaneActivationShortcut  = "ctrl+p"
 	defaultPaneTimeoutMilliseconds = 3000
 	defaultPopupPlacement          = "right"
 
@@ -52,9 +44,7 @@ func getDefaultLogDir() string {
 func DefaultConfig() *Config {
 	return &Config{
 		Database: DatabaseConfig{
-			MaxConnections: 1,
-			MaxIdleTime:    time.Minute * defaultMaxIdleTimeMin,
-			QueryTimeout:   time.Second * defaultQueryTimeoutSec,
+			// Path is set dynamically in config.Load()
 		},
 		History: HistoryConfig{
 			MaxEntries:          defaultMaxHistoryEntries,
@@ -131,20 +121,8 @@ func DefaultConfig() *Config {
 			VideoBufferSizeMB:         16,                                                                                                      // Larger buffer for AV1 streams
 			QueueBufferTimeSec:        10,                                                                                                      // More buffering time for smooth playback
 			CustomUserAgent:           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36", // Chrome UA with AV1 support
-			AV1MaxResolution:          "1080p",                                                                                                 // Optimal AV1 up to 1080p, fallback to VP9 for higher res
-			DisableTwitchCodecControl: true,                                                                                                    // Disable codec control on Twitch by default (prevents theater/fullscreen freezing)
-		},
-		WebkitMemory: WebkitMemoryConfig{
-			CacheModel:              "web_browser", // Aggressive caching for fast page loads
-			EnablePageCache:         true,          // Instant back/forward navigation
-			MemoryLimitMB:           0,             // Use system default
-			ConservativeThreshold:   0.4,           // Start cleanup at 40%
-			StrictThreshold:         0.6,           // Strict cleanup at 60%
-			KillThreshold:           0.8,           // Kill processes at 80%
-			PollIntervalSeconds:     45.0,          // Check every 45 seconds
-			EnableGCInterval:        120,           // GC every 2 minutes
-			ProcessRecycleThreshold: 50,            // Recycle after 50 page loads
-			EnableMemoryMonitoring:  true,          // Monitor for production tuning
+			AV1MaxResolution:          "1080p", // Optimal AV1 up to 1080p, fallback to VP9 for higher res
+			DisableTwitchCodecControl: true,    // Disable codec control on Twitch by default (prevents theater/fullscreen freezing)
 		},
 		Debug: DebugConfig{
 			EnableWebKitDebug:     false,
@@ -159,10 +137,6 @@ func DefaultConfig() *Config {
 			EnableCSSDebug:        false,
 			EnableFocusMetrics:    false,
 			EnablePaneCloseDebug:  false,
-		},
-		APISecurity: APISecurityConfig{
-			Token:        "",
-			RequireToken: false,
 		},
 		RenderingMode: RenderingModeGPU,
 		UseDomZoom:    false,
@@ -187,10 +161,10 @@ func DefaultConfig() *Config {
 				},
 			},
 			Tabs: TabKeyConfig{
-				NewTab:      "cmdorctrl+t",
-				CloseTab:    "cmdorctrl+w",
-				NextTab:     "cmdorctrl+tab",
-				PreviousTab: "cmdorctrl+shift+tab",
+				NewTab:      "ctrl+t",
+				CloseTab:    "ctrl+w",
+				NextTab:     "ctrl+tab",
+				PreviousTab: "ctrl+shift+tab",
 			},
 			Popups: PopupBehaviorConfig{
 				Behavior:             PopupBehaviorSplit, // Default: open popups in split panes

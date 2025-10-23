@@ -93,9 +93,16 @@ func setupTestDB(t *testing.T) (*sql.DB, *db.Queries, func()) {
 func setupTestBrowserService(t *testing.T) (*services.BrowserService, func()) {
 	_, queries, cleanup := setupTestDB(t)
 
-	cfg := &config.Config{}
+	cfg := &config.Config{
+		DefaultZoom: 1.0, // Set default zoom level
+	}
 
 	service := services.NewBrowserService(cfg, queries)
+
+	// Load zoom cache (simulates startup behavior)
+	if err := service.LoadZoomCacheFromDB(context.Background()); err != nil {
+		t.Fatalf("Failed to load zoom cache: %v", err)
+	}
 
 	return service, cleanup
 }

@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/pkg/gpu"
@@ -32,9 +31,7 @@ type Config struct {
 	Appearance        AppearanceConfig          `mapstructure:"appearance" yaml:"appearance"`
 	VideoAcceleration VideoAccelerationConfig   `mapstructure:"video_acceleration" yaml:"video_acceleration"`
 	CodecPreferences  CodecConfig               `mapstructure:"codec_preferences" yaml:"codec_preferences"`
-	WebkitMemory      WebkitMemoryConfig        `mapstructure:"webkit_memory" yaml:"webkit_memory"`
 	Debug             DebugConfig               `mapstructure:"debug" yaml:"debug"`
-	APISecurity       APISecurityConfig         `mapstructure:"api_security" yaml:"api_security"`
 	// RenderingMode controls GPU/CPU rendering selection for WebKit
 	RenderingMode RenderingMode `mapstructure:"rendering_mode" yaml:"rendering_mode"`
 	// UseDomZoom toggles DOM-based zoom instead of native WebKit zoom.
@@ -58,10 +55,7 @@ const (
 
 // DatabaseConfig holds database-related configuration.
 type DatabaseConfig struct {
-	Path           string        `mapstructure:"path" yaml:"path"`
-	MaxConnections int           `mapstructure:"max_connections" yaml:"max_connections"`
-	MaxIdleTime    time.Duration `mapstructure:"max_idle_time" yaml:"max_idle_time"`
-	QueryTimeout   time.Duration `mapstructure:"query_timeout" yaml:"query_timeout"`
+	Path string `mapstructure:"path" yaml:"path"`
 }
 
 // HistoryConfig holds history-related configuration.
@@ -178,35 +172,6 @@ type CodecConfig struct {
 	DisableTwitchCodecControl bool `mapstructure:"disable_twitch_codec_control" yaml:"disable_twitch_codec_control"`
 }
 
-// WebkitMemoryConfig holds WebKit memory optimization settings
-type WebkitMemoryConfig struct {
-	// Cache model (document_viewer | web_browser | primary_web_browser)
-	CacheModel string `mapstructure:"cache_model" yaml:"cache_model"`
-
-	// Enable page cache for back/forward navigation
-	EnablePageCache bool `mapstructure:"enable_page_cache" yaml:"enable_page_cache"`
-
-	// Memory limit in MB (0 = system default)
-	MemoryLimitMB int `mapstructure:"memory_limit_mb" yaml:"memory_limit_mb"`
-
-	// Memory pressure thresholds (0.0-1.0)
-	ConservativeThreshold float64 `mapstructure:"conservative_threshold" yaml:"conservative_threshold"`
-	StrictThreshold       float64 `mapstructure:"strict_threshold" yaml:"strict_threshold"`
-	KillThreshold         float64 `mapstructure:"kill_threshold" yaml:"kill_threshold"`
-
-	// Memory monitoring interval in seconds
-	PollIntervalSeconds float64 `mapstructure:"poll_interval_seconds" yaml:"poll_interval_seconds"`
-
-	// Garbage collection interval in seconds (0 = disabled)
-	EnableGCInterval int `mapstructure:"enable_gc_interval" yaml:"enable_gc_interval"`
-
-	// Process recycling threshold (number of page loads)
-	ProcessRecycleThreshold int `mapstructure:"process_recycle_threshold" yaml:"process_recycle_threshold"`
-
-	// Enable memory monitoring logs
-	EnableMemoryMonitoring bool `mapstructure:"enable_memory_monitoring" yaml:"enable_memory_monitoring"`
-}
-
 // DebugConfig holds debug and troubleshooting options
 type DebugConfig struct {
 	// Enable WebKit internal debug logging
@@ -245,14 +210,6 @@ type DebugConfig struct {
 
 	// Enable detailed pane close instrumentation and tree snapshots
 	EnablePaneCloseDebug bool `mapstructure:"enable_pane_close_debug" yaml:"enable_pane_close_debug"`
-}
-
-// APISecurityConfig holds optional API key protection for dumb://api endpoints
-type APISecurityConfig struct {
-	// If non-empty, token that requests must present via `token` query param
-	Token string `mapstructure:"token" yaml:"token"`
-	// If true, require token for all API endpoints (except a minimal allowlist)
-	RequireToken bool `mapstructure:"require_token" yaml:"require_token"`
 }
 
 // WorkspaceConfig captures layout, pane, and tab behaviour preferences.
@@ -371,12 +328,6 @@ func NewManager() (*Manager, error) {
 	// Bind specific environment variables
 	bindings := map[string]string{
 		"database.path":             "DATABASE_PATH",
-		"database.max_connections":  "DATABASE_MAX_CONNECTIONS",
-		"database.max_idle_time":    "DATABASE_MAX_IDLE_TIME",
-		"database.query_timeout":    "DATABASE_QUERY_TIMEOUT",
-		"browser.command":           "BROWSER_COMMAND",
-		"browser.timeout":           "BROWSER_TIMEOUT",
-		"browser.detach_process":    "BROWSER_DETACH_PROCESS",
 		"history.max_entries":       "HISTORY_MAX_ENTRIES",
 		"history.retention_period":  "HISTORY_RETENTION_PERIOD",
 		"history.cleanup_interval":  "HISTORY_CLEANUP_INTERVAL",
@@ -395,9 +346,6 @@ func NewManager() (*Manager, error) {
 		"logging.max_backups":       "LOGGING_MAX_BACKUPS",
 		"logging.max_age":           "LOGGING_MAX_AGE",
 		"logging.compress":          "LOGGING_COMPRESS",
-		// API security
-		"api_security.token":         "API_TOKEN",
-		"api_security.require_token": "API_REQUIRE_TOKEN",
 	}
 
 	for key, env := range bindings {
@@ -448,26 +396,6 @@ func NewManager() (*Manager, error) {
 	}
 
 	for key, env := range codecEnvBindings {
-		if err := v.BindEnv(key, env); err != nil {
-			return nil, fmt.Errorf("failed to bind environment variable %s: %w", env, err)
-		}
-	}
-
-	// WebKit memory environment variable bindings
-	memoryEnvBindings := map[string]string{
-		"webkit_memory.cache_model":               "DUMBER_CACHE_MODEL",
-		"webkit_memory.enable_page_cache":         "DUMBER_ENABLE_PAGE_CACHE",
-		"webkit_memory.memory_limit_mb":           "DUMBER_MEMORY_LIMIT_MB",
-		"webkit_memory.conservative_threshold":    "DUMBER_MEMORY_CONSERVATIVE",
-		"webkit_memory.strict_threshold":          "DUMBER_MEMORY_STRICT",
-		"webkit_memory.kill_threshold":            "DUMBER_MEMORY_KILL",
-		"webkit_memory.poll_interval_seconds":     "DUMBER_MEMORY_POLL_INTERVAL",
-		"webkit_memory.enable_gc_interval":        "DUMBER_GC_INTERVAL",
-		"webkit_memory.process_recycle_threshold": "DUMBER_RECYCLE_THRESHOLD",
-		"webkit_memory.enable_memory_monitoring":  "DUMBER_ENABLE_MEMORY_MONITORING",
-	}
-
-	for key, env := range memoryEnvBindings {
 		if err := v.BindEnv(key, env); err != nil {
 			return nil, fmt.Errorf("failed to bind environment variable %s: %w", env, err)
 		}
@@ -659,10 +587,7 @@ func (m *Manager) reload() error {
 func (m *Manager) setDefaults() {
 	defaults := DefaultConfig()
 
-	// Database defaults
-	m.viper.SetDefault("database.max_connections", defaults.Database.MaxConnections)
-	m.viper.SetDefault("database.max_idle_time", defaults.Database.MaxIdleTime)
-	m.viper.SetDefault("database.query_timeout", defaults.Database.QueryTimeout)
+	// Note: Database.Path is set dynamically in Load(), no defaults needed
 
 	// Note: Browser config removed - we build our own browser
 
@@ -743,18 +668,6 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("codec_preferences.av1_max_resolution", defaults.CodecPreferences.AV1MaxResolution)
 	m.viper.SetDefault("codec_preferences.disable_twitch_codec_control", defaults.CodecPreferences.DisableTwitchCodecControl)
 
-	// WebKit memory defaults
-	m.viper.SetDefault("webkit_memory.cache_model", defaults.WebkitMemory.CacheModel)
-	m.viper.SetDefault("webkit_memory.enable_page_cache", defaults.WebkitMemory.EnablePageCache)
-	m.viper.SetDefault("webkit_memory.memory_limit_mb", defaults.WebkitMemory.MemoryLimitMB)
-	m.viper.SetDefault("webkit_memory.conservative_threshold", defaults.WebkitMemory.ConservativeThreshold)
-	m.viper.SetDefault("webkit_memory.strict_threshold", defaults.WebkitMemory.StrictThreshold)
-	m.viper.SetDefault("webkit_memory.kill_threshold", defaults.WebkitMemory.KillThreshold)
-	m.viper.SetDefault("webkit_memory.poll_interval_seconds", defaults.WebkitMemory.PollIntervalSeconds)
-	m.viper.SetDefault("webkit_memory.enable_gc_interval", defaults.WebkitMemory.EnableGCInterval)
-	m.viper.SetDefault("webkit_memory.process_recycle_threshold", defaults.WebkitMemory.ProcessRecycleThreshold)
-	m.viper.SetDefault("webkit_memory.enable_memory_monitoring", defaults.WebkitMemory.EnableMemoryMonitoring)
-
 	// Rendering defaults
 	m.viper.SetDefault("rendering_mode", string(RenderingModeGPU))
 	m.viper.SetDefault("use_dom_zoom", defaults.UseDomZoom)
@@ -802,6 +715,13 @@ func (m *Manager) createDefaultConfig() error {
 	}
 
 	fmt.Printf("Created default configuration file: %s\n", configFile)
+
+	// Generate JSON schema file
+	if err := GenerateSchemaFile(); err != nil {
+		// Log error but don't fail config creation
+		fmt.Fprintf(os.Stderr, "Warning: failed to generate config schema: %v\n", err)
+	}
+
 	return nil
 }
 
@@ -907,17 +827,17 @@ func (m *Manager) validateAndConfigureCodecPreferences(config *Config) *Config {
 // validateColorScheme validates and normalizes the ColorScheme setting
 func (m *Manager) validateColorScheme(config *Config) {
 	switch config.Appearance.ColorScheme {
-	case "prefer-dark", "prefer-light", "default", "":
+	case "prefer-dark", "prefer-light", ThemeDefault, "":
 		// Valid values - no changes needed
 		// Empty string is treated the same as "default"
 		if config.Appearance.ColorScheme == "" {
-			config.Appearance.ColorScheme = "default"
-			logging.Info("Config: ColorScheme not set, defaulting to 'default' (follows system)")
+			config.Appearance.ColorScheme = ThemeDefault
+			logging.Info("Config: ColorScheme not set, defaulting to '" + ThemeDefault + "' (follows system)")
 		}
 	default:
 		// Invalid value - warn and reset to default
-		logging.Info(fmt.Sprintf("Config: Invalid color_scheme value '%s', valid values are: 'prefer-dark', 'prefer-light', 'default'. Resetting to 'default'",
+		logging.Info(fmt.Sprintf("Config: Invalid color_scheme value '%s', valid values are: 'prefer-dark', 'prefer-light', '"+ThemeDefault+"'. Resetting to '"+ThemeDefault+"'",
 			config.Appearance.ColorScheme))
-		config.Appearance.ColorScheme = "default"
+		config.Appearance.ColorScheme = ThemeDefault
 	}
 }

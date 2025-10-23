@@ -132,7 +132,9 @@ func applyMigration(db *sql.DB, migration Migration) error {
 	}
 	defer func() {
 		if err != nil {
-			tx.Rollback()
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				log.Printf("failed to rollback migration transaction: %v", rollbackErr)
+			}
 		}
 	}()
 
@@ -175,7 +177,11 @@ func GetAppliedMigrations(db *sql.DB) ([]int, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to query applied migrations: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close migration query rows: %v", err)
+		}
+	}()
 
 	var versions []int
 	for rows.Next() {

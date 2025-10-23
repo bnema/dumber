@@ -2,7 +2,7 @@ package cache
 
 import (
 	"context"
-	"crypto/md5"
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -286,7 +286,7 @@ func (cm *CacheManager) calculateDBHash(ctx context.Context) (string, error) {
 	}
 
 	// Create hash from URLs, visit counts, and last visited times
-	hasher := md5.New()
+	hasher := sha256.New()
 	for _, entry := range recentHistory {
 		hasher.Write([]byte(entry.Url))
 		if entry.VisitCount.Valid {

@@ -4,6 +4,7 @@ package services
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -52,7 +53,7 @@ func NewFaviconService(faviconDB *webkit.FaviconDatabase, queries db.DatabaseQue
 
 	// Create export directory for CLI access
 	exportDir := filepath.Join(dataDir, "favicons-export")
-	if err := os.MkdirAll(exportDir, 0755); err != nil {
+	if err := os.MkdirAll(exportDir, 0750); err != nil {
 		return nil, fmt.Errorf("failed to create favicon export directory: %w", err)
 	}
 
@@ -291,7 +292,7 @@ func (fs *FaviconService) lookupFaviconURI(ctx context.Context, pageURL string) 
 		if entry.FaviconUrl.Valid && entry.FaviconUrl.String != "" {
 			return entry.FaviconUrl.String, nil
 		}
-	} else if err != sql.ErrNoRows {
+	} else if !errors.Is(err, sql.ErrNoRows) {
 		log.Printf("[favicon] failed to query history entry for %s: %v", pageURL, err)
 	}
 
@@ -439,7 +440,9 @@ func (fs *FaviconService) CleanOldExports() error {
 		}
 
 		if info.ModTime().Before(cutoff) {
-			os.Remove(filepath.Join(fs.exportDir, entry.Name()))
+			if err := os.Remove(filepath.Join(fs.exportDir, entry.Name())); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to remove old favicon: %v\n", err)
+			}
 		}
 	}
 

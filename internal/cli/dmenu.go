@@ -172,11 +172,8 @@ func generateOptionsFallback(cli *CLI) error {
 		return fmt.Errorf("failed to get history: %w", err)
 	}
 
-	// Get shortcuts
-	shortcuts, err := cli.Queries.GetShortcuts(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get shortcuts: %w", err)
-	}
+	// Get shortcuts from configuration (not database)
+	shortcuts := cli.Config.SearchShortcuts
 
 	// Generate options
 	options := make([]DmenuOption, 0, len(history)+len(shortcuts)+1)
@@ -190,15 +187,15 @@ func generateOptionsFallback(cli *CLI) error {
 	})
 
 	// Add shortcuts with examples
-	for _, shortcut := range shortcuts {
-		desc := shortcut.Description.String
-		if !shortcut.Description.Valid {
+	for shortcutKey, shortcut := range shortcuts {
+		desc := shortcut.Description
+		if desc == "" {
 			desc = "Custom shortcut"
 		}
 
 		options = append(options, DmenuOption{
-			Display:     fmt.Sprintf("🔍 %s: (%s)", shortcut.Shortcut, desc),
-			Value:       shortcut.Shortcut + ":",
+			Display:     fmt.Sprintf("🔍 %s: (%s)", shortcutKey, desc),
+			Value:       shortcutKey + ":",
 			Type:        "shortcut",
 			Description: desc,
 		})
