@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/bnema/dumber/assets"
+	"github.com/bnema/dumber/internal/config"
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
 )
 
@@ -39,7 +40,22 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 
 	// Inject GTK theme detection SECOND, before color-scheme script
 	// The color-scheme.ts expects window.__dumber_gtk_prefers_dark to be set
-	prefersDark := PrefersDarkTheme()
+	// Respect the ColorScheme config setting
+	cfg := config.Get()
+	var prefersDark bool
+	switch cfg.Appearance.ColorScheme {
+	case "prefer-dark":
+		prefersDark = true
+		log.Printf("[webkit] Using config-forced dark theme (color_scheme: prefer-dark)")
+	case "prefer-light":
+		prefersDark = false
+		log.Printf("[webkit] Using config-forced light theme (color_scheme: prefer-light)")
+	default:
+		// "default" or empty - follow system GTK preference
+		prefersDark = PrefersDarkTheme()
+		log.Printf("[webkit] Using system GTK theme preference (color_scheme: %s)", cfg.Appearance.ColorScheme)
+	}
+
 	gtkThemeScript := fmt.Sprintf(`window.__dumber_gtk_prefers_dark = %t;`, prefersDark)
 	ucm.AddScript(webkit.NewUserScript(
 		gtkThemeScript,
@@ -48,7 +64,7 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 		nil,
 		nil,
 	))
-	log.Printf("[webkit] Injected GTK theme preference: prefersDark=%t", prefersDark)
+	log.Printf("[webkit] Injected theme preference: prefersDark=%t", prefersDark)
 
 	// Inject palette config SECOND, before GUI scripts
 	// The GUI expects window.__dumber_palette = { "light": {...}, "dark": {...} }
