@@ -2,6 +2,7 @@ package webkit
 
 import (
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
+	"github.com/diamondburned/gotk4/pkg/gio/v2"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
@@ -239,10 +240,20 @@ func WidgetAllocation(w gtk.Widgetter) (x, y, width, height int) {
 
 // PrefersDarkTheme checks if the system prefers dark theme
 func PrefersDarkTheme() bool {
+	// First try to read GNOME's color-scheme setting (GTK4+)
+	if gnomeSettings := gio.NewSettings("org.gnome.desktop.interface"); gnomeSettings != nil {
+		colorScheme := gnomeSettings.String("color-scheme")
+		if colorScheme == "prefer-dark" {
+			return true
+		}
+		if colorScheme == "prefer-light" {
+			return false
+		}
+	}
+
+	// Fallback to GTK's application-level preference
 	settings := gtk.SettingsGetDefault()
 	if settings != nil {
-		// In GTK4, check the color scheme preference
-		// The property is "gtk-application-prefer-dark-theme"
 		obj := settings.Object
 		if obj != nil {
 			prop := obj.ObjectProperty("gtk-application-prefer-dark-theme")
