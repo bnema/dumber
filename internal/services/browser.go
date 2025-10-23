@@ -49,7 +49,7 @@ type BrowserService struct {
 	guiBundle          string
 	zoomCache          sync.Map           // In-memory cache: key = domain/URL, value = float64 zoom level
 	historyQueue       chan historyUpdate // Queue for batched history writes
-	historyFlushDone   chan struct{}      // Signal when history flush is complete
+	historyFlushDone   chan bool          // Signal when history flush is complete (buffered)
 }
 
 // ServiceName returns the service name for frontend binding
@@ -88,7 +88,7 @@ func NewBrowserService(cfg *config.Config, queries db.DatabaseQuerier) *BrowserS
 		initialURL:         "",
 		guiBundle:          "",
 		historyQueue:       make(chan historyUpdate, 100), // Buffer 100 history updates
-		historyFlushDone:   make(chan struct{}),
+		historyFlushDone:   make(chan bool, 1),            // Buffered to prevent blocking
 	}
 
 	// Start background batch processor for history writes
@@ -428,7 +428,7 @@ func (s *BrowserService) processHistoryQueue() {
 			if !ok {
 				// Channel closed, flush remaining and exit
 				flush()
-				close(s.historyFlushDone)
+				s.historyFlushDone <- true // Send signal (non-blocking due to buffer)
 				return
 			}
 			batch = append(batch, update)
@@ -446,7 +446,7 @@ func (s *BrowserService) processHistoryQueue() {
 // Call this during graceful shutdown.
 func (s *BrowserService) FlushHistoryQueue() {
 	close(s.historyQueue)
-	<-s.historyFlushDone // Wait for flush to complete
+	<-s.historyFlushDone // Wait for completion signal
 	log.Printf("History queue flushed and closed")
 }
 
