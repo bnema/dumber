@@ -430,7 +430,7 @@ func (spm *StackedPaneManager) UpdateStackVisibility(stackNode *paneNode) {
 				if pane.pane != nil && pane.pane.webView != nil {
 					title := pane.pane.webView.GetTitle()
 					if title == "" {
-						title = "New Tab"
+						title = NewTabTitle
 					}
 					spm.updateTitleBarLabel(pane, title)
 				}
@@ -475,12 +475,12 @@ func (spm *StackedPaneManager) NavigateStack(direction string) bool {
 	// Calculate new index based on direction
 	var newIndex int
 	switch direction {
-	case "up":
+	case DirectionUp:
 		newIndex = currentIndex - 1
 		if newIndex < 0 {
 			newIndex = len(stackNode.stackedPanes) - 1 // Wrap to last
 		}
-	case "down":
+	case DirectionDown:
 		newIndex = currentIndex + 1
 		if newIndex >= len(stackNode.stackedPanes) {
 			newIndex = 0 // Wrap to first
@@ -524,11 +524,11 @@ func (spm *StackedPaneManager) createTitleBar(pane *paneNode) gtk.Widgetter {
 	if pane.pane != nil && pane.pane.webView != nil {
 		titleText = pane.pane.webView.GetTitle()
 		if titleText == "" {
-			titleText = "New Tab" // Fallback only when title is actually empty
+			titleText = NewTabTitle // Fallback only when title is actually empty
 		}
 		pageURL = pane.pane.webView.GetCurrentURL()
 	} else {
-		titleText = "New Tab"
+		titleText = NewTabTitle
 	}
 
 	titleBar := spm.createTitleBarWithTitle(titleText, pageURL)
