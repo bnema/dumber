@@ -12,6 +12,7 @@ type ZoomQuerier interface {
 	GetZoomLevel(ctx context.Context, domain string) (float64, error)
 	SetZoomLevel(ctx context.Context, domain string, zoomLevel float64) error
 	DeleteZoomLevel(ctx context.Context, domain string) error
+	ListZoomLevels(ctx context.Context) ([]ZoomLevel, error)
 }
 
 // HistoryQuerier defines the interface for history-related database operations
