@@ -1,6 +1,7 @@
 package browser
 
 import (
+	"context"
 	"database/sql"
 	"embed"
 	"log"
@@ -136,6 +137,12 @@ func (app *BrowserApp) Initialize() error {
 	app.parserService = services.NewParserService(app.config, app.queries)
 	app.browserService = services.NewBrowserService(app.config, app.queries)
 
+	// Load zoom levels into in-memory cache for fast page transitions
+	if err := app.browserService.LoadZoomCacheFromDB(context.Background()); err != nil {
+		log.Printf("Warning: failed to load zoom cache: %v", err)
+		// Non-fatal - zoom will fall back to defaults
+	}
+
 	// Initialize handlers
 	app.schemeHandler = api.NewSchemeHandler(app.assets, app.parserService, app.browserService)
 	app.messageHandler = messaging.NewHandler(app.parserService, app.browserService)
@@ -211,11 +218,28 @@ func (app *BrowserApp) cleanup() {
 		app.workspace = nil
 	}
 
-	// Close database last
+	// Flush pending history writes before closing database
+	if app.browserService != nil {
+		log.Printf("Flushing pending history writes...")
+		app.browserService.FlushHistoryQueue()
+	}
+
+	// Close database with WAL checkpoint
 	if app.database != nil {
-		log.Printf("Closing database")
+		log.Printf("Performing WAL checkpoint and closing database...")
+
+		// Run WAL checkpoint to commit all pending writes and truncate WAL file
+		if _, err := app.database.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+			log.Printf("Warning: WAL checkpoint failed: %v", err)
+		} else {
+			log.Printf("WAL checkpoint completed successfully")
+		}
+
+		// Close database connection
 		if closeErr := app.database.Close(); closeErr != nil {
 			log.Printf("Warning: failed to close database: %v", closeErr)
+		} else {
+			log.Printf("Database closed successfully")
 		}
 	}
 
