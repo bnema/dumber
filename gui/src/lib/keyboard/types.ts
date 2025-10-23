@@ -6,7 +6,7 @@
  */
 
 export interface ShortcutConfig {
-  /** The keyboard shortcut key combination (e.g., 'cmdorctrl+l', 'escape', 'enter') */
+  /** The keyboard shortcut key combination (e.g., 'ctrl+l', 'escape', 'enter') */
   key: string;
 
   /** Function to execute when the shortcut is triggered */
@@ -78,8 +78,6 @@ export interface KeyboardEvent {
  */
 export const MODIFIER_KEYS = {
   ctrl: "ctrlKey",
-  cmd: "metaKey",
-  cmdorctrl: navigator.platform.includes("Mac") ? "metaKey" : "ctrlKey",
   alt: "altKey",
   shift: "shiftKey",
 } as const;
@@ -88,8 +86,8 @@ export const MODIFIER_KEYS = {
  * Common shortcut patterns used throughout the application
  */
 export const COMMON_SHORTCUTS = {
-  OMNIBOX_OPEN: "cmdorctrl+l",
-  FIND_OPEN: "cmdorctrl+f",
+  OMNIBOX_OPEN: "ctrl+l",
+  FIND_OPEN: "ctrl+f",
   ESCAPE: "escape",
   ENTER: "enter",
   ARROW_UP: "arrowup",
