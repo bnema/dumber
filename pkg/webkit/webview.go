@@ -46,6 +46,9 @@ type WebView struct {
 	onWorkspaceNavigation func(direction string) bool // Workspace pane navigation
 	onPaneModeShortcut    func(action string) bool    // Pane mode shortcuts (enter, actions, exit)
 	isPaneModeActive      func() bool                 // Check if pane mode is active
+	onLoadStarted         func()                      // Load started event
+	onLoadCommitted       func()                      // Load committed event (DOM available)
+	onLoadFinished        func()                      // Load finished event
 }
 
 // NewWebView creates a new WebView with the given configuration
@@ -197,6 +200,13 @@ func (w *WebView) applyConfig() error {
 	// Enable hardware acceleration if configured
 	settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyAlways)
 
+	// Performance optimizations for faster page transitions
+	// Enable page cache for instant back/forward navigation (bfcache)
+	settings.SetEnablePageCache(w.config.EnablePageCache)
+
+	// Enable smooth scrolling for better UX
+	settings.SetEnableSmoothScrolling(w.config.EnableSmoothScrolling)
+
 	return nil
 }
 
@@ -229,9 +239,31 @@ func (w *WebView) setupEventHandlers() {
 	// Favicon changed - connect to FaviconDatabase
 	w.setupFaviconHandlers()
 
-	// Load changed
+	// Load changed - track page lifecycle for performance monitoring
 	w.view.ConnectLoadChanged(func(event webkit.LoadEvent) {
-		// Handle load events if needed
+		// Avoid calling callbacks if WebView is being destroyed to prevent reference cycles
+		// especially important when page cache is enabled
+		if w.IsDestroyed() {
+			return
+		}
+
+		switch event {
+		case webkit.LoadStarted:
+			// Page load started - could show loading indicator
+			if w.onLoadStarted != nil {
+				w.onLoadStarted()
+			}
+		case webkit.LoadCommitted:
+			// Page committed - DOM is now available for interaction
+			if w.onLoadCommitted != nil {
+				w.onLoadCommitted()
+			}
+		case webkit.LoadFinished:
+			// Page fully loaded - all resources downloaded
+			if w.onLoadFinished != nil {
+				w.onLoadFinished()
+			}
+		}
 	})
 
 	// TLS error handling - connect to load-failed-with-tls-errors signal

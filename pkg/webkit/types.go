@@ -45,6 +45,13 @@ type Config struct {
 	// MinimumFontSize in pixels
 	MinimumFontSize int
 
+	// Performance optimizations
+	// EnablePageCache enables back/forward cache for instant navigation
+	EnablePageCache bool
+
+	// EnableSmoothScrolling enables smooth scrolling animations
+	EnableSmoothScrolling bool
+
 	// DataDir is the directory for persistent data (cookies, localStorage, etc.)
 	DataDir string
 
@@ -63,13 +70,15 @@ type Config struct {
 // GetDefaultConfig returns a Config with sensible defaults
 func GetDefaultConfig() *Config {
 	return &Config{
-		UserAgent:            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
-		EnableJavaScript:     true,
-		EnableWebGL:          true,
-		EnableMediaStream:    true,
-		HardwareAcceleration: true,
-		DefaultFontSize:      16,
-		MinimumFontSize:      8,
-		CreateWindow:         true, // Default to standalone window
+		UserAgent:             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+		EnableJavaScript:      true,
+		EnableWebGL:           true,
+		EnableMediaStream:     true,
+		HardwareAcceleration:  true,
+		DefaultFontSize:       16,
+		MinimumFontSize:       8,
+		EnablePageCache:       true, // Instant back/forward navigation
+		EnableSmoothScrolling: true, // Better UX
+		CreateWindow:          true, // Default to standalone window
 	}
 }
