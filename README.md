@@ -275,6 +275,7 @@ A default `config.json` is created on first run. Config changes are watched and 
 #### Appearance Settings
 ```json
 "appearance": {
+  "color_scheme": "default",
   "sans_font": "Fira Sans",
   "serif_font": "Fira Sans",
   "monospace_font": "Fira Code",
@@ -300,6 +301,7 @@ A default `config.json` is created on first run. Config changes are watched and 
   }
 }
 ```
+- `color_scheme`: `"prefer-dark"`, `"prefer-light"`, or `"default"` (follows system theme)
 
 #### Rendering Mode (GPU/CPU)
 ```json
