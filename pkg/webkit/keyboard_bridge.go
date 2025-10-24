@@ -94,6 +94,8 @@ var shortcutActions = map[string]string{
 	altmod + "+" + keyArrowUp:    directionUp,
 }
 
+// TODO(#8): Refactor this function to reduce cyclomatic complexity (52 -> <30)
+//
 // AttachKeyboardBridge attaches an EventControllerKey to bridge keyboard events to JavaScript
 // This is critical for allowing JavaScript KeyboardService to receive keyboard events
 // that would otherwise be consumed by GTK shortcuts
