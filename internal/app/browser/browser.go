@@ -218,12 +218,6 @@ func (app *BrowserApp) cleanup() {
 		app.workspace = nil
 	}
 
-	// Flush pending history writes before closing database
-	if app.browserService != nil {
-		log.Printf("Flushing pending history writes...")
-		app.browserService.FlushHistoryQueue()
-	}
-
 	// Close database with WAL checkpoint
 	if app.database != nil {
 		log.Printf("Performing WAL checkpoint and closing database...")
@@ -287,6 +281,15 @@ func (app *BrowserApp) runMainLoop() {
 		log.Printf("Entering GTK main loop…")
 		webkit.RunMainLoop()
 		log.Printf("GTK main loop exited")
+
+		// Flush pending history writes immediately after main loop exit
+		// This ensures database operations complete while GTK is still in a valid state
+		// MUST happen before cleanup() deferred call, which happens after this function returns
+		if app.browserService != nil {
+			log.Printf("Flushing pending history writes...")
+			app.browserService.FlushHistoryQueue()
+			log.Printf("History queue flushed successfully")
+		}
 	} else {
 		log.Printf("Not entering GUI loop (non-CGO build)")
 		// In non-CGO mode, just wait for signals

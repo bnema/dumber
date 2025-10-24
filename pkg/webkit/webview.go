@@ -6,7 +6,6 @@ import (
 	"log"
 	"strconv"
 	"sync"
-	"sync/atomic"
 
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
@@ -46,9 +45,6 @@ type WebView struct {
 	onWorkspaceNavigation func(direction string) bool // Workspace pane navigation
 	onPaneModeShortcut    func(action string) bool    // Pane mode shortcuts (enter, actions, exit)
 	isPaneModeActive      func() bool                 // Check if pane mode is active
-	onLoadStarted         func()                      // Load started event
-	onLoadCommitted       func()                      // Load committed event (DOM available)
-	onLoadFinished        func()                      // Load finished event
 }
 
 // NewWebView creates a new WebView with the given configuration
@@ -239,33 +235,6 @@ func (w *WebView) setupEventHandlers() {
 	// Favicon changed - connect to FaviconDatabase
 	w.setupFaviconHandlers()
 
-	// Load changed - track page lifecycle for performance monitoring
-	w.view.ConnectLoadChanged(func(event webkit.LoadEvent) {
-		// Avoid calling callbacks if WebView is being destroyed to prevent reference cycles
-		// especially important when page cache is enabled
-		if w.IsDestroyed() {
-			return
-		}
-
-		switch event {
-		case webkit.LoadStarted:
-			// Page load started - could show loading indicator
-			if w.onLoadStarted != nil {
-				w.onLoadStarted()
-			}
-		case webkit.LoadCommitted:
-			// Page committed - DOM is now available for interaction
-			if w.onLoadCommitted != nil {
-				w.onLoadCommitted()
-			}
-		case webkit.LoadFinished:
-			// Page fully loaded - all resources downloaded
-			if w.onLoadFinished != nil {
-				w.onLoadFinished()
-			}
-		}
-	})
-
 	// TLS error handling - connect to load-failed-with-tls-errors signal
 	w.setupTLSErrorHandler()
 
@@ -450,8 +419,12 @@ func (w *WebView) Hide() error {
 
 // Destroy destroys the WebView and releases resources
 func (w *WebView) Destroy() error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+	// DO NOT acquire w.mu lock here to avoid deadlock!
+	// After GTK main loop exits, any goroutine holding the lock and calling GTK methods
+	// will block forever waiting for the main loop. This causes Destroy() to deadlock
+	// trying to acquire the same lock.
+	//
+	// During shutdown, thread safety is not critical since we're tearing everything down.
 
 	if w.destroyed {
 		return nil
@@ -464,14 +437,17 @@ func (w *WebView) Destroy() error {
 	delete(viewRegistry, w.id)
 	viewMu.Unlock()
 
-	// The GTK widget will be cleaned up by Go GC
+	// DO NOT call StopLoading() or any other GTK methods here!
+	// After the main loop exits, GTK calls will block forever.
+	// The GTK widget will be cleaned up by Go GC.
+
 	return nil
 }
 
 // IsDestroyed returns true if the WebView has been destroyed
 func (w *WebView) IsDestroyed() bool {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
+	// DO NOT acquire lock - read of bool is atomic on all platforms Go supports
+	// This prevents deadlock during shutdown when GTK signal handlers check IsDestroyed
 	return w.destroyed
 }
 
