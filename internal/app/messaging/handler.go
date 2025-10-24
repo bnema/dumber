@@ -261,7 +261,9 @@ func (h *Handler) handleQuery(msg Message) {
 	if b, err := json.Marshal(results); err == nil {
 		// Prefer unified page-world API; fallback to legacy global function
 		script := "(window.__dumber?.omnibox?.suggestions ? window.__dumber.omnibox.suggestions(" + string(b) + ") : (window.__dumber_omnibox_suggestions && window.__dumber_omnibox_suggestions(" + string(b) + ")))"
-		h.webView.InjectScript(script)
+		if err := h.webView.InjectScript(script); err != nil {
+			log.Printf("[ERROR] Failed to inject omnibox suggestions: %v", err)
+		}
 	}
 }
 
