@@ -95,28 +95,11 @@ func (c *CLI) Close() error {
 // NewRootCmd creates the root command for dumber
 func NewRootCmd(version, commit, buildDate string) *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "dumber [url]",
+		Use:   "dumber",
 		Short: "A dumb browser for Wayland window managers",
 		Long:  `A fast, simple browser with rofi/dmenu integration for sway and hyprland window managers.`,
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// Initialize CLI
-			cli, err := NewCLI()
-			if err != nil {
-				return fmt.Errorf("failed to initialize CLI: %w", err)
-			}
-			defer func() {
-				if closeErr := cli.Close(); closeErr != nil {
-					fmt.Fprintf(os.Stderr, "Warning: failed to close database: %v\n", closeErr)
-				}
-			}()
-
-			// If URL provided, browse it directly
-			if len(args) > 0 {
-				return browse(cli, args[0])
-			}
-
-			// Otherwise show help
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			// Show help when no subcommand is provided
 			return cmd.Help()
 		},
 	}
