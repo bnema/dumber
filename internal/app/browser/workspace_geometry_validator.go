@@ -166,9 +166,9 @@ func (gv *GeometryValidator) ValidateSplit(node *paneNode, direction string) Val
 	}
 
 	switch direction {
-	case "left", "right":
+	case DirectionLeft, DirectionRight:
 		return gv.ValidateHorizontalSplit(node)
-	case "up", "down":
+	case DirectionUp, DirectionDown:
 		return gv.ValidateVerticalSplit(node)
 	default:
 		return ValidationResult{IsValid: false, Reason: fmt.Sprintf("unknown split direction: %s", direction)}

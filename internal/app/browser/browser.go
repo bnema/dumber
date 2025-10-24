@@ -1,13 +1,16 @@
 package browser
 
 import (
+	"context"
 	"database/sql"
 	"embed"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"runtime"
 	"syscall"
+	"time"
 
 	"github.com/bnema/dumber/internal/app/api"
 	"github.com/bnema/dumber/internal/app/control"
@@ -19,6 +22,7 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/services"
 	"github.com/bnema/dumber/pkg/webkit"
+	"golang.org/x/sync/errgroup"
 )
 
 // BrowserApp represents the main browser application
@@ -61,6 +65,7 @@ type BrowserApp struct {
 
 // Run starts the browser application
 func Run(assets embed.FS, version, commit, buildDate string) {
+	startupStart := time.Now()
 	log.Printf("Starting GUI mode (webkit_cgo=%v)", webkit.IsNativeAvailable())
 
 	app := &BrowserApp{
@@ -76,6 +81,12 @@ func Run(assets embed.FS, version, commit, buildDate string) {
 			runtime.UnlockOSThread()
 		}
 		os.Exit(1)
+	}
+
+	startupElapsed := time.Since(startupStart)
+	log.Printf("[startup] Application initialized in %v", startupElapsed)
+	if startupElapsed > 500*time.Millisecond {
+		log.Printf("[startup] WARNING: Startup took %v (target: <500ms)", startupElapsed)
 	}
 
 	app.Run()
@@ -136,9 +147,66 @@ func (app *BrowserApp) Initialize() error {
 	app.parserService = services.NewParserService(app.config, app.queries)
 	app.browserService = services.NewBrowserService(app.config, app.queries)
 
+	// Load all caches in parallel for fast startup (target: <100ms)
+	if err := app.loadCachesParallel(context.Background()); err != nil {
+		log.Printf("Warning: failed to load caches: %v", err)
+		// Non-fatal - caches will fall back to defaults or DB queries
+	}
+
 	// Initialize handlers
 	app.schemeHandler = api.NewSchemeHandler(app.assets, app.parserService, app.browserService)
 	app.messageHandler = messaging.NewHandler(app.parserService, app.browserService)
+
+	return nil
+}
+
+// loadCachesParallel loads all caches in parallel for fast startup.
+// Uses errgroup to coordinate parallel loads and capture any errors.
+// Target: <100ms for all caches combined.
+func (app *BrowserApp) loadCachesParallel(ctx context.Context) error {
+	startTime := time.Now()
+
+	g, ctx := errgroup.WithContext(ctx)
+
+	// Load zoom cache in parallel
+	g.Go(func() error {
+		if err := app.browserService.LoadZoomCacheFromDB(ctx); err != nil {
+			log.Printf("[cache] Failed to load zoom cache: %v", err)
+			return err
+		}
+		return nil
+	})
+
+	// Load certificate validation cache in parallel
+	g.Go(func() error {
+		if err := app.browserService.LoadCertCacheFromDB(ctx); err != nil {
+			log.Printf("[cache] Failed to load cert cache: %v", err)
+			return err
+		}
+		return nil
+	})
+
+	// Load fuzzy search cache in parallel for instant dmenu access
+	g.Go(func() error {
+		if err := app.browserService.LoadFuzzyCacheFromDB(ctx); err != nil {
+			log.Printf("[cache] Failed to load fuzzy cache: %v", err)
+			return err
+		}
+		return nil
+	})
+
+	// Wait for all cache loads to complete
+	if err := g.Wait(); err != nil {
+		return fmt.Errorf("cache loading failed: %w", err)
+	}
+
+	elapsed := time.Since(startTime)
+	log.Printf("[cache] All caches loaded in %v", elapsed)
+
+	// Warn if startup is slower than target
+	if elapsed > 100*time.Millisecond {
+		log.Printf("[cache] Warning: Cache loading took %v (target: <100ms)", elapsed)
+	}
 
 	return nil
 }
@@ -211,11 +279,32 @@ func (app *BrowserApp) cleanup() {
 		app.workspace = nil
 	}
 
-	// Close database last
+	// Flush all caches to ensure pending writes complete before database closes
+	if app.browserService != nil {
+		log.Printf("Flushing all caches...")
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := app.browserService.FlushAllCaches(ctx); err != nil {
+			log.Printf("Warning: failed to flush caches: %v", err)
+		}
+	}
+
+	// Close database with WAL checkpoint
 	if app.database != nil {
-		log.Printf("Closing database")
+		log.Printf("Performing WAL checkpoint and closing database...")
+
+		// Run WAL checkpoint to commit all pending writes and truncate WAL file
+		if _, err := app.database.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+			log.Printf("Warning: WAL checkpoint failed: %v", err)
+		} else {
+			log.Printf("WAL checkpoint completed successfully")
+		}
+
+		// Close database connection
 		if closeErr := app.database.Close(); closeErr != nil {
 			log.Printf("Warning: failed to close database: %v", closeErr)
+		} else {
+			log.Printf("Database closed successfully")
 		}
 	}
 
@@ -263,6 +352,20 @@ func (app *BrowserApp) runMainLoop() {
 		log.Printf("Entering GTK main loop…")
 		webkit.RunMainLoop()
 		log.Printf("GTK main loop exited")
+
+		// Flush pending history writes immediately after main loop exit
+		// This ensures database operations complete while GTK is still in a valid state
+		// MUST happen before cleanup() deferred call, which happens after this function returns
+		if app.browserService != nil {
+			log.Printf("Flushing pending history writes...")
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := app.browserService.FlushHistoryQueue(ctx); err != nil {
+				log.Printf("Warning: history queue flush incomplete: %v", err)
+			} else {
+				log.Printf("History queue flushed successfully")
+			}
+		}
 	} else {
 		log.Printf("Not entering GUI loop (non-CGO build)")
 		// In non-CGO mode, just wait for signals

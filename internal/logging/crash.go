@@ -67,7 +67,9 @@ func handleCrash(sig os.Signal) {
 
 	// Force flush logs
 	if logger.rotator != nil {
-		logger.rotator.Close()
+		if err := logger.rotator.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to close log rotator: %v\n", err)
+		}
 	}
 
 	// Exit with error code

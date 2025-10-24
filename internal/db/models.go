@@ -17,6 +17,21 @@ type CertificateValidation struct {
 	ExpiresAt       sql.NullTime `json:"expires_at"`
 }
 
+type FuzzyCacheMetadatum struct {
+	ID           int64  `json:"id"`
+	Version      int64  `json:"version"`
+	EntryCount   int64  `json:"entry_count"`
+	LastModified int64  `json:"last_modified"`
+	EntriesHash  string `json:"entries_hash"`
+}
+
+type FuzzyCacheStructure struct {
+	ID           int64  `json:"id"`
+	TrigramIndex []byte `json:"trigram_index"`
+	PrefixTrie   []byte `json:"prefix_trie"`
+	SortedIndex  []byte `json:"sorted_index"`
+}
+
 type History struct {
 	ID          int64          `json:"id"`
 	Url         string         `json:"url"`
@@ -25,14 +40,6 @@ type History struct {
 	LastVisited sql.NullTime   `json:"last_visited"`
 	CreatedAt   sql.NullTime   `json:"created_at"`
 	FaviconUrl  sql.NullString `json:"favicon_url"`
-}
-
-type Shortcut struct {
-	ID          int64          `json:"id"`
-	Shortcut    string         `json:"shortcut"`
-	UrlTemplate string         `json:"url_template"`
-	Description sql.NullString `json:"description"`
-	CreatedAt   sql.NullTime   `json:"created_at"`
 }
 
 type ZoomLevel struct {

@@ -343,13 +343,8 @@ export class KeyboardService {
     const parts: string[] = [];
 
     // Add modifiers using MODIFIER_KEYS mapping
-    if (event.ctrlKey && event.metaKey) {
-      // Both ctrl and meta pressed - use cmdorctrl
-      parts.push("cmdorctrl");
-    } else if (event.ctrlKey) {
+    if (event.ctrlKey) {
       parts.push("ctrl");
-    } else if (event.metaKey) {
-      parts.push("cmd");
     }
 
     if (event.altKey) parts.push("alt");
@@ -407,20 +402,20 @@ export const keyboardService = new KeyboardService({
   globalShortcuts: [
     // Navigation shortcuts (migrated from controls module)
     {
-      key: "cmdorctrl+arrowleft",
+      key: "ctrl+arrowleft",
       handler: () => {
         if (window.history.length > 1) {
           window.history.back();
         }
       },
-      description: "Navigate back (Ctrl/Cmd+Left Arrow)",
+      description: "Navigate back (Ctrl+Left Arrow)",
     },
     {
-      key: "cmdorctrl+arrowright",
+      key: "ctrl+arrowright",
       handler: () => {
         window.history.forward();
       },
-      description: "Navigate forward (Ctrl/Cmd+Right Arrow)",
+      description: "Navigate forward (Ctrl+Right Arrow)",
     },
     // Note: Global UI shortcuts (Ctrl+L, Ctrl+F, Ctrl+Shift+C) are now handled
     // directly by the native Go shortcut handlers to ensure proper active pane detection.

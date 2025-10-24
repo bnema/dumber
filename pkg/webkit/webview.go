@@ -197,6 +197,13 @@ func (w *WebView) applyConfig() error {
 	// Enable hardware acceleration if configured
 	settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyAlways)
 
+	// Performance optimizations for faster page transitions
+	// Enable page cache for instant back/forward navigation (bfcache)
+	settings.SetEnablePageCache(w.config.EnablePageCache)
+
+	// Enable smooth scrolling for better UX
+	settings.SetEnableSmoothScrolling(w.config.EnableSmoothScrolling)
+
 	return nil
 }
 
@@ -228,11 +235,6 @@ func (w *WebView) setupEventHandlers() {
 
 	// Favicon changed - connect to FaviconDatabase
 	w.setupFaviconHandlers()
-
-	// Load changed
-	w.view.ConnectLoadChanged(func(event webkit.LoadEvent) {
-		// Handle load events if needed
-	})
 
 	// TLS error handling - connect to load-failed-with-tls-errors signal
 	w.setupTLSErrorHandler()
@@ -418,8 +420,12 @@ func (w *WebView) Hide() error {
 
 // Destroy destroys the WebView and releases resources
 func (w *WebView) Destroy() error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+	// DO NOT acquire w.mu lock here to avoid deadlock!
+	// After GTK main loop exits, any goroutine holding the lock and calling GTK methods
+	// will block forever waiting for the main loop. This causes Destroy() to deadlock
+	// trying to acquire the same lock.
+	//
+	// During shutdown, thread safety is not critical since we're tearing everything down.
 
 	if w.destroyed {
 		return nil
@@ -432,14 +438,17 @@ func (w *WebView) Destroy() error {
 	delete(viewRegistry, w.id)
 	viewMu.Unlock()
 
-	// The GTK widget will be cleaned up by Go GC
+	// DO NOT call StopLoading() or any other GTK methods here!
+	// After the main loop exits, GTK calls will block forever.
+	// The GTK widget will be cleaned up by Go GC.
+
 	return nil
 }
 
 // IsDestroyed returns true if the WebView has been destroyed
 func (w *WebView) IsDestroyed() bool {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
+	// DO NOT acquire lock - read of bool is atomic on all platforms Go supports
+	// This prevents deadlock during shutdown when GTK signal handlers check IsDestroyed
 	return w.destroyed
 }
 

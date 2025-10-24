@@ -11,9 +11,9 @@ import (
 
 // Keyboard shortcut modifier string constants
 const (
-	modifierCmdOrCtrl = "cmdorctrl"
-	modifierShift     = "shift"
-	modifierAlt       = "alt"
+	modifierCtrl  = "ctrl"
+	modifierShift = "shift"
+	modifierAlt   = "alt"
 )
 
 // GDK key constants for special keys
@@ -94,6 +94,8 @@ var shortcutActions = map[string]string{
 	altmod + "+" + keyArrowUp:    directionUp,
 }
 
+// TODO(#8): Refactor this function to reduce cyclomatic complexity (52 -> <30)
+//
 // AttachKeyboardBridge attaches an EventControllerKey to bridge keyboard events to JavaScript
 // This is critical for allowing JavaScript KeyboardService to receive keyboard events
 // that would otherwise be consumed by GTK shortcuts
@@ -127,9 +129,9 @@ func (w *WebView) AttachKeyboardBridge() {
 		// Build modifier prefix using switch on modifier combination
 		switch {
 		case ctrl && shift:
-			parts = append(parts, modifierCmdOrCtrl, modifierShift)
+			parts = append(parts, modifierCtrl, modifierShift)
 		case ctrl && !shift:
-			parts = append(parts, modifierCmdOrCtrl)
+			parts = append(parts, modifierCtrl)
 		case alt:
 			parts = append(parts, modifierAlt)
 		case shift:
@@ -199,7 +201,7 @@ func (w *WebView) AttachKeyboardBridge() {
 
 		if shortcut != "" {
 			// Special case: Ctrl+P enters pane mode
-			if shortcut == modifierCmdOrCtrl+"+"+keyP {
+			if shortcut == modifierCtrl+"+"+keyP {
 				w.mu.RLock()
 				handler := w.onPaneModeShortcut
 				w.mu.RUnlock()

@@ -185,7 +185,9 @@ func (wm *WorkspaceManager) ensureWorkspaceStyles() {
 
 	// Only apply CSS if it hasn't been applied globally or if content changed
 	if !globalCSSInitialized || globalCSSContent != workspaceCSS {
-		webkit.AddCSSProvider(workspaceCSS)
+		if err := webkit.AddCSSProvider(workspaceCSS); err != nil {
+			log.Printf("[workspace] WARNING: Failed to add CSS provider: %v", err)
+		}
 		globalCSSInitialized = true
 		globalCSSContent = workspaceCSS
 		log.Printf("[workspace] Applied workspace CSS styles (%d bytes)", len(workspaceCSS))

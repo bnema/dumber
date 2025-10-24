@@ -35,11 +35,11 @@ func (wm *WorkspaceManager) ensureGUIInPane(pane *BrowserPane) {
 // mapDirection maps a direction string to GTK orientation and positioning
 func mapDirection(direction string) (gtk.Orientation, bool) {
 	switch direction {
-	case "left":
+	case DirectionLeft:
 		return gtk.OrientationHorizontal, false
-	case "up":
+	case DirectionUp:
 		return gtk.OrientationVertical, false
-	case "down":
+	case DirectionDown:
 		return gtk.OrientationVertical, true
 	default:
 		return gtk.OrientationHorizontal, true

@@ -12,6 +12,7 @@ type ZoomQuerier interface {
 	GetZoomLevel(ctx context.Context, domain string) (float64, error)
 	SetZoomLevel(ctx context.Context, domain string, zoomLevel float64) error
 	DeleteZoomLevel(ctx context.Context, domain string) error
+	ListZoomLevels(ctx context.Context) ([]ZoomLevel, error)
 }
 
 // HistoryQuerier defines the interface for history-related database operations
@@ -25,16 +26,21 @@ type HistoryQuerier interface {
 	DeleteHistory(ctx context.Context, id int64) error
 }
 
-// ShortcutQuerier defines the interface for shortcut-related database operations
-type ShortcutQuerier interface {
-	GetShortcuts(ctx context.Context) ([]Shortcut, error)
+// CertificateQuerier defines the interface for certificate validation-related database operations
+type CertificateQuerier interface {
+	ListCertificateValidations(ctx context.Context) ([]CertificateValidation, error)
+	GetCertificateValidation(ctx context.Context, hostname string, certificateHash string) (CertificateValidation, error)
+	GetCertificateValidationByHostname(ctx context.Context, hostname string) (CertificateValidation, error)
+	StoreCertificateValidation(ctx context.Context, hostname string, certificateHash string, userDecision string, expiresAt sql.NullTime) error
+	DeleteCertificateValidation(ctx context.Context, hostname string, certificateHash string) error
+	DeleteExpiredCertificateValidations(ctx context.Context) error
 }
 
 // DatabaseQuerier combines all database operation interfaces
 type DatabaseQuerier interface {
 	ZoomQuerier
 	HistoryQuerier
-	ShortcutQuerier
+	CertificateQuerier
 }
 
 // Ensure that *Queries implements DatabaseQuerier interface

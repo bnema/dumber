@@ -23,11 +23,11 @@ type Querier interface {
 	GetHistory(ctx context.Context, limit int64) ([]History, error)
 	GetHistoryEntry(ctx context.Context, url string) (History, error)
 	GetHistoryWithOffset(ctx context.Context, limit int64, offset int64) ([]History, error)
-	GetShortcuts(ctx context.Context) ([]Shortcut, error)
 	// Get zoom level for a specific domain
 	GetZoomLevel(ctx context.Context, domain string) (float64, error)
 	// Get zoom level for domain with default fallback
 	GetZoomLevelWithDefault(ctx context.Context, domain string) (interface{}, error)
+	ListCertificateValidations(ctx context.Context) ([]CertificateValidation, error)
 	// List all zoom level settings ordered by most recently updated
 	ListZoomLevels(ctx context.Context) ([]ZoomLevel, error)
 	SearchHistory(ctx context.Context, column1 sql.NullString, column2 sql.NullString, limit int64) ([]History, error)

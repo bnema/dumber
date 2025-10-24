@@ -124,17 +124,17 @@ func (wm *WorkspaceManager) handlePaneSplit(node *paneNode, action string) {
 		return
 	}
 
-	// Extract direction from action (e.g., "split-right" -> "right")
+	// Extract direction from action (e.g., "split-right" -> DirectionRight)
 	var direction string
 	switch action {
 	case "split-right":
-		direction = "right"
+		direction = DirectionRight
 	case "split-left":
-		direction = "left"
+		direction = DirectionLeft
 	case "split-up":
-		direction = "up"
+		direction = DirectionUp
 	case "split-down":
-		direction = "down"
+		direction = DirectionDown
 	default:
 		log.Printf("[pane-mode] Invalid split action: %s", action)
 		return

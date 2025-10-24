@@ -41,22 +41,22 @@ Dumber is a minimalist browser and launcher companion focused on speed and simpl
 | Shortcut | Action | Notes |
 |----------|--------|-------|
 | **F12** | Open Developer Tools | WebKit inspector |
-| **Ctrl/Cmd+L** | Open Omnibox | URL/search input with history |
-| **Ctrl/Cmd+F** | Find in Page | Search text within current page |
-| **Ctrl/Cmd+=** | Zoom In | Firefox-compatible zoom levels |
-| **Ctrl/Cmd++** | Zoom In | Alternative plus key |
-| **Ctrl/Cmd+-** | Zoom Out | Works across keyboard layouts |
-| **Ctrl/Cmd+0** | Reset Zoom | Return to 100% zoom |
-| **Ctrl/Cmd+Shift+C** | Copy URL | Copy current URL to clipboard with toast |
-| **Ctrl/Cmd+Shift+P** | Print Page | Open native print dialog |
-| **Ctrl/Cmd+R** / **F5** | Reload Page | Refresh current page |
-| **Ctrl/Cmd+Shift+R** | Hard Reload | Refresh ignoring cache |
+| **Ctrl+L** | Open Omnibox | URL/search input with history |
+| **Ctrl+F** | Find in Page | Search text within current page |
+| **Ctrl+=** | Zoom In | Firefox-compatible zoom levels |
+| **Ctrl++** | Zoom In | Alternative plus key |
+| **Ctrl+-** | Zoom Out | Works across keyboard layouts |
+| **Ctrl+0** | Reset Zoom | Return to 100% zoom |
+| **Ctrl+Shift+C** | Copy URL | Copy current URL to clipboard with toast |
+| **Ctrl+Shift+P** | Print Page | Open native print dialog |
+| **Ctrl+R** / **F5** | Reload Page | Refresh current page |
+| **Ctrl+Shift+R** | Hard Reload | Refresh ignoring cache |
 | **Ctrl+←** / **Ctrl+→** | Navigate Back/Forward | Browser history navigation |
 
 #### Zellij-Inspired Pane Management
 | Shortcut | Action | Notes |
 |----------|--------|-------|
-| **Ctrl/Cmd+P** | Enter Pane Mode | Modal mode for pane operations |
+| **Ctrl+P** | Enter Pane Mode | Modal mode for pane operations |
 | **→** / **R** (in pane mode) | Split Right | Create new pane to the right |
 | **←** / **L** (in pane mode) | Split Left | Create new pane to the left |
 | **↑** / **U** (in pane mode) | Split Up | Create new pane above |
@@ -178,7 +178,7 @@ The pane system is fully configurable via `config.json`:
 "workspace": {
   "enable_zellij_controls": true,
   "pane_mode": {
-    "activation_shortcut": "cmdorctrl+p",
+    "activation_shortcut": "ctrl+p",
     "timeout_ms": 3000,
     "action_bindings": {
       "arrowright": "split-right",
@@ -208,134 +208,38 @@ Dumber follows the XDG Base Directory spec:
 
 A default `config.json` is created on first run. Config changes are watched and applied at runtime when possible.
 
-### Complete Configuration Reference
+### How Configuration Works
 
-#### Database Configuration
-```json
-"database": {
-  "path": "~/.local/state/dumber/history.db",
-  "max_connections": 1,
-  "max_idle_time": "5m0s",
-  "query_timeout": "30s"
-}
-```
+- **Config file**: `~/.config/dumber/config.json` (supports `.yaml` and `.toml` too)
+- **Format**: JSON/YAML/TOML - auto-detected
+- **JSON Schema**: Auto-generated for IDE autocompletion and validation
+- **Live reload**: Changes are automatically applied without restarting
+- **Environment variables**: Override any setting with `DUMB_BROWSER_*` or `DUMBER_*` prefix
+- **Default values**: Sensible defaults for all settings
 
-#### History Management
-```json
-"history": {
-  "max_entries": 10000,
-  "retention_period_days": 365,
-  "cleanup_interval_days": 1
-}
-```
+### Quick Examples
 
-#### Search Shortcuts
 ```json
-"search_shortcuts": {
-  "g":   { "url": "https://www.google.com/search?q=%s", "description": "Google search" },
-  "gh":  { "url": "https://github.com/search?q=%s", "description": "GitHub search" },
-  "yt":  { "url": "https://www.youtube.com/results?search_query=%s", "description": "YouTube search" },
-  "w":   { "url": "https://en.wikipedia.org/wiki/%s", "description": "Wikipedia search" },
-  "ddg": { "url": "https://duckduckgo.com/?q=%s", "description": "DuckDuckGo search" },
-  "so":  { "url": "https://stackoverflow.com/search?q=%s", "description": "Stack Overflow search" },
-  "r":   { "url": "https://www.reddit.com/search?q=%s", "description": "Reddit search" },
-  "npm": { "url": "https://www.npmjs.com/search?q=%s", "description": "npm package search" },
-  "go":  { "url": "https://pkg.go.dev/search?q=%s", "description": "Go package search" },
-  "mdn": { "url": "https://developer.mozilla.org/en-US/search?q=%s", "description": "MDN Web Docs search" }
-}
-```
-
-#### Dmenu Integration
-```json
-"dmenu": {
-  "max_history_items": 20,
-  "show_visit_count": true,
-  "show_last_visited": true,
-  "history_prefix": "🕒",
-  "shortcut_prefix": "🔍",
-  "url_prefix": "🌐",
-  "date_format": "2006-01-02 15:04",
-  "sort_by_visit_count": true
-}
-```
-
-#### Logging Configuration
-```json
-"logging": {
-  "level": "info",
-  "format": "text",
-  "filename": "",
-  "max_size": 100,
-  "max_backups": 3,
-  "max_age": 7,
-  "compress": true
-}
-```
-
-#### Appearance Settings
-```json
-"appearance": {
-  "color_scheme": "default",
-  "sans_font": "Fira Sans",
-  "serif_font": "Fira Sans",
-  "monospace_font": "Fira Code",
-  "default_font_size": 16,
+{
   "default_zoom": 1.2,
-  "color_palette": {
-    "light": {
-      "background": "#ffffff",
-      "surface": "#f5f5f5",
-      "text": "#1a1a1a",
-      "text_muted": "#6b7280",
-      "accent": "#3b82f6",
-      "border": "#e5e7eb"
-    },
-    "dark": {
-      "background": "#0a0a0a",
-      "surface": "#1a1a1a",
-      "text": "#e5e7eb",
-      "text_muted": "#9ca3af",
-      "accent": "#60a5fa",
-      "border": "#374151"
-    }
+  "rendering_mode": "gpu",
+  "search_shortcuts": {
+    "g": { "url": "https://google.com/search?q=%s", "description": "Google" }
+  },
+  "workspace": {
+    "enable_zellij_controls": true,
+    "popups": { "behavior": "split" }
   }
 }
 ```
-- `color_scheme`: `"prefer-dark"`, `"prefer-light"`, or `"default"` (follows system theme)
 
-#### Rendering Mode (GPU/CPU)
-```json
-"rendering_mode": "auto"
-```
-- `auto`: Detect GPU availability and use GPU when available (default)
-- `gpu`: Force GPU acceleration (Vulkan/OpenGL via GTK4)
-- `cpu`: Force software rendering
-
-### Environment Variables
-All config values can be overridden with environment variables using the `DUMB_BROWSER_` prefix:
-
+Environment variable override:
 ```bash
-# Database
-DUMB_BROWSER_DATABASE_PATH="./browser.db"
-DUMB_BROWSER_DATABASE_MAX_CONNECTIONS=5
-
-# Rendering mode (special variable name)
-DUMBER_RENDERING_MODE="gpu"
-
-# Dmenu settings
-DUMB_BROWSER_DMENU_MAX_HISTORY_ITEMS=50
-DUMB_BROWSER_DMENU_SHOW_VISIT_COUNT=false
-
-# Logging
-DUMB_BROWSER_LOGGING_LEVEL="debug"
-DUMB_BROWSER_LOGGING_FORMAT="json"
+DUMBER_RENDERING_MODE=cpu dumber
+DUMB_BROWSER_LOGGING_LEVEL=debug dumber
 ```
 
-### CLI Flags
-The browse command supports additional runtime flags:
-```bash
-dumber browse --rendering-mode=gpu https://example.com
-```
+**📖 Complete documentation**: See [docs/CONFIG.md](docs/CONFIG.md) for all available settings, defaults, and valid values.
 
 
 ## Building With WebKitGTK 6 (GTK4)

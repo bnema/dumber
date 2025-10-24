@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -46,8 +47,12 @@ func (c *OutputCapture) Start() error {
 	// Create pipes for stderr
 	stderrR, stderrW, err := os.Pipe()
 	if err != nil {
-		stdoutR.Close()
-		stdoutW.Close()
+		if closeErr := stdoutR.Close(); closeErr != nil {
+			log.Printf("failed to close stdout read pipe: %v", closeErr)
+		}
+		if closeErr := stdoutW.Close(); closeErr != nil {
+			log.Printf("failed to close stdout write pipe: %v", closeErr)
+		}
 		return err
 	}
 
@@ -62,8 +67,12 @@ func (c *OutputCapture) Start() error {
 	os.Stderr = stderrW
 
 	// Also redirect file descriptors at syscall level for C code
-	unix.Dup3(int(stdoutW.Fd()), 1, 0)
-	unix.Dup3(int(stderrW.Fd()), 2, 0)
+	if err := unix.Dup3(int(stdoutW.Fd()), 1, 0); err != nil {
+		log.Printf("failed to redirect stdout: %v", err)
+	}
+	if err := unix.Dup3(int(stderrW.Fd()), 2, 0); err != nil {
+		log.Printf("failed to redirect stderr: %v", err)
+	}
 
 	// Start goroutines to read and log
 	go c.pipeToLogger(stdoutR, "STDOUT")
@@ -85,21 +94,33 @@ func (c *OutputCapture) Stop() {
 	os.Stderr = c.originalStderr
 
 	// Restore file descriptors
-	unix.Dup3(int(c.originalStdout.Fd()), 1, 0)
-	unix.Dup3(int(c.originalStderr.Fd()), 2, 0)
+	if err := unix.Dup3(int(c.originalStdout.Fd()), 1, 0); err != nil {
+		log.Printf("failed to restore stdout: %v", err)
+	}
+	if err := unix.Dup3(int(c.originalStderr.Fd()), 2, 0); err != nil {
+		log.Printf("failed to restore stderr: %v", err)
+	}
 
 	// Close pipes
 	if c.stdoutWrite != nil {
-		c.stdoutWrite.Close()
+		if err := c.stdoutWrite.Close(); err != nil {
+			log.Printf("failed to close stdout write pipe: %v", err)
+		}
 	}
 	if c.stderrWrite != nil {
-		c.stderrWrite.Close()
+		if err := c.stderrWrite.Close(); err != nil {
+			log.Printf("failed to close stderr write pipe: %v", err)
+		}
 	}
 	if c.stdoutRead != nil {
-		c.stdoutRead.Close()
+		if err := c.stdoutRead.Close(); err != nil {
+			log.Printf("failed to close stdout read pipe: %v", err)
+		}
 	}
 	if c.stderrRead != nil {
-		c.stderrRead.Close()
+		if err := c.stderrRead.Close(); err != nil {
+			log.Printf("failed to close stderr read pipe: %v", err)
+		}
 	}
 
 	c.started = false
@@ -121,9 +142,13 @@ func (c *OutputCapture) pipeToLogger(r io.Reader, prefix string) {
 					timestamp := time.Now().Format("2006-01-02 15:04:05")
 					logLine := fmt.Sprintf("[%s] INFO [%s] %s\n", timestamp, prefix, line)
 					if prefix == "STDERR" {
-						c.originalStderr.WriteString(logLine)
+						if _, err := c.originalStderr.WriteString(logLine); err != nil {
+							log.Printf("failed to write to stderr: %v", err)
+						}
 					} else {
-						c.originalStdout.WriteString(logLine)
+						if _, err := c.originalStdout.WriteString(logLine); err != nil {
+							log.Printf("failed to write to stdout: %v", err)
+						}
 					}
 				}
 			}

@@ -55,7 +55,9 @@ func (n *NavigationController) NavigateToURL(input string) error {
 			haveZoom = true
 			if n.webView != nil {
 				if n.webView.UsesDomZoom() {
-					n.webView.SeedDomZoom(zoomLevel)
+					if err := n.webView.SeedDomZoom(zoomLevel); err != nil {
+						log.Printf("Warning: failed to seed DOM zoom for %s: %v", result.URL, err)
+					}
 				} else {
 					n.webView.RunOnMainThread(func() {
 						if err := n.webView.SetZoom(zoomLevel); err != nil {
@@ -108,7 +110,9 @@ func (n *NavigationController) HandleBrowseCommand() {
 						zoomLevel = level
 						haveZoom = true
 						if n.webView.UsesDomZoom() {
-							n.webView.SeedDomZoom(zoomLevel)
+							if err := n.webView.SeedDomZoom(zoomLevel); err != nil {
+								log.Printf("Warning: failed to seed DOM zoom for %s: %v", result.URL, err)
+							}
 						} else {
 							n.webView.RunOnMainThread(func() {
 								if err := n.webView.SetZoom(zoomLevel); err != nil {
