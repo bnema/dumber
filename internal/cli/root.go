@@ -65,14 +65,6 @@ func NewCLI() (*CLI, error) {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	// Initialize database schema with configuration-based shortcuts
-	if err := initializeDatabase(database, cfg); err != nil {
-		if err := database.Close(); err != nil {
-			log.Printf("Warning: failed to close database: %v", err)
-		}
-		return nil, fmt.Errorf("failed to initialize database: %w", err)
-	}
-
 	queries := db.New(database)
 	parserService := services.NewParserService(cfg, queries)
 
@@ -95,28 +87,11 @@ func (c *CLI) Close() error {
 // NewRootCmd creates the root command for dumber
 func NewRootCmd(version, commit, buildDate string) *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "dumber [url]",
+		Use:   "dumber",
 		Short: "A dumb browser for Wayland window managers",
 		Long:  `A fast, simple browser with rofi/dmenu integration for sway and hyprland window managers.`,
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// Initialize CLI
-			cli, err := NewCLI()
-			if err != nil {
-				return fmt.Errorf("failed to initialize CLI: %w", err)
-			}
-			defer func() {
-				if closeErr := cli.Close(); closeErr != nil {
-					fmt.Fprintf(os.Stderr, "Warning: failed to close database: %v\n", closeErr)
-				}
-			}()
-
-			// If URL provided, browse it directly
-			if len(args) > 0 {
-				return browse(cli, args[0])
-			}
-
-			// Otherwise show help
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			// Show help when no subcommand is provided
 			return cmd.Help()
 		},
 	}
@@ -182,21 +157,4 @@ func NewRootCmd(version, commit, buildDate string) *cobra.Command {
 	rootCmd.AddCommand(NewConfigCmd())
 
 	return rootCmd
-}
-
-// initializeDatabase ensures configured shortcuts are inserted
-// Migrations are run automatically in db.InitDB()
-func initializeDatabase(database *sql.DB, cfg *config.Config) error {
-	// Insert configured shortcuts (these are additive, won't override existing)
-	for shortcut, shortcutCfg := range cfg.SearchShortcuts {
-		_, err := database.Exec(
-			"INSERT OR IGNORE INTO shortcuts (shortcut, url_template, description) VALUES (?, ?, ?)",
-			shortcut, shortcutCfg.URL, shortcutCfg.Description,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to insert shortcut %s: %w", shortcut, err)
-		}
-	}
-
-	return nil
 }

@@ -20,7 +20,7 @@ func TestMigrationsAreIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Run migrations first time
 	if err := RunEmbeddedMigrations(db); err != nil {
@@ -83,7 +83,7 @@ func TestMigrationTrackingPreventsReapplication(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Run migrations
 	if err := RunEmbeddedMigrations(db); err != nil {
@@ -106,7 +106,7 @@ func TestMigrationTrackingPreventsReapplication(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to check for duplicate migration entries: %v", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	duplicates := []int{}
 	for rows.Next() {
@@ -131,7 +131,7 @@ func TestAllMigrationsApplyOnFreshDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Get expected migrations
 	expectedMigrations, err := GetMigrations()
@@ -207,7 +207,7 @@ func TestMigrationTableCreationIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Create tracking table multiple times
 	for i := 0; i < 3; i++ {
@@ -236,7 +236,7 @@ func TestMigrationTableCreationIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get table info: %v", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	expectedColumns := map[string]bool{
 		"version":    false,
@@ -275,7 +275,7 @@ func TestPartialMigrationState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Create tracking table
 	if err := createMigrationsTable(db); err != nil {
@@ -300,12 +300,12 @@ func TestPartialMigrationState(t *testing.T) {
 	}
 
 	if _, err := tx.Exec(firstMigration.SQL); err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		t.Fatalf("Failed to execute first migration: %v", err)
 	}
 
 	if _, err := tx.Exec("INSERT INTO schema_migrations (version, name) VALUES (?, ?)", firstMigration.Version, firstMigration.Name); err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		t.Fatalf("Failed to record first migration: %v", err)
 	}
 
@@ -353,7 +353,7 @@ func TestGetAppliedMigrationsEmptyDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Query applied migrations on empty database
 	applied, err := GetAppliedMigrations(db)
@@ -375,7 +375,7 @@ func TestVerifyAllMigrationsApplied(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Run migrations
 	if err := RunEmbeddedMigrations(db); err != nil {
@@ -409,7 +409,7 @@ func TestExpectedTablesExistAfterMigrations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Run migrations
 	if err := RunEmbeddedMigrations(db); err != nil {
@@ -420,9 +420,9 @@ func TestExpectedTablesExistAfterMigrations(t *testing.T) {
 	expectedTables := []string{
 		"schema_migrations",       // Migration tracking
 		"history",                 // 001_initial.sql
-		"shortcuts",               // 001_initial.sql
 		"zoom_levels",             // 003_add_zoom_levels.sql
 		"certificate_validations", // 005_add_certificate_validations.sql
+		// Note: shortcuts table removed in 007_remove_shortcuts_table.sql
 	}
 
 	// Check each expected table exists

@@ -49,7 +49,7 @@ func (r *LogRotator) openCurrentFile() error {
 		r.currentSize = info.Size()
 	}
 
-	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to open log file: %w", err)
 	}
@@ -86,7 +86,9 @@ func (r *LogRotator) Write(p []byte) (n int, err error) {
 
 func (r *LogRotator) rotate() error {
 	if r.currentFile != nil {
-		r.currentFile.Close()
+		if err := r.currentFile.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to close current log file: %v\n", err)
+		}
 	}
 
 	// Generate backup filename with timestamp
@@ -108,7 +110,9 @@ func (r *LogRotator) rotate() error {
 			fmt.Fprintf(os.Stderr, "Warning: failed to compress log file %s: %v\n", backupPath, err)
 		} else {
 			// Remove uncompressed file after successful compression
-			os.Remove(backupPath)
+			if err := os.Remove(backupPath); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to remove uncompressed log file %s: %v\n", backupPath, err)
+			}
 		}
 	}
 
@@ -125,17 +129,29 @@ func (r *LogRotator) compressFile(filePath string) error {
 	if err != nil {
 		return err
 	}
-	defer inputFile.Close()
+	defer func() {
+		if err := inputFile.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to close input file during compression: %v\n", err)
+		}
+	}()
 
 	outputPath := filePath + ".gz"
 	outputFile, err := os.Create(outputPath)
 	if err != nil {
 		return err
 	}
-	defer outputFile.Close()
+	defer func() {
+		if err := outputFile.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to close output file during compression: %v\n", err)
+		}
+	}()
 
 	gzipWriter := gzip.NewWriter(outputFile)
-	defer gzipWriter.Close()
+	defer func() {
+		if err := gzipWriter.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to close gzip writer: %v\n", err)
+		}
+	}()
 
 	_, err = io.Copy(gzipWriter, inputFile)
 	return err
@@ -167,7 +183,9 @@ func (r *LogRotator) cleanup() {
 
 		// Remove files older than maxAge
 		if r.maxAge > 0 && now.Sub(info.ModTime()) > r.maxAge {
-			os.Remove(filepath.Join(r.baseDir, name))
+			if err := os.Remove(filepath.Join(r.baseDir, name)); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to remove old log file: %v\n", err)
+			}
 			continue
 		}
 
@@ -183,7 +201,9 @@ func (r *LogRotator) cleanup() {
 
 		// Remove oldest files
 		for i := 0; i < len(backupFiles)-r.maxBackups; i++ {
-			os.Remove(filepath.Join(r.baseDir, backupFiles[i].Name()))
+			if err := os.Remove(filepath.Join(r.baseDir, backupFiles[i].Name())); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to remove excess backup file: %v\n", err)
+			}
 		}
 	}
 }

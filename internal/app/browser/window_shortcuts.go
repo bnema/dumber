@@ -69,10 +69,10 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 		{"ctrl+minus", h.handleZoomOut, "Zoom out"},
 		{"ctrl+0", h.handleZoomReset, "Zoom reset"},
 		// Workspace navigation shortcuts - global level for proper active pane targeting
-		{"alt+ArrowLeft", func() { h.handleWorkspaceNavigation("left") }, "Navigate left pane"},
-		{"alt+ArrowRight", func() { h.handleWorkspaceNavigation("right") }, "Navigate right pane"},
-		{"alt+ArrowUp", func() { h.handleWorkspaceNavigation("up") }, "Navigate up pane"},
-		{"alt+ArrowDown", func() { h.handleWorkspaceNavigation("down") }, "Navigate down pane"},
+		{"alt+ArrowLeft", func() { h.handleWorkspaceNavigation(DirectionLeft) }, "Navigate left pane"},
+		{"alt+ArrowRight", func() { h.handleWorkspaceNavigation(DirectionRight) }, "Navigate right pane"},
+		{"alt+ArrowUp", func() { h.handleWorkspaceNavigation(DirectionUp) }, "Navigate up pane"},
+		{"alt+ArrowDown", func() { h.handleWorkspaceNavigation(DirectionDown) }, "Navigate down pane"},
 	}
 
 	for _, shortcut := range shortcuts {

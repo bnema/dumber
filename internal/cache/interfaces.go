@@ -11,5 +11,4 @@ import (
 // HistoryQuerier defines the interface for querying history data.
 type HistoryQuerier interface {
 	GetHistory(ctx context.Context, limit int64) ([]db.History, error)
-	GetShortcuts(ctx context.Context) ([]db.Shortcut, error)
 }

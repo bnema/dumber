@@ -45,10 +45,13 @@ func NewPurgeCmd() *cobra.Command {
 		Long: `Purge various dumber data and cache files. By default, purges everything.
 
 Available purge targets:
-  --database, -d       Purge the SQLite database (history, shortcuts, zoom levels)
-  --history-cache, -H  Purge dmenu fuzzy search cache for history
+  --database, -d       Purge the SQLite database (history, zoom levels, cookies,
+                       certificate validations, and fuzzy cache metadata)
+  --history-cache, -H  Purge dmenu fuzzy search cache for history (binary file, will be
+                       database-backed in the future)
   --browser-cache, -c  Purge WebKit browser cache (cached images, files, etc.)
-  --browser-data, -b   Purge WebKit browser data (cookies, localStorage, sessionStorage)
+  --browser-data, -b   Purge WebKit browser data (localStorage, sessionStorage, IndexedDB)
+                       Note: Cookies are now stored in the main database and deleted via --database
   --filter-cache, -F   Purge compiled ad blocking filters cache
   --state, -s          Purge all state data (includes database and caches)
   --config             Purge configuration files
@@ -56,34 +59,29 @@ Available purge targets:
 
 Use --force to skip the confirmation prompt.
 
+Database Consolidation:
+  Since version with database consolidation, cookies are stored in dumber.sqlite.
+  Use --database to delete cookies along with history and other browser data.
+  The --browser-data flag now only affects localStorage and other WebKit-managed data.
+
 Examples:
   dumber purge                     # Purge everything (with confirmation)
   dumber purge --force             # Purge everything (no confirmation)
   dumber purge -d -H -c -F         # Purge database and all caches
-  dumber purge --filter-cache -f   # Force purge filter cache only`,
+  dumber purge --filter-cache -f   # Force purge filter cache only
+  dumber purge -d                  # Purge database (includes cookies)`,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			// Initialize CLI to get config paths
-			cli, err := NewCLI()
-			if err != nil {
-				return fmt.Errorf("failed to initialize CLI: %w", err)
-			}
-			defer func() {
-				if closeErr := cli.Close(); closeErr != nil {
-					fmt.Fprintf(os.Stderr, "Warning: failed to close database: %v\n", closeErr)
-				}
-			}()
-
 			return executePurge(flags)
 		},
 	}
 
 	// Add flags
-	cmd.Flags().BoolVarP(&flags.Database, "database", "d", false, "Purge the SQLite database")
-	cmd.Flags().BoolVarP(&flags.HistoryCache, "history-cache", "H", false, "Purge dmenu fuzzy search cache")
+	cmd.Flags().BoolVarP(&flags.Database, "database", "d", false, "Purge the SQLite database (includes cookies)")
+	cmd.Flags().BoolVarP(&flags.HistoryCache, "history-cache", "H", false, "Purge dmenu fuzzy search cache (binary file)")
 	cmd.Flags().BoolVarP(&flags.BrowserCache, "browser-cache", "c", false, "Purge WebKit browser cache")
-	cmd.Flags().BoolVarP(&flags.BrowserData, "browser-data", "b", false, "Purge WebKit browser data (cookies, localStorage)")
+	cmd.Flags().BoolVarP(&flags.BrowserData, "browser-data", "b", false, "Purge WebKit browser data (localStorage, sessionStorage)")
 	cmd.Flags().BoolVarP(&flags.FilterCache, "filter-cache", "F", false, "Purge compiled ad blocking filters cache")
-	cmd.Flags().BoolVarP(&flags.State, "state", "s", false, "Purge all state data")
+	cmd.Flags().BoolVarP(&flags.State, "state", "s", false, "Purge all state data (database and caches)")
 	cmd.Flags().BoolVar(&flags.Config, "config", false, "Purge configuration files")
 	cmd.Flags().BoolVarP(&flags.All, "all", "a", false, "Purge everything")
 	cmd.Flags().BoolVarP(&flags.Force, "force", "f", false, "Skip confirmation prompt")

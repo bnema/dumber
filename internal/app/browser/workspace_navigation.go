@@ -105,21 +105,21 @@ func (wm *WorkspaceManager) detachFocus(node *paneNode) {
 }
 
 // FocusNeighbor moves focus to the nearest pane in the requested direction using the
-// actual widget geometry to determine adjacency. For stacked panes, "up" and "down"
+// actual widget geometry to determine adjacency. For stacked panes, DirectionUp and DirectionDown
 // navigate within the stack.
 func (wm *WorkspaceManager) FocusNeighbor(direction string) bool {
 	if wm == nil {
 		return false
 	}
 	switch strings.ToLower(direction) {
-	case "up", "down":
+	case DirectionUp, DirectionDown:
 		// Check if current pane is part of a stack and handle stack navigation
 		if wm.stackedPaneManager.NavigateStack(strings.ToLower(direction)) {
 			return true
 		}
 		// Fall back to regular adjacency navigation
 		return wm.focusAdjacent(strings.ToLower(direction))
-	case "left", "right":
+	case DirectionLeft, DirectionRight:
 		return wm.focusAdjacent(strings.ToLower(direction))
 	default:
 		log.Printf("[workspace] invalid focus direction: %s (expected: up, down, left, right)", direction)
@@ -169,12 +169,12 @@ func (wm *WorkspaceManager) navigateStack(direction string) bool {
 	// Calculate new index based on direction
 	var newIndex int
 	switch direction {
-	case "up":
+	case DirectionUp:
 		newIndex = currentIndex - 1
 		if newIndex < 0 {
 			newIndex = len(stackNode.stackedPanes) - 1 // Wrap to last
 		}
-	case "down":
+	case DirectionDown:
 		newIndex = currentIndex + 1
 		if newIndex >= len(stackNode.stackedPanes) {
 			newIndex = 0 // Wrap to first
@@ -235,29 +235,29 @@ func (wm *WorkspaceManager) focusAdjacent(direction string) bool {
 
 		var score float64
 		switch direction {
-		case "left":
+		case DirectionLeft:
 			if dx >= -focusEpsilon {
 				continue
 			}
 			score = math.Abs(dx)*1000 + math.Abs(dy)
-		case "right":
+		case DirectionRight:
 			if dx <= focusEpsilon {
 				continue
 			}
 			score = math.Abs(dx)*1000 + math.Abs(dy)
-		case "up":
+		case DirectionUp:
 			if dy >= -focusEpsilon {
 				continue
 			}
 			score = math.Abs(dy)*1000 + math.Abs(dx)
-		case "down":
+		case DirectionDown:
 			if dy <= focusEpsilon {
 				continue
 			}
 			score = math.Abs(dy)*1000 + math.Abs(dx)
 		}
 
-		if direction == "up" || direction == "down" {
+		if direction == DirectionUp || direction == DirectionDown {
 			debugCandidates = append(debugCandidates, fmt.Sprintf("cand=%p dx=%.2f dy=%.2f score=%.2f", candidate.container, dx, dy, score))
 		}
 
@@ -287,29 +287,29 @@ func (wm *WorkspaceManager) structuralNeighbor(node *paneNode, direction string)
 	refX, refY, refWidth, refHeight := webkit.WidgetGetAllocation(node.container)
 	cx := float64(refX) + float64(refWidth)/2.0
 	cy := float64(refY) + float64(refHeight)/2.0
-	axisVertical := direction == "up" || direction == "down"
+	axisVertical := direction == DirectionUp || direction == DirectionDown
 
 	for parent := node.parent; parent != nil; parent = parent.parent {
 		switch direction {
-		case "up":
+		case DirectionUp:
 			if axisVertical && parent.orientation == gtk.OrientationVertical && parent.right == node {
 				if leaf := wm.closestLeafFromSubtree(parent.left, cx, cy, direction); leaf != nil {
 					return leaf
 				}
 			}
-		case "down":
+		case DirectionDown:
 			if axisVertical && parent.orientation == gtk.OrientationVertical && parent.left == node {
 				if leaf := wm.closestLeafFromSubtree(parent.right, cx, cy, direction); leaf != nil {
 					return leaf
 				}
 			}
-		case "left":
+		case DirectionLeft:
 			if !axisVertical && parent.orientation == gtk.OrientationHorizontal && parent.right == node {
 				if leaf := wm.closestLeafFromSubtree(parent.left, cx, cy, direction); leaf != nil {
 					return leaf
 				}
 			}
-		case "right":
+		case DirectionRight:
 			if !axisVertical && parent.orientation == gtk.OrientationHorizontal && parent.left == node {
 				if leaf := wm.closestLeafFromSubtree(parent.right, cx, cy, direction); leaf != nil {
 					return leaf
@@ -338,22 +338,22 @@ func (wm *WorkspaceManager) closestLeafFromSubtree(node *paneNode, cx, cy float6
 		dy := ty - cy
 		var score float64
 		switch direction {
-		case "left":
+		case DirectionLeft:
 			if dx >= -focusEpsilon {
 				continue
 			}
 			score = math.Abs(dx)*1000 + math.Abs(dy)
-		case "right":
+		case DirectionRight:
 			if dx <= focusEpsilon {
 				continue
 			}
 			score = math.Abs(dx)*1000 + math.Abs(dy)
-		case "up":
+		case DirectionUp:
 			if dy >= -focusEpsilon {
 				continue
 			}
 			score = math.Abs(dy)*1000 + math.Abs(dx)
-		case "down":
+		case DirectionDown:
 			if dy <= focusEpsilon {
 				continue
 			}
@@ -393,22 +393,22 @@ func (wm *WorkspaceManager) boundaryFallbackWithDepth(node *paneNode, direction 
 		return node
 	}
 	switch direction {
-	case "up":
+	case DirectionUp:
 		if leaf := wm.boundaryFallbackWithDepth(node.right, direction, depth+1); leaf != nil {
 			return leaf
 		}
 		return wm.boundaryFallbackWithDepth(node.left, direction, depth+1)
-	case "down":
+	case DirectionDown:
 		if leaf := wm.boundaryFallbackWithDepth(node.left, direction, depth+1); leaf != nil {
 			return leaf
 		}
 		return wm.boundaryFallbackWithDepth(node.right, direction, depth+1)
-	case "left":
+	case DirectionLeft:
 		if leaf := wm.boundaryFallbackWithDepth(node.right, direction, depth+1); leaf != nil {
 			return leaf
 		}
 		return wm.boundaryFallbackWithDepth(node.left, direction, depth+1)
-	case "right":
+	case DirectionRight:
 		if leaf := wm.boundaryFallbackWithDepth(node.left, direction, depth+1); leaf != nil {
 			return leaf
 		}

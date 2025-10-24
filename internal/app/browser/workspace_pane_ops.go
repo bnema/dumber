@@ -299,6 +299,8 @@ func (wm *WorkspaceManager) removeFromAppPanes(pane *BrowserPane) {
 // This eliminates widget reparenting of existing WebViews, which was causing rendering corruption.
 // See splitNode() for the unified implementation.
 
+// TODO(#8): Refactor this function to reduce cyclomatic complexity (65 -> <30)
+//
 // splitNode splits a target pane into two panes in the specified direction
 // splitNode splits a target pane into two panes in the specified direction.
 // If existingPane is provided, it will be used instead of creating a new WebView.
@@ -922,6 +924,8 @@ func (wm *WorkspaceManager) setFocusToLeaf(node *paneNode) {
 	}
 }
 
+// TODO(#8): Refactor this function to reduce cyclomatic complexity (31 -> <30)
+//
 // closePane closes a specific pane and handles tree restructuring (simplified implementation)
 func (wm *WorkspaceManager) closePane(node *paneNode) (*paneNode, error) {
 	ctx := wm.beginClose(node)

@@ -259,7 +259,7 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 		wm.SetActivePane(node, SourceProgrammatic)
 		direction := strings.ToLower(msg.Direction)
 		if direction == "" {
-			direction = "right"
+			direction = DirectionRight
 		}
 
 		if wm.shouldDebounce(source, 200*time.Millisecond) {

@@ -77,10 +77,10 @@ func TestMapDirection(t *testing.T) {
 		orientation   gtk.Orientation
 		existingFirst bool
 	}{
-		{"down", gtk.OrientationVertical, true},
-		{"up", gtk.OrientationVertical, false},
-		{"right", gtk.OrientationHorizontal, true},
-		{"left", gtk.OrientationHorizontal, false},
+		{DirectionDown, gtk.OrientationVertical, true},
+		{DirectionUp, gtk.OrientationVertical, false},
+		{DirectionRight, gtk.OrientationHorizontal, true},
+		{DirectionLeft, gtk.OrientationHorizontal, false},
 	}
 
 	for _, tt := range tests {
@@ -131,10 +131,10 @@ func TestCaseSensitiveDirections(t *testing.T) {
 		"Down",
 		"LEFT",
 		"Right",
-		"up",
-		"down",
-		"left",
-		"right",
+		DirectionUp,
+		DirectionDown,
+		DirectionLeft,
+		DirectionRight,
 	}
 
 	for _, direction := range validDirections {

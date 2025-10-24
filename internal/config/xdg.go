@@ -6,7 +6,10 @@ import (
 	"path/filepath"
 )
 
-const appName = "dumber"
+const (
+	appName      = "dumber"
+	databaseName = "dumber.sqlite"
+)
 
 // XDGDirs holds the XDG Base Directory paths for the application.
 type XDGDirs struct {
@@ -114,13 +117,15 @@ func GetConfigFile() (string, error) {
 	return filepath.Join(configDir, "config.json"), nil
 }
 
-// GetDatabaseFile returns the path to the database file in the state directory.
+// GetDatabaseFile returns the path to the database file in the data directory.
+// The database contains important user data (history, cookies, preferences) and
+// therefore belongs in XDG_DATA_HOME, not XDG_STATE_HOME.
 func GetDatabaseFile() (string, error) {
-	stateDir, err := GetStateDir()
+	dataDir, err := GetDataDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(stateDir, "history.db"), nil
+	return filepath.Join(dataDir, databaseName), nil
 }
 
 // GetFilterCacheDir returns the XDG-compliant filter cache directory for dumber.

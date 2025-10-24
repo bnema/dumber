@@ -2,8 +2,8 @@ package webkit
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"net/url"
@@ -83,37 +83,6 @@ func extractHostname(uri string) string {
 	return host
 }
 
-// formatCertificateInfo formats certificate information for display and hashing
-func formatCertificateInfo(certificate gio.TLSCertificater) string {
-	// Convert to TLSCertificate to access methods
-	tlsCert := gio.BaseTLSCertificate(certificate)
-	if tlsCert == nil {
-		// Fallback: use the object pointer address as a weak identifier
-		return fmt.Sprintf("%p", certificate)
-	}
-
-	// Build a unique string from certificate properties
-	// Use subject, issuer, and validity period
-	subject := tlsCert.SubjectName()
-	issuer := ""
-	if issuerCert := tlsCert.Issuer(); issuerCert != nil {
-		issuer = gio.BaseTLSCertificate(issuerCert).SubjectName()
-	}
-
-	notBefore := tlsCert.NotValidBefore()
-	notAfter := tlsCert.NotValidAfter()
-
-	// Combine properties into a unique string
-	return fmt.Sprintf("subject=%s,issuer=%s,notBefore=%v,notAfter=%v",
-		subject, issuer, notBefore, notAfter)
-}
-
-// getCertificateHash generates a SHA256 hash of the certificate info
-func getCertificateHash(certificateInfo string) string {
-	hash := sha256.Sum256([]byte(certificateInfo))
-	return fmt.Sprintf("%x", hash)
-}
-
 // checkStoredCertificateDecision checks if user has previously decided on this hostname
 func checkStoredCertificateDecision(hostname string) (string, bool) {
 	cfg := config.Get()
@@ -133,7 +102,11 @@ func checkStoredCertificateDecision(hostname string) (string, bool) {
 		log.Printf("[tls] Failed to open database: %v", err)
 		return "", false
 	}
-	defer database.Close()
+	defer func() {
+		if err := database.Close(); err != nil {
+			log.Printf("[tls] warning: failed to close database: %v", err)
+		}
+	}()
 
 	queries := db.New(database)
 	ctx := context.Background()
@@ -141,7 +114,7 @@ func checkStoredCertificateDecision(hostname string) (string, bool) {
 	// Get any validation for this hostname (we don't verify cert hash anymore)
 	validation, err := queries.GetCertificateValidationByHostname(ctx, hostname)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return "", false
 		}
 		log.Printf("[tls] Error checking certificate validation: %v", err)
@@ -167,7 +140,11 @@ func storeCertificateDecision(hostname, decision string, expiresAt sql.NullTime)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
-	defer database.Close()
+	defer func() {
+		if err := database.Close(); err != nil {
+			log.Printf("[tls] warning: failed to close database: %v", err)
+		}
+	}()
 
 	queries := db.New(database)
 	ctx := context.Background()
@@ -338,7 +315,11 @@ func CleanupExpiredCertificateValidations() error {
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
-	defer database.Close()
+	defer func() {
+		if err := database.Close(); err != nil {
+			log.Printf("[tls] warning: failed to close database: %v", err)
+		}
+	}()
 
 	queries := db.New(database)
 	ctx := context.Background()

@@ -104,23 +104,6 @@ func (p *BrowserPane) Cleanup() {
 		p.messageHandler.SetWebView(nil)
 	}
 
-	// Notify JS to cleanup GUI
-	if p.webView != nil && p.hasGUI && !p.webView.IsDestroyed() {
-		cleanupScript := `try {
-	if (typeof window.__dumber_teardown === 'function') {
-		window.__dumber_teardown();
-	}
-	if (window.__dumber_gui_manager) {
-		window.__dumber_gui_manager.destroy();
-	}
-} catch (err) {
-	console.warn('[dumber] GUI teardown failed', err);
-}`
-		if err := p.webView.InjectScript(cleanupScript); err != nil {
-			log.Printf("[pane-%s] failed to inject cleanup script: %v", p.id, err)
-		}
-	}
-
 	// Destroy WebView to unregister from global registry and release resources
 	if p.webView != nil && !p.webView.IsDestroyed() {
 		if err := p.webView.Destroy(); err != nil {

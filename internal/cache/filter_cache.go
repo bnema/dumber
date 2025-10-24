@@ -89,7 +89,11 @@ func (fc *FilterCache) LoadMapped() (*FilterData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open cache file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			logging.Warn(fmt.Sprintf("failed to close cache file: %v", err))
+		}
+	}()
 
 	// Get file size
 	stat, err := file.Stat()
@@ -135,7 +139,9 @@ func (fc *FilterCache) LoadMapped() (*FilterData, error) {
 	// Parse filter data without copying
 	data, err := fc.parseInPlace(header)
 	if err != nil {
-		fc.Unmap()
+		if unmapErr := fc.Unmap(); unmapErr != nil {
+			logging.Warn(fmt.Sprintf("failed to unmap during error handling: %v", unmapErr))
+		}
 		return nil, fmt.Errorf("failed to parse cache data: %w", err)
 	}
 
@@ -221,7 +227,11 @@ func (fc *FilterCache) Write(data *FilterData) error {
 	if err != nil {
 		return fmt.Errorf("failed to create cache file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			logging.Warn(fmt.Sprintf("failed to close cache file: %v", err))
+		}
+	}()
 
 	// Calculate total rule count
 	totalRules := uint32(len(data.NetworkRules) + len(data.CosmeticRules))
@@ -237,7 +247,9 @@ func (fc *FilterCache) Write(data *FilterData) error {
 	}
 
 	if err := binary.Write(file, binary.LittleEndian, header); err != nil {
-		os.Remove(tmpPath)
+		if removeErr := os.Remove(tmpPath); removeErr != nil {
+			logging.Warn(fmt.Sprintf("failed to remove temp cache file: %v", removeErr))
+		}
 		return fmt.Errorf("failed to write header: %w", err)
 	}
 
@@ -246,7 +258,9 @@ func (fc *FilterCache) Write(data *FilterData) error {
 	// Write network rules
 	for _, rule := range data.NetworkRules {
 		if err := fc.writeNetworkRule(file, rule); err != nil {
-			os.Remove(tmpPath)
+			if removeErr := os.Remove(tmpPath); removeErr != nil {
+				logging.Warn(fmt.Sprintf("failed to remove temp cache file: %v", removeErr))
+			}
 			return fmt.Errorf("failed to write network rule: %w", err)
 		}
 	}
@@ -254,7 +268,9 @@ func (fc *FilterCache) Write(data *FilterData) error {
 	// Write cosmetic rules
 	for _, rule := range data.CosmeticRules {
 		if err := fc.writeCosmeticRule(file, rule); err != nil {
-			os.Remove(tmpPath)
+			if removeErr := os.Remove(tmpPath); removeErr != nil {
+				logging.Warn(fmt.Sprintf("failed to remove temp cache file: %v", removeErr))
+			}
 			return fmt.Errorf("failed to write cosmetic rule: %w", err)
 		}
 	}
@@ -265,7 +281,9 @@ func (fc *FilterCache) Write(data *FilterData) error {
 
 	// Update header with data size
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		os.Remove(tmpPath)
+		if removeErr := os.Remove(tmpPath); removeErr != nil {
+			logging.Warn(fmt.Sprintf("failed to remove temp cache file: %v", removeErr))
+		}
 		return err
 	}
 
@@ -273,20 +291,28 @@ func (fc *FilterCache) Write(data *FilterData) error {
 	// TODO: Calculate and set checksum
 
 	if err := binary.Write(file, binary.LittleEndian, header); err != nil {
-		os.Remove(tmpPath)
+		if removeErr := os.Remove(tmpPath); removeErr != nil {
+			logging.Warn(fmt.Sprintf("failed to remove temp cache file: %v", removeErr))
+		}
 		return fmt.Errorf("failed to update header: %w", err)
 	}
 
 	if err := file.Sync(); err != nil {
-		os.Remove(tmpPath)
+		if removeErr := os.Remove(tmpPath); removeErr != nil {
+			logging.Warn(fmt.Sprintf("failed to remove temp cache file: %v", removeErr))
+		}
 		return fmt.Errorf("failed to sync cache file: %w", err)
 	}
 
-	file.Close()
+	if err := file.Close(); err != nil {
+		logging.Warn(fmt.Sprintf("failed to close cache file: %v", err))
+	}
 
 	// Atomic rename
 	if err := os.Rename(tmpPath, fc.path); err != nil {
-		os.Remove(tmpPath)
+		if removeErr := os.Remove(tmpPath); removeErr != nil {
+			logging.Warn(fmt.Sprintf("failed to remove temp cache file: %v", removeErr))
+		}
 		return fmt.Errorf("failed to rename cache file: %w", err)
 	}
 
@@ -382,7 +408,11 @@ func (fc *FilterCache) IsValid() bool {
 	if err != nil {
 		return false
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			logging.Warn(fmt.Sprintf("failed to close file during validation: %v", err))
+		}
+	}()
 
 	var magic uint64
 	if err := binary.Read(file, binary.LittleEndian, &magic); err != nil {
@@ -394,6 +424,8 @@ func (fc *FilterCache) IsValid() bool {
 
 // Remove deletes the cache file
 func (fc *FilterCache) Remove() error {
-	fc.Unmap() // Unmap first if mapped
+	if err := fc.Unmap(); err != nil {
+		logging.Warn(fmt.Sprintf("failed to unmap file during removal: %v", err))
+	}
 	return os.Remove(fc.path)
 }

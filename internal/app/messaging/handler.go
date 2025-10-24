@@ -82,9 +82,7 @@ func (h *Handler) Handle(payload string) {
 	case "navigate":
 		h.handleNavigation(msg)
 	case "query":
-		log.Printf("[DEBUG] Handling query message: q=%s, limit=%d", msg.Q, msg.Limit)
 		if h.webView == nil {
-			log.Printf("[WARN] Dropping query response: webview unavailable for suggestions")
 			return
 		}
 		h.handleQuery(msg)
@@ -200,13 +198,7 @@ func (h *Handler) handleClosePopup(msg Message) {
 }
 
 func (h *Handler) handleQuery(msg Message) {
-	if h.webView == nil {
-		log.Printf("[WARN] Skipping query handling: webview is nil")
-		return
-	}
-	log.Printf("[DEBUG] handleQuery called: q='%s', limit=%d", msg.Q, msg.Limit)
-	if h.browserService == nil {
-		log.Printf("[ERROR] handleQuery: browserService is nil")
+	if h.webView == nil || h.browserService == nil {
 		return
 	}
 	ctx := context.Background()
@@ -233,12 +225,8 @@ func (h *Handler) handleQuery(msg Message) {
 	// History
 	if len(results) < limit {
 		remaining := limit - len(results)
-		log.Printf("[DEBUG] Searching history for '%s' with limit %d", q, remaining)
-		if entries, err := h.browserService.SearchHistory(ctx, q, remaining); err != nil {
-			log.Printf("[ERROR] Failed to search history: %v", err)
-		} else {
-			log.Printf("[DEBUG] Found %d history entries", len(entries))
-			for i, e := range entries {
+		if entries, err := h.browserService.SearchHistory(ctx, q, remaining); err == nil {
+			for _, e := range entries {
 				// JSON roundtrip to map to get url field agnostic of struct tag
 				bb, _ := json.Marshal(e)
 				var m map[string]any
@@ -249,7 +237,6 @@ func (h *Handler) handleQuery(msg Message) {
 				} else if s, ok := m["URL"].(string); ok {
 					url = s
 				}
-				log.Printf("[DEBUG] History entry %d: url=%s", i, url)
 				if url == "" {
 					continue
 				}
@@ -271,17 +258,11 @@ func (h *Handler) handleQuery(msg Message) {
 	}
 
 	// Inject back to GUI
-	log.Printf("[DEBUG] Final results count: %d", len(results))
-	if b, err := json.Marshal(results); err != nil {
-		log.Printf("[ERROR] Failed to marshal results: %v", err)
-	} else {
+	if b, err := json.Marshal(results); err == nil {
 		// Prefer unified page-world API; fallback to legacy global function
 		script := "(window.__dumber?.omnibox?.suggestions ? window.__dumber.omnibox.suggestions(" + string(b) + ") : (window.__dumber_omnibox_suggestions && window.__dumber_omnibox_suggestions(" + string(b) + ")))"
-		log.Print("[DEBUG] Injecting omnibox suggestions")
-		if injErr := h.webView.InjectScript(script); injErr != nil {
-			log.Printf("[ERROR] Failed to inject suggestions script: %v", injErr)
-		} else {
-			log.Printf("[DEBUG] Successfully injected omnibox suggestions")
+		if err := h.webView.InjectScript(script); err != nil {
+			log.Printf("[ERROR] Failed to inject omnibox suggestions: %v", err)
 		}
 	}
 }
