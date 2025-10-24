@@ -6,6 +6,7 @@ import (
 	"log"
 	"strconv"
 	"sync"
+	"sync/atomic"
 
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
