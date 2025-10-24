@@ -714,6 +714,8 @@ func (spm *StackedPaneManager) createTitleBarWithTitle(title string, pageURL str
 	return titleBox
 }
 
+// TODO(#8): Refactor this function to reduce cyclomatic complexity (49 -> <30)
+//
 // CloseStackedPane handles closing a pane that is part of a stack.
 // The logic mirrors the regular close path: we rebuild the tree, update focus,
 // and let WorkspaceManager perform the actual cleanup/destroy work so that all
