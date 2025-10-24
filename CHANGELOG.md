@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.13.0] - 2025-10-24
+
 ### Added
 - **Color scheme config**: `appearance.color_scheme` setting to force dark/light theme (`"prefer-dark"`, `"prefer-light"`, `"default"`)
 - **DNS prefetch**: Added capability to prefetch DNS for links to speed up future requests
