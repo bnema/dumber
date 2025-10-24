@@ -6,9 +6,19 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **Color scheme config**: `appearance.color_scheme` setting to force dark/light theme (`"prefer-dark"`, `"prefer-light"`, `"default"`)
+- **DNS prefetch**: Added capability to prefetch DNS for links to speed up future requests
+- **Page cache (bfcache)**: Enabled WebKit back/forward cache for instant navigation
+- **Smooth scrolling**: Enabled WebKit smooth scrolling for better UX
+
+### Changed
+- **Database performance**: Enabled WAL mode with optimized PRAGMAs (64MB cache, memory-mapped I/O, 5s busy timeout) for 70k reads/sec, 3.6k writes/sec
+- **Zoom performance**: In-memory cache eliminates database reads during page transitions
+- **History writes**: Batched writes with background processor (flush every 5s or 50 items) to reduce I/O overhead
 
 ### Fixed
+- **Graceful shutdown deadlock**: Resolved GTK main loop deadlock on Cmd+Q by removing mutex locks and GTK calls after main loop exit
 - Command typos now show proper error instead of opening in browser
+- History queue now uses buffered channel to prevent blocking on shutdown
 
 ## [0.12.1] - 2025-10-18
 
