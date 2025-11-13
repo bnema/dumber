@@ -26,12 +26,11 @@ export function initializeControls(_config?: ControlsConfig): void {
 
   // Keyboard event handler for global controls
   function handleKeyboardEvent(event: KeyboardEvent): void {
-    const { altKey, key } = event;
-    // Note: ctrlKey, metaKey reserved for future use
+    const { altKey, ctrlKey, key } = event;
 
     try {
-      // Navigation: Alt + Left Arrow (Back)
-      if (altKey && key === "ArrowLeft") {
+      // Navigation: Ctrl + Left Arrow (Back)
+      if (ctrlKey && key === "ArrowLeft") {
         event.preventDefault();
         event.stopPropagation();
 
@@ -42,8 +41,8 @@ export function initializeControls(_config?: ControlsConfig): void {
         return;
       }
 
-      // Navigation: Alt + Right Arrow (Forward)
-      if (altKey && key === "ArrowRight") {
+      // Navigation: Ctrl + Right Arrow (Forward)
+      if (ctrlKey && key === "ArrowRight") {
         event.preventDefault();
         event.stopPropagation();
 

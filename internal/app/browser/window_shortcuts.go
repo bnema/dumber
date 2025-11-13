@@ -73,6 +73,11 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 		{"alt+ArrowRight", func() { h.handleWorkspaceNavigation(DirectionRight) }, "Navigate right pane"},
 		{"alt+ArrowUp", func() { h.handleWorkspaceNavigation(DirectionUp) }, "Navigate up pane"},
 		{"alt+ArrowDown", func() { h.handleWorkspaceNavigation(DirectionDown) }, "Navigate down pane"},
+		// Vim-style workspace navigation
+		{"alt+h", func() { h.handleWorkspaceNavigation(DirectionLeft) }, "Navigate left pane (vim)"},
+		{"alt+l", func() { h.handleWorkspaceNavigation(DirectionRight) }, "Navigate right pane (vim)"},
+		{"alt+k", func() { h.handleWorkspaceNavigation(DirectionUp) }, "Navigate up pane (vim)"},
+		{"alt+j", func() { h.handleWorkspaceNavigation(DirectionDown) }, "Navigate down pane (vim)"},
 	}
 
 	for _, shortcut := range shortcuts {
