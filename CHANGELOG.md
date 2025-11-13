@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Middle-click and Ctrl+click link handling**: Links can now be opened in new workspace panes using standard browser gestures (middle-click or Ctrl+left-click). New panes split in the configured direction (default: right) and respect `workspace.popups.placement` configuration. Implemented via WebKit's `decide-policy` signal to intercept navigation actions before they occur.
+
+### Fixed
+- **Popup handler registration timing**: Fixed `g_object_ref` assertion errors when WebKit takes ownership of popup WebViews by connecting signals immediately instead of deferring via `glib.IdleAdd`. This resolves crashes with `target="_blank"` links and `window.open()` calls.
+
 ## [0.13.0] - 2025-10-24
 
 ### Added
