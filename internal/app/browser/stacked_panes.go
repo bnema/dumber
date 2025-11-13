@@ -678,7 +678,6 @@ func (spm *StackedPaneManager) createTitleBarWithTitle(title string, pageURL str
 			}
 
 			if texture != nil && titleBox != nil {
-				log.Printf("[favicon] Favicon ready to display in title bar for: %s", pageURL)
 
 				// Create favicon image
 				faviconImg := gtk.NewImageFromPaintable(texture)
