@@ -52,6 +52,60 @@ func (wm *WorkspaceManager) collectLeaves() []*paneNode {
 	return wm.collectLeavesFrom(wm.root)
 }
 
+// collectLeavesFromWithDirection collects leaves from a subtree with direction-aware stack entry
+func (wm *WorkspaceManager) collectLeavesFromWithDirection(node *paneNode, direction string) []*paneNode {
+	var leaves []*paneNode
+	visited := make(map[*paneNode]bool)
+
+	var walk func(*paneNode, int)
+	walk = func(n *paneNode, depth int) {
+		// Prevent infinite recursion and cycles
+		const maxDepth = 50
+		if n == nil || depth > maxDepth {
+			return
+		}
+		if visited[n] {
+			log.Printf("[workspace] collectLeavesFromWithDirection: cycle detected in tree")
+			return
+		}
+		visited[n] = true
+
+		if n.isLeaf {
+			leaves = append(leaves, n)
+			return
+		}
+
+		// Handle stacked panes - select entry pane based on direction
+		if n.isStacked && len(n.stackedPanes) > 0 {
+			var entryIndex int
+			switch direction {
+			case DirectionDown:
+				// Coming from above - enter at first pane
+				entryIndex = 0
+			case DirectionUp:
+				// Coming from below - enter at last pane
+				entryIndex = len(n.stackedPanes) - 1
+			default:
+				// For horizontal directions, use active pane
+				entryIndex = n.activeStackIndex
+				if entryIndex < 0 || entryIndex >= len(n.stackedPanes) {
+					entryIndex = 0
+				}
+			}
+			if entryIndex >= 0 && entryIndex < len(n.stackedPanes) {
+				walk(n.stackedPanes[entryIndex], depth+1)
+			}
+			return
+		}
+
+		// Handle regular split nodes
+		walk(n.left, depth+1)
+		walk(n.right, depth+1)
+	}
+	walk(node, 0)
+	return leaves
+}
+
 // collectLeavesFrom collects all leaf nodes from a given subtree
 func (wm *WorkspaceManager) collectLeavesFrom(node *paneNode) []*paneNode {
 	var leaves []*paneNode
