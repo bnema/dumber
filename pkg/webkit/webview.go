@@ -46,6 +46,7 @@ type WebView struct {
 	onWorkspaceNavigation func(direction string) bool // Workspace pane navigation
 	onPaneModeShortcut    func(action string) bool    // Pane mode shortcuts (enter, actions, exit)
 	isPaneModeActive      func() bool                 // Check if pane mode is active
+	onMiddleClickLink     func(url string) bool       // Middle mouse click on link handler
 }
 
 // NewWebView creates a new WebView with the given configuration
@@ -290,6 +291,85 @@ func (w *WebView) setupEventHandlers() {
 			}
 		})
 	}
+
+	// Setup navigation policy handler for middle-click and Ctrl+click interception
+	w.setupNavigationPolicyHandler()
+}
+
+// setupNavigationPolicyHandler sets up the decide-policy signal handler
+// This intercepts navigation actions BEFORE they occur, allowing us to detect
+// middle-click and Ctrl+click on links and open them in new panes
+func (w *WebView) setupNavigationPolicyHandler() {
+	w.view.ConnectDecidePolicy(func(decision webkit.PolicyDecisioner, decisionType webkit.PolicyDecisionType) bool {
+		// Only handle navigation actions (not new window or response policies)
+		if decisionType != webkit.PolicyDecisionTypeNavigationAction {
+			return false // Let WebKit handle
+		}
+
+		// Cast to NavigationPolicyDecision to access NavigationAction
+		navDecision, ok := decision.(*webkit.NavigationPolicyDecision)
+		if !ok {
+			return false
+		}
+
+		navAction := navDecision.NavigationAction()
+		if navAction == nil {
+			return false
+		}
+
+		// Check if this is a link click
+		if navAction.NavigationType() != webkit.NavigationTypeLinkClicked {
+			return false // Not a link click, let WebKit handle normally
+		}
+
+		// Get mouse button and modifiers
+		mouseButton := navAction.MouseButton()
+		modifiers := navAction.Modifiers()
+
+		// Check for middle-click (button 2) or Ctrl+left-click (button 1 + Ctrl)
+		isMiddleClick := (mouseButton == 2)
+		isCtrlClick := (mouseButton == 1 && (gdk.ModifierType(modifiers)&gdk.ControlMask) != 0)
+
+		if !isMiddleClick && !isCtrlClick {
+			return false // Normal click, let WebKit handle
+		}
+
+		// Get the link URL
+		request := navAction.Request()
+		if request == nil {
+			return false
+		}
+
+		linkURL := request.URI()
+		if linkURL == "" {
+			return false
+		}
+
+		clickType := "middle-click"
+		if isCtrlClick {
+			clickType = "Ctrl+click"
+		}
+		log.Printf("[navigation-policy] Detected %s on link: %s", clickType, linkURL)
+
+		// Call the registered handler
+		w.mu.RLock()
+		handler := w.onMiddleClickLink
+		w.mu.RUnlock()
+
+		if handler != nil {
+			handled := handler(linkURL)
+			if handled {
+				log.Printf("[navigation-policy] %s handled by workspace, blocking navigation", clickType)
+				// Block the navigation by calling Ignore()
+				navDecision.Ignore()
+				return true // Prevent default behavior
+			}
+		}
+
+		return false // Let WebKit handle if not handled
+	})
+
+	log.Printf("[webkit] Navigation policy handler attached to WebView ID %d", w.id)
 }
 
 // LoadURL loads the given URL in the WebView
@@ -563,6 +643,14 @@ func (w *WebView) OnWindowTypeDetected(handler func(WindowType, *WindowFeatures)
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.onWindowTypeDetected = handler
+}
+
+// RegisterMiddleClickLinkHandler registers a handler for middle mouse button clicks on links
+// The handler receives the link URL and returns true if handled
+func (w *WebView) RegisterMiddleClickLinkHandler(handler func(url string) bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onMiddleClickLink = handler
 }
 
 // RunOnMainThread executes a function on the GTK main thread

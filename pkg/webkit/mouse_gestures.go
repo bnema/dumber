@@ -42,7 +42,6 @@ func (w *WebView) AttachMouseGestures() {
 
 		switch button {
 		case mouseButtonBack:
-			// Mouse back button - navigate backward
 			if w.view.CanGoBack() {
 				log.Printf("[mouse-gestures] Back button clicked - navigating backward")
 				w.view.GoBack()
@@ -51,21 +50,17 @@ func (w *WebView) AttachMouseGestures() {
 			}
 
 		case mouseButtonForward:
-			// Mouse forward button - navigate forward
 			if w.view.CanGoForward() {
 				log.Printf("[mouse-gestures] Forward button clicked - navigating forward")
 				w.view.GoForward()
 			} else {
 				log.Printf("[mouse-gestures] Forward button clicked but cannot go forward")
 			}
-
-		default:
-			// Don't handle other buttons (let WebView handle normally)
-			return
 		}
 	})
 
 	// Attach controller to WebView
 	w.view.AddController(gestureClick)
+
 	log.Printf("[mouse-gestures] Mouse gesture controller attached to WebView ID %d", w.id)
 }

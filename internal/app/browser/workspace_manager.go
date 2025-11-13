@@ -457,5 +457,47 @@ func (wm *WorkspaceManager) RegisterNavigationHandler(webView *webkit.WebView) {
 		return wm.paneModeActive
 	})
 
+	// Register middle-click link handler to open links in new panes
+	webView.RegisterMiddleClickLinkHandler(func(linkURL string) bool {
+		if wm == nil {
+			return false
+		}
+
+		log.Printf("[workspace] Middle-click on link, opening in new pane: %s", linkURL)
+
+		// Get the node for this webview
+		node := wm.GetNodeForWebView(webView)
+		if node == nil {
+			log.Printf("[workspace] Cannot find node for middle-clicked link")
+			return false
+		}
+
+		// Get split direction from popup placement config or use right as default
+		direction := "right"
+		if wm.app != nil && wm.app.config != nil && wm.app.config.Workspace.Popups.Placement != "" {
+			direction = strings.ToLower(wm.app.config.Workspace.Popups.Placement)
+		}
+
+		// Split the pane
+		newNode, err := wm.SplitPane(node, direction)
+		if err != nil {
+			log.Printf("[workspace] Failed to split pane for middle-click: %v", err)
+			return false
+		}
+
+		// Navigate the new pane to the URL
+		if newNode != nil && newNode.pane != nil && newNode.pane.WebView() != nil {
+			if err := newNode.pane.WebView().LoadURL(linkURL); err != nil {
+				log.Printf("[workspace] Failed to load URL in new pane: %v", err)
+				return false
+			}
+
+			// Set the new pane as active
+			wm.SetActivePane(newNode, SourceProgrammatic)
+		}
+
+		return true // Indicate we handled the click
+	})
+
 	log.Printf("[workspace] Registered navigation handler for webview: %d", webView.ID())
 }
