@@ -208,13 +208,15 @@ func (wm *WorkspaceManager) focusAdjacent(direction string) bool {
 	}
 
 	if neighbor := wm.structuralNeighbor(currentFocused, direction); neighbor != nil {
+		log.Printf("[workspace] focusAdjacent: using structural neighbor for direction=%s", direction)
 		wm.SetActivePane(neighbor, SourceKeyboard)
 		return true
 	}
 
-	curX, curY, curWidth, curHeight := webkit.WidgetGetAllocation(currentFocused.container)
+	curX, curY, curWidth, curHeight := wm.getNavigationAllocation(currentFocused)
 	cx := float64(curX) + float64(curWidth)/2.0
 	cy := float64(curY) + float64(curHeight)/2.0
+	log.Printf("[workspace] focusAdjacent: current pane center=(%.0f, %.0f) direction=%s", cx, cy, direction)
 
 	leaves := wm.collectLeaves()
 	bestScore := math.MaxFloat64
@@ -226,7 +228,7 @@ func (wm *WorkspaceManager) focusAdjacent(direction string) bool {
 			continue
 		}
 
-		x, y, width, height := webkit.WidgetGetAllocation(candidate.container)
+		x, y, width, height := wm.getNavigationAllocation(candidate)
 		tx := float64(x) + float64(width)/2.0
 		ty := float64(y) + float64(height)/2.0
 
@@ -247,18 +249,18 @@ func (wm *WorkspaceManager) focusAdjacent(direction string) bool {
 			score = math.Abs(dx)*1000 + math.Abs(dy)
 		case DirectionUp:
 			if dy >= -focusEpsilon {
+				debugCandidates = append(debugCandidates, fmt.Sprintf("SKIPPED cand=%p center=(%.0f,%.0f) dy=%.0f (not above)", candidate.container, tx, ty, dy))
 				continue
 			}
 			score = math.Abs(dy)*1000 + math.Abs(dx)
+			debugCandidates = append(debugCandidates, fmt.Sprintf("cand=%p center=(%.0f,%.0f) dy=%.0f score=%.0f", candidate.container, tx, ty, dy, score))
 		case DirectionDown:
 			if dy <= focusEpsilon {
+				debugCandidates = append(debugCandidates, fmt.Sprintf("SKIPPED cand=%p center=(%.0f,%.0f) dy=%.0f (not below)", candidate.container, tx, ty, dy))
 				continue
 			}
 			score = math.Abs(dy)*1000 + math.Abs(dx)
-		}
-
-		if direction == DirectionUp || direction == DirectionDown {
-			debugCandidates = append(debugCandidates, fmt.Sprintf("cand=%p dx=%.2f dy=%.2f score=%.2f", candidate.container, dx, dy, score))
+			debugCandidates = append(debugCandidates, fmt.Sprintf("cand=%p center=(%.0f,%.0f) dy=%.0f score=%.0f", candidate.container, tx, ty, dy, score))
 		}
 
 		if score < bestScore {
@@ -268,14 +270,34 @@ func (wm *WorkspaceManager) focusAdjacent(direction string) bool {
 	}
 
 	if best != nil {
+		bx, by, _, _ := webkit.WidgetGetAllocation(best.container)
+		log.Printf("[workspace] focusAdjacent: found best candidate at pos=(%d,%d) for direction=%s", bx, by, direction)
 		wm.SetActivePane(best, SourceKeyboard)
 		return true
 	}
 
 	if len(debugCandidates) > 0 {
-		log.Printf("[workspace] focusAdjacent no candidate direction=%s current=%p candidates=%s", direction, currentFocused.container, strings.Join(debugCandidates, "; "))
+		log.Printf("[workspace] focusAdjacent: NO candidate found for direction=%s current=%p center=(%.0f,%.0f) candidates=[%s]", direction, currentFocused.container, cx, cy, strings.Join(debugCandidates, "; "))
 	}
 	return false
+}
+
+// getNavigationAllocation returns window-absolute coordinates for navigation geometric checks.
+// Uses ComputeBounds relative to the window root to get actual screen positions.
+// For panes inside a stack, returns the stack wrapper's bounds.
+// For regular panes, returns the pane's own bounds.
+func (wm *WorkspaceManager) getNavigationAllocation(node *paneNode) (x, y, width, height int) {
+	if node == nil || node.container == nil {
+		return 0, 0, 0, 0
+	}
+
+	// If this pane is inside a stack, use the stack wrapper's window bounds
+	if node.parent != nil && node.parent.isStacked && node.parent.stackWrapper != nil {
+		return webkit.WidgetGetWindowBounds(node.parent.stackWrapper)
+	}
+
+	// For regular panes or stack containers themselves, use their own window bounds
+	return webkit.WidgetGetWindowBounds(node.container)
 }
 
 // structuralNeighbor finds neighbors based on the tree structure rather than geometry
@@ -284,23 +306,47 @@ func (wm *WorkspaceManager) structuralNeighbor(node *paneNode, direction string)
 		return nil
 	}
 
-	refX, refY, refWidth, refHeight := webkit.WidgetGetAllocation(node.container)
+	refX, refY, refWidth, refHeight := wm.getNavigationAllocation(node)
 	cx := float64(refX) + float64(refWidth)/2.0
 	cy := float64(refY) + float64(refHeight)/2.0
 	axisVertical := direction == DirectionUp || direction == DirectionDown
 
-	for parent := node.parent; parent != nil; parent = parent.parent {
+	log.Printf("[workspace] structuralNeighbor: node=%p pos=(%d,%d) direction=%s", node.container, refX, refY, direction)
+
+	// Start from the node's parent, but skip stack containers for vertical navigation
+	// Stack containers are transparent to vertical navigation - we want to navigate
+	// from stack to external panes, not within the stack (that's handled by NavigateStack)
+	startParent := node.parent
+	if startParent != nil && startParent.isStacked && axisVertical {
+		log.Printf("[workspace] structuralNeighbor: skipping stack container parent, using stack's parent instead")
+		node = startParent // Treat the stack container as the navigation node
+		startParent = startParent.parent
+	}
+
+	for parent := startParent; parent != nil; parent = parent.parent {
+		isLeft := parent.left == node
+		isRight := parent.right == node
+		log.Printf("[workspace] structuralNeighbor: checking parent orientation=%v isLeft=%v isRight=%v", parent.orientation, isLeft, isRight)
+
 		switch direction {
 		case DirectionUp:
 			if axisVertical && parent.orientation == gtk.OrientationVertical && parent.right == node {
+				log.Printf("[workspace] structuralNeighbor: DirectionUp - we are RIGHT child, looking in LEFT subtree")
 				if leaf := wm.closestLeafFromSubtree(parent.left, cx, cy, direction); leaf != nil {
+					lx, ly, _, _ := webkit.WidgetGetAllocation(leaf.container)
+					log.Printf("[workspace] structuralNeighbor: found leaf at pos=(%d,%d)", lx, ly)
 					return leaf
 				}
 			}
 		case DirectionDown:
 			if axisVertical && parent.orientation == gtk.OrientationVertical && parent.left == node {
+				log.Printf("[workspace] structuralNeighbor: DirectionDown - we are LEFT child, looking in RIGHT subtree")
 				if leaf := wm.closestLeafFromSubtree(parent.right, cx, cy, direction); leaf != nil {
+					lx, ly, _, _ := wm.getNavigationAllocation(leaf)
+					log.Printf("[workspace] structuralNeighbor: found leaf at pos=(%d,%d)", lx, ly)
 					return leaf
+				} else {
+					log.Printf("[workspace] structuralNeighbor: closestLeafFromSubtree returned nil for DirectionDown")
 				}
 			}
 		case DirectionLeft:
@@ -323,7 +369,8 @@ func (wm *WorkspaceManager) structuralNeighbor(node *paneNode, direction string)
 
 // closestLeafFromSubtree finds the closest leaf node in a subtree based on direction
 func (wm *WorkspaceManager) closestLeafFromSubtree(node *paneNode, cx, cy float64, direction string) *paneNode {
-	leaves := wm.collectLeavesFrom(node)
+	leaves := wm.collectLeavesFromWithDirection(node, direction)
+	log.Printf("[workspace] closestLeafFromSubtree: found %d leaves for direction=%s from cx=%.0f cy=%.0f", len(leaves), direction, cx, cy)
 	bestScore := math.MaxFloat64
 	var best *paneNode
 	for _, leaf := range leaves {
@@ -331,44 +378,52 @@ func (wm *WorkspaceManager) closestLeafFromSubtree(node *paneNode, cx, cy float6
 			continue
 		}
 
-		x, y, width, height := webkit.WidgetGetAllocation(leaf.container)
+		x, y, width, height := wm.getNavigationAllocation(leaf)
 		tx := float64(x) + float64(width)/2.0
 		ty := float64(y) + float64(height)/2.0
 		dx := tx - cx
 		dy := ty - cy
+		log.Printf("[workspace] closestLeafFromSubtree: leaf=%p pos=(%d,%d) center=(%.0f,%.0f) dx=%.0f dy=%.0f", leaf.container, x, y, tx, ty, dx, dy)
 		var score float64
 		switch direction {
 		case DirectionLeft:
 			if dx >= -focusEpsilon {
+				log.Printf("[workspace] closestLeafFromSubtree: SKIPPED (dx=%.0f not left)", dx)
 				continue
 			}
 			score = math.Abs(dx)*1000 + math.Abs(dy)
 		case DirectionRight:
 			if dx <= focusEpsilon {
+				log.Printf("[workspace] closestLeafFromSubtree: SKIPPED (dx=%.0f not right)", dx)
 				continue
 			}
 			score = math.Abs(dx)*1000 + math.Abs(dy)
 		case DirectionUp:
 			if dy >= -focusEpsilon {
+				log.Printf("[workspace] closestLeafFromSubtree: SKIPPED (dy=%.0f not above)", dy)
 				continue
 			}
 			score = math.Abs(dy)*1000 + math.Abs(dx)
 		case DirectionDown:
 			if dy <= focusEpsilon {
+				log.Printf("[workspace] closestLeafFromSubtree: SKIPPED (dy=%.0f not below)", dy)
 				continue
 			}
 			score = math.Abs(dy)*1000 + math.Abs(dx)
 		default:
 			continue
 		}
+		log.Printf("[workspace] closestLeafFromSubtree: ACCEPTED with score=%.0f", score)
 		if score < bestScore {
 			bestScore = score
 			best = leaf
 		}
 	}
 	if best == nil {
+		log.Printf("[workspace] closestLeafFromSubtree: no match found, trying boundaryFallback")
 		return wm.boundaryFallback(node, direction)
 	}
+	log.Printf("[workspace] closestLeafFromSubtree: returning best=%p", best.container)
 	return best
 }
 

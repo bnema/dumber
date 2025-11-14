@@ -171,6 +171,23 @@ func WidgetGetBounds(w gtk.Widgetter) (x, y, width, height float64) {
 	return 0, 0, 0, 0
 }
 
+// WidgetGetWindowBounds returns the widget's bounds relative to the toplevel window
+// This provides window-absolute coordinates needed for navigation geometry calculations
+func WidgetGetWindowBounds(w gtk.Widgetter) (x, y, width, height int) {
+	if widget := getWidget(w); widget != nil {
+		// Get the toplevel window (GtkWindow)
+		root := widget.Root()
+		if root != nil {
+			rect, ok := widget.ComputeBounds(root)
+			if ok && rect != nil {
+				return int(rect.X()), int(rect.Y()),
+					int(rect.Width()), int(rect.Height())
+			}
+		}
+	}
+	return 0, 0, 0, 0
+}
+
 // WidgetSetFocusChild sets the focus child of a widget
 func WidgetSetFocusChild(w gtk.Widgetter, child gtk.Widgetter) {
 	if widget := getWidget(w); widget != nil {
