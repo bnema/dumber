@@ -33,15 +33,24 @@ func (wm *WorkspaceManager) ensureGUIInPane(pane *BrowserPane) {
 }
 
 // mapDirection maps a direction string to GTK orientation and positioning
+// The bool return value indicates whether the existing pane should be the first child (start)
+// In GTK Paned with Vertical orientation: start=top, end=bottom
+// In GTK Paned with Horizontal orientation: start=left, end=right
 func mapDirection(direction string) (gtk.Orientation, bool) {
 	switch direction {
 	case DirectionLeft:
+		// New pane goes to left, existing to right
 		return gtk.OrientationHorizontal, false
 	case DirectionUp:
+		// New pane goes to top (start), existing to bottom (end)
+		// So existingFirst = false
 		return gtk.OrientationVertical, false
 	case DirectionDown:
+		// New pane goes to bottom (end), existing to top (start)
+		// So existingFirst = true
 		return gtk.OrientationVertical, true
 	default:
+		// Right: new pane to right, existing to left
 		return gtk.OrientationHorizontal, true
 	}
 }
