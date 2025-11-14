@@ -7,9 +7,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bnema/dumber/pkg/webkit"
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
+
+	"github.com/bnema/dumber/pkg/webkit"
 )
 
 const (
@@ -478,12 +479,14 @@ func (spm *StackedPaneManager) NavigateStack(direction string) bool {
 	case DirectionUp:
 		newIndex = currentIndex - 1
 		if newIndex < 0 {
-			newIndex = len(stackNode.stackedPanes) - 1 // Wrap to last
+			// At the top of the stack - allow navigation outside
+			return false
 		}
 	case DirectionDown:
 		newIndex = currentIndex + 1
 		if newIndex >= len(stackNode.stackedPanes) {
-			newIndex = 0 // Wrap to first
+			// At the bottom of the stack - allow navigation outside
+			return false
 		}
 	default:
 		return false
