@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - **Configurable pane border styling**: Added `workspace.styling.inactive_border_width`, `workspace.styling.inactive_border_color`, and `workspace.styling.show_stacked_title_border` config options. Active and inactive borders default to 1px to prevent layout shift, with only color changing on focus. Borders use GTK theme variables by default and support smooth CSS transitions.
 
 ### Changed
+- **Config format**: TOML is now the default format (JSON/YAML still supported). Action bindings inverted to `action→keys` structure for maintainability with O(1) runtime lookup. Added comprehensive validation.
 - **Code cleanup**: Removed dead code files and emojis from GUI modules
 
 ### Fixed
