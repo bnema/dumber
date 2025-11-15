@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **Middle-click and Ctrl+click link handling**: Links can now be opened in new workspace panes using standard browser gestures (middle-click or Ctrl+left-click). New panes split in the configured direction (default: right) and respect `workspace.popups.placement` configuration. Implemented via WebKit's `decide-policy` signal to intercept navigation actions before they occur.
+- **Configurable pane border styling**: Added `workspace.styling.inactive_border_width`, `workspace.styling.inactive_border_color`, and `workspace.styling.show_stacked_title_border` config options. Active and inactive borders default to 1px to prevent layout shift, with only color changing on focus. Borders use GTK theme variables by default and support smooth CSS transitions.
 
 ### Changed
 - **Code cleanup**: Removed dead code files and emojis from GUI modules
