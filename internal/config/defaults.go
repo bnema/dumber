@@ -145,22 +145,17 @@ func DefaultConfig() *Config {
 		UseDomZoom:    false,
 		DefaultZoom:   1.2, // 120% default zoom for better readability
 		Workspace: WorkspaceConfig{
-			EnableZellijControls: true,
 			PaneMode: PaneModeConfig{
 				ActivationShortcut:  defaultPaneActivationShortcut,
 				TimeoutMilliseconds: defaultPaneTimeoutMilliseconds,
-				ActionBindings: map[string]string{
-					"arrowright": "split-right",
-					"arrowleft":  "split-left",
-					"arrowup":    "split-up",
-					"arrowdown":  "split-down",
-					"r":          "split-right",
-					"l":          "split-left",
-					"u":          "split-up",
-					"d":          "split-down",
-					"x":          "close-pane",
-					"enter":      "confirm",
-					"escape":     "cancel",
+				Actions: map[string][]string{
+					"split-right": {"arrowright", "r"},
+					"split-left":  {"arrowleft", "l"},
+					"split-up":    {"arrowup", "u"},
+					"split-down":  {"arrowdown", "d"},
+					"close-pane":  {"x"},
+					"confirm":     {"enter"},
+					"cancel":      {"escape"},
 				},
 			},
 			Tabs: TabKeyConfig{

@@ -1,23 +1,19 @@
 # Configuration Reference
 
-**Primary format**: JSON
-**Location**: `~/.config/dumber/config.json`
-**Also supports**: YAML (`.yaml`) and TOML (`.toml`)
-**JSON Schema**: `~/.config/dumber/config.schema.json` (auto-generated)
+**Primary format**: TOML (recommended)
+**Location**: `~/.config/dumber/config.toml`
+**Also supports**: JSON (`.json`) and YAML (`.yaml`)
+**JSON Schema**: `~/.config/dumber/config.schema.json` (auto-generated for JSON format)
 
-## IDE Integration
+## Why TOML?
 
-For autocompletion and validation in VS Code or other editors, add this to the top of your `config.json`:
+TOML is the recommended format for dumber configuration because:
+- **Clear structure**: Explicit sections make complex configs easy to read and modify
+- **No ambiguity**: No whitespace sensitivity or type coercion issues
+- **Comments supported**: Add documentation directly in your config
+- **Industry standard**: Used by Cargo, Hugo, and many modern tools
 
-```json
-{
-  "$schema": "./config.schema.json",
-  "default_zoom": 1.2,
-  ...
-}
-```
-
-The schema is automatically generated when you first create a config file.
+You can still use JSON or YAML if you prefer - dumber automatically detects the format.
 
 ## Database
 
@@ -40,23 +36,18 @@ The schema is automatically generated when you first create a config file.
 | `search_shortcuts` | map | See defaults | Map of shortcut aliases to URLs |
 
 **Default shortcuts:**
-```json
-{
-  "search_shortcuts": {
-    "g": {
-      "url": "https://google.com/search?q=%s",
-      "description": "Google Search"
-    },
-    "gh": {
-      "url": "https://github.com/search?q=%s",
-      "description": "GitHub"
-    },
-    "yt": {
-      "url": "https://youtube.com/results?search_query=%s",
-      "description": "YouTube"
-    }
-  }
-}
+```toml
+[search_shortcuts.g]
+url = "https://google.com/search?q=%s"
+description = "Google Search"
+
+[search_shortcuts.gh]
+url = "https://github.com/search?q=%s"
+description = "GitHub"
+
+[search_shortcuts.yt]
+url = "https://youtube.com/results?search_query=%s"
+description = "YouTube"
 ```
 
 ## Dmenu / Launcher
@@ -105,37 +96,27 @@ The schema is automatically generated when you first create a config file.
 ### Color Palettes
 
 **Light palette:**
-```json
-{
-  "appearance": {
-    "light_palette": {
-      "background": "#f8f8f8",
-      "surface": "#f2f2f2",
-      "surface_variant": "#ececec",
-      "text": "#1a1a1a",
-      "muted": "#6e6e6e",
-      "accent": "#404040",
-      "border": "#d2d2d2"
-    }
-  }
-}
+```toml
+[appearance.light_palette]
+background = "#f8f8f8"
+surface = "#f2f2f2"
+surface_variant = "#ececec"
+text = "#1a1a1a"
+muted = "#6e6e6e"
+accent = "#404040"
+border = "#d2d2d2"
 ```
 
 **Dark palette:**
-```json
-{
-  "appearance": {
-    "dark_palette": {
-      "background": "#0e0e0e",
-      "surface": "#1a1a1a",
-      "surface_variant": "#141414",
-      "text": "#e4e4e4",
-      "muted": "#848484",
-      "accent": "#a8a8a8",
-      "border": "#363636"
-    }
-  }
-}
+```toml
+[appearance.dark_palette]
+background = "#0e0e0e"
+surface = "#1a1a1a"
+surface_variant = "#141414"
+text = "#e4e4e4"
+muted = "#848484"
+accent = "#a8a8a8"
+border = "#363636"
 ```
 
 ## Video Acceleration
@@ -191,40 +172,27 @@ The schema is automatically generated when you first create a config file.
 
 ## Workspace Configuration
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `workspace.enable_zellij_controls` | bool | `true` | Enable Zellij-style keybindings |
-
 ### Pane Mode
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `workspace.pane_mode.activation_shortcut` | string | `"ctrl+p"` | Pane mode activation key |
 | `workspace.pane_mode.timeout_ms` | int | `3000` | Pane mode timeout (ms) |
-| `workspace.pane_mode.action_bindings` | map | See below | Pane mode key bindings |
+| `workspace.pane_mode.actions` | map | See below | Action→keys mappings |
 
-**Default pane mode bindings:**
-```json
-{
-  "workspace": {
-    "pane_mode": {
-      "action_bindings": {
-        "arrowright": "split-right",
-        "arrowleft": "split-left",
-        "arrowup": "split-up",
-        "arrowdown": "split-down",
-        "r": "split-right",
-        "l": "split-left",
-        "u": "split-up",
-        "d": "split-down",
-        "x": "close-pane",
-        "enter": "confirm",
-        "escape": "cancel"
-      }
-    }
-  }
-}
+**Default pane mode actions:**
+```toml
+[workspace.pane_mode.actions]
+split-right = ["arrowright", "r"]
+split-left = ["arrowleft", "l"]
+split-up = ["arrowup", "u"]
+split-down = ["arrowdown", "d"]
+close-pane = ["x"]
+confirm = ["enter"]
+cancel = ["escape"]
 ```
+
+> **Note:** Actions are inverted to key→action map in memory for O(1) lookup performance during navigation.
 
 ### Tab Shortcuts
 
@@ -267,14 +235,12 @@ The schema is automatically generated when you first create a config file.
 | `content_filtering_whitelist` | array | See below | Domains to skip ad blocking |
 
 **Default whitelist:**
-```json
-{
-  "content_filtering_whitelist": [
-    "twitch.tv",
-    "passport.twitch.tv",
-    "gql.twitch.tv"
-  ]
-}
+```toml
+content_filtering_whitelist = [
+  "twitch.tv",
+  "passport.twitch.tv",
+  "gql.twitch.tv"
+]
 ```
 
 ## Environment Variables
