@@ -26,7 +26,7 @@ export class BrowserControlsService {
       "info",
       "frontend",
       "init",
-      "BrowserControlsService initialized ✓",
+      "BrowserControlsService initialized",
     );
   }
 
