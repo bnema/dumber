@@ -214,8 +214,6 @@ type DebugConfig struct {
 
 // WorkspaceConfig captures layout, pane, and tab behaviour preferences.
 type WorkspaceConfig struct {
-	// EnableZellijControls toggles Zellij-inspired keybindings.
-	EnableZellijControls bool `mapstructure:"enable_zellij_controls" yaml:"enable_zellij_controls" json:"enable_zellij_controls"`
 	// PaneMode defines modal pane behaviour and bindings.
 	PaneMode PaneModeConfig `mapstructure:"pane_mode" yaml:"pane_mode" json:"pane_mode"`
 	// Tabs holds classic browser tab shortcuts.
@@ -228,9 +226,21 @@ type WorkspaceConfig struct {
 
 // PaneModeConfig defines modal behaviour for pane management.
 type PaneModeConfig struct {
-	ActivationShortcut  string            `mapstructure:"activation_shortcut" yaml:"activation_shortcut" json:"activation_shortcut"`
-	TimeoutMilliseconds int               `mapstructure:"timeout_ms" yaml:"timeout_ms" json:"timeout_ms"`
-	ActionBindings      map[string]string `mapstructure:"action_bindings" yaml:"action_bindings" json:"action_bindings"`
+	ActivationShortcut  string              `mapstructure:"activation_shortcut" yaml:"activation_shortcut" json:"activation_shortcut"`
+	TimeoutMilliseconds int                 `mapstructure:"timeout_ms" yaml:"timeout_ms" json:"timeout_ms"`
+	Actions             map[string][]string `mapstructure:"actions" yaml:"actions" json:"actions"`
+}
+
+// GetKeyBindings returns an inverted map for O(1) key→action lookup.
+// This is built from the action→keys structure in the config.
+func (p *PaneModeConfig) GetKeyBindings() map[string]string {
+	keyToAction := make(map[string]string)
+	for action, keys := range p.Actions {
+		for _, key := range keys {
+			keyToAction[key] = action
+		}
+	}
+	return keyToAction
 }
 
 // TabKeyConfig defines Zellij-inspired tab shortcuts.
@@ -321,7 +331,7 @@ func NewManager() (*Manager, error) {
 	// Add config paths
 	configDir, err := GetConfigDir()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get config directory: %w", err)
+		return nil, fmt.Errorf("failed to determine config directory: %w\nCheck XDG_CONFIG_HOME environment variable or HOME directory", err)
 	}
 	v.AddConfigPath(configDir)
 	v.AddConfigPath(".") // Current directory for development
@@ -331,36 +341,11 @@ func NewManager() (*Manager, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 
-	// Bind specific environment variables
-	bindings := map[string]string{
-		"database.path":             "DATABASE_PATH",
-		"history.max_entries":       "HISTORY_MAX_ENTRIES",
-		"history.retention_period":  "HISTORY_RETENTION_PERIOD",
-		"history.cleanup_interval":  "HISTORY_CLEANUP_INTERVAL",
-		"dmenu.max_history_items":   "DMENU_MAX_HISTORY_ITEMS",
-		"dmenu.show_visit_count":    "DMENU_SHOW_VISIT_COUNT",
-		"dmenu.show_last_visited":   "DMENU_SHOW_LAST_VISITED",
-		"dmenu.history_prefix":      "DMENU_HISTORY_PREFIX",
-		"dmenu.shortcut_prefix":     "DMENU_SHORTCUT_PREFIX",
-		"dmenu.url_prefix":          "DMENU_URL_PREFIX",
-		"dmenu.date_format":         "DMENU_DATE_FORMAT",
-		"dmenu.sort_by_visit_count": "DMENU_SORT_BY_VISIT_COUNT",
-		"logging.level":             "LOGGING_LEVEL",
-		"logging.format":            "LOGGING_FORMAT",
-		"logging.filename":          "LOGGING_FILENAME",
-		"logging.max_size":          "LOGGING_MAX_SIZE",
-		"logging.max_backups":       "LOGGING_MAX_BACKUPS",
-		"logging.max_age":           "LOGGING_MAX_AGE",
-		"logging.compress":          "LOGGING_COMPRESS",
-	}
+	// Note: Most environment variables are handled automatically via AutomaticEnv()
+	// with the DUMB_BROWSER_ prefix (e.g., DUMB_BROWSER_DATABASE_PATH).
+	// The explicit bindings below are only for special cases with different naming patterns.
 
-	for key, env := range bindings {
-		if err := v.BindEnv(key, "DUMB_BROWSER_"+env); err != nil {
-			return nil, fmt.Errorf("failed to bind environment variable %s: %w", env, err)
-		}
-	}
-
-	// Explicit binding for rendering mode via dedicated env var
+	// Explicit bindings for DUMBER_* prefix (different from DUMB_BROWSER_)
 	if err := v.BindEnv("rendering_mode", "DUMBER_RENDERING_MODE"); err != nil {
 		return nil, fmt.Errorf("failed to bind DUMBER_RENDERING_MODE: %w", err)
 	}
@@ -372,6 +357,7 @@ func NewManager() (*Manager, error) {
 	}
 
 	// Video acceleration environment variable bindings
+	// These use system-standard env vars (LIBVA_*, GST_*, WEBKIT_*) and DUMBER_* prefix
 	videoAccelEnvBindings := map[string]string{
 		"video_acceleration.enable_vaapi":       "DUMBER_VIDEO_ACCELERATION_ENABLE",
 		"video_acceleration.auto_detect_gpu":    "DUMBER_VIDEO_AUTO_DETECT",
@@ -387,6 +373,7 @@ func NewManager() (*Manager, error) {
 	}
 
 	// Codec preferences environment variable bindings
+	// These use DUMBER_* prefix for shorter, more convenient env var names
 	codecEnvBindings := map[string]string{
 		"codec_preferences.preferred_codecs":             "DUMBER_PREFERRED_CODECS",
 		"codec_preferences.force_av1":                    "DUMBER_FORCE_AV1",
@@ -432,21 +419,28 @@ func (m *Manager) Load() error {
 		if errors.As(err, &configFileNotFoundError) {
 			// Config file not found, create default one
 			if err := m.createDefaultConfig(); err != nil {
-				return fmt.Errorf("failed to create default config: %w", err)
+				configDir, _ := GetConfigDir()
+				return fmt.Errorf("failed to create default config at %s: %w\nTry creating the directory manually or check permissions", configDir, err)
 			}
 			// Re-read the newly created config file
 			if err := m.viper.ReadInConfig(); err != nil {
-				return fmt.Errorf("failed to read newly created config: %w", err)
+				return fmt.Errorf("failed to read newly created config file: %w\nThe config file was created but couldn't be read. Please check the file format", err)
 			}
 		} else {
-			return fmt.Errorf("failed to read config file: %w", err)
+			configFile := m.viper.ConfigFileUsed()
+			if configFile == "" {
+				configDir, _ := GetConfigDir()
+				configFile = filepath.Join(configDir, "config.*")
+			}
+			return fmt.Errorf("failed to read config file at %s: %w\nCheck the file format (must be valid TOML, JSON, or YAML) and permissions", configFile, err)
 		}
 	}
 
 	// Unmarshal into config struct
 	config := &Config{}
 	if err := m.viper.Unmarshal(config); err != nil {
-		return fmt.Errorf("failed to unmarshal config: %w", err)
+		configFile := m.viper.ConfigFileUsed()
+		return fmt.Errorf("failed to parse config file at %s: %w\nCheck for syntax errors, invalid values, or type mismatches", configFile, err)
 	}
 
 	// Set database path if not specified
@@ -483,6 +477,11 @@ func (m *Manager) Load() error {
 
 	// Validate ColorScheme setting
 	m.validateColorScheme(config)
+
+	// Validate all config values
+	if err := validateConfig(config); err != nil {
+		return fmt.Errorf("configuration validation failed: %w", err)
+	}
 
 	m.config = config
 	return nil
@@ -585,6 +584,11 @@ func (m *Manager) reload() error {
 	// Validate ColorScheme setting
 	m.validateColorScheme(config)
 
+	// Validate all config values
+	if err := validateConfig(config); err != nil {
+		return fmt.Errorf("configuration validation failed: %w", err)
+	}
+
 	m.config = config
 	return nil
 }
@@ -680,10 +684,9 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("default_zoom", defaults.DefaultZoom)
 
 	// Workspace defaults
-	m.viper.SetDefault("workspace.enable_zellij_controls", defaults.Workspace.EnableZellijControls)
 	m.viper.SetDefault("workspace.pane_mode.activation_shortcut", defaults.Workspace.PaneMode.ActivationShortcut)
 	m.viper.SetDefault("workspace.pane_mode.timeout_ms", defaults.Workspace.PaneMode.TimeoutMilliseconds)
-	m.viper.SetDefault("workspace.pane_mode.action_bindings", defaults.Workspace.PaneMode.ActionBindings)
+	m.viper.SetDefault("workspace.pane_mode.actions", defaults.Workspace.PaneMode.Actions)
 	m.viper.SetDefault("workspace.tabs.new_tab", defaults.Workspace.Tabs.NewTab)
 	m.viper.SetDefault("workspace.tabs.close_tab", defaults.Workspace.Tabs.CloseTab)
 	m.viper.SetDefault("workspace.tabs.next_tab", defaults.Workspace.Tabs.NextTab)
@@ -723,12 +726,14 @@ func (m *Manager) createDefaultConfig() error {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
-	fmt.Printf("Created default configuration file: %s\n", configFile)
+	fmt.Printf("Created default configuration file: %s (TOML format)\n", configFile)
 
-	// Generate JSON schema file
-	if err := GenerateSchemaFile(); err != nil {
-		// Log error but don't fail config creation
-		fmt.Fprintf(os.Stderr, "Warning: failed to generate config schema: %v\n", err)
+	// Generate JSON schema file only for JSON configs (used for IDE autocompletion)
+	if filepath.Ext(configFile) == ".json" {
+		if err := GenerateSchemaFile(); err != nil {
+			// Log error but don't fail config creation
+			fmt.Fprintf(os.Stderr, "Warning: failed to generate config schema: %v\n", err)
+		}
 	}
 
 	return nil

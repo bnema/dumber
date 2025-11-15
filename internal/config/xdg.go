@@ -114,7 +114,7 @@ func GetConfigFile() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(configDir, "config.json"), nil
+	return filepath.Join(configDir, "config.toml"), nil
 }
 
 // GetDatabaseFile returns the path to the database file in the data directory.

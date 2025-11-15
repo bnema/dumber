@@ -173,44 +173,40 @@ Dumber features a Zellij-inspired pane management system that allows you to spli
 4. **Close**: Press `X` in pane mode to close the current pane
 
 ### Configuration
-The pane system is fully configurable via `config.json`:
-```json
-"workspace": {
-  "enable_zellij_controls": true,
-  "pane_mode": {
-    "activation_shortcut": "ctrl+p",
-    "timeout_ms": 3000,
-    "action_bindings": {
-      "arrowright": "split-right",
-      "r": "split-right",
-      "x": "close-pane",
-      // ... full key mappings
-    }
-  },
-  "popups": {
-    "placement": "right",
-    "open_in_new_pane": true
-  },
-  "styling": {
-    "border_width": 2,
-    "border_color": "@theme_selected_bg_color",
-    "transition_duration": 120
-  }
-}
+The pane system is fully configurable via `config.toml`:
+```toml
+[workspace.pane_mode]
+activation_shortcut = "ctrl+p"
+timeout_ms = 3000
+
+[workspace.pane_mode.actions]
+split-right = ["arrowright", "r"]
+split-left = ["arrowleft", "l"]
+close-pane = ["x"]
+# ... full action mappings
+
+[workspace.popups]
+placement = "right"
+open_in_new_pane = true
+
+[workspace.styling]
+border_width = 2
+border_color = "@theme_selected_bg_color"
+transition_duration = 120
 ```
 
 ## Configuration
 
 Dumber follows the XDG Base Directory spec:
-- Config: `~/.config/dumber/config.json`
+- Config: `~/.config/dumber/config.toml` (also supports `.json` and `.yaml`)
 - Data:   `~/.local/share/dumber`
 - State:  `~/.local/state/dumber` (default DB lives here)
 
-A default `config.json` is created on first run. Config changes are watched and applied at runtime when possible.
+A default `config.toml` is created on first run. Config changes are watched and applied at runtime when possible.
 
 ### How Configuration Works
 
-- **Config file**: `~/.config/dumber/config.json` (supports `.yaml` and `.toml` too)
+- **Config file**: `~/.config/dumber/config.toml` (also supports `.json` and `.yaml`)
 - **Format**: JSON/YAML/TOML - auto-detected
 - **JSON Schema**: Auto-generated for IDE autocompletion and validation
 - **Live reload**: Changes are automatically applied without restarting
@@ -227,7 +223,6 @@ A default `config.json` is created on first run. Config changes are watched and 
     "g": { "url": "https://google.com/search?q=%s", "description": "Google" }
   },
   "workspace": {
-    "enable_zellij_controls": true,
     "popups": { "behavior": "split" }
   }
 }
