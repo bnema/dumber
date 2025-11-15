@@ -283,10 +283,16 @@ type PopupBehaviorConfig struct {
 
 // WorkspaceStylingConfig defines visual styling for workspace panes.
 type WorkspaceStylingConfig struct {
-	// BorderWidth in pixels for pane borders
+	// BorderWidth in pixels for active pane borders
 	BorderWidth int `mapstructure:"border_width" yaml:"border_width" json:"border_width"`
 	// BorderColor for focused panes (CSS color value or theme variable)
 	BorderColor string `mapstructure:"border_color" yaml:"border_color" json:"border_color"`
+	// InactiveBorderWidth in pixels for inactive pane borders (0 = hidden)
+	InactiveBorderWidth int `mapstructure:"inactive_border_width" yaml:"inactive_border_width" json:"inactive_border_width"`
+	// InactiveBorderColor for unfocused panes (CSS color value or theme variable)
+	InactiveBorderColor string `mapstructure:"inactive_border_color" yaml:"inactive_border_color" json:"inactive_border_color"`
+	// ShowStackedTitleBorder enables the separator line below stacked pane titles
+	ShowStackedTitleBorder bool `mapstructure:"show_stacked_title_border" yaml:"show_stacked_title_border" json:"show_stacked_title_border"`
 	// PaneModeBorderColor for the pane mode indicator border (CSS color value or theme variable)
 	// Defaults to "#FFA500" (orange) if not set
 	PaneModeBorderColor string `mapstructure:"pane_mode_border_color" yaml:"pane_mode_border_color" json:"pane_mode_border_color"`
@@ -692,6 +698,9 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("workspace.popups.oauth_auto_close", defaults.Workspace.Popups.OAuthAutoClose)
 	m.viper.SetDefault("workspace.styling.border_width", defaults.Workspace.Styling.BorderWidth)
 	m.viper.SetDefault("workspace.styling.border_color", defaults.Workspace.Styling.BorderColor)
+	m.viper.SetDefault("workspace.styling.inactive_border_width", defaults.Workspace.Styling.InactiveBorderWidth)
+	m.viper.SetDefault("workspace.styling.inactive_border_color", defaults.Workspace.Styling.InactiveBorderColor)
+	m.viper.SetDefault("workspace.styling.show_stacked_title_border", defaults.Workspace.Styling.ShowStackedTitleBorder)
 	m.viper.SetDefault("workspace.styling.pane_mode_border_color", defaults.Workspace.Styling.PaneModeBorderColor)
 	m.viper.SetDefault("workspace.styling.transition_duration", defaults.Workspace.Styling.TransitionDuration)
 	m.viper.SetDefault("workspace.styling.border_radius", defaults.Workspace.Styling.BorderRadius)

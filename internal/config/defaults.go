@@ -24,11 +24,14 @@ const (
 	defaultPopupPlacement          = "right"
 
 	// Workspace styling defaults
-	defaultBorderWidth         = 2
-	defaultBorderColor         = "@theme_selected_bg_color"
-	defaultPaneModeBorderColor = "#FFA500" // Orange for pane mode indicator
-	defaultTransitionDuration  = 120
-	defaultBorderRadius        = 0
+	defaultBorderWidth            = 1
+	defaultBorderColor            = "@theme_selected_bg_color"
+	defaultInactiveBorderWidth    = 1                             // Same width as active to prevent layout shift
+	defaultInactiveBorderColor    = "@theme_unfocused_bg_color"   // GTK theme variable
+	defaultShowStackedTitleBorder = false                         // Hidden by default
+	defaultPaneModeBorderColor    = "#FFA500"                     // Orange for pane mode indicator
+	defaultTransitionDuration     = 120
+	defaultBorderRadius           = 0
 )
 
 // getDefaultLogDir returns the default log directory, falls back to empty string on error
@@ -176,11 +179,14 @@ func DefaultConfig() *Config {
 				OAuthAutoClose:       true,   // Auto-close OAuth popups on success
 			},
 			Styling: WorkspaceStylingConfig{
-				BorderWidth:         defaultBorderWidth,
-				BorderColor:         defaultBorderColor,
-				PaneModeBorderColor: defaultPaneModeBorderColor,
-				TransitionDuration:  defaultTransitionDuration,
-				BorderRadius:        defaultBorderRadius,
+				BorderWidth:            defaultBorderWidth,
+				BorderColor:            defaultBorderColor,
+				InactiveBorderWidth:    defaultInactiveBorderWidth,
+				InactiveBorderColor:    defaultInactiveBorderColor,
+				ShowStackedTitleBorder: defaultShowStackedTitleBorder,
+				PaneModeBorderColor:    defaultPaneModeBorderColor,
+				TransitionDuration:     defaultTransitionDuration,
+				BorderRadius:           defaultBorderRadius,
 			},
 		},
 		ContentFilteringWhitelist: []string{

@@ -251,11 +251,14 @@ The schema is automatically generated when you first create a config file.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `workspace.styling.border_width` | int | `2` | Border width in pixels |
-| `workspace.styling.border_color` | string | `"@theme_selected_bg_color"` | Border color (CSS or theme var) |
+| `workspace.styling.border_width` | int | `1` | Active pane border width (px) |
+| `workspace.styling.border_color` | string | `"@theme_selected_bg_color"` | Active pane border color |
+| `workspace.styling.inactive_border_width` | int | `1` | Inactive pane border width (px) |
+| `workspace.styling.inactive_border_color` | string | `"@theme_unfocused_bg_color"` | Inactive pane border color |
+| `workspace.styling.show_stacked_title_border` | bool | `false` | Show separator on stacked pane titles |
 | `workspace.styling.pane_mode_border_color` | string | `"#FFA500"` | Pane mode border color (orange) |
-| `workspace.styling.transition_duration` | int | `120` | Transition duration (ms) |
-| `workspace.styling.border_radius` | int | `0` | Border radius in pixels |
+| `workspace.styling.transition_duration` | int | `120` | Border transition duration (ms) |
+| `workspace.styling.border_radius` | int | `0` | Border radius (px) |
 
 ## Content Filtering
 

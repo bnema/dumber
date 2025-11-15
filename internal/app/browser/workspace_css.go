@@ -55,28 +55,52 @@ func getActivePaneBorderColor(styling config.WorkspaceStylingConfig, isDark bool
 	return "#87CEEB" // Sky blue pastel for light theme
 }
 
+// getInactivePaneBorderColor returns the border color for inactive panes based on config and theme
+func getInactivePaneBorderColor(styling config.WorkspaceStylingConfig, isDark bool) string {
+	// Use configured border color if set
+	if styling.InactiveBorderColor != "" {
+		// Check if it's a GTK theme variable (starts with @)
+		if strings.HasPrefix(styling.InactiveBorderColor, "@") {
+			return styling.InactiveBorderColor
+		}
+		// Return the configured color as-is (could be hex, rgb, etc.)
+		return styling.InactiveBorderColor
+	}
+
+	// Fallback to hardcoded colors based on theme
+	if isDark {
+		return "#333333" // Dark border for dark theme
+	}
+	return "#dddddd" // Light border for light theme
+}
+
 // generateWorkspaceCSS generates the complete CSS for workspace panes and stacked panes
 func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	cfg := config.Get()
 	styling := cfg.Workspace.Styling
 
 	// Get appropriate colors based on GTK theme preference
-	var inactiveBorderColor, windowBackgroundColor string
+	var windowBackgroundColor string
 	isDark := webkit.PrefersDarkTheme()
 	if isDark {
-		inactiveBorderColor = "#333333"   // Dark border for dark theme
 		windowBackgroundColor = "#2b2b2b" // Dark window background
 	} else {
-		inactiveBorderColor = "#dddddd"   // Light border for light theme
 		windowBackgroundColor = "#ffffff" // Light window background
 	}
 
 	activeBorderColor := getActivePaneBorderColor(styling, isDark)
+	inactiveBorderColor := getInactivePaneBorderColor(styling, isDark)
 
 	// Pane mode border color - use configured value or fallback to orange
 	paneModeColor := styling.PaneModeBorderColor
 	if paneModeColor == "" {
 		paneModeColor = "#FFA500" // Fallback to orange if not configured
+	}
+
+	// Stacked title border - conditional based on config
+	stackedTitleBorder := "0"
+	if styling.ShowStackedTitleBorder {
+		stackedTitleBorder = fmt.Sprintf("1px solid %s", inactiveBorderColor)
 	}
 
 	css := fmt.Sprintf(`window {
@@ -96,16 +120,21 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  transition: margin 150ms ease-in-out;
 	}
 
-	/* Base pane styling - subtle border for inactive panes */
+	/* Base pane styling - configurable inactive borders */
 	.workspace-pane, .stacked-pane-container {
-	  border: 2px solid %s;
+	  border-width: %dpx;
+	  border-style: solid;
+	  border-color: %s;
 	  border-radius: %dpx;
-	  transition: border-color %dms ease-in-out;
 	  margin: 0;
+	  transition-property: border-color;
+	  transition-duration: %dms;
+	  transition-timing-function: ease-in-out;
 	}
 
 	/* Active pane border styling */
 	.workspace-pane-active {
+	  border-width: %dpx;
 	  border-color: %s;
 	}
 
@@ -114,14 +143,15 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  background-color: %s;
 	}
 
-	/* Stacked pane containers never get active border - focus is shown via WebKit */
+	/* Stacked pane containers keep inactive border when active */
 	.stacked-pane-container.workspace-pane-active {
+	  border-width: %dpx;
 	  border-color: %s;
 	}
 
 	.stacked-pane-title {
 	  background-color: %s;
-	  border-bottom: 1px solid %s;
+	  border-bottom: %s;
 	  padding: 4px 8px;
 	  min-height: 24px;
 	  transition: background-color %dms ease-in-out;
@@ -148,20 +178,23 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	.stacked-pane-collapsed {
 	  /* Collapsed panes are hidden - handled in code via widget visibility */
 	}`,
-		windowBackgroundColor,          // window background
-		paneModeColor,                  // window.pane-mode-active background (border color)
-		windowBackgroundColor,          // paned, box background
-		inactiveBorderColor,            // base pane border color (inactive)
-		styling.BorderRadius,           // base pane border radius
-		styling.TransitionDuration,     // base pane border transition
-		activeBorderColor,              // workspace-pane-active border color
-		windowBackgroundColor,          // stacked-pane-container background
-		inactiveBorderColor,            // stacked-pane-container.workspace-pane-active border color (keep subtle)
-		getStackTitleBg(isDark),        // stacked-pane-title background
-		inactiveBorderColor,            // stacked-pane-title border-bottom
-		styling.TransitionDuration,     // stacked-pane-title transition
-		getStackTitleHoverBg(isDark),   // stacked-pane-title:hover background
-		getStackTitleTextColor(isDark), // stacked-pane-title-text color
+		windowBackgroundColor,           // window background
+		paneModeColor,                   // window.pane-mode-active background (border color)
+		windowBackgroundColor,           // paned, box background
+		styling.InactiveBorderWidth,     // base pane border-width (inactive)
+		inactiveBorderColor,             // base pane border-color (inactive)
+		styling.BorderRadius,            // base pane border radius
+		styling.TransitionDuration,      // transition-duration
+		styling.BorderWidth,             // workspace-pane-active border-width
+		activeBorderColor,               // workspace-pane-active border color
+		windowBackgroundColor,           // stacked-pane-container background
+		styling.InactiveBorderWidth,     // stacked-pane-container.active border-width
+		inactiveBorderColor,             // stacked-pane-container.active border-color
+		getStackTitleBg(isDark),         // stacked-pane-title background
+		stackedTitleBorder,              // stacked-pane-title border-bottom
+		styling.TransitionDuration,      // stacked-pane-title transition
+		getStackTitleHoverBg(isDark),    // stacked-pane-title:hover background
+		getStackTitleTextColor(isDark),  // stacked-pane-title-text color
 	)
 
 	return css
