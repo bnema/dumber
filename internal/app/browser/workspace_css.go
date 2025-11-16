@@ -36,6 +36,14 @@ func getStackTitleTextColor(isDark bool) string {
 	return "#333333"
 }
 
+// getStackTitleBorderColor returns a subtle border color slightly darker than the title background
+func getStackTitleBorderColor(isDark bool) string {
+	if isDark {
+		return "#353535" // Slightly darker than #404040
+	}
+	return "#e5e5e5" // Slightly darker than #f0f0f0
+}
+
 // getActivePaneBorderColor returns the border color for active panes based on config and theme
 func getActivePaneBorderColor(styling config.WorkspaceStylingConfig, isDark bool) string {
 	// Use configured border color if set
@@ -97,11 +105,19 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 		paneModeColor = "#FFA500" // Fallback to orange if not configured
 	}
 
-	// Stacked title border - conditional based on config
-	stackedTitleBorder := "0"
-	if styling.ShowStackedTitleBorder {
-		stackedTitleBorder = fmt.Sprintf("1px solid %s", inactiveBorderColor)
+	// Stacked title border - subtle separator between titles
+	stackedTitleBorder := fmt.Sprintf("1px solid %s", getStackTitleBorderColor(isDark))
+
+	// UI Scale calculations for title bar elements (base values at 1.0 scale)
+	uiScale := styling.UIScale
+	if uiScale <= 0 {
+		uiScale = 1.0 // Fallback to default if invalid
 	}
+	titleFontSize := int(12 * uiScale)              // Base: 12px
+	titlePaddingVertical := int(4 * uiScale)        // Base: 4px
+	titlePaddingHorizontal := int(8 * uiScale)      // Base: 8px
+	titleMinHeight := int(24 * uiScale)             // Base: 24px
+	faviconMargin := int(4 * uiScale)               // Base: 4px
 
 	css := fmt.Sprintf(`window {
 	  background-color: %s;
@@ -152,8 +168,8 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	.stacked-pane-title {
 	  background-color: %s;
 	  border-bottom: %s;
-	  padding: 4px 8px;
-	  min-height: 24px;
+	  padding: %dpx %dpx;
+	  min-height: %dpx;
 	  transition: background-color %dms ease-in-out;
 	}
 
@@ -162,13 +178,13 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	}
 
 	.stacked-pane-title-text {
-	  font-size: 12px;
+	  font-size: %dpx;
 	  color: %s;
 	  font-weight: 500;
 	}
 
 	.stacked-pane-favicon {
-	  margin-right: 4px;
+	  margin-right: %dpx;
 	}
 
 	.stacked-pane-active {
@@ -192,9 +208,14 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 		inactiveBorderColor,             // stacked-pane-container.active border-color
 		getStackTitleBg(isDark),         // stacked-pane-title background
 		stackedTitleBorder,              // stacked-pane-title border-bottom
+		titlePaddingVertical,            // stacked-pane-title padding vertical
+		titlePaddingHorizontal,          // stacked-pane-title padding horizontal
+		titleMinHeight,                  // stacked-pane-title min-height
 		styling.TransitionDuration,      // stacked-pane-title transition
 		getStackTitleHoverBg(isDark),    // stacked-pane-title:hover background
+		titleFontSize,                   // stacked-pane-title-text font-size
 		getStackTitleTextColor(isDark),  // stacked-pane-title-text color
+		faviconMargin,                   // stacked-pane-favicon margin-right
 	)
 
 	return css
