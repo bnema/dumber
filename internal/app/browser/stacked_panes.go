@@ -541,10 +541,9 @@ func (spm *StackedPaneManager) createTitleBar(pane *paneNode) gtk.Widgetter {
 		spm.titleBarToPane[titleBarID] = pane
 
 		// Attach click handler
-		// TODO: Implement click handler with gtk.GestureClick
-		// webkit.WidgetAttachClickHandler(titleBar, func() {
-		// 	spm.handleTitleBarClick(titleBarID)
-		// })
+		webkit.WidgetAttachClickHandler(titleBar, func() {
+			spm.handleTitleBarClick(titleBarID)
+		})
 	}
 
 	return titleBar
@@ -613,10 +612,9 @@ func (spm *StackedPaneManager) updateTitleBarLabel(node *paneNode, title string)
 	spm.titleBarToPane[titleBarID] = node
 
 	// Attach click handler
-	// TODO: Implement with gtk.GestureClick
-	// webkit.WidgetAttachClickHandler(newTitleBar, func() {
-	// 	spm.handleTitleBarClick(titleBarID)
-	// })
+	webkit.WidgetAttachClickHandler(newTitleBar, func() {
+		spm.handleTitleBarClick(titleBarID)
+	})
 
 	// Replace the old title bar in the stack
 	if node.parent != nil && node.parent.isStacked && node.parent.stackWrapper != nil {
@@ -682,9 +680,17 @@ func (spm *StackedPaneManager) createTitleBarWithTitle(title string, pageURL str
 
 			if texture != nil && titleBox != nil {
 
-				// Create favicon image
+				// Create favicon image with UI scaling
 				faviconImg := gtk.NewImageFromPaintable(texture)
-				faviconImg.SetPixelSize(16)
+				// Scale favicon size based on UI scale (base: 16px)
+				faviconSize := 16
+				if spm.wm != nil && spm.wm.app != nil && spm.wm.app.config != nil {
+					uiScale := spm.wm.app.config.Workspace.Styling.UIScale
+					if uiScale > 0 {
+						faviconSize = int(16 * uiScale)
+					}
+				}
+				faviconImg.SetPixelSize(faviconSize)
 				webkit.WidgetAddCSSClass(faviconImg, "stacked-pane-favicon")
 
 				// IDEMPOTENT: Remove placeholder only if it still has titleBox as parent

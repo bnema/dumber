@@ -250,6 +250,24 @@ func WidgetAddController(w gtk.Widgetter, controller gtk.EventControllerer) {
 	}
 }
 
+// WidgetAttachClickHandler attaches a left-click handler to a widget
+func WidgetAttachClickHandler(w gtk.Widgetter, callback func()) *gtk.GestureClick {
+	widget := getWidget(w)
+	if widget == nil {
+		return nil
+	}
+
+	gestureClick := gtk.NewGestureClick()
+	gestureClick.SetButton(1) // Left click only
+
+	gestureClick.ConnectPressed(func(nPress int, x, y float64) {
+		callback()
+	})
+
+	widget.AddController(gestureClick)
+	return gestureClick
+}
+
 // WidgetAllocation returns the widget's allocation (alias for WidgetGetAllocation)
 func WidgetAllocation(w gtk.Widgetter) (x, y, width, height int) {
 	return WidgetGetAllocation(w)
