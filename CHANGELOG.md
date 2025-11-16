@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 - **Code cleanup**: Removed dead code files and emojis from GUI modules
 - **Bridge architecture**: Unified main-world to isolated-world bridge system with comprehensive documentation. Single dispatcher for all window function bridges (omnibox, favorites, toasts). Better separation between CustomEvents (shared between worlds) and window functions (require bridging).
 - **Omnibox spacing**: Increased vertical spacing between suggestion items from 0.65rem to 0.85rem for better readability
+- **Smart Escape key**: First press clears input text, second press closes omnibox. Empty input closes immediately.
 
 ### Fixed
 - **Bootstrap initialization**: Fixed omnibox component not mounting due to invalid toast function check in isolated world. Toast functions now bridge correctly via CustomEvents, allowing omnibox to initialize properly.
