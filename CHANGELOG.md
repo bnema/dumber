@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Click-to-activate stacked panes**: Click on any collapsed title bar to instantly activate that pane. Uses GTK4 gesture clicks for native interaction feel.
+- **Title bar visual separators**: Subtle 1px borders between stacked title bars. Theme-aware colors automatically adjust for light/dark mode.
+- **UI scaling for title bars**: New `workspace.styling.ui_scale` config option (default: 1.0). Scales font size, padding, height, and favicon size. Range: 0.5 to 3.0 (e.g., 1.2 = 120% size).
 - **Favorites system**: Full favorites management with keyboard controls and persistent storage. Press `Tab` to switch between History and Favorites views. Press `Space` to add/remove items. Yellow border indicates favorited items in History view. View mode persists across sessions. Database-backed with RAM-first caching for performance.
 - **Omnibox quick navigation**: Press `Ctrl+1` through `Ctrl+9` to instantly navigate to the first 9 results, or `Ctrl+0` for the 10th. Works in both History and Favorites views. Visual number hints appear on each item. Keyboard layout independent (works on QWERTY, AZERTY, QWERTZ, etc.).
 - **Middle-click and Ctrl+click link handling**: Links can now be opened in new workspace panes using standard browser gestures (middle-click or Ctrl+left-click). New panes split in the configured direction (default: right) and respect `workspace.popups.placement` configuration. Implemented via WebKit's `decide-policy` signal to intercept navigation actions before they occur.
