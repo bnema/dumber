@@ -313,6 +313,8 @@ type WorkspaceStylingConfig struct {
 	TransitionDuration int `mapstructure:"transition_duration" yaml:"transition_duration" json:"transition_duration"`
 	// BorderRadius in pixels for pane border corners
 	BorderRadius int `mapstructure:"border_radius" yaml:"border_radius" json:"border_radius"`
+	// UIScale is a multiplier for UI elements like title bars (1.0 = 100%, 1.2 = 120%)
+	UIScale float64 `mapstructure:"ui_scale" yaml:"ui_scale" json:"ui_scale"`
 }
 
 // Manager handles configuration loading, watching, and reloading.
@@ -711,6 +713,7 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("workspace.styling.pane_mode_border_color", defaults.Workspace.Styling.PaneModeBorderColor)
 	m.viper.SetDefault("workspace.styling.transition_duration", defaults.Workspace.Styling.TransitionDuration)
 	m.viper.SetDefault("workspace.styling.border_radius", defaults.Workspace.Styling.BorderRadius)
+	m.viper.SetDefault("workspace.styling.ui_scale", defaults.Workspace.Styling.UIScale)
 }
 
 // createDefaultConfig creates a default configuration file.

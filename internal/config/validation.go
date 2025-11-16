@@ -79,6 +79,9 @@ func validateConfig(config *Config) error {
 	if config.Workspace.Styling.BorderRadius < 0 {
 		validationErrors = append(validationErrors, "workspace.styling.border_radius must be non-negative")
 	}
+	if config.Workspace.Styling.UIScale < 0.5 || config.Workspace.Styling.UIScale > 3.0 {
+		validationErrors = append(validationErrors, "workspace.styling.ui_scale must be between 0.5 and 3.0")
+	}
 
 	// Validate pane mode timeout
 	if config.Workspace.PaneMode.TimeoutMilliseconds < 0 {

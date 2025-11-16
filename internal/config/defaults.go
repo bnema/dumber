@@ -32,6 +32,7 @@ const (
 	defaultPaneModeBorderColor    = "#FFA500"                     // Orange for pane mode indicator
 	defaultTransitionDuration     = 120
 	defaultBorderRadius           = 0
+	defaultUIScale                = 1.0 // UI scale multiplier (1.0 = 100%, 1.2 = 120%)
 )
 
 // getDefaultLogDir returns the default log directory, falls back to empty string on error
@@ -183,6 +184,7 @@ func DefaultConfig() *Config {
 				PaneModeBorderColor:    defaultPaneModeBorderColor,
 				TransitionDuration:     defaultTransitionDuration,
 				BorderRadius:           defaultBorderRadius,
+				UIScale:                defaultUIScale,
 			},
 		},
 		ContentFilteringWhitelist: []string{
