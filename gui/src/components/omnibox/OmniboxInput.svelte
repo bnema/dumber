@@ -136,7 +136,19 @@
       case 'Escape':
         event.preventDefault();
         event.stopPropagation();
-        omniboxStore.close();
+
+        if (inputValue && inputValue.trim() !== '') {
+          // Input has text - clear it but keep omnibox open
+          omniboxStore.setInputValue('');
+
+          // In find mode, clear the search highlights
+          if (mode === 'find') {
+            findInPage('');
+          }
+        } else {
+          // Input is empty - close omnibox immediately
+          omniboxStore.close();
+        }
         break;
 
       case 'Enter':
