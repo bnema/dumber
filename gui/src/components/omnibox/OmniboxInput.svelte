@@ -325,16 +325,26 @@
     background: var(--dumber-input-bg, var(--dynamic-bg));
     color: var(--dynamic-text);
     border: 1px solid var(--dumber-input-border-color, var(--dynamic-border));
-    border-radius: 0;
-    transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+    border-radius: 2px;
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.15),
+      inset 0 0 0 1px rgba(0, 0, 0, 0.03);
+    transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+    font-family: 'Fira Sans', system-ui, -apple-system, 'Segoe UI', 'Ubuntu', 'Cantarell', sans-serif;
+    letter-spacing: normal;
   }
 
   .omnibox-input-field::placeholder {
     color: var(--dynamic-muted);
+    letter-spacing: normal;
   }
 
   .omnibox-input-field:focus {
     color: var(--dynamic-text);
+    border-color: var(--dynamic-accent);
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.15),
+      0 0 0 1px var(--dynamic-accent);
   }
 
   .omnibox-prefix-badge {

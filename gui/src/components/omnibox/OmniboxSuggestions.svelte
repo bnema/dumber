@@ -113,7 +113,6 @@
               class="suggestion-favicon-img"
               loading="lazy"
               onerror={handleFaviconError}
-              style="image-rendering: -webkit-optimize-contrast;"
             />
           </div>
         {/if}
@@ -144,11 +143,12 @@
 
 <style>
   .suggestion-list {
-    margin-top: 0.75rem;
+    margin-top: 0.5rem;
     max-height: 50vh;
     overflow-y: auto;
     border-top: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 94%, var(--dynamic-surface) 6%);
+    background: var(--dynamic-bg);
+    border-radius: 0 0 2px 2px;
   }
 
   .suggestion-item {
@@ -156,10 +156,13 @@
     gap: 0.75rem;
     align-items: center;
     padding: 0.65rem 0.85rem;
-    border-bottom: 1px dashed var(--dynamic-border);
+    border-bottom: 1px solid color-mix(in srgb, var(--dynamic-border) 50%, transparent);
     cursor: pointer;
-    transition: background-color 120ms ease, color 120ms ease;
-    letter-spacing: 0.04em;
+    transition: background-color 100ms ease, border-left-color 100ms ease;
+    letter-spacing: normal;
+    border-left: 3px solid transparent;
+    position: relative;
+    font-family: 'Fira Sans', system-ui, -apple-system, 'Segoe UI', 'Ubuntu', 'Cantarell', sans-serif;
   }
 
   .suggestion-item:last-child {
@@ -169,9 +172,14 @@
   .suggestion-item.selected,
   .suggestion-item:hover,
   .suggestion-item:focus-visible {
-    background: color-mix(in srgb, var(--dynamic-bg) 60%, var(--dynamic-surface) 40%);
+    background: color-mix(in srgb, var(--dynamic-accent) 15%, var(--dynamic-bg));
+    border-left-color: var(--dynamic-accent);
     color: var(--dynamic-text);
     outline: none;
+  }
+
+  .suggestion-item.selected {
+    font-weight: 500;
   }
 
   .suggestion-item .suggestion-domain {
@@ -188,24 +196,23 @@
   }
 
   .suggestion-favicon {
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
     border: none;
     border-radius: 3px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--dynamic-bg);
+    background: transparent;
     flex-shrink: 0;
     overflow: hidden;
   }
 
   .suggestion-favicon-img {
-    width: 16px;
-    height: 16px;
+    width: 24px;
+    height: 24px;
     object-fit: contain;
-    image-rendering: -webkit-optimize-contrast;
-    -ms-interpolation-mode: nearest-neighbor;
+    image-rendering: auto;
   }
 
   .suggestion-text {

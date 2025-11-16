@@ -178,33 +178,49 @@
     }
 
     const surfaceMix = isDarkMode ? '55%' : '88%';
-    const inputMix = isDarkMode ? '52%' : '90%';
-    const borderMix = isDarkMode ? '62%' : '85%';
     const blurMix = isDarkMode ? '22%' : '12%';
 
     const applyFade = faded && mode === 'find';
 
+    // GTK4-style: Container is slightly raised (use surface)
     const containerBackground = applyFade
       ? `color-mix(in srgb, var(--dynamic-surface) ${surfaceMix}, transparent)`
       : 'var(--dynamic-surface)';
+
+    // GTK4-style: Input is recessed (darker background)
     const inputBackground = applyFade
-      ? `color-mix(in srgb, var(--dynamic-bg) ${inputMix}, transparent)`
-      : 'var(--dynamic-bg)';
-    const borderColor = applyFade
-      ? `color-mix(in srgb, var(--dynamic-border) ${borderMix}, transparent)`
+      ? isDarkMode
+        ? `color-mix(in srgb, color-mix(in srgb, var(--dynamic-bg) 85%, black 15%) ${surfaceMix}, transparent)`
+        : `color-mix(in srgb, color-mix(in srgb, var(--dynamic-bg) 95%, black 5%) ${surfaceMix}, transparent)`
+      : isDarkMode
+        ? 'color-mix(in srgb, var(--dynamic-bg) 85%, black 15%)'
+        : 'color-mix(in srgb, var(--dynamic-bg) 95%, black 5%)';
+
+    // GTK4-style: Use palette border directly, slightly darker for input
+    const containerBorderColor = applyFade
+      ? `color-mix(in srgb, var(--dynamic-border) ${surfaceMix}, transparent)`
       : 'var(--dynamic-border)';
+
+    const inputBorderColor = applyFade
+      ? isDarkMode
+        ? `color-mix(in srgb, color-mix(in srgb, var(--dynamic-border) 80%, black 20%) ${surfaceMix}, transparent)`
+        : `color-mix(in srgb, color-mix(in srgb, var(--dynamic-border) 85%, black 15%) ${surfaceMix}, transparent)`
+      : isDarkMode
+        ? 'color-mix(in srgb, var(--dynamic-border) 80%, black 20%)'
+        : 'color-mix(in srgb, var(--dynamic-border) 85%, black 15%)';
+
     const blurTint = `color-mix(in srgb, var(--dynamic-bg) ${blurMix}, transparent)`;
 
     boxElement.style.background = containerBackground;
     boxElement.style.color = 'var(--dynamic-text)';
-    boxElement.style.setProperty('--dumber-border-color', borderColor);
+    boxElement.style.setProperty('--dumber-border-color', containerBorderColor);
     // Force the omnibox to use our neutral surfaces so it stays in sync with the shell palette
-    boxElement.style.setProperty('--dumber-omnibox-surface', 'color-mix(in srgb, var(--dynamic-bg) 88%, var(--dynamic-surface) 12%)');
+    boxElement.style.setProperty('--dumber-omnibox-surface', containerBackground);
 
     inputElement.style.background = inputBackground;
     inputElement.style.color = 'var(--dynamic-text)';
     inputElement.style.setProperty('--dumber-input-bg', inputBackground);
-    inputElement.style.setProperty('--dumber-input-border-base', borderColor);
+    inputElement.style.setProperty('--dumber-input-border-base', inputBorderColor);
     inputElement.style.setProperty('--dumber-placeholder-color', 'var(--dynamic-muted)');
 
     blurLayerElement.style.setProperty('--dumber-blur-color', blurTint);
@@ -399,17 +415,18 @@
            margin-right: 0 !important;
            width: {responsiveStyles.width};
            padding: {responsiveStyles.padding};
-           font-family: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Menlo, monospace;
+           font-family: 'Fira Sans', system-ui, -apple-system, 'Segoe UI', 'Ubuntu', 'Cantarell', sans-serif;
            pointer-events: auto !important;
            box-sizing: border-box !important;
-           background: var(--dumber-omnibox-surface, color-mix(in srgb, var(--dynamic-bg) 88%, var(--dynamic-surface) 12%));
+           background: var(--dumber-omnibox-surface, var(--dynamic-surface));
            color: var(--dynamic-text);
            border: 1px solid var(--dumber-border-color, var(--dynamic-border));
+           border-radius: 3px;
            box-shadow:
-             0 20px 60px rgba(0, 0, 0, 0.45),
-             0 10px 30px rgba(0, 0, 0, 0.35),
-             0 5px 15px rgba(0, 0, 0, 0.25),
-             inset 0 0 0 1px color-mix(in srgb, var(--dynamic-border) 22%, transparent);
+             0 4px 12px rgba(0, 0, 0, 0.2),
+             0 2px 6px rgba(0, 0, 0, 0.15),
+             0 1px 3px rgba(0, 0, 0, 0.1),
+             inset 0 1px 0 rgba(255, 255, 255, 0.04);
            --dumber-border-color: var(--dynamic-border);"
     onmousedown={handleBoxClick}
     onmouseenter={handleMouseEnter}
@@ -443,54 +460,62 @@
 
 <style>
   .dumber-omnibox-container {
-    background: var(--dumber-omnibox-surface, color-mix(in srgb, var(--dynamic-bg) 88%, var(--dynamic-surface) 12%));
+    background: var(--dumber-omnibox-surface, var(--dynamic-surface));
     color: var(--dynamic-text);
     border: 1px solid var(--dumber-border-color, var(--dynamic-border));
     transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
-    border-radius: 0;
+    border-radius: 3px;
     box-shadow:
-      0 20px 60px rgba(0, 0, 0, 0.45),
-      0 10px 30px rgba(0, 0, 0, 0.35),
-      0 5px 15px rgba(0, 0, 0, 0.25),
-      inset 0 0 0 1px color-mix(in srgb, var(--dynamic-border) 22%, transparent);
+      0 4px 12px rgba(0, 0, 0, 0.2),
+      0 2px 6px rgba(0, 0, 0, 0.15),
+      0 1px 3px rgba(0, 0, 0, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
   }
 
   .dumber-omnibox-container:focus-within {
-    border-color: color-mix(in srgb, var(--dumber-border-color, var(--dynamic-border)) 55%, var(--dynamic-text) 45%);
+    border-color: var(--dynamic-accent);
     box-shadow:
-      0 25px 75px rgba(0, 0, 0, 0.5),
-      0 15px 40px rgba(0, 0, 0, 0.4),
-      0 8px 20px rgba(0, 0, 0, 0.3),
-      inset 0 0 0 1px color-mix(in srgb, var(--dynamic-border) 28%, transparent);
+      0 6px 16px rgba(0, 0, 0, 0.24),
+      0 3px 8px rgba(0, 0, 0, 0.18),
+      0 2px 4px rgba(0, 0, 0, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 0 0 1px var(--dynamic-accent);
   }
 
   :global(.dumber-omnibox-container input) {
-    background: var(--dumber-input-bg, color-mix(in srgb, var(--dynamic-bg) 92%, var(--dynamic-surface) 8%));
+    background: var(--dumber-input-bg, var(--dynamic-bg));
     color: var(--dynamic-text);
     border: 1px solid var(--dumber-input-border-color, var(--dynamic-border));
-    transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+    border-radius: 2px;
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.15),
+      inset 0 0 0 1px rgba(0, 0, 0, 0.03);
+    transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
     font-family:
-      "JetBrains Mono",
-      "Fira Code",
-      "SFMono-Regular",
-      Menlo,
-      monospace;
+      "Fira Sans",
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      "Ubuntu",
+      "Cantarell",
+      sans-serif;
     font-size: inherit;
-    letter-spacing: 0.05em;
+    letter-spacing: normal;
     text-transform: none;
   }
 
   :global(.dumber-omnibox-container input::placeholder) {
     color: var(--dynamic-muted);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    letter-spacing: normal;
+    text-transform: none;
   }
 
   /* Blur layer styles: use `backdrop-filter` but animate opacity only. */
+  /* GTK4-style: Minimal blur for faded state */
   .dumber-omnibox-blur-layer {
-    backdrop-filter: blur(1.5px) saturate(105%);
-    -webkit-backdrop-filter: blur(1.5px) saturate(105%);
-    background: var(--dumber-blur-color, color-mix(in srgb, var(--dynamic-bg) 12%, transparent));
+    backdrop-filter: blur(0.5px) saturate(102%);
+    -webkit-backdrop-filter: blur(0.5px) saturate(102%);
+    background: var(--dumber-blur-color, color-mix(in srgb, var(--dynamic-bg) 8%, transparent));
     transition: opacity 140ms ease;
     will-change: opacity;
     z-index: 0;
