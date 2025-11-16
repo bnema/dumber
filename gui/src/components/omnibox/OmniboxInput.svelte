@@ -185,6 +185,27 @@
         break;
 
       default:
+        // Handle Ctrl+1 through Ctrl+0 for quick navigation to first 10 results
+        // Use event.code for keyboard layout independence (QWERTY, AZERTY, QWERTZ, etc.)
+        if (event.ctrlKey && mode === 'omnibox') {
+          const code = event.code;
+          let targetIndex = -1;
+
+          // Map physical keys: Digit1->0, Digit2->1, ..., Digit9->8, Digit0->9
+          if (code >= 'Digit1' && code <= 'Digit9') {
+            targetIndex = parseInt(code.substring(5), 10) - 1;
+          } else if (code === 'Digit0') {
+            targetIndex = 9;
+          }
+
+          if (targetIndex >= 0) {
+            event.preventDefault();
+            event.stopPropagation();
+            handleNumberKey(targetIndex);
+            return;
+          }
+        }
+
         // For normal typing keys, only stop propagation to prevent page handlers
         // but don't prevent default so typing still works in the input
         event.stopPropagation();
@@ -243,6 +264,24 @@
     setTimeout(() => {
       omniboxBridge.fetchFavorites();
     }, 100);
+  }
+
+  // Handle Ctrl+Number key for quick navigation
+  function handleNumberKey(targetIndex: number) {
+    if (mode !== 'omnibox') return;
+
+    // Get the current list based on view mode
+    const currentList = viewMode === 'history' ? suggestions : favorites;
+
+    // Check if the target index is valid
+    if (targetIndex >= currentList.length) return;
+
+    const item = currentList[targetIndex];
+    if (!item || !item.url) return;
+
+    // Navigate to the item and close omnibox
+    omniboxBridge.navigate(item.url);
+    omniboxStore.close();
   }
 
   // Handle arrow key navigation

@@ -152,6 +152,7 @@
         {@const isSelected = index === selectedIndex}
         {@const favicon = item.favicon || item.favicon_url || ''}
         {@const isFav = viewMode === 'history' && isFavorited(item.url)}
+        {@const shortcutNumber = index < 9 ? index + 1 : index === 9 ? 0 : null}
 
         <div
           id="omnibox-item-{index}"
@@ -195,6 +196,13 @@
             {path || '/'}
           </span>
         </div>
+
+        <!-- Keyboard shortcut hint (Ctrl+1-9, Ctrl+0 for 10th) -->
+        {#if shortcutNumber !== null}
+          <div class="suggestion-shortcut-hint" aria-hidden="true">
+            {shortcutNumber}
+          </div>
+        {/if}
       </div>
     {/each}
     {/if}
@@ -360,5 +368,29 @@
     text-overflow: ellipsis;
     mask-image: linear-gradient(90deg, black 85%, transparent 100%);
     -webkit-mask-image: linear-gradient(90deg, black 85%, transparent 100%);
+  }
+
+  .suggestion-shortcut-hint {
+    position: absolute;
+    right: 0.85rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--dynamic-muted);
+    opacity: 0.6;
+    background: var(--dynamic-bg);
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    border: 1px solid var(--dynamic-border);
+    z-index: 10;
+    pointer-events: none;
+    transition: opacity 100ms ease, color 100ms ease;
+  }
+
+  .suggestion-item.selected .suggestion-shortcut-hint,
+  .suggestion-item:hover .suggestion-shortcut-hint {
+    opacity: 0.9;
+    color: var(--dynamic-accent);
   }
 </style>
