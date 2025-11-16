@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
 - **Smart Escape key**: First press clears input text, second press closes omnibox. Empty input closes immediately.
 
 ### Fixed
+- **Toast notifications**: Fixed toast notifications not appearing for copy URL (Ctrl+Shift+C) and clipboard operations. Event name was `dumber:showToast` but ToastContainer listens for `dumber:toast`.
 - **Page reload shortcuts**: Restored `Ctrl+R`, `Ctrl+Shift+R`, `F5`, and `Ctrl+F5` shortcuts. They were registered but not actually wired to the window-level handler.
 - **Bootstrap initialization**: Fixed omnibox component not mounting due to invalid toast function check in isolated world. Toast functions now bridge correctly via CustomEvents, allowing omnibox to initialize properly.
 - **Empty state display**: History view now hides empty state when input is empty, showing it only when user has typed and no results are found. Favorites view always shows empty state with helpful hints.
