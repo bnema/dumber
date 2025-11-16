@@ -122,7 +122,7 @@ func (h *WindowShortcutHandler) handleCopyURL() {
 	script := `
 		(async function() {
 			const toast = (message, type) => {
-				document.dispatchEvent(new CustomEvent('dumber:showToast', {
+				document.dispatchEvent(new CustomEvent('dumber:toast', {
 					detail: { message, duration: 2000, type }
 				}));
 			};
