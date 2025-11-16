@@ -63,6 +63,11 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 		{"ctrl+t", h.handleNewTab, "New tab (no-op)"},
 		{"ctrl+w", h.handleClosePane, "Close current pane"},
 		{"F12", h.handleDevTools, "Developer tools"},
+		// Page reload shortcuts
+		{"ctrl+r", h.handleReload, "Reload page"},
+		{"ctrl+shift+r", h.handleHardReload, "Hard reload (bypass cache)"},
+		{"F5", h.handleReload, "Reload page"},
+		{"ctrl+F5", h.handleHardReload, "Hard reload (bypass cache)"},
 		// Zoom shortcuts - global level for proper active pane targeting
 		{"ctrl+plus", h.handleZoomIn, "Zoom in"},
 		{"ctrl+equal", h.handleZoomIn, "Zoom in (=)"},
@@ -178,6 +183,38 @@ func (h *WindowShortcutHandler) handlePrint() {
 
 	if err := h.app.activePane.webView.ShowPrintDialog(); err != nil {
 		log.Printf("[window-shortcuts] Failed to show print dialog: %v", err)
+	}
+}
+
+func (h *WindowShortcutHandler) handleReload() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if h.app.activePane == nil || h.app.activePane.webView == nil {
+		log.Printf("[window-shortcuts] No active pane for reload")
+		return
+	}
+
+	log.Printf("[window-shortcuts] Reload page -> pane %p", h.app.activePane.webView)
+
+	if err := h.app.activePane.webView.Reload(); err != nil {
+		log.Printf("[window-shortcuts] Failed to reload page: %v", err)
+	}
+}
+
+func (h *WindowShortcutHandler) handleHardReload() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if h.app.activePane == nil || h.app.activePane.webView == nil {
+		log.Printf("[window-shortcuts] No active pane for hard reload")
+		return
+	}
+
+	log.Printf("[window-shortcuts] Hard reload (bypass cache) -> pane %p", h.app.activePane.webView)
+
+	if err := h.app.activePane.webView.ReloadBypassCache(); err != nil {
+		log.Printf("[window-shortcuts] Failed to hard reload page: %v", err)
 	}
 }
 
