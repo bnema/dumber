@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Favorites system**: Full favorites management with keyboard controls and persistent storage. Press `Tab` to switch between History and Favorites views. Press `Space` to add/remove items. Yellow border indicates favorited items in History view. View mode persists across sessions. Database-backed with RAM-first caching for performance.
 - **Middle-click and Ctrl+click link handling**: Links can now be opened in new workspace panes using standard browser gestures (middle-click or Ctrl+left-click). New panes split in the configured direction (default: right) and respect `workspace.popups.placement` configuration. Implemented via WebKit's `decide-policy` signal to intercept navigation actions before they occur.
 - **Configurable pane border styling**: Added `workspace.styling.inactive_border_width`, `workspace.styling.inactive_border_color`, and `workspace.styling.show_stacked_title_border` config options. Active and inactive borders default to 1px to prevent layout shift, with only color changing on focus. Borders use GTK theme variables by default and support smooth CSS transitions.
 - **Configurable default search engine**: Added `default_search_engine` config option with explicit URL template format. DuckDuckGo is now the default (was Google). Users can set any search engine with `%s` placeholder (e.g., `default_search_engine = "https://duckduckgo.com/?q=%s"`).
@@ -12,11 +13,12 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - **Config format**: TOML is now the default format (JSON/YAML still supported). Action bindings inverted to `action→keys` structure for maintainability with O(1) runtime lookup. Added comprehensive validation.
 - **Code cleanup**: Removed dead code files and emojis from GUI modules
+- **Bridge architecture**: Unified main-world to isolated-world bridge system with comprehensive documentation. Single dispatcher for all window function bridges (omnibox, favorites, toasts). Better separation between CustomEvents (shared between worlds) and window functions (require bridging).
+- **Omnibox spacing**: Increased vertical spacing between suggestion items from 0.65rem to 0.85rem for better readability
 
 ### Fixed
-- **Isolated world GUI rendering**: Fixed omnibox and GUI components appearing without styles on YouTube and other aggressive sites. Injected `color-scheme.js` in both main and isolated worlds to provide CSS variables. Implemented CustomEvent bridge (`dumber:isolated-message`) from isolated world to main world for webkit.messageHandlers communication. Moved main-world script injection from isolated to main world. Changed component styles injection from UserStyleSheet to shadow root injection for proper Shadow DOM encapsulation.
-- **Favicon processing on refresh**: Skip redundant favicon processing when WebKit's cache already has the URI. Made domain propagation async to prevent blocking page loads.
-- **Popup handler registration timing**: Fixed `g_object_ref` assertion errors when WebKit takes ownership of popup WebViews by connecting signals immediately instead of deferring via `glib.IdleAdd`. This resolves crashes with `target="_blank"` links and `window.open()` calls.
+- **Bootstrap initialization**: Fixed omnibox component not mounting due to invalid toast function check in isolated world. Toast functions now bridge correctly via CustomEvents, allowing omnibox to initialize properly.
+- **Empty state display**: History view now hides empty state when input is empty, showing it only when user has typed and no results are found. Favorites view always shows empty state with helpful hints.
 
 ## [0.13.0] - 2025-10-24
 
