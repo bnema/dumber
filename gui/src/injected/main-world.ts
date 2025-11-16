@@ -909,6 +909,29 @@ interface DumberAPI {
       });
     };
 
+    // Bridge for isolated world communication
+    // Listen for messages from isolated world and forward to backend via webkit.messageHandlers
+    const setupIsolatedWorldBridge = () => {
+      document.addEventListener("dumber:isolated-message", ((event: CustomEvent) => {
+        try {
+          const { payload } = event.detail;
+          if (window.webkit?.messageHandlers?.dumber) {
+            window.webkit.messageHandlers.dumber.postMessage(JSON.stringify(payload));
+            console.log("[dumber-bridge] Forwarded isolated world message:", payload.type);
+          } else {
+            console.warn("[dumber-bridge] webkit message handler not available");
+          }
+        } catch (error) {
+          console.error("[dumber-bridge] Failed to forward message:", error);
+        }
+      }) as EventListener);
+
+      console.log("[dumber-bridge] Isolated world message bridge initialized");
+    };
+
+    // Initialize isolated world bridge
+    setupIsolatedWorldBridge();
+
     // Initialize console capture
     setupConsoleCapture();
   } catch (err) {

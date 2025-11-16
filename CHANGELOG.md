@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - **Code cleanup**: Removed dead code files and emojis from GUI modules
 
 ### Fixed
+- **Isolated world GUI rendering**: Fixed omnibox and GUI components appearing without styles on YouTube and other aggressive sites. Injected `color-scheme.js` in both main and isolated worlds to provide CSS variables. Implemented CustomEvent bridge (`dumber:isolated-message`) from isolated world to main world for webkit.messageHandlers communication. Moved main-world script injection from isolated to main world. Changed component styles injection from UserStyleSheet to shadow root injection for proper Shadow DOM encapsulation.
 - **Favicon processing on refresh**: Skip redundant favicon processing when WebKit's cache already has the URI. Made domain propagation async to prevent blocking page loads.
 - **Popup handler registration timing**: Fixed `g_object_ref` assertion errors when WebKit takes ownership of popup WebViews by connecting signals immediately instead of deferring via `glib.IdleAdd`. This resolves crashes with `target="_blank"` links and `window.open()` calls.
 

@@ -8,32 +8,25 @@ import type { OmniboxMessage, OmniboxMessageBridge, Suggestion, SearchShortcut }
 import { omniboxStore } from "./stores.svelte.ts";
 
 export class OmniboxBridge implements OmniboxMessageBridge {
-  // Forward messages to the native WebKit message handler when available
-  // Fallback: for navigate, perform direct location change
+  // Forward messages via CustomEvent to main world bridge
+  // The main world will forward to webkit.messageHandlers.dumber
   postMessage(msg: OmniboxMessage): void {
-    console.log("📤 [DEBUG] Posting message to backend:", msg);
-    // NOTE: Do NOT detach postMessage from its receiver. In WKWebView,
-    // postMessage must be called on the UserMessageHandler instance.
-    const bridge = window.webkit?.messageHandlers?.dumber;
-    if (bridge && typeof bridge.postMessage === "function") {
-      try {
-        console.log("📱 [DEBUG] Using webkit message handler");
-        bridge.postMessage(JSON.stringify(msg));
-        return;
-      } catch (e) {
-        console.warn(
-          "postMessage to native handler failed, using fallback:",
-          e,
-        );
-      }
-    }
-    console.log("⚠️ [DEBUG] No webkit bridge available");
-    // Fallback navigation if no native bridge is available
-    if (msg.type === "navigate" && typeof msg.url === "string" && msg.url) {
-      try {
-        window.location.href = msg.url;
-      } catch (e) {
-        console.error("Fallback navigation failed:", e);
+    console.log("📤 [DEBUG] Posting message to backend via bridge:", msg);
+    try {
+      // Dispatch CustomEvent that main-world bridge will listen to
+      document.dispatchEvent(new CustomEvent("dumber:isolated-message", {
+        detail: { payload: msg }
+      }));
+      console.log("✅ [DEBUG] Dispatched isolated message event");
+    } catch (e) {
+      console.error("❌ [DEBUG] Failed to dispatch message:", e);
+      // Fallback navigation if dispatch fails
+      if (msg.type === "navigate" && typeof msg.url === "string" && msg.url) {
+        try {
+          window.location.href = msg.url;
+        } catch (navError) {
+          console.error("Fallback navigation failed:", navError);
+        }
       }
     }
   }

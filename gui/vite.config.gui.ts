@@ -5,7 +5,7 @@ import { resolve } from "path";
 export default defineConfig({
   plugins: [
     svelte({
-      emitCss: false, // Inline component CSS into JS bundle
+      emitCss: true, // Extract component CSS to separate file for isolated world injection
     }),
   ],
   build: {
@@ -18,7 +18,7 @@ export default defineConfig({
         name: "__dumberGUI",
         inlineDynamicImports: true,
         manualChunks: undefined, // Prevent chunk splitting
-        assetFileNames: "[name].[ext]", // Don't hash asset names since they're inlined
+        assetFileNames: "gui.min.[ext]", // CSS will be named gui.min.css
       },
     },
     emptyOutDir: false,

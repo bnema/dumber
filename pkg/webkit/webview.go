@@ -731,6 +731,9 @@ func (w *WebView) InjectScript(script string) error {
 }
 
 // DispatchCustomEvent dispatches a custom event via JavaScript
+// This works across JavaScript world boundaries because it uses document.dispatchEvent.
+// GUI scripts running in the isolated world (see DumberIsolatedWorld in user_content.go)
+// can listen for these events because they share the same Document object with the main world.
 func (w *WebView) DispatchCustomEvent(eventName string, data interface{}) error {
 	// Serialize data to JSON
 	jsonData, err := json.Marshal(data)
