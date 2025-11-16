@@ -181,22 +181,14 @@ export function bootstrapGUI(): void {
     console.log("[GUI] DOM ready, starting initialization");
     let toastInitialized = false;
 
-    if (typeof window.__dumber_showToast === "function" && typeof window.__dumber_showZoomToast === "function") {
-      console.log("[GUI] Toast already initialized, skipping");
+    try {
+      console.log("[GUI] Attempting toast initialization");
+      await initializeToast();
       toastInitialized = true;
-    } else {
-      try {
-        console.log("[GUI] Attempting toast initialization");
-        await initializeToast();
-        if (typeof window.__dumber_showToast !== "function") {
-          throw new Error("Toast functions not exposed after initialization");
-        }
-        toastInitialized = true;
-        console.log("[GUI] Toast initialized successfully");
-      } catch (e) {
-        console.error("❌ Failed to initialize Svelte toast system:", e);
-        throw e;
-      }
+      console.log("[GUI] Toast initialized successfully");
+    } catch (e) {
+      console.error("❌ Failed to initialize Svelte toast system:", e);
+      throw e;
     }
 
     try {

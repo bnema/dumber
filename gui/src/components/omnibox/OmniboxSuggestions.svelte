@@ -9,13 +9,42 @@
 
   // Reactive state
   let suggestions = $derived(omniboxStore.suggestions);
+  let favorites = $derived(omniboxStore.favorites);
+  let viewMode = $derived(omniboxStore.viewMode);
   let selectedIndex = $derived(omniboxStore.selectedIndex);
+  let inputValue = $derived(omniboxStore.inputValue);
   let hasContent = $state(false);
 
-  // Update hasContent when suggestions change
+  // Debug effect to log favorites changes
   $effect(() => {
-    hasContent = omniboxStore.mode === 'omnibox' && suggestions.length > 0;
+    console.log('[OmniboxSuggestions] Favorites updated, count:', favorites.length);
   });
+
+  // Computed: Get current list based on view mode with local filtering for favorites
+  let currentList = $derived.by(() => {
+    const list = viewMode === 'history' ? suggestions : favorites;
+
+    // In favorites view with input, filter locally
+    if (viewMode === 'favorites' && inputValue && inputValue.trim()) {
+      const query = inputValue.toLowerCase().trim();
+      return list.filter(fav =>
+        fav.url.toLowerCase().includes(query) ||
+        (fav.title && fav.title.toLowerCase().includes(query))
+      );
+    }
+
+    return list;
+  });
+
+  // Update hasContent - always show in omnibox mode to display header
+  $effect(() => {
+    hasContent = omniboxStore.mode === 'omnibox';
+  });
+
+  // Check if a URL is in favorites
+  function isFavorited(url: string): boolean {
+    return favorites.some(fav => fav.url === url);
+  }
 
   // Handle suggestion item mouse enter
   function handleItemMouseEnter(index: number) {
@@ -90,25 +119,57 @@
     role="listbox"
     aria-label="Search suggestions"
   >
-    {#each suggestions as suggestion, index (suggestion.url)}
-      {@const { domain, path } = parseUrl(suggestion.url)}
-      {@const isSelected = index === selectedIndex}
+    <!-- View mode indicator -->
+    <div class="view-mode-header">
+      <span class={viewMode === 'history' ? 'view-tab active' : 'view-tab'}>
+        History ({suggestions.length})
+      </span>
+      <span class={viewMode === 'favorites' ? 'view-tab active' : 'view-tab'}>
+        Favorites ({favorites.length})
+      </span>
+      <span class="view-hint">Tab to switch</span>
+    </div>
 
-      <div
-        id="omnibox-item-{index}"
-        class={isSelected ? 'suggestion-item selected' : 'suggestion-item'}
-        role="option"
-        tabindex={isSelected ? 0 : -1}
-        aria-selected={isSelected}
-        onmouseenter={() => handleItemMouseEnter(index)}
-        onclick={() => handleItemClick(suggestion)}
-        onkeydown={(e) => handleItemKeyDown(e, suggestion)}
-      >
+    {#if currentList.length === 0}
+      <!-- Empty state -->
+      {#if viewMode === 'favorites'}
+        <!-- Always show empty state for favorites -->
+        <div class="empty-state">
+          <span class="empty-icon">⭐</span>
+          <span class="empty-text">No favorites yet</span>
+          <span class="empty-hint">Press Space on any item in History to add it here</span>
+        </div>
+      {:else if inputValue && inputValue.trim()}
+        <!-- Only show "No results found" for history when user has typed something -->
+        <div class="empty-state">
+          <span class="empty-icon">🔍</span>
+          <span class="empty-text">No results found</span>
+        </div>
+      {/if}
+    {:else}
+      {#each currentList as item, index (item.url)}
+        {@const { domain, path } = parseUrl(item.url)}
+        {@const isSelected = index === selectedIndex}
+        {@const favicon = item.favicon || item.favicon_url || ''}
+        {@const isFav = viewMode === 'history' && isFavorited(item.url)}
+
+        <div
+          id="omnibox-item-{index}"
+          class:suggestion-item={true}
+          class:selected={isSelected}
+          class:favorited={isFav}
+          role="option"
+          tabindex={isSelected ? 0 : -1}
+          aria-selected={isSelected}
+          onmouseenter={() => handleItemMouseEnter(index)}
+          onclick={() => handleItemClick(item)}
+          onkeydown={(e) => handleItemKeyDown(e, item)}
+        >
         <!-- Favicon chip -->
-        {#if suggestion.favicon}
+        {#if favicon}
           <div class="suggestion-favicon">
             <img
-              src={suggestion.favicon}
+              src={favicon}
               alt=""
               class="suggestion-favicon-img"
               loading="lazy"
@@ -136,6 +197,7 @@
         </div>
       </div>
     {/each}
+    {/if}
   </div>
 {/if}
 
@@ -151,11 +213,71 @@
     border-radius: 0 0 2px 2px;
   }
 
+  .view-mode-header {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.5rem 0.85rem;
+    border-bottom: 1px solid var(--dynamic-border);
+    background: color-mix(in srgb, var(--dynamic-bg) 95%, var(--dynamic-text));
+    font-family: 'Fira Sans', system-ui, -apple-system, 'Segoe UI', 'Ubuntu', 'Cantarell', sans-serif;
+  }
+
+  .view-tab {
+    padding: 0.25rem 0.75rem;
+    border-radius: 2px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--dynamic-muted);
+    transition: all 100ms ease;
+  }
+
+  .view-tab.active {
+    color: var(--dynamic-accent);
+    background: color-mix(in srgb, var(--dynamic-accent) 15%, transparent);
+  }
+
+  .view-hint {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: var(--dynamic-muted);
+    opacity: 0.7;
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    gap: 0.5rem;
+    color: var(--dynamic-muted);
+    text-align: center;
+  }
+
+  .empty-icon {
+    font-size: 2rem;
+    opacity: 0.5;
+  }
+
+  .empty-text {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--dynamic-text);
+    opacity: 0.7;
+  }
+
+  .empty-hint {
+    font-size: 0.8rem;
+    opacity: 0.6;
+    max-width: 300px;
+  }
+
   .suggestion-item {
     display: flex;
     gap: 0.75rem;
     align-items: center;
-    padding: 0.65rem 0.85rem;
+    padding: 0.85rem 0.85rem;
     border-bottom: 1px solid color-mix(in srgb, var(--dynamic-border) 50%, transparent);
     cursor: pointer;
     transition: background-color 100ms ease, border-left-color 100ms ease;
@@ -169,6 +291,11 @@
     border-bottom: none;
   }
 
+  /* Favorited items get a permanent yellow left border */
+  .suggestion-item.favorited {
+    border-left-color: #f59e0b;
+  }
+
   .suggestion-item.selected,
   .suggestion-item:hover,
   .suggestion-item:focus-visible {
@@ -176,6 +303,13 @@
     border-left-color: var(--dynamic-accent);
     color: var(--dynamic-text);
     outline: none;
+  }
+
+  /* Keep yellow border even when selected/hover for favorited items */
+  .suggestion-item.favorited.selected,
+  .suggestion-item.favorited:hover,
+  .suggestion-item.favorited:focus-visible {
+    border-left-color: #f59e0b;
   }
 
   .suggestion-item.selected {

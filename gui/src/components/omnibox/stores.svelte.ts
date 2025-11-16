@@ -6,7 +6,9 @@
 
 import type {
   OmniboxMode,
+  ViewMode,
   Suggestion,
+  Favorite,
   FindMatch,
   HighlightNode,
   OmniboxConfig,
@@ -20,10 +22,25 @@ const DEFAULT_CONFIG: Required<OmniboxConfig> = {
   defaultLimit: 10,
 };
 
+// Load viewMode from localStorage or default to "history"
+function loadViewMode(): ViewMode {
+  try {
+    const stored = localStorage.getItem("dumber_omnibox_viewMode");
+    if (stored === "favorites" || stored === "history") {
+      return stored;
+    }
+  } catch (e) {
+    console.warn("Failed to load viewMode from localStorage:", e);
+  }
+  return "history";
+}
+
 // Global state using Svelte 5 runes
 let visible = $state(false);
 let mode = $state<OmniboxMode>("omnibox");
+let viewMode = $state<ViewMode>(loadViewMode());
 let suggestions = $state<Suggestion[]>([]);
+let favorites = $state<Favorite[]>([]);
 let matches = $state<FindMatch[]>([]);
 let selectedIndex = $state(-1);
 let activeIndex = $state(-1);
@@ -45,8 +62,14 @@ export const omniboxStore = {
   get mode() {
     return mode;
   },
+  get viewMode() {
+    return viewMode;
+  },
   get suggestions() {
     return suggestions;
+  },
+  get favorites() {
+    return favorites;
   },
   get matches() {
     return matches;
@@ -78,19 +101,28 @@ export const omniboxStore = {
 
   // Computed getters
   get hasContent() {
-    return (
-      (mode === "omnibox" && suggestions.length > 0) ||
-      (mode === "find" && matches.length > 0)
-    );
+    if (mode === "find") {
+      return matches.length > 0;
+    }
+    // In omnibox mode, check the current view
+    return viewMode === "history" ? suggestions.length > 0 : favorites.length > 0;
   },
   get totalItems() {
-    return mode === "omnibox" ? suggestions.length : matches.length;
+    if (mode === "find") {
+      return matches.length;
+    }
+    // In omnibox mode, return count based on current view
+    return viewMode === "history" ? suggestions.length : favorites.length;
   },
   get selectedItem() {
     if (selectedIndex < 0) return null;
-    return mode === "omnibox"
+    if (mode === "find") {
+      return matches[selectedIndex];
+    }
+    // In omnibox mode, return item from current view
+    return viewMode === "history"
       ? suggestions[selectedIndex]
-      : matches[selectedIndex];
+      : favorites[selectedIndex];
   },
 
   // Actions
@@ -242,10 +274,32 @@ export const omniboxStore = {
     searchShortcuts = shortcuts;
   },
 
+  setViewMode(newViewMode: ViewMode) {
+    viewMode = newViewMode;
+    selectedIndex = -1; // Reset selection when switching views
+
+    // Persist to localStorage
+    try {
+      localStorage.setItem("dumber_omnibox_viewMode", newViewMode);
+    } catch (e) {
+      console.warn("Failed to save viewMode to localStorage:", e);
+    }
+  },
+
+  updateFavorites(newFavorites: Favorite[]) {
+    favorites = Array.isArray(newFavorites) ? newFavorites : [];
+    // Reset selection if we're in favorites view
+    if (viewMode === "favorites") {
+      selectedIndex = -1;
+    }
+  },
+
   reset() {
     visible = false;
     mode = "omnibox";
+    // Keep viewMode persistent - it's user preference
     suggestions = [];
+    favorites = [];
     matches = [];
     selectedIndex = -1;
     activeIndex = -1;

@@ -13,13 +13,23 @@ type Querier interface {
 	AddOrUpdateHistory(ctx context.Context, url string, title sql.NullString) error
 	// Cleanup zoom level entries older than specified days
 	CleanupOldZoomLevels(ctx context.Context, dollar_1 sql.NullString) error
+	// Insert a new favorite with auto-incremented position
+	CreateFavorite(ctx context.Context, url string, title sql.NullString, faviconUrl sql.NullString) error
 	DeleteCertificateValidation(ctx context.Context, hostname string, certificateHash string) error
 	DeleteExpiredCertificateValidations(ctx context.Context) error
+	// Delete a favorite by URL
+	DeleteFavorite(ctx context.Context, url string) error
 	DeleteHistory(ctx context.Context, id int64) error
 	// Delete zoom level setting for a domain
 	DeleteZoomLevel(ctx context.Context, domain string) error
+	// Get all favorites ordered by position
+	GetAllFavorites(ctx context.Context) ([]Favorite, error)
 	GetCertificateValidation(ctx context.Context, hostname string, certificateHash string) (CertificateValidation, error)
 	GetCertificateValidationByHostname(ctx context.Context, hostname string) (CertificateValidation, error)
+	// Get a specific favorite by URL
+	GetFavoriteByURL(ctx context.Context, url string) (Favorite, error)
+	// Get total count of favorites
+	GetFavoriteCount(ctx context.Context) (int64, error)
 	GetHistory(ctx context.Context, limit int64) ([]History, error)
 	GetHistoryEntry(ctx context.Context, url string) (History, error)
 	GetHistoryWithOffset(ctx context.Context, limit int64, offset int64) ([]History, error)
@@ -27,6 +37,8 @@ type Querier interface {
 	GetZoomLevel(ctx context.Context, domain string) (float64, error)
 	// Get zoom level for domain with default fallback
 	GetZoomLevelWithDefault(ctx context.Context, domain string) (interface{}, error)
+	// Check if a URL is favorited
+	IsFavorite(ctx context.Context, url string) (int64, error)
 	ListCertificateValidations(ctx context.Context) ([]CertificateValidation, error)
 	// List all zoom level settings ordered by most recently updated
 	ListZoomLevels(ctx context.Context) ([]ZoomLevel, error)
@@ -34,6 +46,10 @@ type Querier interface {
 	// Set or update zoom level for a domain with validation
 	SetZoomLevel(ctx context.Context, domain string, zoomFactor float64) error
 	StoreCertificateValidation(ctx context.Context, hostname string, certificateHash string, userDecision string, expiresAt sql.NullTime) error
+	// Update favorite metadata (title, favicon)
+	UpdateFavorite(ctx context.Context, title sql.NullString, faviconUrl sql.NullString, url string) error
+	// Update the position of a favorite
+	UpdateFavoritePosition(ctx context.Context, position int64, url string) error
 	UpdateHistoryFavicon(ctx context.Context, faviconUrl sql.NullString, url string) error
 }
 

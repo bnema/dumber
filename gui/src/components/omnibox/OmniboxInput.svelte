@@ -10,9 +10,11 @@
 
   // Reactive state
   let mode = $derived(omniboxStore.mode);
+  let viewMode = $derived(omniboxStore.viewMode);
   let inputValue = $derived(omniboxStore.inputValue);
   let selectedIndex = $derived(omniboxStore.selectedIndex);
   let suggestions = $derived(omniboxStore.suggestions);
+  let favorites = $derived(omniboxStore.favorites);
   let matches = $derived(omniboxStore.matches);
   let searchShortcuts = $derived(omniboxStore.searchShortcuts);
 
@@ -117,8 +119,11 @@
     omniboxStore.setFaded(false);
 
     if (mode === 'omnibox') {
-      // Debounced search for omnibox
-      debouncedQuery(value);
+      // Only query backend if we're in history view
+      // In favorites view, filtering happens locally via computed state
+      if (viewMode === 'history') {
+        debouncedQuery(value);
+      }
     } else if (mode === 'find') {
       // Immediate find for search
       findInPage(value);
@@ -138,6 +143,26 @@
         event.preventDefault();
         event.stopPropagation();
         handleEnterKey(event);
+        break;
+
+      case 'Tab':
+        // Only handle Tab in omnibox mode (not in find mode)
+        if (mode === 'omnibox') {
+          event.preventDefault();
+          event.stopPropagation();
+          // Toggle between history and favorites views
+          const newViewMode = viewMode === 'history' ? 'favorites' : 'history';
+          omniboxStore.setViewMode(newViewMode);
+        }
+        break;
+
+      case ' ':
+        // Only handle Space in omnibox mode when an item is selected
+        if (mode === 'omnibox' && selectedIndex >= 0) {
+          event.preventDefault();
+          event.stopPropagation();
+          handleSpaceKey();
+        }
         break;
 
       case 'ArrowDown':
@@ -180,6 +205,30 @@
         omniboxStore.close();
       }
     }
+  }
+
+  // Handle Space key to toggle favorite
+  function handleSpaceKey() {
+    if (mode !== 'omnibox' || selectedIndex < 0) return;
+
+    // Get the selected item based on current view mode
+    const item = viewMode === 'history'
+      ? suggestions[selectedIndex]
+      : favorites[selectedIndex];
+
+    if (!item || !item.url) return;
+
+    // Extract title and favicon
+    const title = 'title' in item ? item.title : '';
+    const faviconURL = item.favicon_url || item.favicon || '';
+
+    // Toggle the favorite status
+    omniboxBridge.toggleFavorite(item.url, title, faviconURL);
+
+    // Refresh the favorites list after toggling
+    setTimeout(() => {
+      omniboxBridge.fetchFavorites();
+    }, 100);
   }
 
   // Handle arrow key navigation

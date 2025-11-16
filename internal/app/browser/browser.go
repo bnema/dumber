@@ -186,6 +186,15 @@ func (app *BrowserApp) loadCachesParallel(ctx context.Context) error {
 		return nil
 	})
 
+	// Load favorites cache in parallel
+	g.Go(func() error {
+		if err := app.browserService.LoadFavoritesCacheFromDB(ctx); err != nil {
+			log.Printf("[cache] Failed to load favorites cache: %v", err)
+			return err
+		}
+		return nil
+	})
+
 	// Load fuzzy search cache in parallel for instant dmenu access
 	g.Go(func() error {
 		if err := app.browserService.LoadFuzzyCacheFromDB(ctx); err != nil {

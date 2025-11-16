@@ -50,6 +50,9 @@ type Message struct {
 	// Wails fetch bridge
 	ID      string          `json:"id"`
 	Payload json.RawMessage `json:"payload"`
+	// Favorites operations
+	Title      string `json:"title"`
+	FaviconURL string `json:"faviconURL"`
 }
 
 // NewHandler creates a new message handler
@@ -110,6 +113,12 @@ func (h *Handler) Handle(payload string) {
 		h.handleGetSearchShortcuts(msg)
 	case "get_color_palettes":
 		h.handleGetColorPalettes(msg)
+	case "get_favorites":
+		h.handleGetFavorites(msg)
+	case "toggle_favorite":
+		h.handleToggleFavorite(msg)
+	case "is_favorite":
+		h.handleIsFavorite(msg)
 	}
 }
 
@@ -567,4 +576,115 @@ func (h *Handler) handleGetColorPalettes(msg Message) {
 	// Inject the color palettes into the page
 	log.Printf("[messaging] Sending color palettes to JavaScript")
 	_ = h.webView.InjectScript("window.__dumber_color_palettes && window.__dumber_color_palettes(" + string(b) + ")")
+}
+
+// handleGetFavorites sends all favorites to JavaScript
+func (h *Handler) handleGetFavorites(msg Message) {
+	if h.webView == nil {
+		log.Printf("[messaging] Cannot provide favorites - no webview available")
+		return
+	}
+
+	if h.webView.IsDestroyed() {
+		log.Printf("[messaging] Cannot provide favorites - webview is destroyed")
+		return
+	}
+
+	// Get favorites from browser service
+	favorites, err := h.browserService.GetFavorites(context.Background())
+	if err != nil {
+		log.Printf("[messaging] Failed to get favorites: %v", err)
+		_ = h.webView.InjectScript("window.__dumber_favorites_error && window.__dumber_favorites_error('Failed to get favorites')")
+		return
+	}
+
+	// Marshal to JSON
+	b, err := json.Marshal(favorites)
+	if err != nil {
+		log.Printf("[messaging] Failed to marshal favorites: %v", err)
+		_ = h.webView.InjectScript("window.__dumber_favorites_error && window.__dumber_favorites_error('Failed to load favorites')")
+		return
+	}
+
+	// Inject the favorites into the page
+	log.Printf("[messaging] Sending %d favorites to JavaScript", len(favorites))
+	_ = h.webView.InjectScript("window.__dumber_favorites && window.__dumber_favorites(" + string(b) + ")")
+}
+
+// handleToggleFavorite adds or removes a URL from favorites
+func (h *Handler) handleToggleFavorite(msg Message) {
+	if h.webView == nil {
+		log.Printf("[messaging] Cannot toggle favorite - no webview available")
+		return
+	}
+
+	if h.webView.IsDestroyed() {
+		log.Printf("[messaging] Cannot toggle favorite - webview is destroyed")
+		return
+	}
+
+	if msg.URL == "" {
+		log.Printf("[messaging] Cannot toggle favorite - URL is empty")
+		return
+	}
+
+	// Toggle the favorite
+	added, err := h.browserService.ToggleFavorite(context.Background(), msg.URL, msg.Title, msg.FaviconURL)
+	if err != nil {
+		log.Printf("[messaging] Failed to toggle favorite for %s: %v", msg.URL, err)
+		_ = h.webView.InjectScript("window.__dumber_favorite_toggled_error && window.__dumber_favorite_toggled_error('Failed to toggle favorite')")
+		return
+	}
+
+	// Send result back to JavaScript
+	result := map[string]interface{}{
+		"url":   msg.URL,
+		"added": added,
+	}
+	b, err := json.Marshal(result)
+	if err != nil {
+		log.Printf("[messaging] Failed to marshal toggle result: %v", err)
+		return
+	}
+
+	log.Printf("[messaging] Favorite toggled for %s (added: %v)", msg.URL, added)
+	_ = h.webView.InjectScript("window.__dumber_favorite_toggled && window.__dumber_favorite_toggled(" + string(b) + ")")
+}
+
+// handleIsFavorite checks if a URL is favorited
+func (h *Handler) handleIsFavorite(msg Message) {
+	if h.webView == nil {
+		log.Printf("[messaging] Cannot check favorite - no webview available")
+		return
+	}
+
+	if h.webView.IsDestroyed() {
+		log.Printf("[messaging] Cannot check favorite - webview is destroyed")
+		return
+	}
+
+	if msg.URL == "" {
+		log.Printf("[messaging] Cannot check favorite - URL is empty")
+		return
+	}
+
+	// Check if the URL is favorited
+	isFavorite, err := h.browserService.IsFavorite(context.Background(), msg.URL)
+	if err != nil {
+		log.Printf("[messaging] Failed to check if favorite for %s: %v", msg.URL, err)
+		return
+	}
+
+	// Send result back to JavaScript
+	result := map[string]interface{}{
+		"url":        msg.URL,
+		"isFavorite": isFavorite,
+	}
+	b, err := json.Marshal(result)
+	if err != nil {
+		log.Printf("[messaging] Failed to marshal is_favorite result: %v", err)
+		return
+	}
+
+	_ = h.webView.InjectScript("window.__dumber_is_favorite && window.__dumber_is_favorite(" + string(b) + ")")
 }

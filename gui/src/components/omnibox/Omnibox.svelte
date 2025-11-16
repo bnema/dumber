@@ -266,7 +266,7 @@
 
 
 
-  onMount(() => {
+  onMount(async () => {
     syncTheme();
     observeThemeChanges();
 
@@ -280,6 +280,17 @@
 
     // Add global click listener
     document.addEventListener('click', handleGlobalClick, true);
+
+    // Load search shortcuts and favorites on mount
+    try {
+      await Promise.all([
+        omniboxBridge.fetchSearchShortcuts(),
+        omniboxBridge.fetchFavorites()
+      ]);
+      console.log('✅ Search shortcuts and favorites loaded on mount');
+    } catch (error) {
+      console.warn('Failed to load initial data:', error);
+    }
 
     try {
       // Set up global API for Go bridge

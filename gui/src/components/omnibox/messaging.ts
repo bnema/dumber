@@ -4,7 +4,7 @@
  * TypeScript interface for Go-JavaScript communication
  */
 
-import type { OmniboxMessage, OmniboxMessageBridge, Suggestion, SearchShortcut } from "./types";
+import type { OmniboxMessage, OmniboxMessageBridge, Suggestion, Favorite, SearchShortcut } from "./types";
 import { omniboxStore } from "./stores.svelte.ts";
 
 export class OmniboxBridge implements OmniboxMessageBridge {
@@ -116,6 +116,63 @@ export class OmniboxBridge implements OmniboxMessageBridge {
         reject(new Error("WebKit message handler not available"));
       }
     });
+  }
+
+  /**
+   * Update favorites from Go backend
+   */
+  setFavorites(favorites: Favorite[]): void {
+    console.log("📝 [DEBUG] Received favorites from backend:", favorites);
+    omniboxStore.updateFavorites(favorites);
+  }
+
+  /**
+   * Fetch favorites from backend via messaging bridge
+   */
+  async fetchFavorites(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      // Set up one-time event listener for favorites response
+      const handleFavorites = ((event: CustomEvent) => {
+        try {
+          const { favorites } = event.detail;
+          if (!Array.isArray(favorites)) {
+            reject(new Error("Invalid favorites data"));
+            return;
+          }
+          console.log("📝 [DEBUG] Received favorites via CustomEvent:", favorites);
+          this.setFavorites(favorites as Favorite[]);
+
+          // Clean up event listener
+          document.removeEventListener("dumber:favorites", handleFavorites as EventListener);
+
+          resolve();
+        } catch (error) {
+          console.error("Failed to process favorites:", error);
+          document.removeEventListener("dumber:favorites", handleFavorites as EventListener);
+          reject(error);
+        }
+      }) as EventListener;
+
+      // Listen for favorites event from main world bridge
+      document.addEventListener("dumber:favorites", handleFavorites as EventListener);
+
+      // Send message to Go backend via CustomEvent bridge (like other omnibox messages)
+      this.postMessage({ type: "get_favorites" });
+
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        document.removeEventListener("dumber:favorites", handleFavorites as EventListener);
+        reject(new Error("Favorites fetch timeout"));
+      }, 5000);
+    });
+  }
+
+  /**
+   * Toggle favorite status for a URL
+   */
+  toggleFavorite(url: string, title: string, faviconURL: string): void {
+    console.log("⭐ [DEBUG] Toggling favorite:", { url, title, faviconURL });
+    this.postMessage({ type: "toggle_favorite", url, title, faviconURL });
   }
 
   // Suggestions are returned via setSuggestions() when native handler responds
