@@ -185,8 +185,10 @@
   // Handle Enter key based on mode
   function handleEnterKey(event: KeyboardEvent) {
     if (mode === 'omnibox') {
-      const selectedSuggestion = selectedIndex >= 0 ? suggestions[selectedIndex] : null;
-      const url = selectedSuggestion?.url || inputValue || '';
+      // Get selected item from current view (history or favorites)
+      const currentList = viewMode === 'history' ? suggestions : favorites;
+      const selectedItem = selectedIndex >= 0 ? currentList[selectedIndex] : null;
+      const url = selectedItem?.url || inputValue || '';
 
       if (url) {
         omniboxBridge.navigate(url);
@@ -233,7 +235,13 @@
 
   // Handle arrow key navigation
   function handleArrowKeys(key: string) {
-    const totalItems = mode === 'omnibox' ? suggestions.length : matches.length;
+    let totalItems: number;
+    if (mode === 'omnibox') {
+      // Get count from current view (history or favorites)
+      totalItems = viewMode === 'history' ? suggestions.length : favorites.length;
+    } else {
+      totalItems = matches.length;
+    }
 
     if (totalItems > 0) {
       if (key === 'ArrowDown') {
