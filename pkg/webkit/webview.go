@@ -38,6 +38,7 @@ type WebView struct {
 	onFaviconChanged      func([]byte)
 	onFaviconURIChanged   func(pageURI, faviconURI string)
 	onZoomChanged         func(float64)
+	onLoadCommitted       func(string) // Called when page load is committed (safe to apply zoom)
 	onPopupCreate         func(*webkit.NavigationAction) *WebView // New WebKit create signal handler
 	onReadyToShow         func()                                  // WebKit ready-to-show signal handler
 	onClose               func()
@@ -231,6 +232,14 @@ func (w *WebView) setupEventHandlers() {
 		if w.onZoomChanged != nil {
 			zoomLevel := w.view.ZoomLevel()
 			w.onZoomChanged(zoomLevel)
+		}
+	})
+
+	// Load committed - connect to load-changed signal for WEBKIT_LOAD_COMMITTED
+	w.view.ConnectLoadChanged(func(loadEvent webkit.LoadEvent) {
+		if loadEvent == webkit.LoadCommitted && w.onLoadCommitted != nil {
+			uri := w.view.URI()
+			w.onLoadCommitted(uri)
 		}
 	})
 
@@ -603,6 +612,14 @@ func (w *WebView) RegisterZoomChangedHandler(handler func(float64)) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.onZoomChanged = handler
+}
+
+// RegisterLoadCommittedHandler registers a handler for load committed events
+// This fires when the page actually starts loading new content (after URI change)
+func (w *WebView) RegisterLoadCommittedHandler(handler func(string)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onLoadCommitted = handler
 }
 
 // RegisterCloseHandler registers a handler for close requests
