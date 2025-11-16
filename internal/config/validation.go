@@ -60,10 +60,10 @@ func validateConfig(config *Config) error {
 
 	// Validate blank target behavior
 	switch config.Workspace.Popups.BlankTargetBehavior {
-	case "pane", "tab":
+	case "split", "stacked", "tabbed":
 		// Valid
 	default:
-		validationErrors = append(validationErrors, fmt.Sprintf("workspace.popups.blank_target_behavior must be one of: pane, tab (got: %s)", config.Workspace.Popups.BlankTargetBehavior))
+		validationErrors = append(validationErrors, fmt.Sprintf("workspace.popups.blank_target_behavior must be one of: split, stacked, tabbed (got: %s)", config.Workspace.Popups.BlankTargetBehavior))
 	}
 
 	// Validate workspace styling values

@@ -282,8 +282,9 @@ type PopupBehaviorConfig struct {
 	// FollowPaneContext determines if popup placement follows parent pane context
 	FollowPaneContext bool `mapstructure:"follow_pane_context" yaml:"follow_pane_context" json:"follow_pane_context"`
 
-	// BlankTargetBehavior determines how to handle window.open(url, "_blank") intents
-	// Accepted values: "pane" (default) or "tab" (future support)
+	// BlankTargetBehavior determines how target="_blank" links are opened
+	// Accepted values: "split", "stacked" (default), "tabbed"
+	// This is separate from Behavior which controls JavaScript popups
 	BlankTargetBehavior string `mapstructure:"blank_target_behavior" yaml:"blank_target_behavior" json:"blank_target_behavior"`
 
 	// EnableSmartDetection uses WebKitWindowProperties to detect popup vs tab intents

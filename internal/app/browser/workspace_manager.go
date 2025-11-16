@@ -463,7 +463,7 @@ func (wm *WorkspaceManager) RegisterNavigationHandler(webView *webkit.WebView) {
 			return false
 		}
 
-		log.Printf("[workspace] Middle-click on link, opening in new pane: %s", linkURL)
+		log.Printf("[workspace] Middle-click/Ctrl+click on link, opening in new pane: %s", linkURL)
 
 		// Get the node for this webview
 		node := wm.GetNodeForWebView(webView)
@@ -472,16 +472,57 @@ func (wm *WorkspaceManager) RegisterNavigationHandler(webView *webkit.WebView) {
 			return false
 		}
 
-		// Get split direction from popup placement config or use right as default
-		direction := "right"
-		if wm.app != nil && wm.app.config != nil && wm.app.config.Workspace.Popups.Placement != "" {
-			direction = strings.ToLower(wm.app.config.Workspace.Popups.Placement)
+		// Get behavior from BlankTargetBehavior config
+		behavior := "stacked" // Default
+		if wm.app != nil && wm.app.config != nil && wm.app.config.Workspace.Popups.BlankTargetBehavior != "" {
+			behavior = strings.ToLower(wm.app.config.Workspace.Popups.BlankTargetBehavior)
 		}
 
-		// Split the pane
-		newNode, err := wm.SplitPane(node, direction)
+		var newNode *paneNode
+		var err error
+
+		switch behavior {
+		case "stacked":
+			// Stack the current pane - this also creates a new pane in the stack
+			log.Printf("[workspace] Using stacked behavior for gesture link")
+			newNode, err = wm.stackedPaneManager.StackPane(node)
+			if err != nil {
+				log.Printf("[workspace] Failed to stack pane for gesture link: %v", err)
+				return false
+			}
+			// newNode is the new pane that was added to the stack
+			log.Printf("[workspace] StackPane created new pane in stack: %p", newNode)
+
+		case "split":
+			// Regular split behavior
+			log.Printf("[workspace] Using split behavior for gesture link")
+			direction := "right"
+			if wm.app.config.Workspace.Popups.Placement != "" {
+				direction = strings.ToLower(wm.app.config.Workspace.Popups.Placement)
+			}
+			newNode, err = wm.SplitPane(node, direction)
+
+		case "tabbed":
+			// Tabbed not yet implemented, fall back to split
+			log.Printf("[workspace] WARNING: Tabbed behavior not yet implemented for gesture links, falling back to split")
+			direction := "right"
+			if wm.app.config.Workspace.Popups.Placement != "" {
+				direction = strings.ToLower(wm.app.config.Workspace.Popups.Placement)
+			}
+			newNode, err = wm.SplitPane(node, direction)
+
+		default:
+			// Unknown behavior, fall back to split
+			log.Printf("[workspace] WARNING: Unknown behavior '%s' for gesture links, falling back to split", behavior)
+			direction := "right"
+			if wm.app.config.Workspace.Popups.Placement != "" {
+				direction = strings.ToLower(wm.app.config.Workspace.Popups.Placement)
+			}
+			newNode, err = wm.SplitPane(node, direction)
+		}
+
 		if err != nil {
-			log.Printf("[workspace] Failed to split pane for middle-click: %v", err)
+			log.Printf("[workspace] Failed to handle gesture link: %v", err)
 			return false
 		}
 

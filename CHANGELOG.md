@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - **Configurable default search engine**: Added `default_search_engine` config option with explicit URL template format. DuckDuckGo is now the default (was Google). Users can set any search engine with `%s` placeholder (e.g., `default_search_engine = "https://duckduckgo.com/?q=%s"`).
 
 ### Changed
+- **Target="_blank" and gesture link behavior**: Links with `target="_blank"`, Ctrl+click, and middle-click now open in stacked panes mode by default instead of split-right. New config option `workspace.popups.blank_target_behavior` (values: "split", "stacked", "tabbed") controls this behavior separately from JavaScript popups. Prevents browser exit when closing parent pane by marking _blank panes as popup-type.
 - **Config format**: TOML is now the default format (JSON/YAML still supported). Action bindings inverted to `action→keys` structure for maintainability with O(1) runtime lookup. Added comprehensive validation.
 - **Code cleanup**: Removed dead code files and emojis from GUI modules
 - **Bridge architecture**: Unified main-world to isolated-world bridge system with comprehensive documentation. Single dispatcher for all window function bridges (omnibox, favorites, toasts). Better separation between CustomEvents (shared between worlds) and window functions (require bridging).

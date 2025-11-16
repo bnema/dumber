@@ -409,9 +409,39 @@ func (wm *WorkspaceManager) handlePopupReadyToShow(popupID uint64) {
 
 	log.Printf("[workspace] Created popup pane, now inserting into workspace")
 
-	// NOW it's safe to insert into workspace based on configured behavior
-	behavior := wm.app.config.Workspace.Popups.Behavior
-	log.Printf("[workspace] Popup behavior: %s", behavior)
+	// Determine window type from node (set during setupPopupHandling)
+	node := wm.viewToNode[wrappedView]
+	windowType := webkit.WindowTypePopup
+	if node != nil {
+		windowType = node.windowType
+	}
+
+	// Select behavior based on window type:
+	// - WindowTypeTab (_blank links): Use BlankTargetBehavior config
+	// - WindowTypePopup (JavaScript popups): Use global Behavior config
+	var behaviorStr string
+	if windowType == webkit.WindowTypeTab {
+		behaviorStr = wm.app.config.Workspace.Popups.BlankTargetBehavior
+		log.Printf("[workspace] WindowTypeTab (_blank link) detected, using BlankTargetBehavior: %s", behaviorStr)
+	} else {
+		behaviorStr = string(wm.app.config.Workspace.Popups.Behavior)
+		log.Printf("[workspace] WindowTypePopup detected, using Behavior: %s", behaviorStr)
+	}
+
+	// Map string to PopupBehavior enum
+	var behavior config.PopupBehavior
+	switch behaviorStr {
+	case "split":
+		behavior = config.PopupBehaviorSplit
+	case "stacked":
+		behavior = config.PopupBehaviorStacked
+	case "tabbed":
+		behavior = config.PopupBehaviorTabbed
+	default:
+		behavior = config.PopupBehaviorSplit // Fallback
+	}
+
+	log.Printf("[workspace] Final behavior: %s", behavior)
 
 	switch behavior {
 	case config.PopupBehaviorSplit:
@@ -481,12 +511,13 @@ func (wm *WorkspaceManager) handlePopupReadyToShow(popupID uint64) {
 	}
 
 	// Configure the popup node
-	node := wm.viewToNode[wrappedView]
+	// Note: windowType should already be set correctly from setupPopupHandling
+	// Don't overwrite it here - preserve WindowTypeTab for _blank links
+	node = wm.viewToNode[wrappedView]
 	if node != nil {
-		node.windowType = webkit.WindowTypePopup
 		node.isRelated = true
 		node.parentPane = info.parentNode
-		node.isPopup = true
+		node.isPopup = true // Mark as popup to prevent browser exit when parent closes
 		node.autoClose = wm.shouldAutoClose(info.url)
 		node.popupID = popupID // Store popupID for close signal lookup
 

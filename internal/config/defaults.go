@@ -166,11 +166,11 @@ func DefaultConfig() *Config {
 				PreviousTab: "ctrl+shift+tab",
 			},
 			Popups: PopupBehaviorConfig{
-				Behavior:             PopupBehaviorSplit, // Default: open popups in split panes
+				Behavior:             PopupBehaviorSplit, // Default: open JavaScript popups in split panes
 				Placement:            defaultPopupPlacement,
 				OpenInNewPane:        true,
 				FollowPaneContext:    true,
-				BlankTargetBehavior:  "pane", // Default to pane, future: "tab"
+				BlankTargetBehavior:  "stacked", // Default: open _blank links in stacked mode
 				EnableSmartDetection: true,   // Use WindowProperties to detect popup vs tab
 				OAuthAutoClose:       true,   // Auto-close OAuth popups on success
 			},
