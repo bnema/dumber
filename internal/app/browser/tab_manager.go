@@ -29,6 +29,10 @@ type TabManager struct {
 	tabModeActive bool
 	tabModeTimer  *time.Timer
 
+	// Tab button click handling (pattern from StackedPaneManager)
+	buttonToTab   map[uint64]*Tab // Maps button ID to tab for click handling
+	nextButtonID  uint64          // Atomic counter for generating unique button IDs
+
 	// Synchronization
 	mu sync.RWMutex
 }
@@ -50,6 +54,7 @@ func NewTabManager(app *BrowserApp, window *webkit.Window) *TabManager {
 		activeIndex: -1,
 		window:      window,
 		app:         app,
+		buttonToTab: make(map[uint64]*Tab),
 	}
 
 	logging.Info("[tabs] Tab manager initialized")
@@ -210,9 +215,12 @@ func (tm *TabManager) createTabInternal(url string) error {
 
 	// Add to tabs slice
 	tm.tabs = append(tm.tabs, tab)
-	newIndex := len(tm.tabs) - 1
+
+	// Attach click handler with unique ID (pattern from stacked panes)
+	tm.attachTabClickHandler(tab.titleButton, tab)
 
 	// Switch to new tab
+	newIndex := len(tm.tabs) - 1
 	if err := tm.switchToTabInternal(newIndex); err != nil {
 		return fmt.Errorf("failed to switch to new tab: %w", err)
 	}
@@ -340,6 +348,15 @@ func (tm *TabManager) closeTabInternal(index int) error {
 	logging.Info(fmt.Sprintf("[tabs] Closing tab %d (%s)", index, tab.id))
 
 	// Cleanup workspace (WorkspaceManager cleanup is handled automatically when tabs are removed)
+
+	// Clean up button mapping (find and remove this tab's button ID)
+	for buttonID, mappedTab := range tm.buttonToTab {
+		if mappedTab == tab {
+			delete(tm.buttonToTab, buttonID)
+			logging.Debug(fmt.Sprintf("[tabs] Cleaned up button mapping for closed tab %s (buttonID=%d)", tab.id, buttonID))
+			break
+		}
+	}
 
 	// Remove tab button from tab bar
 	tm.removeTabFromBar(tab)

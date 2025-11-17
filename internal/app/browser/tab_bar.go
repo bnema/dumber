@@ -2,6 +2,7 @@ package browser
 
 import (
 	"fmt"
+	"sync/atomic"
 
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/pkg/webkit"
@@ -39,6 +40,11 @@ func (tm *TabManager) createTabButton(tab *Tab) gtk.Widgetter {
 		return nil
 	}
 
+	// CRITICAL: Disable focus-on-click to prevent GTK focus system from interfering
+	// Tab buttons should be clickable without grabbing focus from the WebView
+	button.SetFocusOnClick(false)
+	button.SetCanFocus(false)
+
 	// Apply CSS classes
 	button.AddCSSClass("tab-button")
 
@@ -63,8 +69,7 @@ func (tm *TabManager) createTabButton(tab *Tab) gtk.Widgetter {
 	// Store button reference for later updates
 	tab.titleButton = button
 
-	// Attach click handler
-	tm.attachTabClickHandler(button, tab)
+	// Note: Click handler will be attached in createTabInternal after tab is added to slice
 
 	// Set active class if this is the active tab
 	if tab.isActive {
@@ -77,43 +82,69 @@ func (tm *TabManager) createTabButton(tab *Tab) gtk.Widgetter {
 }
 
 // attachTabClickHandler attaches a click handler to switch to a tab when clicked.
+// Uses the same pattern as StackedPaneManager: maps unique button ID -> tab,
+// then looks up current index at click time to handle tab reordering correctly.
 func (tm *TabManager) attachTabClickHandler(button gtk.Widgetter, tab *Tab) {
-	// Find tab index
-	tabIndex := -1
+	if button == nil || tab == nil {
+		logging.Error("[tabs] Cannot attach click handler: nil button or tab")
+		return
+	}
+
+	gtkButton, ok := button.(*gtk.Button)
+	if !ok {
+		logging.Error(fmt.Sprintf("[tabs] Cannot attach click handler: widget is not *gtk.Button for tab %s", tab.id))
+		return
+	}
+
+	// Generate unique button ID and store mapping (pattern from stacked panes)
+	buttonID := atomic.AddUint64(&tm.nextButtonID, 1)
+	tm.buttonToTab[buttonID] = tab
+
+	gtkButton.ConnectClicked(func() {
+		tm.handleTabButtonClick(buttonID)
+	})
+
+	logging.Debug(fmt.Sprintf("[tabs] Click handler attached to tab %s (buttonID=%d)", tab.id, buttonID))
+}
+
+// handleTabButtonClick handles clicks on tab buttons to switch tabs.
+// Looks up the current index dynamically to handle tab reordering (pattern from stacked panes).
+func (tm *TabManager) handleTabButtonClick(buttonID uint64) {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
+	// Look up tab from button ID
+	tab, exists := tm.buttonToTab[buttonID]
+	if !exists || tab == nil {
+		logging.Warn(fmt.Sprintf("[tabs] Tab button click for unknown ID: %d", buttonID))
+		return
+	}
+
+	// Find current index of this tab
+	targetIndex := -1
 	for i, t := range tm.tabs {
 		if t == tab {
-			tabIndex = i
+			targetIndex = i
 			break
 		}
 	}
 
-	if tabIndex < 0 {
-		logging.Error(fmt.Sprintf("[tabs] Cannot attach click handler: tab %s not found", tab.id))
+	if targetIndex < 0 {
+		logging.Error(fmt.Sprintf("[tabs] Tab %s not found in tabs slice", tab.id))
 		return
 	}
 
-	// Create click gesture controller
-	clickController := gtk.NewGestureClick()
-	clickController.SetButton(1) // Left mouse button
+	// Only switch if not already active
+	if targetIndex == tm.activeIndex {
+		logging.Debug(fmt.Sprintf("[tabs] Tab %s already active (index %d)", tab.id, targetIndex))
+		return
+	}
 
-	// Connect click signal
-	clickController.ConnectPressed(func(_ int, _, _ float64) {
-		logging.Debug(fmt.Sprintf("[tabs] Tab button clicked: %s (index %d)", tab.id, tabIndex))
+	logging.Info(fmt.Sprintf("[tabs] Tab button clicked: switching from tab %d to %d (%s)", tm.activeIndex, targetIndex, tab.id))
 
-		// Switch to this tab
-		webkit.RunOnMainThread(func() {
-			if err := tm.SwitchToTab(tabIndex); err != nil {
-				logging.Error(fmt.Sprintf("[tabs] Failed to switch to tab %d: %v", tabIndex, err))
-			}
-		})
-	})
-
-	// Add gesture controller to button
-	if gtkWidget, ok := button.(interface{ AddController(gtk.EventControllerer) }); ok {
-		gtkWidget.AddController(clickController)
-		logging.Debug(fmt.Sprintf("[tabs] Click handler attached to tab %s", tab.id))
-	} else {
-		logging.Error(fmt.Sprintf("[tabs] Failed to attach click handler to tab %s", tab.id))
+	// Switch to this tab
+	if err := tm.switchToTabInternal(targetIndex); err != nil {
+		logging.Error(fmt.Sprintf("[tabs] Failed to switch to tab %d: %v", targetIndex, err))
 	}
 }
 
