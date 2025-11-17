@@ -129,7 +129,7 @@ func DefaultConfig() *Config {
 			DisableVP9Hardware:        false,                                                                                                   // Allow VP9 hardware for high res content
 			VideoBufferSizeMB:         16,                                                                                                      // Larger buffer for AV1 streams
 			QueueBufferTimeSec:        10,                                                                                                      // More buffering time for smooth playback
-			CustomUserAgent:           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36", // Chrome UA with AV1 support
+			CustomUserAgent:           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15", // WebKitGTK default (same as Epiphany)
 			AV1MaxResolution:          "1080p", // Optimal AV1 up to 1080p, fallback to VP9 for higher res
 			DisableTwitchCodecControl: true,    // Disable codec control on Twitch by default (prevents theater/fullscreen freezing)
 		},
@@ -206,10 +206,13 @@ func DefaultConfig() *Config {
 				UIScale:                defaultUIScale,
 			},
 		},
-		ContentFilteringWhitelist: []string{
-			"twitch.tv",          // Arkose Labs bot detection breaks with filtering
-			"passport.twitch.tv", // Auth subdomain
-			"gql.twitch.tv",      // GraphQL API
+		ContentFiltering: ContentFilteringConfig{
+			Enabled: true, // Ad blocking enabled by default
+			Whitelist: []string{
+				"twitch.tv",          // Arkose Labs bot detection breaks with filtering
+				"passport.twitch.tv", // Auth subdomain
+				"gql.twitch.tv",      // GraphQL API
+			},
 		},
 	}
 }

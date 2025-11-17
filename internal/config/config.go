@@ -42,8 +42,8 @@ type Config struct {
 	DefaultZoom float64 `mapstructure:"default_zoom" yaml:"default_zoom"`
 	// Workspace defines workspace, pane, and tab handling behaviour.
 	Workspace WorkspaceConfig `mapstructure:"workspace" yaml:"workspace"`
-	// ContentFilteringWhitelist domains skip ad blocking (e.g. Twitch breaks with bot detection)
-	ContentFilteringWhitelist []string `mapstructure:"content_filtering_whitelist" yaml:"content_filtering_whitelist"`
+	// ContentFiltering controls ad blocking and content filtering
+	ContentFiltering ContentFilteringConfig `mapstructure:"content_filtering" yaml:"content_filtering"`
 }
 
 // RenderingMode selects GPU vs CPU rendering.
@@ -175,6 +175,14 @@ type CodecConfig struct {
 }
 
 // DebugConfig holds debug and troubleshooting options
+// ContentFilteringConfig holds content filtering and ad blocking preferences
+type ContentFilteringConfig struct {
+	// Enabled controls whether ad blocking is active (default: true)
+	Enabled bool `mapstructure:"enabled" yaml:"enabled"`
+	// Whitelist domains that should skip ad blocking (e.g. Twitch breaks with bot detection)
+	Whitelist []string `mapstructure:"whitelist" yaml:"whitelist"`
+}
+
 type DebugConfig struct {
 	// Enable WebKit internal debug logging
 	EnableWebKitDebug bool `mapstructure:"enable_webkit_debug" yaml:"enable_webkit_debug"`
@@ -744,6 +752,10 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("workspace.styling.transition_duration", defaults.Workspace.Styling.TransitionDuration)
 	m.viper.SetDefault("workspace.styling.border_radius", defaults.Workspace.Styling.BorderRadius)
 	m.viper.SetDefault("workspace.styling.ui_scale", defaults.Workspace.Styling.UIScale)
+
+	// Content filtering
+	m.viper.SetDefault("content_filtering.enabled", defaults.ContentFiltering.Enabled)
+	m.viper.SetDefault("content_filtering.whitelist", defaults.ContentFiltering.Whitelist)
 }
 
 // createDefaultConfig creates a default configuration file.

@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/filtering/converter"
 	"github.com/bnema/dumber/internal/filtering/cosmetic"
 	"github.com/bnema/dumber/internal/logging"
@@ -33,6 +35,9 @@ type FilterManager struct {
 	compileMutex     sync.RWMutex
 	compiled         *CompiledFilters
 	onFiltersReady   FilterReadyCallback
+	// Cached whitelist rules to avoid recomputing on every filter application
+	cachedWhitelistRules []converter.WebKitRule
+	cachedWhitelistHash  string
 }
 
 // FilterStore defines the interface for filter storage operations
@@ -74,6 +79,41 @@ func NewFilterManager(store FilterStore, compiler FilterCompiler) *FilterManager
 		compiled:         &CompiledFilters{},
 		onFiltersReady:   nil,
 	}
+}
+
+// updateWhitelistCache rebuilds the cached whitelist rules from config if needed
+func (fm *FilterManager) updateWhitelistCache(whitelist []string) {
+	// Create a hash of the whitelist to detect changes
+	currentHash := strings.Join(whitelist, "|")
+	
+	// Only rebuild if whitelist changed
+	if fm.cachedWhitelistHash == currentHash && fm.cachedWhitelistRules != nil {
+		return
+	}
+	
+	// Rebuild cache with pre-allocation
+	rules := make([]converter.WebKitRule, 0, len(whitelist))
+	for _, domain := range whitelist {
+		// Create a regex pattern that matches all URLs containing this domain
+		// Escape special regex characters in the domain
+		escapedDomain := strings.ReplaceAll(domain, ".", "\\.")
+		// Match any URL containing this domain (with protocol and optional path)
+		urlPattern := ".*" + escapedDomain
+
+		rules = append(rules, converter.WebKitRule{
+			Trigger: converter.Trigger{
+				URLFilter: urlPattern,
+			},
+			Action: converter.Action{
+				Type: converter.ActionTypeIgnorePreviousRules,
+			},
+		})
+		logging.Info(fmt.Sprintf("[filtering] Created whitelist rule: %s → pattern: %s", domain, urlPattern))
+	}
+
+	fm.cachedWhitelistRules = rules
+	fm.cachedWhitelistHash = currentHash
+	logging.Info(fmt.Sprintf("[filtering] Whitelist cache updated with %d domains", len(whitelist)))
 }
 
 // SetFiltersReadyCallback sets a callback to be called when filters are loaded/updated
@@ -268,6 +308,22 @@ func (fm *FilterManager) downloadAndCompile(ctx context.Context, url string) (*C
 func (fm *FilterManager) applyFilters(filters *CompiledFilters) {
 	fm.compileMutex.Lock()
 	defer fm.compileMutex.Unlock()
+
+	// Add whitelist rules from config (ignore-previous-rules for whitelisted domains)
+	// Update cache if whitelist changed, then use cached rules
+	cfg := config.Get()
+
+	// Only apply filters if content filtering is enabled
+	if !cfg.ContentFiltering.Enabled {
+		logging.Info("[filtering] Content filtering is DISABLED in config - no ad blocking active")
+		return
+	}
+
+	fm.updateWhitelistCache(cfg.ContentFiltering.Whitelist)
+	if len(fm.cachedWhitelistRules) > 0 {
+		filters.NetworkRules = append(filters.NetworkRules, fm.cachedWhitelistRules...)
+		logging.Info(fmt.Sprintf("[filtering] Applied %d whitelist rules (ignore-previous-rules)", len(fm.cachedWhitelistRules)))
+	}
 
 	// Add uBlock Origin style scriptlets to handle broken page loading
 
