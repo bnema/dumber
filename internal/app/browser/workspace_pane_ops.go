@@ -602,6 +602,7 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string, existi
 	// GTK4 automatically handles widget rendering after reparenting - no manual updates needed
 
 	wm.viewToNode[newPane.webView] = newLeaf
+	wm.setupPopupHandling(newPane.webView, newLeaf)
 	wm.ensureHover(newLeaf)
 
 	// Don't ensure hover on originalTarget when splitting from stack - it competes with new pane focus

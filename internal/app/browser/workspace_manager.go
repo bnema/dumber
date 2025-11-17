@@ -171,6 +171,7 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 	manager.root = root
 	manager.mainPane = root
 	manager.viewToNode[rootPane.webView] = root
+	manager.setupPopupHandling(rootPane.webView, root)
 	manager.ensureHover(root)
 
 	if handler := rootPane.MessageHandler(); handler != nil {

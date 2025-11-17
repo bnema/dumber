@@ -343,6 +343,7 @@ func (spm *StackedPaneManager) reattachToParent(container gtk.Widgetter, target 
 func (spm *StackedPaneManager) finalizeStackCreation(stackNode, newLeaf *paneNode, insertIndex int) (*paneNode, error) {
 	// Update workspace state first
 	spm.wm.viewToNode[newLeaf.pane.webView] = newLeaf
+	spm.wm.setupPopupHandling(newLeaf.pane.webView, newLeaf)
 	spm.wm.ensureHover(newLeaf)
 	spm.wm.app.panes = append(spm.wm.app.panes, newLeaf.pane)
 	if newLeaf.pane.zoomController != nil {
@@ -876,6 +877,7 @@ func (spm *StackedPaneManager) CloseStackedPane(node *paneNode) error {
 		lastPane.stackedPanes = nil
 		lastPane.titleBar = nil
 		spm.wm.viewToNode[lastPane.pane.webView] = lastPane
+		spm.wm.setupPopupHandling(lastPane.pane.webView, lastPane)
 
 		generation := spm.wm.nextCleanupGeneration()
 		spm.wm.cleanupPane(node, generation)
