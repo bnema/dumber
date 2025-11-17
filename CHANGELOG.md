@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.14.0] - 2025-11-18
+
 ### Added
 - **Zellij-style tab system**: Each tab contains an independent workspace with panes, splits, and stacks. `Ctrl+T` enters tab mode with modal keyboard control (`n`=new, `x`=close, `l/h`=navigate). `Alt+1-9/0` for direct tab switching. `Ctrl+Tab`/`Ctrl+Shift+Tab` for next/previous tab. Tab bar auto-hides with single tab. Orange border indicator (distinct from blue pane mode).
 - **International keyboard layout support**: Hardware keycode-based shortcuts for `Alt+number` keys work across all keyboard layouts (QWERTY, AZERTY, QWERTZ, etc.). Physical key position used instead of character mapping.
