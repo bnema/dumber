@@ -21,6 +21,9 @@ const (
 	// Workspace defaults
 	defaultPaneActivationShortcut  = "ctrl+p"
 	defaultPaneTimeoutMilliseconds = 3000
+	defaultTabActivationShortcut   = "ctrl+t"
+	defaultTabTimeoutMilliseconds  = 3000
+	defaultTabBarPosition          = "bottom"
 	defaultPopupPlacement          = "right"
 
 	// Workspace styling defaults
@@ -29,7 +32,8 @@ const (
 	defaultInactiveBorderWidth    = 1                             // Same width as active to prevent layout shift
 	defaultInactiveBorderColor    = "@theme_unfocused_bg_color"   // GTK theme variable
 	defaultShowStackedTitleBorder = false                         // Hidden by default
-	defaultPaneModeBorderColor    = "#FFA500"                     // Orange for pane mode indicator
+	defaultPaneModeBorderColor    = "#4A90E2"                     // Blue for pane mode indicator
+	defaultTabModeBorderColor     = "#FFA500"                     // Orange for tab mode indicator (distinct from pane mode)
 	defaultTransitionDuration     = 120
 	defaultBorderRadius           = 0
 	defaultUIScale                = 1.0 // UI scale multiplier (1.0 = 100%, 1.2 = 120%)
@@ -160,12 +164,26 @@ func DefaultConfig() *Config {
 					"cancel":      {"escape"},
 				},
 			},
+			TabMode: TabModeConfig{
+				ActivationShortcut:  defaultTabActivationShortcut,
+				TimeoutMilliseconds: defaultTabTimeoutMilliseconds,
+				Actions: map[string][]string{
+					"new-tab":      {"n", "c"},
+					"close-tab":    {"x"},
+					"next-tab":     {"l", "tab"},
+					"previous-tab": {"h", "shift+tab"},
+					"rename-tab":   {"r"},
+					"confirm":      {"enter"},
+					"cancel":       {"escape"},
+				},
+			},
 			Tabs: TabKeyConfig{
 				NewTab:      "ctrl+t",
 				CloseTab:    "ctrl+w",
 				NextTab:     "ctrl+tab",
 				PreviousTab: "ctrl+shift+tab",
 			},
+			TabBarPosition: defaultTabBarPosition,
 			Popups: PopupBehaviorConfig{
 				Behavior:             PopupBehaviorSplit, // Default: open JavaScript popups in split panes
 				Placement:            defaultPopupPlacement,
@@ -182,6 +200,7 @@ func DefaultConfig() *Config {
 				InactiveBorderColor:    defaultInactiveBorderColor,
 				ShowStackedTitleBorder: defaultShowStackedTitleBorder,
 				PaneModeBorderColor:    defaultPaneModeBorderColor,
+				TabModeBorderColor:     defaultTabModeBorderColor,
 				TransitionDuration:     defaultTransitionDuration,
 				BorderRadius:           defaultBorderRadius,
 				UIScale:                defaultUIScale,

@@ -93,7 +93,7 @@ func validateConfig(config *Config) error {
 		validationErrors = append(validationErrors, "workspace.pane_mode.actions cannot be empty")
 	}
 
-	// Check for duplicate keys and empty action key lists
+	// Check for duplicate keys and empty action key lists in pane mode
 	seenKeys := make(map[string]string)
 	for action, keys := range config.Workspace.PaneMode.Actions {
 		if len(keys) == 0 {
@@ -101,9 +101,41 @@ func validateConfig(config *Config) error {
 		}
 		for _, key := range keys {
 			if existingAction, exists := seenKeys[key]; exists {
-				validationErrors = append(validationErrors, fmt.Sprintf("duplicate key binding '%s' found in actions '%s' and '%s'", key, existingAction, action))
+				validationErrors = append(validationErrors, fmt.Sprintf("duplicate key binding '%s' found in pane_mode actions '%s' and '%s'", key, existingAction, action))
 			}
 			seenKeys[key] = action
+		}
+	}
+
+	// Validate tab bar position
+	switch config.Workspace.TabBarPosition {
+	case "top", "bottom":
+		// Valid
+	default:
+		validationErrors = append(validationErrors, fmt.Sprintf("workspace.tab_bar_position must be 'top' or 'bottom' (got: %s)", config.Workspace.TabBarPosition))
+	}
+
+	// Validate tab mode timeout
+	if config.Workspace.TabMode.TimeoutMilliseconds < 0 {
+		validationErrors = append(validationErrors, "workspace.tab_mode.timeout_ms must be non-negative")
+	}
+
+	// Validate tab mode actions
+	if len(config.Workspace.TabMode.Actions) == 0 {
+		validationErrors = append(validationErrors, "workspace.tab_mode.actions cannot be empty")
+	}
+
+	// Check for duplicate keys and empty action key lists in tab mode
+	tabSeenKeys := make(map[string]string)
+	for action, keys := range config.Workspace.TabMode.Actions {
+		if len(keys) == 0 {
+			validationErrors = append(validationErrors, fmt.Sprintf("workspace.tab_mode.actions.%s must have at least one key binding", action))
+		}
+		for _, key := range keys {
+			if existingAction, exists := tabSeenKeys[key]; exists {
+				validationErrors = append(validationErrors, fmt.Sprintf("duplicate key binding '%s' found in tab_mode actions '%s' and '%s'", key, existingAction, action))
+			}
+			tabSeenKeys[key] = action
 		}
 	}
 

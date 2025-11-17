@@ -218,8 +218,12 @@ type DebugConfig struct {
 type WorkspaceConfig struct {
 	// PaneMode defines modal pane behaviour and bindings.
 	PaneMode PaneModeConfig `mapstructure:"pane_mode" yaml:"pane_mode" json:"pane_mode"`
+	// TabMode defines modal tab behaviour and bindings (Alt+T).
+	TabMode TabModeConfig `mapstructure:"tab_mode" yaml:"tab_mode" json:"tab_mode"`
 	// Tabs holds classic browser tab shortcuts.
 	Tabs TabKeyConfig `mapstructure:"tabs" yaml:"tabs" json:"tabs"`
+	// TabBarPosition determines tab bar placement: "top" or "bottom".
+	TabBarPosition string `mapstructure:"tab_bar_position" yaml:"tab_bar_position" json:"tab_bar_position"`
 	// Popups configures default popup placement rules.
 	Popups PopupBehaviorConfig `mapstructure:"popups" yaml:"popups" json:"popups"`
 	// Styling configures workspace visual appearance.
@@ -238,6 +242,25 @@ type PaneModeConfig struct {
 func (p *PaneModeConfig) GetKeyBindings() map[string]string {
 	keyToAction := make(map[string]string)
 	for action, keys := range p.Actions {
+		for _, key := range keys {
+			keyToAction[key] = action
+		}
+	}
+	return keyToAction
+}
+
+// TabModeConfig defines modal behaviour for tab management (Zellij-style).
+type TabModeConfig struct {
+	ActivationShortcut  string              `mapstructure:"activation_shortcut" yaml:"activation_shortcut" json:"activation_shortcut"`
+	TimeoutMilliseconds int                 `mapstructure:"timeout_ms" yaml:"timeout_ms" json:"timeout_ms"`
+	Actions             map[string][]string `mapstructure:"actions" yaml:"actions" json:"actions"`
+}
+
+// GetKeyBindings returns an inverted map for O(1) key→action lookup.
+// This is built from the action→keys structure in the config.
+func (t *TabModeConfig) GetKeyBindings() map[string]string {
+	keyToAction := make(map[string]string)
+	for action, keys := range t.Actions {
 		for _, key := range keys {
 			keyToAction[key] = action
 		}
@@ -307,8 +330,11 @@ type WorkspaceStylingConfig struct {
 	// ShowStackedTitleBorder enables the separator line below stacked pane titles
 	ShowStackedTitleBorder bool `mapstructure:"show_stacked_title_border" yaml:"show_stacked_title_border" json:"show_stacked_title_border"`
 	// PaneModeBorderColor for the pane mode indicator border (CSS color value or theme variable)
-	// Defaults to "#FFA500" (orange) if not set
+	// Defaults to "#4A90E2" (blue) if not set
 	PaneModeBorderColor string `mapstructure:"pane_mode_border_color" yaml:"pane_mode_border_color" json:"pane_mode_border_color"`
+	// TabModeBorderColor for the tab mode indicator border (CSS color value or theme variable)
+	// Defaults to "#FFA500" (orange) if not set - MUST be different from PaneModeBorderColor
+	TabModeBorderColor string `mapstructure:"tab_mode_border_color" yaml:"tab_mode_border_color" json:"tab_mode_border_color"`
 	// TransitionDuration in milliseconds for border animations
 	TransitionDuration int `mapstructure:"transition_duration" yaml:"transition_duration" json:"transition_duration"`
 	// BorderRadius in pixels for pane border corners
@@ -693,10 +719,14 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("workspace.pane_mode.activation_shortcut", defaults.Workspace.PaneMode.ActivationShortcut)
 	m.viper.SetDefault("workspace.pane_mode.timeout_ms", defaults.Workspace.PaneMode.TimeoutMilliseconds)
 	m.viper.SetDefault("workspace.pane_mode.actions", defaults.Workspace.PaneMode.Actions)
+	m.viper.SetDefault("workspace.tab_mode.activation_shortcut", defaults.Workspace.TabMode.ActivationShortcut)
+	m.viper.SetDefault("workspace.tab_mode.timeout_ms", defaults.Workspace.TabMode.TimeoutMilliseconds)
+	m.viper.SetDefault("workspace.tab_mode.actions", defaults.Workspace.TabMode.Actions)
 	m.viper.SetDefault("workspace.tabs.new_tab", defaults.Workspace.Tabs.NewTab)
 	m.viper.SetDefault("workspace.tabs.close_tab", defaults.Workspace.Tabs.CloseTab)
 	m.viper.SetDefault("workspace.tabs.next_tab", defaults.Workspace.Tabs.NextTab)
 	m.viper.SetDefault("workspace.tabs.previous_tab", defaults.Workspace.Tabs.PreviousTab)
+	m.viper.SetDefault("workspace.tab_bar_position", defaults.Workspace.TabBarPosition)
 	m.viper.SetDefault("workspace.popups.behavior", string(defaults.Workspace.Popups.Behavior))
 	m.viper.SetDefault("workspace.popups.placement", defaults.Workspace.Popups.Placement)
 	m.viper.SetDefault("workspace.popups.open_in_new_pane", defaults.Workspace.Popups.OpenInNewPane)
