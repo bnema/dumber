@@ -249,28 +249,34 @@ func (app *BrowserApp) createWebView() error {
 	app.clipboardController = pane.clipboardController
 	app.messageHandler = pane.messageHandler
 	app.shortcutHandler = pane.shortcutHandler
-	app.panes = []*BrowserPane{pane}
-	app.activePane = pane
 
-	if app.workspace == nil {
-		app.workspace = NewWorkspaceManager(app, pane)
-		// CRITICAL: Register navigation handler for the root webview
-		// This is needed because buildPane() couldn't register it when workspace was nil
-		app.workspace.RegisterNavigationHandler(view)
+	// Initialize tab manager (which manages workspaces)
+	window := view.Window()
+	if window != nil && app.tabManager == nil {
+		app.tabManager = NewTabManager(app, window)
 
-		// CRITICAL: Setup popup handling for the root webview
-		// This must be done after workspace is created so WebKit's create signal is connected
-		node := app.workspace.GetNodeForWebView(view)
-		if node != nil {
-			app.workspace.setupPopupHandling(view, node)
-			log.Printf("[webview] Setup native popup handling for root WebView ID: %d", view.ID())
+		// Determine initial URL
+		initialURL := "about:blank"
+
+		// Initialize tab system (creates root container with tab bar and first tab)
+		if err := app.tabManager.Initialize(initialURL); err != nil {
+			log.Printf("ERROR: failed to initialize tab manager: %v", err)
+			return err
+		}
+
+		// Set tab manager's root container as window content
+		rootContainer := app.tabManager.GetRootContainer()
+		if rootContainer != nil {
+			window.SetChild(rootContainer)
+			log.Printf("[tabs] Tab system initialized and set as window content")
 		} else {
-			log.Printf("[webview] WARNING: Could not find node for root WebView ID: %d", view.ID())
+			log.Printf("ERROR: tab manager root container is nil")
+			return fmt.Errorf("failed to get tab manager root container")
 		}
 	}
 
-	// Initialize window-level global shortcuts AFTER workspace is set up
-	if window := view.Window(); window != nil {
+	// Initialize window-level global shortcuts AFTER tab manager is set up
+	if window != nil {
 		app.windowShortcutHandler = NewWindowShortcutHandler(window, app)
 		if app.windowShortcutHandler != nil {
 			log.Printf("Window-level global shortcuts initialized")

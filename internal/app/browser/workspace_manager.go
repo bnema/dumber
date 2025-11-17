@@ -542,3 +542,48 @@ func (wm *WorkspaceManager) RegisterNavigationHandler(webView *webkit.WebView) {
 
 	log.Printf("[workspace] Registered navigation handler for webview: %d", webView.ID())
 }
+
+// GetAllPanes returns all BrowserPanes in this workspace.
+// This is used by TabManager to update app-level panes reference.
+func (wm *WorkspaceManager) GetAllPanes() []*BrowserPane {
+	panes := make([]*BrowserPane, 0, len(wm.viewToNode))
+	for _, node := range wm.viewToNode {
+		if node.pane != nil {
+			panes = append(panes, node.pane)
+		}
+	}
+	return panes
+}
+
+// GetActivePane returns the currently active BrowserPane in this workspace.
+// This is used by TabManager to update app-level activePane reference.
+func (wm *WorkspaceManager) GetActivePane() *BrowserPane {
+	node := wm.GetActiveNode()
+	if node != nil && node.pane != nil {
+		return node.pane
+	}
+	return nil
+}
+
+// RestoreFocus restores focus to the active pane in this workspace.
+// Called when switching to a tab to ensure the correct pane has focus.
+func (wm *WorkspaceManager) RestoreFocus() {
+	// Focus is managed automatically by the focus state machine
+	// when the workspace becomes visible
+	activeNode := wm.GetActiveNode()
+	if activeNode != nil && activeNode.pane != nil && activeNode.pane.webView != nil {
+		// Request focus on the active pane
+		if wm.focusStateMachine != nil {
+			wm.focusStateMachine.RequestFocus(activeNode, SourceProgrammatic)
+		}
+	}
+}
+
+// GetRootWidget returns the root GTK widget for this workspace.
+// This is the container that should be added to the tab's content area.
+func (wm *WorkspaceManager) GetRootWidget() gtk.Widgetter {
+	if wm.root != nil && wm.root.container != nil {
+		return wm.root.container
+	}
+	return nil
+}

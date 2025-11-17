@@ -60,9 +60,33 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 		{"ctrl+f", h.handleFindToggle, "Find in page"},
 		{"ctrl+shift+c", h.handleCopyURL, "Copy URL"},
 		{"ctrl+shift+p", h.handlePrint, "Print page"},
-		{"ctrl+t", h.handleNewTab, "New tab (no-op)"},
-		{"ctrl+w", h.handleClosePane, "Close current pane"},
 		{"F12", h.handleDevTools, "Developer tools"},
+		// Pane management
+		{"ctrl+p", h.handlePaneMode, "Enter pane mode"},
+		// Tab management
+		{"ctrl+t", h.handleTabMode, "Enter tab mode"},
+		// Tab mode actions (only active when tab mode is enabled)
+		{"n", func() { h.handleTabModeAction("new-tab") }, "New tab (tab mode)"},
+		{"c", func() { h.handleTabModeAction("new-tab") }, "New tab (tab mode)"},
+		{"x", func() { h.handleTabModeAction("close-tab") }, "Close tab (tab mode)"},
+		{"l", func() { h.handleTabModeAction("next-tab") }, "Next tab (tab mode)"},
+		{"h", func() { h.handleTabModeAction("previous-tab") }, "Previous tab (tab mode)"},
+		{"r", func() { h.handleTabModeAction("rename-tab") }, "Rename tab (tab mode)"},
+		{"Tab", func() { h.handleTabModeAction("next-tab") }, "Next tab (tab mode)"},
+		{"shift+Tab", func() { h.handleTabModeAction("previous-tab") }, "Previous tab (tab mode)"},
+		{"Return", func() { h.handleTabModeAction("confirm") }, "Confirm (tab mode)"},
+		{"Escape", func() { h.handleTabModeAction("cancel") }, "Cancel (tab mode)"},
+		// Direct tab switching
+		{"alt+1", func() { h.handleDirectTabSwitch(0) }, "Switch to tab 1"},
+		{"alt+2", func() { h.handleDirectTabSwitch(1) }, "Switch to tab 2"},
+		{"alt+3", func() { h.handleDirectTabSwitch(2) }, "Switch to tab 3"},
+		{"alt+4", func() { h.handleDirectTabSwitch(3) }, "Switch to tab 4"},
+		{"alt+5", func() { h.handleDirectTabSwitch(4) }, "Switch to tab 5"},
+		{"alt+6", func() { h.handleDirectTabSwitch(5) }, "Switch to tab 6"},
+		{"alt+7", func() { h.handleDirectTabSwitch(6) }, "Switch to tab 7"},
+		{"alt+8", func() { h.handleDirectTabSwitch(7) }, "Switch to tab 8"},
+		{"alt+9", func() { h.handleDirectTabSwitch(8) }, "Switch to tab 9"},
+		{"alt+0", func() { h.handleDirectTabSwitch(9) }, "Switch to tab 10"},
 		// Page reload shortcuts
 		{"ctrl+r", h.handleReload, "Reload page"},
 		{"ctrl+shift+r", h.handleHardReload, "Hard reload (bypass cache)"},
@@ -409,11 +433,56 @@ func (h *WindowShortcutHandler) handleClosePane() {
 	}
 }
 
-// handleNewTab is a no-op handler for Ctrl+T
-// This prevents the default browser behavior and allows for future implementation
-func (h *WindowShortcutHandler) handleNewTab() {
-	log.Printf("[window-shortcuts] Ctrl+T pressed (no-op - tabs not yet implemented)")
-	// TODO: Implement new tab functionality
+// handlePaneMode enters pane mode for modal pane management.
+func (h *WindowShortcutHandler) handlePaneMode() {
+	if h.app == nil || h.app.workspace == nil {
+		log.Printf("[window-shortcuts] Cannot enter pane mode: workspace not available")
+		return
+	}
+
+	log.Printf("[window-shortcuts] Entering pane mode")
+	h.app.workspace.EnterPaneMode()
+}
+
+// handleTabMode enters tab mode for modal tab management.
+func (h *WindowShortcutHandler) handleTabMode() {
+	if h.app == nil || h.app.tabManager == nil {
+		log.Printf("[window-shortcuts] Cannot enter tab mode: tab manager not available")
+		return
+	}
+
+	log.Printf("[window-shortcuts] Entering tab mode")
+	h.app.tabManager.EnterTabMode()
+}
+
+// handleDirectTabSwitch switches to a specific tab by index (0-based).
+func (h *WindowShortcutHandler) handleDirectTabSwitch(index int) {
+	if h.app == nil || h.app.tabManager == nil {
+		log.Printf("[window-shortcuts] Cannot switch tab: tab manager not available")
+		return
+	}
+
+	log.Printf("[window-shortcuts] Direct tab switch to index %d", index)
+	if err := h.app.tabManager.SwitchToTab(index); err != nil {
+		log.Printf("[window-shortcuts] Failed to switch to tab %d: %v", index, err)
+	}
+}
+
+// handleTabModeAction handles tab mode action keys (n, x, l, h, etc.)
+// Only processes actions when tab mode is active, otherwise lets keys pass through to WebView
+func (h *WindowShortcutHandler) handleTabModeAction(action string) {
+	if h.app == nil || h.app.tabManager == nil {
+		return // Tab manager not available, let key pass through
+	}
+
+	// Check if tab mode is active
+	if !h.app.tabManager.IsTabModeActive() {
+		return // Tab mode not active, let key pass through to WebView
+	}
+
+	// Tab mode is active, handle the action
+	log.Printf("[window-shortcuts] Tab mode action: %s", action)
+	h.app.tabManager.HandleTabAction(action)
 }
 
 // Cleanup releases resources

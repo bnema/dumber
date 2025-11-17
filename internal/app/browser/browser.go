@@ -48,7 +48,11 @@ type BrowserApp struct {
 	navigationController *control.NavigationController
 	clipboardController  *control.ClipboardController
 
-	// Pane workspace management
+	// Tab and workspace management
+	tabManager *TabManager
+
+	// Convenience accessors (delegate to active tab's workspace)
+	// These maintain compatibility with existing code
 	panes      []*BrowserPane
 	activePane *BrowserPane
 	workspace  *WorkspaceManager
@@ -248,8 +252,19 @@ func (app *BrowserApp) Run() {
 		// Continue without content blocking
 	}
 
-	// Handle browse command if present
-	app.navigationController.HandleBrowseCommand()
+	// Handle browse command if present (must use active tab's navigation controller)
+	if app.tabManager != nil {
+		activeTab := app.tabManager.GetActiveTab()
+		if activeTab != nil && activeTab.workspace != nil {
+			activePane := activeTab.workspace.GetActivePane()
+			if activePane != nil && activePane.navigationController != nil {
+				activePane.navigationController.HandleBrowseCommand()
+			}
+		}
+	} else {
+		// Fallback to legacy behavior if no tab manager
+		app.navigationController.HandleBrowseCommand()
+	}
 
 	// Setup signal handling
 	app.setupSignalHandling()
@@ -269,23 +284,11 @@ func (app *BrowserApp) cleanup() {
 		app.windowShortcutHandler = nil
 	}
 
-	// Cleanup all panes
-	if app.panes != nil {
-		log.Printf("Cleaning up %d panes", len(app.panes))
-		for i, pane := range app.panes {
-			if pane != nil {
-				log.Printf("Cleaning up pane %d (%s)", i, pane.ID())
-				pane.Cleanup()
-			}
-		}
-		app.panes = nil
-	}
-
-	// Cleanup workspace manager
-	if app.workspace != nil {
-		log.Printf("Cleaning up workspace manager")
-		// WorkspaceManager doesn't have explicit cleanup yet, but we clear the reference
-		app.workspace = nil
+	// Cleanup tab manager (which cleans up all tabs and their workspaces)
+	if app.tabManager != nil {
+		log.Printf("Cleaning up tab manager")
+		app.tabManager.Cleanup()
+		app.tabManager = nil
 	}
 
 	// Flush all caches to ensure pending writes complete before database closes
