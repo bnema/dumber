@@ -23,17 +23,17 @@ const (
 
 // Config represents the complete configuration for dumber.
 type Config struct {
-	Database          DatabaseConfig            `mapstructure:"database" yaml:"database"`
-	History           HistoryConfig             `mapstructure:"history" yaml:"history"`
-	SearchShortcuts   map[string]SearchShortcut `mapstructure:"search_shortcuts" yaml:"search_shortcuts"`
+	Database        DatabaseConfig            `mapstructure:"database" yaml:"database"`
+	History         HistoryConfig             `mapstructure:"history" yaml:"history"`
+	SearchShortcuts map[string]SearchShortcut `mapstructure:"search_shortcuts" yaml:"search_shortcuts"`
 	// DefaultSearchEngine is the URL template for the default search engine (must contain %s placeholder)
-	DefaultSearchEngine string `mapstructure:"default_search_engine" yaml:"default_search_engine"`
-	Dmenu               DmenuConfig `mapstructure:"dmenu" yaml:"dmenu"`
-	Logging           LoggingConfig             `mapstructure:"logging" yaml:"logging"`
-	Appearance        AppearanceConfig          `mapstructure:"appearance" yaml:"appearance"`
-	VideoAcceleration VideoAccelerationConfig   `mapstructure:"video_acceleration" yaml:"video_acceleration"`
-	CodecPreferences  CodecConfig               `mapstructure:"codec_preferences" yaml:"codec_preferences"`
-	Debug             DebugConfig               `mapstructure:"debug" yaml:"debug"`
+	DefaultSearchEngine string                  `mapstructure:"default_search_engine" yaml:"default_search_engine"`
+	Dmenu               DmenuConfig             `mapstructure:"dmenu" yaml:"dmenu"`
+	Logging             LoggingConfig           `mapstructure:"logging" yaml:"logging"`
+	Appearance          AppearanceConfig        `mapstructure:"appearance" yaml:"appearance"`
+	VideoAcceleration   VideoAccelerationConfig `mapstructure:"video_acceleration" yaml:"video_acceleration"`
+	CodecPreferences    CodecConfig             `mapstructure:"codec_preferences" yaml:"codec_preferences"`
+	Debug               DebugConfig             `mapstructure:"debug" yaml:"debug"`
 	// RenderingMode controls GPU/CPU rendering selection for WebKit
 	RenderingMode RenderingMode `mapstructure:"rendering_mode" yaml:"rendering_mode"`
 	// UseDomZoom toggles DOM-based zoom instead of native WebKit zoom.

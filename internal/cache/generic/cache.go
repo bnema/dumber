@@ -51,8 +51,8 @@ type DatabaseOperations[K comparable, V any] interface {
 // GenericCache implements Cache[K, V] using sync.Map for thread-safe storage
 // and a DatabaseOperations interface for database operations.
 type GenericCache[K comparable, V any] struct {
-	cache  sync.Map
-	dbOps  DatabaseOperations[K, V]
+	cache sync.Map
+	dbOps DatabaseOperations[K, V]
 
 	// Track pending async operations for graceful shutdown
 	pendingWrites sync.WaitGroup

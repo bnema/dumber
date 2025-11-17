@@ -44,9 +44,9 @@ func (p *Parser) ParseInput(input string) (*ParseResult, error) {
 		resultType = InputTypeFallbackSearch
 		confidence = 0.1
 	case strings.HasPrefix(finalURL, "http://"),
-	     strings.HasPrefix(finalURL, "https://"),
-	     strings.HasPrefix(finalURL, "dumb://"),
-	     strings.HasPrefix(finalURL, "file://"):
+		strings.HasPrefix(finalURL, "https://"),
+		strings.HasPrefix(finalURL, "dumb://"),
+		strings.HasPrefix(finalURL, "file://"):
 		resultType = InputTypeDirectURL
 		confidence = 1.0
 	default:

@@ -48,13 +48,13 @@ type BrowserService struct {
 	webView            *webkit.WebView
 	initialURL         string
 	guiBundle          string
-	zoomCache          *cache.ZoomCache              // In-memory cache for zoom levels
-	certCache          *cache.CertValidationsCache   // In-memory cache for certificate validations
-	favoritesCache     *cache.FavoritesCache         // In-memory cache for favorites
-	fuzzyCache         *cache.CacheManager           // Async fuzzy search cache for dmenu
-	historyQueue       chan historyUpdate            // Queue for batched history writes
-	historyFlushDone   chan bool                     // Signal when history flush is complete (buffered)
-	flushOnce          sync.Once                     // Ensures FlushHistoryQueue only runs once
+	zoomCache          *cache.ZoomCache            // In-memory cache for zoom levels
+	certCache          *cache.CertValidationsCache // In-memory cache for certificate validations
+	favoritesCache     *cache.FavoritesCache       // In-memory cache for favorites
+	fuzzyCache         *cache.CacheManager         // Async fuzzy search cache for dmenu
+	historyQueue       chan historyUpdate          // Queue for batched history writes
+	historyFlushDone   chan bool                   // Signal when history flush is complete (buffered)
+	flushOnce          sync.Once                   // Ensures FlushHistoryQueue only runs once
 
 	// Fuzzy cache refresh tracking
 	historySinceRefresh int       // Count of history entries added since last cache refresh
@@ -440,8 +440,8 @@ func (s *BrowserService) processHistoryQueue() {
 		batch = batch[:0] // Clear batch
 
 		// Smart fuzzy cache refresh: rebuild after N entries AND M minutes
-		const minEntries = 10                // Minimum new entries before refresh
-		const minInterval = 5 * time.Minute  // Minimum time between refreshes
+		const minEntries = 10               // Minimum new entries before refresh
+		const minInterval = 5 * time.Minute // Minimum time between refreshes
 
 		s.historySinceRefresh += batchSize
 		timeSinceRefresh := time.Since(s.lastCacheRefresh)

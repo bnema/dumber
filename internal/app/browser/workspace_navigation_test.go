@@ -155,9 +155,10 @@ func TestCaseSensitiveDirections(t *testing.T) {
 // This causes navigation to fail because we're comparing coordinates in different spaces.
 //
 // Real-world example from logs:
-//   Normal pane (top half):  center=(957, 532) - window coords
-//   Stack pane (bottom):     center=(955, 511) - relative to stack box!
-//   Result: dy=-21 → SKIPPED as "not below"
+//
+//	Normal pane (top half):  center=(957, 532) - window coords
+//	Stack pane (bottom):     center=(955, 511) - relative to stack box!
+//	Result: dy=-21 → SKIPPED as "not below"
 //
 // The fix: Always use stack wrapper allocation for panes inside stacks.
 func TestNavigationCoordinateBug(t *testing.T) {

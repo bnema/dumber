@@ -85,12 +85,12 @@ func NewFilterManager(store FilterStore, compiler FilterCompiler) *FilterManager
 func (fm *FilterManager) updateWhitelistCache(whitelist []string) {
 	// Create a hash of the whitelist to detect changes
 	currentHash := strings.Join(whitelist, "|")
-	
+
 	// Only rebuild if whitelist changed
 	if fm.cachedWhitelistHash == currentHash && fm.cachedWhitelistRules != nil {
 		return
 	}
-	
+
 	// Rebuild cache with pre-allocation
 	rules := make([]converter.WebKitRule, 0, len(whitelist))
 	for _, domain := range whitelist {

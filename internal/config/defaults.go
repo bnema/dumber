@@ -29,11 +29,11 @@ const (
 	// Workspace styling defaults
 	defaultBorderWidth            = 1
 	defaultBorderColor            = "@theme_selected_bg_color"
-	defaultInactiveBorderWidth    = 1                             // Same width as active to prevent layout shift
-	defaultInactiveBorderColor    = "@theme_unfocused_bg_color"   // GTK theme variable
-	defaultShowStackedTitleBorder = false                         // Hidden by default
-	defaultPaneModeBorderColor    = "#4A90E2"                     // Blue for pane mode indicator
-	defaultTabModeBorderColor     = "#FFA500"                     // Orange for tab mode indicator (distinct from pane mode)
+	defaultInactiveBorderWidth    = 1                           // Same width as active to prevent layout shift
+	defaultInactiveBorderColor    = "@theme_unfocused_bg_color" // GTK theme variable
+	defaultShowStackedTitleBorder = false                       // Hidden by default
+	defaultPaneModeBorderColor    = "#4A90E2"                   // Blue for pane mode indicator
+	defaultTabModeBorderColor     = "#FFA500"                   // Orange for tab mode indicator (distinct from pane mode)
 	defaultTransitionDuration     = 120
 	defaultBorderRadius           = 0
 	defaultUIScale                = 1.0 // UI scale multiplier (1.0 = 100%, 1.2 = 120%)
@@ -130,8 +130,8 @@ func DefaultConfig() *Config {
 			VideoBufferSizeMB:         16,                                                                                                      // Larger buffer for AV1 streams
 			QueueBufferTimeSec:        10,                                                                                                      // More buffering time for smooth playback
 			CustomUserAgent:           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15", // WebKitGTK default (same as Epiphany)
-			AV1MaxResolution:          "1080p", // Optimal AV1 up to 1080p, fallback to VP9 for higher res
-			DisableTwitchCodecControl: true,    // Disable codec control on Twitch by default (prevents theater/fullscreen freezing)
+			AV1MaxResolution:          "1080p",                                                                                                 // Optimal AV1 up to 1080p, fallback to VP9 for higher res
+			DisableTwitchCodecControl: true,                                                                                                    // Disable codec control on Twitch by default (prevents theater/fullscreen freezing)
 		},
 		Debug: DebugConfig{
 			EnableWebKitDebug:     false,
@@ -190,8 +190,8 @@ func DefaultConfig() *Config {
 				OpenInNewPane:        true,
 				FollowPaneContext:    true,
 				BlankTargetBehavior:  "stacked", // Default: open _blank links in stacked mode
-				EnableSmartDetection: true,   // Use WindowProperties to detect popup vs tab
-				OAuthAutoClose:       true,   // Auto-close OAuth popups on success
+				EnableSmartDetection: true,      // Use WindowProperties to detect popup vs tab
+				OAuthAutoClose:       true,      // Auto-close OAuth popups on success
 			},
 			Styling: WorkspaceStylingConfig{
 				BorderWidth:            defaultBorderWidth,

@@ -30,8 +30,8 @@ type TabManager struct {
 	tabModeTimer  *time.Timer
 
 	// Tab button click handling (pattern from StackedPaneManager)
-	buttonToTab   map[uint64]*Tab // Maps button ID to tab for click handling
-	nextButtonID  uint64          // Atomic counter for generating unique button IDs
+	buttonToTab  map[uint64]*Tab // Maps button ID to tab for click handling
+	nextButtonID uint64          // Atomic counter for generating unique button IDs
 
 	// Synchronization
 	mu sync.RWMutex

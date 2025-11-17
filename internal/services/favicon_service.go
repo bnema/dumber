@@ -29,11 +29,11 @@ type FaviconService struct {
 	exportDir    string // Directory for exporting favicons for CLI access
 	dataDir      string // WebKit data directory
 	enableExport bool   // Whether to export favicons for CLI tools
-	
+
 	// Deduplication: tracks recently processed (pageURL, faviconURI) pairs
 	// Key: pageURL, Value: struct{faviconURI string, timestamp time.Time}
 	recentChanges sync.Map
-	
+
 	// Debouncing: tracks ongoing preload operations to prevent duplicates
 	// Key: pageURL, Value: bool (true if preload is in progress)
 	ongoingPreloads sync.Map
@@ -115,7 +115,7 @@ func (fs *FaviconService) OnFaviconChanged(pageURL, faviconURI string) error {
 		faviconURI string
 		timestamp  time.Time
 	}
-	
+
 	if cached, ok := fs.recentChanges.Load(pageURL); ok {
 		if rc, ok := cached.(recentChange); ok {
 			if time.Since(rc.timestamp) < DeduplicationWindow {

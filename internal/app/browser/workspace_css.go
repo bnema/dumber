@@ -127,11 +127,11 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	if uiScale <= 0 {
 		uiScale = 1.0 // Fallback to default if invalid
 	}
-	titleFontSize := int(12 * uiScale)              // Base: 12px
-	titlePaddingVertical := int(4 * uiScale)        // Base: 4px
-	titlePaddingHorizontal := int(8 * uiScale)      // Base: 8px
-	titleMinHeight := int(24 * uiScale)             // Base: 24px
-	faviconMargin := int(4 * uiScale)               // Base: 4px
+	titleFontSize := int(12 * uiScale)         // Base: 12px
+	titlePaddingVertical := int(4 * uiScale)   // Base: 4px
+	titlePaddingHorizontal := int(8 * uiScale) // Base: 8px
+	titleMinHeight := int(24 * uiScale)        // Base: 24px
+	faviconMargin := int(4 * uiScale)          // Base: 4px
 
 	css := fmt.Sprintf(`window {
 	  background-color: %s;
@@ -269,45 +269,45 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  0%%, 100%% { opacity: 1.0; }
 	  50%% { opacity: 0.6; }
 	}`,
-		windowBackgroundColor,           // window background
-		paneModeColor,                   // window.pane-mode-active background (border color)
-		windowBackgroundColor,           // paned, box background
-		styling.InactiveBorderWidth,     // base pane border-width (inactive)
-		inactiveBorderColor,             // base pane border-color (inactive)
-		styling.BorderRadius,            // base pane border radius
-		styling.TransitionDuration,      // transition-duration
-		styling.BorderWidth,             // workspace-pane-active border-width
-		activeBorderColor,               // workspace-pane-active border color
-		windowBackgroundColor,           // stacked-pane-container background
-		styling.InactiveBorderWidth,     // stacked-pane-container.active border-width
-		inactiveBorderColor,             // stacked-pane-container.active border-color
-		getStackTitleBg(isDark),         // stacked-pane-title background
-		stackedTitleBorder,              // stacked-pane-title border-bottom
-		titlePaddingVertical,            // stacked-pane-title padding vertical
-		titlePaddingHorizontal,          // stacked-pane-title padding horizontal
-		titleMinHeight,                  // stacked-pane-title min-height
-		styling.TransitionDuration,      // stacked-pane-title transition
-		getStackTitleHoverBg(isDark),    // stacked-pane-title:hover background
-		titleFontSize,                   // stacked-pane-title-text font-size
-		getStackTitleTextColor(isDark),  // stacked-pane-title-text color
-		faviconMargin,                   // stacked-pane-favicon margin-right
+		windowBackgroundColor,          // window background
+		paneModeColor,                  // window.pane-mode-active background (border color)
+		windowBackgroundColor,          // paned, box background
+		styling.InactiveBorderWidth,    // base pane border-width (inactive)
+		inactiveBorderColor,            // base pane border-color (inactive)
+		styling.BorderRadius,           // base pane border radius
+		styling.TransitionDuration,     // transition-duration
+		styling.BorderWidth,            // workspace-pane-active border-width
+		activeBorderColor,              // workspace-pane-active border color
+		windowBackgroundColor,          // stacked-pane-container background
+		styling.InactiveBorderWidth,    // stacked-pane-container.active border-width
+		inactiveBorderColor,            // stacked-pane-container.active border-color
+		getStackTitleBg(isDark),        // stacked-pane-title background
+		stackedTitleBorder,             // stacked-pane-title border-bottom
+		titlePaddingVertical,           // stacked-pane-title padding vertical
+		titlePaddingHorizontal,         // stacked-pane-title padding horizontal
+		titleMinHeight,                 // stacked-pane-title min-height
+		styling.TransitionDuration,     // stacked-pane-title transition
+		getStackTitleHoverBg(isDark),   // stacked-pane-title:hover background
+		titleFontSize,                  // stacked-pane-title-text font-size
+		getStackTitleTextColor(isDark), // stacked-pane-title-text color
+		faviconMargin,                  // stacked-pane-favicon margin-right
 		// Tab bar styles
-		windowBackgroundColor,           // tab-bar background
+		windowBackgroundColor,            // tab-bar background
 		getStackTitleBorderColor(isDark), // tab-bar border-top
-		int(32 * uiScale),               // tab-bar min-height
-		tabModeColor,                    // window.tab-mode-active .tab-bar border-top-color (orange, distinct from pane mode blue)
-		getStackTitleBg(isDark),         // tab-button background (same as stacked title)
+		int(32*uiScale),                  // tab-bar min-height
+		tabModeColor,                     // window.tab-mode-active .tab-bar border-top-color (orange, distinct from pane mode blue)
+		getStackTitleBg(isDark),          // tab-button background (same as stacked title)
 		getStackTitleBorderColor(isDark), // tab-button border-right
-		titlePaddingVertical,            // tab-button padding vertical
-		titlePaddingHorizontal,          // tab-button padding horizontal
-		styling.TransitionDuration,      // tab-button transition
-		getStackTitleHoverBg(isDark),    // tab-button:hover background
-		getActiveTabBg(isDark),          // tab-button-active background (much more visible)
+		titlePaddingVertical,             // tab-button padding vertical
+		titlePaddingHorizontal,           // tab-button padding horizontal
+		styling.TransitionDuration,       // tab-button transition
+		getStackTitleHoverBg(isDark),     // tab-button:hover background
+		getActiveTabBg(isDark),           // tab-button-active background (much more visible)
 		getStackTitleBorderColor(isDark), // tab-button-active border-right
-		titleFontSize,                   // tab-title font-size
-		getStackTitleTextColor(isDark),  // tab-title color
-		windowBackgroundColor,           // tab-content-area background
-		windowBackgroundColor,           // tab-workspace-container background
+		titleFontSize,                    // tab-title font-size
+		getStackTitleTextColor(isDark),   // tab-title color
+		windowBackgroundColor,            // tab-content-area background
+		windowBackgroundColor,            // tab-workspace-container background
 	)
 
 	return css
