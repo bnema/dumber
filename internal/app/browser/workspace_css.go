@@ -99,10 +99,16 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	activeBorderColor := getActivePaneBorderColor(styling, isDark)
 	inactiveBorderColor := getInactivePaneBorderColor(styling, isDark)
 
-	// Pane mode border color - use configured value or fallback to orange
+	// Pane mode border color - use configured value or fallback to blue
 	paneModeColor := styling.PaneModeBorderColor
 	if paneModeColor == "" {
-		paneModeColor = "#FFA500" // Fallback to orange if not configured
+		paneModeColor = "#4A90E2" // Fallback to blue if not configured
+	}
+
+	// Tab mode border color - use configured value or fallback to orange
+	tabModeColor := styling.TabModeBorderColor
+	if tabModeColor == "" {
+		tabModeColor = "#FFA500" // Fallback to orange if not configured
 	}
 
 	// Stacked title border - subtle separator between titles
@@ -193,6 +199,66 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 
 	.stacked-pane-collapsed {
 	  /* Collapsed panes are hidden - handled in code via widget visibility */
+	}
+
+	/* Tab bar styling */
+	.tab-bar {
+	  background-color: %s;
+	  border-top: 2px solid %s;
+	  padding: 0;
+	  min-height: %dpx;
+	}
+
+	/* Tab mode active - window background changes to border color (like pane mode) */
+	window.tab-mode-active {
+	  background-color: %s;
+	}
+
+	/* Tab button styling - matches stacked pane titles */
+	.tab-button {
+	  background-color: %s;
+	  border: none;
+	  border-right: 1px solid %s;
+	  border-radius: 0;
+	  padding: %dpx %dpx;
+	  min-width: 100px;
+	  max-width: 200px;
+	  transition: background-color %dms ease-in-out;
+	}
+
+	.tab-button:hover {
+	  background-color: %s;
+	}
+
+	.tab-button-active {
+	  background-color: %s;
+	  border: none;
+	  border-right: 1px solid %s;
+	  border-radius: 0;
+	  font-weight: 600;
+	}
+
+	/* Tab title text */
+	.tab-title {
+	  font-size: %dpx;
+	  color: %s;
+	  font-weight: 500;
+	}
+
+	/* Tab content area */
+	.tab-content-area {
+	  background-color: %s;
+	}
+
+	/* Tab workspace containers */
+	.tab-workspace-container {
+	  background-color: %s;
+	}
+
+	/* Pulse animation for tab mode */
+	@keyframes pulse-border {
+	  0%%, 100%% { opacity: 1.0; }
+	  50%% { opacity: 0.6; }
 	}`,
 		windowBackgroundColor,           // window background
 		paneModeColor,                   // window.pane-mode-active background (border color)
@@ -216,6 +282,23 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 		titleFontSize,                   // stacked-pane-title-text font-size
 		getStackTitleTextColor(isDark),  // stacked-pane-title-text color
 		faviconMargin,                   // stacked-pane-favicon margin-right
+		// Tab bar styles
+		windowBackgroundColor,           // tab-bar background
+		getStackTitleBorderColor(isDark), // tab-bar border-top
+		int(32 * uiScale),               // tab-bar min-height
+		tabModeColor,                    // window.tab-mode-active .tab-bar border-top-color (orange, distinct from pane mode blue)
+		getStackTitleBg(isDark),         // tab-button background (same as stacked title)
+		getStackTitleBorderColor(isDark), // tab-button border-right
+		titlePaddingVertical,            // tab-button padding vertical
+		titlePaddingHorizontal,          // tab-button padding horizontal
+		styling.TransitionDuration,      // tab-button transition
+		getStackTitleHoverBg(isDark),    // tab-button:hover background
+		getStackTitleHoverBg(isDark),    // tab-button-active background (lighter/brighter)
+		getStackTitleBorderColor(isDark), // tab-button-active border-right
+		titleFontSize,                   // tab-title font-size
+		getStackTitleTextColor(isDark),  // tab-title color
+		windowBackgroundColor,           // tab-content-area background
+		windowBackgroundColor,           // tab-workspace-container background
 	)
 
 	return css
