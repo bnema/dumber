@@ -8,6 +8,8 @@ import (
 
 	"github.com/bnema/dumber/internal/app/messaging"
 	"github.com/bnema/dumber/pkg/webkit"
+	"github.com/diamondburned/gotk4/pkg/gdk/v4"
+	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
 // WindowShortcutHandler manages global shortcuts at the window level
@@ -47,6 +49,11 @@ func (h *WindowShortcutHandler) initialize() error {
 		return ErrFailedToInitialize
 	}
 
+	// Register hardware keycode-based shortcuts (for AZERTY/international keyboards)
+	if err := h.registerKeycodeShortcuts(); err != nil {
+		log.Printf("[window-shortcuts] Failed to register keycode shortcuts: %v", err)
+	}
+
 	return h.registerGlobalShortcuts()
 }
 
@@ -65,6 +72,8 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 		{"ctrl+p", h.handlePaneMode, "Enter pane mode"},
 		// Tab management
 		{"ctrl+t", h.handleTabMode, "Enter tab mode"},
+		// Global tab navigation (Ctrl+Tab) is handled via EventControllerKey in registerKeycodeShortcuts
+		// This prevents GTK's default focus cycling behavior
 		// Tab mode actions (only active when tab mode is enabled)
 		{"n", func() { h.handleTabModeAction("new-tab") }, "New tab (tab mode)"},
 		{"c", func() { h.handleTabModeAction("new-tab") }, "New tab (tab mode)"},
@@ -76,17 +85,8 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 		{"shift+Tab", func() { h.handleTabModeAction("previous-tab") }, "Previous tab (tab mode)"},
 		{"Return", func() { h.handleTabModeAction("confirm") }, "Confirm (tab mode)"},
 		{"Escape", func() { h.handleTabModeAction("cancel") }, "Cancel (tab mode)"},
-		// Direct tab switching
-		{"alt+1", func() { h.handleDirectTabSwitch(0) }, "Switch to tab 1"},
-		{"alt+2", func() { h.handleDirectTabSwitch(1) }, "Switch to tab 2"},
-		{"alt+3", func() { h.handleDirectTabSwitch(2) }, "Switch to tab 3"},
-		{"alt+4", func() { h.handleDirectTabSwitch(3) }, "Switch to tab 4"},
-		{"alt+5", func() { h.handleDirectTabSwitch(4) }, "Switch to tab 5"},
-		{"alt+6", func() { h.handleDirectTabSwitch(5) }, "Switch to tab 6"},
-		{"alt+7", func() { h.handleDirectTabSwitch(6) }, "Switch to tab 7"},
-		{"alt+8", func() { h.handleDirectTabSwitch(7) }, "Switch to tab 8"},
-		{"alt+9", func() { h.handleDirectTabSwitch(8) }, "Switch to tab 9"},
-		{"alt+0", func() { h.handleDirectTabSwitch(9) }, "Switch to tab 10"},
+		// Direct tab switching is now handled via hardware keycodes (see registerKeycodeShortcuts)
+		// This supports all keyboard layouts (QWERTY, AZERTY, etc.)
 		// Page reload shortcuts
 		{"ctrl+r", h.handleReload, "Reload page"},
 		{"ctrl+shift+r", h.handleHardReload, "Hard reload (bypass cache)"},
@@ -114,6 +114,76 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 		log.Printf("[window-shortcuts] Registered global shortcut: %s (%s)",
 			shortcut.key, shortcut.desc)
 	}
+
+	return nil
+}
+
+// registerKeycodeShortcuts registers keyboard shortcuts based on hardware keycodes
+// This allows Alt+number shortcuts to work on AZERTY and other keyboard layouts
+func (h *WindowShortcutHandler) registerKeycodeShortcuts() error {
+	if h.window == nil {
+		return fmt.Errorf("window is nil")
+	}
+
+	gtkWindow := h.window.AsWindow()
+	if gtkWindow == nil {
+		return fmt.Errorf("gtk window is nil")
+	}
+
+	// Create event controller for keyboard events
+	keyController := gtk.NewEventControllerKey()
+	keyController.SetPropagationPhase(gtk.PhaseCapture)
+
+	// GDK key constants
+	const (
+		gdkKeyTab = 0xff09
+	)
+
+	// Map hardware keycodes to tab indices
+	// These keycodes are the same across all keyboard layouts
+	keycodeToTab := map[uint]int{
+		10: 0, // 1/& key
+		11: 1, // 2/é key
+		12: 2, // 3/" key
+		13: 3, // 4/' key
+		14: 4, // 5/( key
+		15: 5, // 6/- key
+		16: 6, // 7/è key
+		17: 7, // 8/_ key
+		18: 8, // 9/ç key
+		19: 9, // 0/à key
+	}
+
+	keyController.ConnectKeyPressed(func(keyval, keycode uint, state gdk.ModifierType) bool {
+		// Handle Ctrl+Tab for next tab
+		if keyval == gdkKeyTab && state.Has(gdk.ControlMask) && !state.Has(gdk.ShiftMask) {
+			log.Printf("[window-shortcuts] Ctrl+Tab -> next tab")
+			h.handleNextTab()
+			return true // Consume event to prevent focus cycling
+		}
+
+		// Handle Ctrl+Shift+Tab for previous tab
+		if keyval == gdkKeyTab && state.Has(gdk.ControlMask) && state.Has(gdk.ShiftMask) {
+			log.Printf("[window-shortcuts] Ctrl+Shift+Tab -> previous tab")
+			h.handlePrevTab()
+			return true // Consume event to prevent focus cycling
+		}
+
+		// Check for Alt+number (but not with Ctrl or Shift)
+		if state.Has(gdk.AltMask) && !state.Has(gdk.ControlMask) && !state.Has(gdk.ShiftMask) {
+			// Check if this is a number key
+			if tabIndex, ok := keycodeToTab[keycode]; ok {
+				log.Printf("[window-shortcuts] Hardware keycode shortcut: Alt+keycode(%d) -> tab %d", keycode, tabIndex)
+				h.handleDirectTabSwitch(tabIndex)
+				return true // Handled
+			}
+		}
+
+		return false
+	})
+
+	gtkWindow.AddController(keyController)
+	log.Printf("[window-shortcuts] Registered hardware keycode shortcuts for Alt+number (AZERTY support)")
 
 	return nil
 }
@@ -453,6 +523,32 @@ func (h *WindowShortcutHandler) handleTabMode() {
 
 	log.Printf("[window-shortcuts] Entering tab mode")
 	h.app.tabManager.EnterTabMode()
+}
+
+// handleNextTab switches to the next tab.
+func (h *WindowShortcutHandler) handleNextTab() {
+	if h.app == nil || h.app.tabManager == nil {
+		log.Printf("[window-shortcuts] Cannot switch tab: tab manager not available")
+		return
+	}
+
+	log.Printf("[window-shortcuts] Switching to next tab")
+	if err := h.app.tabManager.NextTab(); err != nil {
+		log.Printf("[window-shortcuts] Failed to switch to next tab: %v", err)
+	}
+}
+
+// handlePrevTab switches to the previous tab.
+func (h *WindowShortcutHandler) handlePrevTab() {
+	if h.app == nil || h.app.tabManager == nil {
+		log.Printf("[window-shortcuts] Cannot switch tab: tab manager not available")
+		return
+	}
+
+	log.Printf("[window-shortcuts] Switching to previous tab")
+	if err := h.app.tabManager.PreviousTab(); err != nil {
+		log.Printf("[window-shortcuts] Failed to switch to previous tab: %v", err)
+	}
 }
 
 // handleDirectTabSwitch switches to a specific tab by index (0-based).

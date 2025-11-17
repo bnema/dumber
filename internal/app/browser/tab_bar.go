@@ -193,14 +193,17 @@ func (tm *TabManager) removeTabFromBar(tab *Tab) {
 // setTabActiveStyle applies or removes the active CSS class on a tab button.
 func (tm *TabManager) setTabActiveStyle(tab *Tab, active bool) {
 	if tab.titleButton == nil {
+		logging.Warn(fmt.Sprintf("[tabs] Cannot set active style: button is nil for tab %s", tab.id))
 		return
 	}
 
 	webkit.RunOnMainThread(func() {
 		if active {
 			webkit.WidgetAddCSSClass(tab.titleButton, "tab-button-active")
+			logging.Debug(fmt.Sprintf("[tabs] Added active class to tab %s", tab.id))
 		} else {
 			webkit.WidgetRemoveCSSClass(tab.titleButton, "tab-button-active")
+			logging.Debug(fmt.Sprintf("[tabs] Removed active class from tab %s", tab.id))
 		}
 	})
 }

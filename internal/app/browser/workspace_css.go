@@ -44,6 +44,14 @@ func getStackTitleBorderColor(isDark bool) string {
 	return "#e5e5e5" // Slightly darker than #f0f0f0
 }
 
+// getActiveTabBg returns a distinct background color for the active tab
+func getActiveTabBg(isDark bool) string {
+	if isDark {
+		return "#707070" // Significantly lighter gray than inactive (#404040) - similar to stacked panes
+	}
+	return "#c0c0c0" // Significantly darker gray than inactive (#f0f0f0) - similar to stacked panes
+}
+
 // getActivePaneBorderColor returns the border color for active panes based on config and theme
 func getActivePaneBorderColor(styling config.WorkspaceStylingConfig, isDark bool) string {
 	// Use configured border color if set
@@ -215,23 +223,24 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	}
 
 	/* Tab button styling - matches stacked pane titles */
-	.tab-button {
+	button.tab-button {
 	  background-color: %s;
+	  background-image: none;
 	  border: none;
 	  border-right: 1px solid %s;
 	  border-radius: 0;
 	  padding: %dpx %dpx;
-	  min-width: 100px;
-	  max-width: 200px;
 	  transition: background-color %dms ease-in-out;
 	}
 
-	.tab-button:hover {
+	button.tab-button:hover {
 	  background-color: %s;
+	  background-image: none;
 	}
 
-	.tab-button-active {
+	button.tab-button.tab-button-active {
 	  background-color: %s;
+	  background-image: none;
 	  border: none;
 	  border-right: 1px solid %s;
 	  border-radius: 0;
@@ -293,7 +302,7 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 		titlePaddingHorizontal,          // tab-button padding horizontal
 		styling.TransitionDuration,      // tab-button transition
 		getStackTitleHoverBg(isDark),    // tab-button:hover background
-		getStackTitleHoverBg(isDark),    // tab-button-active background (lighter/brighter)
+		getActiveTabBg(isDark),          // tab-button-active background (much more visible)
 		getStackTitleBorderColor(isDark), // tab-button-active border-right
 		titleFontSize,                   // tab-title font-size
 		getStackTitleTextColor(isDark),  // tab-title color

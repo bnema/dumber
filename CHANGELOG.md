@@ -5,7 +5,8 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
-- **Zellij-style tab system**: Each tab contains an independent workspace with panes, splits, and stacks. `Ctrl+T` enters tab mode with modal keyboard control (`n`=new, `x`=close, `l/h`=navigate). `Alt+1-9/0` for direct tab switching. Tab bar auto-hides with single tab. Orange border indicator (distinct from blue pane mode).
+- **Zellij-style tab system**: Each tab contains an independent workspace with panes, splits, and stacks. `Ctrl+T` enters tab mode with modal keyboard control (`n`=new, `x`=close, `l/h`=navigate). `Alt+1-9/0` for direct tab switching. `Ctrl+Tab`/`Ctrl+Shift+Tab` for next/previous tab. Tab bar auto-hides with single tab. Orange border indicator (distinct from blue pane mode).
+- **International keyboard layout support**: Hardware keycode-based shortcuts for `Alt+number` keys work across all keyboard layouts (QWERTY, AZERTY, QWERTZ, etc.). Physical key position used instead of character mapping.
 - **Click-to-activate stacked panes**: Click on any collapsed title bar to instantly activate that pane. Uses GTK4 gesture clicks for native interaction feel.
 - **Title bar visual separators**: Subtle 1px borders between stacked title bars. Theme-aware colors automatically adjust for light/dark mode.
 - **UI scaling for title bars**: New `workspace.styling.ui_scale` config option (default: 1.0). Scales font size, padding, height, and favicon size. Range: 0.5 to 3.0 (e.g., 1.2 = 120% size).
@@ -24,6 +25,10 @@ All notable changes to this project will be documented in this file.
 - **Smart Escape key**: First press clears input text, second press closes omnibox. Empty input closes immediately.
 
 ### Fixed
+- **Ctrl+Tab shortcuts**: Fixed focus cycling behavior, now properly switches between tabs
+- **Active tab visibility**: Fixed identical styling - active tab now clearly visible with distinct gray shade
+- **AZERTY keyboard support**: Alt+number shortcuts now work on all keyboard layouts using hardware keycodes
+- **Keyboard layout detection**: Fixed always detecting "en" - now correctly detects fr/de/etc layouts
 - **Zoom visual glitch**: Fixed zoom level for next page being applied before navigation completed, causing visible zoom change on current page. Zoom now applies on load-committed event instead of URI change.
 - **Toast notifications**: Fixed toast notifications not appearing for copy URL (Ctrl+Shift+C) and clipboard operations. Event name was `dumber:showToast` but ToastContainer listens for `dumber:toast`.
 - **Page reload shortcuts**: Restored `Ctrl+R`, `Ctrl+Shift+R`, `F5`, and `Ctrl+F5` shortcuts. They were registered but not actually wired to the window-level handler.
