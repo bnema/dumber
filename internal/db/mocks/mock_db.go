@@ -337,6 +337,146 @@ func (mr *MockCertificateQuerierMockRecorder) StoreCertificateValidation(ctx, ho
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreCertificateValidation", reflect.TypeOf((*MockCertificateQuerier)(nil).StoreCertificateValidation), ctx, hostname, certificateHash, userDecision, expiresAt)
 }
 
+// MockFavoritesQuerier is a mock of FavoritesQuerier interface.
+type MockFavoritesQuerier struct {
+	ctrl     *gomock.Controller
+	recorder *MockFavoritesQuerierMockRecorder
+	isgomock struct{}
+}
+
+// MockFavoritesQuerierMockRecorder is the mock recorder for MockFavoritesQuerier.
+type MockFavoritesQuerierMockRecorder struct {
+	mock *MockFavoritesQuerier
+}
+
+// NewMockFavoritesQuerier creates a new mock instance.
+func NewMockFavoritesQuerier(ctrl *gomock.Controller) *MockFavoritesQuerier {
+	mock := &MockFavoritesQuerier{ctrl: ctrl}
+	mock.recorder = &MockFavoritesQuerierMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockFavoritesQuerier) EXPECT() *MockFavoritesQuerierMockRecorder {
+	return m.recorder
+}
+
+// CreateFavorite mocks base method.
+func (m *MockFavoritesQuerier) CreateFavorite(ctx context.Context, url string, title, faviconUrl sql.NullString) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateFavorite", ctx, url, title, faviconUrl)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateFavorite indicates an expected call of CreateFavorite.
+func (mr *MockFavoritesQuerierMockRecorder) CreateFavorite(ctx, url, title, faviconUrl any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFavorite", reflect.TypeOf((*MockFavoritesQuerier)(nil).CreateFavorite), ctx, url, title, faviconUrl)
+}
+
+// DeleteFavorite mocks base method.
+func (m *MockFavoritesQuerier) DeleteFavorite(ctx context.Context, url string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteFavorite", ctx, url)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteFavorite indicates an expected call of DeleteFavorite.
+func (mr *MockFavoritesQuerierMockRecorder) DeleteFavorite(ctx, url any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteFavorite", reflect.TypeOf((*MockFavoritesQuerier)(nil).DeleteFavorite), ctx, url)
+}
+
+// GetAllFavorites mocks base method.
+func (m *MockFavoritesQuerier) GetAllFavorites(ctx context.Context) ([]db.Favorite, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllFavorites", ctx)
+	ret0, _ := ret[0].([]db.Favorite)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllFavorites indicates an expected call of GetAllFavorites.
+func (mr *MockFavoritesQuerierMockRecorder) GetAllFavorites(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllFavorites", reflect.TypeOf((*MockFavoritesQuerier)(nil).GetAllFavorites), ctx)
+}
+
+// GetFavoriteByURL mocks base method.
+func (m *MockFavoritesQuerier) GetFavoriteByURL(ctx context.Context, url string) (db.Favorite, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFavoriteByURL", ctx, url)
+	ret0, _ := ret[0].(db.Favorite)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFavoriteByURL indicates an expected call of GetFavoriteByURL.
+func (mr *MockFavoritesQuerierMockRecorder) GetFavoriteByURL(ctx, url any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFavoriteByURL", reflect.TypeOf((*MockFavoritesQuerier)(nil).GetFavoriteByURL), ctx, url)
+}
+
+// GetFavoriteCount mocks base method.
+func (m *MockFavoritesQuerier) GetFavoriteCount(ctx context.Context) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFavoriteCount", ctx)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFavoriteCount indicates an expected call of GetFavoriteCount.
+func (mr *MockFavoritesQuerierMockRecorder) GetFavoriteCount(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFavoriteCount", reflect.TypeOf((*MockFavoritesQuerier)(nil).GetFavoriteCount), ctx)
+}
+
+// IsFavorite mocks base method.
+func (m *MockFavoritesQuerier) IsFavorite(ctx context.Context, url string) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsFavorite", ctx, url)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsFavorite indicates an expected call of IsFavorite.
+func (mr *MockFavoritesQuerierMockRecorder) IsFavorite(ctx, url any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsFavorite", reflect.TypeOf((*MockFavoritesQuerier)(nil).IsFavorite), ctx, url)
+}
+
+// UpdateFavorite mocks base method.
+func (m *MockFavoritesQuerier) UpdateFavorite(ctx context.Context, title, faviconUrl sql.NullString, url string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateFavorite", ctx, title, faviconUrl, url)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateFavorite indicates an expected call of UpdateFavorite.
+func (mr *MockFavoritesQuerierMockRecorder) UpdateFavorite(ctx, title, faviconUrl, url any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateFavorite", reflect.TypeOf((*MockFavoritesQuerier)(nil).UpdateFavorite), ctx, title, faviconUrl, url)
+}
+
+// UpdateFavoritePosition mocks base method.
+func (m *MockFavoritesQuerier) UpdateFavoritePosition(ctx context.Context, position int64, url string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateFavoritePosition", ctx, position, url)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateFavoritePosition indicates an expected call of UpdateFavoritePosition.
+func (mr *MockFavoritesQuerierMockRecorder) UpdateFavoritePosition(ctx, position, url any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateFavoritePosition", reflect.TypeOf((*MockFavoritesQuerier)(nil).UpdateFavoritePosition), ctx, position, url)
+}
+
 // MockDatabaseQuerier is a mock of DatabaseQuerier interface.
 type MockDatabaseQuerier struct {
 	ctrl     *gomock.Controller
@@ -375,6 +515,20 @@ func (mr *MockDatabaseQuerierMockRecorder) AddOrUpdateHistory(ctx, url, title an
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddOrUpdateHistory", reflect.TypeOf((*MockDatabaseQuerier)(nil).AddOrUpdateHistory), ctx, url, title)
 }
 
+// CreateFavorite mocks base method.
+func (m *MockDatabaseQuerier) CreateFavorite(ctx context.Context, url string, title, faviconUrl sql.NullString) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateFavorite", ctx, url, title, faviconUrl)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateFavorite indicates an expected call of CreateFavorite.
+func (mr *MockDatabaseQuerierMockRecorder) CreateFavorite(ctx, url, title, faviconUrl any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFavorite", reflect.TypeOf((*MockDatabaseQuerier)(nil).CreateFavorite), ctx, url, title, faviconUrl)
+}
+
 // DeleteCertificateValidation mocks base method.
 func (m *MockDatabaseQuerier) DeleteCertificateValidation(ctx context.Context, hostname, certificateHash string) error {
 	m.ctrl.T.Helper()
@@ -401,6 +555,20 @@ func (m *MockDatabaseQuerier) DeleteExpiredCertificateValidations(ctx context.Co
 func (mr *MockDatabaseQuerierMockRecorder) DeleteExpiredCertificateValidations(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteExpiredCertificateValidations", reflect.TypeOf((*MockDatabaseQuerier)(nil).DeleteExpiredCertificateValidations), ctx)
+}
+
+// DeleteFavorite mocks base method.
+func (m *MockDatabaseQuerier) DeleteFavorite(ctx context.Context, url string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteFavorite", ctx, url)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteFavorite indicates an expected call of DeleteFavorite.
+func (mr *MockDatabaseQuerierMockRecorder) DeleteFavorite(ctx, url any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteFavorite", reflect.TypeOf((*MockDatabaseQuerier)(nil).DeleteFavorite), ctx, url)
 }
 
 // DeleteHistory mocks base method.
@@ -431,6 +599,21 @@ func (mr *MockDatabaseQuerierMockRecorder) DeleteZoomLevel(ctx, domain any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteZoomLevel", reflect.TypeOf((*MockDatabaseQuerier)(nil).DeleteZoomLevel), ctx, domain)
 }
 
+// GetAllFavorites mocks base method.
+func (m *MockDatabaseQuerier) GetAllFavorites(ctx context.Context) ([]db.Favorite, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllFavorites", ctx)
+	ret0, _ := ret[0].([]db.Favorite)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllFavorites indicates an expected call of GetAllFavorites.
+func (mr *MockDatabaseQuerierMockRecorder) GetAllFavorites(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllFavorites", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetAllFavorites), ctx)
+}
+
 // GetCertificateValidation mocks base method.
 func (m *MockDatabaseQuerier) GetCertificateValidation(ctx context.Context, hostname, certificateHash string) (db.CertificateValidation, error) {
 	m.ctrl.T.Helper()
@@ -459,6 +642,36 @@ func (m *MockDatabaseQuerier) GetCertificateValidationByHostname(ctx context.Con
 func (mr *MockDatabaseQuerierMockRecorder) GetCertificateValidationByHostname(ctx, hostname any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCertificateValidationByHostname", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetCertificateValidationByHostname), ctx, hostname)
+}
+
+// GetFavoriteByURL mocks base method.
+func (m *MockDatabaseQuerier) GetFavoriteByURL(ctx context.Context, url string) (db.Favorite, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFavoriteByURL", ctx, url)
+	ret0, _ := ret[0].(db.Favorite)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFavoriteByURL indicates an expected call of GetFavoriteByURL.
+func (mr *MockDatabaseQuerierMockRecorder) GetFavoriteByURL(ctx, url any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFavoriteByURL", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetFavoriteByURL), ctx, url)
+}
+
+// GetFavoriteCount mocks base method.
+func (m *MockDatabaseQuerier) GetFavoriteCount(ctx context.Context) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFavoriteCount", ctx)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFavoriteCount indicates an expected call of GetFavoriteCount.
+func (mr *MockDatabaseQuerierMockRecorder) GetFavoriteCount(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFavoriteCount", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetFavoriteCount), ctx)
 }
 
 // GetHistory mocks base method.
@@ -519,6 +732,21 @@ func (m *MockDatabaseQuerier) GetZoomLevel(ctx context.Context, domain string) (
 func (mr *MockDatabaseQuerierMockRecorder) GetZoomLevel(ctx, domain any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetZoomLevel", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetZoomLevel), ctx, domain)
+}
+
+// IsFavorite mocks base method.
+func (m *MockDatabaseQuerier) IsFavorite(ctx context.Context, url string) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsFavorite", ctx, url)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsFavorite indicates an expected call of IsFavorite.
+func (mr *MockDatabaseQuerierMockRecorder) IsFavorite(ctx, url any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsFavorite", reflect.TypeOf((*MockDatabaseQuerier)(nil).IsFavorite), ctx, url)
 }
 
 // ListCertificateValidations mocks base method.
@@ -592,6 +820,34 @@ func (m *MockDatabaseQuerier) StoreCertificateValidation(ctx context.Context, ho
 func (mr *MockDatabaseQuerierMockRecorder) StoreCertificateValidation(ctx, hostname, certificateHash, userDecision, expiresAt any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreCertificateValidation", reflect.TypeOf((*MockDatabaseQuerier)(nil).StoreCertificateValidation), ctx, hostname, certificateHash, userDecision, expiresAt)
+}
+
+// UpdateFavorite mocks base method.
+func (m *MockDatabaseQuerier) UpdateFavorite(ctx context.Context, title, faviconUrl sql.NullString, url string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateFavorite", ctx, title, faviconUrl, url)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateFavorite indicates an expected call of UpdateFavorite.
+func (mr *MockDatabaseQuerierMockRecorder) UpdateFavorite(ctx, title, faviconUrl, url any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateFavorite", reflect.TypeOf((*MockDatabaseQuerier)(nil).UpdateFavorite), ctx, title, faviconUrl, url)
+}
+
+// UpdateFavoritePosition mocks base method.
+func (m *MockDatabaseQuerier) UpdateFavoritePosition(ctx context.Context, position int64, url string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateFavoritePosition", ctx, position, url)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateFavoritePosition indicates an expected call of UpdateFavoritePosition.
+func (mr *MockDatabaseQuerierMockRecorder) UpdateFavoritePosition(ctx, position, url any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateFavoritePosition", reflect.TypeOf((*MockDatabaseQuerier)(nil).UpdateFavoritePosition), ctx, position, url)
 }
 
 // UpdateHistoryFavicon mocks base method.

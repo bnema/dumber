@@ -36,13 +36,8 @@ func (p *Parser) ParseInput(input string) (*ParseResult, error) {
 	var resultType InputType
 	var confidence float64
 
-	// Check if this is a search query result
-	isSearchResult := strings.Contains(finalURL, neturl.QueryEscape(input))
-
+	// Check scheme first - if it has a valid scheme, it's a direct URL
 	switch {
-	case isSearchResult:
-		resultType = InputTypeFallbackSearch
-		confidence = 0.1
 	case strings.HasPrefix(finalURL, "http://"),
 		strings.HasPrefix(finalURL, "https://"),
 		strings.HasPrefix(finalURL, "dumb://"),
@@ -50,16 +45,25 @@ func (p *Parser) ParseInput(input string) (*ParseResult, error) {
 		resultType = InputTypeDirectURL
 		confidence = 1.0
 	default:
+		// No valid scheme, treat as search
 		resultType = InputTypeFallbackSearch
 		confidence = 0.1
 	}
 
-	// Check if it was a shortcut
+	// Check if it was a shortcut and populate shortcut info
+	var detectedShortcut *DetectedShortcut
 	if idx := strings.Index(input, ":"); idx > 0 && idx < 10 && !strings.Contains(input, "://") {
-		shortcut := strings.TrimSpace(input[:idx])
-		if _, exists := p.config.SearchShortcuts[shortcut]; exists {
+		shortcutKey := strings.TrimSpace(input[:idx])
+		query := strings.TrimSpace(input[idx+1:])
+		if shortcutCfg, exists := p.config.SearchShortcuts[shortcutKey]; exists {
 			resultType = InputTypeSearchShortcut
 			confidence = 0.95
+			detectedShortcut = &DetectedShortcut{
+				Key:         shortcutKey,
+				Query:       query,
+				URL:         finalURL,
+				Description: shortcutCfg.Description,
+			}
 		}
 	}
 
@@ -68,6 +72,7 @@ func (p *Parser) ParseInput(input string) (*ParseResult, error) {
 		URL:            finalURL,
 		Query:          input,
 		Confidence:     confidence,
+		Shortcut:       detectedShortcut,
 		ProcessingTime: time.Since(startTime),
 	}, nil
 }
@@ -101,7 +106,11 @@ func (p *Parser) parseInputUsingCLILogic(input string) (string, error) {
 		if query != "" {
 			// First check configuration-based shortcuts
 			if shortcutCfg, exists := p.config.SearchShortcuts[shortcut]; exists {
-				return fmt.Sprintf(shortcutCfg.URL, neturl.QueryEscape(query)), nil
+				encodedQuery := neturl.QueryEscape(query)
+				// Support both {query} and %s placeholders
+				url := strings.ReplaceAll(shortcutCfg.URL, "{query}", encodedQuery)
+				url = strings.ReplaceAll(url, "%s", encodedQuery)
+				return url, nil
 			}
 
 			return "", fmt.Errorf("unknown shortcut '%s'", shortcut)
