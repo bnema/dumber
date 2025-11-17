@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 - **Middle-click and Ctrl+click link handling**: Links can now be opened in new workspace panes using standard browser gestures (middle-click or Ctrl+left-click). New panes split in the configured direction (default: right) and respect `workspace.popups.placement` configuration. Implemented via WebKit's `decide-policy` signal to intercept navigation actions before they occur.
 - **Configurable pane border styling**: Added `workspace.styling.inactive_border_width`, `workspace.styling.inactive_border_color`, and `workspace.styling.show_stacked_title_border` config options. Active and inactive borders default to 1px to prevent layout shift, with only color changing on focus. Borders use GTK theme variables by default and support smooth CSS transitions.
+- **Configurable default search engine**: Added `default_search_engine` config option with explicit URL template format. DuckDuckGo is now the default (was Google). Users can set any search engine with `%s` placeholder (e.g., `default_search_engine = "https://duckduckgo.com/?q=%s"`).
 
 ### Changed
 - **Config format**: TOML is now the default format (JSON/YAML still supported). Action bindings inverted to `action→keys` structure for maintainability with O(1) runtime lookup. Added comprehensive validation.

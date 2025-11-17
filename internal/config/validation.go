@@ -33,6 +33,13 @@ func validateConfig(config *Config) error {
 		validationErrors = append(validationErrors, "default_zoom must be between 0.1 and 5.0")
 	}
 
+	// Validate default search engine
+	if config.DefaultSearchEngine == "" {
+		validationErrors = append(validationErrors, "default_search_engine cannot be empty")
+	} else if !strings.Contains(config.DefaultSearchEngine, "%s") {
+		validationErrors = append(validationErrors, "default_search_engine must contain %s placeholder for the search query")
+	}
+
 	// Validate popup behavior
 	switch config.Workspace.Popups.Behavior {
 	case PopupBehaviorSplit, PopupBehaviorStacked, PopupBehaviorTabbed, PopupBehaviorWindowed:

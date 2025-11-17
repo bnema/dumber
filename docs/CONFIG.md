@@ -29,14 +29,30 @@ You can still use JSON or YAML if you prefer - dumber automatically detects the 
 | `history.retention_period_days` | int | `365` | > 0 | Days to keep history (1 year) |
 | `history.cleanup_interval_days` | int | `1` | > 0 | How often to run cleanup |
 
-## Search Shortcuts
+## Search Configuration
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| `default_search_engine` | string | `"https://duckduckgo.com/?q=%s"` | Default search engine URL template (must contain `%s` placeholder) |
 | `search_shortcuts` | map | See defaults | Map of shortcut aliases to URLs |
+
+**Example:**
+```toml
+# Default search engine - used when no shortcut is specified
+default_search_engine = "https://duckduckgo.com/?q=%s"
+
+# Alternative search engines:
+# default_search_engine = "https://www.google.com/search?q=%s"
+# default_search_engine = "https://www.startpage.com/search?q=%s"
+# default_search_engine = "https://search.brave.com/search?q=%s"
+```
 
 **Default shortcuts:**
 ```toml
+[search_shortcuts.ddg]
+url = "https://duckduckgo.com/?q=%s"
+description = "DuckDuckGo search"
+
 [search_shortcuts.g]
 url = "https://google.com/search?q=%s"
 description = "Google Search"

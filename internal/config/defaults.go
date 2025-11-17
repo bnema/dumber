@@ -54,7 +54,8 @@ func DefaultConfig() *Config {
 			RetentionPeriodDays: defaultRetentionDays, // 1 year
 			CleanupIntervalDays: 1,                    // daily cleanup
 		},
-		SearchShortcuts: GetDefaultSearchShortcuts(),
+		SearchShortcuts:     GetDefaultSearchShortcuts(),
+		DefaultSearchEngine: "https://duckduckgo.com/?q=%s",
 		Dmenu: DmenuConfig{
 			MaxHistoryItems:  defaultMaxHistoryItems,
 			ShowVisitCount:   true,

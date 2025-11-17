@@ -26,7 +26,9 @@ type Config struct {
 	Database          DatabaseConfig            `mapstructure:"database" yaml:"database"`
 	History           HistoryConfig             `mapstructure:"history" yaml:"history"`
 	SearchShortcuts   map[string]SearchShortcut `mapstructure:"search_shortcuts" yaml:"search_shortcuts"`
-	Dmenu             DmenuConfig               `mapstructure:"dmenu" yaml:"dmenu"`
+	// DefaultSearchEngine is the URL template for the default search engine (must contain %s placeholder)
+	DefaultSearchEngine string `mapstructure:"default_search_engine" yaml:"default_search_engine"`
+	Dmenu               DmenuConfig `mapstructure:"dmenu" yaml:"dmenu"`
 	Logging           LoggingConfig             `mapstructure:"logging" yaml:"logging"`
 	Appearance        AppearanceConfig          `mapstructure:"appearance" yaml:"appearance"`
 	VideoAcceleration VideoAccelerationConfig   `mapstructure:"video_acceleration" yaml:"video_acceleration"`
@@ -608,6 +610,7 @@ func (m *Manager) setDefaults() {
 
 	// Search shortcuts defaults
 	m.viper.SetDefault("search_shortcuts", defaults.SearchShortcuts)
+	m.viper.SetDefault("default_search_engine", defaults.DefaultSearchEngine)
 
 	// Dmenu defaults
 	m.viper.SetDefault("dmenu.max_history_items", defaults.Dmenu.MaxHistoryItems)

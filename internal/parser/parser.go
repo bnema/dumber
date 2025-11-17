@@ -18,7 +18,7 @@ func (p *Parser) ParseInput(input string) (*ParseResult, error) {
 	if input == "" {
 		return &ParseResult{
 			Type:           InputTypeFallbackSearch,
-			URL:            "https://www.google.com/search?q=",
+			URL:            fmt.Sprintf(p.config.DefaultSearchEngine, ""),
 			Query:          input,
 			Confidence:     0.0,
 			ProcessingTime: time.Since(startTime),
@@ -29,19 +29,29 @@ func (p *Parser) ParseInput(input string) (*ParseResult, error) {
 	finalURL, err := p.parseInputUsingCLILogic(input)
 	if err != nil {
 		// If parsing fails, fall back to search
-		finalURL = fmt.Sprintf("https://www.google.com/search?q=%s", neturl.QueryEscape(input))
+		finalURL = fmt.Sprintf(p.config.DefaultSearchEngine, neturl.QueryEscape(input))
 	}
 
 	// Determine result type based on the URL
-	var resultType InputType = InputTypeFallbackSearch
-	confidence := 0.1
+	var resultType InputType
+	var confidence float64
 
-	if strings.Contains(finalURL, "google.com/search") {
+	// Check if this is a search query result
+	isSearchResult := strings.Contains(finalURL, neturl.QueryEscape(input))
+
+	switch {
+	case isSearchResult:
 		resultType = InputTypeFallbackSearch
 		confidence = 0.1
-	} else if strings.HasPrefix(finalURL, "http://") || strings.HasPrefix(finalURL, "https://") || strings.HasPrefix(finalURL, "dumb://") || strings.HasPrefix(finalURL, "file://") {
+	case strings.HasPrefix(finalURL, "http://"),
+	     strings.HasPrefix(finalURL, "https://"),
+	     strings.HasPrefix(finalURL, "dumb://"),
+	     strings.HasPrefix(finalURL, "file://"):
 		resultType = InputTypeDirectURL
 		confidence = 1.0
+	default:
+		resultType = InputTypeFallbackSearch
+		confidence = 0.1
 	}
 
 	// Check if it was a shortcut
@@ -140,7 +150,7 @@ func (p *Parser) parseInputUsingCLILogic(input string) (string, error) {
 	// 8. Everything else is a search query
 	// This includes: single words, multi-word phrases, questions, special characters, etc.
 	// Single words without TLDs should be treated as search queries, not hostnames
-	return fmt.Sprintf("https://www.google.com/search?q=%s", neturl.QueryEscape(input)), nil
+	return fmt.Sprintf(p.config.DefaultSearchEngine, neturl.QueryEscape(input)), nil
 }
 
 // parseSearchShortcut handles search shortcut inputs.
@@ -256,22 +266,16 @@ func (p *Parser) processShortcut(shortcutKey, query string, shortcut config.Sear
 // buildSearchURL builds a search URL using the default search engine.
 func (p *Parser) buildSearchURL(searchEngine, query string) string {
 	q := neturl.QueryEscape(query)
-	// If no specific search engine, use Google as default
+	// If no specific search engine, use the configured default
 	if searchEngine == "" {
-		defaultShortcut, exists := p.config.SearchShortcuts["g"]
-		if exists {
-			url := strings.ReplaceAll(defaultShortcut.URL, "{query}", q)
-			url = strings.ReplaceAll(url, "%s", q)
-			return url
-		}
-		// Fallback to Google if no "g" shortcut configured
-		return fmt.Sprintf("https://www.google.com/search?q=%s", q)
+		return fmt.Sprintf(p.config.DefaultSearchEngine, q)
 	}
 
 	// Use specified search engine
 	shortcut, exists := p.config.SearchShortcuts[searchEngine]
 	if !exists {
-		return fmt.Sprintf("https://www.google.com/search?q=%s", q)
+		// Fallback to default search engine if shortcut not found
+		return fmt.Sprintf(p.config.DefaultSearchEngine, q)
 	}
 
 	u := strings.ReplaceAll(shortcut.URL, "{query}", q)
@@ -433,9 +437,13 @@ func (p *Parser) ValidateConfig() error {
 		return fmt.Errorf("no search shortcuts configured")
 	}
 
-	// Check for default search shortcut
-	if _, hasGoogle := p.config.SearchShortcuts["g"]; !hasGoogle {
-		// Warning: no default search configured
+	// Check for default search engine
+	if p.config.DefaultSearchEngine == "" {
+		return fmt.Errorf("default search engine is not configured")
+	}
+
+	if !strings.Contains(p.config.DefaultSearchEngine, "%s") {
+		return fmt.Errorf("default search engine must contain %%s placeholder")
 	}
 
 	return nil
