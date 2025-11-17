@@ -210,6 +210,28 @@ cancel = ["escape"]
 
 > **Note:** Actions are inverted to key→action map in memory for O(1) lookup performance during navigation.
 
+### Tab Mode
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `workspace.tab_mode.activation_shortcut` | string | `"ctrl+t"` | Tab mode activation key |
+| `workspace.tab_mode.timeout_ms` | int | `3000` | Tab mode timeout (ms) |
+| `workspace.tab_mode.actions` | map | See below | Action→keys mappings |
+
+**Default tab mode actions:**
+```toml
+[workspace.tab_mode.actions]
+new-tab = ["n", "c"]
+close-tab = ["x"]
+next-tab = ["l", "tab"]
+previous-tab = ["h", "shift+tab"]
+rename-tab = ["r"]
+confirm = ["enter"]
+cancel = ["escape"]
+```
+
+> **Note:** Actions are inverted to key→action map in memory for O(1) lookup performance during navigation.
+
 ### Tab Shortcuts
 
 | Key | Type | Default | Description |
@@ -240,7 +262,8 @@ cancel = ["escape"]
 | `workspace.styling.inactive_border_width` | int | `1` | Inactive pane border width (px) |
 | `workspace.styling.inactive_border_color` | string | `"@theme_unfocused_bg_color"` | Inactive pane border color |
 | `workspace.styling.show_stacked_title_border` | bool | `false` | Show separator on stacked pane titles |
-| `workspace.styling.pane_mode_border_color` | string | `"#FFA500"` | Pane mode border color (orange) |
+| `workspace.styling.pane_mode_border_color` | string | `"#4A90E2"` | Pane mode border color (blue) |
+| `workspace.styling.tab_mode_border_color` | string | `"#FFA500"` | Tab mode border color (orange) |
 | `workspace.styling.transition_duration` | int | `120` | Border transition duration (ms) |
 | `workspace.styling.border_radius` | int | `0` | Border radius (px) |
 
