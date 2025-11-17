@@ -43,19 +43,20 @@ func (app *BrowserApp) buildWebkitConfig() (*webkit.Config, error) {
 
 	// Build WebKit configuration with data directories for persistence
 	cfg := &webkit.Config{
-		UserAgent:             buildUserAgent(app.config),
-		EnableJavaScript:      true,
-		EnableWebGL:           true,
-		EnableMediaStream:     true,
-		HardwareAcceleration:  true,
-		DefaultFontSize:       app.config.Appearance.DefaultFontSize,
-		MinimumFontSize:       8,
-		EnablePageCache:       true, // Instant back/forward navigation (bfcache)
-		EnableSmoothScrolling: true, // Smooth scrolling animations
-		DataDir:               webkitData,
-		CacheDir:              webkitCache,
-		AppearanceConfigJSON:  app.buildAppearanceConfigJSON(),
-		CreateWindow:          true, // Default to creating a window for standalone WebViews
+		UserAgent:                 buildUserAgent(app.config),
+		EnableJavaScript:          true,
+		EnableWebGL:               true,
+		EnableMediaStream:         true,
+		HardwareAcceleration:      true,
+		DefaultFontSize:           app.config.Appearance.DefaultFontSize,
+		MinimumFontSize:           8,
+		EnablePageCache:           true, // Instant back/forward navigation (bfcache)
+		EnableSmoothScrolling:     true, // Smooth scrolling animations
+		DataDir:                   webkitData,
+		CacheDir:                  webkitCache,
+		AppearanceConfigJSON:      app.buildAppearanceConfigJSON(),
+		CreateWindow:              true, // Default to creating a window for standalone WebViews
+		EnableTurnstileWorkaround: true,
 	}
 
 	return cfg, nil

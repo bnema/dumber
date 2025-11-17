@@ -65,20 +65,26 @@ type Config struct {
 	// CreateWindow controls whether to create a standalone GTK Window for this WebView
 	// Set to false for WebViews that will be embedded in workspace panes
 	CreateWindow bool
+
+	// EnableTurnstileWorkaround temporarily disables CORS enforcement for the
+	// Cloudflare Turnstile host to work around WebKit's credentialless COEP gap.
+	// Remove once upstream WebKit properly supports COEP: credentialless.
+	EnableTurnstileWorkaround bool
 }
 
 // GetDefaultConfig returns a Config with sensible defaults
 func GetDefaultConfig() *Config {
 	return &Config{
-		UserAgent:             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
-		EnableJavaScript:      true,
-		EnableWebGL:           true,
-		EnableMediaStream:     true,
-		HardwareAcceleration:  true,
-		DefaultFontSize:       16,
-		MinimumFontSize:       8,
-		EnablePageCache:       true, // Instant back/forward navigation
-		EnableSmoothScrolling: true, // Better UX
-		CreateWindow:          true, // Default to standalone window
+		UserAgent:                 "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15", // WebKitGTK default (same as Epiphany)
+		EnableJavaScript:          true,
+		EnableWebGL:               true,
+		EnableMediaStream:         true,
+		HardwareAcceleration:      true,
+		DefaultFontSize:           16,
+		MinimumFontSize:           8,
+		EnablePageCache:           true, // Instant back/forward navigation
+		EnableSmoothScrolling:     true, // Better UX
+		CreateWindow:              true, // Default to standalone window
+		EnableTurnstileWorkaround: true,
 	}
 }

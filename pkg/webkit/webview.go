@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -12,6 +14,8 @@ import (
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
+
+const turnstileHost = "challenges.cloudflare.com"
 
 var (
 	viewIDCounter uint64
@@ -38,7 +42,7 @@ type WebView struct {
 	onFaviconChanged      func([]byte)
 	onFaviconURIChanged   func(pageURI, faviconURI string)
 	onZoomChanged         func(float64)
-	onLoadCommitted       func(string) // Called when page load is committed (safe to apply zoom)
+	onLoadCommitted       func(string)                            // Called when page load is committed (safe to apply zoom)
 	onPopupCreate         func(*webkit.NavigationAction) *WebView // New WebKit create signal handler
 	onReadyToShow         func()                                  // WebKit ready-to-show signal handler
 	onClose               func()
@@ -206,6 +210,11 @@ func (w *WebView) applyConfig() error {
 	// Enable smooth scrolling for better UX
 	settings.SetEnableSmoothScrolling(w.config.EnableSmoothScrolling)
 
+	// Disable console messages to stdout to prevent page script flooding
+	// This stops malicious/buggy pages from spamming the terminal with console.log()
+	// Inspector/DevTools console (F12) will still show all messages
+	settings.SetEnableWriteConsoleMessagesToStdout(false)
+
 	return nil
 }
 
@@ -303,6 +312,12 @@ func (w *WebView) setupEventHandlers() {
 
 	// Setup navigation policy handler for middle-click and Ctrl+click interception
 	w.setupNavigationPolicyHandler()
+
+	// Log CORP/CORP headers for Cloudflare Turnstile resources to help diagnose COEP issues
+	w.attachTurnstileResponseLogger()
+
+	// Apply temporary Turnstile workaround until WebKit supports COEP: credentialless
+	w.applyTurnstileCorsAllowlist()
 }
 
 // setupNavigationPolicyHandler sets up the decide-policy signal handler
@@ -379,6 +394,91 @@ func (w *WebView) setupNavigationPolicyHandler() {
 	})
 
 	log.Printf("[webkit] Navigation policy handler attached to WebView ID %d", w.id)
+}
+
+func (w *WebView) applyTurnstileCorsAllowlist() {
+	if w.view == nil || w.config == nil || !w.config.EnableTurnstileWorkaround {
+		return
+	}
+
+	pattern := fmt.Sprintf("https://%s/*", turnstileHost)
+	w.view.SetCorsAllowlist([]string{pattern})
+	log.Printf("[turnstile] Applied CORS allowlist for %s on WebView ID %d", turnstileHost, w.id)
+}
+
+func (w *WebView) attachTurnstileResponseLogger() {
+	if w.view == nil {
+		return
+	}
+
+	w.view.ConnectResourceLoadStarted(func(resource *webkit.WebResource, request *webkit.URIRequest) {
+		if resource == nil || request == nil {
+			return
+		}
+
+		targetURL := request.URI()
+		if targetURL == "" {
+			targetURL = resource.URI()
+		}
+		if !isTurnstileURL(targetURL) {
+			return
+		}
+
+		method := request.HTTPMethod()
+		if method == "" {
+			method = "GET"
+		}
+
+		referer := "<none>"
+		if reqHeaders := request.HTTPHeaders(); reqHeaders != nil {
+			if ref := strings.TrimSpace(reqHeaders.One("Referer")); ref != "" {
+				referer = ref
+			}
+		}
+
+		resource.Connect("notify::response", func() {
+			response := resource.Response()
+			if response == nil {
+				log.Printf("[turnstile] resource=%s method=%s status=<unknown> referer=%s corp=<missing> coep=<missing> coop=<missing>", targetURL, method, referer)
+				return
+			}
+
+			headers := response.HTTPHeaders()
+			corp := headerValue(headers, "Cross-Origin-Resource-Policy")
+			coep := headerValue(headers, "Cross-Origin-Embedder-Policy")
+			coop := headerValue(headers, "Cross-Origin-Opener-Policy")
+
+			log.Printf("[turnstile] resource=%s method=%s status=%d referer=%s corp=%s coep=%s coop=%s",
+				targetURL, method, response.StatusCode(), referer, corp, coep, coop)
+		})
+	})
+}
+
+type headerLookup interface {
+	One(string) string
+}
+
+func headerValue(headers headerLookup, name string) string {
+	if headers == nil {
+		return "<missing>"
+	}
+	value := strings.TrimSpace(headers.One(name))
+	if value == "" {
+		return "<missing>"
+	}
+	return value
+}
+
+func isTurnstileURL(raw string) bool {
+	if raw == "" {
+		return false
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(parsed.Hostname())
+	return host == turnstileHost
 }
 
 // LoadURL loads the given URL in the WebView
