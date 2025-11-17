@@ -1,8 +1,10 @@
 package messaging
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"strconv"
 	"time"
@@ -75,8 +77,8 @@ func (h *Handler) SetWorkspaceObserver(observer WorkspaceObserver) {
 
 // Handle processes incoming script messages
 func (h *Handler) Handle(payload string) {
-	var msg Message
-	if err := json.Unmarshal([]byte(payload), &msg); err != nil {
+	msg, err := parseIncomingMessage(payload)
+	if err != nil {
 		log.Printf("[ERROR] Failed to unmarshal message: %v", err)
 		return
 	}
@@ -120,6 +122,68 @@ func (h *Handler) Handle(payload string) {
 	case "is_favorite":
 		h.handleIsFavorite(msg)
 	}
+}
+
+func parseIncomingMessage(payload string) (Message, error) {
+	data := []byte(payload)
+	var msg Message
+	if err := json.Unmarshal(data, &msg); err == nil {
+		return msg, nil
+	} else {
+		normalized, normErr := normalizeWebViewIDPayload(data)
+		if normErr != nil {
+			return Message{}, err
+		}
+
+		if err := json.Unmarshal(normalized, &msg); err != nil {
+			return Message{}, err
+		}
+
+		return msg, nil
+	}
+}
+
+func normalizeWebViewIDPayload(data []byte) ([]byte, error) {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, err
+	}
+
+	rawID, ok := raw["webviewId"]
+	if !ok {
+		return nil, fmt.Errorf("webviewId missing in payload")
+	}
+
+	normalizedID, err := parseWebViewIDRaw(rawID)
+	if err != nil {
+		return nil, err
+	}
+
+	raw["webviewId"] = json.RawMessage(strconv.Quote(normalizedID))
+
+	return json.Marshal(raw)
+}
+
+func parseWebViewIDRaw(raw json.RawMessage) (string, error) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
+		return "", nil
+	}
+
+	if trimmed[0] == '"' {
+		var id string
+		if err := json.Unmarshal(trimmed, &id); err != nil {
+			return "", err
+		}
+		return id, nil
+	}
+
+	var number json.Number
+	if err := json.Unmarshal(trimmed, &number); err == nil {
+		return number.String(), nil
+	}
+
+	return "", fmt.Errorf("unsupported webviewId format: %s", string(trimmed))
 }
 
 // SetWebView sets the WebView reference (needed for script injection)

@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Cloudflare Turnstile CAPTCHA support**: Temporary CORS allowlist workaround for `challenges.cloudflare.com` to bypass WebKit's incomplete COEP credentialless implementation. Allows Turnstile-protected sites to function properly. Configurable via `enable_turnstile_workaround` (default: true).
+- **Global content filtering toggle**: New `content_filtering.enabled` config option to completely disable ad blocking when needed. Whitelist system remains available for granular control. Defaults to enabled for backward compatibility.
+
+### Fixed
+- **OAuth popup handling**: Fixed OAuth popups not functioning in stacked panes and split operations by ensuring `setupPopupHandling()` is called in all pane creation code paths (finalizeStackCreation, CloseStackedPane, splitNode).
+- **WebView ID message parsing**: Fixed JSON unmarshaling errors when frontend sends numeric webviewId values instead of strings. Message handler now gracefully normalizes both string and numeric webviewId formats with fallback parsing logic.
+
+### Changed
+- **Console output cleanup**: Disabled WebKit console.log() messages to stdout to prevent page script spam. DevTools console (F12) still shows all messages.
+- **Content filtering configuration**: Refactored `content_filtering_whitelist` into structured `content_filtering` config with `enabled` boolean and `whitelist` array for better organization.
+
 ## [0.14.0] - 2025-11-18
 
 ### Added
