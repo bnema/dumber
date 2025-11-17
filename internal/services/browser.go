@@ -50,6 +50,7 @@ type BrowserService struct {
 	guiBundle          string
 	zoomCache          *cache.ZoomCache              // In-memory cache for zoom levels
 	certCache          *cache.CertValidationsCache   // In-memory cache for certificate validations
+	favoritesCache     *cache.FavoritesCache         // In-memory cache for favorites
 	fuzzyCache         *cache.CacheManager           // Async fuzzy search cache for dmenu
 	historyQueue       chan historyUpdate            // Queue for batched history writes
 	historyFlushDone   chan bool                     // Signal when history flush is complete (buffered)
@@ -97,6 +98,7 @@ func NewBrowserService(cfg *config.Config, queries db.DatabaseQuerier) *BrowserS
 		guiBundle:           "",
 		zoomCache:           cache.NewZoomCache(queries),
 		certCache:           cache.NewCertValidationsCache(queries),
+		favoritesCache:      cache.NewFavoritesCache(queries),
 		fuzzyCache:          cache.NewCacheManager(queries, nil), // nil = use defaults
 		historyQueue:        make(chan historyUpdate, 100),       // Buffer 100 history updates
 		historyFlushDone:    make(chan bool, 1),                  // Buffered to prevent blocking
@@ -576,6 +578,89 @@ func (s *BrowserService) LoadFuzzyCacheFromDB(ctx context.Context) error {
 	return nil
 }
 
+// LoadFavoritesCacheFromDB loads all favorites from the database into the cache.
+// This is typically called once at startup for fast RAM-first access.
+func (s *BrowserService) LoadFavoritesCacheFromDB(ctx context.Context) error {
+	if err := s.favoritesCache.Load(ctx); err != nil {
+		return fmt.Errorf("failed to load favorites: %w", err)
+	}
+
+	loadedCount := len(s.favoritesCache.List())
+	log.Printf("Loaded %d favorites into cache", loadedCount)
+	return nil
+}
+
+// FavoriteEntry represents a favorite for the frontend (similar to HistoryEntry).
+type FavoriteEntry struct {
+	ID         int64  `json:"id"`
+	URL        string `json:"url"`
+	Title      string `json:"title"`
+	FaviconURL string `json:"favicon_url"`
+	Position   int64  `json:"position"`
+}
+
+// GetFavorites returns all favorites ordered by position.
+func (s *BrowserService) GetFavorites(ctx context.Context) ([]FavoriteEntry, error) {
+	favorites := s.favoritesCache.GetAll()
+
+	result := make([]FavoriteEntry, len(favorites))
+	for i, fav := range favorites {
+		result[i] = FavoriteEntry{
+			ID:         fav.ID,
+			URL:        fav.Url,
+			Title:      fav.Title.String,
+			FaviconURL: fav.FaviconUrl.String,
+			Position:   fav.Position,
+		}
+	}
+
+	return result, nil
+}
+
+// IsFavorite checks if a URL is in the favorites list.
+func (s *BrowserService) IsFavorite(ctx context.Context, url string) (bool, error) {
+	if url == "" {
+		return false, nil
+	}
+
+	_, exists := s.favoritesCache.Get(url)
+	return exists, nil
+}
+
+// ToggleFavorite adds or removes a URL from favorites.
+// Returns true if the URL was added, false if it was removed.
+func (s *BrowserService) ToggleFavorite(ctx context.Context, url, title, faviconURL string) (bool, error) {
+	if url == "" {
+		return false, fmt.Errorf("URL cannot be empty")
+	}
+
+	// Check if already favorited
+	_, exists := s.favoritesCache.Get(url)
+
+	if exists {
+		// Remove from favorites
+		if err := s.favoritesCache.Delete(url); err != nil {
+			return false, fmt.Errorf("failed to remove favorite: %w", err)
+		}
+		log.Printf("Removed favorite: %s", url)
+		return false, nil
+	}
+
+	// Add to favorites
+	favorite := db.Favorite{
+		Url:        url,
+		Title:      sql.NullString{String: title, Valid: title != ""},
+		FaviconUrl: sql.NullString{String: faviconURL, Valid: faviconURL != ""},
+	}
+
+	if err := s.favoritesCache.Set(url, favorite); err != nil {
+		return false, fmt.Errorf("failed to add favorite: %w", err)
+	}
+
+	log.Printf("Added favorite: %s", url)
+	return true, nil
+}
+
 // FlushAllCaches flushes all in-memory caches to ensure pending writes complete.
 // This is typically called during shutdown to prevent data loss.
 func (s *BrowserService) FlushAllCaches(ctx context.Context) error {
@@ -587,6 +672,11 @@ func (s *BrowserService) FlushAllCaches(ctx context.Context) error {
 	// Flush certificate validation cache
 	if err := s.certCache.Flush(); err != nil {
 		return fmt.Errorf("failed to flush cert cache: %w", err)
+	}
+
+	// Flush favorites cache
+	if err := s.favoritesCache.Flush(); err != nil {
+		return fmt.Errorf("failed to flush favorites cache: %w", err)
 	}
 
 	// Save fuzzy cache to binary file for instant dmenu access

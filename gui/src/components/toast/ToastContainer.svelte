@@ -84,19 +84,23 @@
     }, 1500);
   }
 
-  // Expose API to global window for Go integration immediately
-  // This must happen outside onMount to ensure functions are available immediately
-  if (typeof window !== 'undefined') {
-    window.__dumber_showToast = addToast;
-    window.__dumber_dismissToast = dismissToast;
-    window.__dumber_clearToasts = clearAllToasts;
-    window.__dumber_showZoomToast = showZoomToast;
-    console.log('✅ Toast functions exposed to window:', {
-      showToast: typeof window.__dumber_showToast,
-      dismissToast: typeof window.__dumber_dismissToast,
-      clearToasts: typeof window.__dumber_clearToasts,
-      showZoomToast: typeof window.__dumber_showZoomToast
-    });
+  // Listen for toast events from main world bridge
+  if (typeof document !== 'undefined') {
+    // Listen for general toast requests
+    document.addEventListener('dumber:toast', ((event: CustomEvent) => {
+      const { message, duration, type } = event.detail;
+      console.log('[ToastContainer] Received toast event:', { message, duration, type });
+      addToast(message, duration, type);
+    }) as EventListener);
+
+    // Listen for zoom toast requests
+    document.addEventListener('dumber:toast:zoom', ((event: CustomEvent) => {
+      const { level } = event.detail;
+      console.log('[ToastContainer] Received zoom toast event:', level);
+      showZoomToast(level);
+    }) as EventListener);
+
+    console.log('✅ Toast event listeners set up for CustomEvents');
   }
 
   // Effect that runs when toasts array changes

@@ -26,6 +26,7 @@ type WebViewInterface interface {
 	InjectScript(script string) error
 	RegisterZoomChangedHandler(handler func(float64))
 	RegisterURIChangedHandler(handler func(string))
+	RegisterLoadCommittedHandler(handler func(string))
 }
 
 // NewZoomController creates a new zoom controller
@@ -41,11 +42,17 @@ func NewZoomController(browserService *services.BrowserService, webView *webkit.
 func (z *ZoomController) RegisterHandlers() {
 	z.webView.RegisterZoomChangedHandler(z.handleZoomChange)
 	z.webView.RegisterURIChangedHandler(z.handleURIChange)
+	z.webView.RegisterLoadCommittedHandler(z.handleLoadCommitted)
 }
 
-// handleURIChange responds to URL changes and applies saved zoom levels
+// handleURIChange tracks URL changes but doesn't apply zoom (wait for load-committed)
 func (z *ZoomController) handleURIChange(url string) {
 	z.currentURL = url
+}
+
+// handleLoadCommitted responds to load committed events and applies saved zoom levels
+// This fires when the page actually starts loading content, preventing visual glitches
+func (z *ZoomController) handleLoadCommitted(url string) {
 	if url == "" {
 		return
 	}

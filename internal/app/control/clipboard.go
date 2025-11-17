@@ -51,7 +51,7 @@ func (c *ClipboardController) showToast(message, toastType string) {
 		detail["type"] = toastType
 	}
 
-	if err := c.webView.DispatchCustomEvent("dumber:showToast", detail); err != nil {
+	if err := c.webView.DispatchCustomEvent("dumber:toast", detail); err != nil {
 		log.Printf("Failed to dispatch toast event: %v", err)
 	}
 }

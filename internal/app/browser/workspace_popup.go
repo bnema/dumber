@@ -9,7 +9,6 @@ import (
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/pkg/webkit"
 	webkitgtk "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
-	"github.com/diamondburned/gotk4/pkg/glib/v2"
 )
 
 const (
@@ -342,34 +341,26 @@ func (wm *WorkspaceManager) setupPopupHandling(webView *webkit.WebView, parentNo
 		}
 		log.Printf("[workspace] Step 3 complete: stored in pendingPopups")
 
-		// CRITICAL: Do NOT connect signals before returning to WebKit
-		// Connecting signals might trigger WebKit to access WindowFeatures before it's set
-		// Instead, we'll connect them after WebKit has processed the return
-		log.Printf("[workspace] Step 4: Scheduling signal connections for next main loop iteration (AFTER WebKit configures the view)")
+		// Connect signals immediately BEFORE returning to WebKit
+		// This is safe because we're only connecting signal handlers, not accessing properties
+		// WebKit will configure WindowFeatures AFTER this callback returns, which is fine
+		log.Printf("[workspace] Step 4: Connecting signals immediately before returning to WebKit")
 
-		// Use GLib idle_add to connect signals AFTER this callback returns
-		// This ensures WebKit has finished configuring WindowFeatures before we touch the view
-		glib.IdleAdd(func() bool {
-			log.Printf("[workspace] Idle callback: Now connecting signals for popup ID=%d", popupID)
-
-			// Connect ready-to-show signal NOW (after WebKit has configured the view)
-			barePopupView.ConnectReadyToShow(func() {
-				log.Printf("[workspace] ready-to-show signal received for popup ID=%d", popupID)
-				wm.handlePopupReadyToShow(popupID)
-			})
-			log.Printf("[workspace] Idle callback: ready-to-show connected")
-
-			// Connect close handler
-			barePopupView.ConnectClose(func() {
-				log.Printf("[workspace] close signal received for popup ID=%d", popupID)
-				wm.handlePopupClose(popupID)
-			})
-			log.Printf("[workspace] Idle callback: close signal connected")
-
-			return false // Don't repeat
+		// Connect ready-to-show signal
+		barePopupView.ConnectReadyToShow(func() {
+			log.Printf("[workspace] ready-to-show signal received for popup ID=%d", popupID)
+			wm.handlePopupReadyToShow(popupID)
 		})
+		log.Printf("[workspace] Connected ready-to-show signal for popup ID=%d", popupID)
 
-		log.Printf("[workspace] Step 4 complete: signal connections scheduled")
+		// Connect close handler
+		barePopupView.ConnectClose(func() {
+			log.Printf("[workspace] close signal received for popup ID=%d", popupID)
+			wm.handlePopupClose(popupID)
+		})
+		log.Printf("[workspace] Connected close signal for popup ID=%d", popupID)
+
+		log.Printf("[workspace] Step 4 complete: signals connected")
 
 		log.Printf("[workspace] Step 5: Returning wrapped view to WebKit (will extract bare view in ConnectCreate)")
 
@@ -418,9 +409,39 @@ func (wm *WorkspaceManager) handlePopupReadyToShow(popupID uint64) {
 
 	log.Printf("[workspace] Created popup pane, now inserting into workspace")
 
-	// NOW it's safe to insert into workspace based on configured behavior
-	behavior := wm.app.config.Workspace.Popups.Behavior
-	log.Printf("[workspace] Popup behavior: %s", behavior)
+	// Determine window type from node (set during setupPopupHandling)
+	node := wm.viewToNode[wrappedView]
+	windowType := webkit.WindowTypePopup
+	if node != nil {
+		windowType = node.windowType
+	}
+
+	// Select behavior based on window type:
+	// - WindowTypeTab (_blank links): Use BlankTargetBehavior config
+	// - WindowTypePopup (JavaScript popups): Use global Behavior config
+	var behaviorStr string
+	if windowType == webkit.WindowTypeTab {
+		behaviorStr = wm.app.config.Workspace.Popups.BlankTargetBehavior
+		log.Printf("[workspace] WindowTypeTab (_blank link) detected, using BlankTargetBehavior: %s", behaviorStr)
+	} else {
+		behaviorStr = string(wm.app.config.Workspace.Popups.Behavior)
+		log.Printf("[workspace] WindowTypePopup detected, using Behavior: %s", behaviorStr)
+	}
+
+	// Map string to PopupBehavior enum
+	var behavior config.PopupBehavior
+	switch behaviorStr {
+	case "split":
+		behavior = config.PopupBehaviorSplit
+	case "stacked":
+		behavior = config.PopupBehaviorStacked
+	case "tabbed":
+		behavior = config.PopupBehaviorTabbed
+	default:
+		behavior = config.PopupBehaviorSplit // Fallback
+	}
+
+	log.Printf("[workspace] Final behavior: %s", behavior)
 
 	switch behavior {
 	case config.PopupBehaviorSplit:
@@ -490,12 +511,13 @@ func (wm *WorkspaceManager) handlePopupReadyToShow(popupID uint64) {
 	}
 
 	// Configure the popup node
-	node := wm.viewToNode[wrappedView]
+	// Note: windowType should already be set correctly from setupPopupHandling
+	// Don't overwrite it here - preserve WindowTypeTab for _blank links
+	node = wm.viewToNode[wrappedView]
 	if node != nil {
-		node.windowType = webkit.WindowTypePopup
 		node.isRelated = true
 		node.parentPane = info.parentNode
-		node.isPopup = true
+		node.isPopup = true // Mark as popup to prevent browser exit when parent closes
 		node.autoClose = wm.shouldAutoClose(info.url)
 		node.popupID = popupID // Store popupID for close signal lookup
 

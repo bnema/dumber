@@ -138,6 +138,12 @@ func convertToGtkFormat(key string) string {
 				parts = append(parts, "Up")
 			case "down", "arrowdown":
 				parts = append(parts, "Down")
+			case "tab":
+				parts = append(parts, "Tab")
+			case "escape":
+				parts = append(parts, "Escape")
+			case "return", "enter":
+				parts = append(parts, "Return")
 			default:
 				// Single letter keys like l, f, c, w, etc.
 				parts = append(parts, part)

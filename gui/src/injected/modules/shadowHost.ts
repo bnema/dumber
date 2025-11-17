@@ -182,33 +182,49 @@ export function getGlobalShadowRoot(): ShadowRoot {
     `;
     shadowRoot.appendChild(tokensStyle);
 
-    // Inject the global GUI stylesheet so components rendered inside the shadow
-    // root (e.g., toasts, omnibox) receive their styles
+    // Inject the global GUI stylesheet (Tailwind) into shadow root
     try {
-      // Prefer constructable stylesheets when available
-      const hasConstructable = typeof CSSStyleSheet !== "undefined";
-      const supportsAdopted = "adoptedStyleSheets" in shadowRoot;
-      if (supportsAdopted && hasConstructable) {
-        const sheet = new CSSStyleSheet();
-        sheet.replaceSync(globalStyles);
-        const rootWithSheets = shadowRoot as ShadowRoot & {
-          adoptedStyleSheets: CSSStyleSheet[];
-        };
-        rootWithSheets.adoptedStyleSheets = [
-          ...(rootWithSheets.adoptedStyleSheets ?? []),
-          sheet,
-        ];
-      } else {
-        // Fallback: append a <style> element with the global CSS
-        const styleTag = document.createElement("style");
-        styleTag.textContent = globalStyles;
-        shadowRoot.appendChild(styleTag);
-      }
-    } catch {
-      // Final fallback if anything above fails
+      // Use <style> tag injection for Tailwind global styles
       const styleTag = document.createElement("style");
+      styleTag.setAttribute("data-source", "dumber-tailwind-styles");
       styleTag.textContent = globalStyles;
       shadowRoot.appendChild(styleTag);
+
+      // Inject component styles from Go-provided string
+      // These are Svelte component-scoped styles that must be inside the shadow root
+      // due to Shadow DOM style encapsulation
+      const componentStyles = (window as any).__dumber_component_styles;
+      if (componentStyles) {
+        const componentStyleTag = document.createElement("style");
+        componentStyleTag.setAttribute("data-source", "dumber-component-styles");
+        componentStyleTag.textContent = componentStyles;
+        shadowRoot.appendChild(componentStyleTag);
+        console.log(
+          "[shadowHost] Component styles injected:",
+          componentStyles.length,
+          "chars",
+        );
+      } else {
+        console.warn("[shadowHost] Component styles not available on window");
+      }
+
+      console.log(
+        "[shadowHost] All styles injected, shadow root children:",
+        shadowRoot.childNodes.length,
+      );
+    } catch (error) {
+      console.error("[shadowHost] Failed to inject styles:", error);
+      // Fallback attempt
+      try {
+        const fallbackStyle = document.createElement("style");
+        fallbackStyle.textContent = globalStyles || "";
+        shadowRoot.appendChild(fallbackStyle);
+      } catch (fallbackError) {
+        console.error(
+          "[shadowHost] Fallback style injection also failed:",
+          fallbackError,
+        );
+      }
     }
     shadowResetApplied.add(shadowRoot);
   }

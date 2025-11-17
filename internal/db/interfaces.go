@@ -36,11 +36,24 @@ type CertificateQuerier interface {
 	DeleteExpiredCertificateValidations(ctx context.Context) error
 }
 
+// FavoritesQuerier defines the interface for favorites-related database operations
+type FavoritesQuerier interface {
+	GetAllFavorites(ctx context.Context) ([]Favorite, error)
+	GetFavoriteByURL(ctx context.Context, url string) (Favorite, error)
+	CreateFavorite(ctx context.Context, url string, title sql.NullString, faviconUrl sql.NullString) error
+	UpdateFavorite(ctx context.Context, title sql.NullString, faviconUrl sql.NullString, url string) error
+	DeleteFavorite(ctx context.Context, url string) error
+	IsFavorite(ctx context.Context, url string) (int64, error)
+	UpdateFavoritePosition(ctx context.Context, position int64, url string) error
+	GetFavoriteCount(ctx context.Context) (int64, error)
+}
+
 // DatabaseQuerier combines all database operation interfaces
 type DatabaseQuerier interface {
 	ZoomQuerier
 	HistoryQuerier
 	CertificateQuerier
+	FavoritesQuerier
 }
 
 // Ensure that *Queries implements DatabaseQuerier interface

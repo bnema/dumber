@@ -33,8 +33,12 @@ func main() {
 		return
 	}
 
-	// Initialize logging early for GUI mode using default config
-	cfg := config.New()
+	// Load config file first, then initialize logging with actual config
+	if err := config.Init(); err != nil {
+		log.Printf("Warning: failed to load config: %v, using defaults", err)
+	}
+	cfg := config.Get()
+
 	if err := logging.Init(
 		cfg.Logging.LogDir,
 		cfg.Logging.Level,

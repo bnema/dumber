@@ -9,6 +9,13 @@ import (
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
 )
 
+const (
+	// DumberIsolatedWorld is the name of the isolated JavaScript world
+	// where Dumber's GUI scripts run. This prevents page scripts from
+	// interfering with the browser's UI components.
+	DumberIsolatedWorld = "dumber-isolated"
+)
+
 // SetupUserContentManager configures UserContentManager for the WebView
 // This injects GUI scripts at document-start and registers message handlers
 func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, webviewID uint64) error {
@@ -23,22 +30,35 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 		return nil
 	}
 
-	// Inject webview ID FIRST, so GUI scripts can access it immediately
+	// Inject webview ID in BOTH main world and isolated world
+	// The isolated world (GUI scripts) needs this, and pages might use it for communication
 	// Note: webviewID is uint64, formatted as number (not string) to avoid any injection concerns
 	webviewIDScript := fmt.Sprintf(`
 		window.__dumber_webview_id = %d;
 		console.log('[webkit] WebView ID set in JavaScript:', window.__dumber_webview_id);
 	`, webviewID)
+
+	// Main world (for page scripts)
 	ucm.AddScript(webkit.NewUserScript(
 		webviewIDScript,
-		webkit.UserContentInjectTopFrame, // Only top frame needs the webview ID
+		webkit.UserContentInjectTopFrame,
 		webkit.UserScriptInjectAtDocumentStart,
 		nil,
 		nil,
 	))
-	log.Printf("[webkit] Injected webview ID script for ID: %d", webviewID)
 
-	// Inject GTK theme detection SECOND, before color-scheme script
+	// Isolated world (for GUI scripts)
+	ucm.AddScript(webkit.NewUserScriptForWorld(
+		webviewIDScript,
+		webkit.UserContentInjectTopFrame,
+		webkit.UserScriptInjectAtDocumentStart,
+		DumberIsolatedWorld,
+		nil,
+		nil,
+	))
+	log.Printf("[webkit] Injected webview ID script for ID: %d (main + isolated world)", webviewID)
+
+	// Inject GTK theme detection in BOTH worlds
 	// The color-scheme.ts expects window.__dumber_gtk_prefers_dark to be set
 	// Respect the ColorScheme config setting
 	cfg := config.Get()
@@ -57,71 +77,131 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 	}
 
 	gtkThemeScript := fmt.Sprintf(`window.__dumber_gtk_prefers_dark = %t;`, prefersDark)
+
+	// Main world
 	ucm.AddScript(webkit.NewUserScript(
 		gtkThemeScript,
-		webkit.UserContentInjectTopFrame, // Only top frame needs theme preference
+		webkit.UserContentInjectTopFrame,
 		webkit.UserScriptInjectAtDocumentStart,
 		nil,
 		nil,
 	))
-	log.Printf("[webkit] Injected theme preference: prefersDark=%t", prefersDark)
 
-	// Inject palette config SECOND, before GUI scripts
+	// Isolated world
+	ucm.AddScript(webkit.NewUserScriptForWorld(
+		gtkThemeScript,
+		webkit.UserContentInjectTopFrame,
+		webkit.UserScriptInjectAtDocumentStart,
+		DumberIsolatedWorld,
+		nil,
+		nil,
+	))
+	log.Printf("[webkit] Injected theme preference: prefersDark=%t (main + isolated world)", prefersDark)
+
+	// Inject palette config in BOTH worlds
 	// The GUI expects window.__dumber_palette = { "light": {...}, "dark": {...} }
 	if appearanceConfigJSON != "" {
 		paletteScript := fmt.Sprintf(`window.__dumber_palette = %s;`, appearanceConfigJSON)
+
+		// Main world
 		ucm.AddScript(webkit.NewUserScript(
 			paletteScript,
-			webkit.UserContentInjectTopFrame, // Only top frame needs palette config
+			webkit.UserContentInjectTopFrame,
 			webkit.UserScriptInjectAtDocumentStart,
 			nil,
 			nil,
 		))
-		log.Printf("[webkit] Injected palette config at document-start (%d bytes)", len(paletteScript))
+
+		// Isolated world
+		ucm.AddScript(webkit.NewUserScriptForWorld(
+			paletteScript,
+			webkit.UserContentInjectTopFrame,
+			webkit.UserScriptInjectAtDocumentStart,
+			DumberIsolatedWorld,
+			nil,
+			nil,
+		))
+		log.Printf("[webkit] Injected palette config (%d bytes, main + isolated world)", len(paletteScript))
 	}
 
-	// Inject color-scheme script at document-start
+	// Inject color-scheme script in BOTH worlds
+	// Main world: manipulates document.documentElement.classList for page scripts
+	// Isolated world: sets CSS variables that GUI scripts can read via getComputedStyle
 	if assets.ColorSchemeScript != "" {
+		// Main world
 		ucm.AddScript(webkit.NewUserScript(
 			assets.ColorSchemeScript,
-			webkit.UserContentInjectTopFrame, // Only top frame needs color scheme detection
+			webkit.UserContentInjectTopFrame,
 			webkit.UserScriptInjectAtDocumentStart,
-			nil, // whitelist (nil = all)
-			nil, // blacklist (nil = none)
+			nil,
+			nil,
 		))
-		log.Printf("[webkit] Injected color-scheme script (%d bytes)", len(assets.ColorSchemeScript))
+
+		// Isolated world - needed so GUI scripts can access CSS variables
+		ucm.AddScript(webkit.NewUserScriptForWorld(
+			assets.ColorSchemeScript,
+			webkit.UserContentInjectTopFrame,
+			webkit.UserScriptInjectAtDocumentStart,
+			DumberIsolatedWorld,
+			nil,
+			nil,
+		))
+		log.Printf("[webkit] Injected color-scheme script (%d bytes, main + isolated world)", len(assets.ColorSchemeScript))
 	}
 
-	// Inject main-world script at document-start
+	// Inject main-world script in MAIN world
+	// This script needs webkit.messageHandlers access to forward isolated world messages
+	// It also handles theme, zoom, and other main-world only APIs
 	if assets.MainWorldScript != "" {
 		ucm.AddScript(webkit.NewUserScript(
 			assets.MainWorldScript,
-			webkit.UserContentInjectTopFrame, // Only top frame needs bridge/UI functionality
+			webkit.UserContentInjectTopFrame,
 			webkit.UserScriptInjectAtDocumentStart,
 			nil,
 			nil,
 		))
-		log.Printf("[webkit] Injected main-world script (%d bytes)", len(assets.MainWorldScript))
+		log.Printf("[webkit] Injected main-world script (%d bytes, main world)", len(assets.MainWorldScript))
 	}
 
-	// Inject GUI controls script at document-start
+	// Inject GUI controls script in ISOLATED world only
+	// This contains Svelte components and must be protected from page interference
 	if assets.GUIScript != "" {
-		ucm.AddScript(webkit.NewUserScript(
+		ucm.AddScript(webkit.NewUserScriptForWorld(
 			assets.GUIScript,
-			webkit.UserContentInjectTopFrame, // Only top frame needs GUI controls
+			webkit.UserContentInjectTopFrame,
 			webkit.UserScriptInjectAtDocumentStart,
+			DumberIsolatedWorld,
 			nil,
 			nil,
 		))
-		log.Printf("[webkit] Injected GUI controls script (%d bytes)", len(assets.GUIScript))
+		log.Printf("[webkit] Injected GUI controls script (%d bytes, isolated world)", len(assets.GUIScript))
 	}
 
-	// Register script message handler "dumber" for communication from JS
-	// Pass empty string for worldName to use the default world
+	// Inject component CSS styles as a JavaScript variable in ISOLATED world
+	// These styles need to be injected into the shadow root by shadowHost.ts
+	// because Shadow DOM has style encapsulation - external stylesheets don't penetrate it
+	if assets.ComponentStyles != "" {
+		// Use fmt.Sprintf with %q to properly escape the CSS string for JavaScript
+		componentStylesScript := fmt.Sprintf(`window.__dumber_component_styles = %q;`, assets.ComponentStyles)
+
+		ucm.AddScript(webkit.NewUserScriptForWorld(
+			componentStylesScript,
+			webkit.UserContentInjectTopFrame,
+			webkit.UserScriptInjectAtDocumentStart,
+			DumberIsolatedWorld,
+			nil,
+			nil,
+		))
+		log.Printf("[webkit] Injected component styles string (%d bytes, isolated world)", len(assets.ComponentStyles))
+	}
+
+	// Register script message handler "dumber" in the MAIN world
+	// Isolated world GUI scripts dispatch CustomEvents to main world, which forwards to this handler
+	// This architecture is required because webkit.messageHandlers is only available in main world
 	if !ucm.RegisterScriptMessageHandler("dumber", "") {
-		log.Printf("[webkit] Warning: failed to register 'dumber' script message handler")
+		log.Printf("[webkit] Warning: failed to register 'dumber' script message handler in main world")
 	} else {
-		log.Printf("[webkit] Registered 'dumber' script message handler")
+		log.Printf("[webkit] Registered 'dumber' script message handler in main world (default)")
 	}
 
 	return nil

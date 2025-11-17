@@ -3,11 +3,13 @@ package browser
 
 import (
 	"errors"
+	"fmt"
 	"log"
 
-	"github.com/bnema/dumber/pkg/webkit"
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
+
+	"github.com/bnema/dumber/pkg/webkit"
 )
 
 // closeContext manages the context for a pane close operation
@@ -50,6 +52,60 @@ func (ctx closeContext) finish() {
 // collectLeaves returns all leaf nodes in the workspace tree
 func (wm *WorkspaceManager) collectLeaves() []*paneNode {
 	return wm.collectLeavesFrom(wm.root)
+}
+
+// collectLeavesFromWithDirection collects leaves from a subtree with direction-aware stack entry
+func (wm *WorkspaceManager) collectLeavesFromWithDirection(node *paneNode, direction string) []*paneNode {
+	var leaves []*paneNode
+	visited := make(map[*paneNode]bool)
+
+	var walk func(*paneNode, int)
+	walk = func(n *paneNode, depth int) {
+		// Prevent infinite recursion and cycles
+		const maxDepth = 50
+		if n == nil || depth > maxDepth {
+			return
+		}
+		if visited[n] {
+			log.Printf("[workspace] collectLeavesFromWithDirection: cycle detected in tree")
+			return
+		}
+		visited[n] = true
+
+		if n.isLeaf {
+			leaves = append(leaves, n)
+			return
+		}
+
+		// Handle stacked panes - select entry pane based on direction
+		if n.isStacked && len(n.stackedPanes) > 0 {
+			var entryIndex int
+			switch direction {
+			case DirectionDown:
+				// Coming from above - enter at first pane
+				entryIndex = 0
+			case DirectionUp:
+				// Coming from below - enter at last pane
+				entryIndex = len(n.stackedPanes) - 1
+			default:
+				// For horizontal directions, use active pane
+				entryIndex = n.activeStackIndex
+				if entryIndex < 0 || entryIndex >= len(n.stackedPanes) {
+					entryIndex = 0
+				}
+			}
+			if entryIndex >= 0 && entryIndex < len(n.stackedPanes) {
+				walk(n.stackedPanes[entryIndex], depth+1)
+			}
+			return
+		}
+
+		// Handle regular split nodes
+		walk(n.left, depth+1)
+		walk(n.right, depth+1)
+	}
+	walk(node, 0)
+	return leaves
 }
 
 // collectLeavesFrom collects all leaf nodes from a given subtree
@@ -475,18 +531,27 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string, existi
 
 	// GTK4 handles widget operations automatically - no need to force redraw
 
-	// Handle root split: attach paned to window FIRST, then let GTK handle reparenting
+	// Handle root split: attach paned to ContentArea (tab system is always present)
 	if parent == nil {
-		// ROOT SPLIT: Attach empty paned to window, then add children
-		// GTK will automatically reparent the existing widget when we call SetStartChild/SetEndChild
-		if wm.window != nil {
-			// Clear any existing window child (the splitTargetContainer)
-			wm.window.SetChild(nil)
-
-			// Attach the new paned to window FIRST
-			wm.window.SetChild(paned)
-			log.Printf("[workspace] ROOT SPLIT: attached paned %p to window", paned)
+		// ROOT SPLIT: Manipulate TabManager.ContentArea
+		if wm.app == nil || wm.app.tabManager == nil || wm.app.tabManager.ContentArea == nil {
+			log.Printf("[workspace] ERROR: Cannot perform root split - tab manager not initialized")
+			return nil, fmt.Errorf("tab manager not initialized")
 		}
+
+		contentBox, ok := wm.app.tabManager.ContentArea.(*gtk.Box)
+		if !ok || contentBox == nil {
+			log.Printf("[workspace] ERROR: ContentArea is not a Box")
+			return nil, fmt.Errorf("ContentArea is not a Box")
+		}
+
+		// Remove the old workspace root from ContentArea
+		contentBox.Remove(splitTargetContainer)
+		log.Printf("[workspace] ROOT SPLIT: removed old root %p from ContentArea", splitTargetContainer)
+
+		// Attach the new paned to ContentArea FIRST
+		contentBox.Append(paned)
+		log.Printf("[workspace] ROOT SPLIT: attached paned %p to ContentArea", paned)
 
 		// Now add children to the paned - GTK will handle reparenting automatically
 		if existingFirst {
@@ -656,12 +721,41 @@ func (wm *WorkspaceManager) promoteSibling(grand *paneNode, parent *paneNode, si
 }
 
 // swapContainers updates GTK widget hierarchy for promoted siblings
-func (wm *WorkspaceManager) swapContainers(grand *paneNode, sibling *paneNode) {
+func (wm *WorkspaceManager) swapContainers(grand *paneNode, parent *paneNode, sibling *paneNode) {
 	if grand == nil {
+		// Sibling is being promoted to root
 		// When TreeRebalancer is enabled, skip GTK attachment here as it will be
 		// handled by the rebalancer's promotion transaction to avoid double-attachment
 		if wm.treeRebalancer == nil || !wm.treeRebalancer.enabled {
-			wm.attachRoot(sibling)
+			// NOTE: Can't use attachRoot() here because wm.root has already been updated
+			// to point to the sibling by promoteSibling(). We need to manually swap in ContentArea:
+			// the old paned (parent) is still in ContentArea and needs to be removed,
+			// then the sibling needs to be added.
+
+			// The sibling has already been unparented from the old paned earlier in the close logic,
+			// so it has no GTK parent now.
+
+			if wm.app == nil || wm.app.tabManager == nil || wm.app.tabManager.ContentArea == nil {
+				log.Printf("[workspace] ERROR: Cannot promote sibling to root - tab manager not initialized")
+				return
+			}
+
+			contentBox, ok := wm.app.tabManager.ContentArea.(*gtk.Box)
+			if !ok || contentBox == nil {
+				log.Printf("[workspace] ERROR: ContentArea is not a Box")
+				return
+			}
+
+			// CRITICAL: Remove the old paned from ContentArea first
+			if parent != nil && parent.container != nil {
+				contentBox.Remove(parent.container)
+				log.Printf("[workspace] Removed old paned %p from ContentArea", parent.container)
+			}
+
+			// Now add sibling to ContentArea as the new root
+			contentBox.Append(sibling.container)
+			webkit.WidgetSetVisible(sibling.container, true)
+			log.Printf("[workspace] Promoted sibling %p to root in ContentArea", sibling.container)
 		}
 		return
 	}
@@ -773,34 +867,45 @@ func (wm *WorkspaceManager) cascadePromotion(singleChildPaned *paneNode) {
 	}
 }
 
-// attachRoot attaches a node as the new window root
+// attachRoot attaches a node as the new root in TabManager.ContentArea.
+// NOTE: This is typically called AFTER wm.root has already been updated to point to this node.
+// The old root container (if any) will be orphaned in ContentArea and garbage collected.
 func (wm *WorkspaceManager) attachRoot(root *paneNode) {
-	if root == nil || root.container == nil || wm.window == nil {
+	if root == nil || root.container == nil {
 		return
 	}
 
 	// Note: In gotk4, reference counting is handled automatically by Go's GC
 	// No need for manual Ref()/Unref() calls
 
-	// Detach from previous container (paned, stack, etc.) before replacing the window child.
-	// While GTK4 auto-unparents for paned operations, window.SetChild requires manual unparent
+	// Detach from previous container (paned, stack, etc.) before attaching to ContentArea
+	// While GTK4 auto-unparents for paned operations, Box.Append requires manual unparent
 	if parent := webkit.WidgetGetParent(root.container); parent != nil {
-		log.Printf("[workspace] unparenting widget %p from parent %p before window attach", root.container, parent)
+		log.Printf("[workspace] unparenting widget %p from parent %p before root attach", root.container, parent)
 		webkit.WidgetUnparent(root.container)
 		// Note: In gotk4, the Go object reference remains valid after unparent
 		// Only the GTK parent relationship is cleared
 	}
-
-	// Clear any existing window child to avoid GTK warnings when swapping roots.
-	wm.window.SetChild(nil)
 
 	if root.container != nil {
 		webkit.WidgetSetHExpand(root.container, true)
 		webkit.WidgetSetVExpand(root.container, true)
 	}
 
-	// GTK4 will automatically unparent root.container from its previous parent when we attach it here
-	wm.window.SetChild(root.container)
+	// Add to ContentArea (the old root will be orphaned and garbage collected)
+	if wm.app == nil || wm.app.tabManager == nil || wm.app.tabManager.ContentArea == nil {
+		log.Printf("[workspace] ERROR: Cannot attach root - tab manager not initialized")
+		return
+	}
+
+	contentBox, ok := wm.app.tabManager.ContentArea.(*gtk.Box)
+	if !ok || contentBox == nil {
+		log.Printf("[workspace] ERROR: ContentArea is not a Box")
+		return
+	}
+
+	contentBox.Append(root.container)
+	webkit.WidgetSetVisible(root.container, true)
 	if root.container != nil {
 		webkit.WidgetQueueAllocate(root.container)
 		webkit.WidgetShow(root.container)
@@ -997,8 +1102,8 @@ func (wm *WorkspaceManager) closePane(node *paneNode) (*paneNode, error) {
 
 	// STEP 7: GTK widget reparenting
 	// For paned containers: GTK4 PanedSetStartChild/EndChild auto-unparent from current parent
-	// For window: we already manually unparented above, so now we can safely attach
-	wm.swapContainers(grandparent, sibling)
+	// For root promotion: we need to remove the old paned from ContentArea
+	wm.swapContainers(grandparent, parent, sibling)
 
 	// Reconnect the promoted sibling's rendering pipeline after GTK reparenting.
 	if sibling != nil && sibling.container != nil {
@@ -1083,10 +1188,10 @@ func (wm *WorkspaceManager) closeStackedPaneCompat(node *paneNode) (*paneNode, e
 				}
 			}
 		} else {
-			// Stack was root
+			// Stack was root - attach remaining pane as new root
 			wm.root = remaining
 			if remaining.container != nil {
-				wm.window.SetChild(remaining.container)
+				wm.setRootContainer(remaining.container)
 			}
 		}
 

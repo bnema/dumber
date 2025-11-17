@@ -32,6 +32,7 @@ declare global {
     ) => number | void;
     __dumber_showZoomToast?: (level: number) => void;
     __dumber_omnibox_suggestions?: (suggestions: Suggestion[]) => void;
+    __dumber_favorites?: (favorites: unknown[]) => void;
     __dumber_webview_id?: string | number;
     __dumber_is_active?: boolean;
     __dumber_teardown?: () => void;
@@ -292,46 +293,104 @@ interface DumberAPI {
       );
     }
 
-    // Omnibox suggestions bridge
-    const omniboxQueue: Suggestion[] = [];
-    let omniboxReady = false;
+    /**
+     * ============================================================================
+     * MAIN-WORLD TO ISOLATED-WORLD BRIDGE SYSTEM
+     * ============================================================================
+     *
+     * Architecture Overview:
+     * ----------------------
+     * WebKit runs scripts in different "worlds" for security:
+     *
+     * - MAIN WORLD: Where page scripts run
+     *   - Can access window.webkit.messageHandlers (backend communication)
+     *   - Can be accessed/modified by page JavaScript
+     *   - Security risk: page can interfere with our code
+     *
+     * - ISOLATED WORLD: Where our UI components run (Svelte)
+     *   - Cannot access window.webkit.messageHandlers directly
+     *   - Protected from page JavaScript interference
+     *   - Security benefit: page cannot read/modify our UI state
+     *
+     * Communication Patterns:
+     * -----------------------
+     *
+     * 1. WINDOW FUNCTIONS (require bridge):
+     *    Backend → window.__dumber_xxx() in main world
+     *    Main world → CustomEvent to isolated world
+     *    Example: __dumber_omnibox_suggestions(), __dumber_favorites()
+     *
+     * 2. CUSTOMEVENT DISPATCH (no bridge needed):
+     *    Backend → document.dispatchEvent() directly
+     *    Both worlds can listen (shared DOM)
+     *    Example: dumber:ui:shortcut (keyboard shortcuts)
+     *
+     * 3. ISOLATED TO BACKEND (reverse bridge):
+     *    Isolated world → CustomEvent "dumber:isolated-message"
+     *    Main world listener → window.webkit.messageHandlers.dumber
+     *    Example: navigation, omnibox queries
+     *
+     * ============================================================================
+     */
 
-    const omniboxDispatch = (suggestions: Suggestion[]) => {
+    /**
+     * Unified dispatcher for forwarding main-world window calls to isolated world
+     * Only use this for window function bridges, NOT for events backend already dispatches
+     */
+    const bridgeDispatch = (eventName: string, detail: Record<string, unknown>) => {
       try {
-        document.dispatchEvent(
-          new CustomEvent("dumber:omnibox:suggestions", {
-            detail: { suggestions },
-          }),
-        );
-        // Legacy compatibility
-        document.dispatchEvent(
-          new CustomEvent("dumber:omnibox-suggestions", {
-            detail: { suggestions },
-          }),
-        );
+        document.dispatchEvent(new CustomEvent(eventName, { detail }));
       } catch (err) {
-        console.error("[dumber] Omnibox dispatch error", err);
+        console.error(`[dumber-bridge] Failed to dispatch ${eventName}:`, err);
       }
     };
 
+    // ============================================================================
+    // WINDOW FUNCTION BRIDGES
+    // These convert window.__dumber_xxx() calls to CustomEvents for isolated world
+    // ============================================================================
+
+    // Omnibox suggestions bridge (queues suggestions until component is ready)
+    const omniboxQueue: Suggestion[] = [];
+    let omniboxReady = false;
+
     window.__dumber_omnibox_suggestions = (suggestions: Suggestion[]) => {
       if (omniboxReady) {
-        omniboxDispatch(suggestions);
+        bridgeDispatch("dumber:omnibox:suggestions", { suggestions });
+        bridgeDispatch("dumber:omnibox-suggestions", { suggestions }); // Legacy support
       } else {
         try {
           omniboxQueue.push(...suggestions);
         } catch (err) {
-          console.error("[dumber] Omnibox queue error", err);
+          console.error("[dumber-bridge] Omnibox queue error", err);
         }
       }
     };
 
+    // Favorites bridge
+    window.__dumber_favorites = (favorites: unknown[]) => {
+      bridgeDispatch("dumber:favorites", { favorites });
+    };
+
+    // Toast notification bridges
+    window.__dumber_showToast = (message: string, duration?: number, type?: "info" | "success" | "error") => {
+      bridgeDispatch("dumber:toast", { message, duration, type });
+    };
+
+    window.__dumber_showZoomToast = (level: number) => {
+      bridgeDispatch("dumber:toast:zoom", { level });
+    };
+
+    // Handle omnibox ready signal and flush queued suggestions
     const handleOmniboxReady = () => {
       omniboxReady = true;
       if (omniboxQueue && omniboxQueue.length) {
         const items = omniboxQueue.slice();
         omniboxQueue.length = 0;
-        items.forEach((s) => omniboxDispatch([s]));
+        items.forEach((s) => {
+          bridgeDispatch("dumber:omnibox:suggestions", { suggestions: [s] });
+          bridgeDispatch("dumber:omnibox-suggestions", { suggestions: [s] });
+        });
       }
     };
 
@@ -340,7 +399,7 @@ interface DumberAPI {
       document.removeEventListener("dumber:omnibox-ready", handleOmniboxReady);
     });
 
-    // Unified omnibox API
+    // Unified omnibox API for backward compatibility
     window.__dumber.omnibox = window.__dumber.omnibox || {
       suggestions: (suggestions: Suggestion[]) => {
         window.__dumber_omnibox_suggestions!(suggestions);
@@ -824,6 +883,7 @@ interface DumberAPI {
       window.__dumber_page_bridge_installed = false;
       window.__dumber_teardown = undefined;
       window.__dumber_omnibox_suggestions = undefined;
+      window.__dumber_favorites = undefined;
       window.__dumber_showToast = undefined;
       window.__dumber_showZoomToast = undefined;
       window.__dumber_applyDomZoom = undefined;
@@ -908,6 +968,29 @@ interface DumberAPI {
         console.debug = originalConsole.debug;
       });
     };
+
+    // Bridge for isolated world communication
+    // Listen for messages from isolated world and forward to backend via webkit.messageHandlers
+    const setupIsolatedWorldBridge = () => {
+      document.addEventListener("dumber:isolated-message", ((event: CustomEvent) => {
+        try {
+          const { payload } = event.detail;
+          if (window.webkit?.messageHandlers?.dumber) {
+            window.webkit.messageHandlers.dumber.postMessage(JSON.stringify(payload));
+            console.log("[dumber-bridge] Forwarded isolated world message:", payload.type);
+          } else {
+            console.warn("[dumber-bridge] webkit message handler not available");
+          }
+        } catch (error) {
+          console.error("[dumber-bridge] Failed to forward message:", error);
+        }
+      }) as EventListener);
+
+      console.log("[dumber-bridge] Isolated world message bridge initialized");
+    };
+
+    // Initialize isolated world bridge
+    setupIsolatedWorldBridge();
 
     // Initialize console capture
     setupConsoleCapture();

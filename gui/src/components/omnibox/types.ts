@@ -9,16 +9,26 @@ export interface Suggestion {
   favicon?: string;
 }
 
+export interface Favorite {
+  id: number;
+  url: string;
+  title: string;
+  favicon_url: string;
+  position: number;
+}
+
 export interface SearchShortcut {
   url: string;
   description: string;
 }
 
 export interface OmniboxMessage {
-  type: "navigate" | "query" | "get_search_shortcuts";
+  type: "navigate" | "query" | "get_search_shortcuts" | "get_favorites" | "toggle_favorite" | "is_favorite";
   url?: string;
   q?: string;
   limit?: number;
+  title?: string;
+  faviconURL?: string;
 }
 
 export interface FindMatch {
@@ -32,6 +42,7 @@ export interface HighlightNode {
 }
 
 export type OmniboxMode = "omnibox" | "find";
+export type ViewMode = "history" | "favorites";
 
 export interface OmniboxConfig {
   maxMatches?: number;
@@ -42,7 +53,9 @@ export interface OmniboxConfig {
 export interface OmniboxState {
   visible: boolean;
   mode: OmniboxMode;
+  viewMode: ViewMode;
   suggestions: Suggestion[];
+  favorites: Favorite[];
   matches: FindMatch[];
   selectedIndex: number;
   activeIndex: number;

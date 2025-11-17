@@ -171,6 +171,23 @@ func WidgetGetBounds(w gtk.Widgetter) (x, y, width, height float64) {
 	return 0, 0, 0, 0
 }
 
+// WidgetGetWindowBounds returns the widget's bounds relative to the toplevel window
+// This provides window-absolute coordinates needed for navigation geometry calculations
+func WidgetGetWindowBounds(w gtk.Widgetter) (x, y, width, height int) {
+	if widget := getWidget(w); widget != nil {
+		// Get the toplevel window (GtkWindow)
+		root := widget.Root()
+		if root != nil {
+			rect, ok := widget.ComputeBounds(root)
+			if ok && rect != nil {
+				return int(rect.X()), int(rect.Y()),
+					int(rect.Width()), int(rect.Height())
+			}
+		}
+	}
+	return 0, 0, 0, 0
+}
+
 // WidgetSetFocusChild sets the focus child of a widget
 func WidgetSetFocusChild(w gtk.Widgetter, child gtk.Widgetter) {
 	if widget := getWidget(w); widget != nil {
@@ -231,6 +248,24 @@ func WidgetAddController(w gtk.Widgetter, controller gtk.EventControllerer) {
 	if widget := getWidget(w); widget != nil && controller != nil {
 		widget.AddController(controller)
 	}
+}
+
+// WidgetAttachClickHandler attaches a left-click handler to a widget
+func WidgetAttachClickHandler(w gtk.Widgetter, callback func()) *gtk.GestureClick {
+	widget := getWidget(w)
+	if widget == nil {
+		return nil
+	}
+
+	gestureClick := gtk.NewGestureClick()
+	gestureClick.SetButton(1) // Left click only
+
+	gestureClick.ConnectPressed(func(nPress int, x, y float64) {
+		callback()
+	})
+
+	widget.AddController(gestureClick)
+	return gestureClick
 }
 
 // WidgetAllocation returns the widget's allocation (alias for WidgetGetAllocation)

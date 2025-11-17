@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.14.0] - 2025-11-18
+
+### Added
+- **Zellij-style tab system**: Each tab contains an independent workspace with panes, splits, and stacks. `Ctrl+T` enters tab mode with modal keyboard control (`n`=new, `x`=close, `l/h`=navigate). `Alt+1-9/0` for direct tab switching. `Ctrl+Tab`/`Ctrl+Shift+Tab` for next/previous tab. Tab bar auto-hides with single tab. Orange border indicator (distinct from blue pane mode).
+- **International keyboard layout support**: Hardware keycode-based shortcuts for `Alt+number` keys work across all keyboard layouts (QWERTY, AZERTY, QWERTZ, etc.). Physical key position used instead of character mapping.
+- **Click-to-activate stacked panes**: Click on any collapsed title bar to instantly activate that pane. Uses GTK4 gesture clicks for native interaction feel.
+- **Title bar visual separators**: Subtle 1px borders between stacked title bars. Theme-aware colors automatically adjust for light/dark mode.
+- **UI scaling for title bars**: New `workspace.styling.ui_scale` config option (default: 1.0). Scales font size, padding, height, and favicon size. Range: 0.5 to 3.0 (e.g., 1.2 = 120% size).
+- **Favorites system**: Full favorites management with keyboard controls and persistent storage. Press `Tab` to switch between History and Favorites views. Press `Space` to add/remove items. Yellow border indicates favorited items in History view. View mode persists across sessions. Database-backed with RAM-first caching for performance.
+- **Omnibox quick navigation**: Press `Ctrl+1` through `Ctrl+9` to instantly navigate to the first 9 results, or `Ctrl+0` for the 10th. Works in both History and Favorites views. Visual number hints appear on each item. Keyboard layout independent (works on QWERTY, AZERTY, QWERTZ, etc.).
+- **Middle-click and Ctrl+click link handling**: Links can now be opened in new workspace panes using standard browser gestures (middle-click or Ctrl+left-click). New panes split in the configured direction (default: right) and respect `workspace.popups.placement` configuration. Implemented via WebKit's `decide-policy` signal to intercept navigation actions before they occur.
+- **Configurable pane border styling**: Added `workspace.styling.inactive_border_width`, `workspace.styling.inactive_border_color`, and `workspace.styling.show_stacked_title_border` config options. Active and inactive borders default to 1px to prevent layout shift, with only color changing on focus. Borders use GTK theme variables by default and support smooth CSS transitions.
+- **Configurable default search engine**: Added `default_search_engine` config option with explicit URL template format. DuckDuckGo is now the default (was Google). Users can set any search engine with `%s` placeholder (e.g., `default_search_engine = "https://duckduckgo.com/?q=%s"`).
+
+### Changed
+- **Target="_blank" and gesture link behavior**: Links with `target="_blank"`, Ctrl+click, and middle-click now open in stacked panes mode by default instead of split-right. New config option `workspace.popups.blank_target_behavior` (values: "split", "stacked", "tabbed") controls this behavior separately from JavaScript popups. Prevents browser exit when closing parent pane by marking _blank panes as popup-type.
+- **Config format**: TOML is now the default format (JSON/YAML still supported). Action bindings inverted to `action→keys` structure for maintainability with O(1) runtime lookup. Added comprehensive validation.
+- **Code cleanup**: Removed dead code files and emojis from GUI modules
+- **Bridge architecture**: Unified main-world to isolated-world bridge system with comprehensive documentation. Single dispatcher for all window function bridges (omnibox, favorites, toasts). Better separation between CustomEvents (shared between worlds) and window functions (require bridging).
+- **Omnibox spacing**: Increased vertical spacing between suggestion items from 0.65rem to 0.85rem for better readability
+- **Smart Escape key**: First press clears input text, second press closes omnibox. Empty input closes immediately.
+
+### Fixed
+- **Ctrl+Tab shortcuts**: Fixed focus cycling behavior, now properly switches between tabs
+- **Active tab visibility**: Fixed identical styling - active tab now clearly visible with distinct gray shade
+- **AZERTY keyboard support**: Alt+number shortcuts now work on all keyboard layouts using hardware keycodes
+- **Keyboard layout detection**: Fixed always detecting "en" - now correctly detects fr/de/etc layouts
+- **Zoom visual glitch**: Fixed zoom level for next page being applied before navigation completed, causing visible zoom change on current page. Zoom now applies on load-committed event instead of URI change.
+- **Toast notifications**: Fixed toast notifications not appearing for copy URL (Ctrl+Shift+C) and clipboard operations. Event name was `dumber:showToast` but ToastContainer listens for `dumber:toast`.
+- **Page reload shortcuts**: Restored `Ctrl+R`, `Ctrl+Shift+R`, `F5`, and `Ctrl+F5` shortcuts. They were registered but not actually wired to the window-level handler.
+- **Bootstrap initialization**: Fixed omnibox component not mounting due to invalid toast function check in isolated world. Toast functions now bridge correctly via CustomEvents, allowing omnibox to initialize properly.
+- **Empty state display**: History view now hides empty state when input is empty, showing it only when user has typed and no results are found. Favorites view always shows empty state with helpful hints.
+
 ## [0.13.0] - 2025-10-24
 
 ### Added

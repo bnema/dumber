@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/bnema/dumber/internal/db"
@@ -28,6 +29,14 @@ type FaviconService struct {
 	exportDir    string // Directory for exporting favicons for CLI access
 	dataDir      string // WebKit data directory
 	enableExport bool   // Whether to export favicons for CLI tools
+	
+	// Deduplication: tracks recently processed (pageURL, faviconURI) pairs
+	// Key: pageURL, Value: struct{faviconURI string, timestamp time.Time}
+	recentChanges sync.Map
+	
+	// Debouncing: tracks ongoing preload operations to prevent duplicates
+	// Key: pageURL, Value: bool (true if preload is in progress)
+	ongoingPreloads sync.Map
 }
 
 const (
@@ -35,6 +44,8 @@ const (
 	DefaultFaviconSize = 32
 	// FaviconTimeout is the maximum time to wait for a favicon to be available
 	FaviconTimeout = 5 * time.Second
+	// DeduplicationWindow is the time window for ignoring duplicate favicon changes
+	DeduplicationWindow = 2 * time.Second
 )
 
 // ServiceName returns the service name for identification
@@ -83,28 +94,66 @@ func NewFaviconService(faviconDB *webkit.FaviconDatabase, queries db.DatabaseQue
 // OnFaviconChanged handles favicon URI changes from WebKit's favicon database.
 // We store the URI (PNG, SVG, etc.) so that callers can later load an appropriate texture.
 func (fs *FaviconService) OnFaviconChanged(pageURL, faviconURI string) error {
-	log.Printf("[favicon] Favicon changed for %s: %s", pageURL, faviconURI)
-
-	ctx := context.Background()
-
 	if !fs.shouldProcessURL(pageURL) {
 		return nil
 	}
 
+	// FIRST: Check if WebKit's FaviconDatabase already has this exact URI
+	// WebKit's database persists across sessions and handles caching internally
+	// If it's already stored, this is just a notification on refresh/reload - skip it
+	existingURI := fs.faviconDB.FaviconURI(pageURL)
+	if existingURI == faviconURI {
+		// WebKit already has this favicon cached - nothing to do
+		// This is the common case on refresh/new window
+		return nil
+	}
+
+	// Deduplication for rapid-fire events on initial page load
+	// (e.g., GitHub fires PNG then SVG within milliseconds)
+	// Keep the first one we see and ignore subsequent variants
+	type recentChange struct {
+		faviconURI string
+		timestamp  time.Time
+	}
+	
+	if cached, ok := fs.recentChanges.Load(pageURL); ok {
+		if rc, ok := cached.(recentChange); ok {
+			if time.Since(rc.timestamp) < DeduplicationWindow {
+				// Already processed a favicon for this URL recently
+				// This prevents flip-flopping between PNG/SVG/ICO variants
+				return nil
+			}
+		}
+	}
+
+	// NEW favicon detected (first time or actual change)
+	log.Printf("[favicon] Favicon changed for %s: %s", pageURL, faviconURI)
+
+	ctx := context.Background()
+
+	// Update our history database with the favicon URI
 	nullString := sql.NullString{String: faviconURI, Valid: faviconURI != ""}
 	if err := fs.dbQueries.UpdateHistoryFavicon(ctx, nullString, pageURL); err != nil {
 		log.Printf("[favicon] Failed to update favicon URI in database for %s: %v", pageURL, err)
 		return fmt.Errorf("failed to update favicon in database: %w", err)
 	}
 
-	// Also update all other URLs from the same domain to propagate favicon
-	// This handles multiple paths on the same domain (e.g., google.com/search?q=foo and google.com/search?q=bar)
-	fs.propagateFaviconToDomain(pageURL, faviconURI)
+	// Store this change as recently processed
+	fs.recentChanges.Store(pageURL, recentChange{faviconURI: faviconURI, timestamp: time.Now()})
 
-	// Proactively render and export favicon for omnibox/CLI use
-	// This ensures favicons are available ASAP for suggestions
+	// Propagate favicon to domain asynchronously to avoid blocking WebKit
+	go fs.propagateFaviconToDomain(pageURL, faviconURI)
+
+	// Proactively render and export favicon for omnibox/CLI use (debounced)
 	if fs.enableExport {
-		go fs.preloadFavicon(pageURL, faviconURI)
+		// Check if a preload is already in progress for this URL
+		if _, loaded := fs.ongoingPreloads.LoadOrStore(pageURL, true); !loaded {
+			// No preload in progress, start one
+			go func() {
+				defer fs.ongoingPreloads.Delete(pageURL)
+				fs.preloadFavicon(pageURL, faviconURI)
+			}()
+		}
 	}
 
 	return nil

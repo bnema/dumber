@@ -41,6 +41,9 @@ const (
 	keyW          = "w"
 	keyX          = "x"
 	keyS          = "s"
+	keyH          = "h"
+	keyJ          = "j"
+	keyK          = "k"
 	keyEscape     = "escape"
 	keyArrowLeft  = "arrowleft"
 	keyArrowRight = "arrowright"
@@ -92,6 +95,12 @@ var shortcutActions = map[string]string{
 	altmod + "+" + keyArrowRight: directionRight,
 	altmod + "+" + keyArrowDown:  directionDown,
 	altmod + "+" + keyArrowUp:    directionUp,
+
+	// Vim-style navigation (alt modifier)
+	altmod + "+" + keyH: directionLeft,
+	altmod + "+" + keyL: directionRight,
+	altmod + "+" + keyK: directionUp,
+	altmod + "+" + keyJ: directionDown,
 }
 
 // TODO(#8): Refactor this function to reduce cyclomatic complexity (52 -> <30)
@@ -161,6 +170,12 @@ func (w *WebView) AttachKeyboardBridge() {
 			keyName = keyW
 		case 'x', 'X':
 			keyName = keyX
+		case 'h', 'H':
+			keyName = keyH
+		case 'j', 'J':
+			keyName = keyJ
+		case 'k', 'K':
+			keyName = keyK
 		case 's', 'S':
 			keyName = keyS
 		case gdkKeyLeft:

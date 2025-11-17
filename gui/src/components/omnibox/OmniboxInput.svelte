@@ -10,9 +10,11 @@
 
   // Reactive state
   let mode = $derived(omniboxStore.mode);
+  let viewMode = $derived(omniboxStore.viewMode);
   let inputValue = $derived(omniboxStore.inputValue);
   let selectedIndex = $derived(omniboxStore.selectedIndex);
   let suggestions = $derived(omniboxStore.suggestions);
+  let favorites = $derived(omniboxStore.favorites);
   let matches = $derived(omniboxStore.matches);
   let searchShortcuts = $derived(omniboxStore.searchShortcuts);
 
@@ -117,8 +119,11 @@
     omniboxStore.setFaded(false);
 
     if (mode === 'omnibox') {
-      // Debounced search for omnibox
-      debouncedQuery(value);
+      // Only query backend if we're in history view
+      // In favorites view, filtering happens locally via computed state
+      if (viewMode === 'history') {
+        debouncedQuery(value);
+      }
     } else if (mode === 'find') {
       // Immediate find for search
       findInPage(value);
@@ -131,13 +136,45 @@
       case 'Escape':
         event.preventDefault();
         event.stopPropagation();
-        omniboxStore.close();
+
+        if (inputValue && inputValue.trim() !== '') {
+          // Input has text - clear it but keep omnibox open
+          omniboxStore.setInputValue('');
+
+          // In find mode, clear the search highlights
+          if (mode === 'find') {
+            findInPage('');
+          }
+        } else {
+          // Input is empty - close omnibox immediately
+          omniboxStore.close();
+        }
         break;
 
       case 'Enter':
         event.preventDefault();
         event.stopPropagation();
         handleEnterKey(event);
+        break;
+
+      case 'Tab':
+        // Only handle Tab in omnibox mode (not in find mode)
+        if (mode === 'omnibox') {
+          event.preventDefault();
+          event.stopPropagation();
+          // Toggle between history and favorites views
+          const newViewMode = viewMode === 'history' ? 'favorites' : 'history';
+          omniboxStore.setViewMode(newViewMode);
+        }
+        break;
+
+      case ' ':
+        // Only handle Space in omnibox mode when an item is selected
+        if (mode === 'omnibox' && selectedIndex >= 0) {
+          event.preventDefault();
+          event.stopPropagation();
+          handleSpaceKey();
+        }
         break;
 
       case 'ArrowDown':
@@ -148,6 +185,27 @@
         break;
 
       default:
+        // Handle Ctrl+1 through Ctrl+0 for quick navigation to first 10 results
+        // Use event.code for keyboard layout independence (QWERTY, AZERTY, QWERTZ, etc.)
+        if (event.ctrlKey && mode === 'omnibox') {
+          const code = event.code;
+          let targetIndex = -1;
+
+          // Map physical keys: Digit1->0, Digit2->1, ..., Digit9->8, Digit0->9
+          if (code >= 'Digit1' && code <= 'Digit9') {
+            targetIndex = parseInt(code.substring(5), 10) - 1;
+          } else if (code === 'Digit0') {
+            targetIndex = 9;
+          }
+
+          if (targetIndex >= 0) {
+            event.preventDefault();
+            event.stopPropagation();
+            handleNumberKey(targetIndex);
+            return;
+          }
+        }
+
         // For normal typing keys, only stop propagation to prevent page handlers
         // but don't prevent default so typing still works in the input
         event.stopPropagation();
@@ -160,8 +218,10 @@
   // Handle Enter key based on mode
   function handleEnterKey(event: KeyboardEvent) {
     if (mode === 'omnibox') {
-      const selectedSuggestion = selectedIndex >= 0 ? suggestions[selectedIndex] : null;
-      const url = selectedSuggestion?.url || inputValue || '';
+      // Get selected item from current view (history or favorites)
+      const currentList = viewMode === 'history' ? suggestions : favorites;
+      const selectedItem = selectedIndex >= 0 ? currentList[selectedIndex] : null;
+      const url = selectedItem?.url || inputValue || '';
 
       if (url) {
         omniboxBridge.navigate(url);
@@ -182,9 +242,57 @@
     }
   }
 
+  // Handle Space key to toggle favorite
+  function handleSpaceKey() {
+    if (mode !== 'omnibox' || selectedIndex < 0) return;
+
+    // Get the selected item based on current view mode
+    const item = viewMode === 'history'
+      ? suggestions[selectedIndex]
+      : favorites[selectedIndex];
+
+    if (!item || !item.url) return;
+
+    // Extract title and favicon
+    const title = 'title' in item ? item.title : '';
+    const faviconURL = item.favicon_url || item.favicon || '';
+
+    // Toggle the favorite status
+    omniboxBridge.toggleFavorite(item.url, title, faviconURL);
+
+    // Refresh the favorites list after toggling
+    setTimeout(() => {
+      omniboxBridge.fetchFavorites();
+    }, 100);
+  }
+
+  // Handle Ctrl+Number key for quick navigation
+  function handleNumberKey(targetIndex: number) {
+    if (mode !== 'omnibox') return;
+
+    // Get the current list based on view mode
+    const currentList = viewMode === 'history' ? suggestions : favorites;
+
+    // Check if the target index is valid
+    if (targetIndex >= currentList.length) return;
+
+    const item = currentList[targetIndex];
+    if (!item || !item.url) return;
+
+    // Navigate to the item and close omnibox
+    omniboxBridge.navigate(item.url);
+    omniboxStore.close();
+  }
+
   // Handle arrow key navigation
   function handleArrowKeys(key: string) {
-    const totalItems = mode === 'omnibox' ? suggestions.length : matches.length;
+    let totalItems: number;
+    if (mode === 'omnibox') {
+      // Get count from current view (history or favorites)
+      totalItems = viewMode === 'history' ? suggestions.length : favorites.length;
+    } else {
+      totalItems = matches.length;
+    }
 
     if (totalItems > 0) {
       if (key === 'ArrowDown') {
@@ -325,16 +433,26 @@
     background: var(--dumber-input-bg, var(--dynamic-bg));
     color: var(--dynamic-text);
     border: 1px solid var(--dumber-input-border-color, var(--dynamic-border));
-    border-radius: 0;
-    transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+    border-radius: 2px;
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.15),
+      inset 0 0 0 1px rgba(0, 0, 0, 0.03);
+    transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+    font-family: 'Fira Sans', system-ui, -apple-system, 'Segoe UI', 'Ubuntu', 'Cantarell', sans-serif;
+    letter-spacing: normal;
   }
 
   .omnibox-input-field::placeholder {
     color: var(--dynamic-muted);
+    letter-spacing: normal;
   }
 
   .omnibox-input-field:focus {
     color: var(--dynamic-text);
+    border-color: var(--dynamic-accent);
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.15),
+      0 0 0 1px var(--dynamic-accent);
   }
 
   .omnibox-prefix-badge {

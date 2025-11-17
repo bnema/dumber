@@ -8,6 +8,8 @@ import (
 
 	"github.com/bnema/dumber/internal/app/messaging"
 	"github.com/bnema/dumber/pkg/webkit"
+	"github.com/diamondburned/gotk4/pkg/gdk/v4"
+	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
 // WindowShortcutHandler manages global shortcuts at the window level
@@ -47,6 +49,11 @@ func (h *WindowShortcutHandler) initialize() error {
 		return ErrFailedToInitialize
 	}
 
+	// Register hardware keycode-based shortcuts (for AZERTY/international keyboards)
+	if err := h.registerKeycodeShortcuts(); err != nil {
+		log.Printf("[window-shortcuts] Failed to register keycode shortcuts: %v", err)
+	}
+
 	return h.registerGlobalShortcuts()
 }
 
@@ -60,9 +67,23 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 		{"ctrl+f", h.handleFindToggle, "Find in page"},
 		{"ctrl+shift+c", h.handleCopyURL, "Copy URL"},
 		{"ctrl+shift+p", h.handlePrint, "Print page"},
-		{"ctrl+t", h.handleNewTab, "New tab (no-op)"},
-		{"ctrl+w", h.handleClosePane, "Close current pane"},
 		{"F12", h.handleDevTools, "Developer tools"},
+		// Pane management: Ctrl+P handled by WebView keyboard bridge (not window shortcuts)
+		// Tab management
+		{"ctrl+t", h.handleTabMode, "Enter tab mode"},
+		// Global tab navigation (Ctrl+Tab) is handled via EventControllerKey in registerKeycodeShortcuts
+		// This prevents GTK's default focus cycling behavior
+		// NOTE: Tab mode action keys (n, c, x, l, h, r, Tab, Escape, Enter) are NOT registered
+		// as global shortcuts. They are handled by the WebView keyboard bridge which checks
+		// if tab mode is active before processing them. This prevents them from consuming
+		// keys when tab mode is not active (allowing normal typing in web pages).
+		// Direct tab switching is now handled via hardware keycodes (see registerKeycodeShortcuts)
+		// This supports all keyboard layouts (QWERTY, AZERTY, etc.)
+		// Page reload shortcuts
+		{"ctrl+r", h.handleReload, "Reload page"},
+		{"ctrl+shift+r", h.handleHardReload, "Hard reload (bypass cache)"},
+		{"F5", h.handleReload, "Reload page"},
+		{"ctrl+F5", h.handleHardReload, "Hard reload (bypass cache)"},
 		// Zoom shortcuts - global level for proper active pane targeting
 		{"ctrl+plus", h.handleZoomIn, "Zoom in"},
 		{"ctrl+equal", h.handleZoomIn, "Zoom in (=)"},
@@ -73,6 +94,11 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 		{"alt+ArrowRight", func() { h.handleWorkspaceNavigation(DirectionRight) }, "Navigate right pane"},
 		{"alt+ArrowUp", func() { h.handleWorkspaceNavigation(DirectionUp) }, "Navigate up pane"},
 		{"alt+ArrowDown", func() { h.handleWorkspaceNavigation(DirectionDown) }, "Navigate down pane"},
+		// Vim-style workspace navigation
+		{"alt+h", func() { h.handleWorkspaceNavigation(DirectionLeft) }, "Navigate left pane (vim)"},
+		{"alt+l", func() { h.handleWorkspaceNavigation(DirectionRight) }, "Navigate right pane (vim)"},
+		{"alt+k", func() { h.handleWorkspaceNavigation(DirectionUp) }, "Navigate up pane (vim)"},
+		{"alt+j", func() { h.handleWorkspaceNavigation(DirectionDown) }, "Navigate down pane (vim)"},
 	}
 
 	for _, shortcut := range shortcuts {
@@ -80,6 +106,142 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 		log.Printf("[window-shortcuts] Registered global shortcut: %s (%s)",
 			shortcut.key, shortcut.desc)
 	}
+
+	// NOTE: Ctrl+P is NOT registered here - it's handled by WebView's keyboard bridge
+	// (RegisterPaneModeHandler in workspace_manager.go) which calls app.workspace.EnterPaneMode()
+
+	return nil
+}
+
+// registerKeycodeShortcuts registers keyboard shortcuts based on hardware keycodes
+// This allows Alt+number shortcuts to work on AZERTY and other keyboard layouts
+func (h *WindowShortcutHandler) registerKeycodeShortcuts() error {
+	if h.window == nil {
+		return fmt.Errorf("window is nil")
+	}
+
+	gtkWindow := h.window.AsWindow()
+	if gtkWindow == nil {
+		return fmt.Errorf("gtk window is nil")
+	}
+
+	// Create event controller for keyboard events
+	keyController := gtk.NewEventControllerKey()
+	keyController.SetPropagationPhase(gtk.PhaseCapture)
+
+	// GDK key constants
+	const (
+		gdkKeyTab    = 0xff09
+		gdkKeyEscape = 0xff1b
+		gdkKeyReturn = 0xff0d
+		gdkKeyN      = 0x006e
+		gdkKeyC      = 0x0063
+		gdkKeyX      = 0x0078
+		gdkKeyL      = 0x006c
+		gdkKeyH      = 0x0068
+		gdkKeyR      = 0x0072
+	)
+
+	// Map hardware keycodes to tab indices
+	// These keycodes are the same across all keyboard layouts
+	keycodeToTab := map[uint]int{
+		10: 0, // 1/& key
+		11: 1, // 2/é key
+		12: 2, // 3/" key
+		13: 3, // 4/' key
+		14: 4, // 5/( key
+		15: 5, // 6/- key
+		16: 6, // 7/è key
+		17: 7, // 8/_ key
+		18: 8, // 9/ç key
+		19: 9, // 0/à key
+	}
+
+	keyController.ConnectKeyPressed(func(keyval, keycode uint, state gdk.ModifierType) bool {
+		// IMPORTANT: Let WebView's keyboard bridge handle pane mode action keys first
+		// During pane mode, single-letter keys (h,j,k,l,x,s,v, etc.) must reach the WebView
+		// So we only intercept specific shortcuts here and let everything else through
+
+		// Handle Ctrl+Tab for next tab
+		if keyval == gdkKeyTab && state.Has(gdk.ControlMask) && !state.Has(gdk.ShiftMask) {
+			log.Printf("[window-shortcuts] Ctrl+Tab -> next tab")
+			h.handleNextTab()
+			return true // Consume event to prevent focus cycling
+		}
+
+		// Handle Ctrl+Shift+Tab for previous tab
+		if keyval == gdkKeyTab && state.Has(gdk.ControlMask) && state.Has(gdk.ShiftMask) {
+			log.Printf("[window-shortcuts] Ctrl+Shift+Tab -> previous tab")
+			h.handlePrevTab()
+			return true // Consume event to prevent focus cycling
+		}
+
+		// Check for Alt+number (but not with Ctrl or Shift)
+		if state.Has(gdk.AltMask) && !state.Has(gdk.ControlMask) && !state.Has(gdk.ShiftMask) {
+			// Check if this is a number key
+			if tabIndex, ok := keycodeToTab[keycode]; ok {
+				log.Printf("[window-shortcuts] Hardware keycode shortcut: Alt+keycode(%d) -> tab %d", keycode, tabIndex)
+				h.handleDirectTabSwitch(tabIndex)
+				return true // Handled
+			}
+		}
+
+		// Handle tab mode action keys (only when tab mode is active)
+		// These keys need to be checked here so they can propagate when tab mode is not active
+		if h.isTabModeActive() {
+			handled := false
+			action := ""
+
+			// Check for no modifiers (plain key press)
+			if !state.Has(gdk.ControlMask) && !state.Has(gdk.AltMask) {
+				switch keyval {
+				case gdkKeyN, gdkKeyC:
+					action = "new-tab"
+					handled = true
+				case gdkKeyX:
+					action = "close-tab"
+					handled = true
+				case gdkKeyL:
+					action = "next-tab"
+					handled = true
+				case gdkKeyH:
+					action = "previous-tab"
+					handled = true
+				case gdkKeyR:
+					action = "rename-tab"
+					handled = true
+				case gdkKeyTab:
+					action = "next-tab"
+					handled = true
+				case gdkKeyReturn:
+					action = "confirm"
+					handled = true
+				case gdkKeyEscape:
+					action = "cancel"
+					handled = true
+				}
+			}
+
+			// Handle Shift+Tab for previous tab in tab mode
+			if keyval == gdkKeyTab && state.Has(gdk.ShiftMask) && !state.Has(gdk.ControlMask) {
+				action = "previous-tab"
+				handled = true
+			}
+
+			if handled {
+				log.Printf("[window-shortcuts] Tab mode action: %s", action)
+				h.handleTabModeAction(action)
+				return true // Consume event
+			}
+		}
+
+		// Let all other keys propagate to WebView's keyboard bridge
+		// This includes Ctrl+P, Ctrl+T, and all pane mode action keys
+		return false
+	})
+
+	gtkWindow.AddController(keyController)
+	log.Printf("[window-shortcuts] Registered capture phase shortcuts: Ctrl+Tab, Alt+number")
 
 	return nil
 }
@@ -112,7 +274,7 @@ func (h *WindowShortcutHandler) handleCopyURL() {
 	script := `
 		(async function() {
 			const toast = (message, type) => {
-				document.dispatchEvent(new CustomEvent('dumber:showToast', {
+				document.dispatchEvent(new CustomEvent('dumber:toast', {
 					detail: { message, duration: 2000, type }
 				}));
 			};
@@ -173,6 +335,38 @@ func (h *WindowShortcutHandler) handlePrint() {
 
 	if err := h.app.activePane.webView.ShowPrintDialog(); err != nil {
 		log.Printf("[window-shortcuts] Failed to show print dialog: %v", err)
+	}
+}
+
+func (h *WindowShortcutHandler) handleReload() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if h.app.activePane == nil || h.app.activePane.webView == nil {
+		log.Printf("[window-shortcuts] No active pane for reload")
+		return
+	}
+
+	log.Printf("[window-shortcuts] Reload page -> pane %p", h.app.activePane.webView)
+
+	if err := h.app.activePane.webView.Reload(); err != nil {
+		log.Printf("[window-shortcuts] Failed to reload page: %v", err)
+	}
+}
+
+func (h *WindowShortcutHandler) handleHardReload() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if h.app.activePane == nil || h.app.activePane.webView == nil {
+		log.Printf("[window-shortcuts] No active pane for hard reload")
+		return
+	}
+
+	log.Printf("[window-shortcuts] Hard reload (bypass cache) -> pane %p", h.app.activePane.webView)
+
+	if err := h.app.activePane.webView.ReloadBypassCache(); err != nil {
+		log.Printf("[window-shortcuts] Failed to hard reload page: %v", err)
 	}
 }
 
@@ -367,11 +561,85 @@ func (h *WindowShortcutHandler) handleClosePane() {
 	}
 }
 
-// handleNewTab is a no-op handler for Ctrl+T
-// This prevents the default browser behavior and allows for future implementation
-func (h *WindowShortcutHandler) handleNewTab() {
-	log.Printf("[window-shortcuts] Ctrl+T pressed (no-op - tabs not yet implemented)")
-	// TODO: Implement new tab functionality
+// handlePaneMode enters pane mode for modal pane management.
+func (h *WindowShortcutHandler) handlePaneMode() {
+	if h.app == nil || h.app.workspace == nil {
+		log.Printf("[window-shortcuts] Cannot enter pane mode: workspace not available")
+		return
+	}
+
+	log.Printf("[window-shortcuts] Entering pane mode")
+	h.app.workspace.EnterPaneMode()
+}
+
+// handleTabMode enters tab mode for modal tab management.
+func (h *WindowShortcutHandler) handleTabMode() {
+	if h.app == nil || h.app.tabManager == nil {
+		log.Printf("[window-shortcuts] Cannot enter tab mode: tab manager not available")
+		return
+	}
+
+	log.Printf("[window-shortcuts] Entering tab mode")
+	h.app.tabManager.EnterTabMode()
+}
+
+// handleNextTab switches to the next tab.
+func (h *WindowShortcutHandler) handleNextTab() {
+	if h.app == nil || h.app.tabManager == nil {
+		log.Printf("[window-shortcuts] Cannot switch tab: tab manager not available")
+		return
+	}
+
+	log.Printf("[window-shortcuts] Switching to next tab")
+	if err := h.app.tabManager.NextTab(); err != nil {
+		log.Printf("[window-shortcuts] Failed to switch to next tab: %v", err)
+	}
+}
+
+// handlePrevTab switches to the previous tab.
+func (h *WindowShortcutHandler) handlePrevTab() {
+	if h.app == nil || h.app.tabManager == nil {
+		log.Printf("[window-shortcuts] Cannot switch tab: tab manager not available")
+		return
+	}
+
+	log.Printf("[window-shortcuts] Switching to previous tab")
+	if err := h.app.tabManager.PreviousTab(); err != nil {
+		log.Printf("[window-shortcuts] Failed to switch to previous tab: %v", err)
+	}
+}
+
+// handleDirectTabSwitch switches to a specific tab by index (0-based).
+func (h *WindowShortcutHandler) handleDirectTabSwitch(index int) {
+	if h.app == nil || h.app.tabManager == nil {
+		log.Printf("[window-shortcuts] Cannot switch tab: tab manager not available")
+		return
+	}
+
+	log.Printf("[window-shortcuts] Direct tab switch to index %d", index)
+	if err := h.app.tabManager.SwitchToTab(index); err != nil {
+		log.Printf("[window-shortcuts] Failed to switch to tab %d: %v", index, err)
+	}
+}
+
+// isTabModeActive checks if tab mode is currently active
+func (h *WindowShortcutHandler) isTabModeActive() bool {
+	if h.app == nil || h.app.tabManager == nil {
+		return false
+	}
+	return h.app.tabManager.IsTabModeActive()
+}
+
+// handleTabModeAction handles tab mode action keys (n, x, l, h, etc.)
+// Only processes actions when tab mode is active
+func (h *WindowShortcutHandler) handleTabModeAction(action string) {
+	if h.app == nil || h.app.tabManager == nil {
+		return
+	}
+
+	// Tab mode is active, handle the action
+	log.Printf("[window-shortcuts] Tab mode action: %s", action)
+	h.app.tabManager.HandleTabAction(action)
 }
 
 // Cleanup releases resources

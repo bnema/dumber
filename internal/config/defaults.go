@@ -21,14 +21,22 @@ const (
 	// Workspace defaults
 	defaultPaneActivationShortcut  = "ctrl+p"
 	defaultPaneTimeoutMilliseconds = 3000
+	defaultTabActivationShortcut   = "ctrl+t"
+	defaultTabTimeoutMilliseconds  = 3000
+	defaultTabBarPosition          = "bottom"
 	defaultPopupPlacement          = "right"
 
 	// Workspace styling defaults
-	defaultBorderWidth         = 2
-	defaultBorderColor         = "@theme_selected_bg_color"
-	defaultPaneModeBorderColor = "#FFA500" // Orange for pane mode indicator
-	defaultTransitionDuration  = 120
-	defaultBorderRadius        = 0
+	defaultBorderWidth            = 1
+	defaultBorderColor            = "@theme_selected_bg_color"
+	defaultInactiveBorderWidth    = 1                             // Same width as active to prevent layout shift
+	defaultInactiveBorderColor    = "@theme_unfocused_bg_color"   // GTK theme variable
+	defaultShowStackedTitleBorder = false                         // Hidden by default
+	defaultPaneModeBorderColor    = "#4A90E2"                     // Blue for pane mode indicator
+	defaultTabModeBorderColor     = "#FFA500"                     // Orange for tab mode indicator (distinct from pane mode)
+	defaultTransitionDuration     = 120
+	defaultBorderRadius           = 0
+	defaultUIScale                = 1.0 // UI scale multiplier (1.0 = 100%, 1.2 = 120%)
 )
 
 // getDefaultLogDir returns the default log directory, falls back to empty string on error
@@ -51,7 +59,8 @@ func DefaultConfig() *Config {
 			RetentionPeriodDays: defaultRetentionDays, // 1 year
 			CleanupIntervalDays: 1,                    // daily cleanup
 		},
-		SearchShortcuts: GetDefaultSearchShortcuts(),
+		SearchShortcuts:     GetDefaultSearchShortcuts(),
+		DefaultSearchEngine: "https://duckduckgo.com/?q=%s",
 		Dmenu: DmenuConfig{
 			MaxHistoryItems:  defaultMaxHistoryItems,
 			ShowVisitCount:   true,
@@ -142,22 +151,30 @@ func DefaultConfig() *Config {
 		UseDomZoom:    false,
 		DefaultZoom:   1.2, // 120% default zoom for better readability
 		Workspace: WorkspaceConfig{
-			EnableZellijControls: true,
 			PaneMode: PaneModeConfig{
 				ActivationShortcut:  defaultPaneActivationShortcut,
 				TimeoutMilliseconds: defaultPaneTimeoutMilliseconds,
-				ActionBindings: map[string]string{
-					"arrowright": "split-right",
-					"arrowleft":  "split-left",
-					"arrowup":    "split-up",
-					"arrowdown":  "split-down",
-					"r":          "split-right",
-					"l":          "split-left",
-					"u":          "split-up",
-					"d":          "split-down",
-					"x":          "close-pane",
-					"enter":      "confirm",
-					"escape":     "cancel",
+				Actions: map[string][]string{
+					"split-right": {"arrowright", "r"},
+					"split-left":  {"arrowleft", "l"},
+					"split-up":    {"arrowup", "u"},
+					"split-down":  {"arrowdown", "d"},
+					"close-pane":  {"x"},
+					"confirm":     {"enter"},
+					"cancel":      {"escape"},
+				},
+			},
+			TabMode: TabModeConfig{
+				ActivationShortcut:  defaultTabActivationShortcut,
+				TimeoutMilliseconds: defaultTabTimeoutMilliseconds,
+				Actions: map[string][]string{
+					"new-tab":      {"n", "c"},
+					"close-tab":    {"x"},
+					"next-tab":     {"l", "tab"},
+					"previous-tab": {"h", "shift+tab"},
+					"rename-tab":   {"r"},
+					"confirm":      {"enter"},
+					"cancel":       {"escape"},
 				},
 			},
 			Tabs: TabKeyConfig{
@@ -166,21 +183,27 @@ func DefaultConfig() *Config {
 				NextTab:     "ctrl+tab",
 				PreviousTab: "ctrl+shift+tab",
 			},
+			TabBarPosition: defaultTabBarPosition,
 			Popups: PopupBehaviorConfig{
-				Behavior:             PopupBehaviorSplit, // Default: open popups in split panes
+				Behavior:             PopupBehaviorSplit, // Default: open JavaScript popups in split panes
 				Placement:            defaultPopupPlacement,
 				OpenInNewPane:        true,
 				FollowPaneContext:    true,
-				BlankTargetBehavior:  "pane", // Default to pane, future: "tab"
+				BlankTargetBehavior:  "stacked", // Default: open _blank links in stacked mode
 				EnableSmartDetection: true,   // Use WindowProperties to detect popup vs tab
 				OAuthAutoClose:       true,   // Auto-close OAuth popups on success
 			},
 			Styling: WorkspaceStylingConfig{
-				BorderWidth:         defaultBorderWidth,
-				BorderColor:         defaultBorderColor,
-				PaneModeBorderColor: defaultPaneModeBorderColor,
-				TransitionDuration:  defaultTransitionDuration,
-				BorderRadius:        defaultBorderRadius,
+				BorderWidth:            defaultBorderWidth,
+				BorderColor:            defaultBorderColor,
+				InactiveBorderWidth:    defaultInactiveBorderWidth,
+				InactiveBorderColor:    defaultInactiveBorderColor,
+				ShowStackedTitleBorder: defaultShowStackedTitleBorder,
+				PaneModeBorderColor:    defaultPaneModeBorderColor,
+				TabModeBorderColor:     defaultTabModeBorderColor,
+				TransitionDuration:     defaultTransitionDuration,
+				BorderRadius:           defaultBorderRadius,
+				UIScale:                defaultUIScale,
 			},
 		},
 		ContentFilteringWhitelist: []string{

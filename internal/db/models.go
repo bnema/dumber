@@ -17,6 +17,16 @@ type CertificateValidation struct {
 	ExpiresAt       sql.NullTime `json:"expires_at"`
 }
 
+type Favorite struct {
+	ID         int64          `json:"id"`
+	Url        string         `json:"url"`
+	Title      sql.NullString `json:"title"`
+	FaviconUrl sql.NullString `json:"favicon_url"`
+	Position   int64          `json:"position"`
+	CreatedAt  sql.NullTime   `json:"created_at"`
+	UpdatedAt  sql.NullTime   `json:"updated_at"`
+}
+
 type FuzzyCacheMetadatum struct {
 	ID           int64  `json:"id"`
 	Version      int64  `json:"version"`

@@ -4,34 +4,23 @@
   <img src="assets/logo.svg" alt="Dumber Logo" width="256" height="256" />
 </p>
 
-Dumber is a minimalist browser and launcher companion focused on speed and simplicity. It ships a built‑in WebKitGTK (GTK4) window for navigation and a CLI with dmenu‑style launcher integration (rofi, fuzzel).
-
-- Native GUI via WebKitGTK 6 (GTK4, CGO) with an embedded homepage UI.
-- CLI that parses URLs, supports search shortcuts (e.g., `g:query`), and integrates with rofi/dmenu.
-- Persistent history and per‑domain zoom levels (SQLite, XDG locations).
-- Configurable via `config.json` and environment variables, with live reload.
-
-## Wayland‑First
-- Dumb on purpose, designed for Wayland window managers (Sway, Hyprland, River, Niri, etc..) it's a tiny companion that interact nicely with your launcher.
-- Uses a native Wayland WebKitGTK-6.0 window; no external browser required and no X11/XWayland dependency.
-- Optimized for dmenu‑style launchers (rofi, fuzzel, wofi) and keyboard‑driven workflows.
-
-## Status
-- Early development stage with regular releases. The workspace management system is fully functional and the browser works well for daily use. Expect some rough edges but core features are stable.
+A dumb browser that works like your favorite terminal multiplexer.
 
 ## Features
-- **Complete workspace management**: Zellij-inspired pane splitting with binary tree layout, stacked panes with title bars, focus tracking, and modal keyboard controls
-- **Multi-pane WebView architecture**: Independent browsing sessions per pane with proper lifecycle management
-- **Advanced popup handling**: Intelligent popup management for tiling WMs - OAuth flows, window.open(), and popup deduplication
-- **Window-level global shortcuts**: Centralized shortcut handling to prevent conflicts between multiple WebView instances
-- **GPU rendering and hardware video acceleration**: Automatic GPU detection with VA-API/VDPAU support
-- **Built-in ad blocker**: UBlock-based content filtering (network blocking functional, cosmetic filtering in progress)
-- **Configurable color palettes**: Customizable light and dark themes with semantic color tokens injected as CSS custom properties
-- **Terminal-style UI design**: Monospace fonts, sharp corners, dashed borders with configurable appearance settings
-- **dmenu‑style launcher integration**: rofi, fuzzel integration with favicon display, history and search shortcut suggestions
-- **Comprehensive keyboard controls**: Complete keyboard-driven workflow with shortcuts and gestures
-- **Persistent history and zoom**: SQLite-based history with configurable default zoom and per‑domain zoom persistence
-- **Fully configurable**: Single config file with live reload and environment variable overrides
+- **Wayland native**: No X11/XWayland dependency, works with Sway, Hyprland, River, Niri, etc.
+- **Tabs and workspaces**: Each tab holds a workspace with split or stacked panes.
+- **Keyboard-driven**: Complete keyboard workflow inspired by Zellij.
+- **Smart popup handling**: OAuth flows, window.open(), and popup deduplication for tiling WMs.
+- **GPU rendering**: Hardware video acceleration with automatic VA-API/VDPAU detection.
+- **Built-in ad blocking**: UBlock-based network filtering (cosmetic filtering in progress).
+- **Launcher integration**: dmenu-style with rofi/fuzzel support, shows favicons and history.
+- **Search shortcuts**: Quick search via aliases (e.g., `g:golang` for Google).
+- **Customizable themes**: Light and dark palettes with semantic color tokens.
+- **Persistent storage**: SQLite for history, zoom levels, and settings.
+- **Live configuration**: Single config file with hot reload when possible.
+
+## Status
+Early development with regular releases. Core features work well for daily use but expect some rough edges.
 
 ## Controls & Shortcuts
 
@@ -53,7 +42,21 @@ Dumber is a minimalist browser and launcher companion focused on speed and simpl
 | **Ctrl+Shift+R** | Hard Reload | Refresh ignoring cache |
 | **Ctrl+←** / **Ctrl+→** | Navigate Back/Forward | Browser history navigation |
 
-#### Zellij-Inspired Pane Management
+#### Tab Management
+| Shortcut | Action | Notes |
+|----------|--------|-------|
+| **Ctrl+T** | Enter Tab Mode | Modal mode for tab operations |
+| **Ctrl+Tab** | Next Tab | Quick tab switching |
+| **Ctrl+Shift+Tab** | Previous Tab | Quick tab switching |
+| **Ctrl+W** | Close Tab | Close current tab |
+| **N** / **C** (in tab mode) | New Tab | Create new tab |
+| **X** (in tab mode) | Close Tab | Close current tab |
+| **L** / **Tab** (in tab mode) | Next Tab | Navigate to next tab |
+| **H** / **Shift+Tab** (in tab mode) | Previous Tab | Navigate to previous tab |
+| **R** (in tab mode) | Rename Tab | Rename current tab |
+| **Escape** (in tab mode) | Exit Tab Mode | Return to normal navigation |
+
+#### Pane Management
 | Shortcut | Action | Notes |
 |----------|--------|-------|
 | **Ctrl+P** | Enter Pane Mode | Modal mode for pane operations |
@@ -80,10 +83,13 @@ Dumber is a minimalist browser and launcher companion focused on speed and simpl
 ### Omnibox/Find Mode (when active)
 | Shortcut | Action | Notes |
 |----------|--------|-------|
-| **Escape** | Close overlay | Exit omnibox or find mode |
+| **Escape** | Close/Clear | Clear input if text present, close if empty |
 | **Enter** | Execute/Navigate | Navigate to URL or jump to match |
 | **Shift+Enter** | Previous Match | Find mode: go to previous match |
 | **Alt+Enter** | Center Match | Find mode: center on match, keep open |
+| **Tab** | Toggle View | Omnibox mode: switch between history and favorites |
+| **Space** | Toggle Favorite | Omnibox mode: favorite/unfavorite selected item |
+| **Ctrl+1-9, 0** | Quick Navigate | Jump to result by number (1-10) |
 | **↑/↓ Arrow** | Navigate Results | Browse suggestions/matches |
 
 All zoom changes are automatically persisted per-domain and restored on next visit.
@@ -99,7 +105,7 @@ Prerequisites:
 Build options:
 - GUI (default, recommended):
   - `make build`          # builds frontend + Go with `-tags=webkit_cgo`
-  - Run: `./dist/dumber`  # opens the embedded homepage
+  - Run: `./dist/dumber`  # to see all available commands.
 - CLI‑only (no GUI, CGO disabled):
   - `make build-no-gui`
   - Run: `./dist/dumber-no-gui version`
@@ -112,7 +118,6 @@ Development:
 **Note**: `go install` will not work for this project because the frontend assets must be built first and embedded into the binary. Use the build commands instead:
 
 - GUI build (default, recommended):
-  - Ensure WebKit2GTK/GTK dev packages are installed (see prerequisites)
   - Clone the repo and run `make build` (builds frontend first, then Go with GUI support)
   - The resulting `./dist/dumber` binary includes the native GUI window
 - CLI‑only (no native window):
@@ -123,16 +128,15 @@ Development:
 - Open a URL or search:
   - `dumber browse https://example.com`
   - `dumber browse example.com`        # scheme auto‑added
+  - `dumber browse dumb://home`        # built-in homepage with stats
   - `dumber browse g:golang`           # Google search via shortcut
-- Launch the GUI directly:
-  - `dumber`                           # no args → opens GUI homepage
 - Show version information:
   - `dumber version`                   # display version, commit, and build date
 - Launcher integration (dmenu‑style examples):
-  - rofi:   `dumber dmenu | rofi -dmenu -p "Browse: " | dumber dmenu --select`
-  - fuzzel: `dumber dmenu | fuzzel --dmenu -p "Browse: " | dumber dmenu --select`
+  - rofi:   `dumber dmenu | rofi -dmenu -p "🔍 " | dumber dmenu --select`
+  - fuzzel: `dumber dmenu | fuzzel --dmenu -p "🔍 " | dumber dmenu --select`
 - Manage browsing history:
-  - `dumber history`                   # list recent history (default: 20 entries)
+  - `dumber history`                  # list recent history (default: 20 entries)
   - `dumber history list -n 50`       # list 50 recent entries
   - `dumber history search golang`    # search history for "golang"
   - `dumber history stats`            # show history statistics
@@ -157,9 +161,24 @@ Note: The root flag path only generates options; for processing a selection (`--
 
 In GUI mode the app serves an embedded homepage via `dumb://homepage`, and frontend assets under `dumb://app/...`.
 
-## Pane Management (Zellij-Inspired)
+## Tab Management
 
-Dumber features a Zellij-inspired pane management system that allows you to split your browser window into multiple panes, each running independent web sessions.
+Each tab holds its own workspace. Each workspace can contain multiple panes (split or stacked). Switch between tabs to switch between independent workspaces.
+
+### How it Works
+1. **Enter Tab Mode**: Press `Ctrl+T` to enter tab mode (modal interface with timeout)
+2. **Create/Close Tabs**: Use keyboard shortcuts:
+   - `N` or `C` - New tab
+   - `X` - Close current tab
+   - `R` - Rename tab
+3. **Navigate**: Use `Ctrl+Tab` / `Ctrl+Shift+Tab` for quick tab switching, or `L`/`H` in tab mode
+4. **Exit**: Press `Escape` to exit tab mode or wait for timeout
+
+Tab mode provides visual feedback with an orange border indicator.
+
+## Pane Management
+
+Split your browser window into multiple panes, each running independent web sessions.
 
 ### How it Works
 1. **Enter Pane Mode**: Press `Ctrl+P` to enter pane mode (modal interface with timeout)
@@ -172,74 +191,13 @@ Dumber features a Zellij-inspired pane management system that allows you to spli
 3. **Navigate**: Use `Alt+Arrow Keys` to move focus between split panes, or `Alt+Up/Down` to navigate within stacked panes
 4. **Close**: Press `X` in pane mode to close the current pane
 
-### Configuration
-The pane system is fully configurable via `config.json`:
-```json
-"workspace": {
-  "enable_zellij_controls": true,
-  "pane_mode": {
-    "activation_shortcut": "ctrl+p",
-    "timeout_ms": 3000,
-    "action_bindings": {
-      "arrowright": "split-right",
-      "r": "split-right",
-      "x": "close-pane",
-      // ... full key mappings
-    }
-  },
-  "popups": {
-    "placement": "right",
-    "open_in_new_pane": true
-  },
-  "styling": {
-    "border_width": 2,
-    "border_color": "@theme_selected_bg_color",
-    "transition_duration": 120
-  }
-}
-```
-
 ## Configuration
 
-Dumber follows the XDG Base Directory spec:
-- Config: `~/.config/dumber/config.json`
-- Data:   `~/.local/share/dumber`
-- State:  `~/.local/state/dumber` (default DB lives here)
+Configuration file: `~/.config/dumber/config.toml` (supports TOML, JSON, YAML)
 
-A default `config.json` is created on first run. Config changes are watched and applied at runtime when possible.
+A default config is created on first run. Changes are applied automatically (hot reload). Override any setting with `DUMB_BROWSER_*` or `DUMBER_*` environment variables.
 
-### How Configuration Works
-
-- **Config file**: `~/.config/dumber/config.json` (supports `.yaml` and `.toml` too)
-- **Format**: JSON/YAML/TOML - auto-detected
-- **JSON Schema**: Auto-generated for IDE autocompletion and validation
-- **Live reload**: Changes are automatically applied without restarting
-- **Environment variables**: Override any setting with `DUMB_BROWSER_*` or `DUMBER_*` prefix
-- **Default values**: Sensible defaults for all settings
-
-### Quick Examples
-
-```json
-{
-  "default_zoom": 1.2,
-  "rendering_mode": "gpu",
-  "search_shortcuts": {
-    "g": { "url": "https://google.com/search?q=%s", "description": "Google" }
-  },
-  "workspace": {
-    "enable_zellij_controls": true,
-    "popups": { "behavior": "split" }
-  }
-}
-```
-
-Environment variable override:
-```bash
-DUMBER_RENDERING_MODE=cpu dumber
-DUMB_BROWSER_LOGGING_LEVEL=debug dumber
-```
-
-**📖 Complete documentation**: See [docs/CONFIG.md](docs/CONFIG.md) for all available settings, defaults, and valid values.
+**Full documentation**: [docs/CONFIG.md](docs/CONFIG.md) - Complete reference for all settings, workspace controls, shortcuts, styling, and more.
 
 
 ## Building With WebKitGTK 6 (GTK4)
@@ -279,10 +237,10 @@ I will gladly accept contributions, especially related to UI/UX enhancements. Fe
 ## Roadmap
 - ✅ WebKitGTK 6 (GTK4) migration (GPU/Vulkan path complete)
 - ✅ GPU rendering (Vulkan via GTK4 renderer) with graceful CPU fallback
-- ✅ Zellij-inspired pane management with binary tree layout and keyboard-driven workflow
+- ✅ Modal pane management with binary tree layout and keyboard-driven workflow
+- ✅ Tab management system with modal controls
 - 🚧 UBlock-based content filtering (early stage - network blocking works, cosmetic filtering needs work)
 - Full Vim-style motion and keyboard navigation across pages and UI
-- Tab management system (browser tabs in addition to panes)
 - Performance work: faster startup, lower memory, snappier UI
 - Other shiny things I'm not yet aware of
 

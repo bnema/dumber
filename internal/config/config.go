@@ -26,7 +26,9 @@ type Config struct {
 	Database          DatabaseConfig            `mapstructure:"database" yaml:"database"`
 	History           HistoryConfig             `mapstructure:"history" yaml:"history"`
 	SearchShortcuts   map[string]SearchShortcut `mapstructure:"search_shortcuts" yaml:"search_shortcuts"`
-	Dmenu             DmenuConfig               `mapstructure:"dmenu" yaml:"dmenu"`
+	// DefaultSearchEngine is the URL template for the default search engine (must contain %s placeholder)
+	DefaultSearchEngine string `mapstructure:"default_search_engine" yaml:"default_search_engine"`
+	Dmenu               DmenuConfig `mapstructure:"dmenu" yaml:"dmenu"`
 	Logging           LoggingConfig             `mapstructure:"logging" yaml:"logging"`
 	Appearance        AppearanceConfig          `mapstructure:"appearance" yaml:"appearance"`
 	VideoAcceleration VideoAccelerationConfig   `mapstructure:"video_acceleration" yaml:"video_acceleration"`
@@ -67,8 +69,8 @@ type HistoryConfig struct {
 
 // SearchShortcut represents a search shortcut configuration.
 type SearchShortcut struct {
-	URL         string `mapstructure:"url" yaml:"url" json:"url"`
-	Description string `mapstructure:"description" yaml:"description" json:"description"`
+	URL         string `mapstructure:"url" toml:"url" yaml:"url" json:"url"`
+	Description string `mapstructure:"description" toml:"description" yaml:"description" json:"description"`
 }
 
 // DmenuConfig holds dmenu/rofi integration configuration.
@@ -214,12 +216,14 @@ type DebugConfig struct {
 
 // WorkspaceConfig captures layout, pane, and tab behaviour preferences.
 type WorkspaceConfig struct {
-	// EnableZellijControls toggles Zellij-inspired keybindings.
-	EnableZellijControls bool `mapstructure:"enable_zellij_controls" yaml:"enable_zellij_controls" json:"enable_zellij_controls"`
 	// PaneMode defines modal pane behaviour and bindings.
 	PaneMode PaneModeConfig `mapstructure:"pane_mode" yaml:"pane_mode" json:"pane_mode"`
+	// TabMode defines modal tab behaviour and bindings (Alt+T).
+	TabMode TabModeConfig `mapstructure:"tab_mode" yaml:"tab_mode" json:"tab_mode"`
 	// Tabs holds classic browser tab shortcuts.
 	Tabs TabKeyConfig `mapstructure:"tabs" yaml:"tabs" json:"tabs"`
+	// TabBarPosition determines tab bar placement: "top" or "bottom".
+	TabBarPosition string `mapstructure:"tab_bar_position" yaml:"tab_bar_position" json:"tab_bar_position"`
 	// Popups configures default popup placement rules.
 	Popups PopupBehaviorConfig `mapstructure:"popups" yaml:"popups" json:"popups"`
 	// Styling configures workspace visual appearance.
@@ -228,9 +232,40 @@ type WorkspaceConfig struct {
 
 // PaneModeConfig defines modal behaviour for pane management.
 type PaneModeConfig struct {
-	ActivationShortcut  string            `mapstructure:"activation_shortcut" yaml:"activation_shortcut" json:"activation_shortcut"`
-	TimeoutMilliseconds int               `mapstructure:"timeout_ms" yaml:"timeout_ms" json:"timeout_ms"`
-	ActionBindings      map[string]string `mapstructure:"action_bindings" yaml:"action_bindings" json:"action_bindings"`
+	ActivationShortcut  string              `mapstructure:"activation_shortcut" yaml:"activation_shortcut" json:"activation_shortcut"`
+	TimeoutMilliseconds int                 `mapstructure:"timeout_ms" yaml:"timeout_ms" json:"timeout_ms"`
+	Actions             map[string][]string `mapstructure:"actions" yaml:"actions" json:"actions"`
+}
+
+// GetKeyBindings returns an inverted map for O(1) key→action lookup.
+// This is built from the action→keys structure in the config.
+func (p *PaneModeConfig) GetKeyBindings() map[string]string {
+	keyToAction := make(map[string]string)
+	for action, keys := range p.Actions {
+		for _, key := range keys {
+			keyToAction[key] = action
+		}
+	}
+	return keyToAction
+}
+
+// TabModeConfig defines modal behaviour for tab management (Zellij-style).
+type TabModeConfig struct {
+	ActivationShortcut  string              `mapstructure:"activation_shortcut" yaml:"activation_shortcut" json:"activation_shortcut"`
+	TimeoutMilliseconds int                 `mapstructure:"timeout_ms" yaml:"timeout_ms" json:"timeout_ms"`
+	Actions             map[string][]string `mapstructure:"actions" yaml:"actions" json:"actions"`
+}
+
+// GetKeyBindings returns an inverted map for O(1) key→action lookup.
+// This is built from the action→keys structure in the config.
+func (t *TabModeConfig) GetKeyBindings() map[string]string {
+	keyToAction := make(map[string]string)
+	for action, keys := range t.Actions {
+		for _, key := range keys {
+			keyToAction[key] = action
+		}
+	}
+	return keyToAction
 }
 
 // TabKeyConfig defines Zellij-inspired tab shortcuts.
@@ -270,8 +305,9 @@ type PopupBehaviorConfig struct {
 	// FollowPaneContext determines if popup placement follows parent pane context
 	FollowPaneContext bool `mapstructure:"follow_pane_context" yaml:"follow_pane_context" json:"follow_pane_context"`
 
-	// BlankTargetBehavior determines how to handle window.open(url, "_blank") intents
-	// Accepted values: "pane" (default) or "tab" (future support)
+	// BlankTargetBehavior determines how target="_blank" links are opened
+	// Accepted values: "split", "stacked" (default), "tabbed"
+	// This is separate from Behavior which controls JavaScript popups
 	BlankTargetBehavior string `mapstructure:"blank_target_behavior" yaml:"blank_target_behavior" json:"blank_target_behavior"`
 
 	// EnableSmartDetection uses WebKitWindowProperties to detect popup vs tab intents
@@ -283,17 +319,28 @@ type PopupBehaviorConfig struct {
 
 // WorkspaceStylingConfig defines visual styling for workspace panes.
 type WorkspaceStylingConfig struct {
-	// BorderWidth in pixels for pane borders
+	// BorderWidth in pixels for active pane borders
 	BorderWidth int `mapstructure:"border_width" yaml:"border_width" json:"border_width"`
 	// BorderColor for focused panes (CSS color value or theme variable)
 	BorderColor string `mapstructure:"border_color" yaml:"border_color" json:"border_color"`
+	// InactiveBorderWidth in pixels for inactive pane borders (0 = hidden)
+	InactiveBorderWidth int `mapstructure:"inactive_border_width" yaml:"inactive_border_width" json:"inactive_border_width"`
+	// InactiveBorderColor for unfocused panes (CSS color value or theme variable)
+	InactiveBorderColor string `mapstructure:"inactive_border_color" yaml:"inactive_border_color" json:"inactive_border_color"`
+	// ShowStackedTitleBorder enables the separator line below stacked pane titles
+	ShowStackedTitleBorder bool `mapstructure:"show_stacked_title_border" yaml:"show_stacked_title_border" json:"show_stacked_title_border"`
 	// PaneModeBorderColor for the pane mode indicator border (CSS color value or theme variable)
-	// Defaults to "#FFA500" (orange) if not set
+	// Defaults to "#4A90E2" (blue) if not set
 	PaneModeBorderColor string `mapstructure:"pane_mode_border_color" yaml:"pane_mode_border_color" json:"pane_mode_border_color"`
+	// TabModeBorderColor for the tab mode indicator border (CSS color value or theme variable)
+	// Defaults to "#FFA500" (orange) if not set - MUST be different from PaneModeBorderColor
+	TabModeBorderColor string `mapstructure:"tab_mode_border_color" yaml:"tab_mode_border_color" json:"tab_mode_border_color"`
 	// TransitionDuration in milliseconds for border animations
 	TransitionDuration int `mapstructure:"transition_duration" yaml:"transition_duration" json:"transition_duration"`
 	// BorderRadius in pixels for pane border corners
 	BorderRadius int `mapstructure:"border_radius" yaml:"border_radius" json:"border_radius"`
+	// UIScale is a multiplier for UI elements like title bars (1.0 = 100%, 1.2 = 120%)
+	UIScale float64 `mapstructure:"ui_scale" yaml:"ui_scale" json:"ui_scale"`
 }
 
 // Manager handles configuration loading, watching, and reloading.
@@ -315,7 +362,7 @@ func NewManager() (*Manager, error) {
 	// Add config paths
 	configDir, err := GetConfigDir()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get config directory: %w", err)
+		return nil, fmt.Errorf("failed to determine config directory: %w\nCheck XDG_CONFIG_HOME environment variable or HOME directory", err)
 	}
 	v.AddConfigPath(configDir)
 	v.AddConfigPath(".") // Current directory for development
@@ -325,36 +372,11 @@ func NewManager() (*Manager, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 
-	// Bind specific environment variables
-	bindings := map[string]string{
-		"database.path":             "DATABASE_PATH",
-		"history.max_entries":       "HISTORY_MAX_ENTRIES",
-		"history.retention_period":  "HISTORY_RETENTION_PERIOD",
-		"history.cleanup_interval":  "HISTORY_CLEANUP_INTERVAL",
-		"dmenu.max_history_items":   "DMENU_MAX_HISTORY_ITEMS",
-		"dmenu.show_visit_count":    "DMENU_SHOW_VISIT_COUNT",
-		"dmenu.show_last_visited":   "DMENU_SHOW_LAST_VISITED",
-		"dmenu.history_prefix":      "DMENU_HISTORY_PREFIX",
-		"dmenu.shortcut_prefix":     "DMENU_SHORTCUT_PREFIX",
-		"dmenu.url_prefix":          "DMENU_URL_PREFIX",
-		"dmenu.date_format":         "DMENU_DATE_FORMAT",
-		"dmenu.sort_by_visit_count": "DMENU_SORT_BY_VISIT_COUNT",
-		"logging.level":             "LOGGING_LEVEL",
-		"logging.format":            "LOGGING_FORMAT",
-		"logging.filename":          "LOGGING_FILENAME",
-		"logging.max_size":          "LOGGING_MAX_SIZE",
-		"logging.max_backups":       "LOGGING_MAX_BACKUPS",
-		"logging.max_age":           "LOGGING_MAX_AGE",
-		"logging.compress":          "LOGGING_COMPRESS",
-	}
+	// Note: Most environment variables are handled automatically via AutomaticEnv()
+	// with the DUMB_BROWSER_ prefix (e.g., DUMB_BROWSER_DATABASE_PATH).
+	// The explicit bindings below are only for special cases with different naming patterns.
 
-	for key, env := range bindings {
-		if err := v.BindEnv(key, "DUMB_BROWSER_"+env); err != nil {
-			return nil, fmt.Errorf("failed to bind environment variable %s: %w", env, err)
-		}
-	}
-
-	// Explicit binding for rendering mode via dedicated env var
+	// Explicit bindings for DUMBER_* prefix (different from DUMB_BROWSER_)
 	if err := v.BindEnv("rendering_mode", "DUMBER_RENDERING_MODE"); err != nil {
 		return nil, fmt.Errorf("failed to bind DUMBER_RENDERING_MODE: %w", err)
 	}
@@ -366,6 +388,7 @@ func NewManager() (*Manager, error) {
 	}
 
 	// Video acceleration environment variable bindings
+	// These use system-standard env vars (LIBVA_*, GST_*, WEBKIT_*) and DUMBER_* prefix
 	videoAccelEnvBindings := map[string]string{
 		"video_acceleration.enable_vaapi":       "DUMBER_VIDEO_ACCELERATION_ENABLE",
 		"video_acceleration.auto_detect_gpu":    "DUMBER_VIDEO_AUTO_DETECT",
@@ -381,6 +404,7 @@ func NewManager() (*Manager, error) {
 	}
 
 	// Codec preferences environment variable bindings
+	// These use DUMBER_* prefix for shorter, more convenient env var names
 	codecEnvBindings := map[string]string{
 		"codec_preferences.preferred_codecs":             "DUMBER_PREFERRED_CODECS",
 		"codec_preferences.force_av1":                    "DUMBER_FORCE_AV1",
@@ -426,21 +450,28 @@ func (m *Manager) Load() error {
 		if errors.As(err, &configFileNotFoundError) {
 			// Config file not found, create default one
 			if err := m.createDefaultConfig(); err != nil {
-				return fmt.Errorf("failed to create default config: %w", err)
+				configDir, _ := GetConfigDir()
+				return fmt.Errorf("failed to create default config at %s: %w\nTry creating the directory manually or check permissions", configDir, err)
 			}
 			// Re-read the newly created config file
 			if err := m.viper.ReadInConfig(); err != nil {
-				return fmt.Errorf("failed to read newly created config: %w", err)
+				return fmt.Errorf("failed to read newly created config file: %w\nThe config file was created but couldn't be read. Please check the file format", err)
 			}
 		} else {
-			return fmt.Errorf("failed to read config file: %w", err)
+			configFile := m.viper.ConfigFileUsed()
+			if configFile == "" {
+				configDir, _ := GetConfigDir()
+				configFile = filepath.Join(configDir, "config.*")
+			}
+			return fmt.Errorf("failed to read config file at %s: %w\nCheck the file format (must be valid TOML, JSON, or YAML) and permissions", configFile, err)
 		}
 	}
 
 	// Unmarshal into config struct
 	config := &Config{}
 	if err := m.viper.Unmarshal(config); err != nil {
-		return fmt.Errorf("failed to unmarshal config: %w", err)
+		configFile := m.viper.ConfigFileUsed()
+		return fmt.Errorf("failed to parse config file at %s: %w\nCheck for syntax errors, invalid values, or type mismatches", configFile, err)
 	}
 
 	// Set database path if not specified
@@ -477,6 +508,11 @@ func (m *Manager) Load() error {
 
 	// Validate ColorScheme setting
 	m.validateColorScheme(config)
+
+	// Validate all config values
+	if err := validateConfig(config); err != nil {
+		return fmt.Errorf("configuration validation failed: %w", err)
+	}
 
 	m.config = config
 	return nil
@@ -579,6 +615,11 @@ func (m *Manager) reload() error {
 	// Validate ColorScheme setting
 	m.validateColorScheme(config)
 
+	// Validate all config values
+	if err := validateConfig(config); err != nil {
+		return fmt.Errorf("configuration validation failed: %w", err)
+	}
+
 	m.config = config
 	return nil
 }
@@ -598,6 +639,7 @@ func (m *Manager) setDefaults() {
 
 	// Search shortcuts defaults
 	m.viper.SetDefault("search_shortcuts", defaults.SearchShortcuts)
+	m.viper.SetDefault("default_search_engine", defaults.DefaultSearchEngine)
 
 	// Dmenu defaults
 	m.viper.SetDefault("dmenu.max_history_items", defaults.Dmenu.MaxHistoryItems)
@@ -674,14 +716,17 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("default_zoom", defaults.DefaultZoom)
 
 	// Workspace defaults
-	m.viper.SetDefault("workspace.enable_zellij_controls", defaults.Workspace.EnableZellijControls)
 	m.viper.SetDefault("workspace.pane_mode.activation_shortcut", defaults.Workspace.PaneMode.ActivationShortcut)
 	m.viper.SetDefault("workspace.pane_mode.timeout_ms", defaults.Workspace.PaneMode.TimeoutMilliseconds)
-	m.viper.SetDefault("workspace.pane_mode.action_bindings", defaults.Workspace.PaneMode.ActionBindings)
+	m.viper.SetDefault("workspace.pane_mode.actions", defaults.Workspace.PaneMode.Actions)
+	m.viper.SetDefault("workspace.tab_mode.activation_shortcut", defaults.Workspace.TabMode.ActivationShortcut)
+	m.viper.SetDefault("workspace.tab_mode.timeout_ms", defaults.Workspace.TabMode.TimeoutMilliseconds)
+	m.viper.SetDefault("workspace.tab_mode.actions", defaults.Workspace.TabMode.Actions)
 	m.viper.SetDefault("workspace.tabs.new_tab", defaults.Workspace.Tabs.NewTab)
 	m.viper.SetDefault("workspace.tabs.close_tab", defaults.Workspace.Tabs.CloseTab)
 	m.viper.SetDefault("workspace.tabs.next_tab", defaults.Workspace.Tabs.NextTab)
 	m.viper.SetDefault("workspace.tabs.previous_tab", defaults.Workspace.Tabs.PreviousTab)
+	m.viper.SetDefault("workspace.tab_bar_position", defaults.Workspace.TabBarPosition)
 	m.viper.SetDefault("workspace.popups.behavior", string(defaults.Workspace.Popups.Behavior))
 	m.viper.SetDefault("workspace.popups.placement", defaults.Workspace.Popups.Placement)
 	m.viper.SetDefault("workspace.popups.open_in_new_pane", defaults.Workspace.Popups.OpenInNewPane)
@@ -692,9 +737,13 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("workspace.popups.oauth_auto_close", defaults.Workspace.Popups.OAuthAutoClose)
 	m.viper.SetDefault("workspace.styling.border_width", defaults.Workspace.Styling.BorderWidth)
 	m.viper.SetDefault("workspace.styling.border_color", defaults.Workspace.Styling.BorderColor)
+	m.viper.SetDefault("workspace.styling.inactive_border_width", defaults.Workspace.Styling.InactiveBorderWidth)
+	m.viper.SetDefault("workspace.styling.inactive_border_color", defaults.Workspace.Styling.InactiveBorderColor)
+	m.viper.SetDefault("workspace.styling.show_stacked_title_border", defaults.Workspace.Styling.ShowStackedTitleBorder)
 	m.viper.SetDefault("workspace.styling.pane_mode_border_color", defaults.Workspace.Styling.PaneModeBorderColor)
 	m.viper.SetDefault("workspace.styling.transition_duration", defaults.Workspace.Styling.TransitionDuration)
 	m.viper.SetDefault("workspace.styling.border_radius", defaults.Workspace.Styling.BorderRadius)
+	m.viper.SetDefault("workspace.styling.ui_scale", defaults.Workspace.Styling.UIScale)
 }
 
 // createDefaultConfig creates a default configuration file.
@@ -714,12 +763,14 @@ func (m *Manager) createDefaultConfig() error {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
-	fmt.Printf("Created default configuration file: %s\n", configFile)
+	fmt.Printf("Created default configuration file: %s (TOML format)\n", configFile)
 
-	// Generate JSON schema file
-	if err := GenerateSchemaFile(); err != nil {
-		// Log error but don't fail config creation
-		fmt.Fprintf(os.Stderr, "Warning: failed to generate config schema: %v\n", err)
+	// Generate JSON schema file only for JSON configs (used for IDE autocompletion)
+	if filepath.Ext(configFile) == ".json" {
+		if err := GenerateSchemaFile(); err != nil {
+			// Log error but don't fail config creation
+			fmt.Fprintf(os.Stderr, "Warning: failed to generate config schema: %v\n", err)
+		}
 	}
 
 	return nil
