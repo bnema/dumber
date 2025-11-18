@@ -6,9 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **Omnibox initial history display**: Configurable behavior when opening empty omnibox via `omnibox.initial_behavior` ("recent", "most_visited", "none"). Shows initial history on open and when input is cleared. Default: recent visits.
+- **Omnibox keyboard blocking**: Prevent page scripts from stealing focus while omnibox is active.
 
 ### Fixed
 - **Omnibox flash on load**: Load the injected GUI bundle at document-start and initialize the omnibox as soon as DOM is ready, ensuring it is ready without briefly flashing during page startup or new pane creation.
+
+### Changed
+- **Refactor keyboard blocking**: Move logic to main-world.ts, reduce handler.go verbosity.
 
 ## [0.14.1] - 2025-11-18
 

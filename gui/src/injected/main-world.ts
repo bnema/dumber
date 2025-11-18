@@ -36,6 +36,12 @@ declare global {
     __dumber_webview_id?: string | number;
     __dumber_is_active?: boolean;
     __dumber_teardown?: () => void;
+    __dumber_enableKeyboardBlocking?: () => void;
+    __dumber_disableKeyboardBlocking?: () => void;
+    __dumber_keyboard_blocking_active?: boolean;
+    __dumber_keyboard_blocker?: (e: Event) => void;
+    __dumber_focus_guard?: (e: Event) => void;
+    __dumber_click_blocker?: (e: Event) => void;
     webkit?: {
       messageHandlers?: {
         dumber?: {
@@ -994,6 +1000,104 @@ interface DumberAPI {
 
     // Initialize console capture
     setupConsoleCapture();
+
+    // ============================================================================
+    // KEYBOARD AND FOCUS BLOCKING FOR OMNIBOX
+    // ============================================================================
+
+    const SHADOW_HOST_ID = 'dumber-ui-root';
+
+    const isFromOmnibox = (target: EventTarget | null): boolean => {
+      if (!target || !(target instanceof Element)) {
+        return false;
+      }
+      return target.id === SHADOW_HOST_ID || target.closest(`#${SHADOW_HOST_ID}`) !== null;
+    };
+
+    window.__dumber_enableKeyboardBlocking = function(): void {
+      if (window.__dumber_keyboard_blocking_active) {
+        return;
+      }
+
+      window.__dumber_keyboard_blocking_active = true;
+
+      window.__dumber_keyboard_blocker = function(e: Event): void {
+        if (isFromOmnibox(e.target)) {
+          return;
+        }
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+      };
+
+      window.__dumber_focus_guard = function(e: Event): void {
+        if (e.type === 'focus') {
+          if (!isFromOmnibox(e.target)) {
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            e.preventDefault();
+          }
+        } else if (e.type === 'blur') {
+          if (isFromOmnibox(e.target)) {
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            e.preventDefault();
+            setTimeout(() => {
+              const shadowHost = document.getElementById(SHADOW_HOST_ID);
+              if (shadowHost && shadowHost.shadowRoot && window.__dumber_keyboard_blocking_active) {
+                const input = shadowHost.shadowRoot.querySelector('.omnibox-input-field') as HTMLInputElement;
+                if (input) {
+                  input.focus();
+                }
+              }
+            }, 0);
+          }
+        }
+      };
+
+      window.__dumber_click_blocker = function(e: Event): void {
+        if (isFromOmnibox(e.target)) {
+          return;
+        }
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        e.preventDefault();
+      };
+
+      document.addEventListener('keydown', window.__dumber_keyboard_blocker, true);
+      document.addEventListener('keyup', window.__dumber_keyboard_blocker, true);
+      document.addEventListener('keypress', window.__dumber_keyboard_blocker, true);
+      document.addEventListener('focus', window.__dumber_focus_guard, true);
+      document.addEventListener('blur', window.__dumber_focus_guard, true);
+      document.addEventListener('click', window.__dumber_click_blocker, true);
+      document.addEventListener('mousedown', window.__dumber_click_blocker, true);
+    };
+
+    window.__dumber_disableKeyboardBlocking = function(): void {
+      if (!window.__dumber_keyboard_blocking_active) {
+        return;
+      }
+
+      window.__dumber_keyboard_blocking_active = false;
+
+      if (window.__dumber_keyboard_blocker) {
+        document.removeEventListener('keydown', window.__dumber_keyboard_blocker, true);
+        document.removeEventListener('keyup', window.__dumber_keyboard_blocker, true);
+        document.removeEventListener('keypress', window.__dumber_keyboard_blocker, true);
+        delete window.__dumber_keyboard_blocker;
+      }
+
+      if (window.__dumber_focus_guard) {
+        document.removeEventListener('focus', window.__dumber_focus_guard, true);
+        document.removeEventListener('blur', window.__dumber_focus_guard, true);
+        delete window.__dumber_focus_guard;
+      }
+
+      if (window.__dumber_click_blocker) {
+        document.removeEventListener('click', window.__dumber_click_blocker, true);
+        document.removeEventListener('mousedown', window.__dumber_click_blocker, true);
+        delete window.__dumber_click_blocker;
+      }
+    };
   } catch (err) {
     console.warn("[dumber] unified bridge init failed", err);
   }

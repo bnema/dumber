@@ -126,6 +126,8 @@ func (h *Handler) Handle(payload string) {
 		h.handleToggleFavorite(msg)
 	case "is_favorite":
 		h.handleIsFavorite(msg)
+	case "keyboard_blocking":
+		h.handleKeyboardBlocking(msg)
 	}
 }
 
@@ -851,4 +853,22 @@ func (h *Handler) handleIsFavorite(msg Message) {
 	}
 
 	_ = h.webView.InjectScript("window.__dumber_is_favorite && window.__dumber_is_favorite(" + string(b) + ")")
+}
+
+// handleKeyboardBlocking enables or disables keyboard event blocking for omnibox
+func (h *Handler) handleKeyboardBlocking(msg Message) {
+	if h.webView == nil {
+		return
+	}
+
+	var script string
+	if msg.Action == "enable" {
+		script = "window.__dumber_enableKeyboardBlocking?.()"
+	} else {
+		script = "window.__dumber_disableKeyboardBlocking?.()"
+	}
+
+	if err := h.webView.InjectScript(script); err != nil {
+		log.Printf("[ERROR] Failed to inject keyboard blocking script: %v", err)
+	}
 }
