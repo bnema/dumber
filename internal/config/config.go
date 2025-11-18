@@ -44,6 +44,8 @@ type Config struct {
 	Workspace WorkspaceConfig `mapstructure:"workspace" yaml:"workspace"`
 	// ContentFiltering controls ad blocking and content filtering
 	ContentFiltering ContentFilteringConfig `mapstructure:"content_filtering" yaml:"content_filtering"`
+	// Omnibox controls the omnibox behavior (initial history display)
+	Omnibox OmniboxConfig `mapstructure:"omnibox" yaml:"omnibox"`
 }
 
 // RenderingMode selects GPU vs CPU rendering.
@@ -181,6 +183,13 @@ type ContentFilteringConfig struct {
 	Enabled bool `mapstructure:"enabled" yaml:"enabled"`
 	// Whitelist domains that should skip ad blocking (e.g. Twitch breaks with bot detection)
 	Whitelist []string `mapstructure:"whitelist" yaml:"whitelist"`
+}
+
+// OmniboxConfig holds omnibox behavior preferences
+type OmniboxConfig struct {
+	// InitialBehavior controls what to show when omnibox opens with empty input
+	// Values: "recent" (recent visits), "most_visited" (most visited sites), "none" (nothing)
+	InitialBehavior string `mapstructure:"initial_behavior" yaml:"initial_behavior"`
 }
 
 type DebugConfig struct {
@@ -756,6 +765,9 @@ func (m *Manager) setDefaults() {
 	// Content filtering
 	m.viper.SetDefault("content_filtering.enabled", defaults.ContentFiltering.Enabled)
 	m.viper.SetDefault("content_filtering.whitelist", defaults.ContentFiltering.Whitelist)
+
+	// Omnibox defaults
+	m.viper.SetDefault("omnibox.initial_behavior", defaults.Omnibox.InitialBehavior)
 }
 
 // createDefaultConfig creates a default configuration file.

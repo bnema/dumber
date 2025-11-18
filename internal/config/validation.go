@@ -168,6 +168,13 @@ func validateConfig(config *Config) error {
 		validationErrors = append(validationErrors, "logging.max_age must be non-negative")
 	}
 
+	// Validate omnibox initial behavior
+	if config.Omnibox.InitialBehavior != "recent" &&
+		config.Omnibox.InitialBehavior != "most_visited" &&
+		config.Omnibox.InitialBehavior != "none" {
+		validationErrors = append(validationErrors, fmt.Sprintf("omnibox.initial_behavior must be one of: recent, most_visited, none (got: %s)", config.Omnibox.InitialBehavior))
+	}
+
 	// If there are validation errors, return them
 	if len(validationErrors) > 0 {
 		return fmt.Errorf("config validation failed:\n  - %s", strings.Join(validationErrors, "\n  - "))

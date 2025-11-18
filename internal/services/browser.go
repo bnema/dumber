@@ -297,6 +297,35 @@ func (s *BrowserService) GetRecentHistoryWithOffset(ctx context.Context, limit, 
 	return result, nil
 }
 
+// GetMostVisited returns the most visited browser history entries.
+func (s *BrowserService) GetMostVisited(ctx context.Context, limit int) ([]HistoryEntry, error) {
+	if limit <= 0 {
+		limit = 10 // Default limit
+	}
+
+	entries, err := s.dbQueries.GetMostVisited(ctx, int64(limit))
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]HistoryEntry, len(entries))
+	for i, entry := range entries {
+		// Defensive cast to int32 to prevent overflow
+		vc := clampToInt32(entry.VisitCount.Int64)
+		result[i] = HistoryEntry{
+			ID:          entry.ID,
+			URL:         entry.Url,
+			Title:       entry.Title.String,
+			FaviconURL:  entry.FaviconUrl.String,
+			VisitCount:  vc,
+			LastVisited: entry.LastVisited.Time,
+			CreatedAt:   entry.CreatedAt.Time,
+		}
+	}
+
+	return result, nil
+}
+
 // SearchHistory searches browser history.
 func (s *BrowserService) SearchHistory(ctx context.Context, query string, limit int) ([]HistoryEntry, error) {
 	if query == "" {

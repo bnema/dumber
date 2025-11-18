@@ -133,6 +133,44 @@ func (q *Queries) GetHistoryWithOffset(ctx context.Context, limit int64, offset 
 	return items, nil
 }
 
+const GetMostVisited = `-- name: GetMostVisited :many
+SELECT id, url, title, visit_count, last_visited, created_at, favicon_url
+FROM history
+ORDER BY visit_count DESC, last_visited DESC
+LIMIT ?
+`
+
+func (q *Queries) GetMostVisited(ctx context.Context, limit int64) ([]History, error) {
+	rows, err := q.db.QueryContext(ctx, GetMostVisited, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []History{}
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.Title,
+			&i.VisitCount,
+			&i.LastVisited,
+			&i.CreatedAt,
+			&i.FaviconUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const SearchHistory = `-- name: SearchHistory :many
 SELECT id, url, title, visit_count, last_visited, created_at, favicon_url
 FROM history 

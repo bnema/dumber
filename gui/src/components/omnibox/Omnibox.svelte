@@ -122,6 +122,11 @@
       inputElement.focus();
       // Enable keyboard event blocking in main world when omnibox opens
       enablePageEventBlocking();
+
+      // Fetch initial history if opening in omnibox mode with empty input
+      if (mode === 'omnibox' && omniboxStore.inputValue === '') {
+        omniboxBridge.fetchInitialHistory();
+      }
     } else if (!visible) {
       // Disable keyboard event blocking when omnibox closes
       disablePageEventBlocking();
@@ -367,8 +372,10 @@
 
       // Auto-open omnibox on about:blank pages
       if (window.location.href === 'about:blank') {
-        console.log('🚀 Auto-opening omnibox for about:blank');
+        console.log('Auto-opening omnibox for about:blank');
         omniboxStore.open('omnibox');
+        // Fetch initial history for empty omnibox
+        omniboxBridge.fetchInitialHistory();
       }
     } catch (error) {
       console.error('❌ Failed to set up omnibox global API:', error);

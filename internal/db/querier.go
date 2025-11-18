@@ -33,6 +33,7 @@ type Querier interface {
 	GetHistory(ctx context.Context, limit int64) ([]History, error)
 	GetHistoryEntry(ctx context.Context, url string) (History, error)
 	GetHistoryWithOffset(ctx context.Context, limit int64, offset int64) ([]History, error)
+	GetMostVisited(ctx context.Context, limit int64) ([]History, error)
 	// Get zoom level for a specific domain
 	GetZoomLevel(ctx context.Context, domain string) (float64, error)
 	// Get zoom level for domain with default fallback

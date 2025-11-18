@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Omnibox initial history display**: Configurable behavior when opening empty omnibox via `omnibox.initial_behavior` ("recent", "most_visited", "none"). Shows initial history on open and when input is cleared. Default: recent visits.
+
 ## [0.14.1] - 2025-11-18
 
 ### Added

@@ -40,3 +40,9 @@ LIMIT 1;
 -- name: DeleteHistory :exec
 DELETE FROM history
 WHERE id = ?;
+
+-- name: GetMostVisited :many
+SELECT *
+FROM history
+ORDER BY visit_count DESC, last_visited DESC
+LIMIT ?;

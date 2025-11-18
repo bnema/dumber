@@ -18,6 +18,9 @@ const (
 	// Appearance defaults
 	defaultFontSize = 16 // points
 
+	// Omnibox defaults
+	defaultOmniboxInitialBehavior = "recent"
+
 	// Workspace defaults
 	defaultPaneActivationShortcut  = "ctrl+p"
 	defaultPaneTimeoutMilliseconds = 3000
@@ -213,6 +216,9 @@ func DefaultConfig() *Config {
 				"passport.twitch.tv", // Auth subdomain
 				"gql.twitch.tv",      // GraphQL API
 			},
+		},
+		Omnibox: OmniboxConfig{
+			InitialBehavior: defaultOmniboxInitialBehavior,
 		},
 	}
 }

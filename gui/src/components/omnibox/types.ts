@@ -23,7 +23,7 @@ export interface SearchShortcut {
 }
 
 export interface OmniboxMessage {
-  type: "navigate" | "query" | "get_search_shortcuts" | "get_favorites" | "toggle_favorite" | "is_favorite";
+  type: "navigate" | "query" | "omnibox_initial_history" | "get_search_shortcuts" | "get_favorites" | "toggle_favorite" | "is_favorite";
   url?: string;
   q?: string;
   limit?: number;

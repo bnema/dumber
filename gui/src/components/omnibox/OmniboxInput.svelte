@@ -122,7 +122,13 @@
       // Only query backend if we're in history view
       // In favorites view, filtering happens locally via computed state
       if (viewMode === 'history') {
-        debouncedQuery(value);
+        if (value === '') {
+          // Input is empty - fetch initial history based on config
+          omniboxBridge.fetchInitialHistory();
+        } else {
+          // Input has content - perform search
+          debouncedQuery(value);
+        }
       }
     } else if (mode === 'find') {
       // Immediate find for search

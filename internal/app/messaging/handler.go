@@ -91,6 +91,11 @@ func (h *Handler) Handle(payload string) {
 			return
 		}
 		h.handleQuery(msg)
+	case "omnibox_initial_history":
+		if h.webView == nil {
+			return
+		}
+		h.handleOmniboxInitialHistory(msg)
 	case "wails":
 		h.handleWailsBridge(msg)
 	case "theme":
@@ -336,6 +341,101 @@ func (h *Handler) handleQuery(msg Message) {
 		script := "(window.__dumber?.omnibox?.suggestions ? window.__dumber.omnibox.suggestions(" + string(b) + ") : (window.__dumber_omnibox_suggestions && window.__dumber_omnibox_suggestions(" + string(b) + ")))"
 		if err := h.webView.InjectScript(script); err != nil {
 			log.Printf("[ERROR] Failed to inject omnibox suggestions: %v", err)
+		}
+	}
+}
+
+// handleOmniboxInitialHistory processes initial history display for empty omnibox
+func (h *Handler) handleOmniboxInitialHistory(msg Message) {
+	if h.webView == nil || h.browserService == nil {
+		return
+	}
+
+	ctx := context.Background()
+	limit := msg.Limit
+	if limit <= 0 {
+		limit = 10
+	}
+
+	// Get config to determine behavior
+	cfg, err := h.browserService.GetConfig(ctx)
+	if err != nil {
+		log.Printf("[ERROR] Failed to get config: %v", err)
+		return
+	}
+	behavior := cfg.Omnibox.InitialBehavior
+
+	type suggestion struct {
+		URL     string `json:"url"`
+		Favicon string `json:"favicon,omitempty"`
+	}
+
+	results := make([]suggestion, 0, limit)
+	seen := make(map[string]struct{}, limit*2)
+
+	// Fetch history based on config
+	var entries []interface{}
+
+	if behavior == "recent" {
+		historyEntries, histErr := h.browserService.GetRecentHistory(ctx, limit)
+		err = histErr
+		for _, e := range historyEntries {
+			entries = append(entries, e)
+		}
+	} else if behavior == "most_visited" {
+		historyEntries, histErr := h.browserService.GetMostVisited(ctx, limit)
+		err = histErr
+		for _, e := range historyEntries {
+			entries = append(entries, e)
+		}
+	} else if behavior == "none" {
+		// Return empty results
+		entries = []interface{}{}
+	}
+
+	if err != nil {
+		log.Printf("[ERROR] Failed to fetch initial history: %v", err)
+		return
+	}
+
+	// Build suggestions from entries with deduplication
+	for _, entry := range entries {
+		bb, _ := json.Marshal(entry)
+		var m map[string]any
+		_ = json.Unmarshal(bb, &m)
+
+		var url string
+		if s, ok := m["url"].(string); ok {
+			url = s
+		} else if s, ok := m["URL"].(string); ok {
+			url = s
+		}
+		if url == "" {
+			continue
+		}
+
+		// Skip duplicates
+		if _, ok := seen[url]; ok {
+			continue
+		}
+
+		favicon := ""
+		if s, ok := m["favicon_url"].(string); ok && s != "" {
+			favicon = s
+		}
+
+		results = append(results, suggestion{URL: url, Favicon: favicon})
+		seen[url] = struct{}{}
+		if len(results) >= limit {
+			break
+		}
+	}
+
+	// Inject back to GUI
+	if b, err := json.Marshal(results); err == nil {
+		script := "(window.__dumber?.omnibox?.suggestions ? window.__dumber.omnibox.suggestions(" + string(b) + ") : (window.__dumber_omnibox_suggestions && window.__dumber_omnibox_suggestions(" + string(b) + ")))"
+		if err := h.webView.InjectScript(script); err != nil {
+			log.Printf("[ERROR] Failed to inject initial history: %v", err)
 		}
 	}
 }

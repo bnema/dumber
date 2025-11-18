@@ -67,6 +67,16 @@ export class OmniboxBridge implements OmniboxMessageBridge {
   }
 
   /**
+   * Fetch initial history for empty omnibox
+   */
+  fetchInitialHistory(limit?: number): void {
+    const lim = limit || omniboxStore.config.defaultLimit;
+    console.log("[DEBUG] Fetching initial history:", { limit: lim });
+    // Send to native handler; Go will compute suggestions based on config and call setSuggestions
+    this.postMessage({ type: "omnibox_initial_history", limit: lim });
+  }
+
+  /**
    * Fetch search shortcuts from backend via messaging bridge
    */
   async fetchSearchShortcuts(): Promise<void> {
