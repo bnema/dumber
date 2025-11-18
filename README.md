@@ -95,6 +95,20 @@ Early development with regular releases. Core features work well for daily use b
 All zoom changes are automatically persisted per-domain and restored on next visit.
 
 ## Quick Start
+
+**Option 1: Use Pre-built Binaries (Recommended)**
+
+Download the latest release from the [releases page](https://github.com/bnema/dumber/releases):
+```bash
+wget https://github.com/bnema/dumber/releases/latest/download/dumber_<version>_linux_x86_64.tar.gz
+tar -xzf dumber_<version>_linux_x86_64.tar.gz
+sudo install -m 755 dumber /usr/local/bin/
+```
+
+Then install runtime dependencies (see [Install](#install) section for details).
+
+**Option 2: Build From Source**
+
 Prerequisites:
 - Go 1.25+
 - Node.js 20+ and npm (for building the embedded TypeScript frontend)
@@ -115,8 +129,60 @@ Development:
 - `make test` runs tests; `make lint` runs golangci‑lint
 
 ## Install
-**Note**: `go install` will not work for this project because the frontend assets must be built first and embedded into the binary. Use the build commands instead:
 
+### Pre-built Binaries (Recommended)
+
+Pre-built binaries are available for Linux (x86_64/amd64) in the [releases page](https://github.com/bnema/dumber/releases). These include all frontend assets and are ready to use:
+
+```bash
+# Download and install latest release
+wget https://github.com/bnema/dumber/releases/latest/download/dumber_<version>_linux_x86_64.tar.gz
+tar -xzf dumber_<version>_linux_x86_64.tar.gz
+sudo install -m 755 dumber /usr/local/bin/
+```
+
+Replace `<version>` with the desired version (e.g., `0.14.1`), or use the direct link from the releases page.
+
+**Dependencies** (required for both pre-built binaries and source builds):
+
+**Arch Linux:**
+```bash
+# Core WebKitGTK 6.0 and GTK4
+sudo pacman -S webkitgtk-6.0 gtk4
+
+# GStreamer for media playback
+sudo pacman -S gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-plugin-pipewire pipewire pipewire-pulse
+
+# Hardware acceleration (choose based on your GPU)
+# AMD: sudo pacman -S gstreamer-vaapi mesa
+# NVIDIA: sudo pacman -S gstreamer-vaapi libva-nvidia-driver
+# Intel: sudo pacman -S gstreamer-vaapi libva-intel-driver intel-media-driver
+```
+
+**Debian/Ubuntu:**
+```bash
+# Core WebKitGTK and GTK4
+sudo apt install libwebkitgtk-6.0-4 libgtk-4-1
+
+# GStreamer for media playback
+sudo apt install gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-pipewire
+
+# Hardware acceleration
+sudo apt install gstreamer1.0-vaapi va-driver-all
+```
+
+### Build From Source
+
+**Note**: `go install` will not work for this project because the frontend assets must be built first and embedded into the binary.
+
+**Prerequisites:**
+- Go 1.25+
+- Node.js 20+ and npm (for building the embedded TypeScript frontend)
+- WebKitGTK 6 and GTK4 dev packages:
+  - Debian/Ubuntu: `libwebkitgtk-6.0-dev libgtk-4-dev build-essential`
+  - Arch: `webkitgtk-6.0 gtk4 base-devel`
+
+**Build options:**
 - GUI build (default, recommended):
   - Clone the repo and run `make build` (builds frontend first, then Go with GUI support)
   - The resulting `./dist/dumber` binary includes the native GUI window
