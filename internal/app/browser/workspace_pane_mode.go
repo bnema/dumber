@@ -207,18 +207,27 @@ func (wm *WorkspaceManager) dispatchPaneModeEvent(event string, detail string) {
 
 // applyPaneModeBorder applies pane mode visual indicator using GTK margins
 func (wm *WorkspaceManager) applyPaneModeBorder() {
-	if wm.window == nil {
+	window := wm.resolveWindow()
+	if window == nil {
+		log.Printf("[pane-mode] Cannot apply border: missing window reference")
 		return
 	}
 
 	// Determine which container to apply margins to:
-	// - If tab manager exists, apply to its ContentArea (so window background shows through)
+	// - If tab manager exists, apply to its root container (direct child of window)
+	//   so margins reveal the window background color
 	// - Otherwise, apply to workspace root (direct child of window)
 	var targetContainer gtk.Widgetter
-	if wm.app != nil && wm.app.tabManager != nil && wm.app.tabManager.ContentArea != nil {
-		// Tab environment: apply margins to tab manager's content area
-		targetContainer = wm.app.tabManager.ContentArea
-		log.Printf("[pane-mode] Using tab manager's content area for border")
+	if wm.app != nil && wm.app.tabManager != nil {
+		if rootContainer := wm.app.tabManager.GetRootContainer(); rootContainer != nil {
+			// Tab environment: apply margins to the root container that's attached to the window
+			targetContainer = rootContainer
+			log.Printf("[pane-mode] Using tab manager root container for border")
+		} else if wm.app.tabManager.ContentArea != nil {
+			// Fallback: older builds where root container isn't available yet
+			targetContainer = wm.app.tabManager.ContentArea
+			log.Printf("[pane-mode] Using tab manager content area fallback for border")
+		}
 	} else if wm.root != nil && wm.root.container != nil {
 		// Non-tab environment: apply margins to workspace root
 		targetContainer = wm.root.container
@@ -234,14 +243,14 @@ func (wm *WorkspaceManager) applyPaneModeBorder() {
 	webkit.WidgetSetMargin(targetContainer, 4)
 
 	// Add CSS class to window for background color (the "border" color shows in the margin space)
-	webkit.WidgetAddCSSClass(wm.window.AsWindow(), "pane-mode-active")
+	webkit.WidgetAddCSSClass(window.AsWindow(), "pane-mode-active")
 
 	// Force resize/allocation to apply margin changes immediately
 	webkit.WidgetQueueResize(targetContainer)
 	webkit.WidgetQueueAllocate(targetContainer)
 
 	// Queue redraw to show changes
-	webkit.WidgetQueueDraw(wm.window.AsWindow())
+	webkit.WidgetQueueDraw(window.AsWindow())
 	webkit.WidgetQueueDraw(targetContainer)
 
 	log.Printf("[pane-mode] Applied border using margins (container=%p)", targetContainer)
@@ -249,7 +258,8 @@ func (wm *WorkspaceManager) applyPaneModeBorder() {
 
 // removePaneModeBorder removes the pane mode visual indicator
 func (wm *WorkspaceManager) removePaneModeBorder() {
-	if wm.window == nil {
+	window := wm.resolveWindow()
+	if window == nil {
 		return
 	}
 
@@ -268,14 +278,14 @@ func (wm *WorkspaceManager) removePaneModeBorder() {
 	webkit.WidgetSetMargin(container, 0)
 
 	// Remove CSS class from window
-	webkit.WidgetRemoveCSSClass(wm.window.AsWindow(), "pane-mode-active")
+	webkit.WidgetRemoveCSSClass(window.AsWindow(), "pane-mode-active")
 
 	// Force resize/allocation to apply margin changes immediately
 	webkit.WidgetQueueResize(container)
 	webkit.WidgetQueueAllocate(container)
 
 	// Queue redraw to show changes
-	webkit.WidgetQueueDraw(wm.window.AsWindow())
+	webkit.WidgetQueueDraw(window.AsWindow())
 	webkit.WidgetQueueDraw(container)
 
 	// Clear the saved container reference

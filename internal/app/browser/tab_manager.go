@@ -23,6 +23,7 @@ type TabManager struct {
 	rootContainer gtk.Widgetter // Main vertical box containing tab bar + content
 	tabBar        gtk.Widgetter // Horizontal tab bar container
 	ContentArea   gtk.Widgetter // Container for active workspace (exported for border styling)
+	tabModeTarget gtk.Widgetter // Widget currently holding tab mode border margins
 
 	// Modal state
 	tabModeActive bool
@@ -470,6 +471,14 @@ func (tm *TabManager) GetRootContainer() gtk.Widgetter {
 	defer tm.mu.RUnlock()
 
 	return tm.rootContainer
+}
+
+// GetWindow returns the GTK window backing the tab manager.
+func (tm *TabManager) GetWindow() *webkit.Window {
+	tm.mu.RLock()
+	defer tm.mu.RUnlock()
+
+	return tm.window
 }
 
 // Cleanup performs cleanup of all tabs and resources.

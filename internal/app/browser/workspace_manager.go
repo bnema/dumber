@@ -73,6 +73,34 @@ type WorkspaceManager struct {
 	pendingIdle    map[uintptr][]*paneNode
 }
 
+// resolveWindow ensures the workspace has a reference to the GTK window.
+func (wm *WorkspaceManager) resolveWindow() *webkit.Window {
+	if wm == nil {
+		return nil
+	}
+
+	if wm.window != nil {
+		return wm.window
+	}
+
+	if wm.app != nil {
+		if wm.app.tabManager != nil {
+			if win := wm.app.tabManager.GetWindow(); win != nil {
+				wm.window = win
+				return win
+			}
+		}
+		if wm.app.webView != nil {
+			if win := wm.app.webView.Window(); win != nil {
+				wm.window = win
+				return win
+			}
+		}
+	}
+
+	return nil
+}
+
 // Workspace navigation shortcuts are now handled globally by WindowShortcutHandler
 
 // NewWorkspaceManager builds a workspace manager rooted at the provided pane.

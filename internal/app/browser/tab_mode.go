@@ -6,6 +6,7 @@ import (
 
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/pkg/webkit"
+	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
 // EnterTabMode activates the modal tab management mode.
@@ -209,51 +210,82 @@ func (tm *TabManager) handleRenameTab() {
 func (tm *TabManager) applyTabModeBorder() {
 	logging.Debug("[tab-mode] applyTabModeBorder: entry")
 
-	if tm.window == nil || tm.ContentArea == nil {
-		logging.Debug("[tab-mode] applyTabModeBorder: window or ContentArea is nil, returning")
+	if tm.window == nil {
+		logging.Debug("[tab-mode] applyTabModeBorder: window is nil, returning")
 		return
 	}
 
-	logging.Debug("[tab-mode] applyTabModeBorder: applying margins to content area")
+	// Determine which container should receive the margins:
+	// - Prefer the root container (direct child of the window) so the window background shows
+	// - Fallback to ContentArea for older builds
+	var target gtk.Widgetter
+	if tm.rootContainer != nil {
+		target = tm.rootContainer
+		logging.Debug("[tab-mode] applyTabModeBorder: using root container for border")
+	} else if tm.ContentArea != nil {
+		target = tm.ContentArea
+		logging.Debug("[tab-mode] applyTabModeBorder: using content area fallback for border")
+	} else {
+		logging.Debug("[tab-mode] applyTabModeBorder: no container available, returning")
+		return
+	}
 
-	// Apply 4px margins to content area to create space for the border
-	webkit.WidgetSetMargin(tm.ContentArea, 4)
+	// Remember the container for removal
+	tm.tabModeTarget = target
+
+	// Apply 4px margins to create space for the border
+	webkit.WidgetSetMargin(target, 4)
 
 	// Add CSS class to window for background color (the "border" color shows in the margin space)
 	gtkWindow := tm.window.AsWindow()
 	webkit.WidgetAddCSSClass(gtkWindow, "tab-mode-active")
 
 	// Force resize/allocation to apply margin changes immediately
-	webkit.WidgetQueueResize(tm.ContentArea)
-	webkit.WidgetQueueAllocate(tm.ContentArea)
+	webkit.WidgetQueueResize(target)
+	webkit.WidgetQueueAllocate(target)
 
 	// Queue redraw to show changes
 	webkit.WidgetQueueDraw(gtkWindow)
-	webkit.WidgetQueueDraw(tm.ContentArea)
+	webkit.WidgetQueueDraw(target)
 
 	logging.Debug("[tab-mode] applyTabModeBorder: border applied successfully")
 }
 
 // removeTabModeBorder removes the visual indicator when exiting tab mode.
 func (tm *TabManager) removeTabModeBorder() {
-	if tm.window == nil || tm.ContentArea == nil {
+	if tm.window == nil {
 		return
 	}
 
-	// Remove margins from content area
-	webkit.WidgetSetMargin(tm.ContentArea, 0)
+	// Use whichever container received margins
+	target := tm.tabModeTarget
+	if target == nil {
+		if tm.rootContainer != nil {
+			target = tm.rootContainer
+		} else {
+			target = tm.ContentArea
+		}
+	}
+	if target == nil {
+		return
+	}
+
+	// Remove margins
+	webkit.WidgetSetMargin(target, 0)
 
 	// Remove CSS class from window
 	gtkWindow := tm.window.AsWindow()
 	webkit.WidgetRemoveCSSClass(gtkWindow, "tab-mode-active")
 
 	// Force resize/allocation to apply margin changes immediately
-	webkit.WidgetQueueResize(tm.ContentArea)
-	webkit.WidgetQueueAllocate(tm.ContentArea)
+	webkit.WidgetQueueResize(target)
+	webkit.WidgetQueueAllocate(target)
 
 	// Queue redraw to show changes
 	webkit.WidgetQueueDraw(gtkWindow)
-	webkit.WidgetQueueDraw(tm.ContentArea)
+	webkit.WidgetQueueDraw(target)
+
+	tm.tabModeTarget = nil
 
 	logging.Debug("[tab-mode] Removed tab mode visual indicator")
 }
