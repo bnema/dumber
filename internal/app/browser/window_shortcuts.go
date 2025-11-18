@@ -68,23 +68,15 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 		{"ctrl+shift+c", h.handleCopyURL, "Copy URL"},
 		{"ctrl+shift+p", h.handlePrint, "Print page"},
 		{"F12", h.handleDevTools, "Developer tools"},
-		// Pane management
-		{"ctrl+p", h.handlePaneMode, "Enter pane mode"},
+		// Pane management: Ctrl+P handled by WebView keyboard bridge (not window shortcuts)
 		// Tab management
 		{"ctrl+t", h.handleTabMode, "Enter tab mode"},
 		// Global tab navigation (Ctrl+Tab) is handled via EventControllerKey in registerKeycodeShortcuts
 		// This prevents GTK's default focus cycling behavior
-		// Tab mode actions (only active when tab mode is enabled)
-		{"n", func() { h.handleTabModeAction("new-tab") }, "New tab (tab mode)"},
-		{"c", func() { h.handleTabModeAction("new-tab") }, "New tab (tab mode)"},
-		{"x", func() { h.handleTabModeAction("close-tab") }, "Close tab (tab mode)"},
-		{"l", func() { h.handleTabModeAction("next-tab") }, "Next tab (tab mode)"},
-		{"h", func() { h.handleTabModeAction("previous-tab") }, "Previous tab (tab mode)"},
-		{"r", func() { h.handleTabModeAction("rename-tab") }, "Rename tab (tab mode)"},
-		{"Tab", func() { h.handleTabModeAction("next-tab") }, "Next tab (tab mode)"},
-		{"shift+Tab", func() { h.handleTabModeAction("previous-tab") }, "Previous tab (tab mode)"},
-		{"Return", func() { h.handleTabModeAction("confirm") }, "Confirm (tab mode)"},
-		{"Escape", func() { h.handleTabModeAction("cancel") }, "Cancel (tab mode)"},
+		// NOTE: Tab mode action keys (n, c, x, l, h, r, Tab, Escape, Enter) are NOT registered
+		// as global shortcuts. They are handled by the WebView keyboard bridge which checks
+		// if tab mode is active before processing them. This prevents them from consuming
+		// keys when tab mode is not active (allowing normal typing in web pages).
 		// Direct tab switching is now handled via hardware keycodes (see registerKeycodeShortcuts)
 		// This supports all keyboard layouts (QWERTY, AZERTY, etc.)
 		// Page reload shortcuts
@@ -115,6 +107,9 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 			shortcut.key, shortcut.desc)
 	}
 
+	// NOTE: Ctrl+P is NOT registered here - it's handled by WebView's keyboard bridge
+	// (RegisterPaneModeHandler in workspace_manager.go) which calls app.workspace.EnterPaneMode()
+
 	return nil
 }
 
@@ -136,7 +131,15 @@ func (h *WindowShortcutHandler) registerKeycodeShortcuts() error {
 
 	// GDK key constants
 	const (
-		gdkKeyTab = 0xff09
+		gdkKeyTab    = 0xff09
+		gdkKeyEscape = 0xff1b
+		gdkKeyReturn = 0xff0d
+		gdkKeyN      = 0x006e
+		gdkKeyC      = 0x0063
+		gdkKeyX      = 0x0078
+		gdkKeyL      = 0x006c
+		gdkKeyH      = 0x0068
+		gdkKeyR      = 0x0072
 	)
 
 	// Map hardware keycodes to tab indices
@@ -155,6 +158,10 @@ func (h *WindowShortcutHandler) registerKeycodeShortcuts() error {
 	}
 
 	keyController.ConnectKeyPressed(func(keyval, keycode uint, state gdk.ModifierType) bool {
+		// IMPORTANT: Let WebView's keyboard bridge handle pane mode action keys first
+		// During pane mode, single-letter keys (h,j,k,l,x,s,v, etc.) must reach the WebView
+		// So we only intercept specific shortcuts here and let everything else through
+
 		// Handle Ctrl+Tab for next tab
 		if keyval == gdkKeyTab && state.Has(gdk.ControlMask) && !state.Has(gdk.ShiftMask) {
 			log.Printf("[window-shortcuts] Ctrl+Tab -> next tab")
@@ -179,11 +186,62 @@ func (h *WindowShortcutHandler) registerKeycodeShortcuts() error {
 			}
 		}
 
+		// Handle tab mode action keys (only when tab mode is active)
+		// These keys need to be checked here so they can propagate when tab mode is not active
+		if h.isTabModeActive() {
+			handled := false
+			action := ""
+
+			// Check for no modifiers (plain key press)
+			if !state.Has(gdk.ControlMask) && !state.Has(gdk.AltMask) {
+				switch keyval {
+				case gdkKeyN, gdkKeyC:
+					action = "new-tab"
+					handled = true
+				case gdkKeyX:
+					action = "close-tab"
+					handled = true
+				case gdkKeyL:
+					action = "next-tab"
+					handled = true
+				case gdkKeyH:
+					action = "previous-tab"
+					handled = true
+				case gdkKeyR:
+					action = "rename-tab"
+					handled = true
+				case gdkKeyTab:
+					action = "next-tab"
+					handled = true
+				case gdkKeyReturn:
+					action = "confirm"
+					handled = true
+				case gdkKeyEscape:
+					action = "cancel"
+					handled = true
+				}
+			}
+
+			// Handle Shift+Tab for previous tab in tab mode
+			if keyval == gdkKeyTab && state.Has(gdk.ShiftMask) && !state.Has(gdk.ControlMask) {
+				action = "previous-tab"
+				handled = true
+			}
+
+			if handled {
+				log.Printf("[window-shortcuts] Tab mode action: %s", action)
+				h.handleTabModeAction(action)
+				return true // Consume event
+			}
+		}
+
+		// Let all other keys propagate to WebView's keyboard bridge
+		// This includes Ctrl+P, Ctrl+T, and all pane mode action keys
 		return false
 	})
 
 	gtkWindow.AddController(keyController)
-	log.Printf("[window-shortcuts] Registered hardware keycode shortcuts for Alt+number (AZERTY support)")
+	log.Printf("[window-shortcuts] Registered capture phase shortcuts: Ctrl+Tab, Alt+number")
 
 	return nil
 }
@@ -564,16 +622,19 @@ func (h *WindowShortcutHandler) handleDirectTabSwitch(index int) {
 	}
 }
 
+// isTabModeActive checks if tab mode is currently active
+func (h *WindowShortcutHandler) isTabModeActive() bool {
+	if h.app == nil || h.app.tabManager == nil {
+		return false
+	}
+	return h.app.tabManager.IsTabModeActive()
+}
+
 // handleTabModeAction handles tab mode action keys (n, x, l, h, etc.)
-// Only processes actions when tab mode is active, otherwise lets keys pass through to WebView
+// Only processes actions when tab mode is active
 func (h *WindowShortcutHandler) handleTabModeAction(action string) {
 	if h.app == nil || h.app.tabManager == nil {
-		return // Tab manager not available, let key pass through
-	}
-
-	// Check if tab mode is active
-	if !h.app.tabManager.IsTabModeActive() {
-		return // Tab mode not active, let key pass through to WebView
+		return
 	}
 
 	// Tab mode is active, handle the action

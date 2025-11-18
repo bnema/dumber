@@ -22,7 +22,7 @@ type TabManager struct {
 	// GTK widgets
 	rootContainer gtk.Widgetter // Main vertical box containing tab bar + content
 	tabBar        gtk.Widgetter // Horizontal tab bar container
-	contentArea   gtk.Widgetter // Container for active workspace
+	ContentArea   gtk.Widgetter // Container for active workspace (exported for border styling)
 
 	// Modal state
 	tabModeActive bool
@@ -39,7 +39,6 @@ type Tab struct {
 	customTitle string // User-provided custom name (persists across page loads)
 	workspace   *WorkspaceManager
 	titleButton gtk.Widgetter
-	container   gtk.Widgetter
 	isActive    bool
 }
 
@@ -126,7 +125,7 @@ func (tm *TabManager) createRootContainer() error {
 	// Store references
 	tm.rootContainer = rootBox
 	tm.tabBar = tabBar
-	tm.contentArea = contentArea
+	tm.ContentArea = contentArea
 
 	logging.Info(fmt.Sprintf("[tabs] Root container created with tab bar at %s", position))
 	return nil
@@ -184,12 +183,12 @@ func (tm *TabManager) createTabInternal(url string) error {
 	workspace := NewWorkspaceManager(tm.app, pane)
 	tab.workspace = workspace
 
-	// Get workspace root container
+	// Verify workspace root exists
 	rootWidget := workspace.GetRootWidget()
 	if rootWidget == nil {
 		return fmt.Errorf("workspace root widget is nil")
 	}
-	tab.container = rootWidget
+	logging.Info(fmt.Sprintf("[tabs] New tab created with root container: %p (workspace %p)", rootWidget, workspace))
 
 	// Load the URL in the workspace's pane
 	if url != "" {
@@ -253,13 +252,24 @@ func (tm *TabManager) switchToTabInternal(index int) error {
 		oldTab := tm.tabs[tm.activeIndex]
 		oldTab.isActive = false
 
+		// Clear GTK focus from old tab's workspace to prevent it from catching keyboard events
+		if oldTab.workspace != nil {
+			oldTab.workspace.ClearFocus()
+		}
+
 		// Hide old workspace container and remove from content area
-		if oldTab.container != nil {
-			webkit.RunOnMainThread(func() {
-				if contentBox, ok := tm.contentArea.(*gtk.Box); ok {
-					contentBox.Remove(oldTab.container)
-				}
-			})
+		// CRITICAL: Get the CURRENT root widget from workspace, not the cached tab.container,
+		// because splits/stacks change the workspace root
+		if oldTab.workspace != nil {
+			currentRoot := oldTab.workspace.GetRootWidget()
+			if currentRoot != nil {
+				webkit.RunOnMainThread(func() {
+					if contentBox, ok := tm.ContentArea.(*gtk.Box); ok {
+						contentBox.Remove(currentRoot)
+						logging.Info(fmt.Sprintf("[tabs] Removed tab %d container %p from ContentArea (current root)", tm.activeIndex, currentRoot))
+					}
+				})
+			}
 		}
 
 		// Remove active CSS class from old button
@@ -272,13 +282,18 @@ func (tm *TabManager) switchToTabInternal(index int) error {
 	tm.activeIndex = index
 
 	// Add new workspace container to content area
-	if newTab.container != nil {
-		webkit.RunOnMainThread(func() {
-			if contentBox, ok := tm.contentArea.(*gtk.Box); ok {
-				contentBox.Append(newTab.container)
-				webkit.WidgetSetVisible(newTab.container, true)
-			}
-		})
+	// CRITICAL: Get the CURRENT root widget from workspace, not the cached tab.container
+	if newTab.workspace != nil {
+		currentRoot := newTab.workspace.GetRootWidget()
+		if currentRoot != nil {
+			webkit.RunOnMainThread(func() {
+				if contentBox, ok := tm.ContentArea.(*gtk.Box); ok {
+					contentBox.Append(currentRoot)
+					webkit.WidgetSetVisible(currentRoot, true)
+					logging.Info(fmt.Sprintf("[tabs] Added tab %d container %p to ContentArea (current root)", index, currentRoot))
+				}
+			})
+		}
 	}
 
 	// Add active CSS class to new button
@@ -329,12 +344,17 @@ func (tm *TabManager) closeTabInternal(index int) error {
 	tm.removeTabFromBar(tab)
 
 	// Remove workspace container from content area if it's currently visible
-	if tab.isActive && tab.container != nil {
-		webkit.RunOnMainThread(func() {
-			if contentBox, ok := tm.contentArea.(*gtk.Box); ok {
-				contentBox.Remove(tab.container)
-			}
-		})
+	// CRITICAL: Get the CURRENT root widget from workspace, not the cached tab.container
+	if tab.isActive && tab.workspace != nil {
+		currentRoot := tab.workspace.GetRootWidget()
+		if currentRoot != nil {
+			webkit.RunOnMainThread(func() {
+				if contentBox, ok := tm.ContentArea.(*gtk.Box); ok {
+					contentBox.Remove(currentRoot)
+					logging.Info(fmt.Sprintf("[tabs] Removed closing tab %d container %p from ContentArea (current root)", index, currentRoot))
+				}
+			})
+		}
 	}
 
 	// Remove from slice

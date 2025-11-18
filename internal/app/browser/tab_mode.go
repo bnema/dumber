@@ -205,34 +205,56 @@ func (tm *TabManager) handleRenameTab() {
 }
 
 // applyTabModeBorder applies visual indicator when tab mode is active.
-// This adds an orange border/highlight to the tab bar.
+// This adds an orange border around the entire workspace area.
 func (tm *TabManager) applyTabModeBorder() {
 	logging.Debug("[tab-mode] applyTabModeBorder: entry")
 
-	if tm.window == nil {
-		logging.Debug("[tab-mode] applyTabModeBorder: window is nil, returning")
+	if tm.window == nil || tm.ContentArea == nil {
+		logging.Debug("[tab-mode] applyTabModeBorder: window or ContentArea is nil, returning")
 		return
 	}
 
-	logging.Debug("[tab-mode] applyTabModeBorder: window exists, converting to gtk.Window")
-	gtkWindow := tm.window.AsWindow()
-	logging.Debug("[tab-mode] applyTabModeBorder: got gtk.Window, about to add CSS class")
+	logging.Debug("[tab-mode] applyTabModeBorder: applying margins to content area")
 
-	// Add CSS class to window for tab mode visual indicator
-	// Note: Call directly without RunOnMainThread wrapper (matches pane mode pattern)
+	// Apply 4px margins to content area to create space for the border
+	webkit.WidgetSetMargin(tm.ContentArea, 4)
+
+	// Add CSS class to window for background color (the "border" color shows in the margin space)
+	gtkWindow := tm.window.AsWindow()
 	webkit.WidgetAddCSSClass(gtkWindow, "tab-mode-active")
-	logging.Debug("[tab-mode] applyTabModeBorder: CSS class added successfully")
+
+	// Force resize/allocation to apply margin changes immediately
+	webkit.WidgetQueueResize(tm.ContentArea)
+	webkit.WidgetQueueAllocate(tm.ContentArea)
+
+	// Queue redraw to show changes
+	webkit.WidgetQueueDraw(gtkWindow)
+	webkit.WidgetQueueDraw(tm.ContentArea)
+
+	logging.Debug("[tab-mode] applyTabModeBorder: border applied successfully")
 }
 
 // removeTabModeBorder removes the visual indicator when exiting tab mode.
 func (tm *TabManager) removeTabModeBorder() {
-	if tm.window == nil {
+	if tm.window == nil || tm.ContentArea == nil {
 		return
 	}
 
+	// Remove margins from content area
+	webkit.WidgetSetMargin(tm.ContentArea, 0)
+
 	// Remove CSS class from window
-	// Note: Call directly without RunOnMainThread wrapper (matches pane mode pattern)
-	webkit.WidgetRemoveCSSClass(tm.window.AsWindow(), "tab-mode-active")
+	gtkWindow := tm.window.AsWindow()
+	webkit.WidgetRemoveCSSClass(gtkWindow, "tab-mode-active")
+
+	// Force resize/allocation to apply margin changes immediately
+	webkit.WidgetQueueResize(tm.ContentArea)
+	webkit.WidgetQueueAllocate(tm.ContentArea)
+
+	// Queue redraw to show changes
+	webkit.WidgetQueueDraw(gtkWindow)
+	webkit.WidgetQueueDraw(tm.ContentArea)
+
 	logging.Debug("[tab-mode] Removed tab mode visual indicator")
 }
 

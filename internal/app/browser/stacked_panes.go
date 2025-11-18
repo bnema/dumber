@@ -307,10 +307,8 @@ func (spm *StackedPaneManager) convertToStackedContainer(target, newLeaf *paneNo
 // detachFromParent removes a pane from its current parent
 func (spm *StackedPaneManager) detachFromParent(target *paneNode, parent *paneNode) {
 	if parent == nil {
-		// Target is the root - remove it from window
-		if spm.wm.window != nil {
-			spm.wm.window.SetChild(nil)
-		}
+		// Target is the root - clear it (handles both tab and non-tab environments)
+		spm.wm.clearRootContainer()
 		// Unparent if it has a GTK parent
 		if target.container != nil {
 			if webkit.WidgetGetParent(target.container) != nil {
@@ -330,9 +328,8 @@ func (spm *StackedPaneManager) detachFromParent(target *paneNode, parent *paneNo
 // reattachToParent attaches a container to the parent
 func (spm *StackedPaneManager) reattachToParent(container gtk.Widgetter, target *paneNode, parent *paneNode) {
 	if parent == nil {
-		if spm.wm.window != nil {
-			spm.wm.window.SetChild(container)
-		}
+		// Attach as root (handles both tab and non-tab environments)
+		spm.wm.setRootContainer(container)
 	} else if paned, ok := parent.container.(*gtk.Paned); ok && paned != nil {
 		if parent.left == target {
 			paned.SetStartChild(container)
@@ -784,9 +781,8 @@ func (spm *StackedPaneManager) CloseStackedPane(node *paneNode) error {
 					webkit.WidgetUnparent(stackNode.container)
 				}
 			}
-			if spm.wm.window != nil {
-				spm.wm.window.SetChild(nil)
-			}
+			// Clear root container (handles both tab and non-tab environments)
+			spm.wm.clearRootContainer()
 			_, err := spm.wm.cleanupAndExit(node)
 			return err
 		}
@@ -810,7 +806,7 @@ func (spm *StackedPaneManager) CloseStackedPane(node *paneNode) error {
 		grandparent := parent.parent
 
 		spm.wm.promoteSibling(grandparent, parent, sibling)
-		spm.wm.swapContainers(grandparent, sibling)
+		spm.wm.swapContainers(grandparent, parent, sibling)
 
 		generation := spm.wm.nextCleanupGeneration()
 		spm.wm.cleanupPane(node, generation)
@@ -848,10 +844,11 @@ func (spm *StackedPaneManager) CloseStackedPane(node *paneNode) error {
 		}
 
 		if parent == nil {
+			// Stack was root - make last pane the new root
 			spm.wm.root = lastPane
 			lastPane.parent = nil
-			if spm.wm.window != nil && lastPaneContainer != nil {
-				spm.wm.window.SetChild(lastPaneContainer)
+			if lastPaneContainer != nil {
+				spm.wm.setRootContainer(lastPaneContainer)
 				webkit.WidgetQueueAllocate(lastPaneContainer)
 				webkit.WidgetShow(lastPaneContainer)
 			}

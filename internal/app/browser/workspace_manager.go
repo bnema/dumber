@@ -149,7 +149,14 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 		handler.SetWorkspaceObserver(manager)
 	}
 
-	app.workspace = manager
+	// CRITICAL: Register navigation handler (including pane mode) for the root pane
+	// This must happen here because when creating the first tab, app.workspace is nil
+	// in createPaneForView, so it doesn't register the handler
+	manager.RegisterNavigationHandler(rootPane.webView)
+
+	// NOTE: app.workspace is NOT set here - it's managed exclusively by TabManager.
+	// TabManager sets app.workspace during tab switching (including initial tab creation).
+	// This prevents workspaces from interfering with each other when multiple tabs exist.
 
 	// Configure debug settings from app config
 	if app.config != nil {
@@ -414,15 +421,20 @@ func (wm *WorkspaceManager) RegisterNavigationHandler(webView *webkit.WebView) {
 		return wm.FocusNeighbor(direction)
 	})
 
-	// Register pane mode callbacks for Ctrl+P and pane mode actions
+	// Register pane mode callbacks for Ctrl+P and pane mode action keys
 	webView.RegisterPaneModeHandler(func(action string) bool {
 		if wm == nil {
 			return false
 		}
 
 		if action == "enter" {
-			wm.EnterPaneMode()
-			return true
+			// CRITICAL FIX: Use app.workspace instead of closure's wm
+			// This ensures Ctrl+P always targets the ACTIVE tab's workspace
+			if wm.app != nil && wm.app.workspace != nil {
+				wm.app.workspace.EnterPaneMode()
+				return true
+			}
+			return false
 		}
 
 		if action == "exit" {
@@ -438,18 +450,24 @@ func (wm *WorkspaceManager) RegisterNavigationHandler(webView *webkit.WebView) {
 			return false // No mode active, pass through to DOM
 		}
 
-		// For other actions, only handle if pane mode is active
-		wm.paneMutex.Lock()
-		isActive := wm.paneModeActive
-		wm.paneMutex.Unlock()
+		// For other actions, use active workspace (same pattern as "enter")
+		// This ensures action keys work on the correct tab
+		if wm.app != nil && wm.app.workspace != nil {
+			// Check if pane mode is active on the active workspace
+			activeWs := wm.app.workspace
+			activeWs.paneMutex.Lock()
+			isActive := activeWs.paneModeActive
+			activeWs.paneMutex.Unlock()
 
-		if !isActive {
-			return false // Not in pane mode, allow normal behavior
+			if !isActive {
+				return false // Not in pane mode, allow normal behavior
+			}
+
+			// Pane mode is active, handle the action on active workspace
+			activeWs.HandlePaneAction(action)
+			return true
 		}
-
-		// Pane mode is active, handle the action
-		wm.HandlePaneAction(action)
-		return true
+		return false
 	}, func() bool {
 		// Check if pane mode is currently active
 		wm.paneMutex.Lock()
@@ -568,15 +586,41 @@ func (wm *WorkspaceManager) GetActivePane() *BrowserPane {
 // RestoreFocus restores focus to the active pane in this workspace.
 // Called when switching to a tab to ensure the correct pane has focus.
 func (wm *WorkspaceManager) RestoreFocus() {
-	// Focus is managed automatically by the focus state machine
-	// when the workspace becomes visible
+	log.Printf("[workspace] RestoreFocus: workspace %p", wm)
+
+	// Get the active pane and explicitly grab GTK focus
 	activeNode := wm.GetActiveNode()
 	if activeNode != nil && activeNode.pane != nil && activeNode.pane.webView != nil {
-		// Request focus on the active pane
+		// Explicitly grab GTK focus to this WebView
+		// This ensures keyboard events go to the active tab's WebView
+		// Note: RestoreFocus is called from switchToTabInternal which is already on the main thread
+		webkit.WidgetGrabFocus(activeNode.pane.webView.AsWidget())
+		log.Printf("[workspace] Grabbed GTK focus for WebView in workspace %p", wm)
+
+		// Also request focus via FSM
 		if wm.focusStateMachine != nil {
 			wm.focusStateMachine.RequestFocus(activeNode, SourceProgrammatic)
 		}
 	}
+}
+
+// IsInActiveTab returns whether this workspace is the app's current active workspace.
+// This is checked dynamically by comparing with app.workspace (updated during tab switching).
+func (wm *WorkspaceManager) IsInActiveTab() bool {
+	if wm.app == nil {
+		return false
+	}
+	// The active workspace is the one currently assigned to app.workspace
+	isActive := wm.app.workspace == wm
+	log.Printf("[workspace] IsInActiveTab check: workspace %p, app.workspace %p, isActive=%v", wm, wm.app.workspace, isActive)
+	return isActive
+}
+
+// ClearFocus removes GTK focus from all panes in this workspace.
+// This prevents inactive tab's WebViews from catching keyboard events.
+func (wm *WorkspaceManager) ClearFocus() {
+	log.Printf("[workspace] ClearFocus: workspace %p", wm)
+	// No state to clear - IsInActiveTab() checks dynamically
 }
 
 // GetRootWidget returns the root GTK widget for this workspace.
@@ -586,4 +630,49 @@ func (wm *WorkspaceManager) GetRootWidget() gtk.Widgetter {
 		return wm.root.container
 	}
 	return nil
+}
+
+// setRootContainer attaches a widget as the workspace root to TabManager.ContentArea.
+// The tab system is always present (even with a single tab), so this always uses ContentArea.
+func (wm *WorkspaceManager) setRootContainer(container gtk.Widgetter) {
+	if container == nil {
+		return
+	}
+
+	if wm.app == nil || wm.app.tabManager == nil || wm.app.tabManager.ContentArea == nil {
+		log.Printf("[workspace] ERROR: Cannot set root - tab manager not initialized")
+		return
+	}
+
+	contentBox, ok := wm.app.tabManager.ContentArea.(*gtk.Box)
+	if !ok || contentBox == nil {
+		log.Printf("[workspace] ERROR: ContentArea is not a Box")
+		return
+	}
+
+	contentBox.Append(container)
+	webkit.WidgetSetVisible(container, true)
+	log.Printf("[workspace] Attached root container %p to ContentArea", container)
+}
+
+// clearRootContainer removes the current workspace root from TabManager.ContentArea.
+// The tab system is always present (even with a single tab), so this always uses ContentArea.
+func (wm *WorkspaceManager) clearRootContainer() {
+	if wm.root == nil || wm.root.container == nil {
+		return
+	}
+
+	if wm.app == nil || wm.app.tabManager == nil || wm.app.tabManager.ContentArea == nil {
+		log.Printf("[workspace] ERROR: Cannot clear root - tab manager not initialized")
+		return
+	}
+
+	contentBox, ok := wm.app.tabManager.ContentArea.(*gtk.Box)
+	if !ok || contentBox == nil {
+		log.Printf("[workspace] ERROR: ContentArea is not a Box")
+		return
+	}
+
+	contentBox.Remove(wm.root.container)
+	log.Printf("[workspace] Removed root container %p from ContentArea", wm.root.container)
 }
