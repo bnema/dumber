@@ -52,6 +52,30 @@ func getActiveTabBg(isDark bool) string {
 	return "#c0c0c0" // Significantly darker gray than inactive (#f0f0f0) - similar to stacked panes
 }
 
+// getEntryBg returns the background color for text entry widgets
+func getEntryBg(isDark bool) string {
+	if isDark {
+		return "#2a2a2a" // Darker background for dark theme
+	}
+	return "#e0e0e0" // Darker gray for light theme
+}
+
+// getEntryFocusBg returns the background color for focused entry widgets
+func getEntryFocusBg(isDark bool) string {
+	if isDark {
+		return "#323232" // Slightly lighter when focused
+	}
+	return "#f5f5f5" // Very light gray when focused
+}
+
+// getEntryBorderColor returns the border color for entry widgets
+func getEntryBorderColor(isDark bool) string {
+	if isDark {
+		return "#555555" // Subtle border for dark theme
+	}
+	return "#cccccc" // Subtle border for light theme
+}
+
 // getActivePaneBorderColor returns the border color for active panes based on config and theme
 func getActivePaneBorderColor(styling config.WorkspaceStylingConfig, isDark bool) string {
 	// Use configured border color if set
@@ -254,6 +278,26 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  font-weight: 500;
 	}
 
+	/* Tab rename entry */
+	entry.tab-rename-entry {
+	  background-color: %s;
+	  color: %s;
+	  font-size: %dpx;
+	  padding: 2px %dpx;
+	  border: 1px solid %s;
+	  border-radius: 3px;
+	  box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.4);
+	  min-width: 80px;
+	  min-height: 0;
+	}
+
+	entry.tab-rename-entry:focus {
+	  background-color: %s;
+	  border-color: %s;
+	  box-shadow: inset 1px 1px 4px rgba(0, 0, 0, 0.5);
+	  outline: none;
+	}
+
 	/* Tab content area */
 	.tab-content-area {
 	  background-color: %s;
@@ -306,6 +350,14 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 		getStackTitleBorderColor(isDark), // tab-button-active border-right
 		titleFontSize,                    // tab-title font-size
 		getStackTitleTextColor(isDark),   // tab-title color
+		// Tab rename entry styles
+		getEntryBg(isDark),               // entry.tab-rename-entry background
+		getStackTitleTextColor(isDark),   // entry.tab-rename-entry color (text)
+		titleFontSize,                    // entry.tab-rename-entry font-size
+		titlePaddingHorizontal,           // entry.tab-rename-entry padding horizontal (vertical is hardcoded 2px)
+		getEntryBorderColor(isDark),      // entry.tab-rename-entry border-color
+		getEntryFocusBg(isDark),          // entry.tab-rename-entry:focus background
+		activeBorderColor,                // entry.tab-rename-entry:focus border-color (use active pane color)
 		windowBackgroundColor,            // tab-content-area background
 		windowBackgroundColor,            // tab-workspace-container background
 	)
