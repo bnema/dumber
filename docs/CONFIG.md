@@ -273,15 +273,14 @@ cancel = ["escape"]
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `workspace.styling.border_width` | int | `1` | Active pane border width (px) |
+| `workspace.styling.border_width` | int | `1` | Active pane border width (px) - overlay |
 | `workspace.styling.border_color` | string | `"@theme_selected_bg_color"` | Active pane border color |
-| `workspace.styling.inactive_border_width` | int | `1` | Inactive pane border width (px) |
-| `workspace.styling.inactive_border_color` | string | `"@theme_unfocused_bg_color"` | Inactive pane border color |
-| `workspace.styling.show_stacked_title_border` | bool | `false` | Show separator on stacked pane titles |
+| `workspace.styling.pane_mode_border_width` | int | `4` | Pane mode border width (px) - Ctrl+P N overlay |
 | `workspace.styling.pane_mode_border_color` | string | `"#4A90E2"` | Pane mode border color (blue) |
+| `workspace.styling.tab_mode_border_width` | int | `4` | Tab mode border width (px) - Ctrl+P T overlay |
 | `workspace.styling.tab_mode_border_color` | string | `"#FFA500"` | Tab mode border color (orange) |
 | `workspace.styling.transition_duration` | int | `120` | Border transition duration (ms) |
-| `workspace.styling.border_radius` | int | `0` | Border radius (px) |
+| `workspace.styling.ui_scale` | float | `1.0` | UI scale multiplier (1.0 = 100%, 1.2 = 120%) |
 
 ## Content Filtering
 

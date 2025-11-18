@@ -95,25 +95,6 @@ func getActivePaneBorderColor(styling config.WorkspaceStylingConfig, isDark bool
 	return "#87CEEB" // Sky blue pastel for light theme
 }
 
-// getInactivePaneBorderColor returns the border color for inactive panes based on config and theme
-func getInactivePaneBorderColor(styling config.WorkspaceStylingConfig, isDark bool) string {
-	// Use configured border color if set
-	if styling.InactiveBorderColor != "" {
-		// Check if it's a GTK theme variable (starts with @)
-		if strings.HasPrefix(styling.InactiveBorderColor, "@") {
-			return styling.InactiveBorderColor
-		}
-		// Return the configured color as-is (could be hex, rgb, etc.)
-		return styling.InactiveBorderColor
-	}
-
-	// Fallback to hardcoded colors based on theme
-	if isDark {
-		return "#333333" // Dark border for dark theme
-	}
-	return "#dddddd" // Light border for light theme
-}
-
 // generateWorkspaceCSS generates the complete CSS for workspace panes and stacked panes
 func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	cfg := config.Get()
@@ -129,7 +110,6 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	}
 
 	activeBorderColor := getActivePaneBorderColor(styling, isDark)
-	inactiveBorderColor := getInactivePaneBorderColor(styling, isDark)
 
 	// Pane mode border color - use configured value or fallback to blue
 	paneModeColor := styling.PaneModeBorderColor
@@ -163,44 +143,47 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  margin: 0;
 	}
 
-	/* Pane mode active - change window background to border color */
-	window.pane-mode-active {
-	  background-color: %s;
+	/* Pane mode border overlay - floats over content without layout shift */
+	.pane-mode-border {
+	  border: %dpx solid %s;
+	  border-radius: 0;
+	  background-color: transparent;
+	  pointer-events: none;
+	}
+
+	/* Tab mode border overlay - floats over content without layout shift */
+	.tab-mode-border {
+	  border: %dpx solid %s;
+	  border-radius: 0;
+	  background-color: transparent;
+	  pointer-events: none;
+	}
+
+	/* Pane border overlay - active pane indicator without layout shift */
+	.pane-border-overlay {
+	  border: %dpx solid %s;
+	  border-radius: 0;
+	  background-color: transparent;
+	  pointer-events: none;
+	  transition-property: opacity;
+	  transition-duration: %dms;
+	  transition-timing-function: ease-in-out;
 	}
 
 	/* Workspace root container */
 	paned, box {
 	  background-color: %s;
-	  transition: margin 150ms ease-in-out;
 	}
 
-	/* Base pane styling - configurable inactive borders */
+	/* Base pane styling - no borders (using overlays instead) */
 	.workspace-pane, .stacked-pane-container {
-	  border-width: %dpx;
-	  border-style: solid;
-	  border-color: %s;
-	  border-radius: %dpx;
+	  border: none;
 	  margin: 0;
-	  transition-property: border-color;
-	  transition-duration: %dms;
-	  transition-timing-function: ease-in-out;
-	}
-
-	/* Active pane border styling */
-	.workspace-pane-active {
-	  border-width: %dpx;
-	  border-color: %s;
 	}
 
 	/* Stacked panes styling */
 	.stacked-pane-container {
 	  background-color: %s;
-	}
-
-	/* Stacked pane containers keep inactive border when active */
-	.stacked-pane-container.workspace-pane-active {
-	  border-width: %dpx;
-	  border-color: %s;
 	}
 
 	.stacked-pane-title {
@@ -265,11 +248,6 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  background-position: 0%% 0%%;
 	  transition: width 180ms ease-in-out, background-position 420ms linear;
 	  animation: tab-progress-stripe 1.3s linear infinite;
-	}
-
-	/* Tab mode active - window background changes to border color (like pane mode) */
-	window.tab-mode-active {
-	  background-color: %s;
 	}
 
 	/* Tab button styling - matches stacked pane titles */
@@ -345,17 +323,15 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  100%% { background-position: -100%% 0%%; }
 	}`,
 		windowBackgroundColor,          // window background
-		paneModeColor,                  // window.pane-mode-active background (border color)
+		styling.PaneModeBorderWidth,    // .pane-mode-border border-width
+		paneModeColor,                  // .pane-mode-border border-color
+		styling.TabModeBorderWidth,     // .tab-mode-border border-width
+		tabModeColor,                   // .tab-mode-border border-color
+		styling.BorderWidth,            // .pane-border-overlay border-width
+		activeBorderColor,              // .pane-border-overlay border-color
+		styling.TransitionDuration,     // .pane-border-overlay transition-duration
 		windowBackgroundColor,          // paned, box background
-		styling.InactiveBorderWidth,    // base pane border-width (inactive)
-		inactiveBorderColor,            // base pane border-color (inactive)
-		styling.BorderRadius,           // base pane border radius
-		styling.TransitionDuration,     // transition-duration
-		styling.BorderWidth,            // workspace-pane-active border-width
-		activeBorderColor,              // workspace-pane-active border color
 		windowBackgroundColor,          // stacked-pane-container background
-		styling.InactiveBorderWidth,    // stacked-pane-container.active border-width
-		inactiveBorderColor,            // stacked-pane-container.active border-color
 		getStackTitleBg(isDark),        // stacked-pane-title background
 		stackedTitleBorder,             // stacked-pane-title border-bottom
 		titlePaddingVertical,           // stacked-pane-title padding vertical
@@ -373,7 +349,6 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 		"#606060",                        // tab progress gradient start (neutral gray)
 		"#747474",                        // tab progress gradient middle (neutral gray)
 		"#8a8a8a",                        // tab progress gradient end (neutral gray)
-		tabModeColor,                     // window.tab-mode-active .tab-bar border-top-color (orange, distinct from pane mode blue)
 		getStackTitleBg(isDark),          // tab-button background (same as stacked title)
 		getStackTitleBorderColor(isDark), // tab-button border-right
 		titlePaddingVertical,             // tab-button padding vertical

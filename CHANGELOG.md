@@ -8,12 +8,15 @@ All notable changes to this project will be documented in this file.
 - **Page load progress bar**: Thin animated indicator at window bottom showing web page loading progress. Tracks WebView load events with gradient animation, auto-hides when complete.
 - **Omnibox initial history display**: Configurable behavior when opening empty omnibox via `omnibox.initial_behavior` ("recent", "most_visited", "none"). Shows initial history on open and when input is cleared. Default: recent visits.
 - **Omnibox keyboard blocking**: Prevent page scripts from stealing focus while omnibox is active.
+- **Configurable border widths**: Added `pane_mode_border_width` and `tab_mode_border_width` configuration options (default: 4px) for full border customization.
 
 ### Fixed
 - **Omnibox flash on load**: Load the injected GUI bundle at document-start and initialize the omnibox as soon as DOM is ready, ensuring it is ready without briefly flashing during page startup or new pane creation.
 
 ### Changed
 - **Refactor keyboard blocking**: Move logic to main-world.ts, reduce handler.go verbosity.
+- **Border overlay architecture**: All borders (active pane, pane mode, tab mode) now use GTK overlay pattern preventing layout shifts when borders appear/disappear. Removed inactive border styling - only active panes show borders.
+- **Simplified border configuration**: Removed `inactive_border_width`, `inactive_border_color`, `show_stacked_title_border`, and `border_radius` config options. All borders are now overlay-based with no layout impact.
 
 ## [0.14.1] - 2025-11-18
 

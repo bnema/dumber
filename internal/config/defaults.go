@@ -30,16 +30,21 @@ const (
 	defaultPopupPlacement          = "right"
 
 	// Workspace styling defaults
-	defaultBorderWidth            = 1
-	defaultBorderColor            = "@theme_selected_bg_color"
-	defaultInactiveBorderWidth    = 1                           // Same width as active to prevent layout shift
-	defaultInactiveBorderColor    = "@theme_unfocused_bg_color" // GTK theme variable
-	defaultShowStackedTitleBorder = false                       // Hidden by default
-	defaultPaneModeBorderColor    = "#4A90E2"                   // Blue for pane mode indicator
-	defaultTabModeBorderColor     = "#FFA500"                   // Orange for tab mode indicator (distinct from pane mode)
-	defaultTransitionDuration     = 120
-	defaultBorderRadius           = 0
-	defaultUIScale                = 1.0 // UI scale multiplier (1.0 = 100%, 1.2 = 120%)
+	// Active pane border (overlay)
+	defaultBorderWidth = 1
+	defaultBorderColor = "@theme_selected_bg_color"
+
+	// Pane mode border (Ctrl+P N - overlay)
+	defaultPaneModeBorderWidth = 4
+	defaultPaneModeBorderColor = "#4A90E2" // Blue for pane mode indicator
+
+	// Tab mode border (Ctrl+P T - overlay)
+	defaultTabModeBorderWidth = 4
+	defaultTabModeBorderColor = "#FFA500" // Orange for tab mode indicator
+
+	// Other styling
+	defaultTransitionDuration = 120
+	defaultUIScale            = 1.0 // UI scale multiplier (1.0 = 100%, 1.2 = 120%)
 )
 
 // getDefaultLogDir returns the default log directory, falls back to empty string on error
@@ -197,16 +202,14 @@ func DefaultConfig() *Config {
 				OAuthAutoClose:       true,      // Auto-close OAuth popups on success
 			},
 			Styling: WorkspaceStylingConfig{
-				BorderWidth:            defaultBorderWidth,
-				BorderColor:            defaultBorderColor,
-				InactiveBorderWidth:    defaultInactiveBorderWidth,
-				InactiveBorderColor:    defaultInactiveBorderColor,
-				ShowStackedTitleBorder: defaultShowStackedTitleBorder,
-				PaneModeBorderColor:    defaultPaneModeBorderColor,
-				TabModeBorderColor:     defaultTabModeBorderColor,
-				TransitionDuration:     defaultTransitionDuration,
-				BorderRadius:           defaultBorderRadius,
-				UIScale:                defaultUIScale,
+				BorderWidth:         defaultBorderWidth,
+				BorderColor:         defaultBorderColor,
+				PaneModeBorderWidth: defaultPaneModeBorderWidth,
+				PaneModeBorderColor: defaultPaneModeBorderColor,
+				TabModeBorderWidth:  defaultTabModeBorderWidth,
+				TabModeBorderColor:  defaultTabModeBorderColor,
+				TransitionDuration:  defaultTransitionDuration,
+				UIScale:             defaultUIScale,
 			},
 		},
 		ContentFiltering: ContentFilteringConfig{

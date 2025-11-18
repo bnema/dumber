@@ -51,10 +51,11 @@ type paneNode struct {
 	right  *paneNode
 
 	// Widget management - gotk4 widgets (all ops on main thread)
-	container   gtk.Widgetter // Main container: *gtk.Paned (branch), *gtk.Box (stack), or WebView widget (leaf)
-	orientation gtk.Orientation
-	isLeaf      bool
-	isPopup     bool // Deprecated: use windowType instead
+	container     gtk.Widgetter // Main container: *gtk.Paned (branch), *gtk.Box (stack), or WebView widget (leaf)
+	borderOverlay gtk.Widgetter // Border overlay widget (for active pane visual indicator)
+	orientation   gtk.Orientation
+	isLeaf        bool
+	isPopup       bool // Deprecated: use windowType instead
 
 	// Window type tracking
 	windowType           webkit.WindowType          // Tab or Popup

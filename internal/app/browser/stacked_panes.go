@@ -99,6 +99,14 @@ func (spm *StackedPaneManager) prepareNewStackedPane() (*paneNode, error) {
 	// Initialize widgets properly using workspace manager helper
 	spm.wm.initializePaneWidgets(newLeaf, newContainer)
 
+	// After wrapping the WebView in an overlay, operate on that container.
+	newContainer = newLeaf.container
+	if newContainer == nil {
+		return nil, errors.New("new stacked pane missing container overlay")
+	}
+	webkit.WidgetSetHExpand(newContainer, true)
+	webkit.WidgetSetVExpand(newContainer, true)
+
 	// Create title bar for the new pane
 	newTitleBar := spm.createTitleBar(newLeaf)
 	spm.wm.setTitleBar(newLeaf, newTitleBar)

@@ -336,26 +336,25 @@ type PopupBehaviorConfig struct {
 
 // WorkspaceStylingConfig defines visual styling for workspace panes.
 type WorkspaceStylingConfig struct {
-	// BorderWidth in pixels for active pane borders
+	// BorderWidth in pixels for active pane borders (overlay)
 	BorderWidth int `mapstructure:"border_width" yaml:"border_width" json:"border_width"`
 	// BorderColor for focused panes (CSS color value or theme variable)
 	BorderColor string `mapstructure:"border_color" yaml:"border_color" json:"border_color"`
-	// InactiveBorderWidth in pixels for inactive pane borders (0 = hidden)
-	InactiveBorderWidth int `mapstructure:"inactive_border_width" yaml:"inactive_border_width" json:"inactive_border_width"`
-	// InactiveBorderColor for unfocused panes (CSS color value or theme variable)
-	InactiveBorderColor string `mapstructure:"inactive_border_color" yaml:"inactive_border_color" json:"inactive_border_color"`
-	// ShowStackedTitleBorder enables the separator line below stacked pane titles
-	ShowStackedTitleBorder bool `mapstructure:"show_stacked_title_border" yaml:"show_stacked_title_border" json:"show_stacked_title_border"`
+
+	// PaneModeBorderWidth in pixels for pane mode indicator border (Ctrl+P N overlay)
+	PaneModeBorderWidth int `mapstructure:"pane_mode_border_width" yaml:"pane_mode_border_width" json:"pane_mode_border_width"`
 	// PaneModeBorderColor for the pane mode indicator border (CSS color value or theme variable)
 	// Defaults to "#4A90E2" (blue) if not set
 	PaneModeBorderColor string `mapstructure:"pane_mode_border_color" yaml:"pane_mode_border_color" json:"pane_mode_border_color"`
+
+	// TabModeBorderWidth in pixels for tab mode indicator border (Ctrl+P T overlay)
+	TabModeBorderWidth int `mapstructure:"tab_mode_border_width" yaml:"tab_mode_border_width" json:"tab_mode_border_width"`
 	// TabModeBorderColor for the tab mode indicator border (CSS color value or theme variable)
 	// Defaults to "#FFA500" (orange) if not set - MUST be different from PaneModeBorderColor
 	TabModeBorderColor string `mapstructure:"tab_mode_border_color" yaml:"tab_mode_border_color" json:"tab_mode_border_color"`
+
 	// TransitionDuration in milliseconds for border animations
 	TransitionDuration int `mapstructure:"transition_duration" yaml:"transition_duration" json:"transition_duration"`
-	// BorderRadius in pixels for pane border corners
-	BorderRadius int `mapstructure:"border_radius" yaml:"border_radius" json:"border_radius"`
 	// UIScale is a multiplier for UI elements like title bars (1.0 = 100%, 1.2 = 120%)
 	UIScale float64 `mapstructure:"ui_scale" yaml:"ui_scale" json:"ui_scale"`
 }
@@ -754,12 +753,11 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("workspace.popups.oauth_auto_close", defaults.Workspace.Popups.OAuthAutoClose)
 	m.viper.SetDefault("workspace.styling.border_width", defaults.Workspace.Styling.BorderWidth)
 	m.viper.SetDefault("workspace.styling.border_color", defaults.Workspace.Styling.BorderColor)
-	m.viper.SetDefault("workspace.styling.inactive_border_width", defaults.Workspace.Styling.InactiveBorderWidth)
-	m.viper.SetDefault("workspace.styling.inactive_border_color", defaults.Workspace.Styling.InactiveBorderColor)
-	m.viper.SetDefault("workspace.styling.show_stacked_title_border", defaults.Workspace.Styling.ShowStackedTitleBorder)
+	m.viper.SetDefault("workspace.styling.pane_mode_border_width", defaults.Workspace.Styling.PaneModeBorderWidth)
 	m.viper.SetDefault("workspace.styling.pane_mode_border_color", defaults.Workspace.Styling.PaneModeBorderColor)
+	m.viper.SetDefault("workspace.styling.tab_mode_border_width", defaults.Workspace.Styling.TabModeBorderWidth)
+	m.viper.SetDefault("workspace.styling.tab_mode_border_color", defaults.Workspace.Styling.TabModeBorderColor)
 	m.viper.SetDefault("workspace.styling.transition_duration", defaults.Workspace.Styling.TransitionDuration)
-	m.viper.SetDefault("workspace.styling.border_radius", defaults.Workspace.Styling.BorderRadius)
 	m.viper.SetDefault("workspace.styling.ui_scale", defaults.Workspace.Styling.UIScale)
 
 	// Content filtering

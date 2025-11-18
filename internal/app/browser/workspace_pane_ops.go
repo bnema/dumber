@@ -476,6 +476,14 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string, existi
 	}
 	wm.initializePaneWidgets(newLeaf, newContainer)
 
+	// After wrapping the WebView in an overlay, use the overlay container for layout operations.
+	newContainer = newLeaf.container
+	if newContainer == nil {
+		return nil, errors.New("new pane missing container overlay")
+	}
+	webkit.WidgetSetHExpand(newContainer, true)
+	webkit.WidgetSetVExpand(newContainer, true)
+
 	split := &paneNode{
 		parent:      splitTarget.parent,
 		orientation: orientation,

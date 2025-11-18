@@ -23,8 +23,11 @@ type TabManager struct {
 	rootContainer gtk.Widgetter // Main vertical box containing tab bar + content
 	tabBar        gtk.Widgetter // Horizontal tab bar container
 	ContentArea   gtk.Widgetter // Container for active workspace (exported for border styling)
-	tabModeTarget gtk.Widgetter // Widget currently holding tab mode border margins
 	progressBar   gtk.Widgetter // Thin load progress indicator
+
+	// Border overlays (float over content without layout shift)
+	paneModeOverlay gtk.Widgetter // Border overlay for pane mode
+	tabModeOverlay  gtk.Widgetter // Border overlay for tab mode
 
 	// Modal state
 	tabModeActive bool
@@ -159,11 +162,27 @@ func (tm *TabManager) createRootContainer() error {
 		rootOverlay.AddOverlay(progressBar)
 	}
 
+	// Create border overlays (hidden by default, shown when pane/tab mode is active)
+	paneModeOverlay := tm.createBorderOverlay("pane-mode-border")
+	tabModeOverlay := tm.createBorderOverlay("tab-mode-border")
+
+	if paneModeOverlay != nil {
+		rootOverlay.AddOverlay(paneModeOverlay)
+		webkit.WidgetSetVisible(paneModeOverlay, false)
+	}
+
+	if tabModeOverlay != nil {
+		rootOverlay.AddOverlay(tabModeOverlay)
+		webkit.WidgetSetVisible(tabModeOverlay, false)
+	}
+
 	// Store references
 	tm.rootContainer = rootOverlay
 	tm.tabBar = tabBar
 	tm.ContentArea = contentArea
 	tm.progressBar = progressBar
+	tm.paneModeOverlay = paneModeOverlay
+	tm.tabModeOverlay = tabModeOverlay
 
 	logging.Info(fmt.Sprintf("[tabs] Root container created with tab bar at %s", position))
 	return nil
