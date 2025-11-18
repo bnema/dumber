@@ -29,6 +29,13 @@ type TabManager struct {
 	tabModeActive bool
 	tabModeTimer  *time.Timer
 
+	// Rename state
+	renameInProgress bool
+	renamingTab      *Tab
+	// Stores original focus behaviour while inline rename is active
+	renamePrevFocusOnClick bool
+	renamePrevCanFocus     bool
+
 	// Tab button click handling (pattern from StackedPaneManager)
 	buttonToTab  map[uint64]*Tab // Maps button ID to tab for click handling
 	nextButtonID uint64          // Atomic counter for generating unique button IDs
@@ -451,6 +458,14 @@ func (tm *TabManager) IsTabModeActive() bool {
 	defer tm.mu.RUnlock()
 
 	return tm.tabModeActive
+}
+
+// IsRenameInProgress returns whether a tab rename is currently in progress.
+func (tm *TabManager) IsRenameInProgress() bool {
+	tm.mu.RLock()
+	defer tm.mu.RUnlock()
+
+	return tm.renameInProgress
 }
 
 // NextTab switches to the next tab (wraps around).

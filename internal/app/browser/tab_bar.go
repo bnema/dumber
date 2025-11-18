@@ -6,6 +6,7 @@ import (
 
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/pkg/webkit"
+	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
@@ -237,4 +238,208 @@ func (tm *TabManager) setTabActiveStyle(tab *Tab, active bool) {
 			logging.Debug(fmt.Sprintf("[tabs] Removed active class from tab %s", tab.id))
 		}
 	})
+}
+
+// startInlineRename replaces the tab button's label with an entry widget for inline editing.
+func (tm *TabManager) startInlineRename(tab *Tab) {
+	if tab.titleButton == nil {
+		logging.Error(fmt.Sprintf("[tabs] Cannot start rename: button is nil for tab %s", tab.id))
+		return
+	}
+
+	// Check if rename already in progress
+	tm.mu.Lock()
+	if tm.renameInProgress {
+		logging.Debug("[tabs] Rename already in progress, ignoring")
+		tm.mu.Unlock()
+		return
+	}
+	tm.renameInProgress = true
+	tm.renamingTab = tab
+
+	// Stop tab mode timer during rename
+	if tm.tabModeTimer != nil {
+		tm.tabModeTimer.Stop()
+		tm.tabModeTimer = nil
+	}
+	tm.mu.Unlock()
+
+	webkit.RunOnMainThread(func() {
+		button, ok := tab.titleButton.(*gtk.Button)
+		if !ok {
+			logging.Error(fmt.Sprintf("[tabs] Tab button is not a *gtk.Button: %s", tab.id))
+			tm.cancelRename()
+			return
+		}
+
+		// Get current text
+		currentText := tab.title
+		if tab.customTitle != "" {
+			currentText = tab.customTitle
+		}
+
+		// Store original label for restoration
+		originalLabel := button.Child()
+
+		// Create entry widget
+		entry := gtk.NewEntry()
+		if entry == nil {
+			logging.Error("[tabs] Failed to create entry widget for rename")
+			tm.cancelRename()
+			return
+		}
+
+		// Store current focus behavior so we can restore it later
+		prevFocusOnClick := button.FocusOnClick()
+		prevCanFocus := button.CanFocus()
+		tm.mu.Lock()
+		tm.renamePrevFocusOnClick = prevFocusOnClick
+		tm.renamePrevCanFocus = prevCanFocus
+		tm.mu.Unlock()
+
+		// Allow the entry to receive focus while rename is active
+		button.SetFocusOnClick(true)
+		button.SetCanFocus(true)
+
+		// Configure entry BEFORE adding to widget tree
+		entry.SetText(currentText)
+		entry.AddCSSClass("tab-rename-entry")
+		entry.SetCanFocus(true)  // Explicitly allow focus
+		entry.SetFocusable(true) // GTK4 focusability
+
+		// Handle Enter key - save
+		entry.ConnectActivate(func() {
+			newName := entry.Text()
+			logging.Debug(fmt.Sprintf("[tabs] Rename activate (Enter): '%s' -> '%s'", currentText, newName))
+			tm.finishInlineRename(tab, newName, originalLabel)
+		})
+
+		// Handle Escape key - cancel
+		keyController := gtk.NewEventControllerKey()
+		keyController.ConnectKeyPressed(func(keyval, keycode uint, state gdk.ModifierType) bool {
+			const gdkKeyEscape = 0xff1b
+			if keyval == gdkKeyEscape {
+				logging.Debug("[tabs] Rename cancelled (Escape)")
+				tm.finishInlineRename(tab, "", originalLabel) // Empty = cancel
+				return true
+			}
+			return false
+		})
+		entry.AddController(keyController)
+
+		// Handle focus-out - cancel (safety)
+		focusController := gtk.NewEventControllerFocus()
+		focusController.ConnectLeave(func() {
+			logging.Debug("[tabs] Rename cancelled (focus-out)")
+			tm.finishInlineRename(tab, "", originalLabel)
+		})
+		entry.AddController(focusController)
+
+		// Replace label with entry
+		button.SetChild(entry)
+
+		// Make entry visible first
+		webkit.WidgetSetVisible(entry, true)
+
+		// Grab focus after widget is visible and realized
+		// Use idle callback to ensure widget is fully realized
+		entry.GrabFocus()
+
+		// Select all text after focus
+		entry.SelectRegion(0, -1)
+
+		logging.Debug(fmt.Sprintf("[tabs] Started inline rename for tab %s", tab.id))
+	})
+}
+
+// cancelRename clears the rename state without changing anything
+func (tm *TabManager) cancelRename() {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+	tm.renameInProgress = false
+	tm.renamingTab = nil
+	tm.renamePrevFocusOnClick = false
+	tm.renamePrevCanFocus = false
+	logging.Debug("[tabs] Rename state cleared")
+}
+
+// finishInlineRename restores the label and saves the new name if provided.
+func (tm *TabManager) finishInlineRename(tab *Tab, newName string, originalLabel gtk.Widgetter) {
+	// Guard against multiple calls
+	tm.mu.Lock()
+	if !tm.renameInProgress {
+		logging.Debug("[tabs] finishInlineRename called but no rename in progress, ignoring")
+		tm.mu.Unlock()
+		return
+	}
+	if tm.renamingTab != tab {
+		logging.Debug(fmt.Sprintf("[tabs] finishInlineRename called for wrong tab (expected %s, got %s)",
+			tm.renamingTab.id, tab.id))
+		tm.mu.Unlock()
+		return
+	}
+
+	// Clear rename state immediately to prevent re-entry
+	tm.renameInProgress = false
+	tm.renamingTab = nil
+	tm.mu.Unlock()
+
+	webkit.RunOnMainThread(func() {
+		button, ok := tab.titleButton.(*gtk.Button)
+		if !ok {
+			logging.Error(fmt.Sprintf("[tabs] Tab button is not a *gtk.Button during finish: %s", tab.id))
+			return
+		}
+
+		// Restore original label
+		button.SetChild(originalLabel)
+
+		// Restore original focus behavior now that rename is finished
+		tm.mu.Lock()
+		prevFocusOnClick := tm.renamePrevFocusOnClick
+		prevCanFocus := tm.renamePrevCanFocus
+		tm.renamePrevFocusOnClick = false
+		tm.renamePrevCanFocus = false
+		tm.mu.Unlock()
+		button.SetFocusOnClick(prevFocusOnClick)
+		button.SetCanFocus(prevCanFocus)
+
+		// Save new name if provided and not just whitespace
+		newName = trimWhitespace(newName)
+		if newName != "" {
+			tab.customTitle = newName
+			logging.Info(fmt.Sprintf("[tabs] Tab %s renamed to '%s'", tab.id, newName))
+		} else {
+			logging.Debug(fmt.Sprintf("[tabs] Tab %s rename cancelled", tab.id))
+		}
+
+		// Update label text
+		tm.updateTabButton(tab)
+
+		// Exit tab mode
+		tm.ExitTabMode("rename-complete")
+	})
+}
+
+// trimWhitespace removes leading and trailing whitespace from a string.
+func trimWhitespace(s string) string {
+	start := 0
+	end := len(s)
+
+	// Trim leading whitespace
+	for start < end && isWhitespace(s[start]) {
+		start++
+	}
+
+	// Trim trailing whitespace
+	for end > start && isWhitespace(s[end-1]) {
+		end--
+	}
+
+	return s[start:end]
+}
+
+// isWhitespace checks if a byte is a whitespace character.
+func isWhitespace(b byte) bool {
+	return b == ' ' || b == '\t' || b == '\n' || b == '\r'
 }

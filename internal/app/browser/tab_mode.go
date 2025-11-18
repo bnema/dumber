@@ -172,37 +172,33 @@ func (tm *TabManager) handlePreviousTab() {
 	}
 }
 
-// handleRenameTab shows a dialog to rename the active tab.
+// handleRenameTab starts inline editing of the active tab's name.
 func (tm *TabManager) handleRenameTab() {
-	logging.Debug("[tab-mode] Opening rename dialog")
-
-	// Exit tab mode first so the dialog can be interacted with
-	tm.ExitTabMode("rename-dialog")
+	logging.Debug("[tab-mode] Starting inline tab rename")
 
 	tm.mu.RLock()
 	activeIndex := tm.activeIndex
-	var currentTitle string
+	tabCount := len(tm.tabs)
+	var activeTab *Tab
 	if activeIndex >= 0 && activeIndex < len(tm.tabs) {
-		tab := tm.tabs[activeIndex]
-		if tab.customTitle != "" {
-			currentTitle = tab.customTitle
-		} else {
-			currentTitle = tab.title
-		}
+		activeTab = tm.tabs[activeIndex]
 	}
 	tm.mu.RUnlock()
 
-	if activeIndex < 0 {
+	// Guard: Don't allow rename if only 1 tab (tab bar is hidden)
+	if tabCount <= 1 {
+		logging.Warn("[tab-mode] Cannot rename: only one tab (tab bar hidden)")
+		return
+	}
+
+	if activeTab == nil {
 		logging.Error("[tab-mode] No active tab to rename")
 		return
 	}
 
-	// Show rename dialog (will be implemented in Step 10)
-	// For now, just log
-	logging.Info(fmt.Sprintf("[tab-mode] Would show rename dialog for tab %d (current: %s)", activeIndex, currentTitle))
-
-	// TODO: Implement GTK dialog in Step 10
-	// tm.showRenameDialog(activeIndex, currentTitle)
+	// Start inline rename (tab mode will be exited by finishInlineRename)
+	logging.Info(fmt.Sprintf("[tab-mode] Starting inline rename for tab %s", activeTab.id))
+	tm.startInlineRename(activeTab)
 }
 
 // applyTabModeBorder applies visual indicator when tab mode is active.
