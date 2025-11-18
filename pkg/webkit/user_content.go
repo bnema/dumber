@@ -163,8 +163,9 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 		log.Printf("[webkit] Injected main-world script (%d bytes, main world)", len(assets.MainWorldScript))
 	}
 
-	// Inject GUI controls script in ISOLATED world only
+	// Inject GUI controls script in ISOLATED world at document-start
 	// This contains Svelte components and must be protected from page interference
+	// Loading at document-start ensures the omnibox is available as early as possible
 	if assets.GUIScript != "" {
 		ucm.AddScript(webkit.NewUserScriptForWorld(
 			assets.GUIScript,
@@ -174,12 +175,13 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 			nil,
 			nil,
 		))
-		log.Printf("[webkit] Injected GUI controls script (%d bytes, isolated world)", len(assets.GUIScript))
+		log.Printf("[webkit] Injected GUI controls script (%d bytes, isolated world, document-start)", len(assets.GUIScript))
 	}
 
-	// Inject component CSS styles as a JavaScript variable in ISOLATED world
+	// Inject component CSS styles as a JavaScript variable in ISOLATED world at document-start
 	// These styles need to be injected into the shadow root by shadowHost.ts
 	// because Shadow DOM has style encapsulation - external stylesheets don't penetrate it
+	// Keep at document-start to prevent flash of unstyled content
 	if assets.ComponentStyles != "" {
 		// Use fmt.Sprintf with %q to properly escape the CSS string for JavaScript
 		componentStylesScript := fmt.Sprintf(`window.__dumber_component_styles = %q;`, assets.ComponentStyles)
@@ -192,7 +194,7 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 			nil,
 			nil,
 		))
-		log.Printf("[webkit] Injected component styles string (%d bytes, isolated world)", len(assets.ComponentStyles))
+		log.Printf("[webkit] Injected component styles string (%d bytes, isolated world, document-start)", len(assets.ComponentStyles))
 	}
 
 	// Register script message handler "dumber" in the MAIN world

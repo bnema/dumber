@@ -60,6 +60,14 @@ function whenDOMReady(callback: () => void) {
   }
 }
 
+function whenPageLoaded(callback: () => void) {
+  if (document.readyState === "complete") {
+    callback();
+  } else {
+    window.addEventListener("load", callback, { once: true });
+  }
+}
+
 function normalizeWebviewId(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
@@ -177,39 +185,26 @@ export function bootstrapGUI(): void {
     }
   });
 
+  // Initialize toast early (DOM ready is enough)
   whenDOMReady(async () => {
-    console.log("[GUI] DOM ready, starting initialization");
-    let toastInitialized = false;
-
+    console.log("[GUI] DOM ready, initializing toast");
     try {
-      console.log("[GUI] Attempting toast initialization");
       await initializeToast();
-      toastInitialized = true;
       console.log("[GUI] Toast initialized successfully");
     } catch (e) {
-      console.error("❌ Failed to initialize Svelte toast system:", e);
-      throw e;
+      console.error("❌ Failed to initialize toast system:", e);
     }
+  });
 
+  // Initialize omnibox as soon as the DOM is ready (no need to wait for full load)
+  whenDOMReady(async () => {
+    console.log("[GUI] DOM ready, initializing omnibox");
     try {
       await initializeOmnibox();
       console.log("✅ Omnibox system initialized successfully");
-
-      // Auto-open omnibox on about:blank pages
-      if (window.location.href === "about:blank" && window.__dumber_omnibox) {
-        console.log("[about:blank] Auto-opening omnibox");
-        setTimeout(() => {
-          window.__dumber_omnibox?.open?.("omnibox", "");
-        }, 100);
-      }
     } catch (omniboxError) {
       console.error("❌ Failed to initialize omnibox system:", omniboxError);
     }
-
-    console.log("✅ GUI systems initialization complete", {
-      toast: toastInitialized ? "Svelte" : "Fallback",
-      omnibox: !!window.__dumber_omnibox,
-    });
   });
 
   window.__dumber_keyboard = keyboardService;

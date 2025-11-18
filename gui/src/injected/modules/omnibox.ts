@@ -36,10 +36,26 @@ export async function initializeOmnibox(
       return;
     }
 
-    // Check if DOM is ready
+    // Ensure a <body> exists before mounting (document-start injection can run before it's available)
     if (!document.body) {
-      console.warn("DOM body not ready for omnibox initialization");
-      return;
+      await new Promise<void>((resolve) => {
+        let resolved = false;
+        const finish = () => {
+          if (!resolved) {
+            resolved = true;
+            resolve();
+          }
+        };
+        const check = () => {
+          if (document.body) {
+            finish();
+          } else {
+            setTimeout(check, 10);
+          }
+        };
+        document.addEventListener("DOMContentLoaded", finish, { once: true });
+        check();
+      });
     }
 
     // Mount omnibox into the shared global Shadow DOM host
