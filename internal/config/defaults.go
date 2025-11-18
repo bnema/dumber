@@ -124,11 +124,11 @@ func DefaultConfig() *Config {
 			PreferredCodecs:           "av1,h264",                                                                                              // AV1 first, but allow VP9 fallback for higher resolutions
 			ForceAV1:                  false,                                                                                                   // Use smart AV1 negotiation instead of forcing
 			BlockVP9:                  false,                                                                                                   // Allow VP9 for higher resolutions
-			BlockVP8:                  true,                                                                                                    // Still block VP8 as it's outdated
+			BlockVP8:                  false,                                                                                                   // Allow VP8 fallback for ad segments (lower priority)
 			AV1HardwareOnly:           false,                                                                                                   // Allow software AV1 fallback
 			DisableVP9Hardware:        false,                                                                                                   // Allow VP9 hardware for high res content
-			VideoBufferSizeMB:         16,                                                                                                      // Larger buffer for AV1 streams
-			QueueBufferTimeSec:        10,                                                                                                      // More buffering time for smooth playback
+			VideoBufferSizeMB:         64,                                                                                                      // Larger buffer for bursty Twitch/AV1 segments
+			QueueBufferTimeSec:        20,                                                                                                      // More buffering time for smooth playback
 			CustomUserAgent:           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15", // WebKitGTK default (same as Epiphany)
 			AV1MaxResolution:          "1080p",                                                                                                 // Optimal AV1 up to 1080p, fallback to VP9 for higher res
 			DisableTwitchCodecControl: true,                                                                                                    // Disable codec control on Twitch by default (prevents theater/fullscreen freezing)

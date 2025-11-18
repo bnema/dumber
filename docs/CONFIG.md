@@ -152,11 +152,11 @@ border = "#363636"
 | `codec_preferences.preferred_codecs` | string | `"av1,h264"` | Comma-separated | Codec priority order |
 | `codec_preferences.force_av1` | bool | `false` | - | Force AV1 codec |
 | `codec_preferences.block_vp9` | bool | `false` | - | Block VP9 codec |
-| `codec_preferences.block_vp8` | bool | `true` | - | Block VP8 codec |
+| `codec_preferences.block_vp8` | bool | `false` | - | Block VP8 codec |
 | `codec_preferences.av1_hardware_only` | bool | `false` | - | Disable AV1 software fallback |
 | `codec_preferences.disable_vp9_hardware` | bool | `false` | - | Disable VP9 hardware accel |
-| `codec_preferences.video_buffer_size_mb` | int | `16` | > 0 | Video buffer size in MB |
-| `codec_preferences.queue_buffer_time_sec` | int | `10` | > 0 | Queue buffer time in seconds |
+| `codec_preferences.video_buffer_size_mb` | int | `64` | > 0 | Video buffer size in MB |
+| `codec_preferences.queue_buffer_time_sec` | int | `20` | > 0 | Queue buffer time in seconds |
 | `codec_preferences.custom_user_agent` | string | Chrome UA | any | Custom user agent string |
 | `codec_preferences.av1_max_resolution` | string | `"1080p"` | `720p`, `1080p`, `1440p`, `4k`, `unlimited` | Max AV1 resolution |
 | `codec_preferences.disable_twitch_codec_control` | bool | `true` | - | Disable codec control on Twitch |
