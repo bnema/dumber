@@ -187,8 +187,15 @@ func (h *WindowShortcutHandler) registerKeycodeShortcuts() error {
 		}
 
 		// Handle tab mode action keys (only when tab mode is active)
+		// IMPORTANT: If rename is in progress, let ALL keys through to the Entry widget
 		// These keys need to be checked here so they can propagate when tab mode is not active
 		if h.isTabModeActive() {
+			// Check if rename is in progress - if so, don't intercept ANY keys
+			// This allows the Entry widget to receive all keyboard input
+			if h.isRenameInProgress() {
+				return false // Let all keys propagate to Entry widget
+			}
+
 			handled := false
 			action := ""
 
@@ -628,6 +635,14 @@ func (h *WindowShortcutHandler) isTabModeActive() bool {
 		return false
 	}
 	return h.app.tabManager.IsTabModeActive()
+}
+
+// isRenameInProgress checks if a tab rename is currently in progress
+func (h *WindowShortcutHandler) isRenameInProgress() bool {
+	if h.app == nil || h.app.tabManager == nil {
+		return false
+	}
+	return h.app.tabManager.IsRenameInProgress()
 }
 
 // handleTabModeAction handles tab mode action keys (n, x, l, h, etc.)
