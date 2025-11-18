@@ -164,7 +164,17 @@ func (wm *WorkspaceManager) createPane(view *webkit.WebView) (*BrowserPane, erro
 	if wm == nil || wm.createPaneFn == nil {
 		return nil, errors.New("workspace manager missing pane factory")
 	}
-	return wm.createPaneFn(view)
+	pane, err := wm.createPaneFn(view)
+	if err != nil {
+		return nil, err
+	}
+
+	// Register the new WebView with the tab manager for progress tracking.
+	if wm.app != nil && wm.app.tabManager != nil {
+		wm.app.tabManager.registerWebViewForWorkspace(view, wm)
+	}
+
+	return pane, nil
 }
 
 // clonePaneState sets up a new pane with cloned state from another pane

@@ -191,6 +191,17 @@ func (app *BrowserApp) attachPaneHandlers(pane *BrowserPane) {
 		pane.messageHandler.Handle(payload)
 	})
 
+	// Page load progress - drive tab-level progress bar
+	pane.webView.RegisterLoadStartedHandler(func() {
+		app.handleLoadProgress(pane.webView, 0.0, true)
+	})
+	pane.webView.RegisterLoadFinishedHandler(func() {
+		app.handleLoadProgress(pane.webView, 1.0, false)
+	})
+	pane.webView.RegisterLoadProgressHandler(func(progress float64) {
+		app.handleLoadProgress(pane.webView, progress, true)
+	})
+
 	if pane.messageHandler != nil && pane.navigationController != nil {
 		pane.messageHandler.SetNavigationController(pane.navigationController)
 	}
@@ -203,6 +214,16 @@ func (app *BrowserApp) attachPaneHandlers(pane *BrowserPane) {
 			log.Printf("[webview] Setup native popup handling for WebView ID: %d", pane.webView.ID())
 		}
 	}
+}
+
+// handleLoadProgress routes WebView load progress events to the tab manager for UI display.
+func (app *BrowserApp) handleLoadProgress(view *webkit.WebView, progress float64, loading bool) {
+	if app == nil || view == nil || app.tabManager == nil {
+		return
+	}
+
+	// Run asynchronously to avoid blocking the GTK/main thread during load-changed signals.
+	go app.tabManager.updateProgressForWebView(view, progress, loading)
 }
 
 // shouldFocusForScriptMessage filters script messages and only allows focus handoff

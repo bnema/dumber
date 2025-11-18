@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Page load progress bar**: Thin animated indicator at window bottom showing web page loading progress. Tracks WebView load events with gradient animation, auto-hides when complete.
 - **Omnibox initial history display**: Configurable behavior when opening empty omnibox via `omnibox.initial_behavior` ("recent", "most_visited", "none"). Shows initial history on open and when input is cleared. Default: recent visits.
 - **Omnibox keyboard blocking**: Prevent page scripts from stealing focus while omnibox is active.
 

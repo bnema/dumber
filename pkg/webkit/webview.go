@@ -43,6 +43,9 @@ type WebView struct {
 	onFaviconURIChanged   func(pageURI, faviconURI string)
 	onZoomChanged         func(float64)
 	onLoadCommitted       func(string)                            // Called when page load is committed (safe to apply zoom)
+	onLoadStarted         func()                                  // Called when a load starts
+	onLoadFinished        func()                                  // Called when a load finishes
+	onLoadProgress        func(float64)                           // Called when estimated-load-progress changes
 	onPopupCreate         func(*webkit.NavigationAction) *WebView // New WebKit create signal handler
 	onReadyToShow         func()                                  // WebKit ready-to-show signal handler
 	onClose               func()
@@ -246,9 +249,22 @@ func (w *WebView) setupEventHandlers() {
 
 	// Load committed - connect to load-changed signal for WEBKIT_LOAD_COMMITTED
 	w.view.ConnectLoadChanged(func(loadEvent webkit.LoadEvent) {
+		if loadEvent == webkit.LoadStarted && w.onLoadStarted != nil {
+			w.onLoadStarted()
+		}
 		if loadEvent == webkit.LoadCommitted && w.onLoadCommitted != nil {
 			uri := w.view.URI()
 			w.onLoadCommitted(uri)
+		}
+		if loadEvent == webkit.LoadFinished && w.onLoadFinished != nil {
+			w.onLoadFinished()
+		}
+	})
+
+	// Estimated load progress - notify::estimated-load-progress property
+	w.view.Connect("notify::estimated-load-progress", func() {
+		if w.onLoadProgress != nil {
+			w.onLoadProgress(w.view.EstimatedLoadProgress())
 		}
 	})
 
@@ -720,6 +736,27 @@ func (w *WebView) RegisterLoadCommittedHandler(handler func(string)) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.onLoadCommitted = handler
+}
+
+// RegisterLoadStartedHandler registers a handler for load start events.
+func (w *WebView) RegisterLoadStartedHandler(handler func()) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onLoadStarted = handler
+}
+
+// RegisterLoadFinishedHandler registers a handler for load finished events.
+func (w *WebView) RegisterLoadFinishedHandler(handler func()) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onLoadFinished = handler
+}
+
+// RegisterLoadProgressHandler registers a handler for load progress updates (0.0 - 1.0).
+func (w *WebView) RegisterLoadProgressHandler(handler func(float64)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onLoadProgress = handler
 }
 
 // RegisterCloseHandler registers a handler for close requests

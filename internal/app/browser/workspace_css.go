@@ -241,6 +241,32 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  min-height: %dpx;
 	}
 
+	/* Tab progress bar */
+	progressbar.tab-progress-bar {
+	  min-height: 4px;
+	  padding: 0;
+	  margin: 0;
+	  border: none;
+	  transition: opacity 180ms ease-in-out;
+	}
+
+	progressbar.tab-progress-bar trough {
+	  min-height: 4px;
+	  background: transparent;
+	  border: none;
+	  padding: 0;
+	}
+
+	progressbar.tab-progress-bar progress {
+	  min-height: 4px;
+	  border-radius: 0;
+	  background-image: linear-gradient(90deg, %s 0%%, %s 50%%, %s 100%%);
+	  background-size: 240%% 100%%;
+	  background-position: 0%% 0%%;
+	  transition: width 180ms ease-in-out, background-position 420ms linear;
+	  animation: tab-progress-stripe 1.3s linear infinite;
+	}
+
 	/* Tab mode active - window background changes to border color (like pane mode) */
 	window.tab-mode-active {
 	  background-color: %s;
@@ -312,6 +338,11 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	@keyframes pulse-border {
 	  0%%, 100%% { opacity: 1.0; }
 	  50%% { opacity: 0.6; }
+	}
+
+	@keyframes tab-progress-stripe {
+	  0%% { background-position: 0%% 0%%; }
+	  100%% { background-position: -100%% 0%%; }
 	}`,
 		windowBackgroundColor,          // window background
 		paneModeColor,                  // window.pane-mode-active background (border color)
@@ -339,6 +370,9 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 		windowBackgroundColor,            // tab-bar background
 		getStackTitleBorderColor(isDark), // tab-bar border-top
 		int(32*uiScale),                  // tab-bar min-height
+		"#606060",                        // tab progress gradient start (neutral gray)
+		"#747474",                        // tab progress gradient middle (neutral gray)
+		"#8a8a8a",                        // tab progress gradient end (neutral gray)
 		tabModeColor,                     // window.tab-mode-active .tab-bar border-top-color (orange, distinct from pane mode blue)
 		getStackTitleBg(isDark),          // tab-button background (same as stacked title)
 		getStackTitleBorderColor(isDark), // tab-button border-right
@@ -351,15 +385,15 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 		titleFontSize,                    // tab-title font-size
 		getStackTitleTextColor(isDark),   // tab-title color
 		// Tab rename entry styles
-		getEntryBg(isDark),               // entry.tab-rename-entry background
-		getStackTitleTextColor(isDark),   // entry.tab-rename-entry color (text)
-		titleFontSize,                    // entry.tab-rename-entry font-size
-		titlePaddingHorizontal,           // entry.tab-rename-entry padding horizontal (vertical is hardcoded 2px)
-		getEntryBorderColor(isDark),      // entry.tab-rename-entry border-color
-		getEntryFocusBg(isDark),          // entry.tab-rename-entry:focus background
-		activeBorderColor,                // entry.tab-rename-entry:focus border-color (use active pane color)
-		windowBackgroundColor,            // tab-content-area background
-		windowBackgroundColor,            // tab-workspace-container background
+		getEntryBg(isDark),             // entry.tab-rename-entry background
+		getStackTitleTextColor(isDark), // entry.tab-rename-entry color (text)
+		titleFontSize,                  // entry.tab-rename-entry font-size
+		titlePaddingHorizontal,         // entry.tab-rename-entry padding horizontal (vertical is hardcoded 2px)
+		getEntryBorderColor(isDark),    // entry.tab-rename-entry border-color
+		getEntryFocusBg(isDark),        // entry.tab-rename-entry:focus background
+		activeBorderColor,              // entry.tab-rename-entry:focus border-color (use active pane color)
+		windowBackgroundColor,          // tab-content-area background
+		windowBackgroundColor,          // tab-workspace-container background
 	)
 
 	return css
