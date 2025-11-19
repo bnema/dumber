@@ -25,6 +25,7 @@ type HistoryQuerier interface {
 	AddOrUpdateHistory(ctx context.Context, url string, title sql.NullString) error
 	UpdateHistoryFavicon(ctx context.Context, faviconUrl sql.NullString, url string) error
 	DeleteHistory(ctx context.Context, id int64) error
+	DeleteAllHistory(ctx context.Context) error
 }
 
 // CertificateQuerier defines the interface for certificate validation-related database operations
