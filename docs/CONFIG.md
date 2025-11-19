@@ -79,6 +79,22 @@ description = "YouTube"
 | `dmenu.date_format` | string | `"2006-01-02 15:04"` | Go time format string |
 | `dmenu.sort_by_visit_count` | bool | `true` | Sort by popularity |
 
+## Omnibox
+
+| Key | Type | Default | Valid Values | Description |
+|-----|------|---------|--------------|-------------|
+| `omnibox.initial_behavior` | string | `"recent"` | `recent`, `most_visited`, `none` | Initial history display behavior |
+
+**Example:**
+```toml
+[omnibox]
+initial_behavior = "recent"  # Show recent history when omnibox opens
+
+# Alternative options:
+# initial_behavior = "most_visited"  # Show most visited sites
+# initial_behavior = "none"          # Show no initial suggestions
+```
+
 ## Logging
 
 | Key | Type | Default | Valid Values | Description |
