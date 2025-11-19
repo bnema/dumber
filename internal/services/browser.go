@@ -15,6 +15,7 @@ import (
 	"github.com/bnema/dumber/internal/cache"
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/db"
+	"github.com/bnema/dumber/internal/parser"
 	"github.com/bnema/dumber/pkg/webkit"
 )
 
@@ -213,9 +214,11 @@ func (s *BrowserService) UpdatePageTitle(ctx context.Context, url, title string)
 		return fmt.Errorf("URL and title cannot be empty")
 	}
 
+	normalizedURL := parser.NormalizeHistoryURL(url)
+
 	// Use AddOrUpdateHistory to update the title
 	titleNull := sql.NullString{String: title, Valid: true}
-	err := s.dbQueries.AddOrUpdateHistory(ctx, url, titleNull)
+	err := s.dbQueries.AddOrUpdateHistory(ctx, normalizedURL, titleNull)
 	if err != nil {
 		return err
 	}
@@ -421,6 +424,8 @@ func (s *BrowserService) GetSearchShortcuts(ctx context.Context) (map[string]con
 // recordHistory adds or updates a history entry.
 // Now queues the update for batched processing instead of immediate DB write.
 func (s *BrowserService) recordHistory(ctx context.Context, url, title string) error {
+	normalizedURL := parser.NormalizeHistoryURL(url)
+
 	titleNull := sql.NullString{Valid: false}
 	if title != "" {
 		titleNull = sql.NullString{String: title, Valid: true}
@@ -428,13 +433,13 @@ func (s *BrowserService) recordHistory(ctx context.Context, url, title string) e
 
 	// Queue the history update (non-blocking with buffer)
 	select {
-	case s.historyQueue <- historyUpdate{url: url, title: titleNull}:
+	case s.historyQueue <- historyUpdate{url: normalizedURL, title: titleNull}:
 		// Successfully queued
 		return nil
 	default:
 		// Queue full, write directly (fallback)
 		log.Printf("Warning: history queue full, writing directly")
-		return s.dbQueries.AddOrUpdateHistory(ctx, url, titleNull)
+		return s.dbQueries.AddOrUpdateHistory(ctx, normalizedURL, titleNull)
 	}
 }
 
