@@ -21,6 +21,12 @@ func writeManifest(t *testing.T, dir, name, version string) {
 		ManifestVersion: 2,
 		Name:            name,
 		Version:         version,
+		BrowserSpecificSettings: &BrowserSpecificSettings{
+			Gecko: &GeckoSettings{
+				ID:               "@" + name,
+				StrictMinVersion: "91.0",
+			},
+		},
 	}
 	data, err := json.Marshal(manifest)
 	if err != nil {
