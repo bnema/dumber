@@ -41,6 +41,9 @@ LIMIT 1;
 DELETE FROM history
 WHERE id = ?;
 
+-- name: DeleteAllHistory :exec
+DELETE FROM history;
+
 -- name: GetMostVisited :many
 SELECT *
 FROM history
