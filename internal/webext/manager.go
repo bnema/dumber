@@ -121,7 +121,11 @@ func (m *Manager) LoadBundledExtensions(dir string) error {
 			continue
 		}
 
+		// Skip if already loaded in either bundled or user extensions
 		if _, exists := m.bundled[entry.Name()]; exists {
+			continue
+		}
+		if _, exists := m.user[entry.Name()]; exists {
 			continue
 		}
 
@@ -166,6 +170,10 @@ func (m *Manager) LoadUserExtensions(dir string) error {
 			continue
 		}
 
+		// Skip if already loaded in either bundled or user extensions
+		if _, exists := m.bundled[entry.Name()]; exists {
+			continue
+		}
 		if _, exists := m.user[entry.Name()]; exists {
 			continue
 		}
