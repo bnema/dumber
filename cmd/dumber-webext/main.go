@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"unsafe"
 
 	"github.com/diamondburned/gotk4-webkitgtk/pkg/webkitwebprocessextension/v6"
@@ -73,13 +74,17 @@ func webkit_web_process_extension_initialize_with_user_data(
 		if goUserData == nil {
 			log.Printf("Warning: failed to wrap user data variant")
 		} else {
-			userDataStr := goUserData.String()
-			log.Printf("Received user data: %d bytes", len(userDataStr))
-
-			if err := parseExtensionData(userDataStr); err != nil {
-				log.Printf("Warning: failed to parse extension data: %v", err)
+			userDataStr, err := variantToString(goUserData)
+			if err != nil {
+				log.Printf("Warning: failed to read user data variant (%s): %v", goUserData.TypeString(), err)
 			} else {
-				log.Printf("Loaded %d extension(s) for content script injection", len(extensionInfo))
+				log.Printf("Received user data: %d bytes (type=%s)", len(userDataStr), goUserData.TypeString())
+
+				if err := parseExtensionData(userDataStr); err != nil {
+					log.Printf("Warning: failed to parse extension data: %v", err)
+				} else {
+					log.Printf("Loaded %d extension(s) for content script injection", len(extensionInfo))
+				}
 			}
 		}
 	}
@@ -95,6 +100,9 @@ func webkit_web_process_extension_initialize_with_user_data(
 
 // parseExtensionData parses the JSON extension data from InitUserData
 func parseExtensionData(jsonStr string) error {
+	jsonStr = strings.TrimSpace(jsonStr)
+	jsonStr = strings.Trim(jsonStr, "'")
+
 	type InitData struct {
 		Extensions []ExtensionInfo `json:"extensions"`
 	}
@@ -106,6 +114,39 @@ func parseExtensionData(jsonStr string) error {
 
 	extensionInfo = initData.Extensions
 	return nil
+}
+
+// variantToString safely extracts a Go string from a GVariant.
+// Using String() directly can return a printed variant (with quotes) when the
+// underlying type is not a plain string, which breaks JSON parsing.
+func variantToString(v *coreglib.Variant) (string, error) {
+	if v == nil {
+		return "", fmt.Errorf("variant is nil")
+	}
+
+	if v.TypeString() == "s" {
+		return unquoteSingle(v.String()), nil
+	}
+
+	if val, ok := v.GoValue().(string); ok {
+		return unquoteSingle(val), nil
+	}
+
+	// Fallback to printed variant (e.g., "'{...}'") and strip outer single quotes
+	printed := v.Print(false)
+	if len(printed) >= 2 && printed[0] == '\'' && printed[len(printed)-1] == '\'' {
+		return printed[1 : len(printed)-1], nil
+	}
+
+	return "", fmt.Errorf("expected string variant, got type %s", v.TypeString())
+}
+
+// unquoteSingle removes a single pair of leading/trailing single quotes.
+func unquoteSingle(s string) string {
+	if len(s) >= 2 && s[0] == '\'' && s[len(s)-1] == '\'' {
+		return s[1 : len(s)-1]
+	}
+	return s
 }
 
 // wrapWebProcessExtension wraps a C WebKitWebProcessExtension pointer into a Go object
@@ -157,17 +198,12 @@ func onPageCreated(page *webkitwebprocessextension.WebPage) {
 }
 
 func onSendRequest(page *webkitwebprocessextension.WebPage, request *webkitwebprocessextension.URIRequest, redirectedResponse *webkitwebprocessextension.URIResponse) bool {
-	uri := request.URI()
-
-	// Log network requests for debugging
-	log.Printf("Network request: %s (page: %d)", uri, page.ID())
-
 	// TODO: Implement webRequest API filtering here
 	// - Call extension's onBeforeRequest handlers
 	// - Check if request should be blocked
-	// - Return false to cancel request, true to allow
+	// - Return true to cancel request, false to allow (per WebKit WebPage::send-request docs)
 
-	return true // Allow request
+	return false // allow request to proceed
 }
 
 func onDocumentLoaded(page *webkitwebprocessextension.WebPage) {

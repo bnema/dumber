@@ -2,6 +2,7 @@ package webext
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 )
 
 const (
@@ -187,9 +189,76 @@ func downloadAndExtractUBlock(url, installPath string) error {
 		return err
 	}
 	if err := os.Rename(uBlockDir, installPath); err != nil {
-		return fmt.Errorf("failed to move extension: %w", err)
+		// Fall back to copy when rename crosses filesystems
+		if !errors.Is(err, syscall.EXDEV) {
+			return fmt.Errorf("failed to move extension: %w", err)
+		}
+
+		if err := copyDir(uBlockDir, installPath); err != nil {
+			return fmt.Errorf("failed to move extension (copy fallback): %w", err)
+		}
+
+		if err := os.RemoveAll(uBlockDir); err != nil {
+			log.Printf("[webext] Warning: failed to cleanup temp uBlock directory: %v", err)
+		}
 	}
 
 	log.Printf("[webext] Extracted to %s", installPath)
 	return nil
+}
+
+// copyDir copies a directory tree from src to dst.
+func copyDir(src, dst string) error {
+	return filepath.WalkDir(src, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+
+		target := filepath.Join(dst, rel)
+
+		if d.IsDir() {
+			return os.MkdirAll(target, 0755)
+		}
+
+		if d.Type()&os.ModeSymlink != 0 {
+			// Preserve symlinks by copying the link target.
+			linkTarget, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			return os.Symlink(linkTarget, target)
+		}
+
+		return copyFile(path, target)
+	})
+}
+
+// copyFile copies a single file from src to dst.
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return err
+	}
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	if _, err := io.Copy(out, in); err != nil {
+		return err
+	}
+
+	return out.Sync()
 }
