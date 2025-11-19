@@ -440,11 +440,18 @@ func (app *BrowserApp) setupExtensionManager() error {
 		log.Printf("[webext]   - %s v%s (%s)%s", ext.Manifest.Name, ext.Manifest.Version, status, bundled)
 	}
 
+	// Serialize extension data for WebProcess
+	initData, err := app.extensionManager.SerializeInitData()
+	if err != nil {
+		log.Printf("[webext] Warning: failed to serialize extension data: %v", err)
+		initData = "" // Continue without extension data
+	}
+
 	// Setup WebContext to load WebProcess extension
 	// This must be done BEFORE creating any WebViews
 	webExtConfig := &webkit.WebExtensionConfig{
 		ExtensionsDirectory: "/usr/local/libexec/dumber",
-		InitUserData:        "", // TODO: Serialize extension list for WebProcess
+		InitUserData:        initData, // Pass enabled extensions to WebProcess
 	}
 
 	if err := webkit.InitializeWebProcessExtensions(webExtConfig); err != nil {
