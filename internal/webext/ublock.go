@@ -1,6 +1,8 @@
 package webext
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,6 +21,8 @@ const (
 	uBlockRepo        = "gorhill/uBlock"
 )
 
+const uBlockUpdateIntervalDays = 7
+
 // GitHubRelease represents a GitHub release
 type GitHubRelease struct {
 	TagName string `json:"tag_name"`
@@ -30,16 +34,44 @@ type GitHubRelease struct {
 
 // EnsureUBlockOrigin checks if uBlock Origin is installed, and downloads it if not
 func (m *Manager) EnsureUBlockOrigin() error {
-	// Check if uBlock is already installed in bundled extensions
-	m.mu.RLock()
-	if _, exists := m.bundled[uBlockExtensionID]; exists {
-		m.mu.RUnlock()
-		log.Printf("[webext] uBlock Origin already installed")
-		return nil
-	}
-	m.mu.RUnlock()
+	ctx := context.Background()
 
-	log.Printf("[webext] uBlock Origin not found, downloading latest version...")
+	// If queries are available, rely on DB state to avoid redundant downloads.
+	if m.queries != nil {
+		ext, err := m.queries.GetInstalledExtension(ctx, uBlockExtensionID)
+		if err == nil {
+			needsUpdate, updateErr := m.queries.CheckExtensionNeedsUpdate(ctx, float64(uBlockUpdateIntervalDays), uBlockExtensionID)
+			if updateErr != nil {
+				log.Printf("[webext] Warning: failed to check uBlock update status: %v", updateErr)
+				return nil
+			}
+
+			if needsUpdate.NeedsUpdate == 0 {
+				// Ensure extension is loaded and enabled state is restored.
+				if err := m.loadInstalledExtension(ext.InstallPath, ext.Bundled, ext.Enabled); err != nil {
+					log.Printf("[webext] Warning: failed to load uBlock from disk: %v", err)
+				} else {
+					log.Printf("[webext] uBlock Origin v%s is up to date (last updated: %v)", ext.Version, ext.UpdatedAt)
+					return nil
+				}
+			} else {
+				log.Printf("[webext] uBlock Origin v%s needs update (last updated: %v)", ext.Version, ext.UpdatedAt)
+			}
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("failed to query uBlock state: %w", err)
+		}
+	} else {
+		// Fallback: check in-memory map to avoid repeated downloads.
+		m.mu.RLock()
+		if _, exists := m.bundled[uBlockExtensionID]; exists {
+			m.mu.RUnlock()
+			log.Printf("[webext] uBlock Origin already installed")
+			return nil
+		}
+		m.mu.RUnlock()
+	}
+
+	log.Printf("[webext] Downloading latest uBlock Origin...")
 
 	// Get latest release info
 	release, err := getLatestUBlockRelease()
@@ -82,7 +114,50 @@ func (m *Manager) EnsureUBlockOrigin() error {
 	m.enabled[uBlockExtensionID] = true
 	m.mu.Unlock()
 
+	if err := m.persistExtensionToDB(ext, true); err != nil {
+		log.Printf("[webext] Warning: failed to persist uBlock to database: %v", err)
+	}
+
 	log.Printf("[webext] uBlock Origin enabled")
+
+	return nil
+}
+
+// loadInstalledExtension loads an extension from disk if not already present in memory.
+func (m *Manager) loadInstalledExtension(installPath string, bundled bool, enabled bool) error {
+	m.mu.RLock()
+	if bundled {
+		if _, exists := m.bundled[uBlockExtensionID]; exists {
+			m.mu.RUnlock()
+			m.mu.Lock()
+			m.enabled[uBlockExtensionID] = enabled
+			m.mu.Unlock()
+			return nil
+		}
+	} else {
+		if _, exists := m.user[uBlockExtensionID]; exists {
+			m.mu.RUnlock()
+			m.mu.Lock()
+			m.enabled[uBlockExtensionID] = enabled
+			m.mu.Unlock()
+			return nil
+		}
+	}
+	m.mu.RUnlock()
+
+	loadedExt, err := m.loadExtension(installPath, bundled)
+	if err != nil {
+		return err
+	}
+
+	m.mu.Lock()
+	if bundled {
+		m.bundled[uBlockExtensionID] = loadedExt
+	} else {
+		m.user[uBlockExtensionID] = loadedExt
+	}
+	m.enabled[uBlockExtensionID] = enabled
+	m.mu.Unlock()
 
 	return nil
 }

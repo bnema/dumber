@@ -1,25 +1,28 @@
 package webext
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"sync"
 
+	"github.com/bnema/dumber/internal/db"
 	"github.com/bnema/dumber/internal/webext/api"
 )
 
 // Extension represents a loaded extension
 type Extension struct {
-	ID              string
-	Path            string
-	Manifest        *Manifest
-	Enabled         bool
-	Bundled         bool // True if bundled with browser
-	DataDir         string
-	BackgroundCtx   *BackgroundContext // Background page context with goja runtime
+	ID            string
+	Path          string
+	Manifest      *Manifest
+	Enabled       bool
+	Bundled       bool // True if bundled with browser
+	DataDir       string
+	BackgroundCtx *BackgroundContext // Background page context with goja runtime
 
 	// WebExtension APIs
 	Runtime *api.RuntimeAPI
@@ -35,19 +38,67 @@ type Manager struct {
 	enabled    map[string]bool       // Enable state per extension
 	dataDir    string                // Base directory for extension data
 	database   *sql.DB               // Database for extension storage
+	queries    db.ExtensionsQuerier  // Generated queries for extension metadata
 	webRequest *api.WebRequestAPI    // Shared webRequest API for all extensions
 }
 
 // NewManager creates a new extension manager
-func NewManager(dataDir string, db *sql.DB) *Manager {
+func NewManager(dataDir string, dbConn *sql.DB, queries db.ExtensionsQuerier) *Manager {
 	return &Manager{
 		bundled:    make(map[string]*Extension),
 		user:       make(map[string]*Extension),
 		enabled:    make(map[string]bool),
 		dataDir:    dataDir,
-		database:   db,
+		database:   dbConn,
+		queries:    queries,
 		webRequest: api.NewWebRequestAPI(),
 	}
+}
+
+// LoadExtensionsFromDB loads installed extensions from the database into memory.
+// Must be called before loading from disk so the DB remains the source of truth.
+func (m *Manager) LoadExtensionsFromDB() error {
+	if m.queries == nil {
+		return nil
+	}
+
+	ctx := context.Background()
+	installed, err := m.queries.ListInstalledExtensions(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to query installed extensions: %w", err)
+	}
+
+	for _, ext := range installed {
+		if _, statErr := os.Stat(ext.InstallPath); errors.Is(statErr, os.ErrNotExist) {
+			log.Printf("[webext] Extension %s in DB missing on disk, skipping", ext.ExtensionID)
+			continue
+		}
+
+		loadedExt, loadErr := m.loadExtension(ext.InstallPath, ext.Bundled)
+		if loadErr != nil {
+			log.Printf("[webext] Failed to load extension %s: %v", ext.ExtensionID, loadErr)
+			continue
+		}
+
+		bundleType := "user"
+		if ext.Bundled {
+			bundleType = "bundled"
+		}
+
+		m.mu.Lock()
+		if ext.Bundled {
+			m.bundled[ext.ExtensionID] = loadedExt
+		} else {
+			m.user[ext.ExtensionID] = loadedExt
+		}
+		m.enabled[ext.ExtensionID] = ext.Enabled
+		m.mu.Unlock()
+
+		log.Printf("[webext] Loaded %s extension from DB: %s v%s (enabled: %v)",
+			bundleType, ext.Name, ext.Version, ext.Enabled)
+	}
+
+	return nil
 }
 
 // LoadBundledExtensions loads extensions from the bundled directory
@@ -70,6 +121,10 @@ func (m *Manager) LoadBundledExtensions(dir string) error {
 			continue
 		}
 
+		if _, exists := m.bundled[entry.Name()]; exists {
+			continue
+		}
+
 		extPath := filepath.Join(dir, entry.Name())
 		ext, err := m.loadExtension(extPath, true)
 		if err != nil {
@@ -79,6 +134,9 @@ func (m *Manager) LoadBundledExtensions(dir string) error {
 
 		m.bundled[ext.ID] = ext
 		m.enabled[ext.ID] = true // Bundled extensions enabled by default
+		if err := m.persistExtensionToDB(ext, true); err != nil {
+			log.Printf("[webext] Warning: failed to persist bundled extension %s: %v", ext.ID, err)
+		}
 		log.Printf("Loaded bundled extension: %s v%s", ext.Manifest.Name, ext.Manifest.Version)
 	}
 
@@ -108,6 +166,10 @@ func (m *Manager) LoadUserExtensions(dir string) error {
 			continue
 		}
 
+		if _, exists := m.user[entry.Name()]; exists {
+			continue
+		}
+
 		extPath := filepath.Join(dir, entry.Name())
 		ext, err := m.loadExtension(extPath, false)
 		if err != nil {
@@ -119,6 +181,9 @@ func (m *Manager) LoadUserExtensions(dir string) error {
 		// User extensions disabled by default unless explicitly enabled
 		if _, exists := m.enabled[ext.ID]; !exists {
 			m.enabled[ext.ID] = false
+		}
+		if err := m.persistExtensionToDB(ext, false); err != nil {
+			log.Printf("[webext] Warning: failed to persist user extension %s: %v", ext.ID, err)
 		}
 		log.Printf("Loaded user extension: %s v%s (enabled: %v)", ext.Manifest.Name, ext.Manifest.Version, m.enabled[ext.ID])
 	}
@@ -156,6 +221,22 @@ func (m *Manager) loadExtension(path string, bundled bool) (*Extension, error) {
 	}
 
 	return ext, nil
+}
+
+// persistExtensionToDB saves extension metadata to the database (no-op if queries are unavailable).
+func (m *Manager) persistExtensionToDB(ext *Extension, bundled bool) error {
+	if m.queries == nil {
+		return nil
+	}
+
+	return m.queries.UpsertInstalledExtension(context.Background(), db.UpsertInstalledExtensionParams{
+		ExtensionID: ext.ID,
+		Name:        ext.Manifest.Name,
+		Version:     ext.Manifest.Version,
+		InstallPath: ext.Path,
+		Bundled:     bundled,
+		Enabled:     m.enabled[ext.ID],
+	})
 }
 
 // GetExtension returns an extension by ID
@@ -210,6 +291,11 @@ func (m *Manager) Enable(id string) error {
 	}
 
 	m.enabled[id] = true
+	if m.queries != nil {
+		if err := m.queries.SetExtensionEnabled(context.Background(), true, id); err != nil {
+			log.Printf("[webext] Warning: failed to persist enabled state: %v", err)
+		}
+	}
 	log.Printf("Enabled extension: %s", id)
 	return nil
 }
@@ -226,6 +312,11 @@ func (m *Manager) Disable(id string) error {
 	}
 
 	m.enabled[id] = false
+	if m.queries != nil {
+		if err := m.queries.SetExtensionEnabled(context.Background(), false, id); err != nil {
+			log.Printf("[webext] Warning: failed to persist disabled state: %v", err)
+		}
+	}
 	log.Printf("Disabled extension: %s", id)
 	return nil
 }

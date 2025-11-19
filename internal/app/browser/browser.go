@@ -401,7 +401,12 @@ func (app *BrowserApp) setupExtensionManager() error {
 	extDataDir := filepath.Join(dataDir, "extensions")
 
 	// Create extension manager (reuses app.database for extension storage)
-	app.extensionManager = webext.NewManager(extDataDir, app.database)
+	app.extensionManager = webext.NewManager(extDataDir, app.database, app.queries)
+
+	// Load installed extensions from database before touching disk, keeping DB as source of truth.
+	if err := app.extensionManager.LoadExtensionsFromDB(); err != nil {
+		log.Printf("[webext] Warning: failed to load extensions from database: %v", err)
+	}
 
 	// Ensure uBlock Origin is installed (downloads latest version if not present)
 	if err := app.extensionManager.EnsureUBlockOrigin(); err != nil {
