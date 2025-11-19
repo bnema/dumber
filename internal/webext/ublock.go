@@ -81,17 +81,17 @@ func (m *Manager) EnsureUBlockOrigin() error {
 
 	log.Printf("[webext] Latest uBlock Origin version: %s", release.TagName)
 
-	// Find the chromium zip asset
+	// Find the Firefox xpi asset
 	var downloadURL string
 	for _, asset := range release.Assets {
-		if strings.Contains(asset.Name, "chromium.zip") {
+		if strings.Contains(asset.Name, "firefox") && strings.HasSuffix(asset.Name, ".xpi") {
 			downloadURL = asset.BrowserDownloadURL
 			break
 		}
 	}
 
 	if downloadURL == "" {
-		return fmt.Errorf("chromium build not found in release %s", release.TagName)
+		return fmt.Errorf("Firefox build not found in release %s", release.TagName)
 	}
 
 	// Download and extract
@@ -121,6 +121,11 @@ func (m *Manager) EnsureUBlockOrigin() error {
 	log.Printf("[webext] uBlock Origin enabled")
 
 	return nil
+}
+
+// UBOExtensionID exposes the bundled uBlock extension ID.
+func UBOExtensionID() string {
+	return uBlockExtensionID
 }
 
 // loadInstalledExtension loads an extension from disk if not already present in memory.
@@ -253,28 +258,25 @@ func downloadAndExtractUBlock(url, installPath string) error {
 		return fmt.Errorf("failed to extract zip: %w", err)
 	}
 
-	// Find the uBlock0.chromium subdirectory
-	uBlockDir := filepath.Join(tmpExtractDir, "uBlock0.chromium")
-	if _, err := os.Stat(uBlockDir); os.IsNotExist(err) {
-		return fmt.Errorf("uBlock0.chromium directory not found in zip")
+	// Firefox XPI files extract directly to the temp directory (no subdirectory)
+	// Check if manifest.json exists at the root level
+	manifestPath := filepath.Join(tmpExtractDir, "manifest.json")
+	if _, err := os.Stat(manifestPath); os.IsNotExist(err) {
+		return fmt.Errorf("manifest.json not found in extracted Firefox XPI")
 	}
 
-	// Move the uBlock0.chromium contents to the install path
+	// Move the contents to the install path
 	if err := os.RemoveAll(installPath); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	if err := os.Rename(uBlockDir, installPath); err != nil {
+	if err := os.Rename(tmpExtractDir, installPath); err != nil {
 		// Fall back to copy when rename crosses filesystems
 		if !errors.Is(err, syscall.EXDEV) {
 			return fmt.Errorf("failed to move extension: %w", err)
 		}
 
-		if err := copyDir(uBlockDir, installPath); err != nil {
+		if err := copyDir(tmpExtractDir, installPath); err != nil {
 			return fmt.Errorf("failed to move extension (copy fallback): %w", err)
-		}
-
-		if err := os.RemoveAll(uBlockDir); err != nil {
-			log.Printf("[webext] Warning: failed to cleanup temp uBlock directory: %v", err)
 		}
 	}
 
