@@ -398,10 +398,18 @@ func (app *BrowserApp) setupExtensionManager() error {
 	if err != nil {
 		return fmt.Errorf("failed to get data directory: %w", err)
 	}
-	extDataDir := filepath.Join(dataDir, "extensions")
+	extensionsDir := filepath.Join(dataDir, "extensions")
+	extDataDir := filepath.Join(dataDir, "extension-data")
+
+	if err := os.MkdirAll(extensionsDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create extensions directory: %w", err)
+	}
+	if err := os.MkdirAll(extDataDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create extension data directory: %w", err)
+	}
 
 	// Create extension manager (reuses app.database for extension storage)
-	app.extensionManager = webext.NewManager(extDataDir, app.database, app.queries)
+	app.extensionManager = webext.NewManager(extensionsDir, extDataDir, app.database, app.queries)
 
 	// Load installed extensions from database before touching disk, keeping DB as source of truth.
 	if err := app.extensionManager.LoadExtensionsFromDB(); err != nil {
@@ -414,7 +422,7 @@ func (app *BrowserApp) setupExtensionManager() error {
 	}
 
 	// Load extensions from unified directory (~/.local/share/dumber/extensions)
-	if err := app.extensionManager.LoadExtensions(extDataDir); err != nil {
+	if err := app.extensionManager.LoadExtensions(extensionsDir); err != nil {
 		log.Printf("[webext] Warning: failed to load extensions: %v", err)
 	}
 

@@ -93,7 +93,7 @@ func TestLoadExtensionsFromDB(t *testing.T) {
 
 			mockQueries.EXPECT().ListInstalledExtensions(gomock.Any()).Return(tt.dbExtensions, nil)
 
-			manager := NewManager(filepath.Join(baseDir, "data"), nil, mockQueries)
+			manager := NewManager(filepath.Join(baseDir, "extensions"), filepath.Join(baseDir, "data"), nil, mockQueries)
 
 			err := manager.LoadExtensionsFromDB()
 			if (err != nil) != tt.wantErr {
@@ -177,7 +177,7 @@ func TestLoadExtensionsSingleDirectory(t *testing.T) {
 		Enabled:     false,
 	})
 
-	manager := NewManager(filepath.Join(baseDir, "data"), nil, mockQueries)
+	manager := NewManager(extensionsDir, filepath.Join(baseDir, "data"), nil, mockQueries)
 
 	if err := manager.LoadExtensions(extensionsDir); err != nil {
 		t.Fatalf("LoadExtensions error = %v", err)
@@ -259,7 +259,7 @@ func TestEnableDisable(t *testing.T) {
 			t.Cleanup(ctrl.Finish)
 
 			mockQueries := mock_db.NewMockExtensionsQuerier(ctrl)
-			manager := NewManager(t.TempDir(), nil, mockQueries)
+			manager := NewManager(t.TempDir(), t.TempDir(), nil, mockQueries)
 
 			// Seed with a user extension
 			manager.user[tt.extensionID] = &Extension{
@@ -342,7 +342,7 @@ func TestEnsureUBlockOrigin(t *testing.T) {
 				}, nil)
 			}
 
-			manager := NewManager(filepath.Join(baseDir, "data"), nil, mockQueries)
+			manager := NewManager(filepath.Join(baseDir, "extensions"), filepath.Join(baseDir, "data"), nil, mockQueries)
 
 			err := manager.EnsureUBlockOrigin()
 			if (err != nil) != tt.wantErr {

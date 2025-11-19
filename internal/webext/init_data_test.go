@@ -153,7 +153,7 @@ func TestSerializeInitData(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			manager := NewManager("/tmp/test", nil, nil)
+			manager := NewManager("/tmp/extensions", "/tmp/test", nil, nil)
 			tt.setup(manager)
 
 			jsonStr, err := manager.SerializeInitData()

@@ -32,26 +32,28 @@ type Extension struct {
 
 // Manager manages all browser extensions
 type Manager struct {
-	mu         sync.RWMutex
-	bundled    map[string]*Extension // Built-in extensions
-	user       map[string]*Extension // User-installed extensions
-	enabled    map[string]bool       // Enable state per extension
-	dataDir    string                // Base directory for extension data
-	database   *sql.DB               // Database for extension storage
-	queries    db.ExtensionsQuerier  // Generated queries for extension metadata
-	webRequest *api.WebRequestAPI    // Shared webRequest API for all extensions
+	mu            sync.RWMutex
+	bundled       map[string]*Extension // Built-in extensions
+	user          map[string]*Extension // User-installed extensions
+	enabled       map[string]bool       // Enable state per extension
+	extensionsDir string                // Base directory for installed extension code
+	dataDir       string                // Base directory for extension data
+	database      *sql.DB               // Database for extension storage
+	queries       db.ExtensionsQuerier  // Generated queries for extension metadata
+	webRequest    *api.WebRequestAPI    // Shared webRequest API for all extensions
 }
 
 // NewManager creates a new extension manager
-func NewManager(dataDir string, dbConn *sql.DB, queries db.ExtensionsQuerier) *Manager {
+func NewManager(extensionsDir, dataDir string, dbConn *sql.DB, queries db.ExtensionsQuerier) *Manager {
 	return &Manager{
-		bundled:    make(map[string]*Extension),
-		user:       make(map[string]*Extension),
-		enabled:    make(map[string]bool),
-		dataDir:    dataDir,
-		database:   dbConn,
-		queries:    queries,
-		webRequest: api.NewWebRequestAPI(),
+		bundled:       make(map[string]*Extension),
+		user:          make(map[string]*Extension),
+		enabled:       make(map[string]bool),
+		extensionsDir: extensionsDir,
+		dataDir:       dataDir,
+		database:      dbConn,
+		queries:       queries,
+		webRequest:    api.NewWebRequestAPI(),
 	}
 }
 
