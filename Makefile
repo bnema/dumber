@@ -124,6 +124,7 @@ clean: ## Clean build artifacts
 	rm -f $(BINARY_NAME)  # Remove any old binaries in root
 	rm -rf gui/dist gui/node_modules
 	rm -f assets/gui/gui.min.js assets/gui/homepage.min.js assets/gui/homepage.css assets/gui/main-world.min.js assets/gui/color-scheme.js
+	rm -f cmd/dumber-webext/*.so cmd/dumber-webext/*.h  # Clean webext artifacts
 	go clean -cache
 	go clean -testcache
 
@@ -148,6 +149,27 @@ check: ## Check that all tools and dependencies are working
 	@echo "\nRunning tests..."
 	@$(MAKE) test
 	@echo "\n✅ All checks passed! Project is ready for development."
+
+# WebProcess extension targets
+.PHONY: build-webext install-webext
+
+WEBEXT_DIR=cmd/dumber-webext
+WEBEXT_SO=dumber-webext.so
+LIBEXEC_DIR=/usr/local/libexec/dumber
+
+build-webext: ## Build WebProcess extension as shared library
+	@echo "Building WebProcess extension..."
+	@mkdir -p $(DIST_DIR)
+	$(GOENV) CGO_ENABLED=1 go build -buildmode=c-shared \
+		-o $(DIST_DIR)/$(WEBEXT_SO) \
+		./$(WEBEXT_DIR)
+	@echo "✅ WebProcess extension built: $(DIST_DIR)/$(WEBEXT_SO)"
+
+install-webext: build-webext ## Install WebProcess extension to system libexec directory
+	@echo "Installing WebProcess extension to $(DESTDIR)$(LIBEXEC_DIR)..."
+	@mkdir -p $(DESTDIR)$(LIBEXEC_DIR)
+	install -D -m 755 $(DIST_DIR)/$(WEBEXT_SO) $(DESTDIR)$(LIBEXEC_DIR)/$(WEBEXT_SO)
+	@echo "✅ WebProcess extension installed"
 
 # Native release targets
 .PHONY: release-snapshot release
