@@ -5,6 +5,7 @@ go 1.25.3
 require (
 	github.com/diamondburned/gotk4-webkitgtk/pkg v0.0.0-20240108031600-dee1973cf440
 	github.com/diamondburned/gotk4/pkg v0.3.1
+	github.com/dop251/goja v0.0.0-20251103141225-af2ceb9156d7
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/golang/mock v1.6.0
 	github.com/invopop/jsonschema v0.13.0
@@ -21,7 +22,6 @@ require (
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/dlclark/regexp2 v1.11.4 // indirect
-	github.com/dop251/goja v0.0.0-20251103141225-af2ceb9156d7 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
