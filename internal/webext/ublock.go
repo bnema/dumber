@@ -163,10 +163,31 @@ func downloadAndExtractUBlock(url, installPath string) error {
 		return err
 	}
 
+	// Extract to temporary directory first
+	tmpExtractDir, err := os.MkdirTemp("", "ublock-extract-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmpExtractDir)
+
 	// Extract using unzip command
-	cmd := exec.Command("unzip", "-q", "-o", tmpFile.Name(), "-d", installPath)
+	cmd := exec.Command("unzip", "-q", "-o", tmpFile.Name(), "-d", tmpExtractDir)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to extract zip: %w", err)
+	}
+
+	// Find the uBlock0.chromium subdirectory
+	uBlockDir := filepath.Join(tmpExtractDir, "uBlock0.chromium")
+	if _, err := os.Stat(uBlockDir); os.IsNotExist(err) {
+		return fmt.Errorf("uBlock0.chromium directory not found in zip")
+	}
+
+	// Move the uBlock0.chromium contents to the install path
+	if err := os.RemoveAll(installPath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if err := os.Rename(uBlockDir, installPath); err != nil {
+		return fmt.Errorf("failed to move extension: %w", err)
 	}
 
 	log.Printf("[webext] Extracted to %s", installPath)
