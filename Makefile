@@ -37,7 +37,7 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 # Build targets
-build: build-frontend ## Build the application with GUI (frontend assets, then Go binary with WebKitGTK)
+build: build-frontend build-webext-embedded ## Build the application with GUI (frontend assets, then Go binary with WebKitGTK)
 	@echo "Building $(BINARY_NAME) $(VERSION) with GUI using $(NPROCS) cores..."
 	@mkdir -p $(DIST_DIR) tmp tmp/go-cache tmp/go-mod
 	$(GOENV) CGO_ENABLED=1 go build -p $(NPROCS) $(LDFLAGS) -tags=webkit_cgo -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
@@ -124,6 +124,7 @@ clean: ## Clean build artifacts
 	rm -f $(BINARY_NAME)  # Remove any old binaries in root
 	rm -rf gui/dist gui/node_modules
 	rm -f assets/gui/gui.min.js assets/gui/homepage.min.js assets/gui/homepage.css assets/gui/main-world.min.js assets/gui/color-scheme.js
+	rm -rf assets/webext  # Clean embedded webext
 	rm -f cmd/dumber-webext/*.so cmd/dumber-webext/*.h  # Clean webext artifacts
 	go clean -cache
 	go clean -testcache
@@ -164,6 +165,12 @@ build-webext: ## Build WebProcess extension as shared library
 		-o $(DIST_DIR)/$(WEBEXT_SO) \
 		./$(WEBEXT_DIR)
 	@echo "✅ WebProcess extension built: $(DIST_DIR)/$(WEBEXT_SO)"
+
+build-webext-embedded: build-webext ## Build and copy WebProcess extension to assets for embedding
+	@echo "Copying WebProcess extension to assets..."
+	@mkdir -p assets/webext
+	@cp $(DIST_DIR)/$(WEBEXT_SO) assets/webext/
+	@echo "✅ WebProcess extension ready for embedding"
 
 install-webext: build-webext ## Install WebProcess extension to system libexec directory
 	@echo "Installing WebProcess extension to $(DESTDIR)$(LIBEXEC_DIR)..."

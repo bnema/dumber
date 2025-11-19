@@ -413,6 +413,11 @@ func (app *BrowserApp) setupExtensionManager() error {
 	// Create extension manager (reuses app.database for extension storage)
 	app.extensionManager = webext.NewManager(extDataDir, app.database)
 
+	// Ensure uBlock Origin is installed (downloads latest version if not present)
+	if err := app.extensionManager.EnsureUBlockOrigin(); err != nil {
+		log.Printf("[webext] Warning: failed to ensure uBlock Origin: %v", err)
+	}
+
 	// Load bundled extensions from /usr/local/share/dumber/extensions
 	bundledDir := "/usr/local/share/dumber/extensions"
 	if err := app.extensionManager.LoadBundledExtensions(bundledDir); err != nil {
@@ -447,10 +452,16 @@ func (app *BrowserApp) setupExtensionManager() error {
 		initData = "" // Continue without extension data
 	}
 
+	// Extract embedded WebProcess extension .so to user's libexec directory
+	webExtDir, err := webext.EnsureWebExtSO(app.assets)
+	if err != nil {
+		return fmt.Errorf("failed to extract WebProcess extension: %w", err)
+	}
+
 	// Setup WebContext to load WebProcess extension
 	// This must be done BEFORE creating any WebViews
 	webExtConfig := &webkit.WebExtensionConfig{
-		ExtensionsDirectory: "/usr/local/libexec/dumber",
+		ExtensionsDirectory: webExtDir,
 		InitUserData:        initData, // Pass enabled extensions to WebProcess
 	}
 
