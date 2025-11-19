@@ -47,21 +47,40 @@ func webkit_web_process_extension_initialize_with_user_data(
 	ext *C.WebKitWebProcessExtension,
 	userData *C.GVariant,
 ) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("PANIC in WebProcess extension initialization: %v", r)
+		}
+	}()
+
 	// Wrap the C extension pointer in a Go object
+	if ext == nil {
+		log.Printf("ERROR: WebProcessExtension pointer is nil")
+		return
+	}
+
 	goExt := wrapWebProcessExtension(ext)
+	if goExt == nil {
+		log.Printf("ERROR: Failed to wrap WebProcessExtension")
+		return
+	}
 
 	log.Printf("Dumber WebProcess extension initializing...")
 
 	// Parse extension data from userData
 	if userData != nil {
 		goUserData := wrapVariant(userData)
-		userDataStr := goUserData.String()
-		log.Printf("Received user data: %d bytes", len(userDataStr))
-
-		if err := parseExtensionData(userDataStr); err != nil {
-			log.Printf("Warning: failed to parse extension data: %v", err)
+		if goUserData == nil {
+			log.Printf("Warning: failed to wrap user data variant")
 		} else {
-			log.Printf("Loaded %d extension(s) for content script injection", len(extensionInfo))
+			userDataStr := goUserData.String()
+			log.Printf("Received user data: %d bytes", len(userDataStr))
+
+			if err := parseExtensionData(userDataStr); err != nil {
+				log.Printf("Warning: failed to parse extension data: %v", err)
+			} else {
+				log.Printf("Loaded %d extension(s) for content script injection", len(extensionInfo))
+			}
 		}
 	}
 
