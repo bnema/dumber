@@ -181,10 +181,10 @@ install-webext: build-webext ## Install WebProcess extension to system libexec d
 # Native release targets
 .PHONY: release-snapshot release
 
-release-snapshot: build-frontend ## Build snapshot using native goreleaser (no git tags required)
+release-snapshot: build-frontend build-webext-embedded ## Build snapshot using native goreleaser (no git tags required)
 	@echo "Building snapshot with goreleaser..."
 	goreleaser release --snapshot --clean
 
-release: ## Create full release (amd64 only) using native goreleaser
+release: build-frontend build-webext-embedded ## Create full release (amd64 only) using native goreleaser
 	@echo "Building release with goreleaser..."
 	GITHUB_TOKEN=$$(gh auth token) goreleaser release --clean
