@@ -13,7 +13,6 @@ import (
 	"github.com/bnema/dumber/internal/app/control"
 	"github.com/bnema/dumber/internal/app/messaging"
 	"github.com/bnema/dumber/internal/config"
-	"github.com/bnema/dumber/internal/filtering"
 	"github.com/bnema/dumber/internal/services"
 	"github.com/bnema/dumber/pkg/webkit"
 )
@@ -364,72 +363,5 @@ func (app *BrowserApp) initializeFaviconService() error {
 
 	app.faviconService = faviconService
 	log.Printf("[favicon] FaviconService initialized successfully")
-	return nil
-}
-
-// setupContentBlocking initializes the content blocking system with proper timing
-func (app *BrowserApp) setupContentBlocking() error {
-	log.Printf("Initializing content blocking system...")
-
-	// Enable WebKit debug logging if requested
-	webkit.SetupWebKitDebugLogging()
-
-	defer func() {
-		if r := recover(); r != nil {
-			log.Printf("Content blocking setup panic recovered: %v", r)
-		}
-	}()
-
-	// Setup filter system
-	filterManager, err := filtering.SetupFilterSystem()
-	if err != nil {
-		log.Printf("Warning: Failed to setup filter system: %v", err)
-		return nil // Don't fail browser startup, continue without filters
-	}
-
-	// Store reference to filter manager
-	app.filterManager = filterManager
-
-	// Set up callback to apply network filters when they become ready
-	// This callback will be called from the async filter loading process
-	filterManager.SetFiltersReadyCallback(func() {
-		log.Printf("[filtering] Filters ready, applying to WebView...")
-
-		// Get the WebKit JSON rules from filter manager
-		filterJSON, err := filterManager.GetNetworkFilters()
-		if err != nil {
-			log.Printf("[filtering] Failed to get network filters: %v", err)
-			return
-		}
-
-		if len(filterJSON) == 0 {
-			log.Printf("[filtering] No network filters to apply")
-			return
-		}
-
-		log.Printf("[filtering] Got %d bytes of WebKit JSON rules", len(filterJSON))
-
-		// Apply filters to the WebView
-		// This must be done on the main thread since it touches GTK/WebKit
-		if app.webView != nil {
-			app.webView.RunOnMainThread(func() {
-				if err := app.webView.InitializeContentBlocking(filterJSON); err != nil {
-					log.Printf("[filtering] Failed to apply content filters: %v", err)
-				} else {
-					log.Printf("[filtering] ✅ Content blocking enabled successfully")
-				}
-			})
-		}
-	})
-
-	// Start async filter loading
-	// This allows filters to compile in the background while the browser starts
-	go func() {
-		if err := filtering.InitializeFiltersAsync(filterManager); err != nil {
-			log.Printf("Warning: failed to initialize filters asynchronously: %v", err)
-		}
-	}()
-
-	log.Printf("Content blocking system initialization started")
 	return nil
 }

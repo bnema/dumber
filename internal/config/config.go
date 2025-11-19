@@ -42,8 +42,6 @@ type Config struct {
 	DefaultZoom float64 `mapstructure:"default_zoom" yaml:"default_zoom"`
 	// Workspace defines workspace, pane, and tab handling behaviour.
 	Workspace WorkspaceConfig `mapstructure:"workspace" yaml:"workspace"`
-	// ContentFiltering controls ad blocking and content filtering
-	ContentFiltering ContentFilteringConfig `mapstructure:"content_filtering" yaml:"content_filtering"`
 	// Omnibox controls the omnibox behavior (initial history display)
 	Omnibox OmniboxConfig `mapstructure:"omnibox" yaml:"omnibox"`
 }
@@ -177,13 +175,6 @@ type CodecConfig struct {
 }
 
 // DebugConfig holds debug and troubleshooting options
-// ContentFilteringConfig holds content filtering and ad blocking preferences
-type ContentFilteringConfig struct {
-	// Enabled controls whether ad blocking is active (default: true)
-	Enabled bool `mapstructure:"enabled" yaml:"enabled"`
-	// Whitelist domains that should skip ad blocking (e.g. Twitch breaks with bot detection)
-	Whitelist []string `mapstructure:"whitelist" yaml:"whitelist"`
-}
 
 // OmniboxConfig holds omnibox behavior preferences
 type OmniboxConfig struct {
@@ -197,11 +188,8 @@ type DebugConfig struct {
 	EnableWebKitDebug bool `mapstructure:"enable_webkit_debug" yaml:"enable_webkit_debug"`
 
 	// WebKit debug categories (comma-separated)
-	// Common values: "Network:preconnectTo", "ContentFilters", "Loading", "JavaScript"
+	// Common values: "Network:preconnectTo", "Loading", "JavaScript"
 	WebKitDebugCategories string `mapstructure:"webkit_debug_categories" yaml:"webkit_debug_categories"`
-
-	// Enable content filtering debug logs
-	EnableFilteringDebug bool `mapstructure:"enable_filtering_debug" yaml:"enable_filtering_debug"`
 
 	// Enable detailed WebView state logging
 	EnableWebViewDebug bool `mapstructure:"enable_webview_debug" yaml:"enable_webview_debug"`
@@ -686,7 +674,6 @@ func (m *Manager) setDefaults() {
 	// Debug defaults
 	m.viper.SetDefault("debug.enable_webkit_debug", defaults.Debug.EnableWebKitDebug)
 	m.viper.SetDefault("debug.webkit_debug_categories", defaults.Debug.WebKitDebugCategories)
-	m.viper.SetDefault("debug.enable_filtering_debug", defaults.Debug.EnableFilteringDebug)
 	m.viper.SetDefault("debug.enable_webview_debug", defaults.Debug.EnableWebViewDebug)
 	m.viper.SetDefault("debug.log_webkit_crashes", defaults.Debug.LogWebKitCrashes)
 	m.viper.SetDefault("debug.enable_script_debug", defaults.Debug.EnableScriptDebug)
@@ -759,10 +746,6 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("workspace.styling.tab_mode_border_color", defaults.Workspace.Styling.TabModeBorderColor)
 	m.viper.SetDefault("workspace.styling.transition_duration", defaults.Workspace.Styling.TransitionDuration)
 	m.viper.SetDefault("workspace.styling.ui_scale", defaults.Workspace.Styling.UIScale)
-
-	// Content filtering
-	m.viper.SetDefault("content_filtering.enabled", defaults.ContentFiltering.Enabled)
-	m.viper.SetDefault("content_filtering.whitelist", defaults.ContentFiltering.Whitelist)
 
 	// Omnibox defaults
 	m.viper.SetDefault("omnibox.initial_behavior", defaults.Omnibox.InitialBehavior)

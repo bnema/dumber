@@ -143,8 +143,7 @@ func DefaultConfig() *Config {
 		},
 		Debug: DebugConfig{
 			EnableWebKitDebug:     false,
-			WebKitDebugCategories: "Network:preconnectTo,ContentFilters",
-			EnableFilteringDebug:  false,
+			WebKitDebugCategories: "Network:preconnectTo",
 			EnableWebViewDebug:    false,
 			LogWebKitCrashes:      true, // Always log crashes
 			EnableScriptDebug:     false,
@@ -210,14 +209,6 @@ func DefaultConfig() *Config {
 				TabModeBorderColor:  defaultTabModeBorderColor,
 				TransitionDuration:  defaultTransitionDuration,
 				UIScale:             defaultUIScale,
-			},
-		},
-		ContentFiltering: ContentFilteringConfig{
-			Enabled: false, // Disabled - using uBlock Origin instead
-			Whitelist: []string{
-				"twitch.tv",          // Arkose Labs bot detection breaks with filtering
-				"passport.twitch.tv", // Auth subdomain
-				"gql.twitch.tv",      // GraphQL API
 			},
 		},
 		Omnibox: OmniboxConfig{

@@ -19,7 +19,6 @@ import (
 	"github.com/bnema/dumber/internal/app/messaging"
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/db"
-	"github.com/bnema/dumber/internal/filtering"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/services"
 	"github.com/bnema/dumber/internal/webext"
@@ -58,9 +57,6 @@ type BrowserApp struct {
 	panes      []*BrowserPane
 	activePane *BrowserPane
 	workspace  *WorkspaceManager
-
-	// Content filtering
-	filterManager *filtering.FilterManager
 
 	// WebExtensions support
 	extensionManager *webext.Manager
@@ -255,12 +251,6 @@ func (app *BrowserApp) Run() {
 	// Apply URI scheme handlers after WebView creation
 	if err := webkit.ApplyURISchemeHandlers(app.webView.GetWebView()); err != nil {
 		log.Printf("Warning: failed to register URI scheme handlers: %v", err)
-	}
-
-	// Initialize content blocking
-	if err := app.setupContentBlocking(); err != nil {
-		log.Printf("Warning: failed to setup content blocking: %v", err)
-		// Continue without content blocking
 	}
 
 	// Handle browse command if present (must use active tab's navigation controller)

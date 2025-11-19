@@ -128,25 +128,6 @@ func GetDatabaseFile() (string, error) {
 	return filepath.Join(dataDir, databaseName), nil
 }
 
-// GetFilterCacheDir returns the XDG-compliant filter cache directory for dumber.
-// Filter cache is stored in XDG_STATE_HOME as it's transient data that can be regenerated.
-func GetFilterCacheDir() (string, error) {
-	stateDir, err := GetStateDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(stateDir, "filter-cache"), nil
-}
-
-// GetFilterCacheFile returns the path to the main filter cache file.
-func GetFilterCacheFile() (string, error) {
-	cacheDir, err := GetFilterCacheDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(cacheDir, "filters.cache"), nil
-}
-
 // EnsureDirectories creates the XDG directories if they don't exist.
 func EnsureDirectories() error {
 	dirs, err := GetXDGDirs()

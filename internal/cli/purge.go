@@ -30,7 +30,6 @@ type PurgeFlags struct {
 	HistoryCache bool
 	BrowserCache bool
 	BrowserData  bool
-	FilterCache  bool
 	State        bool
 	Config       bool
 	All          bool
@@ -54,7 +53,6 @@ Available purge targets:
   --browser-cache, -b  Purge WebKit browser cache (cached images, files, etc.)
   --browser-data, -B   Purge WebKit browser data (localStorage, sessionStorage, IndexedDB)
                        Note: Cookies are in cookies.db and deleted via --database
-  --filter-cache, -F   Purge compiled ad blocking filters cache
   --state, -s          Purge all state data (includes databases and caches)
   --config, -c         Purge configuration files
   --all, -a            Purge everything (default if no specific flags are provided)
@@ -69,8 +67,7 @@ Database Storage:
 Examples:
   dumber purge                     # Purge everything (with confirmation)
   dumber purge --force             # Purge everything (no confirmation)
-  dumber purge -d -H -b -F         # Purge database and all caches
-  dumber purge --filter-cache -f   # Force purge filter cache only
+  dumber purge -d -H -b            # Purge database and all caches
   dumber purge -d                  # Purge database (includes cookies)
   dumber purge -H                  # Purge only browsing history (keep cookies)
   dumber purge -c                  # Purge config file only`,
@@ -84,7 +81,6 @@ Examples:
 	cmd.Flags().BoolVarP(&flags.HistoryCache, "history-cache", "H", false, "Purge browsing history and dmenu fuzzy cache")
 	cmd.Flags().BoolVarP(&flags.BrowserCache, "browser-cache", "b", false, "Purge WebKit browser cache")
 	cmd.Flags().BoolVarP(&flags.BrowserData, "browser-data", "B", false, "Purge WebKit browser data (localStorage, sessionStorage)")
-	cmd.Flags().BoolVarP(&flags.FilterCache, "filter-cache", "F", false, "Purge compiled ad blocking filters cache")
 	cmd.Flags().BoolVarP(&flags.State, "state", "s", false, "Purge all state data (databases and caches)")
 	cmd.Flags().BoolVarP(&flags.Config, "config", "c", false, "Purge configuration files")
 	cmd.Flags().BoolVarP(&flags.All, "all", "a", false, "Purge everything")
@@ -125,8 +121,8 @@ func determinePurgeItems(flags PurgeFlags) []string {
 	var items []string
 
 	// If no specific flags are set, or --all is set, purge everything
-	if flags.All || (!flags.Database && !flags.HistoryCache && !flags.BrowserCache && !flags.BrowserData && !flags.FilterCache && !flags.State && !flags.Config) {
-		return []string{"database", "history-cache", "browser-cache", "browser-data", "filter-cache", "config"}
+	if flags.All || (!flags.Database && !flags.HistoryCache && !flags.BrowserCache && !flags.BrowserData && !flags.State && !flags.Config) {
+		return []string{"database", "history-cache", "browser-cache", "browser-data", "config"}
 	}
 
 	// Add items based on flags
@@ -142,12 +138,9 @@ func determinePurgeItems(flags PurgeFlags) []string {
 	if flags.BrowserData {
 		items = append(items, "browser-data")
 	}
-	if flags.FilterCache {
-		items = append(items, "filter-cache")
-	}
 	if flags.State {
 		// State includes database and all caches
-		items = append(items, "database", "history-cache", "browser-cache", "filter-cache")
+		items = append(items, "database", "history-cache", "browser-cache")
 	}
 	if flags.Config {
 		items = append(items, "config")
@@ -211,13 +204,6 @@ func getPurgePaths(items []string) (map[string][]string, error) {
 			}
 			webkitData := filepath.Join(dataDir, "webkit")
 			paths[item] = []string{webkitData}
-
-		case "filter-cache":
-			filterCacheDir, err := config.GetFilterCacheDir()
-			if err != nil {
-				return nil, fmt.Errorf("failed to get filter cache directory: %w", err)
-			}
-			paths[item] = []string{filterCacheDir}
 
 		case "config":
 			configFile, err := config.GetConfigFile()

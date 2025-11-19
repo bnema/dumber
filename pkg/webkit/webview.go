@@ -1018,27 +1018,10 @@ func (w *WebView) UpdateContentFilters(rules string) error {
 		return ErrWebViewDestroyed
 	}
 
-	// Note: Content filtering is handled via InitializeContentBlocking()
+	// Note: Content filtering is now handled by WebExtensions (uBlock Origin)
 	// This method is kept for backward compatibility but is deprecated
-	log.Printf("[webkit] UpdateContentFilters called but is deprecated - use InitializeContentBlocking instead")
+	log.Printf("[webkit] UpdateContentFilters called but is deprecated - filtering now handled by WebExtensions")
 	return nil
-}
-
-// InitializeContentBlocking initializes content blocking with filter lists
-func (w *WebView) InitializeContentBlocking(filterJSON []byte) error {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-
-	if w.destroyed {
-		return ErrWebViewDestroyed
-	}
-
-	if len(filterJSON) == 0 {
-		return fmt.Errorf("no filter rules provided")
-	}
-
-	// Apply filters using the content blocking API
-	return ApplyFiltersToWebView(w, filterJSON)
 }
 
 // OnNavigate registers a navigation handler
