@@ -213,7 +213,7 @@ func DefaultConfig() *Config {
 			},
 		},
 		ContentFiltering: ContentFilteringConfig{
-			Enabled: true, // Ad blocking enabled by default
+			Enabled: false, // Disabled - using uBlock Origin instead
 			Whitelist: []string{
 				"twitch.tv",          // Arkose Labs bot detection breaks with filtering
 				"passport.twitch.tv", // Auth subdomain
