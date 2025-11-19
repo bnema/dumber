@@ -14,6 +14,7 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/bnema/dumber/internal/webext"
 	"github.com/diamondburned/gotk4-webkitgtk/pkg/webkitwebprocessextension/v6"
 	coreglib "github.com/diamondburned/gotk4/pkg/core/glib"
 )
@@ -257,34 +258,12 @@ func injectContentScriptsForTiming(page *webkitwebprocessextension.WebPage, timi
 // matchesContentScript checks if a URL matches a content script's patterns
 func matchesContentScript(url string, cs ContentScript) bool {
 	// Check excludes first
-	for _, exclude := range cs.ExcludeMatch {
-		if matchPattern(url, exclude) {
-			return false
-		}
+	if webext.ExcludesURL(url, cs.ExcludeMatch) {
+		return false
 	}
 
-	// Check includes
-	for _, match := range cs.Matches {
-		if matchPattern(url, match) {
-			return true
-		}
-	}
-
-	return false
-}
-
-// matchPattern checks if a URL matches a WebExtension match pattern
-// Simplified version - for production use internal/webext/matcher.go logic
-func matchPattern(url, pattern string) bool {
-	// Handle special case
-	if pattern == "<all_urls>" {
-		return true
-	}
-
-	// Very simplified matching for now
-	// TODO: Implement proper pattern matching (scheme://host/path)
-	// For now, just check if pattern is contained (very permissive)
-	return true
+	// Include matches
+	return webext.MatchURL(url, cs.Matches)
 }
 
 // injectScriptsIntoWorld injects content scripts into an isolated ScriptWorld
@@ -315,7 +294,8 @@ func injectScriptsIntoWorld(page *webkitwebprocessextension.WebPage, world *webk
 
 	// Inject extension's content scripts
 	for _, jsFile := range cs.JS {
-		jsPath := filepath.Join(ext.Path, jsFile)
+		// Strip leading slash to avoid filepath.Join treating it as absolute path
+		jsPath := filepath.Join(ext.Path, strings.TrimPrefix(jsFile, "/"))
 
 		// Read script content
 		content, err := os.ReadFile(jsPath)
@@ -338,7 +318,8 @@ func injectScriptsIntoWorld(page *webkitwebprocessextension.WebPage, world *webk
 
 	// Inject CSS
 	for _, cssFile := range cs.CSS {
-		cssPath := filepath.Join(ext.Path, cssFile)
+		// Strip leading slash to avoid filepath.Join treating it as absolute path
+		cssPath := filepath.Join(ext.Path, strings.TrimPrefix(cssFile, "/"))
 
 		// Check if file exists
 		if _, err := os.Stat(cssPath); os.IsNotExist(err) {

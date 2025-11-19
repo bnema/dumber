@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/bnema/dumber/internal/webext/api"
@@ -186,7 +187,8 @@ func (b *BackgroundContext) createRuntimeAPI() *goja.Object {
 		}
 
 		path := call.Argument(0).String()
-		fullPath := filepath.Join(b.ext.Path, path)
+		// Strip leading slash to avoid filepath.Join treating it as absolute path
+		fullPath := filepath.Join(b.ext.Path, strings.TrimPrefix(path, "/"))
 		return b.vm.ToValue(fullPath)
 	})
 
@@ -483,7 +485,8 @@ func (b *BackgroundContext) createWebRequestAPI() *goja.Object {
 
 // loadScript loads and executes a JavaScript file in the VM
 func (b *BackgroundContext) loadScript(scriptPath string) error {
-	fullPath := filepath.Join(b.ext.Path, scriptPath)
+	// Strip leading slash to avoid filepath.Join treating it as absolute path
+	fullPath := filepath.Join(b.ext.Path, strings.TrimPrefix(scriptPath, "/"))
 
 	content, err := os.ReadFile(fullPath)
 	if err != nil {
