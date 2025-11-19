@@ -1,8 +1,10 @@
 package webext
 
 import (
-	"embed"
+	"crypto/sha256"
 	"fmt"
+	"io"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -12,12 +14,13 @@ import (
 
 // EnsureWebExtSO extracts the embedded WebProcess extension .so to user's libexec directory
 // Returns the directory path where the .so was extracted
-func EnsureWebExtSO(assets embed.FS) (string, error) {
+func EnsureWebExtSO(assets fs.FS) (string, error) {
 	// Read the embedded .so file from assets
-	soData, err := assets.ReadFile("assets/webext/dumber-webext.so")
+	soData, err := fs.ReadFile(assets, "assets/webext/dumber-webext.so")
 	if err != nil {
 		return "", fmt.Errorf("failed to read embedded .so: %w", err)
 	}
+	embeddedHash := sha256.Sum256(soData)
 
 	// Get user's data directory (~/.local/share/dumber)
 	dataDir, err := config.GetDataDir()
@@ -33,19 +36,61 @@ func EnsureWebExtSO(assets embed.FS) (string, error) {
 
 	soPath := filepath.Join(libexecDir, "dumber-webext.so")
 
-	// Check if .so already exists and is valid
-	if info, err := os.Stat(soPath); err == nil && info.Size() == int64(len(soData)) {
-		// File exists with correct size, assume it's valid
+	// Check if .so already exists and hash matches embedded copy
+	if fileHashMatches(soPath, embeddedHash) {
 		log.Printf("[webext] Using existing WebProcess extension: %s", soPath)
 		return libexecDir, nil
 	}
 
 	// Extract embedded .so
 	log.Printf("[webext] Extracting WebProcess extension to %s (%d bytes)", soPath, len(soData))
-	if err := os.WriteFile(soPath, soData, 0755); err != nil {
+	if err := writeAtomically(soPath, soData, 0o755); err != nil {
 		return "", fmt.Errorf("failed to write .so file: %w", err)
 	}
 
 	log.Printf("[webext] WebProcess extension extracted successfully")
 	return libexecDir, nil
+}
+
+// fileHashMatches returns true if a file exists and its SHA-256 matches the expected.
+func fileHashMatches(path string, expected [32]byte) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return false
+	}
+
+	var sum [32]byte
+	copy(sum[:], h.Sum(nil))
+	return sum == expected
+}
+
+// writeAtomically writes data to a temp file and renames it into place to avoid partial writes.
+func writeAtomically(path string, data []byte, perm os.FileMode) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, "tmp-webext-*")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return err
+	}
+	if err := tmp.Chmod(perm); err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+	return os.Rename(tmpPath, path)
 }
