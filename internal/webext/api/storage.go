@@ -43,6 +43,11 @@ func NewStorageAPI(extensionID string, db *sql.DB) (*StorageAPI, error) {
 	}, nil
 }
 
+// Local returns the local storage area
+func (s *StorageAPI) Local() *StorageArea {
+	return s.local
+}
+
 // Get retrieves items from storage
 // keys can be: nil (get all), string (single key), []string (multiple keys), or map[string]interface{} (keys with defaults)
 func (s *StorageArea) Get(keys interface{}) (map[string]interface{}, error) {

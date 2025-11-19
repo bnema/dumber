@@ -13,13 +13,13 @@ import (
 
 // Extension represents a loaded extension
 type Extension struct {
-	ID          string
-	Path        string
-	Manifest    *Manifest
-	Enabled     bool
-	Bundled     bool // True if bundled with browser
-	DataDir     string
-	BackgroundVM interface{} // Will be *goja.Runtime later
+	ID              string
+	Path            string
+	Manifest        *Manifest
+	Enabled         bool
+	Bundled         bool // True if bundled with browser
+	DataDir         string
+	BackgroundCtx   *BackgroundContext // Background page context with goja runtime
 
 	// WebExtension APIs
 	Runtime *api.RuntimeAPI
@@ -310,4 +310,31 @@ func (m *Manager) InitializeAPIs(ext *Extension) error {
 // GetWebRequestAPI returns the shared webRequest API instance
 func (m *Manager) GetWebRequestAPI() *api.WebRequestAPI {
 	return m.webRequest
+}
+
+// StartBackgroundContext initializes and starts the background context for an extension
+func (m *Manager) StartBackgroundContext(ext *Extension) error {
+	// Only start background context if extension has background scripts
+	if ext.Manifest.Background == nil || len(ext.Manifest.Background.Scripts) == 0 {
+		log.Printf("[webext] Extension %s has no background scripts", ext.ID)
+		return nil
+	}
+
+	// Create background context
+	ext.BackgroundCtx = NewBackgroundContext(ext)
+
+	// Start the context (loads and executes background scripts)
+	if err := ext.BackgroundCtx.Start(); err != nil {
+		return fmt.Errorf("failed to start background context: %w", err)
+	}
+
+	return nil
+}
+
+// StopBackgroundContext stops the background context for an extension
+func (m *Manager) StopBackgroundContext(ext *Extension) {
+	if ext.BackgroundCtx != nil {
+		ext.BackgroundCtx.Stop()
+		ext.BackgroundCtx = nil
+	}
 }
