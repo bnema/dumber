@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"unicode"
 
 	"github.com/bnema/dumber/internal/config"
+	"github.com/bnema/dumber/internal/db"
 	"github.com/spf13/cobra"
 )
 
@@ -45,44 +47,46 @@ func NewPurgeCmd() *cobra.Command {
 		Long: `Purge various dumber data and cache files. By default, purges everything.
 
 Available purge targets:
-  --database, -d       Purge the SQLite database (history, zoom levels, cookies,
-                       certificate validations, and fuzzy cache metadata)
-  --history-cache, -H  Purge dmenu fuzzy search cache for history (binary file, will be
-                       database-backed in the future)
-  --browser-cache, -c  Purge WebKit browser cache (cached images, files, etc.)
-  --browser-data, -b   Purge WebKit browser data (localStorage, sessionStorage, IndexedDB)
-                       Note: Cookies are now stored in the main database and deleted via --database
+  --database, -d       Purge SQLite databases (dumber.sqlite and cookies.db)
+                       Includes: history, zoom levels, certificates, cookies, favorites
+  --history-cache, -H  Purge browsing history from database and dmenu fuzzy search cache
+                       (binary file). Keeps cookies, zoom levels, and other database data.
+  --browser-cache, -b  Purge WebKit browser cache (cached images, files, etc.)
+  --browser-data, -B   Purge WebKit browser data (localStorage, sessionStorage, IndexedDB)
+                       Note: Cookies are in cookies.db and deleted via --database
   --filter-cache, -F   Purge compiled ad blocking filters cache
-  --state, -s          Purge all state data (includes database and caches)
-  --config             Purge configuration files
+  --state, -s          Purge all state data (includes databases and caches)
+  --config, -c         Purge configuration files
   --all, -a            Purge everything (default if no specific flags are provided)
 
 Use --force to skip the confirmation prompt.
 
-Database Consolidation:
-  Since version with database consolidation, cookies are stored in dumber.sqlite.
-  Use --database to delete cookies along with history and other browser data.
-  The --browser-data flag now only affects localStorage and other WebKit-managed data.
+Database Storage:
+  Cookies are stored in cookies.db (separate from dumber.sqlite due to WebKit requirements).
+  Use --database to delete both dumber.sqlite and cookies.db.
+  The --browser-data flag only affects localStorage and other WebKit-managed data.
 
 Examples:
   dumber purge                     # Purge everything (with confirmation)
   dumber purge --force             # Purge everything (no confirmation)
-  dumber purge -d -H -c -F         # Purge database and all caches
+  dumber purge -d -H -b -F         # Purge database and all caches
   dumber purge --filter-cache -f   # Force purge filter cache only
-  dumber purge -d                  # Purge database (includes cookies)`,
+  dumber purge -d                  # Purge database (includes cookies)
+  dumber purge -H                  # Purge only browsing history (keep cookies)
+  dumber purge -c                  # Purge config file only`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return executePurge(flags)
 		},
 	}
 
 	// Add flags
-	cmd.Flags().BoolVarP(&flags.Database, "database", "d", false, "Purge the SQLite database (includes cookies)")
-	cmd.Flags().BoolVarP(&flags.HistoryCache, "history-cache", "H", false, "Purge dmenu fuzzy search cache (binary file)")
-	cmd.Flags().BoolVarP(&flags.BrowserCache, "browser-cache", "c", false, "Purge WebKit browser cache")
-	cmd.Flags().BoolVarP(&flags.BrowserData, "browser-data", "b", false, "Purge WebKit browser data (localStorage, sessionStorage)")
+	cmd.Flags().BoolVarP(&flags.Database, "database", "d", false, "Purge SQLite databases (dumber.sqlite and cookies.db)")
+	cmd.Flags().BoolVarP(&flags.HistoryCache, "history-cache", "H", false, "Purge browsing history and dmenu fuzzy cache")
+	cmd.Flags().BoolVarP(&flags.BrowserCache, "browser-cache", "b", false, "Purge WebKit browser cache")
+	cmd.Flags().BoolVarP(&flags.BrowserData, "browser-data", "B", false, "Purge WebKit browser data (localStorage, sessionStorage)")
 	cmd.Flags().BoolVarP(&flags.FilterCache, "filter-cache", "F", false, "Purge compiled ad blocking filters cache")
-	cmd.Flags().BoolVarP(&flags.State, "state", "s", false, "Purge all state data (database and caches)")
-	cmd.Flags().BoolVar(&flags.Config, "config", false, "Purge configuration files")
+	cmd.Flags().BoolVarP(&flags.State, "state", "s", false, "Purge all state data (databases and caches)")
+	cmd.Flags().BoolVarP(&flags.Config, "config", "c", false, "Purge configuration files")
 	cmd.Flags().BoolVarP(&flags.All, "all", "a", false, "Purge everything")
 	cmd.Flags().BoolVarP(&flags.Force, "force", "f", false, "Skip confirmation prompt")
 
@@ -169,11 +173,20 @@ func getPurgePaths(items []string) (map[string][]string, error) {
 	for _, item := range items {
 		switch item {
 		case "database":
+			// Get main database path
 			dbPath, err := config.GetDatabaseFile()
 			if err != nil {
 				return nil, fmt.Errorf("failed to get database path: %w", err)
 			}
-			paths[item] = []string{dbPath}
+
+			// Get data dir for cookies.db
+			dataDir, err := config.GetDataDir()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get data directory: %w", err)
+			}
+			cookiesPath := filepath.Join(dataDir, "cookies.db")
+
+			paths[item] = []string{dbPath, cookiesPath}
 
 		case "history-cache":
 			stateDir, err := config.GetStateDir()
@@ -224,6 +237,12 @@ func confirmPurge(items []string, paths map[string][]string) bool {
 
 	for _, item := range items {
 		fmt.Printf("• %s:\n", toTitle(item))
+
+		// Special message for history-cache
+		if item == "history-cache" {
+			fmt.Printf("  - All browsing history from database\n")
+		}
+
 		for _, path := range paths[item] {
 			// Check if path exists
 			if _, err := os.Stat(path); err == nil {
@@ -252,6 +271,17 @@ func performPurge(items []string, paths map[string][]string) error {
 	for _, item := range items {
 		fmt.Printf("Purging %s...\n", item)
 
+		// Special handling for history-cache: delete from database first
+		if item == "history-cache" {
+			if err := purgeHistoryFromDB(); err != nil {
+				errors = append(errors, fmt.Sprintf("history table: %v", err))
+				fmt.Printf("  ✗ Failed to purge history from database: %v\n", err)
+			} else {
+				fmt.Printf("  ✓ Purged history from database\n")
+			}
+		}
+
+		// Then proceed with file/directory deletions
 		for _, path := range paths[item] {
 			if err := deletePath(path); err != nil {
 				errors = append(errors, fmt.Sprintf("%s: %v", path, err))
@@ -267,6 +297,38 @@ func performPurge(items []string, paths map[string][]string) error {
 	}
 
 	fmt.Println("\nPurge completed successfully!")
+	return nil
+}
+
+// purgeHistoryFromDB deletes all history entries from the database
+func purgeHistoryFromDB() error {
+	dbPath, err := config.GetDatabaseFile()
+	if err != nil {
+		return fmt.Errorf("failed to get database path: %w", err)
+	}
+
+	// Check if database exists
+	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+		// Database doesn't exist, nothing to purge
+		return nil
+	}
+
+	// Initialize database connection with proper configuration
+	database, err := db.InitDB(dbPath)
+	if err != nil {
+		return fmt.Errorf("failed to initialize database: %w", err)
+	}
+	defer database.Close()
+
+	// Create queries instance
+	queries := db.New(database)
+
+	// Execute delete all history
+	ctx := context.Background()
+	if err := queries.DeleteAllHistory(ctx); err != nil {
+		return fmt.Errorf("failed to delete history: %w", err)
+	}
+
 	return nil
 }
 
