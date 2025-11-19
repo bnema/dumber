@@ -50,12 +50,24 @@ type FavoritesQuerier interface {
 	GetFavoriteCount(ctx context.Context) (int64, error)
 }
 
+// ExtensionsQuerier defines the interface for extension installation metadata operations
+type ExtensionsQuerier interface {
+	GetInstalledExtension(ctx context.Context, extensionID string) (GetInstalledExtensionRow, error)
+	ListInstalledExtensions(ctx context.Context) ([]ListInstalledExtensionsRow, error)
+	UpsertInstalledExtension(ctx context.Context, arg UpsertInstalledExtensionParams) error
+	SetExtensionEnabled(ctx context.Context, enabled bool, extensionID string) error
+	MarkExtensionDeleted(ctx context.Context, extensionID string) error
+	CheckExtensionNeedsUpdate(ctx context.Context, days float64, extensionID string) (CheckExtensionNeedsUpdateRow, error)
+	CleanupOldDeletedExtensions(ctx context.Context, days float64) error
+}
+
 // DatabaseQuerier combines all database operation interfaces
 type DatabaseQuerier interface {
 	ZoomQuerier
 	HistoryQuerier
 	CertificateQuerier
 	FavoritesQuerier
+	ExtensionsQuerier
 }
 
 // Ensure that *Queries implements DatabaseQuerier interface

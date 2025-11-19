@@ -17,6 +17,14 @@ type CertificateValidation struct {
 	ExpiresAt       sql.NullTime `json:"expires_at"`
 }
 
+type ExtensionStorage struct {
+	ExtensionID string       `json:"extension_id"`
+	Key         string       `json:"key"`
+	Value       string       `json:"value"`
+	CreatedAt   sql.NullTime `json:"created_at"`
+	UpdatedAt   sql.NullTime `json:"updated_at"`
+}
+
 type Favorite struct {
 	ID         int64          `json:"id"`
 	Url        string         `json:"url"`
@@ -50,6 +58,18 @@ type History struct {
 	LastVisited sql.NullTime   `json:"last_visited"`
 	CreatedAt   sql.NullTime   `json:"created_at"`
 	FaviconUrl  sql.NullString `json:"favicon_url"`
+}
+
+type InstalledExtension struct {
+	ExtensionID string       `json:"extension_id"`
+	Name        string       `json:"name"`
+	Version     string       `json:"version"`
+	InstallPath string       `json:"install_path"`
+	Bundled     bool         `json:"bundled"`
+	Enabled     bool         `json:"enabled"`
+	CreatedAt   sql.NullTime `json:"created_at"`
+	UpdatedAt   sql.NullTime `json:"updated_at"`
+	DeletedAt   sql.NullTime `json:"deleted_at"`
 }
 
 type ZoomLevel struct {

@@ -11,6 +11,8 @@ import (
 
 type Querier interface {
 	AddOrUpdateHistory(ctx context.Context, url string, title sql.NullString) error
+	CheckExtensionNeedsUpdate(ctx context.Context, days float64, extensionID string) (CheckExtensionNeedsUpdateRow, error)
+	CleanupOldDeletedExtensions(ctx context.Context, days float64) error
 	// Cleanup zoom level entries older than specified days
 	CleanupOldZoomLevels(ctx context.Context, dollar_1 sql.NullString) error
 	// Insert a new favorite with auto-incremented position
@@ -34,6 +36,7 @@ type Querier interface {
 	GetHistory(ctx context.Context, limit int64) ([]History, error)
 	GetHistoryEntry(ctx context.Context, url string) (History, error)
 	GetHistoryWithOffset(ctx context.Context, limit int64, offset int64) ([]History, error)
+	GetInstalledExtension(ctx context.Context, extensionID string) (GetInstalledExtensionRow, error)
 	GetMostVisited(ctx context.Context, limit int64) ([]History, error)
 	// Get zoom level for a specific domain
 	GetZoomLevel(ctx context.Context, domain string) (float64, error)
@@ -42,9 +45,12 @@ type Querier interface {
 	// Check if a URL is favorited
 	IsFavorite(ctx context.Context, url string) (int64, error)
 	ListCertificateValidations(ctx context.Context) ([]CertificateValidation, error)
+	ListInstalledExtensions(ctx context.Context) ([]ListInstalledExtensionsRow, error)
 	// List all zoom level settings ordered by most recently updated
 	ListZoomLevels(ctx context.Context) ([]ZoomLevel, error)
+	MarkExtensionDeleted(ctx context.Context, extensionID string) error
 	SearchHistory(ctx context.Context, column1 sql.NullString, column2 sql.NullString, limit int64) ([]History, error)
+	SetExtensionEnabled(ctx context.Context, enabled bool, extensionID string) error
 	// Set or update zoom level for a domain with validation
 	SetZoomLevel(ctx context.Context, domain string, zoomFactor float64) error
 	StoreCertificateValidation(ctx context.Context, hostname string, certificateHash string, userDecision string, expiresAt sql.NullTime) error
@@ -53,6 +59,7 @@ type Querier interface {
 	// Update the position of a favorite
 	UpdateFavoritePosition(ctx context.Context, position int64, url string) error
 	UpdateHistoryFavicon(ctx context.Context, faviconUrl sql.NullString, url string) error
+	UpsertInstalledExtension(ctx context.Context, arg UpsertInstalledExtensionParams) error
 }
 
 var _ Querier = (*Queries)(nil)
