@@ -79,10 +79,10 @@ func TestParseInitData(t *testing.T) {
 
 func TestSerializeInitData(t *testing.T) {
 	tests := []struct {
-		name     string
-		setup    func(*Manager)
-		wantLen  int
-		wantIDs  []string
+		name    string
+		setup   func(*Manager)
+		wantLen int
+		wantIDs []string
 	}{
 		{
 			name: "single enabled extension",
@@ -153,7 +153,7 @@ func TestSerializeInitData(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			manager := NewManager("/tmp/test", nil)
+			manager := NewManager("/tmp/test", nil, nil)
 			tt.setup(manager)
 
 			jsonStr, err := manager.SerializeInitData()

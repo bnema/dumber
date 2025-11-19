@@ -451,127 +451,247 @@ func TestHandleHeadersReceived(t *testing.T) {
 }
 
 func TestHandleCompleted(t *testing.T) {
-	api := NewWebRequestAPI()
-	called := false
-
-	listener := func(details ResponseDetails) {
-		called = true
-		if details.URL != "https://example.com/page" {
-			t.Errorf("Expected URL https://example.com/page, got %s", details.URL)
-		}
-		if details.StatusCode != 200 {
-			t.Errorf("Expected status code 200, got %d", details.StatusCode)
-		}
+	tests := []struct {
+		name           string
+		details        ResponseDetails
+		filter         *RequestFilter
+		wantCalled     bool
+		checkDetails   func(*testing.T, ResponseDetails)
+	}{
+		{
+			name: "listener_called_on_matching_request",
+			details: ResponseDetails{
+				URL:        "https://example.com/page",
+				Type:       ResourceTypeMain,
+				StatusCode: 200,
+			},
+			filter:     &RequestFilter{URLs: []string{"<all_urls>"}},
+			wantCalled: true,
+			checkDetails: func(t *testing.T, details ResponseDetails) {
+				if details.URL != "https://example.com/page" {
+					t.Errorf("Expected URL https://example.com/page, got %s", details.URL)
+				}
+				if details.StatusCode != 200 {
+					t.Errorf("Expected status code 200, got %d", details.StatusCode)
+				}
+			},
+		},
 	}
 
-	filter := &RequestFilter{URLs: []string{"<all_urls>"}}
-	err := api.OnCompleted("test-ext", listener, filter)
-	if err != nil {
-		t.Fatalf("Failed to register listener: %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			api := NewWebRequestAPI()
+			called := false
 
-	details := ResponseDetails{
-		URL:        "https://example.com/page",
-		Type:       ResourceTypeMain,
-		StatusCode: 200,
-	}
+			listener := func(details ResponseDetails) {
+				called = true
+				if tt.checkDetails != nil {
+					tt.checkDetails(t, details)
+				}
+			}
 
-	api.HandleCompleted(details)
+			err := api.OnCompleted("test-ext", listener, tt.filter)
+			if err != nil {
+				t.Fatalf("Failed to register listener: %v", err)
+			}
 
-	if !called {
-		t.Error("Expected listener to be called")
+			api.HandleCompleted(tt.details)
+
+			if called != tt.wantCalled {
+				t.Errorf("listener called = %v, want %v", called, tt.wantCalled)
+			}
+		})
 	}
 }
 
 func TestHandleErrorOccurred(t *testing.T) {
-	api := NewWebRequestAPI()
-	called := false
-	var receivedError string
-
-	listener := func(details RequestDetails, errorMsg string) {
-		called = true
-		receivedError = errorMsg
-		if details.URL != "https://example.com/fail" {
-			t.Errorf("Expected URL https://example.com/fail, got %s", details.URL)
-		}
+	tests := []struct {
+		name         string
+		details      RequestDetails
+		errorMsg     string
+		filter       *RequestFilter
+		wantCalled   bool
+		wantErrorMsg string
+	}{
+		{
+			name: "listener_called_with_error_message",
+			details: RequestDetails{
+				URL:  "https://example.com/fail",
+				Type: ResourceTypeMain,
+			},
+			errorMsg:     "net::ERR_CONNECTION_REFUSED",
+			filter:       &RequestFilter{URLs: []string{"<all_urls>"}},
+			wantCalled:   true,
+			wantErrorMsg: "net::ERR_CONNECTION_REFUSED",
+		},
 	}
 
-	filter := &RequestFilter{URLs: []string{"<all_urls>"}}
-	err := api.OnErrorOccurred("test-ext", listener, filter)
-	if err != nil {
-		t.Fatalf("Failed to register listener: %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			api := NewWebRequestAPI()
+			called := false
+			var receivedError string
 
-	details := RequestDetails{
-		URL:  "https://example.com/fail",
-		Type: ResourceTypeMain,
-	}
+			listener := func(details RequestDetails, errorMsg string) {
+				called = true
+				receivedError = errorMsg
+				if details.URL != tt.details.URL {
+					t.Errorf("Expected URL %s, got %s", tt.details.URL, details.URL)
+				}
+			}
 
-	api.HandleErrorOccurred(details, "net::ERR_CONNECTION_REFUSED")
+			err := api.OnErrorOccurred("test-ext", listener, tt.filter)
+			if err != nil {
+				t.Fatalf("Failed to register listener: %v", err)
+			}
 
-	if !called {
-		t.Error("Expected listener to be called")
-	}
-	if receivedError != "net::ERR_CONNECTION_REFUSED" {
-		t.Errorf("Expected error message 'net::ERR_CONNECTION_REFUSED', got '%s'", receivedError)
+			api.HandleErrorOccurred(tt.details, tt.errorMsg)
+
+			if called != tt.wantCalled {
+				t.Errorf("listener called = %v, want %v", called, tt.wantCalled)
+			}
+			if tt.wantCalled && receivedError != tt.wantErrorMsg {
+				t.Errorf("Expected error message '%s', got '%s'", tt.wantErrorMsg, receivedError)
+			}
+		})
 	}
 }
 
 func TestRemoveListener(t *testing.T) {
-	api := NewWebRequestAPI()
-
-	// Register listeners
-	listener := func(details RequestDetails) *BlockingResponse {
-		return &BlockingResponse{Cancel: true}
+	tests := []struct {
+		name              string
+		extensionID       string
+		registerListeners func(*WebRequestAPI, *RequestFilter)
+		wantBeforeRequest int
+		wantBeforeSend    int
+		wantFilters       bool
+	}{
+		{
+			name:        "removes_all_listeners_for_extension",
+			extensionID: "ext1",
+			registerListeners: func(api *WebRequestAPI, filter *RequestFilter) {
+				listener := func(details RequestDetails) *BlockingResponse {
+					return &BlockingResponse{Cancel: true}
+				}
+				api.OnBeforeRequest("ext1", listener, filter)
+				api.OnBeforeSendHeaders("ext1", listener, filter)
+			},
+			wantBeforeRequest: 0,
+			wantBeforeSend:    0,
+			wantFilters:       false,
+		},
+		{
+			name:        "removes_only_specified_extension",
+			extensionID: "ext1",
+			registerListeners: func(api *WebRequestAPI, filter *RequestFilter) {
+				listener := func(details RequestDetails) *BlockingResponse {
+					return &BlockingResponse{Cancel: true}
+				}
+				api.OnBeforeRequest("ext1", listener, filter)
+				api.OnBeforeRequest("ext2", listener, filter)
+			},
+			wantBeforeRequest: 0, // ext1 should be removed
+			wantBeforeSend:    0,
+			wantFilters:       false,
+		},
 	}
-	filter := &RequestFilter{URLs: []string{"<all_urls>"}}
 
-	api.OnBeforeRequest("ext1", listener, filter)
-	api.OnBeforeSendHeaders("ext1", listener, filter)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			api := NewWebRequestAPI()
+			filter := &RequestFilter{URLs: []string{"<all_urls>"}}
 
-	if len(api.onBeforeRequestListeners["ext1"]) != 1 {
-		t.Error("Expected listener to be registered")
-	}
+			tt.registerListeners(api, filter)
 
-	// Remove all listeners for the extension
-	api.RemoveListener("ext1")
+			// Remove listeners for the extension
+			api.RemoveListener(tt.extensionID)
 
-	if len(api.onBeforeRequestListeners["ext1"]) != 0 {
-		t.Error("Expected all listeners to be removed")
-	}
-	if api.filters["ext1"] != nil {
-		t.Error("Expected filter to be removed")
+			if len(api.onBeforeRequestListeners[tt.extensionID]) != tt.wantBeforeRequest {
+				t.Errorf("onBeforeRequestListeners[%s] count = %d, want %d",
+					tt.extensionID, len(api.onBeforeRequestListeners[tt.extensionID]), tt.wantBeforeRequest)
+			}
+			if len(api.onBeforeSendHeadersListeners[tt.extensionID]) != tt.wantBeforeSend {
+				t.Errorf("onBeforeSendHeadersListeners[%s] count = %d, want %d",
+					tt.extensionID, len(api.onBeforeSendHeadersListeners[tt.extensionID]), tt.wantBeforeSend)
+			}
+
+			filterExists := api.filters[tt.extensionID] != nil
+			if filterExists != tt.wantFilters {
+				t.Errorf("filter exists = %v, want %v", filterExists, tt.wantFilters)
+			}
+		})
 	}
 }
 
 func TestMultipleExtensions(t *testing.T) {
-	api := NewWebRequestAPI()
-
-	// Extension 1: Allows request
-	listener1 := func(details RequestDetails) *BlockingResponse {
-		return nil
+	tests := []struct {
+		name       string
+		extensions []struct {
+			id       string
+			response *BlockingResponse
+		}
+		details    RequestDetails
+		wantCancel bool
+	}{
+		{
+			name: "cancel_takes_priority_among_multiple_extensions",
+			extensions: []struct {
+				id       string
+				response *BlockingResponse
+			}{
+				{id: "ext1", response: nil}, // Allows request
+				{id: "ext2", response: &BlockingResponse{Cancel: true}}, // Blocks request
+			},
+			details: RequestDetails{
+				URL:  "https://ads.example.com/banner.js",
+				Type: ResourceTypeScript,
+			},
+			wantCancel: true,
+		},
+		{
+			name: "all_extensions_allow_request",
+			extensions: []struct {
+				id       string
+				response *BlockingResponse
+			}{
+				{id: "ext1", response: nil},
+				{id: "ext2", response: nil},
+				{id: "ext3", response: nil},
+			},
+			details: RequestDetails{
+				URL:  "https://example.com/page.html",
+				Type: ResourceTypeMain,
+			},
+			wantCancel: false,
+		},
 	}
 
-	// Extension 2: Blocks request
-	listener2 := func(details RequestDetails) *BlockingResponse {
-		return &BlockingResponse{Cancel: true}
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			api := NewWebRequestAPI()
+			filter := &RequestFilter{URLs: []string{"<all_urls>"}}
 
-	filter := &RequestFilter{URLs: []string{"<all_urls>"}}
+			// Register all extension listeners
+			for _, ext := range tt.extensions {
+				response := ext.response
+				listener := func(details RequestDetails) *BlockingResponse {
+					return response
+				}
+				api.OnBeforeRequest(ext.id, listener, filter)
+			}
 
-	api.OnBeforeRequest("ext1", listener1, filter)
-	api.OnBeforeRequest("ext2", listener2, filter)
+			result := api.HandleBeforeRequest(tt.details)
 
-	details := RequestDetails{
-		URL:  "https://ads.example.com/banner.js",
-		Type: ResourceTypeScript,
-	}
-
-	result := api.HandleBeforeRequest(details)
-
-	// Extension 2's cancel should take effect
-	if result == nil || !result.Cancel {
-		t.Errorf("Expected request to be cancelled by ext2, got: %+v", result)
+			if tt.wantCancel {
+				if result == nil || !result.Cancel {
+					t.Errorf("Expected request to be cancelled, got: %+v", result)
+				}
+			} else {
+				if result != nil && result.Cancel {
+					t.Errorf("Expected request to be allowed, got: %+v", result)
+				}
+			}
+		})
 	}
 }
 
