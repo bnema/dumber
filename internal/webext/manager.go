@@ -29,22 +29,24 @@ type Extension struct {
 
 // Manager manages all browser extensions
 type Manager struct {
-	mu        sync.RWMutex
-	bundled   map[string]*Extension // Built-in extensions
-	user      map[string]*Extension // User-installed extensions
-	enabled   map[string]bool       // Enable state per extension
-	dataDir   string                // Base directory for extension data
-	database  *sql.DB               // Database for extension storage
+	mu         sync.RWMutex
+	bundled    map[string]*Extension // Built-in extensions
+	user       map[string]*Extension // User-installed extensions
+	enabled    map[string]bool       // Enable state per extension
+	dataDir    string                // Base directory for extension data
+	database   *sql.DB               // Database for extension storage
+	webRequest *api.WebRequestAPI    // Shared webRequest API for all extensions
 }
 
 // NewManager creates a new extension manager
 func NewManager(dataDir string, db *sql.DB) *Manager {
 	return &Manager{
-		bundled:  make(map[string]*Extension),
-		user:     make(map[string]*Extension),
-		enabled:  make(map[string]bool),
-		dataDir:  dataDir,
-		database: db,
+		bundled:    make(map[string]*Extension),
+		user:       make(map[string]*Extension),
+		enabled:    make(map[string]bool),
+		dataDir:    dataDir,
+		database:   db,
+		webRequest: api.NewWebRequestAPI(),
 	}
 }
 
@@ -303,4 +305,9 @@ func (m *Manager) InitializeAPIs(ext *Extension) error {
 
 	log.Printf("[webext] Initialized APIs for extension %s", ext.ID)
 	return nil
+}
+
+// GetWebRequestAPI returns the shared webRequest API instance
+func (m *Manager) GetWebRequestAPI() *api.WebRequestAPI {
+	return m.webRequest
 }
