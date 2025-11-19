@@ -95,7 +95,7 @@ func (m *Manager) EnsureUBlockOrigin() error {
 	}
 
 	// Download and extract
-	installPath := filepath.Join(m.dataDir, "..", "bundled", uBlockExtensionID)
+	installPath := filepath.Join(m.dataDir, uBlockExtensionID)
 	if err := downloadAndExtractUBlock(downloadURL, installPath); err != nil {
 		return fmt.Errorf("failed to download uBlock: %w", err)
 	}

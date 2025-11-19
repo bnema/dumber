@@ -101,19 +101,19 @@ func (m *Manager) LoadExtensionsFromDB() error {
 	return nil
 }
 
-// LoadBundledExtensions loads extensions from the bundled directory
-func (m *Manager) LoadBundledExtensions(dir string) error {
+// LoadExtensions loads extensions from a single directory, routing them to bundled or user maps
+// based on the database flag when available. New on-disk extensions default to user-installed.
+func (m *Manager) LoadExtensions(dir string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		log.Printf("Bundled extensions directory does not exist: %s", dir)
-		return nil
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create extensions directory: %w", err)
 	}
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return fmt.Errorf("failed to read bundled extensions directory: %w", err)
+		return fmt.Errorf("failed to read extensions directory: %w", err)
 	}
 
 	for _, entry := range entries {
@@ -130,70 +130,36 @@ func (m *Manager) LoadBundledExtensions(dir string) error {
 		}
 
 		extPath := filepath.Join(dir, entry.Name())
-		ext, err := m.loadExtension(extPath, true)
+		bundled := false
+		enabled := false
+
+		// If DB has a record, prefer that as source of truth for bundled/enabled flags.
+		if m.queries != nil {
+			if extMeta, err := m.queries.GetInstalledExtension(context.Background(), entry.Name()); err == nil {
+				bundled = extMeta.Bundled
+				enabled = extMeta.Enabled
+			}
+		}
+
+		ext, err := m.loadExtension(extPath, bundled)
 		if err != nil {
-			log.Printf("Failed to load bundled extension %s: %v", entry.Name(), err)
+			log.Printf("Failed to load extension %s: %v", entry.Name(), err)
 			continue
 		}
 
-		m.bundled[ext.ID] = ext
-		m.enabled[ext.ID] = true // Bundled extensions enabled by default
-		if err := m.persistExtensionToDB(ext, true); err != nil {
-			log.Printf("[webext] Warning: failed to persist bundled extension %s: %v", ext.ID, err)
+		if bundled {
+			m.bundled[ext.ID] = ext
+		} else {
+			m.user[ext.ID] = ext
 		}
-		log.Printf("Loaded bundled extension: %s v%s", ext.Manifest.Name, ext.Manifest.Version)
-	}
-
-	return nil
-}
-
-// LoadUserExtensions loads user-installed extensions
-func (m *Manager) LoadUserExtensions(dir string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		// Create directory if it doesn't exist
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("failed to create user extensions directory: %w", err)
-		}
-		return nil
-	}
-
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return fmt.Errorf("failed to read user extensions directory: %w", err)
-	}
-
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		// Skip if already loaded in either bundled or user extensions
-		if _, exists := m.bundled[entry.Name()]; exists {
-			continue
-		}
-		if _, exists := m.user[entry.Name()]; exists {
-			continue
-		}
-
-		extPath := filepath.Join(dir, entry.Name())
-		ext, err := m.loadExtension(extPath, false)
-		if err != nil {
-			log.Printf("Failed to load user extension %s: %v", entry.Name(), err)
-			continue
-		}
-
-		m.user[ext.ID] = ext
-		// User extensions disabled by default unless explicitly enabled
+		// Default to stored enabled flag if present, otherwise user extensions remain disabled.
 		if _, exists := m.enabled[ext.ID]; !exists {
-			m.enabled[ext.ID] = false
+			m.enabled[ext.ID] = enabled
 		}
-		if err := m.persistExtensionToDB(ext, false); err != nil {
-			log.Printf("[webext] Warning: failed to persist user extension %s: %v", ext.ID, err)
+		if err := m.persistExtensionToDB(ext, bundled); err != nil {
+			log.Printf("[webext] Warning: failed to persist extension %s: %v", ext.ID, err)
 		}
-		log.Printf("Loaded user extension: %s v%s (enabled: %v)", ext.Manifest.Name, ext.Manifest.Version, m.enabled[ext.ID])
+		log.Printf("Loaded extension: %s v%s (bundled: %v, enabled: %v)", ext.Manifest.Name, ext.Manifest.Version, bundled, m.enabled[ext.ID])
 	}
 
 	return nil

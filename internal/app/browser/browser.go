@@ -413,16 +413,9 @@ func (app *BrowserApp) setupExtensionManager() error {
 		log.Printf("[webext] Warning: failed to ensure uBlock Origin: %v", err)
 	}
 
-	// Load bundled extensions from ~/.local/share/dumber/bundled
-	bundledDir := filepath.Join(dataDir, "..", "bundled")
-	if err := app.extensionManager.LoadBundledExtensions(bundledDir); err != nil {
-		log.Printf("[webext] Warning: failed to load bundled extensions: %v", err)
-	}
-
-	// Load user extensions from ~/.local/share/dumber/extensions
-	userDir := filepath.Join(dataDir, "extensions")
-	if err := app.extensionManager.LoadUserExtensions(userDir); err != nil {
-		log.Printf("[webext] Warning: failed to load user extensions: %v", err)
+	// Load extensions from unified directory (~/.local/share/dumber/extensions)
+	if err := app.extensionManager.LoadExtensions(extDataDir); err != nil {
+		log.Printf("[webext] Warning: failed to load extensions: %v", err)
 	}
 
 	// List all loaded extensions

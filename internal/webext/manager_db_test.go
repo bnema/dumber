@@ -1,6 +1,7 @@
 package webext
 
 import (
+	"database/sql"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -32,12 +33,12 @@ func writeManifest(t *testing.T, dir, name, version string) {
 
 func TestLoadExtensionsFromDB(t *testing.T) {
 	tests := []struct {
-		name           string
-		dbExtensions   []db.ListInstalledExtensionsRow
-		wantBundled    map[string]bool // extensionID -> should exist
-		wantUser       map[string]bool
-		wantEnabled    map[string]bool
-		wantErr        bool
+		name         string
+		dbExtensions []db.ListInstalledExtensionsRow
+		wantBundled  map[string]bool // extensionID -> should exist
+		wantUser     map[string]bool
+		wantEnabled  map[string]bool
+		wantErr      bool
 	}{
 		{
 			name: "loads_bundled_and_user_extensions",
@@ -129,6 +130,76 @@ func TestLoadExtensionsFromDB(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestLoadExtensionsSingleDirectory(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	t.Cleanup(ctrl.Finish)
+
+	mockQueries := mock_db.NewMockExtensionsQuerier(ctrl)
+	baseDir := t.TempDir()
+	extensionsDir := filepath.Join(baseDir, "extensions")
+
+	bundledID := "bundled-ext"
+	userID := "user-ext"
+
+	bundledPath := filepath.Join(extensionsDir, bundledID)
+	userPath := filepath.Join(extensionsDir, userID)
+
+	writeManifest(t, bundledPath, "Bundled", "1.0.0")
+	writeManifest(t, userPath, "User", "2.0.0")
+
+	mockQueries.EXPECT().GetInstalledExtension(gomock.Any(), bundledID).Return(db.GetInstalledExtensionRow{
+		ExtensionID: bundledID,
+		Name:        "Bundled",
+		Version:     "1.0.0",
+		InstallPath: bundledPath,
+		Bundled:     true,
+		Enabled:     true,
+	}, nil)
+	mockQueries.EXPECT().GetInstalledExtension(gomock.Any(), userID).Return(db.GetInstalledExtensionRow{}, sql.ErrNoRows)
+
+	mockQueries.EXPECT().UpsertInstalledExtension(gomock.Any(), db.UpsertInstalledExtensionParams{
+		ExtensionID: bundledID,
+		Name:        "Bundled",
+		Version:     "1.0.0",
+		InstallPath: bundledPath,
+		Bundled:     true,
+		Enabled:     true,
+	})
+	mockQueries.EXPECT().UpsertInstalledExtension(gomock.Any(), db.UpsertInstalledExtensionParams{
+		ExtensionID: userID,
+		Name:        "User",
+		Version:     "2.0.0",
+		InstallPath: userPath,
+		Bundled:     false,
+		Enabled:     false,
+	})
+
+	manager := NewManager(filepath.Join(baseDir, "data"), nil, mockQueries)
+
+	if err := manager.LoadExtensions(extensionsDir); err != nil {
+		t.Fatalf("LoadExtensions error = %v", err)
+	}
+
+	manager.mu.RLock()
+	defer manager.mu.RUnlock()
+
+	if _, exists := manager.bundled[bundledID]; !exists {
+		t.Fatalf("bundled extension %q not loaded", bundledID)
+	}
+
+	if _, exists := manager.user[userID]; !exists {
+		t.Fatalf("user extension %q not loaded", userID)
+	}
+
+	if !manager.enabled[bundledID] {
+		t.Errorf("bundled extension %q should be enabled", bundledID)
+	}
+
+	if manager.enabled[userID] {
+		t.Errorf("user extension %q should default to disabled", userID)
 	}
 }
 
@@ -227,12 +298,12 @@ func TestEnableDisable(t *testing.T) {
 
 func TestEnsureUBlockOrigin(t *testing.T) {
 	tests := []struct {
-		name         string
-		dbExtension  *db.GetInstalledExtensionRow
-		needsUpdate  int64 // 0 = up to date, 1 = needs update
-		wantLoaded   bool
-		wantEnabled  bool
-		wantErr      bool
+		name        string
+		dbExtension *db.GetInstalledExtensionRow
+		needsUpdate int64 // 0 = up to date, 1 = needs update
+		wantLoaded  bool
+		wantEnabled bool
+		wantErr     bool
 	}{
 		{
 			name: "loads_from_db_when_up_to_date",
@@ -260,7 +331,7 @@ func TestEnsureUBlockOrigin(t *testing.T) {
 			baseDir := t.TempDir()
 
 			if tt.dbExtension != nil {
-				installPath := filepath.Join(baseDir, "ublock-origin")
+				installPath := filepath.Join(baseDir, "data", "ublock-origin")
 				writeManifest(t, installPath, tt.dbExtension.Name, tt.dbExtension.Version)
 				tt.dbExtension.InstallPath = installPath
 
