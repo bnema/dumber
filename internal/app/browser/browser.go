@@ -413,8 +413,8 @@ func (app *BrowserApp) setupExtensionManager() error {
 		log.Printf("[webext] Warning: failed to ensure uBlock Origin: %v", err)
 	}
 
-	// Load bundled extensions from /usr/local/share/dumber/extensions
-	bundledDir := "/usr/local/share/dumber/extensions"
+	// Load bundled extensions from ~/.local/share/dumber/bundled
+	bundledDir := filepath.Join(dataDir, "..", "bundled")
 	if err := app.extensionManager.LoadBundledExtensions(bundledDir); err != nil {
 		log.Printf("[webext] Warning: failed to load bundled extensions: %v", err)
 	}
