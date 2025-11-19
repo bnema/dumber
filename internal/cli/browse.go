@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/bnema/dumber/internal/config"
+	"github.com/bnema/dumber/internal/parser"
 
 	"github.com/spf13/cobra"
 )
@@ -89,12 +90,14 @@ func browse(cli *CLI, input string) error {
 
 // recordVisit adds or updates a URL visit in the history
 func recordVisit(ctx context.Context, cli *CLI, url, title string) error {
+	normalizedURL := parser.NormalizeHistoryURL(url)
+
 	var sqlTitle sql.NullString
 	if title != "" {
 		sqlTitle = sql.NullString{String: title, Valid: true}
 	}
 
-	return cli.Queries.AddOrUpdateHistory(ctx, url, sqlTitle)
+	return cli.Queries.AddOrUpdateHistory(ctx, normalizedURL, sqlTitle)
 }
 
 // openURL opens a URL using the configured browser
@@ -141,7 +144,9 @@ func openURLWithConfig(url string, cfg *config.Config) error {
 func updateFavicon(ctx context.Context, cli *CLI, pageURL string) {
 	// For CLI usage (non-GUI), we still use the fallback method
 	// The GUI browser handles favicons through WebKit signals
-	parsedURL, err := url.Parse(pageURL)
+	normalizedURL := parser.NormalizeHistoryURL(pageURL)
+
+	parsedURL, err := url.Parse(normalizedURL)
 	if err != nil {
 		return // Silently fail for invalid URLs
 	}
@@ -159,7 +164,7 @@ func updateFavicon(ctx context.Context, cli *CLI, pageURL string) {
 
 	// Update in database using the new sqlc-generated method
 	faviconNullString := sql.NullString{String: faviconURL, Valid: true}
-	if err := cli.Queries.UpdateHistoryFavicon(ctx, faviconNullString, pageURL); err != nil {
+	if err := cli.Queries.UpdateHistoryFavicon(ctx, faviconNullString, normalizedURL); err != nil {
 		return
 	}
 }
