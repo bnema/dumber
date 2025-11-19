@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"unsafe"
 
 	"github.com/diamondburned/gotk4-webkitgtk/pkg/webkitwebprocessextension/v6"
@@ -91,15 +92,29 @@ func parseExtensionData(jsonStr string) error {
 // wrapWebProcessExtension wraps a C WebKitWebProcessExtension pointer into a Go object
 func wrapWebProcessExtension(ext *C.WebKitWebProcessExtension) *webkitwebprocessextension.WebProcessExtension {
 	// Take ownership of the GObject and wrap it
-	gobj := coreglib.Take(unsafe.Pointer(ext))
-	return &webkitwebprocessextension.WebProcessExtension{Object: gobj}
+	obj := coreglib.Take(unsafe.Pointer(ext))
+	return &webkitwebprocessextension.WebProcessExtension{
+		Object: obj,
+	}
 }
 
 // wrapVariant wraps a C GVariant pointer into a Go object
 func wrapVariant(v *C.GVariant) *coreglib.Variant {
-	// For GVariant, ref and wrap it
-	C.g_variant_ref(v)
-	return (*coreglib.Variant)(unsafe.Pointer(v))
+	if v == nil {
+		return nil
+	}
+
+	// Mirror coreglib.takeVariant: claim a ref and install a finalizer.
+	if C.g_variant_is_floating(v) != 0 {
+		C.g_variant_ref_sink(v)
+	} else {
+		C.g_variant_ref(v)
+	}
+
+	gv := &coreglib.Variant{}
+	*(*unsafe.Pointer)(unsafe.Pointer(&gv.GVariant)) = unsafe.Pointer(v)
+	runtime.SetFinalizer(gv, (*coreglib.Variant).Unref)
+	return gv
 }
 
 func onPageCreated(page *webkitwebprocessextension.WebPage) {
