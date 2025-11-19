@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"syscall"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/bnema/dumber/internal/filtering"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/services"
+	"github.com/bnema/dumber/internal/webext"
 	"github.com/bnema/dumber/pkg/webkit"
 	"golang.org/x/sync/errgroup"
 )
@@ -59,6 +61,9 @@ type BrowserApp struct {
 
 	// Content filtering
 	filterManager *filtering.FilterManager
+
+	// WebExtensions support
+	extensionManager *webext.Manager
 
 	// Handlers
 	schemeHandler         *api.SchemeHandler
@@ -160,6 +165,12 @@ func (app *BrowserApp) Initialize() error {
 	// Initialize handlers
 	app.schemeHandler = api.NewSchemeHandler(app.assets, app.parserService, app.browserService)
 	app.messageHandler = messaging.NewHandler(app.parserService, app.browserService)
+
+	// Initialize extension manager
+	if err := app.setupExtensionManager(); err != nil {
+		log.Printf("Warning: failed to setup extension manager: %v", err)
+		// Non-fatal - browser can run without extensions
+	}
 
 	return nil
 }
@@ -386,4 +397,81 @@ func (app *BrowserApp) runMainLoop() {
 		sig := <-sigChan
 		log.Printf("Received signal %v - exiting", sig)
 	}
+}
+
+// setupExtensionManager initializes the WebExtensions system
+func (app *BrowserApp) setupExtensionManager() error {
+	log.Printf("[webext] Setting up extension manager...")
+
+	// Get data directory for extension storage
+	dataDir, err := config.GetDataDir()
+	if err != nil {
+		return fmt.Errorf("failed to get data directory: %w", err)
+	}
+	extDataDir := filepath.Join(dataDir, "extensions")
+
+	// Create extension manager (reuses app.database for extension storage)
+	app.extensionManager = webext.NewManager(extDataDir, app.database)
+
+	// Load bundled extensions from /usr/local/share/dumber/extensions
+	bundledDir := "/usr/local/share/dumber/extensions"
+	if err := app.extensionManager.LoadBundledExtensions(bundledDir); err != nil {
+		log.Printf("[webext] Warning: failed to load bundled extensions: %v", err)
+	}
+
+	// Load user extensions from ~/.local/share/dumber/extensions
+	userDir := filepath.Join(dataDir, "extensions")
+	if err := app.extensionManager.LoadUserExtensions(userDir); err != nil {
+		log.Printf("[webext] Warning: failed to load user extensions: %v", err)
+	}
+
+	// List all loaded extensions
+	exts := app.extensionManager.ListExtensions()
+	log.Printf("[webext] Loaded %d extension(s)", len(exts))
+	for _, ext := range exts {
+		status := "disabled"
+		if app.extensionManager.IsEnabled(ext.ID) {
+			status = "enabled"
+		}
+		bundled := ""
+		if ext.Bundled {
+			bundled = " [bundled]"
+		}
+		log.Printf("[webext]   - %s v%s (%s)%s", ext.Manifest.Name, ext.Manifest.Version, status, bundled)
+	}
+
+	// Setup WebContext to load WebProcess extension
+	// This must be done BEFORE creating any WebViews
+	webExtConfig := &webkit.WebExtensionConfig{
+		ExtensionsDirectory: "/usr/local/libexec/dumber",
+		InitUserData:        "", // TODO: Serialize extension list for WebProcess
+	}
+
+	if err := webkit.InitializeWebProcessExtensions(webExtConfig); err != nil {
+		return fmt.Errorf("failed to initialize WebProcess extensions: %w", err)
+	}
+
+	// Register message handler for extension communication
+	// This allows extensions in WebProcess to communicate with UI process
+	if err := webkit.RegisterWebExtensionMessageHandler(app.handleExtensionMessage); err != nil {
+		return fmt.Errorf("failed to register extension message handler: %w", err)
+	}
+
+	log.Printf("[webext] Extension manager initialized successfully")
+	return nil
+}
+
+// handleExtensionMessage handles messages from WebProcess extensions
+func (app *BrowserApp) handleExtensionMessage(message *webkit.UserMessage) bool {
+	name := message.Name()
+	log.Printf("[webext] Received message from WebProcess: %s", name)
+
+	// TODO: Route messages to appropriate extension handlers
+	// Examples:
+	// - "extension:sendMessage" -> chrome.runtime.sendMessage
+	// - "tabs:sendMessage" -> chrome.tabs.sendMessage
+	// - "storage:get" -> chrome.storage.local.get
+
+	// For now, just acknowledge receipt
+	return false // false = message handled synchronously
 }

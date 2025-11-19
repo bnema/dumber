@@ -1,11 +1,14 @@
 package webext
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/bnema/dumber/internal/webext/api"
 )
 
 // Extension represents a loaded extension
@@ -17,6 +20,11 @@ type Extension struct {
 	Bundled     bool // True if bundled with browser
 	DataDir     string
 	BackgroundVM interface{} // Will be *goja.Runtime later
+
+	// WebExtension APIs
+	Runtime *api.RuntimeAPI
+	Storage *api.StorageAPI
+	Tabs    *api.TabsAPI
 }
 
 // Manager manages all browser extensions
@@ -26,15 +34,17 @@ type Manager struct {
 	user      map[string]*Extension // User-installed extensions
 	enabled   map[string]bool       // Enable state per extension
 	dataDir   string                // Base directory for extension data
+	database  *sql.DB               // Database for extension storage
 }
 
 // NewManager creates a new extension manager
-func NewManager(dataDir string) *Manager {
+func NewManager(dataDir string, db *sql.DB) *Manager {
 	return &Manager{
-		bundled: make(map[string]*Extension),
-		user:    make(map[string]*Extension),
-		enabled: make(map[string]bool),
-		dataDir: dataDir,
+		bundled:  make(map[string]*Extension),
+		user:     make(map[string]*Extension),
+		enabled:  make(map[string]bool),
+		dataDir:  dataDir,
+		database: db,
 	}
 }
 
@@ -136,6 +146,11 @@ func (m *Manager) loadExtension(path string, bundled bool) (*Extension, error) {
 	// Ensure extension data directory exists
 	if err := os.MkdirAll(ext.DataDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create extension data directory: %w", err)
+	}
+
+	// Initialize WebExtension APIs
+	if err := m.InitializeAPIs(ext); err != nil {
+		return nil, fmt.Errorf("failed to initialize APIs: %w", err)
 	}
 
 	return ext, nil
@@ -269,4 +284,23 @@ func matchesPattern(url string, matches []string, excludes []string) bool {
 
 	// Check if URL matches any pattern
 	return MatchURL(url, matches)
+}
+
+// InitializeAPIs initializes WebExtension APIs for a loaded extension
+func (m *Manager) InitializeAPIs(ext *Extension) error {
+	// Initialize runtime API
+	ext.Runtime = api.NewRuntimeAPI(ext.ID)
+
+	// Initialize storage API (uses shared database)
+	storageAPI, err := api.NewStorageAPI(ext.ID, m.database)
+	if err != nil {
+		return fmt.Errorf("failed to initialize storage API: %w", err)
+	}
+	ext.Storage = storageAPI
+
+	// Initialize tabs API (bridge will be set by browser later)
+	ext.Tabs = api.NewTabsAPI()
+
+	log.Printf("[webext] Initialized APIs for extension %s", ext.ID)
+	return nil
 }
