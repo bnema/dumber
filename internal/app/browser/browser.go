@@ -4,26 +4,33 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
-	"github.com/bnema/dumber/internal/app/api"
+	webkitv6 "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
+	"github.com/diamondburned/gotk4/pkg/glib/v2"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/bnema/dumber/internal/app/control"
 	"github.com/bnema/dumber/internal/app/environment"
 	"github.com/bnema/dumber/internal/app/messaging"
+	"github.com/bnema/dumber/internal/app/schemes"
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/db"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/services"
 	"github.com/bnema/dumber/internal/webext"
+	"github.com/bnema/dumber/internal/webext/api"
 	"github.com/bnema/dumber/pkg/webkit"
-	"golang.org/x/sync/errgroup"
 )
 
 // BrowserApp represents the main browser application
@@ -60,9 +67,11 @@ type BrowserApp struct {
 
 	// WebExtensions support
 	extensionManager *webext.Manager
+	webExtPorts      map[string]*webExtPortBridge
+	backgroundViews  map[string]*webkit.WebView
 
 	// Handlers
-	schemeHandler         *api.SchemeHandler
+	schemeHandler         *schemes.APIHandler
 	messageHandler        *messaging.Handler
 	shortcutHandler       *ShortcutHandler
 	windowShortcutHandler WindowShortcutHandlerInterface
@@ -74,10 +83,12 @@ func Run(assets embed.FS, version, commit, buildDate string) {
 	log.Printf("Starting GUI mode (webkit_cgo=%v)", webkit.IsNativeAvailable())
 
 	app := &BrowserApp{
-		version:   version,
-		commit:    commit,
-		buildDate: buildDate,
-		assets:    assets,
+		version:         version,
+		commit:          commit,
+		buildDate:       buildDate,
+		assets:          assets,
+		webExtPorts:     make(map[string]*webExtPortBridge),
+		backgroundViews: make(map[string]*webkit.WebView),
 	}
 
 	if err := app.Initialize(); err != nil {
@@ -159,7 +170,7 @@ func (app *BrowserApp) Initialize() error {
 	}
 
 	// Initialize handlers
-	app.schemeHandler = api.NewSchemeHandler(app.assets, app.parserService, app.browserService)
+	app.schemeHandler = schemes.NewAPIHandler(app.assets, app.parserService, app.browserService, app.config)
 	app.messageHandler = messaging.NewHandler(app.parserService, app.browserService)
 
 	// Initialize extension manager
@@ -236,11 +247,12 @@ func (app *BrowserApp) Run() {
 	defer app.cleanup()
 	defer logging.SetupPanicRecovery()
 
-	// Set config on scheme handler
-	app.schemeHandler.SetConfig(app.config)
-
 	// Register custom scheme resolver for "dumb://" URIs (will be applied after WebView creation)
-	webkit.RegisterURIScheme("dumb", app.schemeHandler.Handle)
+	webkit.RegisterURIScheme(schemes.SchemeDumb, app.schemeHandler.Handle)
+	if app.extensionManager != nil {
+		webkit.RegisterURIScheme(schemes.SchemeDumbExtension, app.extensionManager.HandleSchemeRequest)
+		webkit.RegisterSecureURIScheme(schemes.SchemeDumbExtension)
+	}
 
 	// Create and setup WebView
 	if err := app.createWebView(); err != nil {
@@ -251,6 +263,24 @@ func (app *BrowserApp) Run() {
 	// Apply URI scheme handlers after WebView creation
 	if err := webkit.ApplyURISchemeHandlers(app.webView.GetWebView()); err != nil {
 		log.Printf("Warning: failed to register URI scheme handlers: %v", err)
+	}
+
+	// Create background page WebViews now that WebContext is initialized
+	if app.extensionManager != nil {
+		exts := app.extensionManager.ListExtensions()
+		for _, ext := range exts {
+			if !app.extensionManager.IsEnabled(ext.ID) {
+				continue
+			}
+			if ext.Manifest != nil && ext.Manifest.Background != nil {
+				if err := app.extensionManager.StartBackgroundContext(ext); err != nil {
+					log.Printf("[webext] Warning: failed to prepare background page for %s: %v", ext.ID, err)
+				}
+				if err := app.ensureBackgroundPage(ext); err != nil {
+					log.Printf("[webext] Warning: failed to start background page for %s: %v", ext.ID, err)
+				}
+			}
+		}
 	}
 
 	// Handle browse command if present (must use active tab's navigation controller)
@@ -441,6 +471,18 @@ func (app *BrowserApp) setupExtensionManager() error {
 		log.Printf("[webext]   - %s v%s (%s)%s", ext.Manifest.Name, ext.Manifest.Version, status, bundled)
 	}
 
+	// Start background contexts so extensions can register listeners (e.g., webRequest)
+	// NOTE: Background WebViews are created AFTER the main WebView in Run() to ensure WebContext is initialized
+	for _, ext := range exts {
+		if !app.extensionManager.IsEnabled(ext.ID) {
+			continue
+		}
+		if err := app.extensionManager.StartBackgroundContext(ext); err != nil {
+			log.Printf("[webext] Warning: failed to start background context for %s: %v", ext.ID, err)
+		}
+	}
+	log.Printf("[webext] webRequest listeners registered: %v", app.extensionManager.GetWebRequestAPI().HasBeforeRequestListeners())
+
 	// Serialize extension data for WebProcess
 	initData, err := app.extensionManager.SerializeInitData()
 	if err != nil {
@@ -480,12 +522,773 @@ func (app *BrowserApp) handleExtensionMessage(message *webkit.UserMessage) bool 
 	name := message.Name()
 	log.Printf("[webext] Received message from WebProcess: %s", name)
 
-	// TODO: Route messages to appropriate extension handlers
-	// Examples:
-	// - "extension:sendMessage" -> chrome.runtime.sendMessage
-	// - "tabs:sendMessage" -> chrome.tabs.sendMessage
-	// - "storage:get" -> chrome.storage.local.get
+	switch {
+	case name == "webRequest:onBeforeRequest":
+		return app.handleWebRequestOnBeforeRequest(message)
 
-	// For now, just acknowledge receipt
+	case strings.HasPrefix(name, "webext:api"):
+		// Route to webext API dispatcher
+		if app.extensionManager != nil {
+			dispatcher := app.extensionManager.GetDispatcher()
+			if dispatcher != nil {
+				return dispatcher.HandleUserMessage(message)
+			}
+		}
+		log.Printf("[webext] No dispatcher available for webext:api message")
+		return false
+
+	case name == "debug:log":
+		// Debug messages from web process extension
+		params := message.Parameters()
+		if params != nil {
+			logMsg := params.String()
+			// Remove GVariant quotes if present
+			if len(logMsg) >= 2 && logMsg[0] == '"' && logMsg[len(logMsg)-1] == '"' {
+				logMsg = logMsg[1 : len(logMsg)-1]
+			}
+			log.Printf("[WebProcess-DEBUG] %s", logMsg)
+		}
+		return false
+
+	default:
+		log.Printf("[webext] Unhandled message type: %s", name)
+	}
+
 	return false // false = message handled synchronously
+}
+
+func (app *BrowserApp) handleWebRequestOnBeforeRequest(message *webkit.UserMessage) bool {
+	if app.extensionManager == nil {
+		return false
+	}
+
+	params := message.Parameters()
+	requestStr := variantToString(params)
+	if requestStr == "" {
+		app.replyWebRequestDecision(message, webRequestDecision{})
+		return true
+	}
+
+	var details api.RequestDetails
+	if err := json.Unmarshal([]byte(requestStr), &details); err != nil {
+		log.Printf("[webRequest] Failed to decode request details: %v", err)
+		app.replyWebRequestDecision(message, webRequestDecision{})
+		return true
+	}
+
+	webReq := app.extensionManager.GetWebRequestAPI()
+	if !webReq.HasBeforeRequestListeners() {
+		app.replyWebRequestDecision(message, webRequestDecision{})
+		return true
+	}
+
+	response := webReq.HandleBeforeRequest(details)
+	result := webRequestDecision{}
+	if response != nil {
+		result.Cancel = response.Cancel
+		result.RedirectURL = response.RedirectURL
+		result.RequestHeaders = response.RequestHeaders
+	}
+
+	app.replyWebRequestDecision(message, result)
+	return true
+}
+
+// variantToString safely extracts a string from a GLib variant.
+func variantToString(v *glib.Variant) string {
+	if v == nil {
+		return ""
+	}
+
+	if v.TypeString() == "s" {
+		return strings.Trim(v.String(), "'")
+	}
+
+	printed := v.Print(false)
+	if len(printed) >= 2 && printed[0] == '\'' && printed[len(printed)-1] == '\'' {
+		return printed[1 : len(printed)-1]
+	}
+
+	return ""
+}
+
+type webRequestDecision struct {
+	Cancel         bool              `json:"cancel"`
+	RedirectURL    string            `json:"redirectUrl,omitempty"`
+	RequestHeaders map[string]string `json:"requestHeaders,omitempty"`
+}
+
+func (app *BrowserApp) replyWebRequestDecision(message *webkit.UserMessage, decision webRequestDecision) {
+	payload, err := json.Marshal(decision)
+	if err != nil {
+		log.Printf("[webRequest] Failed to marshal response: %v", err)
+		return
+	}
+
+	reply := webkitv6.NewUserMessage("webRequest:onBeforeRequest:reply", glib.NewVariantString(string(payload)))
+	message.SendReply(reply)
+}
+
+type webExtRequest struct {
+	Action      string          `json:"action"`
+	ExtensionID string          `json:"extensionId"`
+	RequestID   string          `json:"requestId"`
+	Payload     json.RawMessage `json:"payload"`
+}
+
+type webExtResponse struct {
+	RequestID string      `json:"requestId"`
+	Success   bool        `json:"success"`
+	Result    interface{} `json:"result,omitempty"`
+	Error     string      `json:"error,omitempty"`
+}
+
+type webExtPortBridge struct {
+	extensionID string
+	viewA       *webkit.WebView
+	viewB       *webkit.WebView
+}
+
+// handleWebExtMessage bridges extension page API calls to native implementations.
+func (app *BrowserApp) handleWebExtMessage(view *webkit.WebView, payload string) {
+	if app.extensionManager == nil || view == nil {
+		return
+	}
+
+	var req webExtRequest
+	if err := json.Unmarshal([]byte(payload), &req); err != nil {
+		log.Printf("[webext] Failed to parse message from extension page: %v", err)
+		return
+	}
+
+	log.Printf("[webext] bridge request action=%s extension=%s", req.Action, req.ExtensionID)
+
+	resp := webExtResponse{
+		RequestID: req.RequestID,
+	}
+
+	ext, ok := app.extensionManager.GetExtension(req.ExtensionID)
+	if !ok || ext == nil || !app.extensionManager.IsEnabled(req.ExtensionID) {
+		resp.Error = "extension unavailable"
+		app.sendWebExtResponse(view, resp)
+		return
+	}
+
+	switch req.Action {
+	case "init":
+		resp.Success = true
+		defaultLocale := ""
+		if ext.Manifest != nil {
+			defaultLocale = ext.Manifest.DefaultLocale
+		}
+		resp.Result = map[string]string{
+			"defaultLocale": defaultLocale,
+		}
+	case "runtime.connect":
+		resp = app.dispatchRuntimeConnect(ext, view, req)
+	case "runtime.sendMessage":
+		resp = app.dispatchRuntimeMessage(ext, req)
+	case "runtime.port.postMessage":
+		resp = app.dispatchPortPostMessage(ext, view, req)
+	case "runtime.port.disconnect":
+		resp = app.dispatchPortDisconnect(ext, view, req)
+	case "storage.get":
+		resp = app.dispatchStorageGet(ext, req)
+	case "storage.set":
+		resp = app.dispatchStorageSet(ext, req)
+	case "storage.remove":
+		resp = app.dispatchStorageRemove(ext, req)
+	case "storage.clear":
+		resp = app.dispatchStorageClear(ext, req)
+	default:
+		resp.Error = "unknown action"
+	}
+
+	app.sendWebExtResponse(view, resp)
+}
+
+func (app *BrowserApp) dispatchRuntimeMessage(ext *webext.Extension, req webExtRequest) webExtResponse {
+	resp := webExtResponse{RequestID: req.RequestID}
+
+	bgView := app.getBackgroundView(ext.ID)
+	if bgView == nil {
+		resp.Error = "background page not running"
+		return resp
+	}
+
+	var payload struct {
+		Message interface{} `json:"message"`
+		URL     string      `json:"url"`
+	}
+
+	if len(req.Payload) > 0 {
+		if err := json.Unmarshal(req.Payload, &payload); err != nil {
+			resp.Error = fmt.Sprintf("invalid runtime payload: %v", err)
+			return resp
+		}
+	}
+
+	sender := api.MessageSender{
+		ID:  ext.ID,
+		URL: payload.URL,
+	}
+
+	app.sendWebExtPortEvent(bgView, map[string]interface{}{
+		"type":    "runtime-message",
+		"message": payload.Message,
+		"sender":  sender,
+	})
+
+	resp.Success = true
+
+	return resp
+}
+
+func (app *BrowserApp) dispatchRuntimeConnect(ext *webext.Extension, view *webkit.WebView, req webExtRequest) webExtResponse {
+	resp := webExtResponse{RequestID: req.RequestID}
+
+	var payload struct {
+		PortID string `json:"portId"`
+		Name   string `json:"name"`
+		URL    string `json:"url"`
+	}
+
+	if len(req.Payload) > 0 {
+		if err := json.Unmarshal(req.Payload, &payload); err != nil {
+			resp.Error = fmt.Sprintf("invalid runtime.connect payload: %v", err)
+			return resp
+		}
+	}
+
+	if payload.PortID == "" {
+		payload.PortID = fmt.Sprintf("port-%d", time.Now().UnixNano())
+	}
+
+	bgView := app.getBackgroundView(ext.ID)
+	if bgView == nil {
+		resp.Error = "background page not running"
+		return resp
+	}
+
+	sender := map[string]interface{}{
+		"id": ext.ID,
+	}
+
+	if payload.URL != "" {
+		sender["url"] = payload.URL
+		if u, err := url.Parse(payload.URL); err == nil && u.Scheme != "" && u.Host != "" {
+			sender["origin"] = fmt.Sprintf("%s://%s", u.Scheme, u.Host)
+		}
+	}
+	if _, ok := sender["origin"]; !ok {
+		sender["origin"] = fmt.Sprintf("dumb-extension://%s", ext.ID)
+	}
+
+	app.sendWebExtPortEvent(bgView, map[string]interface{}{
+		"type":   "port-connect",
+		"portId": payload.PortID,
+		"name":   payload.Name,
+		"sender": sender,
+	})
+
+	app.registerPortBridge(payload.PortID, ext.ID, view, bgView)
+	log.Printf("[webext] runtime.connect bridged to background page ext=%s port=%s name=%s", ext.ID, payload.PortID, payload.Name)
+
+	resp.Success = true
+	resp.Result = map[string]string{
+		"portId": payload.PortID,
+	}
+	return resp
+}
+
+func (app *BrowserApp) dispatchPortPostMessage(ext *webext.Extension, senderView *webkit.WebView, req webExtRequest) webExtResponse {
+	resp := webExtResponse{RequestID: req.RequestID}
+
+	var payload struct {
+		PortID  string      `json:"portId"`
+		Message interface{} `json:"message"`
+	}
+	if len(req.Payload) > 0 {
+		if err := json.Unmarshal(req.Payload, &payload); err != nil {
+			resp.Error = fmt.Sprintf("invalid port.postMessage payload: %v", err)
+			return resp
+		}
+	}
+
+	if payload.PortID == "" {
+		resp.Error = "portId is required"
+		return resp
+	}
+
+	bridge, ok := app.getPortBridge(payload.PortID)
+	if !ok || bridge == nil || bridge.extensionID != ext.ID {
+		resp.Error = "port not found"
+		return resp
+	}
+
+	var target *webkit.WebView
+	if senderView != nil && bridge.viewA != nil && bridge.viewA == senderView {
+		target = bridge.viewB
+	} else {
+		target = bridge.viewA
+	}
+
+	if target == nil {
+		resp.Error = "port target unavailable"
+		return resp
+	}
+
+	app.sendWebExtPortEvent(target, map[string]interface{}{
+		"type":    "port-message",
+		"portId":  payload.PortID,
+		"message": payload.Message,
+	})
+
+	log.Printf("[webext] port.postMessage ext=%s port=%s", ext.ID, payload.PortID)
+	resp.Success = true
+	return resp
+}
+
+func (app *BrowserApp) dispatchPortDisconnect(ext *webext.Extension, senderView *webkit.WebView, req webExtRequest) webExtResponse {
+	resp := webExtResponse{RequestID: req.RequestID}
+
+	var payload struct {
+		PortID string `json:"portId"`
+	}
+	if len(req.Payload) > 0 {
+		if err := json.Unmarshal(req.Payload, &payload); err != nil {
+			resp.Error = fmt.Sprintf("invalid port.disconnect payload: %v", err)
+			return resp
+		}
+	}
+
+	if payload.PortID == "" {
+		resp.Error = "portId is required"
+		return resp
+	}
+
+	bridge, ok := app.getPortBridge(payload.PortID)
+	if !ok || bridge == nil || bridge.extensionID != ext.ID {
+		resp.Error = "port not found"
+		return resp
+	}
+
+	var target *webkit.WebView
+	if senderView != nil && bridge.viewA != nil && bridge.viewA == senderView {
+		target = bridge.viewB
+	} else {
+		target = bridge.viewA
+	}
+
+	if target != nil {
+		app.sendWebExtPortEvent(target, map[string]interface{}{
+			"type":   "port-disconnect",
+			"portId": payload.PortID,
+		})
+	}
+
+	app.removePortBridge(payload.PortID)
+	log.Printf("[webext] port.disconnect ext=%s port=%s", ext.ID, payload.PortID)
+	resp.Success = true
+	return resp
+}
+
+func (app *BrowserApp) dispatchStorageGet(ext *webext.Extension, req webExtRequest) webExtResponse {
+	resp := webExtResponse{RequestID: req.RequestID}
+
+	if ext.Storage == nil {
+		resp.Error = "storage unavailable"
+		return resp
+	}
+
+	var payload struct {
+		Keys interface{} `json:"keys"`
+	}
+
+	if len(req.Payload) > 0 {
+		if err := json.Unmarshal(req.Payload, &payload); err != nil {
+			resp.Error = fmt.Sprintf("invalid storage payload: %v", err)
+			return resp
+		}
+	}
+
+	keys := normalizeStorageKeys(payload.Keys)
+	items, err := ext.Storage.Local().Get(keys)
+	if err != nil {
+		resp.Error = fmt.Sprintf("storage.get failed: %v", err)
+		return resp
+	}
+
+	resp.Success = true
+	resp.Result = items
+	return resp
+}
+
+func (app *BrowserApp) dispatchStorageSet(ext *webext.Extension, req webExtRequest) webExtResponse {
+	resp := webExtResponse{RequestID: req.RequestID}
+
+	if ext.Storage == nil {
+		resp.Error = "storage unavailable"
+		return resp
+	}
+
+	var payload struct {
+		Items map[string]interface{} `json:"items"`
+	}
+
+	if len(req.Payload) > 0 {
+		if err := json.Unmarshal(req.Payload, &payload); err != nil {
+			resp.Error = fmt.Sprintf("invalid storage payload: %v", err)
+			return resp
+		}
+	}
+
+	if payload.Items == nil {
+		resp.Error = "storage.set requires items"
+		return resp
+	}
+
+	if err := ext.Storage.Local().Set(payload.Items); err != nil {
+		resp.Error = fmt.Sprintf("storage.set failed: %v", err)
+		return resp
+	}
+
+	resp.Success = true
+	return resp
+}
+
+func (app *BrowserApp) dispatchStorageRemove(ext *webext.Extension, req webExtRequest) webExtResponse {
+	resp := webExtResponse{RequestID: req.RequestID}
+
+	if ext.Storage == nil {
+		resp.Error = "storage unavailable"
+		return resp
+	}
+
+	var payload struct {
+		Keys interface{} `json:"keys"`
+	}
+
+	if len(req.Payload) > 0 {
+		if err := json.Unmarshal(req.Payload, &payload); err != nil {
+			resp.Error = fmt.Sprintf("invalid storage payload: %v", err)
+			return resp
+		}
+	}
+
+	keys, ok := extractStringKeys(payload.Keys)
+	if !ok {
+		resp.Error = "storage.remove keys must be string or array"
+		return resp
+	}
+
+	if err := ext.Storage.Local().Remove(keys); err != nil {
+		resp.Error = fmt.Sprintf("storage.remove failed: %v", err)
+		return resp
+	}
+
+	resp.Success = true
+	return resp
+}
+
+func (app *BrowserApp) dispatchStorageClear(ext *webext.Extension, req webExtRequest) webExtResponse {
+	resp := webExtResponse{RequestID: req.RequestID}
+
+	if ext.Storage == nil {
+		resp.Error = "storage unavailable"
+		return resp
+	}
+
+	if err := ext.Storage.Local().Clear(); err != nil {
+		resp.Error = fmt.Sprintf("storage.clear failed: %v", err)
+		return resp
+	}
+
+	resp.Success = true
+	return resp
+}
+
+func (app *BrowserApp) sendWebExtResponse(view *webkit.WebView, resp webExtResponse) {
+	if view == nil || resp.RequestID == "" {
+		return
+	}
+
+	payload, err := json.Marshal(resp)
+	if err != nil {
+		log.Printf("[webext] Failed to marshal response: %v", err)
+		return
+	}
+
+	script := fmt.Sprintf(`try { window.__dumberWebExtReceive && window.__dumberWebExtReceive(%s); } catch (e) { console.error('[webext] response delivery failed', e); }`, string(payload))
+
+	view.RunOnMainThread(func() {
+		webkit.EvaluateJavascript(view.GetWebView(), script)
+	})
+}
+
+func (app *BrowserApp) registerPortBridge(portID, extID string, viewA *webkit.WebView, viewB *webkit.WebView) {
+	if portID == "" || viewA == nil {
+		return
+	}
+	if app.webExtPorts == nil {
+		app.webExtPorts = make(map[string]*webExtPortBridge)
+	}
+	app.webExtPorts[portID] = &webExtPortBridge{
+		extensionID: extID,
+		viewA:       viewA,
+		viewB:       viewB,
+	}
+}
+
+func (app *BrowserApp) removePortBridge(portID string) {
+	if portID == "" || app.webExtPorts == nil {
+		return
+	}
+	delete(app.webExtPorts, portID)
+}
+
+func (app *BrowserApp) getPortBridge(portID string) (*webExtPortBridge, bool) {
+	if app.webExtPorts == nil || portID == "" {
+		return nil, false
+	}
+	bridge, ok := app.webExtPorts[portID]
+	return bridge, ok
+}
+
+func (app *BrowserApp) sendWebExtPortEvent(view *webkit.WebView, evt map[string]interface{}) {
+	if view == nil || evt == nil {
+		log.Printf("[webext] sendWebExtPortEvent: view or evt is nil")
+		return
+	}
+
+	payload, err := json.Marshal(evt)
+	if err != nil {
+		log.Printf("[webext] Failed to marshal port event: %v", err)
+		return
+	}
+
+	log.Printf("[webext] Sending port event to WebView %d: %s", view.ID(), string(payload))
+	script := fmt.Sprintf(`try {
+		console.log('[webext] Background page receiving port event:', %s);
+		if (!window.__dumberWebExtReceive) {
+			console.error('[webext] window.__dumberWebExtReceive is not defined!');
+		} else {
+			window.__dumberWebExtReceive(%s);
+		}
+	} catch (e) { console.error('[webext] port event delivery failed', e, e.stack); }`, string(payload), string(payload))
+	view.RunOnMainThread(func() {
+		log.Printf("[webext] Executing port event script on WebView %d", view.ID())
+		webkit.EvaluateJavascript(view.GetWebView(), script)
+	})
+}
+
+func (app *BrowserApp) getBackgroundView(extID string) *webkit.WebView {
+	if app.backgroundViews == nil {
+		return nil
+	}
+	return app.backgroundViews[extID]
+}
+
+// ensureBackgroundPage creates a hidden WebView for background pages so runtime.connect can target real background code.
+func (app *BrowserApp) ensureBackgroundPage(ext *webext.Extension) error {
+	if ext == nil || ext.Manifest == nil || ext.Manifest.Background == nil {
+		return nil
+	}
+
+	if app.backgroundViews == nil {
+		app.backgroundViews = make(map[string]*webkit.WebView)
+	}
+	if existing, exists := app.backgroundViews[ext.ID]; exists && existing != nil {
+		ext.BackgroundView = existing
+		return nil
+	}
+
+	// Resolve background page path (manifest page or generated HTML for scripts).
+	if ext.BackgroundPage == "" {
+		if page := strings.TrimPrefix(ext.Manifest.Background.Page, "/"); page != "" {
+			ext.BackgroundPage = page
+		}
+	}
+	if ext.BackgroundPage == "" && app.extensionManager != nil {
+		// Try to generate background HTML for script-based backgrounds.
+		if err := app.extensionManager.StartBackgroundContext(ext); err != nil {
+			return err
+		}
+	}
+	if ext.BackgroundPage == "" {
+		return nil
+	}
+
+	// Get CSP from manifest for extension mode WebView
+	// If extension doesn't specify a CSP, use ManifestV2 default to allow script execution
+	// Without this, WebKit applies a restrictive default that blocks scripts entirely
+	csp := "script-src 'self'; object-src 'self';"
+	if ext.Manifest != nil && ext.Manifest.ContentSecurityPolicy != "" {
+		csp = ext.Manifest.ContentSecurityPolicy
+	}
+	log.Printf("[webext] Background WebView CSP for %s: %s", ext.ID, csp)
+
+	// Create background WebView in extension mode (following Epiphany's pattern)
+	bareView, err := webkit.NewExtensionWebView(&webkit.ExtensionViewConfig{
+		Type:        webkit.ExtensionViewBackground,
+		CSP:         csp,
+		ExtensionID: ext.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create extension background WebView: %w", err)
+	}
+	if bareView == nil {
+		return fmt.Errorf("extension background WebView is nil for %s", ext.ID)
+	}
+
+	// Wrap and initialize the bare WebView with standard config
+	view := webkit.WrapBareWebView(bareView)
+	if view == nil {
+		return fmt.Errorf("failed to wrap background WebView for %s", ext.ID)
+	}
+
+	cfg, err := app.buildWebkitConfig()
+	if err != nil {
+		return err
+	}
+	cfg.CreateWindow = false
+
+	if err := view.InitializeFromBare(cfg); err != nil {
+		return fmt.Errorf("failed to initialize background view for %s: %w", ext.ID, err)
+	}
+
+	// Make sure custom schemes are registered on this context (background views are created before the main view).
+	if applyErr := webkit.ApplyURISchemeHandlers(view.GetWebView()); applyErr != nil {
+		log.Printf("[webext] Warning: failed to register URI schemes for background view: %v", applyErr)
+	}
+
+	view.RegisterWebExtMessageHandler(func(payload string) {
+		log.Printf("[webext] Background page (%s) sending message to Go: %s", ext.ID, payload)
+		app.handleWebExtMessage(view, payload)
+	})
+
+	// Register load handlers to track background page lifecycle
+	view.RegisterLoadStartedHandler(func() {
+		log.Printf("[webext] Background page load started: %s", ext.ID)
+	})
+	view.RegisterLoadFinishedHandler(func() {
+		log.Printf("[webext] Background page load finished: %s", ext.ID)
+
+		// Log the WebView's extension mode to verify it's correct
+		webExtMode := view.GetWebView().WebExtensionMode()
+		log.Printf("[webext] Background WebView mode: %v (should be ManifestV2=1)", webExtMode)
+
+		// Test that the background page has the webext shim
+		testScript := `
+			console.log('[BACKGROUND TEST] Page loaded, checking webext shim...');
+			console.log('[BACKGROUND TEST] document.URL:', document.URL);
+			console.log('[BACKGROUND TEST] window.__dumberWebExtReceive exists:', typeof window.__dumberWebExtReceive);
+			console.log('[BACKGROUND TEST] chrome.runtime exists:', typeof chrome !== 'undefined' && typeof chrome.runtime);
+			console.log('[BACKGROUND TEST] browser.runtime exists:', typeof browser !== 'undefined' && typeof browser.runtime);
+			console.log('[BACKGROUND TEST] window.location:', window.location.href);
+
+			// Force a visible test by changing document title
+			document.title = 'BACKGROUND PAGE LOADED: ' + (typeof chrome !== 'undefined' ? 'chrome ok' : 'chrome missing');
+		`
+		view.InjectScript(testScript)
+
+		// Also try to check if the background page script executed
+		log.Printf("[webext] Injected test script into background page for %s", ext.ID)
+	})
+
+	// Register navigation policy to block navigations outside extension scope
+	// (following Epiphany's decide_policy_cb pattern)
+	view.GetWebView().ConnectDecidePolicy(func(decision webkitv6.PolicyDecisioner, decisionType webkitv6.PolicyDecisionType) bool {
+		if decisionType != webkitv6.PolicyDecisionTypeNavigationAction {
+			return false
+		}
+
+		// Use the base policy decision to access common methods
+		baseDecision := webkitv6.BasePolicyDecision(decision)
+		if baseDecision == nil {
+			return false
+		}
+
+		// Get navigation action through reflection/casting
+		// In gotk4, we access the underlying object to check the URI
+		// For now, we'll use a simpler approach: check if this is a navigation request
+		// and block based on the decision context
+		navDecision, ok := decision.(*webkitv6.NavigationPolicyDecision)
+		if !ok {
+			return false
+		}
+
+		navAction := navDecision.NavigationAction()
+		if navAction == nil {
+			return false
+		}
+
+		request := navAction.Request()
+		if request == nil {
+			return false
+		}
+
+		uri := request.URI()
+		expectedPrefix := fmt.Sprintf("dumb-extension://%s/", ext.ID)
+
+		if !strings.HasPrefix(uri, expectedPrefix) {
+			log.Printf("[webext] Blocking background page navigation from %s to %s (out of extension scope)", ext.ID, uri)
+			baseDecision.Ignore()
+			return true
+		}
+
+		return false
+	})
+
+	bgURL := fmt.Sprintf("dumb-extension://%s/%s", ext.ID, strings.TrimPrefix(ext.BackgroundPage, "/"))
+	if err := view.LoadURL(bgURL); err != nil {
+		return fmt.Errorf("failed to load background page %s: %w", bgURL, err)
+	}
+
+	ext.BackgroundView = view
+	app.backgroundViews[ext.ID] = view
+	log.Printf("[webext] Background page started for %s at %s", ext.ID, bgURL)
+	return nil
+}
+
+func normalizeStorageKeys(keys interface{}) interface{} {
+	switch v := keys.(type) {
+	case nil:
+		return nil
+	case string:
+		return v
+	case map[string]interface{}:
+		return v
+	case []interface{}:
+		res := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				res = append(res, s)
+			}
+		}
+		return res
+	case []string:
+		return v
+	default:
+		return nil
+	}
+}
+
+func extractStringKeys(keys interface{}) (interface{}, bool) {
+	switch v := keys.(type) {
+	case string:
+		return v, true
+	case []string:
+		return v, true
+	case []interface{}:
+		res := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				res = append(res, s)
+			}
+		}
+		return res, true
+	default:
+		return nil, false
+	}
 }

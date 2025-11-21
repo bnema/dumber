@@ -37,6 +37,7 @@ type WebView struct {
 
 	// Event handlers
 	onScriptMessage       func(string)
+	onWebExtMessage       func(string)
 	onTitleChanged        func(string)
 	onURIChanged          func(string)
 	onFaviconChanged      func([]byte)
@@ -321,6 +322,15 @@ func (w *WebView) setupEventHandlers() {
 				valueStr := JSCValueToString(jscValue)
 				if valueStr != "" {
 					w.onScriptMessage(valueStr)
+				}
+			}
+		})
+
+		ucm.Connect("script-message-received::webext", func(sender interface{}, jscValue interface{}) {
+			if w.onWebExtMessage != nil && jscValue != nil {
+				valueStr := JSCValueToString(jscValue)
+				if valueStr != "" {
+					w.onWebExtMessage(valueStr)
 				}
 			}
 		})
@@ -693,6 +703,13 @@ func (w *WebView) RegisterScriptMessageHandler(handler func(string)) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.onScriptMessage = handler
+}
+
+// RegisterWebExtMessageHandler registers a handler for extension bridge messages
+func (w *WebView) RegisterWebExtMessageHandler(handler func(string)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onWebExtMessage = handler
 }
 
 // RegisterTitleChangedHandler registers a handler for title changes
@@ -1135,9 +1152,18 @@ func (w *WebView) InitializeFromBare(cfg *Config) error {
 		return fmt.Errorf("WebView has no network session")
 	}
 
-	// Setup UserContentManager and inject GUI scripts
-	if err := SetupUserContentManager(w.view, cfg.AppearanceConfigJSON, w.id); err != nil {
-		return fmt.Errorf("failed to setup user content manager: %w", err)
+	// Only inject GUI scripts for regular browser WebViews (not extension WebViews)
+	// Extension WebViews have web-extension-mode set (ManifestV2=1, ManifestV3=2)
+	// and get their browser.* APIs injected by the WebProcess extension at DocumentLoaded
+	webExtMode := w.view.WebExtensionMode()
+	if webExtMode == 0 { // WEBKIT_WEB_EXTENSION_MODE_NONE - regular browser WebView
+		if err := SetupUserContentManager(w.view, cfg.AppearanceConfigJSON, w.id); err != nil {
+			return fmt.Errorf("failed to setup user content manager: %w", err)
+		}
+	} else {
+		// Extension WebView (popup, background, options page)
+		// Skip ALL UserContentManager injection - the WebProcess extension handles browser API injection
+		log.Printf("[webkit] Extension WebView detected (web-extension-mode=%v, ID=%d), skipping UserContentManager injection", webExtMode, w.id)
 	}
 
 	// Create container (GtkBox) to hold the WebView

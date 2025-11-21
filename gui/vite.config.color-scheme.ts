@@ -14,7 +14,7 @@ export default defineConfig({
       },
     },
     emptyOutDir: false, // Don't clear the directory since GUI bundle is also built here
-    target: ["es2020", "chrome91", "firefox90"],
+    target: "esnext",
     minify: true,
     sourcemap: false,
   },

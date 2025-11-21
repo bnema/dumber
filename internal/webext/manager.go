@@ -8,44 +8,82 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
+	"github.com/bnema/dumber/internal/app/schemes"
 	"github.com/bnema/dumber/internal/db"
 	"github.com/bnema/dumber/internal/webext/api"
+	"github.com/bnema/dumber/internal/webext/shared"
+	pkgwebkit "github.com/bnema/dumber/pkg/webkit"
+	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
 )
 
 // Extension represents a loaded extension
 type Extension struct {
-	ID            string
-	Path          string
-	Manifest      *Manifest
-	Enabled       bool
-	Bundled       bool // True if bundled with browser
-	DataDir       string
-	BackgroundCtx *BackgroundContext // Background page context with goja runtime
+	ID             string
+	Path           string
+	Manifest       *Manifest
+	Enabled        bool
+	Bundled        bool // True if bundled with browser
+	DataDir        string
+	BackgroundView *pkgwebkit.WebView // Background page WebView (when running)
+	BackgroundPage string             // Background page path (manifest page or generated HTML)
 
 	// WebExtension APIs
 	Runtime *api.RuntimeAPI
 	Storage *api.StorageAPI
-	Tabs    *api.TabsAPI
+
+	// Shared APIs
+	WebRequest api.WebRequestHandler
 }
+
+// GetID returns the extension ID.
+func (e *Extension) GetID() string {
+	return e.ID
+}
+
+// GetInstallDir returns the extension installation directory.
+func (e *Extension) GetInstallDir() string {
+	return e.Path
+}
+
+// PaneInfo represents information about a browser pane (what extensions call a "tab")
+type PaneInfo struct {
+	ID       uint64 // Pane/WebView ID
+	Index    int    // Position in workspace
+	Active   bool   // Is this the active pane
+	URL      string
+	Title    string
+	WindowID uint64 // Workspace ID (what extensions call a "window")
+}
+
+// GetAllPanesFunc returns all panes in the active workspace
+type GetAllPanesFunc func() []PaneInfo
+
+// GetActivePaneFunc returns the currently active pane
+type GetActivePaneFunc func() *PaneInfo
 
 // Manager manages all browser extensions
 type Manager struct {
 	mu            sync.RWMutex
-	bundled       map[string]*Extension // Built-in extensions
-	user          map[string]*Extension // User-installed extensions
-	enabled       map[string]bool       // Enable state per extension
-	extensionsDir string                // Base directory for installed extension code
-	dataDir       string                // Base directory for extension data
-	database      *sql.DB               // Database for extension storage
-	queries       db.ExtensionsQuerier  // Generated queries for extension metadata
-	webRequest    *api.WebRequestAPI    // Shared webRequest API for all extensions
+	bundled       map[string]*Extension  // Built-in extensions
+	user          map[string]*Extension  // User-installed extensions
+	enabled       map[string]bool        // Enable state per extension
+	extensionsDir string                 // Base directory for installed extension code
+	dataDir       string                 // Base directory for extension data
+	database      *sql.DB                // Database for extension storage
+	queries       db.ExtensionsQuerier   // Generated queries for extension metadata
+	webRequest    *api.WebRequestAPI     // Shared webRequest API for all extensions
+	schemeHandler *schemes.WebExtHandler // Handler for dumb-extension:// URIs
+	dispatcher    *Dispatcher            // API dispatcher for webext:api messages
+	getAllPanes   GetAllPanesFunc        // Callback to get all panes from workspace
+	getActivePane GetActivePaneFunc      // Callback to get active pane from workspace
 }
 
 // NewManager creates a new extension manager
 func NewManager(extensionsDir, dataDir string, dbConn *sql.DB, queries db.ExtensionsQuerier) *Manager {
-	return &Manager{
+	m := &Manager{
 		bundled:       make(map[string]*Extension),
 		user:          make(map[string]*Extension),
 		enabled:       make(map[string]bool),
@@ -55,6 +93,16 @@ func NewManager(extensionsDir, dataDir string, dbConn *sql.DB, queries db.Extens
 		queries:       queries,
 		webRequest:    api.NewWebRequestAPI(),
 	}
+
+	m.schemeHandler = schemes.NewWebExtHandler(
+		m.getExtensionByID,
+		m.isExtensionEnabled,
+	)
+
+	// Initialize dispatcher for webext:api message routing
+	m.dispatcher = NewDispatcher(m)
+
+	return m
 }
 
 // LoadExtensionsFromDB loads installed extensions from the database into memory.
@@ -297,6 +345,50 @@ func (m *Manager) Disable(id string) error {
 	return nil
 }
 
+// Remove disables and removes an extension from memory and storage.
+func (m *Manager) Remove(id string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	var ext *Extension
+	if e, ok := m.bundled[id]; ok {
+		ext = e
+		delete(m.bundled, id)
+	} else if e, ok := m.user[id]; ok {
+		ext = e
+		delete(m.user, id)
+	} else {
+		return fmt.Errorf("extension not found: %s", id)
+	}
+
+	delete(m.enabled, id)
+
+	if m.queries != nil {
+		if err := m.queries.MarkExtensionDeleted(context.Background(), id); err != nil {
+			log.Printf("[webext] Warning: failed to mark extension %s deleted: %v", id, err)
+		}
+	}
+
+	if ext != nil {
+		if m.webRequest != nil {
+			m.webRequest.RemoveListener(id)
+		}
+		if ext.DataDir != "" {
+			if err := os.RemoveAll(ext.DataDir); err != nil && !os.IsNotExist(err) {
+				log.Printf("[webext] Warning: failed to remove data dir for %s: %v", id, err)
+			}
+		}
+		if !ext.Bundled && ext.Path != "" {
+			if err := os.RemoveAll(ext.Path); err != nil && !os.IsNotExist(err) {
+				log.Printf("[webext] Warning: failed to remove extension dir for %s: %v", id, err)
+			}
+		}
+	}
+
+	log.Printf("[webext] Removed extension: %s", id)
+	return nil
+}
+
 // GetContentScriptsForURL returns all content scripts that match the given URL
 func (m *Manager) GetContentScriptsForURL(url string) []ContentScriptMatch {
 	m.mu.RLock()
@@ -324,7 +416,7 @@ func (m *Manager) GetContentScriptsForURL(url string) []ContentScriptMatch {
 // ContentScriptMatch represents a matched content script
 type ContentScriptMatch struct {
 	Extension     *Extension
-	ContentScript *ContentScript
+	ContentScript *shared.ContentScript
 }
 
 // matchContentScripts finds matching content scripts for a URL
@@ -347,12 +439,12 @@ func (m *Manager) matchContentScripts(ext *Extension, url string) []ContentScrip
 // matchesPattern checks if a URL matches the given patterns
 func matchesPattern(url string, matches []string, excludes []string) bool {
 	// Check if URL is excluded
-	if ExcludesURL(url, excludes) {
+	if shared.ExcludesURL(url, excludes) {
 		return false
 	}
 
 	// Check if URL matches any pattern
-	return MatchURL(url, matches)
+	return shared.MatchURL(url, matches)
 }
 
 // InitializeAPIs initializes WebExtension APIs for a loaded extension
@@ -367,8 +459,8 @@ func (m *Manager) InitializeAPIs(ext *Extension) error {
 	}
 	ext.Storage = storageAPI
 
-	// Initialize tabs API (bridge will be set by browser later)
-	ext.Tabs = api.NewTabsAPI()
+	// Shared webRequest API
+	ext.WebRequest = m.webRequest
 
 	log.Printf("[webext] Initialized APIs for extension %s", ext.ID)
 	return nil
@@ -379,29 +471,154 @@ func (m *Manager) GetWebRequestAPI() *api.WebRequestAPI {
 	return m.webRequest
 }
 
+// GetDispatcher returns the API dispatcher for webext:api messages
+func (m *Manager) GetDispatcher() *Dispatcher {
+	return m.dispatcher
+}
+
+// SetPaneCallbacks sets the callbacks for getting pane information from the workspace
+func (m *Manager) SetPaneCallbacks(getAllPanes GetAllPanesFunc, getActivePane GetActivePaneFunc) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.getAllPanes = getAllPanes
+	m.getActivePane = getActivePane
+}
+
+// GetAllPanes returns all panes from the workspace (if callback is set)
+func (m *Manager) GetAllPanes() []api.PaneInfo {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.getAllPanes != nil {
+		// Convert internal PaneInfo to api.PaneInfo
+		internalPanes := m.getAllPanes()
+		apiPanes := make([]api.PaneInfo, len(internalPanes))
+		for i, p := range internalPanes {
+			apiPanes[i] = api.PaneInfo{
+				ID:       p.ID,
+				Index:    p.Index,
+				Active:   p.Active,
+				URL:      p.URL,
+				Title:    p.Title,
+				WindowID: p.WindowID,
+			}
+		}
+		return apiPanes
+	}
+	return nil
+}
+
+// GetActivePane returns the active pane from the workspace (if callback is set)
+func (m *Manager) GetActivePane() *api.PaneInfo {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.getActivePane != nil {
+		// Convert internal PaneInfo to api.PaneInfo
+		p := m.getActivePane()
+		if p == nil {
+			return nil
+		}
+		return &api.PaneInfo{
+			ID:       p.ID,
+			Index:    p.Index,
+			Active:   p.Active,
+			URL:      p.URL,
+			Title:    p.Title,
+			WindowID: p.WindowID,
+		}
+	}
+	return nil
+}
+
 // StartBackgroundContext initializes and starts the background context for an extension
 func (m *Manager) StartBackgroundContext(ext *Extension) error {
-	// Only start background context if extension has background scripts
-	if ext.Manifest.Background == nil || len(ext.Manifest.Background.Scripts) == 0 {
+	if ext == nil || ext.Manifest == nil || ext.Manifest.Background == nil {
 		log.Printf("[webext] Extension %s has no background scripts", ext.ID)
 		return nil
 	}
 
-	// Create background context
-	ext.BackgroundCtx = NewBackgroundContext(ext)
-
-	// Start the context (loads and executes background scripts)
-	if err := ext.BackgroundCtx.Start(); err != nil {
-		return fmt.Errorf("failed to start background context: %w", err)
+	// If manifest defines a page explicitly, honor it.
+	if page := strings.TrimPrefix(ext.Manifest.Background.Page, "/"); page != "" {
+		ext.BackgroundPage = page
+		log.Printf("[webext] Using manifest background page for %s: %s", ext.ID, ext.BackgroundPage)
+		return nil
 	}
 
+	// Generate a background HTML that loads declared scripts.
+	if len(ext.Manifest.Background.Scripts) == 0 {
+		log.Printf("[webext] Extension %s has empty background configuration", ext.ID)
+		return nil
+	}
+
+	page, err := m.generateBackgroundHTML(ext)
+	if err != nil {
+		return fmt.Errorf("failed to prepare background page: %w", err)
+	}
+
+	ext.BackgroundPage = page
+	log.Printf("[webext] Generated background page for %s at %s", ext.ID, ext.BackgroundPage)
 	return nil
 }
 
 // StopBackgroundContext stops the background context for an extension
 func (m *Manager) StopBackgroundContext(ext *Extension) {
-	if ext.BackgroundCtx != nil {
-		ext.BackgroundCtx.Stop()
-		ext.BackgroundCtx = nil
+	if ext == nil {
+		return
 	}
+	ext.BackgroundView = nil
+	ext.BackgroundPage = ""
+}
+
+// generateBackgroundHTML creates a simple HTML file that loads all declared background scripts.
+// Returns the relative filename (within the extension directory).
+func (m *Manager) generateBackgroundHTML(ext *Extension) (string, error) {
+	if ext == nil || ext.Manifest == nil || ext.Manifest.Background == nil {
+		return "", fmt.Errorf("extension has no background configuration")
+	}
+
+	if len(ext.Manifest.Background.Scripts) == 0 {
+		return "", fmt.Errorf("no background scripts to generate HTML for")
+	}
+
+	var builder strings.Builder
+	builder.WriteString("<!doctype html><html><head><meta charset=\"utf-8\"></head><body>\n")
+	for _, script := range ext.Manifest.Background.Scripts {
+		src := strings.TrimPrefix(script, "/")
+		builder.WriteString(fmt.Sprintf("<script src=\""))
+		builder.WriteString(src)
+		builder.WriteString("\"></script>\n")
+	}
+	builder.WriteString("</body></html>\n")
+
+	filename := "_generated_background_page.html"
+	target := filepath.Join(ext.Path, filename)
+	if err := os.WriteFile(target, []byte(builder.String()), 0o644); err != nil {
+		return "", fmt.Errorf("failed to write generated background page: %w", err)
+	}
+
+	return filename, nil
+}
+
+func (m *Manager) getExtensionByID(id string) (schemes.Extension, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if ext, ok := m.bundled[id]; ok {
+		return ext, true
+	}
+	if ext, ok := m.user[id]; ok {
+		return ext, true
+	}
+
+	return nil, false
+}
+
+func (m *Manager) isExtensionEnabled(id string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.enabled[id]
+}
+
+// HandleSchemeRequest delegates dumb-extension:// handling to the scheme handler.
+func (m *Manager) HandleSchemeRequest(req *webkit.URISchemeRequest) {
+	m.schemeHandler.Handle(req)
 }

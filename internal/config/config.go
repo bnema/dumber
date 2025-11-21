@@ -34,6 +34,7 @@ type Config struct {
 	VideoAcceleration   VideoAccelerationConfig `mapstructure:"video_acceleration" yaml:"video_acceleration"`
 	CodecPreferences    CodecConfig             `mapstructure:"codec_preferences" yaml:"codec_preferences"`
 	Debug               DebugConfig             `mapstructure:"debug" yaml:"debug"`
+	Extensions          ExtensionsConfig        `mapstructure:"extensions" yaml:"extensions"`
 	// RenderingMode controls GPU/CPU rendering selection for WebKit
 	RenderingMode RenderingMode `mapstructure:"rendering_mode" yaml:"rendering_mode"`
 	// UseDomZoom toggles DOM-based zoom instead of native WebKit zoom.
@@ -172,6 +173,13 @@ type CodecConfig struct {
 
 	// Site-specific codec control settings
 	DisableTwitchCodecControl bool `mapstructure:"disable_twitch_codec_control" yaml:"disable_twitch_codec_control"`
+}
+
+// ExtensionsConfig controls extensions overlay behaviour.
+type ExtensionsConfig struct {
+	OverlayEnabled  bool   `mapstructure:"overlay_enabled" yaml:"overlay_enabled" json:"overlay_enabled"`
+	OverlayPosition string `mapstructure:"overlay_position" yaml:"overlay_position" json:"overlay_position"`
+	Shortcut        string `mapstructure:"shortcut" yaml:"shortcut" json:"shortcut"`
 }
 
 // DebugConfig holds debug and troubleshooting options
@@ -668,6 +676,7 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("logging.capture_stdout", defaults.Logging.CaptureStdout)
 	m.viper.SetDefault("logging.capture_stderr", defaults.Logging.CaptureStderr)
 	m.viper.SetDefault("logging.capture_c_output", defaults.Logging.CaptureCOutput)
+	m.viper.SetDefault("logging.capture_console", defaults.Logging.CaptureConsole)
 	m.viper.SetDefault("logging.debug_file", defaults.Logging.DebugFile)
 	m.viper.SetDefault("logging.verbose_webkit", defaults.Logging.VerboseWebKit)
 
@@ -749,6 +758,11 @@ func (m *Manager) setDefaults() {
 
 	// Omnibox defaults
 	m.viper.SetDefault("omnibox.initial_behavior", defaults.Omnibox.InitialBehavior)
+
+	// Extensions overlay defaults
+	m.viper.SetDefault("extensions.overlay_enabled", defaults.Extensions.OverlayEnabled)
+	m.viper.SetDefault("extensions.overlay_position", defaults.Extensions.OverlayPosition)
+	m.viper.SetDefault("extensions.shortcut", defaults.Extensions.Shortcut)
 }
 
 // createDefaultConfig creates a default configuration file.

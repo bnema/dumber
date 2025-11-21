@@ -16,6 +16,33 @@ static inline WebKitWebView* create_related_web_view(WebKitWebView* parent) {
 		NULL
 	));
 }
+
+// create_extension_web_view creates a WebView for extension popup/options pages with:
+// - related-view to share session/process with parent
+// - web-extension-mode set to ManifestV2
+// - default-content-security-policy provided by the manifest (can be NULL)
+static inline WebKitWebView* create_extension_web_view(WebKitWebView* parent, const gchar* csp) {
+	return WEBKIT_WEB_VIEW(g_object_new(
+		WEBKIT_TYPE_WEB_VIEW,
+		"related-view", parent,
+		"web-extension-mode", WEBKIT_WEB_EXTENSION_MODE_MANIFESTV2,
+		"default-content-security-policy", csp,
+		NULL
+	));
+}
+
+// create_extension_background_web_view creates a WebView for extension background pages with:
+// - web-extension-mode set to ManifestV2
+// - default-content-security-policy provided by the manifest (can be NULL)
+// - NO related-view (background pages are the root for popups to relate to)
+static inline WebKitWebView* create_extension_background_web_view(const gchar* csp) {
+	return WEBKIT_WEB_VIEW(g_object_new(
+		WEBKIT_TYPE_WEB_VIEW,
+		"web-extension-mode", WEBKIT_WEB_EXTENSION_MODE_MANIFESTV2,
+		"default-content-security-policy", csp,
+		NULL
+	));
+}
 */
 import "C"
 import (
@@ -116,4 +143,115 @@ func NewBareRelatedWebView(parentView *webkit.WebView) *webkit.WebView {
 
 	log.Printf("[webkit] Created bare related WebView (parent=%p)", parentNative)
 	return relatedView
+}
+
+// NewBareExtensionWebView builds a bare WebView for extension popup/options pages.
+// It sets related-view (to reuse the parent session), web-extension-mode=ManifestV2,
+// and the manifest-provided default CSP at construction time.
+func NewBareExtensionWebView(parentView *webkit.WebView, csp string) *webkit.WebView {
+	// For extension UI we require a parent (background page or opener) to share context.
+	if parentView == nil {
+		return nil
+	}
+
+	parentObj := glib.BaseObject(parentView)
+	if parentObj == nil {
+		log.Printf("[webkit] NewBareExtensionWebView: failed to get parent object")
+		return nil
+	}
+	parentNative := (*C.WebKitWebView)(unsafe.Pointer(parentObj.Native()))
+	if parentNative == nil {
+		log.Printf("[webkit] NewBareExtensionWebView: parent native pointer is nil")
+		return nil
+	}
+
+	var cspC *C.gchar
+	if csp != "" {
+		cspC = (*C.gchar)(unsafe.Pointer(C.CString(csp)))
+		defer C.free(unsafe.Pointer(cspC))
+	}
+
+	webViewNative := C.create_extension_web_view(parentNative, cspC)
+	if webViewNative == nil {
+		log.Printf("[webkit] NewBareExtensionWebView: create_extension_web_view returned nil")
+		return nil
+	}
+
+	obj := coreglib.Take(unsafe.Pointer(webViewNative))
+
+	widget := gtk.Widget{
+		InitiallyUnowned: coreglib.InitiallyUnowned{
+			Object: obj,
+		},
+		Object: obj,
+		Accessible: gtk.Accessible{
+			Object: obj,
+		},
+		Buildable: gtk.Buildable{
+			Object: obj,
+		},
+		ConstraintTarget: gtk.ConstraintTarget{
+			Object: obj,
+		},
+	}
+
+	webViewBase := webkit.WebViewBase{
+		Widget: widget,
+	}
+
+	extensionView := &webkit.WebView{
+		WebViewBase: webViewBase,
+	}
+
+	runtime.KeepAlive(parentView)
+	return extensionView
+}
+
+// NewBareExtensionBackgroundWebView creates a bare WebView for extension background pages.
+// Sets web-extension-mode=ManifestV2 and the manifest-provided default CSP at construction time.
+// Background pages do NOT have a related-view parent - they ARE the parent for popups.
+//
+// This aligns with Epiphany's approach where background pages are created in extension mode
+// and popups use them as related-view to share session/cookies.
+func NewBareExtensionBackgroundWebView(csp string) *webkit.WebView {
+	var cspC *C.gchar
+	if csp != "" {
+		cspC = (*C.gchar)(unsafe.Pointer(C.CString(csp)))
+		defer C.free(unsafe.Pointer(cspC))
+	}
+
+	webViewNative := C.create_extension_background_web_view(cspC)
+	if webViewNative == nil {
+		log.Printf("[webkit] NewBareExtensionBackgroundWebView: create_extension_background_web_view returned nil")
+		return nil
+	}
+
+	obj := coreglib.Take(unsafe.Pointer(webViewNative))
+
+	widget := gtk.Widget{
+		InitiallyUnowned: coreglib.InitiallyUnowned{
+			Object: obj,
+		},
+		Object: obj,
+		Accessible: gtk.Accessible{
+			Object: obj,
+		},
+		Buildable: gtk.Buildable{
+			Object: obj,
+		},
+		ConstraintTarget: gtk.ConstraintTarget{
+			Object: obj,
+		},
+	}
+
+	webViewBase := webkit.WebViewBase{
+		Widget: widget,
+	}
+
+	backgroundView := &webkit.WebView{
+		WebViewBase: webViewBase,
+	}
+
+	log.Printf("[webkit] Created bare extension background WebView (extension mode, CSP=%v)", csp != "")
+	return backgroundView
 }

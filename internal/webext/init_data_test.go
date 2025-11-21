@@ -1,13 +1,19 @@
 package webext
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/bnema/dumber/internal/webext/api"
+	"github.com/bnema/dumber/internal/webext/shared"
+)
 
 func TestParseInitData(t *testing.T) {
 	tests := []struct {
-		name    string
-		jsonStr string
-		wantLen int
-		wantErr bool
+		name                string
+		jsonStr             string
+		wantLen             int
+		wantErr             bool
+		wantHasWebReqListen bool
 	}{
 		{
 			name: "valid single extension",
@@ -27,6 +33,13 @@ func TestParseInitData(t *testing.T) {
 			}`,
 			wantLen: 1,
 			wantErr: false,
+		},
+		{
+			name:                "webRequest listeners flag",
+			jsonStr:             `{"extensions": [], "has_webrequest_listeners": true}`,
+			wantLen:             0,
+			wantErr:             false,
+			wantHasWebReqListen: true,
 		},
 		{
 			name: "multiple extensions",
@@ -73,16 +86,20 @@ func TestParseInitData(t *testing.T) {
 			if len(got.Extensions) != tt.wantLen {
 				t.Errorf("ParseInitData() got %d extensions, want %d", len(got.Extensions), tt.wantLen)
 			}
+			if got.HasWebRequestListeners != tt.wantHasWebReqListen {
+				t.Errorf("ParseInitData() got HasWebRequestListeners=%v, want %v", got.HasWebRequestListeners, tt.wantHasWebReqListen)
+			}
 		})
 	}
 }
 
 func TestSerializeInitData(t *testing.T) {
 	tests := []struct {
-		name    string
-		setup   func(*Manager)
-		wantLen int
-		wantIDs []string
+		name                string
+		setup               func(*Manager)
+		wantLen             int
+		wantIDs             []string
+		wantHasWebReqListen bool
 	}{
 		{
 			name: "single enabled extension",
@@ -95,15 +112,16 @@ func TestSerializeInitData(t *testing.T) {
 					Manifest: &Manifest{
 						Name:    "Test Extension",
 						Version: "1.0.0",
-						ContentScripts: []ContentScript{
+						ContentScripts: []shared.ContentScript{
 							{Matches: []string{"<all_urls>"}, JS: []string{"content.js"}},
 						},
 					},
 				}
 				m.enabled["test-ext"] = true
 			},
-			wantLen: 1,
-			wantIDs: []string{"test-ext"},
+			wantLen:             1,
+			wantIDs:             []string{"test-ext"},
+			wantHasWebReqListen: true,
 		},
 		{
 			name: "disabled extension excluded",
@@ -140,8 +158,9 @@ func TestSerializeInitData(t *testing.T) {
 				m.enabled["bundled-ext"] = true
 				m.enabled["user-ext"] = true
 			},
-			wantLen: 2,
-			wantIDs: []string{"bundled-ext", "user-ext"},
+			wantLen:             2,
+			wantIDs:             []string{"bundled-ext", "user-ext"},
+			wantHasWebReqListen: false,
 		},
 		{
 			name:    "no extensions",
@@ -155,6 +174,17 @@ func TestSerializeInitData(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := NewManager("/tmp/extensions", "/tmp/test", nil, nil)
 			tt.setup(manager)
+
+			// Optionally register a webRequest listener to flip the flag.
+			if tt.wantHasWebReqListen && len(tt.wantIDs) > 0 {
+				if err := manager.webRequest.OnBeforeRequest(
+					tt.wantIDs[0],
+					func(api.RequestDetails) *api.BlockingResponse { return nil },
+					&api.RequestFilter{URLs: []string{"<all_urls>"}},
+				); err != nil {
+					t.Fatalf("failed to register listener: %v", err)
+				}
+			}
 
 			jsonStr, err := manager.SerializeInitData()
 			if err != nil {
@@ -180,6 +210,10 @@ func TestSerializeInitData(t *testing.T) {
 				if !gotIDs[wantID] {
 					t.Errorf("SerializeInitData() missing extension ID %q", wantID)
 				}
+			}
+
+			if initData.HasWebRequestListeners != tt.wantHasWebReqListen {
+				t.Errorf("SerializeInitData() got HasWebRequestListeners=%v, want %v", initData.HasWebRequestListeners, tt.wantHasWebReqListen)
 			}
 		})
 	}

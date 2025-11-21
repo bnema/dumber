@@ -10,34 +10,34 @@ import (
 type ResourceType string
 
 const (
-	ResourceTypeMain        ResourceType = "main_frame"
-	ResourceTypeSub         ResourceType = "sub_frame"
-	ResourceTypeStylesheet  ResourceType = "stylesheet"
-	ResourceTypeScript      ResourceType = "script"
-	ResourceTypeImage       ResourceType = "image"
-	ResourceTypeFont        ResourceType = "font"
-	ResourceTypeObject      ResourceType = "object"
-	ResourceTypeXMLHTTP     ResourceType = "xmlhttprequest"
-	ResourceTypePing        ResourceType = "ping"
-	ResourceTypeCSP         ResourceType = "csp_report"
-	ResourceTypeMedia       ResourceType = "media"
-	ResourceTypeWebSocket   ResourceType = "websocket"
+	ResourceTypeMain         ResourceType = "main_frame"
+	ResourceTypeSub          ResourceType = "sub_frame"
+	ResourceTypeStylesheet   ResourceType = "stylesheet"
+	ResourceTypeScript       ResourceType = "script"
+	ResourceTypeImage        ResourceType = "image"
+	ResourceTypeFont         ResourceType = "font"
+	ResourceTypeObject       ResourceType = "object"
+	ResourceTypeXMLHTTP      ResourceType = "xmlhttprequest"
+	ResourceTypePing         ResourceType = "ping"
+	ResourceTypeCSP          ResourceType = "csp_report"
+	ResourceTypeMedia        ResourceType = "media"
+	ResourceTypeWebSocket    ResourceType = "websocket"
 	ResourceTypeWebTransport ResourceType = "webtransport"
-	ResourceTypeOther       ResourceType = "other"
+	ResourceTypeOther        ResourceType = "other"
 )
 
 // RequestDetails contains information about a web request
 type RequestDetails struct {
-	RequestID     string                 `json:"requestId"`
-	URL           string                 `json:"url"`
-	Method        string                 `json:"method"`
-	FrameID       int64                  `json:"frameId"`
-	ParentFrameID int64                  `json:"parentFrameId"`
-	TabID         int64                  `json:"tabId"`
-	Type          ResourceType           `json:"type"`
-	TimeStamp     float64                `json:"timeStamp"`
-	Initiator     string                 `json:"initiator,omitempty"`
-	RequestHeaders map[string]string     `json:"requestHeaders,omitempty"`
+	RequestID      string            `json:"requestId"`
+	URL            string            `json:"url"`
+	Method         string            `json:"method"`
+	FrameID        int64             `json:"frameId"`
+	ParentFrameID  int64             `json:"parentFrameId"`
+	TabID          int64             `json:"tabId"`
+	Type           ResourceType      `json:"type"`
+	TimeStamp      float64           `json:"timeStamp"`
+	Initiator      string            `json:"initiator,omitempty"`
+	RequestHeaders map[string]string `json:"requestHeaders,omitempty"`
 }
 
 // ResponseDetails contains information about a web response
@@ -57,10 +57,10 @@ type ResponseDetails struct {
 
 // BlockingResponse represents an extension's decision about a request
 type BlockingResponse struct {
-	Cancel           bool              `json:"cancel"`
-	RedirectURL      string            `json:"redirectUrl,omitempty"`
-	RequestHeaders   map[string]string `json:"requestHeaders,omitempty"`
-	ResponseHeaders  map[string]string `json:"responseHeaders,omitempty"`
+	Cancel          bool              `json:"cancel"`
+	RedirectURL     string            `json:"redirectUrl,omitempty"`
+	RequestHeaders  map[string]string `json:"requestHeaders,omitempty"`
+	ResponseHeaders map[string]string `json:"responseHeaders,omitempty"`
 }
 
 // OnBeforeRequestListener is called before a request is made
@@ -83,11 +83,11 @@ type WebRequestAPI struct {
 	mu sync.RWMutex
 
 	// Listener registries per extension
-	onBeforeRequestListeners      map[string][]OnBeforeRequestListener
-	onBeforeSendHeadersListeners  map[string][]OnBeforeSendHeadersListener
-	onHeadersReceivedListeners    map[string][]OnHeadersReceivedListener
-	onCompletedListeners          map[string][]OnCompletedListener
-	onErrorOccurredListeners      map[string][]OnErrorOccurredListener
+	onBeforeRequestListeners     map[string][]OnBeforeRequestListener
+	onBeforeSendHeadersListeners map[string][]OnBeforeSendHeadersListener
+	onHeadersReceivedListeners   map[string][]OnHeadersReceivedListener
+	onCompletedListeners         map[string][]OnCompletedListener
+	onErrorOccurredListeners     map[string][]OnErrorOccurredListener
 
 	// Filter configurations per extension
 	filters map[string]*RequestFilter
@@ -95,22 +95,29 @@ type WebRequestAPI struct {
 
 // RequestFilter specifies which requests to monitor
 type RequestFilter struct {
-	URLs      []string       `json:"urls"`
-	Types     []ResourceType `json:"types,omitempty"`
-	TabID     int64          `json:"tabId,omitempty"`
-	WindowID  int64          `json:"windowId,omitempty"`
+	URLs     []string       `json:"urls"`
+	Types    []ResourceType `json:"types,omitempty"`
+	TabID    int64          `json:"tabId,omitempty"`
+	WindowID int64          `json:"windowId,omitempty"`
 }
 
 // NewWebRequestAPI creates a new WebRequest API instance
 func NewWebRequestAPI() *WebRequestAPI {
 	return &WebRequestAPI{
-		onBeforeRequestListeners:      make(map[string][]OnBeforeRequestListener),
-		onBeforeSendHeadersListeners:  make(map[string][]OnBeforeSendHeadersListener),
-		onHeadersReceivedListeners:    make(map[string][]OnHeadersReceivedListener),
-		onCompletedListeners:          make(map[string][]OnCompletedListener),
-		onErrorOccurredListeners:      make(map[string][]OnErrorOccurredListener),
-		filters:                       make(map[string]*RequestFilter),
+		onBeforeRequestListeners:     make(map[string][]OnBeforeRequestListener),
+		onBeforeSendHeadersListeners: make(map[string][]OnBeforeSendHeadersListener),
+		onHeadersReceivedListeners:   make(map[string][]OnHeadersReceivedListener),
+		onCompletedListeners:         make(map[string][]OnCompletedListener),
+		onErrorOccurredListeners:     make(map[string][]OnErrorOccurredListener),
+		filters:                      make(map[string]*RequestFilter),
 	}
+}
+
+// HasBeforeRequestListeners reports whether any onBeforeRequest listeners are registered.
+func (w *WebRequestAPI) HasBeforeRequestListeners() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return len(w.onBeforeRequestListeners) > 0
 }
 
 // OnBeforeRequest registers a listener for before request events

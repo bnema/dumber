@@ -1,10 +1,13 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"sync"
 )
 
@@ -333,4 +336,228 @@ func (s *StorageArea) notifyListeners(changes map[string]StorageChange, areaName
 	for _, listener := range s.listeners {
 		go listener(changes, areaName)
 	}
+}
+
+// --- Dispatcher-compatible API (works across all extensions) ---
+
+// StorageAPIDispatcher provides storage API methods for the dispatcher
+// This works with any extension ID passed as a parameter
+type StorageAPIDispatcher struct {
+	dataDir string // Base data directory for all extensions
+	mu      sync.RWMutex
+}
+
+// NewStorageAPIDispatcher creates a storage API for the dispatcher
+func NewStorageAPIDispatcher(dataDir string) *StorageAPIDispatcher {
+	return &StorageAPIDispatcher{
+		dataDir: dataDir,
+	}
+}
+
+// Get retrieves items from storage for a specific extension
+func (s *StorageAPIDispatcher) Get(ctx context.Context, extID string, keys interface{}) (map[string]interface{}, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	storagePath := filepath.Join(s.dataDir, "extensions", extID, "storage.json")
+
+	// Read storage file
+	data, err := os.ReadFile(storagePath)
+	if os.IsNotExist(err) {
+		// No storage file yet, return empty/defaults
+		return s.getDefaults(keys), nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read storage: %w", err)
+	}
+
+	var storage map[string]interface{}
+	if err := json.Unmarshal(data, &storage); err != nil {
+		return nil, fmt.Errorf("failed to parse storage: %w", err)
+	}
+
+	result := make(map[string]interface{})
+
+	switch v := keys.(type) {
+	case nil:
+		// Get all items
+		return storage, nil
+
+	case string:
+		// Get single key
+		if val, ok := storage[v]; ok {
+			result[v] = val
+		}
+
+	case []interface{}:
+		// Get multiple keys (from JSON array)
+		for _, key := range v {
+			if keyStr, ok := key.(string); ok {
+				if val, ok := storage[keyStr]; ok {
+					result[keyStr] = val
+				}
+			}
+		}
+
+	case []string:
+		// Get multiple keys
+		for _, key := range v {
+			if val, ok := storage[key]; ok {
+				result[key] = val
+			}
+		}
+
+	case map[string]interface{}:
+		// Get keys with default values
+		for key, defaultVal := range v {
+			if val, ok := storage[key]; ok {
+				result[key] = val
+			} else {
+				result[key] = defaultVal
+			}
+		}
+	}
+
+	log.Printf("[storage.local] Get for extension %s: %d items", extID, len(result))
+	return result, nil
+}
+
+// Set sets items in storage for a specific extension
+func (s *StorageAPIDispatcher) Set(ctx context.Context, extID string, items map[string]interface{}) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Ensure directory exists
+	storageDir := filepath.Join(s.dataDir, "extensions", extID)
+	if err := os.MkdirAll(storageDir, 0755); err != nil {
+		return fmt.Errorf("failed to create storage directory: %w", err)
+	}
+
+	storagePath := filepath.Join(storageDir, "storage.json")
+
+	// Read existing storage
+	var storage map[string]interface{}
+	data, err := os.ReadFile(storagePath)
+	if err == nil {
+		if err := json.Unmarshal(data, &storage); err != nil {
+			return fmt.Errorf("failed to parse existing storage: %w", err)
+		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("failed to read storage: %w", err)
+	} else {
+		storage = make(map[string]interface{})
+	}
+
+	// Update with new items
+	for key, value := range items {
+		storage[key] = value
+	}
+
+	// Write back to file
+	data, err = json.MarshalIndent(storage, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal storage: %w", err)
+	}
+
+	if err := os.WriteFile(storagePath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write storage: %w", err)
+	}
+
+	log.Printf("[storage.local] Set for extension %s: %d items", extID, len(items))
+	return nil
+}
+
+// Remove removes items from storage for a specific extension
+func (s *StorageAPIDispatcher) Remove(ctx context.Context, extID string, keys interface{}) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	storagePath := filepath.Join(s.dataDir, "extensions", extID, "storage.json")
+
+	// Read existing storage
+	var storage map[string]interface{}
+	data, err := os.ReadFile(storagePath)
+	if os.IsNotExist(err) {
+		// No storage file, nothing to remove
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to read storage: %w", err)
+	}
+
+	if err := json.Unmarshal(data, &storage); err != nil {
+		return fmt.Errorf("failed to parse storage: %w", err)
+	}
+
+	// Remove keys
+	switch v := keys.(type) {
+	case string:
+		delete(storage, v)
+
+	case []interface{}:
+		for _, key := range v {
+			if keyStr, ok := key.(string); ok {
+				delete(storage, keyStr)
+			}
+		}
+
+	case []string:
+		for _, key := range v {
+			delete(storage, key)
+		}
+	}
+
+	// Write back
+	data, err = json.MarshalIndent(storage, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal storage: %w", err)
+	}
+
+	if err := os.WriteFile(storagePath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write storage: %w", err)
+	}
+
+	log.Printf("[storage.local] Remove for extension %s", extID)
+	return nil
+}
+
+// Clear removes all items from storage for a specific extension
+func (s *StorageAPIDispatcher) Clear(ctx context.Context, extID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	storagePath := filepath.Join(s.dataDir, "extensions", extID, "storage.json")
+
+	// Write empty storage
+	emptyStorage := make(map[string]interface{})
+	data, err := json.MarshalIndent(emptyStorage, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal empty storage: %w", err)
+	}
+
+	// Ensure directory exists
+	storageDir := filepath.Join(s.dataDir, "extensions", extID)
+	if err := os.MkdirAll(storageDir, 0755); err != nil {
+		return fmt.Errorf("failed to create storage directory: %w", err)
+	}
+
+	if err := os.WriteFile(storagePath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write storage: %w", err)
+	}
+
+	log.Printf("[storage.local] Clear for extension %s", extID)
+	return nil
+}
+
+// getDefaults returns default values based on keys type
+func (s *StorageAPIDispatcher) getDefaults(keys interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	switch v := keys.(type) {
+	case map[string]interface{}:
+		// Return the defaults
+		return v
+	}
+
+	return result
 }

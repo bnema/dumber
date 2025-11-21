@@ -100,6 +100,59 @@ func (wm *WorkspaceManager) SplitPane(target *paneNode, direction string) (*pane
 	return newNode, nil
 }
 
+// SplitPaneWithPane performs a split using a pre-created pane (e.g., extension popup) while
+// preserving the normal validation and bookkeeping logic.
+func (wm *WorkspaceManager) SplitPaneWithPane(target *paneNode, direction string, existingPane *BrowserPane) (*paneNode, error) {
+	if wm == nil {
+		return nil, fmt.Errorf("workspace manager is nil")
+	}
+	if existingPane == nil {
+		return nil, fmt.Errorf("existing pane is nil")
+	}
+
+	// Validate direction parameter
+	validDirections := map[string]bool{
+		DirectionLeft:  true,
+		DirectionRight: true,
+		DirectionUp:    true,
+		DirectionDown:  true,
+	}
+	if !validDirections[direction] {
+		return nil, fmt.Errorf("invalid split direction '%s', expected one of: left, right, up, down", direction)
+	}
+
+	log.Printf("[workspace] Starting split with existing pane: target=%p direction=%s pane=%p", target, direction, existingPane)
+
+	if webkit.IsMainThread() {
+		newNode, err := wm.splitNode(target, direction, existingPane)
+		if err != nil {
+			return nil, err
+		}
+		if wm.debugLevel >= DebugBasic {
+			if err := wm.treeValidator.ValidateTree(wm.root, "after_split_existing"); err != nil {
+				log.Printf("[workspace] Tree validation failed after split with existing pane: %v", err)
+			}
+		}
+		return newNode, nil
+	}
+
+	var newNode *paneNode
+	var splitErr error
+	done := make(chan struct{})
+	_ = webkit.IdleAdd(func() bool {
+		newNode, splitErr = wm.splitNode(target, direction, existingPane)
+		if splitErr == nil && wm.debugLevel >= DebugBasic {
+			if err := wm.treeValidator.ValidateTree(wm.root, "after_split_existing"); err != nil {
+				log.Printf("[workspace] Tree validation failed after split with existing pane: %v", err)
+			}
+		}
+		close(done)
+		return false
+	})
+	<-done
+	return newNode, splitErr
+}
+
 // ClosePane performs a close operation with validation and safety checks
 func (wm *WorkspaceManager) ClosePane(node *paneNode) error {
 	if wm == nil {

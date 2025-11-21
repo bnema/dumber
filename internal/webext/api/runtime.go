@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -20,20 +21,22 @@ type OnMessageListener func(message interface{}, sender MessageSender, sendRespo
 
 // MessageSender represents the sender of a message
 type MessageSender struct {
-	Tab         *Tab   `json:"tab,omitempty"`
-	FrameID     int    `json:"frameId,omitempty"`
-	ID          string `json:"id,omitempty"`          // Extension ID
-	URL         string `json:"url,omitempty"`         // URL of the frame
+	Tab          *Tab   `json:"tab,omitempty"`
+	FrameID      int    `json:"frameId,omitempty"`
+	ID           string `json:"id,omitempty"`  // Extension ID
+	URL          string `json:"url,omitempty"` // URL of the frame
 	TLSChannelID string `json:"tlsChannelId,omitempty"`
 }
 
-// Tab represents a browser tab
+// Tab represents a browser tab (used by both runtime and tabs APIs)
 type Tab struct {
-	ID     int    `json:"id"`
-	Index  int    `json:"index"`
-	URL    string `json:"url"`
-	Title  string `json:"title"`
-	Active bool   `json:"active"`
+	ID       int    `json:"id"`
+	Index    int    `json:"index"`
+	WindowID int    `json:"windowId,omitempty"`
+	URL      string `json:"url"`
+	Title    string `json:"title"`
+	Active   bool   `json:"active"`
+	Favicon  string `json:"favIconUrl,omitempty"`
 }
 
 // NewRuntimeAPI creates a new RuntimeAPI instance for an extension
@@ -100,10 +103,9 @@ func (r *RuntimeAPI) GetURL(path string) string {
 	return fmt.Sprintf("dumb-extension://%s/%s", r.extensionID, path)
 }
 
-// GetBackgroundPage returns the JavaScript window object for the background page
-// This is complex and will be implemented later with goja integration
+// GetBackgroundPage returns the JavaScript window object for the background page.
+// Backgrounds now run inside WebViews, so there is no embeddable VM to return here.
 func (r *RuntimeAPI) GetBackgroundPage(callback func(window interface{})) {
-	// TODO: Return goja VM context for background page
 	if callback != nil {
 		callback(nil)
 	}
@@ -131,9 +133,74 @@ type ConnectInfo struct {
 
 // Port represents a long-lived connection for message passing
 type Port struct {
-	Name       string
-	OnMessage  func(message interface{})
+	Name         string
+	OnMessage    func(message interface{})
 	OnDisconnect func()
-	PostMessage func(message interface{})
-	Disconnect func()
+	PostMessage  func(message interface{})
+	Disconnect   func()
+}
+
+// --- Dispatcher-compatible API (works across all extensions) ---
+
+// RuntimeAPIDispatcher provides runtime API methods for the dispatcher
+// This works with any extension ID passed as a parameter
+type RuntimeAPIDispatcher struct {
+	manager interface{} // Extension manager (to get extension metadata)
+	mu      sync.RWMutex
+	ports   map[string]string
+}
+
+// NewRuntimeAPIDispatcher creates a runtime API for the dispatcher
+func NewRuntimeAPIDispatcher(manager interface{}) *RuntimeAPIDispatcher {
+	return &RuntimeAPIDispatcher{
+		manager: manager,
+		ports:   make(map[string]string),
+	}
+}
+
+// SendMessage sends a message to other parts of the extension
+// For now, this is a stub that will be enhanced when we implement message routing
+func (r *RuntimeAPIDispatcher) SendMessage(ctx context.Context, extID string, message interface{}) (interface{}, error) {
+	log.Printf("[runtime] SendMessage from extension %s: %+v", extID, message)
+
+	// TODO: Implement message routing to background page / content scripts
+	// For now, return undefined to indicate no response
+	return nil, nil
+}
+
+// Connect sets up a lightweight placeholder port. Full port routing is handled in browser.go.
+func (r *RuntimeAPIDispatcher) Connect(ctx context.Context, extID string, connectInfo *ConnectInfo) (interface{}, error) {
+	portID := fmt.Sprintf("port-%d", time.Now().UnixNano())
+
+	r.mu.Lock()
+	if r.ports == nil {
+		r.ports = make(map[string]string)
+	}
+	r.ports[portID] = extID
+	r.mu.Unlock()
+
+	name := ""
+	if connectInfo != nil {
+		name = connectInfo.Name
+	}
+	log.Printf("[runtime] runtime.connect placeholder ext=%s port=%s name=%s", extID, portID, name)
+
+	// UI process will handle actual port wiring when it receives the follow-up port events.
+	return map[string]string{"portId": portID}, nil
+}
+
+// PortPostMessage is currently a no-op placeholder to keep promise chains alive.
+func (r *RuntimeAPIDispatcher) PortPostMessage(ctx context.Context, extID, portID string, message interface{}) (interface{}, error) {
+	log.Printf("[runtime] port.postMessage placeholder ext=%s port=%s msg=%v", extID, portID, message)
+	return nil, nil
+}
+
+// PortDisconnect removes the placeholder port entry.
+func (r *RuntimeAPIDispatcher) PortDisconnect(ctx context.Context, extID, portID string) (interface{}, error) {
+	r.mu.Lock()
+	delete(r.ports, portID)
+	r.mu.Unlock()
+
+	log.Printf("[runtime] port.disconnect placeholder ext=%s port=%s", extID, portID)
+	return nil, nil
 }

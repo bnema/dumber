@@ -58,6 +58,9 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 	))
 	log.Printf("[webkit] Injected webview ID script for ID: %d (main + isolated world)", webviewID)
 
+	// Note: WebExtension API is now provided natively by the web process extension
+	// via cmd/dumber-webext/native_apis.go, not via TypeScript shim injection
+
 	// Inject GTK theme detection in BOTH worlds
 	// The color-scheme.ts expects window.__dumber_gtk_prefers_dark to be set
 	// Respect the ColorScheme config setting
@@ -206,5 +209,13 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 		log.Printf("[webkit] Registered 'dumber' script message handler in main world (default)")
 	}
 
+	// Register script message handler for WebExtension shim responses (main world)
+	if !ucm.RegisterScriptMessageHandler("webext", "") {
+		log.Printf("[webkit] Warning: failed to register 'webext' script message handler in main world")
+	} else {
+		log.Printf("[webkit] Registered 'webext' script message handler in main world (extension pages)")
+	}
+
 	return nil
 }
+

@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/bnema/dumber/internal/webext/shared"
 )
 
 // Manifest represents a WebExtension manifest (MV2 format)
@@ -19,8 +21,9 @@ type Manifest struct {
 	DefaultLocale           string                   `json:"default_locale,omitempty"`
 	Icons                   map[string]string        `json:"icons,omitempty"`
 	Permissions             []string                 `json:"permissions,omitempty"`
+	ContentSecurityPolicy   string                   `json:"content_security_policy,omitempty"`
 	Background              *Background              `json:"background,omitempty"`
-	ContentScripts          []ContentScript          `json:"content_scripts,omitempty"`
+	ContentScripts          []shared.ContentScript   `json:"content_scripts,omitempty"`
 	WebAccessible           []string                 `json:"web_accessible_resources,omitempty"`
 	BrowserAction           *BrowserAction           `json:"browser_action,omitempty"`
 	Options                 *OptionsPage             `json:"options_ui,omitempty"`
@@ -41,17 +44,6 @@ type Background struct {
 	Persistent bool     `json:"persistent"`
 }
 
-// ContentScript defines scripts to inject into web pages
-type ContentScript struct {
-	Matches      []string `json:"matches"`
-	ExcludeMatch []string `json:"exclude_matches,omitempty"`
-	JS           []string `json:"js,omitempty"`
-	CSS          []string `json:"css,omitempty"`
-	RunAt        string   `json:"run_at,omitempty"` // document_start, document_end, document_idle
-	AllFrames    bool     `json:"all_frames,omitempty"`
-	MatchOrigin  bool     `json:"match_origin_as_fallback,omitempty"`
-}
-
 // BrowserAction defines the browser action (toolbar button)
 type BrowserAction struct {
 	DefaultIcon  map[string]string `json:"default_icon,omitempty"`
@@ -67,10 +59,10 @@ type OptionsPage struct {
 
 // GeckoSettings contains Firefox-specific settings
 type GeckoSettings struct {
-	ID                string `json:"id,omitempty"`
-	StrictMinVersion  string `json:"strict_min_version,omitempty"`
-	StrictMaxVersion  string `json:"strict_max_version,omitempty"`
-	UpdateURL         string `json:"update_url,omitempty"`
+	ID               string `json:"id,omitempty"`
+	StrictMinVersion string `json:"strict_min_version,omitempty"`
+	StrictMaxVersion string `json:"strict_max_version,omitempty"`
+	UpdateURL        string `json:"update_url,omitempty"`
 }
 
 // RunAtTiming represents when content scripts should be injected
@@ -163,24 +155,6 @@ func (m *Manifest) GetBackgroundScripts(baseDir string) []string {
 	}
 
 	return scripts
-}
-
-// GetContentScriptFiles returns all content script file paths
-func (m *ContentScript) GetJSFiles(baseDir string) []string {
-	var files []string
-	for _, js := range m.JS {
-		files = append(files, filepath.Join(baseDir, js))
-	}
-	return files
-}
-
-// GetCSSFiles returns all CSS file paths
-func (m *ContentScript) GetCSSFiles(baseDir string) []string {
-	var files []string
-	for _, css := range m.CSS {
-		files = append(files, filepath.Join(baseDir, css))
-	}
-	return files
 }
 
 // HasPermission checks if the extension has a specific permission

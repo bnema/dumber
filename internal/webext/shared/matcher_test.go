@@ -1,4 +1,4 @@
-package webext
+package shared
 
 import "testing"
 

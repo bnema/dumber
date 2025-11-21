@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/bnema/dumber/internal/webext/shared"
 )
 
 func TestManifestValidate(t *testing.T) {
@@ -188,14 +190,14 @@ func TestManifestGetBackgroundScripts(t *testing.T) {
 func TestContentScriptGetFiles(t *testing.T) {
 	tests := []struct {
 		name    string
-		cs      ContentScript
+		cs      shared.ContentScript
 		baseDir string
 		wantJS  []string
 		wantCSS []string
 	}{
 		{
 			name: "js and css files",
-			cs: ContentScript{
+			cs: shared.ContentScript{
 				JS:  []string{"content.js", "lib.js"},
 				CSS: []string{"style.css"},
 			},
@@ -205,7 +207,7 @@ func TestContentScriptGetFiles(t *testing.T) {
 		},
 		{
 			name:    "no files",
-			cs:      ContentScript{},
+			cs:      shared.ContentScript{},
 			baseDir: "/ext",
 			wantJS:  []string{},
 			wantCSS: []string{},

@@ -32,6 +32,13 @@ func InitializeWebProcessExtensions(cfg *WebExtensionConfig) error {
 
 	log.Printf("[webext] Initializing WebProcess extension system")
 
+	// CRITICAL: Add extensions directory to sandbox BEFORE connecting signal
+	// The web process runs in a sandbox and needs explicit permission to access the .so file
+	if cfg.ExtensionsDirectory != "" {
+		webContext.AddPathToSandbox(cfg.ExtensionsDirectory, true) // read-only access
+		log.Printf("[webext] Added extensions directory to sandbox: %s", cfg.ExtensionsDirectory)
+	}
+
 	// Connect to initialize-web-process-extensions signal
 	// This is emitted when a new web process is about to be launched
 	webContext.ConnectInitializeWebProcessExtensions(func() {

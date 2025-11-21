@@ -157,6 +157,14 @@ func validateConfig(config *Config) error {
 		}
 	}
 
+	// Validate extensions overlay config
+	if config.Extensions.OverlayPosition != "" && config.Extensions.OverlayPosition != "top-right" && config.Extensions.OverlayPosition != "top-left" {
+		validationErrors = append(validationErrors, fmt.Sprintf("extensions.overlay_position must be top-right or top-left (got: %s)", config.Extensions.OverlayPosition))
+	}
+	if config.Extensions.Shortcut == "" {
+		validationErrors = append(validationErrors, "extensions.shortcut cannot be empty")
+	}
+
 	// Validate logging values
 	if config.Logging.MaxSize < 0 {
 		validationErrors = append(validationErrors, "logging.max_size must be non-negative")

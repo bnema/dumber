@@ -1,4 +1,4 @@
-package webext
+package shared
 
 import (
 	"net/url"
@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// MatchPattern represents a WebExtension match pattern
+// MatchPattern represents a WebExtension match pattern.
 // Format: <scheme>://<host><path>
 // Examples:
 //   - https://*.example.com/*
@@ -19,7 +19,7 @@ type MatchPattern struct {
 	path   *regexp.Regexp
 }
 
-// NewMatchPattern creates a new match pattern from a string
+// NewMatchPattern creates a new match pattern from a string.
 func NewMatchPattern(pattern string) (*MatchPattern, error) {
 	// Handle special case
 	if pattern == "<all_urls>" {
@@ -80,7 +80,7 @@ func NewMatchPattern(pattern string) (*MatchPattern, error) {
 	}, nil
 }
 
-// Match checks if a URL matches this pattern
+// Match checks if a URL matches this pattern.
 func (p *MatchPattern) Match(urlStr string) bool {
 	u, err := url.Parse(urlStr)
 	if err != nil {
@@ -110,7 +110,7 @@ func (p *MatchPattern) Match(urlStr string) bool {
 	return true
 }
 
-// patternToRegex converts a match pattern glob to a regex
+// patternToRegex converts a match pattern glob to a regex.
 func patternToRegex(pattern string) *regexp.Regexp {
 	// Escape special regex chars except *
 	escaped := regexp.QuoteMeta(pattern)
@@ -122,7 +122,7 @@ func patternToRegex(pattern string) *regexp.Regexp {
 	return regexp.MustCompile("^" + escaped + "$")
 }
 
-// MatchURL checks if a URL matches any of the given patterns
+// MatchURL checks if a URL matches any of the given patterns.
 func MatchURL(urlStr string, patterns []string) bool {
 	for _, pattern := range patterns {
 		mp, err := NewMatchPattern(pattern)
@@ -136,7 +136,7 @@ func MatchURL(urlStr string, patterns []string) bool {
 	return false
 }
 
-// ExcludesURL checks if a URL is excluded by any of the given patterns
+// ExcludesURL checks if a URL is excluded by any of the given patterns.
 func ExcludesURL(urlStr string, excludePatterns []string) bool {
 	return MatchURL(urlStr, excludePatterns)
 }

@@ -5,6 +5,7 @@ package main
 // #include <glib.h>
 import "C"
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -12,37 +13,23 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 	"unsafe"
 
-	"github.com/bnema/dumber/internal/webext"
+	"github.com/bnema/dumber/internal/webext/api"
+	"github.com/bnema/dumber/internal/webext/shared"
 	"github.com/diamondburned/gotk4-webkitgtk/pkg/webkitwebprocessextension/v6"
+	"github.com/diamondburned/gotk4/pkg/core/gextras"
 	coreglib "github.com/diamondburned/gotk4/pkg/core/glib"
+	"github.com/diamondburned/gotk4/pkg/gio/v2"
+	"github.com/diamondburned/gotk4/pkg/glib/v2"
 )
 
 // Global state for WebProcess
 var (
-	extensionInfo []ExtensionInfo
+	extensionInfo          []shared.ExtensionInfo
+	hasWebRequestListeners bool
 )
-
-// ExtensionInfo mirrors internal/webext/init_data.go ExtensionInfo
-type ExtensionInfo struct {
-	ID             string          `json:"id"`
-	Name           string          `json:"name"`
-	Version        string          `json:"version"`
-	Enabled        bool            `json:"enabled"`
-	Path           string          `json:"path"`
-	ContentScripts []ContentScript `json:"content_scripts"`
-}
-
-// ContentScript mirrors internal/webext/manifest.go ContentScript
-type ContentScript struct {
-	Matches      []string `json:"matches"`
-	ExcludeMatch []string `json:"exclude_matches,omitempty"`
-	JS           []string `json:"js,omitempty"`
-	CSS          []string `json:"css,omitempty"`
-	RunAt        string   `json:"run_at,omitempty"`
-	AllFrames    bool     `json:"all_frames,omitempty"`
-}
 
 //export webkit_web_process_extension_initialize_with_user_data
 func webkit_web_process_extension_initialize_with_user_data(
@@ -104,33 +91,27 @@ func parseExtensionData(jsonStr string) error {
 	jsonStr = strings.TrimSpace(jsonStr)
 	jsonStr = strings.Trim(jsonStr, "'")
 
-	type InitData struct {
-		Extensions []ExtensionInfo `json:"extensions"`
-	}
-
-	var initData InitData
-	if err := json.Unmarshal([]byte(jsonStr), &initData); err != nil {
+	initData, err := shared.ParseInitData(jsonStr)
+	if err != nil {
 		return fmt.Errorf("failed to unmarshal init data: %w", err)
 	}
 
 	extensionInfo = initData.Extensions
+	hasWebRequestListeners = initData.HasWebRequestListeners
 	return nil
 }
 
 // variantToString safely extracts a Go string from a GVariant.
 // Using String() directly can return a printed variant (with quotes) when the
 // underlying type is not a plain string, which breaks JSON parsing.
-func variantToString(v *coreglib.Variant) (string, error) {
+func variantToString(v *glib.Variant) (string, error) {
 	if v == nil {
 		return "", fmt.Errorf("variant is nil")
 	}
 
+	// For string type variants, use String() directly
 	if v.TypeString() == "s" {
 		return unquoteSingle(v.String()), nil
-	}
-
-	if val, ok := v.GoValue().(string); ok {
-		return unquoteSingle(val), nil
 	}
 
 	// Fallback to printed variant (e.g., "'{...}'") and strip outer single quotes
@@ -159,52 +140,200 @@ func wrapWebProcessExtension(ext *C.WebKitWebProcessExtension) *webkitwebprocess
 	}
 }
 
-// wrapVariant wraps a C GVariant pointer into a Go object
-func wrapVariant(v *C.GVariant) *coreglib.Variant {
+// wrapVariant wraps a C GVariant pointer into a Go object using glib v2 API
+func wrapVariant(v *C.GVariant) *glib.Variant {
 	if v == nil {
 		return nil
 	}
 
-	// Mirror coreglib.takeVariant: claim a ref and install a finalizer.
+	// Handle floating references
 	if C.g_variant_is_floating(v) != 0 {
 		C.g_variant_ref_sink(v)
 	} else {
 		C.g_variant_ref(v)
 	}
 
-	gv := &coreglib.Variant{}
-	*(*unsafe.Pointer)(unsafe.Pointer(&gv.GVariant)) = unsafe.Pointer(v)
-	runtime.SetFinalizer(gv, (*coreglib.Variant).Unref)
-	return gv
+	// Use gextras.NewStructNative for v2 API (same pattern as NewVariantString)
+	variant := (*glib.Variant)(gextras.NewStructNative(unsafe.Pointer(v)))
+	C.g_variant_ref(v)
+	runtime.SetFinalizer(
+		gextras.StructIntern(unsafe.Pointer(variant)),
+		func(intern *struct{ C unsafe.Pointer }) {
+			C.g_variant_unref((*C.GVariant)(intern.C))
+		},
+	)
+
+	return variant
 }
 
 func onPageCreated(page *webkitwebprocessextension.WebPage) {
 	pageID := page.ID()
 	uri := page.URI()
 
-	log.Printf("Page created: ID=%d, URI=%s", pageID, uri)
+	log.Printf("[page-lifecycle] Page created: ID=%d, URI=%s (empty at creation, will be set on document load)", pageID, uri)
 
-	// Hook document loaded for content script injection
+	// Connect to window-object-cleared on the default script world
+	// This fires BEFORE page scripts execute, ensuring browser.* APIs are available immediately
+	defaultWorld := webkitwebprocessextension.ScriptWorldGetDefault()
+	defaultWorld.ConnectWindowObjectCleared(func(webPage *webkitwebprocessextension.WebPage, frame *webkitwebprocessextension.Frame) {
+		// Only handle this specific page
+		if webPage.ID() != pageID {
+			return
+		}
+
+		pageURI := webPage.URI()
+
+		// Check if this is an extension page (dumb-extension://)
+		if !strings.HasPrefix(pageURI, "dumb-extension://") {
+			return
+		}
+
+		log.Printf("[native-api] Extension page detected at window-object-cleared: %s", pageURI)
+
+		// Extract extension ID from URI: dumb-extension://{id}/...
+		parts := strings.SplitN(strings.TrimPrefix(pageURI, "dumb-extension://"), "/", 2)
+		if len(parts) > 0 && parts[0] != "" {
+			extID := parts[0]
+			log.Printf("[native-api] Injecting native APIs for extension: %s", extID)
+
+			// Inject native browser APIs for this extension page
+			// Pass the frame from window-object-cleared so we get the correct JS context
+			injectNativeAPIsForExtensionPage(webPage, frame, extID)
+		} else {
+			log.Printf("[native-api] ERROR: Failed to extract extension ID from URI=%s", pageURI)
+		}
+	})
+
+	// Also hook document-loaded for general content script injection
 	page.ConnectDocumentLoaded(func() {
+		loadedURI := page.URI()
+		log.Printf("[page-lifecycle] Document loaded: page=%d, uri=%s", pageID, loadedURI)
+
+		// Call general content script injection
 		onDocumentLoaded(page)
 	})
 
-	// Hook network requests for webRequest API
-	page.ConnectSendRequest(func(request *webkitwebprocessextension.URIRequest, redirectedResponse *webkitwebprocessextension.URIResponse) bool {
-		return onSendRequest(page, request, redirectedResponse)
-	})
+	// Hook network requests for webRequest API only when listeners exist
+	if hasWebRequestListeners {
+		page.ConnectSendRequest(func(request *webkitwebprocessextension.URIRequest, redirectedResponse *webkitwebprocessextension.URIResponse) bool {
+			return onSendRequest(page, request, redirectedResponse)
+		})
+	} else {
+		log.Printf("[webRequest] Skipping request hook for page %d (no listeners registered)", pageID)
+	}
 
 	// Inject content scripts that should run at document_start
 	injectContentScriptsForTiming(page, "document_start")
 }
 
 func onSendRequest(page *webkitwebprocessextension.WebPage, request *webkitwebprocessextension.URIRequest, redirectedResponse *webkitwebprocessextension.URIResponse) bool {
-	// TODO: Implement webRequest API filtering here
-	// - Call extension's onBeforeRequest handlers
-	// - Check if request should be blocked
-	// - Return true to cancel request, false to allow (per WebKit WebPage::send-request docs)
+	// If no extensions are enabled there is nothing to consult; allow immediately.
+	if len(extensionInfo) == 0 {
+		return false
+	}
+
+	details := buildRequestDetails(page, request)
+	payload, err := json.Marshal(details)
+	if err != nil {
+		log.Printf("[webRequest] Failed to marshal request details: %v", err)
+		return false
+	}
+
+	variant := glib.NewVariantString(string(payload))
+	msg := webkitwebprocessextension.NewUserMessage("webRequest:onBeforeRequest", variant)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	resultCh := make(chan webRequestDecision, 1)
+
+	page.SendMessageToView(ctx, msg, func(res gio.AsyncResulter) {
+		defer close(resultCh)
+
+		reply, replyErr := page.SendMessageToViewFinish(res)
+		if replyErr != nil {
+			log.Printf("[webRequest] Failed to finish send-message: %v", replyErr)
+			// Fail open when the UI process does not handle the message.
+			resultCh <- webRequestDecision{}
+			return
+		}
+
+		params := reply.Parameters()
+		if params == nil {
+			resultCh <- webRequestDecision{}
+			return
+		}
+
+		replyStr, strErr := variantToString(params)
+		if strErr != nil {
+			log.Printf("[webRequest] Invalid reply variant: %v", strErr)
+			resultCh <- webRequestDecision{}
+			return
+		}
+
+		var decision webRequestDecision
+		if err := json.Unmarshal([]byte(replyStr), &decision); err != nil {
+			log.Printf("[webRequest] Failed to parse reply: %v", err)
+			resultCh <- webRequestDecision{}
+			return
+		}
+
+		resultCh <- decision
+	})
+
+	select {
+	case decision, ok := <-resultCh:
+		if !ok {
+			return false
+		}
+		if decision.RedirectURL != "" {
+			request.SetURI(decision.RedirectURL)
+		}
+
+		if len(decision.RequestHeaders) > 0 {
+			if headers := request.HTTPHeaders(); headers != nil {
+				for name, value := range decision.RequestHeaders {
+					headers.Replace(name, value)
+				}
+			}
+		}
+
+		return decision.Cancel
+	case <-ctx.Done():
+		log.Printf("[webRequest] webRequest handler timed out for %s", request.URI())
+	}
 
 	return false // allow request to proceed
+}
+
+// buildRequestDetails maps a WebKit URIRequest to our WebRequest API shape
+func buildRequestDetails(page *webkitwebprocessextension.WebPage, request *webkitwebprocessextension.URIRequest) api.RequestDetails {
+	headers := map[string]string{}
+	if httpHeaders := request.HTTPHeaders(); httpHeaders != nil {
+		httpHeaders.ForEach(func(name, value string) {
+			headers[name] = value
+		})
+	}
+
+	return api.RequestDetails{
+		RequestID:      fmt.Sprintf("%d-%d", page.ID(), time.Now().UnixNano()),
+		URL:            request.URI(),
+		Method:         request.HTTPMethod(),
+		FrameID:        int64(page.ID()),
+		ParentFrameID:  -1, // Not available from WebKit API
+		TabID:          int64(page.ID()),
+		Type:           api.ResourceTypeOther,
+		TimeStamp:      float64(time.Now().UnixMilli()),
+		Initiator:      page.URI(),
+		RequestHeaders: headers,
+	}
+}
+
+// webRequestDecision represents the UI process decision for a request
+type webRequestDecision struct {
+	Cancel         bool              `json:"cancel"`
+	RedirectURL    string            `json:"redirectUrl,omitempty"`
+	RequestHeaders map[string]string `json:"requestHeaders,omitempty"`
 }
 
 func onDocumentLoaded(page *webkitwebprocessextension.WebPage) {
@@ -256,18 +385,18 @@ func injectContentScriptsForTiming(page *webkitwebprocessextension.WebPage, timi
 }
 
 // matchesContentScript checks if a URL matches a content script's patterns
-func matchesContentScript(url string, cs ContentScript) bool {
+func matchesContentScript(url string, cs shared.ContentScript) bool {
 	// Check excludes first
-	if webext.ExcludesURL(url, cs.ExcludeMatch) {
+	if shared.ExcludesURL(url, cs.ExcludeMatch) {
 		return false
 	}
 
 	// Include matches
-	return webext.MatchURL(url, cs.Matches)
+	return shared.MatchURL(url, cs.Matches)
 }
 
 // injectScriptsIntoWorld injects content scripts into an isolated ScriptWorld
-func injectScriptsIntoWorld(page *webkitwebprocessextension.WebPage, world *webkitwebprocessextension.ScriptWorld, ext ExtensionInfo, cs ContentScript) {
+func injectScriptsIntoWorld(page *webkitwebprocessextension.WebPage, world *webkitwebprocessextension.ScriptWorld, ext shared.ExtensionInfo, cs shared.ContentScript) {
 	// Get main frame
 	frame := page.MainFrame()
 	if frame == nil {
@@ -374,6 +503,11 @@ func getMinimalShim() string {
 		}
 	};
 
+	// Firefox compatibility - provide 'browser' namespace as alias to chrome API
+	if (typeof browser === 'undefined') {
+		window.browser = window.chrome;
+	}
+
 	console.log('[webext] Chrome API shim loaded');
 })();
 `
@@ -396,6 +530,60 @@ func onUserMessage(message *webkitwebprocessextension.UserMessage) {
 		nil,
 	)
 	message.SendReply(reply)
+}
+
+// injectNativeAPIsForExtensionPage injects browser.* APIs into extension pages
+func injectNativeAPIsForExtensionPage(page *webkitwebprocessextension.WebPage, frame *webkitwebprocessextension.Frame, extensionID string) {
+	log.Printf("[native-api] injectNativeAPIsForExtensionPage called for %s", extensionID)
+
+	// Send debug message to UI process
+	debugMsg := fmt.Sprintf("[webext] WebProcess: Injecting APIs for extension %s at window-object-cleared", extensionID)
+	variant := glib.NewVariantString(debugMsg)
+	msg := webkitwebprocessextension.NewUserMessage("debug:log", variant)
+	page.SendMessageToView(context.Background(), msg, nil)
+
+	if frame == nil {
+		log.Printf("[native-api] No frame provided")
+		return
+	}
+
+	// Find extension metadata
+	var extInfo *shared.ExtensionInfo
+	for i := range extensionInfo {
+		if extensionInfo[i].ID == extensionID {
+			extInfo = &extensionInfo[i]
+			break
+		}
+	}
+
+	if extInfo == nil {
+		log.Printf("[native-api] No metadata found for extension %s", extensionID)
+		// Send error to UI process
+		errMsg := fmt.Sprintf("[webext] WebProcess ERROR: No metadata for extension %s", extensionID)
+		variant := glib.NewVariantString(errMsg)
+		msg := webkitwebprocessextension.NewUserMessage("debug:log", variant)
+		page.SendMessageToView(context.Background(), msg, nil)
+		return
+	}
+
+	log.Printf("[native-api] Found metadata for %s", extensionID)
+	debugMsg = fmt.Sprintf("[webext] WebProcess: Found metadata for %s", extensionID)
+	variant = glib.NewVariantString(debugMsg)
+	msg = webkitwebprocessextension.NewUserMessage("debug:log", variant)
+	page.SendMessageToView(context.Background(), msg, nil)
+
+	// Use manifest and translations from init data
+	extData := &extensionPageData{
+		extensionID:  extensionID,
+		manifest:     extInfo.ManifestJSON,
+		translations: extInfo.Translations,
+		uiLanguage:   extInfo.UILanguage,
+	}
+
+	log.Printf("[native-api] Calling installNativeBrowserAPIs...")
+	// Install native APIs
+	installNativeBrowserAPIs(page, frame, extData)
+	log.Printf("[native-api] installNativeBrowserAPIs completed")
 }
 
 func main() {

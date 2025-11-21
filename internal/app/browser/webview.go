@@ -190,6 +190,10 @@ func (app *BrowserApp) attachPaneHandlers(pane *BrowserPane) {
 		pane.messageHandler.Handle(payload)
 	})
 
+	pane.webView.RegisterWebExtMessageHandler(func(payload string) {
+		app.handleWebExtMessage(pane.webView, payload)
+	})
+
 	// Page load progress - drive tab-level progress bar
 	pane.webView.RegisterLoadStartedHandler(func() {
 		app.handleLoadProgress(pane.webView, 0.0, true)

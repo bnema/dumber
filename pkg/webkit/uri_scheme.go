@@ -19,6 +19,8 @@ type URISchemeHandler struct {
 var (
 	// pendingURISchemeHandlers stores handlers to be registered before WebView creation
 	pendingURISchemeHandlers []*URISchemeHandler
+	// pendingSecureSchemes stores schemes that should be marked as secure on the WebContext
+	pendingSecureSchemes = make(map[string]bool)
 )
 
 // RegisterURIScheme registers a custom URI scheme handler
@@ -30,6 +32,13 @@ func RegisterURIScheme(scheme string, callback URISchemeRequestCallback) {
 		scheme:   scheme,
 		callback: callback,
 	})
+}
+
+// RegisterSecureURIScheme marks a scheme to be registered as "secure" on the WebKit SecurityManager.
+// This aligns with Epiphany's treatment of extension schemes (e.g., ephy-webextension://).
+func RegisterSecureURIScheme(scheme string) {
+	log.Printf("[webkit] Marking URI scheme as secure: %s", scheme)
+	pendingSecureSchemes[scheme] = true
 }
 
 // ApplyURISchemeHandlers registers all pending URI schemes on the WebContext
@@ -54,6 +63,14 @@ func ApplyURISchemeHandlers(view *webkit.WebView) error {
 				callback(req)
 			}
 		})
+	}
+
+	// Mark secure schemes on the SecurityManager (if available)
+	if sm := ctx.SecurityManager(); sm != nil {
+		for scheme := range pendingSecureSchemes {
+			log.Printf("[webkit] Registering URI scheme as secure: %s", scheme)
+			sm.RegisterURISchemeAsSecure(scheme)
+		}
 	}
 
 	return nil

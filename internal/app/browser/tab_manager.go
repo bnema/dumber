@@ -26,8 +26,9 @@ type TabManager struct {
 	progressBar   gtk.Widgetter // Thin load progress indicator
 
 	// Border overlays (float over content without layout shift)
-	paneModeOverlay gtk.Widgetter // Border overlay for pane mode
-	tabModeOverlay  gtk.Widgetter // Border overlay for tab mode
+	paneModeOverlay   gtk.Widgetter             // Border overlay for pane mode
+	tabModeOverlay    gtk.Widgetter             // Border overlay for tab mode
+	extensionsOverlay *ExtensionsOverlayManager // Overlay for extension icons
 
 	// Modal state
 	tabModeActive bool
@@ -174,6 +175,18 @@ func (tm *TabManager) createRootContainer() error {
 	if tabModeOverlay != nil {
 		rootOverlay.AddOverlay(tabModeOverlay)
 		webkit.WidgetSetVisible(tabModeOverlay, false)
+	}
+
+	// Extensions overlay (top-right)
+	if cfg.Extensions.OverlayEnabled && tm.app != nil && tm.app.extensionManager != nil {
+		overlayMgr := NewExtensionsOverlayManager(tm.app, tm.app.extensionManager)
+		if overlayMgr != nil {
+			if err := overlayMgr.Initialize(rootOverlay); err != nil {
+				logging.Warn(fmt.Sprintf("[tabs] Failed to initialize extensions overlay: %v", err))
+			} else {
+				tm.extensionsOverlay = overlayMgr
+			}
+		}
 	}
 
 	// Store references
@@ -611,6 +624,21 @@ func (tm *TabManager) updateTabBarVisibility() {
 // GetConfig is a helper to get the current configuration.
 func (tm *TabManager) getConfig() *config.Config {
 	return config.Get()
+}
+
+// ToggleExtensionsOverlay toggles the extensions overlay panel visibility.
+func (tm *TabManager) ToggleExtensionsOverlay() {
+	tm.mu.RLock()
+	overlay := tm.extensionsOverlay
+	tm.mu.RUnlock()
+
+	if overlay == nil {
+		return
+	}
+
+	webkit.RunOnMainThread(func() {
+		overlay.Toggle()
+	})
 }
 
 // updateProgressForWebView updates progress state for the tab that owns the given WebView.
