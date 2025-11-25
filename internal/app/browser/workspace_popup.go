@@ -267,6 +267,9 @@ func (wm *WorkspaceManager) handleDetectedWindowType(sourceNode *paneNode, webVi
 			return
 		}
 
+		// Register extension message handler for WebProcess communication
+		wm.app.registerExtensionMessageHandler(independentView)
+
 		// The related webView was just for detection - we don't use it for tabs
 		// Insert the new independent view as a tab
 		if err := wm.insertIndependentPane(sourceNode, independentView, url); err != nil {
