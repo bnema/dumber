@@ -557,11 +557,9 @@ func (app *BrowserApp) setupExtensionManager() error {
 		return fmt.Errorf("failed to initialize WebProcess extensions: %w", err)
 	}
 
-	// Register message handler for extension communication
-	// This allows extensions in WebProcess to communicate with UI process
-	if err := webkit.RegisterWebExtensionMessageHandler(app.handleExtensionMessage); err != nil {
-		return fmt.Errorf("failed to register extension message handler: %w", err)
-	}
+	// NOTE: We do NOT register a WebContext-level message handler here.
+	// Per-WebView handlers are registered in registerExtensionMessageHandler() which
+	// provides the viewID for proper context. Using both would cause double message handling.
 
 	log.Printf("[webext] Extension manager initialized successfully")
 	return nil
@@ -684,11 +682,6 @@ func (app *BrowserApp) handleExtensionLog(message *webkit.UserMessage) bool {
 	}
 
 	return true
-}
-
-// handleExtensionMessage handles messages from WebProcess extensions (legacy without view context)
-func (app *BrowserApp) handleExtensionMessage(message *webkit.UserMessage) bool {
-	return app.handleExtensionMessageWithView(0, message)
 }
 
 func (app *BrowserApp) handleWebRequestOnBeforeRequest(message *webkit.UserMessage) bool {
