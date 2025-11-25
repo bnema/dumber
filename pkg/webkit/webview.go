@@ -37,6 +37,8 @@ type WebView struct {
 
 	// Event handlers
 	onScriptMessage       func(string)
+	onWebExtMessage       func(string)
+	onUserMessage         func(*UserMessage) bool // Handler for WebProcess extension messages
 	onTitleChanged        func(string)
 	onURIChanged          func(string)
 	onFaviconChanged      func([]byte)
@@ -77,6 +79,11 @@ func NewWebView(cfg *Config) (*WebView, error) {
 
 	if err := InitPersistentSession(cfg.DataDir, cfg.CacheDir); err != nil {
 		return nil, fmt.Errorf("failed to initialize persistent storage: %w", err)
+	}
+
+	// Setup download handler for browser downloads
+	if session := GetGlobalNetworkSession(); session != nil && cfg.SetupDownloadHandler != nil {
+		cfg.SetupDownloadHandler(session)
 	}
 
 	// Create WebView - it will automatically use the persistent session
@@ -213,10 +220,10 @@ func (w *WebView) applyConfig() error {
 	// Enable smooth scrolling for better UX
 	settings.SetEnableSmoothScrolling(w.config.EnableSmoothScrolling)
 
-	// Disable console messages to stdout to prevent page script flooding
-	// This stops malicious/buggy pages from spamming the terminal with console.log()
+	// Enable console messages to stdout based on config
+	// When enabled, allows debugging of JavaScript issues in extension pages
 	// Inspector/DevTools console (F12) will still show all messages
-	settings.SetEnableWriteConsoleMessagesToStdout(false)
+	settings.SetEnableWriteConsoleMessagesToStdout(w.config.CaptureConsole)
 
 	return nil
 }
@@ -324,7 +331,26 @@ func (w *WebView) setupEventHandlers() {
 				}
 			}
 		})
+
+		ucm.Connect("script-message-received::webext", func(sender interface{}, jscValue interface{}) {
+			if w.onWebExtMessage != nil && jscValue != nil {
+				valueStr := JSCValueToString(jscValue)
+				if valueStr != "" {
+					w.onWebExtMessage(valueStr)
+				}
+			}
+		})
 	}
+
+	// User message received - messages from WebProcess extension (page.SendMessageToView)
+	// This is different from script-message-received which is for window.webkit.messageHandlers
+	w.view.ConnectUserMessageReceived(func(message *UserMessage) bool {
+		if w.onUserMessage != nil {
+			return w.onUserMessage(message)
+		}
+		log.Printf("[webkit] No user message handler registered for WebView %d", w.id)
+		return false
+	})
 
 	// Setup navigation policy handler for middle-click and Ctrl+click interception
 	w.setupNavigationPolicyHandler()
@@ -422,6 +448,17 @@ func (w *WebView) applyTurnstileCorsAllowlist() {
 	log.Printf("[turnstile] Applied CORS allowlist for %s on WebView ID %d", turnstileHost, w.id)
 }
 
+// SetCorsAllowlist configures CORS allowlist patterns for this WebView.
+// Patterns follow WebKit's format, e.g., "https://example.com/*" or "dumb-extension://ext-id/*"
+// This is required for ES6 module loading from custom URI schemes.
+func (w *WebView) SetCorsAllowlist(patterns []string) {
+	if w.view == nil {
+		return
+	}
+	w.view.SetCorsAllowlist(patterns)
+	log.Printf("[webkit] Applied CORS allowlist on WebView ID %d: %v", w.id, patterns)
+}
+
 func (w *WebView) attachTurnstileResponseLogger() {
 	if w.view == nil {
 		return
@@ -512,6 +549,42 @@ func (w *WebView) LoadURL(url string) error {
 
 	w.view.LoadURI(url)
 	return nil
+}
+
+// LoadURI is an alias for LoadURL for compatibility
+func (w *WebView) LoadURI(url string) {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed || url == "" {
+		return
+	}
+
+	w.view.LoadURI(url)
+}
+
+// StopLoading stops the current page load
+func (w *WebView) StopLoading() {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return
+	}
+
+	w.view.StopLoading()
+}
+
+// ConnectResourceLoadStarted connects a handler for resource load started events
+func (w *WebView) ConnectResourceLoadStarted(handler func(resource *WebResource, request *URIRequest)) {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed || w.view == nil {
+		return
+	}
+
+	w.view.ConnectResourceLoadStarted(handler)
 }
 
 // GetCurrentURL returns the current URL
@@ -695,6 +768,13 @@ func (w *WebView) RegisterScriptMessageHandler(handler func(string)) {
 	w.onScriptMessage = handler
 }
 
+// RegisterWebExtMessageHandler registers a handler for extension bridge messages
+func (w *WebView) RegisterWebExtMessageHandler(handler func(string)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onWebExtMessage = handler
+}
+
 // RegisterTitleChangedHandler registers a handler for title changes
 func (w *WebView) RegisterTitleChangedHandler(handler func(string)) {
 	w.mu.Lock()
@@ -799,6 +879,14 @@ func (w *WebView) OnWindowTypeDetected(handler func(WindowType, *WindowFeatures)
 	w.onWindowTypeDetected = handler
 }
 
+// OnUserMessage registers a handler for WebProcess extension messages (page.SendMessageToView)
+// The handler receives UserMessage objects from the WebProcess and returns true if handled
+func (w *WebView) OnUserMessage(handler func(*UserMessage) bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onUserMessage = handler
+}
+
 // RegisterMiddleClickLinkHandler registers a handler for middle mouse button clicks on links
 // The handler receives the link URL and returns true if handled
 func (w *WebView) RegisterMiddleClickLinkHandler(handler func(url string) bool) {
@@ -882,6 +970,19 @@ func (w *WebView) InjectScript(script string) error {
 	// Execute JavaScript using our CGO wrapper
 	EvaluateJavascript(w.view, script)
 	return nil
+}
+
+// GetUserContentManager returns the UserContentManager for this WebView
+// This is used by WebExtensions to inject CSS and scripts
+func (w *WebView) GetUserContentManager() *webkit.UserContentManager {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	if w.destroyed {
+		return nil
+	}
+
+	return w.view.UserContentManager()
 }
 
 // DispatchCustomEvent dispatches a custom event via JavaScript
@@ -1135,9 +1236,18 @@ func (w *WebView) InitializeFromBare(cfg *Config) error {
 		return fmt.Errorf("WebView has no network session")
 	}
 
-	// Setup UserContentManager and inject GUI scripts
-	if err := SetupUserContentManager(w.view, cfg.AppearanceConfigJSON, w.id); err != nil {
-		return fmt.Errorf("failed to setup user content manager: %w", err)
+	// Only inject GUI scripts for regular browser WebViews (not extension WebViews)
+	// Extension WebViews have web-extension-mode set (ManifestV2=1, ManifestV3=2)
+	// and get their browser.* APIs injected by the WebProcess extension at DocumentLoaded
+	webExtMode := w.view.WebExtensionMode()
+	if webExtMode == 0 { // WEBKIT_WEB_EXTENSION_MODE_NONE - regular browser WebView
+		if err := SetupUserContentManager(w.view, cfg.AppearanceConfigJSON, w.id); err != nil {
+			return fmt.Errorf("failed to setup user content manager: %w", err)
+		}
+	} else {
+		// Extension WebView (popup, background, options page)
+		// Skip ALL UserContentManager injection - the WebProcess extension handles browser API injection
+		log.Printf("[webkit] Extension WebView detected (web-extension-mode=%v, ID=%d), skipping UserContentManager injection", webExtMode, w.id)
 	}
 
 	// Create container (GtkBox) to hold the WebView

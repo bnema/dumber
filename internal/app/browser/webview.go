@@ -51,11 +51,13 @@ func (app *BrowserApp) buildWebkitConfig() (*webkit.Config, error) {
 		MinimumFontSize:           8,
 		EnablePageCache:           true, // Instant back/forward navigation (bfcache)
 		EnableSmoothScrolling:     true, // Smooth scrolling animations
+		CaptureConsole:            app.config.Logging.CaptureConsole,
 		DataDir:                   webkitData,
 		CacheDir:                  webkitCache,
 		AppearanceConfigJSON:      app.buildAppearanceConfigJSON(),
 		CreateWindow:              true, // Default to creating a window for standalone WebViews
 		EnableTurnstileWorkaround: true,
+		SetupDownloadHandler:      SetupDownloadHandler, // Setup browser download handling
 	}
 
 	return cfg, nil
@@ -190,6 +192,15 @@ func (app *BrowserApp) attachPaneHandlers(pane *BrowserPane) {
 		pane.messageHandler.Handle(payload)
 	})
 
+	// Only register WebExt message handler for non-extension WebViews
+	// Extension WebViews use OnUserMessage handler (registered via registerExtensionMessageHandler)
+	// to avoid duplicate message delivery
+	if pane.webView.GetWebView().WebExtensionMode() == 0 {
+		pane.webView.RegisterWebExtMessageHandler(func(payload string) {
+			app.handleWebExtMessage(pane.webView, payload)
+		})
+	}
+
 	// Page load progress - drive tab-level progress bar
 	pane.webView.RegisterLoadStartedHandler(func() {
 		app.handleLoadProgress(pane.webView, 0.0, true)
@@ -258,6 +269,9 @@ func (app *BrowserApp) createWebView() error {
 	if err != nil {
 		return err
 	}
+
+	// Register extension message handler for WebProcess communication
+	app.registerExtensionMessageHandler(view)
 
 	pane, err := app.createPaneForView(view)
 	if err != nil {

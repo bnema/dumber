@@ -22,7 +22,7 @@ export default defineConfig({
       },
     },
     emptyOutDir: false,
-    target: ["es2020", "chrome91", "firefox90"],
+    target: "esnext",
     minify: true,
     sourcemap: false,
     cssCodeSplit: false, // Prevent CSS code splitting

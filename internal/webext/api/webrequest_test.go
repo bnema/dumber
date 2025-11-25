@@ -77,8 +77,8 @@ func TestHandleBeforeRequest_Cancel(t *testing.T) {
 			response *BlockingResponse
 			filter   *RequestFilter
 		}
-		details     RequestDetails
-		wantCancel  bool
+		details      RequestDetails
+		wantCancel   bool
 		wantRedirect string
 	}{
 		{
@@ -318,11 +318,11 @@ func TestHandleBeforeRequest_FilterMatching(t *testing.T) {
 
 func TestHandleBeforeSendHeaders(t *testing.T) {
 	tests := []struct {
-		name           string
-		response       *BlockingResponse
-		details        RequestDetails
-		wantCancel     bool
-		wantHeaders    bool
+		name        string
+		response    *BlockingResponse
+		details     RequestDetails
+		wantCancel  bool
+		wantHeaders bool
 	}{
 		{
 			name: "modify request headers",
@@ -394,7 +394,7 @@ func TestHandleHeadersReceived(t *testing.T) {
 			name: "modify response headers",
 			response: &BlockingResponse{
 				ResponseHeaders: map[string]string{
-					"X-Frame-Options": "DENY",
+					"X-Frame-Options":         "DENY",
 					"Content-Security-Policy": "default-src 'self'",
 				},
 			},
@@ -452,11 +452,11 @@ func TestHandleHeadersReceived(t *testing.T) {
 
 func TestHandleCompleted(t *testing.T) {
 	tests := []struct {
-		name           string
-		details        ResponseDetails
-		filter         *RequestFilter
-		wantCalled     bool
-		checkDetails   func(*testing.T, ResponseDetails)
+		name         string
+		details      ResponseDetails
+		filter       *RequestFilter
+		wantCalled   bool
+		checkDetails func(*testing.T, ResponseDetails)
 	}{
 		{
 			name: "listener_called_on_matching_request",
@@ -639,7 +639,7 @@ func TestMultipleExtensions(t *testing.T) {
 				id       string
 				response *BlockingResponse
 			}{
-				{id: "ext1", response: nil}, // Allows request
+				{id: "ext1", response: nil},                             // Allows request
 				{id: "ext2", response: &BlockingResponse{Cancel: true}}, // Blocks request
 			},
 			details: RequestDetails{

@@ -10,34 +10,34 @@ import (
 type ResourceType string
 
 const (
-	ResourceTypeMain        ResourceType = "main_frame"
-	ResourceTypeSub         ResourceType = "sub_frame"
-	ResourceTypeStylesheet  ResourceType = "stylesheet"
-	ResourceTypeScript      ResourceType = "script"
-	ResourceTypeImage       ResourceType = "image"
-	ResourceTypeFont        ResourceType = "font"
-	ResourceTypeObject      ResourceType = "object"
-	ResourceTypeXMLHTTP     ResourceType = "xmlhttprequest"
-	ResourceTypePing        ResourceType = "ping"
-	ResourceTypeCSP         ResourceType = "csp_report"
-	ResourceTypeMedia       ResourceType = "media"
-	ResourceTypeWebSocket   ResourceType = "websocket"
+	ResourceTypeMain         ResourceType = "main_frame"
+	ResourceTypeSub          ResourceType = "sub_frame"
+	ResourceTypeStylesheet   ResourceType = "stylesheet"
+	ResourceTypeScript       ResourceType = "script"
+	ResourceTypeImage        ResourceType = "image"
+	ResourceTypeFont         ResourceType = "font"
+	ResourceTypeObject       ResourceType = "object"
+	ResourceTypeXMLHTTP      ResourceType = "xmlhttprequest"
+	ResourceTypePing         ResourceType = "ping"
+	ResourceTypeCSP          ResourceType = "csp_report"
+	ResourceTypeMedia        ResourceType = "media"
+	ResourceTypeWebSocket    ResourceType = "websocket"
 	ResourceTypeWebTransport ResourceType = "webtransport"
-	ResourceTypeOther       ResourceType = "other"
+	ResourceTypeOther        ResourceType = "other"
 )
 
 // RequestDetails contains information about a web request
 type RequestDetails struct {
-	RequestID     string                 `json:"requestId"`
-	URL           string                 `json:"url"`
-	Method        string                 `json:"method"`
-	FrameID       int64                  `json:"frameId"`
-	ParentFrameID int64                  `json:"parentFrameId"`
-	TabID         int64                  `json:"tabId"`
-	Type          ResourceType           `json:"type"`
-	TimeStamp     float64                `json:"timeStamp"`
-	Initiator     string                 `json:"initiator,omitempty"`
-	RequestHeaders map[string]string     `json:"requestHeaders,omitempty"`
+	RequestID      string            `json:"requestId"`
+	URL            string            `json:"url"`
+	Method         string            `json:"method"`
+	FrameID        int64             `json:"frameId"`
+	ParentFrameID  int64             `json:"parentFrameId"`
+	TabID          int64             `json:"tabId"`
+	Type           ResourceType      `json:"type"`
+	TimeStamp      float64           `json:"timeStamp"`
+	Initiator      string            `json:"initiator,omitempty"`
+	RequestHeaders map[string]string `json:"requestHeaders,omitempty"`
 }
 
 // ResponseDetails contains information about a web response
@@ -57,10 +57,10 @@ type ResponseDetails struct {
 
 // BlockingResponse represents an extension's decision about a request
 type BlockingResponse struct {
-	Cancel           bool              `json:"cancel"`
-	RedirectURL      string            `json:"redirectUrl,omitempty"`
-	RequestHeaders   map[string]string `json:"requestHeaders,omitempty"`
-	ResponseHeaders  map[string]string `json:"responseHeaders,omitempty"`
+	Cancel          bool              `json:"cancel"`
+	RedirectURL     string            `json:"redirectUrl,omitempty"`
+	RequestHeaders  map[string]string `json:"requestHeaders,omitempty"`
+	ResponseHeaders map[string]string `json:"responseHeaders,omitempty"`
 }
 
 // OnBeforeRequestListener is called before a request is made
@@ -71,6 +71,9 @@ type OnBeforeSendHeadersListener func(details RequestDetails) *BlockingResponse
 
 // OnHeadersReceivedListener is called when response headers are received
 type OnHeadersReceivedListener func(details ResponseDetails) *BlockingResponse
+
+// OnResponseStartedListener is called when a response starts (non-blocking)
+type OnResponseStartedListener func(details ResponseDetails)
 
 // OnCompletedListener is called when a request completes successfully
 type OnCompletedListener func(details ResponseDetails)
@@ -83,11 +86,12 @@ type WebRequestAPI struct {
 	mu sync.RWMutex
 
 	// Listener registries per extension
-	onBeforeRequestListeners      map[string][]OnBeforeRequestListener
-	onBeforeSendHeadersListeners  map[string][]OnBeforeSendHeadersListener
-	onHeadersReceivedListeners    map[string][]OnHeadersReceivedListener
-	onCompletedListeners          map[string][]OnCompletedListener
-	onErrorOccurredListeners      map[string][]OnErrorOccurredListener
+	onBeforeRequestListeners     map[string][]OnBeforeRequestListener
+	onBeforeSendHeadersListeners map[string][]OnBeforeSendHeadersListener
+	onHeadersReceivedListeners   map[string][]OnHeadersReceivedListener
+	onResponseStartedListeners   map[string][]OnResponseStartedListener
+	onCompletedListeners         map[string][]OnCompletedListener
+	onErrorOccurredListeners     map[string][]OnErrorOccurredListener
 
 	// Filter configurations per extension
 	filters map[string]*RequestFilter
@@ -95,22 +99,58 @@ type WebRequestAPI struct {
 
 // RequestFilter specifies which requests to monitor
 type RequestFilter struct {
-	URLs      []string       `json:"urls"`
-	Types     []ResourceType `json:"types,omitempty"`
-	TabID     int64          `json:"tabId,omitempty"`
-	WindowID  int64          `json:"windowId,omitempty"`
+	URLs     []string       `json:"urls"`
+	Types    []ResourceType `json:"types,omitempty"`
+	TabID    int64          `json:"tabId,omitempty"`
+	WindowID int64          `json:"windowId,omitempty"`
 }
 
 // NewWebRequestAPI creates a new WebRequest API instance
 func NewWebRequestAPI() *WebRequestAPI {
 	return &WebRequestAPI{
-		onBeforeRequestListeners:      make(map[string][]OnBeforeRequestListener),
-		onBeforeSendHeadersListeners:  make(map[string][]OnBeforeSendHeadersListener),
-		onHeadersReceivedListeners:    make(map[string][]OnHeadersReceivedListener),
-		onCompletedListeners:          make(map[string][]OnCompletedListener),
-		onErrorOccurredListeners:      make(map[string][]OnErrorOccurredListener),
-		filters:                       make(map[string]*RequestFilter),
+		onBeforeRequestListeners:     make(map[string][]OnBeforeRequestListener),
+		onBeforeSendHeadersListeners: make(map[string][]OnBeforeSendHeadersListener),
+		onHeadersReceivedListeners:   make(map[string][]OnHeadersReceivedListener),
+		onResponseStartedListeners:   make(map[string][]OnResponseStartedListener),
+		onCompletedListeners:         make(map[string][]OnCompletedListener),
+		onErrorOccurredListeners:     make(map[string][]OnErrorOccurredListener),
+		filters:                      make(map[string]*RequestFilter),
 	}
+}
+
+// HasBeforeRequestListeners reports whether any onBeforeRequest listeners are registered.
+func (w *WebRequestAPI) HasBeforeRequestListeners() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	if len(w.onBeforeRequestListeners) > 0 {
+		return true
+	}
+	return len(w.filters) > 0
+}
+
+// HasListeners reports whether any webRequest hook is registered.
+func (w *WebRequestAPI) HasListeners() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	return len(w.onBeforeRequestListeners) > 0 ||
+		len(w.onBeforeSendHeadersListeners) > 0 ||
+		len(w.onHeadersReceivedListeners) > 0 ||
+		len(w.onResponseStartedListeners) > 0 ||
+		len(w.onCompletedListeners) > 0 ||
+		len(w.onErrorOccurredListeners) > 0 ||
+		len(w.filters) > 0
+}
+
+// ExtensionsWithBeforeRequestListeners returns extension IDs that registered onBeforeRequest listeners.
+func (w *WebRequestAPI) ExtensionsWithBeforeRequestListeners() []string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	ids := make([]string, 0, len(w.onBeforeRequestListeners))
+	for extID := range w.onBeforeRequestListeners {
+		ids = append(ids, extID)
+	}
+	return ids
 }
 
 // OnBeforeRequest registers a listener for before request events
@@ -122,7 +162,9 @@ func (w *WebRequestAPI) OnBeforeRequest(extensionID string, listener OnBeforeReq
 		return fmt.Errorf("filter is required")
 	}
 
-	w.onBeforeRequestListeners[extensionID] = append(w.onBeforeRequestListeners[extensionID], listener)
+	if listener != nil {
+		w.onBeforeRequestListeners[extensionID] = append(w.onBeforeRequestListeners[extensionID], listener)
+	}
 	w.filters[extensionID] = filter
 
 	log.Printf("[webRequest] Extension %s registered onBeforeRequest listener", extensionID)
@@ -154,10 +196,30 @@ func (w *WebRequestAPI) OnHeadersReceived(extensionID string, listener OnHeaders
 		return fmt.Errorf("filter is required")
 	}
 
-	w.onHeadersReceivedListeners[extensionID] = append(w.onHeadersReceivedListeners[extensionID], listener)
+	if listener != nil {
+		w.onHeadersReceivedListeners[extensionID] = append(w.onHeadersReceivedListeners[extensionID], listener)
+	}
 	w.filters[extensionID] = filter
 
 	log.Printf("[webRequest] Extension %s registered onHeadersReceived listener", extensionID)
+	return nil
+}
+
+// OnResponseStarted registers a listener for response started events
+func (w *WebRequestAPI) OnResponseStarted(extensionID string, listener OnResponseStartedListener, filter *RequestFilter) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if filter == nil {
+		return fmt.Errorf("filter is required")
+	}
+
+	if listener != nil {
+		w.onResponseStartedListeners[extensionID] = append(w.onResponseStartedListeners[extensionID], listener)
+	}
+	w.filters[extensionID] = filter
+
+	log.Printf("[webRequest] Extension %s registered onResponseStarted listener", extensionID)
 	return nil
 }
 
@@ -232,6 +294,42 @@ func (w *WebRequestAPI) HandleBeforeRequest(details RequestDetails) *BlockingRes
 	}
 
 	return finalResponse
+}
+
+// GetMatchingExtensions returns extension IDs whose filters match the given request.
+func (w *WebRequestAPI) GetMatchingExtensions(details RequestDetails) []string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	var matching []string
+	for extID, filter := range w.filters {
+		if filter == nil {
+			continue
+		}
+		if w.matchesFilter(details.URL, details.Type, details.TabID, filter) {
+			matching = append(matching, extID)
+		}
+	}
+
+	return matching
+}
+
+// GetMatchingExtensionsForResponse returns extension IDs whose filters match the given response.
+func (w *WebRequestAPI) GetMatchingExtensionsForResponse(details ResponseDetails) []string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	var matching []string
+	for extID, filter := range w.filters {
+		if filter == nil {
+			continue
+		}
+		if w.matchesFilter(details.URL, details.Type, details.TabID, filter) {
+			matching = append(matching, extID)
+		}
+	}
+
+	return matching
 }
 
 // HandleBeforeSendHeaders processes request headers through all registered listeners
@@ -390,9 +488,28 @@ func (w *WebRequestAPI) RemoveListener(extensionID string) {
 	delete(w.onBeforeRequestListeners, extensionID)
 	delete(w.onBeforeSendHeadersListeners, extensionID)
 	delete(w.onHeadersReceivedListeners, extensionID)
+	delete(w.onResponseStartedListeners, extensionID)
 	delete(w.onCompletedListeners, extensionID)
 	delete(w.onErrorOccurredListeners, extensionID)
 	delete(w.filters, extensionID)
 
 	log.Printf("[webRequest] Removed all listeners for extension %s", extensionID)
+}
+
+// RemoveHeadersReceivedListener removes onHeadersReceived listeners for an extension
+func (w *WebRequestAPI) RemoveHeadersReceivedListener(extensionID string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	delete(w.onHeadersReceivedListeners, extensionID)
+	log.Printf("[webRequest] Removed onHeadersReceived listener for extension %s", extensionID)
+}
+
+// RemoveResponseStartedListener removes onResponseStarted listeners for an extension
+func (w *WebRequestAPI) RemoveResponseStartedListener(extensionID string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	delete(w.onResponseStartedListeners, extensionID)
+	log.Printf("[webRequest] Removed onResponseStarted listener for extension %s", extensionID)
 }

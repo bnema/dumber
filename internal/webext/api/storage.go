@@ -334,3 +334,6 @@ func (s *StorageArea) notifyListeners(changes map[string]StorageChange, areaName
 		go listener(changes, areaName)
 	}
 }
+
+// --- Dispatcher-compatible API (works across all extensions) ---
+// StorageAPIDispatcher removed - Dispatcher now uses Manager's storage API directly

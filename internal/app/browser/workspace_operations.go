@@ -6,7 +6,17 @@ import (
 	"log"
 
 	"github.com/bnema/dumber/pkg/webkit"
+	"github.com/diamondburned/gotk4/pkg/gdk/v4"
+	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
+
+// SplitOptions configures how a pane split should be performed
+type SplitOptions struct {
+	Direction    string       // Required: left, right, up, down
+	ExistingPane *BrowserPane // Optional: use existing pane instead of creating new
+	MaxWidth     int          // Optional: constrain new pane width (0 = no limit)
+	MaxHeight    int          // Optional: constrain new pane height (0 = no limit)
+}
 
 // SplitPane performs a split operation with validation and safety checks
 func (wm *WorkspaceManager) SplitPane(target *paneNode, direction string) (*paneNode, error) {
@@ -98,6 +108,198 @@ func (wm *WorkspaceManager) SplitPane(target *paneNode, direction string) (*pane
 
 	log.Printf("[workspace] Split operation completed successfully: newNode=%p", newNode)
 	return newNode, nil
+}
+
+// SplitPaneWithPane performs a split using a pre-created pane (e.g., extension popup) while
+// preserving the normal validation and bookkeeping logic.
+func (wm *WorkspaceManager) SplitPaneWithPane(target *paneNode, direction string, existingPane *BrowserPane) (*paneNode, error) {
+	if wm == nil {
+		return nil, fmt.Errorf("workspace manager is nil")
+	}
+	if existingPane == nil {
+		return nil, fmt.Errorf("existing pane is nil")
+	}
+
+	// Validate direction parameter
+	validDirections := map[string]bool{
+		DirectionLeft:  true,
+		DirectionRight: true,
+		DirectionUp:    true,
+		DirectionDown:  true,
+	}
+	if !validDirections[direction] {
+		return nil, fmt.Errorf("invalid split direction '%s', expected one of: left, right, up, down", direction)
+	}
+
+	log.Printf("[workspace] Starting split with existing pane: target=%p direction=%s pane=%p", target, direction, existingPane)
+
+	if webkit.IsMainThread() {
+		newNode, err := wm.splitNode(target, direction, existingPane)
+		if err != nil {
+			return nil, err
+		}
+		if wm.debugLevel >= DebugBasic {
+			if err := wm.treeValidator.ValidateTree(wm.root, "after_split_existing"); err != nil {
+				log.Printf("[workspace] Tree validation failed after split with existing pane: %v", err)
+			}
+		}
+		return newNode, nil
+	}
+
+	var newNode *paneNode
+	var splitErr error
+	done := make(chan struct{})
+	_ = webkit.IdleAdd(func() bool {
+		newNode, splitErr = wm.splitNode(target, direction, existingPane)
+		if splitErr == nil && wm.debugLevel >= DebugBasic {
+			if err := wm.treeValidator.ValidateTree(wm.root, "after_split_existing"); err != nil {
+				log.Printf("[workspace] Tree validation failed after split with existing pane: %v", err)
+			}
+		}
+		close(done)
+		return false
+	})
+	<-done
+	return newNode, splitErr
+}
+
+// SplitPaneWithOptions performs a split with configurable options including max-width constraints.
+// Useful for extension popups that need a fixed-width pane.
+func (wm *WorkspaceManager) SplitPaneWithOptions(target *paneNode, opts SplitOptions) (*paneNode, error) {
+	if wm == nil {
+		return nil, fmt.Errorf("workspace manager is nil")
+	}
+
+	// Validate direction
+	validDirections := map[string]bool{
+		DirectionLeft:  true,
+		DirectionRight: true,
+		DirectionUp:    true,
+		DirectionDown:  true,
+	}
+	if !validDirections[opts.Direction] {
+		return nil, fmt.Errorf("invalid split direction '%s'", opts.Direction)
+	}
+
+	log.Printf("[workspace] SplitPaneWithOptions: direction=%s maxWidth=%d maxHeight=%d existingPane=%v",
+		opts.Direction, opts.MaxWidth, opts.MaxHeight, opts.ExistingPane != nil)
+
+	// Perform the split (reuse existing logic)
+	var newNode *paneNode
+	var err error
+
+	if opts.ExistingPane != nil {
+		newNode, err = wm.SplitPaneWithPane(target, opts.Direction, opts.ExistingPane)
+	} else {
+		newNode, err = wm.SplitPane(target, opts.Direction)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply size constraints if specified
+	if newNode != nil && (opts.MaxWidth > 0 || opts.MaxHeight > 0) {
+		wm.applySizeConstraints(newNode, opts)
+	}
+
+	return newNode, nil
+}
+
+// applySizeConstraints sets max-width/height on a pane by adjusting the paned divider position
+func (wm *WorkspaceManager) applySizeConstraints(node *paneNode, opts SplitOptions) {
+	if node == nil || node.parent == nil {
+		return
+	}
+
+	// Get the paned widget from the parent node
+	paned, ok := node.parent.container.(*gtk.Paned)
+	if !ok || paned == nil {
+		log.Printf("[workspace] Cannot apply size constraints: parent is not a Paned")
+		return
+	}
+
+	// Determine if this node is the start or end child
+	isEndChild := node.parent.right == node
+
+	// Set up position calculation based on direction and max-width/height
+	if opts.MaxWidth > 0 {
+		// For horizontal splits (left/right), we need to set the divider position
+		// The position is the distance from the left edge to the divider
+		wm.setPanedPositionFixed(paned, opts.MaxWidth, isEndChild, gtk.OrientationHorizontal)
+	}
+	if opts.MaxHeight > 0 {
+		wm.setPanedPositionFixed(paned, opts.MaxHeight, isEndChild, gtk.OrientationVertical)
+	}
+}
+
+// setPanedPositionFixed sets the paned divider to give a fixed size to one child
+func (wm *WorkspaceManager) setPanedPositionFixed(paned *gtk.Paned, fixedSize int, isEndChild bool, orientation gtk.Orientation) {
+	if paned == nil {
+		return
+	}
+
+	const (
+		minDimension = 32
+		maxFrames    = 120
+	)
+
+	setPosition := func() bool {
+		alloc := paned.Allocation()
+		dimension := alloc.Width()
+		if orientation == gtk.OrientationVertical {
+			dimension = alloc.Height()
+		}
+
+		if dimension < minDimension {
+			return false
+		}
+
+		var pos int
+		if isEndChild {
+			// New pane is on the right/bottom - position = total - fixedSize
+			pos = dimension - fixedSize
+		} else {
+			// New pane is on the left/top - position = fixedSize
+			pos = fixedSize
+		}
+
+		if pos <= 0 || pos >= dimension {
+			pos = dimension / 2 // Fallback to 50% if calculation doesn't work
+		}
+
+		paned.SetPosition(pos)
+
+		// Prevent the fixed-size pane from shrinking
+		if isEndChild {
+			paned.SetShrinkEndChild(false)
+		} else {
+			paned.SetShrinkStartChild(false)
+		}
+
+		log.Printf("[workspace] Set paned position for fixed size %d: pos=%d isEndChild=%v (dimension=%d)",
+			fixedSize, pos, isEndChild, dimension)
+		return true
+	}
+
+	// Try immediately
+	if setPosition() {
+		return
+	}
+
+	// Retry on tick callbacks until allocation is available
+	var frames uint
+	paned.AddTickCallback(func(widget gtk.Widgetter, _ gdk.FrameClocker) bool {
+		frames++
+		if setPosition() {
+			return false // Stop callback
+		}
+		if frames >= maxFrames {
+			log.Printf("[workspace] Unable to set fixed paned position after %d frames", frames)
+			return false
+		}
+		return true // Continue
+	})
 }
 
 // ClosePane performs a close operation with validation and safety checks

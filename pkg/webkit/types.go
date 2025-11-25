@@ -1,5 +1,16 @@
 package webkit
 
+import (
+	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
+)
+
+// Re-export gotk4-webkitgtk types for use by other packages
+type (
+	WebResource = webkit.WebResource
+	URIRequest  = webkit.URIRequest
+	URIResponse = webkit.URIResponse
+)
+
 // WindowType indicates how a new WebView should be treated
 type WindowType int
 
@@ -52,6 +63,10 @@ type Config struct {
 	// EnableSmoothScrolling enables smooth scrolling animations
 	EnableSmoothScrolling bool
 
+	// CaptureConsole enables JavaScript console message output to stdout
+	// When enabled, console.log/error/warn messages are printed to stdout
+	CaptureConsole bool
+
 	// DataDir is the directory for persistent data (cookies, localStorage, etc.)
 	DataDir string
 
@@ -70,6 +85,11 @@ type Config struct {
 	// Cloudflare Turnstile host to work around WebKit's credentialless COEP gap.
 	// Remove once upstream WebKit properly supports COEP: credentialless.
 	EnableTurnstileWorkaround bool
+
+	// SetupDownloadHandler is an optional callback to setup download handling.
+	// Called once when the NetworkSession is initialized.
+	// Example: func(session *webkit.NetworkSession) { browser.SetupDownloadHandler(session) }
+	SetupDownloadHandler func(*webkit.NetworkSession)
 }
 
 // GetDefaultConfig returns a Config with sensible defaults

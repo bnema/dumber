@@ -1,11 +1,20 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
+	"time"
 )
+
+type runtimeManager interface {
+	DispatchRuntimeMessage(extID string, sender MessageSender, message interface{}) (interface{}, error)
+	ConnectBackgroundPort(extID string, desc PortDescriptor) error
+	DeliverPortMessage(extID, portID string, message interface{}) error
+	DisconnectPort(extID, portID string)
+}
 
 // RuntimeAPI implements chrome.runtime WebExtension API
 type RuntimeAPI struct {
@@ -20,20 +29,22 @@ type OnMessageListener func(message interface{}, sender MessageSender, sendRespo
 
 // MessageSender represents the sender of a message
 type MessageSender struct {
-	Tab         *Tab   `json:"tab,omitempty"`
-	FrameID     int    `json:"frameId,omitempty"`
-	ID          string `json:"id,omitempty"`          // Extension ID
-	URL         string `json:"url,omitempty"`         // URL of the frame
+	Tab          *Tab   `json:"tab,omitempty"`
+	FrameID      int    `json:"frameId,omitempty"`
+	ID           string `json:"id,omitempty"`  // Extension ID
+	URL          string `json:"url,omitempty"` // URL of the frame
 	TLSChannelID string `json:"tlsChannelId,omitempty"`
 }
 
-// Tab represents a browser tab
+// Tab represents a browser tab (used by both runtime and tabs APIs)
 type Tab struct {
-	ID     int    `json:"id"`
-	Index  int    `json:"index"`
-	URL    string `json:"url"`
-	Title  string `json:"title"`
-	Active bool   `json:"active"`
+	ID       int    `json:"id"`
+	Index    int    `json:"index"`
+	WindowID int    `json:"windowId,omitempty"`
+	URL      string `json:"url"`
+	Title    string `json:"title"`
+	Active   bool   `json:"active"`
+	Favicon  string `json:"favIconUrl,omitempty"`
 }
 
 // NewRuntimeAPI creates a new RuntimeAPI instance for an extension
@@ -100,10 +111,9 @@ func (r *RuntimeAPI) GetURL(path string) string {
 	return fmt.Sprintf("dumb-extension://%s/%s", r.extensionID, path)
 }
 
-// GetBackgroundPage returns the JavaScript window object for the background page
-// This is complex and will be implemented later with goja integration
+// GetBackgroundPage returns the JavaScript window object for the background page.
+// Backgrounds now run inside WebViews, so there is no embeddable VM to return here.
 func (r *RuntimeAPI) GetBackgroundPage(callback func(window interface{})) {
-	// TODO: Return goja VM context for background page
 	if callback != nil {
 		callback(nil)
 	}
@@ -131,9 +141,299 @@ type ConnectInfo struct {
 
 // Port represents a long-lived connection for message passing
 type Port struct {
-	Name       string
-	OnMessage  func(message interface{})
+	Name         string
+	OnMessage    func(message interface{})
 	OnDisconnect func()
-	PostMessage func(message interface{})
-	Disconnect func()
+	PostMessage  func(message interface{})
+	Disconnect   func()
+}
+
+// PortConnection tracks a port connection between two extension contexts
+type PortConnection struct {
+	PortID      string        // Unique port identifier
+	Name        string        // Port name from connectInfo
+	ExtensionID string        // Extension that owns this port
+	SourceView  uint64        // WebView ID that created the port (popup/content script)
+	TargetView  uint64        // WebView ID that should receive messages (usually background)
+	Sender      MessageSender // Information about the source
+	Created     time.Time     // When the port was created
+}
+
+// --- Dispatcher-compatible API (works across all extensions) ---
+
+// RuntimeAPIDispatcher provides runtime API methods for the dispatcher
+// This works with any extension ID passed as a parameter
+type RuntimeAPIDispatcher struct {
+	manager interface{} // Extension manager (to get extension metadata)
+	mu      sync.RWMutex
+	ports   map[string]*PortConnection // portID -> connection info
+
+	emitPortEvent func(viewID uint64, event map[string]interface{}) error
+}
+
+// NewRuntimeAPIDispatcher creates a runtime API for the dispatcher
+func NewRuntimeAPIDispatcher(manager interface{}) *RuntimeAPIDispatcher {
+	return &RuntimeAPIDispatcher{
+		manager: manager,
+		ports:   make(map[string]*PortConnection),
+	}
+}
+
+// SetPortEventEmitter sets the callback used to deliver port events back to a WebView.
+func (r *RuntimeAPIDispatcher) SetPortEventEmitter(fn func(viewID uint64, event map[string]interface{}) error) {
+	r.emitPortEvent = fn
+}
+
+// SendMessage sends a message to other parts of the extension
+// For now, this is a stub that will be enhanced when we implement message routing
+func (r *RuntimeAPIDispatcher) SendMessage(ctx context.Context, extID string, message interface{}) (interface{}, error) {
+	log.Printf("[runtime] SendMessage from extension %s: %+v", extID, message)
+
+	mgr, ok := r.manager.(runtimeManager)
+	if !ok {
+		return nil, fmt.Errorf("runtime manager does not support messaging")
+	}
+
+	sender := MessageSender{ID: extID}
+	if srcURL, ok := ctx.Value("sourceURL").(string); ok {
+		sender.URL = srcURL
+	}
+
+	return mgr.DispatchRuntimeMessage(extID, sender, message)
+}
+
+// Connect sets up a port connection between extension contexts
+func (r *RuntimeAPIDispatcher) Connect(ctx context.Context, extID string, connectInfo *ConnectInfo) (interface{}, error) {
+	mgr, ok := r.manager.(runtimeManager)
+	if !ok {
+		return nil, fmt.Errorf("runtime manager does not support ports")
+	}
+
+	portID := fmt.Sprintf("port-%d", time.Now().UnixNano())
+
+	name := ""
+	if connectInfo != nil {
+		name = connectInfo.Name
+	}
+
+	sourceViewID, _ := ctx.Value("sourceViewID").(uint64)
+
+	sender := MessageSender{
+		ID:      extID,
+		FrameID: 0, // Main frame by default
+	}
+
+	if paneInfo, ok := ctx.Value("sourcePaneInfo").(*PaneInfo); ok && paneInfo != nil {
+		sender.URL = paneInfo.URL
+		sender.Tab = &Tab{
+			ID:       int(paneInfo.ID),
+			Index:    paneInfo.Index,
+			WindowID: int(paneInfo.WindowID),
+			URL:      paneInfo.URL,
+			Title:    paneInfo.Title,
+			Active:   paneInfo.Active,
+		}
+	}
+
+	cb := PortCallbacks{
+		OnMessage: func(msg interface{}) {
+			if r.emitPortEvent == nil {
+				return
+			}
+			event := map[string]interface{}{
+				"type":    "port-message",
+				"portId":  portID,
+				"message": msg,
+			}
+			if err := r.emitPortEvent(sourceViewID, event); err != nil {
+				log.Printf("[runtime] emitPortEvent failed: %v", err)
+			}
+		},
+		OnDisconnect: func() {
+			if r.emitPortEvent == nil {
+				return
+			}
+			event := map[string]interface{}{
+				"type":   "port-disconnect",
+				"portId": portID,
+			}
+			if err := r.emitPortEvent(sourceViewID, event); err != nil {
+				log.Printf("[runtime] emitPortEvent(disconnect) failed: %v", err)
+			}
+		},
+	}
+
+	desc := PortDescriptor{
+		ID:        portID,
+		Name:      name,
+		Sender:    sender,
+		Callbacks: cb,
+	}
+
+	r.mu.Lock()
+	if r.ports == nil {
+		r.ports = make(map[string]*PortConnection)
+	}
+	r.ports[portID] = &PortConnection{
+		PortID:      portID,
+		Name:        name,
+		ExtensionID: extID,
+		SourceView:  sourceViewID,
+		Sender:      sender,
+		Created:     time.Now(),
+	}
+	r.mu.Unlock()
+
+	if err := mgr.ConnectBackgroundPort(extID, desc); err != nil {
+		return nil, fmt.Errorf("connect failed: %w", err)
+	}
+
+	return map[string]string{"portId": portID}, nil
+}
+
+// PortPostMessage forwards a message from one port endpoint to another
+func (r *RuntimeAPIDispatcher) PortPostMessage(ctx context.Context, extID, portID string, message interface{}) (interface{}, error) {
+	r.mu.RLock()
+	conn, exists := r.ports[portID]
+	r.mu.RUnlock()
+
+	if !exists || conn.ExtensionID != extID {
+		return nil, fmt.Errorf("port not found")
+	}
+
+	mgr, ok := r.manager.(runtimeManager)
+	if !ok {
+		return nil, fmt.Errorf("runtime manager does not support ports")
+	}
+
+	if err := mgr.DeliverPortMessage(extID, portID, message); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+// PortDisconnect removes the port connection and notifies both endpoints
+func (r *RuntimeAPIDispatcher) PortDisconnect(ctx context.Context, extID, portID string) (interface{}, error) {
+	r.mu.Lock()
+	conn, exists := r.ports[portID]
+	delete(r.ports, portID)
+	r.mu.Unlock()
+
+	if !exists || conn.ExtensionID != extID {
+		return nil, fmt.Errorf("port not found")
+	}
+
+	if mgr, ok := r.manager.(runtimeManager); ok {
+		mgr.DisconnectPort(extID, portID)
+	}
+
+	return nil, nil
+}
+
+// GetPortConnection returns the connection info for a port.
+func (r *RuntimeAPIDispatcher) GetPortConnection(portID string) (*PortConnection, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	conn, exists := r.ports[portID]
+	return conn, exists
+}
+
+// GetPortsByView returns all ports associated with a WebView (for cleanup on destruction)
+func (r *RuntimeAPIDispatcher) GetPortsByView(viewID uint64) []*PortConnection {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var ports []*PortConnection
+	for _, conn := range r.ports {
+		if conn.SourceView == viewID || conn.TargetView == viewID {
+			ports = append(ports, conn)
+		}
+	}
+	return ports
+}
+
+// RemovePort removes a port from the registry (for cleanup)
+func (r *RuntimeAPIDispatcher) RemovePort(portID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.ports, portID)
+}
+
+// PlatformInfo represents platform information
+type PlatformInfo struct {
+	OS       string `json:"os"`
+	Arch     string `json:"arch"`
+	NaclArch string `json:"nacl_arch"`
+}
+
+// GetPlatformInfo returns information about the current platform
+// API: browser.runtime.getPlatformInfo()
+func (r *RuntimeAPIDispatcher) GetPlatformInfo(ctx context.Context) (*PlatformInfo, error) {
+	return &PlatformInfo{
+		OS:       getPlatformOS(),
+		Arch:     getPlatformArch(),
+		NaclArch: getPlatformArch(), // Same as arch for compatibility
+	}, nil
+}
+
+// getPlatformOS returns the operating system name
+func getPlatformOS() string {
+	// For now, we only support Linux (like Epiphany)
+	// Future: could detect via runtime.GOOS
+	return "linux"
+}
+
+// getPlatformArch returns the CPU architecture
+func getPlatformArch() string {
+	// Detect architecture at compile time
+	// https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/runtime/PlatformArch
+	return getPlatformArchConst()
+}
+
+// OpenOptionsPage opens the extension's options page
+// API: browser.runtime.openOptionsPage()
+func (r *RuntimeAPIDispatcher) OpenOptionsPage(ctx context.Context, extID string) error {
+	// Get extension to check for options page
+	type extensionGetter interface {
+		GetExtension(id string) (*extensionWithManifest, bool)
+	}
+
+	getter, ok := r.manager.(extensionGetter)
+	if !ok {
+		return fmt.Errorf("manager does not support GetExtension")
+	}
+
+	ext, exists := getter.GetExtension(extID)
+	if !exists {
+		return fmt.Errorf("extension not found: %s", extID)
+	}
+
+	// Check if extension has an options page
+	if ext.Manifest.Options == nil || ext.Manifest.Options.Page == "" {
+		return fmt.Errorf("extension does not have an options page")
+	}
+
+	// TODO: Open options page in a new window/tab
+	// For now, log and return success
+	log.Printf("[runtime] openOptionsPage: would open %s for extension %s", ext.Manifest.Options.Page, extID)
+
+	// This will need integration with the browser to actually open the page
+	// The page should be loaded as: dumb-extension://<extID>/<optionsPage>
+	return nil
+}
+
+// extensionWithManifest is an interface to avoid circular imports
+type extensionWithManifest struct {
+	ID       string
+	Manifest *manifestWithOptions
+}
+
+type manifestWithOptions struct {
+	Name    string
+	Options *optionsPage
+}
+
+type optionsPage struct {
+	Page      string
+	OpenInTab bool
 }

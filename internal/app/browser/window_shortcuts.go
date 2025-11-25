@@ -3,6 +3,7 @@ package browser
 import (
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -58,6 +59,11 @@ func (h *WindowShortcutHandler) initialize() error {
 }
 
 func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
+	extShortcut := "ctrl+shift+e"
+	if h.app != nil && h.app.config != nil && h.app.config.Extensions.Shortcut != "" {
+		extShortcut = strings.ToLower(h.app.config.Extensions.Shortcut)
+	}
+
 	shortcuts := []struct {
 		key     string
 		handler func()
@@ -68,6 +74,7 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 		{"ctrl+shift+c", h.handleCopyURL, "Copy URL"},
 		{"ctrl+shift+p", h.handlePrint, "Print page"},
 		{"F12", h.handleDevTools, "Developer tools"},
+		{extShortcut, h.handleExtensionsToggle, "Toggle extensions overlay"},
 		// Pane management: Ctrl+P handled by WebView keyboard bridge (not window shortcuts)
 		// Tab management
 		{"ctrl+t", h.handleTabMode, "Enter tab mode"},
@@ -140,6 +147,7 @@ func (h *WindowShortcutHandler) registerKeycodeShortcuts() error {
 		gdkKeyL      = 0x006c
 		gdkKeyH      = 0x0068
 		gdkKeyR      = 0x0072
+		gdkKeyE      = 0x0065
 	)
 
 	// Map hardware keycodes to tab indices
@@ -174,6 +182,15 @@ func (h *WindowShortcutHandler) registerKeycodeShortcuts() error {
 			log.Printf("[window-shortcuts] Ctrl+Shift+Tab -> previous tab")
 			h.handlePrevTab()
 			return true // Consume event to prevent focus cycling
+		}
+
+		// Handle Ctrl+Shift+E for extensions overlay (with hardware fallback keycode)
+		if state.Has(gdk.ControlMask) && state.Has(gdk.ShiftMask) {
+			if keyval == gdkKeyE || keycode == 26 {
+				log.Printf("[window-shortcuts] Ctrl+Shift+E -> toggle extensions overlay")
+				h.handleExtensionsToggle()
+				return true
+			}
 		}
 
 		// Check for Alt+number (but not with Ctrl or Shift)
@@ -259,6 +276,13 @@ func (h *WindowShortcutHandler) handleOmniboxToggle() {
 
 func (h *WindowShortcutHandler) handleFindToggle() {
 	h.handleUIToggle(&h.lastFindToggle, "find", "omnibox-find-toggle")
+}
+
+func (h *WindowShortcutHandler) handleExtensionsToggle() {
+	if h.app == nil || h.app.tabManager == nil {
+		return
+	}
+	h.app.tabManager.ToggleExtensionsOverlay()
 }
 
 func (h *WindowShortcutHandler) handleCopyURL() {

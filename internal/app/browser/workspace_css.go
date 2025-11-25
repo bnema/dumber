@@ -371,6 +371,47 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 		windowBackgroundColor,          // tab-workspace-container background
 	)
 
+	css += `
+
+/* Extensions overlay */
+.extensions-overlay-panel {
+  background: rgba(20, 20, 20, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  padding: 10px;
+  gap: 6px;
+}
+
+button.extension-icon {
+  background: transparent;
+  border: none;
+  padding: 6px;
+  border-radius: 10px;
+  transition: background-color 140ms ease, transform 140ms ease;
+}
+
+button.extension-icon:hover {
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
+}
+
+button.extension-icon:active {
+  transform: translateY(0px);
+}
+
+button.extension-icon .image,
+button.extension-icon image,
+button.extension-icon label {
+  font-size: 20px;
+}
+
+button.extension-icon.extension-icon-disabled {
+  opacity: 0.45;
+  filter: grayscale(0.8);
+}
+`
+
 	return css
 }
 
