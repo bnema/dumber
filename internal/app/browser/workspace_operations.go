@@ -312,6 +312,12 @@ func (wm *WorkspaceManager) ClosePane(node *paneNode) error {
 	wm.paneCloseLogf("start bulletproof close node=%p", node)
 	wm.dumpTreeState("before_close")
 
+	// Notify components about impending pane close (e.g., extensions overlay)
+	// Must happen BEFORE we destroy the widget so overlay can detach cleanly
+	if wm.app != nil && wm.app.tabManager != nil && wm.app.tabManager.extensionsOverlay != nil {
+		wm.app.tabManager.extensionsOverlay.OnPaneClosing(node)
+	}
+
 	// Step 1: Validate tree invariants before operation (only in DebugBasic+)
 	if wm.debugLevel >= DebugBasic {
 		if err := wm.treeValidator.ValidateTree(wm.root, "before_close"); err != nil {

@@ -790,6 +790,8 @@ func (fsm *FocusStateMachine) executeFocusChange(request FocusRequest) error {
 	// Notify workspace manager
 	if fsm.wm != nil && fsm.wm.app != nil && newPane.pane != nil {
 		fsm.wm.app.activePane = newPane.pane
+		// Notify other components about pane change (e.g., extensions overlay)
+		fsm.wm.app.NotifyActivePaneChanged()
 	}
 
 	// Notify JS runtimes about focus change

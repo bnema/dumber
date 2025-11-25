@@ -17,7 +17,9 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/diamondburned/gotk4-webkitgtk/pkg/soup/v3"
 	webkitv6 "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
+	"github.com/diamondburned/gotk4/pkg/core/gextras"
 	"github.com/diamondburned/gotk4/pkg/gio/v2"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"golang.org/x/sync/errgroup"
@@ -489,6 +491,8 @@ func (app *BrowserApp) setupExtensionManager() error {
 	// Wire popup manager to browserAction API for openPopup support
 	if dispatcher := app.extensionManager.GetDispatcher(); dispatcher != nil {
 		dispatcher.SetPopupManager(app.popupManager)
+		// Set popup info provider for runtime.connect sender context
+		dispatcher.SetPopupInfoProvider(app.popupManager)
 	}
 
 	// Load installed extensions from database before touching disk, keeping DB as source of truth.
@@ -976,7 +980,7 @@ func (app *BrowserApp) handleResponseEvent(view *webkit.WebView, track *webReque
 				continue
 			}
 			if bgResp.ResponseHeaders != nil {
-				if headers := resp.HTTPHeaders(); headers != nil {
+				if headers := resp.HTTPHeaders(); isMessageHeadersValid(headers) {
 					for name, value := range bgResp.ResponseHeaders {
 						headers.Replace(name, value)
 					}
@@ -1062,7 +1066,7 @@ func (app *BrowserApp) buildResponseDetails(req api.RequestDetails, resp *webkit
 	// so responses here should be valid HTTP responses
 	if resp != nil {
 		statusCode = resp.StatusCode()
-		if respHeaders := resp.HTTPHeaders(); respHeaders != nil {
+		if respHeaders := resp.HTTPHeaders(); isMessageHeadersValid(respHeaders) {
 			respHeaders.ForEach(func(name, value string) {
 				headers[name] = value
 			})
@@ -1106,13 +1110,23 @@ func (app *BrowserApp) clearActiveRequest(resource *webkit.WebResource) {
 	app.webRequestMu.Unlock()
 }
 
+// isMessageHeadersValid checks if the underlying C pointer of a soup.MessageHeaders
+// is not NULL. The gotk4 binding for HTTPHeaders() has a bug where it creates a Go
+// wrapper even when the C function returns NULL, causing crashes when ForEach is called.
+func isMessageHeadersValid(hdrs *soup.MessageHeaders) bool {
+	if hdrs == nil {
+		return false
+	}
+	return gextras.StructNative(unsafe.Pointer(hdrs)) != nil
+}
+
 func extractRequestHeaders(request *webkit.URIRequest) map[string]string {
 	headers := map[string]string{}
 	if request == nil {
 		return headers
 	}
 
-	if httpHeaders := request.HTTPHeaders(); httpHeaders != nil {
+	if httpHeaders := request.HTTPHeaders(); isMessageHeadersValid(httpHeaders) {
 		httpHeaders.ForEach(func(name, value string) {
 			headers[name] = value
 		})
@@ -1966,4 +1980,17 @@ func (app *BrowserApp) ReloadTab(tabID int64) error {
 	}
 
 	return view.Reload()
+}
+
+// NotifyActivePaneChanged notifies components that the active pane has changed.
+// This is called by the focus state machine after a successful pane focus transition.
+func (app *BrowserApp) NotifyActivePaneChanged() {
+	if app == nil || app.tabManager == nil {
+		return
+	}
+
+	// Notify extensions overlay to hide (prevents it from appearing on wrong pane)
+	if app.tabManager.extensionsOverlay != nil {
+		app.tabManager.extensionsOverlay.OnActivePaneChanged()
+	}
 }
