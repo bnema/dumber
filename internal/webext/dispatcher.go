@@ -45,6 +45,7 @@ type Dispatcher struct {
 	downloadsAPI     *api.DownloadsAPIDispatcher
 	commandsAPI      *api.CommandsAPIDispatcher
 	viewLookup       ViewLookup
+	popupLookup      PopupInfoProvider
 }
 
 // viewLookupAdapter adapts ViewLookup to api.WebViewLookup
@@ -144,6 +145,11 @@ func (d *Dispatcher) SetPopupManager(pm api.PopupManager) {
 	}
 }
 
+// SetPopupInfoProvider sets the provider for extension popup info lookups
+func (d *Dispatcher) SetPopupInfoProvider(provider PopupInfoProvider) {
+	d.popupLookup = provider
+}
+
 // InitializeCookieManager sets the cookie manager after network session is created
 func (d *Dispatcher) InitializeCookieManager() {
 	networkSession := webkit.GetGlobalNetworkSession()
@@ -191,6 +197,18 @@ func (d *Dispatcher) HandlePopupAPIRequest(extID string, viewID uint64, jsonPayl
 	if d.viewLookup != nil && viewID != 0 {
 		if paneInfo := d.viewLookup.GetPaneInfoByViewID(viewID); paneInfo != nil {
 			ctx = context.WithValue(ctx, "sourcePaneInfo", paneInfo)
+		}
+	}
+
+	// Fallback: check if this is an extension popup and use popup info
+	if ctx.Value("sourcePaneInfo") == nil && d.popupLookup != nil && viewID != 0 {
+		if popupInfo := d.popupLookup.GetPopupInfoByViewID(viewID); popupInfo != nil {
+			// Convert to api.PopupInfo for runtime.Connect
+			apiPopupInfo := &api.PopupInfo{
+				ExtensionID: popupInfo.ExtensionID,
+				URL:         popupInfo.URL,
+			}
+			ctx = context.WithValue(ctx, "sourcePopupInfo", apiPopupInfo)
 		}
 	}
 

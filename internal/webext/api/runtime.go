@@ -47,6 +47,12 @@ type Tab struct {
 	Favicon  string `json:"favIconUrl,omitempty"`
 }
 
+// PopupInfo contains information about an extension popup for sender context
+type PopupInfo struct {
+	ExtensionID string
+	URL         string
+}
+
 // NewRuntimeAPI creates a new RuntimeAPI instance for an extension
 func NewRuntimeAPI(extensionID string) *RuntimeAPI {
 	return &RuntimeAPI{
@@ -233,6 +239,9 @@ func (r *RuntimeAPIDispatcher) Connect(ctx context.Context, extID string, connec
 			Title:    paneInfo.Title,
 			Active:   paneInfo.Active,
 		}
+	} else if popupInfo, ok := ctx.Value("sourcePopupInfo").(*PopupInfo); ok && popupInfo != nil {
+		// Fallback for extension popups - use popup URL as sender.url
+		sender.URL = popupInfo.URL
 	}
 
 	cb := PortCallbacks{

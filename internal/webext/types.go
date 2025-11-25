@@ -14,3 +14,16 @@ type ViewLookup interface {
 	// GetPaneInfoByViewID finds pane information for a WebView by its ID
 	GetPaneInfoByViewID(viewID uint64) *api.PaneInfo
 }
+
+// PopupInfo contains information about an extension popup for runtime.connect sender info
+type PopupInfo struct {
+	ExtensionID string
+	URL         string
+}
+
+// PopupInfoProvider provides popup information by WebView ID.
+// This interface is implemented by ExtensionPopupManager.
+type PopupInfoProvider interface {
+	// GetPopupInfoByViewID returns popup info if the view ID belongs to an extension popup
+	GetPopupInfoByViewID(viewID uint64) *PopupInfo
+}
