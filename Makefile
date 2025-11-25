@@ -1,6 +1,6 @@
 # Makefile for dumber
 
-.PHONY: build build-frontend test lint clean install-tools dev generate help check init build-static build-no-gui
+.PHONY: build build-frontend test lint clean clean-logs install-tools dev generate help check init build-static build-no-gui
 
 # Load local overrides from .env.local if present (Makefile syntax)
 ifneq (,$(wildcard .env.local))
@@ -12,6 +12,7 @@ endif
 BINARY_NAME=dumber
 MAIN_PATH=.
 DIST_DIR=dist
+LOG_DIR=$(HOME)/.local/state/dumber/logs
 
 # Detect number of CPU cores for parallel compilation
 NPROCS?=$(shell nproc 2>/dev/null || echo 1)
@@ -76,7 +77,7 @@ check-webkit: ## Check system has GTK4/WebKitGTK 6.0/JavaScriptCore 6.0
 	@echo "javascriptcoregtk-6.0: $$(pkg-config --modversion javascriptcoregtk-6.0 2>/dev/null || echo not found)"
 
 # Development targets
-dev: ## Run in development mode
+dev: clean-logs ## Run in development mode
 	@echo "Running in development mode..."
 	go run $(MAIN_PATH)
 
@@ -128,6 +129,10 @@ clean: ## Clean build artifacts
 	rm -f cmd/dumber-webext/*.so cmd/dumber-webext/*.h  # Clean webext artifacts
 	go clean -cache
 	go clean -testcache
+
+clean-logs: ## Clean application logs
+	@echo "Cleaning logs in $(LOG_DIR)..."
+	@rm -rf $(LOG_DIR)/*.log 2>/dev/null || true
 
 # Project initialization
 init: install-tools ## Initialize project dependencies and tools
@@ -181,7 +186,7 @@ install-webext: build-webext ## Install WebProcess extension to system libexec d
 # Native release targets
 .PHONY: release-snapshot release
 
-release-snapshot: build-frontend build-webext-embedded ## Build snapshot using native goreleaser (no git tags required)
+release-snapshot: build-frontend build-webext-embedded clean-logs ## Build snapshot using native goreleaser (no git tags required)
 	@echo "Building snapshot with goreleaser..."
 	goreleaser release --snapshot --clean
 

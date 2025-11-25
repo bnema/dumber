@@ -367,7 +367,7 @@ func renderRow(item item, width int, selected bool) string {
 		lipgloss.NewStyle().Foreground(tuistyles.ColorLightGray).Render(id),
 		lipgloss.NewStyle().Bold(true).Render(name),
 		lipgloss.NewStyle().Foreground(tuistyles.ColorVeryLight).Render(version),
-		status, // Badge is already fully styled
+		status,  // Badge is already fully styled
 		extType, // Badge is already fully styled
 		lipgloss.NewStyle().Foreground(tuistyles.ColorGray).Render(path),
 	}

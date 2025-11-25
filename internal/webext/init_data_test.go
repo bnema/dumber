@@ -109,8 +109,8 @@ func TestSerializeInitData(t *testing.T) {
 					ID:   "test-ext",
 					Path: "/path/to/ext",
 					Manifest: &Manifest{
-						Name:    "Test Extension",
-						Version: "1.0.0",
+						Name:        "Test Extension",
+						Version:     "1.0.0",
 						Permissions: []string{"webRequestBlocking"},
 						ContentScripts: []shared.ContentScript{
 							{Matches: []string{"<all_urls>"}, JS: []string{"content.js"}},

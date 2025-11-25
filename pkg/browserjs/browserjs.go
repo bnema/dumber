@@ -55,6 +55,9 @@ type Options struct {
 
 	// Origin is the origin for the window object (e.g., "https://example.com" or "null").
 	Origin string
+
+	// LocalStorage provides persistent localStorage backend. If nil, uses in-memory storage.
+	LocalStorage LocalStorageBackend
 }
 
 // New creates a new browser environment for the given Sobek runtime.
@@ -185,7 +188,7 @@ func (e *Environment) InstallPerformance() error {
 // InstallWebAPIs installs additional web APIs (XMLHttpRequest, Storage, etc.).
 func (e *Environment) InstallWebAPIs() error {
 	if e.webAPIs == nil {
-		e.webAPIs = NewWebAPIsManager(e.vm, e.options.TaskQueue, e.options.HTTPClient, e.options.StartTime, e.options.Origin)
+		e.webAPIs = NewWebAPIsManager(e.vm, e.options.TaskQueue, e.options.HTTPClient, e.options.StartTime, e.options.Origin, e.options.LocalStorage)
 	}
 	return e.webAPIs.Install()
 }
