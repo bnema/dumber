@@ -19,6 +19,7 @@ import (
 
 	"github.com/bnema/dumber/internal/webext/api"
 	"github.com/bnema/dumber/internal/webext/shared"
+	"github.com/diamondburned/gotk4-webkitgtk/pkg/soup/v3"
 	"github.com/diamondburned/gotk4-webkitgtk/pkg/webkitwebprocessextension/v6"
 	"github.com/diamondburned/gotk4/pkg/core/gextras"
 	coreglib "github.com/diamondburned/gotk4/pkg/core/glib"
@@ -72,6 +73,23 @@ func (c *webRequestAllowStore) markAllowed(pageID uint64, key string) {
 	perPage[key] = struct{}{}
 }
 
+// hasHTTPScheme checks if a URI uses HTTP or HTTPS scheme.
+// webkit_uri_request_get_http_headers returns NULL for non-HTTP requests,
+// so we should only call HTTPHeaders() for HTTP/HTTPS URIs.
+func hasHTTPScheme(uri string) bool {
+	return strings.HasPrefix(uri, "http://") || strings.HasPrefix(uri, "https://")
+}
+
+// isMessageHeadersValid checks if the underlying C pointer of a soup.MessageHeaders
+// is not NULL. The gotk4 binding for HTTPHeaders() has a bug where it creates a Go
+// wrapper even when the C function returns NULL, causing crashes when ForEach is called.
+func isMessageHeadersValid(hdrs *soup.MessageHeaders) bool {
+	if hdrs == nil {
+		return false
+	}
+	return gextras.StructNative(unsafe.Pointer(hdrs)) != nil
+}
+
 //export webkit_web_process_extension_initialize_with_user_data
 func webkit_web_process_extension_initialize_with_user_data(
 	ext *C.WebKitWebProcessExtension,
@@ -113,6 +131,13 @@ func webkit_web_process_extension_initialize_with_user_data(
 
 	// Connect page-created signal
 	goExt.ConnectPageCreated(onPageCreated)
+
+	// IMPORTANT: Connect window-object-cleared GLOBALLY during initialization, not per-page.
+	// This ensures the handler is registered BEFORE any pages are created, so we catch
+	// the signal for extension WebViews (which use web-extension-mode=ManifestV2).
+	// Following Epiphany's pattern: they connect this once globally, not per-page.
+	defaultWorld := webkitwebprocessextension.ScriptWorldGetDefault()
+	defaultWorld.ConnectWindowObjectCleared(onWindowObjectCleared)
 
 	// NOTE: We do NOT register a user-message-received handler here.
 	// Messages sent via page.SendMessageToView() are automatically routed to
@@ -204,6 +229,43 @@ func wrapVariant(v *C.GVariant) *glib.Variant {
 	return variant
 }
 
+// onWindowObjectCleared is called GLOBALLY for all pages when their window object is cleared.
+// This is connected during initialization (not per-page) following Epiphany's pattern.
+// This ensures we catch the signal for extension WebViews before their scripts execute.
+func onWindowObjectCleared(webPage *webkitwebprocessextension.WebPage, frame *webkitwebprocessextension.Frame) {
+	// Get both URIs for debugging - pageURI may be empty, but we try both
+	pageURI := webPage.URI()
+	frameURI := frame.URI()
+
+	// Debug: log both URIs to understand timing
+	LogDebug(webPage, "[native-api] window-object-cleared: pageURI=%q frameURI=%q", pageURI, frameURI)
+
+	// Check if this is an extension page (dumb-extension://)
+	// Try pageURI first (like Epiphany does), fallback to frameURI
+	extensionURI := pageURI
+	if !strings.HasPrefix(extensionURI, "dumb-extension://") {
+		extensionURI = frameURI
+	}
+	if !strings.HasPrefix(extensionURI, "dumb-extension://") {
+		return
+	}
+
+	LogDebug(webPage, "[native-api] Extension page detected at window-object-cleared: %s", extensionURI)
+
+	// Extract extension ID from URI: dumb-extension://{id}/...
+	parts := strings.SplitN(strings.TrimPrefix(extensionURI, "dumb-extension://"), "/", 2)
+	if len(parts) > 0 && parts[0] != "" {
+		extID := parts[0]
+		LogDebug(webPage, "[native-api] Injecting native APIs for extension: %s", extID)
+
+		// Inject native browser APIs for this extension page
+		// Pass the frame from window-object-cleared so we get the correct JS context
+		injectNativeAPIsForExtensionPage(webPage, frame, extID)
+	} else {
+		LogError(webPage, "[native-api] Failed to extract extension ID from URI=%s", extensionURI)
+	}
+}
+
 func onPageCreated(page *webkitwebprocessextension.WebPage) {
 	pageID := page.ID()
 	uri := page.URI()
@@ -215,42 +277,33 @@ func onPageCreated(page *webkitwebprocessextension.WebPage) {
 		forwardConsoleMessageToUI(page, consoleMessage)
 	})
 
-	// Connect to window-object-cleared on the default script world
-	// This fires BEFORE page scripts execute, ensuring browser.* APIs are available immediately
-	defaultWorld := webkitwebprocessextension.ScriptWorldGetDefault()
-	defaultWorld.ConnectWindowObjectCleared(func(webPage *webkitwebprocessextension.WebPage, frame *webkitwebprocessextension.Frame) {
-		// Only handle this specific page
-		if webPage.ID() != pageID {
-			return
-		}
+	// NOTE: window-object-cleared is now connected GLOBALLY in initialization,
+	// not per-page. This follows Epiphany's pattern and ensures we catch the signal
+	// before extension scripts execute.
 
-		pageURI := webPage.URI()
-
-		// Check if this is an extension page (dumb-extension://)
-		if !strings.HasPrefix(pageURI, "dumb-extension://") {
-			return
-		}
-
-		LogDebug(webPage, "[native-api] Extension page detected at window-object-cleared: %s", pageURI)
-
-		// Extract extension ID from URI: dumb-extension://{id}/...
-		parts := strings.SplitN(strings.TrimPrefix(pageURI, "dumb-extension://"), "/", 2)
-		if len(parts) > 0 && parts[0] != "" {
-			extID := parts[0]
-			LogDebug(webPage, "[native-api] Injecting native APIs for extension: %s", extID)
-
-			// Inject native browser APIs for this extension page
-			// Pass the frame from window-object-cleared so we get the correct JS context
-			injectNativeAPIsForExtensionPage(webPage, frame, extID)
-		} else {
-			LogError(webPage, "[native-api] Failed to extract extension ID from URI=%s", pageURI)
-		}
-	})
-
-	// Also hook document-loaded for general content script injection
+	// Hook document-loaded for general content script injection AND extension API fallback
 	page.ConnectDocumentLoaded(func() {
 		loadedURI := page.URI()
 		LogDebug(page, "[page-lifecycle] Document loaded: page=%d, uri=%s", pageID, loadedURI)
+
+		// FALLBACK: For extension pages, window-object-cleared doesn't fire on the default
+		// ScriptWorld (likely due to web-extension-mode isolation). Inject APIs here instead.
+		// ES6 modules load asynchronously, so this may still work for them.
+		if strings.HasPrefix(loadedURI, "dumb-extension://") {
+			LogDebug(page, "[native-api] Fallback: injecting APIs at document-loaded for extension page")
+			parts := strings.SplitN(strings.TrimPrefix(loadedURI, "dumb-extension://"), "/", 2)
+			if len(parts) > 0 && parts[0] != "" {
+				extID := parts[0]
+				// Get the main frame for injection
+				mainFrame := page.MainFrame()
+				if mainFrame != nil {
+					LogDebug(page, "[native-api] Fallback: injecting native APIs for extension: %s", extID)
+					injectNativeAPIsForExtensionPage(page, mainFrame, extID)
+				} else {
+					LogError(page, "[native-api] Fallback: main frame is nil for extension page")
+				}
+			}
+		}
 
 		// Call general content script injection
 		onDocumentLoaded(page)
@@ -391,11 +444,15 @@ func onSendRequest(page *webkitwebprocessextension.WebPage, request *webkitwebpr
 	pageURI := page.URI()
 
 	// Fast-path: Build minimal details to check resource type
+	// Only call HTTPHeaders() for HTTP/HTTPS requests - webkit returns NULL for other schemes
+	// (e.g., dumb-extension://, data:, blob:) and gotk4 bindings don't handle NULL correctly
 	headers := map[string]string{}
-	if httpHeaders := request.HTTPHeaders(); httpHeaders != nil {
-		httpHeaders.ForEach(func(name, value string) {
-			headers[name] = value
-		})
+	if hasHTTPScheme(requestURI) {
+		if httpHeaders := request.HTTPHeaders(); isMessageHeadersValid(httpHeaders) {
+			httpHeaders.ForEach(func(name, value string) {
+				headers[name] = value
+			})
+		}
 	}
 	resourceType := detectResourceType(headers)
 	fetchSite := strings.ToLower(headers["Sec-Fetch-Site"])
@@ -420,8 +477,8 @@ func onSendRequest(page *webkitwebprocessextension.WebPage, request *webkitwebpr
 	if decision.RedirectURL != "" {
 		request.SetURI(decision.RedirectURL)
 	}
-	if len(decision.RequestHeaders) > 0 {
-		if hdrs := request.HTTPHeaders(); hdrs != nil {
+	if len(decision.RequestHeaders) > 0 && hasHTTPScheme(requestURI) {
+		if hdrs := request.HTTPHeaders(); isMessageHeadersValid(hdrs) {
 			for name, value := range decision.RequestHeaders {
 				hdrs.Replace(name, value)
 			}
