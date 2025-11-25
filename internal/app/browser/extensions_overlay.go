@@ -25,6 +25,10 @@ type ExtensionsOverlayManager struct {
 	iconRow   gtk.Widgetter
 	isVisible bool
 
+	// currentOverlay tracks which overlay the panel is currently attached to
+	// so we can properly remove it when hiding or moving to a different pane
+	currentOverlay *gtk.Overlay
+
 	buttonToExtension map[uint64]*webext.Extension
 	nextButtonID      uint64
 }
@@ -42,16 +46,15 @@ func NewExtensionsOverlayManager(app *BrowserApp, manager *webext.Manager) *Exte
 	}
 }
 
-// Initialize attaches the overlay panel to the root overlay.
+// Initialize creates the overlay panel widget.
+// The panel will be dynamically attached to the active pane's overlay when shown.
 func (m *ExtensionsOverlayManager) Initialize(root gtk.Widgetter) error {
 	if m == nil || m.manager == nil {
 		return fmt.Errorf("extensions overlay manager missing dependencies")
 	}
 
-	rootOverlay, ok := root.(*gtk.Overlay)
-	if !ok || rootOverlay == nil {
-		return fmt.Errorf("root overlay missing or invalid")
-	}
+	// We no longer attach to the root overlay - instead we'll attach to the active pane
+	// The root parameter is kept for API compatibility
 
 	panel := gtk.NewBox(gtk.OrientationVertical, 8)
 	if panel == nil {
@@ -77,13 +80,14 @@ func (m *ExtensionsOverlayManager) Initialize(root gtk.Widgetter) error {
 	m.iconRow = iconRow
 	m.refreshIcons()
 	webkit.WidgetSetVisible(panel, false)
-	rootOverlay.AddOverlay(panel)
+	// Don't attach to root - will be attached to active pane when shown
 
-	logging.Info("[extensions] Overlay panel initialized")
+	logging.Info("[extensions] Overlay panel initialized (not attached yet)")
 	return nil
 }
 
 // Toggle shows or hides the overlay, refreshing icons when showing.
+// When showing, attaches the panel to the active pane's overlay.
 func (m *ExtensionsOverlayManager) Toggle() {
 	if m == nil || m.panel == nil {
 		return
@@ -91,10 +95,90 @@ func (m *ExtensionsOverlayManager) Toggle() {
 
 	m.isVisible = !m.isVisible
 	if m.isVisible {
+		m.attachToActivePane()
 		m.refreshIcons()
 		webkit.WidgetSetVisible(m.panel, true)
 	} else {
 		webkit.WidgetSetVisible(m.panel, false)
+		m.detachFromCurrentOverlay()
+	}
+}
+
+// attachToActivePane attaches the panel to the active pane's overlay.
+func (m *ExtensionsOverlayManager) attachToActivePane() {
+	if m == nil || m.app == nil || m.panel == nil {
+		return
+	}
+
+	// First, detach from any current overlay
+	m.detachFromCurrentOverlay()
+
+	// Get the active pane's node from the workspace
+	ws := m.app.workspace
+	if ws == nil {
+		logging.Warn("[extensions] No workspace available for overlay attachment")
+		return
+	}
+
+	activeNode := ws.GetActiveNode()
+	if activeNode == nil || !activeNode.isLeaf {
+		logging.Warn("[extensions] No active leaf pane for overlay attachment")
+		return
+	}
+
+	// The container for leaf nodes is a *gtk.Overlay (from wrapPaneInOverlay)
+	overlay, ok := activeNode.container.(*gtk.Overlay)
+	if !ok || overlay == nil {
+		logging.Warn("[extensions] Active pane container is not an overlay")
+		return
+	}
+
+	// Attach our panel to this overlay
+	overlay.AddOverlay(m.panel)
+	m.currentOverlay = overlay
+	logging.Info("[extensions] Attached overlay to active pane")
+}
+
+// detachFromCurrentOverlay removes the panel from its current overlay parent.
+func (m *ExtensionsOverlayManager) detachFromCurrentOverlay() {
+	if m == nil || m.panel == nil || m.currentOverlay == nil {
+		return
+	}
+
+	// Safety check: only try to remove if the overlay widget is still valid
+	// (the pane might have been destroyed)
+	defer func() {
+		m.currentOverlay = nil
+	}()
+
+	// Remove from current overlay
+	m.currentOverlay.RemoveOverlay(m.panel)
+	logging.Debug("[extensions] Detached overlay from pane")
+}
+
+// OnActivePaneChanged should be called when the active pane changes.
+// This auto-hides the overlay to prevent it from appearing on the wrong pane.
+func (m *ExtensionsOverlayManager) OnActivePaneChanged() {
+	if m == nil || !m.isVisible {
+		return
+	}
+
+	// Auto-hide when pane changes - user can re-open on the new pane
+	m.Hide()
+	logging.Debug("[extensions] Auto-hidden overlay due to pane change")
+}
+
+// OnPaneClosing should be called when a pane is about to be closed.
+// This ensures we detach before the overlay's parent is destroyed.
+func (m *ExtensionsOverlayManager) OnPaneClosing(node *paneNode) {
+	if m == nil || m.currentOverlay == nil || node == nil {
+		return
+	}
+
+	// Check if our overlay is attached to the closing pane
+	if overlay, ok := node.container.(*gtk.Overlay); ok && overlay == m.currentOverlay {
+		m.Hide()
+		logging.Debug("[extensions] Auto-hidden overlay due to pane closing")
 	}
 }
 
@@ -105,6 +189,7 @@ func (m *ExtensionsOverlayManager) Hide() {
 	}
 	m.isVisible = false
 	webkit.WidgetSetVisible(m.panel, false)
+	m.detachFromCurrentOverlay()
 }
 
 // refreshIcons rebuilds the icon row based on currently loaded extensions.
@@ -302,6 +387,7 @@ func (m *ExtensionsOverlayManager) buildExtensionPane(ext *webext.Extension) (*B
 		return nil, err
 	}
 	cfg.CreateWindow = false
+	cfg.IsExtensionWebView = true // Critical: skip UserContentManager injection for extension popups
 
 	var view *webkit.WebView
 
@@ -310,12 +396,9 @@ func (m *ExtensionsOverlayManager) buildExtensionPane(ext *webext.Extension) (*B
 	// Extension popups will be properly handled by the PopupManager which will
 	// connect them to the background context for API access
 
-	// Use the extension's CSP from manifest, or empty string if not specified
-	// Empty string allows WebKit to use its default extension CSP which permits modules
-	csp := ""
-	if ext.Manifest != nil && ext.Manifest.ContentSecurityPolicy != "" {
-		csp = ext.Manifest.ContentSecurityPolicy
-	}
+	// Use the extension's CSP from manifest or the default if not specified
+	// (matches Firefox/Epiphany behavior - "script-src 'self'; object-src 'self';")
+	csp := ext.Manifest.GetContentSecurityPolicy()
 
 	// Build CORS allowlist from extension permissions
 	corsAllowlist := buildCORSAllowlist(ext)
