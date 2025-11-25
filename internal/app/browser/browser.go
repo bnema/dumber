@@ -593,6 +593,7 @@ func (app *BrowserApp) registerWebRequestSignals(view *webkit.WebView) {
 // handleExtensionMessageWithView handles messages from WebProcess extensions with WebView context
 func (app *BrowserApp) handleExtensionMessageWithView(viewID uint64, message *webkit.UserMessage) bool {
 	name := message.Name()
+	log.Printf("[webext] handleExtensionMessageWithView(viewID=%d, name=%s, msg=%p)", viewID, name, message)
 
 	switch {
 	case name == "webRequest:onBeforeRequest":
@@ -685,7 +686,7 @@ func (app *BrowserApp) handleExtensionLog(message *webkit.UserMessage) bool {
 }
 
 func (app *BrowserApp) handleWebRequestOnBeforeRequest(message *webkit.UserMessage) bool {
-	log.Printf("[webRequest] handleWebRequestOnBeforeRequest called")
+	log.Printf("[webRequest] handleWebRequestOnBeforeRequest called (msg=%p)", message)
 	if app.extensionManager == nil {
 		log.Printf("[webRequest] No extension manager, returning false")
 		return false

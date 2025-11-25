@@ -564,6 +564,28 @@ func (bc *BackgroundContext) buildTabsObject() *sobek.Object {
 	// query - returns tabs matching query
 	_ = obj.Set("query", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
+
+		// Extract query options BEFORE starting goroutine (call.Arguments not safe in goroutine)
+		var queryActive, queryCurrentWindow *bool
+		var queryWindowID int64 = -1
+
+		if len(call.Arguments) > 0 && call.Arguments[0] != nil && !sobek.IsUndefined(call.Arguments[0]) {
+			queryObj := call.Arguments[0].Export()
+			if q, ok := queryObj.(map[string]interface{}); ok {
+				if v, ok := q["active"].(bool); ok {
+					queryActive = &v
+				}
+				if v, ok := q["currentWindow"].(bool); ok {
+					queryCurrentWindow = &v
+				}
+				if v, ok := q["windowId"].(int64); ok {
+					queryWindowID = v
+				} else if v, ok := q["windowId"].(float64); ok {
+					queryWindowID = int64(v)
+				}
+			}
+		}
+
 		go func() {
 			bc.tasks <- func() {
 				var results []interface{}
@@ -579,27 +601,6 @@ func (bc *BackgroundContext) buildTabsObject() *sobek.Object {
 
 				panes := provider.GetAllPanes()
 				active := provider.GetActivePane()
-
-				// Parse query options
-				var queryActive, queryCurrentWindow *bool
-				var queryWindowID int64 = -1
-
-				if len(call.Arguments) > 0 {
-					queryObj := call.Arguments[0].Export()
-					if q, ok := queryObj.(map[string]interface{}); ok {
-						if v, ok := q["active"].(bool); ok {
-							queryActive = &v
-						}
-						if v, ok := q["currentWindow"].(bool); ok {
-							queryCurrentWindow = &v
-						}
-						if v, ok := q["windowId"].(int64); ok {
-							queryWindowID = v
-						} else if v, ok := q["windowId"].(float64); ok {
-							queryWindowID = int64(v)
-						}
-					}
-				}
 
 				// Get current window ID
 				var currentWindowID uint64
@@ -632,14 +633,19 @@ func (bc *BackgroundContext) buildTabsObject() *sobek.Object {
 	// get - returns tab by ID
 	_ = obj.Set("get", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
+
+		// Extract tabID BEFORE goroutine (call.Arguments not safe in goroutine)
+		var tabID int64 = -1
+		if len(call.Arguments) > 0 && call.Arguments[0] != nil && !sobek.IsUndefined(call.Arguments[0]) {
+			tabID = call.Arguments[0].ToInteger()
+		}
+
 		go func() {
 			bc.tasks <- func() {
-				if len(call.Arguments) == 0 {
+				if tabID < 0 {
 					_ = resolve(sobek.Undefined())
 					return
 				}
-
-				tabID := call.Arguments[0].ToInteger()
 
 				bc.mu.Lock()
 				provider := bc.paneProvider
@@ -1000,13 +1006,15 @@ func (bc *BackgroundContext) buildAlarmsObject() *sobek.Object {
 	// get - returns alarm by name
 	_ = obj.Set("get", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
+
+		// Extract name BEFORE goroutine (call.Arguments not safe in goroutine)
+		var name string
+		if len(call.Arguments) > 0 && call.Arguments[0] != nil && !sobek.IsUndefined(call.Arguments[0]) {
+			name = call.Arguments[0].String()
+		}
+
 		go func() {
 			bc.tasks <- func() {
-				var name string
-				if len(call.Arguments) > 0 {
-					name = call.Arguments[0].String()
-				}
-
 				bc.mu.Lock()
 				alarm, ok := bc.alarms[name]
 				bc.mu.Unlock()
@@ -1043,13 +1051,15 @@ func (bc *BackgroundContext) buildAlarmsObject() *sobek.Object {
 	// clear - cancels alarm by name
 	_ = obj.Set("clear", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
+
+		// Extract name BEFORE goroutine (call.Arguments not safe in goroutine)
+		var name string
+		if len(call.Arguments) > 0 && call.Arguments[0] != nil && !sobek.IsUndefined(call.Arguments[0]) {
+			name = call.Arguments[0].String()
+		}
+
 		go func() {
 			bc.tasks <- func() {
-				var name string
-				if len(call.Arguments) > 0 {
-					name = call.Arguments[0].String()
-				}
-
 				bc.mu.Lock()
 				alarm, ok := bc.alarms[name]
 				if ok {
