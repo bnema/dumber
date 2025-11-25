@@ -3,6 +3,7 @@ package browserjs
 import (
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -11,17 +12,29 @@ import (
 	"github.com/grafana/sobek"
 )
 
+// LocalStorageBackend defines the interface for persistent localStorage
+type LocalStorageBackend interface {
+	GetItem(key string) (string, bool)
+	SetItem(key, value string) error
+	RemoveItem(key string) error
+	Clear() error
+	Keys() []string
+	Length() int
+}
+
 // WebAPIsManager provides additional web APIs like XMLHttpRequest, Storage, etc.
 type WebAPIsManager struct {
-	vm         *sobek.Runtime
-	tasks      chan func()
-	httpClient HTTPDoer
-	startTime  time.Time
-	origin     string
+	vm           *sobek.Runtime
+	tasks        chan func()
+	httpClient   HTTPDoer
+	startTime    time.Time
+	origin       string
+	localStorage LocalStorageBackend // Optional persistent localStorage backend
 }
 
 // NewWebAPIsManager creates a new web APIs manager.
-func NewWebAPIsManager(vm *sobek.Runtime, tasks chan func(), httpClient HTTPDoer, startTime time.Time, origin string) *WebAPIsManager {
+// localStorage is optional - if nil, an in-memory implementation is used.
+func NewWebAPIsManager(vm *sobek.Runtime, tasks chan func(), httpClient HTTPDoer, startTime time.Time, origin string, localStorage LocalStorageBackend) *WebAPIsManager {
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
@@ -32,11 +45,12 @@ func NewWebAPIsManager(vm *sobek.Runtime, tasks chan func(), httpClient HTTPDoer
 		origin = "null"
 	}
 	return &WebAPIsManager{
-		vm:         vm,
-		tasks:      tasks,
-		httpClient: httpClient,
-		startTime:  startTime,
-		origin:     origin,
+		vm:           vm,
+		tasks:        tasks,
+		httpClient:   httpClient,
+		startTime:    startTime,
+		origin:       origin,
+		localStorage: localStorage,
 	}
 }
 
@@ -306,8 +320,8 @@ func (wm *WebAPIsManager) installXMLHttpRequest() error {
 func (wm *WebAPIsManager) installStorage() error {
 	vm := wm.vm
 
-	// In-memory storage
-	createStorage := func() *sobek.Object {
+	// In-memory storage factory (used for sessionStorage and fallback localStorage)
+	createInMemoryStorage := func() *sobek.Object {
 		data := make(map[string]string)
 		var mu sync.RWMutex
 
@@ -378,8 +392,72 @@ func (wm *WebAPIsManager) installStorage() error {
 		return storage
 	}
 
-	vm.Set("localStorage", createStorage())
-	vm.Set("sessionStorage", createStorage())
+	// Persistent storage factory (uses backend)
+	createPersistentStorage := func(backend LocalStorageBackend) *sobek.Object {
+		storage := vm.NewObject()
+
+		_ = storage.Set("getItem", func(call sobek.FunctionCall) sobek.Value {
+			if len(call.Arguments) > 0 {
+				v, ok := backend.GetItem(call.Arguments[0].String())
+				if ok {
+					return vm.ToValue(v)
+				}
+			}
+			return sobek.Null()
+		})
+
+		_ = storage.Set("setItem", func(call sobek.FunctionCall) sobek.Value {
+			if len(call.Arguments) >= 2 {
+				key := call.Arguments[0].String()
+				value := call.Arguments[1].String()
+				log.Printf("[browserjs] localStorage.setItem called: key=%s, len=%d", key, len(value))
+				_ = backend.SetItem(key, value)
+			}
+			return sobek.Undefined()
+		})
+
+		_ = storage.Set("removeItem", func(call sobek.FunctionCall) sobek.Value {
+			if len(call.Arguments) > 0 {
+				_ = backend.RemoveItem(call.Arguments[0].String())
+			}
+			return sobek.Undefined()
+		})
+
+		_ = storage.Set("clear", func(call sobek.FunctionCall) sobek.Value {
+			_ = backend.Clear()
+			return sobek.Undefined()
+		})
+
+		_ = storage.Set("key", func(call sobek.FunctionCall) sobek.Value {
+			if len(call.Arguments) > 0 {
+				index := int(call.Arguments[0].ToInteger())
+				keys := backend.Keys()
+				if index >= 0 && index < len(keys) {
+					return vm.ToValue(keys[index])
+				}
+			}
+			return sobek.Null()
+		})
+
+		_ = storage.DefineAccessorProperty("length",
+			vm.ToValue(func(sobek.FunctionCall) sobek.Value {
+				return vm.ToValue(backend.Length())
+			}), nil, sobek.FLAG_FALSE, sobek.FLAG_TRUE)
+
+		return storage
+	}
+
+	// localStorage: use persistent backend if provided, otherwise in-memory
+	if wm.localStorage != nil {
+		log.Printf("[browserjs] Installing persistent localStorage backend")
+		vm.Set("localStorage", createPersistentStorage(wm.localStorage))
+	} else {
+		log.Printf("[browserjs] Installing in-memory localStorage (no backend)")
+		vm.Set("localStorage", createInMemoryStorage())
+	}
+
+	// sessionStorage: always in-memory (correct Web API behavior)
+	vm.Set("sessionStorage", createInMemoryStorage())
 
 	return nil
 }
