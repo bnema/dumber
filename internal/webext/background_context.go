@@ -298,6 +298,8 @@ func (bc *BackgroundContext) NotifyStorageChange(changes map[string]api.StorageC
 
 // DispatchWebRequestEvent forwards a webRequest event into the VM and returns the first blocking response.
 func (bc *BackgroundContext) DispatchWebRequestEvent(event string, payload interface{}) (*api.BlockingResponse, error) {
+	start := time.Now()
+
 	var evt *jsEvent
 	isBlocking := false
 	switch event {
@@ -320,13 +322,29 @@ func (bc *BackgroundContext) DispatchWebRequestEvent(event string, payload inter
 		return nil, fmt.Errorf("unsupported webRequest event: %s", event)
 	}
 
+	// Fast path: no listeners registered, skip expensive channel dispatch
+	if !evt.hasListeners() {
+		return nil, nil
+	}
+
+	// Convert payload to map with JSON tag names (not Go field names)
+	jsonStart := time.Now()
+	jsonBytes, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal webRequest payload: %w", err)
+	}
+	var jsPayload map[string]interface{}
+	if err := json.Unmarshal(jsonBytes, &jsPayload); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal webRequest payload: %w", err)
+	}
+	jsonTime := time.Since(jsonStart)
+
 	var resp *api.BlockingResponse
-	err := bc.call(func() error {
-		if evt == nil {
-			return nil
-		}
+	var vmTime time.Duration
+	callErr := bc.call(func() error {
+		vmStart := time.Now()
 		vm := bc.vm
-		ret, dispatchErr := evt.dispatchWithResponse(vm, vm.ToValue(payload))
+		ret, dispatchErr := evt.dispatchWithResponse(vm, vm.ToValue(jsPayload))
 		if dispatchErr != nil {
 			return dispatchErr
 		}
@@ -337,9 +355,15 @@ func (bc *BackgroundContext) DispatchWebRequestEvent(event string, payload inter
 			}
 			resp = &blockingResp
 		}
+		vmTime = time.Since(vmStart)
 		return nil
 	})
-	return resp, err
+
+	total := time.Since(start)
+	// Always log timing for debugging
+	log.Printf("[webRequest-timing] total=%v json=%v vm=%v queue=%v", total, jsonTime, vmTime, total-jsonTime-vmTime)
+
+	return resp, callErr
 }
 
 func (bc *BackgroundContext) loop() {
@@ -2275,6 +2299,16 @@ func (e *jsEvent) has(vm *sobek.Runtime, fn sobek.Value) bool {
 		}
 	}
 	return false
+}
+
+// hasListeners returns true if there are any registered listeners
+func (e *jsEvent) hasListeners() bool {
+	if e == nil {
+		return false
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return len(e.listeners) > 0
 }
 
 func (e *jsEvent) dispatch(vm *sobek.Runtime, args ...sobek.Value) ([]sobek.Value, error) {

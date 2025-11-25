@@ -585,22 +585,29 @@ func (app *BrowserApp) registerWebRequestSignals(view *webkit.WebView) {
 		return
 	}
 
-	view.ConnectResourceLoadStarted(func(resource *webkit.WebResource, request *webkit.URIRequest) {
-		app.handleResourceLoadStarted(view, resource, request)
-	})
+	// DISABLED: UI-process resource tracking causes WebKit assertion failures
+	// because resource.Response() returns invalid wrappers during the request lifecycle.
+	// The WebProcess extension handles onBeforeRequest/onBeforeSendHeaders blocking.
+	// Response events (onHeadersReceived, onCompleted) are not yet properly implemented.
+	//
+	// TODO: Implement response tracking properly, possibly by:
+	// 1. Only accessing response in Finished signal
+	// 2. Adding nil checks for underlying C pointers
+	// 3. Using WebProcess-side response events instead
+	log.Printf("[webRequest] UI-process resource tracking disabled (WebProcess handles blocking)")
 }
 
 // handleExtensionMessageWithView handles messages from WebProcess extensions with WebView context
 func (app *BrowserApp) handleExtensionMessageWithView(viewID uint64, message *webkit.UserMessage) bool {
 	name := message.Name()
-	log.Printf("[webext] handleExtensionMessageWithView(viewID=%d, name=%s, msg=%p)", viewID, name, message)
+	log.Printf("[webext] handleExtensionMessageWithView: name=%s viewID=%d", name, viewID)
 
 	switch {
 	case name == "webRequest:onBeforeRequest":
 		return app.handleWebRequestOnBeforeRequest(message)
 
-	case name == "webRequest:onBeforeSendHeaders":
-		return app.handleWebRequestOnBeforeSendHeaders(message)
+	// Note: onBeforeSendHeaders is now handled together with onBeforeRequest
+	// in a single IPC call to reduce overhead
 
 	case strings.HasPrefix(name, "webext:api"):
 		// Route to webext API dispatcher with WebView context
@@ -686,17 +693,16 @@ func (app *BrowserApp) handleExtensionLog(message *webkit.UserMessage) bool {
 }
 
 func (app *BrowserApp) handleWebRequestOnBeforeRequest(message *webkit.UserMessage) bool {
-	log.Printf("[webRequest] handleWebRequestOnBeforeRequest called (msg=%p)", message)
+	log.Printf("[webRequest] handleWebRequestOnBeforeRequest called")
+
 	if app.extensionManager == nil {
-		log.Printf("[webRequest] No extension manager, returning false")
+		log.Printf("[webRequest] extensionManager is nil!")
 		return false
 	}
 
 	params := message.Parameters()
 	requestStr := variantToString(params)
-	log.Printf("[webRequest] Request string: %s", requestStr)
 	if requestStr == "" {
-		log.Printf("[webRequest] Empty request string, replying with empty decision")
 		app.replyWebRequestDecision(message, webRequestDecision{})
 		return true
 	}
@@ -708,15 +714,10 @@ func (app *BrowserApp) handleWebRequestOnBeforeRequest(message *webkit.UserMessa
 		return true
 	}
 
-	log.Printf("[webRequest] Handling request for URL: %s", details.URL)
-
 	app.rememberPendingRequest(details)
 
 	// Avoid routing internal extension resource requests back into the extension background.
-	// uBO loads its own assets via dumb-extension:// URLs before listeners exist, which can
-	// create re-entrancy and timeouts; treat these as pass-through.
 	if strings.HasPrefix(details.URL, "dumb-extension://") || strings.HasPrefix(details.URL, "about:") {
-		log.Printf("[webRequest] Skipping extension/about URL: %s", details.URL)
 		app.replyWebRequestDecision(message, webRequestDecision{})
 		return true
 	}
@@ -725,50 +726,7 @@ func (app *BrowserApp) handleWebRequestOnBeforeRequest(message *webkit.UserMessa
 	for _, extID := range app.extensionManager.GetEnabledExtensionsWithWebRequest() {
 		bgResp, err := app.extensionManager.DispatchWebRequestEvent(extID, "onBeforeRequest", details)
 		if err != nil {
-			log.Printf("[webRequest] onBeforeRequest dispatch failed for %s: %v", extID, err)
-			continue
-		}
-		if bgResp != nil {
-			// Take the first non-nil response.
-			resp.Cancel = resp.Cancel || bgResp.Cancel
-			if resp.RedirectURL == "" {
-				resp.RedirectURL = bgResp.RedirectURL
-			}
-			if resp.RequestHeaders == nil && bgResp.RequestHeaders != nil {
-				resp.RequestHeaders = bgResp.RequestHeaders
-			}
-			break
-		}
-	}
-
-	app.replyWebRequestDecision(message, resp)
-	return true
-}
-
-func (app *BrowserApp) handleWebRequestOnBeforeSendHeaders(message *webkit.UserMessage) bool {
-	if app.extensionManager == nil {
-		return false
-	}
-
-	params := message.Parameters()
-	requestStr := variantToString(params)
-	if requestStr == "" {
-		app.replyWebRequestDecision(message, webRequestDecision{})
-		return true
-	}
-
-	var details api.RequestDetails
-	if err := json.Unmarshal([]byte(requestStr), &details); err != nil {
-		log.Printf("[webRequest] Failed to decode onBeforeSendHeaders details: %v", err)
-		app.replyWebRequestDecision(message, webRequestDecision{})
-		return true
-	}
-
-	resp := webRequestDecision{}
-	for _, extID := range app.extensionManager.GetEnabledExtensionsWithWebRequest() {
-		bgResp, err := app.extensionManager.DispatchWebRequestEvent(extID, "onBeforeSendHeaders", details)
-		if err != nil {
-			log.Printf("[webRequest] onBeforeSendHeaders dispatch failed for %s: %v", extID, err)
+			log.Printf("[webRequest] onBeforeRequest error for %s: %v", extID, err)
 			continue
 		}
 		if bgResp != nil {
@@ -778,6 +736,12 @@ func (app *BrowserApp) handleWebRequestOnBeforeSendHeaders(message *webkit.UserM
 			}
 			if resp.RequestHeaders == nil && bgResp.RequestHeaders != nil {
 				resp.RequestHeaders = bgResp.RequestHeaders
+			}
+			// Log only when actually blocking/redirecting
+			if resp.Cancel {
+				log.Printf("[webRequest] BLOCKED: %s", details.URL)
+			} else if resp.RedirectURL != "" {
+				log.Printf("[webRequest] REDIRECT: %s -> %s", details.URL, resp.RedirectURL)
 			}
 			break
 		}
@@ -818,11 +782,9 @@ func (app *BrowserApp) replyWebRequestDecision(message *webkit.UserMessage, deci
 		return
 	}
 
-	log.Printf("[webRequest] Sending reply: %s", string(payload))
 	// Reply messages must have an empty name - WebKit routes them back by message ID
 	reply := webkitv6.NewUserMessage("", glib.NewVariantString(string(payload)))
 	message.SendReply(reply)
-	log.Printf("[webRequest] Reply sent successfully")
 }
 
 func (app *BrowserApp) forwardWebRequestOnBeforeRequest(extID string, details api.RequestDetails) *api.BlockingResponse {
@@ -946,14 +908,12 @@ func (app *BrowserApp) handleResourceSentRequest(view *webkit.WebView, resource 
 	track.details.RequestHeaders = extractRequestHeaders(request)
 	track.details.TimeStamp = float64(time.Now().UnixMilli())
 
+	// Handle redirect response - this is valid since it's from the previous request
 	if redirectedResponse != nil {
 		app.handleResponseEvent(view, track, redirectedResponse)
-		return
 	}
-
-	if resp := resource.Response(); resp != nil {
-		app.handleResponseEvent(view, track, resp)
-	}
+	// NOTE: Do NOT call resource.Response() here - it's invalid during SentRequest.
+	// The response will be processed in handleResourceFinished when it's actually available.
 }
 
 func (app *BrowserApp) handleResourceFinished(view *webkit.WebView, resource *webkit.WebResource) {

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -29,7 +30,47 @@ import (
 var (
 	extensionInfo          []shared.ExtensionInfo
 	hasWebRequestListeners bool
+	webRequestAllowCache   = newWebRequestAllowStore()
 )
+
+// webRequestAllowStore remembers requests that were allowed untouched so we can skip
+// expensive IPC for repeated, same-origin assets (e.g., hashed chunk files).
+type webRequestAllowStore struct {
+	mu      sync.Mutex
+	allowed map[uint64]map[string]struct{}
+}
+
+func newWebRequestAllowStore() *webRequestAllowStore {
+	return &webRequestAllowStore{allowed: make(map[uint64]map[string]struct{})}
+}
+
+func (c *webRequestAllowStore) isAllowed(pageID uint64, key string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.allowed == nil {
+		return false
+	}
+	perPage := c.allowed[pageID]
+	if perPage == nil {
+		return false
+	}
+	_, ok := perPage[key]
+	return ok
+}
+
+func (c *webRequestAllowStore) markAllowed(pageID uint64, key string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.allowed == nil {
+		c.allowed = make(map[uint64]map[string]struct{})
+	}
+	perPage := c.allowed[pageID]
+	if perPage == nil {
+		perPage = make(map[string]struct{})
+		c.allowed[pageID] = perPage
+	}
+	perPage[key] = struct{}{}
+}
 
 //export webkit_web_process_extension_initialize_with_user_data
 func webkit_web_process_extension_initialize_with_user_data(
@@ -264,51 +305,136 @@ func forwardConsoleMessageToUI(page *webkitwebprocessextension.WebPage, consoleM
 	}
 }
 
+// shouldSkipWebRequest returns true for requests very unlikely to be blocked.
+// This avoids expensive IPC for same-origin static assets.
+func shouldSkipWebRequest(pageURI string, requestURI string, resourceType api.ResourceType, fetchSite string) bool {
+	// Always check extension URLs (internal)
+	if strings.HasPrefix(requestURI, "dumb-extension://") {
+		return true
+	}
+
+	// Always check data URLs (can't be blocked by domain)
+	if strings.HasPrefix(requestURI, "data:") {
+		return true
+	}
+
+	// Always check blob URLs
+	if strings.HasPrefix(requestURI, "blob:") {
+		return true
+	}
+
+	// Explicit same-origin/same-site from fetch metadata: skip low-risk types
+	if fetchSite == "same-origin" || fetchSite == "same-site" {
+		switch resourceType {
+		case api.ResourceTypeScript, api.ResourceTypeXMLHTTP, api.ResourceTypeSub,
+			api.ResourceTypeWebSocket, api.ResourceTypePing, api.ResourceTypeMain:
+			return false
+		default:
+			return true
+		}
+	}
+
+	// High-priority types that uBlock actively filters - NEVER skip
+	switch resourceType {
+	case api.ResourceTypeScript, api.ResourceTypeXMLHTTP, api.ResourceTypeSub,
+		api.ResourceTypeWebSocket, api.ResourceTypePing:
+		return false
+	}
+
+	// For images, fonts, media, stylesheets - skip if same-origin
+	// uBlock filters cross-origin ad/tracker resources, not same-origin content
+	switch resourceType {
+	case api.ResourceTypeImage, api.ResourceTypeFont, api.ResourceTypeMedia, api.ResourceTypeStylesheet:
+		return isSameOrigin(pageURI, requestURI)
+	}
+
+	// Everything else goes through webRequest
+	return false
+}
+
+func buildAllowCacheKey(requestURI string, resourceType api.ResourceType) string {
+	return fmt.Sprintf("%s|%s", requestURI, resourceType)
+}
+
+// isSameOrigin checks if two URIs share the same origin (scheme + host)
+func isSameOrigin(uri1, uri2 string) bool {
+	origin1 := extractOrigin(uri1)
+	origin2 := extractOrigin(uri2)
+	return origin1 != "" && origin1 == origin2
+}
+
+// extractOrigin returns scheme://host from a URI
+func extractOrigin(uri string) string {
+	// Find scheme
+	schemeEnd := strings.Index(uri, "://")
+	if schemeEnd < 0 {
+		return ""
+	}
+
+	// Find host end (next / or end of string)
+	hostStart := schemeEnd + 3
+	hostEnd := strings.Index(uri[hostStart:], "/")
+	if hostEnd < 0 {
+		return uri // No path, entire URI is origin
+	}
+
+	return uri[:hostStart+hostEnd]
+}
+
 func onSendRequest(page *webkitwebprocessextension.WebPage, request *webkitwebprocessextension.URIRequest, redirectedResponse *webkitwebprocessextension.URIResponse) bool {
 	// If no extensions are enabled there is nothing to consult; allow immediately.
 	if len(extensionInfo) == 0 {
 		return false
 	}
 
-	details := buildRequestDetails(page, request)
-	beforeDecision := dispatchBlockingWebRequest(page, "webRequest:onBeforeRequest", details)
-	if beforeDecision.RedirectURL != "" {
-		request.SetURI(beforeDecision.RedirectURL)
-	}
-	if len(beforeDecision.RequestHeaders) > 0 {
-		if headers := request.HTTPHeaders(); headers != nil {
-			for name, value := range beforeDecision.RequestHeaders {
-				headers.Replace(name, value)
-			}
-		}
-	}
-	if beforeDecision.Cancel {
-		return true
-	}
+	requestURI := request.URI()
+	pageURI := page.URI()
 
-	details.URL = request.URI()
-	details.RequestHeaders = map[string]string{}
-	if headers := request.HTTPHeaders(); headers != nil {
-		headers.ForEach(func(name, value string) {
-			details.RequestHeaders[name] = value
+	// Fast-path: Build minimal details to check resource type
+	headers := map[string]string{}
+	if httpHeaders := request.HTTPHeaders(); httpHeaders != nil {
+		httpHeaders.ForEach(func(name, value string) {
+			headers[name] = value
 		})
 	}
-	details.TimeStamp = float64(time.Now().UnixMilli())
+	resourceType := detectResourceType(headers)
+	fetchSite := strings.ToLower(headers["Sec-Fetch-Site"])
 
-	// Give extensions a chance to inspect modified headers before dispatch.
-	sendHeadersDecision := dispatchBlockingWebRequest(page, "webRequest:onBeforeSendHeaders", details)
-	if sendHeadersDecision.RedirectURL != "" {
-		request.SetURI(sendHeadersDecision.RedirectURL)
+	// Skip webRequest for low-risk same-origin resources
+	if shouldSkipWebRequest(pageURI, requestURI, resourceType, fetchSite) {
+		return false
 	}
-	if len(sendHeadersDecision.RequestHeaders) > 0 {
-		if headers := request.HTTPHeaders(); headers != nil {
-			for name, value := range sendHeadersDecision.RequestHeaders {
-				headers.Replace(name, value)
+
+	// Fast allow-path: if we already saw this resource allowed untouched, skip IPC
+	allowKey := buildAllowCacheKey(requestURI, resourceType)
+	if webRequestAllowCache.isAllowed(page.ID(), allowKey) {
+		return false
+	}
+
+	details := buildRequestDetailsFromParsed(page, request, headers, resourceType)
+
+	// Single combined IPC call for both onBeforeRequest and onBeforeSendHeaders
+	// This halves the IPC overhead compared to two separate calls
+	decision := dispatchBlockingWebRequest(page, "webRequest:onBeforeRequest", details)
+
+	if decision.RedirectURL != "" {
+		request.SetURI(decision.RedirectURL)
+	}
+	if len(decision.RequestHeaders) > 0 {
+		if hdrs := request.HTTPHeaders(); hdrs != nil {
+			for name, value := range decision.RequestHeaders {
+				hdrs.Replace(name, value)
 			}
 		}
 	}
 
-	return sendHeadersDecision.Cancel
+	// Cache untouched requests to avoid re-dispatching identical allowed resources
+	modified := decision.Cancel || decision.RedirectURL != "" || len(decision.RequestHeaders) > 0
+	if !modified && (fetchSite == "same-origin" || fetchSite == "same-site" || isSameOrigin(pageURI, requestURI)) {
+		webRequestAllowCache.markAllowed(page.ID(), allowKey)
+	}
+
+	return decision.Cancel
 }
 
 func dispatchBlockingWebRequest(page *webkitwebprocessextension.WebPage, name string, details api.RequestDetails) webRequestDecision {
@@ -321,8 +447,8 @@ func dispatchBlockingWebRequest(page *webkitwebprocessextension.WebPage, name st
 	variant := glib.NewVariantString(string(payload))
 	msg := webkitwebprocessextension.NewUserMessage(name, variant)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
+	// Use background context for the async call - we handle timeout manually via polling
+	ctx := context.Background()
 
 	resultCh := make(chan webRequestDecision, 1)
 
@@ -359,27 +485,35 @@ func dispatchBlockingWebRequest(page *webkitwebprocessextension.WebPage, name st
 		resultCh <- decision
 	})
 
-	select {
-	case decision, ok := <-resultCh:
-		if ok {
-			return decision
+	// Poll for result while iterating the GLib main context
+	// The async callback runs on the main context, so we need to pump it
+	mainCtx := glib.MainContextDefault()
+	deadline := time.Now().Add(100 * time.Millisecond)
+
+	for time.Now().Before(deadline) {
+		// Check if result is ready
+		select {
+		case decision, ok := <-resultCh:
+			if ok {
+				return decision
+			}
+			// Channel closed without result
+			return webRequestDecision{}
+		default:
+			// No result yet, iterate the main context to process pending callbacks
+			if !mainCtx.Iteration(false) {
+				// No events pending, sleep briefly to avoid busy-waiting
+				time.Sleep(100 * time.Microsecond)
+			}
 		}
-	case <-ctx.Done():
-		LogWarn(page, "[webRequest] %s handler timed out for %s", name, details.URL)
 	}
 
+	LogWarn(page, "[webRequest] %s handler timed out for %s", name, details.URL)
 	return webRequestDecision{}
 }
 
-// buildRequestDetails maps a WebKit URIRequest to our WebRequest API shape
-func buildRequestDetails(page *webkitwebprocessextension.WebPage, request *webkitwebprocessextension.URIRequest) api.RequestDetails {
-	headers := map[string]string{}
-	if httpHeaders := request.HTTPHeaders(); httpHeaders != nil {
-		httpHeaders.ForEach(func(name, value string) {
-			headers[name] = value
-		})
-	}
-
+// buildRequestDetailsFromParsed builds RequestDetails using pre-parsed headers and resource type
+func buildRequestDetailsFromParsed(page *webkitwebprocessextension.WebPage, request *webkitwebprocessextension.URIRequest, headers map[string]string, resourceType api.ResourceType) api.RequestDetails {
 	return api.RequestDetails{
 		RequestID:      fmt.Sprintf("%d-%d", page.ID(), time.Now().UnixNano()),
 		URL:            request.URI(),
@@ -387,11 +521,59 @@ func buildRequestDetails(page *webkitwebprocessextension.WebPage, request *webki
 		FrameID:        int64(page.ID()),
 		ParentFrameID:  -1, // Not available from WebKit API
 		TabID:          int64(page.ID()),
-		Type:           api.ResourceTypeOther,
+		Type:           resourceType,
 		TimeStamp:      float64(time.Now().UnixMilli()),
 		Initiator:      page.URI(),
 		RequestHeaders: headers,
 	}
+}
+
+// detectResourceType determines the Chrome webRequest resource type from request headers
+func detectResourceType(headers map[string]string) api.ResourceType {
+	// Sec-Fetch-Dest is the most reliable indicator
+	secFetchDest := headers["Sec-Fetch-Dest"]
+	switch secFetchDest {
+	case "document":
+		return api.ResourceTypeMain
+	case "iframe":
+		return api.ResourceTypeSub
+	case "style":
+		return api.ResourceTypeStylesheet
+	case "script":
+		return api.ResourceTypeScript
+	case "image":
+		return api.ResourceTypeImage
+	case "font":
+		return api.ResourceTypeFont
+	case "object", "embed":
+		return api.ResourceTypeObject
+	case "audio", "video", "track":
+		return api.ResourceTypeMedia
+	case "empty":
+		// Could be XHR, fetch, ping, etc - check Accept header
+		accept := headers["Accept"]
+		if strings.Contains(accept, "application/json") || strings.Contains(accept, "*/*") {
+			return api.ResourceTypeXMLHTTP
+		}
+		return api.ResourceTypeOther
+	case "websocket":
+		return api.ResourceTypeWebSocket
+	}
+
+	// Fallback: check Accept header for hints
+	accept := headers["Accept"]
+	switch {
+	case strings.HasPrefix(accept, "text/html"):
+		return api.ResourceTypeMain
+	case strings.HasPrefix(accept, "text/css"):
+		return api.ResourceTypeStylesheet
+	case strings.HasPrefix(accept, "image/"):
+		return api.ResourceTypeImage
+	case strings.Contains(accept, "javascript"):
+		return api.ResourceTypeScript
+	}
+
+	return api.ResourceTypeOther
 }
 
 // webRequestDecision represents the UI process decision for a request
