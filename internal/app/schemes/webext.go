@@ -2,6 +2,7 @@ package schemes
 
 import (
 	"fmt"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -40,6 +41,8 @@ func (h *WebExtHandler) Handle(req *webkit.URISchemeRequest) {
 	}
 
 	uri := req.URI()
+	log.Printf("[schemes] dumb-extension:// request received: %s", uri)
+
 	parsed, err := url.Parse(uri)
 	if err != nil || parsed.Scheme != SchemeDumbExtension {
 		req.FinishError(fmt.Errorf("invalid extension URI: %s", uri))

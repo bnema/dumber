@@ -42,21 +42,21 @@ func (app *BrowserApp) buildWebkitConfig() (*webkit.Config, error) {
 
 	// Build WebKit configuration with data directories for persistence
 	cfg := &webkit.Config{
-		UserAgent:                 buildUserAgent(app.config),
-		EnableJavaScript:          true,
-		EnableWebGL:               true,
-		EnableMediaStream:         true,
-		HardwareAcceleration:      true,
-		DefaultFontSize:           app.config.Appearance.DefaultFontSize,
-		MinimumFontSize:           8,
-		EnablePageCache:           true, // Instant back/forward navigation (bfcache)
-		EnableSmoothScrolling:     true, // Smooth scrolling animations
-		CaptureConsole:            app.config.Logging.CaptureConsole,
-		DataDir:              webkitData,
-		CacheDir:             webkitCache,
-		AppearanceConfigJSON: app.buildAppearanceConfigJSON(),
-		CreateWindow:         true,                     // Default to creating a window for standalone WebViews
-		SetupDownloadHandler: SetupDownloadHandler,     // Setup browser download handling
+		UserAgent:             buildUserAgent(app.config),
+		EnableJavaScript:      true,
+		EnableWebGL:           true,
+		EnableMediaStream:     true,
+		HardwareAcceleration:  true,
+		DefaultFontSize:       app.config.Appearance.DefaultFontSize,
+		MinimumFontSize:       8,
+		EnablePageCache:       true, // Instant back/forward navigation (bfcache)
+		EnableSmoothScrolling: true, // Smooth scrolling animations
+		CaptureConsole:        app.config.Logging.CaptureConsole,
+		DataDir:               webkitData,
+		CacheDir:              webkitCache,
+		AppearanceConfigJSON:  app.buildAppearanceConfigJSON(),
+		CreateWindow:          true,                 // Default to creating a window for standalone WebViews
+		SetupDownloadHandler:  SetupDownloadHandler, // Setup browser download handling
 	}
 
 	return cfg, nil
