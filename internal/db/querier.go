@@ -15,20 +15,26 @@ type Querier interface {
 	CleanupOldDeletedExtensions(ctx context.Context, days float64) error
 	// Cleanup zoom level entries older than specified days
 	CleanupOldZoomLevels(ctx context.Context, dollar_1 sql.NullString) error
+	ClearExtensionStorage(ctx context.Context, extensionID string, storageType string) error
+	CountExtensionStorageItems(ctx context.Context, extensionID string, storageType string) (int64, error)
 	// Insert a new favorite with auto-incremented position
 	CreateFavorite(ctx context.Context, url string, title sql.NullString, faviconUrl sql.NullString) error
 	DeleteAllHistory(ctx context.Context) error
 	DeleteCertificateValidation(ctx context.Context, hostname string, certificateHash string) error
 	DeleteExpiredCertificateValidations(ctx context.Context) error
+	DeleteExtensionStorageItem(ctx context.Context, extensionID string, storageType string, key string) error
 	// Delete a favorite by URL
 	DeleteFavorite(ctx context.Context, url string) error
 	DeleteHistory(ctx context.Context, id int64) error
 	// Delete zoom level setting for a domain
 	DeleteZoomLevel(ctx context.Context, domain string) error
+	GetAllExtensionStorageItems(ctx context.Context, extensionID string, storageType string) ([]GetAllExtensionStorageItemsRow, error)
 	// Get all favorites ordered by position
 	GetAllFavorites(ctx context.Context) ([]Favorite, error)
 	GetCertificateValidation(ctx context.Context, hostname string, certificateHash string) (CertificateValidation, error)
 	GetCertificateValidationByHostname(ctx context.Context, hostname string) (CertificateValidation, error)
+	GetExtensionStorageItem(ctx context.Context, extensionID string, storageType string, key string) (string, error)
+	GetExtensionStorageKeys(ctx context.Context, extensionID string, storageType string) ([]string, error)
 	// Get a specific favorite by URL
 	GetFavoriteByURL(ctx context.Context, url string) (Favorite, error)
 	// Get total count of favorites
@@ -59,6 +65,7 @@ type Querier interface {
 	// Update the position of a favorite
 	UpdateFavoritePosition(ctx context.Context, position int64, url string) error
 	UpdateHistoryFavicon(ctx context.Context, faviconUrl sql.NullString, url string) error
+	UpsertExtensionStorageItem(ctx context.Context, extensionID string, storageType string, key string, value string) error
 	UpsertInstalledExtension(ctx context.Context, arg UpsertInstalledExtensionParams) error
 }
 

@@ -19,6 +19,7 @@ type CertificateValidation struct {
 
 type ExtensionStorage struct {
 	ExtensionID string       `json:"extension_id"`
+	StorageType string       `json:"storage_type"`
 	Key         string       `json:"key"`
 	Value       string       `json:"value"`
 	CreatedAt   sql.NullTime `json:"created_at"`
