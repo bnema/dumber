@@ -484,7 +484,6 @@ func (app *BrowserApp) setupExtensionManager() error {
 	app.extensionManager.SetViewLookup(app)
 	// Provide workspace pane callbacks so tabs.* APIs can return real tab info
 	app.extensionManager.SetPaneCallbacks(app.webExtGetAllPanes, app.webExtGetActivePane)
-	app.extensionManager.SetWebRequestResponder(app.handleWebRequestResponse)
 	// Register popup manager as storage change notifier
 	app.extensionManager.SetStorageChangeNotifier(app.popupManager.NotifyStorageChange)
 	// Wire popup manager to browserAction API for openPopup support
@@ -532,7 +531,7 @@ func (app *BrowserApp) setupExtensionManager() error {
 			log.Printf("[webext] Warning: failed to start background context for %s: %v", ext.ID, err)
 		}
 	}
-	log.Printf("[webext] webRequest listeners registered: %v", app.extensionManager.GetWebRequestAPI().HasBeforeRequestListeners())
+	log.Printf("[webext] extensions with webRequest capability: %v", app.extensionManager.GetEnabledExtensionsWithWebRequest())
 
 	// Serialize extension data for WebProcess
 	initData, err := app.extensionManager.SerializeInitData()
@@ -729,24 +728,22 @@ func (app *BrowserApp) handleWebRequestOnBeforeRequest(message *webkit.UserMessa
 	}
 
 	resp := webRequestDecision{}
-	if api := app.extensionManager.GetWebRequestAPI(); api != nil {
-		for _, extID := range api.GetMatchingExtensions(details) {
-			bgResp, err := app.extensionManager.DispatchWebRequestEvent(extID, "onBeforeRequest", details)
-			if err != nil {
-				log.Printf("[webRequest] onBeforeRequest dispatch failed for %s: %v", extID, err)
-				continue
+	for _, extID := range app.extensionManager.GetEnabledExtensionsWithWebRequest() {
+		bgResp, err := app.extensionManager.DispatchWebRequestEvent(extID, "onBeforeRequest", details)
+		if err != nil {
+			log.Printf("[webRequest] onBeforeRequest dispatch failed for %s: %v", extID, err)
+			continue
+		}
+		if bgResp != nil {
+			// Take the first non-nil response.
+			resp.Cancel = resp.Cancel || bgResp.Cancel
+			if resp.RedirectURL == "" {
+				resp.RedirectURL = bgResp.RedirectURL
 			}
-			if bgResp != nil {
-				// Take the first non-nil response.
-				resp.Cancel = resp.Cancel || bgResp.Cancel
-				if resp.RedirectURL == "" {
-					resp.RedirectURL = bgResp.RedirectURL
-				}
-				if resp.RequestHeaders == nil && bgResp.RequestHeaders != nil {
-					resp.RequestHeaders = bgResp.RequestHeaders
-				}
-				break
+			if resp.RequestHeaders == nil && bgResp.RequestHeaders != nil {
+				resp.RequestHeaders = bgResp.RequestHeaders
 			}
+			break
 		}
 	}
 
@@ -774,23 +771,21 @@ func (app *BrowserApp) handleWebRequestOnBeforeSendHeaders(message *webkit.UserM
 	}
 
 	resp := webRequestDecision{}
-	if api := app.extensionManager.GetWebRequestAPI(); api != nil {
-		for _, extID := range api.GetMatchingExtensions(details) {
-			bgResp, err := app.extensionManager.DispatchWebRequestEvent(extID, "onBeforeSendHeaders", details)
-			if err != nil {
-				log.Printf("[webRequest] onBeforeSendHeaders dispatch failed for %s: %v", extID, err)
-				continue
+	for _, extID := range app.extensionManager.GetEnabledExtensionsWithWebRequest() {
+		bgResp, err := app.extensionManager.DispatchWebRequestEvent(extID, "onBeforeSendHeaders", details)
+		if err != nil {
+			log.Printf("[webRequest] onBeforeSendHeaders dispatch failed for %s: %v", extID, err)
+			continue
+		}
+		if bgResp != nil {
+			resp.Cancel = resp.Cancel || bgResp.Cancel
+			if resp.RedirectURL == "" {
+				resp.RedirectURL = bgResp.RedirectURL
 			}
-			if bgResp != nil {
-				resp.Cancel = resp.Cancel || bgResp.Cancel
-				if resp.RedirectURL == "" {
-					resp.RedirectURL = bgResp.RedirectURL
-				}
-				if resp.RequestHeaders == nil && bgResp.RequestHeaders != nil {
-					resp.RequestHeaders = bgResp.RequestHeaders
-				}
-				break
+			if resp.RequestHeaders == nil && bgResp.RequestHeaders != nil {
+				resp.RequestHeaders = bgResp.RequestHeaders
 			}
+			break
 		}
 	}
 
@@ -902,10 +897,9 @@ func (app *BrowserApp) handleResourceLoadStarted(view *webkit.WebView, resource 
 		return
 	}
 
-	// Skip if no webRequest listeners are registered - avoids unnecessary processing
+	// Skip if no extensions have webRequest capability - avoids unnecessary processing
 	// and prevents assertion failures from accessing invalid response objects
-	webReqAPI := app.extensionManager.GetWebRequestAPI()
-	if webReqAPI == nil || !webReqAPI.HasListeners() {
+	if !app.extensionManager.HasWebRequestCapability() {
 		return
 	}
 
@@ -991,17 +985,13 @@ func (app *BrowserApp) handleResourceFailed(_ *webkit.WebView, resource *webkit.
 	}
 
 	details := track.details
-	webReqAPI := app.extensionManager.GetWebRequestAPI()
-	if webReqAPI != nil {
-		webReqAPI.HandleErrorOccurred(details, err.Error())
-		payload := map[string]interface{}{
-			"details": details,
-			"error":   err.Error(),
-		}
-		for _, extID := range webReqAPI.GetMatchingExtensions(details) {
-			if _, dispatchErr := app.extensionManager.DispatchWebRequestEvent(extID, "onErrorOccurred", payload); dispatchErr != nil {
-				log.Printf("[webRequest] onErrorOccurred dispatch failed for %s: %v", extID, dispatchErr)
-			}
+	payload := map[string]interface{}{
+		"details": details,
+		"error":   err.Error(),
+	}
+	for _, extID := range app.extensionManager.GetEnabledExtensionsWithWebRequest() {
+		if _, dispatchErr := app.extensionManager.DispatchWebRequestEvent(extID, "onErrorOccurred", payload); dispatchErr != nil {
+			log.Printf("[webRequest] onErrorOccurred dispatch failed for %s: %v", extID, dispatchErr)
 		}
 	}
 
@@ -1013,19 +1003,13 @@ func (app *BrowserApp) handleResponseEvent(view *webkit.WebView, track *webReque
 		return
 	}
 
-	webReqAPI := app.extensionManager.GetWebRequestAPI()
-	if webReqAPI == nil {
-		return
-	}
-
-	// Skip response processing if no extensions have webRequest listeners
-	// This avoids accessing potentially invalid response objects
-	if !webReqAPI.HasListeners() {
+	// Skip response processing if no extensions have webRequest capability
+	if !app.extensionManager.HasWebRequestCapability() {
 		return
 	}
 
 	details := app.buildResponseDetails(track.details, resp)
-	matching := webReqAPI.GetMatchingExtensionsForResponse(details)
+	matching := app.extensionManager.GetEnabledExtensionsWithWebRequest()
 
 	if !track.headersSent {
 		for _, extID := range matching {
@@ -1070,8 +1054,8 @@ func (app *BrowserApp) dispatchCompletion(_ *webkit.WebView, track *webRequestTr
 		return
 	}
 
-	webReqAPI := app.extensionManager.GetWebRequestAPI()
-	if webReqAPI == nil {
+	// Skip if no extensions have webRequest capability
+	if !app.extensionManager.HasWebRequestCapability() {
 		return
 	}
 
@@ -1090,7 +1074,7 @@ func (app *BrowserApp) dispatchCompletion(_ *webkit.WebView, track *webRequestTr
 		}
 	}
 
-	for _, extID := range webReqAPI.GetMatchingExtensionsForResponse(details) {
+	for _, extID := range app.extensionManager.GetEnabledExtensionsWithWebRequest() {
 		if _, err := app.extensionManager.DispatchWebRequestEvent(extID, "onCompleted", details); err != nil {
 			log.Printf("[webRequest] onCompleted dispatch failed for %s: %v", extID, err)
 		}

@@ -87,7 +87,7 @@ func (m *Manager) SerializeInitData() (string, error) {
 
 	initData := InitData{
 		Extensions:             extensions,
-		HasWebRequestListeners: m.webRequest.HasListeners(),
+		HasWebRequestListeners: m.anyExtensionHasPermission("webRequestBlocking"),
 	}
 
 	jsonData, err := json.Marshal(initData)

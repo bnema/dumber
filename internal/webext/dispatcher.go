@@ -35,7 +35,6 @@ type Dispatcher struct {
 	// storageAPI removed - using manager.GetExtension(id).Storage
 	runtimeAPI       *api.RuntimeAPIDispatcher
 	tabsAPI          *api.TabsAPIDispatcher
-	webRequestAPI    *api.WebRequestAPI
 	browserActionAPI *api.BrowserActionDispatcher
 	pageActionAPI    *api.PageActionDispatcher
 	windowsAPI       *api.WindowsAPIDispatcher
@@ -94,10 +93,9 @@ func NewDispatcher(manager *Manager, viewLookup ViewLookup) *Dispatcher {
 
 	dispatcher := &Dispatcher{
 		manager: manager,
-		// storageAPI:      api.NewStorageAPIDispatcher(manager.dataDir), // Removed
+		// storageAPI removed - using manager.GetExtension(id).Storage
 		runtimeAPI:       runtimeAPI,
 		tabsAPI:          api.NewTabsAPIDispatcher(manager, tabOps, webViewLookupAdapter), // Pass manager as PaneInfoProvider, viewLookup as TabOperations, adapter as WebViewLookup
-		webRequestAPI:    manager.webRequest,
 		browserActionAPI: api.NewBrowserActionDispatcher(),
 		pageActionAPI:    api.NewPageActionDispatcher(),
 		windowsAPI:       api.NewWindowsAPIDispatcher(manager), // Pass manager as PaneInfoProvider
@@ -778,121 +776,35 @@ func (d *Dispatcher) handleTabsAPI(ctx context.Context, extID, method string, ar
 }
 
 // handleWebRequestAPI handles webRequest.* API calls
+// In the clean architecture, webRequest listeners are managed directly by BackgroundContext (Sobek VM).
+// The web process dispatches events via Manager.DispatchWebRequestEvent -> BackgroundContext.
+// These dispatcher methods are kept for compatibility but most are no-ops since listeners
+// are registered in background scripts, not via the dispatcher API.
 func (d *Dispatcher) handleWebRequestAPI(ctx context.Context, extID, method string, args json.RawMessage) (interface{}, error) {
-	if d.webRequestAPI == nil {
-		return nil, fmt.Errorf("webRequest API unavailable")
-	}
-
 	switch method {
-	case "onBeforeRequest.addListener":
-		var payload struct {
-			Filter *api.RequestFilter `json:"filter"`
-		}
-
-		unwrapped := unwrapJSArgs(args)
-		if len(unwrapped) > 0 && string(unwrapped) != "null" {
-			if err := json.Unmarshal(unwrapped, &payload); err != nil {
-				return nil, fmt.Errorf("invalid arguments for webRequest.onBeforeRequest.addListener: %w", err)
-			}
-		}
-
-		if payload.Filter == nil {
-			return nil, fmt.Errorf("filter is required for webRequest.onBeforeRequest.addListener")
-		}
-
-		return nil, d.webRequestAPI.OnBeforeRequest(extID, nil, payload.Filter)
-
-	case "onBeforeRequest.removeListener":
-		d.webRequestAPI.RemoveListener(extID)
+	case "onBeforeRequest.addListener",
+		"onBeforeSendHeaders.addListener",
+		"onHeadersReceived.addListener",
+		"onResponseStarted.addListener",
+		"onCompleted.addListener",
+		"onErrorOccurred.addListener":
+		// Listener registration happens in BackgroundContext (Sobek VM).
+		// Content scripts cannot register webRequest listeners directly.
+		// Return success for API compatibility.
+		log.Printf("[dispatcher] webRequest.%s called from content script (no-op, use background script)", method)
 		return nil, nil
 
-	case "onBeforeRequest.reply":
-		var payload struct {
-			RequestID string                `json:"requestId"`
-			Response  *api.BlockingResponse `json:"response"`
-		}
-
-		unwrapped := unwrapJSArgs(args)
-		if err := json.Unmarshal(unwrapped, &payload); err != nil {
-			return nil, fmt.Errorf("invalid reply payload: %w", err)
-		}
-
-		if payload.RequestID == "" {
-			return nil, fmt.Errorf("requestId is required for webRequest reply")
-		}
-
-		if d.manager != nil {
-			d.manager.notifyWebRequestResponse(payload.RequestID, payload.Response)
-		}
-		return nil, nil
-
-	case "onHeadersReceived.addListener":
-		var payload struct {
-			Filter        *api.RequestFilter `json:"filter"`
-			ExtraInfoSpec []string           `json:"extraInfoSpec"`
-		}
-
-		unwrapped := unwrapJSArgs(args)
-		if len(unwrapped) > 0 && string(unwrapped) != "null" {
-			if err := json.Unmarshal(unwrapped, &payload); err != nil {
-				return nil, fmt.Errorf("invalid arguments for webRequest.onHeadersReceived.addListener: %w", err)
-			}
-		}
-
-		if payload.Filter == nil {
-			return nil, fmt.Errorf("filter is required for webRequest.onHeadersReceived.addListener")
-		}
-
-		return nil, d.webRequestAPI.OnHeadersReceived(extID, nil, payload.Filter)
-
-	case "onHeadersReceived.removeListener":
-		d.webRequestAPI.RemoveHeadersReceivedListener(extID)
-		return nil, nil
-
-	case "onHeadersReceived.reply":
-		var payload struct {
-			RequestID string                `json:"requestId"`
-			Response  *api.BlockingResponse `json:"response"`
-		}
-
-		unwrapped := unwrapJSArgs(args)
-		if err := json.Unmarshal(unwrapped, &payload); err != nil {
-			return nil, fmt.Errorf("invalid reply payload: %w", err)
-		}
-
-		if payload.RequestID == "" {
-			return nil, fmt.Errorf("requestId is required for webRequest.onHeadersReceived reply")
-		}
-
-		if d.manager != nil {
-			d.manager.notifyWebRequestHeadersReceivedResponse(payload.RequestID, payload.Response)
-		}
-		return nil, nil
-
-	case "onResponseStarted.addListener":
-		var payload struct {
-			Filter        *api.RequestFilter `json:"filter"`
-			ExtraInfoSpec []string           `json:"extraInfoSpec"`
-		}
-
-		unwrapped := unwrapJSArgs(args)
-		if len(unwrapped) > 0 && string(unwrapped) != "null" {
-			if err := json.Unmarshal(unwrapped, &payload); err != nil {
-				return nil, fmt.Errorf("invalid arguments for webRequest.onResponseStarted.addListener: %w", err)
-			}
-		}
-
-		if payload.Filter == nil {
-			return nil, fmt.Errorf("filter is required for webRequest.onResponseStarted.addListener")
-		}
-
-		return nil, d.webRequestAPI.OnResponseStarted(extID, nil, payload.Filter)
-
-	case "onResponseStarted.removeListener":
-		d.webRequestAPI.RemoveResponseStartedListener(extID)
+	case "onBeforeRequest.removeListener",
+		"onBeforeSendHeaders.removeListener",
+		"onHeadersReceived.removeListener",
+		"onResponseStarted.removeListener",
+		"onCompleted.removeListener",
+		"onErrorOccurred.removeListener":
+		// Listener removal handled by BackgroundContext lifecycle.
 		return nil, nil
 
 	case "handlerBehaviorChanged":
+		// No-op - behavior changes are handled automatically.
 		return nil, nil
 
 	default:

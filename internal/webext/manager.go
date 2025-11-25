@@ -36,9 +36,6 @@ type Extension struct {
 	Runtime *api.RuntimeAPI
 	Storage *api.StorageAPI
 
-	// Shared APIs
-	WebRequest api.WebRequestHandler
-
 	// CSS tracking (for tabs.insertCSS/removeCSS)
 	customCSS     map[string]*webkit.UserStyleSheet // CSS code -> UserStyleSheet mapping
 	customCSSLock sync.RWMutex
@@ -221,15 +218,12 @@ type Manager struct {
 	dataDir       string                 // Base directory for extension data
 	database      *sql.DB                // Database for extension storage
 	queries       db.ExtensionsQuerier   // Generated queries for extension metadata
-	webRequest    *api.WebRequestAPI     // Shared webRequest API for all extensions
 	schemeHandler *schemes.WebExtHandler // Handler for dumb-extension:// URIs
 	dispatcher    *Dispatcher            // API dispatcher for webext:api messages
 	getAllPanes   GetAllPanesFunc        // Callback to get all panes from workspace
 	getActivePane GetActivePaneFunc      // Callback to get active pane from workspace
 	viewLookup    ViewLookup             // Lookup for finding WebViews by ID
-	// Callback for webRequest responses originating from JS listeners in backgrounds
-	webRequestResponder func(requestID string, resp *api.BlockingResponse)
-	portCallbacks       map[string]api.PortCallbacks // Port callback targets keyed by port ID
+	portCallbacks map[string]api.PortCallbacks // Port callback targets keyed by port ID
 	// Callback to notify popups of storage changes
 	storageChangeNotifier func(extID string, changes map[string]api.StorageChange, areaName string)
 }
@@ -244,7 +238,6 @@ func NewManager(extensionsDir, dataDir string, dbConn *sql.DB, queries db.Extens
 		dataDir:       dataDir,
 		database:      dbConn,
 		queries:       queries,
-		webRequest:    api.NewWebRequestAPI(),
 		portCallbacks: make(map[string]api.PortCallbacks),
 	}
 
@@ -266,13 +259,6 @@ func (m *Manager) SetViewLookup(viewLookup ViewLookup) {
 	m.dispatcher = NewDispatcher(m, viewLookup)
 }
 
-// SetWebRequestResponder registers a callback to deliver webRequest responses back to the UI.
-func (m *Manager) SetWebRequestResponder(responder func(requestID string, resp *api.BlockingResponse)) {
-	m.mu.Lock()
-	m.webRequestResponder = responder
-	m.mu.Unlock()
-}
-
 // SetStorageChangeNotifier registers a callback to notify popups of storage changes
 func (m *Manager) SetStorageChangeNotifier(notifier func(extID string, changes map[string]api.StorageChange, areaName string)) {
 	m.mu.Lock()
@@ -288,30 +274,6 @@ func (m *Manager) InitializeCookieManager() {
 
 	if dispatcher != nil {
 		dispatcher.InitializeCookieManager()
-	}
-}
-
-// notifyWebRequestResponse forwards a response to the registered responder, if any.
-func (m *Manager) notifyWebRequestResponse(requestID string, resp *api.BlockingResponse) {
-	m.mu.RLock()
-	handler := m.webRequestResponder
-	m.mu.RUnlock()
-
-	if handler != nil {
-		handler(requestID, resp)
-	}
-}
-
-// notifyWebRequestHeadersReceivedResponse forwards an onHeadersReceived response to the registered responder, if any.
-func (m *Manager) notifyWebRequestHeadersReceivedResponse(requestID string, resp *api.BlockingResponse) {
-	// For now, use the same responder as onBeforeRequest
-	// In the future, we may want separate responders for different events
-	m.mu.RLock()
-	handler := m.webRequestResponder
-	m.mu.RUnlock()
-
-	if handler != nil {
-		handler(requestID, resp)
 	}
 }
 
@@ -583,9 +545,8 @@ func (m *Manager) Remove(id string) error {
 	}
 
 	if ext != nil {
-		if m.webRequest != nil {
-			m.webRequest.RemoveListener(id)
-		}
+		// Stop background context (handles webRequest listener cleanup)
+		m.StopBackgroundContext(ext)
 		if ext.DataDir != "" {
 			if err := os.RemoveAll(ext.DataDir); err != nil && !os.IsNotExist(err) {
 				log.Printf("[webext] Warning: failed to remove data dir for %s: %v", id, err)
@@ -672,9 +633,6 @@ func (m *Manager) InitializeAPIs(ext *Extension) error {
 	}
 	ext.Storage = storageAPI
 
-	// Shared webRequest API
-	ext.WebRequest = m.webRequest
-
 	// Register storage change listener
 	ext.Storage.Local().OnChanged(func(changes map[string]api.StorageChange, areaName string) {
 		// Notify background context directly (background scripts run in Goja context)
@@ -701,14 +659,57 @@ func (m *Manager) InitializeAPIs(ext *Extension) error {
 	return nil
 }
 
-// GetWebRequestAPI returns the shared webRequest API instance
-func (m *Manager) GetWebRequestAPI() *api.WebRequestAPI {
-	return m.webRequest
-}
-
 // GetDispatcher returns the API dispatcher for webext:api messages
 func (m *Manager) GetDispatcher() *Dispatcher {
 	return m.dispatcher
+}
+
+// anyExtensionHasPermission checks if any enabled extension has the given permission.
+// Used for permission-based initialization rather than runtime state tracking.
+func (m *Manager) anyExtensionHasPermission(perm string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	for id, ext := range m.bundled {
+		if m.enabled[id] && ext.Manifest != nil && ext.Manifest.HasPermission(perm) {
+			return true
+		}
+	}
+	for id, ext := range m.user {
+		if m.enabled[id] && ext.Manifest != nil && ext.Manifest.HasPermission(perm) {
+			return true
+		}
+	}
+	return false
+}
+
+// HasWebRequestCapability returns true if any enabled extension has webRequest or webRequestBlocking permission.
+func (m *Manager) HasWebRequestCapability() bool {
+	return m.anyExtensionHasPermission("webRequest") || m.anyExtensionHasPermission("webRequestBlocking")
+}
+
+// GetEnabledExtensionsWithWebRequest returns IDs of enabled extensions with webRequest permission.
+// Used by browser to dispatch webRequest events to all capable extensions.
+func (m *Manager) GetEnabledExtensionsWithWebRequest() []string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var ids []string
+	for id, ext := range m.bundled {
+		if m.enabled[id] && ext.Manifest != nil {
+			if ext.Manifest.HasPermission("webRequest") || ext.Manifest.HasPermission("webRequestBlocking") {
+				ids = append(ids, id)
+			}
+		}
+	}
+	for id, ext := range m.user {
+		if m.enabled[id] && ext.Manifest != nil {
+			if ext.Manifest.HasPermission("webRequest") || ext.Manifest.HasPermission("webRequestBlocking") {
+				ids = append(ids, id)
+			}
+		}
+	}
+	return ids
 }
 
 // GetBackgroundContext returns the Goja background context for an extension.
@@ -948,6 +949,19 @@ func (m *Manager) GetActivePane() *api.PaneInfo {
 	return nil
 }
 
+// managerPaneProvider wraps manager callbacks as PaneProvider
+type managerPaneProvider struct {
+	manager *Manager
+}
+
+func (p *managerPaneProvider) GetAllPanes() []api.PaneInfo {
+	return p.manager.GetAllPanes()
+}
+
+func (p *managerPaneProvider) GetActivePane() *api.PaneInfo {
+	return p.manager.GetActivePane()
+}
+
 // StartBackgroundContext initializes and starts the background context for an extension
 func (m *Manager) StartBackgroundContext(ext *Extension) error {
 	if ext == nil || ext.Manifest == nil || ext.Manifest.Background == nil {
@@ -960,6 +974,10 @@ func (m *Manager) StartBackgroundContext(ext *Extension) error {
 	}
 
 	ctx := NewBackgroundContext(ext)
+
+	// Set pane provider for tabs API
+	ctx.SetPaneProvider(&managerPaneProvider{manager: m})
+
 	if err := ctx.Start(); err != nil {
 		return fmt.Errorf("failed to start background for %s: %w", ext.ID, err)
 	}
@@ -967,7 +985,7 @@ func (m *Manager) StartBackgroundContext(ext *Extension) error {
 		return m.connectBackgroundToActiveView(ext, name)
 	})
 	ext.Background = ctx
-	log.Printf("[webext] Started Goja background for %s", ext.ID)
+	log.Printf("[webext] Started Sobek background for %s", ext.ID)
 	return nil
 }
 
