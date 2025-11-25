@@ -78,6 +78,23 @@ const (
 	RunAtDocumentIdle
 )
 
+// DefaultContentSecurityPolicy is the CSP used when the extension manifest
+// doesn't specify one. Matches Firefox's default per MDN documentation.
+// See: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Content_Security_Policy#default_content_security_policy
+const DefaultContentSecurityPolicy = "script-src 'self'; object-src 'self';"
+
+// GetContentSecurityPolicy returns the extension's CSP or the default if not specified.
+// This matches Epiphany's behavior of providing a sane default CSP.
+func (m *Manifest) GetContentSecurityPolicy() string {
+	if m == nil {
+		return DefaultContentSecurityPolicy
+	}
+	if m.ContentSecurityPolicy != "" {
+		return m.ContentSecurityPolicy
+	}
+	return DefaultContentSecurityPolicy
+}
+
 // ParseRunAt converts string to RunAtTiming
 func ParseRunAt(s string) RunAtTiming {
 	switch s {

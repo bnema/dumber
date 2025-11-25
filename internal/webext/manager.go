@@ -33,8 +33,9 @@ type Extension struct {
 	HostPermissions []string           // CORS allowlist patterns for extension resources
 
 	// WebExtension APIs
-	Runtime *api.RuntimeAPI
-	Storage *api.StorageAPI
+	Runtime      *api.RuntimeAPI
+	Storage      *api.StorageAPI
+	LocalStorage *api.SQLiteLocalStorage // Persistent localStorage for background scripts
 
 	// CSS tracking (for tabs.insertCSS/removeCSS)
 	customCSS     map[string]*webkit.UserStyleSheet // CSS code -> UserStyleSheet mapping
@@ -211,18 +212,18 @@ type GetActivePaneFunc func() *PaneInfo
 // Manager manages all browser extensions
 type Manager struct {
 	mu            sync.RWMutex
-	bundled       map[string]*Extension  // Built-in extensions
-	user          map[string]*Extension  // User-installed extensions
-	enabled       map[string]bool        // Enable state per extension
-	extensionsDir string                 // Base directory for installed extension code
-	dataDir       string                 // Base directory for extension data
-	database      *sql.DB                // Database for extension storage
-	queries       db.ExtensionsQuerier   // Generated queries for extension metadata
-	schemeHandler *schemes.WebExtHandler // Handler for dumb-extension:// URIs
-	dispatcher    *Dispatcher            // API dispatcher for webext:api messages
-	getAllPanes   GetAllPanesFunc        // Callback to get all panes from workspace
-	getActivePane GetActivePaneFunc      // Callback to get active pane from workspace
-	viewLookup    ViewLookup             // Lookup for finding WebViews by ID
+	bundled       map[string]*Extension        // Built-in extensions
+	user          map[string]*Extension        // User-installed extensions
+	enabled       map[string]bool              // Enable state per extension
+	extensionsDir string                       // Base directory for installed extension code
+	dataDir       string                       // Base directory for extension data
+	database      *sql.DB                      // Database for extension storage
+	queries       db.ExtensionsQuerier         // Generated queries for extension metadata
+	schemeHandler *schemes.WebExtHandler       // Handler for dumb-extension:// URIs
+	dispatcher    *Dispatcher                  // API dispatcher for webext:api messages
+	getAllPanes   GetAllPanesFunc              // Callback to get all panes from workspace
+	getActivePane GetActivePaneFunc            // Callback to get active pane from workspace
+	viewLookup    ViewLookup                   // Lookup for finding WebViews by ID
 	portCallbacks map[string]api.PortCallbacks // Port callback targets keyed by port ID
 	// Callback to notify popups of storage changes
 	storageChangeNotifier func(extID string, changes map[string]api.StorageChange, areaName string)
@@ -632,6 +633,9 @@ func (m *Manager) InitializeAPIs(ext *Extension) error {
 		return fmt.Errorf("failed to initialize storage API: %w", err)
 	}
 	ext.Storage = storageAPI
+
+	// Initialize persistent localStorage for background scripts
+	ext.LocalStorage = api.NewSQLiteLocalStorage(m.database, ext.ID)
 
 	// Register storage change listener
 	ext.Storage.Local().OnChanged(func(changes map[string]api.StorageChange, areaName string) {

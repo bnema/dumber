@@ -50,7 +50,8 @@ type BrowserGlobals struct {
 }
 
 // New creates browser globals for an extension.
-func New(vm *sobek.Runtime, ext Extension, tasks chan func()) *BrowserGlobals {
+// localStorage is optional - if nil, an in-memory implementation is used.
+func New(vm *sobek.Runtime, ext Extension, tasks chan func(), localStorage browserjs.LocalStorageBackend) *BrowserGlobals {
 	extID := ""
 	origin := "null"
 	if ext != nil {
@@ -60,11 +61,12 @@ func New(vm *sobek.Runtime, ext Extension, tasks chan func()) *BrowserGlobals {
 
 	// Create browserjs environment with extension-specific config
 	browserEnv := browserjs.New(vm, browserjs.Options{
-		TaskQueue:  tasks,
-		StartTime:  time.Now(),
-		HTTPClient: &http.Client{Timeout: 30 * time.Second},
-		Logger:     &extensionLogger{extID: extID},
-		Origin:     origin,
+		TaskQueue:    tasks,
+		StartTime:    time.Now(),
+		HTTPClient:   &http.Client{Timeout: 30 * time.Second},
+		Logger:       &extensionLogger{extID: extID},
+		Origin:       origin,
+		LocalStorage: localStorage,
 	})
 
 	return &BrowserGlobals{
