@@ -25,9 +25,14 @@ type LogRotator struct {
 }
 
 func NewLogRotator(baseDir string, maxSizeMB, maxBackups, maxAgeDays int, compress bool) (*LogRotator, error) {
+	return NewLogRotatorWithName(baseDir, "dumber.log", maxSizeMB, maxBackups, maxAgeDays, compress)
+}
+
+// NewLogRotatorWithName creates a log rotator with a custom filename
+func NewLogRotatorWithName(baseDir, filename string, maxSizeMB, maxBackups, maxAgeDays int, compress bool) (*LogRotator, error) {
 	r := &LogRotator{
 		baseDir:    baseDir,
-		baseName:   "dumber.log",
+		baseName:   filename,
 		maxSize:    int64(maxSizeMB) * 1024 * 1024, // Convert MB to bytes
 		maxAge:     time.Duration(maxAgeDays) * 24 * time.Hour,
 		maxBackups: maxBackups,
