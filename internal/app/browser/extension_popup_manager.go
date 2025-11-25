@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/url"
 	"sync"
 	"time"
 
@@ -43,9 +44,32 @@ func NewExtensionPopupManager(app *BrowserApp, extMgr *webext.Manager) *Extensio
 
 // OpenPopup opens an extension popup for the given extension
 // Follows Chrome behavior: only one popup per extension at a time
-func (pm *ExtensionPopupManager) OpenPopup(extID string, url string) error {
+func (pm *ExtensionPopupManager) OpenPopup(extID string, popupURL string) error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
+
+	// Capture the active pane's WebView ID BEFORE making any changes
+	// This is critical for extensions like uBlock Origin that need to know
+	// which pane (tab) the popup was opened from
+	var activeWebViewID uint64
+	if pm.app.workspace != nil {
+		if activePane := pm.app.workspace.GetActivePane(); activePane != nil && activePane.webView != nil {
+			activeWebViewID = activePane.webView.ID()
+		}
+	}
+
+	// Append tabId query parameter if we have an active pane
+	// Extensions expect this to know which "tab" they're operating on
+	if activeWebViewID != 0 {
+		parsedURL, err := url.Parse(popupURL)
+		if err == nil {
+			q := parsedURL.Query()
+			q.Set("tabId", fmt.Sprintf("%d", activeWebViewID))
+			parsedURL.RawQuery = q.Encode()
+			popupURL = parsedURL.String()
+			log.Printf("[popup-manager] Added tabId=%d to popup URL: %s", activeWebViewID, popupURL)
+		}
+	}
 
 	// Close existing popup if any
 	if existing := pm.activePopups[extID]; existing != nil {
@@ -65,10 +89,9 @@ func (pm *ExtensionPopupManager) OpenPopup(extID string, url string) error {
 	}
 
 	// Create popup WebView with extension configuration
-	csp := ""
-	if ext.Manifest != nil && ext.Manifest.ContentSecurityPolicy != "" {
-		csp = ext.Manifest.ContentSecurityPolicy
-	}
+	// Use the manifest's CSP or the default if not specified (matches Firefox/Epiphany behavior)
+	csp := ext.Manifest.GetContentSecurityPolicy()
+	log.Printf("[popup-manager] Using CSP for %s: %s", extID, csp)
 
 	// Build CORS allowlist from extension permissions
 	corsAllowlist := buildCORSAllowlist(ext)
@@ -92,10 +115,13 @@ func (pm *ExtensionPopupManager) OpenPopup(extID string, url string) error {
 		return fmt.Errorf("failed to wrap popup WebView")
 	}
 
-	// Initialize as popup window type
-	cfg := &webkit.Config{
-		CreateWindow: false,
+	// Initialize using full browser defaults so JS/modules stay enabled.
+	cfg, cfgErr := pm.app.buildWebkitConfig()
+	if cfgErr != nil {
+		return fmt.Errorf("failed to build webkit config: %w", cfgErr)
 	}
+	cfg.CreateWindow = false
+	cfg.IsExtensionWebView = true // Critical: skip UserContentManager injection
 
 	if err := wrappedView.InitializeFromBare(cfg); err != nil {
 		return fmt.Errorf("failed to initialize popup: %w", err)
@@ -136,6 +162,11 @@ func (pm *ExtensionPopupManager) OpenPopup(extID string, url string) error {
 	// Default popup width (extension popups are typically narrow)
 	popupWidth := 400
 
+	// Set size request on the WebView to enforce width
+	// This is more reliable than relying solely on paned position
+	webkit.WidgetSetSizeRequest(wrappedView.AsWidget(), popupWidth, -1)
+	webkit.WidgetSetHExpand(wrappedView.AsWidget(), false)
+
 	// Split to the right with max-width constraint
 	popupNode, err := ws.SplitPaneWithOptions(activeNode, SplitOptions{
 		Direction:    DirectionRight,
@@ -146,12 +177,17 @@ func (pm *ExtensionPopupManager) OpenPopup(extID string, url string) error {
 		return fmt.Errorf("failed to create popup split: %w", err)
 	}
 
+	// Also set size request on the pane's container if available
+	if popupNode != nil && popupNode.container != nil {
+		webkit.WidgetSetSizeRequest(popupNode.container, popupWidth, -1)
+	}
+
 	// Create popup record
 	popup := &ExtensionPopup{
 		ExtensionID:   extID,
 		PopupNode:     popupNode,
 		WebView:       wrappedView,
-		URL:           url,
+		URL:           popupURL,
 		BackgroundCtx: bgCtx,
 		OpenedAt:      time.Now(),
 	}
@@ -160,10 +196,10 @@ func (pm *ExtensionPopupManager) OpenPopup(extID string, url string) error {
 	pm.activePopups[extID] = popup
 	pm.popupsByID[wrappedView.ID()] = popup
 
-	log.Printf("[popup-manager] Opened popup for %s as split pane (width=%d): %s", extID, popupWidth, url)
+	log.Printf("[popup-manager] Opened popup for %s as split pane (width=%d): %s", extID, popupWidth, popupURL)
 
 	// Load the URL
-	if err := wrappedView.LoadURL(url); err != nil {
+	if err := wrappedView.LoadURL(popupURL); err != nil {
 		log.Printf("[popup-manager] Warning: failed to load popup URL: %v", err)
 	}
 
@@ -228,6 +264,23 @@ func (pm *ExtensionPopupManager) IsPopupView(viewID uint64) bool {
 	defer pm.mu.RUnlock()
 
 	return pm.popupsByID[viewID] != nil
+}
+
+// GetPopupInfoByViewID implements webext.PopupInfoProvider
+// Returns popup info for runtime.connect sender context
+func (pm *ExtensionPopupManager) GetPopupInfoByViewID(viewID uint64) *webext.PopupInfo {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+
+	popup := pm.popupsByID[viewID]
+	if popup == nil {
+		return nil
+	}
+
+	return &webext.PopupInfo{
+		ExtensionID: popup.ExtensionID,
+		URL:         popup.URL,
+	}
 }
 
 // CloseAll closes all active popups (used during shutdown)
