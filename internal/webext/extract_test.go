@@ -1,21 +1,20 @@
 package webext
 
 import (
-	"embed"
-	"io/fs"
+	"crypto/sha256"
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/bnema/dumber/internal/config"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-//go:embed testdata/assets/webext/dumber-webext.so
-var testSo []byte
-
-//go:embed testdata
-var testDataFS embed.FS
+// mockSOContent is fake .so content for testing
+var mockSOContent = []byte("ELF_MOCK_SO_CONTENT_FOR_TESTING_12345")
 
 func withTempXDG(t *testing.T) func() {
 	t.Helper()
@@ -35,15 +34,15 @@ func withTempXDG(t *testing.T) func() {
 	}
 }
 
-func getTestFS(t *testing.T) fs.FS {
-	t.Helper()
-	// Create a sub-filesystem rooted at "testdata" so paths match production
-	// (EnsureWebExtSO expects "assets/webext/dumber-webext.so", not "testdata/assets/...")
-	subFS, err := fs.Sub(testDataFS, "testdata")
-	if err != nil {
-		t.Fatalf("failed to create sub-filesystem: %v", err)
+// createMockFS creates an in-memory filesystem with mock .so content
+func createMockFS() fstest.MapFS {
+	return fstest.MapFS{
+		"assets/webext/dumber-webext.so": &fstest.MapFile{
+			Data:    mockSOContent,
+			Mode:    0o755,
+			ModTime: time.Now(),
+		},
 	}
-	return subFS
 }
 
 func TestEnsureWebExtSO(t *testing.T) {
@@ -63,9 +62,7 @@ func TestEnsureWebExtSO(t *testing.T) {
 			name: "reuse_existing_valid_file",
 			setup: func(t *testing.T, soPath string) {
 				// Pre-extract the file with correct content
-				if err := os.WriteFile(soPath, testSo, 0o755); err != nil {
-					t.Fatalf("pre-extract setup: %v", err)
-				}
+				require.NoError(t, os.WriteFile(soPath, mockSOContent, 0o755))
 			},
 			expectExtract: false,
 			expectError:   false,
@@ -74,9 +71,7 @@ func TestEnsureWebExtSO(t *testing.T) {
 			name: "replace_corrupt_file",
 			setup: func(t *testing.T, soPath string) {
 				// Write corrupt data
-				if err := os.WriteFile(soPath, []byte("corrupt"), 0o644); err != nil {
-					t.Fatalf("corrupt file setup: %v", err)
-				}
+				require.NoError(t, os.WriteFile(soPath, []byte("corrupt"), 0o644))
 			},
 			expectExtract: true,
 			expectError:   false,
@@ -88,22 +83,19 @@ func TestEnsureWebExtSO(t *testing.T) {
 			cleanup := withTempXDG(t)
 			defer cleanup()
 
-			testFS := getTestFS(t)
+			mockFS := createMockFS()
 
 			// Get expected .so path
 			dataDir, err := config.GetDataDir()
-			if err != nil {
-				t.Fatalf("get data dir: %v", err)
-			}
+			require.NoError(t, err)
+
 			libexecDir := filepath.Join(filepath.Dir(dataDir), "libexec", "dumber")
 			soPath := filepath.Join(libexecDir, "dumber-webext.so")
 
 			// Run setup if provided
 			if tt.setup != nil {
 				// Ensure directory exists for setup
-				if err := os.MkdirAll(libexecDir, 0755); err != nil {
-					t.Fatalf("mkdir for setup: %v", err)
-				}
+				require.NoError(t, os.MkdirAll(libexecDir, 0755))
 				tt.setup(t, soPath)
 			}
 
@@ -119,50 +111,110 @@ func TestEnsureWebExtSO(t *testing.T) {
 			}
 
 			// Call EnsureWebExtSO
-			dir, err := EnsureWebExtSO(testFS)
+			dir, err := EnsureWebExtSO(mockFS)
 
 			// Check error expectation
-			if (err != nil) != tt.expectError {
-				t.Fatalf("EnsureWebExtSO() error = %v, expectError %v", err, tt.expectError)
-			}
 			if tt.expectError {
+				assert.Error(t, err)
 				return
 			}
+			require.NoError(t, err)
 
 			// Verify returned directory
-			if dir != libexecDir {
-				t.Errorf("returned dir = %v, want %v", dir, libexecDir)
-			}
+			assert.Equal(t, libexecDir, dir)
 
 			// Verify file exists and has correct content
 			data, err := os.ReadFile(soPath)
-			if err != nil {
-				t.Fatalf("read extracted .so: %v", err)
-			}
-			if string(data) != string(testSo) {
-				t.Errorf("file content mismatch")
-			}
+			require.NoError(t, err)
+			assert.Equal(t, mockSOContent, data)
 
 			// Verify extraction behavior
+			info, err := os.Stat(soPath)
+			require.NoError(t, err)
+
 			if tt.expectExtract {
 				// File should be newly extracted
-				info, err := os.Stat(soPath)
-				if err != nil {
-					t.Fatalf("stat .so: %v", err)
-				}
-				if !modBefore.IsZero() && modBefore.Equal(info.ModTime()) {
-					t.Errorf("expected file to be re-extracted, but modtime unchanged")
+				if !modBefore.IsZero() {
+					assert.NotEqual(t, modBefore, info.ModTime(), "expected file to be re-extracted")
 				}
 			} else {
 				// File should be reused (modtime unchanged)
-				info, err := os.Stat(soPath)
-				if err != nil {
-					t.Fatalf("stat .so: %v", err)
-				}
-				if !modBefore.Equal(info.ModTime()) {
-					t.Errorf("expected file reuse (modtime preserved), got %v -> %v", modBefore, info.ModTime())
-				}
+				assert.Equal(t, modBefore, info.ModTime(), "expected file reuse (modtime preserved)")
 			}
 		})
 	}
+}
+
+func TestEnsureWebExtSO_MissingAsset(t *testing.T) {
+	cleanup := withTempXDG(t)
+	defer cleanup()
+
+	// Empty filesystem - no .so file
+	emptyFS := fstest.MapFS{}
+
+	_, err := EnsureWebExtSO(emptyFS)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read embedded .so")
+}
+
+func TestFileHashMatches(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	t.Run("matching hash", func(t *testing.T) {
+		path := filepath.Join(tmpDir, "match.bin")
+		content := []byte("test content")
+		require.NoError(t, os.WriteFile(path, content, 0644))
+
+		// Calculate expected hash
+		expected := sha256Sum(content)
+		assert.True(t, fileHashMatches(path, expected))
+	})
+
+	t.Run("non-matching hash", func(t *testing.T) {
+		path := filepath.Join(tmpDir, "nomatch.bin")
+		require.NoError(t, os.WriteFile(path, []byte("test content"), 0644))
+
+		// Different hash
+		var wrongHash [32]byte
+		assert.False(t, fileHashMatches(path, wrongHash))
+	})
+
+	t.Run("file does not exist", func(t *testing.T) {
+		var anyHash [32]byte
+		assert.False(t, fileHashMatches("/nonexistent/path", anyHash))
+	})
+}
+
+func TestWriteAtomically(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	t.Run("successful write", func(t *testing.T) {
+		path := filepath.Join(tmpDir, "atomic.bin")
+		content := []byte("atomic content")
+
+		err := writeAtomically(path, content, 0o644)
+		require.NoError(t, err)
+
+		data, err := os.ReadFile(path)
+		require.NoError(t, err)
+		assert.Equal(t, content, data)
+	})
+
+	t.Run("sets permissions", func(t *testing.T) {
+		path := filepath.Join(tmpDir, "perms.bin")
+		content := []byte("test")
+
+		err := writeAtomically(path, content, 0o755)
+		require.NoError(t, err)
+
+		info, err := os.Stat(path)
+		require.NoError(t, err)
+		// Check executable bit is set (on Unix)
+		assert.True(t, info.Mode()&0o100 != 0, "expected executable permission")
+	})
+}
+
+// sha256Sum is a helper to compute SHA-256 hash
+func sha256Sum(data []byte) [32]byte {
+	return sha256.Sum256(data)
 }

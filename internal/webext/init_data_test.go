@@ -3,7 +3,6 @@ package webext
 import (
 	"testing"
 
-	"github.com/bnema/dumber/internal/webext/api"
 	"github.com/bnema/dumber/internal/webext/shared"
 )
 
@@ -102,7 +101,7 @@ func TestSerializeInitData(t *testing.T) {
 		wantHasWebReqListen bool
 	}{
 		{
-			name: "single enabled extension",
+			name: "single enabled extension with webRequestBlocking permission",
 			setup: func(m *Manager) {
 				m.mu.Lock()
 				defer m.mu.Unlock()
@@ -112,6 +111,7 @@ func TestSerializeInitData(t *testing.T) {
 					Manifest: &Manifest{
 						Name:    "Test Extension",
 						Version: "1.0.0",
+						Permissions: []string{"webRequestBlocking"},
 						ContentScripts: []shared.ContentScript{
 							{Matches: []string{"<all_urls>"}, JS: []string{"content.js"}},
 						},
@@ -175,16 +175,8 @@ func TestSerializeInitData(t *testing.T) {
 			manager := NewManager("/tmp/extensions", "/tmp/test", nil, nil)
 			tt.setup(manager)
 
-			// Optionally register a webRequest listener to flip the flag.
-			if tt.wantHasWebReqListen && len(tt.wantIDs) > 0 {
-				if err := manager.webRequest.OnBeforeRequest(
-					tt.wantIDs[0],
-					func(api.RequestDetails) *api.BlockingResponse { return nil },
-					&api.RequestFilter{URLs: []string{"<all_urls>"}},
-				); err != nil {
-					t.Fatalf("failed to register listener: %v", err)
-				}
-			}
+			// HasWebRequestListeners is now based on permissions in the manifest
+			// (specifically "webRequestBlocking"), not runtime listener registration
 
 			jsonStr, err := manager.SerializeInitData()
 			if err != nil {
