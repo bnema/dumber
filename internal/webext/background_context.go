@@ -45,6 +45,31 @@ type BackgroundContext struct {
 	ports map[string]*backgroundPort
 	// connectExternal is set by the manager to allow background-initiated ports.
 	connectExternal func(name string) (string, error)
+
+	// i18n translations loaded at startup
+	i18nMessages map[string]I18nMessage
+	i18nLocale   string
+
+	// alarms storage
+	alarms      map[string]*Alarm
+	alarmsEvent *jsEvent
+
+	// pane provider for tabs API (set by manager)
+	paneProvider PaneProvider
+}
+
+// Alarm represents a scheduled alarm
+type Alarm struct {
+	Name          string  `json:"name"`
+	ScheduledTime float64 `json:"scheduledTime"` // Unix timestamp in ms
+	PeriodMinutes float64 `json:"periodInMinutes,omitempty"`
+	timer         *time.Timer
+}
+
+// PaneProvider interface for getting tab/pane data from workspace
+type PaneProvider interface {
+	GetAllPanes() []api.PaneInfo
+	GetActivePane() *api.PaneInfo
 }
 
 // NewBackgroundContext builds a background context for an extension.
@@ -69,8 +94,18 @@ func NewBackgroundContext(ext *Extension) *BackgroundContext {
 			onCompleted:         newJSEvent(),
 			onErrorOccurred:     newJSEvent(),
 		},
-		ports: make(map[string]*backgroundPort),
+		ports:        make(map[string]*backgroundPort),
+		alarms:       make(map[string]*Alarm),
+		alarmsEvent:  newJSEvent(),
+		i18nMessages: make(map[string]I18nMessage),
 	}
+}
+
+// SetPaneProvider sets the provider for tab/pane data
+func (bc *BackgroundContext) SetPaneProvider(provider PaneProvider) {
+	bc.mu.Lock()
+	bc.paneProvider = provider
+	bc.mu.Unlock()
 }
 
 // Start boots the Goja VM and loads background scripts.
@@ -86,6 +121,13 @@ func (bc *BackgroundContext) Start() error {
 
 	// Disable source map loading to avoid errors when source maps don't exist
 	bc.vm.SetParserOptions(parser.WithDisableSourceMaps)
+
+	// Load i18n translations
+	if translations, err := LoadTranslationsForExtension(bc.ext); err == nil {
+		bc.i18nMessages = translations.Messages
+		bc.i18nLocale = translations.Locale
+		log.Printf("[webext/bg %s] Loaded %d i18n messages for locale %s", bc.ext.ID, len(bc.i18nMessages), bc.i18nLocale)
+	}
 
 	// Initialize browser globals with script loader
 	bc.browserGlob = globals.New(bc.vm, bc.ext, bc.tasks)
@@ -121,6 +163,13 @@ func (bc *BackgroundContext) Stop() {
 	if bc.browserGlob != nil {
 		bc.browserGlob.Cleanup()
 	}
+	// Cancel all pending alarms
+	for _, alarm := range bc.alarms {
+		if alarm.timer != nil {
+			alarm.timer.Stop()
+		}
+	}
+	bc.alarms = nil
 	bc.mu.Unlock()
 
 	if closeChan != nil {
@@ -491,25 +540,148 @@ func (bc *BackgroundContext) buildBrowserActionObject() *sobek.Object {
 	return obj
 }
 
-// buildTabsObject creates stubs for browser.tabs API.
+// buildTabsObject creates browser.tabs API with real pane data.
 func (bc *BackgroundContext) buildTabsObject() *sobek.Object {
 	vm := bc.vm
 	obj := vm.NewObject()
 
-	// query - returns empty array for now
+	// Helper to convert PaneInfo to tab object
+	paneToTab := func(pane api.PaneInfo) *sobek.Object {
+		tab := vm.NewObject()
+		_ = tab.Set("id", int(pane.ID))
+		_ = tab.Set("index", pane.Index)
+		_ = tab.Set("windowId", int(pane.WindowID))
+		_ = tab.Set("active", pane.Active)
+		_ = tab.Set("url", pane.URL)
+		_ = tab.Set("title", pane.Title)
+		_ = tab.Set("status", "complete") // Could track loading state
+		_ = tab.Set("incognito", false)
+		_ = tab.Set("pinned", false)
+		return tab
+	}
+
+	// query - returns tabs matching query
 	_ = obj.Set("query", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
 		go func() {
-			bc.tasks <- func() { _ = resolve(vm.ToValue([]interface{}{})) }
+			bc.tasks <- func() {
+				var results []interface{}
+
+				bc.mu.Lock()
+				provider := bc.paneProvider
+				bc.mu.Unlock()
+
+				if provider == nil {
+					_ = resolve(vm.ToValue(results))
+					return
+				}
+
+				panes := provider.GetAllPanes()
+				active := provider.GetActivePane()
+
+				// Parse query options
+				var queryActive, queryCurrentWindow *bool
+				var queryWindowID int64 = -1
+
+				if len(call.Arguments) > 0 {
+					queryObj := call.Arguments[0].Export()
+					if q, ok := queryObj.(map[string]interface{}); ok {
+						if v, ok := q["active"].(bool); ok {
+							queryActive = &v
+						}
+						if v, ok := q["currentWindow"].(bool); ok {
+							queryCurrentWindow = &v
+						}
+						if v, ok := q["windowId"].(int64); ok {
+							queryWindowID = v
+						} else if v, ok := q["windowId"].(float64); ok {
+							queryWindowID = int64(v)
+						}
+					}
+				}
+
+				// Get current window ID
+				var currentWindowID uint64
+				if active != nil {
+					currentWindowID = active.WindowID
+				}
+
+				for _, pane := range panes {
+					// Filter by active
+					if queryActive != nil && *queryActive != pane.Active {
+						continue
+					}
+					// Filter by currentWindow
+					if queryCurrentWindow != nil && *queryCurrentWindow && pane.WindowID != currentWindowID {
+						continue
+					}
+					// Filter by windowId
+					if queryWindowID >= 0 && uint64(queryWindowID) != pane.WindowID {
+						continue
+					}
+					results = append(results, paneToTab(pane))
+				}
+
+				_ = resolve(vm.ToValue(results))
+			}
 		}()
 		return vm.ToValue(promise)
 	})
 
-	// get - returns undefined
+	// get - returns tab by ID
 	_ = obj.Set("get", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
 		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
+			bc.tasks <- func() {
+				if len(call.Arguments) == 0 {
+					_ = resolve(sobek.Undefined())
+					return
+				}
+
+				tabID := call.Arguments[0].ToInteger()
+
+				bc.mu.Lock()
+				provider := bc.paneProvider
+				bc.mu.Unlock()
+
+				if provider == nil {
+					_ = resolve(sobek.Undefined())
+					return
+				}
+
+				for _, pane := range provider.GetAllPanes() {
+					if int64(pane.ID) == tabID {
+						_ = resolve(paneToTab(pane))
+						return
+					}
+				}
+				_ = resolve(sobek.Undefined())
+			}
+		}()
+		return vm.ToValue(promise)
+	})
+
+	// getCurrent - returns the current tab (active pane)
+	_ = obj.Set("getCurrent", func(call sobek.FunctionCall) sobek.Value {
+		promise, resolve, _ := vm.NewPromise()
+		go func() {
+			bc.tasks <- func() {
+				bc.mu.Lock()
+				provider := bc.paneProvider
+				bc.mu.Unlock()
+
+				if provider == nil {
+					_ = resolve(sobek.Undefined())
+					return
+				}
+
+				active := provider.GetActivePane()
+				if active != nil {
+					_ = resolve(paneToTab(*active))
+				} else {
+					_ = resolve(sobek.Undefined())
+				}
+			}
 		}()
 		return vm.ToValue(promise)
 	})
@@ -582,6 +754,9 @@ func (bc *BackgroundContext) buildTabsObject() *sobek.Object {
 		return vm.ToValue(promise)
 	})
 
+	// Constants
+	_ = obj.Set("TAB_ID_NONE", -1)
+
 	// Events
 	for _, eventName := range []string{"onCreated", "onUpdated", "onRemoved", "onActivated", "onReplaced"} {
 		evt := vm.NewObject()
@@ -605,21 +780,68 @@ func (bc *BackgroundContext) buildI18nObject() *sobek.Object {
 			return vm.ToValue("")
 		}
 		key := call.Arguments[0].String()
-		// TODO: Load from _locales/{locale}/messages.json
-		// For now, just return the key
-		return vm.ToValue(key)
+
+		// Handle predefined messages
+		switch key {
+		case "@@extension_id":
+			return vm.ToValue(bc.ext.ID)
+		case "@@ui_locale":
+			return vm.ToValue(bc.i18nLocale)
+		case "@@bidi_dir":
+			return vm.ToValue("ltr")
+		case "@@bidi_reversed_dir":
+			return vm.ToValue("rtl")
+		case "@@bidi_start_edge":
+			return vm.ToValue("left")
+		case "@@bidi_end_edge":
+			return vm.ToValue("right")
+		}
+
+		// Look up in loaded messages
+		msg, ok := bc.i18nMessages[key]
+		if !ok {
+			return vm.ToValue("") // Return empty string like Firefox
+		}
+
+		result := msg.Message
+
+		// Handle substitutions ($1, $2, etc.)
+		if len(call.Arguments) > 1 {
+			var subs []string
+			arg1 := call.Arguments[1].Export()
+			switch v := arg1.(type) {
+			case []interface{}:
+				for _, s := range v {
+					subs = append(subs, fmt.Sprintf("%v", s))
+				}
+			case string:
+				subs = []string{v}
+			}
+			for i, sub := range subs {
+				placeholder := fmt.Sprintf("$%d", i+1)
+				result = strings.ReplaceAll(result, placeholder, sub)
+			}
+		}
+
+		return vm.ToValue(result)
 	})
 
 	// getUILanguage
 	_ = obj.Set("getUILanguage", func(sobek.FunctionCall) sobek.Value {
-		return vm.ToValue("en")
+		return vm.ToValue(bc.i18nLocale)
 	})
 
 	// getAcceptLanguages
 	_ = obj.Set("getAcceptLanguages", func(sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
 		go func() {
-			bc.tasks <- func() { _ = resolve(vm.ToValue([]string{"en"})) }
+			bc.tasks <- func() {
+				langs := []string{bc.i18nLocale}
+				if bc.i18nLocale != "en" {
+					langs = append(langs, "en")
+				}
+				_ = resolve(vm.ToValue(langs))
+			}
 		}()
 		return vm.ToValue(promise)
 	})
@@ -641,58 +863,248 @@ func (bc *BackgroundContext) buildI18nObject() *sobek.Object {
 	return obj
 }
 
-// buildAlarmsObject creates browser.alarms API stubs.
+// buildAlarmsObject creates browser.alarms API with Go timer implementation.
 func (bc *BackgroundContext) buildAlarmsObject() *sobek.Object {
 	vm := bc.vm
 	obj := vm.NewObject()
 
-	// create - stub
+	// Helper to convert Alarm to JS object
+	alarmToJS := func(alarm *Alarm) *sobek.Object {
+		alarmObj := vm.NewObject()
+		_ = alarmObj.Set("name", alarm.Name)
+		_ = alarmObj.Set("scheduledTime", alarm.ScheduledTime)
+		if alarm.PeriodMinutes > 0 {
+			_ = alarmObj.Set("periodInMinutes", alarm.PeriodMinutes)
+		}
+		return alarmObj
+	}
+
+	// create - schedules a new alarm
 	_ = obj.Set("create", func(call sobek.FunctionCall) sobek.Value {
-		// TODO: Implement actual alarm scheduling
+		var name string
+		var alarmInfo map[string]interface{}
+
+		// Parse arguments: create(name?, alarmInfo)
+		if len(call.Arguments) >= 2 {
+			name = call.Arguments[0].String()
+			if err := vm.ExportTo(call.Arguments[1], &alarmInfo); err != nil {
+				name = ""
+				_ = vm.ExportTo(call.Arguments[0], &alarmInfo)
+			}
+		} else if len(call.Arguments) == 1 {
+			_ = vm.ExportTo(call.Arguments[0], &alarmInfo)
+		}
+
+		// Default name
+		if name == "" {
+			name = ""
+		}
+
+		// Cancel existing alarm with same name
+		bc.mu.Lock()
+		if existing, ok := bc.alarms[name]; ok {
+			if existing.timer != nil {
+				existing.timer.Stop()
+			}
+			delete(bc.alarms, name)
+		}
+		bc.mu.Unlock()
+
+		// Parse alarm info - JS numbers may export as int64 or float64
+		var delayMinutes, periodMinutes, when float64
+
+		delayMinutes = toFloat64(alarmInfo["delayInMinutes"])
+		periodMinutes = toFloat64(alarmInfo["periodInMinutes"])
+		when = toFloat64(alarmInfo["when"])
+
+		// Calculate delay
+		var delay time.Duration
+		now := time.Now()
+
+		if when > 0 {
+			// "when" is Unix timestamp in milliseconds
+			targetTime := time.UnixMilli(int64(when))
+			delay = time.Until(targetTime)
+			if delay < 0 {
+				delay = 0 // Fire immediately if time has passed
+			}
+		} else if delayMinutes > 0 {
+			delay = time.Duration(delayMinutes * float64(time.Minute))
+		} else if periodMinutes > 0 {
+			delay = time.Duration(periodMinutes * float64(time.Minute))
+		} else {
+			// Default minimum delay (1 minute as per spec)
+			delay = time.Minute
+		}
+
+		// Create alarm
+		alarm := &Alarm{
+			Name:          name,
+			ScheduledTime: float64(now.Add(delay).UnixMilli()),
+			PeriodMinutes: periodMinutes,
+		}
+
+		// Schedule the timer
+		var fireAlarm func()
+		fireAlarm = func() {
+			bc.mu.Lock()
+			tasks := bc.tasks
+			bc.mu.Unlock()
+
+			if tasks == nil {
+				return // Context stopped
+			}
+
+			tasks <- func() {
+				bc.mu.Lock()
+				currentAlarm, exists := bc.alarms[name]
+				alarmsEvent := bc.alarmsEvent
+				bc.mu.Unlock()
+
+				if !exists || currentAlarm != alarm {
+					return // Alarm was cancelled
+				}
+
+				// Fire onAlarm event
+				if alarmsEvent != nil && vm != nil {
+					_, _ = alarmsEvent.dispatch(vm, alarmToJS(alarm))
+				}
+
+				if periodMinutes > 0 {
+					// Reschedule repeating alarm
+					bc.mu.Lock()
+					alarm.ScheduledTime = float64(time.Now().Add(time.Duration(periodMinutes * float64(time.Minute))).UnixMilli())
+					alarm.timer = time.AfterFunc(time.Duration(periodMinutes*float64(time.Minute)), fireAlarm)
+					bc.mu.Unlock()
+				} else {
+					// One-shot alarm - remove it
+					bc.mu.Lock()
+					delete(bc.alarms, name)
+					bc.mu.Unlock()
+				}
+			}
+		}
+
+		// Store alarm in map BEFORE starting timer to avoid race condition
+		bc.mu.Lock()
+		bc.alarms[name] = alarm
+		bc.mu.Unlock()
+
+		alarm.timer = time.AfterFunc(delay, fireAlarm)
+
+		log.Printf("[webext/bg %s] Created alarm '%s' (delay: %v, period: %v min)", bc.ext.ID, name, delay, periodMinutes)
 		return sobek.Undefined()
 	})
 
-	// get - stub
+	// get - returns alarm by name
 	_ = obj.Set("get", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
 		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
+			bc.tasks <- func() {
+				var name string
+				if len(call.Arguments) > 0 {
+					name = call.Arguments[0].String()
+				}
+
+				bc.mu.Lock()
+				alarm, ok := bc.alarms[name]
+				bc.mu.Unlock()
+
+				if ok {
+					_ = resolve(alarmToJS(alarm))
+				} else {
+					_ = resolve(sobek.Undefined())
+				}
+			}
 		}()
 		return vm.ToValue(promise)
 	})
 
-	// getAll - stub
+	// getAll - returns all alarms
 	_ = obj.Set("getAll", func(sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
 		go func() {
-			bc.tasks <- func() { _ = resolve(vm.ToValue([]interface{}{})) }
+			bc.tasks <- func() {
+				var results []interface{}
+
+				bc.mu.Lock()
+				for _, alarm := range bc.alarms {
+					results = append(results, alarmToJS(alarm))
+				}
+				bc.mu.Unlock()
+
+				_ = resolve(vm.ToValue(results))
+			}
 		}()
 		return vm.ToValue(promise)
 	})
 
-	// clear - stub
+	// clear - cancels alarm by name
 	_ = obj.Set("clear", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
 		go func() {
-			bc.tasks <- func() { _ = resolve(vm.ToValue(true)) }
+			bc.tasks <- func() {
+				var name string
+				if len(call.Arguments) > 0 {
+					name = call.Arguments[0].String()
+				}
+
+				bc.mu.Lock()
+				alarm, ok := bc.alarms[name]
+				if ok {
+					if alarm.timer != nil {
+						alarm.timer.Stop()
+					}
+					delete(bc.alarms, name)
+				}
+				bc.mu.Unlock()
+
+				_ = resolve(vm.ToValue(ok))
+			}
 		}()
 		return vm.ToValue(promise)
 	})
 
-	// clearAll - stub
+	// clearAll - cancels all alarms
 	_ = obj.Set("clearAll", func(sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
 		go func() {
-			bc.tasks <- func() { _ = resolve(vm.ToValue(true)) }
+			bc.tasks <- func() {
+				bc.mu.Lock()
+				for _, alarm := range bc.alarms {
+					if alarm.timer != nil {
+						alarm.timer.Stop()
+					}
+				}
+				bc.alarms = make(map[string]*Alarm)
+				bc.mu.Unlock()
+
+				_ = resolve(vm.ToValue(true))
+			}
 		}()
 		return vm.ToValue(promise)
 	})
 
 	// onAlarm event
 	onAlarm := vm.NewObject()
-	_ = onAlarm.Set("addListener", func(sobek.FunctionCall) sobek.Value { return sobek.Undefined() })
-	_ = onAlarm.Set("removeListener", func(sobek.FunctionCall) sobek.Value { return sobek.Undefined() })
-	_ = onAlarm.Set("hasListener", func(sobek.FunctionCall) sobek.Value { return vm.ToValue(false) })
+	_ = onAlarm.Set("addListener", func(call sobek.FunctionCall) sobek.Value {
+		if bc.alarmsEvent != nil && len(call.Arguments) > 0 {
+			_ = bc.alarmsEvent.add(vm, call.Arguments[0])
+		}
+		return sobek.Undefined()
+	})
+	_ = onAlarm.Set("removeListener", func(call sobek.FunctionCall) sobek.Value {
+		if bc.alarmsEvent != nil && len(call.Arguments) > 0 {
+			bc.alarmsEvent.remove(vm, call.Arguments[0])
+		}
+		return sobek.Undefined()
+	})
+	_ = onAlarm.Set("hasListener", func(call sobek.FunctionCall) sobek.Value {
+		if bc.alarmsEvent == nil || len(call.Arguments) == 0 {
+			return vm.ToValue(false)
+		}
+		return vm.ToValue(bc.alarmsEvent.has(vm, call.Arguments[0]))
+	})
 	_ = obj.Set("onAlarm", onAlarm)
 
 	return obj
@@ -1663,6 +2075,24 @@ func (bc *BackgroundContext) loadModule(modulePath string) error {
 type ScriptInfo struct {
 	Path     string
 	IsModule bool
+}
+
+// toFloat64 converts various numeric types to float64 (JS numbers may export as int64 or float64)
+func toFloat64(v interface{}) float64 {
+	switch n := v.(type) {
+	case float64:
+		return n
+	case float32:
+		return float64(n)
+	case int64:
+		return float64(n)
+	case int:
+		return float64(n)
+	case int32:
+		return float64(n)
+	default:
+		return 0
+	}
 }
 
 // extractScriptsFromHTML parses an HTML file and extracts script src attributes.
