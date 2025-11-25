@@ -1,12 +1,17 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
+
+	"github.com/bnema/dumber/internal/db"
 )
+
+const storageTypeLocal = "storage.local"
 
 // StorageAPI implements chrome.storage WebExtension API
 type StorageAPI struct {
@@ -17,7 +22,7 @@ type StorageAPI struct {
 // StorageArea represents a storage area (local, sync, managed)
 type StorageArea struct {
 	extensionID string
-	db          *sql.DB
+	queries     *db.Queries
 	mu          sync.RWMutex
 	listeners   []StorageChangeListener
 }
@@ -33,11 +38,11 @@ type StorageChange struct {
 
 // NewStorageAPI creates a new storage API instance
 // The extension_storage table is created by migration 010_extensions.sql
-func NewStorageAPI(extensionID string, db *sql.DB) (*StorageAPI, error) {
+func NewStorageAPI(extensionID string, dbConn *sql.DB) (*StorageAPI, error) {
 	return &StorageAPI{
 		local: &StorageArea{
 			extensionID: extensionID,
-			db:          db,
+			queries:     db.New(dbConn),
 			listeners:   make([]StorageChangeListener, 0),
 		},
 	}, nil
@@ -54,43 +59,32 @@ func (s *StorageArea) Get(keys interface{}) (map[string]interface{}, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	ctx := context.Background()
 	result := make(map[string]interface{})
 
 	switch v := keys.(type) {
 	case nil:
 		// Get all items for this extension
-		rows, err := s.db.Query(
-			"SELECT key, value FROM extension_storage WHERE extension_id = ?",
-			s.extensionID,
-		)
+		rows, err := s.queries.GetAllExtensionStorageItems(ctx, s.extensionID, storageTypeLocal)
 		if err != nil {
+			log.Printf("[storage.local] GetAll error for %s: %v", s.extensionID, err)
 			return nil, err
 		}
-		defer rows.Close()
+		log.Printf("[storage.local] GetAll raw rows for %s: %d", s.extensionID, len(rows))
 
-		for rows.Next() {
-			var key, valueJSON string
-			if err := rows.Scan(&key, &valueJSON); err != nil {
-				return nil, err
-			}
-
+		for _, row := range rows {
 			var value interface{}
-			if err := json.Unmarshal([]byte(valueJSON), &value); err != nil {
+			if err := json.Unmarshal([]byte(row.Value), &value); err != nil {
 				return nil, err
 			}
-			result[key] = value
+			result[row.Key] = value
 		}
 
 	case string:
 		// Get single key
-		var valueJSON string
-		err := s.db.QueryRow(
-			"SELECT value FROM extension_storage WHERE extension_id = ? AND key = ?",
-			s.extensionID, v,
-		).Scan(&valueJSON)
-
+		log.Printf("[storage.local] Get single key for %s: %s", s.extensionID, v)
+		valueJSON, err := s.queries.GetExtensionStorageItem(ctx, s.extensionID, storageTypeLocal, v)
 		if err == sql.ErrNoRows {
-			// Key doesn't exist, return empty result
 			return result, nil
 		}
 		if err != nil {
@@ -105,15 +99,11 @@ func (s *StorageArea) Get(keys interface{}) (map[string]interface{}, error) {
 
 	case []string:
 		// Get multiple keys
+		log.Printf("[storage.local] Get multiple keys for %s: %v", s.extensionID, v)
 		for _, key := range v {
-			var valueJSON string
-			err := s.db.QueryRow(
-				"SELECT value FROM extension_storage WHERE extension_id = ? AND key = ?",
-				s.extensionID, key,
-			).Scan(&valueJSON)
-
+			valueJSON, err := s.queries.GetExtensionStorageItem(ctx, s.extensionID, storageTypeLocal, key)
 			if err == sql.ErrNoRows {
-				continue // Skip missing keys
+				continue
 			}
 			if err != nil {
 				return nil, err
@@ -129,14 +119,8 @@ func (s *StorageArea) Get(keys interface{}) (map[string]interface{}, error) {
 	case map[string]interface{}:
 		// Get keys with default values
 		for key, defaultValue := range v {
-			var valueJSON string
-			err := s.db.QueryRow(
-				"SELECT value FROM extension_storage WHERE extension_id = ? AND key = ?",
-				s.extensionID, key,
-			).Scan(&valueJSON)
-
+			valueJSON, err := s.queries.GetExtensionStorageItem(ctx, s.extensionID, storageTypeLocal, key)
 			if err == sql.ErrNoRows {
-				// Use default value
 				result[key] = defaultValue
 				continue
 			}
@@ -161,18 +145,15 @@ func (s *StorageArea) Set(items map[string]interface{}) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	ctx := context.Background()
 	changes := make(map[string]StorageChange)
 
 	for key, newValue := range items {
 		// Get old value for change event
-		var oldValueJSON string
-		err := s.db.QueryRow(
-			"SELECT value FROM extension_storage WHERE extension_id = ? AND key = ?",
-			s.extensionID, key,
-		).Scan(&oldValueJSON)
+		oldValueJSON, err := s.queries.GetExtensionStorageItem(ctx, s.extensionID, storageTypeLocal, key)
 
 		var oldValue interface{}
-		if err != sql.ErrNoRows && err != nil {
+		if err != nil && err != sql.ErrNoRows {
 			return err
 		}
 		if err == nil {
@@ -186,13 +167,7 @@ func (s *StorageArea) Set(items map[string]interface{}) error {
 		}
 
 		// Upsert into database
-		_, err = s.db.Exec(`
-			INSERT INTO extension_storage (extension_id, key, value, updated_at)
-			VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-			ON CONFLICT(extension_id, key)
-			DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
-		`, s.extensionID, key, string(newValueJSON))
-
+		err = s.queries.UpsertExtensionStorageItem(ctx, s.extensionID, storageTypeLocal, key, string(newValueJSON))
 		if err != nil {
 			return fmt.Errorf("failed to set key %s: %w", key, err)
 		}
@@ -227,18 +202,14 @@ func (s *StorageArea) Remove(keys interface{}) error {
 		return fmt.Errorf("keys must be string or []string")
 	}
 
+	ctx := context.Background()
 	changes := make(map[string]StorageChange)
 
 	for _, key := range keyList {
 		// Get old value for change event
-		var oldValueJSON string
-		err := s.db.QueryRow(
-			"SELECT value FROM extension_storage WHERE extension_id = ? AND key = ?",
-			s.extensionID, key,
-		).Scan(&oldValueJSON)
-
+		oldValueJSON, err := s.queries.GetExtensionStorageItem(ctx, s.extensionID, storageTypeLocal, key)
 		if err == sql.ErrNoRows {
-			continue // Key doesn't exist
+			continue
 		}
 		if err != nil {
 			return err
@@ -248,10 +219,7 @@ func (s *StorageArea) Remove(keys interface{}) error {
 		json.Unmarshal([]byte(oldValueJSON), &oldValue)
 
 		// Delete from database
-		_, err = s.db.Exec(
-			"DELETE FROM extension_storage WHERE extension_id = ? AND key = ?",
-			s.extensionID, key,
-		)
+		err = s.queries.DeleteExtensionStorageItem(ctx, s.extensionID, storageTypeLocal, key)
 		if err != nil {
 			return fmt.Errorf("failed to remove key %s: %w", key, err)
 		}
@@ -276,37 +244,27 @@ func (s *StorageArea) Clear() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	ctx := context.Background()
+
 	// Get all current items for change event
-	rows, err := s.db.Query(
-		"SELECT key, value FROM extension_storage WHERE extension_id = ?",
-		s.extensionID,
-	)
+	rows, err := s.queries.GetAllExtensionStorageItems(ctx, s.extensionID, storageTypeLocal)
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
 
 	changes := make(map[string]StorageChange)
-	for rows.Next() {
-		var key, valueJSON string
-		if err := rows.Scan(&key, &valueJSON); err != nil {
-			return err
-		}
-
+	for _, row := range rows {
 		var oldValue interface{}
-		json.Unmarshal([]byte(valueJSON), &oldValue)
+		json.Unmarshal([]byte(row.Value), &oldValue)
 
-		changes[key] = StorageChange{
+		changes[row.Key] = StorageChange{
 			OldValue: oldValue,
 			NewValue: nil,
 		}
 	}
 
 	// Clear all items for this extension
-	_, err = s.db.Exec(
-		"DELETE FROM extension_storage WHERE extension_id = ?",
-		s.extensionID,
-	)
+	err = s.queries.ClearExtensionStorage(ctx, s.extensionID, storageTypeLocal)
 	if err != nil {
 		return err
 	}
@@ -334,6 +292,3 @@ func (s *StorageArea) notifyListeners(changes map[string]StorageChange, areaName
 		go listener(changes, areaName)
 	}
 }
-
-// --- Dispatcher-compatible API (works across all extensions) ---
-// StorageAPIDispatcher removed - Dispatcher now uses Manager's storage API directly
