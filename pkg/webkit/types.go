@@ -81,11 +81,6 @@ type Config struct {
 	// Set to false for WebViews that will be embedded in workspace panes
 	CreateWindow bool
 
-	// EnableTurnstileWorkaround temporarily disables CORS enforcement for the
-	// Cloudflare Turnstile host to work around WebKit's credentialless COEP gap.
-	// Remove once upstream WebKit properly supports COEP: credentialless.
-	EnableTurnstileWorkaround bool
-
 	// SetupDownloadHandler is an optional callback to setup download handling.
 	// Called once when the NetworkSession is initialized.
 	// Example: func(session *webkit.NetworkSession) { browser.SetupDownloadHandler(session) }
@@ -102,9 +97,8 @@ func GetDefaultConfig() *Config {
 		HardwareAcceleration:      true,
 		DefaultFontSize:           16,
 		MinimumFontSize:           8,
-		EnablePageCache:           true, // Instant back/forward navigation
-		EnableSmoothScrolling:     true, // Better UX
-		CreateWindow:              true, // Default to standalone window
-		EnableTurnstileWorkaround: true,
+		EnablePageCache:       true, // Instant back/forward navigation
+		EnableSmoothScrolling: true, // Better UX
+		CreateWindow:          true, // Default to standalone window
 	}
 }

@@ -52,12 +52,11 @@ func (app *BrowserApp) buildWebkitConfig() (*webkit.Config, error) {
 		EnablePageCache:           true, // Instant back/forward navigation (bfcache)
 		EnableSmoothScrolling:     true, // Smooth scrolling animations
 		CaptureConsole:            app.config.Logging.CaptureConsole,
-		DataDir:                   webkitData,
-		CacheDir:                  webkitCache,
-		AppearanceConfigJSON:      app.buildAppearanceConfigJSON(),
-		CreateWindow:              true, // Default to creating a window for standalone WebViews
-		EnableTurnstileWorkaround: true,
-		SetupDownloadHandler:      SetupDownloadHandler, // Setup browser download handling
+		DataDir:              webkitData,
+		CacheDir:             webkitCache,
+		AppearanceConfigJSON: app.buildAppearanceConfigJSON(),
+		CreateWindow:         true,                     // Default to creating a window for standalone WebViews
+		SetupDownloadHandler: SetupDownloadHandler,     // Setup browser download handling
 	}
 
 	return cfg, nil
