@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -346,7 +347,7 @@ func (bc *BackgroundContext) loop() {
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
-					log.Printf("[webext/bg] recovered panic: %v", r)
+					log.Printf("[webext/bg] recovered panic: %v\n%s", r, debug.Stack())
 				}
 			}()
 			task()
