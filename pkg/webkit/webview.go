@@ -1143,17 +1143,19 @@ func (w *WebView) InitializeFromBare(cfg *Config) error {
 	}
 
 	// Only inject GUI scripts for regular browser WebViews (not extension WebViews)
-	// Extension WebViews have web-extension-mode set (ManifestV2=1, ManifestV3=2)
-	// and get their browser.* APIs injected by the WebProcess extension at DocumentLoaded
+	// Extension WebViews either have web-extension-mode set (ManifestV2=1, ManifestV3=2)
+	// or are explicitly marked via Config.IsExtensionWebView flag
 	webExtMode := w.view.WebExtensionMode()
-	if webExtMode == 0 { // WEBKIT_WEB_EXTENSION_MODE_NONE - regular browser WebView
+	isExtension := webExtMode != 0 || cfg.IsExtensionWebView
+	if !isExtension {
+		// Regular browser WebView - inject GUI scripts
 		if err := SetupUserContentManager(w.view, cfg.AppearanceConfigJSON, w.id); err != nil {
 			return fmt.Errorf("failed to setup user content manager: %w", err)
 		}
 	} else {
 		// Extension WebView (popup, background, options page)
 		// Skip ALL UserContentManager injection - the WebProcess extension handles browser API injection
-		log.Printf("[webkit] Extension WebView detected (web-extension-mode=%v, ID=%d), skipping UserContentManager injection", webExtMode, w.id)
+		log.Printf("[webkit] Extension WebView detected (web-extension-mode=%v, IsExtensionWebView=%v, ID=%d), skipping UserContentManager injection", webExtMode, cfg.IsExtensionWebView, w.id)
 	}
 
 	// Create container (GtkBox) to hold the WebView

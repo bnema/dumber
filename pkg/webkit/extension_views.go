@@ -52,6 +52,47 @@ type ExtensionViewConfig struct {
 	CORSAllowlist []string
 }
 
+// EnsureExtensionSchemeCorsEnabled ensures the dumb-extension:// scheme is marked as
+// CORS-enabled on the given WebView's WebContext's SecurityManager.
+// This is critical for ES6 module loading to work in extension WebViews.
+//
+// WebKit's ES6 module loader makes CORS decisions very early (before URI scheme requests),
+// so the scheme must be registered as CORS-enabled on the specific WebContext instance
+// that will host the extension page.
+func EnsureExtensionSchemeCorsEnabled(view *webkit.WebView) error {
+	if view == nil {
+		return fmt.Errorf("webview is nil")
+	}
+
+	ctx := view.Context()
+	if ctx == nil {
+		return fmt.Errorf("webcontext is nil")
+	}
+
+	sm := ctx.SecurityManager()
+	if sm == nil {
+		return fmt.Errorf("security manager is nil")
+	}
+
+	// Check if already registered (avoid redundant calls)
+	if sm.URISchemeIsCorsEnabled("dumb-extension") {
+		log.Printf("[webkit] dumb-extension:// scheme already CORS-enabled on this WebContext")
+		return nil
+	}
+
+	// Register as CORS-enabled for this WebContext's SecurityManager
+	log.Printf("[webkit] Registering dumb-extension:// as CORS-enabled on WebView's WebContext")
+	sm.RegisterURISchemeAsCorsEnabled("dumb-extension")
+
+	// Verify it worked
+	if !sm.URISchemeIsCorsEnabled("dumb-extension") {
+		return fmt.Errorf("failed to register dumb-extension:// as CORS-enabled")
+	}
+
+	log.Printf("[webkit] Successfully registered dumb-extension:// as CORS-enabled")
+	return nil
+}
+
 // SetCORSAllowlist sets the CORS allowlist on a WebView
 // This allows the extension to make cross-origin requests to URLs matching the patterns
 func SetCORSAllowlist(view *webkit.WebView, allowlist []string) {
@@ -103,6 +144,10 @@ func SetCORSAllowlist(view *webkit.WebView, allowlist []string) {
 //   - Sets web-extension-mode=MANIFESTV2
 //   - Sets default-content-security-policy from manifest
 //
+// CRITICAL: This function also ensures the WebView's WebContext has the dumb-extension://
+// scheme registered as CORS-enabled on its SecurityManager. This is essential for ES6
+// module loading to work in extension pages.
+//
 // This mirrors Epiphany's ephy_web_extensions_manager_create_web_extensions_webview().
 func NewExtensionWebView(cfg *ExtensionViewConfig) (*webkit.WebView, error) {
 	if cfg == nil {
@@ -133,6 +178,15 @@ func NewExtensionWebView(cfg *ExtensionViewConfig) (*webkit.WebView, error) {
 
 	default:
 		return nil, fmt.Errorf("unknown extension view type: %d", cfg.Type)
+	}
+
+	// CRITICAL: Ensure dumb-extension:// scheme is CORS-enabled on this WebView's WebContext
+	// This must be done immediately after WebView creation because WebKit's module loader
+	// checks the SecurityManager's CORS-enabled flag very early (before URI scheme requests are made).
+	// Without this, ES6 module imports will fail silently without ever reaching the scheme handler.
+	if err := EnsureExtensionSchemeCorsEnabled(view); err != nil {
+		log.Printf("[webkit] Warning: failed to register CORS for extension scheme: %v", err)
+		// Non-fatal - continue but modules may not load
 	}
 
 	// Set CORS allowlist if provided (mirrors Epiphany's approach)
