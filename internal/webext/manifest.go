@@ -3,9 +3,13 @@ package webext
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/bnema/dumber/internal/webext/shared"
+	"github.com/bnema/dumber/internal/webext/validation"
 )
 
 // Manifest represents a WebExtension manifest (MV2 format)
@@ -19,13 +23,16 @@ type Manifest struct {
 	DefaultLocale           string                   `json:"default_locale,omitempty"`
 	Icons                   map[string]string        `json:"icons,omitempty"`
 	Permissions             []string                 `json:"permissions,omitempty"`
+	HostPermissions         []string                 `json:"host_permissions,omitempty"` // MV3 only
+	ContentSecurityPolicy   string                   `json:"content_security_policy,omitempty"`
 	Background              *Background              `json:"background,omitempty"`
-	ContentScripts          []ContentScript          `json:"content_scripts,omitempty"`
+	ContentScripts          []shared.ContentScript   `json:"content_scripts,omitempty"`
 	WebAccessible           []string                 `json:"web_accessible_resources,omitempty"`
 	BrowserAction           *BrowserAction           `json:"browser_action,omitempty"`
 	Options                 *OptionsPage             `json:"options_ui,omitempty"`
 	Storage                 map[string]interface{}   `json:"storage,omitempty"`
 	BrowserSpecificSettings *BrowserSpecificSettings `json:"browser_specific_settings,omitempty"`
+	Commands                map[string]interface{}   `json:"commands,omitempty"`
 }
 
 // BrowserSpecificSettings contains browser-specific configuration
@@ -39,17 +46,6 @@ type Background struct {
 	Scripts    []string `json:"scripts,omitempty"`
 	Page       string   `json:"page,omitempty"`
 	Persistent bool     `json:"persistent"`
-}
-
-// ContentScript defines scripts to inject into web pages
-type ContentScript struct {
-	Matches      []string `json:"matches"`
-	ExcludeMatch []string `json:"exclude_matches,omitempty"`
-	JS           []string `json:"js,omitempty"`
-	CSS          []string `json:"css,omitempty"`
-	RunAt        string   `json:"run_at,omitempty"` // document_start, document_end, document_idle
-	AllFrames    bool     `json:"all_frames,omitempty"`
-	MatchOrigin  bool     `json:"match_origin_as_fallback,omitempty"`
 }
 
 // BrowserAction defines the browser action (toolbar button)
@@ -67,10 +63,10 @@ type OptionsPage struct {
 
 // GeckoSettings contains Firefox-specific settings
 type GeckoSettings struct {
-	ID                string `json:"id,omitempty"`
-	StrictMinVersion  string `json:"strict_min_version,omitempty"`
-	StrictMaxVersion  string `json:"strict_max_version,omitempty"`
-	UpdateURL         string `json:"update_url,omitempty"`
+	ID               string `json:"id,omitempty"`
+	StrictMinVersion string `json:"strict_min_version,omitempty"`
+	StrictMaxVersion string `json:"strict_max_version,omitempty"`
+	UpdateURL        string `json:"update_url,omitempty"`
 }
 
 // RunAtTiming represents when content scripts should be injected
@@ -98,9 +94,28 @@ func ParseRunAt(s string) RunAtTiming {
 
 // LoadManifest loads and parses a manifest.json file
 func LoadManifest(path string) (*Manifest, error) {
-	data, err := os.ReadFile(path)
+	extDir := filepath.Dir(path)
+
+	// Run comprehensive validation first
+	result, rawManifest, err := validation.ValidateManifestFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read manifest: %w", err)
+		return nil, fmt.Errorf("failed to read/parse manifest: %w", err)
+	}
+
+	// Log any warnings
+	for _, w := range result.Warnings {
+		log.Printf("[webext] manifest warning in %s: %s", filepath.Base(extDir), w.Error())
+	}
+
+	// Fail on errors
+	if result.HasErrors() {
+		return nil, result.Error()
+	}
+
+	// Parse into our struct (validation already confirmed required fields exist)
+	data, err := json.Marshal(rawManifest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to re-marshal manifest: %w", err)
 	}
 
 	var manifest Manifest
@@ -109,13 +124,12 @@ func LoadManifest(path string) (*Manifest, error) {
 	}
 
 	// Resolve i18n placeholders (e.g., __MSG_extName__)
-	extDir := filepath.Dir(path)
 	if err := manifest.ResolveI18n(extDir); err != nil {
 		// Log but don't fail - some extensions may not have i18n
 		// log.Printf("Warning: failed to resolve i18n for %s: %v", path, err)
 	}
 
-	// Validate manifest
+	// Run additional struct-level validation
 	if err := manifest.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid manifest: %w", err)
 	}
@@ -163,24 +177,6 @@ func (m *Manifest) GetBackgroundScripts(baseDir string) []string {
 	}
 
 	return scripts
-}
-
-// GetContentScriptFiles returns all content script file paths
-func (m *ContentScript) GetJSFiles(baseDir string) []string {
-	var files []string
-	for _, js := range m.JS {
-		files = append(files, filepath.Join(baseDir, js))
-	}
-	return files
-}
-
-// GetCSSFiles returns all CSS file paths
-func (m *ContentScript) GetCSSFiles(baseDir string) []string {
-	var files []string
-	for _, css := range m.CSS {
-		files = append(files, filepath.Join(baseDir, css))
-	}
-	return files
 }
 
 // HasPermission checks if the extension has a specific permission
