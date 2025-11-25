@@ -281,7 +281,7 @@ func TestBackgroundContext_Alarms_Create(t *testing.T) {
 		assert.True(t, exists)
 		assert.NotNil(t, alarm)
 		assert.Equal(t, "test-alarm", alarm.Name)
-		assert.NotNil(t, alarm.timer)
+		assert.True(t, alarm.sourceHandle != 0 || alarm.backstop != nil)
 	})
 
 	t.Run("create alarm with period", func(t *testing.T) {

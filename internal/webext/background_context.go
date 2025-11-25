@@ -14,6 +14,7 @@ import (
 
 	"github.com/bnema/dumber/internal/webext/api"
 	"github.com/bnema/dumber/internal/webext/globals"
+	"github.com/diamondburned/gotk4/pkg/core/glib"
 	"github.com/grafana/sobek"
 	"github.com/grafana/sobek/parser"
 )
@@ -61,10 +62,12 @@ type BackgroundContext struct {
 
 // Alarm represents a scheduled alarm
 type Alarm struct {
-	Name          string  `json:"name"`
-	ScheduledTime float64 `json:"scheduledTime"` // Unix timestamp in ms
-	PeriodMinutes float64 `json:"periodInMinutes,omitempty"`
-	timer         *time.Timer
+	Name          string            `json:"name"`
+	ScheduledTime float64           `json:"scheduledTime"` // Unix timestamp in ms
+	PeriodMinutes float64           `json:"periodInMinutes,omitempty"`
+	sourceHandle  glib.SourceHandle // GLib timeout source handle
+	backstop      *time.Timer       // Go timer fallback in case GLib callbacks don't run
+	fireToken     uint64            // Monotonic counter to dedupe concurrent timers
 }
 
 // PaneProvider interface for getting tab/pane data from workspace
@@ -109,6 +112,33 @@ func (bc *BackgroundContext) SetPaneProvider(provider PaneProvider) {
 	bc.mu.Unlock()
 }
 
+// toJSSenderValue converts a MessageSender into a JS-friendly object with WebExtension field names.
+func toJSSenderValue(vm *sobek.Runtime, sender api.MessageSender) sobek.Value {
+	m := map[string]interface{}{
+		"id":           sender.ID,
+		"url":          sender.URL,
+		"frameId":      sender.FrameID,
+		"tlsChannelId": sender.TLSChannelID,
+	}
+
+	if sender.Tab != nil {
+		tab := map[string]interface{}{
+			"id":       sender.Tab.ID,
+			"index":    sender.Tab.Index,
+			"windowId": sender.Tab.WindowID,
+			"url":      sender.Tab.URL,
+			"title":    sender.Tab.Title,
+			"active":   sender.Tab.Active,
+		}
+		if sender.Tab.Favicon != "" {
+			tab["favIconUrl"] = sender.Tab.Favicon
+		}
+		m["tab"] = tab
+	}
+
+	return vm.ToValue(m)
+}
+
 // Start boots the Goja VM and loads background scripts.
 func (bc *BackgroundContext) Start() error {
 	bc.mu.Lock()
@@ -130,8 +160,9 @@ func (bc *BackgroundContext) Start() error {
 		log.Printf("[webext/bg %s] Loaded %d i18n messages for locale %s", bc.ext.ID, len(bc.i18nMessages), bc.i18nLocale)
 	}
 
-	// Initialize browser globals with script loader
-	bc.browserGlob = globals.New(bc.vm, bc.ext, bc.tasks)
+	// Initialize browser globals with script loader and persistent localStorage
+	log.Printf("[webext/bg %s] LocalStorage backend: %v", bc.ext.ID, bc.ext.LocalStorage != nil)
+	bc.browserGlob = globals.New(bc.vm, bc.ext, bc.tasks, bc.ext.LocalStorage)
 	bc.browserGlob.SetScriptLoader(func(scriptPath string) error {
 		// This is called from a goroutine, so we need to execute on the VM goroutine
 		errCh := make(chan error, 1)
@@ -166,9 +197,7 @@ func (bc *BackgroundContext) Stop() {
 	}
 	// Cancel all pending alarms
 	for _, alarm := range bc.alarms {
-		if alarm.timer != nil {
-			alarm.timer.Stop()
-		}
+		bc.stopAlarmTimersLocked(alarm)
 	}
 	bc.alarms = nil
 	bc.mu.Unlock()
@@ -223,7 +252,7 @@ func (bc *BackgroundContext) DispatchRuntimeMessage(sender api.MessageSender, me
 		}
 
 		vm := bc.vm
-		respVal, listenerErr := bc.runtimeOnMessage.dispatchWithResponse(vm, vm.ToValue(message), vm.ToValue(sender))
+		respVal, listenerErr := bc.runtimeOnMessage.dispatchWithResponse(vm, vm.ToValue(message), toJSSenderValue(vm, sender))
 		if listenerErr != nil {
 			err = listenerErr
 			return nil
@@ -377,6 +406,132 @@ func (bc *BackgroundContext) loop() {
 			task()
 		}()
 	}
+}
+
+const alarmBackstopSlack = 500 * time.Millisecond
+
+// scheduleAlarmTimer sets up a one-shot GLib timeout and a Go timer backstop for an alarm.
+// The Go timer ensures the alarm fires even if the GLib main loop doesn't deliver callbacks.
+func (bc *BackgroundContext) scheduleAlarmTimer(alarm *Alarm, name string, delay time.Duration) {
+	if delay < time.Millisecond {
+		delay = time.Millisecond
+	}
+
+	// Prepare new token and next scheduled time
+	bc.mu.Lock()
+	if alarm.sourceHandle != 0 {
+		glib.SourceRemove(alarm.sourceHandle)
+		alarm.sourceHandle = 0
+	}
+	if alarm.backstop != nil {
+		alarm.backstop.Stop()
+		alarm.backstop = nil
+	}
+	alarm.fireToken++
+	token := alarm.fireToken
+	alarm.ScheduledTime = float64(time.Now().Add(delay).UnixMilli())
+	tasks := bc.tasks
+	bc.mu.Unlock()
+
+	if tasks == nil {
+		return
+	}
+
+	delayMs := uint(delay.Milliseconds())
+	handle := glib.TimeoutAdd(delayMs, func() bool {
+		bc.handleAlarmFire(alarm, name, token)
+		return false // one-shot; repeating alarms reschedule themselves
+	})
+
+	// Go timer backstop in case GLib callbacks don't run
+	backstopDelay := delay + alarmBackstopSlack
+	backstop := time.AfterFunc(backstopDelay, func() {
+		bc.handleAlarmFire(alarm, name, token)
+	})
+	bc.mu.Lock()
+	alarm.sourceHandle = handle
+	alarm.backstop = backstop
+	bc.mu.Unlock()
+}
+
+// handleAlarmFire dispatches an alarm if it is still active and matches the current token.
+func (bc *BackgroundContext) handleAlarmFire(alarm *Alarm, name string, token uint64) {
+	bc.mu.Lock()
+	if bc.tasks == nil {
+		bc.mu.Unlock()
+		return
+	}
+	current, exists := bc.alarms[name]
+	if !exists || current != alarm || alarm.fireToken != token {
+		bc.mu.Unlock()
+		return // stale or cleared
+	}
+
+	// Stop timers to avoid duplicate delivery
+	bc.stopAlarmTimersLocked(alarm)
+
+	tasks := bc.tasks
+	alarmsEvent := bc.alarmsEvent
+	vm := bc.vm
+	periodMinutes := alarm.PeriodMinutes
+	bc.mu.Unlock()
+
+	// Queue JS callback
+	tasks <- func() {
+		log.Printf("[webext/bg %s] Firing alarm '%s'", bc.ext.ID, name)
+		if alarmsEvent != nil && vm != nil {
+			if _, err := alarmsEvent.dispatch(vm, bc.alarmToJS(alarm)); err != nil {
+				log.Printf("[webext/bg %s] Alarm '%s' callback error: %v", bc.ext.ID, name, err)
+			}
+		}
+	}
+
+	// Reschedule repeating alarms
+	if periodMinutes > 0 {
+		nextDelay := time.Duration(periodMinutes * float64(time.Minute))
+		bc.scheduleAlarmTimer(alarm, name, nextDelay)
+		return
+	}
+
+	// One-shot: remove from map
+	bc.mu.Lock()
+	delete(bc.alarms, name)
+	bc.mu.Unlock()
+}
+
+// stopAlarmTimersLocked stops GLib and Go timers for an alarm. Caller must hold bc.mu.
+func (bc *BackgroundContext) stopAlarmTimersLocked(alarm *Alarm) {
+	if alarm == nil {
+		return
+	}
+	if alarm.sourceHandle != 0 {
+		glib.SourceRemove(alarm.sourceHandle)
+		alarm.sourceHandle = 0
+	}
+	if alarm.backstop != nil {
+		alarm.backstop.Stop()
+		alarm.backstop = nil
+	}
+}
+
+func (bc *BackgroundContext) stopAlarmTimers(alarm *Alarm) {
+	bc.mu.Lock()
+	bc.stopAlarmTimersLocked(alarm)
+	bc.mu.Unlock()
+}
+
+func (bc *BackgroundContext) alarmToJS(alarm *Alarm) *sobek.Object {
+	vm := bc.vm
+	if vm == nil || alarm == nil {
+		return nil
+	}
+	alarmObj := vm.NewObject()
+	_ = alarmObj.Set("name", alarm.Name)
+	_ = alarmObj.Set("scheduledTime", alarm.ScheduledTime)
+	if alarm.PeriodMinutes > 0 {
+		_ = alarmObj.Set("periodInMinutes", alarm.PeriodMinutes)
+	}
+	return alarmObj
 }
 
 // call schedules fn on the VM goroutine and waits for completion.
@@ -899,17 +1054,6 @@ func (bc *BackgroundContext) buildAlarmsObject() *sobek.Object {
 	vm := bc.vm
 	obj := vm.NewObject()
 
-	// Helper to convert Alarm to JS object
-	alarmToJS := func(alarm *Alarm) *sobek.Object {
-		alarmObj := vm.NewObject()
-		_ = alarmObj.Set("name", alarm.Name)
-		_ = alarmObj.Set("scheduledTime", alarm.ScheduledTime)
-		if alarm.PeriodMinutes > 0 {
-			_ = alarmObj.Set("periodInMinutes", alarm.PeriodMinutes)
-		}
-		return alarmObj
-	}
-
 	// create - schedules a new alarm
 	_ = obj.Set("create", func(call sobek.FunctionCall) sobek.Value {
 		var name string
@@ -934,8 +1078,8 @@ func (bc *BackgroundContext) buildAlarmsObject() *sobek.Object {
 		// Cancel existing alarm with same name
 		bc.mu.Lock()
 		if existing, ok := bc.alarms[name]; ok {
-			if existing.timer != nil {
-				existing.timer.Stop()
+			if existing.sourceHandle != 0 {
+				glib.SourceRemove(existing.sourceHandle)
 			}
 			delete(bc.alarms, name)
 		}
@@ -975,53 +1119,13 @@ func (bc *BackgroundContext) buildAlarmsObject() *sobek.Object {
 			PeriodMinutes: periodMinutes,
 		}
 
-		// Schedule the timer
-		var fireAlarm func()
-		fireAlarm = func() {
-			bc.mu.Lock()
-			tasks := bc.tasks
-			bc.mu.Unlock()
-
-			if tasks == nil {
-				return // Context stopped
-			}
-
-			tasks <- func() {
-				bc.mu.Lock()
-				currentAlarm, exists := bc.alarms[name]
-				alarmsEvent := bc.alarmsEvent
-				bc.mu.Unlock()
-
-				if !exists || currentAlarm != alarm {
-					return // Alarm was cancelled
-				}
-
-				// Fire onAlarm event
-				if alarmsEvent != nil && vm != nil {
-					_, _ = alarmsEvent.dispatch(vm, alarmToJS(alarm))
-				}
-
-				if periodMinutes > 0 {
-					// Reschedule repeating alarm
-					bc.mu.Lock()
-					alarm.ScheduledTime = float64(time.Now().Add(time.Duration(periodMinutes * float64(time.Minute))).UnixMilli())
-					alarm.timer = time.AfterFunc(time.Duration(periodMinutes*float64(time.Minute)), fireAlarm)
-					bc.mu.Unlock()
-				} else {
-					// One-shot alarm - remove it
-					bc.mu.Lock()
-					delete(bc.alarms, name)
-					bc.mu.Unlock()
-				}
-			}
-		}
-
 		// Store alarm in map BEFORE starting timer to avoid race condition
 		bc.mu.Lock()
 		bc.alarms[name] = alarm
 		bc.mu.Unlock()
 
-		alarm.timer = time.AfterFunc(delay, fireAlarm)
+		// Schedule timer with GLib (plus Go fallback)
+		bc.scheduleAlarmTimer(alarm, name, delay)
 
 		log.Printf("[webext/bg %s] Created alarm '%s' (delay: %v, period: %v min)", bc.ext.ID, name, delay, periodMinutes)
 		return sobek.Undefined()
@@ -1044,7 +1148,7 @@ func (bc *BackgroundContext) buildAlarmsObject() *sobek.Object {
 				bc.mu.Unlock()
 
 				if ok {
-					_ = resolve(alarmToJS(alarm))
+					_ = resolve(bc.alarmToJS(alarm))
 				} else {
 					_ = resolve(sobek.Undefined())
 				}
@@ -1062,7 +1166,7 @@ func (bc *BackgroundContext) buildAlarmsObject() *sobek.Object {
 
 				bc.mu.Lock()
 				for _, alarm := range bc.alarms {
-					results = append(results, alarmToJS(alarm))
+					results = append(results, bc.alarmToJS(alarm))
 				}
 				bc.mu.Unlock()
 
@@ -1087,9 +1191,7 @@ func (bc *BackgroundContext) buildAlarmsObject() *sobek.Object {
 				bc.mu.Lock()
 				alarm, ok := bc.alarms[name]
 				if ok {
-					if alarm.timer != nil {
-						alarm.timer.Stop()
-					}
+					bc.stopAlarmTimersLocked(alarm)
 					delete(bc.alarms, name)
 				}
 				bc.mu.Unlock()
@@ -1107,9 +1209,7 @@ func (bc *BackgroundContext) buildAlarmsObject() *sobek.Object {
 			bc.tasks <- func() {
 				bc.mu.Lock()
 				for _, alarm := range bc.alarms {
-					if alarm.timer != nil {
-						alarm.timer.Stop()
-					}
+					bc.stopAlarmTimersLocked(alarm)
 				}
 				bc.alarms = make(map[string]*Alarm)
 				bc.mu.Unlock()
@@ -2363,7 +2463,7 @@ func newBackgroundPort(vm *sobek.Runtime, desc api.PortDescriptor, bc *Backgroun
 
 	obj := vm.NewObject()
 	_ = obj.Set("name", desc.Name)
-	_ = obj.Set("sender", desc.Sender)
+	_ = obj.Set("sender", toJSSenderValue(vm, desc.Sender))
 
 	_ = obj.Set("postMessage", func(call sobek.FunctionCall) sobek.Value {
 		if port.disconnected {
