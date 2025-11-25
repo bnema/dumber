@@ -51,6 +51,7 @@ static inline WebKitWebView* create_extension_web_view(WebKitWebView* parent, co
 }
 
 // create_extension_background_web_view creates a WebView for extension background pages with:
+// - web-context from default context (inherits CORS registration for dumb-extension://)
 // - web-extension-mode set to ManifestV2
 // - default-content-security-policy provided by the manifest (can be NULL)
 // - NO related-view (background pages are the root for popups to relate to)
@@ -65,8 +66,12 @@ static inline WebKitWebView* create_extension_background_web_view(const gchar* c
 		NULL
 	);
 
+	// Use default context to inherit CORS registration for dumb-extension:// scheme
+	WebKitWebContext* web_context = webkit_web_context_get_default();
+
 	WebKitWebView* view = WEBKIT_WEB_VIEW(g_object_new(
 		WEBKIT_TYPE_WEB_VIEW,
+		"web-context", web_context,
 		"settings", settings,
 		"web-extension-mode", WEBKIT_WEB_EXTENSION_MODE_MANIFESTV2,
 		"default-content-security-policy", csp,

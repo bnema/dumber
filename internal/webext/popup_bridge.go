@@ -166,15 +166,53 @@ const PopupBridgeJS = `
 		},
 
 		connect: function(extensionId, connectInfo) {
-			// Stub - port-based messaging not fully implemented
-			console.warn('[popup-bridge] runtime.connect not fully implemented');
-			return {
-				name: connectInfo?.name || '',
-				disconnect: function() {},
-				postMessage: function(msg) {},
+			// Create port via dispatcher and return a Port object
+			const portName = connectInfo?.name || '';
+			const port = {
+				name: portName,
+				sender: null,
+				_id: null,
+				_disconnected: false,
 				onMessage: createEventTarget(),
-				onDisconnect: createEventTarget()
+				onDisconnect: createEventTarget(),
+				disconnect: function() {
+					if (port._disconnected) return;
+					port._disconnected = true;
+					if (port._id) {
+						sendMessage('runtime', 'portDisconnect', [port._id]).catch(() => {});
+					}
+					port.onDisconnect._emit();
+				},
+				postMessage: function(msg) {
+					if (port._disconnected) {
+						console.warn('[popup-bridge] Attempted to post to disconnected port');
+						return;
+					}
+					if (port._id) {
+						sendMessage('runtime', 'portPostMessage', [port._id, msg]).catch(e => {
+							console.error('[popup-bridge] Port postMessage failed:', e);
+						});
+					}
+				}
 			};
+
+			// Register this port for incoming events
+			window.__dumberPorts = window.__dumberPorts || {};
+
+			// Initiate connection asynchronously
+			sendMessage('runtime', 'connect', [extensionId, { name: portName }])
+				.then(result => {
+					port._id = result.portId;
+					port.sender = result.sender;
+					window.__dumberPorts[port._id] = port;
+				})
+				.catch(e => {
+					console.error('[popup-bridge] runtime.connect failed:', e);
+					port._disconnected = true;
+					port.onDisconnect._emit();
+				});
+
+			return port;
 		},
 
 		onMessage: createEventTarget(),
@@ -434,6 +472,38 @@ const PopupBridgeJS = `
 	// Also provide chrome.* for compatibility
 	window.browser = browser;
 	window.chrome = browser;
+
+	// Handle port events from background
+	window.__dumberPortEvent = function(event) {
+		try {
+			const data = typeof event === 'string' ? JSON.parse(event) : event;
+			const port = window.__dumberPorts && window.__dumberPorts[data.portId];
+			if (!port) return;
+
+			switch (data.type) {
+				case 'message':
+					port.onMessage._emit(data.message, port);
+					break;
+				case 'disconnect':
+					port._disconnected = true;
+					delete window.__dumberPorts[data.portId];
+					port.onDisconnect._emit(port);
+					break;
+			}
+		} catch (e) {
+			console.error('[popup-bridge] Port event error:', e);
+		}
+	};
+
+	// Handle storage change events from background
+	window.__dumberStorageChange = function(event) {
+		try {
+			const data = typeof event === 'string' ? JSON.parse(event) : event;
+			storage.onChanged._emit(data.changes, data.areaName);
+		} catch (e) {
+			console.error('[popup-bridge] Storage change error:', e);
+		}
+	};
 
 	console.log('[popup-bridge] browser.* APIs injected');
 })();
