@@ -45,6 +45,14 @@ const (
 	// Other styling
 	defaultTransitionDuration = 120
 	defaultUIScale            = 1.0 // UI scale multiplier (1.0 = 100%, 1.2 = 120%)
+
+	// Extensions overlay defaults
+	defaultExtensionsOverlayEnabled  = true
+	defaultExtensionsOverlayPosition = "top-right"
+	defaultExtensionsShortcut        = "ctrl+shift+e"
+
+	// Downloads defaults
+	defaultDownloadsLocation = "~/Downloads"
 )
 
 // getDefaultLogDir returns the default log directory, falls back to empty string on error
@@ -153,6 +161,14 @@ func DefaultConfig() *Config {
 			EnableCSSDebug:        false,
 			EnableFocusMetrics:    false,
 			EnablePaneCloseDebug:  false,
+		},
+		Extensions: ExtensionsConfig{
+			OverlayEnabled:  defaultExtensionsOverlayEnabled,
+			OverlayPosition: defaultExtensionsOverlayPosition,
+			Shortcut:        defaultExtensionsShortcut,
+		},
+		Downloads: DownloadsConfig{
+			DefaultLocation: defaultDownloadsLocation,
 		},
 		RenderingMode: RenderingModeGPU,
 		UseDomZoom:    false,
