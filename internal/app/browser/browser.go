@@ -608,7 +608,7 @@ func (app *BrowserApp) handleExtensionMessageWithView(viewID uint64, message *we
 
 	switch {
 	case name == "webRequest:onBeforeRequest":
-		return app.handleWebRequestOnBeforeRequest(message)
+		return app.handleWebRequestOnBeforeRequest(viewID, message)
 
 	// Note: onBeforeSendHeaders is now handled together with onBeforeRequest
 	// in a single IPC call to reduce overhead
@@ -696,8 +696,8 @@ func (app *BrowserApp) handleExtensionLog(message *webkit.UserMessage) bool {
 	return true
 }
 
-func (app *BrowserApp) handleWebRequestOnBeforeRequest(message *webkit.UserMessage) bool {
-	log.Printf("[webRequest] handleWebRequestOnBeforeRequest called")
+func (app *BrowserApp) handleWebRequestOnBeforeRequest(viewID uint64, message *webkit.UserMessage) bool {
+	log.Printf("[webRequest] handleWebRequestOnBeforeRequest called for viewID=%d", viewID)
 
 	if app.extensionManager == nil {
 		log.Printf("[webRequest] extensionManager is nil!")
@@ -716,6 +716,13 @@ func (app *BrowserApp) handleWebRequestOnBeforeRequest(message *webkit.UserMessa
 		log.Printf("[webRequest] Failed to decode request details: %v", err)
 		app.replyWebRequestDecision(message, webRequestDecision{})
 		return true
+	}
+
+	// Fix TabID: the web process uses page.ID() which differs from our WebView ID.
+	// Override with the correct viewID from the message handler context.
+	if viewID > 0 {
+		details.TabID = int64(viewID)
+		details.FrameID = int64(viewID) // Main frame ID should match tab ID
 	}
 
 	app.rememberPendingRequest(details)

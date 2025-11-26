@@ -818,10 +818,12 @@ func (bc *BackgroundContext) buildTabsObject() *sobek.Object {
 		if len(call.Arguments) > 0 && call.Arguments[0] != nil && !sobek.IsUndefined(call.Arguments[0]) {
 			tabID = call.Arguments[0].ToInteger()
 		}
+		log.Printf("[tabs.get DEBUG] Called with tabID=%d", tabID)
 
 		go func() {
 			bc.tasks <- func() {
 				if tabID < 0 {
+					log.Printf("[tabs.get DEBUG] tabID < 0, returning undefined")
 					_ = resolve(sobek.Undefined())
 					return
 				}
@@ -831,16 +833,22 @@ func (bc *BackgroundContext) buildTabsObject() *sobek.Object {
 				bc.mu.Unlock()
 
 				if provider == nil {
+					log.Printf("[tabs.get DEBUG] paneProvider is nil, returning undefined")
 					_ = resolve(sobek.Undefined())
 					return
 				}
 
-				for _, pane := range provider.GetAllPanes() {
+				allPanes := provider.GetAllPanes()
+				log.Printf("[tabs.get DEBUG] Found %d panes", len(allPanes))
+				for _, pane := range allPanes {
+					log.Printf("[tabs.get DEBUG] Pane ID=%d URL=%q", pane.ID, pane.URL)
 					if int64(pane.ID) == tabID {
+						log.Printf("[tabs.get DEBUG] Found matching pane! Returning tab with URL=%q", pane.URL)
 						_ = resolve(paneToTab(pane))
 						return
 					}
 				}
+				log.Printf("[tabs.get DEBUG] No pane found with ID=%d", tabID)
 				_ = resolve(sobek.Undefined())
 			}
 		}()
