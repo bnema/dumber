@@ -729,6 +729,16 @@ func (m *Manager) GetBackgroundContext(extID string) *BackgroundContext {
 	return nil
 }
 
+// GetQueuePressure returns the current queue length and capacity for an extension's
+// background context. Used for backpressure detection.
+func (m *Manager) GetQueuePressure(extID string) (length, capacity int) {
+	bg := m.GetBackgroundContext(extID)
+	if bg == nil {
+		return 0, 0
+	}
+	return bg.QueueLength(), bg.QueueCapacity()
+}
+
 // DispatchRuntimeMessage routes a runtime.onMessage payload into the background context.
 func (m *Manager) DispatchRuntimeMessage(extID string, sender api.MessageSender, message interface{}) (interface{}, error) {
 	bg := m.GetBackgroundContext(extID)

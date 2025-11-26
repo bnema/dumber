@@ -112,6 +112,29 @@ func (bc *BackgroundContext) SetPaneProvider(provider PaneProvider) {
 	bc.mu.Unlock()
 }
 
+// QueueLength returns the current number of tasks in the queue.
+// Used for backpressure detection.
+func (bc *BackgroundContext) QueueLength() int {
+	bc.mu.Lock()
+	tasks := bc.tasks
+	bc.mu.Unlock()
+	if tasks == nil {
+		return 0
+	}
+	return len(tasks)
+}
+
+// QueueCapacity returns the maximum capacity of the task queue.
+func (bc *BackgroundContext) QueueCapacity() int {
+	bc.mu.Lock()
+	tasks := bc.tasks
+	bc.mu.Unlock()
+	if tasks == nil {
+		return 0
+	}
+	return cap(tasks)
+}
+
 // toJSSenderValue converts a MessageSender into a JS-friendly object with WebExtension field names.
 func toJSSenderValue(vm *sobek.Runtime, sender api.MessageSender) sobek.Value {
 	m := map[string]interface{}{
@@ -327,8 +350,6 @@ func (bc *BackgroundContext) NotifyStorageChange(changes map[string]api.StorageC
 
 // DispatchWebRequestEvent forwards a webRequest event into the VM and returns the first blocking response.
 func (bc *BackgroundContext) DispatchWebRequestEvent(event string, payload interface{}) (*api.BlockingResponse, error) {
-	start := time.Now()
-
 	var evt *jsEvent
 	isBlocking := false
 	switch event {
@@ -357,7 +378,6 @@ func (bc *BackgroundContext) DispatchWebRequestEvent(event string, payload inter
 	}
 
 	// Convert payload to map with JSON tag names (not Go field names)
-	jsonStart := time.Now()
 	jsonBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal webRequest payload: %w", err)
@@ -366,12 +386,9 @@ func (bc *BackgroundContext) DispatchWebRequestEvent(event string, payload inter
 	if err := json.Unmarshal(jsonBytes, &jsPayload); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal webRequest payload: %w", err)
 	}
-	jsonTime := time.Since(jsonStart)
 
 	var resp *api.BlockingResponse
-	var vmTime time.Duration
 	callErr := bc.call(func() error {
-		vmStart := time.Now()
 		vm := bc.vm
 		ret, dispatchErr := evt.dispatchWithResponse(vm, vm.ToValue(jsPayload))
 		if dispatchErr != nil {
@@ -384,13 +401,8 @@ func (bc *BackgroundContext) DispatchWebRequestEvent(event string, payload inter
 			}
 			resp = &blockingResp
 		}
-		vmTime = time.Since(vmStart)
 		return nil
 	})
-
-	total := time.Since(start)
-	// Always log timing for debugging
-	log.Printf("[webRequest-timing] total=%v json=%v vm=%v queue=%v", total, jsonTime, vmTime, total-jsonTime-vmTime)
 
 	return resp, callErr
 }

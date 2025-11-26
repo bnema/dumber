@@ -912,6 +912,9 @@ interface DumberAPI {
 
     // Console capture functionality
     const setupConsoleCapture = () => {
+      // Only enable console capture when explicitly requested to avoid IPC/log spam.
+      if (!(window as any).__dumber_enable_console_capture) return;
+
       const originalConsole = {
         log: console.log,
         warn: console.warn,

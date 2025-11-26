@@ -341,7 +341,6 @@ func (w *WebView) setupEventHandlers() {
 	// User message received - messages from WebProcess extension (page.SendMessageToView)
 	// This is different from script-message-received which is for window.webkit.messageHandlers
 	w.view.ConnectUserMessageReceived(func(message *UserMessage) bool {
-		log.Printf("[webkit] UserMessageReceived on WebView %d: name=%s", w.id, message.Name())
 		if w.onUserMessage != nil {
 			return w.onUserMessage(message)
 		}
