@@ -150,17 +150,18 @@ func DefaultConfig() *Config {
 			DisableTwitchCodecControl: true,                                                                                                    // Disable codec control on Twitch by default (prevents theater/fullscreen freezing)
 		},
 		Debug: DebugConfig{
-			EnableWebKitDebug:     false,
-			WebKitDebugCategories: "Network:preconnectTo",
-			EnableWebViewDebug:    false,
-			LogWebKitCrashes:      true, // Always log crashes
-			EnableScriptDebug:     false,
-			EnableGeneralDebug:    false,
-			EnableWorkspaceDebug:  false,
-			EnableFocusDebug:      false,
-			EnableCSSDebug:        false,
-			EnableFocusMetrics:    false,
-			EnablePaneCloseDebug:  false,
+			EnableWebKitDebug:       false,
+			WebKitDebugCategories:   "Network:preconnectTo",
+			EnableWebViewDebug:      false,
+			LogWebKitCrashes:        true, // Always log crashes
+			EnableScriptDebug:       false,
+			EnableGeneralDebug:      false,
+			EnableWorkspaceDebug:    false,
+			EnableFocusDebug:        false,
+			EnableCSSDebug:          false,
+			EnableFocusMetrics:      false,
+			EnablePaneCloseDebug:    false,
+			EnableWebRequestMetrics: false,
 		},
 		Extensions: ExtensionsConfig{
 			OverlayEnabled:  defaultExtensionsOverlayEnabled,
@@ -169,6 +170,9 @@ func DefaultConfig() *Config {
 		},
 		Downloads: DownloadsConfig{
 			DefaultLocation: defaultDownloadsLocation,
+		},
+		WebRequest: WebRequestConfig{
+			SocketPath: "", // Empty = auto-detect from GetRuntimeDir()
 		},
 		RenderingMode: RenderingModeGPU,
 		UseDomZoom:    false,

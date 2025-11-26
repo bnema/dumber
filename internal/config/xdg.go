@@ -98,6 +98,30 @@ func GetStateDir() (string, error) {
 	return dirs.StateHome, nil
 }
 
+// GetRuntimeDir returns the XDG runtime directory for dumber.
+// Uses $XDG_RUNTIME_DIR/dumber (typically /run/user/UID/dumber).
+// Falls back to $XDG_STATE_HOME/dumber if runtime dir unavailable.
+// This is used for ephemeral files like UNIX sockets.
+func GetRuntimeDir() (string, error) {
+	// Development mode: use .dev directory in current working directory
+	if os.Getenv("ENV") == "dev" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(cwd, ".dev", appName), nil
+	}
+
+	// XDG_RUNTIME_DIR is the proper place for sockets and ephemeral files
+	runtimeDir := os.Getenv("XDG_RUNTIME_DIR")
+	if runtimeDir != "" {
+		return filepath.Join(runtimeDir, appName), nil
+	}
+
+	// Fallback to state dir if no runtime dir available
+	return GetStateDir()
+}
+
 // GetLogDir returns the XDG-compliant log directory for dumber.
 // Logs are stored in XDG_STATE_HOME as per specification.
 func GetLogDir() (string, error) {

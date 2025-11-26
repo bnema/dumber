@@ -36,6 +36,7 @@ type Config struct {
 	Debug               DebugConfig             `mapstructure:"debug" yaml:"debug"`
 	Extensions          ExtensionsConfig        `mapstructure:"extensions" yaml:"extensions"`
 	Downloads           DownloadsConfig         `mapstructure:"downloads" yaml:"downloads"`
+	WebRequest          WebRequestConfig        `mapstructure:"webrequest" yaml:"webrequest"`
 	// RenderingMode controls GPU/CPU rendering selection for WebKit
 	RenderingMode RenderingMode `mapstructure:"rendering_mode" yaml:"rendering_mode"`
 	// UseDomZoom toggles DOM-based zoom instead of native WebKit zoom.
@@ -189,6 +190,13 @@ type DownloadsConfig struct {
 	DefaultLocation string `mapstructure:"default_location" yaml:"default_location" json:"default_location"`
 }
 
+// WebRequestConfig holds webRequest IPC configuration for extension blocking.
+type WebRequestConfig struct {
+	// SocketPath is the UNIX socket path for WebProcess IPC.
+	// Empty string means auto-detect from GetRuntimeDir() (typically $XDG_RUNTIME_DIR/dumber/webrequest.sock)
+	SocketPath string `mapstructure:"socket_path" yaml:"socket_path" json:"socket_path"`
+}
+
 // DebugConfig holds debug and troubleshooting options
 
 // OmniboxConfig holds omnibox behavior preferences
@@ -232,6 +240,9 @@ type DebugConfig struct {
 
 	// Enable detailed pane close instrumentation and tree snapshots
 	EnablePaneCloseDebug bool `mapstructure:"enable_pane_close_debug" yaml:"enable_pane_close_debug"`
+
+	// Enable webRequest performance metrics (timeout counts, cache hit rates, queue pressure)
+	EnableWebRequestMetrics bool `mapstructure:"enable_webrequest_metrics" yaml:"enable_webrequest_metrics"`
 }
 
 // WorkspaceConfig captures layout, pane, and tab behaviour preferences.
@@ -699,6 +710,7 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("debug.enable_css_debug", defaults.Debug.EnableCSSDebug)
 	m.viper.SetDefault("debug.enable_focus_metrics", defaults.Debug.EnableFocusMetrics)
 	m.viper.SetDefault("debug.enable_pane_close_debug", defaults.Debug.EnablePaneCloseDebug)
+	m.viper.SetDefault("debug.enable_webrequest_metrics", defaults.Debug.EnableWebRequestMetrics)
 
 	// Appearance defaults
 	m.viper.SetDefault("appearance.sans_font", defaults.Appearance.SansFont)
@@ -773,6 +785,9 @@ func (m *Manager) setDefaults() {
 
 	// Downloads defaults
 	m.viper.SetDefault("downloads.default_location", defaults.Downloads.DefaultLocation)
+
+	// WebRequest defaults (empty = auto-detect from GetRuntimeDir())
+	m.viper.SetDefault("webrequest.socket_path", defaults.WebRequest.SocketPath)
 }
 
 // createDefaultConfig creates a default configuration file.
