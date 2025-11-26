@@ -50,8 +50,12 @@ type ExtensionInfo struct {
 
 // InitData represents data passed to the WebProcess extension on initialization.
 type InitData struct {
-	Extensions             []ExtensionInfo `json:"extensions"`
-	HasWebRequestListeners bool            `json:"has_webrequest_listeners,omitempty"`
+	Extensions              []ExtensionInfo `json:"extensions"`
+	HasWebRequestListeners  bool            `json:"has_webrequest_listeners,omitempty"`
+	EnableWebRequestMetrics bool            `json:"enable_webrequest_metrics,omitempty"`
+	// WebRequestSocketPath is the UNIX socket path for webRequest IPC.
+	// Required for webRequest blocking - without it, blocking is disabled.
+	WebRequestSocketPath string `json:"webrequest_socket_path,omitempty"`
 }
 
 // ParseInitData parses initialization data from JSON string.

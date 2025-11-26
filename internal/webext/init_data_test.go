@@ -178,7 +178,7 @@ func TestSerializeInitData(t *testing.T) {
 			// HasWebRequestListeners is now based on permissions in the manifest
 			// (specifically "webRequestBlocking"), not runtime listener registration
 
-			jsonStr, err := manager.SerializeInitData()
+			jsonStr, err := manager.SerializeInitData(nil)
 			if err != nil {
 				t.Fatalf("SerializeInitData() error = %v", err)
 			}

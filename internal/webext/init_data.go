@@ -14,8 +14,16 @@ type InitData = shared.InitData
 // ExtensionInfo contains minimal extension information for WebProcess
 type ExtensionInfo = shared.ExtensionInfo
 
+// SerializeInitDataOpts contains options for serializing init data
+type SerializeInitDataOpts struct {
+	EnableWebRequestMetrics bool
+	// WebRequestSocketPath is the UNIX socket path for webRequest IPC.
+	// Required for webRequest blocking - without it, blocking is disabled.
+	WebRequestSocketPath string
+}
+
 // SerializeInitData creates JSON string of extension data for WebProcess
-func (m *Manager) SerializeInitData() (string, error) {
+func (m *Manager) SerializeInitData(opts *SerializeInitDataOpts) (string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -88,6 +96,12 @@ func (m *Manager) SerializeInitData() (string, error) {
 	initData := InitData{
 		Extensions:             extensions,
 		HasWebRequestListeners: m.anyExtensionHasPermission("webRequestBlocking"),
+	}
+
+	// Apply optional settings
+	if opts != nil {
+		initData.EnableWebRequestMetrics = opts.EnableWebRequestMetrics
+		initData.WebRequestSocketPath = opts.WebRequestSocketPath
 	}
 
 	jsonData, err := json.Marshal(initData)
