@@ -5,10 +5,11 @@ package main
 // #include <glib.h>
 import "C"
 import (
-	"context"
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -23,54 +24,94 @@ import (
 	"github.com/diamondburned/gotk4-webkitgtk/pkg/webkitwebprocessextension/v6"
 	"github.com/diamondburned/gotk4/pkg/core/gextras"
 	coreglib "github.com/diamondburned/gotk4/pkg/core/glib"
-	"github.com/diamondburned/gotk4/pkg/gio/v2"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
 )
 
 // Global state for WebProcess
 var (
-	extensionInfo          []shared.ExtensionInfo
-	hasWebRequestListeners bool
-	webRequestAllowCache   = newWebRequestAllowStore()
+	extensionInfo           []shared.ExtensionInfo
+	hasWebRequestListeners  bool
+	enableWebRequestMetrics bool
+	webRequestAllowCache    = newWebRequestAllowStore()
+	webRequestBlockCache    = newWebRequestBlockStore()
+
+	// Socket IPC for webRequest blocking (replaces GLib message IPC)
+	webRequestSocketPath string
+	webRequestSocket     net.Conn
+	webRequestSocketMu   sync.Mutex
+	webRequestReader     *bufio.Reader
+	webRequestEncoder    *json.Encoder
 )
 
-// webRequestAllowStore remembers requests that were allowed untouched so we can skip
-// expensive IPC for repeated, same-origin assets (e.g., hashed chunk files).
-type webRequestAllowStore struct {
-	mu      sync.Mutex
-	allowed map[uint64]map[string]struct{}
+// webRequestBlockStore caches blocking decisions to skip IPC for repeated URLs.
+// Ad/tracker URLs are often repeated across pages - caching avoids redundant IPC.
+type webRequestBlockStore struct {
+	mu      sync.RWMutex
+	blocked map[string]struct{}
 }
 
-func newWebRequestAllowStore() *webRequestAllowStore {
-	return &webRequestAllowStore{allowed: make(map[uint64]map[string]struct{})}
+func newWebRequestBlockStore() *webRequestBlockStore {
+	return &webRequestBlockStore{blocked: make(map[string]struct{})}
 }
 
-func (c *webRequestAllowStore) isAllowed(pageID uint64, key string) bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.allowed == nil {
-		return false
-	}
-	perPage := c.allowed[pageID]
-	if perPage == nil {
-		return false
-	}
-	_, ok := perPage[key]
+func (c *webRequestBlockStore) isBlocked(url string) bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	_, ok := c.blocked[url]
 	return ok
 }
 
-func (c *webRequestAllowStore) markAllowed(pageID uint64, key string) {
+func (c *webRequestBlockStore) markBlocked(url string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.allowed == nil {
-		c.allowed = make(map[uint64]map[string]struct{})
+	c.blocked[url] = struct{}{}
+}
+
+// webRequestAllowStore remembers allowed domain+resourceType combinations globally.
+// Unlike per-page caching, this persists across navigations - once cdn.example.com|script
+// is allowed, it stays allowed everywhere. Uses LRU eviction at 10k entries.
+type webRequestAllowStore struct {
+	mu      sync.RWMutex
+	allowed map[string]struct{} // "origin|resourceType" -> {}
+	order   []string            // LRU order tracking (oldest first)
+	maxSize int
+}
+
+func newWebRequestAllowStore() *webRequestAllowStore {
+	return &webRequestAllowStore{
+		allowed: make(map[string]struct{}),
+		order:   make([]string, 0, 1024),
+		maxSize: 10000,
 	}
-	perPage := c.allowed[pageID]
-	if perPage == nil {
-		perPage = make(map[string]struct{})
-		c.allowed[pageID] = perPage
+}
+
+func (c *webRequestAllowStore) isAllowed(key string) bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	_, ok := c.allowed[key]
+	return ok
+}
+
+func (c *webRequestAllowStore) markAllowed(key string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if _, exists := c.allowed[key]; !exists {
+		c.allowed[key] = struct{}{}
+		c.order = append(c.order, key)
+		// LRU eviction if over limit
+		if len(c.order) > c.maxSize {
+			oldest := c.order[0]
+			c.order = c.order[1:]
+			delete(c.allowed, oldest)
+		}
 	}
-	perPage[key] = struct{}{}
+}
+
+// size returns current cache size (for metrics)
+func (c *webRequestAllowStore) size() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return len(c.allowed)
 }
 
 // hasHTTPScheme checks if a URI uses HTTP or HTTPS scheme.
@@ -160,6 +201,39 @@ func parseExtensionData(jsonStr string) error {
 
 	extensionInfo = initData.Extensions
 	hasWebRequestListeners = initData.HasWebRequestListeners
+	enableWebRequestMetrics = initData.EnableWebRequestMetrics
+	webRequestSocketPath = initData.WebRequestSocketPath
+
+	// Log to file for debugging (WebProcess stderr may not be visible)
+	logToFile("[webRequest] Init data parsed: hasListeners=%v, socketPath=%q", hasWebRequestListeners, webRequestSocketPath)
+
+	// Connect to webRequest socket if path provided
+	if webRequestSocketPath != "" {
+		if err := initWebRequestSocket(); err != nil {
+			logToFile("[webRequest] Failed to connect to socket %s: %v", webRequestSocketPath, err)
+			logToFile("[webRequest] webRequest blocking will be DISABLED")
+		} else {
+			logToFile("[webRequest] Connected to socket: %s", webRequestSocketPath)
+		}
+	} else {
+		logToFile("[webRequest] No socket path provided, webRequest blocking DISABLED")
+	}
+
+	return nil
+}
+
+// initWebRequestSocket connects to the UI process socket for webRequest IPC.
+func initWebRequestSocket() error {
+	conn, err := net.Dial("unix", webRequestSocketPath)
+	if err != nil {
+		return err
+	}
+
+	webRequestSocketMu.Lock()
+	webRequestSocket = conn
+	webRequestReader = bufio.NewReader(conn)
+	webRequestEncoder = json.NewEncoder(conn)
+	webRequestSocketMu.Unlock()
 
 	return nil
 }
@@ -405,8 +479,12 @@ func shouldSkipWebRequest(pageURI string, requestURI string, resourceType api.Re
 	return false
 }
 
+// buildAllowCacheKey returns a domain-level cache key (origin|resourceType).
+// This allows caching at domain level - once cdn.example.com|script is allowed,
+// all scripts from that origin are allowed without IPC.
 func buildAllowCacheKey(requestURI string, resourceType api.ResourceType) string {
-	return fmt.Sprintf("%s|%s", requestURI, resourceType)
+	origin := extractOrigin(requestURI)
+	return fmt.Sprintf("%s|%s", origin, resourceType)
 }
 
 // isSameOrigin checks if two URIs share the same origin (scheme + host)
@@ -457,22 +535,36 @@ func onSendRequest(page *webkitwebprocessextension.WebPage, request *webkitwebpr
 	resourceType := detectResourceType(headers)
 	fetchSite := strings.ToLower(headers["Sec-Fetch-Site"])
 
+	// NEVER block main document requests - this causes reload loops
+	if resourceType == api.ResourceTypeMain {
+		return false
+	}
+
 	// Skip webRequest for low-risk same-origin resources
 	if shouldSkipWebRequest(pageURI, requestURI, resourceType, fetchSite) {
 		return false
 	}
 
-	// Fast allow-path: if we already saw this resource allowed untouched, skip IPC
+	// Fast block-path: if we already know this URL is blocked, skip IPC entirely
+	if webRequestBlockCache.isBlocked(requestURI) {
+		LogMetrics(page, "[webRequest:metrics] cache=block_hit url=%s", requestURI)
+		return true
+	}
+
+	// Fast allow-path: domain-level cache - if origin|type was allowed, skip IPC
 	allowKey := buildAllowCacheKey(requestURI, resourceType)
-	if webRequestAllowCache.isAllowed(page.ID(), allowKey) {
+	if webRequestAllowCache.isAllowed(allowKey) {
+		LogMetrics(page, "[webRequest:metrics] cache=allow_hit key=%s", allowKey)
 		return false
 	}
 
 	details := buildRequestDetailsFromParsed(page, request, headers, resourceType)
 
-	// Single combined IPC call for both onBeforeRequest and onBeforeSendHeaders
-	// This halves the IPC overhead compared to two separate calls
+	// Blocking IPC call - cache will reduce future calls for same URLs
+	ipcStart := time.Now()
 	decision := dispatchBlockingWebRequest(page, "webRequest:onBeforeRequest", details)
+	ipcDuration := time.Since(ipcStart)
+	LogMetrics(page, "[webRequest:metrics] ipc duration=%v cancel=%v url=%s", ipcDuration, decision.Cancel, requestURI)
 
 	if decision.RedirectURL != "" {
 		request.SetURI(decision.RedirectURL)
@@ -485,88 +577,89 @@ func onSendRequest(page *webkitwebprocessextension.WebPage, request *webkitwebpr
 		}
 	}
 
-	// Cache untouched requests to avoid re-dispatching identical allowed resources
-	modified := decision.Cancel || decision.RedirectURL != "" || len(decision.RequestHeaders) > 0
-	if !modified && (fetchSite == "same-origin" || fetchSite == "same-site" || isSameOrigin(pageURI, requestURI)) {
-		webRequestAllowCache.markAllowed(page.ID(), allowKey)
+	// Cache decisions to avoid repeated IPC for same URLs/domains
+	if decision.Cancel {
+		// Blocked URLs are cached globally by full URL (ad URLs repeat across pages)
+		webRequestBlockCache.markBlocked(requestURI)
+	} else if decision.RedirectURL == "" && len(decision.RequestHeaders) == 0 {
+		// Allowed domains cached globally by origin|type
+		// Once cdn.example.com|script is allowed, it stays allowed everywhere
+		webRequestAllowCache.markAllowed(allowKey)
 	}
 
 	return decision.Cancel
 }
 
+// webRequestIPCRequest is the JSON structure sent to UI process socket
+type webRequestIPCRequest struct {
+	Details api.RequestDetails `json:"details"`
+}
+
+// dispatchBlockingWebRequest sends webRequest event to UI process via UNIX socket.
+// This uses blocking socket I/O which does NOT iterate the GLib main loop,
+// avoiding the re-entrancy deadlock that plagued the old GLib message IPC.
 func dispatchBlockingWebRequest(page *webkitwebprocessextension.WebPage, name string, details api.RequestDetails) webRequestDecision {
-	payload, err := json.Marshal(details)
-	if err != nil {
-		LogError(page, "[webRequest] Failed to marshal %s details: %v", name, err)
+	webRequestSocketMu.Lock()
+	defer webRequestSocketMu.Unlock()
+
+	// If socket not connected, allow the request (blocking disabled)
+	if webRequestSocket == nil {
 		return webRequestDecision{}
 	}
 
-	variant := glib.NewVariantString(string(payload))
-	msg := webkitwebprocessextension.NewUserMessage(name, variant)
+	// Build request
+	req := webRequestIPCRequest{Details: details}
 
-	// Use background context for the async call - we handle timeout manually via polling
-	ctx := context.Background()
-
-	resultCh := make(chan webRequestDecision, 1)
-
-	page.SendMessageToView(ctx, msg, func(res gio.AsyncResulter) {
-		defer close(resultCh)
-
-		reply, replyErr := page.SendMessageToViewFinish(res)
-		if replyErr != nil {
-			LogError(page, "[webRequest] Failed to finish send-message for %s: %v", name, replyErr)
-			resultCh <- webRequestDecision{}
-			return
-		}
-
-		params := reply.Parameters()
-		if params == nil {
-			resultCh <- webRequestDecision{}
-			return
-		}
-
-		replyStr, strErr := variantToString(params)
-		if strErr != nil {
-			LogError(page, "[webRequest] Invalid reply variant for %s: %v", name, strErr)
-			resultCh <- webRequestDecision{}
-			return
-		}
-
-		var decision webRequestDecision
-		if err := json.Unmarshal([]byte(replyStr), &decision); err != nil {
-			LogError(page, "[webRequest] Failed to parse reply for %s: %v", name, err)
-			resultCh <- webRequestDecision{}
-			return
-		}
-
-		resultCh <- decision
-	})
-
-	// Poll for result while iterating the GLib main context
-	// The async callback runs on the main context, so we need to pump it
-	mainCtx := glib.MainContextDefault()
-	deadline := time.Now().Add(100 * time.Millisecond)
-
-	for time.Now().Before(deadline) {
-		// Check if result is ready
-		select {
-		case decision, ok := <-resultCh:
-			if ok {
-				return decision
-			}
-			// Channel closed without result
-			return webRequestDecision{}
-		default:
-			// No result yet, iterate the main context to process pending callbacks
-			if !mainCtx.Iteration(false) {
-				// No events pending, sleep briefly to avoid busy-waiting
-				time.Sleep(100 * time.Microsecond)
-			}
-		}
+	// Send request (JSON + newline)
+	if err := webRequestEncoder.Encode(req); err != nil {
+		LogError(page, "[webRequest] Socket write error: %v", err)
+		// Try to reconnect for next request
+		reconnectWebRequestSocket()
+		return webRequestDecision{}
 	}
 
-	LogWarn(page, "[webRequest] %s handler timed out for %s", name, details.URL)
-	return webRequestDecision{}
+	// Read response (blocking read - this is safe, doesn't iterate main loop!)
+	line, err := webRequestReader.ReadBytes('\n')
+	if err != nil {
+		LogError(page, "[webRequest] Socket read error: %v", err)
+		// Try to reconnect for next request
+		reconnectWebRequestSocket()
+		return webRequestDecision{}
+	}
+
+	var decision webRequestDecision
+	if err := json.Unmarshal(line, &decision); err != nil {
+		LogError(page, "[webRequest] Failed to parse response: %v", err)
+		return webRequestDecision{}
+	}
+
+	return decision
+}
+
+// reconnectWebRequestSocket attempts to reconnect to the UI process socket.
+// Called when a socket error occurs - next request will try with fresh connection.
+func reconnectWebRequestSocket() {
+	if webRequestSocket != nil {
+		webRequestSocket.Close()
+		webRequestSocket = nil
+		webRequestReader = nil
+		webRequestEncoder = nil
+	}
+
+	if webRequestSocketPath == "" {
+		return
+	}
+
+	conn, err := net.Dial("unix", webRequestSocketPath)
+	if err != nil {
+		log.Printf("[webRequest] Reconnect failed: %v", err)
+		return
+	}
+
+	webRequestSocket = conn
+	webRequestReader = bufio.NewReader(conn)
+	webRequestEncoder = json.NewEncoder(conn)
+	log.Printf("[webRequest] Reconnected to socket")
 }
 
 // buildRequestDetailsFromParsed builds RequestDetails using pre-parsed headers and resource type
@@ -749,19 +842,42 @@ func injectScriptsIntoWorld(page *webkitwebprocessextension.WebPage, world *webk
 		}
 	}
 
-	// Inject CSS
+	// Inject CSS via JavaScript (WebProcess can't access UserContentManager)
 	for _, cssFile := range cs.CSS {
 		// Strip leading slash to avoid filepath.Join treating it as absolute path
 		cssPath := filepath.Join(ext.Path, strings.TrimPrefix(cssFile, "/"))
 
-		// Check if file exists
-		if _, err := os.Stat(cssPath); os.IsNotExist(err) {
-			LogWarn(page, "[inject] CSS file not found: %s", cssPath)
+		// Read CSS content
+		cssContent, err := os.ReadFile(cssPath)
+		if err != nil {
+			LogWarn(page, "[inject] failed to read CSS %s: %v", cssPath, err)
 			continue
 		}
 
-		// TODO: Use WebPage.AddUserStyleSheet() if available in gotk4 bindings
-		LogDebug(page, "[inject] CSS injection for %s (not yet implemented in gotk4)", cssPath)
+		// Escape backticks and template literals for JavaScript template string
+		escapedCSS := strings.ReplaceAll(string(cssContent), "\\", "\\\\")
+		escapedCSS = strings.ReplaceAll(escapedCSS, "`", "\\`")
+		escapedCSS = strings.ReplaceAll(escapedCSS, "${", "\\${")
+
+		// Inject CSS via <style> element
+		injectScript := fmt.Sprintf(`
+			(function() {
+				'use strict';
+				const style = document.createElement('style');
+				style.textContent = `+"`%s`"+`;
+				style.dataset.dumberExt = '%s';
+				(document.head || document.documentElement).appendChild(style);
+			})();
+		`, escapedCSS, ext.ID)
+
+		result := jsContext.Evaluate(injectScript)
+		if result != nil {
+			if exception := jsContext.Exception(); exception != nil {
+				LogWarn(page, "[inject] CSS injection error for %s: %v", cssPath, exception.String())
+			} else {
+				LogDebug(page, "[inject] Injected CSS %s into page %d", cssPath, page.ID())
+			}
+		}
 	}
 }
 
