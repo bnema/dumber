@@ -160,14 +160,11 @@ func (pm *ExtensionPopupManager) OpenPopup(extID string, popupURL string) error 
 	}
 
 	// Default popup width (extension popups are typically narrow)
-	popupWidth := 400
-
-	// Set size request on the WebView to enforce width
-	// This is more reliable than relying solely on paned position
-	webkit.WidgetSetSizeRequest(wrappedView.AsWidget(), popupWidth, -1)
-	webkit.WidgetSetHExpand(wrappedView.AsWidget(), false)
+	popupWidth := 300
 
 	// Split to the right with max-width constraint
+	// MaxWidth is passed through to syncPanedDivider which sets the paned position
+	// and prevents the popup pane from shrinking
 	popupNode, err := ws.SplitPaneWithOptions(activeNode, SplitOptions{
 		Direction:    DirectionRight,
 		ExistingPane: pane,
@@ -177,7 +174,7 @@ func (pm *ExtensionPopupManager) OpenPopup(extID string, popupURL string) error 
 		return fmt.Errorf("failed to create popup split: %w", err)
 	}
 
-	// Also set size request on the pane's container if available
+	// Set minimum size request on container as fallback hint
 	if popupNode != nil && popupNode.container != nil {
 		webkit.WidgetSetSizeRequest(popupNode.container, popupWidth, -1)
 	}

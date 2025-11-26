@@ -371,7 +371,7 @@ func (wm *WorkspaceManager) removeFromAppPanes(pane *BrowserPane) {
 // splitNode splits a target pane into two panes in the specified direction.
 // If existingPane is provided, it will be used instead of creating a new WebView.
 // This allows reusing the function for both normal splits (nil) and popup insertion (popup pane).
-func (wm *WorkspaceManager) splitNode(target *paneNode, direction string, existingPane *BrowserPane) (*paneNode, error) {
+func (wm *WorkspaceManager) splitNode(target *paneNode, direction string, existingPane *BrowserPane, opts *SplitOptions) (*paneNode, error) {
 	if target == nil || !target.isLeaf || target.pane == nil {
 		return nil, errors.New("split target must be a leaf pane")
 	}
@@ -615,7 +615,7 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string, existi
 	paned.Show()
 
 	// Synchronize the divider once the paned has a meaningful allocation.
-	wm.syncPanedDivider(paned, orientation, split)
+	wm.syncPanedDivider(paned, orientation, split, opts)
 
 	// GTK4 automatically handles widget rendering after reparenting - no manual updates needed
 
@@ -1244,10 +1244,12 @@ func (wm *WorkspaceManager) closeStackedPaneCompat(node *paneNode) (*paneNode, e
 	return stack, nil
 }
 
-// syncPanedDivider waits until a GtkPaned has a meaningful allocation before snapping
-// the divider to an even split. GTK often reports near-zero allocations for a few frames
-// after insertion, so we retry on map/tick/idle until the size stabilizes.
-func (wm *WorkspaceManager) syncPanedDivider(paned *gtk.Paned, orientation gtk.Orientation, guard *paneNode) {
+// syncPanedDivider waits until a GtkPaned has a meaningful allocation before setting
+// the divider position. If opts specifies MaxWidth/MaxHeight, uses fixed size for the
+// end child (new pane). Otherwise defaults to 50% split.
+// GTK often reports near-zero allocations for a few frames after insertion, so we retry
+// on map/tick/idle until the size stabilizes.
+func (wm *WorkspaceManager) syncPanedDivider(paned *gtk.Paned, orientation gtk.Orientation, guard *paneNode, opts *SplitOptions) {
 	if wm == nil || paned == nil {
 		return
 	}
@@ -1256,6 +1258,15 @@ func (wm *WorkspaceManager) syncPanedDivider(paned *gtk.Paned, orientation gtk.O
 		minDimension = 32
 		maxFrames    = 120
 	)
+
+	// Determine if we have a fixed size constraint
+	var fixedSize int
+	switch {
+	case opts != nil && opts.MaxWidth > 0 && orientation == gtk.OrientationHorizontal:
+		fixedSize = opts.MaxWidth
+	case opts != nil && opts.MaxHeight > 0 && orientation == gtk.OrientationVertical:
+		fixedSize = opts.MaxHeight
+	}
 
 	setPosition := func() bool {
 		if guard != nil && !guard.widgetValid {
@@ -1272,13 +1283,28 @@ func (wm *WorkspaceManager) syncPanedDivider(paned *gtk.Paned, orientation gtk.O
 			return false
 		}
 
-		pos := dimension / 2
-		if pos <= 0 {
-			return false
+		var pos int
+		if fixedSize > 0 {
+			// Fixed size for end child (new pane on right/bottom)
+			pos = dimension - fixedSize
+			if pos <= 0 || pos >= dimension {
+				pos = dimension / 2 // Fallback to 50% if calculation invalid
+			}
+			// Prevent the fixed-size pane from shrinking
+			paned.SetShrinkEndChild(false)
+			log.Printf("[workspace] Set paned position for fixed size %d: pos=%d (orientation=%d, size=%dx%d)",
+				fixedSize, pos, orientation, alloc.Width(), alloc.Height())
+		} else {
+			// Default 50% split
+			pos = dimension / 2
+			if pos <= 0 {
+				return false
+			}
+			log.Printf("[workspace] Set paned position to 50%%: %d (orientation=%d, size=%dx%d)",
+				pos, orientation, alloc.Width(), alloc.Height())
 		}
 
 		paned.SetPosition(pos)
-		log.Printf("[workspace] Set paned position to 50%%: %d (orientation=%d, size=%dx%d)", pos, orientation, alloc.Width(), alloc.Height())
 		return true
 	}
 

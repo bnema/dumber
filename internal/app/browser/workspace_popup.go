@@ -39,7 +39,7 @@ func (wm *WorkspaceManager) insertIndependentPane(sourceNode *paneNode, webView 
 		direction = DirectionRight
 	}
 	// Use splitNode with existing pane instead of insertPopupPane
-	if _, err := wm.splitNode(sourceNode, direction, newPane); err != nil {
+	if _, err := wm.splitNode(sourceNode, direction, newPane, nil); err != nil {
 		return err
 	}
 	node := wm.viewToNode[webView]
@@ -67,7 +67,7 @@ func (wm *WorkspaceManager) configureRelatedPopup(sourceNode *paneNode, webView 
 		direction = DirectionRight
 	}
 	// Use splitNode with existing pane instead of insertPopupPane
-	if _, err := wm.splitNode(sourceNode, direction, newPane); err != nil {
+	if _, err := wm.splitNode(sourceNode, direction, newPane, nil); err != nil {
 		log.Printf("[workspace] failed to insert related popup pane: %v", err)
 		return
 	}
@@ -453,7 +453,7 @@ func (wm *WorkspaceManager) handlePopupReadyToShow(popupID uint64) {
 		if direction == "" {
 			direction = DirectionRight
 		}
-		if _, err := wm.splitNode(info.parentNode, direction, popupPane); err != nil {
+		if _, err := wm.splitNode(info.parentNode, direction, popupPane, nil); err != nil {
 			log.Printf("[workspace] Failed to insert split popup pane: %v", err)
 			return
 		}
@@ -470,7 +470,7 @@ func (wm *WorkspaceManager) handlePopupReadyToShow(popupID uint64) {
 		if direction == "" {
 			direction = DirectionRight
 		}
-		if _, err := wm.splitNode(info.parentNode, direction, popupPane); err != nil {
+		if _, err := wm.splitNode(info.parentNode, direction, popupPane, nil); err != nil {
 			log.Printf("[workspace] Failed to insert stacked popup pane: %v", err)
 			return
 		}
@@ -482,7 +482,7 @@ func (wm *WorkspaceManager) handlePopupReadyToShow(popupID uint64) {
 		if direction == "" {
 			direction = DirectionRight
 		}
-		if _, err := wm.splitNode(info.parentNode, direction, popupPane); err != nil {
+		if _, err := wm.splitNode(info.parentNode, direction, popupPane, nil); err != nil {
 			log.Printf("[workspace] Failed to insert tabbed popup pane: %v", err)
 			return
 		}
@@ -495,7 +495,7 @@ func (wm *WorkspaceManager) handlePopupReadyToShow(popupID uint64) {
 		if direction == "" {
 			direction = DirectionRight
 		}
-		if _, err := wm.splitNode(info.parentNode, direction, popupPane); err != nil {
+		if _, err := wm.splitNode(info.parentNode, direction, popupPane, nil); err != nil {
 			log.Printf("[workspace] Failed to insert windowed popup pane: %v", err)
 			return
 		}
@@ -507,7 +507,7 @@ func (wm *WorkspaceManager) handlePopupReadyToShow(popupID uint64) {
 		if direction == "" {
 			direction = DirectionRight
 		}
-		if _, err := wm.splitNode(info.parentNode, direction, popupPane); err != nil {
+		if _, err := wm.splitNode(info.parentNode, direction, popupPane, nil); err != nil {
 			log.Printf("[workspace] Failed to insert popup pane: %v", err)
 			return
 		}

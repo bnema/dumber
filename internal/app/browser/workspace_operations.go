@@ -64,7 +64,7 @@ func (wm *WorkspaceManager) SplitPane(target *paneNode, direction string) (*pane
 	// Step 2: Execute directly if we're already on the GTK main thread
 	if webkit.IsMainThread() {
 		log.Printf("[workspace] Already on main thread, executing split directly")
-		newNode, err := wm.splitNode(target, direction, nil)
+		newNode, err := wm.splitNode(target, direction, nil, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -88,7 +88,7 @@ func (wm *WorkspaceManager) SplitPane(target *paneNode, direction string) (*pane
 	done := make(chan struct{})
 
 	_ = webkit.IdleAdd(func() bool {
-		newNode, splitErr = wm.splitNode(target, direction, nil)
+		newNode, splitErr = wm.splitNode(target, direction, nil, nil)
 		if splitErr == nil {
 			if wm.debugLevel >= DebugBasic {
 				if verr := wm.treeValidator.ValidateTree(wm.root, "after_split"); verr != nil {
@@ -134,7 +134,7 @@ func (wm *WorkspaceManager) SplitPaneWithPane(target *paneNode, direction string
 	log.Printf("[workspace] Starting split with existing pane: target=%p direction=%s pane=%p", target, direction, existingPane)
 
 	if webkit.IsMainThread() {
-		newNode, err := wm.splitNode(target, direction, existingPane)
+		newNode, err := wm.splitNode(target, direction, existingPane, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -150,7 +150,7 @@ func (wm *WorkspaceManager) SplitPaneWithPane(target *paneNode, direction string
 	var splitErr error
 	done := make(chan struct{})
 	_ = webkit.IdleAdd(func() bool {
-		newNode, splitErr = wm.splitNode(target, direction, existingPane)
+		newNode, splitErr = wm.splitNode(target, direction, existingPane, nil)
 		if splitErr == nil && wm.debugLevel >= DebugBasic {
 			if err := wm.treeValidator.ValidateTree(wm.root, "after_split_existing"); err != nil {
 				log.Printf("[workspace] Tree validation failed after split with existing pane: %v", err)
@@ -184,26 +184,35 @@ func (wm *WorkspaceManager) SplitPaneWithOptions(target *paneNode, opts SplitOpt
 	log.Printf("[workspace] SplitPaneWithOptions: direction=%s maxWidth=%d maxHeight=%d existingPane=%v",
 		opts.Direction, opts.MaxWidth, opts.MaxHeight, opts.ExistingPane != nil)
 
-	// Perform the split (reuse existing logic)
+	// Call splitNode directly with opts to pass size constraints through
+	if webkit.IsMainThread() {
+		newNode, err := wm.splitNode(target, opts.Direction, opts.ExistingPane, &opts)
+		if err != nil {
+			return nil, err
+		}
+		if wm.debugLevel >= DebugBasic {
+			if err := wm.treeValidator.ValidateTree(wm.root, "after_split_options"); err != nil {
+				log.Printf("[workspace] Tree validation failed after split with options: %v", err)
+			}
+		}
+		return newNode, nil
+	}
+
 	var newNode *paneNode
-	var err error
-
-	if opts.ExistingPane != nil {
-		newNode, err = wm.SplitPaneWithPane(target, opts.Direction, opts.ExistingPane)
-	} else {
-		newNode, err = wm.SplitPane(target, opts.Direction)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	// Apply size constraints if specified
-	if newNode != nil && (opts.MaxWidth > 0 || opts.MaxHeight > 0) {
-		wm.applySizeConstraints(newNode, opts)
-	}
-
-	return newNode, nil
+	var splitErr error
+	done := make(chan struct{})
+	_ = webkit.IdleAdd(func() bool {
+		newNode, splitErr = wm.splitNode(target, opts.Direction, opts.ExistingPane, &opts)
+		if splitErr == nil && wm.debugLevel >= DebugBasic {
+			if err := wm.treeValidator.ValidateTree(wm.root, "after_split_options"); err != nil {
+				log.Printf("[workspace] Tree validation failed after split with options: %v", err)
+			}
+		}
+		close(done)
+		return false
+	})
+	<-done
+	return newNode, splitErr
 }
 
 // applySizeConstraints sets max-width/height on a pane by adjusting the paned divider position
