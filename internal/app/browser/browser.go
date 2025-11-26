@@ -77,6 +77,7 @@ type BrowserApp struct {
 	webRequestActive  map[uintptr]*webRequestTrack
 	webRequestMu      sync.Mutex
 	webExtLogger      *logging.LogRotator // Logger for WebExtension process logs
+	webRequestServer  *WebRequestServer   // UNIX socket server for webRequest IPC
 
 	// Handlers
 	schemeHandler         *schemes.APIHandler
@@ -328,6 +329,13 @@ func (app *BrowserApp) Run() {
 func (app *BrowserApp) cleanup() {
 	log.Printf("Starting browser cleanup...")
 
+	// Cleanup webRequest server first (before any WebViews are destroyed)
+	if app.webRequestServer != nil {
+		log.Printf("Stopping webRequest server")
+		app.webRequestServer.Close()
+		app.webRequestServer = nil
+	}
+
 	// Cleanup window shortcuts first
 	if app.windowShortcutHandler != nil {
 		log.Printf("Cleaning up window shortcuts")
@@ -537,8 +545,23 @@ func (app *BrowserApp) setupExtensionManager() error {
 	}
 	log.Printf("[webext] extensions with webRequest capability: %v", app.extensionManager.GetEnabledExtensionsWithWebRequest())
 
+	// Start webRequest socket server for blocking IPC
+	// This MUST happen before SerializeInitData so the socket path is available
+	var socketPath string
+	if err := app.startWebRequestServer(); err != nil {
+		log.Printf("[webext] Warning: failed to start webRequest server: %v", err)
+		log.Printf("[webext] webRequest blocking will be DISABLED")
+	} else if app.webRequestServer != nil {
+		socketPath = app.webRequestServer.SocketPath()
+	}
+
 	// Serialize extension data for WebProcess
-	initData, err := app.extensionManager.SerializeInitData()
+	initDataOpts := &webext.SerializeInitDataOpts{
+		EnableWebRequestMetrics: app.config.Debug.EnableWebRequestMetrics,
+		WebRequestSocketPath:    socketPath,
+	}
+	log.Printf("[webext] Serializing init data with socket path: %s", socketPath)
+	initData, err := app.extensionManager.SerializeInitData(initDataOpts)
 	if err != nil {
 		log.Printf("[webext] Warning: failed to serialize extension data: %v", err)
 		initData = "" // Continue without extension data
@@ -557,6 +580,12 @@ func (app *BrowserApp) setupExtensionManager() error {
 		InitUserData:        initData, // Pass enabled extensions to WebProcess
 	}
 
+	// Add socket directory to sandbox so WebProcess can connect
+	if socketPath != "" {
+		socketDir := filepath.Dir(socketPath)
+		webExtConfig.SandboxPaths = []string{socketDir}
+	}
+
 	if err := webkit.InitializeWebProcessExtensions(webExtConfig); err != nil {
 		return fmt.Errorf("failed to initialize WebProcess extensions: %w", err)
 	}
@@ -566,6 +595,28 @@ func (app *BrowserApp) setupExtensionManager() error {
 	// provides the viewID for proper context. Using both would cause double message handling.
 
 	log.Printf("[webext] Extension manager initialized successfully")
+	return nil
+}
+
+// startWebRequestServer initializes the UNIX socket server for webRequest IPC.
+func (app *BrowserApp) startWebRequestServer() error {
+	// Determine socket path from config or auto-detect
+	socketPath := app.config.WebRequest.SocketPath
+	if socketPath == "" {
+		runtimeDir, err := config.GetRuntimeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get runtime dir: %w", err)
+		}
+		socketPath = filepath.Join(runtimeDir, "webrequest.sock")
+	}
+
+	// Create and start the server
+	app.webRequestServer = NewWebRequestServer(app.extensionManager)
+	if err := app.webRequestServer.Start(socketPath); err != nil {
+		app.webRequestServer = nil
+		return err
+	}
+
 	return nil
 }
 
@@ -604,7 +655,6 @@ func (app *BrowserApp) registerWebRequestSignals(view *webkit.WebView) {
 // handleExtensionMessageWithView handles messages from WebProcess extensions with WebView context
 func (app *BrowserApp) handleExtensionMessageWithView(viewID uint64, message *webkit.UserMessage) bool {
 	name := message.Name()
-	log.Printf("[webext] handleExtensionMessageWithView: name=%s viewID=%d", name, viewID)
 
 	switch {
 	case name == "webRequest:onBeforeRequest":
@@ -697,8 +747,6 @@ func (app *BrowserApp) handleExtensionLog(message *webkit.UserMessage) bool {
 }
 
 func (app *BrowserApp) handleWebRequestOnBeforeRequest(viewID uint64, message *webkit.UserMessage) bool {
-	log.Printf("[webRequest] handleWebRequestOnBeforeRequest called for viewID=%d", viewID)
-
 	if app.extensionManager == nil {
 		log.Printf("[webRequest] extensionManager is nil!")
 		return false
@@ -733,8 +781,9 @@ func (app *BrowserApp) handleWebRequestOnBeforeRequest(viewID uint64, message *w
 		return true
 	}
 
+	enabledExts := app.extensionManager.GetEnabledExtensionsWithWebRequest()
 	resp := webRequestDecision{}
-	for _, extID := range app.extensionManager.GetEnabledExtensionsWithWebRequest() {
+	for _, extID := range enabledExts {
 		bgResp, err := app.extensionManager.DispatchWebRequestEvent(extID, "onBeforeRequest", details)
 		if err != nil {
 			log.Printf("[webRequest] onBeforeRequest error for %s: %v", extID, err)
@@ -747,12 +796,6 @@ func (app *BrowserApp) handleWebRequestOnBeforeRequest(viewID uint64, message *w
 			}
 			if resp.RequestHeaders == nil && bgResp.RequestHeaders != nil {
 				resp.RequestHeaders = bgResp.RequestHeaders
-			}
-			// Log only when actually blocking/redirecting
-			if resp.Cancel {
-				log.Printf("[webRequest] BLOCKED: %s", details.URL)
-			} else if resp.RedirectURL != "" {
-				log.Printf("[webRequest] REDIRECT: %s -> %s", details.URL, resp.RedirectURL)
 			}
 			break
 		}
