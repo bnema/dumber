@@ -14,6 +14,8 @@ type UserMessage = webkitv6.UserMessage
 type WebExtensionConfig struct {
 	ExtensionsDirectory string
 	InitUserData        string
+	// SandboxPaths are additional paths to add to the WebProcess sandbox (read-write)
+	SandboxPaths []string
 }
 
 // InitializeWebProcessExtensions sets up WebProcess extension loading.
@@ -37,6 +39,12 @@ func InitializeWebProcessExtensions(cfg *WebExtensionConfig) error {
 	if cfg.ExtensionsDirectory != "" {
 		webContext.AddPathToSandbox(cfg.ExtensionsDirectory, true) // read-only access
 		log.Printf("[webext] Added extensions directory to sandbox: %s", cfg.ExtensionsDirectory)
+	}
+
+	// Add additional sandbox paths (e.g., socket directory for IPC)
+	for _, path := range cfg.SandboxPaths {
+		webContext.AddPathToSandbox(path, false) // read-write access for sockets
+		log.Printf("[webext] Added path to sandbox (rw): %s", path)
 	}
 
 	// Connect to initialize-web-process-extensions signal
