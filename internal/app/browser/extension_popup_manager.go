@@ -182,6 +182,25 @@ func (pm *ExtensionPopupManager) OpenPopup(extID string, popupURL string) error 
 		webkit.WidgetSetSizeRequest(popupNode.container, popupWidth, -1)
 	}
 
+	// Initialize popup node with focus/hover handlers that regular splits get via idle callback
+	// Extension popups bypass the scheduleIdleGuarded callback in splitNode(), so we must add these manually
+	if popupNode != nil {
+		// Mark as popup to prevent browser exit on close
+		popupNode.isPopup = true
+		popupNode.windowType = webkit.WindowTypePopup
+
+		// Attach GTK focus controller (enables focus enter/leave events)
+		if ws.focusStateMachine != nil {
+			ws.focusStateMachine.attachGTKController(popupNode)
+		}
+
+		// Attach hover handler (enables mouse-based focus)
+		ws.ensureHover(popupNode)
+
+		// Setup popup handling (enables nested popups from extension)
+		ws.setupPopupHandling(wrappedView, popupNode)
+	}
+
 	// Create popup record
 	popup := &ExtensionPopup{
 		ExtensionID:   extID,
