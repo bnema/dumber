@@ -3,9 +3,15 @@ package browserjs
 import (
 	"encoding/base64"
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/grafana/sobek"
 )
+
+// decodeRuneInString wraps utf8.DecodeRuneInString for cleaner code
+func decodeRuneInString(s string) (rune, int) {
+	return utf8.DecodeRuneInString(s)
+}
 
 // EncodingManager provides TextEncoder, TextDecoder, atob, btoa APIs.
 type EncodingManager struct {
@@ -34,8 +40,70 @@ func (em *EncodingManager) Install() error {
 		})
 		_ = encoder.Set("encodeInto", func(call sobek.FunctionCall) sobek.Value {
 			result := vm.NewObject()
-			_ = result.Set("read", 0)
-			_ = result.Set("written", 0)
+
+			if len(call.Arguments) < 2 {
+				_ = result.Set("read", 0)
+				_ = result.Set("written", 0)
+				return result
+			}
+
+			str := call.Arguments[0].String()
+			destObj := call.Arguments[1].ToObject(vm)
+
+			// Get the length of the destination buffer
+			lengthVal := destObj.Get("length")
+			if lengthVal == nil || sobek.IsUndefined(lengthVal) {
+				_ = result.Set("read", 0)
+				_ = result.Set("written", 0)
+				return result
+			}
+			destLen := int(lengthVal.ToInteger())
+
+			// Convert string to UTF-8 bytes
+			strBytes := []byte(str)
+
+			// Calculate how many bytes we can write
+			bytesToWrite := len(strBytes)
+			if bytesToWrite > destLen {
+				bytesToWrite = destLen
+			}
+
+			// Find the last complete UTF-8 character boundary
+			// to avoid writing partial multi-byte characters
+			if bytesToWrite > 0 && bytesToWrite < len(strBytes) {
+				for bytesToWrite > 0 {
+					// Check if this is a valid UTF-8 continuation boundary
+					b := strBytes[bytesToWrite]
+					// UTF-8 continuation bytes start with 10xxxxxx
+					if (b & 0xC0) != 0x80 {
+						break
+					}
+					bytesToWrite--
+				}
+			}
+
+			// Write bytes to destination array
+			for i := 0; i < bytesToWrite; i++ {
+				destObj.Set(fmt.Sprintf("%d", i), int(strBytes[i]))
+			}
+
+			// Count UTF-16 code units read
+			// In Go, string length is bytes but we need to count runes for UTF-16 compatibility
+			readBytes := strBytes[:bytesToWrite]
+			runeCount := 0
+			for len(readBytes) > 0 {
+				r, size := decodeRuneInString(string(readBytes))
+				if r > 0xFFFF {
+					// Surrogate pair in UTF-16
+					runeCount += 2
+				} else {
+					runeCount++
+				}
+				readBytes = readBytes[size:]
+			}
+
+			_ = result.Set("read", runeCount)
+			_ = result.Set("written", bytesToWrite)
 			return result
 		})
 		return nil
