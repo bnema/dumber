@@ -5,6 +5,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -24,17 +26,18 @@ type LocalStorageBackend interface {
 
 // WebAPIsManager provides additional web APIs like XMLHttpRequest, Storage, etc.
 type WebAPIsManager struct {
-	vm           *sobek.Runtime
-	tasks        chan func()
-	httpClient   HTTPDoer
-	startTime    time.Time
-	origin       string
-	localStorage LocalStorageBackend // Optional persistent localStorage backend
+	vm                *sobek.Runtime
+	tasks             chan func()
+	httpClient        HTTPDoer
+	startTime         time.Time
+	origin            string
+	localStorage      LocalStorageBackend // Optional persistent localStorage backend
+	extensionBasePath string              // Filesystem path for extension:// URL handling
 }
 
 // NewWebAPIsManager creates a new web APIs manager.
 // localStorage is optional - if nil, an in-memory implementation is used.
-func NewWebAPIsManager(vm *sobek.Runtime, tasks chan func(), httpClient HTTPDoer, startTime time.Time, origin string, localStorage LocalStorageBackend) *WebAPIsManager {
+func NewWebAPIsManager(vm *sobek.Runtime, tasks chan func(), httpClient HTTPDoer, startTime time.Time, origin string, localStorage LocalStorageBackend, extensionBasePath string) *WebAPIsManager {
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
@@ -45,12 +48,13 @@ func NewWebAPIsManager(vm *sobek.Runtime, tasks chan func(), httpClient HTTPDoer
 		origin = "null"
 	}
 	return &WebAPIsManager{
-		vm:           vm,
-		tasks:        tasks,
-		httpClient:   httpClient,
-		startTime:    startTime,
-		origin:       origin,
-		localStorage: localStorage,
+		vm:                vm,
+		tasks:             tasks,
+		httpClient:        httpClient,
+		startTime:         startTime,
+		origin:            origin,
+		localStorage:      localStorage,
+		extensionBasePath: extensionBasePath,
 	}
 }
 
@@ -206,6 +210,11 @@ func (wm *WebAPIsManager) installXMLHttpRequest() error {
 			if len(call.Arguments) >= 2 {
 				method = strings.ToUpper(call.Arguments[0].String())
 				url = call.Arguments[1].String()
+				// Resolve relative URLs against origin
+				if strings.HasPrefix(url, "/") && wm.origin != "" && wm.origin != "null" {
+					url = wm.origin + url
+					log.Printf("[browserjs/xhr] Resolved relative URL to: %s", url)
+				}
 				if len(call.Arguments) > 2 {
 					async = call.Arguments[2].ToBoolean()
 				}
@@ -243,12 +252,86 @@ func (wm *WebAPIsManager) installXMLHttpRequest() error {
 		})
 
 		_ = xhr.Set("send", func(call sobek.FunctionCall) sobek.Value {
+			log.Printf("[browserjs/xhr] XHR send: %s %s (async=%v)", method, url, async)
 			var body io.Reader
 			if len(call.Arguments) > 0 && call.Arguments[0] != sobek.Null() && call.Arguments[0] != sobek.Undefined() {
 				body = strings.NewReader(call.Arguments[0].String())
 			}
 
 			doRequest := func() {
+				log.Printf("[browserjs/xhr] XHR executing: %s %s", method, url)
+
+				// Handle dumb-extension:// URLs by reading from filesystem
+				if strings.HasPrefix(url, "dumb-extension://") {
+					// Parse URL: dumb-extension://extension-id/path/to/file
+					urlPath := strings.TrimPrefix(url, "dumb-extension://")
+					parts := strings.SplitN(urlPath, "/", 2)
+					var filePath string
+					if len(parts) >= 2 {
+						filePath = "/" + parts[1]
+					} else {
+						filePath = "/"
+					}
+
+					if wm.extensionBasePath == "" {
+						log.Printf("[browserjs/xhr] Extension base path not set for URL: %s", url)
+						status = 500
+						statusText = "500 Internal Server Error"
+						responseText = "Extension base path not configured"
+						_ = xhr.Set("status", status)
+						_ = xhr.Set("statusText", statusText)
+						_ = xhr.Set("responseText", responseText)
+						_ = xhr.Set("response", responseText)
+						setReadyState(4)
+						return
+					}
+
+					fullPath := filepath.Join(wm.extensionBasePath, filePath)
+					log.Printf("[browserjs/xhr] Reading extension file: %s", fullPath)
+
+					data, err := os.ReadFile(fullPath)
+					if err != nil {
+						log.Printf("[browserjs/xhr] Failed to read extension file: %v", err)
+						status = 404
+						statusText = "404 Not Found"
+						responseText = "File not found: " + filePath
+						_ = xhr.Set("status", status)
+						_ = xhr.Set("statusText", statusText)
+						_ = xhr.Set("responseText", responseText)
+						_ = xhr.Set("response", responseText)
+						setReadyState(4)
+						return
+					}
+
+					responseText = string(data)
+					status = 200
+					statusText = "200 OK"
+					// Set content-type based on file extension
+					switch {
+					case strings.HasSuffix(filePath, ".json"):
+						responseHeaders["content-type"] = "application/json"
+					case strings.HasSuffix(filePath, ".js"):
+						responseHeaders["content-type"] = "application/javascript"
+					case strings.HasSuffix(filePath, ".html"):
+						responseHeaders["content-type"] = "text/html"
+					case strings.HasSuffix(filePath, ".css"):
+						responseHeaders["content-type"] = "text/css"
+					default:
+						responseHeaders["content-type"] = "text/plain"
+					}
+
+					_ = xhr.Set("status", status)
+					_ = xhr.Set("statusText", statusText)
+					_ = xhr.Set("responseText", responseText)
+					_ = xhr.Set("response", responseText)
+
+					setReadyState(2) // HEADERS_RECEIVED
+					setReadyState(3) // LOADING
+					setReadyState(4) // DONE
+					return
+				}
+
+				// Standard HTTP request
 				req, err := http.NewRequest(method, url, body)
 				if err != nil {
 					setReadyState(4)

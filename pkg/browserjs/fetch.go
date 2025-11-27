@@ -3,6 +3,7 @@ package browserjs
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -278,6 +279,7 @@ func (fm *FetchManager) installFetch() {
 		}
 
 		url := call.Arguments[0].String()
+		log.Printf("[browserjs/fetch] fetch called: %s", url)
 		method := "GET"
 		var reqBody io.Reader
 		reqHeaders := make(map[string]string)

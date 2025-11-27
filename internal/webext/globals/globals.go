@@ -54,19 +54,22 @@ type BrowserGlobals struct {
 func New(vm *sobek.Runtime, ext Extension, tasks chan func(), localStorage browserjs.LocalStorageBackend) *BrowserGlobals {
 	extID := ""
 	origin := "null"
+	basePath := ""
 	if ext != nil {
 		extID = ext.GetID()
 		origin = fmt.Sprintf("dumb-extension://%s", extID)
+		basePath = ext.GetInstallDir()
 	}
 
 	// Create browserjs environment with extension-specific config
 	browserEnv := browserjs.New(vm, browserjs.Options{
-		TaskQueue:    tasks,
-		StartTime:    time.Now(),
-		HTTPClient:   &http.Client{Timeout: 30 * time.Second},
-		Logger:       &extensionLogger{extID: extID},
-		Origin:       origin,
-		LocalStorage: localStorage,
+		TaskQueue:         tasks,
+		StartTime:         time.Now(),
+		HTTPClient:        &http.Client{Timeout: 30 * time.Second},
+		Logger:            &extensionLogger{extID: extID},
+		Origin:            origin,
+		LocalStorage:      localStorage,
+		ExtensionBasePath: basePath,
 	})
 
 	return &BrowserGlobals{

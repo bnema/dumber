@@ -58,6 +58,10 @@ type Options struct {
 
 	// LocalStorage provides persistent localStorage backend. If nil, uses in-memory storage.
 	LocalStorage LocalStorageBackend
+
+	// ExtensionBasePath is the filesystem path to the extension's root directory.
+	// Required for XHR requests to extension:// URLs.
+	ExtensionBasePath string
 }
 
 // New creates a new browser environment for the given Sobek runtime.
@@ -188,7 +192,7 @@ func (e *Environment) InstallPerformance() error {
 // InstallWebAPIs installs additional web APIs (XMLHttpRequest, Storage, etc.).
 func (e *Environment) InstallWebAPIs() error {
 	if e.webAPIs == nil {
-		e.webAPIs = NewWebAPIsManager(e.vm, e.options.TaskQueue, e.options.HTTPClient, e.options.StartTime, e.options.Origin, e.options.LocalStorage)
+		e.webAPIs = NewWebAPIsManager(e.vm, e.options.TaskQueue, e.options.HTTPClient, e.options.StartTime, e.options.Origin, e.options.LocalStorage, e.options.ExtensionBasePath)
 	}
 	return e.webAPIs.Install()
 }
