@@ -174,16 +174,20 @@ func (bg *BrowserGlobals) extensionFetchHandler(url string) *browserjs.FetchResu
 
 	parts := strings.SplitN(url, "/", 4)
 	if len(parts) < 4 {
+		log.Printf("[fetch] Invalid extension URL: %s", url)
 		return &browserjs.FetchResult{Error: fmt.Errorf("invalid extension URL")}
 	}
 	path := parts[3]
 	fullPath := bg.ext.GetInstallDir() + "/" + path
 
+	log.Printf("[fetch] Loading extension file: %s", fullPath)
 	data, err := os.ReadFile(fullPath)
 	if err != nil {
+		log.Printf("[fetch] Error reading file %s: %v", fullPath, err)
 		return &browserjs.FetchResult{Error: err}
 	}
 
+	log.Printf("[fetch] Loaded %d bytes from %s", len(data), path)
 	return &browserjs.FetchResult{
 		Body:       data,
 		Status:     200,

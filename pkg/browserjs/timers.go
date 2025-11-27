@@ -1,6 +1,7 @@
 package browserjs
 
 import (
+	"log"
 	"sync"
 	"time"
 
@@ -72,6 +73,27 @@ func (tm *TimerManager) setTimeout(call sobek.FunctionCall) sobek.Value {
 	delay := int64(0)
 	if len(call.Arguments) > 1 {
 		delay = call.Arguments[1].ToInteger()
+	}
+
+	log.Printf("[browserjs] DEBUG: setTimeout called with delay=%dms, tasks channel len=%d", delay, len(tm.tasks))
+
+	// For short delays during initialization, run synchronously to avoid deadlock
+	// with TLA module evaluation. This is a workaround for Sobek's blocking Evaluate().
+	if delay <= 100 && tm.tasks != nil && len(tm.tasks) == 0 {
+		// Collect extra arguments
+		var args []sobek.Value
+		if len(call.Arguments) > 2 {
+			args = call.Arguments[2:]
+		}
+
+		// Schedule callback via queueMicrotask pattern - run after current call returns
+		// but before the next await is processed
+		log.Printf("[browserjs] DEBUG: setTimeout short delay - using sync execution")
+		tm.vm.Set("__pendingTimeoutCallback", func() {
+			_, _ = callback(sobek.Undefined(), args...)
+		})
+		_, _ = tm.vm.RunString("Promise.resolve().then(() => { if (typeof __pendingTimeoutCallback === 'function') { __pendingTimeoutCallback(); delete __pendingTimeoutCallback; } })")
+		return tm.vm.ToValue(0) // Return 0 as timer ID since it runs immediately
 	}
 
 	// Collect extra arguments
@@ -194,6 +216,8 @@ func (tm *TimerManager) queueMicrotask(call sobek.FunctionCall) sobek.Value {
 	if !ok {
 		return sobek.Undefined()
 	}
+
+	log.Printf("[browserjs] DEBUG: queueMicrotask called, tasks channel len=%d", len(tm.tasks))
 
 	// Queue the microtask to run on next event loop iteration
 	if tm.tasks != nil {

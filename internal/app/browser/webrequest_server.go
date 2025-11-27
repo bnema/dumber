@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/webext"
 	"github.com/bnema/dumber/internal/webext/api"
 )
@@ -178,26 +179,26 @@ func (s *WebRequestServer) processRequest(details api.RequestDetails) webRequest
 	// Get extensions with webRequest capability
 	enabledExts := manager.GetEnabledExtensionsWithWebRequest()
 	if len(enabledExts) == 0 {
-		log.Printf("[webRequest] processRequest: no extensions with webRequest")
+		logging.Debug("[webRequest] processRequest: no extensions with webRequest")
 		return webRequestIPCResponse{}
 	}
 
 	resp := webRequestIPCResponse{}
 
 	// Dispatch to each extension's webRequest listeners
-	log.Printf("[webRequest] Dispatching to %d extensions: %v", len(enabledExts), enabledExts)
+	logging.Debug(fmt.Sprintf("[webRequest] Dispatching to %d extensions: %v", len(enabledExts), enabledExts))
 	for _, extID := range enabledExts {
-		log.Printf("[webRequest] Calling DispatchWebRequestEvent for %s", extID)
+		logging.Debug(fmt.Sprintf("[webRequest] Calling DispatchWebRequestEvent for %s", extID))
 		bgResp, err := manager.DispatchWebRequestEvent(extID, "onBeforeRequest", details)
 		if err != nil {
-			log.Printf("[webRequest] onBeforeRequest error for %s: %v", extID, err)
+			logging.Debug(fmt.Sprintf("[webRequest] onBeforeRequest error for %s: %v", extID, err))
 			continue
 		}
 
 		if bgResp == nil {
-			log.Printf("[webRequest] onBeforeRequest returned nil for %s", extID)
+			logging.Debug(fmt.Sprintf("[webRequest] onBeforeRequest returned nil for %s", extID))
 		} else {
-			log.Printf("[webRequest] onBeforeRequest returned cancel=%v for %s", bgResp.Cancel, extID)
+			logging.Debug(fmt.Sprintf("[webRequest] onBeforeRequest returned cancel=%v for %s", bgResp.Cancel, extID))
 		}
 
 		if bgResp != nil {

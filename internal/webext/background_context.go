@@ -48,6 +48,9 @@ type BackgroundContext struct {
 	// connectExternal is set by the manager to allow background-initiated ports.
 	connectExternal func(name string) (string, error)
 
+	// inTask is true while the VM goroutine is executing a queued task.
+	inTask bool
+
 	// i18n translations loaded at startup
 	i18nMessages map[string]I18nMessage
 	i18nLocale   string
@@ -58,6 +61,16 @@ type BackgroundContext struct {
 
 	// pane provider for tabs API (set by manager)
 	paneProvider PaneProvider
+
+	// microtasks queued while already executing on the VM goroutine
+	microtasks []func()
+
+	// inModuleEval is true during ES module evaluation (for TLA support)
+	inModuleEval bool
+
+	// pendingTimerCallbacks stores timer callbacks during module evaluation
+	// These are processed from within Go function calls (like storage.local.get)
+	pendingTimerCallbacks []func()
 }
 
 // Alarm represents a scheduled alarm
@@ -167,7 +180,7 @@ func (bc *BackgroundContext) Start() error {
 	bc.mu.Lock()
 	if bc.tasks != nil {
 		bc.mu.Unlock()
-		return nil
+		return nil // Already started
 	}
 	bc.tasks = make(chan func(), 64)
 	bc.ctx, bc.stop = context.WithCancel(context.Background())
@@ -415,6 +428,37 @@ func (bc *BackgroundContext) loop() {
 					log.Printf("[webext/bg] recovered panic: %v\n%s", r, debug.Stack())
 				}
 			}()
+			bc.mu.Lock()
+			bc.inTask = true
+			bc.mu.Unlock()
+			defer func() {
+				// Drain microtasks queued while executing this task.
+				for {
+					var toRun []func()
+					bc.mu.Lock()
+					toRun = bc.microtasks
+					bc.microtasks = nil
+					bc.mu.Unlock()
+
+					if len(toRun) == 0 {
+						break
+					}
+					for _, fn := range toRun {
+						func() {
+							defer func() {
+								if r := recover(); r != nil {
+									log.Printf("[webext/bg] recovered panic in microtask: %v\n%s", r, debug.Stack())
+								}
+							}()
+							fn()
+						}()
+					}
+				}
+
+				bc.mu.Lock()
+				bc.inTask = false
+				bc.mu.Unlock()
+			}()
 			task()
 		}()
 	}
@@ -571,6 +615,30 @@ func (bc *BackgroundContext) call(fn func() error) error {
 	}
 }
 
+// runOnVM executes fn on the VM goroutine. If already on the VM task, it runs inline
+// to avoid queuing deadlocks; otherwise it enqueues on the task channel.
+func (bc *BackgroundContext) runOnVM(fn func()) {
+	bc.mu.Lock()
+	tasks := bc.tasks
+	ctx := bc.ctx
+	inTask := bc.inTask
+	bc.mu.Unlock()
+
+	if tasks == nil {
+		return
+	}
+	if inTask {
+		// Queue as microtask to run after the current task finishes.
+		bc.microtasks = append(bc.microtasks, fn)
+		return
+	}
+
+	select {
+	case tasks <- fn:
+	case <-ctx.Done():
+	}
+}
+
 func (bc *BackgroundContext) installGlobals() error {
 	vm := bc.vm
 
@@ -662,63 +730,49 @@ func (bc *BackgroundContext) buildBrowserActionObject() *sobek.Object {
 	// setIcon - stub that returns a resolved promise
 	_ = obj.Set("setIcon", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
 	// setTitle - stub
 	_ = obj.Set("setTitle", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
 	// setBadgeText - stub
 	_ = obj.Set("setBadgeText", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
 	// setBadgeBackgroundColor - stub
 	_ = obj.Set("setBadgeBackgroundColor", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
 	// setBadgeTextColor - stub
 	_ = obj.Set("setBadgeTextColor", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
 	// getPopup - stub
 	_ = obj.Set("getPopup", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(vm.ToValue("")) }
-		}()
+		bc.runOnVM(func() { _ = resolve(vm.ToValue("")) })
 		return vm.ToValue(promise)
 	})
 
 	// setPopup - stub
 	_ = obj.Set("setPopup", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
@@ -777,47 +831,45 @@ func (bc *BackgroundContext) buildTabsObject() *sobek.Object {
 			}
 		}
 
-		go func() {
-			bc.tasks <- func() {
-				var results []interface{}
+		bc.runOnVM(func() {
+			var results []interface{}
 
-				bc.mu.Lock()
-				provider := bc.paneProvider
-				bc.mu.Unlock()
+			bc.mu.Lock()
+			provider := bc.paneProvider
+			bc.mu.Unlock()
 
-				if provider == nil {
-					_ = resolve(vm.ToValue(results))
-					return
-				}
-
-				panes := provider.GetAllPanes()
-				active := provider.GetActivePane()
-
-				// Get current window ID
-				var currentWindowID uint64
-				if active != nil {
-					currentWindowID = active.WindowID
-				}
-
-				for _, pane := range panes {
-					// Filter by active
-					if queryActive != nil && *queryActive != pane.Active {
-						continue
-					}
-					// Filter by currentWindow
-					if queryCurrentWindow != nil && *queryCurrentWindow && pane.WindowID != currentWindowID {
-						continue
-					}
-					// Filter by windowId
-					if queryWindowID >= 0 && uint64(queryWindowID) != pane.WindowID {
-						continue
-					}
-					results = append(results, paneToTab(pane))
-				}
-
+			if provider == nil {
 				_ = resolve(vm.ToValue(results))
+				return
 			}
-		}()
+
+			panes := provider.GetAllPanes()
+			active := provider.GetActivePane()
+
+			// Get current window ID
+			var currentWindowID uint64
+			if active != nil {
+				currentWindowID = active.WindowID
+			}
+
+			for _, pane := range panes {
+				// Filter by active
+				if queryActive != nil && *queryActive != pane.Active {
+					continue
+				}
+				// Filter by currentWindow
+				if queryCurrentWindow != nil && *queryCurrentWindow && pane.WindowID != currentWindowID {
+					continue
+				}
+				// Filter by windowId
+				if queryWindowID >= 0 && uint64(queryWindowID) != pane.WindowID {
+					continue
+				}
+				results = append(results, paneToTab(pane))
+			}
+
+			_ = resolve(vm.ToValue(results))
+		})
 		return vm.ToValue(promise)
 	})
 
@@ -832,131 +884,113 @@ func (bc *BackgroundContext) buildTabsObject() *sobek.Object {
 		}
 		log.Printf("[tabs.get DEBUG] Called with tabID=%d", tabID)
 
-		go func() {
-			bc.tasks <- func() {
-				if tabID < 0 {
-					log.Printf("[tabs.get DEBUG] tabID < 0, returning undefined")
-					_ = resolve(sobek.Undefined())
-					return
-				}
-
-				bc.mu.Lock()
-				provider := bc.paneProvider
-				bc.mu.Unlock()
-
-				if provider == nil {
-					log.Printf("[tabs.get DEBUG] paneProvider is nil, returning undefined")
-					_ = resolve(sobek.Undefined())
-					return
-				}
-
-				allPanes := provider.GetAllPanes()
-				log.Printf("[tabs.get DEBUG] Found %d panes", len(allPanes))
-				for _, pane := range allPanes {
-					log.Printf("[tabs.get DEBUG] Pane ID=%d URL=%q", pane.ID, pane.URL)
-					if int64(pane.ID) == tabID {
-						log.Printf("[tabs.get DEBUG] Found matching pane! Returning tab with URL=%q", pane.URL)
-						_ = resolve(paneToTab(pane))
-						return
-					}
-				}
-				log.Printf("[tabs.get DEBUG] No pane found with ID=%d", tabID)
+		bc.runOnVM(func() {
+			if tabID < 0 {
+				log.Printf("[tabs.get DEBUG] tabID < 0, returning undefined")
 				_ = resolve(sobek.Undefined())
+				return
 			}
-		}()
+
+			bc.mu.Lock()
+			provider := bc.paneProvider
+			bc.mu.Unlock()
+
+			if provider == nil {
+				log.Printf("[tabs.get DEBUG] paneProvider is nil, returning undefined")
+				_ = resolve(sobek.Undefined())
+				return
+			}
+
+			allPanes := provider.GetAllPanes()
+			log.Printf("[tabs.get DEBUG] Found %d panes", len(allPanes))
+			for _, pane := range allPanes {
+				log.Printf("[tabs.get DEBUG] Pane ID=%d URL=%q", pane.ID, pane.URL)
+				if int64(pane.ID) == tabID {
+					log.Printf("[tabs.get DEBUG] Found matching pane! Returning tab with URL=%q", pane.URL)
+					_ = resolve(paneToTab(pane))
+					return
+				}
+			}
+			log.Printf("[tabs.get DEBUG] No pane found with ID=%d", tabID)
+			_ = resolve(sobek.Undefined())
+		})
 		return vm.ToValue(promise)
 	})
 
 	// getCurrent - returns the current tab (active pane)
 	_ = obj.Set("getCurrent", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() {
-				bc.mu.Lock()
-				provider := bc.paneProvider
-				bc.mu.Unlock()
+		bc.runOnVM(func() {
+			bc.mu.Lock()
+			provider := bc.paneProvider
+			bc.mu.Unlock()
 
-				if provider == nil {
-					_ = resolve(sobek.Undefined())
-					return
-				}
-
-				active := provider.GetActivePane()
-				if active != nil {
-					_ = resolve(paneToTab(*active))
-				} else {
-					_ = resolve(sobek.Undefined())
-				}
+			if provider == nil {
+				_ = resolve(sobek.Undefined())
+				return
 			}
-		}()
+
+			active := provider.GetActivePane()
+			if active != nil {
+				_ = resolve(paneToTab(*active))
+			} else {
+				_ = resolve(sobek.Undefined())
+			}
+		})
 		return vm.ToValue(promise)
 	})
 
 	// create - stub
 	_ = obj.Set("create", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() {
-				tab := vm.NewObject()
-				_ = tab.Set("id", 1)
-				_ = tab.Set("url", "")
-				_ = resolve(tab)
-			}
-		}()
+		bc.runOnVM(func() {
+			tab := vm.NewObject()
+			_ = tab.Set("id", 1)
+			_ = tab.Set("url", "")
+			_ = resolve(tab)
+		})
 		return vm.ToValue(promise)
 	})
 
 	// update - stub
 	_ = obj.Set("update", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
 	// remove - stub
 	_ = obj.Set("remove", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
 	// sendMessage - stub
 	_ = obj.Set("sendMessage", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
 	// insertCSS - stub
 	_ = obj.Set("insertCSS", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
 	// removeCSS - stub
 	_ = obj.Set("removeCSS", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
 	// executeScript - stub
 	_ = obj.Set("executeScript", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(vm.ToValue([]interface{}{})) }
-		}()
+		bc.runOnVM(func() { _ = resolve(vm.ToValue([]interface{}{})) })
 		return vm.ToValue(promise)
 	})
 
@@ -1040,29 +1074,25 @@ func (bc *BackgroundContext) buildI18nObject() *sobek.Object {
 	// getAcceptLanguages
 	_ = obj.Set("getAcceptLanguages", func(sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() {
-				langs := []string{bc.i18nLocale}
-				if bc.i18nLocale != "en" {
-					langs = append(langs, "en")
-				}
-				_ = resolve(vm.ToValue(langs))
+		bc.runOnVM(func() {
+			langs := []string{bc.i18nLocale}
+			if bc.i18nLocale != "en" {
+				langs = append(langs, "en")
 			}
-		}()
+			_ = resolve(vm.ToValue(langs))
+		})
 		return vm.ToValue(promise)
 	})
 
 	// detectLanguage - stub
 	_ = obj.Set("detectLanguage", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() {
-				result := vm.NewObject()
-				_ = result.Set("isReliable", false)
-				_ = result.Set("languages", []interface{}{})
-				_ = resolve(result)
-			}
-		}()
+		bc.runOnVM(func() {
+			result := vm.NewObject()
+			_ = result.Set("isReliable", false)
+			_ = result.Set("languages", []interface{}{})
+			_ = resolve(result)
+		})
 		return vm.ToValue(promise)
 	})
 
@@ -1161,38 +1191,34 @@ func (bc *BackgroundContext) buildAlarmsObject() *sobek.Object {
 			name = call.Arguments[0].String()
 		}
 
-		go func() {
-			bc.tasks <- func() {
-				bc.mu.Lock()
-				alarm, ok := bc.alarms[name]
-				bc.mu.Unlock()
+		bc.runOnVM(func() {
+			bc.mu.Lock()
+			alarm, ok := bc.alarms[name]
+			bc.mu.Unlock()
 
-				if ok {
-					_ = resolve(bc.alarmToJS(alarm))
-				} else {
-					_ = resolve(sobek.Undefined())
-				}
+			if ok {
+				_ = resolve(bc.alarmToJS(alarm))
+			} else {
+				_ = resolve(sobek.Undefined())
 			}
-		}()
+		})
 		return vm.ToValue(promise)
 	})
 
 	// getAll - returns all alarms
 	_ = obj.Set("getAll", func(sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() {
-				var results []interface{}
+		bc.runOnVM(func() {
+			var results []interface{}
 
-				bc.mu.Lock()
-				for _, alarm := range bc.alarms {
-					results = append(results, bc.alarmToJS(alarm))
-				}
-				bc.mu.Unlock()
-
-				_ = resolve(vm.ToValue(results))
+			bc.mu.Lock()
+			for _, alarm := range bc.alarms {
+				results = append(results, bc.alarmToJS(alarm))
 			}
-		}()
+			bc.mu.Unlock()
+
+			_ = resolve(vm.ToValue(results))
+		})
 		return vm.ToValue(promise)
 	})
 
@@ -1206,37 +1232,33 @@ func (bc *BackgroundContext) buildAlarmsObject() *sobek.Object {
 			name = call.Arguments[0].String()
 		}
 
-		go func() {
-			bc.tasks <- func() {
-				bc.mu.Lock()
-				alarm, ok := bc.alarms[name]
-				if ok {
-					bc.stopAlarmTimersLocked(alarm)
-					delete(bc.alarms, name)
-				}
-				bc.mu.Unlock()
-
-				_ = resolve(vm.ToValue(ok))
+		bc.runOnVM(func() {
+			bc.mu.Lock()
+			alarm, ok := bc.alarms[name]
+			if ok {
+				bc.stopAlarmTimersLocked(alarm)
+				delete(bc.alarms, name)
 			}
-		}()
+			bc.mu.Unlock()
+
+			_ = resolve(vm.ToValue(ok))
+		})
 		return vm.ToValue(promise)
 	})
 
 	// clearAll - cancels all alarms
 	_ = obj.Set("clearAll", func(sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() {
-				bc.mu.Lock()
-				for _, alarm := range bc.alarms {
-					bc.stopAlarmTimersLocked(alarm)
-				}
-				bc.alarms = make(map[string]*Alarm)
-				bc.mu.Unlock()
-
-				_ = resolve(vm.ToValue(true))
+		bc.runOnVM(func() {
+			bc.mu.Lock()
+			for _, alarm := range bc.alarms {
+				bc.stopAlarmTimersLocked(alarm)
 			}
-		}()
+			bc.alarms = make(map[string]*Alarm)
+			bc.mu.Unlock()
+
+			_ = resolve(vm.ToValue(true))
+		})
 		return vm.ToValue(promise)
 	})
 
@@ -1273,54 +1295,42 @@ func (bc *BackgroundContext) buildScriptingObject() *sobek.Object {
 	// executeScript - stub
 	_ = obj.Set("executeScript", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(vm.ToValue([]interface{}{})) }
-		}()
+		bc.runOnVM(func() { _ = resolve(vm.ToValue([]interface{}{})) })
 		return vm.ToValue(promise)
 	})
 
 	// insertCSS - stub
 	_ = obj.Set("insertCSS", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
 	// removeCSS - stub
 	_ = obj.Set("removeCSS", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
 	// registerContentScripts - stub
 	_ = obj.Set("registerContentScripts", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
 	// getRegisteredContentScripts - stub
 	_ = obj.Set("getRegisteredContentScripts", func(sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(vm.ToValue([]interface{}{})) }
-		}()
+		bc.runOnVM(func() { _ = resolve(vm.ToValue([]interface{}{})) })
 		return vm.ToValue(promise)
 	})
 
 	// unregisterContentScripts - stub
 	_ = obj.Set("unregisterContentScripts", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
@@ -1363,18 +1373,14 @@ func (bc *BackgroundContext) buildWebNavigationObject() *sobek.Object {
 	// getFrame - returns null frame info
 	_ = obj.Set("getFrame", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Null()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Null()) })
 		return vm.ToValue(promise)
 	})
 
 	// getAllFrames - returns empty array
 	_ = obj.Set("getAllFrames", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(vm.ToValue([]interface{}{})) }
-		}()
+		bc.runOnVM(func() { _ = resolve(vm.ToValue([]interface{}{})) })
 		return vm.ToValue(promise)
 	})
 
@@ -1396,27 +1402,21 @@ func (bc *BackgroundContext) buildContextMenusObject() *sobek.Object {
 	// update - stub
 	_ = obj.Set("update", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
 	// remove - stub
 	_ = obj.Set("remove", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
 	// removeAll - stub
 	_ = obj.Set("removeAll", func(sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
@@ -1441,9 +1441,7 @@ func (bc *BackgroundContext) buildIdleObject() *sobek.Object {
 	// queryState - always returns "active"
 	_ = obj.Set("queryState", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(vm.ToValue("active")) }
-		}()
+		bc.runOnVM(func() { _ = resolve(vm.ToValue("active")) })
 		return vm.ToValue(promise)
 	})
 
@@ -1455,9 +1453,7 @@ func (bc *BackgroundContext) buildIdleObject() *sobek.Object {
 	// getAutoLockDelay - stub
 	_ = obj.Set("getAutoLockDelay", func(sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(vm.ToValue(0)) }
-		}()
+		bc.runOnVM(func() { _ = resolve(vm.ToValue(0)) })
 		return vm.ToValue(promise)
 	})
 
@@ -1485,36 +1481,28 @@ func (bc *BackgroundContext) buildNotificationsObject() *sobek.Object {
 		} else {
 			notifID = fmt.Sprintf("notif-%d", time.Now().UnixNano())
 		}
-		go func() {
-			bc.tasks <- func() { _ = resolve(vm.ToValue(notifID)) }
-		}()
+		bc.runOnVM(func() { _ = resolve(vm.ToValue(notifID)) })
 		return vm.ToValue(promise)
 	})
 
 	// clear - stub
 	_ = obj.Set("clear", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(vm.ToValue(true)) }
-		}()
+		bc.runOnVM(func() { _ = resolve(vm.ToValue(true)) })
 		return vm.ToValue(promise)
 	})
 
 	// getAll - stub (empty)
 	_ = obj.Set("getAll", func(sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(vm.ToValue(map[string]interface{}{})) }
-		}()
+		bc.runOnVM(func() { _ = resolve(vm.ToValue(map[string]interface{}{})) })
 		return vm.ToValue(promise)
 	})
 
 	// update - stub
 	_ = obj.Set("update", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(vm.ToValue(true)) }
-		}()
+		bc.runOnVM(func() { _ = resolve(vm.ToValue(true)) })
 		return vm.ToValue(promise)
 	})
 
@@ -1538,30 +1526,24 @@ func (bc *BackgroundContext) buildCommandsObject() *sobek.Object {
 	// getAll - returns manifest commands
 	_ = obj.Set("getAll", func(sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() {
-				// Return empty for now, could be enhanced to return actual manifest commands
-				_ = resolve(vm.ToValue([]interface{}{}))
-			}
-		}()
+		bc.runOnVM(func() {
+			// Return empty for now, could be enhanced to return actual manifest commands
+			_ = resolve(vm.ToValue([]interface{}{}))
+		})
 		return vm.ToValue(promise)
 	})
 
 	// reset - stub
 	_ = obj.Set("reset", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
 	// update - stub
 	_ = obj.Set("update", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
@@ -1583,41 +1565,33 @@ func (bc *BackgroundContext) buildPermissionsObject() *sobek.Object {
 	// getAll - returns permissions from manifest
 	_ = obj.Set("getAll", func(sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() {
-				result := vm.NewObject()
-				_ = result.Set("permissions", bc.ext.Manifest.Permissions)
-				_ = result.Set("origins", []string{})
-				_ = resolve(result)
-			}
-		}()
+		bc.runOnVM(func() {
+			result := vm.NewObject()
+			_ = result.Set("permissions", bc.ext.Manifest.Permissions)
+			_ = result.Set("origins", []string{})
+			_ = resolve(result)
+		})
 		return vm.ToValue(promise)
 	})
 
 	// contains - check if permission is granted
 	_ = obj.Set("contains", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(vm.ToValue(true)) } // Assume all declared permissions are granted
-		}()
+		bc.runOnVM(func() { _ = resolve(vm.ToValue(true)) }) // Assume all declared permissions are granted
 		return vm.ToValue(promise)
 	})
 
 	// request - stub (always succeeds)
 	_ = obj.Set("request", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(vm.ToValue(true)) }
-		}()
+		bc.runOnVM(func() { _ = resolve(vm.ToValue(true)) })
 		return vm.ToValue(promise)
 	})
 
 	// remove - stub
 	_ = obj.Set("remove", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(vm.ToValue(true)) }
-		}()
+		bc.runOnVM(func() { _ = resolve(vm.ToValue(true)) })
 		return vm.ToValue(promise)
 	})
 
@@ -1660,18 +1634,14 @@ func (bc *BackgroundContext) buildExtensionObject() *sobek.Object {
 	// isAllowedIncognitoAccess - returns false
 	_ = obj.Set("isAllowedIncognitoAccess", func(sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(vm.ToValue(false)) }
-		}()
+		bc.runOnVM(func() { _ = resolve(vm.ToValue(false)) })
 		return vm.ToValue(promise)
 	})
 
 	// isAllowedFileSchemeAccess - returns false
 	_ = obj.Set("isAllowedFileSchemeAccess", func(sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(vm.ToValue(false)) }
-		}()
+		bc.runOnVM(func() { _ = resolve(vm.ToValue(false)) })
 		return vm.ToValue(promise)
 	})
 
@@ -1689,95 +1659,81 @@ func (bc *BackgroundContext) buildWindowsObject() *sobek.Object {
 	// get - returns undefined
 	_ = obj.Set("get", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
 	// getCurrent - returns a minimal window object
 	_ = obj.Set("getCurrent", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() {
-				win := vm.NewObject()
-				_ = win.Set("id", 1)
-				_ = win.Set("focused", true)
-				_ = win.Set("alwaysOnTop", false)
-				_ = win.Set("incognito", false)
-				_ = win.Set("type", "normal")
-				_ = win.Set("state", "normal")
-				_ = resolve(win)
-			}
-		}()
+		bc.runOnVM(func() {
+			win := vm.NewObject()
+			_ = win.Set("id", 1)
+			_ = win.Set("focused", true)
+			_ = win.Set("alwaysOnTop", false)
+			_ = win.Set("incognito", false)
+			_ = win.Set("type", "normal")
+			_ = win.Set("state", "normal")
+			_ = resolve(win)
+		})
 		return vm.ToValue(promise)
 	})
 
 	// getLastFocused - same as getCurrent
 	_ = obj.Set("getLastFocused", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() {
-				win := vm.NewObject()
-				_ = win.Set("id", 1)
-				_ = win.Set("focused", true)
-				_ = win.Set("alwaysOnTop", false)
-				_ = win.Set("incognito", false)
-				_ = win.Set("type", "normal")
-				_ = win.Set("state", "normal")
-				_ = resolve(win)
-			}
-		}()
+		bc.runOnVM(func() {
+			win := vm.NewObject()
+			_ = win.Set("id", 1)
+			_ = win.Set("focused", true)
+			_ = win.Set("alwaysOnTop", false)
+			_ = win.Set("incognito", false)
+			_ = win.Set("type", "normal")
+			_ = win.Set("state", "normal")
+			_ = resolve(win)
+		})
 		return vm.ToValue(promise)
 	})
 
 	// getAll - returns single window
 	_ = obj.Set("getAll", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() {
-				win := vm.NewObject()
-				_ = win.Set("id", 1)
-				_ = win.Set("focused", true)
-				_ = win.Set("alwaysOnTop", false)
-				_ = win.Set("incognito", false)
-				_ = win.Set("type", "normal")
-				_ = win.Set("state", "normal")
-				_ = resolve(vm.ToValue([]interface{}{win}))
-			}
-		}()
+		bc.runOnVM(func() {
+			win := vm.NewObject()
+			_ = win.Set("id", 1)
+			_ = win.Set("focused", true)
+			_ = win.Set("alwaysOnTop", false)
+			_ = win.Set("incognito", false)
+			_ = win.Set("type", "normal")
+			_ = win.Set("state", "normal")
+			_ = resolve(vm.ToValue([]interface{}{win}))
+		})
 		return vm.ToValue(promise)
 	})
 
 	// create - stub
 	_ = obj.Set("create", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() {
-				win := vm.NewObject()
-				_ = win.Set("id", 2)
-				_ = win.Set("focused", true)
-				_ = resolve(win)
-			}
-		}()
+		bc.runOnVM(func() {
+			win := vm.NewObject()
+			_ = win.Set("id", 2)
+			_ = win.Set("focused", true)
+			_ = resolve(win)
+		})
 		return vm.ToValue(promise)
 	})
 
 	// update - stub
 	_ = obj.Set("update", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
 	// remove - stub
 	_ = obj.Set("remove", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
-		go func() {
-			bc.tasks <- func() { _ = resolve(sobek.Undefined()) }
-		}()
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
 		return vm.ToValue(promise)
 	})
 
@@ -1919,54 +1875,118 @@ func (bc *BackgroundContext) buildStorageObject() (*sobek.Object, error) {
 	obj := vm.NewObject()
 	local := vm.NewObject()
 
+	// Storage methods return Promises that resolve synchronously.
+	// This is safe because SQLite ops (even with WAL) are blocking from Go's perspective.
+	// Resolving inline allows Sobek's jobQueue to process .then() callbacks when
+	// the JS call stack empties, avoiding deadlock with bc.tasks channel.
+
 	_ = local.Set("get", func(call sobek.FunctionCall) sobek.Value {
-		if bc.ext.Storage == nil {
-			return sobek.Undefined()
-		}
 		var keys interface{}
 		if len(call.Arguments) > 0 {
 			keys = call.Arguments[0].Export()
 		}
-		items, err := bc.ext.Storage.Local().Get(keys)
-		if err != nil {
-			panic(vm.ToValue(err.Error()))
+
+		promise, resolve, reject := vm.NewPromise()
+		var result interface{}
+		var err error
+		if bc.ext.Storage == nil {
+			result = map[string]interface{}{}
+		} else {
+			result, err = bc.ext.Storage.Local().Get(keys)
 		}
-		return vm.ToValue(items)
+
+		if err != nil {
+			_ = reject(vm.ToValue(err.Error()))
+		} else {
+			_ = resolve(vm.ToValue(result))
+		}
+
+		// Process any pending callbacks during module evaluation
+		// This allows timer callbacks to run between storage operations
+		bc.mu.Lock()
+		inModuleEval := bc.inModuleEval
+		bc.mu.Unlock()
+		if inModuleEval {
+			bc.processPendingCallbacks()
+		}
+
+		return vm.ToValue(promise)
 	})
 
 	_ = local.Set("set", func(call sobek.FunctionCall) sobek.Value {
-		if bc.ext.Storage == nil || len(call.Arguments) == 0 {
-			return sobek.Undefined()
-		}
 		var payload map[string]interface{}
-		if err := vm.ExportTo(call.Arguments[0], &payload); err != nil {
-			panic(vm.ToValue(err.Error()))
+		hasArgs := len(call.Arguments) > 0
+		if hasArgs {
+			_ = vm.ExportTo(call.Arguments[0], &payload)
 		}
-		if err := bc.ext.Storage.Local().Set(payload); err != nil {
-			panic(vm.ToValue(err.Error()))
+
+		promise, resolve, reject := vm.NewPromise()
+		if bc.ext.Storage == nil || !hasArgs || payload == nil {
+			_ = resolve(sobek.Undefined())
+			return vm.ToValue(promise)
 		}
-		return sobek.Undefined()
+
+		err := bc.ext.Storage.Local().Set(payload)
+		if err != nil {
+			_ = reject(vm.ToValue(err.Error()))
+		} else {
+			_ = resolve(sobek.Undefined())
+		}
+
+		// Process any pending callbacks during module evaluation
+		bc.mu.Lock()
+		inModuleEval := bc.inModuleEval
+		bc.mu.Unlock()
+		if inModuleEval {
+			bc.processPendingCallbacks()
+		}
+
+		return vm.ToValue(promise)
 	})
 
 	_ = local.Set("remove", func(call sobek.FunctionCall) sobek.Value {
-		if bc.ext.Storage == nil || len(call.Arguments) == 0 {
-			return sobek.Undefined()
+		var keys interface{}
+		hasArgs := len(call.Arguments) > 0
+		if hasArgs {
+			keys = call.Arguments[0].Export()
 		}
-		keys := call.Arguments[0].Export()
-		if err := bc.ext.Storage.Local().Remove(keys); err != nil {
-			panic(vm.ToValue(err.Error()))
+
+		promise, resolve, reject := vm.NewPromise()
+		if bc.ext.Storage == nil || !hasArgs {
+			_ = resolve(sobek.Undefined())
+			return vm.ToValue(promise)
 		}
-		return sobek.Undefined()
+
+		err := bc.ext.Storage.Local().Remove(keys)
+		if err != nil {
+			_ = reject(vm.ToValue(err.Error()))
+		} else {
+			_ = resolve(sobek.Undefined())
+		}
+		return vm.ToValue(promise)
 	})
 
 	_ = local.Set("clear", func(sobek.FunctionCall) sobek.Value {
+		promise, resolve, reject := vm.NewPromise()
 		if bc.ext.Storage == nil {
-			return sobek.Undefined()
+			_ = resolve(sobek.Undefined())
+			return vm.ToValue(promise)
 		}
-		if err := bc.ext.Storage.Local().Clear(); err != nil {
-			panic(vm.ToValue(err.Error()))
+
+		err := bc.ext.Storage.Local().Clear()
+		if err != nil {
+			_ = reject(vm.ToValue(err.Error()))
+		} else {
+			_ = resolve(sobek.Undefined())
 		}
-		return sobek.Undefined()
+		return vm.ToValue(promise)
+	})
+
+	_ = local.Set("getBytesInUse", func(call sobek.FunctionCall) sobek.Value {
+		promise, resolve, _ := vm.NewPromise()
+		// TODO: implement actual bytes calculation if needed
+		_ = resolve(vm.ToValue(0))
+		return vm.ToValue(promise)
 	})
 
 	eventObj := vm.NewObject()
@@ -2066,13 +2086,14 @@ func (bc *BackgroundContext) loadBackgroundScripts() error {
 	}
 
 	if len(scripts) == 0 {
-		log.Printf("[background] No scripts found for extension %s", bc.ext.ID)
+		log.Printf("[webext/bg %s] No background scripts found", bc.ext.ID)
 		return nil
 	}
 
 	// Load regular scripts first, then modules
 	for _, script := range scripts {
 		if !script.IsModule {
+			log.Printf("[webext/bg %s] Loading script: %s", bc.ext.ID, script.Path)
 			if err := bc.loadScript(script.Path); err != nil {
 				return err
 			}
@@ -2082,6 +2103,7 @@ func (bc *BackgroundContext) loadBackgroundScripts() error {
 	// Now load ES modules
 	for _, script := range scripts {
 		if script.IsModule {
+			log.Printf("[webext/bg %s] Loading ES module: %s", bc.ext.ID, script.Path)
 			if err := bc.loadModule(script.Path); err != nil {
 				return err
 			}
@@ -2107,8 +2129,6 @@ func (bc *BackgroundContext) loadScript(scriptPath string) error {
 		return fmt.Errorf("load script %s: %w", scriptPath, err)
 	}
 
-	log.Printf("[background] Loading script: %s", scriptPath)
-
 	if _, err := bc.vm.RunString(string(data)); err != nil {
 		return fmt.Errorf("execute script %s: %w", scriptPath, err)
 	}
@@ -2120,8 +2140,6 @@ func (bc *BackgroundContext) loadScript(scriptPath string) error {
 func (bc *BackgroundContext) loadModule(modulePath string) error {
 	cleanPath := filepath.Clean(modulePath)
 	fullPath := filepath.Join(bc.ext.Path, cleanPath)
-
-	log.Printf("[background] Loading ES module: %s", modulePath)
 
 	// Set document.currentScript for this module
 	if bc.browserGlob != nil {
@@ -2202,28 +2220,100 @@ func (bc *BackgroundContext) loadModule(modulePath string) error {
 	// Set up dynamic import handler
 	bc.vm.SetImportModuleDynamically(func(referencingScriptOrModule interface{}, specifierValue sobek.Value, promiseCapability interface{}) {
 		specifier := specifierValue.String()
-		go func() {
-			bc.tasks <- func() {
-				module, err := hostResolveImportedModule(referencingScriptOrModule, specifier)
-				bc.vm.FinishLoadingImportModule(referencingScriptOrModule, specifierValue, promiseCapability, module, err)
-			}
-		}()
+		bc.runOnVM(func() {
+			module, err := hostResolveImportedModule(referencingScriptOrModule, specifier)
+			bc.vm.FinishLoadingImportModule(referencingScriptOrModule, specifierValue, promiseCapability, module, err)
+		})
 	})
 
 	// Evaluate the module
-	promise := mainModule.Evaluate(bc.vm)
+	log.Printf("[webext/bg %s] DEBUG: Starting module evaluation for %s", bc.ext.ID, modulePath)
 
-	// Process any pending promises/microtasks
-	// Sobek modules return a Promise, we need to wait for it
-	if promise.State() == sobek.PromiseStateRejected {
+	// Enable callback processing during module evaluation
+	// This allows setTimeout callbacks to run when Go functions are called by JS
+	bc.mu.Lock()
+	bc.inModuleEval = true
+	bc.mu.Unlock()
+	defer func() {
+		bc.mu.Lock()
+		bc.inModuleEval = false
+		bc.mu.Unlock()
+	}()
+
+	promise := mainModule.Evaluate(bc.vm)
+	log.Printf("[webext/bg %s] DEBUG: Evaluate() returned, promise state: %v", bc.ext.ID, promise.State())
+
+	// Drain job queue and process any remaining callbacks
+	bc.drainJobQueue()
+	bc.processPendingCallbacks()
+
+	// If promise is still pending, wait for and process async callbacks (timers, etc.)
+	// This handles the case where TLA awaits a timer that hasn't fired yet
+	for i := 0; i < 50 && promise.State() == sobek.PromiseStatePending; i++ {
+		time.Sleep(20 * time.Millisecond)
+		bc.processPendingCallbacks()
+		bc.drainJobQueue()
+	}
+	log.Printf("[webext/bg %s] DEBUG: After drain, promise state: %v", bc.ext.ID, promise.State())
+
+	// Check final state
+	switch promise.State() {
+	case sobek.PromiseStateFulfilled:
+		log.Printf("[webext/bg %s] DEBUG: Module %s fulfilled successfully", bc.ext.ID, modulePath)
+		return nil
+	case sobek.PromiseStateRejected:
 		result := promise.Result()
 		if exc, ok := result.Export().(*sobek.Exception); ok {
-			return fmt.Errorf("module evaluation failed %s: %s", modulePath, exc.String())
+			return fmt.Errorf("module %s failed: %s", modulePath, exc.String())
 		}
-		return fmt.Errorf("module evaluation failed %s: %v", modulePath, result.Export())
+		return fmt.Errorf("module %s failed: %v", modulePath, result.Export())
+	default:
+		// Still pending - module has external async dependencies that haven't resolved
+		log.Printf("[webext/bg %s] Warning: module %s still pending after drain", bc.ext.ID, modulePath)
+		return nil
 	}
+}
 
-	return nil
+// drainJobQueue forces Sobek to process all pending promise jobs.
+// This is necessary because Sobek only drains the job queue when
+// returning from a top-level call (via r.leave()).
+func (bc *BackgroundContext) drainJobQueue() {
+	// Running an empty script triggers r.leave() which drains the queue
+	_, _ = bc.vm.RunString("")
+}
+
+// processPendingCallbacks processes any pending callbacks from the tasks channel.
+// This is called during module evaluation to allow timer callbacks to run.
+// It's safe because we're already on the VM goroutine (between JS calls).
+func (bc *BackgroundContext) processPendingCallbacks() {
+	for {
+		select {
+		case task := <-bc.tasks:
+			log.Printf("[webext/bg %s] DEBUG: Processing pending callback", bc.ext.ID)
+			task()
+			bc.drainJobQueue()
+		default:
+			return
+		}
+	}
+}
+
+// drainMicrotasks processes any pending microtasks.
+func (bc *BackgroundContext) drainMicrotasks() {
+	for {
+		bc.mu.Lock()
+		toRun := bc.microtasks
+		bc.microtasks = nil
+		bc.mu.Unlock()
+
+		if len(toRun) == 0 {
+			return
+		}
+		for _, fn := range toRun {
+			fn()
+		}
+		bc.drainJobQueue()
+	}
 }
 
 // ScriptInfo holds information about a script to load
@@ -2453,9 +2543,27 @@ func (e *jsEvent) dispatchWithResponse(vm *sobek.Runtime, args ...sobek.Value) (
 		return nil, err
 	}
 	for _, res := range results {
-		if res != nil && res != sobek.Undefined() && res != sobek.Null() {
-			return res, nil
+		if res == nil || res == sobek.Undefined() || res == sobek.Null() {
+			continue
 		}
+		// Check for Promise (async listener)
+		if obj := res.ToObject(vm); obj != nil {
+			if promise, ok := obj.Export().(*sobek.Promise); ok {
+				switch promise.State() {
+				case sobek.PromiseStatePending:
+					// Async listener that hasn't resolved - skip to avoid deadlock
+					log.Printf("[webext] warning: blocking listener returned pending Promise, ignoring")
+					continue
+				case sobek.PromiseStateFulfilled:
+					// Fulfilled Promise - extract and return the result
+					return promise.Result(), nil
+				case sobek.PromiseStateRejected:
+					// Rejected Promise - skip
+					continue
+				}
+			}
+		}
+		return res, nil
 	}
 	return nil, nil
 }

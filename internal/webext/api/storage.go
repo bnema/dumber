@@ -98,9 +98,32 @@ func (s *StorageArea) Get(keys interface{}) (map[string]interface{}, error) {
 		result[v] = value
 
 	case []string:
-		// Get multiple keys
+		// Get multiple keys (native Go string slice)
 		log.Printf("[storage.local] Get multiple keys for %s: %v", s.extensionID, v)
 		for _, key := range v {
+			valueJSON, err := s.queries.GetExtensionStorageItem(ctx, s.extensionID, storageTypeLocal, key)
+			if err == sql.ErrNoRows {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+
+			var value interface{}
+			if err := json.Unmarshal([]byte(valueJSON), &value); err != nil {
+				return nil, err
+			}
+			result[key] = value
+		}
+
+	case []interface{}:
+		// Get multiple keys (from Sobek JS array export)
+		log.Printf("[storage.local] Get multiple keys ([]interface{}) for %s: %d keys", s.extensionID, len(v))
+		for _, keyRaw := range v {
+			key, ok := keyRaw.(string)
+			if !ok {
+				continue
+			}
 			valueJSON, err := s.queries.GetExtensionStorageItem(ctx, s.extensionID, storageTypeLocal, key)
 			if err == sql.ErrNoRows {
 				continue
@@ -134,6 +157,9 @@ func (s *StorageArea) Get(keys interface{}) (map[string]interface{}, error) {
 			}
 			result[key] = value
 		}
+
+	default:
+		log.Printf("[storage.local] Get unhandled key type for %s: %T", s.extensionID, keys)
 	}
 
 	log.Printf("[storage.local] Get for extension %s: %d items", s.extensionID, len(result))
