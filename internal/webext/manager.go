@@ -455,6 +455,32 @@ func (m *Manager) GetExtension(id string) (*Extension, bool) {
 	return nil, false
 }
 
+// GetExtensionManifest returns the manifest for an extension as a JS-compatible map
+// Implements api.ManifestProvider interface
+func (m *Manager) GetExtensionManifest(extID string) (map[string]interface{}, error) {
+	ext, exists := m.GetExtension(extID)
+	if !exists {
+		return nil, fmt.Errorf("extension not found: %s", extID)
+	}
+
+	if ext.Manifest == nil {
+		return nil, fmt.Errorf("manifest not available for extension: %s", extID)
+	}
+
+	// Convert manifest struct to map[string]interface{} via JSON
+	data, err := json.Marshal(ext.Manifest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal manifest: %w", err)
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal manifest: %w", err)
+	}
+
+	return result, nil
+}
+
 // ListExtensions returns all loaded extensions
 func (m *Manager) ListExtensions() []*Extension {
 	m.mu.RLock()
@@ -627,8 +653,20 @@ func (m *Manager) InitializeAPIs(ext *Extension) error {
 	// Initialize runtime API
 	ext.Runtime = api.NewRuntimeAPI(ext.ID)
 
+	// Set manifest on runtime API if available
+	if ext.Manifest != nil {
+		// Convert manifest directly (extension might not be in manager map yet)
+		data, err := json.Marshal(ext.Manifest)
+		if err == nil {
+			var manifestData map[string]interface{}
+			if json.Unmarshal(data, &manifestData) == nil {
+				ext.Runtime.SetManifest(manifestData)
+			}
+		}
+	}
+
 	// Initialize storage API (uses shared database)
-	storageAPI, err := api.NewStorageAPI(ext.ID, m.database)
+	storageAPI, err := api.NewStorageAPI(ext.ID, ext.GetInstallDir(), m.database)
 	if err != nil {
 		return fmt.Errorf("failed to initialize storage API: %w", err)
 	}

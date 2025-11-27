@@ -21,6 +21,7 @@ type RuntimeAPI struct {
 	extensionID string
 	mu          sync.RWMutex
 	listeners   []OnMessageListener
+	manifest    map[string]interface{} // Parsed manifest as JS-compatible map
 }
 
 // OnMessageListener is a callback for chrome.runtime.onMessage
@@ -58,7 +59,15 @@ func NewRuntimeAPI(extensionID string) *RuntimeAPI {
 	return &RuntimeAPI{
 		extensionID: extensionID,
 		listeners:   make([]OnMessageListener, 0),
+		manifest:    make(map[string]interface{}),
 	}
+}
+
+// SetManifest sets the manifest data from parsed manifest struct
+func (r *RuntimeAPI) SetManifest(manifestData map[string]interface{}) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.manifest = manifestData
 }
 
 // SendMessage sends a message to other parts of the extension (background, content scripts)
@@ -103,10 +112,21 @@ func (r *RuntimeAPI) OnMessage(listener OnMessageListener) {
 }
 
 // GetManifest returns the extension manifest
-// This will be implemented to return the parsed manifest for the extension
+// Returns the parsed manifest as a JavaScript-compatible map
 func (r *RuntimeAPI) GetManifest() (map[string]interface{}, error) {
-	// TODO: Look up manifest from extension manager
-	return nil, fmt.Errorf("not implemented yet")
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if r.manifest == nil || len(r.manifest) == 0 {
+		return nil, fmt.Errorf("manifest not available")
+	}
+
+	// Return a copy to prevent modification
+	result := make(map[string]interface{})
+	for k, v := range r.manifest {
+		result[k] = v
+	}
+	return result, nil
 }
 
 // GetURL converts a relative path to a fully-qualified extension URL
@@ -445,4 +465,34 @@ type manifestWithOptions struct {
 type optionsPage struct {
 	Page      string
 	OpenInTab bool
+}
+
+// ManifestProvider provides access to extension manifest data
+type ManifestProvider interface {
+	GetExtensionManifest(extID string) (map[string]interface{}, error)
+}
+
+// GetManifest returns the extension manifest as a JavaScript-compatible object
+// API: browser.runtime.getManifest()
+func (r *RuntimeAPIDispatcher) GetManifest(ctx context.Context, extID string) (map[string]interface{}, error) {
+	provider, ok := r.manager.(ManifestProvider)
+	if !ok {
+		return nil, fmt.Errorf("manager does not support GetExtensionManifest")
+	}
+
+	return provider.GetExtensionManifest(extID)
+}
+
+// GetURL converts a relative path to a fully-qualified extension URL
+// API: browser.runtime.getURL()
+func (r *RuntimeAPIDispatcher) GetURL(ctx context.Context, extID, path string) string {
+	// WebExtensions use chrome-extension:// scheme
+	// We use dumb-extension:// for Dumber
+	return fmt.Sprintf("dumb-extension://%s/%s", extID, path)
+}
+
+// GetID returns the extension ID
+// API: browser.runtime.id (property)
+func (r *RuntimeAPIDispatcher) GetID(ctx context.Context, extID string) string {
+	return extID
 }

@@ -2026,6 +2026,37 @@ func (bc *BackgroundContext) buildWebRequestObject() (*sobek.Object, error) {
 	vm := bc.vm
 	obj := vm.NewObject()
 
+	// Mirror the browser.webRequest.ResourceType enum so extensions can
+	// enumerate valid request types (uBO does this during startup).
+	resourceTypes := map[string]string{
+		"MAIN_FRAME":        "main_frame",
+		"SUB_FRAME":         "sub_frame",
+		"STYLESHEET":        "stylesheet",
+		"SCRIPT":            "script",
+		"IMAGE":             "image",
+		"OBJECT":            "object",
+		"OBJECT_SUBREQUEST": "object_subrequest",
+		"XHR":               "xmlhttprequest",
+		"PING":              "ping",
+		"FONT":              "font",
+		"MEDIA":             "media",
+		"WEBSOCKET":         "websocket",
+		"OTHER":             "other",
+	}
+	resObj := vm.NewObject()
+	for k, v := range resourceTypes {
+		_ = resObj.Set(k, v)
+	}
+	_ = obj.Set("ResourceType", resObj)
+
+	// Stub handlerBehaviorChanged so callers (uBO) can request a rules refresh.
+	_ = obj.Set("handlerBehaviorChanged", func(call sobek.FunctionCall) sobek.Value {
+		promise, resolve, _ := vm.NewPromise()
+		// Resolve asynchronously to behave like the real API.
+		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
+		return vm.ToValue(promise)
+	})
+
 	events := map[string]*jsEvent{
 		"onBeforeRequest":     bc.webRequest.onBeforeRequest,
 		"onBeforeSendHeaders": bc.webRequest.onBeforeSendHeaders,
