@@ -10,6 +10,9 @@ import (
 type BadgeState struct {
 	Text            string
 	BackgroundColor string // CSS color string (hex, rgb, etc.)
+	TextColor       string // CSS color string for badge text
+	Title           string // Tooltip title
+	Enabled         bool   // Whether the action is enabled (default: true)
 }
 
 // PopupManager interface for opening popups (to avoid circular dependency)
@@ -154,13 +157,16 @@ func (d *BrowserActionDispatcher) GetBadgeState(extID string) *BadgeState {
 
 	badge, exists := d.badges[extID]
 	if !exists {
-		return &BadgeState{}
+		return &BadgeState{Enabled: true} // Default enabled
 	}
 
 	// Return a copy to prevent external mutations
 	return &BadgeState{
 		Text:            badge.Text,
 		BackgroundColor: badge.BackgroundColor,
+		TextColor:       badge.TextColor,
+		Title:           badge.Title,
+		Enabled:         badge.Enabled,
 	}
 }
 
@@ -226,4 +232,233 @@ func (d *BrowserActionDispatcher) OpenPopup(ctx context.Context, extID string) e
 	}
 
 	return popupManager.OpenPopup(extID, popupURL)
+}
+
+// SetTitle sets the browser action's title (tooltip)
+func (d *BrowserActionDispatcher) SetTitle(ctx context.Context, extID string, details map[string]interface{}) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	title, ok := details["title"]
+	if !ok {
+		return fmt.Errorf("browserAction.setTitle(): missing 'title' field")
+	}
+
+	titleStr, ok := title.(string)
+	if !ok {
+		return fmt.Errorf("browserAction.setTitle(): 'title' must be a string")
+	}
+
+	// Check for tab-specific titles (not supported yet)
+	if tabID, hasTabID := details["tabId"]; hasTabID && tabID != nil {
+		return fmt.Errorf("browserAction.setTitle(): tabId is not supported yet")
+	}
+
+	badge, exists := d.badges[extID]
+	if !exists {
+		badge = &BadgeState{Enabled: true}
+		d.badges[extID] = badge
+	}
+
+	badge.Title = titleStr
+	return nil
+}
+
+// GetTitle gets the browser action's title (tooltip)
+func (d *BrowserActionDispatcher) GetTitle(ctx context.Context, extID string, details map[string]interface{}) (string, error) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	// Check for tab-specific titles (not supported yet)
+	if tabID, hasTabID := details["tabId"]; hasTabID && tabID != nil {
+		return "", fmt.Errorf("browserAction.getTitle(): tabId is not supported yet")
+	}
+
+	badge, exists := d.badges[extID]
+	if !exists {
+		return "", nil
+	}
+
+	return badge.Title, nil
+}
+
+// GetBadgeText gets the browser action's badge text
+func (d *BrowserActionDispatcher) GetBadgeText(ctx context.Context, extID string, details map[string]interface{}) (string, error) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	// Check for tab-specific badges (not supported yet)
+	if tabID, hasTabID := details["tabId"]; hasTabID && tabID != nil {
+		return "", fmt.Errorf("browserAction.getBadgeText(): tabId is not supported yet")
+	}
+
+	badge, exists := d.badges[extID]
+	if !exists {
+		return "", nil
+	}
+
+	return badge.Text, nil
+}
+
+// GetBadgeBackgroundColor gets the badge's background color
+func (d *BrowserActionDispatcher) GetBadgeBackgroundColor(ctx context.Context, extID string, details map[string]interface{}) (interface{}, error) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	// Check for tab-specific badges (not supported yet)
+	if tabID, hasTabID := details["tabId"]; hasTabID && tabID != nil {
+		return nil, fmt.Errorf("browserAction.getBadgeBackgroundColor(): tabId is not supported yet")
+	}
+
+	badge, exists := d.badges[extID]
+	if !exists || badge.BackgroundColor == "" {
+		// Return default color as RGBA array [0, 0, 0, 0]
+		return []int{0, 0, 0, 0}, nil
+	}
+
+	// Return as CSS color string (could also parse and return RGBA array)
+	return badge.BackgroundColor, nil
+}
+
+// SetBadgeTextColor sets the badge's text color
+func (d *BrowserActionDispatcher) SetBadgeTextColor(ctx context.Context, extID string, details map[string]interface{}) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	colorRaw, ok := details["color"]
+	if !ok {
+		return fmt.Errorf("browserAction.setBadgeTextColor(): missing 'color' field")
+	}
+
+	var colorStr string
+
+	switch v := colorRaw.(type) {
+	case string:
+		colorStr = v
+	case []interface{}:
+		// Array format: [r, g, b, a] where values are 0-255
+		if len(v) < 3 || len(v) > 4 {
+			return fmt.Errorf("browserAction.setBadgeTextColor(): color array must have 3 or 4 elements")
+		}
+
+		r, rOk := v[0].(float64)
+		g, gOk := v[1].(float64)
+		b, bOk := v[2].(float64)
+
+		if !rOk || !gOk || !bOk {
+			return fmt.Errorf("browserAction.setBadgeTextColor(): invalid color array values")
+		}
+
+		if len(v) == 4 {
+			a, aOk := v[3].(float64)
+			if !aOk {
+				return fmt.Errorf("browserAction.setBadgeTextColor(): invalid alpha value")
+			}
+			colorStr = fmt.Sprintf("rgba(%d, %d, %d, %.2f)", int(r), int(g), int(b), a/255.0)
+		} else {
+			colorStr = fmt.Sprintf("rgb(%d, %d, %d)", int(r), int(g), int(b))
+		}
+	default:
+		return fmt.Errorf("browserAction.setBadgeTextColor(): 'color' must be a string or array")
+	}
+
+	// Check for tab-specific badges (not supported yet)
+	if tabID, hasTabID := details["tabId"]; hasTabID && tabID != nil {
+		return fmt.Errorf("browserAction.setBadgeTextColor(): tabId is not supported yet")
+	}
+
+	badge, exists := d.badges[extID]
+	if !exists {
+		badge = &BadgeState{Enabled: true}
+		d.badges[extID] = badge
+	}
+
+	badge.TextColor = colorStr
+	return nil
+}
+
+// GetBadgeTextColor gets the badge's text color
+func (d *BrowserActionDispatcher) GetBadgeTextColor(ctx context.Context, extID string, details map[string]interface{}) (interface{}, error) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	// Check for tab-specific badges (not supported yet)
+	if tabID, hasTabID := details["tabId"]; hasTabID && tabID != nil {
+		return nil, fmt.Errorf("browserAction.getBadgeTextColor(): tabId is not supported yet")
+	}
+
+	badge, exists := d.badges[extID]
+	if !exists || badge.TextColor == "" {
+		// Return default color as RGBA array [255, 255, 255, 255] (white)
+		return []int{255, 255, 255, 255}, nil
+	}
+
+	return badge.TextColor, nil
+}
+
+// Enable enables the browser action for a tab (or globally if no tabId)
+func (d *BrowserActionDispatcher) Enable(ctx context.Context, extID string, tabID *int) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	// Tab-specific enable not supported yet
+	if tabID != nil {
+		return fmt.Errorf("browserAction.enable(): tabId is not supported yet")
+	}
+
+	badge, exists := d.badges[extID]
+	if !exists {
+		badge = &BadgeState{Enabled: true}
+		d.badges[extID] = badge
+	}
+
+	badge.Enabled = true
+	return nil
+}
+
+// Disable disables the browser action for a tab (or globally if no tabId)
+func (d *BrowserActionDispatcher) Disable(ctx context.Context, extID string, tabID *int) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	// Tab-specific disable not supported yet
+	if tabID != nil {
+		return fmt.Errorf("browserAction.disable(): tabId is not supported yet")
+	}
+
+	badge, exists := d.badges[extID]
+	if !exists {
+		badge = &BadgeState{Enabled: true}
+		d.badges[extID] = badge
+	}
+
+	badge.Enabled = false
+	return nil
+}
+
+// IsEnabled checks whether the browser action is enabled
+func (d *BrowserActionDispatcher) IsEnabled(ctx context.Context, extID string, details map[string]interface{}) (bool, error) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	// Check for tab-specific enabled state (not supported yet)
+	if tabID, hasTabID := details["tabId"]; hasTabID && tabID != nil {
+		return false, fmt.Errorf("browserAction.isEnabled(): tabId is not supported yet")
+	}
+
+	badge, exists := d.badges[extID]
+	if !exists {
+		return true, nil // Default enabled
+	}
+
+	return badge.Enabled, nil
+}
+
+// GetUserSettings gets the user-specified settings for the browser action
+func (d *BrowserActionDispatcher) GetUserSettings(ctx context.Context, extID string) (map[string]interface{}, error) {
+	// Return current user settings for the extension's browser action
+	// Currently returns default values - could be extended to persist user preferences
+	return map[string]interface{}{
+		"isOnToolbar": true, // Extension is pinned to toolbar
+	}, nil
 }
