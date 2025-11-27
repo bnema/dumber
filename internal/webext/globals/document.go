@@ -466,26 +466,24 @@ func (bg *BrowserGlobals) documentHeadAppendChild(call sobek.FunctionCall) sobek
 		}
 	}
 
-	// Load script asynchronously
-	go func() {
-		var loadErr error
-		if bg.scriptLoader != nil {
-			loadErr = bg.scriptLoader(fullPath)
-		} else {
-			loadErr = fmt.Errorf("no script loader configured")
-		}
+	// Load script synchronously to avoid deadlock with Promise-based loaders.
+	// In a real browser, script loading is async, but we're running in a Sobek VM
+	// where async script loading via tasks queue causes deadlock when JS code
+	// awaits a Promise that depends on the load event.
+	var loadErr error
+	if bg.scriptLoader != nil {
+		loadErr = bg.scriptLoader(fullPath)
+	} else {
+		loadErr = fmt.Errorf("no script loader configured")
+	}
 
-		if tasks := bg.browserEnv.Options().TaskQueue; tasks != nil {
-			tasks <- func() {
-				if loadErr != nil {
-					log.Printf("[browser-globals] Script load error %s: %v", fullPath, loadErr)
-					_, _ = triggerEvent(sobek.Undefined(), bg.vm.ToValue("error"))
-				} else {
-					_, _ = triggerEvent(sobek.Undefined(), bg.vm.ToValue("load"))
-				}
-			}
-		}
-	}()
+	// Fire load/error event synchronously
+	if loadErr != nil {
+		log.Printf("[browser-globals] Script load error %s: %v", fullPath, loadErr)
+		_, _ = triggerEvent(sobek.Undefined(), bg.vm.ToValue("error"))
+	} else {
+		_, _ = triggerEvent(sobek.Undefined(), bg.vm.ToValue("load"))
+	}
 
 	return element
 }

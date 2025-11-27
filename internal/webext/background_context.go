@@ -200,12 +200,9 @@ func (bc *BackgroundContext) Start() error {
 	log.Printf("[webext/bg %s] LocalStorage backend: %v", bc.ext.ID, bc.ext.LocalStorage != nil)
 	bc.browserGlob = globals.New(bc.vm, bc.ext, bc.tasks, bc.ext.LocalStorage)
 	bc.browserGlob.SetScriptLoader(func(scriptPath string) error {
-		// This is called from a goroutine, so we need to execute on the VM goroutine
-		errCh := make(chan error, 1)
-		bc.tasks <- func() {
-			errCh <- bc.loadScript(scriptPath)
-		}
-		return <-errCh
+		// Script loading is called synchronously from documentHeadAppendChild,
+		// which runs on the VM goroutine. Load the script directly.
+		return bc.loadScript(scriptPath)
 	})
 
 	bc.mu.Unlock()
@@ -412,6 +409,9 @@ func (bc *BackgroundContext) DispatchWebRequestEvent(event string, payload inter
 			if exportErr := vm.ExportTo(ret, &blockingResp); exportErr != nil {
 				return exportErr
 			}
+			if blockingResp.Cancel {
+				log.Printf("[webext/bg %s] webRequest BLOCKING url=%v", bc.ext.ID, jsPayload["url"])
+			}
 			resp = &blockingResp
 		}
 		return nil
@@ -454,6 +454,10 @@ func (bc *BackgroundContext) loop() {
 						}()
 					}
 				}
+
+				// Drain Sobek's internal job queue to process Promise continuations
+				// (async/await, .then() callbacks). This is critical for async code to run.
+				bc.drainJobQueue()
 
 				bc.mu.Lock()
 				bc.inTask = false
@@ -1618,6 +1622,8 @@ func (bc *BackgroundContext) buildExtensionObject() *sobek.Object {
 			return vm.ToValue("")
 		}
 		path := call.Arguments[0].String()
+		// Remove leading slash to avoid double slashes in URL
+		path = strings.TrimPrefix(path, "/")
 		return vm.ToValue(fmt.Sprintf("dumb-extension://%s/%s", bc.ext.ID, path))
 	})
 
@@ -1838,6 +1844,8 @@ func (bc *BackgroundContext) buildRuntimeObject() (*sobek.Object, error) {
 			return vm.ToValue("")
 		}
 		path := call.Arguments[0].String()
+		// Remove leading slash to avoid double slashes in URL
+		path = strings.TrimPrefix(path, "/")
 		return vm.ToValue(fmt.Sprintf("dumb-extension://%s/%s", bc.ext.ID, path))
 	})
 
