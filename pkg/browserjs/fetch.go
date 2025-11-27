@@ -1,11 +1,13 @@
 package browserjs
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/grafana/sobek"
 )
@@ -269,6 +271,15 @@ func (fm *FetchManager) installResponse() {
 	})
 }
 
+// abortSignalState tracks the state of an AbortSignal
+type abortSignalState struct {
+	mu        sync.RWMutex
+	aborted   bool
+	reason    string
+	listeners []func()
+	cancel    context.CancelFunc
+}
+
 func (fm *FetchManager) installFetch() {
 	vm := fm.vm
 	tasks := fm.tasks
@@ -283,6 +294,7 @@ func (fm *FetchManager) installFetch() {
 		method := "GET"
 		var reqBody io.Reader
 		reqHeaders := make(map[string]string)
+		var signal *abortSignalState
 
 		// Check custom handlers first
 		for _, handler := range fm.handlers {
@@ -305,13 +317,42 @@ func (fm *FetchManager) installFetch() {
 							reqHeaders[k] = fmt.Sprintf("%v", v)
 						}
 					}
+					// Extract AbortSignal
+					if signalVal, ok := m["signal"]; ok && signalVal != nil {
+						signal = fm.extractAbortSignal(call.Arguments[1])
+					}
 				}
 			}
 		}
 
+		// Check if already aborted
+		if signal != nil {
+			signal.mu.RLock()
+			isAborted := signal.aborted
+			reason := signal.reason
+			signal.mu.RUnlock()
+			if isAborted {
+				promise, _, reject := vm.NewPromise()
+				fm.rejectWithAbortError(reject, reason)
+				return vm.ToValue(promise)
+			}
+		}
+
 		promise, resolve, reject := vm.NewPromise()
+
+		// Create cancellable context
+		ctx, cancel := context.WithCancel(context.Background())
+		if signal != nil {
+			signal.mu.Lock()
+			signal.cancel = cancel
+			signal.listeners = append(signal.listeners, cancel)
+			signal.mu.Unlock()
+		}
+
 		go func() {
-			req, err := http.NewRequest(method, url, reqBody)
+			defer cancel()
+
+			req, err := http.NewRequestWithContext(ctx, method, url, reqBody)
 			if err != nil {
 				fm.rejectPromise(reject, err.Error())
 				return
@@ -323,6 +364,14 @@ func (fm *FetchManager) installFetch() {
 
 			resp, err := fm.httpClient.Do(req)
 			if err != nil {
+				// Check if it was aborted
+				if ctx.Err() == context.Canceled && signal != nil {
+					signal.mu.RLock()
+					reason := signal.reason
+					signal.mu.RUnlock()
+					fm.rejectWithAbortError(reject, reason)
+					return
+				}
 				fm.rejectPromise(reject, err.Error())
 				return
 			}
@@ -330,6 +379,13 @@ func (fm *FetchManager) installFetch() {
 
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
+				if ctx.Err() == context.Canceled && signal != nil {
+					signal.mu.RLock()
+					reason := signal.reason
+					signal.mu.RUnlock()
+					fm.rejectWithAbortError(reject, reason)
+					return
+				}
 				fm.rejectPromise(reject, err.Error())
 				return
 			}
@@ -347,6 +403,83 @@ func (fm *FetchManager) installFetch() {
 
 		return vm.ToValue(promise)
 	})
+}
+
+// extractAbortSignal extracts the AbortSignal state from a fetch options object
+func (fm *FetchManager) extractAbortSignal(opts sobek.Value) *abortSignalState {
+	vm := fm.vm
+	if opts == nil || sobek.IsUndefined(opts) || sobek.IsNull(opts) {
+		return nil
+	}
+
+	optsObj := opts.ToObject(vm)
+	signalVal := optsObj.Get("signal")
+	if signalVal == nil || sobek.IsUndefined(signalVal) || sobek.IsNull(signalVal) {
+		return nil
+	}
+
+	signalObj := signalVal.ToObject(vm)
+
+	// Create our internal state
+	state := &abortSignalState{}
+
+	// Check if already aborted
+	abortedVal := signalObj.Get("aborted")
+	if abortedVal != nil && !sobek.IsUndefined(abortedVal) {
+		state.aborted = abortedVal.ToBoolean()
+	}
+
+	// Get abort reason if available
+	reasonVal := signalObj.Get("reason")
+	if reasonVal != nil && !sobek.IsUndefined(reasonVal) && !sobek.IsNull(reasonVal) {
+		state.reason = reasonVal.String()
+	} else if state.aborted {
+		state.reason = "AbortError"
+	}
+
+	// Register our abort handler
+	addListenerVal := signalObj.Get("addEventListener")
+	if addListener, ok := sobek.AssertFunction(addListenerVal); ok {
+		callback := vm.ToValue(func(call sobek.FunctionCall) sobek.Value {
+			state.mu.Lock()
+			state.aborted = true
+			if state.reason == "" {
+				state.reason = "AbortError"
+			}
+			// Call cancel if set
+			if state.cancel != nil {
+				state.cancel()
+			}
+			state.mu.Unlock()
+			return sobek.Undefined()
+		})
+		_, _ = addListener(signalObj, vm.ToValue("abort"), callback)
+	}
+
+	return state
+}
+
+// rejectWithAbortError rejects a promise with a DOMException-like AbortError
+func (fm *FetchManager) rejectWithAbortError(reject func(interface{}) error, reason string) {
+	vm := fm.vm
+	if reason == "" {
+		reason = "The operation was aborted."
+	}
+
+	run := func() {
+		// Create an error object that mimics DOMException
+		errObj := vm.NewObject()
+		_ = errObj.Set("name", "AbortError")
+		_ = errObj.Set("message", reason)
+		_ = errObj.Set("code", 20) // ABORT_ERR
+		_ = reject(errObj)
+	}
+
+	if fm.tasks != nil {
+		fm.tasks <- run
+	} else {
+		run()
+	}
 }
 
 func (fm *FetchManager) handleCustomResult(url string, result *FetchResult) sobek.Value {
