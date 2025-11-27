@@ -347,27 +347,58 @@ func (em *EventManager) Install() error {
 
 	// EventTarget
 	vm.Set("EventTarget", func(call sobek.ConstructorCall) *sobek.Object {
-		listeners := make(map[string][]sobek.Callable)
+		// Store listeners with their original Value for comparison
+		type listenerEntry struct {
+			callback sobek.Callable
+			value    sobek.Value // Original value for equality comparison
+		}
+		listeners := make(map[string][]listenerEntry)
 		target := call.This
+
 		_ = target.Set("addEventListener", func(call sobek.FunctionCall) sobek.Value {
 			if len(call.Arguments) >= 2 {
 				eventType := call.Arguments[0].String()
-				if cb, ok := sobek.AssertFunction(call.Arguments[1]); ok {
-					listeners[eventType] = append(listeners[eventType], cb)
+				listenerVal := call.Arguments[1]
+				if cb, ok := sobek.AssertFunction(listenerVal); ok {
+					// Check if already registered (avoid duplicates)
+					existing := listeners[eventType]
+					for _, entry := range existing {
+						if entry.value.SameAs(listenerVal) {
+							return sobek.Undefined()
+						}
+					}
+					listeners[eventType] = append(existing, listenerEntry{callback: cb, value: listenerVal})
 				}
 			}
 			return sobek.Undefined()
 		})
-		_ = target.Set("removeEventListener", func(sobek.FunctionCall) sobek.Value {
+
+		_ = target.Set("removeEventListener", func(call sobek.FunctionCall) sobek.Value {
+			if len(call.Arguments) >= 2 {
+				eventType := call.Arguments[0].String()
+				listenerVal := call.Arguments[1]
+				existing := listeners[eventType]
+				for i, entry := range existing {
+					if entry.value.SameAs(listenerVal) {
+						// Remove the listener
+						listeners[eventType] = append(existing[:i], existing[i+1:]...)
+						break
+					}
+				}
+			}
 			return sobek.Undefined()
 		})
+
 		_ = target.Set("dispatchEvent", func(call sobek.FunctionCall) sobek.Value {
 			if len(call.Arguments) > 0 {
 				evt := call.Arguments[0].ToObject(vm)
 				eventType := evt.Get("type").String()
-				if cbs, ok := listeners[eventType]; ok {
-					for _, cb := range cbs {
-						_, _ = cb(target, evt)
+				if entries, ok := listeners[eventType]; ok {
+					// Copy to allow modification during iteration
+					entriesCopy := make([]listenerEntry, len(entries))
+					copy(entriesCopy, entries)
+					for _, entry := range entriesCopy {
+						_, _ = entry.callback(target, evt)
 					}
 				}
 			}
@@ -378,14 +409,26 @@ func (em *EventManager) Install() error {
 
 	// Add EventTarget methods to window/global object
 	// Many scripts expect window.addEventListener to work
-	windowListeners := make(map[string][]sobek.Callable)
+	type windowListenerEntry struct {
+		callback sobek.Callable
+		value    sobek.Value // Original value for equality comparison
+	}
+	windowListeners := make(map[string][]windowListenerEntry)
 	global := vm.GlobalObject()
 
 	global.Set("addEventListener", func(call sobek.FunctionCall) sobek.Value {
 		if len(call.Arguments) >= 2 {
 			eventType := call.Arguments[0].String()
-			if cb, ok := sobek.AssertFunction(call.Arguments[1]); ok {
-				windowListeners[eventType] = append(windowListeners[eventType], cb)
+			listenerVal := call.Arguments[1]
+			if cb, ok := sobek.AssertFunction(listenerVal); ok {
+				// Check if already registered (avoid duplicates)
+				existing := windowListeners[eventType]
+				for _, entry := range existing {
+					if entry.value.SameAs(listenerVal) {
+						return sobek.Undefined()
+					}
+				}
+				windowListeners[eventType] = append(existing, windowListenerEntry{callback: cb, value: listenerVal})
 			}
 		}
 		return sobek.Undefined()
@@ -394,9 +437,14 @@ func (em *EventManager) Install() error {
 	global.Set("removeEventListener", func(call sobek.FunctionCall) sobek.Value {
 		if len(call.Arguments) >= 2 {
 			eventType := call.Arguments[0].String()
-			// Simple removal - just filter out (doesn't handle same callback added multiple times)
-			if cbs, ok := windowListeners[eventType]; ok {
-				windowListeners[eventType] = cbs[:0]
+			listenerVal := call.Arguments[1]
+			existing := windowListeners[eventType]
+			for i, entry := range existing {
+				if entry.value.SameAs(listenerVal) {
+					// Remove the listener
+					windowListeners[eventType] = append(existing[:i], existing[i+1:]...)
+					break
+				}
 			}
 		}
 		return sobek.Undefined()
@@ -406,9 +454,12 @@ func (em *EventManager) Install() error {
 		if len(call.Arguments) > 0 {
 			evt := call.Arguments[0].ToObject(vm)
 			eventType := evt.Get("type").String()
-			if cbs, ok := windowListeners[eventType]; ok {
-				for _, cb := range cbs {
-					_, _ = cb(global, evt)
+			if entries, ok := windowListeners[eventType]; ok {
+				// Copy to allow modification during iteration
+				entriesCopy := make([]windowListenerEntry, len(entries))
+				copy(entriesCopy, entries)
+				for _, entry := range entriesCopy {
+					_, _ = entry.callback(global, evt)
 				}
 			}
 		}
