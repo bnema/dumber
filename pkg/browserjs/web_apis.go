@@ -2,6 +2,7 @@ package browserjs
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -67,6 +68,10 @@ func (wm *WebAPIsManager) Install() error {
 	}
 
 	if err := wm.installStorage(); err != nil {
+		return err
+	}
+
+	if err := wm.installIndexedDBStub(); err != nil {
 		return err
 	}
 
@@ -166,26 +171,157 @@ func (wm *WebAPIsManager) installXMLHttpRequest() error {
 		var async bool = true
 		var reqHeaders = make(map[string]string)
 		var responseText string
+		var responseData []byte // Raw response bytes
 		var responseHeaders = make(map[string]string)
 		var status int
 		var statusText string
 		var readyState int = 0
+		var responseType string = ""
+		var timeoutMs int = 0
+		var mimeTypeOverride string
+
+		// Event handlers
 		var onreadystatechange sobek.Callable
+		var onload sobek.Callable
+		var onerror sobek.Callable
+		var ontimeout sobek.Callable
+		var onprogress sobek.Callable
+		var onloadstart sobek.Callable
+		var onloadend sobek.Callable
+		var onabort sobek.Callable
+
+		// Upload object for upload progress events
+		upload := vm.NewObject()
+		var uploadOnprogress sobek.Callable
+		var uploadOnload sobek.Callable
+		var uploadOnerror sobek.Callable
+		_ = upload.DefineAccessorProperty("onprogress",
+			vm.ToValue(func(sobek.FunctionCall) sobek.Value {
+				if uploadOnprogress == nil {
+					return sobek.Null()
+				}
+				return vm.ToValue(uploadOnprogress)
+			}),
+			vm.ToValue(func(call sobek.FunctionCall) sobek.Value {
+				if len(call.Arguments) > 0 {
+					if cb, ok := sobek.AssertFunction(call.Arguments[0]); ok {
+						uploadOnprogress = cb
+					}
+				}
+				return sobek.Undefined()
+			}),
+			sobek.FLAG_FALSE, sobek.FLAG_TRUE)
+		_ = upload.DefineAccessorProperty("onload",
+			vm.ToValue(func(sobek.FunctionCall) sobek.Value {
+				if uploadOnload == nil {
+					return sobek.Null()
+				}
+				return vm.ToValue(uploadOnload)
+			}),
+			vm.ToValue(func(call sobek.FunctionCall) sobek.Value {
+				if len(call.Arguments) > 0 {
+					if cb, ok := sobek.AssertFunction(call.Arguments[0]); ok {
+						uploadOnload = cb
+					}
+				}
+				return sobek.Undefined()
+			}),
+			sobek.FLAG_FALSE, sobek.FLAG_TRUE)
+		_ = upload.DefineAccessorProperty("onerror",
+			vm.ToValue(func(sobek.FunctionCall) sobek.Value {
+				if uploadOnerror == nil {
+					return sobek.Null()
+				}
+				return vm.ToValue(uploadOnerror)
+			}),
+			vm.ToValue(func(call sobek.FunctionCall) sobek.Value {
+				if len(call.Arguments) > 0 {
+					if cb, ok := sobek.AssertFunction(call.Arguments[0]); ok {
+						uploadOnerror = cb
+					}
+				}
+				return sobek.Undefined()
+			}),
+			sobek.FLAG_FALSE, sobek.FLAG_TRUE)
 
 		_ = xhr.Set("readyState", readyState)
 		_ = xhr.Set("status", status)
 		_ = xhr.Set("statusText", statusText)
 		_ = xhr.Set("responseText", responseText)
 		_ = xhr.Set("response", responseText)
-		_ = xhr.Set("responseType", "")
-		_ = xhr.Set("timeout", 0)
+		_ = xhr.Set("responseType", responseType)
+		_ = xhr.Set("responseURL", "")
+		_ = xhr.Set("responseXML", sobek.Null())
+		_ = xhr.Set("timeout", timeoutMs)
 		_ = xhr.Set("withCredentials", false)
+		_ = xhr.Set("upload", upload)
+
+		// Helper to create a progress event
+		createProgressEvent := func(eventType string, loaded, total int64, lengthComputable bool) sobek.Value {
+			evt := vm.NewObject()
+			_ = evt.Set("type", eventType)
+			_ = evt.Set("lengthComputable", lengthComputable)
+			_ = evt.Set("loaded", loaded)
+			_ = evt.Set("total", total)
+			_ = evt.Set("target", xhr)
+			return evt
+		}
 
 		setReadyState := func(state int) {
 			readyState = state
 			_ = xhr.Set("readyState", state)
 			if onreadystatechange != nil {
 				_, _ = onreadystatechange(xhr)
+			}
+		}
+
+		// Helper to update response based on responseType
+		updateResponse := func() {
+			switch responseType {
+			case "json":
+				var jsonVal interface{}
+				if err := json.Unmarshal(responseData, &jsonVal); err == nil {
+					_ = xhr.Set("response", vm.ToValue(jsonVal))
+				} else {
+					_ = xhr.Set("response", sobek.Null())
+				}
+			case "arraybuffer":
+				// Return as array of bytes (Sobek doesn't have true ArrayBuffer)
+				_ = xhr.Set("response", vm.ToValue(responseData))
+			case "blob":
+				// Create a Blob-like object
+				blob := vm.NewObject()
+				_ = blob.Set("size", len(responseData))
+				contentType := responseHeaders["content-type"]
+				_ = blob.Set("type", contentType)
+				_ = blob.Set("arrayBuffer", func(sobek.FunctionCall) sobek.Value {
+					// Return a promise-like that resolves to bytes
+					promise := vm.NewObject()
+					_ = promise.Set("then", func(call sobek.FunctionCall) sobek.Value {
+						if len(call.Arguments) > 0 {
+							if cb, ok := sobek.AssertFunction(call.Arguments[0]); ok {
+								_, _ = cb(sobek.Undefined(), vm.ToValue(responseData))
+							}
+						}
+						return promise
+					})
+					return promise
+				})
+				_ = blob.Set("text", func(sobek.FunctionCall) sobek.Value {
+					promise := vm.NewObject()
+					_ = promise.Set("then", func(call sobek.FunctionCall) sobek.Value {
+						if len(call.Arguments) > 0 {
+							if cb, ok := sobek.AssertFunction(call.Arguments[0]); ok {
+								_, _ = cb(sobek.Undefined(), vm.ToValue(string(responseData)))
+							}
+						}
+						return promise
+					})
+					return promise
+				})
+				_ = xhr.Set("response", blob)
+			default: // "" or "text"
+				_ = xhr.Set("response", responseText)
 			}
 		}
 
@@ -201,6 +337,62 @@ func (wm *WebAPIsManager) installXMLHttpRequest() error {
 					if cb, ok := sobek.AssertFunction(call.Arguments[0]); ok {
 						onreadystatechange = cb
 					}
+				}
+				return sobek.Undefined()
+			}),
+			sobek.FLAG_FALSE, sobek.FLAG_TRUE)
+
+		// Define all event handler accessors
+		defineEventAccessor := func(name string, handler *sobek.Callable) {
+			_ = xhr.DefineAccessorProperty(name,
+				vm.ToValue(func(sobek.FunctionCall) sobek.Value {
+					if *handler == nil {
+						return sobek.Null()
+					}
+					return vm.ToValue(*handler)
+				}),
+				vm.ToValue(func(call sobek.FunctionCall) sobek.Value {
+					if len(call.Arguments) > 0 {
+						if cb, ok := sobek.AssertFunction(call.Arguments[0]); ok {
+							*handler = cb
+						} else if call.Arguments[0] == sobek.Null() || sobek.IsUndefined(call.Arguments[0]) {
+							*handler = nil
+						}
+					}
+					return sobek.Undefined()
+				}),
+				sobek.FLAG_FALSE, sobek.FLAG_TRUE)
+		}
+
+		defineEventAccessor("onload", &onload)
+		defineEventAccessor("onerror", &onerror)
+		defineEventAccessor("ontimeout", &ontimeout)
+		defineEventAccessor("onprogress", &onprogress)
+		defineEventAccessor("onloadstart", &onloadstart)
+		defineEventAccessor("onloadend", &onloadend)
+		defineEventAccessor("onabort", &onabort)
+
+		// responseType accessor
+		_ = xhr.DefineAccessorProperty("responseType",
+			vm.ToValue(func(sobek.FunctionCall) sobek.Value {
+				return vm.ToValue(responseType)
+			}),
+			vm.ToValue(func(call sobek.FunctionCall) sobek.Value {
+				if len(call.Arguments) > 0 {
+					responseType = call.Arguments[0].String()
+				}
+				return sobek.Undefined()
+			}),
+			sobek.FLAG_FALSE, sobek.FLAG_TRUE)
+
+		// timeout accessor
+		_ = xhr.DefineAccessorProperty("timeout",
+			vm.ToValue(func(sobek.FunctionCall) sobek.Value {
+				return vm.ToValue(timeoutMs)
+			}),
+			vm.ToValue(func(call sobek.FunctionCall) sobek.Value {
+				if len(call.Arguments) > 0 {
+					timeoutMs = int(call.Arguments[0].ToInteger())
 				}
 				return sobek.Undefined()
 			}),
@@ -251,15 +443,47 @@ func (wm *WebAPIsManager) installXMLHttpRequest() error {
 			return vm.ToValue(sb.String())
 		})
 
+		// overrideMimeType
+		_ = xhr.Set("overrideMimeType", func(call sobek.FunctionCall) sobek.Value {
+			if len(call.Arguments) > 0 {
+				mimeTypeOverride = call.Arguments[0].String()
+			}
+			return sobek.Undefined()
+		})
+
 		_ = xhr.Set("send", func(call sobek.FunctionCall) sobek.Value {
 			log.Printf("[browserjs/xhr] XHR send: %s %s (async=%v)", method, url, async)
 			var body io.Reader
+			var bodyLen int64
 			if len(call.Arguments) > 0 && call.Arguments[0] != sobek.Null() && call.Arguments[0] != sobek.Undefined() {
-				body = strings.NewReader(call.Arguments[0].String())
+				bodyStr := call.Arguments[0].String()
+				body = strings.NewReader(bodyStr)
+				bodyLen = int64(len(bodyStr))
+			}
+
+			// Fire loadstart
+			if onloadstart != nil {
+				_, _ = onloadstart(xhr, createProgressEvent("loadstart", 0, 0, false))
 			}
 
 			doRequest := func() {
 				log.Printf("[browserjs/xhr] XHR executing: %s %s", method, url)
+
+				// Helper to fire load/error/loadend events
+				fireLoadEvents := func(success bool, loaded, total int64) {
+					if success {
+						if onload != nil {
+							_, _ = onload(xhr, createProgressEvent("load", loaded, total, total > 0))
+						}
+					} else {
+						if onerror != nil {
+							_, _ = onerror(xhr, createProgressEvent("error", loaded, total, false))
+						}
+					}
+					if onloadend != nil {
+						_, _ = onloadend(xhr, createProgressEvent("loadend", loaded, total, total > 0))
+					}
+				}
 
 				// Handle dumb-extension:// URLs by reading from filesystem
 				if strings.HasPrefix(url, "dumb-extension://") {
@@ -268,9 +492,15 @@ func (wm *WebAPIsManager) installXMLHttpRequest() error {
 					parts := strings.SplitN(urlPath, "/", 2)
 					var filePath string
 					if len(parts) >= 2 {
-						filePath = "/" + parts[1]
-					} else {
-						filePath = "/"
+						filePath = parts[1]
+					}
+
+					// Strip query/fragment and leading slash so Join() keeps the base path.
+					if filePath != "" {
+						if idx := strings.IndexAny(filePath, "?#"); idx != -1 {
+							filePath = filePath[:idx]
+						}
+						filePath = strings.TrimLeft(filePath, "/")
 					}
 
 					if wm.extensionBasePath == "" {
@@ -278,15 +508,33 @@ func (wm *WebAPIsManager) installXMLHttpRequest() error {
 						status = 500
 						statusText = "500 Internal Server Error"
 						responseText = "Extension base path not configured"
+						responseData = []byte(responseText)
 						_ = xhr.Set("status", status)
 						_ = xhr.Set("statusText", statusText)
 						_ = xhr.Set("responseText", responseText)
-						_ = xhr.Set("response", responseText)
+						updateResponse()
 						setReadyState(4)
+						fireLoadEvents(false, 0, 0)
 						return
 					}
 
-					fullPath := filepath.Join(wm.extensionBasePath, filePath)
+					basePath := filepath.Clean(wm.extensionBasePath)
+					fullPath := filepath.Join(basePath, filePath)
+					if !(fullPath == basePath || strings.HasPrefix(fullPath, basePath+string(os.PathSeparator))) {
+						log.Printf("[browserjs/xhr] Blocked path traversal for URL: %s", url)
+						status = 403
+						statusText = "403 Forbidden"
+						responseText = "Blocked path traversal"
+						responseData = []byte(responseText)
+						_ = xhr.Set("status", status)
+						_ = xhr.Set("statusText", statusText)
+						_ = xhr.Set("responseText", responseText)
+						updateResponse()
+						setReadyState(4)
+						fireLoadEvents(false, 0, 0)
+						return
+					}
+
 					log.Printf("[browserjs/xhr] Reading extension file: %s", fullPath)
 
 					data, err := os.ReadFile(fullPath)
@@ -295,39 +543,54 @@ func (wm *WebAPIsManager) installXMLHttpRequest() error {
 						status = 404
 						statusText = "404 Not Found"
 						responseText = "File not found: " + filePath
+						responseData = []byte(responseText)
 						_ = xhr.Set("status", status)
 						_ = xhr.Set("statusText", statusText)
 						_ = xhr.Set("responseText", responseText)
-						_ = xhr.Set("response", responseText)
+						updateResponse()
 						setReadyState(4)
+						fireLoadEvents(false, 0, 0)
 						return
 					}
 
+					responseData = data
 					responseText = string(data)
 					status = 200
 					statusText = "200 OK"
-					// Set content-type based on file extension
-					switch {
-					case strings.HasSuffix(filePath, ".json"):
-						responseHeaders["content-type"] = "application/json"
-					case strings.HasSuffix(filePath, ".js"):
-						responseHeaders["content-type"] = "application/javascript"
-					case strings.HasSuffix(filePath, ".html"):
-						responseHeaders["content-type"] = "text/html"
-					case strings.HasSuffix(filePath, ".css"):
-						responseHeaders["content-type"] = "text/css"
-					default:
-						responseHeaders["content-type"] = "text/plain"
+					_ = xhr.Set("responseURL", url)
+
+					// Set content-type based on file extension or override
+					if mimeTypeOverride != "" {
+						responseHeaders["content-type"] = mimeTypeOverride
+					} else {
+						switch {
+						case strings.HasSuffix(filePath, ".json"):
+							responseHeaders["content-type"] = "application/json"
+						case strings.HasSuffix(filePath, ".js"):
+							responseHeaders["content-type"] = "application/javascript"
+						case strings.HasSuffix(filePath, ".html"):
+							responseHeaders["content-type"] = "text/html"
+						case strings.HasSuffix(filePath, ".css"):
+							responseHeaders["content-type"] = "text/css"
+						default:
+							responseHeaders["content-type"] = "text/plain"
+						}
 					}
+					responseHeaders["content-length"] = fmt.Sprintf("%d", len(data))
 
 					_ = xhr.Set("status", status)
 					_ = xhr.Set("statusText", statusText)
 					_ = xhr.Set("responseText", responseText)
-					_ = xhr.Set("response", responseText)
+					updateResponse()
 
 					setReadyState(2) // HEADERS_RECEIVED
 					setReadyState(3) // LOADING
+					// Fire progress event
+					if onprogress != nil {
+						_, _ = onprogress(xhr, createProgressEvent("progress", int64(len(data)), int64(len(data)), true))
+					}
 					setReadyState(4) // DONE
+					fireLoadEvents(true, int64(len(data)), int64(len(data)))
 					return
 				}
 
@@ -335,6 +598,7 @@ func (wm *WebAPIsManager) installXMLHttpRequest() error {
 				req, err := http.NewRequest(method, url, body)
 				if err != nil {
 					setReadyState(4)
+					fireLoadEvents(false, 0, 0)
 					return
 				}
 				for k, v := range reqHeaders {
@@ -343,27 +607,43 @@ func (wm *WebAPIsManager) installXMLHttpRequest() error {
 
 				resp, err := wm.httpClient.Do(req)
 				if err != nil {
+					log.Printf("[browserjs/xhr] HTTP error: %v", err)
 					setReadyState(4)
+					fireLoadEvents(false, 0, 0)
 					return
 				}
 				defer resp.Body.Close()
 
 				respBody, _ := io.ReadAll(resp.Body)
+				responseData = respBody
 				responseText = string(respBody)
 				status = resp.StatusCode
 				statusText = resp.Status
+				_ = xhr.Set("responseURL", url)
+
+				// Apply MIME type override if set
 				for k, v := range resp.Header {
 					responseHeaders[strings.ToLower(k)] = strings.Join(v, ", ")
+				}
+				if mimeTypeOverride != "" {
+					responseHeaders["content-type"] = mimeTypeOverride
 				}
 
 				_ = xhr.Set("status", status)
 				_ = xhr.Set("statusText", statusText)
 				_ = xhr.Set("responseText", responseText)
-				_ = xhr.Set("response", responseText)
+				updateResponse()
 
 				setReadyState(2) // HEADERS_RECEIVED
 				setReadyState(3) // LOADING
+
+				// Fire progress event
+				if onprogress != nil {
+					_, _ = onprogress(xhr, createProgressEvent("progress", int64(len(respBody)), int64(len(respBody)), true))
+				}
+
 				setReadyState(4) // DONE
+				fireLoadEvents(status >= 200 && status < 400, int64(len(respBody)), int64(len(respBody)))
 			}
 
 			if async {
@@ -378,11 +658,24 @@ func (wm *WebAPIsManager) installXMLHttpRequest() error {
 				doRequest()
 			}
 
+			// unused variable fix
+			_ = bodyLen
+
 			return sobek.Undefined()
 		})
 
 		_ = xhr.Set("abort", func(call sobek.FunctionCall) sobek.Value {
+			status = 0
+			statusText = ""
+			_ = xhr.Set("status", status)
+			_ = xhr.Set("statusText", statusText)
 			setReadyState(4)
+			if onabort != nil {
+				_, _ = onabort(xhr, createProgressEvent("abort", 0, 0, false))
+			}
+			if onloadend != nil {
+				_, _ = onloadend(xhr, createProgressEvent("loadend", 0, 0, false))
+			}
 			return sobek.Undefined()
 		})
 
@@ -396,6 +689,47 @@ func (wm *WebAPIsManager) installXMLHttpRequest() error {
 		return nil
 	})
 
+	return nil
+}
+
+// installIndexedDBStub installs a minimal indexedDB stub so extensions which
+// expect the API don't crash when it's unavailable in the Sobek runtime.
+// The stub always fails requests asynchronously, prompting callers to fall
+// back to slower storage backends.
+func (wm *WebAPIsManager) installIndexedDBStub() error {
+	vm := wm.vm
+	existing := vm.Get("indexedDB")
+	if existing != nil && existing != sobek.Undefined() && existing != sobek.Null() {
+		return nil
+	}
+
+	indexedDB := vm.NewObject()
+	_ = indexedDB.Set("open", func(call sobek.FunctionCall) sobek.Value {
+		req := vm.NewObject()
+		_ = req.Set("result", sobek.Null())
+		_ = req.Set("error", "indexedDB not available")
+
+		// Allow JS to attach handlers after open() returns.
+		go func() {
+			time.Sleep(2 * time.Millisecond)
+			if wm.tasks != nil {
+				wm.tasks <- func() {
+					if cb, ok := sobek.AssertFunction(req.Get("onerror")); ok {
+						_, _ = cb(req)
+						return
+					}
+					if cb, ok := sobek.AssertFunction(req.Get("onblocked")); ok {
+						_, _ = cb(req)
+					}
+				}
+			}
+		}()
+
+		return req
+	})
+
+	_ = vm.Set("indexedDB", indexedDB)
+	log.Printf("[browserjs] Installed indexedDB stub (unavailable in Sobek)")
 	return nil
 }
 
