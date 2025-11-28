@@ -1030,6 +1030,21 @@ func (m *Manager) StartBackgroundContext(ext *Extension) error {
 	// Set pane provider for tabs API
 	ctx.SetPaneProvider(&managerPaneProvider{manager: m})
 
+	// Set tab operations if viewLookup implements TabOperations
+	m.mu.RLock()
+	viewLookup := m.viewLookup
+	dispatcher := m.dispatcher
+	m.mu.RUnlock()
+
+	if tabOps, ok := viewLookup.(api.TabOperations); ok {
+		ctx.SetTabOperations(tabOps)
+	}
+
+	// Set cookies API from dispatcher
+	if dispatcher != nil {
+		ctx.SetCookiesAPI(dispatcher.GetCookiesAPI())
+	}
+
 	if err := ctx.Start(); err != nil {
 		return fmt.Errorf("failed to start background for %s: %w", ext.ID, err)
 	}

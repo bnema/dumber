@@ -62,6 +62,12 @@ type BackgroundContext struct {
 	// pane provider for tabs API (set by manager)
 	paneProvider PaneProvider
 
+	// tab operations for tabs.reload etc (set by manager)
+	tabOperations api.TabOperations
+
+	// cookies API dispatcher (set by manager)
+	cookiesAPI *api.CookiesAPIDispatcher
+
 	// microtasks queued while already executing on the VM goroutine
 	microtasks []func()
 
@@ -122,6 +128,20 @@ func NewBackgroundContext(ext *Extension) *BackgroundContext {
 func (bc *BackgroundContext) SetPaneProvider(provider PaneProvider) {
 	bc.mu.Lock()
 	bc.paneProvider = provider
+	bc.mu.Unlock()
+}
+
+// SetTabOperations sets the tab operations interface for tabs.reload etc
+func (bc *BackgroundContext) SetTabOperations(ops api.TabOperations) {
+	bc.mu.Lock()
+	bc.tabOperations = ops
+	bc.mu.Unlock()
+}
+
+// SetCookiesAPI sets the cookies API dispatcher
+func (bc *BackgroundContext) SetCookiesAPI(cookiesAPI *api.CookiesAPIDispatcher) {
+	bc.mu.Lock()
+	bc.cookiesAPI = cookiesAPI
 	bc.mu.Unlock()
 }
 
@@ -700,6 +720,7 @@ func (bc *BackgroundContext) installGlobals() error {
 	permissionsObj := bc.buildPermissionsObject()
 	extensionObj := bc.buildExtensionObject()
 	windowsObj := bc.buildWindowsObject()
+	cookiesObj := bc.buildCookiesObject()
 
 	_ = browser.Set("runtime", runtimeObj)
 	_ = browser.Set("storage", storageObj)
@@ -719,6 +740,7 @@ func (bc *BackgroundContext) installGlobals() error {
 	_ = browser.Set("permissions", permissionsObj)
 	_ = browser.Set("extension", extensionObj)
 	_ = browser.Set("windows", windowsObj)
+	_ = browser.Set("cookies", cookiesObj)
 
 	// Chrome aliases.
 	vm.Set("browser", browser)
@@ -967,6 +989,49 @@ func (bc *BackgroundContext) buildTabsObject() *sobek.Object {
 	_ = obj.Set("remove", func(call sobek.FunctionCall) sobek.Value {
 		promise, resolve, _ := vm.NewPromise()
 		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
+		return vm.ToValue(promise)
+	})
+
+	// reload - reloads a tab
+	_ = obj.Set("reload", func(call sobek.FunctionCall) sobek.Value {
+		promise, resolve, reject := vm.NewPromise()
+
+		// Extract tabId (optional - if not provided, use active tab)
+		var tabID int64 = -1
+		if len(call.Arguments) > 0 && !sobek.IsUndefined(call.Arguments[0]) && !sobek.IsNull(call.Arguments[0]) {
+			tabID = call.Arguments[0].ToInteger()
+		}
+
+		bc.runOnVM(func() {
+			bc.mu.Lock()
+			ops := bc.tabOperations
+			provider := bc.paneProvider
+			bc.mu.Unlock()
+
+			// If no tabId provided, get active tab
+			if tabID < 0 && provider != nil {
+				if active := provider.GetActivePane(); active != nil {
+					tabID = int64(active.ID)
+				}
+			}
+
+			if ops == nil {
+				_ = reject(vm.ToValue("tabs.reload: tab operations not available"))
+				return
+			}
+
+			if tabID < 0 {
+				_ = reject(vm.ToValue("tabs.reload: no tab specified and no active tab"))
+				return
+			}
+
+			if err := ops.ReloadTab(tabID); err != nil {
+				_ = reject(vm.ToValue(fmt.Sprintf("tabs.reload: %v", err)))
+				return
+			}
+
+			_ = resolve(sobek.Undefined())
+		})
 		return vm.ToValue(promise)
 	})
 
@@ -1759,6 +1824,239 @@ func (bc *BackgroundContext) buildWindowsObject() *sobek.Object {
 	return obj
 }
 
+// buildCookiesObject creates browser.cookies API
+func (bc *BackgroundContext) buildCookiesObject() *sobek.Object {
+	vm := bc.vm
+	obj := vm.NewObject()
+
+	// get - returns a single cookie
+	_ = obj.Set("get", func(call sobek.FunctionCall) sobek.Value {
+		promise, resolve, reject := vm.NewPromise()
+
+		// Extract details from first argument as map
+		var details map[string]interface{}
+		if len(call.Arguments) > 0 && !sobek.IsUndefined(call.Arguments[0]) {
+			if d, ok := call.Arguments[0].Export().(map[string]interface{}); ok {
+				details = d
+			}
+		}
+		if details == nil {
+			details = make(map[string]interface{})
+		}
+
+		bc.runOnVM(func() {
+			bc.mu.Lock()
+			cookiesAPI := bc.cookiesAPI
+			bc.mu.Unlock()
+
+			if cookiesAPI == nil {
+				_ = reject(vm.ToValue("cookies.get: cookies API not available"))
+				return
+			}
+
+			cookie, err := cookiesAPI.Get(context.Background(), bc.ext, details)
+			if err != nil {
+				_ = reject(vm.ToValue(fmt.Sprintf("cookies.get: %v", err)))
+				return
+			}
+
+			if cookie == nil {
+				_ = resolve(sobek.Null())
+				return
+			}
+
+			_ = resolve(vm.ToValue(cookieToMap(cookie)))
+		})
+		return vm.ToValue(promise)
+	})
+
+	// getAll - returns all cookies matching filter
+	_ = obj.Set("getAll", func(call sobek.FunctionCall) sobek.Value {
+		promise, resolve, reject := vm.NewPromise()
+
+		// Extract filter from first argument as map
+		var details map[string]interface{}
+		if len(call.Arguments) > 0 && !sobek.IsUndefined(call.Arguments[0]) {
+			if d, ok := call.Arguments[0].Export().(map[string]interface{}); ok {
+				details = d
+			}
+		}
+		if details == nil {
+			details = make(map[string]interface{})
+		}
+
+		bc.runOnVM(func() {
+			bc.mu.Lock()
+			cookiesAPI := bc.cookiesAPI
+			bc.mu.Unlock()
+
+			if cookiesAPI == nil {
+				_ = reject(vm.ToValue("cookies.getAll: cookies API not available"))
+				return
+			}
+
+			cookies, err := cookiesAPI.GetAll(context.Background(), bc.ext, details)
+			if err != nil {
+				_ = reject(vm.ToValue(fmt.Sprintf("cookies.getAll: %v", err)))
+				return
+			}
+
+			result := make([]interface{}, len(cookies))
+			for i := range cookies {
+				result[i] = cookieToMap(&cookies[i])
+			}
+			_ = resolve(vm.ToValue(result))
+		})
+		return vm.ToValue(promise)
+	})
+
+	// set - sets a cookie
+	_ = obj.Set("set", func(call sobek.FunctionCall) sobek.Value {
+		promise, resolve, reject := vm.NewPromise()
+
+		// Extract cookie details as map
+		var details map[string]interface{}
+		if len(call.Arguments) > 0 && !sobek.IsUndefined(call.Arguments[0]) {
+			if d, ok := call.Arguments[0].Export().(map[string]interface{}); ok {
+				details = d
+			}
+		}
+		if details == nil {
+			details = make(map[string]interface{})
+		}
+
+		bc.runOnVM(func() {
+			bc.mu.Lock()
+			cookiesAPI := bc.cookiesAPI
+			bc.mu.Unlock()
+
+			if cookiesAPI == nil {
+				_ = reject(vm.ToValue("cookies.set: cookies API not available"))
+				return
+			}
+
+			cookie, err := cookiesAPI.Set(context.Background(), bc.ext, details)
+			if err != nil {
+				_ = reject(vm.ToValue(fmt.Sprintf("cookies.set: %v", err)))
+				return
+			}
+
+			if cookie == nil {
+				_ = resolve(sobek.Null())
+				return
+			}
+
+			_ = resolve(vm.ToValue(cookieToMap(cookie)))
+		})
+		return vm.ToValue(promise)
+	})
+
+	// remove - removes a cookie
+	_ = obj.Set("remove", func(call sobek.FunctionCall) sobek.Value {
+		promise, resolve, reject := vm.NewPromise()
+
+		// Extract details as map
+		var details map[string]interface{}
+		if len(call.Arguments) > 0 && !sobek.IsUndefined(call.Arguments[0]) {
+			if d, ok := call.Arguments[0].Export().(map[string]interface{}); ok {
+				details = d
+			}
+		}
+		if details == nil {
+			details = make(map[string]interface{})
+		}
+
+		bc.runOnVM(func() {
+			bc.mu.Lock()
+			cookiesAPI := bc.cookiesAPI
+			bc.mu.Unlock()
+
+			if cookiesAPI == nil {
+				_ = reject(vm.ToValue("cookies.remove: cookies API not available"))
+				return
+			}
+
+			result, err := cookiesAPI.Remove(context.Background(), bc.ext, details)
+			if err != nil {
+				_ = reject(vm.ToValue(fmt.Sprintf("cookies.remove: %v", err)))
+				return
+			}
+
+			if result == nil {
+				_ = resolve(sobek.Null())
+				return
+			}
+
+			// Return removed cookie details
+			_ = resolve(vm.ToValue(cookieToMap(result)))
+		})
+		return vm.ToValue(promise)
+	})
+
+	// getAllCookieStores - returns available cookie stores
+	_ = obj.Set("getAllCookieStores", func(call sobek.FunctionCall) sobek.Value {
+		promise, resolve, reject := vm.NewPromise()
+
+		bc.runOnVM(func() {
+			bc.mu.Lock()
+			cookiesAPI := bc.cookiesAPI
+			bc.mu.Unlock()
+
+			if cookiesAPI == nil {
+				_ = reject(vm.ToValue("cookies.getAllCookieStores: cookies API not available"))
+				return
+			}
+
+			stores, err := cookiesAPI.GetAllCookieStores(context.Background(), bc.ext)
+			if err != nil {
+				_ = reject(vm.ToValue(fmt.Sprintf("cookies.getAllCookieStores: %v", err)))
+				return
+			}
+
+			result := make([]interface{}, len(stores))
+			for i, s := range stores {
+				result[i] = map[string]interface{}{
+					"id":     s.ID,
+					"tabIds": s.TabIDs,
+				}
+			}
+			_ = resolve(vm.ToValue(result))
+		})
+		return vm.ToValue(promise)
+	})
+
+	// Events - stub for onChanged
+	onChangedEvt := vm.NewObject()
+	_ = onChangedEvt.Set("addListener", func(sobek.FunctionCall) sobek.Value { return sobek.Undefined() })
+	_ = onChangedEvt.Set("removeListener", func(sobek.FunctionCall) sobek.Value { return sobek.Undefined() })
+	_ = onChangedEvt.Set("hasListener", func(sobek.FunctionCall) sobek.Value { return vm.ToValue(false) })
+	_ = obj.Set("onChanged", onChangedEvt)
+
+	return obj
+}
+
+// cookieToMap converts a Cookie to a map for JS
+func cookieToMap(c *api.Cookie) map[string]interface{} {
+	m := map[string]interface{}{
+		"name":     c.Name,
+		"value":    c.Value,
+		"domain":   c.Domain,
+		"path":     c.Path,
+		"secure":   c.Secure,
+		"httpOnly": c.HTTPOnly,
+		"sameSite": c.SameSite,
+		"storeId":  c.StoreID,
+	}
+	// Session cookie if no expiration date
+	if c.ExpirationDate == nil {
+		m["session"] = true
+	} else {
+		m["session"] = false
+		m["expirationDate"] = float64(*c.ExpirationDate)
+	}
+	return m
+}
+
 func (bc *BackgroundContext) buildRuntimeObject() (*sobek.Object, error) {
 	vm := bc.vm
 	obj := vm.NewObject()
@@ -1873,6 +2171,32 @@ func (bc *BackgroundContext) buildRuntimeObject() (*sobek.Object, error) {
 			return sobek.Undefined()
 		}
 		return port.object
+	})
+
+	// runtime.getPlatformInfo() - returns platform information
+	_ = obj.Set("getPlatformInfo", func(call sobek.FunctionCall) sobek.Value {
+		promise, resolve, _ := vm.NewPromise()
+		platformInfo := map[string]interface{}{
+			"os":        api.GetPlatformOS(),
+			"arch":      api.GetPlatformArch(),
+			"nacl_arch": api.GetPlatformArch(),
+		}
+		_ = resolve(vm.ToValue(platformInfo))
+		return vm.ToValue(promise)
+	})
+
+	// runtime.getBrowserInfo() - returns browser information
+	_ = obj.Set("getBrowserInfo", func(call sobek.FunctionCall) sobek.Value {
+		promise, resolve, _ := vm.NewPromise()
+		info := api.GetBrowserInfo()
+		browserInfo := map[string]interface{}{
+			"name":    info.Name,
+			"vendor":  info.Vendor,
+			"version": info.Version,
+			"buildID": info.BuildID,
+		}
+		_ = resolve(vm.ToValue(browserInfo))
+		return vm.ToValue(promise)
 	})
 
 	return obj, nil

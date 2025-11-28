@@ -162,6 +162,11 @@ func (d *Dispatcher) InitializeCookieManager() {
 	}
 }
 
+// GetCookiesAPI returns the cookies API dispatcher for use by background scripts
+func (d *Dispatcher) GetCookiesAPI() *api.CookiesAPIDispatcher {
+	return d.cookiesAPI
+}
+
 // PopupAPIRequest represents an API call from a popup's JavaScript bridge
 type PopupAPIRequest struct {
 	ID     int             `json:"id"`
