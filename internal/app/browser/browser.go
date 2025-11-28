@@ -105,6 +105,9 @@ func Run(assets embed.FS, version, commit, buildDate string) {
 		webRequestActive:  make(map[uintptr]*webRequestTrack),
 	}
 
+	// Set browser info for webext runtime.getBrowserInfo()
+	api.SetBrowserInfo(version, commit, buildDate)
+
 	if err := app.Initialize(); err != nil {
 		log.Printf("Failed to initialize browser: %v", err)
 		if webkit.IsNativeAvailable() {

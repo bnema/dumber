@@ -399,24 +399,52 @@ type PlatformInfo struct {
 // API: browser.runtime.getPlatformInfo()
 func (r *RuntimeAPIDispatcher) GetPlatformInfo(ctx context.Context) (*PlatformInfo, error) {
 	return &PlatformInfo{
-		OS:       getPlatformOS(),
-		Arch:     getPlatformArch(),
-		NaclArch: getPlatformArch(), // Same as arch for compatibility
+		OS:       GetPlatformOS(),
+		Arch:     GetPlatformArch(),
+		NaclArch: GetPlatformArch(), // Same as arch for compatibility
 	}, nil
 }
 
-// getPlatformOS returns the operating system name
-func getPlatformOS() string {
+// GetPlatformOS returns the operating system name
+func GetPlatformOS() string {
 	// For now, we only support Linux (like Epiphany)
 	// Future: could detect via runtime.GOOS
 	return "linux"
 }
 
-// getPlatformArch returns the CPU architecture
-func getPlatformArch() string {
+// GetPlatformArch returns the CPU architecture
+func GetPlatformArch() string {
 	// Detect architecture at compile time
 	// https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/runtime/PlatformArch
 	return getPlatformArchConst()
+}
+
+// BrowserInfo holds browser metadata for runtime.getBrowserInfo()
+type BrowserInfo struct {
+	Name    string `json:"name"`
+	Vendor  string `json:"vendor"`
+	Version string `json:"version"`
+	BuildID string `json:"buildID"`
+}
+
+// browserInfo holds the current browser info, set via SetBrowserInfo
+var browserInfo = BrowserInfo{
+	Name:    "Dumber",
+	Vendor:  "Dumber Browser",
+	Version: "dev",
+	BuildID: "unknown",
+}
+
+// SetBrowserInfo sets the browser info for runtime.getBrowserInfo()
+// Should be called at startup with ldflags values
+func SetBrowserInfo(version, commit, buildDate string) {
+	browserInfo.Version = version
+	browserInfo.BuildID = buildDate
+}
+
+// GetBrowserInfo returns the current browser info
+func GetBrowserInfo() BrowserInfo {
+	return browserInfo
 }
 
 // OpenOptionsPage opens the extension's options page
