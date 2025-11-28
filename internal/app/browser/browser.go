@@ -553,6 +553,11 @@ func (app *BrowserApp) setupExtensionManager() error {
 	}
 	log.Printf("[webext] extensions with webRequest capability: %v", app.extensionManager.GetEnabledExtensionsWithWebRequest())
 
+	// Run API debugger if enabled
+	if app.config.Extensions.EnableDebugger {
+		app.extensionManager.RunDebugger()
+	}
+
 	// Start webRequest socket server for blocking IPC
 	// This MUST happen before SerializeInitData so the socket path is available
 	var socketPath string

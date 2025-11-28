@@ -772,6 +772,33 @@ func (m *Manager) GetBackgroundContext(extID string) *BackgroundContext {
 	return nil
 }
 
+// RunDebugger runs the API debugger on the first enabled extension with a background context.
+// This validates WebExtension API implementations via introspection and functional tests.
+func (m *Manager) RunDebugger() {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// Find first enabled extension with a background context
+	for _, ext := range m.bundled {
+		if ext.Enabled && ext.Background != nil {
+			if err := ext.Background.RunDebugger(); err != nil {
+				log.Printf("[webext] Debugger failed for %s: %v", ext.ID, err)
+			}
+			return
+		}
+	}
+	for _, ext := range m.user {
+		if ext.Enabled && ext.Background != nil {
+			if err := ext.Background.RunDebugger(); err != nil {
+				log.Printf("[webext] Debugger failed for %s: %v", ext.ID, err)
+			}
+			return
+		}
+	}
+
+	log.Printf("[webext] No enabled extension with background context for debugging")
+}
+
 // GetQueuePressure returns the current queue length and capacity for an extension's
 // background context. Used for backpressure detection.
 func (m *Manager) GetQueuePressure(extID string) (length, capacity int) {

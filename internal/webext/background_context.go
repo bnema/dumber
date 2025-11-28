@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/webext/api"
+	"github.com/bnema/dumber/internal/webext/debugger"
 	"github.com/bnema/dumber/internal/webext/globals"
 	"github.com/diamondburned/gotk4/pkg/core/glib"
 	"github.com/grafana/sobek"
@@ -3093,4 +3094,13 @@ func (p *backgroundPort) disconnectInternal() {
 // Utility used by tests to simulate onMessage.
 func (bc *BackgroundContext) waitForReady(timeout time.Duration) error {
 	return bc.call(func() error { return nil })
+}
+
+// RunDebugger executes the API debugger on the VM goroutine.
+// It runs introspection and functional tests against the extension's APIs.
+func (bc *BackgroundContext) RunDebugger() error {
+	return bc.call(func() error {
+		debugger.Run(bc.vm, bc.ext.ID)
+		return nil
+	})
 }

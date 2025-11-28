@@ -182,6 +182,7 @@ type ExtensionsConfig struct {
 	OverlayEnabled  bool   `mapstructure:"overlay_enabled" yaml:"overlay_enabled" json:"overlay_enabled"`
 	OverlayPosition string `mapstructure:"overlay_position" yaml:"overlay_position" json:"overlay_position"`
 	Shortcut        string `mapstructure:"shortcut" yaml:"shortcut" json:"shortcut"`
+	EnableDebugger  bool   `mapstructure:"enable_debugger" yaml:"enable_debugger" json:"enable_debugger"`
 }
 
 // DownloadsConfig holds download-related configuration.
@@ -782,6 +783,7 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("extensions.overlay_enabled", defaults.Extensions.OverlayEnabled)
 	m.viper.SetDefault("extensions.overlay_position", defaults.Extensions.OverlayPosition)
 	m.viper.SetDefault("extensions.shortcut", defaults.Extensions.Shortcut)
+	m.viper.SetDefault("extensions.enable_debugger", defaults.Extensions.EnableDebugger)
 
 	// Downloads defaults
 	m.viper.SetDefault("downloads.default_location", defaults.Downloads.DefaultLocation)

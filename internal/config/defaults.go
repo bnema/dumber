@@ -50,6 +50,7 @@ const (
 	defaultExtensionsOverlayEnabled  = true
 	defaultExtensionsOverlayPosition = "top-right"
 	defaultExtensionsShortcut        = "ctrl+shift+e"
+	defaultExtensionsEnableDebugger  = false
 
 	// Downloads defaults
 	defaultDownloadsLocation = "~/Downloads"
@@ -167,6 +168,7 @@ func DefaultConfig() *Config {
 			OverlayEnabled:  defaultExtensionsOverlayEnabled,
 			OverlayPosition: defaultExtensionsOverlayPosition,
 			Shortcut:        defaultExtensionsShortcut,
+			EnableDebugger:  defaultExtensionsEnableDebugger,
 		},
 		Downloads: DownloadsConfig{
 			DefaultLocation: defaultDownloadsLocation,
