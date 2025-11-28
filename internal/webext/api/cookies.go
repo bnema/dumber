@@ -37,6 +37,7 @@ type CookieStore struct {
 type HostPermissionChecker interface {
 	HasHostPermission(url string) bool
 	HasPermission(permission string) bool
+	GetExtensionID() string
 }
 
 // CookiesAPIDispatcher handles cookies.* API calls

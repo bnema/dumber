@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 	"unsafe"
@@ -70,14 +71,17 @@ type BrowserApp struct {
 	workspace  *WorkspaceManager
 
 	// WebExtensions support
-	extensionManager  *webext.Manager
-	webExtPorts       map[string]*webExtPortBridge
-	webRequestReplies map[string]chan *api.BlockingResponse
-	webRequestPending map[string][]api.RequestDetails
-	webRequestActive  map[uintptr]*webRequestTrack
-	webRequestMu      sync.Mutex
-	webExtLogger      *logging.LogRotator // Logger for WebExtension process logs
-	webRequestServer  *WebRequestServer   // UNIX socket server for webRequest IPC
+	extensionManager    *webext.Manager
+	webExtPorts         map[string]*webExtPortBridge
+	webRequestReplies   map[string]chan *api.BlockingResponse
+	webRequestPending   map[string][]api.RequestDetails
+	webRequestActive    map[uintptr]*webRequestTrack
+	webRequestMu        sync.Mutex
+	sendMessageReplies  map[string]chan interface{} // tabs.sendMessage response channels
+	sendMessageMu       sync.Mutex
+	sendMessageCounter  int64 // atomic counter for request IDs
+	webExtLogger        *logging.LogRotator // Logger for WebExtension process logs
+	webRequestServer    *WebRequestServer   // UNIX socket server for webRequest IPC
 
 	// Handlers
 	schemeHandler         *schemes.APIHandler
@@ -95,14 +99,15 @@ func Run(assets embed.FS, version, commit, buildDate string) {
 	log.Printf("Starting GUI mode (webkit_cgo=%v)", webkit.IsNativeAvailable())
 
 	app := &BrowserApp{
-		version:           version,
-		commit:            commit,
-		buildDate:         buildDate,
-		assets:            assets,
-		webExtPorts:       make(map[string]*webExtPortBridge),
-		webRequestReplies: make(map[string]chan *api.BlockingResponse),
-		webRequestPending: make(map[string][]api.RequestDetails),
-		webRequestActive:  make(map[uintptr]*webRequestTrack),
+		version:            version,
+		commit:             commit,
+		buildDate:          buildDate,
+		assets:             assets,
+		webExtPorts:        make(map[string]*webExtPortBridge),
+		webRequestReplies:  make(map[string]chan *api.BlockingResponse),
+		webRequestPending:  make(map[string][]api.RequestDetails),
+		webRequestActive:   make(map[uintptr]*webRequestTrack),
+		sendMessageReplies: make(map[string]chan interface{}),
 	}
 
 	// Set browser info for webext runtime.getBrowserInfo()
@@ -2045,5 +2050,94 @@ func (app *BrowserApp) NotifyActivePaneChanged() {
 	// Notify extensions overlay to hide (prevents it from appearing on wrong pane)
 	if app.tabManager.extensionsOverlay != nil {
 		app.tabManager.extensionsOverlay.OnActivePaneChanged()
+	}
+}
+
+// SendMessageToContentScript sends a message to content scripts running in a tab
+// This implements api.ContentScriptMessenger for tabs.sendMessage support
+func (app *BrowserApp) SendMessageToContentScript(viewID uint64, message interface{}, sender map[string]interface{}) (interface{}, error) {
+	view := app.GetViewByID(viewID)
+	if view == nil {
+		return nil, fmt.Errorf("tab not found: %d", viewID)
+	}
+
+	// Generate unique request ID for response correlation
+	requestID := fmt.Sprintf("sm-%d-%d", viewID, atomic.AddInt64(&app.sendMessageCounter, 1))
+
+	// Register response channel before sending
+	responseChan := app.registerSendMessageWaiter(requestID)
+	defer app.clearSendMessageWaiter(requestID)
+
+	// Build the event payload for content script with request ID
+	evt := map[string]interface{}{
+		"type":      "runtime-message",
+		"requestId": requestID,
+		"message":   message,
+		"sender":    sender,
+	}
+
+	payload, err := json.Marshal(evt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal message: %w", err)
+	}
+
+	// Inject script to trigger content script's onMessage listeners
+	script := fmt.Sprintf(`try {
+		if (window.__dumberWebExtReceive) {
+			window.__dumberWebExtReceive(%s);
+		} else {
+			console.warn('[webext] tabs.sendMessage: __dumberWebExtReceive not available - no content script listeners');
+		}
+	} catch (e) { console.error('[webext] tabs.sendMessage delivery failed', e); }`, string(payload))
+
+	view.RunOnMainThread(func() {
+		webkit.EvaluateJavascript(view.GetWebView(), script)
+	})
+
+	// Wait for response with timeout (5 seconds matches Chrome behavior)
+	select {
+	case response := <-responseChan:
+		return response, nil
+	case <-time.After(5 * time.Second):
+		// Timeout - no listener responded or sendResponse wasn't called
+		// This is normal behavior when content scripts don't respond
+		return nil, nil
+	}
+}
+
+// registerSendMessageWaiter creates a channel to wait for sendMessage response
+func (app *BrowserApp) registerSendMessageWaiter(requestID string) chan interface{} {
+	ch := make(chan interface{}, 1)
+	app.sendMessageMu.Lock()
+	if app.sendMessageReplies == nil {
+		app.sendMessageReplies = make(map[string]chan interface{})
+	}
+	app.sendMessageReplies[requestID] = ch
+	app.sendMessageMu.Unlock()
+	return ch
+}
+
+// clearSendMessageWaiter removes the pending response channel
+func (app *BrowserApp) clearSendMessageWaiter(requestID string) {
+	app.sendMessageMu.Lock()
+	delete(app.sendMessageReplies, requestID)
+	app.sendMessageMu.Unlock()
+}
+
+// HandleSendMessageResponse is called when content script calls sendResponse
+func (app *BrowserApp) HandleSendMessageResponse(requestID string, response interface{}) {
+	app.sendMessageMu.Lock()
+	ch, ok := app.sendMessageReplies[requestID]
+	app.sendMessageMu.Unlock()
+
+	if !ok {
+		log.Printf("[webext] tabs.sendMessage response for unknown request: %s", requestID)
+		return
+	}
+
+	select {
+	case ch <- response:
+	default:
+		// Channel full or already responded
 	}
 }

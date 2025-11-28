@@ -52,6 +52,11 @@ func (e *Extension) GetInstallDir() string {
 	return e.Path
 }
 
+// GetExtensionID returns the extension ID (satisfies api.HostPermissionChecker).
+func (e *Extension) GetExtensionID() string {
+	return e.ID
+}
+
 // HasHostPermission checks if the extension has permission to access the given URL.
 // This checks the manifest's permissions array for matching host patterns.
 func (e *Extension) HasHostPermission(urlStr string) bool {
@@ -1038,6 +1043,11 @@ func (m *Manager) StartBackgroundContext(ext *Extension) error {
 
 	if tabOps, ok := viewLookup.(api.TabOperations); ok {
 		ctx.SetTabOperations(tabOps)
+	}
+
+	// Set content script messenger for tabs.sendMessage
+	if messenger, ok := viewLookup.(api.ContentScriptMessenger); ok {
+		ctx.SetContentScriptMessenger(messenger)
 	}
 
 	// Set cookies API from dispatcher

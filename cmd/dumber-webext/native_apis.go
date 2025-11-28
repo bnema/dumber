@@ -538,15 +538,38 @@ func getBrowserAPIBridgeJS() string {
 		return port;
 	}
 
-	function runRuntimeMessageListeners(message, sender) {
+	function runRuntimeMessageListeners(message, sender, requestId) {
+		let responseSent = false;
+		let asyncResponse = false;
+
+		const sendResponse = (response) => {
+			if (responseSent) {
+				console.warn('[dumber-api] sendResponse called after response already sent');
+				return;
+			}
+			responseSent = true;
+			if (requestId) {
+				sendAPICall('runtime.sendResponse', { requestId: requestId, response: response })
+					.catch(err => console.error('[dumber-api] sendResponse failed:', err));
+			}
+		};
+
 		_dumberRuntimeOnMessage.forEach(fn => {
 			try {
-				// sendResponse is not supported yet; provide noop for compatibility
-				fn(message, sender, function noopSendResponse() {});
+				const result = fn(message, sender, sendResponse);
+				// If listener returns true, it will call sendResponse asynchronously
+				if (result === true) {
+					asyncResponse = true;
+				}
 			} catch (e) {
 				console.error(e);
 			}
 		});
+
+		// If no listener wants async response and no response sent, send undefined
+		if (!asyncResponse && !responseSent && requestId) {
+			sendResponse(undefined);
+		}
 	}
 
 	function handleIncomingEvent(evt) {
@@ -558,8 +581,8 @@ func getBrowserAPIBridgeJS() string {
 
 		switch (evt.type) {
 	case 'runtime-message':
-			console.log('[dumber-api] Handling runtime-message:', evt.message);
-			runRuntimeMessageListeners(evt.message, evt.sender || null);
+			console.log('[dumber-api] Handling runtime-message:', evt.message, 'requestId:', evt.requestId);
+			runRuntimeMessageListeners(evt.message, evt.sender || null, evt.requestId || null);
 			break;
 	case 'port-connect': {
 			console.log('[dumber-api] Handling port-connect:', evt.portId, 'name:', evt.name, 'onConnect listeners:', _dumberRuntimeOnConnect.length);

@@ -385,6 +385,44 @@ func (d *TabsAPIDispatcher) SetZoom(ctx context.Context, tabID int64, zoomFactor
 	return view.SetZoom(zoomFactor)
 }
 
+// ContentScriptMessenger provides the ability to send messages to content scripts
+type ContentScriptMessenger interface {
+	SendMessageToContentScript(viewID uint64, message interface{}, sender map[string]interface{}) (interface{}, error)
+}
+
+// SendMessage sends a message to content scripts in a tab
+func (d *TabsAPIDispatcher) SendMessage(ctx context.Context, checker HostPermissionChecker, tabID int64, message interface{}, options map[string]interface{}) (interface{}, error) {
+	if d.viewLookup == nil {
+		return nil, fmt.Errorf("tabs.sendMessage(): view lookup not available")
+	}
+
+	// Get the webview for the target tab
+	view := d.viewLookup.GetViewByID(uint64(tabID))
+	if view == nil {
+		return nil, fmt.Errorf("tabs.sendMessage(): tab not found: %d", tabID)
+	}
+
+	// Check host permission for the tab's current URL
+	currentURL := view.GetCurrentURL()
+	if !checker.HasHostPermission(currentURL) && !checker.HasPermission("activeTab") {
+		return nil, fmt.Errorf("tabs.sendMessage(): permission denied for URL '%s'", currentURL)
+	}
+
+	// Check if view supports content script messaging
+	messenger, ok := d.viewLookup.(ContentScriptMessenger)
+	if !ok {
+		return nil, fmt.Errorf("tabs.sendMessage(): content script messaging not supported")
+	}
+
+	// Create sender information
+	sender := map[string]interface{}{
+		"id": checker.GetExtensionID(),
+	}
+
+	// Send the message and wait for response
+	return messenger.SendMessageToContentScript(uint64(tabID), message, sender)
+}
+
 // isUnprivilegedURL checks if a URL is allowed for tab creation/navigation
 // This prevents extensions from navigating to privileged schemes
 func isUnprivilegedURL(urlStr string) bool {

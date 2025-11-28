@@ -555,6 +555,21 @@ func (d *Dispatcher) handleRuntimeAPI(ctx context.Context, extID, method string,
 	case "openOptionsPage":
 		return nil, d.runtimeAPI.OpenOptionsPage(ctx, extID)
 
+	case "sendResponse":
+		// Handle response from content script's sendResponse callback
+		var payload struct {
+			RequestID string      `json:"requestId"`
+			Response  interface{} `json:"response"`
+		}
+		unwrapped := unwrapJSArgs(args)
+		if err := json.Unmarshal(unwrapped, &payload); err != nil {
+			return nil, fmt.Errorf("invalid arguments for runtime.sendResponse: %w", err)
+		}
+		if d.viewLookup != nil {
+			d.viewLookup.HandleSendMessageResponse(payload.RequestID, payload.Response)
+		}
+		return nil, nil
+
 	default:
 		return nil, fmt.Errorf("unsupported runtime method: %s", method)
 	}
@@ -792,6 +807,35 @@ func (d *Dispatcher) handleTabsAPI(ctx context.Context, extID, method string, ar
 		}
 
 		return nil, d.tabsAPI.SetZoom(ctx, tabID, zoomFactor)
+
+	case "sendMessage":
+		// tabs.sendMessage(tabId, message, options)
+		var params []interface{}
+		if err := json.Unmarshal(unwrapped, &params); err != nil {
+			return nil, fmt.Errorf("invalid arguments for tabs.sendMessage: %w", err)
+		}
+
+		if len(params) < 2 {
+			return nil, fmt.Errorf("tabs.sendMessage(): requires tabId and message")
+		}
+
+		var tabID int64
+		if tidFloat, ok := params[0].(float64); ok {
+			tabID = int64(tidFloat)
+		} else {
+			return nil, fmt.Errorf("tabs.sendMessage(): invalid tabId")
+		}
+
+		message := params[1]
+
+		var options map[string]interface{}
+		if len(params) >= 3 {
+			if opts, ok := params[2].(map[string]interface{}); ok {
+				options = opts
+			}
+		}
+
+		return d.tabsAPI.SendMessage(ctx, ext, tabID, message, options)
 
 	default:
 		return nil, fmt.Errorf("unsupported tabs method: %s", method)

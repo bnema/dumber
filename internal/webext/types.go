@@ -13,6 +13,9 @@ type ViewLookup interface {
 
 	// GetPaneInfoByViewID finds pane information for a WebView by its ID
 	GetPaneInfoByViewID(viewID uint64) *api.PaneInfo
+
+	// HandleSendMessageResponse handles a response from tabs.sendMessage
+	HandleSendMessageResponse(requestID string, response interface{})
 }
 
 // PopupInfo contains information about an extension popup for runtime.connect sender info

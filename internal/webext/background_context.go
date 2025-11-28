@@ -65,6 +65,9 @@ type BackgroundContext struct {
 	// tab operations for tabs.reload etc (set by manager)
 	tabOperations api.TabOperations
 
+	// content script messenger for tabs.sendMessage (set by manager)
+	contentScriptMessenger api.ContentScriptMessenger
+
 	// cookies API dispatcher (set by manager)
 	cookiesAPI *api.CookiesAPIDispatcher
 
@@ -135,6 +138,13 @@ func (bc *BackgroundContext) SetPaneProvider(provider PaneProvider) {
 func (bc *BackgroundContext) SetTabOperations(ops api.TabOperations) {
 	bc.mu.Lock()
 	bc.tabOperations = ops
+	bc.mu.Unlock()
+}
+
+// SetContentScriptMessenger sets the content script messenger for tabs.sendMessage
+func (bc *BackgroundContext) SetContentScriptMessenger(messenger api.ContentScriptMessenger) {
+	bc.mu.Lock()
+	bc.contentScriptMessenger = messenger
 	bc.mu.Unlock()
 }
 
@@ -1035,10 +1045,48 @@ func (bc *BackgroundContext) buildTabsObject() *sobek.Object {
 		return vm.ToValue(promise)
 	})
 
-	// sendMessage - stub
+	// sendMessage - sends a message to content scripts in a tab
 	_ = obj.Set("sendMessage", func(call sobek.FunctionCall) sobek.Value {
-		promise, resolve, _ := vm.NewPromise()
-		bc.runOnVM(func() { _ = resolve(sobek.Undefined()) })
+		promise, resolve, reject := vm.NewPromise()
+
+		// Parse arguments: (tabId, message, options?)
+		if len(call.Arguments) < 2 {
+			bc.runOnVM(func() {
+				_ = reject(vm.ToValue("tabs.sendMessage requires tabId and message arguments"))
+			})
+			return vm.ToValue(promise)
+		}
+
+		tabID := call.Arguments[0].ToInteger()
+		message := call.Arguments[1].Export()
+
+		bc.runOnVM(func() {
+			bc.mu.Lock()
+			messenger := bc.contentScriptMessenger
+			bc.mu.Unlock()
+
+			if messenger == nil {
+				_ = reject(vm.ToValue("tabs.sendMessage: content script messenger not available"))
+				return
+			}
+
+			// Build sender info
+			sender := map[string]interface{}{
+				"id": bc.ext.ID,
+			}
+
+			response, err := messenger.SendMessageToContentScript(uint64(tabID), message, sender)
+			if err != nil {
+				_ = reject(vm.ToValue(fmt.Sprintf("tabs.sendMessage: %v", err)))
+				return
+			}
+
+			if response == nil {
+				_ = resolve(sobek.Undefined())
+			} else {
+				_ = resolve(vm.ToValue(response))
+			}
+		})
 		return vm.ToValue(promise)
 	})
 
