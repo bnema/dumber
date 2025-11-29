@@ -4,10 +4,11 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
-	"log"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/bnema/dumber/internal/logging"
 )
 
 //go:embed *.sql
@@ -36,14 +37,14 @@ func GetMigrations() ([]Migration, error) {
 		// Parse version from filename (e.g., "001_initial.sql" -> version 1)
 		parts := strings.SplitN(entry.Name(), "_", 2)
 		if len(parts) != 2 {
-			log.Printf("Warning: skipping migration file with invalid name format: %s", entry.Name())
+			logging.Warn(fmt.Sprintf("Warning: skipping migration file with invalid name format: %s", entry.Name()))
 			continue
 		}
 
 		versionStr := parts[0]
 		version, err := strconv.Atoi(versionStr)
 		if err != nil {
-			log.Printf("Warning: skipping migration file with invalid version: %s", entry.Name())
+			logging.Warn(fmt.Sprintf("Warning: skipping migration file with invalid version: %s", entry.Name()))
 			continue
 		}
 
@@ -123,7 +124,7 @@ func applyMigration(db *sql.DB, migration Migration) error {
 		return nil
 	}
 
-	log.Printf("Applying migration %03d: %s", migration.Version, migration.Name)
+	logging.Info(fmt.Sprintf("Applying migration %03d: %s", migration.Version, migration.Name))
 
 	// Use transaction for safety
 	tx, err := db.Begin()
@@ -133,7 +134,7 @@ func applyMigration(db *sql.DB, migration Migration) error {
 	defer func() {
 		if err != nil {
 			if rollbackErr := tx.Rollback(); rollbackErr != nil {
-				log.Printf("failed to rollback migration transaction: %v", rollbackErr)
+				logging.Error(fmt.Sprintf("failed to rollback migration transaction: %v", rollbackErr))
 			}
 		}
 	}()
@@ -155,7 +156,7 @@ func applyMigration(db *sql.DB, migration Migration) error {
 		return fmt.Errorf("failed to commit migration transaction: %w", err)
 	}
 
-	log.Printf("Successfully applied migration %03d: %s", migration.Version, migration.Name)
+	logging.Info(fmt.Sprintf("Successfully applied migration %03d: %s", migration.Version, migration.Name))
 	return nil
 }
 
@@ -179,7 +180,7 @@ func GetAppliedMigrations(db *sql.DB) ([]int, error) {
 	}
 	defer func() {
 		if err := rows.Close(); err != nil {
-			log.Printf("failed to close migration query rows: %v", err)
+			logging.Warn(fmt.Sprintf("failed to close migration query rows: %v", err))
 		}
 	}()
 
@@ -230,13 +231,13 @@ func VerifyAllMigrationsApplied(db *sql.DB) error {
 
 	// Report results
 	if len(missingMigrations) > 0 {
-		log.Printf("WARNING: %d migrations are not applied:", len(missingMigrations))
+		logging.Warn(fmt.Sprintf("WARNING: %d migrations are not applied:", len(missingMigrations)))
 		for _, migration := range missingMigrations {
-			log.Printf("  - Migration %03d: %s", migration.Version, migration.Name)
+			logging.Warn(fmt.Sprintf("  - Migration %03d: %s", migration.Version, migration.Name))
 		}
 		return fmt.Errorf("%d migrations are not applied", len(missingMigrations))
 	}
 
-	log.Printf("Migration verification: All %d migrations are applied", len(allMigrations))
+	logging.Info(fmt.Sprintf("Migration verification: All %d migrations are applied", len(allMigrations)))
 	return nil
 }

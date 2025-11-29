@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -14,6 +13,7 @@ import (
 	"github.com/bnema/dumber/internal/app/messaging"
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/filtering"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/services"
 	"github.com/bnema/dumber/pkg/webkit"
 )
@@ -43,19 +43,19 @@ func (app *BrowserApp) buildWebkitConfig() (*webkit.Config, error) {
 
 	// Build WebKit configuration with data directories for persistence
 	cfg := &webkit.Config{
-		UserAgent:                 buildUserAgent(app.config),
-		EnableJavaScript:          true,
-		EnableWebGL:               true,
-		EnableMediaStream:         true,
-		HardwareAcceleration:      true,
-		DefaultFontSize:           app.config.Appearance.DefaultFontSize,
-		MinimumFontSize:           8,
-		EnablePageCache:           true, // Instant back/forward navigation (bfcache)
-		EnableSmoothScrolling:     true, // Smooth scrolling animations
-		DataDir:                   webkitData,
-		CacheDir:             webkitCache,
-		AppearanceConfigJSON: app.buildAppearanceConfigJSON(),
-		CreateWindow:         true, // Default to creating a window for standalone WebViews
+		UserAgent:             buildUserAgent(app.config),
+		EnableJavaScript:      true,
+		EnableWebGL:           true,
+		EnableMediaStream:     true,
+		HardwareAcceleration:  true,
+		DefaultFontSize:       app.config.Appearance.DefaultFontSize,
+		MinimumFontSize:       8,
+		EnablePageCache:       true, // Instant back/forward navigation (bfcache)
+		EnableSmoothScrolling: true, // Smooth scrolling animations
+		DataDir:               webkitData,
+		CacheDir:              webkitCache,
+		AppearanceConfigJSON:  app.buildAppearanceConfigJSON(),
+		CreateWindow:          true, // Default to creating a window for standalone WebViews
 	}
 
 	return cfg, nil
@@ -102,7 +102,7 @@ func (app *BrowserApp) buildAppearanceConfigJSON() string {
 
 	payload, err := json.Marshal(paletteConfig)
 	if err != nil {
-		log.Printf("[webview] Failed to marshal palette config: %v", err)
+		logging.Error(fmt.Sprintf("[webview] Failed to marshal palette config: %v", err))
 		return ""
 	}
 
@@ -149,7 +149,7 @@ func (app *BrowserApp) createPaneForView(view *webkit.WebView) (*BrowserPane, er
 	pane.initializeGUITracking()
 
 	// GUI manager will be loaded on-demand when needed
-	log.Printf("[webview] Created pane for webview: %d", view.ID())
+	logging.Debug(fmt.Sprintf("[webview] Created pane for webview: %d", view.ID()))
 
 	app.attachPaneHandlers(pane)
 	return pane, nil
@@ -173,7 +173,7 @@ func (app *BrowserApp) attachPaneHandlers(pane *BrowserPane) {
 		go func(url, title string) {
 			ctx := context.Background()
 			if err := app.browserService.UpdatePageTitle(ctx, url, title); err != nil {
-				log.Printf("Warning: failed to update page title: %v", err)
+				logging.Warn(fmt.Sprintf("Warning: failed to update page title: %v", err))
 			}
 		}(url, title)
 
@@ -210,7 +210,7 @@ func (app *BrowserApp) attachPaneHandlers(pane *BrowserPane) {
 		node := app.workspace.GetNodeForWebView(pane.webView)
 		if node != nil {
 			app.workspace.setupPopupHandling(pane.webView, node)
-			log.Printf("[webview] Setup native popup handling for WebView ID: %d", pane.webView.ID())
+			logging.Debug(fmt.Sprintf("[webview] Setup native popup handling for WebView ID: %d", pane.webView.ID()))
 		}
 	}
 }
@@ -245,7 +245,7 @@ func shouldFocusForScriptMessage(payload string) bool {
 
 // createWebView creates and configures the WebView
 func (app *BrowserApp) createWebView() error {
-	log.Printf("Creating WebView (native backend expected: %v)", webkit.IsNativeAvailable())
+	logging.Info(fmt.Sprintf("Creating WebView (native backend expected: %v)", webkit.IsNativeAvailable()))
 
 	cfg, err := app.buildWebkitConfig()
 	if err != nil {
@@ -281,7 +281,7 @@ func (app *BrowserApp) createWebView() error {
 
 		// Initialize tab system (creates root container with tab bar and first tab)
 		if err := app.tabManager.Initialize(initialURL); err != nil {
-			log.Printf("ERROR: failed to initialize tab manager: %v", err)
+			logging.Error(fmt.Sprintf("ERROR: failed to initialize tab manager: %v", err))
 			return err
 		}
 
@@ -289,9 +289,9 @@ func (app *BrowserApp) createWebView() error {
 		rootContainer := app.tabManager.GetRootContainer()
 		if rootContainer != nil {
 			window.SetChild(rootContainer)
-			log.Printf("[tabs] Tab system initialized and set as window content")
+			logging.Info(fmt.Sprintf("[tabs] Tab system initialized and set as window content"))
 		} else {
-			log.Printf("ERROR: tab manager root container is nil")
+			logging.Error(fmt.Sprintf("ERROR: tab manager root container is nil"))
 			return fmt.Errorf("failed to get tab manager root container")
 		}
 	}
@@ -300,9 +300,9 @@ func (app *BrowserApp) createWebView() error {
 	if window != nil {
 		app.windowShortcutHandler = NewWindowShortcutHandler(window, app)
 		if app.windowShortcutHandler != nil {
-			log.Printf("Window-level global shortcuts initialized")
+			logging.Info(fmt.Sprintf("Window-level global shortcuts initialized"))
 		} else {
-			log.Printf("Warning: failed to initialize window-level shortcuts")
+			logging.Warn(fmt.Sprintf("Warning: failed to initialize window-level shortcuts"))
 		}
 	}
 
@@ -310,18 +310,18 @@ func (app *BrowserApp) createWebView() error {
 
 	// Initialize FaviconService after WebView is created
 	if err := app.initializeFaviconService(); err != nil {
-		log.Printf("Warning: failed to initialize favicon service: %v", err)
+		logging.Warn(fmt.Sprintf("Warning: failed to initialize favicon service: %v", err))
 		// Continue without favicon service - not critical
 	}
 
 	// Apply initial zoom and show window
 	app.zoomController.ApplyInitialZoom()
 
-	log.Printf("Showing WebView window…")
+	logging.Info(fmt.Sprintf("Showing WebView window…"))
 	if err := view.Show(); err != nil {
-		log.Printf("Warning: failed to show WebView: %v", err)
+		logging.Warn(fmt.Sprintf("Warning: failed to show WebView: %v", err))
 	} else if !webkit.IsNativeAvailable() {
-		log.Printf("Notice: running without webkit_cgo tag — no native window will be displayed.")
+		logging.Info(fmt.Sprintf("Notice: running without webkit_cgo tag — no native window will be displayed."))
 	}
 
 	return nil
@@ -362,27 +362,27 @@ func (app *BrowserApp) initializeFaviconService() error {
 	}
 
 	app.faviconService = faviconService
-	log.Printf("[favicon] FaviconService initialized successfully")
+	logging.Info(fmt.Sprintf("[favicon] FaviconService initialized successfully"))
 	return nil
 }
 
 // setupContentBlocking initializes the content blocking system with proper timing
 func (app *BrowserApp) setupContentBlocking() error {
-	log.Printf("Initializing content blocking system...")
+	logging.Info(fmt.Sprintf("Initializing content blocking system..."))
 
 	// Enable WebKit debug logging if requested
 	webkit.SetupWebKitDebugLogging()
 
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("Content blocking setup panic recovered: %v", r)
+			logging.Error(fmt.Sprintf("Content blocking setup panic recovered: %v", r))
 		}
 	}()
 
 	// Setup filter system
 	filterManager, err := filtering.SetupFilterSystem()
 	if err != nil {
-		log.Printf("Warning: Failed to setup filter system: %v", err)
+		logging.Warn(fmt.Sprintf("Warning: Failed to setup filter system: %v", err))
 		return nil // Don't fail browser startup, continue without filters
 	}
 
@@ -392,14 +392,14 @@ func (app *BrowserApp) setupContentBlocking() error {
 	// Get data directory for content blocking service
 	dataDir, err := config.GetDataDir()
 	if err != nil {
-		log.Printf("Warning: Failed to get data dir for content blocking: %v", err)
+		logging.Warn(fmt.Sprintf("Warning: Failed to get data dir for content blocking: %v", err))
 		return nil
 	}
 
 	// Create content blocking service
 	cbService, err := filtering.NewContentBlockingService(dataDir+"/webkit", filterManager)
 	if err != nil {
-		log.Printf("Warning: Failed to create content blocking service: %v", err)
+		logging.Warn(fmt.Sprintf("Warning: Failed to create content blocking service: %v", err))
 		return nil
 	}
 	app.contentBlockingService = cbService
@@ -407,36 +407,36 @@ func (app *BrowserApp) setupContentBlocking() error {
 	// Set up callback to apply network filters when they become ready
 	// This callback will be called from the async filter loading process
 	filterManager.SetFiltersReadyCallback(func() {
-		log.Printf("[filtering] Filters ready, distributing to all WebViews...")
+		logging.Info(fmt.Sprintf("[filtering] Filters ready, distributing to all WebViews..."))
 
 		// Get the WebKit JSON rules from filter manager
 		filterJSON, err := filterManager.GetNetworkFilters()
 		if err != nil {
-			log.Printf("[filtering] Failed to get network filters: %v", err)
+			logging.Error(fmt.Sprintf("[filtering] Failed to get network filters: %v", err))
 			return
 		}
 
 		if len(filterJSON) == 0 {
-			log.Printf("[filtering] No network filters to apply")
+			logging.Info(fmt.Sprintf("[filtering] No network filters to apply"))
 			return
 		}
 
-		log.Printf("[filtering] Got %d bytes of WebKit JSON rules", len(filterJSON))
+		logging.Debug(fmt.Sprintf("[filtering] Got %d bytes of WebKit JSON rules", len(filterJSON)))
 
 		// Signal the service that filters are ready - it will apply to all registered WebViews
 		cbService.SetFiltersReady(filterJSON)
-		log.Printf("[filtering] Content blocking enabled for all WebViews")
+		logging.Info(fmt.Sprintf("[filtering] Content blocking enabled for all WebViews"))
 	})
 
 	// Start async filter loading
 	// This allows filters to compile in the background while the browser starts
 	go func() {
 		if err := filtering.InitializeFiltersAsync(filterManager); err != nil {
-			log.Printf("Warning: failed to initialize filters asynchronously: %v", err)
+			logging.Warn(fmt.Sprintf("Warning: failed to initialize filters asynchronously: %v", err))
 		}
 	}()
 
-	log.Printf("Content blocking system initialization started")
+	logging.Info(fmt.Sprintf("Content blocking system initialization started"))
 	return nil
 }
 

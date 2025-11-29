@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
-	"log"
 	"math"
 	neturl "net/url"
 	"sync"
@@ -15,6 +14,7 @@ import (
 	"github.com/bnema/dumber/internal/cache"
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/db"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/parser"
 	"github.com/bnema/dumber/pkg/webkit"
 )
@@ -126,14 +126,14 @@ func (s *BrowserService) AttachWebView(view *webkit.WebView) {
 
 // LoadGUIBundle loads the unified GUI bundle from assets
 func (s *BrowserService) LoadGUIBundle(assets embed.FS) error {
-	log.Printf("[browser] Attempting to load GUI bundle from assets/gui/gui.min.js")
+	logging.Debug(fmt.Sprintf("[browser] Attempting to load GUI bundle from assets/gui/gui.min.js"))
 	bundleBytes, err := assets.ReadFile("assets/gui/gui.min.js")
 	if err != nil {
-		log.Printf("[browser] ERROR: Failed to load GUI bundle: %v", err)
+		logging.Error(fmt.Sprintf("[browser] ERROR: Failed to load GUI bundle: %v", err))
 		return fmt.Errorf("failed to load GUI bundle: %w", err)
 	}
 	s.guiBundle = string(bundleBytes)
-	log.Printf("[browser] GUI bundle loaded successfully into browser service, size: %d bytes", len(bundleBytes))
+	logging.Info(fmt.Sprintf("[browser] GUI bundle loaded successfully into browser service, size: %d bytes", len(bundleBytes)))
 	return nil
 }
 
@@ -438,7 +438,7 @@ func (s *BrowserService) recordHistory(ctx context.Context, url, title string) e
 		return nil
 	default:
 		// Queue full, write directly (fallback)
-		log.Printf("Warning: history queue full, writing directly")
+		logging.Warn(fmt.Sprintf("Warning: history queue full, writing directly"))
 		return s.dbQueries.AddOrUpdateHistory(ctx, normalizedURL, titleNull)
 	}
 }
@@ -463,11 +463,11 @@ func (s *BrowserService) processHistoryQueue() {
 		// but we can still batch the operations to reduce overhead
 		for _, update := range batch {
 			if err := s.dbQueries.AddOrUpdateHistory(ctx, update.url, update.title); err != nil {
-				log.Printf("Warning: failed to write history for %s: %v", update.url, err)
+				logging.Warn(fmt.Sprintf("Warning: failed to write history for %s: %v", update.url, err))
 			}
 		}
 
-		log.Printf("Flushed %d history updates to database", len(batch))
+		logging.Debug(fmt.Sprintf("Flushed %d history updates to database", len(batch)))
 
 		// Track history entries for fuzzy cache refresh
 		batchSize := len(batch)
@@ -481,8 +481,8 @@ func (s *BrowserService) processHistoryQueue() {
 		timeSinceRefresh := time.Since(s.lastCacheRefresh)
 
 		if s.historySinceRefresh >= minEntries && timeSinceRefresh >= minInterval {
-			log.Printf("[cache] Triggering async fuzzy cache refresh (%d new entries, %v since last refresh)",
-				s.historySinceRefresh, timeSinceRefresh)
+			logging.Debug(fmt.Sprintf("[cache] Triggering async fuzzy cache refresh (%d new entries, %v since last refresh)",
+				s.historySinceRefresh, timeSinceRefresh))
 
 			// Async refresh in background (non-blocking)
 			s.fuzzyCache.InvalidateAndRefresh(ctx)
@@ -524,10 +524,10 @@ func (s *BrowserService) FlushHistoryQueue(ctx context.Context) error {
 		// Wait for completion with context cancellation support
 		select {
 		case <-s.historyFlushDone:
-			log.Printf("History queue flushed and closed")
+			logging.Info(fmt.Sprintf("History queue flushed and closed"))
 		case <-ctx.Done():
 			flushErr = fmt.Errorf("history queue flush cancelled: %w", ctx.Err())
-			log.Printf("Warning: %v", flushErr)
+			logging.Warn(fmt.Sprintf("Warning: %v", flushErr))
 		}
 	})
 	return flushErr
@@ -581,7 +581,7 @@ func (s *BrowserService) LoadZoomCacheFromDB(ctx context.Context) error {
 	}
 
 	loadedCount := len(s.zoomCache.List())
-	log.Printf("Loaded %d zoom levels into cache", loadedCount)
+	logging.Info(fmt.Sprintf("Loaded %d zoom levels into cache", loadedCount))
 	return nil
 }
 
@@ -593,7 +593,7 @@ func (s *BrowserService) LoadCertCacheFromDB(ctx context.Context) error {
 	}
 
 	loadedCount := len(s.certCache.List())
-	log.Printf("Loaded %d certificate validations into cache", loadedCount)
+	logging.Info(fmt.Sprintf("Loaded %d certificate validations into cache", loadedCount))
 	return nil
 }
 
@@ -607,8 +607,8 @@ func (s *BrowserService) LoadFuzzyCacheFromDB(ctx context.Context) error {
 	}
 
 	stats := s.fuzzyCache.Stats()
-	log.Printf("Loaded fuzzy cache: %d entries, %d trigrams",
-		stats.EntryCount, stats.TrigramCount)
+	logging.Info(fmt.Sprintf("Loaded fuzzy cache: %d entries, %d trigrams",
+		stats.EntryCount, stats.TrigramCount))
 	return nil
 }
 
@@ -620,7 +620,7 @@ func (s *BrowserService) LoadFavoritesCacheFromDB(ctx context.Context) error {
 	}
 
 	loadedCount := len(s.favoritesCache.List())
-	log.Printf("Loaded %d favorites into cache", loadedCount)
+	logging.Info(fmt.Sprintf("Loaded %d favorites into cache", loadedCount))
 	return nil
 }
 
@@ -676,7 +676,7 @@ func (s *BrowserService) ToggleFavorite(ctx context.Context, url, title, favicon
 		if err := s.favoritesCache.Delete(url); err != nil {
 			return false, fmt.Errorf("failed to remove favorite: %w", err)
 		}
-		log.Printf("Removed favorite: %s", url)
+		logging.Info(fmt.Sprintf("Removed favorite: %s", url))
 		return false, nil
 	}
 
@@ -691,7 +691,7 @@ func (s *BrowserService) ToggleFavorite(ctx context.Context, url, title, favicon
 		return false, fmt.Errorf("failed to add favorite: %w", err)
 	}
 
-	log.Printf("Added favorite: %s", url)
+	logging.Info(fmt.Sprintf("Added favorite: %s", url))
 	return true, nil
 }
 
@@ -721,7 +721,7 @@ func (s *BrowserService) FlushAllCaches(ctx context.Context) error {
 		return fmt.Errorf("failed to flush history queue: %w", err)
 	}
 
-	log.Printf("All caches flushed successfully")
+	logging.Info(fmt.Sprintf("All caches flushed successfully"))
 	return nil
 }
 

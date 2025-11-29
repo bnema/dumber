@@ -1,12 +1,16 @@
 package browser
 
-import "log"
+import (
+	"fmt"
+
+	"github.com/bnema/dumber/internal/logging"
+)
 
 func (wm *WorkspaceManager) paneCloseLogf(format string, args ...interface{}) {
 	if wm == nil || !wm.debugPaneClose {
 		return
 	}
-	log.Printf("[pane-close] "+format, args...)
+	logging.Info(fmt.Sprintf("[pane-close] "+format, args...))
 }
 
 func (wm *WorkspaceManager) dumpTreeState(label string) {

@@ -3,14 +3,13 @@ package browser
 import (
 	"errors"
 	"fmt"
-	"log"
 	"sync/atomic"
 	"time"
 
+	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/dumber/pkg/webkit"
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
-
-	"github.com/bnema/dumber/pkg/webkit"
 )
 
 const (
@@ -139,8 +138,8 @@ func (spm *StackedPaneManager) addPaneToExistingStack(target, newLeaf *paneNode)
 
 	// Insert the new pane right after the current pane
 	insertIndex := currentIndex + 1
-	log.Printf("[workspace] adding to existing stack: currentIndex=%d insertIndex=%d stackSize=%d",
-		currentIndex, insertIndex, len(stackNode.stackedPanes))
+	logging.Debug(fmt.Sprintf("[workspace] adding to existing stack: currentIndex=%d insertIndex=%d stackSize=%d",
+		currentIndex, insertIndex, len(stackNode.stackedPanes)))
 
 	// Set parent relationship
 	newLeaf.parent = stackNode
@@ -179,7 +178,7 @@ func (spm *StackedPaneManager) addPaneToExistingStack(target, newLeaf *paneNode)
 		if box, ok := stackNode.stackWrapper.(*gtk.Box); ok && newLeaf.container != nil && newLeaf.titleBar != nil {
 			box.InsertChildAfter(newLeaf.container, newLeaf.titleBar)
 		}
-		log.Printf("[workspace] inserted widgets at position %d (after widget %p)", insertIndex, insertAfterWidget)
+		logging.Debug(fmt.Sprintf("[workspace] inserted widgets at position %d (after widget %p)", insertIndex, insertAfterWidget))
 	} else {
 		// Insert at the beginning (insertIndex = 0)
 		if box, ok := stackNode.stackWrapper.(*gtk.Box); ok && newLeaf.container != nil {
@@ -188,7 +187,7 @@ func (spm *StackedPaneManager) addPaneToExistingStack(target, newLeaf *paneNode)
 		if box, ok := stackNode.stackWrapper.(*gtk.Box); ok && newLeaf.titleBar != nil {
 			box.Prepend(newLeaf.titleBar)
 		}
-		log.Printf("[workspace] prepended widgets at position 0")
+		logging.Debug("[workspace] prepended widgets at position 0")
 	}
 
 	return stackNode, insertIndex, nil
@@ -196,7 +195,7 @@ func (spm *StackedPaneManager) addPaneToExistingStack(target, newLeaf *paneNode)
 
 // convertToStackedContainer converts a simple pane to a stacked container
 func (spm *StackedPaneManager) convertToStackedContainer(target, newLeaf *paneNode) (*paneNode, int, error) {
-	log.Printf("[workspace] converting pane to stacked: %p", target)
+	logging.Debug(fmt.Sprintf("[workspace] converting pane to stacked: %p", target))
 
 	// Create the wrapper container - this is what will be used by splitNode
 	stackWrapperContainer := gtk.NewBox(gtk.OrientationVertical, 0)
@@ -292,11 +291,11 @@ func (spm *StackedPaneManager) convertToStackedContainer(target, newLeaf *paneNo
 	if newLeaf.container != nil {
 		parentWidget := webkit.WidgetGetParent(newLeaf.container)
 		if parentWidget != nil {
-			log.Printf("[workspace] unparenting new pane container %p from parent %p before stack append", newLeaf.container, parentWidget)
+			logging.Debug(fmt.Sprintf("[workspace] unparenting new pane container %p from parent %p before stack append", newLeaf.container, parentWidget))
 			webkit.WidgetUnparent(newLeaf.container)
 			// Verify unparent succeeded
 			if finalParent := webkit.WidgetGetParent(newLeaf.container); finalParent != nil {
-				log.Printf("[workspace] WARNING: container %p still has parent %p after unparent", newLeaf.container, finalParent)
+				logging.Warn(fmt.Sprintf("[workspace] container %p still has parent %p after unparent", newLeaf.container, finalParent))
 			}
 		}
 	}
@@ -369,7 +368,7 @@ func (spm *StackedPaneManager) finalizeStackCreation(stackNode, newLeaf *paneNod
 			currentTitle := currentlyActivePane.pane.webView.GetTitle()
 			if currentTitle != "" {
 				spm.updateTitleBarLabel(currentlyActivePane, currentTitle)
-				log.Printf("[workspace] updated title bar for pane becoming inactive during stack creation: %s", currentTitle)
+				logging.Debug(fmt.Sprintf("[workspace] updated title bar for pane becoming inactive during stack creation: %s", currentTitle))
 			}
 		}
 	}
@@ -381,38 +380,38 @@ func (spm *StackedPaneManager) finalizeStackCreation(stackNode, newLeaf *paneNod
 	// Set focus on the new pane synchronously
 	spm.wm.SetActivePane(newLeaf, SourceSplit)
 
-	log.Printf("[workspace] stacked new pane: stackNode=%p newLeaf=%p stackSize=%d activeIndex=%d insertIndex=%d",
-		stackNode, newLeaf, len(stackNode.stackedPanes), stackNode.activeStackIndex, insertIndex)
+	logging.Debug(fmt.Sprintf("[workspace] stacked new pane: stackNode=%p newLeaf=%p stackSize=%d activeIndex=%d insertIndex=%d",
+		stackNode, newLeaf, len(stackNode.stackedPanes), stackNode.activeStackIndex, insertIndex))
 	return newLeaf, nil
 }
 
 // UpdateStackVisibility updates the visibility of panes in a stack
 func (spm *StackedPaneManager) UpdateStackVisibility(stackNode *paneNode) {
-	log.Printf("[workspace] updateStackVisibility called: stackNode=%p", stackNode)
+	logging.Debug(fmt.Sprintf("[workspace] updateStackVisibility called: stackNode=%p", stackNode))
 
 	if stackNode == nil {
-		log.Printf("[workspace] updateStackVisibility aborted: stackNode is nil")
+		logging.Debug("[workspace] updateStackVisibility aborted: stackNode is nil")
 		return
 	}
 
 	if !stackNode.isStacked {
-		log.Printf("[workspace] updateStackVisibility aborted: stackNode.isStacked=%v", stackNode.isStacked)
+		logging.Debug(fmt.Sprintf("[workspace] updateStackVisibility aborted: stackNode.isStacked=%v", stackNode.isStacked))
 		return
 	}
 
 	if len(stackNode.stackedPanes) == 0 {
-		log.Printf("[workspace] updateStackVisibility aborted: stackedPanes empty, len=%d", len(stackNode.stackedPanes))
+		logging.Debug(fmt.Sprintf("[workspace] updateStackVisibility aborted: stackedPanes empty, len=%d", len(stackNode.stackedPanes)))
 		return
 	}
 
 	activeIndex := stackNode.activeStackIndex
 	if activeIndex < 0 || activeIndex >= len(stackNode.stackedPanes) {
-		log.Printf("[workspace] updateStackVisibility: correcting activeIndex from %d to 0", activeIndex)
+		logging.Debug(fmt.Sprintf("[workspace] updateStackVisibility: correcting activeIndex from %d to 0", activeIndex))
 		activeIndex = 0
 		stackNode.activeStackIndex = activeIndex
 	}
 
-	log.Printf("[workspace] updating stack visibility: activeIndex=%d stackSize=%d", activeIndex, len(stackNode.stackedPanes))
+	logging.Debug(fmt.Sprintf("[workspace] updating stack visibility: activeIndex=%d stackSize=%d", activeIndex, len(stackNode.stackedPanes)))
 
 	// CRITICAL: Process ALL panes in a single pass to prevent flickering
 	for i, pane := range stackNode.stackedPanes {
@@ -424,7 +423,7 @@ func (spm *StackedPaneManager) UpdateStackVisibility(stackNode *paneNode) {
 			if pane.titleBar != nil {
 				webkit.WidgetSetVisible(pane.titleBar, false) // ABSOLUTE RULE: never visible for active pane
 			}
-			log.Printf("[workspace] active pane %d: container=visible, titleBar=HIDDEN", i)
+			logging.Debug(fmt.Sprintf("[workspace] active pane %d: container=visible, titleBar=HIDDEN", i))
 		} else {
 			// Inactive panes: hide container, show title bar
 			if pane.container != nil {
@@ -474,7 +473,7 @@ func (spm *StackedPaneManager) NavigateStack(direction string) bool {
 	// This is more reliable than trying to match panes
 	currentIndex := stackNode.activeStackIndex
 	if currentIndex < 0 || currentIndex >= len(stackNode.stackedPanes) {
-		log.Printf("[workspace] navigateStack: invalid activeStackIndex=%d, resetting to 0", currentIndex)
+		logging.Debug(fmt.Sprintf("[workspace] navigateStack: invalid activeStackIndex=%d, resetting to 0", currentIndex))
 		currentIndex = 0
 		stackNode.activeStackIndex = 0
 	}
@@ -509,7 +508,7 @@ func (spm *StackedPaneManager) NavigateStack(direction string) bool {
 		currentTitle := currentActivePane.pane.webView.GetTitle()
 		if currentTitle != "" {
 			spm.updateTitleBarLabel(currentActivePane, currentTitle)
-			log.Printf("[workspace] updated title bar for pane transitioning to INACTIVE: %s", currentTitle)
+			logging.Debug(fmt.Sprintf("[workspace] updated title bar for pane transitioning to INACTIVE: %s", currentTitle))
 		}
 	}
 
@@ -521,8 +520,8 @@ func (spm *StackedPaneManager) NavigateStack(direction string) bool {
 	newActivePane := stackNode.stackedPanes[newIndex]
 	spm.wm.SetActivePane(newActivePane, SourceStackNav)
 
-	log.Printf("[workspace] navigated stack: direction=%s from=%d to=%d stackSize=%d",
-		direction, currentIndex, newIndex, len(stackNode.stackedPanes))
+	logging.Debug(fmt.Sprintf("[workspace] navigated stack: direction=%s from=%d to=%d stackSize=%d",
+		direction, currentIndex, newIndex, len(stackNode.stackedPanes)))
 	return true
 }
 
@@ -586,10 +585,10 @@ func (spm *StackedPaneManager) UpdateTitleBar(webView *webkit.WebView, title str
 		if paneIndex != -1 && paneIndex != activeIndex {
 			// This is an INACTIVE pane - safe to update title bar
 			spm.updateTitleBarLabel(node, title)
-			log.Printf("[workspace] updated title bar for INACTIVE WebView %d: %s", webView.ID(), title)
+			logging.Debug(fmt.Sprintf("[workspace] updated title bar for INACTIVE WebView %d: %s", webView.ID(), title))
 		} else {
 			// This is the ACTIVE pane - title bar should remain hidden
-			log.Printf("[workspace] skipped title bar update for ACTIVE WebView %d: %s", webView.ID(), title)
+			logging.Debug(fmt.Sprintf("[workspace] skipped title bar update for ACTIVE WebView %d: %s", webView.ID(), title))
 		}
 	}
 }
@@ -609,7 +608,7 @@ func (spm *StackedPaneManager) updateTitleBarLabel(node *paneNode, title string)
 	// Create new title bar with updated title and favicon
 	newTitleBar := spm.createTitleBarWithTitle(title, pageURL)
 	if newTitleBar == nil {
-		log.Printf("[workspace] failed to create new title bar")
+		logging.Error("[workspace] failed to create new title bar")
 		return
 	}
 
@@ -655,7 +654,7 @@ func (spm *StackedPaneManager) updateTitleBarLabel(node *paneNode, title string)
 			}
 		}
 
-		log.Printf("[workspace] replaced title bar for pane %d: %p", paneIndex, node)
+		logging.Debug(fmt.Sprintf("[workspace] replaced title bar for pane %d: %p", paneIndex, node))
 	}
 }
 
@@ -680,7 +679,7 @@ func (spm *StackedPaneManager) createTitleBarWithTitle(title string, pageURL str
 	if pageURL != "" && spm.wm != nil && spm.wm.app != nil && spm.wm.app.faviconService != nil {
 		spm.wm.app.faviconService.GetFaviconTexture(pageURL, func(texture *gdk.Texture, err error) {
 			if err != nil {
-				log.Printf("[favicon] Failed to load favicon for title bar: %s - %v", pageURL, err)
+				logging.Warn(fmt.Sprintf("[favicon] Failed to load favicon for title bar: %s - %v", pageURL, err))
 				return
 			}
 
@@ -753,7 +752,7 @@ func (spm *StackedPaneManager) CloseStackedPane(node *paneNode) error {
 		return errors.New("node not found in stack")
 	}
 
-	log.Printf("[workspace] closing stacked pane: index=%d stackSize=%d", nodeIndex, len(stackNode.stackedPanes))
+	logging.Debug(fmt.Sprintf("[workspace] closing stacked pane: index=%d stackSize=%d", nodeIndex, len(stackNode.stackedPanes)))
 
 	// Detach hover/focus controllers before tearing down widgets to avoid GTK
 	// callbacks referencing freed memory during destruction.
@@ -901,7 +900,7 @@ func (spm *StackedPaneManager) CloseStackedPane(node *paneNode) error {
 		stackNode.stackWrapper = nil
 		stackNode.stackedPanes = nil
 
-		log.Printf("[workspace] converted stack back to regular pane")
+		logging.Debug("[workspace] converted stack back to regular pane")
 		return nil
 
 	default:
@@ -922,8 +921,8 @@ func (spm *StackedPaneManager) CloseStackedPane(node *paneNode) error {
 		generation := spm.wm.nextCleanupGeneration()
 		spm.wm.cleanupPane(node, generation)
 
-		log.Printf("[workspace] closed pane from stack: remaining=%d activeIndex=%d",
-			len(stackNode.stackedPanes), stackNode.activeStackIndex)
+		logging.Debug(fmt.Sprintf("[workspace] closed pane from stack: remaining=%d activeIndex=%d",
+			len(stackNode.stackedPanes), stackNode.activeStackIndex))
 		return nil
 	}
 }
@@ -942,8 +941,8 @@ func (spm *StackedPaneManager) handleTitleBarClick(titleBarID uint64) {
 		if p == pane {
 			// Only switch if it's not already active
 			if i != stackNode.activeStackIndex {
-				log.Printf("[workspace] title bar clicked: switching from pane %d to pane %d",
-					stackNode.activeStackIndex, i)
+				logging.Debug(fmt.Sprintf("[workspace] title bar clicked: switching from pane %d to pane %d",
+					stackNode.activeStackIndex, i))
 
 				// Update title bar for the pane transitioning from ACTIVE to INACTIVE
 				currentActivePane := stackNode.stackedPanes[stackNode.activeStackIndex]

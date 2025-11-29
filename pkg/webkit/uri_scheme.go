@@ -2,8 +2,8 @@ package webkit
 
 import (
 	"fmt"
-	"log"
 
+	"github.com/bnema/dumber/internal/logging"
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
 )
 
@@ -25,7 +25,7 @@ var (
 // In WebKitGTK 6.0, this must be called BEFORE creating any WebViews
 // The actual registration happens in InitPersistentSession
 func RegisterURIScheme(scheme string, callback URISchemeRequestCallback) {
-	log.Printf("[webkit] Registering URI scheme handler for: %s", scheme)
+	logging.Debug(fmt.Sprintf("[webkit] Registering URI scheme handler for: %s", scheme))
 	pendingURISchemeHandlers = append(pendingURISchemeHandlers, &URISchemeHandler{
 		scheme:   scheme,
 		callback: callback,
@@ -45,7 +45,7 @@ func ApplyURISchemeHandlers(view *webkit.WebView) error {
 	}
 
 	for _, handler := range pendingURISchemeHandlers {
-		log.Printf("[webkit] Registering URI scheme on WebContext: %s", handler.scheme)
+		logging.Debug(fmt.Sprintf("[webkit] Registering URI scheme on WebContext: %s", handler.scheme))
 
 		// Capture handler in closure
 		callback := handler.callback

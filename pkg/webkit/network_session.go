@@ -2,8 +2,8 @@ package webkit
 
 import (
 	"fmt"
-	"log"
 
+	"github.com/bnema/dumber/internal/logging"
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
 )
 
@@ -25,7 +25,7 @@ func InitPersistentSession(dataDir, cacheDir string) error {
 	// If session already exists, return success (idempotent)
 	// This ensures we only create ONE session for the entire application
 	if globalNetworkSession != nil {
-		log.Printf("[webkit] Using existing persistent network session")
+		logging.Debug(fmt.Sprintf("[webkit] Using existing persistent network session"))
 		return nil
 	}
 
@@ -40,7 +40,7 @@ func InitPersistentSession(dataDir, cacheDir string) error {
 	// This is CRITICAL - if the session is GC'd, WebKit falls back to ephemeral storage
 	globalNetworkSession = session
 
-	log.Printf("[webkit] Persistent network session created: data=%s, cache=%s", dataDir, cacheDir)
+	logging.Debug(fmt.Sprintf("[webkit] Persistent network session created: data=%s, cache=%s", dataDir, cacheDir))
 
 	// Verify the session is not ephemeral
 	if session.IsEphemeral() {
@@ -55,7 +55,7 @@ func InitPersistentSession(dataDir, cacheDir string) error {
 	if websiteDataManager.IsEphemeral() {
 		return fmt.Errorf("website data manager is ephemeral despite providing data directories")
 	}
-	log.Printf("[webkit] WebsiteDataManager verified as non-ephemeral")
+	logging.Debug(fmt.Sprintf("[webkit] WebsiteDataManager verified as non-ephemeral"))
 
 	// Configure CookieManager for persistent cookie storage
 	// This is REQUIRED - without this, cookies are not persisted to disk
@@ -72,7 +72,7 @@ func InitPersistentSession(dataDir, cacheDir string) error {
 	// Set cookie accept policy to no third-party (default)
 	cookieManager.SetAcceptPolicy(webkit.CookiePolicyAcceptNoThirdParty)
 
-	log.Printf("[webkit] Cookie manager configured: storage=%s, policy=no-third-party", cookiePath)
+	logging.Debug(fmt.Sprintf("[webkit] Cookie manager configured: storage=%s, policy=no-third-party", cookiePath))
 
 	// Enable persistent credential storage (HTTP auth, etc.)
 	session.SetPersistentCredentialStorageEnabled(true)
@@ -80,7 +80,7 @@ func InitPersistentSession(dataDir, cacheDir string) error {
 	// Configure TLS errors to emit signals instead of failing silently
 	// This enables the load-failed-with-tls-errors signal
 	session.SetTLSErrorsPolicy(webkit.TLSErrorsPolicyFail)
-	log.Printf("[webkit] TLS errors policy set to FAIL (signals enabled)")
+	logging.Debug(fmt.Sprintf("[webkit] TLS errors policy set to FAIL (signals enabled)"))
 
 	// Verify this is indeed the default session now
 	defaultSession := webkit.NetworkSessionGetDefault()
@@ -93,7 +93,7 @@ func InitPersistentSession(dataDir, cacheDir string) error {
 		return fmt.Errorf("default network session is ephemeral after creating persistent session")
 	}
 
-	log.Printf("[webkit] Network session verified as persistent and set as default")
+	logging.Debug(fmt.Sprintf("[webkit] Network session verified as persistent and set as default"))
 	return nil
 }
 

@@ -1,8 +1,9 @@
 package webkit
 
 import (
-	"log"
+	"fmt"
 
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
@@ -17,7 +18,7 @@ const (
 // This enables hardware mouse button navigation (back/forward buttons)
 func (w *WebView) AttachMouseGestures() {
 	if w.view == nil {
-		log.Printf("[mouse-gestures] Cannot attach: WebView is nil")
+		logging.Error(fmt.Sprintf("[mouse-gestures] Cannot attach: WebView is nil"))
 		return
 	}
 
@@ -43,18 +44,18 @@ func (w *WebView) AttachMouseGestures() {
 		switch button {
 		case mouseButtonBack:
 			if w.view.CanGoBack() {
-				log.Printf("[mouse-gestures] Back button clicked - navigating backward")
+				logging.Debug(fmt.Sprintf("[mouse-gestures] Back button clicked - navigating backward"))
 				w.view.GoBack()
 			} else {
-				log.Printf("[mouse-gestures] Back button clicked but cannot go back")
+				logging.Debug(fmt.Sprintf("[mouse-gestures] Back button clicked but cannot go back"))
 			}
 
 		case mouseButtonForward:
 			if w.view.CanGoForward() {
-				log.Printf("[mouse-gestures] Forward button clicked - navigating forward")
+				logging.Debug(fmt.Sprintf("[mouse-gestures] Forward button clicked - navigating forward"))
 				w.view.GoForward()
 			} else {
-				log.Printf("[mouse-gestures] Forward button clicked but cannot go forward")
+				logging.Debug(fmt.Sprintf("[mouse-gestures] Forward button clicked but cannot go forward"))
 			}
 		}
 	})
@@ -62,5 +63,5 @@ func (w *WebView) AttachMouseGestures() {
 	// Attach controller to WebView
 	w.view.AddController(gestureClick)
 
-	log.Printf("[mouse-gestures] Mouse gesture controller attached to WebView ID %d", w.id)
+	logging.Debug(fmt.Sprintf("[mouse-gestures] Mouse gesture controller attached to WebView ID %d", w.id))
 }

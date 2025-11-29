@@ -3,11 +3,11 @@ package webkit
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"strconv"
 	"sync"
 	"sync/atomic"
 
+	"github.com/bnema/dumber/internal/logging"
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
@@ -61,7 +61,7 @@ func NewWebView(cfg *Config) (*WebView, error) {
 
 	// Generate unique ID immediately
 	id := atomic.AddUint64(&viewIDCounter, 1)
-	log.Printf("[webkit] Generated WebView ID: %d (CreateWindow=%v)", id, cfg.CreateWindow)
+	logging.Debug(fmt.Sprintf("[webkit] Generated WebView ID: %d (CreateWindow=%v)", id, cfg.CreateWindow))
 
 	InitMainThread()
 
@@ -166,9 +166,9 @@ func NewWebView(cfg *Config) (*WebView, error) {
 		wv.window = window
 		// Add container as child of window
 		window.SetChild(container)
-		log.Printf("[webkit] Created standalone window for WebView ID %d", id)
+		logging.Debug(fmt.Sprintf("[webkit] Created standalone window for WebView ID %d", id))
 	} else {
-		log.Printf("[webkit] Created WebView ID %d without window (for workspace embedding)", id)
+		logging.Debug(fmt.Sprintf("[webkit] Created WebView ID %d without window (for workspace embedding)", id))
 	}
 
 	// Register in global registry
@@ -279,22 +279,22 @@ func (w *WebView) setupEventHandlers() {
 
 	// Create signal - for popup lifecycle management
 	w.view.ConnectCreate(func(navigationAction *webkit.NavigationAction) gtk.Widgetter {
-		log.Printf("[webkit] ConnectCreate callback fired for parent WebView ID=%d", w.id)
+		logging.Debug(fmt.Sprintf("[webkit] ConnectCreate callback fired for parent WebView ID=%d", w.id))
 		if w.onPopupCreate != nil {
-			log.Printf("[webkit] Calling onPopupCreate handler")
+			logging.Debug(fmt.Sprintf("[webkit] Calling onPopupCreate handler"))
 			newWebView := w.onPopupCreate(navigationAction)
 			if newWebView != nil {
-				log.Printf("[webkit] onPopupCreate returned WebView wrapper ID=%d", newWebView.id)
-				log.Printf("[webkit] Extracting underlying gotk4 WebView from wrapper")
+				logging.Debug(fmt.Sprintf("[webkit] onPopupCreate returned WebView wrapper ID=%d", newWebView.id))
+				logging.Debug(fmt.Sprintf("[webkit] Extracting underlying gotk4 WebView from wrapper"))
 				underlyingView := newWebView.view
-				log.Printf("[webkit] Extracted gotk4 WebView=%p, about to return to WebKit", underlyingView)
+				logging.Debug(fmt.Sprintf("[webkit] Extracted gotk4 WebView=%p, about to return to WebKit", underlyingView))
 				// Return the underlying WebView widget to WebKit
 				return underlyingView
 			}
-			log.Printf("[webkit] onPopupCreate returned nil, blocking popup")
+			logging.Debug(fmt.Sprintf("[webkit] onPopupCreate returned nil, blocking popup"))
 		}
 		// Return nil to cancel popup creation
-		log.Printf("[webkit] No onPopupCreate handler, blocking popup")
+		logging.Debug(fmt.Sprintf("[webkit] No onPopupCreate handler, blocking popup"))
 		return nil
 	})
 
@@ -379,7 +379,7 @@ func (w *WebView) setupNavigationPolicyHandler() {
 		if isCtrlClick {
 			clickType = "Ctrl+click"
 		}
-		log.Printf("[navigation-policy] Detected %s on link: %s", clickType, linkURL)
+		logging.Debug(fmt.Sprintf("[navigation-policy] Detected %s on link: %s", clickType, linkURL))
 
 		// Call the registered handler
 		w.mu.RLock()
@@ -389,7 +389,7 @@ func (w *WebView) setupNavigationPolicyHandler() {
 		if handler != nil {
 			handled := handler(linkURL)
 			if handled {
-				log.Printf("[navigation-policy] %s handled by workspace, blocking navigation", clickType)
+				logging.Debug(fmt.Sprintf("[navigation-policy] %s handled by workspace, blocking navigation", clickType))
 				// Block the navigation by calling Ignore()
 				navDecision.Ignore()
 				return true // Prevent default behavior
@@ -399,7 +399,7 @@ func (w *WebView) setupNavigationPolicyHandler() {
 		return false // Let WebKit handle if not handled
 	})
 
-	log.Printf("[webkit] Navigation policy handler attached to WebView ID %d", w.id)
+	logging.Debug(fmt.Sprintf("[webkit] Navigation policy handler attached to WebView ID %d", w.id))
 }
 
 // LoadURL loads the given URL in the WebView
@@ -800,7 +800,7 @@ func (w *WebView) DispatchCustomEvent(eventName string, data interface{}) error 
 		return fmt.Errorf("failed to marshal event data: %w", err)
 	}
 
-	log.Printf("[webkit] Dispatching event '%s' to WebView ID %d with data: %s", eventName, w.id, string(jsonData))
+	logging.Debug(fmt.Sprintf("[webkit] Dispatching event '%s' to WebView ID %d with data: %s", eventName, w.id, string(jsonData)))
 
 	// Use document.dispatchEvent (not window) so events cross JavaScript world boundaries
 	// The GUI scripts run in an isolated world but share the same Document object
@@ -925,7 +925,7 @@ func (w *WebView) UpdateContentFilters(rules string) error {
 
 	// Note: Content filtering is handled via InitializeContentBlocking()
 	// This method is kept for backward compatibility but is deprecated
-	log.Printf("[webkit] UpdateContentFilters called but is deprecated - use InitializeContentBlocking instead")
+	logging.Warn(fmt.Sprintf("[webkit] UpdateContentFilters called but is deprecated - use InitializeContentBlocking instead"))
 	return nil
 }
 
@@ -979,21 +979,21 @@ func (w *WebView) setupFaviconHandlers() {
 	// Get the NetworkSession from the WebView
 	session := w.view.NetworkSession()
 	if session == nil {
-		log.Printf("[webkit] Warning: No NetworkSession available for favicon handling")
+		logging.Warn(fmt.Sprintf("[webkit] Warning: No NetworkSession available for favicon handling"))
 		return
 	}
 
 	// Get the WebsiteDataManager from the NetworkSession
 	dataManager := session.WebsiteDataManager()
 	if dataManager == nil {
-		log.Printf("[webkit] Warning: No WebsiteDataManager available for favicon handling")
+		logging.Warn(fmt.Sprintf("[webkit] Warning: No WebsiteDataManager available for favicon handling"))
 		return
 	}
 
 	// Enable favicons if not already enabled
 	if !dataManager.FaviconsEnabled() {
 		dataManager.SetFaviconsEnabled(true)
-		log.Printf("[webkit] Enabled favicons for WebView ID %d", w.id)
+		logging.Debug(fmt.Sprintf("[webkit] Enabled favicons for WebView ID %d", w.id))
 	}
 
 }
@@ -1016,7 +1016,7 @@ func WrapBareWebView(bareView *webkit.WebView) *WebView {
 
 	// Generate unique ID
 	id := atomic.AddUint64(&viewIDCounter, 1)
-	log.Printf("[webkit] Created minimal wrapper for bare WebView (ID: %d)", id)
+	logging.Debug(fmt.Sprintf("[webkit] Created minimal wrapper for bare WebView (ID: %d)", id))
 
 	// Create minimal wrapper - NO initialization yet
 	wv := &WebView{
@@ -1093,7 +1093,7 @@ func (w *WebView) InitializeFromBare(cfg *Config) error {
 	// Attach touchpad gesture controls
 	w.AttachTouchpadGestures()
 
-	log.Printf("[webkit] Completed initialization for WebView ID %d", w.id)
+	logging.Debug(fmt.Sprintf("[webkit] Completed initialization for WebView ID %d", w.id))
 
 	return nil
 }

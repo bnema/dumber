@@ -2,7 +2,7 @@ package main
 
 import (
 	"embed"
-	"log"
+	"fmt"
 	"os"
 	"runtime"
 
@@ -35,7 +35,8 @@ func main() {
 
 	// Load config file first, then initialize logging with actual config
 	if err := config.Init(); err != nil {
-		log.Printf("Warning: failed to load config: %v, using defaults", err)
+		// Use fmt.Printf for early errors before logging is initialized
+		fmt.Printf("Warning: failed to load config: %v, using defaults\n", err)
 	}
 	cfg := config.Get()
 
@@ -49,10 +50,11 @@ func main() {
 		cfg.Logging.MaxAge,
 		cfg.Logging.Compress,
 	); err != nil {
-		log.Printf("Warning: failed to initialize logging: %v", err)
+		// Use fmt.Printf for early errors before logging is initialized
+		fmt.Printf("Warning: failed to initialize logging: %v\n", err)
 	}
 
-	log.Printf("Starting dumber browser v%s (commit: %s, built: %s)", version, commit, buildDate)
+	logging.Info(fmt.Sprintf("Starting dumber browser v%s (commit: %s, built: %s)", version, commit, buildDate))
 
 	// GTK requires all UI calls to run on the main OS thread
 	if webkit.IsNativeAvailable() {

@@ -5,13 +5,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/db"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/diamondburned/gotk4/pkg/gio/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
@@ -29,12 +29,12 @@ type TLSCertificateInfo struct {
 // setupTLSErrorHandler sets up the TLS error handler for the WebView
 func (wv *WebView) setupTLSErrorHandler() {
 	wv.view.ConnectLoadFailedWithTLSErrors(func(failingUri string, certificate gio.TLSCertificater, errors gio.TLSCertificateFlags) bool {
-		log.Printf("[tls] Load failed with TLS errors for: %s, errors: %v", failingUri, errors)
+		logging.Warn(fmt.Sprintf("[tls] Load failed with TLS errors for: %s, errors: %v", failingUri, errors))
 
 		// Extract hostname from URI
 		hostname := extractHostname(failingUri)
 		if hostname == "" {
-			log.Printf("[tls] Failed to extract hostname from URI: %s", failingUri)
+			logging.Error(fmt.Sprintf("[tls] Failed to extract hostname from URI: %s", failingUri))
 			return false // Let WebKit handle it
 		}
 
@@ -44,17 +44,17 @@ func (wv *WebView) setupTLSErrorHandler() {
 		decision, exists := checkStoredCertificateDecision(hostname)
 		if exists {
 			if decision == "accepted" {
-				log.Printf("[tls] Certificate previously accepted for %s, allowing", hostname)
+				logging.Debug(fmt.Sprintf("[tls] Certificate previously accepted for %s, allowing", hostname))
 				wv.allowCertificateAndReload(certificate, hostname, failingUri)
 				return true // Signal handled
 			} else {
-				log.Printf("[tls] Certificate previously rejected for %s, blocking", hostname)
+				logging.Debug(fmt.Sprintf("[tls] Certificate previously rejected for %s, blocking", hostname))
 				return false // Let WebKit show error
 			}
 		}
 
 		// No stored decision - show dialog to user
-		log.Printf("[tls] No stored decision for %s, showing dialog", hostname)
+		logging.Debug(fmt.Sprintf("[tls] No stored decision for %s, showing dialog", hostname))
 		wv.showTLSErrorDialog(failingUri, hostname, certificate, errors)
 
 		return true // Signal handled - we're managing the error
@@ -87,24 +87,24 @@ func extractHostname(uri string) string {
 func checkStoredCertificateDecision(hostname string) (string, bool) {
 	cfg := config.Get()
 	if cfg == nil {
-		log.Printf("[tls] Config not available, cannot check stored decisions")
+		logging.Error(fmt.Sprintf("[tls] Config not available, cannot check stored decisions"))
 		return "", false
 	}
 
 	dbPath := cfg.Database.Path
 	if dbPath == "" {
-		log.Printf("[tls] Database path not configured")
+		logging.Error(fmt.Sprintf("[tls] Database path not configured"))
 		return "", false
 	}
 
 	database, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
-		log.Printf("[tls] Failed to open database: %v", err)
+		logging.Error(fmt.Sprintf("[tls] Failed to open database: %v", err))
 		return "", false
 	}
 	defer func() {
 		if err := database.Close(); err != nil {
-			log.Printf("[tls] warning: failed to close database: %v", err)
+			logging.Warn(fmt.Sprintf("[tls] warning: failed to close database: %v", err))
 		}
 	}()
 
@@ -117,7 +117,7 @@ func checkStoredCertificateDecision(hostname string) (string, bool) {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", false
 		}
-		log.Printf("[tls] Error checking certificate validation: %v", err)
+		logging.Error(fmt.Sprintf("[tls] Error checking certificate validation: %v", err))
 		return "", false
 	}
 
@@ -142,23 +142,23 @@ func storeCertificateDecision(hostname, decision string, expiresAt sql.NullTime)
 	}
 	defer func() {
 		if err := database.Close(); err != nil {
-			log.Printf("[tls] warning: failed to close database: %v", err)
+			logging.Warn(fmt.Sprintf("[tls] warning: failed to close database: %v", err))
 		}
 	}()
 
 	queries := db.New(database)
 	ctx := context.Background()
 
-	log.Printf("[tls] Saving certificate decision to database: hostname=%s, decision=%s, expiresAt=%v",
-		hostname, decision, expiresAt)
+	logging.Debug(fmt.Sprintf("[tls] Saving certificate decision to database: hostname=%s, decision=%s, expiresAt=%v",
+		hostname, decision, expiresAt))
 
 	// Use empty string for cert hash since we're doing hostname-only matching
 	if err := queries.StoreCertificateValidation(ctx, hostname, "", decision, expiresAt); err != nil {
-		log.Printf("[tls] Failed to save certificate decision to database: %v", err)
+		logging.Error(fmt.Sprintf("[tls] Failed to save certificate decision to database: %v", err))
 		return err
 	}
 
-	log.Printf("[tls] Certificate decision saved successfully in database")
+	logging.Debug(fmt.Sprintf("[tls] Certificate decision saved successfully in database"))
 	return nil
 }
 
@@ -222,7 +222,7 @@ func (wv *WebView) showTLSErrorDialog(failingUri, hostname string, certificate g
 		// Create AlertDialog using CGO wrapper
 		dialog := newAlertDialog(fmt.Sprintf("Certificate Error for %s", hostname))
 		if dialog == nil {
-			log.Printf("[tls] Failed to create alert dialog")
+			logging.Error(fmt.Sprintf("[tls] Failed to create alert dialog"))
 			return
 		}
 
@@ -245,32 +245,32 @@ func (wv *WebView) showTLSErrorDialog(failingUri, hostname string, certificate g
 		dialog.Choose(context.Background(), parentWindow, func(result gio.AsyncResulter) {
 			buttonIndex, err := dialog.ChooseFinish(result)
 			if err != nil {
-				log.Printf("[tls] Dialog error: %v", err)
+				logging.Error(fmt.Sprintf("[tls] Dialog error: %v", err))
 				return
 			}
 
-			log.Printf("[tls] User chose button %d for %s", buttonIndex, hostname)
+			logging.Debug(fmt.Sprintf("[tls] User chose button %d for %s", buttonIndex, hostname))
 
 			switch buttonIndex {
 			case 0: // Go Back
-				log.Printf("[tls] User chose to go back")
+				logging.Debug(fmt.Sprintf("[tls] User chose to go back"))
 				// Do nothing - let the load fail
 
 			case 1: // Proceed Once
-				log.Printf("[tls] User chose to proceed once")
+				logging.Debug(fmt.Sprintf("[tls] User chose to proceed once"))
 				wv.allowCertificateAndReload(certificate, hostname, failingUri)
 
 			case 2: // Always Accept This Site
-				log.Printf("[tls] User chose to always accept for %s", hostname)
+				logging.Debug(fmt.Sprintf("[tls] User chose to always accept for %s", hostname))
 				// Store decision in database (expires in 30 days)
 				expiresAt := sql.NullTime{
 					Time:  time.Now().Add(30 * 24 * time.Hour),
 					Valid: true,
 				}
 				if err := storeCertificateDecision(hostname, "accepted", expiresAt); err != nil {
-					log.Printf("[tls] Failed to store certificate decision: %v", err)
+					logging.Error(fmt.Sprintf("[tls] Failed to store certificate decision: %v", err))
 				} else {
-					log.Printf("[tls] Stored certificate acceptance for %s (expires in 30 days)", hostname)
+					logging.Debug(fmt.Sprintf("[tls] Stored certificate acceptance for %s (expires in 30 days)", hostname))
 				}
 				wv.allowCertificateAndReload(certificate, hostname, failingUri)
 			}
@@ -284,17 +284,17 @@ func (wv *WebView) allowCertificateAndReload(certificate gio.TLSCertificater, ho
 		// Get the network session
 		session := wv.view.NetworkSession()
 		if session == nil {
-			log.Printf("[tls] Failed to get network session")
+			logging.Error(fmt.Sprintf("[tls] Failed to get network session"))
 			return
 		}
 
 		// Allow the certificate for this host
 		session.AllowTLSCertificateForHost(certificate, hostname)
-		log.Printf("[tls] Certificate exception added for host: %s", hostname)
+		logging.Debug(fmt.Sprintf("[tls] Certificate exception added for host: %s", hostname))
 
 		// Reload the page
 		wv.view.LoadURI(uri)
-		log.Printf("[tls] Reloading %s with certificate exception", uri)
+		logging.Debug(fmt.Sprintf("[tls] Reloading %s with certificate exception", uri))
 	})
 }
 
@@ -317,7 +317,7 @@ func CleanupExpiredCertificateValidations() error {
 	}
 	defer func() {
 		if err := database.Close(); err != nil {
-			log.Printf("[tls] warning: failed to close database: %v", err)
+			logging.Warn(fmt.Sprintf("[tls] warning: failed to close database: %v", err))
 		}
 	}()
 
@@ -328,6 +328,6 @@ func CleanupExpiredCertificateValidations() error {
 		return fmt.Errorf("failed to delete expired validations: %w", err)
 	}
 
-	log.Printf("[tls] Cleaned up expired certificate validations")
+	logging.Debug(fmt.Sprintf("[tls] Cleaned up expired certificate validations"))
 	return nil
 }

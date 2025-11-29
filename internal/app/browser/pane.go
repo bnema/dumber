@@ -1,11 +1,12 @@
 package browser
 
 import (
-	"log"
+	"fmt"
 	"time"
 
 	"github.com/bnema/dumber/internal/app/control"
 	"github.com/bnema/dumber/internal/app/messaging"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/pkg/webkit"
 )
 
@@ -85,7 +86,7 @@ func (p *BrowserPane) Cleanup() {
 
 	if p.shortcutHandler != nil {
 		p.shortcutHandler.Detach()
-		log.Printf("[pane-%s] Cleaned up shortcuts", p.id)
+		logging.Debug(fmt.Sprintf("[pane-%s] Cleaned up shortcuts", p.id))
 	}
 
 	if p.navigationController != nil {
@@ -107,9 +108,9 @@ func (p *BrowserPane) Cleanup() {
 	// Destroy WebView to unregister from global registry and release resources
 	if p.webView != nil && !p.webView.IsDestroyed() {
 		if err := p.webView.Destroy(); err != nil {
-			log.Printf("[pane-%s] failed to destroy webview: %v", p.id, err)
+			logging.Error(fmt.Sprintf("[pane-%s] failed to destroy webview: %v", p.id, err))
 		} else {
-			log.Printf("[pane-%s] successfully destroyed webview", p.id)
+			logging.Debug(fmt.Sprintf("[pane-%s] successfully destroyed webview", p.id))
 		}
 	}
 
@@ -132,6 +133,6 @@ func (p *BrowserPane) CleanupFromWorkspace(wm interface{}) {
 	}); ok {
 		workspaceManager.removeFromMaps(p.webView)
 		workspaceManager.removeFromAppPanes(p)
-		log.Printf("[pane-%s] Cleaned up from workspace tracking", p.id)
+		logging.Debug(fmt.Sprintf("[pane-%s] Cleaned up from workspace tracking", p.id))
 	}
 }

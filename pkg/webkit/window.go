@@ -1,8 +1,9 @@
 package webkit
 
 import (
-	"log"
+	"fmt"
 
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
@@ -26,7 +27,7 @@ func NewWindow(title string) (*Window, error) {
 	// Connect close-request signal to handle Cmd+Q and window close button
 	// Returning true prevents the default close behavior and allows graceful shutdown
 	win.ConnectCloseRequest(func() bool {
-		log.Printf("[window] Close request received (Cmd+Q or close button) - initiating graceful shutdown")
+		logging.Info(fmt.Sprintf("[window] Close request received (Cmd+Q or close button) - initiating graceful shutdown"))
 		// Quit the main loop gracefully, which will trigger cleanup
 		QuitMainLoop()
 		// Return true to prevent GTK from destroying the window immediately

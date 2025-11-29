@@ -3,10 +3,10 @@ package browser
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 
 	"github.com/bnema/dumber/internal/app/control"
 	"github.com/bnema/dumber/internal/config"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/pkg/webkit"
 )
 
@@ -71,7 +71,7 @@ func (s *ShortcutHandler) RegisterShortcuts() {
 		if !s.isActivePane() {
 			return
 		}
-		log.Printf("Shortcut: Reload page")
+		logging.Debug("Shortcut: Reload page")
 		_ = s.webView.Reload()
 	})
 
@@ -79,7 +79,7 @@ func (s *ShortcutHandler) RegisterShortcuts() {
 		if !s.isActivePane() {
 			return
 		}
-		log.Printf("Shortcut: Hard reload page")
+		logging.Debug("Shortcut: Hard reload page")
 		_ = s.webView.ReloadBypassCache()
 	})
 
@@ -87,7 +87,7 @@ func (s *ShortcutHandler) RegisterShortcuts() {
 		if !s.isActivePane() {
 			return
 		}
-		log.Printf("Shortcut: F5 reload")
+		logging.Debug("Shortcut: F5 reload")
 		_ = s.webView.Reload()
 	})
 
@@ -117,7 +117,7 @@ func (s *ShortcutHandler) exposeWorkspaceConfig() {
 
 	payload, err := json.Marshal(s.config.Workspace)
 	if err != nil {
-		log.Printf("Shortcut: failed to marshal workspace config: %v", err)
+		logging.Error(fmt.Sprintf("Shortcut: failed to marshal workspace config: %v", err))
 		return
 	}
 
@@ -128,7 +128,7 @@ func (s *ShortcutHandler) exposeWorkspaceConfig() {
 })();`, string(payload))
 
 	if err := s.webView.InjectScript(script); err != nil {
-		log.Printf("Shortcut: failed to expose workspace config: %v", err)
+		logging.Error(fmt.Sprintf("Shortcut: failed to expose workspace config: %v", err))
 	}
 }
 
