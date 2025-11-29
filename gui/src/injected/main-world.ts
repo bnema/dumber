@@ -32,6 +32,7 @@ declare global {
     ) => number | void;
     __dumber_showZoomToast?: (level: number) => void;
     __dumber_omnibox_suggestions?: (suggestions: Suggestion[]) => void;
+    __dumber_omnibox_inline_suggestion?: (url: string | null) => void;
     __dumber_favorites?: (favorites: unknown[]) => void;
     __dumber_webview_id?: string | number;
     __dumber_is_active?: boolean;
@@ -371,6 +372,12 @@ interface DumberAPI {
           console.error("[dumber-bridge] Omnibox queue error", err);
         }
       }
+    };
+
+    // Inline suggestion bridge (fish-style ghost text)
+    window.__dumber_omnibox_inline_suggestion = (url: string | null) => {
+      console.log("[INLINE] main-world received inline suggestion:", url);
+      bridgeDispatch("dumber:omnibox:inline-suggestion", { url });
     };
 
     // Favorites bridge

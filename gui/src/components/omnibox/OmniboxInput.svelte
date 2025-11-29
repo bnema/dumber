@@ -5,7 +5,7 @@
 -->
 <script lang="ts">
   import { omniboxStore } from './stores.svelte.ts';
-  import { debouncedQuery, debouncedFind, omniboxBridge } from './messaging';
+  import { debouncedQuery, debouncedFind, debouncedPrefixQuery, omniboxBridge } from './messaging';
   import { findInPage } from './find';
 
   // Reactive state
@@ -17,6 +17,11 @@
   let favorites = $derived(omniboxStore.favorites);
   let matches = $derived(omniboxStore.matches);
   let searchShortcuts = $derived(omniboxStore.searchShortcuts);
+  let inlineCompletion = $derived(omniboxStore.inlineCompletion);
+  let inlineSuggestion = $derived(omniboxStore.inlineSuggestion);
+
+  // Cursor tracking for ghost text visibility
+  let cursorAtEnd = $state(true);
 
   // Input element ref and responsive styles (props for parent to bind)
   interface Props {
@@ -84,6 +89,14 @@
   }
 
   let activeBadge = $state<CommandBadge | null>(null);
+  // Ghost text visibility - only show when cursor is at end and no command badge active
+  let showGhostText = $derived(
+    mode === 'omnibox' &&
+    inlineCompletion &&
+    cursorAtEnd &&
+    inputValue.length > 0 &&
+    !activeBadge
+  );
   let basePaddingSegments = $state<[string, string, string, string]>(DEFAULT_PADDING);
   let inputPadding = $state(DEFAULT_PADDING.join(' '));
   let baseLeftPadding = $state(DEFAULT_PADDING[3]);
@@ -95,6 +108,19 @@
 
   $effect(() => {
     basePaddingSegments = normalizePadding(responsiveStyles?.inputPadding);
+  });
+
+  // Debug: log when inline suggestion state changes
+  $effect(() => {
+    console.log('[INLINE] State changed:', {
+      inlineCompletion,
+      inlineSuggestion,
+      showGhostText,
+      cursorAtEnd,
+      mode,
+      inputValueLength: inputValue?.length,
+      activeBadge: !!activeBadge
+    });
   });
 
   $effect(() => {
@@ -110,6 +136,57 @@
     inputPadding = `${top} ${right} ${bottom} ${leftPadding}`;
   });
 
+  // Track cursor position for ghost text visibility
+  function updateCursorPosition() {
+    if (inputElement) {
+      cursorAtEnd = inputElement.selectionStart === inputValue.length &&
+                    inputElement.selectionEnd === inputValue.length;
+    }
+  }
+
+  // Accept inline suggestion (full or word-by-word)
+  function acceptInlineSuggestion(acceptMode: 'full' | 'word') {
+    if (!inlineSuggestion || !inlineCompletion) return;
+
+    switch (acceptMode) {
+      case 'full':
+        // Accept entire suggestion
+        omniboxStore.setInputValue(inlineSuggestion);
+        omniboxStore.clearInlineSuggestion();
+        // Query for next prefix match
+        debouncedPrefixQuery(inlineSuggestion);
+        // Also update the search results
+        debouncedQuery(inlineSuggestion);
+        break;
+
+      case 'word':
+        // Accept next word at cursor position
+        const cursorPos = inputElement?.selectionStart ?? inputValue.length;
+        const remainingCompletion = inlineSuggestion.slice(cursorPos);
+
+        // Find next word boundary (handles /, ., -, _ as boundaries)
+        const wordMatch = remainingCompletion.match(/^([^\s\/\.\-\_]+[\s\/\.\-\_]?)/);
+        if (wordMatch && wordMatch[1]) {
+          const wordToInsert = wordMatch[1];
+          const newValue = inputValue.slice(0, cursorPos) + wordToInsert + inputValue.slice(cursorPos);
+          const newCursorPos = cursorPos + wordToInsert.length;
+
+          omniboxStore.setInputValue(newValue);
+
+          requestAnimationFrame(() => {
+            if (inputElement) {
+              inputElement.setSelectionRange(newCursorPos, newCursorPos);
+              updateCursorPosition();
+            }
+          });
+
+          debouncedPrefixQuery(newValue);
+          debouncedQuery(newValue);
+        }
+        break;
+    }
+  }
+
   // Handle input changes
   function handleInput(event: Event) {
     const target = event.target as HTMLInputElement;
@@ -117,6 +194,7 @@
 
     omniboxStore.setInputValue(value);
     omniboxStore.setFaded(false);
+    updateCursorPosition();
 
     if (mode === 'omnibox') {
       // Only query backend if we're in history view
@@ -125,9 +203,12 @@
         if (value === '') {
           // Input is empty - fetch initial history based on config
           omniboxBridge.fetchInitialHistory();
+          omniboxStore.clearInlineSuggestion();
         } else {
           // Input has content - perform search
           debouncedQuery(value);
+          // Also query for inline suggestion (fish-style ghost text)
+          debouncedPrefixQuery(value);
         }
       }
     } else if (mode === 'find') {
@@ -188,6 +269,33 @@
         event.preventDefault();
         event.stopPropagation();
         handleArrowKeys(event.key);
+        break;
+
+      case 'ArrowRight':
+        // Handle inline suggestion acceptance (fish-style)
+        if (mode === 'omnibox' && inlineCompletion) {
+          if (event.ctrlKey || event.metaKey) {
+            // Ctrl+Right: accept next word
+            event.preventDefault();
+            event.stopPropagation();
+            acceptInlineSuggestion('word');
+          } else if (cursorAtEnd) {
+            // Right at end: accept full suggestion
+            event.preventDefault();
+            event.stopPropagation();
+            acceptInlineSuggestion('full');
+          }
+          // If cursor not at end and no modifier, let default behavior happen
+        }
+        break;
+
+      case 'y':
+        // Ctrl+Y: accept full inline suggestion (alternative to Right Arrow)
+        if (event.ctrlKey && mode === 'omnibox' && inlineCompletion) {
+          event.preventDefault();
+          event.stopPropagation();
+          acceptInlineSuggestion('full');
+        }
         break;
 
       default:
@@ -365,10 +473,6 @@
     omniboxStore.setFaded(false);
   }
 
-  function handleClick() {
-    omniboxStore.setFaded(false);
-  }
-
   function handleFocus() {
     omniboxStore.setFaded(false);
     if (inputElement) {
@@ -394,6 +498,17 @@
       }
     }
   }
+
+  // Handle selection changes (for cursor tracking)
+  function handleSelect() {
+    updateCursorPosition();
+  }
+
+  // Handle click with cursor tracking
+  function handleClickWithCursor() {
+    omniboxStore.setFaded(false);
+    updateCursorPosition();
+  }
 </script>
 
 <div class="omnibox-input-wrapper">
@@ -405,17 +520,30 @@
     >{activeBadge.label}</span>
   {/if}
 
+  <!-- Ghost text overlay (fish-style inline suggestion) -->
+  {#if showGhostText}
+    <div
+      class="omnibox-ghost-text"
+      aria-hidden="true"
+      style={`padding: ${inputPadding}; font-size: ${inputFontSize};`}
+    >
+      <span class="ghost-spacer">{inputValue}</span><span class="ghost-completion">{inlineCompletion}</span>
+    </div>
+  {/if}
+
   <input
     bind:this={inputElement}
     type="text"
     {placeholder}
     value={inputValue}
     class="w-full box-border omnibox-input omnibox-input-field focus:outline-none"
+    class:has-ghost-text={showGhostText}
     style={`padding: ${inputPadding}; font-size: ${inputFontSize}; box-sizing: border-box;`}
     oninput={handleInput}
     onkeydown={handleKeyDown}
     onmousedown={handleMouseDown}
-    onclick={handleClick}
+    onclick={handleClickWithCursor}
+    onselect={handleSelect}
     onfocus={handleFocus}
     onblur={handleBlur}
     onmouseenter={handleMouseEnter}
@@ -480,5 +608,51 @@
     white-space: nowrap;
     box-shadow: 0 0 0 1px var(--dynamic-border, transparent);
     z-index: 1;
+  }
+
+  /* Ghost text overlay for fish-style inline suggestions */
+  .omnibox-ghost-text {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    overflow: hidden;
+    font-family: 'Fira Sans', system-ui, -apple-system, 'Segoe UI', 'Ubuntu', 'Cantarell', sans-serif;
+    letter-spacing: normal;
+    z-index: 0;
+    box-sizing: border-box;
+    border: 1px solid transparent;
+  }
+
+  .ghost-spacer {
+    visibility: hidden;
+    white-space: pre;
+  }
+
+  .ghost-completion {
+    color: var(--dynamic-muted);
+    opacity: 0.5;
+    white-space: pre;
+    transition: opacity 100ms ease-out;
+  }
+
+  .omnibox-ghost-text {
+    transition: opacity 80ms ease-out;
+  }
+
+  /* Make input transparent when showing ghost text */
+  .omnibox-input-field.has-ghost-text {
+    background: transparent !important;
+  }
+
+  /* Ensure wrapper provides background when ghost text is active */
+  .omnibox-input-wrapper:has(.has-ghost-text) {
+    background: var(--dumber-input-bg, var(--dynamic-bg));
+    border-radius: 2px;
   }
 </style>

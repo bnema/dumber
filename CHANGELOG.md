@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Inline URL suggestions**: Fish/zsh-style ghost text completion in omnibox. As you type, shows grayed-out URL completion from history. Accept with Right Arrow (full) or Ctrl+Right (word). Ctrl+Y also accepts full suggestion. Uses trie-based prefix search with debounced queries for smooth typing.
 - **Filter list auto-update**: Async version checking using HTTP HEAD request with ETag. 2-minute startup delay, skips if checked within 24 hours. Stores version per filter list.
 - **Configurable filter lists**: New `content_filtering.filter_lists` config option. Defaults include EasyList, EasyPrivacy, and uBlock filters (annoyances, quick-fixes).
 - **Demo video**: Added feature showcase video to README (docs/media/dumber-demo.mp4).

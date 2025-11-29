@@ -127,6 +127,8 @@ func (h *Handler) Handle(payload string) {
 		h.handleIsFavorite(msg)
 	case "keyboard_blocking":
 		h.handleKeyboardBlocking(msg)
+	case "prefix_query":
+		h.handlePrefixQuery(msg)
 	}
 }
 
@@ -869,5 +871,33 @@ func (h *Handler) handleKeyboardBlocking(msg Message) {
 
 	if err := h.webView.InjectScript(script); err != nil {
 		logging.Error(fmt.Sprintf("[ERROR] Failed to inject keyboard blocking script: %v", err))
+	}
+}
+
+// handlePrefixQuery returns the best prefix-matching URL for inline suggestions
+func (h *Handler) handlePrefixQuery(msg Message) {
+	if h.webView == nil || h.browserService == nil {
+		return
+	}
+
+	query := msg.Q
+	if query == "" {
+		_ = h.webView.InjectScript("window.__dumber_omnibox_inline_suggestion && window.__dumber_omnibox_inline_suggestion(null)")
+		return
+	}
+
+	ctx := context.Background()
+	prefixURL := h.browserService.GetBestPrefixMatch(ctx, query)
+
+	if prefixURL != "" {
+		// Escape the URL for JavaScript string
+		escaped, err := json.Marshal(prefixURL)
+		if err != nil {
+			_ = h.webView.InjectScript("window.__dumber_omnibox_inline_suggestion && window.__dumber_omnibox_inline_suggestion(null)")
+			return
+		}
+		_ = h.webView.InjectScript("window.__dumber_omnibox_inline_suggestion && window.__dumber_omnibox_inline_suggestion(" + string(escaped) + ")")
+	} else {
+		_ = h.webView.InjectScript("window.__dumber_omnibox_inline_suggestion && window.__dumber_omnibox_inline_suggestion(null)")
 	}
 }

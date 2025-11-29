@@ -185,6 +185,28 @@ export class OmniboxBridge implements OmniboxMessageBridge {
     this.postMessage({ type: "toggle_favorite", url, title, faviconURL });
   }
 
+  /**
+   * Handle inline suggestion from backend (fish-style ghost text)
+   */
+  setInlineSuggestion(url: string | null): void {
+    console.log('[INLINE] bridge.setInlineSuggestion called:', url);
+    const inputValue = omniboxStore.inputValue;
+    omniboxStore.setInlineSuggestion(url, inputValue);
+  }
+
+  /**
+   * Query for prefix-matching URL (for inline suggestions)
+   */
+  prefixQuery(prefix: string): void {
+    console.log('[INLINE] prefixQuery called:', prefix);
+    if (!prefix || prefix.trim().length < MIN_SEARCH_LENGTH) {
+      omniboxStore.clearInlineSuggestion();
+      return;
+    }
+    this.postMessage({ type: "prefix_query", q: prefix });
+    console.log('[INLINE] prefix_query message sent');
+  }
+
   // Suggestions are returned via setSuggestions() when native handler responds
 }
 
@@ -246,6 +268,33 @@ export function debouncedFind(query: string, findFn: (q: string) => void): void 
   createDebouncedSearch("find", findFn, () => findFn(""))(query);
 }
 
+// Debounce for inline suggestions - balanced between responsiveness and smoothness
+const PREFIX_DEBOUNCE_MS = 80;
+let prefixDebounceTimer = 0;
+
+/**
+ * Debounced prefix query for inline suggestions (fish-style ghost text)
+ */
+export function debouncedPrefixQuery(query: string): void {
+  if (prefixDebounceTimer) {
+    clearTimeout(prefixDebounceTimer);
+    prefixDebounceTimer = 0;
+  }
+
+  const trimmed = (query || "").trim();
+  if (trimmed.length < MIN_SEARCH_LENGTH) {
+    // Clear after a short delay to avoid flicker
+    prefixDebounceTimer = window.setTimeout(() => {
+      omniboxStore.clearInlineSuggestion();
+    }, 50);
+    return;
+  }
+
+  prefixDebounceTimer = window.setTimeout(() => {
+    omniboxBridge.prefixQuery(trimmed);
+  }, PREFIX_DEBOUNCE_MS);
+}
+
 // Extend global window interface for Go bridge compatibility
 declare global {
   interface Window {
@@ -259,6 +308,7 @@ declare global {
     // Omnibox API for Go bridge
     __dumber_omnibox?: {
       setSuggestions: (suggestions: Suggestion[]) => void;
+      setInlineSuggestion: (url: string | null) => void;
       toggle: () => void;
       open: (mode?: string, query?: string) => void;
       close: () => void;

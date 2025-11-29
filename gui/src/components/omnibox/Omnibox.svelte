@@ -358,6 +358,14 @@
           } catch (error) {
             console.error('Error in setActive:', error);
           }
+        },
+        setInlineSuggestion: (url) => {
+          try {
+            console.log('[INLINE] window.__dumber_omnibox.setInlineSuggestion called:', url);
+            omniboxBridge.setInlineSuggestion(url);
+          } catch (error) {
+            console.error('Error in setInlineSuggestion:', error);
+          }
         }
       };
 

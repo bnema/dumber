@@ -329,3 +329,43 @@ func (c *DmenuFuzzyCache) buildSortedIndex() {
 		return c.entries[c.sortedIndex[i]].Score > c.entries[c.sortedIndex[j]].Score
 	})
 }
+
+// getBestPrefixMatch returns the highest-scoring URL that starts with the given prefix.
+// Used for fish-style inline autosuggestions.
+func (c *DmenuFuzzyCache) getBestPrefixMatch(prefix string) string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.prefixTrie == nil || prefix == "" {
+		return ""
+	}
+
+	normalizedPrefix := normalizeText(prefix)
+	candidates := c.prefixTrie.PrefixSearch(normalizedPrefix)
+	if len(candidates) == 0 {
+		return ""
+	}
+
+	var bestURL string
+	var bestScore uint16
+
+	for _, entryID := range candidates {
+		if int(entryID) >= len(c.entries) {
+			continue
+		}
+		entry := &c.entries[entryID]
+
+		// Only match if URL actually starts with the prefix (case-insensitive)
+		normalizedURL := normalizeText(entry.URL)
+		if !strings.HasPrefix(normalizedURL, normalizedPrefix) {
+			continue
+		}
+
+		if entry.Score > bestScore {
+			bestScore = entry.Score
+			bestURL = entry.URL
+		}
+	}
+
+	return bestURL
+}

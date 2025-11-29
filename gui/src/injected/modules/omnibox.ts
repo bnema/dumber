@@ -132,6 +132,28 @@ export async function initializeOmnibox(
       handleSuggestionsEvent,
       false,
     );
+
+    // Bridge: listen for inline suggestion events (fish-style ghost text)
+    const handleInlineSuggestionEvent = (e: Event) => {
+      try {
+        const detail = (e as CustomEvent).detail;
+        const url = detail?.url ?? null;
+        console.log("[INLINE] omnibox module received event:", url);
+        if (window.__dumber_omnibox?.setInlineSuggestion) {
+          window.__dumber_omnibox.setInlineSuggestion(url);
+        } else {
+          console.warn("[INLINE] __dumber_omnibox.setInlineSuggestion not available");
+        }
+      } catch (err) {
+        console.warn("[Bridge] Failed handling inline suggestion event:", err);
+      }
+    };
+
+    document.addEventListener(
+      "dumber:omnibox:inline-suggestion",
+      handleInlineSuggestionEvent,
+      false,
+    );
   } catch (error) {
     console.error("❌ Failed to initialize omnibox component:", error);
     throw error;
