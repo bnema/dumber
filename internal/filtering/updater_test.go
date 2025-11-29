@@ -18,6 +18,7 @@ func TestFetchRemoteVersion(t *testing.T) {
 		responseStatus int
 		wantVersion    string
 		wantErr        bool
+		useETag        bool
 	}{
 		{
 			name: "valid version header",
@@ -41,7 +42,17 @@ func TestFetchRemoteVersion(t *testing.T) {
 			wantErr:        false,
 		},
 		{
-			name:           "no version header",
+			name: "placeholder version falls back to ETag",
+			responseBody: `! Title: uBlock filters
+! Last modified: %timestamp%
+`,
+			responseStatus: http.StatusOK,
+			wantVersion:    `etag:"abc123"`,
+			wantErr:        false,
+			useETag:        true,
+		},
+		{
+			name:           "no version info returns error",
 			responseBody:   `[Adblock Plus 2.0]\n! Title: No Version\n`,
 			responseStatus: http.StatusOK,
 			wantVersion:    "",
@@ -64,6 +75,9 @@ func TestFetchRemoteVersion(t *testing.T) {
 				rangeHeader := r.Header.Get("Range")
 				assert.Contains(t, rangeHeader, "bytes=0-")
 
+				if tt.useETag {
+					w.Header().Set("ETag", `"abc123"`)
+				}
 				w.WriteHeader(tt.responseStatus)
 				_, _ = w.Write([]byte(tt.responseBody))
 			}))
@@ -110,6 +124,13 @@ func TestExtractVersion(t *testing.T) {
 			name:    "no version",
 			content: []byte(`! Title: No Version\n! Author: Test`),
 			want:    "",
+		},
+		{
+			name: "placeholder version ignored",
+			content: []byte(`! Title: uBlock filters
+! Version: %timestamp%
+! Expires: 5 days`),
+			want: "",
 		},
 		{
 			name:    "empty content",
