@@ -286,14 +286,44 @@ cancel = ["escape"]
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `content_filtering_whitelist` | array | See below | Domains to skip ad blocking |
+| `content_filtering.enabled` | bool | `true` | Enable ad blocking |
+| `content_filtering.whitelist` | array | See below | Domains to skip ad blocking |
+| `content_filtering.filter_lists` | array | See below | Filter list URLs to use |
 
 **Default whitelist:**
 ```toml
-content_filtering_whitelist = [
+[content_filtering]
+enabled = true
+whitelist = [
   "twitch.tv",
   "passport.twitch.tv",
   "gql.twitch.tv"
+]
+```
+
+**Default filter lists:**
+```toml
+[content_filtering]
+filter_lists = [
+  # Core blocking
+  "https://easylist.to/easylist/easylist.txt",           # Ads
+  "https://easylist.to/easylist/easyprivacy.txt",        # Tracking
+  # uBlock extras
+  "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt",    # uBO optimizations
+  "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/annoyances.txt", # Cookie banners, popups
+  "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/quick-fixes.txt" # Site fixes
+]
+```
+
+**Custom filter lists example:**
+```toml
+[content_filtering]
+filter_lists = [
+  # Minimal setup
+  "https://easylist.to/easylist/easylist.txt",
+  "https://easylist.to/easylist/easyprivacy.txt",
+  # Regional list
+  "https://easylist-downloads.adblockplus.org/liste_fr.txt"
 ]
 ```
 
