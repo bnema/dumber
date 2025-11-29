@@ -158,6 +158,7 @@ type mockFilterStore struct {
 	cachedFilters  *CompiledFilters
 	cacheExists    bool
 	cacheModTime   time.Time
+	lastCheckTime  time.Time
 }
 
 func (m *mockFilterStore) LoadCached() (*CompiledFilters, error) {
@@ -186,4 +187,8 @@ func (m *mockFilterStore) SetSourceVersion(url string, version string) error {
 	}
 	m.sourceVersions[url] = version
 	return nil
+}
+
+func (m *mockFilterStore) GetLastCheckTime() time.Time {
+	return m.lastCheckTime
 }
