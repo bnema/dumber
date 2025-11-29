@@ -14,7 +14,7 @@ jobs:
     outputs:
       should_release: ${{ steps.check.outputs.should_release }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Check for release-worthy changes
@@ -40,10 +40,15 @@ jobs:
     if: needs.check-changes.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: stable
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Build frontend assets
+        run: make build-frontend
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
@@ -54,8 +59,8 @@ jobs:
     if: needs.check-changes.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: stable
       - name: Install WebKitGTK 6.0 dependencies
@@ -70,18 +75,17 @@ jobs:
     if: needs.check-changes.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: stable
       - name: Install WebKitGTK 6.0 dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkitgtk-6.0-dev libgtk-4-dev
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
       - name: Run GoReleaser
