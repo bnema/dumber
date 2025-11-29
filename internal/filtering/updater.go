@@ -67,6 +67,13 @@ func (fu *FilterUpdater) CheckAndUpdate(ctx context.Context) error {
 	fu.updateMutex.Lock()
 	defer fu.updateMutex.Unlock()
 
+	// Skip if we checked within the last 24 hours
+	lastCheck := fu.manager.store.GetLastCheckTime()
+	if !lastCheck.IsZero() && time.Since(lastCheck) < 24*time.Hour {
+		logging.Info(fmt.Sprintf("[filtering] Skipping update check, last check was %v ago", time.Since(lastCheck).Round(time.Minute)))
+		return nil
+	}
+
 	startTime := time.Now()
 	logging.Info("[filtering] Starting filter list update check...")
 

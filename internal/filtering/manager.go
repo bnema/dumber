@@ -48,6 +48,7 @@ type FilterStore interface {
 	GetCacheInfo() (bool, time.Time, error)
 	GetSourceVersion(url string) string
 	SetSourceVersion(url string, version string) error
+	GetLastCheckTime() time.Time
 }
 
 // FilterCompiler defines the interface for filter compilation
