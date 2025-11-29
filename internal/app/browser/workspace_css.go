@@ -360,15 +360,15 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 		titleFontSize,                    // tab-title font-size
 		getStackTitleTextColor(isDark),   // tab-title color
 		// Tab rename entry styles
-		getEntryBg(isDark),             // entry.tab-rename-entry background
-		getStackTitleTextColor(isDark), // entry.tab-rename-entry color (text)
-		titleFontSize,                  // entry.tab-rename-entry font-size
-		titlePaddingHorizontal,         // entry.tab-rename-entry padding horizontal (vertical is hardcoded 2px)
-		getEntryBorderColor(isDark),    // entry.tab-rename-entry border-color
-		getEntryFocusBg(isDark),        // entry.tab-rename-entry:focus background
-		activeBorderColor,              // entry.tab-rename-entry:focus border-color (use active pane color)
-		windowBackgroundColor,          // tab-content-area background
-		windowBackgroundColor,          // tab-workspace-container background
+		getEntryBg(isDark),               // entry.tab-rename-entry background
+		getStackTitleTextColor(isDark),   // entry.tab-rename-entry color (text)
+		titleFontSize,                    // entry.tab-rename-entry font-size
+		titlePaddingHorizontal,           // entry.tab-rename-entry padding horizontal (vertical is hardcoded 2px)
+		getEntryBorderColor(isDark),      // entry.tab-rename-entry border-color
+		getEntryFocusBg(isDark),          // entry.tab-rename-entry:focus background
+		activeBorderColor,                // entry.tab-rename-entry:focus border-color (use active pane color)
+		windowBackgroundColor,            // tab-content-area background
+		windowBackgroundColor,            // tab-workspace-container background
 	)
 
 	return css

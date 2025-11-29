@@ -41,6 +41,13 @@ type TabManager struct {
 	renamePrevFocusOnClick bool
 	renamePrevCanFocus     bool
 
+	// Rename state
+	renameInProgress bool
+	renamingTab      *Tab
+	// Stores original focus behaviour while inline rename is active
+	renamePrevFocusOnClick bool
+	renamePrevCanFocus     bool
+
 	// Tab button click handling (pattern from StackedPaneManager)
 	buttonToTab  map[uint64]*Tab // Maps button ID to tab for click handling
 	nextButtonID uint64          // Atomic counter for generating unique button IDs
