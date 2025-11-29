@@ -14,53 +14,42 @@ import (
 func TestFetchRemoteVersion(t *testing.T) {
 	tests := []struct {
 		name           string
-		responseBody   string
 		responseStatus int
+		etag           string
+		lastModified   string
 		wantVersion    string
 		wantErr        bool
-		useETag        bool
 	}{
 		{
-			name: "valid version header",
-			responseBody: `[Adblock Plus 2.0]
-! Version: 202511291248
-! Title: EasyList
-! Last modified: 29 Nov 2025 12:48 UTC
-`,
+			name:           "returns ETag when present",
 			responseStatus: http.StatusOK,
-			wantVersion:    "202511291248",
+			etag:           `"abc123"`,
+			wantVersion:    `"abc123"`,
 			wantErr:        false,
 		},
 		{
-			name: "partial content response (206)",
-			responseBody: `[Adblock Plus 2.0]
-! Version: 202501011200
-! Title: Test
-`,
-			responseStatus: http.StatusPartialContent,
-			wantVersion:    "202501011200",
-			wantErr:        false,
-		},
-		{
-			name: "placeholder version falls back to ETag",
-			responseBody: `! Title: uBlock filters
-! Last modified: %timestamp%
-`,
+			name:           "returns Last-Modified when no ETag",
 			responseStatus: http.StatusOK,
-			wantVersion:    `etag:"abc123"`,
+			lastModified:   "Sat, 29 Nov 2025 12:48:00 GMT",
+			wantVersion:    "Sat, 29 Nov 2025 12:48:00 GMT",
 			wantErr:        false,
-			useETag:        true,
 		},
 		{
-			name:           "no version info returns error",
-			responseBody:   `[Adblock Plus 2.0]\n! Title: No Version\n`,
+			name:           "prefers ETag over Last-Modified",
+			responseStatus: http.StatusOK,
+			etag:           `"xyz789"`,
+			lastModified:   "Sat, 29 Nov 2025 12:48:00 GMT",
+			wantVersion:    `"xyz789"`,
+			wantErr:        false,
+		},
+		{
+			name:           "error when no version headers",
 			responseStatus: http.StatusOK,
 			wantVersion:    "",
 			wantErr:        true,
 		},
 		{
 			name:           "server error",
-			responseBody:   "",
 			responseStatus: http.StatusInternalServerError,
 			wantVersion:    "",
 			wantErr:        true,
@@ -69,26 +58,24 @@ func TestFetchRemoteVersion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create test server
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				// Verify Range header is set
-				rangeHeader := r.Header.Get("Range")
-				assert.Contains(t, rangeHeader, "bytes=0-")
+				// Verify HEAD request
+				assert.Equal(t, http.MethodHead, r.Method)
 
-				if tt.useETag {
-					w.Header().Set("ETag", `"abc123"`)
+				if tt.etag != "" {
+					w.Header().Set("ETag", tt.etag)
+				}
+				if tt.lastModified != "" {
+					w.Header().Set("Last-Modified", tt.lastModified)
 				}
 				w.WriteHeader(tt.responseStatus)
-				_, _ = w.Write([]byte(tt.responseBody))
 			}))
 			defer server.Close()
 
-			// Create updater with test server
 			fu := &FilterUpdater{
 				httpClient: &http.Client{Timeout: 5 * time.Second},
 			}
 
-			// Test fetchRemoteVersion
 			version, err := fu.fetchRemoteVersion(context.Background(), server.URL)
 
 			if tt.wantErr {
@@ -101,109 +88,35 @@ func TestFetchRemoteVersion(t *testing.T) {
 	}
 }
 
-func TestExtractVersion(t *testing.T) {
-	tests := []struct {
-		name    string
-		content []byte
-		want    string
-	}{
-		{
-			name: "standard format",
-			content: []byte(`[Adblock Plus 2.0]
-! Version: 202511291248
-! Title: EasyList`),
-			want: "202511291248",
-		},
-		{
-			name: "version with spaces",
-			content: []byte(`! Version:   20251129
-! Title: Test`),
-			want: "20251129",
-		},
-		{
-			name:    "no version",
-			content: []byte(`! Title: No Version\n! Author: Test`),
-			want:    "",
-		},
-		{
-			name: "placeholder version ignored",
-			content: []byte(`! Title: uBlock filters
-! Version: %timestamp%
-! Expires: 5 days`),
-			want: "",
-		},
-		{
-			name:    "empty content",
-			content: []byte{},
-			want:    "",
-		},
-		{
-			name: "version after 20 lines (not found)",
-			content: []byte(`line1
-line2
-line3
-line4
-line5
-line6
-line7
-line8
-line9
-line10
-line11
-line12
-line13
-line14
-line15
-line16
-line17
-line18
-line19
-line20
-line21
-! Version: 202511291248`),
-			want: "",
-		},
-	}
-
-	fu := &FilterUpdater{}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := fu.extractVersion(tt.content)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
 func TestNeedsUpdate(t *testing.T) {
 	tests := []struct {
 		name           string
 		storedVersion  string
-		remoteVersion  string
+		remoteETag     string
 		serverError    bool
 		expectedResult bool
 	}{
 		{
-			name:           "versions differ - needs update",
-			storedVersion:  "202511280000",
-			remoteVersion:  "202511291248",
+			name:           "etags differ - needs update",
+			storedVersion:  `"old-etag"`,
+			remoteETag:     `"new-etag"`,
 			expectedResult: true,
 		},
 		{
-			name:           "versions same - no update",
-			storedVersion:  "202511291248",
-			remoteVersion:  "202511291248",
+			name:           "etags same - no update",
+			storedVersion:  `"same-etag"`,
+			remoteETag:     `"same-etag"`,
 			expectedResult: false,
 		},
 		{
 			name:           "no stored version - needs update",
 			storedVersion:  "",
-			remoteVersion:  "202511291248",
+			remoteETag:     `"any-etag"`,
 			expectedResult: true,
 		},
 		{
 			name:           "server error - assume update needed",
-			storedVersion:  "202511280000",
+			storedVersion:  `"old-etag"`,
 			serverError:    true,
 			expectedResult: true,
 		},
@@ -211,32 +124,28 @@ func TestNeedsUpdate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create test server
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if tt.serverError {
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
+				w.Header().Set("ETag", tt.remoteETag)
 				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write([]byte("! Version: " + tt.remoteVersion + "\n"))
 			}))
 			defer server.Close()
 
-			// Create mock store
 			mockStore := &mockFilterStore{
 				sourceVersions: map[string]string{
 					server.URL: tt.storedVersion,
 				},
 			}
 
-			// Create manager and updater
 			fm := &FilterManager{store: mockStore}
 			fu := &FilterUpdater{
 				manager:    fm,
 				httpClient: &http.Client{Timeout: 5 * time.Second},
 			}
 
-			// Test needsUpdate
 			result := fu.needsUpdate(context.Background(), server.URL)
 			assert.Equal(t, tt.expectedResult, result)
 		})

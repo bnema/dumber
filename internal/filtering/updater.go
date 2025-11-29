@@ -1,12 +1,9 @@
 package filtering
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -144,21 +141,17 @@ func (fu *FilterUpdater) checkSingleUpdate(ctx context.Context, url string) (*Fi
 	return fu.downloadUpdate(ctx, url, "", "")
 }
 
-// fetchRemoteVersion fetches only the header of a filter list to extract version
-// Uses HTTP Range request to minimize bandwidth (fetches ~1KB instead of ~100KB+)
+// fetchRemoteVersion fetches version info using HEAD request (ETag or Last-Modified)
 func (fu *FilterUpdater) fetchRemoteVersion(ctx context.Context, url string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
-
-	// Request only first 1024 bytes (enough to get version header)
-	req.Header.Set("Range", "bytes=0-1023")
 	req.Header.Set("User-Agent", "Dumber Browser/1.0 Filter Updater")
 
 	resp, err := fu.httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("range request failed: %w", err)
+		return "", fmt.Errorf("HEAD request failed: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
@@ -166,38 +159,19 @@ func (fu *FilterUpdater) fetchRemoteVersion(ctx context.Context, url string) (st
 		}
 	}()
 
-	// Accept both 200 (server ignores Range) and 206 (Partial Content)
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
-		return "", fmt.Errorf("request returned %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HEAD request returned %d", resp.StatusCode)
 	}
 
-	// Read the response (limited to 1KB even if server ignores Range)
-	data, err := io.ReadAll(io.LimitReader(resp.Body, 1024))
-	if err != nil {
-		return "", fmt.Errorf("failed to read response: %w", err)
-	}
-
-	// Parse version from content header (format: "! Version: 202511291248")
-	scanner := bufio.NewScanner(bytes.NewReader(data))
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "! Version:") {
-			version := strings.TrimSpace(strings.TrimPrefix(line, "! Version:"))
-			if version != "" && !strings.Contains(version, "%") {
-				return version, nil
-			}
-		}
-	}
-
-	// Fallback: use HTTP headers (ETag or Last-Modified)
+	// Use ETag or Last-Modified as version identifier
 	if etag := resp.Header.Get("ETag"); etag != "" {
-		return "etag:" + etag, nil
+		return etag, nil
 	}
 	if lastMod := resp.Header.Get("Last-Modified"); lastMod != "" {
-		return "lastmod:" + lastMod, nil
+		return lastMod, nil
 	}
 
-	return "", fmt.Errorf("no version info found for filter list")
+	return "", fmt.Errorf("no ETag or Last-Modified header")
 }
 
 // needsUpdate determines if a filter list needs updating based on version comparison
@@ -278,14 +252,12 @@ func (fu *FilterUpdater) downloadUpdate(ctx context.Context, url, lastModified, 
 	// Calculate content hash
 	hash := fmt.Sprintf("%x", sha256.Sum256(currentContent))
 
-	// Extract version from content or use HTTP headers as fallback
-	version := fu.extractVersion(currentContent)
-	if version == "" {
-		if etagHeader := resp.Header.Get("ETag"); etagHeader != "" {
-			version = "etag:" + etagHeader
-		} else if lastModHeader := resp.Header.Get("Last-Modified"); lastModHeader != "" {
-			version = "lastmod:" + lastModHeader
-		}
+	// Use HTTP headers as version identifier (same as fetchRemoteVersion)
+	version := ""
+	if etag := resp.Header.Get("ETag"); etag != "" {
+		version = etag
+	} else if lastMod := resp.Header.Get("Last-Modified"); lastMod != "" {
+		version = lastMod
 	}
 
 	// Create update object
@@ -487,22 +459,6 @@ func (fu *FilterUpdater) applyUpdate(update *FilterUpdate) error {
 	return nil
 }
 
-// extractVersion extracts the version from filter list content
-func (fu *FilterUpdater) extractVersion(content []byte) string {
-	scanner := bufio.NewScanner(bytes.NewReader(content))
-	// Only scan first 20 lines for version header
-	for i := 0; i < 20 && scanner.Scan(); i++ {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "! Version:") {
-			version := strings.TrimSpace(strings.TrimPrefix(line, "! Version:"))
-			// Skip placeholder values like %timestamp%
-			if version != "" && !strings.Contains(version, "%") {
-				return version
-			}
-		}
-	}
-	return ""
-}
 
 // getListID generates a unique ID for a filter list URL
 func (fu *FilterUpdater) getListID(url string) string {
