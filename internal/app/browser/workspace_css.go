@@ -3,10 +3,10 @@ package browser
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/bnema/dumber/internal/config"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/pkg/webkit"
 )
 
@@ -393,12 +393,17 @@ func (wm *WorkspaceManager) ensureWorkspaceStyles() {
 	// Only apply CSS if it hasn't been applied globally or if content changed
 	if !globalCSSInitialized || globalCSSContent != workspaceCSS {
 		if err := webkit.AddCSSProvider(workspaceCSS); err != nil {
-			log.Printf("[workspace] WARNING: Failed to add CSS provider: %v", err)
+			logging.Error(fmt.Sprintf("[workspace] WARNING: Failed to add CSS provider: %v", err))
 		}
 		globalCSSInitialized = true
 		globalCSSContent = workspaceCSS
-		log.Printf("[workspace] Applied workspace CSS styles (%d bytes)", len(workspaceCSS))
-		log.Printf("[workspace] CSS preview: %s...", workspaceCSS[:min(200, len(workspaceCSS))])
+		logging.Info(fmt.Sprintf("[workspace] Applied workspace CSS styles (%d bytes)", len(workspaceCSS)))
+
+		previewLen := 200
+		if len(workspaceCSS) < previewLen {
+			previewLen = len(workspaceCSS)
+		}
+		logging.Info(fmt.Sprintf("[workspace] CSS preview: %s...", workspaceCSS[:previewLen]))
 	}
 
 	wm.cssInitialized = true

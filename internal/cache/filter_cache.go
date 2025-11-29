@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"syscall"
 	"time"
@@ -116,7 +115,7 @@ func (fc *FilterCache) LoadMapped() (*FilterData, error) {
 	header, err := fc.parseHeader()
 	if err != nil {
 		if unmapErr := fc.Unmap(); unmapErr != nil {
-			log.Printf("[filter-cache] failed to unmap after header parse error: %v", unmapErr)
+			logging.Warn(fmt.Sprintf("[filter-cache] failed to unmap after header parse error: %v", unmapErr))
 		}
 		return nil, fmt.Errorf("invalid cache header: %w", err)
 	}
@@ -124,14 +123,14 @@ func (fc *FilterCache) LoadMapped() (*FilterData, error) {
 	// Validate magic and version
 	if header.Magic != cacheMagic {
 		if unmapErr := fc.Unmap(); unmapErr != nil {
-			log.Printf("[filter-cache] failed to unmap after magic validation: %v", unmapErr)
+			logging.Warn(fmt.Sprintf("[filter-cache] failed to unmap after magic validation: %v", unmapErr))
 		}
 		return nil, fmt.Errorf("invalid cache magic bytes")
 	}
 
 	if header.Version != cacheFormatVersion {
 		if unmapErr := fc.Unmap(); unmapErr != nil {
-			log.Printf("[filter-cache] failed to unmap after version validation: %v", unmapErr)
+			logging.Warn(fmt.Sprintf("[filter-cache] failed to unmap after version validation: %v", unmapErr))
 		}
 		return nil, fmt.Errorf("unsupported cache version: %d", header.Version)
 	}

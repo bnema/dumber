@@ -2,11 +2,11 @@ package browser
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/bnema/dumber/internal/app/messaging"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/pkg/webkit"
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
@@ -35,7 +35,7 @@ func NewWindowShortcutHandler(window *webkit.Window, app *BrowserApp) *WindowSho
 	}
 
 	if err := h.initialize(); err != nil {
-		log.Printf("[window-shortcuts] Failed to initialize: %v", err)
+		logging.Error(fmt.Sprintf("[window-shortcuts] Failed to initialize: %v", err))
 		return nil
 	}
 
@@ -51,7 +51,7 @@ func (h *WindowShortcutHandler) initialize() error {
 
 	// Register hardware keycode-based shortcuts (for AZERTY/international keyboards)
 	if err := h.registerKeycodeShortcuts(); err != nil {
-		log.Printf("[window-shortcuts] Failed to register keycode shortcuts: %v", err)
+		logging.Error(fmt.Sprintf("[window-shortcuts] Failed to register keycode shortcuts: %v", err))
 	}
 
 	return h.registerGlobalShortcuts()
@@ -103,8 +103,8 @@ func (h *WindowShortcutHandler) registerGlobalShortcuts() error {
 
 	for _, shortcut := range shortcuts {
 		h.shortcuts.RegisterShortcut(shortcut.key, shortcut.handler)
-		log.Printf("[window-shortcuts] Registered global shortcut: %s (%s)",
-			shortcut.key, shortcut.desc)
+		logging.Debug(fmt.Sprintf("[window-shortcuts] Registered global shortcut: %s (%s)",
+			shortcut.key, shortcut.desc))
 	}
 
 	// NOTE: Ctrl+P is NOT registered here - it's handled by WebView's keyboard bridge
@@ -164,14 +164,14 @@ func (h *WindowShortcutHandler) registerKeycodeShortcuts() error {
 
 		// Handle Ctrl+Tab for next tab
 		if keyval == gdkKeyTab && state.Has(gdk.ControlMask) && !state.Has(gdk.ShiftMask) {
-			log.Printf("[window-shortcuts] Ctrl+Tab -> next tab")
+			logging.Debug(fmt.Sprintf("[window-shortcuts] Ctrl+Tab -> next tab"))
 			h.handleNextTab()
 			return true // Consume event to prevent focus cycling
 		}
 
 		// Handle Ctrl+Shift+Tab for previous tab
 		if keyval == gdkKeyTab && state.Has(gdk.ControlMask) && state.Has(gdk.ShiftMask) {
-			log.Printf("[window-shortcuts] Ctrl+Shift+Tab -> previous tab")
+			logging.Debug(fmt.Sprintf("[window-shortcuts] Ctrl+Shift+Tab -> previous tab"))
 			h.handlePrevTab()
 			return true // Consume event to prevent focus cycling
 		}
@@ -180,7 +180,7 @@ func (h *WindowShortcutHandler) registerKeycodeShortcuts() error {
 		if state.Has(gdk.AltMask) && !state.Has(gdk.ControlMask) && !state.Has(gdk.ShiftMask) {
 			// Check if this is a number key
 			if tabIndex, ok := keycodeToTab[keycode]; ok {
-				log.Printf("[window-shortcuts] Hardware keycode shortcut: Alt+keycode(%d) -> tab %d", keycode, tabIndex)
+				logging.Debug(fmt.Sprintf("[window-shortcuts] Hardware keycode shortcut: Alt+keycode(%d) -> tab %d", keycode, tabIndex))
 				h.handleDirectTabSwitch(tabIndex)
 				return true // Handled
 			}
@@ -236,7 +236,7 @@ func (h *WindowShortcutHandler) registerKeycodeShortcuts() error {
 			}
 
 			if handled {
-				log.Printf("[window-shortcuts] Tab mode action: %s", action)
+				logging.Debug(fmt.Sprintf("[window-shortcuts] Tab mode action: %s", action))
 				h.handleTabModeAction(action)
 				return true // Consume event
 			}
@@ -248,7 +248,7 @@ func (h *WindowShortcutHandler) registerKeycodeShortcuts() error {
 	})
 
 	gtkWindow.AddController(keyController)
-	log.Printf("[window-shortcuts] Registered capture phase shortcuts: Ctrl+Tab, Alt+number")
+	logging.Debug(fmt.Sprintf("[window-shortcuts] Registered capture phase shortcuts: Ctrl+Tab, Alt+number"))
 
 	return nil
 }
@@ -271,11 +271,11 @@ func (h *WindowShortcutHandler) handleCopyURL() {
 	h.lastCopyURL = time.Now()
 
 	if h.app.activePane == nil || h.app.activePane.webView == nil {
-		log.Printf("[window-shortcuts] No active pane for copy URL")
+		logging.Debug(fmt.Sprintf("[window-shortcuts] No active pane for copy URL"))
 		return
 	}
 
-	log.Printf("[window-shortcuts] Copy URL -> pane %p", h.app.activePane.webView)
+	logging.Debug(fmt.Sprintf("[window-shortcuts] Copy URL -> pane %p", h.app.activePane.webView))
 
 	// Execute copy URL script directly on active pane
 	script := `
@@ -299,7 +299,7 @@ func (h *WindowShortcutHandler) handleCopyURL() {
 	`
 
 	if err := h.app.activePane.webView.InjectScript(script); err != nil {
-		log.Printf("[window-shortcuts] Failed to inject copy URL script: %v", err)
+		logging.Error(fmt.Sprintf("[window-shortcuts] Failed to inject copy URL script: %v", err))
 	}
 }
 
@@ -313,14 +313,14 @@ func (h *WindowShortcutHandler) handleDevTools() {
 	h.lastDevTools = time.Now()
 
 	if h.app.activePane == nil || h.app.activePane.webView == nil {
-		log.Printf("[window-shortcuts] No active pane for devtools")
+		logging.Debug(fmt.Sprintf("[window-shortcuts] No active pane for devtools"))
 		return
 	}
 
-	log.Printf("[window-shortcuts] DevTools -> pane %p", h.app.activePane.webView)
+	logging.Debug(fmt.Sprintf("[window-shortcuts] DevTools -> pane %p", h.app.activePane.webView))
 
 	if err := h.app.activePane.webView.ShowDevTools(); err != nil {
-		log.Printf("[window-shortcuts] Failed to show devtools: %v", err)
+		logging.Error(fmt.Sprintf("[window-shortcuts] Failed to show devtools: %v", err))
 	}
 }
 
@@ -334,14 +334,14 @@ func (h *WindowShortcutHandler) handlePrint() {
 	h.lastPrint = time.Now()
 
 	if h.app.activePane == nil || h.app.activePane.webView == nil {
-		log.Printf("[window-shortcuts] No active pane for print")
+		logging.Debug(fmt.Sprintf("[window-shortcuts] No active pane for print"))
 		return
 	}
 
-	log.Printf("[window-shortcuts] Print -> pane %p", h.app.activePane.webView)
+	logging.Debug(fmt.Sprintf("[window-shortcuts] Print -> pane %p", h.app.activePane.webView))
 
 	if err := h.app.activePane.webView.ShowPrintDialog(); err != nil {
-		log.Printf("[window-shortcuts] Failed to show print dialog: %v", err)
+		logging.Error(fmt.Sprintf("[window-shortcuts] Failed to show print dialog: %v", err))
 	}
 }
 
@@ -350,14 +350,14 @@ func (h *WindowShortcutHandler) handleReload() {
 	defer h.mu.Unlock()
 
 	if h.app.activePane == nil || h.app.activePane.webView == nil {
-		log.Printf("[window-shortcuts] No active pane for reload")
+		logging.Debug(fmt.Sprintf("[window-shortcuts] No active pane for reload"))
 		return
 	}
 
-	log.Printf("[window-shortcuts] Reload page -> pane %p", h.app.activePane.webView)
+	logging.Debug(fmt.Sprintf("[window-shortcuts] Reload page -> pane %p", h.app.activePane.webView))
 
 	if err := h.app.activePane.webView.Reload(); err != nil {
-		log.Printf("[window-shortcuts] Failed to reload page: %v", err)
+		logging.Error(fmt.Sprintf("[window-shortcuts] Failed to reload page: %v", err))
 	}
 }
 
@@ -366,14 +366,14 @@ func (h *WindowShortcutHandler) handleHardReload() {
 	defer h.mu.Unlock()
 
 	if h.app.activePane == nil || h.app.activePane.webView == nil {
-		log.Printf("[window-shortcuts] No active pane for hard reload")
+		logging.Debug(fmt.Sprintf("[window-shortcuts] No active pane for hard reload"))
 		return
 	}
 
-	log.Printf("[window-shortcuts] Hard reload (bypass cache) -> pane %p", h.app.activePane.webView)
+	logging.Debug(fmt.Sprintf("[window-shortcuts] Hard reload (bypass cache) -> pane %p", h.app.activePane.webView))
 
 	if err := h.app.activePane.webView.ReloadBypassCache(); err != nil {
-		log.Printf("[window-shortcuts] Failed to hard reload page: %v", err)
+		logging.Error(fmt.Sprintf("[window-shortcuts] Failed to hard reload page: %v", err))
 	}
 }
 
@@ -398,12 +398,12 @@ func (h *WindowShortcutHandler) handleZoom(action string, multiplier float64) {
 	defer h.mu.Unlock()
 
 	if h.app.activePane == nil || h.app.activePane.webView == nil {
-		log.Printf("[window-shortcuts] No active pane for zoom %s", action)
+		logging.Debug(fmt.Sprintf("[window-shortcuts] No active pane for zoom %s", action))
 		return
 	}
 
 	activeWebView := h.app.activePane.webView
-	log.Printf("[window-shortcuts] Zoom %s -> pane %p", action, activeWebView)
+	logging.Debug(fmt.Sprintf("[window-shortcuts] Zoom %s -> pane %p", action, activeWebView))
 
 	// Get current zoom level
 	currentZoom := activeWebView.GetZoom()
@@ -423,11 +423,11 @@ func (h *WindowShortcutHandler) handleZoom(action string, multiplier float64) {
 		}
 	}
 
-	log.Printf("[window-shortcuts] Zoom %s: %.2f -> %.2f", action, currentZoom, newZoom)
+	logging.Debug(fmt.Sprintf("[window-shortcuts] Zoom %s: %.2f -> %.2f", action, currentZoom, newZoom))
 
 	// Apply zoom to active pane
 	if err := activeWebView.SetZoom(newZoom); err != nil {
-		log.Printf("[window-shortcuts] Failed to set zoom: %v", err)
+		logging.Error(fmt.Sprintf("[window-shortcuts] Failed to set zoom: %v", err))
 		return
 	}
 
@@ -448,7 +448,7 @@ func (h *WindowShortcutHandler) handleZoom(action string, multiplier float64) {
 	`, newZoom)
 
 	if err := activeWebView.InjectScript(toastScript); err != nil {
-		log.Printf("[window-shortcuts] Failed to show zoom toast: %v", err)
+		logging.Error(fmt.Sprintf("[window-shortcuts] Failed to show zoom toast: %v", err))
 	}
 }
 
@@ -459,7 +459,7 @@ func (h *WindowShortcutHandler) ensureGUIInActivePane(component string) {
 
 	pane := h.app.activePane
 	if !pane.HasGUI() {
-		log.Printf("[window-shortcuts] Injecting GUI into pane %s for %s", pane.ID(), component)
+		logging.Debug(fmt.Sprintf("[window-shortcuts] Injecting GUI into pane %s for %s", pane.ID(), component))
 		if h.app.workspace != nil {
 			h.app.workspace.ensureGUIInPane(pane)
 		}
@@ -467,7 +467,7 @@ func (h *WindowShortcutHandler) ensureGUIInActivePane(component string) {
 
 	// Ensure specific component is available
 	if !pane.HasGUIComponent(component) {
-		log.Printf("[window-shortcuts] Ensuring %s component in pane %s", component, pane.ID())
+		logging.Debug(fmt.Sprintf("[window-shortcuts] Ensuring %s component in pane %s", component, pane.ID()))
 		pane.SetGUIComponent(component, true)
 	}
 }
@@ -484,17 +484,17 @@ func (h *WindowShortcutHandler) handleUIToggle(lastToggle *time.Time, featureNam
 	defer h.mu.Unlock()
 
 	if time.Since(*lastToggle) < 50*time.Millisecond {
-		log.Printf("[window-shortcuts] %s toggle debounced", featureName)
+		logging.Debug(fmt.Sprintf("[window-shortcuts] %s toggle debounced", featureName))
 		return
 	}
 	*lastToggle = time.Now()
 
 	if h.app.activePane == nil || h.app.activePane.webView == nil {
-		log.Printf("[window-shortcuts] No active pane for %s", featureName)
+		logging.Debug(fmt.Sprintf("[window-shortcuts] No active pane for %s", featureName))
 		return
 	}
 
-	log.Printf("[window-shortcuts] %s toggle -> pane %p", featureName, h.app.activePane.webView)
+	logging.Debug(fmt.Sprintf("[window-shortcuts] %s toggle -> pane %p", featureName, h.app.activePane.webView))
 
 	h.ensureGUIInActivePane("omnibox")
 
@@ -504,48 +504,48 @@ func (h *WindowShortcutHandler) handleUIToggle(lastToggle *time.Time, featureNam
 		"timestamp": time.Now().UnixMilli(),
 		"source":    "window-global",
 	}); err != nil {
-		log.Printf("[window-shortcuts] Failed to dispatch %s toggle: %v", featureName, err)
+		logging.Error(fmt.Sprintf("[window-shortcuts] Failed to dispatch %s toggle: %v", featureName, err))
 	}
 }
 
 func (h *WindowShortcutHandler) handleWorkspaceNavigation(direction string) {
 	if h.app == nil || h.app.workspace == nil {
-		log.Printf("[window-shortcuts] No workspace for navigation")
+		logging.Debug(fmt.Sprintf("[window-shortcuts] No workspace for navigation"))
 		return
 	}
 
-	log.Printf("[window-shortcuts] Workspace navigation: %s", direction)
+	logging.Debug(fmt.Sprintf("[window-shortcuts] Workspace navigation: %s", direction))
 
 	if h.app.workspace.FocusNeighbor(direction) {
-		log.Printf("[window-shortcuts] Workspace navigation %s successful", direction)
+		logging.Debug(fmt.Sprintf("[window-shortcuts] Workspace navigation %s successful", direction))
 	} else {
-		log.Printf("[window-shortcuts] Workspace navigation %s failed", direction)
+		logging.Debug(fmt.Sprintf("[window-shortcuts] Workspace navigation %s failed", direction))
 	}
 }
 
 func (h *WindowShortcutHandler) handleClosePane() {
 	if h.app == nil || h.app.workspace == nil {
-		log.Printf("[window-shortcuts] No workspace for close pane")
+		logging.Debug(fmt.Sprintf("[window-shortcuts] No workspace for close pane"))
 		return
 	}
 
 	// Find the currently active WebView
 	var activeWebView *webkit.WebView
-	log.Printf("[window-shortcuts] Searching for active WebView among %d WebViews", len(h.app.workspace.viewToNode))
+	logging.Debug(fmt.Sprintf("[window-shortcuts] Searching for active WebView among %d WebViews", len(h.app.workspace.viewToNode)))
 	for webView := range h.app.workspace.viewToNode {
 		if webView != nil {
 			isActive := webView.IsActive()
-			log.Printf("[window-shortcuts] WebView %d: IsActive=%t", webView.ID(), isActive)
+			logging.Debug(fmt.Sprintf("[window-shortcuts] WebView %d: IsActive=%t", webView.ID(), isActive))
 			if isActive {
 				activeWebView = webView
-				log.Printf("[window-shortcuts] Found active WebView: %d", webView.ID())
+				logging.Debug(fmt.Sprintf("[window-shortcuts] Found active WebView: %d", webView.ID()))
 				break
 			}
 		}
 	}
 
 	if activeWebView == nil {
-		log.Printf("[window-shortcuts] No active WebView found, using workspace closeCurrentPane")
+		logging.Debug(fmt.Sprintf("[window-shortcuts] No active WebView found, using workspace closeCurrentPane"))
 		h.app.workspace.closeCurrentPane()
 		return
 	}
@@ -553,7 +553,7 @@ func (h *WindowShortcutHandler) handleClosePane() {
 	// Check if the active WebView is a popup
 	node := h.app.workspace.viewToNode[activeWebView]
 	if node != nil && node.isPopup {
-		log.Printf("[window-shortcuts] Closing popup via OnWorkspaceMessage")
+		logging.Debug(fmt.Sprintf("[window-shortcuts] Closing popup via OnWorkspaceMessage"))
 		// Use the proper close-popup message for popups
 		msg := messaging.Message{
 			Event:     "close-popup",
@@ -562,7 +562,7 @@ func (h *WindowShortcutHandler) handleClosePane() {
 		}
 		h.app.workspace.OnWorkspaceMessage(activeWebView, msg)
 	} else {
-		log.Printf("[window-shortcuts] Closing regular pane via workspace closeCurrentPane")
+		logging.Debug(fmt.Sprintf("[window-shortcuts] Closing regular pane via workspace closeCurrentPane"))
 		// Use regular close for non-popup panes
 		h.app.workspace.closeCurrentPane()
 	}
@@ -571,61 +571,61 @@ func (h *WindowShortcutHandler) handleClosePane() {
 // handlePaneMode enters pane mode for modal pane management.
 func (h *WindowShortcutHandler) handlePaneMode() {
 	if h.app == nil || h.app.workspace == nil {
-		log.Printf("[window-shortcuts] Cannot enter pane mode: workspace not available")
+		logging.Debug(fmt.Sprintf("[window-shortcuts] Cannot enter pane mode: workspace not available"))
 		return
 	}
 
-	log.Printf("[window-shortcuts] Entering pane mode")
+	logging.Debug(fmt.Sprintf("[window-shortcuts] Entering pane mode"))
 	h.app.workspace.EnterPaneMode()
 }
 
 // handleTabMode enters tab mode for modal tab management.
 func (h *WindowShortcutHandler) handleTabMode() {
 	if h.app == nil || h.app.tabManager == nil {
-		log.Printf("[window-shortcuts] Cannot enter tab mode: tab manager not available")
+		logging.Debug(fmt.Sprintf("[window-shortcuts] Cannot enter tab mode: tab manager not available"))
 		return
 	}
 
-	log.Printf("[window-shortcuts] Entering tab mode")
+	logging.Debug(fmt.Sprintf("[window-shortcuts] Entering tab mode"))
 	h.app.tabManager.EnterTabMode()
 }
 
 // handleNextTab switches to the next tab.
 func (h *WindowShortcutHandler) handleNextTab() {
 	if h.app == nil || h.app.tabManager == nil {
-		log.Printf("[window-shortcuts] Cannot switch tab: tab manager not available")
+		logging.Debug(fmt.Sprintf("[window-shortcuts] Cannot switch tab: tab manager not available"))
 		return
 	}
 
-	log.Printf("[window-shortcuts] Switching to next tab")
+	logging.Debug(fmt.Sprintf("[window-shortcuts] Switching to next tab"))
 	if err := h.app.tabManager.NextTab(); err != nil {
-		log.Printf("[window-shortcuts] Failed to switch to next tab: %v", err)
+		logging.Error(fmt.Sprintf("[window-shortcuts] Failed to switch to next tab: %v", err))
 	}
 }
 
 // handlePrevTab switches to the previous tab.
 func (h *WindowShortcutHandler) handlePrevTab() {
 	if h.app == nil || h.app.tabManager == nil {
-		log.Printf("[window-shortcuts] Cannot switch tab: tab manager not available")
+		logging.Debug(fmt.Sprintf("[window-shortcuts] Cannot switch tab: tab manager not available"))
 		return
 	}
 
-	log.Printf("[window-shortcuts] Switching to previous tab")
+	logging.Debug(fmt.Sprintf("[window-shortcuts] Switching to previous tab"))
 	if err := h.app.tabManager.PreviousTab(); err != nil {
-		log.Printf("[window-shortcuts] Failed to switch to previous tab: %v", err)
+		logging.Error(fmt.Sprintf("[window-shortcuts] Failed to switch to previous tab: %v", err))
 	}
 }
 
 // handleDirectTabSwitch switches to a specific tab by index (0-based).
 func (h *WindowShortcutHandler) handleDirectTabSwitch(index int) {
 	if h.app == nil || h.app.tabManager == nil {
-		log.Printf("[window-shortcuts] Cannot switch tab: tab manager not available")
+		logging.Debug(fmt.Sprintf("[window-shortcuts] Cannot switch tab: tab manager not available"))
 		return
 	}
 
-	log.Printf("[window-shortcuts] Direct tab switch to index %d", index)
+	logging.Debug(fmt.Sprintf("[window-shortcuts] Direct tab switch to index %d", index))
 	if err := h.app.tabManager.SwitchToTab(index); err != nil {
-		log.Printf("[window-shortcuts] Failed to switch to tab %d: %v", index, err)
+		logging.Error(fmt.Sprintf("[window-shortcuts] Failed to switch to tab %d: %v", index, err))
 	}
 }
 
@@ -653,7 +653,7 @@ func (h *WindowShortcutHandler) handleTabModeAction(action string) {
 	}
 
 	// Tab mode is active, handle the action
-	log.Printf("[window-shortcuts] Tab mode action: %s", action)
+	logging.Debug(fmt.Sprintf("[window-shortcuts] Tab mode action: %s", action))
 	h.app.tabManager.HandleTabAction(action)
 }
 

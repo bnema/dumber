@@ -4,13 +4,13 @@ package browser
 import (
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/bnema/dumber/internal/app/messaging"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/pkg/webkit"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
@@ -208,7 +208,7 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 
 	// Initialize focus state machine after all setup is complete
 	if err := manager.focusStateMachine.Initialize(); err != nil {
-		log.Printf("[workspace] Failed to initialize focus state machine: %v", err)
+		logging.Error(fmt.Sprintf("[workspace] Failed to initialize focus state machine: %v", err))
 	}
 
 	// Ensure hover controllers are attached to all panes for mouse-driven focus changes
@@ -225,7 +225,7 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 func (wm *WorkspaceManager) shouldDebounce(source *webkit.WebView, threshold time.Duration) bool {
 	if last, ok := wm.lastSplitMsg[source]; ok {
 		if elapsed := time.Since(last); elapsed < threshold {
-			log.Printf("[workspace] operation debounced: %.0fms", elapsed.Seconds()*1000)
+			logging.Debug(fmt.Sprintf("[workspace] operation debounced: %.0fms", elapsed.Seconds()*1000))
 			return true
 		}
 	}
@@ -236,14 +236,14 @@ func (wm *WorkspaceManager) shouldDebounce(source *webkit.WebView, threshold tim
 // withSplitLock executes an operation with atomic splitting lock protection
 func (wm *WorkspaceManager) withSplitLock(operation string, fn func() error) error {
 	if !atomic.CompareAndSwapInt32(&wm.splitting, 0, 1) {
-		log.Printf("[workspace] %s ignored: operation in progress", operation)
+		logging.Debug(fmt.Sprintf("[workspace] %s ignored: operation in progress", operation))
 		return fmt.Errorf("operation in progress")
 	}
 
 	defer func() {
 		atomic.StoreInt32(&wm.splitting, 0)
 		if r := recover(); r != nil {
-			log.Printf("[workspace] %s panicked: %v", operation, r)
+			logging.Error(fmt.Sprintf("[workspace] %s panicked: %v", operation, r))
 			panic(r)
 		}
 	}()
@@ -272,9 +272,9 @@ func (wm *WorkspaceManager) cleanupPopupStorage(parentNode, targetNode *paneNode
 	`, parentWebViewID, requestID, requestID, requestID, requestID, webviewID)
 
 	if err := parentNode.pane.WebView().InjectScript(script); err != nil {
-		log.Printf("[workspace] localStorage cleanup failed: %v", err)
+		logging.Error(fmt.Sprintf("[workspace] localStorage cleanup failed: %v", err))
 	} else {
-		log.Printf("[workspace] Cleaned localStorage for popup requestId=%s webviewId=%s", requestID, webviewID)
+		logging.Debug(fmt.Sprintf("[workspace] Cleaned localStorage for popup requestId=%s webviewId=%s", requestID, webviewID))
 	}
 }
 
@@ -292,7 +292,7 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 	}
 
 	if node == nil {
-		log.Printf("[workspace] message from unknown webview: event=%s webviewId=%s", msg.Event, msg.WebViewID)
+		logging.Warn(fmt.Sprintf("[workspace] message from unknown webview: event=%s webviewId=%s", msg.Event, msg.WebViewID))
 		return
 	}
 
@@ -321,7 +321,7 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 		})
 
 		if err != nil {
-			log.Printf("[workspace] split failed: %v", err)
+			logging.Error(fmt.Sprintf("[workspace] split failed: %v", err))
 		}
 
 	case "pane-stack":
@@ -344,12 +344,12 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 		})
 
 		if err != nil {
-			log.Printf("[workspace] stack failed: %v", err)
+			logging.Error(fmt.Sprintf("[workspace] stack failed: %v", err))
 		}
 
 	case "close-popup":
 		if msg.WebViewID == "" {
-			log.Printf("[workspace] close-popup: empty webviewId, ignoring")
+			logging.Warn(fmt.Sprintf("[workspace] close-popup: empty webviewId, ignoring"))
 			return
 		}
 
@@ -363,16 +363,16 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 		}
 
 		if targetNode == nil {
-			log.Printf("[workspace] close-popup: webview not found: %s", msg.WebViewID)
+			logging.Warn(fmt.Sprintf("[workspace] close-popup: webview not found: %s", msg.WebViewID))
 			return
 		}
 
 		if !targetNode.isPopup {
-			log.Printf("[workspace] close-popup: target is not a popup: %s", msg.WebViewID)
+			logging.Warn(fmt.Sprintf("[workspace] close-popup: target is not a popup: %s", msg.WebViewID))
 			return
 		}
 
-		log.Printf("[workspace] Closing popup due to %s", msg.Reason)
+		logging.Info(fmt.Sprintf("[workspace] Closing popup due to %s", msg.Reason))
 
 		// Remove from parent's active popup list
 		if targetNode.parentPane != nil {
@@ -380,7 +380,7 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 			for i, childID := range parentNode.activePopupChildren {
 				if childID == msg.WebViewID {
 					parentNode.activePopupChildren = append(parentNode.activePopupChildren[:i], parentNode.activePopupChildren[i+1:]...)
-					log.Printf("[workspace] Removed popup from parent (remaining: %d)", len(parentNode.activePopupChildren))
+					logging.Debug(fmt.Sprintf("[workspace] Removed popup from parent (remaining: %d)", len(parentNode.activePopupChildren)))
 					break
 				}
 			}
@@ -389,11 +389,11 @@ func (wm *WorkspaceManager) OnWorkspaceMessage(source *webkit.WebView, msg messa
 		}
 
 		if err := wm.ClosePane(targetNode); err != nil {
-			log.Printf("[workspace] Failed to close popup: %v", err)
+			logging.Error(fmt.Sprintf("[workspace] Failed to close popup: %v", err))
 		}
 
 	default:
-		log.Printf("[workspace] unhandled workspace event: %s", msg.Event)
+		logging.Warn(fmt.Sprintf("[workspace] unhandled workspace event: %s", msg.Event))
 	}
 }
 
@@ -433,7 +433,7 @@ func (wm *WorkspaceManager) SetActivePane(node *paneNode, source FocusSource) {
 	wm.lastFocusTarget = node
 
 	if err := wm.focusStateMachine.RequestFocus(node, source); err != nil {
-		log.Printf("[workspace] Focus request failed: %v", err)
+		logging.Error(fmt.Sprintf("[workspace] Focus request failed: %v", err))
 	}
 }
 
@@ -516,12 +516,12 @@ func (wm *WorkspaceManager) RegisterNavigationHandler(webView *webkit.WebView) {
 			return false
 		}
 
-		log.Printf("[workspace] Middle-click/Ctrl+click on link, opening in new pane: %s", linkURL)
+		logging.Info(fmt.Sprintf("[workspace] Middle-click/Ctrl+click on link, opening in new pane: %s", linkURL))
 
 		// Get the node for this webview
 		node := wm.GetNodeForWebView(webView)
 		if node == nil {
-			log.Printf("[workspace] Cannot find node for middle-clicked link")
+			logging.Error(fmt.Sprintf("[workspace] Cannot find node for middle-clicked link"))
 			return false
 		}
 
@@ -537,18 +537,18 @@ func (wm *WorkspaceManager) RegisterNavigationHandler(webView *webkit.WebView) {
 		switch behavior {
 		case "stacked":
 			// Stack the current pane - this also creates a new pane in the stack
-			log.Printf("[workspace] Using stacked behavior for gesture link")
+			logging.Debug(fmt.Sprintf("[workspace] Using stacked behavior for gesture link"))
 			newNode, err = wm.stackedPaneManager.StackPane(node)
 			if err != nil {
-				log.Printf("[workspace] Failed to stack pane for gesture link: %v", err)
+				logging.Error(fmt.Sprintf("[workspace] Failed to stack pane for gesture link: %v", err))
 				return false
 			}
 			// newNode is the new pane that was added to the stack
-			log.Printf("[workspace] StackPane created new pane in stack: %p", newNode)
+			logging.Debug(fmt.Sprintf("[workspace] StackPane created new pane in stack: %p", newNode))
 
 		case "split":
 			// Regular split behavior
-			log.Printf("[workspace] Using split behavior for gesture link")
+			logging.Debug(fmt.Sprintf("[workspace] Using split behavior for gesture link"))
 			direction := "right"
 			if wm.app.config.Workspace.Popups.Placement != "" {
 				direction = strings.ToLower(wm.app.config.Workspace.Popups.Placement)
@@ -557,7 +557,7 @@ func (wm *WorkspaceManager) RegisterNavigationHandler(webView *webkit.WebView) {
 
 		case "tabbed":
 			// Tabbed not yet implemented, fall back to split
-			log.Printf("[workspace] WARNING: Tabbed behavior not yet implemented for gesture links, falling back to split")
+			logging.Warn(fmt.Sprintf("[workspace] WARNING: Tabbed behavior not yet implemented for gesture links, falling back to split"))
 			direction := "right"
 			if wm.app.config.Workspace.Popups.Placement != "" {
 				direction = strings.ToLower(wm.app.config.Workspace.Popups.Placement)
@@ -566,7 +566,7 @@ func (wm *WorkspaceManager) RegisterNavigationHandler(webView *webkit.WebView) {
 
 		default:
 			// Unknown behavior, fall back to split
-			log.Printf("[workspace] WARNING: Unknown behavior '%s' for gesture links, falling back to split", behavior)
+			logging.Warn(fmt.Sprintf("[workspace] WARNING: Unknown behavior '%s' for gesture links, falling back to split", behavior))
 			direction := "right"
 			if wm.app.config.Workspace.Popups.Placement != "" {
 				direction = strings.ToLower(wm.app.config.Workspace.Popups.Placement)
@@ -575,14 +575,14 @@ func (wm *WorkspaceManager) RegisterNavigationHandler(webView *webkit.WebView) {
 		}
 
 		if err != nil {
-			log.Printf("[workspace] Failed to handle gesture link: %v", err)
+			logging.Error(fmt.Sprintf("[workspace] Failed to handle gesture link: %v", err))
 			return false
 		}
 
 		// Navigate the new pane to the URL
 		if newNode != nil && newNode.pane != nil && newNode.pane.WebView() != nil {
 			if err := newNode.pane.WebView().LoadURL(linkURL); err != nil {
-				log.Printf("[workspace] Failed to load URL in new pane: %v", err)
+				logging.Error(fmt.Sprintf("[workspace] Failed to load URL in new pane: %v", err))
 				return false
 			}
 
@@ -593,7 +593,7 @@ func (wm *WorkspaceManager) RegisterNavigationHandler(webView *webkit.WebView) {
 		return true // Indicate we handled the click
 	})
 
-	log.Printf("[workspace] Registered navigation handler for webview: %d", webView.ID())
+	logging.Debug(fmt.Sprintf("[workspace] Registered navigation handler for webview: %d", webView.ID()))
 }
 
 // GetAllPanes returns all BrowserPanes in this workspace.
@@ -621,7 +621,7 @@ func (wm *WorkspaceManager) GetActivePane() *BrowserPane {
 // RestoreFocus restores focus to the active pane in this workspace.
 // Called when switching to a tab to ensure the correct pane has focus.
 func (wm *WorkspaceManager) RestoreFocus() {
-	log.Printf("[workspace] RestoreFocus: workspace %p", wm)
+	logging.Debug(fmt.Sprintf("[workspace] RestoreFocus: workspace %p", wm))
 
 	// Get the active pane and explicitly grab GTK focus
 	activeNode := wm.GetActiveNode()
@@ -630,7 +630,7 @@ func (wm *WorkspaceManager) RestoreFocus() {
 		// This ensures keyboard events go to the active tab's WebView
 		// Note: RestoreFocus is called from switchToTabInternal which is already on the main thread
 		webkit.WidgetGrabFocus(activeNode.pane.webView.AsWidget())
-		log.Printf("[workspace] Grabbed GTK focus for WebView in workspace %p", wm)
+		logging.Debug(fmt.Sprintf("[workspace] Grabbed GTK focus for WebView in workspace %p", wm))
 
 		// Also request focus via FSM
 		if wm.focusStateMachine != nil {
@@ -647,14 +647,14 @@ func (wm *WorkspaceManager) IsInActiveTab() bool {
 	}
 	// The active workspace is the one currently assigned to app.workspace
 	isActive := wm.app.workspace == wm
-	log.Printf("[workspace] IsInActiveTab check: workspace %p, app.workspace %p, isActive=%v", wm, wm.app.workspace, isActive)
+	logging.Debug(fmt.Sprintf("[workspace] IsInActiveTab check: workspace %p, app.workspace %p, isActive=%v", wm, wm.app.workspace, isActive))
 	return isActive
 }
 
 // ClearFocus removes GTK focus from all panes in this workspace.
 // This prevents inactive tab's WebViews from catching keyboard events.
 func (wm *WorkspaceManager) ClearFocus() {
-	log.Printf("[workspace] ClearFocus: workspace %p", wm)
+	logging.Debug(fmt.Sprintf("[workspace] ClearFocus: workspace %p", wm))
 	// No state to clear - IsInActiveTab() checks dynamically
 }
 
@@ -675,19 +675,19 @@ func (wm *WorkspaceManager) setRootContainer(container gtk.Widgetter) {
 	}
 
 	if wm.app == nil || wm.app.tabManager == nil || wm.app.tabManager.ContentArea == nil {
-		log.Printf("[workspace] ERROR: Cannot set root - tab manager not initialized")
+		logging.Error(fmt.Sprintf("[workspace] ERROR: Cannot set root - tab manager not initialized"))
 		return
 	}
 
 	contentBox, ok := wm.app.tabManager.ContentArea.(*gtk.Box)
 	if !ok || contentBox == nil {
-		log.Printf("[workspace] ERROR: ContentArea is not a Box")
+		logging.Error(fmt.Sprintf("[workspace] ERROR: ContentArea is not a Box"))
 		return
 	}
 
 	contentBox.Append(container)
 	webkit.WidgetSetVisible(container, true)
-	log.Printf("[workspace] Attached root container %p to ContentArea", container)
+	logging.Debug(fmt.Sprintf("[workspace] Attached root container %p to ContentArea", container))
 }
 
 // clearRootContainer removes the current workspace root from TabManager.ContentArea.
@@ -698,16 +698,16 @@ func (wm *WorkspaceManager) clearRootContainer() {
 	}
 
 	if wm.app == nil || wm.app.tabManager == nil || wm.app.tabManager.ContentArea == nil {
-		log.Printf("[workspace] ERROR: Cannot clear root - tab manager not initialized")
+		logging.Error(fmt.Sprintf("[workspace] ERROR: Cannot clear root - tab manager not initialized"))
 		return
 	}
 
 	contentBox, ok := wm.app.tabManager.ContentArea.(*gtk.Box)
 	if !ok || contentBox == nil {
-		log.Printf("[workspace] ERROR: ContentArea is not a Box")
+		logging.Error(fmt.Sprintf("[workspace] ERROR: ContentArea is not a Box"))
 		return
 	}
 
 	contentBox.Remove(wm.root.container)
-	log.Printf("[workspace] Removed root container %p from ContentArea", wm.root.container)
+	logging.Debug(fmt.Sprintf("[workspace] Removed root container %p from ContentArea", wm.root.container))
 }

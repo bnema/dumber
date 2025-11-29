@@ -4,11 +4,11 @@ package browser
 import (
 	"container/heap"
 	"fmt"
-	"log"
 	"runtime/debug"
 	"sync"
 	"time"
 
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/pkg/webkit"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
@@ -274,10 +274,10 @@ func (fsm *FocusStateMachine) ConfigureDebug(focusDebug, _ bool, metricsEnabled 
 	fsm.metricsEnabled = metricsEnabled
 
 	if focusDebug {
-		log.Printf("[FSM] Focus debug logging enabled")
+		logging.Info(fmt.Sprintf("[FSM] Focus debug logging enabled"))
 	}
 	if metricsEnabled {
-		log.Printf("[FSM] Focus metrics tracking enabled")
+		logging.Info(fmt.Sprintf("[FSM] Focus metrics tracking enabled"))
 	}
 }
 
@@ -286,27 +286,27 @@ func (fsm *FocusStateMachine) Initialize() error {
 	fsm.mu.Lock()
 	defer fsm.mu.Unlock()
 
-	log.Printf("[FSM] Initializing focus state machine")
+	logging.Info(fmt.Sprintf("[FSM] Initializing focus state machine"))
 	fsm.currentState = StateInitializing
 
 	// Determine initial focus
 	leaves := fsm.wm.collectLeaves()
 	if len(leaves) == 0 {
-		log.Printf("[FSM] No panes found during initialization")
+		logging.Debug(fmt.Sprintf("[FSM] No panes found during initialization"))
 		fsm.currentState = StateIdle
 		return nil
 	}
 
 	initialPane := fsm.determineInitialFocus(leaves)
 	if initialPane == nil {
-		log.Printf("[FSM] Could not determine initial focus target")
+		logging.Warn(fmt.Sprintf("[FSM] Could not determine initial focus target"))
 		fsm.currentState = StateIdle
 		return nil
 	}
 
 	// Phase 3: Apply initial focus and CSS
 	if err := fsm.applyInitialFocus(initialPane); err != nil {
-		log.Printf("[FSM] Failed to apply initial focus: %v", err)
+		logging.Error(fmt.Sprintf("[FSM] Failed to apply initial focus: %v", err))
 		fsm.currentState = StateIdle
 		return err
 	}
@@ -324,7 +324,7 @@ func (fsm *FocusStateMachine) Initialize() error {
 	// Phase 7: Transition to idle state
 	fsm.currentState = StateIdle
 
-	log.Printf("[FSM] Focus state machine initialized successfully with pane %p", initialPane)
+	logging.Info(fmt.Sprintf("[FSM] Focus state machine initialized successfully with pane %p", initialPane))
 	return nil
 }
 
@@ -333,7 +333,7 @@ func (fsm *FocusStateMachine) Shutdown() {
 	fsm.mu.Lock()
 	defer fsm.mu.Unlock()
 
-	log.Printf("[FSM] Shutting down focus state machine")
+	logging.Info(fmt.Sprintf("[FSM] Shutting down focus state machine"))
 
 	// Signal shutdown
 	close(fsm.shutdownChan)
@@ -346,7 +346,7 @@ func (fsm *FocusStateMachine) Shutdown() {
 		fsm.settlingTimer.Stop()
 	}
 
-	log.Printf("[FSM] Focus state machine shutdown complete")
+	logging.Info(fmt.Sprintf("[FSM] Focus state machine shutdown complete"))
 }
 
 // RequestFocus queues a focus change request with priority and deduplication
@@ -382,7 +382,7 @@ func (fsm *FocusStateMachine) RequestFocus(node *paneNode, source FocusSource) e
 			fsm.mu.Unlock()
 		}
 		if fsm.debugEnabled {
-			log.Printf("[FSM] Duplicate request ignored: %s -> %p", request.Source, request.TargetNode)
+			logging.Debug(fmt.Sprintf("[FSM] Duplicate request ignored: %s -> %p", request.Source, request.TargetNode))
 		}
 		return nil
 	}
@@ -395,7 +395,7 @@ func (fsm *FocusStateMachine) RequestFocus(node *paneNode, source FocusSource) e
 			fsm.mu.Unlock()
 		}
 		if fsm.debugEnabled {
-			log.Printf("[FSM] Request coalesced: %s -> %p", request.Source, request.TargetNode)
+			logging.Debug(fmt.Sprintf("[FSM] Request coalesced: %s -> %p", request.Source, request.TargetNode))
 		}
 		return nil
 	}
@@ -443,7 +443,7 @@ func (fsm *FocusStateMachine) InvalidateActivePane(node *paneNode) {
 		return
 	}
 
-	log.Printf("[FSM] Active pane invalidated: %p", node)
+	logging.Debug(fmt.Sprintf("[FSM] Active pane invalidated: %p", node))
 	fsm.activePane = nil
 
 	if fsm.wm != nil && fsm.wm.app != nil {
@@ -541,7 +541,7 @@ func (fsm *FocusStateMachine) determineInitialFocus(leaves []*paneNode) *paneNod
 		if leaf.pane != nil && leaf.pane.webView != nil {
 			url := leaf.pane.webView.GetCurrentURL()
 			if url != "" && url != "about:blank" {
-				log.Printf("[FSM] Selected pane with content as initial focus: %s", url)
+				logging.Debug(fmt.Sprintf("[FSM] Selected pane with content as initial focus: %s", url))
 				return leaf
 			}
 		}
@@ -549,12 +549,12 @@ func (fsm *FocusStateMachine) determineInitialFocus(leaves []*paneNode) *paneNod
 
 	// Priority 2: Top-left pane (geometrically)
 	if topLeft := fsm.findTopLeftPane(leaves); topLeft != nil {
-		log.Printf("[FSM] Selected top-left pane as initial focus")
+		logging.Debug(fmt.Sprintf("[FSM] Selected top-left pane as initial focus"))
 		return topLeft
 	}
 
 	// Priority 3: First pane in tree order
-	log.Printf("[FSM] Selected first pane as initial focus")
+	logging.Debug(fmt.Sprintf("[FSM] Selected first pane as initial focus"))
 	return leaves[0]
 }
 
@@ -587,7 +587,7 @@ func (fsm *FocusStateMachine) applyInitialFocus(node *paneNode) error {
 		return ErrInvalidTarget
 	}
 
-	log.Printf("[FSM] Applying initial focus to pane %p", node)
+	logging.Debug(fmt.Sprintf("[FSM] Applying initial focus to pane %p", node))
 
 	// Apply GTK focus
 	if err := fsm.applyGTKFocus(node); err != nil {
@@ -646,7 +646,7 @@ func (fsm *FocusStateMachine) applyGTKFocus(node *paneNode) error {
 func (fsm *FocusStateMachine) processQueue() {
 	defer fsm.queueProcessor.Done()
 
-	log.Printf("[FSM] Focus request queue processor started")
+	logging.Debug(fmt.Sprintf("[FSM] Focus request queue processor started"))
 
 	for {
 		select {
@@ -657,7 +657,7 @@ func (fsm *FocusStateMachine) processQueue() {
 			// Legacy channel for backward compatibility
 			fsm.handleFocusRequest(request)
 		case <-fsm.shutdownChan:
-			log.Printf("[FSM] Focus request queue processor shutting down")
+			logging.Debug(fmt.Sprintf("[FSM] Focus request queue processor shutting down"))
 			return
 		}
 	}
@@ -696,7 +696,7 @@ func (fsm *FocusStateMachine) handleFocusRequest(request FocusRequest) {
 		fsm.mu.Lock()
 		fsm.metrics.FailedRequests++
 		fsm.mu.Unlock()
-		log.Printf("[FSM] Invalid focus request %s: %v", request.ID, err)
+		logging.Error(fmt.Sprintf("[FSM] Invalid focus request %s: %v", request.ID, err))
 		return
 	}
 
@@ -706,13 +706,13 @@ func (fsm *FocusStateMachine) handleFocusRequest(request FocusRequest) {
 	fsm.mu.RUnlock()
 
 	if currentActive == request.TargetNode {
-		log.Printf("[FSM] Focus request %s: already focused on target", request.ID)
+		logging.Debug(fmt.Sprintf("[FSM] Focus request %s: already focused on target", request.ID))
 		fsm.recordProcessTime(time.Since(startTime))
 		return
 	}
 
-	log.Printf("[FSM] Processing focus request %s: %s -> %p",
-		request.ID, request.Source, request.TargetNode)
+	logging.Debug(fmt.Sprintf("[FSM] Processing focus request %s: %s -> %p",
+		request.ID, request.Source, request.TargetNode))
 
 	// GTK operations must run on main thread - always use IdleAdd for simplicity
 	var err error
@@ -728,7 +728,7 @@ func (fsm *FocusStateMachine) handleFocusRequest(request FocusRequest) {
 		fsm.mu.Lock()
 		fsm.metrics.FailedRequests++
 		fsm.mu.Unlock()
-		log.Printf("[FSM] Focus request %s failed: %v", request.ID, err)
+		logging.Error(fmt.Sprintf("[FSM] Focus request %s failed: %v", request.ID, err))
 	} else {
 		fsm.mu.Lock()
 		fsm.metrics.SuccessfulRequests++
@@ -805,7 +805,7 @@ func (fsm *FocusStateMachine) executeFocusChange(request FocusRequest) error {
 	// Start settling timer
 	fsm.startSettlingTimer()
 
-	log.Printf("[FSM] Focus change completed: %p -> %p", oldPane, newPane)
+	logging.Debug(fmt.Sprintf("[FSM] Focus change completed: %p -> %p", oldPane, newPane))
 	return nil
 }
 
@@ -866,14 +866,14 @@ func (fsm *FocusStateMachine) verifyCSSState() {
 		}
 
 		if fsm.reconcileCount > fsm.maxReconcileAttempts {
-			log.Printf("[FSM] WARNING: Reconciliation loop detected, skipping (attempt %d)", fsm.reconcileCount)
+			logging.Warn(fmt.Sprintf("[FSM] WARNING: Reconciliation loop detected, skipping (attempt %d)", fsm.reconcileCount))
 			fsm.mu.Unlock()
 			return
 		}
 		fsm.mu.Unlock()
 
-		log.Printf("[FSM] CSS inconsistencies found: %v", issues)
-		log.Printf("[FSM] Triggering CSS reconciliation (attempt %d)", fsm.reconcileCount)
+		logging.Debug(fmt.Sprintf("[FSM] CSS inconsistencies found: %v", issues))
+		logging.Debug(fmt.Sprintf("[FSM] Triggering CSS reconciliation (attempt %d)", fsm.reconcileCount))
 
 		// Track reconciliation in metrics
 		fsm.mu.Lock()
@@ -896,7 +896,7 @@ func (fsm *FocusStateMachine) shouldCoalesce(request FocusRequest) bool {
 	for i := 0; i < fsm.priorityQueue.Len(); i++ {
 		pending := (*fsm.priorityQueue)[i]
 		if pending.TargetNode == request.TargetNode {
-			log.Printf("[FSM] Coalescing request to same target: %p", request.TargetNode)
+			logging.Debug(fmt.Sprintf("[FSM] Coalescing request to same target: %p", request.TargetNode))
 			return true
 		}
 	}
@@ -924,7 +924,7 @@ func (fsm *FocusStateMachine) requeue(request FocusRequest) {
 	defer fsm.mu.Unlock()
 
 	heap.Push(fsm.priorityQueue, &request)
-	log.Printf("[FSM] Requeued request due to higher priority: %s", request.ID)
+	logging.Debug(fmt.Sprintf("[FSM] Requeued request due to higher priority: %s", request.ID))
 
 	// Signal that a request is pending
 	select {
@@ -940,7 +940,7 @@ func (fsm *FocusStateMachine) attachGTKController(node *paneNode) {
 	}
 
 	if node.focusControllerToken != 0 {
-		log.Printf("[FSM] Controller already attached to pane %p", node)
+		logging.Debug(fmt.Sprintf("[FSM] Controller already attached to pane %p", node))
 		return
 	}
 
@@ -965,7 +965,7 @@ func (fsm *FocusStateMachine) attachGTKController(node *paneNode) {
 		}
 		node.lastFocusEnterTime = now
 
-		log.Printf("[FSM] GTK focus enter: %p", node)
+		logging.Debug(fmt.Sprintf("[FSM] GTK focus enter: %p", node))
 		// Don't automatically change focus on GTK enter - let user interactions drive this
 		// This prevents infinite loops with our own focus changes
 	})
@@ -978,7 +978,7 @@ func (fsm *FocusStateMachine) attachGTKController(node *paneNode) {
 		}
 		node.lastFocusLeaveTime = now
 
-		log.Printf("[FSM] GTK focus leave: %p", node)
+		logging.Debug(fmt.Sprintf("[FSM] GTK focus leave: %p", node))
 		// Similarly, don't react to GTK leave events automatically
 	})
 
@@ -988,7 +988,7 @@ func (fsm *FocusStateMachine) attachGTKController(node *paneNode) {
 	// Store controller pointer as token for later removal
 	node.focusControllerToken = uintptr(controller.Native())
 	if node.focusControllerToken != 0 {
-		log.Printf("[FSM] Attached GTK focus controller to pane %p with token %d", node, node.focusControllerToken)
+		logging.Debug(fmt.Sprintf("[FSM] Attached GTK focus controller to pane %p with token %d", node, node.focusControllerToken))
 	}
 }
 
@@ -999,7 +999,7 @@ func (fsm *FocusStateMachine) detachGTKController(node *paneNode, token uintptr)
 	}
 
 	if node.focusControllerToken != token {
-		log.Printf("[FSM] Token mismatch, skipping detach for pane %p", node)
+		logging.Debug(fmt.Sprintf("[FSM] Token mismatch, skipping detach for pane %p", node))
 		return
 	}
 
@@ -1007,7 +1007,7 @@ func (fsm *FocusStateMachine) detachGTKController(node *paneNode, token uintptr)
 
 	// Note: In GTK4, controllers are automatically removed when widget is destroyed
 	// We just need to clear our token reference
-	log.Printf("[FSM] Detached GTK focus controller from pane %p", node)
+	logging.Debug(fmt.Sprintf("[FSM] Detached GTK focus controller from pane %p", node))
 }
 
 // attachGTKControllersToAllPanes attaches focus controllers to all existing panes
@@ -1021,7 +1021,7 @@ func (fsm *FocusStateMachine) attachGTKControllersToAllPanes() {
 		fsm.attachGTKController(leaf)
 	}
 
-	log.Printf("[FSM] Attached GTK focus controllers to %d panes", len(leaves))
+	logging.Debug(fmt.Sprintf("[FSM] Attached GTK focus controllers to %d panes", len(leaves)))
 }
 
 // FocusDebugInfo contains comprehensive debug information about the focus system
@@ -1070,7 +1070,7 @@ func (fsm *FocusStateMachine) DumpState() FocusDebugInfo {
 
 // ForceValidation manually triggers CSS consistency check and validation
 func (fsm *FocusStateMachine) ForceValidation() []string {
-	log.Printf("[FSM] Force validation requested")
+	logging.Debug(fmt.Sprintf("[FSM] Force validation requested"))
 
 	// Trigger CSS verification
 	fsm.verifyCSSState()
@@ -1096,7 +1096,7 @@ func (fsm *FocusStateMachine) ForceValidation() []string {
 		}
 	}
 
-	log.Printf("[FSM] Force validation completed: %d issues found", len(issues))
+	logging.Debug(fmt.Sprintf("[FSM] Force validation completed: %d issues found", len(issues)))
 	return issues
 }
 
@@ -1138,7 +1138,7 @@ func (fsm *FocusStateMachine) ClearHistory() {
 	defer fsm.mu.Unlock()
 
 	fsm.historyRing = NewRingBuffer[FocusTransition](50)
-	log.Printf("[FSM] Focus transition history cleared")
+	logging.Debug(fmt.Sprintf("[FSM] Focus transition history cleared"))
 }
 
 // GetMetrics returns performance metrics for the focus system

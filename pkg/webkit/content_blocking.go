@@ -3,10 +3,10 @@ package webkit
 import (
 	"context"
 	"fmt"
-	"log"
 	"path/filepath"
 	"sync"
 
+	"github.com/bnema/dumber/internal/logging"
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
 	"github.com/diamondburned/gotk4/pkg/gio/v2"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
@@ -31,7 +31,7 @@ func NewContentBlockingManager(storagePath string) (*ContentBlockingManager, err
 		return nil, fmt.Errorf("failed to create UserContentFilterStore")
 	}
 
-	log.Printf("[webkit] Created UserContentFilterStore at: %s", storagePath)
+	logging.Debug(fmt.Sprintf("[webkit] Created UserContentFilterStore at: %s", storagePath))
 
 	return &ContentBlockingManager{
 		filterStore: filterStore,
@@ -49,7 +49,7 @@ func (cbm *ContentBlockingManager) CompileFilters(identifier string, jsonRules [
 		return
 	}
 
-	log.Printf("[webkit] Compiling content filters (identifier: %s, rules size: %d bytes)", identifier, len(jsonRules))
+	logging.Debug(fmt.Sprintf("[webkit] Compiling content filters (identifier: %s, rules size: %d bytes)", identifier, len(jsonRules)))
 
 	// Store identifier for later use
 	cbm.mu.Lock()
@@ -64,7 +64,7 @@ func (cbm *ContentBlockingManager) CompileFilters(identifier string, jsonRules [
 	cbm.filterStore.Save(ctx, identifier, gBytes, func(result gio.AsyncResulter) {
 		filter, err := cbm.filterStore.SaveFinish(result)
 		if err != nil {
-			log.Printf("[webkit] Failed to compile content filter: %v", err)
+			logging.Error(fmt.Sprintf("[webkit] Failed to compile content filter: %v", err))
 			if onComplete != nil {
 				onComplete(fmt.Errorf("failed to compile filter: %w", err))
 			}
@@ -72,7 +72,7 @@ func (cbm *ContentBlockingManager) CompileFilters(identifier string, jsonRules [
 		}
 
 		if filter == nil {
-			log.Printf("[webkit] Filter compilation returned nil")
+			logging.Error(fmt.Sprintf("[webkit] Filter compilation returned nil"))
 			if onComplete != nil {
 				onComplete(fmt.Errorf("filter compilation returned nil"))
 			}
@@ -84,7 +84,7 @@ func (cbm *ContentBlockingManager) CompileFilters(identifier string, jsonRules [
 		cbm.compiledFilter = filter
 		cbm.mu.Unlock()
 
-		log.Printf("[webkit] Filter compilation complete: %s", identifier)
+		logging.Debug(fmt.Sprintf("[webkit] Filter compilation complete: %s", identifier))
 		if onComplete != nil {
 			onComplete(nil)
 		}
@@ -131,7 +131,7 @@ func (cbm *ContentBlockingManager) ApplyFiltersFromJSON(ucm *webkit.UserContentM
 		filter := cbm.compiledFilter
 		cbm.mu.RUnlock()
 		ucm.AddFilter(filter)
-		log.Printf("[webkit] Applied cached content filter to UCM")
+		logging.Debug(fmt.Sprintf("[webkit] Applied cached content filter to UCM"))
 		return nil
 	}
 	cbm.mu.RUnlock()
@@ -140,7 +140,7 @@ func (cbm *ContentBlockingManager) ApplyFiltersFromJSON(ucm *webkit.UserContentM
 		return fmt.Errorf("empty filter rules")
 	}
 
-	log.Printf("[webkit] Applying content filters (identifier: %s, rules size: %d bytes)", identifier, len(jsonRules))
+	logging.Debug(fmt.Sprintf("[webkit] Applying content filters (identifier: %s, rules size: %d bytes)", identifier, len(jsonRules)))
 
 	// Convert []byte to *glib.Bytes for WebKit API
 	gBytes := glib.NewBytesWithGo(jsonRules)
@@ -151,13 +151,13 @@ func (cbm *ContentBlockingManager) ApplyFiltersFromJSON(ucm *webkit.UserContentM
 	cbm.filterStore.Save(ctx, identifier, gBytes, func(result gio.AsyncResulter) {
 		filter, err := cbm.filterStore.SaveFinish(result)
 		if err != nil {
-			log.Printf("[webkit] Failed to compile content filter: %v", err)
+			logging.Error(fmt.Sprintf("[webkit] Failed to compile content filter: %v", err))
 			done <- fmt.Errorf("failed to compile filter: %w", err)
 			return
 		}
 
 		if filter == nil {
-			log.Printf("[webkit] Filter compilation returned nil")
+			logging.Error(fmt.Sprintf("[webkit] Filter compilation returned nil"))
 			done <- fmt.Errorf("filter compilation returned nil")
 			return
 		}
@@ -170,7 +170,7 @@ func (cbm *ContentBlockingManager) ApplyFiltersFromJSON(ucm *webkit.UserContentM
 
 		RunOnMainThread(func() {
 			ucm.AddFilter(filter)
-			log.Printf("[webkit] Successfully added content filter: %s", identifier)
+			logging.Debug(fmt.Sprintf("[webkit] Successfully added content filter: %s", identifier))
 			done <- nil
 		})
 	})
@@ -182,7 +182,7 @@ func (cbm *ContentBlockingManager) ApplyFiltersFromJSON(ucm *webkit.UserContentM
 func (cbm *ContentBlockingManager) RemoveAllFilters(ucm *webkit.UserContentManager) {
 	if ucm != nil {
 		ucm.RemoveAllFilters()
-		log.Printf("[webkit] Removed all content filters")
+		logging.Debug(fmt.Sprintf("[webkit] Removed all content filters"))
 	}
 }
 

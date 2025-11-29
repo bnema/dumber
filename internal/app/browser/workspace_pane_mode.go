@@ -2,7 +2,9 @@
 package browser
 
 import (
-	"log"
+	"fmt"
+
+	"github.com/bnema/dumber/internal/logging"
 )
 
 // EnterPaneMode activates pane mode on the currently focused pane
@@ -16,17 +18,17 @@ func (wm *WorkspaceManager) EnterPaneMode() {
 	// Get the currently focused pane
 	activeNode := wm.GetActiveNode()
 	if activeNode == nil {
-		log.Printf("[pane-mode] Cannot enter pane mode: no active pane")
+		logging.Error(fmt.Sprintf("[pane-mode] Cannot enter pane mode: no active pane"))
 		return
 	}
 
 	// Already in pane mode on this pane?
 	if wm.paneModeActive && wm.paneModeActivePane == activeNode {
-		log.Printf("[pane-mode] Pane mode already active on this pane")
+		logging.Info(fmt.Sprintf("[pane-mode] Pane mode already active on this pane"))
 		return
 	}
 
-	log.Printf("[pane-mode] Entering pane mode on pane %p (workspace=%p)", activeNode, wm)
+	logging.Debug(fmt.Sprintf("[pane-mode] Entering pane mode on pane %p (workspace=%p)", activeNode, wm))
 
 	wm.paneModeActive = true
 	wm.paneModeActivePane = activeNode
@@ -51,7 +53,7 @@ func (wm *WorkspaceManager) ExitPaneMode(reason string) {
 		return
 	}
 
-	log.Printf("[pane-mode] Exiting pane mode: %s", reason)
+	logging.Info(fmt.Sprintf("[pane-mode] Exiting pane mode: %s", reason))
 
 	wm.paneModeActive = false
 	wm.paneModeActivePane = nil
@@ -74,7 +76,7 @@ func (wm *WorkspaceManager) HandlePaneAction(action string) {
 
 	if !wm.paneModeActive {
 		wm.paneMutex.Unlock()
-		log.Printf("[pane-mode] Ignoring action '%s': pane mode not active", action)
+		logging.Info(fmt.Sprintf("[pane-mode] Ignoring action '%s': pane mode not active", action))
 		return
 	}
 
@@ -82,12 +84,12 @@ func (wm *WorkspaceManager) HandlePaneAction(action string) {
 	wm.paneMutex.Unlock()
 
 	if activePane == nil {
-		log.Printf("[pane-mode] Ignoring action '%s': no active pane", action)
+		logging.Info(fmt.Sprintf("[pane-mode] Ignoring action '%s': no active pane", action))
 		wm.ExitPaneMode("no-active-pane")
 		return
 	}
 
-	log.Printf("[pane-mode] Handling action '%s' on pane %p", action, activePane)
+	logging.Debug(fmt.Sprintf("[pane-mode] Handling action '%s' on pane %p", action, activePane))
 
 	switch action {
 	case "close":
@@ -97,7 +99,7 @@ func (wm *WorkspaceManager) HandlePaneAction(action string) {
 	case "stack":
 		wm.handlePaneStack(activePane)
 	default:
-		log.Printf("[pane-mode] Unknown action: %s", action)
+		logging.Warn(fmt.Sprintf("[pane-mode] Unknown action: %s", action))
 	}
 
 	// Exit pane mode after action
@@ -110,14 +112,14 @@ func (wm *WorkspaceManager) handlePaneClose(node *paneNode) {
 		return
 	}
 
-	log.Printf("[pane-mode] Closing pane %p", node)
+	logging.Debug(fmt.Sprintf("[pane-mode] Closing pane %p", node))
 
 	// Notify JavaScript first so it can show toast
 	wm.dispatchPaneModeEvent("action", "close")
 
 	// Close the pane
 	if err := wm.ClosePane(node); err != nil {
-		log.Printf("[pane-mode] Failed to close pane: %v", err)
+		logging.Error(fmt.Sprintf("[pane-mode] Failed to close pane: %v", err))
 	}
 }
 
@@ -139,11 +141,11 @@ func (wm *WorkspaceManager) handlePaneSplit(node *paneNode, action string) {
 	case "split-down":
 		direction = DirectionDown
 	default:
-		log.Printf("[pane-mode] Invalid split action: %s", action)
+		logging.Error(fmt.Sprintf("[pane-mode] Invalid split action: %s", action))
 		return
 	}
 
-	log.Printf("[pane-mode] Splitting pane %p in direction %s", node, direction)
+	logging.Debug(fmt.Sprintf("[pane-mode] Splitting pane %p in direction %s", node, direction))
 
 	// Notify JavaScript first so it can show toast
 	wm.dispatchPaneModeEvent("action", action)
@@ -151,14 +153,14 @@ func (wm *WorkspaceManager) handlePaneSplit(node *paneNode, action string) {
 	// Perform the split (pass nil so it creates a fresh pane, not popup mode)
 	newNode, err := wm.splitNode(node, direction, nil)
 	if err != nil {
-		log.Printf("[pane-mode] Failed to split pane: %v", err)
+		logging.Error(fmt.Sprintf("[pane-mode] Failed to split pane: %v", err))
 		return
 	}
 
 	// Load initial URL in the new pane so scripts execute
 	wm.clonePaneState(node, newNode)
 
-	log.Printf("[pane-mode] Split successful: direction=%s", direction)
+	logging.Debug(fmt.Sprintf("[pane-mode] Split successful: direction=%s", direction))
 }
 
 // handlePaneStack creates a stacked pane
@@ -167,7 +169,7 @@ func (wm *WorkspaceManager) handlePaneStack(node *paneNode) {
 		return
 	}
 
-	log.Printf("[pane-mode] Stacking pane %p", node)
+	logging.Debug(fmt.Sprintf("[pane-mode] Stacking pane %p", node))
 
 	// Notify JavaScript first so it can show toast
 	wm.dispatchPaneModeEvent("action", "stack")
@@ -175,14 +177,14 @@ func (wm *WorkspaceManager) handlePaneStack(node *paneNode) {
 	// Perform the stack operation
 	newNode, err := wm.stackedPaneManager.StackPane(node)
 	if err != nil {
-		log.Printf("[pane-mode] Failed to stack pane: %v", err)
+		logging.Error(fmt.Sprintf("[pane-mode] Failed to stack pane: %v", err))
 		return
 	}
 
 	// Load initial URL in the new pane so scripts execute
 	wm.clonePaneState(node, newNode)
 
-	log.Printf("[pane-mode] Stack successful")
+	logging.Info(fmt.Sprintf("[pane-mode] Stack successful"))
 }
 
 // dispatchPaneModeEvent sends a pane mode event to JavaScript for UI updates
@@ -198,7 +200,7 @@ func (wm *WorkspaceManager) dispatchPaneModeEvent(event string, detail string) {
 	}
 
 	if err := view.DispatchCustomEvent("dumber:pane-mode", data); err != nil {
-		log.Printf("[pane-mode] Failed to dispatch event: %v", err)
+		logging.Error(fmt.Sprintf("[pane-mode] Failed to dispatch event: %v", err))
 	}
 }
 

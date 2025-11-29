@@ -2,8 +2,9 @@
 package browser
 
 import (
-	"log"
+	"fmt"
 
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/pkg/webkit"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
 )
@@ -43,9 +44,9 @@ func (wm *WorkspaceManager) ensureHover(node *paneNode) {
 
 	if controller != nil {
 		node.hoverToken = controller
-		log.Printf("[workspace] Attached hover handler to pane %p (controller=%p)", node, controller)
+		logging.Debug(fmt.Sprintf("[workspace] Attached hover handler to pane %p (controller=%p)", node, controller))
 	} else {
-		log.Printf("[workspace] Failed to attach hover handler to pane %p", node)
+		logging.Error(fmt.Sprintf("[workspace] Failed to attach hover handler to pane %p", node))
 	}
 }
 
@@ -61,7 +62,7 @@ func (wm *WorkspaceManager) detachHover(node *paneNode) {
 	}
 
 	webkit.WidgetRemoveHoverHandler(node.container, node.hoverToken)
-	log.Printf("[workspace] Detached hover handler from pane %p (controller=%p)", node, node.hoverToken)
+	logging.Debug(fmt.Sprintf("[workspace] Detached hover handler from pane %p (controller=%p)", node, node.hoverToken))
 	node.hoverToken = nil
 }
 
@@ -76,5 +77,5 @@ func (wm *WorkspaceManager) attachHoverHandlersToAllPanes() {
 		wm.ensureHover(leaf)
 	}
 
-	log.Printf("[workspace] Attached hover handlers to %d panes", len(leaves))
+	logging.Debug(fmt.Sprintf("[workspace] Attached hover handlers to %d panes", len(leaves)))
 }

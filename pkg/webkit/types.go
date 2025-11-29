@@ -70,13 +70,13 @@ type Config struct {
 // GetDefaultConfig returns a Config with sensible defaults
 func GetDefaultConfig() *Config {
 	return &Config{
-		UserAgent:                 "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15", // WebKitGTK default (same as Epiphany)
-		EnableJavaScript:          true,
-		EnableWebGL:               true,
-		EnableMediaStream:         true,
-		HardwareAcceleration:      true,
-		DefaultFontSize:           16,
-		MinimumFontSize:           8,
+		UserAgent:             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15", // WebKitGTK default (same as Epiphany)
+		EnableJavaScript:      true,
+		EnableWebGL:           true,
+		EnableMediaStream:     true,
+		HardwareAcceleration:  true,
+		DefaultFontSize:       16,
+		MinimumFontSize:       8,
 		EnablePageCache:       true, // Instant back/forward navigation
 		EnableSmoothScrolling: true, // Better UX
 		CreateWindow:          true, // Default to standalone window

@@ -3,8 +3,7 @@ package browser
 
 import (
 	"fmt"
-	"log"
-
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/pkg/webkit"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
@@ -182,7 +181,7 @@ func (wm *WorkspaceManager) applyActivePaneBorder(node *paneNode) {
 	}
 
 	webkit.WidgetSetVisible(node.borderOverlay, true)
-	log.Printf("[workspace] Showing border overlay for pane %p", node)
+	logging.Debug(fmt.Sprintf("[workspace] Showing border overlay for pane %p", node))
 }
 
 // removeActivePaneBorder hides the border overlay for a pane.
@@ -192,7 +191,7 @@ func (wm *WorkspaceManager) removeActivePaneBorder(node *paneNode) {
 	}
 
 	webkit.WidgetSetVisible(node.borderOverlay, false)
-	log.Printf("[workspace] Hiding border overlay for pane %p", node)
+	logging.Debug(fmt.Sprintf("[workspace] Hiding border overlay for pane %p", node))
 }
 
 // Widget cleanup utilities

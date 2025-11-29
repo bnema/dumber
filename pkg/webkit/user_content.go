@@ -2,10 +2,10 @@ package webkit
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/bnema/dumber/assets"
 	"github.com/bnema/dumber/internal/config"
+	"github.com/bnema/dumber/internal/logging"
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
 )
 
@@ -26,7 +26,7 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 	// Get the UserContentManager from the WebView
 	ucm := view.UserContentManager()
 	if ucm == nil {
-		log.Printf("[webkit] UserContentManager is nil, skipping script injection")
+		logging.Warn(fmt.Sprintf("[webkit] UserContentManager is nil, skipping script injection"))
 		return nil
 	}
 
@@ -56,7 +56,7 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 		nil,
 		nil,
 	))
-	log.Printf("[webkit] Injected webview ID script for ID: %d (main + isolated world)", webviewID)
+	logging.Debug(fmt.Sprintf("[webkit] Injected webview ID script for ID: %d (main + isolated world)", webviewID))
 
 	// Inject GTK theme detection in BOTH worlds
 	// The color-scheme.ts expects window.__dumber_gtk_prefers_dark to be set
@@ -66,14 +66,14 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 	switch cfg.Appearance.ColorScheme {
 	case "prefer-dark":
 		prefersDark = true
-		log.Printf("[webkit] Using config-forced dark theme (color_scheme: prefer-dark)")
+		logging.Debug(fmt.Sprintf("[webkit] Using config-forced dark theme (color_scheme: prefer-dark)"))
 	case "prefer-light":
 		prefersDark = false
-		log.Printf("[webkit] Using config-forced light theme (color_scheme: prefer-light)")
+		logging.Debug(fmt.Sprintf("[webkit] Using config-forced light theme (color_scheme: prefer-light)"))
 	default:
 		// "default" or empty - follow system GTK preference
 		prefersDark = PrefersDarkTheme()
-		log.Printf("[webkit] Using system GTK theme preference (color_scheme: %s)", cfg.Appearance.ColorScheme)
+		logging.Debug(fmt.Sprintf("[webkit] Using system GTK theme preference (color_scheme: %s)", cfg.Appearance.ColorScheme))
 	}
 
 	gtkThemeScript := fmt.Sprintf(`window.__dumber_gtk_prefers_dark = %t;`, prefersDark)
@@ -96,7 +96,7 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 		nil,
 		nil,
 	))
-	log.Printf("[webkit] Injected theme preference: prefersDark=%t (main + isolated world)", prefersDark)
+	logging.Debug(fmt.Sprintf("[webkit] Injected theme preference: prefersDark=%t (main + isolated world)", prefersDark))
 
 	// Inject palette config in BOTH worlds
 	// The GUI expects window.__dumber_palette = { "light": {...}, "dark": {...} }
@@ -121,7 +121,7 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 			nil,
 			nil,
 		))
-		log.Printf("[webkit] Injected palette config (%d bytes, main + isolated world)", len(paletteScript))
+		logging.Debug(fmt.Sprintf("[webkit] Injected palette config (%d bytes, main + isolated world)", len(paletteScript)))
 	}
 
 	// Inject color-scheme script in BOTH worlds
@@ -146,7 +146,7 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 			nil,
 			nil,
 		))
-		log.Printf("[webkit] Injected color-scheme script (%d bytes, main + isolated world)", len(assets.ColorSchemeScript))
+		logging.Debug(fmt.Sprintf("[webkit] Injected color-scheme script (%d bytes, main + isolated world)", len(assets.ColorSchemeScript)))
 	}
 
 	// Inject main-world script in MAIN world
@@ -160,7 +160,7 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 			nil,
 			nil,
 		))
-		log.Printf("[webkit] Injected main-world script (%d bytes, main world)", len(assets.MainWorldScript))
+		logging.Debug(fmt.Sprintf("[webkit] Injected main-world script (%d bytes, main world)", len(assets.MainWorldScript)))
 	}
 
 	// Inject GUI controls script in ISOLATED world at document-start
@@ -175,7 +175,7 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 			nil,
 			nil,
 		))
-		log.Printf("[webkit] Injected GUI controls script (%d bytes, isolated world, document-start)", len(assets.GUIScript))
+		logging.Debug(fmt.Sprintf("[webkit] Injected GUI controls script (%d bytes, isolated world, document-start)", len(assets.GUIScript)))
 	}
 
 	// Inject component CSS styles as a JavaScript variable in ISOLATED world at document-start
@@ -194,16 +194,16 @@ func SetupUserContentManager(view *webkit.WebView, appearanceConfigJSON string, 
 			nil,
 			nil,
 		))
-		log.Printf("[webkit] Injected component styles string (%d bytes, isolated world, document-start)", len(assets.ComponentStyles))
+		logging.Debug(fmt.Sprintf("[webkit] Injected component styles string (%d bytes, isolated world, document-start)", len(assets.ComponentStyles)))
 	}
 
 	// Register script message handler "dumber" in the MAIN world
 	// Isolated world GUI scripts dispatch CustomEvents to main world, which forwards to this handler
 	// This architecture is required because webkit.messageHandlers is only available in main world
 	if !ucm.RegisterScriptMessageHandler("dumber", "") {
-		log.Printf("[webkit] Warning: failed to register 'dumber' script message handler in main world")
+		logging.Warn(fmt.Sprintf("[webkit] Warning: failed to register 'dumber' script message handler in main world"))
 	} else {
-		log.Printf("[webkit] Registered 'dumber' script message handler in main world (default)")
+		logging.Debug(fmt.Sprintf("[webkit] Registered 'dumber' script message handler in main world (default)"))
 	}
 
 	return nil

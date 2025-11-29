@@ -2,11 +2,12 @@
 package browser
 
 import (
-	"log"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/bnema/dumber/internal/config"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/pkg/webkit"
 	webkitgtk "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
 )
@@ -24,8 +25,8 @@ const (
 // registerOAuthAutoClose sets up OAuth auto-close functionality for popups
 // Note: OAuth detection is now handled by the main-world.js injection script
 func (wm *WorkspaceManager) registerOAuthAutoClose(view *webkit.WebView, url string) {
-	log.Printf("[workspace] OAuth auto-close enabled for popup with URL: %s", url)
-	log.Printf("[workspace] OAuth detection will be handled by main-world.js injection script")
+	logging.Info(fmt.Sprintf("[workspace] OAuth auto-close enabled for popup with URL: %s", url))
+	logging.Info(fmt.Sprintf("[workspace] OAuth detection will be handled by main-world.js injection script"))
 }
 
 // insertIndependentPane inserts a new independent pane next to the source
@@ -59,7 +60,7 @@ func (wm *WorkspaceManager) configureRelatedPopup(sourceNode *paneNode, webView 
 	related := webView
 	newPane, err := wm.createPane(related)
 	if err != nil {
-		log.Printf("[workspace] failed to create related popup pane: %v", err)
+		logging.Error(fmt.Sprintf("[workspace] failed to create related popup pane: %v", err))
 		return
 	}
 	direction := strings.ToLower(wm.app.config.Workspace.Popups.Placement)
@@ -68,7 +69,7 @@ func (wm *WorkspaceManager) configureRelatedPopup(sourceNode *paneNode, webView 
 	}
 	// Use splitNode with existing pane instead of insertPopupPane
 	if _, err := wm.splitNode(sourceNode, direction, newPane); err != nil {
-		log.Printf("[workspace] failed to insert related popup pane: %v", err)
+		logging.Error(fmt.Sprintf("[workspace] failed to insert related popup pane: %v", err))
 		return
 	}
 	node := wm.viewToNode[related]
@@ -99,7 +100,7 @@ func (wm *WorkspaceManager) configureRelatedPopup(sourceNode *paneNode, webView 
 			sourceNode.activePopupChildren = make([]string, 0)
 		}
 		sourceNode.activePopupChildren = append(sourceNode.activePopupChildren, popupWebViewID)
-		log.Printf("[workspace] Added popup %s to parent's activePopupChildren (count: %d)", popupWebViewID, len(sourceNode.activePopupChildren))
+		logging.Debug(fmt.Sprintf("[workspace] Added popup %s to parent's activePopupChildren (count: %d)", popupWebViewID, len(sourceNode.activePopupChildren)))
 
 		// Register navigation policy handler for parent to block script-initiated navigations
 		// when it has active popup children (prevents OAuth from hijacking parent pane)
@@ -112,27 +113,27 @@ func (wm *WorkspaceManager) configureRelatedPopup(sourceNode *paneNode, webView 
 
 				// Block script-initiated navigations if this pane has active popup children
 				if len(sourceNode.activePopupChildren) > 0 {
-					log.Printf("[workspace] BLOCKED script-initiated navigation in parent pane (has %d active popups): %s", len(sourceNode.activePopupChildren), url)
+					logging.Info(fmt.Sprintf("[workspace] BLOCKED script-initiated navigation in parent pane (has %d active popups): %s", len(sourceNode.activePopupChildren), url))
 					return false
 				}
 
 				// Allow if no active popups
 				return true
 			})
-			log.Printf("[workspace] Registered navigation policy handler for parent pane")
+			logging.Debug(fmt.Sprintf("[workspace] Registered navigation policy handler for parent pane"))
 		}
 	}
 
 	// Pipe into existing auto-close flow only for popups (confirmed by detection)
 	related.RegisterCloseHandler(func() {
-		log.Printf("[workspace] Popup requesting close via window.close()")
+		logging.Info(fmt.Sprintf("[workspace] Popup requesting close via window.close()"))
 
 		// Remove this popup from parent's activePopupChildren
 		if sourceNode != nil && popupWebViewID != "" {
 			for i, childID := range sourceNode.activePopupChildren {
 				if childID == popupWebViewID {
 					sourceNode.activePopupChildren = append(sourceNode.activePopupChildren[:i], sourceNode.activePopupChildren[i+1:]...)
-					log.Printf("[workspace] Removed popup %s from parent's activePopupChildren (remaining: %d)", popupWebViewID, len(sourceNode.activePopupChildren))
+					logging.Debug(fmt.Sprintf("[workspace] Removed popup %s from parent's activePopupChildren (remaining: %d)", popupWebViewID, len(sourceNode.activePopupChildren)))
 					break
 				}
 			}
@@ -145,7 +146,7 @@ func (wm *WorkspaceManager) configureRelatedPopup(sourceNode *paneNode, webView 
 						return false
 					}
 					if err := wm.ClosePane(n); err != nil {
-						log.Printf("[workspace] Failed to close popup pane: %v", err)
+						logging.Error(fmt.Sprintf("[workspace] Failed to close popup pane: %v", err))
 					}
 					return false
 				}, n)
@@ -179,32 +180,32 @@ func (wm *WorkspaceManager) applyPopupSizeConstraints(view *webkit.WebView, widt
 	if container := view.RootWidget(); container != nil {
 		webkit.WidgetSetSizeRequest(container, minWidth, minHeight)
 		webkit.WidgetQueueResize(container)
-		log.Printf("[workspace] Applied minimum size %dx%d to popup container=%p", minWidth, minHeight, container)
+		logging.Debug(fmt.Sprintf("[workspace] Applied minimum size %dx%d to popup container=%p", minWidth, minHeight, container))
 	}
 
 	// Apply to WebView widget
 	if webViewWidget := view.Widget(); webViewWidget != nil {
 		webkit.WidgetSetSizeRequest(webViewWidget, minWidth, minHeight)
 		webkit.WidgetQueueResize(webViewWidget)
-		log.Printf("[workspace] Applied minimum size %dx%d to popup webview=%p", minWidth, minHeight, webViewWidget)
+		logging.Debug(fmt.Sprintf("[workspace] Applied minimum size %dx%d to popup webview=%p", minWidth, minHeight, webViewWidget))
 	}
 }
 
 // shouldAutoClose checks simple OAuth-like URL patterns and config flag
 func (wm *WorkspaceManager) shouldAutoClose(url string) bool {
-	log.Printf("[workspace] shouldAutoClose called for URL: %s", url)
+	logging.Info(fmt.Sprintf("[workspace] shouldAutoClose called for URL: %s", url))
 
 	if wm == nil || wm.app == nil || wm.app.config == nil {
-		log.Printf("[workspace] shouldAutoClose: missing config, returning true")
+		logging.Error(fmt.Sprintf("[workspace] shouldAutoClose: missing config, returning true"))
 		return true
 	}
 	if !wm.app.config.Workspace.Popups.OAuthAutoClose {
-		log.Printf("[workspace] shouldAutoClose: OAuthAutoClose disabled in config, returning false")
+		logging.Info(fmt.Sprintf("[workspace] shouldAutoClose: OAuthAutoClose disabled in config, returning false"))
 		return false
 	}
 
 	u := strings.ToLower(url)
-	log.Printf("[workspace] shouldAutoClose: checking lowercase URL: %s", u)
+	logging.Debug(fmt.Sprintf("[workspace] shouldAutoClose: checking lowercase URL: %s", u))
 
 	// RFC 6749 compliant OAuth 2.0 URL patterns
 	oauthPatterns := []string{
@@ -225,12 +226,12 @@ func (wm *WorkspaceManager) shouldAutoClose(url string) bool {
 	// Check for OAuth patterns in URL
 	for _, pattern := range oauthPatterns {
 		if strings.Contains(u, pattern) {
-			log.Printf("[workspace] shouldAutoClose: MATCHED pattern '%s' in URL, returning true", pattern)
+			logging.Info(fmt.Sprintf("[workspace] shouldAutoClose: MATCHED pattern '%s' in URL, returning true", pattern))
 			return true
 		}
 	}
 
-	log.Printf("[workspace] shouldAutoClose: no OAuth patterns matched, returning false")
+	logging.Info(fmt.Sprintf("[workspace] shouldAutoClose: no OAuth patterns matched, returning false"))
 	return false
 }
 
@@ -247,14 +248,14 @@ func (wm *WorkspaceManager) handleDetectedWindowType(sourceNode *paneNode, webVi
 		return // Already placed
 	}
 
-	log.Printf("[workspace] Smart detection result: type=%d url=%s", windowType, url)
+	logging.Info(fmt.Sprintf("[workspace] Smart detection result: type=%d url=%s", windowType, url))
 
 	switch windowType {
 	case webkit.WindowTypeTab:
 		// For tabs, create a NEW independent WebView (can't use the related one)
 		webkitCfg, err := wm.app.buildWebkitConfig()
 		if err != nil {
-			log.Printf("[workspace] failed to build webkit config for tab: %v", err)
+			logging.Error(fmt.Sprintf("[workspace] failed to build webkit config for tab: %v", err))
 			return
 		}
 		// Tabs are embedded in workspace paned containers - no separate window needed
@@ -263,7 +264,7 @@ func (wm *WorkspaceManager) handleDetectedWindowType(sourceNode *paneNode, webVi
 		// Create independent WebView matching our standard tab insertion path
 		independentView, err := webkit.NewWebView(webkitCfg)
 		if err != nil {
-			log.Printf("[workspace] failed to create independent tab WebView: %v", err)
+			logging.Error(fmt.Sprintf("[workspace] failed to create independent tab WebView: %v", err))
 			return
 		}
 
@@ -273,7 +274,7 @@ func (wm *WorkspaceManager) handleDetectedWindowType(sourceNode *paneNode, webVi
 		// The related webView was just for detection - we don't use it for tabs
 		// Insert the new independent view as a tab
 		if err := wm.insertIndependentPane(sourceNode, independentView, url); err != nil {
-			log.Printf("[workspace] Failed to insert independent pane: %v", err)
+			logging.Error(fmt.Sprintf("[workspace] Failed to insert independent pane: %v", err))
 		}
 
 	case webkit.WindowTypePopup:
@@ -296,16 +297,16 @@ func (wm *WorkspaceManager) setupPopupHandling(webView *webkit.WebView, parentNo
 		// Get URL from navigation action
 		req := navAction.Request()
 		if req == nil {
-			log.Printf("[workspace] create signal: no request in navigation action")
+			logging.Info(fmt.Sprintf("[workspace] create signal: no request in navigation action"))
 			return nil
 		}
 		url := req.URI()
 
-		log.Printf("[workspace] create signal received for URL: %s", url)
+		logging.Info(fmt.Sprintf("[workspace] create signal received for URL: %s", url))
 
 		// Check if popups are enabled in config
 		if wm.app.config != nil && !wm.app.config.Workspace.Popups.OpenInNewPane {
-			log.Printf("[workspace] Popup creation disabled in config - blocking popup")
+			logging.Info(fmt.Sprintf("[workspace] Popup creation disabled in config - blocking popup"))
 			return nil
 		}
 
@@ -313,59 +314,59 @@ func (wm *WorkspaceManager) setupPopupHandling(webView *webkit.WebView, parentNo
 		// WebKit requires the related-view property to be set during construction for proper lifecycle
 		// This ensures session/cookie sharing and proper WindowFeatures initialization
 		// All initialization (wrapping, container, scripts) happens in ready-to-show
-		log.Printf("[workspace] Step 1: Creating bare gotk4 WebView with related-view property")
+		logging.Debug(fmt.Sprintf("[workspace] Step 1: Creating bare gotk4 WebView with related-view property"))
 		barePopupView := webkit.NewBareRelatedWebView(webView.GtkWebView())
 		if barePopupView == nil {
-			log.Printf("[workspace] Failed to create bare related popup WebView - blocking popup")
+			logging.Error(fmt.Sprintf("[workspace] Failed to create bare related popup WebView - blocking popup"))
 			return nil
 		}
-		log.Printf("[workspace] Step 1 complete: bare related gotk4 WebView created=%p (parent=%p)", barePopupView, webView.GtkWebView())
+		logging.Debug(fmt.Sprintf("[workspace] Step 1 complete: bare related gotk4 WebView created=%p (parent=%p)", barePopupView, webView.GtkWebView()))
 
 		// Wrap the bare view immediately to get a proper ID
 		// BUT don't initialize it yet - that happens in ready-to-show
-		log.Printf("[workspace] Step 2: Wrapping bare view (no initialization)")
+		logging.Info(fmt.Sprintf("[workspace] Step 2: Wrapping bare view (no initialization)"))
 		wrappedView := webkit.WrapBareWebView(barePopupView)
 		if wrappedView == nil {
-			log.Printf("[workspace] Failed to wrap bare popup WebView - blocking popup")
+			logging.Error(fmt.Sprintf("[workspace] Failed to wrap bare popup WebView - blocking popup"))
 			return nil
 		}
 
 		// Use the wrapper's ID for tracking
 		popupID := wrappedView.ID()
-		log.Printf("[workspace] Step 2 complete: wrapped view created with ID=%d", popupID)
+		logging.Debug(fmt.Sprintf("[workspace] Step 2 complete: wrapped view created with ID=%d", popupID))
 
 		// Store wrapped view (not initialized) for initialization in ready-to-show
-		log.Printf("[workspace] Step 3: Storing in pendingPopups map")
+		logging.Info(fmt.Sprintf("[workspace] Step 3: Storing in pendingPopups map"))
 		wm.pendingPopups[popupID] = &pendingPopup{
 			wrappedView: wrappedView,
 			parentView:  webView,
 			parentNode:  parentNode,
 			url:         url,
 		}
-		log.Printf("[workspace] Step 3 complete: stored in pendingPopups")
+		logging.Info(fmt.Sprintf("[workspace] Step 3 complete: stored in pendingPopups"))
 
 		// Connect signals immediately BEFORE returning to WebKit
 		// This is safe because we're only connecting signal handlers, not accessing properties
 		// WebKit will configure WindowFeatures AFTER this callback returns, which is fine
-		log.Printf("[workspace] Step 4: Connecting signals immediately before returning to WebKit")
+		logging.Info(fmt.Sprintf("[workspace] Step 4: Connecting signals immediately before returning to WebKit"))
 
 		// Connect ready-to-show signal
 		barePopupView.ConnectReadyToShow(func() {
-			log.Printf("[workspace] ready-to-show signal received for popup ID=%d", popupID)
+			logging.Info(fmt.Sprintf("[workspace] ready-to-show signal received for popup ID=%d", popupID))
 			wm.handlePopupReadyToShow(popupID)
 		})
-		log.Printf("[workspace] Connected ready-to-show signal for popup ID=%d", popupID)
+		logging.Debug(fmt.Sprintf("[workspace] Connected ready-to-show signal for popup ID=%d", popupID))
 
 		// Connect close handler
 		barePopupView.ConnectClose(func() {
-			log.Printf("[workspace] close signal received for popup ID=%d", popupID)
+			logging.Info(fmt.Sprintf("[workspace] close signal received for popup ID=%d", popupID))
 			wm.handlePopupClose(popupID)
 		})
-		log.Printf("[workspace] Connected close signal for popup ID=%d", popupID)
+		logging.Debug(fmt.Sprintf("[workspace] Connected close signal for popup ID=%d", popupID))
 
-		log.Printf("[workspace] Step 4 complete: signals connected")
+		logging.Debug(fmt.Sprintf("[workspace] Step 4 complete: signals connected"))
 
-		log.Printf("[workspace] Step 5: Returning wrapped view to WebKit (will extract bare view in ConnectCreate)")
+		logging.Debug(fmt.Sprintf("[workspace] Step 5: Returning wrapped view to WebKit (will extract bare view in ConnectCreate)"))
 
 		// Return the wrapped view - WebKit will extract the underlying gotk4 view and configure it
 		return wrappedView
@@ -376,12 +377,12 @@ func (wm *WorkspaceManager) setupPopupHandling(webView *webkit.WebView, parentNo
 func (wm *WorkspaceManager) handlePopupReadyToShow(popupID uint64) {
 	info, ok := wm.pendingPopups[popupID]
 	if !ok {
-		log.Printf("[workspace] ready-to-show for unknown popup ID: %d", popupID)
+		logging.Warn(fmt.Sprintf("[workspace] ready-to-show for unknown popup ID: %d", popupID))
 		return
 	}
 	delete(wm.pendingPopups, popupID)
 
-	log.Printf("[workspace] ready-to-show received for popup ID=%d, starting full initialization", popupID)
+	logging.Info(fmt.Sprintf("[workspace] ready-to-show received for popup ID=%d, starting full initialization", popupID))
 
 	// NOW it's safe to initialize (WebKit has configured WindowProperties)
 	// We already have the wrapped view from setupPopupHandling
@@ -390,30 +391,30 @@ func (wm *WorkspaceManager) handlePopupReadyToShow(popupID uint64) {
 	// Build webkit config for initialization
 	webkitCfg, err := wm.app.buildWebkitConfig()
 	if err != nil {
-		log.Printf("[workspace] Failed to build webkit config for popup initialization: %v", err)
+		logging.Error(fmt.Sprintf("[workspace] Failed to build webkit config for popup initialization: %v", err))
 		return
 	}
 	webkitCfg.CreateWindow = false // Embedded in workspace
 
 	// Initialize the wrapped view with full configuration
 	if err := wrappedView.InitializeFromBare(webkitCfg); err != nil {
-		log.Printf("[workspace] Failed to initialize popup WebView: %v", err)
+		logging.Error(fmt.Sprintf("[workspace] Failed to initialize popup WebView: %v", err))
 		return
 	}
 
 	// Register with content blocking service for network/cosmetic filtering
 	wm.app.RegisterWebViewForFiltering(wrappedView)
 
-	log.Printf("[workspace] Successfully initialized popup WebView ID %d", wrappedView.ID())
+	logging.Debug(fmt.Sprintf("[workspace] Successfully initialized popup WebView ID %d", wrappedView.ID()))
 
 	// Create pane for the fully initialized WebView
 	popupPane, err := wm.createPane(wrappedView)
 	if err != nil {
-		log.Printf("[workspace] Failed to create popup pane: %v", err)
+		logging.Error(fmt.Sprintf("[workspace] Failed to create popup pane: %v", err))
 		return
 	}
 
-	log.Printf("[workspace] Created popup pane, now inserting into workspace")
+	logging.Info(fmt.Sprintf("[workspace] Created popup pane, now inserting into workspace"))
 
 	// Determine window type from node (set during setupPopupHandling)
 	node := wm.viewToNode[wrappedView]
@@ -428,10 +429,10 @@ func (wm *WorkspaceManager) handlePopupReadyToShow(popupID uint64) {
 	var behaviorStr string
 	if windowType == webkit.WindowTypeTab {
 		behaviorStr = wm.app.config.Workspace.Popups.BlankTargetBehavior
-		log.Printf("[workspace] WindowTypeTab (_blank link) detected, using BlankTargetBehavior: %s", behaviorStr)
+		logging.Debug(fmt.Sprintf("[workspace] WindowTypeTab (_blank link) detected, using BlankTargetBehavior: %s", behaviorStr))
 	} else {
 		behaviorStr = string(wm.app.config.Workspace.Popups.Behavior)
-		log.Printf("[workspace] WindowTypePopup detected, using Behavior: %s", behaviorStr)
+		logging.Debug(fmt.Sprintf("[workspace] WindowTypePopup detected, using Behavior: %s", behaviorStr))
 	}
 
 	// Map string to PopupBehavior enum
@@ -447,7 +448,7 @@ func (wm *WorkspaceManager) handlePopupReadyToShow(popupID uint64) {
 		behavior = config.PopupBehaviorSplit // Fallback
 	}
 
-	log.Printf("[workspace] Final behavior: %s", behavior)
+	logging.Info(fmt.Sprintf("[workspace] Final behavior: %s", behavior))
 
 	switch behavior {
 	case config.PopupBehaviorSplit:
@@ -457,7 +458,7 @@ func (wm *WorkspaceManager) handlePopupReadyToShow(popupID uint64) {
 			direction = DirectionRight
 		}
 		if _, err := wm.splitNode(info.parentNode, direction, popupPane); err != nil {
-			log.Printf("[workspace] Failed to insert split popup pane: %v", err)
+			logging.Error(fmt.Sprintf("[workspace] Failed to insert split popup pane: %v", err))
 			return
 		}
 
@@ -465,7 +466,7 @@ func (wm *WorkspaceManager) handlePopupReadyToShow(popupID uint64) {
 		// Stacked pane behavior
 		_, err := wm.stackedPaneManager.StackPane(info.parentNode)
 		if err != nil {
-			log.Printf("[workspace] Failed to stack existing pane: %v", err)
+			logging.Error(fmt.Sprintf("[workspace] Failed to stack existing pane: %v", err))
 			return
 		}
 		// Insert the popup pane in the same container - use splitNode with existing popup pane
@@ -474,44 +475,44 @@ func (wm *WorkspaceManager) handlePopupReadyToShow(popupID uint64) {
 			direction = DirectionRight
 		}
 		if _, err := wm.splitNode(info.parentNode, direction, popupPane); err != nil {
-			log.Printf("[workspace] Failed to insert stacked popup pane: %v", err)
+			logging.Error(fmt.Sprintf("[workspace] Failed to insert stacked popup pane: %v", err))
 			return
 		}
 
 	case config.PopupBehaviorTabbed:
 		// Tabbed behavior - TODO: implement proper tabbed interface
-		log.Printf("[workspace] WARNING: Tabbed popup behavior not yet implemented, falling back to split")
+		logging.Warn(fmt.Sprintf("[workspace] WARNING: Tabbed popup behavior not yet implemented, falling back to split"))
 		direction := strings.ToLower(wm.app.config.Workspace.Popups.Placement)
 		if direction == "" {
 			direction = DirectionRight
 		}
 		if _, err := wm.splitNode(info.parentNode, direction, popupPane); err != nil {
-			log.Printf("[workspace] Failed to insert tabbed popup pane: %v", err)
+			logging.Error(fmt.Sprintf("[workspace] Failed to insert tabbed popup pane: %v", err))
 			return
 		}
 
 	case config.PopupBehaviorWindowed:
 		// Windowed behavior - opens in new workspace/window
 		// TODO: implement new window creation with GTK
-		log.Printf("[workspace] WARNING: Windowed popup behavior not yet implemented, falling back to split")
+		logging.Warn(fmt.Sprintf("[workspace] WARNING: Windowed popup behavior not yet implemented, falling back to split"))
 		direction := strings.ToLower(wm.app.config.Workspace.Popups.Placement)
 		if direction == "" {
 			direction = DirectionRight
 		}
 		if _, err := wm.splitNode(info.parentNode, direction, popupPane); err != nil {
-			log.Printf("[workspace] Failed to insert windowed popup pane: %v", err)
+			logging.Error(fmt.Sprintf("[workspace] Failed to insert windowed popup pane: %v", err))
 			return
 		}
 
 	default:
 		// Fallback to split if unknown behavior
-		log.Printf("[workspace] Unknown popup behavior '%s', falling back to split", behavior)
+		logging.Warn(fmt.Sprintf("[workspace] Unknown popup behavior '%s', falling back to split", behavior))
 		direction := strings.ToLower(wm.app.config.Workspace.Popups.Placement)
 		if direction == "" {
 			direction = DirectionRight
 		}
 		if _, err := wm.splitNode(info.parentNode, direction, popupPane); err != nil {
-			log.Printf("[workspace] Failed to insert popup pane: %v", err)
+			logging.Error(fmt.Sprintf("[workspace] Failed to insert popup pane: %v", err))
 			return
 		}
 	}
@@ -534,8 +535,8 @@ func (wm *WorkspaceManager) handlePopupReadyToShow(popupID uint64) {
 				info.parentNode.activePopupChildren = make([]string, 0)
 			}
 			info.parentNode.activePopupChildren = append(info.parentNode.activePopupChildren, popupWebViewID)
-			log.Printf("[workspace] Added popup %s to parent's activePopupChildren (count: %d)",
-				popupWebViewID, len(info.parentNode.activePopupChildren))
+			logging.Debug(fmt.Sprintf("[workspace] Added popup %s to parent's activePopupChildren (count: %d)",
+				popupWebViewID, len(info.parentNode.activePopupChildren)))
 
 			// Register navigation policy handler for parent
 			if info.parentNode.pane != nil && info.parentNode.pane.WebView() != nil {
@@ -544,8 +545,8 @@ func (wm *WorkspaceManager) handlePopupReadyToShow(popupID uint64) {
 						return true
 					}
 					if len(info.parentNode.activePopupChildren) > 0 {
-						log.Printf("[workspace] BLOCKED script-initiated navigation in parent pane (has %d active popups): %s",
-							len(info.parentNode.activePopupChildren), url)
+						logging.Info(fmt.Sprintf("[workspace] BLOCKED script-initiated navigation in parent pane (has %d active popups): %s",
+							len(info.parentNode.activePopupChildren), url))
 						return false
 					}
 					return true
@@ -564,17 +565,17 @@ func (wm *WorkspaceManager) handlePopupReadyToShow(popupID uint64) {
 	// Widgets are already shown by splitNode - no need to show again
 	// GTK4 handles visibility automatically during reparenting
 
-	log.Printf("[workspace] Popup pane inserted and visible for URL: %s", info.url)
+	logging.Info(fmt.Sprintf("[workspace] Popup pane inserted and visible for URL: %s", info.url))
 }
 
 // handlePopupClose responds to WebKit's close signal
 func (wm *WorkspaceManager) handlePopupClose(popupID uint64) {
-	log.Printf("[workspace] close signal received for popup native=%d", popupID)
+	logging.Info(fmt.Sprintf("[workspace] close signal received for popup native=%d", popupID))
 
 	// Check if it's in pending (not yet shown)
 	if info, ok := wm.pendingPopups[popupID]; ok {
 		delete(wm.pendingPopups, popupID)
-		log.Printf("[workspace] Popup closed before ready-to-show, cleaning up")
+		logging.Info(fmt.Sprintf("[workspace] Popup closed before ready-to-show, cleaning up"))
 		// Just remove from pending, WebKit will handle cleanup
 		_ = info // avoid unused variable
 		return
@@ -590,7 +591,7 @@ func (wm *WorkspaceManager) handlePopupClose(popupID uint64) {
 	}
 
 	if targetNode == nil {
-		log.Printf("[workspace] close signal for unknown popup ID=%d, already closed?", popupID)
+		logging.Warn(fmt.Sprintf("[workspace] close signal for unknown popup ID=%d, already closed?", popupID))
 		return
 	}
 
@@ -610,16 +611,16 @@ func (wm *WorkspaceManager) handlePopupClose(popupID uint64) {
 				targetNode.parentPane.activePopupChildren = append(
 					targetNode.parentPane.activePopupChildren[:i],
 					targetNode.parentPane.activePopupChildren[i+1:]...)
-				log.Printf("[workspace] Removed popup from parent's activePopupChildren (remaining: %d)",
-					len(targetNode.parentPane.activePopupChildren))
+				logging.Debug(fmt.Sprintf("[workspace] Removed popup from parent's activePopupChildren (remaining: %d)",
+					len(targetNode.parentPane.activePopupChildren)))
 				break
 			}
 		}
 	}
 
 	// Clean close via existing ClosePane (WebKit already stopped)
-	log.Printf("[workspace] Closing popup pane via ClosePane")
+	logging.Info(fmt.Sprintf("[workspace] Closing popup pane via ClosePane"))
 	if err := wm.ClosePane(targetNode); err != nil {
-		log.Printf("[workspace] Error closing popup pane: %v", err)
+		logging.Error(fmt.Sprintf("[workspace] Error closing popup pane: %v", err))
 	}
 }

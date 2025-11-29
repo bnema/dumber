@@ -3,10 +3,10 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/migrations"
 	_ "github.com/ncruces/go-sqlite3/driver" // SQLite driver
 	_ "github.com/ncruces/go-sqlite3/embed"  // Embed SQLite
@@ -32,7 +32,7 @@ func InitDB(dbPath string) (*sql.DB, error) {
 	// Test the connection
 	if err := database.Ping(); err != nil {
 		if err := database.Close(); err != nil {
-			log.Printf("Warning: failed to close database: %v", err)
+			logging.Warn(fmt.Sprintf("Warning: failed to close database: %v", err))
 		}
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -50,19 +50,19 @@ func InitDB(dbPath string) (*sql.DB, error) {
 	for _, pragma := range pragmas {
 		if _, err := database.Exec(pragma); err != nil {
 			if err := database.Close(); err != nil {
-				log.Printf("Warning: failed to close database: %v", err)
+				logging.Warn(fmt.Sprintf("Warning: failed to close database: %v", err))
 			}
 			return nil, fmt.Errorf("failed to set pragma %q: %w", pragma, err)
 		}
 	}
 
-	log.Printf("SQLite configured with WAL mode and performance optimizations")
+	logging.Info(fmt.Sprintf("SQLite configured with WAL mode and performance optimizations"))
 
 	// Run embedded migrations - single source of truth for schema initialization
 	// RunEmbeddedMigrations is idempotent and checks if migrations are already applied
 	if err := migrations.RunEmbeddedMigrations(database); err != nil {
 		if err := database.Close(); err != nil {
-			log.Printf("Warning: failed to close database: %v", err)
+			logging.Warn(fmt.Sprintf("Warning: failed to close database: %v", err))
 		}
 		return nil, fmt.Errorf("failed to run database migrations: %w", err)
 	}

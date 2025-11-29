@@ -4,7 +4,6 @@ package cache
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
 	"os"
 	"syscall"
 	"unsafe"
@@ -214,7 +213,7 @@ func (c *DmenuFuzzyCache) writeHeader(data []byte, offset int, totalSize int) in
 		logging.Warn(fmt.Sprintf("too many entries for binary format: %d, truncating", len(c.entries)))
 	}
 	if indexOffset < 0 {
-		log.Printf("Warning: negative index offset: %d, using 0", indexOffset)
+		logging.Warn(fmt.Sprintf("Warning: negative index offset: %d, using 0", indexOffset))
 		indexOffset = 0
 	}
 
@@ -446,7 +445,7 @@ func IsValidCacheFile(filename string) bool {
 	}
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil {
-			log.Printf("Warning: failed to close cache validation file: %v", closeErr)
+			logging.Warn(fmt.Sprintf("Warning: failed to close cache validation file: %v", closeErr))
 		}
 	}()
 
