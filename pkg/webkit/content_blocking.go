@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"sync"
 
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
 	"github.com/diamondburned/gotk4/pkg/gio/v2"
@@ -15,6 +16,11 @@ import (
 type ContentBlockingManager struct {
 	filterStore *webkit.UserContentFilterStore
 	storagePath string
+
+	// Cache compiled filter to avoid recompilation
+	mu             sync.RWMutex
+	compiledFilter *webkit.UserContentFilter
+	filterID       string
 }
 
 // NewContentBlockingManager creates a new content blocking manager
@@ -33,12 +39,102 @@ func NewContentBlockingManager(storagePath string) (*ContentBlockingManager, err
 	}, nil
 }
 
-// ApplyFiltersFromJSON compiles and applies WebKit JSON filter rules to a UserContentManager
-// The jsonRules parameter should be a JSON array of WebKit content blocker rules
+// CompileFilters compiles JSON filter rules and caches the result for reuse.
+// This should be called once during startup. Subsequent WebViews use ApplyCompiledFilter.
+func (cbm *ContentBlockingManager) CompileFilters(identifier string, jsonRules []byte, onComplete func(error)) {
+	if len(jsonRules) == 0 {
+		if onComplete != nil {
+			onComplete(fmt.Errorf("empty filter rules"))
+		}
+		return
+	}
+
+	log.Printf("[webkit] Compiling content filters (identifier: %s, rules size: %d bytes)", identifier, len(jsonRules))
+
+	// Store identifier for later use
+	cbm.mu.Lock()
+	cbm.filterID = identifier
+	cbm.mu.Unlock()
+
+	// Convert []byte to *glib.Bytes for WebKit API
+	gBytes := glib.NewBytesWithGo(jsonRules)
+
+	// Compile asynchronously - does not block main thread
+	ctx := context.Background()
+	cbm.filterStore.Save(ctx, identifier, gBytes, func(result gio.AsyncResulter) {
+		filter, err := cbm.filterStore.SaveFinish(result)
+		if err != nil {
+			log.Printf("[webkit] Failed to compile content filter: %v", err)
+			if onComplete != nil {
+				onComplete(fmt.Errorf("failed to compile filter: %w", err))
+			}
+			return
+		}
+
+		if filter == nil {
+			log.Printf("[webkit] Filter compilation returned nil")
+			if onComplete != nil {
+				onComplete(fmt.Errorf("filter compilation returned nil"))
+			}
+			return
+		}
+
+		// Cache the compiled filter
+		cbm.mu.Lock()
+		cbm.compiledFilter = filter
+		cbm.mu.Unlock()
+
+		log.Printf("[webkit] Filter compilation complete: %s", identifier)
+		if onComplete != nil {
+			onComplete(nil)
+		}
+	})
+}
+
+// ApplyCompiledFilter applies the pre-compiled filter to a UserContentManager.
+// This is instant since the filter is already compiled.
+func (cbm *ContentBlockingManager) ApplyCompiledFilter(ucm *webkit.UserContentManager) error {
+	if ucm == nil {
+		return fmt.Errorf("UserContentManager is nil")
+	}
+
+	cbm.mu.RLock()
+	filter := cbm.compiledFilter
+	cbm.mu.RUnlock()
+
+	if filter == nil {
+		return fmt.Errorf("no compiled filter available")
+	}
+
+	ucm.AddFilter(filter)
+	return nil
+}
+
+// IsFilterCompiled returns true if filters have been compiled and are ready to apply.
+func (cbm *ContentBlockingManager) IsFilterCompiled() bool {
+	cbm.mu.RLock()
+	defer cbm.mu.RUnlock()
+	return cbm.compiledFilter != nil
+}
+
+// ApplyFiltersFromJSON compiles and applies WebKit JSON filter rules to a UserContentManager.
+// DEPRECATED: Use CompileFilters + ApplyCompiledFilter for better performance.
+// This method is kept for backward compatibility.
 func (cbm *ContentBlockingManager) ApplyFiltersFromJSON(ucm *webkit.UserContentManager, identifier string, jsonRules []byte) error {
 	if ucm == nil {
 		return fmt.Errorf("UserContentManager is nil")
 	}
+
+	// Check if already compiled
+	cbm.mu.RLock()
+	if cbm.compiledFilter != nil {
+		filter := cbm.compiledFilter
+		cbm.mu.RUnlock()
+		ucm.AddFilter(filter)
+		log.Printf("[webkit] Applied cached content filter to UCM")
+		return nil
+	}
+	cbm.mu.RUnlock()
 
 	if len(jsonRules) == 0 {
 		return fmt.Errorf("empty filter rules")
@@ -47,18 +143,12 @@ func (cbm *ContentBlockingManager) ApplyFiltersFromJSON(ucm *webkit.UserContentM
 	log.Printf("[webkit] Applying content filters (identifier: %s, rules size: %d bytes)", identifier, len(jsonRules))
 
 	// Convert []byte to *glib.Bytes for WebKit API
-	// NewBytesWithGo keeps the Go slice alive for the GBytes lifetime
 	gBytes := glib.NewBytesWithGo(jsonRules)
 
-	// Save filters to store asynchronously
-	// This compiles the JSON rules into WebKit's internal format
 	ctx := context.Background()
-
-	// Use a channel to wait for the async operation
 	done := make(chan error, 1)
 
 	cbm.filterStore.Save(ctx, identifier, gBytes, func(result gio.AsyncResulter) {
-		// This callback runs when compilation is complete
 		filter, err := cbm.filterStore.SaveFinish(result)
 		if err != nil {
 			log.Printf("[webkit] Failed to compile content filter: %v", err)
@@ -72,8 +162,12 @@ func (cbm *ContentBlockingManager) ApplyFiltersFromJSON(ucm *webkit.UserContentM
 			return
 		}
 
-		// Add the compiled filter to the UserContentManager
-		// This must be done on the main GTK thread
+		// Cache for future use
+		cbm.mu.Lock()
+		cbm.compiledFilter = filter
+		cbm.filterID = identifier
+		cbm.mu.Unlock()
+
 		RunOnMainThread(func() {
 			ucm.AddFilter(filter)
 			log.Printf("[webkit] Successfully added content filter: %s", identifier)
@@ -81,7 +175,6 @@ func (cbm *ContentBlockingManager) ApplyFiltersFromJSON(ucm *webkit.UserContentM
 		})
 	})
 
-	// Wait for completion
 	return <-done
 }
 
