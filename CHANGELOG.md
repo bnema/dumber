@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.15.0] - 2025-11-29
 
 ### Added
 - **Inline URL suggestions**: Fish/zsh-style ghost text completion in omnibox. As you type, shows grayed-out URL completion from history. Accept with Right Arrow (full) or Ctrl+Right (word). Ctrl+Y also accepts full suggestion. Uses trie-based prefix search with debounced queries for smooth typing.
