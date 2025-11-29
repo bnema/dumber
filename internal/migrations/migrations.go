@@ -237,6 +237,6 @@ func VerifyAllMigrationsApplied(db *sql.DB) error {
 		return fmt.Errorf("%d migrations are not applied", len(missingMigrations))
 	}
 
-	log.Printf("Migration verification: All %d migrations are applied ✓", len(allMigrations))
+	log.Printf("Migration verification: All %d migrations are applied", len(allMigrations))
 	return nil
 }
