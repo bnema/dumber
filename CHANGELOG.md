@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
-- **Filter list auto-update**: Async version checking with HTTP Range requests (1KB vs 100KB+). 2-minute startup delay + 24-hour periodic checks. Stores version per filter list.
+- **Filter list auto-update**: Async version checking using HTTP HEAD request with ETag. 2-minute startup delay, skips if checked within 24 hours. Stores version per filter list.
 - **Configurable filter lists**: New `content_filtering.filter_lists` config option. Defaults include EasyList, EasyPrivacy, and uBlock filters (annoyances, quick-fixes).
 - **Demo video**: Added feature showcase video to README (docs/media/dumber-demo.mp4).
 - **Page load progress bar**: Thin animated indicator at window bottom showing web page loading progress. Tracks WebView load events with gradient animation, auto-hides when complete.
