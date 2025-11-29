@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"runtime"
@@ -58,7 +57,8 @@ type BrowserApp struct {
 	workspace  *WorkspaceManager
 
 	// Content filtering
-	filterManager *filtering.FilterManager
+	filterManager          *filtering.FilterManager
+	contentBlockingService *filtering.ContentBlockingService
 
 	// Handlers
 	schemeHandler         *api.SchemeHandler
@@ -70,7 +70,7 @@ type BrowserApp struct {
 // Run starts the browser application
 func Run(assets embed.FS, version, commit, buildDate string) {
 	startupStart := time.Now()
-	log.Printf("Starting GUI mode (webkit_cgo=%v)", webkit.IsNativeAvailable())
+	logging.Info(fmt.Sprintf("Starting GUI mode (webkit_cgo=%v)", webkit.IsNativeAvailable()))
 
 	app := &BrowserApp{
 		version:   version,
@@ -80,7 +80,7 @@ func Run(assets embed.FS, version, commit, buildDate string) {
 	}
 
 	if err := app.Initialize(); err != nil {
-		log.Printf("Failed to initialize browser: %v", err)
+		logging.Error(fmt.Sprintf("Failed to initialize browser: %v", err))
 		if webkit.IsNativeAvailable() {
 			runtime.UnlockOSThread()
 		}
@@ -88,9 +88,9 @@ func Run(assets embed.FS, version, commit, buildDate string) {
 	}
 
 	startupElapsed := time.Since(startupStart)
-	log.Printf("[startup] Application initialized in %v", startupElapsed)
+	logging.Info(fmt.Sprintf("[startup] Application initialized in %v", startupElapsed))
 	if startupElapsed > 500*time.Millisecond {
-		log.Printf("[startup] WARNING: Startup took %v (target: <500ms)", startupElapsed)
+		logging.Warn(fmt.Sprintf("[startup] WARNING: Startup took %v (target: <500ms)", startupElapsed))
 	}
 
 	app.Run()
@@ -115,20 +115,20 @@ func (app *BrowserApp) Initialize() error {
 
 	// Setup output capture if configured
 	if err := app.setupOutputCapture(); err != nil {
-		log.Printf("Warning: failed to setup output capture: %v", err)
+		logging.Warn(fmt.Sprintf("Warning: failed to setup output capture: %v", err))
 	}
 
 	// Initialize WebKit log capture if configured
 	if app.config.Logging.CaptureCOutput {
 		if err := webkit.InitWebKitLogCapture(); err != nil {
-			log.Printf("Warning: failed to initialize WebKit log capture: %v", err)
+			logging.Warn(fmt.Sprintf("Warning: failed to initialize WebKit log capture: %v", err))
 		} else {
 			defer webkit.StopWebKitLogCapture()
 			webkit.StartWebKitOutputCapture()
 		}
 	}
 
-	log.Printf("Config initialized")
+	logging.Info(fmt.Sprintf("Config initialized"))
 
 	// Detect keyboard layout
 	environment.DetectAndSetKeyboardLocale()
@@ -140,11 +140,11 @@ func (app *BrowserApp) Initialize() error {
 	}
 	app.database = database
 	app.queries = db.New(database)
-	log.Printf("Database opened at %s", app.config.Database.Path)
+	logging.Info(fmt.Sprintf("Database opened at %s", app.config.Database.Path))
 
 	// Cleanup expired certificate validations
 	if err := webkit.CleanupExpiredCertificateValidations(); err != nil {
-		log.Printf("Warning: failed to cleanup expired certificate validations: %v", err)
+		logging.Warn(fmt.Sprintf("Warning: failed to cleanup expired certificate validations: %v", err))
 	}
 
 	// Initialize services
@@ -153,7 +153,7 @@ func (app *BrowserApp) Initialize() error {
 
 	// Load all caches in parallel for fast startup (target: <100ms)
 	if err := app.loadCachesParallel(context.Background()); err != nil {
-		log.Printf("Warning: failed to load caches: %v", err)
+		logging.Warn(fmt.Sprintf("Warning: failed to load caches: %v", err))
 		// Non-fatal - caches will fall back to defaults or DB queries
 	}
 
@@ -175,7 +175,7 @@ func (app *BrowserApp) loadCachesParallel(ctx context.Context) error {
 	// Load zoom cache in parallel
 	g.Go(func() error {
 		if err := app.browserService.LoadZoomCacheFromDB(ctx); err != nil {
-			log.Printf("[cache] Failed to load zoom cache: %v", err)
+			logging.Error(fmt.Sprintf("[cache] Failed to load zoom cache: %v", err))
 			return err
 		}
 		return nil
@@ -184,7 +184,7 @@ func (app *BrowserApp) loadCachesParallel(ctx context.Context) error {
 	// Load certificate validation cache in parallel
 	g.Go(func() error {
 		if err := app.browserService.LoadCertCacheFromDB(ctx); err != nil {
-			log.Printf("[cache] Failed to load cert cache: %v", err)
+			logging.Error(fmt.Sprintf("[cache] Failed to load cert cache: %v", err))
 			return err
 		}
 		return nil
@@ -193,7 +193,7 @@ func (app *BrowserApp) loadCachesParallel(ctx context.Context) error {
 	// Load favorites cache in parallel
 	g.Go(func() error {
 		if err := app.browserService.LoadFavoritesCacheFromDB(ctx); err != nil {
-			log.Printf("[cache] Failed to load favorites cache: %v", err)
+			logging.Error(fmt.Sprintf("[cache] Failed to load favorites cache: %v", err))
 			return err
 		}
 		return nil
@@ -202,7 +202,7 @@ func (app *BrowserApp) loadCachesParallel(ctx context.Context) error {
 	// Load fuzzy search cache in parallel for instant dmenu access
 	g.Go(func() error {
 		if err := app.browserService.LoadFuzzyCacheFromDB(ctx); err != nil {
-			log.Printf("[cache] Failed to load fuzzy cache: %v", err)
+			logging.Error(fmt.Sprintf("[cache] Failed to load fuzzy cache: %v", err))
 			return err
 		}
 		return nil
@@ -214,11 +214,11 @@ func (app *BrowserApp) loadCachesParallel(ctx context.Context) error {
 	}
 
 	elapsed := time.Since(startTime)
-	log.Printf("[cache] All caches loaded in %v", elapsed)
+	logging.Info(fmt.Sprintf("[cache] All caches loaded in %v", elapsed))
 
 	// Warn if startup is slower than target
 	if elapsed > 100*time.Millisecond {
-		log.Printf("[cache] Warning: Cache loading took %v (target: <100ms)", elapsed)
+		logging.Warn(fmt.Sprintf("[cache] Warning: Cache loading took %v (target: <100ms)", elapsed))
 	}
 
 	return nil
@@ -235,21 +235,22 @@ func (app *BrowserApp) Run() {
 	// Register custom scheme resolver for "dumb://" URIs (will be applied after WebView creation)
 	webkit.RegisterURIScheme("dumb", app.schemeHandler.Handle)
 
-	// Create and setup WebView
+	// Initialize content blocking BEFORE creating WebViews so the service is ready
+	// to register WebViews as they are created (tabs, workspaces, popups)
+	if err := app.setupContentBlocking(); err != nil {
+		logging.Warn(fmt.Sprintf("Warning: failed to setup content blocking: %v", err))
+		// Continue without content blocking
+	}
+
+	// Create and setup WebView (this also creates TabManager which creates more WebViews)
 	if err := app.createWebView(); err != nil {
-		log.Printf("Warning: failed to create WebView: %v", err)
+		logging.Warn(fmt.Sprintf("Warning: failed to create WebView: %v", err))
 		return
 	}
 
 	// Apply URI scheme handlers after WebView creation
 	if err := webkit.ApplyURISchemeHandlers(app.webView.GetWebView()); err != nil {
-		log.Printf("Warning: failed to register URI scheme handlers: %v", err)
-	}
-
-	// Initialize content blocking
-	if err := app.setupContentBlocking(); err != nil {
-		log.Printf("Warning: failed to setup content blocking: %v", err)
-		// Continue without content blocking
+		logging.Warn(fmt.Sprintf("Warning: failed to register URI scheme handlers: %v", err))
 	}
 
 	// Handle browse command if present (must use active tab's navigation controller)
@@ -275,52 +276,52 @@ func (app *BrowserApp) Run() {
 
 // cleanup handles cleanup on shutdown
 func (app *BrowserApp) cleanup() {
-	log.Printf("Starting browser cleanup...")
+	logging.Info(fmt.Sprintf("Starting browser cleanup..."))
 
 	// Cleanup window shortcuts first
 	if app.windowShortcutHandler != nil {
-		log.Printf("Cleaning up window shortcuts")
+		logging.Info(fmt.Sprintf("Cleaning up window shortcuts"))
 		app.windowShortcutHandler.Cleanup()
 		app.windowShortcutHandler = nil
 	}
 
 	// Cleanup tab manager (which cleans up all tabs and their workspaces)
 	if app.tabManager != nil {
-		log.Printf("Cleaning up tab manager")
+		logging.Info(fmt.Sprintf("Cleaning up tab manager"))
 		app.tabManager.Cleanup()
 		app.tabManager = nil
 	}
 
 	// Flush all caches to ensure pending writes complete before database closes
 	if app.browserService != nil {
-		log.Printf("Flushing all caches...")
+		logging.Info(fmt.Sprintf("Flushing all caches..."))
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := app.browserService.FlushAllCaches(ctx); err != nil {
-			log.Printf("Warning: failed to flush caches: %v", err)
+			logging.Warn(fmt.Sprintf("Warning: failed to flush caches: %v", err))
 		}
 	}
 
 	// Close database with WAL checkpoint
 	if app.database != nil {
-		log.Printf("Performing WAL checkpoint and closing database...")
+		logging.Info(fmt.Sprintf("Performing WAL checkpoint and closing database..."))
 
 		// Run WAL checkpoint to commit all pending writes and truncate WAL file
 		if _, err := app.database.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
-			log.Printf("Warning: WAL checkpoint failed: %v", err)
+			logging.Warn(fmt.Sprintf("Warning: WAL checkpoint failed: %v", err))
 		} else {
-			log.Printf("WAL checkpoint completed successfully")
+			logging.Info(fmt.Sprintf("WAL checkpoint completed successfully"))
 		}
 
 		// Close database connection
 		if closeErr := app.database.Close(); closeErr != nil {
-			log.Printf("Warning: failed to close database: %v", closeErr)
+			logging.Warn(fmt.Sprintf("Warning: failed to close database: %v", closeErr))
 		} else {
-			log.Printf("Database closed successfully")
+			logging.Info(fmt.Sprintf("Database closed successfully"))
 		}
 	}
 
-	log.Printf("Browser cleanup completed")
+	logging.Info(fmt.Sprintf("Browser cleanup completed"))
 }
 
 // setupOutputCapture initializes stdout/stderr capture if configured
@@ -329,11 +330,11 @@ func (app *BrowserApp) setupOutputCapture() error {
 		// Capturing stdout/stderr works for non-GTK builds, but in native GTK mode
 		// it interferes with WebKit's own pipe management and crashes immediately.
 		if webkit.IsNativeAvailable() {
-			log.Printf("Warning: stdout/stderr capture is not supported in native GTK mode; skipping")
+			logging.Warn(fmt.Sprintf("Warning: stdout/stderr capture is not supported in native GTK mode; skipping"))
 			return nil
 		}
 
-		log.Printf("Warning: stdout/stderr capture is experimental and may interfere with normal operations")
+		logging.Warn(fmt.Sprintf("Warning: stdout/stderr capture is experimental and may interfere with normal operations"))
 		if logger := logging.GetLogger(); logger != nil {
 			outputCapture := logging.NewOutputCapture(logger)
 			if err := outputCapture.Start(); err != nil {
@@ -353,7 +354,7 @@ func (app *BrowserApp) setupSignalHandling() {
 	// Handle signals in a goroutine to quit the main loop
 	go func() {
 		sig := <-sigChan
-		log.Printf("Received signal %v - shutting down gracefully", sig)
+		logging.Info(fmt.Sprintf("Received signal %v - shutting down gracefully", sig))
 		webkit.QuitMainLoop()
 	}()
 }
@@ -361,29 +362,29 @@ func (app *BrowserApp) setupSignalHandling() {
 // runMainLoop starts the appropriate main loop based on WebKit availability
 func (app *BrowserApp) runMainLoop() {
 	if webkit.IsNativeAvailable() {
-		log.Printf("Entering GTK main loop…")
+		logging.Info(fmt.Sprintf("Entering GTK main loop…"))
 		webkit.RunMainLoop()
-		log.Printf("GTK main loop exited")
+		logging.Info(fmt.Sprintf("GTK main loop exited"))
 
 		// Flush pending history writes immediately after main loop exit
 		// This ensures database operations complete while GTK is still in a valid state
 		// MUST happen before cleanup() deferred call, which happens after this function returns
 		if app.browserService != nil {
-			log.Printf("Flushing pending history writes...")
+			logging.Info(fmt.Sprintf("Flushing pending history writes..."))
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if err := app.browserService.FlushHistoryQueue(ctx); err != nil {
-				log.Printf("Warning: history queue flush incomplete: %v", err)
+				logging.Warn(fmt.Sprintf("Warning: history queue flush incomplete: %v", err))
 			} else {
-				log.Printf("History queue flushed successfully")
+				logging.Info(fmt.Sprintf("History queue flushed successfully"))
 			}
 		}
 	} else {
-		log.Printf("Not entering GUI loop (non-CGO build)")
+		logging.Info(fmt.Sprintf("Not entering GUI loop (non-CGO build)"))
 		// In non-CGO mode, just wait for signals
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 		sig := <-sigChan
-		log.Printf("Received signal %v - exiting", sig)
+		logging.Info(fmt.Sprintf("Received signal %v - exiting", sig))
 	}
 }

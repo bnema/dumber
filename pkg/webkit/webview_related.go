@@ -19,10 +19,11 @@ static inline WebKitWebView* create_related_web_view(WebKitWebView* parent) {
 */
 import "C"
 import (
-	"log"
+	"fmt"
 	"runtime"
 	"unsafe"
 
+	"github.com/bnema/dumber/internal/logging"
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
 	coreglib "github.com/diamondburned/gotk4/pkg/core/glib"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
@@ -37,39 +38,39 @@ import (
 // we manually construct the WebView struct hierarchy using CGO.
 func NewBareRelatedWebView(parentView *webkit.WebView) *webkit.WebView {
 	if parentView == nil {
-		log.Printf("[webkit] NewBareRelatedWebView: parent is nil, creating unrelated WebView")
+		logging.Warn(fmt.Sprintf("[webkit] NewBareRelatedWebView: parent is nil, creating unrelated WebView"))
 		return webkit.NewWebView()
 	}
 
 	// Get the native C pointer from the gotk4 WebView
 	parentObj := glib.BaseObject(parentView)
 	if parentObj == nil {
-		log.Printf("[webkit] NewBareRelatedWebView: failed to get parent object, creating unrelated WebView")
+		logging.Error(fmt.Sprintf("[webkit] NewBareRelatedWebView: failed to get parent object, creating unrelated WebView"))
 		return webkit.NewWebView()
 	}
 	parentNative := (*C.WebKitWebView)(unsafe.Pointer(parentObj.Native()))
 	if parentNative == nil {
-		log.Printf("[webkit] NewBareRelatedWebView: parent native pointer is nil, creating unrelated WebView")
+		logging.Error(fmt.Sprintf("[webkit] NewBareRelatedWebView: parent native pointer is nil, creating unrelated WebView"))
 		return webkit.NewWebView()
 	}
 
-	log.Printf("[webkit] Creating bare WebView with related-view property (parent=%p)", parentNative)
+	logging.Debug(fmt.Sprintf("[webkit] Creating bare WebView with related-view property (parent=%p)", parentNative))
 
 	// Create related WebView using CGO helper with g_object_new
-	log.Printf("[webkit] Step 3: About to call C.create_related_web_view")
+	logging.Debug(fmt.Sprintf("[webkit] Step 3: About to call C.create_related_web_view"))
 	webViewNative := C.create_related_web_view(parentNative)
-	log.Printf("[webkit] Step 4: C.create_related_web_view returned: %p", webViewNative)
+	logging.Debug(fmt.Sprintf("[webkit] Step 4: C.create_related_web_view returned: %p", webViewNative))
 
 	if webViewNative == nil {
-		log.Printf("[webkit] NewBareRelatedWebView: C.create_related_web_view returned nil")
+		logging.Error(fmt.Sprintf("[webkit] NewBareRelatedWebView: C.create_related_web_view returned nil"))
 		return nil
 	}
 
 	// Wrap the C object in a coreglib.Object
 	// This takes ownership of the floating reference
-	log.Printf("[webkit] Step 5: About to call coreglib.Take")
+	logging.Debug(fmt.Sprintf("[webkit] Step 5: About to call coreglib.Take"))
 	obj := coreglib.Take(unsafe.Pointer(webViewNative))
-	log.Printf("[webkit] Step 6: coreglib.Take succeeded, obj=%p", obj)
+	logging.Debug(fmt.Sprintf("[webkit] Step 6: coreglib.Take succeeded, obj=%p", obj))
 
 	// Manually construct the WebView struct hierarchy
 	// WebView -> WebViewBase -> gtk.Widget -> coreglib.InitiallyUnowned -> coreglib.Object
@@ -78,7 +79,7 @@ func NewBareRelatedWebView(parentView *webkit.WebView) *webkit.WebView {
 	// manually construct the full struct hierarchy using the same pattern
 	// that gotk4 uses internally.
 
-	log.Printf("[webkit] Step 7: About to create gtk.Widget base")
+	logging.Debug(fmt.Sprintf("[webkit] Step 7: About to create gtk.Widget base"))
 	// Create the gtk.Widget base
 	widget := gtk.Widget{
 		InitiallyUnowned: coreglib.InitiallyUnowned{
@@ -95,25 +96,25 @@ func NewBareRelatedWebView(parentView *webkit.WebView) *webkit.WebView {
 			Object: obj,
 		},
 	}
-	log.Printf("[webkit] Step 8: Created gtk.Widget base")
+	logging.Debug(fmt.Sprintf("[webkit] Step 8: Created gtk.Widget base"))
 
 	// Create the WebViewBase
-	log.Printf("[webkit] Step 9: About to create WebViewBase")
+	logging.Debug(fmt.Sprintf("[webkit] Step 9: About to create WebViewBase"))
 	webViewBase := webkit.WebViewBase{
 		Widget: widget,
 	}
-	log.Printf("[webkit] Step 10: Created WebViewBase")
+	logging.Debug(fmt.Sprintf("[webkit] Step 10: Created WebViewBase"))
 
 	// Create the final WebView
-	log.Printf("[webkit] Step 11: About to create final WebView")
+	logging.Debug(fmt.Sprintf("[webkit] Step 11: About to create final WebView"))
 	relatedView := &webkit.WebView{
 		WebViewBase: webViewBase,
 	}
-	log.Printf("[webkit] Step 12: Created final WebView: %p", relatedView)
+	logging.Debug(fmt.Sprintf("[webkit] Step 12: Created final WebView: %p", relatedView))
 
 	// Ensure parentView is kept alive until after the CGO call completes
 	runtime.KeepAlive(parentView)
 
-	log.Printf("[webkit] Created bare related WebView (parent=%p)", parentNative)
+	logging.Debug(fmt.Sprintf("[webkit] Created bare related WebView (parent=%p)", parentNative))
 	return relatedView
 }

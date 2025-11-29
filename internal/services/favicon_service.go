@@ -6,13 +6,14 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/bnema/dumber/internal/db"
+	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/dumber/internal/parser"
 	"github.com/bnema/dumber/pkg/webkit"
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/gio/v2"
@@ -82,11 +83,11 @@ func NewFaviconService(faviconDB *webkit.FaviconDatabase, queries db.DatabaseQue
 	// The FaviconDatabase is shared across all WebViews (at NetworkSession level)
 	faviconDB.ConnectFaviconChanged(func(pageURI, faviconURI string) {
 		if err := fs.OnFaviconChanged(pageURI, faviconURI); err != nil {
-			log.Printf("[favicon] Handler error for %s: %v", pageURI, err)
+			logging.Error(fmt.Sprintf("[favicon] Handler error for %s: %v", pageURI, err))
 		}
 	})
 
-	log.Printf("[favicon] Registered single shared favicon handler at FaviconService level")
+	logging.Info(fmt.Sprintf("[favicon] Registered single shared favicon handler at FaviconService level"))
 
 	return fs, nil
 }
@@ -96,6 +97,11 @@ func NewFaviconService(faviconDB *webkit.FaviconDatabase, queries db.DatabaseQue
 func (fs *FaviconService) OnFaviconChanged(pageURL, faviconURI string) error {
 	if !fs.shouldProcessURL(pageURL) {
 		return nil
+	}
+
+	canonicalURL := parser.NormalizeHistoryURL(pageURL)
+	if canonicalURL == "" {
+		canonicalURL = pageURL
 	}
 
 	// FIRST: Check if WebKit's FaviconDatabase already has this exact URI
@@ -116,7 +122,7 @@ func (fs *FaviconService) OnFaviconChanged(pageURL, faviconURI string) error {
 		timestamp  time.Time
 	}
 
-	if cached, ok := fs.recentChanges.Load(pageURL); ok {
+	if cached, ok := fs.recentChanges.Load(canonicalURL); ok {
 		if rc, ok := cached.(recentChange); ok {
 			if time.Since(rc.timestamp) < DeduplicationWindow {
 				// Already processed a favicon for this URL recently
@@ -127,31 +133,31 @@ func (fs *FaviconService) OnFaviconChanged(pageURL, faviconURI string) error {
 	}
 
 	// NEW favicon detected (first time or actual change)
-	log.Printf("[favicon] Favicon changed for %s: %s", pageURL, faviconURI)
+	logging.Info(fmt.Sprintf("[favicon] Favicon changed for %s: %s", pageURL, faviconURI))
 
 	ctx := context.Background()
 
 	// Update our history database with the favicon URI
 	nullString := sql.NullString{String: faviconURI, Valid: faviconURI != ""}
-	if err := fs.dbQueries.UpdateHistoryFavicon(ctx, nullString, pageURL); err != nil {
-		log.Printf("[favicon] Failed to update favicon URI in database for %s: %v", pageURL, err)
+	if err := fs.dbQueries.UpdateHistoryFavicon(ctx, nullString, canonicalURL); err != nil {
+		logging.Error(fmt.Sprintf("[favicon] Failed to update favicon URI in database for %s: %v", pageURL, err))
 		return fmt.Errorf("failed to update favicon in database: %w", err)
 	}
 
 	// Store this change as recently processed
-	fs.recentChanges.Store(pageURL, recentChange{faviconURI: faviconURI, timestamp: time.Now()})
+	fs.recentChanges.Store(canonicalURL, recentChange{faviconURI: faviconURI, timestamp: time.Now()})
 
 	// Propagate favicon to domain asynchronously to avoid blocking WebKit
-	go fs.propagateFaviconToDomain(pageURL, faviconURI)
+	go fs.propagateFaviconToDomain(canonicalURL, faviconURI)
 
 	// Proactively render and export favicon for omnibox/CLI use (debounced)
 	if fs.enableExport {
 		// Check if a preload is already in progress for this URL
-		if _, loaded := fs.ongoingPreloads.LoadOrStore(pageURL, true); !loaded {
+		if _, loaded := fs.ongoingPreloads.LoadOrStore(canonicalURL, true); !loaded {
 			// No preload in progress, start one
 			go func() {
-				defer fs.ongoingPreloads.Delete(pageURL)
-				fs.preloadFavicon(pageURL, faviconURI)
+				defer fs.ongoingPreloads.Delete(canonicalURL)
+				fs.preloadFavicon(pageURL, canonicalURL, faviconURI)
 			}()
 		}
 	}
@@ -176,7 +182,7 @@ func (fs *FaviconService) propagateFaviconToDomain(pageURL, faviconURI string) {
 	domainPattern := sql.NullString{String: "%://" + parsedURL.Host + "%", Valid: true}
 	entries, err := fs.dbQueries.SearchHistory(ctx, domainPattern, sql.NullString{}, 1000)
 	if err != nil {
-		log.Printf("[favicon] Failed to search history for domain %s: %v", parsedURL.Host, err)
+		logging.Error(fmt.Sprintf("[favicon] Failed to search history for domain %s: %v", parsedURL.Host, err))
 		return
 	}
 
@@ -199,9 +205,9 @@ func (fs *FaviconService) propagateFaviconToDomain(pageURL, faviconURI string) {
 	for _, entry := range entries {
 		if entry.FaviconUrl.String == "" {
 			if err := fs.dbQueries.UpdateHistoryFavicon(ctx, faviconNull, entry.Url); err != nil {
-				log.Printf("[favicon] Failed to propagate favicon to %s: %v", entry.Url, err)
+				logging.Error(fmt.Sprintf("[favicon] Failed to propagate favicon to %s: %v", entry.Url, err))
 			} else {
-				log.Printf("[favicon] Propagated favicon to %s", entry.Url)
+				logging.Debug(fmt.Sprintf("[favicon] Propagated favicon to %s", entry.Url))
 			}
 		}
 	}
@@ -210,18 +216,18 @@ func (fs *FaviconService) propagateFaviconToDomain(pageURL, faviconURI string) {
 // preloadFavicon renders and exports a favicon in the background.
 // This is called immediately when OnFaviconChanged fires to ensure
 // favicons are ready for omnibox suggestions as soon as possible.
-func (fs *FaviconService) preloadFavicon(pageURL, faviconURI string) {
+func (fs *FaviconService) preloadFavicon(pageURL, canonicalURL, faviconURI string) {
 	ctx, cancel := context.WithTimeout(context.Background(), FaviconTimeout)
 	defer cancel()
 
 	texture, err := fs.renderFaviconTexture(ctx, pageURL, faviconURI)
 	if err != nil {
-		log.Printf("[favicon] Preload failed for %s: %v", pageURL, err)
+		logging.Warn(fmt.Sprintf("[favicon] Preload failed for %s: %v", pageURL, err))
 		return
 	}
 
-	fs.maybeExportTexture(pageURL, texture)
-	log.Printf("[favicon] Preloaded and exported favicon for %s", pageURL)
+	fs.maybeExportTexture(canonicalURL, texture)
+	logging.Debug(fmt.Sprintf("[favicon] Preloaded and exported favicon for %s", pageURL))
 }
 
 // GetFaviconTexture loads a favicon texture asynchronously and calls the callback with the result.
@@ -239,7 +245,12 @@ func (fs *FaviconService) GetFaviconTexture(pageURL string, callback func(*gdk.T
 		ctx, cancel := context.WithTimeout(context.Background(), FaviconTimeout)
 		defer cancel()
 
-		faviconURI, err := fs.lookupFaviconURI(ctx, pageURL)
+		canonicalURL := parser.NormalizeHistoryURL(pageURL)
+		if canonicalURL == "" {
+			canonicalURL = pageURL
+		}
+
+		faviconURI, err := fs.lookupFaviconURI(ctx, canonicalURL, pageURL)
 		if err != nil {
 			fs.dispatchTexture(callback, nil, err)
 			return
@@ -251,7 +262,7 @@ func (fs *FaviconService) GetFaviconTexture(pageURL string, callback func(*gdk.T
 			return
 		}
 
-		fs.maybeExportTexture(pageURL, texture)
+		fs.maybeExportTexture(canonicalURL, texture)
 
 		fs.dispatchTexture(callback, texture, nil)
 	}()
@@ -335,23 +346,47 @@ func (fs *FaviconService) loadSVGFaviconTexture(ctx context.Context, faviconURI 
 	return texture, nil
 }
 
-func (fs *FaviconService) lookupFaviconURI(ctx context.Context, pageURL string) (string, error) {
-	entry, err := fs.dbQueries.GetHistoryEntry(ctx, pageURL)
-	if err == nil {
-		if entry.FaviconUrl.Valid && entry.FaviconUrl.String != "" {
-			return entry.FaviconUrl.String, nil
+func (fs *FaviconService) lookupFaviconURI(ctx context.Context, canonicalURL, originalURL string) (string, error) {
+	type void struct{}
+	seen := make(map[string]void, 2)
+	candidates := make([]string, 0, 2)
+
+	addCandidate := func(val string) {
+		if val == "" {
+			return
 		}
-	} else if !errors.Is(err, sql.ErrNoRows) {
-		log.Printf("[favicon] failed to query history entry for %s: %v", pageURL, err)
+		if _, exists := seen[val]; exists {
+			return
+		}
+		seen[val] = void{}
+		candidates = append(candidates, val)
+	}
+
+	addCandidate(canonicalURL)
+	addCandidate(originalURL)
+
+	for _, candidate := range candidates {
+		entry, err := fs.dbQueries.GetHistoryEntry(ctx, candidate)
+		if err == nil {
+			if entry.FaviconUrl.Valid && entry.FaviconUrl.String != "" {
+				return entry.FaviconUrl.String, nil
+			}
+			continue
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			logging.Error(fmt.Sprintf("[favicon] failed to query history entry for %s: %v", candidate, err))
+		}
 	}
 
 	if fs.faviconDB != nil {
-		if uri := fs.faviconDB.FaviconURI(pageURL); uri != "" {
-			return uri, nil
+		for _, candidate := range candidates {
+			if uri := fs.faviconDB.FaviconURI(candidate); uri != "" {
+				return uri, nil
+			}
 		}
 	}
 
-	return "", fmt.Errorf("no favicon URI available for %s", pageURL)
+	return "", fmt.Errorf("no favicon URI available for %s", canonicalURL)
 }
 
 func (fs *FaviconService) ensureTextureSize(texture *gdk.Texture) *gdk.Texture {
@@ -382,7 +417,7 @@ func (fs *FaviconService) maybeExportTexture(pageURL string, texture *gdk.Textur
 
 	_ = webkit.IdleAdd(func() bool {
 		if err := webkit.SaveTextureAsPNG(texture, exportPath, fs.targetSize); err != nil {
-			log.Printf("[favicon] Failed to export favicon PNG for %s: %v", pageURL, err)
+			logging.Error(fmt.Sprintf("[favicon] Failed to export favicon PNG for %s: %v", pageURL, err))
 		}
 		return false
 	})
@@ -391,7 +426,12 @@ func (fs *FaviconService) maybeExportTexture(pageURL string, texture *gdk.Textur
 // GetFaviconPath returns the exported PNG path for CLI tools (dmenu, etc.)
 // This allows CLI tools to display favicons without WebKitGTK API access.
 func (fs *FaviconService) GetFaviconPath(pageURL string) (string, error) {
-	exportPath := fs.getExportPath(pageURL)
+	canonicalURL := parser.NormalizeHistoryURL(pageURL)
+	if canonicalURL == "" {
+		canonicalURL = pageURL
+	}
+
+	exportPath := fs.getExportPath(canonicalURL)
 	if info, err := os.Stat(exportPath); err == nil {
 		if time.Since(info.ModTime()) < 7*24*time.Hour {
 			return exportPath, nil
@@ -405,7 +445,7 @@ func (fs *FaviconService) GetFaviconPath(pageURL string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), FaviconTimeout)
 	defer cancel()
 
-	faviconURI, err := fs.lookupFaviconURI(ctx, pageURL)
+	faviconURI, err := fs.lookupFaviconURI(ctx, canonicalURL, pageURL)
 	if err != nil {
 		return "", err
 	}
@@ -424,8 +464,8 @@ func (fs *FaviconService) GetFaviconPath(pageURL string) (string, error) {
 
 // getExportPath generates the export path for a page URL
 func (fs *FaviconService) getExportPath(pageURL string) string {
-	// Use the same hashing scheme as the old cache for compatibility
-	hash := fmt.Sprintf("%x", webkit.HashURL(pageURL))
+	exportKey := canonicalExportURL(pageURL)
+	hash := fmt.Sprintf("%x", webkit.HashURL(exportKey))
 	return filepath.Join(fs.exportDir, hash+".png")
 }
 
@@ -433,7 +473,7 @@ func (fs *FaviconService) getExportPath(pageURL string) string {
 func (fs *FaviconService) shouldProcessURL(pageURL string) bool {
 	parsedURL, err := webkit.ParseURL(pageURL)
 	if err != nil {
-		log.Printf("[favicon] Invalid page URL: %s", pageURL)
+		logging.Warn(fmt.Sprintf("[favicon] Invalid page URL: %s", pageURL))
 		return false
 	}
 
@@ -501,6 +541,28 @@ func (fs *FaviconService) CleanOldExports() error {
 // GetExportedFaviconPath returns the expected export path for a page URL.
 func GetExportedFaviconPath(dataDir, pageURL string) string {
 	exportDir := filepath.Join(dataDir, "webkit", "favicons-export")
-	hash := fmt.Sprintf("%x", webkit.HashURL(pageURL))
+	exportKey := canonicalExportURL(pageURL)
+	hash := fmt.Sprintf("%x", webkit.HashURL(exportKey))
 	return filepath.Join(exportDir, hash+".png")
+}
+
+func canonicalExportURL(pageURL string) string {
+	parsed, err := webkit.ParseURL(pageURL)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		normalized := parser.NormalizeHistoryURL(pageURL)
+		if normalized == "" {
+			return pageURL
+		}
+		parsed, err = webkit.ParseURL(normalized)
+		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+			return normalized
+		}
+	}
+
+	host := parsed.Host
+	if host == "" {
+		return fmt.Sprintf("%s://%s/", parsed.Scheme, parsed.Host)
+	}
+
+	return fmt.Sprintf("%s://%s/", parsed.Scheme, host)
 }

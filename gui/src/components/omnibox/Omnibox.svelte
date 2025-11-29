@@ -16,6 +16,9 @@
   let mode = $derived(omniboxStore.mode);
   let faded = $derived(omniboxStore.faded);
 
+  // Ready state - prevents flash before initialization
+  let isReady = $state(false);
+
   // Component refs
   let boxElement: HTMLDivElement;
   let blurLayerElement: HTMLDivElement;
@@ -122,6 +125,11 @@
       inputElement.focus();
       // Enable keyboard event blocking in main world when omnibox opens
       enablePageEventBlocking();
+
+      // Fetch initial history if opening in omnibox mode with empty input
+      if (mode === 'omnibox' && omniboxStore.inputValue === '') {
+        omniboxBridge.fetchInitialHistory();
+      }
     } else if (!visible) {
       // Disable keyboard event blocking when omnibox closes
       disablePageEventBlocking();
@@ -131,29 +139,27 @@
   // Functions to control main-world event blocking
   function enablePageEventBlocking() {
     try {
-      // Send message to Go backend to enable keyboard blocking
-      if (window.webkit?.messageHandlers?.dumber) {
-        window.webkit.messageHandlers.dumber.postMessage(JSON.stringify({
-          type: 'keyboard_blocking',
-          action: 'enable'
-        }));
-      }
+      // Send message to Go backend via bridge (isolated world → main world → Go)
+      omniboxBridge.postMessage({
+        type: 'keyboard_blocking',
+        action: 'enable'
+      });
+      console.log('[omnibox] Sent enable keyboard blocking message');
     } catch (error) {
-      console.warn('[omnibox] Failed to enable page event blocking:', error);
+      console.error('[omnibox] Failed to enable page event blocking:', error);
     }
   }
 
   function disablePageEventBlocking() {
     try {
-      // Send message to Go backend to disable keyboard blocking
-      if (window.webkit?.messageHandlers?.dumber) {
-        window.webkit.messageHandlers.dumber.postMessage(JSON.stringify({
-          type: 'keyboard_blocking',
-          action: 'disable'
-        }));
-      }
+      // Send message to Go backend via bridge (isolated world → main world → Go)
+      omniboxBridge.postMessage({
+        type: 'keyboard_blocking',
+        action: 'disable'
+      });
+      console.log('[omnibox] Sent disable keyboard blocking message');
     } catch (error) {
-      console.warn('[omnibox] Failed to disable page event blocking:', error);
+      console.error('[omnibox] Failed to disable page event blocking:', error);
     }
   }
 
@@ -352,6 +358,14 @@
           } catch (error) {
             console.error('Error in setActive:', error);
           }
+        },
+        setInlineSuggestion: (url) => {
+          try {
+            console.log('[INLINE] window.__dumber_omnibox.setInlineSuggestion called:', url);
+            omniboxBridge.setInlineSuggestion(url);
+          } catch (error) {
+            console.error('Error in setInlineSuggestion:', error);
+          }
         }
       };
 
@@ -364,15 +378,13 @@
         omniboxBridge.setSuggestions(pending);
         delete (window as any).__dumber_omnibox_pending_suggestions;
       }
-
-      // Auto-open omnibox on about:blank pages
-      if (window.location.href === 'about:blank') {
-        console.log('🚀 Auto-opening omnibox for about:blank');
-        omniboxStore.open('omnibox');
-      }
     } catch (error) {
       console.error('❌ Failed to set up omnibox global API:', error);
     }
+
+    // Mark as ready - removes initial hiding styles
+    isReady = true;
+    console.log('✅ Omnibox fully initialized and ready');
   });
 
   onDestroy(() => {
@@ -406,8 +418,10 @@
          left: 0 !important;
          right: 0 !important;
          bottom: 0 !important;
-         z-index: 2147483647 !important;
-         pointer-events: none !important;
+         z-index: {isReady ? '2147483647' : '-9999'} !important;
+         visibility: {isReady ? 'visible' : 'hidden'} !important;
+         opacity: {isReady ? '1' : '0'} !important;
+         pointer-events: {isReady ? 'none' : 'none'} !important;
          margin: 0 !important;
          padding: 0 !important;
          isolation: isolate;"

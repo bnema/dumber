@@ -2,8 +2,10 @@ package generic
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"sync"
+
+	"github.com/bnema/dumber/internal/logging"
 )
 
 // Cache provides a generic interface for caching any type of data.
@@ -109,7 +111,7 @@ func (c *GenericCache[K, V]) Set(key K, value V) error {
 
 		ctx := context.Background()
 		if err := c.dbOps.Persist(ctx, key, value); err != nil {
-			log.Printf("Warning: async persist failed for key %v: %v", key, err)
+			logging.Warn(fmt.Sprintf("Warning: async persist failed for key %v: %v", key, err))
 		}
 	}()
 
@@ -129,7 +131,7 @@ func (c *GenericCache[K, V]) Delete(key K) error {
 
 		ctx := context.Background()
 		if err := c.dbOps.Delete(ctx, key); err != nil {
-			log.Printf("Warning: async delete failed for key %v: %v", key, err)
+			logging.Warn(fmt.Sprintf("Warning: async delete failed for key %v: %v", key, err))
 		}
 	}()
 

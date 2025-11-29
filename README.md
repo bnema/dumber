@@ -4,6 +4,11 @@
   <img src="assets/logo.svg" alt="Dumber Logo" width="256" height="256" />
 </p>
 
+
+https://github.com/user-attachments/assets/394f5f7e-a475-42da-b483-5a58b2ea2f51
+
+
+
 A dumb browser that works like your favorite terminal multiplexer.
 
 ## Features

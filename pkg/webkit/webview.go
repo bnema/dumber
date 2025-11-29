@@ -3,19 +3,15 @@ package webkit
 import (
 	"encoding/json"
 	"fmt"
-	"log"
-	"net/url"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 
+	"github.com/bnema/dumber/internal/logging"
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
-
-const turnstileHost = "challenges.cloudflare.com"
 
 var (
 	viewIDCounter uint64
@@ -43,6 +39,9 @@ type WebView struct {
 	onFaviconURIChanged   func(pageURI, faviconURI string)
 	onZoomChanged         func(float64)
 	onLoadCommitted       func(string)                            // Called when page load is committed (safe to apply zoom)
+	onLoadStarted         func()                                  // Called when a load starts
+	onLoadFinished        func()                                  // Called when a load finishes
+	onLoadProgress        func(float64)                           // Called when estimated-load-progress changes
 	onPopupCreate         func(*webkit.NavigationAction) *WebView // New WebKit create signal handler
 	onReadyToShow         func()                                  // WebKit ready-to-show signal handler
 	onClose               func()
@@ -62,7 +61,7 @@ func NewWebView(cfg *Config) (*WebView, error) {
 
 	// Generate unique ID immediately
 	id := atomic.AddUint64(&viewIDCounter, 1)
-	log.Printf("[webkit] Generated WebView ID: %d (CreateWindow=%v)", id, cfg.CreateWindow)
+	logging.Debug(fmt.Sprintf("[webkit] Generated WebView ID: %d (CreateWindow=%v)", id, cfg.CreateWindow))
 
 	InitMainThread()
 
@@ -167,9 +166,9 @@ func NewWebView(cfg *Config) (*WebView, error) {
 		wv.window = window
 		// Add container as child of window
 		window.SetChild(container)
-		log.Printf("[webkit] Created standalone window for WebView ID %d", id)
+		logging.Debug(fmt.Sprintf("[webkit] Created standalone window for WebView ID %d", id))
 	} else {
-		log.Printf("[webkit] Created WebView ID %d without window (for workspace embedding)", id)
+		logging.Debug(fmt.Sprintf("[webkit] Created WebView ID %d without window (for workspace embedding)", id))
 	}
 
 	// Register in global registry
@@ -246,9 +245,22 @@ func (w *WebView) setupEventHandlers() {
 
 	// Load committed - connect to load-changed signal for WEBKIT_LOAD_COMMITTED
 	w.view.ConnectLoadChanged(func(loadEvent webkit.LoadEvent) {
+		if loadEvent == webkit.LoadStarted && w.onLoadStarted != nil {
+			w.onLoadStarted()
+		}
 		if loadEvent == webkit.LoadCommitted && w.onLoadCommitted != nil {
 			uri := w.view.URI()
 			w.onLoadCommitted(uri)
+		}
+		if loadEvent == webkit.LoadFinished && w.onLoadFinished != nil {
+			w.onLoadFinished()
+		}
+	})
+
+	// Estimated load progress - notify::estimated-load-progress property
+	w.view.Connect("notify::estimated-load-progress", func() {
+		if w.onLoadProgress != nil {
+			w.onLoadProgress(w.view.EstimatedLoadProgress())
 		}
 	})
 
@@ -267,22 +279,22 @@ func (w *WebView) setupEventHandlers() {
 
 	// Create signal - for popup lifecycle management
 	w.view.ConnectCreate(func(navigationAction *webkit.NavigationAction) gtk.Widgetter {
-		log.Printf("[webkit] ConnectCreate callback fired for parent WebView ID=%d", w.id)
+		logging.Debug(fmt.Sprintf("[webkit] ConnectCreate callback fired for parent WebView ID=%d", w.id))
 		if w.onPopupCreate != nil {
-			log.Printf("[webkit] Calling onPopupCreate handler")
+			logging.Debug(fmt.Sprintf("[webkit] Calling onPopupCreate handler"))
 			newWebView := w.onPopupCreate(navigationAction)
 			if newWebView != nil {
-				log.Printf("[webkit] onPopupCreate returned WebView wrapper ID=%d", newWebView.id)
-				log.Printf("[webkit] Extracting underlying gotk4 WebView from wrapper")
+				logging.Debug(fmt.Sprintf("[webkit] onPopupCreate returned WebView wrapper ID=%d", newWebView.id))
+				logging.Debug(fmt.Sprintf("[webkit] Extracting underlying gotk4 WebView from wrapper"))
 				underlyingView := newWebView.view
-				log.Printf("[webkit] Extracted gotk4 WebView=%p, about to return to WebKit", underlyingView)
+				logging.Debug(fmt.Sprintf("[webkit] Extracted gotk4 WebView=%p, about to return to WebKit", underlyingView))
 				// Return the underlying WebView widget to WebKit
 				return underlyingView
 			}
-			log.Printf("[webkit] onPopupCreate returned nil, blocking popup")
+			logging.Debug(fmt.Sprintf("[webkit] onPopupCreate returned nil, blocking popup"))
 		}
 		// Return nil to cancel popup creation
-		log.Printf("[webkit] No onPopupCreate handler, blocking popup")
+		logging.Debug(fmt.Sprintf("[webkit] No onPopupCreate handler, blocking popup"))
 		return nil
 	})
 
@@ -312,12 +324,6 @@ func (w *WebView) setupEventHandlers() {
 
 	// Setup navigation policy handler for middle-click and Ctrl+click interception
 	w.setupNavigationPolicyHandler()
-
-	// Log CORP/CORP headers for Cloudflare Turnstile resources to help diagnose COEP issues
-	w.attachTurnstileResponseLogger()
-
-	// Apply temporary Turnstile workaround until WebKit supports COEP: credentialless
-	w.applyTurnstileCorsAllowlist()
 }
 
 // setupNavigationPolicyHandler sets up the decide-policy signal handler
@@ -373,7 +379,7 @@ func (w *WebView) setupNavigationPolicyHandler() {
 		if isCtrlClick {
 			clickType = "Ctrl+click"
 		}
-		log.Printf("[navigation-policy] Detected %s on link: %s", clickType, linkURL)
+		logging.Debug(fmt.Sprintf("[navigation-policy] Detected %s on link: %s", clickType, linkURL))
 
 		// Call the registered handler
 		w.mu.RLock()
@@ -383,7 +389,7 @@ func (w *WebView) setupNavigationPolicyHandler() {
 		if handler != nil {
 			handled := handler(linkURL)
 			if handled {
-				log.Printf("[navigation-policy] %s handled by workspace, blocking navigation", clickType)
+				logging.Debug(fmt.Sprintf("[navigation-policy] %s handled by workspace, blocking navigation", clickType))
 				// Block the navigation by calling Ignore()
 				navDecision.Ignore()
 				return true // Prevent default behavior
@@ -393,92 +399,7 @@ func (w *WebView) setupNavigationPolicyHandler() {
 		return false // Let WebKit handle if not handled
 	})
 
-	log.Printf("[webkit] Navigation policy handler attached to WebView ID %d", w.id)
-}
-
-func (w *WebView) applyTurnstileCorsAllowlist() {
-	if w.view == nil || w.config == nil || !w.config.EnableTurnstileWorkaround {
-		return
-	}
-
-	pattern := fmt.Sprintf("https://%s/*", turnstileHost)
-	w.view.SetCorsAllowlist([]string{pattern})
-	log.Printf("[turnstile] Applied CORS allowlist for %s on WebView ID %d", turnstileHost, w.id)
-}
-
-func (w *WebView) attachTurnstileResponseLogger() {
-	if w.view == nil {
-		return
-	}
-
-	w.view.ConnectResourceLoadStarted(func(resource *webkit.WebResource, request *webkit.URIRequest) {
-		if resource == nil || request == nil {
-			return
-		}
-
-		targetURL := request.URI()
-		if targetURL == "" {
-			targetURL = resource.URI()
-		}
-		if !isTurnstileURL(targetURL) {
-			return
-		}
-
-		method := request.HTTPMethod()
-		if method == "" {
-			method = "GET"
-		}
-
-		referer := "<none>"
-		if reqHeaders := request.HTTPHeaders(); reqHeaders != nil {
-			if ref := strings.TrimSpace(reqHeaders.One("Referer")); ref != "" {
-				referer = ref
-			}
-		}
-
-		resource.Connect("notify::response", func() {
-			response := resource.Response()
-			if response == nil {
-				log.Printf("[turnstile] resource=%s method=%s status=<unknown> referer=%s corp=<missing> coep=<missing> coop=<missing>", targetURL, method, referer)
-				return
-			}
-
-			headers := response.HTTPHeaders()
-			corp := headerValue(headers, "Cross-Origin-Resource-Policy")
-			coep := headerValue(headers, "Cross-Origin-Embedder-Policy")
-			coop := headerValue(headers, "Cross-Origin-Opener-Policy")
-
-			log.Printf("[turnstile] resource=%s method=%s status=%d referer=%s corp=%s coep=%s coop=%s",
-				targetURL, method, response.StatusCode(), referer, corp, coep, coop)
-		})
-	})
-}
-
-type headerLookup interface {
-	One(string) string
-}
-
-func headerValue(headers headerLookup, name string) string {
-	if headers == nil {
-		return "<missing>"
-	}
-	value := strings.TrimSpace(headers.One(name))
-	if value == "" {
-		return "<missing>"
-	}
-	return value
-}
-
-func isTurnstileURL(raw string) bool {
-	if raw == "" {
-		return false
-	}
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return false
-	}
-	host := strings.ToLower(parsed.Hostname())
-	return host == turnstileHost
+	logging.Debug(fmt.Sprintf("[webkit] Navigation policy handler attached to WebView ID %d", w.id))
 }
 
 // LoadURL loads the given URL in the WebView
@@ -722,6 +643,27 @@ func (w *WebView) RegisterLoadCommittedHandler(handler func(string)) {
 	w.onLoadCommitted = handler
 }
 
+// RegisterLoadStartedHandler registers a handler for load start events.
+func (w *WebView) RegisterLoadStartedHandler(handler func()) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onLoadStarted = handler
+}
+
+// RegisterLoadFinishedHandler registers a handler for load finished events.
+func (w *WebView) RegisterLoadFinishedHandler(handler func()) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onLoadFinished = handler
+}
+
+// RegisterLoadProgressHandler registers a handler for load progress updates (0.0 - 1.0).
+func (w *WebView) RegisterLoadProgressHandler(handler func(float64)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onLoadProgress = handler
+}
+
 // RegisterCloseHandler registers a handler for close requests
 func (w *WebView) RegisterCloseHandler(handler func()) {
 	w.mu.Lock()
@@ -858,7 +800,7 @@ func (w *WebView) DispatchCustomEvent(eventName string, data interface{}) error 
 		return fmt.Errorf("failed to marshal event data: %w", err)
 	}
 
-	log.Printf("[webkit] Dispatching event '%s' to WebView ID %d with data: %s", eventName, w.id, string(jsonData))
+	logging.Debug(fmt.Sprintf("[webkit] Dispatching event '%s' to WebView ID %d with data: %s", eventName, w.id, string(jsonData)))
 
 	// Use document.dispatchEvent (not window) so events cross JavaScript world boundaries
 	// The GUI scripts run in an isolated world but share the same Document object
@@ -983,7 +925,7 @@ func (w *WebView) UpdateContentFilters(rules string) error {
 
 	// Note: Content filtering is handled via InitializeContentBlocking()
 	// This method is kept for backward compatibility but is deprecated
-	log.Printf("[webkit] UpdateContentFilters called but is deprecated - use InitializeContentBlocking instead")
+	logging.Warn(fmt.Sprintf("[webkit] UpdateContentFilters called but is deprecated - use InitializeContentBlocking instead"))
 	return nil
 }
 
@@ -1037,21 +979,21 @@ func (w *WebView) setupFaviconHandlers() {
 	// Get the NetworkSession from the WebView
 	session := w.view.NetworkSession()
 	if session == nil {
-		log.Printf("[webkit] Warning: No NetworkSession available for favicon handling")
+		logging.Warn(fmt.Sprintf("[webkit] Warning: No NetworkSession available for favicon handling"))
 		return
 	}
 
 	// Get the WebsiteDataManager from the NetworkSession
 	dataManager := session.WebsiteDataManager()
 	if dataManager == nil {
-		log.Printf("[webkit] Warning: No WebsiteDataManager available for favicon handling")
+		logging.Warn(fmt.Sprintf("[webkit] Warning: No WebsiteDataManager available for favicon handling"))
 		return
 	}
 
 	// Enable favicons if not already enabled
 	if !dataManager.FaviconsEnabled() {
 		dataManager.SetFaviconsEnabled(true)
-		log.Printf("[webkit] Enabled favicons for WebView ID %d", w.id)
+		logging.Debug(fmt.Sprintf("[webkit] Enabled favicons for WebView ID %d", w.id))
 	}
 
 }
@@ -1074,7 +1016,7 @@ func WrapBareWebView(bareView *webkit.WebView) *WebView {
 
 	// Generate unique ID
 	id := atomic.AddUint64(&viewIDCounter, 1)
-	log.Printf("[webkit] Created minimal wrapper for bare WebView (ID: %d)", id)
+	logging.Debug(fmt.Sprintf("[webkit] Created minimal wrapper for bare WebView (ID: %d)", id))
 
 	// Create minimal wrapper - NO initialization yet
 	wv := &WebView{
@@ -1151,7 +1093,7 @@ func (w *WebView) InitializeFromBare(cfg *Config) error {
 	// Attach touchpad gesture controls
 	w.AttachTouchpadGestures()
 
-	log.Printf("[webkit] Completed initialization for WebView ID %d", w.id)
+	logging.Debug(fmt.Sprintf("[webkit] Completed initialization for WebView ID %d", w.id))
 
 	return nil
 }

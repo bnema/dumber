@@ -1,9 +1,10 @@
 package webkit
 
 import (
-	"log"
+	"fmt"
 	"math"
 
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
@@ -17,7 +18,7 @@ const (
 // This enables two-finger swipe navigation (left/right for back/forward)
 func (w *WebView) AttachTouchpadGestures() {
 	if w.view == nil {
-		log.Printf("[touchpad-gestures] Cannot attach: WebView is nil")
+		logging.Error(fmt.Sprintf("[touchpad-gestures] Cannot attach: WebView is nil"))
 		return
 	}
 
@@ -40,13 +41,13 @@ func (w *WebView) AttachTouchpadGestures() {
 
 		// Require horizontal velocity to be dominant
 		if absVelocityY > absVelocityX {
-			log.Printf("[touchpad-gestures] Swipe is more vertical (X:%.1f Y:%.1f), ignoring", velocityX, velocityY)
+			logging.Debug(fmt.Sprintf("[touchpad-gestures] Swipe is more vertical (X:%.1f Y:%.1f), ignoring", velocityX, velocityY))
 			return
 		}
 
 		// Check if swipe velocity meets threshold
 		if absVelocityX < swipeVelocityThreshold {
-			log.Printf("[touchpad-gestures] Swipe velocity too low (%.1f < %.1f), ignoring", absVelocityX, swipeVelocityThreshold)
+			logging.Debug(fmt.Sprintf("[touchpad-gestures] Swipe velocity too low (%.1f < %.1f), ignoring", absVelocityX, swipeVelocityThreshold))
 			return
 		}
 
@@ -54,23 +55,23 @@ func (w *WebView) AttachTouchpadGestures() {
 		if velocityX > 0 {
 			// Swipe right (positive velocity) - go back
 			if w.view.CanGoBack() {
-				log.Printf("[touchpad-gestures] Swipe right detected (velocity: %.1f) - navigating backward", velocityX)
+				logging.Debug(fmt.Sprintf("[touchpad-gestures] Swipe right detected (velocity: %.1f) - navigating backward", velocityX))
 				w.view.GoBack()
 			} else {
-				log.Printf("[touchpad-gestures] Swipe right detected but cannot go back")
+				logging.Debug(fmt.Sprintf("[touchpad-gestures] Swipe right detected but cannot go back"))
 			}
 		} else {
 			// Swipe left (negative velocity) - go forward
 			if w.view.CanGoForward() {
-				log.Printf("[touchpad-gestures] Swipe left detected (velocity: %.1f) - navigating forward", velocityX)
+				logging.Debug(fmt.Sprintf("[touchpad-gestures] Swipe left detected (velocity: %.1f) - navigating forward", velocityX))
 				w.view.GoForward()
 			} else {
-				log.Printf("[touchpad-gestures] Swipe left detected but cannot go forward")
+				logging.Debug(fmt.Sprintf("[touchpad-gestures] Swipe left detected but cannot go forward"))
 			}
 		}
 	})
 
 	// Attach controller to WebView
 	w.view.AddController(gestureSwipe)
-	log.Printf("[touchpad-gestures] Touchpad gesture controller attached to WebView ID %d", w.id)
+	logging.Debug(fmt.Sprintf("[touchpad-gestures] Touchpad gesture controller attached to WebView ID %d", w.id))
 }

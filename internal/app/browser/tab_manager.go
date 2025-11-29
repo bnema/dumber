@@ -23,11 +23,23 @@ type TabManager struct {
 	rootContainer gtk.Widgetter // Main vertical box containing tab bar + content
 	tabBar        gtk.Widgetter // Horizontal tab bar container
 	ContentArea   gtk.Widgetter // Container for active workspace (exported for border styling)
-	tabModeTarget gtk.Widgetter // Widget currently holding tab mode border margins
+	progressBar   gtk.Widgetter // Thin load progress indicator
+
+	// Border overlays (float over content without layout shift)
+	paneModeOverlay gtk.Widgetter // Border overlay for pane mode
+	tabModeOverlay  gtk.Widgetter // Border overlay for tab mode
 
 	// Modal state
 	tabModeActive bool
 	tabModeTimer  *time.Timer
+	lastTabCreate time.Time // Debounce guard for rapid tab creation shortcuts
+
+	// Rename state
+	renameInProgress bool
+	renamingTab      *Tab
+	// Stores original focus behaviour while inline rename is active
+	renamePrevFocusOnClick bool
+	renamePrevCanFocus     bool
 
 	// Rename state
 	renameInProgress bool
@@ -52,6 +64,9 @@ type Tab struct {
 	workspace   *WorkspaceManager
 	titleButton gtk.Widgetter
 	isActive    bool
+	progress    float64
+	isLoading   bool
+	webViews    map[*webkit.WebView]struct{}
 }
 
 // NewTabManager creates a new tab manager instance.
@@ -126,6 +141,9 @@ func (tm *TabManager) createRootContainer() error {
 	contentArea.SetVExpand(true)
 	contentArea.AddCSSClass("tab-content-area")
 
+	// Create progress bar (displayed at the bottom regardless of tab bar position)
+	progressBar := tm.createProgressBar()
+
 	// Add widgets in order based on position
 	if position == "top" {
 		rootBox.Append(tabBar)
@@ -135,10 +153,43 @@ func (tm *TabManager) createRootContainer() error {
 		rootBox.Append(tabBar)
 	}
 
+	// Wrap everything in an overlay so the progress bar can float without resizing layout
+	rootOverlay := gtk.NewOverlay()
+	if rootOverlay == nil {
+		return fmt.Errorf("failed to create root overlay")
+	}
+	rootOverlay.SetHExpand(true)
+	rootOverlay.SetVExpand(true)
+	rootOverlay.SetChild(rootBox)
+	if progressBar != nil {
+		if bar, ok := progressBar.(*gtk.ProgressBar); ok && bar != nil {
+			bar.SetHAlign(gtk.AlignFill)
+			bar.SetVAlign(gtk.AlignEnd)
+		}
+		rootOverlay.AddOverlay(progressBar)
+	}
+
+	// Create border overlays (hidden by default, shown when pane/tab mode is active)
+	paneModeOverlay := tm.createBorderOverlay("pane-mode-border")
+	tabModeOverlay := tm.createBorderOverlay("tab-mode-border")
+
+	if paneModeOverlay != nil {
+		rootOverlay.AddOverlay(paneModeOverlay)
+		webkit.WidgetSetVisible(paneModeOverlay, false)
+	}
+
+	if tabModeOverlay != nil {
+		rootOverlay.AddOverlay(tabModeOverlay)
+		webkit.WidgetSetVisible(tabModeOverlay, false)
+	}
+
 	// Store references
-	tm.rootContainer = rootBox
+	tm.rootContainer = rootOverlay
 	tm.tabBar = tabBar
 	tm.ContentArea = contentArea
+	tm.progressBar = progressBar
+	tm.paneModeOverlay = paneModeOverlay
+	tm.tabModeOverlay = tabModeOverlay
 
 	logging.Info(fmt.Sprintf("[tabs] Root container created with tab bar at %s", position))
 	return nil
@@ -157,6 +208,12 @@ func (tm *TabManager) CreateTab(url string) error {
 func (tm *TabManager) createTabInternal(url string) error {
 	logging.Info(fmt.Sprintf("[tabs] Creating new tab with URL: %s", url))
 
+	const tabCreateDebounce = 200 * time.Millisecond
+	if !tm.lastTabCreate.IsZero() && time.Since(tm.lastTabCreate) < tabCreateDebounce {
+		logging.Warn("[tabs] Ignoring rapid tab creation request (debounced)")
+		return nil
+	}
+
 	// Use default URL if empty
 	if url == "" {
 		url = "about:blank"
@@ -172,6 +229,7 @@ func (tm *TabManager) createTabInternal(url string) error {
 		id:       tabID,
 		title:    defaultTitle,
 		isActive: false,
+		webViews: make(map[*webkit.WebView]struct{}),
 	}
 
 	// Create WebView for this tab
@@ -186,6 +244,9 @@ func (tm *TabManager) createTabInternal(url string) error {
 		return fmt.Errorf("failed to create webview: %w", err)
 	}
 
+	// Register with content blocking service for network/cosmetic filtering
+	tm.app.RegisterWebViewForFiltering(view)
+
 	// Create pane for this WebView
 	pane, err := tm.app.createPaneForView(view)
 	if err != nil {
@@ -195,6 +256,7 @@ func (tm *TabManager) createTabInternal(url string) error {
 	// Create workspace for this tab
 	workspace := NewWorkspaceManager(tm.app, pane)
 	tab.workspace = workspace
+	tm.registerWebViewLocked(tab, view)
 
 	// Verify workspace root exists
 	rootWidget := workspace.GetRootWidget()
@@ -222,6 +284,7 @@ func (tm *TabManager) createTabInternal(url string) error {
 
 	// Add to tabs slice
 	tm.tabs = append(tm.tabs, tab)
+	tm.lastTabCreate = time.Now()
 
 	// Attach click handler with unique ID (pattern from stacked panes)
 	tm.attachTabClickHandler(tab.titleButton, tab)
@@ -325,6 +388,9 @@ func (tm *TabManager) switchToTabInternal(index int) error {
 		newTab.workspace.RestoreFocus()
 	}
 
+	// Sync progress bar with the newly active tab
+	tm.updateProgressBarLocked()
+
 	logging.Info(fmt.Sprintf("[tabs] Switched to tab %d (%s)", index, newTab.id))
 	return nil
 }
@@ -404,6 +470,9 @@ func (tm *TabManager) closeTabInternal(index int) error {
 
 	// Update tab bar visibility (hide if only 1 tab)
 	tm.updateTabBarVisibility()
+
+	// Update progress bar (active tab may have changed after close)
+	tm.updateProgressBarLocked()
 
 	logging.Info(fmt.Sprintf("[tabs] Tab closed (remaining: %d)", len(tm.tabs)))
 	return nil
@@ -552,4 +621,104 @@ func (tm *TabManager) updateTabBarVisibility() {
 // GetConfig is a helper to get the current configuration.
 func (tm *TabManager) getConfig() *config.Config {
 	return config.Get()
+}
+
+// updateProgressForWebView updates progress state for the tab that owns the given WebView.
+func (tm *TabManager) updateProgressForWebView(view *webkit.WebView, progress float64, loading bool) {
+	if view == nil || tm == nil {
+		return
+	}
+
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
+	tab := tm.findTabForViewLocked(view)
+	if tab == nil {
+		return
+	}
+
+	// Clamp progress
+	if progress < 0 {
+		progress = 0
+	}
+	if progress > 1 {
+		progress = 1
+	}
+
+	// Only mark loading when progress is incomplete and the event indicates an active load.
+	tab.isLoading = loading && progress < 1.0
+	tab.progress = progress
+
+	tm.updateProgressBarLocked()
+}
+
+// findTabForViewLocked finds the tab owning the given WebView. Caller must hold tm.mu.
+func (tm *TabManager) findTabForViewLocked(view *webkit.WebView) *Tab {
+	for _, tab := range tm.tabs {
+		if _, ok := tab.webViews[view]; ok {
+			return tab
+		}
+	}
+	return nil
+}
+
+// registerWebViewLocked associates a WebView with a tab. Caller must hold tm.mu.
+func (tm *TabManager) registerWebViewLocked(tab *Tab, view *webkit.WebView) {
+	if tab == nil || view == nil {
+		return
+	}
+	if tab.webViews == nil {
+		tab.webViews = make(map[*webkit.WebView]struct{})
+	}
+	tab.webViews[view] = struct{}{}
+}
+
+// registerWebViewForWorkspace registers a webview to the tab that owns the workspace.
+func (tm *TabManager) registerWebViewForWorkspace(view *webkit.WebView, workspace *WorkspaceManager) {
+	if tm == nil || view == nil || workspace == nil {
+		return
+	}
+
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
+	for _, tab := range tm.tabs {
+		if tab.workspace == workspace {
+			tm.registerWebViewLocked(tab, view)
+			return
+		}
+	}
+}
+
+// updateProgressBarLocked syncs the shared progress bar to the active tab. Caller must hold tm.mu.
+func (tm *TabManager) updateProgressBarLocked() {
+	if tm.progressBar == nil {
+		return
+	}
+
+	bar, ok := tm.progressBar.(*gtk.ProgressBar)
+	if !ok || bar == nil {
+		return
+	}
+
+	// No active tab -> hide bar
+	if tm.activeIndex < 0 || tm.activeIndex >= len(tm.tabs) {
+		webkit.RunOnMainThread(func() {
+			bar.SetFraction(0.0)
+			webkit.WidgetSetVisible(bar, false)
+		})
+		return
+	}
+
+	activeTab := tm.tabs[tm.activeIndex]
+	visible := activeTab.isLoading
+	fraction := activeTab.progress
+	if !visible {
+		fraction = 0.0
+	}
+
+	webkit.RunOnMainThread(func() {
+		bar.SetFraction(fraction)
+		webkit.WidgetSetVisible(bar, visible)
+	})
 }

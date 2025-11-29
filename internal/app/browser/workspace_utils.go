@@ -3,8 +3,7 @@ package browser
 
 import (
 	"fmt"
-	"log"
-
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/pkg/webkit"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
@@ -59,7 +58,19 @@ func mapDirection(direction string) (gtk.Orientation, bool) {
 
 // initializePaneWidgets sets up widgets for a paneNode
 func (wm *WorkspaceManager) initializePaneWidgets(node *paneNode, widget gtk.Widgetter) {
-	node.container = widget
+	// Only wrap leaf nodes in overlays (not branch nodes like GtkPaned)
+	if node.isLeaf {
+		// Wrap the widget in an overlay with a border (for active pane indication)
+		overlay, borderWidget := wrapPaneInOverlay(widget)
+
+		// Store the overlay as the container and the border widget
+		node.container = overlay
+		node.borderOverlay = borderWidget
+	} else {
+		// Branch nodes (splits, stacks) don't need border overlays
+		node.container = widget
+		node.borderOverlay = nil
+	}
 
 	// Add base CSS class to the container
 	if node.container != nil {
@@ -78,7 +89,20 @@ func (wm *WorkspaceManager) initializePaneWidgets(node *paneNode, widget gtk.Wid
 // setContainer sets the container widget
 func (wm *WorkspaceManager) setContainer(node *paneNode, widget gtk.Widgetter, typeInfo string) {
 	_ = typeInfo // Type info kept for API compatibility but not used
-	node.container = widget
+
+	// Only wrap leaf nodes in overlays (not branch nodes like stacked containers)
+	if node.isLeaf {
+		// Wrap the widget in an overlay with a border (for active pane indication)
+		overlay, borderWidget := wrapPaneInOverlay(widget)
+
+		// Store the overlay as the container and the border widget
+		node.container = overlay
+		node.borderOverlay = borderWidget
+	} else {
+		// Branch nodes (splits, stacks) don't need border overlays
+		node.container = widget
+		node.borderOverlay = nil
+	}
 
 	// Mark widget validity based on container presence so idle guards run for stacks too
 	if widget != nil {
@@ -144,9 +168,9 @@ func (wm *WorkspaceManager) borderTargets(node *paneNode) []gtk.Widgetter {
 	return targets
 }
 
-// applyActivePaneBorder marks the target widgets as active for CSS styling.
+// applyActivePaneBorder shows the border overlay for the active pane.
 func (wm *WorkspaceManager) applyActivePaneBorder(node *paneNode) {
-	if wm == nil || node == nil {
+	if wm == nil || node == nil || node.borderOverlay == nil {
 		return
 	}
 
@@ -156,36 +180,18 @@ func (wm *WorkspaceManager) applyActivePaneBorder(node *paneNode) {
 		return
 	}
 
-	targets := wm.borderTargets(node)
-	for _, widget := range targets {
-		if widget == nil {
-			continue
-		}
-		// Only add CSS class if it doesn't already exist to prevent bloom filter errors
-		if !webkit.WidgetHasCSSClass(widget, activePaneClass) {
-			webkit.WidgetAddCSSClass(widget, activePaneClass)
-			log.Printf("[workspace] Applied active border to pane %p (widget=%p)", node, widget)
-		}
-	}
+	webkit.WidgetSetVisible(node.borderOverlay, true)
+	logging.Debug(fmt.Sprintf("[workspace] Showing border overlay for pane %p", node))
 }
 
-// removeActivePaneBorder clears the active styling from a pane.
+// removeActivePaneBorder hides the border overlay for a pane.
 func (wm *WorkspaceManager) removeActivePaneBorder(node *paneNode) {
-	if wm == nil || node == nil {
+	if wm == nil || node == nil || node.borderOverlay == nil {
 		return
 	}
 
-	targets := wm.borderTargets(node)
-	for _, widget := range targets {
-		if widget == nil {
-			continue
-		}
-		// Only remove CSS class if it exists to prevent bloom filter errors
-		if webkit.WidgetHasCSSClass(widget, activePaneClass) {
-			webkit.WidgetRemoveCSSClass(widget, activePaneClass)
-			log.Printf("[workspace] Removed active border from pane %p (widget=%p)", node, widget)
-		}
-	}
+	webkit.WidgetSetVisible(node.borderOverlay, false)
+	logging.Debug(fmt.Sprintf("[workspace] Hiding border overlay for pane %p", node))
 }
 
 // Widget cleanup utilities

@@ -2,9 +2,10 @@ package control
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"os"
 
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/services"
 	"github.com/bnema/dumber/pkg/webkit"
 )
@@ -42,7 +43,7 @@ func (n *NavigationController) NavigateToURL(input string) error {
 
 	// Record navigation in browser service
 	if _, navErr := n.browserService.Navigate(ctx, result.URL); navErr != nil {
-		log.Printf("Warning: failed to navigate to %s: %v", result.URL, navErr)
+		logging.Warn(fmt.Sprintf("Warning: failed to navigate to %s: %v", result.URL, navErr))
 	}
 
 	var (
@@ -56,18 +57,18 @@ func (n *NavigationController) NavigateToURL(input string) error {
 			if n.webView != nil {
 				if n.webView.UsesDomZoom() {
 					if err := n.webView.SeedDomZoom(zoomLevel); err != nil {
-						log.Printf("Warning: failed to seed DOM zoom for %s: %v", result.URL, err)
+						logging.Warn(fmt.Sprintf("Warning: failed to seed DOM zoom for %s: %v", result.URL, err))
 					}
 				} else {
 					n.webView.RunOnMainThread(func() {
 						if err := n.webView.SetZoom(zoomLevel); err != nil {
-							log.Printf("Warning: failed to prime native zoom for %s: %v", result.URL, err)
+							logging.Warn(fmt.Sprintf("Warning: failed to prime native zoom for %s: %v", result.URL, err))
 						}
 					})
 				}
 			}
 		} else {
-			log.Printf("Warning: failed to lookup zoom for %s: %v", result.URL, err)
+			logging.Warn(fmt.Sprintf("Warning: failed to lookup zoom for %s: %v", result.URL, err))
 		}
 	}
 
@@ -91,16 +92,16 @@ func (n *NavigationController) NavigateToURL(input string) error {
 // HandleBrowseCommand processes the browse command line argument
 func (n *NavigationController) HandleBrowseCommand() {
 	if len(os.Args) >= 3 && os.Args[1] == "browse" {
-		log.Printf("Browse command detected: %s", os.Args[2])
+		logging.Debug(fmt.Sprintf("Browse command detected: %s", os.Args[2]))
 		ctx := context.Background()
 		result, err := n.parserService.ParseInput(ctx, os.Args[2])
 		if err == nil {
-			log.Printf("Parsed input → URL: %s", result.URL)
+			logging.Debug(fmt.Sprintf("Parsed input → URL: %s", result.URL))
 			if _, navErr := n.browserService.Navigate(ctx, result.URL); navErr != nil {
-				log.Printf("Warning: failed to navigate to %s: %v", result.URL, navErr)
+				logging.Warn(fmt.Sprintf("Warning: failed to navigate to %s: %v", result.URL, navErr))
 			}
 			if n.webView != nil {
-				log.Printf("Loading URL in WebView: %s", result.URL)
+				logging.Debug(fmt.Sprintf("Loading URL in WebView: %s", result.URL))
 				var (
 					zoomLevel float64
 					haveZoom  bool
@@ -111,21 +112,21 @@ func (n *NavigationController) HandleBrowseCommand() {
 						haveZoom = true
 						if n.webView.UsesDomZoom() {
 							if err := n.webView.SeedDomZoom(zoomLevel); err != nil {
-								log.Printf("Warning: failed to seed DOM zoom for %s: %v", result.URL, err)
+								logging.Warn(fmt.Sprintf("Warning: failed to seed DOM zoom for %s: %v", result.URL, err))
 							}
 						} else {
 							n.webView.RunOnMainThread(func() {
 								if err := n.webView.SetZoom(zoomLevel); err != nil {
-									log.Printf("Warning: failed to prime native zoom for %s: %v", result.URL, err)
+									logging.Warn(fmt.Sprintf("Warning: failed to prime native zoom for %s: %v", result.URL, err))
 								}
 							})
 						}
 					} else {
-						log.Printf("Warning: failed to lookup zoom for %s: %v", result.URL, err)
+						logging.Warn(fmt.Sprintf("Warning: failed to lookup zoom for %s: %v", result.URL, err))
 					}
 				}
 				if err := n.webView.LoadURL(result.URL); err != nil {
-					log.Printf("Warning: failed to load URL: %v", err)
+					logging.Warn(fmt.Sprintf("Warning: failed to load URL: %v", err))
 				}
 				if n.zoomController != nil {
 					if haveZoom {

@@ -10,6 +10,17 @@ const CosmeticFilter = (() => {
         procedural: []    // Complex selectors with :has(), etc.
     };
 
+    // Normalize rule representation into a selector string
+    const normalizeSelector = (rule) => {
+        if (typeof rule === 'string') {
+            return rule;
+        }
+        if (rule && typeof rule === 'object') {
+            return rule.selector || '';
+        }
+        return '';
+    };
+
     // Safe anti-breakage scriptlets that avoid WebKit internal interference
     const antiBreakage = {
         // Safely stub ad services without modifying global setTimeout
@@ -186,16 +197,31 @@ const CosmeticFilter = (() => {
         antiBreakage.neutralizeAdPromises();
         antiBreakage.cleanupLoadingIndicators();
 
+        const hostname = window.location.hostname;
+
         // Parse and categorize rules (with null safety)
         if (rules && Array.isArray(rules)) {
             rules.forEach(rule => {
-                if (rule.includes(':has(') || rule.includes(':not(')) {
-                    selectors.procedural.push(rule);
-                } else if (rule.domain === window.location.hostname) {
-                    selectors.specific.push(rule.selector);
-                } else {
-                    selectors.generic.push(rule.selector);
+                const selector = normalizeSelector(rule);
+                if (!selector) {
+                    return;
                 }
+
+                const domain = typeof rule === 'object' ? rule?.domain : null;
+                const isProcedural = selector.includes(':has(') || selector.includes(':not(');
+                const matchesDomain = domain ? (hostname === domain || hostname.endsWith(`.${domain}`)) : false;
+
+                if (isProcedural) {
+                    selectors.procedural.push(selector);
+                    return;
+                }
+
+                if (matchesDomain) {
+                    selectors.specific.push(selector);
+                    return;
+                }
+
+                selectors.generic.push(selector);
             });
         }
 
@@ -214,15 +240,20 @@ const CosmeticFilter = (() => {
 
     // Performance optimization: batch rule updates
     const updateRules = (newRules) => {
-        // Diff and apply only new rules
-        const newSelectors = newRules.filter(r =>
-            !selectors.generic.includes(r) &&
-            !selectors.specific.includes(r)
-        );
+        const additions = [];
+        (newRules || []).forEach(rule => {
+            const selector = normalizeSelector(rule);
+            if (!selector) {
+                return;
+            }
+            if (!selectors.generic.includes(selector) && !selectors.specific.includes(selector)) {
+                additions.push(selector);
+            }
+        });
 
-        if (newSelectors.length > 0) {
-            hideElements(newSelectors);
-            selectors.generic.push(...newSelectors);
+        if (additions.length > 0) {
+            hideElements(additions);
+            selectors.generic.push(...additions);
         }
     };
 

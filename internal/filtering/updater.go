@@ -4,12 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -33,6 +33,7 @@ type FilterUpdate struct {
 	Previous []byte
 	Current  []byte
 	Hash     string
+	Version  string // Version extracted from content or HTTP headers
 	Compiled *CompiledFilters
 }
 
@@ -66,9 +67,20 @@ func (fu *FilterUpdater) CheckAndUpdate(ctx context.Context) error {
 	fu.updateMutex.Lock()
 	defer fu.updateMutex.Unlock()
 
-	sources := []string{
-		"https://easylist.to/easylist/easylist.txt",
-		"https://easylist.to/easylist/easyprivacy.txt",
+	// Skip if we checked within the last 24 hours
+	lastCheck := fu.manager.store.GetLastCheckTime()
+	if !lastCheck.IsZero() && time.Since(lastCheck) < 24*time.Hour {
+		logging.Info(fmt.Sprintf("[filtering] Skipping update check, last check was %v ago", time.Since(lastCheck).Round(time.Minute)))
+		return nil
+	}
+
+	startTime := time.Now()
+	logging.Info("[filtering] Starting filter list update check...")
+
+	sources := config.Get().ContentFiltering.FilterLists
+	if len(sources) == 0 {
+		logging.Warn("[filtering] No filter lists configured")
+		return nil
 	}
 
 	// Check for updates concurrently
@@ -115,10 +127,11 @@ func (fu *FilterUpdater) CheckAndUpdate(ctx context.Context) error {
 		updateCount++
 	}
 
+	elapsed := time.Since(startTime)
 	if updateCount > 0 {
-		logging.Info(fmt.Sprintf("Applied %d filter list updates", updateCount))
+		logging.Info(fmt.Sprintf("[filtering] Update complete: applied %d filter list updates in %v", updateCount, elapsed.Round(time.Millisecond)))
 	} else {
-		logging.Debug("No filter list updates available")
+		logging.Info(fmt.Sprintf("[filtering] Update complete: all filters up to date (checked in %v)", elapsed.Round(time.Millisecond)))
 	}
 
 	return nil
@@ -126,52 +139,73 @@ func (fu *FilterUpdater) CheckAndUpdate(ctx context.Context) error {
 
 // checkSingleUpdate checks if a single filter list needs updating
 func (fu *FilterUpdater) checkSingleUpdate(ctx context.Context, url string) (*FilterUpdate, error) {
-	// Create HEAD request to check if content has changed
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create HEAD request: %w", err)
-	}
-
-	// Add headers to support conditional requests
-	req.Header.Set("User-Agent", "Dumber Browser/1.0 Filter Updater")
-
-	resp, err := fu.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("HEAD request failed: %w", err)
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			log.Printf("warning: failed to close response body: %v", err)
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HEAD request returned %d", resp.StatusCode)
-	}
-
-	// Get metadata from response headers
-	lastModified := resp.Header.Get("Last-Modified")
-	etag := resp.Header.Get("ETag")
-	contentLength := resp.ContentLength
-
-	// Check if we need to download full content
-	needsUpdate := fu.needsUpdate(url, lastModified, etag, contentLength)
-	if !needsUpdate {
+	// Check version using lightweight Range request
+	if !fu.needsUpdate(ctx, url) {
 		return nil, nil // No update needed
 	}
 
 	// Download the full content
-	return fu.downloadUpdate(ctx, url, lastModified, etag)
+	return fu.downloadUpdate(ctx, url, "", "")
 }
 
-// needsUpdate determines if a filter list needs updating based on metadata
-func (fu *FilterUpdater) needsUpdate(url, lastModified, etag string, contentLength int64) bool {
-	// For now, we'll implement a simple time-based check
-	// In a full implementation, this would check against stored metadata
+// fetchRemoteVersion fetches version info using HEAD request (ETag or Last-Modified)
+func (fu *FilterUpdater) fetchRemoteVersion(ctx context.Context, url string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("User-Agent", "Dumber Browser/1.0 Filter Updater")
 
-	// Always check for updates if we don't have cached metadata
-	// In practice, this would compare with stored filter list metadata
-	return true
+	resp, err := fu.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("HEAD request failed: %w", err)
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			logging.Warn(fmt.Sprintf("warning: failed to close response body: %v", closeErr))
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HEAD request returned %d", resp.StatusCode)
+	}
+
+	// Use ETag or Last-Modified as version identifier
+	if etag := resp.Header.Get("ETag"); etag != "" {
+		return etag, nil
+	}
+	if lastMod := resp.Header.Get("Last-Modified"); lastMod != "" {
+		return lastMod, nil
+	}
+
+	return "", fmt.Errorf("no ETag or Last-Modified header")
+}
+
+// needsUpdate determines if a filter list needs updating based on version comparison
+func (fu *FilterUpdater) needsUpdate(ctx context.Context, url string) bool {
+	// Extract short name for logging
+	shortName := url[strings.LastIndex(url, "/")+1:]
+
+	remoteVersion, err := fu.fetchRemoteVersion(ctx, url)
+	if err != nil {
+		logging.Info(fmt.Sprintf("[filtering] %s: fetch failed, will update (%v)", shortName, err))
+		return true
+	}
+
+	storedVersion := fu.manager.store.GetSourceVersion(url)
+	if storedVersion == "" {
+		logging.Info(fmt.Sprintf("[filtering] %s: no stored version, will update", shortName))
+		return true
+	}
+
+	needsUpdate := remoteVersion != storedVersion
+	if needsUpdate {
+		logging.Info(fmt.Sprintf("[filtering] %s: new version %s (was %s)", shortName, remoteVersion, storedVersion))
+	} else {
+		logging.Info(fmt.Sprintf("[filtering] %s: up to date (%s)", shortName, storedVersion))
+	}
+
+	return needsUpdate
 }
 
 // downloadUpdate downloads the updated filter list and creates a diff
@@ -190,7 +224,7 @@ func (fu *FilterUpdater) downloadUpdate(ctx context.Context, url, lastModified, 
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			log.Printf("warning: failed to close response body: %v", err)
+			logging.Warn(fmt.Sprintf("warning: failed to close response body: %v", err))
 		}
 	}()
 
@@ -198,8 +232,12 @@ func (fu *FilterUpdater) downloadUpdate(ctx context.Context, url, lastModified, 
 		return nil, fmt.Errorf("GET request returned %d", resp.StatusCode)
 	}
 
-	// Read content
-	currentContent := make([]byte, 0, resp.ContentLength)
+	// Read content (handle ContentLength=-1 when server uses chunked encoding)
+	initialCap := resp.ContentLength
+	if initialCap < 0 {
+		initialCap = 64 * 1024 // 64KB initial capacity
+	}
+	currentContent := make([]byte, 0, initialCap)
 	buffer := make([]byte, 8192)
 
 	for {
@@ -221,12 +259,17 @@ func (fu *FilterUpdater) downloadUpdate(ctx context.Context, url, lastModified, 
 	// Calculate content hash
 	hash := fmt.Sprintf("%x", sha256.Sum256(currentContent))
 
+	// Fetch version with HEAD request (same method as fetchRemoteVersion)
+	// This ensures consistency - HEAD may return different ETag than GET
+	version, _ := fu.fetchRemoteVersion(ctx, url)
+
 	// Create update object
 	update := &FilterUpdate{
 		ListID:  fu.getListID(url),
 		URL:     url,
 		Current: currentContent,
 		Hash:    hash,
+		Version: version,
 	}
 
 	// Get previous version for diffing (if available)
@@ -408,9 +451,17 @@ func (fu *FilterUpdater) applyUpdate(update *FilterUpdate) error {
 	// Store the updated content for future diffs
 	fu.storePreviousContent(update.ListID, update.Current)
 
+	// Store the version for future update checks
+	if update.Version != "" {
+		if err := fu.manager.store.SetSourceVersion(update.URL, update.Version); err != nil {
+			logging.Warn(fmt.Sprintf("Failed to store version for %s: %v", update.URL, err))
+		}
+	}
+
 	logging.Info(fmt.Sprintf("Applied filter update for %s", update.URL))
 	return nil
 }
+
 
 // getListID generates a unique ID for a filter list URL
 func (fu *FilterUpdater) getListID(url string) string {

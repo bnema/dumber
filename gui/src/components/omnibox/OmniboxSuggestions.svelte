@@ -283,9 +283,9 @@
 
   .suggestion-item {
     display: flex;
-    gap: 0.75rem;
+    gap: 0.5rem;
     align-items: center;
-    padding: 0.85rem 0.85rem;
+    padding: 0.5rem 0.75rem;
     border-bottom: 1px solid color-mix(in srgb, var(--dynamic-border) 50%, transparent);
     cursor: pointer;
     transition: background-color 100ms ease, border-left-color 100ms ease;
@@ -338,10 +338,10 @@
   }
 
   .suggestion-favicon {
-    width: 24px;
-    height: 24px;
+    width: 16px;
+    height: 16px;
     border: none;
-    border-radius: 3px;
+    border-radius: 2px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -351,8 +351,8 @@
   }
 
   .suggestion-favicon-img {
-    width: 24px;
-    height: 24px;
+    width: 16px;
+    height: 16px;
     object-fit: contain;
     image-rendering: auto;
   }

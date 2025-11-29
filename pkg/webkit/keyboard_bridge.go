@@ -3,8 +3,8 @@ package webkit
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
@@ -221,7 +221,7 @@ func (w *WebView) AttachKeyboardBridge() {
 				handler := w.onPaneModeShortcut
 				w.mu.RUnlock()
 				if handler != nil && handler(actionEnter) {
-					log.Printf("[keyboard-bridge] Pane mode: enter")
+					logging.Debug(fmt.Sprintf("[keyboard-bridge] Pane mode: enter"))
 					return true
 				}
 				return true // Block even if no handler
@@ -233,7 +233,7 @@ func (w *WebView) AttachKeyboardBridge() {
 				handler := w.onPaneModeShortcut
 				w.mu.RUnlock()
 				if handler != nil && handler(actionExit) {
-					log.Printf("[keyboard-bridge] Escape: exited mode")
+					logging.Debug(fmt.Sprintf("[keyboard-bridge] Escape: exited mode"))
 					return true
 				}
 				return false // Pass through to DOM if no active mode
@@ -247,7 +247,7 @@ func (w *WebView) AttachKeyboardBridge() {
 					handler := w.onWorkspaceNavigation
 					w.mu.RUnlock()
 					if handler != nil && handler(action) {
-						log.Printf("[keyboard-bridge] Navigation: %s", action)
+						logging.Debug(fmt.Sprintf("[keyboard-bridge] Navigation: %s", action))
 						return true
 					}
 					return true // Block anyway to prevent scrolling
@@ -258,7 +258,7 @@ func (w *WebView) AttachKeyboardBridge() {
 				handler := w.onPaneModeShortcut
 				w.mu.RUnlock()
 				if handler != nil && handler(action) {
-					log.Printf("[keyboard-bridge] Pane mode action: %s", action)
+					logging.Debug(fmt.Sprintf("[keyboard-bridge] Pane mode action: %s", action))
 					return true
 				}
 				return false // Not in pane mode, pass through
@@ -266,26 +266,26 @@ func (w *WebView) AttachKeyboardBridge() {
 
 			// Pane mode active: block all other shortcuts
 			if isPaneModeActive {
-				log.Printf("[keyboard-bridge] Blocking '%s' during pane mode", shortcut)
+				logging.Debug(fmt.Sprintf("[keyboard-bridge] Blocking '%s' during pane mode", shortcut))
 				return true
 			}
 
 			// Forward to JavaScript using proper JSON marshaling to prevent any potential injection
 			shortcutJSON, err := json.Marshal(shortcut)
 			if err != nil {
-				log.Printf("[keyboard-bridge] Failed to marshal shortcut: %v", err)
+				logging.Error(fmt.Sprintf("[keyboard-bridge] Failed to marshal shortcut: %v", err))
 				return false
 			}
 			script := fmt.Sprintf(`document.dispatchEvent(new CustomEvent('dumber:key',{detail:{shortcut:%s}}));`, shortcutJSON)
 			if err := w.InjectScript(script); err != nil {
-				log.Printf("[keyboard-bridge] Failed to dispatch: %v", err)
+				logging.Error(fmt.Sprintf("[keyboard-bridge] Failed to dispatch: %v", err))
 			}
 			return false // Allow WebKit to handle
 		}
 
 		// Pane mode active: block ALL non-shortcut keys
 		if isPaneModeActive {
-			log.Printf("[keyboard-bridge] Blocking key during pane mode: keyval=%d", keyval)
+			logging.Debug(fmt.Sprintf("[keyboard-bridge] Blocking key during pane mode: keyval=%d", keyval))
 			return true // Block all other keys
 		}
 
@@ -295,5 +295,5 @@ func (w *WebView) AttachKeyboardBridge() {
 
 	// Attach controller to WebView
 	w.view.AddController(keyController)
-	log.Printf("[keyboard-bridge] EventControllerKey attached to WebView ID %d", w.id)
+	logging.Debug(fmt.Sprintf("[keyboard-bridge] EventControllerKey attached to WebView ID %d", w.id))
 }

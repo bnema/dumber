@@ -3,7 +3,6 @@ package api
 import (
 	"embed"
 	"fmt"
-	"log"
 	"mime"
 	neturl "net/url"
 	"os"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/bnema/dumber/internal/app/constants"
 	"github.com/bnema/dumber/internal/config"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/services"
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
 	"github.com/diamondburned/gotk4/pkg/gio/v2"
@@ -47,7 +47,7 @@ func (s *SchemeHandler) SetConfig(cfg *config.Config) {
 // Handle processes dumb:// scheme requests using the new URISchemeRequest API
 func (s *SchemeHandler) Handle(req *webkit.URISchemeRequest) {
 	uri := req.URI()
-	log.Printf("[scheme] request: %s", uri)
+	logging.Debug(fmt.Sprintf("[scheme] request: %s", uri))
 
 	// Known forms:
 	// - dumb://homepage or dumb:homepage → index.html
@@ -96,7 +96,7 @@ func (s *SchemeHandler) handleAsset(req *webkit.URISchemeRequest, u *neturl.URL)
 
 	// Special-case homepage favicon: map .ico request to embedded PNG file
 	if (u.Host == constants.HomepagePath || u.Opaque == constants.HomepagePath) && strings.EqualFold(rel, "favicon.ico") {
-		log.Printf("[scheme] asset: rel=%s (host=%s path=%s) → mapping to favicon.png", rel, u.Host, u.Path)
+		logging.Debug(fmt.Sprintf("[scheme] asset: rel=%s (host=%s path=%s) → mapping to favicon.png", rel, u.Host, u.Path))
 		data, rerr := s.assets.ReadFile(filepath.ToSlash(filepath.Join("assets", "gui", "favicon.png")))
 		if rerr == nil {
 			s.finishRequest(req, "image/png", data, "favicon.png")
@@ -104,12 +104,12 @@ func (s *SchemeHandler) handleAsset(req *webkit.URISchemeRequest, u *neturl.URL)
 		}
 	}
 
-	log.Printf("[scheme] asset: rel=%s (host=%s path=%s)", rel, u.Host, u.Path)
+	logging.Debug(fmt.Sprintf("[scheme] asset: rel=%s (host=%s path=%s)", rel, u.Host, u.Path))
 
 	// Try to read the requested asset
 	data, rerr := s.assets.ReadFile(filepath.ToSlash(filepath.Join("assets", "gui", rel)))
 	if rerr != nil {
-		log.Printf("[scheme] not found: %s", rel)
+		logging.Debug(fmt.Sprintf("[scheme] not found: %s", rel))
 		req.FinishError(fmt.Errorf("asset not found: %s", rel))
 		return
 	}
@@ -118,7 +118,7 @@ func (s *SchemeHandler) handleAsset(req *webkit.URISchemeRequest, u *neturl.URL)
 	mt := s.getMimeType(rel)
 
 	// Finish the request with the data
-	log.Printf("[scheme] serving %s with mime-type: %s", rel, mt)
+	logging.Debug(fmt.Sprintf("[scheme] serving %s with mime-type: %s", rel, mt))
 	s.finishRequest(req, mt, data, rel)
 }
 
@@ -131,7 +131,7 @@ func (s *SchemeHandler) finishRequest(req *webkit.URISchemeRequest, mimeType str
 	stream := gio.NewMemoryInputStreamFromBytes(gbytes)
 	if stream == nil {
 		req.FinishError(fmt.Errorf("failed to create input stream for: %s", filename))
-		log.Printf("[scheme] failed to create stream for: %s", filename)
+		logging.Error(fmt.Sprintf("[scheme] failed to create stream for: %s", filename))
 		return
 	}
 
@@ -204,7 +204,7 @@ func (s *SchemeHandler) handleFavicon(req *webkit.URISchemeRequest, u *neturl.UR
 	}
 
 	if filename == "" {
-		log.Printf("[scheme] favicon: empty filename")
+		logging.Debug(fmt.Sprintf("[scheme] favicon: empty filename"))
 		req.FinishError(fmt.Errorf("invalid favicon path"))
 		return
 	}
@@ -212,7 +212,7 @@ func (s *SchemeHandler) handleFavicon(req *webkit.URISchemeRequest, u *neturl.UR
 	// Get the favicon cache directory path
 	dataDir, err := config.GetDataDir()
 	if err != nil {
-		log.Printf("[scheme] favicon: failed to get data directory: %v", err)
+		logging.Error(fmt.Sprintf("[scheme] favicon: failed to get data directory: %v", err))
 		req.FinishError(fmt.Errorf("failed to get data directory"))
 		return
 	}
@@ -222,11 +222,11 @@ func (s *SchemeHandler) handleFavicon(req *webkit.URISchemeRequest, u *neturl.UR
 	// Read the favicon file
 	data, err := os.ReadFile(faviconPath)
 	if err != nil {
-		log.Printf("[scheme] favicon: file not found: %s", faviconPath)
+		logging.Debug(fmt.Sprintf("[scheme] favicon: file not found: %s", faviconPath))
 		req.FinishError(fmt.Errorf("favicon not found: %s", filename))
 		return
 	}
 
-	log.Printf("[scheme] favicon: serving %s (%d bytes)", filename, len(data))
+	logging.Debug(fmt.Sprintf("[scheme] favicon: serving %s (%d bytes)", filename, len(data)))
 	s.finishRequest(req, "image/png", data, filename)
 }

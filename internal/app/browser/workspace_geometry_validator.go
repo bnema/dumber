@@ -3,8 +3,7 @@ package browser
 
 import (
 	"fmt"
-	"log"
-
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/pkg/webkit"
 )
 
@@ -52,7 +51,7 @@ func (gv *GeometryValidator) GetPaneGeometry(node *paneNode) PaneGeometry {
 
 	if node == nil || node.container == nil {
 		if gv.debugMode {
-			log.Printf("[geometry] Invalid node or missing container")
+			logging.Error(fmt.Sprintf("[geometry] Invalid node or missing container"))
 		}
 		return geometry
 	}
@@ -67,8 +66,8 @@ func (gv *GeometryValidator) GetPaneGeometry(node *paneNode) PaneGeometry {
 	geometry.IsValid = true
 
 	if gv.debugMode {
-		log.Printf("[geometry] Pane geometry: %dx%d at (%d,%d)",
-			geometry.Width, geometry.Height, geometry.X, geometry.Y)
+		logging.Info(fmt.Sprintf("[geometry] Pane geometry: %dx%d at (%d,%d)",
+			geometry.Width, geometry.Height, geometry.X, geometry.Y))
 	}
 
 	return geometry
