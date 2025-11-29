@@ -5,7 +5,7 @@
 -->
 <script lang="ts">
   import { omniboxStore } from './stores.svelte.ts';
-  import { debouncedQuery, omniboxBridge } from './messaging';
+  import { debouncedQuery, debouncedFind, omniboxBridge } from './messaging';
   import { findInPage } from './find';
 
   // Reactive state
@@ -131,8 +131,8 @@
         }
       }
     } else if (mode === 'find') {
-      // Immediate find for search
-      findInPage(value);
+      // Debounced find with minimum length to avoid freeze on first letter
+      debouncedFind(value, findInPage);
     }
   }
 
