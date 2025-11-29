@@ -3,123 +3,114 @@ version: "2"
 linters:
   default: none
   enable:
-    - bodyclose          # checks whether HTTP response body is closed successfully
-    - copyloopvar       # detects places where loop variables are copied
-# - depguard          # checks for unwanted dependencies (disabled for CLI apps)
-    - dogsled           # checks assignments with too many blank identifiers
-    - dupl              # tool for code clone detection
-    - errcheck          # checking for unchecked errors
-    - errorlint         # errorlint is a linter for that can be used to find code that will cause problems with the error wrapping scheme
-    - funlen            # tool for detection of long functions
-    - gocheckcompilerdirectives # validates go compiler directive comments (//go:)
-# - gochecknoinits    # checks that no init functions are present in Go code (disabled for CLI apps)
-    - goconst           # finds repeated strings that could be replaced by a constant
-    - gocritic          # provides diagnostics that check for bugs, performance and style issues
-    - gocyclo           # computes and checks the cyclomatic complexity of functions
-    - godox             # tool for detection of FIXME, TODO and other comment keywords
-    - mnd               # detects magic numbers
-    - goprintffuncname  # checks that printf-like functions are named with `f` at the end
-    - gosec             # inspects source code for security problems
-    - govet             # examines Go source code and reports suspicious constructs
-    - ineffassign       # detects when assignments to existing variables are not used
-    - lll               # reports long lines
-    - misspell          # finds commonly misspelled English words in comments
-    - nakedret          # finds naked returns in functions greater than a specified function length
-    - nolintlint        # reports ill-formed or insufficient nolint directives
-    - revive            # fast, configurable, extensible, flexible, and beautiful linter for Go
-    - staticcheck       # advanced Go linter
-    - testifylint       # checks usage of github.com/stretchr/testify
-    - unconvert         # removes unnecessary type conversions
-    - unparam           # reports unused function parameters
-    - unused            # checks for unused constants, variables, functions and types
-    - whitespace        # detects leading and trailing whitespace
+    - bodyclose
+    - copyloopvar
+    - dogsled
+    - dupl
+    - errcheck
+    - errorlint
+    - funlen
+    - gocheckcompilerdirectives
+    - goconst
+    - gocritic
+    - gocyclo
+    - godox
+    - mnd
+    - goprintffuncname
+    - gosec
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - nakedret
+    - nolintlint
+    - revive
+    - staticcheck
+    - testifylint
+    - unconvert
+    - unparam
+    - unused
+    - whitespace
 
-linters-settings:
-  dupl:
-    threshold: 100
-  funlen:
-    lines: -1  # don't check line count
-    statements: 50
-  goconst:
-    min-len: 2
-    min-occurrences: 3
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-    disabled-checks:
-      - dupImport
-      - ifElseChain
-      - octalLiteral
-      - whyNoLint
-  gocyclo:
-    min-complexity: 15
-  godox:
-    keywords:
-      - FIXME
-      - TODO
-      - BUG
-  mnd:
-    checks:
-      - argument
-      - case
-      - condition
-      - return
-    ignored-numbers:
-      - '0'
-      - '1'
-      - '2'
-      - '3'
-    ignored-functions:
-      - strings.SplitN
-  govet:
-    enable:
-      - nilness
-      - shadow
-  errorlint:
-    asserts: false
-  lll:
-    line-length: 120
-  misspell:
-    locale: US
-  nolintlint:
-    allow-unused: false
-    require-explanation: true
-    require-specific: true
-  revive:
+  settings:
+    dupl:
+      threshold: 100
+    funlen:
+      lines: -1
+      statements: 50
+    goconst:
+      min-len: 2
+      min-occurrences: 3
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+      disabled-checks:
+        - dupImport
+        - ifElseChain
+        - octalLiteral
+        - whyNoLint
+    gocyclo:
+      min-complexity: 15
+    godox:
+      keywords:
+        - FIXME
+        - TODO
+        - BUG
+    mnd:
+      checks:
+        - argument
+        - case
+        - condition
+        - return
+      ignored-numbers:
+        - '0'
+        - '1'
+        - '2'
+        - '3'
+      ignored-functions:
+        - strings.SplitN
+    govet:
+      enable:
+        - nilness
+        - shadow
+    errorlint:
+      asserts: false
+    lll:
+      line-length: 120
+    misspell:
+      locale: US
+    nolintlint:
+      allow-unused: false
+      require-explanation: true
+      require-specific: true
+    revive:
+      rules:
+        - name: indent-error-flow
+        - name: unused-parameter
+        - name: unused-receiver
+
+  exclusions:
+    generated: lax
     rules:
-      - name: indent-error-flow
-      - name: unused-parameter
-      - name: unused-receiver
-
-issues:
-  exclude-rules:
-    # Exclude some linters from running on tests files
-    - path: _test\.go
-      linters:
-        - dupl
-        - mnd
-        - lll
-        - funlen
-    
-    # Exclude SQLC generated files from linting
-    - path: internal/db/.*\.sql\.go
-      linters:
-        - all
-    
-    # Exclude SQLC generated models from some linters
-    - path: internal/db/models\.go
-      linters:
-        - unused
-        - deadcode
-    
-    # Allow long lines in generated code
-    - path: internal/db/
-      linters:
-        - lll
+      - path: _test\.go
+        linters:
+          - dupl
+          - mnd
+          - lll
+          - funlen
+      - path: internal/db/.*\.sql\.go
+        linters:
+          - all
+      - path: internal/db/models\.go
+        linters:
+          - unused
+      - path: internal/db/
+        linters:
+          - lll
 
 run:
   timeout: 5m
