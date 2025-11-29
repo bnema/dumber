@@ -17,6 +17,7 @@ type ZoomController struct {
 	programmaticTimer  *time.Timer
 	browserService     *services.BrowserService
 	webView            *webkit.WebView
+	initializing       bool // true until first load completes, suppresses toasts
 }
 
 // WebViewInterface defines the interface for WebView zoom operations
@@ -35,6 +36,7 @@ func NewZoomController(browserService *services.BrowserService, webView *webkit.
 		currentURL:     "dumb://homepage",
 		browserService: browserService,
 		webView:        webView,
+		initializing:   true,
 	}
 }
 
@@ -56,6 +58,8 @@ func (z *ZoomController) handleLoadCommitted(url string) {
 	if url == "" {
 		return
 	}
+	// First load complete, allow toasts from now on
+	z.initializing = false
 	currentDomain := services.ZoomKeyForLog(url)
 	z.loadZoomLevelAsync(url, currentDomain, false)
 }
@@ -77,8 +81,8 @@ func (z *ZoomController) handleZoomChange(level float64) {
 		log.Printf("[zoom] saved %.2f for %s", level, key)
 	}(url, level)
 
-	// Only show toast for user-initiated zoom changes, not programmatic ones
-	if !z.programmaticChange {
+	// Only show toast for user-initiated zoom changes, not during init or programmatic changes
+	if !z.programmaticChange && !z.initializing {
 		z.showZoomToast(level)
 	}
 }
