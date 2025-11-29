@@ -267,6 +267,9 @@ func (wm *WorkspaceManager) handleDetectedWindowType(sourceNode *paneNode, webVi
 			return
 		}
 
+		// Register with content blocking service for network/cosmetic filtering
+		wm.app.RegisterWebViewForFiltering(independentView)
+
 		// The related webView was just for detection - we don't use it for tabs
 		// Insert the new independent view as a tab
 		if err := wm.insertIndependentPane(sourceNode, independentView, url); err != nil {
@@ -397,6 +400,9 @@ func (wm *WorkspaceManager) handlePopupReadyToShow(popupID uint64) {
 		log.Printf("[workspace] Failed to initialize popup WebView: %v", err)
 		return
 	}
+
+	// Register with content blocking service for network/cosmetic filtering
+	wm.app.RegisterWebViewForFiltering(wrappedView)
 
 	log.Printf("[workspace] Successfully initialized popup WebView ID %d", wrappedView.ID())
 

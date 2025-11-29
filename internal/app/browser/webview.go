@@ -390,10 +390,25 @@ func (app *BrowserApp) setupContentBlocking() error {
 	// Store reference to filter manager
 	app.filterManager = filterManager
 
+	// Get data directory for content blocking service
+	dataDir, err := config.GetDataDir()
+	if err != nil {
+		log.Printf("Warning: Failed to get data dir for content blocking: %v", err)
+		return nil
+	}
+
+	// Create content blocking service
+	cbService, err := filtering.NewContentBlockingService(dataDir+"/webkit", filterManager)
+	if err != nil {
+		log.Printf("Warning: Failed to create content blocking service: %v", err)
+		return nil
+	}
+	app.contentBlockingService = cbService
+
 	// Set up callback to apply network filters when they become ready
 	// This callback will be called from the async filter loading process
 	filterManager.SetFiltersReadyCallback(func() {
-		log.Printf("[filtering] Filters ready, applying to WebView...")
+		log.Printf("[filtering] Filters ready, distributing to all WebViews...")
 
 		// Get the WebKit JSON rules from filter manager
 		filterJSON, err := filterManager.GetNetworkFilters()
@@ -409,17 +424,9 @@ func (app *BrowserApp) setupContentBlocking() error {
 
 		log.Printf("[filtering] Got %d bytes of WebKit JSON rules", len(filterJSON))
 
-		// Apply filters to the WebView
-		// This must be done on the main thread since it touches GTK/WebKit
-		if app.webView != nil {
-			app.webView.RunOnMainThread(func() {
-				if err := app.webView.InitializeContentBlocking(filterJSON); err != nil {
-					log.Printf("[filtering] Failed to apply content filters: %v", err)
-				} else {
-					log.Printf("[filtering] ✅ Content blocking enabled successfully")
-				}
-			})
-		}
+		// Signal the service that filters are ready - it will apply to all registered WebViews
+		cbService.SetFiltersReady(filterJSON)
+		log.Printf("[filtering] Content blocking enabled for all WebViews")
 	})
 
 	// Start async filter loading
@@ -432,4 +439,19 @@ func (app *BrowserApp) setupContentBlocking() error {
 
 	log.Printf("Content blocking system initialization started")
 	return nil
+}
+
+// RegisterWebViewForFiltering registers a WebView with the content blocking service.
+// This should be called for every new WebView created in the application.
+func (app *BrowserApp) RegisterWebViewForFiltering(wv *webkit.WebView) {
+	if app.contentBlockingService != nil && wv != nil {
+		app.contentBlockingService.RegisterWebView(wv)
+	}
+}
+
+// UnregisterWebViewFromFiltering removes a WebView from the content blocking service.
+func (app *BrowserApp) UnregisterWebViewFromFiltering(wv *webkit.WebView) {
+	if app.contentBlockingService != nil && wv != nil {
+		app.contentBlockingService.UnregisterWebView(wv)
+	}
 }

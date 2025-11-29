@@ -150,7 +150,13 @@ func NewWorkspaceManager(app *BrowserApp, rootPane *BrowserPane) *WorkspaceManag
 		// so they do not need their own toplevel GtkWindow. Setting CreateWindow=false
 		// prevents GTK "widget already has parent" errors when adding to paned containers.
 		cfg.CreateWindow = false
-		return webkit.NewWebView(cfg)
+		view, err := webkit.NewWebView(cfg)
+		if err != nil {
+			return nil, err
+		}
+		// Register with content blocking service for network/cosmetic filtering
+		manager.app.RegisterWebViewForFiltering(view)
+		return view, nil
 	}
 	manager.createPaneFn = func(view *webkit.WebView) (*BrowserPane, error) {
 		if manager.app == nil {
