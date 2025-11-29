@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Filter list auto-update**: Async version checking with HTTP Range requests (1KB vs 100KB+). 2-minute startup delay + 24-hour periodic checks. Stores version per filter list.
+- **Configurable filter lists**: New `content_filtering.filter_lists` config option. Defaults include EasyList, EasyPrivacy, and uBlock filters (annoyances, quick-fixes).
 - **Demo video**: Added feature showcase video to README (docs/media/dumber-demo.mp4).
 - **Page load progress bar**: Thin animated indicator at window bottom showing web page loading progress. Tracks WebView load events with gradient animation, auto-hides when complete.
 - **Omnibox initial history display**: Configurable behavior when opening empty omnibox via `omnibox.initial_behavior` ("recent", "most_visited", "none"). Shows initial history on open and when input is cleared. Default: recent visits.
@@ -15,6 +17,7 @@ All notable changes to this project will be documented in this file.
 - **URL normalization**: Consistent URL storage across browser, CLI, and favicon services (strips trailing slashes, normalizes schemes).
 
 ### Fixed
+- **Filter compilation race condition**: Fixed concurrent map crash when multiple filter lists compile simultaneously by using local converter instead of shared state.
 - **Omnibox search performance**: Debounce search with 2-character minimum threshold to prevent UI freeze on first keystroke. Applies to both URL/history search and find-in-page modes.
 - **Omnibox flash on load**: Load the injected GUI bundle at document-start and initialize the omnibox as soon as DOM is ready, ensuring it is ready without briefly flashing during page startup or new pane creation.
 - **Zoom toast suppression**: Suppress zoom toast notifications during browser initialization to prevent UI flash.
