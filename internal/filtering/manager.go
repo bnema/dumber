@@ -380,8 +380,19 @@ func (fm *FilterManager) applyFilters(filters *CompiledFilters) {
 
 	fm.compiled = filters
 
-	// Inject cosmetic rules
-	if err := fm.cosmeticInjector.InjectRules(filters.CosmeticRules); err != nil {
+	// Inject cosmetic rules (domain-specific + generic hiding under empty key)
+	cosmeticRulesWithGeneric := make(map[string][]string)
+	for domain, selectors := range filters.CosmeticRules {
+		cosmeticRulesWithGeneric[domain] = selectors
+	}
+	// Add generic hiding rules under empty string key (applies to all domains)
+	if len(filters.GenericHiding) > 0 {
+		cosmeticRulesWithGeneric[""] = filters.GenericHiding
+		logging.Info(fmt.Sprintf("[filtering] Adding %d generic hiding rules to cosmetic injector", len(filters.GenericHiding)))
+	}
+	logging.Info(fmt.Sprintf("[filtering] Injecting cosmetic rules: %d domains + %d generic rules",
+		len(filters.CosmeticRules), len(filters.GenericHiding)))
+	if err := fm.cosmeticInjector.InjectRules(cosmeticRulesWithGeneric); err != nil {
 		logging.Error(fmt.Sprintf("Failed to inject cosmetic rules: %v", err))
 	}
 
