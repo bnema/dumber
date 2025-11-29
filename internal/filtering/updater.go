@@ -252,13 +252,9 @@ func (fu *FilterUpdater) downloadUpdate(ctx context.Context, url, lastModified, 
 	// Calculate content hash
 	hash := fmt.Sprintf("%x", sha256.Sum256(currentContent))
 
-	// Use HTTP headers as version identifier (same as fetchRemoteVersion)
-	version := ""
-	if etag := resp.Header.Get("ETag"); etag != "" {
-		version = etag
-	} else if lastMod := resp.Header.Get("Last-Modified"); lastMod != "" {
-		version = lastMod
-	}
+	// Fetch version with HEAD request (same method as fetchRemoteVersion)
+	// This ensures consistency - HEAD may return different ETag than GET
+	version, _ := fu.fetchRemoteVersion(ctx, url)
 
 	// Create update object
 	update := &FilterUpdate{
