@@ -237,6 +237,9 @@ func (tm *TabManager) createTabInternal(url string) error {
 		return fmt.Errorf("failed to create webview: %w", err)
 	}
 
+	// Register with content blocking service for network/cosmetic filtering
+	tm.app.RegisterWebViewForFiltering(view)
+
 	// Create pane for this WebView
 	pane, err := tm.app.createPaneForView(view)
 	if err != nil {

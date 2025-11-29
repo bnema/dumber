@@ -58,7 +58,8 @@ type BrowserApp struct {
 	workspace  *WorkspaceManager
 
 	// Content filtering
-	filterManager *filtering.FilterManager
+	filterManager           *filtering.FilterManager
+	contentBlockingService  *filtering.ContentBlockingService
 
 	// Handlers
 	schemeHandler         *api.SchemeHandler
@@ -235,7 +236,14 @@ func (app *BrowserApp) Run() {
 	// Register custom scheme resolver for "dumb://" URIs (will be applied after WebView creation)
 	webkit.RegisterURIScheme("dumb", app.schemeHandler.Handle)
 
-	// Create and setup WebView
+	// Initialize content blocking BEFORE creating WebViews so the service is ready
+	// to register WebViews as they are created (tabs, workspaces, popups)
+	if err := app.setupContentBlocking(); err != nil {
+		log.Printf("Warning: failed to setup content blocking: %v", err)
+		// Continue without content blocking
+	}
+
+	// Create and setup WebView (this also creates TabManager which creates more WebViews)
 	if err := app.createWebView(); err != nil {
 		log.Printf("Warning: failed to create WebView: %v", err)
 		return
@@ -244,12 +252,6 @@ func (app *BrowserApp) Run() {
 	// Apply URI scheme handlers after WebView creation
 	if err := webkit.ApplyURISchemeHandlers(app.webView.GetWebView()); err != nil {
 		log.Printf("Warning: failed to register URI scheme handlers: %v", err)
-	}
-
-	// Initialize content blocking
-	if err := app.setupContentBlocking(); err != nil {
-		log.Printf("Warning: failed to setup content blocking: %v", err)
-		// Continue without content blocking
 	}
 
 	// Handle browse command if present (must use active tab's navigation controller)
