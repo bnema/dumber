@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/workflows/**'
+      - 'LICENSE'
+  pull_request:
+    branches: [dev, main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/workflows/**'
+      - 'LICENSE'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Install WebKitGTK 6.0 dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkitgtk-6.0-dev libgtk-4-dev
+      - name: Run tests
+        run: make test
