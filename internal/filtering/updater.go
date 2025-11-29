@@ -36,6 +36,7 @@ type FilterUpdate struct {
 	Previous []byte
 	Current  []byte
 	Hash     string
+	Version  string // Version extracted from content or HTTP headers
 	Compiled *CompiledFilters
 }
 
@@ -176,39 +177,51 @@ func (fu *FilterUpdater) fetchRemoteVersion(ctx context.Context, url string) (st
 		return "", fmt.Errorf("failed to read response: %w", err)
 	}
 
-	// Parse version from header (format: "! Version: 202511291248")
+	// Parse version from content header (format: "! Version: 202511291248")
 	scanner := bufio.NewScanner(bytes.NewReader(data))
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.HasPrefix(line, "! Version:") {
 			version := strings.TrimSpace(strings.TrimPrefix(line, "! Version:"))
-			return version, nil
+			if version != "" && !strings.Contains(version, "%") {
+				return version, nil
+			}
 		}
 	}
 
-	return "", fmt.Errorf("version header not found in filter list")
+	// Fallback: use HTTP headers (ETag or Last-Modified)
+	if etag := resp.Header.Get("ETag"); etag != "" {
+		return "etag:" + etag, nil
+	}
+	if lastMod := resp.Header.Get("Last-Modified"); lastMod != "" {
+		return "lastmod:" + lastMod, nil
+	}
+
+	return "", fmt.Errorf("no version info found for filter list")
 }
 
 // needsUpdate determines if a filter list needs updating based on version comparison
 func (fu *FilterUpdater) needsUpdate(ctx context.Context, url string) bool {
+	// Extract short name for logging
+	shortName := url[strings.LastIndex(url, "/")+1:]
+
 	remoteVersion, err := fu.fetchRemoteVersion(ctx, url)
 	if err != nil {
-		logging.Debug(fmt.Sprintf("Failed to fetch remote version for %s: %v", url, err))
-		// On error, assume update needed to be safe
+		logging.Info(fmt.Sprintf("[filtering] %s: fetch failed, will update (%v)", shortName, err))
 		return true
 	}
 
 	storedVersion := fu.manager.store.GetSourceVersion(url)
 	if storedVersion == "" {
-		logging.Debug(fmt.Sprintf("No stored version for %s, update needed", url))
+		logging.Info(fmt.Sprintf("[filtering] %s: no stored version, will update", shortName))
 		return true
 	}
 
 	needsUpdate := remoteVersion != storedVersion
 	if needsUpdate {
-		logging.Info(fmt.Sprintf("Filter %s has new version: %s (stored: %s)", url, remoteVersion, storedVersion))
+		logging.Info(fmt.Sprintf("[filtering] %s: new version %s (was %s)", shortName, remoteVersion, storedVersion))
 	} else {
-		logging.Debug(fmt.Sprintf("Filter %s is up to date: %s", url, remoteVersion))
+		logging.Info(fmt.Sprintf("[filtering] %s: up to date (%s)", shortName, storedVersion))
 	}
 
 	return needsUpdate
@@ -265,12 +278,23 @@ func (fu *FilterUpdater) downloadUpdate(ctx context.Context, url, lastModified, 
 	// Calculate content hash
 	hash := fmt.Sprintf("%x", sha256.Sum256(currentContent))
 
+	// Extract version from content or use HTTP headers as fallback
+	version := fu.extractVersion(currentContent)
+	if version == "" {
+		if etagHeader := resp.Header.Get("ETag"); etagHeader != "" {
+			version = "etag:" + etagHeader
+		} else if lastModHeader := resp.Header.Get("Last-Modified"); lastModHeader != "" {
+			version = "lastmod:" + lastModHeader
+		}
+	}
+
 	// Create update object
 	update := &FilterUpdate{
 		ListID:  fu.getListID(url),
 		URL:     url,
 		Current: currentContent,
 		Hash:    hash,
+		Version: version,
 	}
 
 	// Get previous version for diffing (if available)
@@ -453,8 +477,8 @@ func (fu *FilterUpdater) applyUpdate(update *FilterUpdate) error {
 	fu.storePreviousContent(update.ListID, update.Current)
 
 	// Store the version for future update checks
-	if version := fu.extractVersion(update.Current); version != "" {
-		if err := fu.manager.store.SetSourceVersion(update.URL, version); err != nil {
+	if update.Version != "" {
+		if err := fu.manager.store.SetSourceVersion(update.URL, update.Version); err != nil {
 			logging.Warn(fmt.Sprintf("Failed to store version for %s: %v", update.URL, err))
 		}
 	}
@@ -470,7 +494,11 @@ func (fu *FilterUpdater) extractVersion(content []byte) string {
 	for i := 0; i < 20 && scanner.Scan(); i++ {
 		line := scanner.Text()
 		if strings.HasPrefix(line, "! Version:") {
-			return strings.TrimSpace(strings.TrimPrefix(line, "! Version:"))
+			version := strings.TrimSpace(strings.TrimPrefix(line, "! Version:"))
+			// Skip placeholder values like %timestamp%
+			if version != "" && !strings.Contains(version, "%") {
+				return version
+			}
 		}
 	}
 	return ""
