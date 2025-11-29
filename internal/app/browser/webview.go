@@ -53,10 +53,9 @@ func (app *BrowserApp) buildWebkitConfig() (*webkit.Config, error) {
 		EnablePageCache:           true, // Instant back/forward navigation (bfcache)
 		EnableSmoothScrolling:     true, // Smooth scrolling animations
 		DataDir:                   webkitData,
-		CacheDir:                  webkitCache,
-		AppearanceConfigJSON:      app.buildAppearanceConfigJSON(),
-		CreateWindow:              true, // Default to creating a window for standalone WebViews
-		EnableTurnstileWorkaround: true,
+		CacheDir:             webkitCache,
+		AppearanceConfigJSON: app.buildAppearanceConfigJSON(),
+		CreateWindow:         true, // Default to creating a window for standalone WebViews
 	}
 
 	return cfg, nil

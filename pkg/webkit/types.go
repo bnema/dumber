@@ -65,11 +65,6 @@ type Config struct {
 	// CreateWindow controls whether to create a standalone GTK Window for this WebView
 	// Set to false for WebViews that will be embedded in workspace panes
 	CreateWindow bool
-
-	// EnableTurnstileWorkaround temporarily disables CORS enforcement for the
-	// Cloudflare Turnstile host to work around WebKit's credentialless COEP gap.
-	// Remove once upstream WebKit properly supports COEP: credentialless.
-	EnableTurnstileWorkaround bool
 }
 
 // GetDefaultConfig returns a Config with sensible defaults
@@ -82,9 +77,8 @@ func GetDefaultConfig() *Config {
 		HardwareAcceleration:      true,
 		DefaultFontSize:           16,
 		MinimumFontSize:           8,
-		EnablePageCache:           true, // Instant back/forward navigation
-		EnableSmoothScrolling:     true, // Better UX
-		CreateWindow:              true, // Default to standalone window
-		EnableTurnstileWorkaround: true,
+		EnablePageCache:       true, // Instant back/forward navigation
+		EnableSmoothScrolling: true, // Better UX
+		CreateWindow:          true, // Default to standalone window
 	}
 }
