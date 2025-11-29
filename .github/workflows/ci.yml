@@ -6,14 +6,12 @@ on:
     paths-ignore:
       - '**.md'
       - 'docs/**'
-      - '.github/workflows/**'
       - 'LICENSE'
   pull_request:
     branches: [dev, main]
     paths-ignore:
       - '**.md'
       - 'docs/**'
-      - '.github/workflows/**'
       - 'LICENSE'
 
 jobs:
