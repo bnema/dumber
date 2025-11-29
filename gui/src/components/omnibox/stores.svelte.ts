@@ -51,6 +51,10 @@ let prevOverflow = $state("");
 let debounceTimer = $state(0);
 let searchShortcuts = $state<Record<string, SearchShortcut>>({});
 
+// Inline suggestion state (fish-style ghost text)
+let inlineSuggestion = $state<string | null>(null);
+let inlineCompletion = $state<string | null>(null);
+
 // Configuration
 let config = $state<Required<OmniboxConfig>>(DEFAULT_CONFIG);
 
@@ -97,6 +101,12 @@ export const omniboxStore = {
   },
   get searchShortcuts() {
     return searchShortcuts;
+  },
+  get inlineSuggestion() {
+    return inlineSuggestion;
+  },
+  get inlineCompletion() {
+    return inlineCompletion;
   },
 
   // Computed getters
@@ -294,6 +304,37 @@ export const omniboxStore = {
     }
   },
 
+  setInlineSuggestion(url: string | null, currentInput: string) {
+    console.log('[INLINE] setInlineSuggestion called:', { url, currentInput });
+    inlineSuggestion = url;
+    if (!url || !currentInput) {
+      inlineCompletion = null;
+      console.log('[INLINE] Cleared - missing url or input');
+      return;
+    }
+
+    // Normalize URL by stripping protocol and www for matching
+    let normalizedUrl = url.toLowerCase();
+    normalizedUrl = normalizedUrl.replace(/^https?:\/\//, '');
+    normalizedUrl = normalizedUrl.replace(/^www\./, '');
+
+    const normalizedInput = currentInput.toLowerCase();
+
+    if (normalizedUrl.startsWith(normalizedInput)) {
+      // Show the completion (rest of normalized URL after what user typed)
+      inlineCompletion = normalizedUrl.slice(normalizedInput.length);
+      console.log('[INLINE] Set completion:', inlineCompletion);
+    } else {
+      inlineCompletion = null;
+      console.log('[INLINE] Cleared - no prefix match after normalization');
+    }
+  },
+
+  clearInlineSuggestion() {
+    inlineSuggestion = null;
+    inlineCompletion = null;
+  },
+
   reset() {
     visible = false;
     mode = "omnibox";
@@ -306,6 +347,8 @@ export const omniboxStore = {
     faded = false;
     inputValue = "";
     prevOverflow = "";
+    inlineSuggestion = null;
+    inlineCompletion = null;
     this.clearHighlights();
     this.clearDebounceTimer();
   },

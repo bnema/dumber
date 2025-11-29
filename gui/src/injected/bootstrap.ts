@@ -27,6 +27,7 @@ declare global {
     __dumber_keyboard?: KeyboardService;
     __dumber_omnibox?: {
       setSuggestions: (suggestions: Suggestion[]) => void;
+      setInlineSuggestion: (url: string | null) => void;
       toggle: () => void;
       open: (mode?: string, query?: string) => void;
       close: () => void;

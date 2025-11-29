@@ -366,6 +366,15 @@ func (s *BrowserService) SearchHistory(ctx context.Context, query string, limit 
 	return result, nil
 }
 
+// GetBestPrefixMatch returns the highest-scoring URL that starts with the given prefix.
+// Used for fish-style inline autosuggestions in the omnibox.
+func (s *BrowserService) GetBestPrefixMatch(ctx context.Context, prefix string) string {
+	if s.fuzzyCache == nil || prefix == "" {
+		return ""
+	}
+	return s.fuzzyCache.GetBestPrefixMatch(ctx, prefix)
+}
+
 // DeleteHistoryEntry removes a specific history entry.
 func (s *BrowserService) DeleteHistoryEntry(ctx context.Context, id int64) error {
 	return s.dbQueries.DeleteHistory(ctx, id)
