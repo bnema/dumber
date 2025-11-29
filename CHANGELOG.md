@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 - **URL normalization**: Consistent URL storage across browser, CLI, and favicon services (strips trailing slashes, normalizes schemes).
 
 ### Fixed
+- **Omnibox search performance**: Debounce search with 2-character minimum threshold to prevent UI freeze on first keystroke. Applies to both URL/history search and find-in-page modes.
 - **Omnibox flash on load**: Load the injected GUI bundle at document-start and initialize the omnibox as soon as DOM is ready, ensuring it is ready without briefly flashing during page startup or new pane creation.
 - **Zoom toast suppression**: Suppress zoom toast notifications during browser initialization to prevent UI flash.
 - **Cosmetic filter injection**: Inject rules immediately and fix selector normalization for better ad blocking.

@@ -191,17 +191,59 @@ export class OmniboxBridge implements OmniboxMessageBridge {
 // Singleton instance
 export const omniboxBridge = new OmniboxBridge();
 
+// Minimum characters required before triggering search operations
+const MIN_SEARCH_LENGTH = 2;
+
+// Debounce timers for different operations
+const debounceTimers: Record<string, number> = {};
+
 /**
- * Debounced query function for search input
+ * Creates a debounced search function with minimum length threshold
+ * Prevents freezing on first letter and rapid input
  */
-export function debouncedQuery(searchTerm: string): void {
-  omniboxStore.clearDebounceTimer();
+function createDebouncedSearch(
+  key: string,
+  action: (query: string) => void,
+  onClear?: () => void
+): (query: string) => void {
+  return (query: string) => {
+    // Clear previous timer
+    if (debounceTimers[key]) {
+      clearTimeout(debounceTimers[key]);
+      debounceTimers[key] = 0;
+    }
 
-  const timerId = window.setTimeout(() => {
-    omniboxBridge.query(searchTerm);
-  }, omniboxStore.config.debounceDelay);
+    const trimmed = (query || "").trim();
 
-  omniboxStore.setDebounceTimer(timerId);
+    // Clear/reset immediately if query is empty or too short
+    if (trimmed.length < MIN_SEARCH_LENGTH) {
+      if (onClear) {
+        onClear();
+      }
+      return;
+    }
+
+    // Debounce the actual search operation
+    debounceTimers[key] = window.setTimeout(() => {
+      action(query);
+    }, omniboxStore.config.debounceDelay);
+  };
+}
+
+/**
+ * Debounced query function for omnibox search input
+ */
+export const debouncedQuery = createDebouncedSearch(
+  "query",
+  (searchTerm) => omniboxBridge.query(searchTerm),
+  () => omniboxStore.updateSuggestions([])
+);
+
+/**
+ * Debounced find function for find-in-page
+ */
+export function debouncedFind(query: string, findFn: (q: string) => void): void {
+  createDebouncedSearch("find", findFn, () => findFn(""))(query);
 }
 
 // Extend global window interface for Go bridge compatibility
