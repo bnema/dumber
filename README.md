@@ -4,6 +4,10 @@
   <img src="assets/logo.svg" alt="Dumber Logo" width="256" height="256" />
 </p>
 
+<p align="center">
+  <video src="docs/media/dumber-demo.mp4" controls width="800"></video>
+</p>
+
 A dumb browser that works like your favorite terminal multiplexer.
 
 ## Features
