@@ -26,11 +26,13 @@ type FileFilterStore struct {
 
 // CacheMetadata stores information about the cache
 type CacheMetadata struct {
-	Version      int       `json:"version"`
-	CreatedAt    time.Time `json:"created_at"`
-	LastUsed     time.Time `json:"last_used"`
-	DataHash     string    `json:"data_hash"`
-	FilterHashes []string  `json:"filter_hashes"` // Hashes of source filter lists
+	Version        int               `json:"version"`
+	CreatedAt      time.Time         `json:"created_at"`
+	LastUsed       time.Time         `json:"last_used"`
+	DataHash       string            `json:"data_hash"`
+	FilterHashes   []string          `json:"filter_hashes"`   // Hashes of source filter lists
+	SourceVersions map[string]string `json:"source_versions"` // URL -> filter list version
+	LastCheckTime  time.Time         `json:"last_check_time"` // Last version check time
 }
 
 // NewFileFilterStore creates a new file-based filter store
@@ -205,4 +207,44 @@ func (fs *FileFilterStore) saveMetadata(metadata *CacheMetadata) error {
 	}
 
 	return nil
+}
+
+// GetSourceVersion returns the stored version for a filter list URL
+func (fs *FileFilterStore) GetSourceVersion(url string) string {
+	metadata, err := fs.loadMetadata()
+	if err != nil {
+		return ""
+	}
+	if metadata.SourceVersions == nil {
+		return ""
+	}
+	return metadata.SourceVersions[url]
+}
+
+// SetSourceVersion stores the version for a filter list URL
+func (fs *FileFilterStore) SetSourceVersion(url string, version string) error {
+	metadata, err := fs.loadMetadata()
+	if err != nil {
+		// Create new metadata if none exists
+		metadata = &CacheMetadata{
+			Version:        cacheVersion,
+			CreatedAt:      time.Now(),
+			SourceVersions: make(map[string]string),
+		}
+	}
+	if metadata.SourceVersions == nil {
+		metadata.SourceVersions = make(map[string]string)
+	}
+	metadata.SourceVersions[url] = version
+	metadata.LastCheckTime = time.Now()
+	return fs.saveMetadata(metadata)
+}
+
+// GetLastCheckTime returns when versions were last checked
+func (fs *FileFilterStore) GetLastCheckTime() time.Time {
+	metadata, err := fs.loadMetadata()
+	if err != nil {
+		return time.Time{}
+	}
+	return metadata.LastCheckTime
 }

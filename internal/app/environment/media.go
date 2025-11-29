@@ -1,8 +1,10 @@
 package environment
 
 import (
-	"log"
+	"fmt"
 	"os"
+
+	"github.com/bnema/dumber/internal/logging"
 )
 
 // SetupMediaPipeline proactively hardens media pipeline to avoid WebProcess crashes from buggy VAAPI/plugins.
@@ -12,15 +14,15 @@ func SetupMediaPipeline() {
 		// Demote VAAPI-related elements so they won't be auto-picked
 		if os.Getenv("GST_PLUGIN_FEATURE_RANK") == "" {
 			if err := os.Setenv("GST_PLUGIN_FEATURE_RANK", "vaapisink:0,vaapidecodebin:0,vaapih264dec:0,vaapivideoconvert:0"); err != nil {
-				log.Printf("Warning: failed to set GST_PLUGIN_FEATURE_RANK: %v", err)
+				logging.Warn(fmt.Sprintf("Warning: failed to set GST_PLUGIN_FEATURE_RANK: %v", err))
 			}
 		}
 		// Optionally disable media stream features that can engage complex pipelines (webcam/mic)
 		if os.Getenv("WEBKIT_DISABLE_MEDIA_STREAM") == "" {
 			if err := os.Setenv("WEBKIT_DISABLE_MEDIA_STREAM", "1"); err != nil {
-				log.Printf("Warning: failed to set WEBKIT_DISABLE_MEDIA_STREAM: %v", err)
+				logging.Warn(fmt.Sprintf("Warning: failed to set WEBKIT_DISABLE_MEDIA_STREAM: %v", err))
 			}
 		}
-		log.Printf("[media] Safe mode enabled: VAAPI demoted, webcam/mic disabled (override with DUMBER_MEDIA_SAFE=0)")
+		logging.Info(fmt.Sprintf("[media] Safe mode enabled: VAAPI demoted, webcam/mic disabled (override with DUMBER_MEDIA_SAFE=0)"))
 	}
 }

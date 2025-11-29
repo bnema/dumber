@@ -322,6 +322,17 @@ func (cm *CacheManager) GetTopEntries(ctx context.Context) (*FuzzyResult, error)
 	return cache.getTopEntries(cm.config), nil
 }
 
+// GetBestPrefixMatch returns the highest-scoring URL that starts with the given prefix.
+// Used for fish-style inline autosuggestions.
+func (cm *CacheManager) GetBestPrefixMatch(ctx context.Context, prefix string) string {
+	cache, err := cm.GetCache(ctx)
+	if err != nil || prefix == "" {
+		return ""
+	}
+
+	return cache.getBestPrefixMatch(prefix)
+}
+
 // Stats returns cache statistics.
 func (cm *CacheManager) Stats() CacheStats {
 	cm.mu.RLock()

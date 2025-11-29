@@ -1,10 +1,12 @@
 package environment
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/bnema/dumber/internal/logging"
 )
 
 // DetectAndSetKeyboardLocale attempts to determine the current keyboard layout
@@ -38,7 +40,7 @@ func DetectAndSetKeyboardLocale() {
 						cand := strings.TrimSpace(parts[1])
 						if cand != "" {
 							locale = cand
-							log.Printf("[locale] keyboard layout from localectl: %s", locale)
+							logging.Debug(fmt.Sprintf("[locale] keyboard layout from localectl: %s", locale))
 						}
 					}
 					break
@@ -57,7 +59,7 @@ func DetectAndSetKeyboardLocale() {
 						cand := strings.TrimSpace(parts[1])
 						if cand != "" {
 							locale = cand
-							log.Printf("[locale] keyboard layout from setxkbmap: %s", locale)
+							logging.Debug(fmt.Sprintf("[locale] keyboard layout from setxkbmap: %s", locale))
 						}
 					}
 					break
@@ -87,13 +89,13 @@ func DetectAndSetKeyboardLocale() {
 		if i := strings.IndexByte(locale, '_'); i > 0 {
 			locale = locale[:i]
 		}
-		log.Printf("[locale] keyboard layout from system locale: %s", locale)
+		logging.Debug(fmt.Sprintf("[locale] keyboard layout from system locale: %s", locale))
 	}
 
 	if locale == "" {
 		locale = "en"
-		log.Printf("[locale] keyboard layout defaulted to: %s", locale)
+		logging.Debug(fmt.Sprintf("[locale] keyboard layout defaulted to: %s", locale))
 	}
 
-	log.Printf("[locale] keyboard locale detected: %s", locale)
+	logging.Info(fmt.Sprintf("[locale] keyboard locale detected: %s", locale))
 }

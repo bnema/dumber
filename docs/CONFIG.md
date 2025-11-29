@@ -79,6 +79,22 @@ description = "YouTube"
 | `dmenu.date_format` | string | `"2006-01-02 15:04"` | Go time format string |
 | `dmenu.sort_by_visit_count` | bool | `true` | Sort by popularity |
 
+## Omnibox
+
+| Key | Type | Default | Valid Values | Description |
+|-----|------|---------|--------------|-------------|
+| `omnibox.initial_behavior` | string | `"recent"` | `recent`, `most_visited`, `none` | Initial history display behavior |
+
+**Example:**
+```toml
+[omnibox]
+initial_behavior = "recent"  # Show recent history when omnibox opens
+
+# Alternative options:
+# initial_behavior = "most_visited"  # Show most visited sites
+# initial_behavior = "none"          # Show no initial suggestions
+```
+
 ## Logging
 
 | Key | Type | Default | Valid Values | Description |
@@ -257,28 +273,57 @@ cancel = ["escape"]
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `workspace.styling.border_width` | int | `1` | Active pane border width (px) |
+| `workspace.styling.border_width` | int | `1` | Active pane border width (px) - overlay |
 | `workspace.styling.border_color` | string | `"@theme_selected_bg_color"` | Active pane border color |
-| `workspace.styling.inactive_border_width` | int | `1` | Inactive pane border width (px) |
-| `workspace.styling.inactive_border_color` | string | `"@theme_unfocused_bg_color"` | Inactive pane border color |
-| `workspace.styling.show_stacked_title_border` | bool | `false` | Show separator on stacked pane titles |
+| `workspace.styling.pane_mode_border_width` | int | `4` | Pane mode border width (px) - Ctrl+P N overlay |
 | `workspace.styling.pane_mode_border_color` | string | `"#4A90E2"` | Pane mode border color (blue) |
+| `workspace.styling.tab_mode_border_width` | int | `4` | Tab mode border width (px) - Ctrl+P T overlay |
 | `workspace.styling.tab_mode_border_color` | string | `"#FFA500"` | Tab mode border color (orange) |
 | `workspace.styling.transition_duration` | int | `120` | Border transition duration (ms) |
-| `workspace.styling.border_radius` | int | `0` | Border radius (px) |
+| `workspace.styling.ui_scale` | float | `1.0` | UI scale multiplier (1.0 = 100%, 1.2 = 120%) |
 
 ## Content Filtering
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `content_filtering_whitelist` | array | See below | Domains to skip ad blocking |
+| `content_filtering.enabled` | bool | `true` | Enable ad blocking |
+| `content_filtering.whitelist` | array | See below | Domains to skip ad blocking |
+| `content_filtering.filter_lists` | array | See below | Filter list URLs to use |
 
 **Default whitelist:**
 ```toml
-content_filtering_whitelist = [
+[content_filtering]
+enabled = true
+whitelist = [
   "twitch.tv",
   "passport.twitch.tv",
   "gql.twitch.tv"
+]
+```
+
+**Default filter lists:**
+```toml
+[content_filtering]
+filter_lists = [
+  # Core blocking
+  "https://easylist.to/easylist/easylist.txt",           # Ads
+  "https://easylist.to/easylist/easyprivacy.txt",        # Tracking
+  # uBlock extras
+  "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt",    # uBO optimizations
+  "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/annoyances.txt", # Cookie banners, popups
+  "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/quick-fixes.txt" # Site fixes
+]
+```
+
+**Custom filter lists example:**
+```toml
+[content_filtering]
+filter_lists = [
+  # Minimal setup
+  "https://easylist.to/easylist/easylist.txt",
+  "https://easylist.to/easylist/easyprivacy.txt",
+  # Regional list
+  "https://easylist-downloads.adblockplus.org/liste_fr.txt"
 ]
 ```
 

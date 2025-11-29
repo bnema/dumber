@@ -4,11 +4,11 @@ package browser
 import (
 	"errors"
 	"fmt"
-	"log"
 
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/pkg/webkit"
 )
 
@@ -67,7 +67,7 @@ func (wm *WorkspaceManager) collectLeavesFromWithDirection(node *paneNode, direc
 			return
 		}
 		if visited[n] {
-			log.Printf("[workspace] collectLeavesFromWithDirection: cycle detected in tree")
+			logging.Error(fmt.Sprintf("[workspace] collectLeavesFromWithDirection: cycle detected in tree"))
 			return
 		}
 		visited[n] = true
@@ -121,7 +121,7 @@ func (wm *WorkspaceManager) collectLeavesFrom(node *paneNode) []*paneNode {
 			return
 		}
 		if visited[n] {
-			log.Printf("[workspace] collectLeavesFrom: cycle detected in tree")
+			logging.Error(fmt.Sprintf("[workspace] collectLeavesFrom: cycle detected in tree"))
 			return
 		}
 		visited[n] = true
@@ -164,28 +164,38 @@ func (wm *WorkspaceManager) createPane(view *webkit.WebView) (*BrowserPane, erro
 	if wm == nil || wm.createPaneFn == nil {
 		return nil, errors.New("workspace manager missing pane factory")
 	}
-	return wm.createPaneFn(view)
+	pane, err := wm.createPaneFn(view)
+	if err != nil {
+		return nil, err
+	}
+
+	// Register the new WebView with the tab manager for progress tracking.
+	if wm.app != nil && wm.app.tabManager != nil {
+		wm.app.tabManager.registerWebViewForWorkspace(view, wm)
+	}
+
+	return pane, nil
 }
 
 // clonePaneState sets up a new pane with cloned state from another pane
 func (wm *WorkspaceManager) clonePaneState(_ *paneNode, target *paneNode) {
 	if wm == nil || target == nil {
-		log.Printf("[workspace] clonePaneState: wm or target is nil")
+		logging.Debug(fmt.Sprintf("[workspace] clonePaneState: wm or target is nil"))
 		return
 	}
 	if target.pane == nil || target.pane.webView == nil {
-		log.Printf("[workspace] clonePaneState: target pane or webView is nil")
+		logging.Debug(fmt.Sprintf("[workspace] clonePaneState: target pane or webView is nil"))
 		return
 	}
 
 	// Load about:blank and auto-open omnibox
 	const blankURL = "about:blank"
 
-	log.Printf("[workspace] clonePaneState: loading %s in pane %p", blankURL, target.pane)
+	logging.Debug(fmt.Sprintf("[workspace] clonePaneState: loading %s in pane %p", blankURL, target.pane))
 	if err := target.pane.webView.LoadURL(blankURL); err != nil {
-		log.Printf("[workspace] failed to load blank page in new pane: %v", err)
+		logging.Error(fmt.Sprintf("[workspace] failed to load blank page in new pane: %v", err))
 	} else {
-		log.Printf("[workspace] successfully initiated load of %s", blankURL)
+		logging.Debug(fmt.Sprintf("[workspace] successfully initiated load of %s", blankURL))
 	}
 }
 
@@ -208,13 +218,13 @@ func (wm *WorkspaceManager) safelyDetachControllersBeforeReparent(node *paneNode
 		if target.hoverToken != nil {
 			target.pendingHoverReattach = true
 			target.hoverToken = nil // Clear reference, don't manually remove
-			log.Printf("[workspace] Marked hover controller for reattach on pane %p (GTK will auto-remove)", target)
+			logging.Debug(fmt.Sprintf("[workspace] Marked hover controller for reattach on pane %p (GTK will auto-remove)", target))
 		}
 
 		if target.focusControllerToken != 0 {
 			target.pendingFocusReattach = true
 			target.focusControllerToken = 0 // Clear reference, don't manually remove
-			log.Printf("[workspace] Marked focus controller for reattach on pane %p (GTK will auto-remove)", target)
+			logging.Debug(fmt.Sprintf("[workspace] Marked focus controller for reattach on pane %p (GTK will auto-remove)", target))
 		}
 	}
 
@@ -236,7 +246,7 @@ func (wm *WorkspaceManager) closeCurrentPane() {
 		return
 	}
 	if err := wm.ClosePane(wm.GetActiveNode()); err != nil {
-		log.Printf("[workspace] close current pane failed: %v", err)
+		logging.Error(fmt.Sprintf("[workspace] close current pane failed: %v", err))
 	}
 }
 
@@ -333,7 +343,7 @@ func (wm *WorkspaceManager) removeFromMaps(webView *webkit.WebView) {
 	delete(wm.viewToNode, webView)
 	delete(wm.lastSplitMsg, webView)
 	delete(wm.lastExitMsg, webView)
-	log.Printf("[workspace] removed webview %p from tracking maps", webView)
+	logging.Debug(fmt.Sprintf("[workspace] removed webview %p from tracking maps", webView))
 }
 
 // removeFromAppPanes removes a BrowserPane from the app.panes slice
@@ -345,7 +355,7 @@ func (wm *WorkspaceManager) removeFromAppPanes(pane *BrowserPane) {
 	for i, p := range wm.app.panes {
 		if p == pane {
 			wm.app.panes = append(wm.app.panes[:i], wm.app.panes[i+1:]...)
-			log.Printf("[workspace] removed pane from app.panes slice, remaining: %d", len(wm.app.panes))
+			logging.Debug(fmt.Sprintf("[workspace] removed pane from app.panes slice, remaining: %d", len(wm.app.panes)))
 			return
 		}
 	}
@@ -373,7 +383,7 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string, existi
 	if target.parent != nil && target.parent.isStacked {
 		// Target is in a stack - we'll create the split around the entire stack
 		stackContainer = target.parent
-		log.Printf("[workspace] target is in stack, will split around the stack: originalTarget=%p stackContainer=%p", originalTarget, stackContainer)
+		logging.Debug(fmt.Sprintf("[workspace] target is in stack, will split around the stack: originalTarget=%p stackContainer=%p", originalTarget, stackContainer))
 	}
 
 	// Determine what we're actually splitting
@@ -384,12 +394,12 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string, existi
 		// Case: splitting from inside a stack - we split around the entire stack
 		splitTarget = stackContainer
 		splitTargetContainer = stackContainer.container
-		log.Printf("[workspace] splitting around stack: stackContainer=%p", splitTarget)
+		logging.Debug(fmt.Sprintf("[workspace] splitting around stack: stackContainer=%p", splitTarget))
 	} else {
 		// Case: normal split from a simple pane
 		splitTarget = target
 		splitTargetContainer = target.container
-		log.Printf("[workspace] normal split from pane: target=%p", splitTarget)
+		logging.Info(fmt.Sprintf("[workspace] normal split from pane: target=%p", splitTarget))
 	}
 
 	// Use provided pane or create new one
@@ -398,7 +408,7 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string, existi
 	if existingPane != nil {
 		// Reuse existing pane (for popup insertion)
 		newPane = existingPane
-		log.Printf("[workspace] Using existing pane for split: %p", newPane)
+		logging.Debug(fmt.Sprintf("[workspace] Using existing pane for split: %p", newPane))
 	} else {
 		// Create new WebView and pane (for normal splits)
 		newView, err := wm.createWebView()
@@ -410,7 +420,7 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string, existi
 		if err != nil {
 			return nil, err
 		}
-		log.Printf("[workspace] Created new pane for split: %p", newPane)
+		logging.Info(fmt.Sprintf("[workspace] Created new pane for split: %p", newPane))
 	}
 
 	if handler := newPane.MessageHandler(); handler != nil {
@@ -441,13 +451,13 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string, existi
 		if splitTargetContainer != nil {
 			webkit.WidgetSetHExpand(splitTargetContainer, true)
 			webkit.WidgetSetVExpand(splitTargetContainer, true)
-			log.Printf("[workspace] configured stack wrapper for split: %p", splitTargetContainer)
+			logging.Debug(fmt.Sprintf("[workspace] configured stack wrapper for split: %p", splitTargetContainer))
 		}
 	}
 
 	orientation, existingFirst := mapDirection(direction)
-	log.Printf("[workspace] splitting direction=%s orientation=%v existingFirst=%v splitTarget.parent=%p splitTarget.isStacked=%v isPopup=%v",
-		direction, orientation, existingFirst, splitTarget.parent, splitTarget.isStacked, existingPane != nil)
+	logging.Debug(fmt.Sprintf("[workspace] splitting direction=%s orientation=%v existingFirst=%v splitTarget.parent=%p splitTarget.isStacked=%v isPopup=%v",
+		direction, orientation, existingFirst, splitTarget.parent, splitTarget.isStacked, existingPane != nil))
 
 	paned := gtk.NewPaned(orientation)
 	if paned == nil {
@@ -466,6 +476,14 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string, existi
 	}
 	wm.initializePaneWidgets(newLeaf, newContainer)
 
+	// After wrapping the WebView in an overlay, use the overlay container for layout operations.
+	newContainer = newLeaf.container
+	if newContainer == nil {
+		return nil, errors.New("new pane missing container overlay")
+	}
+	webkit.WidgetSetHExpand(newContainer, true)
+	webkit.WidgetSetVExpand(newContainer, true)
+
 	split := &paneNode{
 		parent:      splitTarget.parent,
 		orientation: orientation,
@@ -482,7 +500,7 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string, existi
 		// Remove active border class if present (prevents GTK bloom filter corruption during unparent)
 		if webkit.WidgetHasCSSClass(splitTargetContainer, activePaneClass) {
 			webkit.WidgetRemoveCSSClass(splitTargetContainer, activePaneClass)
-			log.Printf("[workspace] removed active class from split target (will transfer to new pane)")
+			logging.Debug(fmt.Sprintf("[workspace] removed active class from split target (will transfer to new pane)"))
 		}
 	}
 
@@ -492,7 +510,7 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string, existi
 	// For non-root splits, unparent from parent paned
 	if parent != nil && parent.container != nil {
 		// Split target has a parent paned - remove it (automatically unparents in GTK4)
-		log.Printf("[workspace] unparenting split target container=%p from parent paned=%p", splitTargetContainer, parent.container)
+		logging.Debug(fmt.Sprintf("[workspace] unparenting split target container=%p from parent paned=%p", splitTargetContainer, parent.container))
 		if parentPaned, ok := parent.container.(*gtk.Paned); ok && parentPaned != nil {
 			if parent.left == splitTarget {
 				parentPaned.SetStartChild(nil)
@@ -535,33 +553,33 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string, existi
 	if parent == nil {
 		// ROOT SPLIT: Manipulate TabManager.ContentArea
 		if wm.app == nil || wm.app.tabManager == nil || wm.app.tabManager.ContentArea == nil {
-			log.Printf("[workspace] ERROR: Cannot perform root split - tab manager not initialized")
+			logging.Error(fmt.Sprintf("[workspace] ERROR: Cannot perform root split - tab manager not initialized"))
 			return nil, fmt.Errorf("tab manager not initialized")
 		}
 
 		contentBox, ok := wm.app.tabManager.ContentArea.(*gtk.Box)
 		if !ok || contentBox == nil {
-			log.Printf("[workspace] ERROR: ContentArea is not a Box")
+			logging.Error(fmt.Sprintf("[workspace] ERROR: ContentArea is not a Box"))
 			return nil, fmt.Errorf("ContentArea is not a Box")
 		}
 
 		// Remove the old workspace root from ContentArea
 		contentBox.Remove(splitTargetContainer)
-		log.Printf("[workspace] ROOT SPLIT: removed old root %p from ContentArea", splitTargetContainer)
+		logging.Debug(fmt.Sprintf("[workspace] ROOT SPLIT: removed old root %p from ContentArea", splitTargetContainer))
 
 		// Attach the new paned to ContentArea FIRST
 		contentBox.Append(paned)
-		log.Printf("[workspace] ROOT SPLIT: attached paned %p to ContentArea", paned)
+		logging.Debug(fmt.Sprintf("[workspace] ROOT SPLIT: attached paned %p to ContentArea", paned))
 
 		// Now add children to the paned - GTK will handle reparenting automatically
 		if existingFirst {
 			paned.SetStartChild(splitTargetContainer)
 			paned.SetEndChild(newContainer)
-			log.Printf("[workspace] ROOT SPLIT: added splitTarget=%p (start), new=%p (end)", splitTargetContainer, newContainer)
+			logging.Debug(fmt.Sprintf("[workspace] ROOT SPLIT: added splitTarget=%p (start), new=%p (end)", splitTargetContainer, newContainer))
 		} else {
 			paned.SetStartChild(newContainer)
 			paned.SetEndChild(splitTargetContainer)
-			log.Printf("[workspace] ROOT SPLIT: added new=%p (start), splitTarget=%p (end)", newContainer, splitTargetContainer)
+			logging.Debug(fmt.Sprintf("[workspace] ROOT SPLIT: added new=%p (start), splitTarget=%p (end)", newContainer, splitTargetContainer))
 		}
 	} else {
 		// NON-ROOT SPLIT: Standard approach
@@ -571,13 +589,13 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string, existi
 			if splitTargetContainer != nil {
 				paned.SetStartChild(splitTargetContainer)
 				paned.SetEndChild(newContainer)
-				log.Printf("[workspace] added splitTarget=%p as start child, new=%p as end child", splitTargetContainer, newContainer)
+				logging.Debug(fmt.Sprintf("[workspace] added splitTarget=%p as start child, new=%p as end child", splitTargetContainer, newContainer))
 			}
 		} else {
 			if splitTargetContainer != nil {
 				paned.SetStartChild(newContainer)
 				paned.SetEndChild(splitTargetContainer)
-				log.Printf("[workspace] added new=%p as start child, splitTarget=%p as end child", newContainer, splitTargetContainer)
+				logging.Debug(fmt.Sprintf("[workspace] added new=%p as start child, splitTarget=%p as end child", newContainer, splitTargetContainer))
 			}
 		}
 
@@ -590,7 +608,7 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string, existi
 			}
 			webkit.WidgetQueueAllocate(parent.container)
 			paned.QueueAllocate()
-			log.Printf("[workspace] paned inserted into parent=%p", parent.container)
+			logging.Info(fmt.Sprintf("[workspace] paned inserted into parent=%p", parent.container))
 		}
 	}
 
@@ -619,7 +637,7 @@ func (wm *WorkspaceManager) splitNode(target *paneNode, direction string, existi
 		wm.app.panes = append(wm.app.panes, newPane)
 	} else {
 		// For existing popup panes, they're already in app.panes from createPane() in handlePopupReadyToShow
-		log.Printf("[workspace] Skipping app.panes append for existing popup pane (already added)")
+		logging.Info(fmt.Sprintf("[workspace] Skipping app.panes append for existing popup pane (already added)"))
 	}
 
 	if newPane.zoomController != nil {
@@ -737,26 +755,26 @@ func (wm *WorkspaceManager) swapContainers(grand *paneNode, parent *paneNode, si
 			// so it has no GTK parent now.
 
 			if wm.app == nil || wm.app.tabManager == nil || wm.app.tabManager.ContentArea == nil {
-				log.Printf("[workspace] ERROR: Cannot promote sibling to root - tab manager not initialized")
+				logging.Error(fmt.Sprintf("[workspace] ERROR: Cannot promote sibling to root - tab manager not initialized"))
 				return
 			}
 
 			contentBox, ok := wm.app.tabManager.ContentArea.(*gtk.Box)
 			if !ok || contentBox == nil {
-				log.Printf("[workspace] ERROR: ContentArea is not a Box")
+				logging.Error(fmt.Sprintf("[workspace] ERROR: ContentArea is not a Box"))
 				return
 			}
 
 			// CRITICAL: Remove the old paned from ContentArea first
 			if parent != nil && parent.container != nil {
 				contentBox.Remove(parent.container)
-				log.Printf("[workspace] Removed old paned %p from ContentArea", parent.container)
+				logging.Debug(fmt.Sprintf("[workspace] Removed old paned %p from ContentArea", parent.container))
 			}
 
 			// Now add sibling to ContentArea as the new root
 			contentBox.Append(sibling.container)
 			webkit.WidgetSetVisible(sibling.container, true)
-			log.Printf("[workspace] Promoted sibling %p to root in ContentArea", sibling.container)
+			logging.Debug(fmt.Sprintf("[workspace] Promoted sibling %p to root in ContentArea", sibling.container))
 		}
 		return
 	}
@@ -771,15 +789,15 @@ func (wm *WorkspaceManager) swapContainers(grand *paneNode, parent *paneNode, si
 		// GTK4 PanedSetStartChild/EndChild auto-unparent from current parent
 		// Focus was already cleared before unparenting closed pane
 		if parent := webkit.WidgetGetParent(sibling.container); parent != nil && parent != grand.container {
-			log.Printf("[workspace] widget %p reparenting from %p to %p (GTK4 will auto-unparent)", sibling.container, parent, grand.container)
+			logging.Debug(fmt.Sprintf("[workspace] widget %p reparenting from %p to %p (GTK4 will auto-unparent)", sibling.container, parent, grand.container))
 		}
 
 		if grand.left == sibling {
 			grandPaned.SetStartChild(sibling.container)
-			log.Printf("[workspace] swapContainers: set widget %p as start child of paned %p", sibling.container, grand.container)
+			logging.Debug(fmt.Sprintf("[workspace] swapContainers: set widget %p as start child of paned %p", sibling.container, grand.container))
 		} else {
 			grandPaned.SetEndChild(sibling.container)
-			log.Printf("[workspace] swapContainers: set widget %p as end child of paned %p", sibling.container, grand.container)
+			logging.Debug(fmt.Sprintf("[workspace] swapContainers: set widget %p as end child of paned %p", sibling.container, grand.container))
 		}
 		webkit.WidgetQueueAllocate(grand.container)
 	}
@@ -803,7 +821,7 @@ func (wm *WorkspaceManager) cascadePromotion(singleChildPaned *paneNode) {
 		return
 	}
 
-	log.Printf("[workspace] Cascading promotion: replacing paned %p with its only child %p", singleChildPaned, onlyChild)
+	logging.Info(fmt.Sprintf("[workspace] Cascading promotion: replacing paned %p with its only child %p", singleChildPaned, onlyChild))
 
 	greatGrandparent := singleChildPaned.parent
 
@@ -812,7 +830,7 @@ func (wm *WorkspaceManager) cascadePromotion(singleChildPaned *paneNode) {
 	if greatGrandparent == nil {
 		// Single child becomes new root
 		wm.root = onlyChild
-		log.Printf("[workspace] Only child %p promoted to root", onlyChild)
+		logging.Debug(fmt.Sprintf("[workspace] Only child %p promoted to root", onlyChild))
 
 		// Attach to window
 		if onlyChild.container != nil {
@@ -829,7 +847,7 @@ func (wm *WorkspaceManager) cascadePromotion(singleChildPaned *paneNode) {
 			greatGrandparent.right = onlyChild
 		}
 
-		log.Printf("[workspace] Only child %p attached to great-grandparent %p", onlyChild, greatGrandparent)
+		logging.Debug(fmt.Sprintf("[workspace] Only child %p attached to great-grandparent %p", onlyChild, greatGrandparent))
 
 		// Reparent widget in GTK
 		if greatGrandPaned, ok := greatGrandparent.container.(*gtk.Paned); ok && greatGrandPaned != nil && onlyChild.container != nil {
@@ -862,7 +880,7 @@ func (wm *WorkspaceManager) cascadePromotion(singleChildPaned *paneNode) {
 
 		// Check if great-grandparent now also has only one child (recursive case)
 		if greatGrandparent != nil && ((greatGrandparent.left == nil) != (greatGrandparent.right == nil)) {
-			log.Printf("[workspace] Great-grandparent %p also has only one child, continuing cascade", greatGrandparent)
+			logging.Info(fmt.Sprintf("[workspace] Great-grandparent %p also has only one child, continuing cascade", greatGrandparent))
 			wm.cascadePromotion(greatGrandparent)
 		}
 	}
@@ -882,7 +900,7 @@ func (wm *WorkspaceManager) attachRoot(root *paneNode) {
 	// Detach from previous container (paned, stack, etc.) before attaching to ContentArea
 	// While GTK4 auto-unparents for paned operations, Box.Append requires manual unparent
 	if parent := webkit.WidgetGetParent(root.container); parent != nil {
-		log.Printf("[workspace] unparenting widget %p from parent %p before root attach", root.container, parent)
+		logging.Debug(fmt.Sprintf("[workspace] unparenting widget %p from parent %p before root attach", root.container, parent))
 		webkit.WidgetUnparent(root.container)
 		// Note: In gotk4, the Go object reference remains valid after unparent
 		// Only the GTK parent relationship is cleared
@@ -895,13 +913,13 @@ func (wm *WorkspaceManager) attachRoot(root *paneNode) {
 
 	// Add to ContentArea (the old root will be orphaned and garbage collected)
 	if wm.app == nil || wm.app.tabManager == nil || wm.app.tabManager.ContentArea == nil {
-		log.Printf("[workspace] ERROR: Cannot attach root - tab manager not initialized")
+		logging.Error(fmt.Sprintf("[workspace] ERROR: Cannot attach root - tab manager not initialized"))
 		return
 	}
 
 	contentBox, ok := wm.app.tabManager.ContentArea.(*gtk.Box)
 	if !ok || contentBox == nil {
-		log.Printf("[workspace] ERROR: ContentArea is not a Box")
+		logging.Error(fmt.Sprintf("[workspace] ERROR: ContentArea is not a Box"))
 		return
 	}
 
@@ -927,9 +945,9 @@ func (wm *WorkspaceManager) attachRoot(root *paneNode) {
 
 	// Verify attachment succeeded
 	if finalParent := webkit.WidgetGetParent(root.container); finalParent == nil {
-		log.Printf("[workspace] WARNING: widget %p has no parent after SetChild", root.container)
+		logging.Warn(fmt.Sprintf("[workspace] WARNING: widget %p has no parent after SetChild", root.container))
 	} else {
-		log.Printf("[workspace] attachRoot successful: widget %p now child of %p", root.container, finalParent)
+		logging.Debug(fmt.Sprintf("[workspace] attachRoot successful: widget %p now child of %p", root.container, finalParent))
 	}
 }
 
@@ -956,7 +974,7 @@ func (wm *WorkspaceManager) cleanupPane(node *paneNode, generation uint) {
 		pane.Cleanup()
 		pane.CleanupFromWorkspace(wm)
 		if pane.webView != nil {
-			log.Printf("[workspace] releasing WebView reference: %p", pane.webView)
+			logging.Debug(fmt.Sprintf("[workspace] releasing WebView reference: %p", pane.webView))
 			pane.webView = nil
 		}
 		node.pane = nil
@@ -984,7 +1002,7 @@ func (wm *WorkspaceManager) decommissionParent(parent *paneNode, generation uint
 	if !parent.isLeaf && parent.container != nil {
 		// In gotk4, we don't need to manually destroy - GTK handles this when unparented
 		// Just mark it for cleanup
-		log.Printf("[workspace] marked paned widget for cleanup: %p", parent.container)
+		logging.Debug(fmt.Sprintf("[workspace] marked paned widget for cleanup: %p", parent.container))
 	}
 
 	wm.cleanupPane(parent, generation)
@@ -1013,7 +1031,7 @@ func (wm *WorkspaceManager) promoteNewRoot(ctx closeContext, oldRoot *paneNode) 
 
 // cleanupAndExit handles the final pane cleanup and application exit
 func (wm *WorkspaceManager) cleanupAndExit(node *paneNode) (*paneNode, error) {
-	log.Printf("[workspace] closing final pane; exiting browser")
+	logging.Info(fmt.Sprintf("[workspace] closing final pane; exiting browser"))
 	wm.cleanupPane(node, wm.nextCleanupGeneration())
 	wm.detachHover(node)
 
@@ -1080,7 +1098,7 @@ func (wm *WorkspaceManager) closePane(node *paneNode) (*paneNode, error) {
 				} else if parent.right == node {
 					parentPaned.SetEndChild(nil)
 				}
-				log.Printf("[workspace] unparented closed pane container: %p", node.container)
+				logging.Debug(fmt.Sprintf("[workspace] unparented closed pane container: %p", node.container))
 			}
 		}
 	}
@@ -1094,7 +1112,7 @@ func (wm *WorkspaceManager) closePane(node *paneNode) (*paneNode, error) {
 			} else if parent.right == sibling {
 				parentPaned.SetEndChild(nil)
 			}
-			log.Printf("[workspace] unparented sibling container %p from parent paned %p", sibling.container, parent.container)
+			logging.Debug(fmt.Sprintf("[workspace] unparented sibling container %p from parent paned %p", sibling.container, parent.container))
 		}
 	}
 
@@ -1124,7 +1142,7 @@ func (wm *WorkspaceManager) closePane(node *paneNode) (*paneNode, error) {
 	// STEP 8: Check if grandparent now has only one child (cascade promotion needed)
 	if grandparent != nil && ((grandparent.left == nil) != (grandparent.right == nil)) {
 		// Grandparent has exactly one child - it should be promoted too
-		log.Printf("[workspace] Grandparent %p now has only one child, cascading promotion", grandparent)
+		logging.Info(fmt.Sprintf("[workspace] Grandparent %p now has only one child, cascading promotion", grandparent))
 		wm.cascadePromotion(grandparent)
 	}
 
@@ -1260,7 +1278,7 @@ func (wm *WorkspaceManager) syncPanedDivider(paned *gtk.Paned, orientation gtk.O
 		}
 
 		paned.SetPosition(pos)
-		log.Printf("[workspace] Set paned position to 50%%: %d (orientation=%d, size=%dx%d)", pos, orientation, alloc.Width(), alloc.Height())
+		logging.Debug(fmt.Sprintf("[workspace] Set paned position to 50%%: %d (orientation=%d, size=%dx%d)", pos, orientation, alloc.Width(), alloc.Height()))
 		return true
 	}
 
@@ -1287,7 +1305,7 @@ func (wm *WorkspaceManager) syncPanedDivider(paned *gtk.Paned, orientation gtk.O
 
 		if frames >= maxFrames {
 			alloc := paned.Allocation()
-			log.Printf("[workspace] Unable to stabilize paned position after %d frames (size=%dx%d)", frames, alloc.Width(), alloc.Height())
+			logging.Error(fmt.Sprintf("[workspace] Unable to stabilize paned position after %d frames (size=%dx%d)", frames, alloc.Width(), alloc.Height()))
 			return false
 		}
 

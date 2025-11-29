@@ -4,7 +4,7 @@ package browser
 import (
 	"errors"
 	"fmt"
-	"log"
+	"github.com/bnema/dumber/internal/logging"
 )
 
 // StackLifecycleManager manages the lifecycle hooks around stacked pane operations.
@@ -34,8 +34,8 @@ func (slm *StackLifecycleManager) CloseStackedPaneWithLifecycle(node *paneNode) 
 		return errors.New("node is not part of a stacked pane")
 	}
 
-	log.Printf("[stack-lifecycle] Closing stacked pane: node=%p stack=%p stackSize=%d",
-		node, stackNode, len(stackNode.stackedPanes))
+	logging.Info(fmt.Sprintf("[stack-lifecycle] Closing stacked pane: node=%p stack=%p stackSize=%d",
+		node, stackNode, len(stackNode.stackedPanes)))
 
 	if err := slm.validateStackState(stackNode, "before close"); err != nil {
 		return fmt.Errorf("invalid stack state before close: %w", err)
@@ -51,7 +51,7 @@ func (slm *StackLifecycleManager) CloseStackedPaneWithLifecycle(node *paneNode) 
 
 	if slm.treeValidator != nil {
 		if err := slm.treeValidator.ValidateTree(slm.wm.root, "after stack close"); err != nil {
-			log.Printf("[stack-lifecycle] Tree validation failed after stack close: %v", err)
+			logging.Error(fmt.Sprintf("[stack-lifecycle] Tree validation failed after stack close: %v", err))
 		}
 	}
 
@@ -86,7 +86,7 @@ func (slm *StackLifecycleManager) validateStackState(stackNode *paneNode, operat
 		}
 	}
 
-	log.Printf("[stack-lifecycle] Stack state valid for operation '%s': size=%d activeIndex=%d",
-		operation, len(stackNode.stackedPanes), stackNode.activeStackIndex)
+	logging.Info(fmt.Sprintf("[stack-lifecycle] Stack state valid for operation '%s': size=%d activeIndex=%d",
+		operation, len(stackNode.stackedPanes), stackNode.activeStackIndex))
 	return nil
 }

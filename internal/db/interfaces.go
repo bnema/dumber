@@ -20,10 +20,12 @@ type HistoryQuerier interface {
 	GetHistory(ctx context.Context, limit int64) ([]History, error)
 	GetHistoryEntry(ctx context.Context, url string) (History, error)
 	GetHistoryWithOffset(ctx context.Context, limit int64, offset int64) ([]History, error)
+	GetMostVisited(ctx context.Context, limit int64) ([]History, error)
 	SearchHistory(ctx context.Context, column1 sql.NullString, column2 sql.NullString, limit int64) ([]History, error)
 	AddOrUpdateHistory(ctx context.Context, url string, title sql.NullString) error
 	UpdateHistoryFavicon(ctx context.Context, faviconUrl sql.NullString, url string) error
 	DeleteHistory(ctx context.Context, id int64) error
+	DeleteAllHistory(ctx context.Context) error
 }
 
 // CertificateQuerier defines the interface for certificate validation-related database operations

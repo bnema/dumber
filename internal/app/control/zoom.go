@@ -2,9 +2,10 @@ package control
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"time"
 
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/services"
 	"github.com/bnema/dumber/pkg/webkit"
 )
@@ -17,6 +18,7 @@ type ZoomController struct {
 	programmaticTimer  *time.Timer
 	browserService     *services.BrowserService
 	webView            *webkit.WebView
+	initializing       bool // true until first load completes, suppresses toasts
 }
 
 // WebViewInterface defines the interface for WebView zoom operations
@@ -35,6 +37,7 @@ func NewZoomController(browserService *services.BrowserService, webView *webkit.
 		currentURL:     "dumb://homepage",
 		browserService: browserService,
 		webView:        webView,
+		initializing:   true,
 	}
 }
 
@@ -56,6 +59,8 @@ func (z *ZoomController) handleLoadCommitted(url string) {
 	if url == "" {
 		return
 	}
+	// First load complete, allow toasts from now on
+	z.initializing = false
 	currentDomain := services.ZoomKeyForLog(url)
 	z.loadZoomLevelAsync(url, currentDomain, false)
 }
@@ -70,30 +75,30 @@ func (z *ZoomController) handleZoomChange(level float64) {
 	go func(url string, level float64) {
 		ctx := context.Background()
 		if err := z.browserService.SetZoomLevel(ctx, url, level); err != nil {
-			log.Printf("[zoom] failed to save level %.2f for %s: %v", level, url, err)
+			logging.Error(fmt.Sprintf("[zoom] failed to save level %.2f for %s: %v", level, url, err))
 			return
 		}
 		key := services.ZoomKeyForLog(url)
-		log.Printf("[zoom] saved %.2f for %s", level, key)
+		logging.Debug(fmt.Sprintf("[zoom] saved %.2f for %s", level, key))
 	}(url, level)
 
-	// Only show toast for user-initiated zoom changes, not programmatic ones
-	if !z.programmaticChange {
+	// Only show toast for user-initiated zoom changes, not during init or programmatic changes
+	if !z.programmaticChange && !z.initializing {
 		z.showZoomToast(level)
 	}
 }
 
 // showZoomToast displays a zoom level notification using TypeScript toast system
 func (z *ZoomController) showZoomToast(level float64) {
-	log.Printf("[zoom] Attempting to show zoom toast for level %.2f", level)
+	logging.Debug(fmt.Sprintf("[zoom] Attempting to show zoom toast for level %.2f", level))
 
 	if z.webView == nil {
-		log.Printf("[zoom] webview unavailable for zoom toast")
+		logging.Debug(fmt.Sprintf("[zoom] webview unavailable for zoom toast"))
 		return
 	}
 
 	if err := z.webView.DispatchCustomEvent("dumber:toast:zoom", map[string]any{"level": level}); err != nil {
-		log.Printf("[zoom] failed to dispatch zoom toast: %v", err)
+		logging.Error(fmt.Sprintf("[zoom] failed to dispatch zoom toast: %v", err))
 	}
 }
 
@@ -168,11 +173,11 @@ func (z *ZoomController) applyZoomLevel(url, domain string, zoomLevel float64, a
 		})
 
 		if err := z.webView.SetZoom(zoomLevel); err != nil {
-			log.Printf("Warning: failed to set zoom: %v", err)
+			logging.Warn(fmt.Sprintf("Warning: failed to set zoom: %v", err))
 			return
 		}
 
-		log.Printf("[zoom] loaded %.2f for %s", zoomLevel, domain)
+		logging.Debug(fmt.Sprintf("[zoom] loaded %.2f for %s", zoomLevel, domain))
 		if allowToast && domain != z.lastZoomDomain && z.lastZoomDomain != "" {
 			z.showZoomToast(zoomLevel)
 		}

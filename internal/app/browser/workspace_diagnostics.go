@@ -2,9 +2,10 @@ package browser
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"sync"
+
+	"github.com/bnema/dumber/internal/logging"
 )
 
 type TreeSnapshot struct {
@@ -63,7 +64,7 @@ func (d *WorkspaceDiagnostics) Capture(label string, root *paneNode) TreeSnapsho
 	d.snapshots = append(d.snapshots, snapshot)
 	d.mu.Unlock()
 
-	log.Printf("[pane-close] snapshot %s\n%s", snapshot.Label, strings.Join(snapshot.Lines, "\n"))
+	logging.Info(fmt.Sprintf("[pane-close] snapshot %s\n%s", snapshot.Label, strings.Join(snapshot.Lines, "\n")))
 	return snapshot
 }
 

@@ -67,7 +67,7 @@ func (ci *CosmeticInjector) GetScriptForDomain(domain string) string {
 		return ""
 	}
 
-	// Build rules for this specific domain
+	// Build rules for this specific domain (including parent domains)
 	var rules []CosmeticRule
 
 	// Add generic rules
@@ -77,14 +77,29 @@ func (ci *CosmeticInjector) GetScriptForDomain(domain string) string {
 		})
 	}
 
-	// Add domain-specific rules
-	if domainSelectors, exists := ci.domainRules[domain]; exists {
-		for _, selector := range domainSelectors {
-			rules = append(rules, CosmeticRule{
-				Domain:   domain,
-				Selector: selector,
-			})
+	// Add domain-specific rules for the domain and its parent domains
+	addDomainRules := func(domainKey string) {
+		if domainKey == "" {
+			return
 		}
+		if domainSelectors, exists := ci.domainRules[domainKey]; exists {
+			for _, selector := range domainSelectors {
+				rules = append(rules, CosmeticRule{
+					Domain:   domainKey,
+					Selector: selector,
+				})
+			}
+		}
+	}
+
+	addDomainRules(domain)
+
+	// Walk up parent domains to include base-domain rules for subdomains
+	parts := strings.Split(domain, ".")
+	for len(parts) > 2 {
+		parts = parts[1:]
+		parentDomain := strings.Join(parts, ".")
+		addDomainRules(parentDomain)
 	}
 
 	// Convert rules to JSON

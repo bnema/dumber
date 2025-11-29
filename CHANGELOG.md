@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Inline URL suggestions**: Fish/zsh-style ghost text completion in omnibox. As you type, shows grayed-out URL completion from history. Accept with Right Arrow (full) or Ctrl+Right (word). Ctrl+Y also accepts full suggestion. Uses trie-based prefix search with debounced queries for smooth typing.
+- **Filter list auto-update**: Async version checking using HTTP HEAD request with ETag. 2-minute startup delay, skips if checked within 24 hours. Stores version per filter list.
+- **Configurable filter lists**: New `content_filtering.filter_lists` config option. Defaults include EasyList, EasyPrivacy, and uBlock filters (annoyances, quick-fixes).
+- **Demo video**: Added feature showcase video to README (docs/media/dumber-demo.mp4).
+- **Page load progress bar**: Thin animated indicator at window bottom showing web page loading progress. Tracks WebView load events with gradient animation, auto-hides when complete.
+- **Omnibox initial history display**: Configurable behavior when opening empty omnibox via `omnibox.initial_behavior` ("recent", "most_visited", "none"). Shows initial history on open and when input is cleared. Default: recent visits.
+- **Omnibox keyboard blocking**: Prevent page scripts from stealing focus while omnibox is active.
+- **Configurable border widths**: Added `pane_mode_border_width` and `tab_mode_border_width` configuration options (default: 4px) for full border customization.
+- **Content filter caching**: Centralized content blocking service compiles filters once and caches them for instant reuse across all WebViews.
+- **CLI purge enhancements**: Separate `--cookies` and `--history` flags for granular data deletion.
+- **URL normalization**: Consistent URL storage across browser, CLI, and favicon services (strips trailing slashes, normalizes schemes).
+
+### Fixed
+- **Filter compilation race condition**: Fixed concurrent map crash when multiple filter lists compile simultaneously by using local converter instead of shared state.
+- **Omnibox search performance**: Debounce search with 2-character minimum threshold to prevent UI freeze on first keystroke. Applies to both URL/history search and find-in-page modes.
+- **Omnibox flash on load**: Load the injected GUI bundle at document-start and initialize the omnibox as soon as DOM is ready, ensuring it is ready without briefly flashing during page startup or new pane creation.
+- **Zoom toast suppression**: Suppress zoom toast notifications during browser initialization to prevent UI flash.
+- **Cosmetic filter injection**: Inject rules immediately and fix selector normalization for better ad blocking.
+
+### Changed
+- **Refactor keyboard blocking**: Move logic to main-world.ts, reduce handler.go verbosity.
+- **Border overlay architecture**: All borders (active pane, pane mode, tab mode) now use GTK overlay pattern preventing layout shifts when borders appear/disappear. Removed inactive border styling - only active panes show borders.
+- **Simplified border configuration**: Removed `inactive_border_width`, `inactive_border_color`, `show_stacked_title_border`, and `border_radius` config options. All borders are now overlay-based with no layout impact.
+- **Remove Turnstile workaround**: Removed temporary Cloudflare Turnstile CORS allowlist (no longer needed).
+
 ## [0.14.1] - 2025-11-18
 
 ### Added

@@ -4,16 +4,16 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"net/url"
 	"os"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bnema/dumber/internal/cache"
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/services"
-	"github.com/spf13/cobra"
 )
 
 const (
@@ -88,42 +88,11 @@ func generateOptions(cli *CLI) error {
 	for _, match := range result.Matches {
 		entry := match.Entry
 
-		// Parse URL for domain extraction
-		parsedURL, err := url.Parse(entry.URL)
-		var domain string
-		if err != nil || parsedURL.Host == "" {
-			domain = "local"
-		} else {
-			domain = parsedURL.Host
-		}
-
-		// Determine title
-		title := entry.Title
-		if title == "" || title == entry.URL {
-			// Use meaningful fallback for untitled pages
-			if parsedURL != nil && parsedURL.Path != "" && parsedURL.Path != "/" {
-				title = fmt.Sprintf("[%s%s]", domain, parsedURL.Path)
-			} else {
-				title = fmt.Sprintf("[%s]", domain)
-			}
-		}
-
-		// Check if it's a Google search result and format accordingly
-		isGoogleSearch := domain == "www.google.com" && strings.Contains(entry.URL, "/search?q=")
-		if isGoogleSearch {
-			if parsedURL != nil {
-				if q := parsedURL.Query().Get("q"); q != "" {
-					title = fmt.Sprintf("Google: \"%s\"", q)
-				}
-			}
-		}
-
-		// Format: "Title | domain.com | full-url"
-		// Using pipe separator for rofi/dmenu compatibility
-		display := fmt.Sprintf("%s | %s | %s",
-			truncateString(title, 50),
-			domain,
-			truncateString(entry.URL, 70))
+		// Strip scheme from URL (remove https:// or http://)
+		display := entry.URL
+		display = strings.TrimPrefix(display, "https://")
+		display = strings.TrimPrefix(display, "http://")
+		display = truncateString(display, 100)
 
 		// Get favicon URL from cached entry
 		faviconURL := match.Entry.FaviconURL

@@ -1,18 +1,19 @@
 package environment
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/bnema/dumber/internal/config"
+	"github.com/bnema/dumber/internal/logging"
 )
 
 // ApplyCodecConfiguration applies codec preferences to environment variables and GStreamer settings
 func ApplyCodecConfiguration(codecPrefs config.CodecConfig) {
-	log.Printf("[codec] Applying codec preferences: preferred=%s, force_av1=%t, block_vp9=%t",
-		codecPrefs.PreferredCodecs, codecPrefs.ForceAV1, codecPrefs.BlockVP9)
+	logging.Info(fmt.Sprintf("[codec] Applying codec preferences: preferred=%s, force_av1=%t, block_vp9=%t",
+		codecPrefs.PreferredCodecs, codecPrefs.ForceAV1, codecPrefs.BlockVP9))
 
 	// Build comprehensive GStreamer plugin rankings
 	var rankSettings []string
@@ -32,7 +33,7 @@ func ApplyCodecConfiguration(codecPrefs config.CodecConfig) {
 			"avdec_av1:256", // libav AV1 decoder
 		}
 		rankSettings = append(rankSettings, av1Ranks...)
-		log.Printf("[codec] Promoted AV1 decoders for maximum priority")
+		logging.Info(fmt.Sprintf("[codec] Promoted AV1 decoders for maximum priority"))
 	}
 
 	// H.264 decoder management
@@ -58,7 +59,7 @@ func ApplyCodecConfiguration(codecPrefs config.CodecConfig) {
 			vp9Demotions = append(vp9Demotions, "vp9dec:64", "avdec_vp9:64")
 		}
 		rankSettings = append(rankSettings, vp9Demotions...)
-		log.Printf("[codec] Demoted/blocked VP9 decoders")
+		logging.Info(fmt.Sprintf("[codec] Demoted/blocked VP9 decoders"))
 	}
 
 	// VP8 decoder blocking
@@ -69,16 +70,16 @@ func ApplyCodecConfiguration(codecPrefs config.CodecConfig) {
 			"avdec_vp8:0",
 		}
 		rankSettings = append(rankSettings, vp8Demotions...)
-		log.Printf("[codec] Blocked VP8 decoders")
+		logging.Info(fmt.Sprintf("[codec] Blocked VP8 decoders"))
 	}
 
 	// Apply the complete ranking system
 	if len(rankSettings) > 0 {
 		finalRank := strings.Join(rankSettings, ",")
 		if err := os.Setenv("GST_PLUGIN_FEATURE_RANK", finalRank); err != nil {
-			log.Printf("[codec] Warning: failed to set GST_PLUGIN_FEATURE_RANK: %v", err)
+			logging.Warn(fmt.Sprintf("[codec] Warning: failed to set GST_PLUGIN_FEATURE_RANK: %v", err))
 		} else {
-			log.Printf("[codec] Set comprehensive GST_PLUGIN_FEATURE_RANK: %s", finalRank)
+			logging.Info(fmt.Sprintf("[codec] Set comprehensive GST_PLUGIN_FEATURE_RANK: %s", finalRank))
 		}
 	}
 
@@ -87,14 +88,14 @@ func ApplyCodecConfiguration(codecPrefs config.CodecConfig) {
 		bufferSize := strconv.Itoa(codecPrefs.VideoBufferSizeMB * 1024 * 1024)
 
 		if err := os.Setenv("GST_BUFFER_SIZE", bufferSize); err != nil {
-			log.Printf("[codec] Warning: failed to set GST_BUFFER_SIZE: %v", err)
+			logging.Warn(fmt.Sprintf("[codec] Warning: failed to set GST_BUFFER_SIZE: %v", err))
 		}
 
 		if err := os.Setenv("GST_QUEUE2_MAX_SIZE_BYTES", bufferSize); err != nil {
-			log.Printf("[codec] Warning: failed to set GST_QUEUE2_MAX_SIZE_BYTES: %v", err)
+			logging.Warn(fmt.Sprintf("[codec] Warning: failed to set GST_QUEUE2_MAX_SIZE_BYTES: %v", err))
 		}
 
-		log.Printf("[codec] Set video buffer size to %dMB", codecPrefs.VideoBufferSizeMB)
+		logging.Info(fmt.Sprintf("[codec] Set video buffer size to %dMB", codecPrefs.VideoBufferSizeMB))
 	}
 
 	// Set queue buffer time if specified
@@ -103,9 +104,9 @@ func ApplyCodecConfiguration(codecPrefs config.CodecConfig) {
 		bufferTime := strconv.Itoa(codecPrefs.QueueBufferTimeSec * 1000000000)
 
 		if err := os.Setenv("GST_QUEUE2_MAX_SIZE_TIME", bufferTime); err != nil {
-			log.Printf("[codec] Warning: failed to set GST_QUEUE2_MAX_SIZE_TIME: %v", err)
+			logging.Warn(fmt.Sprintf("[codec] Warning: failed to set GST_QUEUE2_MAX_SIZE_TIME: %v", err))
 		} else {
-			log.Printf("[codec] Set queue buffer time to %ds", codecPrefs.QueueBufferTimeSec)
+			logging.Info(fmt.Sprintf("[codec] Set queue buffer time to %ds", codecPrefs.QueueBufferTimeSec))
 		}
 	}
 
@@ -113,16 +114,16 @@ func ApplyCodecConfiguration(codecPrefs config.CodecConfig) {
 	if codecPrefs.ForceAV1 {
 		// Enable AV1 hardware decoding if available
 		if err := os.Setenv("GST_AV1_DECODER_ENABLE_HW", "1"); err != nil {
-			log.Printf("[codec] Warning: failed to set GST_AV1_DECODER_ENABLE_HW: %v", err)
+			logging.Warn(fmt.Sprintf("[codec] Warning: failed to set GST_AV1_DECODER_ENABLE_HW: %v", err))
 		}
 	}
 
 	// Disable video post-processing to avoid VA-API issues
 	if err := os.Setenv("GST_VAAPI_DISABLE_VPP", "1"); err != nil {
-		log.Printf("[codec] Warning: failed to set GST_VAAPI_DISABLE_VPP: %v", err)
+		logging.Warn(fmt.Sprintf("[codec] Warning: failed to set GST_VAAPI_DISABLE_VPP: %v", err))
 	}
 
-	log.Printf("[codec] Codec configuration applied successfully")
+	logging.Info(fmt.Sprintf("[codec] Codec configuration applied successfully"))
 }
 
 // BuildBlockedCodecsList converts config codec blocking preferences to a string slice

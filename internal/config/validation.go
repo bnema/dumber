@@ -70,14 +70,14 @@ func validateConfig(config *Config) error {
 	if config.Workspace.Styling.BorderWidth < 0 {
 		validationErrors = append(validationErrors, "workspace.styling.border_width must be non-negative")
 	}
-	if config.Workspace.Styling.InactiveBorderWidth < 0 {
-		validationErrors = append(validationErrors, "workspace.styling.inactive_border_width must be non-negative")
+	if config.Workspace.Styling.PaneModeBorderWidth < 0 {
+		validationErrors = append(validationErrors, "workspace.styling.pane_mode_border_width must be non-negative")
+	}
+	if config.Workspace.Styling.TabModeBorderWidth < 0 {
+		validationErrors = append(validationErrors, "workspace.styling.tab_mode_border_width must be non-negative")
 	}
 	if config.Workspace.Styling.TransitionDuration < 0 {
 		validationErrors = append(validationErrors, "workspace.styling.transition_duration must be non-negative")
-	}
-	if config.Workspace.Styling.BorderRadius < 0 {
-		validationErrors = append(validationErrors, "workspace.styling.border_radius must be non-negative")
 	}
 	if config.Workspace.Styling.UIScale < 0.5 || config.Workspace.Styling.UIScale > 3.0 {
 		validationErrors = append(validationErrors, "workspace.styling.ui_scale must be between 0.5 and 3.0")
@@ -166,6 +166,13 @@ func validateConfig(config *Config) error {
 	}
 	if config.Logging.MaxAge < 0 {
 		validationErrors = append(validationErrors, "logging.max_age must be non-negative")
+	}
+
+	// Validate omnibox initial behavior
+	if config.Omnibox.InitialBehavior != "recent" &&
+		config.Omnibox.InitialBehavior != "most_visited" &&
+		config.Omnibox.InitialBehavior != "none" {
+		validationErrors = append(validationErrors, fmt.Sprintf("omnibox.initial_behavior must be one of: recent, most_visited, none (got: %s)", config.Omnibox.InitialBehavior))
 	}
 
 	// If there are validation errors, return them

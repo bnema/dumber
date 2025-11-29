@@ -25,6 +25,15 @@ func (q *Queries) AddOrUpdateHistory(ctx context.Context, url string, title sql.
 	return err
 }
 
+const DeleteAllHistory = `-- name: DeleteAllHistory :exec
+DELETE FROM history
+`
+
+func (q *Queries) DeleteAllHistory(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, DeleteAllHistory)
+	return err
+}
+
 const DeleteHistory = `-- name: DeleteHistory :exec
 DELETE FROM history
 WHERE id = ?
@@ -104,6 +113,44 @@ LIMIT ? OFFSET ?
 
 func (q *Queries) GetHistoryWithOffset(ctx context.Context, limit int64, offset int64) ([]History, error) {
 	rows, err := q.db.QueryContext(ctx, GetHistoryWithOffset, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []History{}
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.Title,
+			&i.VisitCount,
+			&i.LastVisited,
+			&i.CreatedAt,
+			&i.FaviconUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const GetMostVisited = `-- name: GetMostVisited :many
+SELECT id, url, title, visit_count, last_visited, created_at, favicon_url
+FROM history
+ORDER BY visit_count DESC, last_visited DESC
+LIMIT ?
+`
+
+func (q *Queries) GetMostVisited(ctx context.Context, limit int64) ([]History, error) {
+	rows, err := q.db.QueryContext(ctx, GetMostVisited, limit)
 	if err != nil {
 		return nil, err
 	}

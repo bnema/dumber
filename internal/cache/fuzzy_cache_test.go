@@ -632,6 +632,152 @@ func BenchmarkGetTopEntries(b *testing.B) {
 	}
 }
 
+func TestGetBestPrefixMatch(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockQuerier := mock_cache.NewMockHistoryQuerier(ctrl)
+	history := createTestHistory()
+
+	mockQuerier.EXPECT().GetHistory(gomock.Any(), gomock.Any()).Return(history, nil).AnyTimes()
+
+	tempDir, err := os.MkdirTemp("", "dumber_prefix_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Warning: failed to remove temp dir %s: %v", tempDir, err)
+		}
+	}()
+
+	config := DefaultCacheConfig()
+	config.CacheFile = filepath.Join(tempDir, "prefix_cache.bin")
+
+	manager := NewCacheManager(mockQuerier, config)
+	ctx := context.Background()
+
+	// Build cache first
+	_, err = manager.GetCache(ctx)
+	if err != nil {
+		t.Fatalf("Failed to get cache: %v", err)
+	}
+
+	tests := []struct {
+		name        string
+		prefix      string
+		expectURL   string
+		expectEmpty bool
+	}{
+		{
+			name:      "exact prefix match - github",
+			prefix:    "https://github",
+			expectURL: "https://github.com",
+		},
+		{
+			name:      "partial prefix match - you",
+			prefix:    "https://you",
+			expectURL: "https://youtube.com",
+		},
+		{
+			name:      "partial prefix match - stack",
+			prefix:    "https://stack",
+			expectURL: "https://stackoverflow.com",
+		},
+		{
+			name:        "no match",
+			prefix:      "https://nonexistent",
+			expectEmpty: true,
+		},
+		{
+			name:        "empty prefix",
+			prefix:      "",
+			expectEmpty: true,
+		},
+		{
+			name:      "case insensitive match",
+			prefix:    "https://GITHUB",
+			expectURL: "https://github.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := manager.GetBestPrefixMatch(ctx, tt.prefix)
+
+			if tt.expectEmpty {
+				if result != "" {
+					t.Errorf("Expected empty result, got %q", result)
+				}
+				return
+			}
+
+			if result != tt.expectURL {
+				t.Errorf("Expected %q, got %q", tt.expectURL, result)
+			}
+		})
+	}
+}
+
+func TestGetBestPrefixMatch_ReturnsHighestScore(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockQuerier := mock_cache.NewMockHistoryQuerier(ctrl)
+
+	// Create history with multiple entries sharing the same prefix
+	// "https://go" matches both golang.org and google.com
+	now := time.Now()
+	history := []db.History{
+		{
+			ID:          1,
+			Url:         "https://golang.org",
+			Title:       sql.NullString{String: "Go Programming Language", Valid: true},
+			VisitCount:  sql.NullInt64{Int64: 5, Valid: true},
+			LastVisited: sql.NullTime{Time: now.Add(-5 * time.Hour), Valid: true},
+		},
+		{
+			ID:          2,
+			Url:         "https://google.com",
+			Title:       sql.NullString{String: "Google", Valid: true},
+			VisitCount:  sql.NullInt64{Int64: 100, Valid: true}, // Much higher visits
+			LastVisited: sql.NullTime{Time: now.Add(-1 * time.Hour), Valid: true}, // More recent
+		},
+	}
+
+	mockQuerier.EXPECT().GetHistory(gomock.Any(), gomock.Any()).Return(history, nil).AnyTimes()
+
+	tempDir, err := os.MkdirTemp("", "dumber_prefix_score_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Warning: failed to remove temp dir %s: %v", tempDir, err)
+		}
+	}()
+
+	config := DefaultCacheConfig()
+	config.CacheFile = filepath.Join(tempDir, "prefix_score_cache.bin")
+
+	manager := NewCacheManager(mockQuerier, config)
+	ctx := context.Background()
+
+	// Build cache first
+	_, err = manager.GetCache(ctx)
+	if err != nil {
+		t.Fatalf("Failed to get cache: %v", err)
+	}
+
+	// Query with prefix that matches both
+	result := manager.GetBestPrefixMatch(ctx, "https://go")
+
+	// Should return google.com because it has higher score (more visits, more recent)
+	if result != "https://google.com" {
+		t.Errorf("Expected https://google.com (highest score), got %q", result)
+	}
+}
+
 // BenchmarkGetTopEntriesParallel benchmarks concurrent access performance
 func BenchmarkGetTopEntriesParallel(b *testing.B) {
 	ctrl := gomock.NewController(b)

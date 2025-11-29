@@ -1,9 +1,10 @@
 package webkit
 
 import (
-	"log"
+	"fmt"
 	"strings"
 
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
@@ -62,7 +63,7 @@ func (ws *WindowShortcuts) RegisterShortcut(accelerator string, handler func()) 
 	// Convert to GTK format (e.g., "ctrl+plus" -> "<Control>plus")
 	gtkFormat := convertToGtkFormat(accelerator)
 	if gtkFormat == "" {
-		log.Printf("[shortcuts] Invalid key format: %s", accelerator)
+		logging.Warn(fmt.Sprintf("[shortcuts] Invalid key format: %s", accelerator))
 		return
 	}
 
@@ -70,7 +71,7 @@ func (ws *WindowShortcuts) RegisterShortcut(accelerator string, handler func()) 
 	// ShortcutFunc signature: func(widget Widgetter, args *glib.Variant) (ok bool)
 	action := gtk.NewCallbackAction(func(widget gtk.Widgetter, args *glib.Variant) bool {
 		if handler != nil {
-			log.Printf("[shortcuts] Shortcut triggered: %s", accelerator)
+			logging.Debug(fmt.Sprintf("[shortcuts] Shortcut triggered: %s", accelerator))
 			handler()
 		}
 		// Return false to allow event propagation to WebView
@@ -82,7 +83,7 @@ func (ws *WindowShortcuts) RegisterShortcut(accelerator string, handler func()) 
 	// GTK4 uses gtk.ShortcutTrigger for key combinations
 	trigger := gtk.NewShortcutTriggerParseString(gtkFormat)
 	if trigger == nil {
-		log.Printf("[shortcuts] Failed to parse trigger: %s", gtkFormat)
+		logging.Error(fmt.Sprintf("[shortcuts] Failed to parse trigger: %s", gtkFormat))
 		return
 	}
 
@@ -95,7 +96,7 @@ func (ws *WindowShortcuts) RegisterShortcut(accelerator string, handler func()) 
 	// Store the shortcut for potential cleanup
 	ws.shortcuts[accelerator] = shortcut
 
-	log.Printf("[shortcuts] Registered: %s -> %s", accelerator, gtkFormat)
+	logging.Debug(fmt.Sprintf("[shortcuts] Registered: %s -> %s", accelerator, gtkFormat))
 }
 
 // convertToGtkFormat converts common key formats to GTK shortcut format

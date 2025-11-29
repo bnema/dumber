@@ -15,6 +15,7 @@ type Querier interface {
 	CleanupOldZoomLevels(ctx context.Context, dollar_1 sql.NullString) error
 	// Insert a new favorite with auto-incremented position
 	CreateFavorite(ctx context.Context, url string, title sql.NullString, faviconUrl sql.NullString) error
+	DeleteAllHistory(ctx context.Context) error
 	DeleteCertificateValidation(ctx context.Context, hostname string, certificateHash string) error
 	DeleteExpiredCertificateValidations(ctx context.Context) error
 	// Delete a favorite by URL
@@ -33,6 +34,7 @@ type Querier interface {
 	GetHistory(ctx context.Context, limit int64) ([]History, error)
 	GetHistoryEntry(ctx context.Context, url string) (History, error)
 	GetHistoryWithOffset(ctx context.Context, limit int64, offset int64) ([]History, error)
+	GetMostVisited(ctx context.Context, limit int64) ([]History, error)
 	// Get zoom level for a specific domain
 	GetZoomLevel(ctx context.Context, domain string) (float64, error)
 	// Get zoom level for domain with default fallback
