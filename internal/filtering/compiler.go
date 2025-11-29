@@ -12,15 +12,11 @@ import (
 )
 
 // DefaultFilterCompiler implements FilterCompiler using the converter package
-type DefaultFilterCompiler struct {
-	converter *converter.FilterConverter
-}
+type DefaultFilterCompiler struct{}
 
 // NewDefaultFilterCompiler creates a new default filter compiler
 func NewDefaultFilterCompiler() *DefaultFilterCompiler {
-	return &DefaultFilterCompiler{
-		converter: converter.NewFilterConverter(),
-	}
+	return &DefaultFilterCompiler{}
 }
 
 // CompileFromSources downloads and compiles filters from multiple URLs
@@ -53,8 +49,8 @@ func (dfc *DefaultFilterCompiler) CompileFromSources(ctx context.Context, source
 func (dfc *DefaultFilterCompiler) CompileFromData(data []byte) (*CompiledFilters, error) {
 	compiled := NewCompiledFilters()
 
-	// Reset converter for new compilation
-	dfc.converter = converter.NewFilterConverter()
+	// Use local converter for thread safety (avoid shared state)
+	conv := converter.NewFilterConverter()
 
 	// Parse line by line
 	scanner := bufio.NewScanner(strings.NewReader(string(data)))
@@ -65,7 +61,7 @@ func (dfc *DefaultFilterCompiler) CompileFromData(data []byte) (*CompiledFilters
 		lineCount++
 
 		// Convert each line
-		if err := dfc.converter.ConvertEasyListLine(line); err != nil {
+		if err := conv.ConvertEasyListLine(line); err != nil {
 			logging.Debug(fmt.Sprintf("Failed to convert filter line: %s, error: %v", line, err))
 			continue
 		}
@@ -76,9 +72,9 @@ func (dfc *DefaultFilterCompiler) CompileFromData(data []byte) (*CompiledFilters
 	}
 
 	// Get compiled rules from converter
-	compiled.NetworkRules = dfc.converter.GetNetworkRules()
-	compiled.CosmeticRules = dfc.converter.GetCosmeticRules()
-	compiled.GenericHiding = dfc.converter.GetGenericHiding()
+	compiled.NetworkRules = conv.GetNetworkRules()
+	compiled.CosmeticRules = conv.GetCosmeticRules()
+	compiled.GenericHiding = conv.GetGenericHiding()
 	compiled.CompiledAt = time.Now()
 	compiled.Version = fmt.Sprintf("data-compile-%d", time.Now().Unix())
 
