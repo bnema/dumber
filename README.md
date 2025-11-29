@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <video src="docs/media/dumber-demo.mp4" controls width="800"></video>
+https://github.com/user-attachments/assets/dc7db583-f433-4b86-bb45-cdc063f71cac
 </p>
 
 A dumb browser that works like your favorite terminal multiplexer.
