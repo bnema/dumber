@@ -189,7 +189,7 @@ func (s *ContentBlockingService) injectCosmeticBaseScript(wv *pkgwebkit.WebView)
 		return
 	}
 
-	logging.Info(fmt.Sprintf("[filtering] Injecting cosmetic base script into WebView %d (%d bytes)", wv.ID(), len(baseScript)))
+	logging.Debug(fmt.Sprintf("[filtering] Injecting cosmetic base script into WebView %d (%d bytes)", wv.ID(), len(baseScript)))
 
 	// Inject at document-end when DOM is ready for querySelector/MutationObserver
 	userScript := webkit.NewUserScript(
@@ -274,7 +274,7 @@ func (s *ContentBlockingService) applyNetworkFilters(wv *pkgwebkit.WebView, filt
 	}
 	s.mu.Unlock()
 
-	logging.Info(fmt.Sprintf("[filtering] Applied network filters to WebView %d", wv.ID()))
+	logging.Debug(fmt.Sprintf("[filtering] Applied network filters to WebView %d", wv.ID()))
 }
 
 // setupCosmeticHooks sets up hooks for cosmetic filtering on navigation events.
@@ -318,12 +318,12 @@ func (s *ContentBlockingService) injectCosmeticRules(wv *pkgwebkit.WebView, uri 
 	}
 
 	// Inject the script
-	logging.Info(fmt.Sprintf("[filtering] Injecting cosmetic rules for domain: %s (%d bytes)", domain, len(script)))
+	logging.Debug(fmt.Sprintf("[filtering] Injecting cosmetic rules for domain: %s (%d bytes)", domain, len(script)))
 	pkgwebkit.RunOnMainThread(func() {
 		if err := wv.InjectScript(script); err != nil {
 			logging.Error(fmt.Sprintf("[filtering] Failed to inject cosmetic rules for %s: %v", domain, err))
 		} else {
-			logging.Info(fmt.Sprintf("[filtering] Successfully injected cosmetic rules for domain: %s", domain))
+			logging.Debug(fmt.Sprintf("[filtering] Successfully injected cosmetic rules for domain: %s", domain))
 		}
 	})
 }
