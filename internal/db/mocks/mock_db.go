@@ -138,6 +138,20 @@ func (mr *MockHistoryQuerierMockRecorder) AddOrUpdateHistory(ctx, url, title any
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddOrUpdateHistory", reflect.TypeOf((*MockHistoryQuerier)(nil).AddOrUpdateHistory), ctx, url, title)
 }
 
+// DeleteAllHistory mocks base method.
+func (m *MockHistoryQuerier) DeleteAllHistory(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteAllHistory", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteAllHistory indicates an expected call of DeleteAllHistory.
+func (mr *MockHistoryQuerierMockRecorder) DeleteAllHistory(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAllHistory", reflect.TypeOf((*MockHistoryQuerier)(nil).DeleteAllHistory), ctx)
+}
+
 // DeleteHistory mocks base method.
 func (m *MockHistoryQuerier) DeleteHistory(ctx context.Context, id int64) error {
 	m.ctrl.T.Helper()
@@ -195,6 +209,21 @@ func (m *MockHistoryQuerier) GetHistoryWithOffset(ctx context.Context, limit, of
 func (mr *MockHistoryQuerierMockRecorder) GetHistoryWithOffset(ctx, limit, offset any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHistoryWithOffset", reflect.TypeOf((*MockHistoryQuerier)(nil).GetHistoryWithOffset), ctx, limit, offset)
+}
+
+// GetMostVisited mocks base method.
+func (m *MockHistoryQuerier) GetMostVisited(ctx context.Context, limit int64) ([]db.History, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMostVisited", ctx, limit)
+	ret0, _ := ret[0].([]db.History)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMostVisited indicates an expected call of GetMostVisited.
+func (mr *MockHistoryQuerierMockRecorder) GetMostVisited(ctx, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMostVisited", reflect.TypeOf((*MockHistoryQuerier)(nil).GetMostVisited), ctx, limit)
 }
 
 // SearchHistory mocks base method.
@@ -529,6 +558,20 @@ func (mr *MockDatabaseQuerierMockRecorder) CreateFavorite(ctx, url, title, favic
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFavorite", reflect.TypeOf((*MockDatabaseQuerier)(nil).CreateFavorite), ctx, url, title, faviconUrl)
 }
 
+// DeleteAllHistory mocks base method.
+func (m *MockDatabaseQuerier) DeleteAllHistory(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteAllHistory", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteAllHistory indicates an expected call of DeleteAllHistory.
+func (mr *MockDatabaseQuerierMockRecorder) DeleteAllHistory(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAllHistory", reflect.TypeOf((*MockDatabaseQuerier)(nil).DeleteAllHistory), ctx)
+}
+
 // DeleteCertificateValidation mocks base method.
 func (m *MockDatabaseQuerier) DeleteCertificateValidation(ctx context.Context, hostname, certificateHash string) error {
 	m.ctrl.T.Helper()
@@ -717,6 +760,21 @@ func (m *MockDatabaseQuerier) GetHistoryWithOffset(ctx context.Context, limit, o
 func (mr *MockDatabaseQuerierMockRecorder) GetHistoryWithOffset(ctx, limit, offset any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHistoryWithOffset", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetHistoryWithOffset), ctx, limit, offset)
+}
+
+// GetMostVisited mocks base method.
+func (m *MockDatabaseQuerier) GetMostVisited(ctx context.Context, limit int64) ([]db.History, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMostVisited", ctx, limit)
+	ret0, _ := ret[0].([]db.History)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMostVisited indicates an expected call of GetMostVisited.
+func (mr *MockDatabaseQuerierMockRecorder) GetMostVisited(ctx, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMostVisited", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetMostVisited), ctx, limit)
 }
 
 // GetZoomLevel mocks base method.

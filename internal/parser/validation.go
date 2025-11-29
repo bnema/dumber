@@ -49,8 +49,8 @@ func (v *URLValidator) IsValidURL(input string) bool {
 		return v.isWellFormedURL(input)
 	}
 
-	// Check if it looks like a domain or IP
-	return v.isDomain(input) || v.isIPAddress(input)
+	// Check if it looks like a domain or IP (including domains with paths)
+	return v.isDomain(input) || v.isIPAddress(input) || v.looksLikeDomain(input)
 }
 
 // IsDirectURL checks if the input should be treated as a direct URL.
@@ -266,6 +266,15 @@ func (v *URLValidator) looksLikeDomain(input string) bool {
 		return false
 	}
 
+	// Validate TLD (last part) - must be reasonable length
+	tld := parts[len(parts)-1]
+	if len(tld) < 2 || len(tld) > 6 {
+		// Allow longer TLDs only if they're in the common list
+		if !commonTLDs[strings.ToLower(tld)] {
+			return false
+		}
+	}
+
 	// Each part should be reasonable
 	for _, part := range parts {
 		if len(part) == 0 || len(part) > 63 {
@@ -336,11 +345,13 @@ func (v *URLValidator) IsLocalhost(rawURL string) bool {
 	domain := v.ExtractDomain(rawURL)
 	domain = strings.ToLower(domain)
 
-	// Remove port if present
-	if idx := strings.LastIndex(domain, ":"); idx != -1 {
-		portPart := domain[idx+1:]
-		if isNumeric(portPart) {
-			domain = domain[:idx]
+	// Remove port if present, but not for IPv6 addresses
+	if !strings.Contains(domain, "::") {
+		if idx := strings.LastIndex(domain, ":"); idx != -1 {
+			portPart := domain[idx+1:]
+			if isNumeric(portPart) {
+				domain = domain[:idx]
+			}
 		}
 	}
 
