@@ -31,6 +31,7 @@ type FilterManager struct {
 	store            FilterStore
 	compiler         FilterCompiler
 	cosmeticInjector *cosmetic.CosmeticInjector
+	updater          *FilterUpdater
 	updateInterval   time.Duration
 	compileMutex     sync.RWMutex
 	compiled         *CompiledFilters
@@ -45,6 +46,8 @@ type FilterStore interface {
 	LoadCached() (*CompiledFilters, error)
 	SaveCache(filters *CompiledFilters) error
 	GetCacheInfo() (bool, time.Time, error)
+	GetSourceVersion(url string) string
+	SetSourceVersion(url string, version string) error
 }
 
 // FilterCompiler defines the interface for filter compilation
@@ -71,7 +74,7 @@ type CompiledFilters struct {
 
 // NewFilterManager creates a new filter manager
 func NewFilterManager(store FilterStore, compiler FilterCompiler) *FilterManager {
-	return &FilterManager{
+	fm := &FilterManager{
 		store:            store,
 		compiler:         compiler,
 		cosmeticInjector: cosmetic.NewCosmeticInjector(),
@@ -79,6 +82,9 @@ func NewFilterManager(store FilterStore, compiler FilterCompiler) *FilterManager
 		compiled:         &CompiledFilters{},
 		onFiltersReady:   nil,
 	}
+	// Initialize updater with reference to manager
+	fm.updater = NewFilterUpdater(fm)
+	return fm
 }
 
 // updateWhitelistCache rebuilds the cached whitelist rules from config if needed
@@ -175,10 +181,10 @@ func (fm *FilterManager) compileIfNeeded(ctx context.Context) {
 }
 
 func (fm *FilterManager) compileFromSources(ctx context.Context) {
-	sources := []string{
-		"https://easylist.to/easylist/easylist.txt",
-		"https://easylist.to/easylist/easyprivacy.txt",
-		"https://easylist-downloads.adblockplus.org/liste_fr.txt", // For French sites like lesnumeriques.com
+	sources := config.Get().ContentFiltering.FilterLists
+	if len(sources) == 0 {
+		logging.Warn("[filtering] No filter lists configured")
+		return
 	}
 
 	var wg sync.WaitGroup
@@ -403,6 +409,25 @@ func (fm *FilterManager) applyFilters(filters *CompiledFilters) {
 }
 
 func (fm *FilterManager) startUpdateLoop(ctx context.Context) {
+	// Wait 2 minutes after startup before first version check
+	// This ensures browser startup is not impacted
+	startupDelay := 2 * time.Minute
+	logging.Debug("[filtering] Waiting 2 minutes before first filter update check")
+
+	select {
+	case <-time.After(startupDelay):
+		// Startup delay complete, proceed with first check
+	case <-ctx.Done():
+		return
+	}
+
+	// Perform initial version check
+	logging.Info("[filtering] Performing initial filter version check")
+	if fm.updater != nil {
+		go fm.updater.CheckAndUpdate(ctx)
+	}
+
+	// Then check periodically (every 24 hours)
 	ticker := time.NewTicker(fm.updateInterval)
 	defer ticker.Stop()
 
@@ -411,12 +436,9 @@ func (fm *FilterManager) startUpdateLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			// Check if cache needs update and schedule background update
-			if exists, lastModified, _ := fm.store.GetCacheInfo(); exists {
-				if time.Since(lastModified) > fm.updateInterval {
-					logging.Info("[filtering] Periodic update triggered")
-					go fm.updateFiltersInBackground(ctx)
-				}
+			logging.Info("[filtering] Periodic filter version check")
+			if fm.updater != nil {
+				go fm.updater.CheckAndUpdate(ctx)
 			}
 		}
 	}
@@ -426,11 +448,10 @@ func (fm *FilterManager) startUpdateLoop(ctx context.Context) {
 func (fm *FilterManager) updateFiltersInBackground(ctx context.Context) {
 	logging.Info("[filtering] Starting background filter update")
 
-	// Compile new filters
-	sources := []string{
-		"https://easylist.to/easylist/easylist.txt",
-		"https://easylist.to/easylist/easyprivacy.txt",
-		"https://easylist-downloads.adblockplus.org/liste_fr.txt", // For French sites like lesnumeriques.com
+	sources := config.Get().ContentFiltering.FilterLists
+	if len(sources) == 0 {
+		logging.Warn("[filtering] No filter lists configured")
+		return
 	}
 
 	var wg sync.WaitGroup
