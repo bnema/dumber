@@ -12,8 +12,8 @@ import (
 	"github.com/bnema/dumber/internal/app/messaging"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/pkg/webkit"
-	"github.com/diamondburned/gotk4/pkg/glib/v2"
-	"github.com/diamondburned/gotk4/pkg/gtk/v4"
+	glib "github.com/diamondburned/gotk4/pkg/glib/v2"
+	gtk "github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
 // WorkspaceManager coordinates Zellij-style pane operations.
