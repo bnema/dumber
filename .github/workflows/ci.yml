@@ -11,12 +11,21 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
     steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm git go nodejs npm webkitgtk-6.0 gtk4 gobject-introspection base-devel
       - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - name: Cache Go modules
+        uses: actions/cache@v4
         with:
-          go-version: stable
-          cache: true
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-mod-
       - name: Cache Go build cache
         uses: actions/cache@v4
         with:
@@ -24,30 +33,31 @@ jobs:
           key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-build-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-      - name: Install WebKitGTK 6.0 dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkitgtk-6.0-dev libgtk-4-dev libgirepository1.0-dev
       - name: Build frontend assets
         run: make build-frontend
+      - name: Install golangci-lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b /usr/local/bin v2.6.2
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v7
-        with:
-          version: v2.6.2
-          skip-cache: false
-          args: --timeout=20m
+        run: golangci-lint run --timeout=20m
 
   test:
     runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
     steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm git go nodejs npm webkitgtk-6.0 gtk4 gobject-introspection base-devel
       - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - name: Cache Go modules
+        uses: actions/cache@v4
         with:
-          go-version: stable
-          cache: true
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-mod-
       - name: Cache Go build cache
         uses: actions/cache@v4
         with:
@@ -55,13 +65,6 @@ jobs:
           key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-build-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-      - name: Install WebKitGTK 6.0 dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkitgtk-6.0-dev libgtk-4-dev libgirepository1.0-dev
       - name: Build frontend assets
         run: make build-frontend
       - name: Run tests
