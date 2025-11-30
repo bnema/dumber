@@ -17,10 +17,10 @@ import (
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
 	"github.com/diamondburned/gotk4/pkg/core/gerror"
 	coreglib "github.com/diamondburned/gotk4/pkg/core/glib"
-	"github.com/diamondburned/gotk4/pkg/gdk/v4"
-	"github.com/diamondburned/gotk4/pkg/gdkpixbuf/v2"
+	gdk "github.com/diamondburned/gotk4/pkg/gdk/v4"
+	gdkpixbuf "github.com/diamondburned/gotk4/pkg/gdkpixbuf/v2"
 	gio "github.com/diamondburned/gotk4/pkg/gio/v2"
-	"github.com/diamondburned/gotk4/pkg/glib/v2"
+	glib "github.com/diamondburned/gotk4/pkg/glib/v2"
 )
 
 // GdkTexture is an alias for gotk4's Texture type

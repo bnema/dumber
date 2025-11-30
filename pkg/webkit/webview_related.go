@@ -26,8 +26,8 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
 	coreglib "github.com/diamondburned/gotk4/pkg/core/glib"
-	"github.com/diamondburned/gotk4/pkg/glib/v2"
-	"github.com/diamondburned/gotk4/pkg/gtk/v4"
+	glib "github.com/diamondburned/gotk4/pkg/glib/v2"
+	gtk "github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
 // NewBareRelatedWebView creates a bare gotk4 WebView with the related-view property set

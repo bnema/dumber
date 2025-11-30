@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/diamondburned/gotk4/pkg/gdk/v4"
-	"github.com/diamondburned/gotk4/pkg/glib/v2"
-	"github.com/diamondburned/gotk4/pkg/gtk/v4"
+	gdk "github.com/diamondburned/gotk4/pkg/gdk/v4"
+	glib "github.com/diamondburned/gotk4/pkg/glib/v2"
+	gtk "github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
 // WindowShortcuts manages keyboard shortcuts for a window

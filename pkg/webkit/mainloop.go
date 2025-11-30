@@ -3,8 +3,8 @@ package webkit
 import (
 	"runtime"
 
-	"github.com/diamondburned/gotk4/pkg/glib/v2"
-	"github.com/diamondburned/gotk4/pkg/gtk/v4"
+	glib "github.com/diamondburned/gotk4/pkg/glib/v2"
+	gtk "github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
 var (
