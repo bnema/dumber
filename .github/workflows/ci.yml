@@ -41,5 +41,10 @@ jobs:
         with:
           go-version: stable
           cache: true
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Build frontend assets
+        run: make build-frontend
       - name: Run tests (non-CGO packages only)
         run: CGO_ENABLED=0 go test -v ./...
