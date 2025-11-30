@@ -17,6 +17,13 @@ jobs:
         with:
           go-version: stable
           cache: true
+      - name: Cache Go build cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/go-build
+          key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-build-
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
@@ -41,10 +48,21 @@ jobs:
         with:
           go-version: stable
           cache: true
+      - name: Cache Go build cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/go-build
+          key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-build-
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
+      - name: Install WebKitGTK 6.0 dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkitgtk-6.0-dev libgtk-4-dev libgirepository1.0-dev
       - name: Build frontend assets
         run: make build-frontend
-      - name: Run tests (non-CGO packages only)
-        run: CGO_ENABLED=0 go test -v ./...
+      - name: Run tests
+        run: go test -v ./...
