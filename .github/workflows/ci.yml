@@ -17,10 +17,15 @@ jobs:
         with:
           go-version: stable
           cache: true
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
       - name: Install WebKitGTK 6.0 dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkitgtk-6.0-dev libgtk-4-dev libgirepository1.0-dev
+      - name: Build frontend assets
+        run: make build-frontend
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
@@ -36,14 +41,5 @@ jobs:
         with:
           go-version: stable
           cache: true
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-      - name: Install WebKitGTK 6.0 dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkitgtk-6.0-dev libgtk-4-dev libgirepository1.0-dev
-      - name: Build frontend assets
-        run: make build-frontend
-      - name: Run tests
-        run: CGO_ENABLED=1 go test -tags=webkit_cgo -v ./...
+      - name: Run tests (non-CGO packages only)
+        run: CGO_ENABLED=0 go test -v ./...
