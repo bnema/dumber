@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+          cache: true
+      - name: Cache Go build cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/go-build
+          key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-build-
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Install WebKitGTK 6.0 dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkitgtk-6.0-dev libgtk-4-dev libgirepository1.0-dev
+      - name: Build frontend assets
+        run: make build-frontend
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.6.2
+          skip-cache: false
+          args: --timeout=20m
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+          cache: true
+      - name: Cache Go build cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/go-build
+          key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-build-
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Install WebKitGTK 6.0 dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkitgtk-6.0-dev libgtk-4-dev libgirepository1.0-dev
+      - name: Build frontend assets
+        run: make build-frontend
+      - name: Run tests
+        run: go test -v ./...
