@@ -209,8 +209,12 @@ func (cm *CacheManager) buildCacheFromDB(ctx context.Context) (*DmenuFuzzyCache,
 
 // InvalidateAndRefresh forces cache invalidation and refresh.
 // This should be called when we know the DB has changed (e.g., after adding history).
-func (cm *CacheManager) InvalidateAndRefresh(ctx context.Context) {
+// Returns a channel that is closed when the refresh is complete (can be ignored by callers).
+func (cm *CacheManager) InvalidateAndRefresh(ctx context.Context) <-chan struct{} {
+	done := make(chan struct{})
 	go func() {
+		defer close(done)
+
 		cm.mu.Lock()
 		defer cm.mu.Unlock()
 
@@ -229,6 +233,7 @@ func (cm *CacheManager) InvalidateAndRefresh(ctx context.Context) {
 			logging.Warn(fmt.Sprintf("failed to refresh cache: %v", err))
 		}
 	}()
+	return done
 }
 
 // OnApplicationExit should be called when the application is about to exit.
