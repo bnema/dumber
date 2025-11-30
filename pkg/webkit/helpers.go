@@ -1,10 +1,10 @@
 package webkit
 
 import (
-	"github.com/diamondburned/gotk4/pkg/gdk/v4"
-	"github.com/diamondburned/gotk4/pkg/gio/v2"
-	"github.com/diamondburned/gotk4/pkg/glib/v2"
-	"github.com/diamondburned/gotk4/pkg/gtk/v4"
+	gdk "github.com/diamondburned/gotk4/pkg/gdk/v4"
+	gio "github.com/diamondburned/gotk4/pkg/gio/v2"
+	glib "github.com/diamondburned/gotk4/pkg/glib/v2"
+	gtk "github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
 // IsNativeAvailable returns true if the native GTK/WebKit libraries are available
