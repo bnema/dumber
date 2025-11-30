@@ -165,6 +165,9 @@ sudo pacman -S gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugl
 ```
 
 **Debian/Ubuntu:**
+
+> ⚠️ **Note:** Ubuntu 24.04 LTS ships with glib 2.80, but this project requires glib 2.84+ due to gotk4 bindings. Use Arch Linux, Fedora 41+, or another distribution with recent glib packages.
+
 ```bash
 # Core WebKitGTK and GTK4
 sudo apt install libwebkitgtk-6.0-4 libgtk-4-1
