@@ -14,8 +14,8 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/services"
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
-	"github.com/diamondburned/gotk4/pkg/gio/v2"
-	"github.com/diamondburned/gotk4/pkg/glib/v2"
+	gio "github.com/diamondburned/gotk4/pkg/gio/v2"
+	glib "github.com/diamondburned/gotk4/pkg/glib/v2"
 )
 
 // SchemeHandler handles custom dumb:// scheme resolution
