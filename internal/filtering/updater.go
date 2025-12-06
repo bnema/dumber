@@ -462,7 +462,6 @@ func (fu *FilterUpdater) applyUpdate(update *FilterUpdate) error {
 	return nil
 }
 
-
 // getListID generates a unique ID for a filter list URL
 func (fu *FilterUpdater) getListID(url string) string {
 	hash := sha256.Sum256([]byte(url))

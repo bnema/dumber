@@ -5,7 +5,9 @@ package constants
 const (
 	ContentTypeJSON = "application/json; charset=utf-8"
 	HomepagePath    = "homepage"
+	BlockedPath     = "blocked"
 	IndexHTML       = "index.html"
+	BlockedHTML     = "blocked.html"
 )
 
 // Parsing and utility constants
