@@ -150,10 +150,12 @@ func (fc *FilterConverter) parseNetworkFilter(line string) error {
 					ifDomains = append(ifDomains, d)
 				}
 			}
-			if len(ifDomains) > 0 {
+			// WebKit only allows ONE of: if-domain, unless-domain, if-top-url, unless-top-url
+			// Prefer if-domain when both exist (more common use case)
+			switch {
+			case len(ifDomains) > 0:
 				rule.Trigger.IfDomain = ifDomains
-			}
-			if len(unlessDomains) > 0 {
+			case len(unlessDomains) > 0:
 				rule.Trigger.UnlessDomain = unlessDomains
 			}
 		case opt == "script":
