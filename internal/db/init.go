@@ -39,12 +39,13 @@ func InitDB(dbPath string) (*sql.DB, error) {
 
 	// Configure SQLite for optimal performance
 	pragmas := []string{
-		"PRAGMA journal_mode = WAL",      // Write-Ahead Logging: 70k reads/sec, 3.6k writes/sec, concurrent access
-		"PRAGMA synchronous = NORMAL",    // Safe in WAL mode, only checkpoints wait for FSYNC
-		"PRAGMA cache_size = -64000",     // 64MB cache (default is only ~2MB)
-		"PRAGMA temp_store = MEMORY",     // Temporary tables in RAM
-		"PRAGMA mmap_size = 30000000000", // 30GB memory-mapped I/O (virtual memory, OS-managed)
-		"PRAGMA busy_timeout = 5000",     // Wait 5 seconds on lock contention
+		"PRAGMA journal_mode = WAL",        // Write-Ahead Logging: 70k reads/sec, 3.6k writes/sec, concurrent access
+		"PRAGMA synchronous = NORMAL",      // Safe in WAL mode, only checkpoints wait for FSYNC
+		"PRAGMA cache_size = -64000",       // 64MB cache (default is only ~2MB)
+		"PRAGMA temp_store = MEMORY",       // Temporary tables in RAM
+		"PRAGMA mmap_size = 30000000000",   // 30GB memory-mapped I/O (virtual memory, OS-managed)
+		"PRAGMA busy_timeout = 5000",       // Wait 5 seconds on lock contention
+		"PRAGMA wal_autocheckpoint = 2000", // Checkpoint every 2000 pages (~8MB) instead of default 1000 (~4MB)
 	}
 
 	for _, pragma := range pragmas {
