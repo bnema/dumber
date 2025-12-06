@@ -108,8 +108,15 @@
 <svelte:document onkeydown={handleKeydown} />
 
 {#if showHints}
-  <div class="hints-overlay" onclick={closeHints}>
-    <div class="hints-panel" onclick={(e) => e.stopPropagation()}>
+  <div
+    class="hints-overlay"
+    onclick={closeHints}
+    onkeydown={(e) => { if (e.key === 'Escape' || e.key === 'Enter') closeHints(); }}
+    role="button"
+    tabindex="0"
+    aria-label="Close keyboard hints"
+  >
+    <div class="hints-panel" onclick={(e) => e.stopPropagation()} role="presentation">
       <div class="hints-header">
         <span class="hints-icon"></span>
         <span class="hints-title">KEYBOARD SHORTCUTS</span>
@@ -165,12 +172,7 @@
         {#if panelHints.length > 0}
           <section class="hints-section panel-specific">
             <h3 class="section-title">
-              <span class="section-icon">
-                {#if homepageState.activePanel === 'history'}
-                {:else if homepageState.activePanel === 'favorites'}
-                {:else}
-                {/if}
-              </span>
+              <span class="section-icon"></span>
               {homepageState.activePanel.charAt(0).toUpperCase() + homepageState.activePanel.slice(1)} Actions
             </h3>
             <div class="hints-grid">
