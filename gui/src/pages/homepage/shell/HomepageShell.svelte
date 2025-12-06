@@ -100,6 +100,8 @@
     *:focus { outline: none !important; }
     *:focus-visible { outline: none !important; }
     button:focus, input:focus, a:focus { outline: none !important; box-shadow: none !important; }
+    /* Enable touch scrolling for WebKit */
+    * { -webkit-overflow-scrolling: touch; }
   </style>`}
 </svelte:head>
 
@@ -188,7 +190,7 @@
     </header>
 
     <!-- Main Content Area -->
-    <main class="terminal-body">
+    <main class="terminal-body scrollable">
       {#if children}
         {@render children()}
       {:else}
@@ -213,8 +215,15 @@
 
   <!-- Confirmation Modal -->
   {#if homepageState.confirmModalOpen}
-    <div class="modal-overlay" onclick={() => homepageState.cancelConfirm()}>
-      <div class="confirm-modal" onclick={(e) => e.stopPropagation()}>
+    <div
+      class="modal-overlay"
+      onclick={() => homepageState.cancelConfirm()}
+      onkeydown={(e) => { if (e.key === 'Escape') homepageState.cancelConfirm(); }}
+      role="button"
+      tabindex="0"
+      aria-label="Close confirmation modal"
+    >
+      <div class="confirm-modal" onclick={(e) => e.stopPropagation()} role="presentation">
         <div class="modal-header">
           <span class="modal-icon"></span>
           <span class="modal-title">CONFIRM</span>
@@ -244,11 +253,22 @@
 </div>
 
 <style>
+  :global(html),
+  :global(body) {
+    height: 100%;
+  }
+
+  :global(body) {
+    overflow: hidden;
+    overscroll-behavior: contain;
+  }
+
   .homepage-shell {
     height: 100vh;
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
-    font-family: 'JetBrains Mono NF', ui-monospace, monospace;
+    font-family: ui-monospace, 'Fira Code', 'Cascadia Code', Menlo, Monaco, Consolas, monospace;
     line-height: 1.5;
     color: var(--dynamic-text);
     background: var(--dynamic-bg);
@@ -257,9 +277,10 @@
 
   .terminal-frame {
     flex: 1;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
     width: 100%;
+    height: 100%;
     background: color-mix(in srgb, var(--dynamic-surface) 60%, var(--dynamic-bg) 40%);
   }
 
@@ -277,6 +298,9 @@
     padding: 0.75rem 1rem;
     border-bottom: 1px solid var(--dynamic-border);
     background: color-mix(in srgb, var(--dynamic-bg) 90%, var(--dynamic-surface) 10%);
+    position: sticky;
+    top: 0;
+    z-index: 5;
   }
 
   .header-left {
@@ -327,11 +351,6 @@
     color: var(--dynamic-text);
     background: var(--dynamic-surface);
     border-color: var(--dynamic-border);
-  }
-
-  .tab-icon,
-  :global(.tab-icon) {
-    flex-shrink: 0;
   }
 
   .header-right {
@@ -398,12 +417,17 @@
 
   /* Main Content */
   .terminal-body {
-    flex: 1;
     display: flex;
     flex-direction: column;
     min-height: 0;
     overflow: hidden;
     background: var(--dynamic-bg);
+  }
+
+  .terminal-body.scrollable {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
   }
 
   .empty-shell {
