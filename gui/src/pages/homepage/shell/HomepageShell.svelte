@@ -93,6 +93,7 @@
   <title>dumb://home</title>
   <meta name="description" content="Dumber Browser - Homepage" />
   {@html `<style>
+    html, body { margin: 0; padding: 0; }
     html { background: var(--dynamic-bg, #0a0a0a); }
     body { background: var(--dynamic-bg, #0a0a0a); color: var(--dynamic-text, #e5e5e5); }
     /* Disable GTK/WebKit default focus rings - we handle focus styling ourselves */
