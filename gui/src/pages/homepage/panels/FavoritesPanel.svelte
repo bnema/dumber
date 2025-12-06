@@ -180,8 +180,6 @@
     display: grid;
     grid-template-columns: 200px 1fr;
     gap: 0.75rem;
-    flex: 1;
-    min-height: 0;
     padding: 0.5rem 1rem;
   }
 
@@ -189,7 +187,6 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    overflow-y: auto;
   }
 
   .panel-main {
@@ -225,10 +222,7 @@
   }
 
   .panel-content {
-    flex: 1;
-    min-height: 0;
     padding: 0.75rem;
-    overflow-y: auto;
   }
 
   .loading-state {
