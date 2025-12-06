@@ -344,9 +344,9 @@ export const homepageState = {
   setAnalytics(data: Analytics | null) {
     analytics = data;
     if (data) {
-      domainStats = data.domain_stats;
-      dailyVisits = data.daily_visits;
-      hourlyDistribution = data.hourly_distribution;
+      domainStats = data.top_domains ?? [];
+      dailyVisits = data.daily_visits ?? [];
+      hourlyDistribution = data.hourly_distribution ?? [];
     }
   },
 

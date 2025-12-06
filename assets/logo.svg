@@ -42,7 +42,7 @@
         stroke-linejoin="miter"/>
 
   <!-- Speed bolt - vibrant green, centered and prominent -->
-  <path d="M38 20 L33 33 h7 l-10 18 5-14 h-7 z"
+  <path d="M41 4 L31 28 h10 l-14 30 6-20 h-10 z"
         fill="url(#bolt)"
         filter="url(#glow)"/>
 </svg>
