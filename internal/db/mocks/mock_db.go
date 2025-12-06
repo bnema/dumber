@@ -506,6 +506,721 @@ func (mr *MockFavoritesQuerierMockRecorder) UpdateFavoritePosition(ctx, position
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateFavoritePosition", reflect.TypeOf((*MockFavoritesQuerier)(nil).UpdateFavoritePosition), ctx, position, url)
 }
 
+// MockFolderQuerier is a mock of FolderQuerier interface.
+type MockFolderQuerier struct {
+	ctrl     *gomock.Controller
+	recorder *MockFolderQuerierMockRecorder
+	isgomock struct{}
+}
+
+// MockFolderQuerierMockRecorder is the mock recorder for MockFolderQuerier.
+type MockFolderQuerierMockRecorder struct {
+	mock *MockFolderQuerier
+}
+
+// NewMockFolderQuerier creates a new mock instance.
+func NewMockFolderQuerier(ctrl *gomock.Controller) *MockFolderQuerier {
+	mock := &MockFolderQuerier{ctrl: ctrl}
+	mock.recorder = &MockFolderQuerierMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockFolderQuerier) EXPECT() *MockFolderQuerierMockRecorder {
+	return m.recorder
+}
+
+// ClearFavoriteFolder mocks base method.
+func (m *MockFolderQuerier) ClearFavoriteFolder(ctx context.Context, id int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClearFavoriteFolder", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ClearFavoriteFolder indicates an expected call of ClearFavoriteFolder.
+func (mr *MockFolderQuerierMockRecorder) ClearFavoriteFolder(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearFavoriteFolder", reflect.TypeOf((*MockFolderQuerier)(nil).ClearFavoriteFolder), ctx, id)
+}
+
+// CreateFolder mocks base method.
+func (m *MockFolderQuerier) CreateFolder(ctx context.Context, name string, icon sql.NullString) (db.FavoriteFolder, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateFolder", ctx, name, icon)
+	ret0, _ := ret[0].(db.FavoriteFolder)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateFolder indicates an expected call of CreateFolder.
+func (mr *MockFolderQuerierMockRecorder) CreateFolder(ctx, name, icon any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFolder", reflect.TypeOf((*MockFolderQuerier)(nil).CreateFolder), ctx, name, icon)
+}
+
+// DeleteFolder mocks base method.
+func (m *MockFolderQuerier) DeleteFolder(ctx context.Context, id int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteFolder", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteFolder indicates an expected call of DeleteFolder.
+func (mr *MockFolderQuerierMockRecorder) DeleteFolder(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteFolder", reflect.TypeOf((*MockFolderQuerier)(nil).DeleteFolder), ctx, id)
+}
+
+// GetAllFolders mocks base method.
+func (m *MockFolderQuerier) GetAllFolders(ctx context.Context) ([]db.FavoriteFolder, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllFolders", ctx)
+	ret0, _ := ret[0].([]db.FavoriteFolder)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllFolders indicates an expected call of GetAllFolders.
+func (mr *MockFolderQuerierMockRecorder) GetAllFolders(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllFolders", reflect.TypeOf((*MockFolderQuerier)(nil).GetAllFolders), ctx)
+}
+
+// GetFavoritesInFolder mocks base method.
+func (m *MockFolderQuerier) GetFavoritesInFolder(ctx context.Context, folderID sql.NullInt64) ([]db.Favorite, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFavoritesInFolder", ctx, folderID)
+	ret0, _ := ret[0].([]db.Favorite)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFavoritesInFolder indicates an expected call of GetFavoritesInFolder.
+func (mr *MockFolderQuerierMockRecorder) GetFavoritesInFolder(ctx, folderID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFavoritesInFolder", reflect.TypeOf((*MockFolderQuerier)(nil).GetFavoritesInFolder), ctx, folderID)
+}
+
+// GetFavoritesWithoutFolder mocks base method.
+func (m *MockFolderQuerier) GetFavoritesWithoutFolder(ctx context.Context) ([]db.Favorite, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFavoritesWithoutFolder", ctx)
+	ret0, _ := ret[0].([]db.Favorite)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFavoritesWithoutFolder indicates an expected call of GetFavoritesWithoutFolder.
+func (mr *MockFolderQuerierMockRecorder) GetFavoritesWithoutFolder(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFavoritesWithoutFolder", reflect.TypeOf((*MockFolderQuerier)(nil).GetFavoritesWithoutFolder), ctx)
+}
+
+// GetFolderByID mocks base method.
+func (m *MockFolderQuerier) GetFolderByID(ctx context.Context, id int64) (db.FavoriteFolder, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFolderByID", ctx, id)
+	ret0, _ := ret[0].(db.FavoriteFolder)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFolderByID indicates an expected call of GetFolderByID.
+func (mr *MockFolderQuerierMockRecorder) GetFolderByID(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFolderByID", reflect.TypeOf((*MockFolderQuerier)(nil).GetFolderByID), ctx, id)
+}
+
+// SetFavoriteFolder mocks base method.
+func (m *MockFolderQuerier) SetFavoriteFolder(ctx context.Context, folderID sql.NullInt64, id int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetFavoriteFolder", ctx, folderID, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetFavoriteFolder indicates an expected call of SetFavoriteFolder.
+func (mr *MockFolderQuerierMockRecorder) SetFavoriteFolder(ctx, folderID, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetFavoriteFolder", reflect.TypeOf((*MockFolderQuerier)(nil).SetFavoriteFolder), ctx, folderID, id)
+}
+
+// UpdateFolder mocks base method.
+func (m *MockFolderQuerier) UpdateFolder(ctx context.Context, name string, icon sql.NullString, id int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateFolder", ctx, name, icon, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateFolder indicates an expected call of UpdateFolder.
+func (mr *MockFolderQuerierMockRecorder) UpdateFolder(ctx, name, icon, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateFolder", reflect.TypeOf((*MockFolderQuerier)(nil).UpdateFolder), ctx, name, icon, id)
+}
+
+// MockTagQuerier is a mock of TagQuerier interface.
+type MockTagQuerier struct {
+	ctrl     *gomock.Controller
+	recorder *MockTagQuerierMockRecorder
+	isgomock struct{}
+}
+
+// MockTagQuerierMockRecorder is the mock recorder for MockTagQuerier.
+type MockTagQuerierMockRecorder struct {
+	mock *MockTagQuerier
+}
+
+// NewMockTagQuerier creates a new mock instance.
+func NewMockTagQuerier(ctrl *gomock.Controller) *MockTagQuerier {
+	mock := &MockTagQuerier{ctrl: ctrl}
+	mock.recorder = &MockTagQuerierMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockTagQuerier) EXPECT() *MockTagQuerierMockRecorder {
+	return m.recorder
+}
+
+// AssignTag mocks base method.
+func (m *MockTagQuerier) AssignTag(ctx context.Context, favoriteID, tagID int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AssignTag", ctx, favoriteID, tagID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AssignTag indicates an expected call of AssignTag.
+func (mr *MockTagQuerierMockRecorder) AssignTag(ctx, favoriteID, tagID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignTag", reflect.TypeOf((*MockTagQuerier)(nil).AssignTag), ctx, favoriteID, tagID)
+}
+
+// ClearTagsFromFavorite mocks base method.
+func (m *MockTagQuerier) ClearTagsFromFavorite(ctx context.Context, favoriteID int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClearTagsFromFavorite", ctx, favoriteID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ClearTagsFromFavorite indicates an expected call of ClearTagsFromFavorite.
+func (mr *MockTagQuerierMockRecorder) ClearTagsFromFavorite(ctx, favoriteID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearTagsFromFavorite", reflect.TypeOf((*MockTagQuerier)(nil).ClearTagsFromFavorite), ctx, favoriteID)
+}
+
+// CreateTag mocks base method.
+func (m *MockTagQuerier) CreateTag(ctx context.Context, name, color string) (db.FavoriteTag, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateTag", ctx, name, color)
+	ret0, _ := ret[0].(db.FavoriteTag)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateTag indicates an expected call of CreateTag.
+func (mr *MockTagQuerierMockRecorder) CreateTag(ctx, name, color any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTag", reflect.TypeOf((*MockTagQuerier)(nil).CreateTag), ctx, name, color)
+}
+
+// DeleteTag mocks base method.
+func (m *MockTagQuerier) DeleteTag(ctx context.Context, id int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteTag", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteTag indicates an expected call of DeleteTag.
+func (mr *MockTagQuerierMockRecorder) DeleteTag(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTag", reflect.TypeOf((*MockTagQuerier)(nil).DeleteTag), ctx, id)
+}
+
+// GetAllTags mocks base method.
+func (m *MockTagQuerier) GetAllTags(ctx context.Context) ([]db.FavoriteTag, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllTags", ctx)
+	ret0, _ := ret[0].([]db.FavoriteTag)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllTags indicates an expected call of GetAllTags.
+func (mr *MockTagQuerierMockRecorder) GetAllTags(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllTags", reflect.TypeOf((*MockTagQuerier)(nil).GetAllTags), ctx)
+}
+
+// GetFavoritesWithTag mocks base method.
+func (m *MockTagQuerier) GetFavoritesWithTag(ctx context.Context, tagID int64) ([]db.Favorite, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFavoritesWithTag", ctx, tagID)
+	ret0, _ := ret[0].([]db.Favorite)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFavoritesWithTag indicates an expected call of GetFavoritesWithTag.
+func (mr *MockTagQuerierMockRecorder) GetFavoritesWithTag(ctx, tagID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFavoritesWithTag", reflect.TypeOf((*MockTagQuerier)(nil).GetFavoritesWithTag), ctx, tagID)
+}
+
+// GetTagByID mocks base method.
+func (m *MockTagQuerier) GetTagByID(ctx context.Context, id int64) (db.FavoriteTag, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTagByID", ctx, id)
+	ret0, _ := ret[0].(db.FavoriteTag)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTagByID indicates an expected call of GetTagByID.
+func (mr *MockTagQuerierMockRecorder) GetTagByID(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTagByID", reflect.TypeOf((*MockTagQuerier)(nil).GetTagByID), ctx, id)
+}
+
+// GetTagByName mocks base method.
+func (m *MockTagQuerier) GetTagByName(ctx context.Context, name string) (db.FavoriteTag, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTagByName", ctx, name)
+	ret0, _ := ret[0].(db.FavoriteTag)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTagByName indicates an expected call of GetTagByName.
+func (mr *MockTagQuerierMockRecorder) GetTagByName(ctx, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTagByName", reflect.TypeOf((*MockTagQuerier)(nil).GetTagByName), ctx, name)
+}
+
+// GetTagsForFavorite mocks base method.
+func (m *MockTagQuerier) GetTagsForFavorite(ctx context.Context, favoriteID int64) ([]db.FavoriteTag, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTagsForFavorite", ctx, favoriteID)
+	ret0, _ := ret[0].([]db.FavoriteTag)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTagsForFavorite indicates an expected call of GetTagsForFavorite.
+func (mr *MockTagQuerierMockRecorder) GetTagsForFavorite(ctx, favoriteID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTagsForFavorite", reflect.TypeOf((*MockTagQuerier)(nil).GetTagsForFavorite), ctx, favoriteID)
+}
+
+// RemoveTag mocks base method.
+func (m *MockTagQuerier) RemoveTag(ctx context.Context, favoriteID, tagID int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveTag", ctx, favoriteID, tagID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveTag indicates an expected call of RemoveTag.
+func (mr *MockTagQuerierMockRecorder) RemoveTag(ctx, favoriteID, tagID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveTag", reflect.TypeOf((*MockTagQuerier)(nil).RemoveTag), ctx, favoriteID, tagID)
+}
+
+// UpdateTag mocks base method.
+func (m *MockTagQuerier) UpdateTag(ctx context.Context, name, color string, id int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateTag", ctx, name, color, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateTag indicates an expected call of UpdateTag.
+func (mr *MockTagQuerierMockRecorder) UpdateTag(ctx, name, color, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateTag", reflect.TypeOf((*MockTagQuerier)(nil).UpdateTag), ctx, name, color, id)
+}
+
+// MockShortcutQuerier is a mock of ShortcutQuerier interface.
+type MockShortcutQuerier struct {
+	ctrl     *gomock.Controller
+	recorder *MockShortcutQuerierMockRecorder
+	isgomock struct{}
+}
+
+// MockShortcutQuerierMockRecorder is the mock recorder for MockShortcutQuerier.
+type MockShortcutQuerierMockRecorder struct {
+	mock *MockShortcutQuerier
+}
+
+// NewMockShortcutQuerier creates a new mock instance.
+func NewMockShortcutQuerier(ctrl *gomock.Controller) *MockShortcutQuerier {
+	mock := &MockShortcutQuerier{ctrl: ctrl}
+	mock.recorder = &MockShortcutQuerierMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockShortcutQuerier) EXPECT() *MockShortcutQuerierMockRecorder {
+	return m.recorder
+}
+
+// ClearFavoriteShortcut mocks base method.
+func (m *MockShortcutQuerier) ClearFavoriteShortcut(ctx context.Context, id int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClearFavoriteShortcut", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ClearFavoriteShortcut indicates an expected call of ClearFavoriteShortcut.
+func (mr *MockShortcutQuerierMockRecorder) ClearFavoriteShortcut(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearFavoriteShortcut", reflect.TypeOf((*MockShortcutQuerier)(nil).ClearFavoriteShortcut), ctx, id)
+}
+
+// ClearShortcutFromOthers mocks base method.
+func (m *MockShortcutQuerier) ClearShortcutFromOthers(ctx context.Context, shortcutKey sql.NullInt64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClearShortcutFromOthers", ctx, shortcutKey)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ClearShortcutFromOthers indicates an expected call of ClearShortcutFromOthers.
+func (mr *MockShortcutQuerierMockRecorder) ClearShortcutFromOthers(ctx, shortcutKey any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearShortcutFromOthers", reflect.TypeOf((*MockShortcutQuerier)(nil).ClearShortcutFromOthers), ctx, shortcutKey)
+}
+
+// GetFavoriteByShortcut mocks base method.
+func (m *MockShortcutQuerier) GetFavoriteByShortcut(ctx context.Context, shortcutKey sql.NullInt64) (db.Favorite, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFavoriteByShortcut", ctx, shortcutKey)
+	ret0, _ := ret[0].(db.Favorite)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFavoriteByShortcut indicates an expected call of GetFavoriteByShortcut.
+func (mr *MockShortcutQuerierMockRecorder) GetFavoriteByShortcut(ctx, shortcutKey any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFavoriteByShortcut", reflect.TypeOf((*MockShortcutQuerier)(nil).GetFavoriteByShortcut), ctx, shortcutKey)
+}
+
+// SetFavoriteShortcut mocks base method.
+func (m *MockShortcutQuerier) SetFavoriteShortcut(ctx context.Context, shortcutKey sql.NullInt64, id int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetFavoriteShortcut", ctx, shortcutKey, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetFavoriteShortcut indicates an expected call of SetFavoriteShortcut.
+func (mr *MockShortcutQuerierMockRecorder) SetFavoriteShortcut(ctx, shortcutKey, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetFavoriteShortcut", reflect.TypeOf((*MockShortcutQuerier)(nil).SetFavoriteShortcut), ctx, shortcutKey, id)
+}
+
+// MockHistoryExtendedQuerier is a mock of HistoryExtendedQuerier interface.
+type MockHistoryExtendedQuerier struct {
+	ctrl     *gomock.Controller
+	recorder *MockHistoryExtendedQuerierMockRecorder
+	isgomock struct{}
+}
+
+// MockHistoryExtendedQuerierMockRecorder is the mock recorder for MockHistoryExtendedQuerier.
+type MockHistoryExtendedQuerierMockRecorder struct {
+	mock *MockHistoryExtendedQuerier
+}
+
+// NewMockHistoryExtendedQuerier creates a new mock instance.
+func NewMockHistoryExtendedQuerier(ctrl *gomock.Controller) *MockHistoryExtendedQuerier {
+	mock := &MockHistoryExtendedQuerier{ctrl: ctrl}
+	mock.recorder = &MockHistoryExtendedQuerierMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockHistoryExtendedQuerier) EXPECT() *MockHistoryExtendedQuerierMockRecorder {
+	return m.recorder
+}
+
+// DeleteHistoryByDomain mocks base method.
+func (m *MockHistoryExtendedQuerier) DeleteHistoryByDomain(ctx context.Context, col1, col2, col3, col4 sql.NullString) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteHistoryByDomain", ctx, col1, col2, col3, col4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteHistoryByDomain indicates an expected call of DeleteHistoryByDomain.
+func (mr *MockHistoryExtendedQuerierMockRecorder) DeleteHistoryByDomain(ctx, col1, col2, col3, col4 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteHistoryByDomain", reflect.TypeOf((*MockHistoryExtendedQuerier)(nil).DeleteHistoryByDomain), ctx, col1, col2, col3, col4)
+}
+
+// DeleteHistoryLastDay mocks base method.
+func (m *MockHistoryExtendedQuerier) DeleteHistoryLastDay(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteHistoryLastDay", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteHistoryLastDay indicates an expected call of DeleteHistoryLastDay.
+func (mr *MockHistoryExtendedQuerierMockRecorder) DeleteHistoryLastDay(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteHistoryLastDay", reflect.TypeOf((*MockHistoryExtendedQuerier)(nil).DeleteHistoryLastDay), ctx)
+}
+
+// DeleteHistoryLastHour mocks base method.
+func (m *MockHistoryExtendedQuerier) DeleteHistoryLastHour(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteHistoryLastHour", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteHistoryLastHour indicates an expected call of DeleteHistoryLastHour.
+func (mr *MockHistoryExtendedQuerierMockRecorder) DeleteHistoryLastHour(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteHistoryLastHour", reflect.TypeOf((*MockHistoryExtendedQuerier)(nil).DeleteHistoryLastHour), ctx)
+}
+
+// DeleteHistoryLastMonth mocks base method.
+func (m *MockHistoryExtendedQuerier) DeleteHistoryLastMonth(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteHistoryLastMonth", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteHistoryLastMonth indicates an expected call of DeleteHistoryLastMonth.
+func (mr *MockHistoryExtendedQuerierMockRecorder) DeleteHistoryLastMonth(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteHistoryLastMonth", reflect.TypeOf((*MockHistoryExtendedQuerier)(nil).DeleteHistoryLastMonth), ctx)
+}
+
+// DeleteHistoryLastWeek mocks base method.
+func (m *MockHistoryExtendedQuerier) DeleteHistoryLastWeek(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteHistoryLastWeek", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteHistoryLastWeek indicates an expected call of DeleteHistoryLastWeek.
+func (mr *MockHistoryExtendedQuerierMockRecorder) DeleteHistoryLastWeek(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteHistoryLastWeek", reflect.TypeOf((*MockHistoryExtendedQuerier)(nil).DeleteHistoryLastWeek), ctx)
+}
+
+// DeleteHistoryOlderThan mocks base method.
+func (m *MockHistoryExtendedQuerier) DeleteHistoryOlderThan(ctx context.Context, days string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteHistoryOlderThan", ctx, days)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteHistoryOlderThan indicates an expected call of DeleteHistoryOlderThan.
+func (mr *MockHistoryExtendedQuerierMockRecorder) DeleteHistoryOlderThan(ctx, days any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteHistoryOlderThan", reflect.TypeOf((*MockHistoryExtendedQuerier)(nil).DeleteHistoryOlderThan), ctx, days)
+}
+
+// GetDailyVisitCount mocks base method.
+func (m *MockHistoryExtendedQuerier) GetDailyVisitCount(ctx context.Context, date any) ([]db.GetDailyVisitCountRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDailyVisitCount", ctx, date)
+	ret0, _ := ret[0].([]db.GetDailyVisitCountRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDailyVisitCount indicates an expected call of GetDailyVisitCount.
+func (mr *MockHistoryExtendedQuerierMockRecorder) GetDailyVisitCount(ctx, date any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDailyVisitCount", reflect.TypeOf((*MockHistoryExtendedQuerier)(nil).GetDailyVisitCount), ctx, date)
+}
+
+// GetDomainStats mocks base method.
+func (m *MockHistoryExtendedQuerier) GetDomainStats(ctx context.Context, limit int64) ([]db.GetDomainStatsRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDomainStats", ctx, limit)
+	ret0, _ := ret[0].([]db.GetDomainStatsRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDomainStats indicates an expected call of GetDomainStats.
+func (mr *MockHistoryExtendedQuerierMockRecorder) GetDomainStats(ctx, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDomainStats", reflect.TypeOf((*MockHistoryExtendedQuerier)(nil).GetDomainStats), ctx, limit)
+}
+
+// GetHistoryByDateRange mocks base method.
+func (m *MockHistoryExtendedQuerier) GetHistoryByDateRange(ctx context.Context, lastVisited, lastVisited2 sql.NullTime) ([]db.History, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHistoryByDateRange", ctx, lastVisited, lastVisited2)
+	ret0, _ := ret[0].([]db.History)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetHistoryByDateRange indicates an expected call of GetHistoryByDateRange.
+func (mr *MockHistoryExtendedQuerierMockRecorder) GetHistoryByDateRange(ctx, lastVisited, lastVisited2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHistoryByDateRange", reflect.TypeOf((*MockHistoryExtendedQuerier)(nil).GetHistoryByDateRange), ctx, lastVisited, lastVisited2)
+}
+
+// GetHistoryDates mocks base method.
+func (m *MockHistoryExtendedQuerier) GetHistoryDates(ctx context.Context, limit int64) ([]any, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHistoryDates", ctx, limit)
+	ret0, _ := ret[0].([]any)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetHistoryDates indicates an expected call of GetHistoryDates.
+func (mr *MockHistoryExtendedQuerierMockRecorder) GetHistoryDates(ctx, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHistoryDates", reflect.TypeOf((*MockHistoryExtendedQuerier)(nil).GetHistoryDates), ctx, limit)
+}
+
+// GetHistoryStats mocks base method.
+func (m *MockHistoryExtendedQuerier) GetHistoryStats(ctx context.Context) (db.GetHistoryStatsRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHistoryStats", ctx)
+	ret0, _ := ret[0].(db.GetHistoryStatsRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetHistoryStats indicates an expected call of GetHistoryStats.
+func (mr *MockHistoryExtendedQuerierMockRecorder) GetHistoryStats(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHistoryStats", reflect.TypeOf((*MockHistoryExtendedQuerier)(nil).GetHistoryStats), ctx)
+}
+
+// GetHistoryTimeline mocks base method.
+func (m *MockHistoryExtendedQuerier) GetHistoryTimeline(ctx context.Context, limit, offset int64) ([]db.GetHistoryTimelineRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHistoryTimeline", ctx, limit, offset)
+	ret0, _ := ret[0].([]db.GetHistoryTimelineRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetHistoryTimeline indicates an expected call of GetHistoryTimeline.
+func (mr *MockHistoryExtendedQuerierMockRecorder) GetHistoryTimeline(ctx, limit, offset any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHistoryTimeline", reflect.TypeOf((*MockHistoryExtendedQuerier)(nil).GetHistoryTimeline), ctx, limit, offset)
+}
+
+// GetHourlyDistribution mocks base method.
+func (m *MockHistoryExtendedQuerier) GetHourlyDistribution(ctx context.Context) ([]db.GetHourlyDistributionRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHourlyDistribution", ctx)
+	ret0, _ := ret[0].([]db.GetHourlyDistributionRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetHourlyDistribution indicates an expected call of GetHourlyDistribution.
+func (mr *MockHistoryExtendedQuerierMockRecorder) GetHourlyDistribution(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHourlyDistribution", reflect.TypeOf((*MockHistoryExtendedQuerier)(nil).GetHourlyDistribution), ctx)
+}
+
+// MockContentWhitelistQuerier is a mock of ContentWhitelistQuerier interface.
+type MockContentWhitelistQuerier struct {
+	ctrl     *gomock.Controller
+	recorder *MockContentWhitelistQuerierMockRecorder
+	isgomock struct{}
+}
+
+// MockContentWhitelistQuerierMockRecorder is the mock recorder for MockContentWhitelistQuerier.
+type MockContentWhitelistQuerierMockRecorder struct {
+	mock *MockContentWhitelistQuerier
+}
+
+// NewMockContentWhitelistQuerier creates a new mock instance.
+func NewMockContentWhitelistQuerier(ctrl *gomock.Controller) *MockContentWhitelistQuerier {
+	mock := &MockContentWhitelistQuerier{ctrl: ctrl}
+	mock.recorder = &MockContentWhitelistQuerierMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockContentWhitelistQuerier) EXPECT() *MockContentWhitelistQuerierMockRecorder {
+	return m.recorder
+}
+
+// AddToWhitelist mocks base method.
+func (m *MockContentWhitelistQuerier) AddToWhitelist(ctx context.Context, domain string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddToWhitelist", ctx, domain)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddToWhitelist indicates an expected call of AddToWhitelist.
+func (mr *MockContentWhitelistQuerierMockRecorder) AddToWhitelist(ctx, domain any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddToWhitelist", reflect.TypeOf((*MockContentWhitelistQuerier)(nil).AddToWhitelist), ctx, domain)
+}
+
+// GetAllWhitelistedDomains mocks base method.
+func (m *MockContentWhitelistQuerier) GetAllWhitelistedDomains(ctx context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllWhitelistedDomains", ctx)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllWhitelistedDomains indicates an expected call of GetAllWhitelistedDomains.
+func (mr *MockContentWhitelistQuerierMockRecorder) GetAllWhitelistedDomains(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllWhitelistedDomains", reflect.TypeOf((*MockContentWhitelistQuerier)(nil).GetAllWhitelistedDomains), ctx)
+}
+
+// IsWhitelisted mocks base method.
+func (m *MockContentWhitelistQuerier) IsWhitelisted(ctx context.Context, domain string) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsWhitelisted", ctx, domain)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsWhitelisted indicates an expected call of IsWhitelisted.
+func (mr *MockContentWhitelistQuerierMockRecorder) IsWhitelisted(ctx, domain any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsWhitelisted", reflect.TypeOf((*MockContentWhitelistQuerier)(nil).IsWhitelisted), ctx, domain)
+}
+
+// RemoveFromWhitelist mocks base method.
+func (m *MockContentWhitelistQuerier) RemoveFromWhitelist(ctx context.Context, domain string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveFromWhitelist", ctx, domain)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveFromWhitelist indicates an expected call of RemoveFromWhitelist.
+func (mr *MockContentWhitelistQuerierMockRecorder) RemoveFromWhitelist(ctx, domain any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveFromWhitelist", reflect.TypeOf((*MockContentWhitelistQuerier)(nil).RemoveFromWhitelist), ctx, domain)
+}
+
 // MockDatabaseQuerier is a mock of DatabaseQuerier interface.
 type MockDatabaseQuerier struct {
 	ctrl     *gomock.Controller
@@ -544,6 +1259,90 @@ func (mr *MockDatabaseQuerierMockRecorder) AddOrUpdateHistory(ctx, url, title an
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddOrUpdateHistory", reflect.TypeOf((*MockDatabaseQuerier)(nil).AddOrUpdateHistory), ctx, url, title)
 }
 
+// AddToWhitelist mocks base method.
+func (m *MockDatabaseQuerier) AddToWhitelist(ctx context.Context, domain string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddToWhitelist", ctx, domain)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddToWhitelist indicates an expected call of AddToWhitelist.
+func (mr *MockDatabaseQuerierMockRecorder) AddToWhitelist(ctx, domain any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddToWhitelist", reflect.TypeOf((*MockDatabaseQuerier)(nil).AddToWhitelist), ctx, domain)
+}
+
+// AssignTag mocks base method.
+func (m *MockDatabaseQuerier) AssignTag(ctx context.Context, favoriteID, tagID int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AssignTag", ctx, favoriteID, tagID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AssignTag indicates an expected call of AssignTag.
+func (mr *MockDatabaseQuerierMockRecorder) AssignTag(ctx, favoriteID, tagID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignTag", reflect.TypeOf((*MockDatabaseQuerier)(nil).AssignTag), ctx, favoriteID, tagID)
+}
+
+// ClearFavoriteFolder mocks base method.
+func (m *MockDatabaseQuerier) ClearFavoriteFolder(ctx context.Context, id int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClearFavoriteFolder", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ClearFavoriteFolder indicates an expected call of ClearFavoriteFolder.
+func (mr *MockDatabaseQuerierMockRecorder) ClearFavoriteFolder(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearFavoriteFolder", reflect.TypeOf((*MockDatabaseQuerier)(nil).ClearFavoriteFolder), ctx, id)
+}
+
+// ClearFavoriteShortcut mocks base method.
+func (m *MockDatabaseQuerier) ClearFavoriteShortcut(ctx context.Context, id int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClearFavoriteShortcut", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ClearFavoriteShortcut indicates an expected call of ClearFavoriteShortcut.
+func (mr *MockDatabaseQuerierMockRecorder) ClearFavoriteShortcut(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearFavoriteShortcut", reflect.TypeOf((*MockDatabaseQuerier)(nil).ClearFavoriteShortcut), ctx, id)
+}
+
+// ClearShortcutFromOthers mocks base method.
+func (m *MockDatabaseQuerier) ClearShortcutFromOthers(ctx context.Context, shortcutKey sql.NullInt64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClearShortcutFromOthers", ctx, shortcutKey)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ClearShortcutFromOthers indicates an expected call of ClearShortcutFromOthers.
+func (mr *MockDatabaseQuerierMockRecorder) ClearShortcutFromOthers(ctx, shortcutKey any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearShortcutFromOthers", reflect.TypeOf((*MockDatabaseQuerier)(nil).ClearShortcutFromOthers), ctx, shortcutKey)
+}
+
+// ClearTagsFromFavorite mocks base method.
+func (m *MockDatabaseQuerier) ClearTagsFromFavorite(ctx context.Context, favoriteID int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClearTagsFromFavorite", ctx, favoriteID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ClearTagsFromFavorite indicates an expected call of ClearTagsFromFavorite.
+func (mr *MockDatabaseQuerierMockRecorder) ClearTagsFromFavorite(ctx, favoriteID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearTagsFromFavorite", reflect.TypeOf((*MockDatabaseQuerier)(nil).ClearTagsFromFavorite), ctx, favoriteID)
+}
+
 // CreateFavorite mocks base method.
 func (m *MockDatabaseQuerier) CreateFavorite(ctx context.Context, url string, title, faviconUrl sql.NullString) error {
 	m.ctrl.T.Helper()
@@ -556,6 +1355,36 @@ func (m *MockDatabaseQuerier) CreateFavorite(ctx context.Context, url string, ti
 func (mr *MockDatabaseQuerierMockRecorder) CreateFavorite(ctx, url, title, faviconUrl any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFavorite", reflect.TypeOf((*MockDatabaseQuerier)(nil).CreateFavorite), ctx, url, title, faviconUrl)
+}
+
+// CreateFolder mocks base method.
+func (m *MockDatabaseQuerier) CreateFolder(ctx context.Context, name string, icon sql.NullString) (db.FavoriteFolder, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateFolder", ctx, name, icon)
+	ret0, _ := ret[0].(db.FavoriteFolder)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateFolder indicates an expected call of CreateFolder.
+func (mr *MockDatabaseQuerierMockRecorder) CreateFolder(ctx, name, icon any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFolder", reflect.TypeOf((*MockDatabaseQuerier)(nil).CreateFolder), ctx, name, icon)
+}
+
+// CreateTag mocks base method.
+func (m *MockDatabaseQuerier) CreateTag(ctx context.Context, name, color string) (db.FavoriteTag, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateTag", ctx, name, color)
+	ret0, _ := ret[0].(db.FavoriteTag)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateTag indicates an expected call of CreateTag.
+func (mr *MockDatabaseQuerierMockRecorder) CreateTag(ctx, name, color any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTag", reflect.TypeOf((*MockDatabaseQuerier)(nil).CreateTag), ctx, name, color)
 }
 
 // DeleteAllHistory mocks base method.
@@ -614,6 +1443,20 @@ func (mr *MockDatabaseQuerierMockRecorder) DeleteFavorite(ctx, url any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteFavorite", reflect.TypeOf((*MockDatabaseQuerier)(nil).DeleteFavorite), ctx, url)
 }
 
+// DeleteFolder mocks base method.
+func (m *MockDatabaseQuerier) DeleteFolder(ctx context.Context, id int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteFolder", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteFolder indicates an expected call of DeleteFolder.
+func (mr *MockDatabaseQuerierMockRecorder) DeleteFolder(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteFolder", reflect.TypeOf((*MockDatabaseQuerier)(nil).DeleteFolder), ctx, id)
+}
+
 // DeleteHistory mocks base method.
 func (m *MockDatabaseQuerier) DeleteHistory(ctx context.Context, id int64) error {
 	m.ctrl.T.Helper()
@@ -626,6 +1469,104 @@ func (m *MockDatabaseQuerier) DeleteHistory(ctx context.Context, id int64) error
 func (mr *MockDatabaseQuerierMockRecorder) DeleteHistory(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteHistory", reflect.TypeOf((*MockDatabaseQuerier)(nil).DeleteHistory), ctx, id)
+}
+
+// DeleteHistoryByDomain mocks base method.
+func (m *MockDatabaseQuerier) DeleteHistoryByDomain(ctx context.Context, col1, col2, col3, col4 sql.NullString) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteHistoryByDomain", ctx, col1, col2, col3, col4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteHistoryByDomain indicates an expected call of DeleteHistoryByDomain.
+func (mr *MockDatabaseQuerierMockRecorder) DeleteHistoryByDomain(ctx, col1, col2, col3, col4 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteHistoryByDomain", reflect.TypeOf((*MockDatabaseQuerier)(nil).DeleteHistoryByDomain), ctx, col1, col2, col3, col4)
+}
+
+// DeleteHistoryLastDay mocks base method.
+func (m *MockDatabaseQuerier) DeleteHistoryLastDay(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteHistoryLastDay", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteHistoryLastDay indicates an expected call of DeleteHistoryLastDay.
+func (mr *MockDatabaseQuerierMockRecorder) DeleteHistoryLastDay(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteHistoryLastDay", reflect.TypeOf((*MockDatabaseQuerier)(nil).DeleteHistoryLastDay), ctx)
+}
+
+// DeleteHistoryLastHour mocks base method.
+func (m *MockDatabaseQuerier) DeleteHistoryLastHour(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteHistoryLastHour", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteHistoryLastHour indicates an expected call of DeleteHistoryLastHour.
+func (mr *MockDatabaseQuerierMockRecorder) DeleteHistoryLastHour(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteHistoryLastHour", reflect.TypeOf((*MockDatabaseQuerier)(nil).DeleteHistoryLastHour), ctx)
+}
+
+// DeleteHistoryLastMonth mocks base method.
+func (m *MockDatabaseQuerier) DeleteHistoryLastMonth(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteHistoryLastMonth", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteHistoryLastMonth indicates an expected call of DeleteHistoryLastMonth.
+func (mr *MockDatabaseQuerierMockRecorder) DeleteHistoryLastMonth(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteHistoryLastMonth", reflect.TypeOf((*MockDatabaseQuerier)(nil).DeleteHistoryLastMonth), ctx)
+}
+
+// DeleteHistoryLastWeek mocks base method.
+func (m *MockDatabaseQuerier) DeleteHistoryLastWeek(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteHistoryLastWeek", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteHistoryLastWeek indicates an expected call of DeleteHistoryLastWeek.
+func (mr *MockDatabaseQuerierMockRecorder) DeleteHistoryLastWeek(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteHistoryLastWeek", reflect.TypeOf((*MockDatabaseQuerier)(nil).DeleteHistoryLastWeek), ctx)
+}
+
+// DeleteHistoryOlderThan mocks base method.
+func (m *MockDatabaseQuerier) DeleteHistoryOlderThan(ctx context.Context, days string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteHistoryOlderThan", ctx, days)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteHistoryOlderThan indicates an expected call of DeleteHistoryOlderThan.
+func (mr *MockDatabaseQuerierMockRecorder) DeleteHistoryOlderThan(ctx, days any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteHistoryOlderThan", reflect.TypeOf((*MockDatabaseQuerier)(nil).DeleteHistoryOlderThan), ctx, days)
+}
+
+// DeleteTag mocks base method.
+func (m *MockDatabaseQuerier) DeleteTag(ctx context.Context, id int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteTag", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteTag indicates an expected call of DeleteTag.
+func (mr *MockDatabaseQuerierMockRecorder) DeleteTag(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTag", reflect.TypeOf((*MockDatabaseQuerier)(nil).DeleteTag), ctx, id)
 }
 
 // DeleteZoomLevel mocks base method.
@@ -655,6 +1596,51 @@ func (m *MockDatabaseQuerier) GetAllFavorites(ctx context.Context) ([]db.Favorit
 func (mr *MockDatabaseQuerierMockRecorder) GetAllFavorites(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllFavorites", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetAllFavorites), ctx)
+}
+
+// GetAllFolders mocks base method.
+func (m *MockDatabaseQuerier) GetAllFolders(ctx context.Context) ([]db.FavoriteFolder, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllFolders", ctx)
+	ret0, _ := ret[0].([]db.FavoriteFolder)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllFolders indicates an expected call of GetAllFolders.
+func (mr *MockDatabaseQuerierMockRecorder) GetAllFolders(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllFolders", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetAllFolders), ctx)
+}
+
+// GetAllTags mocks base method.
+func (m *MockDatabaseQuerier) GetAllTags(ctx context.Context) ([]db.FavoriteTag, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllTags", ctx)
+	ret0, _ := ret[0].([]db.FavoriteTag)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllTags indicates an expected call of GetAllTags.
+func (mr *MockDatabaseQuerierMockRecorder) GetAllTags(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllTags", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetAllTags), ctx)
+}
+
+// GetAllWhitelistedDomains mocks base method.
+func (m *MockDatabaseQuerier) GetAllWhitelistedDomains(ctx context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllWhitelistedDomains", ctx)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllWhitelistedDomains indicates an expected call of GetAllWhitelistedDomains.
+func (mr *MockDatabaseQuerierMockRecorder) GetAllWhitelistedDomains(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllWhitelistedDomains", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetAllWhitelistedDomains), ctx)
 }
 
 // GetCertificateValidation mocks base method.
@@ -687,6 +1673,51 @@ func (mr *MockDatabaseQuerierMockRecorder) GetCertificateValidationByHostname(ct
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCertificateValidationByHostname", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetCertificateValidationByHostname), ctx, hostname)
 }
 
+// GetDailyVisitCount mocks base method.
+func (m *MockDatabaseQuerier) GetDailyVisitCount(ctx context.Context, date any) ([]db.GetDailyVisitCountRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDailyVisitCount", ctx, date)
+	ret0, _ := ret[0].([]db.GetDailyVisitCountRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDailyVisitCount indicates an expected call of GetDailyVisitCount.
+func (mr *MockDatabaseQuerierMockRecorder) GetDailyVisitCount(ctx, date any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDailyVisitCount", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetDailyVisitCount), ctx, date)
+}
+
+// GetDomainStats mocks base method.
+func (m *MockDatabaseQuerier) GetDomainStats(ctx context.Context, limit int64) ([]db.GetDomainStatsRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDomainStats", ctx, limit)
+	ret0, _ := ret[0].([]db.GetDomainStatsRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDomainStats indicates an expected call of GetDomainStats.
+func (mr *MockDatabaseQuerierMockRecorder) GetDomainStats(ctx, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDomainStats", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetDomainStats), ctx, limit)
+}
+
+// GetFavoriteByShortcut mocks base method.
+func (m *MockDatabaseQuerier) GetFavoriteByShortcut(ctx context.Context, shortcutKey sql.NullInt64) (db.Favorite, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFavoriteByShortcut", ctx, shortcutKey)
+	ret0, _ := ret[0].(db.Favorite)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFavoriteByShortcut indicates an expected call of GetFavoriteByShortcut.
+func (mr *MockDatabaseQuerierMockRecorder) GetFavoriteByShortcut(ctx, shortcutKey any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFavoriteByShortcut", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetFavoriteByShortcut), ctx, shortcutKey)
+}
+
 // GetFavoriteByURL mocks base method.
 func (m *MockDatabaseQuerier) GetFavoriteByURL(ctx context.Context, url string) (db.Favorite, error) {
 	m.ctrl.T.Helper()
@@ -717,6 +1748,66 @@ func (mr *MockDatabaseQuerierMockRecorder) GetFavoriteCount(ctx any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFavoriteCount", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetFavoriteCount), ctx)
 }
 
+// GetFavoritesInFolder mocks base method.
+func (m *MockDatabaseQuerier) GetFavoritesInFolder(ctx context.Context, folderID sql.NullInt64) ([]db.Favorite, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFavoritesInFolder", ctx, folderID)
+	ret0, _ := ret[0].([]db.Favorite)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFavoritesInFolder indicates an expected call of GetFavoritesInFolder.
+func (mr *MockDatabaseQuerierMockRecorder) GetFavoritesInFolder(ctx, folderID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFavoritesInFolder", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetFavoritesInFolder), ctx, folderID)
+}
+
+// GetFavoritesWithTag mocks base method.
+func (m *MockDatabaseQuerier) GetFavoritesWithTag(ctx context.Context, tagID int64) ([]db.Favorite, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFavoritesWithTag", ctx, tagID)
+	ret0, _ := ret[0].([]db.Favorite)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFavoritesWithTag indicates an expected call of GetFavoritesWithTag.
+func (mr *MockDatabaseQuerierMockRecorder) GetFavoritesWithTag(ctx, tagID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFavoritesWithTag", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetFavoritesWithTag), ctx, tagID)
+}
+
+// GetFavoritesWithoutFolder mocks base method.
+func (m *MockDatabaseQuerier) GetFavoritesWithoutFolder(ctx context.Context) ([]db.Favorite, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFavoritesWithoutFolder", ctx)
+	ret0, _ := ret[0].([]db.Favorite)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFavoritesWithoutFolder indicates an expected call of GetFavoritesWithoutFolder.
+func (mr *MockDatabaseQuerierMockRecorder) GetFavoritesWithoutFolder(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFavoritesWithoutFolder", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetFavoritesWithoutFolder), ctx)
+}
+
+// GetFolderByID mocks base method.
+func (m *MockDatabaseQuerier) GetFolderByID(ctx context.Context, id int64) (db.FavoriteFolder, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFolderByID", ctx, id)
+	ret0, _ := ret[0].(db.FavoriteFolder)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFolderByID indicates an expected call of GetFolderByID.
+func (mr *MockDatabaseQuerierMockRecorder) GetFolderByID(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFolderByID", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetFolderByID), ctx, id)
+}
+
 // GetHistory mocks base method.
 func (m *MockDatabaseQuerier) GetHistory(ctx context.Context, limit int64) ([]db.History, error) {
 	m.ctrl.T.Helper()
@@ -730,6 +1821,36 @@ func (m *MockDatabaseQuerier) GetHistory(ctx context.Context, limit int64) ([]db
 func (mr *MockDatabaseQuerierMockRecorder) GetHistory(ctx, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHistory", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetHistory), ctx, limit)
+}
+
+// GetHistoryByDateRange mocks base method.
+func (m *MockDatabaseQuerier) GetHistoryByDateRange(ctx context.Context, lastVisited, lastVisited2 sql.NullTime) ([]db.History, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHistoryByDateRange", ctx, lastVisited, lastVisited2)
+	ret0, _ := ret[0].([]db.History)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetHistoryByDateRange indicates an expected call of GetHistoryByDateRange.
+func (mr *MockDatabaseQuerierMockRecorder) GetHistoryByDateRange(ctx, lastVisited, lastVisited2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHistoryByDateRange", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetHistoryByDateRange), ctx, lastVisited, lastVisited2)
+}
+
+// GetHistoryDates mocks base method.
+func (m *MockDatabaseQuerier) GetHistoryDates(ctx context.Context, limit int64) ([]any, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHistoryDates", ctx, limit)
+	ret0, _ := ret[0].([]any)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetHistoryDates indicates an expected call of GetHistoryDates.
+func (mr *MockDatabaseQuerierMockRecorder) GetHistoryDates(ctx, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHistoryDates", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetHistoryDates), ctx, limit)
 }
 
 // GetHistoryEntry mocks base method.
@@ -747,6 +1868,36 @@ func (mr *MockDatabaseQuerierMockRecorder) GetHistoryEntry(ctx, url any) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHistoryEntry", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetHistoryEntry), ctx, url)
 }
 
+// GetHistoryStats mocks base method.
+func (m *MockDatabaseQuerier) GetHistoryStats(ctx context.Context) (db.GetHistoryStatsRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHistoryStats", ctx)
+	ret0, _ := ret[0].(db.GetHistoryStatsRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetHistoryStats indicates an expected call of GetHistoryStats.
+func (mr *MockDatabaseQuerierMockRecorder) GetHistoryStats(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHistoryStats", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetHistoryStats), ctx)
+}
+
+// GetHistoryTimeline mocks base method.
+func (m *MockDatabaseQuerier) GetHistoryTimeline(ctx context.Context, limit, offset int64) ([]db.GetHistoryTimelineRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHistoryTimeline", ctx, limit, offset)
+	ret0, _ := ret[0].([]db.GetHistoryTimelineRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetHistoryTimeline indicates an expected call of GetHistoryTimeline.
+func (mr *MockDatabaseQuerierMockRecorder) GetHistoryTimeline(ctx, limit, offset any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHistoryTimeline", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetHistoryTimeline), ctx, limit, offset)
+}
+
 // GetHistoryWithOffset mocks base method.
 func (m *MockDatabaseQuerier) GetHistoryWithOffset(ctx context.Context, limit, offset int64) ([]db.History, error) {
 	m.ctrl.T.Helper()
@@ -762,6 +1913,21 @@ func (mr *MockDatabaseQuerierMockRecorder) GetHistoryWithOffset(ctx, limit, offs
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHistoryWithOffset", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetHistoryWithOffset), ctx, limit, offset)
 }
 
+// GetHourlyDistribution mocks base method.
+func (m *MockDatabaseQuerier) GetHourlyDistribution(ctx context.Context) ([]db.GetHourlyDistributionRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHourlyDistribution", ctx)
+	ret0, _ := ret[0].([]db.GetHourlyDistributionRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetHourlyDistribution indicates an expected call of GetHourlyDistribution.
+func (mr *MockDatabaseQuerierMockRecorder) GetHourlyDistribution(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHourlyDistribution", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetHourlyDistribution), ctx)
+}
+
 // GetMostVisited mocks base method.
 func (m *MockDatabaseQuerier) GetMostVisited(ctx context.Context, limit int64) ([]db.History, error) {
 	m.ctrl.T.Helper()
@@ -775,6 +1941,51 @@ func (m *MockDatabaseQuerier) GetMostVisited(ctx context.Context, limit int64) (
 func (mr *MockDatabaseQuerierMockRecorder) GetMostVisited(ctx, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMostVisited", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetMostVisited), ctx, limit)
+}
+
+// GetTagByID mocks base method.
+func (m *MockDatabaseQuerier) GetTagByID(ctx context.Context, id int64) (db.FavoriteTag, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTagByID", ctx, id)
+	ret0, _ := ret[0].(db.FavoriteTag)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTagByID indicates an expected call of GetTagByID.
+func (mr *MockDatabaseQuerierMockRecorder) GetTagByID(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTagByID", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetTagByID), ctx, id)
+}
+
+// GetTagByName mocks base method.
+func (m *MockDatabaseQuerier) GetTagByName(ctx context.Context, name string) (db.FavoriteTag, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTagByName", ctx, name)
+	ret0, _ := ret[0].(db.FavoriteTag)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTagByName indicates an expected call of GetTagByName.
+func (mr *MockDatabaseQuerierMockRecorder) GetTagByName(ctx, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTagByName", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetTagByName), ctx, name)
+}
+
+// GetTagsForFavorite mocks base method.
+func (m *MockDatabaseQuerier) GetTagsForFavorite(ctx context.Context, favoriteID int64) ([]db.FavoriteTag, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTagsForFavorite", ctx, favoriteID)
+	ret0, _ := ret[0].([]db.FavoriteTag)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTagsForFavorite indicates an expected call of GetTagsForFavorite.
+func (mr *MockDatabaseQuerierMockRecorder) GetTagsForFavorite(ctx, favoriteID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTagsForFavorite", reflect.TypeOf((*MockDatabaseQuerier)(nil).GetTagsForFavorite), ctx, favoriteID)
 }
 
 // GetZoomLevel mocks base method.
@@ -807,6 +2018,21 @@ func (mr *MockDatabaseQuerierMockRecorder) IsFavorite(ctx, url any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsFavorite", reflect.TypeOf((*MockDatabaseQuerier)(nil).IsFavorite), ctx, url)
 }
 
+// IsWhitelisted mocks base method.
+func (m *MockDatabaseQuerier) IsWhitelisted(ctx context.Context, domain string) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsWhitelisted", ctx, domain)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsWhitelisted indicates an expected call of IsWhitelisted.
+func (mr *MockDatabaseQuerierMockRecorder) IsWhitelisted(ctx, domain any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsWhitelisted", reflect.TypeOf((*MockDatabaseQuerier)(nil).IsWhitelisted), ctx, domain)
+}
+
 // ListCertificateValidations mocks base method.
 func (m *MockDatabaseQuerier) ListCertificateValidations(ctx context.Context) ([]db.CertificateValidation, error) {
 	m.ctrl.T.Helper()
@@ -837,6 +2063,34 @@ func (mr *MockDatabaseQuerierMockRecorder) ListZoomLevels(ctx any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListZoomLevels", reflect.TypeOf((*MockDatabaseQuerier)(nil).ListZoomLevels), ctx)
 }
 
+// RemoveFromWhitelist mocks base method.
+func (m *MockDatabaseQuerier) RemoveFromWhitelist(ctx context.Context, domain string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveFromWhitelist", ctx, domain)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveFromWhitelist indicates an expected call of RemoveFromWhitelist.
+func (mr *MockDatabaseQuerierMockRecorder) RemoveFromWhitelist(ctx, domain any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveFromWhitelist", reflect.TypeOf((*MockDatabaseQuerier)(nil).RemoveFromWhitelist), ctx, domain)
+}
+
+// RemoveTag mocks base method.
+func (m *MockDatabaseQuerier) RemoveTag(ctx context.Context, favoriteID, tagID int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveTag", ctx, favoriteID, tagID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveTag indicates an expected call of RemoveTag.
+func (mr *MockDatabaseQuerierMockRecorder) RemoveTag(ctx, favoriteID, tagID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveTag", reflect.TypeOf((*MockDatabaseQuerier)(nil).RemoveTag), ctx, favoriteID, tagID)
+}
+
 // SearchHistory mocks base method.
 func (m *MockDatabaseQuerier) SearchHistory(ctx context.Context, column1, column2 sql.NullString, limit int64) ([]db.History, error) {
 	m.ctrl.T.Helper()
@@ -850,6 +2104,34 @@ func (m *MockDatabaseQuerier) SearchHistory(ctx context.Context, column1, column
 func (mr *MockDatabaseQuerierMockRecorder) SearchHistory(ctx, column1, column2, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SearchHistory", reflect.TypeOf((*MockDatabaseQuerier)(nil).SearchHistory), ctx, column1, column2, limit)
+}
+
+// SetFavoriteFolder mocks base method.
+func (m *MockDatabaseQuerier) SetFavoriteFolder(ctx context.Context, folderID sql.NullInt64, id int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetFavoriteFolder", ctx, folderID, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetFavoriteFolder indicates an expected call of SetFavoriteFolder.
+func (mr *MockDatabaseQuerierMockRecorder) SetFavoriteFolder(ctx, folderID, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetFavoriteFolder", reflect.TypeOf((*MockDatabaseQuerier)(nil).SetFavoriteFolder), ctx, folderID, id)
+}
+
+// SetFavoriteShortcut mocks base method.
+func (m *MockDatabaseQuerier) SetFavoriteShortcut(ctx context.Context, shortcutKey sql.NullInt64, id int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetFavoriteShortcut", ctx, shortcutKey, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetFavoriteShortcut indicates an expected call of SetFavoriteShortcut.
+func (mr *MockDatabaseQuerierMockRecorder) SetFavoriteShortcut(ctx, shortcutKey, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetFavoriteShortcut", reflect.TypeOf((*MockDatabaseQuerier)(nil).SetFavoriteShortcut), ctx, shortcutKey, id)
 }
 
 // SetZoomLevel mocks base method.
@@ -908,6 +2190,20 @@ func (mr *MockDatabaseQuerierMockRecorder) UpdateFavoritePosition(ctx, position,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateFavoritePosition", reflect.TypeOf((*MockDatabaseQuerier)(nil).UpdateFavoritePosition), ctx, position, url)
 }
 
+// UpdateFolder mocks base method.
+func (m *MockDatabaseQuerier) UpdateFolder(ctx context.Context, name string, icon sql.NullString, id int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateFolder", ctx, name, icon, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateFolder indicates an expected call of UpdateFolder.
+func (mr *MockDatabaseQuerierMockRecorder) UpdateFolder(ctx, name, icon, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateFolder", reflect.TypeOf((*MockDatabaseQuerier)(nil).UpdateFolder), ctx, name, icon, id)
+}
+
 // UpdateHistoryFavicon mocks base method.
 func (m *MockDatabaseQuerier) UpdateHistoryFavicon(ctx context.Context, faviconUrl sql.NullString, url string) error {
 	m.ctrl.T.Helper()
@@ -920,4 +2216,18 @@ func (m *MockDatabaseQuerier) UpdateHistoryFavicon(ctx context.Context, faviconU
 func (mr *MockDatabaseQuerierMockRecorder) UpdateHistoryFavicon(ctx, faviconUrl, url any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateHistoryFavicon", reflect.TypeOf((*MockDatabaseQuerier)(nil).UpdateHistoryFavicon), ctx, faviconUrl, url)
+}
+
+// UpdateTag mocks base method.
+func (m *MockDatabaseQuerier) UpdateTag(ctx context.Context, name, color string, id int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateTag", ctx, name, color, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateTag indicates an expected call of UpdateTag.
+func (mr *MockDatabaseQuerierMockRecorder) UpdateTag(ctx, name, color, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateTag", reflect.TypeOf((*MockDatabaseQuerier)(nil).UpdateTag), ctx, name, color, id)
 }

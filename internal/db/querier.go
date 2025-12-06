@@ -11,40 +11,97 @@ import (
 
 type Querier interface {
 	AddOrUpdateHistory(ctx context.Context, url string, title sql.NullString) error
+	// Add a domain to the content filtering whitelist
+	AddToWhitelist(ctx context.Context, domain string) error
+	AssignTag(ctx context.Context, favoriteID int64, tagID int64) error
 	// Cleanup zoom level entries older than specified days
 	CleanupOldZoomLevels(ctx context.Context, dollar_1 sql.NullString) error
+	ClearFavoriteFolder(ctx context.Context, id int64) error
+	ClearFavoriteShortcut(ctx context.Context, id int64) error
+	ClearShortcutFromOthers(ctx context.Context, shortcutKey sql.NullInt64) error
+	ClearTagsFromFavorite(ctx context.Context, favoriteID int64) error
 	// Insert a new favorite with auto-incremented position
 	CreateFavorite(ctx context.Context, url string, title sql.NullString, faviconUrl sql.NullString) error
+	// Insert a new folder with auto-incremented position
+	CreateFolder(ctx context.Context, name string, icon sql.NullString) (FavoriteFolder, error)
+	CreateTag(ctx context.Context, name string, color string) (FavoriteTag, error)
 	DeleteAllHistory(ctx context.Context) error
 	DeleteCertificateValidation(ctx context.Context, hostname string, certificateHash string) error
 	DeleteExpiredCertificateValidations(ctx context.Context) error
 	// Delete a favorite by URL
 	DeleteFavorite(ctx context.Context, url string) error
+	// Delete a folder by ID (favorites will have folder_id set to NULL)
+	DeleteFolder(ctx context.Context, id int64) error
 	DeleteHistory(ctx context.Context, id int64) error
+	DeleteHistoryByDomain(ctx context.Context, column1 sql.NullString, column2 sql.NullString, column3 sql.NullString, column4 sql.NullString) error
+	DeleteHistoryLastDay(ctx context.Context) error
+	DeleteHistoryLastHour(ctx context.Context) error
+	DeleteHistoryLastMonth(ctx context.Context) error
+	DeleteHistoryLastWeek(ctx context.Context) error
+	DeleteHistoryOlderThan(ctx context.Context, dollar_1 string) error
+	DeleteTag(ctx context.Context, id int64) error
 	// Delete zoom level setting for a domain
 	DeleteZoomLevel(ctx context.Context, domain string) error
 	// Get all favorites ordered by position
 	GetAllFavorites(ctx context.Context) ([]Favorite, error)
+	// Favorite folders CRUD operations
+	// Get all folders ordered by position
+	GetAllFolders(ctx context.Context) ([]FavoriteFolder, error)
+	// Favorite tags CRUD and assignment operations
+	GetAllTags(ctx context.Context) ([]FavoriteTag, error)
+	// Get all whitelisted domains for content filtering
+	GetAllWhitelistedDomains(ctx context.Context) ([]string, error)
 	GetCertificateValidation(ctx context.Context, hostname string, certificateHash string) (CertificateValidation, error)
 	GetCertificateValidationByHostname(ctx context.Context, hostname string) (CertificateValidation, error)
+	GetDailyVisitCount(ctx context.Context, date interface{}) ([]GetDailyVisitCountRow, error)
+	GetDomainStats(ctx context.Context, limit int64) ([]GetDomainStatsRow, error)
+	GetFavoriteByShortcut(ctx context.Context, shortcutKey sql.NullInt64) (Favorite, error)
 	// Get a specific favorite by URL
 	GetFavoriteByURL(ctx context.Context, url string) (Favorite, error)
 	// Get total count of favorites
 	GetFavoriteCount(ctx context.Context) (int64, error)
+	// Get all favorites in a specific folder
+	GetFavoritesInFolder(ctx context.Context, folderID sql.NullInt64) ([]Favorite, error)
+	GetFavoritesWithTag(ctx context.Context, tagID int64) ([]Favorite, error)
+	// Get all favorites not in any folder
+	GetFavoritesWithoutFolder(ctx context.Context) ([]Favorite, error)
+	// Get a specific folder by ID
+	GetFolderByID(ctx context.Context, id int64) (FavoriteFolder, error)
+	// Get total count of folders
+	GetFolderCount(ctx context.Context) (int64, error)
 	GetHistory(ctx context.Context, limit int64) ([]History, error)
+	GetHistoryByDateRange(ctx context.Context, lastVisited sql.NullTime, lastVisited_2 sql.NullTime) ([]History, error)
+	GetHistoryDates(ctx context.Context, limit int64) ([]interface{}, error)
 	GetHistoryEntry(ctx context.Context, url string) (History, error)
+	GetHistoryStats(ctx context.Context) (GetHistoryStatsRow, error)
+	// Extended history queries: timeline, analytics, cleanup
+	// NOTE: FTS5 search uses raw SQL in Go - sqlc doesn't support "table MATCH ?" syntax
+	GetHistoryTimeline(ctx context.Context, limit int64, offset int64) ([]GetHistoryTimelineRow, error)
 	GetHistoryWithOffset(ctx context.Context, limit int64, offset int64) ([]History, error)
+	GetHourlyDistribution(ctx context.Context) ([]GetHourlyDistributionRow, error)
 	GetMostVisited(ctx context.Context, limit int64) ([]History, error)
+	GetTagByID(ctx context.Context, id int64) (FavoriteTag, error)
+	GetTagByName(ctx context.Context, name string) (FavoriteTag, error)
+	GetTagCount(ctx context.Context) (int64, error)
+	GetTagUsageCount(ctx context.Context, tagID int64) (int64, error)
+	GetTagsForFavorite(ctx context.Context, favoriteID int64) ([]FavoriteTag, error)
 	// Get zoom level for a specific domain
 	GetZoomLevel(ctx context.Context, domain string) (float64, error)
 	// Get zoom level for domain with default fallback
 	GetZoomLevelWithDefault(ctx context.Context, domain string) (interface{}, error)
 	// Check if a URL is favorited
 	IsFavorite(ctx context.Context, url string) (int64, error)
+	// Check if a domain is whitelisted
+	IsWhitelisted(ctx context.Context, domain string) (int64, error)
 	ListCertificateValidations(ctx context.Context) ([]CertificateValidation, error)
 	// List all zoom level settings ordered by most recently updated
 	ListZoomLevels(ctx context.Context) ([]ZoomLevel, error)
+	// Remove a domain from the content filtering whitelist
+	RemoveFromWhitelist(ctx context.Context, domain string) error
+	RemoveTag(ctx context.Context, favoriteID int64, tagID int64) error
 	SearchHistory(ctx context.Context, column1 sql.NullString, column2 sql.NullString, limit int64) ([]History, error)
+	SetFavoriteFolder(ctx context.Context, folderID sql.NullInt64, iD int64) error
+	SetFavoriteShortcut(ctx context.Context, shortcutKey sql.NullInt64, iD int64) error
 	// Set or update zoom level for a domain with validation
 	SetZoomLevel(ctx context.Context, domain string, zoomFactor float64) error
 	StoreCertificateValidation(ctx context.Context, hostname string, certificateHash string, userDecision string, expiresAt sql.NullTime) error
@@ -52,7 +109,12 @@ type Querier interface {
 	UpdateFavorite(ctx context.Context, title sql.NullString, faviconUrl sql.NullString, url string) error
 	// Update the position of a favorite
 	UpdateFavoritePosition(ctx context.Context, position int64, url string) error
+	// Update folder name and icon
+	UpdateFolder(ctx context.Context, name string, icon sql.NullString, iD int64) error
+	// Update folder position
+	UpdateFolderPosition(ctx context.Context, position int64, iD int64) error
 	UpdateHistoryFavicon(ctx context.Context, faviconUrl sql.NullString, url string) error
+	UpdateTag(ctx context.Context, name string, color string, iD int64) error
 }
 
 var _ Querier = (*Queries)(nil)
