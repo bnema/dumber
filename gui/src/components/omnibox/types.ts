@@ -23,12 +23,13 @@ export interface SearchShortcut {
 }
 
 export interface OmniboxMessage {
-  type: "navigate" | "query" | "omnibox_initial_history" | "get_search_shortcuts" | "get_favorites" | "toggle_favorite" | "is_favorite" | "prefix_query";
+  type: "navigate" | "query" | "omnibox_initial_history" | "get_search_shortcuts" | "get_favorites" | "toggle_favorite" | "is_favorite" | "prefix_query" | "keyboard_blocking";
   url?: string;
   q?: string;
   limit?: number;
   title?: string;
   faviconURL?: string;
+  action?: "enable" | "disable";
 }
 
 export interface FindMatch {
