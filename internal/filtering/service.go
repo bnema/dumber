@@ -80,6 +80,9 @@ func (s *ContentBlockingService) SetFiltersReady(networkJSON []byte) {
 	for _, wv := range webViews {
 		webView := wv // capture for closure
 		pkgwebkit.RunOnMainThread(func() {
+			if webView.IsDestroyed() {
+				return
+			}
 			s.injectCosmeticBaseScript(webView)
 			if uri := webView.GetCurrentURL(); uri != "" {
 				s.injectCosmeticRules(webView, uri)
@@ -115,6 +118,9 @@ func (s *ContentBlockingService) SetFiltersReady(networkJSON []byte) {
 		for _, wv := range currentWebViews {
 			webView := wv // capture for closure
 			pkgwebkit.RunOnMainThread(func() {
+				if webView.IsDestroyed() {
+					return
+				}
 				s.applyFiltersToWebView(webView)
 			})
 		}
@@ -150,8 +156,12 @@ func (s *ContentBlockingService) RegisterWebView(wv *pkgwebkit.WebView) {
 
 	// Apply network filters if already compiled (instant)
 	if s.contentBlockingMgr.IsFilterCompiled() {
+		webView := wv // capture for closure
 		pkgwebkit.RunOnMainThread(func() {
-			s.applyFiltersToWebView(wv)
+			if webView.IsDestroyed() {
+				return
+			}
+			s.applyFiltersToWebView(webView)
 		})
 	}
 }
@@ -159,7 +169,7 @@ func (s *ContentBlockingService) RegisterWebView(wv *pkgwebkit.WebView) {
 // injectCosmeticBaseScript injects the base cosmetic filtering script into a WebView.
 // This script sets up the cosmetic filtering infrastructure (MutationObserver, hide functions, etc.)
 func (s *ContentBlockingService) injectCosmeticBaseScript(wv *pkgwebkit.WebView) {
-	if wv == nil {
+	if wv == nil || wv.IsDestroyed() {
 		return
 	}
 
@@ -217,6 +227,10 @@ func (s *ContentBlockingService) UnregisterWebView(wv *pkgwebkit.WebView) {
 
 // applyFiltersToWebView applies both network and cosmetic filters to a WebView.
 func (s *ContentBlockingService) applyFiltersToWebView(wv *pkgwebkit.WebView) {
+	if wv == nil || wv.IsDestroyed() {
+		return
+	}
+
 	s.mu.RLock()
 	networkJSON := s.networkFilterJSON
 	state := s.webViews[wv]
@@ -224,15 +238,19 @@ func (s *ContentBlockingService) applyFiltersToWebView(wv *pkgwebkit.WebView) {
 
 	// Apply network filters if not already applied
 	if !state.networkApplied && len(networkJSON) > 0 {
+		webView := wv // capture for closure
 		pkgwebkit.RunOnMainThread(func() {
-			s.applyNetworkFilters(wv, networkJSON)
+			if webView.IsDestroyed() {
+				return
+			}
+			s.applyNetworkFilters(webView, networkJSON)
 		})
 	}
 }
 
 // applyNetworkFilters applies network blocking rules to a WebView.
 func (s *ContentBlockingService) applyNetworkFilters(wv *pkgwebkit.WebView, filterJSON []byte) {
-	if wv == nil {
+	if wv == nil || wv.IsDestroyed() {
 		return
 	}
 
@@ -284,14 +302,18 @@ func (s *ContentBlockingService) setupCosmeticHooks(wv *pkgwebkit.WebView) {
 	}
 
 	// Register load-committed handler to inject domain-specific cosmetic rules
+	webView := wv // capture for closure
 	wv.RegisterLoadCommittedHandler(func(uri string) {
-		s.injectCosmeticRules(wv, uri)
+		if webView.IsDestroyed() {
+			return
+		}
+		s.injectCosmeticRules(webView, uri)
 	})
 }
 
 // injectCosmeticRules injects cosmetic filtering rules for the current page.
 func (s *ContentBlockingService) injectCosmeticRules(wv *pkgwebkit.WebView, uri string) {
-	if wv == nil || uri == "" {
+	if wv == nil || wv.IsDestroyed() || uri == "" {
 		return
 	}
 
@@ -319,8 +341,12 @@ func (s *ContentBlockingService) injectCosmeticRules(wv *pkgwebkit.WebView, uri 
 
 	// Inject the script
 	logging.Debug(fmt.Sprintf("[filtering] Injecting cosmetic rules for domain: %s (%d bytes)", domain, len(script)))
+	webView := wv // capture for closure
 	pkgwebkit.RunOnMainThread(func() {
-		if err := wv.InjectScript(script); err != nil {
+		if webView.IsDestroyed() {
+			return
+		}
+		if err := webView.InjectScript(script); err != nil {
 			logging.Error(fmt.Sprintf("[filtering] Failed to inject cosmetic rules for %s: %v", domain, err))
 		} else {
 			logging.Debug(fmt.Sprintf("[filtering] Successfully injected cosmetic rules for domain: %s", domain))
