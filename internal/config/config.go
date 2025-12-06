@@ -181,10 +181,9 @@ type CodecConfig struct {
 type ContentFilteringConfig struct {
 	// Enabled controls whether ad blocking is active (default: true)
 	Enabled bool `mapstructure:"enabled" yaml:"enabled"`
-	// Whitelist domains that should skip ad blocking (e.g. Twitch breaks with bot detection)
-	Whitelist []string `mapstructure:"whitelist" yaml:"whitelist"`
 	// FilterLists URLs of filter lists to use (EasyList, uBlock, etc.)
 	FilterLists []string `mapstructure:"filter_lists" yaml:"filter_lists"`
+	// Note: Whitelist is now managed via database (content_whitelist table)
 }
 
 // OmniboxConfig holds omnibox behavior preferences
@@ -764,8 +763,8 @@ func (m *Manager) setDefaults() {
 
 	// Content filtering
 	m.viper.SetDefault("content_filtering.enabled", defaults.ContentFiltering.Enabled)
-	m.viper.SetDefault("content_filtering.whitelist", defaults.ContentFiltering.Whitelist)
 	m.viper.SetDefault("content_filtering.filter_lists", defaults.ContentFiltering.FilterLists)
+	// Note: Whitelist is now managed via database (content_whitelist table)
 
 	// Omnibox defaults
 	m.viper.SetDefault("omnibox.initial_behavior", defaults.Omnibox.InitialBehavior)

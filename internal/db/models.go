@@ -17,14 +17,42 @@ type CertificateValidation struct {
 	ExpiresAt       sql.NullTime `json:"expires_at"`
 }
 
+type ContentWhitelist struct {
+	ID        int64        `json:"id"`
+	Domain    string       `json:"domain"`
+	CreatedAt sql.NullTime `json:"created_at"`
+}
+
 type Favorite struct {
-	ID         int64          `json:"id"`
-	Url        string         `json:"url"`
-	Title      sql.NullString `json:"title"`
-	FaviconUrl sql.NullString `json:"favicon_url"`
-	Position   int64          `json:"position"`
-	CreatedAt  sql.NullTime   `json:"created_at"`
-	UpdatedAt  sql.NullTime   `json:"updated_at"`
+	ID          int64          `json:"id"`
+	Url         string         `json:"url"`
+	Title       sql.NullString `json:"title"`
+	FaviconUrl  sql.NullString `json:"favicon_url"`
+	Position    int64          `json:"position"`
+	CreatedAt   sql.NullTime   `json:"created_at"`
+	UpdatedAt   sql.NullTime   `json:"updated_at"`
+	FolderID    sql.NullInt64  `json:"folder_id"`
+	ShortcutKey sql.NullInt64  `json:"shortcut_key"`
+}
+
+type FavoriteFolder struct {
+	ID        int64          `json:"id"`
+	Name      string         `json:"name"`
+	Icon      sql.NullString `json:"icon"`
+	Position  int64          `json:"position"`
+	CreatedAt sql.NullTime   `json:"created_at"`
+}
+
+type FavoriteTag struct {
+	ID        int64        `json:"id"`
+	Name      string       `json:"name"`
+	Color     string       `json:"color"`
+	CreatedAt sql.NullTime `json:"created_at"`
+}
+
+type FavoriteTagAssignment struct {
+	FavoriteID int64 `json:"favorite_id"`
+	TagID      int64 `json:"tag_id"`
 }
 
 type FuzzyCacheMetadatum struct {
@@ -50,6 +78,11 @@ type History struct {
 	LastVisited sql.NullTime   `json:"last_visited"`
 	CreatedAt   sql.NullTime   `json:"created_at"`
 	FaviconUrl  sql.NullString `json:"favicon_url"`
+}
+
+type HistoryFt struct {
+	Url   string `json:"url"`
+	Title string `json:"title"`
 }
 
 type ZoomLevel struct {

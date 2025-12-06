@@ -40,7 +40,7 @@ func (q *Queries) DeleteFavorite(ctx context.Context, url string) error {
 }
 
 const GetAllFavorites = `-- name: GetAllFavorites :many
-SELECT id, url, title, favicon_url, position, created_at, updated_at
+SELECT id, url, title, favicon_url, position, created_at, updated_at, folder_id, shortcut_key
 FROM favorites
 ORDER BY position ASC
 `
@@ -63,6 +63,8 @@ func (q *Queries) GetAllFavorites(ctx context.Context) ([]Favorite, error) {
 			&i.Position,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.FolderID,
+			&i.ShortcutKey,
 		); err != nil {
 			return nil, err
 		}
@@ -78,7 +80,7 @@ func (q *Queries) GetAllFavorites(ctx context.Context) ([]Favorite, error) {
 }
 
 const GetFavoriteByURL = `-- name: GetFavoriteByURL :one
-SELECT id, url, title, favicon_url, position, created_at, updated_at
+SELECT id, url, title, favicon_url, position, created_at, updated_at, folder_id, shortcut_key
 FROM favorites
 WHERE url = ?
 LIMIT 1
@@ -96,6 +98,8 @@ func (q *Queries) GetFavoriteByURL(ctx context.Context, url string) (Favorite, e
 		&i.Position,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.FolderID,
+		&i.ShortcutKey,
 	)
 	return i, err
 }
