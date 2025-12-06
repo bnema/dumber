@@ -148,7 +148,6 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  border: %dpx solid %s;
 	  border-radius: 0;
 	  background-color: transparent;
-	  pointer-events: none;
 	}
 
 	/* Tab mode border overlay - floats over content without layout shift */
@@ -156,7 +155,6 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  border: %dpx solid %s;
 	  border-radius: 0;
 	  background-color: transparent;
-	  pointer-events: none;
 	}
 
 	/* Pane border overlay - active pane indicator without layout shift */
@@ -164,7 +162,6 @@ func (wm *WorkspaceManager) generateWorkspaceCSS() string {
 	  border: %dpx solid %s;
 	  border-radius: 0;
 	  background-color: transparent;
-	  pointer-events: none;
 	  transition-property: opacity;
 	  transition-duration: %dms;
 	  transition-timing-function: ease-in-out;
