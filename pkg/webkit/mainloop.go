@@ -44,21 +44,18 @@ func QuitMainLoop() {
 	}
 }
 
-// IsMainThread returns true if called from the GTK main thread.
+// IsMainThread returns true if GTK has been initialized.
+// Note: This doesn't truly detect the main thread, but is used as a guard
+// for whether GTK operations are safe. All GTK operations should use
+// RunOnMainThread or IdleAdd to be thread-safe.
 func IsMainThread() bool {
-	// In gotk4, we're always on the main thread since we lock it
 	return isInitialized
 }
 
-// RunOnMainThread executes a function on the GTK main thread.
-// If already on the main thread, executes immediately.
-// Otherwise, schedules the function via glib.IdleAdd.
+// RunOnMainThread schedules a function to run on the GTK main thread.
+// Always uses glib.IdleAdd to ensure thread safety.
+// The function will execute during the next main loop iteration.
 func RunOnMainThread(fn func()) {
-	if IsMainThread() {
-		fn()
-		return
-	}
-
 	glib.IdleAdd(func() bool {
 		fn()
 		return false // Remove the idle handler after execution

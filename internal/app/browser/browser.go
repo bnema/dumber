@@ -65,6 +65,10 @@ type BrowserApp struct {
 	messageHandler        *messaging.Handler
 	shortcutHandler       *ShortcutHandler
 	windowShortcutHandler WindowShortcutHandlerInterface
+
+	// Performance optimization components
+	webViewPool     *WebViewPool     // Pre-created WebViews for instant tab/pane creation
+	prefetchManager *PrefetchManager // DNS prefetching for faster page loads
 }
 
 // Run starts the browser application
@@ -130,8 +134,8 @@ func (app *BrowserApp) Initialize() error {
 
 	logging.Info(fmt.Sprintf("Config initialized"))
 
-	// Detect keyboard layout
-	environment.DetectAndSetKeyboardLocale()
+	// Detect keyboard layout in background (required for shortcuts)
+	go environment.DetectAndSetKeyboardLocale()
 
 	// Initialize database (migrations run automatically in InitDB)
 	database, err := db.InitDB(app.config.Database.Path)
@@ -142,10 +146,13 @@ func (app *BrowserApp) Initialize() error {
 	app.queries = db.New(database)
 	logging.Info(fmt.Sprintf("Database opened at %s", app.config.Database.Path))
 
-	// Cleanup expired certificate validations
-	if err := webkit.CleanupExpiredCertificateValidations(); err != nil {
-		logging.Warn(fmt.Sprintf("Warning: failed to cleanup expired certificate validations: %v", err))
-	}
+	// DEFERRED: Cleanup expired certificate validations in background
+	go func() {
+		time.Sleep(500 * time.Millisecond) // Low priority maintenance task
+		if err := webkit.CleanupExpiredCertificateValidations(); err != nil {
+			logging.Warn(fmt.Sprintf("Warning: failed to cleanup expired certificate validations: %v", err))
+		}
+	}()
 
 	// Initialize services
 	app.parserService = services.NewParserService(app.config, app.queries)
@@ -161,7 +168,45 @@ func (app *BrowserApp) Initialize() error {
 	app.schemeHandler = api.NewSchemeHandler(app.assets, app.parserService, app.browserService)
 	app.messageHandler = messaging.NewHandler(app.parserService, app.browserService)
 
+	// Initialize prefetch manager for DNS preloading
+	app.prefetchManager = NewPrefetchManager(DefaultPrefetchConfig(), app.queries)
+
+	// Initialize WebView pool for instant tab/pane creation
+	// Pool starts warming up after main window shows (see Run method)
+	app.webViewPool = NewWebViewPool(2, 4, app.getWebViewConfig)
+
 	return nil
+}
+
+// getWebViewConfig returns the configuration for creating pooled WebViews
+func (app *BrowserApp) getWebViewConfig() *webkit.Config {
+	dataDir, _ := config.GetDataDir()
+	cacheDir, _ := config.GetFilterCacheDir()
+
+	return &webkit.Config{
+		EnableJavaScript:      true,
+		EnableWebGL:           true,
+		DefaultFontSize:       app.config.Appearance.DefaultFontSize,
+		MinimumFontSize:       8, // Reasonable default
+		UserAgent:             app.config.CodecPreferences.CustomUserAgent,
+		DataDir:               dataDir,
+		CacheDir:              cacheDir,
+		EnablePageCache:       true,
+		EnableSmoothScrolling: true,
+		CreateWindow:          false, // Pool WebViews don't create their own window
+	}
+}
+
+// GetWebViewPool returns the WebView pool for creating new tabs/panes.
+// Returns nil if pool is not initialized.
+func (app *BrowserApp) GetWebViewPool() *WebViewPool {
+	return app.webViewPool
+}
+
+// GetPrefetchManager returns the prefetch manager for DNS preloading.
+// Returns nil if prefetch manager is not initialized.
+func (app *BrowserApp) GetPrefetchManager() *PrefetchManager {
+	return app.prefetchManager
 }
 
 // loadCachesParallel loads all caches in parallel for fast startup.
@@ -235,12 +280,14 @@ func (app *BrowserApp) Run() {
 	// Register custom scheme resolver for "dumb://" URIs (will be applied after WebView creation)
 	webkit.RegisterURIScheme("dumb", app.schemeHandler.Handle)
 
-	// Initialize content blocking BEFORE creating WebViews so the service is ready
-	// to register WebViews as they are created (tabs, workspaces, popups)
-	if err := app.setupContentBlocking(); err != nil {
-		logging.Warn(fmt.Sprintf("Warning: failed to setup content blocking: %v", err))
-		// Continue without content blocking
-	}
+	// DEFERRED: Initialize content blocking AFTER window shows to speed up boot
+	// Content filters load from cache quickly (~50ms) and apply to new navigations
+	go func() {
+		time.Sleep(100 * time.Millisecond) // Let window render first
+		if err := app.setupContentBlocking(); err != nil {
+			logging.Warn(fmt.Sprintf("Warning: failed to setup content blocking: %v", err))
+		}
+	}()
 
 	// Create and setup WebView (this also creates TabManager which creates more WebViews)
 	if err := app.createWebView(); err != nil {
@@ -251,6 +298,17 @@ func (app *BrowserApp) Run() {
 	// Apply URI scheme handlers after WebView creation
 	if err := webkit.ApplyURISchemeHandlers(app.webView.GetWebView()); err != nil {
 		logging.Warn(fmt.Sprintf("Warning: failed to register URI scheme handlers: %v", err))
+	}
+
+	// POST-VISIBLE: Start WebView pool warmup for instant tab/pane creation
+	if app.webViewPool != nil {
+		app.webViewPool.Start()
+	}
+
+	// POST-VISIBLE: Start DNS prefetching from history and common domains
+	if app.prefetchManager != nil {
+		app.prefetchManager.PrefetchCommonDomains()
+		app.prefetchManager.PrefetchFromHistory(context.Background())
 	}
 
 	// Handle browse command if present (must use active tab's navigation controller)
@@ -277,6 +335,13 @@ func (app *BrowserApp) Run() {
 // cleanup handles cleanup on shutdown
 func (app *BrowserApp) cleanup() {
 	logging.Info(fmt.Sprintf("Starting browser cleanup..."))
+
+	// Stop WebView pool first (destroys pre-created WebViews)
+	if app.webViewPool != nil {
+		logging.Info(fmt.Sprintf("Stopping WebView pool"))
+		app.webViewPool.Stop()
+		app.webViewPool = nil
+	}
 
 	// Cleanup window shortcuts first
 	if app.windowShortcutHandler != nil {
