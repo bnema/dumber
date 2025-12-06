@@ -36,6 +36,8 @@ type FilterManager struct {
 	compileMutex     sync.RWMutex
 	compiled         *CompiledFilters
 	onFiltersReady   FilterReadyCallback
+	// Database whitelist querier (optional, can be nil)
+	whitelistDB WhitelistQuerier
 	// Cached whitelist rules to avoid recomputing on every filter application
 	cachedWhitelistRules []converter.WebKitRule
 	cachedWhitelistHash  string
@@ -63,6 +65,13 @@ type CosmeticInjector interface {
 	GetScriptForDomain(domain string) string
 }
 
+// WhitelistQuerier defines the interface for whitelist database operations
+type WhitelistQuerier interface {
+	GetAllWhitelistedDomains(ctx context.Context) ([]string, error)
+	AddToWhitelist(ctx context.Context, domain string) error
+	RemoveFromWhitelist(ctx context.Context, domain string) error
+}
+
 // CompiledFilters represents the compiled filter data
 type CompiledFilters struct {
 	NetworkRules  []converter.WebKitRule `json:"network_rules"`
@@ -74,7 +83,8 @@ type CompiledFilters struct {
 }
 
 // NewFilterManager creates a new filter manager
-func NewFilterManager(store FilterStore, compiler FilterCompiler) *FilterManager {
+// whitelistDB can be nil if database whitelist is not needed
+func NewFilterManager(store FilterStore, compiler FilterCompiler, whitelistDB WhitelistQuerier) *FilterManager {
 	fm := &FilterManager{
 		store:            store,
 		compiler:         compiler,
@@ -82,16 +92,38 @@ func NewFilterManager(store FilterStore, compiler FilterCompiler) *FilterManager
 		updateInterval:   defaultUpdateHours * time.Hour, // Default update interval
 		compiled:         &CompiledFilters{},
 		onFiltersReady:   nil,
+		whitelistDB:      whitelistDB,
 	}
 	// Initialize updater with reference to manager
 	fm.updater = NewFilterUpdater(fm)
 	return fm
 }
 
-// updateWhitelistCache rebuilds the cached whitelist rules from config if needed
-func (fm *FilterManager) updateWhitelistCache(whitelist []string) {
+// SetWhitelistDB sets the database whitelist querier
+func (fm *FilterManager) SetWhitelistDB(db WhitelistQuerier) {
+	fm.whitelistDB = db
+}
+
+// updateWhitelistCache rebuilds the cached whitelist rules from database
+func (fm *FilterManager) updateWhitelistCache() {
+	// Get domains from database whitelist
+	var allDomains []string
+
+	if fm.whitelistDB != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		dbDomains, err := fm.whitelistDB.GetAllWhitelistedDomains(ctx)
+		if err != nil {
+			logging.Warn(fmt.Sprintf("[filtering] Failed to get database whitelist: %v", err))
+		} else {
+			allDomains = dbDomains
+			logging.Debug(fmt.Sprintf("[filtering] Loaded %d database whitelist domains", len(dbDomains)))
+		}
+	}
+
 	// Create a hash of the whitelist to detect changes
-	currentHash := strings.Join(whitelist, "|")
+	currentHash := strings.Join(allDomains, "|")
 
 	// Only rebuild if whitelist changed
 	if fm.cachedWhitelistHash == currentHash && fm.cachedWhitelistRules != nil {
@@ -99,8 +131,8 @@ func (fm *FilterManager) updateWhitelistCache(whitelist []string) {
 	}
 
 	// Rebuild cache with pre-allocation
-	rules := make([]converter.WebKitRule, 0, len(whitelist))
-	for _, domain := range whitelist {
+	rules := make([]converter.WebKitRule, 0, len(allDomains))
+	for _, domain := range allDomains {
 		// Create a regex pattern that matches all URLs containing this domain
 		// Escape special regex characters in the domain
 		escapedDomain := strings.ReplaceAll(domain, ".", "\\.")
@@ -115,12 +147,60 @@ func (fm *FilterManager) updateWhitelistCache(whitelist []string) {
 				Type: converter.ActionTypeIgnorePreviousRules,
 			},
 		})
-		logging.Info(fmt.Sprintf("[filtering] Created whitelist rule: %s → pattern: %s", domain, urlPattern))
+		logging.Debug(fmt.Sprintf("[filtering] Created whitelist rule: %s → pattern: %s", domain, urlPattern))
 	}
 
 	fm.cachedWhitelistRules = rules
 	fm.cachedWhitelistHash = currentHash
-	logging.Info(fmt.Sprintf("[filtering] Whitelist cache updated with %d domains", len(whitelist)))
+	logging.Info(fmt.Sprintf("[filtering] Whitelist cache updated with %d domains from database", len(allDomains)))
+}
+
+// AddToWhitelist adds a domain to the database whitelist and recompiles filters
+func (fm *FilterManager) AddToWhitelist(ctx context.Context, domain string) error {
+	if fm.whitelistDB == nil {
+		return fmt.Errorf("database whitelist not available")
+	}
+
+	if err := fm.whitelistDB.AddToWhitelist(ctx, domain); err != nil {
+		return fmt.Errorf("failed to add domain to whitelist: %w", err)
+	}
+
+	// Force whitelist cache refresh by clearing the hash
+	fm.cachedWhitelistHash = ""
+
+	// Re-apply filters to pick up the new whitelist entry
+	fm.compileMutex.RLock()
+	currentFilters := fm.compiled
+	fm.compileMutex.RUnlock()
+
+	if currentFilters != nil && len(currentFilters.NetworkRules) > 0 {
+		// Create a copy of the filters to re-apply with updated whitelist
+		filtersCopy := NewCompiledFilters()
+		filtersCopy.NetworkRules = append(filtersCopy.NetworkRules, currentFilters.NetworkRules...)
+		filtersCopy.CosmeticRules = currentFilters.CosmeticRules
+		filtersCopy.GenericHiding = currentFilters.GenericHiding
+		fm.applyFilters(filtersCopy)
+	}
+
+	logging.Info(fmt.Sprintf("[filtering] Added domain to whitelist: %s", domain))
+	return nil
+}
+
+// RemoveFromWhitelist removes a domain from the database whitelist
+func (fm *FilterManager) RemoveFromWhitelist(ctx context.Context, domain string) error {
+	if fm.whitelistDB == nil {
+		return fmt.Errorf("database whitelist not available")
+	}
+
+	if err := fm.whitelistDB.RemoveFromWhitelist(ctx, domain); err != nil {
+		return fmt.Errorf("failed to remove domain from whitelist: %w", err)
+	}
+
+	// Force whitelist cache refresh
+	fm.cachedWhitelistHash = ""
+
+	logging.Info(fmt.Sprintf("[filtering] Removed domain from whitelist: %s", domain))
+	return nil
 }
 
 // SetFiltersReadyCallback sets a callback to be called when filters are loaded/updated
@@ -326,7 +406,7 @@ func (fm *FilterManager) applyFilters(filters *CompiledFilters) {
 		return
 	}
 
-	fm.updateWhitelistCache(cfg.ContentFiltering.Whitelist)
+	fm.updateWhitelistCache()
 	if len(fm.cachedWhitelistRules) > 0 {
 		filters.NetworkRules = append(filters.NetworkRules, fm.cachedWhitelistRules...)
 		logging.Info(fmt.Sprintf("[filtering] Applied %d whitelist rules (ignore-previous-rules)", len(fm.cachedWhitelistRules)))
@@ -365,6 +445,22 @@ func (fm *FilterManager) applyFilters(filters *CompiledFilters) {
 		},
 	}
 	filters.NetworkRules = append(filters.NetworkRules, antiBreakageRules...)
+
+	// Add internal scheme exceptions LAST to ensure they override all blocking rules
+	// The dumb:// scheme is used for internal pages (homepage, blocked page, etc.)
+	// and must never be blocked by content filtering
+	internalSchemeRules := []converter.WebKitRule{
+		{
+			Trigger: converter.Trigger{
+				URLFilter: "^dumb://",
+			},
+			Action: converter.Action{
+				Type: converter.ActionTypeIgnorePreviousRules,
+			},
+		},
+	}
+	filters.NetworkRules = append(filters.NetworkRules, internalSchemeRules...)
+	logging.Debug("[filtering] Added internal scheme exception for dumb://")
 
 	// Add generic cosmetic rules for common ad loading indicators and infinite loaders
 	antiLoaderSelectors := []string{

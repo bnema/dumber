@@ -59,6 +59,7 @@ type BrowserApp struct {
 	// Content filtering
 	filterManager          *filtering.FilterManager
 	contentBlockingService *filtering.ContentBlockingService
+	bypassRegistry         *filtering.BypassRegistry
 
 	// Handlers
 	schemeHandler         *api.SchemeHandler
