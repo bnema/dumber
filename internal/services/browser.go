@@ -1227,7 +1227,15 @@ type HistoryAnalytics struct {
 	TotalVisits  float64            `json:"total_visits"`
 	UniqueDays   int64              `json:"unique_days"`
 	TopDomains   []DomainStat       `json:"top_domains"`
+	DailyVisits  []DailyVisitCount  `json:"daily_visits"`
 	HourlyDist   []HourlyVisitCount `json:"hourly_distribution"`
+}
+
+// DailyVisitCount represents visit counts by day.
+type DailyVisitCount struct {
+	Day     string  `json:"day"`
+	Entries int64   `json:"entries"`
+	Visits  float64 `json:"visits"`
 }
 
 // HourlyVisitCount represents visit counts by hour.
@@ -1248,6 +1256,20 @@ func (s *BrowserService) GetHistoryAnalytics(ctx context.Context) (*HistoryAnaly
 		topDomains = []DomainStat{}
 	}
 
+	// Get daily visit counts for last 30 days
+	dailyRows, err := s.dbQueries.GetDailyVisitCount(ctx, "-30 days")
+	if err != nil {
+		dailyRows = []db.GetDailyVisitCountRow{}
+	}
+	dailyVisits := make([]DailyVisitCount, len(dailyRows))
+	for i, d := range dailyRows {
+		dailyVisits[i] = DailyVisitCount{
+			Day:     d.Day.(string),
+			Entries: d.Entries,
+			Visits:  d.Visits.Float64,
+		}
+	}
+
 	hourlyDist, err := s.dbQueries.GetHourlyDistribution(ctx)
 	if err != nil {
 		hourlyDist = []db.GetHourlyDistributionRow{}
@@ -1266,6 +1288,7 @@ func (s *BrowserService) GetHistoryAnalytics(ctx context.Context) (*HistoryAnaly
 		TotalVisits:  stats.TotalVisits.Float64,
 		UniqueDays:   stats.UniqueDays,
 		TopDomains:   topDomains,
+		DailyVisits:  dailyVisits,
 		HourlyDist:   hourly,
 	}, nil
 }
