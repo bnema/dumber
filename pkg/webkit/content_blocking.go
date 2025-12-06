@@ -65,6 +65,7 @@ func (cbm *ContentBlockingManager) CompileFilters(identifier string, jsonRules [
 		filter, err := cbm.filterStore.SaveFinish(result)
 		if err != nil {
 			logging.Error(fmt.Sprintf("[webkit] Failed to compile content filter: %v", err))
+			// Don't store nil filter - prevents GC from trying to unref it
 			if onComplete != nil {
 				onComplete(fmt.Errorf("failed to compile filter: %w", err))
 			}
@@ -79,7 +80,7 @@ func (cbm *ContentBlockingManager) CompileFilters(identifier string, jsonRules [
 			return
 		}
 
-		// Cache the compiled filter
+		// Cache the compiled filter (only if valid)
 		cbm.mu.Lock()
 		cbm.compiledFilter = filter
 		cbm.mu.Unlock()
@@ -153,6 +154,8 @@ func (cbm *ContentBlockingManager) ApplyFiltersFromJSON(ucm *webkit.UserContentM
 		if err != nil {
 			logging.Error(fmt.Sprintf("[webkit] Failed to compile content filter: %v", err))
 			done <- fmt.Errorf("failed to compile filter: %w", err)
+			// Explicitly nil to prevent GC issues with partial objects
+			filter = nil
 			return
 		}
 
@@ -162,15 +165,17 @@ func (cbm *ContentBlockingManager) ApplyFiltersFromJSON(ucm *webkit.UserContentM
 			return
 		}
 
-		// Cache for future use
+		// Cache for future use (only valid filters)
 		cbm.mu.Lock()
 		cbm.compiledFilter = filter
 		cbm.filterID = identifier
 		cbm.mu.Unlock()
 
 		RunOnMainThread(func() {
-			ucm.AddFilter(filter)
-			logging.Debug(fmt.Sprintf("[webkit] Successfully added content filter: %s", identifier))
+			if filter != nil {
+				ucm.AddFilter(filter)
+				logging.Debug(fmt.Sprintf("[webkit] Successfully added content filter: %s", identifier))
+			}
 			done <- nil
 		})
 	})
