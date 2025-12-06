@@ -231,18 +231,41 @@
     executeSelected();
   }
 
+  function handleOverlayInteraction(event: MouseEvent | KeyboardEvent) {
+    if (event instanceof KeyboardEvent) {
+      if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        homepageState.closeCommandPalette();
+      }
+      return;
+    }
+
+    if (event.currentTarget === event.target) {
+      homepageState.closeCommandPalette();
+    }
+  }
+
   onMount(async () => {
     await tick();
     inputRef?.focus();
   });
 </script>
 
-<div class="palette-overlay" onclick={() => homepageState.closeCommandPalette()}>
-  <div class="palette-container" onclick={(e) => e.stopPropagation()}>
+<div
+  class="palette-overlay"
+  role="button"
+  tabindex="0"
+  aria-label="Close command palette"
+  onclick={handleOverlayInteraction}
+  onkeydown={handleOverlayInteraction}
+>
+  <div class="palette-container" onclick={(e) => e.stopPropagation()} role="presentation">
     <!-- Search Header -->
     <div class="palette-header">
       <div class="search-row">
-        <Search size={16} strokeWidth={2} class="search-icon" />
+        <span class="search-icon">
+          <Search size={16} strokeWidth={2} />
+        </span>
         <input
           bind:this={inputRef}
           bind:value={query}
@@ -264,7 +287,9 @@
     <div class="palette-results" bind:this={listRef}>
       {#if filteredItems.length === 0}
         <div class="empty-results">
-          <SearchX size={24} strokeWidth={1.5} class="empty-icon" />
+          <span class="empty-icon">
+            <SearchX size={24} strokeWidth={1.5} />
+          </span>
           <span class="empty-text">No matches found</span>
         </div>
       {:else}
@@ -279,7 +304,7 @@
           >
             <span class="item-icon">
               {#if typeof item.icon === 'function'}
-                <svelte:component this={item.icon} size={16} strokeWidth={2} />
+                <item.icon size={16} strokeWidth={2} />
               {:else if item.icon}
                 {item.icon}
               {/if}
