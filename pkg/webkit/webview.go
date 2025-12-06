@@ -41,6 +41,7 @@ type WebView struct {
 	onLoadCommitted       func(string)                            // Called when page load is committed (safe to apply zoom)
 	onLoadStarted         func()                                  // Called when a load starts
 	onLoadFinished        func()                                  // Called when a load finishes
+	onLoadFailed          func(uri string, errorMessage string)   // Called when a load fails (content blocked, network error, etc.)
 	onLoadProgress        func(float64)                           // Called when estimated-load-progress changes
 	onPopupCreate         func(*webkit.NavigationAction) *WebView // New WebKit create signal handler
 	onReadyToShow         func()                                  // WebKit ready-to-show signal handler
@@ -262,6 +263,18 @@ func (w *WebView) setupEventHandlers() {
 		if w.onLoadProgress != nil {
 			w.onLoadProgress(w.view.EstimatedLoadProgress())
 		}
+	})
+
+	// Load failed - connect to load-failed signal for network errors, content blocking, etc.
+	w.view.ConnectLoadFailed(func(loadEvent webkit.LoadEvent, failingUri string, err error) bool {
+		if w.onLoadFailed != nil {
+			errorMsg := "Unknown error"
+			if err != nil {
+				errorMsg = err.Error()
+			}
+			w.onLoadFailed(failingUri, errorMsg)
+		}
+		return false // Let WebKit show its default error page
 	})
 
 	// Favicon changed - connect to FaviconDatabase
@@ -655,6 +668,15 @@ func (w *WebView) RegisterLoadFinishedHandler(handler func()) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.onLoadFinished = handler
+}
+
+// RegisterLoadFailedHandler registers a handler for load failed events.
+// The handler receives the failing URI and error message.
+// This is triggered for network errors, content blocking, etc.
+func (w *WebView) RegisterLoadFailedHandler(handler func(uri string, errorMessage string)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onLoadFailed = handler
 }
 
 // RegisterLoadProgressHandler registers a handler for load progress updates (0.0 - 1.0).

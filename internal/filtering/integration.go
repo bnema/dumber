@@ -8,7 +8,8 @@ import (
 )
 
 // SetupFilterSystem creates and initializes the complete filtering system
-func SetupFilterSystem() (*FilterManager, error) {
+// whitelistDB can be nil if database whitelist is not needed
+func SetupFilterSystem(whitelistDB WhitelistQuerier) (*FilterManager, error) {
 	// Create filter store
 	store, err := NewFileFilterStore()
 	if err != nil {
@@ -19,7 +20,7 @@ func SetupFilterSystem() (*FilterManager, error) {
 	compiler := NewDefaultFilterCompiler()
 
 	// Create filter manager with all components
-	manager := NewFilterManager(store, compiler)
+	manager := NewFilterManager(store, compiler, whitelistDB)
 
 	logging.Info("Filter system initialized successfully")
 	return manager, nil

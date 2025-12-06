@@ -76,6 +76,9 @@ func (s *SchemeHandler) handleAsset(req *webkit.URISchemeRequest, u *neturl.URL)
 	var rel string
 	if u.Opaque == constants.HomepagePath || (u.Host == constants.HomepagePath && (u.Path == "" || u.Path == "/")) || (u.Host == "" && (u.Path == "" || u.Path == "/")) {
 		rel = constants.IndexHTML
+	} else if u.Host == constants.BlockedPath && (u.Path == "" || u.Path == "/") {
+		// dumb://blocked → blocked.html
+		rel = constants.BlockedHTML
 	} else {
 		host := u.Host
 		p := strings.TrimPrefix(u.Path, "/")
@@ -86,6 +89,9 @@ func (s *SchemeHandler) handleAsset(req *webkit.URISchemeRequest, u *neturl.URL)
 			rel = p
 		case host == constants.HomepagePath && p != "":
 			// dumb://homepage/<asset>
+			rel = p
+		case host == constants.BlockedPath && p != "":
+			// dumb://blocked/<asset>
 			rel = p
 		case p != "":
 			rel = p

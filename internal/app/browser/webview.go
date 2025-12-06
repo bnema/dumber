@@ -379,8 +379,8 @@ func (app *BrowserApp) setupContentBlocking() error {
 		}
 	}()
 
-	// Setup filter system
-	filterManager, err := filtering.SetupFilterSystem()
+	// Setup filter system with database whitelist support
+	filterManager, err := filtering.SetupFilterSystem(app.queries)
 	if err != nil {
 		logging.Warn(fmt.Sprintf("Warning: Failed to setup filter system: %v", err))
 		return nil // Don't fail browser startup, continue without filters
@@ -427,6 +427,16 @@ func (app *BrowserApp) setupContentBlocking() error {
 		cbService.SetFiltersReady(filterJSON)
 		logging.Info(fmt.Sprintf("[filtering] Content blocking enabled for all WebViews"))
 	})
+
+	// Create bypass registry for one-time URL bypasses
+	app.bypassRegistry = filtering.NewBypassRegistry()
+
+	// Wire up message handler with filter manager and bypass registry
+	if app.messageHandler != nil {
+		app.messageHandler.SetFilterManager(filterManager)
+		app.messageHandler.SetBypassRegistry(app.bypassRegistry)
+		logging.Debug("[filtering] Message handler wired with filter manager and bypass registry")
+	}
 
 	// Start async filter loading
 	// This allows filters to compile in the background while the browser starts
