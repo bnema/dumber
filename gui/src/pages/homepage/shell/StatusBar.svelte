@@ -101,9 +101,10 @@
 
     <!-- Mode Indicator -->
     {#if modeIndicator}
+      {@const ModeIcon = modeIndicator.icon}
       <div class="status-chip mode-chip" data-color={modeIndicator.color}>
         <span class="chip-icon">
-          <svelte:component this={modeIndicator.icon} size={12} strokeWidth={2} />
+          <ModeIcon size={12} strokeWidth={2} />
         </span>
         <span class="chip-text">{modeIndicator.label}</span>
       </div>
@@ -113,7 +114,8 @@
     <div class="status-chip panel-chip">
       <span class="chip-icon">
         {#if panelIcon}
-          <svelte:component this={panelIcon} size={12} strokeWidth={2} />
+          {@const PanelIcon = panelIcon}
+          <PanelIcon size={12} strokeWidth={2} />
         {/if}
       </span>
       <span class="chip-text">{panelLabel}</span>
@@ -171,7 +173,7 @@
     gap: 1rem;
     padding: 0.5rem 0.85rem;
     font-size: 0.68rem;
-    font-family: 'JetBrains Mono NF', ui-monospace, monospace;
+    font-family: ui-monospace, 'Fira Code', 'Cascadia Code', Menlo, Monaco, Consolas, monospace;
     letter-spacing: 0.05em;
     border-top: 1px solid var(--dynamic-border);
     background: color-mix(in srgb, var(--dynamic-bg) 92%, var(--dynamic-surface) 8%);
@@ -259,7 +261,7 @@
     padding: 0.1rem 0.25rem;
     background: color-mix(in srgb, #fbbf24 25%, transparent);
     border: 1px solid color-mix(in srgb, #fbbf24 40%, var(--dynamic-border) 60%);
-    font-family: 'JetBrains Mono NF', ui-monospace, monospace;
+    font-family: ui-monospace, 'Fira Code', 'Cascadia Code', Menlo, Monaco, Consolas, monospace;
   }
 
   .prefix-waiting {
