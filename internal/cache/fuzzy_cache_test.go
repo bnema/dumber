@@ -521,11 +521,9 @@ func TestCacheInvalidation(t *testing.T) {
 		t.Errorf("Expected 3 entries in initial cache, got %d", cache1.entryCount)
 	}
 
-	// Invalidate and refresh
-	manager.InvalidateAndRefresh(ctx)
-
-	// Wait for background refresh
-	time.Sleep(100 * time.Millisecond)
+	// Invalidate and refresh - wait for completion to prevent mock access after test ends
+	done := manager.InvalidateAndRefresh(ctx)
+	<-done
 
 	// Get updated cache
 	cache2, err := manager.GetCache(ctx)
@@ -740,7 +738,7 @@ func TestGetBestPrefixMatch_ReturnsHighestScore(t *testing.T) {
 			ID:          2,
 			Url:         "https://google.com",
 			Title:       sql.NullString{String: "Google", Valid: true},
-			VisitCount:  sql.NullInt64{Int64: 100, Valid: true}, // Much higher visits
+			VisitCount:  sql.NullInt64{Int64: 100, Valid: true},                   // Much higher visits
 			LastVisited: sql.NullTime{Time: now.Add(-1 * time.Hour), Valid: true}, // More recent
 		},
 	}

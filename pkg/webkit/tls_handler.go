@@ -12,8 +12,8 @@ import (
 	"github.com/bnema/dumber/internal/config"
 	"github.com/bnema/dumber/internal/db"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/diamondburned/gotk4/pkg/gio/v2"
-	"github.com/diamondburned/gotk4/pkg/gtk/v4"
+	gio "github.com/diamondburned/gotk4/pkg/gio/v2"
+	gtk "github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
 // TLSCertificateInfo holds information about a TLS certificate for display

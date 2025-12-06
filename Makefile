@@ -97,7 +97,7 @@ test-race: ## Run tests with race detection
 	$(GOENV) CGO_ENABLED=1 go test -race -v ./...
 
 # Linting
-lint: ## Run golangci-lint
+lint: ## Run golangci-lint (excludes pkg/webkit CGO files via config)
 	@echo "Running golangci-lint..."
 	golangci-lint run
 

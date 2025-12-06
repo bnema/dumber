@@ -50,12 +50,78 @@ type FavoritesQuerier interface {
 	GetFavoriteCount(ctx context.Context) (int64, error)
 }
 
+// FolderQuerier defines the interface for favorite folder operations
+type FolderQuerier interface {
+	GetAllFolders(ctx context.Context) ([]FavoriteFolder, error)
+	GetFolderByID(ctx context.Context, id int64) (FavoriteFolder, error)
+	CreateFolder(ctx context.Context, name string, icon sql.NullString) (FavoriteFolder, error)
+	UpdateFolder(ctx context.Context, name string, icon sql.NullString, id int64) error
+	DeleteFolder(ctx context.Context, id int64) error
+	GetFavoritesInFolder(ctx context.Context, folderID sql.NullInt64) ([]Favorite, error)
+	GetFavoritesWithoutFolder(ctx context.Context) ([]Favorite, error)
+	SetFavoriteFolder(ctx context.Context, folderID sql.NullInt64, id int64) error
+	ClearFavoriteFolder(ctx context.Context, id int64) error
+}
+
+// TagQuerier defines the interface for favorite tag operations
+type TagQuerier interface {
+	GetAllTags(ctx context.Context) ([]FavoriteTag, error)
+	GetTagByID(ctx context.Context, id int64) (FavoriteTag, error)
+	GetTagByName(ctx context.Context, name string) (FavoriteTag, error)
+	CreateTag(ctx context.Context, name string, color string) (FavoriteTag, error)
+	UpdateTag(ctx context.Context, name string, color string, id int64) error
+	DeleteTag(ctx context.Context, id int64) error
+	AssignTag(ctx context.Context, favoriteID int64, tagID int64) error
+	RemoveTag(ctx context.Context, favoriteID int64, tagID int64) error
+	GetTagsForFavorite(ctx context.Context, favoriteID int64) ([]FavoriteTag, error)
+	GetFavoritesWithTag(ctx context.Context, tagID int64) ([]Favorite, error)
+	ClearTagsFromFavorite(ctx context.Context, favoriteID int64) error
+}
+
+// ShortcutQuerier defines the interface for favorite shortcut operations
+type ShortcutQuerier interface {
+	SetFavoriteShortcut(ctx context.Context, shortcutKey sql.NullInt64, id int64) error
+	ClearFavoriteShortcut(ctx context.Context, id int64) error
+	GetFavoriteByShortcut(ctx context.Context, shortcutKey sql.NullInt64) (Favorite, error)
+	ClearShortcutFromOthers(ctx context.Context, shortcutKey sql.NullInt64) error
+}
+
+// HistoryExtendedQuerier defines the interface for extended history operations
+type HistoryExtendedQuerier interface {
+	GetHistoryTimeline(ctx context.Context, limit int64, offset int64) ([]GetHistoryTimelineRow, error)
+	GetHistoryByDateRange(ctx context.Context, lastVisited sql.NullTime, lastVisited2 sql.NullTime) ([]History, error)
+	GetHistoryDates(ctx context.Context, limit int64) ([]interface{}, error)
+	GetHistoryStats(ctx context.Context) (GetHistoryStatsRow, error)
+	GetDomainStats(ctx context.Context, limit int64) ([]GetDomainStatsRow, error)
+	GetHourlyDistribution(ctx context.Context) ([]GetHourlyDistributionRow, error)
+	GetDailyVisitCount(ctx context.Context, date interface{}) ([]GetDailyVisitCountRow, error)
+	DeleteHistoryLastHour(ctx context.Context) error
+	DeleteHistoryLastDay(ctx context.Context) error
+	DeleteHistoryLastWeek(ctx context.Context) error
+	DeleteHistoryLastMonth(ctx context.Context) error
+	DeleteHistoryByDomain(ctx context.Context, col1 sql.NullString, col2 sql.NullString, col3 sql.NullString, col4 sql.NullString) error
+	DeleteHistoryOlderThan(ctx context.Context, days string) error
+}
+
+// ContentWhitelistQuerier defines the interface for content filtering whitelist operations
+type ContentWhitelistQuerier interface {
+	GetAllWhitelistedDomains(ctx context.Context) ([]string, error)
+	AddToWhitelist(ctx context.Context, domain string) error
+	RemoveFromWhitelist(ctx context.Context, domain string) error
+	IsWhitelisted(ctx context.Context, domain string) (int64, error)
+}
+
 // DatabaseQuerier combines all database operation interfaces
 type DatabaseQuerier interface {
 	ZoomQuerier
 	HistoryQuerier
 	CertificateQuerier
 	FavoritesQuerier
+	FolderQuerier
+	TagQuerier
+	ShortcutQuerier
+	HistoryExtendedQuerier
+	ContentWhitelistQuerier
 }
 
 // Ensure that *Queries implements DatabaseQuerier interface

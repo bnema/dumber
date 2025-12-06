@@ -1,14 +1,78 @@
+@import "./design-tokens.css";
 @import "tailwindcss";
 
-/* Dynamic theme switching via CSS variables */
+/* Inter - Sans-serif for UI text */
+@font-face {
+  font-family: "Inter";
+  src: url("dumb://app/fonts/Inter-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("dumb://app/fonts/Inter-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("dumb://app/fonts/Inter-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* JetBrains Mono Nerd Font - Industrial Terminal aesthetic */
+@font-face {
+  font-family: "JetBrains Mono NF";
+  src: url("dumb://app/fonts/JetBrainsMonoNerdFont-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono NF";
+  src: url("dumb://app/fonts/JetBrainsMonoNerdFont-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono NF";
+  src: url("dumb://app/fonts/JetBrainsMonoNerdFont-Italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* Dynamic theme switching via CSS variables
+ * These bridge between:
+ * 1. Backend palette (--color-browser-*) injected at runtime
+ * 2. Design tokens (--background, --primary, etc.) for static fallbacks
+ * 3. Component usage (--dynamic-*) for actual styling
+ */
 :root {
-  --dynamic-bg: var(--color-browser-bg);
-  --dynamic-surface-variant: var(--color-browser-surface-variant);
-  --dynamic-surface: var(--color-browser-surface);
-  --dynamic-text: var(--color-browser-text);
-  --dynamic-muted: var(--color-browser-muted);
-  --dynamic-accent: var(--color-browser-accent);
-  --dynamic-border: var(--color-browser-border);
+  /* Primary bridge - uses backend palette when available, falls back to tokens */
+  --dynamic-bg: var(--color-browser-bg, var(--background));
+  --dynamic-surface: var(--color-browser-surface, var(--card));
+  --dynamic-surface-variant: var(--color-browser-surface-variant, var(--secondary));
+  --dynamic-text: var(--color-browser-text, var(--foreground));
+  --dynamic-muted: var(--color-browser-muted, var(--muted-foreground));
+  --dynamic-accent: var(--color-browser-accent, var(--primary));
+  --dynamic-border: var(--color-browser-border, var(--border));
+
+  /* Extended semantic colors from design tokens */
+  --dynamic-primary: var(--primary);
+  --dynamic-primary-foreground: var(--primary-foreground);
+  --dynamic-secondary: var(--secondary);
+  --dynamic-destructive: var(--destructive);
+  --dynamic-ring: var(--ring);
 }
 
 /* Base styles for browser UI components */

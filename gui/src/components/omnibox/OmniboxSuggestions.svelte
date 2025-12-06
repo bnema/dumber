@@ -27,9 +27,9 @@
     // In favorites view with input, filter locally
     if (viewMode === 'favorites' && inputValue && inputValue.trim()) {
       const query = inputValue.toLowerCase().trim();
-      return list.filter(fav =>
-        fav.url.toLowerCase().includes(query) ||
-        (fav.title && fav.title.toLowerCase().includes(query))
+      return list.filter(item =>
+        item.url.toLowerCase().includes(query) ||
+        ('title' in item && item.title && item.title.toLowerCase().includes(query))
       );
     }
 
@@ -150,7 +150,7 @@
       {#each currentList as item, index (item.url)}
         {@const { domain, path } = parseUrl(item.url)}
         {@const isSelected = index === selectedIndex}
-        {@const favicon = item.favicon || item.favicon_url || ''}
+        {@const favicon = ('favicon' in item ? item.favicon : '') || ('favicon_url' in item ? item.favicon_url : '') || ''}
         {@const isFav = viewMode === 'history' && isFavorited(item.url)}
         {@const shortcutNumber = index < 9 ? index + 1 : index === 9 ? 0 : null}
 
