@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+- Startup defers non-critical work, adds DNS prefetching and a warmed WebView pool for faster tab/pane creation.
+- SQLite WAL checkpoints happen less frequently to reduce contention.
+- Content filters skip caching invalid rules; EasyList parser prefers if-domain over unless-domain.
+- Workspace border overlays can now receive pointer input.
+
 ## [0.15.0] - 2025-11-29
 
 ### Added
