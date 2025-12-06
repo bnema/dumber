@@ -183,6 +183,12 @@ export class OmniboxBridge implements OmniboxMessageBridge {
   toggleFavorite(url: string, title: string, faviconURL: string): void {
     console.log("⭐ [DEBUG] Toggling favorite:", { url, title, faviconURL });
     this.postMessage({ type: "toggle_favorite", url, title, faviconURL });
+
+    // Notify other parts of the app that favorites changed
+    // Homepage will listen for this and refresh its favorites list
+    setTimeout(() => {
+      document.dispatchEvent(new CustomEvent("dumber:favorites-changed"));
+    }, 100); // Small delay to let backend complete
   }
 
   /**
