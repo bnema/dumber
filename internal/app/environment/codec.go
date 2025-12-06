@@ -73,6 +73,15 @@ func ApplyCodecConfiguration(codecPrefs config.CodecConfig) {
 		logging.Info(fmt.Sprintf("[codec] Blocked VP8 decoders"))
 	}
 
+	// Promote hardware JPEG decoders for faster image loading
+	jpegRanks := []string{
+		"vaapijpegdec:512", // VA-API JPEG decoder (highest priority)
+		"nvjpegdec:384",    // NVDEC JPEG decoder
+		"jpegdec:256",      // Software fallback
+	}
+	rankSettings = append(rankSettings, jpegRanks...)
+	logging.Info("[codec] Promoted hardware JPEG decoders")
+
 	// Apply the complete ranking system
 	if len(rankSettings) > 0 {
 		finalRank := strings.Join(rankSettings, ",")
