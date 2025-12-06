@@ -227,7 +227,7 @@ func TestFuzzyMatcher_SearchHistory(t *testing.T) {
 		{
 			name:          "Multiple matches",
 			query:         "o", // Should match entries containing "o" that meet threshold
-			expectMatches: 1,  // At least 1 match, may vary based on scoring algorithm
+			expectMatches: 1,   // At least 1 match, may vary based on scoring algorithm
 		},
 		{
 			name:          "No matches",

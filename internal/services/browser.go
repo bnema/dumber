@@ -900,3 +900,384 @@ func (s *BrowserService) GetColorPalettesForMessaging() ColorPalettesResponse {
 		Dark:  s.config.Appearance.DarkPalette,
 	}
 }
+
+// ═══════════════════════════════════════════════════════════════
+// FOLDER OPERATIONS
+// ═══════════════════════════════════════════════════════════════
+
+// FolderEntry represents a favorite folder for the frontend.
+type FolderEntry struct {
+	ID        int64  `json:"id"`
+	Name      string `json:"name"`
+	Icon      string `json:"icon"`
+	Position  int64  `json:"position"`
+	CreatedAt string `json:"created_at"`
+}
+
+// GetFolders returns all favorite folders ordered by position.
+func (s *BrowserService) GetFolders(ctx context.Context) ([]FolderEntry, error) {
+	folders, err := s.dbQueries.GetAllFolders(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]FolderEntry, len(folders))
+	for i, f := range folders {
+		result[i] = FolderEntry{
+			ID:        f.ID,
+			Name:      f.Name,
+			Icon:      f.Icon.String,
+			Position:  f.Position,
+			CreatedAt: f.CreatedAt.Time.Format(time.RFC3339),
+		}
+	}
+	return result, nil
+}
+
+// CreateFolder creates a new favorite folder.
+func (s *BrowserService) CreateFolder(ctx context.Context, name, icon string) (*FolderEntry, error) {
+	iconNull := sql.NullString{String: icon, Valid: icon != ""}
+	folder, err := s.dbQueries.CreateFolder(ctx, name, iconNull)
+	if err != nil {
+		return nil, err
+	}
+
+	return &FolderEntry{
+		ID:        folder.ID,
+		Name:      folder.Name,
+		Icon:      folder.Icon.String,
+		Position:  folder.Position,
+		CreatedAt: folder.CreatedAt.Time.Format(time.RFC3339),
+	}, nil
+}
+
+// UpdateFolder updates a folder's name and icon.
+func (s *BrowserService) UpdateFolder(ctx context.Context, id int64, name, icon string) error {
+	iconNull := sql.NullString{String: icon, Valid: icon != ""}
+	return s.dbQueries.UpdateFolder(ctx, name, iconNull, id)
+}
+
+// DeleteFolder removes a folder by ID.
+func (s *BrowserService) DeleteFolder(ctx context.Context, id int64) error {
+	return s.dbQueries.DeleteFolder(ctx, id)
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TAG OPERATIONS
+// ═══════════════════════════════════════════════════════════════
+
+// TagEntry represents a favorite tag for the frontend.
+type TagEntry struct {
+	ID        int64  `json:"id"`
+	Name      string `json:"name"`
+	Color     string `json:"color"`
+	CreatedAt string `json:"created_at"`
+}
+
+// GetTags returns all tags ordered by name.
+func (s *BrowserService) GetTags(ctx context.Context) ([]TagEntry, error) {
+	tags, err := s.dbQueries.GetAllTags(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]TagEntry, len(tags))
+	for i, t := range tags {
+		result[i] = TagEntry{
+			ID:        t.ID,
+			Name:      t.Name,
+			Color:     t.Color,
+			CreatedAt: t.CreatedAt.Time.Format(time.RFC3339),
+		}
+	}
+	return result, nil
+}
+
+// CreateTag creates a new tag.
+func (s *BrowserService) CreateTag(ctx context.Context, name, color string) (*TagEntry, error) {
+	tag, err := s.dbQueries.CreateTag(ctx, name, color)
+	if err != nil {
+		return nil, err
+	}
+
+	return &TagEntry{
+		ID:        tag.ID,
+		Name:      tag.Name,
+		Color:     tag.Color,
+		CreatedAt: tag.CreatedAt.Time.Format(time.RFC3339),
+	}, nil
+}
+
+// UpdateTag updates a tag's name and color.
+func (s *BrowserService) UpdateTag(ctx context.Context, id int64, name, color string) error {
+	return s.dbQueries.UpdateTag(ctx, name, color, id)
+}
+
+// DeleteTag removes a tag by ID.
+func (s *BrowserService) DeleteTag(ctx context.Context, id int64) error {
+	return s.dbQueries.DeleteTag(ctx, id)
+}
+
+// AssignTag assigns a tag to a favorite.
+func (s *BrowserService) AssignTag(ctx context.Context, favoriteID, tagID int64) error {
+	return s.dbQueries.AssignTag(ctx, favoriteID, tagID)
+}
+
+// RemoveTag removes a tag from a favorite.
+func (s *BrowserService) RemoveTag(ctx context.Context, favoriteID, tagID int64) error {
+	return s.dbQueries.RemoveTag(ctx, favoriteID, tagID)
+}
+
+// GetTagsForFavorite returns all tags assigned to a favorite.
+func (s *BrowserService) GetTagsForFavorite(ctx context.Context, favoriteID int64) ([]TagEntry, error) {
+	tags, err := s.dbQueries.GetTagsForFavorite(ctx, favoriteID)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]TagEntry, len(tags))
+	for i, t := range tags {
+		result[i] = TagEntry{
+			ID:        t.ID,
+			Name:      t.Name,
+			Color:     t.Color,
+			CreatedAt: t.CreatedAt.Time.Format(time.RFC3339),
+		}
+	}
+	return result, nil
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FAVORITE SHORTCUT OPERATIONS
+// ═══════════════════════════════════════════════════════════════
+
+// SetFavoriteShortcut sets or clears a keyboard shortcut (1-9) for a favorite.
+// Pass 0 to clear the shortcut.
+func (s *BrowserService) SetFavoriteShortcut(ctx context.Context, favoriteID int64, shortcut int) error {
+	if shortcut == 0 {
+		return s.dbQueries.ClearFavoriteShortcut(ctx, favoriteID)
+	}
+
+	// Clear this shortcut from any other favorite first
+	shortcutNull := sql.NullInt64{Int64: int64(shortcut), Valid: true}
+	if err := s.dbQueries.ClearShortcutFromOthers(ctx, shortcutNull); err != nil {
+		return err
+	}
+
+	return s.dbQueries.SetFavoriteShortcut(ctx, shortcutNull, favoriteID)
+}
+
+// GetFavoriteByShortcut returns the favorite assigned to a shortcut key.
+func (s *BrowserService) GetFavoriteByShortcut(ctx context.Context, shortcut int) (*FavoriteEntry, error) {
+	shortcutNull := sql.NullInt64{Int64: int64(shortcut), Valid: true}
+	fav, err := s.dbQueries.GetFavoriteByShortcut(ctx, shortcutNull)
+	if err != nil {
+		return nil, err
+	}
+
+	return &FavoriteEntry{
+		ID:         fav.ID,
+		URL:        fav.Url,
+		Title:      fav.Title.String,
+		FaviconURL: fav.FaviconUrl.String,
+		Position:   fav.Position,
+	}, nil
+}
+
+// SetFavoriteFolder moves a favorite to a folder or removes it from folders.
+// Pass nil to remove from any folder.
+func (s *BrowserService) SetFavoriteFolder(ctx context.Context, favoriteID int64, folderID *int64) error {
+	if folderID == nil {
+		return s.dbQueries.ClearFavoriteFolder(ctx, favoriteID)
+	}
+	folderNull := sql.NullInt64{Int64: *folderID, Valid: true}
+	return s.dbQueries.SetFavoriteFolder(ctx, folderNull, favoriteID)
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXTENDED HISTORY OPERATIONS
+// ═══════════════════════════════════════════════════════════════
+
+// TimelineEntry represents a history entry with date grouping.
+type TimelineEntry struct {
+	ID          int64  `json:"id"`
+	URL         string `json:"url"`
+	Title       string `json:"title"`
+	FaviconURL  string `json:"favicon_url"`
+	VisitCount  int32  `json:"visit_count"`
+	LastVisited string `json:"last_visited"`
+	VisitDate   string `json:"visit_date"`
+}
+
+// GetHistoryTimeline returns history entries with date for timeline grouping.
+func (s *BrowserService) GetHistoryTimeline(ctx context.Context, limit, offset int) ([]TimelineEntry, error) {
+	entries, err := s.dbQueries.GetHistoryTimeline(ctx, int64(limit), int64(offset))
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]TimelineEntry, len(entries))
+	for i, e := range entries {
+		visitDate := ""
+		if dateStr, ok := e.VisitDate.(string); ok {
+			visitDate = dateStr
+		}
+		result[i] = TimelineEntry{
+			ID:          e.ID,
+			URL:         e.Url,
+			Title:       e.Title.String,
+			FaviconURL:  e.FaviconUrl.String,
+			VisitCount:  clampToInt32(e.VisitCount.Int64),
+			LastVisited: e.LastVisited.Time.Format(time.RFC3339),
+			VisitDate:   visitDate,
+		}
+	}
+	return result, nil
+}
+
+// SearchHistoryFTS performs full-text search on history.
+func (s *BrowserService) SearchHistoryFTS(ctx context.Context, query string, limit int) ([]HistoryEntry, error) {
+	entries, err := db.SearchHistoryFTS(ctx, s.getDB(), query, int64(limit))
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]HistoryEntry, len(entries))
+	for i, e := range entries {
+		result[i] = HistoryEntry{
+			ID:          e.ID,
+			URL:         e.Url,
+			Title:       e.Title.String,
+			FaviconURL:  e.FaviconUrl.String,
+			VisitCount:  clampToInt32(e.VisitCount.Int64),
+			LastVisited: e.LastVisited.Time,
+			CreatedAt:   e.CreatedAt.Time,
+		}
+	}
+	return result, nil
+}
+
+// DeleteHistoryLastHour deletes history from the last hour.
+func (s *BrowserService) DeleteHistoryLastHour(ctx context.Context) error {
+	return s.dbQueries.DeleteHistoryLastHour(ctx)
+}
+
+// DeleteHistoryLastDay deletes history from the last day.
+func (s *BrowserService) DeleteHistoryLastDay(ctx context.Context) error {
+	return s.dbQueries.DeleteHistoryLastDay(ctx)
+}
+
+// DeleteHistoryLastWeek deletes history from the last week.
+func (s *BrowserService) DeleteHistoryLastWeek(ctx context.Context) error {
+	return s.dbQueries.DeleteHistoryLastWeek(ctx)
+}
+
+// DeleteHistoryLastMonth deletes history from the last month.
+func (s *BrowserService) DeleteHistoryLastMonth(ctx context.Context) error {
+	return s.dbQueries.DeleteHistoryLastMonth(ctx)
+}
+
+// ClearAllHistory deletes all history entries.
+func (s *BrowserService) ClearAllHistory(ctx context.Context) error {
+	return s.dbQueries.DeleteAllHistory(ctx)
+}
+
+// DeleteHistoryByDomain deletes all history entries for a specific domain.
+func (s *BrowserService) DeleteHistoryByDomain(ctx context.Context, domain string) error {
+	d := sql.NullString{String: domain, Valid: true}
+	return s.dbQueries.DeleteHistoryByDomain(ctx, d, d, d, d)
+}
+
+// DomainStat represents statistics for a domain.
+type DomainStat struct {
+	Domain      string  `json:"domain"`
+	PageCount   int64   `json:"page_count"`
+	TotalVisits float64 `json:"total_visits"`
+	LastVisit   string  `json:"last_visit"`
+}
+
+// GetDomainStats returns browsing statistics grouped by domain.
+func (s *BrowserService) GetDomainStats(ctx context.Context, limit int) ([]DomainStat, error) {
+	stats, err := s.dbQueries.GetDomainStats(ctx, int64(limit))
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]DomainStat, len(stats))
+	for i, stat := range stats {
+		lastVisit := ""
+		if t, ok := stat.LastVisit.(time.Time); ok {
+			lastVisit = t.Format(time.RFC3339)
+		} else if s, ok := stat.LastVisit.(string); ok {
+			lastVisit = s
+		}
+		result[i] = DomainStat{
+			Domain:      stat.Domain,
+			PageCount:   stat.PageCount,
+			TotalVisits: stat.TotalVisits.Float64,
+			LastVisit:   lastVisit,
+		}
+	}
+	return result, nil
+}
+
+// HistoryAnalytics contains analytics data for the history.
+type HistoryAnalytics struct {
+	TotalEntries int64              `json:"total_entries"`
+	TotalVisits  float64            `json:"total_visits"`
+	UniqueDays   int64              `json:"unique_days"`
+	TopDomains   []DomainStat       `json:"top_domains"`
+	HourlyDist   []HourlyVisitCount `json:"hourly_distribution"`
+}
+
+// HourlyVisitCount represents visit counts by hour.
+type HourlyVisitCount struct {
+	Hour       int   `json:"hour"`
+	VisitCount int64 `json:"visit_count"`
+}
+
+// GetHistoryAnalytics returns comprehensive analytics about browsing history.
+func (s *BrowserService) GetHistoryAnalytics(ctx context.Context) (*HistoryAnalytics, error) {
+	stats, err := s.dbQueries.GetHistoryStats(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	topDomains, err := s.GetDomainStats(ctx, 10)
+	if err != nil {
+		topDomains = []DomainStat{}
+	}
+
+	hourlyDist, err := s.dbQueries.GetHourlyDistribution(ctx)
+	if err != nil {
+		hourlyDist = []db.GetHourlyDistributionRow{}
+	}
+
+	hourly := make([]HourlyVisitCount, len(hourlyDist))
+	for i, h := range hourlyDist {
+		hourly[i] = HourlyVisitCount{
+			Hour:       int(h.Hour),
+			VisitCount: h.VisitCount,
+		}
+	}
+
+	return &HistoryAnalytics{
+		TotalEntries: stats.TotalEntries,
+		TotalVisits:  stats.TotalVisits.Float64,
+		UniqueDays:   stats.UniqueDays,
+		TopDomains:   topDomains,
+		HourlyDist:   hourly,
+	}, nil
+}
+
+// getDB returns the underlying *sql.DB for raw queries like FTS5.
+// This requires access to the db connection which BrowserService doesn't expose.
+// We need to add this capability.
+func (s *BrowserService) getDB() *sql.DB {
+	// The dbQueries interface wraps the db connection
+	// We need to access it for FTS queries
+	if q, ok := s.dbQueries.(*db.Queries); ok {
+		return q.DB()
+	}
+	return nil
+}

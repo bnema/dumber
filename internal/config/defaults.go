@@ -102,22 +102,22 @@ func DefaultConfig() *Config {
 			MonospaceFont:   "Fira Code",
 			DefaultFontSize: defaultFontSize,
 			LightPalette: ColorPalette{
-				Background:     "#f8f8f8",
-				Surface:        "#f2f2f2",
-				SurfaceVariant: "#ececec",
-				Text:           "#1a1a1a",
-				Muted:          "#6e6e6e",
-				Accent:         "#404040",
-				Border:         "#d2d2d2",
+				Background:     "#fafafa",
+				Surface:        "#f4f4f5",
+				SurfaceVariant: "#e4e4e7",
+				Text:           "#18181b",
+				Muted:          "#71717a",
+				Accent:         "#22c55e", // Green-500 - vibrant primary
+				Border:         "#d4d4d8",
 			},
 			DarkPalette: ColorPalette{
-				Background:     "#0e0e0e",
-				Surface:        "#1a1a1a",
-				SurfaceVariant: "#141414",
-				Text:           "#e4e4e4",
-				Muted:          "#848484",
-				Accent:         "#a8a8a8",
-				Border:         "#363636",
+				Background:     "#0a0a0b",
+				Surface:        "#18181b",
+				SurfaceVariant: "#27272a",
+				Text:           "#fafafa",
+				Muted:          "#a1a1aa",
+				Accent:         "#4ade80", // Green-400 - vibrant primary
+				Border:         "#3f3f46",
 			},
 			ColorScheme: "default", // default follows system theme
 		},
@@ -214,18 +214,14 @@ func DefaultConfig() *Config {
 		},
 		ContentFiltering: ContentFilteringConfig{
 			Enabled: true, // Ad blocking enabled by default
-			Whitelist: []string{
-				"twitch.tv",          // Arkose Labs bot detection breaks with filtering
-				"passport.twitch.tv", // Auth subdomain
-				"gql.twitch.tv",      // GraphQL API
-			},
+			// Note: Whitelist is now managed via database (content_whitelist table)
 			FilterLists: []string{
 				// Core blocking
-				"https://easylist.to/easylist/easylist.txt",                                           // Ads
-				"https://easylist.to/easylist/easyprivacy.txt",                                        // Tracking
+				"https://easylist.to/easylist/easylist.txt",    // Ads
+				"https://easylist.to/easylist/easyprivacy.txt", // Tracking
 				// uBlock extras
-				"https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt",    // uBO optimizations
-				"https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/annoyances.txt", // Cookie banners, popups
+				"https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt",     // uBO optimizations
+				"https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/annoyances.txt",  // Cookie banners, popups
 				"https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/quick-fixes.txt", // Site fixes
 			},
 		},
