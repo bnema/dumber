@@ -203,12 +203,42 @@ func (w *WebView) applyConfig() error {
 	// Enable hardware acceleration if configured
 	settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyAlways)
 
+	// Media performance optimizations
+	// Force hardware decoding for video content types via GStreamer VA-API/NVDEC
+	settings.SetMediaContentTypesRequiringHardwareSupport("video/mp4;video/webm;video/x-h264;video/av01")
+	// Enable media capabilities API for efficient codec queries
+	settings.SetEnableMediaCapabilities(true)
+	// Enable MediaSource Extensions for adaptive streaming (YouTube, Twitch)
+	settings.SetEnableMediasource(true)
+	// GPU-accelerated 2D canvas for image-heavy pages
+	settings.SetEnable2DCanvasAcceleration(true)
+	// Allow inline video playback (no forced fullscreen)
+	settings.SetMediaPlaybackAllowsInline(true)
+	// Require user gesture for autoplay (browser standard)
+	settings.SetMediaPlaybackRequiresUserGesture(true)
+
 	// Performance optimizations for faster page transitions
 	// Enable page cache for instant back/forward navigation (bfcache)
 	settings.SetEnablePageCache(w.config.EnablePageCache)
 
 	// Enable smooth scrolling for better UX
 	settings.SetEnableSmoothScrolling(w.config.EnableSmoothScrolling)
+
+	// Enable fullscreen API (required for video fullscreen)
+	settings.SetEnableFullscreen(true)
+
+	// Web app storage APIs
+	settings.SetEnableHtml5LocalStorage(true) // localStorage/sessionStorage
+	settings.SetEnableHtml5Database(true)     // IndexedDB
+
+	// Web Audio API for games and audio apps
+	settings.SetEnableWebaudio(true)
+
+	// Touchpad swipe gestures for back/forward navigation
+	settings.SetEnableBackForwardNavigationGestures(true)
+
+	// WebKit compatibility hacks for popular broken sites
+	settings.SetEnableSiteSpecificQuirks(true)
 
 	// Disable console messages to stdout to prevent page script flooding
 	// This stops malicious/buggy pages from spamming the terminal with console.log()

@@ -25,8 +25,9 @@ func (w *WebView) AttachTouchpadGestures() {
 	// Create gesture controller for swipe detection
 	gestureSwipe := gtk.NewGestureSwipe()
 
-	// Set to capture phase to intercept before WebView processes
-	gestureSwipe.SetPropagationPhase(gtk.PhaseCapture)
+	// Use bubble phase instead of capture to not interfere with scroll events
+	// This lets normal scrolling work while still detecting navigation swipes
+	gestureSwipe.SetPropagationPhase(gtk.PhaseBubble)
 
 	// Set to require touchpad (2 fingers minimum for touchpad gestures)
 	// This prevents single-finger drags from triggering navigation
