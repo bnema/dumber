@@ -1,30 +1,48 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
+    <!-- Background gradient - deeper dark -->
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#111827"/>
-      <stop offset="100%" stop-color="#1f2937"/>
+      <stop offset="0%" stop-color="#0a0a0b"/>
+      <stop offset="100%" stop-color="#18181b"/>
     </linearGradient>
+    <!-- Green accent gradient for bolt -->
+    <linearGradient id="bolt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4ade80"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+    <!-- Subtle inset shadow -->
     <filter id="inset" x="-20%" y="-20%" width="140%" height="140%">
       <feOffset dx="0" dy="1"/>
-      <feGaussianBlur stdDeviation="0.6" result="blur"/>
+      <feGaussianBlur stdDeviation="0.8" result="blur"/>
       <feComposite in2="SourceAlpha" operator="out"/>
-      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.4 0"/>
       <feBlend in="SourceGraphic" mode="normal"/>
     </filter>
+    <!-- Glow for bolt -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
+
+  <!-- Background square -->
   <rect x="4" y="4" width="56" height="56" rx="0" ry="0" fill="url(#bg)" filter="url(#inset)"/>
-  <rect x="4.5" y="4.5" width="55" height="55" rx="0" ry="0" fill="none" stroke="#374151" stroke-width="1"/>
-  <!-- D glyph (slightly larger and wider) -->
-  <path d="M20 16 L20 48 M20 16 H34 q12 0 12 16 t-12 16 H20"
+  <rect x="4.5" y="4.5" width="55" height="55" rx="0" ry="0" fill="none" stroke="#3f3f46" stroke-width="1"/>
+
+  <!-- D letterform - refined, sharper -->
+  <path d="M18 14 L18 50 M18 14 H35 C48 14 48 32 48 32 C48 50 35 50 35 50 H18"
         fill="none"
-        stroke="#f3f4f6"
-        stroke-width="4.5"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        transform="translate(33,32) scale(1.12,1.10) translate(-33,-32)"/>
-  <!-- Speed bolt accent (significantly larger, centered) -->
-  <path d="M36 22 L32 34 h6 l-8 16 4-12 h-6 z"
-        fill="#60a5fa" opacity="0.95"
-        transform="translate(33,32) scale(1.8) translate(-33,-32) translate(0,-3)"/>
+        stroke="#fafafa"
+        stroke-width="5"
+        stroke-linecap="square"
+        stroke-linejoin="miter"/>
+
+  <!-- Speed bolt - vibrant green, centered and prominent -->
+  <path d="M38 20 L33 33 h7 l-10 18 5-14 h-7 z"
+        fill="url(#bolt)"
+        filter="url(#glow)"/>
 </svg>

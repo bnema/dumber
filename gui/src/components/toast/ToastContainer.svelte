@@ -49,6 +49,8 @@
       zoomDebounceTimer = undefined;
     }
   }
+  // Export for external use
+  window.__dumber_clearToasts = clearAllToasts;
 
   function showZoomToast(zoomLevel: number) {
     console.log('[dumber] showZoomToast called with level:', zoomLevel);
