@@ -72,8 +72,15 @@
 
 <svelte:window onkeydown={handleKeyDown} />
 
-<div class="cleanup-overlay" onclick={handleOverlayClick}>
-  <div class="cleanup-modal">
+<div
+  class="cleanup-overlay"
+  onclick={handleOverlayClick}
+  onkeydown={(e) => { if (e.key === 'Escape') onClose(); }}
+  role="button"
+  tabindex="0"
+  aria-label="Close cleanup modal"
+>
+  <div class="cleanup-modal" role="presentation">
     <div class="modal-header">
       <span class="modal-icon"></span>
       <span class="modal-title">CLEAR HISTORY</span>

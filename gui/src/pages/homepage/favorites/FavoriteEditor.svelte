@@ -12,22 +12,19 @@
     onRemoveTag: (favoriteId: number, tagId: number) => void;
   }
 
-  let {
-    favorite,
-    folders,
-    tags,
-    onSave,
-    onDelete,
-    onClose,
-    onAssignTag,
-    onRemoveTag
-  }: Props = $props();
+  const props: Props = $props();
+  const { folders, tags, onSave, onDelete, onClose, onAssignTag, onRemoveTag } = props;
+  // Capture initial values for form state (component remounts for different favorites)
+  const initialFavorite = props.favorite;
 
   // Form state
-  let title = $state(favorite.title || '');
-  let folderId = $state<number | null>(favorite.folder_id);
-  let shortcutKey = $state<number | null>(favorite.shortcut_key);
+  let title = $state(initialFavorite.title || '');
+  let folderId = $state<number | null>(initialFavorite.folder_id);
+  let shortcutKey = $state<number | null>(initialFavorite.shortcut_key);
   let confirmDelete = $state(false);
+
+  // Track current favorite for reactive operations
+  const favorite = $derived(props.favorite);
 
   // Get favorite's current tags
   const favoriteTags = $derived(favorite.tags || []);
@@ -88,7 +85,14 @@
 
 <svelte:window onkeydown={handleKeyDown} />
 
-<div class="editor-overlay" onclick={handleOverlayClick}>
+<div
+  class="editor-overlay"
+  onclick={handleOverlayClick}
+  onkeydown={(e) => { if (e.key === 'Escape') handleOverlayClick(e); }}
+  role="button"
+  tabindex="0"
+  aria-label="Close editor"
+>
   <div class="editor-modal">
     <div class="modal-header">
       <span class="modal-icon"></span>
@@ -101,8 +105,8 @@
     <div class="modal-body">
       <!-- URL (readonly) -->
       <div class="form-group">
-        <label class="form-label">URL</label>
-        <div class="url-display">{favorite.url}</div>
+        <span class="form-label" id="url-label">URL</span>
+        <div class="url-display" aria-labelledby="url-label">{favorite.url}</div>
       </div>
 
       <!-- Title -->
@@ -144,8 +148,8 @@
 
       <!-- Tags -->
       <div class="form-group">
-        <label class="form-label">TAGS</label>
-        <div class="tag-selector">
+        <span class="form-label" id="tags-label">TAGS</span>
+        <div class="tag-selector" role="group" aria-labelledby="tags-label">
           {#if tags.length === 0}
             <span class="no-tags">No tags available</span>
           {:else}
