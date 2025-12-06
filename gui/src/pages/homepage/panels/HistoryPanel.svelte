@@ -153,8 +153,6 @@
   .history-panel {
     display: flex;
     flex-direction: column;
-    flex: 1;
-    min-height: 0;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
   }
@@ -164,13 +162,10 @@
   }
 
   .panel-content {
-    flex: 1;
-    min-height: 0;
     display: flex;
     flex-direction: column;
     border: 1px solid var(--dynamic-border);
     background: color-mix(in srgb, var(--dynamic-bg) 95%, var(--dynamic-surface) 5%);
-    overflow-y: auto;
   }
 
   .loading-state {
