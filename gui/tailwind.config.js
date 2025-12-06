@@ -3,6 +3,11 @@ export default {
   content: ["./src/**/*.{html,js,ts,svelte}"],
   theme: {
     extend: {
+      // Font families for Industrial Terminal aesthetic
+      fontFamily: {
+        mono: ['"JetBrains Mono NF"', "ui-monospace", "SFMono-Regular", "monospace"],
+        sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
+      },
       // Custom design system colors
       colors: {
         // Browser-specific colors that work well in both themes

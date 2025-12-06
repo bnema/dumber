@@ -4,13 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "npm run build:color-scheme && npm run build:gui && npm run build:homepage && npm run build:main-world",
+    "build": "npm run build:color-scheme && npm run build:gui && npm run build:homepage && npm run build:blocked && npm run build:main-world",
     "build:gui": "vite build --config vite.config.gui.ts",
     "build:homepage": "vite build --config vite.config.homepage.ts",
+    "build:blocked": "vite build --config vite.config.blocked.ts",
     "build:color-scheme": "vite build --config vite.config.color-scheme.ts",
     "build:main-world": "vite build --config vite.config.main-world.ts",
     "dev": "npm run build:gui -- --watch",
     "dev:homepage": "npm run build:homepage -- --watch",
+    "dev:blocked": "npm run build:blocked -- --watch",
     "dev:color-scheme": "npm run build:color-scheme -- --watch",
     "dev:main-world": "npm run build:main-world -- --watch",
     "check": "svelte-check",
@@ -34,5 +36,8 @@
     "typescript": "^5.3.0",
     "typescript-eslint": "^8.43.0",
     "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "@lucide/svelte": "^0.556.0"
   }
 }

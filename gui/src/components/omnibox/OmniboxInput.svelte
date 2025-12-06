@@ -100,11 +100,7 @@
   let basePaddingSegments = $state<[string, string, string, string]>(DEFAULT_PADDING);
   let inputPadding = $state(DEFAULT_PADDING.join(' '));
   let baseLeftPadding = $state(DEFAULT_PADDING[3]);
-  let inputFontSize = $state(responsiveStyles?.fontSize || '16px');
-
-  $effect(() => {
-    inputFontSize = responsiveStyles?.fontSize || '16px';
-  });
+  let inputFontSize = $derived(responsiveStyles?.fontSize || '16px');
 
   $effect(() => {
     basePaddingSegments = normalizePadding(responsiveStyles?.inputPadding);
@@ -367,9 +363,9 @@
 
     if (!item || !item.url) return;
 
-    // Extract title and favicon
+    // Extract title and favicon with proper type narrowing
     const title = 'title' in item ? item.title : '';
-    const faviconURL = item.favicon_url || item.favicon || '';
+    const faviconURL = 'favicon_url' in item ? item.favicon_url : ('favicon' in item ? item.favicon : '') ?? '';
 
     // Toggle the favorite status
     omniboxBridge.toggleFavorite(item.url, title, faviconURL);

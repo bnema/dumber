@@ -16,7 +16,7 @@ import type { Suggestion } from "../components/omnibox/types";
 declare global {
   interface Window {
     __dumber_gui?: DumberGUI;
-    __dumber_gui_ready?: boo
+    __dumber_gui_ready?: boolean;
     __dumber_gui_ready_for?: Document | null;
     __dumber_showToast?: (
       message: string,
@@ -61,13 +61,14 @@ function whenDOMReady(callback: () => void) {
   }
 }
 
-function whenPageLoaded(callback: () => void) {
+function _whenPageLoaded(callback: () => void) {
   if (document.readyState === "complete") {
     callback();
   } else {
     window.addEventListener("load", callback, { once: true });
   }
 }
+void _whenPageLoaded; // Reserved for future use
 
 function normalizeWebviewId(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) {
