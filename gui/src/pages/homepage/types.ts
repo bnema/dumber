@@ -88,9 +88,12 @@ export interface TagAssignment {
 // Analytics Types
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Matches Go HistoryAnalytics struct (flat structure)
 export interface Analytics {
-  stats: HistoryStats;
-  domain_stats: DomainStat[];
+  total_entries: number;
+  total_visits: number;
+  unique_days: number;
+  top_domains: DomainStat[];
   daily_visits: DailyVisitCount[];
   hourly_distribution: HourlyDistribution[];
 }
