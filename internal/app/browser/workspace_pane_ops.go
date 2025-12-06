@@ -971,6 +971,10 @@ func (wm *WorkspaceManager) cleanupPane(node *paneNode, generation uint) {
 
 	if node.pane != nil {
 		pane := node.pane
+		// Unregister from filtering BEFORE cleanup to prevent stale pointer callbacks
+		if pane.webView != nil {
+			wm.app.UnregisterWebViewFromFiltering(pane.webView)
+		}
 		pane.Cleanup()
 		pane.CleanupFromWorkspace(wm)
 		if pane.webView != nil {
