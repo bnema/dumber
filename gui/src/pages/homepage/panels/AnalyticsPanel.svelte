@@ -1,6 +1,7 @@
 <script lang="ts">
   import { homepageState } from '../state.svelte';
   import { fetchAnalytics } from '../messaging';
+  import { DailyVisitsChart, HourlyActivityChart } from '../analytics';
 
   // Fetch analytics on mount
   $effect(() => {
@@ -26,15 +27,15 @@
   {:else if homepageState.analytics}
     <div class="stats-grid">
       <div class="stat-card">
-        <span class="stat-value">{formatNumber(homepageState.analytics.stats.total_entries)}</span>
+        <span class="stat-value">{formatNumber(homepageState.analytics.total_entries)}</span>
         <span class="stat-label">TOTAL ENTRIES</span>
       </div>
       <div class="stat-card">
-        <span class="stat-value">{formatNumber(homepageState.analytics.stats.total_visits)}</span>
+        <span class="stat-value">{formatNumber(homepageState.analytics.total_visits)}</span>
         <span class="stat-label">TOTAL VISITS</span>
       </div>
       <div class="stat-card">
-        <span class="stat-value">{homepageState.analytics.stats.unique_days}</span>
+        <span class="stat-value">{homepageState.analytics.unique_days}</span>
         <span class="stat-label">DAYS ACTIVE</span>
       </div>
       <div class="stat-card">
@@ -61,20 +62,26 @@
       </div>
     </div>
 
+    <!-- Daily Visits Chart (30 days) -->
+    {#if homepageState.dailyVisits.length > 0}
+      <div class="section">
+        <div class="section-header">
+          <span class="section-title">VISITS (LAST 30 DAYS)</span>
+        </div>
+        <div class="chart-container">
+          <DailyVisitsChart dailyVisits={homepageState.dailyVisits} />
+        </div>
+      </div>
+    {/if}
+
+    <!-- Hourly Activity Chart -->
     {#if homepageState.analytics.hourly_distribution.length > 0}
       <div class="section">
         <div class="section-header">
           <span class="section-title">ACTIVITY BY HOUR</span>
         </div>
-        <div class="hourly-chart">
-          {#each homepageState.analytics.hourly_distribution as hour (hour.hour)}
-            {@const maxVisits = Math.max(...homepageState.analytics.hourly_distribution.map(h => h.visit_count))}
-            {@const heightPercent = maxVisits > 0 ? (hour.visit_count / maxVisits) * 100 : 0}
-            <div class="hour-bar" title="{hour.hour}:00 - {hour.visit_count} visits">
-              <div class="bar-fill" style="height: {heightPercent}%"></div>
-              <span class="hour-label">{hour.hour}</span>
-            </div>
-          {/each}
+        <div class="chart-container">
+          <HourlyActivityChart hourlyDistribution={homepageState.analytics.hourly_distribution} />
         </div>
       </div>
     {/if}
@@ -92,9 +99,6 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
     padding: 0.5rem 1rem;
   }
 
@@ -230,37 +234,7 @@
     color: var(--dynamic-muted);
   }
 
-  .hourly-chart {
-    display: flex;
-    align-items: flex-end;
-    gap: 2px;
-    height: 80px;
-    padding: 0.75rem;
-  }
-
-  .hour-bar {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    height: 100%;
-  }
-
-  .bar-fill {
-    width: 100%;
-    background: var(--dynamic-accent, #4ade80);
-    margin-top: auto;
-    min-height: 2px;
-    transition: height 300ms ease;
-  }
-
-  .hour-label {
-    font-size: 0.5rem;
-    color: var(--dynamic-muted);
-    margin-top: 0.25rem;
-  }
-
-  .hour-bar:nth-child(odd) .hour-label {
-    visibility: hidden;
+  .chart-container {
+    padding: 0.5rem;
   }
 </style>
