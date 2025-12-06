@@ -281,15 +281,6 @@ func (app *BrowserApp) Run() {
 	// Register custom scheme resolver for "dumb://" URIs (will be applied after WebView creation)
 	webkit.RegisterURIScheme("dumb", app.schemeHandler.Handle)
 
-	// DEFERRED: Initialize content blocking AFTER window shows to speed up boot
-	// Content filters load from cache quickly (~50ms) and apply to new navigations
-	go func() {
-		time.Sleep(100 * time.Millisecond) // Let window render first
-		if err := app.setupContentBlocking(); err != nil {
-			logging.Warn(fmt.Sprintf("Warning: failed to setup content blocking: %v", err))
-		}
-	}()
-
 	// Create and setup WebView (this also creates TabManager which creates more WebViews)
 	if err := app.createWebView(); err != nil {
 		logging.Warn(fmt.Sprintf("Warning: failed to create WebView: %v", err))
@@ -428,6 +419,14 @@ func (app *BrowserApp) setupSignalHandling() {
 // runMainLoop starts the appropriate main loop based on WebKit availability
 func (app *BrowserApp) runMainLoop() {
 	if webkit.IsNativeAvailable() {
+		// Schedule content blocking initialization to run on the first main loop iteration
+		// This ensures GTK is fully ready before we start loading filters
+		webkit.RunOnMainThread(func() {
+			if err := app.setupContentBlocking(); err != nil {
+				logging.Warn(fmt.Sprintf("Warning: failed to setup content blocking: %v", err))
+			}
+		})
+
 		logging.Info(fmt.Sprintf("Entering GTK main loop…"))
 		webkit.RunMainLoop()
 		logging.Info(fmt.Sprintf("GTK main loop exited"))
