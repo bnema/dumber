@@ -297,15 +297,15 @@ func (fm *FilterManager) compileFromSources(ctx context.Context) {
 		if compiled != nil && len(compiled.NetworkRules) > 0 {
 			hasContent = true
 			merged.Merge(compiled)
-			// Apply incrementally for faster initial blocking
-			logging.Info(fmt.Sprintf("[filtering] Applying incremental filters: %d network rules", len(merged.NetworkRules)))
-			fm.applyFilters(merged)
 		}
 	}
 
 	// Only save/apply final result if we got actual content
 	if hasContent {
 		logging.Info(fmt.Sprintf("[filtering] Successfully compiled %d network rules from sources", len(merged.NetworkRules)))
+
+		// Apply final merged filters once after all sources are processed
+		fm.applyFilters(merged)
 
 		// Cache the final result
 		if err := fm.store.SaveCache(merged); err != nil {
@@ -405,7 +405,7 @@ func (fm *FilterManager) applyFilters(filters *CompiledFilters) {
 		logging.Info("[filtering] Content filtering is DISABLED in config - no ad blocking active")
 		return
 	}
-
+	// Re-enable database-driven whitelist injection (ignore-previous-rules) now that filtering apply is stabilized.
 	fm.updateWhitelistCache()
 	if len(fm.cachedWhitelistRules) > 0 {
 		filters.NetworkRules = append(filters.NetworkRules, fm.cachedWhitelistRules...)

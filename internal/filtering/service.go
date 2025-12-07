@@ -2,9 +2,11 @@
 package filtering
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"net/url"
 	"sync"
+	"time"
 
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
 	glib "github.com/diamondburned/gotk4/pkg/glib/v2"
@@ -67,12 +69,18 @@ type ContentBlockingService struct {
 
 	// Filter data
 	networkFilterJSON []byte
+	networkHash       string // hash of current networkFilterJSON to dedupe compiles
+	compileInProgress bool
+	compileDone       chan struct{} // closed when current payload compile completes (success or error)
 	filterManager     *FilterManager
 	cosmeticInjector  *cosmetic.CosmeticInjector
 	filtersReady      bool
 
 	// WebView registry - tracks all active WebViews
 	webViews map[*pkgwebkit.WebView]webViewState
+
+	// Serializes application of compiled filters to WebKit to avoid concurrent CGO calls.
+	applyMu sync.Mutex
 
 	// Content blocking manager for compiling filters
 	contentBlockingMgr *pkgwebkit.ContentBlockingManager
@@ -112,13 +120,96 @@ func NewContentBlockingService(dataDir string, filterManager *FilterManager) (*C
 // SetFiltersReady is called when filters have been parsed and are ready to compile.
 // It compiles filters asynchronously, then applies to all registered WebViews.
 func (s *ContentBlockingService) SetFiltersReady(networkJSON []byte) {
+	// Compute hash to detect identical filter payloads and avoid redundant compiles
+	hash := fmt.Sprintf("%x", sha256.Sum256(networkJSON))
+
 	s.mu.Lock()
+	// If a compile is already in progress:
+	if s.compileInProgress {
+		// If it's the same payload, just ensure cosmetics are injected and return.
+		if s.networkHash == hash {
+			webViews := make([]*pkgwebkit.WebView, 0, len(s.webViews))
+			for wv := range s.webViews {
+				webViews = append(webViews, wv)
+			}
+			s.mu.Unlock()
+			for _, wv := range webViews {
+				webView := wv
+				s.runWhenWidgetReady(webView, func() {
+					s.injectCosmeticBaseScript(webView)
+					if uri := webView.GetCurrentURL(); uri != "" {
+						s.injectCosmeticRules(webView, uri)
+					}
+				})
+			}
+			return
+		}
+		// Different payload while another compile is running: skip recompile for now to avoid races.
+		// Cosmetic-only injection will still happen below after unlocking.
+		webViews := make([]*pkgwebkit.WebView, 0, len(s.webViews))
+		for wv := range s.webViews {
+			webViews = append(webViews, wv)
+		}
+		s.mu.Unlock()
+		for _, wv := range webViews {
+			webView := wv
+			s.runWhenWidgetReady(webView, func() {
+				s.injectCosmeticBaseScript(webView)
+				if uri := webView.GetCurrentURL(); uri != "" {
+					s.injectCosmeticRules(webView, uri)
+				}
+			})
+		}
+		return
+	}
+
+	if s.networkHash == hash && s.contentBlockingMgr.IsFilterCompiled() {
+		// Already compiled and applied; just mark ready and apply cosmetic scripts
+		s.filtersReady = true
+		webViews := make([]*pkgwebkit.WebView, 0, len(s.webViews))
+		for wv := range s.webViews {
+			webViews = append(webViews, wv)
+		}
+		s.mu.Unlock()
+
+		for _, wv := range webViews {
+			webView := wv
+			s.runWhenWidgetReady(webView, func() {
+				s.injectCosmeticBaseScript(webView)
+				if uri := webView.GetCurrentURL(); uri != "" {
+					s.injectCosmeticRules(webView, uri)
+				}
+				s.applyFiltersToWebView(webView)
+			})
+		}
+		return
+	}
+
+	// Update filter payload and mark ready
 	s.networkFilterJSON = networkJSON
-	s.filtersReady = true // Cosmetic rules are ready immediately
+	s.networkHash = hash
+	s.filtersReady = true
 	webViews := make([]*pkgwebkit.WebView, 0, len(s.webViews))
 	for wv := range s.webViews {
 		webViews = append(webViews, wv)
 	}
+	// If a compile is already running for this payload, just do cosmetic now and return
+	if s.compileInProgress {
+		s.mu.Unlock()
+		for _, wv := range webViews {
+			webView := wv
+			s.runWhenWidgetReady(webView, func() {
+				s.injectCosmeticBaseScript(webView)
+				if uri := webView.GetCurrentURL(); uri != "" {
+					s.injectCosmeticRules(webView, uri)
+				}
+			})
+		}
+		return
+	}
+	// New payload, no compile in progress: create a fresh completion channel
+	s.compileDone = make(chan struct{})
+	s.compileInProgress = true
 	s.mu.Unlock()
 
 	// Inject cosmetic scripts IMMEDIATELY (don't wait for network filter compilation)
@@ -141,29 +232,26 @@ func (s *ContentBlockingService) SetFiltersReady(networkJSON []byte) {
 
 	// Compile network filters asynchronously - this happens in the background
 	// and does not block the main thread (takes ~6 seconds)
-	s.contentBlockingMgr.CompileFilters("adblock-filters", networkJSON, func(err error) {
-		if err != nil {
-			logging.Error(fmt.Sprintf("[filtering] Filter compilation failed: %v", err))
-			return
-		}
+	pkgwebkit.RunOnMainThread(func() {
+		s.contentBlockingMgr.CompileFilters("adblock-filters", networkJSON, func(err error) {
+			s.mu.Lock()
+			s.compileInProgress = false
+			done := s.compileDone
+			s.mu.Unlock()
 
-		logging.Info("[filtering] Network filter compilation complete, applying to WebViews")
+			if err != nil {
+				logging.Error(fmt.Sprintf("[filtering] Filter compilation failed: %v", err))
+				if done != nil {
+					close(done)
+				}
+				return
+			}
 
-		// Get current WebViews (may have changed since cosmetic injection)
-		s.mu.RLock()
-		currentWebViews := make([]*pkgwebkit.WebView, 0, len(s.webViews))
-		for wv := range s.webViews {
-			currentWebViews = append(currentWebViews, wv)
-		}
-		s.mu.RUnlock()
-
-		// Apply network filters to all registered WebViews
-		for _, wv := range currentWebViews {
-			webView := wv // capture for closure
-			s.runWhenWidgetReady(webView, func() {
-				s.applyFiltersToWebView(webView)
-			})
-		}
+			logging.Info("[filtering] Network filter compilation complete")
+			if done != nil {
+				close(done)
+			}
+		})
 	})
 }
 
@@ -269,7 +357,27 @@ func (s *ContentBlockingService) applyFiltersToWebView(wv *pkgwebkit.WebView) {
 	}
 
 	// Avoid triggering compilation on the GTK thread; only apply once compiled.
-	if !s.contentBlockingMgr.IsFilterCompiled() {
+	s.mu.RLock()
+	compiled := s.contentBlockingMgr.IsFilterCompiled()
+	done := s.compileDone
+	s.mu.RUnlock()
+	if !compiled {
+		// Wait for current compile to finish, then try again (with timeout to avoid hangs)
+		if done == nil {
+			return
+		}
+		go func(ch <-chan struct{}, view *pkgwebkit.WebView) {
+			select {
+			case <-ch:
+				// Re-attempt apply after compile completes
+				if view != nil && !view.IsDestroyed() {
+					s.applyFiltersToWebView(view)
+				}
+			case <-time.After(10 * time.Second):
+				// Timed out waiting for compile; skip
+				logging.Warn("[filtering] Timeout waiting for filter compilation before applying to WebView")
+			}
+		}(done, wv)
 		return
 	}
 
@@ -306,6 +414,11 @@ func (s *ContentBlockingService) applyNetworkFilters(wv *pkgwebkit.WebView, filt
 		return
 	}
 
+	// Double-check compile state before proceeding
+	if !s.contentBlockingMgr.IsFilterCompiled() {
+		return
+	}
+
 	gtkView := wv.GetWebView()
 	if gtkView == nil {
 		return
@@ -327,6 +440,9 @@ func (s *ContentBlockingService) applyNetworkFilters(wv *pkgwebkit.WebView, filt
 	const identifier = "adblock-filters"
 
 	// Try to apply cached compiled filter first (instant)
+	s.applyMu.Lock()
+	defer s.applyMu.Unlock()
+
 	if s.contentBlockingMgr.IsFilterCompiled() {
 		if err := s.contentBlockingMgr.ApplyCompiledFilter(ucm); err != nil {
 			logging.Error(fmt.Sprintf("[filtering] Failed to apply cached filter to WebView %d: %v", wv.ID(), err))
@@ -360,6 +476,8 @@ func (s *ContentBlockingService) setupCosmeticHooks(wv *pkgwebkit.WebView) {
 		}
 		s.runWhenWidgetReady(webView, func() {
 			s.injectCosmeticRules(webView, uri)
+			// Apply network filters lazily on navigation when compilation is ready
+			s.applyFiltersToWebView(webView)
 		})
 	})
 }
