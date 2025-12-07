@@ -7,11 +7,57 @@ import (
 	"sync"
 
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
+	glib "github.com/diamondburned/gotk4/pkg/glib/v2"
 
 	"github.com/bnema/dumber/internal/filtering/cosmetic"
 	"github.com/bnema/dumber/internal/logging"
 	pkgwebkit "github.com/bnema/dumber/pkg/webkit"
 )
+
+// runWhenWidgetReady waits until the WebView exposes a valid UserContentManager before invoking fn on the GTK main thread.
+// This avoids racing freshly split panes whose underlying widgets aren't fully initialized yet.
+func (s *ContentBlockingService) runWhenWidgetReady(wv *pkgwebkit.WebView, fn func()) {
+	if wv == nil || wv.IsDestroyed() || fn == nil {
+		return
+	}
+
+	const maxAttempts = 50        // up to ~1s total
+	const retryDelayMS = uint(20) // 20ms between checks
+
+	var tryApply func(attempt int) bool
+	tryApply = func(attempt int) bool {
+		if wv.IsDestroyed() {
+			return false
+		}
+
+		gtkView := wv.GetWebView()
+		if gtkView == nil {
+			return attempt < maxAttempts
+		}
+
+		if ucm := gtkView.UserContentManager(); ucm == nil {
+			return attempt < maxAttempts
+		}
+
+		pkgwebkit.RunOnMainThread(func() {
+			if wv.IsDestroyed() {
+				return
+			}
+			fn()
+		})
+		return false
+	}
+
+	attempts := 0
+	if !tryApply(attempts) {
+		return
+	}
+
+	glib.TimeoutAdd(retryDelayMS, func() bool {
+		attempts++
+		return tryApply(attempts)
+	})
+}
 
 // ContentBlockingService manages content blocking for all WebViews.
 // It ensures network filters and cosmetic rules are applied consistently
@@ -79,10 +125,7 @@ func (s *ContentBlockingService) SetFiltersReady(networkJSON []byte) {
 	// This hides ads visually within milliseconds while network filters compile in background
 	for _, wv := range webViews {
 		webView := wv // capture for closure
-		pkgwebkit.RunOnMainThread(func() {
-			if webView.IsDestroyed() {
-				return
-			}
+		s.runWhenWidgetReady(webView, func() {
 			s.injectCosmeticBaseScript(webView)
 			if uri := webView.GetCurrentURL(); uri != "" {
 				s.injectCosmeticRules(webView, uri)
@@ -117,10 +160,7 @@ func (s *ContentBlockingService) SetFiltersReady(networkJSON []byte) {
 		// Apply network filters to all registered WebViews
 		for _, wv := range currentWebViews {
 			webView := wv // capture for closure
-			pkgwebkit.RunOnMainThread(func() {
-				if webView.IsDestroyed() {
-					return
-				}
+			s.runWhenWidgetReady(webView, func() {
 				s.applyFiltersToWebView(webView)
 			})
 		}
@@ -154,13 +194,10 @@ func (s *ContentBlockingService) RegisterWebView(wv *pkgwebkit.WebView) {
 		s.injectCosmeticBaseScript(wv)
 	}
 
-	// Apply network filters if already compiled (instant)
+	// If network filters are already compiled, apply them immediately (non-blocking)
 	if s.contentBlockingMgr.IsFilterCompiled() {
 		webView := wv // capture for closure
-		pkgwebkit.RunOnMainThread(func() {
-			if webView.IsDestroyed() {
-				return
-			}
+		s.runWhenWidgetReady(webView, func() {
 			s.applyFiltersToWebView(webView)
 		})
 	}
@@ -231,21 +268,36 @@ func (s *ContentBlockingService) applyFiltersToWebView(wv *pkgwebkit.WebView) {
 		return
 	}
 
-	s.mu.RLock()
-	networkJSON := s.networkFilterJSON
-	state := s.webViews[wv]
-	s.mu.RUnlock()
-
-	// Apply network filters if not already applied
-	if !state.networkApplied && len(networkJSON) > 0 {
-		webView := wv // capture for closure
-		pkgwebkit.RunOnMainThread(func() {
-			if webView.IsDestroyed() {
-				return
-			}
-			s.applyNetworkFilters(webView, networkJSON)
-		})
+	// Avoid triggering compilation on the GTK thread; only apply once compiled.
+	if !s.contentBlockingMgr.IsFilterCompiled() {
+		return
 	}
+
+	s.mu.Lock()
+	state := s.webViews[wv]
+	if state.networkApplied {
+		s.mu.Unlock()
+		return
+	}
+	// Mark as applying to avoid double AddFilter races
+	state.networkApplied = true
+	s.webViews[wv] = state
+	networkJSON := s.networkFilterJSON
+	s.mu.Unlock()
+
+	if len(networkJSON) == 0 {
+		// Nothing to apply; reset flag
+		s.mu.Lock()
+		state.networkApplied = false
+		s.webViews[wv] = state
+		s.mu.Unlock()
+		return
+	}
+
+	webView := wv // capture for closure
+	s.runWhenWidgetReady(webView, func() {
+		s.applyNetworkFilters(webView, networkJSON)
+	})
 }
 
 // applyNetworkFilters applies network blocking rules to a WebView.
@@ -261,6 +313,13 @@ func (s *ContentBlockingService) applyNetworkFilters(wv *pkgwebkit.WebView, filt
 
 	ucm := gtkView.UserContentManager()
 	if ucm == nil {
+		// Reset state so a future ready WebView can retry
+		s.mu.Lock()
+		if state, exists := s.webViews[wv]; exists {
+			state.networkApplied = false
+			s.webViews[wv] = state
+		}
+		s.mu.Unlock()
 		return
 	}
 
@@ -284,14 +343,6 @@ func (s *ContentBlockingService) applyNetworkFilters(wv *pkgwebkit.WebView, filt
 		return
 	}
 
-	// Mark as applied
-	s.mu.Lock()
-	if state, exists := s.webViews[wv]; exists {
-		state.networkApplied = true
-		s.webViews[wv] = state
-	}
-	s.mu.Unlock()
-
 	logging.Debug(fmt.Sprintf("[filtering] Applied network filters to WebView %d", wv.ID()))
 }
 
@@ -307,7 +358,9 @@ func (s *ContentBlockingService) setupCosmeticHooks(wv *pkgwebkit.WebView) {
 		if webView.IsDestroyed() {
 			return
 		}
-		s.injectCosmeticRules(webView, uri)
+		s.runWhenWidgetReady(webView, func() {
+			s.injectCosmeticRules(webView, uri)
+		})
 	})
 }
 

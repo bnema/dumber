@@ -259,6 +259,9 @@ func (app *BrowserApp) createWebView() error {
 		return err
 	}
 
+	// Ensure root WebView participates in content blocking even if the service initializes later
+	app.RegisterWebViewForFiltering(view)
+
 	pane, err := app.createPaneForView(view)
 	if err != nil {
 		return err
@@ -404,6 +407,16 @@ func (app *BrowserApp) setupContentBlocking() error {
 	}
 	app.contentBlockingService = cbService
 
+	// Register any WebViews created before content blocking was ready
+	app.pendingFilteringMu.Lock()
+	for _, pending := range app.pendingFiltering {
+		if pending != nil && !pending.IsDestroyed() {
+			cbService.RegisterWebView(pending)
+		}
+	}
+	app.pendingFiltering = nil
+	app.pendingFilteringMu.Unlock()
+
 	// Set up callback to apply network filters when they become ready
 	// This callback will be called from the async filter loading process
 	filterManager.SetFiltersReadyCallback(func() {
@@ -453,14 +466,41 @@ func (app *BrowserApp) setupContentBlocking() error {
 // RegisterWebViewForFiltering registers a WebView with the content blocking service.
 // This should be called for every new WebView created in the application.
 func (app *BrowserApp) RegisterWebViewForFiltering(wv *webkit.WebView) {
-	if app.contentBlockingService != nil && wv != nil {
-		app.contentBlockingService.RegisterWebView(wv)
+	if wv == nil || wv.IsDestroyed() {
+		return
 	}
+
+	if app.contentBlockingService == nil {
+		app.pendingFilteringMu.Lock()
+		app.pendingFiltering = append(app.pendingFiltering, wv)
+		app.pendingFilteringMu.Unlock()
+		return
+	}
+
+	app.contentBlockingService.RegisterWebView(wv)
 }
 
 // UnregisterWebViewFromFiltering removes a WebView from the content blocking service.
 func (app *BrowserApp) UnregisterWebViewFromFiltering(wv *webkit.WebView) {
-	if app.contentBlockingService != nil && wv != nil {
+	if wv == nil {
+		return
+	}
+
+	if app.contentBlockingService == nil {
+		// Drop from pending list to avoid registering destroyed WebViews later
+		app.pendingFilteringMu.Lock()
+		filtered := app.pendingFiltering[:0]
+		for _, pending := range app.pendingFiltering {
+			if pending != nil && pending != wv {
+				filtered = append(filtered, pending)
+			}
+		}
+		app.pendingFiltering = filtered
+		app.pendingFilteringMu.Unlock()
+		return
+	}
+
+	if !wv.IsDestroyed() {
 		app.contentBlockingService.UnregisterWebView(wv)
 	}
 }
