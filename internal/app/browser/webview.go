@@ -373,6 +373,13 @@ func (app *BrowserApp) initializeFaviconService() error {
 func (app *BrowserApp) setupContentBlocking() error {
 	logging.Info(fmt.Sprintf("Initializing content blocking system..."))
 
+	// Temporary kill-switch for crash triage: set env DUMBER_DISABLE_CONTENT_BLOCKING=1
+	// to skip all blocking setup and run bare WebViews.
+	if os.Getenv("DUMBER_DISABLE_CONTENT_BLOCKING") == "1" {
+		logging.Warn("Content blocking disabled via DUMBER_DISABLE_CONTENT_BLOCKING=1 (test mode)")
+		return nil
+	}
+
 	// Enable WebKit debug logging if requested
 	webkit.SetupWebKitDebugLogging()
 

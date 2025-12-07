@@ -62,33 +62,36 @@ func (cbm *ContentBlockingManager) CompileFilters(identifier string, jsonRules [
 	// Compile asynchronously - does not block main thread
 	ctx := context.Background()
 	cbm.filterStore.Save(ctx, identifier, gBytes, func(result gio.AsyncResulter) {
-		filter, err := cbm.filterStore.SaveFinish(result)
-		if err != nil {
-			logging.Error(fmt.Sprintf("[webkit] Failed to compile content filter: %v", err))
-			// Don't store nil filter - prevents GC from trying to unref it
-			if onComplete != nil {
-				onComplete(fmt.Errorf("failed to compile filter: %w", err))
+		// Ensure all GLib/GObject interactions happen on the GTK main thread.
+		RunOnMainThread(func() {
+			filter, err := cbm.filterStore.SaveFinish(result)
+			if err != nil {
+				logging.Error(fmt.Sprintf("[webkit] Failed to compile content filter: %v", err))
+				// Don't store nil filter - prevents GC from trying to unref it
+				if onComplete != nil {
+					onComplete(fmt.Errorf("failed to compile filter: %w", err))
+				}
+				return
 			}
-			return
-		}
 
-		if filter == nil {
-			logging.Error(fmt.Sprintf("[webkit] Filter compilation returned nil"))
-			if onComplete != nil {
-				onComplete(fmt.Errorf("filter compilation returned nil"))
+			if filter == nil {
+				logging.Error(fmt.Sprintf("[webkit] Filter compilation returned nil"))
+				if onComplete != nil {
+					onComplete(fmt.Errorf("filter compilation returned nil"))
+				}
+				return
 			}
-			return
-		}
 
-		// Cache the compiled filter (only if valid)
-		cbm.mu.Lock()
-		cbm.compiledFilter = filter
-		cbm.mu.Unlock()
+			// Cache the compiled filter (only if valid)
+			cbm.mu.Lock()
+			cbm.compiledFilter = filter
+			cbm.mu.Unlock()
 
-		logging.Debug(fmt.Sprintf("[webkit] Filter compilation complete: %s", identifier))
-		if onComplete != nil {
-			onComplete(nil)
-		}
+			logging.Debug(fmt.Sprintf("[webkit] Filter compilation complete: %s", identifier))
+			if onComplete != nil {
+				onComplete(nil)
+			}
+		})
 	})
 }
 
@@ -150,32 +153,30 @@ func (cbm *ContentBlockingManager) ApplyFiltersFromJSON(ucm *webkit.UserContentM
 	done := make(chan error, 1)
 
 	cbm.filterStore.Save(ctx, identifier, gBytes, func(result gio.AsyncResulter) {
-		filter, err := cbm.filterStore.SaveFinish(result)
-		if err != nil {
-			logging.Error(fmt.Sprintf("[webkit] Failed to compile content filter: %v", err))
-			done <- fmt.Errorf("failed to compile filter: %w", err)
-			// Explicitly nil to prevent GC issues with partial objects
-			filter = nil
-			return
-		}
-
-		if filter == nil {
-			logging.Error(fmt.Sprintf("[webkit] Filter compilation returned nil"))
-			done <- fmt.Errorf("filter compilation returned nil")
-			return
-		}
-
-		// Cache for future use (only valid filters)
-		cbm.mu.Lock()
-		cbm.compiledFilter = filter
-		cbm.filterID = identifier
-		cbm.mu.Unlock()
-
+		// Ensure GLib/GObject operations run on the GTK main thread.
 		RunOnMainThread(func() {
-			if filter != nil {
-				ucm.AddFilter(filter)
-				logging.Debug(fmt.Sprintf("[webkit] Successfully added content filter: %s", identifier))
+			filter, err := cbm.filterStore.SaveFinish(result)
+			if err != nil {
+				logging.Error(fmt.Sprintf("[webkit] Failed to compile content filter: %v", err))
+				done <- fmt.Errorf("failed to compile filter: %w", err)
+				// Explicitly nil to prevent GC issues with partial objects
+				return
 			}
+
+			if filter == nil {
+				logging.Error(fmt.Sprintf("[webkit] Filter compilation returned nil"))
+				done <- fmt.Errorf("filter compilation returned nil")
+				return
+			}
+
+			// Cache for future use (only valid filters)
+			cbm.mu.Lock()
+			cbm.compiledFilter = filter
+			cbm.filterID = identifier
+			cbm.mu.Unlock()
+
+			ucm.AddFilter(filter)
+			logging.Debug(fmt.Sprintf("[webkit] Successfully added content filter: %s", identifier))
 			done <- nil
 		})
 	})
