@@ -10,6 +10,7 @@ import (
 var (
 	mainLoop      *glib.MainLoop
 	isInitialized bool
+	mainContext   *glib.MainContext
 )
 
 // InitMainThread locks the current goroutine to the OS thread for GTK operations
@@ -20,6 +21,9 @@ func InitMainThread() {
 
 		// Initialize GTK - this is required before creating any GTK widgets
 		gtk.Init()
+
+		// Cache the default main context so we can check ownership later.
+		mainContext = glib.MainContextDefault()
 
 		isInitialized = true
 	}
@@ -46,8 +50,13 @@ func QuitMainLoop() {
 
 // IsMainThread returns true if called from the GTK main thread.
 func IsMainThread() bool {
-	// In gotk4, we're always on the main thread since we lock it
-	return isInitialized
+	if !isInitialized {
+		return false
+	}
+	if mainContext == nil {
+		mainContext = glib.MainContextDefault()
+	}
+	return mainContext != nil && mainContext.IsOwner()
 }
 
 // RunOnMainThread executes a function on the GTK main thread.
