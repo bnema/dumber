@@ -15,8 +15,8 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/parser"
 	"github.com/bnema/dumber/pkg/webkit"
-	"github.com/diamondburned/gotk4/pkg/gdk/v4"
-	"github.com/diamondburned/gotk4/pkg/gio/v2"
+	gdk "github.com/diamondburned/gotk4/pkg/gdk/v4"
+	gio "github.com/diamondburned/gotk4/pkg/gio/v2"
 )
 
 // FaviconService provides unified favicon access using WebKitGTK's native database.

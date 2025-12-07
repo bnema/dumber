@@ -14,8 +14,8 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/services"
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
-	"github.com/diamondburned/gotk4/pkg/gio/v2"
-	"github.com/diamondburned/gotk4/pkg/glib/v2"
+	gio "github.com/diamondburned/gotk4/pkg/gio/v2"
+	glib "github.com/diamondburned/gotk4/pkg/glib/v2"
 )
 
 // SchemeHandler handles custom dumb:// scheme resolution
@@ -76,6 +76,9 @@ func (s *SchemeHandler) handleAsset(req *webkit.URISchemeRequest, u *neturl.URL)
 	var rel string
 	if u.Opaque == constants.HomepagePath || (u.Host == constants.HomepagePath && (u.Path == "" || u.Path == "/")) || (u.Host == "" && (u.Path == "" || u.Path == "/")) {
 		rel = constants.IndexHTML
+	} else if u.Host == constants.BlockedPath && (u.Path == "" || u.Path == "/") {
+		// dumb://blocked → blocked.html
+		rel = constants.BlockedHTML
 	} else {
 		host := u.Host
 		p := strings.TrimPrefix(u.Path, "/")
@@ -86,6 +89,9 @@ func (s *SchemeHandler) handleAsset(req *webkit.URISchemeRequest, u *neturl.URL)
 			rel = p
 		case host == constants.HomepagePath && p != "":
 			// dumb://homepage/<asset>
+			rel = p
+		case host == constants.BlockedPath && p != "":
+			// dumb://blocked/<asset>
 			rel = p
 		case p != "":
 			rel = p

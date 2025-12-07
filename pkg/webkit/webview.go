@@ -41,6 +41,7 @@ type WebView struct {
 	onLoadCommitted       func(string)                            // Called when page load is committed (safe to apply zoom)
 	onLoadStarted         func()                                  // Called when a load starts
 	onLoadFinished        func()                                  // Called when a load finishes
+	onLoadFailed          func(uri string, errorMessage string)   // Called when a load fails (content blocked, network error, etc.)
 	onLoadProgress        func(float64)                           // Called when estimated-load-progress changes
 	onPopupCreate         func(*webkit.NavigationAction) *WebView // New WebKit create signal handler
 	onReadyToShow         func()                                  // WebKit ready-to-show signal handler
@@ -202,12 +203,42 @@ func (w *WebView) applyConfig() error {
 	// Enable hardware acceleration if configured
 	settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyAlways)
 
+	// Media performance optimizations
+	// Force hardware decoding for video content types via GStreamer VA-API/NVDEC
+	settings.SetMediaContentTypesRequiringHardwareSupport("video/mp4;video/webm;video/x-h264;video/av01")
+	// Enable media capabilities API for efficient codec queries
+	settings.SetEnableMediaCapabilities(true)
+	// Enable MediaSource Extensions for adaptive streaming (YouTube, Twitch)
+	settings.SetEnableMediasource(true)
+	// GPU-accelerated 2D canvas for image-heavy pages
+	settings.SetEnable2DCanvasAcceleration(true)
+	// Allow inline video playback (no forced fullscreen)
+	settings.SetMediaPlaybackAllowsInline(true)
+	// Require user gesture for autoplay (browser standard)
+	settings.SetMediaPlaybackRequiresUserGesture(true)
+
 	// Performance optimizations for faster page transitions
 	// Enable page cache for instant back/forward navigation (bfcache)
 	settings.SetEnablePageCache(w.config.EnablePageCache)
 
 	// Enable smooth scrolling for better UX
 	settings.SetEnableSmoothScrolling(w.config.EnableSmoothScrolling)
+
+	// Enable fullscreen API (required for video fullscreen)
+	settings.SetEnableFullscreen(true)
+
+	// Web app storage APIs
+	settings.SetEnableHtml5LocalStorage(true) // localStorage/sessionStorage
+	settings.SetEnableHtml5Database(true)     // IndexedDB
+
+	// Web Audio API for games and audio apps
+	settings.SetEnableWebaudio(true)
+
+	// Touchpad swipe gestures for back/forward navigation
+	settings.SetEnableBackForwardNavigationGestures(true)
+
+	// WebKit compatibility hacks for popular broken sites
+	settings.SetEnableSiteSpecificQuirks(true)
 
 	// Disable console messages to stdout to prevent page script flooding
 	// This stops malicious/buggy pages from spamming the terminal with console.log()
@@ -262,6 +293,18 @@ func (w *WebView) setupEventHandlers() {
 		if w.onLoadProgress != nil {
 			w.onLoadProgress(w.view.EstimatedLoadProgress())
 		}
+	})
+
+	// Load failed - connect to load-failed signal for network errors, content blocking, etc.
+	w.view.ConnectLoadFailed(func(loadEvent webkit.LoadEvent, failingUri string, err error) bool {
+		if w.onLoadFailed != nil {
+			errorMsg := "Unknown error"
+			if err != nil {
+				errorMsg = err.Error()
+			}
+			w.onLoadFailed(failingUri, errorMsg)
+		}
+		return false // Let WebKit show its default error page
 	})
 
 	// Favicon changed - connect to FaviconDatabase
@@ -655,6 +698,15 @@ func (w *WebView) RegisterLoadFinishedHandler(handler func()) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.onLoadFinished = handler
+}
+
+// RegisterLoadFailedHandler registers a handler for load failed events.
+// The handler receives the failing URI and error message.
+// This is triggered for network errors, content blocking, etc.
+func (w *WebView) RegisterLoadFailedHandler(handler func(uri string, errorMessage string)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.onLoadFailed = handler
 }
 
 // RegisterLoadProgressHandler registers a handler for load progress updates (0.0 - 1.0).

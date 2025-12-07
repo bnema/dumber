@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- Startup defers non-critical work, adds DNS prefetching and a warmed WebView pool for faster tab/pane creation.
+- SQLite WAL checkpoints happen less frequently to reduce contention.
+- Content filters skip caching invalid rules; EasyList parser prefers if-domain over unless-domain.
+- Workspace border overlays can now receive pointer input.
+
+## [0.15.0] - 2025-11-29
+
 ### Added
 - **Inline URL suggestions**: Fish/zsh-style ghost text completion in omnibox. As you type, shows grayed-out URL completion from history. Accept with Right Arrow (full) or Ctrl+Right (word). Ctrl+Y also accepts full suggestion. Uses trie-based prefix search with debounced queries for smooth typing.
 - **Filter list auto-update**: Async version checking using HTTP HEAD request with ETag. 2-minute startup delay, skips if checked within 24 hours. Stores version per filter list.
