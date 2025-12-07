@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"sync"
 	"syscall"
 	"time"
 
@@ -60,6 +61,8 @@ type BrowserApp struct {
 	filterManager          *filtering.FilterManager
 	contentBlockingService *filtering.ContentBlockingService
 	bypassRegistry         *filtering.BypassRegistry
+	pendingFilteringMu     sync.Mutex
+	pendingFiltering       []*webkit.WebView
 
 	// Handlers
 	schemeHandler         *api.SchemeHandler
