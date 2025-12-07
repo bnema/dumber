@@ -236,9 +236,6 @@ func (app *BrowserApp) Run() {
 	// Register custom scheme resolver for "dumb://" URIs (will be applied after WebView creation)
 	webkit.RegisterURIScheme("dumb", app.schemeHandler.Handle)
 
-<<<<<<< HEAD
-=======
->>>>>>> 78667ac (refactor(browser): defer content blocking initialization to main loop)
 	// Create and setup WebView (this also creates TabManager which creates more WebViews)
 	if err := app.createWebView(); err != nil {
 		logging.Warn(fmt.Sprintf("Warning: failed to create WebView: %v", err))
