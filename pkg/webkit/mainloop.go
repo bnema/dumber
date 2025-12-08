@@ -3,6 +3,7 @@ package webkit
 import (
 	"runtime"
 
+	"github.com/bnema/dumber/internal/logging"
 	glib "github.com/diamondburned/gotk4/pkg/glib/v2"
 	gtk "github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
@@ -38,7 +39,9 @@ func RunMainLoop() {
 		mainLoop = glib.NewMainLoop(nil, false)
 	}
 
+	logging.Debug("[webkit] Starting GLib main loop (mainLoop.Run)")
 	mainLoop.Run()
+	logging.Debug("[webkit] GLib main loop exited")
 }
 
 // QuitMainLoop stops the GTK main event loop.
