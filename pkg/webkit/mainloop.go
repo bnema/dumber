@@ -3,6 +3,7 @@ package webkit
 import (
 	"runtime"
 
+	"github.com/bnema/dumber/internal/logging"
 	glib "github.com/diamondburned/gotk4/pkg/glib/v2"
 	gtk "github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
@@ -10,6 +11,7 @@ import (
 var (
 	mainLoop      *glib.MainLoop
 	isInitialized bool
+	mainContext   *glib.MainContext
 )
 
 // InitMainThread locks the current goroutine to the OS thread for GTK operations
@@ -20,6 +22,9 @@ func InitMainThread() {
 
 		// Initialize GTK - this is required before creating any GTK widgets
 		gtk.Init()
+
+		// Cache the default main context so we can check ownership later.
+		mainContext = glib.MainContextDefault()
 
 		isInitialized = true
 	}
@@ -34,7 +39,9 @@ func RunMainLoop() {
 		mainLoop = glib.NewMainLoop(nil, false)
 	}
 
+	logging.Debug("[webkit] Starting GLib main loop (mainLoop.Run)")
 	mainLoop.Run()
+	logging.Debug("[webkit] GLib main loop exited")
 }
 
 // QuitMainLoop stops the GTK main event loop.
@@ -44,18 +51,26 @@ func QuitMainLoop() {
 	}
 }
 
-// IsMainThread returns true if GTK has been initialized.
-// Note: This doesn't truly detect the main thread, but is used as a guard
-// for whether GTK operations are safe. All GTK operations should use
-// RunOnMainThread or IdleAdd to be thread-safe.
+// IsMainThread returns true if called from the GTK main thread.
 func IsMainThread() bool {
-	return isInitialized
+	if !isInitialized {
+		return false
+	}
+	if mainContext == nil {
+		mainContext = glib.MainContextDefault()
+	}
+	return mainContext != nil && mainContext.IsOwner()
 }
 
-// RunOnMainThread schedules a function to run on the GTK main thread.
-// Always uses glib.IdleAdd to ensure thread safety.
-// The function will execute during the next main loop iteration.
+// RunOnMainThread executes a function on the GTK main thread.
+// If already on the main thread, executes immediately.
+// Otherwise, schedules the function via glib.IdleAdd.
 func RunOnMainThread(fn func()) {
+	if IsMainThread() {
+		fn()
+		return
+	}
+
 	glib.IdleAdd(func() bool {
 		fn()
 		return false // Remove the idle handler after execution

@@ -64,6 +64,7 @@ func NewWebView(cfg *Config) (*WebView, error) {
 	id := atomic.AddUint64(&viewIDCounter, 1)
 	logging.Debug(fmt.Sprintf("[webkit] Generated WebView ID: %d (CreateWindow=%v)", id, cfg.CreateWindow))
 
+	logging.Debug("[webkit] Initializing main thread")
 	InitMainThread()
 
 	// Initialize persistent session - REQUIRED, no ephemeral fallback
@@ -254,6 +255,7 @@ func (w *WebView) setupEventHandlers() {
 	w.view.Connect("notify::title", func() {
 		if w.onTitleChanged != nil {
 			title := w.view.Title()
+			logging.Debug(fmt.Sprintf("[webkit] notify::title signal: %q", title))
 			w.onTitleChanged(title)
 		}
 	})
@@ -262,6 +264,7 @@ func (w *WebView) setupEventHandlers() {
 	w.view.Connect("notify::uri", func() {
 		if w.onURIChanged != nil {
 			uri := w.view.URI()
+			logging.Debug(fmt.Sprintf("[webkit] notify::uri signal: %q", uri))
 			w.onURIChanged(uri)
 		}
 	})
@@ -276,14 +279,18 @@ func (w *WebView) setupEventHandlers() {
 
 	// Load committed - connect to load-changed signal for WEBKIT_LOAD_COMMITTED
 	w.view.ConnectLoadChanged(func(loadEvent webkit.LoadEvent) {
+		logging.Debug(fmt.Sprintf("[webkit] LoadChanged signal: %v", loadEvent))
 		if loadEvent == webkit.LoadStarted && w.onLoadStarted != nil {
+			logging.Debug("[webkit] calling onLoadStarted")
 			w.onLoadStarted()
 		}
 		if loadEvent == webkit.LoadCommitted && w.onLoadCommitted != nil {
 			uri := w.view.URI()
+			logging.Debug(fmt.Sprintf("[webkit] calling onLoadCommitted: %q", uri))
 			w.onLoadCommitted(uri)
 		}
 		if loadEvent == webkit.LoadFinished && w.onLoadFinished != nil {
+			logging.Debug("[webkit] calling onLoadFinished")
 			w.onLoadFinished()
 		}
 	})
@@ -296,16 +303,17 @@ func (w *WebView) setupEventHandlers() {
 	})
 
 	// Load failed - connect to load-failed signal for network errors, content blocking, etc.
-	w.view.ConnectLoadFailed(func(loadEvent webkit.LoadEvent, failingUri string, err error) bool {
-		if w.onLoadFailed != nil {
-			errorMsg := "Unknown error"
-			if err != nil {
-				errorMsg = err.Error()
-			}
-			w.onLoadFailed(failingUri, errorMsg)
-		}
-		return false // Let WebKit show its default error page
-	})
+	// CRASH FIX: Disabling this handler because it causes a SIGABRT (free(): invalid pointer)
+	// likely due to issues with gotk4 signal marshalling/memory management for the error argument.
+	/*
+		w.view.ConnectLoadFailed(func(loadEvent webkit.LoadEvent, failingUri string, err error) bool {
+			logging.Debug(fmt.Sprintf("[webkit] LoadFailed signal: event=%v uri=%s", loadEvent, failingUri))
+
+			// DEBUG TEST: Blindly return true regardless of error type to see if crash persists.
+			logging.Debug("[webkit] LoadFailed: Suppressing error page (Blind Test)")
+			return true
+		})
+	*/
 
 	// Favicon changed - connect to FaviconDatabase
 	w.setupFaviconHandlers()
@@ -358,6 +366,7 @@ func (w *WebView) setupEventHandlers() {
 			if w.onScriptMessage != nil && jscValue != nil {
 				// Convert JSCValue to string using gotk4 javascriptcore bindings
 				valueStr := JSCValueToString(jscValue)
+				logging.Debug(fmt.Sprintf("[webkit] script-message-received: %s", valueStr))
 				if valueStr != "" {
 					w.onScriptMessage(valueStr)
 				}
