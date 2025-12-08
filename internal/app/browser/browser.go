@@ -422,15 +422,20 @@ func (app *BrowserApp) setupSignalHandling() {
 // runMainLoop starts the appropriate main loop based on WebKit availability
 func (app *BrowserApp) runMainLoop() {
 	if webkit.IsNativeAvailable() {
-		// Schedule content blocking initialization to run on the first main loop iteration
-		// This ensures GTK is fully ready before we start loading filters
-		webkit.RunOnMainThread(func() {
-			if err := app.setupContentBlocking(); err != nil {
-				logging.Warn(fmt.Sprintf("Warning: failed to setup content blocking: %v", err))
-			}
-		})
+		if os.Getenv("DUMBER_DISABLE_CONTENT_BLOCKING") != "1" {
+			// Schedule content blocking initialization to run on the first main loop iteration
+			// This ensures GTK is fully ready before we start loading filters
+			webkit.RunOnMainThread(func() {
+				if err := app.setupContentBlocking(); err != nil {
+					logging.Warn(fmt.Sprintf("Warning: failed to setup content blocking: %v", err))
+				}
+			})
+		} else {
+			logging.Warn("Content blocking skipped (DUMBER_DISABLE_CONTENT_BLOCKING=1)")
+		}
 
 		logging.Info(fmt.Sprintf("Entering GTK main loop…"))
+		logging.Debug("[browser] Calling webkit.RunMainLoop()")
 		webkit.RunMainLoop()
 		logging.Info(fmt.Sprintf("GTK main loop exited"))
 
