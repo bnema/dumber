@@ -372,6 +372,7 @@ func (app *BrowserApp) runMainLoop() {
 		}
 
 		logging.Info(fmt.Sprintf("Entering GTK main loop…"))
+		logging.Debug("[browser] Calling webkit.RunMainLoop()")
 		webkit.RunMainLoop()
 		logging.Info(fmt.Sprintf("GTK main loop exited"))
 
