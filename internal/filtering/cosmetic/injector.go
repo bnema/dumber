@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/bnema/dumber/internal/logging"
 )
@@ -14,6 +15,7 @@ var cosmeticScript string
 
 // CosmeticInjector manages cosmetic filter injection
 type CosmeticInjector struct {
+	mu            sync.RWMutex
 	domainRules   map[string][]string
 	genericRules  []string
 	scriptEnabled bool
@@ -36,6 +38,9 @@ func NewCosmeticInjector() *CosmeticInjector {
 
 // InjectRules stores cosmetic rules for domain-specific filtering
 func (ci *CosmeticInjector) InjectRules(rules map[string][]string) error {
+	ci.mu.Lock()
+	defer ci.mu.Unlock()
+
 	if !ci.scriptEnabled {
 		return fmt.Errorf("cosmetic filtering disabled")
 	}
@@ -63,6 +68,9 @@ func (ci *CosmeticInjector) InjectRules(rules map[string][]string) error {
 
 // GetScriptForDomain returns the complete cosmetic filtering script for a domain
 func (ci *CosmeticInjector) GetScriptForDomain(domain string) string {
+	ci.mu.RLock()
+	defer ci.mu.RUnlock()
+
 	if !ci.scriptEnabled {
 		return ""
 	}
@@ -130,6 +138,9 @@ func (ci *CosmeticInjector) GetScriptForDomain(domain string) string {
 
 // UpdateRulesForDomain adds new rules for a specific domain
 func (ci *CosmeticInjector) UpdateRulesForDomain(domain string, newSelectors []string) {
+	ci.mu.Lock()
+	defer ci.mu.Unlock()
+
 	if !ci.scriptEnabled {
 		return
 	}
@@ -154,7 +165,11 @@ func (ci *CosmeticInjector) UpdateRulesForDomain(domain string, newSelectors []s
 
 // GetUpdateScript returns JavaScript to update rules dynamically
 func (ci *CosmeticInjector) GetUpdateScript(newSelectors []string) string {
-	if !ci.scriptEnabled || len(newSelectors) == 0 {
+	ci.mu.RLock()
+	enabled := ci.scriptEnabled
+	ci.mu.RUnlock()
+
+	if !enabled || len(newSelectors) == 0 {
 		return ""
 	}
 
@@ -190,6 +205,9 @@ func (ci *CosmeticInjector) GetCleanupScript() string {
 
 // GetRulesForDomain returns all cosmetic rules that apply to a domain
 func (ci *CosmeticInjector) GetRulesForDomain(domain string) []string {
+	ci.mu.RLock()
+	defer ci.mu.RUnlock()
+
 	var rules []string
 
 	// Add generic rules
@@ -215,7 +233,10 @@ func (ci *CosmeticInjector) GetRulesForDomain(domain string) []string {
 
 // Enable enables or disables cosmetic filtering
 func (ci *CosmeticInjector) Enable(enabled bool) {
+	ci.mu.Lock()
 	ci.scriptEnabled = enabled
+	ci.mu.Unlock()
+
 	if enabled {
 		logging.Info("Cosmetic filtering enabled")
 	} else {
@@ -225,11 +246,16 @@ func (ci *CosmeticInjector) Enable(enabled bool) {
 
 // IsEnabled returns whether cosmetic filtering is enabled
 func (ci *CosmeticInjector) IsEnabled() bool {
+	ci.mu.RLock()
+	defer ci.mu.RUnlock()
 	return ci.scriptEnabled
 }
 
 // GetStats returns statistics about loaded cosmetic rules
 func (ci *CosmeticInjector) GetStats() map[string]interface{} {
+	ci.mu.RLock()
+	defer ci.mu.RUnlock()
+
 	domainCount := len(ci.domainRules)
 	totalRules := len(ci.genericRules)
 
