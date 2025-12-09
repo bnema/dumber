@@ -1,0 +1,343 @@
+package config
+
+// Config represents the complete configuration for dumber.
+type Config struct {
+	Database        DatabaseConfig            `mapstructure:"database" yaml:"database" toml:"database"`
+	History         HistoryConfig             `mapstructure:"history" yaml:"history" toml:"history"`
+	SearchShortcuts map[string]SearchShortcut `mapstructure:"search_shortcuts" yaml:"search_shortcuts" toml:"search_shortcuts"`
+	// DefaultSearchEngine is the URL template for the default search engine (must contain %s placeholder)
+	DefaultSearchEngine string                  `mapstructure:"default_search_engine" yaml:"default_search_engine" toml:"default_search_engine"`
+	Dmenu               DmenuConfig             `mapstructure:"dmenu" yaml:"dmenu" toml:"dmenu"`
+	Logging             LoggingConfig           `mapstructure:"logging" yaml:"logging" toml:"logging"`
+	Appearance          AppearanceConfig        `mapstructure:"appearance" yaml:"appearance" toml:"appearance"`
+	VideoAcceleration   VideoAccelerationConfig `mapstructure:"video_acceleration" yaml:"video_acceleration" toml:"video_acceleration"`
+	CodecPreferences    CodecConfig             `mapstructure:"codec_preferences" yaml:"codec_preferences" toml:"codec_preferences"`
+	Debug               DebugConfig             `mapstructure:"debug" yaml:"debug" toml:"debug"`
+	// RenderingMode controls GPU/CPU rendering selection for WebKit
+	RenderingMode RenderingMode `mapstructure:"rendering_mode" yaml:"rendering_mode" toml:"rendering_mode"`
+	// UseDomZoom toggles DOM-based zoom instead of native WebKit zoom.
+	UseDomZoom bool `mapstructure:"use_dom_zoom" yaml:"use_dom_zoom" toml:"use_dom_zoom"`
+	// DefaultZoom sets the default zoom level for pages without saved zoom settings (1.0 = 100%, 1.2 = 120%)
+	DefaultZoom float64 `mapstructure:"default_zoom" yaml:"default_zoom" toml:"default_zoom"`
+	// Workspace defines workspace, pane, and tab handling behaviour.
+	Workspace WorkspaceConfig `mapstructure:"workspace" yaml:"workspace" toml:"workspace"`
+	// ContentFiltering controls ad blocking and content filtering
+	ContentFiltering ContentFilteringConfig `mapstructure:"content_filtering" yaml:"content_filtering" toml:"content_filtering"`
+	// Omnibox controls the omnibox behavior (initial history display)
+	Omnibox OmniboxConfig `mapstructure:"omnibox" yaml:"omnibox" toml:"omnibox"`
+}
+
+// RenderingMode selects GPU vs CPU rendering.
+type RenderingMode string
+
+const (
+	RenderingModeAuto RenderingMode = "auto"
+	RenderingModeGPU  RenderingMode = "gpu"
+	RenderingModeCPU  RenderingMode = "cpu"
+)
+
+// ThemeDefault is the default theme setting (follows system).
+const ThemeDefault = "default"
+
+// DatabaseConfig holds database-related configuration.
+type DatabaseConfig struct {
+	Path string `mapstructure:"path" yaml:"path" toml:"path"`
+}
+
+// HistoryConfig holds history-related configuration.
+type HistoryConfig struct {
+	MaxEntries          int `mapstructure:"max_entries" yaml:"max_entries" toml:"max_entries"`
+	RetentionPeriodDays int `mapstructure:"retention_period_days" yaml:"retention_period_days" toml:"retention_period_days"`
+	CleanupIntervalDays int `mapstructure:"cleanup_interval_days" yaml:"cleanup_interval_days" toml:"cleanup_interval_days"`
+}
+
+// SearchShortcut represents a search shortcut configuration.
+type SearchShortcut struct {
+	URL         string `mapstructure:"url" toml:"url" yaml:"url" json:"url"`
+	Description string `mapstructure:"description" toml:"description" yaml:"description" json:"description"`
+}
+
+// DmenuConfig holds dmenu/rofi integration configuration.
+type DmenuConfig struct {
+	MaxHistoryItems  int    `mapstructure:"max_history_items" yaml:"max_history_items" toml:"max_history_items"`
+	ShowVisitCount   bool   `mapstructure:"show_visit_count" yaml:"show_visit_count" toml:"show_visit_count"`
+	ShowLastVisited  bool   `mapstructure:"show_last_visited" yaml:"show_last_visited" toml:"show_last_visited"`
+	HistoryPrefix    string `mapstructure:"history_prefix" yaml:"history_prefix" toml:"history_prefix"`
+	ShortcutPrefix   string `mapstructure:"shortcut_prefix" yaml:"shortcut_prefix" toml:"shortcut_prefix"`
+	URLPrefix        string `mapstructure:"url_prefix" yaml:"url_prefix" toml:"url_prefix"`
+	DateFormat       string `mapstructure:"date_format" yaml:"date_format" toml:"date_format"`
+	SortByVisitCount bool   `mapstructure:"sort_by_visit_count" yaml:"sort_by_visit_count" toml:"sort_by_visit_count"`
+}
+
+// LoggingConfig holds logging configuration.
+type LoggingConfig struct {
+	Level      string `mapstructure:"level" yaml:"level" toml:"level"`
+	Format     string `mapstructure:"format" yaml:"format" toml:"format"`
+	Filename   string `mapstructure:"filename" yaml:"filename" toml:"filename"`
+	MaxSize    int    `mapstructure:"max_size" yaml:"max_size" toml:"max_size"`
+	MaxBackups int    `mapstructure:"max_backups" yaml:"max_backups" toml:"max_backups"`
+	MaxAge     int    `mapstructure:"max_age" yaml:"max_age" toml:"max_age"`
+	Compress   bool   `mapstructure:"compress" yaml:"compress" toml:"compress"`
+
+	// File output configuration
+	LogDir        string `mapstructure:"log_dir" yaml:"log_dir" toml:"log_dir"`
+	EnableFileLog bool   `mapstructure:"enable_file_log" yaml:"enable_file_log" toml:"enable_file_log"`
+
+	// Capture settings
+	CaptureStdout  bool `mapstructure:"capture_stdout" yaml:"capture_stdout" toml:"capture_stdout" json:"capture_stdout"`
+	CaptureStderr  bool `mapstructure:"capture_stderr" yaml:"capture_stderr" toml:"capture_stderr" json:"capture_stderr"`
+	CaptureCOutput bool `mapstructure:"capture_c_output" yaml:"capture_c_output" toml:"capture_c_output" json:"capture_c_output"`
+	CaptureConsole bool `mapstructure:"capture_console" yaml:"capture_console" toml:"capture_console" json:"capture_console"`
+
+	// Debug output
+	DebugFile     string `mapstructure:"debug_file" yaml:"debug_file" toml:"debug_file"`
+	VerboseWebKit bool   `mapstructure:"verbose_webkit" yaml:"verbose_webkit" toml:"verbose_webkit"`
+}
+
+// AppearanceConfig holds UI/rendering preferences.
+type AppearanceConfig struct {
+	// Default fonts for pages that do not specify fonts.
+	SansFont      string `mapstructure:"sans_font" yaml:"sans_font" toml:"sans_font"`
+	SerifFont     string `mapstructure:"serif_font" yaml:"serif_font" toml:"serif_font"`
+	MonospaceFont string `mapstructure:"monospace_font" yaml:"monospace_font" toml:"monospace_font"`
+	// Default font size in CSS pixels (approx).
+	DefaultFontSize int          `mapstructure:"default_font_size" yaml:"default_font_size" toml:"default_font_size"`
+	LightPalette    ColorPalette `mapstructure:"light_palette" yaml:"light_palette" toml:"light_palette"`
+	DarkPalette     ColorPalette `mapstructure:"dark_palette" yaml:"dark_palette" toml:"dark_palette"`
+	// ColorScheme controls the initial theme preference: "prefer-dark", "prefer-light", or "default" (follows system)
+	ColorScheme string `mapstructure:"color_scheme" yaml:"color_scheme" toml:"color_scheme"`
+}
+
+// ColorPalette contains semantic color tokens for light/dark themes.
+type ColorPalette struct {
+	Background     string `mapstructure:"background" yaml:"background" toml:"background" json:"background"`
+	Surface        string `mapstructure:"surface" yaml:"surface" toml:"surface" json:"surface"`
+	SurfaceVariant string `mapstructure:"surface_variant" yaml:"surface_variant" toml:"surface_variant" json:"surface_variant"`
+	Text           string `mapstructure:"text" yaml:"text" toml:"text" json:"text"`
+	Muted          string `mapstructure:"muted" yaml:"muted" toml:"muted" json:"muted"`
+	Accent         string `mapstructure:"accent" yaml:"accent" toml:"accent" json:"accent"`
+	Border         string `mapstructure:"border" yaml:"border" toml:"border" json:"border"`
+}
+
+// VideoAccelerationConfig holds video hardware acceleration preferences.
+type VideoAccelerationConfig struct {
+	EnableVAAPI      bool   `mapstructure:"enable_vaapi" yaml:"enable_vaapi" toml:"enable_vaapi"`
+	AutoDetectGPU    bool   `mapstructure:"auto_detect_gpu" yaml:"auto_detect_gpu" toml:"auto_detect_gpu"`
+	VAAPIDriverName  string `mapstructure:"vaapi_driver_name" yaml:"vaapi_driver_name" toml:"vaapi_driver_name"`
+	EnableAllDrivers bool   `mapstructure:"enable_all_drivers" yaml:"enable_all_drivers" toml:"enable_all_drivers"`
+	LegacyVAAPI      bool   `mapstructure:"legacy_vaapi" yaml:"legacy_vaapi" toml:"legacy_vaapi"`
+}
+
+// CodecConfig holds video codec preferences and handling
+type CodecConfig struct {
+	// Codec preference order (e.g., "av1,h264,vp8")
+	PreferredCodecs string `mapstructure:"preferred_codecs" yaml:"preferred_codecs" toml:"preferred_codecs"`
+
+	// Force specific codec for platforms
+	ForceAV1 bool `mapstructure:"force_av1" yaml:"force_av1" toml:"force_av1"`
+
+	// Block problematic codecs
+	BlockVP9 bool `mapstructure:"block_vp9" yaml:"block_vp9" toml:"block_vp9"`
+	BlockVP8 bool `mapstructure:"block_vp8" yaml:"block_vp8" toml:"block_vp8"`
+
+	// Hardware acceleration per codec
+	AV1HardwareOnly    bool `mapstructure:"av1_hardware_only" yaml:"av1_hardware_only" toml:"av1_hardware_only"`
+	DisableVP9Hardware bool `mapstructure:"disable_vp9_hardware" yaml:"disable_vp9_hardware" toml:"disable_vp9_hardware"`
+
+	// Buffer configuration for smooth playback
+	VideoBufferSizeMB  int `mapstructure:"video_buffer_size_mb" yaml:"video_buffer_size_mb" toml:"video_buffer_size_mb"`
+	QueueBufferTimeSec int `mapstructure:"queue_buffer_time_sec" yaml:"queue_buffer_time_sec" toml:"queue_buffer_time_sec"`
+
+	// Custom User-Agent for codec negotiation
+	CustomUserAgent string `mapstructure:"custom_user_agent" yaml:"custom_user_agent" toml:"custom_user_agent"`
+
+	// Maximum resolution for AV1 codec (720p, 1080p, 1440p, 4k, unlimited)
+	AV1MaxResolution string `mapstructure:"av1_max_resolution" yaml:"av1_max_resolution" toml:"av1_max_resolution"`
+
+	// Site-specific codec control settings
+	DisableTwitchCodecControl bool `mapstructure:"disable_twitch_codec_control" yaml:"disable_twitch_codec_control" toml:"disable_twitch_codec_control"`
+}
+
+// ContentFilteringConfig holds content filtering and ad blocking preferences
+type ContentFilteringConfig struct {
+	// Enabled controls whether ad blocking is active (default: true)
+	Enabled bool `mapstructure:"enabled" yaml:"enabled" toml:"enabled"`
+	// FilterLists URLs of filter lists to use (EasyList, uBlock, etc.)
+	FilterLists []string `mapstructure:"filter_lists" yaml:"filter_lists" toml:"filter_lists"`
+	// Note: Whitelist is now managed via database (content_whitelist table)
+}
+
+// OmniboxConfig holds omnibox behavior preferences
+type OmniboxConfig struct {
+	// InitialBehavior controls what to show when omnibox opens with empty input
+	// Values: "recent" (recent visits), "most_visited" (most visited sites), "none" (nothing)
+	InitialBehavior string `mapstructure:"initial_behavior" yaml:"initial_behavior" toml:"initial_behavior"`
+}
+
+// DebugConfig holds debug and troubleshooting options
+type DebugConfig struct {
+	// Enable WebKit internal debug logging
+	EnableWebKitDebug bool `mapstructure:"enable_webkit_debug" yaml:"enable_webkit_debug" toml:"enable_webkit_debug"`
+
+	// WebKit debug categories (comma-separated)
+	// Common values: "Network:preconnectTo", "ContentFilters", "Loading", "JavaScript"
+	WebKitDebugCategories string `mapstructure:"webkit_debug_categories" yaml:"webkit_debug_categories" toml:"webkit_debug_categories"`
+
+	// Enable content filtering debug logs
+	EnableFilteringDebug bool `mapstructure:"enable_filtering_debug" yaml:"enable_filtering_debug" toml:"enable_filtering_debug"`
+
+	// Enable detailed WebView state logging
+	EnableWebViewDebug bool `mapstructure:"enable_webview_debug" yaml:"enable_webview_debug" toml:"enable_webview_debug"`
+
+	// Log WebKit crashes and errors to file
+	LogWebKitCrashes bool `mapstructure:"log_webkit_crashes" yaml:"log_webkit_crashes" toml:"log_webkit_crashes"`
+
+	// Enable script injection debug logs
+	EnableScriptDebug bool `mapstructure:"enable_script_debug" yaml:"enable_script_debug" toml:"enable_script_debug"`
+
+	// Enable general debug mode (equivalent to DUMBER_DEBUG env var)
+	EnableGeneralDebug bool `mapstructure:"enable_general_debug" yaml:"enable_general_debug" toml:"enable_general_debug"`
+
+	// Enable workspace navigation and focus debug logs
+	EnableWorkspaceDebug bool `mapstructure:"enable_workspace_debug" yaml:"enable_workspace_debug" toml:"enable_workspace_debug"`
+
+	// Enable focus state machine debug logs
+	EnableFocusDebug bool `mapstructure:"enable_focus_debug" yaml:"enable_focus_debug" toml:"enable_focus_debug"`
+
+	// Enable CSS reconciler debug logs
+	EnableCSSDebug bool `mapstructure:"enable_css_debug" yaml:"enable_css_debug" toml:"enable_css_debug"`
+
+	// Enable focus metrics tracking
+	EnableFocusMetrics bool `mapstructure:"enable_focus_metrics" yaml:"enable_focus_metrics" toml:"enable_focus_metrics"`
+
+	// Enable detailed pane close instrumentation and tree snapshots
+	EnablePaneCloseDebug bool `mapstructure:"enable_pane_close_debug" yaml:"enable_pane_close_debug" toml:"enable_pane_close_debug"`
+}
+
+// WorkspaceConfig captures layout, pane, and tab behaviour preferences.
+type WorkspaceConfig struct {
+	// PaneMode defines modal pane behaviour and bindings.
+	PaneMode PaneModeConfig `mapstructure:"pane_mode" yaml:"pane_mode" toml:"pane_mode" json:"pane_mode"`
+	// TabMode defines modal tab behaviour and bindings (Alt+T).
+	TabMode TabModeConfig `mapstructure:"tab_mode" yaml:"tab_mode" toml:"tab_mode" json:"tab_mode"`
+	// Tabs holds classic browser tab shortcuts.
+	Tabs TabKeyConfig `mapstructure:"tabs" yaml:"tabs" toml:"tabs" json:"tabs"`
+	// TabBarPosition determines tab bar placement: "top" or "bottom".
+	TabBarPosition string `mapstructure:"tab_bar_position" yaml:"tab_bar_position" toml:"tab_bar_position" json:"tab_bar_position"`
+	// Popups configures default popup placement rules.
+	Popups PopupBehaviorConfig `mapstructure:"popups" yaml:"popups" toml:"popups" json:"popups"`
+	// Styling configures workspace visual appearance.
+	Styling WorkspaceStylingConfig `mapstructure:"styling" yaml:"styling" toml:"styling" json:"styling"`
+}
+
+// PaneModeConfig defines modal behaviour for pane management.
+type PaneModeConfig struct {
+	ActivationShortcut  string              `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"`
+	TimeoutMilliseconds int                 `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
+	Actions             map[string][]string `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
+}
+
+// GetKeyBindings returns an inverted map for O(1) key→action lookup.
+// This is built from the action→keys structure in the config.
+func (p *PaneModeConfig) GetKeyBindings() map[string]string {
+	keyToAction := make(map[string]string)
+	for action, keys := range p.Actions {
+		for _, key := range keys {
+			keyToAction[key] = action
+		}
+	}
+	return keyToAction
+}
+
+// TabModeConfig defines modal behaviour for tab management (Zellij-style).
+type TabModeConfig struct {
+	ActivationShortcut  string              `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"`
+	TimeoutMilliseconds int                 `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
+	Actions             map[string][]string `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
+}
+
+// GetKeyBindings returns an inverted map for O(1) key→action lookup.
+// This is built from the action→keys structure in the config.
+func (t *TabModeConfig) GetKeyBindings() map[string]string {
+	keyToAction := make(map[string]string)
+	for action, keys := range t.Actions {
+		for _, key := range keys {
+			keyToAction[key] = action
+		}
+	}
+	return keyToAction
+}
+
+// TabKeyConfig defines Zellij-inspired tab shortcuts.
+type TabKeyConfig struct {
+	NewTab      string `mapstructure:"new_tab" yaml:"new_tab" toml:"new_tab" json:"new_tab"`
+	CloseTab    string `mapstructure:"close_tab" yaml:"close_tab" toml:"close_tab" json:"close_tab"`
+	NextTab     string `mapstructure:"next_tab" yaml:"next_tab" toml:"next_tab" json:"next_tab"`
+	PreviousTab string `mapstructure:"previous_tab" yaml:"previous_tab" toml:"previous_tab" json:"previous_tab"`
+}
+
+// PopupBehavior defines how popup windows should be opened
+type PopupBehavior string
+
+const (
+	// PopupBehaviorSplit opens popups in a split pane (default)
+	PopupBehaviorSplit PopupBehavior = "split"
+	// PopupBehaviorStacked opens popups in a stacked pane
+	PopupBehaviorStacked PopupBehavior = "stacked"
+	// PopupBehaviorTabbed opens popups as a new tab
+	PopupBehaviorTabbed PopupBehavior = "tabbed"
+	// PopupBehaviorWindowed opens popups in a new workspace window
+	PopupBehaviorWindowed PopupBehavior = "windowed"
+)
+
+// PopupBehaviorConfig defines handling for popup windows.
+type PopupBehaviorConfig struct {
+	// Behavior determines how popups are opened (split/stacked/tabbed/windowed)
+	Behavior PopupBehavior `mapstructure:"behavior" yaml:"behavior" toml:"behavior" json:"behavior"`
+
+	// Placement specifies direction for split behavior ("right", "left", "top", "bottom")
+	// Only used when Behavior is "split"
+	Placement string `mapstructure:"placement" yaml:"placement" toml:"placement" json:"placement"`
+
+	// OpenInNewPane controls whether popups are opened in workspace or blocked
+	OpenInNewPane bool `mapstructure:"open_in_new_pane" yaml:"open_in_new_pane" toml:"open_in_new_pane" json:"open_in_new_pane"`
+
+	// FollowPaneContext determines if popup placement follows parent pane context
+	FollowPaneContext bool `mapstructure:"follow_pane_context" yaml:"follow_pane_context" toml:"follow_pane_context" json:"follow_pane_context"`
+
+	// BlankTargetBehavior determines how target="_blank" links are opened
+	// Accepted values: "split", "stacked" (default), "tabbed"
+	// This is separate from Behavior which controls JavaScript popups
+	BlankTargetBehavior string `mapstructure:"blank_target_behavior" yaml:"blank_target_behavior" toml:"blank_target_behavior" json:"blank_target_behavior"`
+
+	// EnableSmartDetection uses WebKitWindowProperties to detect popup vs tab intents
+	EnableSmartDetection bool `mapstructure:"enable_smart_detection" yaml:"enable_smart_detection" toml:"enable_smart_detection" json:"enable_smart_detection"`
+
+	// OAuthAutoClose enables auto-closing OAuth popups after successful auth redirects
+	OAuthAutoClose bool `mapstructure:"oauth_auto_close" yaml:"oauth_auto_close" toml:"oauth_auto_close" json:"oauth_auto_close"`
+}
+
+// WorkspaceStylingConfig defines visual styling for workspace panes.
+type WorkspaceStylingConfig struct {
+	// BorderWidth in pixels for active pane borders (overlay)
+	BorderWidth int `mapstructure:"border_width" yaml:"border_width" toml:"border_width" json:"border_width"`
+	// BorderColor for focused panes (CSS color value or theme variable)
+	BorderColor string `mapstructure:"border_color" yaml:"border_color" toml:"border_color" json:"border_color"`
+
+	// PaneModeBorderWidth in pixels for pane mode indicator border (Ctrl+P N overlay)
+	PaneModeBorderWidth int `mapstructure:"pane_mode_border_width" yaml:"pane_mode_border_width" toml:"pane_mode_border_width" json:"pane_mode_border_width"`
+	// PaneModeBorderColor for the pane mode indicator border (CSS color value or theme variable)
+	// Defaults to "#4A90E2" (blue) if not set
+	PaneModeBorderColor string `mapstructure:"pane_mode_border_color" yaml:"pane_mode_border_color" toml:"pane_mode_border_color" json:"pane_mode_border_color"`
+
+	// TabModeBorderWidth in pixels for tab mode indicator border (Ctrl+P T overlay)
+	TabModeBorderWidth int `mapstructure:"tab_mode_border_width" yaml:"tab_mode_border_width" toml:"tab_mode_border_width" json:"tab_mode_border_width"`
+	// TabModeBorderColor for the tab mode indicator border (CSS color value or theme variable)
+	// Defaults to "#FFA500" (orange) if not set - MUST be different from PaneModeBorderColor
+	TabModeBorderColor string `mapstructure:"tab_mode_border_color" yaml:"tab_mode_border_color" toml:"tab_mode_border_color" json:"tab_mode_border_color"`
+
+	// TransitionDuration in milliseconds for border animations
+	TransitionDuration int `mapstructure:"transition_duration" yaml:"transition_duration" toml:"transition_duration" json:"transition_duration"`
+	// UIScale is a multiplier for UI elements like title bars (1.0 = 100%, 1.2 = 120%)
+	UIScale float64 `mapstructure:"ui_scale" yaml:"ui_scale" toml:"ui_scale" json:"ui_scale"`
+}

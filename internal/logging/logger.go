@@ -8,7 +8,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// TODO should come from config package
 // Config holds logging configuration
 type Config struct {
 	Level      zerolog.Level
@@ -54,26 +53,54 @@ func NewFromEnv() zerolog.Logger {
 	cfg := DefaultConfig()
 
 	if level := os.Getenv("DUMBER_LOG_LEVEL"); level != "" {
-		switch level {
-		case "trace":
-			cfg.Level = zerolog.TraceLevel
-		case "debug":
-			cfg.Level = zerolog.DebugLevel
-		case "info":
-			cfg.Level = zerolog.InfoLevel
-		case "warn":
-			cfg.Level = zerolog.WarnLevel
-		case "error":
-			cfg.Level = zerolog.ErrorLevel
-		}
+		cfg.Level = ParseLevel(level)
 	}
 
 	if format := os.Getenv("DUMBER_LOG_FORMAT"); format != "" {
 		switch format {
-		case "json", "console":
+		case "json", "console", "text":
 			cfg.Format = format
 		}
 	}
 
 	return New(cfg)
+}
+
+// NewFromConfigValues creates a logger from level and format strings.
+// This is used by main.go to create a logger from the config package's LoggingConfig
+// without creating an import cycle.
+func NewFromConfigValues(level, format string) zerolog.Logger {
+	cfg := DefaultConfig()
+	cfg.Level = ParseLevel(level)
+
+	switch format {
+	case "json":
+		cfg.Format = "json"
+	case "console", "text", "":
+		cfg.Format = "console"
+	default:
+		cfg.Format = "console"
+	}
+
+	return New(cfg)
+}
+
+// ParseLevel converts a level string to zerolog.Level
+func ParseLevel(level string) zerolog.Level {
+	switch level {
+	case "trace":
+		return zerolog.TraceLevel
+	case "debug":
+		return zerolog.DebugLevel
+	case "info", "":
+		return zerolog.InfoLevel
+	case "warn":
+		return zerolog.WarnLevel
+	case "error":
+		return zerolog.ErrorLevel
+	case "fatal":
+		return zerolog.FatalLevel
+	default:
+		return zerolog.InfoLevel
+	}
 }
