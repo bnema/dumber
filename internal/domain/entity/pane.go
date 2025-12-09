@@ -39,10 +39,10 @@ type Pane struct {
 	CreatedAt  time.Time
 
 	// Popup-specific fields
-	IsRelated      bool    // Shares context with parent
-	ParentPaneID   *PaneID // Parent pane if this is a related popup
-	AutoClose      bool    // Auto-close on OAuth success
-	RequestID      string  // Request ID for popup tracking
+	IsRelated    bool    // Shares context with parent
+	ParentPaneID *PaneID // Parent pane if this is a related popup
+	AutoClose    bool    // Auto-close on OAuth success
+	RequestID    string  // Request ID for popup tracking
 }
 
 // NewPane creates a new pane with default values.

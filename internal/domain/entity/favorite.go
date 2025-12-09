@@ -98,10 +98,10 @@ func NewTag(name string) *Tag {
 
 // FavoriteTree represents a hierarchical view of folders and favorites.
 type FavoriteTree struct {
-	RootFolders   []*Folder
-	RootFavorites []*Favorite
-	FolderMap     map[FolderID]*Folder    // Quick lookup
-	ChildFolders  map[FolderID][]*Folder  // Children of each folder
+	RootFolders    []*Folder
+	RootFavorites  []*Favorite
+	FolderMap      map[FolderID]*Folder     // Quick lookup
+	ChildFolders   map[FolderID][]*Folder   // Children of each folder
 	ChildFavorites map[FolderID][]*Favorite // Favorites in each folder
 }
 
