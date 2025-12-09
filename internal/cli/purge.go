@@ -54,7 +54,7 @@ Available purge targets:
   --browser-cache, -b  Purge WebKit browser cache (cached images, files, etc.)
   --browser-data, -B   Purge WebKit browser data (localStorage, sessionStorage, IndexedDB)
                        Note: Cookies are in cookies.db and deleted via --database
-  --filter-cache, -F   Purge compiled ad blocking filters cache
+  --filter-cache, -F   Purge compiled ad blocking filters cache (EasyList + WebKit compiled)
   --state, -s          Purge all state data (includes databases and caches)
   --config, -c         Purge configuration files
   --all, -a            Purge everything (default if no specific flags are provided)
@@ -217,7 +217,14 @@ func getPurgePaths(items []string) (map[string][]string, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to get filter cache directory: %w", err)
 			}
-			paths[item] = []string{filterCacheDir}
+			// Also include WebKit compiled content-filters directory
+			// WebKit stores data under {dataDir}/webkit/ subdirectory
+			dataDir, err := config.GetDataDir()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get data directory: %w", err)
+			}
+			contentFiltersDir := filepath.Join(dataDir, "webkit", "content-filters")
+			paths[item] = []string{filterCacheDir, contentFiltersDir}
 
 		case "config":
 			configFile, err := config.GetConfigFile()

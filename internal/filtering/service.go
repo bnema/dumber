@@ -4,87 +4,33 @@ package filtering
 import (
 	"fmt"
 	"net/url"
+	"strings"
 	"sync"
 
 	webkit "github.com/diamondburned/gotk4-webkitgtk/pkg/webkit/v6"
-	glib "github.com/diamondburned/gotk4/pkg/glib/v2"
 
 	"github.com/bnema/dumber/internal/filtering/cosmetic"
 	"github.com/bnema/dumber/internal/logging"
 	pkgwebkit "github.com/bnema/dumber/pkg/webkit"
 )
 
-// runWhenWidgetReady waits until the WebView exposes a valid UserContentManager before invoking fn on the GTK main thread.
-// This avoids racing freshly split panes whose underlying widgets aren't fully initialized yet.
-func (s *ContentBlockingService) runWhenWidgetReady(wv *pkgwebkit.WebView, fn func()) {
-	if wv == nil || wv.IsDestroyed() || fn == nil {
-		return
-	}
-
-	const maxAttempts = 50        // up to ~1s total
-	const retryDelayMS = uint(20) // 20ms between checks
-
-	var tryApply func(attempt int) bool
-	tryApply = func(attempt int) bool {
-		if wv.IsDestroyed() {
-			return false
-		}
-
-		gtkView := wv.GetWebView()
-		if gtkView == nil {
-			return attempt < maxAttempts
-		}
-
-		if ucm := gtkView.UserContentManager(); ucm == nil {
-			return attempt < maxAttempts
-		}
-
-		pkgwebkit.RunOnMainThread(func() {
-			if wv.IsDestroyed() {
-				return
-			}
-			fn()
-		})
-		return false
-	}
-
-	attempts := 0
-	if !tryApply(attempts) {
-		return
-	}
-
-	glib.TimeoutAdd(retryDelayMS, func() bool {
-		attempts++
-		return tryApply(attempts)
-	})
-}
+// localSchemes are URI schemes that don't need content filtering.
+var localSchemes = []string{"about:", "dumb://", "file://", "data:"}
 
 // ContentBlockingService manages content blocking for all WebViews.
-// It ensures network filters and cosmetic rules are applied consistently
-// across all WebViews in the application.
+// Simplified architecture:
+// - Compile filter once at startup
+// - Apply to each WebView's UCM directly (AddFilter is idempotent)
+// - Inject cosmetic rules on navigation
 type ContentBlockingService struct {
 	mu sync.RWMutex
 
-	// Filter data
-	networkFilterJSON []byte
-	filterManager     *FilterManager
-	cosmeticInjector  *cosmetic.CosmeticInjector
-	filtersReady      bool
-
-	// WebView registry - tracks all active WebViews
-	webViews map[*pkgwebkit.WebView]webViewState
-
-	// Content blocking manager for compiling filters
+	filterManager      *FilterManager
+	cosmeticInjector   *cosmetic.CosmeticInjector
 	contentBlockingMgr *pkgwebkit.ContentBlockingManager
-
-	// Data directory for filter storage
-	dataDir string
-}
-
-// webViewState tracks per-WebView filter application state
-type webViewState struct {
-	networkApplied  bool
-	cosmeticApplied bool
+	networkFilterJSON  []byte
+	filtersReady       bool
+	dataDir            string
 }
 
 // NewContentBlockingService creates a new content blocking service.
@@ -98,113 +44,113 @@ func NewContentBlockingService(dataDir string, filterManager *FilterManager) (*C
 		return nil, fmt.Errorf("failed to create content blocking manager: %w", err)
 	}
 
-	service := &ContentBlockingService{
+	return &ContentBlockingService{
 		filterManager:      filterManager,
 		cosmeticInjector:   filterManager.cosmeticInjector,
-		webViews:           make(map[*pkgwebkit.WebView]webViewState),
 		contentBlockingMgr: cbm,
 		dataDir:            dataDir,
-	}
-
-	return service, nil
+	}, nil
 }
 
 // SetFiltersReady is called when filters have been parsed and are ready to compile.
-// It compiles filters asynchronously, then applies to all registered WebViews.
+// Compiles filters asynchronously - callback runs on GTK main thread.
 func (s *ContentBlockingService) SetFiltersReady(networkJSON []byte) {
 	s.mu.Lock()
 	s.networkFilterJSON = networkJSON
-	s.filtersReady = true // Cosmetic rules are ready immediately
-	webViews := make([]*pkgwebkit.WebView, 0, len(s.webViews))
-	for wv := range s.webViews {
-		webViews = append(webViews, wv)
-	}
+	s.filtersReady = true
 	s.mu.Unlock()
-
-	// Inject cosmetic scripts IMMEDIATELY (don't wait for network filter compilation)
-	// This hides ads visually within milliseconds while network filters compile in background
-	for _, wv := range webViews {
-		webView := wv // capture for closure
-		s.runWhenWidgetReady(webView, func() {
-			s.injectCosmeticBaseScript(webView)
-			if uri := webView.GetCurrentURL(); uri != "" {
-				s.injectCosmeticRules(webView, uri)
-			}
-		})
-	}
-	logging.Info("[filtering] Cosmetic rules injected immediately to all WebViews")
 
 	if len(networkJSON) == 0 {
 		logging.Warn("[filtering] SetFiltersReady called with empty network filter JSON")
 		return
 	}
 
-	// Compile network filters asynchronously - this happens in the background
-	// and does not block the main thread (takes ~6 seconds)
+	// Compile network filters asynchronously
+	// The callback runs on GTK main thread (GIO async pattern)
 	s.contentBlockingMgr.CompileFilters("adblock-filters", networkJSON, func(err error) {
 		if err != nil {
 			logging.Error(fmt.Sprintf("[filtering] Filter compilation failed: %v", err))
 			return
 		}
-
-		logging.Info("[filtering] Network filter compilation complete, applying to WebViews")
-
-		// Get current WebViews (may have changed since cosmetic injection)
-		s.mu.RLock()
-		currentWebViews := make([]*pkgwebkit.WebView, 0, len(s.webViews))
-		for wv := range s.webViews {
-			currentWebViews = append(currentWebViews, wv)
-		}
-		s.mu.RUnlock()
-
-		// Apply network filters to all registered WebViews
-		for _, wv := range currentWebViews {
-			webView := wv // capture for closure
-			s.runWhenWidgetReady(webView, func() {
-				s.applyFiltersToWebView(webView)
-			})
-		}
+		logging.Info("[filtering] Network filter compilation complete")
 	})
 }
 
 // RegisterWebView registers a WebView for content blocking.
-// If filters are already compiled, they will be applied immediately.
+// If filters are compiled, applies them immediately.
+// Sets up cosmetic filtering hooks for navigation.
 func (s *ContentBlockingService) RegisterWebView(wv *pkgwebkit.WebView) {
 	if wv == nil {
 		return
 	}
 
-	s.mu.Lock()
-	if _, exists := s.webViews[wv]; exists {
-		s.mu.Unlock()
-		return // Already registered
-	}
-	s.webViews[wv] = webViewState{}
-	filtersReady := s.filtersReady
-	s.mu.Unlock()
-
 	logging.Debug(fmt.Sprintf("[filtering] Registered WebView %d for content blocking", wv.ID()))
 
-	// Setup cosmetic filtering hooks for domain-specific rules (navigation handler)
-	s.setupCosmeticHooks(wv)
+	// Setup cosmetic filtering hook for navigation
+	s.setupCosmeticHook(wv)
 
-	// Only inject cosmetic base script if filters are loaded (rules available)
-	// Otherwise, it will be injected when SetFiltersReady completes
+	// Inject cosmetic base script if filters are ready
+	s.mu.RLock()
+	filtersReady := s.filtersReady
+	s.mu.RUnlock()
+
 	if filtersReady {
 		s.injectCosmeticBaseScript(wv)
 	}
 
-	// If network filters are already compiled, apply them immediately (non-blocking)
+	// Apply network filter if already compiled (idempotent - safe to call multiple times)
 	if s.contentBlockingMgr.IsFilterCompiled() {
-		webView := wv // capture for closure
-		s.runWhenWidgetReady(webView, func() {
-			s.applyFiltersToWebView(webView)
-		})
+		s.applyNetworkFilter(wv)
 	}
 }
 
-// injectCosmeticBaseScript injects the base cosmetic filtering script into a WebView.
-// This script sets up the cosmetic filtering infrastructure (MutationObserver, hide functions, etc.)
+// UnregisterWebView is a no-op in simplified architecture.
+// WebKit manages filter lifetime via UCM.
+func (s *ContentBlockingService) UnregisterWebView(wv *pkgwebkit.WebView) {
+	// No-op: UCM handles filter cleanup when WebView is destroyed
+}
+
+// setupCosmeticHook sets up navigation hook for cosmetic filtering.
+func (s *ContentBlockingService) setupCosmeticHook(wv *pkgwebkit.WebView) {
+	if wv == nil {
+		return
+	}
+
+	// Load committed handler runs on GTK main thread
+	wv.RegisterLoadCommittedHandler(func(uri string) {
+		if wv.IsDestroyed() {
+			return
+		}
+		s.injectCosmeticRules(wv, uri)
+	})
+}
+
+// applyNetworkFilter applies the compiled network filter to a WebView.
+// AddFilter is idempotent - safe to call multiple times.
+func (s *ContentBlockingService) applyNetworkFilter(wv *pkgwebkit.WebView) {
+	if wv == nil || wv.IsDestroyed() {
+		return
+	}
+
+	gtkView := wv.GetWebView()
+	if gtkView == nil {
+		return
+	}
+
+	ucm := gtkView.UserContentManager()
+	if ucm == nil {
+		return
+	}
+
+	if err := s.contentBlockingMgr.ApplyCompiledFilter(ucm); err != nil {
+		logging.Error(fmt.Sprintf("[filtering] Failed to apply filter to WebView %d: %v", wv.ID(), err))
+		return
+	}
+
+	logging.Debug(fmt.Sprintf("[filtering] Applied network filters to WebView %d", wv.ID()))
+}
+
+// injectCosmeticBaseScript injects the base cosmetic filtering script.
 func (s *ContentBlockingService) injectCosmeticBaseScript(wv *pkgwebkit.WebView) {
 	if wv == nil || wv.IsDestroyed() {
 		return
@@ -220,157 +166,52 @@ func (s *ContentBlockingService) injectCosmeticBaseScript(wv *pkgwebkit.WebView)
 		return
 	}
 
-	s.mu.RLock()
 	injector := s.cosmeticInjector
-	s.mu.RUnlock()
-
 	if injector == nil || !injector.IsEnabled() {
 		return
 	}
 
-	// Get the base cosmetic script (the infrastructure without domain-specific rules)
-	// Pass empty domain to get just the base script
+	// Get base script (empty domain = infrastructure only)
 	baseScript := injector.GetScriptForDomain("")
 	if baseScript == "" {
-		logging.Debug(fmt.Sprintf("[filtering] No cosmetic base script available for WebView %d", wv.ID()))
 		return
 	}
 
-	logging.Debug(fmt.Sprintf("[filtering] Injecting cosmetic base script into WebView %d (%d bytes)", wv.ID(), len(baseScript)))
-
-	// Inject at document-end when DOM is ready for querySelector/MutationObserver
+	// Inject at document-end when DOM is ready
 	userScript := webkit.NewUserScript(
 		baseScript,
 		webkit.UserContentInjectAllFrames,
 		webkit.UserScriptInjectAtDocumentEnd,
-		nil, // allowList
-		nil, // blockList
+		nil, nil,
 	)
 
 	ucm.AddScript(userScript)
 	logging.Debug(fmt.Sprintf("[filtering] Injected cosmetic base script into WebView %d", wv.ID()))
 }
 
-// UnregisterWebView removes a WebView from the registry.
-func (s *ContentBlockingService) UnregisterWebView(wv *pkgwebkit.WebView) {
-	if wv == nil {
-		return
+// isLocalScheme returns true if the URI uses a local/internal scheme
+// that doesn't need content filtering.
+func isLocalScheme(uri string) bool {
+	for _, scheme := range localSchemes {
+		if strings.HasPrefix(uri, scheme) {
+			return true
+		}
 	}
-
-	s.mu.Lock()
-	delete(s.webViews, wv)
-	s.mu.Unlock()
+	return false
 }
 
-// applyFiltersToWebView applies both network and cosmetic filters to a WebView.
-func (s *ContentBlockingService) applyFiltersToWebView(wv *pkgwebkit.WebView) {
-	if wv == nil || wv.IsDestroyed() {
-		return
-	}
-
-	// Avoid triggering compilation on the GTK thread; only apply once compiled.
-	if !s.contentBlockingMgr.IsFilterCompiled() {
-		return
-	}
-
-	s.mu.Lock()
-	state := s.webViews[wv]
-	if state.networkApplied {
-		s.mu.Unlock()
-		return
-	}
-	// Mark as applying to avoid double AddFilter races
-	state.networkApplied = true
-	s.webViews[wv] = state
-	networkJSON := s.networkFilterJSON
-	s.mu.Unlock()
-
-	if len(networkJSON) == 0 {
-		// Nothing to apply; reset flag
-		s.mu.Lock()
-		state.networkApplied = false
-		s.webViews[wv] = state
-		s.mu.Unlock()
-		return
-	}
-
-	webView := wv // capture for closure
-	s.runWhenWidgetReady(webView, func() {
-		s.applyNetworkFilters(webView, networkJSON)
-	})
-}
-
-// applyNetworkFilters applies network blocking rules to a WebView.
-func (s *ContentBlockingService) applyNetworkFilters(wv *pkgwebkit.WebView, filterJSON []byte) {
-	if wv == nil || wv.IsDestroyed() {
-		return
-	}
-
-	gtkView := wv.GetWebView()
-	if gtkView == nil {
-		return
-	}
-
-	ucm := gtkView.UserContentManager()
-	if ucm == nil {
-		// Reset state so a future ready WebView can retry
-		s.mu.Lock()
-		if state, exists := s.webViews[wv]; exists {
-			state.networkApplied = false
-			s.webViews[wv] = state
-		}
-		s.mu.Unlock()
-		return
-	}
-
-	// Use shared identifier so all WebViews reuse the same compiled filter
-	const identifier = "adblock-filters"
-
-	// Try to apply cached compiled filter first (instant)
-	if s.contentBlockingMgr.IsFilterCompiled() {
-		if err := s.contentBlockingMgr.ApplyCompiledFilter(ucm); err != nil {
-			logging.Error(fmt.Sprintf("[filtering] Failed to apply cached filter to WebView %d: %v", wv.ID(), err))
-			return
-		}
-	} else if len(filterJSON) > 0 {
-		// Fallback: compile if not yet compiled (first WebView)
-		err := s.contentBlockingMgr.ApplyFiltersFromJSON(ucm, identifier, filterJSON)
-		if err != nil {
-			logging.Error(fmt.Sprintf("[filtering] Failed to apply network filters to WebView %d: %v", wv.ID(), err))
-			return
-		}
-	} else {
-		return
-	}
-
-	logging.Debug(fmt.Sprintf("[filtering] Applied network filters to WebView %d", wv.ID()))
-}
-
-// setupCosmeticHooks sets up hooks for cosmetic filtering on navigation events.
-func (s *ContentBlockingService) setupCosmeticHooks(wv *pkgwebkit.WebView) {
-	if wv == nil {
-		return
-	}
-
-	// Register load-committed handler to inject domain-specific cosmetic rules
-	webView := wv // capture for closure
-	wv.RegisterLoadCommittedHandler(func(uri string) {
-		if webView.IsDestroyed() {
-			return
-		}
-		s.runWhenWidgetReady(webView, func() {
-			s.injectCosmeticRules(webView, uri)
-		})
-	})
-}
-
-// injectCosmeticRules injects cosmetic filtering rules for the current page.
+// injectCosmeticRules injects domain-specific cosmetic rules.
+// Called from load-committed handler (already on GTK main thread).
 func (s *ContentBlockingService) injectCosmeticRules(wv *pkgwebkit.WebView, uri string) {
 	if wv == nil || wv.IsDestroyed() || uri == "" {
 		return
 	}
 
-	// Parse domain from URI
+	// Skip local/internal schemes
+	if isLocalScheme(uri) {
+		return
+	}
+
 	parsedURL, err := url.Parse(uri)
 	if err != nil || parsedURL.Host == "" {
 		return
@@ -378,11 +219,7 @@ func (s *ContentBlockingService) injectCosmeticRules(wv *pkgwebkit.WebView, uri 
 
 	domain := parsedURL.Hostname()
 
-	// Get cosmetic script for this domain
-	s.mu.RLock()
 	injector := s.cosmeticInjector
-	s.mu.RUnlock()
-
 	if injector == nil || !injector.IsEnabled() {
 		return
 	}
@@ -392,36 +229,27 @@ func (s *ContentBlockingService) injectCosmeticRules(wv *pkgwebkit.WebView, uri 
 		return
 	}
 
-	// Inject the script
 	logging.Debug(fmt.Sprintf("[filtering] Injecting cosmetic rules for domain: %s (%d bytes)", domain, len(script)))
-	webView := wv // capture for closure
-	pkgwebkit.RunOnMainThread(func() {
-		if webView.IsDestroyed() {
-			return
-		}
-		if err := webView.InjectScript(script); err != nil {
-			logging.Error(fmt.Sprintf("[filtering] Failed to inject cosmetic rules for %s: %v", domain, err))
-		} else {
-			logging.Debug(fmt.Sprintf("[filtering] Successfully injected cosmetic rules for domain: %s", domain))
-		}
-	})
+
+	// Already on GTK main thread from load-committed handler
+	if err := wv.InjectScript(script); err != nil {
+		logging.Error(fmt.Sprintf("[filtering] Failed to inject cosmetic rules for %s: %v", domain, err))
+	} else {
+		logging.Debug(fmt.Sprintf("[filtering] Successfully injected cosmetic rules for domain: %s", domain))
+	}
 }
 
 // GetFilterManager returns the underlying filter manager.
 func (s *ContentBlockingService) GetFilterManager() *FilterManager {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
 	return s.filterManager
 }
 
 // GetCosmeticInjector returns the cosmetic injector.
 func (s *ContentBlockingService) GetCosmeticInjector() *cosmetic.CosmeticInjector {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
 	return s.cosmeticInjector
 }
 
-// IsReady returns whether filters have been loaded and are ready to apply.
+// IsReady returns whether filters have been loaded.
 func (s *ContentBlockingService) IsReady() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -433,18 +261,9 @@ func (s *ContentBlockingService) GetStats() map[string]interface{} {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	webViewCount := len(s.webViews)
-	appliedCount := 0
-	for _, state := range s.webViews {
-		if state.networkApplied {
-			appliedCount++
-		}
-	}
-
 	stats := map[string]interface{}{
 		"ready":               s.filtersReady,
-		"webview_count":       webViewCount,
-		"filters_applied":     appliedCount,
+		"filter_compiled":     s.contentBlockingMgr.IsFilterCompiled(),
 		"network_rules_bytes": len(s.networkFilterJSON),
 	}
 

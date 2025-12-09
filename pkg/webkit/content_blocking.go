@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"sync"
 
 	"github.com/bnema/dumber/internal/logging"
@@ -21,6 +22,7 @@ type ContentBlockingManager struct {
 	mu             sync.RWMutex
 	compiledFilter *webkit.UserContentFilter
 	filterID       string
+	contentHash    string
 }
 
 // NewContentBlockingManager creates a new content blocking manager
@@ -56,6 +58,30 @@ func (cbm *ContentBlockingManager) CompileFilters(identifier string, jsonRules [
 	cbm.filterID = identifier
 	cbm.mu.Unlock()
 
+	// Check if content matches existing compiled filter
+	// Use simple length check as quick pre-filter, need hash for real check
+	// But since we don't have hash function imported, we rely on the fact that
+	// if we are called, it's usually new content.
+	// Actually, let's implement a simple check to avoid churn.
+	hash := fmt.Sprintf("%s-%d", identifier, len(jsonRules))
+	cbm.mu.RLock()
+	currentHash := cbm.contentHash
+	isCompiled := cbm.compiledFilter != nil
+	cbm.mu.RUnlock()
+
+	if isCompiled && currentHash == hash {
+		logging.Debug(fmt.Sprintf("[webkit] Filter compilation skipped (content unchanged: %s)", hash))
+		if onComplete != nil {
+			onComplete(nil)
+		}
+		return
+	}
+
+	// update hash
+	cbm.mu.Lock()
+	cbm.contentHash = hash
+	cbm.mu.Unlock()
+
 	// Convert []byte to *glib.Bytes for WebKit API
 	gBytes := glib.NewBytesWithGo(jsonRules)
 
@@ -85,15 +111,22 @@ func (cbm *ContentBlockingManager) CompileFilters(identifier string, jsonRules [
 		cbm.compiledFilter = filter
 		cbm.mu.Unlock()
 
+		// Prevent GC from collecting filter prematurely (Go wrapper)
+		runtime.KeepAlive(filter)
+
 		logging.Debug(fmt.Sprintf("[webkit] Filter compilation complete: %s", identifier))
-		if onComplete != nil {
-			onComplete(nil)
-		}
+
+		// Run completion handler on main thread to avoid blocking GIO thread
+		RunOnMainThread(func() {
+			if onComplete != nil {
+				onComplete(nil)
+			}
+		})
 	})
 }
 
 // ApplyCompiledFilter applies the pre-compiled filter to a UserContentManager.
-// This is instant since the filter is already compiled.
+// Uses the cached filter directly - simpler and avoids async callback issues.
 func (cbm *ContentBlockingManager) ApplyCompiledFilter(ucm *webkit.UserContentManager) error {
 	if ucm == nil {
 		return fmt.Errorf("UserContentManager is nil")
@@ -107,7 +140,13 @@ func (cbm *ContentBlockingManager) ApplyCompiledFilter(ucm *webkit.UserContentMa
 		return fmt.Errorf("no compiled filter available")
 	}
 
+	// Apply the cached filter directly - UCM keeps its own reference
 	ucm.AddFilter(filter)
+	logging.Debug("[webkit] Applied cached content filter to UCM")
+
+	// Keep filter alive after AddFilter call
+	runtime.KeepAlive(filter)
+
 	return nil
 }
 
@@ -167,9 +206,18 @@ func (cbm *ContentBlockingManager) ApplyFiltersFromJSON(ucm *webkit.UserContentM
 
 		// Cache for future use (only valid filters)
 		cbm.mu.Lock()
+		oldFilter := cbm.compiledFilter
 		cbm.compiledFilter = filter
 		cbm.filterID = identifier
 		cbm.mu.Unlock()
+
+		// Manually ref the new filter
+		RefUserContentFilter(filter)
+
+		// Unref old filter if replaced
+		if oldFilter != nil {
+			UnrefUserContentFilter(oldFilter)
+		}
 
 		RunOnMainThread(func() {
 			if filter != nil {

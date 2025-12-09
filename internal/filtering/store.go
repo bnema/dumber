@@ -110,14 +110,26 @@ func (fs *FileFilterStore) SaveCache(filters *CompiledFilters) error {
 		return fmt.Errorf("failed to serialize filters: %w", err)
 	}
 
-	// Create metadata
+	// Load existing metadata to preserve SourceVersions
+	existingMeta, _ := fs.loadMetadata()
+	var sourceVersions map[string]string
+	var lastCheckTime time.Time
+	if existingMeta != nil {
+		if existingMeta.SourceVersions != nil {
+			sourceVersions = existingMeta.SourceVersions
+		}
+		lastCheckTime = existingMeta.LastCheckTime
+	}
+
+	// Create metadata, preserving existing SourceVersions
 	metadata := &CacheMetadata{
-		Version:   cacheVersion,
-		CreatedAt: time.Now(),
-		LastUsed:  time.Now(),
-		DataHash:  fmt.Sprintf("%x", sha256.Sum256(data)),
-		// FilterHashes would be populated with source list hashes in a full implementation
-		FilterHashes: []string{},
+		Version:        cacheVersion,
+		CreatedAt:      time.Now(),
+		LastUsed:       time.Now(),
+		DataHash:       fmt.Sprintf("%x", sha256.Sum256(data)),
+		FilterHashes:   []string{},
+		SourceVersions: sourceVersions,
+		LastCheckTime:  lastCheckTime,
 	}
 
 	// Write cache data atomically

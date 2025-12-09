@@ -297,15 +297,17 @@ func (fm *FilterManager) compileFromSources(ctx context.Context) {
 		if compiled != nil && len(compiled.NetworkRules) > 0 {
 			hasContent = true
 			merged.Merge(compiled)
-			// Apply incrementally for faster initial blocking
-			logging.Info(fmt.Sprintf("[filtering] Applying incremental filters: %d network rules", len(merged.NetworkRules)))
-			fm.applyFilters(merged)
+			// Apply incrementally removed to prevent excessive recompilation/churn
+			// logging.Info(fmt.Sprintf("[filtering] Partial merge: %d network rules", len(merged.NetworkRules)))
 		}
 	}
 
 	// Only save/apply final result if we got actual content
 	if hasContent {
 		logging.Info(fmt.Sprintf("[filtering] Successfully compiled %d network rules from sources", len(merged.NetworkRules)))
+
+		// Apply the final merged filters
+		fm.applyFilters(merged)
 
 		// Cache the final result
 		if err := fm.store.SaveCache(merged); err != nil {
@@ -411,40 +413,6 @@ func (fm *FilterManager) applyFilters(filters *CompiledFilters) {
 		filters.NetworkRules = append(filters.NetworkRules, fm.cachedWhitelistRules...)
 		logging.Info(fmt.Sprintf("[filtering] Applied %d whitelist rules (ignore-previous-rules)", len(fm.cachedWhitelistRules)))
 	}
-
-	// Add uBlock Origin style scriptlets to handle broken page loading
-
-	// Instead of blocking completely, add exception rules for critical ad scripts that break page loading
-	// This allows the page to load while neutralizing tracking
-	antiBreakageRules := []converter.WebKitRule{
-		{
-			Trigger: converter.Trigger{
-				URLFilter:    "googlesyndication.com",
-				ResourceType: []string{converter.ResourceTypeScript},
-			},
-			Action: converter.Action{
-				Type: converter.ActionTypeBlock,
-			},
-		},
-		{
-			Trigger: converter.Trigger{
-				URLFilter: "doubleclick.net",
-			},
-			Action: converter.Action{
-				Type: converter.ActionTypeBlock,
-			},
-		},
-		{
-			Trigger: converter.Trigger{
-				URLFilter:    "googletagservices.com/tag/js/gpt.js",
-				ResourceType: []string{converter.ResourceTypeScript},
-			},
-			Action: converter.Action{
-				Type: converter.ActionTypeBlock,
-			},
-		},
-	}
-	filters.NetworkRules = append(filters.NetworkRules, antiBreakageRules...)
 
 	// Add internal scheme exceptions LAST to ensure they override all blocking rules
 	// The dumb:// scheme is used for internal pages (homepage, blocked page, etc.)

@@ -132,6 +132,9 @@ func (fc *FilterConverter) parseNetworkFilter(line string) error {
 		},
 	}
 
+	// Track if resource type was explicitly set
+	hasExplicitResourceType := false
+
 	// Parse options
 	for _, opt := range options {
 		opt = strings.TrimSpace(opt)
@@ -160,18 +163,39 @@ func (fc *FilterConverter) parseNetworkFilter(line string) error {
 			}
 		case opt == "script":
 			rule.Trigger.ResourceType = []string{ResourceTypeScript}
+			hasExplicitResourceType = true
 		case opt == "image":
 			rule.Trigger.ResourceType = []string{ResourceTypeImage}
+			hasExplicitResourceType = true
 		case opt == "stylesheet":
 			rule.Trigger.ResourceType = []string{ResourceTypeStyleSheet}
+			hasExplicitResourceType = true
 		case opt == "font":
 			rule.Trigger.ResourceType = []string{ResourceTypeFont}
+			hasExplicitResourceType = true
 		case opt == "media":
 			rule.Trigger.ResourceType = []string{ResourceTypeMedia}
+			hasExplicitResourceType = true
 		case opt == "document":
 			rule.Trigger.ResourceType = []string{ResourceTypeDocument}
+			hasExplicitResourceType = true
 		case opt == "popup":
 			rule.Trigger.ResourceType = []string{ResourceTypePopup}
+			hasExplicitResourceType = true
+		}
+	}
+
+	// CRITICAL: If no resource type specified, default to safe types that exclude "document".
+	// WebKit blocks ALL resource types (including main document) when resource-type is omitted.
+	// This prevents blocking the main page when navigating to a URL matched by ad rules.
+	if !hasExplicitResourceType && !isException {
+		rule.Trigger.ResourceType = []string{
+			ResourceTypeScript,
+			ResourceTypeImage,
+			ResourceTypeStyleSheet,
+			ResourceTypeFont,
+			ResourceTypeMedia,
+			ResourceTypeSVGDocument,
 		}
 	}
 
