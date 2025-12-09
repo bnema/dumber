@@ -3,7 +3,9 @@ module github.com/bnema/dumber
 go 1.25.3
 
 require (
+	github.com/bnema/puregotk-webkit v0.0.0-00010101000000-000000000000
 	github.com/fsnotify/fsnotify v1.9.0
+	github.com/jwijenbergh/puregotk v0.0.0-20251022075221-eae1610c7d83
 	github.com/ncruces/go-sqlite3 v0.30.3
 	github.com/pressly/goose/v3 v3.26.0
 	github.com/rs/zerolog v1.33.0
@@ -12,6 +14,7 @@ require (
 
 require (
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
+	github.com/jwijenbergh/purego v0.0.0-20251017112123-b71757b9ba42 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
