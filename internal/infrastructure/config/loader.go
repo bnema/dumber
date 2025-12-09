@@ -25,8 +25,8 @@ func NewManager() (*Manager, error) {
 	v := viper.New()
 
 	// Configure Viper for TOML as default format
-	v.SetConfigName("config")  // Name without extension
-	v.SetConfigType("toml")    // TOML as default format
+	v.SetConfigName("config") // Name without extension
+	v.SetConfigType("toml")   // TOML as default format
 
 	// Add config paths
 	configDir, err := GetConfigDir()
@@ -37,15 +37,15 @@ func NewManager() (*Manager, error) {
 	v.AddConfigPath(".") // Current directory for development
 
 	// Set up environment variable support
-	v.SetEnvPrefix("DUMB_BROWSER")
+	v.SetEnvPrefix("DUMBER")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 
 	// Note: Most environment variables are handled automatically via AutomaticEnv()
-	// with the DUMB_BROWSER_ prefix (e.g., DUMB_BROWSER_DATABASE_PATH).
+	// with the DUMBER_ prefix (e.g., DUMBER_DATABASE_PATH, DUMBER_LOGGING_LEVEL).
 	// The explicit bindings below are only for special cases with different naming patterns.
 
-	// Explicit bindings for DUMBER_* prefix (different from DUMB_BROWSER_)
+	// Explicit bindings for legacy or system env vars
 	if err := v.BindEnv("rendering_mode", "DUMBER_RENDERING_MODE"); err != nil {
 		return nil, fmt.Errorf("failed to bind DUMBER_RENDERING_MODE: %w", err)
 	}

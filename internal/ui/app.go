@@ -8,6 +8,9 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/dumber/internal/ui/component"
+	"github.com/bnema/dumber/internal/ui/input"
+	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/dumber/internal/ui/window"
 	"github.com/jwijenbergh/puregotk/v4/gio"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
@@ -29,6 +32,14 @@ type App struct {
 	tabs   *entity.TabList
 	tabsUC *usecase.ManageTabsUseCase
 
+	// Pane management
+	panesUC        *usecase.ManagePanesUseCase
+	workspaceViews map[entity.TabID]*component.WorkspaceView
+	widgetFactory  layout.WidgetFactory
+
+	// Input handling
+	keyboardHandler *input.KeyboardHandler
+
 	// ID generator for tabs/panes
 	idCounter uint64
 	idMu      sync.Mutex
@@ -49,12 +60,14 @@ func New(deps *Dependencies) (*App, error) {
 	logger := logging.FromContext(ctx)
 
 	app := &App{
-		deps:   deps,
-		tabs:   entity.NewTabList(),
-		tabsUC: deps.TabsUC,
-		ctx:    ctx,
-		cancel: cancel,
-		logger: logger,
+		deps:           deps,
+		tabs:           entity.NewTabList(),
+		tabsUC:         deps.TabsUC,
+		panesUC:        deps.PanesUC,
+		workspaceViews: make(map[entity.TabID]*component.WorkspaceView),
+		ctx:            ctx,
+		cancel:         cancel,
+		logger:         logger,
 	}
 
 	return app, nil
@@ -101,6 +114,19 @@ func (a *App) onActivate() {
 		a.logger.Error().Err(err).Msg("failed to create main window")
 		return
 	}
+
+	// Initialize widget factory for pane layout
+	a.widgetFactory = layout.NewGtkWidgetFactory()
+
+	// Create keyboard handler
+	a.keyboardHandler = input.NewKeyboardHandler(
+		a.ctx,
+		&a.deps.Config.Workspace,
+		a.logger,
+	)
+	a.keyboardHandler.SetOnAction(a.handleKeyboardAction)
+	a.keyboardHandler.SetOnModeChange(a.handleModeChange)
+	a.keyboardHandler.AttachTo(a.mainWindow.Window())
 
 	// Create an initial tab
 	a.createInitialTab()
@@ -149,6 +175,9 @@ func (a *App) createInitialTab() {
 		a.mainWindow.TabBar().SetActive(output.Tab.ID)
 	}
 
+	// Create workspace view for this tab
+	a.createWorkspaceView(output.Tab)
+
 	a.logger.Debug().
 		Str("tab_id", string(output.Tab.ID)).
 		Msg("initial tab created")
@@ -189,4 +218,352 @@ func RunWithArgs(deps *Dependencies) int {
 		return 1
 	}
 	return app.Run(os.Args)
+}
+
+// handleKeyboardAction dispatches keyboard actions to appropriate handlers.
+func (a *App) handleKeyboardAction(ctx context.Context, action input.Action) error {
+	a.logger.Debug().
+		Str("action", string(action)).
+		Msg("handling keyboard action")
+
+	switch action {
+	// Tab actions
+	case input.ActionNewTab:
+		return a.handleNewTab()
+	case input.ActionCloseTab:
+		return a.handleCloseTab()
+	case input.ActionNextTab:
+		return a.handleNextTab()
+	case input.ActionPreviousTab:
+		return a.handlePreviousTab()
+
+	// Pane actions
+	case input.ActionSplitRight:
+		return a.handlePaneSplit(usecase.SplitRight)
+	case input.ActionSplitLeft:
+		return a.handlePaneSplit(usecase.SplitLeft)
+	case input.ActionSplitUp:
+		return a.handlePaneSplit(usecase.SplitUp)
+	case input.ActionSplitDown:
+		return a.handlePaneSplit(usecase.SplitDown)
+	case input.ActionClosePane:
+		return a.handleClosePane()
+	case input.ActionFocusRight:
+		return a.handlePaneFocus(usecase.NavRight)
+	case input.ActionFocusLeft:
+		return a.handlePaneFocus(usecase.NavLeft)
+	case input.ActionFocusUp:
+		return a.handlePaneFocus(usecase.NavUp)
+	case input.ActionFocusDown:
+		return a.handlePaneFocus(usecase.NavDown)
+
+	// Navigation (stub implementations for now)
+	case input.ActionGoBack:
+		a.logger.Debug().Msg("go back action (not yet implemented)")
+	case input.ActionGoForward:
+		a.logger.Debug().Msg("go forward action (not yet implemented)")
+	case input.ActionReload:
+		a.logger.Debug().Msg("reload action (not yet implemented)")
+	case input.ActionHardReload:
+		a.logger.Debug().Msg("hard reload action (not yet implemented)")
+
+	// Zoom (stub implementations for now)
+	case input.ActionZoomIn:
+		a.logger.Debug().Msg("zoom in action (not yet implemented)")
+	case input.ActionZoomOut:
+		a.logger.Debug().Msg("zoom out action (not yet implemented)")
+	case input.ActionZoomReset:
+		a.logger.Debug().Msg("zoom reset action (not yet implemented)")
+
+	// UI
+	case input.ActionOpenOmnibox:
+		a.logger.Debug().Msg("open omnibox action (not yet implemented)")
+	case input.ActionOpenDevTools:
+		a.logger.Debug().Msg("open devtools action (not yet implemented)")
+	case input.ActionToggleFullscreen:
+		a.logger.Debug().Msg("toggle fullscreen action (not yet implemented)")
+
+	// Application
+	case input.ActionQuit:
+		a.Quit()
+
+	default:
+		a.logger.Warn().Str("action", string(action)).Msg("unhandled keyboard action")
+	}
+
+	return nil
+}
+
+// handleModeChange is called when the input mode changes.
+func (a *App) handleModeChange(from, to input.Mode) {
+	a.logger.Debug().
+		Str("from", from.String()).
+		Str("to", to.String()).
+		Msg("input mode changed")
+
+	// TODO: Update UI to indicate mode (e.g., change border color)
+}
+
+// handleNewTab creates a new tab.
+func (a *App) handleNewTab() error {
+	output, err := a.tabsUC.Create(a.ctx, usecase.CreateTabInput{
+		TabList:    a.tabs,
+		Name:       "",
+		InitialURL: "about:blank",
+	})
+	if err != nil {
+		return err
+	}
+
+	if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
+		a.mainWindow.TabBar().AddTab(output.Tab)
+		a.mainWindow.TabBar().SetActive(output.Tab.ID)
+	}
+
+	a.logger.Debug().
+		Str("tab_id", string(output.Tab.ID)).
+		Msg("new tab created")
+
+	return nil
+}
+
+// handleCloseTab closes the active tab.
+func (a *App) handleCloseTab() error {
+	activeID := a.tabs.ActiveTabID
+	if activeID == "" {
+		return nil
+	}
+
+	wasLast, err := a.tabsUC.Close(a.ctx, a.tabs, activeID)
+	if err != nil {
+		return err
+	}
+
+	if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
+		a.mainWindow.TabBar().RemoveTab(activeID)
+
+		// Switch to new active tab if any
+		if a.tabs.ActiveTabID != "" {
+			a.mainWindow.TabBar().SetActive(a.tabs.ActiveTabID)
+		}
+	}
+
+	// Quit if no tabs left
+	if wasLast {
+		a.Quit()
+	}
+
+	return nil
+}
+
+// handleNextTab switches to the next tab.
+func (a *App) handleNextTab() error {
+	if err := a.tabsUC.SwitchNext(a.ctx, a.tabs); err != nil {
+		return err
+	}
+
+	if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
+		a.mainWindow.TabBar().SetActive(a.tabs.ActiveTabID)
+	}
+
+	return nil
+}
+
+// handlePreviousTab switches to the previous tab.
+func (a *App) handlePreviousTab() error {
+	if err := a.tabsUC.SwitchPrevious(a.ctx, a.tabs); err != nil {
+		return err
+	}
+
+	if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
+		a.mainWindow.TabBar().SetActive(a.tabs.ActiveTabID)
+	}
+
+	return nil
+}
+
+// createWorkspaceView creates a WorkspaceView for a tab and attaches it to the content area.
+func (a *App) createWorkspaceView(tab *entity.Tab) {
+	if a.widgetFactory == nil {
+		a.logger.Error().Msg("widget factory not initialized")
+		return
+	}
+
+	// Create workspace view
+	wsView := component.NewWorkspaceView(a.widgetFactory)
+	if wsView == nil {
+		a.logger.Error().Msg("failed to create workspace view")
+		return
+	}
+
+	// Set the workspace
+	if err := wsView.SetWorkspace(tab.Workspace); err != nil {
+		a.logger.Error().Err(err).Msg("failed to set workspace in view")
+		return
+	}
+
+	// Store in map
+	a.workspaceViews[tab.ID] = wsView
+
+	// Attach to content area
+	if a.mainWindow != nil {
+		widget := wsView.Widget()
+		if widget != nil {
+			if gtkWidget := widget.GtkWidget(); gtkWidget != nil {
+				a.mainWindow.SetContent(gtkWidget)
+			}
+		}
+	}
+
+	a.logger.Debug().
+		Str("tab_id", string(tab.ID)).
+		Msg("workspace view created and attached")
+}
+
+// activeWorkspace returns the workspace of the active tab.
+func (a *App) activeWorkspace() *entity.Workspace {
+	activeTab := a.tabs.ActiveTab()
+	if activeTab == nil {
+		return nil
+	}
+	return activeTab.Workspace
+}
+
+// activeWorkspaceView returns the workspace view for the active tab.
+func (a *App) activeWorkspaceView() *component.WorkspaceView {
+	activeTab := a.tabs.ActiveTab()
+	if activeTab == nil {
+		return nil
+	}
+	return a.workspaceViews[activeTab.ID]
+}
+
+// handlePaneSplit splits the active pane in the given direction.
+func (a *App) handlePaneSplit(direction usecase.SplitDirection) error {
+	if a.panesUC == nil {
+		a.logger.Warn().Msg("panes use case not available")
+		return nil
+	}
+
+	ws := a.activeWorkspace()
+	if ws == nil {
+		a.logger.Warn().Msg("no active workspace")
+		return nil
+	}
+
+	activePane := ws.ActivePane()
+	if activePane == nil {
+		a.logger.Warn().Msg("no active pane to split")
+		return nil
+	}
+
+	output, err := a.panesUC.Split(a.ctx, usecase.SplitPaneInput{
+		Workspace:  ws,
+		TargetPane: activePane,
+		Direction:  direction,
+	})
+	if err != nil {
+		a.logger.Error().Err(err).Str("direction", string(direction)).Msg("failed to split pane")
+		return err
+	}
+
+	// Set the new pane as active
+	ws.ActivePaneID = output.NewPaneNode.Pane.ID
+
+	// Rebuild the workspace view
+	wsView := a.activeWorkspaceView()
+	if wsView != nil {
+		if err := wsView.Rebuild(); err != nil {
+			a.logger.Error().Err(err).Msg("failed to rebuild workspace view")
+		}
+	}
+
+	a.logger.Info().
+		Str("direction", string(direction)).
+		Str("new_pane_id", string(output.NewPaneNode.Pane.ID)).
+		Msg("pane split completed")
+
+	return nil
+}
+
+// handleClosePane closes the active pane.
+func (a *App) handleClosePane() error {
+	if a.panesUC == nil {
+		a.logger.Warn().Msg("panes use case not available")
+		return nil
+	}
+
+	ws := a.activeWorkspace()
+	if ws == nil {
+		a.logger.Warn().Msg("no active workspace")
+		return nil
+	}
+
+	activePane := ws.ActivePane()
+	if activePane == nil {
+		a.logger.Warn().Msg("no active pane to close")
+		return nil
+	}
+
+	// Don't close the last pane - close the tab instead
+	if ws.PaneCount() <= 1 {
+		return a.handleCloseTab()
+	}
+
+	_, err := a.panesUC.Close(a.ctx, ws, activePane)
+	if err != nil {
+		a.logger.Error().Err(err).Msg("failed to close pane")
+		return err
+	}
+
+	// Rebuild the workspace view
+	wsView := a.activeWorkspaceView()
+	if wsView != nil {
+		if err := wsView.Rebuild(); err != nil {
+			a.logger.Error().Err(err).Msg("failed to rebuild workspace view")
+		}
+	}
+
+	a.logger.Info().Msg("pane closed")
+	return nil
+}
+
+// handlePaneFocus navigates focus to an adjacent pane.
+func (a *App) handlePaneFocus(direction usecase.NavigateDirection) error {
+	if a.panesUC == nil {
+		a.logger.Warn().Msg("panes use case not available")
+		return nil
+	}
+
+	ws := a.activeWorkspace()
+	if ws == nil {
+		a.logger.Warn().Msg("no active workspace")
+		return nil
+	}
+
+	newPane, err := a.panesUC.NavigateFocus(a.ctx, ws, direction)
+	if err != nil {
+		a.logger.Error().Err(err).Str("direction", string(direction)).Msg("failed to navigate focus")
+		return err
+	}
+
+	if newPane == nil {
+		a.logger.Debug().Str("direction", string(direction)).Msg("no pane in that direction")
+		return nil
+	}
+
+	// Update the workspace view's active pane
+	wsView := a.activeWorkspaceView()
+	if wsView != nil {
+		if err := wsView.SetActivePaneID(newPane.Pane.ID); err != nil {
+			a.logger.Warn().Err(err).Msg("failed to update active pane in view")
+		}
+	}
+
+	a.logger.Debug().
+		Str("direction", string(direction)).
+		Str("new_pane_id", newPane.ID).
+		Msg("focus navigated")
+
+	return nil
 }
