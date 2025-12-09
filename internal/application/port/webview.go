@@ -52,6 +52,14 @@ type WebViewState struct {
 	ZoomLevel float64
 }
 
+// PopupRequest contains metadata about a popup window request.
+type PopupRequest struct {
+	TargetURI     string
+	FrameName     string // e.g., "_blank", custom name, or empty
+	IsUserGesture bool
+	ParentViewID  WebViewID
+}
+
 // WebViewCallbacks defines callback handlers for WebView events.
 // Implementations should invoke these on the main thread/goroutine.
 type WebViewCallbacks struct {
@@ -65,6 +73,11 @@ type WebViewCallbacks struct {
 	OnProgressChanged func(progress float64)
 	// OnClose is called when the WebView requests to close.
 	OnClose func()
+	// OnCreate is called when a popup window is requested.
+	// Return a WebView to allow the popup, or nil to block it.
+	OnCreate func(request PopupRequest) WebView
+	// OnReadyToShow is called when a popup WebView is ready to display.
+	OnReadyToShow func()
 }
 
 // WebView defines the port interface for browser view operations.
@@ -175,4 +188,9 @@ type WebViewPool interface {
 type WebViewFactory interface {
 	// Create creates a new WebView instance.
 	Create(ctx context.Context) (WebView, error)
+
+	// CreateRelated creates a WebView that shares session/cookies with parent.
+	// This is required for popup windows to maintain authentication state.
+	// Popup WebViews bypass the pool since they must be related to a specific parent.
+	CreateRelated(ctx context.Context, parentID WebViewID) (WebView, error)
 }
