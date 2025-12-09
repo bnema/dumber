@@ -1,0 +1,28 @@
+packages:
+  github.com/bnema/dumber/internal/application/port:
+    config:
+      dir: "{{.InterfaceDir}}/mocks"
+      filename: "mock_{{.InterfaceName | snakecase}}.go"
+      structname: "Mock{{.InterfaceName}}"
+      pkgname: "mocks"
+    interfaces:
+      WebView:
+      WebViewPool:
+      WebViewFactory:
+  github.com/bnema/dumber/internal/ui/layout:
+    config:
+      dir: "{{.InterfaceDir}}/mocks"
+      filename: "mock_{{.InterfaceName | snakecase}}.go"
+      structname: "Mock{{.InterfaceName}}"
+      pkgname: "mocks"
+    interfaces:
+      Widget:
+      PanedWidget:
+      BoxWidget:
+      OverlayWidget:
+      LabelWidget:
+      ButtonWidget:
+      ImageWidget:
+      WidgetFactory:
+      PaneRenderer:
+      PaneViewFactory:
