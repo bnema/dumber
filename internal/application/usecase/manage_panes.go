@@ -1,0 +1,588 @@
+package usecase
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/logging"
+)
+
+// SplitDirection indicates the direction of a pane split.
+type SplitDirection string
+
+const (
+	SplitLeft  SplitDirection = "left"
+	SplitRight SplitDirection = "right"
+	SplitUp    SplitDirection = "up"
+	SplitDown  SplitDirection = "down"
+)
+
+// NavigateDirection indicates the direction for focus navigation.
+type NavigateDirection string
+
+const (
+	NavLeft  NavigateDirection = "left"
+	NavRight NavigateDirection = "right"
+	NavUp    NavigateDirection = "up"
+	NavDown  NavigateDirection = "down"
+)
+
+// ManagePanesUseCase handles pane tree operations.
+type ManagePanesUseCase struct {
+	idGenerator IDGenerator
+}
+
+// NewManagePanesUseCase creates a new pane management use case.
+func NewManagePanesUseCase(idGenerator IDGenerator) *ManagePanesUseCase {
+	return &ManagePanesUseCase{
+		idGenerator: idGenerator,
+	}
+}
+
+// SplitPaneInput contains parameters for splitting a pane.
+type SplitPaneInput struct {
+	Workspace  *entity.Workspace
+	TargetPane *entity.PaneNode
+	Direction  SplitDirection
+	NewPane    *entity.Pane // Optional: existing pane to insert (for popups)
+	InitialURL string       // URL for new pane (default: about:blank)
+}
+
+// SplitPaneOutput contains the result of a split operation.
+type SplitPaneOutput struct {
+	NewPaneNode *entity.PaneNode
+	ParentNode  *entity.PaneNode // New parent container
+	SplitRatio  float64          // Always 0.5 for new splits
+}
+
+// Split creates a new pane adjacent to the target pane.
+func (uc *ManagePanesUseCase) Split(ctx context.Context, input SplitPaneInput) (*SplitPaneOutput, error) {
+	log := logging.FromContext(ctx)
+	log.Debug().
+		Str("direction", string(input.Direction)).
+		Str("target_id", input.TargetPane.ID).
+		Msg("splitting pane")
+
+	if input.Workspace == nil {
+		return nil, fmt.Errorf("workspace is required")
+	}
+	if input.TargetPane == nil {
+		return nil, fmt.Errorf("target pane is required")
+	}
+
+	// If target is stacked, split around the entire stack
+	targetNode := input.TargetPane
+	if targetNode.IsStacked {
+		// Find the stack container
+		log.Debug().Msg("target is stacked, splitting around stack")
+	}
+
+	// Create new pane
+	var newPane *entity.Pane
+	if input.NewPane != nil {
+		newPane = input.NewPane
+	} else {
+		paneID := entity.PaneID(uc.idGenerator())
+		newPane = entity.NewPane(paneID)
+		if input.InitialURL != "" {
+			newPane.URI = input.InitialURL
+		}
+	}
+
+	// Create new pane node
+	newPaneNode := &entity.PaneNode{
+		ID:   string(newPane.ID),
+		Pane: newPane,
+	}
+
+	// Determine split orientation
+	var splitDir entity.SplitDirection
+	switch input.Direction {
+	case SplitLeft, SplitRight:
+		splitDir = entity.SplitHorizontal
+	case SplitUp, SplitDown:
+		splitDir = entity.SplitVertical
+	}
+
+	// Create parent container node
+	parentID := uc.idGenerator()
+	parentNode := &entity.PaneNode{
+		ID:         parentID,
+		SplitDir:   splitDir,
+		SplitRatio: 0.5,
+		Children:   make([]*entity.PaneNode, 2),
+	}
+
+	// Arrange children based on direction
+	switch input.Direction {
+	case SplitLeft, SplitUp:
+		// New pane goes first (left/top)
+		parentNode.Children[0] = newPaneNode
+		parentNode.Children[1] = targetNode
+	case SplitRight, SplitDown:
+		// Existing pane stays first, new pane goes second (right/bottom)
+		parentNode.Children[0] = targetNode
+		parentNode.Children[1] = newPaneNode
+	}
+
+	// Update parent references
+	newPaneNode.Parent = parentNode
+	oldParent := targetNode.Parent
+	targetNode.Parent = parentNode
+
+	// Insert parent into tree
+	if oldParent == nil {
+		// Target was root
+		input.Workspace.Root = parentNode
+	} else {
+		// Replace target with parent in old parent's children
+		for i, child := range oldParent.Children {
+			if child == targetNode {
+				oldParent.Children[i] = parentNode
+				break
+			}
+		}
+		parentNode.Parent = oldParent
+	}
+
+	log.Info().
+		Str("new_pane_id", string(newPane.ID)).
+		Str("parent_id", parentID).
+		Str("direction", string(input.Direction)).
+		Msg("pane split completed")
+
+	return &SplitPaneOutput{
+		NewPaneNode: newPaneNode,
+		ParentNode:  parentNode,
+		SplitRatio:  0.5,
+	}, nil
+}
+
+// Close removes a pane and promotes its sibling.
+// Returns the sibling node that was promoted, or nil if this was the last pane.
+func (uc *ManagePanesUseCase) Close(ctx context.Context, ws *entity.Workspace, paneNode *entity.PaneNode) (*entity.PaneNode, error) {
+	log := logging.FromContext(ctx)
+	log.Debug().Str("pane_id", paneNode.ID).Msg("closing pane")
+
+	if ws == nil {
+		return nil, fmt.Errorf("workspace is required")
+	}
+	if paneNode == nil {
+		return nil, fmt.Errorf("pane node is required")
+	}
+	if !paneNode.IsLeaf() {
+		return nil, fmt.Errorf("cannot close non-leaf node")
+	}
+
+	parent := paneNode.Parent
+
+	// If no parent, this is the root (last pane)
+	if parent == nil {
+		log.Info().Msg("closing last pane in workspace")
+		ws.Root = nil
+		ws.ActivePaneID = ""
+		return nil, nil
+	}
+
+	// Find sibling
+	var sibling *entity.PaneNode
+	for _, child := range parent.Children {
+		if child != paneNode {
+			sibling = child
+			break
+		}
+	}
+
+	if sibling == nil {
+		return nil, fmt.Errorf("no sibling found for pane")
+	}
+
+	grandparent := parent.Parent
+
+	// Promote sibling to parent's position
+	if grandparent == nil {
+		// Parent was root, sibling becomes new root
+		ws.Root = sibling
+		sibling.Parent = nil
+	} else {
+		// Replace parent with sibling in grandparent
+		for i, child := range grandparent.Children {
+			if child == parent {
+				grandparent.Children[i] = sibling
+				break
+			}
+		}
+		sibling.Parent = grandparent
+	}
+
+	// Update active pane if needed
+	if ws.ActivePaneID == paneNode.Pane.ID {
+		// Find a new active pane from the sibling subtree
+		var newActive *entity.Pane
+		sibling.Walk(func(node *entity.PaneNode) bool {
+			if node.IsLeaf() && node.Pane != nil {
+				newActive = node.Pane
+				return false // Stop walking
+			}
+			return true
+		})
+		if newActive != nil {
+			ws.ActivePaneID = newActive.ID
+		} else {
+			ws.ActivePaneID = ""
+		}
+	}
+
+	log.Info().
+		Str("closed_pane_id", paneNode.ID).
+		Str("promoted_sibling_id", sibling.ID).
+		Msg("pane closed, sibling promoted")
+
+	return sibling, nil
+}
+
+// Focus sets the active pane in the workspace.
+func (uc *ManagePanesUseCase) Focus(ctx context.Context, ws *entity.Workspace, paneID entity.PaneID) error {
+	log := logging.FromContext(ctx)
+	log.Debug().Str("pane_id", string(paneID)).Msg("focusing pane")
+
+	if ws == nil {
+		return fmt.Errorf("workspace is required")
+	}
+
+	node := ws.FindPane(paneID)
+	if node == nil {
+		return fmt.Errorf("pane not found: %s", paneID)
+	}
+
+	oldActive := ws.ActivePaneID
+	ws.ActivePaneID = paneID
+
+	log.Info().
+		Str("from", string(oldActive)).
+		Str("to", string(paneID)).
+		Msg("focus changed")
+
+	return nil
+}
+
+// NavigateFocus moves focus to an adjacent pane.
+// Returns the newly focused pane, or nil if navigation not possible.
+func (uc *ManagePanesUseCase) NavigateFocus(ctx context.Context, ws *entity.Workspace, direction NavigateDirection) (*entity.PaneNode, error) {
+	log := logging.FromContext(ctx)
+	log.Debug().Str("direction", string(direction)).Msg("navigating focus")
+
+	if ws == nil {
+		return nil, fmt.Errorf("workspace is required")
+	}
+
+	activeNode := ws.ActivePane()
+	if activeNode == nil {
+		return nil, fmt.Errorf("no active pane")
+	}
+
+	// Try structural navigation first
+	targetNode := uc.findAdjacentPane(activeNode, direction)
+
+	if targetNode == nil {
+		log.Debug().Msg("no adjacent pane found")
+		return nil, nil
+	}
+
+	ws.ActivePaneID = targetNode.Pane.ID
+
+	log.Info().
+		Str("from", activeNode.ID).
+		Str("to", targetNode.ID).
+		Str("direction", string(direction)).
+		Msg("focus navigated")
+
+	return targetNode, nil
+}
+
+// findAdjacentPane finds the adjacent pane in the given direction using tree structure.
+func (uc *ManagePanesUseCase) findAdjacentPane(node *entity.PaneNode, direction NavigateDirection) *entity.PaneNode {
+	if node == nil {
+		return nil
+	}
+
+	// Determine if we need to go horizontal or vertical
+	isHorizontal := direction == NavLeft || direction == NavRight
+	isForward := direction == NavRight || direction == NavDown
+
+	// Walk up the tree to find an ancestor with the right split type
+	current := node
+	for current.Parent != nil {
+		parent := current.Parent
+
+		// Check if this parent's split orientation matches our direction
+		parentIsHorizontal := parent.SplitDir == entity.SplitHorizontal
+
+		if parentIsHorizontal == isHorizontal {
+			// Find which child we came from
+			childIndex := -1
+			for i, child := range parent.Children {
+				if child == current {
+					childIndex = i
+					break
+				}
+			}
+
+			// Check if we can move in the desired direction
+			targetIndex := childIndex
+			if isForward {
+				targetIndex = childIndex + 1
+			} else {
+				targetIndex = childIndex - 1
+			}
+
+			if targetIndex >= 0 && targetIndex < len(parent.Children) {
+				// Found a valid sibling, descend into it to find a leaf
+				return uc.findLeafInDirection(parent.Children[targetIndex], !isForward)
+			}
+		}
+
+		current = parent
+	}
+
+	return nil
+}
+
+// findLeafInDirection descends into a node to find a leaf pane.
+// If fromEnd is true, prefers the last child; otherwise prefers the first.
+func (uc *ManagePanesUseCase) findLeafInDirection(node *entity.PaneNode, fromEnd bool) *entity.PaneNode {
+	if node == nil {
+		return nil
+	}
+
+	// If this is a leaf, return it
+	if node.IsLeaf() {
+		return node
+	}
+
+	// If stacked, return active pane
+	if node.IsStacked && len(node.Children) > 0 {
+		activeIdx := node.ActiveStackIndex
+		if activeIdx >= 0 && activeIdx < len(node.Children) {
+			return uc.findLeafInDirection(node.Children[activeIdx], fromEnd)
+		}
+		return uc.findLeafInDirection(node.Children[0], fromEnd)
+	}
+
+	// Descend into children
+	if len(node.Children) > 0 {
+		if fromEnd {
+			return uc.findLeafInDirection(node.Children[len(node.Children)-1], fromEnd)
+		}
+		return uc.findLeafInDirection(node.Children[0], fromEnd)
+	}
+
+	return nil
+}
+
+// CreateStack converts a pane into a stacked container.
+func (uc *ManagePanesUseCase) CreateStack(ctx context.Context, ws *entity.Workspace, paneNode *entity.PaneNode) error {
+	log := logging.FromContext(ctx)
+	log.Debug().Str("pane_id", paneNode.ID).Msg("creating stack from pane")
+
+	if ws == nil {
+		return fmt.Errorf("workspace is required")
+	}
+	if paneNode == nil {
+		return fmt.Errorf("pane node is required")
+	}
+	if !paneNode.IsLeaf() {
+		return fmt.Errorf("can only create stack from leaf pane")
+	}
+	if paneNode.IsStacked {
+		return fmt.Errorf("pane is already stacked")
+	}
+
+	// Convert to stacked container
+	paneNode.IsStacked = true
+	paneNode.ActiveStackIndex = 0
+
+	// The pane becomes a child of itself conceptually
+	// Create a child node for the actual pane
+	childNode := &entity.PaneNode{
+		ID:     paneNode.ID + "_child",
+		Pane:   paneNode.Pane,
+		Parent: paneNode,
+	}
+	paneNode.Pane = nil
+	paneNode.Children = []*entity.PaneNode{childNode}
+
+	log.Info().Str("stack_id", paneNode.ID).Msg("stack created")
+	return nil
+}
+
+// AddToStack adds a pane to an existing stack.
+func (uc *ManagePanesUseCase) AddToStack(ctx context.Context, ws *entity.Workspace, stackNode *entity.PaneNode, pane *entity.Pane) error {
+	log := logging.FromContext(ctx)
+	log.Debug().
+		Str("stack_id", stackNode.ID).
+		Str("pane_id", string(pane.ID)).
+		Msg("adding pane to stack")
+
+	if ws == nil {
+		return fmt.Errorf("workspace is required")
+	}
+	if stackNode == nil {
+		return fmt.Errorf("stack node is required")
+	}
+	if !stackNode.IsStacked {
+		return fmt.Errorf("node is not a stack")
+	}
+	if pane == nil {
+		return fmt.Errorf("pane is required")
+	}
+
+	// Create node for the new pane
+	newNode := &entity.PaneNode{
+		ID:     string(pane.ID),
+		Pane:   pane,
+		Parent: stackNode,
+	}
+
+	// Add to stack
+	stackNode.Children = append(stackNode.Children, newNode)
+	stackNode.ActiveStackIndex = len(stackNode.Children) - 1
+
+	log.Info().
+		Str("stack_id", stackNode.ID).
+		Str("pane_id", string(pane.ID)).
+		Int("stack_size", len(stackNode.Children)).
+		Msg("pane added to stack")
+
+	return nil
+}
+
+// NavigateStack cycles through stacked panes.
+// direction: NavUp for previous, NavDown for next.
+func (uc *ManagePanesUseCase) NavigateStack(ctx context.Context, stackNode *entity.PaneNode, direction NavigateDirection) (*entity.Pane, error) {
+	log := logging.FromContext(ctx)
+	log.Debug().
+		Str("stack_id", stackNode.ID).
+		Str("direction", string(direction)).
+		Msg("navigating stack")
+
+	if stackNode == nil {
+		return nil, fmt.Errorf("stack node is required")
+	}
+	if !stackNode.IsStacked {
+		return nil, fmt.Errorf("node is not a stack")
+	}
+	if len(stackNode.Children) == 0 {
+		return nil, fmt.Errorf("stack is empty")
+	}
+
+	count := len(stackNode.Children)
+	current := stackNode.ActiveStackIndex
+
+	var newIndex int
+	switch direction {
+	case NavUp:
+		newIndex = (current - 1 + count) % count
+	case NavDown:
+		newIndex = (current + 1) % count
+	default:
+		return nil, fmt.Errorf("invalid stack navigation direction: %s (use up/down)", direction)
+	}
+
+	stackNode.ActiveStackIndex = newIndex
+
+	activeChild := stackNode.Children[newIndex]
+	var activePaneNode *entity.PaneNode
+	if activeChild.IsLeaf() {
+		activePaneNode = activeChild
+	} else {
+		// Find first leaf in the child
+		activeChild.Walk(func(n *entity.PaneNode) bool {
+			if n.IsLeaf() {
+				activePaneNode = n
+				return false
+			}
+			return true
+		})
+	}
+
+	if activePaneNode == nil || activePaneNode.Pane == nil {
+		return nil, fmt.Errorf("no pane found in stack at index %d", newIndex)
+	}
+
+	log.Info().
+		Str("stack_id", stackNode.ID).
+		Int("from_index", current).
+		Int("to_index", newIndex).
+		Str("pane_id", string(activePaneNode.Pane.ID)).
+		Msg("stack navigated")
+
+	return activePaneNode.Pane, nil
+}
+
+// RemoveFromStack removes a pane from a stack.
+// If only one pane remains, the stack is dissolved.
+func (uc *ManagePanesUseCase) RemoveFromStack(ctx context.Context, stackNode *entity.PaneNode, paneID entity.PaneID) error {
+	log := logging.FromContext(ctx)
+	log.Debug().
+		Str("stack_id", stackNode.ID).
+		Str("pane_id", string(paneID)).
+		Msg("removing pane from stack")
+
+	if stackNode == nil {
+		return fmt.Errorf("stack node is required")
+	}
+	if !stackNode.IsStacked {
+		return fmt.Errorf("node is not a stack")
+	}
+
+	// Find and remove the pane
+	var removed bool
+	newChildren := make([]*entity.PaneNode, 0, len(stackNode.Children))
+	for _, child := range stackNode.Children {
+		if child.Pane != nil && child.Pane.ID == paneID {
+			removed = true
+			continue
+		}
+		newChildren = append(newChildren, child)
+	}
+
+	if !removed {
+		return fmt.Errorf("pane not found in stack: %s", paneID)
+	}
+
+	stackNode.Children = newChildren
+
+	// Adjust active index
+	if stackNode.ActiveStackIndex >= len(stackNode.Children) {
+		stackNode.ActiveStackIndex = len(stackNode.Children) - 1
+	}
+	if stackNode.ActiveStackIndex < 0 {
+		stackNode.ActiveStackIndex = 0
+	}
+
+	log.Info().
+		Str("stack_id", stackNode.ID).
+		Str("pane_id", string(paneID)).
+		Int("remaining", len(stackNode.Children)).
+		Msg("pane removed from stack")
+
+	return nil
+}
+
+// GetAllPanes returns all leaf panes in a workspace.
+func (uc *ManagePanesUseCase) GetAllPanes(ws *entity.Workspace) []*entity.Pane {
+	if ws == nil || ws.Root == nil {
+		return nil
+	}
+	return ws.AllPanes()
+}
+
+// CountPanes returns the number of panes in a workspace.
+func (uc *ManagePanesUseCase) CountPanes(ws *entity.Workspace) int {
+	if ws == nil {
+		return 0
+	}
+	return ws.PaneCount()
+}
