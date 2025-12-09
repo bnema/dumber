@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 
 	"github.com/bnema/puregotk-webkit/webkit"
+	"github.com/jwijenbergh/puregotk/v4/gtk"
 	"github.com/rs/zerolog"
 )
 
@@ -21,6 +22,14 @@ const (
 	LoadCommitted  LoadEvent = LoadEvent(webkit.LoadCommittedValue)
 	LoadFinished   LoadEvent = LoadEvent(webkit.LoadFinishedValue)
 )
+
+// PopupRequest contains information about a popup window request from the create signal.
+type PopupRequest struct {
+	TargetURI     string
+	FrameName     string // e.g., "_blank", custom name, or empty
+	IsUserGesture bool
+	ParentID      WebViewID
+}
 
 // webViewRegistry tracks all active WebViews.
 type webViewRegistry struct {
@@ -82,8 +91,8 @@ type WebView struct {
 	OnURIChanged      func(string)
 	OnProgressChanged func(float64)
 	OnClose           func()
-	// TODO(puregotk-webkit): OnCreate for popup support
-	// See: /home/brice/sync/alpha/obsidian/projects/puregotk-webkit/issues/related-webview.md
+	OnCreate          func(PopupRequest) *WebView // Return new WebView or nil to block popup
+	OnReadyToShow     func()                      // Called when popup is ready to display
 
 	logger zerolog.Logger
 	mu     sync.RWMutex
@@ -122,6 +131,43 @@ func NewWebView(wkCtx *WebKitContext, settings *SettingsManager, logger zerolog.
 	return wv, nil
 }
 
+// NewWebViewWithRelated creates a WebView that shares session/cookies with parent.
+// This is required for popup windows to maintain authentication state.
+func NewWebViewWithRelated(parent *WebView, settings *SettingsManager, logger zerolog.Logger) (*WebView, error) {
+	if parent == nil {
+		return nil, fmt.Errorf("parent webview is nil")
+	}
+	if parent.IsDestroyed() {
+		return nil, fmt.Errorf("parent webview %d is destroyed", parent.id)
+	}
+
+	inner := webkit.NewWebViewWithRelatedView(parent.inner)
+	if inner == nil {
+		return nil, fmt.Errorf("failed to create related webkit webview")
+	}
+
+	wv := &WebView{
+		inner:     inner,
+		logger:    logger.With().Str("component", "webview-popup").Logger(),
+		signalIDs: make([]uint32, 0, 6),
+	}
+
+	wv.id = globalRegistry.register(wv)
+
+	if settings != nil {
+		settings.ApplyToWebView(inner)
+	}
+
+	wv.connectSignals()
+
+	wv.logger.Debug().
+		Uint64("id", uint64(wv.id)).
+		Uint64("parent_id", uint64(parent.id)).
+		Msg("related webview created for popup")
+
+	return wv, nil
+}
+
 // connectSignals sets up signal handlers for the WebView.
 func (wv *WebView) connectSignals() {
 	// load-changed signal
@@ -155,6 +201,49 @@ func (wv *WebView) connectSignals() {
 		}
 	}
 	sigID = wv.inner.ConnectClose(&closeCb)
+	wv.signalIDs = append(wv.signalIDs, sigID)
+
+	// create signal for popup window handling
+	createCb := func(inner webkit.WebView, navActionPtr uintptr) gtk.Widget {
+		if wv.OnCreate == nil {
+			return gtk.Widget{} // Block popup
+		}
+
+		navAction := webkit.NavigationActionFromPointer(navActionPtr)
+		if navAction == nil {
+			return gtk.Widget{} // Block popup
+		}
+		defer navAction.Free()
+
+		var targetURI string
+		if req := navAction.GetRequest(); req != nil {
+			targetURI = req.GetUri()
+		}
+
+		popupReq := PopupRequest{
+			TargetURI:     targetURI,
+			FrameName:     navAction.GetFrameName(),
+			IsUserGesture: navAction.IsUserGesture(),
+			ParentID:      wv.id,
+		}
+
+		newWV := wv.OnCreate(popupReq)
+		if newWV == nil {
+			return gtk.Widget{} // Block popup
+		}
+
+		return newWV.inner.Widget
+	}
+	sigID = wv.inner.ConnectCreate(&createCb)
+	wv.signalIDs = append(wv.signalIDs, sigID)
+
+	// ready-to-show signal for popup display
+	readyToShowCb := func(inner webkit.WebView) {
+		if wv.OnReadyToShow != nil {
+			wv.OnReadyToShow()
+		}
+	}
+	sigID = wv.inner.ConnectReadyToShow(&readyToShowCb)
 	wv.signalIDs = append(wv.signalIDs, sigID)
 
 	// Note: notify::title, notify::uri, notify::estimated-load-progress
