@@ -41,8 +41,8 @@ func NewKeyboardHandler(
 	logger *zerolog.Logger,
 ) *KeyboardHandler {
 	h := &KeyboardHandler{
-		shortcuts: NewShortcutSet(cfg, logger),
-		modal:     NewModalState(logger),
+		shortcuts: NewShortcutSet(ctx, cfg),
+		modal:     NewModalState(ctx),
 		cfg:       cfg,
 		ctx:       ctx,
 		logger:    logger,

@@ -2,11 +2,12 @@
 package input
 
 import (
+	"context"
 	"strings"
 
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
-	"github.com/rs/zerolog"
 )
 
 // Modifier represents keyboard modifier flags.
@@ -95,42 +96,41 @@ type ShortcutSet struct {
 	TabMode ShortcutTable
 	// PaneMode shortcuts are only active in pane mode.
 	PaneMode ShortcutTable
-
-	logger *zerolog.Logger
 }
 
 // NewShortcutSet creates a ShortcutSet from the workspace configuration.
-func NewShortcutSet(cfg *config.WorkspaceConfig, logger *zerolog.Logger) *ShortcutSet {
+func NewShortcutSet(ctx context.Context, cfg *config.WorkspaceConfig) *ShortcutSet {
+	log := logging.FromContext(ctx)
 	set := &ShortcutSet{
 		Global:   make(ShortcutTable),
 		TabMode:  make(ShortcutTable),
 		PaneMode: make(ShortcutTable),
-		logger:   logger,
 	}
 
-	set.buildGlobalShortcuts(cfg)
-	set.buildTabModeShortcuts(cfg)
-	set.buildPaneModeShortcuts(cfg)
+	set.buildGlobalShortcuts(ctx, cfg)
+	set.buildTabModeShortcuts(ctx, cfg)
+	set.buildPaneModeShortcuts(ctx, cfg)
 
-	logger.Debug().Int("global", len(set.Global)).Int("tab", len(set.TabMode)).Int("pane", len(set.PaneMode)).Msg("shortcuts registered")
+	log.Debug().Int("global", len(set.Global)).Int("tab", len(set.TabMode)).Int("pane", len(set.PaneMode)).Msg("shortcuts registered")
 
 	return set
 }
 
 // buildGlobalShortcuts populates global shortcuts from config.
-func (s *ShortcutSet) buildGlobalShortcuts(cfg *config.WorkspaceConfig) {
+func (s *ShortcutSet) buildGlobalShortcuts(ctx context.Context, cfg *config.WorkspaceConfig) {
+	log := logging.FromContext(ctx)
 	// Mode entry from activation shortcuts
 	if binding, ok := ParseKeyString(cfg.TabMode.ActivationShortcut); ok {
 		s.Global[binding] = ActionEnterTabMode
-		s.logger.Debug().Str("shortcut", cfg.TabMode.ActivationShortcut).Uint("keyval", binding.Keyval).Uint("mod", uint(binding.Modifiers)).Msg("tab mode activation registered")
+		log.Trace().Str("shortcut", cfg.TabMode.ActivationShortcut).Uint("keyval", binding.Keyval).Uint("mod", uint(binding.Modifiers)).Msg("tab mode activation registered")
 	} else {
-		s.logger.Warn().Str("shortcut", cfg.TabMode.ActivationShortcut).Msg("failed to parse tab mode activation shortcut")
+		log.Warn().Str("shortcut", cfg.TabMode.ActivationShortcut).Msg("failed to parse tab mode activation shortcut")
 	}
 	if binding, ok := ParseKeyString(cfg.PaneMode.ActivationShortcut); ok {
 		s.Global[binding] = ActionEnterPaneMode
-		s.logger.Debug().Str("shortcut", cfg.PaneMode.ActivationShortcut).Uint("keyval", binding.Keyval).Uint("mod", uint(binding.Modifiers)).Msg("pane mode activation registered")
+		log.Trace().Str("shortcut", cfg.PaneMode.ActivationShortcut).Uint("keyval", binding.Keyval).Uint("mod", uint(binding.Modifiers)).Msg("pane mode activation registered")
 	} else {
-		s.logger.Warn().Str("shortcut", cfg.PaneMode.ActivationShortcut).Msg("failed to parse pane mode activation shortcut")
+		log.Warn().Str("shortcut", cfg.PaneMode.ActivationShortcut).Msg("failed to parse pane mode activation shortcut")
 	}
 
 	// Tab shortcuts from TabKeyConfig
@@ -165,39 +165,49 @@ func (s *ShortcutSet) buildGlobalShortcuts(cfg *config.WorkspaceConfig) {
 }
 
 // buildTabModeShortcuts populates tab mode shortcuts from config.
-func (s *ShortcutSet) buildTabModeShortcuts(cfg *config.WorkspaceConfig) {
+func (s *ShortcutSet) buildTabModeShortcuts(ctx context.Context, cfg *config.WorkspaceConfig) {
+	log := logging.FromContext(ctx)
 	bindings := cfg.TabMode.GetKeyBindings()
-	s.logger.Debug().Int("count", len(bindings)).Msg("building tab mode shortcuts")
+	var registered, parseErrors, unknownActions int
 	for key, configAction := range bindings {
 		if binding, ok := ParseKeyString(key); ok {
 			if action := mapConfigAction(configAction); action != "" {
 				s.TabMode[binding] = action
-				s.logger.Debug().Str("key", key).Str("configAction", configAction).Str("action", string(action)).Uint("keyval", binding.Keyval).Msg("tab mode shortcut registered")
+				registered++
+				log.Trace().Str("key", key).Str("configAction", configAction).Str("action", string(action)).Uint("keyval", binding.Keyval).Msg("tab mode shortcut registered")
 			} else {
-				s.logger.Warn().Str("key", key).Str("configAction", configAction).Msg("unknown config action in tab mode")
+				unknownActions++
+				log.Warn().Str("key", key).Str("configAction", configAction).Msg("unknown config action in tab mode")
 			}
 		} else {
-			s.logger.Warn().Str("key", key).Msg("failed to parse tab mode key")
+			parseErrors++
+			log.Warn().Str("key", key).Msg("failed to parse tab mode key")
 		}
 	}
+	log.Debug().Int("registered", registered).Int("parseErrors", parseErrors).Int("unknownActions", unknownActions).Msg("tab mode shortcuts built")
 }
 
 // buildPaneModeShortcuts populates pane mode shortcuts from config.
-func (s *ShortcutSet) buildPaneModeShortcuts(cfg *config.WorkspaceConfig) {
+func (s *ShortcutSet) buildPaneModeShortcuts(ctx context.Context, cfg *config.WorkspaceConfig) {
+	log := logging.FromContext(ctx)
 	bindings := cfg.PaneMode.GetKeyBindings()
-	s.logger.Debug().Int("count", len(bindings)).Msg("building pane mode shortcuts")
+	var registered, parseErrors, unknownActions int
 	for key, configAction := range bindings {
 		if binding, ok := ParseKeyString(key); ok {
 			if action := mapConfigAction(configAction); action != "" {
 				s.PaneMode[binding] = action
-				s.logger.Debug().Str("key", key).Str("configAction", configAction).Str("action", string(action)).Uint("keyval", binding.Keyval).Msg("pane mode shortcut registered")
+				registered++
+				log.Trace().Str("key", key).Str("configAction", configAction).Str("action", string(action)).Uint("keyval", binding.Keyval).Msg("pane mode shortcut registered")
 			} else {
-				s.logger.Warn().Str("key", key).Str("configAction", configAction).Msg("unknown config action in pane mode")
+				unknownActions++
+				log.Warn().Str("key", key).Str("configAction", configAction).Msg("unknown config action in pane mode")
 			}
 		} else {
-			s.logger.Warn().Str("key", key).Msg("failed to parse pane mode key")
+			parseErrors++
+			log.Warn().Str("key", key).Msg("failed to parse pane mode key")
 		}
 	}
+	log.Debug().Int("registered", registered).Int("parseErrors", parseErrors).Int("unknownActions", unknownActions).Msg("pane mode shortcuts built")
 }
 
 // mapConfigAction maps config action names to Action constants.

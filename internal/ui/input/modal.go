@@ -1,10 +1,11 @@
 package input
 
 import (
+	"context"
 	"sync"
 	"time"
 
-	"github.com/rs/zerolog"
+	"github.com/bnema/dumber/internal/logging"
 )
 
 // Mode represents the current input mode.
@@ -42,15 +43,15 @@ type ModalState struct {
 	// Callback for mode changes (called synchronously under lock).
 	onModeChange func(from, to Mode)
 
-	logger *zerolog.Logger
-	mu     sync.RWMutex
+	ctx context.Context
+	mu  sync.RWMutex
 }
 
 // NewModalState creates a new modal state manager.
-func NewModalState(logger *zerolog.Logger) *ModalState {
+func NewModalState(ctx context.Context) *ModalState {
 	return &ModalState{
-		mode:   ModeNormal,
-		logger: logger,
+		mode: ModeNormal,
+		ctx:  ctx,
 	}
 }
 
@@ -64,6 +65,7 @@ func (m *ModalState) Mode() Mode {
 // EnterTabMode switches to tab mode with an optional timeout.
 // If timeout is 0, the mode stays until explicitly exited.
 func (m *ModalState) EnterTabMode(timeout time.Duration) {
+	log := logging.FromContext(m.ctx)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -84,13 +86,11 @@ func (m *ModalState) EnterTabMode(timeout time.Duration) {
 		})
 	}
 
-	if m.logger != nil {
-		m.logger.Debug().
-			Str("from", oldMode.String()).
-			Str("to", m.mode.String()).
-			Dur("timeout", timeout).
-			Msg("entered tab mode")
-	}
+	log.Debug().
+		Str("from", oldMode.String()).
+		Str("to", m.mode.String()).
+		Dur("timeout", timeout).
+		Msg("entered tab mode")
 
 	if m.onModeChange != nil {
 		m.onModeChange(oldMode, m.mode)
@@ -100,6 +100,7 @@ func (m *ModalState) EnterTabMode(timeout time.Duration) {
 // EnterPaneMode switches to pane mode with an optional timeout.
 // If timeout is 0, the mode stays until explicitly exited.
 func (m *ModalState) EnterPaneMode(timeout time.Duration) {
+	log := logging.FromContext(m.ctx)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -120,13 +121,11 @@ func (m *ModalState) EnterPaneMode(timeout time.Duration) {
 		})
 	}
 
-	if m.logger != nil {
-		m.logger.Debug().
-			Str("from", oldMode.String()).
-			Str("to", m.mode.String()).
-			Dur("timeout", timeout).
-			Msg("entered pane mode")
-	}
+	log.Debug().
+		Str("from", oldMode.String()).
+		Str("to", m.mode.String()).
+		Dur("timeout", timeout).
+		Msg("entered pane mode")
 
 	if m.onModeChange != nil {
 		m.onModeChange(oldMode, m.mode)
@@ -135,6 +134,7 @@ func (m *ModalState) EnterPaneMode(timeout time.Duration) {
 
 // ExitMode returns to normal mode.
 func (m *ModalState) ExitMode() {
+	log := logging.FromContext(m.ctx)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -147,12 +147,10 @@ func (m *ModalState) ExitMode() {
 	m.mode = ModeNormal
 	m.timeout = 0
 
-	if m.logger != nil {
-		m.logger.Debug().
-			Str("from", oldMode.String()).
-			Str("to", "normal").
-			Msg("exited modal mode")
-	}
+	log.Debug().
+		Str("from", oldMode.String()).
+		Str("to", "normal").
+		Msg("exited modal mode")
 
 	if m.onModeChange != nil {
 		m.onModeChange(oldMode, ModeNormal)
