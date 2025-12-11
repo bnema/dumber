@@ -50,7 +50,7 @@ export function pageGenerator(pages: PageConfig[]): Plugin {
   return {
     name: "dumb-page-generator",
     writeBundle() {
-      const assetsDir = resolve(__dirname, "..", "assets", "gui");
+      const assetsDir = resolve(__dirname, "..", "assets", "webui");
 
       try {
         // Generate HTML files for each page
@@ -67,7 +67,7 @@ export function pageGenerator(pages: PageConfig[]): Plugin {
         console.log("✓ Generated favicon.svg");
 
         // Copy pre-generated PNG and ICO favicons if they exist
-        const sourceDir = resolve(__dirname, "..", "assets", "gui");
+        const sourceDir = resolve(__dirname, "..", "assets", "webui");
         try {
           const pngPath = resolve(sourceDir, "favicon.png");
           const icoPath = resolve(sourceDir, "favicon.ico");

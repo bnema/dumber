@@ -6,7 +6,7 @@ export default defineConfig({
     rollupOptions: {
       input: resolve(__dirname, "src/injected/modules/color-scheme.ts"),
       output: {
-        dir: "../assets/gui",
+        dir: "../assets/webui",
         format: "iife",
         entryFileNames: "color-scheme.js",
         inlineDynamicImports: true,

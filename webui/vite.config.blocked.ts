@@ -10,24 +10,24 @@ export default defineConfig({
     }),
     pageGenerator([
       {
-        name: "homepage",
-        title: "Dumber Browser",
-        script: "homepage.min.js",
-        filename: "index.html",
+        name: "blocked",
+        title: "Page Blocked",
+        script: "blocked.min.js",
+        filename: "blocked.html",
       },
     ]),
   ],
   build: {
     rollupOptions: {
-      input: resolve(__dirname, "src/pages/homepage.ts"),
+      input: resolve(__dirname, "src/pages/blocked.ts"),
       output: {
-        dir: "../assets/gui",
-        entryFileNames: "homepage.min.js",
+        dir: "../assets/webui",
+        entryFileNames: "blocked.min.js",
         chunkFileNames: "[name].js",
         assetFileNames: "[name].[ext]",
         manualChunks: undefined,
         format: "iife",
-        name: "DumberHomepage",
+        name: "DumberBlocked",
       },
     },
     emptyOutDir: false,

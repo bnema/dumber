@@ -13,9 +13,14 @@ export class OmniboxBridge implements OmniboxMessageBridge {
   postMessage(msg: OmniboxMessage): void {
     console.log("📤 [DEBUG] Posting message to backend via bridge:", msg);
     try {
+      // Include webview_id for message routing
+      const payload = {
+        ...msg,
+        webview_id: (window as any).__dumber_webview_id ?? 0,
+      };
       // Dispatch CustomEvent that main-world bridge will listen to
       document.dispatchEvent(new CustomEvent("dumber:isolated-message", {
-        detail: { payload: msg }
+        detail: { payload }
       }));
       console.log("✅ [DEBUG] Dispatched isolated message event");
     } catch (e) {
@@ -117,11 +122,10 @@ export class OmniboxBridge implements OmniboxMessageBridge {
       // Send message to Go backend
       const bridge = window.webkit?.messageHandlers?.dumber;
       if (bridge && typeof bridge.postMessage === "function") {
-        bridge.postMessage(
-          JSON.stringify({
-            type: "get_search_shortcuts",
-          }),
-        );
+        bridge.postMessage({
+          type: "get_search_shortcuts",
+          webview_id: (window as any).__dumber_webview_id ?? 0,
+        });
       } else {
         reject(new Error("WebKit message handler not available"));
       }
@@ -307,7 +311,7 @@ declare global {
     webkit?: {
       messageHandlers?: {
         dumber?: {
-          postMessage: (message: string) => void;
+          postMessage: (message: unknown) => void;
         };
       };
     };

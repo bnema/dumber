@@ -38,7 +38,7 @@ let callbacksInitialized = false;
 // WEBKIT BRIDGE UTILITIES
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function getWebKitBridge(): { postMessage: (msg: string) => void } | null {
+function getWebKitBridge(): { postMessage: (msg: unknown) => void } | null {
   const bridge = (window as any).webkit?.messageHandlers?.dumber;
   if (bridge && typeof bridge.postMessage === 'function') {
     return bridge;
@@ -167,11 +167,11 @@ async function sendMessage<T = unknown>(
     pendingRequests.set(requestId, { resolve: resolve as any, reject, timeout });
 
     try {
-      bridge.postMessage(JSON.stringify({
+      bridge.postMessage({
         type,
         requestId,
         ...payload,
-      }));
+      });
     } catch (error) {
       clearTimeout(timeout);
       pendingRequests.delete(requestId);

@@ -38,7 +38,7 @@ build: build-frontend ## Build the application (pure Go, no CGO)
 
 build-frontend: ## Build Svelte GUI with Tailwind CSS and main-world script
 	@echo "Building Svelte GUI with Tailwind CSS..."
-	@cd gui && npm install --silent && npm run build
+	@cd webui && npm install --silent && npm run build
 	@echo "GUI build complete"
 
 build-quick: ## Build without frontend (faster for backend development)
@@ -60,6 +60,11 @@ generate: ## Generate code (SQLC)
 	@echo "Generating code with SQLC..."
 	sqlc generate
 	@echo "Code generation complete"
+
+mocks: ## Generate mock implementations with mockery
+	@echo "Generating mocks with mockery..."
+	mockery
+	@echo "Mock generation complete"
 
 # Testing
 test: ## Run tests
@@ -102,8 +107,8 @@ clean: ## Clean build artifacts
 	@echo "Cleaning build artifacts..."
 	rm -rf $(DIST_DIR)
 	rm -f $(BINARY_NAME)
-	rm -rf gui/dist gui/node_modules
-	rm -f assets/gui/gui.min.js assets/gui/homepage.min.js assets/gui/homepage.css assets/gui/main-world.min.js assets/gui/color-scheme.js
+	rm -rf webui/dist webui/node_modules
+	rm -f assets/webui/gui.min.js assets/webui/homepage.min.js assets/webui/homepage.css assets/webui/main-world.min.js assets/webui/color-scheme.js
 	rm -f coverage.out coverage.html
 	go clean -cache
 	go clean -testcache

@@ -62,7 +62,7 @@ config.local.*
 tmp/go-cache/
 tmp/go-mod/
 tmp/
-assets/gui
+assets/webui
 
 # Node/TypeScript related
 node_modules/

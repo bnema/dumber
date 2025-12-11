@@ -12,7 +12,7 @@ export default defineConfig({
     rollupOptions: {
       input: resolve(__dirname, "src/injected/gui.ts"),
       output: {
-        dir: "../assets/gui",
+        dir: "../assets/webui",
         format: "iife",
         entryFileNames: "gui.min.js",
         name: "__dumberGUI",

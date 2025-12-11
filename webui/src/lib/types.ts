@@ -36,7 +36,7 @@ declare global {
     webkit?: {
       messageHandlers?: {
         dumber?: {
-          postMessage: (message: string) => void;
+          postMessage: (message: unknown) => void;
         };
       };
     };

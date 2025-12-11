@@ -41,6 +41,14 @@ declare global {
     __dumber_find_query?: (query: string) => void;
     __dumber_dismissToast?: (id: number) => void;
     __dumber_clearToasts?: () => void;
+    webkit?: {
+      messageHandlers?: {
+        dumber?: {
+          postMessage: (message: unknown) => void;
+        };
+      };
+    };
+    __dumber_webview_id?: number | string;
   }
 }
 
@@ -108,6 +116,28 @@ export function bootstrapGUI(): void {
     // Ignore environments without pagehide support
   }
 
+  // Request color palettes from Go backend
+  // The isolated world has access to webkit.messageHandlers, main world does not.
+  // Main world has set up the __dumber_color_palettes callback handler.
+  const requestColorPalettes = () => {
+    try {
+      const bridge = window.webkit?.messageHandlers?.dumber;
+      if (bridge && typeof bridge.postMessage === "function") {
+        const webviewId = window.__dumber_webview_id;
+        console.log("[dumber-palette] Requesting color palettes from backend, webview_id:", webviewId);
+        bridge.postMessage({
+          type: "get_color_palettes",
+          webview_id: typeof webviewId === "number" ? webviewId : 0,
+        });
+      } else {
+        console.warn("[dumber-palette] WebKit message handler not available");
+      }
+    } catch (err) {
+      console.error("[dumber-palette] Failed to request color palettes:", err);
+    }
+  };
+  requestColorPalettes();
+
   let workspaceHasFocus = false;
   const initialRawWebViewId = window.__dumber_webview_id;
   let currentWebViewId = normalizeWebviewId(initialRawWebViewId);
@@ -119,12 +149,11 @@ export function bootstrapGUI(): void {
   if (currentWebViewId === null) {
     console.log("[workspace] WebView ID unknown, requesting from Go backend");
     if (window.webkit?.messageHandlers?.dumber) {
-      window.webkit.messageHandlers.dumber.postMessage(
-        JSON.stringify({
-          type: "request-webview-id",
-          payload: { timestamp: Date.now() },
-        }),
-      );
+      window.webkit.messageHandlers.dumber.postMessage({
+        type: "request-webview-id",
+        webview_id: 0,
+        payload: { timestamp: Date.now() },
+      });
     }
   }
 

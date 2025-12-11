@@ -46,7 +46,7 @@ declare global {
     webkit?: {
       messageHandlers?: {
         dumber?: {
-          postMessage: (message: string) => void;
+          postMessage: (message: unknown) => void;
         };
       };
     };
@@ -88,73 +88,58 @@ interface DumberAPI {
       window.__dumber_is_active = "__WEBVIEW_ACTIVE__" as unknown as boolean;
     }
 
-    // Request color palettes from Go backend
-    try {
-      console.log("[dumber-palette] Initializing color palette loading");
-      const bridge = window.webkit?.messageHandlers?.dumber;
+    // Set up color palette callback handlers (will be called from isolated world via CustomEvent)
+    window.__dumber_color_palettes = (palettes: unknown) => {
+      console.log("[dumber-palette] Received palettes from backend:", palettes);
+      try {
+        // Type guard to ensure palettes is a valid object
+        if (typeof palettes !== "object" || palettes === null) {
+          console.error("[dumber-palette] ERROR: Invalid palettes received - type:", typeof palettes);
+          return;
+        }
 
-      if (!bridge || typeof bridge.postMessage !== "function") {
-        console.error("[dumber-palette] ERROR: No webkit message bridge available");
-        return;
-      }
+        window.__dumber_palette = palettes as Record<string, Record<string, string>>;
+        console.log("[dumber-palette] Palette keys:", Object.keys(window.__dumber_palette || {}));
 
-      console.log("[dumber-palette] WebKit bridge found, setting up handlers");
-
-      // Set up callback handler before requesting
-      window.__dumber_color_palettes = (palettes: unknown) => {
-        console.log("[dumber-palette] Received palettes from backend:", palettes);
-        try {
-          // Type guard to ensure palettes is a valid object
-          if (typeof palettes !== "object" || palettes === null) {
-            console.error("[dumber-palette] ERROR: Invalid palettes received - type:", typeof palettes);
-            return;
-          }
-
-          window.__dumber_palette = palettes as Record<string, Record<string, string>>;
-          console.log("[dumber-palette] Palette keys:", Object.keys(window.__dumber_palette || {}));
-
-          // Normalize palette keys to lowercase
-          const normalized: Record<string, Record<string, string>> = {};
-          if (window.__dumber_palette) {
-            for (const key in window.__dumber_palette) {
-              if (Object.prototype.hasOwnProperty.call(window.__dumber_palette, key)) {
-                const paletteValue = window.__dumber_palette[key];
-                if (paletteValue) {
-                  normalized[key.toLowerCase()] = paletteValue;
-                  console.log(`[dumber-palette] Normalized: ${key} -> ${key.toLowerCase()}, colors:`, Object.keys(paletteValue));
-                }
+        // Normalize palette keys to lowercase
+        const normalized: Record<string, Record<string, string>> = {};
+        if (window.__dumber_palette) {
+          for (const key in window.__dumber_palette) {
+            if (Object.prototype.hasOwnProperty.call(window.__dumber_palette, key)) {
+              const paletteValue = window.__dumber_palette[key];
+              if (paletteValue) {
+                normalized[key.toLowerCase()] = paletteValue;
+                console.log(`[dumber-palette] Normalized: ${key} -> ${key.toLowerCase()}, colors:`, Object.keys(paletteValue));
               }
             }
-            window.__dumber_palette = normalized;
           }
-
-          // Apply palette now that we have it
-          const initialTheme: "light" | "dark" = document.documentElement.classList.contains("dark") ? "dark" : "light";
-          console.log(`[dumber-palette] Initial theme detected: ${initialTheme}`);
-          window.__dumber_initial_theme = initialTheme;
-
-          if (window.__dumber_applyPalette) {
-            console.log("[dumber-palette] Applying palette...");
-            window.__dumber_applyPalette(initialTheme);
-          } else {
-            console.error("[dumber-palette] ERROR: __dumber_applyPalette function not found");
-          }
-        } catch (err) {
-          console.error("[dumber-palette] ERROR: Failed to apply received palette:", err);
+          window.__dumber_palette = normalized;
         }
-      };
 
-      window.__dumber_color_palettes_error = (error: string) => {
-        console.error("[dumber-palette] ERROR from backend:", error);
-      };
+        // Apply palette now that we have it
+        const initialTheme: "light" | "dark" = document.documentElement.classList.contains("dark") ? "dark" : "light";
+        console.log(`[dumber-palette] Initial theme detected: ${initialTheme}`);
+        window.__dumber_initial_theme = initialTheme;
 
-      // Request color palettes
-      console.log("[dumber-palette] Sending get_color_palettes request to backend");
-      bridge.postMessage(JSON.stringify({ type: "get_color_palettes" }));
-      console.log("[dumber-palette] Request sent, waiting for response...");
-    } catch (err) {
-      console.error("[dumber-palette] EXCEPTION requesting color palettes:", err);
-    }
+        if (window.__dumber_applyPalette) {
+          console.log("[dumber-palette] Applying palette...");
+          window.__dumber_applyPalette(initialTheme);
+        } else {
+          console.error("[dumber-palette] ERROR: __dumber_applyPalette function not found");
+        }
+      } catch (err) {
+        console.error("[dumber-palette] ERROR: Failed to apply received palette:", err);
+      }
+    };
+
+    window.__dumber_color_palettes_error = (error: string) => {
+      console.error("[dumber-palette] ERROR from backend:", error);
+    };
+
+    // Request color palettes from Go backend via isolated world bridge
+    // Note: webkit.messageHandlers.dumber is only available in the isolated world,
+    // not in the main world. The request will be sent from the isolated world (gui.ts).
+    console.log("[dumber-palette] Color palette handlers registered, waiting for isolated world to request palettes");
 
     // Palette application function
     window.__dumber_applyPalette = (theme: "light" | "dark") => {
@@ -684,7 +669,7 @@ interface DumberAPI {
                         `[dumber-parent] Sending popup close request:`,
                         closeMessage,
                       );
-                      bridge.postMessage(JSON.stringify(closeMessage));
+                      bridge.postMessage(closeMessage);
                     } catch (err) {
                       console.warn(
                         `[dumber-parent] Failed to send popup close request:`,
@@ -821,7 +806,7 @@ interface DumberAPI {
                   `[oauth-callback] Sending popup close request:`,
                   closeMessage,
                 );
-                bridge.postMessage(JSON.stringify(closeMessage));
+                bridge.postMessage(closeMessage);
               } catch (err) {
                 console.warn(
                   `[oauth-callback] Failed to send popup close request:`,
@@ -939,17 +924,15 @@ interface DumberAPI {
 
           // Send to Go via existing message handler
           if (window.webkit?.messageHandlers?.dumber) {
-            window.webkit.messageHandlers.dumber.postMessage(
-              JSON.stringify({
-                type: "console-message",
-                payload: {
-                  level,
-                  message: formattedMessage,
-                  url: window.location.href,
-                  webviewId: window.__dumber_webview_id,
-                },
-              }),
-            );
+            window.webkit.messageHandlers.dumber.postMessage({
+              type: "console-message",
+              payload: {
+                level,
+                message: formattedMessage,
+                url: window.location.href,
+                webviewId: window.__dumber_webview_id,
+              },
+            });
           }
         } catch {
           // Silently ignore errors in console capture to avoid infinite loops
@@ -989,7 +972,7 @@ interface DumberAPI {
         try {
           const { payload } = event.detail;
           if (window.webkit?.messageHandlers?.dumber) {
-            window.webkit.messageHandlers.dumber.postMessage(JSON.stringify(payload));
+            window.webkit.messageHandlers.dumber.postMessage(payload);
             console.log("[dumber-bridge] Forwarded isolated world message:", payload.type);
           } else {
             console.warn("[dumber-bridge] webkit message handler not available");

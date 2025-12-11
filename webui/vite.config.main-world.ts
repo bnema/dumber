@@ -6,7 +6,7 @@ export default defineConfig({
     rollupOptions: {
       input: resolve(__dirname, "src/injected/main-world.ts"),
       output: {
-        dir: "../assets/gui",
+        dir: "../assets/webui",
         format: "iife",
         entryFileNames: "main-world.min.js",
         name: "__dumberMainWorld",

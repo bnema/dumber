@@ -112,11 +112,10 @@ export class AppService {
       // Send message to Go backend
       const bridge = window.webkit?.messageHandlers?.dumber;
       if (bridge && typeof bridge.postMessage === "function") {
-        bridge.postMessage(
-          JSON.stringify({
-            type: "get_search_shortcuts",
-          }),
-        );
+        bridge.postMessage({
+          type: "get_search_shortcuts",
+          webview_id: (window as any).__dumber_webview_id ?? 0,
+        });
       } else {
         reject(new Error("WebKit message handler not available"));
       }
