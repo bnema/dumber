@@ -1,6 +1,9 @@
 package entity
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // TabID uniquely identifies a tab.
 type TabID string
@@ -27,22 +30,12 @@ func NewTab(tabID TabID, workspaceID WorkspaceID, initialPane *Pane) *Tab {
 }
 
 // Title returns the display title for the tab.
-// Uses the active pane's title, falling back to URL or "New Tab".
+// Uses the tab's Name if set, otherwise returns "Tab N" based on position.
 func (t *Tab) Title() string {
 	if t.Name != "" {
 		return t.Name
 	}
-	if t.Workspace != nil {
-		if active := t.Workspace.ActivePane(); active != nil && active.Pane != nil {
-			if active.Pane.Title != "" {
-				return active.Pane.Title
-			}
-			if active.Pane.URI != "" {
-				return active.Pane.URI
-			}
-		}
-	}
-	return "New Tab"
+	return fmt.Sprintf("Tab %d", t.Position+1)
 }
 
 // PaneCount returns the number of panes in this tab's workspace.
