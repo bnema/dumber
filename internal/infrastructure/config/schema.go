@@ -176,6 +176,9 @@ type OmniboxConfig struct {
 
 // DebugConfig holds debug and troubleshooting options
 type DebugConfig struct {
+	// Enable browser developer tools (F12, Inspect Element in context menu)
+	EnableDevTools bool `mapstructure:"enable_devtools" yaml:"enable_devtools" toml:"enable_devtools"`
+
 	// Enable WebKit internal debug logging
 	EnableWebKitDebug bool `mapstructure:"enable_webkit_debug" yaml:"enable_webkit_debug" toml:"enable_webkit_debug"`
 

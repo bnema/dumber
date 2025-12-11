@@ -141,6 +141,7 @@ func DefaultConfig() *Config {
 			DisableTwitchCodecControl: true,                                                                                                    // Disable codec control on Twitch by default (prevents theater/fullscreen freezing)
 		},
 		Debug: DebugConfig{
+			EnableDevTools:        true,
 			EnableWebKitDebug:     false,
 			WebKitDebugCategories: "Network:preconnectTo,ContentFilters",
 			EnableFilteringDebug:  false,

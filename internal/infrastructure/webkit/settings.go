@@ -72,12 +72,12 @@ func (sm *SettingsManager) applySettings(settings *webkit.Settings, cfg *config.
 	}
 
 	// Debug settings
-	settings.SetEnableDeveloperExtras(cfg.Debug.EnableWebKitDebug)
+	settings.SetEnableDeveloperExtras(cfg.Debug.EnableDevTools)
 	settings.SetEnableWriteConsoleMessagesToStdout(cfg.Logging.CaptureConsole)
 
 	// Browsing experience
 	settings.SetEnableSmoothScrolling(true)
-	settings.SetEnableDnsPrefetching(true)
+	// Note: DNS prefetching setting deprecated in WebKitGTK 6 - use NetworkSession.PrefetchDns() instead
 	settings.SetEnablePageCache(true)
 	settings.SetEnableSiteSpecificQuirks(true)
 
@@ -108,7 +108,7 @@ func (sm *SettingsManager) applySettings(settings *webkit.Settings, cfg *config.
 	sm.logger.Debug().
 		Str("sans_font", cfg.Appearance.SansFont).
 		Str("rendering_mode", string(cfg.RenderingMode)).
-		Bool("developer_extras", cfg.Debug.EnableWebKitDebug).
+		Bool("developer_extras", cfg.Debug.EnableDevTools).
 		Msg("settings applied")
 }
 

@@ -285,6 +285,7 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("logging.verbose_webkit", defaults.Logging.VerboseWebKit)
 
 	// Debug defaults
+	m.viper.SetDefault("debug.enable_devtools", defaults.Debug.EnableDevTools)
 	m.viper.SetDefault("debug.enable_webkit_debug", defaults.Debug.EnableWebKitDebug)
 	m.viper.SetDefault("debug.webkit_debug_categories", defaults.Debug.WebKitDebugCategories)
 	m.viper.SetDefault("debug.enable_filtering_debug", defaults.Debug.EnableFilteringDebug)
