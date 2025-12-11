@@ -18,6 +18,7 @@ import (
 	uihandler "github.com/bnema/dumber/internal/ui/handler"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
+	"github.com/bnema/dumber/internal/ui/theme"
 	"github.com/bnema/dumber/internal/ui/window"
 )
 
@@ -141,6 +142,11 @@ func (a *App) onActivate(ctx context.Context) {
 		return
 	}
 
+	// Apply GTK CSS styling for tab bar
+	if display := a.mainWindow.Window().GetDisplay(); display != nil {
+		theme.ApplyCSS(display)
+	}
+
 	// Initialize widget factory for pane layout
 	a.widgetFactory = layout.NewGtkWidgetFactory()
 
@@ -210,6 +216,9 @@ func (a *App) createInitialTab(ctx context.Context) {
 		a.mainWindow.TabBar().AddTab(output.Tab)
 		a.mainWindow.TabBar().SetActive(output.Tab.ID)
 	}
+
+	// Update tab bar visibility (hide if only 1 tab)
+	a.updateTabBarVisibility(ctx)
 
 	// Create workspace view for this tab
 	a.createWorkspaceView(ctx, output.Tab)
@@ -351,6 +360,9 @@ func (a *App) handleNewTab(ctx context.Context) error {
 		a.mainWindow.TabBar().SetActive(output.Tab.ID)
 	}
 
+	// Update tab bar visibility
+	a.updateTabBarVisibility(ctx)
+
 	log.Debug().Str("tab_id", string(output.Tab.ID)).Msg("new tab created")
 
 	return nil
@@ -377,12 +389,41 @@ func (a *App) handleCloseTab(ctx context.Context) error {
 		}
 	}
 
+	// Update tab bar visibility
+	a.updateTabBarVisibility(ctx)
+
 	// Quit if no tabs left
 	if wasLast {
 		a.Quit()
 	}
 
 	return nil
+}
+
+// updateTabBarVisibility shows or hides the tab bar based on tab count.
+// Tab bar is hidden when there's only 1 tab (configurable).
+func (a *App) updateTabBarVisibility(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
+	// Check if feature is enabled
+	if a.deps.Config != nil && !a.deps.Config.Workspace.HideTabBarWhenSingleTab {
+		return
+	}
+
+	if a.mainWindow == nil || a.mainWindow.TabBar() == nil {
+		return
+	}
+
+	tabCount := a.tabs.Count()
+	shouldShow := tabCount > 1
+
+	a.mainWindow.TabBar().SetVisible(shouldShow)
+
+	if shouldShow {
+		log.Debug().Int("tab_count", tabCount).Msg("tab bar visible")
+	} else {
+		log.Debug().Msg("tab bar hidden (single tab)")
+	}
 }
 
 // handleNextTab switches to the next tab.

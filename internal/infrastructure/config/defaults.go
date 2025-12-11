@@ -191,7 +191,8 @@ func DefaultConfig() *Config {
 				NextTab:     "ctrl+tab",
 				PreviousTab: "ctrl+shift+tab",
 			},
-			TabBarPosition: defaultTabBarPosition,
+			TabBarPosition:          defaultTabBarPosition,
+			HideTabBarWhenSingleTab: true,
 			Popups: PopupBehaviorConfig{
 				Behavior:             PopupBehaviorSplit, // Default: open JavaScript popups in split panes
 				Placement:            defaultPopupPlacement,

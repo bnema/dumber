@@ -227,6 +227,8 @@ type WorkspaceConfig struct {
 	Tabs TabKeyConfig `mapstructure:"tabs" yaml:"tabs" toml:"tabs" json:"tabs"`
 	// TabBarPosition determines tab bar placement: "top" or "bottom".
 	TabBarPosition string `mapstructure:"tab_bar_position" yaml:"tab_bar_position" toml:"tab_bar_position" json:"tab_bar_position"`
+	// HideTabBarWhenSingleTab hides the tab bar when only one tab exists.
+	HideTabBarWhenSingleTab bool `mapstructure:"hide_tab_bar_when_single_tab" yaml:"hide_tab_bar_when_single_tab" toml:"hide_tab_bar_when_single_tab" json:"hide_tab_bar_when_single_tab"`
 	// Popups configures default popup placement rules.
 	Popups PopupBehaviorConfig `mapstructure:"popups" yaml:"popups" toml:"popups" json:"popups"`
 	// Styling configures workspace visual appearance.
