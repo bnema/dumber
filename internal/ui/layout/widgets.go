@@ -30,6 +30,9 @@ type Widget interface {
 	SetCanFocus(canFocus bool)
 	SetFocusOnClick(focusOnClick bool)
 
+	// Pointer events
+	SetCanTarget(canTarget bool) // If false, widget won't receive pointer events
+
 	// Layout
 	SetHexpand(expand bool)
 	SetVexpand(expand bool)
@@ -81,6 +84,10 @@ type PanedWidget interface {
 
 	// Signals
 	ConnectMap(callback func()) uint32
+
+	// Tick callback for frame-based updates (returns signal ID)
+	// Callback returns true to continue, false to stop
+	AddTickCallback(callback func() bool) uint
 
 	// Size information (for ratio calculation)
 	GetAllocatedWidth() int

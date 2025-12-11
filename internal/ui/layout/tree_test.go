@@ -3,6 +3,7 @@ package layout_test
 import (
 	"testing"
 
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -18,7 +19,7 @@ func TestNewTreeRenderer_CreatesRenderer(t *testing.T) {
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 
 	// Act
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory)
+	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
 
 	// Assert
 	require.NotNil(t, renderer)
@@ -30,7 +31,7 @@ func TestBuild_NilRoot_ReturnsError(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory)
+	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
 
 	// Act
 	widget, err := renderer.Build(nil)
@@ -54,7 +55,7 @@ func TestBuild_SingleLeafPane(t *testing.T) {
 
 	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockWidget).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory)
+	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
 
 	// Act
 	widget, err := renderer.Build(node)
@@ -100,9 +101,11 @@ func TestBuild_HorizontalSplit(t *testing.T) {
 	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
 	mockPaned.EXPECT().SetStartChild(mockLeftWidget).Once()
 	mockPaned.EXPECT().SetEndChild(mockRightWidget).Once()
+	mockPaned.EXPECT().GetAllocatedWidth().Return(0).Once()
 	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory)
+	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
 
 	// Act
 	widget, err := renderer.Build(splitNode)
@@ -145,9 +148,11 @@ func TestBuild_VerticalSplit(t *testing.T) {
 	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
 	mockPaned.EXPECT().SetStartChild(mockTopWidget).Once()
 	mockPaned.EXPECT().SetEndChild(mockBottomWidget).Once()
+	mockPaned.EXPECT().GetAllocatedHeight().Return(0).Once()
 	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory)
+	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
 
 	// Act
 	widget, err := renderer.Build(splitNode)
@@ -209,7 +214,9 @@ func TestBuild_NestedSplits(t *testing.T) {
 	mockInnerPaned.EXPECT().SetShrinkEndChild(false).Once()
 	mockInnerPaned.EXPECT().SetStartChild(mockWidget1).Once()
 	mockInnerPaned.EXPECT().SetEndChild(mockWidget2).Once()
+	mockInnerPaned.EXPECT().GetAllocatedHeight().Return(0).Once()
 	mockInnerPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+	mockInnerPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
 
 	// Outer split (horizontal) gets inner paned and pane3
 	mockFactory.EXPECT().NewPaned(layout.OrientationHorizontal).Return(mockOuterPaned).Once()
@@ -219,9 +226,11 @@ func TestBuild_NestedSplits(t *testing.T) {
 	mockOuterPaned.EXPECT().SetShrinkEndChild(false).Once()
 	mockOuterPaned.EXPECT().SetStartChild(mockInnerPaned).Once()
 	mockOuterPaned.EXPECT().SetEndChild(mockWidget3).Once()
+	mockOuterPaned.EXPECT().GetAllocatedWidth().Return(0).Once()
 	mockOuterPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+	mockOuterPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory)
+	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
 
 	// Act
 	widget, err := renderer.Build(outerSplit)
@@ -248,7 +257,7 @@ func TestLookup_ExistingNode(t *testing.T) {
 
 	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockWidget).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory)
+	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
 	_, _ = renderer.Build(node)
 
 	// Act
@@ -269,7 +278,7 @@ func TestLookup_NonExistentNode(t *testing.T) {
 
 	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockWidget).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory)
+	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
 	_, _ = renderer.Build(node)
 
 	// Act
@@ -290,7 +299,7 @@ func TestLookupNode_Existing(t *testing.T) {
 
 	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockWidget).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory)
+	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
 	_, _ = renderer.Build(node)
 
 	// Act
@@ -306,7 +315,7 @@ func TestLookupNode_NonExistent(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory)
+	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
 
 	// Act
 	widget, found := renderer.LookupNode("non-existent")
@@ -327,7 +336,7 @@ func TestClear_RemovesAllMappings(t *testing.T) {
 
 	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockWidget).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory)
+	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
 	_, _ = renderer.Build(node)
 
 	require.Equal(t, 1, renderer.NodeCount())
@@ -371,9 +380,11 @@ func TestGetNodeIDs_ReturnsAllIDs(t *testing.T) {
 	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
 	mockPaned.EXPECT().SetStartChild(mockWidget1).Once()
 	mockPaned.EXPECT().SetEndChild(mockWidget2).Once()
+	mockPaned.EXPECT().GetAllocatedWidth().Return(0).Once()
 	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory)
+	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
 	_, _ = renderer.Build(splitNode)
 
 	// Act
@@ -402,7 +413,7 @@ func TestBuild_ClearsPreviousMappings(t *testing.T) {
 	mockPaneViewFactory.EXPECT().CreatePaneView(node1).Return(mockWidget1).Once()
 	mockPaneViewFactory.EXPECT().CreatePaneView(node2).Return(mockWidget2).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory)
+	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
 
 	// First build
 	_, _ = renderer.Build(node1)
@@ -425,7 +436,7 @@ func TestBuild_NilPaneViewFactory_ReturnsNilForLeaves(t *testing.T) {
 	pane := entity.NewPane(entity.PaneID("pane-1"))
 	node := &entity.PaneNode{ID: "node-1", Pane: pane}
 
-	renderer := layout.NewTreeRenderer(mockFactory, nil)
+	renderer := layout.NewTreeRenderer(mockFactory, nil, zerolog.Nop())
 
 	// Act
 	widget, err := renderer.Build(node)
@@ -446,7 +457,7 @@ func TestBuild_EmptyNodeID_NotStored(t *testing.T) {
 
 	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockWidget).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory)
+	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
 
 	// Act
 	widget, err := renderer.Build(node)
@@ -488,9 +499,11 @@ func TestUpdateSplitRatio_ExistingNode(t *testing.T) {
 	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
 	mockPaned.EXPECT().SetStartChild(mockWidget1).Once()
 	mockPaned.EXPECT().SetEndChild(mockWidget2).Once()
+	mockPaned.EXPECT().GetAllocatedWidth().Return(0).Once()
 	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory)
+	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
 	_, _ = renderer.Build(splitNode)
 
 	// Act
@@ -505,7 +518,7 @@ func TestUpdateSplitRatio_NonExistentNode(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory)
+	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
 
 	// Act
 	err := renderer.UpdateSplitRatio("non-existent", 0.7)

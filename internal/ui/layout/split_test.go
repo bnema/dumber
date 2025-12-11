@@ -3,6 +3,7 @@ package layout_test
 import (
 	"testing"
 
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -10,6 +11,27 @@ import (
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/dumber/internal/ui/layout/mocks"
 )
+
+// setupSplitViewMocks configures the common mock expectations for NewSplitView.
+// Since the mock paned returns 0 for GetAllocatedWidth/Height, ApplyRatio will
+// return false and trigger the ConnectMap and AddTickCallback registrations.
+func setupSplitViewMocks(mockPaned *mocks.MockPanedWidget, orientation layout.Orientation) {
+	mockPaned.EXPECT().SetResizeStartChild(true).Once()
+	mockPaned.EXPECT().SetResizeEndChild(true).Once()
+	// Note: SetShrinkStartChild/SetShrinkEndChild are NOT called - allowing shrink
+	// enables GTK to respect the 50/50 ratio even if children have larger natural sizes
+
+	// ApplyRatio is called immediately, which calls GetAllocatedWidth/Height
+	if orientation == layout.OrientationHorizontal {
+		mockPaned.EXPECT().GetAllocatedWidth().Return(0).Once()
+	} else {
+		mockPaned.EXPECT().GetAllocatedHeight().Return(0).Once()
+	}
+
+	// Since allocation is 0, ApplyRatio returns false and callbacks are registered
+	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
+}
 
 func TestNewSplitView_Horizontal(t *testing.T) {
 	// Arrange
@@ -19,16 +41,12 @@ func TestNewSplitView_Horizontal(t *testing.T) {
 	mockEndChild := mocks.NewMockWidget(t)
 
 	mockFactory.EXPECT().NewPaned(layout.OrientationHorizontal).Return(mockPaned).Once()
-	mockPaned.EXPECT().SetResizeStartChild(true).Once()
-	mockPaned.EXPECT().SetResizeEndChild(true).Once()
-	mockPaned.EXPECT().SetShrinkStartChild(false).Once()
-	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
+	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 	mockPaned.EXPECT().SetStartChild(mockStartChild).Once()
 	mockPaned.EXPECT().SetEndChild(mockEndChild).Once()
-	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
 
 	// Act
-	sv := layout.NewSplitView(mockFactory, layout.OrientationHorizontal, mockStartChild, mockEndChild, 0.5)
+	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, mockStartChild, mockEndChild, 0.5)
 
 	// Assert
 	require.NotNil(t, sv)
@@ -46,16 +64,12 @@ func TestNewSplitView_Vertical(t *testing.T) {
 	mockEndChild := mocks.NewMockWidget(t)
 
 	mockFactory.EXPECT().NewPaned(layout.OrientationVertical).Return(mockPaned).Once()
-	mockPaned.EXPECT().SetResizeStartChild(true).Once()
-	mockPaned.EXPECT().SetResizeEndChild(true).Once()
-	mockPaned.EXPECT().SetShrinkStartChild(false).Once()
-	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
+	setupSplitViewMocks(mockPaned, layout.OrientationVertical)
 	mockPaned.EXPECT().SetStartChild(mockStartChild).Once()
 	mockPaned.EXPECT().SetEndChild(mockEndChild).Once()
-	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
 
 	// Act
-	sv := layout.NewSplitView(mockFactory, layout.OrientationVertical, mockStartChild, mockEndChild, 0.5)
+	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationVertical, mockStartChild, mockEndChild, 0.5)
 
 	// Assert
 	require.NotNil(t, sv)
@@ -68,15 +82,11 @@ func TestNewSplitView_NilChildren(t *testing.T) {
 	mockPaned := mocks.NewMockPanedWidget(t)
 
 	mockFactory.EXPECT().NewPaned(layout.OrientationHorizontal).Return(mockPaned).Once()
-	mockPaned.EXPECT().SetResizeStartChild(true).Once()
-	mockPaned.EXPECT().SetResizeEndChild(true).Once()
-	mockPaned.EXPECT().SetShrinkStartChild(false).Once()
-	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
-	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 	// SetStartChild and SetEndChild should NOT be called when children are nil
 
 	// Act
-	sv := layout.NewSplitView(mockFactory, layout.OrientationHorizontal, nil, nil, 0.5)
+	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, nil, 0.5)
 
 	// Assert
 	require.NotNil(t, sv)
@@ -104,13 +114,9 @@ func TestSetRatio_ValidRange(t *testing.T) {
 			mockPaned := mocks.NewMockPanedWidget(t)
 
 			mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
-			mockPaned.EXPECT().SetResizeStartChild(true).Once()
-			mockPaned.EXPECT().SetResizeEndChild(true).Once()
-			mockPaned.EXPECT().SetShrinkStartChild(false).Once()
-			mockPaned.EXPECT().SetShrinkEndChild(false).Once()
-			mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+			setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 
-			sv := layout.NewSplitView(mockFactory, layout.OrientationHorizontal, nil, nil, 0.5)
+			sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, nil, 0.5)
 
 			// Act
 			sv.SetRatio(tt.input)
@@ -140,13 +146,9 @@ func TestSetRatio_OutOfRange_Clamped(t *testing.T) {
 			mockPaned := mocks.NewMockPanedWidget(t)
 
 			mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
-			mockPaned.EXPECT().SetResizeStartChild(true).Once()
-			mockPaned.EXPECT().SetResizeEndChild(true).Once()
-			mockPaned.EXPECT().SetShrinkStartChild(false).Once()
-			mockPaned.EXPECT().SetShrinkEndChild(false).Once()
-			mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+			setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 
-			sv := layout.NewSplitView(mockFactory, layout.OrientationHorizontal, nil, nil, 0.5)
+			sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, nil, 0.5)
 
 			// Act
 			sv.SetRatio(tt.input)
@@ -165,14 +167,10 @@ func TestSwapStart_ReplacesChild(t *testing.T) {
 	mockNewChild := mocks.NewMockWidget(t)
 
 	mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
-	mockPaned.EXPECT().SetResizeStartChild(true).Once()
-	mockPaned.EXPECT().SetResizeEndChild(true).Once()
-	mockPaned.EXPECT().SetShrinkStartChild(false).Once()
-	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
+	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 	mockPaned.EXPECT().SetStartChild(mockOldChild).Once()
-	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
 
-	sv := layout.NewSplitView(mockFactory, layout.OrientationHorizontal, mockOldChild, nil, 0.5)
+	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, mockOldChild, nil, 0.5)
 
 	// Expect swap operations
 	mockPaned.EXPECT().SetStartChild(nil).Once()          // Remove old
@@ -193,14 +191,10 @@ func TestSwapEnd_ReplacesChild(t *testing.T) {
 	mockNewChild := mocks.NewMockWidget(t)
 
 	mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
-	mockPaned.EXPECT().SetResizeStartChild(true).Once()
-	mockPaned.EXPECT().SetResizeEndChild(true).Once()
-	mockPaned.EXPECT().SetShrinkStartChild(false).Once()
-	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
+	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 	mockPaned.EXPECT().SetEndChild(mockOldChild).Once()
-	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
 
-	sv := layout.NewSplitView(mockFactory, layout.OrientationHorizontal, nil, mockOldChild, 0.5)
+	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, mockOldChild, 0.5)
 
 	// Expect swap operations
 	mockPaned.EXPECT().SetEndChild(nil).Once()          // Remove old
@@ -220,13 +214,9 @@ func TestSwapStart_FromNil(t *testing.T) {
 	mockNewChild := mocks.NewMockWidget(t)
 
 	mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
-	mockPaned.EXPECT().SetResizeStartChild(true).Once()
-	mockPaned.EXPECT().SetResizeEndChild(true).Once()
-	mockPaned.EXPECT().SetShrinkStartChild(false).Once()
-	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
-	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 
-	sv := layout.NewSplitView(mockFactory, layout.OrientationHorizontal, nil, nil, 0.5)
+	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, nil, 0.5)
 
 	// Expect only adding new child (no removal since old was nil)
 	mockPaned.EXPECT().SetStartChild(mockNewChild).Once()
@@ -245,14 +235,10 @@ func TestSwapEnd_ToNil(t *testing.T) {
 	mockOldChild := mocks.NewMockWidget(t)
 
 	mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
-	mockPaned.EXPECT().SetResizeStartChild(true).Once()
-	mockPaned.EXPECT().SetResizeEndChild(true).Once()
-	mockPaned.EXPECT().SetShrinkStartChild(false).Once()
-	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
+	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 	mockPaned.EXPECT().SetEndChild(mockOldChild).Once()
-	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
 
-	sv := layout.NewSplitView(mockFactory, layout.OrientationHorizontal, nil, mockOldChild, 0.5)
+	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, mockOldChild, 0.5)
 
 	// Expect removal (SetEndChild(nil) called for clearing old)
 	mockPaned.EXPECT().SetEndChild(nil).Once()
@@ -270,13 +256,9 @@ func TestWidget_ReturnsPanedWidget(t *testing.T) {
 	mockPaned := mocks.NewMockPanedWidget(t)
 
 	mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
-	mockPaned.EXPECT().SetResizeStartChild(true).Once()
-	mockPaned.EXPECT().SetResizeEndChild(true).Once()
-	mockPaned.EXPECT().SetShrinkStartChild(false).Once()
-	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
-	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 
-	sv := layout.NewSplitView(mockFactory, layout.OrientationHorizontal, nil, nil, 0.5)
+	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, nil, 0.5)
 
 	// Act
 	widget := sv.Widget()
@@ -291,13 +273,9 @@ func TestSetPosition_DelegatesToPaned(t *testing.T) {
 	mockPaned := mocks.NewMockPanedWidget(t)
 
 	mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
-	mockPaned.EXPECT().SetResizeStartChild(true).Once()
-	mockPaned.EXPECT().SetResizeEndChild(true).Once()
-	mockPaned.EXPECT().SetShrinkStartChild(false).Once()
-	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
-	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 
-	sv := layout.NewSplitView(mockFactory, layout.OrientationHorizontal, nil, nil, 0.5)
+	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, nil, 0.5)
 
 	mockPaned.EXPECT().SetPosition(400).Once()
 
@@ -313,13 +291,9 @@ func TestGetPosition_DelegatesToPaned(t *testing.T) {
 	mockPaned := mocks.NewMockPanedWidget(t)
 
 	mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
-	mockPaned.EXPECT().SetResizeStartChild(true).Once()
-	mockPaned.EXPECT().SetResizeEndChild(true).Once()
-	mockPaned.EXPECT().SetShrinkStartChild(false).Once()
-	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
-	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 
-	sv := layout.NewSplitView(mockFactory, layout.OrientationHorizontal, nil, nil, 0.5)
+	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, nil, 0.5)
 
 	mockPaned.EXPECT().GetPosition().Return(400).Once()
 
@@ -336,13 +310,9 @@ func TestSetWideHandle_DelegatesToPaned(t *testing.T) {
 	mockPaned := mocks.NewMockPanedWidget(t)
 
 	mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
-	mockPaned.EXPECT().SetResizeStartChild(true).Once()
-	mockPaned.EXPECT().SetResizeEndChild(true).Once()
-	mockPaned.EXPECT().SetShrinkStartChild(false).Once()
-	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
-	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 
-	sv := layout.NewSplitView(mockFactory, layout.OrientationHorizontal, nil, nil, 0.5)
+	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, nil, 0.5)
 
 	mockPaned.EXPECT().SetWideHandle(true).Once()
 
@@ -370,14 +340,10 @@ func TestNewSplitView_InitialRatio_Clamped(t *testing.T) {
 			mockPaned := mocks.NewMockPanedWidget(t)
 
 			mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
-			mockPaned.EXPECT().SetResizeStartChild(true).Once()
-			mockPaned.EXPECT().SetResizeEndChild(true).Once()
-			mockPaned.EXPECT().SetShrinkStartChild(false).Once()
-			mockPaned.EXPECT().SetShrinkEndChild(false).Once()
-			mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+			setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 
 			// Act
-			sv := layout.NewSplitView(mockFactory, layout.OrientationHorizontal, nil, nil, tt.input)
+			sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, nil, tt.input)
 
 			// Assert
 			assert.Equal(t, tt.expected, sv.GetRatio())

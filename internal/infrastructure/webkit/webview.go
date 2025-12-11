@@ -1,11 +1,15 @@
 package webkit
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
 
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
+	"github.com/jwijenbergh/puregotk/v4/gio"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 	"github.com/rs/zerolog"
 )
@@ -72,6 +76,7 @@ func LookupWebView(id WebViewID) *WebView {
 type WebView struct {
 	id    WebViewID
 	inner *webkit.WebView
+	ucm   *webkit.UserContentManager
 
 	// State (protected by mutex)
 	destroyed atomic.Bool
@@ -96,6 +101,11 @@ type WebView struct {
 
 	logger zerolog.Logger
 	mu     sync.RWMutex
+
+	frontendAttached atomic.Bool
+
+	// asyncCallbacks keeps references to async JS callbacks to prevent GC
+	asyncCallbacks []interface{}
 }
 
 // NewWebView creates a new WebView with the given context and settings.
@@ -111,6 +121,7 @@ func NewWebView(wkCtx *WebKitContext, settings *SettingsManager, logger zerolog.
 
 	wv := &WebView{
 		inner:     inner,
+		ucm:       inner.GetUserContentManager(),
 		logger:    logger.With().Str("component", "webview").Logger(),
 		signalIDs: make([]uint32, 0, 4),
 	}
@@ -148,6 +159,7 @@ func NewWebViewWithRelated(parent *WebView, settings *SettingsManager, logger ze
 
 	wv := &WebView{
 		inner:     inner,
+		ucm:       inner.GetUserContentManager(),
 		logger:    logger.With().Str("component", "webview-popup").Logger(),
 		signalIDs: make([]uint32, 0, 6),
 	}
@@ -172,6 +184,7 @@ func NewWebViewWithRelated(parent *WebView, settings *SettingsManager, logger ze
 func (wv *WebView) connectSignals() {
 	// load-changed signal
 	loadChangedCb := func(inner webkit.WebView, event webkit.LoadEvent) {
+
 		wv.mu.Lock()
 		wv.uri = inner.GetUri()
 		wv.title = inner.GetTitle()
@@ -257,23 +270,28 @@ func (wv *WebView) ID() WebViewID {
 	return wv.id
 }
 
+// UserContentManager returns the content manager associated with this WebView.
+func (wv *WebView) UserContentManager() *webkit.UserContentManager {
+	return wv.ucm
+}
+
 // Widget returns the underlying webkit.WebView for GTK embedding.
 func (wv *WebView) Widget() *webkit.WebView {
 	return wv.inner
 }
 
 // LoadURI loads the given URI.
-func (wv *WebView) LoadURI(uri string) error {
+func (wv *WebView) LoadURI(ctx context.Context, uri string) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
 	wv.inner.LoadUri(uri)
-	wv.logger.Debug().Str("uri", uri).Msg("loading URI")
+	logging.FromContext(ctx).Debug().Str("uri", uri).Msg("loading URI")
 	return nil
 }
 
 // LoadHTML loads HTML content with an optional base URI.
-func (wv *WebView) LoadHTML(content, baseURI string) error {
+func (wv *WebView) LoadHTML(ctx context.Context, content, baseURI string) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
@@ -282,7 +300,7 @@ func (wv *WebView) LoadHTML(content, baseURI string) error {
 }
 
 // Reload reloads the current page.
-func (wv *WebView) Reload() error {
+func (wv *WebView) Reload(ctx context.Context) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
@@ -291,7 +309,7 @@ func (wv *WebView) Reload() error {
 }
 
 // ReloadBypassCache reloads the current page, bypassing the cache.
-func (wv *WebView) ReloadBypassCache() error {
+func (wv *WebView) ReloadBypassCache(ctx context.Context) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
@@ -300,7 +318,7 @@ func (wv *WebView) ReloadBypassCache() error {
 }
 
 // Stop stops the current load operation.
-func (wv *WebView) Stop() error {
+func (wv *WebView) Stop(ctx context.Context) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
@@ -309,7 +327,7 @@ func (wv *WebView) Stop() error {
 }
 
 // GoBack navigates back in history.
-func (wv *WebView) GoBack() error {
+func (wv *WebView) GoBack(ctx context.Context) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
@@ -321,7 +339,7 @@ func (wv *WebView) GoBack() error {
 }
 
 // GoForward navigates forward in history.
-func (wv *WebView) GoForward() error {
+func (wv *WebView) GoForward(ctx context.Context) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
@@ -375,7 +393,7 @@ func (wv *WebView) EstimatedProgress() float64 {
 }
 
 // SetZoomLevel sets the zoom level (1.0 = 100%).
-func (wv *WebView) SetZoomLevel(level float64) error {
+func (wv *WebView) SetZoomLevel(ctx context.Context, level float64) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
@@ -389,6 +407,20 @@ func (wv *WebView) GetZoomLevel() float64 {
 		return 1.0
 	}
 	return wv.inner.GetZoomLevel()
+}
+
+// ShowDevTools opens the WebKit inspector/developer tools.
+func (wv *WebView) ShowDevTools() error {
+	if wv.destroyed.Load() {
+		return fmt.Errorf("webview %d is destroyed", wv.id)
+	}
+	inspector := wv.inner.GetInspector()
+	if inspector == nil {
+		return fmt.Errorf("failed to get inspector for webview %d", wv.id)
+	}
+	inspector.Show()
+	wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("devtools shown")
+	return nil
 }
 
 // IsDestroyed returns true if the WebView has been destroyed.
@@ -410,4 +442,153 @@ func (wv *WebView) Destroy() {
 	// For now, we rely on GTK's reference counting.
 
 	wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("webview destroyed")
+}
+
+// RunJavaScript executes script in the specified world (empty for main world).
+// It waits for completion and reports JS exceptions through the returned error.
+// WARNING: Do not call from GTK signal handlers - use RunJavaScriptAsync instead.
+func (wv *WebView) RunJavaScript(ctx context.Context, script, worldName string) error {
+	if wv.destroyed.Load() {
+		return fmt.Errorf("webview %d is destroyed", wv.id)
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	log := logging.FromContext(ctx)
+
+	done := make(chan struct{})
+	var execErr error
+
+	cb := gio.AsyncReadyCallback(func(_ uintptr, resPtr uintptr, _ uintptr) {
+		defer close(done)
+
+		if resPtr == 0 {
+			execErr = errors.New("nil async result")
+			return
+		}
+
+		res := &gio.AsyncResultBase{Ptr: resPtr}
+		value, err := wv.inner.EvaluateJavascriptFinish(res)
+		if err != nil {
+			execErr = err
+			return
+		}
+
+		if value != nil {
+			if jscCtx := value.GetContext(); jscCtx != nil {
+				if exc := jscCtx.GetException(); exc != nil {
+					execErr = fmt.Errorf("javascript exception: %s", exc.GetMessage())
+				}
+			}
+		}
+	})
+
+	wv.inner.EvaluateJavascript(script, -1, worldName, "", nil, &cb, 0)
+
+	select {
+	case <-done:
+		if execErr != nil {
+			log.Warn().
+				Err(execErr).
+				Uint64("webview_id", uint64(wv.id)).
+				Msg("javascript execution failed")
+		}
+		return execErr
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// RunJavaScriptAsync executes script without waiting for completion.
+// Safe to call from GTK signal handlers. Errors are logged but not returned.
+func (wv *WebView) RunJavaScriptAsync(ctx context.Context, script, worldName string) {
+	if wv.destroyed.Load() {
+		return
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	log := logging.FromContext(ctx)
+
+	cb := gio.AsyncReadyCallback(func(_ uintptr, resPtr uintptr, _ uintptr) {
+		if resPtr == 0 {
+			log.Warn().Uint64("webview_id", uint64(wv.id)).Msg("RunJavaScriptAsync: nil async result")
+			return
+		}
+
+		res := &gio.AsyncResultBase{Ptr: resPtr}
+		value, err := wv.inner.EvaluateJavascriptFinish(res)
+		if err != nil {
+			log.Warn().Err(err).Uint64("webview_id", uint64(wv.id)).Msg("RunJavaScriptAsync: failed")
+			return
+		}
+
+		if value != nil {
+			if jscCtx := value.GetContext(); jscCtx != nil {
+				if exc := jscCtx.GetException(); exc != nil {
+					log.Warn().
+						Str("exception", exc.GetMessage()).
+						Uint64("webview_id", uint64(wv.id)).
+						Msg("RunJavaScriptAsync: JS exception")
+				}
+			}
+		}
+	})
+
+	// prevent callback from being GC'd before it's called
+	wv.mu.Lock()
+	wv.asyncCallbacks = append(wv.asyncCallbacks, cb)
+	wv.mu.Unlock()
+
+	wv.inner.EvaluateJavascript(script, -1, worldName, "", nil, &cb, 0)
+}
+
+// AttachFrontend injects scripts/styles and wires the message router once per WebView.
+func (wv *WebView) AttachFrontend(ctx context.Context, injector *ContentInjector, router *MessageRouter) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	log := logging.FromContext(ctx).With().
+		Str("component", "webview").
+		Uint64("webview_id", uint64(wv.id)).
+		Logger()
+
+	if wv.destroyed.Load() {
+		return fmt.Errorf("webview %d is destroyed", wv.id)
+	}
+	if injector == nil && router == nil {
+		return nil
+	}
+
+	if !wv.frontendAttached.CompareAndSwap(false, true) {
+		return nil // already attached
+	}
+
+	var attachErr error
+
+	defer func() {
+		if attachErr != nil {
+			// allow retry on next call
+			wv.frontendAttached.Store(false)
+		}
+	}()
+
+	if injector != nil {
+		injector.InjectScripts(ctx, wv.ucm, wv.id)
+		injector.InjectStyles(ctx, wv.ucm)
+	}
+
+	if router != nil {
+		if _, err := router.SetupMessageHandler(wv.ucm, ScriptWorldName); err != nil {
+			attachErr = fmt.Errorf("setup message router: %w", err)
+			log.Warn().Err(err).Msg("failed to attach message router")
+			return attachErr
+		}
+	}
+
+	log.Debug().Msg("frontend assets attached to webview")
+	return nil
 }

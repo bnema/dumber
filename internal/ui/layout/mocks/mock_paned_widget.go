@@ -77,6 +77,57 @@ func (_c *MockPanedWidget_AddCssClass_Call) RunAndReturn(run func(cssClass strin
 	return _c
 }
 
+// AddTickCallback provides a mock function for the type MockPanedWidget
+func (_mock *MockPanedWidget) AddTickCallback(callback func() bool) uint {
+	ret := _mock.Called(callback)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AddTickCallback")
+	}
+
+	var r0 uint
+	if returnFunc, ok := ret.Get(0).(func(func() bool) uint); ok {
+		r0 = returnFunc(callback)
+	} else {
+		r0 = ret.Get(0).(uint)
+	}
+	return r0
+}
+
+// MockPanedWidget_AddTickCallback_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AddTickCallback'
+type MockPanedWidget_AddTickCallback_Call struct {
+	*mock.Call
+}
+
+// AddTickCallback is a helper method to define mock.On call
+//   - callback func() bool
+func (_e *MockPanedWidget_Expecter) AddTickCallback(callback interface{}) *MockPanedWidget_AddTickCallback_Call {
+	return &MockPanedWidget_AddTickCallback_Call{Call: _e.mock.On("AddTickCallback", callback)}
+}
+
+func (_c *MockPanedWidget_AddTickCallback_Call) Run(run func(callback func() bool)) *MockPanedWidget_AddTickCallback_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 func() bool
+		if args[0] != nil {
+			arg0 = args[0].(func() bool)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockPanedWidget_AddTickCallback_Call) Return(v uint) *MockPanedWidget_AddTickCallback_Call {
+	_c.Call.Return(v)
+	return _c
+}
+
+func (_c *MockPanedWidget_AddTickCallback_Call) RunAndReturn(run func(callback func() bool) uint) *MockPanedWidget_AddTickCallback_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ConnectMap provides a mock function for the type MockPanedWidget
 func (_mock *MockPanedWidget) ConnectMap(callback func()) uint32 {
 	ret := _mock.Called(callback)
