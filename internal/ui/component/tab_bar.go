@@ -159,6 +159,9 @@ func (tb *TabBar) ActiveTabID() entity.TabID {
 
 // SetVisible shows or hides the tab bar.
 func (tb *TabBar) SetVisible(visible bool) {
+	if tb.box == nil {
+		return
+	}
 	tb.box.SetVisible(visible)
 }
 

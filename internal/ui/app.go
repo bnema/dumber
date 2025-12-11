@@ -405,25 +405,33 @@ func (a *App) handleCloseTab(ctx context.Context) error {
 func (a *App) updateTabBarVisibility(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
+	// Debug: trace entry
+	hideEnabled := true
+	if a.deps.Config != nil {
+		hideEnabled = a.deps.Config.Workspace.HideTabBarWhenSingleTab
+	}
+	log.Debug().Bool("hide_enabled", hideEnabled).Msg("updateTabBarVisibility called")
+
 	// Check if feature is enabled
 	if a.deps.Config != nil && !a.deps.Config.Workspace.HideTabBarWhenSingleTab {
+		log.Debug().Msg("tab bar auto-hide disabled by config")
 		return
 	}
 
-	if a.mainWindow == nil || a.mainWindow.TabBar() == nil {
+	if a.mainWindow == nil {
+		log.Debug().Msg("mainWindow is nil, skipping visibility update")
+		return
+	}
+	if a.mainWindow.TabBar() == nil {
+		log.Debug().Msg("tabBar is nil, skipping visibility update")
 		return
 	}
 
 	tabCount := a.tabs.Count()
 	shouldShow := tabCount > 1
 
+	log.Debug().Int("tab_count", tabCount).Bool("should_show", shouldShow).Msg("setting tab bar visibility")
 	a.mainWindow.TabBar().SetVisible(shouldShow)
-
-	if shouldShow {
-		log.Debug().Int("tab_count", tabCount).Msg("tab bar visible")
-	} else {
-		log.Debug().Msg("tab bar hidden (single tab)")
-	}
 }
 
 // handleNextTab switches to the next tab.
