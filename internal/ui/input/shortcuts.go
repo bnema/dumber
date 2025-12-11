@@ -133,18 +133,24 @@ func (s *ShortcutSet) buildGlobalShortcuts(ctx context.Context, cfg *config.Work
 		log.Warn().Str("shortcut", cfg.PaneMode.ActivationShortcut).Msg("failed to parse pane mode activation shortcut")
 	}
 
-	// Tab shortcuts from TabKeyConfig
-	if binding, ok := ParseKeyString(cfg.Tabs.NewTab); ok {
-		s.Global[binding] = ActionNewTab
-	}
+	// Note: Ctrl+T is NOT registered globally - it enters tab mode.
+	// In tab mode, use:
+	//   n = new tab
+	//   x = close tab
+	//   l/tab = next tab
+	//   h/shift+tab = previous tab
+	//   r = rename tab
+	// This follows Zellij-style modal keyboard interface.
+	//
+	// However, these standard browser shortcuts ARE global:
 	if binding, ok := ParseKeyString(cfg.Tabs.CloseTab); ok {
-		s.Global[binding] = ActionCloseTab
+		s.Global[binding] = ActionCloseTab // Ctrl+W
 	}
 	if binding, ok := ParseKeyString(cfg.Tabs.NextTab); ok {
-		s.Global[binding] = ActionNextTab
+		s.Global[binding] = ActionNextTab // Ctrl+Tab
 	}
 	if binding, ok := ParseKeyString(cfg.Tabs.PreviousTab); ok {
-		s.Global[binding] = ActionPreviousTab
+		s.Global[binding] = ActionPreviousTab // Ctrl+Shift+Tab
 	}
 
 	// Standard browser shortcuts (hardcoded defaults)

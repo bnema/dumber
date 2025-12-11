@@ -116,24 +116,12 @@ func (h *KeyboardHandler) handleKeyPress(keyval uint, keycode uint, state gdk.Mo
 
 	mode := h.modal.Mode()
 
-	h.logger.Debug().
-		Uint("keyval", keyval).
-		Uint("keycode", keycode).
-		Uint("modifiers", uint(modifiers)).
-		Str("mode", mode.String()).
-		Msg("key pressed")
-
 	// Look up the action for this key binding
 	action, found := h.shortcuts.Lookup(binding, mode)
 
 	if !found {
 		if mode != ModeNormal {
 			// In modal mode, consume unrecognized keys to prevent WebView handling
-			h.logger.Debug().
-				Uint("keyval", keyval).
-				Uint("modifiers", uint(modifiers)).
-				Str("mode", mode.String()).
-				Msg("unrecognized key in modal mode, consumed")
 			return true
 		}
 		// In normal mode, let the key pass through to WebView
@@ -163,11 +151,6 @@ func (h *KeyboardHandler) handleKeyPress(keyval uint, keycode uint, state gdk.Mo
 	h.mu.RUnlock()
 
 	if handler != nil {
-		h.logger.Debug().
-			Str("action", string(action)).
-			Str("mode", mode.String()).
-			Msg("dispatching action")
-
 		if err := handler(h.ctx, action); err != nil {
 			h.logger.Error().
 				Err(err).
