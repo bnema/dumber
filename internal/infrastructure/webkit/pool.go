@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/rs/zerolog"
 )
 
@@ -37,15 +38,18 @@ type WebViewPool struct {
 	settings *SettingsManager
 	config   PoolConfig
 
-	pool   chan *WebView
-	logger zerolog.Logger
+	pool     chan *WebView
+	logger   zerolog.Logger
+	ctx      context.Context
+	injector *ContentInjector
+	router   *MessageRouter
 
 	closed atomic.Bool
 	wg     sync.WaitGroup
 }
 
 // NewWebViewPool creates a new WebView pool.
-func NewWebViewPool(wkCtx *WebKitContext, settings *SettingsManager, cfg PoolConfig, logger zerolog.Logger) *WebViewPool {
+func NewWebViewPool(ctx context.Context, wkCtx *WebKitContext, settings *SettingsManager, cfg PoolConfig, injector *ContentInjector, router *MessageRouter, logger zerolog.Logger) *WebViewPool {
 	if cfg.MaxSize <= 0 {
 		cfg.MaxSize = 8
 	}
@@ -55,6 +59,9 @@ func NewWebViewPool(wkCtx *WebKitContext, settings *SettingsManager, cfg PoolCon
 	if cfg.MinSize > cfg.MaxSize {
 		cfg.MinSize = cfg.MaxSize
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	p := &WebViewPool{
 		wkCtx:    wkCtx,
@@ -62,6 +69,9 @@ func NewWebViewPool(wkCtx *WebKitContext, settings *SettingsManager, cfg PoolCon
 		config:   cfg,
 		pool:     make(chan *WebView, cfg.MaxSize),
 		logger:   logger.With().Str("component", "webview-pool").Logger(),
+		ctx:      ctx,
+		injector: injector,
+		router:   router,
 	}
 
 	return p
@@ -77,6 +87,8 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 	select {
 	case wv := <-p.pool:
 		if wv != nil && !wv.IsDestroyed() {
+			// Ensure frontend is attached even if this WebView was pooled before injection was configured.
+			_ = wv.AttachFrontend(p.ctx, p.injector, p.router)
 			p.logger.Debug().Uint64("id", uint64(wv.ID())).Msg("acquired webview from pool")
 			return wv, nil
 		}
@@ -87,7 +99,23 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 
 	// Pool empty or pooled view was destroyed, create new
 	p.logger.Debug().Msg("pool empty, creating new webview")
-	return NewWebView(p.wkCtx, p.settings, p.logger)
+	return p.createWebView()
+}
+
+func (p *WebViewPool) createWebView() (*WebView, error) {
+	wv, err := NewWebView(p.wkCtx, p.settings, p.logger)
+	if err != nil {
+		return nil, err
+	}
+
+	// Ensure WebView is visible when used
+	wv.inner.SetVisible(true)
+
+	if err := wv.AttachFrontend(p.ctx, p.injector, p.router); err != nil {
+		logging.FromContext(p.ctx).Warn().Err(err).Msg("failed to attach frontend to new webview")
+	}
+
+	return wv, nil
 }
 
 // Release returns a WebView to the pool.
@@ -101,7 +129,7 @@ func (p *WebViewPool) Release(wv *WebView) {
 	}
 
 	// Reset to blank state
-	_ = wv.LoadURI("about:blank")
+	_ = wv.LoadURI(p.ctx, "about:blank")
 
 	// Clear callbacks
 	wv.OnLoadChanged = nil
@@ -121,7 +149,8 @@ func (p *WebViewPool) Release(wv *WebView) {
 	}
 }
 
-// Prewarm creates WebViews in the background to populate the pool.
+// Prewarm creates WebViews synchronously to populate the pool.
+// Must be called from the GTK main thread (after GTK application is initialized).
 func (p *WebViewPool) Prewarm(count int) {
 	if count <= 0 {
 		count = p.config.PrewarmCount
@@ -129,12 +158,7 @@ func (p *WebViewPool) Prewarm(count int) {
 	if count <= 0 {
 		return
 	}
-
-	p.wg.Add(1)
-	go func() {
-		defer p.wg.Done()
-		p.prewarmSync(count)
-	}()
+	p.prewarmSync(count)
 }
 
 // prewarmSync creates WebViews synchronously.
@@ -145,7 +169,7 @@ func (p *WebViewPool) prewarmSync(count int) {
 			break
 		}
 
-		wv, err := NewWebView(p.wkCtx, p.settings, p.logger)
+		wv, err := p.createWebView()
 		if err != nil {
 			p.logger.Warn().Err(err).Msg("failed to prewarm webview")
 			continue
