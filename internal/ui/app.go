@@ -2,19 +2,23 @@ package ui
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"sync"
 
+	"github.com/jwijenbergh/puregotk/v4/gio"
+	"github.com/jwijenbergh/puregotk/v4/gtk"
+
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
+	uihandler "github.com/bnema/dumber/internal/ui/handler"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/dumber/internal/ui/window"
-	"github.com/jwijenbergh/puregotk/v4/gio"
-	"github.com/jwijenbergh/puregotk/v4/gtk"
-	"github.com/rs/zerolog"
 )
 
 const (
@@ -40,14 +44,20 @@ type App struct {
 	// Input handling
 	keyboardHandler *input.KeyboardHandler
 
+	// Web content
+	pool     *webkit.WebViewPool
+	injector *webkit.ContentInjector
+	router   *webkit.MessageRouter
+	overlay  *component.OverlayController
+	settings *webkit.SettingsManager
+	webViews map[entity.PaneID]*webkit.WebView
+
 	// ID generator for tabs/panes
 	idCounter uint64
 	idMu      sync.Mutex
 
-	// Lifecycle
-	ctx    context.Context
-	cancel context.CancelFunc
-	logger *zerolog.Logger
+	// lifecycle
+	cancel context.CancelCauseFunc
 }
 
 // New creates a new App with the given dependencies.
@@ -56,8 +66,7 @@ func New(deps *Dependencies) (*App, error) {
 		return nil, err
 	}
 
-	ctx, cancel := context.WithCancel(deps.Ctx)
-	logger := logging.FromContext(ctx)
+	ctx, cancel := context.WithCancelCause(deps.Ctx)
 
 	app := &App{
 		deps:           deps,
@@ -65,9 +74,19 @@ func New(deps *Dependencies) (*App, error) {
 		tabsUC:         deps.TabsUC,
 		panesUC:        deps.PanesUC,
 		workspaceViews: make(map[entity.TabID]*component.WorkspaceView),
-		ctx:            ctx,
+		pool:           deps.Pool,
+		injector:       deps.Injector,
+		router:         deps.MessageRouter,
+		overlay:        deps.Overlay,
+		settings:       deps.Settings,
+		webViews:       make(map[entity.PaneID]*webkit.WebView),
 		cancel:         cancel,
-		logger:         logger,
+	}
+	if app.overlay == nil {
+		app.overlay = component.NewOverlayController(ctx)
+	}
+	if app.router == nil {
+		app.router = webkit.NewMessageRouter(ctx)
 	}
 
 	return app, nil
@@ -75,43 +94,50 @@ func New(deps *Dependencies) (*App, error) {
 
 // Run starts the GTK application and blocks until it exits.
 // Returns the exit code.
-func (a *App) Run(args []string) int {
-	a.logger.Debug().Msg("creating GTK application")
+func (a *App) Run(ctx context.Context, args []string) int {
+	log := logging.FromContext(ctx)
+	log.Debug().Msg("creating GTK application")
 
 	a.gtkApp = gtk.NewApplication(AppID, gio.GApplicationFlagsNoneValue)
 	if a.gtkApp == nil {
-		a.logger.Error().Msg("failed to create GTK application")
+		log.Error().Msg("failed to create GTK application")
 		return 1
 	}
 	defer a.gtkApp.Unref()
 
 	// Connect activate signal
 	activateCb := func(_ gio.Application) {
-		a.onActivate()
+		a.onActivate(ctx)
 	}
 	a.gtkApp.ConnectActivate(&activateCb)
 
 	// Connect shutdown signal
 	shutdownCb := func(_ gio.Application) {
-		a.onShutdown()
+		a.onShutdown(ctx)
 	}
 	a.gtkApp.ConnectShutdown(&shutdownCb)
 
-	a.logger.Info().Msg("starting GTK main loop")
+	log.Info().Msg("starting GTK main loop")
 	code := a.gtkApp.Run(len(args), args)
 
 	return code
 }
 
 // onActivate is called when the GTK application is activated.
-func (a *App) onActivate() {
-	a.logger.Debug().Msg("GTK application activated")
+func (a *App) onActivate(ctx context.Context) {
+	log := logging.FromContext(ctx)
+	log.Debug().Msg("GTK application activated")
+
+	// Prewarm WebView pool now that GTK is initialized
+	if a.pool != nil {
+		a.pool.Prewarm(0)
+	}
 
 	// Create the main window
 	var err error
-	a.mainWindow, err = window.New(a.gtkApp, a.deps.Config, a.logger)
+	a.mainWindow, err = window.New(a.gtkApp, a.deps.Config, a.deps.Logger)
 	if err != nil {
-		a.logger.Error().Err(err).Msg("failed to create main window")
+		log.Error().Err(err).Msg("failed to create main window")
 		return
 	}
 
@@ -120,52 +146,62 @@ func (a *App) onActivate() {
 
 	// Create keyboard handler
 	a.keyboardHandler = input.NewKeyboardHandler(
-		a.ctx,
+		ctx,
 		&a.deps.Config.Workspace,
-		a.logger,
+		a.deps.Logger,
 	)
 	a.keyboardHandler.SetOnAction(a.handleKeyboardAction)
-	a.keyboardHandler.SetOnModeChange(a.handleModeChange)
+	// Wrap handleModeChange to match the callback signature
+	a.keyboardHandler.SetOnModeChange(func(from, to input.Mode) {
+		a.handleModeChange(ctx, from, to)
+	})
 	a.keyboardHandler.AttachTo(a.mainWindow.Window())
 
+	if err := a.registerMessageHandlers(ctx); err != nil {
+		log.Warn().Err(err).Msg("failed to register message handlers")
+	}
+
 	// Create an initial tab
-	a.createInitialTab()
+	a.createInitialTab(ctx)
 
 	// Show the window
 	a.mainWindow.Show()
 
-	a.logger.Info().Msg("main window displayed")
+	log.Info().Msg("main window displayed")
 }
 
 // onShutdown is called when the GTK application is shutting down.
-func (a *App) onShutdown() {
-	a.logger.Debug().Msg("GTK application shutting down")
+func (a *App) onShutdown(ctx context.Context) {
+	log := logging.FromContext(ctx)
+	log.Debug().Msg("GTK application shutting down")
 
 	// Cancel context to signal all goroutines
-	a.cancel()
+	a.cancel(errors.New("application shutdown"))
 
 	// Cleanup resources
 	if a.deps.Pool != nil {
 		a.deps.Pool.Close()
 	}
 
-	a.logger.Info().Msg("application shutdown complete")
+	log.Info().Msg("application shutdown complete")
 }
 
 // createInitialTab creates the first tab when the application starts.
-func (a *App) createInitialTab() {
+func (a *App) createInitialTab(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
 	if a.tabsUC == nil {
 		// Create use case if not injected
 		a.tabsUC = usecase.NewManageTabsUseCase(a.generateID)
 	}
 
-	output, err := a.tabsUC.Create(a.ctx, usecase.CreateTabInput{
+	output, err := a.tabsUC.Create(ctx, usecase.CreateTabInput{
 		TabList:    a.tabs,
 		Name:       "",
-		InitialURL: "about:blank",
+		InitialURL: "https://duckduckgo.com",
 	})
 	if err != nil {
-		a.logger.Error().Err(err).Msg("failed to create initial tab")
+		log.Error().Err(err).Msg("failed to create initial tab")
 		return
 	}
 
@@ -176,11 +212,9 @@ func (a *App) createInitialTab() {
 	}
 
 	// Create workspace view for this tab
-	a.createWorkspaceView(output.Tab)
+	a.createWorkspaceView(ctx, output.Tab)
 
-	a.logger.Debug().
-		Str("tab_id", string(output.Tab.ID)).
-		Msg("initial tab created")
+	log.Debug().Str("tab_id", string(output.Tab.ID)).Msg("initial tab created")
 }
 
 // generateID generates a unique ID for tabs and panes.
@@ -209,7 +243,7 @@ func (a *App) Quit() {
 }
 
 // RunWithArgs is a convenience function that creates and runs an App.
-func RunWithArgs(deps *Dependencies) int {
+func RunWithArgs(ctx context.Context, deps *Dependencies) int {
 	app, err := New(deps)
 	if err != nil {
 		if deps.Logger != nil {
@@ -217,96 +251,93 @@ func RunWithArgs(deps *Dependencies) int {
 		}
 		return 1
 	}
-	return app.Run(os.Args)
+	return app.Run(ctx, os.Args)
 }
 
 // handleKeyboardAction dispatches keyboard actions to appropriate handlers.
 func (a *App) handleKeyboardAction(ctx context.Context, action input.Action) error {
-	a.logger.Debug().
-		Str("action", string(action)).
-		Msg("handling keyboard action")
+	log := logging.FromContext(ctx)
+	log.Debug().Str("action", string(action)).Msg("handling keyboard action")
 
 	switch action {
 	// Tab actions
 	case input.ActionNewTab:
-		return a.handleNewTab()
+		return a.handleNewTab(ctx)
 	case input.ActionCloseTab:
-		return a.handleCloseTab()
+		return a.handleCloseTab(ctx)
 	case input.ActionNextTab:
-		return a.handleNextTab()
+		return a.handleNextTab(ctx)
 	case input.ActionPreviousTab:
-		return a.handlePreviousTab()
+		return a.handlePreviousTab(ctx)
 
 	// Pane actions
 	case input.ActionSplitRight:
-		return a.handlePaneSplit(usecase.SplitRight)
+		return a.handlePaneSplit(ctx, usecase.SplitRight)
 	case input.ActionSplitLeft:
-		return a.handlePaneSplit(usecase.SplitLeft)
+		return a.handlePaneSplit(ctx, usecase.SplitLeft)
 	case input.ActionSplitUp:
-		return a.handlePaneSplit(usecase.SplitUp)
+		return a.handlePaneSplit(ctx, usecase.SplitUp)
 	case input.ActionSplitDown:
-		return a.handlePaneSplit(usecase.SplitDown)
+		return a.handlePaneSplit(ctx, usecase.SplitDown)
 	case input.ActionClosePane:
-		return a.handleClosePane()
+		return a.handleClosePane(ctx)
 	case input.ActionFocusRight:
-		return a.handlePaneFocus(usecase.NavRight)
+		return a.handlePaneFocus(ctx, usecase.NavRight)
 	case input.ActionFocusLeft:
-		return a.handlePaneFocus(usecase.NavLeft)
+		return a.handlePaneFocus(ctx, usecase.NavLeft)
 	case input.ActionFocusUp:
-		return a.handlePaneFocus(usecase.NavUp)
+		return a.handlePaneFocus(ctx, usecase.NavUp)
 	case input.ActionFocusDown:
-		return a.handlePaneFocus(usecase.NavDown)
+		return a.handlePaneFocus(ctx, usecase.NavDown)
 
 	// Navigation (stub implementations for now)
 	case input.ActionGoBack:
-		a.logger.Debug().Msg("go back action (not yet implemented)")
+		log.Debug().Msg("go back action (not yet implemented)")
 	case input.ActionGoForward:
-		a.logger.Debug().Msg("go forward action (not yet implemented)")
+		log.Debug().Msg("go forward action (not yet implemented)")
 	case input.ActionReload:
-		a.logger.Debug().Msg("reload action (not yet implemented)")
+		log.Debug().Msg("reload action (not yet implemented)")
 	case input.ActionHardReload:
-		a.logger.Debug().Msg("hard reload action (not yet implemented)")
+		log.Debug().Msg("hard reload action (not yet implemented)")
 
 	// Zoom (stub implementations for now)
 	case input.ActionZoomIn:
-		a.logger.Debug().Msg("zoom in action (not yet implemented)")
+		log.Debug().Msg("zoom in action (not yet implemented)")
 	case input.ActionZoomOut:
-		a.logger.Debug().Msg("zoom out action (not yet implemented)")
+		log.Debug().Msg("zoom out action (not yet implemented)")
 	case input.ActionZoomReset:
-		a.logger.Debug().Msg("zoom reset action (not yet implemented)")
+		log.Debug().Msg("zoom reset action (not yet implemented)")
 
 	// UI
 	case input.ActionOpenOmnibox:
-		a.logger.Debug().Msg("open omnibox action (not yet implemented)")
+		return a.openOmnibox(ctx)
 	case input.ActionOpenDevTools:
-		a.logger.Debug().Msg("open devtools action (not yet implemented)")
+		return a.openDevTools(ctx)
 	case input.ActionToggleFullscreen:
-		a.logger.Debug().Msg("toggle fullscreen action (not yet implemented)")
+		log.Debug().Msg("toggle fullscreen action (not yet implemented)")
 
 	// Application
 	case input.ActionQuit:
 		a.Quit()
 
 	default:
-		a.logger.Warn().Str("action", string(action)).Msg("unhandled keyboard action")
+		log.Warn().Str("action", string(action)).Msg("unhandled keyboard action")
 	}
 
 	return nil
 }
 
 // handleModeChange is called when the input mode changes.
-func (a *App) handleModeChange(from, to input.Mode) {
-	a.logger.Debug().
-		Str("from", from.String()).
-		Str("to", to.String()).
-		Msg("input mode changed")
-
-	// TODO: Update UI to indicate mode (e.g., change border color)
+func (a *App) handleModeChange(ctx context.Context, from, to input.Mode) {
+	log := logging.FromContext(ctx)
+	log.Debug().Str("from", from.String()).Str("to", to.String()).Msg("input mode changed")
 }
 
 // handleNewTab creates a new tab.
-func (a *App) handleNewTab() error {
-	output, err := a.tabsUC.Create(a.ctx, usecase.CreateTabInput{
+func (a *App) handleNewTab(ctx context.Context) error {
+	log := logging.FromContext(ctx)
+
+	output, err := a.tabsUC.Create(ctx, usecase.CreateTabInput{
 		TabList:    a.tabs,
 		Name:       "",
 		InitialURL: "about:blank",
@@ -320,21 +351,19 @@ func (a *App) handleNewTab() error {
 		a.mainWindow.TabBar().SetActive(output.Tab.ID)
 	}
 
-	a.logger.Debug().
-		Str("tab_id", string(output.Tab.ID)).
-		Msg("new tab created")
+	log.Debug().Str("tab_id", string(output.Tab.ID)).Msg("new tab created")
 
 	return nil
 }
 
 // handleCloseTab closes the active tab.
-func (a *App) handleCloseTab() error {
+func (a *App) handleCloseTab(ctx context.Context) error {
 	activeID := a.tabs.ActiveTabID
 	if activeID == "" {
 		return nil
 	}
 
-	wasLast, err := a.tabsUC.Close(a.ctx, a.tabs, activeID)
+	wasLast, err := a.tabsUC.Close(ctx, a.tabs, activeID)
 	if err != nil {
 		return err
 	}
@@ -357,8 +386,8 @@ func (a *App) handleCloseTab() error {
 }
 
 // handleNextTab switches to the next tab.
-func (a *App) handleNextTab() error {
-	if err := a.tabsUC.SwitchNext(a.ctx, a.tabs); err != nil {
+func (a *App) handleNextTab(ctx context.Context) error {
+	if err := a.tabsUC.SwitchNext(ctx, a.tabs); err != nil {
 		return err
 	}
 
@@ -370,8 +399,8 @@ func (a *App) handleNextTab() error {
 }
 
 // handlePreviousTab switches to the previous tab.
-func (a *App) handlePreviousTab() error {
-	if err := a.tabsUC.SwitchPrevious(a.ctx, a.tabs); err != nil {
+func (a *App) handlePreviousTab(ctx context.Context) error {
+	if err := a.tabsUC.SwitchPrevious(ctx, a.tabs); err != nil {
 		return err
 	}
 
@@ -383,24 +412,29 @@ func (a *App) handlePreviousTab() error {
 }
 
 // createWorkspaceView creates a WorkspaceView for a tab and attaches it to the content area.
-func (a *App) createWorkspaceView(tab *entity.Tab) {
+func (a *App) createWorkspaceView(ctx context.Context, tab *entity.Tab) {
+	log := logging.FromContext(ctx)
+
 	if a.widgetFactory == nil {
-		a.logger.Error().Msg("widget factory not initialized")
+		log.Error().Msg("widget factory not initialized")
 		return
 	}
 
 	// Create workspace view
-	wsView := component.NewWorkspaceView(a.widgetFactory)
+	wsView := component.NewWorkspaceView(a.widgetFactory, *a.deps.Logger)
 	if wsView == nil {
-		a.logger.Error().Msg("failed to create workspace view")
+		log.Error().Msg("failed to create workspace view")
 		return
 	}
 
 	// Set the workspace
 	if err := wsView.SetWorkspace(tab.Workspace); err != nil {
-		a.logger.Error().Err(err).Msg("failed to set workspace in view")
+		log.Error().Err(err).Msg("failed to set workspace in view")
 		return
 	}
+
+	// Ensure WebViews are attached to panes
+	a.attachWorkspaceWebViews(ctx, tab.Workspace, wsView)
 
 	// Store in map
 	a.workspaceViews[tab.ID] = wsView
@@ -409,15 +443,14 @@ func (a *App) createWorkspaceView(tab *entity.Tab) {
 	if a.mainWindow != nil {
 		widget := wsView.Widget()
 		if widget != nil {
-			if gtkWidget := widget.GtkWidget(); gtkWidget != nil {
+			gtkWidget := widget.GtkWidget()
+			if gtkWidget != nil {
 				a.mainWindow.SetContent(gtkWidget)
 			}
 		}
 	}
 
-	a.logger.Debug().
-		Str("tab_id", string(tab.ID)).
-		Msg("workspace view created and attached")
+	log.Debug().Str("tab_id", string(tab.ID)).Msg("workspace view created and attached")
 }
 
 // activeWorkspace returns the workspace of the active tab.
@@ -439,31 +472,33 @@ func (a *App) activeWorkspaceView() *component.WorkspaceView {
 }
 
 // handlePaneSplit splits the active pane in the given direction.
-func (a *App) handlePaneSplit(direction usecase.SplitDirection) error {
+func (a *App) handlePaneSplit(ctx context.Context, direction usecase.SplitDirection) error {
+	log := logging.FromContext(ctx)
+
 	if a.panesUC == nil {
-		a.logger.Warn().Msg("panes use case not available")
+		log.Warn().Msg("panes use case not available")
 		return nil
 	}
 
 	ws := a.activeWorkspace()
 	if ws == nil {
-		a.logger.Warn().Msg("no active workspace")
+		log.Warn().Msg("no active workspace")
 		return nil
 	}
 
 	activePane := ws.ActivePane()
 	if activePane == nil {
-		a.logger.Warn().Msg("no active pane to split")
+		log.Warn().Msg("no active pane to split")
 		return nil
 	}
 
-	output, err := a.panesUC.Split(a.ctx, usecase.SplitPaneInput{
+	output, err := a.panesUC.Split(ctx, usecase.SplitPaneInput{
 		Workspace:  ws,
 		TargetPane: activePane,
 		Direction:  direction,
 	})
 	if err != nil {
-		a.logger.Error().Err(err).Str("direction", string(direction)).Msg("failed to split pane")
+		log.Error().Err(err).Str("direction", string(direction)).Msg("failed to split pane")
 		return err
 	}
 
@@ -474,45 +509,47 @@ func (a *App) handlePaneSplit(direction usecase.SplitDirection) error {
 	wsView := a.activeWorkspaceView()
 	if wsView != nil {
 		if err := wsView.Rebuild(); err != nil {
-			a.logger.Error().Err(err).Msg("failed to rebuild workspace view")
+			log.Error().Err(err).Msg("failed to rebuild workspace view")
 		}
+		a.attachWorkspaceWebViews(ctx, ws, wsView)
+		wsView.FocusPane(ws.ActivePaneID)
 	}
 
-	a.logger.Info().
-		Str("direction", string(direction)).
-		Str("new_pane_id", string(output.NewPaneNode.Pane.ID)).
-		Msg("pane split completed")
+	log.Info().Str("direction", string(direction)).Str("new_pane_id", string(output.NewPaneNode.Pane.ID)).Msg("pane split completed")
 
 	return nil
 }
 
 // handleClosePane closes the active pane.
-func (a *App) handleClosePane() error {
+func (a *App) handleClosePane(ctx context.Context) error {
+	log := logging.FromContext(ctx)
+
 	if a.panesUC == nil {
-		a.logger.Warn().Msg("panes use case not available")
+		log.Warn().Msg("panes use case not available")
 		return nil
 	}
 
 	ws := a.activeWorkspace()
 	if ws == nil {
-		a.logger.Warn().Msg("no active workspace")
+		log.Warn().Msg("no active workspace")
 		return nil
 	}
 
 	activePane := ws.ActivePane()
 	if activePane == nil {
-		a.logger.Warn().Msg("no active pane to close")
+		log.Warn().Msg("no active pane to close")
 		return nil
 	}
+	closingPaneID := activePane.Pane.ID
 
 	// Don't close the last pane - close the tab instead
 	if ws.PaneCount() <= 1 {
-		return a.handleCloseTab()
+		return a.handleCloseTab(ctx)
 	}
 
-	_, err := a.panesUC.Close(a.ctx, ws, activePane)
+	_, err := a.panesUC.Close(ctx, ws, activePane)
 	if err != nil {
-		a.logger.Error().Err(err).Msg("failed to close pane")
+		log.Error().Err(err).Msg("failed to close pane")
 		return err
 	}
 
@@ -520,35 +557,40 @@ func (a *App) handleClosePane() error {
 	wsView := a.activeWorkspaceView()
 	if wsView != nil {
 		if err := wsView.Rebuild(); err != nil {
-			a.logger.Error().Err(err).Msg("failed to rebuild workspace view")
+			log.Error().Err(err).Msg("failed to rebuild workspace view")
 		}
+		a.releasePaneWebView(ctx, closingPaneID)
+		a.attachWorkspaceWebViews(ctx, ws, wsView)
+		wsView.FocusPane(ws.ActivePaneID)
 	}
 
-	a.logger.Info().Msg("pane closed")
+	log.Info().Msg("pane closed")
 	return nil
 }
 
 // handlePaneFocus navigates focus to an adjacent pane.
-func (a *App) handlePaneFocus(direction usecase.NavigateDirection) error {
+func (a *App) handlePaneFocus(ctx context.Context, direction usecase.NavigateDirection) error {
+	log := logging.FromContext(ctx)
+
 	if a.panesUC == nil {
-		a.logger.Warn().Msg("panes use case not available")
+		log.Warn().Msg("panes use case not available")
 		return nil
 	}
 
 	ws := a.activeWorkspace()
 	if ws == nil {
-		a.logger.Warn().Msg("no active workspace")
+		log.Warn().Msg("no active workspace")
 		return nil
 	}
 
-	newPane, err := a.panesUC.NavigateFocus(a.ctx, ws, direction)
+	newPane, err := a.panesUC.NavigateFocus(ctx, ws, direction)
 	if err != nil {
-		a.logger.Error().Err(err).Str("direction", string(direction)).Msg("failed to navigate focus")
+		log.Error().Err(err).Str("direction", string(direction)).Msg("failed to navigate focus")
 		return err
 	}
 
 	if newPane == nil {
-		a.logger.Debug().Str("direction", string(direction)).Msg("no pane in that direction")
+		log.Debug().Str("direction", string(direction)).Msg("no pane in that direction")
 		return nil
 	}
 
@@ -556,14 +598,184 @@ func (a *App) handlePaneFocus(direction usecase.NavigateDirection) error {
 	wsView := a.activeWorkspaceView()
 	if wsView != nil {
 		if err := wsView.SetActivePaneID(newPane.Pane.ID); err != nil {
-			a.logger.Warn().Err(err).Msg("failed to update active pane in view")
+			log.Warn().Err(err).Msg("failed to update active pane in view")
+		} else {
+			wsView.FocusPane(newPane.Pane.ID)
 		}
 	}
 
-	a.logger.Debug().
-		Str("direction", string(direction)).
-		Str("new_pane_id", newPane.ID).
-		Msg("focus navigated")
+	log.Debug().Str("direction", string(direction)).Str("new_pane_id", newPane.ID).Msg("focus navigated")
 
 	return nil
+}
+
+// registerMessageHandlers wires frontend message types to Go handlers.
+func (a *App) registerMessageHandlers(ctx context.Context) error {
+	if a.router == nil {
+		return fmt.Errorf("message router is nil")
+	}
+
+	// Omnibox search
+	if err := a.router.RegisterHandlerWithCallbacks("query", "__dumber_omnibox_suggestions", "", "", uihandler.NewQueryHandler(a.deps.HistoryUC, a.deps.Config)); err != nil {
+		return err
+	}
+	if err := a.router.RegisterHandlerWithCallbacks("omnibox_initial_history", "__dumber_omnibox_suggestions", "", "", uihandler.NewInitialHistoryHandler(a.deps.HistoryUC, a.deps.Config)); err != nil {
+		return err
+	}
+	if err := a.router.RegisterHandlerWithCallbacks("prefix_query", "__dumber_omnibox_inline_suggestion", "", "", uihandler.NewPrefixQueryHandler(a.deps.HistoryUC)); err != nil {
+		return err
+	}
+
+	// Navigation
+	if err := a.router.RegisterHandler("navigate", uihandler.NewNavigateHandler()); err != nil {
+		return err
+	}
+
+	// Favorites
+	if err := a.router.RegisterHandlerWithCallbacks("get_favorites", "__dumber_favorites", "", "", uihandler.NewFavoritesHandler(a.deps.FavoritesUC)); err != nil {
+		return err
+	}
+	if err := a.router.RegisterHandlerWithCallbacks("toggle_favorite", "__dumber_favorites", "", "", uihandler.NewToggleFavoriteHandler(a.deps.FavoritesUC)); err != nil {
+		return err
+	}
+
+	// Shortcuts + palettes
+	if err := a.router.RegisterHandlerWithCallbacks("get_search_shortcuts", "__dumber_search_shortcuts", "__dumber_search_shortcuts_error", "", uihandler.NewShortcutsHandler(a.deps.Config)); err != nil {
+		return err
+	}
+	if err := a.router.RegisterHandlerWithCallbacks("get_color_palettes", "__dumber_color_palettes", "__dumber_color_palettes_error", "", uihandler.NewPaletteHandler(a.deps.Config)); err != nil {
+		return err
+	}
+
+	// Keyboard blocking
+	if err := a.router.RegisterHandler("keyboard_blocking", uihandler.NewKeyboardBlockingHandler()); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// attachWorkspaceWebViews ensures each pane has a WebView widget attached.
+func (a *App) attachWorkspaceWebViews(ctx context.Context, ws *entity.Workspace, wsView *component.WorkspaceView) {
+	log := logging.FromContext(ctx)
+
+	if ws == nil || wsView == nil || a.widgetFactory == nil {
+		return
+	}
+
+	for _, pane := range ws.AllPanes() {
+		if pane == nil {
+			continue
+		}
+
+		wv, err := a.ensureWebViewForPane(ctx, pane.ID)
+		if err != nil {
+			log.Warn().Err(err).Str("pane_id", string(pane.ID)).Msg("failed to ensure webview for pane")
+			continue
+		}
+
+		// Load the pane's URI if set and different from current
+		if pane.URI != "" && pane.URI != wv.URI() {
+			if err := wv.LoadURI(ctx, pane.URI); err != nil {
+				log.Warn().Err(err).Str("pane_id", string(pane.ID)).Str("uri", pane.URI).Msg("failed to load pane URI")
+			}
+		}
+
+		widget := a.wrapWebViewWidget(ctx, wv)
+		if widget == nil {
+			continue
+		}
+
+		if err := wsView.SetWebViewWidget(pane.ID, widget); err != nil {
+			log.Warn().Err(err).Str("pane_id", string(pane.ID)).Msg("failed to attach webview widget")
+		}
+	}
+}
+
+// ensureWebViewForPane acquires or reuses a WebView for the given pane.
+func (a *App) ensureWebViewForPane(ctx context.Context, paneID entity.PaneID) (*webkit.WebView, error) {
+	if wv, ok := a.webViews[paneID]; ok && wv != nil && !wv.IsDestroyed() {
+		return wv, nil
+	}
+	if a.pool == nil {
+		return nil, fmt.Errorf("webview pool not configured")
+	}
+
+	wv, err := a.pool.Acquire(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	a.webViews[paneID] = wv
+	return wv, nil
+}
+
+// releasePaneWebView returns the WebView for a pane to the pool.
+func (a *App) releasePaneWebView(ctx context.Context, paneID entity.PaneID) {
+	wv, ok := a.webViews[paneID]
+	if !ok || wv == nil {
+		return
+	}
+	delete(a.webViews, paneID)
+
+	if a.pool != nil {
+		a.pool.Release(wv)
+	} else {
+		wv.Destroy()
+	}
+}
+
+// wrapWebViewWidget converts a WebView to a layout.Widget for embedding.
+func (a *App) wrapWebViewWidget(ctx context.Context, wv *webkit.WebView) layout.Widget {
+	if wv == nil || a.widgetFactory == nil {
+		return nil
+	}
+	gtkView := wv.Widget()
+	if gtkView == nil {
+		return nil
+	}
+	return a.widgetFactory.WrapWidget(&gtkView.Widget)
+}
+
+// activeWebView returns the WebView for the active pane.
+func (a *App) activeWebView(ctx context.Context) *webkit.WebView {
+	ws := a.activeWorkspace()
+	if ws == nil {
+		return nil
+	}
+	pane := ws.ActivePane()
+	if pane == nil || pane.Pane == nil {
+		return nil
+	}
+	return a.webViews[pane.Pane.ID]
+}
+
+// openOmnibox toggles the omnibox overlay for the active WebView.
+func (a *App) openOmnibox(ctx context.Context) error {
+	log := logging.FromContext(ctx)
+
+	if a.overlay == nil {
+		log.Error().Msg("overlay controller not configured")
+		return fmt.Errorf("overlay controller not configured")
+	}
+	wv := a.activeWebView(ctx)
+	if wv == nil {
+		log.Error().Msg("no active webview for omnibox")
+		return fmt.Errorf("no active webview for omnibox")
+	}
+	log.Debug().Uint64("webview_id", uint64(wv.ID())).Msg("opening omnibox")
+	return a.overlay.Show(ctx, wv.ID(), "omnibox", "")
+}
+
+// openDevTools opens the WebKit inspector for the active WebView.
+func (a *App) openDevTools(ctx context.Context) error {
+	log := logging.FromContext(ctx)
+
+	wv := a.activeWebView(ctx)
+	if wv == nil {
+		log.Warn().Msg("no active webview for devtools")
+		return fmt.Errorf("no active webview for devtools")
+	}
+	log.Debug().Uint64("webview_id", uint64(wv.ID())).Msg("opening devtools")
+	return wv.ShowDevTools()
 }

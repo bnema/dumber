@@ -38,6 +38,7 @@ func NewTabBar() *TabBar {
 	// Configure the box
 	tb.box.SetHexpand(true)
 	tb.box.SetVexpand(false)
+	tb.box.SetVisible(true)
 	tb.box.AddCssClass("tab-bar")
 
 	return tb

@@ -34,9 +34,11 @@ func NewPaneView(factory layout.WidgetFactory, paneID entity.PaneID, webViewWidg
 	overlay := factory.NewOverlay()
 	overlay.SetHexpand(true)
 	overlay.SetVexpand(true)
+	overlay.SetVisible(true)
 
 	// Set the WebView as the main child
 	if webViewWidget != nil {
+		webViewWidget.SetVisible(true)
 		overlay.SetChild(webViewWidget)
 	}
 
@@ -44,13 +46,14 @@ func NewPaneView(factory layout.WidgetFactory, paneID entity.PaneID, webViewWidg
 	// This is an empty box that gets styled via CSS to show a border
 	borderBox := factory.NewBox(layout.OrientationVertical, 0)
 	borderBox.SetCanFocus(false)
+	borderBox.SetCanTarget(false) // Don't intercept pointer events - let them pass through to WebView
 	borderBox.AddCssClass("pane-border")
 	// Position border to cover entire pane
 	borderBox.SetHexpand(true)
 	borderBox.SetVexpand(true)
 	overlay.AddOverlay(borderBox)
 
-	// Don't let border intercept pointer events
+	// Don't let border affect layout
 	overlay.SetClipOverlay(borderBox, false)
 	overlay.SetMeasureOverlay(borderBox, false)
 
@@ -117,6 +120,7 @@ func (pv *PaneView) SetWebViewWidget(widget layout.Widget) {
 	pv.webViewWidget = widget
 
 	if widget != nil {
+		widget.SetVisible(true)
 		pv.overlay.SetChild(widget)
 	}
 }

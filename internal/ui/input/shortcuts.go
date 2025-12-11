@@ -204,10 +204,8 @@ func (s *ShortcutSet) buildPaneModeShortcuts(cfg *config.WorkspaceConfig) {
 func mapConfigAction(configAction string) Action {
 	switch configAction {
 	// Mode management
-	case "cancel":
+	case "cancel", "confirm":
 		return ActionExitMode
-	case "confirm":
-		return "" // No action for confirm yet
 
 	// Tab actions
 	case "new-tab":

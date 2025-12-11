@@ -9,6 +9,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
+	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/rs/zerolog"
 )
 
@@ -21,10 +22,13 @@ type Dependencies struct {
 	Logger *zerolog.Logger
 
 	// WebKit infrastructure
-	WebContext *webkit.WebKitContext
-	Pool       port.WebViewPool
-	Factory    port.WebViewFactory
-	Settings   *webkit.SettingsManager
+	WebContext    *webkit.WebKitContext
+	Pool          *webkit.WebViewPool
+	Factory       port.WebViewFactory
+	Settings      *webkit.SettingsManager
+	Injector      *webkit.ContentInjector
+	MessageRouter *webkit.MessageRouter
+	Overlay       *component.OverlayController
 
 	// Repositories
 	HistoryRepo  repository.HistoryRepository

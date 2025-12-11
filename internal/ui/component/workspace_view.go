@@ -7,6 +7,7 @@ import (
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/ui/layout"
+	"github.com/rs/zerolog"
 )
 
 // ErrNilWorkspace is returned when attempting to set a nil workspace.
@@ -21,6 +22,7 @@ type WorkspaceView struct {
 	factory      layout.WidgetFactory
 	treeRenderer *layout.TreeRenderer
 	container    layout.BoxWidget
+	logger       zerolog.Logger
 
 	workspace    *entity.Workspace
 	paneViews    map[entity.PaneID]*PaneView
@@ -65,19 +67,21 @@ func (a *paneViewFactoryAdapter) CreatePaneView(node *entity.PaneNode) layout.Wi
 }
 
 // NewWorkspaceView creates a new workspace view.
-func NewWorkspaceView(factory layout.WidgetFactory) *WorkspaceView {
+func NewWorkspaceView(factory layout.WidgetFactory, logger zerolog.Logger) *WorkspaceView {
 	container := factory.NewBox(layout.OrientationVertical, 0)
 	container.SetHexpand(true)
 	container.SetVexpand(true)
+	container.SetVisible(true)
 
 	wv := &WorkspaceView{
 		factory:   factory,
 		container: container,
+		logger:    logger.With().Str("component", "workspace-view").Logger(),
 		paneViews: make(map[entity.PaneID]*PaneView),
 	}
 
 	// Create tree renderer with our adapter as the pane view factory
-	wv.treeRenderer = layout.NewTreeRenderer(factory, &paneViewFactoryAdapter{wv: wv})
+	wv.treeRenderer = layout.NewTreeRenderer(factory, &paneViewFactoryAdapter{wv: wv}, wv.logger)
 
 	return wv
 }
@@ -106,6 +110,7 @@ func (wv *WorkspaceView) SetWorkspace(ws *entity.Workspace) error {
 		}
 
 		if widget != nil {
+			widget.SetVisible(true)
 			wv.container.Append(widget)
 		}
 	}

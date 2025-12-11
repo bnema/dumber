@@ -3,6 +3,7 @@ package component_test
 import (
 	"testing"
 
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -23,7 +24,7 @@ func TestNewWorkspaceView_CreatesEmptyContainer(t *testing.T) {
 	mockBox.EXPECT().SetVexpand(true).Once()
 
 	// Act
-	wv := component.NewWorkspaceView(mockFactory)
+	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
 
 	// Assert
 	require.NotNil(t, wv)
@@ -40,7 +41,7 @@ func TestSetWorkspace_NilWorkspace_ReturnsError(t *testing.T) {
 	mockBox.EXPECT().SetHexpand(true).Once()
 	mockBox.EXPECT().SetVexpand(true).Once()
 
-	wv := component.NewWorkspaceView(mockFactory)
+	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
 
 	// Act
 	err := wv.SetWorkspace(nil)
@@ -59,7 +60,7 @@ func TestSetWorkspace_SinglePane_CreatesPaneView(t *testing.T) {
 	mockBox.EXPECT().SetHexpand(true).Once()
 	mockBox.EXPECT().SetVexpand(true).Once()
 
-	wv := component.NewWorkspaceView(mockFactory)
+	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
 
 	// PaneView creation (via paneViewFactoryAdapter)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
@@ -113,7 +114,7 @@ func TestSetActivePaneID_UpdatesStyling(t *testing.T) {
 	mockBox.EXPECT().SetHexpand(true).Once()
 	mockBox.EXPECT().SetVexpand(true).Once()
 
-	wv := component.NewWorkspaceView(mockFactory)
+	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
 
 	// Setup two panes
 	pane1 := entity.NewPane(entity.PaneID("pane-1"))
@@ -162,7 +163,9 @@ func TestSetActivePaneID_UpdatesStyling(t *testing.T) {
 	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
 	mockPaned.EXPECT().SetStartChild(mockOverlay1).Once()
 	mockPaned.EXPECT().SetEndChild(mockOverlay2).Once()
+	mockPaned.EXPECT().GetAllocatedWidth().Return(0).Once()
 	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
 
 	mockBox.EXPECT().Append(mockPaned).Once()
 
@@ -206,7 +209,7 @@ func TestSetActivePaneID_InvalidID_ReturnsError(t *testing.T) {
 	mockBox.EXPECT().SetHexpand(true).Once()
 	mockBox.EXPECT().SetVexpand(true).Once()
 
-	wv := component.NewWorkspaceView(mockFactory)
+	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
 
 	// Act
 	err := wv.SetActivePaneID(entity.PaneID("non-existent"))
@@ -226,7 +229,7 @@ func TestGetPaneView_Existing(t *testing.T) {
 	mockBox.EXPECT().SetHexpand(true).Once()
 	mockBox.EXPECT().SetVexpand(true).Once()
 
-	wv := component.NewWorkspaceView(mockFactory)
+	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
 
 	// PaneView creation
 	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
@@ -269,7 +272,7 @@ func TestGetPaneView_NonExistent(t *testing.T) {
 	mockBox.EXPECT().SetHexpand(true).Once()
 	mockBox.EXPECT().SetVexpand(true).Once()
 
-	wv := component.NewWorkspaceView(mockFactory)
+	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
 
 	// Act
 	result := wv.GetPaneView(entity.PaneID("non-existent"))
@@ -292,7 +295,7 @@ func TestGetPaneIDs_ReturnsAllIDs(t *testing.T) {
 	mockBox.EXPECT().SetHexpand(true).Once()
 	mockBox.EXPECT().SetVexpand(true).Once()
 
-	wv := component.NewWorkspaceView(mockFactory)
+	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
 
 	// First pane view
 	mockFactory.EXPECT().NewOverlay().Return(mockOverlay1).Once()
@@ -328,7 +331,9 @@ func TestGetPaneIDs_ReturnsAllIDs(t *testing.T) {
 	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
 	mockPaned.EXPECT().SetStartChild(mockOverlay1).Once()
 	mockPaned.EXPECT().SetEndChild(mockOverlay2).Once()
+	mockPaned.EXPECT().GetAllocatedWidth().Return(0).Once()
 	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
 
 	mockBox.EXPECT().Append(mockPaned).Once()
 	mockBorderBox1.EXPECT().AddCssClass("active-pane").Once()
@@ -371,7 +376,7 @@ func TestWidget_ReturnsContainer(t *testing.T) {
 	mockBox.EXPECT().SetHexpand(true).Once()
 	mockBox.EXPECT().SetVexpand(true).Once()
 
-	wv := component.NewWorkspaceView(mockFactory)
+	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
 
 	// Act
 	widget := wv.Widget()
@@ -389,7 +394,7 @@ func TestSetOnPaneFocused_SetsCallback(t *testing.T) {
 	mockBox.EXPECT().SetHexpand(true).Once()
 	mockBox.EXPECT().SetVexpand(true).Once()
 
-	wv := component.NewWorkspaceView(mockFactory)
+	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
 
 	callback := func(paneID entity.PaneID) {}
 
@@ -412,7 +417,7 @@ func TestSetWebViewWidget_AttachesToPane(t *testing.T) {
 	mockBox.EXPECT().SetHexpand(true).Once()
 	mockBox.EXPECT().SetVexpand(true).Once()
 
-	wv := component.NewWorkspaceView(mockFactory)
+	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
 
 	// PaneView creation
 	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
@@ -459,7 +464,7 @@ func TestSetWebViewWidget_NonExistentPane_ReturnsError(t *testing.T) {
 	mockBox.EXPECT().SetHexpand(true).Once()
 	mockBox.EXPECT().SetVexpand(true).Once()
 
-	wv := component.NewWorkspaceView(mockFactory)
+	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
 
 	// Act
 	err := wv.SetWebViewWidget(entity.PaneID("non-existent"), mockWebView)
@@ -479,7 +484,7 @@ func TestFocusPane_DelegatesToPaneView(t *testing.T) {
 	mockBox.EXPECT().SetHexpand(true).Once()
 	mockBox.EXPECT().SetVexpand(true).Once()
 
-	wv := component.NewWorkspaceView(mockFactory)
+	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
 
 	// PaneView creation
 	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
@@ -522,7 +527,7 @@ func TestFocusPane_NonExistentPane_ReturnsFalse(t *testing.T) {
 	mockBox.EXPECT().SetHexpand(true).Once()
 	mockBox.EXPECT().SetVexpand(true).Once()
 
-	wv := component.NewWorkspaceView(mockFactory)
+	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
 
 	// Act
 	result := wv.FocusPane(entity.PaneID("non-existent"))
@@ -540,7 +545,7 @@ func TestRebuild_NilWorkspace_ReturnsError(t *testing.T) {
 	mockBox.EXPECT().SetHexpand(true).Once()
 	mockBox.EXPECT().SetVexpand(true).Once()
 
-	wv := component.NewWorkspaceView(mockFactory)
+	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
 
 	// Act
 	err := wv.Rebuild()
@@ -558,7 +563,7 @@ func TestTreeRenderer_ReturnsRenderer(t *testing.T) {
 	mockBox.EXPECT().SetHexpand(true).Once()
 	mockBox.EXPECT().SetVexpand(true).Once()
 
-	wv := component.NewWorkspaceView(mockFactory)
+	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
 
 	// Act
 	renderer := wv.TreeRenderer()
@@ -578,7 +583,7 @@ func TestWorkspace_ReturnsCurrentWorkspace(t *testing.T) {
 	mockBox.EXPECT().SetHexpand(true).Once()
 	mockBox.EXPECT().SetVexpand(true).Once()
 
-	wv := component.NewWorkspaceView(mockFactory)
+	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
 
 	// PaneView creation
 	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
@@ -621,7 +626,7 @@ func TestWorkspace_NilBeforeSet(t *testing.T) {
 	mockBox.EXPECT().SetHexpand(true).Once()
 	mockBox.EXPECT().SetVexpand(true).Once()
 
-	wv := component.NewWorkspaceView(mockFactory)
+	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
 
 	// Act
 	result := wv.Workspace()

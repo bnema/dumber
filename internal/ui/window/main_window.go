@@ -50,6 +50,7 @@ func New(app *gtk.Application, cfg *config.Config, logger *zerolog.Logger) (*Mai
 	}
 	mw.rootBox.SetHexpand(true)
 	mw.rootBox.SetVexpand(true)
+	mw.rootBox.SetVisible(true)
 
 	// Create tab bar
 	mw.tabBar = component.NewTabBar()
@@ -69,6 +70,7 @@ func New(app *gtk.Application, cfg *config.Config, logger *zerolog.Logger) (*Mai
 	}
 	mw.contentArea.SetHexpand(true)
 	mw.contentArea.SetVexpand(true)
+	mw.contentArea.SetVisible(true)
 	mw.contentArea.AddCssClass("content-area")
 
 	// Assemble layout based on tab bar position
@@ -130,6 +132,7 @@ func (mw *MainWindow) SetContent(widget *gtk.Widget) {
 	// so we'd need to track children. For now, just append.
 	// TODO: Track children for proper content swapping
 	if widget != nil {
+		widget.SetVisible(true)
 		mw.contentArea.Append(widget)
 	}
 }
