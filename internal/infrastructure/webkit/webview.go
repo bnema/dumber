@@ -2,11 +2,11 @@ package webkit
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
 	"github.com/jwijenbergh/puregotk/v4/gio"
@@ -14,8 +14,9 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// WebViewID uniquely identifies a WebView instance.
-type WebViewID uint64
+// WebViewID is an alias to port.WebViewID for clean architecture compliance.
+// Infrastructure layer uses the type defined in the application port.
+type WebViewID = port.WebViewID
 
 // LoadEvent represents WebKit load events.
 type LoadEvent int
@@ -295,7 +296,11 @@ func (wv *WebView) LoadHTML(ctx context.Context, content, baseURI string) error 
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
-	wv.inner.LoadHtml(content, baseURI)
+	var baseURIPtr *string
+	if baseURI != "" {
+		baseURIPtr = &baseURI
+	}
+	wv.inner.LoadHtml(content, baseURIPtr)
 	return nil
 }
 
@@ -445,64 +450,9 @@ func (wv *WebView) Destroy() {
 }
 
 // RunJavaScript executes script in the specified world (empty for main world).
-// It waits for completion and reports JS exceptions through the returned error.
-// WARNING: Do not call from GTK signal handlers - use RunJavaScriptAsync instead.
-func (wv *WebView) RunJavaScript(ctx context.Context, script, worldName string) error {
-	if wv.destroyed.Load() {
-		return fmt.Errorf("webview %d is destroyed", wv.id)
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	log := logging.FromContext(ctx)
-
-	done := make(chan struct{})
-	var execErr error
-
-	cb := gio.AsyncReadyCallback(func(_ uintptr, resPtr uintptr, _ uintptr) {
-		defer close(done)
-
-		if resPtr == 0 {
-			execErr = errors.New("nil async result")
-			return
-		}
-
-		res := &gio.AsyncResultBase{Ptr: resPtr}
-		value, err := wv.inner.EvaluateJavascriptFinish(res)
-		if err != nil {
-			execErr = err
-			return
-		}
-
-		if value != nil {
-			if jscCtx := value.GetContext(); jscCtx != nil {
-				if exc := jscCtx.GetException(); exc != nil {
-					execErr = fmt.Errorf("javascript exception: %s", exc.GetMessage())
-				}
-			}
-		}
-	})
-
-	wv.inner.EvaluateJavascript(script, -1, worldName, "", nil, &cb, 0)
-
-	select {
-	case <-done:
-		if execErr != nil {
-			log.Warn().
-				Err(execErr).
-				Uint64("webview_id", uint64(wv.id)).
-				Msg("javascript execution failed")
-		}
-		return execErr
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
-// RunJavaScriptAsync executes script without waiting for completion.
-// Safe to call from GTK signal handlers. Errors are logged but not returned.
-func (wv *WebView) RunJavaScriptAsync(ctx context.Context, script, worldName string) {
+// This is fire-and-forget: it does not block and errors are logged asynchronously.
+// Safe to call from any context including GTK signal handlers.
+func (wv *WebView) RunJavaScript(ctx context.Context, script, worldName string) {
 	if wv.destroyed.Load() {
 		return
 	}
@@ -514,14 +464,14 @@ func (wv *WebView) RunJavaScriptAsync(ctx context.Context, script, worldName str
 
 	cb := gio.AsyncReadyCallback(func(_ uintptr, resPtr uintptr, _ uintptr) {
 		if resPtr == 0 {
-			log.Warn().Uint64("webview_id", uint64(wv.id)).Msg("RunJavaScriptAsync: nil async result")
+			log.Warn().Uint64("webview_id", uint64(wv.id)).Msg("RunJavaScript: nil async result")
 			return
 		}
 
 		res := &gio.AsyncResultBase{Ptr: resPtr}
 		value, err := wv.inner.EvaluateJavascriptFinish(res)
 		if err != nil {
-			log.Warn().Err(err).Uint64("webview_id", uint64(wv.id)).Msg("RunJavaScriptAsync: failed")
+			log.Warn().Err(err).Uint64("webview_id", uint64(wv.id)).Msg("RunJavaScript: failed")
 			return
 		}
 
@@ -531,7 +481,7 @@ func (wv *WebView) RunJavaScriptAsync(ctx context.Context, script, worldName str
 					log.Warn().
 						Str("exception", exc.GetMessage()).
 						Uint64("webview_id", uint64(wv.id)).
-						Msg("RunJavaScriptAsync: JS exception")
+						Msg("RunJavaScript: JS exception")
 				}
 			}
 		}
@@ -542,7 +492,13 @@ func (wv *WebView) RunJavaScriptAsync(ctx context.Context, script, worldName str
 	wv.asyncCallbacks = append(wv.asyncCallbacks, cb)
 	wv.mu.Unlock()
 
-	wv.inner.EvaluateJavascript(script, -1, worldName, "", nil, &cb, 0)
+	// worldName: nil for main world, &worldName for specific world
+	// sourceUri: nil (not used)
+	var worldNamePtr *string
+	if worldName != "" {
+		worldNamePtr = &worldName
+	}
+	wv.inner.EvaluateJavascript(script, -1, worldNamePtr, nil, nil, &cb, 0)
 }
 
 // AttachFrontend injects scripts/styles and wires the message router once per WebView.
@@ -556,14 +512,22 @@ func (wv *WebView) AttachFrontend(ctx context.Context, injector *ContentInjector
 		Uint64("webview_id", uint64(wv.id)).
 		Logger()
 
+	log.Debug().
+		Bool("injector_nil", injector == nil).
+		Bool("router_nil", router == nil).
+		Msg("AttachFrontend called")
+
 	if wv.destroyed.Load() {
+		log.Debug().Msg("AttachFrontend: webview is destroyed")
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
 	if injector == nil && router == nil {
+		log.Debug().Msg("AttachFrontend: both injector and router are nil, skipping")
 		return nil
 	}
 
 	if !wv.frontendAttached.CompareAndSwap(false, true) {
+		log.Debug().Msg("AttachFrontend: already attached, skipping")
 		return nil // already attached
 	}
 
@@ -576,17 +540,20 @@ func (wv *WebView) AttachFrontend(ctx context.Context, injector *ContentInjector
 		}
 	}()
 
-	if injector != nil {
-		injector.InjectScripts(ctx, wv.ucm, wv.id)
-		injector.InjectStyles(ctx, wv.ucm)
-	}
-
 	if router != nil {
+		log.Debug().Msg("AttachFrontend: setting up message router")
 		if _, err := router.SetupMessageHandler(wv.ucm, ScriptWorldName); err != nil {
 			attachErr = fmt.Errorf("setup message router: %w", err)
 			log.Warn().Err(err).Msg("failed to attach message router")
 			return attachErr
 		}
+		log.Debug().Msg("AttachFrontend: message router setup complete")
+	}
+
+	if injector != nil {
+		log.Debug().Msg("AttachFrontend: injecting scripts and styles")
+		injector.InjectScripts(ctx, wv.ucm, wv.id)
+		injector.InjectStyles(ctx, wv.ucm)
 	}
 
 	log.Debug().Msg("frontend assets attached to webview")

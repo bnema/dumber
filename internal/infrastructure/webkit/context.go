@@ -74,7 +74,7 @@ func NewWebKitContext(ctx context.Context, dataDir, cacheDir string) (*WebKitCon
 // initNetworkSession creates and configures the persistent network session.
 func (c *WebKitContext) initNetworkSession() error {
 	// Create persistent network session
-	session := webkit.NewNetworkSession(c.dataDir, c.cacheDir)
+	session := webkit.NewNetworkSession(&c.dataDir, &c.cacheDir)
 	if session == nil {
 		return fmt.Errorf("failed to create network session")
 	}

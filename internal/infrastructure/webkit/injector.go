@@ -174,7 +174,8 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 	}
 }
 
-// InjectStyles adds the component CSS to the isolated world.
+// InjectStyles injects component CSS as a JS variable into the isolated world.
+// The shadow DOM code reads window.__dumber_component_styles and injects it into the shadow root.
 func (ci *ContentInjector) InjectStyles(ctx context.Context, ucm *webkit.UserContentManager) {
 	log := logging.FromContext(ctx).With().Str("component", "content-injector").Logger()
 
@@ -188,19 +189,23 @@ func (ci *ContentInjector) InjectStyles(ctx context.Context, ucm *webkit.UserCon
 		return
 	}
 
-	style := webkit.NewUserStyleSheetForWorld(
-		assets.ComponentStyles,
+	// Inject CSS as a JS string variable in isolated world at document-start
+	// The shadow DOM code (shadowHost.ts) reads this and injects into shadow root
+	// Using %q properly escapes the CSS for JavaScript
+	componentStylesScript := fmt.Sprintf("window.__dumber_component_styles=%q;", assets.ComponentStyles)
+	script := webkit.NewUserScriptForWorld(
+		componentStylesScript,
 		webkit.UserContentInjectTopFrameValue,
-		webkit.UserStyleLevelUserValue,
+		webkit.UserScriptInjectAtDocumentStartValue,
 		ScriptWorldName,
-		ci.allowList,
-		ci.blockList,
+		nil,
+		nil,
 	)
-	if style == nil {
-		log.Warn().Msg("failed to create user style sheet")
+	if script == nil {
+		log.Warn().Msg("failed to create component styles script")
 		return
 	}
 
-	ucm.AddStyleSheet(style)
-	log.Debug().Msg("injected component styles")
+	ucm.AddScript(script)
+	log.Debug().Int("css_bytes", len(assets.ComponentStyles)).Msg("injected component styles")
 }

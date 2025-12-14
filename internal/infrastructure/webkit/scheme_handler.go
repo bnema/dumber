@@ -172,7 +172,7 @@ func (h *DumbSchemeHandler) sendResponse(req *webkit.URISchemeRequest, response 
 		contentType = "text/html"
 	}
 
-	req.Finish(&stream.InputStream, int64(len(response.Data)), contentType)
+	req.Finish(&stream.InputStream, int64(len(response.Data)), &contentType)
 }
 
 // RegisterWithContext registers the dumb:// scheme with a WebKitContext.
