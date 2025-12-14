@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
@@ -297,6 +298,11 @@ func (o *Omnibox) handleKeyPress(keyval uint, state gdk.ModifierType) bool {
 
 	case uint(gdk.KEY_Tab):
 		o.toggleViewMode()
+		return true
+
+	case uint(gdk.KEY_space):
+		// Space toggles favorite: add in history mode, remove in favorites mode
+		o.toggleFavorite()
 		return true
 
 	case uint(gdk.KEY_1), uint(gdk.KEY_2), uint(gdk.KEY_3), uint(gdk.KEY_4), uint(gdk.KEY_5),
@@ -720,6 +726,89 @@ func (o *Omnibox) navigateToSelected() {
 
 	if o.onNavigate != nil {
 		o.onNavigate(url)
+	}
+}
+
+// toggleFavorite adds or removes the selected item from favorites.
+// In History mode: adds the selected item to favorites
+// In Favorites mode: removes the selected item from favorites
+func (o *Omnibox) toggleFavorite() {
+	log := logging.FromContext(o.ctx)
+
+	o.mu.RLock()
+	mode := o.viewMode
+	idx := o.selectedIndex
+	suggestions := o.suggestions
+	favorites := o.favorites
+	o.mu.RUnlock()
+
+	if o.favoritesUC == nil {
+		log.Warn().Msg("toggle favorite: favoritesUC is nil")
+		return
+	}
+
+	if mode == ViewModeHistory {
+		// Add to favorites
+		if idx < 0 || idx >= len(suggestions) {
+			log.Debug().Int("index", idx).Msg("add favorite: invalid selection")
+			return
+		}
+
+		s := suggestions[idx]
+		if s.URL == "" {
+			log.Debug().Msg("add favorite: empty URL")
+			return
+		}
+
+		go func() {
+			ctx := o.ctx
+			log := logging.FromContext(ctx)
+
+			log.Debug().Str("url", s.URL).Str("title", s.Title).Msg("adding to favorites")
+
+			input := usecase.AddFavoriteInput{
+				URL:   s.URL,
+				Title: s.Title,
+			}
+
+			fav, err := o.favoritesUC.Add(ctx, input)
+			if err != nil {
+				log.Error().Err(err).Str("url", s.URL).Msg("failed to add favorite")
+				return
+			}
+
+			log.Info().Str("url", s.URL).Int64("id", int64(fav.ID)).Msg("favorite added from omnibox")
+		}()
+	} else {
+		// Remove from favorites
+		if idx < 0 || idx >= len(favorites) {
+			log.Debug().Int("index", idx).Msg("remove favorite: invalid selection")
+			return
+		}
+
+		f := favorites[idx]
+		if f.ID == 0 {
+			log.Debug().Msg("remove favorite: invalid ID")
+			return
+		}
+
+		go func() {
+			ctx := o.ctx
+			log := logging.FromContext(ctx)
+
+			log.Debug().Int64("id", f.ID).Str("url", f.URL).Msg("removing from favorites")
+
+			err := o.favoritesUC.Remove(ctx, entity.FavoriteID(f.ID))
+			if err != nil {
+				log.Error().Err(err).Int64("id", f.ID).Msg("failed to remove favorite")
+				return
+			}
+
+			log.Info().Int64("id", f.ID).Str("url", f.URL).Msg("favorite removed from omnibox")
+
+			// Refresh favorites list
+			o.loadFavorites(o.entry.GetText())
+		}()
 	}
 }
 
