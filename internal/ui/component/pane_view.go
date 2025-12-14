@@ -112,7 +112,7 @@ func (pv *PaneView) SetWebViewWidget(widget layout.Widget) {
 	pv.mu.Lock()
 	defer pv.mu.Unlock()
 
-	// Remove old widget
+	// Remove old widget from this overlay
 	if pv.webViewWidget != nil {
 		pv.overlay.SetChild(nil)
 	}
@@ -120,6 +120,11 @@ func (pv *PaneView) SetWebViewWidget(widget layout.Widget) {
 	pv.webViewWidget = widget
 
 	if widget != nil {
+		// Unparent widget from any previous parent (critical for rebuild scenarios)
+		// In GTK4, a widget can only have one parent at a time
+		if widget.GetParent() != nil {
+			widget.Unparent()
+		}
 		widget.SetVisible(true)
 		pv.overlay.SetChild(widget)
 	}

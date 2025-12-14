@@ -897,6 +897,46 @@ func (_c *MockBoxWidget_SetCanFocus_Call) RunAndReturn(run func(canFocus bool)) 
 	return _c
 }
 
+// SetCanTarget provides a mock function for the type MockBoxWidget
+func (_mock *MockBoxWidget) SetCanTarget(canTarget bool) {
+	_mock.Called(canTarget)
+	return
+}
+
+// MockBoxWidget_SetCanTarget_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetCanTarget'
+type MockBoxWidget_SetCanTarget_Call struct {
+	*mock.Call
+}
+
+// SetCanTarget is a helper method to define mock.On call
+//   - canTarget bool
+func (_e *MockBoxWidget_Expecter) SetCanTarget(canTarget interface{}) *MockBoxWidget_SetCanTarget_Call {
+	return &MockBoxWidget_SetCanTarget_Call{Call: _e.mock.On("SetCanTarget", canTarget)}
+}
+
+func (_c *MockBoxWidget_SetCanTarget_Call) Run(run func(canTarget bool)) *MockBoxWidget_SetCanTarget_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 bool
+		if args[0] != nil {
+			arg0 = args[0].(bool)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockBoxWidget_SetCanTarget_Call) Return() *MockBoxWidget_SetCanTarget_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockBoxWidget_SetCanTarget_Call) RunAndReturn(run func(canTarget bool)) *MockBoxWidget_SetCanTarget_Call {
+	_c.Run(run)
+	return _c
+}
+
 // SetFocusOnClick provides a mock function for the type MockBoxWidget
 func (_mock *MockBoxWidget) SetFocusOnClick(focusOnClick bool) {
 	_mock.Called(focusOnClick)

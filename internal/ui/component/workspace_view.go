@@ -24,6 +24,7 @@ type WorkspaceView struct {
 	factory      layout.WidgetFactory
 	treeRenderer *layout.TreeRenderer
 	container    layout.BoxWidget
+	rootWidget   layout.Widget // Current root widget for removal on rebuild
 	logger       zerolog.Logger
 
 	workspace    *entity.Workspace
@@ -103,8 +104,11 @@ func (wv *WorkspaceView) SetWorkspace(ws *entity.Workspace) error {
 	wv.workspace = ws
 	wv.paneViews = make(map[entity.PaneID]*PaneView)
 
-	// Remove old content from container
-	// (In a real GTK app, we'd need to iterate and remove children)
+	// Remove old root widget from container before building new tree
+	if wv.rootWidget != nil {
+		wv.container.Remove(wv.rootWidget)
+		wv.rootWidget = nil
+	}
 
 	// Build new tree
 	if ws.Root != nil {
@@ -116,6 +120,7 @@ func (wv *WorkspaceView) SetWorkspace(ws *entity.Workspace) error {
 		if widget != nil {
 			widget.SetVisible(true)
 			wv.container.Append(widget)
+			wv.rootWidget = widget
 		}
 	}
 
