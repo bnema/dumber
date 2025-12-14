@@ -39,7 +39,7 @@ func NewTabButton(tab *entity.Tab) *TabButton {
 
 	// Create the label
 	title := tab.Title()
-	tb.label = gtk.NewLabel(title)
+	tb.label = gtk.NewLabel(&title)
 	if tb.label == nil {
 		tb.button.Unref()
 		return nil

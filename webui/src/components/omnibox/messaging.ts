@@ -13,14 +13,17 @@ export class OmniboxBridge implements OmniboxMessageBridge {
   postMessage(msg: OmniboxMessage): void {
     console.log("📤 [DEBUG] Posting message to backend via bridge:", msg);
     try {
-      // Include webview_id for message routing
-      const payload = {
-        ...msg,
+      // Structure message for Go backend: type + payload + webview_id
+      // Go expects: { type: string, payload: {...}, webview_id: number }
+      const { type, ...rest } = msg;
+      const structuredMessage = {
+        type,
+        payload: rest,
         webview_id: (window as any).__dumber_webview_id ?? 0,
       };
       // Dispatch CustomEvent that main-world bridge will listen to
       document.dispatchEvent(new CustomEvent("dumber:isolated-message", {
-        detail: { payload }
+        detail: { payload: structuredMessage }
       }));
       console.log("✅ [DEBUG] Dispatched isolated message event");
     } catch (e) {
@@ -86,10 +89,10 @@ export class OmniboxBridge implements OmniboxMessageBridge {
    */
   async fetchSearchShortcuts(): Promise<void> {
     return new Promise((resolve, reject) => {
-      // Set up one-time response handler
-      const originalCallback = (window as any).__dumber_search_shortcuts;
-      (window as any).__dumber_search_shortcuts = (data: unknown) => {
+      // Set up one-time response handler via CustomEvent (isolated world pattern)
+      const handleShortcuts = ((event: CustomEvent) => {
         try {
+          const data = event.detail?.shortcuts ?? event.detail;
           // Type guard
           if (typeof data !== "object" || data === null) {
             reject(new Error("Invalid shortcuts data"));
@@ -106,29 +109,20 @@ export class OmniboxBridge implements OmniboxMessageBridge {
             };
           }
           this.setSearchShortcuts(normalized);
-
-          // Restore original callback if it existed
-          if (originalCallback) {
-            (window as any).__dumber_search_shortcuts = originalCallback;
-          }
-
+          document.removeEventListener("dumber:search-shortcuts", handleShortcuts as EventListener);
           resolve();
         } catch (error) {
           console.error("Failed to process search shortcuts:", error);
+          document.removeEventListener("dumber:search-shortcuts", handleShortcuts as EventListener);
           reject(error);
         }
-      };
+      }) as EventListener;
 
-      // Send message to Go backend
-      const bridge = window.webkit?.messageHandlers?.dumber;
-      if (bridge && typeof bridge.postMessage === "function") {
-        bridge.postMessage({
-          type: "get_search_shortcuts",
-          webview_id: (window as any).__dumber_webview_id ?? 0,
-        });
-      } else {
-        reject(new Error("WebKit message handler not available"));
-      }
+      // Listen for response CustomEvent from main world bridge
+      document.addEventListener("dumber:search-shortcuts", handleShortcuts as EventListener);
+
+      // Send message via CustomEvent bridge (isolated world cannot access webkit.messageHandlers)
+      this.postMessage({ type: "get_search_shortcuts" });
     });
   }
 

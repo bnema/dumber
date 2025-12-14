@@ -965,6 +965,16 @@ interface DumberAPI {
       });
     };
 
+    // Search shortcuts response bridge (backend → isolated world)
+    window.__dumber_search_shortcuts = (shortcuts: unknown) => {
+      console.log("[dumber-bridge] Received search shortcuts from backend");
+      bridgeDispatch("dumber:search-shortcuts", { shortcuts });
+    };
+
+    window.__dumber_search_shortcuts_error = (error: string) => {
+      console.error("[dumber-bridge] Search shortcuts error:", error);
+    };
+
     // Bridge for isolated world communication
     // Listen for messages from isolated world and forward to backend via webkit.messageHandlers
     const setupIsolatedWorldBridge = () => {
@@ -972,6 +982,7 @@ interface DumberAPI {
         try {
           const { payload } = event.detail;
           if (window.webkit?.messageHandlers?.dumber) {
+            // Send object directly - Go's jscValue.ToJson() handles conversion
             window.webkit.messageHandlers.dumber.postMessage(payload);
             console.log("[dumber-bridge] Forwarded isolated world message:", payload.type);
           } else {

@@ -49,14 +49,7 @@ func (h *KeyboardBlockingHandler) Handle(ctx context.Context, webviewID webkit.W
 		return nil, fmt.Errorf("unknown keyboard_blocking action: %s", action)
 	}
 
-	if err := wv.RunJavaScript(ctx, js, ""); err != nil {
-		log.Warn().
-			Err(err).
-			Uint64("webview_id", uint64(webviewID)).
-			Str("action", action).
-			Msg("failed to toggle keyboard blocking")
-		return nil, err
-	}
+	wv.RunJavaScript(ctx, js, "")
 
 	log.Debug().
 		Str("action", action).

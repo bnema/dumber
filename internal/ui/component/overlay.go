@@ -18,32 +18,23 @@ type overlayState struct {
 
 // OverlayController controls the injected overlay UI (omnibox/find).
 // It issues JavaScript calls into the WebView to show/hide the overlay.
-// Logging is derived from the provided context; no logger fields are stored.
 type OverlayController struct {
-	baseCtx context.Context
-
 	mu     sync.RWMutex
 	states map[webkit.WebViewID]overlayState
 }
 
 // NewOverlayController creates a new overlay controller.
 func NewOverlayController(ctx context.Context) *OverlayController {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
+	log := logging.FromContext(ctx)
+	log.Debug().Msg("overlay controller initialized")
 	return &OverlayController{
-		baseCtx: ctx,
-		states:  make(map[webkit.WebViewID]overlayState),
+		states: make(map[webkit.WebViewID]overlayState),
 	}
 }
 
 // Show opens the overlay in the given mode ("omnibox" default or "find").
 // An optional query seeds the overlay input.
 func (oc *OverlayController) Show(ctx context.Context, webviewID webkit.WebViewID, mode, query string) error {
-	if ctx == nil {
-		ctx = oc.baseCtx
-	}
 	if mode == "" {
 		mode = "omnibox"
 	}
@@ -77,10 +68,6 @@ func (oc *OverlayController) Show(ctx context.Context, webviewID webkit.WebViewI
 
 // Hide closes the overlay if present.
 func (oc *OverlayController) Hide(ctx context.Context, webviewID webkit.WebViewID) error {
-	if ctx == nil {
-		ctx = oc.baseCtx
-	}
-
 	log := logging.FromContext(ctx).With().
 		Str("component", "overlay-controller").
 		Uint64("webview_id", uint64(webviewID)).
@@ -100,10 +87,6 @@ func (oc *OverlayController) Hide(ctx context.Context, webviewID webkit.WebViewI
 
 // Toggle toggles the overlay visibility.
 func (oc *OverlayController) Toggle(ctx context.Context, webviewID webkit.WebViewID) error {
-	if ctx == nil {
-		ctx = oc.baseCtx
-	}
-
 	log := logging.FromContext(ctx).With().
 		Str("component", "overlay-controller").
 		Uint64("webview_id", uint64(webviewID)).
@@ -125,10 +108,6 @@ func (oc *OverlayController) Toggle(ctx context.Context, webviewID webkit.WebVie
 
 // OpenFind opens the find-in-page overlay with an optional query.
 func (oc *OverlayController) OpenFind(ctx context.Context, webviewID webkit.WebViewID, query string) error {
-	if ctx == nil {
-		ctx = oc.baseCtx
-	}
-
 	log := logging.FromContext(ctx).With().
 		Str("component", "overlay-controller").
 		Uint64("webview_id", uint64(webviewID)).
@@ -172,18 +151,12 @@ func (oc *OverlayController) getState(webviewID webkit.WebViewID) overlayState {
 	return overlayState{}
 }
 
-// runJavaScript executes script in the main world for the given WebView.
+// runJavaScript executes script in the isolated "dumber" world for the given WebView.
+// This is fire-and-forget: errors are logged asynchronously by the WebView.
 func (oc *OverlayController) runJavaScript(ctx context.Context, webviewID webkit.WebViewID, script string) error {
-	if ctx == nil {
-		ctx = oc.baseCtx
-	}
-
-	log := logging.FromContext(ctx).With().
-		Str("component", "overlay-controller").
-		Uint64("webview_id", uint64(webviewID)).
-		Logger()
-
+	log := logging.FromContext(ctx)
 	if webviewID == 0 {
+		log.Debug().Msg("runJavaScript called with webviewID=0")
 		return fmt.Errorf("webview id is required for overlay command")
 	}
 
@@ -192,10 +165,7 @@ func (oc *OverlayController) runJavaScript(ctx context.Context, webviewID webkit
 		return fmt.Errorf("webview %d not found", webviewID)
 	}
 
-	if err := wv.RunJavaScript(ctx, script, ""); err != nil {
-		log.Warn().Err(err).Msg("overlay JS execution failed")
-		return err
-	}
-
+	// Run in the isolated "dumber" world where the GUI scripts are injected
+	wv.RunJavaScript(ctx, script, webkit.ScriptWorldName)
 	return nil
 }

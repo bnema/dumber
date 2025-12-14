@@ -465,8 +465,8 @@ func (img *gtkImage) GetParent() Widget {
 	return &gtkWidget{inner: parent}
 }
 
-func (img *gtkImage) SetFromIconName(name string) { img.inner.SetFromIconName(name) }
-func (img *gtkImage) SetFromFile(filename string) { img.inner.SetFromFile(filename) }
+func (img *gtkImage) SetFromIconName(name string) { img.inner.SetFromIconName(&name) }
+func (img *gtkImage) SetFromFile(filename string) { img.inner.SetFromFile(&filename) }
 func (img *gtkImage) SetPixelSize(size int)       { img.inner.SetPixelSize(size) }
 func (img *gtkImage) Clear()                      { img.inner.Clear() }
 
@@ -500,7 +500,7 @@ func (f *GtkWidgetFactory) NewOverlay() OverlayWidget {
 }
 
 func (f *GtkWidgetFactory) NewLabel(text string) LabelWidget {
-	label := gtk.NewLabel(text)
+	label := gtk.NewLabel(&text)
 	return &gtkLabel{inner: label}
 }
 

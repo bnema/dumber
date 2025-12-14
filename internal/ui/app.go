@@ -45,6 +45,9 @@ type App struct {
 	// Input handling
 	keyboardHandler *input.KeyboardHandler
 
+	// Native omnibox
+	omnibox *component.Omnibox
+
 	// Web content
 	pool     *webkit.WebViewPool
 	injector *webkit.ContentInjector
@@ -99,7 +102,8 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("creating GTK application")
 
-	a.gtkApp = gtk.NewApplication(AppID, gio.GApplicationFlagsNoneValue)
+	// TODO: Use AppID once puregotk GC bug is fixed (nullable-string-gc-memory-corruption)
+	a.gtkApp = gtk.NewApplication(nil, gio.GApplicationFlagsNoneValue)
 	if a.gtkApp == nil {
 		log.Error().Msg("failed to create GTK application")
 		return 1
@@ -162,6 +166,23 @@ func (a *App) onActivate(ctx context.Context) {
 		a.handleModeChange(ctx, from, to)
 	})
 	a.keyboardHandler.AttachTo(a.mainWindow.Window())
+
+	// Create native omnibox
+	a.omnibox = component.NewOmnibox(ctx, a.mainWindow.Window(), component.OmniboxConfig{
+		HistoryUC:       a.deps.HistoryUC,
+		FavoritesUC:     a.deps.FavoritesUC,
+		Shortcuts:       a.deps.Config.SearchShortcuts,
+		DefaultSearch:   a.deps.Config.DefaultSearchEngine,
+		InitialBehavior: a.deps.Config.Omnibox.InitialBehavior,
+	})
+	if a.omnibox != nil {
+		a.omnibox.SetOnNavigate(func(url string) {
+			a.navigateActivePane(ctx, url)
+		})
+		log.Debug().Msg("native omnibox created")
+	} else {
+		log.Warn().Msg("failed to create native omnibox")
+	}
 
 	if err := a.registerMessageHandlers(ctx); err != nil {
 		log.Warn().Err(err).Msg("failed to register message handlers")
@@ -799,21 +820,72 @@ func (a *App) activeWebView(ctx context.Context) *webkit.WebView {
 	return a.webViews[pane.Pane.ID]
 }
 
-// openOmnibox toggles the omnibox overlay for the active WebView.
+// openOmnibox toggles the native GTK omnibox.
 func (a *App) openOmnibox(ctx context.Context) error {
 	log := logging.FromContext(ctx)
 
-	if a.overlay == nil {
-		log.Error().Msg("overlay controller not configured")
-		return fmt.Errorf("overlay controller not configured")
+	if a.omnibox == nil {
+		log.Error().Msg("native omnibox not initialized")
+		return fmt.Errorf("native omnibox not initialized")
 	}
+
+	log.Debug().Msg("toggling native omnibox")
+	a.omnibox.Toggle(ctx)
+	return nil
+}
+
+// navigateActivePane navigates the active pane to the given URL.
+// Records history for omnibox search to find it immediately.
+func (a *App) navigateActivePane(ctx context.Context, url string) {
+	log := logging.FromContext(ctx)
+
 	wv := a.activeWebView(ctx)
 	if wv == nil {
-		log.Error().Msg("no active webview for omnibox")
-		return fmt.Errorf("no active webview for omnibox")
+		log.Warn().Str("url", url).Msg("no active webview for navigation")
+		return
 	}
-	log.Debug().Uint64("webview_id", uint64(wv.ID())).Msg("opening omnibox")
-	return a.overlay.Show(ctx, wv.ID(), "omnibox", "")
+
+	// Load the URL
+	if err := wv.LoadURI(ctx, url); err != nil {
+		log.Error().Err(err).Str("url", url).Msg("failed to navigate")
+		return
+	}
+
+	// Record in history asynchronously so it appears in omnibox immediately
+	if a.deps.HistoryRepo != nil {
+		go a.recordHistory(ctx, url)
+	}
+
+	log.Debug().Str("url", url).Msg("navigated active pane")
+}
+
+// recordHistory saves or updates a history entry.
+func (a *App) recordHistory(ctx context.Context, url string) {
+	log := logging.FromContext(ctx)
+	log.Debug().Str("url", url).Msg("recording history entry")
+
+	existing, err := a.deps.HistoryRepo.FindByURL(ctx, url)
+	if err != nil {
+		log.Warn().Err(err).Str("url", url).Msg("failed to check history")
+		return
+	}
+
+	if existing != nil {
+		// Increment visit count
+		if err := a.deps.HistoryRepo.IncrementVisitCount(ctx, url); err != nil {
+			log.Warn().Err(err).Str("url", url).Msg("failed to increment visit count")
+		} else {
+			log.Debug().Str("url", url).Int64("prev_count", existing.VisitCount).Msg("history visit count incremented")
+		}
+	} else {
+		// Create new entry
+		entry := entity.NewHistoryEntry(url, "")
+		if err := a.deps.HistoryRepo.Save(ctx, entry); err != nil {
+			log.Warn().Err(err).Str("url", url).Msg("failed to save history")
+		} else {
+			log.Debug().Str("url", url).Msg("new history entry saved")
+		}
+	}
 }
 
 // openDevTools opens the WebKit inspector for the active WebView.

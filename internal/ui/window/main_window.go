@@ -39,7 +39,8 @@ func New(app *gtk.Application, cfg *config.Config, logger *zerolog.Logger) (*Mai
 	}
 
 	// Configure window
-	mw.window.SetTitle(windowTitle)
+	title := windowTitle
+	mw.window.SetTitle(&title)
 	mw.window.SetDefaultSize(defaultWidth, defaultHeight)
 
 	// Create root container (vertical box)

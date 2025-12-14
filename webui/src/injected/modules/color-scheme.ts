@@ -80,12 +80,10 @@ class ColorSchemeManager {
 
   private notifyNativeLayer(): void {
     try {
-      (window as any).webkit?.messageHandlers?.dumber?.postMessage(
-        JSON.stringify({
-          type: "theme",
-          value: this.config.colorScheme,
-        }),
-      );
+      (window as any).webkit?.messageHandlers?.dumber?.postMessage({
+        type: "theme",
+        payload: { value: this.config.colorScheme },
+      });
     } catch {
       // Ignore errors - native layer may not be available
     }
