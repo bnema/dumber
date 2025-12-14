@@ -103,22 +103,25 @@ func (r *MessageRouter) RegisterHandlerWithCallbacks(msgType, callback, errorCal
 }
 
 // SetupMessageHandler wires the router into the given UserContentManager.
-// It registers the script message handler and connects the signal.
+// It registers the script message handler in the MAIN world (not isolated).
+// WebKit's messageHandlers is only available in main world.
+// The isolated world GUI scripts dispatch CustomEvents to main world, which forwards to this handler.
 func (r *MessageRouter) SetupMessageHandler(ucm *webkit.UserContentManager, worldName string) (uint32, error) {
 	log := logging.FromContext(r.baseCtx).With().Str("component", "message-router").Logger()
 
+	log.Debug().Msg("SetupMessageHandler called")
+
 	if ucm == nil {
+		log.Warn().Msg("SetupMessageHandler: ucm is nil")
 		return 0, errors.New("user content manager is nil")
 	}
-	if worldName == "" {
-		worldName = ScriptWorldName
-	}
 
-	if ok := ucm.RegisterScriptMessageHandler(MessageHandlerName, worldName); !ok {
-		return 0, fmt.Errorf("failed to register script message handler %q in world %q", MessageHandlerName, worldName)
-	}
+	log.Debug().Msg("SetupMessageHandler: connecting signal with detail")
 
+	// Connect to signal BEFORE registering handler to avoid race conditions
+	// (as recommended by WebKit documentation)
 	cb := func(_ webkit.UserContentManager, valuePtr uintptr) {
+		log.Debug().Uint64("value_ptr", uint64(valuePtr)).Msg("signal callback invoked")
 		r.handleScriptMessage(valuePtr)
 	}
 
@@ -126,16 +129,28 @@ func (r *MessageRouter) SetupMessageHandler(ucm *webkit.UserContentManager, worl
 	r.callbacks = append(r.callbacks, cb) // keep callback alive
 	r.mu.Unlock()
 
-	signalID := ucm.ConnectScriptMessageReceived(&cb)
+	// Connect to "script-message-received::dumber" with handler name as signal detail
+	signalID := ucm.ConnectScriptMessageReceivedWithDetail(MessageHandlerName, &cb)
+	log.Debug().Uint32("signal_id", signalID).Str("handler", MessageHandlerName).Msg("signal connected with detail")
+
 	r.mu.Lock()
 	r.signals = append(r.signals, signalID)
 	r.mu.Unlock()
 
+	log.Debug().Msg("SetupMessageHandler: registering handler in main world")
+
+	// Register handler in main world - webkit.messageHandlers is only available there
+	// nil = main/default world (NULL in C), empty string "" would be a world named ""
+	if ok := ucm.RegisterScriptMessageHandler(MessageHandlerName, nil); !ok {
+		log.Warn().Str("handler", MessageHandlerName).Msg("RegisterScriptMessageHandler returned false")
+		return 0, fmt.Errorf("failed to register script message handler %q in main world", MessageHandlerName)
+	}
+
 	log.Debug().
 		Str("handler", MessageHandlerName).
-		Str("world", worldName).
+		Str("world", "main").
 		Uint32("signal_id", signalID).
-		Msg("script message handler connected")
+		Msg("script message handler connected successfully")
 
 	return signalID, nil
 }
@@ -236,7 +251,6 @@ func (r *MessageRouter) dispatchResponse(ctx context.Context, webviewID WebViewI
 
 	script := fmt.Sprintf(`(function(){try{if(window.%[1]s){window.%[1]s(%[2]s);}else{console.warn("dumber callback missing: %[1]s");}}catch(e){console.error("dumber callback %[1]s failed", e);}})();`, callback, string(data))
 
-	// Use async to avoid blocking the GTK main loop (signal handler context)
-	wv.RunJavaScriptAsync(ctx, script, world)
+	wv.RunJavaScript(ctx, script, world)
 	return nil
 }
