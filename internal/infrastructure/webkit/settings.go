@@ -1,37 +1,40 @@
 package webkit
 
 import (
+	"context"
 	"sync"
 
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
-	"github.com/rs/zerolog"
 )
 
 // SettingsManager creates and manages WebKit Settings instances from config.
 type SettingsManager struct {
-	cfg    *config.Config
-	logger zerolog.Logger
-	mu     sync.RWMutex
+	cfg *config.Config
+	ctx context.Context
+	mu  sync.RWMutex
 }
 
 // NewSettingsManager creates a new SettingsManager with the given config.
-func NewSettingsManager(cfg *config.Config, logger zerolog.Logger) *SettingsManager {
+func NewSettingsManager(ctx context.Context, cfg *config.Config) *SettingsManager {
 	return &SettingsManager{
-		cfg:    cfg,
-		logger: logger.With().Str("component", "webkit-settings").Logger(),
+		cfg: cfg,
+		ctx: logging.WithComponent(ctx, "webkit-settings"),
 	}
 }
 
 // CreateSettings creates a new webkit.Settings instance configured from the current config.
 func (sm *SettingsManager) CreateSettings() *webkit.Settings {
+	log := logging.FromContext(sm.ctx)
+
 	sm.mu.RLock()
 	cfg := sm.cfg
 	sm.mu.RUnlock()
 
 	settings := webkit.NewSettings()
 	if settings == nil {
-		sm.logger.Error().Msg("failed to create webkit settings")
+		log.Error().Msg("failed to create webkit settings")
 		return nil
 	}
 
@@ -105,7 +108,8 @@ func (sm *SettingsManager) applySettings(settings *webkit.Settings, cfg *config.
 	// WebRTC
 	settings.SetEnableWebrtc(true)
 
-	sm.logger.Debug().
+	log := logging.FromContext(sm.ctx)
+	log.Debug().
 		Str("sans_font", cfg.Appearance.SansFont).
 		Str("rendering_mode", string(cfg.RenderingMode)).
 		Bool("developer_extras", cfg.Debug.EnableDevTools).
@@ -116,10 +120,11 @@ func (sm *SettingsManager) applySettings(settings *webkit.Settings, cfg *config.
 // Note: This doesn't update already-created Settings instances.
 // New WebViews will use the updated config.
 func (sm *SettingsManager) UpdateFromConfig(cfg *config.Config) {
+	log := logging.FromContext(sm.ctx)
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	sm.cfg = cfg
-	sm.logger.Debug().Msg("settings config updated")
+	log.Debug().Msg("settings config updated")
 }
 
 // ApplyToWebView applies current settings to an existing WebView.

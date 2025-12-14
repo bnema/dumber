@@ -24,18 +24,24 @@ CREATE VIRTUAL TABLE IF NOT EXISTS history_fts USING fts5(
 );
 
 -- Triggers to keep FTS in sync
+-- +goose StatementBegin
 CREATE TRIGGER IF NOT EXISTS history_fts_insert AFTER INSERT ON history BEGIN
     INSERT INTO history_fts(rowid, url, title) VALUES (NEW.id, NEW.url, NEW.title);
 END;
+-- +goose StatementEnd
 
+-- +goose StatementBegin
 CREATE TRIGGER IF NOT EXISTS history_fts_delete AFTER DELETE ON history BEGIN
     INSERT INTO history_fts(history_fts, rowid, url, title) VALUES('delete', OLD.id, OLD.url, OLD.title);
 END;
+-- +goose StatementEnd
 
+-- +goose StatementBegin
 CREATE TRIGGER IF NOT EXISTS history_fts_update AFTER UPDATE ON history BEGIN
     INSERT INTO history_fts(history_fts, rowid, url, title) VALUES('delete', OLD.id, OLD.url, OLD.title);
     INSERT INTO history_fts(rowid, url, title) VALUES (NEW.id, NEW.url, NEW.title);
 END;
+-- +goose StatementEnd
 
 -- +goose Down
 DROP TRIGGER IF EXISTS history_fts_update;

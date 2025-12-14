@@ -17,7 +17,7 @@ import (
 const (
 	omniboxWidth      = 600
 	omniboxMaxResults = 10
-	debounceDelayMs   = 120
+	debounceDelayMs   = 250 // Increased for stability
 )
 
 // ViewMode distinguishes history search from favorites display.
@@ -82,6 +82,7 @@ type Omnibox struct {
 	// Debouncing
 	debounceTimer *time.Timer
 	debounceMu    sync.Mutex
+	lastQuery     string // Prevent duplicate searches
 }
 
 // OmniboxConfig holds configuration for creating an Omnibox.
@@ -331,10 +332,25 @@ func (o *Omnibox) onEntryChanged() {
 // performSearch executes the search based on current view mode and query.
 func (o *Omnibox) performSearch() {
 	o.mu.RLock()
+	visible := o.visible
 	mode := o.viewMode
 	o.mu.RUnlock()
 
+	// Skip search if omnibox is hidden
+	if !visible {
+		return
+	}
+
 	query := o.entry.GetText()
+
+	// Skip duplicate queries
+	o.debounceMu.Lock()
+	if query == o.lastQuery && query != "" {
+		o.debounceMu.Unlock()
+		return
+	}
+	o.lastQuery = query
+	o.debounceMu.Unlock()
 
 	if mode == ViewModeFavorites {
 		o.loadFavorites(query)
@@ -352,11 +368,8 @@ func (o *Omnibox) performSearch() {
 		ctx := o.ctx
 		log := logging.FromContext(ctx)
 		if o.historyUC == nil {
-			log.Debug().Msg("omnibox search: historyUC is nil")
 			return
 		}
-
-		log.Debug().Str("query", query).Int("limit", omniboxMaxResults).Msg("omnibox performing history search")
 
 		input := usecase.SearchInput{
 			Query: query,
@@ -367,8 +380,6 @@ func (o *Omnibox) performSearch() {
 			log.Error().Err(err).Msg("history search failed")
 			return
 		}
-
-		log.Debug().Int("results", len(output.Matches)).Str("query", query).Msg("omnibox search completed")
 
 		suggestions := make([]Suggestion, 0, len(output.Matches))
 		for _, r := range output.Matches {
@@ -394,18 +405,13 @@ func (o *Omnibox) loadInitialHistory() {
 		log := logging.FromContext(ctx)
 		var suggestions []Suggestion
 
-		log.Debug().Str("behavior", o.initialBehavior).Msg("omnibox loading initial history")
-
 		switch o.initialBehavior {
 		case "none":
-			// Show nothing
-			log.Debug().Msg("omnibox initial behavior: none")
 			o.idleAddUpdateSuggestions(nil)
 			return
 
 		case "most_visited":
 			// TODO: Implement GetMostVisited in use case if needed
-			// For now, fall through to recent
 			fallthrough
 
 		case "recent", "":
@@ -414,7 +420,6 @@ func (o *Omnibox) loadInitialHistory() {
 				log.Error().Err(err).Msg("failed to load recent history")
 				return
 			}
-			log.Debug().Int("results", len(results)).Msg("omnibox loaded recent history")
 			suggestions = make([]Suggestion, 0, len(results))
 			for _, r := range results {
 				suggestions = append(suggestions, Suggestion{
@@ -543,8 +548,9 @@ func (o *Omnibox) createSuggestionRow(s Suggestion, index int) *gtk.ListBoxRow {
 	if displayText == "" {
 		displayText = s.URL
 	}
-	label := gtk.NewLabel(&displayText)
+	label := gtk.NewLabel(nil)
 	if label != nil {
+		label.SetText(displayText) // Explicitly set text
 		label.AddCssClass("omnibox-suggestion-title")
 		label.SetHalign(gtk.AlignStartValue)
 		label.SetHexpand(true)
@@ -552,19 +558,16 @@ func (o *Omnibox) createSuggestionRow(s Suggestion, index int) *gtk.ListBoxRow {
 		box.Append(&label.Widget)
 	}
 
-	// Shortcut label (Ctrl+1-9)
-	if index < 9 {
-		shortcutText := formatShortcut(index + 1)
-		shortcutLabel := gtk.NewLabel(&shortcutText)
+	// Shortcut badge (Ctrl+1-9, Ctrl+0 for 10th)
+	if index <= 9 {
+		shortcutLabel := gtk.NewLabel(nil)
 		if shortcutLabel != nil {
-			shortcutLabel.AddCssClass("omnibox-shortcut-label")
-			box.Append(&shortcutLabel.Widget)
-		}
-	} else if index == 9 {
-		shortcutText := "Ctrl+0"
-		shortcutLabel := gtk.NewLabel(&shortcutText)
-		if shortcutLabel != nil {
-			shortcutLabel.AddCssClass("omnibox-shortcut-label")
+			if index < 9 {
+				shortcutLabel.SetText(formatShortcut(index + 1))
+			} else {
+				shortcutLabel.SetText("Ctrl+0")
+			}
+			shortcutLabel.AddCssClass("omnibox-shortcut-badge")
 			box.Append(&shortcutLabel.Widget)
 		}
 	}
@@ -592,8 +595,9 @@ func (o *Omnibox) createFavoriteRow(f Favorite, index int) *gtk.ListBoxRow {
 	if displayText == "" {
 		displayText = f.URL
 	}
-	label := gtk.NewLabel(&displayText)
+	label := gtk.NewLabel(nil)
 	if label != nil {
+		label.SetText(displayText)
 		label.AddCssClass("omnibox-suggestion-title")
 		label.SetHalign(gtk.AlignStartValue)
 		label.SetHexpand(true)
@@ -601,19 +605,16 @@ func (o *Omnibox) createFavoriteRow(f Favorite, index int) *gtk.ListBoxRow {
 		box.Append(&label.Widget)
 	}
 
-	// Shortcut label
-	if index < 9 {
-		shortcutText := formatShortcut(index + 1)
-		shortcutLabel := gtk.NewLabel(&shortcutText)
+	// Shortcut badge (Ctrl+1-9, Ctrl+0 for 10th)
+	if index <= 9 {
+		shortcutLabel := gtk.NewLabel(nil)
 		if shortcutLabel != nil {
-			shortcutLabel.AddCssClass("omnibox-shortcut-label")
-			box.Append(&shortcutLabel.Widget)
-		}
-	} else if index == 9 {
-		shortcutText := "Ctrl+0"
-		shortcutLabel := gtk.NewLabel(&shortcutText)
-		if shortcutLabel != nil {
-			shortcutLabel.AddCssClass("omnibox-shortcut-label")
+			if index < 9 {
+				shortcutLabel.SetText(formatShortcut(index + 1))
+			} else {
+				shortcutLabel.SetText("Ctrl+0")
+			}
+			shortcutLabel.AddCssClass("omnibox-shortcut-badge")
 			box.Append(&shortcutLabel.Widget)
 		}
 	}
@@ -624,13 +625,12 @@ func (o *Omnibox) createFavoriteRow(f Favorite, index int) *gtk.ListBoxRow {
 
 // selectIndex selects a row by index.
 func (o *Omnibox) selectIndex(index int) {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-
+	// Note: Don't hold mutex when calling SelectRow - it triggers rowSelectedCb
+	// which also acquires the mutex, causing deadlock
 	row := o.listBox.GetRowAtIndex(index)
 	if row != nil {
 		o.listBox.SelectRow(row)
-		o.selectedIndex = index
+		// selectedIndex is updated by rowSelectedCb
 	}
 }
 
@@ -877,11 +877,9 @@ func (o *Omnibox) SetOnClose(fn func()) {
 
 // idleAddUpdateSuggestions schedules updateSuggestions on the GTK main thread.
 func (o *Omnibox) idleAddUpdateSuggestions(suggestions []Suggestion) {
-	// Store suggestions in a channel to pass to idle callback
-	// Using a closure that captures the suggestions
 	var cb glib.SourceFunc = func(data uintptr) bool {
 		o.updateSuggestions(suggestions)
-		return false // One-shot callback, return false to remove source
+		return false // One-shot callback
 	}
 	glib.IdleAdd(&cb, 0)
 }

@@ -2,7 +2,10 @@
 package window
 
 import (
+	"context"
+
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 	"github.com/rs/zerolog"
@@ -22,14 +25,16 @@ type MainWindow struct {
 	contentArea *gtk.Box // Container for workspace content
 
 	cfg    *config.Config
-	logger *zerolog.Logger
+	logger zerolog.Logger
 }
 
 // New creates a new main browser window.
-func New(app *gtk.Application, cfg *config.Config, logger *zerolog.Logger) (*MainWindow, error) {
+func New(ctx context.Context, app *gtk.Application, cfg *config.Config) (*MainWindow, error) {
+	log := logging.FromContext(ctx)
+
 	mw := &MainWindow{
 		cfg:    cfg,
-		logger: logger,
+		logger: log.With().Str("component", "main-window").Logger(),
 	}
 
 	// Create the application window

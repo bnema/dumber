@@ -35,12 +35,6 @@ type SearchOutput struct {
 
 // Search performs a fuzzy search on history entries.
 func (uc *SearchHistoryUseCase) Search(ctx context.Context, input SearchInput) (*SearchOutput, error) {
-	log := logging.FromContext(ctx)
-	log.Debug().
-		Str("query", input.Query).
-		Int("limit", input.Limit).
-		Msg("searching history")
-
 	if input.Query == "" {
 		return &SearchOutput{Matches: []entity.HistoryMatch{}}, nil
 	}
@@ -55,22 +49,11 @@ func (uc *SearchHistoryUseCase) Search(ctx context.Context, input SearchInput) (
 		return nil, fmt.Errorf("failed to search history: %w", err)
 	}
 
-	log.Debug().
-		Str("query", input.Query).
-		Int("results", len(matches)).
-		Msg("history search completed")
-
 	return &SearchOutput{Matches: matches}, nil
 }
 
 // GetRecent retrieves recent history entries with pagination.
 func (uc *SearchHistoryUseCase) GetRecent(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error) {
-	log := logging.FromContext(ctx)
-	log.Debug().
-		Int("limit", limit).
-		Int("offset", offset).
-		Msg("getting recent history")
-
 	if limit <= 0 {
 		limit = 50 // Default limit
 	}
@@ -80,7 +63,6 @@ func (uc *SearchHistoryUseCase) GetRecent(ctx context.Context, limit, offset int
 		return nil, fmt.Errorf("failed to get recent history: %w", err)
 	}
 
-	log.Debug().Int("count", len(entries)).Msg("retrieved recent history")
 	return entries, nil
 }
 

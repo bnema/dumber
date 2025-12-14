@@ -1,10 +1,12 @@
 package webkit
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"sync"
 
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
 	"github.com/jwijenbergh/puregotk/v4/gio"
 	"github.com/jwijenbergh/puregotk/v4/glib"
@@ -47,10 +49,12 @@ type DumbSchemeHandler struct {
 }
 
 // NewDumbSchemeHandler creates a new handler for the dumb:// scheme.
-func NewDumbSchemeHandler(logger zerolog.Logger) *DumbSchemeHandler {
+func NewDumbSchemeHandler(ctx context.Context) *DumbSchemeHandler {
+	log := logging.FromContext(ctx)
+
 	h := &DumbSchemeHandler{
 		handlers: make(map[string]PageHandler),
-		logger:   logger.With().Str("component", "scheme-handler").Logger(),
+		logger:   log.With().Str("component", "scheme-handler").Logger(),
 	}
 
 	// Register default pages

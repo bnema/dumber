@@ -9,8 +9,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
-	"github.com/bnema/dumber/internal/ui/component"
-	"github.com/rs/zerolog"
+	"github.com/bnema/dumber/internal/ui/theme"
 )
 
 // Dependencies holds all injected dependencies for the UI layer.
@@ -19,7 +18,9 @@ type Dependencies struct {
 	// Core context and configuration
 	Ctx    context.Context
 	Config *config.Config
-	Logger *zerolog.Logger
+
+	// Theme management
+	Theme *theme.Manager
 
 	// WebKit infrastructure
 	WebContext    *webkit.WebKitContext
@@ -28,7 +29,6 @@ type Dependencies struct {
 	Settings      *webkit.SettingsManager
 	Injector      *webkit.ContentInjector
 	MessageRouter *webkit.MessageRouter
-	Overlay       *component.OverlayController
 
 	// Repositories
 	HistoryRepo  repository.HistoryRepository
@@ -52,9 +52,6 @@ func (d *Dependencies) Validate() error {
 	}
 	if d.Config == nil {
 		return ErrMissingDependency("Config")
-	}
-	if d.Logger == nil {
-		return ErrMissingDependency("Logger")
 	}
 	// WebKit dependencies are optional for testing without WebViews
 	// Use cases are optional - can be nil if not needed

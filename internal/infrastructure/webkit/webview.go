@@ -110,7 +110,9 @@ type WebView struct {
 }
 
 // NewWebView creates a new WebView with the given context and settings.
-func NewWebView(wkCtx *WebKitContext, settings *SettingsManager, logger zerolog.Logger) (*WebView, error) {
+func NewWebView(ctx context.Context, wkCtx *WebKitContext, settings *SettingsManager) (*WebView, error) {
+	log := logging.FromContext(ctx)
+
 	if wkCtx == nil || !wkCtx.IsInitialized() {
 		return nil, fmt.Errorf("webkit context not initialized")
 	}
@@ -123,7 +125,7 @@ func NewWebView(wkCtx *WebKitContext, settings *SettingsManager, logger zerolog.
 	wv := &WebView{
 		inner:     inner,
 		ucm:       inner.GetUserContentManager(),
-		logger:    logger.With().Str("component", "webview").Logger(),
+		logger:    log.With().Str("component", "webview").Logger(),
 		signalIDs: make([]uint32, 0, 4),
 	}
 
@@ -145,7 +147,9 @@ func NewWebView(wkCtx *WebKitContext, settings *SettingsManager, logger zerolog.
 
 // NewWebViewWithRelated creates a WebView that shares session/cookies with parent.
 // This is required for popup windows to maintain authentication state.
-func NewWebViewWithRelated(parent *WebView, settings *SettingsManager, logger zerolog.Logger) (*WebView, error) {
+func NewWebViewWithRelated(ctx context.Context, parent *WebView, settings *SettingsManager) (*WebView, error) {
+	log := logging.FromContext(ctx)
+
 	if parent == nil {
 		return nil, fmt.Errorf("parent webview is nil")
 	}
@@ -161,7 +165,7 @@ func NewWebViewWithRelated(parent *WebView, settings *SettingsManager, logger ze
 	wv := &WebView{
 		inner:     inner,
 		ucm:       inner.GetUserContentManager(),
-		logger:    logger.With().Str("component", "webview-popup").Logger(),
+		logger:    log.With().Str("component", "webview-popup").Logger(),
 		signalIDs: make([]uint32, 0, 6),
 	}
 
@@ -185,10 +189,12 @@ func NewWebViewWithRelated(parent *WebView, settings *SettingsManager, logger ze
 func (wv *WebView) connectSignals() {
 	// load-changed signal
 	loadChangedCb := func(inner webkit.WebView, event webkit.LoadEvent) {
+		uri := inner.GetUri()
+		title := inner.GetTitle()
 
 		wv.mu.Lock()
-		wv.uri = inner.GetUri()
-		wv.title = inner.GetTitle()
+		wv.uri = uri
+		wv.title = title
 		wv.canGoBack = inner.CanGoBack()
 		wv.canGoFwd = inner.CanGoForward()
 		wv.progress = inner.GetEstimatedLoadProgress()
@@ -196,8 +202,14 @@ func (wv *WebView) connectSignals() {
 		switch event {
 		case webkit.LoadStartedValue:
 			wv.isLoading = true
+			wv.logger.Debug().Str("uri", uri).Msg("load started")
+		case webkit.LoadRedirectedValue:
+			wv.logger.Debug().Str("uri", uri).Msg("load redirected")
+		case webkit.LoadCommittedValue:
+			wv.logger.Debug().Str("uri", uri).Msg("load committed")
 		case webkit.LoadFinishedValue:
 			wv.isLoading = false
+			wv.logger.Debug().Str("uri", uri).Str("title", title).Msg("load finished")
 		}
 		wv.mu.Unlock()
 
@@ -551,9 +563,8 @@ func (wv *WebView) AttachFrontend(ctx context.Context, injector *ContentInjector
 	}
 
 	if injector != nil {
-		log.Debug().Msg("AttachFrontend: injecting scripts and styles")
+		log.Debug().Msg("AttachFrontend: injecting scripts")
 		injector.InjectScripts(ctx, wv.ucm, wv.id)
-		injector.InjectStyles(ctx, wv.ucm)
 	}
 
 	log.Debug().Msg("frontend assets attached to webview")

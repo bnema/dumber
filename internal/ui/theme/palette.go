@@ -1,0 +1,128 @@
+// Package theme provides GTK CSS styling for UI components.
+package theme
+
+import (
+	"fmt"
+	"regexp"
+	"strings"
+
+	"github.com/bnema/dumber/internal/infrastructure/config"
+)
+
+// Palette holds semantic color tokens for theming.
+type Palette struct {
+	Background     string // Main background color
+	Surface        string // Elevated surfaces (cards, popups)
+	SurfaceVariant string // Secondary surfaces
+	Text           string // Primary text color
+	Muted          string // Secondary/disabled text
+	Accent         string // Primary accent color (actions, highlights)
+	Border         string // Border and divider lines
+}
+
+// DefaultDarkPalette returns the default dark theme palette.
+func DefaultDarkPalette() Palette {
+	return Palette{
+		Background:     "#0a0a0b",
+		Surface:        "#1a1a1b",
+		SurfaceVariant: "#2d2d2d",
+		Text:           "#ffffff",
+		Muted:          "#909090",
+		Accent:         "#4ade80",
+		Border:         "#333333",
+	}
+}
+
+// DefaultLightPalette returns the default light theme palette.
+func DefaultLightPalette() Palette {
+	return Palette{
+		Background:     "#fafafa",
+		Surface:        "#ffffff",
+		SurfaceVariant: "#f0f0f0",
+		Text:           "#1a1a1a",
+		Muted:          "#666666",
+		Accent:         "#22c55e",
+		Border:         "#dddddd",
+	}
+}
+
+// PaletteFromConfig creates a Palette from config values, filling missing values with defaults.
+func PaletteFromConfig(cfg *config.ColorPalette, isDark bool) Palette {
+	var defaults Palette
+	if isDark {
+		defaults = DefaultDarkPalette()
+	} else {
+		defaults = DefaultLightPalette()
+	}
+
+	if cfg == nil {
+		return defaults
+	}
+
+	return Palette{
+		Background:     coalesce(cfg.Background, defaults.Background),
+		Surface:        coalesce(cfg.Surface, defaults.Surface),
+		SurfaceVariant: coalesce(cfg.SurfaceVariant, defaults.SurfaceVariant),
+		Text:           coalesce(cfg.Text, defaults.Text),
+		Muted:          coalesce(cfg.Muted, defaults.Muted),
+		Accent:         coalesce(cfg.Accent, defaults.Accent),
+		Border:         coalesce(cfg.Border, defaults.Border),
+	}
+}
+
+// coalesce returns the first non-empty string.
+func coalesce(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// hexColorRegex matches valid hex colors (#RGB, #RRGGBB, #RRGGBBAA).
+var hexColorRegex = regexp.MustCompile(`^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$`)
+
+// ValidateHexColor checks if a string is a valid hex color.
+func ValidateHexColor(color string) error {
+	if color == "" {
+		return nil // Empty is valid (will use default)
+	}
+	if !hexColorRegex.MatchString(color) {
+		return fmt.Errorf("invalid hex color: %s", color)
+	}
+	return nil
+}
+
+// Validate checks all palette colors are valid hex values.
+func (p Palette) Validate() error {
+	colors := map[string]string{
+		"background":      p.Background,
+		"surface":         p.Surface,
+		"surface_variant": p.SurfaceVariant,
+		"text":            p.Text,
+		"muted":           p.Muted,
+		"accent":          p.Accent,
+		"border":          p.Border,
+	}
+
+	for name, color := range colors {
+		if err := ValidateHexColor(color); err != nil {
+			return fmt.Errorf("%s: %w", name, err)
+		}
+	}
+	return nil
+}
+
+// ToCSSVars generates CSS custom property declarations.
+func (p Palette) ToCSSVars() string {
+	var sb strings.Builder
+	sb.WriteString("  --bg: " + p.Background + ";\n")
+	sb.WriteString("  --surface: " + p.Surface + ";\n")
+	sb.WriteString("  --surface-variant: " + p.SurfaceVariant + ";\n")
+	sb.WriteString("  --text: " + p.Text + ";\n")
+	sb.WriteString("  --muted: " + p.Muted + ";\n")
+	sb.WriteString("  --accent: " + p.Accent + ";\n")
+	sb.WriteString("  --border: " + p.Border + ";\n")
+	return sb.String()
+}

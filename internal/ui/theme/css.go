@@ -2,55 +2,80 @@
 package theme
 
 import (
-	"github.com/jwijenbergh/puregotk/v4/gdk"
-	"github.com/jwijenbergh/puregotk/v4/gtk"
+	"strings"
 )
 
-// tabBarCSS contains GTK4 CSS styling for the tab bar and tab buttons.
-// These styles match the old gotk4 implementation.
-const tabBarCSS = `
-/* Tab bar styling */
+// GenerateCSS creates GTK4 CSS using the provided palette.
+func GenerateCSS(p Palette) string {
+	var sb strings.Builder
+
+	// CSS custom properties (variables) - GTK4 uses :root selector
+	sb.WriteString("/* Theme variables */\n")
+	sb.WriteString(":root {\n")
+	sb.WriteString(p.ToCSSVars())
+	sb.WriteString("}\n\n")
+
+	// Tab bar styling
+	sb.WriteString(generateTabBarCSS(p))
+	sb.WriteString("\n")
+
+	// Omnibox styling
+	sb.WriteString(generateOmniboxCSS(p))
+	sb.WriteString("\n")
+
+	// Pane styling
+	sb.WriteString(generatePaneCSS(p))
+
+	return sb.String()
+}
+
+// generateTabBarCSS creates tab bar styles.
+func generateTabBarCSS(p Palette) string {
+	return `/* Tab bar styling */
 .tab-bar {
-	background-color: #2b2b2b;
-	border-top: 2px solid #353535;
+	background-color: var(--surface);
+	border-top: 2px solid var(--border);
 	padding: 0;
 	min-height: 32px;
 }
 
-/* Tab button styling - matches stacked pane titles */
+/* Tab button styling */
 button.tab-button {
-	background-color: #404040;
+	background-color: var(--surface-variant);
 	background-image: none;
 	border: none;
-	border-right: 1px solid #353535;
+	border-right: 1px solid var(--border);
 	border-radius: 0;
 	padding: 4px 8px;
 	transition: background-color 200ms ease-in-out;
 }
 
 button.tab-button:hover {
-	background-color: #505050;
+	background-color: shade(var(--surface-variant), 1.2);
 }
 
 button.tab-button.tab-button-active {
-	background-color: #707070;
+	background-color: shade(var(--surface-variant), 1.4);
 	font-weight: 600;
 }
 
 /* Tab title text */
 .tab-title {
 	font-size: 12px;
-	color: #ffffff;
+	color: var(--text);
 	font-weight: 500;
 }
+`
+}
 
-/* ===== Omnibox Styling ===== */
-/* Matches Svelte5 omnibox with GTK4-native CSS */
+// generateOmniboxCSS creates omnibox styles.
+func generateOmniboxCSS(p Palette) string {
+	return `/* ===== Omnibox Styling ===== */
 
-/* Omnibox window - floating popup with subtle depth */
+/* Omnibox window - floating popup */
 window.omnibox-window {
-	background-color: #2d2d2d;
-	border: 1px solid #454545;
+	background-color: var(--surface-variant);
+	border: 1px solid var(--border);
 	border-radius: 3px;
 }
 
@@ -60,10 +85,10 @@ window.omnibox-window {
 	background-color: transparent;
 }
 
-/* Header with History/Favorites toggle - slightly elevated */
+/* Header with History/Favorites toggle */
 .omnibox-header {
-	background-color: shade(#2d2d2d, 1.1);
-	border-bottom: 1px solid #404040;
+	background-color: shade(var(--surface-variant), 1.1);
+	border-bottom: 1px solid var(--border);
 	padding: 6px 12px;
 }
 
@@ -76,42 +101,42 @@ window.omnibox-window {
 	margin-right: 8px;
 	font-size: 13px;
 	font-weight: 500;
-	color: #909090;
+	color: var(--muted);
 	transition: all 100ms ease-in-out;
 }
 
 .omnibox-header-btn:hover {
-	background-color: alpha(#4a90e2, 0.15);
-	color: #cccccc;
+	background-color: alpha(var(--accent), 0.15);
+	color: var(--text);
 }
 
 .omnibox-header-btn.omnibox-header-active {
-	background-color: alpha(#4a90e2, 0.2);
-	color: #4a90e2;
+	background-color: alpha(var(--accent), 0.2);
+	color: var(--accent);
 	font-weight: 600;
 }
 
-/* Search entry field - recessed appearance */
+/* Search entry field */
 .omnibox-entry {
-	background-color: #1a1a1a;
-	color: #e8e8e8;
-	border: 1px solid #404040;
+	background-color: var(--bg);
+	color: var(--text);
+	border: 1px solid var(--border);
 	border-radius: 2px;
 	padding: 10px 12px;
 	margin: 8px 12px;
 	font-size: 16px;
-	caret-color: #4a90e2;
+	caret-color: var(--accent);
 }
 
 .omnibox-entry:focus {
-	border-color: #4a90e2;
-	background-color: #1e1e1e;
+	border-color: var(--accent);
+	background-color: shade(var(--bg), 1.05);
 }
 
 /* Scrolled window for suggestions */
 .omnibox-scrolled {
-	background-color: #2a2a2a;
-	border-top: 1px solid #404040;
+	background-color: shade(var(--surface-variant), 0.95);
+	border-top: 1px solid var(--border);
 }
 
 /* List box */
@@ -119,13 +144,13 @@ window.omnibox-window {
 	background-color: transparent;
 }
 
-/* Suggestion rows - with left accent border */
+/* Suggestion rows */
 .omnibox-row {
 	padding: 8px 12px;
 	margin: 0;
 	border-radius: 0;
 	border-left: 3px solid transparent;
-	border-bottom: 1px solid alpha(#505050, 0.5);
+	border-bottom: 1px solid alpha(var(--border), 0.5);
 	transition: background-color 100ms ease-in-out, border-left-color 100ms ease-in-out;
 }
 
@@ -134,62 +159,78 @@ window.omnibox-window {
 }
 
 .omnibox-row:hover {
-	background-color: alpha(#4a90e2, 0.12);
-	border-left-color: #4a90e2;
+	background-color: alpha(var(--accent), 0.12);
+	border-left-color: var(--accent);
 }
 
 .omnibox-row:selected {
-	background-color: alpha(#4a90e2, 0.2);
-	border-left-color: #4a90e2;
+	background-color: alpha(var(--accent), 0.2);
+	border-left-color: var(--accent);
 }
 
 /* Suggestion title/URL */
 .omnibox-suggestion-title {
 	font-size: 14px;
-	color: #e0e0e0;
+	color: var(--text, #ffffff);
 	font-weight: 400;
 }
 
+/* Also style labels inside omnibox rows directly */
+.omnibox-row label {
+	color: var(--text, #ffffff);
+}
+
 .omnibox-row:selected .omnibox-suggestion-title {
-	color: #ffffff;
+	color: var(--text);
+	font-weight: 500;
 }
 
-/* Keyboard shortcut label (Ctrl+1-9) */
-.omnibox-shortcut-label {
-	font-size: 11px;
-	color: #707070;
-	font-family: monospace;
-}
-
-.omnibox-row:hover .omnibox-shortcut-label,
-.omnibox-row:selected .omnibox-shortcut-label {
-	color: alpha(#ffffff, 0.6);
-}
-
-/* Search shortcut badge */
+/* Keyboard shortcut badge */
 .omnibox-shortcut-badge {
-	background-color: #4a90e2;
-	color: #ffffff;
-	border-radius: 0;
-	border: 1px solid #3a80d2;
-	padding: 2px 8px;
-	font-size: 11px;
-	font-weight: 600;
-	margin-right: 8px;
+	background-color: alpha(var(--muted, #909090), 0.3);
+	color: var(--muted, #909090);
+	border-radius: 4px;
+	padding: 2px 6px;
+	font-size: 10px;
+	font-weight: 500;
+	font-family: monospace;
+	margin-left: 8px;
+}
+
+.omnibox-row:hover .omnibox-shortcut-badge {
+	background-color: alpha(var(--accent, #4ade80), 0.2);
+	color: var(--accent, #4ade80);
+}
+
+.omnibox-row:selected .omnibox-shortcut-badge {
+	background-color: alpha(var(--accent, #4ade80), 0.3);
+	color: var(--accent, #4ade80);
 }
 `
+}
 
-// ApplyCSS loads tab bar styling into the display.
-func ApplyCSS(display *gdk.Display) {
-	if display == nil {
-		return
-	}
+// generatePaneCSS creates pane border styles.
+func generatePaneCSS(p Palette) string {
+	return `/* ===== Pane Styling ===== */
 
-	provider := gtk.NewCssProvider()
-	if provider == nil {
-		return
-	}
+/* Pane border - default transparent */
+.pane-border {
+	border: 1px solid transparent;
+}
 
-	provider.LoadFromString(tabBarCSS)
-	gtk.StyleContextAddProviderForDisplay(display, provider, uint(gtk.STYLE_PROVIDER_PRIORITY_APPLICATION))
+/* Active pane - accent border */
+.pane-active {
+	border: 1px solid var(--accent);
+}
+
+/* Pane mode active - thick blue border */
+.pane-mode-active {
+	border: 4px solid #4A90E2;
+}
+
+/* Tab mode active - thick orange border */
+.tab-mode-active {
+	border: 4px solid #FFA500;
+}
+`
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 	"github.com/rs/zerolog"
@@ -30,7 +31,7 @@ type KeyboardHandler struct {
 	controller *gtk.EventControllerKey
 
 	ctx    context.Context
-	logger *zerolog.Logger
+	logger zerolog.Logger
 	mu     sync.RWMutex
 }
 
@@ -38,14 +39,15 @@ type KeyboardHandler struct {
 func NewKeyboardHandler(
 	ctx context.Context,
 	cfg *config.WorkspaceConfig,
-	logger *zerolog.Logger,
 ) *KeyboardHandler {
+	log := logging.FromContext(ctx)
+
 	h := &KeyboardHandler{
 		shortcuts: NewShortcutSet(ctx, cfg),
 		modal:     NewModalState(ctx),
 		cfg:       cfg,
 		ctx:       ctx,
-		logger:    logger,
+		logger:    log.With().Str("component", "keyboard-handler").Logger(),
 	}
 
 	return h

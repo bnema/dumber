@@ -1,10 +1,12 @@
 package layout
 
 import (
+	"context"
 	"errors"
 	"sync"
 
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/rs/zerolog"
 )
 
@@ -29,16 +31,20 @@ type TreeRenderer struct {
 	paneViewFactory PaneViewFactory
 	logger          zerolog.Logger
 	nodeToWidget    map[string]Widget
+	ctx             context.Context
 	mu              sync.RWMutex
 }
 
 // NewTreeRenderer creates a new tree renderer.
-func NewTreeRenderer(factory WidgetFactory, paneViewFactory PaneViewFactory, logger zerolog.Logger) *TreeRenderer {
+func NewTreeRenderer(ctx context.Context, factory WidgetFactory, paneViewFactory PaneViewFactory) *TreeRenderer {
+	log := logging.FromContext(ctx)
+
 	return &TreeRenderer{
 		factory:         factory,
 		paneViewFactory: paneViewFactory,
-		logger:          logger.With().Str("component", "tree-renderer").Logger(),
+		logger:          log.With().Str("component", "tree-renderer").Logger(),
 		nodeToWidget:    make(map[string]Widget),
+		ctx:             ctx,
 	}
 }
 
@@ -122,7 +128,7 @@ func (tr *TreeRenderer) renderSplit(node *entity.PaneNode) (Widget, error) {
 	}
 
 	// Create split view
-	splitView := NewSplitView(tr.factory, tr.logger, orientation, leftWidget, rightWidget, node.SplitRatio)
+	splitView := NewSplitView(tr.ctx, tr.factory, orientation, leftWidget, rightWidget, node.SplitRatio)
 
 	return splitView.Widget(), nil
 }

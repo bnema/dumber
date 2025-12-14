@@ -15,10 +15,8 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
-	uihandler "github.com/bnema/dumber/internal/ui/handler"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
-	"github.com/bnema/dumber/internal/ui/theme"
 	"github.com/bnema/dumber/internal/ui/window"
 )
 
@@ -52,7 +50,6 @@ type App struct {
 	pool     *webkit.WebViewPool
 	injector *webkit.ContentInjector
 	router   *webkit.MessageRouter
-	overlay  *component.OverlayController
 	settings *webkit.SettingsManager
 	webViews map[entity.PaneID]*webkit.WebView
 
@@ -81,13 +78,9 @@ func New(deps *Dependencies) (*App, error) {
 		pool:           deps.Pool,
 		injector:       deps.Injector,
 		router:         deps.MessageRouter,
-		overlay:        deps.Overlay,
 		settings:       deps.Settings,
 		webViews:       make(map[entity.PaneID]*webkit.WebView),
 		cancel:         cancel,
-	}
-	if app.overlay == nil {
-		app.overlay = component.NewOverlayController(ctx)
 	}
 	if app.router == nil {
 		app.router = webkit.NewMessageRouter(ctx)
@@ -140,15 +133,17 @@ func (a *App) onActivate(ctx context.Context) {
 
 	// Create the main window
 	var err error
-	a.mainWindow, err = window.New(a.gtkApp, a.deps.Config, a.deps.Logger)
+	a.mainWindow, err = window.New(ctx, a.gtkApp, a.deps.Config)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create main window")
 		return
 	}
 
-	// Apply GTK CSS styling for tab bar
-	if display := a.mainWindow.Window().GetDisplay(); display != nil {
-		theme.ApplyCSS(display)
+	// Apply GTK CSS styling from theme manager
+	if a.deps.Theme != nil {
+		if display := a.mainWindow.Window().GetDisplay(); display != nil {
+			a.deps.Theme.ApplyToDisplay(ctx, display)
+		}
 	}
 
 	// Initialize widget factory for pane layout
@@ -158,7 +153,6 @@ func (a *App) onActivate(ctx context.Context) {
 	a.keyboardHandler = input.NewKeyboardHandler(
 		ctx,
 		&a.deps.Config.Workspace,
-		a.deps.Logger,
 	)
 	a.keyboardHandler.SetOnAction(a.handleKeyboardAction)
 	// Wrap handleModeChange to match the callback signature
@@ -182,10 +176,6 @@ func (a *App) onActivate(ctx context.Context) {
 		log.Debug().Msg("native omnibox created")
 	} else {
 		log.Warn().Msg("failed to create native omnibox")
-	}
-
-	if err := a.registerMessageHandlers(ctx); err != nil {
-		log.Warn().Err(err).Msg("failed to register message handlers")
 	}
 
 	// Create an initial tab
@@ -276,9 +266,8 @@ func (a *App) Quit() {
 func RunWithArgs(ctx context.Context, deps *Dependencies) int {
 	app, err := New(deps)
 	if err != nil {
-		if deps.Logger != nil {
-			deps.Logger.Error().Err(err).Msg("failed to create application")
-		}
+		log := logging.FromContext(ctx)
+		log.Error().Err(err).Msg("failed to create application")
 		return 1
 	}
 	return app.Run(ctx, os.Args)
@@ -491,7 +480,7 @@ func (a *App) createWorkspaceView(ctx context.Context, tab *entity.Tab) {
 	}
 
 	// Create workspace view
-	wsView := component.NewWorkspaceView(a.widgetFactory, *a.deps.Logger)
+	wsView := component.NewWorkspaceView(ctx, a.widgetFactory)
 	if wsView == nil {
 		log.Error().Msg("failed to create workspace view")
 		return
@@ -675,52 +664,6 @@ func (a *App) handlePaneFocus(ctx context.Context, direction usecase.NavigateDir
 	}
 
 	log.Debug().Str("direction", string(direction)).Str("new_pane_id", newPane.ID).Msg("focus navigated")
-
-	return nil
-}
-
-// registerMessageHandlers wires frontend message types to Go handlers.
-func (a *App) registerMessageHandlers(ctx context.Context) error {
-	if a.router == nil {
-		return fmt.Errorf("message router is nil")
-	}
-
-	// Omnibox search
-	if err := a.router.RegisterHandlerWithCallbacks("query", "__dumber_omnibox_suggestions", "", "", uihandler.NewQueryHandler(a.deps.HistoryUC, a.deps.Config)); err != nil {
-		return err
-	}
-	if err := a.router.RegisterHandlerWithCallbacks("omnibox_initial_history", "__dumber_omnibox_suggestions", "", "", uihandler.NewInitialHistoryHandler(a.deps.HistoryUC, a.deps.Config)); err != nil {
-		return err
-	}
-	if err := a.router.RegisterHandlerWithCallbacks("prefix_query", "__dumber_omnibox_inline_suggestion", "", "", uihandler.NewPrefixQueryHandler(a.deps.HistoryUC)); err != nil {
-		return err
-	}
-
-	// Navigation
-	if err := a.router.RegisterHandler("navigate", uihandler.NewNavigateHandler()); err != nil {
-		return err
-	}
-
-	// Favorites
-	if err := a.router.RegisterHandlerWithCallbacks("get_favorites", "__dumber_favorites", "", "", uihandler.NewFavoritesHandler(a.deps.FavoritesUC)); err != nil {
-		return err
-	}
-	if err := a.router.RegisterHandlerWithCallbacks("toggle_favorite", "__dumber_favorites", "", "", uihandler.NewToggleFavoriteHandler(a.deps.FavoritesUC)); err != nil {
-		return err
-	}
-
-	// Shortcuts + palettes
-	if err := a.router.RegisterHandlerWithCallbacks("get_search_shortcuts", "__dumber_search_shortcuts", "__dumber_search_shortcuts_error", "", uihandler.NewShortcutsHandler(a.deps.Config)); err != nil {
-		return err
-	}
-	if err := a.router.RegisterHandlerWithCallbacks("get_color_palettes", "__dumber_color_palettes", "__dumber_color_palettes_error", "", uihandler.NewPaletteHandler(a.deps.Config)); err != nil {
-		return err
-	}
-
-	// Keyboard blocking
-	if err := a.router.RegisterHandler("keyboard_blocking", uihandler.NewKeyboardBlockingHandler()); err != nil {
-		return err
-	}
 
 	return nil
 }

@@ -1,8 +1,10 @@
 package layout
 
 import (
+	"context"
 	"sync"
 
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/rs/zerolog"
 )
 
@@ -25,7 +27,9 @@ const maxRetryFrames = 120
 
 // NewSplitView creates a new split view with the given orientation and children.
 // The ratio determines the initial divider position (0.0-1.0).
-func NewSplitView(factory WidgetFactory, logger zerolog.Logger, orientation Orientation, startChild, endChild Widget, ratio float64) *SplitView {
+func NewSplitView(ctx context.Context, factory WidgetFactory, orientation Orientation, startChild, endChild Widget, ratio float64) *SplitView {
+	log := logging.FromContext(ctx)
+
 	paned := factory.NewPaned(orientation)
 
 	// Configure resize behavior - both children should resize
@@ -41,7 +45,7 @@ func NewSplitView(factory WidgetFactory, logger zerolog.Logger, orientation Orie
 		startChild:  startChild,
 		endChild:    endChild,
 		ratio:       clampRatio(ratio),
-		logger:      logger.With().Str("component", "split-view").Logger(),
+		logger:      log.With().Str("component", "split-view").Logger(),
 	}
 
 	// Set children

@@ -2,10 +2,12 @@
 package component
 
 import (
+	"context"
 	"errors"
 	"sync"
 
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/rs/zerolog"
 )
@@ -67,7 +69,9 @@ func (a *paneViewFactoryAdapter) CreatePaneView(node *entity.PaneNode) layout.Wi
 }
 
 // NewWorkspaceView creates a new workspace view.
-func NewWorkspaceView(factory layout.WidgetFactory, logger zerolog.Logger) *WorkspaceView {
+func NewWorkspaceView(ctx context.Context, factory layout.WidgetFactory) *WorkspaceView {
+	log := logging.FromContext(ctx)
+
 	container := factory.NewBox(layout.OrientationVertical, 0)
 	container.SetHexpand(true)
 	container.SetVexpand(true)
@@ -76,12 +80,12 @@ func NewWorkspaceView(factory layout.WidgetFactory, logger zerolog.Logger) *Work
 	wv := &WorkspaceView{
 		factory:   factory,
 		container: container,
-		logger:    logger.With().Str("component", "workspace-view").Logger(),
+		logger:    log.With().Str("component", "workspace-view").Logger(),
 		paneViews: make(map[entity.PaneID]*PaneView),
 	}
 
 	// Create tree renderer with our adapter as the pane view factory
-	wv.treeRenderer = layout.NewTreeRenderer(factory, &paneViewFactoryAdapter{wv: wv}, wv.logger)
+	wv.treeRenderer = layout.NewTreeRenderer(ctx, factory, &paneViewFactoryAdapter{wv: wv})
 
 	return wv
 }

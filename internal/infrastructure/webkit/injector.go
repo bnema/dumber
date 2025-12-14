@@ -3,11 +3,8 @@ package webkit
 import (
 	"context"
 	"fmt"
-	"os"
-	"strings"
 
 	"github.com/bnema/dumber/assets"
-	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
 )
@@ -19,42 +16,18 @@ const (
 	MessageHandlerName = "dumber"
 )
 
-// ContentInjector encapsulates script and style injection into WebViews.
-// It wraps WebKit's UserContentManager to load our frontend assets.
+// ContentInjector encapsulates script injection into WebViews.
+// It injects minimal scripts for dark mode detection in web pages.
 type ContentInjector struct {
-	allowList   []string
-	blockList   []string
 	prefersDark bool
 }
 
-// NewContentInjector creates a new injector instance with config-based dark mode detection.
-func NewContentInjector(ctx context.Context, cfg *config.Config) *ContentInjector {
-	ci := &ContentInjector{}
-	ci.resolveColorScheme(ctx, cfg)
-	return ci
-}
-
-// resolveColorScheme determines dark mode preference from config or system.
-func (ci *ContentInjector) resolveColorScheme(ctx context.Context, cfg *config.Config) {
-	log := logging.FromContext(ctx)
-
-	if cfg != nil {
-		switch cfg.Appearance.ColorScheme {
-		case "prefer-dark", "dark":
-			ci.prefersDark = true
-			log.Debug().Bool("prefers_dark", true).Msg("color scheme from config: dark")
-			return
-		case "prefer-light", "light":
-			ci.prefersDark = false
-			log.Debug().Bool("prefers_dark", false).Msg("color scheme from config: light")
-			return
-		}
+// NewContentInjector creates a new injector instance.
+// The prefersDark parameter should come from ThemeManager.PrefersDark().
+func NewContentInjector(prefersDark bool) *ContentInjector {
+	return &ContentInjector{
+		prefersDark: prefersDark,
 	}
-
-	// Fallback: detect from GTK_THEME environment variable
-	gtkTheme := os.Getenv("GTK_THEME")
-	ci.prefersDark = strings.Contains(strings.ToLower(gtkTheme), "dark")
-	log.Debug().Bool("prefers_dark", ci.prefersDark).Str("gtk_theme", gtkTheme).Msg("color scheme from environment")
 }
 
 // PrefersDark returns the current dark mode preference.
@@ -62,13 +35,17 @@ func (ci *ContentInjector) PrefersDark() bool {
 	return ci.prefersDark
 }
 
-// SetURLFilters configures optional allow/block lists for script/style injection.
-func (ci *ContentInjector) SetURLFilters(allowList, blockList []string) {
-	ci.allowList = allowList
-	ci.blockList = blockList
+// SetPrefersDark updates the dark mode preference.
+// Call this when theme changes at runtime.
+func (ci *ContentInjector) SetPrefersDark(prefersDark bool) {
+	ci.prefersDark = prefersDark
 }
 
-// InjectScripts adds the bootstrap and GUI scripts to the given content manager.
+// InjectScripts adds the minimal dark mode detection scripts to the given content manager.
+// Only injects:
+// - window.__dumber_gtk_prefers_dark flag
+// - window.__dumber_webview_id (for debugging)
+// - color-scheme.js (patches matchMedia for prefers-color-scheme)
 func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserContentManager, webviewID WebViewID) {
 	log := logging.FromContext(ctx).With().Str("component", "content-injector").Logger()
 
@@ -86,7 +63,7 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		log.Debug().Str("script", label).Msg("injected user script")
 	}
 
-	// Inject GTK dark mode preference for color-scheme.js (must be before ColorSchemeScript)
+	// 1. Inject GTK dark mode preference (must be before color-scheme.js)
 	darkModeScript := fmt.Sprintf("window.__dumber_gtk_prefers_dark=%t;", ci.prefersDark)
 	addScript(
 		webkit.NewUserScript(
@@ -99,11 +76,9 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		"gtk-dark-mode",
 	)
 
-	// Expose the WebView ID early so JS can tag outgoing messages.
-	// Inject in both main world and isolated world since they have separate window objects.
+	// 2. Inject WebView ID for debugging
 	if webviewID != 0 {
 		idScript := fmt.Sprintf("window.__dumber_webview_id=%d;", uint64(webviewID))
-		// Main world injection
 		addScript(
 			webkit.NewUserScript(
 				idScript,
@@ -114,21 +89,9 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 			),
 			"webview-id",
 		)
-		// Isolated world injection
-		addScript(
-			webkit.NewUserScriptForWorld(
-				idScript,
-				webkit.UserContentInjectTopFrameValue,
-				webkit.UserScriptInjectAtDocumentStartValue,
-				ScriptWorldName,
-				nil,
-				nil,
-			),
-			"webview-id-isolated",
-		)
 	}
 
-	// Inject color-scheme handler (uses __dumber_gtk_prefers_dark)
+	// 3. Inject color-scheme handler (uses __dumber_gtk_prefers_dark to patch matchMedia)
 	if assets.ColorSchemeScript != "" {
 		addScript(
 			webkit.NewUserScript(
@@ -140,72 +103,9 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 			),
 			"color-scheme",
 		)
-	}
-
-	if assets.MainWorldScript != "" {
-		addScript(
-			webkit.NewUserScript(
-				assets.MainWorldScript,
-				webkit.UserContentInjectTopFrameValue,
-				webkit.UserScriptInjectAtDocumentStartValue,
-				ci.allowList,
-				ci.blockList,
-			),
-			"main-world",
-		)
 	} else {
-		log.Warn().Msg("MainWorldScript asset is empty; skipping injection")
+		log.Warn().Msg("ColorSchemeScript asset is empty; dark mode may not work correctly")
 	}
 
-	if assets.GUIScript != "" {
-		addScript(
-			webkit.NewUserScriptForWorld(
-				assets.GUIScript,
-				webkit.UserContentInjectTopFrameValue,
-				webkit.UserScriptInjectAtDocumentEndValue,
-				ScriptWorldName,
-				ci.allowList,
-				ci.blockList,
-			),
-			"gui-world",
-		)
-	} else {
-		log.Warn().Msg("GUIScript asset is empty; skipping injection")
-	}
-}
-
-// InjectStyles injects component CSS as a JS variable into the isolated world.
-// The shadow DOM code reads window.__dumber_component_styles and injects it into the shadow root.
-func (ci *ContentInjector) InjectStyles(ctx context.Context, ucm *webkit.UserContentManager) {
-	log := logging.FromContext(ctx).With().Str("component", "content-injector").Logger()
-
-	if ucm == nil {
-		log.Warn().Msg("cannot inject styles: user content manager is nil")
-		return
-	}
-
-	if assets.ComponentStyles == "" {
-		log.Warn().Msg("ComponentStyles asset is empty; skipping injection")
-		return
-	}
-
-	// Inject CSS as a JS string variable in isolated world at document-start
-	// The shadow DOM code (shadowHost.ts) reads this and injects into shadow root
-	// Using %q properly escapes the CSS for JavaScript
-	componentStylesScript := fmt.Sprintf("window.__dumber_component_styles=%q;", assets.ComponentStyles)
-	script := webkit.NewUserScriptForWorld(
-		componentStylesScript,
-		webkit.UserContentInjectTopFrameValue,
-		webkit.UserScriptInjectAtDocumentStartValue,
-		ScriptWorldName,
-		nil,
-		nil,
-	)
-	if script == nil {
-		log.Warn().Msg("failed to create component styles script")
-		return
-	}
-
-	ucm.AddScript(script)
-	log.Debug().Int("css_bytes", len(assets.ComponentStyles)).Msg("injected component styles")
+	log.Debug().Bool("prefers_dark", ci.prefersDark).Msg("minimal scripts injected")
 }

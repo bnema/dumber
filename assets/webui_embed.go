@@ -2,19 +2,16 @@ package assets
 
 import _ "embed"
 
-// WebUI scripts embedded at compile time
-
-//go:embed webui/main-world.min.js
-var MainWorldScript string
-
-//go:embed webui/gui.min.js
-var GUIScript string
-
+// ColorSchemeScript handles dark mode detection in web pages.
+// It patches window.matchMedia for prefers-color-scheme queries
+// based on the __dumber_gtk_prefers_dark flag injected by Go.
+//
 //go:embed webui/color-scheme.js
 var ColorSchemeScript string
 
-// GUI component styles extracted from Svelte components
-// These are injected into the isolated world using UserStyleSheet
-//
-//go:embed webui/gui.min.css
+// Deprecated: These variables are kept for backwards compatibility during migration.
+// They will be removed once all JS handlers are deprecated.
+// The actual files may not exist - check before using.
+var MainWorldScript string
+var GUIScript string
 var ComponentStyles string
