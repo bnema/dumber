@@ -55,6 +55,8 @@ func (c *NavigationCoordinator) Navigate(ctx context.Context, url string) error 
 	if ws != nil {
 		if pane := ws.ActivePane(); pane != nil && pane.Pane != nil {
 			paneID = string(pane.Pane.ID)
+			// Track original URL for cross-domain redirect favicon caching
+			c.contentCoord.SetNavigationOrigin(pane.Pane.ID, url)
 		}
 	}
 

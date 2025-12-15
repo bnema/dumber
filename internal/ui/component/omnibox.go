@@ -10,6 +10,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/dumber/internal/ui/cache"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/glib"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
@@ -71,6 +72,7 @@ type Omnibox struct {
 	// Dependencies
 	historyUC       *usecase.SearchHistoryUseCase
 	favoritesUC     *usecase.ManageFavoritesUseCase
+	faviconCache    *cache.FaviconCache
 	shortcuts       map[string]config.SearchShortcut
 	defaultSearch   string
 	initialBehavior string
@@ -90,6 +92,7 @@ type Omnibox struct {
 type OmniboxConfig struct {
 	HistoryUC       *usecase.SearchHistoryUseCase
 	FavoritesUC     *usecase.ManageFavoritesUseCase
+	FaviconCache    *cache.FaviconCache
 	Shortcuts       map[string]config.SearchShortcut
 	DefaultSearch   string
 	InitialBehavior string
@@ -105,6 +108,7 @@ func NewOmnibox(ctx context.Context, parent *gtk.ApplicationWindow, cfg OmniboxC
 		selectedIndex:   -1,
 		historyUC:       cfg.HistoryUC,
 		favoritesUC:     cfg.FavoritesUC,
+		faviconCache:    cfg.FaviconCache,
 		shortcuts:       cfg.Shortcuts,
 		defaultSearch:   cfg.DefaultSearch,
 		initialBehavior: cfg.InitialBehavior,
@@ -535,8 +539,34 @@ func (o *Omnibox) rebuildList() {
 	}
 }
 
-// createSuggestionRow creates a ListBoxRow for a suggestion.
-func (o *Omnibox) createSuggestionRow(s Suggestion, index int) *gtk.ListBoxRow {
+// createFaviconImage creates a favicon image with async loading from cache.
+func (o *Omnibox) createFaviconImage(url, fallbackIcon string) *gtk.Image {
+	favicon := gtk.NewImage()
+	if favicon == nil {
+		return nil
+	}
+	favicon.SetFromIconName(&fallbackIcon)
+	favicon.SetPixelSize(16)
+	favicon.AddCssClass("omnibox-favicon")
+
+	// Async load favicon from cache
+	if o.faviconCache != nil && url != "" {
+		o.faviconCache.GetOrFetch(o.ctx, url, func(texture *gdk.Texture) {
+			if texture != nil {
+				var cb glib.SourceFunc = func(data uintptr) bool {
+					favicon.SetFromPaintable(texture)
+					return false
+				}
+				glib.IdleAdd(&cb, 0)
+			}
+		})
+	}
+
+	return favicon
+}
+
+// createRowWithFavicon creates a ListBoxRow with favicon, title, and shortcut badge.
+func (o *Omnibox) createRowWithFavicon(url, title, fallbackIcon string, index int) *gtk.ListBoxRow {
 	row := gtk.NewListBoxRow()
 	if row == nil {
 		return nil
@@ -549,14 +579,19 @@ func (o *Omnibox) createSuggestionRow(s Suggestion, index int) *gtk.ListBoxRow {
 	}
 	box.SetHexpand(true)
 
-	// URL/Title label
-	displayText := s.Title
+	// Favicon image
+	if favicon := o.createFaviconImage(url, fallbackIcon); favicon != nil {
+		box.Append(&favicon.Widget)
+	}
+
+	// Title label
+	displayText := title
 	if displayText == "" {
-		displayText = s.URL
+		displayText = url
 	}
 	label := gtk.NewLabel(nil)
 	if label != nil {
-		label.SetText(displayText) // Explicitly set text
+		label.SetText(displayText)
 		label.AddCssClass("omnibox-suggestion-title")
 		label.SetHalign(gtk.AlignStartValue)
 		label.SetHexpand(true)
@@ -582,51 +617,14 @@ func (o *Omnibox) createSuggestionRow(s Suggestion, index int) *gtk.ListBoxRow {
 	return row
 }
 
+// createSuggestionRow creates a ListBoxRow for a suggestion.
+func (o *Omnibox) createSuggestionRow(s Suggestion, index int) *gtk.ListBoxRow {
+	return o.createRowWithFavicon(s.URL, s.Title, "web-browser-symbolic", index)
+}
+
 // createFavoriteRow creates a ListBoxRow for a favorite.
 func (o *Omnibox) createFavoriteRow(f Favorite, index int) *gtk.ListBoxRow {
-	row := gtk.NewListBoxRow()
-	if row == nil {
-		return nil
-	}
-	row.AddCssClass("omnibox-row")
-
-	box := gtk.NewBox(gtk.OrientationHorizontalValue, 8)
-	if box == nil {
-		return nil
-	}
-	box.SetHexpand(true)
-
-	// Title label
-	displayText := f.Title
-	if displayText == "" {
-		displayText = f.URL
-	}
-	label := gtk.NewLabel(nil)
-	if label != nil {
-		label.SetText(displayText)
-		label.AddCssClass("omnibox-suggestion-title")
-		label.SetHalign(gtk.AlignStartValue)
-		label.SetHexpand(true)
-		label.SetEllipsize(2)
-		box.Append(&label.Widget)
-	}
-
-	// Shortcut badge (Ctrl+1-9, Ctrl+0 for 10th)
-	if index <= 9 {
-		shortcutLabel := gtk.NewLabel(nil)
-		if shortcutLabel != nil {
-			if index < 9 {
-				shortcutLabel.SetText(formatShortcut(index + 1))
-			} else {
-				shortcutLabel.SetText("Ctrl+0")
-			}
-			shortcutLabel.AddCssClass("omnibox-shortcut-badge")
-			box.Append(&shortcutLabel.Widget)
-		}
-	}
-
-	row.SetChild(&box.Widget)
-	return row
+	return o.createRowWithFavicon(f.URL, f.Title, "starred-symbolic", index)
 }
 
 // selectIndex selects a row by index.

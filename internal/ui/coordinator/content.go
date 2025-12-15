@@ -8,18 +8,26 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/dumber/internal/ui/cache"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/layout"
+	"github.com/jwijenbergh/puregotk/v4/gdk"
 )
 
 // ContentCoordinator manages WebView lifecycle, title tracking, and content attachment.
 type ContentCoordinator struct {
 	pool          *webkit.WebViewPool
 	widgetFactory layout.WidgetFactory
+	faviconCache  *cache.FaviconCache
 
 	webViews   map[entity.PaneID]*webkit.WebView
 	paneTitles map[entity.PaneID]string
 	titleMu    sync.RWMutex
+
+	// Track original navigation URLs to handle cross-domain redirects
+	// e.g., google.fr → google.com: cache favicon under both domains
+	navOrigins  map[entity.PaneID]string
+	navOriginMu sync.RWMutex
 
 	// Callback to get active workspace state (avoids circular dependency)
 	getActiveWS func() (*entity.Workspace, *component.WorkspaceView)
@@ -30,6 +38,7 @@ func NewContentCoordinator(
 	ctx context.Context,
 	pool *webkit.WebViewPool,
 	widgetFactory layout.WidgetFactory,
+	faviconCache *cache.FaviconCache,
 	getActiveWS func() (*entity.Workspace, *component.WorkspaceView),
 ) *ContentCoordinator {
 	log := logging.FromContext(ctx)
@@ -38,8 +47,10 @@ func NewContentCoordinator(
 	return &ContentCoordinator{
 		pool:          pool,
 		widgetFactory: widgetFactory,
+		faviconCache:  faviconCache,
 		webViews:      make(map[entity.PaneID]*webkit.WebView),
 		paneTitles:    make(map[entity.PaneID]string),
+		navOrigins:    make(map[entity.PaneID]string),
 		getActiveWS:   getActiveWS,
 	}
 }
@@ -68,6 +79,11 @@ func (c *ContentCoordinator) EnsureWebView(ctx context.Context, paneID entity.Pa
 		c.onTitleChanged(ctx, paneID, title)
 	}
 
+	// Set up favicon change callback
+	wv.OnFaviconChanged = func(favicon *gdk.Texture) {
+		c.onFaviconChanged(ctx, paneID, favicon)
+	}
+
 	log.Debug().Str("pane_id", string(paneID)).Msg("webview acquired for pane")
 	return wv, nil
 }
@@ -86,6 +102,11 @@ func (c *ContentCoordinator) ReleaseWebView(ctx context.Context, paneID entity.P
 	c.titleMu.Lock()
 	delete(c.paneTitles, paneID)
 	c.titleMu.Unlock()
+
+	// Clean up navigation origin tracking
+	c.navOriginMu.Lock()
+	delete(c.navOrigins, paneID)
+	c.navOriginMu.Unlock()
 
 	if c.pool != nil {
 		c.pool.Release(wv)
@@ -240,4 +261,88 @@ func (c *ContentCoordinator) updateStackedPaneTitle(ctx context.Context, ws *ent
 			}
 		}
 	}
+}
+
+// onFaviconChanged updates favicon tracking when a WebView's favicon changes.
+func (c *ContentCoordinator) onFaviconChanged(ctx context.Context, paneID entity.PaneID, favicon *gdk.Texture) {
+	log := logging.FromContext(ctx)
+
+	// Get current URI to extract domain for caching
+	wv := c.webViews[paneID]
+	if wv == nil {
+		return
+	}
+	uri := wv.URI()
+
+	// Update favicon cache with domain key (final URL after redirects)
+	if c.faviconCache != nil && favicon != nil && uri != "" {
+		c.faviconCache.SetByURL(uri, favicon)
+
+		// Also cache under original navigation URL to handle cross-domain redirects
+		// e.g., google.fr → google.com: cache favicon under both domains
+		c.navOriginMu.RLock()
+		originURL := c.navOrigins[paneID]
+		c.navOriginMu.RUnlock()
+		if originURL != "" && originURL != uri {
+			c.faviconCache.SetByURL(originURL, favicon)
+		}
+	}
+
+	// Update StackedView favicon if this pane is in a stack
+	ws, wsView := c.getActiveWS()
+	if wsView != nil {
+		tr := wsView.TreeRenderer()
+		if tr != nil {
+			stackedView := tr.GetStackedViewForPane(string(paneID))
+			if stackedView != nil {
+				c.updateStackedPaneFavicon(ctx, ws, stackedView, paneID, favicon)
+			}
+		}
+	}
+
+	log.Debug().
+		Str("pane_id", string(paneID)).
+		Str("uri", uri).
+		Bool("has_favicon", favicon != nil).
+		Msg("pane favicon updated")
+}
+
+// updateStackedPaneFavicon updates the favicon of a pane in a StackedView.
+func (c *ContentCoordinator) updateStackedPaneFavicon(ctx context.Context, ws *entity.Workspace, sv *layout.StackedView, paneID entity.PaneID, favicon *gdk.Texture) {
+	log := logging.FromContext(ctx)
+
+	if ws == nil {
+		return
+	}
+
+	paneNode := ws.FindPane(paneID)
+	if paneNode == nil {
+		return
+	}
+
+	// If the pane is in a stacked parent, find its index
+	if paneNode.Parent != nil && paneNode.Parent.IsStacked {
+		for i, child := range paneNode.Parent.Children {
+			if child.Pane != nil && child.Pane.ID == paneID {
+				if err := sv.UpdateFaviconTexture(i, favicon); err != nil {
+					log.Warn().Err(err).Int("index", i).Msg("failed to update stacked pane favicon")
+				}
+				return
+			}
+		}
+	}
+}
+
+// FaviconCache returns the favicon cache for external use (e.g., omnibox).
+func (c *ContentCoordinator) FaviconCache() *cache.FaviconCache {
+	return c.faviconCache
+}
+
+// SetNavigationOrigin records the original URL before navigation starts.
+// This allows caching favicons under both original and final domains
+// when cross-domain redirects occur (e.g., google.fr → google.com).
+func (c *ContentCoordinator) SetNavigationOrigin(paneID entity.PaneID, url string) {
+	c.navOriginMu.Lock()
+	c.navOrigins[paneID] = url
+	c.navOriginMu.Unlock()
 }

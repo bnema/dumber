@@ -13,6 +13,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/dumber/internal/ui/cache"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
 	"github.com/bnema/dumber/internal/ui/dispatcher"
@@ -61,10 +62,11 @@ type App struct {
 	omnibox *component.Omnibox
 
 	// Web content (managed by ContentCoordinator)
-	pool     *webkit.WebViewPool
-	injector *webkit.ContentInjector
-	router   *webkit.MessageRouter
-	settings *webkit.SettingsManager
+	pool         *webkit.WebViewPool
+	injector     *webkit.ContentInjector
+	router       *webkit.MessageRouter
+	settings     *webkit.SettingsManager
+	faviconCache *cache.FaviconCache
 
 	// ID generator for tabs/panes
 	idCounter uint64
@@ -190,6 +192,7 @@ func (a *App) onActivate(ctx context.Context) {
 	a.omnibox = component.NewOmnibox(ctx, a.mainWindow.Window(), component.OmniboxConfig{
 		HistoryUC:       a.deps.HistoryUC,
 		FavoritesUC:     a.deps.FavoritesUC,
+		FaviconCache:    a.faviconCache,
 		Shortcuts:       a.deps.Config.SearchShortcuts,
 		DefaultSearch:   a.deps.Config.DefaultSearchEngine,
 		InitialBehavior: a.deps.Config.Omnibox.InitialBehavior,
@@ -241,11 +244,19 @@ func (a *App) initCoordinators(ctx context.Context) {
 		return a.activeWorkspace(), a.activeWorkspaceView()
 	}
 
+	// Create FaviconCache with FaviconDatabase from WebKitContext
+	if a.deps.WebContext != nil {
+		a.faviconCache = cache.NewFaviconCache(a.deps.WebContext.FaviconDatabase())
+	} else {
+		a.faviconCache = cache.NewFaviconCache(nil)
+	}
+
 	// 1. Content Coordinator (no dependencies on other coordinators)
 	a.contentCoord = coordinator.NewContentCoordinator(
 		ctx,
 		a.pool,
 		a.widgetFactory,
+		a.faviconCache,
 		getActiveWS,
 	)
 
