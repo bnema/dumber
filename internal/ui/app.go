@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"sync"
 
@@ -15,6 +14,8 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
+	"github.com/bnema/dumber/internal/ui/coordinator"
+	"github.com/bnema/dumber/internal/ui/dispatcher"
 	"github.com/bnema/dumber/internal/ui/focus"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
@@ -36,7 +37,14 @@ type App struct {
 	tabs   *entity.TabList
 	tabsUC *usecase.ManageTabsUseCase
 
-	// Pane management
+	// Coordinators (new architecture)
+	contentCoord *coordinator.ContentCoordinator
+	tabCoord     *coordinator.TabCoordinator
+	wsCoord      *coordinator.WorkspaceCoordinator
+	navCoord     *coordinator.NavigationCoordinator
+	kbDispatcher *dispatcher.KeyboardDispatcher
+
+	// Pane management (used by coordinators)
 	panesUC        *usecase.ManagePanesUseCase
 	workspaceViews map[entity.TabID]*component.WorkspaceView
 	widgetFactory  layout.WidgetFactory
@@ -52,14 +60,11 @@ type App struct {
 	// Native omnibox
 	omnibox *component.Omnibox
 
-	// Web content
-	pool       *webkit.WebViewPool
-	injector   *webkit.ContentInjector
-	router     *webkit.MessageRouter
-	settings   *webkit.SettingsManager
-	webViews   map[entity.PaneID]*webkit.WebView
-	paneTitles map[entity.PaneID]string // Dynamic title tracking
-	titleMu    sync.RWMutex
+	// Web content (managed by ContentCoordinator)
+	pool     *webkit.WebViewPool
+	injector *webkit.ContentInjector
+	router   *webkit.MessageRouter
+	settings *webkit.SettingsManager
 
 	// ID generator for tabs/panes
 	idCounter uint64
@@ -87,8 +92,6 @@ func New(deps *Dependencies) (*App, error) {
 		injector:       deps.Injector,
 		router:         deps.MessageRouter,
 		settings:       deps.Settings,
-		webViews:       make(map[entity.PaneID]*webkit.WebView),
-		paneTitles:     make(map[entity.PaneID]string),
 		cancel:         cancel,
 	}
 	if app.router == nil {
@@ -167,13 +170,17 @@ func (a *App) onActivate(ctx context.Context) {
 	// Initialize border manager for mode indicators
 	a.borderMgr = focus.NewBorderManager(a.widgetFactory)
 
-	// Create keyboard handler
+	// Initialize coordinators
+	a.initCoordinators(ctx)
+
+	// Create keyboard handler and wire to dispatcher
 	a.keyboardHandler = input.NewKeyboardHandler(
 		ctx,
 		&a.deps.Config.Workspace,
 	)
-	a.keyboardHandler.SetOnAction(a.handleKeyboardAction)
-	// Wrap handleModeChange to match the callback signature
+	a.keyboardHandler.SetOnAction(func(ctx context.Context, action input.Action) error {
+		return a.kbDispatcher.Dispatch(ctx, action)
+	})
 	a.keyboardHandler.SetOnModeChange(func(from, to input.Mode) {
 		a.handleModeChange(ctx, from, to)
 	})
@@ -189,15 +196,18 @@ func (a *App) onActivate(ctx context.Context) {
 	})
 	if a.omnibox != nil {
 		a.omnibox.SetOnNavigate(func(url string) {
-			a.navigateActivePane(ctx, url)
+			a.navCoord.Navigate(ctx, url)
 		})
+		a.navCoord.SetOmnibox(a.omnibox)
 		log.Debug().Msg("native omnibox created")
 	} else {
 		log.Warn().Msg("failed to create native omnibox")
 	}
 
-	// Create an initial tab
-	a.createInitialTab(ctx)
+	// Create an initial tab using coordinator
+	if _, err := a.tabCoord.Create(ctx, "https://duckduckgo.com"); err != nil {
+		log.Error().Err(err).Msg("failed to create initial tab")
+	}
 
 	// Show the window
 	a.mainWindow.Show()
@@ -221,38 +231,67 @@ func (a *App) onShutdown(ctx context.Context) {
 	log.Info().Msg("application shutdown complete")
 }
 
-// createInitialTab creates the first tab when the application starts.
-func (a *App) createInitialTab(ctx context.Context) {
+// initCoordinators initializes all coordinators and wires their callbacks.
+func (a *App) initCoordinators(ctx context.Context) {
 	log := logging.FromContext(ctx)
+	log.Debug().Msg("initializing coordinators")
 
-	if a.tabsUC == nil {
-		// Create use case if not injected
-		a.tabsUC = usecase.NewManageTabsUseCase(a.generateID)
+	// Helper to get active workspace and view
+	getActiveWS := func() (*entity.Workspace, *component.WorkspaceView) {
+		return a.activeWorkspace(), a.activeWorkspaceView()
 	}
 
-	output, err := a.tabsUC.Create(ctx, usecase.CreateTabInput{
-		TabList:    a.tabs,
-		Name:       "",
-		InitialURL: "https://duckduckgo.com",
+	// 1. Content Coordinator (no dependencies on other coordinators)
+	a.contentCoord = coordinator.NewContentCoordinator(
+		ctx,
+		a.pool,
+		a.widgetFactory,
+		getActiveWS,
+	)
+
+	// 2. Tab Coordinator
+	a.tabCoord = coordinator.NewTabCoordinator(ctx, coordinator.TabCoordinatorConfig{
+		TabsUC:     a.tabsUC,
+		Tabs:       a.tabs,
+		MainWindow: a.mainWindow,
+		Config:     a.deps.Config,
 	})
-	if err != nil {
-		log.Error().Err(err).Msg("failed to create initial tab")
-		return
-	}
+	a.tabCoord.SetOnTabCreated(func(ctx context.Context, tab *entity.Tab) {
+		a.createWorkspaceView(ctx, tab)
+	})
+	a.tabCoord.SetOnQuit(a.Quit)
 
-	// Update tab bar
-	if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
-		a.mainWindow.TabBar().AddTab(output.Tab)
-		a.mainWindow.TabBar().SetActive(output.Tab.ID)
-	}
+	// 3. Workspace Coordinator
+	a.wsCoord = coordinator.NewWorkspaceCoordinator(ctx, coordinator.WorkspaceCoordinatorConfig{
+		PanesUC:        a.panesUC,
+		FocusMgr:       a.focusMgr,
+		StackedPaneMgr: a.stackedPaneMgr,
+		WidgetFactory:  a.widgetFactory,
+		ContentCoord:   a.contentCoord,
+		GetActiveWS:    getActiveWS,
+		GenerateID:     a.generateID,
+	})
+	a.wsCoord.SetOnCloseLastPane(func(ctx context.Context) error {
+		return a.tabCoord.Close(ctx)
+	})
 
-	// Update tab bar visibility (hide if only 1 tab)
-	a.updateTabBarVisibility(ctx)
+	// 4. Navigation Coordinator
+	a.navCoord = coordinator.NewNavigationCoordinator(
+		ctx,
+		a.deps.NavigateUC,
+		a.contentCoord,
+	)
 
-	// Create workspace view for this tab
-	a.createWorkspaceView(ctx, output.Tab)
+	// 5. Keyboard Dispatcher
+	a.kbDispatcher = dispatcher.NewKeyboardDispatcher(
+		ctx,
+		a.tabCoord,
+		a.wsCoord,
+		a.navCoord,
+	)
+	a.kbDispatcher.SetOnQuit(a.Quit)
 
-	log.Debug().Str("tab_id", string(output.Tab.ID)).Msg("initial tab created")
+	log.Debug().Msg("coordinators initialized")
 }
 
 // generateID generates a unique ID for tabs and panes.
@@ -291,87 +330,6 @@ func RunWithArgs(ctx context.Context, deps *Dependencies) int {
 	return app.Run(ctx, os.Args)
 }
 
-// handleKeyboardAction dispatches keyboard actions to appropriate handlers.
-func (a *App) handleKeyboardAction(ctx context.Context, action input.Action) error {
-	log := logging.FromContext(ctx)
-	log.Debug().Str("action", string(action)).Msg("handling keyboard action")
-
-	switch action {
-	// Tab actions
-	case input.ActionNewTab:
-		return a.handleNewTab(ctx)
-	case input.ActionCloseTab:
-		return a.handleCloseTab(ctx)
-	case input.ActionNextTab:
-		return a.handleNextTab(ctx)
-	case input.ActionPreviousTab:
-		return a.handlePreviousTab(ctx)
-
-	// Pane actions
-	case input.ActionSplitRight:
-		return a.handlePaneSplit(ctx, usecase.SplitRight)
-	case input.ActionSplitLeft:
-		return a.handlePaneSplit(ctx, usecase.SplitLeft)
-	case input.ActionSplitUp:
-		return a.handlePaneSplit(ctx, usecase.SplitUp)
-	case input.ActionSplitDown:
-		return a.handlePaneSplit(ctx, usecase.SplitDown)
-	case input.ActionClosePane:
-		return a.handleClosePane(ctx)
-	case input.ActionStackPane:
-		return a.handleStackPane(ctx)
-	case input.ActionFocusRight:
-		return a.handlePaneFocus(ctx, usecase.NavRight)
-	case input.ActionFocusLeft:
-		return a.handlePaneFocus(ctx, usecase.NavLeft)
-	case input.ActionFocusUp:
-		return a.handlePaneFocus(ctx, usecase.NavUp)
-	case input.ActionFocusDown:
-		return a.handlePaneFocus(ctx, usecase.NavDown)
-
-	// Stack navigation
-	case input.ActionStackNavUp:
-		return a.handleStackNavigate(ctx, "up")
-	case input.ActionStackNavDown:
-		return a.handleStackNavigate(ctx, "down")
-
-	// Navigation (stub implementations for now)
-	case input.ActionGoBack:
-		log.Debug().Msg("go back action (not yet implemented)")
-	case input.ActionGoForward:
-		log.Debug().Msg("go forward action (not yet implemented)")
-	case input.ActionReload:
-		log.Debug().Msg("reload action (not yet implemented)")
-	case input.ActionHardReload:
-		log.Debug().Msg("hard reload action (not yet implemented)")
-
-	// Zoom (stub implementations for now)
-	case input.ActionZoomIn:
-		log.Debug().Msg("zoom in action (not yet implemented)")
-	case input.ActionZoomOut:
-		log.Debug().Msg("zoom out action (not yet implemented)")
-	case input.ActionZoomReset:
-		log.Debug().Msg("zoom reset action (not yet implemented)")
-
-	// UI
-	case input.ActionOpenOmnibox:
-		return a.openOmnibox(ctx)
-	case input.ActionOpenDevTools:
-		return a.openDevTools(ctx)
-	case input.ActionToggleFullscreen:
-		log.Debug().Msg("toggle fullscreen action (not yet implemented)")
-
-	// Application
-	case input.ActionQuit:
-		a.Quit()
-
-	default:
-		log.Warn().Str("action", string(action)).Msg("unhandled keyboard action")
-	}
-
-	return nil
-}
-
 // handleModeChange is called when the input mode changes.
 func (a *App) handleModeChange(ctx context.Context, from, to input.Mode) {
 	log := logging.FromContext(ctx)
@@ -381,124 +339,6 @@ func (a *App) handleModeChange(ctx context.Context, from, to input.Mode) {
 	if a.borderMgr != nil {
 		a.borderMgr.OnModeChange(ctx, from, to)
 	}
-}
-
-// handleNewTab creates a new tab.
-func (a *App) handleNewTab(ctx context.Context) error {
-	log := logging.FromContext(ctx)
-
-	output, err := a.tabsUC.Create(ctx, usecase.CreateTabInput{
-		TabList:    a.tabs,
-		Name:       "",
-		InitialURL: "about:blank",
-	})
-	if err != nil {
-		return err
-	}
-
-	if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
-		a.mainWindow.TabBar().AddTab(output.Tab)
-		a.mainWindow.TabBar().SetActive(output.Tab.ID)
-	}
-
-	// Update tab bar visibility
-	a.updateTabBarVisibility(ctx)
-
-	log.Debug().Str("tab_id", string(output.Tab.ID)).Msg("new tab created")
-
-	return nil
-}
-
-// handleCloseTab closes the active tab.
-func (a *App) handleCloseTab(ctx context.Context) error {
-	activeID := a.tabs.ActiveTabID
-	if activeID == "" {
-		return nil
-	}
-
-	wasLast, err := a.tabsUC.Close(ctx, a.tabs, activeID)
-	if err != nil {
-		return err
-	}
-
-	if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
-		a.mainWindow.TabBar().RemoveTab(activeID)
-
-		// Switch to new active tab if any
-		if a.tabs.ActiveTabID != "" {
-			a.mainWindow.TabBar().SetActive(a.tabs.ActiveTabID)
-		}
-	}
-
-	// Update tab bar visibility
-	a.updateTabBarVisibility(ctx)
-
-	// Quit if no tabs left
-	if wasLast {
-		a.Quit()
-	}
-
-	return nil
-}
-
-// updateTabBarVisibility shows or hides the tab bar based on tab count.
-// Tab bar is hidden when there's only 1 tab (configurable).
-func (a *App) updateTabBarVisibility(ctx context.Context) {
-	log := logging.FromContext(ctx)
-
-	// Debug: trace entry
-	hideEnabled := true
-	if a.deps.Config != nil {
-		hideEnabled = a.deps.Config.Workspace.HideTabBarWhenSingleTab
-	}
-	log.Debug().Bool("hide_enabled", hideEnabled).Msg("updateTabBarVisibility called")
-
-	// Check if feature is enabled
-	if a.deps.Config != nil && !a.deps.Config.Workspace.HideTabBarWhenSingleTab {
-		log.Debug().Msg("tab bar auto-hide disabled by config")
-		return
-	}
-
-	if a.mainWindow == nil {
-		log.Debug().Msg("mainWindow is nil, skipping visibility update")
-		return
-	}
-	if a.mainWindow.TabBar() == nil {
-		log.Debug().Msg("tabBar is nil, skipping visibility update")
-		return
-	}
-
-	tabCount := a.tabs.Count()
-	shouldShow := tabCount > 1
-
-	log.Debug().Int("tab_count", tabCount).Bool("should_show", shouldShow).Msg("setting tab bar visibility")
-	a.mainWindow.TabBar().SetVisible(shouldShow)
-}
-
-// handleNextTab switches to the next tab.
-func (a *App) handleNextTab(ctx context.Context) error {
-	if err := a.tabsUC.SwitchNext(ctx, a.tabs); err != nil {
-		return err
-	}
-
-	if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
-		a.mainWindow.TabBar().SetActive(a.tabs.ActiveTabID)
-	}
-
-	return nil
-}
-
-// handlePreviousTab switches to the previous tab.
-func (a *App) handlePreviousTab(ctx context.Context) error {
-	if err := a.tabsUC.SwitchPrevious(ctx, a.tabs); err != nil {
-		return err
-	}
-
-	if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
-		a.mainWindow.TabBar().SetActive(a.tabs.ActiveTabID)
-	}
-
-	return nil
 }
 
 // createWorkspaceView creates a WorkspaceView for a tab and attaches it to the content area.
@@ -524,7 +364,9 @@ func (a *App) createWorkspaceView(ctx context.Context, tab *entity.Tab) {
 	}
 
 	// Ensure WebViews are attached to panes
-	a.attachWorkspaceWebViews(ctx, tab.Workspace, wsView)
+	if a.contentCoord != nil {
+		a.contentCoord.AttachToWorkspace(ctx, tab.Workspace, wsView)
+	}
 
 	// Attach border manager overlay for mode indicators
 	if a.borderMgr != nil {
@@ -564,891 +406,4 @@ func (a *App) activeWorkspaceView() *component.WorkspaceView {
 		return nil
 	}
 	return a.workspaceViews[activeTab.ID]
-}
-
-// handlePaneSplit splits the active pane in the given direction.
-func (a *App) handlePaneSplit(ctx context.Context, direction usecase.SplitDirection) error {
-	log := logging.FromContext(ctx)
-
-	if a.panesUC == nil {
-		log.Warn().Msg("panes use case not available")
-		return nil
-	}
-
-	ws := a.activeWorkspace()
-	if ws == nil {
-		log.Warn().Msg("no active workspace")
-		return nil
-	}
-
-	activePane := ws.ActivePane()
-	if activePane == nil {
-		log.Warn().Msg("no active pane to split")
-		return nil
-	}
-
-	wsView := a.activeWorkspaceView()
-
-	// Check if we're splitting from inside a stack (horizontal split around stack)
-	isStackSplit := (direction == usecase.SplitLeft || direction == usecase.SplitRight) &&
-		activePane.Parent != nil && activePane.Parent.IsStacked
-
-	// Get the existing StackedView BEFORE domain changes (for incremental operation)
-	var existingStackWidget layout.Widget
-	if isStackSplit && wsView != nil {
-		tr := wsView.TreeRenderer()
-		if tr != nil {
-			// Get any pane's StackedView from the stack - they all map to the same one
-			stackedView := tr.GetStackedViewForPane(string(activePane.Pane.ID))
-			if stackedView != nil {
-				existingStackWidget = stackedView.Widget()
-			}
-		}
-	}
-
-	output, err := a.panesUC.Split(ctx, usecase.SplitPaneInput{
-		Workspace:  ws,
-		TargetPane: activePane,
-		Direction:  direction,
-	})
-	if err != nil {
-		log.Error().Err(err).Str("direction", string(direction)).Msg("failed to split pane")
-		return err
-	}
-
-	// Remember old active pane before changing
-	oldActivePaneID := activePane.Pane.ID
-
-	// Set the new pane as active
-	ws.ActivePaneID = output.NewPaneNode.Pane.ID
-
-	// Update the workspace view
-	if wsView != nil {
-		if isStackSplit && existingStackWidget != nil {
-			// Incremental split: reuse existing stack widget
-			if err := a.doIncrementalStackSplit(ctx, wsView, ws, output, direction, existingStackWidget, oldActivePaneID); err != nil {
-				log.Warn().Err(err).Msg("incremental split failed, falling back to rebuild")
-				// Fallback to full rebuild
-				if err := wsView.Rebuild(); err != nil {
-					log.Error().Err(err).Msg("failed to rebuild workspace view")
-				}
-				a.attachWorkspaceWebViews(ctx, ws, wsView)
-			}
-		} else {
-			// Regular split: full rebuild
-			if err := wsView.Rebuild(); err != nil {
-				log.Error().Err(err).Msg("failed to rebuild workspace view")
-			}
-			a.attachWorkspaceWebViews(ctx, ws, wsView)
-		}
-		wsView.FocusPane(ws.ActivePaneID)
-	}
-
-	log.Info().Str("direction", string(direction)).Str("new_pane_id", string(output.NewPaneNode.Pane.ID)).Msg("pane split completed")
-
-	return nil
-}
-
-// doIncrementalStackSplit performs an incremental split around an existing stacked pane.
-// This preserves existing WebViews by reusing the existing StackedView widget and creating
-// a new SplitView around it, rather than rebuilding the entire widget tree.
-func (a *App) doIncrementalStackSplit(
-	ctx context.Context,
-	wsView *component.WorkspaceView,
-	ws *entity.Workspace,
-	output *usecase.SplitPaneOutput,
-	direction usecase.SplitDirection,
-	existingStackWidget layout.Widget,
-	oldActivePaneID entity.PaneID,
-) error {
-	log := logging.FromContext(ctx)
-	factory := wsView.Factory()
-
-	log.Debug().
-		Str("direction", string(direction)).
-		Str("new_pane_id", string(output.NewPaneNode.Pane.ID)).
-		Str("old_active_pane_id", string(oldActivePaneID)).
-		Msg("performing incremental stack split")
-
-	// 1. Deactivate the old active pane (in the stack)
-	if oldPaneView := wsView.GetPaneView(oldActivePaneID); oldPaneView != nil {
-		oldPaneView.SetActive(false)
-	}
-
-	// 2. Unparent the existing stack widget from the workspace container
-	wsView.Container().Remove(existingStackWidget)
-
-	// 2. Create new PaneView for the new pane (without WebView - will attach later)
-	newPaneView := component.NewPaneView(factory, output.NewPaneNode.Pane.ID, nil)
-
-	// 3. Wrap the new PaneView in a StackedView
-	newStackedView := layout.NewStackedView(factory)
-	newStackedView.AddPane(ctx, output.NewPaneNode.Pane.Title, "", newPaneView.Widget())
-
-	// 4. Create a SplitView with the appropriate orientation and child placement
-	var splitView *layout.SplitView
-	if direction == usecase.SplitLeft {
-		// New pane goes on the left, existing stack on the right
-		splitView = layout.NewSplitView(ctx, factory, layout.OrientationHorizontal,
-			newStackedView.Widget(), existingStackWidget, output.SplitRatio)
-	} else {
-		// New pane goes on the right, existing stack on the left (SplitRight)
-		splitView = layout.NewSplitView(ctx, factory, layout.OrientationHorizontal,
-			existingStackWidget, newStackedView.Widget(), output.SplitRatio)
-	}
-
-	// 5. Replace the root widget in the workspace view
-	wsView.SetRootWidgetDirect(splitView.Widget())
-
-	// 6. Register the new pane in tracking maps and activate it
-	wsView.RegisterPaneView(output.NewPaneNode.Pane.ID, newPaneView)
-	newPaneView.SetActive(true)
-
-	tr := wsView.TreeRenderer()
-	if tr != nil {
-		// Register the new pane's StackedView mapping
-		tr.RegisterPaneInStack(string(output.NewPaneNode.Pane.ID), newStackedView)
-		// Register the split node widget
-		tr.RegisterWidget(output.ParentNode.ID, splitView.Widget())
-	}
-
-	// 7. Attach WebView only for the new pane
-	wv, err := a.ensureWebViewForPane(ctx, output.NewPaneNode.Pane.ID)
-	if err != nil {
-		log.Warn().Err(err).Str("pane_id", string(output.NewPaneNode.Pane.ID)).Msg("failed to ensure webview for new pane")
-		return err
-	}
-
-	// Load the default URL for new pane
-	newPaneEntity := output.NewPaneNode.Pane
-	if newPaneEntity.URI != "" {
-		if err := wv.LoadURI(ctx, newPaneEntity.URI); err != nil {
-			log.Warn().Err(err).Str("uri", newPaneEntity.URI).Msg("failed to load URI for new pane")
-		}
-	}
-
-	widget := a.wrapWebViewWidget(ctx, wv)
-	if widget != nil {
-		newPaneView.SetWebViewWidget(widget)
-	}
-
-	log.Debug().Msg("incremental stack split completed successfully")
-	return nil
-}
-
-// handleClosePane closes the active pane.
-func (a *App) handleClosePane(ctx context.Context) error {
-	log := logging.FromContext(ctx)
-
-	if a.panesUC == nil {
-		log.Warn().Msg("panes use case not available")
-		return nil
-	}
-
-	ws := a.activeWorkspace()
-	if ws == nil {
-		log.Warn().Msg("no active workspace")
-		return nil
-	}
-
-	activePane := ws.ActivePane()
-	if activePane == nil {
-		log.Warn().Msg("no active pane to close")
-		return nil
-	}
-	closingPaneID := activePane.Pane.ID
-
-	// Don't close the last pane - close the tab instead
-	if ws.PaneCount() <= 1 {
-		return a.handleCloseTab(ctx)
-	}
-
-	_, err := a.panesUC.Close(ctx, ws, activePane)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to close pane")
-		return err
-	}
-
-	// Rebuild the workspace view
-	wsView := a.activeWorkspaceView()
-	if wsView != nil {
-		if err := wsView.Rebuild(); err != nil {
-			log.Error().Err(err).Msg("failed to rebuild workspace view")
-		}
-		a.releasePaneWebView(ctx, closingPaneID)
-		a.attachWorkspaceWebViews(ctx, ws, wsView)
-		wsView.FocusPane(ws.ActivePaneID)
-	}
-
-	log.Info().Msg("pane closed")
-	return nil
-}
-
-// handlePaneFocus navigates focus to an adjacent pane.
-func (a *App) handlePaneFocus(ctx context.Context, direction usecase.NavigateDirection) error {
-	log := logging.FromContext(ctx)
-
-	ws := a.activeWorkspace()
-	if ws == nil {
-		log.Warn().Msg("no active workspace")
-		return nil
-	}
-
-	wsView := a.activeWorkspaceView()
-	if wsView == nil {
-		log.Warn().Msg("no active workspace view")
-		return nil
-	}
-
-	// Use geometric navigation if focus manager is available
-	var newPane *entity.PaneNode
-	var err error
-
-	if a.focusMgr != nil {
-		newPane, err = a.focusMgr.NavigateGeometric(ctx, ws, wsView, direction)
-	} else if a.panesUC != nil {
-		// Fallback to structural navigation
-		newPane, err = a.panesUC.NavigateFocus(ctx, ws, direction)
-	} else {
-		log.Warn().Msg("no navigation manager available")
-		return nil
-	}
-
-	if err != nil {
-		log.Error().Err(err).Str("direction", string(direction)).Msg("failed to navigate focus")
-		return err
-	}
-
-	if newPane == nil {
-		log.Debug().Str("direction", string(direction)).Msg("no pane in that direction")
-		return nil
-	}
-
-	// Update the workspace view's active pane
-	if err := wsView.SetActivePaneID(newPane.Pane.ID); err != nil {
-		log.Warn().Err(err).Msg("failed to update active pane in view")
-	} else {
-		wsView.FocusPane(newPane.Pane.ID)
-	}
-
-	// Sync StackedView visibility if new pane is in a stack
-	if newPane.Parent != nil && newPane.Parent.IsStacked {
-		a.syncStackedViewActive(ctx, wsView, newPane)
-	}
-
-	log.Debug().Str("direction", string(direction)).Str("new_pane_id", newPane.ID).Msg("focus navigated")
-
-	return nil
-}
-
-// syncStackedViewActive updates the StackedView's visibility to match the domain model.
-// Call this after navigating focus to a pane inside a stack.
-func (a *App) syncStackedViewActive(ctx context.Context, wsView *component.WorkspaceView, paneNode *entity.PaneNode) {
-	log := logging.FromContext(ctx)
-
-	if paneNode == nil || paneNode.Parent == nil || !paneNode.Parent.IsStacked {
-		return
-	}
-
-	tr := wsView.TreeRenderer()
-	if tr == nil {
-		return
-	}
-
-	// Get the StackedView for this pane
-	stackedView := tr.GetStackedViewForPane(string(paneNode.Pane.ID))
-	if stackedView == nil {
-		log.Warn().Str("pane_id", string(paneNode.Pane.ID)).Msg("stacked view not found for pane")
-		return
-	}
-
-	// Use the parent's ActiveStackIndex which was set by the focus manager
-	stackIndex := paneNode.Parent.ActiveStackIndex
-
-	log.Debug().
-		Str("pane_id", string(paneNode.Pane.ID)).
-		Int("stack_index", stackIndex).
-		Msg("syncing stacked view visibility")
-
-	if err := stackedView.SetActive(ctx, stackIndex); err != nil {
-		log.Warn().Err(err).Msg("failed to set stacked view active index")
-	}
-}
-
-// handleStackPane adds a new pane stacked on top of the active pane.
-// This modifies both the domain tree and the UI StackedView.
-func (a *App) handleStackPane(ctx context.Context) error {
-	log := logging.FromContext(ctx)
-
-	if a.stackedPaneMgr == nil {
-		log.Warn().Msg("stacked pane manager not available")
-		return nil
-	}
-
-	ws := a.activeWorkspace()
-	if ws == nil {
-		log.Warn().Msg("no active workspace")
-		return nil
-	}
-
-	activeNode := ws.ActivePane()
-	if activeNode == nil || activeNode.Pane == nil {
-		log.Warn().Msg("no active pane")
-		return nil
-	}
-
-	wsView := a.activeWorkspaceView()
-	if wsView == nil {
-		log.Warn().Msg("no workspace view")
-		return nil
-	}
-
-	activePaneID := activeNode.Pane.ID
-
-	// Create a new pane entity
-	newPaneID := entity.PaneID(a.generateID())
-	newPane := entity.NewPane(newPaneID)
-	newPane.URI = "about:blank"
-	newPane.Title = "Untitled"
-
-	// Get the original pane's current title
-	originalTitle := a.getPaneTitle(activePaneID)
-	if originalTitle == "" {
-		originalTitle = activeNode.Pane.Title
-	}
-	if originalTitle == "" {
-		originalTitle = "Untitled"
-	}
-
-	// Update domain model: convert leaf to stacked if needed, add new pane
-	var stackNode *entity.PaneNode
-	var needsFirstPaneTitleUpdate bool
-	if activeNode.IsStacked {
-		// Already stacked, just add to it
-		stackNode = activeNode
-	} else {
-		// Convert leaf node to stacked container
-		// Move current pane to a child node
-		originalPane := activeNode.Pane
-		originalPane.Title = originalTitle // Ensure title is set
-		originalPaneChild := &entity.PaneNode{
-			ID:     activeNode.ID + "_0",
-			Pane:   originalPane,
-			Parent: activeNode,
-		}
-
-		activeNode.Pane = nil // No longer a leaf
-		activeNode.IsStacked = true
-		activeNode.Children = []*entity.PaneNode{originalPaneChild}
-		stackNode = activeNode
-		needsFirstPaneTitleUpdate = true
-
-		log.Debug().
-			Str("node_id", activeNode.ID).
-			Str("original_pane", string(originalPane.ID)).
-			Str("original_title", originalTitle).
-			Msg("converted leaf to stacked node")
-	}
-
-	// Create new child node for the new pane
-	newChildNode := &entity.PaneNode{
-		ID:     stackNode.ID + "_" + string(newPaneID),
-		Pane:   newPane,
-		Parent: stackNode,
-	}
-	stackNode.Children = append(stackNode.Children, newChildNode)
-	stackNode.ActiveStackIndex = len(stackNode.Children) - 1
-
-	log.Debug().
-		Int("stack_size", len(stackNode.Children)).
-		Int("active_index", stackNode.ActiveStackIndex).
-		Msg("domain tree updated")
-
-	// Create PaneView for the new pane
-	newPaneView := component.NewPaneView(a.widgetFactory, newPaneID, nil)
-	wsView.RegisterPaneView(newPaneID, newPaneView)
-
-	// Add to the UI StackedView
-	if err := a.stackedPaneMgr.AddPaneToStack(ctx, wsView, activePaneID, newPaneView, "Untitled"); err != nil {
-		log.Error().Err(err).Msg("failed to add pane to stack")
-		return err
-	}
-
-	// Update the first pane's title if we just converted from leaf to stacked
-	if needsFirstPaneTitleUpdate {
-		tr := wsView.TreeRenderer()
-		if tr != nil {
-			stackedView := tr.GetStackedViewForPane(string(activePaneID))
-			if stackedView != nil {
-				if err := stackedView.UpdateTitle(0, originalTitle); err != nil {
-					log.Warn().Err(err).Str("title", originalTitle).Msg("failed to update first pane title")
-				} else {
-					log.Debug().Str("title", originalTitle).Msg("updated first pane title in StackedView")
-				}
-			}
-		}
-	}
-
-	// Get WebView and attach
-	wv, err := a.ensureWebViewForPane(ctx, newPaneID)
-	if err != nil {
-		log.Warn().Err(err).Msg("failed to get webview for new pane")
-	} else {
-		widget := a.wrapWebViewWidget(ctx, wv)
-		if widget != nil {
-			newPaneView.SetWebViewWidget(widget)
-		}
-		// Load blank page
-		if err := wv.LoadURI(ctx, "about:blank"); err != nil {
-			log.Warn().Err(err).Msg("failed to load blank page")
-		}
-	}
-
-	// Update workspace active pane ID
-	ws.ActivePaneID = newPaneID
-
-	// Update workspace view
-	if err := wsView.SetActivePaneID(newPaneID); err != nil {
-		log.Warn().Err(err).Msg("failed to set active pane")
-	}
-
-	// Set up title bar click callback
-	tr := wsView.TreeRenderer()
-	if tr != nil {
-		stackedView := tr.GetStackedViewForPane(string(activePaneID))
-		if stackedView != nil {
-			// Capture stackNode for the callback
-			capturedStackNode := stackNode
-			stackedView.SetOnActivate(func(index int) {
-				a.handleTitleBarClick(ctx, capturedStackNode, stackedView, index)
-			})
-		}
-	}
-
-	log.Info().
-		Str("original_pane", string(activePaneID)).
-		Str("new_pane", string(newPaneID)).
-		Int("stack_size", len(stackNode.Children)).
-		Msg("stacked new pane")
-
-	return nil
-}
-
-// handleStackNavigate navigates up or down within a stacked pane container.
-// With the new architecture, every pane is in a StackedView - we just navigate within it.
-func (a *App) handleStackNavigate(ctx context.Context, direction string) error {
-	log := logging.FromContext(ctx)
-
-	if a.stackedPaneMgr == nil {
-		return nil
-	}
-
-	ws := a.activeWorkspace()
-	if ws == nil {
-		return nil
-	}
-
-	activePane := ws.ActivePane()
-	if activePane == nil || activePane.Pane == nil {
-		return nil
-	}
-
-	wsView := a.activeWorkspaceView()
-	if wsView == nil {
-		return nil
-	}
-
-	currentPaneID := activePane.Pane.ID
-
-	// Check if we're actually in a multi-pane stack
-	if !a.stackedPaneMgr.IsStacked(wsView, currentPaneID) {
-		log.Debug().Msg("current pane is not in a multi-pane stack")
-		return nil
-	}
-
-	// Navigate within the stack
-	_, err := a.stackedPaneMgr.NavigateStack(ctx, wsView, currentPaneID, direction)
-	if err != nil {
-		log.Warn().Err(err).Str("direction", direction).Msg("failed to navigate stack")
-		return err
-	}
-
-	// Note: With the current StackedView navigation, the new pane ID is not returned
-	// because the mapping from visual index to pane ID requires additional tracking.
-	// For now, the StackedView handles the visual navigation.
-	// TODO: Add pane ID tracking to StackedView for proper domain model sync
-
-	log.Debug().
-		Str("direction", direction).
-		Str("current_pane", string(currentPaneID)).
-		Msg("navigated stack")
-
-	return nil
-}
-
-// handleStackPaneActivated is called when a pane in a stack is activated via title bar click.
-// This is a stub for future use when title bar click callbacks are wired up.
-// The paneID parameter would come from the StackedView's OnActivate callback.
-func (a *App) handleStackPaneActivated(ctx context.Context, paneID entity.PaneID) {
-	log := logging.FromContext(ctx)
-
-	if paneID == "" {
-		return
-	}
-
-	// Update workspace active pane
-	ws := a.activeWorkspace()
-	if ws != nil {
-		ws.ActivePaneID = paneID
-	}
-
-	// Update workspace view
-	wsView := a.activeWorkspaceView()
-	if wsView != nil {
-		if err := wsView.SetActivePaneID(paneID); err != nil {
-			log.Warn().Err(err).Msg("failed to set active pane after stack activation")
-		}
-	}
-
-	log.Debug().
-		Str("pane_id", string(paneID)).
-		Msg("stack pane activated")
-}
-
-// handleTitleBarClick handles clicks on title bars to switch the active pane in a stack.
-func (a *App) handleTitleBarClick(ctx context.Context, stackNode *entity.PaneNode, sv *layout.StackedView, clickedIndex int) {
-	log := logging.FromContext(ctx)
-
-	if stackNode == nil || sv == nil {
-		return
-	}
-
-	// Validate index
-	if clickedIndex < 0 || clickedIndex >= len(stackNode.Children) {
-		log.Warn().Int("index", clickedIndex).Int("children", len(stackNode.Children)).Msg("invalid stack index clicked")
-		return
-	}
-
-	// Get the current active index
-	currentIndex := sv.ActiveIndex()
-	if clickedIndex == currentIndex {
-		log.Debug().Int("index", clickedIndex).Msg("clicked pane is already active")
-		return
-	}
-
-	// Update the outgoing pane's title bar with its current webpage title
-	if currentIndex >= 0 && currentIndex < len(stackNode.Children) {
-		outgoingChild := stackNode.Children[currentIndex]
-		if outgoingChild.Pane != nil {
-			outgoingPaneID := outgoingChild.Pane.ID
-			outgoingTitle := a.getPaneTitle(outgoingPaneID)
-			if outgoingTitle == "" {
-				outgoingTitle = outgoingChild.Pane.Title
-			}
-			if outgoingTitle != "" {
-				if err := sv.UpdateTitle(currentIndex, outgoingTitle); err != nil {
-					log.Warn().Err(err).Msg("failed to update outgoing pane title")
-				}
-			}
-		}
-	}
-
-	// Get the pane ID at the clicked index
-	clickedChild := stackNode.Children[clickedIndex]
-	if clickedChild.Pane == nil {
-		log.Warn().Int("index", clickedIndex).Msg("clicked child has no pane")
-		return
-	}
-	clickedPaneID := clickedChild.Pane.ID
-
-	// Update StackedView active index
-	if err := sv.SetActive(ctx, clickedIndex); err != nil {
-		log.Warn().Err(err).Int("index", clickedIndex).Msg("failed to set active pane in stack")
-		return
-	}
-
-	// Update domain model
-	stackNode.ActiveStackIndex = clickedIndex
-
-	// Update workspace active pane
-	ws := a.activeWorkspace()
-	if ws != nil {
-		ws.ActivePaneID = clickedPaneID
-	}
-
-	// Update workspace view
-	wsView := a.activeWorkspaceView()
-	if wsView != nil {
-		if err := wsView.SetActivePaneID(clickedPaneID); err != nil {
-			log.Warn().Err(err).Msg("failed to set active pane in workspace view")
-		}
-	}
-
-	log.Info().
-		Int("from_index", currentIndex).
-		Int("to_index", clickedIndex).
-		Str("pane_id", string(clickedPaneID)).
-		Msg("switched active pane via title bar click")
-}
-
-// attachWorkspaceWebViews ensures each pane has a WebView widget attached.
-func (a *App) attachWorkspaceWebViews(ctx context.Context, ws *entity.Workspace, wsView *component.WorkspaceView) {
-	log := logging.FromContext(ctx)
-
-	if ws == nil || wsView == nil || a.widgetFactory == nil {
-		return
-	}
-
-	for _, pane := range ws.AllPanes() {
-		if pane == nil {
-			continue
-		}
-
-		wv, err := a.ensureWebViewForPane(ctx, pane.ID)
-		if err != nil {
-			log.Warn().Err(err).Str("pane_id", string(pane.ID)).Msg("failed to ensure webview for pane")
-			continue
-		}
-
-		// Load the pane's URI if set and different from current
-		if pane.URI != "" && pane.URI != wv.URI() {
-			if err := wv.LoadURI(ctx, pane.URI); err != nil {
-				log.Warn().Err(err).Str("pane_id", string(pane.ID)).Str("uri", pane.URI).Msg("failed to load pane URI")
-			}
-		}
-
-		widget := a.wrapWebViewWidget(ctx, wv)
-		if widget == nil {
-			continue
-		}
-
-		if err := wsView.SetWebViewWidget(pane.ID, widget); err != nil {
-			log.Warn().Err(err).Str("pane_id", string(pane.ID)).Msg("failed to attach webview widget")
-		}
-	}
-}
-
-// ensureWebViewForPane acquires or reuses a WebView for the given pane.
-func (a *App) ensureWebViewForPane(ctx context.Context, paneID entity.PaneID) (*webkit.WebView, error) {
-	if wv, ok := a.webViews[paneID]; ok && wv != nil && !wv.IsDestroyed() {
-		return wv, nil
-	}
-	if a.pool == nil {
-		return nil, fmt.Errorf("webview pool not configured")
-	}
-
-	wv, err := a.pool.Acquire(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	a.webViews[paneID] = wv
-
-	// Set up title change callback to track dynamic titles
-	wv.OnTitleChanged = func(title string) {
-		a.handlePaneTitleChanged(ctx, paneID, title)
-	}
-
-	return wv, nil
-}
-
-// handlePaneTitleChanged updates title tracking when a WebView's title changes.
-func (a *App) handlePaneTitleChanged(ctx context.Context, paneID entity.PaneID, title string) {
-	log := logging.FromContext(ctx)
-
-	// Update title map
-	a.titleMu.Lock()
-	a.paneTitles[paneID] = title
-	a.titleMu.Unlock()
-
-	// Update domain model
-	ws := a.activeWorkspace()
-	if ws != nil {
-		paneNode := ws.FindPane(paneID)
-		if paneNode != nil && paneNode.Pane != nil {
-			paneNode.Pane.Title = title
-		}
-	}
-
-	// Update StackedView title bar if this pane is in a stack
-	wsView := a.activeWorkspaceView()
-	if wsView != nil {
-		tr := wsView.TreeRenderer()
-		if tr != nil {
-			stackedView := tr.GetStackedViewForPane(string(paneID))
-			if stackedView != nil {
-				// Find the pane's index in the stack and update title
-				a.updateStackedPaneTitle(ctx, stackedView, paneID, title)
-			}
-		}
-	}
-
-	log.Debug().
-		Str("pane_id", string(paneID)).
-		Str("title", title).
-		Msg("pane title updated")
-}
-
-// updateStackedPaneTitle updates the title of a pane in a StackedView.
-func (a *App) updateStackedPaneTitle(ctx context.Context, sv *layout.StackedView, paneID entity.PaneID, title string) {
-	// We need to find which index this pane is at in the stack
-	// For now, we track by iterating - could be optimized with reverse mapping
-	wsView := a.activeWorkspaceView()
-	if wsView == nil {
-		return
-	}
-
-	tr := wsView.TreeRenderer()
-	if tr == nil {
-		return
-	}
-
-	// Find the stack node in the domain to get the index
-	ws := a.activeWorkspace()
-	if ws == nil {
-		return
-	}
-
-	paneNode := ws.FindPane(paneID)
-	if paneNode == nil {
-		return
-	}
-
-	// If the pane is in a stacked parent, find its index
-	if paneNode.Parent != nil && paneNode.Parent.IsStacked {
-		for i, child := range paneNode.Parent.Children {
-			if child.Pane != nil && child.Pane.ID == paneID {
-				_ = sv.UpdateTitle(i, title)
-				return
-			}
-		}
-	}
-}
-
-// getPaneTitle returns the current title for a pane.
-func (a *App) getPaneTitle(paneID entity.PaneID) string {
-	a.titleMu.RLock()
-	defer a.titleMu.RUnlock()
-	return a.paneTitles[paneID]
-}
-
-// releasePaneWebView returns the WebView for a pane to the pool.
-func (a *App) releasePaneWebView(ctx context.Context, paneID entity.PaneID) {
-	wv, ok := a.webViews[paneID]
-	if !ok || wv == nil {
-		return
-	}
-	delete(a.webViews, paneID)
-
-	if a.pool != nil {
-		a.pool.Release(wv)
-	} else {
-		wv.Destroy()
-	}
-}
-
-// wrapWebViewWidget converts a WebView to a layout.Widget for embedding.
-func (a *App) wrapWebViewWidget(ctx context.Context, wv *webkit.WebView) layout.Widget {
-	if wv == nil || a.widgetFactory == nil {
-		return nil
-	}
-	gtkView := wv.Widget()
-	if gtkView == nil {
-		return nil
-	}
-	return a.widgetFactory.WrapWidget(&gtkView.Widget)
-}
-
-// activeWebView returns the WebView for the active pane.
-func (a *App) activeWebView(ctx context.Context) *webkit.WebView {
-	ws := a.activeWorkspace()
-	if ws == nil {
-		return nil
-	}
-	pane := ws.ActivePane()
-	if pane == nil || pane.Pane == nil {
-		return nil
-	}
-	return a.webViews[pane.Pane.ID]
-}
-
-// openOmnibox toggles the native GTK omnibox.
-func (a *App) openOmnibox(ctx context.Context) error {
-	log := logging.FromContext(ctx)
-
-	if a.omnibox == nil {
-		log.Error().Msg("native omnibox not initialized")
-		return fmt.Errorf("native omnibox not initialized")
-	}
-
-	log.Debug().Msg("toggling native omnibox")
-	a.omnibox.Toggle(ctx)
-	return nil
-}
-
-// navigateActivePane navigates the active pane to the given URL.
-// Records history for omnibox search to find it immediately.
-func (a *App) navigateActivePane(ctx context.Context, url string) {
-	log := logging.FromContext(ctx)
-
-	wv := a.activeWebView(ctx)
-	if wv == nil {
-		log.Warn().Str("url", url).Msg("no active webview for navigation")
-		return
-	}
-
-	// Load the URL
-	if err := wv.LoadURI(ctx, url); err != nil {
-		log.Error().Err(err).Str("url", url).Msg("failed to navigate")
-		return
-	}
-
-	// Record in history asynchronously so it appears in omnibox immediately
-	if a.deps.HistoryRepo != nil {
-		go a.recordHistory(ctx, url)
-	}
-
-	log.Debug().Str("url", url).Msg("navigated active pane")
-}
-
-// recordHistory saves or updates a history entry.
-func (a *App) recordHistory(ctx context.Context, url string) {
-	log := logging.FromContext(ctx)
-	log.Debug().Str("url", url).Msg("recording history entry")
-
-	existing, err := a.deps.HistoryRepo.FindByURL(ctx, url)
-	if err != nil {
-		log.Warn().Err(err).Str("url", url).Msg("failed to check history")
-		return
-	}
-
-	if existing != nil {
-		// Increment visit count
-		if err := a.deps.HistoryRepo.IncrementVisitCount(ctx, url); err != nil {
-			log.Warn().Err(err).Str("url", url).Msg("failed to increment visit count")
-		} else {
-			log.Debug().Str("url", url).Int64("prev_count", existing.VisitCount).Msg("history visit count incremented")
-		}
-	} else {
-		// Create new entry
-		entry := entity.NewHistoryEntry(url, "")
-		if err := a.deps.HistoryRepo.Save(ctx, entry); err != nil {
-			log.Warn().Err(err).Str("url", url).Msg("failed to save history")
-		} else {
-			log.Debug().Str("url", url).Msg("new history entry saved")
-		}
-	}
-}
-
-// openDevTools opens the WebKit inspector for the active WebView.
-func (a *App) openDevTools(ctx context.Context) error {
-	log := logging.FromContext(ctx)
-
-	wv := a.activeWebView(ctx)
-	if wv == nil {
-		log.Warn().Msg("no active webview for devtools")
-		return fmt.Errorf("no active webview for devtools")
-	}
-	log.Debug().Uint64("webview_id", uint64(wv.ID())).Msg("opening devtools")
-	return wv.ShowDevTools()
 }
