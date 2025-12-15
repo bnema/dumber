@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/graphene"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 	"github.com/jwijenbergh/puregotk/v4/pango"
@@ -579,8 +580,19 @@ func (img *gtkImage) GetParent() Widget {
 
 func (img *gtkImage) SetFromIconName(name string) { img.inner.SetFromIconName(&name) }
 func (img *gtkImage) SetFromFile(filename string) { img.inner.SetFromFile(&filename) }
-func (img *gtkImage) SetPixelSize(size int)       { img.inner.SetPixelSize(size) }
-func (img *gtkImage) Clear()                      { img.inner.Clear() }
+func (img *gtkImage) SetFromPaintable(p Paintable) {
+	if p == nil {
+		img.inner.Clear()
+		return
+	}
+	// Create a gdk.Paintable from the pointer
+	// gdk.Texture implements gdk.Paintable
+	texture := &gdk.Texture{}
+	texture.Ptr = p.GoPointer()
+	img.inner.SetFromPaintable(texture)
+}
+func (img *gtkImage) SetPixelSize(size int) { img.inner.SetPixelSize(size) }
+func (img *gtkImage) Clear()                { img.inner.Clear() }
 
 func (img *gtkImage) GetAllocatedWidth() int  { return img.inner.GetAllocatedWidth() }
 func (img *gtkImage) GetAllocatedHeight() int { return img.inner.GetAllocatedHeight() }

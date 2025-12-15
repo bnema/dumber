@@ -179,12 +179,19 @@ type ButtonWidget interface {
 	ConnectClicked(callback func()) uint32
 }
 
+// Paintable represents a graphics texture that can be displayed in an image.
+// This interface abstracts over gdk.Paintable/gdk.Texture.
+type Paintable interface {
+	GoPointer() uintptr
+}
+
 // ImageWidget wraps gtk.Image for displaying images.
 type ImageWidget interface {
 	Widget
 
 	SetFromIconName(iconName string)
 	SetFromFile(filename string)
+	SetFromPaintable(paintable Paintable)
 	SetPixelSize(pixelSize int)
 	Clear()
 }

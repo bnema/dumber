@@ -315,7 +315,7 @@ func (sv *StackedView) UpdateTitle(index int, title string) error {
 	return nil
 }
 
-// UpdateFavicon updates the favicon of a pane at the given index.
+// UpdateFavicon updates the favicon of a pane at the given index using an icon name.
 func (sv *StackedView) UpdateFavicon(index int, iconName string) error {
 	sv.mu.Lock()
 	defer sv.mu.Unlock()
@@ -327,6 +327,27 @@ func (sv *StackedView) UpdateFavicon(index int, iconName string) error {
 	if sv.panes[index].favicon != nil {
 		if iconName != "" {
 			sv.panes[index].favicon.SetFromIconName(iconName)
+		} else {
+			sv.panes[index].favicon.SetFromIconName("web-browser-symbolic")
+		}
+	}
+
+	return nil
+}
+
+// UpdateFaviconTexture updates the favicon of a pane at the given index using a texture.
+// If texture is nil, falls back to the default web-browser-symbolic icon.
+func (sv *StackedView) UpdateFaviconTexture(index int, texture Paintable) error {
+	sv.mu.Lock()
+	defer sv.mu.Unlock()
+
+	if index < 0 || index >= len(sv.panes) {
+		return ErrIndexOutOfBounds
+	}
+
+	if sv.panes[index].favicon != nil {
+		if texture != nil {
+			sv.panes[index].favicon.SetFromPaintable(texture)
 		} else {
 			sv.panes[index].favicon.SetFromIconName("web-browser-symbolic")
 		}
