@@ -14,18 +14,29 @@ import (
 
 // ManageZoomUseCase handles per-domain zoom level operations.
 type ManageZoomUseCase struct {
-	zoomRepo repository.ZoomRepository
+	zoomRepo    repository.ZoomRepository
+	defaultZoom float64
 }
 
 // NewManageZoomUseCase creates a new zoom management use case.
-func NewManageZoomUseCase(zoomRepo repository.ZoomRepository) *ManageZoomUseCase {
+// defaultZoom is the zoom level to use when resetting (typically from config).
+func NewManageZoomUseCase(zoomRepo repository.ZoomRepository, defaultZoom float64) *ManageZoomUseCase {
+	if defaultZoom <= 0 {
+		defaultZoom = entity.ZoomDefault
+	}
 	return &ManageZoomUseCase{
-		zoomRepo: zoomRepo,
+		zoomRepo:    zoomRepo,
+		defaultZoom: defaultZoom,
 	}
 }
 
+// DefaultZoom returns the configured default zoom level.
+func (uc *ManageZoomUseCase) DefaultZoom() float64 {
+	return uc.defaultZoom
+}
+
 // GetZoom retrieves the zoom level for a domain.
-// Returns the default zoom level if none is set.
+// Returns the configured default zoom level if none is set.
 func (uc *ManageZoomUseCase) GetZoom(ctx context.Context, domain string) (*entity.ZoomLevel, error) {
 	log := logging.FromContext(ctx)
 	log.Debug().Str("domain", domain).Msg("getting zoom level")
@@ -36,7 +47,7 @@ func (uc *ManageZoomUseCase) GetZoom(ctx context.Context, domain string) (*entit
 	}
 
 	if zoom == nil {
-		zoom = entity.NewZoomLevel(domain, entity.ZoomDefault)
+		zoom = entity.NewZoomLevel(domain, uc.defaultZoom)
 		log.Debug().Str("domain", domain).Float64("zoom", zoom.ZoomFactor).Msg("using default zoom")
 	}
 

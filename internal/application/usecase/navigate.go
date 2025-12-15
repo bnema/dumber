@@ -14,16 +14,23 @@ import (
 type NavigateUseCase struct {
 	historyRepo repository.HistoryRepository
 	zoomRepo    repository.ZoomRepository
+	defaultZoom float64
 }
 
 // NewNavigateUseCase creates a new navigation use case.
+// defaultZoom is the zoom level to use when no per-domain zoom is saved (typically from config).
 func NewNavigateUseCase(
 	historyRepo repository.HistoryRepository,
 	zoomRepo repository.ZoomRepository,
+	defaultZoom float64,
 ) *NavigateUseCase {
+	if defaultZoom <= 0 {
+		defaultZoom = entity.ZoomDefault
+	}
 	return &NavigateUseCase{
 		historyRepo: historyRepo,
 		zoomRepo:    zoomRepo,
+		defaultZoom: defaultZoom,
 	}
 }
 
@@ -55,7 +62,7 @@ func (uc *NavigateUseCase) Execute(ctx context.Context, input NavigateInput) (*N
 	}
 
 	// Load and apply zoom level before navigation (for DOM zoom mode)
-	var zoomFactor float64 = entity.ZoomDefault
+	zoomFactor := uc.defaultZoom
 	if domain != "" {
 		zoom, err := uc.zoomRepo.Get(ctx, domain)
 		if err != nil {
