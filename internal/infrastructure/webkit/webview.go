@@ -14,6 +14,9 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// Compile-time interface check: WebView must implement port.WebView.
+var _ port.WebView = (*WebView)(nil)
+
 // WebViewID is an alias to port.WebViewID for clean architecture compliance.
 // Infrastructure layer uses the type defined in the application port.
 type WebViewID = port.WebViewID
@@ -424,6 +427,64 @@ func (wv *WebView) GetZoomLevel() float64 {
 		return 1.0
 	}
 	return wv.inner.GetZoomLevel()
+}
+
+// State returns the current WebView state as a snapshot.
+func (wv *WebView) State() port.WebViewState {
+	return port.WebViewState{
+		URI:       wv.uri,
+		Title:     wv.title,
+		IsLoading: wv.isLoading,
+		Progress:  wv.progress,
+		CanGoBack: wv.canGoBack,
+		CanGoFwd:  wv.canGoFwd,
+		ZoomLevel: wv.GetZoomLevel(),
+	}
+}
+
+// SetCallbacks registers callback handlers for WebView events.
+// Pass nil to clear all callbacks.
+func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
+	if callbacks == nil {
+		wv.OnLoadChanged = nil
+		wv.OnTitleChanged = nil
+		wv.OnURIChanged = nil
+		wv.OnProgressChanged = nil
+		wv.OnClose = nil
+		wv.OnCreate = nil
+		return
+	}
+
+	// Map port callbacks to webkit callbacks
+	if callbacks.OnLoadChanged != nil {
+		wv.OnLoadChanged = func(e LoadEvent) {
+			callbacks.OnLoadChanged(port.LoadEvent(e))
+		}
+	}
+	wv.OnTitleChanged = callbacks.OnTitleChanged
+	wv.OnURIChanged = callbacks.OnURIChanged
+	wv.OnProgressChanged = callbacks.OnProgressChanged
+	wv.OnClose = callbacks.OnClose
+	if callbacks.OnCreate != nil {
+		wv.OnCreate = func(req PopupRequest) *WebView {
+			portReq := port.PopupRequest{
+				TargetURI:     req.TargetURI,
+				FrameName:     req.FrameName,
+				IsUserGesture: req.IsUserGesture,
+				ParentViewID:  req.ParentID,
+			}
+			result := callbacks.OnCreate(portReq)
+			if result == nil {
+				return nil
+			}
+			// The callback returns port.WebView, we need to convert back
+			// This assumes the returned WebView is actually a *webkit.WebView
+			if wkView, ok := result.(*WebView); ok {
+				return wkView
+			}
+			return nil
+		}
+	}
 }
 
 // ShowDevTools opens the WebKit inspector/developer tools.
