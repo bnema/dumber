@@ -49,11 +49,11 @@ func NewManager() (*Manager, error) {
 	if err := v.BindEnv("rendering_mode", "DUMBER_RENDERING_MODE"); err != nil {
 		return nil, fmt.Errorf("failed to bind DUMBER_RENDERING_MODE: %w", err)
 	}
-	if err := v.BindEnv("use_dom_zoom", "DUMBER_USE_DOM_ZOOM"); err != nil {
-		return nil, fmt.Errorf("failed to bind DUMBER_USE_DOM_ZOOM: %w", err)
+	if err := v.BindEnv("default_webpage_zoom", "DUMBER_DEFAULT_WEBPAGE_ZOOM"); err != nil {
+		return nil, fmt.Errorf("failed to bind DUMBER_DEFAULT_WEBPAGE_ZOOM: %w", err)
 	}
-	if err := v.BindEnv("default_zoom", "DUMBER_DEFAULT_ZOOM"); err != nil {
-		return nil, fmt.Errorf("failed to bind DUMBER_DEFAULT_ZOOM: %w", err)
+	if err := v.BindEnv("default_ui_scale", "DUMBER_DEFAULT_UI_SCALE"); err != nil {
+		return nil, fmt.Errorf("failed to bind DUMBER_DEFAULT_UI_SCALE: %w", err)
 	}
 
 	// Video acceleration environment variable bindings
@@ -330,8 +330,8 @@ func (m *Manager) setDefaults() {
 
 	// Rendering defaults
 	m.viper.SetDefault("rendering_mode", string(RenderingModeGPU))
-	m.viper.SetDefault("use_dom_zoom", defaults.UseDomZoom)
-	m.viper.SetDefault("default_zoom", defaults.DefaultZoom)
+	m.viper.SetDefault("default_webpage_zoom", defaults.DefaultWebpageZoom)
+	m.viper.SetDefault("default_ui_scale", defaults.DefaultUIScale)
 
 	// Workspace defaults
 	m.viper.SetDefault("workspace.pane_mode.activation_shortcut", defaults.Workspace.PaneMode.ActivationShortcut)
@@ -360,7 +360,6 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("workspace.styling.tab_mode_border_width", defaults.Workspace.Styling.TabModeBorderWidth)
 	m.viper.SetDefault("workspace.styling.tab_mode_border_color", defaults.Workspace.Styling.TabModeBorderColor)
 	m.viper.SetDefault("workspace.styling.transition_duration", defaults.Workspace.Styling.TransitionDuration)
-	m.viper.SetDefault("workspace.styling.ui_scale", defaults.Workspace.Styling.UIScale)
 
 	// Content filtering
 	m.viper.SetDefault("content_filtering.enabled", defaults.ContentFiltering.Enabled)

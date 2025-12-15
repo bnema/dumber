@@ -15,10 +15,10 @@ type Config struct {
 	Debug               DebugConfig             `mapstructure:"debug" yaml:"debug" toml:"debug"`
 	// RenderingMode controls GPU/CPU rendering selection for WebKit
 	RenderingMode RenderingMode `mapstructure:"rendering_mode" yaml:"rendering_mode" toml:"rendering_mode"`
-	// UseDomZoom toggles DOM-based zoom instead of native WebKit zoom.
-	UseDomZoom bool `mapstructure:"use_dom_zoom" yaml:"use_dom_zoom" toml:"use_dom_zoom"`
-	// DefaultZoom sets the default zoom level for pages without saved zoom settings (1.0 = 100%, 1.2 = 120%)
-	DefaultZoom float64 `mapstructure:"default_zoom" yaml:"default_zoom" toml:"default_zoom"`
+	// DefaultWebpageZoom sets the default zoom level for pages without saved zoom settings (1.0 = 100%, 1.2 = 120%)
+	DefaultWebpageZoom float64 `mapstructure:"default_webpage_zoom" yaml:"default_webpage_zoom" toml:"default_webpage_zoom"`
+	// DefaultUIScale sets the default UI scale for GTK widgets (1.0 = 100%, 2.0 = 200%)
+	DefaultUIScale float64 `mapstructure:"default_ui_scale" yaml:"default_ui_scale" toml:"default_ui_scale"`
 	// Workspace defines workspace, pane, and tab handling behaviour.
 	Workspace WorkspaceConfig `mapstructure:"workspace" yaml:"workspace" toml:"workspace"`
 	// ContentFiltering controls ad blocking and content filtering
@@ -343,6 +343,4 @@ type WorkspaceStylingConfig struct {
 
 	// TransitionDuration in milliseconds for border animations
 	TransitionDuration int `mapstructure:"transition_duration" yaml:"transition_duration" toml:"transition_duration" json:"transition_duration"`
-	// UIScale is a multiplier for UI elements like title bars (1.0 = 100%, 1.2 = 120%)
-	UIScale float64 `mapstructure:"ui_scale" yaml:"ui_scale" toml:"ui_scale" json:"ui_scale"`
 }

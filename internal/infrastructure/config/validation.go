@@ -28,8 +28,11 @@ func validateConfig(config *Config) error {
 		validationErrors = append(validationErrors, "appearance.default_font_size must be between 1 and 72")
 	}
 
-	if config.DefaultZoom < 0.1 || config.DefaultZoom > 5.0 {
-		validationErrors = append(validationErrors, "default_zoom must be between 0.1 and 5.0")
+	if config.DefaultWebpageZoom < 0.1 || config.DefaultWebpageZoom > 5.0 {
+		validationErrors = append(validationErrors, "default_webpage_zoom must be between 0.1 and 5.0")
+	}
+	if config.DefaultUIScale < 0.5 || config.DefaultUIScale > 3.0 {
+		validationErrors = append(validationErrors, "default_ui_scale must be between 0.5 and 3.0")
 	}
 
 	// Validate default search engine
@@ -77,9 +80,6 @@ func validateConfig(config *Config) error {
 	}
 	if config.Workspace.Styling.TransitionDuration < 0 {
 		validationErrors = append(validationErrors, "workspace.styling.transition_duration must be non-negative")
-	}
-	if config.Workspace.Styling.UIScale < 0.5 || config.Workspace.Styling.UIScale > 3.0 {
-		validationErrors = append(validationErrors, "workspace.styling.ui_scale must be between 0.5 and 3.0")
 	}
 
 	// Validate pane mode timeout

@@ -155,9 +155,9 @@ func DefaultConfig() *Config {
 			EnableFocusMetrics:    false,
 			EnablePaneCloseDebug:  false,
 		},
-		RenderingMode: RenderingModeGPU,
-		UseDomZoom:    false,
-		DefaultZoom:   1.2, // 120% default zoom for better readability
+		RenderingMode:      RenderingModeGPU,
+		DefaultWebpageZoom: 1.2,            // 120% default zoom for better readability
+		DefaultUIScale:     defaultUIScale, // 1.0 = 100%, 2.0 = 200%
 		Workspace: WorkspaceConfig{
 			PaneMode: PaneModeConfig{
 				ActivationShortcut:  defaultPaneActivationShortcut,
@@ -211,7 +211,6 @@ func DefaultConfig() *Config {
 				TabModeBorderWidth:  defaultTabModeBorderWidth,
 				TabModeBorderColor:  defaultTabModeBorderColor,
 				TransitionDuration:  defaultTransitionDuration,
-				UIScale:             defaultUIScale,
 			},
 		},
 		ContentFiltering: ContentFilteringConfig{
