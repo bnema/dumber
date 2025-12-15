@@ -710,9 +710,48 @@ func (a *App) handlePaneFocus(ctx context.Context, direction usecase.NavigateDir
 		wsView.FocusPane(newPane.Pane.ID)
 	}
 
+	// Sync StackedView visibility if new pane is in a stack
+	if newPane.Parent != nil && newPane.Parent.IsStacked {
+		a.syncStackedViewActive(ctx, wsView, newPane)
+	}
+
 	log.Debug().Str("direction", string(direction)).Str("new_pane_id", newPane.ID).Msg("focus navigated")
 
 	return nil
+}
+
+// syncStackedViewActive updates the StackedView's visibility to match the domain model.
+// Call this after navigating focus to a pane inside a stack.
+func (a *App) syncStackedViewActive(ctx context.Context, wsView *component.WorkspaceView, paneNode *entity.PaneNode) {
+	log := logging.FromContext(ctx)
+
+	if paneNode == nil || paneNode.Parent == nil || !paneNode.Parent.IsStacked {
+		return
+	}
+
+	tr := wsView.TreeRenderer()
+	if tr == nil {
+		return
+	}
+
+	// Get the StackedView for this pane
+	stackedView := tr.GetStackedViewForPane(string(paneNode.Pane.ID))
+	if stackedView == nil {
+		log.Warn().Str("pane_id", string(paneNode.Pane.ID)).Msg("stacked view not found for pane")
+		return
+	}
+
+	// Use the parent's ActiveStackIndex which was set by the focus manager
+	stackIndex := paneNode.Parent.ActiveStackIndex
+
+	log.Debug().
+		Str("pane_id", string(paneNode.Pane.ID)).
+		Int("stack_index", stackIndex).
+		Msg("syncing stacked view visibility")
+
+	if err := stackedView.SetActive(ctx, stackIndex); err != nil {
+		log.Warn().Err(err).Msg("failed to set stacked view active index")
+	}
 }
 
 // handleStackPane adds a new pane stacked on top of the active pane.
