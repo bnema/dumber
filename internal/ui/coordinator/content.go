@@ -1,0 +1,243 @@
+package coordinator
+
+import (
+	"context"
+	"fmt"
+	"sync"
+
+	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/infrastructure/webkit"
+	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/dumber/internal/ui/component"
+	"github.com/bnema/dumber/internal/ui/layout"
+)
+
+// ContentCoordinator manages WebView lifecycle, title tracking, and content attachment.
+type ContentCoordinator struct {
+	pool          *webkit.WebViewPool
+	widgetFactory layout.WidgetFactory
+
+	webViews   map[entity.PaneID]*webkit.WebView
+	paneTitles map[entity.PaneID]string
+	titleMu    sync.RWMutex
+
+	// Callback to get active workspace state (avoids circular dependency)
+	getActiveWS func() (*entity.Workspace, *component.WorkspaceView)
+}
+
+// NewContentCoordinator creates a new ContentCoordinator.
+func NewContentCoordinator(
+	ctx context.Context,
+	pool *webkit.WebViewPool,
+	widgetFactory layout.WidgetFactory,
+	getActiveWS func() (*entity.Workspace, *component.WorkspaceView),
+) *ContentCoordinator {
+	log := logging.FromContext(ctx)
+	log.Debug().Msg("creating content coordinator")
+
+	return &ContentCoordinator{
+		pool:          pool,
+		widgetFactory: widgetFactory,
+		webViews:      make(map[entity.PaneID]*webkit.WebView),
+		paneTitles:    make(map[entity.PaneID]string),
+		getActiveWS:   getActiveWS,
+	}
+}
+
+// EnsureWebView acquires or reuses a WebView for the given pane.
+func (c *ContentCoordinator) EnsureWebView(ctx context.Context, paneID entity.PaneID) (*webkit.WebView, error) {
+	log := logging.FromContext(ctx)
+
+	if wv, ok := c.webViews[paneID]; ok && wv != nil && !wv.IsDestroyed() {
+		return wv, nil
+	}
+
+	if c.pool == nil {
+		return nil, fmt.Errorf("webview pool not configured")
+	}
+
+	wv, err := c.pool.Acquire(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	c.webViews[paneID] = wv
+
+	// Set up title change callback
+	wv.OnTitleChanged = func(title string) {
+		c.onTitleChanged(ctx, paneID, title)
+	}
+
+	log.Debug().Str("pane_id", string(paneID)).Msg("webview acquired for pane")
+	return wv, nil
+}
+
+// ReleaseWebView returns the WebView for a pane to the pool.
+func (c *ContentCoordinator) ReleaseWebView(ctx context.Context, paneID entity.PaneID) {
+	log := logging.FromContext(ctx)
+
+	wv, ok := c.webViews[paneID]
+	if !ok || wv == nil {
+		return
+	}
+	delete(c.webViews, paneID)
+
+	// Clean up title tracking
+	c.titleMu.Lock()
+	delete(c.paneTitles, paneID)
+	c.titleMu.Unlock()
+
+	if c.pool != nil {
+		c.pool.Release(wv)
+	} else {
+		wv.Destroy()
+	}
+
+	log.Debug().Str("pane_id", string(paneID)).Msg("webview released")
+}
+
+// AttachToWorkspace ensures each pane in the workspace has a WebView widget attached.
+func (c *ContentCoordinator) AttachToWorkspace(ctx context.Context, ws *entity.Workspace, wsView *component.WorkspaceView) {
+	log := logging.FromContext(ctx)
+
+	if ws == nil || wsView == nil || c.widgetFactory == nil {
+		return
+	}
+
+	for _, pane := range ws.AllPanes() {
+		if pane == nil {
+			continue
+		}
+
+		wv, err := c.EnsureWebView(ctx, pane.ID)
+		if err != nil {
+			log.Warn().Err(err).Str("pane_id", string(pane.ID)).Msg("failed to ensure webview for pane")
+			continue
+		}
+
+		// Load the pane's URI if set and different from current
+		if pane.URI != "" && pane.URI != wv.URI() {
+			if err := wv.LoadURI(ctx, pane.URI); err != nil {
+				log.Warn().Err(err).Str("pane_id", string(pane.ID)).Str("uri", pane.URI).Msg("failed to load pane URI")
+			}
+		}
+
+		widget := c.WrapWidget(ctx, wv)
+		if widget == nil {
+			continue
+		}
+
+		if err := wsView.SetWebViewWidget(pane.ID, widget); err != nil {
+			log.Warn().Err(err).Str("pane_id", string(pane.ID)).Msg("failed to attach webview widget")
+		}
+	}
+}
+
+// WrapWidget converts a WebView to a layout.Widget for embedding.
+func (c *ContentCoordinator) WrapWidget(ctx context.Context, wv *webkit.WebView) layout.Widget {
+	log := logging.FromContext(ctx)
+
+	if wv == nil || c.widgetFactory == nil {
+		log.Debug().Msg("cannot wrap nil webview or factory")
+		return nil
+	}
+
+	gtkView := wv.Widget()
+	if gtkView == nil {
+		return nil
+	}
+
+	return c.widgetFactory.WrapWidget(&gtkView.Widget)
+}
+
+// ActiveWebView returns the WebView for the active pane.
+func (c *ContentCoordinator) ActiveWebView(ctx context.Context) *webkit.WebView {
+	log := logging.FromContext(ctx)
+
+	ws, _ := c.getActiveWS()
+	if ws == nil {
+		log.Debug().Msg("no active workspace")
+		return nil
+	}
+
+	pane := ws.ActivePane()
+	if pane == nil || pane.Pane == nil {
+		log.Debug().Msg("no active pane")
+		return nil
+	}
+
+	return c.webViews[pane.Pane.ID]
+}
+
+// GetWebView returns the WebView for a specific pane.
+func (c *ContentCoordinator) GetWebView(paneID entity.PaneID) *webkit.WebView {
+	return c.webViews[paneID]
+}
+
+// GetTitle returns the current title for a pane.
+func (c *ContentCoordinator) GetTitle(paneID entity.PaneID) string {
+	c.titleMu.RLock()
+	defer c.titleMu.RUnlock()
+	return c.paneTitles[paneID]
+}
+
+// onTitleChanged updates title tracking when a WebView's title changes.
+func (c *ContentCoordinator) onTitleChanged(ctx context.Context, paneID entity.PaneID, title string) {
+	log := logging.FromContext(ctx)
+
+	// Update title map
+	c.titleMu.Lock()
+	c.paneTitles[paneID] = title
+	c.titleMu.Unlock()
+
+	// Update domain model
+	ws, wsView := c.getActiveWS()
+	if ws != nil {
+		paneNode := ws.FindPane(paneID)
+		if paneNode != nil && paneNode.Pane != nil {
+			paneNode.Pane.Title = title
+		}
+	}
+
+	// Update StackedView title bar if this pane is in a stack
+	if wsView != nil {
+		tr := wsView.TreeRenderer()
+		if tr != nil {
+			stackedView := tr.GetStackedViewForPane(string(paneID))
+			if stackedView != nil {
+				c.updateStackedPaneTitle(ctx, ws, stackedView, paneID, title)
+			}
+		}
+	}
+
+	log.Debug().
+		Str("pane_id", string(paneID)).
+		Str("title", title).
+		Msg("pane title updated")
+}
+
+// updateStackedPaneTitle updates the title of a pane in a StackedView.
+func (c *ContentCoordinator) updateStackedPaneTitle(ctx context.Context, ws *entity.Workspace, sv *layout.StackedView, paneID entity.PaneID, title string) {
+	log := logging.FromContext(ctx)
+
+	if ws == nil {
+		return
+	}
+
+	paneNode := ws.FindPane(paneID)
+	if paneNode == nil {
+		return
+	}
+
+	// If the pane is in a stacked parent, find its index
+	if paneNode.Parent != nil && paneNode.Parent.IsStacked {
+		for i, child := range paneNode.Parent.Children {
+			if child.Pane != nil && child.Pane.ID == paneID {
+				if err := sv.UpdateTitle(i, title); err != nil {
+					log.Warn().Err(err).Int("index", i).Msg("failed to update stacked pane title")
+				}
+				return
+			}
+		}
+	}
+}

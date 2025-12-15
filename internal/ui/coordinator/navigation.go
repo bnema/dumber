@@ -1,0 +1,204 @@
+package coordinator
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/infrastructure/webkit"
+	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/dumber/internal/ui/component"
+)
+
+// NavigationCoordinator handles URL navigation, history, and browser controls.
+type NavigationCoordinator struct {
+	navigateUC   *usecase.NavigateUseCase
+	contentCoord *ContentCoordinator
+	omnibox      *component.Omnibox
+}
+
+// NewNavigationCoordinator creates a new NavigationCoordinator.
+func NewNavigationCoordinator(
+	ctx context.Context,
+	navigateUC *usecase.NavigateUseCase,
+	contentCoord *ContentCoordinator,
+) *NavigationCoordinator {
+	log := logging.FromContext(ctx)
+	log.Debug().Msg("creating navigation coordinator")
+
+	return &NavigationCoordinator{
+		navigateUC:   navigateUC,
+		contentCoord: contentCoord,
+	}
+}
+
+// SetOmnibox sets the omnibox reference for toggle operations.
+func (c *NavigationCoordinator) SetOmnibox(omnibox *component.Omnibox) {
+	c.omnibox = omnibox
+}
+
+// Navigate loads a URL in the active pane using NavigateUseCase.
+// This properly handles history recording and zoom application.
+func (c *NavigationCoordinator) Navigate(ctx context.Context, url string) error {
+	log := logging.FromContext(ctx)
+
+	wv := c.contentCoord.ActiveWebView(ctx)
+	if wv == nil {
+		log.Warn().Str("url", url).Msg("no active webview for navigation")
+		return fmt.Errorf("no active webview")
+	}
+
+	// Get active pane ID for tracking
+	ws, _ := c.contentCoord.getActiveWS()
+	var paneID string
+	if ws != nil {
+		if pane := ws.ActivePane(); pane != nil && pane.Pane != nil {
+			paneID = string(pane.Pane.ID)
+		}
+	}
+
+	// Use NavigateUseCase which handles history + zoom
+	if c.navigateUC != nil {
+		input := usecase.NavigateInput{
+			URL:     url,
+			PaneID:  paneID,
+			WebView: wv, // webkit.WebView implements port.WebView
+		}
+		output, err := c.navigateUC.Execute(ctx, input)
+		if err != nil {
+			log.Error().Err(err).Str("url", url).Msg("navigation failed")
+			return err
+		}
+		log.Debug().
+			Str("url", url).
+			Float64("zoom", output.AppliedZoom).
+			Msg("navigation initiated via usecase")
+		return nil
+	}
+
+	// Fallback: direct navigation without usecase
+	log.Warn().Msg("navigateUC not available, using direct LoadURI")
+	if err := wv.LoadURI(ctx, url); err != nil {
+		log.Error().Err(err).Str("url", url).Msg("failed to navigate")
+		return err
+	}
+
+	log.Debug().Str("url", url).Msg("navigated active pane (direct)")
+	return nil
+}
+
+// Reload reloads the current page.
+func (c *NavigationCoordinator) Reload(ctx context.Context) error {
+	log := logging.FromContext(ctx)
+
+	wv := c.contentCoord.ActiveWebView(ctx)
+	if wv == nil {
+		log.Debug().Msg("no active webview for reload")
+		return nil
+	}
+
+	if c.navigateUC != nil {
+		return c.navigateUC.Reload(ctx, wv, false)
+	}
+
+	return wv.Reload(ctx)
+}
+
+// HardReload reloads the current page bypassing cache.
+func (c *NavigationCoordinator) HardReload(ctx context.Context) error {
+	log := logging.FromContext(ctx)
+
+	wv := c.contentCoord.ActiveWebView(ctx)
+	if wv == nil {
+		log.Debug().Msg("no active webview for hard reload")
+		return nil
+	}
+
+	if c.navigateUC != nil {
+		return c.navigateUC.Reload(ctx, wv, true)
+	}
+
+	return wv.ReloadBypassCache(ctx)
+}
+
+// GoBack navigates back in history.
+func (c *NavigationCoordinator) GoBack(ctx context.Context) error {
+	log := logging.FromContext(ctx)
+
+	wv := c.contentCoord.ActiveWebView(ctx)
+	if wv == nil {
+		log.Debug().Msg("no active webview for go back")
+		return nil
+	}
+
+	if c.navigateUC != nil {
+		return c.navigateUC.GoBack(ctx, wv)
+	}
+
+	return wv.GoBack(ctx)
+}
+
+// GoForward navigates forward in history.
+func (c *NavigationCoordinator) GoForward(ctx context.Context) error {
+	log := logging.FromContext(ctx)
+
+	wv := c.contentCoord.ActiveWebView(ctx)
+	if wv == nil {
+		log.Debug().Msg("no active webview for go forward")
+		return nil
+	}
+
+	if c.navigateUC != nil {
+		return c.navigateUC.GoForward(ctx, wv)
+	}
+
+	return wv.GoForward(ctx)
+}
+
+// OpenOmnibox toggles the omnibox visibility.
+func (c *NavigationCoordinator) OpenOmnibox(ctx context.Context) error {
+	log := logging.FromContext(ctx)
+
+	if c.omnibox == nil {
+		log.Error().Msg("omnibox not initialized")
+		return fmt.Errorf("omnibox not initialized")
+	}
+
+	log.Debug().Msg("toggling omnibox")
+	c.omnibox.Toggle(ctx)
+	return nil
+}
+
+// OpenDevTools opens the WebKit inspector for the active WebView.
+func (c *NavigationCoordinator) OpenDevTools(ctx context.Context) error {
+	log := logging.FromContext(ctx)
+
+	wv := c.contentCoord.ActiveWebView(ctx)
+	if wv == nil {
+		log.Warn().Msg("no active webview for devtools")
+		return fmt.Errorf("no active webview")
+	}
+
+	log.Debug().Uint64("webview_id", uint64(wv.ID())).Msg("opening devtools")
+
+	// Type assert to access ShowDevTools (not in port.WebView interface)
+	if webkitWV, ok := interface{}(wv).(*webkit.WebView); ok {
+		return webkitWV.ShowDevTools()
+	}
+
+	return fmt.Errorf("webview does not support devtools")
+}
+
+// UpdateHistoryTitle updates the title of a history entry after page load.
+func (c *NavigationCoordinator) UpdateHistoryTitle(ctx context.Context, paneID entity.PaneID, url, title string) {
+	log := logging.FromContext(ctx)
+
+	if c.navigateUC == nil {
+		return
+	}
+
+	if err := c.navigateUC.UpdateHistoryTitle(ctx, url, title); err != nil {
+		log.Warn().Err(err).Str("url", url).Msg("failed to update history title")
+	}
+}
