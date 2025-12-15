@@ -2,11 +2,22 @@
 package theme
 
 import (
+	"fmt"
 	"strings"
 )
 
-// GenerateCSS creates GTK4 CSS using the provided palette.
+// GenerateCSS creates GTK4 CSS using the provided palette with default scale.
 func GenerateCSS(p Palette) string {
+	return GenerateCSSWithScale(p, 1.0)
+}
+
+// GenerateCSSWithScale creates GTK4 CSS using the provided palette and UI scale factor.
+// Scale affects font sizes and widget padding/margins proportionally.
+func GenerateCSSWithScale(p Palette, scale float64) string {
+	if scale <= 0 {
+		scale = 1.0
+	}
+
 	var sb strings.Builder
 
 	// CSS custom properties (variables) - GTK4 uses :root selector
@@ -14,6 +25,12 @@ func GenerateCSS(p Palette) string {
 	sb.WriteString(":root {\n")
 	sb.WriteString(p.ToCSSVars())
 	sb.WriteString("}\n\n")
+
+	// Global UI scaling via font-size on all widgets
+	if scale != 1.0 {
+		sb.WriteString(generateScalingCSS(scale))
+		sb.WriteString("\n")
+	}
 
 	// Tab bar styling
 	sb.WriteString(generateTabBarCSS(p))
@@ -33,14 +50,29 @@ func GenerateCSS(p Palette) string {
 	return sb.String()
 }
 
+// generateScalingCSS creates CSS rules that scale the UI.
+// GTK4 CSS doesn't support transform:scale() well, so we scale font-size
+// and use relative units (em) for padding/margins in other rules.
+func generateScalingCSS(scale float64) string {
+	// Use 16px base so em conversions are correct:
+	// 1px = 0.0625em (1/16), 4px = 0.25em, etc.
+	basePx := int(16 * scale)
+	return fmt.Sprintf(`/* UI Scaling (%.0f%%) */
+window {
+	font-size: %dpx;
+}
+`, scale*100, basePx)
+}
+
 // generateTabBarCSS creates tab bar styles.
+// Uses em units for scalable UI.
 func generateTabBarCSS(p Palette) string {
 	return `/* Tab bar styling */
 .tab-bar {
 	background-color: var(--surface);
-	border-top: 2px solid var(--border);
+	border-top: 0.125em solid var(--border);
 	padding: 0;
-	min-height: 32px;
+	min-height: 2em;
 }
 
 /* Tab button styling */
@@ -48,9 +80,9 @@ button.tab-button {
 	background-color: var(--surface-variant);
 	background-image: none;
 	border: none;
-	border-right: 1px solid var(--border);
+	border-right: 0.0625em solid var(--border);
 	border-radius: 0;
-	padding: 4px 8px;
+	padding: 0.25em 0.5em;
 	transition: background-color 200ms ease-in-out;
 }
 
@@ -65,7 +97,7 @@ button.tab-button.tab-button-active {
 
 /* Tab title text */
 .tab-title {
-	font-size: 12px;
+	font-size: 0.75em;
 	color: var(--text);
 	font-weight: 500;
 }
@@ -73,14 +105,15 @@ button.tab-button.tab-button-active {
 }
 
 // generateOmniboxCSS creates omnibox styles.
+// Uses em units for scalable UI.
 func generateOmniboxCSS(p Palette) string {
 	return `/* ===== Omnibox Styling ===== */
 
 /* Omnibox window - floating popup */
 window.omnibox-window {
 	background-color: var(--surface-variant);
-	border: 1px solid var(--border);
-	border-radius: 3px;
+	border: 0.0625em solid var(--border);
+	border-radius: 0.1875em;
 }
 
 /* Main container */
@@ -92,18 +125,18 @@ window.omnibox-window {
 /* Header with History/Favorites toggle */
 .omnibox-header {
 	background-color: shade(var(--surface-variant), 1.1);
-	border-bottom: 1px solid var(--border);
-	padding: 6px 12px;
+	border-bottom: 0.0625em solid var(--border);
+	padding: 0.375em 0.75em;
 }
 
 .omnibox-header-btn {
 	background-color: transparent;
 	background-image: none;
 	border: none;
-	border-radius: 2px;
-	padding: 4px 12px;
-	margin-right: 8px;
-	font-size: 13px;
+	border-radius: 0.125em;
+	padding: 0.25em 0.75em;
+	margin-right: 0.5em;
+	font-size: 0.8125em;
 	font-weight: 500;
 	color: var(--muted);
 	transition: all 100ms ease-in-out;
@@ -124,11 +157,11 @@ window.omnibox-window {
 .omnibox-entry {
 	background-color: var(--bg);
 	color: var(--text);
-	border: 1px solid var(--border);
-	border-radius: 2px;
-	padding: 10px 12px;
-	margin: 8px 12px;
-	font-size: 16px;
+	border: 0.0625em solid var(--border);
+	border-radius: 0.125em;
+	padding: 0.625em 0.75em;
+	margin: 0.5em 0.75em;
+	font-size: 1em;
 	caret-color: var(--accent);
 }
 
@@ -140,7 +173,7 @@ window.omnibox-window {
 /* Scrolled window for suggestions */
 .omnibox-scrolled {
 	background-color: shade(var(--surface-variant), 0.95);
-	border-top: 1px solid var(--border);
+	border-top: 0.0625em solid var(--border);
 }
 
 /* List box */
@@ -150,11 +183,11 @@ window.omnibox-window {
 
 /* Suggestion rows */
 .omnibox-row {
-	padding: 8px 12px;
+	padding: 0.5em 0.75em;
 	margin: 0;
 	border-radius: 0;
-	border-left: 3px solid transparent;
-	border-bottom: 1px solid alpha(var(--border), 0.5);
+	border-left: 0.1875em solid transparent;
+	border-bottom: 0.0625em solid alpha(var(--border), 0.5);
 	transition: background-color 100ms ease-in-out, border-left-color 100ms ease-in-out;
 }
 
@@ -172,9 +205,16 @@ window.omnibox-window {
 	border-left-color: var(--accent);
 }
 
+/* Favicon in omnibox rows */
+.omnibox-favicon {
+	min-width: 1em;
+	min-height: 1em;
+	margin-right: 0.5em;
+}
+
 /* Suggestion title/URL */
 .omnibox-suggestion-title {
-	font-size: 14px;
+	font-size: 0.875em;
 	color: var(--text, #ffffff);
 	font-weight: 400;
 }
@@ -193,12 +233,12 @@ window.omnibox-window {
 .omnibox-shortcut-badge {
 	background-color: alpha(var(--muted, #909090), 0.3);
 	color: var(--muted, #909090);
-	border-radius: 4px;
-	padding: 2px 6px;
-	font-size: 10px;
+	border-radius: 0.25em;
+	padding: 0.125em 0.375em;
+	font-size: 0.625em;
 	font-weight: 500;
 	font-family: monospace;
-	margin-left: 8px;
+	margin-left: 0.5em;
 }
 
 .omnibox-row:hover .omnibox-shortcut-badge {
@@ -210,49 +250,62 @@ window.omnibox-window {
 	background-color: alpha(var(--accent, #4ade80), 0.3);
 	color: var(--accent, #4ade80);
 }
+
+/* Zoom indicator in omnibox header */
+.omnibox-zoom-indicator {
+	background-color: alpha(var(--accent, #4ade80), 0.2);
+	color: var(--accent, #4ade80);
+	border-radius: 0.25em;
+	padding: 0.125em 0.5em;
+	font-size: 0.6875em;
+	font-weight: 600;
+	margin-left: auto;
+}
 `
 }
 
 // generatePaneCSS creates pane border styles.
+// Uses em units for scalable UI.
 func generatePaneCSS(p Palette) string {
 	return `/* ===== Pane Styling ===== */
 
 /* Pane border - default transparent */
 .pane-border {
-	border: 1px solid transparent;
+	border: 0.0625em solid transparent;
 }
 
 /* Active pane - accent border */
 .pane-active {
-	border: 1px solid var(--accent);
+	border: 0.0625em solid var(--accent);
 }
 
 /* Pane mode active - thick blue inset border (for overlay) */
 .pane-mode-active {
 	background-color: transparent;
-	box-shadow: inset 0 0 0 4px #4A90E2;
+	box-shadow: inset 0 0 0 0.25em #4A90E2;
 	border-radius: 0;
 }
 
 /* Tab mode active - thick orange inset border (for overlay) */
 .tab-mode-active {
 	background-color: transparent;
-	box-shadow: inset 0 0 0 4px #FFA500;
+	box-shadow: inset 0 0 0 0.25em #FFA500;
 	border-radius: 0;
 }
 `
 }
 
 // generateStackedPaneCSS creates stacked pane (Zellij-style tabs within panes) styles.
+// Uses em units for scalable UI.
 func generateStackedPaneCSS(p Palette) string {
 	return `/* ===== Stacked Pane Styling ===== */
 
 /* Title bar for inactive panes in a stack */
 .stacked-pane-titlebar {
 	background-color: var(--surface-variant);
-	border-bottom: 1px solid var(--border);
-	padding: 4px 8px;
-	min-height: 24px;
+	border-bottom: 0.0625em solid var(--border);
+	padding: 0.25em 0.5em;
+	min-height: 1.5em;
 }
 
 /* Title bar button wrapper - clickable area */
@@ -260,7 +313,7 @@ button.stacked-pane-title-button {
 	background-color: var(--surface-variant);
 	background-image: none;
 	border: none;
-	border-bottom: 1px solid var(--border);
+	border-bottom: 0.0625em solid var(--border);
 	border-radius: 0;
 	padding: 0;
 	margin: 0;
@@ -279,20 +332,20 @@ button.stacked-pane-title-button:focus {
 /* Title bar content box */
 .stacked-pane-titlebar.active {
 	background-color: alpha(var(--accent), 0.1);
-	border-left: 3px solid var(--accent);
+	border-left: 0.1875em solid var(--accent);
 }
 
 /* Favicon image in title bar */
 .stacked-pane-titlebar image {
-	min-width: 16px;
-	min-height: 16px;
-	margin-right: 6px;
+	min-width: 1em;
+	min-height: 1em;
+	margin-right: 0.375em;
 }
 
 /* Title text in title bar */
 .stacked-pane-titlebar label {
 	color: var(--text);
-	font-size: 12px;
+	font-size: 0.75em;
 	font-weight: 400;
 }
 

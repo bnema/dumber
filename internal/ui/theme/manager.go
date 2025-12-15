@@ -15,6 +15,7 @@ type Manager struct {
 	prefersDark  bool    // Resolved dark mode preference
 	lightPalette Palette // Light theme colors
 	darkPalette  Palette // Dark theme colors
+	uiScale      float64 // UI scaling factor (1.0 = 100%)
 	cssProvider  *gtk.CssProvider
 }
 
@@ -41,9 +42,16 @@ func NewManager(ctx context.Context, cfg *config.Config) *Manager {
 		darkPalette = DefaultDarkPalette()
 	}
 
+	// Get UI scale factor (default to 1.0 if not set)
+	uiScale := 1.0
+	if cfg != nil && cfg.DefaultUIScale > 0 {
+		uiScale = cfg.DefaultUIScale
+	}
+
 	log.Debug().
 		Str("scheme", scheme).
 		Bool("prefers_dark", prefersDark).
+		Float64("ui_scale", uiScale).
 		Msg("theme manager initialized")
 
 	return &Manager{
@@ -51,6 +59,7 @@ func NewManager(ctx context.Context, cfg *config.Config) *Manager {
 		prefersDark:  prefersDark,
 		lightPalette: lightPalette,
 		darkPalette:  darkPalette,
+		uiScale:      uiScale,
 	}
 }
 
@@ -86,9 +95,9 @@ func (m *Manager) ApplyToDisplay(ctx context.Context, display *gdk.Display) {
 		return
 	}
 
-	// Generate CSS with current palette
+	// Generate CSS with current palette and UI scale
 	palette := m.GetCurrentPalette()
-	css := GenerateCSS(palette)
+	css := GenerateCSSWithScale(palette, m.uiScale)
 
 	// Create CSS provider if needed
 	if m.cssProvider == nil {
