@@ -60,6 +60,14 @@ type PopupRequest struct {
 	ParentViewID  WebViewID
 }
 
+// Texture represents a graphics texture (abstraction over gdk.Texture).
+// This interface allows the port layer to work with textures without
+// importing GTK/GDK packages directly.
+type Texture interface {
+	// GoPointer returns the underlying C pointer for GTK interop.
+	GoPointer() uintptr
+}
+
 // WebViewCallbacks defines callback handlers for WebView events.
 // Implementations should invoke these on the main thread/goroutine.
 type WebViewCallbacks struct {
@@ -71,6 +79,9 @@ type WebViewCallbacks struct {
 	OnURIChanged func(uri string)
 	// OnProgressChanged is called during page load with progress 0.0-1.0.
 	OnProgressChanged func(progress float64)
+	// OnFaviconChanged is called when the page favicon changes.
+	// The parameter is a *gdk.Texture (passed as Texture interface to avoid GTK import in port layer).
+	OnFaviconChanged func(favicon Texture)
 	// OnClose is called when the WebView requests to close.
 	OnClose func()
 	// OnCreate is called when a popup window is requested.
