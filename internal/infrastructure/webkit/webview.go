@@ -10,6 +10,8 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
 	"github.com/jwijenbergh/puregotk/v4/gio"
+	"github.com/jwijenbergh/puregotk/v4/glib"
+	"github.com/jwijenbergh/puregotk/v4/gobject"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 	"github.com/rs/zerolog"
 )
@@ -113,6 +115,7 @@ type WebView struct {
 }
 
 // NewWebView creates a new WebView with the given context and settings.
+// Uses the persistent NetworkSession from wkCtx for cookie/data persistence.
 func NewWebView(ctx context.Context, wkCtx *WebKitContext, settings *SettingsManager) (*WebView, error) {
 	log := logging.FromContext(ctx)
 
@@ -120,9 +123,10 @@ func NewWebView(ctx context.Context, wkCtx *WebKitContext, settings *SettingsMan
 		return nil, fmt.Errorf("webkit context not initialized")
 	}
 
-	inner := webkit.NewWebView()
+	// Use NetworkSession-aware constructor for persistent cookie storage
+	inner := webkit.NewWebViewWithNetworkSession(wkCtx.NetworkSession())
 	if inner == nil {
-		return nil, fmt.Errorf("failed to create webkit webview")
+		return nil, fmt.Errorf("failed to create webkit webview with network session")
 	}
 
 	wv := &WebView{
@@ -275,10 +279,20 @@ func (wv *WebView) connectSignals() {
 	sigID = wv.inner.ConnectReadyToShow(&readyToShowCb)
 	wv.signalIDs = append(wv.signalIDs, sigID)
 
-	// Note: notify::title, notify::uri, notify::estimated-load-progress
-	// would need GObject property change notifications which may require
-	// different API patterns in puregotk. For now, we update these in
-	// load-changed which covers most cases.
+	// notify::title signal for title changes
+	// This fires when the page title changes (e.g., after page load, SPA navigation)
+	titleCb := func() {
+		title := wv.inner.GetTitle()
+		wv.mu.Lock()
+		wv.title = title
+		wv.mu.Unlock()
+
+		if wv.OnTitleChanged != nil {
+			wv.OnTitleChanged(title)
+		}
+	}
+	sigID = gobject.SignalConnect(wv.inner.GoPointer(), "notify::title", glib.NewCallback(&titleCb))
+	wv.signalIDs = append(wv.signalIDs, sigID)
 }
 
 // ID returns the unique identifier for this WebView.
