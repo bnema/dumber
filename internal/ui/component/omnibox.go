@@ -2,6 +2,7 @@ package component
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -17,7 +18,8 @@ import (
 )
 
 const (
-	omniboxWidth      = 600
+	omniboxWidthPct   = 0.5 // 50% of parent window width
+	omniboxHeightPct  = 0.6 // 60% of parent window height
 	omniboxMaxResults = 10
 	debounceDelayMs   = 250 // Increased for stability
 )
@@ -54,6 +56,7 @@ type Omnibox struct {
 	headerBox    *gtk.Box
 	historyBtn   *gtk.Button
 	favoritesBtn *gtk.Button
+	zoomLabel    *gtk.Label
 	entry        *gtk.SearchEntry
 	scrolledWin  *gtk.ScrolledWindow
 	listBox      *gtk.ListBox
@@ -86,6 +89,9 @@ type Omnibox struct {
 	debounceTimer *time.Timer
 	debounceMu    sync.Mutex
 	lastQuery     string // Prevent duplicate searches
+
+	// Scaling
+	uiScale float64
 }
 
 // OmniboxConfig holds configuration for creating an Omnibox.
@@ -96,11 +102,17 @@ type OmniboxConfig struct {
 	Shortcuts       map[string]config.SearchShortcut
 	DefaultSearch   string
 	InitialBehavior string
+	UIScale         float64 // UI scale for favicon sizing
 }
 
 // NewOmnibox creates a new native GTK4 omnibox widget.
 func NewOmnibox(ctx context.Context, parent *gtk.ApplicationWindow, cfg OmniboxConfig) *Omnibox {
 	log := logging.FromContext(ctx)
+
+	uiScale := cfg.UIScale
+	if uiScale <= 0 {
+		uiScale = 1.0
+	}
 
 	o := &Omnibox{
 		parentWindow:    parent,
@@ -113,6 +125,7 @@ func NewOmnibox(ctx context.Context, parent *gtk.ApplicationWindow, cfg OmniboxC
 		defaultSearch:   cfg.DefaultSearch,
 		initialBehavior: cfg.InitialBehavior,
 		ctx:             ctx,
+		uiScale:         uiScale,
 	}
 
 	if err := o.createWidgets(); err != nil {
@@ -127,6 +140,30 @@ func NewOmnibox(ctx context.Context, parent *gtk.ApplicationWindow, cfg OmniboxC
 	return o
 }
 
+// updateSize sets the omnibox size based on parent window dimensions.
+func (o *Omnibox) updateSize() {
+	if o.parentWindow == nil || o.window == nil {
+		return
+	}
+
+	// Use GetAllocatedWidth/Height for actual rendered size
+	parentWidth := o.parentWindow.GetAllocatedWidth()
+	parentHeight := o.parentWindow.GetAllocatedHeight()
+
+	if parentWidth <= 0 || parentHeight <= 0 {
+		log := logging.FromContext(o.ctx)
+		log.Error().
+			Int("parent_width", parentWidth).
+			Int("parent_height", parentHeight).
+			Msg("omnibox: invalid parent window dimensions")
+		return
+	}
+
+	width := int(float64(parentWidth) * omniboxWidthPct)
+	height := int(float64(parentHeight) * omniboxHeightPct)
+	o.window.SetDefaultSize(width, height)
+}
+
 // createWidgets builds the GTK widget hierarchy.
 func (o *Omnibox) createWidgets() error {
 	// Create the popup window
@@ -137,12 +174,14 @@ func (o *Omnibox) createWidgets() error {
 
 	o.window.SetModal(true)
 	o.window.SetDecorated(false)
-	o.window.SetDefaultSize(omniboxWidth, 400)
 	o.window.AddCssClass("omnibox-window")
 
 	// Set transient for parent window (positioning)
 	if o.parentWindow != nil {
 		o.window.SetTransientFor(&o.parentWindow.Window)
+	} else {
+		log := logging.FromContext(o.ctx)
+		log.Error().Msg("omnibox: parent window is nil, cannot set transient")
 	}
 
 	// Main vertical box
@@ -186,8 +225,20 @@ func (o *Omnibox) createWidgets() error {
 	}
 	o.favoritesBtn.ConnectClicked(&favoritesClickCb)
 
+	// Zoom indicator label (shown when zoom != 100%)
+	o.zoomLabel = gtk.NewLabel(nil)
+	if o.zoomLabel != nil {
+		o.zoomLabel.AddCssClass("omnibox-zoom-indicator")
+		o.zoomLabel.SetVisible(false)
+		o.zoomLabel.SetHalign(gtk.AlignEndValue)
+		o.zoomLabel.SetHexpand(true)
+	}
+
 	o.headerBox.Append(&o.historyBtn.Widget)
 	o.headerBox.Append(&o.favoritesBtn.Widget)
+	if o.zoomLabel != nil {
+		o.headerBox.Append(&o.zoomLabel.Widget)
+	}
 
 	// Search entry field
 	o.entry = gtk.NewSearchEntry()
@@ -546,7 +597,7 @@ func (o *Omnibox) createFaviconImage(url, fallbackIcon string) *gtk.Image {
 		return nil
 	}
 	favicon.SetFromIconName(&fallbackIcon)
-	favicon.SetPixelSize(16)
+	favicon.SetPixelSize(int(16 * o.uiScale))
 	favicon.AddCssClass("omnibox-favicon")
 
 	// Async load favicon from cache
@@ -892,6 +943,9 @@ func (o *Omnibox) Show(ctx context.Context, query string) {
 	// Load initial data
 	o.performSearch()
 
+	// Update size based on current parent window dimensions
+	o.updateSize()
+
 	// Present the window
 	o.window.Present()
 
@@ -960,6 +1014,25 @@ func (o *Omnibox) SetOnNavigate(fn func(url string)) {
 // SetOnClose sets the callback for omnibox close events.
 func (o *Omnibox) SetOnClose(fn func()) {
 	o.onClose = fn
+}
+
+// UpdateZoomIndicator updates the zoom percentage display.
+// Shows the indicator when zoom != 100%, hides it when at 100%.
+func (o *Omnibox) UpdateZoomIndicator(factor float64) {
+	var cb glib.SourceFunc = func(data uintptr) bool {
+		if o.zoomLabel == nil {
+			return false
+		}
+		if factor == 1.0 {
+			o.zoomLabel.SetVisible(false)
+		} else {
+			percentage := int(factor * 100)
+			o.zoomLabel.SetText(fmt.Sprintf("%d%%", percentage))
+			o.zoomLabel.SetVisible(true)
+		}
+		return false
+	}
+	glib.IdleAdd(&cb, 0)
 }
 
 // idleAddUpdateSuggestions schedules updateSuggestions on the GTK main thread.
