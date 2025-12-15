@@ -331,6 +331,15 @@ func (wv *WorkspaceView) SetRootWidgetDirect(widget layout.Widget) {
 	wv.rootWidget = widget
 }
 
+// ClearRootWidgetRef clears the stored root widget reference without removing it.
+// Use this before SetRootWidgetDirect when the old root has already been removed
+// through other means (e.g., GTK paned operations).
+func (wv *WorkspaceView) ClearRootWidgetRef() {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+	wv.rootWidget = nil
+}
+
 // Factory returns the widget factory used by this workspace view.
 func (wv *WorkspaceView) Factory() layout.WidgetFactory {
 	return wv.factory
