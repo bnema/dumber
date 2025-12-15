@@ -141,8 +141,15 @@ func NewOmnibox(ctx context.Context, parent *gtk.ApplicationWindow, cfg OmniboxC
 }
 
 // updateSize sets the omnibox size based on parent window dimensions.
+// Deprecated: use resizeAndCenter with row count instead.
 func (o *Omnibox) updateSize() {
-	if o.parentWindow == nil || o.window == nil {
+	o.resizeAndCenter(omniboxMaxResults)
+}
+
+// resizeAndCenter adjusts the omnibox size based on content and centers it.
+// rowCount is the number of result rows to display (0 = no content, max 10).
+func (o *Omnibox) resizeAndCenter(rowCount int) {
+	if o.parentWindow == nil || o.window == nil || o.mainBox == nil {
 		return
 	}
 
@@ -160,8 +167,47 @@ func (o *Omnibox) updateSize() {
 	}
 
 	width := int(float64(parentWidth) * omniboxWidthPct)
-	height := int(float64(parentHeight) * omniboxHeightPct)
+
+	// Base height: header (~40px) + entry (~50px) at scale 1.0
+	baseHeight := int(90 * o.uiScale)
+	// Row height: approximately 40px per row at scale 1.0
+	rowHeight := int(40 * o.uiScale)
+
+	// Cap at max results
+	if rowCount > omniboxMaxResults {
+		rowCount = omniboxMaxResults
+	}
+
+	height := baseHeight + (rowCount * rowHeight)
+
 	o.window.SetDefaultSize(width, height)
+	o.mainBox.SetSizeRequest(width, height)
+
+	// Center the window on the parent
+	x := (parentWidth - width) / 2
+	y := (parentHeight - height) / 2
+
+	// Get parent window position (for Wayland this may be 0,0)
+	// For a transient/modal window, GTK should handle relative positioning
+	// We need to use a surface-based approach for proper centering
+	if surface := o.window.GetSurface(); surface != nil {
+		// Request the window manager to center it
+		// Note: On Wayland, window positioning is limited
+	}
+
+	// For GTK4 popup positioning, we rely on the transient relationship
+	// The window should appear centered relative to parent automatically
+	// But we can hint at position using the allocation
+	o.window.SetDefaultSize(width, height)
+
+	log := logging.FromContext(o.ctx)
+	log.Debug().
+		Int("width", width).
+		Int("height", height).
+		Int("x", x).
+		Int("y", y).
+		Int("rows", rowCount).
+		Msg("omnibox resized")
 }
 
 // createWidgets builds the GTK widget hierarchy.
@@ -541,8 +587,15 @@ func (o *Omnibox) updateSuggestions(suggestions []Suggestion) {
 
 	o.rebuildList()
 
+	// Hide scrolled window when there are no suggestions
+	rowCount := len(suggestions)
+	if o.scrolledWin != nil {
+		o.scrolledWin.SetVisible(rowCount > 0)
+	}
+	o.resizeAndCenter(rowCount)
+
 	// Select first item if available
-	if len(suggestions) > 0 {
+	if rowCount > 0 {
 		o.selectIndex(0)
 	}
 }
@@ -556,8 +609,15 @@ func (o *Omnibox) updateFavorites(favorites []Favorite) {
 
 	o.rebuildList()
 
+	// Hide scrolled window when there are no favorites
+	rowCount := len(favorites)
+	if o.scrolledWin != nil {
+		o.scrolledWin.SetVisible(rowCount > 0)
+	}
+	o.resizeAndCenter(rowCount)
+
 	// Select first item if available
-	if len(favorites) > 0 {
+	if rowCount > 0 {
 		o.selectIndex(0)
 	}
 }
@@ -940,17 +1000,31 @@ func (o *Omnibox) Show(ctx context.Context, query string) {
 	// Set initial query
 	o.entry.SetText(query)
 
-	// Load initial data
-	o.performSearch()
+	// Determine if we expect content initially
+	// No content expected if: no query AND initialBehavior is "none"
+	expectContent := query != "" || o.initialBehavior != "none"
 
-	// Update size based on current parent window dimensions
-	o.updateSize()
+	// Hide scrolled window if no content expected
+	if o.scrolledWin != nil {
+		o.scrolledWin.SetVisible(expectContent)
+	}
+
+	// Initial size: 0 rows if no content expected, max rows otherwise
+	// (will be updated by search results)
+	initialRows := 0
+	if expectContent {
+		initialRows = omniboxMaxResults
+	}
+	o.resizeAndCenter(initialRows)
 
 	// Present the window
 	o.window.Present()
 
 	// Focus the entry
 	o.entry.GrabFocus()
+
+	// Load initial data (may update size later if results found)
+	o.performSearch()
 }
 
 // Hide closes the omnibox.
