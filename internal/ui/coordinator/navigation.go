@@ -204,3 +204,15 @@ func (c *NavigationCoordinator) UpdateHistoryTitle(ctx context.Context, paneID e
 		log.Warn().Err(err).Str("url", url).Msg("failed to update history title")
 	}
 }
+
+// ActiveWebView returns the WebView for the active pane (for zoom operations).
+func (c *NavigationCoordinator) ActiveWebView(ctx context.Context) *webkit.WebView {
+	return c.contentCoord.ActiveWebView(ctx)
+}
+
+// NotifyZoomChanged updates the omnibox zoom indicator.
+func (c *NavigationCoordinator) NotifyZoomChanged(ctx context.Context, factor float64) {
+	if c.omnibox != nil {
+		c.omnibox.UpdateZoomIndicator(factor)
+	}
+}

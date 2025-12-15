@@ -196,6 +196,7 @@ func (a *App) onActivate(ctx context.Context) {
 		Shortcuts:       a.deps.Config.SearchShortcuts,
 		DefaultSearch:   a.deps.Config.DefaultSearchEngine,
 		InitialBehavior: a.deps.Config.Omnibox.InitialBehavior,
+		UIScale:         a.deps.Config.DefaultUIScale,
 	})
 	if a.omnibox != nil {
 		a.omnibox.SetOnNavigate(func(url string) {
@@ -299,6 +300,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.tabCoord,
 		a.wsCoord,
 		a.navCoord,
+		a.deps.ZoomUC,
 	)
 	a.kbDispatcher.SetOnQuit(a.Quit)
 

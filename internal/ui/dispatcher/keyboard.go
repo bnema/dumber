@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/coordinator"
 	"github.com/bnema/dumber/internal/ui/input"
@@ -14,6 +15,7 @@ type KeyboardDispatcher struct {
 	tabCoord *coordinator.TabCoordinator
 	wsCoord  *coordinator.WorkspaceCoordinator
 	navCoord *coordinator.NavigationCoordinator
+	zoomUC   *usecase.ManageZoomUseCase
 	onQuit   func()
 }
 
@@ -23,6 +25,7 @@ func NewKeyboardDispatcher(
 	tabCoord *coordinator.TabCoordinator,
 	wsCoord *coordinator.WorkspaceCoordinator,
 	navCoord *coordinator.NavigationCoordinator,
+	zoomUC *usecase.ManageZoomUseCase,
 ) *KeyboardDispatcher {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("creating keyboard dispatcher")
@@ -31,6 +34,7 @@ func NewKeyboardDispatcher(
 		tabCoord: tabCoord,
 		wsCoord:  wsCoord,
 		navCoord: navCoord,
+		zoomUC:   zoomUC,
 	}
 }
 
@@ -94,13 +98,13 @@ func (d *KeyboardDispatcher) Dispatch(ctx context.Context, action input.Action) 
 	case input.ActionHardReload:
 		return d.navCoord.HardReload(ctx)
 
-	// Zoom (stub - will be implemented later)
+	// Zoom actions
 	case input.ActionZoomIn:
-		log.Debug().Msg("zoom in action (not yet implemented)")
+		return d.handleZoom(ctx, "in")
 	case input.ActionZoomOut:
-		log.Debug().Msg("zoom out action (not yet implemented)")
+		return d.handleZoom(ctx, "out")
 	case input.ActionZoomReset:
-		log.Debug().Msg("zoom reset action (not yet implemented)")
+		return d.handleZoom(ctx, "reset")
 
 	// UI
 	case input.ActionOpenOmnibox:
@@ -118,6 +122,66 @@ func (d *KeyboardDispatcher) Dispatch(ctx context.Context, action input.Action) 
 
 	default:
 		log.Warn().Str("action", string(action)).Msg("unhandled keyboard action")
+	}
+
+	return nil
+}
+
+// handleZoom processes zoom in/out/reset actions for the active WebView.
+func (d *KeyboardDispatcher) handleZoom(ctx context.Context, action string) error {
+	log := logging.FromContext(ctx)
+
+	if d.zoomUC == nil {
+		log.Warn().Msg("zoom use case not available")
+		return nil
+	}
+
+	wv := d.navCoord.ActiveWebView(ctx)
+	if wv == nil {
+		log.Debug().Msg("no active webview for zoom")
+		return nil
+	}
+
+	domain, err := usecase.ExtractDomain(wv.URI())
+	if err != nil {
+		log.Debug().Str("uri", wv.URI()).Msg("cannot extract domain for zoom")
+		return nil
+	}
+
+	current := wv.GetZoomLevel()
+	var newZoom *entity.ZoomLevel
+
+	switch action {
+	case "in":
+		newZoom, err = d.zoomUC.ZoomIn(ctx, domain, current)
+	case "out":
+		newZoom, err = d.zoomUC.ZoomOut(ctx, domain, current)
+	case "reset":
+		err = d.zoomUC.ResetZoom(ctx, domain)
+		if err == nil {
+			newZoom = entity.NewZoomLevel(domain, d.zoomUC.DefaultZoom())
+		}
+	}
+
+	if err != nil {
+		log.Error().Err(err).Str("action", action).Msg("zoom action failed")
+		return err
+	}
+
+	if newZoom != nil {
+		if setErr := wv.SetZoomLevel(ctx, newZoom.ZoomFactor); setErr != nil {
+			log.Error().Err(setErr).Float64("zoom", newZoom.ZoomFactor).Msg("failed to apply zoom")
+			return setErr
+		}
+
+		// Notify omnibox to update zoom indicator
+		d.navCoord.NotifyZoomChanged(ctx, newZoom.ZoomFactor)
+
+		log.Debug().
+			Str("domain", domain).
+			Str("action", action).
+			Float64("zoom", newZoom.ZoomFactor).
+			Msg("zoom applied")
 	}
 
 	return nil
