@@ -37,18 +37,26 @@ func NewManager(panesUC *usecase.ManagePanesUseCase) *Manager {
 // CollectPaneRects gathers geometry from all visible panes.
 // For panes in stacks, uses the stack container's geometry since individual
 // collapsed panes have no allocated size.
+// Only visible panes are included - for stacked panes, only the active one is visible.
 func (m *Manager) CollectPaneRects(provider PaneGeometryProvider) []entity.PaneRect {
 	var rects []entity.PaneRect
 
 	container := provider.ContainerWidget()
 
 	for _, paneID := range provider.GetPaneIDs() {
-		// First check if pane is in a stack - use stack container geometry
+		paneWidget := provider.GetPaneWidget(paneID)
+
+		// Skip panes that aren't visible (includes inactive stacked panes)
+		if paneWidget == nil || !paneWidget.IsVisible() {
+			continue
+		}
+
+		// For stacked panes, use stack container geometry (pane itself has no size)
 		var widget layout.Widget
 		if stackWidget := provider.GetStackContainerWidget(paneID); stackWidget != nil {
 			widget = stackWidget
 		} else {
-			widget = provider.GetPaneWidget(paneID)
+			widget = paneWidget
 		}
 
 		if widget == nil || !widget.IsVisible() {

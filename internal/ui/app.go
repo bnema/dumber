@@ -587,6 +587,25 @@ func (a *App) handlePaneSplit(ctx context.Context, direction usecase.SplitDirect
 		return nil
 	}
 
+	wsView := a.activeWorkspaceView()
+
+	// Check if we're splitting from inside a stack (horizontal split around stack)
+	isStackSplit := (direction == usecase.SplitLeft || direction == usecase.SplitRight) &&
+		activePane.Parent != nil && activePane.Parent.IsStacked
+
+	// Get the existing StackedView BEFORE domain changes (for incremental operation)
+	var existingStackWidget layout.Widget
+	if isStackSplit && wsView != nil {
+		tr := wsView.TreeRenderer()
+		if tr != nil {
+			// Get any pane's StackedView from the stack - they all map to the same one
+			stackedView := tr.GetStackedViewForPane(string(activePane.Pane.ID))
+			if stackedView != nil {
+				existingStackWidget = stackedView.Widget()
+			}
+		}
+	}
+
 	output, err := a.panesUC.Split(ctx, usecase.SplitPaneInput{
 		Workspace:  ws,
 		TargetPane: activePane,
@@ -597,21 +616,123 @@ func (a *App) handlePaneSplit(ctx context.Context, direction usecase.SplitDirect
 		return err
 	}
 
+	// Remember old active pane before changing
+	oldActivePaneID := activePane.Pane.ID
+
 	// Set the new pane as active
 	ws.ActivePaneID = output.NewPaneNode.Pane.ID
 
-	// Rebuild the workspace view
-	wsView := a.activeWorkspaceView()
+	// Update the workspace view
 	if wsView != nil {
-		if err := wsView.Rebuild(); err != nil {
-			log.Error().Err(err).Msg("failed to rebuild workspace view")
+		if isStackSplit && existingStackWidget != nil {
+			// Incremental split: reuse existing stack widget
+			if err := a.doIncrementalStackSplit(ctx, wsView, ws, output, direction, existingStackWidget, oldActivePaneID); err != nil {
+				log.Warn().Err(err).Msg("incremental split failed, falling back to rebuild")
+				// Fallback to full rebuild
+				if err := wsView.Rebuild(); err != nil {
+					log.Error().Err(err).Msg("failed to rebuild workspace view")
+				}
+				a.attachWorkspaceWebViews(ctx, ws, wsView)
+			}
+		} else {
+			// Regular split: full rebuild
+			if err := wsView.Rebuild(); err != nil {
+				log.Error().Err(err).Msg("failed to rebuild workspace view")
+			}
+			a.attachWorkspaceWebViews(ctx, ws, wsView)
 		}
-		a.attachWorkspaceWebViews(ctx, ws, wsView)
 		wsView.FocusPane(ws.ActivePaneID)
 	}
 
 	log.Info().Str("direction", string(direction)).Str("new_pane_id", string(output.NewPaneNode.Pane.ID)).Msg("pane split completed")
 
+	return nil
+}
+
+// doIncrementalStackSplit performs an incremental split around an existing stacked pane.
+// This preserves existing WebViews by reusing the existing StackedView widget and creating
+// a new SplitView around it, rather than rebuilding the entire widget tree.
+func (a *App) doIncrementalStackSplit(
+	ctx context.Context,
+	wsView *component.WorkspaceView,
+	ws *entity.Workspace,
+	output *usecase.SplitPaneOutput,
+	direction usecase.SplitDirection,
+	existingStackWidget layout.Widget,
+	oldActivePaneID entity.PaneID,
+) error {
+	log := logging.FromContext(ctx)
+	factory := wsView.Factory()
+
+	log.Debug().
+		Str("direction", string(direction)).
+		Str("new_pane_id", string(output.NewPaneNode.Pane.ID)).
+		Str("old_active_pane_id", string(oldActivePaneID)).
+		Msg("performing incremental stack split")
+
+	// 1. Deactivate the old active pane (in the stack)
+	if oldPaneView := wsView.GetPaneView(oldActivePaneID); oldPaneView != nil {
+		oldPaneView.SetActive(false)
+	}
+
+	// 2. Unparent the existing stack widget from the workspace container
+	wsView.Container().Remove(existingStackWidget)
+
+	// 2. Create new PaneView for the new pane (without WebView - will attach later)
+	newPaneView := component.NewPaneView(factory, output.NewPaneNode.Pane.ID, nil)
+
+	// 3. Wrap the new PaneView in a StackedView
+	newStackedView := layout.NewStackedView(factory)
+	newStackedView.AddPane(ctx, output.NewPaneNode.Pane.Title, "", newPaneView.Widget())
+
+	// 4. Create a SplitView with the appropriate orientation and child placement
+	var splitView *layout.SplitView
+	if direction == usecase.SplitLeft {
+		// New pane goes on the left, existing stack on the right
+		splitView = layout.NewSplitView(ctx, factory, layout.OrientationHorizontal,
+			newStackedView.Widget(), existingStackWidget, output.SplitRatio)
+	} else {
+		// New pane goes on the right, existing stack on the left (SplitRight)
+		splitView = layout.NewSplitView(ctx, factory, layout.OrientationHorizontal,
+			existingStackWidget, newStackedView.Widget(), output.SplitRatio)
+	}
+
+	// 5. Replace the root widget in the workspace view
+	wsView.SetRootWidgetDirect(splitView.Widget())
+
+	// 6. Register the new pane in tracking maps and activate it
+	wsView.RegisterPaneView(output.NewPaneNode.Pane.ID, newPaneView)
+	newPaneView.SetActive(true)
+
+	tr := wsView.TreeRenderer()
+	if tr != nil {
+		// Register the new pane's StackedView mapping
+		tr.RegisterPaneInStack(string(output.NewPaneNode.Pane.ID), newStackedView)
+		// Register the split node widget
+		tr.RegisterWidget(output.ParentNode.ID, splitView.Widget())
+	}
+
+	// 7. Attach WebView only for the new pane
+	wv, err := a.ensureWebViewForPane(ctx, output.NewPaneNode.Pane.ID)
+	if err != nil {
+		log.Warn().Err(err).Str("pane_id", string(output.NewPaneNode.Pane.ID)).Msg("failed to ensure webview for new pane")
+		return err
+	}
+
+	// Load the default URL for new pane
+	newPaneEntity := output.NewPaneNode.Pane
+	if newPaneEntity.URI != "" {
+		if err := wv.LoadURI(ctx, newPaneEntity.URI); err != nil {
+			log.Warn().Err(err).Str("uri", newPaneEntity.URI).Msg("failed to load URI for new pane")
+		}
+	}
+
+	widget := a.wrapWebViewWidget(ctx, wv)
+	if widget != nil {
+		newPaneView.SetWebViewWidget(widget)
+	}
+
+	log.Debug().Msg("incremental stack split completed successfully")
 	return nil
 }
 

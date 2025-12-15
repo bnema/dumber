@@ -197,6 +197,12 @@ func (tr *TreeRenderer) renderStacked(node *entity.PaneNode) (Widget, error) {
 		}
 
 		stackedView.AddPane(tr.ctx, title, favicon, childWidget)
+
+		// Override paneToStack to point to THIS stacked view, not the child's wrapper.
+		// This ensures geometric navigation and stack sync work correctly.
+		if child.Pane != nil {
+			tr.paneToStack[string(child.Pane.ID)] = stackedView
+		}
 	}
 
 	// Set active index
