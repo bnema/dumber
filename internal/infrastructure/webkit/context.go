@@ -16,6 +16,7 @@ import (
 type WebKitContext struct {
 	webContext     *webkit.WebContext
 	networkSession *webkit.NetworkSession
+	faviconDB      *webkit.FaviconDatabase
 
 	dataDir  string
 	cacheDir string
@@ -93,6 +94,13 @@ func (c *WebKitContext) initNetworkSession() error {
 		return fmt.Errorf("website data manager is ephemeral")
 	}
 
+	// Enable favicon collection and get database reference
+	dataManager.SetFaviconsEnabled(true)
+	c.faviconDB = dataManager.GetFaviconDatabase()
+	if c.faviconDB != nil {
+		c.logger.Debug().Msg("favicon database enabled")
+	}
+
 	// Configure cookie storage
 	cookieManager := session.GetCookieManager()
 	if cookieManager == nil {
@@ -137,6 +145,13 @@ func (c *WebKitContext) NetworkSession() *webkit.NetworkSession {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.networkSession
+}
+
+// FaviconDatabase returns the favicon database for persistent favicon storage.
+func (c *WebKitContext) FaviconDatabase() *webkit.FaviconDatabase {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.faviconDB
 }
 
 // DataDir returns the data directory path.

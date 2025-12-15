@@ -9,6 +9,7 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
+	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/gio"
 	"github.com/jwijenbergh/puregotk/v4/glib"
 	"github.com/jwijenbergh/puregotk/v4/gobject"
@@ -101,6 +102,7 @@ type WebView struct {
 	OnTitleChanged    func(string)
 	OnURIChanged      func(string)
 	OnProgressChanged func(float64)
+	OnFaviconChanged  func(*gdk.Texture) // Called when page favicon changes
 	OnClose           func()
 	OnCreate          func(PopupRequest) *WebView // Return new WebView or nil to block popup
 	OnReadyToShow     func()                      // Called when popup is ready to display
@@ -293,6 +295,17 @@ func (wv *WebView) connectSignals() {
 	}
 	sigID = gobject.SignalConnect(wv.inner.GoPointer(), "notify::title", glib.NewCallback(&titleCb))
 	wv.signalIDs = append(wv.signalIDs, sigID)
+
+	// notify::favicon signal for favicon changes
+	// This fires when the page favicon changes (after page load or dynamic updates)
+	faviconCb := func() {
+		favicon := wv.inner.GetFavicon()
+		if wv.OnFaviconChanged != nil {
+			wv.OnFaviconChanged(favicon)
+		}
+	}
+	sigID = gobject.SignalConnect(wv.inner.GoPointer(), "notify::favicon", glib.NewCallback(&faviconCb))
+	wv.signalIDs = append(wv.signalIDs, sigID)
 }
 
 // ID returns the unique identifier for this WebView.
@@ -412,6 +425,15 @@ func (wv *WebView) Title() string {
 	return wv.title
 }
 
+// Favicon returns the current page favicon as a GdkTexture.
+// Returns nil if no favicon is available.
+func (wv *WebView) Favicon() *gdk.Texture {
+	if wv.destroyed.Load() {
+		return nil
+	}
+	return wv.inner.GetFavicon()
+}
+
 // IsLoading returns true if a page is currently loading.
 func (wv *WebView) IsLoading() bool {
 	wv.mu.RLock()
@@ -464,6 +486,7 @@ func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
 		wv.OnTitleChanged = nil
 		wv.OnURIChanged = nil
 		wv.OnProgressChanged = nil
+		wv.OnFaviconChanged = nil
 		wv.OnClose = nil
 		wv.OnCreate = nil
 		return
@@ -478,6 +501,11 @@ func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
 	wv.OnTitleChanged = callbacks.OnTitleChanged
 	wv.OnURIChanged = callbacks.OnURIChanged
 	wv.OnProgressChanged = callbacks.OnProgressChanged
+	if callbacks.OnFaviconChanged != nil {
+		wv.OnFaviconChanged = func(texture *gdk.Texture) {
+			callbacks.OnFaviconChanged(texture)
+		}
+	}
 	wv.OnClose = callbacks.OnClose
 	if callbacks.OnCreate != nil {
 		wv.OnCreate = func(req PopupRequest) *WebView {
