@@ -33,3 +33,18 @@ DELETE FROM history WHERE last_visited < ?;
 
 -- name: DeleteAllHistory :exec
 DELETE FROM history;
+
+-- name: GetHistoryStats :one
+SELECT COUNT(*) as total_entries, COALESCE(SUM(visit_count), 0) as total_visits, COUNT(DISTINCT date(last_visited)) as unique_days FROM history;
+
+-- name: GetDomainStats :many
+SELECT SUBSTR(SUBSTR(url, INSTR(url, '://') + 3), 1, CASE WHEN INSTR(SUBSTR(url, INSTR(url, '://') + 3), '/') > 0 THEN INSTR(SUBSTR(url, INSTR(url, '://') + 3), '/') - 1 ELSE LENGTH(SUBSTR(url, INSTR(url, '://') + 3)) END) as domain, COUNT(*) as page_count, SUM(visit_count) as total_visits, MAX(last_visited) as last_visit FROM history GROUP BY domain ORDER BY total_visits DESC LIMIT ?;
+
+-- name: GetHourlyDistribution :many
+SELECT CAST(strftime('%H', last_visited) AS INTEGER) as hour, COUNT(*) as visit_count FROM history GROUP BY hour ORDER BY hour;
+
+-- name: GetDailyVisitCount :many
+SELECT date(last_visited) as day, COUNT(*) as entries, SUM(visit_count) as visits FROM history WHERE last_visited >= date('now', ?) GROUP BY day ORDER BY day ASC;
+
+-- name: DeleteHistoryByDomain :exec
+DELETE FROM history WHERE url LIKE '%://' || ? || '/%' OR url LIKE '%://' || ? || '?%' OR url LIKE '%://' || ? || '#%' OR url LIKE '%://' || ?;

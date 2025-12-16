@@ -94,6 +94,107 @@ func (r *historyRepo) DeleteAll(ctx context.Context) error {
 	return r.queries.DeleteAllHistory(ctx)
 }
 
+func (r *historyRepo) DeleteByDomain(ctx context.Context, domain string) error {
+	return r.queries.DeleteHistoryByDomain(ctx, sqlc.DeleteHistoryByDomainParams{
+		Column1: sql.NullString{String: domain, Valid: true},
+		Column2: sql.NullString{String: domain, Valid: true},
+		Column3: sql.NullString{String: domain, Valid: true},
+		Column4: sql.NullString{String: domain, Valid: true},
+	})
+}
+
+func (r *historyRepo) GetStats(ctx context.Context) (*entity.HistoryStats, error) {
+	row, err := r.queries.GetHistoryStats(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Handle the interface{} type for total_visits
+	var totalVisits int64
+	if v, ok := row.TotalVisits.(int64); ok {
+		totalVisits = v
+	} else if v, ok := row.TotalVisits.(float64); ok {
+		totalVisits = int64(v)
+	}
+
+	return &entity.HistoryStats{
+		TotalEntries: row.TotalEntries,
+		TotalVisits:  totalVisits,
+		UniqueDays:   row.UniqueDays,
+	}, nil
+}
+
+func (r *historyRepo) GetDomainStats(ctx context.Context, limit int) ([]*entity.DomainStat, error) {
+	rows, err := r.queries.GetDomainStats(ctx, int64(limit))
+	if err != nil {
+		return nil, err
+	}
+
+	stats := make([]*entity.DomainStat, len(rows))
+	for i, row := range rows {
+		var totalVisits int64
+		if row.TotalVisits.Valid {
+			totalVisits = int64(row.TotalVisits.Float64)
+		}
+
+		var lastVisit time.Time
+		if v, ok := row.LastVisit.(string); ok && v != "" {
+			lastVisit, _ = time.Parse("2006-01-02 15:04:05", v)
+		}
+
+		stats[i] = &entity.DomainStat{
+			Domain:      row.Domain,
+			PageCount:   row.PageCount,
+			TotalVisits: totalVisits,
+			LastVisit:   lastVisit,
+		}
+	}
+	return stats, nil
+}
+
+func (r *historyRepo) GetHourlyDistribution(ctx context.Context) ([]*entity.HourlyDistribution, error) {
+	rows, err := r.queries.GetHourlyDistribution(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	dist := make([]*entity.HourlyDistribution, len(rows))
+	for i, row := range rows {
+		dist[i] = &entity.HourlyDistribution{
+			Hour:       int(row.Hour),
+			VisitCount: row.VisitCount,
+		}
+	}
+	return dist, nil
+}
+
+func (r *historyRepo) GetDailyVisitCount(ctx context.Context, daysAgo string) ([]*entity.DailyVisitCount, error) {
+	rows, err := r.queries.GetDailyVisitCount(ctx, daysAgo)
+	if err != nil {
+		return nil, err
+	}
+
+	counts := make([]*entity.DailyVisitCount, len(rows))
+	for i, row := range rows {
+		var day string
+		if v, ok := row.Day.(string); ok {
+			day = v
+		}
+
+		var visits int64
+		if row.Visits.Valid {
+			visits = int64(row.Visits.Float64)
+		}
+
+		counts[i] = &entity.DailyVisitCount{
+			Day:     day,
+			Entries: row.Entries,
+			Visits:  visits,
+		}
+	}
+	return counts, nil
+}
+
 func historyFromRow(row sqlc.History) *entity.HistoryEntry {
 	return &entity.HistoryEntry{
 		ID:          row.ID,

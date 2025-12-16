@@ -18,6 +18,7 @@ type Querier interface {
 	DeleteAllHistory(ctx context.Context) error
 	DeleteFavorite(ctx context.Context, id int64) error
 	DeleteFolder(ctx context.Context, id int64) error
+	DeleteHistoryByDomain(ctx context.Context, arg DeleteHistoryByDomainParams) error
 	DeleteHistoryByID(ctx context.Context, id int64) error
 	DeleteHistoryOlderThan(ctx context.Context, lastVisited sql.NullTime) error
 	DeleteTag(ctx context.Context, id int64) error
@@ -27,6 +28,8 @@ type Querier interface {
 	GetAllTags(ctx context.Context) ([]FavoriteTag, error)
 	GetAllWhitelistedDomains(ctx context.Context) ([]string, error)
 	GetChildFolders(ctx context.Context, parentID sql.NullInt64) ([]FavoriteFolder, error)
+	GetDailyVisitCount(ctx context.Context, date interface{}) ([]GetDailyVisitCountRow, error)
+	GetDomainStats(ctx context.Context, limit int64) ([]GetDomainStatsRow, error)
 	GetFavoriteByID(ctx context.Context, id int64) (Favorite, error)
 	GetFavoriteByShortcut(ctx context.Context, shortcutKey sql.NullInt64) (Favorite, error)
 	GetFavoriteByURL(ctx context.Context, url string) (Favorite, error)
@@ -34,6 +37,8 @@ type Querier interface {
 	GetFavoritesWithoutFolder(ctx context.Context) ([]Favorite, error)
 	GetFolderByID(ctx context.Context, id int64) (FavoriteFolder, error)
 	GetHistoryByURL(ctx context.Context, url string) (History, error)
+	GetHistoryStats(ctx context.Context) (GetHistoryStatsRow, error)
+	GetHourlyDistribution(ctx context.Context) ([]GetHourlyDistributionRow, error)
 	GetRecentHistory(ctx context.Context, arg GetRecentHistoryParams) ([]History, error)
 	GetRootFolders(ctx context.Context) ([]FavoriteFolder, error)
 	GetTagByID(ctx context.Context, id int64) (FavoriteTag, error)

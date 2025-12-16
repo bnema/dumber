@@ -19,6 +19,27 @@ func (q *Queries) DeleteAllHistory(ctx context.Context) error {
 	return err
 }
 
+const DeleteHistoryByDomain = `-- name: DeleteHistoryByDomain :exec
+DELETE FROM history WHERE url LIKE '%://' || ? || '/%' OR url LIKE '%://' || ? || '?%' OR url LIKE '%://' || ? || '#%' OR url LIKE '%://' || ?
+`
+
+type DeleteHistoryByDomainParams struct {
+	Column1 sql.NullString `json:"column_1"`
+	Column2 sql.NullString `json:"column_2"`
+	Column3 sql.NullString `json:"column_3"`
+	Column4 sql.NullString `json:"column_4"`
+}
+
+func (q *Queries) DeleteHistoryByDomain(ctx context.Context, arg DeleteHistoryByDomainParams) error {
+	_, err := q.db.ExecContext(ctx, DeleteHistoryByDomain,
+		arg.Column1,
+		arg.Column2,
+		arg.Column3,
+		arg.Column4,
+	)
+	return err
+}
+
 const DeleteHistoryByID = `-- name: DeleteHistoryByID :exec
 DELETE FROM history WHERE id = ?
 `
@@ -35,6 +56,78 @@ DELETE FROM history WHERE last_visited < ?
 func (q *Queries) DeleteHistoryOlderThan(ctx context.Context, lastVisited sql.NullTime) error {
 	_, err := q.db.ExecContext(ctx, DeleteHistoryOlderThan, lastVisited)
 	return err
+}
+
+const GetDailyVisitCount = `-- name: GetDailyVisitCount :many
+SELECT date(last_visited) as day, COUNT(*) as entries, SUM(visit_count) as visits FROM history WHERE last_visited >= date('now', ?) GROUP BY day ORDER BY day ASC
+`
+
+type GetDailyVisitCountRow struct {
+	Day     interface{}     `json:"day"`
+	Entries int64           `json:"entries"`
+	Visits  sql.NullFloat64 `json:"visits"`
+}
+
+func (q *Queries) GetDailyVisitCount(ctx context.Context, date interface{}) ([]GetDailyVisitCountRow, error) {
+	rows, err := q.db.QueryContext(ctx, GetDailyVisitCount, date)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetDailyVisitCountRow{}
+	for rows.Next() {
+		var i GetDailyVisitCountRow
+		if err := rows.Scan(&i.Day, &i.Entries, &i.Visits); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const GetDomainStats = `-- name: GetDomainStats :many
+SELECT SUBSTR(SUBSTR(url, INSTR(url, '://') + 3), 1, CASE WHEN INSTR(SUBSTR(url, INSTR(url, '://') + 3), '/') > 0 THEN INSTR(SUBSTR(url, INSTR(url, '://') + 3), '/') - 1 ELSE LENGTH(SUBSTR(url, INSTR(url, '://') + 3)) END) as domain, COUNT(*) as page_count, SUM(visit_count) as total_visits, MAX(last_visited) as last_visit FROM history GROUP BY domain ORDER BY total_visits DESC LIMIT ?
+`
+
+type GetDomainStatsRow struct {
+	Domain      string          `json:"domain"`
+	PageCount   int64           `json:"page_count"`
+	TotalVisits sql.NullFloat64 `json:"total_visits"`
+	LastVisit   interface{}     `json:"last_visit"`
+}
+
+func (q *Queries) GetDomainStats(ctx context.Context, limit int64) ([]GetDomainStatsRow, error) {
+	rows, err := q.db.QueryContext(ctx, GetDomainStats, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetDomainStatsRow{}
+	for rows.Next() {
+		var i GetDomainStatsRow
+		if err := rows.Scan(
+			&i.Domain,
+			&i.PageCount,
+			&i.TotalVisits,
+			&i.LastVisit,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const GetHistoryByURL = `-- name: GetHistoryByURL :one
@@ -54,6 +147,55 @@ func (q *Queries) GetHistoryByURL(ctx context.Context, url string) (History, err
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const GetHistoryStats = `-- name: GetHistoryStats :one
+SELECT COUNT(*) as total_entries, COALESCE(SUM(visit_count), 0) as total_visits, COUNT(DISTINCT date(last_visited)) as unique_days FROM history
+`
+
+type GetHistoryStatsRow struct {
+	TotalEntries int64       `json:"total_entries"`
+	TotalVisits  interface{} `json:"total_visits"`
+	UniqueDays   int64       `json:"unique_days"`
+}
+
+func (q *Queries) GetHistoryStats(ctx context.Context) (GetHistoryStatsRow, error) {
+	row := q.db.QueryRowContext(ctx, GetHistoryStats)
+	var i GetHistoryStatsRow
+	err := row.Scan(&i.TotalEntries, &i.TotalVisits, &i.UniqueDays)
+	return i, err
+}
+
+const GetHourlyDistribution = `-- name: GetHourlyDistribution :many
+SELECT CAST(strftime('%H', last_visited) AS INTEGER) as hour, COUNT(*) as visit_count FROM history GROUP BY hour ORDER BY hour
+`
+
+type GetHourlyDistributionRow struct {
+	Hour       int64 `json:"hour"`
+	VisitCount int64 `json:"visit_count"`
+}
+
+func (q *Queries) GetHourlyDistribution(ctx context.Context) ([]GetHourlyDistributionRow, error) {
+	rows, err := q.db.QueryContext(ctx, GetHourlyDistribution)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetHourlyDistributionRow{}
+	for rows.Next() {
+		var i GetHourlyDistributionRow
+		if err := rows.Scan(&i.Hour, &i.VisitCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const GetRecentHistory = `-- name: GetRecentHistory :many

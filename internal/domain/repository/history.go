@@ -32,4 +32,19 @@ type HistoryRepository interface {
 
 	// DeleteAll removes all history entries.
 	DeleteAll(ctx context.Context) error
+
+	// DeleteByDomain removes all history entries for a domain.
+	DeleteByDomain(ctx context.Context, domain string) error
+
+	// GetStats retrieves overall history statistics.
+	GetStats(ctx context.Context) (*entity.HistoryStats, error)
+
+	// GetDomainStats retrieves per-domain statistics.
+	GetDomainStats(ctx context.Context, limit int) ([]*entity.DomainStat, error)
+
+	// GetHourlyDistribution retrieves hourly visit distribution.
+	GetHourlyDistribution(ctx context.Context) ([]*entity.HourlyDistribution, error)
+
+	// GetDailyVisitCount retrieves daily visit counts for the given period.
+	GetDailyVisitCount(ctx context.Context, daysAgo string) ([]*entity.DailyVisitCount, error)
 }
