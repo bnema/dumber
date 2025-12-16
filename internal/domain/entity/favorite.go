@@ -13,16 +13,16 @@ type TagID int64
 
 // Favorite represents a bookmarked URL.
 type Favorite struct {
-	ID          FavoriteID
-	URL         string
-	Title       string
-	FaviconURL  string
-	FolderID    *FolderID // nil = root level
-	ShortcutKey *int      // 1-9 for quick access (Alt+1 through Alt+9)
-	Position    int       // Order within folder
-	Tags        []Tag
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID          FavoriteID `json:"id"`
+	URL         string     `json:"url"`
+	Title       string     `json:"title"`
+	FaviconURL  string     `json:"favicon_url"`
+	FolderID    *FolderID  `json:"folder_id"`    // nil = root level
+	ShortcutKey *int       `json:"shortcut_key"` // 1-9 for quick access (Alt+1 through Alt+9)
+	Position    int        `json:"position"`     // Order within folder
+	Tags        []Tag      `json:"tags,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
 // NewFavorite creates a new favorite for a URL.
@@ -58,12 +58,12 @@ func (f *Favorite) HasTag(tagID TagID) bool {
 
 // Folder represents a container for organizing favorites.
 type Folder struct {
-	ID        FolderID
-	Name      string
-	Icon      string    // Optional icon identifier
-	ParentID  *FolderID // nil = root level
-	Position  int       // Order within parent
-	CreatedAt time.Time
+	ID        FolderID  `json:"id"`
+	Name      string    `json:"name"`
+	Icon      string    `json:"icon"`      // Optional icon identifier
+	ParentID  *FolderID `json:"parent_id"` // nil = root level
+	Position  int       `json:"position"`  // Order within parent
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // NewFolder creates a new folder.
@@ -81,10 +81,10 @@ func (f *Folder) IsRoot() bool {
 
 // Tag represents a label that can be applied to favorites.
 type Tag struct {
-	ID        TagID
-	Name      string
-	Color     string // Hex color code (e.g., "#FF5733")
-	CreatedAt time.Time
+	ID        TagID     `json:"id"`
+	Name      string    `json:"name"`
+	Color     string    `json:"color"` // Hex color code (e.g., "#FF5733")
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // NewTag creates a new tag with default color.
