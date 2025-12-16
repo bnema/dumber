@@ -408,3 +408,57 @@ func (uc *ManageFavoritesUseCase) GetTagsForFavorite(ctx context.Context, favID 
 
 	return uc.tagRepo.GetForFavorite(ctx, favID)
 }
+
+// UpdateFolder updates a folder's name and icon.
+func (uc *ManageFavoritesUseCase) UpdateFolder(ctx context.Context, id entity.FolderID, name, icon string) error {
+	log := logging.FromContext(ctx)
+	log.Debug().Int64("id", int64(id)).Str("name", name).Msg("updating folder")
+
+	folder, err := uc.folderRepo.FindByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to find folder: %w", err)
+	}
+	if folder == nil {
+		return fmt.Errorf("folder %d not found", id)
+	}
+
+	if name != "" {
+		folder.Name = name
+	}
+	folder.Icon = icon
+
+	if err := uc.folderRepo.Save(ctx, folder); err != nil {
+		return fmt.Errorf("failed to update folder: %w", err)
+	}
+
+	log.Info().Int64("id", int64(id)).Msg("folder updated")
+	return nil
+}
+
+// UpdateTag updates a tag's name and color.
+func (uc *ManageFavoritesUseCase) UpdateTag(ctx context.Context, id entity.TagID, name, color string) error {
+	log := logging.FromContext(ctx)
+	log.Debug().Int64("id", int64(id)).Str("name", name).Str("color", color).Msg("updating tag")
+
+	tag, err := uc.tagRepo.FindByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to find tag: %w", err)
+	}
+	if tag == nil {
+		return fmt.Errorf("tag %d not found", id)
+	}
+
+	if name != "" {
+		tag.Name = name
+	}
+	if color != "" {
+		tag.Color = color
+	}
+
+	if err := uc.tagRepo.Save(ctx, tag); err != nil {
+		return fmt.Errorf("failed to update tag: %w", err)
+	}
+
+	log.Info().Int64("id", int64(id)).Msg("tag updated")
+	return nil
+}

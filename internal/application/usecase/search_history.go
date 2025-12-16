@@ -165,3 +165,67 @@ func (uc *SearchHistoryUseCase) Delete(ctx context.Context, id int64) error {
 	log.Debug().Int64("id", id).Msg("history entry deleted")
 	return nil
 }
+
+// DeleteByDomain removes all history entries for a domain.
+func (uc *SearchHistoryUseCase) DeleteByDomain(ctx context.Context, domain string) error {
+	log := logging.FromContext(ctx)
+	log.Debug().Str("domain", domain).Msg("deleting history by domain")
+
+	if err := uc.historyRepo.DeleteByDomain(ctx, domain); err != nil {
+		return fmt.Errorf("failed to delete history by domain: %w", err)
+	}
+
+	log.Info().Str("domain", domain).Msg("history deleted for domain")
+	return nil
+}
+
+// GetDomainStats retrieves per-domain visit statistics.
+func (uc *SearchHistoryUseCase) GetDomainStats(ctx context.Context, limit int) ([]*entity.DomainStat, error) {
+	log := logging.FromContext(ctx)
+	log.Debug().Int("limit", limit).Msg("getting domain stats")
+
+	if limit <= 0 {
+		limit = 20
+	}
+
+	return uc.historyRepo.GetDomainStats(ctx, limit)
+}
+
+// GetAnalytics retrieves aggregated history analytics for the homepage.
+func (uc *SearchHistoryUseCase) GetAnalytics(ctx context.Context) (*entity.HistoryAnalytics, error) {
+	log := logging.FromContext(ctx)
+	log.Debug().Msg("getting history analytics")
+
+	// Get basic stats
+	stats, err := uc.historyRepo.GetStats(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get history stats: %w", err)
+	}
+
+	// Get top domains
+	domains, err := uc.historyRepo.GetDomainStats(ctx, 10)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get domain stats: %w", err)
+	}
+
+	// Get daily visits for last 30 days
+	dailyVisits, err := uc.historyRepo.GetDailyVisitCount(ctx, "-30 days")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get daily visits: %w", err)
+	}
+
+	// Get hourly distribution
+	hourlyDist, err := uc.historyRepo.GetHourlyDistribution(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get hourly distribution: %w", err)
+	}
+
+	return &entity.HistoryAnalytics{
+		TotalEntries:       stats.TotalEntries,
+		TotalVisits:        stats.TotalVisits,
+		UniqueDays:         stats.UniqueDays,
+		TopDomains:         domains,
+		DailyVisits:        dailyVisits,
+		HourlyDistribution: hourlyDist,
+	}, nil
+}
