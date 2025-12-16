@@ -19,10 +19,11 @@ const (
 
 // MainWindow represents the main browser window.
 type MainWindow struct {
-	window      *gtk.ApplicationWindow
-	rootBox     *gtk.Box // Vertical: tab bar + content
-	tabBar      *component.TabBar
-	contentArea *gtk.Box // Container for workspace content
+	window         *gtk.ApplicationWindow
+	rootBox        *gtk.Box     // Vertical: tab bar + content
+	tabBar         *component.TabBar
+	contentOverlay *gtk.Overlay // Overlay for content + omnibox
+	contentArea    *gtk.Box     // Container for workspace content
 
 	cfg    *config.Config
 	logger zerolog.Logger
@@ -66,9 +67,22 @@ func New(ctx context.Context, app *gtk.Application, cfg *config.Config) (*MainWi
 		return nil, ErrWidgetCreationFailed("tabBar")
 	}
 
+	// Create content overlay (for omnibox and other overlays)
+	mw.contentOverlay = gtk.NewOverlay()
+	if mw.contentOverlay == nil {
+		mw.tabBar.Destroy()
+		mw.rootBox.Unref()
+		mw.window.Unref()
+		return nil, ErrWidgetCreationFailed("contentOverlay")
+	}
+	mw.contentOverlay.SetHexpand(true)
+	mw.contentOverlay.SetVexpand(true)
+	mw.contentOverlay.SetVisible(true)
+
 	// Create content area
 	mw.contentArea = gtk.NewBox(gtk.OrientationVerticalValue, 0)
 	if mw.contentArea == nil {
+		mw.contentOverlay.Unref()
 		mw.tabBar.Destroy()
 		mw.rootBox.Unref()
 		mw.window.Unref()
@@ -78,6 +92,9 @@ func New(ctx context.Context, app *gtk.Application, cfg *config.Config) (*MainWi
 	mw.contentArea.SetVexpand(true)
 	mw.contentArea.SetVisible(true)
 	mw.contentArea.AddCssClass("content-area")
+
+	// Set content area as the main child of the overlay
+	mw.contentOverlay.SetChild(&mw.contentArea.Widget)
 
 	// Assemble layout based on tab bar position
 	mw.assembleLayout()
@@ -97,12 +114,12 @@ func (mw *MainWindow) assembleLayout() {
 
 	if tabBarPos == "bottom" {
 		// Content first, then tab bar
-		mw.rootBox.Append(&mw.contentArea.Widget)
+		mw.rootBox.Append(&mw.contentOverlay.Widget)
 		mw.rootBox.Append(mw.tabBar.Widget())
 	} else {
 		// Tab bar first, then content (default: top)
 		mw.rootBox.Append(mw.tabBar.Widget())
-		mw.rootBox.Append(&mw.contentArea.Widget)
+		mw.rootBox.Append(&mw.contentOverlay.Widget)
 	}
 
 	mw.logger.Debug().
@@ -146,6 +163,14 @@ func (mw *MainWindow) SetContent(widget *gtk.Widget) {
 // Window returns the underlying GTK window.
 func (mw *MainWindow) Window() *gtk.ApplicationWindow {
 	return mw.window
+}
+
+// AddOverlay adds a widget to the content overlay.
+// The widget will be displayed on top of the workspace content.
+func (mw *MainWindow) AddOverlay(widget *gtk.Widget) {
+	if mw.contentOverlay != nil && widget != nil {
+		mw.contentOverlay.AddOverlay(widget)
+	}
 }
 
 // Destroy cleans up window resources.
