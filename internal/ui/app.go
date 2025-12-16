@@ -203,7 +203,9 @@ func (a *App) onActivate(ctx context.Context) {
 			a.navCoord.Navigate(ctx, url)
 		})
 		a.navCoord.SetOmnibox(a.omnibox)
-		log.Debug().Msg("native omnibox created")
+		// Add omnibox widget to the main window overlay
+		a.mainWindow.AddOverlay(a.omnibox.Widget())
+		log.Debug().Msg("native omnibox created and added to overlay")
 	} else {
 		log.Warn().Msg("failed to create native omnibox")
 	}
