@@ -1,9 +1,9 @@
 package component_test
 
 import (
+	"context"
 	"testing"
 
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -14,17 +14,103 @@ import (
 	"github.com/bnema/dumber/internal/ui/layout/mocks"
 )
 
+func setupWorkspaceViewBase(t *testing.T, mockFactory *mocks.MockWidgetFactory) (context.Context, *mocks.MockBoxWidget, *mocks.MockOverlayWidget) {
+	ctx := context.Background()
+	mockContainer := mocks.NewMockBoxWidget(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+
+	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockContainer).Once()
+	mockContainer.EXPECT().SetHexpand(true).Once()
+	mockContainer.EXPECT().SetVexpand(true).Once()
+	mockContainer.EXPECT().SetVisible(true).Once()
+
+	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
+	mockOverlay.EXPECT().SetHexpand(true).Once()
+	mockOverlay.EXPECT().SetVexpand(true).Once()
+	mockOverlay.EXPECT().SetChild(mockContainer).Once()
+	mockOverlay.EXPECT().SetVisible(true).Once()
+
+	return ctx, mockContainer, mockOverlay
+}
+
+func setupWorkspacePaneViewMocks(t *testing.T, mockFactory *mocks.MockWidgetFactory) (*mocks.MockOverlayWidget, *mocks.MockBoxWidget) {
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+
+	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
+	mockOverlay.EXPECT().SetHexpand(true).Once()
+	mockOverlay.EXPECT().SetVexpand(true).Once()
+	mockOverlay.EXPECT().SetVisible(true).Once()
+
+	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
+	mockBorderBox.EXPECT().SetCanFocus(false).Once()
+	mockBorderBox.EXPECT().SetCanTarget(false).Once()
+	mockBorderBox.EXPECT().AddCssClass("pane-border").Once()
+	mockBorderBox.EXPECT().SetHexpand(true).Once()
+	mockBorderBox.EXPECT().SetVexpand(true).Once()
+	mockOverlay.EXPECT().AddOverlay(mockBorderBox).Once()
+	mockOverlay.EXPECT().SetClipOverlay(mockBorderBox, false).Once()
+	mockOverlay.EXPECT().SetMeasureOverlay(mockBorderBox, false).Once()
+
+	return mockOverlay, mockBorderBox
+}
+
+func setupStackedLeafMocks(
+	t *testing.T,
+	mockFactory *mocks.MockWidgetFactory,
+	container *mocks.MockOverlayWidget,
+) (*mocks.MockBoxWidget, *mocks.MockBoxWidget) {
+	mockStackBox := mocks.NewMockBoxWidget(t)
+	mockTitleBar := mocks.NewMockBoxWidget(t)
+	mockFavicon := mocks.NewMockImageWidget(t)
+	mockLabel := mocks.NewMockLabelWidget(t)
+	mockButton := mocks.NewMockButtonWidget(t)
+
+	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockStackBox).Once()
+	mockStackBox.EXPECT().SetHexpand(true).Once()
+	mockStackBox.EXPECT().SetVexpand(true).Once()
+
+	mockFactory.EXPECT().NewBox(layout.OrientationHorizontal, 4).Return(mockTitleBar).Once()
+	mockTitleBar.EXPECT().AddCssClass("stacked-pane-titlebar").Once()
+	mockTitleBar.EXPECT().SetVexpand(false).Once()
+
+	mockFactory.EXPECT().NewImage().Return(mockFavicon).Once()
+	mockFavicon.EXPECT().SetFromIconName(mock.Anything).Once()
+	mockFavicon.EXPECT().SetPixelSize(16).Once()
+	mockTitleBar.EXPECT().Append(mockFavicon).Once()
+
+	mockFactory.EXPECT().NewLabel(mock.Anything).Return(mockLabel).Once()
+	mockLabel.EXPECT().SetEllipsize(layout.EllipsizeEnd).Once()
+	mockLabel.EXPECT().SetMaxWidthChars(30).Once()
+	mockLabel.EXPECT().SetHexpand(true).Once()
+	mockLabel.EXPECT().SetXalign(float32(0.0)).Once()
+	mockTitleBar.EXPECT().Append(mockLabel).Once()
+
+	mockFactory.EXPECT().NewButton().Return(mockButton).Once()
+	mockButton.EXPECT().SetChild(mockTitleBar).Once()
+	mockButton.EXPECT().AddCssClass("stacked-pane-title-button").Once()
+	mockButton.EXPECT().SetFocusOnClick(false).Once()
+	mockButton.EXPECT().SetVexpand(false).Once()
+	mockButton.EXPECT().SetHexpand(true).Once()
+	mockButton.EXPECT().ConnectClicked(mock.Anything).Return(uint32(1)).Once()
+
+	mockStackBox.EXPECT().Append(mockButton).Once()
+	mockStackBox.EXPECT().Append(container).Once()
+
+	mockTitleBar.EXPECT().GetParent().Return(nil).Maybe()
+	container.EXPECT().SetVisible(true).Once()
+	mockTitleBar.EXPECT().AddCssClass("active").Once()
+
+	return mockStackBox, mockTitleBar
+}
+
 func TestNewWorkspaceView_CreatesEmptyContainer(t *testing.T) {
 	// Arrange
 	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockBox := mocks.NewMockBoxWidget(t)
-
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBox).Once()
-	mockBox.EXPECT().SetHexpand(true).Once()
-	mockBox.EXPECT().SetVexpand(true).Once()
+	ctx, mockBox, _ := setupWorkspaceViewBase(t, mockFactory)
 
 	// Act
-	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
+	wv := component.NewWorkspaceView(ctx, mockFactory)
 
 	// Assert
 	require.NotNil(t, wv)
@@ -35,16 +121,12 @@ func TestNewWorkspaceView_CreatesEmptyContainer(t *testing.T) {
 func TestSetWorkspace_NilWorkspace_ReturnsError(t *testing.T) {
 	// Arrange
 	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockBox := mocks.NewMockBoxWidget(t)
+	ctx, _, _ := setupWorkspaceViewBase(t, mockFactory)
 
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBox).Once()
-	mockBox.EXPECT().SetHexpand(true).Once()
-	mockBox.EXPECT().SetVexpand(true).Once()
-
-	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
+	wv := component.NewWorkspaceView(ctx, mockFactory)
 
 	// Act
-	err := wv.SetWorkspace(nil)
+	err := wv.SetWorkspace(ctx, nil)
 
 	// Assert
 	assert.ErrorIs(t, err, component.ErrNilWorkspace)
@@ -53,38 +135,16 @@ func TestSetWorkspace_NilWorkspace_ReturnsError(t *testing.T) {
 func TestSetWorkspace_SinglePane_CreatesPaneView(t *testing.T) {
 	// Arrange
 	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockBox := mocks.NewMockBoxWidget(t)
+	ctx, mockBox, _ := setupWorkspaceViewBase(t, mockFactory)
 
-	// Container creation
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBox).Once()
-	mockBox.EXPECT().SetHexpand(true).Once()
-	mockBox.EXPECT().SetVexpand(true).Once()
+	wv := component.NewWorkspaceView(ctx, mockFactory)
 
-	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
+	mockOverlay, mockBorderBox := setupWorkspacePaneViewMocks(t, mockFactory)
+	mockStackBox, _ := setupStackedLeafMocks(t, mockFactory, mockOverlay)
 
-	// PaneView creation (via paneViewFactoryAdapter)
-	mockOverlay := mocks.NewMockOverlayWidget(t)
-	mockBorderBox := mocks.NewMockBoxWidget(t)
-
-	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
-	mockOverlay.EXPECT().SetHexpand(true).Once()
-	mockOverlay.EXPECT().SetVexpand(true).Once()
-	// No SetChild since WebView is nil
-
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
-	mockBorderBox.EXPECT().SetCanFocus(false).Once()
-	mockBorderBox.EXPECT().AddCssClass("pane-border").Once()
-	mockBorderBox.EXPECT().SetHexpand(true).Once()
-	mockBorderBox.EXPECT().SetVexpand(true).Once()
-	mockOverlay.EXPECT().AddOverlay(mockBorderBox).Once()
-	mockOverlay.EXPECT().SetClipOverlay(mockBorderBox, false).Once()
-	mockOverlay.EXPECT().SetMeasureOverlay(mockBorderBox, false).Once()
-
-	// Widget appended to container
-	mockBox.EXPECT().Append(mockOverlay).Once()
-
-	// Active state set
-	mockBorderBox.EXPECT().AddCssClass("active-pane").Once()
+	mockStackBox.EXPECT().SetVisible(true).Once()
+	mockBox.EXPECT().Append(mockStackBox).Once()
+	mockBorderBox.EXPECT().AddCssClass("pane-active").Once()
 
 	pane := entity.NewPane(entity.PaneID("pane-1"))
 	node := &entity.PaneNode{ID: "node-1", Pane: pane}
@@ -96,7 +156,7 @@ func TestSetWorkspace_SinglePane_CreatesPaneView(t *testing.T) {
 	}
 
 	// Act
-	err := wv.SetWorkspace(ws)
+	err := wv.SetWorkspace(ctx, ws)
 
 	// Assert
 	require.NoError(t, err)
@@ -108,13 +168,9 @@ func TestSetWorkspace_SinglePane_CreatesPaneView(t *testing.T) {
 func TestSetActivePaneID_UpdatesStyling(t *testing.T) {
 	// Arrange
 	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockBox := mocks.NewMockBoxWidget(t)
+	ctx, mockBox, _ := setupWorkspaceViewBase(t, mockFactory)
 
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBox).Once()
-	mockBox.EXPECT().SetHexpand(true).Once()
-	mockBox.EXPECT().SetVexpand(true).Once()
-
-	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
+	wv := component.NewWorkspaceView(ctx, mockFactory)
 
 	// Setup two panes
 	pane1 := entity.NewPane(entity.PaneID("pane-1"))
@@ -124,45 +180,20 @@ func TestSetActivePaneID_UpdatesStyling(t *testing.T) {
 
 	// Create mock widgets for split
 	mockPaned := mocks.NewMockPanedWidget(t)
-	mockOverlay1 := mocks.NewMockOverlayWidget(t)
-	mockOverlay2 := mocks.NewMockOverlayWidget(t)
-	mockBorderBox1 := mocks.NewMockBoxWidget(t)
-	mockBorderBox2 := mocks.NewMockBoxWidget(t)
-
-	// First pane view creation
-	mockFactory.EXPECT().NewOverlay().Return(mockOverlay1).Once()
-	mockOverlay1.EXPECT().SetHexpand(true).Once()
-	mockOverlay1.EXPECT().SetVexpand(true).Once()
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox1).Once()
-	mockBorderBox1.EXPECT().SetCanFocus(false).Once()
-	mockBorderBox1.EXPECT().AddCssClass("pane-border").Once()
-	mockBorderBox1.EXPECT().SetHexpand(true).Once()
-	mockBorderBox1.EXPECT().SetVexpand(true).Once()
-	mockOverlay1.EXPECT().AddOverlay(mockBorderBox1).Once()
-	mockOverlay1.EXPECT().SetClipOverlay(mockBorderBox1, false).Once()
-	mockOverlay1.EXPECT().SetMeasureOverlay(mockBorderBox1, false).Once()
-
-	// Second pane view creation
-	mockFactory.EXPECT().NewOverlay().Return(mockOverlay2).Once()
-	mockOverlay2.EXPECT().SetHexpand(true).Once()
-	mockOverlay2.EXPECT().SetVexpand(true).Once()
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox2).Once()
-	mockBorderBox2.EXPECT().SetCanFocus(false).Once()
-	mockBorderBox2.EXPECT().AddCssClass("pane-border").Once()
-	mockBorderBox2.EXPECT().SetHexpand(true).Once()
-	mockBorderBox2.EXPECT().SetVexpand(true).Once()
-	mockOverlay2.EXPECT().AddOverlay(mockBorderBox2).Once()
-	mockOverlay2.EXPECT().SetClipOverlay(mockBorderBox2, false).Once()
-	mockOverlay2.EXPECT().SetMeasureOverlay(mockBorderBox2, false).Once()
+	mockOverlay1, mockBorderBox1 := setupWorkspacePaneViewMocks(t, mockFactory)
+	mockStackBox1, _ := setupStackedLeafMocks(t, mockFactory, mockOverlay1)
+	mockOverlay2, mockBorderBox2 := setupWorkspacePaneViewMocks(t, mockFactory)
+	mockStackBox2, _ := setupStackedLeafMocks(t, mockFactory, mockOverlay2)
 
 	// Split view creation
 	mockFactory.EXPECT().NewPaned(layout.OrientationHorizontal).Return(mockPaned).Once()
 	mockPaned.EXPECT().SetResizeStartChild(true).Once()
 	mockPaned.EXPECT().SetResizeEndChild(true).Once()
-	mockPaned.EXPECT().SetShrinkStartChild(false).Once()
-	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
-	mockPaned.EXPECT().SetStartChild(mockOverlay1).Once()
-	mockPaned.EXPECT().SetEndChild(mockOverlay2).Once()
+	mockPaned.EXPECT().SetVisible(true).Twice()
+	mockStackBox1.EXPECT().SetVisible(true).Once()
+	mockStackBox2.EXPECT().SetVisible(true).Once()
+	mockPaned.EXPECT().SetStartChild(mockStackBox1).Once()
+	mockPaned.EXPECT().SetEndChild(mockStackBox2).Once()
 	mockPaned.EXPECT().GetAllocatedWidth().Return(0).Once()
 	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
 	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
@@ -170,7 +201,7 @@ func TestSetActivePaneID_UpdatesStyling(t *testing.T) {
 	mockBox.EXPECT().Append(mockPaned).Once()
 
 	// Initial active pane is pane-1
-	mockBorderBox1.EXPECT().AddCssClass("active-pane").Once()
+	mockBorderBox1.EXPECT().AddCssClass("pane-active").Once()
 
 	splitNode := &entity.PaneNode{
 		ID:         "split",
@@ -185,12 +216,12 @@ func TestSetActivePaneID_UpdatesStyling(t *testing.T) {
 		ActivePaneID: pane1.ID,
 	}
 
-	err := wv.SetWorkspace(ws)
+	err := wv.SetWorkspace(ctx, ws)
 	require.NoError(t, err)
 
 	// Now change active pane
-	mockBorderBox1.EXPECT().RemoveCssClass("active-pane").Once()
-	mockBorderBox2.EXPECT().AddCssClass("active-pane").Once()
+	mockBorderBox1.EXPECT().RemoveCssClass("pane-active").Once()
+	mockBorderBox2.EXPECT().AddCssClass("pane-active").Once()
 
 	// Act
 	err = wv.SetActivePaneID(pane2.ID)
@@ -203,434 +234,13 @@ func TestSetActivePaneID_UpdatesStyling(t *testing.T) {
 func TestSetActivePaneID_InvalidID_ReturnsError(t *testing.T) {
 	// Arrange
 	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockBox := mocks.NewMockBoxWidget(t)
+	ctx, _, _ := setupWorkspaceViewBase(t, mockFactory)
 
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBox).Once()
-	mockBox.EXPECT().SetHexpand(true).Once()
-	mockBox.EXPECT().SetVexpand(true).Once()
-
-	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
+	wv := component.NewWorkspaceView(ctx, mockFactory)
 
 	// Act
 	err := wv.SetActivePaneID(entity.PaneID("non-existent"))
 
 	// Assert
 	assert.ErrorIs(t, err, component.ErrPaneNotFound)
-}
-
-func TestGetPaneView_Existing(t *testing.T) {
-	// Arrange
-	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockBox := mocks.NewMockBoxWidget(t)
-	mockOverlay := mocks.NewMockOverlayWidget(t)
-	mockBorderBox := mocks.NewMockBoxWidget(t)
-
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBox).Once()
-	mockBox.EXPECT().SetHexpand(true).Once()
-	mockBox.EXPECT().SetVexpand(true).Once()
-
-	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
-
-	// PaneView creation
-	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
-	mockOverlay.EXPECT().SetHexpand(true).Once()
-	mockOverlay.EXPECT().SetVexpand(true).Once()
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
-	mockBorderBox.EXPECT().SetCanFocus(false).Once()
-	mockBorderBox.EXPECT().AddCssClass("pane-border").Once()
-	mockBorderBox.EXPECT().SetHexpand(true).Once()
-	mockBorderBox.EXPECT().SetVexpand(true).Once()
-	mockOverlay.EXPECT().AddOverlay(mockBorderBox).Once()
-	mockOverlay.EXPECT().SetClipOverlay(mockBorderBox, false).Once()
-	mockOverlay.EXPECT().SetMeasureOverlay(mockBorderBox, false).Once()
-	mockBox.EXPECT().Append(mockOverlay).Once()
-	mockBorderBox.EXPECT().AddCssClass("active-pane").Once()
-
-	pane := entity.NewPane(entity.PaneID("pane-1"))
-	node := &entity.PaneNode{ID: "node-1", Pane: pane}
-	ws := &entity.Workspace{
-		ID:           "ws-1",
-		Root:         node,
-		ActivePaneID: pane.ID,
-	}
-
-	_ = wv.SetWorkspace(ws)
-
-	// Act
-	result := wv.GetPaneView(pane.ID)
-
-	// Assert
-	assert.NotNil(t, result)
-}
-
-func TestGetPaneView_NonExistent(t *testing.T) {
-	// Arrange
-	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockBox := mocks.NewMockBoxWidget(t)
-
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBox).Once()
-	mockBox.EXPECT().SetHexpand(true).Once()
-	mockBox.EXPECT().SetVexpand(true).Once()
-
-	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
-
-	// Act
-	result := wv.GetPaneView(entity.PaneID("non-existent"))
-
-	// Assert
-	assert.Nil(t, result)
-}
-
-func TestGetPaneIDs_ReturnsAllIDs(t *testing.T) {
-	// Arrange
-	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockBox := mocks.NewMockBoxWidget(t)
-	mockPaned := mocks.NewMockPanedWidget(t)
-	mockOverlay1 := mocks.NewMockOverlayWidget(t)
-	mockOverlay2 := mocks.NewMockOverlayWidget(t)
-	mockBorderBox1 := mocks.NewMockBoxWidget(t)
-	mockBorderBox2 := mocks.NewMockBoxWidget(t)
-
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBox).Once()
-	mockBox.EXPECT().SetHexpand(true).Once()
-	mockBox.EXPECT().SetVexpand(true).Once()
-
-	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
-
-	// First pane view
-	mockFactory.EXPECT().NewOverlay().Return(mockOverlay1).Once()
-	mockOverlay1.EXPECT().SetHexpand(true).Once()
-	mockOverlay1.EXPECT().SetVexpand(true).Once()
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox1).Once()
-	mockBorderBox1.EXPECT().SetCanFocus(false).Once()
-	mockBorderBox1.EXPECT().AddCssClass("pane-border").Once()
-	mockBorderBox1.EXPECT().SetHexpand(true).Once()
-	mockBorderBox1.EXPECT().SetVexpand(true).Once()
-	mockOverlay1.EXPECT().AddOverlay(mockBorderBox1).Once()
-	mockOverlay1.EXPECT().SetClipOverlay(mockBorderBox1, false).Once()
-	mockOverlay1.EXPECT().SetMeasureOverlay(mockBorderBox1, false).Once()
-
-	// Second pane view
-	mockFactory.EXPECT().NewOverlay().Return(mockOverlay2).Once()
-	mockOverlay2.EXPECT().SetHexpand(true).Once()
-	mockOverlay2.EXPECT().SetVexpand(true).Once()
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox2).Once()
-	mockBorderBox2.EXPECT().SetCanFocus(false).Once()
-	mockBorderBox2.EXPECT().AddCssClass("pane-border").Once()
-	mockBorderBox2.EXPECT().SetHexpand(true).Once()
-	mockBorderBox2.EXPECT().SetVexpand(true).Once()
-	mockOverlay2.EXPECT().AddOverlay(mockBorderBox2).Once()
-	mockOverlay2.EXPECT().SetClipOverlay(mockBorderBox2, false).Once()
-	mockOverlay2.EXPECT().SetMeasureOverlay(mockBorderBox2, false).Once()
-
-	// Split view
-	mockFactory.EXPECT().NewPaned(layout.OrientationHorizontal).Return(mockPaned).Once()
-	mockPaned.EXPECT().SetResizeStartChild(true).Once()
-	mockPaned.EXPECT().SetResizeEndChild(true).Once()
-	mockPaned.EXPECT().SetShrinkStartChild(false).Once()
-	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
-	mockPaned.EXPECT().SetStartChild(mockOverlay1).Once()
-	mockPaned.EXPECT().SetEndChild(mockOverlay2).Once()
-	mockPaned.EXPECT().GetAllocatedWidth().Return(0).Once()
-	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
-	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
-
-	mockBox.EXPECT().Append(mockPaned).Once()
-	mockBorderBox1.EXPECT().AddCssClass("active-pane").Once()
-
-	pane1 := entity.NewPane(entity.PaneID("pane-1"))
-	pane2 := entity.NewPane(entity.PaneID("pane-2"))
-	node1 := &entity.PaneNode{ID: "node-1", Pane: pane1}
-	node2 := &entity.PaneNode{ID: "node-2", Pane: pane2}
-
-	splitNode := &entity.PaneNode{
-		ID:         "split",
-		SplitDir:   entity.SplitHorizontal,
-		SplitRatio: 0.5,
-		Children:   []*entity.PaneNode{node1, node2},
-	}
-
-	ws := &entity.Workspace{
-		ID:           "ws-1",
-		Root:         splitNode,
-		ActivePaneID: pane1.ID,
-	}
-
-	_ = wv.SetWorkspace(ws)
-
-	// Act
-	ids := wv.GetPaneIDs()
-
-	// Assert
-	assert.Len(t, ids, 2)
-	assert.Contains(t, ids, pane1.ID)
-	assert.Contains(t, ids, pane2.ID)
-}
-
-func TestWidget_ReturnsContainer(t *testing.T) {
-	// Arrange
-	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockBox := mocks.NewMockBoxWidget(t)
-
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBox).Once()
-	mockBox.EXPECT().SetHexpand(true).Once()
-	mockBox.EXPECT().SetVexpand(true).Once()
-
-	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
-
-	// Act
-	widget := wv.Widget()
-
-	// Assert
-	assert.Equal(t, mockBox, widget)
-}
-
-func TestSetOnPaneFocused_SetsCallback(t *testing.T) {
-	// Arrange
-	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockBox := mocks.NewMockBoxWidget(t)
-
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBox).Once()
-	mockBox.EXPECT().SetHexpand(true).Once()
-	mockBox.EXPECT().SetVexpand(true).Once()
-
-	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
-
-	callback := func(paneID entity.PaneID) {}
-
-	// Act
-	wv.SetOnPaneFocused(callback)
-
-	// Assert - callback is set (verified by no panic)
-	assert.NotNil(t, wv)
-}
-
-func TestSetWebViewWidget_AttachesToPane(t *testing.T) {
-	// Arrange
-	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockBox := mocks.NewMockBoxWidget(t)
-	mockOverlay := mocks.NewMockOverlayWidget(t)
-	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockWebView := mocks.NewMockWidget(t)
-
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBox).Once()
-	mockBox.EXPECT().SetHexpand(true).Once()
-	mockBox.EXPECT().SetVexpand(true).Once()
-
-	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
-
-	// PaneView creation
-	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
-	mockOverlay.EXPECT().SetHexpand(true).Once()
-	mockOverlay.EXPECT().SetVexpand(true).Once()
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
-	mockBorderBox.EXPECT().SetCanFocus(false).Once()
-	mockBorderBox.EXPECT().AddCssClass("pane-border").Once()
-	mockBorderBox.EXPECT().SetHexpand(true).Once()
-	mockBorderBox.EXPECT().SetVexpand(true).Once()
-	mockOverlay.EXPECT().AddOverlay(mockBorderBox).Once()
-	mockOverlay.EXPECT().SetClipOverlay(mockBorderBox, false).Once()
-	mockOverlay.EXPECT().SetMeasureOverlay(mockBorderBox, false).Once()
-	mockBox.EXPECT().Append(mockOverlay).Once()
-	mockBorderBox.EXPECT().AddCssClass("active-pane").Once()
-
-	pane := entity.NewPane(entity.PaneID("pane-1"))
-	node := &entity.PaneNode{ID: "node-1", Pane: pane}
-	ws := &entity.Workspace{
-		ID:           "ws-1",
-		Root:         node,
-		ActivePaneID: pane.ID,
-	}
-
-	_ = wv.SetWorkspace(ws)
-
-	// Expect WebView to be set
-	mockOverlay.EXPECT().SetChild(mockWebView).Once()
-
-	// Act
-	err := wv.SetWebViewWidget(pane.ID, mockWebView)
-
-	// Assert
-	require.NoError(t, err)
-}
-
-func TestSetWebViewWidget_NonExistentPane_ReturnsError(t *testing.T) {
-	// Arrange
-	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockBox := mocks.NewMockBoxWidget(t)
-	mockWebView := mocks.NewMockWidget(t)
-
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBox).Once()
-	mockBox.EXPECT().SetHexpand(true).Once()
-	mockBox.EXPECT().SetVexpand(true).Once()
-
-	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
-
-	// Act
-	err := wv.SetWebViewWidget(entity.PaneID("non-existent"), mockWebView)
-
-	// Assert
-	assert.ErrorIs(t, err, component.ErrPaneNotFound)
-}
-
-func TestFocusPane_DelegatesToPaneView(t *testing.T) {
-	// Arrange
-	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockBox := mocks.NewMockBoxWidget(t)
-	mockOverlay := mocks.NewMockOverlayWidget(t)
-	mockBorderBox := mocks.NewMockBoxWidget(t)
-
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBox).Once()
-	mockBox.EXPECT().SetHexpand(true).Once()
-	mockBox.EXPECT().SetVexpand(true).Once()
-
-	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
-
-	// PaneView creation
-	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
-	mockOverlay.EXPECT().SetHexpand(true).Once()
-	mockOverlay.EXPECT().SetVexpand(true).Once()
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
-	mockBorderBox.EXPECT().SetCanFocus(false).Once()
-	mockBorderBox.EXPECT().AddCssClass("pane-border").Once()
-	mockBorderBox.EXPECT().SetHexpand(true).Once()
-	mockBorderBox.EXPECT().SetVexpand(true).Once()
-	mockOverlay.EXPECT().AddOverlay(mockBorderBox).Once()
-	mockOverlay.EXPECT().SetClipOverlay(mockBorderBox, false).Once()
-	mockOverlay.EXPECT().SetMeasureOverlay(mockBorderBox, false).Once()
-	mockBox.EXPECT().Append(mockOverlay).Once()
-	mockBorderBox.EXPECT().AddCssClass("active-pane").Once()
-
-	pane := entity.NewPane(entity.PaneID("pane-1"))
-	node := &entity.PaneNode{ID: "node-1", Pane: pane}
-	ws := &entity.Workspace{
-		ID:           "ws-1",
-		Root:         node,
-		ActivePaneID: pane.ID,
-	}
-
-	_ = wv.SetWorkspace(ws)
-
-	// Act - FocusPane with nil WebView returns false
-	result := wv.FocusPane(pane.ID)
-
-	// Assert
-	assert.False(t, result) // No WebView attached, so GrabFocus fails
-}
-
-func TestFocusPane_NonExistentPane_ReturnsFalse(t *testing.T) {
-	// Arrange
-	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockBox := mocks.NewMockBoxWidget(t)
-
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBox).Once()
-	mockBox.EXPECT().SetHexpand(true).Once()
-	mockBox.EXPECT().SetVexpand(true).Once()
-
-	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
-
-	// Act
-	result := wv.FocusPane(entity.PaneID("non-existent"))
-
-	// Assert
-	assert.False(t, result)
-}
-
-func TestRebuild_NilWorkspace_ReturnsError(t *testing.T) {
-	// Arrange
-	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockBox := mocks.NewMockBoxWidget(t)
-
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBox).Once()
-	mockBox.EXPECT().SetHexpand(true).Once()
-	mockBox.EXPECT().SetVexpand(true).Once()
-
-	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
-
-	// Act
-	err := wv.Rebuild()
-
-	// Assert
-	assert.ErrorIs(t, err, component.ErrNilWorkspace)
-}
-
-func TestTreeRenderer_ReturnsRenderer(t *testing.T) {
-	// Arrange
-	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockBox := mocks.NewMockBoxWidget(t)
-
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBox).Once()
-	mockBox.EXPECT().SetHexpand(true).Once()
-	mockBox.EXPECT().SetVexpand(true).Once()
-
-	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
-
-	// Act
-	renderer := wv.TreeRenderer()
-
-	// Assert
-	assert.NotNil(t, renderer)
-}
-
-func TestWorkspace_ReturnsCurrentWorkspace(t *testing.T) {
-	// Arrange
-	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockBox := mocks.NewMockBoxWidget(t)
-	mockOverlay := mocks.NewMockOverlayWidget(t)
-	mockBorderBox := mocks.NewMockBoxWidget(t)
-
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBox).Once()
-	mockBox.EXPECT().SetHexpand(true).Once()
-	mockBox.EXPECT().SetVexpand(true).Once()
-
-	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
-
-	// PaneView creation
-	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
-	mockOverlay.EXPECT().SetHexpand(true).Once()
-	mockOverlay.EXPECT().SetVexpand(true).Once()
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
-	mockBorderBox.EXPECT().SetCanFocus(false).Once()
-	mockBorderBox.EXPECT().AddCssClass("pane-border").Once()
-	mockBorderBox.EXPECT().SetHexpand(true).Once()
-	mockBorderBox.EXPECT().SetVexpand(true).Once()
-	mockOverlay.EXPECT().AddOverlay(mockBorderBox).Once()
-	mockOverlay.EXPECT().SetClipOverlay(mockBorderBox, false).Once()
-	mockOverlay.EXPECT().SetMeasureOverlay(mockBorderBox, false).Once()
-	mockBox.EXPECT().Append(mockOverlay).Once()
-	mockBorderBox.EXPECT().AddCssClass("active-pane").Once()
-
-	pane := entity.NewPane(entity.PaneID("pane-1"))
-	node := &entity.PaneNode{ID: "node-1", Pane: pane}
-	ws := &entity.Workspace{
-		ID:           "ws-1",
-		Root:         node,
-		ActivePaneID: pane.ID,
-	}
-
-	_ = wv.SetWorkspace(ws)
-
-	// Act
-	result := wv.Workspace()
-
-	// Assert
-	assert.Equal(t, ws, result)
-}
-
-func TestWorkspace_NilBeforeSet(t *testing.T) {
-	// Arrange
-	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockBox := mocks.NewMockBoxWidget(t)
-
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBox).Once()
-	mockBox.EXPECT().SetHexpand(true).Once()
-	mockBox.EXPECT().SetVexpand(true).Once()
-
-	wv := component.NewWorkspaceView(mockFactory, zerolog.Nop())
-
-	// Act
-	result := wv.Workspace()
-
-	// Assert
-	assert.Nil(t, result)
 }

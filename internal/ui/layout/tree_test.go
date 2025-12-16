@@ -13,6 +13,20 @@ import (
 	"github.com/bnema/dumber/internal/ui/layout/mocks"
 )
 
+func setupStackedLeafMocks(t *testing.T, mockFactory *mocks.MockWidgetFactory) (*mocks.MockBoxWidget, *mocks.MockWidget) {
+	mockStackBox := mocks.NewMockBoxWidget(t)
+	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockStackBox).Once()
+	mockStackBox.EXPECT().SetHexpand(true).Once()
+	mockStackBox.EXPECT().SetVexpand(true).Once()
+
+	mockTitleBar, _, _, _, mockContainer := setupPaneMocks(t, mockFactory, mockStackBox)
+	mockTitleBar.EXPECT().GetParent().Return(nil).Maybe()
+	mockContainer.EXPECT().SetVisible(true).Once()
+	mockTitleBar.EXPECT().AddCssClass("active").Once()
+
+	return mockStackBox, mockContainer
+}
+
 func TestNewTreeRenderer_CreatesRenderer(t *testing.T) {
 	// Arrange
 	ctx := context.Background()
@@ -48,7 +62,7 @@ func TestBuild_SingleLeafPane(t *testing.T) {
 	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
-	mockWidget := mocks.NewMockWidget(t)
+	mockStackBox, mockContainer := setupStackedLeafMocks(t, mockFactory)
 
 	pane := entity.NewPane(entity.PaneID("pane-1"))
 	node := &entity.PaneNode{
@@ -56,7 +70,7 @@ func TestBuild_SingleLeafPane(t *testing.T) {
 		Pane: pane,
 	}
 
-	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockWidget).Once()
+	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockContainer).Once()
 
 	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
 
@@ -65,11 +79,11 @@ func TestBuild_SingleLeafPane(t *testing.T) {
 
 	// Assert
 	require.NoError(t, err)
-	assert.Equal(t, mockWidget, widget)
+	assert.Equal(t, mockStackBox, widget)
 	assert.Equal(t, 1, renderer.NodeCount())
 
 	// Verify lookup works
-	assert.Equal(t, mockWidget, renderer.Lookup("node-1"))
+	assert.Equal(t, mockStackBox, renderer.Lookup("node-1"))
 }
 
 func TestBuild_HorizontalSplit(t *testing.T) {
@@ -78,8 +92,8 @@ func TestBuild_HorizontalSplit(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 	mockPaned := mocks.NewMockPanedWidget(t)
-	mockLeftWidget := mocks.NewMockWidget(t)
-	mockRightWidget := mocks.NewMockWidget(t)
+	mockLeftStackBox, mockLeftContainer := setupStackedLeafMocks(t, mockFactory)
+	mockRightStackBox, mockRightContainer := setupStackedLeafMocks(t, mockFactory)
 
 	leftPane := entity.NewPane(entity.PaneID("pane-left"))
 	rightPane := entity.NewPane(entity.PaneID("pane-right"))
@@ -94,17 +108,18 @@ func TestBuild_HorizontalSplit(t *testing.T) {
 		Children:   []*entity.PaneNode{leftNode, rightNode},
 	}
 
-	mockPaneViewFactory.EXPECT().CreatePaneView(leftNode).Return(mockLeftWidget).Once()
-	mockPaneViewFactory.EXPECT().CreatePaneView(rightNode).Return(mockRightWidget).Once()
+	mockPaneViewFactory.EXPECT().CreatePaneView(leftNode).Return(mockLeftContainer).Once()
+	mockPaneViewFactory.EXPECT().CreatePaneView(rightNode).Return(mockRightContainer).Once()
 
 	// SplitView creation expectations
 	mockFactory.EXPECT().NewPaned(layout.OrientationHorizontal).Return(mockPaned).Once()
 	mockPaned.EXPECT().SetResizeStartChild(true).Once()
 	mockPaned.EXPECT().SetResizeEndChild(true).Once()
-	mockPaned.EXPECT().SetShrinkStartChild(false).Once()
-	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
-	mockPaned.EXPECT().SetStartChild(mockLeftWidget).Once()
-	mockPaned.EXPECT().SetEndChild(mockRightWidget).Once()
+	mockPaned.EXPECT().SetVisible(true).Once()
+	mockLeftStackBox.EXPECT().SetVisible(true).Once()
+	mockRightStackBox.EXPECT().SetVisible(true).Once()
+	mockPaned.EXPECT().SetStartChild(mockLeftStackBox).Once()
+	mockPaned.EXPECT().SetEndChild(mockRightStackBox).Once()
 	mockPaned.EXPECT().GetAllocatedWidth().Return(0).Once()
 	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
 	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
@@ -126,8 +141,8 @@ func TestBuild_VerticalSplit(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 	mockPaned := mocks.NewMockPanedWidget(t)
-	mockTopWidget := mocks.NewMockWidget(t)
-	mockBottomWidget := mocks.NewMockWidget(t)
+	mockTopStackBox, mockTopContainer := setupStackedLeafMocks(t, mockFactory)
+	mockBottomStackBox, mockBottomContainer := setupStackedLeafMocks(t, mockFactory)
 
 	topPane := entity.NewPane(entity.PaneID("pane-top"))
 	bottomPane := entity.NewPane(entity.PaneID("pane-bottom"))
@@ -142,17 +157,18 @@ func TestBuild_VerticalSplit(t *testing.T) {
 		Children:   []*entity.PaneNode{topNode, bottomNode},
 	}
 
-	mockPaneViewFactory.EXPECT().CreatePaneView(topNode).Return(mockTopWidget).Once()
-	mockPaneViewFactory.EXPECT().CreatePaneView(bottomNode).Return(mockBottomWidget).Once()
+	mockPaneViewFactory.EXPECT().CreatePaneView(topNode).Return(mockTopContainer).Once()
+	mockPaneViewFactory.EXPECT().CreatePaneView(bottomNode).Return(mockBottomContainer).Once()
 
 	// SplitView creation expectations - should be vertical
 	mockFactory.EXPECT().NewPaned(layout.OrientationVertical).Return(mockPaned).Once()
 	mockPaned.EXPECT().SetResizeStartChild(true).Once()
 	mockPaned.EXPECT().SetResizeEndChild(true).Once()
-	mockPaned.EXPECT().SetShrinkStartChild(false).Once()
-	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
-	mockPaned.EXPECT().SetStartChild(mockTopWidget).Once()
-	mockPaned.EXPECT().SetEndChild(mockBottomWidget).Once()
+	mockPaned.EXPECT().SetVisible(true).Once()
+	mockTopStackBox.EXPECT().SetVisible(true).Once()
+	mockBottomStackBox.EXPECT().SetVisible(true).Once()
+	mockPaned.EXPECT().SetStartChild(mockTopStackBox).Once()
+	mockPaned.EXPECT().SetEndChild(mockBottomStackBox).Once()
 	mockPaned.EXPECT().GetAllocatedHeight().Return(0).Once()
 	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
 	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
@@ -174,9 +190,9 @@ func TestBuild_NestedSplits(t *testing.T) {
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 	mockOuterPaned := mocks.NewMockPanedWidget(t)
 	mockInnerPaned := mocks.NewMockPanedWidget(t)
-	mockWidget1 := mocks.NewMockWidget(t)
-	mockWidget2 := mocks.NewMockWidget(t)
-	mockWidget3 := mocks.NewMockWidget(t)
+	mockStackBox1, mockContainer1 := setupStackedLeafMocks(t, mockFactory)
+	mockStackBox2, mockContainer2 := setupStackedLeafMocks(t, mockFactory)
+	mockStackBox3, mockContainer3 := setupStackedLeafMocks(t, mockFactory)
 
 	// Create tree structure:
 	//       outer (horizontal)
@@ -208,18 +224,19 @@ func TestBuild_NestedSplits(t *testing.T) {
 	}
 
 	// Setup expectations for leaf nodes
-	mockPaneViewFactory.EXPECT().CreatePaneView(node1).Return(mockWidget1).Once()
-	mockPaneViewFactory.EXPECT().CreatePaneView(node2).Return(mockWidget2).Once()
-	mockPaneViewFactory.EXPECT().CreatePaneView(node3).Return(mockWidget3).Once()
+	mockPaneViewFactory.EXPECT().CreatePaneView(node1).Return(mockContainer1).Once()
+	mockPaneViewFactory.EXPECT().CreatePaneView(node2).Return(mockContainer2).Once()
+	mockPaneViewFactory.EXPECT().CreatePaneView(node3).Return(mockContainer3).Once()
 
 	// Inner split (vertical) is created first
 	mockFactory.EXPECT().NewPaned(layout.OrientationVertical).Return(mockInnerPaned).Once()
 	mockInnerPaned.EXPECT().SetResizeStartChild(true).Once()
 	mockInnerPaned.EXPECT().SetResizeEndChild(true).Once()
-	mockInnerPaned.EXPECT().SetShrinkStartChild(false).Once()
-	mockInnerPaned.EXPECT().SetShrinkEndChild(false).Once()
-	mockInnerPaned.EXPECT().SetStartChild(mockWidget1).Once()
-	mockInnerPaned.EXPECT().SetEndChild(mockWidget2).Once()
+	mockInnerPaned.EXPECT().SetVisible(true).Once()
+	mockStackBox1.EXPECT().SetVisible(true).Once()
+	mockStackBox2.EXPECT().SetVisible(true).Once()
+	mockInnerPaned.EXPECT().SetStartChild(mockStackBox1).Once()
+	mockInnerPaned.EXPECT().SetEndChild(mockStackBox2).Once()
 	mockInnerPaned.EXPECT().GetAllocatedHeight().Return(0).Once()
 	mockInnerPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
 	mockInnerPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
@@ -228,10 +245,11 @@ func TestBuild_NestedSplits(t *testing.T) {
 	mockFactory.EXPECT().NewPaned(layout.OrientationHorizontal).Return(mockOuterPaned).Once()
 	mockOuterPaned.EXPECT().SetResizeStartChild(true).Once()
 	mockOuterPaned.EXPECT().SetResizeEndChild(true).Once()
-	mockOuterPaned.EXPECT().SetShrinkStartChild(false).Once()
-	mockOuterPaned.EXPECT().SetShrinkEndChild(false).Once()
+	mockOuterPaned.EXPECT().SetVisible(true).Once()
+	mockInnerPaned.EXPECT().SetVisible(true).Once()
+	mockStackBox3.EXPECT().SetVisible(true).Once()
 	mockOuterPaned.EXPECT().SetStartChild(mockInnerPaned).Once()
-	mockOuterPaned.EXPECT().SetEndChild(mockWidget3).Once()
+	mockOuterPaned.EXPECT().SetEndChild(mockStackBox3).Once()
 	mockOuterPaned.EXPECT().GetAllocatedWidth().Return(0).Once()
 	mockOuterPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
 	mockOuterPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
@@ -257,12 +275,12 @@ func TestLookup_ExistingNode(t *testing.T) {
 	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
-	mockWidget := mocks.NewMockWidget(t)
+	mockStackBox, mockContainer := setupStackedLeafMocks(t, mockFactory)
 
 	pane := entity.NewPane(entity.PaneID("pane-1"))
 	node := &entity.PaneNode{ID: "test-node-id", Pane: pane}
 
-	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockWidget).Once()
+	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockContainer).Once()
 
 	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
 	_, _ = renderer.Build(ctx, node)
@@ -271,7 +289,7 @@ func TestLookup_ExistingNode(t *testing.T) {
 	result := renderer.Lookup("test-node-id")
 
 	// Assert
-	assert.Equal(t, mockWidget, result)
+	assert.Equal(t, mockStackBox, result)
 }
 
 func TestLookup_NonExistentNode(t *testing.T) {
@@ -279,12 +297,12 @@ func TestLookup_NonExistentNode(t *testing.T) {
 	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
-	mockWidget := mocks.NewMockWidget(t)
+	_, mockContainer := setupStackedLeafMocks(t, mockFactory)
 
 	pane := entity.NewPane(entity.PaneID("pane-1"))
 	node := &entity.PaneNode{ID: "node-1", Pane: pane}
 
-	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockWidget).Once()
+	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockContainer).Once()
 
 	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
 	_, _ = renderer.Build(ctx, node)
@@ -301,12 +319,12 @@ func TestLookupNode_Existing(t *testing.T) {
 	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
-	mockWidget := mocks.NewMockWidget(t)
+	mockStackBox, mockContainer := setupStackedLeafMocks(t, mockFactory)
 
 	pane := entity.NewPane(entity.PaneID("pane-1"))
 	node := &entity.PaneNode{ID: "node-1", Pane: pane}
 
-	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockWidget).Once()
+	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockContainer).Once()
 
 	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
 	_, _ = renderer.Build(ctx, node)
@@ -316,7 +334,7 @@ func TestLookupNode_Existing(t *testing.T) {
 
 	// Assert
 	assert.True(t, found)
-	assert.Equal(t, mockWidget, widget)
+	assert.Equal(t, mockStackBox, widget)
 }
 
 func TestLookupNode_NonExistent(t *testing.T) {
@@ -340,12 +358,12 @@ func TestClear_RemovesAllMappings(t *testing.T) {
 	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
-	mockWidget := mocks.NewMockWidget(t)
+	_, mockContainer := setupStackedLeafMocks(t, mockFactory)
 
 	pane := entity.NewPane(entity.PaneID("pane-1"))
 	node := &entity.PaneNode{ID: "node-1", Pane: pane}
 
-	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockWidget).Once()
+	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockContainer).Once()
 
 	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
 	_, _ = renderer.Build(ctx, node)
@@ -366,8 +384,8 @@ func TestGetNodeIDs_ReturnsAllIDs(t *testing.T) {
 	ctx := context.Background()
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 	mockPaned := mocks.NewMockPanedWidget(t)
-	mockWidget1 := mocks.NewMockWidget(t)
-	mockWidget2 := mocks.NewMockWidget(t)
+	mockLeftStackBox, mockLeftContainer := setupStackedLeafMocks(t, mockFactory)
+	mockRightStackBox, mockRightContainer := setupStackedLeafMocks(t, mockFactory)
 
 	pane1 := entity.NewPane(entity.PaneID("pane-1"))
 	pane2 := entity.NewPane(entity.PaneID("pane-2"))
@@ -382,16 +400,17 @@ func TestGetNodeIDs_ReturnsAllIDs(t *testing.T) {
 		Children:   []*entity.PaneNode{node1, node2},
 	}
 
-	mockPaneViewFactory.EXPECT().CreatePaneView(node1).Return(mockWidget1).Once()
-	mockPaneViewFactory.EXPECT().CreatePaneView(node2).Return(mockWidget2).Once()
+	mockPaneViewFactory.EXPECT().CreatePaneView(node1).Return(mockLeftContainer).Once()
+	mockPaneViewFactory.EXPECT().CreatePaneView(node2).Return(mockRightContainer).Once()
 
 	mockFactory.EXPECT().NewPaned(layout.OrientationHorizontal).Return(mockPaned).Once()
 	mockPaned.EXPECT().SetResizeStartChild(true).Once()
 	mockPaned.EXPECT().SetResizeEndChild(true).Once()
-	mockPaned.EXPECT().SetShrinkStartChild(false).Once()
-	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
-	mockPaned.EXPECT().SetStartChild(mockWidget1).Once()
-	mockPaned.EXPECT().SetEndChild(mockWidget2).Once()
+	mockPaned.EXPECT().SetVisible(true).Once()
+	mockLeftStackBox.EXPECT().SetVisible(true).Once()
+	mockRightStackBox.EXPECT().SetVisible(true).Once()
+	mockPaned.EXPECT().SetStartChild(mockLeftStackBox).Once()
+	mockPaned.EXPECT().SetEndChild(mockRightStackBox).Once()
 	mockPaned.EXPECT().GetAllocatedWidth().Return(0).Once()
 	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
 	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
@@ -414,8 +433,8 @@ func TestBuild_ClearsPreviousMappings(t *testing.T) {
 	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
-	mockWidget1 := mocks.NewMockWidget(t)
-	mockWidget2 := mocks.NewMockWidget(t)
+	mockOldStackBox, mockOldContainer := setupStackedLeafMocks(t, mockFactory)
+	mockNewStackBox, mockNewContainer := setupStackedLeafMocks(t, mockFactory)
 
 	pane1 := entity.NewPane(entity.PaneID("pane-1"))
 	node1 := &entity.PaneNode{ID: "old-node", Pane: pane1}
@@ -423,15 +442,15 @@ func TestBuild_ClearsPreviousMappings(t *testing.T) {
 	pane2 := entity.NewPane(entity.PaneID("pane-2"))
 	node2 := &entity.PaneNode{ID: "new-node", Pane: pane2}
 
-	mockPaneViewFactory.EXPECT().CreatePaneView(node1).Return(mockWidget1).Once()
-	mockPaneViewFactory.EXPECT().CreatePaneView(node2).Return(mockWidget2).Once()
+	mockPaneViewFactory.EXPECT().CreatePaneView(node1).Return(mockOldContainer).Once()
+	mockPaneViewFactory.EXPECT().CreatePaneView(node2).Return(mockNewContainer).Once()
 
 	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
 
 	// First build
 	_, _ = renderer.Build(ctx, node1)
 	require.Equal(t, 1, renderer.NodeCount())
-	require.NotNil(t, renderer.Lookup("old-node"))
+	require.Equal(t, mockOldStackBox, renderer.Lookup("old-node"))
 
 	// Act - second build should clear old mappings
 	_, _ = renderer.Build(ctx, node2)
@@ -439,7 +458,7 @@ func TestBuild_ClearsPreviousMappings(t *testing.T) {
 	// Assert
 	assert.Equal(t, 1, renderer.NodeCount())
 	assert.Nil(t, renderer.Lookup("old-node"))
-	assert.NotNil(t, renderer.Lookup("new-node"))
+	assert.Equal(t, mockNewStackBox, renderer.Lookup("new-node"))
 }
 
 func TestBuild_NilPaneViewFactory_ReturnsNilForLeaves(t *testing.T) {
@@ -465,12 +484,12 @@ func TestBuild_EmptyNodeID_NotStored(t *testing.T) {
 	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
-	mockWidget := mocks.NewMockWidget(t)
+	_, mockContainer := setupStackedLeafMocks(t, mockFactory)
 
 	pane := entity.NewPane(entity.PaneID("pane-1"))
 	node := &entity.PaneNode{ID: "", Pane: pane} // Empty ID
 
-	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockWidget).Once()
+	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockContainer).Once()
 
 	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
 
@@ -489,8 +508,8 @@ func TestUpdateSplitRatio_ExistingNode(t *testing.T) {
 	ctx := context.Background()
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 	mockPaned := mocks.NewMockPanedWidget(t)
-	mockWidget1 := mocks.NewMockWidget(t)
-	mockWidget2 := mocks.NewMockWidget(t)
+	mockLeftStackBox, mockLeftContainer := setupStackedLeafMocks(t, mockFactory)
+	mockRightStackBox, mockRightContainer := setupStackedLeafMocks(t, mockFactory)
 
 	pane1 := entity.NewPane(entity.PaneID("pane-1"))
 	pane2 := entity.NewPane(entity.PaneID("pane-2"))
@@ -505,16 +524,17 @@ func TestUpdateSplitRatio_ExistingNode(t *testing.T) {
 		Children:   []*entity.PaneNode{node1, node2},
 	}
 
-	mockPaneViewFactory.EXPECT().CreatePaneView(node1).Return(mockWidget1).Once()
-	mockPaneViewFactory.EXPECT().CreatePaneView(node2).Return(mockWidget2).Once()
+	mockPaneViewFactory.EXPECT().CreatePaneView(node1).Return(mockLeftContainer).Once()
+	mockPaneViewFactory.EXPECT().CreatePaneView(node2).Return(mockRightContainer).Once()
 
 	mockFactory.EXPECT().NewPaned(layout.OrientationHorizontal).Return(mockPaned).Once()
 	mockPaned.EXPECT().SetResizeStartChild(true).Once()
 	mockPaned.EXPECT().SetResizeEndChild(true).Once()
-	mockPaned.EXPECT().SetShrinkStartChild(false).Once()
-	mockPaned.EXPECT().SetShrinkEndChild(false).Once()
-	mockPaned.EXPECT().SetStartChild(mockWidget1).Once()
-	mockPaned.EXPECT().SetEndChild(mockWidget2).Once()
+	mockPaned.EXPECT().SetVisible(true).Once()
+	mockLeftStackBox.EXPECT().SetVisible(true).Once()
+	mockRightStackBox.EXPECT().SetVisible(true).Once()
+	mockPaned.EXPECT().SetStartChild(mockLeftStackBox).Once()
+	mockPaned.EXPECT().SetEndChild(mockRightStackBox).Once()
 	mockPaned.EXPECT().GetAllocatedWidth().Return(0).Once()
 	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
 	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()

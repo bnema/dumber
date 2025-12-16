@@ -37,6 +37,7 @@ func setupPaneMocks(t *testing.T, mockFactory *mocks.MockWidgetFactory, mockBox 
 	// Title bar creation
 	mockFactory.EXPECT().NewBox(layout.OrientationHorizontal, 4).Return(mockTitleBar).Once()
 	mockTitleBar.EXPECT().AddCssClass("stacked-pane-titlebar").Once()
+	mockTitleBar.EXPECT().SetVexpand(false).Once()
 
 	// Favicon
 	mockFactory.EXPECT().NewImage().Return(mockFavicon).Once()
@@ -57,6 +58,8 @@ func setupPaneMocks(t *testing.T, mockFactory *mocks.MockWidgetFactory, mockBox 
 	mockButton.EXPECT().SetChild(mockTitleBar).Once()
 	mockButton.EXPECT().AddCssClass("stacked-pane-title-button").Once()
 	mockButton.EXPECT().SetFocusOnClick(false).Once()
+	mockButton.EXPECT().SetVexpand(false).Once()
+	mockButton.EXPECT().SetHexpand(true).Once()
 	mockButton.EXPECT().ConnectClicked(mock.Anything).Return(uint32(1)).Once()
 
 	// Adding to main box

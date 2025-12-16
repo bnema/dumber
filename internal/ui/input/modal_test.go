@@ -1,13 +1,15 @@
 package input
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
 )
 
 func TestModalState_InitialState(t *testing.T) {
-	ms := NewModalState(nil)
+	ctx := context.Background()
+	ms := NewModalState(ctx)
 
 	if ms.Mode() != ModeNormal {
 		t.Errorf("initial mode = %v, want ModeNormal", ms.Mode())
@@ -15,9 +17,10 @@ func TestModalState_InitialState(t *testing.T) {
 }
 
 func TestModalState_EnterTabMode(t *testing.T) {
-	ms := NewModalState(nil)
+	ctx := context.Background()
+	ms := NewModalState(ctx)
 
-	ms.EnterTabMode(0)
+	ms.EnterTabMode(ctx, 0)
 
 	if ms.Mode() != ModeTab {
 		t.Errorf("mode after EnterTabMode = %v, want ModeTab", ms.Mode())
@@ -25,9 +28,10 @@ func TestModalState_EnterTabMode(t *testing.T) {
 }
 
 func TestModalState_EnterPaneMode(t *testing.T) {
-	ms := NewModalState(nil)
+	ctx := context.Background()
+	ms := NewModalState(ctx)
 
-	ms.EnterPaneMode(0)
+	ms.EnterPaneMode(ctx, 0)
 
 	if ms.Mode() != ModePane {
 		t.Errorf("mode after EnterPaneMode = %v, want ModePane", ms.Mode())
@@ -35,26 +39,28 @@ func TestModalState_EnterPaneMode(t *testing.T) {
 }
 
 func TestModalState_ExitMode(t *testing.T) {
-	ms := NewModalState(nil)
+	ctx := context.Background()
+	ms := NewModalState(ctx)
 
 	// Enter tab mode
-	ms.EnterTabMode(0)
+	ms.EnterTabMode(ctx, 0)
 	if ms.Mode() != ModeTab {
 		t.Fatalf("mode should be ModeTab")
 	}
 
 	// Exit mode
-	ms.ExitMode()
+	ms.ExitMode(ctx)
 	if ms.Mode() != ModeNormal {
 		t.Errorf("mode after ExitMode = %v, want ModeNormal", ms.Mode())
 	}
 }
 
 func TestModalState_ExitMode_FromNormal(t *testing.T) {
-	ms := NewModalState(nil)
+	ctx := context.Background()
+	ms := NewModalState(ctx)
 
 	// ExitMode from normal should be no-op
-	ms.ExitMode()
+	ms.ExitMode(ctx)
 
 	if ms.Mode() != ModeNormal {
 		t.Errorf("mode = %v, want ModeNormal", ms.Mode())
@@ -62,29 +68,31 @@ func TestModalState_ExitMode_FromNormal(t *testing.T) {
 }
 
 func TestModalState_SwitchModes(t *testing.T) {
-	ms := NewModalState(nil)
+	ctx := context.Background()
+	ms := NewModalState(ctx)
 
 	// Enter tab mode
-	ms.EnterTabMode(0)
+	ms.EnterTabMode(ctx, 0)
 	if ms.Mode() != ModeTab {
 		t.Fatalf("expected ModeTab, got %v", ms.Mode())
 	}
 
 	// Switch to pane mode directly
-	ms.EnterPaneMode(0)
+	ms.EnterPaneMode(ctx, 0)
 	if ms.Mode() != ModePane {
 		t.Errorf("mode after switch to pane = %v, want ModePane", ms.Mode())
 	}
 
 	// Switch back to tab mode
-	ms.EnterTabMode(0)
+	ms.EnterTabMode(ctx, 0)
 	if ms.Mode() != ModeTab {
 		t.Errorf("mode after switch to tab = %v, want ModeTab", ms.Mode())
 	}
 }
 
 func TestModalState_ModeChangeCallback(t *testing.T) {
-	ms := NewModalState(nil)
+	ctx := context.Background()
+	ms := NewModalState(ctx)
 
 	var callCount int
 	var lastFrom, lastTo Mode
@@ -99,7 +107,7 @@ func TestModalState_ModeChangeCallback(t *testing.T) {
 	})
 
 	// Enter tab mode
-	ms.EnterTabMode(0)
+	ms.EnterTabMode(ctx, 0)
 
 	mu.Lock()
 	if callCount != 1 {
@@ -111,7 +119,7 @@ func TestModalState_ModeChangeCallback(t *testing.T) {
 	mu.Unlock()
 
 	// Exit mode
-	ms.ExitMode()
+	ms.ExitMode(ctx)
 
 	mu.Lock()
 	if callCount != 2 {
@@ -124,7 +132,8 @@ func TestModalState_ModeChangeCallback(t *testing.T) {
 }
 
 func TestModalState_NoCallbackWhenAlreadyInMode(t *testing.T) {
-	ms := NewModalState(nil)
+	ctx := context.Background()
+	ms := NewModalState(ctx)
 
 	var callCount int
 	ms.SetOnModeChange(func(from, to Mode) {
@@ -132,23 +141,24 @@ func TestModalState_NoCallbackWhenAlreadyInMode(t *testing.T) {
 	})
 
 	// Enter tab mode
-	ms.EnterTabMode(0)
+	ms.EnterTabMode(ctx, 0)
 	if callCount != 1 {
 		t.Fatalf("expected 1 callback, got %d", callCount)
 	}
 
 	// Enter tab mode again (should not trigger callback)
-	ms.EnterTabMode(0)
+	ms.EnterTabMode(ctx, 0)
 	if callCount != 1 {
 		t.Errorf("callback count = %d, want 1 (no new call)", callCount)
 	}
 }
 
 func TestModalState_Timeout(t *testing.T) {
-	ms := NewModalState(nil)
+	ctx := context.Background()
+	ms := NewModalState(ctx)
 
 	// Enter with short timeout
-	ms.EnterTabMode(50 * time.Millisecond)
+	ms.EnterTabMode(ctx, 50*time.Millisecond)
 
 	if ms.Mode() != ModeTab {
 		t.Fatalf("mode should be ModeTab")
@@ -163,14 +173,15 @@ func TestModalState_Timeout(t *testing.T) {
 }
 
 func TestModalState_TimeoutReset(t *testing.T) {
-	ms := NewModalState(nil)
+	ctx := context.Background()
+	ms := NewModalState(ctx)
 
 	// Enter with timeout
-	ms.EnterTabMode(100 * time.Millisecond)
+	ms.EnterTabMode(ctx, 100*time.Millisecond)
 
 	// Wait a bit, then reset
 	time.Sleep(50 * time.Millisecond)
-	ms.ResetTimeout()
+	ms.ResetTimeout(ctx)
 
 	// Wait a bit more (original timeout would have expired)
 	time.Sleep(80 * time.Millisecond)
@@ -189,7 +200,8 @@ func TestModalState_TimeoutReset(t *testing.T) {
 }
 
 func TestModalState_ExitCancelsTimeout(t *testing.T) {
-	ms := NewModalState(nil)
+	ctx := context.Background()
+	ms := NewModalState(ctx)
 
 	var callCount int
 	ms.SetOnModeChange(func(from, to Mode) {
@@ -197,13 +209,13 @@ func TestModalState_ExitCancelsTimeout(t *testing.T) {
 	})
 
 	// Enter with timeout
-	ms.EnterTabMode(100 * time.Millisecond)
+	ms.EnterTabMode(ctx, 100*time.Millisecond)
 	if callCount != 1 {
 		t.Fatalf("expected 1 callback")
 	}
 
 	// Exit immediately
-	ms.ExitMode()
+	ms.ExitMode(ctx)
 	if callCount != 2 {
 		t.Fatalf("expected 2 callbacks")
 	}
@@ -218,7 +230,8 @@ func TestModalState_ExitCancelsTimeout(t *testing.T) {
 }
 
 func TestModalState_ConcurrentAccess(t *testing.T) {
-	ms := NewModalState(nil)
+	ctx := context.Background()
+	ms := NewModalState(ctx)
 
 	var wg sync.WaitGroup
 	iterations := 100
@@ -229,12 +242,12 @@ func TestModalState_ConcurrentAccess(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for j := 0; j < iterations; j++ {
-				ms.EnterTabMode(0)
+				ms.EnterTabMode(ctx, 0)
 				_ = ms.Mode()
-				ms.ExitMode()
-				ms.EnterPaneMode(0)
+				ms.ExitMode(ctx)
+				ms.EnterPaneMode(ctx, 0)
 				_ = ms.Mode()
-				ms.ExitMode()
+				ms.ExitMode(ctx)
 			}
 		}()
 	}

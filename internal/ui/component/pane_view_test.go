@@ -24,10 +24,13 @@ func TestNewPaneView_CreatesOverlay(t *testing.T) {
 	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
 	mockOverlay.EXPECT().SetHexpand(true).Once()
 	mockOverlay.EXPECT().SetVexpand(true).Once()
+	mockOverlay.EXPECT().SetVisible(true).Once()
+	mockWebView.EXPECT().SetVisible(true).Once()
 	mockOverlay.EXPECT().SetChild(mockWebView).Once()
 
 	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
 	mockBorderBox.EXPECT().SetCanFocus(false).Once()
+	mockBorderBox.EXPECT().SetCanTarget(false).Once()
 	mockBorderBox.EXPECT().AddCssClass("pane-border").Once()
 	mockBorderBox.EXPECT().SetHexpand(true).Once()
 	mockBorderBox.EXPECT().SetVexpand(true).Once()
@@ -55,10 +58,12 @@ func TestNewPaneView_NilWebView(t *testing.T) {
 	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
 	mockOverlay.EXPECT().SetHexpand(true).Once()
 	mockOverlay.EXPECT().SetVexpand(true).Once()
+	mockOverlay.EXPECT().SetVisible(true).Once()
 	// SetChild should NOT be called when webview is nil
 
 	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
 	mockBorderBox.EXPECT().SetCanFocus(false).Once()
+	mockBorderBox.EXPECT().SetCanTarget(false).Once()
 	mockBorderBox.EXPECT().AddCssClass("pane-border").Once()
 	mockBorderBox.EXPECT().SetHexpand(true).Once()
 	mockBorderBox.EXPECT().SetVexpand(true).Once()
@@ -86,7 +91,7 @@ func TestSetActive_True_AddsCSSClass(t *testing.T) {
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
 
 	// Expect CSS class to be added
-	mockBorderBox.EXPECT().AddCssClass("active-pane").Once()
+	mockBorderBox.EXPECT().AddCssClass("pane-active").Once()
 
 	// Act
 	pv.SetActive(true)
@@ -107,11 +112,11 @@ func TestSetActive_False_RemovesCSSClass(t *testing.T) {
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
 
 	// First activate
-	mockBorderBox.EXPECT().AddCssClass("active-pane").Once()
+	mockBorderBox.EXPECT().AddCssClass("pane-active").Once()
 	pv.SetActive(true)
 
 	// Then deactivate
-	mockBorderBox.EXPECT().RemoveCssClass("active-pane").Once()
+	mockBorderBox.EXPECT().RemoveCssClass("pane-active").Once()
 
 	// Act
 	pv.SetActive(false)
@@ -189,6 +194,8 @@ func TestSetWebViewWidget_ReplacesWidget(t *testing.T) {
 
 	// Expect removal of old widget and addition of new
 	mockOverlay.EXPECT().SetChild(nil).Once()
+	mockNewWebView.EXPECT().GetParent().Return(nil).Once()
+	mockNewWebView.EXPECT().SetVisible(true).Once()
 	mockOverlay.EXPECT().SetChild(mockNewWebView).Once()
 
 	// Act
@@ -205,22 +212,13 @@ func TestSetWebViewWidget_FromNil(t *testing.T) {
 	mockBorderBox := mocks.NewMockBoxWidget(t)
 	mockNewWebView := mocks.NewMockWidget(t)
 
-	// Setup without webview
-	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
-	mockOverlay.EXPECT().SetHexpand(true).Once()
-	mockOverlay.EXPECT().SetVexpand(true).Once()
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
-	mockBorderBox.EXPECT().SetCanFocus(false).Once()
-	mockBorderBox.EXPECT().AddCssClass("pane-border").Once()
-	mockBorderBox.EXPECT().SetHexpand(true).Once()
-	mockBorderBox.EXPECT().SetVexpand(true).Once()
-	mockOverlay.EXPECT().AddOverlay(mockBorderBox).Once()
-	mockOverlay.EXPECT().SetClipOverlay(mockBorderBox, false).Once()
-	mockOverlay.EXPECT().SetMeasureOverlay(mockBorderBox, false).Once()
+	setupPaneViewMocksNoWebView(mockFactory, mockOverlay, mockBorderBox)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), nil)
 
 	// Expect only setting new child (no removal since old was nil)
+	mockNewWebView.EXPECT().GetParent().Return(nil).Once()
+	mockNewWebView.EXPECT().SetVisible(true).Once()
 	mockOverlay.EXPECT().SetChild(mockNewWebView).Once()
 
 	// Act
@@ -256,17 +254,7 @@ func TestGrabFocus_NilWebView_ReturnsFalse(t *testing.T) {
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
 
-	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
-	mockOverlay.EXPECT().SetHexpand(true).Once()
-	mockOverlay.EXPECT().SetVexpand(true).Once()
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
-	mockBorderBox.EXPECT().SetCanFocus(false).Once()
-	mockBorderBox.EXPECT().AddCssClass("pane-border").Once()
-	mockBorderBox.EXPECT().SetHexpand(true).Once()
-	mockBorderBox.EXPECT().SetVexpand(true).Once()
-	mockOverlay.EXPECT().AddOverlay(mockBorderBox).Once()
-	mockOverlay.EXPECT().SetClipOverlay(mockBorderBox, false).Once()
-	mockOverlay.EXPECT().SetMeasureOverlay(mockBorderBox, false).Once()
+	setupPaneViewMocksNoWebView(mockFactory, mockOverlay, mockBorderBox)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), nil)
 
@@ -303,17 +291,7 @@ func TestHasFocus_NilWebView_ReturnsFalse(t *testing.T) {
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
 
-	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
-	mockOverlay.EXPECT().SetHexpand(true).Once()
-	mockOverlay.EXPECT().SetVexpand(true).Once()
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
-	mockBorderBox.EXPECT().SetCanFocus(false).Once()
-	mockBorderBox.EXPECT().AddCssClass("pane-border").Once()
-	mockBorderBox.EXPECT().SetHexpand(true).Once()
-	mockBorderBox.EXPECT().SetVexpand(true).Once()
-	mockOverlay.EXPECT().AddOverlay(mockBorderBox).Once()
-	mockOverlay.EXPECT().SetClipOverlay(mockBorderBox, false).Once()
-	mockOverlay.EXPECT().SetMeasureOverlay(mockBorderBox, false).Once()
+	setupPaneViewMocksNoWebView(mockFactory, mockOverlay, mockBorderBox)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), nil)
 
@@ -525,10 +503,34 @@ func setupPaneViewMocks(
 	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
 	mockOverlay.EXPECT().SetHexpand(true).Once()
 	mockOverlay.EXPECT().SetVexpand(true).Once()
+	mockOverlay.EXPECT().SetVisible(true).Once()
+	mockWebView.EXPECT().SetVisible(true).Once()
 	mockOverlay.EXPECT().SetChild(mockWebView).Once()
 
 	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
 	mockBorderBox.EXPECT().SetCanFocus(false).Once()
+	mockBorderBox.EXPECT().SetCanTarget(false).Once()
+	mockBorderBox.EXPECT().AddCssClass("pane-border").Once()
+	mockBorderBox.EXPECT().SetHexpand(true).Once()
+	mockBorderBox.EXPECT().SetVexpand(true).Once()
+	mockOverlay.EXPECT().AddOverlay(mockBorderBox).Once()
+	mockOverlay.EXPECT().SetClipOverlay(mockBorderBox, false).Once()
+	mockOverlay.EXPECT().SetMeasureOverlay(mockBorderBox, false).Once()
+}
+
+func setupPaneViewMocksNoWebView(
+	mockFactory *mocks.MockWidgetFactory,
+	mockOverlay *mocks.MockOverlayWidget,
+	mockBorderBox *mocks.MockBoxWidget,
+) {
+	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
+	mockOverlay.EXPECT().SetHexpand(true).Once()
+	mockOverlay.EXPECT().SetVexpand(true).Once()
+	mockOverlay.EXPECT().SetVisible(true).Once()
+
+	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
+	mockBorderBox.EXPECT().SetCanFocus(false).Once()
+	mockBorderBox.EXPECT().SetCanTarget(false).Once()
 	mockBorderBox.EXPECT().AddCssClass("pane-border").Once()
 	mockBorderBox.EXPECT().SetHexpand(true).Once()
 	mockBorderBox.EXPECT().SetVexpand(true).Once()

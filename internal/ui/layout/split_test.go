@@ -18,6 +18,7 @@ import (
 func setupSplitViewMocks(mockPaned *mocks.MockPanedWidget, orientation layout.Orientation) {
 	mockPaned.EXPECT().SetResizeStartChild(true).Once()
 	mockPaned.EXPECT().SetResizeEndChild(true).Once()
+	mockPaned.EXPECT().SetVisible(true).Once()
 	// Note: SetShrinkStartChild/SetShrinkEndChild are NOT called - allowing shrink
 	// enables GTK to respect the 50/50 ratio even if children have larger natural sizes
 
@@ -43,6 +44,8 @@ func TestNewSplitView_Horizontal(t *testing.T) {
 
 	mockFactory.EXPECT().NewPaned(layout.OrientationHorizontal).Return(mockPaned).Once()
 	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
+	mockStartChild.EXPECT().SetVisible(true).Once()
+	mockEndChild.EXPECT().SetVisible(true).Once()
 	mockPaned.EXPECT().SetStartChild(mockStartChild).Once()
 	mockPaned.EXPECT().SetEndChild(mockEndChild).Once()
 
@@ -67,6 +70,8 @@ func TestNewSplitView_Vertical(t *testing.T) {
 
 	mockFactory.EXPECT().NewPaned(layout.OrientationVertical).Return(mockPaned).Once()
 	setupSplitViewMocks(mockPaned, layout.OrientationVertical)
+	mockStartChild.EXPECT().SetVisible(true).Once()
+	mockEndChild.EXPECT().SetVisible(true).Once()
 	mockPaned.EXPECT().SetStartChild(mockStartChild).Once()
 	mockPaned.EXPECT().SetEndChild(mockEndChild).Once()
 
@@ -174,6 +179,7 @@ func TestSwapStart_ReplacesChild(t *testing.T) {
 
 	mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
 	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
+	mockOldChild.EXPECT().SetVisible(true).Once()
 	mockPaned.EXPECT().SetStartChild(mockOldChild).Once()
 
 	sv := layout.NewSplitView(ctx, mockFactory, layout.OrientationHorizontal, mockOldChild, nil, 0.5)
@@ -199,6 +205,7 @@ func TestSwapEnd_ReplacesChild(t *testing.T) {
 
 	mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
 	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
+	mockOldChild.EXPECT().SetVisible(true).Once()
 	mockPaned.EXPECT().SetEndChild(mockOldChild).Once()
 
 	sv := layout.NewSplitView(ctx, mockFactory, layout.OrientationHorizontal, nil, mockOldChild, 0.5)
@@ -245,6 +252,7 @@ func TestSwapEnd_ToNil(t *testing.T) {
 
 	mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
 	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
+	mockOldChild.EXPECT().SetVisible(true).Once()
 	mockPaned.EXPECT().SetEndChild(mockOldChild).Once()
 
 	sv := layout.NewSplitView(ctx, mockFactory, layout.OrientationHorizontal, nil, mockOldChild, 0.5)
