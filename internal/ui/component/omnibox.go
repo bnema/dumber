@@ -18,10 +18,10 @@ import (
 )
 
 const (
-	omniboxWidthPct   = 0.5 // 50% of parent window width
+	omniboxWidthPct   = 0.8 // 80% of parent window width
 	omniboxHeightPct  = 0.6 // 60% of parent window height
 	omniboxMaxResults = 10
-	debounceDelayMs   = 250 // Increased for stability
+	debounceDelayMs   = 150
 )
 
 // ViewMode distinguishes history search from favorites display.
@@ -51,8 +51,8 @@ type Favorite struct {
 // Omnibox is the native GTK4 address bar / command palette.
 type Omnibox struct {
 	// GTK widgets
-	window       *gtk.Window
-	mainBox      *gtk.Box
+	outerBox     *gtk.Box            // Outer container for positioning
+	mainBox      *gtk.Box            // Main content box
 	headerBox    *gtk.Box
 	historyBtn   *gtk.Button
 	favoritesBtn *gtk.Button
@@ -61,7 +61,7 @@ type Omnibox struct {
 	scrolledWin  *gtk.ScrolledWindow
 	listBox      *gtk.ListBox
 
-	// Parent window reference for positioning
+	// Parent window reference for sizing
 	parentWindow *gtk.ApplicationWindow
 
 	// State
@@ -92,6 +92,14 @@ type Omnibox struct {
 
 	// Scaling
 	uiScale float64
+
+	// Cached measurements (populated after first layout)
+	measuredHeights struct {
+		header    int  // headerBox natural height
+		entry     int  // entry natural height
+		singleRow int  // single ListBoxRow natural height
+		valid     bool // whether cache is valid
+	}
 }
 
 // OmniboxConfig holds configuration for creating an Omnibox.
@@ -149,7 +157,7 @@ func (o *Omnibox) updateSize() {
 // resizeAndCenter adjusts the omnibox size based on content and centers it.
 // rowCount is the number of result rows to display (0 = no content, max 10).
 func (o *Omnibox) resizeAndCenter(rowCount int) {
-	if o.parentWindow == nil || o.window == nil || o.mainBox == nil {
+	if o.parentWindow == nil || o.outerBox == nil || o.mainBox == nil {
 		return
 	}
 
@@ -168,69 +176,86 @@ func (o *Omnibox) resizeAndCenter(rowCount int) {
 
 	width := int(float64(parentWidth) * omniboxWidthPct)
 
-	// Base height: header (~40px) + entry (~50px) at scale 1.0
-	baseHeight := int(90 * o.uiScale)
-	// Row height: approximately 50px per row at scale 1.0 (two lines: title + URL)
-	rowHeight := int(50 * o.uiScale)
-
 	// Cap at max results
 	if rowCount > omniboxMaxResults {
 		rowCount = omniboxMaxResults
 	}
 
-	height := baseHeight + (rowCount * rowHeight)
+	// Schedule measurement after GTK has laid out widgets
+	// This ensures we get accurate heights from actual rendered content
+	var cb glib.SourceFunc = func(uintptr) bool {
+		o.measureAndResize(width, rowCount)
+		return false // One-shot
+	}
+	glib.IdleAdd(&cb, 0)
+}
 
-	o.window.SetDefaultSize(width, height)
-	o.mainBox.SetSizeRequest(width, height)
-
-	// Center the window on the parent
-	x := (parentWidth - width) / 2
-	y := (parentHeight - height) / 2
-
-	// Get parent window position (for Wayland this may be 0,0)
-	// For a transient/modal window, GTK should handle relative positioning
-	// We need to use a surface-based approach for proper centering
-	if surface := o.window.GetSurface(); surface != nil {
-		// Request the window manager to center it
-		// Note: On Wayland, window positioning is limited
+// measureAndResize calculates and sets the omnibox height based on row count.
+// Uses measured widget heights when available, falls back to estimates.
+func (o *Omnibox) measureAndResize(width, rowCount int) {
+	if o.outerBox == nil || o.mainBox == nil {
+		return
 	}
 
-	// For GTK4 popup positioning, we rely on the transient relationship
-	// The window should appear centered relative to parent automatically
-	// But we can hint at position using the allocation
-	o.window.SetDefaultSize(width, height)
-
 	log := logging.FromContext(o.ctx)
+
+	var rowHeight int
+
+	if o.measuredHeights.valid && o.measuredHeights.singleRow > 0 {
+		// Use measured values from GTK4 Measure API
+		rowHeight = o.measuredHeights.singleRow
+	} else {
+		// Fallback to hardcoded estimate (before first measurement)
+		rowHeight = int(60 * o.uiScale)
+	}
+
+	// Calculate content height for the scrolled window
+	// This is the key to dynamic sizing - limit the ScrolledWindow's max height
+	contentHeight := 0
+	if rowCount > 0 {
+		contentHeight = rowCount * rowHeight
+	}
+
+	// Cap at max results
+	maxContentHeight := omniboxMaxResults * rowHeight
+	if contentHeight > maxContentHeight {
+		contentHeight = maxContentHeight
+	}
+
+	// Set size constraints on ScrolledWindow to control dynamic sizing
+	if o.scrolledWin != nil {
+		// Reset min first to avoid assertion failure when shrinking
+		// GTK requires min <= max, so we reset min before setting new values
+		o.scrolledWin.SetMinContentHeight(-1)
+		o.scrolledWin.SetMaxContentHeight(contentHeight)
+		o.scrolledWin.SetMinContentHeight(contentHeight)
+	}
+
+	// Force layout recalculation
+	o.outerBox.QueueResize()
+
 	log.Debug().
 		Int("width", width).
-		Int("height", height).
-		Int("x", x).
-		Int("y", y).
+		Int("contentHeight", contentHeight).
+		Int("rowHeight", rowHeight).
 		Int("rows", rowCount).
+		Bool("measured", o.measuredHeights.valid).
 		Msg("omnibox resized")
 }
 
 // createWidgets builds the GTK widget hierarchy.
 func (o *Omnibox) createWidgets() error {
-	// Create the popup window
-	o.window = gtk.NewWindow()
-	if o.window == nil {
-		return errNilWidget("window")
+	// Create outer container for positioning (will be added to an overlay)
+	o.outerBox = gtk.NewBox(gtk.OrientationVerticalValue, 0)
+	if o.outerBox == nil {
+		return errNilWidget("outerBox")
 	}
+	o.outerBox.AddCssClass("omnibox-outer")
+	o.outerBox.SetHalign(gtk.AlignCenterValue)  // Center horizontally
+	o.outerBox.SetValign(gtk.AlignStartValue)   // Align to top
+	o.outerBox.SetVisible(false)                // Hidden by default
 
-	o.window.SetModal(true)
-	o.window.SetDecorated(false)
-	o.window.AddCssClass("omnibox-window")
-
-	// Set transient for parent window (positioning)
-	if o.parentWindow != nil {
-		o.window.SetTransientFor(&o.parentWindow.Window)
-	} else {
-		log := logging.FromContext(o.ctx)
-		log.Error().Msg("omnibox: parent window is nil, cannot set transient")
-	}
-
-	// Main vertical box
+	// Main content box
 	o.mainBox = gtk.NewBox(gtk.OrientationVerticalValue, 0)
 	if o.mainBox == nil {
 		return errNilWidget("mainBox")
@@ -305,6 +330,8 @@ func (o *Omnibox) createWidgets() error {
 	o.scrolledWin.AddCssClass("omnibox-scrolled")
 	o.scrolledWin.SetVexpand(true)
 	o.scrolledWin.SetPolicy(gtk.PolicyNeverValue, gtk.PolicyAutomaticValue)
+	// Let GTK handle natural sizing - propagate child height up to max
+	o.scrolledWin.SetPropagateNaturalHeight(true)
 
 	// List box for suggestions
 	o.listBox = gtk.NewListBox()
@@ -336,7 +363,7 @@ func (o *Omnibox) createWidgets() error {
 	o.mainBox.Append(&o.headerBox.Widget)
 	o.mainBox.Append(&o.entry.Widget)
 	o.mainBox.Append(&o.scrolledWin.Widget)
-	o.window.SetChild(&o.mainBox.Widget)
+	o.outerBox.Append(&o.mainBox.Widget)
 
 	return nil
 }
@@ -358,7 +385,7 @@ func (o *Omnibox) setupKeyboardHandling() {
 	}
 	controller.ConnectKeyPressed(&keyPressedCb)
 
-	o.window.AddController(&controller.EventController)
+	o.outerBox.AddController(&controller.EventController)
 }
 
 // setupEntryChanged wires entry text changes to debounced search.
@@ -648,6 +675,31 @@ func (o *Omnibox) rebuildList() {
 			}
 		}
 	}
+
+	// Schedule measurement if not yet cached and we have rows
+	if !o.measuredHeights.valid && o.listBox.GetRowAtIndex(0) != nil {
+		var cb glib.SourceFunc = func(uintptr) bool {
+			width := o.parentWindow.GetAllocatedWidth()
+			if width <= 0 {
+				return false // Window not allocated yet, skip
+			}
+			forWidth := int(float64(width) * omniboxWidthPct)
+			if o.measureComponentHeights(forWidth) {
+				// Re-trigger resize with accurate measurements
+				o.mu.RLock()
+				var count int
+				if o.viewMode == ViewModeHistory {
+					count = len(o.suggestions)
+				} else {
+					count = len(o.favorites)
+				}
+				o.mu.RUnlock()
+				o.measureAndResize(forWidth, count)
+			}
+			return false
+		}
+		glib.IdleAdd(&cb, 0)
+	}
 }
 
 // createFaviconImage creates a favicon image with async loading from cache.
@@ -826,7 +878,8 @@ func (o *Omnibox) selectAndNavigate(index int) {
 	o.navigateToSelected()
 }
 
-// navigateToSelected navigates to the currently selected item.
+// navigateToSelected navigates to the currently selected item or typed URL.
+// If the user typed a URL-like string, prioritize navigating to that directly.
 func (o *Omnibox) navigateToSelected() {
 	o.mu.RLock()
 	mode := o.viewMode
@@ -835,11 +888,16 @@ func (o *Omnibox) navigateToSelected() {
 	favorites := o.favorites
 	o.mu.RUnlock()
 
+	entryText := o.entry.GetText()
 	var url string
 
-	if idx < 0 {
-		// No selection - use entry text as URL
-		url = o.buildURL(o.entry.GetText())
+	// Check if user typed a URL-like string (contains . and no spaces)
+	// If so, navigate to that URL directly instead of the selection
+	if o.looksLikeURL(entryText) {
+		url = o.buildURL(entryText)
+	} else if idx < 0 {
+		// No selection - use entry text as URL/search
+		url = o.buildURL(entryText)
 	} else if mode == ViewModeHistory {
 		if idx < len(suggestions) {
 			url = suggestions[idx].URL
@@ -859,6 +917,16 @@ func (o *Omnibox) navigateToSelected() {
 	if o.onNavigate != nil {
 		o.onNavigate(url)
 	}
+}
+
+// looksLikeURL checks if the input appears to be a URL (not a search query).
+// Returns true for strings like "github.com", "google.com/search", etc.
+func (o *Omnibox) looksLikeURL(input string) bool {
+	if input == "" {
+		return false
+	}
+	// Contains a dot and no spaces = likely a URL
+	return strings.Contains(input, ".") && !strings.Contains(input, " ")
 }
 
 // toggleFavorite adds or removes the selected item from favorites.
@@ -1030,18 +1098,25 @@ func (o *Omnibox) Show(ctx context.Context, query string) {
 	// Hide scrolled window if no content expected
 	if o.scrolledWin != nil {
 		o.scrolledWin.SetVisible(expectContent)
+		// Reset content height constraints - will be updated when results arrive
+		o.scrolledWin.SetMinContentHeight(-1)
+		o.scrolledWin.SetMaxContentHeight(0)
 	}
 
-	// Initial size: 0 rows if no content expected, max rows otherwise
-	// (will be updated by search results)
-	initialRows := 0
-	if expectContent {
-		initialRows = omniboxMaxResults
-	}
-	o.resizeAndCenter(initialRows)
+	// Set width and vertical positioning (20% from top)
+	parentWidth := o.parentWindow.GetAllocatedWidth()
+	parentHeight := o.parentWindow.GetAllocatedHeight()
+	width := int(float64(parentWidth) * omniboxWidthPct)
+	marginTop := int(float64(parentHeight) * 0.20) // 20% from top
 
-	// Present the window
-	o.window.Present()
+	o.mainBox.SetSizeRequest(width, -1)
+	o.outerBox.SetMarginTop(marginTop)
+
+	// Show the omnibox
+	o.outerBox.SetVisible(true)
+
+	// Trigger initial resize (will be updated when results arrive)
+	o.resizeAndCenter(0)
 
 	// Focus the entry
 	o.entry.GrabFocus()
@@ -1071,8 +1146,8 @@ func (o *Omnibox) Hide(ctx context.Context) {
 	}
 	o.debounceMu.Unlock()
 
-	// Hide window
-	o.window.SetVisible(false)
+	// Hide omnibox
+	o.outerBox.SetVisible(false)
 
 	// Clear state
 	o.entry.SetText("")
@@ -1150,6 +1225,14 @@ func (o *Omnibox) idleAddUpdateFavorites(favorites []Favorite) {
 	glib.IdleAdd(&cb, 0)
 }
 
+// Widget returns the omnibox widget for embedding in an overlay.
+func (o *Omnibox) Widget() *gtk.Widget {
+	if o.outerBox == nil {
+		return nil
+	}
+	return &o.outerBox.Widget
+}
+
 // Destroy cleans up omnibox resources.
 func (o *Omnibox) Destroy() {
 	o.debounceMu.Lock()
@@ -1158,15 +1241,63 @@ func (o *Omnibox) Destroy() {
 	}
 	o.debounceMu.Unlock()
 
-	if o.window != nil {
-		o.window.Destroy()
-		o.window = nil
+	if o.outerBox != nil {
+		o.outerBox.Unparent()
+		o.outerBox = nil
 	}
 }
 
 // formatShortcut formats a shortcut number.
 func formatShortcut(n int) string {
 	return "Ctrl+" + string(rune('0'+n))
+}
+
+// measureWidgetHeight returns the natural height of a widget for the given width.
+// Returns 0 if widget is nil or measurement fails.
+func measureWidgetHeight(widget *gtk.Widget, forWidth int) int {
+	if widget == nil {
+		return 0
+	}
+	var minHeight, naturalHeight, minBaseline, naturalBaseline int
+	widget.Measure(
+		gtk.OrientationVerticalValue,
+		forWidth,
+		&minHeight,
+		&naturalHeight,
+		&minBaseline,
+		&naturalBaseline,
+	)
+	return naturalHeight
+}
+
+// measureComponentHeights measures and caches all component heights.
+// Must be called on GTK main thread after widgets have been laid out.
+func (o *Omnibox) measureComponentHeights(forWidth int) bool {
+	if o.headerBox == nil || o.entry == nil || o.listBox == nil {
+		return false
+	}
+
+	headerH := measureWidgetHeight(&o.headerBox.Widget, forWidth)
+	entryH := measureWidgetHeight(&o.entry.Widget, forWidth)
+
+	// Measure first row if it exists
+	var rowH int
+	if row := o.listBox.GetRowAtIndex(0); row != nil {
+		rowH = measureWidgetHeight(&row.Widget, forWidth)
+	}
+
+	// Validate measurements (header and entry must be positive)
+	if headerH <= 0 || entryH <= 0 {
+		return false
+	}
+
+	o.measuredHeights.header = headerH
+	o.measuredHeights.entry = entryH
+	if rowH > 0 {
+		o.measuredHeights.singleRow = rowH
+		o.measuredHeights.valid = true
+	}
+	return true
 }
 
 // errNilWidget creates an error for nil widget creation.
