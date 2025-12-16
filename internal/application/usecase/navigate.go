@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -99,6 +100,9 @@ func (uc *NavigateUseCase) Execute(ctx context.Context, input NavigateInput) (*N
 func (uc *NavigateUseCase) recordHistory(ctx context.Context, url string) {
 	log := logging.FromContext(ctx)
 
+	// Normalize URL to avoid duplicates (e.g., github.com vs github.com/)
+	url = normalizeURLForHistory(url)
+
 	// Check if entry exists
 	existing, err := uc.historyRepo.FindByURL(ctx, url)
 	if err != nil {
@@ -123,6 +127,9 @@ func (uc *NavigateUseCase) recordHistory(ctx context.Context, url string) {
 // UpdateHistoryTitle updates the title of a history entry after page load.
 func (uc *NavigateUseCase) UpdateHistoryTitle(ctx context.Context, url, title string) error {
 	log := logging.FromContext(ctx)
+
+	// Normalize URL to match storage (e.g., github.com/ -> github.com)
+	url = normalizeURLForHistory(url)
 	log.Debug().Str("url", url).Str("title", title).Msg("updating history title")
 
 	entry, err := uc.historyRepo.FindByURL(ctx, url)
@@ -190,4 +197,22 @@ func (uc *NavigateUseCase) Stop(ctx context.Context, webview port.WebView) error
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("stopping page load")
 	return webview.Stop(ctx)
+}
+
+// normalizeURLForHistory normalizes a URL for history storage.
+// Strips trailing slash to avoid duplicates like github.com vs github.com/
+func normalizeURLForHistory(url string) string {
+	// Don't strip if URL is just the protocol + domain (e.g., "https://github.com")
+	// Only strip trailing slash from paths
+	if strings.HasSuffix(url, "/") {
+		// Check if it's just domain with trailing slash (e.g., "https://github.com/")
+		// by counting slashes - protocol has 2, domain adds 0, path adds more
+		if strings.Count(url, "/") == 3 {
+			// It's "https://domain.com/" - strip the trailing slash
+			return strings.TrimSuffix(url, "/")
+		}
+		// For paths like "https://github.com/user/" - also strip
+		return strings.TrimSuffix(url, "/")
+	}
+	return url
 }
