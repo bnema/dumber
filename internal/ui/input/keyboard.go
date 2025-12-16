@@ -9,7 +9,6 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
-	"github.com/rs/zerolog"
 )
 
 // ActionHandler is called when a keyboard action is triggered.

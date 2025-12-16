@@ -110,7 +110,7 @@ func NewWorkspaceView(ctx context.Context, factory layout.WidgetFactory) *Worksp
 }
 
 // SetWorkspace sets the workspace to render and builds the widget tree.
-func (wv *WorkspaceView) SetWorkspace(ws *entity.Workspace) error {
+func (wv *WorkspaceView) SetWorkspace(ctx context.Context, ws *entity.Workspace) error {
 	if ws == nil {
 		return ErrNilWorkspace
 	}
@@ -240,7 +240,7 @@ func (wv *WorkspaceView) Rebuild(ctx context.Context) error {
 		return ErrNilWorkspace
 	}
 
-	return wv.SetWorkspace(ws)
+	return wv.SetWorkspace(ctx, ws)
 }
 
 // FocusPane attempts to give focus to a specific pane.

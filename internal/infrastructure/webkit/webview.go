@@ -143,7 +143,7 @@ func NewWebView(ctx context.Context, wkCtx *WebKitContext, settings *SettingsMan
 
 	// Apply settings if provided
 	if settings != nil {
-		settings.ApplyToWebView(inner)
+		settings.ApplyToWebView(ctx, inner)
 	}
 
 	// Connect signals
@@ -181,7 +181,7 @@ func NewWebViewWithRelated(ctx context.Context, parent *WebView, settings *Setti
 	wv.id = globalRegistry.register(wv)
 
 	if settings != nil {
-		settings.ApplyToWebView(inner)
+		settings.ApplyToWebView(ctx, inner)
 	}
 
 	wv.connectSignals()

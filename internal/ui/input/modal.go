@@ -71,7 +71,7 @@ func (m *ModalState) EnterTabMode(ctx context.Context, timeout time.Duration) {
 
 	if m.mode == ModeTab {
 		// Already in tab mode, just reset timeout
-		m.resetTimeoutLocked(timeout)
+		m.resetTimeoutLocked(ctx, timeout)
 		return
 	}
 
@@ -82,7 +82,7 @@ func (m *ModalState) EnterTabMode(ctx context.Context, timeout time.Duration) {
 
 	if timeout > 0 {
 		m.timer = time.AfterFunc(timeout, func() {
-			m.ExitMode()
+			m.ExitMode(ctx)
 		})
 	}
 
@@ -106,7 +106,7 @@ func (m *ModalState) EnterPaneMode(ctx context.Context, timeout time.Duration) {
 
 	if m.mode == ModePane {
 		// Already in pane mode, just reset timeout
-		m.resetTimeoutLocked(timeout)
+		m.resetTimeoutLocked(ctx, timeout)
 		return
 	}
 
@@ -117,7 +117,7 @@ func (m *ModalState) EnterPaneMode(ctx context.Context, timeout time.Duration) {
 
 	if timeout > 0 {
 		m.timer = time.AfterFunc(timeout, func() {
-			m.ExitMode()
+			m.ExitMode(ctx)
 		})
 	}
 
@@ -159,7 +159,7 @@ func (m *ModalState) ExitMode(ctx context.Context) {
 
 // ResetTimeout restarts the mode timeout (e.g., after a valid keystroke).
 // Does nothing if not in a modal mode or if no timeout was set.
-func (m *ModalState) ResetTimeout() {
+func (m *ModalState) ResetTimeout(ctx context.Context) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -167,7 +167,7 @@ func (m *ModalState) ResetTimeout() {
 		return
 	}
 
-	m.resetTimeoutLocked(m.timeout)
+	m.resetTimeoutLocked(ctx, m.timeout)
 }
 
 // SetOnModeChange sets the callback for mode changes.
@@ -189,12 +189,12 @@ func (m *ModalState) cancelTimerLocked() {
 
 // resetTimeoutLocked resets the timeout timer.
 // Must be called with m.mu held.
-func (m *ModalState) resetTimeoutLocked(timeout time.Duration) {
+func (m *ModalState) resetTimeoutLocked(ctx context.Context, timeout time.Duration) {
 	m.cancelTimerLocked()
 	m.timeout = timeout
 	if timeout > 0 {
 		m.timer = time.AfterFunc(timeout, func() {
-			m.ExitMode()
+			m.ExitMode(ctx)
 		})
 	}
 }

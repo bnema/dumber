@@ -9,7 +9,6 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
-	"github.com/rs/zerolog"
 )
 
 // TabController synchronizes TabList domain state with the TabBar UI widget.
