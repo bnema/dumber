@@ -61,6 +61,9 @@ type Widget interface {
 
 	// GTK interop - returns the underlying GTK widget for embedding
 	GtkWidget() *gtk.Widget
+
+	// AddController adds an event controller to the widget
+	AddController(controller *gtk.EventController)
 }
 
 // PanedWidget wraps gtk.Paned for creating split views.

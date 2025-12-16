@@ -54,8 +54,9 @@ func (w *gtkWidget) GetParent() Widget {
 	return &gtkWidget{inner: parent}
 }
 
-func (w *gtkWidget) GetAllocatedWidth() int  { return w.inner.GetAllocatedWidth() }
-func (w *gtkWidget) GetAllocatedHeight() int { return w.inner.GetAllocatedHeight() }
+func (w *gtkWidget) GetAllocatedWidth() int               { return w.inner.GetAllocatedWidth() }
+func (w *gtkWidget) GetAllocatedHeight() int              { return w.inner.GetAllocatedHeight() }
+func (w *gtkWidget) AddController(c *gtk.EventController) { w.inner.AddController(c) }
 
 func (w *gtkWidget) ComputePoint(target Widget) (x, y float64, ok bool) {
 	srcPoint := &graphene.Point{X: 0, Y: 0}
@@ -167,8 +168,9 @@ func (p *gtkPaned) AddTickCallback(callback func() bool) uint {
 	return p.inner.AddTickCallback(&cb, 0, nil)
 }
 
-func (p *gtkPaned) GetAllocatedWidth() int  { return p.inner.GetAllocatedWidth() }
-func (p *gtkPaned) GetAllocatedHeight() int { return p.inner.GetAllocatedHeight() }
+func (p *gtkPaned) GetAllocatedWidth() int               { return p.inner.GetAllocatedWidth() }
+func (p *gtkPaned) GetAllocatedHeight() int              { return p.inner.GetAllocatedHeight() }
+func (p *gtkPaned) AddController(c *gtk.EventController) { p.inner.AddController(c) }
 
 func (p *gtkPaned) ComputePoint(target Widget) (x, y float64, ok bool) {
 	srcPoint := &graphene.Point{X: 0, Y: 0}
@@ -271,8 +273,9 @@ func (b *gtkBox) GetSpacing() int              { return b.inner.GetSpacing() }
 func (b *gtkBox) SetOrientation(o Orientation) { b.inner.SetOrientation(o) }
 func (b *gtkBox) GetOrientation() Orientation  { return b.inner.GetOrientation() }
 
-func (b *gtkBox) GetAllocatedWidth() int  { return b.inner.GetAllocatedWidth() }
-func (b *gtkBox) GetAllocatedHeight() int { return b.inner.GetAllocatedHeight() }
+func (b *gtkBox) GetAllocatedWidth() int               { return b.inner.GetAllocatedWidth() }
+func (b *gtkBox) GetAllocatedHeight() int              { return b.inner.GetAllocatedHeight() }
+func (b *gtkBox) AddController(c *gtk.EventController) { b.inner.AddController(c) }
 
 func (b *gtkBox) ComputePoint(target Widget) (x, y float64, ok bool) {
 	srcPoint := &graphene.Point{X: 0, Y: 0}
@@ -383,8 +386,9 @@ func (o *gtkOverlay) GetMeasureOverlay(overlay Widget) bool {
 	return o.inner.GetMeasureOverlay(overlay.GtkWidget())
 }
 
-func (o *gtkOverlay) GetAllocatedWidth() int  { return o.inner.GetAllocatedWidth() }
-func (o *gtkOverlay) GetAllocatedHeight() int { return o.inner.GetAllocatedHeight() }
+func (o *gtkOverlay) GetAllocatedWidth() int               { return o.inner.GetAllocatedWidth() }
+func (o *gtkOverlay) GetAllocatedHeight() int              { return o.inner.GetAllocatedHeight() }
+func (o *gtkOverlay) AddController(c *gtk.EventController) { o.inner.AddController(c) }
 
 func (o *gtkOverlay) ComputePoint(target Widget) (x, y float64, ok bool) {
 	srcPoint := &graphene.Point{X: 0, Y: 0}
@@ -444,8 +448,9 @@ func (l *gtkLabel) SetEllipsize(mode EllipsizeMode) { l.inner.SetEllipsize(pango
 func (l *gtkLabel) SetMaxWidthChars(n int)          { l.inner.SetMaxWidthChars(n) }
 func (l *gtkLabel) SetXalign(x float32)             { l.inner.SetXalign(x) }
 
-func (l *gtkLabel) GetAllocatedWidth() int  { return l.inner.GetAllocatedWidth() }
-func (l *gtkLabel) GetAllocatedHeight() int { return l.inner.GetAllocatedHeight() }
+func (l *gtkLabel) GetAllocatedWidth() int               { return l.inner.GetAllocatedWidth() }
+func (l *gtkLabel) GetAllocatedHeight() int              { return l.inner.GetAllocatedHeight() }
+func (l *gtkLabel) AddController(c *gtk.EventController) { l.inner.AddController(c) }
 
 func (l *gtkLabel) ComputePoint(target Widget) (x, y float64, ok bool) {
 	srcPoint := &graphene.Point{X: 0, Y: 0}
@@ -524,8 +529,9 @@ func (btn *gtkButton) ConnectClicked(callback func()) uint32 {
 	return btn.inner.ConnectClicked(&cb)
 }
 
-func (btn *gtkButton) GetAllocatedWidth() int  { return btn.inner.GetAllocatedWidth() }
-func (btn *gtkButton) GetAllocatedHeight() int { return btn.inner.GetAllocatedHeight() }
+func (btn *gtkButton) GetAllocatedWidth() int               { return btn.inner.GetAllocatedWidth() }
+func (btn *gtkButton) GetAllocatedHeight() int              { return btn.inner.GetAllocatedHeight() }
+func (btn *gtkButton) AddController(c *gtk.EventController) { btn.inner.AddController(c) }
 
 func (btn *gtkButton) ComputePoint(target Widget) (x, y float64, ok bool) {
 	srcPoint := &graphene.Point{X: 0, Y: 0}
@@ -594,8 +600,9 @@ func (img *gtkImage) SetFromPaintable(p Paintable) {
 func (img *gtkImage) SetPixelSize(size int) { img.inner.SetPixelSize(size) }
 func (img *gtkImage) Clear()                { img.inner.Clear() }
 
-func (img *gtkImage) GetAllocatedWidth() int  { return img.inner.GetAllocatedWidth() }
-func (img *gtkImage) GetAllocatedHeight() int { return img.inner.GetAllocatedHeight() }
+func (img *gtkImage) GetAllocatedWidth() int               { return img.inner.GetAllocatedWidth() }
+func (img *gtkImage) GetAllocatedHeight() int              { return img.inner.GetAllocatedHeight() }
+func (img *gtkImage) AddController(c *gtk.EventController) { img.inner.AddController(c) }
 
 func (img *gtkImage) ComputePoint(target Widget) (x, y float64, ok bool) {
 	srcPoint := &graphene.Point{X: 0, Y: 0}
