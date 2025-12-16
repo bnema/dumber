@@ -1,0 +1,354 @@
+@import "tailwindcss";
+
+/*
+ * Dumber Browser - Unified Theme CSS
+ * Following shadcn-svelte conventions
+ *
+ * Aesthetic: Industrial Terminal / Brutalist Minimal
+ * - Sharp corners (--radius: 0)
+ * - High contrast
+ * - Vibrant green primary accent
+ */
+
+@custom-variant dark (&:is(.dark *));
+
+/* ═══════════════════════════════════════════════════════════════
+ * LIGHT THEME
+ * ═══════════════════════════════════════════════════════════════ */
+:root {
+  --radius: 0;
+
+  /* Core surfaces */
+  --background: oklch(0.985 0.002 260);
+  --foreground: oklch(0.145 0.02 260);
+
+  /* Card/Panel surfaces */
+  --card: oklch(0.965 0.004 260);
+  --card-foreground: oklch(0.145 0.02 260);
+
+  /* Popover/Dropdown */
+  --popover: oklch(0.985 0.002 260);
+  --popover-foreground: oklch(0.145 0.02 260);
+
+  /* Primary - Vibrant Green */
+  --primary: oklch(0.55 0.20 145);
+  --primary-foreground: oklch(0.985 0 0);
+
+  /* Secondary - Muted surfaces */
+  --secondary: oklch(0.94 0.008 260);
+  --secondary-foreground: oklch(0.20 0.02 260);
+
+  /* Muted - Subdued content */
+  --muted: oklch(0.94 0.008 260);
+  --muted-foreground: oklch(0.48 0.02 260);
+
+  /* Accent - Cyan for info/highlights */
+  --accent: oklch(0.58 0.14 200);
+  --accent-foreground: oklch(0.145 0.02 260);
+
+  /* Destructive - Red for danger */
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-foreground: oklch(0.985 0 0);
+
+  /* Borders & Inputs - solid colors for WebKitGTK compatibility */
+  --border: oklch(0.88 0.008 260);
+  --input: oklch(0.88 0.008 260);
+  --ring: oklch(0.55 0.20 145);
+
+  /* Chart colors */
+  --chart-1: oklch(0.58 0.18 145);
+  --chart-2: oklch(0.56 0.14 200);
+  --chart-3: oklch(0.66 0.15 70);
+  --chart-4: oklch(0.58 0.18 300);
+  --chart-5: oklch(0.60 0.18 25);
+
+  /* Sidebar */
+  --sidebar: oklch(0.975 0.002 260);
+  --sidebar-foreground: oklch(0.145 0.02 260);
+  --sidebar-primary: oklch(0.55 0.20 145);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.94 0.008 260);
+  --sidebar-accent-foreground: oklch(0.20 0.02 260);
+  --sidebar-border: oklch(0.88 0.008 260);
+  --sidebar-ring: oklch(0.55 0.20 145);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * DARK THEME
+ * ═══════════════════════════════════════════════════════════════ */
+.dark {
+  /* Core surfaces - true black for maximum contrast */
+  --background: oklch(0.09 0.005 260);
+  --foreground: oklch(0.97 0 0);
+
+  /* Card/Panel surfaces - slightly elevated */
+  --card: oklch(0.14 0.008 260);
+  --card-foreground: oklch(0.97 0 0);
+
+  /* Popover/Dropdown */
+  --popover: oklch(0.16 0.008 260);
+  --popover-foreground: oklch(0.97 0 0);
+
+  /* Primary - Bright Green */
+  --primary: oklch(0.75 0.19 145);
+  --primary-foreground: oklch(0.12 0.02 145);
+
+  /* Secondary - Elevated surfaces */
+  --secondary: oklch(0.20 0.008 260);
+  --secondary-foreground: oklch(0.97 0 0);
+
+  /* Muted - More visible subdued content */
+  --muted: oklch(0.22 0.008 260);
+  --muted-foreground: oklch(0.70 0.01 260);
+
+  /* Accent - Cyan for info/highlights */
+  --accent: oklch(0.68 0.14 200);
+  --accent-foreground: oklch(0.97 0 0);
+
+  /* Destructive - Red for danger */
+  --destructive: oklch(0.65 0.20 25);
+  --destructive-foreground: oklch(0.97 0 0);
+
+  /* Borders & Inputs - solid colors for WebKitGTK compatibility */
+  --border: oklch(0.35 0.01 260);
+  --input: oklch(0.35 0.01 260);
+  --ring: oklch(0.75 0.19 145);
+
+  /* Chart colors - brighter for dark bg */
+  --chart-1: oklch(0.72 0.18 145);
+  --chart-2: oklch(0.68 0.14 200);
+  --chart-3: oklch(0.76 0.16 70);
+  --chart-4: oklch(0.66 0.18 300);
+  --chart-5: oklch(0.68 0.18 25);
+
+  /* Sidebar */
+  --sidebar: oklch(0.12 0.008 260);
+  --sidebar-foreground: oklch(0.97 0 0);
+  --sidebar-primary: oklch(0.75 0.19 145);
+  --sidebar-primary-foreground: oklch(0.12 0.02 145);
+  --sidebar-accent: oklch(0.20 0.008 260);
+  --sidebar-accent-foreground: oklch(0.97 0 0);
+  --sidebar-border: oklch(0.35 0.01 260);
+  --sidebar-ring: oklch(0.75 0.19 145);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * TAILWIND THEME BRIDGE
+ * Maps design tokens to Tailwind's color system
+ * ═══════════════════════════════════════════════════════════════ */
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * BASE LAYER
+ * Default styles applied to all elements
+ * ═══════════════════════════════════════════════════════════════ */
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * BROWSER UI COMPONENTS
+ * Custom styles for browser-specific UI elements
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* Toast notifications */
+.toast-base {
+  border-radius: 0;
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 0.1),
+    0 4px 6px -4px rgb(0 0 0 / 0.1);
+  padding: 0.25rem 0.5rem;
+  max-width: 24rem;
+  pointer-events: auto;
+  background-color: var(--card);
+  color: var(--foreground);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--border);
+}
+
+/* Omnibox/Find bar */
+.omnibox-base {
+  background-color: var(--background);
+  color: var(--foreground);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--border);
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.1),
+    0 2px 4px -2px rgb(0 0 0 / 0.1);
+  transition: all 150ms;
+}
+
+.omnibox-base:focus-within {
+  border-color: var(--primary);
+}
+
+.omnibox-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background-color: transparent;
+  color: var(--foreground);
+  outline: none;
+  font-size: 0.875rem;
+}
+
+.omnibox-input::placeholder {
+  color: var(--muted-foreground);
+}
+
+/* Find bar */
+.findbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.findbar-input {
+  flex: 1;
+  background-color: transparent;
+  color: var(--foreground);
+  outline: none;
+  font-size: 0.875rem;
+}
+
+.findbar-input::placeholder {
+  color: var(--muted-foreground);
+}
+
+.findbar-button {
+  padding: 0.25rem 0.5rem;
+  border-radius: 0;
+  color: var(--muted-foreground);
+  transition: color 150ms;
+  font-size: 0.875rem;
+}
+
+.findbar-button:hover {
+  color: var(--foreground);
+}
+
+.findbar-count {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Find highlighting */
+.find-highlight {
+  background-color: rgb(255 235 59);
+  color: rgb(0 0 0);
+  padding: 0 0.125rem;
+  border-radius: 0.125rem;
+  box-shadow: 0 0 0 1px rgb(200 185 0) inset;
+}
+
+.find-active {
+  background-color: rgb(255 152 0) !important;
+  color: rgb(0 0 0);
+  box-shadow: 0 0 0 1px rgb(179 107 0) inset !important;
+}
+
+/* Animation utilities */
+.slide-in-top {
+  animation: slide-in-top 0.25s ease-out;
+}
+
+.slide-out-top {
+  animation: slide-out-top 0.25s ease-in;
+}
+
+.fade-in {
+  animation: fade-in 0.15s ease-out;
+}
+
+.fade-out {
+  animation: fade-out 0.15s ease-in;
+}
+
+@keyframes slide-in-top {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-out-top {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Component isolation utility */
+.browser-component-root {
+  all: initial;
+  font-family: Fira Sans, system-ui, -apple-system, sans-serif;
+  box-sizing: border-box;
+}
+
+.browser-component-root * {
+  box-sizing: border-box;
+}
