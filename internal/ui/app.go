@@ -230,6 +230,9 @@ func (a *App) onShutdown(ctx context.Context) {
 	a.cancel(errors.New("application shutdown"))
 
 	// Cleanup resources
+	if a.faviconCache != nil {
+		a.faviconCache.Close()
+	}
 	if a.deps.Pool != nil {
 		a.deps.Pool.Close()
 	}

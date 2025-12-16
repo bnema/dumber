@@ -22,6 +22,7 @@ type XDGDirs struct {
 	ConfigHome string
 	DataHome   string
 	StateHome  string
+	CacheHome  string
 }
 
 // GetXDGDirs returns the XDG Base Directory paths for dumber.
@@ -41,6 +42,7 @@ func GetXDGDirs() (*XDGDirs, error) {
 			ConfigHome: devDir,
 			DataHome:   devDir,
 			StateHome:  devDir,
+			CacheHome:  devDir,
 		}, nil
 	}
 
@@ -70,10 +72,18 @@ func GetXDGDirs() (*XDGDirs, error) {
 	}
 	stateHome = filepath.Join(stateHome, appName)
 
+	// XDG_CACHE_HOME
+	cacheHome := os.Getenv("XDG_CACHE_HOME")
+	if cacheHome == "" {
+		cacheHome = filepath.Join(homeDir, ".cache")
+	}
+	cacheHome = filepath.Join(cacheHome, appName)
+
 	return &XDGDirs{
 		ConfigHome: configHome,
 		DataHome:   dataHome,
 		StateHome:  stateHome,
+		CacheHome:  cacheHome,
 	}, nil
 }
 
@@ -151,6 +161,16 @@ func GetFilterCacheFile() (string, error) {
 		return "", err
 	}
 	return filepath.Join(cacheDir, "filters.cache"), nil
+}
+
+// GetFaviconCacheDir returns the XDG-compliant favicon cache directory for dumber.
+// Favicon cache is stored in XDG_CACHE_HOME as it's transient data that can be refetched.
+func GetFaviconCacheDir() (string, error) {
+	dirs, err := GetXDGDirs()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dirs.CacheHome, "favicons"), nil
 }
 
 // EnsureDirectories creates the XDG directories if they don't exist.
