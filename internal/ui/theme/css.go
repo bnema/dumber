@@ -229,6 +229,17 @@ window.omnibox-window {
 	font-weight: 500;
 }
 
+/* URL text below title */
+.omnibox-suggestion-url {
+	font-size: 0.75em;
+	color: var(--muted);
+	font-weight: 400;
+}
+
+.omnibox-row:selected .omnibox-suggestion-url {
+	color: var(--muted);
+}
+
 /* Keyboard shortcut badge */
 .omnibox-shortcut-badge {
 	background-color: alpha(var(--muted, #909090), 0.3);

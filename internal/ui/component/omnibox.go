@@ -170,8 +170,8 @@ func (o *Omnibox) resizeAndCenter(rowCount int) {
 
 	// Base height: header (~40px) + entry (~50px) at scale 1.0
 	baseHeight := int(90 * o.uiScale)
-	// Row height: approximately 40px per row at scale 1.0
-	rowHeight := int(40 * o.uiScale)
+	// Row height: approximately 50px per row at scale 1.0 (two lines: title + URL)
+	rowHeight := int(50 * o.uiScale)
 
 	// Cap at max results
 	if rowCount > omniboxMaxResults {
@@ -676,7 +676,7 @@ func (o *Omnibox) createFaviconImage(url, fallbackIcon string) *gtk.Image {
 	return favicon
 }
 
-// createRowWithFavicon creates a ListBoxRow with favicon, title, and shortcut badge.
+// createRowWithFavicon creates a ListBoxRow with favicon, title, URL, and shortcut badge.
 func (o *Omnibox) createRowWithFavicon(url, title, fallbackIcon string, index int) *gtk.ListBoxRow {
 	row := gtk.NewListBoxRow()
 	if row == nil {
@@ -684,31 +684,53 @@ func (o *Omnibox) createRowWithFavicon(url, title, fallbackIcon string, index in
 	}
 	row.AddCssClass("omnibox-row")
 
-	box := gtk.NewBox(gtk.OrientationHorizontalValue, 8)
-	if box == nil {
+	hbox := gtk.NewBox(gtk.OrientationHorizontalValue, 8)
+	if hbox == nil {
 		return nil
 	}
-	box.SetHexpand(true)
+	hbox.SetHexpand(true)
 
-	// Favicon image
+	// Favicon image (vertically centered)
 	if favicon := o.createFaviconImage(url, fallbackIcon); favicon != nil {
-		box.Append(&favicon.Widget)
+		favicon.SetValign(gtk.AlignCenterValue)
+		hbox.Append(&favicon.Widget)
 	}
 
-	// Title label
-	displayText := title
-	if displayText == "" {
-		displayText = url
+	// Vertical box for title + URL
+	textBox := gtk.NewBox(gtk.OrientationVerticalValue, 2)
+	if textBox == nil {
+		return nil
 	}
-	label := gtk.NewLabel(nil)
-	if label != nil {
-		label.SetText(displayText)
-		label.AddCssClass("omnibox-suggestion-title")
-		label.SetHalign(gtk.AlignStartValue)
-		label.SetHexpand(true)
-		label.SetEllipsize(2) // PANGO_ELLIPSIZE_END
-		box.Append(&label.Widget)
+	textBox.SetHexpand(true)
+	textBox.SetValign(gtk.AlignCenterValue)
+
+	// Title label (or URL if no title)
+	displayTitle := title
+	if displayTitle == "" {
+		displayTitle = url
 	}
+	titleLabel := gtk.NewLabel(nil)
+	if titleLabel != nil {
+		titleLabel.SetText(displayTitle)
+		titleLabel.AddCssClass("omnibox-suggestion-title")
+		titleLabel.SetHalign(gtk.AlignStartValue)
+		titleLabel.SetEllipsize(2) // PANGO_ELLIPSIZE_END
+		textBox.Append(&titleLabel.Widget)
+	}
+
+	// URL label (only if title exists and differs from URL)
+	if title != "" && title != url {
+		urlLabel := gtk.NewLabel(nil)
+		if urlLabel != nil {
+			urlLabel.SetText(url)
+			urlLabel.AddCssClass("omnibox-suggestion-url")
+			urlLabel.SetHalign(gtk.AlignStartValue)
+			urlLabel.SetEllipsize(2) // PANGO_ELLIPSIZE_END
+			textBox.Append(&urlLabel.Widget)
+		}
+	}
+
+	hbox.Append(&textBox.Widget)
 
 	// Shortcut badge (Ctrl+1-9, Ctrl+0 for 10th)
 	if index <= 9 {
@@ -720,11 +742,12 @@ func (o *Omnibox) createRowWithFavicon(url, title, fallbackIcon string, index in
 				shortcutLabel.SetText("Ctrl+0")
 			}
 			shortcutLabel.AddCssClass("omnibox-shortcut-badge")
-			box.Append(&shortcutLabel.Widget)
+			shortcutLabel.SetValign(gtk.AlignCenterValue)
+			hbox.Append(&shortcutLabel.Widget)
 		}
 	}
 
-	row.SetChild(&box.Widget)
+	row.SetChild(&hbox.Widget)
 	return row
 }
 
