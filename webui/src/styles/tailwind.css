@@ -5,7 +5,7 @@
  * These bridge between:
  * 1. Backend palette (--color-browser-*) injected at runtime
  * 2. Design tokens (--background, --primary, etc.) for static fallbacks
- * 3. Component usage (--dynamic-*) for actual styling
+ * 3. Component usage (shadcn-svelte variables: --background, --card, --foreground, etc.)
  */
 :root {
   /* Primary bridge - uses backend palette when available, falls back to tokens */
@@ -15,7 +15,8 @@
   --dynamic-text: var(--color-browser-text, var(--foreground));
   --dynamic-muted: var(--color-browser-muted, var(--muted-foreground));
   --dynamic-accent: var(--color-browser-accent, var(--primary));
-  --dynamic-border: var(--color-browser-border, var(--border));
+  /* Border: hardcoded to avoid nested var() issues in WebKitGTK */
+  --dynamic-border: var(--color-browser-border, rgba(0, 0, 0, 0.12));
 
   /* Extended semantic colors from design tokens */
   --dynamic-primary: var(--primary);
@@ -23,6 +24,11 @@
   --dynamic-secondary: var(--secondary);
   --dynamic-destructive: var(--destructive);
   --dynamic-ring: var(--ring);
+}
+
+/* Dark mode border override */
+.dark {
+  --dynamic-border: var(--color-browser-border, rgba(255, 255, 255, 0.15));
 }
 
 /* Base styles for browser UI components */
