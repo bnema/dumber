@@ -46,6 +46,10 @@ function getWebKitBridge(): { postMessage: (msg: unknown) => void } | null {
   return null;
 }
 
+function getWebViewId(): number {
+  return (window as any).__dumber_webview_id || 0;
+}
+
 function generateRequestId(type: string): string {
   return `${type}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
@@ -57,69 +61,75 @@ function generateRequestId(type: string): string {
 function initializeCallbacks(): void {
   if (callbacksInitialized) return;
 
-  // Generic response handler
+  // Generic response handler - accepts a single Response object from Go backend
   (window as any).__dumber_homepage_response = (
-    requestId: string,
-    success: boolean,
-    data: unknown,
-    error?: string
+    response: { requestId: string; success: boolean; data?: unknown; error?: string }
   ) => {
-    const request = pendingRequests.get(requestId);
+    const request = pendingRequests.get(response.requestId);
     if (!request) return;
 
     clearTimeout(request.timeout);
-    pendingRequests.delete(requestId);
+    pendingRequests.delete(response.requestId);
 
-    if (success) {
-      request.resolve(data);
+    if (response.success) {
+      request.resolve(response.data);
     } else {
-      request.reject(new Error(error || 'Unknown error'));
+      request.reject(new Error(response.error || 'Unknown error'));
     }
   };
 
   // Legacy callbacks for backward compatibility
-  (window as any).__dumber_history_timeline = (data: unknown[], requestId?: string) => {
-    handleLegacyCallback(requestId, data);
+  // These can receive either raw data or a Response object
+  (window as any).__dumber_history_timeline = (dataOrResponse: unknown) => {
+    handleLegacyOrResponseCallback(dataOrResponse);
   };
 
-  (window as any).__dumber_folders = (data: unknown[], requestId?: string) => {
-    handleLegacyCallback(requestId, data);
+  (window as any).__dumber_folders = (dataOrResponse: unknown) => {
+    handleLegacyOrResponseCallback(dataOrResponse);
   };
 
-  (window as any).__dumber_tags = (data: unknown[], requestId?: string) => {
-    handleLegacyCallback(requestId, data);
+  (window as any).__dumber_tags = (dataOrResponse: unknown) => {
+    handleLegacyOrResponseCallback(dataOrResponse);
   };
 
-  (window as any).__dumber_favorites = (data: unknown[], requestId?: string) => {
-    handleLegacyCallback(requestId, data);
+  (window as any).__dumber_favorites = (dataOrResponse: unknown) => {
+    handleLegacyOrResponseCallback(dataOrResponse);
   };
 
-  (window as any).__dumber_analytics = (data: unknown, requestId?: string) => {
-    handleLegacyCallback(requestId, data);
+  (window as any).__dumber_analytics = (dataOrResponse: unknown) => {
+    handleLegacyOrResponseCallback(dataOrResponse);
   };
 
-  (window as any).__dumber_domain_stats = (data: unknown[], requestId?: string) => {
-    handleLegacyCallback(requestId, data);
+  (window as any).__dumber_domain_stats = (dataOrResponse: unknown) => {
+    handleLegacyOrResponseCallback(dataOrResponse);
   };
 
-  (window as any).__dumber_history_search_results = (data: unknown[], requestId?: string) => {
-    handleLegacyCallback(requestId, data);
+  (window as any).__dumber_history_search_results = (dataOrResponse: unknown) => {
+    handleLegacyOrResponseCallback(dataOrResponse);
   };
 
-  (window as any).__dumber_history_deleted = (requestId?: string) => {
-    handleLegacyCallback(requestId, { success: true });
+  (window as any).__dumber_history_deleted = (dataOrResponse: unknown) => {
+    handleLegacyOrResponseCallback(dataOrResponse);
   };
 
-  (window as any).__dumber_history_cleared = (requestId?: string) => {
-    handleLegacyCallback(requestId, { success: true });
+  (window as any).__dumber_history_cleared = (dataOrResponse: unknown) => {
+    handleLegacyOrResponseCallback(dataOrResponse);
   };
 
-  (window as any).__dumber_error = (error: string, requestId?: string) => {
-    const request = pendingRequests.get(requestId || 'default');
-    if (request) {
-      clearTimeout(request.timeout);
-      pendingRequests.delete(requestId || 'default');
-      request.reject(new Error(error));
+  (window as any).__dumber_error = (errorOrResponse: unknown) => {
+    // Handle both formats: direct error string or Response object with error
+    const response = errorOrResponse as { requestId?: string; error?: string } | string;
+    if (typeof response === 'string') {
+      // Legacy format: direct error string
+      console.error('[messaging] Legacy error:', response);
+    } else if (response && typeof response === 'object') {
+      // Response object format
+      const request = pendingRequests.get(response.requestId || 'default');
+      if (request) {
+        clearTimeout(request.timeout);
+        pendingRequests.delete(response.requestId || 'default');
+        request.reject(new Error(response.error || 'Unknown error'));
+      }
     }
   };
 
@@ -138,6 +148,29 @@ function handleLegacyCallback(requestId: string | undefined, data: unknown): voi
     clearTimeout(request.timeout);
     pendingRequests.delete(requestId || 'default');
     request.resolve(data);
+  }
+}
+
+// Handle both legacy raw data and new Response object format
+function handleLegacyOrResponseCallback(dataOrResponse: unknown): void {
+  // Check if it's a Response object (has requestId and success fields)
+  const response = dataOrResponse as { requestId?: string; success?: boolean; data?: unknown; error?: string };
+  if (response && typeof response === 'object' && 'requestId' in response && 'success' in response) {
+    // New Response object format
+    const request = pendingRequests.get(response.requestId || 'default');
+    if (request) {
+      clearTimeout(request.timeout);
+      pendingRequests.delete(response.requestId || 'default');
+      if (response.success) {
+        request.resolve(response.data);
+      } else {
+        request.reject(new Error(response.error || 'Unknown error'));
+      }
+    }
+  } else {
+    // Legacy format: raw data (for backward compatibility)
+    // Try to find any pending request (not ideal but maintains compatibility)
+    console.warn('[messaging] Received legacy callback format without requestId');
   }
 }
 
@@ -169,8 +202,8 @@ async function sendMessage<T = unknown>(
     try {
       bridge.postMessage({
         type,
-        requestId,
-        ...payload,
+        webviewId: getWebViewId(),
+        payload: { requestId, ...payload },
       });
     } catch (error) {
       clearTimeout(timeout);

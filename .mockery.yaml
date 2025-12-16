@@ -1,4 +1,17 @@
 packages:
+  github.com/bnema/dumber/internal/domain/repository:
+    config:
+      dir: "{{.InterfaceDir}}/mocks"
+      filename: "mock_{{.InterfaceName | snakecase}}.go"
+      structname: "Mock{{.InterfaceName}}"
+      pkgname: "mocks"
+    interfaces:
+      HistoryRepository:
+      FavoriteRepository:
+      FolderRepository:
+      TagRepository:
+      ZoomRepository:
+      ContentWhitelistRepository:
   github.com/bnema/dumber/internal/application/port:
     config:
       dir: "{{.InterfaceDir}}/mocks"

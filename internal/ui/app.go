@@ -12,6 +12,7 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
+	"github.com/bnema/dumber/internal/infrastructure/webkit/handlers"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/cache"
 	"github.com/bnema/dumber/internal/ui/component"
@@ -98,6 +99,16 @@ func New(deps *Dependencies) (*App, error) {
 	}
 	if app.router == nil {
 		app.router = webkit.NewMessageRouter(ctx)
+	}
+
+	// Register message handlers
+	if app.router != nil && deps.HistoryUC != nil && deps.FavoritesUC != nil {
+		if err := handlers.RegisterAll(ctx, app.router, handlers.Config{
+			HistoryUC:   deps.HistoryUC,
+			FavoritesUC: deps.FavoritesUC,
+		}); err != nil {
+			return nil, err
+		}
 	}
 
 	return app, nil
