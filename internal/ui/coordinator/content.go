@@ -364,3 +364,30 @@ func (c *ContentCoordinator) SetNavigationOrigin(paneID entity.PaneID, url strin
 	c.navOrigins[paneID] = url
 	c.navOriginMu.Unlock()
 }
+
+// PreloadCachedFavicon checks the favicon cache and updates the stacked pane
+// title bar immediately if a cached favicon exists for the URL.
+// This provides instant favicon display without waiting for WebKit.
+func (c *ContentCoordinator) PreloadCachedFavicon(ctx context.Context, paneID entity.PaneID, url string) {
+	if c.faviconCache == nil || url == "" {
+		return
+	}
+
+	// Check memory and disk cache (no external fetch)
+	texture := c.faviconCache.GetFromCacheByURL(url)
+	if texture == nil {
+		return
+	}
+
+	// Update stacked pane favicon if applicable
+	ws, wsView := c.getActiveWS()
+	if wsView != nil {
+		tr := wsView.TreeRenderer()
+		if tr != nil {
+			stackedView := tr.GetStackedViewForPane(string(paneID))
+			if stackedView != nil {
+				c.updateStackedPaneFavicon(ctx, ws, stackedView, paneID, texture)
+			}
+		}
+	}
+}

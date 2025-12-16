@@ -124,10 +124,33 @@ func (fc *FaviconCache) Get(domain string) *gdk.Texture {
 }
 
 // GetByURL retrieves a favicon texture by extracting the domain from the URL.
-// Returns nil if not found.
+// Returns nil if not found in memory cache.
 func (fc *FaviconCache) GetByURL(pageURL string) *gdk.Texture {
 	domain := extractDomain(pageURL)
 	return fc.Get(domain)
+}
+
+// GetFromCacheByURL checks both memory and disk cache for a favicon.
+// Returns nil if not found. Does not fetch from external sources.
+// If found on disk, also populates memory cache.
+func (fc *FaviconCache) GetFromCacheByURL(pageURL string) *gdk.Texture {
+	domain := extractDomain(pageURL)
+	if domain == "" {
+		return nil
+	}
+
+	// Check memory cache first
+	if texture := fc.Get(domain); texture != nil {
+		return texture
+	}
+
+	// Check disk cache
+	if texture := fc.loadFromDisk(domain); texture != nil {
+		fc.Set(domain, texture)
+		return texture
+	}
+
+	return nil
 }
 
 // GetOrFetch checks the in-memory cache first, then queries the FaviconDatabase,
