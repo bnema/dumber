@@ -300,6 +300,8 @@ func (a *App) handleKeyboardAction(ctx context.Context, action input.Action) err
 		return a.handlePaneSplit(ctx, usecase.SplitDown)
 	case input.ActionClosePane:
 		return a.handleClosePane(ctx)
+	case input.ActionStackPane:
+		return a.handleStackPane(ctx)
 	case input.ActionFocusRight:
 		return a.handlePaneFocus(ctx, usecase.NavRight)
 	case input.ActionFocusLeft:
@@ -665,6 +667,20 @@ func (a *App) handlePaneFocus(ctx context.Context, direction usecase.NavigateDir
 
 	log.Debug().Str("direction", string(direction)).Str("new_pane_id", newPane.ID).Msg("focus navigated")
 
+	return nil
+}
+
+// handleStackPane converts the active pane into a stacked container.
+// TODO: Implement incremental widget operations for stacked panes (like old repo).
+// Currently, stacked panes require incremental GTK widget manipulation rather than
+// full tree rebuilds because WebViews maintain state and parent references.
+func (a *App) handleStackPane(ctx context.Context) error {
+	log := logging.FromContext(ctx)
+
+	// Stacked panes are not yet fully supported in the new architecture.
+	// The rebuild approach conflicts with WebView's stateful widget lifecycle.
+	// See dumber-refs/internal/app/browser/stacked_panes.go for incremental approach.
+	log.Warn().Msg("stacked panes not yet implemented in clean architecture - requires incremental widget operations")
 	return nil
 }
 

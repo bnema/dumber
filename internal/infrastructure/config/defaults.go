@@ -167,6 +167,7 @@ func DefaultConfig() *Config {
 					"split-left":  {"arrowleft", "l"},
 					"split-up":    {"arrowup", "u"},
 					"split-down":  {"arrowdown", "d"},
+					"stack-pane":  {"s"},
 					"close-pane":  {"x"},
 					"confirm":     {"enter"},
 					"cancel":      {"escape"},
