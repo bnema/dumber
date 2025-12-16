@@ -11,6 +11,7 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/cache"
 	"github.com/bnema/dumber/internal/ui/component"
+	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 )
@@ -36,6 +37,9 @@ type ContentCoordinator struct {
 
 	// Callback when title changes (for history persistence)
 	onTitleUpdated func(ctx context.Context, paneID entity.PaneID, url, title string)
+
+	// Gesture action handler for mouse button navigation
+	gestureActionHandler input.ActionHandler
 }
 
 // NewContentCoordinator creates a new ContentCoordinator.
@@ -65,6 +69,11 @@ func NewContentCoordinator(
 // SetOnTitleUpdated sets the callback for title changes (for history persistence).
 func (c *ContentCoordinator) SetOnTitleUpdated(fn func(ctx context.Context, paneID entity.PaneID, url, title string)) {
 	c.onTitleUpdated = fn
+}
+
+// SetGestureActionHandler sets the callback for mouse button navigation gestures.
+func (c *ContentCoordinator) SetGestureActionHandler(handler input.ActionHandler) {
+	c.gestureActionHandler = handler
 }
 
 // EnsureWebView acquires or reuses a WebView for the given pane.
@@ -174,6 +183,7 @@ func (c *ContentCoordinator) AttachToWorkspace(ctx context.Context, ws *entity.W
 }
 
 // WrapWidget converts a WebView to a layout.Widget for embedding.
+// It also attaches gesture handlers for mouse button navigation.
 func (c *ContentCoordinator) WrapWidget(ctx context.Context, wv *webkit.WebView) layout.Widget {
 	log := logging.FromContext(ctx)
 
@@ -187,7 +197,17 @@ func (c *ContentCoordinator) WrapWidget(ctx context.Context, wv *webkit.WebView)
 		return nil
 	}
 
-	return c.widgetFactory.WrapWidget(&gtkView.Widget)
+	widget := c.widgetFactory.WrapWidget(&gtkView.Widget)
+
+	// Attach gesture handler for mouse button 8/9 navigation
+	if widget != nil && c.gestureActionHandler != nil {
+		gestureHandler := input.NewGestureHandler(ctx)
+		gestureHandler.SetOnAction(c.gestureActionHandler)
+		gestureHandler.AttachTo(widget.GtkWidget())
+		log.Debug().Msg("gesture handler attached to webview")
+	}
+
+	return widget
 }
 
 // ActiveWebView returns the WebView for the active pane.

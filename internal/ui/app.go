@@ -320,6 +320,11 @@ func (a *App) initCoordinators(ctx context.Context) {
 	)
 	a.kbDispatcher.SetOnQuit(a.Quit)
 
+	// Wire gesture handler to dispatcher (for mouse button 8/9 navigation)
+	a.contentCoord.SetGestureActionHandler(func(ctx context.Context, action input.Action) error {
+		return a.kbDispatcher.Dispatch(ctx, action)
+	})
+
 	log.Debug().Msg("coordinators initialized")
 }
 
