@@ -4,21 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "npm run build:color-scheme && npm run build:gui && npm run build:homepage && npm run build:blocked && npm run build:main-world",
-    "build:gui": "vite build --config vite.config.gui.ts",
-    "build:homepage": "vite build --config vite.config.homepage.ts",
-    "build:blocked": "vite build --config vite.config.blocked.ts",
-    "build:color-scheme": "vite build --config vite.config.color-scheme.ts",
-    "build:main-world": "vite build --config vite.config.main-world.ts",
-    "dev": "npm run build:gui -- --watch",
-    "dev:homepage": "npm run build:homepage -- --watch",
-    "dev:blocked": "npm run build:blocked -- --watch",
-    "dev:color-scheme": "npm run build:color-scheme -- --watch",
-    "dev:main-world": "npm run build:main-world -- --watch",
+    "build": "VITE_PAGE=homepage vite build && VITE_PAGE=blocked vite build",
+    "build:homepage": "VITE_PAGE=homepage vite build",
+    "build:blocked": "VITE_PAGE=blocked vite build",
+    "dev": "VITE_PAGE=homepage vite build --watch",
+    "dev:homepage": "VITE_PAGE=homepage vite build --watch",
+    "dev:blocked": "VITE_PAGE=blocked vite build --watch",
     "check": "svelte-check",
     "lint": "eslint src --fix",
-    "fmt": "prettier --write .",
-    "generate:types": "node ../scripts/generate-types.js"
+    "fmt": "prettier --write ."
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^4.0.0",

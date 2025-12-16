@@ -36,10 +36,10 @@ build: build-frontend ## Build the application (pure Go, no CGO)
 	go build -p $(NPROCS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
 
-build-frontend: ## Build Svelte GUI with Tailwind CSS and main-world script
-	@echo "Building Svelte GUI with Tailwind CSS..."
+build-frontend: ## Build homepage and blocked pages
+	@echo "Building webui pages (homepage + blocked)..."
 	@cd webui && npm install --silent && npm run build
-	@echo "GUI build complete"
+	@echo "Frontend build complete"
 
 build-quick: ## Build without frontend (faster for backend development)
 	@echo "Building $(BINARY_NAME) $(VERSION) (quick, no frontend)..."
@@ -108,7 +108,7 @@ clean: ## Clean build artifacts
 	rm -rf $(DIST_DIR)
 	rm -f $(BINARY_NAME)
 	rm -rf webui/dist webui/node_modules
-	rm -f assets/webui/gui.min.js assets/webui/homepage.min.js assets/webui/homepage.css assets/webui/main-world.min.js assets/webui/color-scheme.js
+	rm -f assets/webui/homepage.min.js assets/webui/blocked.min.js assets/webui/index.html assets/webui/blocked.html assets/webui/style.css
 	rm -f coverage.out coverage.html
 	go clean -cache
 	go clean -testcache

@@ -1,7 +1,6 @@
 import { mount } from "svelte";
 import "../styles/tailwind.css";
 import Homepage from "./Homepage.svelte";
-import { bootstrapGUI } from "../injected/bootstrap";
 
 // Proactively unregister any Service Workers and clear caches that may have been
 // installed by previous builds (e.g., SvelteKit), which can otherwise attempt to
@@ -25,8 +24,6 @@ async function cleanupServiceWorkersAndCaches() {
     /* ignore */
   }
 }
-
-bootstrapGUI();
 
 // Mount the Homepage component to the DOM
 cleanupServiceWorkersAndCaches().finally(() => {

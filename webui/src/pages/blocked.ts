@@ -1,9 +1,6 @@
 import { mount } from "svelte";
 import "../styles/tailwind.css";
 import BlockedPage from "./BlockedPage.svelte";
-import { bootstrapGUI } from "../injected/bootstrap";
-
-bootstrapGUI();
 
 // Mount the BlockedPage component to the DOM
 console.log("[dumber] Mounting BlockedPage component to document.body");
