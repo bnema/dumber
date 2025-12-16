@@ -7,7 +7,7 @@ dist/
 *.dylib
 
 # Binaries for programs and plugins
-dumber
+/dumber
 dumber.exe
 
 # Test binary, built with `go test -c`
