@@ -37,6 +37,46 @@ func (_m *MockOverlayWidget) EXPECT() *MockOverlayWidget_Expecter {
 	return &MockOverlayWidget_Expecter{mock: &_m.Mock}
 }
 
+// AddController provides a mock function for the type MockOverlayWidget
+func (_mock *MockOverlayWidget) AddController(controller *gtk.EventController) {
+	_mock.Called(controller)
+	return
+}
+
+// MockOverlayWidget_AddController_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AddController'
+type MockOverlayWidget_AddController_Call struct {
+	*mock.Call
+}
+
+// AddController is a helper method to define mock.On call
+//   - controller *gtk.EventController
+func (_e *MockOverlayWidget_Expecter) AddController(controller interface{}) *MockOverlayWidget_AddController_Call {
+	return &MockOverlayWidget_AddController_Call{Call: _e.mock.On("AddController", controller)}
+}
+
+func (_c *MockOverlayWidget_AddController_Call) Run(run func(controller *gtk.EventController)) *MockOverlayWidget_AddController_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *gtk.EventController
+		if args[0] != nil {
+			arg0 = args[0].(*gtk.EventController)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockOverlayWidget_AddController_Call) Return() *MockOverlayWidget_AddController_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockOverlayWidget_AddController_Call) RunAndReturn(run func(controller *gtk.EventController)) *MockOverlayWidget_AddController_Call {
+	_c.Run(run)
+	return _c
+}
+
 // AddCssClass provides a mock function for the type MockOverlayWidget
 func (_mock *MockOverlayWidget) AddCssClass(cssClass string) {
 	_mock.Called(cssClass)
