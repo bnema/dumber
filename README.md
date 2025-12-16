@@ -158,10 +158,13 @@ sudo pacman -S webkitgtk-6.0 gtk4
 # GStreamer for media playback
 sudo pacman -S gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-plugin-pipewire pipewire pipewire-pulse
 
-# Hardware acceleration (choose based on your GPU)
-# AMD: sudo pacman -S gstreamer-vaapi mesa
-# NVIDIA: sudo pacman -S gstreamer-vaapi libva-nvidia-driver
-# Intel: sudo pacman -S gstreamer-vaapi libva-intel-driver intel-media-driver
+# Hardware video decoding (required for YouTube, Twitch, etc.)
+sudo pacman -S gst-plugin-va
+
+# VA-API drivers (choose based on your GPU)
+# AMD: sudo pacman -S libva-mesa-driver mesa
+# NVIDIA: sudo pacman -S libva-nvidia-driver
+# Intel: sudo pacman -S libva-intel-driver intel-media-driver
 ```
 
 **Debian/Ubuntu:**
@@ -175,8 +178,9 @@ sudo apt install libwebkitgtk-6.0-4 libgtk-4-1
 # GStreamer for media playback
 sudo apt install gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-pipewire
 
-# Hardware acceleration
-sudo apt install gstreamer1.0-vaapi va-driver-all
+# Hardware video decoding (gst-plugins-bad includes VA stateless decoders)
+# VA-API drivers
+sudo apt install va-driver-all
 ```
 
 ### Build From Source
@@ -296,10 +300,12 @@ WebKitGTK uses GStreamer for media playback. Dumber includes automatic hardware 
 **Required packages:**
 - Arch Linux:
   - `sudo pacman -S gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-plugin-pipewire pipewire pipewire-pulse`
-  - Hardware accel: `gstreamer-vaapi mesa` (AMD), `libva-nvidia-driver` (NVIDIA), `libva-intel-driver intel-media-driver` (Intel)
+  - Hardware decoding: `gst-plugin-va` (stateless VA decoders - required for WebKitGTK)
+  - VA-API drivers: `libva-mesa-driver mesa` (AMD), `libva-nvidia-driver` (NVIDIA), `libva-intel-driver intel-media-driver` (Intel)
 - Debian/Ubuntu:
   - `sudo apt install gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-pipewire`
-  - Hardware accel: `gstreamer1.0-vaapi va-driver-all` (covers most GPUs)
+  - Hardware decoding: `gstreamer1.0-plugins-bad` includes VA stateless decoders
+  - VA-API drivers: `va-driver-all` (covers most GPUs)
 
 ## Contribute
 I will gladly accept contributions, especially related to UI/UX enhancements. Feel free to open an issue and let's discuss it!
