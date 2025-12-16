@@ -204,8 +204,8 @@ func (a *App) onActivate(ctx context.Context) {
 	a.navCoord.SetOmniboxProvider(a)
 	log.Debug().Msg("omnibox config stored, provider set")
 
-	// Create an initial tab using coordinator
-	if _, err := a.tabCoord.Create(ctx, "https://duckduckgo.com"); err != nil {
+	// Create an initial tab using coordinator - opens dumb://home homepage
+	if _, err := a.tabCoord.Create(ctx, "dumb://home"); err != nil {
 		log.Error().Err(err).Msg("failed to create initial tab")
 	}
 
@@ -375,7 +375,7 @@ func (a *App) createWorkspaceView(ctx context.Context, tab *entity.Tab) {
 	}
 
 	// Set the workspace
-	if err := wsView.SetWorkspace(tab.Workspace); err != nil {
+	if err := wsView.SetWorkspace(ctx, tab.Workspace); err != nil {
 		log.Error().Err(err).Msg("failed to set workspace in view")
 		return
 	}

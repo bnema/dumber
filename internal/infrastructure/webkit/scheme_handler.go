@@ -2,15 +2,26 @@ package webkit
 
 import (
 	"context"
+	"embed"
+	"io/fs"
+	"mime"
 	"net/http"
+	"net/url"
+	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
 	"github.com/jwijenbergh/puregotk/v4/gio"
-	"github.com/jwijenbergh/puregotk/v4/glib"
 	"github.com/rs/zerolog"
+)
+
+// Scheme path constants
+const (
+	HomePath    = "home"
+	BlockedPath = "blocked"
+	IndexHTML   = "index.html"
 )
 
 // SchemeRequest represents a request to a custom URI scheme.
@@ -44,6 +55,8 @@ func (f PageHandlerFunc) Handle(req *SchemeRequest) *SchemeResponse {
 // DumbSchemeHandler handles dumb:// URI scheme requests.
 type DumbSchemeHandler struct {
 	handlers map[string]PageHandler
+	assets   embed.FS
+	assetDir string // subdirectory within embed.FS (e.g., "assets/webui")
 	logger   zerolog.Logger
 	mu       sync.RWMutex
 }
@@ -54,6 +67,7 @@ func NewDumbSchemeHandler(ctx context.Context) *DumbSchemeHandler {
 
 	h := &DumbSchemeHandler{
 		handlers: make(map[string]PageHandler),
+		assetDir: "webui",
 		logger:   log.With().Str("component", "scheme-handler").Logger(),
 	}
 
@@ -63,27 +77,17 @@ func NewDumbSchemeHandler(ctx context.Context) *DumbSchemeHandler {
 	return h
 }
 
+// SetAssets sets the embedded filesystem containing webui assets.
+func (h *DumbSchemeHandler) SetAssets(assets embed.FS) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.assets = assets
+	h.logger.Debug().Msg("assets filesystem configured")
+}
+
 // registerDefaults sets up default page handlers.
 func (h *DumbSchemeHandler) registerDefaults() {
-	// New tab page
-	h.RegisterPage("/newtab", PageHandlerFunc(func(req *SchemeRequest) *SchemeResponse {
-		return &SchemeResponse{
-			Data:        []byte(newTabHTML),
-			ContentType: "text/html",
-			StatusCode:  http.StatusOK,
-		}
-	}))
-
-	// Homepage (alias for newtab)
-	h.RegisterPage("/", PageHandlerFunc(func(req *SchemeRequest) *SchemeResponse {
-		return &SchemeResponse{
-			Data:        []byte(newTabHTML),
-			ContentType: "text/html",
-			StatusCode:  http.StatusOK,
-		}
-	}))
-
-	// Error page
+	// Error page (static fallback)
 	h.RegisterPage("/error", PageHandlerFunc(func(req *SchemeRequest) *SchemeResponse {
 		return &SchemeResponse{
 			Data:        []byte(errorPageHTML),
@@ -108,9 +112,10 @@ func (h *DumbSchemeHandler) HandleRequest(reqPtr uintptr) {
 		return
 	}
 
+	uri := req.GetUri()
 	schemeReq := &SchemeRequest{
 		inner:  req,
-		URI:    req.GetUri(),
+		URI:    uri,
 		Path:   req.GetPath(),
 		Method: req.GetHttpMethod(),
 		Scheme: req.GetScheme(),
@@ -122,11 +127,28 @@ func (h *DumbSchemeHandler) HandleRequest(reqPtr uintptr) {
 		Str("method", schemeReq.Method).
 		Msg("handling scheme request")
 
-	// Look up handler
+	// Parse the URI to extract host and path
+	u, err := url.Parse(uri)
+	if err != nil || u.Scheme != "dumb" {
+		h.logger.Error().Err(err).Str("uri", uri).Msg("invalid URI")
+		h.sendResponse(req, &SchemeResponse{
+			Data:        []byte("Invalid URI"),
+			ContentType: "text/plain",
+			StatusCode:  http.StatusBadRequest,
+		})
+		return
+	}
+
+	// Try to serve from embedded assets first
+	if response := h.handleAsset(u); response != nil {
+		h.sendResponse(req, response)
+		return
+	}
+
+	// Fall back to registered handlers
 	h.mu.RLock()
 	handler, ok := h.handlers[schemeReq.Path]
 	if !ok {
-		// Try without leading slash
 		handler, ok = h.handlers[strings.TrimPrefix(schemeReq.Path, "/")]
 	}
 	h.mu.RUnlock()
@@ -142,8 +164,117 @@ func (h *DumbSchemeHandler) HandleRequest(reqPtr uintptr) {
 		}
 	}
 
-	// Send response
 	h.sendResponse(req, response)
+}
+
+// handleAsset serves static assets from the embedded filesystem.
+// Returns nil if no asset was found (allowing fallback to registered handlers).
+func (h *DumbSchemeHandler) handleAsset(u *url.URL) *SchemeResponse {
+	h.mu.RLock()
+	hasAssets := h.assets != (embed.FS{})
+	assetDir := h.assetDir
+	h.mu.RUnlock()
+
+	if !hasAssets {
+		return nil
+	}
+
+	// Determine the target file based on host and path
+	host := u.Host
+	path := strings.TrimPrefix(u.Path, "/")
+
+	var relPath string
+	switch {
+	// dumb://home or dumb://home/ → index.html
+	case host == HomePath && (path == "" || path == "/"):
+		relPath = IndexHTML
+	// dumb://home/<asset> → serve asset
+	case host == HomePath && path != "":
+		relPath = path
+	// dumb://blocked or dumb://blocked/ → blocked.html
+	case host == BlockedPath && (path == "" || path == "/"):
+		relPath = "blocked.html"
+	// dumb://blocked/<asset> → serve asset
+	case host == BlockedPath && path != "":
+		relPath = path
+	// dumb:home (opaque form) → index.html
+	case u.Opaque == HomePath:
+		relPath = IndexHTML
+	// dumb:blocked (opaque form) → blocked.html
+	case u.Opaque == BlockedPath:
+		relPath = "blocked.html"
+	default:
+		// Not a recognized asset path
+		return nil
+	}
+
+	// Read the asset from embedded FS
+	fullPath := filepath.ToSlash(filepath.Join(assetDir, relPath))
+	data, err := fs.ReadFile(h.assets, fullPath)
+	if err != nil {
+		h.logger.Debug().Str("path", fullPath).Err(err).Msg("asset not found")
+		return nil
+	}
+
+	contentType := h.getMimeType(relPath)
+	h.logger.Debug().
+		Str("path", fullPath).
+		Str("content_type", contentType).
+		Int("size", len(data)).
+		Msg("serving asset")
+
+	return &SchemeResponse{
+		Data:        data,
+		ContentType: contentType,
+		StatusCode:  http.StatusOK,
+	}
+}
+
+// getMimeType determines the MIME type for a given file path.
+func (h *DumbSchemeHandler) getMimeType(filename string) string {
+	ext := strings.ToLower(filepath.Ext(filename))
+
+	// Try standard mime type first
+	mt := mime.TypeByExtension(ext)
+	if mt != "" {
+		return mt
+	}
+
+	// Fallbacks for common web assets
+	switch ext {
+	case ".js", ".mjs":
+		return "application/javascript"
+	case ".css":
+		return "text/css"
+	case ".svg":
+		return "image/svg+xml"
+	case ".ico":
+		return "image/x-icon"
+	case ".woff":
+		return "font/woff"
+	case ".woff2":
+		return "font/woff2"
+	case ".ttf":
+		return "font/ttf"
+	case ".otf":
+		return "font/otf"
+	case ".png":
+		return "image/png"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".gif":
+		return "image/gif"
+	case ".webp":
+		return "image/webp"
+	case ".json":
+		return "application/json"
+	case ".xml":
+		return "application/xml"
+	case ".html", ".htm":
+		return "text/html; charset=utf-8"
+	default:
+		return "text/plain"
+	}
 }
 
 // sendResponse sends the response back to WebKit.
@@ -156,27 +287,28 @@ func (h *DumbSchemeHandler) sendResponse(req *webkit.URISchemeRequest, response 
 		}
 	}
 
-	// Create GBytes from response data
-	gbytes := glib.NewBytes(response.Data, uint(len(response.Data)))
-	if gbytes == nil {
-		h.logger.Error().Msg("failed to create GBytes for response")
-		return
-	}
-
-	// Create MemoryInputStream from GBytes
-	stream := gio.NewMemoryInputStreamFromBytes(gbytes)
-	if stream == nil {
-		h.logger.Error().Msg("failed to create MemoryInputStream for response")
-		return
-	}
-
-	// Finish the request with the stream
 	contentType := response.ContentType
 	if contentType == "" {
 		contentType = "text/html"
 	}
 
-	req.Finish(&stream.InputStream, int64(len(response.Data)), &contentType)
+	// Create MemoryInputStream from data directly
+	stream := gio.NewMemoryInputStreamFromData(response.Data, len(response.Data), nil)
+	if stream == nil {
+		h.logger.Error().Msg("failed to create MemoryInputStream for response")
+		return
+	}
+
+	// Create response object for more control
+	schemeResp := webkit.NewURISchemeResponse(&stream.InputStream, int64(len(response.Data)))
+	if schemeResp == nil {
+		h.logger.Error().Msg("failed to create URISchemeResponse")
+		return
+	}
+	schemeResp.SetContentType(contentType)
+	schemeResp.SetStatus(uint(response.StatusCode), nil)
+
+	req.FinishWithResponse(schemeResp)
 }
 
 // RegisterWithContext registers the dumb:// scheme with a WebKitContext.
@@ -192,49 +324,19 @@ func (h *DumbSchemeHandler) RegisterWithContext(wkCtx *WebKitContext) {
 
 	wkCtx.Context().RegisterUriScheme("dumb", &callback, 0, nil)
 
-	// Mark scheme as local and secure for proper security policies
+	// Mark scheme as local, secure, and CORS-enabled for proper security policies
 	secMgr := wkCtx.Context().GetSecurityManager()
 	if secMgr != nil {
 		secMgr.RegisterUriSchemeAsLocal("dumb")
 		secMgr.RegisterUriSchemeAsSecure("dumb")
+		secMgr.RegisterUriSchemeAsCorsEnabled("dumb")
+		h.logger.Debug().Msg("dumb:// scheme registered as local, secure, and CORS-enabled")
 	}
 
 	h.logger.Info().Msg("dumb:// scheme registered")
 }
 
-// Default page templates
-
-const newTabHTML = `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>New Tab</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background: #1a1a2e;
-            color: #eee;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-        }
-        .container {
-            text-align: center;
-        }
-        h1 {
-            font-weight: 300;
-            color: #888;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>dumber</h1>
-    </div>
-</body>
-</html>`
+// Default page templates (fallback when assets not available)
 
 const errorPageHTML = `<!DOCTYPE html>
 <html>

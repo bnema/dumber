@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/bnema/dumber/assets"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
@@ -83,6 +84,12 @@ func main() {
 	if err != nil {
 		logger.Fatal().Err(err).Msg("failed to initialize WebKit context")
 	}
+
+	// Register dumb:// scheme handler for serving embedded webui
+	schemeHandler := webkit.NewDumbSchemeHandler(ctx)
+	schemeHandler.SetAssets(assets.WebUIAssets)
+	schemeHandler.RegisterWithContext(wkCtx)
+
 	settings := webkit.NewSettingsManager(ctx, cfg)
 	injector := webkit.NewContentInjector(themeManager.PrefersDark())
 	messageRouter := webkit.NewMessageRouter(ctx)
