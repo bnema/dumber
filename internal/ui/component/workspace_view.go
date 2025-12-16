@@ -270,3 +270,55 @@ func (wv *WorkspaceView) Workspace() *entity.Workspace {
 
 	return wv.workspace
 }
+
+// RegisterPaneView adds a PaneView to the tracking map without rebuilding.
+// Use this for incremental operations like stacked panes.
+func (wv *WorkspaceView) RegisterPaneView(paneID entity.PaneID, pv *PaneView) {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+
+	wv.paneViews[paneID] = pv
+}
+
+// UnregisterPaneView removes a PaneView from the tracking map.
+// Use this when closing a pane incrementally.
+func (wv *WorkspaceView) UnregisterPaneView(paneID entity.PaneID) {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+
+	delete(wv.paneViews, paneID)
+}
+
+// GetRootWidget returns the current root widget of the workspace.
+// This is useful for incremental operations that need to modify the tree.
+func (wv *WorkspaceView) GetRootWidget() layout.Widget {
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+
+	return wv.rootWidget
+}
+
+// SetRootWidgetDirect replaces the root widget without rebuilding the entire tree.
+// Use this for incremental operations when converting to/from stacked panes.
+func (wv *WorkspaceView) SetRootWidgetDirect(widget layout.Widget) {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+
+	// Remove old root if present
+	if wv.rootWidget != nil {
+		wv.container.Remove(wv.rootWidget)
+	}
+
+	// Add new root
+	if widget != nil {
+		widget.SetVisible(true)
+		wv.container.Append(widget)
+	}
+
+	wv.rootWidget = widget
+}
+
+// Factory returns the widget factory used by this workspace view.
+func (wv *WorkspaceView) Factory() layout.WidgetFactory {
+	return wv.factory
+}

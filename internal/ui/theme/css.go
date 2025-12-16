@@ -25,6 +25,10 @@ func GenerateCSS(p Palette) string {
 
 	// Pane styling
 	sb.WriteString(generatePaneCSS(p))
+	sb.WriteString("\n")
+
+	// Stacked pane styling
+	sb.WriteString(generateStackedPaneCSS(p))
 
 	return sb.String()
 }
@@ -231,6 +235,65 @@ func generatePaneCSS(p Palette) string {
 /* Tab mode active - thick orange border */
 .tab-mode-active {
 	border: 4px solid #FFA500;
+}
+`
+}
+
+// generateStackedPaneCSS creates stacked pane (Zellij-style tabs within panes) styles.
+func generateStackedPaneCSS(p Palette) string {
+	return `/* ===== Stacked Pane Styling ===== */
+
+/* Title bar for inactive panes in a stack */
+.stacked-pane-titlebar {
+	background-color: var(--surface-variant);
+	border-bottom: 1px solid var(--border);
+	padding: 4px 8px;
+	min-height: 24px;
+}
+
+/* Title bar button wrapper - clickable area */
+button.stacked-pane-title-button {
+	background-color: var(--surface-variant);
+	background-image: none;
+	border: none;
+	border-bottom: 1px solid var(--border);
+	border-radius: 0;
+	padding: 0;
+	margin: 0;
+	transition: background-color 150ms ease-in-out;
+}
+
+button.stacked-pane-title-button:hover {
+	background-color: alpha(var(--accent), 0.15);
+}
+
+button.stacked-pane-title-button:focus {
+	outline: none;
+	box-shadow: none;
+}
+
+/* Title bar content box */
+.stacked-pane-titlebar.active {
+	background-color: alpha(var(--accent), 0.1);
+	border-left: 3px solid var(--accent);
+}
+
+/* Favicon image in title bar */
+.stacked-pane-titlebar image {
+	min-width: 16px;
+	min-height: 16px;
+	margin-right: 6px;
+}
+
+/* Title text in title bar */
+.stacked-pane-titlebar label {
+	color: var(--text);
+	font-size: 12px;
+	font-weight: 400;
+}
+
+button.stacked-pane-title-button:hover .stacked-pane-titlebar label {
+	color: var(--accent);
 }
 `
 }

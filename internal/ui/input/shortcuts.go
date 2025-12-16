@@ -64,6 +64,10 @@ const (
 	ActionFocusUp    Action = "focus_up"
 	ActionFocusDown  Action = "focus_down"
 
+	// Stack navigation (within stacked panes)
+	ActionStackNavUp   Action = "stack_nav_up"
+	ActionStackNavDown Action = "stack_nav_down"
+
 	// Page navigation
 	ActionGoBack     Action = "go_back"
 	ActionGoForward  Action = "go_forward"
@@ -258,6 +262,12 @@ func mapConfigAction(configAction string) Action {
 		return ActionFocusUp
 	case "focus-down":
 		return ActionFocusDown
+
+	// Stack navigation
+	case "stack-nav-up", "stack-up":
+		return ActionStackNavUp
+	case "stack-nav-down", "stack-down":
+		return ActionStackNavDown
 
 	default:
 		return ""

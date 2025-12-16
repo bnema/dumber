@@ -1,8 +1,11 @@
 package layout
 
 import (
+	"context"
 	"errors"
 	"sync"
+
+	"github.com/bnema/dumber/internal/logging"
 )
 
 // ErrStackEmpty is returned when operating on an empty stack.
@@ -53,13 +56,21 @@ func NewStackedView(factory WidgetFactory) *StackedView {
 
 // AddPane adds a new pane to the stack.
 // The new pane becomes active (visible).
-func (sv *StackedView) AddPane(title, faviconIconName string, container Widget) int {
+func (sv *StackedView) AddPane(ctx context.Context, title, faviconIconName string, container Widget) int {
+	log := logging.FromContext(ctx)
 	sv.mu.Lock()
 	defer sv.mu.Unlock()
 
-	// Create title bar
+	log.Debug().
+		Str("title", title).
+		Bool("container_nil", container == nil).
+		Int("current_count", len(sv.panes)).
+		Msg("StackedView.AddPane called")
+
+	// Create title bar - must not expand vertically
 	titleBar := sv.factory.NewBox(OrientationHorizontal, 4)
 	titleBar.AddCssClass("stacked-pane-titlebar")
+	titleBar.SetVexpand(false)
 
 	// Create favicon image
 	favicon := sv.factory.NewImage()
@@ -79,11 +90,13 @@ func (sv *StackedView) AddPane(title, faviconIconName string, container Widget) 
 	label.SetXalign(0.0)
 	titleBar.Append(label)
 
-	// Make title bar clickable
+	// Make title bar clickable - ensure it doesn't expand vertically
 	titleButton := sv.factory.NewButton()
 	titleButton.SetChild(titleBar)
 	titleButton.AddCssClass("stacked-pane-title-button")
 	titleButton.SetFocusOnClick(false)
+	titleButton.SetVexpand(false) // Critical: don't let title bar expand vertically
+	titleButton.SetHexpand(true)  // But fill horizontal space
 
 	pane := &stackedPane{
 		titleBar:  titleBar,
@@ -109,22 +122,36 @@ func (sv *StackedView) AddPane(title, faviconIconName string, container Widget) 
 	})
 
 	// Add to container
+	log.Debug().
+		Int("index", index).
+		Msg("StackedView: appending titleButton and container to box")
 	sv.box.Append(titleButton)
 	if container != nil {
 		sv.box.Append(container)
 	}
 
 	// Set this pane as active
-	sv.setActiveInternal(index)
+	sv.setActiveInternal(ctx, index)
+
+	log.Debug().
+		Int("new_index", index).
+		Int("new_count", len(sv.panes)).
+		Msg("StackedView.AddPane completed")
 
 	return index
 }
 
 // RemovePane removes a pane from the stack by index.
 // Returns an error if trying to remove the last pane.
-func (sv *StackedView) RemovePane(index int) error {
+func (sv *StackedView) RemovePane(ctx context.Context, index int) error {
+	log := logging.FromContext(ctx)
 	sv.mu.Lock()
 	defer sv.mu.Unlock()
+
+	log.Debug().
+		Int("index", index).
+		Int("pane_count", len(sv.panes)).
+		Msg("StackedView.RemovePane called")
 
 	if len(sv.panes) == 0 {
 		return ErrStackEmpty
@@ -162,7 +189,7 @@ func (sv *StackedView) RemovePane(index int) error {
 
 	// Update visibility
 	if sv.activeIndex >= 0 {
-		sv.updateVisibilityInternal()
+		sv.updateVisibilityInternal(ctx)
 	}
 
 	return nil
@@ -170,9 +197,15 @@ func (sv *StackedView) RemovePane(index int) error {
 
 // SetActive activates the pane at the given index.
 // The active pane's container is shown; inactive panes show only title bars.
-func (sv *StackedView) SetActive(index int) error {
+func (sv *StackedView) SetActive(ctx context.Context, index int) error {
+	log := logging.FromContext(ctx)
 	sv.mu.Lock()
 	defer sv.mu.Unlock()
+
+	log.Debug().
+		Int("index", index).
+		Int("pane_count", len(sv.panes)).
+		Msg("StackedView.SetActive called")
 
 	if len(sv.panes) == 0 {
 		return ErrStackEmpty
@@ -181,18 +214,25 @@ func (sv *StackedView) SetActive(index int) error {
 		return ErrIndexOutOfBounds
 	}
 
-	sv.setActiveInternal(index)
+	sv.setActiveInternal(ctx, index)
 	return nil
 }
 
 // setActiveInternal sets the active pane without locking.
-func (sv *StackedView) setActiveInternal(index int) {
+func (sv *StackedView) setActiveInternal(ctx context.Context, index int) {
 	sv.activeIndex = index
-	sv.updateVisibilityInternal()
+	sv.updateVisibilityInternal(ctx)
 }
 
 // updateVisibilityInternal updates visibility of all panes based on activeIndex.
-func (sv *StackedView) updateVisibilityInternal() {
+func (sv *StackedView) updateVisibilityInternal(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
+	log.Debug().
+		Int("active_index", sv.activeIndex).
+		Int("pane_count", len(sv.panes)).
+		Msg("StackedView.updateVisibilityInternal called")
+
 	for i, pane := range sv.panes {
 		isActive := i == sv.activeIndex
 		pane.isActive = isActive
@@ -202,12 +242,24 @@ func (sv *StackedView) updateVisibilityInternal() {
 			parent := pane.titleBar.GetParent()
 			if parent != nil {
 				parent.SetVisible(!isActive)
+				log.Debug().
+					Int("pane_index", i).
+					Str("title", pane.title).
+					Bool("is_active", isActive).
+					Bool("titlebar_visible", !isActive).
+					Msg("StackedView: set titlebar visibility")
 			}
 		}
 
 		// Container is visible only for active pane
 		if pane.container != nil {
 			pane.container.SetVisible(isActive)
+			log.Debug().
+				Int("pane_index", i).
+				Str("title", pane.title).
+				Bool("is_active", isActive).
+				Bool("container_visible", isActive).
+				Msg("StackedView: set container visibility")
 		}
 
 		// Update CSS classes
@@ -306,7 +358,8 @@ func (sv *StackedView) Box() BoxWidget {
 }
 
 // NavigateNext moves to the next pane in the stack (wraps around).
-func (sv *StackedView) NavigateNext() error {
+func (sv *StackedView) NavigateNext(ctx context.Context) error {
+	log := logging.FromContext(ctx)
 	sv.mu.Lock()
 	defer sv.mu.Unlock()
 
@@ -315,12 +368,17 @@ func (sv *StackedView) NavigateNext() error {
 	}
 
 	newIndex := (sv.activeIndex + 1) % len(sv.panes)
-	sv.setActiveInternal(newIndex)
+	log.Debug().
+		Int("old_index", sv.activeIndex).
+		Int("new_index", newIndex).
+		Msg("StackedView.NavigateNext")
+	sv.setActiveInternal(ctx, newIndex)
 	return nil
 }
 
 // NavigatePrevious moves to the previous pane in the stack (wraps around).
-func (sv *StackedView) NavigatePrevious() error {
+func (sv *StackedView) NavigatePrevious(ctx context.Context) error {
+	log := logging.FromContext(ctx)
 	sv.mu.Lock()
 	defer sv.mu.Unlock()
 
@@ -329,6 +387,10 @@ func (sv *StackedView) NavigatePrevious() error {
 	}
 
 	newIndex := (sv.activeIndex - 1 + len(sv.panes)) % len(sv.panes)
-	sv.setActiveInternal(newIndex)
+	log.Debug().
+		Int("old_index", sv.activeIndex).
+		Int("new_index", newIndex).
+		Msg("StackedView.NavigatePrevious")
+	sv.setActiveInternal(ctx, newIndex)
 	return nil
 }

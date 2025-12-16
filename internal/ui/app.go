@@ -39,6 +39,7 @@ type App struct {
 	panesUC        *usecase.ManagePanesUseCase
 	workspaceViews map[entity.TabID]*component.WorkspaceView
 	widgetFactory  layout.WidgetFactory
+	stackedPaneMgr *component.StackedPaneManager
 
 	// Input handling
 	keyboardHandler *input.KeyboardHandler
@@ -47,11 +48,13 @@ type App struct {
 	omnibox *component.Omnibox
 
 	// Web content
-	pool     *webkit.WebViewPool
-	injector *webkit.ContentInjector
-	router   *webkit.MessageRouter
-	settings *webkit.SettingsManager
-	webViews map[entity.PaneID]*webkit.WebView
+	pool       *webkit.WebViewPool
+	injector   *webkit.ContentInjector
+	router     *webkit.MessageRouter
+	settings   *webkit.SettingsManager
+	webViews   map[entity.PaneID]*webkit.WebView
+	paneTitles map[entity.PaneID]string // Dynamic title tracking
+	titleMu    sync.RWMutex
 
 	// ID generator for tabs/panes
 	idCounter uint64
@@ -80,6 +83,7 @@ func New(deps *Dependencies) (*App, error) {
 		router:         deps.MessageRouter,
 		settings:       deps.Settings,
 		webViews:       make(map[entity.PaneID]*webkit.WebView),
+		paneTitles:     make(map[entity.PaneID]string),
 		cancel:         cancel,
 	}
 	if app.router == nil {
@@ -148,6 +152,9 @@ func (a *App) onActivate(ctx context.Context) {
 
 	// Initialize widget factory for pane layout
 	a.widgetFactory = layout.NewGtkWidgetFactory()
+
+	// Initialize stacked pane manager for incremental widget operations
+	a.stackedPaneMgr = component.NewStackedPaneManager(a.widgetFactory)
 
 	// Create keyboard handler
 	a.keyboardHandler = input.NewKeyboardHandler(
@@ -310,6 +317,12 @@ func (a *App) handleKeyboardAction(ctx context.Context, action input.Action) err
 		return a.handlePaneFocus(ctx, usecase.NavUp)
 	case input.ActionFocusDown:
 		return a.handlePaneFocus(ctx, usecase.NavDown)
+
+	// Stack navigation
+	case input.ActionStackNavUp:
+		return a.handleStackNavigate(ctx, "up")
+	case input.ActionStackNavDown:
+		return a.handleStackNavigate(ctx, "down")
 
 	// Navigation (stub implementations for now)
 	case input.ActionGoBack:
@@ -670,18 +683,320 @@ func (a *App) handlePaneFocus(ctx context.Context, direction usecase.NavigateDir
 	return nil
 }
 
-// handleStackPane converts the active pane into a stacked container.
-// TODO: Implement incremental widget operations for stacked panes (like old repo).
-// Currently, stacked panes require incremental GTK widget manipulation rather than
-// full tree rebuilds because WebViews maintain state and parent references.
+// handleStackPane adds a new pane stacked on top of the active pane.
+// This modifies both the domain tree and the UI StackedView.
 func (a *App) handleStackPane(ctx context.Context) error {
 	log := logging.FromContext(ctx)
 
-	// Stacked panes are not yet fully supported in the new architecture.
-	// The rebuild approach conflicts with WebView's stateful widget lifecycle.
-	// See dumber-refs/internal/app/browser/stacked_panes.go for incremental approach.
-	log.Warn().Msg("stacked panes not yet implemented in clean architecture - requires incremental widget operations")
+	if a.stackedPaneMgr == nil {
+		log.Warn().Msg("stacked pane manager not available")
+		return nil
+	}
+
+	ws := a.activeWorkspace()
+	if ws == nil {
+		log.Warn().Msg("no active workspace")
+		return nil
+	}
+
+	activeNode := ws.ActivePane()
+	if activeNode == nil || activeNode.Pane == nil {
+		log.Warn().Msg("no active pane")
+		return nil
+	}
+
+	wsView := a.activeWorkspaceView()
+	if wsView == nil {
+		log.Warn().Msg("no workspace view")
+		return nil
+	}
+
+	activePaneID := activeNode.Pane.ID
+
+	// Create a new pane entity
+	newPaneID := entity.PaneID(a.generateID())
+	newPane := entity.NewPane(newPaneID)
+	newPane.URI = "about:blank"
+	newPane.Title = "Untitled"
+
+	// Get the original pane's current title
+	originalTitle := a.getPaneTitle(activePaneID)
+	if originalTitle == "" {
+		originalTitle = activeNode.Pane.Title
+	}
+	if originalTitle == "" {
+		originalTitle = "Untitled"
+	}
+
+	// Update domain model: convert leaf to stacked if needed, add new pane
+	var stackNode *entity.PaneNode
+	var needsFirstPaneTitleUpdate bool
+	if activeNode.IsStacked {
+		// Already stacked, just add to it
+		stackNode = activeNode
+	} else {
+		// Convert leaf node to stacked container
+		// Move current pane to a child node
+		originalPane := activeNode.Pane
+		originalPane.Title = originalTitle // Ensure title is set
+		originalPaneChild := &entity.PaneNode{
+			ID:     activeNode.ID + "_0",
+			Pane:   originalPane,
+			Parent: activeNode,
+		}
+
+		activeNode.Pane = nil // No longer a leaf
+		activeNode.IsStacked = true
+		activeNode.Children = []*entity.PaneNode{originalPaneChild}
+		stackNode = activeNode
+		needsFirstPaneTitleUpdate = true
+
+		log.Debug().
+			Str("node_id", activeNode.ID).
+			Str("original_pane", string(originalPane.ID)).
+			Str("original_title", originalTitle).
+			Msg("converted leaf to stacked node")
+	}
+
+	// Create new child node for the new pane
+	newChildNode := &entity.PaneNode{
+		ID:     stackNode.ID + "_" + string(newPaneID),
+		Pane:   newPane,
+		Parent: stackNode,
+	}
+	stackNode.Children = append(stackNode.Children, newChildNode)
+	stackNode.ActiveStackIndex = len(stackNode.Children) - 1
+
+	log.Debug().
+		Int("stack_size", len(stackNode.Children)).
+		Int("active_index", stackNode.ActiveStackIndex).
+		Msg("domain tree updated")
+
+	// Create PaneView for the new pane
+	newPaneView := component.NewPaneView(a.widgetFactory, newPaneID, nil)
+	wsView.RegisterPaneView(newPaneID, newPaneView)
+
+	// Add to the UI StackedView
+	if err := a.stackedPaneMgr.AddPaneToStack(ctx, wsView, activePaneID, newPaneView, "Untitled"); err != nil {
+		log.Error().Err(err).Msg("failed to add pane to stack")
+		return err
+	}
+
+	// Update the first pane's title if we just converted from leaf to stacked
+	if needsFirstPaneTitleUpdate {
+		tr := wsView.TreeRenderer()
+		if tr != nil {
+			stackedView := tr.GetStackedViewForPane(string(activePaneID))
+			if stackedView != nil {
+				if err := stackedView.UpdateTitle(0, originalTitle); err != nil {
+					log.Warn().Err(err).Str("title", originalTitle).Msg("failed to update first pane title")
+				} else {
+					log.Debug().Str("title", originalTitle).Msg("updated first pane title in StackedView")
+				}
+			}
+		}
+	}
+
+	// Get WebView and attach
+	wv, err := a.ensureWebViewForPane(ctx, newPaneID)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to get webview for new pane")
+	} else {
+		widget := a.wrapWebViewWidget(ctx, wv)
+		if widget != nil {
+			newPaneView.SetWebViewWidget(widget)
+		}
+		// Load blank page
+		if err := wv.LoadURI(ctx, "about:blank"); err != nil {
+			log.Warn().Err(err).Msg("failed to load blank page")
+		}
+	}
+
+	// Update workspace active pane ID
+	ws.ActivePaneID = newPaneID
+
+	// Update workspace view
+	if err := wsView.SetActivePaneID(newPaneID); err != nil {
+		log.Warn().Err(err).Msg("failed to set active pane")
+	}
+
+	// Set up title bar click callback
+	tr := wsView.TreeRenderer()
+	if tr != nil {
+		stackedView := tr.GetStackedViewForPane(string(activePaneID))
+		if stackedView != nil {
+			// Capture stackNode for the callback
+			capturedStackNode := stackNode
+			stackedView.SetOnActivate(func(index int) {
+				a.handleTitleBarClick(ctx, capturedStackNode, stackedView, index)
+			})
+		}
+	}
+
+	log.Info().
+		Str("original_pane", string(activePaneID)).
+		Str("new_pane", string(newPaneID)).
+		Int("stack_size", len(stackNode.Children)).
+		Msg("stacked new pane")
+
 	return nil
+}
+
+// handleStackNavigate navigates up or down within a stacked pane container.
+// With the new architecture, every pane is in a StackedView - we just navigate within it.
+func (a *App) handleStackNavigate(ctx context.Context, direction string) error {
+	log := logging.FromContext(ctx)
+
+	if a.stackedPaneMgr == nil {
+		return nil
+	}
+
+	ws := a.activeWorkspace()
+	if ws == nil {
+		return nil
+	}
+
+	activePane := ws.ActivePane()
+	if activePane == nil || activePane.Pane == nil {
+		return nil
+	}
+
+	wsView := a.activeWorkspaceView()
+	if wsView == nil {
+		return nil
+	}
+
+	currentPaneID := activePane.Pane.ID
+
+	// Check if we're actually in a multi-pane stack
+	if !a.stackedPaneMgr.IsStacked(wsView, currentPaneID) {
+		log.Debug().Msg("current pane is not in a multi-pane stack")
+		return nil
+	}
+
+	// Navigate within the stack
+	_, err := a.stackedPaneMgr.NavigateStack(ctx, wsView, currentPaneID, direction)
+	if err != nil {
+		log.Warn().Err(err).Str("direction", direction).Msg("failed to navigate stack")
+		return err
+	}
+
+	// Note: With the current StackedView navigation, the new pane ID is not returned
+	// because the mapping from visual index to pane ID requires additional tracking.
+	// For now, the StackedView handles the visual navigation.
+	// TODO: Add pane ID tracking to StackedView for proper domain model sync
+
+	log.Debug().
+		Str("direction", direction).
+		Str("current_pane", string(currentPaneID)).
+		Msg("navigated stack")
+
+	return nil
+}
+
+// handleStackPaneActivated is called when a pane in a stack is activated via title bar click.
+// This is a stub for future use when title bar click callbacks are wired up.
+// The paneID parameter would come from the StackedView's OnActivate callback.
+func (a *App) handleStackPaneActivated(ctx context.Context, paneID entity.PaneID) {
+	log := logging.FromContext(ctx)
+
+	if paneID == "" {
+		return
+	}
+
+	// Update workspace active pane
+	ws := a.activeWorkspace()
+	if ws != nil {
+		ws.ActivePaneID = paneID
+	}
+
+	// Update workspace view
+	wsView := a.activeWorkspaceView()
+	if wsView != nil {
+		if err := wsView.SetActivePaneID(paneID); err != nil {
+			log.Warn().Err(err).Msg("failed to set active pane after stack activation")
+		}
+	}
+
+	log.Debug().
+		Str("pane_id", string(paneID)).
+		Msg("stack pane activated")
+}
+
+// handleTitleBarClick handles clicks on title bars to switch the active pane in a stack.
+func (a *App) handleTitleBarClick(ctx context.Context, stackNode *entity.PaneNode, sv *layout.StackedView, clickedIndex int) {
+	log := logging.FromContext(ctx)
+
+	if stackNode == nil || sv == nil {
+		return
+	}
+
+	// Validate index
+	if clickedIndex < 0 || clickedIndex >= len(stackNode.Children) {
+		log.Warn().Int("index", clickedIndex).Int("children", len(stackNode.Children)).Msg("invalid stack index clicked")
+		return
+	}
+
+	// Get the current active index
+	currentIndex := sv.ActiveIndex()
+	if clickedIndex == currentIndex {
+		log.Debug().Int("index", clickedIndex).Msg("clicked pane is already active")
+		return
+	}
+
+	// Update the outgoing pane's title bar with its current webpage title
+	if currentIndex >= 0 && currentIndex < len(stackNode.Children) {
+		outgoingChild := stackNode.Children[currentIndex]
+		if outgoingChild.Pane != nil {
+			outgoingPaneID := outgoingChild.Pane.ID
+			outgoingTitle := a.getPaneTitle(outgoingPaneID)
+			if outgoingTitle == "" {
+				outgoingTitle = outgoingChild.Pane.Title
+			}
+			if outgoingTitle != "" {
+				if err := sv.UpdateTitle(currentIndex, outgoingTitle); err != nil {
+					log.Warn().Err(err).Msg("failed to update outgoing pane title")
+				}
+			}
+		}
+	}
+
+	// Get the pane ID at the clicked index
+	clickedChild := stackNode.Children[clickedIndex]
+	if clickedChild.Pane == nil {
+		log.Warn().Int("index", clickedIndex).Msg("clicked child has no pane")
+		return
+	}
+	clickedPaneID := clickedChild.Pane.ID
+
+	// Update StackedView active index
+	if err := sv.SetActive(ctx, clickedIndex); err != nil {
+		log.Warn().Err(err).Int("index", clickedIndex).Msg("failed to set active pane in stack")
+		return
+	}
+
+	// Update domain model
+	stackNode.ActiveStackIndex = clickedIndex
+
+	// Update workspace active pane
+	ws := a.activeWorkspace()
+	if ws != nil {
+		ws.ActivePaneID = clickedPaneID
+	}
+
+	// Update workspace view
+	wsView := a.activeWorkspaceView()
+	if wsView != nil {
+		if err := wsView.SetActivePaneID(clickedPaneID); err != nil {
+			log.Warn().Err(err).Msg("failed to set active pane in workspace view")
+		}
+	}
+
+	log.Info().
+		Int("from_index", currentIndex).
+		Int("to_index", clickedIndex).
+		Str("pane_id", string(clickedPaneID)).
+		Msg("switched active pane via title bar click")
 }
 
 // attachWorkspaceWebViews ensures each pane has a WebView widget attached.
@@ -736,7 +1051,93 @@ func (a *App) ensureWebViewForPane(ctx context.Context, paneID entity.PaneID) (*
 	}
 
 	a.webViews[paneID] = wv
+
+	// Set up title change callback to track dynamic titles
+	wv.OnTitleChanged = func(title string) {
+		a.handlePaneTitleChanged(ctx, paneID, title)
+	}
+
 	return wv, nil
+}
+
+// handlePaneTitleChanged updates title tracking when a WebView's title changes.
+func (a *App) handlePaneTitleChanged(ctx context.Context, paneID entity.PaneID, title string) {
+	log := logging.FromContext(ctx)
+
+	// Update title map
+	a.titleMu.Lock()
+	a.paneTitles[paneID] = title
+	a.titleMu.Unlock()
+
+	// Update domain model
+	ws := a.activeWorkspace()
+	if ws != nil {
+		paneNode := ws.FindPane(paneID)
+		if paneNode != nil && paneNode.Pane != nil {
+			paneNode.Pane.Title = title
+		}
+	}
+
+	// Update StackedView title bar if this pane is in a stack
+	wsView := a.activeWorkspaceView()
+	if wsView != nil {
+		tr := wsView.TreeRenderer()
+		if tr != nil {
+			stackedView := tr.GetStackedViewForPane(string(paneID))
+			if stackedView != nil {
+				// Find the pane's index in the stack and update title
+				a.updateStackedPaneTitle(ctx, stackedView, paneID, title)
+			}
+		}
+	}
+
+	log.Debug().
+		Str("pane_id", string(paneID)).
+		Str("title", title).
+		Msg("pane title updated")
+}
+
+// updateStackedPaneTitle updates the title of a pane in a StackedView.
+func (a *App) updateStackedPaneTitle(ctx context.Context, sv *layout.StackedView, paneID entity.PaneID, title string) {
+	// We need to find which index this pane is at in the stack
+	// For now, we track by iterating - could be optimized with reverse mapping
+	wsView := a.activeWorkspaceView()
+	if wsView == nil {
+		return
+	}
+
+	tr := wsView.TreeRenderer()
+	if tr == nil {
+		return
+	}
+
+	// Find the stack node in the domain to get the index
+	ws := a.activeWorkspace()
+	if ws == nil {
+		return
+	}
+
+	paneNode := ws.FindPane(paneID)
+	if paneNode == nil {
+		return
+	}
+
+	// If the pane is in a stacked parent, find its index
+	if paneNode.Parent != nil && paneNode.Parent.IsStacked {
+		for i, child := range paneNode.Parent.Children {
+			if child.Pane != nil && child.Pane.ID == paneID {
+				_ = sv.UpdateTitle(i, title)
+				return
+			}
+		}
+	}
+}
+
+// getPaneTitle returns the current title for a pane.
+func (a *App) getPaneTitle(paneID entity.PaneID) string {
+	a.titleMu.RLock()
+	defer a.titleMu.RUnlock()
+	return a.paneTitles[paneID]
 }
 
 // releasePaneWebView returns the WebView for a pane to the pool.

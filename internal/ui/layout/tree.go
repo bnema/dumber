@@ -31,8 +31,11 @@ type TreeRenderer struct {
 	paneViewFactory PaneViewFactory
 	logger          zerolog.Logger
 	nodeToWidget    map[string]Widget
-	ctx             context.Context
-	mu              sync.RWMutex
+	// paneToStack maps pane IDs to their containing StackedView.
+	// Every leaf pane is wrapped in a StackedView for easy stacking later.
+	paneToStack map[string]*StackedView
+	ctx         context.Context
+	mu          sync.RWMutex
 }
 
 // NewTreeRenderer creates a new tree renderer.
@@ -44,6 +47,7 @@ func NewTreeRenderer(ctx context.Context, factory WidgetFactory, paneViewFactory
 		paneViewFactory: paneViewFactory,
 		logger:          log.With().Str("component", "tree-renderer").Logger(),
 		nodeToWidget:    make(map[string]Widget),
+		paneToStack:     make(map[string]*StackedView),
 		ctx:             ctx,
 	}
 }
@@ -60,6 +64,7 @@ func (tr *TreeRenderer) Build(root *entity.PaneNode) (Widget, error) {
 
 	// Clear previous mappings
 	tr.nodeToWidget = make(map[string]Widget)
+	tr.paneToStack = make(map[string]*StackedView)
 
 	return tr.renderNode(root)
 }
@@ -100,12 +105,45 @@ func (tr *TreeRenderer) renderNode(node *entity.PaneNode) (Widget, error) {
 	return widget, nil
 }
 
-// renderLeaf creates a PaneView widget for a leaf node.
+// renderLeaf creates a PaneView widget wrapped in a StackedView.
+// Every pane is wrapped in a StackedView from the start, making stacking trivial.
+// When there's only 1 pane, the StackedView shows no title bar.
 func (tr *TreeRenderer) renderLeaf(node *entity.PaneNode) Widget {
 	if tr.paneViewFactory == nil {
 		return nil
 	}
-	return tr.paneViewFactory.CreatePaneView(node)
+
+	paneWidget := tr.paneViewFactory.CreatePaneView(node)
+	if paneWidget == nil {
+		return nil
+	}
+
+	// Wrap the pane in a StackedView
+	stackedView := NewStackedView(tr.factory)
+
+	// Get title from pane if available
+	title := "Untitled"
+	paneID := ""
+	if node.Pane != nil {
+		paneID = string(node.Pane.ID)
+		if node.Pane.Title != "" {
+			title = node.Pane.Title
+		}
+	}
+
+	tr.logger.Debug().
+		Str("pane_id", paneID).
+		Str("title", title).
+		Msg("TreeRenderer.renderLeaf: wrapping pane in StackedView")
+
+	stackedView.AddPane(tr.ctx, title, "", paneWidget)
+
+	// Track this pane's StackedView for later stacking operations
+	if node.Pane != nil {
+		tr.paneToStack[paneID] = stackedView
+	}
+
+	return stackedView.Widget()
 }
 
 // renderSplit creates a SplitView for a split node.
@@ -137,6 +175,10 @@ func (tr *TreeRenderer) renderSplit(node *entity.PaneNode) (Widget, error) {
 func (tr *TreeRenderer) renderStacked(node *entity.PaneNode) (Widget, error) {
 	stackedView := NewStackedView(tr.factory)
 
+	tr.logger.Debug().
+		Int("child_count", len(node.Children)).
+		Msg("TreeRenderer.renderStacked: creating stacked view")
+
 	// Add each child pane to the stack
 	for _, child := range node.Children {
 		childWidget, err := tr.renderNode(child)
@@ -154,12 +196,12 @@ func (tr *TreeRenderer) renderStacked(node *entity.PaneNode) (Widget, error) {
 			favicon = child.Pane.FaviconURL
 		}
 
-		stackedView.AddPane(title, favicon, childWidget)
+		stackedView.AddPane(tr.ctx, title, favicon, childWidget)
 	}
 
 	// Set active index
 	if node.ActiveStackIndex >= 0 && node.ActiveStackIndex < stackedView.Count() {
-		_ = stackedView.SetActive(node.ActiveStackIndex)
+		_ = stackedView.SetActive(tr.ctx, node.ActiveStackIndex)
 	}
 
 	return stackedView.Widget(), nil
@@ -200,6 +242,24 @@ func (tr *TreeRenderer) Clear() {
 	tr.nodeToWidget = make(map[string]Widget)
 }
 
+// RegisterWidget adds or updates a node-to-widget mapping.
+// Use this for incremental updates when you don't want to rebuild the entire tree.
+func (tr *TreeRenderer) RegisterWidget(nodeID string, widget Widget) {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+
+	tr.nodeToWidget[nodeID] = widget
+}
+
+// UnregisterWidget removes a node-to-widget mapping.
+// Use this when a node is removed or replaced during incremental operations.
+func (tr *TreeRenderer) UnregisterWidget(nodeID string) {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+
+	delete(tr.nodeToWidget, nodeID)
+}
+
 // UpdateSplitRatio updates the ratio of a split view by node ID.
 // Returns an error if the node is not found or is not a split.
 func (tr *TreeRenderer) UpdateSplitRatio(nodeID string, ratio float64) error {
@@ -231,4 +291,30 @@ func (tr *TreeRenderer) GetNodeIDs() []string {
 		ids = append(ids, id)
 	}
 	return ids
+}
+
+// GetStackedViewForPane returns the StackedView containing the given pane.
+// Returns nil if the pane is not found.
+func (tr *TreeRenderer) GetStackedViewForPane(paneID string) *StackedView {
+	tr.mu.RLock()
+	defer tr.mu.RUnlock()
+
+	return tr.paneToStack[paneID]
+}
+
+// RegisterPaneInStack adds a pane to the paneToStack mapping.
+// Use this when adding a pane to an existing stack without rebuild.
+func (tr *TreeRenderer) RegisterPaneInStack(paneID string, stackedView *StackedView) {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+
+	tr.paneToStack[paneID] = stackedView
+}
+
+// UnregisterPane removes a pane from the paneToStack mapping.
+func (tr *TreeRenderer) UnregisterPane(paneID string) {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+
+	delete(tr.paneToStack, paneID)
 }

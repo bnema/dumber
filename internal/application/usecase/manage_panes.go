@@ -87,6 +87,8 @@ func (uc *ManagePanesUseCase) Split(ctx context.Context, input SplitPaneInput) (
 		newPane = entity.NewPane(paneID)
 		if input.InitialURL != "" {
 			newPane.URI = input.InitialURL
+		} else {
+			newPane.URI = "about:blank"
 		}
 	}
 
@@ -381,62 +383,118 @@ func (uc *ManagePanesUseCase) findLeafInDirection(node *entity.PaneNode, fromEnd
 	return nil
 }
 
-// CreateStack converts a pane into a stacked container.
-func (uc *ManagePanesUseCase) CreateStack(ctx context.Context, ws *entity.Workspace, paneNode *entity.PaneNode) error {
+// CreateStackOutput contains the result of creating a stack from a pane.
+type CreateStackOutput struct {
+	StackNode    *entity.PaneNode // The stack container node
+	OriginalNode *entity.PaneNode // The original pane, now a child of the stack
+	NewPaneNode  *entity.PaneNode // The new pane added to the stack
+	NewPane      *entity.Pane     // The new pane entity
+}
+
+// CreateStack converts a pane into a stacked container and adds a new pane.
+// The original pane becomes the first child, a new pane becomes the second child.
+// Returns the stack node and the new pane node for UI operations.
+//
+// Domain tree transformation:
+//
+//	Before: parent -> targetNode (leaf with pane)
+//	After:  parent -> targetNode (stack) -> [originalChild (leaf), newChild (leaf)]
+//
+// The targetNode keeps its ID but becomes a stack container.
+// This allows the UI layer to update widget mappings incrementally.
+func (uc *ManagePanesUseCase) CreateStack(ctx context.Context, ws *entity.Workspace, paneNode *entity.PaneNode) (*CreateStackOutput, error) {
 	log := logging.FromContext(ctx)
 	log.Debug().Str("pane_id", paneNode.ID).Msg("creating stack from pane")
 
 	if ws == nil {
-		return fmt.Errorf("workspace is required")
+		return nil, fmt.Errorf("workspace is required")
 	}
 	if paneNode == nil {
-		return fmt.Errorf("pane node is required")
+		return nil, fmt.Errorf("pane node is required")
 	}
 	if !paneNode.IsLeaf() {
-		return fmt.Errorf("can only create stack from leaf pane")
+		return nil, fmt.Errorf("can only create stack from leaf pane")
 	}
 	if paneNode.IsStacked {
-		return fmt.Errorf("pane is already stacked")
+		return nil, fmt.Errorf("pane is already stacked")
 	}
 
-	// Convert to stacked container
-	paneNode.IsStacked = true
-	paneNode.ActiveStackIndex = 0
+	// Save original pane reference
+	originalPane := paneNode.Pane
+	originalPaneID := paneNode.ID
 
-	// The pane becomes a child of itself conceptually
-	// Create a child node for the actual pane
-	childNode := &entity.PaneNode{
-		ID:     paneNode.ID + "_child",
-		Pane:   paneNode.Pane,
+	// Create child node for the original pane
+	originalChildNode := &entity.PaneNode{
+		ID:     originalPaneID + "_0",
+		Pane:   originalPane,
 		Parent: paneNode,
 	}
-	paneNode.Pane = nil
-	paneNode.Children = []*entity.PaneNode{childNode}
 
-	log.Info().Str("stack_id", paneNode.ID).Msg("stack created")
-	return nil
+	// Create new pane
+	newPaneID := entity.PaneID(uc.idGenerator())
+	newPane := entity.NewPane(newPaneID)
+
+	// Create child node for the new pane
+	newChildNode := &entity.PaneNode{
+		ID:     string(newPaneID),
+		Pane:   newPane,
+		Parent: paneNode,
+	}
+
+	// Convert targetNode to stack container
+	paneNode.Pane = nil
+	paneNode.IsStacked = true
+	paneNode.ActiveStackIndex = 1 // New pane is active
+	paneNode.Children = []*entity.PaneNode{originalChildNode, newChildNode}
+
+	// Update workspace active pane
+	ws.ActivePaneID = newPaneID
+
+	log.Info().
+		Str("stack_id", paneNode.ID).
+		Str("original_pane", string(originalPane.ID)).
+		Str("new_pane", string(newPaneID)).
+		Msg("stack created")
+
+	return &CreateStackOutput{
+		StackNode:    paneNode,
+		OriginalNode: originalChildNode,
+		NewPaneNode:  newChildNode,
+		NewPane:      newPane,
+	}, nil
 }
 
-// AddToStack adds a pane to an existing stack.
-func (uc *ManagePanesUseCase) AddToStack(ctx context.Context, ws *entity.Workspace, stackNode *entity.PaneNode, pane *entity.Pane) error {
+// AddToStackOutput contains the result of adding a pane to a stack.
+type AddToStackOutput struct {
+	NewPaneNode *entity.PaneNode // The new pane node added to the stack
+	StackIndex  int              // Index of the new pane in the stack
+}
+
+// AddToStack adds a new pane to an existing stack.
+// Optionally pass a pre-created pane, or nil to create a new one.
+func (uc *ManagePanesUseCase) AddToStack(ctx context.Context, ws *entity.Workspace, stackNode *entity.PaneNode, pane *entity.Pane) (*AddToStackOutput, error) {
 	log := logging.FromContext(ctx)
+
+	if ws == nil {
+		return nil, fmt.Errorf("workspace is required")
+	}
+	if stackNode == nil {
+		return nil, fmt.Errorf("stack node is required")
+	}
+	if !stackNode.IsStacked {
+		return nil, fmt.Errorf("node is not a stack")
+	}
+
+	// Create pane if not provided
+	if pane == nil {
+		paneID := entity.PaneID(uc.idGenerator())
+		pane = entity.NewPane(paneID)
+	}
+
 	log.Debug().
 		Str("stack_id", stackNode.ID).
 		Str("pane_id", string(pane.ID)).
 		Msg("adding pane to stack")
-
-	if ws == nil {
-		return fmt.Errorf("workspace is required")
-	}
-	if stackNode == nil {
-		return fmt.Errorf("stack node is required")
-	}
-	if !stackNode.IsStacked {
-		return fmt.Errorf("node is not a stack")
-	}
-	if pane == nil {
-		return fmt.Errorf("pane is required")
-	}
 
 	// Create node for the new pane
 	newNode := &entity.PaneNode{
@@ -447,7 +505,11 @@ func (uc *ManagePanesUseCase) AddToStack(ctx context.Context, ws *entity.Workspa
 
 	// Add to stack
 	stackNode.Children = append(stackNode.Children, newNode)
-	stackNode.ActiveStackIndex = len(stackNode.Children) - 1
+	newIndex := len(stackNode.Children) - 1
+	stackNode.ActiveStackIndex = newIndex
+
+	// Update workspace active pane
+	ws.ActivePaneID = pane.ID
 
 	log.Info().
 		Str("stack_id", stackNode.ID).
@@ -455,7 +517,10 @@ func (uc *ManagePanesUseCase) AddToStack(ctx context.Context, ws *entity.Workspa
 		Int("stack_size", len(stackNode.Children)).
 		Msg("pane added to stack")
 
-	return nil
+	return &AddToStackOutput{
+		NewPaneNode: newNode,
+		StackIndex:  newIndex,
+	}, nil
 }
 
 // NavigateStack cycles through stacked panes.
