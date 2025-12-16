@@ -1,5 +1,5 @@
 import { mount } from "svelte";
-import "../styles/tailwind.css";
+import "../styles/app.css";
 import BlockedPage from "./BlockedPage.svelte";
 
 // Mount the BlockedPage component to the DOM

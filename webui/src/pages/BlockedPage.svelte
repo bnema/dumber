@@ -99,7 +99,7 @@
   <title>Page Blocked</title>
   {@html `<style>
     html, body {
-      background: var(--dynamic-bg, #0a0a0a);
+      background: var(--background, #0a0a0a);
       margin: 0;
       padding: 0;
       min-height: 100vh;
@@ -176,8 +176,8 @@
     align-items: center;
     justify-content: center;
     padding: 2rem;
-    background: var(--dynamic-bg, #0a0a0a);
-    color: var(--dynamic-text, #e5e5e5);
+    background: var(--background, #0a0a0a);
+    color: var(--foreground, #e5e5e5);
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 
@@ -185,8 +185,10 @@
     max-width: 480px;
     width: 100%;
     padding: 2.5rem 2rem;
-    background: var(--dynamic-surface, #141414);
-    border: 1px solid var(--dynamic-border, #262626);
+    background: var(--card, #141414);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border, #262626);
     text-align: center;
   }
 
@@ -197,7 +199,7 @@
   .shield-icon {
     width: 64px;
     height: 64px;
-    color: var(--dynamic-accent, #3b82f6);
+    color: var(--primary, #3b82f6);
     opacity: 0.9;
   }
 
@@ -205,18 +207,20 @@
     font-size: 1.5rem;
     font-weight: 600;
     margin: 0 0 0.75rem 0;
-    color: var(--dynamic-text, #e5e5e5);
+    color: var(--foreground, #e5e5e5);
   }
 
   .reason {
     font-size: 0.9375rem;
-    color: var(--dynamic-muted, #737373);
+    color: var(--muted-foreground, #737373);
     margin: 0 0 1.5rem 0;
   }
 
   .url-display {
-    background: var(--dynamic-bg, #0a0a0a);
-    border: 1px solid var(--dynamic-border, #262626);
+    background: var(--background, #0a0a0a);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border, #262626);
     padding: 0.75rem 1rem;
     margin-bottom: 1.5rem;
     text-align: left;
@@ -225,7 +229,7 @@
   .url-label {
     display: block;
     font-size: 0.75rem;
-    color: var(--dynamic-muted, #737373);
+    color: var(--muted-foreground, #737373);
     margin-bottom: 0.25rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -234,7 +238,7 @@
   .url-value {
     font-family: 'JetBrains Mono NF', monospace;
     font-size: 0.8125rem;
-    color: var(--dynamic-text, #e5e5e5);
+    color: var(--foreground, #e5e5e5);
     word-break: break-all;
     display: block;
   }
@@ -274,9 +278,9 @@
   }
 
   .btn-primary {
-    background: var(--dynamic-accent, #3b82f6);
+    background: var(--primary, #3b82f6);
     color: white;
-    border-color: var(--dynamic-accent, #3b82f6);
+    border-color: var(--primary, #3b82f6);
   }
 
   .btn-primary:hover:not(:disabled) {
@@ -285,23 +289,23 @@
 
   .btn-secondary {
     background: transparent;
-    color: var(--dynamic-text, #e5e5e5);
-    border-color: var(--dynamic-border, #262626);
+    color: var(--foreground, #e5e5e5);
+    border-color: var(--border, #262626);
   }
 
   .btn-secondary:hover:not(:disabled) {
-    background: var(--dynamic-surface-variant, #1a1a1a);
-    border-color: var(--dynamic-muted, #737373);
+    background: var(--secondary, #1a1a1a);
+    border-color: var(--muted-foreground, #737373);
   }
 
   .btn-ghost {
     background: transparent;
-    color: var(--dynamic-muted, #737373);
+    color: var(--muted-foreground, #737373);
     border-color: transparent;
   }
 
   .btn-ghost:hover:not(:disabled) {
-    color: var(--dynamic-text, #e5e5e5);
+    color: var(--foreground, #e5e5e5);
   }
 
   .loading-spinner {
@@ -319,12 +323,12 @@
 
   .domain-note {
     font-size: 0.75rem;
-    color: var(--dynamic-muted, #737373);
+    color: var(--muted-foreground, #737373);
     margin: 0;
   }
 
   .domain-note strong {
-    color: var(--dynamic-text, #e5e5e5);
+    color: var(--foreground, #e5e5e5);
     font-weight: 500;
   }
 </style>
