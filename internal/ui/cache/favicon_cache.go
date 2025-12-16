@@ -3,9 +3,13 @@ package cache
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
@@ -14,13 +18,22 @@ import (
 	"github.com/jwijenbergh/puregotk/v4/glib"
 )
 
+const (
+	// DuckDuckGo favicon API URL template (better transparency support)
+	duckduckgoFaviconURL = "https://icons.duckduckgo.com/ip3/%s.ico"
+	// HTTP client timeout for favicon fetch
+	faviconFetchTimeout = 5 * time.Second
+)
+
 // FaviconCache provides a two-tier favicon caching system:
 // 1. In-memory cache keyed by domain for fast lookups
 // 2. WebKit FaviconDatabase as persistent backing store
+// 3. Google favicon API as fallback
 type FaviconCache struct {
 	mu        sync.RWMutex
 	cache     map[string]*gdk.Texture // key: domain (e.g., "github.com")
 	faviconDB *webkit.FaviconDatabase
+	client    *http.Client
 }
 
 // NewFaviconCache creates a new FaviconCache with the given FaviconDatabase.
@@ -29,6 +42,9 @@ func NewFaviconCache(faviconDB *webkit.FaviconDatabase) *FaviconCache {
 	return &FaviconCache{
 		cache:     make(map[string]*gdk.Texture),
 		faviconDB: faviconDB,
+		client: &http.Client{
+			Timeout: faviconFetchTimeout,
+		},
 	}
 }
 
@@ -84,54 +100,9 @@ func (fc *FaviconCache) GetByURL(pageURL string) *gdk.Texture {
 	return fc.Get(domain)
 }
 
-// getURLVariants returns URL variants to try for favicon lookup.
-// WebKit stores favicons under exact URLs (e.g., https://www.youtube.com/)
-// so we need to try multiple variants: with/without www, with/without trailing slash.
-func getURLVariants(pageURL string) []string {
-	parsed, err := url.Parse(pageURL)
-	if err != nil {
-		return nil
-	}
-
-	variants := make([]string, 0, 4)
-
-	// Generate host variants (with and without www.)
-	hosts := []string{parsed.Host}
-	if strings.HasPrefix(parsed.Host, "www.") {
-		hosts = append(hosts, strings.TrimPrefix(parsed.Host, "www."))
-	} else {
-		hosts = append(hosts, "www."+parsed.Host)
-	}
-
-	// Generate path variants (with and without trailing slash)
-	paths := []string{parsed.Path}
-	if parsed.Path == "" || parsed.Path == "/" {
-		paths = []string{"", "/"}
-	} else if strings.HasSuffix(parsed.Path, "/") {
-		paths = append(paths, strings.TrimSuffix(parsed.Path, "/"))
-	} else {
-		paths = append(paths, parsed.Path+"/")
-	}
-
-	// Generate all combinations (skip the original URL)
-	original := pageURL
-	for _, host := range hosts {
-		for _, path := range paths {
-			p := *parsed
-			p.Host = host
-			p.Path = path
-			variant := p.String()
-			if variant != original {
-				variants = append(variants, variant)
-			}
-		}
-	}
-
-	return variants
-}
-
-// GetOrFetch checks the in-memory cache first, then queries the FaviconDatabase
-// asynchronously on cache miss. The callback is invoked with the texture (or nil).
+// GetOrFetch checks the in-memory cache first, then queries the FaviconDatabase,
+// and falls back to Google's favicon API if not found.
+// The callback is invoked with the texture (or nil).
 // This is safe to call from any goroutine; the callback runs on the GLib main loop.
 func (fc *FaviconCache) GetOrFetch(ctx context.Context, pageURL string, callback func(*gdk.Texture)) {
 	if callback == nil {
@@ -147,12 +118,6 @@ func (fc *FaviconCache) GetOrFetch(ctx context.Context, pageURL string, callback
 		return
 	}
 
-	// No FaviconDatabase, return nil
-	if fc.faviconDB == nil {
-		callback(nil)
-		return
-	}
-
 	// Helper to invoke callback on main thread
 	invokeCallback := func(texture *gdk.Texture) {
 		cb := glib.SourceFunc(func(uintptr) bool {
@@ -162,68 +127,104 @@ func (fc *FaviconCache) GetOrFetch(ctx context.Context, pageURL string, callback
 		glib.IdleAdd(&cb, 0)
 	}
 
-	// Get all URL variants to try (www/non-www, with/without trailing slash)
-	variants := getURLVariants(pageURL)
-
-	// Recursive function to try variants one by one
-	var tryVariant func(index int)
-	tryVariant = func(index int) {
-		if index >= len(variants) {
-			// All variants exhausted
-			invokeCallback(nil)
-			return
-		}
-
-		variantURL := variants[index]
-		variantCb := gio.AsyncReadyCallback(func(_ uintptr, resultPtr uintptr, _ uintptr) {
-			if resultPtr == 0 {
-				tryVariant(index + 1)
-				return
-			}
-
-			result := &gio.AsyncResultBase{Ptr: resultPtr}
-			texture, err := fc.faviconDB.GetFaviconFinish(result)
-			if err != nil {
-				log.Debug().Err(err).Str("url", variantURL).Msg("favicon variant fetch failed")
-				tryVariant(index + 1)
-				return
-			}
-
-			if texture != nil && domain != "" {
+	// Helper to fetch from external API and invoke callback
+	fetchExternal := func() {
+		go func() {
+			texture := fc.fetchFromExternal(ctx, domain)
+			if texture != nil {
 				fc.Set(domain, texture)
 			}
 			invokeCallback(texture)
-		})
-
-		fc.faviconDB.GetFavicon(variantURL, nil, &variantCb, 0)
+		}()
 	}
 
-	// Query FaviconDatabase with original URL first
+	// No FaviconDatabase, fetch from external API directly
+	if fc.faviconDB == nil {
+		fetchExternal()
+		return
+	}
+
+	// Try FaviconDatabase first (just once, no variant attempts)
 	asyncCb := gio.AsyncReadyCallback(func(_ uintptr, resultPtr uintptr, _ uintptr) {
 		if resultPtr == 0 {
-			log.Debug().Str("url", pageURL).Msg("favicon fetch: nil result, trying variants")
-			tryVariant(0)
+			log.Debug().Str("domain", domain).Msg("favicon not in database, fetching from DuckDuckGo")
+			fetchExternal()
 			return
 		}
 
 		result := &gio.AsyncResultBase{Ptr: resultPtr}
 		texture, err := fc.faviconDB.GetFaviconFinish(result)
-		if err != nil {
-			log.Debug().Err(err).Str("url", pageURL).Msg("favicon fetch failed, trying variants")
-			tryVariant(0)
+		if err != nil || texture == nil {
+			log.Debug().Str("domain", domain).Msg("favicon not in database, fetching from DuckDuckGo")
+			fetchExternal()
 			return
 		}
 
-		// Cache the result
-		if texture != nil && domain != "" {
-			fc.Set(domain, texture)
-		}
-
+		// Found in database, cache and return
+		fc.Set(domain, texture)
 		invokeCallback(texture)
 	})
 
-	// Start async fetch (nil cancellable, 0 userData)
+	// Try with the original URL
 	fc.faviconDB.GetFavicon(pageURL, nil, &asyncCb, 0)
+}
+
+// fetchFromExternal fetches a favicon from DuckDuckGo's favicon API.
+// Returns nil if fetch fails.
+func (fc *FaviconCache) fetchFromExternal(ctx context.Context, domain string) *gdk.Texture {
+	log := logging.FromContext(ctx)
+
+	if domain == "" {
+		return nil
+	}
+
+	faviconURL := fmt.Sprintf(duckduckgoFaviconURL, url.QueryEscape(domain))
+	log.Debug().Str("url", faviconURL).Msg("fetching favicon from DuckDuckGo")
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, faviconURL, nil)
+	if err != nil {
+		log.Debug().Err(err).Msg("failed to create favicon request")
+		return nil
+	}
+
+	resp, err := fc.client.Do(req)
+	if err != nil {
+		log.Debug().Err(err).Str("domain", domain).Msg("failed to fetch favicon from DuckDuckGo")
+		return nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Debug().Int("status", resp.StatusCode).Str("domain", domain).Msg("DuckDuckGo favicon API returned non-OK status")
+		return nil
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Debug().Err(err).Str("domain", domain).Msg("failed to read favicon response")
+		return nil
+	}
+
+	if len(data) == 0 {
+		log.Debug().Str("domain", domain).Msg("empty favicon response from DuckDuckGo")
+		return nil
+	}
+
+	// Convert bytes to GdkTexture
+	bytes := glib.NewBytes(data, uint(len(data)))
+	if bytes == nil {
+		log.Debug().Str("domain", domain).Msg("failed to create GBytes from favicon data")
+		return nil
+	}
+
+	texture, err := gdk.NewTextureFromBytes(bytes)
+	if err != nil {
+		log.Debug().Err(err).Str("domain", domain).Msg("failed to create texture from favicon bytes")
+		return nil
+	}
+
+	log.Debug().Str("domain", domain).Msg("favicon fetched from DuckDuckGo and cached")
+	return texture
 }
 
 // Clear removes all entries from the in-memory cache.
