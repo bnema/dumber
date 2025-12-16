@@ -294,6 +294,11 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.contentCoord,
 	)
 
+	// Wire title updates to history persistence
+	a.contentCoord.SetOnTitleUpdated(func(ctx context.Context, paneID entity.PaneID, url, title string) {
+		a.navCoord.UpdateHistoryTitle(ctx, paneID, url, title)
+	})
+
 	// 5. Keyboard Dispatcher
 	a.kbDispatcher = dispatcher.NewKeyboardDispatcher(
 		ctx,

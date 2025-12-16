@@ -31,6 +31,9 @@ type ContentCoordinator struct {
 
 	// Callback to get active workspace state (avoids circular dependency)
 	getActiveWS func() (*entity.Workspace, *component.WorkspaceView)
+
+	// Callback when title changes (for history persistence)
+	onTitleUpdated func(ctx context.Context, paneID entity.PaneID, url, title string)
 }
 
 // NewContentCoordinator creates a new ContentCoordinator.
@@ -53,6 +56,11 @@ func NewContentCoordinator(
 		navOrigins:    make(map[entity.PaneID]string),
 		getActiveWS:   getActiveWS,
 	}
+}
+
+// SetOnTitleUpdated sets the callback for title changes (for history persistence).
+func (c *ContentCoordinator) SetOnTitleUpdated(fn func(ctx context.Context, paneID entity.PaneID, url, title string)) {
+	c.onTitleUpdated = fn
 }
 
 // EnsureWebView acquires or reuses a WebView for the given pane.
@@ -227,6 +235,16 @@ func (c *ContentCoordinator) onTitleChanged(ctx context.Context, paneID entity.P
 			stackedView := tr.GetStackedViewForPane(string(paneID))
 			if stackedView != nil {
 				c.updateStackedPaneTitle(ctx, ws, stackedView, paneID, title)
+			}
+		}
+	}
+
+	// Notify history persistence (get URL from WebView)
+	if c.onTitleUpdated != nil {
+		if wv := c.webViews[paneID]; wv != nil {
+			url := wv.URI()
+			if url != "" && title != "" {
+				c.onTitleUpdated(ctx, paneID, url, title)
 			}
 		}
 	}
