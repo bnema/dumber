@@ -111,15 +111,17 @@
     justify-content: center;
     gap: 0.5rem;
     padding: 2rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     text-align: center;
   }
 
   .loading-spinner {
     width: 24px;
     height: 24px;
-    border: 2px solid var(--dynamic-border);
-    border-top-color: var(--dynamic-accent, #4ade80);
+    border-width: 2px;
+    border-style: solid;
+    border-color: var(--border);
+    border-top-color: var(--primary, #4ade80);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
@@ -157,39 +159,43 @@
     flex-direction: column;
     gap: 0.3rem;
     padding: 0.85rem;
-    border: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 92%, var(--dynamic-surface) 8%);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--background) 92%, var(--card) 8%);
   }
 
   .stat-value {
     font-size: 1.5rem;
     font-weight: 700;
-    color: var(--dynamic-text);
+    color: var(--foreground);
     letter-spacing: -0.02em;
   }
 
   .stat-label {
     font-size: 0.6rem;
     font-weight: 600;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     letter-spacing: 0.12em;
   }
 
   .section {
-    border: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 92%, var(--dynamic-surface) 8%);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--background) 92%, var(--card) 8%);
   }
 
   .section-header {
     padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 80%, var(--dynamic-surface) 20%);
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--background) 80%, var(--card) 20%);
   }
 
   .section-title {
     font-size: 0.6rem;
     font-weight: 600;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     letter-spacing: 0.12em;
   }
 
@@ -204,7 +210,7 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--dynamic-border) 40%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
   }
 
   .domain-item:last-child {
@@ -215,13 +221,13 @@
     width: 1.5rem;
     font-size: 0.65rem;
     font-weight: 600;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     text-align: center;
   }
 
   .domain-name {
     font-size: 0.75rem;
-    color: var(--dynamic-text);
+    color: var(--foreground);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -231,7 +237,7 @@
     display: flex;
     gap: 0.75rem;
     font-size: 0.6rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .chart-container {

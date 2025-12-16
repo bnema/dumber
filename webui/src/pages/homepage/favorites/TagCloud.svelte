@@ -144,8 +144,10 @@
     flex-direction: column;
     gap: 0.5rem;
     padding: 0.6rem 0.75rem;
-    border: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 92%, var(--dynamic-surface) 8%);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--background) 92%, var(--card) 8%);
   }
 
   .tag-header {
@@ -157,7 +159,7 @@
   .header-label {
     font-size: 0.6rem;
     font-weight: 600;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     letter-spacing: 0.12em;
   }
 
@@ -171,16 +173,18 @@
     font-size: 0.55rem;
     font-weight: 500;
     letter-spacing: 0.08em;
-    border: 1px solid var(--dynamic-border);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     background: transparent;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     cursor: pointer;
     transition: all 100ms ease;
   }
 
   .clear-btn:hover {
-    color: var(--dynamic-text);
-    border-color: var(--dynamic-text);
+    color: var(--foreground);
+    border-color: var(--foreground);
   }
 
   .add-tag-btn {
@@ -191,20 +195,22 @@
     justify-content: center;
     font-size: 0.9rem;
     font-weight: 500;
-    border: 1px solid var(--dynamic-border);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     background: transparent;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     cursor: pointer;
     transition: all 100ms ease;
   }
 
   .add-tag-btn:hover {
-    color: var(--dynamic-text);
-    border-color: var(--dynamic-text);
+    color: var(--foreground);
+    border-color: var(--foreground);
   }
 
   .add-tag-btn.cancel {
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .add-tag-btn.cancel:hover {
@@ -221,14 +227,16 @@
     padding: 0.35rem 0.5rem;
     font-size: 0.68rem;
     font-family: inherit;
-    color: var(--dynamic-text);
-    background: var(--dynamic-bg);
-    border: 1px solid var(--dynamic-accent, #4ade80);
+    color: var(--foreground);
+    background: var(--background);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--primary, #4ade80);
     outline: none;
   }
 
   .create-input::placeholder {
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .tag-chips {
@@ -239,7 +247,7 @@
 
   .no-tags {
     font-size: 0.65rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     font-style: italic;
     padding: 0.25rem 0;
   }
@@ -252,9 +260,11 @@
     font-size: 0.62rem;
     font-weight: 500;
     letter-spacing: 0.05em;
-    border: 1px solid var(--tag-color);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--tag-color);
     background: transparent;
-    color: var(--dynamic-text);
+    color: var(--foreground);
     cursor: pointer;
     transition: all 100ms ease;
   }

@@ -164,8 +164,10 @@
     width: 100%;
     max-width: 420px;
     margin: 1rem;
-    background: var(--dynamic-surface);
-    border: 1px solid var(--dynamic-border);
+    background: var(--card);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     box-shadow: 0 24px 48px -12px rgb(0 0 0 / 0.6);
     animation: modal-in 150ms ease;
   }
@@ -182,8 +184,8 @@
     align-items: center;
     gap: 0.6rem;
     padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 80%, transparent);
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--background) 80%, transparent);
   }
 
   .modal-icon::before {
@@ -197,27 +199,29 @@
     font-size: 0.72rem;
     font-weight: 600;
     letter-spacing: 0.1em;
-    color: var(--dynamic-text);
+    color: var(--foreground);
   }
 
   .close-btn {
     padding: 0.25rem 0.5rem;
     background: transparent;
-    border: 1px solid var(--dynamic-border);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     cursor: pointer;
   }
 
   .close-btn kbd {
     font-size: 0.6rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .close-btn:hover {
-    border-color: var(--dynamic-text);
+    border-color: var(--foreground);
   }
 
   .close-btn:hover kbd {
-    color: var(--dynamic-text);
+    color: var(--foreground);
   }
 
   .cleanup-options {
@@ -234,7 +238,7 @@
     text-align: left;
     background: transparent;
     border: none;
-    border-bottom: 1px solid color-mix(in srgb, var(--dynamic-border) 50%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
     cursor: pointer;
     transition: background-color 100ms ease;
   }
@@ -245,11 +249,11 @@
 
   .cleanup-option:hover,
   .cleanup-option.selected {
-    background: color-mix(in srgb, var(--dynamic-surface) 80%, var(--dynamic-bg) 20%);
+    background: color-mix(in srgb, var(--card) 80%, var(--background) 20%);
   }
 
   .cleanup-option.selected {
-    outline: 1px solid var(--dynamic-accent, #4ade80);
+    outline: 1px solid var(--primary, #4ade80);
     outline-offset: -1px;
   }
 
@@ -267,12 +271,12 @@
     font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.08em;
-    color: var(--dynamic-text);
+    color: var(--foreground);
   }
 
   .option-desc {
     font-size: 0.68rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     letter-spacing: 0.04em;
   }
 
@@ -280,9 +284,11 @@
     padding: 0.2rem 0.45rem;
     font-size: 0.58rem;
     letter-spacing: 0.05em;
-    border: 1px solid var(--dynamic-border);
-    background: var(--dynamic-bg);
-    color: var(--dynamic-muted);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+    background: var(--background);
+    color: var(--muted-foreground);
   }
 
   .confirm-panel {
@@ -304,7 +310,7 @@
     margin: 0;
     font-size: 0.8rem;
     line-height: 1.5;
-    color: var(--dynamic-text);
+    color: var(--foreground);
   }
 
   .confirm-message strong {
@@ -328,7 +334,9 @@
     font-size: 0.7rem;
     font-weight: 500;
     letter-spacing: 0.08em;
-    border: 1px solid var(--dynamic-border);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     cursor: pointer;
     transition: all 100ms ease;
   }
@@ -342,12 +350,12 @@
 
   .confirm-btn.cancel {
     background: transparent;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .confirm-btn.cancel:hover {
-    color: var(--dynamic-text);
-    border-color: var(--dynamic-text);
+    color: var(--foreground);
+    border-color: var(--foreground);
   }
 
   .confirm-btn.destructive {
@@ -366,13 +374,13 @@
     justify-content: center;
     gap: 1rem;
     padding: 0.6rem 1rem;
-    border-top: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 60%, transparent);
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--background) 60%, transparent);
   }
 
   .hint {
     font-size: 0.6rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     letter-spacing: 0.05em;
   }
 
@@ -380,7 +388,9 @@
     font-size: 0.55rem;
     padding: 0.1rem 0.25rem;
     margin-right: 0.25rem;
-    border: 1px solid var(--dynamic-border);
-    background: var(--dynamic-bg);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+    background: var(--background);
   }
 </style>

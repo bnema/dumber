@@ -99,41 +99,45 @@
     align-items: center;
     gap: 0.6rem;
     padding: 0.5rem 0.75rem;
-    border: 1px solid var(--dynamic-border);
-    background: var(--dynamic-bg);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+    background: var(--background);
     transition: border-color 150ms ease;
   }
 
   .history-search:focus-within {
-    border-color: var(--dynamic-accent, #4ade80);
+    border-color: var(--primary, #4ade80);
   }
 
   .search-icon::before {
     content: '';
     font-size: 0.85rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .search-input {
     flex: 1;
     border: none;
     background: transparent;
-    color: var(--dynamic-text);
+    color: var(--foreground);
     font-family: inherit;
     font-size: 0.8rem;
     outline: none;
   }
 
   .search-input::placeholder {
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     letter-spacing: 0.05em;
   }
 
   .search-spinner {
     width: 14px;
     height: 14px;
-    border: 2px solid var(--dynamic-border);
-    border-top-color: var(--dynamic-accent, #4ade80);
+    border-width: 2px;
+    border-style: solid;
+    border-color: var(--border);
+    border-top-color: var(--primary, #4ade80);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
@@ -148,24 +152,28 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--dynamic-border);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     background: transparent;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     font-size: 0.9rem;
     cursor: pointer;
     transition: all 100ms ease;
   }
 
   .clear-btn:hover {
-    color: var(--dynamic-text);
-    border-color: var(--dynamic-text);
+    color: var(--foreground);
+    border-color: var(--foreground);
   }
 
   .search-hint {
     font-size: 0.6rem;
     padding: 0.15rem 0.35rem;
-    border: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-surface) 30%, transparent);
-    color: var(--dynamic-muted);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--card) 30%, transparent);
+    color: var(--muted-foreground);
   }
 </style>

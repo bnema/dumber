@@ -123,7 +123,9 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.55rem 0.85rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--dynamic-border) 50%, transparent);
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    border-bottom-color: color-mix(in srgb, var(--border) 50%, transparent);
     transition: background-color 100ms ease;
     cursor: pointer;
   }
@@ -134,11 +136,11 @@
 
   .history-item:hover,
   .history-item.focused {
-    background: color-mix(in srgb, var(--dynamic-surface) 40%, transparent);
+    background: color-mix(in srgb, var(--card) 40%, transparent);
   }
 
   .history-item.focused {
-    outline: 1px solid var(--dynamic-accent, #4ade80);
+    outline: 1px solid var(--primary, #4ade80);
     outline-offset: -1px;
   }
 
@@ -150,8 +152,10 @@
   .item-favicon {
     width: 28px;
     height: 28px;
-    border: 1px solid var(--dynamic-border);
-    background: var(--dynamic-bg);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+    background: var(--background);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -170,7 +174,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .favicon-fallback::before {
@@ -195,7 +199,7 @@
   .item-title {
     font-size: 0.8rem;
     font-weight: 500;
-    color: var(--dynamic-text);
+    color: var(--foreground);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -203,7 +207,7 @@
 
   .item-time {
     font-size: 0.65rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     white-space: nowrap;
@@ -212,7 +216,7 @@
 
   .item-url {
     font-size: 0.68rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -226,10 +230,12 @@
 
   .visit-count {
     font-size: 0.6rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     padding: 0.15rem 0.35rem;
-    border: 1px solid var(--dynamic-border);
-    background: var(--dynamic-bg);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+    background: var(--background);
   }
 
   .action-btn {
@@ -238,9 +244,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--dynamic-border);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     background: transparent;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     cursor: pointer;
     transition: all 100ms ease;
     opacity: 0;
@@ -252,9 +260,9 @@
   }
 
   .action-btn:hover {
-    color: var(--dynamic-text);
-    border-color: var(--dynamic-text);
-    background: color-mix(in srgb, var(--dynamic-surface) 50%, transparent);
+    color: var(--foreground);
+    border-color: var(--foreground);
+    background: color-mix(in srgb, var(--card) 50%, transparent);
   }
 
   .delete-btn:hover {

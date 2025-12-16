@@ -193,8 +193,10 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    border: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 95%, var(--dynamic-surface) 5%);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--background) 95%, var(--card) 5%);
   }
 
   .panel-header {
@@ -202,23 +204,25 @@
     align-items: center;
     justify-content: space-between;
     padding: 0.6rem 0.85rem;
-    border-bottom: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 80%, var(--dynamic-surface) 20%);
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--background) 80%, var(--card) 20%);
   }
 
   .header-title {
     font-size: 0.68rem;
     font-weight: 600;
     letter-spacing: 0.12em;
-    color: var(--dynamic-text);
+    color: var(--foreground);
   }
 
   .header-count {
     font-size: 0.6rem;
     padding: 0.15rem 0.4rem;
-    border: 1px solid var(--dynamic-border);
-    background: var(--dynamic-bg);
-    color: var(--dynamic-muted);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+    background: var(--background);
+    color: var(--muted-foreground);
   }
 
   .panel-content {
@@ -233,14 +237,16 @@
     justify-content: center;
     gap: 0.75rem;
     padding: 2rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .loading-spinner {
     width: 24px;
     height: 24px;
-    border: 2px solid var(--dynamic-border);
-    border-top-color: var(--dynamic-accent, #4ade80);
+    border-width: 2px;
+    border-style: solid;
+    border-color: var(--border);
+    border-top-color: var(--primary, #4ade80);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }

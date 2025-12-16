@@ -164,8 +164,10 @@
   .panel-content {
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 95%, var(--dynamic-surface) 5%);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--background) 95%, var(--card) 5%);
   }
 
   .loading-state {
@@ -175,14 +177,16 @@
     align-items: center;
     justify-content: center;
     gap: 0.75rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .loading-spinner {
     width: 24px;
     height: 24px;
-    border: 2px solid var(--dynamic-border);
-    border-top-color: var(--dynamic-accent, #4ade80);
+    border-width: 2px;
+    border-style: solid;
+    border-color: var(--border);
+    border-top-color: var(--primary, #4ade80);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }

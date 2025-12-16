@@ -77,7 +77,7 @@
   .filter-label {
     font-size: 0.6rem;
     font-weight: 600;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     letter-spacing: 0.12em;
     flex-shrink: 0;
   }
@@ -98,9 +98,11 @@
     font-size: 0.6rem;
     font-weight: 500;
     letter-spacing: 0.08em;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     background: transparent;
-    border: 1px solid var(--dynamic-border);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     cursor: pointer;
     transition: all 100ms ease;
     white-space: nowrap;
@@ -108,14 +110,14 @@
   }
 
   .filter-chip:hover {
-    color: var(--dynamic-text);
-    border-color: var(--dynamic-text);
+    color: var(--foreground);
+    border-color: var(--foreground);
   }
 
   .filter-chip.active {
-    color: var(--dynamic-primary-foreground, var(--dynamic-bg));
-    background: var(--dynamic-accent);
-    border-color: var(--dynamic-accent);
+    color: var(--primary-foreground, var(--background));
+    background: var(--primary);
+    border-color: var(--primary);
   }
 
   .filter-actions {
@@ -132,9 +134,11 @@
     font-size: 0.6rem;
     font-weight: 500;
     letter-spacing: 0.08em;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     background: transparent;
-    border: 1px solid var(--dynamic-border);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     cursor: pointer;
     transition: all 100ms ease;
   }

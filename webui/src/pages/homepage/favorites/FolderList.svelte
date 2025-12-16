@@ -155,8 +155,10 @@
   .folder-list {
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 92%, var(--dynamic-surface) 8%);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--background) 92%, var(--card) 8%);
   }
 
   .folder-header {
@@ -164,14 +166,14 @@
     align-items: center;
     justify-content: space-between;
     padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 80%, var(--dynamic-surface) 20%);
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--background) 80%, var(--card) 20%);
   }
 
   .header-label {
     font-size: 0.6rem;
     font-weight: 600;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     letter-spacing: 0.12em;
   }
 
@@ -183,20 +185,22 @@
     justify-content: center;
     font-size: 0.9rem;
     font-weight: 500;
-    border: 1px solid var(--dynamic-border);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     background: transparent;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     cursor: pointer;
     transition: all 100ms ease;
   }
 
   .add-folder-btn:hover {
-    color: var(--dynamic-text);
-    border-color: var(--dynamic-text);
+    color: var(--foreground);
+    border-color: var(--foreground);
   }
 
   .add-folder-btn.cancel {
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .add-folder-btn.cancel:hover {
@@ -206,8 +210,8 @@
 
   .create-input-row {
     padding: 0.4rem 0.5rem;
-    border-bottom: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-accent, #4ade80) 8%, var(--dynamic-bg) 92%);
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--primary, #4ade80) 8%, var(--background) 92%);
   }
 
   .create-input {
@@ -215,14 +219,16 @@
     padding: 0.35rem 0.5rem;
     font-size: 0.7rem;
     font-family: inherit;
-    color: var(--dynamic-text);
-    background: var(--dynamic-bg);
-    border: 1px solid var(--dynamic-accent, #4ade80);
+    color: var(--foreground);
+    background: var(--background);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--primary, #4ade80);
     outline: none;
   }
 
   .create-input::placeholder {
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .folder-items {
@@ -238,7 +244,7 @@
     text-align: left;
     background: transparent;
     border: none;
-    border-bottom: 1px solid color-mix(in srgb, var(--dynamic-border) 40%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
     cursor: pointer;
     transition: background-color 100ms ease;
   }
@@ -248,11 +254,11 @@
   }
 
   .folder-item:hover {
-    background: color-mix(in srgb, var(--dynamic-surface) 30%, transparent);
+    background: color-mix(in srgb, var(--card) 30%, transparent);
   }
 
   .folder-item.active {
-    background: color-mix(in srgb, var(--dynamic-surface) 50%, transparent);
+    background: color-mix(in srgb, var(--card) 50%, transparent);
   }
 
   .folder-item.active::before {
@@ -262,7 +268,7 @@
     top: 0;
     bottom: 0;
     width: 2px;
-    background: var(--dynamic-accent, #4ade80);
+    background: var(--primary, #4ade80);
   }
 
   .folder-item {
@@ -273,17 +279,17 @@
     font-size: 0.8rem;
     width: 1.2rem;
     text-align: center;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .folder-item.active .folder-icon {
-    color: var(--dynamic-text);
+    color: var(--foreground);
   }
 
   .folder-name {
     flex: 1;
     font-size: 0.72rem;
-    color: var(--dynamic-text);
+    color: var(--foreground);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -291,14 +297,16 @@
 
   .folder-item.unfiled .folder-name {
     font-style: italic;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .folder-count {
     font-size: 0.6rem;
     padding: 0.1rem 0.35rem;
-    border: 1px solid var(--dynamic-border);
-    background: var(--dynamic-bg);
-    color: var(--dynamic-muted);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+    background: var(--background);
+    color: var(--muted-foreground);
   }
 </style>

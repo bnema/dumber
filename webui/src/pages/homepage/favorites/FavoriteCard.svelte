@@ -113,20 +113,22 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.65rem 0.85rem;
-    border: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 92%, var(--dynamic-surface) 8%);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--background) 92%, var(--card) 8%);
     transition: all 100ms ease;
     cursor: pointer;
   }
 
   .favorite-card:hover,
   .favorite-card.focused {
-    background: color-mix(in srgb, var(--dynamic-surface) 40%, var(--dynamic-bg) 60%);
-    border-color: color-mix(in srgb, var(--dynamic-border) 50%, var(--dynamic-text) 50%);
+    background: color-mix(in srgb, var(--card) 40%, var(--background) 60%);
+    border-color: color-mix(in srgb, var(--border) 50%, var(--foreground) 50%);
   }
 
   .favorite-card.focused {
-    outline: 1px solid var(--dynamic-accent, #4ade80);
+    outline: 1px solid var(--primary, #4ade80);
     outline-offset: -1px;
   }
 
@@ -134,8 +136,10 @@
     position: relative;
     width: 32px;
     height: 32px;
-    border: 1px solid var(--dynamic-border);
-    background: var(--dynamic-bg);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+    background: var(--background);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -154,7 +158,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .favicon-fallback::before {
@@ -173,9 +177,11 @@
     justify-content: center;
     font-size: 0.55rem;
     font-weight: 700;
-    color: var(--dynamic-bg);
-    background: var(--dynamic-accent, #4ade80);
-    border: 1px solid var(--dynamic-bg);
+    color: var(--background);
+    background: var(--primary, #4ade80);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--background);
   }
 
   .card-content {
@@ -188,7 +194,7 @@
   .card-title {
     font-size: 0.8rem;
     font-weight: 500;
-    color: var(--dynamic-text);
+    color: var(--foreground);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -196,7 +202,7 @@
 
   .card-domain {
     font-size: 0.65rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     letter-spacing: 0.06em;
     white-space: nowrap;
     overflow: hidden;
@@ -214,16 +220,20 @@
     font-weight: 500;
     padding: 0.15rem 0.4rem;
     background: color-mix(in srgb, var(--tag-color) 20%, transparent);
-    border: 1px solid var(--tag-color);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--tag-color);
     color: var(--tag-color);
     letter-spacing: 0.05em;
   }
 
   .tag-more {
     font-size: 0.55rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     padding: 0.15rem 0.3rem;
-    border: 1px solid var(--dynamic-border);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
   }
 
   .card-actions {
@@ -245,16 +255,18 @@
     align-items: center;
     justify-content: center;
     font-size: 0.8rem;
-    border: 1px solid var(--dynamic-border);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     background: transparent;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     cursor: pointer;
     transition: all 100ms ease;
   }
 
   .action-btn:hover {
-    color: var(--dynamic-text);
-    border-color: var(--dynamic-text);
-    background: color-mix(in srgb, var(--dynamic-surface) 50%, transparent);
+    color: var(--foreground);
+    border-color: var(--foreground);
+    background: color-mix(in srgb, var(--card) 50%, transparent);
   }
 </style>

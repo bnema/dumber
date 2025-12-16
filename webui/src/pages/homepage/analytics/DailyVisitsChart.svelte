@@ -95,7 +95,7 @@
   }
 
   .chart-value {
-    color: var(--dynamic-muted, #737373);
+    color: var(--muted-foreground, #737373);
   }
 
   .chart-container {

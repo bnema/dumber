@@ -132,7 +132,7 @@
     justify-content: center;
     gap: 0.5rem;
     padding: 2rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     text-align: center;
   }
 
@@ -154,7 +154,9 @@
   }
 
   .timeline-group {
-    border-bottom: 1px solid var(--dynamic-border);
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    border-bottom-color: var(--border);
   }
 
   .timeline-group:last-child {
@@ -167,8 +169,10 @@
     justify-content: space-between;
     gap: 0.75rem;
     padding: 0.5rem 0.85rem;
-    background: color-mix(in srgb, var(--dynamic-bg) 80%, var(--dynamic-surface) 20%);
-    border-bottom: 1px solid color-mix(in srgb, var(--dynamic-border) 50%, transparent);
+    background: color-mix(in srgb, var(--background) 80%, var(--card) 20%);
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    border-bottom-color: color-mix(in srgb, var(--border) 50%, transparent);
     position: sticky;
     top: 0;
     z-index: 1;
@@ -179,15 +183,17 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    color: var(--dynamic-text);
+    color: var(--foreground);
   }
 
   .group-count {
     font-size: 0.6rem;
     padding: 0.15rem 0.4rem;
-    border: 1px solid var(--dynamic-border);
-    background: var(--dynamic-bg);
-    color: var(--dynamic-muted);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+    background: var(--background);
+    color: var(--muted-foreground);
   }
 
   .group-entries {
@@ -205,7 +211,7 @@
 
   .loading-text {
     font-size: 0.65rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     letter-spacing: 0.12em;
     animation: pulse 1.5s ease-in-out infinite;
   }

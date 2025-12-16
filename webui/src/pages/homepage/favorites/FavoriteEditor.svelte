@@ -220,8 +220,10 @@
     width: 100%;
     max-width: 480px;
     margin: 1rem;
-    background: var(--dynamic-surface);
-    border: 1px solid var(--dynamic-border);
+    background: var(--card);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     box-shadow: 0 24px 48px -12px rgb(0 0 0 / 0.6);
     animation: modal-in 150ms ease;
   }
@@ -238,14 +240,14 @@
     align-items: center;
     gap: 0.6rem;
     padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 80%, transparent);
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--background) 80%, transparent);
   }
 
   .modal-icon::before {
     content: '';
     font-size: 0.9rem;
-    color: var(--dynamic-accent, #4ade80);
+    color: var(--primary, #4ade80);
   }
 
   .modal-title {
@@ -253,27 +255,29 @@
     font-size: 0.72rem;
     font-weight: 600;
     letter-spacing: 0.1em;
-    color: var(--dynamic-text);
+    color: var(--foreground);
   }
 
   .close-btn {
     padding: 0.25rem 0.5rem;
     background: transparent;
-    border: 1px solid var(--dynamic-border);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     cursor: pointer;
   }
 
   .close-btn kbd {
     font-size: 0.6rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .close-btn:hover {
-    border-color: var(--dynamic-text);
+    border-color: var(--foreground);
   }
 
   .close-btn:hover kbd {
-    color: var(--dynamic-text);
+    color: var(--foreground);
   }
 
   .modal-body {
@@ -293,15 +297,17 @@
     font-size: 0.6rem;
     font-weight: 600;
     letter-spacing: 0.12em;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .url-display {
     font-size: 0.72rem;
-    color: var(--dynamic-text);
+    color: var(--foreground);
     padding: 0.5rem 0.65rem;
-    border: 1px solid var(--dynamic-border);
-    background: var(--dynamic-bg);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+    background: var(--background);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -312,25 +318,27 @@
     font-family: inherit;
     font-size: 0.75rem;
     padding: 0.5rem 0.65rem;
-    border: 1px solid var(--dynamic-border);
-    background: var(--dynamic-bg);
-    color: var(--dynamic-text);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+    background: var(--background);
+    color: var(--foreground);
     outline: none;
     transition: border-color 100ms ease;
   }
 
   .form-input:focus,
   .form-select:focus {
-    border-color: var(--dynamic-accent, #4ade80);
+    border-color: var(--primary, #4ade80);
   }
 
   .form-input::placeholder {
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .form-hint {
     font-size: 0.6rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     letter-spacing: 0.05em;
   }
 
@@ -342,7 +350,7 @@
 
   .no-tags {
     font-size: 0.65rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     font-style: italic;
   }
 
@@ -354,9 +362,11 @@
     font-size: 0.62rem;
     font-weight: 500;
     letter-spacing: 0.05em;
-    border: 1px solid var(--tag-color);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--tag-color);
     background: transparent;
-    color: var(--dynamic-text);
+    color: var(--foreground);
     cursor: pointer;
     transition: all 100ms ease;
   }
@@ -388,8 +398,8 @@
     justify-content: space-between;
     gap: 0.5rem;
     padding: 0.75rem 1rem;
-    border-top: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 60%, transparent);
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--background) 60%, transparent);
   }
 
   .footer-right {
@@ -405,7 +415,9 @@
     font-size: 0.68rem;
     font-weight: 500;
     letter-spacing: 0.08em;
-    border: 1px solid var(--dynamic-border);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     cursor: pointer;
     transition: all 100ms ease;
   }
@@ -419,18 +431,18 @@
 
   .btn-secondary {
     background: transparent;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .btn-secondary:hover {
-    color: var(--dynamic-text);
-    border-color: var(--dynamic-text);
+    color: var(--foreground);
+    border-color: var(--foreground);
   }
 
   .btn-primary {
-    background: var(--dynamic-accent, #4ade80);
-    color: var(--dynamic-bg);
-    border-color: var(--dynamic-accent, #4ade80);
+    background: var(--primary, #4ade80);
+    color: var(--background);
+    border-color: var(--primary, #4ade80);
   }
 
   .btn-primary:hover {
@@ -439,7 +451,7 @@
 
   .btn-danger-outline {
     background: transparent;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .btn-danger-outline:hover {
@@ -459,12 +471,12 @@
 
   .btn-cancel {
     background: transparent;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .btn-cancel:hover {
-    color: var(--dynamic-text);
-    border-color: var(--dynamic-text);
+    color: var(--foreground);
+    border-color: var(--foreground);
   }
 
   .confirm-delete {

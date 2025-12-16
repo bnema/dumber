@@ -83,10 +83,10 @@
     justify-content: center;
     gap: 0.5rem;
     padding: 2rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     text-align: center;
-    border: 1px dashed var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 95%, var(--dynamic-surface) 5%);
+    border: 1px dashed var(--border);
+    background: color-mix(in srgb, var(--background) 95%, var(--card) 5%);
   }
 
   .empty-icon {
