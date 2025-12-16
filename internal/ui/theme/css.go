@@ -201,6 +201,7 @@ entry.omnibox-entry > *:focus-visible {
 	border-left: 0.1875em solid transparent;
 	border-bottom: 0.0625em solid alpha(var(--border), 0.5);
 	transition: background-color 100ms ease-in-out, border-left-color 100ms ease-in-out;
+	min-height: 2.75em;
 }
 
 .omnibox-row:last-child {

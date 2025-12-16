@@ -20,6 +20,7 @@ import (
 
 const (
 	omniboxWidthPct   = 0.8 // 80% of parent window width
+	omniboxMaxWidth   = 800 // Maximum width in pixels
 	omniboxHeightPct  = 0.6 // 60% of parent window height
 	omniboxMaxResults = 10
 	debounceDelayMs   = 150
@@ -199,6 +200,9 @@ func (o *Omnibox) resizeAndCenter(rowCount int) {
 	}
 
 	width := int(float64(parentWidth) * omniboxWidthPct)
+	if width > omniboxMaxWidth {
+		width = omniboxMaxWidth
+	}
 
 	// Cap at max results
 	if rowCount > omniboxMaxResults {
@@ -1134,6 +1138,9 @@ func (o *Omnibox) Show(ctx context.Context, query string) {
 	parentWidth := o.parentOverlay.GetAllocatedWidth()
 	parentHeight := o.parentOverlay.GetAllocatedHeight()
 	width := int(float64(parentWidth) * omniboxWidthPct)
+	if width > omniboxMaxWidth {
+		width = omniboxMaxWidth
+	}
 	marginTop := int(float64(parentHeight) * 0.20) // 20% from top
 
 	o.mainBox.SetSizeRequest(width, -1)
