@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bnema/dumber/assets"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
 )
@@ -15,6 +14,56 @@ const (
 	// MessageHandlerName is the name of the script message handler registered with WebKit.
 	MessageHandlerName = "dumber"
 )
+
+// darkModeScript patches window.matchMedia to respect GTK's dark mode preference.
+// It must be injected at document start, after __dumber_gtk_prefers_dark is set.
+const darkModeScript = `(function() {
+  const prefersDark = window.__dumber_gtk_prefers_dark || false;
+  const originalMatchMedia = window.matchMedia.bind(window);
+
+  // Inject color-scheme meta tag
+  const meta = document.createElement('meta');
+  meta.name = 'color-scheme';
+  meta.content = prefersDark ? 'dark light' : 'light dark';
+  document.documentElement.appendChild(meta);
+
+  // Inject root color-scheme style
+  const style = document.createElement('style');
+  style.setAttribute('data-dumber-theme', '');
+  style.textContent = ':root{color-scheme:' + (prefersDark ? 'dark' : 'light') + ';}';
+  document.documentElement.appendChild(style);
+
+  // Patch matchMedia for prefers-color-scheme queries
+  window.matchMedia = function(query) {
+    if (typeof query === 'string') {
+      if (query.includes('prefers-color-scheme: dark')) {
+        return {
+          matches: prefersDark,
+          media: query,
+          onchange: null,
+          addListener: function() {},
+          removeListener: function() {},
+          addEventListener: function() {},
+          removeEventListener: function() {},
+          dispatchEvent: function() { return false; }
+        };
+      }
+      if (query.includes('prefers-color-scheme: light')) {
+        return {
+          matches: !prefersDark,
+          media: query,
+          onchange: null,
+          addListener: function() {},
+          removeListener: function() {},
+          addEventListener: function() {},
+          removeEventListener: function() {},
+          dispatchEvent: function() { return false; }
+        };
+      }
+    }
+    return originalMatchMedia(query);
+  };
+})();`
 
 // ContentInjector encapsulates script injection into WebViews.
 // It injects minimal scripts for dark mode detection in web pages.
@@ -45,7 +94,7 @@ func (ci *ContentInjector) SetPrefersDark(prefersDark bool) {
 // Only injects:
 // - window.__dumber_gtk_prefers_dark flag
 // - window.__dumber_webview_id (for debugging)
-// - color-scheme.js (patches matchMedia for prefers-color-scheme)
+// - darkModeScript (patches matchMedia for prefers-color-scheme)
 func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserContentManager, webviewID WebViewID) {
 	log := logging.FromContext(ctx).With().Str("component", "content-injector").Logger()
 
@@ -63,17 +112,17 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		log.Debug().Str("script", label).Msg("injected user script")
 	}
 
-	// 1. Inject GTK dark mode preference (must be before color-scheme.js)
-	darkModeScript := fmt.Sprintf("window.__dumber_gtk_prefers_dark=%t;", ci.prefersDark)
+	// 1. Inject GTK dark mode preference (must be before dark mode handler)
+	darkModePrefScript := fmt.Sprintf("window.__dumber_gtk_prefers_dark=%t;", ci.prefersDark)
 	addScript(
 		webkit.NewUserScript(
-			darkModeScript,
+			darkModePrefScript,
 			webkit.UserContentInjectTopFrameValue,
 			webkit.UserScriptInjectAtDocumentStartValue,
 			nil,
 			nil,
 		),
-		"gtk-dark-mode",
+		"gtk-dark-mode-pref",
 	)
 
 	// 2. Inject WebView ID for debugging
@@ -91,21 +140,17 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		)
 	}
 
-	// 3. Inject color-scheme handler (uses __dumber_gtk_prefers_dark to patch matchMedia)
-	if assets.ColorSchemeScript != "" {
-		addScript(
-			webkit.NewUserScript(
-				assets.ColorSchemeScript,
-				webkit.UserContentInjectTopFrameValue,
-				webkit.UserScriptInjectAtDocumentStartValue,
-				nil,
-				nil,
-			),
-			"color-scheme",
-		)
-	} else {
-		log.Warn().Msg("ColorSchemeScript asset is empty; dark mode may not work correctly")
-	}
+	// 3. Inject dark mode handler (patches matchMedia using __dumber_gtk_prefers_dark)
+	addScript(
+		webkit.NewUserScript(
+			darkModeScript,
+			webkit.UserContentInjectTopFrameValue,
+			webkit.UserScriptInjectAtDocumentStartValue,
+			nil,
+			nil,
+		),
+		"dark-mode-handler",
+	)
 
 	log.Debug().Bool("prefers_dark", ci.prefersDark).Msg("minimal scripts injected")
 }
