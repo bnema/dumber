@@ -58,8 +58,8 @@ type App struct {
 	focusMgr  *focus.Manager
 	borderMgr *focus.BorderManager
 
-	// Native omnibox
-	omnibox *component.Omnibox
+	// Omnibox configuration (omnibox is created per workspace view)
+	omniboxCfg component.OmniboxConfig
 
 	// Web content (managed by ContentCoordinator)
 	pool         *webkit.WebViewPool
@@ -188,8 +188,8 @@ func (a *App) onActivate(ctx context.Context) {
 	})
 	a.keyboardHandler.AttachTo(a.mainWindow.Window())
 
-	// Create native omnibox
-	a.omnibox = component.NewOmnibox(ctx, a.mainWindow.Window(), component.OmniboxConfig{
+	// Store omnibox config (omnibox is created per-pane via WorkspaceView)
+	a.omniboxCfg = component.OmniboxConfig{
 		HistoryUC:       a.deps.HistoryUC,
 		FavoritesUC:     a.deps.FavoritesUC,
 		FaviconCache:    a.faviconCache,
@@ -197,18 +197,12 @@ func (a *App) onActivate(ctx context.Context) {
 		DefaultSearch:   a.deps.Config.DefaultSearchEngine,
 		InitialBehavior: a.deps.Config.Omnibox.InitialBehavior,
 		UIScale:         a.deps.Config.DefaultUIScale,
-	})
-	if a.omnibox != nil {
-		a.omnibox.SetOnNavigate(func(url string) {
+		OnNavigate: func(url string) {
 			a.navCoord.Navigate(ctx, url)
-		})
-		a.navCoord.SetOmnibox(a.omnibox)
-		// Add omnibox widget to the main window overlay
-		a.mainWindow.AddOverlay(a.omnibox.Widget())
-		log.Debug().Msg("native omnibox created and added to overlay")
-	} else {
-		log.Warn().Msg("failed to create native omnibox")
+		},
 	}
+	a.navCoord.SetOmniboxProvider(a)
+	log.Debug().Msg("omnibox config stored, provider set")
 
 	// Create an initial tab using coordinator
 	if _, err := a.tabCoord.Create(ctx, "https://duckduckgo.com"); err != nil {
@@ -396,6 +390,9 @@ func (a *App) createWorkspaceView(ctx context.Context, tab *entity.Tab) {
 		wsView.SetModeBorderOverlay(a.borderMgr.Widget())
 	}
 
+	// Set omnibox config for this workspace view
+	wsView.SetOmniboxConfig(a.omniboxCfg)
+
 	// Store in map
 	a.workspaceViews[tab.ID] = wsView
 
@@ -429,4 +426,44 @@ func (a *App) activeWorkspaceView() *component.WorkspaceView {
 		return nil
 	}
 	return a.workspaceViews[activeTab.ID]
+}
+
+// ToggleOmnibox implements OmniboxProvider.
+// Toggles the omnibox visibility in the active workspace view.
+func (a *App) ToggleOmnibox(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
+	wsView := a.activeWorkspaceView()
+	if wsView == nil {
+		log.Warn().Msg("no active workspace view for omnibox toggle")
+		return
+	}
+
+	if wsView.IsOmniboxVisible() {
+		wsView.HideOmnibox()
+	} else {
+		wsView.ShowOmnibox(ctx, "")
+	}
+}
+
+// UpdateOmniboxZoom implements OmniboxProvider.
+// Updates the zoom indicator on the current omnibox if visible.
+func (a *App) UpdateOmniboxZoom(factor float64) {
+	wsView := a.activeWorkspaceView()
+	if wsView == nil {
+		return
+	}
+
+	omnibox := wsView.GetOmnibox()
+	if omnibox != nil {
+		omnibox.UpdateZoomIndicator(factor)
+	}
+}
+
+// SetOmniboxOnNavigate implements OmniboxProvider.
+// This is called to set the navigation callback on new omniboxes.
+// Since omniboxes are created per-pane, we store the config with the callback.
+func (a *App) SetOmniboxOnNavigate(fn func(url string)) {
+	// The navigate callback is set when the omnibox is created via WorkspaceView.ShowOmnibox
+	// The WorkspaceView uses the stored omniboxCfg and sets up navigation via the omnibox's SetOnNavigate
 }

@@ -210,3 +210,21 @@ func (pv *PaneView) AddCssClass(class string) {
 func (pv *PaneView) RemoveCssClass(class string) {
 	pv.overlay.RemoveCssClass(class)
 }
+
+// AddOverlayWidget adds a widget as an overlay on this pane.
+// The widget will appear above the WebView and border.
+func (pv *PaneView) AddOverlayWidget(widget layout.Widget) {
+	pv.overlay.AddOverlay(widget)
+	pv.overlay.SetClipOverlay(widget, false)
+	pv.overlay.SetMeasureOverlay(widget, false)
+}
+
+// RemoveOverlayWidget removes an overlay widget from this pane.
+func (pv *PaneView) RemoveOverlayWidget(widget layout.Widget) {
+	pv.overlay.RemoveOverlay(widget)
+}
+
+// GetContentDimensions returns the pane's allocated width and height.
+func (pv *PaneView) GetContentDimensions() (width, height int) {
+	return pv.overlay.GetAllocatedWidth(), pv.overlay.GetAllocatedHeight()
+}

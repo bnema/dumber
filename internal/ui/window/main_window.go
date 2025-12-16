@@ -20,7 +20,7 @@ const (
 // MainWindow represents the main browser window.
 type MainWindow struct {
 	window         *gtk.ApplicationWindow
-	rootBox        *gtk.Box     // Vertical: tab bar + content
+	rootBox        *gtk.Box // Vertical: tab bar + content
 	tabBar         *component.TabBar
 	contentOverlay *gtk.Overlay // Overlay for content + omnibox
 	contentArea    *gtk.Box     // Container for workspace content

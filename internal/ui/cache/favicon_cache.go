@@ -49,9 +49,9 @@ type FaviconCache struct {
 	cache        map[string]*gdk.Texture // key: domain (e.g., "github.com")
 	faviconDB    *webkit.FaviconDatabase
 	client       *http.Client
-	diskCacheDir string           // path to favicon cache directory
-	writeChan    chan diskWrite   // channel for async writes
-	closeOnce    sync.Once        // ensures Close is called only once
+	diskCacheDir string         // path to favicon cache directory
+	writeChan    chan diskWrite // channel for async writes
+	closeOnce    sync.Once      // ensures Close is called only once
 }
 
 // NewFaviconCache creates a new FaviconCache with the given FaviconDatabase.

@@ -136,6 +136,10 @@ func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.Spli
 			}
 			c.contentCoord.AttachToWorkspace(ctx, ws, wsView)
 		}
+		// Update workspace view's active pane tracking
+		if err := wsView.SetActivePaneID(ws.ActivePaneID); err != nil {
+			log.Warn().Err(err).Msg("failed to set active pane in workspace view")
+		}
 		wsView.FocusPane(ws.ActivePaneID)
 	} else if wsView != nil {
 		// No existing widget (shouldn't happen), fallback to rebuild
@@ -143,6 +147,10 @@ func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.Spli
 			log.Error().Err(err).Msg("failed to rebuild workspace view")
 		}
 		c.contentCoord.AttachToWorkspace(ctx, ws, wsView)
+		// Update workspace view's active pane tracking
+		if err := wsView.SetActivePaneID(ws.ActivePaneID); err != nil {
+			log.Warn().Err(err).Msg("failed to set active pane in workspace view")
+		}
 		wsView.FocusPane(ws.ActivePaneID)
 	}
 
@@ -542,6 +550,10 @@ func (c *WorkspaceCoordinator) ClosePane(ctx context.Context) error {
 			c.contentCoord.ReleaseWebView(ctx, closingPaneID)
 			c.contentCoord.AttachToWorkspace(ctx, ws, wsView)
 		}
+		// Update workspace view's active pane tracking
+		if err := wsView.SetActivePaneID(ws.ActivePaneID); err != nil {
+			log.Warn().Err(err).Msg("failed to set active pane in workspace view")
+		}
 		wsView.FocusPane(ws.ActivePaneID)
 	} else if wsView != nil {
 		// Fallback to rebuild if we couldn't get context
@@ -550,6 +562,10 @@ func (c *WorkspaceCoordinator) ClosePane(ctx context.Context) error {
 		}
 		c.contentCoord.ReleaseWebView(ctx, closingPaneID)
 		c.contentCoord.AttachToWorkspace(ctx, ws, wsView)
+		// Update workspace view's active pane tracking
+		if err := wsView.SetActivePaneID(ws.ActivePaneID); err != nil {
+			log.Warn().Err(err).Msg("failed to set active pane in workspace view")
+		}
 		wsView.FocusPane(ws.ActivePaneID)
 	}
 

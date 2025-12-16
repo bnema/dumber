@@ -12,6 +12,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/cache"
+	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/glib"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
@@ -51,8 +52,8 @@ type Favorite struct {
 // Omnibox is the native GTK4 address bar / command palette.
 type Omnibox struct {
 	// GTK widgets
-	outerBox     *gtk.Box            // Outer container for positioning
-	mainBox      *gtk.Box            // Main content box
+	outerBox     *gtk.Box // Outer container for positioning
+	mainBox      *gtk.Box // Main content box
 	headerBox    *gtk.Box
 	historyBtn   *gtk.Button
 	favoritesBtn *gtk.Button
@@ -61,8 +62,8 @@ type Omnibox struct {
 	scrolledWin  *gtk.ScrolledWindow
 	listBox      *gtk.ListBox
 
-	// Parent window reference for sizing
-	parentWindow *gtk.ApplicationWindow
+	// Parent overlay reference for sizing (set via SetParentOverlay)
+	parentOverlay layout.OverlayWidget
 
 	// State
 	mu            sync.RWMutex
@@ -110,11 +111,13 @@ type OmniboxConfig struct {
 	Shortcuts       map[string]config.SearchShortcut
 	DefaultSearch   string
 	InitialBehavior string
-	UIScale         float64 // UI scale for favicon sizing
+	UIScale         float64          // UI scale for favicon sizing
+	OnNavigate      func(url string) // Callback when user navigates via omnibox
 }
 
 // NewOmnibox creates a new native GTK4 omnibox widget.
-func NewOmnibox(ctx context.Context, parent *gtk.ApplicationWindow, cfg OmniboxConfig) *Omnibox {
+// Call SetParentOverlay() before Show() to set the parent for sizing.
+func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 	log := logging.FromContext(ctx)
 
 	uiScale := cfg.UIScale
@@ -123,7 +126,6 @@ func NewOmnibox(ctx context.Context, parent *gtk.ApplicationWindow, cfg OmniboxC
 	}
 
 	o := &Omnibox{
-		parentWindow:    parent,
 		viewMode:        ViewModeHistory,
 		selectedIndex:   -1,
 		historyUC:       cfg.HistoryUC,
@@ -144,8 +146,30 @@ func NewOmnibox(ctx context.Context, parent *gtk.ApplicationWindow, cfg OmniboxC
 	o.setupKeyboardHandling()
 	o.setupEntryChanged()
 
+	// Set navigation callback if provided
+	if cfg.OnNavigate != nil {
+		o.onNavigate = cfg.OnNavigate
+	}
+
 	log.Debug().Msg("omnibox created")
 	return o
+}
+
+// SetParentOverlay sets the overlay widget used for sizing calculations.
+// Must be called before Show().
+func (o *Omnibox) SetParentOverlay(overlay layout.OverlayWidget) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.parentOverlay = overlay
+}
+
+// WidgetAsLayout returns the omnibox's outer widget as a layout.Widget.
+// This is useful for adding the omnibox to a PaneView overlay.
+func (o *Omnibox) WidgetAsLayout(factory layout.WidgetFactory) layout.Widget {
+	if o.outerBox == nil {
+		return nil
+	}
+	return factory.WrapWidget(&o.outerBox.Widget)
 }
 
 // updateSize sets the omnibox size based on parent window dimensions.
@@ -157,20 +181,20 @@ func (o *Omnibox) updateSize() {
 // resizeAndCenter adjusts the omnibox size based on content and centers it.
 // rowCount is the number of result rows to display (0 = no content, max 10).
 func (o *Omnibox) resizeAndCenter(rowCount int) {
-	if o.parentWindow == nil || o.outerBox == nil || o.mainBox == nil {
+	if o.parentOverlay == nil || o.outerBox == nil || o.mainBox == nil {
 		return
 	}
 
 	// Use GetAllocatedWidth/Height for actual rendered size
-	parentWidth := o.parentWindow.GetAllocatedWidth()
-	parentHeight := o.parentWindow.GetAllocatedHeight()
+	parentWidth := o.parentOverlay.GetAllocatedWidth()
+	parentHeight := o.parentOverlay.GetAllocatedHeight()
 
 	if parentWidth <= 0 || parentHeight <= 0 {
 		log := logging.FromContext(o.ctx)
 		log.Error().
 			Int("parent_width", parentWidth).
 			Int("parent_height", parentHeight).
-			Msg("omnibox: invalid parent window dimensions")
+			Msg("omnibox: invalid parent overlay dimensions")
 		return
 	}
 
@@ -251,9 +275,9 @@ func (o *Omnibox) createWidgets() error {
 		return errNilWidget("outerBox")
 	}
 	o.outerBox.AddCssClass("omnibox-outer")
-	o.outerBox.SetHalign(gtk.AlignCenterValue)  // Center horizontally
-	o.outerBox.SetValign(gtk.AlignStartValue)   // Align to top
-	o.outerBox.SetVisible(false)                // Hidden by default
+	o.outerBox.SetHalign(gtk.AlignCenterValue) // Center horizontally
+	o.outerBox.SetValign(gtk.AlignStartValue)  // Align to top
+	o.outerBox.SetVisible(false)               // Hidden by default
 
 	// Main content box
 	o.mainBox = gtk.NewBox(gtk.OrientationVerticalValue, 0)
@@ -679,9 +703,12 @@ func (o *Omnibox) rebuildList() {
 	// Schedule measurement if not yet cached and we have rows
 	if !o.measuredHeights.valid && o.listBox.GetRowAtIndex(0) != nil {
 		var cb glib.SourceFunc = func(uintptr) bool {
-			width := o.parentWindow.GetAllocatedWidth()
+			if o.parentOverlay == nil {
+				return false
+			}
+			width := o.parentOverlay.GetAllocatedWidth()
 			if width <= 0 {
-				return false // Window not allocated yet, skip
+				return false // Overlay not allocated yet, skip
 			}
 			forWidth := int(float64(width) * omniboxWidthPct)
 			if o.measureComponentHeights(forWidth) {
@@ -1104,8 +1131,8 @@ func (o *Omnibox) Show(ctx context.Context, query string) {
 	}
 
 	// Set width and vertical positioning (20% from top)
-	parentWidth := o.parentWindow.GetAllocatedWidth()
-	parentHeight := o.parentWindow.GetAllocatedHeight()
+	parentWidth := o.parentOverlay.GetAllocatedWidth()
+	parentHeight := o.parentOverlay.GetAllocatedHeight()
 	width := int(float64(parentWidth) * omniboxWidthPct)
 	marginTop := int(float64(parentHeight) * 0.20) // 20% from top
 

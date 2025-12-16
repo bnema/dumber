@@ -31,6 +31,12 @@ type WorkspaceView struct {
 	// Mode border overlay slot
 	modeBorderWidget layout.Widget
 
+	// Omnibox lifecycle
+	omnibox       *Omnibox      // Current omnibox (nil if not shown)
+	omniboxWidget layout.Widget // Wrapped omnibox widget for overlay
+	omniboxPaneID entity.PaneID // Which pane has the omnibox
+	omniboxCfg    OmniboxConfig // Stored config for creating omniboxes
+
 	workspace    *entity.Workspace
 	paneViews    map[entity.PaneID]*PaneView
 	activePaneID entity.PaneID
@@ -154,6 +160,11 @@ func (wv *WorkspaceView) SetActivePaneID(paneID entity.PaneID) error {
 
 // setActivePaneIDInternal updates active pane without locking.
 func (wv *WorkspaceView) setActivePaneIDInternal(paneID entity.PaneID) error {
+	// Destroy omnibox if active pane is changing
+	if wv.activePaneID != paneID && wv.omnibox != nil {
+		wv.hideOmniboxInternal()
+	}
+
 	// Deactivate current active pane
 	if wv.activePaneID != "" {
 		if oldPV, ok := wv.paneViews[wv.activePaneID]; ok {
@@ -400,4 +411,111 @@ func (wv *WorkspaceView) GetStackContainerWidget(paneID entity.PaneID) layout.Wi
 // Implements focus.PaneGeometryProvider.
 func (wv *WorkspaceView) ContainerWidget() layout.Widget {
 	return wv.container
+}
+
+// SetOmniboxConfig stores the omnibox configuration for later use.
+func (wv *WorkspaceView) SetOmniboxConfig(cfg OmniboxConfig) {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+	wv.omniboxCfg = cfg
+}
+
+// ShowOmnibox creates and shows the omnibox in the active pane.
+func (wv *WorkspaceView) ShowOmnibox(ctx context.Context, query string) {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+
+	// If omnibox already exists, just show it
+	if wv.omnibox != nil {
+		wv.omnibox.Show(ctx, query)
+		return
+	}
+
+	// Get the active pane view
+	pv := wv.paneViews[wv.activePaneID]
+	if pv == nil {
+		wv.logger.Warn().Str("paneID", string(wv.activePaneID)).Msg("cannot show omnibox: active pane not found")
+		return
+	}
+
+	// Create omnibox
+	omnibox := NewOmnibox(ctx, wv.omniboxCfg)
+	if omnibox == nil {
+		wv.logger.Error().Msg("failed to create omnibox")
+		return
+	}
+
+	// Set parent overlay for sizing
+	omnibox.SetParentOverlay(pv.Overlay())
+
+	// Wrap widget for layout system
+	omniboxWidget := omnibox.WidgetAsLayout(wv.factory)
+	if omniboxWidget == nil {
+		wv.logger.Error().Msg("failed to wrap omnibox widget")
+		return
+	}
+
+	// Add to pane overlay
+	pv.AddOverlayWidget(omniboxWidget)
+
+	// Store references
+	wv.omnibox = omnibox
+	wv.omniboxWidget = omniboxWidget
+	wv.omniboxPaneID = wv.activePaneID
+
+	// Show the omnibox
+	omnibox.Show(ctx, query)
+
+	wv.logger.Debug().Str("paneID", string(wv.activePaneID)).Msg("omnibox shown")
+}
+
+// HideOmnibox hides and destroys the current omnibox.
+func (wv *WorkspaceView) HideOmnibox() {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+
+	wv.hideOmniboxInternal()
+}
+
+// hideOmniboxInternal destroys the omnibox without locking.
+func (wv *WorkspaceView) hideOmniboxInternal() {
+	if wv.omnibox == nil {
+		return
+	}
+
+	// Hide the omnibox first (use Background context since this is internal cleanup)
+	wv.omnibox.Hide(context.Background())
+
+	// Remove from pane overlay
+	if pv := wv.paneViews[wv.omniboxPaneID]; pv != nil && wv.omniboxWidget != nil {
+		pv.RemoveOverlayWidget(wv.omniboxWidget)
+	}
+
+	// Clear references
+	wv.omnibox = nil
+	wv.omniboxWidget = nil
+	wv.omniboxPaneID = ""
+
+	wv.logger.Debug().Msg("omnibox hidden and destroyed")
+}
+
+// GetOmnibox returns the current omnibox if visible.
+func (wv *WorkspaceView) GetOmnibox() *Omnibox {
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return wv.omnibox
+}
+
+// IsOmniboxVisible returns whether the omnibox is currently visible.
+func (wv *WorkspaceView) IsOmniboxVisible() bool {
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return wv.omnibox != nil && wv.omnibox.IsVisible()
+}
+
+// GetActivePaneView returns the PaneView for the current active pane.
+func (wv *WorkspaceView) GetActivePaneView() *PaneView {
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return wv.paneViews[wv.activePaneID]
 }

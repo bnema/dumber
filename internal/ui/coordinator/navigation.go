@@ -8,14 +8,20 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/dumber/internal/ui/component"
 )
+
+// OmniboxProvider provides access to omnibox operations.
+type OmniboxProvider interface {
+	ToggleOmnibox(ctx context.Context)
+	UpdateOmniboxZoom(factor float64)
+	SetOmniboxOnNavigate(fn func(url string))
+}
 
 // NavigationCoordinator handles URL navigation, history, and browser controls.
 type NavigationCoordinator struct {
-	navigateUC   *usecase.NavigateUseCase
-	contentCoord *ContentCoordinator
-	omnibox      *component.Omnibox
+	navigateUC      *usecase.NavigateUseCase
+	contentCoord    *ContentCoordinator
+	omniboxProvider OmniboxProvider
 }
 
 // NewNavigationCoordinator creates a new NavigationCoordinator.
@@ -33,9 +39,9 @@ func NewNavigationCoordinator(
 	}
 }
 
-// SetOmnibox sets the omnibox reference for toggle operations.
-func (c *NavigationCoordinator) SetOmnibox(omnibox *component.Omnibox) {
-	c.omnibox = omnibox
+// SetOmniboxProvider sets the omnibox provider for toggle/zoom operations.
+func (c *NavigationCoordinator) SetOmniboxProvider(provider OmniboxProvider) {
+	c.omniboxProvider = provider
 }
 
 // Navigate loads a URL in the active pane using NavigateUseCase.
@@ -164,13 +170,13 @@ func (c *NavigationCoordinator) GoForward(ctx context.Context) error {
 func (c *NavigationCoordinator) OpenOmnibox(ctx context.Context) error {
 	log := logging.FromContext(ctx)
 
-	if c.omnibox == nil {
-		log.Error().Msg("omnibox not initialized")
-		return fmt.Errorf("omnibox not initialized")
+	if c.omniboxProvider == nil {
+		log.Error().Msg("omnibox provider not initialized")
+		return fmt.Errorf("omnibox provider not initialized")
 	}
 
 	log.Debug().Msg("toggling omnibox")
-	c.omnibox.Toggle(ctx)
+	c.omniboxProvider.ToggleOmnibox(ctx)
 	return nil
 }
 
@@ -214,7 +220,7 @@ func (c *NavigationCoordinator) ActiveWebView(ctx context.Context) *webkit.WebVi
 
 // NotifyZoomChanged updates the omnibox zoom indicator.
 func (c *NavigationCoordinator) NotifyZoomChanged(ctx context.Context, factor float64) {
-	if c.omnibox != nil {
-		c.omnibox.UpdateZoomIndicator(factor)
+	if c.omniboxProvider != nil {
+		c.omniboxProvider.UpdateOmniboxZoom(factor)
 	}
 }
