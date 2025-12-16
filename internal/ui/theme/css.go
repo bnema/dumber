@@ -109,17 +109,17 @@ button.tab-button.tab-button-active {
 func generateOmniboxCSS(p Palette) string {
 	return `/* ===== Omnibox Styling ===== */
 
-/* Omnibox window - floating popup */
-window.omnibox-window {
+/* Omnibox outer container - for positioning in overlay */
+.omnibox-outer {
+	/* Positioning is handled via SetHalign/SetValign/SetMarginTop in Go */
+}
+
+/* Omnibox main container - the visible popup */
+.omnibox-container {
 	background-color: var(--surface-variant);
 	border: 0.0625em solid var(--border);
 	border-radius: 0.1875em;
-}
-
-/* Main container */
-.omnibox-container {
 	padding: 0;
-	background-color: transparent;
 }
 
 /* Header with History/Favorites toggle */
@@ -165,9 +165,21 @@ window.omnibox-window {
 	caret-color: var(--accent);
 }
 
-.omnibox-entry:focus {
+entry.omnibox-entry:focus,
+entry.omnibox-entry:focus-within,
+entry.omnibox-entry:focus-visible {
 	border-color: var(--accent);
 	background-color: shade(var(--bg), 1.05);
+	outline-style: none;
+	outline-width: 0;
+	outline-color: transparent;
+}
+
+/* Override any internal focus styling */
+entry.omnibox-entry > *:focus,
+entry.omnibox-entry > *:focus-visible {
+	outline-style: none;
+	outline-color: transparent;
 }
 
 /* Scrolled window for suggestions */
