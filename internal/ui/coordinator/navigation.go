@@ -213,6 +213,15 @@ func (c *NavigationCoordinator) UpdateHistoryTitle(ctx context.Context, paneID e
 	}
 }
 
+// RecordHistory records a URL in history on page commit.
+func (c *NavigationCoordinator) RecordHistory(ctx context.Context, paneID entity.PaneID, url string) {
+	if c.navigateUC == nil {
+		return
+	}
+
+	c.navigateUC.RecordHistory(ctx, url)
+}
+
 // ActiveWebView returns the WebView for the active pane (for zoom operations).
 func (c *NavigationCoordinator) ActiveWebView(ctx context.Context) *webkit.WebView {
 	return c.contentCoord.ActiveWebView(ctx)

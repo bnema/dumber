@@ -38,6 +38,9 @@ type ContentCoordinator struct {
 	// Callback when title changes (for history persistence)
 	onTitleUpdated func(ctx context.Context, paneID entity.PaneID, url, title string)
 
+	// Callback when page is committed (for history recording)
+	onHistoryRecord func(ctx context.Context, paneID entity.PaneID, url string)
+
 	// Gesture action handler for mouse button navigation
 	gestureActionHandler input.ActionHandler
 }
@@ -69,6 +72,11 @@ func NewContentCoordinator(
 // SetOnTitleUpdated sets the callback for title changes (for history persistence).
 func (c *ContentCoordinator) SetOnTitleUpdated(fn func(ctx context.Context, paneID entity.PaneID, url, title string)) {
 	c.onTitleUpdated = fn
+}
+
+// SetOnHistoryRecord sets the callback for recording history on page commit.
+func (c *ContentCoordinator) SetOnHistoryRecord(fn func(ctx context.Context, paneID entity.PaneID, url string)) {
+	c.onHistoryRecord = fn
 }
 
 // SetGestureActionHandler sets the callback for mouse button navigation gestures.
@@ -109,6 +117,16 @@ func (c *ContentCoordinator) EnsureWebView(ctx context.Context, paneID entity.Pa
 	wv.OnLoadChanged = func(event webkit.LoadEvent) {
 		if event == webkit.LoadCommitted {
 			c.onLoadCommitted(ctx, paneID, wv)
+		}
+	}
+
+	// Set up URI change callback for SPA navigation (History API)
+	// This fires when URL changes via JavaScript without a full page load
+	wv.OnURIChanged = func(uri string) {
+		// Only record if not loading (SPA navigation via History API)
+		// Full page loads are handled by OnLoadCommitted
+		if !wv.IsLoading() && uri != "" {
+			c.onSPANavigation(ctx, paneID, uri)
 		}
 	}
 
@@ -423,15 +441,22 @@ func (c *ContentCoordinator) PreloadCachedFavicon(ctx context.Context, paneID en
 	}
 }
 
-// onLoadCommitted re-applies zoom when page content starts loading.
+// onLoadCommitted re-applies zoom when page content starts loading and records history.
 // WebKit may reset zoom during document transitions, so we reapply after LoadCommitted.
+// History is recorded here because the URI is guaranteed to be correct after commit.
 func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
-	if c.zoomUC == nil {
+	url := wv.URI()
+	if url == "" {
 		return
 	}
 
-	url := wv.URI()
-	if url == "" {
+	// Record history - URI is guaranteed to be correct at LoadCommitted
+	if c.onHistoryRecord != nil {
+		c.onHistoryRecord(ctx, paneID, url)
+	}
+
+	// Apply zoom
+	if c.zoomUC == nil {
 		return
 	}
 
@@ -441,4 +466,16 @@ func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.
 	}
 
 	_ = c.zoomUC.ApplyToWebView(ctx, wv, domain)
+}
+
+// onSPANavigation records history when URL changes via JavaScript (History API).
+// This handles SPA navigation like YouTube search, where the URL changes without a page load.
+func (c *ContentCoordinator) onSPANavigation(ctx context.Context, paneID entity.PaneID, url string) {
+	log := logging.FromContext(ctx)
+	log.Debug().Str("pane_id", string(paneID)).Str("url", url).Msg("SPA navigation detected")
+
+	// Record history for SPA navigation
+	if c.onHistoryRecord != nil {
+		c.onHistoryRecord(ctx, paneID, url)
+	}
 }

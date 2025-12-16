@@ -57,12 +57,10 @@ func (uc *NavigateUseCase) Execute(ctx context.Context, input NavigateInput) (*N
 		Msg("navigating to URL")
 
 	// Navigate to URL (zoom will be applied on LoadCommitted to avoid shift)
+	// History is recorded on LoadCommitted when URI is guaranteed correct
 	if err := input.WebView.LoadURI(ctx, input.URL); err != nil {
 		return nil, fmt.Errorf("failed to load URL: %w", err)
 	}
-
-	// Record in history asynchronously
-	go uc.recordHistory(ctx, input.URL)
 
 	log.Info().
 		Str("url", input.URL).
@@ -73,8 +71,9 @@ func (uc *NavigateUseCase) Execute(ctx context.Context, input NavigateInput) (*N
 	}, nil
 }
 
-// recordHistory saves or updates the history entry.
-func (uc *NavigateUseCase) recordHistory(ctx context.Context, url string) {
+// RecordHistory saves or updates the history entry.
+// Should be called on LoadCommitted when URI is guaranteed correct.
+func (uc *NavigateUseCase) RecordHistory(ctx context.Context, url string) {
 	log := logging.FromContext(ctx)
 
 	// Normalize URL to avoid duplicates (e.g., github.com vs github.com/)
@@ -115,11 +114,10 @@ func (uc *NavigateUseCase) UpdateHistoryTitle(ctx context.Context, url, title st
 	}
 
 	if entry == nil {
-		// Entry doesn't exist, create it with title
-		entry = entity.NewHistoryEntry(url, title)
-		if err := uc.historyRepo.Save(ctx, entry); err != nil {
-			return fmt.Errorf("failed to save history: %w", err)
-		}
+		// Entry doesn't exist - don't create it here
+		// Initial navigation should have already created the entry
+		// This can happen if URL changed during page load (SPA, redirect)
+		log.Debug().Str("url", url).Msg("no history entry found for URL, skipping title update")
 		return nil
 	}
 

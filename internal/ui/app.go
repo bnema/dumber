@@ -310,6 +310,11 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.navCoord.UpdateHistoryTitle(ctx, paneID, url, title)
 	})
 
+	// Wire history recording on LoadCommitted (URI is guaranteed correct at this point)
+	a.contentCoord.SetOnHistoryRecord(func(ctx context.Context, paneID entity.PaneID, url string) {
+		a.navCoord.RecordHistory(ctx, paneID, url)
+	})
+
 	// 5. Keyboard Dispatcher
 	a.kbDispatcher = dispatcher.NewKeyboardDispatcher(
 		ctx,

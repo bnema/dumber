@@ -296,6 +296,22 @@ func (wv *WebView) connectSignals() {
 	sigID = gobject.SignalConnect(wv.inner.GoPointer(), "notify::title", glib.NewCallback(&titleCb))
 	wv.signalIDs = append(wv.signalIDs, sigID)
 
+	// notify::uri signal for URI changes
+	// This fires when the URI changes (e.g., redirects, SPA navigation via History API)
+	uriCb := func() {
+		uri := wv.inner.GetUri()
+		wv.mu.Lock()
+		oldUri := wv.uri
+		wv.uri = uri
+		wv.mu.Unlock()
+
+		if wv.OnURIChanged != nil && uri != oldUri {
+			wv.OnURIChanged(uri)
+		}
+	}
+	sigID = gobject.SignalConnect(wv.inner.GoPointer(), "notify::uri", glib.NewCallback(&uriCb))
+	wv.signalIDs = append(wv.signalIDs, sigID)
+
 	// notify::favicon signal for favicon changes
 	// This fires when the page favicon changes (after page load or dynamic updates)
 	faviconCb := func() {
