@@ -99,8 +99,8 @@ func (sm *SettingsManager) applySettings(ctx context.Context, settings *webkit.S
 	settings.SetEnableHtml5LocalStorage(true)
 	settings.SetEnableHtml5Database(true)
 
-	// UI behavior - keyboard-driven browser doesn't need swipe gestures
-	settings.SetEnableBackForwardNavigationGestures(false)
+	// UI behavior - touchpad swipe gestures for back/forward navigation
+	settings.SetEnableBackForwardNavigationGestures(true)
 	settings.SetEnableFullscreen(true)
 
 	// Canvas acceleration
