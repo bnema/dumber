@@ -368,10 +368,12 @@
     margin: 0 1rem;
     display: flex;
     flex-direction: column;
-    background: var(--dynamic-surface);
-    border: 1px solid var(--dynamic-border);
+    background: var(--card);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--dynamic-border) 30%, transparent),
+      0 0 0 1px color-mix(in srgb, var(--border) 30%, transparent),
       0 32px 64px -16px rgb(0 0 0 / 0.7);
     animation: palette-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
   }
@@ -386,8 +388,8 @@
   /* Header */
   .palette-header {
     padding: 0;
-    border-bottom: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 70%, transparent);
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--background) 70%, transparent);
   }
 
   .search-row {
@@ -399,7 +401,7 @@
 
   .search-icon {
     font-size: 1rem;
-    color: var(--dynamic-accent, #4ade80);
+    color: var(--primary, #4ade80);
     flex-shrink: 0;
   }
 
@@ -410,12 +412,12 @@
     outline: none;
     font-size: 0.95rem;
     font-family: inherit;
-    color: var(--dynamic-text);
-    caret-color: var(--dynamic-accent, #4ade80);
+    color: var(--foreground);
+    caret-color: var(--primary, #4ade80);
   }
 
   .search-input::placeholder {
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     opacity: 0.7;
   }
 
@@ -428,16 +430,18 @@
 
   .result-count {
     font-size: 0.7rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     letter-spacing: 0.05em;
   }
 
   .esc-hint {
     padding: 0.2rem 0.4rem;
     font-size: 0.65rem;
-    color: var(--dynamic-muted);
-    background: var(--dynamic-bg);
-    border: 1px solid var(--dynamic-border);
+    color: var(--muted-foreground);
+    background: var(--background);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
   }
 
   /* Results */
@@ -454,7 +458,7 @@
     justify-content: center;
     gap: 0.5rem;
     padding: 2.5rem 1rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .empty-icon {
@@ -475,7 +479,7 @@
     padding: 0.7rem 1rem;
     background: transparent;
     border: none;
-    border-bottom: 1px solid color-mix(in srgb, var(--dynamic-border) 40%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
     cursor: pointer;
     text-align: left;
     transition: background 80ms ease;
@@ -486,24 +490,24 @@
   }
 
   .result-item:hover {
-    background: color-mix(in srgb, var(--dynamic-surface) 80%, var(--dynamic-bg) 20%);
+    background: color-mix(in srgb, var(--card) 80%, var(--background) 20%);
   }
 
   .result-item.selected {
-    background: color-mix(in srgb, var(--dynamic-accent, #4ade80) 12%, transparent);
-    box-shadow: inset 2px 0 0 var(--dynamic-accent, #4ade80);
+    background: color-mix(in srgb, var(--primary, #4ade80) 12%, transparent);
+    box-shadow: inset 2px 0 0 var(--primary, #4ade80);
   }
 
   .item-icon {
     font-size: 1rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     flex-shrink: 0;
     width: 1.5rem;
     text-align: center;
   }
 
   .result-item.selected .item-icon {
-    color: var(--dynamic-accent, #4ade80);
+    color: var(--primary, #4ade80);
   }
 
   .item-content {
@@ -516,7 +520,7 @@
 
   .item-label {
     font-size: 0.85rem;
-    color: var(--dynamic-text);
+    color: var(--foreground);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -524,7 +528,7 @@
 
   .item-description {
     font-size: 0.72rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -533,15 +537,17 @@
   .item-shortcut {
     padding: 0.2rem 0.45rem;
     font-size: 0.65rem;
-    color: var(--dynamic-muted);
-    background: var(--dynamic-bg);
-    border: 1px solid var(--dynamic-border);
+    color: var(--muted-foreground);
+    background: var(--background);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     flex-shrink: 0;
   }
 
   .result-item.selected .item-shortcut {
-    border-color: color-mix(in srgb, var(--dynamic-accent, #4ade80) 40%, var(--dynamic-border) 60%);
-    color: var(--dynamic-text);
+    border-color: color-mix(in srgb, var(--primary, #4ade80) 40%, var(--border) 60%);
+    color: var(--foreground);
   }
 
   /* Footer */
@@ -551,8 +557,8 @@
     justify-content: center;
     gap: 1.5rem;
     padding: 0.65rem 1rem;
-    border-top: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 70%, transparent);
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--background) 70%, transparent);
   }
 
   .hint-group {
@@ -560,14 +566,16 @@
     align-items: center;
     gap: 0.35rem;
     font-size: 0.68rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .hint-group kbd {
     padding: 0.15rem 0.35rem;
     font-size: 0.62rem;
-    background: var(--dynamic-bg);
-    border: 1px solid var(--dynamic-border);
+    background: var(--background);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
   }
 
   /* Scrollbar */
@@ -580,11 +588,11 @@
   }
 
   .palette-results::-webkit-scrollbar-thumb {
-    background: var(--dynamic-border);
+    background: var(--border);
   }
 
   .palette-results::-webkit-scrollbar-thumb:hover {
-    background: var(--dynamic-muted);
+    background: var(--muted-foreground);
   }
 
   @media (max-width: 480px) {

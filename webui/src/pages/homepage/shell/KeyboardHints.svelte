@@ -244,8 +244,10 @@
     margin: 1rem;
     display: flex;
     flex-direction: column;
-    background: var(--dynamic-surface);
-    border: 1px solid var(--dynamic-border);
+    background: var(--card);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     box-shadow: 0 24px 48px -12px rgb(0 0 0 / 0.6);
     animation: panel-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
     overflow: hidden;
@@ -264,13 +266,13 @@
     align-items: center;
     gap: 0.6rem;
     padding: 0.85rem 1rem;
-    border-bottom: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 80%, transparent);
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--background) 80%, transparent);
   }
 
   .hints-icon {
     font-size: 1rem;
-    color: var(--dynamic-accent, #4ade80);
+    color: var(--primary, #4ade80);
   }
 
   .hints-title {
@@ -278,7 +280,7 @@
     font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.1em;
-    color: var(--dynamic-text);
+    color: var(--foreground);
   }
 
   .hints-close {
@@ -288,16 +290,18 @@
     width: 1.75rem;
     height: 1.75rem;
     font-size: 1.25rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     background: transparent;
-    border: 1px solid var(--dynamic-border);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     cursor: pointer;
     transition: all 120ms ease;
   }
 
   .hints-close:hover {
-    color: var(--dynamic-text);
-    border-color: color-mix(in srgb, var(--dynamic-border) 50%, var(--dynamic-text) 50%);
+    color: var(--foreground);
+    border-color: color-mix(in srgb, var(--border) 50%, var(--foreground) 50%);
   }
 
   /* Body */
@@ -318,8 +322,8 @@
 
   .hints-section.panel-specific {
     padding: 0.75rem;
-    background: color-mix(in srgb, var(--dynamic-accent, #4ade80) 8%, transparent);
-    border: 1px solid color-mix(in srgb, var(--dynamic-accent, #4ade80) 25%, var(--dynamic-border) 75%);
+    background: color-mix(in srgb, var(--primary, #4ade80) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary, #4ade80) 25%, var(--border) 75%);
   }
 
   .section-title {
@@ -331,16 +335,16 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: var(--dynamic-text);
+    color: var(--foreground);
   }
 
   .section-icon {
     font-size: 0.85rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .panel-specific .section-icon {
-    color: var(--dynamic-accent, #4ade80);
+    color: var(--primary, #4ade80);
   }
 
   .hints-grid {
@@ -354,8 +358,8 @@
     align-items: center;
     gap: 0.6rem;
     padding: 0.4rem 0.6rem;
-    background: color-mix(in srgb, var(--dynamic-bg) 60%, transparent);
-    border: 1px solid color-mix(in srgb, var(--dynamic-border) 50%, transparent);
+    background: color-mix(in srgb, var(--background) 60%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
   }
 
   .hint-keys {
@@ -369,22 +373,24 @@
     padding: 0.2rem 0.4rem;
     font-size: 0.68rem;
     font-family: inherit;
-    color: var(--dynamic-text);
-    background: var(--dynamic-bg);
-    border: 1px solid var(--dynamic-border);
+    color: var(--foreground);
+    background: var(--background);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     min-width: 1.4rem;
     text-align: center;
   }
 
   .key-sep {
     font-size: 0.6rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     opacity: 0.6;
   }
 
   .hint-desc {
     font-size: 0.72rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -395,21 +401,23 @@
     display: flex;
     justify-content: center;
     padding: 0.65rem 1rem;
-    border-top: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 70%, transparent);
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--background) 70%, transparent);
   }
 
   .footer-hint {
     font-size: 0.68rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     letter-spacing: 0.05em;
   }
 
   .footer-hint kbd {
     padding: 0.15rem 0.35rem;
     font-size: 0.62rem;
-    background: var(--dynamic-bg);
-    border: 1px solid var(--dynamic-border);
+    background: var(--background);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     margin: 0 0.25rem;
   }
 
@@ -423,7 +431,7 @@
   }
 
   .hints-body::-webkit-scrollbar-thumb {
-    background: var(--dynamic-border);
+    background: var(--border);
   }
 
   /* Responsive */

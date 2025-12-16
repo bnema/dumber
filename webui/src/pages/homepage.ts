@@ -1,5 +1,5 @@
 import { mount } from "svelte";
-import "../styles/tailwind.css";
+import "../styles/app.css";
 import Homepage from "./Homepage.svelte";
 
 // Proactively unregister any Service Workers and clear caches that may have been

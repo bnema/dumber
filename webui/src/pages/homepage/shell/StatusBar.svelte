@@ -175,9 +175,9 @@
     font-size: 0.68rem;
     font-family: ui-monospace, 'Fira Code', 'Cascadia Code', Menlo, Monaco, Consolas, monospace;
     letter-spacing: 0.05em;
-    border-top: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 92%, var(--dynamic-surface) 8%);
-    color: var(--dynamic-muted);
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--background) 92%, var(--card) 8%);
+    color: var(--muted-foreground);
   }
 
   /* Sections */
@@ -211,8 +211,10 @@
     align-items: center;
     gap: 0.35rem;
     padding: 0.25rem 0.5rem;
-    background: color-mix(in srgb, var(--dynamic-surface) 60%, transparent);
-    border: 1px solid var(--dynamic-border);
+    background: color-mix(in srgb, var(--card) 60%, transparent);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
   }
 
   .chip-icon {
@@ -227,20 +229,20 @@
 
   /* Mode chip colors */
   .mode-chip[data-color="accent"] {
-    background: color-mix(in srgb, var(--dynamic-accent, #4ade80) 15%, transparent);
-    border-color: color-mix(in srgb, var(--dynamic-accent, #4ade80) 40%, var(--dynamic-border) 60%);
-    color: var(--dynamic-accent, #4ade80);
+    background: color-mix(in srgb, var(--primary, #4ade80) 15%, transparent);
+    border-color: color-mix(in srgb, var(--primary, #4ade80) 40%, var(--border) 60%);
+    color: var(--primary, #4ade80);
   }
 
   .mode-chip[data-color="warning"] {
     background: color-mix(in srgb, #fbbf24 15%, transparent);
-    border-color: color-mix(in srgb, #fbbf24 40%, var(--dynamic-border) 60%);
+    border-color: color-mix(in srgb, #fbbf24 40%, var(--border) 60%);
     color: #fbbf24;
   }
 
   .mode-chip[data-color="info"] {
     background: color-mix(in srgb, #60a5fa 15%, transparent);
-    border-color: color-mix(in srgb, #60a5fa 40%, var(--dynamic-border) 60%);
+    border-color: color-mix(in srgb, #60a5fa 40%, var(--border) 60%);
     color: #60a5fa;
   }
 
@@ -251,7 +253,7 @@
 
   .prefix-chip[data-color="warning"] {
     background: color-mix(in srgb, #fbbf24 15%, transparent);
-    border-color: color-mix(in srgb, #fbbf24 50%, var(--dynamic-border) 50%);
+    border-color: color-mix(in srgb, #fbbf24 50%, var(--border) 50%);
     color: #fbbf24;
   }
 
@@ -260,7 +262,7 @@
     font-weight: 700;
     padding: 0.1rem 0.25rem;
     background: color-mix(in srgb, #fbbf24 25%, transparent);
-    border: 1px solid color-mix(in srgb, #fbbf24 40%, var(--dynamic-border) 60%);
+    border: 1px solid color-mix(in srgb, #fbbf24 40%, var(--border) 60%);
     font-family: ui-monospace, 'Fira Code', 'Cascadia Code', Menlo, Monaco, Consolas, monospace;
   }
 
@@ -271,7 +273,7 @@
   }
 
   @keyframes pulse-border {
-    0%, 100% { border-color: color-mix(in srgb, #fbbf24 50%, var(--dynamic-border) 50%); }
+    0%, 100% { border-color: color-mix(in srgb, #fbbf24 50%, var(--border) 50%); }
     50% { border-color: #fbbf24; }
   }
 
@@ -281,23 +283,23 @@
   }
 
   .panel-chip {
-    color: var(--dynamic-text);
+    color: var(--foreground);
   }
 
   .panel-chip .chip-icon {
-    color: var(--dynamic-accent, #4ade80);
+    color: var(--primary, #4ade80);
   }
 
   /* Loading */
   .loading-chip {
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .loading-spinner {
     width: 0.7rem;
     height: 0.7rem;
-    border: 1.5px solid var(--dynamic-border);
-    border-top-color: var(--dynamic-accent, #4ade80);
+    border: 1.5px solid var(--border);
+    border-top-color: var(--primary, #4ade80);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
@@ -315,16 +317,16 @@
 
   .stats-count {
     font-weight: 600;
-    color: var(--dynamic-text);
+    color: var(--foreground);
     font-variant-numeric: tabular-nums;
   }
 
   .stats-count.filtered {
-    color: var(--dynamic-accent, #4ade80);
+    color: var(--primary, #4ade80);
   }
 
   .stats-label {
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .position-group {
@@ -332,22 +334,24 @@
     align-items: center;
     gap: 0.15rem;
     padding: 0.2rem 0.45rem;
-    background: var(--dynamic-bg);
-    border: 1px solid var(--dynamic-border);
+    background: var(--background);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     font-variant-numeric: tabular-nums;
   }
 
   .position-current {
     font-weight: 600;
-    color: var(--dynamic-text);
+    color: var(--foreground);
   }
 
   .position-sep {
-    color: var(--dynamic-border);
+    color: var(--border);
   }
 
   .position-total {
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   /* Hints */
@@ -355,15 +359,17 @@
     display: flex;
     align-items: center;
     gap: 0.25rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
   }
 
   .hint-item kbd {
     padding: 0.1rem 0.3rem;
     font-size: 0.6rem;
-    background: var(--dynamic-bg);
-    border: 1px solid var(--dynamic-border);
-    color: var(--dynamic-text);
+    background: var(--background);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+    color: var(--foreground);
   }
 
   .hint-item span {
@@ -389,7 +395,7 @@
       width: 100%;
       justify-content: center;
       padding-bottom: 0.35rem;
-      border-bottom: 1px solid color-mix(in srgb, var(--dynamic-border) 50%, transparent);
+      border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
     }
 
     .hint-item span {

@@ -94,8 +94,8 @@
   <meta name="description" content="Dumber Browser - Homepage" />
   {@html `<style>
     html, body { margin: 0; padding: 0; }
-    html { background: var(--dynamic-bg, #0a0a0a); }
-    body { background: var(--dynamic-bg, #0a0a0a); color: var(--dynamic-text, #e5e5e5); }
+    html { background: var(--background, #0a0a0a); }
+    body { background: var(--background, #0a0a0a); color: var(--foreground, #e5e5e5); }
     /* Disable GTK/WebKit default focus rings - we handle focus styling ourselves */
     *:focus { outline: none !important; }
     *:focus-visible { outline: none !important; }
@@ -270,8 +270,8 @@
     flex-direction: column;
     font-family: ui-monospace, 'Fira Code', 'Cascadia Code', Menlo, Monaco, Consolas, monospace;
     line-height: 1.5;
-    color: var(--dynamic-text);
-    background: var(--dynamic-bg);
+    color: var(--foreground);
+    background: var(--background);
     overflow: hidden;
   }
 
@@ -281,7 +281,7 @@
     grid-template-rows: auto 1fr auto;
     width: 100%;
     height: 100%;
-    background: color-mix(in srgb, var(--dynamic-surface) 60%, var(--dynamic-bg) 40%);
+    background: color-mix(in srgb, var(--card) 60%, var(--background) 40%);
   }
 
   /* Dark mode: subtle shadow */
@@ -296,8 +296,8 @@
     justify-content: space-between;
     gap: 1rem;
     padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 90%, var(--dynamic-surface) 10%);
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--background) 90%, var(--card) 10%);
     position: sticky;
     top: 0;
     z-index: 5;
@@ -312,7 +312,7 @@
   .terminal-path {
     font-size: 0.8rem;
     font-weight: 600;
-    color: var(--dynamic-accent, #4ade80);
+    color: var(--primary, #4ade80);
     letter-spacing: 0.05em;
   }
 
@@ -329,7 +329,7 @@
     font-size: 0.7rem;
     font-weight: 500;
     letter-spacing: 0.1em;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     background: transparent;
     border: 1px solid transparent;
     cursor: pointer;
@@ -337,20 +337,20 @@
   }
 
   .tab-button:hover {
-    color: var(--dynamic-text);
-    background: color-mix(in srgb, var(--dynamic-surface) 50%, transparent);
+    color: var(--foreground);
+    background: color-mix(in srgb, var(--card) 50%, transparent);
   }
 
   .tab-button:focus-visible {
-    color: var(--dynamic-text);
-    border-color: var(--dynamic-accent, #4ade80);
-    background: color-mix(in srgb, var(--dynamic-accent, #4ade80) 15%, transparent);
+    color: var(--foreground);
+    border-color: var(--primary, #4ade80);
+    background: color-mix(in srgb, var(--primary, #4ade80) 15%, transparent);
   }
 
   .tab-button.active {
-    color: var(--dynamic-text);
-    background: var(--dynamic-surface);
-    border-color: var(--dynamic-border);
+    color: var(--foreground);
+    background: var(--card);
+    border-color: var(--border);
   }
 
   .header-right {
@@ -367,27 +367,31 @@
     font-size: 0.7rem;
     font-weight: 500;
     letter-spacing: 0.08em;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     background: transparent;
-    border: 1px solid var(--dynamic-border);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     cursor: pointer;
     transition: all 120ms ease;
   }
 
   .action-button:hover,
   .action-button:focus-visible {
-    color: var(--dynamic-text);
-    border-color: color-mix(in srgb, var(--dynamic-border) 50%, var(--dynamic-text) 50%);
-    background: color-mix(in srgb, var(--dynamic-surface) 30%, transparent);
+    color: var(--foreground);
+    border-color: color-mix(in srgb, var(--border) 50%, var(--foreground) 50%);
+    background: color-mix(in srgb, var(--card) 30%, transparent);
     outline: none;
   }
 
   .kbd-hint {
     padding: 0.15rem 0.35rem;
     font-size: 0.65rem;
-    color: var(--dynamic-muted);
-    background: var(--dynamic-bg);
-    border: 1px solid var(--dynamic-border);
+    color: var(--muted-foreground);
+    background: var(--background);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     margin-left: 0.25rem;
   }
 
@@ -397,17 +401,19 @@
     justify-content: center;
     width: 2.25rem;
     height: 2.25rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     background: transparent;
-    border: 1px solid var(--dynamic-border);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     cursor: pointer;
     transition: all 120ms ease;
   }
 
   .theme-toggle:hover,
   .theme-toggle:focus-visible {
-    color: var(--dynamic-text);
-    border-color: color-mix(in srgb, var(--dynamic-border) 50%, var(--dynamic-text) 50%);
+    color: var(--foreground);
+    border-color: color-mix(in srgb, var(--border) 50%, var(--foreground) 50%);
     outline: none;
   }
 
@@ -421,7 +427,7 @@
     flex-direction: column;
     min-height: 0;
     overflow: hidden;
-    background: var(--dynamic-bg);
+    background: var(--background);
   }
 
   .terminal-body.scrollable {
@@ -436,12 +442,12 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     font-size: 1.25rem;
   }
 
   .shell-prompt {
-    color: var(--dynamic-accent, #4ade80);
+    color: var(--primary, #4ade80);
   }
 
   .shell-cursor {
@@ -473,8 +479,10 @@
     width: 100%;
     max-width: 420px;
     margin: 1rem;
-    background: var(--dynamic-surface);
-    border: 1px solid var(--dynamic-border);
+    background: var(--card);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     box-shadow: 0 24px 48px -12px rgb(0 0 0 / 0.6);
     animation: modal-in 200ms ease;
   }
@@ -491,8 +499,10 @@
     align-items: center;
     gap: 0.6rem;
     padding: 0.85rem 1rem;
-    border-bottom: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 80%, transparent);
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    border-bottom-color: var(--border);
+    background: color-mix(in srgb, var(--background) 80%, transparent);
   }
 
   .modal-icon {
@@ -504,14 +514,14 @@
     font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.1em;
-    color: var(--dynamic-text);
+    color: var(--foreground);
   }
 
   .modal-message {
     margin: 0;
     padding: 1.25rem 1rem;
     font-size: 0.85rem;
-    color: var(--dynamic-text);
+    color: var(--foreground);
     line-height: 1.6;
   }
 
@@ -519,8 +529,10 @@
     display: flex;
     gap: 0.5rem;
     padding: 0.85rem 1rem;
-    border-top: 1px solid var(--dynamic-border);
-    background: color-mix(in srgb, var(--dynamic-bg) 50%, transparent);
+    border-top-width: 1px;
+    border-top-style: solid;
+    border-top-color: var(--border);
+    background: color-mix(in srgb, var(--background) 50%, transparent);
   }
 
   .modal-btn {
@@ -533,7 +545,9 @@
     font-size: 0.72rem;
     font-weight: 500;
     letter-spacing: 0.08em;
-    border: 1px solid var(--dynamic-border);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     cursor: pointer;
     transition: all 120ms ease;
   }
@@ -541,19 +555,21 @@
   .modal-btn kbd {
     padding: 0.1rem 0.3rem;
     font-size: 0.6rem;
-    background: var(--dynamic-bg);
-    border: 1px solid var(--dynamic-border);
+    background: var(--background);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
     opacity: 0.7;
   }
 
   .modal-btn-cancel {
-    color: var(--dynamic-muted);
+    color: var(--muted-foreground);
     background: transparent;
   }
 
   .modal-btn-cancel:hover {
-    color: var(--dynamic-text);
-    background: color-mix(in srgb, var(--dynamic-surface) 40%, transparent);
+    color: var(--foreground);
+    background: color-mix(in srgb, var(--card) 40%, transparent);
   }
 
   .modal-btn-confirm {
