@@ -94,6 +94,10 @@ func (sm *SettingsManager) applySettings(ctx context.Context, settings *webkit.S
 	settings.SetEnableMediaStream(true)
 	settings.SetEnableEncryptedMedia(true)
 	settings.SetMediaPlaybackRequiresUserGesture(true)
+	settings.SetMediaPlaybackAllowsInline(true)
+	// Force hardware decoding for video content via GStreamer VA-API/NVDEC
+	hwMediaTypes := "video/mp4;video/webm;video/x-h264;video/av01"
+	settings.SetMediaContentTypesRequiringHardwareSupport(&hwMediaTypes)
 
 	// HTML5 storage
 	settings.SetEnableHtml5LocalStorage(true)
