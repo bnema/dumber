@@ -172,6 +172,16 @@ func (s *ShortcutSet) buildGlobalShortcuts(ctx context.Context, cfg *config.Work
 	s.Global[KeyBinding{uint(gdk.KEY_0), ModCtrl}] = ActionZoomReset
 	s.Global[KeyBinding{uint(gdk.KEY_q), ModCtrl}] = ActionQuit
 	s.Global[KeyBinding{uint(gdk.KEY_F11), ModNone}] = ActionToggleFullscreen
+
+	// Pane navigation (Alt+HJKL like vim)
+	s.Global[KeyBinding{uint(gdk.KEY_h), ModAlt}] = ActionFocusLeft
+	s.Global[KeyBinding{uint(gdk.KEY_l), ModAlt}] = ActionFocusRight
+	s.Global[KeyBinding{uint(gdk.KEY_k), ModAlt}] = ActionFocusUp
+	s.Global[KeyBinding{uint(gdk.KEY_j), ModAlt}] = ActionFocusDown
+
+	// Also support Alt+Arrow keys for pane navigation (except Left/Right used for back/forward)
+	s.Global[KeyBinding{uint(gdk.KEY_Up), ModAlt}] = ActionFocusUp
+	s.Global[KeyBinding{uint(gdk.KEY_Down), ModAlt}] = ActionFocusDown
 }
 
 // buildTabModeShortcuts populates tab mode shortcuts from config.

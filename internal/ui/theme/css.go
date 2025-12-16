@@ -227,14 +227,18 @@ func generatePaneCSS(p Palette) string {
 	border: 1px solid var(--accent);
 }
 
-/* Pane mode active - thick blue border */
+/* Pane mode active - thick blue inset border (for overlay) */
 .pane-mode-active {
-	border: 4px solid #4A90E2;
+	background-color: transparent;
+	box-shadow: inset 0 0 0 4px #4A90E2;
+	border-radius: 0;
 }
 
-/* Tab mode active - thick orange border */
+/* Tab mode active - thick orange inset border (for overlay) */
 .tab-mode-active {
-	border: 4px solid #FFA500;
+	background-color: transparent;
+	box-shadow: inset 0 0 0 4px #FFA500;
+	border-radius: 0;
 }
 `
 }

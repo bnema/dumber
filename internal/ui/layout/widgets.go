@@ -42,6 +42,14 @@ type Widget interface {
 	SetValign(align gtk.Align)
 	SetSizeRequest(width, height int)
 
+	// Geometry - for focus navigation
+	GetAllocatedWidth() int
+	GetAllocatedHeight() int
+	// ComputePoint returns the position of this widget's origin (0,0) relative to
+	// the target widget's coordinate space. If target is nil, returns position
+	// relative to the native window. Returns ok=false if computation fails.
+	ComputePoint(target Widget) (x, y float64, ok bool)
+
 	// CSS styling
 	AddCssClass(cssClass string)
 	RemoveCssClass(cssClass string)
@@ -88,10 +96,6 @@ type PanedWidget interface {
 	// Tick callback for frame-based updates (returns signal ID)
 	// Callback returns true to continue, false to stop
 	AddTickCallback(callback func() bool) uint
-
-	// Size information (for ratio calculation)
-	GetAllocatedWidth() int
-	GetAllocatedHeight() int
 
 	// Handle appearance
 	SetWideHandle(wide bool)

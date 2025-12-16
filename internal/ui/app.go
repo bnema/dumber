@@ -15,6 +15,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
+	"github.com/bnema/dumber/internal/ui/focus"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/dumber/internal/ui/window"
@@ -43,6 +44,10 @@ type App struct {
 
 	// Input handling
 	keyboardHandler *input.KeyboardHandler
+
+	// Focus and border management
+	focusMgr  *focus.Manager
+	borderMgr *focus.BorderManager
 
 	// Native omnibox
 	omnibox *component.Omnibox
@@ -155,6 +160,12 @@ func (a *App) onActivate(ctx context.Context) {
 
 	// Initialize stacked pane manager for incremental widget operations
 	a.stackedPaneMgr = component.NewStackedPaneManager(a.widgetFactory)
+
+	// Initialize focus manager for geometric navigation
+	a.focusMgr = focus.NewManager(a.panesUC)
+
+	// Initialize border manager for mode indicators
+	a.borderMgr = focus.NewBorderManager(a.widgetFactory)
 
 	// Create keyboard handler
 	a.keyboardHandler = input.NewKeyboardHandler(
@@ -365,6 +376,11 @@ func (a *App) handleKeyboardAction(ctx context.Context, action input.Action) err
 func (a *App) handleModeChange(ctx context.Context, from, to input.Mode) {
 	log := logging.FromContext(ctx)
 	log.Debug().Str("from", from.String()).Str("to", to.String()).Msg("input mode changed")
+
+	// Update border overlay visibility based on mode
+	if a.borderMgr != nil {
+		a.borderMgr.OnModeChange(ctx, from, to)
+	}
 }
 
 // handleNewTab creates a new tab.
@@ -510,6 +526,11 @@ func (a *App) createWorkspaceView(ctx context.Context, tab *entity.Tab) {
 	// Ensure WebViews are attached to panes
 	a.attachWorkspaceWebViews(ctx, tab.Workspace, wsView)
 
+	// Attach border manager overlay for mode indicators
+	if a.borderMgr != nil {
+		wsView.SetModeBorderOverlay(a.borderMgr.Widget())
+	}
+
 	// Store in map
 	a.workspaceViews[tab.ID] = wsView
 
@@ -646,18 +667,32 @@ func (a *App) handleClosePane(ctx context.Context) error {
 func (a *App) handlePaneFocus(ctx context.Context, direction usecase.NavigateDirection) error {
 	log := logging.FromContext(ctx)
 
-	if a.panesUC == nil {
-		log.Warn().Msg("panes use case not available")
-		return nil
-	}
-
 	ws := a.activeWorkspace()
 	if ws == nil {
 		log.Warn().Msg("no active workspace")
 		return nil
 	}
 
-	newPane, err := a.panesUC.NavigateFocus(ctx, ws, direction)
+	wsView := a.activeWorkspaceView()
+	if wsView == nil {
+		log.Warn().Msg("no active workspace view")
+		return nil
+	}
+
+	// Use geometric navigation if focus manager is available
+	var newPane *entity.PaneNode
+	var err error
+
+	if a.focusMgr != nil {
+		newPane, err = a.focusMgr.NavigateGeometric(ctx, ws, wsView, direction)
+	} else if a.panesUC != nil {
+		// Fallback to structural navigation
+		newPane, err = a.panesUC.NavigateFocus(ctx, ws, direction)
+	} else {
+		log.Warn().Msg("no navigation manager available")
+		return nil
+	}
+
 	if err != nil {
 		log.Error().Err(err).Str("direction", string(direction)).Msg("failed to navigate focus")
 		return err
@@ -669,13 +704,10 @@ func (a *App) handlePaneFocus(ctx context.Context, direction usecase.NavigateDir
 	}
 
 	// Update the workspace view's active pane
-	wsView := a.activeWorkspaceView()
-	if wsView != nil {
-		if err := wsView.SetActivePaneID(newPane.Pane.ID); err != nil {
-			log.Warn().Err(err).Msg("failed to update active pane in view")
-		} else {
-			wsView.FocusPane(newPane.Pane.ID)
-		}
+	if err := wsView.SetActivePaneID(newPane.Pane.ID); err != nil {
+		log.Warn().Err(err).Msg("failed to update active pane in view")
+	} else {
+		wsView.FocusPane(newPane.Pane.ID)
 	}
 
 	log.Debug().Str("direction", string(direction)).Str("new_pane_id", newPane.ID).Msg("focus navigated")

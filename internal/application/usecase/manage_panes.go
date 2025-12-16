@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
@@ -301,6 +302,123 @@ func (uc *ManagePanesUseCase) NavigateFocus(ctx context.Context, ws *entity.Work
 		Msg("focus navigated")
 
 	return targetNode, nil
+}
+
+// GeometricNavigationInput contains data for geometric focus navigation.
+type GeometricNavigationInput struct {
+	ActivePaneID entity.PaneID
+	PaneRects    []entity.PaneRect // All visible panes with their positions
+	Direction    NavigateDirection
+}
+
+// GeometricNavigationOutput contains the result.
+type GeometricNavigationOutput struct {
+	TargetPaneID entity.PaneID
+	Found        bool
+}
+
+// NavigateFocusGeometric finds the nearest pane in the given direction using geometry.
+// Algorithm:
+//  1. Get center of active pane
+//  2. Filter candidates that are in the direction (dx < 0 for Left, etc.)
+//  3. Score by: primary_distance * 1000 + perpendicular_distance
+//  4. Return lowest scoring candidate
+func (uc *ManagePanesUseCase) NavigateFocusGeometric(
+	ctx context.Context,
+	input GeometricNavigationInput,
+) (*GeometricNavigationOutput, error) {
+	log := logging.FromContext(ctx)
+	log.Debug().
+		Str("direction", string(input.Direction)).
+		Str("active", string(input.ActivePaneID)).
+		Int("candidates", len(input.PaneRects)).
+		Msg("geometric navigation")
+
+	// Find active pane rect
+	var activeRect *entity.PaneRect
+	for i := range input.PaneRects {
+		if input.PaneRects[i].PaneID == input.ActivePaneID {
+			activeRect = &input.PaneRects[i]
+			break
+		}
+	}
+	if activeRect == nil {
+		log.Debug().Msg("active pane rect not found")
+		return &GeometricNavigationOutput{Found: false}, nil
+	}
+
+	acx, acy := activeRect.Center()
+
+	type candidate struct {
+		paneID entity.PaneID
+		score  int
+	}
+	var candidates []candidate
+
+	for _, rect := range input.PaneRects {
+		if rect.PaneID == input.ActivePaneID {
+			continue
+		}
+
+		cx, cy := rect.Center()
+		dx := cx - acx
+		dy := cy - acy
+
+		var inDirection bool
+		var primaryDist, perpDist int
+
+		switch input.Direction {
+		case NavLeft:
+			inDirection = dx < 0
+			primaryDist = abs(dx)
+			perpDist = abs(dy)
+		case NavRight:
+			inDirection = dx > 0
+			primaryDist = abs(dx)
+			perpDist = abs(dy)
+		case NavUp:
+			inDirection = dy < 0
+			primaryDist = abs(dy)
+			perpDist = abs(dx)
+		case NavDown:
+			inDirection = dy > 0
+			primaryDist = abs(dy)
+			perpDist = abs(dx)
+		}
+
+		if inDirection {
+			score := primaryDist*1000 + perpDist
+			candidates = append(candidates, candidate{rect.PaneID, score})
+		}
+	}
+
+	if len(candidates) == 0 {
+		log.Debug().Msg("no candidates in direction")
+		return &GeometricNavigationOutput{Found: false}, nil
+	}
+
+	// Sort by score (lowest first)
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].score < candidates[j].score
+	})
+
+	log.Debug().
+		Str("target", string(candidates[0].paneID)).
+		Int("score", candidates[0].score).
+		Msg("geometric navigation found target")
+
+	return &GeometricNavigationOutput{
+		TargetPaneID: candidates[0].paneID,
+		Found:        true,
+	}, nil
+}
+
+// abs returns the absolute value of an integer.
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 // findAdjacentPane finds the adjacent pane in the given direction using tree structure.

@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"github.com/jwijenbergh/puregotk/v4/graphene"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 	"github.com/jwijenbergh/puregotk/v4/pango"
 )
@@ -50,6 +51,25 @@ func (w *gtkWidget) GetParent() Widget {
 		return nil
 	}
 	return &gtkWidget{inner: parent}
+}
+
+func (w *gtkWidget) GetAllocatedWidth() int  { return w.inner.GetAllocatedWidth() }
+func (w *gtkWidget) GetAllocatedHeight() int { return w.inner.GetAllocatedHeight() }
+
+func (w *gtkWidget) ComputePoint(target Widget) (x, y float64, ok bool) {
+	srcPoint := &graphene.Point{X: 0, Y: 0}
+	outPoint := &graphene.Point{}
+
+	var targetGtk *gtk.Widget
+	if target != nil {
+		targetGtk = target.GtkWidget()
+	}
+
+	ok = w.inner.ComputePoint(targetGtk, srcPoint, outPoint)
+	if !ok {
+		return 0, 0, false
+	}
+	return float64(outPoint.X), float64(outPoint.Y), true
 }
 
 // gtkPaned wraps gtk.Paned to implement PanedWidget.
@@ -149,6 +169,22 @@ func (p *gtkPaned) AddTickCallback(callback func() bool) uint {
 func (p *gtkPaned) GetAllocatedWidth() int  { return p.inner.GetAllocatedWidth() }
 func (p *gtkPaned) GetAllocatedHeight() int { return p.inner.GetAllocatedHeight() }
 
+func (p *gtkPaned) ComputePoint(target Widget) (x, y float64, ok bool) {
+	srcPoint := &graphene.Point{X: 0, Y: 0}
+	outPoint := &graphene.Point{}
+
+	var targetGtk *gtk.Widget
+	if target != nil {
+		targetGtk = target.GtkWidget()
+	}
+
+	ok = p.inner.ComputePoint(targetGtk, srcPoint, outPoint)
+	if !ok {
+		return 0, 0, false
+	}
+	return float64(outPoint.X), float64(outPoint.Y), true
+}
+
 // gtkBox wraps gtk.Box to implement BoxWidget.
 type gtkBox struct {
 	inner *gtk.Box
@@ -233,6 +269,25 @@ func (b *gtkBox) SetSpacing(s int)             { b.inner.SetSpacing(s) }
 func (b *gtkBox) GetSpacing() int              { return b.inner.GetSpacing() }
 func (b *gtkBox) SetOrientation(o Orientation) { b.inner.SetOrientation(o) }
 func (b *gtkBox) GetOrientation() Orientation  { return b.inner.GetOrientation() }
+
+func (b *gtkBox) GetAllocatedWidth() int  { return b.inner.GetAllocatedWidth() }
+func (b *gtkBox) GetAllocatedHeight() int { return b.inner.GetAllocatedHeight() }
+
+func (b *gtkBox) ComputePoint(target Widget) (x, y float64, ok bool) {
+	srcPoint := &graphene.Point{X: 0, Y: 0}
+	outPoint := &graphene.Point{}
+
+	var targetGtk *gtk.Widget
+	if target != nil {
+		targetGtk = target.GtkWidget()
+	}
+
+	ok = b.inner.ComputePoint(targetGtk, srcPoint, outPoint)
+	if !ok {
+		return 0, 0, false
+	}
+	return float64(outPoint.X), float64(outPoint.Y), true
+}
 
 // gtkOverlay wraps gtk.Overlay to implement OverlayWidget.
 type gtkOverlay struct {
@@ -327,6 +382,25 @@ func (o *gtkOverlay) GetMeasureOverlay(overlay Widget) bool {
 	return o.inner.GetMeasureOverlay(overlay.GtkWidget())
 }
 
+func (o *gtkOverlay) GetAllocatedWidth() int  { return o.inner.GetAllocatedWidth() }
+func (o *gtkOverlay) GetAllocatedHeight() int { return o.inner.GetAllocatedHeight() }
+
+func (o *gtkOverlay) ComputePoint(target Widget) (x, y float64, ok bool) {
+	srcPoint := &graphene.Point{X: 0, Y: 0}
+	outPoint := &graphene.Point{}
+
+	var targetGtk *gtk.Widget
+	if target != nil {
+		targetGtk = target.GtkWidget()
+	}
+
+	ok = o.inner.ComputePoint(targetGtk, srcPoint, outPoint)
+	if !ok {
+		return 0, 0, false
+	}
+	return float64(outPoint.X), float64(outPoint.Y), true
+}
+
 // gtkLabel wraps gtk.Label to implement LabelWidget.
 type gtkLabel struct {
 	inner *gtk.Label
@@ -368,6 +442,25 @@ func (l *gtkLabel) SetMarkup(markup string)         { l.inner.SetMarkup(markup) 
 func (l *gtkLabel) SetEllipsize(mode EllipsizeMode) { l.inner.SetEllipsize(pango.EllipsizeMode(mode)) }
 func (l *gtkLabel) SetMaxWidthChars(n int)          { l.inner.SetMaxWidthChars(n) }
 func (l *gtkLabel) SetXalign(x float32)             { l.inner.SetXalign(x) }
+
+func (l *gtkLabel) GetAllocatedWidth() int  { return l.inner.GetAllocatedWidth() }
+func (l *gtkLabel) GetAllocatedHeight() int { return l.inner.GetAllocatedHeight() }
+
+func (l *gtkLabel) ComputePoint(target Widget) (x, y float64, ok bool) {
+	srcPoint := &graphene.Point{X: 0, Y: 0}
+	outPoint := &graphene.Point{}
+
+	var targetGtk *gtk.Widget
+	if target != nil {
+		targetGtk = target.GtkWidget()
+	}
+
+	ok = l.inner.ComputePoint(targetGtk, srcPoint, outPoint)
+	if !ok {
+		return 0, 0, false
+	}
+	return float64(outPoint.X), float64(outPoint.Y), true
+}
 
 // gtkButton wraps gtk.Button to implement ButtonWidget.
 type gtkButton struct {
@@ -430,6 +523,25 @@ func (btn *gtkButton) ConnectClicked(callback func()) uint32 {
 	return btn.inner.ConnectClicked(&cb)
 }
 
+func (btn *gtkButton) GetAllocatedWidth() int  { return btn.inner.GetAllocatedWidth() }
+func (btn *gtkButton) GetAllocatedHeight() int { return btn.inner.GetAllocatedHeight() }
+
+func (btn *gtkButton) ComputePoint(target Widget) (x, y float64, ok bool) {
+	srcPoint := &graphene.Point{X: 0, Y: 0}
+	outPoint := &graphene.Point{}
+
+	var targetGtk *gtk.Widget
+	if target != nil {
+		targetGtk = target.GtkWidget()
+	}
+
+	ok = btn.inner.ComputePoint(targetGtk, srcPoint, outPoint)
+	if !ok {
+		return 0, 0, false
+	}
+	return float64(outPoint.X), float64(outPoint.Y), true
+}
+
 // gtkImage wraps gtk.Image to implement ImageWidget.
 type gtkImage struct {
 	inner *gtk.Image
@@ -469,6 +581,25 @@ func (img *gtkImage) SetFromIconName(name string) { img.inner.SetFromIconName(&n
 func (img *gtkImage) SetFromFile(filename string) { img.inner.SetFromFile(&filename) }
 func (img *gtkImage) SetPixelSize(size int)       { img.inner.SetPixelSize(size) }
 func (img *gtkImage) Clear()                      { img.inner.Clear() }
+
+func (img *gtkImage) GetAllocatedWidth() int  { return img.inner.GetAllocatedWidth() }
+func (img *gtkImage) GetAllocatedHeight() int { return img.inner.GetAllocatedHeight() }
+
+func (img *gtkImage) ComputePoint(target Widget) (x, y float64, ok bool) {
+	srcPoint := &graphene.Point{X: 0, Y: 0}
+	outPoint := &graphene.Point{}
+
+	var targetGtk *gtk.Widget
+	if target != nil {
+		targetGtk = target.GtkWidget()
+	}
+
+	ok = img.inner.ComputePoint(targetGtk, srcPoint, outPoint)
+	if !ok {
+		return 0, 0, false
+	}
+	return float64(outPoint.X), float64(outPoint.Y), true
+}
 
 // GtkWidgetFactory creates real GTK widgets.
 type GtkWidgetFactory struct{}

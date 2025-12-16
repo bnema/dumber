@@ -24,8 +24,12 @@ type WorkspaceView struct {
 	factory      layout.WidgetFactory
 	treeRenderer *layout.TreeRenderer
 	container    layout.BoxWidget
-	rootWidget   layout.Widget // Current root widget for removal on rebuild
+	overlay      layout.OverlayWidget // Wraps container for mode borders
+	rootWidget   layout.Widget        // Current root widget for removal on rebuild
 	logger       zerolog.Logger
+
+	// Mode border overlay slot
+	modeBorderWidget layout.Widget
 
 	workspace    *entity.Workspace
 	paneViews    map[entity.PaneID]*PaneView
@@ -78,9 +82,17 @@ func NewWorkspaceView(ctx context.Context, factory layout.WidgetFactory) *Worksp
 	container.SetVexpand(true)
 	container.SetVisible(true)
 
+	// Wrap container in overlay for mode borders
+	overlay := factory.NewOverlay()
+	overlay.SetHexpand(true)
+	overlay.SetVexpand(true)
+	overlay.SetChild(container)
+	overlay.SetVisible(true)
+
 	wv := &WorkspaceView{
 		factory:   factory,
 		container: container,
+		overlay:   overlay,
 		logger:    log.With().Str("component", "workspace-view").Logger(),
 		paneViews: make(map[entity.PaneID]*PaneView),
 	}
@@ -248,9 +260,10 @@ func (wv *WorkspaceView) SetWebViewWidget(paneID entity.PaneID, widget layout.Wi
 	return nil
 }
 
-// Widget returns the underlying container widget for embedding in the UI.
+// Widget returns the overlay widget for embedding in the UI.
+// The overlay wraps the pane container and allows mode borders to be displayed.
 func (wv *WorkspaceView) Widget() layout.Widget {
-	return wv.container
+	return wv.overlay
 }
 
 // Container returns the underlying BoxWidget for direct access.
@@ -321,4 +334,61 @@ func (wv *WorkspaceView) SetRootWidgetDirect(widget layout.Widget) {
 // Factory returns the widget factory used by this workspace view.
 func (wv *WorkspaceView) Factory() layout.WidgetFactory {
 	return wv.factory
+}
+
+// SetModeBorderOverlay attaches a mode border overlay widget.
+// The widget will be displayed on top of the pane container when modes are active.
+func (wv *WorkspaceView) SetModeBorderOverlay(widget layout.Widget) {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+
+	// Remove old overlay if present
+	if wv.modeBorderWidget != nil && wv.overlay != nil {
+		wv.overlay.RemoveOverlay(wv.modeBorderWidget)
+	}
+
+	wv.modeBorderWidget = widget
+
+	// Add new overlay
+	if widget != nil && wv.overlay != nil {
+		wv.overlay.AddOverlay(widget)
+		// Don't clip or measure the overlay - it should fill the entire area
+		wv.overlay.SetClipOverlay(widget, false)
+		wv.overlay.SetMeasureOverlay(widget, false)
+	}
+}
+
+// GetPaneWidget returns the widget for a pane ID.
+// Implements focus.PaneGeometryProvider.
+func (wv *WorkspaceView) GetPaneWidget(paneID entity.PaneID) layout.Widget {
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+
+	pv, ok := wv.paneViews[paneID]
+	if !ok || pv == nil {
+		return nil
+	}
+	return pv.Widget()
+}
+
+// GetStackContainerWidget returns the stack container widget for a stacked pane.
+// Returns nil if the pane is not in a stack.
+// Implements focus.PaneGeometryProvider.
+func (wv *WorkspaceView) GetStackContainerWidget(paneID entity.PaneID) layout.Widget {
+	if wv.treeRenderer == nil {
+		return nil
+	}
+
+	stackedView := wv.treeRenderer.GetStackedViewForPane(string(paneID))
+	if stackedView == nil {
+		return nil
+	}
+
+	return stackedView.Widget()
+}
+
+// ContainerWidget returns the container widget for relative positioning.
+// Implements focus.PaneGeometryProvider.
+func (wv *WorkspaceView) ContainerWidget() layout.Widget {
+	return wv.container
 }

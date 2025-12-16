@@ -10,7 +10,7 @@ import (
 
 const (
 	// CSS class applied to active pane's border overlay
-	activePaneClass = "active-pane"
+	activePaneClass = "pane-active"
 )
 
 // PaneView is a container for a single WebView with active state indication.
