@@ -269,6 +269,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.widgetFactory,
 		a.faviconCache,
 		getActiveWS,
+		a.deps.ZoomUC,
 	)
 
 	// 2. Tab Coordinator

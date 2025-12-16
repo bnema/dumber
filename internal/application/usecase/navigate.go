@@ -47,7 +47,8 @@ type NavigateOutput struct {
 	AppliedZoom float64
 }
 
-// Execute navigates to a URL, applies zoom, and records history.
+// Execute navigates to a URL and records history.
+// Zoom is applied later via LoadCommitted event in ContentCoordinator.
 func (uc *NavigateUseCase) Execute(ctx context.Context, input NavigateInput) (*NavigateOutput, error) {
 	log := logging.FromContext(ctx)
 	log.Debug().
@@ -55,30 +56,7 @@ func (uc *NavigateUseCase) Execute(ctx context.Context, input NavigateInput) (*N
 		Str("pane_id", input.PaneID).
 		Msg("navigating to URL")
 
-	// Extract domain for zoom lookup
-	domain, err := ExtractDomain(input.URL)
-	if err != nil {
-		log.Debug().Str("url", input.URL).Msg("could not extract domain, using default zoom")
-		domain = ""
-	}
-
-	// Load and apply zoom level before navigation (for DOM zoom mode)
-	zoomFactor := uc.defaultZoom
-	if domain != "" {
-		zoom, err := uc.zoomRepo.Get(ctx, domain)
-		if err != nil {
-			log.Warn().Err(err).Str("domain", domain).Msg("failed to get zoom level")
-		} else if zoom != nil {
-			zoomFactor = zoom.ZoomFactor
-		}
-	}
-
-	// Apply zoom before loading (important for DOM zoom)
-	if err := input.WebView.SetZoomLevel(ctx, zoomFactor); err != nil {
-		log.Warn().Err(err).Float64("zoom", zoomFactor).Msg("failed to set zoom level")
-	}
-
-	// Navigate to URL
+	// Navigate to URL (zoom will be applied on LoadCommitted to avoid shift)
 	if err := input.WebView.LoadURI(ctx, input.URL); err != nil {
 		return nil, fmt.Errorf("failed to load URL: %w", err)
 	}
@@ -88,11 +66,10 @@ func (uc *NavigateUseCase) Execute(ctx context.Context, input NavigateInput) (*N
 
 	log.Info().
 		Str("url", input.URL).
-		Float64("zoom", zoomFactor).
 		Msg("navigation initiated")
 
 	return &NavigateOutput{
-		AppliedZoom: zoomFactor,
+		AppliedZoom: uc.defaultZoom,
 	}, nil
 }
 

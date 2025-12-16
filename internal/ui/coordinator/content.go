@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
@@ -19,6 +20,7 @@ type ContentCoordinator struct {
 	pool          *webkit.WebViewPool
 	widgetFactory layout.WidgetFactory
 	faviconCache  *cache.FaviconCache
+	zoomUC        *usecase.ManageZoomUseCase
 
 	webViews   map[entity.PaneID]*webkit.WebView
 	paneTitles map[entity.PaneID]string
@@ -43,6 +45,7 @@ func NewContentCoordinator(
 	widgetFactory layout.WidgetFactory,
 	faviconCache *cache.FaviconCache,
 	getActiveWS func() (*entity.Workspace, *component.WorkspaceView),
+	zoomUC *usecase.ManageZoomUseCase,
 ) *ContentCoordinator {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("creating content coordinator")
@@ -51,6 +54,7 @@ func NewContentCoordinator(
 		pool:          pool,
 		widgetFactory: widgetFactory,
 		faviconCache:  faviconCache,
+		zoomUC:        zoomUC,
 		webViews:      make(map[entity.PaneID]*webkit.WebView),
 		paneTitles:    make(map[entity.PaneID]string),
 		navOrigins:    make(map[entity.PaneID]string),
@@ -90,6 +94,13 @@ func (c *ContentCoordinator) EnsureWebView(ctx context.Context, paneID entity.Pa
 	// Set up favicon change callback
 	wv.OnFaviconChanged = func(favicon *gdk.Texture) {
 		c.onFaviconChanged(ctx, paneID, favicon)
+	}
+
+	// Set up load change callback to re-apply zoom on navigation
+	wv.OnLoadChanged = func(event webkit.LoadEvent) {
+		if event == webkit.LoadCommitted {
+			c.onLoadCommitted(ctx, paneID, wv)
+		}
 	}
 
 	log.Debug().Str("pane_id", string(paneID)).Msg("webview acquired for pane")
@@ -390,4 +401,24 @@ func (c *ContentCoordinator) PreloadCachedFavicon(ctx context.Context, paneID en
 			}
 		}
 	}
+}
+
+// onLoadCommitted re-applies zoom when page content starts loading.
+// WebKit may reset zoom during document transitions, so we reapply after LoadCommitted.
+func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
+	if c.zoomUC == nil {
+		return
+	}
+
+	url := wv.URI()
+	if url == "" {
+		return
+	}
+
+	domain, err := usecase.ExtractDomain(url)
+	if err != nil {
+		return
+	}
+
+	_ = c.zoomUC.ApplyToWebView(ctx, wv, domain)
 }
