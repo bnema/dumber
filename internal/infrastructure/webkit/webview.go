@@ -322,6 +322,21 @@ func (wv *WebView) connectSignals() {
 	}
 	sigID = gobject.SignalConnect(wv.inner.GoPointer(), "notify::favicon", glib.NewCallback(&faviconCb))
 	wv.signalIDs = append(wv.signalIDs, sigID)
+
+	// notify::estimated-load-progress signal for load progress updates
+	// This fires frequently during page load with values from 0.0 to 1.0
+	progressCb := func() {
+		progress := wv.inner.GetEstimatedLoadProgress()
+		wv.mu.Lock()
+		wv.progress = progress
+		wv.mu.Unlock()
+
+		if wv.OnProgressChanged != nil {
+			wv.OnProgressChanged(progress)
+		}
+	}
+	sigID = gobject.SignalConnect(wv.inner.GoPointer(), "notify::estimated-load-progress", glib.NewCallback(&progressCb))
+	wv.signalIDs = append(wv.signalIDs, sigID)
 }
 
 // ID returns the unique identifier for this WebView.

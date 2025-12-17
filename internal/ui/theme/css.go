@@ -46,6 +46,10 @@ func GenerateCSSWithScale(p Palette, scale float64) string {
 
 	// Stacked pane styling
 	sb.WriteString(generateStackedPaneCSS(p))
+	sb.WriteString("\n")
+
+	// Progress bar styling
+	sb.WriteString(generateProgressBarCSS(p))
 
 	return sb.String()
 }
@@ -200,7 +204,7 @@ entry.omnibox-entry > *:focus-visible {
 	border-radius: 0;
 	border-left: 0.1875em solid transparent;
 	border-bottom: 0.0625em solid alpha(var(--border), 0.5);
-	transition: background-color 100ms ease-in-out, border-left-color 100ms ease-in-out;
+	transition: background-color 100ms ease-in-out, border-left 100ms ease-in-out;
 	min-height: 2.75em;
 }
 
@@ -210,12 +214,12 @@ entry.omnibox-entry > *:focus-visible {
 
 .omnibox-row:hover {
 	background-color: alpha(var(--accent), 0.12);
-	border-left-color: var(--accent);
+	border-left: 0.1875em solid var(--accent);
 }
 
 .omnibox-row:selected {
 	background-color: alpha(var(--accent), 0.2);
-	border-left-color: var(--accent);
+	border-left: 0.1875em solid var(--accent);
 }
 
 /* Favicon in omnibox rows */
@@ -375,6 +379,27 @@ button.stacked-pane-title-button:focus {
 
 button.stacked-pane-title-button:hover .stacked-pane-titlebar label {
 	color: var(--accent);
+}
+`
+}
+
+// generateProgressBarCSS creates progress bar styles for page loading indication.
+func generateProgressBarCSS(p Palette) string {
+	return `/* ===== Progress Bar Styling ===== */
+
+/* Native GtkProgressBar with osd class */
+progressbar.osd {
+	min-height: 4px;
+}
+
+progressbar.osd trough {
+	min-height: 4px;
+	background-color: alpha(var(--bg), 0.3);
+}
+
+progressbar.osd progress {
+	min-height: 4px;
+	background-color: var(--accent);
 }
 `
 }

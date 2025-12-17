@@ -113,11 +113,21 @@ func (c *ContentCoordinator) EnsureWebView(ctx context.Context, paneID entity.Pa
 		c.onFaviconChanged(ctx, paneID, favicon)
 	}
 
-	// Set up load change callback to re-apply zoom on navigation
+	// Set up load change callback to re-apply zoom on navigation and handle progress bar
 	wv.OnLoadChanged = func(event webkit.LoadEvent) {
-		if event == webkit.LoadCommitted {
+		switch event {
+		case webkit.LoadStarted:
+			c.onLoadStarted(ctx, paneID)
+		case webkit.LoadCommitted:
 			c.onLoadCommitted(ctx, paneID, wv)
+		case webkit.LoadFinished:
+			c.onLoadFinished(ctx, paneID)
 		}
+	}
+
+	// Set up progress callback for loading indicator
+	wv.OnProgressChanged = func(progress float64) {
+		c.onProgressChanged(ctx, paneID, progress)
 	}
 
 	// Set up URI change callback for SPA navigation (History API)
@@ -477,5 +487,44 @@ func (c *ContentCoordinator) onSPANavigation(ctx context.Context, paneID entity.
 	// Record history for SPA navigation
 	if c.onHistoryRecord != nil {
 		c.onHistoryRecord(ctx, paneID, url)
+	}
+}
+
+// onLoadStarted shows the progress bar when page loading begins.
+func (c *ContentCoordinator) onLoadStarted(ctx context.Context, paneID entity.PaneID) {
+	_, wsView := c.getActiveWS()
+	if wsView == nil {
+		return
+	}
+
+	paneView := wsView.GetPaneView(paneID)
+	if paneView != nil {
+		paneView.SetLoading(true)
+	}
+}
+
+// onLoadFinished hides the progress bar when page loading completes.
+func (c *ContentCoordinator) onLoadFinished(ctx context.Context, paneID entity.PaneID) {
+	_, wsView := c.getActiveWS()
+	if wsView == nil {
+		return
+	}
+
+	paneView := wsView.GetPaneView(paneID)
+	if paneView != nil {
+		paneView.SetLoading(false)
+	}
+}
+
+// onProgressChanged updates the progress bar with current load progress.
+func (c *ContentCoordinator) onProgressChanged(ctx context.Context, paneID entity.PaneID, progress float64) {
+	_, wsView := c.getActiveWS()
+	if wsView == nil {
+		return
+	}
+
+	paneView := wsView.GetPaneView(paneID)
+	if paneView != nil {
+		paneView.SetLoadProgress(progress)
 	}
 }

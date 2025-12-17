@@ -22,6 +22,7 @@ type PaneView struct {
 	overlay       layout.OverlayWidget
 	webViewWidget layout.Widget    // The actual WebView widget
 	borderBox     layout.BoxWidget // Border overlay for active indication
+	progressBar   *ProgressBar     // Loading progress indicator
 	paneID        entity.PaneID
 	isActive      bool
 
@@ -62,11 +63,18 @@ func NewPaneView(factory layout.WidgetFactory, paneID entity.PaneID, webViewWidg
 	overlay.SetClipOverlay(borderBox, false)
 	overlay.SetMeasureOverlay(borderBox, false)
 
+	// Create progress bar overlay at bottom
+	progressBar := NewProgressBar(factory)
+	overlay.AddOverlay(progressBar.Widget())
+	overlay.SetClipOverlay(progressBar.Widget(), false)
+	overlay.SetMeasureOverlay(progressBar.Widget(), false)
+
 	return &PaneView{
 		factory:       factory,
 		overlay:       overlay,
 		webViewWidget: webViewWidget,
 		borderBox:     borderBox,
+		progressBar:   progressBar,
 		paneID:        paneID,
 		isActive:      false,
 	}
@@ -266,4 +274,31 @@ func (pv *PaneView) RemoveOverlayWidget(widget layout.Widget) {
 // GetContentDimensions returns the pane's allocated width and height.
 func (pv *PaneView) GetContentDimensions() (width, height int) {
 	return pv.overlay.GetAllocatedWidth(), pv.overlay.GetAllocatedHeight()
+}
+
+// SetLoadProgress updates the progress bar with the current load progress.
+// progress should be between 0.0 and 1.0.
+func (pv *PaneView) SetLoadProgress(progress float64) {
+	pv.mu.RLock()
+	pb := pv.progressBar
+	pv.mu.RUnlock()
+
+	if pb != nil {
+		pb.SetProgress(progress)
+	}
+}
+
+// SetLoading shows or hides the progress bar.
+func (pv *PaneView) SetLoading(loading bool) {
+	pv.mu.RLock()
+	pb := pv.progressBar
+	pv.mu.RUnlock()
+
+	if pb != nil {
+		if loading {
+			pb.Show()
+		} else {
+			pb.Hide()
+		}
+	}
 }
