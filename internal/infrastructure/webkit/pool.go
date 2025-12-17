@@ -121,7 +121,9 @@ func (p *WebViewPool) createWebView(ctx context.Context) (*WebView, error) {
 }
 
 // Release returns a WebView to the pool.
-// The WebView is reset to about:blank before being pooled.
+// For safety, we always destroy and never pool WebViews that have been used.
+// This prevents crashes from GLib signals firing after the widget tree is modified.
+// The pool is only used for prewarmed WebViews that haven't been attached to UI yet.
 func (p *WebViewPool) Release(ctx context.Context, wv *WebView) {
 	log := logging.FromContext(ctx)
 
@@ -132,25 +134,15 @@ func (p *WebViewPool) Release(ctx context.Context, wv *WebView) {
 		return
 	}
 
-	// Reset to blank state
-	_ = wv.LoadURI(ctx, "about:blank")
-
-	// Clear callbacks
-	wv.OnLoadChanged = nil
-	wv.OnTitleChanged = nil
-	wv.OnURIChanged = nil
-	wv.OnProgressChanged = nil
-	wv.OnClose = nil
-
-	// Try to return to pool (non-blocking)
-	select {
-	case p.pool <- wv:
-		log.Debug().Uint64("id", uint64(wv.ID())).Msg("returned webview to pool")
-	default:
-		// Pool full, destroy the view
-		log.Debug().Uint64("id", uint64(wv.ID())).Msg("pool full, destroying webview")
-		wv.Destroy()
-	}
+	// CRITICAL: Always destroy used WebViews instead of pooling them.
+	// GLib signals are connected with closures that can fire asynchronously
+	// even after we clear Go callbacks. Loading about:blank triggers signals
+	// that can crash if the widget tree has been modified.
+	//
+	// The pool is designed for prewarmed WebViews only, not for recycling
+	// WebViews that have been attached to the UI.
+	log.Debug().Uint64("id", uint64(wv.ID())).Msg("destroying webview (not pooling used views)")
+	wv.Destroy()
 }
 
 // Prewarm creates WebViews synchronously to populate the pool.

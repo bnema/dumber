@@ -106,6 +106,7 @@ type WebView struct {
 	OnClose           func()
 	OnCreate          func(PopupRequest) *WebView // Return new WebView or nil to block popup
 	OnReadyToShow     func()                      // Called when popup is ready to display
+	OnLinkMiddleClick func(uri string) bool       // Return true if handled (blocks navigation)
 
 	logger zerolog.Logger
 	mu     sync.RWMutex
@@ -336,6 +337,72 @@ func (wv *WebView) connectSignals() {
 		}
 	}
 	sigID = gobject.SignalConnect(wv.inner.GoPointer(), "notify::estimated-load-progress", glib.NewCallback(&progressCb))
+	wv.signalIDs = append(wv.signalIDs, sigID)
+
+	// decide-policy signal for intercepting middle-click and Ctrl+click on links
+	decidePolicyCb := func(inner webkit.WebView, decisionPtr uintptr, decisionType webkit.PolicyDecisionType) bool {
+		// Only handle navigation actions (not new window or response policies)
+		if decisionType != webkit.PolicyDecisionTypeNavigationActionValue {
+			return false // Let WebKit handle
+		}
+
+		// Cast to NavigationPolicyDecision
+		navDecision := webkit.NavigationPolicyDecisionNewFromInternalPtr(decisionPtr)
+		if navDecision == nil {
+			return false
+		}
+
+		navAction := navDecision.GetNavigationAction()
+		if navAction == nil {
+			return false
+		}
+
+		// Only handle link clicks
+		if navAction.GetNavigationType() != webkit.NavigationTypeLinkClickedValue {
+			return false
+		}
+
+		// Get mouse button and modifiers
+		mouseButton := navAction.GetMouseButton()
+		modifiers := navAction.GetModifiers()
+
+		// Check for middle-click (button 2) or Ctrl+left-click (button 1 + Ctrl)
+		isMiddleClick := mouseButton == 2
+		isCtrlClick := mouseButton == 1 && (gdk.ModifierType(modifiers)&gdk.ControlMaskValue) != 0
+
+		if !isMiddleClick && !isCtrlClick {
+			return false // Normal click, let WebKit handle
+		}
+
+		// Get the link URL
+		request := navAction.GetRequest()
+		if request == nil {
+			return false
+		}
+
+		linkURI := request.GetUri()
+		if linkURI == "" {
+			return false
+		}
+
+		wv.logger.Debug().
+			Str("uri", linkURI).
+			Uint("button", mouseButton).
+			Bool("ctrl", isCtrlClick).
+			Msg("middle-click/ctrl+click on link detected")
+
+		// Call the handler
+		if wv.OnLinkMiddleClick != nil {
+			if wv.OnLinkMiddleClick(linkURI) {
+				// Handler processed it, block the navigation
+				navDecision.Ignore()
+				return true
+			}
+		}
+
+		return false // Let WebKit handle if not handled
+	}
+	sigID = wv.inner.ConnectDecidePolicy(&decidePolicyCb)
 	wv.signalIDs = append(wv.signalIDs, sigID)
 }
 
@@ -579,18 +646,45 @@ func (wv *WebView) IsDestroyed() bool {
 	return wv.destroyed.Load()
 }
 
+// Close triggers the close callback as if window.close() was called.
+// This is used for programmatic popup closure (e.g., OAuth auto-close).
+func (wv *WebView) Close() {
+	if wv.destroyed.Load() {
+		return
+	}
+	if wv.OnClose != nil {
+		wv.OnClose()
+	}
+}
+
+// DisconnectSignals disconnects all GLib signal handlers from the WebView.
+// This must be called before releasing the WebView to the pool or destroying it
+// to prevent callbacks from firing on freed/pooled WebViews.
+func (wv *WebView) DisconnectSignals() {
+	if wv.inner == nil {
+		return
+	}
+
+	obj := gobject.ObjectNewFromInternalPtr(wv.inner.GoPointer())
+	for _, sigID := range wv.signalIDs {
+		gobject.SignalHandlerDisconnect(obj, sigID)
+	}
+	wv.signalIDs = wv.signalIDs[:0] // Clear the slice
+
+	wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("signals disconnected")
+}
+
 // Destroy cleans up the WebView resources.
 func (wv *WebView) Destroy() {
 	if wv.destroyed.Swap(true) {
 		return // Already destroyed
 	}
 
+	// Disconnect all signal handlers first
+	wv.DisconnectSignals()
+
 	// Unregister from global registry
 	globalRegistry.unregister(wv.id)
-
-	// Note: Signal disconnection and GTK widget destruction
-	// would happen here in a full implementation.
-	// For now, we rely on GTK's reference counting.
 
 	wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("webview destroyed")
 }
