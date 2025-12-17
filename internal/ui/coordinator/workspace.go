@@ -1567,3 +1567,16 @@ func (c *WorkspaceCoordinator) insertPopupTabbed(ctx context.Context, input Inse
 
 	return nil
 }
+
+// ShowZoomToast displays a zoom level toast on the active pane.
+func (c *WorkspaceCoordinator) ShowZoomToast(ctx context.Context, zoomPercent int) {
+	_, wsView := c.getActiveWS()
+	if wsView == nil {
+		return
+	}
+
+	paneView := wsView.GetActivePaneView()
+	if paneView != nil {
+		paneView.ShowZoomToast(ctx, zoomPercent)
+	}
+}

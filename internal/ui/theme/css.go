@@ -50,6 +50,10 @@ func GenerateCSSWithScale(p Palette, scale float64) string {
 
 	// Progress bar styling
 	sb.WriteString(generateProgressBarCSS(p))
+	sb.WriteString("\n")
+
+	// Toaster styling
+	sb.WriteString(generateToasterCSS(p))
 
 	return sb.String()
 }
@@ -394,12 +398,57 @@ progressbar.osd {
 
 progressbar.osd trough {
 	min-height: 4px;
+	min-width: 0px;
 	background-color: alpha(var(--bg), 0.3);
 }
 
 progressbar.osd progress {
 	min-height: 4px;
+	min-width: 0px;
 	background-color: var(--accent);
+}
+`
+}
+
+// generateToasterCSS creates toast notification styles.
+// Uses em units for scalable UI.
+func generateToasterCSS(p Palette) string {
+	return `/* ===== Toaster Styling ===== */
+
+/* Toast notification container */
+.toast {
+	background-color: var(--surface-variant);
+	border-radius: 0.25em;
+	padding: 0.375em 0.625em;
+	margin: 0.5em;
+	font-size: 0.875em;
+	font-weight: 600;
+	box-shadow: 0 2px 8px alpha(black, 0.3);
+	min-width: 2.5em;
+}
+
+/* Toast level: info (default, accent color) */
+.toast-info {
+	background-color: alpha(var(--accent), 0.9);
+	color: var(--bg);
+}
+
+/* Toast level: success (green) */
+.toast-success {
+	background-color: alpha(#4ade80, 0.9);
+	color: var(--bg);
+}
+
+/* Toast level: warning (yellow/amber) */
+.toast-warning {
+	background-color: alpha(#fbbf24, 0.9);
+	color: var(--bg);
+}
+
+/* Toast level: error (red) */
+.toast-error {
+	background-color: alpha(#ef4444, 0.9);
+	color: white;
 }
 `
 }

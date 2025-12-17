@@ -215,6 +215,7 @@ func (a *App) onActivate(ctx context.Context) {
 		HistoryUC:       a.deps.HistoryUC,
 		FavoritesUC:     a.deps.FavoritesUC,
 		FaviconCache:    a.faviconCache,
+		Clipboard:       a.deps.Clipboard,
 		Shortcuts:       a.deps.Config.SearchShortcuts,
 		DefaultSearch:   a.deps.Config.DefaultSearchEngine,
 		InitialBehavior: a.deps.Config.Omnibox.InitialBehavior,

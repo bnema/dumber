@@ -455,8 +455,12 @@ func (wv *WorkspaceView) ShowOmnibox(ctx context.Context, query string) {
 		return
 	}
 
-	// Create omnibox
-	omnibox := NewOmnibox(ctx, wv.omniboxCfg)
+	// Create omnibox with pane-specific toast callback
+	cfg := wv.omniboxCfg
+	cfg.OnToast = func(message string) {
+		pv.ShowToast(ctx, message, ToastSuccess)
+	}
+	omnibox := NewOmnibox(ctx, cfg)
 	if omnibox == nil {
 		wv.logger.Error().Msg("failed to create omnibox")
 		return
