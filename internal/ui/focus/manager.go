@@ -156,51 +156,71 @@ func (m *Manager) NavigateGeometric(
 // navigateWithinStack tries to navigate within a stack.
 // Returns (canNavigate, newPaneID). If canNavigate is false, the pane is at a
 // boundary and navigation should escape the stack.
-func (m *Manager) navigateWithinStack(stackNode, currentNode *entity.PaneNode, direction usecase.NavigateDirection) (bool, entity.PaneID) {
+func (m *Manager) navigateWithinStack(
+	stackNode, currentNode *entity.PaneNode, direction usecase.NavigateDirection,
+) (bool, entity.PaneID) {
 	if !stackNode.IsStacked || len(stackNode.Children) == 0 {
 		return false, ""
 	}
 
-	// Find current index in stack
-	currentIdx := -1
-	for i, child := range stackNode.Children {
-		if child == currentNode {
-			currentIdx = i
-			break
-		}
-	}
+	currentIdx := m.findCurrentStackIndex(stackNode, currentNode)
 	if currentIdx < 0 {
 		return false, ""
 	}
 
-	var newIdx int
-	switch direction {
-	case usecase.NavUp:
-		newIdx = currentIdx - 1
-		if newIdx < 0 {
-			// At top boundary
-			return false, ""
-		}
-	case usecase.NavDown:
-		newIdx = currentIdx + 1
-		if newIdx >= len(stackNode.Children) {
-			// At bottom boundary
-			return false, ""
-		}
-	default:
+	newIdx, ok := m.calculateNewStackIndex(currentIdx, len(stackNode.Children), direction)
+	if !ok {
 		return false, ""
 	}
 
-	// Update stack active index
 	stackNode.ActiveStackIndex = newIdx
+	return m.getPaneIDFromStackChild(stackNode.Children[newIdx])
+}
 
-	// Get the new pane
-	targetNode := stackNode.Children[newIdx]
+// findCurrentStackIndex returns the current pane's index in the stack.
+// Uses ActiveStackIndex from domain model, with fallback to pointer search.
+func (*Manager) findCurrentStackIndex(stackNode, currentNode *entity.PaneNode) int {
+	idx := stackNode.ActiveStackIndex
+	if idx >= 0 && idx < len(stackNode.Children) {
+		return idx
+	}
+	// Fallback to pointer search if ActiveStackIndex is invalid
+	for i, child := range stackNode.Children {
+		if child == currentNode {
+			return i
+		}
+	}
+	return -1
+}
+
+// calculateNewStackIndex computes the new index after navigation.
+// Returns (newIndex, ok) where ok is false if at a boundary.
+func (*Manager) calculateNewStackIndex(
+	currentIdx, childCount int, direction usecase.NavigateDirection,
+) (int, bool) {
+	switch direction {
+	case usecase.NavUp:
+		if currentIdx <= 0 {
+			return 0, false
+		}
+		return currentIdx - 1, true
+	case usecase.NavDown:
+		if currentIdx >= childCount-1 {
+			return 0, false
+		}
+		return currentIdx + 1, true
+	default:
+		return 0, false
+	}
+}
+
+// getPaneIDFromStackChild extracts the pane ID from a stack child node.
+// If the child is not a leaf, finds the first leaf pane.
+func (*Manager) getPaneIDFromStackChild(targetNode *entity.PaneNode) (bool, entity.PaneID) {
 	if targetNode.Pane != nil {
 		return true, targetNode.Pane.ID
 	}
 
-	// If the child is not a leaf, find the first leaf
 	var leafPaneID entity.PaneID
 	targetNode.Walk(func(n *entity.PaneNode) bool {
 		if n.IsLeaf() && n.Pane != nil {
@@ -213,6 +233,5 @@ func (m *Manager) navigateWithinStack(stackNode, currentNode *entity.PaneNode, d
 	if leafPaneID != "" {
 		return true, leafPaneID
 	}
-
 	return false, ""
 }
