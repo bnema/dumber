@@ -117,6 +117,160 @@ func (_c *MockBoxWidget_Append_Call) RunAndReturn(run func(child layout.Widget))
 	return _c
 }
 
+// ComputePoint provides a mock function for the type MockBoxWidget
+func (_mock *MockBoxWidget) ComputePoint(target layout.Widget) (float64, float64, bool) {
+	ret := _mock.Called(target)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ComputePoint")
+	}
+
+	var r0 float64
+	var r1 float64
+	var r2 bool
+	if returnFunc, ok := ret.Get(0).(func(layout.Widget) (float64, float64, bool)); ok {
+		return returnFunc(target)
+	}
+	if returnFunc, ok := ret.Get(0).(func(layout.Widget) float64); ok {
+		r0 = returnFunc(target)
+	} else {
+		r0 = ret.Get(0).(float64)
+	}
+	if returnFunc, ok := ret.Get(1).(func(layout.Widget) float64); ok {
+		r1 = returnFunc(target)
+	} else {
+		r1 = ret.Get(1).(float64)
+	}
+	if returnFunc, ok := ret.Get(2).(func(layout.Widget) bool); ok {
+		r2 = returnFunc(target)
+	} else {
+		r2 = ret.Get(2).(bool)
+	}
+	return r0, r1, r2
+}
+
+// MockBoxWidget_ComputePoint_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ComputePoint'
+type MockBoxWidget_ComputePoint_Call struct {
+	*mock.Call
+}
+
+// ComputePoint is a helper method to define mock.On call
+//   - target layout.Widget
+func (_e *MockBoxWidget_Expecter) ComputePoint(target interface{}) *MockBoxWidget_ComputePoint_Call {
+	return &MockBoxWidget_ComputePoint_Call{Call: _e.mock.On("ComputePoint", target)}
+}
+
+func (_c *MockBoxWidget_ComputePoint_Call) Run(run func(target layout.Widget)) *MockBoxWidget_ComputePoint_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 layout.Widget
+		if args[0] != nil {
+			arg0 = args[0].(layout.Widget)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockBoxWidget_ComputePoint_Call) Return(x float64, y float64, ok bool) *MockBoxWidget_ComputePoint_Call {
+	_c.Call.Return(x, y, ok)
+	return _c
+}
+
+func (_c *MockBoxWidget_ComputePoint_Call) RunAndReturn(run func(target layout.Widget) (float64, float64, bool)) *MockBoxWidget_ComputePoint_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetAllocatedHeight provides a mock function for the type MockBoxWidget
+func (_mock *MockBoxWidget) GetAllocatedHeight() int {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAllocatedHeight")
+	}
+
+	var r0 int
+	if returnFunc, ok := ret.Get(0).(func() int); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+	return r0
+}
+
+// MockBoxWidget_GetAllocatedHeight_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAllocatedHeight'
+type MockBoxWidget_GetAllocatedHeight_Call struct {
+	*mock.Call
+}
+
+// GetAllocatedHeight is a helper method to define mock.On call
+func (_e *MockBoxWidget_Expecter) GetAllocatedHeight() *MockBoxWidget_GetAllocatedHeight_Call {
+	return &MockBoxWidget_GetAllocatedHeight_Call{Call: _e.mock.On("GetAllocatedHeight")}
+}
+
+func (_c *MockBoxWidget_GetAllocatedHeight_Call) Run(run func()) *MockBoxWidget_GetAllocatedHeight_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockBoxWidget_GetAllocatedHeight_Call) Return(n int) *MockBoxWidget_GetAllocatedHeight_Call {
+	_c.Call.Return(n)
+	return _c
+}
+
+func (_c *MockBoxWidget_GetAllocatedHeight_Call) RunAndReturn(run func() int) *MockBoxWidget_GetAllocatedHeight_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetAllocatedWidth provides a mock function for the type MockBoxWidget
+func (_mock *MockBoxWidget) GetAllocatedWidth() int {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAllocatedWidth")
+	}
+
+	var r0 int
+	if returnFunc, ok := ret.Get(0).(func() int); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+	return r0
+}
+
+// MockBoxWidget_GetAllocatedWidth_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAllocatedWidth'
+type MockBoxWidget_GetAllocatedWidth_Call struct {
+	*mock.Call
+}
+
+// GetAllocatedWidth is a helper method to define mock.On call
+func (_e *MockBoxWidget_Expecter) GetAllocatedWidth() *MockBoxWidget_GetAllocatedWidth_Call {
+	return &MockBoxWidget_GetAllocatedWidth_Call{Call: _e.mock.On("GetAllocatedWidth")}
+}
+
+func (_c *MockBoxWidget_GetAllocatedWidth_Call) Run(run func()) *MockBoxWidget_GetAllocatedWidth_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockBoxWidget_GetAllocatedWidth_Call) Return(n int) *MockBoxWidget_GetAllocatedWidth_Call {
+	_c.Call.Return(n)
+	return _c
+}
+
+func (_c *MockBoxWidget_GetAllocatedWidth_Call) RunAndReturn(run func() int) *MockBoxWidget_GetAllocatedWidth_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetHexpand provides a mock function for the type MockBoxWidget
 func (_mock *MockBoxWidget) GetHexpand() bool {
 	ret := _mock.Called()

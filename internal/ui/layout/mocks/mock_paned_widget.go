@@ -128,6 +128,72 @@ func (_c *MockPanedWidget_AddTickCallback_Call) RunAndReturn(run func(callback f
 	return _c
 }
 
+// ComputePoint provides a mock function for the type MockPanedWidget
+func (_mock *MockPanedWidget) ComputePoint(target layout.Widget) (float64, float64, bool) {
+	ret := _mock.Called(target)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ComputePoint")
+	}
+
+	var r0 float64
+	var r1 float64
+	var r2 bool
+	if returnFunc, ok := ret.Get(0).(func(layout.Widget) (float64, float64, bool)); ok {
+		return returnFunc(target)
+	}
+	if returnFunc, ok := ret.Get(0).(func(layout.Widget) float64); ok {
+		r0 = returnFunc(target)
+	} else {
+		r0 = ret.Get(0).(float64)
+	}
+	if returnFunc, ok := ret.Get(1).(func(layout.Widget) float64); ok {
+		r1 = returnFunc(target)
+	} else {
+		r1 = ret.Get(1).(float64)
+	}
+	if returnFunc, ok := ret.Get(2).(func(layout.Widget) bool); ok {
+		r2 = returnFunc(target)
+	} else {
+		r2 = ret.Get(2).(bool)
+	}
+	return r0, r1, r2
+}
+
+// MockPanedWidget_ComputePoint_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ComputePoint'
+type MockPanedWidget_ComputePoint_Call struct {
+	*mock.Call
+}
+
+// ComputePoint is a helper method to define mock.On call
+//   - target layout.Widget
+func (_e *MockPanedWidget_Expecter) ComputePoint(target interface{}) *MockPanedWidget_ComputePoint_Call {
+	return &MockPanedWidget_ComputePoint_Call{Call: _e.mock.On("ComputePoint", target)}
+}
+
+func (_c *MockPanedWidget_ComputePoint_Call) Run(run func(target layout.Widget)) *MockPanedWidget_ComputePoint_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 layout.Widget
+		if args[0] != nil {
+			arg0 = args[0].(layout.Widget)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockPanedWidget_ComputePoint_Call) Return(x float64, y float64, ok bool) *MockPanedWidget_ComputePoint_Call {
+	_c.Call.Return(x, y, ok)
+	return _c
+}
+
+func (_c *MockPanedWidget_ComputePoint_Call) RunAndReturn(run func(target layout.Widget) (float64, float64, bool)) *MockPanedWidget_ComputePoint_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ConnectMap provides a mock function for the type MockPanedWidget
 func (_mock *MockPanedWidget) ConnectMap(callback func()) uint32 {
 	ret := _mock.Called(callback)

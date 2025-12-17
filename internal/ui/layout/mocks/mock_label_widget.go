@@ -77,6 +77,160 @@ func (_c *MockLabelWidget_AddCssClass_Call) RunAndReturn(run func(cssClass strin
 	return _c
 }
 
+// ComputePoint provides a mock function for the type MockLabelWidget
+func (_mock *MockLabelWidget) ComputePoint(target layout.Widget) (float64, float64, bool) {
+	ret := _mock.Called(target)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ComputePoint")
+	}
+
+	var r0 float64
+	var r1 float64
+	var r2 bool
+	if returnFunc, ok := ret.Get(0).(func(layout.Widget) (float64, float64, bool)); ok {
+		return returnFunc(target)
+	}
+	if returnFunc, ok := ret.Get(0).(func(layout.Widget) float64); ok {
+		r0 = returnFunc(target)
+	} else {
+		r0 = ret.Get(0).(float64)
+	}
+	if returnFunc, ok := ret.Get(1).(func(layout.Widget) float64); ok {
+		r1 = returnFunc(target)
+	} else {
+		r1 = ret.Get(1).(float64)
+	}
+	if returnFunc, ok := ret.Get(2).(func(layout.Widget) bool); ok {
+		r2 = returnFunc(target)
+	} else {
+		r2 = ret.Get(2).(bool)
+	}
+	return r0, r1, r2
+}
+
+// MockLabelWidget_ComputePoint_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ComputePoint'
+type MockLabelWidget_ComputePoint_Call struct {
+	*mock.Call
+}
+
+// ComputePoint is a helper method to define mock.On call
+//   - target layout.Widget
+func (_e *MockLabelWidget_Expecter) ComputePoint(target interface{}) *MockLabelWidget_ComputePoint_Call {
+	return &MockLabelWidget_ComputePoint_Call{Call: _e.mock.On("ComputePoint", target)}
+}
+
+func (_c *MockLabelWidget_ComputePoint_Call) Run(run func(target layout.Widget)) *MockLabelWidget_ComputePoint_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 layout.Widget
+		if args[0] != nil {
+			arg0 = args[0].(layout.Widget)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockLabelWidget_ComputePoint_Call) Return(x float64, y float64, ok bool) *MockLabelWidget_ComputePoint_Call {
+	_c.Call.Return(x, y, ok)
+	return _c
+}
+
+func (_c *MockLabelWidget_ComputePoint_Call) RunAndReturn(run func(target layout.Widget) (float64, float64, bool)) *MockLabelWidget_ComputePoint_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetAllocatedHeight provides a mock function for the type MockLabelWidget
+func (_mock *MockLabelWidget) GetAllocatedHeight() int {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAllocatedHeight")
+	}
+
+	var r0 int
+	if returnFunc, ok := ret.Get(0).(func() int); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+	return r0
+}
+
+// MockLabelWidget_GetAllocatedHeight_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAllocatedHeight'
+type MockLabelWidget_GetAllocatedHeight_Call struct {
+	*mock.Call
+}
+
+// GetAllocatedHeight is a helper method to define mock.On call
+func (_e *MockLabelWidget_Expecter) GetAllocatedHeight() *MockLabelWidget_GetAllocatedHeight_Call {
+	return &MockLabelWidget_GetAllocatedHeight_Call{Call: _e.mock.On("GetAllocatedHeight")}
+}
+
+func (_c *MockLabelWidget_GetAllocatedHeight_Call) Run(run func()) *MockLabelWidget_GetAllocatedHeight_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockLabelWidget_GetAllocatedHeight_Call) Return(n int) *MockLabelWidget_GetAllocatedHeight_Call {
+	_c.Call.Return(n)
+	return _c
+}
+
+func (_c *MockLabelWidget_GetAllocatedHeight_Call) RunAndReturn(run func() int) *MockLabelWidget_GetAllocatedHeight_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetAllocatedWidth provides a mock function for the type MockLabelWidget
+func (_mock *MockLabelWidget) GetAllocatedWidth() int {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAllocatedWidth")
+	}
+
+	var r0 int
+	if returnFunc, ok := ret.Get(0).(func() int); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+	return r0
+}
+
+// MockLabelWidget_GetAllocatedWidth_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAllocatedWidth'
+type MockLabelWidget_GetAllocatedWidth_Call struct {
+	*mock.Call
+}
+
+// GetAllocatedWidth is a helper method to define mock.On call
+func (_e *MockLabelWidget_Expecter) GetAllocatedWidth() *MockLabelWidget_GetAllocatedWidth_Call {
+	return &MockLabelWidget_GetAllocatedWidth_Call{Call: _e.mock.On("GetAllocatedWidth")}
+}
+
+func (_c *MockLabelWidget_GetAllocatedWidth_Call) Run(run func()) *MockLabelWidget_GetAllocatedWidth_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockLabelWidget_GetAllocatedWidth_Call) Return(n int) *MockLabelWidget_GetAllocatedWidth_Call {
+	_c.Call.Return(n)
+	return _c
+}
+
+func (_c *MockLabelWidget_GetAllocatedWidth_Call) RunAndReturn(run func() int) *MockLabelWidget_GetAllocatedWidth_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetHexpand provides a mock function for the type MockLabelWidget
 func (_mock *MockLabelWidget) GetHexpand() bool {
 	ret := _mock.Called()

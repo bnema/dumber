@@ -1,9 +1,9 @@
 package layout_test
 
 import (
+	"context"
 	"testing"
 
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -35,6 +35,7 @@ func setupSplitViewMocks(mockPaned *mocks.MockPanedWidget, orientation layout.Or
 
 func TestNewSplitView_Horizontal(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaned := mocks.NewMockPanedWidget(t)
 	mockStartChild := mocks.NewMockWidget(t)
@@ -46,7 +47,7 @@ func TestNewSplitView_Horizontal(t *testing.T) {
 	mockPaned.EXPECT().SetEndChild(mockEndChild).Once()
 
 	// Act
-	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, mockStartChild, mockEndChild, 0.5)
+	sv := layout.NewSplitView(ctx, mockFactory, layout.OrientationHorizontal, mockStartChild, mockEndChild, 0.5)
 
 	// Assert
 	require.NotNil(t, sv)
@@ -58,6 +59,7 @@ func TestNewSplitView_Horizontal(t *testing.T) {
 
 func TestNewSplitView_Vertical(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaned := mocks.NewMockPanedWidget(t)
 	mockStartChild := mocks.NewMockWidget(t)
@@ -69,7 +71,7 @@ func TestNewSplitView_Vertical(t *testing.T) {
 	mockPaned.EXPECT().SetEndChild(mockEndChild).Once()
 
 	// Act
-	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationVertical, mockStartChild, mockEndChild, 0.5)
+	sv := layout.NewSplitView(ctx, mockFactory, layout.OrientationVertical, mockStartChild, mockEndChild, 0.5)
 
 	// Assert
 	require.NotNil(t, sv)
@@ -78,6 +80,7 @@ func TestNewSplitView_Vertical(t *testing.T) {
 
 func TestNewSplitView_NilChildren(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaned := mocks.NewMockPanedWidget(t)
 
@@ -86,7 +89,7 @@ func TestNewSplitView_NilChildren(t *testing.T) {
 	// SetStartChild and SetEndChild should NOT be called when children are nil
 
 	// Act
-	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, nil, 0.5)
+	sv := layout.NewSplitView(ctx, mockFactory, layout.OrientationHorizontal, nil, nil, 0.5)
 
 	// Assert
 	require.NotNil(t, sv)
@@ -109,6 +112,7 @@ func TestSetRatio_ValidRange(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
 			// Arrange
 			mockFactory := mocks.NewMockWidgetFactory(t)
 			mockPaned := mocks.NewMockPanedWidget(t)
@@ -116,7 +120,7 @@ func TestSetRatio_ValidRange(t *testing.T) {
 			mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
 			setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 
-			sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, nil, 0.5)
+			sv := layout.NewSplitView(ctx, mockFactory, layout.OrientationHorizontal, nil, nil, 0.5)
 
 			// Act
 			sv.SetRatio(tt.input)
@@ -141,6 +145,7 @@ func TestSetRatio_OutOfRange_Clamped(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
 			// Arrange
 			mockFactory := mocks.NewMockWidgetFactory(t)
 			mockPaned := mocks.NewMockPanedWidget(t)
@@ -148,7 +153,7 @@ func TestSetRatio_OutOfRange_Clamped(t *testing.T) {
 			mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
 			setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 
-			sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, nil, 0.5)
+			sv := layout.NewSplitView(ctx, mockFactory, layout.OrientationHorizontal, nil, nil, 0.5)
 
 			// Act
 			sv.SetRatio(tt.input)
@@ -161,6 +166,7 @@ func TestSetRatio_OutOfRange_Clamped(t *testing.T) {
 
 func TestSwapStart_ReplacesChild(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaned := mocks.NewMockPanedWidget(t)
 	mockOldChild := mocks.NewMockWidget(t)
@@ -170,7 +176,7 @@ func TestSwapStart_ReplacesChild(t *testing.T) {
 	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 	mockPaned.EXPECT().SetStartChild(mockOldChild).Once()
 
-	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, mockOldChild, nil, 0.5)
+	sv := layout.NewSplitView(ctx, mockFactory, layout.OrientationHorizontal, mockOldChild, nil, 0.5)
 
 	// Expect swap operations
 	mockPaned.EXPECT().SetStartChild(nil).Once()          // Remove old
@@ -185,6 +191,7 @@ func TestSwapStart_ReplacesChild(t *testing.T) {
 
 func TestSwapEnd_ReplacesChild(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaned := mocks.NewMockPanedWidget(t)
 	mockOldChild := mocks.NewMockWidget(t)
@@ -194,7 +201,7 @@ func TestSwapEnd_ReplacesChild(t *testing.T) {
 	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 	mockPaned.EXPECT().SetEndChild(mockOldChild).Once()
 
-	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, mockOldChild, 0.5)
+	sv := layout.NewSplitView(ctx, mockFactory, layout.OrientationHorizontal, nil, mockOldChild, 0.5)
 
 	// Expect swap operations
 	mockPaned.EXPECT().SetEndChild(nil).Once()          // Remove old
@@ -209,6 +216,7 @@ func TestSwapEnd_ReplacesChild(t *testing.T) {
 
 func TestSwapStart_FromNil(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaned := mocks.NewMockPanedWidget(t)
 	mockNewChild := mocks.NewMockWidget(t)
@@ -216,7 +224,7 @@ func TestSwapStart_FromNil(t *testing.T) {
 	mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
 	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 
-	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, nil, 0.5)
+	sv := layout.NewSplitView(ctx, mockFactory, layout.OrientationHorizontal, nil, nil, 0.5)
 
 	// Expect only adding new child (no removal since old was nil)
 	mockPaned.EXPECT().SetStartChild(mockNewChild).Once()
@@ -230,6 +238,7 @@ func TestSwapStart_FromNil(t *testing.T) {
 
 func TestSwapEnd_ToNil(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaned := mocks.NewMockPanedWidget(t)
 	mockOldChild := mocks.NewMockWidget(t)
@@ -238,7 +247,7 @@ func TestSwapEnd_ToNil(t *testing.T) {
 	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 	mockPaned.EXPECT().SetEndChild(mockOldChild).Once()
 
-	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, mockOldChild, 0.5)
+	sv := layout.NewSplitView(ctx, mockFactory, layout.OrientationHorizontal, nil, mockOldChild, 0.5)
 
 	// Expect removal (SetEndChild(nil) called for clearing old)
 	mockPaned.EXPECT().SetEndChild(nil).Once()
@@ -252,13 +261,14 @@ func TestSwapEnd_ToNil(t *testing.T) {
 
 func TestWidget_ReturnsPanedWidget(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaned := mocks.NewMockPanedWidget(t)
 
 	mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
 	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 
-	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, nil, 0.5)
+	sv := layout.NewSplitView(ctx, mockFactory, layout.OrientationHorizontal, nil, nil, 0.5)
 
 	// Act
 	widget := sv.Widget()
@@ -269,13 +279,14 @@ func TestWidget_ReturnsPanedWidget(t *testing.T) {
 
 func TestSetPosition_DelegatesToPaned(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaned := mocks.NewMockPanedWidget(t)
 
 	mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
 	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 
-	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, nil, 0.5)
+	sv := layout.NewSplitView(ctx, mockFactory, layout.OrientationHorizontal, nil, nil, 0.5)
 
 	mockPaned.EXPECT().SetPosition(400).Once()
 
@@ -287,13 +298,14 @@ func TestSetPosition_DelegatesToPaned(t *testing.T) {
 
 func TestGetPosition_DelegatesToPaned(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaned := mocks.NewMockPanedWidget(t)
 
 	mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
 	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 
-	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, nil, 0.5)
+	sv := layout.NewSplitView(ctx, mockFactory, layout.OrientationHorizontal, nil, nil, 0.5)
 
 	mockPaned.EXPECT().GetPosition().Return(400).Once()
 
@@ -306,13 +318,14 @@ func TestGetPosition_DelegatesToPaned(t *testing.T) {
 
 func TestSetWideHandle_DelegatesToPaned(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaned := mocks.NewMockPanedWidget(t)
 
 	mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
 	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 
-	sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, nil, 0.5)
+	sv := layout.NewSplitView(ctx, mockFactory, layout.OrientationHorizontal, nil, nil, 0.5)
 
 	mockPaned.EXPECT().SetWideHandle(true).Once()
 
@@ -335,6 +348,7 @@ func TestNewSplitView_InitialRatio_Clamped(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
 			// Arrange
 			mockFactory := mocks.NewMockWidgetFactory(t)
 			mockPaned := mocks.NewMockPanedWidget(t)
@@ -343,7 +357,7 @@ func TestNewSplitView_InitialRatio_Clamped(t *testing.T) {
 			setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
 
 			// Act
-			sv := layout.NewSplitView(mockFactory, zerolog.Nop(), layout.OrientationHorizontal, nil, nil, tt.input)
+			sv := layout.NewSplitView(ctx, mockFactory, layout.OrientationHorizontal, nil, nil, tt.input)
 
 			// Assert
 			assert.Equal(t, tt.expected, sv.GetRatio())

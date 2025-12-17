@@ -1,9 +1,9 @@
 package layout_test
 
 import (
+	"context"
 	"testing"
 
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -15,11 +15,12 @@ import (
 
 func TestNewTreeRenderer_CreatesRenderer(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 
 	// Act
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
+	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
 
 	// Assert
 	require.NotNil(t, renderer)
@@ -28,13 +29,14 @@ func TestNewTreeRenderer_CreatesRenderer(t *testing.T) {
 
 func TestBuild_NilRoot_ReturnsError(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
+	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
 
 	// Act
-	widget, err := renderer.Build(nil)
+	widget, err := renderer.Build(ctx, nil)
 
 	// Assert
 	assert.Nil(t, widget)
@@ -43,6 +45,7 @@ func TestBuild_NilRoot_ReturnsError(t *testing.T) {
 
 func TestBuild_SingleLeafPane(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 	mockWidget := mocks.NewMockWidget(t)
@@ -55,10 +58,10 @@ func TestBuild_SingleLeafPane(t *testing.T) {
 
 	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockWidget).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
+	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
 
 	// Act
-	widget, err := renderer.Build(node)
+	widget, err := renderer.Build(ctx, node)
 
 	// Assert
 	require.NoError(t, err)
@@ -71,6 +74,7 @@ func TestBuild_SingleLeafPane(t *testing.T) {
 
 func TestBuild_HorizontalSplit(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 	mockPaned := mocks.NewMockPanedWidget(t)
@@ -105,10 +109,10 @@ func TestBuild_HorizontalSplit(t *testing.T) {
 	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
 	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
+	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
 
 	// Act
-	widget, err := renderer.Build(splitNode)
+	widget, err := renderer.Build(ctx, splitNode)
 
 	// Assert
 	require.NoError(t, err)
@@ -118,6 +122,7 @@ func TestBuild_HorizontalSplit(t *testing.T) {
 
 func TestBuild_VerticalSplit(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 	mockPaned := mocks.NewMockPanedWidget(t)
@@ -152,10 +157,10 @@ func TestBuild_VerticalSplit(t *testing.T) {
 	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
 	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
+	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
 
 	// Act
-	widget, err := renderer.Build(splitNode)
+	widget, err := renderer.Build(ctx, splitNode)
 
 	// Assert
 	require.NoError(t, err)
@@ -164,6 +169,7 @@ func TestBuild_VerticalSplit(t *testing.T) {
 
 func TestBuild_NestedSplits(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 	mockOuterPaned := mocks.NewMockPanedWidget(t)
@@ -230,10 +236,10 @@ func TestBuild_NestedSplits(t *testing.T) {
 	mockOuterPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
 	mockOuterPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
+	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
 
 	// Act
-	widget, err := renderer.Build(outerSplit)
+	widget, err := renderer.Build(ctx, outerSplit)
 
 	// Assert
 	require.NoError(t, err)
@@ -248,6 +254,7 @@ func TestBuild_NestedSplits(t *testing.T) {
 
 func TestLookup_ExistingNode(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 	mockWidget := mocks.NewMockWidget(t)
@@ -257,8 +264,8 @@ func TestLookup_ExistingNode(t *testing.T) {
 
 	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockWidget).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
-	_, _ = renderer.Build(node)
+	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
+	_, _ = renderer.Build(ctx, node)
 
 	// Act
 	result := renderer.Lookup("test-node-id")
@@ -269,6 +276,7 @@ func TestLookup_ExistingNode(t *testing.T) {
 
 func TestLookup_NonExistentNode(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 	mockWidget := mocks.NewMockWidget(t)
@@ -278,8 +286,8 @@ func TestLookup_NonExistentNode(t *testing.T) {
 
 	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockWidget).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
-	_, _ = renderer.Build(node)
+	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
+	_, _ = renderer.Build(ctx, node)
 
 	// Act
 	result := renderer.Lookup("non-existent-id")
@@ -290,6 +298,7 @@ func TestLookup_NonExistentNode(t *testing.T) {
 
 func TestLookupNode_Existing(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 	mockWidget := mocks.NewMockWidget(t)
@@ -299,8 +308,8 @@ func TestLookupNode_Existing(t *testing.T) {
 
 	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockWidget).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
-	_, _ = renderer.Build(node)
+	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
+	_, _ = renderer.Build(ctx, node)
 
 	// Act
 	widget, found := renderer.LookupNode("node-1")
@@ -312,10 +321,11 @@ func TestLookupNode_Existing(t *testing.T) {
 
 func TestLookupNode_NonExistent(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
+	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
 
 	// Act
 	widget, found := renderer.LookupNode("non-existent")
@@ -327,6 +337,7 @@ func TestLookupNode_NonExistent(t *testing.T) {
 
 func TestClear_RemovesAllMappings(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 	mockWidget := mocks.NewMockWidget(t)
@@ -336,8 +347,8 @@ func TestClear_RemovesAllMappings(t *testing.T) {
 
 	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockWidget).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
-	_, _ = renderer.Build(node)
+	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
+	_, _ = renderer.Build(ctx, node)
 
 	require.Equal(t, 1, renderer.NodeCount())
 
@@ -352,6 +363,7 @@ func TestClear_RemovesAllMappings(t *testing.T) {
 func TestGetNodeIDs_ReturnsAllIDs(t *testing.T) {
 	// Arrange
 	mockFactory := mocks.NewMockWidgetFactory(t)
+	ctx := context.Background()
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 	mockPaned := mocks.NewMockPanedWidget(t)
 	mockWidget1 := mocks.NewMockWidget(t)
@@ -384,8 +396,8 @@ func TestGetNodeIDs_ReturnsAllIDs(t *testing.T) {
 	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
 	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
-	_, _ = renderer.Build(splitNode)
+	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
+	_, _ = renderer.Build(ctx, splitNode)
 
 	// Act
 	ids := renderer.GetNodeIDs()
@@ -399,6 +411,7 @@ func TestGetNodeIDs_ReturnsAllIDs(t *testing.T) {
 
 func TestBuild_ClearsPreviousMappings(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 	mockWidget1 := mocks.NewMockWidget(t)
@@ -413,15 +426,15 @@ func TestBuild_ClearsPreviousMappings(t *testing.T) {
 	mockPaneViewFactory.EXPECT().CreatePaneView(node1).Return(mockWidget1).Once()
 	mockPaneViewFactory.EXPECT().CreatePaneView(node2).Return(mockWidget2).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
+	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
 
 	// First build
-	_, _ = renderer.Build(node1)
+	_, _ = renderer.Build(ctx, node1)
 	require.Equal(t, 1, renderer.NodeCount())
 	require.NotNil(t, renderer.Lookup("old-node"))
 
 	// Act - second build should clear old mappings
-	_, _ = renderer.Build(node2)
+	_, _ = renderer.Build(ctx, node2)
 
 	// Assert
 	assert.Equal(t, 1, renderer.NodeCount())
@@ -431,15 +444,16 @@ func TestBuild_ClearsPreviousMappings(t *testing.T) {
 
 func TestBuild_NilPaneViewFactory_ReturnsNilForLeaves(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 
 	pane := entity.NewPane(entity.PaneID("pane-1"))
 	node := &entity.PaneNode{ID: "node-1", Pane: pane}
 
-	renderer := layout.NewTreeRenderer(mockFactory, nil, zerolog.Nop())
+	renderer := layout.NewTreeRenderer(ctx, mockFactory, nil)
 
 	// Act
-	widget, err := renderer.Build(node)
+	widget, err := renderer.Build(ctx, node)
 
 	// Assert
 	require.NoError(t, err)
@@ -448,6 +462,7 @@ func TestBuild_NilPaneViewFactory_ReturnsNilForLeaves(t *testing.T) {
 
 func TestBuild_EmptyNodeID_NotStored(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 	mockWidget := mocks.NewMockWidget(t)
@@ -457,10 +472,10 @@ func TestBuild_EmptyNodeID_NotStored(t *testing.T) {
 
 	mockPaneViewFactory.EXPECT().CreatePaneView(node).Return(mockWidget).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
+	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
 
 	// Act
-	widget, err := renderer.Build(node)
+	widget, err := renderer.Build(ctx, node)
 
 	// Assert
 	require.NoError(t, err)
@@ -471,6 +486,7 @@ func TestBuild_EmptyNodeID_NotStored(t *testing.T) {
 func TestUpdateSplitRatio_ExistingNode(t *testing.T) {
 	// Arrange
 	mockFactory := mocks.NewMockWidgetFactory(t)
+	ctx := context.Background()
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 	mockPaned := mocks.NewMockPanedWidget(t)
 	mockWidget1 := mocks.NewMockWidget(t)
@@ -503,8 +519,8 @@ func TestUpdateSplitRatio_ExistingNode(t *testing.T) {
 	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
 	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
-	_, _ = renderer.Build(splitNode)
+	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
+	_, _ = renderer.Build(ctx, splitNode)
 
 	// Act
 	err := renderer.UpdateSplitRatio("split-node", 0.7)
@@ -516,9 +532,10 @@ func TestUpdateSplitRatio_ExistingNode(t *testing.T) {
 func TestUpdateSplitRatio_NonExistentNode(t *testing.T) {
 	// Arrange
 	mockFactory := mocks.NewMockWidgetFactory(t)
+	ctx := context.Background()
 	mockPaneViewFactory := mocks.NewMockPaneViewFactory(t)
 
-	renderer := layout.NewTreeRenderer(mockFactory, mockPaneViewFactory, zerolog.Nop())
+	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
 
 	// Act
 	err := renderer.UpdateSplitRatio("non-existent", 0.7)

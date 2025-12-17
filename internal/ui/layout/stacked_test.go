@@ -1,6 +1,7 @@
 package layout_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -80,6 +81,7 @@ func TestNewStackedView_EmptyStack(t *testing.T) {
 
 func TestAddPane_SinglePane_BecomesActive(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
 	mockTitleBar, _, _, _, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
 
@@ -91,7 +93,7 @@ func TestAddPane_SinglePane_BecomesActive(t *testing.T) {
 	sv := layout.NewStackedView(mockFactory)
 
 	// Act
-	index := sv.AddPane("Test Page", "web-browser-symbolic", mockContainer)
+	index := sv.AddPane(ctx, "Test Page", "web-browser-symbolic", mockContainer)
 
 	// Assert
 	assert.Equal(t, 0, index)
@@ -101,6 +103,7 @@ func TestAddPane_SinglePane_BecomesActive(t *testing.T) {
 
 func TestAddPane_MultiplePanes_LastBecomesActive(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
 
 	// First pane
@@ -124,8 +127,8 @@ func TestAddPane_MultiplePanes_LastBecomesActive(t *testing.T) {
 	sv := layout.NewStackedView(mockFactory)
 
 	// Act
-	sv.AddPane("Page 1", "", mockContainer1)
-	index := sv.AddPane("Page 2", "", mockContainer2)
+	sv.AddPane(ctx, "Page 1", "", mockContainer1)
+	index := sv.AddPane(ctx, "Page 2", "", mockContainer2)
 
 	// Assert
 	assert.Equal(t, 1, index)
@@ -135,6 +138,7 @@ func TestAddPane_MultiplePanes_LastBecomesActive(t *testing.T) {
 
 func TestRemovePane_MiddlePane(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
 
 	// Setup 3 panes (simplified - just track the key behaviors)
@@ -159,9 +163,9 @@ func TestRemovePane_MiddlePane(t *testing.T) {
 	}
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane("Page 1", "", containers[0])
-	sv.AddPane("Page 2", "", containers[1])
-	sv.AddPane("Page 3", "", containers[2])
+	sv.AddPane(ctx, "Page 1", "", containers[0])
+	sv.AddPane(ctx, "Page 2", "", containers[1])
+	sv.AddPane(ctx, "Page 3", "", containers[2])
 
 	// Remove middle pane (index 1)
 	// The parent of titleBar is the button widget
@@ -169,7 +173,7 @@ func TestRemovePane_MiddlePane(t *testing.T) {
 	mockBox.EXPECT().Remove(containers[1]).Once()
 
 	// Act
-	err := sv.RemovePane(1)
+	err := sv.RemovePane(ctx, 1)
 
 	// Assert
 	require.NoError(t, err)
@@ -178,6 +182,7 @@ func TestRemovePane_MiddlePane(t *testing.T) {
 
 func TestRemovePane_LastPane_ReturnsError(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
 	mockTitleBar, _, _, _, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
 
@@ -186,10 +191,10 @@ func TestRemovePane_LastPane_ReturnsError(t *testing.T) {
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane("Only Page", "", mockContainer)
+	sv.AddPane(ctx, "Only Page", "", mockContainer)
 
 	// Act
-	err := sv.RemovePane(0)
+	err := sv.RemovePane(ctx, 0)
 
 	// Assert
 	assert.ErrorIs(t, err, layout.ErrCannotRemoveLastPane)
@@ -198,11 +203,12 @@ func TestRemovePane_LastPane_ReturnsError(t *testing.T) {
 
 func TestRemovePane_EmptyStack_ReturnsError(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory, _ := setupMockFactory(t)
 	sv := layout.NewStackedView(mockFactory)
 
 	// Act
-	err := sv.RemovePane(0)
+	err := sv.RemovePane(ctx, 0)
 
 	// Assert
 	assert.ErrorIs(t, err, layout.ErrStackEmpty)
@@ -210,6 +216,7 @@ func TestRemovePane_EmptyStack_ReturnsError(t *testing.T) {
 
 func TestRemovePane_IndexOutOfBounds(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
 	mockTitleBar, _, _, _, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
 
@@ -218,10 +225,10 @@ func TestRemovePane_IndexOutOfBounds(t *testing.T) {
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane("Page", "", mockContainer)
+	sv.AddPane(ctx, "Page", "", mockContainer)
 
 	// Act
-	err := sv.RemovePane(5)
+	err := sv.RemovePane(ctx, 5)
 
 	// Assert
 	assert.ErrorIs(t, err, layout.ErrIndexOutOfBounds)
@@ -229,6 +236,7 @@ func TestRemovePane_IndexOutOfBounds(t *testing.T) {
 
 func TestSetActive_ValidIndex(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
 
 	containers := make([]*mocks.MockWidget, 2)
@@ -243,11 +251,11 @@ func TestSetActive_ValidIndex(t *testing.T) {
 	}
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane("Page 1", "", containers[0])
-	sv.AddPane("Page 2", "", containers[1])
+	sv.AddPane(ctx, "Page 1", "", containers[0])
+	sv.AddPane(ctx, "Page 2", "", containers[1])
 
 	// Act - switch back to first pane
-	err := sv.SetActive(0)
+	err := sv.SetActive(ctx, 0)
 
 	// Assert
 	require.NoError(t, err)
@@ -256,6 +264,7 @@ func TestSetActive_ValidIndex(t *testing.T) {
 
 func TestSetActive_OutOfBounds(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
 	mockTitleBar, _, _, _, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
 
@@ -264,10 +273,10 @@ func TestSetActive_OutOfBounds(t *testing.T) {
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane("Page", "", mockContainer)
+	sv.AddPane(ctx, "Page", "", mockContainer)
 
 	// Act
-	err := sv.SetActive(5)
+	err := sv.SetActive(ctx, 5)
 
 	// Assert
 	assert.ErrorIs(t, err, layout.ErrIndexOutOfBounds)
@@ -275,11 +284,12 @@ func TestSetActive_OutOfBounds(t *testing.T) {
 
 func TestSetActive_EmptyStack(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory, _ := setupMockFactory(t)
 	sv := layout.NewStackedView(mockFactory)
 
 	// Act
-	err := sv.SetActive(0)
+	err := sv.SetActive(ctx, 0)
 
 	// Assert
 	assert.ErrorIs(t, err, layout.ErrStackEmpty)
@@ -287,6 +297,7 @@ func TestSetActive_EmptyStack(t *testing.T) {
 
 func TestUpdateTitle(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
 	mockTitleBar, _, mockLabel, _, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
 
@@ -295,7 +306,7 @@ func TestUpdateTitle(t *testing.T) {
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane("Old Title", "", mockContainer)
+	sv.AddPane(ctx, "Old Title", "", mockContainer)
 
 	mockLabel.EXPECT().SetText("New Title").Once()
 
@@ -320,6 +331,7 @@ func TestUpdateTitle_InvalidIndex(t *testing.T) {
 
 func TestUpdateFavicon(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
 	mockTitleBar, mockFavicon, _, _, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
 
@@ -328,7 +340,7 @@ func TestUpdateFavicon(t *testing.T) {
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane("Page", "", mockContainer)
+	sv.AddPane(ctx, "Page", "", mockContainer)
 
 	mockFavicon.EXPECT().SetFromIconName("new-icon").Once()
 
@@ -341,6 +353,7 @@ func TestUpdateFavicon(t *testing.T) {
 
 func TestGetContainer(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
 	mockTitleBar, _, _, _, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
 
@@ -349,7 +362,7 @@ func TestGetContainer(t *testing.T) {
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane("Page", "", mockContainer)
+	sv.AddPane(ctx, "Page", "", mockContainer)
 
 	// Act
 	container, err := sv.GetContainer(0)
@@ -386,6 +399,7 @@ func TestWidget_ReturnsBoxWidget(t *testing.T) {
 
 func TestNavigateNext_WrapsAround(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
 
 	containers := make([]*mocks.MockWidget, 2)
@@ -400,14 +414,14 @@ func TestNavigateNext_WrapsAround(t *testing.T) {
 	}
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane("Page 1", "", containers[0])
-	sv.AddPane("Page 2", "", containers[1])
+	sv.AddPane(ctx, "Page 1", "", containers[0])
+	sv.AddPane(ctx, "Page 2", "", containers[1])
 
 	// Currently at index 1 (last added)
 	assert.Equal(t, 1, sv.ActiveIndex())
 
 	// Act - navigate next should wrap to 0
-	err := sv.NavigateNext()
+	err := sv.NavigateNext(ctx)
 
 	// Assert
 	require.NoError(t, err)
@@ -416,6 +430,7 @@ func TestNavigateNext_WrapsAround(t *testing.T) {
 
 func TestNavigatePrevious_WrapsAround(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
 
 	containers := make([]*mocks.MockWidget, 2)
@@ -430,14 +445,14 @@ func TestNavigatePrevious_WrapsAround(t *testing.T) {
 	}
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane("Page 1", "", containers[0])
-	sv.AddPane("Page 2", "", containers[1])
+	sv.AddPane(ctx, "Page 1", "", containers[0])
+	sv.AddPane(ctx, "Page 2", "", containers[1])
 
 	// Set to first pane
-	sv.SetActive(0)
+	sv.SetActive(ctx, 0)
 
 	// Act - navigate previous should wrap to 1
-	err := sv.NavigatePrevious()
+	err := sv.NavigatePrevious(ctx)
 
 	// Assert
 	require.NoError(t, err)
@@ -446,11 +461,12 @@ func TestNavigatePrevious_WrapsAround(t *testing.T) {
 
 func TestNavigateNext_EmptyStack(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory, _ := setupMockFactory(t)
 	sv := layout.NewStackedView(mockFactory)
 
 	// Act
-	err := sv.NavigateNext()
+	err := sv.NavigateNext(ctx)
 
 	// Assert
 	assert.ErrorIs(t, err, layout.ErrStackEmpty)
@@ -458,11 +474,12 @@ func TestNavigateNext_EmptyStack(t *testing.T) {
 
 func TestNavigatePrevious_EmptyStack(t *testing.T) {
 	// Arrange
+	ctx := context.Background()
 	mockFactory, _ := setupMockFactory(t)
 	sv := layout.NewStackedView(mockFactory)
 
 	// Act
-	err := sv.NavigatePrevious()
+	err := sv.NavigatePrevious(ctx)
 
 	// Assert
 	assert.ErrorIs(t, err, layout.ErrStackEmpty)
