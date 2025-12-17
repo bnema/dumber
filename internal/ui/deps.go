@@ -44,6 +44,7 @@ type Dependencies struct {
 	ZoomUC      *usecase.ManageZoomUseCase
 	FavoritesUC *usecase.ManageFavoritesUseCase
 	HistoryUC   *usecase.SearchHistoryUseCase
+	CopyURLUC   *usecase.CopyURLUseCase
 
 	// Infrastructure Adapters
 	Clipboard port.Clipboard

@@ -152,6 +152,8 @@ func runGUI() {
 	favoritesUC := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
 	zoomUC := usecase.NewManageZoomUseCase(zoomRepo, cfg.DefaultWebpageZoom)
 	navigateUC := usecase.NewNavigateUseCase(historyRepo, zoomRepo, cfg.DefaultWebpageZoom)
+	clipboardAdapter := clipboard.New()
+	copyURLUC := usecase.NewCopyURLUseCase(clipboardAdapter)
 
 	// Build dependencies
 	deps := &ui.Dependencies{
@@ -175,8 +177,9 @@ func runGUI() {
 		FavoritesUC: favoritesUC,
 		ZoomUC:      zoomUC,
 		NavigateUC:  navigateUC,
+		CopyURLUC:   copyURLUC,
 		// Infrastructure Adapters
-		Clipboard: clipboard.New(),
+		Clipboard: clipboardAdapter,
 	}
 
 	// Run the application

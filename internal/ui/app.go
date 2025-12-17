@@ -215,7 +215,7 @@ func (a *App) onActivate(ctx context.Context) {
 		HistoryUC:       a.deps.HistoryUC,
 		FavoritesUC:     a.deps.FavoritesUC,
 		FaviconCache:    a.faviconCache,
-		Clipboard:       a.deps.Clipboard,
+		CopyURLUC:       a.deps.CopyURLUC,
 		Shortcuts:       a.deps.Config.SearchShortcuts,
 		DefaultSearch:   a.deps.Config.DefaultSearchEngine,
 		InitialBehavior: a.deps.Config.Omnibox.InitialBehavior,
@@ -382,6 +382,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.wsCoord,
 		a.navCoord,
 		a.deps.ZoomUC,
+		a.deps.CopyURLUC,
 	)
 	a.kbDispatcher.SetOnQuit(a.Quit)
 
