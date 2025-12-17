@@ -199,6 +199,10 @@ func (d *KeyboardDispatcher) handleZoom(ctx context.Context, action string) erro
 		// Notify omnibox to update zoom indicator
 		d.navCoord.NotifyZoomChanged(ctx, newZoom.ZoomFactor)
 
+		// Show zoom toast on the active pane
+		zoomPercent := int(newZoom.ZoomFactor * 100)
+		d.wsCoord.ShowZoomToast(ctx, zoomPercent)
+
 		log.Debug().
 			Str("domain", domain).
 			Str("action", action).

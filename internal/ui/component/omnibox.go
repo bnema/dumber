@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/url"
@@ -74,11 +75,13 @@ type Omnibox struct {
 	selectedIndex int
 	suggestions   []Suggestion
 	favorites     []Favorite
+	hasNavigated  bool // true if user navigated with arrow keys (enables space to toggle favorite)
 
 	// Dependencies
 	historyUC       *usecase.SearchHistoryUseCase
 	favoritesUC     *usecase.ManageFavoritesUseCase
 	faviconCache    *cache.FaviconCache
+	clipboard       port.Clipboard
 	shortcuts       map[string]config.SearchShortcut
 	defaultSearch   string
 	initialBehavior string
@@ -87,6 +90,7 @@ type Omnibox struct {
 	// Callbacks
 	onNavigate func(url string)
 	onClose    func()
+	onToast    func(message string)
 
 	// Debouncing
 	debounceTimer *time.Timer
@@ -110,11 +114,13 @@ type OmniboxConfig struct {
 	HistoryUC       *usecase.SearchHistoryUseCase
 	FavoritesUC     *usecase.ManageFavoritesUseCase
 	FaviconCache    *cache.FaviconCache
+	Clipboard       port.Clipboard
 	Shortcuts       map[string]config.SearchShortcut
 	DefaultSearch   string
 	InitialBehavior string
-	UIScale         float64          // UI scale for favicon sizing
-	OnNavigate      func(url string) // Callback when user navigates via omnibox
+	UIScale         float64              // UI scale for favicon sizing
+	OnNavigate      func(url string)     // Callback when user navigates via omnibox
+	OnToast         func(message string) // Callback to show toast notification
 }
 
 // NewOmnibox creates a new native GTK4 omnibox widget.
@@ -133,9 +139,11 @@ func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 		historyUC:       cfg.HistoryUC,
 		favoritesUC:     cfg.FavoritesUC,
 		faviconCache:    cfg.FaviconCache,
+		clipboard:       cfg.Clipboard,
 		shortcuts:       cfg.Shortcuts,
 		defaultSearch:   cfg.DefaultSearch,
 		initialBehavior: cfg.InitialBehavior,
+		onToast:         cfg.OnToast,
 		ctx:             ctx,
 		uiScale:         uiScale,
 	}
@@ -452,9 +460,27 @@ func (o *Omnibox) handleKeyPress(keyval uint, state gdk.ModifierType) bool {
 		return true
 
 	case uint(gdk.KEY_space):
-		// Space toggles favorite: add in history mode, remove in favorites mode
-		o.toggleFavorite()
-		return true
+		// Space toggles favorite only if user has navigated with arrow keys
+		// Otherwise, let space pass through to entry for typing
+		o.mu.RLock()
+		navigated := o.hasNavigated
+		o.mu.RUnlock()
+		if navigated {
+			o.toggleFavorite()
+			return true
+		}
+		return false // Let entry handle space for typing
+
+	case uint(gdk.KEY_y):
+		// 'y' yanks (copies) the selected URL to clipboard when navigating
+		o.mu.RLock()
+		navigated := o.hasNavigated
+		o.mu.RUnlock()
+		if navigated {
+			o.yankSelectedURL()
+			return true
+		}
+		return false // Let entry handle 'y' for typing
 
 	case uint(gdk.KEY_1), uint(gdk.KEY_2), uint(gdk.KEY_3), uint(gdk.KEY_4), uint(gdk.KEY_5),
 		uint(gdk.KEY_6), uint(gdk.KEY_7), uint(gdk.KEY_8), uint(gdk.KEY_9):
@@ -476,6 +502,11 @@ func (o *Omnibox) handleKeyPress(keyval uint, state gdk.ModifierType) bool {
 
 // onEntryChanged handles text input changes with debouncing.
 func (o *Omnibox) onEntryChanged() {
+	// Reset navigation state when user types - space should type, not toggle favorite
+	o.mu.Lock()
+	o.hasNavigated = false
+	o.mu.Unlock()
+
 	o.debounceMu.Lock()
 	if o.debounceTimer != nil {
 		o.debounceTimer.Stop()
@@ -852,7 +883,7 @@ func (o *Omnibox) selectIndex(index int) {
 
 // selectNext moves selection down.
 func (o *Omnibox) selectNext() {
-	o.mu.RLock()
+	o.mu.Lock()
 	current := o.selectedIndex
 	mode := o.viewMode
 	var maxIndex int
@@ -861,7 +892,8 @@ func (o *Omnibox) selectNext() {
 	} else {
 		maxIndex = len(o.favorites) - 1
 	}
-	o.mu.RUnlock()
+	o.hasNavigated = true // User is navigating with arrow keys
+	o.mu.Unlock()
 
 	if maxIndex < 0 {
 		return
@@ -876,7 +908,7 @@ func (o *Omnibox) selectNext() {
 
 // selectPrevious moves selection up.
 func (o *Omnibox) selectPrevious() {
-	o.mu.RLock()
+	o.mu.Lock()
 	current := o.selectedIndex
 	mode := o.viewMode
 	var maxIndex int
@@ -885,7 +917,8 @@ func (o *Omnibox) selectPrevious() {
 	} else {
 		maxIndex = len(o.favorites) - 1
 	}
-	o.mu.RUnlock()
+	o.hasNavigated = true // User is navigating with arrow keys
+	o.mu.Unlock()
 
 	if maxIndex < 0 {
 		return
@@ -1032,6 +1065,62 @@ func (o *Omnibox) toggleFavorite() {
 			o.loadFavorites(o.entry.GetText())
 		}()
 	}
+}
+
+// yankSelectedURL copies the URL of the selected item to clipboard.
+func (o *Omnibox) yankSelectedURL() {
+	log := logging.FromContext(o.ctx)
+
+	if o.clipboard == nil {
+		log.Warn().Msg("yank URL: clipboard is nil")
+		return
+	}
+
+	o.mu.RLock()
+	mode := o.viewMode
+	idx := o.selectedIndex
+	suggestions := o.suggestions
+	favorites := o.favorites
+	o.mu.RUnlock()
+
+	var url string
+	if mode == ViewModeHistory {
+		if idx < 0 || idx >= len(suggestions) {
+			log.Debug().Int("index", idx).Msg("yank URL: invalid selection")
+			return
+		}
+		url = suggestions[idx].URL
+	} else {
+		if idx < 0 || idx >= len(favorites) {
+			log.Debug().Int("index", idx).Msg("yank URL: invalid selection")
+			return
+		}
+		url = favorites[idx].URL
+	}
+
+	if url == "" {
+		log.Debug().Msg("yank URL: empty URL")
+		return
+	}
+
+	go func() {
+		ctx := o.ctx
+		if err := o.clipboard.WriteText(ctx, url); err != nil {
+			log.Error().Err(err).Str("url", url).Msg("failed to copy URL to clipboard")
+			return
+		}
+		log.Debug().Str("url", url).Msg("URL copied to clipboard")
+
+		// Show toast notification on success (must run on GTK main thread)
+		if o.onToast != nil {
+			var cb glib.SourceFunc
+			cb = func(_ uintptr) bool {
+				o.onToast("URL copied")
+				return false // Don't repeat
+			}
+			glib.IdleAdd(&cb, 0)
+		}
+	}()
 }
 
 // buildURL constructs a URL from input, handling search shortcuts.
