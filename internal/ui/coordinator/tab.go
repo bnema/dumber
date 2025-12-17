@@ -6,6 +6,7 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/window"
@@ -19,9 +20,10 @@ type TabCoordinator struct {
 	config     *config.Config
 
 	// Callbacks to avoid circular dependencies
-	onTabCreated  func(ctx context.Context, tab *entity.Tab)
-	onTabSwitched func(ctx context.Context, tab *entity.Tab)
-	onQuit        func()
+	onTabCreated       func(ctx context.Context, tab *entity.Tab)
+	onTabSwitched      func(ctx context.Context, tab *entity.Tab)
+	onQuit             func()
+	onAttachPopupToTab func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv *webkit.WebView) // For popup tabs
 }
 
 // TabCoordinatorConfig holds configuration for TabCoordinator.
@@ -309,4 +311,59 @@ func (c *TabCoordinator) GetTabBar() *component.TabBar {
 		return c.mainWindow.TabBar()
 	}
 	return nil
+}
+
+// SetOnAttachPopupToTab sets the callback for attaching popup WebViews to tabs.
+func (c *TabCoordinator) SetOnAttachPopupToTab(fn func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv *webkit.WebView)) {
+	c.onAttachPopupToTab = fn
+}
+
+// CreateWithPane creates a new tab with a pre-created pane and WebView.
+// This is used for tabbed popup behavior where the popup pane already exists.
+func (c *TabCoordinator) CreateWithPane(ctx context.Context, pane *entity.Pane, wv *webkit.WebView, initialURL string) (*entity.Tab, error) {
+	log := logging.FromContext(ctx)
+
+	output, err := c.tabsUC.CreateWithPane(ctx, usecase.CreateTabWithPaneInput{
+		TabList:    c.tabs,
+		Name:       pane.Title,
+		Pane:       pane,
+		InitialURL: initialURL,
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("failed to create tab with pane")
+		return nil, err
+	}
+
+	// Set new tab as active
+	c.tabs.SetActive(output.Tab.ID)
+
+	// Update tab bar
+	if c.mainWindow != nil && c.mainWindow.TabBar() != nil {
+		c.mainWindow.TabBar().AddTab(output.Tab)
+		c.mainWindow.TabBar().SetActive(output.Tab.ID)
+	}
+
+	// Update tab bar visibility
+	c.UpdateBarVisibility(ctx)
+
+	// Notify app to create workspace view
+	if c.onTabCreated != nil {
+		c.onTabCreated(ctx, output.Tab)
+	}
+
+	// Attach the popup WebView to the new tab's workspace
+	if c.onAttachPopupToTab != nil {
+		c.onAttachPopupToTab(ctx, output.Tab.ID, pane, wv)
+	}
+
+	// Switch to the new tab's workspace view
+	if c.onTabSwitched != nil {
+		c.onTabSwitched(ctx, output.Tab)
+	}
+
+	log.Debug().
+		Str("tab_id", string(output.Tab.ID)).
+		Str("pane_id", string(pane.ID)).
+		Msg("tab created with popup pane")
+	return output.Tab, nil
 }

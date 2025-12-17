@@ -308,3 +308,59 @@ func (uc *ManageTabsUseCase) Pin(ctx context.Context, tabs *entity.TabList, tabI
 
 	return nil
 }
+
+// CreateTabWithPaneInput contains parameters for creating a tab with an existing pane.
+type CreateTabWithPaneInput struct {
+	TabList    *entity.TabList
+	Name       string       // Optional custom name
+	Pane       *entity.Pane // Pre-created pane (for popups)
+	InitialURL string       // URL for the pane
+}
+
+// CreateWithPane creates a new tab using a pre-existing pane.
+// This is used for tabbed popup behavior where the popup pane is already created.
+func (uc *ManageTabsUseCase) CreateWithPane(ctx context.Context, input CreateTabWithPaneInput) (*CreateTabOutput, error) {
+	log := logging.FromContext(ctx)
+	log.Debug().
+		Str("name", input.Name).
+		Str("pane_id", string(input.Pane.ID)).
+		Str("initial_url", input.InitialURL).
+		Msg("creating new tab with existing pane")
+
+	if input.TabList == nil {
+		return nil, fmt.Errorf("tab list is required")
+	}
+	if input.Pane == nil {
+		return nil, fmt.Errorf("pane is required")
+	}
+
+	// Generate IDs for tab and workspace
+	tabID := entity.TabID(uc.idGenerator())
+	workspaceID := entity.WorkspaceID(uc.idGenerator())
+
+	// Use the provided pane
+	pane := input.Pane
+	if input.InitialURL != "" {
+		pane.URI = url.Normalize(input.InitialURL)
+	}
+
+	// Create tab with workspace using the pre-created pane
+	tab := entity.NewTab(tabID, workspaceID, pane)
+	if input.Name != "" {
+		tab.Name = input.Name
+	} else if pane.Title != "" {
+		tab.Name = pane.Title
+	}
+
+	// Add to list
+	input.TabList.Add(tab)
+
+	log.Info().
+		Str("tab_id", string(tabID)).
+		Str("workspace_id", string(workspaceID)).
+		Str("pane_id", string(pane.ID)).
+		Int("position", tab.Position).
+		Msg("tab created with existing pane")
+
+	return &CreateTabOutput{Tab: tab}, nil
+}

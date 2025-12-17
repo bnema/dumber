@@ -6,6 +6,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/focus"
@@ -21,9 +22,10 @@ type WorkspaceCoordinator struct {
 	contentCoord   *ContentCoordinator
 
 	// Callbacks to avoid circular dependencies
-	getActiveWS     func() (*entity.Workspace, *component.WorkspaceView)
-	generateID      func() string
-	onCloseLastPane func(ctx context.Context) error
+	getActiveWS      func() (*entity.Workspace, *component.WorkspaceView)
+	generateID       func() string
+	onCloseLastPane  func(ctx context.Context) error
+	onCreatePopupTab func(ctx context.Context, input InsertPopupInput) error // For tabbed popup behavior
 }
 
 // WorkspaceCoordinatorConfig holds configuration for WorkspaceCoordinator.
@@ -592,6 +594,117 @@ func (c *WorkspaceCoordinator) ClosePane(ctx context.Context) error {
 	return nil
 }
 
+// ClosePaneByID closes a specific pane by ID.
+// This is used for closing popup panes when window.close() is called.
+func (c *WorkspaceCoordinator) ClosePaneByID(ctx context.Context, paneID entity.PaneID) error {
+	log := logging.FromContext(ctx)
+
+	if c.panesUC == nil {
+		log.Warn().Msg("panes use case not available")
+		return nil
+	}
+
+	ws, wsView := c.getActiveWS()
+	if ws == nil {
+		log.Warn().Msg("no active workspace")
+		return nil
+	}
+
+	// Find the pane node
+	paneNode := ws.FindPane(paneID)
+	if paneNode == nil {
+		log.Warn().Str("pane_id", string(paneID)).Msg("pane not found")
+		return nil
+	}
+
+	log.Debug().Str("pane_id", string(paneID)).Msg("closing pane by ID")
+
+	// Don't close the last pane - close the tab instead
+	if ws.PaneCount() <= 1 {
+		if c.onCloseLastPane != nil {
+			return c.onCloseLastPane(ctx)
+		}
+		return nil
+	}
+
+	// BEFORE domain changes: capture widget info for incremental close
+	var parentNode *entity.PaneNode
+	var siblingNode *entity.PaneNode
+	var grandparentNode *entity.PaneNode
+	var parentWidget layout.Widget
+	var siblingIsStartChild bool
+	var parentIsStartInGrand bool
+
+	if wsView != nil {
+		tr := wsView.TreeRenderer()
+		if tr != nil && paneNode.Parent != nil {
+			parentNode = paneNode.Parent
+
+			if parentNode.Left() == paneNode {
+				siblingNode = parentNode.Right()
+				siblingIsStartChild = false
+			} else {
+				siblingNode = parentNode.Left()
+				siblingIsStartChild = true
+			}
+
+			grandparentNode = parentNode.Parent
+			parentWidget = tr.Lookup(parentNode.ID)
+
+			if grandparentNode != nil {
+				parentIsStartInGrand = grandparentNode.Left() == parentNode
+			}
+		}
+	}
+
+	// Now do domain changes
+	_, err := c.panesUC.Close(ctx, ws, paneNode)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to close pane")
+		return err
+	}
+
+	// Try incremental close
+	if wsView != nil && parentNode != nil {
+		var closeErr error
+
+		if parentNode.IsStacked {
+			closeErr = c.doIncrementalStackClose(ctx, wsView, paneID, parentNode)
+		} else if siblingNode != nil && parentWidget != nil {
+			closeErr = c.doIncrementalClose(ctx, wsView, ws, paneID, siblingNode, parentNode, grandparentNode, parentWidget, siblingIsStartChild, parentIsStartInGrand)
+		} else {
+			closeErr = fmt.Errorf("missing context for incremental close")
+		}
+
+		if closeErr != nil {
+			log.Warn().Err(closeErr).Msg("incremental close failed, falling back to rebuild")
+			if err := wsView.Rebuild(ctx); err != nil {
+				log.Error().Err(err).Msg("failed to rebuild workspace view")
+			}
+			c.contentCoord.ReleaseWebView(ctx, paneID)
+			c.contentCoord.AttachToWorkspace(ctx, ws, wsView)
+		}
+
+		if err := wsView.SetActivePaneID(ws.ActivePaneID); err != nil {
+			log.Warn().Err(err).Msg("failed to set active pane in workspace view")
+		}
+		wsView.FocusPane(ws.ActivePaneID)
+	} else if wsView != nil {
+		if err := wsView.Rebuild(ctx); err != nil {
+			log.Error().Err(err).Msg("failed to rebuild workspace view")
+		}
+		c.contentCoord.ReleaseWebView(ctx, paneID)
+		c.contentCoord.AttachToWorkspace(ctx, ws, wsView)
+		if err := wsView.SetActivePaneID(ws.ActivePaneID); err != nil {
+			log.Warn().Err(err).Msg("failed to set active pane in workspace view")
+		}
+		wsView.FocusPane(ws.ActivePaneID)
+	}
+
+	log.Info().Str("pane_id", string(paneID)).Msg("pane closed by ID")
+	return nil
+}
+
 // doIncrementalClose performs incremental close by promoting sibling without rebuild.
 func (c *WorkspaceCoordinator) doIncrementalClose(
 	ctx context.Context,
@@ -1137,4 +1250,283 @@ func (c *WorkspaceCoordinator) onTitleBarClick(ctx context.Context, stackNode *e
 		Int("to_index", clickedIndex).
 		Str("pane_id", string(clickedPaneID)).
 		Msg("switched active pane via title bar click")
+}
+
+// --- Popup Insertion ---
+
+// SetOnCreatePopupTab sets the callback for creating popup tabs.
+// This is used when popup behavior is "tabbed".
+func (c *WorkspaceCoordinator) SetOnCreatePopupTab(fn func(ctx context.Context, input InsertPopupInput) error) {
+	c.onCreatePopupTab = fn
+}
+
+// InsertPopup inserts a popup pane into the workspace based on the specified behavior.
+// Supports split, stacked, and tabbed behaviors.
+func (c *WorkspaceCoordinator) InsertPopup(ctx context.Context, input InsertPopupInput) error {
+	log := logging.FromContext(ctx)
+
+	log.Debug().
+		Str("parent_pane", string(input.ParentPaneID)).
+		Str("popup_pane", string(input.PopupPane.ID)).
+		Str("behavior", string(input.Behavior)).
+		Str("placement", input.Placement).
+		Str("popup_type", input.PopupType.String()).
+		Msg("inserting popup into workspace")
+
+	switch input.Behavior {
+	case config.PopupBehaviorSplit:
+		return c.insertPopupSplit(ctx, input)
+	case config.PopupBehaviorStacked:
+		return c.insertPopupStacked(ctx, input)
+	case config.PopupBehaviorTabbed:
+		return c.insertPopupTabbed(ctx, input)
+	default:
+		// Default to split right
+		return c.insertPopupSplit(ctx, input)
+	}
+}
+
+// insertPopupSplit inserts a popup as a split pane adjacent to the parent.
+func (c *WorkspaceCoordinator) insertPopupSplit(ctx context.Context, input InsertPopupInput) error {
+	log := logging.FromContext(ctx)
+
+	ws, wsView := c.getActiveWS()
+	if ws == nil {
+		return fmt.Errorf("no active workspace")
+	}
+
+	// Find parent pane node
+	parentNode := ws.FindPane(input.ParentPaneID)
+	if parentNode == nil {
+		return fmt.Errorf("parent pane not found: %s", input.ParentPaneID)
+	}
+
+	// Map placement to split direction
+	var direction usecase.SplitDirection
+	switch input.Placement {
+	case "left":
+		direction = usecase.SplitLeft
+	case "right":
+		direction = usecase.SplitRight
+	case "top", "up":
+		direction = usecase.SplitUp
+	case "bottom", "down":
+		direction = usecase.SplitDown
+	default:
+		direction = usecase.SplitRight
+	}
+
+	// Check if parent is in a stack - if so, split around the stack
+	isStackSplit := (direction == usecase.SplitLeft || direction == usecase.SplitRight) &&
+		parentNode.Parent != nil && parentNode.Parent.IsStacked
+
+	// Get existing widget before domain changes
+	var existingWidget layout.Widget
+	if wsView != nil {
+		if isStackSplit {
+			tr := wsView.TreeRenderer()
+			if tr != nil {
+				stackedView := tr.GetStackedViewForPane(string(parentNode.Pane.ID))
+				if stackedView != nil {
+					existingWidget = stackedView.Widget()
+				}
+			}
+		} else {
+			existingWidget = wsView.GetRootWidget()
+		}
+	}
+
+	// Perform the split with pre-created pane
+	output, err := c.panesUC.Split(ctx, usecase.SplitPaneInput{
+		Workspace:  ws,
+		TargetPane: parentNode,
+		Direction:  direction,
+		NewPane:    input.PopupPane,
+	})
+	if err != nil {
+		return fmt.Errorf("split for popup: %w", err)
+	}
+
+	// Set popup as active
+	ws.ActivePaneID = input.PopupPane.ID
+
+	// Update UI
+	if wsView != nil && existingWidget != nil {
+		var splitErr error
+		if isStackSplit {
+			splitErr = c.doIncrementalStackSplit(ctx, wsView, ws, output, direction, existingWidget, input.ParentPaneID)
+		} else {
+			splitErr = c.doIncrementalSplit(ctx, wsView, ws, output, direction, existingWidget, input.ParentPaneID)
+		}
+
+		if splitErr != nil {
+			log.Warn().Err(splitErr).Msg("incremental popup split failed, falling back to rebuild")
+			if err := wsView.Rebuild(ctx); err != nil {
+				log.Error().Err(err).Msg("failed to rebuild workspace view")
+			}
+			c.contentCoord.AttachToWorkspace(ctx, ws, wsView)
+		}
+
+		// Update active pane tracking
+		if err := wsView.SetActivePaneID(ws.ActivePaneID); err != nil {
+			log.Warn().Err(err).Msg("failed to set active pane in workspace view")
+		}
+		wsView.FocusPane(ws.ActivePaneID)
+	}
+
+	// Attach WebView widget to the new pane
+	if wsView != nil && input.WebView != nil {
+		widget := c.contentCoord.WrapWidget(ctx, input.WebView)
+		if widget != nil {
+			paneView := wsView.GetPaneView(input.PopupPane.ID)
+			if paneView != nil {
+				paneView.SetWebViewWidget(widget)
+			}
+		}
+	}
+
+	log.Info().
+		Str("popup_pane", string(input.PopupPane.ID)).
+		Str("direction", string(direction)).
+		Msg("popup inserted as split pane")
+
+	return nil
+}
+
+// insertPopupStacked inserts a popup as a stacked pane on top of the parent.
+func (c *WorkspaceCoordinator) insertPopupStacked(ctx context.Context, input InsertPopupInput) error {
+	log := logging.FromContext(ctx)
+
+	ws, wsView := c.getActiveWS()
+	if ws == nil {
+		return fmt.Errorf("no active workspace")
+	}
+
+	// Find parent pane node
+	parentNode := ws.FindPane(input.ParentPaneID)
+	if parentNode == nil {
+		return fmt.Errorf("parent pane not found: %s", input.ParentPaneID)
+	}
+
+	// Determine stack node - either parent is already a stack, or we need to convert it
+	var stackNode *entity.PaneNode
+	var needsStackConversion bool
+
+	if parentNode.Parent != nil && parentNode.Parent.IsStacked {
+		// Parent is already in a stack - add to existing stack
+		stackNode = parentNode.Parent
+	} else if parentNode.IsStacked {
+		// Parent itself is a stack - add to it
+		stackNode = parentNode
+	} else {
+		// Need to convert parent leaf to a stack
+		needsStackConversion = true
+		stackNode = parentNode
+	}
+
+	if needsStackConversion {
+		// Convert leaf node to stacked container
+		originalPane := parentNode.Pane
+		originalTitle := c.contentCoord.GetTitle(input.ParentPaneID)
+		if originalTitle == "" {
+			originalTitle = originalPane.Title
+		}
+		if originalTitle == "" {
+			originalTitle = "Untitled"
+		}
+		originalPane.Title = originalTitle
+
+		originalPaneChild := &entity.PaneNode{
+			ID:     parentNode.ID + "_0",
+			Pane:   originalPane,
+			Parent: parentNode,
+		}
+
+		parentNode.Pane = nil
+		parentNode.IsStacked = true
+		parentNode.Children = []*entity.PaneNode{originalPaneChild}
+
+		log.Debug().
+			Str("node_id", parentNode.ID).
+			Str("original_pane", string(originalPane.ID)).
+			Msg("converted leaf to stacked node for popup")
+	}
+
+	// Create new child node for the popup pane
+	newChildNode := &entity.PaneNode{
+		ID:     stackNode.ID + "_popup_" + string(input.PopupPane.ID),
+		Pane:   input.PopupPane,
+		Parent: stackNode,
+	}
+	stackNode.Children = append(stackNode.Children, newChildNode)
+	stackNode.ActiveStackIndex = len(stackNode.Children) - 1
+
+	// Update workspace active pane
+	ws.ActivePaneID = input.PopupPane.ID
+
+	// Create PaneView for the popup
+	if wsView != nil {
+		newPaneView := component.NewPaneView(c.widgetFactory, input.PopupPane.ID, nil)
+		setupPaneViewHover(ctx, newPaneView, wsView)
+		wsView.RegisterPaneView(input.PopupPane.ID, newPaneView)
+
+		// Add to StackedView
+		if err := c.stackedPaneMgr.AddPaneToStack(ctx, wsView, input.ParentPaneID, newPaneView, input.PopupPane.Title); err != nil {
+			log.Error().Err(err).Msg("failed to add popup pane to stack")
+			return err
+		}
+
+		// Attach WebView widget
+		if input.WebView != nil {
+			widget := c.contentCoord.WrapWidget(ctx, input.WebView)
+			if widget != nil {
+				newPaneView.SetWebViewWidget(widget)
+			}
+		}
+
+		// Update active pane tracking
+		if err := wsView.SetActivePaneID(ws.ActivePaneID); err != nil {
+			log.Warn().Err(err).Msg("failed to set active pane in workspace view")
+		}
+
+		// Setup title bar click callback
+		tr := wsView.TreeRenderer()
+		if tr != nil {
+			stackedView := tr.GetStackedViewForPane(string(input.ParentPaneID))
+			if stackedView != nil {
+				capturedStackNode := stackNode
+				stackedView.SetOnActivate(func(index int) {
+					c.onTitleBarClick(ctx, capturedStackNode, stackedView, index)
+				})
+			}
+		}
+	}
+
+	log.Info().
+		Str("popup_pane", string(input.PopupPane.ID)).
+		Int("stack_size", len(stackNode.Children)).
+		Msg("popup inserted as stacked pane")
+
+	return nil
+}
+
+// insertPopupTabbed creates a new tab for the popup.
+func (c *WorkspaceCoordinator) insertPopupTabbed(ctx context.Context, input InsertPopupInput) error {
+	log := logging.FromContext(ctx)
+
+	if c.onCreatePopupTab == nil {
+		log.Warn().Msg("tabbed popup behavior requested but no tab handler configured, falling back to split")
+		return c.insertPopupSplit(ctx, input)
+	}
+
+	// Delegate to tab coordinator via callback
+	if err := c.onCreatePopupTab(ctx, input); err != nil {
+		return fmt.Errorf("create popup tab: %w", err)
+	}
+
+	log.Info().
+		Str("popup_pane", string(input.PopupPane.ID)).
+		Msg("popup inserted as new tab")
+
+	return nil
 }

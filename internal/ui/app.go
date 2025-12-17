@@ -63,11 +63,12 @@ type App struct {
 	omniboxCfg component.OmniboxConfig
 
 	// Web content (managed by ContentCoordinator)
-	pool         *webkit.WebViewPool
-	injector     *webkit.ContentInjector
-	router       *webkit.MessageRouter
-	settings     *webkit.SettingsManager
-	faviconCache *cache.FaviconCache
+	pool           *webkit.WebViewPool
+	webViewFactory *webkit.WebViewFactory
+	injector       *webkit.ContentInjector
+	router         *webkit.MessageRouter
+	settings       *webkit.SettingsManager
+	faviconCache   *cache.FaviconCache
 
 	// ID generator for tabs/panes
 	idCounter uint64
@@ -299,6 +300,10 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.switchWorkspaceView(ctx, tab.ID)
 	})
 	a.tabCoord.SetOnQuit(a.Quit)
+	// Wire popup tab WebView attachment
+	a.tabCoord.SetOnAttachPopupToTab(func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv *webkit.WebView) {
+		a.attachPopupToTab(ctx, tabID, pane, wv)
+	})
 
 	// Wire tab bar click handling to coordinator
 	if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
@@ -319,6 +324,36 @@ func (a *App) initCoordinators(ctx context.Context) {
 	})
 	a.wsCoord.SetOnCloseLastPane(func(ctx context.Context) error {
 		return a.tabCoord.Close(ctx)
+	})
+
+	// Wire popup handling
+	a.webViewFactory = webkit.NewWebViewFactory(
+		a.deps.WebContext,
+		a.settings,
+		a.pool,
+		a.injector,
+		a.router,
+	)
+	a.contentCoord.SetPopupConfig(
+		a.webViewFactory,
+		&a.deps.Config.Workspace.Popups,
+		a.generateID,
+	)
+	a.contentCoord.SetOnInsertPopup(func(ctx context.Context, input coordinator.InsertPopupInput) error {
+		return a.wsCoord.InsertPopup(ctx, input)
+	})
+	a.contentCoord.SetOnClosePane(func(ctx context.Context, paneID entity.PaneID) error {
+		return a.wsCoord.ClosePaneByID(ctx, paneID)
+	})
+	// Wire tabbed popup behavior to create new tabs
+	a.wsCoord.SetOnCreatePopupTab(func(ctx context.Context, input coordinator.InsertPopupInput) error {
+		// Create a new tab with the popup pane
+		tab, err := a.tabCoord.CreateWithPane(ctx, input.PopupPane, input.WebView, input.TargetURI)
+		if err != nil {
+			return err
+		}
+		log.Debug().Str("tab_id", string(tab.ID)).Msg("created tab for popup")
+		return nil
 	})
 
 	// 4. Navigation Coordinator
@@ -469,6 +504,43 @@ func (a *App) activeWorkspaceView() *component.WorkspaceView {
 		return nil
 	}
 	return a.workspaceViews[activeTab.ID]
+}
+
+// attachPopupToTab attaches a popup WebView to a newly created tab.
+// This is called when a popup uses tabbed behavior.
+func (a *App) attachPopupToTab(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv *webkit.WebView) {
+	log := logging.FromContext(ctx)
+
+	wsView := a.workspaceViews[tabID]
+	if wsView == nil {
+		log.Warn().Str("tab_id", string(tabID)).Msg("workspace view not found for popup tab")
+		return
+	}
+
+	// Register WebView with content coordinator
+	if a.contentCoord != nil {
+		// Track the WebView
+		a.contentCoord.RegisterPopupWebView(pane.ID, wv)
+
+		// Wrap and attach widget
+		widget := a.contentCoord.WrapWidget(ctx, wv)
+		if widget != nil {
+			paneView := wsView.GetPaneView(pane.ID)
+			if paneView != nil {
+				paneView.SetWebViewWidget(widget)
+			} else {
+				log.Warn().Str("pane_id", string(pane.ID)).Msg("pane view not found for popup")
+			}
+		}
+
+		// Setup popup handling for nested popups
+		a.contentCoord.SetupPopupHandling(ctx, pane.ID, wv)
+	}
+
+	log.Debug().
+		Str("tab_id", string(tabID)).
+		Str("pane_id", string(pane.ID)).
+		Msg("popup webview attached to tab")
 }
 
 // switchWorkspaceView swaps the displayed workspace view for a tab.
