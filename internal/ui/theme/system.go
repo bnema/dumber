@@ -2,6 +2,7 @@ package theme
 
 import (
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/jwijenbergh/puregotk/v4/gtk"
@@ -10,7 +11,8 @@ import (
 // DetectSystemDarkMode checks if the system prefers dark mode.
 // It checks multiple sources in order of preference:
 // 1. GTK_THEME environment variable (contains "dark")
-// 2. GTK Settings gtk-application-prefer-dark-theme property
+// 2. GNOME gsettings color-scheme (prefer-dark/prefer-light)
+// 3. GTK Settings gtk-application-prefer-dark-theme property
 // Returns true if dark mode is preferred.
 func DetectSystemDarkMode() bool {
 	// Check GTK_THEME environment variable first
@@ -23,6 +25,17 @@ func DetectSystemDarkMode() bool {
 		return false
 	}
 
+	// Check GNOME gsettings color-scheme (modern GNOME/GTK4 method)
+	if colorScheme := getGsettingsColorScheme(); colorScheme != "" {
+		switch colorScheme {
+		case "prefer-dark":
+			return true
+		case "prefer-light":
+			return false
+			// "default" falls through to next check
+		}
+	}
+
 	// Try GTK Settings
 	settings := gtk.SettingsGetDefault()
 	if settings != nil {
@@ -33,6 +46,20 @@ func DetectSystemDarkMode() bool {
 
 	// Default to dark mode if detection fails (better for eyes)
 	return true
+}
+
+// getGsettingsColorScheme queries GNOME gsettings for the color-scheme preference.
+// Returns "prefer-dark", "prefer-light", "default", or empty string on error.
+func getGsettingsColorScheme() string {
+	cmd := exec.Command("gsettings", "get", "org.gnome.desktop.interface", "color-scheme")
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	// Output is like "'prefer-dark'\n", strip quotes and whitespace
+	result := strings.TrimSpace(string(output))
+	result = strings.Trim(result, "'\"")
+	return result
 }
 
 // ResolveColorScheme determines the effective dark mode preference.

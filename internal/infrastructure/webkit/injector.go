@@ -15,11 +15,20 @@ const (
 	MessageHandlerName = "dumber"
 )
 
-// darkModeScript patches window.matchMedia to respect GTK's dark mode preference.
+// darkModeScript patches window.matchMedia and sets theme class on <html>.
 // It must be injected at document start, after __dumber_gtk_prefers_dark is set.
 const darkModeScript = `(function() {
   const prefersDark = window.__dumber_gtk_prefers_dark || false;
   const originalMatchMedia = window.matchMedia.bind(window);
+
+  // Apply dark/light class to document element for CSS theming
+  if (prefersDark) {
+    document.documentElement.classList.add('dark');
+    document.documentElement.classList.remove('light');
+  } else {
+    document.documentElement.classList.add('light');
+    document.documentElement.classList.remove('dark');
+  }
 
   // Inject color-scheme meta tag
   const meta = document.createElement('meta');
