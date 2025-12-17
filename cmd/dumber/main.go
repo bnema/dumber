@@ -10,6 +10,7 @@ import (
 	"github.com/bnema/dumber/assets"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/cli/cmd"
+	"github.com/bnema/dumber/internal/infrastructure/clipboard"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
@@ -174,6 +175,8 @@ func runGUI() {
 		FavoritesUC: favoritesUC,
 		ZoomUC:      zoomUC,
 		NavigateUC:  navigateUC,
+		// Infrastructure Adapters
+		Clipboard: clipboard.New(),
 	}
 
 	// Run the application

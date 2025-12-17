@@ -44,6 +44,9 @@ type Dependencies struct {
 	ZoomUC      *usecase.ManageZoomUseCase
 	FavoritesUC *usecase.ManageFavoritesUseCase
 	HistoryUC   *usecase.SearchHistoryUseCase
+
+	// Infrastructure Adapters
+	Clipboard port.Clipboard
 }
 
 // Validate checks that all required dependencies are set.
