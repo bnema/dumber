@@ -12,21 +12,21 @@ import (
 // SettingsManager creates and manages WebKit Settings instances from config.
 type SettingsManager struct {
 	cfg *config.Config
-	ctx context.Context
 	mu  sync.RWMutex
 }
 
 // NewSettingsManager creates a new SettingsManager with the given config.
 func NewSettingsManager(ctx context.Context, cfg *config.Config) *SettingsManager {
+	log := logging.FromContext(ctx)
+	log.Debug().Msg("creating settings manager")
 	return &SettingsManager{
 		cfg: cfg,
-		ctx: logging.WithComponent(ctx, "webkit-settings"),
 	}
 }
 
 // CreateSettings creates a new webkit.Settings instance configured from the current config.
-func (sm *SettingsManager) CreateSettings() *webkit.Settings {
-	log := logging.FromContext(sm.ctx)
+func (sm *SettingsManager) CreateSettings(ctx context.Context) *webkit.Settings {
+	log := logging.FromContext(ctx)
 
 	sm.mu.RLock()
 	cfg := sm.cfg
@@ -38,12 +38,13 @@ func (sm *SettingsManager) CreateSettings() *webkit.Settings {
 		return nil
 	}
 
-	sm.applySettings(settings, cfg)
+	sm.applySettings(ctx, settings, cfg)
 	return settings
 }
 
 // applySettings applies configuration to a webkit.Settings instance.
-func (sm *SettingsManager) applySettings(settings *webkit.Settings, cfg *config.Config) {
+func (sm *SettingsManager) applySettings(ctx context.Context, settings *webkit.Settings, cfg *config.Config) {
+	log := logging.FromContext(ctx)
 	// JavaScript settings
 	settings.SetEnableJavascript(true)
 	settings.SetEnableJavascriptMarkup(true)
@@ -108,7 +109,6 @@ func (sm *SettingsManager) applySettings(settings *webkit.Settings, cfg *config.
 	// WebRTC
 	settings.SetEnableWebrtc(true)
 
-	log := logging.FromContext(sm.ctx)
 	log.Debug().
 		Str("sans_font", cfg.Appearance.SansFont).
 		Str("rendering_mode", string(cfg.RenderingMode)).
@@ -119,8 +119,8 @@ func (sm *SettingsManager) applySettings(settings *webkit.Settings, cfg *config.
 // UpdateFromConfig updates the manager with a new config (for hot-reload).
 // Note: This doesn't update already-created Settings instances.
 // New WebViews will use the updated config.
-func (sm *SettingsManager) UpdateFromConfig(cfg *config.Config) {
-	log := logging.FromContext(sm.ctx)
+func (sm *SettingsManager) UpdateFromConfig(ctx context.Context, cfg *config.Config) {
+	log := logging.FromContext(ctx)
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	sm.cfg = cfg
@@ -129,12 +129,12 @@ func (sm *SettingsManager) UpdateFromConfig(cfg *config.Config) {
 
 // ApplyToWebView applies current settings to an existing WebView.
 // This can be used to update a WebView's settings after config hot-reload.
-func (sm *SettingsManager) ApplyToWebView(wv *webkit.WebView) {
+func (sm *SettingsManager) ApplyToWebView(ctx context.Context, wv *webkit.WebView) {
 	if wv == nil {
 		return
 	}
 
-	settings := sm.CreateSettings()
+	settings := sm.CreateSettings(ctx)
 	if settings == nil {
 		return
 	}
@@ -147,6 +147,6 @@ func (sm *SettingsManager) ApplyToWebView(wv *webkit.WebView) {
 		sm.mu.RLock()
 		cfg := sm.cfg
 		sm.mu.RUnlock()
-		sm.applySettings(existingSettings, cfg)
+		sm.applySettings(ctx, existingSettings, cfg)
 	}
 }
