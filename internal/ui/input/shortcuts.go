@@ -96,6 +96,9 @@ const (
 	ActionOpenDevTools     Action = "open_devtools"
 	ActionToggleFullscreen Action = "toggle_fullscreen"
 
+	// Clipboard
+	ActionCopyURL Action = "copy_url"
+
 	// Application
 	ActionQuit Action = "quit"
 )
@@ -171,7 +174,7 @@ func (s *ShortcutSet) buildGlobalShortcuts(ctx context.Context, cfg *config.Work
 	// Standard browser shortcuts (hardcoded defaults)
 	s.Global[KeyBinding{uint(gdk.KEY_l), ModCtrl}] = ActionOpenOmnibox
 	s.Global[KeyBinding{uint(gdk.KEY_r), ModCtrl}] = ActionReload
-	s.Global[KeyBinding{uint(gdk.KEY_r), ModCtrl | ModShift}] = ActionHardReload
+	s.Global[KeyBinding{uint(gdk.KEY_R), ModCtrl | ModShift}] = ActionHardReload
 	s.Global[KeyBinding{uint(gdk.KEY_F5), ModNone}] = ActionReload
 	s.Global[KeyBinding{uint(gdk.KEY_F5), ModCtrl}] = ActionHardReload
 	s.Global[KeyBinding{uint(gdk.KEY_F12), ModNone}] = ActionOpenDevTools
@@ -183,6 +186,7 @@ func (s *ShortcutSet) buildGlobalShortcuts(ctx context.Context, cfg *config.Work
 	s.Global[KeyBinding{uint(gdk.KEY_0), ModCtrl}] = ActionZoomReset
 	s.Global[KeyBinding{uint(gdk.KEY_q), ModCtrl}] = ActionQuit
 	s.Global[KeyBinding{uint(gdk.KEY_F11), ModNone}] = ActionToggleFullscreen
+	s.Global[KeyBinding{uint(gdk.KEY_C), ModCtrl | ModShift}] = ActionCopyURL
 
 	// Pane navigation (Alt+HJKL like vim)
 	s.Global[KeyBinding{uint(gdk.KEY_h), ModAlt}] = ActionFocusLeft

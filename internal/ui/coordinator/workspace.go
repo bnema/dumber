@@ -1580,3 +1580,16 @@ func (c *WorkspaceCoordinator) ShowZoomToast(ctx context.Context, zoomPercent in
 		paneView.ShowZoomToast(ctx, zoomPercent)
 	}
 }
+
+// ShowToastOnActivePane displays a toast notification on the active pane.
+func (c *WorkspaceCoordinator) ShowToastOnActivePane(ctx context.Context, message string, level component.ToastLevel) {
+	_, wsView := c.getActiveWS()
+	if wsView == nil {
+		return
+	}
+
+	paneView := wsView.GetActivePaneView()
+	if paneView != nil {
+		paneView.ShowToast(ctx, message, level)
+	}
+}

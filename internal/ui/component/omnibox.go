@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/url"
@@ -81,7 +80,7 @@ type Omnibox struct {
 	historyUC       *usecase.SearchHistoryUseCase
 	favoritesUC     *usecase.ManageFavoritesUseCase
 	faviconCache    *cache.FaviconCache
-	clipboard       port.Clipboard
+	copyURLUC       *usecase.CopyURLUseCase
 	shortcuts       map[string]config.SearchShortcut
 	defaultSearch   string
 	initialBehavior string
@@ -114,7 +113,7 @@ type OmniboxConfig struct {
 	HistoryUC       *usecase.SearchHistoryUseCase
 	FavoritesUC     *usecase.ManageFavoritesUseCase
 	FaviconCache    *cache.FaviconCache
-	Clipboard       port.Clipboard
+	CopyURLUC       *usecase.CopyURLUseCase
 	Shortcuts       map[string]config.SearchShortcut
 	DefaultSearch   string
 	InitialBehavior string
@@ -139,7 +138,7 @@ func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 		historyUC:       cfg.HistoryUC,
 		favoritesUC:     cfg.FavoritesUC,
 		faviconCache:    cfg.FaviconCache,
-		clipboard:       cfg.Clipboard,
+		copyURLUC:       cfg.CopyURLUC,
 		shortcuts:       cfg.Shortcuts,
 		defaultSearch:   cfg.DefaultSearch,
 		initialBehavior: cfg.InitialBehavior,
@@ -1071,8 +1070,8 @@ func (o *Omnibox) toggleFavorite() {
 func (o *Omnibox) yankSelectedURL() {
 	log := logging.FromContext(o.ctx)
 
-	if o.clipboard == nil {
-		log.Warn().Msg("yank URL: clipboard is nil")
+	if o.copyURLUC == nil {
+		log.Warn().Msg("yank URL: copy URL use case is nil")
 		return
 	}
 
@@ -1105,11 +1104,9 @@ func (o *Omnibox) yankSelectedURL() {
 
 	go func() {
 		ctx := o.ctx
-		if err := o.clipboard.WriteText(ctx, url); err != nil {
-			log.Error().Err(err).Str("url", url).Msg("failed to copy URL to clipboard")
-			return
+		if err := o.copyURLUC.Copy(ctx, url); err != nil {
+			return // Use case already logs the error
 		}
-		log.Debug().Str("url", url).Msg("URL copied to clipboard")
 
 		// Show toast notification on success (must run on GTK main thread)
 		if o.onToast != nil {

@@ -6,17 +6,20 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
 	"github.com/bnema/dumber/internal/ui/input"
+	"github.com/jwijenbergh/puregotk/v4/glib"
 )
 
 // KeyboardDispatcher routes keyboard actions to appropriate coordinators.
 type KeyboardDispatcher struct {
-	tabCoord *coordinator.TabCoordinator
-	wsCoord  *coordinator.WorkspaceCoordinator
-	navCoord *coordinator.NavigationCoordinator
-	zoomUC   *usecase.ManageZoomUseCase
-	onQuit   func()
+	tabCoord  *coordinator.TabCoordinator
+	wsCoord   *coordinator.WorkspaceCoordinator
+	navCoord  *coordinator.NavigationCoordinator
+	zoomUC    *usecase.ManageZoomUseCase
+	copyURLUC *usecase.CopyURLUseCase
+	onQuit    func()
 }
 
 // NewKeyboardDispatcher creates a new KeyboardDispatcher.
@@ -26,15 +29,17 @@ func NewKeyboardDispatcher(
 	wsCoord *coordinator.WorkspaceCoordinator,
 	navCoord *coordinator.NavigationCoordinator,
 	zoomUC *usecase.ManageZoomUseCase,
+	copyURLUC *usecase.CopyURLUseCase,
 ) *KeyboardDispatcher {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("creating keyboard dispatcher")
 
 	return &KeyboardDispatcher{
-		tabCoord: tabCoord,
-		wsCoord:  wsCoord,
-		navCoord: navCoord,
-		zoomUC:   zoomUC,
+		tabCoord:  tabCoord,
+		wsCoord:   wsCoord,
+		navCoord:  navCoord,
+		zoomUC:    zoomUC,
+		copyURLUC: copyURLUC,
 	}
 }
 
@@ -136,6 +141,10 @@ func (d *KeyboardDispatcher) Dispatch(ctx context.Context, action input.Action) 
 	case input.ActionToggleFullscreen:
 		log.Debug().Msg("toggle fullscreen action (not yet implemented)")
 
+	// Clipboard
+	case input.ActionCopyURL:
+		return d.handleCopyURL(ctx)
+
 	// Application
 	case input.ActionQuit:
 		if d.onQuit != nil {
@@ -209,6 +218,46 @@ func (d *KeyboardDispatcher) handleZoom(ctx context.Context, action string) erro
 			Float64("zoom", newZoom.ZoomFactor).
 			Msg("zoom applied")
 	}
+
+	return nil
+}
+
+// handleCopyURL copies the active pane's URL to clipboard.
+func (d *KeyboardDispatcher) handleCopyURL(ctx context.Context) error {
+	log := logging.FromContext(ctx)
+
+	if d.copyURLUC == nil {
+		log.Warn().Msg("copy URL use case not available")
+		return nil
+	}
+
+	wv := d.navCoord.ActiveWebView(ctx)
+	if wv == nil {
+		log.Debug().Msg("no active webview for copy URL")
+		return nil
+	}
+
+	uri := wv.URI()
+	if uri == "" {
+		log.Debug().Msg("active webview has empty URI")
+		return nil
+	}
+
+	// Copy URL in background goroutine
+	go func() {
+		if err := d.copyURLUC.Copy(ctx, uri); err != nil {
+			log.Error().Err(err).Str("uri", uri).Msg("copy URL failed")
+			return
+		}
+
+		// Show toast on GTK main thread
+		var cb glib.SourceFunc
+		cb = func(_ uintptr) bool {
+			d.wsCoord.ShowToastOnActivePane(ctx, "URL copied", component.ToastSuccess)
+			return false
+		}
+		glib.IdleAdd(&cb, 0)
+	}()
 
 	return nil
 }
