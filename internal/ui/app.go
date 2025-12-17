@@ -215,8 +215,12 @@ func (a *App) onActivate(ctx context.Context) {
 	a.navCoord.SetOmniboxProvider(a)
 	log.Debug().Msg("omnibox config stored, provider set")
 
-	// Create an initial tab using coordinator - opens dumb://home homepage
-	if _, err := a.tabCoord.Create(ctx, "dumb://home"); err != nil {
+	// Create an initial tab using coordinator
+	initialURL := "dumb://home"
+	if a.deps.InitialURL != "" {
+		initialURL = a.deps.InitialURL
+	}
+	if _, err := a.tabCoord.Create(ctx, initialURL); err != nil {
 		log.Error().Err(err).Msg("failed to create initial tab")
 	}
 

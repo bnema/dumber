@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -54,10 +55,10 @@ func (uc *ManageTabsUseCase) Create(ctx context.Context, input CreateTabInput) (
 	workspaceID := entity.WorkspaceID(uc.idGenerator())
 	paneID := entity.PaneID(uc.idGenerator())
 
-	// Create initial pane
+	// Create initial pane with normalized URL
 	pane := entity.NewPane(paneID)
 	if input.InitialURL != "" {
-		pane.URI = input.InitialURL
+		pane.URI = url.Normalize(input.InitialURL)
 	}
 
 	// Create tab with workspace

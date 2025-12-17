@@ -9,6 +9,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/cache"
@@ -953,11 +954,7 @@ func (o *Omnibox) navigateToSelected() {
 // looksLikeURL checks if the input appears to be a URL (not a search query).
 // Returns true for strings like "github.com", "google.com/search", etc.
 func (o *Omnibox) looksLikeURL(input string) bool {
-	if input == "" {
-		return false
-	}
-	// Contains a dot and no spaces = likely a URL
-	return strings.Contains(input, ".") && !strings.Contains(input, " ")
+	return url.LooksLikeURL(input)
 }
 
 // toggleFavorite adds or removes the selected item from favorites.
@@ -1058,12 +1055,9 @@ func (o *Omnibox) buildURL(input string) string {
 		}
 	}
 
-	// Check if it looks like a URL
-	if strings.Contains(input, ".") && !strings.Contains(input, " ") {
-		if !strings.HasPrefix(input, "http://") && !strings.HasPrefix(input, "https://") {
-			return "https://" + input
-		}
-		return input
+	// Check if it looks like a URL - use shared URL normalization
+	if url.LooksLikeURL(input) {
+		return url.Normalize(input)
 	}
 
 	// Use default search
