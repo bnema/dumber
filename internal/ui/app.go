@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"sync"
 
@@ -392,11 +393,12 @@ func (a *App) initCoordinators(ctx context.Context) {
 }
 
 // generateID generates a unique ID for tabs and panes.
+// Uses monotonically increasing counter to avoid ID collisions.
 func (a *App) generateID() string {
 	a.idMu.Lock()
 	defer a.idMu.Unlock()
 	a.idCounter++
-	return string(rune('a'+a.idCounter%26)) + string(rune('0'+a.idCounter/26))
+	return fmt.Sprintf("p%d", a.idCounter)
 }
 
 // Tabs returns the tab list.
