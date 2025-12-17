@@ -1026,8 +1026,16 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 	// Update domain model: convert leaf to stacked if needed, add new pane
 	var stackNode *entity.PaneNode
 	var needsFirstPaneTitleUpdate bool
-	if activeNode.IsStacked {
-		// Already stacked, just add to it
+	if activeNode.Parent != nil && activeNode.Parent.IsStacked {
+		// Active pane is already in a stack - add to parent stack
+		stackNode = activeNode.Parent
+		log.Debug().
+			Str("stack_id", stackNode.ID).
+			Str("active_pane", string(activePaneID)).
+			Int("stack_size", len(stackNode.Children)).
+			Msg("adding to existing stack via parent")
+	} else if activeNode.IsStacked {
+		// Active node is itself a stack container - add to it
 		stackNode = activeNode
 	} else {
 		// Convert leaf node to stacked container
@@ -1058,13 +1066,28 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 		Pane:   newPane,
 		Parent: stackNode,
 	}
-	stackNode.Children = append(stackNode.Children, newChildNode)
-	stackNode.ActiveStackIndex = len(stackNode.Children) - 1
+
+	// Insert right after current active pane (not at end)
+	currentActiveIndex := stackNode.ActiveStackIndex
+	if currentActiveIndex < 0 || currentActiveIndex >= len(stackNode.Children) {
+		currentActiveIndex = len(stackNode.Children) - 1
+		if currentActiveIndex < 0 {
+			currentActiveIndex = -1
+		}
+	}
+	insertIndex := currentActiveIndex + 1
+
+	// Slice insertion at correct position
+	stackNode.Children = append(stackNode.Children, nil)
+	copy(stackNode.Children[insertIndex+1:], stackNode.Children[insertIndex:])
+	stackNode.Children[insertIndex] = newChildNode
+	stackNode.ActiveStackIndex = insertIndex
 
 	log.Debug().
 		Int("stack_size", len(stackNode.Children)).
+		Int("insert_index", insertIndex).
 		Int("active_index", stackNode.ActiveStackIndex).
-		Msg("domain tree updated")
+		Msg("domain tree updated with position-aware insertion")
 
 	// Create PaneView for the new pane
 	newPaneView := component.NewPaneView(c.widgetFactory, newPaneID, nil)
@@ -1458,8 +1481,22 @@ func (c *WorkspaceCoordinator) insertPopupStacked(ctx context.Context, input Ins
 		Pane:   input.PopupPane,
 		Parent: stackNode,
 	}
-	stackNode.Children = append(stackNode.Children, newChildNode)
-	stackNode.ActiveStackIndex = len(stackNode.Children) - 1
+
+	// Insert right after current active pane (not at end)
+	currentActiveIndex := stackNode.ActiveStackIndex
+	if currentActiveIndex < 0 || currentActiveIndex >= len(stackNode.Children) {
+		currentActiveIndex = len(stackNode.Children) - 1
+		if currentActiveIndex < 0 {
+			currentActiveIndex = -1
+		}
+	}
+	insertIndex := currentActiveIndex + 1
+
+	// Slice insertion at correct position
+	stackNode.Children = append(stackNode.Children, nil)
+	copy(stackNode.Children[insertIndex+1:], stackNode.Children[insertIndex:])
+	stackNode.Children[insertIndex] = newChildNode
+	stackNode.ActiveStackIndex = insertIndex
 
 	// Update workspace active pane
 	ws.ActivePaneID = input.PopupPane.ID

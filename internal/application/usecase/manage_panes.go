@@ -625,9 +625,22 @@ func (uc *ManagePanesUseCase) AddToStack(ctx context.Context, ws *entity.Workspa
 		Parent: stackNode,
 	}
 
-	// Add to stack
-	stackNode.Children = append(stackNode.Children, newNode)
-	newIndex := len(stackNode.Children) - 1
+	// Insert right after current active pane (not at end)
+	currentActiveIndex := stackNode.ActiveStackIndex
+	if currentActiveIndex < 0 || currentActiveIndex >= len(stackNode.Children) {
+		// Clamp to valid range - default to end-1 if invalid
+		currentActiveIndex = len(stackNode.Children) - 1
+		if currentActiveIndex < 0 {
+			currentActiveIndex = -1 // Will result in insertIndex = 0
+		}
+	}
+	insertIndex := currentActiveIndex + 1
+
+	// Slice insertion at correct position
+	stackNode.Children = append(stackNode.Children, nil)
+	copy(stackNode.Children[insertIndex+1:], stackNode.Children[insertIndex:])
+	stackNode.Children[insertIndex] = newNode
+	newIndex := insertIndex
 	stackNode.ActiveStackIndex = newIndex
 
 	// Update workspace active pane
