@@ -3,8 +3,8 @@ packages:
     config:
       dir: "{{.InterfaceDir}}/mocks"
       filename: "mock_{{.InterfaceName | snakecase}}.go"
-      structname: "Mock{{.InterfaceName}}"
-      pkgname: "mocks"
+      mockname: "Mock{{.InterfaceName}}"
+      outpkg: "mocks"
     interfaces:
       HistoryRepository:
       FavoriteRepository:
@@ -16,8 +16,8 @@ packages:
     config:
       dir: "{{.InterfaceDir}}/mocks"
       filename: "mock_{{.InterfaceName | snakecase}}.go"
-      structname: "Mock{{.InterfaceName}}"
-      pkgname: "mocks"
+      mockname: "Mock{{.InterfaceName}}"
+      outpkg: "mocks"
     interfaces:
       WebView:
       WebViewPool:
@@ -26,8 +26,8 @@ packages:
     config:
       dir: "{{.InterfaceDir}}/mocks"
       filename: "mock_{{.InterfaceName | snakecase}}.go"
-      structname: "Mock{{.InterfaceName}}"
-      pkgname: "mocks"
+      mockname: "Mock{{.InterfaceName}}"
+      outpkg: "mocks"
     interfaces:
       Widget:
       PanedWidget:
@@ -36,6 +36,7 @@ packages:
       LabelWidget:
       ButtonWidget:
       ImageWidget:
+      ProgressBarWidget:
       WidgetFactory:
       PaneRenderer:
       PaneViewFactory:

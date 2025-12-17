@@ -199,6 +199,17 @@ type ImageWidget interface {
 	Clear()
 }
 
+// ProgressBarWidget wraps gtk.ProgressBar for displaying loading progress.
+// Implementations may include smooth animation behavior.
+type ProgressBarWidget interface {
+	Widget
+
+	// SetFraction sets the progress value (0.0 to 1.0).
+	SetFraction(fraction float64)
+	// GetFraction returns the current progress value.
+	GetFraction() float64
+}
+
 // WidgetFactory creates widget instances.
 // This abstraction allows tests to inject mock factories.
 type WidgetFactory interface {
@@ -211,6 +222,7 @@ type WidgetFactory interface {
 	NewLabel(text string) LabelWidget
 	NewButton() ButtonWidget
 	NewImage() ImageWidget
+	NewProgressBar() ProgressBarWidget
 
 	// Wrap existing GTK widget
 	WrapWidget(w *gtk.Widget) Widget

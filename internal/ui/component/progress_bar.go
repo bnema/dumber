@@ -21,9 +21,7 @@ const (
 // Uses native GtkProgressBar with "osd" styling for overlay appearance.
 // Implements smooth animation by incrementing towards the target value.
 type ProgressBar struct {
-	factory     layout.WidgetFactory
-	progressBar *gtk.ProgressBar
-	widget      layout.Widget // Wrapped widget for layout compatibility
+	progressBar layout.ProgressBarWidget
 
 	visible        bool
 	currentValue   float64 // Current displayed value
@@ -33,9 +31,9 @@ type ProgressBar struct {
 	mu sync.Mutex
 }
 
-// NewProgressBar creates a new progress bar component using native GtkProgressBar.
+// NewProgressBar creates a new progress bar component using the widget factory.
 func NewProgressBar(factory layout.WidgetFactory) *ProgressBar {
-	progressBar := gtk.NewProgressBar()
+	progressBar := factory.NewProgressBar()
 
 	// Add "osd" class for on-screen-display overlay styling (like Epiphany)
 	progressBar.AddCssClass("osd")
@@ -52,13 +50,8 @@ func NewProgressBar(factory layout.WidgetFactory) *ProgressBar {
 	// Hidden by default
 	progressBar.SetVisible(false)
 
-	// Wrap for layout compatibility
-	widget := factory.WrapWidget(&progressBar.Widget)
-
 	return &ProgressBar{
-		factory:      factory,
 		progressBar:  progressBar,
-		widget:       widget,
 		visible:      false,
 		currentValue: 0,
 		targetValue:  0,
@@ -163,12 +156,7 @@ func (pb *ProgressBar) IsVisible() bool {
 	return pb.visible
 }
 
-// Widget returns the underlying GtkProgressBar widget for embedding in overlays.
+// Widget returns the underlying widget for embedding in overlays.
 func (pb *ProgressBar) Widget() layout.Widget {
-	return pb.widget
-}
-
-// GtkWidget returns the raw GtkProgressBar for direct GTK operations.
-func (pb *ProgressBar) GtkWidget() *gtk.ProgressBar {
 	return pb.progressBar
 }

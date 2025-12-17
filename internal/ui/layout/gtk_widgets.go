@@ -9,14 +9,15 @@ import (
 
 // Ensure implementations satisfy interfaces at compile time.
 var (
-	_ Widget        = (*gtkWidget)(nil)
-	_ PanedWidget   = (*gtkPaned)(nil)
-	_ BoxWidget     = (*gtkBox)(nil)
-	_ OverlayWidget = (*gtkOverlay)(nil)
-	_ LabelWidget   = (*gtkLabel)(nil)
-	_ ButtonWidget  = (*gtkButton)(nil)
-	_ ImageWidget   = (*gtkImage)(nil)
-	_ WidgetFactory = (*GtkWidgetFactory)(nil)
+	_ Widget            = (*gtkWidget)(nil)
+	_ PanedWidget       = (*gtkPaned)(nil)
+	_ BoxWidget         = (*gtkBox)(nil)
+	_ OverlayWidget     = (*gtkOverlay)(nil)
+	_ LabelWidget       = (*gtkLabel)(nil)
+	_ ButtonWidget      = (*gtkButton)(nil)
+	_ ImageWidget       = (*gtkImage)(nil)
+	_ ProgressBarWidget = (*gtkProgressBar)(nil)
+	_ WidgetFactory     = (*GtkWidgetFactory)(nil)
 )
 
 // gtkWidget wraps a gtk.Widget to implement the Widget interface.
@@ -620,6 +621,64 @@ func (img *gtkImage) ComputePoint(target Widget) (x, y float64, ok bool) {
 	return float64(outPoint.X), float64(outPoint.Y), true
 }
 
+// gtkProgressBar wraps gtk.ProgressBar to implement ProgressBarWidget.
+type gtkProgressBar struct {
+	inner *gtk.ProgressBar
+}
+
+func (p *gtkProgressBar) Show()                         { p.inner.Show() }
+func (p *gtkProgressBar) Hide()                         { p.inner.Hide() }
+func (p *gtkProgressBar) SetVisible(visible bool)       { p.inner.SetVisible(visible) }
+func (p *gtkProgressBar) IsVisible() bool               { return p.inner.GetVisible() }
+func (p *gtkProgressBar) GrabFocus() bool               { return p.inner.GrabFocus() }
+func (p *gtkProgressBar) HasFocus() bool                { return p.inner.HasFocus() }
+func (p *gtkProgressBar) SetCanFocus(canFocus bool)     { p.inner.SetCanFocus(canFocus) }
+func (p *gtkProgressBar) SetFocusOnClick(focus bool)    { p.inner.SetFocusOnClick(focus) }
+func (p *gtkProgressBar) SetCanTarget(canTarget bool)   { p.inner.SetCanTarget(canTarget) }
+func (p *gtkProgressBar) SetHexpand(expand bool)        { p.inner.SetHexpand(expand) }
+func (p *gtkProgressBar) SetVexpand(expand bool)        { p.inner.SetVexpand(expand) }
+func (p *gtkProgressBar) GetHexpand() bool              { return p.inner.GetHexpand() }
+func (p *gtkProgressBar) GetVexpand() bool              { return p.inner.GetVexpand() }
+func (p *gtkProgressBar) SetHalign(align gtk.Align)     { p.inner.SetHalign(align) }
+func (p *gtkProgressBar) SetValign(align gtk.Align)     { p.inner.SetValign(align) }
+func (p *gtkProgressBar) SetSizeRequest(w, h int)       { p.inner.SetSizeRequest(w, h) }
+func (p *gtkProgressBar) AddCssClass(class string)      { p.inner.AddCssClass(class) }
+func (p *gtkProgressBar) RemoveCssClass(class string)   { p.inner.RemoveCssClass(class) }
+func (p *gtkProgressBar) HasCssClass(class string) bool { return p.inner.HasCssClass(class) }
+func (p *gtkProgressBar) Unparent()                     { p.inner.Unparent() }
+func (p *gtkProgressBar) GtkWidget() *gtk.Widget        { return &p.inner.Widget }
+
+func (p *gtkProgressBar) GetParent() Widget {
+	parent := p.inner.GetParent()
+	if parent == nil {
+		return nil
+	}
+	return &gtkWidget{inner: parent}
+}
+
+func (p *gtkProgressBar) GetAllocatedWidth() int               { return p.inner.GetAllocatedWidth() }
+func (p *gtkProgressBar) GetAllocatedHeight() int              { return p.inner.GetAllocatedHeight() }
+func (p *gtkProgressBar) AddController(c *gtk.EventController) { p.inner.AddController(c) }
+
+func (p *gtkProgressBar) ComputePoint(target Widget) (x, y float64, ok bool) {
+	srcPoint := &graphene.Point{X: 0, Y: 0}
+	outPoint := &graphene.Point{}
+
+	var targetGtk *gtk.Widget
+	if target != nil {
+		targetGtk = target.GtkWidget()
+	}
+
+	ok = p.inner.ComputePoint(targetGtk, srcPoint, outPoint)
+	if !ok {
+		return 0, 0, false
+	}
+	return float64(outPoint.X), float64(outPoint.Y), true
+}
+
+func (p *gtkProgressBar) SetFraction(fraction float64) { p.inner.SetFraction(fraction) }
+func (p *gtkProgressBar) GetFraction() float64         { return p.inner.GetFraction() }
+
 // GtkWidgetFactory creates real GTK widgets.
 type GtkWidgetFactory struct{}
 
@@ -662,6 +721,11 @@ func (f *GtkWidgetFactory) NewButton() ButtonWidget {
 func (f *GtkWidgetFactory) NewImage() ImageWidget {
 	image := gtk.NewImage()
 	return &gtkImage{inner: image}
+}
+
+func (f *GtkWidgetFactory) NewProgressBar() ProgressBarWidget {
+	progressBar := gtk.NewProgressBar()
+	return &gtkProgressBar{inner: progressBar}
 }
 
 func (f *GtkWidgetFactory) WrapWidget(w *gtk.Widget) Widget {
