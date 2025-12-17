@@ -49,7 +49,8 @@ type WorkspaceView struct {
 // paneViewFactoryAdapter adapts WorkspaceView to the PaneViewFactory interface
 // so TreeRenderer can create PaneViews.
 type paneViewFactoryAdapter struct {
-	wv *WorkspaceView
+	wv  *WorkspaceView
+	ctx context.Context
 }
 
 func (a *paneViewFactoryAdapter) CreatePaneView(node *entity.PaneNode) layout.Widget {
@@ -75,6 +76,22 @@ func (a *paneViewFactoryAdapter) CreatePaneView(node *entity.PaneNode) layout.Wi
 			callback(paneID)
 		}
 	})
+
+	// Set up hover callback for focus-follows-mouse
+	pv.SetOnHover(func(paneID entity.PaneID) {
+		// Skip if this pane is already active
+		if a.wv.GetActivePaneID() == paneID {
+			return
+		}
+
+		// Activate the hovered pane and grab focus
+		if err := a.wv.SetActivePaneID(paneID); err == nil {
+			a.wv.FocusPane(paneID)
+		}
+	})
+
+	// Attach hover handler with debouncing
+	pv.AttachHoverHandler(a.ctx)
 
 	return pv.Widget()
 }
@@ -104,7 +121,7 @@ func NewWorkspaceView(ctx context.Context, factory layout.WidgetFactory) *Worksp
 	}
 
 	// Create tree renderer with our adapter as the pane view factory
-	wv.treeRenderer = layout.NewTreeRenderer(ctx, factory, &paneViewFactoryAdapter{wv: wv})
+	wv.treeRenderer = layout.NewTreeRenderer(ctx, factory, &paneViewFactoryAdapter{wv: wv, ctx: ctx})
 
 	return wv
 }

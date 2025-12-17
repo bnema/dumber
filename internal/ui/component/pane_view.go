@@ -2,9 +2,11 @@
 package component
 
 import (
+	"context"
 	"sync"
 
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
 )
 
@@ -25,6 +27,9 @@ type PaneView struct {
 
 	onFocusIn  func(paneID entity.PaneID)
 	onFocusOut func(paneID entity.PaneID)
+	onHover    func(paneID entity.PaneID)
+
+	hoverHandler *input.HoverHandler
 
 	mu sync.RWMutex
 }
@@ -169,6 +174,40 @@ func (pv *PaneView) SetOnFocusOut(fn func(paneID entity.PaneID)) {
 	defer pv.mu.Unlock()
 
 	pv.onFocusOut = fn
+}
+
+// SetOnHover sets the callback for when the pane is hovered.
+func (pv *PaneView) SetOnHover(fn func(paneID entity.PaneID)) {
+	pv.mu.Lock()
+	defer pv.mu.Unlock()
+
+	pv.onHover = fn
+}
+
+// AttachHoverHandler creates and attaches a hover handler for focus-follows-mouse behavior.
+func (pv *PaneView) AttachHoverHandler(ctx context.Context) {
+	pv.mu.Lock()
+	defer pv.mu.Unlock()
+
+	// Create hover handler
+	pv.hoverHandler = input.NewHoverHandler(ctx, pv.paneID)
+
+	// Wire up callback
+	pv.hoverHandler.SetOnEnter(func(paneID entity.PaneID) {
+		pv.mu.RLock()
+		callback := pv.onHover
+		pv.mu.RUnlock()
+
+		if callback != nil {
+			callback(paneID)
+		}
+	})
+
+	// Attach to overlay widget
+	gtkWidget := pv.overlay.GtkWidget()
+	if gtkWidget != nil {
+		pv.hoverHandler.AttachTo(gtkWidget)
+	}
 }
 
 // Widget returns the underlying overlay widget for embedding in containers.

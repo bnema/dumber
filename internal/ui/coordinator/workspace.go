@@ -58,6 +58,23 @@ func (c *WorkspaceCoordinator) SetOnCloseLastPane(fn func(ctx context.Context) e
 	c.onCloseLastPane = fn
 }
 
+// setupPaneViewHover configures hover-to-focus behavior on a PaneView.
+func setupPaneViewHover(ctx context.Context, pv *component.PaneView, wsView *component.WorkspaceView) {
+	pv.SetOnHover(func(paneID entity.PaneID) {
+		// Skip if this pane is already active
+		if wsView.GetActivePaneID() == paneID {
+			return
+		}
+
+		// Activate the hovered pane and grab focus
+		if err := wsView.SetActivePaneID(paneID); err == nil {
+			wsView.FocusPane(paneID)
+		}
+	})
+
+	pv.AttachHoverHandler(ctx)
+}
+
 // Split splits the active pane in the given direction.
 func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.SplitDirection) error {
 	log := logging.FromContext(ctx)
@@ -190,6 +207,7 @@ func (c *WorkspaceCoordinator) doIncrementalStackSplit(
 
 	// 3. Create new PaneView for the new pane (without WebView - will attach later)
 	newPaneView := component.NewPaneView(factory, output.NewPaneNode.Pane.ID, nil)
+	setupPaneViewHover(ctx, newPaneView, wsView)
 
 	// 4. Wrap the new PaneView in a StackedView
 	newStackedView := layout.NewStackedView(factory)
@@ -303,6 +321,7 @@ func (c *WorkspaceCoordinator) doIncrementalSplit(
 
 	// 4. Create new PaneView for the new pane
 	newPaneView := component.NewPaneView(factory, output.NewPaneNode.Pane.ID, nil)
+	setupPaneViewHover(ctx, newPaneView, wsView)
 
 	// 5. Wrap the new PaneView in a StackedView
 	newStackedView := layout.NewStackedView(factory)
@@ -936,6 +955,7 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 
 	// Create PaneView for the new pane
 	newPaneView := component.NewPaneView(c.widgetFactory, newPaneID, nil)
+	setupPaneViewHover(ctx, newPaneView, wsView)
 	wsView.RegisterPaneView(newPaneID, newPaneView)
 
 	// Add to the UI StackedView
