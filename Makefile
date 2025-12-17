@@ -33,7 +33,7 @@ help: ## Show this help message
 build: build-frontend ## Build the application (pure Go, no CGO)
 	@echo "Building $(BINARY_NAME) $(VERSION) using $(NPROCS) cores..."
 	@mkdir -p $(DIST_DIR)
-	go build -p $(NPROCS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	CGO_ENABLED=0 go build -p $(NPROCS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
 
 build-frontend: ## Build homepage and blocked pages
@@ -44,7 +44,7 @@ build-frontend: ## Build homepage and blocked pages
 build-quick: ## Build without frontend (faster for backend development)
 	@echo "Building $(BINARY_NAME) $(VERSION) (quick, no frontend)..."
 	@mkdir -p $(DIST_DIR)
-	go build -p $(NPROCS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	CGO_ENABLED=0 go build -p $(NPROCS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
 
 # Development targets
