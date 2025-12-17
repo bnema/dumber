@@ -60,19 +60,23 @@ func (spm *StackedPaneManager) AddPaneToStack(
 		widget.Unparent()
 	}
 
-	// Add to the stack (this makes it active automatically)
+	// Add to the stack after the current active pane (not at end)
 	if title == "" {
 		title = "Untitled"
 	}
+
+	// Get current active index to insert after it
+	currentActiveIndex := stackedView.ActiveIndex()
 
 	log.Debug().
 		Str("active_pane", string(activePaneID)).
 		Str("new_pane", string(newPaneView.PaneID())).
 		Str("title", title).
+		Int("current_active_index", currentActiveIndex).
 		Int("stack_size_before", stackedView.Count()).
-		Msg("StackedPaneManager: adding pane to stack")
+		Msg("StackedPaneManager: inserting pane after active position")
 
-	stackedView.AddPane(ctx, title, "", widget)
+	stackedView.InsertPaneAfter(ctx, currentActiveIndex, title, "", widget)
 
 	// Register the new pane in the TreeRenderer's tracking
 	tr.RegisterPaneInStack(string(newPaneView.PaneID()), stackedView)

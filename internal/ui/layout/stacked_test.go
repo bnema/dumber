@@ -504,3 +504,252 @@ func TestSetOnActivate_Callback(t *testing.T) {
 	// simulating a button click. The test verifies the method doesn't panic.
 	// Integration tests would verify the actual callback invocation.
 }
+
+// setupInsertPaneMocks creates mocks needed for InsertPaneAfter with position-aware insertion.
+// Returns only the titleBar and container mocks that are needed by test assertions.
+func setupInsertPaneMocks(
+	t *testing.T,
+	mockFactory *mocks.MockWidgetFactory,
+	mockBox *mocks.MockBoxWidget,
+	siblingContainer layout.Widget,
+) (*mocks.MockBoxWidget, *mocks.MockWidget) {
+	mockTitleBar := mocks.NewMockBoxWidget(t)
+	mockFavicon := mocks.NewMockImageWidget(t)
+	mockLabel := mocks.NewMockLabelWidget(t)
+	mockButton := mocks.NewMockButtonWidget(t)
+	mockContainer := mocks.NewMockWidget(t)
+
+	// Title bar creation
+	mockFactory.EXPECT().NewBox(layout.OrientationHorizontal, 4).Return(mockTitleBar).Once()
+	mockTitleBar.EXPECT().AddCssClass("stacked-pane-titlebar").Once()
+	mockTitleBar.EXPECT().SetVexpand(false).Once()
+
+	// Favicon
+	mockFactory.EXPECT().NewImage().Return(mockFavicon).Once()
+	mockFavicon.EXPECT().SetFromIconName(mock.Anything).Once()
+	mockFavicon.EXPECT().SetPixelSize(16).Once()
+	mockTitleBar.EXPECT().Append(mockFavicon).Once()
+
+	// Label
+	mockFactory.EXPECT().NewLabel(mock.Anything).Return(mockLabel).Once()
+	mockLabel.EXPECT().SetEllipsize(layout.EllipsizeEnd).Once()
+	mockLabel.EXPECT().SetMaxWidthChars(30).Once()
+	mockLabel.EXPECT().SetHexpand(true).Once()
+	mockLabel.EXPECT().SetXalign(float32(0.0)).Once()
+	mockTitleBar.EXPECT().Append(mockLabel).Once()
+
+	// Button wrapping title bar
+	mockFactory.EXPECT().NewButton().Return(mockButton).Once()
+	mockButton.EXPECT().SetChild(mockTitleBar).Once()
+	mockButton.EXPECT().AddCssClass("stacked-pane-title-button").Once()
+	mockButton.EXPECT().SetFocusOnClick(false).Once()
+	mockButton.EXPECT().SetVexpand(false).Once()
+	mockButton.EXPECT().SetHexpand(true).Once()
+	mockButton.EXPECT().ConnectClicked(mock.Anything).Return(uint32(1)).Once()
+
+	// Position-aware insertion using InsertChildAfter
+	if siblingContainer != nil {
+		mockBox.EXPECT().InsertChildAfter(mockButton, siblingContainer).Once()
+		mockBox.EXPECT().InsertChildAfter(mockContainer, mockButton).Once()
+	} else {
+		// Insert at beginning using Prepend
+		mockBox.EXPECT().Prepend(mockContainer).Once()
+		mockBox.EXPECT().Prepend(mockButton).Once()
+	}
+
+	return mockTitleBar, mockContainer
+}
+
+func TestInsertPaneAfter_AtBeginning(t *testing.T) {
+	// Arrange
+	ctx := context.Background()
+	mockFactory, mockBox := setupMockFactory(t)
+
+	// First pane - appended normally
+	mockTitleBar1, _, _, _, mockContainer1 := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar1.EXPECT().GetParent().Return(nil).Maybe()
+	mockContainer1.EXPECT().SetVisible(true).Once()
+	mockTitleBar1.EXPECT().AddCssClass("active").Once()
+
+	sv := layout.NewStackedView(mockFactory)
+	sv.AddPane(ctx, "Page 1", "", mockContainer1)
+
+	// Second pane - inserted at beginning (afterIndex=-1)
+	mockTitleBar2, mockContainer2 := setupInsertPaneMocks(t, mockFactory, mockBox, nil)
+
+	// Visibility updates
+	mockTitleBar1.EXPECT().GetParent().Return(nil).Maybe()
+	mockContainer1.EXPECT().SetVisible(false).Once()
+	mockTitleBar1.EXPECT().RemoveCssClass("active").Once()
+
+	mockTitleBar2.EXPECT().GetParent().Return(nil).Maybe()
+	mockContainer2.EXPECT().SetVisible(true).Once()
+	mockTitleBar2.EXPECT().AddCssClass("active").Once()
+
+	// Act
+	index := sv.InsertPaneAfter(ctx, -1, "Page 0", "", mockContainer2)
+
+	// Assert
+	assert.Equal(t, 0, index)
+	assert.Equal(t, 2, sv.Count())
+	assert.Equal(t, 0, sv.ActiveIndex())
+}
+
+func TestInsertPaneAfter_InMiddle(t *testing.T) {
+	// Arrange
+	ctx := context.Background()
+	mockFactory, mockBox := setupMockFactory(t)
+
+	// Setup 2 initial panes
+	containers := make([]*mocks.MockWidget, 2)
+	titleBars := make([]*mocks.MockBoxWidget, 2)
+
+	for i := 0; i < 2; i++ {
+		titleBars[i], _, _, _, containers[i] = setupPaneMocks(t, mockFactory, mockBox)
+		titleBars[i].EXPECT().GetParent().Return(nil).Maybe()
+		containers[i].EXPECT().SetVisible(mock.Anything).Maybe()
+		titleBars[i].EXPECT().AddCssClass("active").Maybe()
+		titleBars[i].EXPECT().RemoveCssClass("active").Maybe()
+	}
+
+	sv := layout.NewStackedView(mockFactory)
+	sv.AddPane(ctx, "Page 1", "", containers[0])
+	sv.AddPane(ctx, "Page 2", "", containers[1])
+
+	// Set active to first pane
+	require.NoError(t, sv.SetActive(ctx, 0))
+
+	// Insert new pane after index 0 (should become index 1)
+	mockTitleBar3, mockContainer3 := setupInsertPaneMocks(t, mockFactory, mockBox, containers[0])
+	mockTitleBar3.EXPECT().GetParent().Return(nil).Maybe()
+	mockContainer3.EXPECT().SetVisible(mock.Anything).Maybe()
+	mockTitleBar3.EXPECT().AddCssClass("active").Maybe()
+	mockTitleBar3.EXPECT().RemoveCssClass("active").Maybe()
+
+	// Act
+	index := sv.InsertPaneAfter(ctx, 0, "Page 1.5", "", mockContainer3)
+
+	// Assert
+	assert.Equal(t, 1, index)
+	assert.Equal(t, 3, sv.Count())
+	assert.Equal(t, 1, sv.ActiveIndex()) // New pane becomes active
+}
+
+func TestInsertPaneAfter_AtEnd(t *testing.T) {
+	// Arrange
+	ctx := context.Background()
+	mockFactory, mockBox := setupMockFactory(t)
+
+	// First pane
+	mockTitleBar1, _, _, _, mockContainer1 := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar1.EXPECT().GetParent().Return(nil).Maybe()
+	mockContainer1.EXPECT().SetVisible(true).Once()
+	mockTitleBar1.EXPECT().AddCssClass("active").Once()
+
+	sv := layout.NewStackedView(mockFactory)
+	sv.AddPane(ctx, "Page 1", "", mockContainer1)
+
+	// Insert after last pane (afterIndex=0, becomes index 1)
+	mockTitleBar2, mockContainer2 := setupInsertPaneMocks(t, mockFactory, mockBox, mockContainer1)
+
+	mockTitleBar1.EXPECT().GetParent().Return(nil).Maybe()
+	mockContainer1.EXPECT().SetVisible(false).Once()
+	mockTitleBar1.EXPECT().RemoveCssClass("active").Once()
+
+	mockTitleBar2.EXPECT().GetParent().Return(nil).Maybe()
+	mockContainer2.EXPECT().SetVisible(true).Once()
+	mockTitleBar2.EXPECT().AddCssClass("active").Once()
+
+	// Act
+	index := sv.InsertPaneAfter(ctx, 0, "Page 2", "", mockContainer2)
+
+	// Assert
+	assert.Equal(t, 1, index)
+	assert.Equal(t, 2, sv.Count())
+	assert.Equal(t, 1, sv.ActiveIndex())
+}
+
+func TestInsertPaneAfter_MaintainsOrder(t *testing.T) {
+	// Arrange
+	ctx := context.Background()
+	mockFactory, mockBox := setupMockFactory(t)
+
+	// Setup 3 initial panes: A, B, C
+	containers := make([]*mocks.MockWidget, 3)
+	titleBars := make([]*mocks.MockBoxWidget, 3)
+
+	for i := 0; i < 3; i++ {
+		titleBars[i], _, _, _, containers[i] = setupPaneMocks(t, mockFactory, mockBox)
+		titleBars[i].EXPECT().GetParent().Return(nil).Maybe()
+		containers[i].EXPECT().SetVisible(mock.Anything).Maybe()
+		titleBars[i].EXPECT().AddCssClass("active").Maybe()
+		titleBars[i].EXPECT().RemoveCssClass("active").Maybe()
+	}
+
+	sv := layout.NewStackedView(mockFactory)
+	sv.AddPane(ctx, "A", "", containers[0]) // index 0
+	sv.AddPane(ctx, "B", "", containers[1]) // index 1
+	sv.AddPane(ctx, "C", "", containers[2]) // index 2
+
+	// Navigate to pane B (index 1)
+	require.NoError(t, sv.SetActive(ctx, 1))
+
+	// Insert D after B (should be at index 2, C moves to index 3)
+	mockTitleBar4, mockContainer4 := setupInsertPaneMocks(t, mockFactory, mockBox, containers[1])
+	mockTitleBar4.EXPECT().GetParent().Return(nil).Maybe()
+	mockContainer4.EXPECT().SetVisible(mock.Anything).Maybe()
+	mockTitleBar4.EXPECT().AddCssClass("active").Maybe()
+	mockTitleBar4.EXPECT().RemoveCssClass("active").Maybe()
+
+	// Act
+	index := sv.InsertPaneAfter(ctx, 1, "D", "", mockContainer4)
+
+	// Assert: Order should be A(0), B(1), D(2), C(3)
+	assert.Equal(t, 2, index)
+	assert.Equal(t, 4, sv.Count())
+	assert.Equal(t, 2, sv.ActiveIndex()) // D is now active
+
+	// Verify we can still get containers at expected indices
+	containerA, _ := sv.GetContainer(0)
+	containerB, _ := sv.GetContainer(1)
+	containerD, _ := sv.GetContainer(2)
+	containerC, _ := sv.GetContainer(3)
+
+	assert.Equal(t, containers[0], containerA)
+	assert.Equal(t, containers[1], containerB)
+	assert.Equal(t, mockContainer4, containerD)
+	assert.Equal(t, containers[2], containerC)
+}
+
+func TestInsertPaneAfter_InvalidIndexClamped(t *testing.T) {
+	// Arrange
+	ctx := context.Background()
+	mockFactory, mockBox := setupMockFactory(t)
+
+	// First pane
+	mockTitleBar1, _, _, _, mockContainer1 := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar1.EXPECT().GetParent().Return(nil).Maybe()
+	mockContainer1.EXPECT().SetVisible(true).Once()
+	mockTitleBar1.EXPECT().AddCssClass("active").Once()
+
+	sv := layout.NewStackedView(mockFactory)
+	sv.AddPane(ctx, "Page 1", "", mockContainer1)
+
+	// Try to insert at invalid index (100) - should clamp to end
+	mockTitleBar2, mockContainer2 := setupInsertPaneMocks(t, mockFactory, mockBox, mockContainer1)
+
+	mockTitleBar1.EXPECT().GetParent().Return(nil).Maybe()
+	mockContainer1.EXPECT().SetVisible(false).Once()
+	mockTitleBar1.EXPECT().RemoveCssClass("active").Once()
+
+	mockTitleBar2.EXPECT().GetParent().Return(nil).Maybe()
+	mockContainer2.EXPECT().SetVisible(true).Once()
+	mockTitleBar2.EXPECT().AddCssClass("active").Once()
+
+	// Act - afterIndex=100 should be clamped to 0 (last valid index)
+	index := sv.InsertPaneAfter(ctx, 100, "Page 2", "", mockContainer2)
+
+	// Assert
+	assert.Equal(t, 1, index)
+	assert.Equal(t, 2, sv.Count())
+}

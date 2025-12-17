@@ -141,6 +141,134 @@ func (sv *StackedView) AddPane(ctx context.Context, title, faviconIconName strin
 	return index
 }
 
+// InsertPaneAfter inserts a new pane after the specified index position.
+// Use afterIndex=-1 to insert at the beginning.
+// The new pane becomes active (visible).
+// Returns the index where the pane was inserted.
+func (sv *StackedView) InsertPaneAfter(
+	ctx context.Context, afterIndex int, title, faviconIconName string, container Widget,
+) int {
+	log := logging.FromContext(ctx)
+	sv.mu.Lock()
+	defer sv.mu.Unlock()
+
+	// Validate afterIndex - clamp to valid range
+	if afterIndex < -1 {
+		afterIndex = -1
+	}
+	if afterIndex >= len(sv.panes) {
+		afterIndex = len(sv.panes) - 1
+	}
+	insertIndex := afterIndex + 1
+
+	log.Debug().
+		Str("title", title).
+		Int("after_index", afterIndex).
+		Int("insert_index", insertIndex).
+		Int("current_count", len(sv.panes)).
+		Msg("StackedView.InsertPaneAfter called")
+
+	// Create title bar - must not expand vertically
+	titleBar := sv.factory.NewBox(OrientationHorizontal, 4)
+	titleBar.AddCssClass("stacked-pane-titlebar")
+	titleBar.SetVexpand(false)
+
+	// Create favicon image
+	favicon := sv.factory.NewImage()
+	if faviconIconName != "" {
+		favicon.SetFromIconName(faviconIconName)
+	} else {
+		favicon.SetFromIconName("web-browser-symbolic")
+	}
+	favicon.SetPixelSize(16)
+	titleBar.Append(favicon)
+
+	// Create title label
+	label := sv.factory.NewLabel(title)
+	label.SetEllipsize(EllipsizeEnd)
+	label.SetMaxWidthChars(30)
+	label.SetHexpand(true)
+	label.SetXalign(0.0)
+	titleBar.Append(label)
+
+	// Make title bar clickable - ensure it doesn't expand vertically
+	titleButton := sv.factory.NewButton()
+	titleButton.SetChild(titleBar)
+	titleButton.AddCssClass("stacked-pane-title-button")
+	titleButton.SetFocusOnClick(false)
+	titleButton.SetVexpand(false)
+	titleButton.SetHexpand(true)
+
+	pane := &stackedPane{
+		titleBar:  titleBar,
+		container: container,
+		title:     title,
+		favicon:   favicon,
+		label:     label,
+		isActive:  false,
+	}
+
+	// Insert into slice at correct position
+	sv.panes = append(sv.panes, nil)
+	copy(sv.panes[insertIndex+1:], sv.panes[insertIndex:])
+	sv.panes[insertIndex] = pane
+
+	// Connect click handler - use captured index
+	capturedIndex := insertIndex
+	titleButton.ConnectClicked(func() {
+		sv.mu.RLock()
+		callback := sv.onActivate
+		sv.mu.RUnlock()
+
+		if callback != nil {
+			callback(capturedIndex)
+		}
+	})
+
+	// Insert widgets at correct position in GTK box
+	if insertIndex > 0 && sv.panes[insertIndex-1] != nil {
+		// Insert after the previous pane's container
+		prevPane := sv.panes[insertIndex-1]
+		if prevPane.container != nil {
+			sv.box.InsertChildAfter(titleButton, prevPane.container)
+			if container != nil {
+				sv.box.InsertChildAfter(container, titleButton)
+			}
+		} else {
+			// No container, insert after title bar's parent (the button)
+			prevTitleParent := prevPane.titleBar.GetParent()
+			if prevTitleParent != nil {
+				sv.box.InsertChildAfter(titleButton, prevTitleParent)
+				if container != nil {
+					sv.box.InsertChildAfter(container, titleButton)
+				}
+			} else {
+				// Fallback to append
+				sv.box.Append(titleButton)
+				if container != nil {
+					sv.box.Append(container)
+				}
+			}
+		}
+	} else {
+		// Insert at beginning
+		if container != nil {
+			sv.box.Prepend(container)
+		}
+		sv.box.Prepend(titleButton)
+	}
+
+	// Set this pane as active
+	sv.setActiveInternal(ctx, insertIndex)
+
+	log.Debug().
+		Int("insert_index", insertIndex).
+		Int("new_count", len(sv.panes)).
+		Msg("StackedView.InsertPaneAfter completed")
+
+	return insertIndex
+}
+
 // RemovePane removes a pane from the stack by index.
 // Returns an error if trying to remove the last pane.
 func (sv *StackedView) RemovePane(ctx context.Context, index int) error {
