@@ -1,0 +1,129 @@
+package webkit
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/logging"
+)
+
+// WebViewFactory creates WebView instances for the application.
+// It supports creating regular WebViews (optionally via pool) and
+// related WebViews that share session/cookies with a parent (for popups).
+type WebViewFactory struct {
+	wkCtx    *WebKitContext
+	settings *SettingsManager
+	pool     *WebViewPool
+	injector *ContentInjector
+	router   *MessageRouter
+}
+
+// NewWebViewFactory creates a new WebViewFactory.
+// The pool parameter is optional; if nil, WebViews are created directly.
+func NewWebViewFactory(
+	wkCtx *WebKitContext,
+	settings *SettingsManager,
+	pool *WebViewPool,
+	injector *ContentInjector,
+	router *MessageRouter,
+) *WebViewFactory {
+	return &WebViewFactory{
+		wkCtx:    wkCtx,
+		settings: settings,
+		pool:     pool,
+		injector: injector,
+		router:   router,
+	}
+}
+
+// Create creates a new WebView instance.
+// If a pool is configured, it will try to acquire from the pool first.
+func (f *WebViewFactory) Create(ctx context.Context) (*WebView, error) {
+	log := logging.FromContext(ctx)
+
+	// Try pool first if available
+	if f.pool != nil {
+		wv, err := f.pool.Acquire(ctx)
+		if err == nil && wv != nil {
+			log.Debug().Uint64("id", uint64(wv.ID())).Msg("acquired webview from pool")
+			return wv, nil
+		}
+		log.Debug().Err(err).Msg("pool acquire failed, creating directly")
+	}
+
+	// Create directly
+	return f.createDirect(ctx)
+}
+
+// CreateRelated creates a WebView that shares session/cookies with the parent.
+// This is required for popup windows to maintain authentication state (OAuth).
+// Related WebViews bypass the pool since they must be linked to a specific parent.
+func (f *WebViewFactory) CreateRelated(ctx context.Context, parentID port.WebViewID) (*WebView, error) {
+	log := logging.FromContext(ctx)
+
+	// Look up parent WebView
+	parent := LookupWebView(WebViewID(parentID))
+	if parent == nil {
+		return nil, fmt.Errorf("parent webview %d not found", parentID)
+	}
+	if parent.IsDestroyed() {
+		return nil, fmt.Errorf("parent webview %d is destroyed", parentID)
+	}
+
+	// Create related WebView
+	wv, err := NewWebViewWithRelated(ctx, parent, f.settings)
+	if err != nil {
+		return nil, fmt.Errorf("create related webview: %w", err)
+	}
+
+	// Ensure visible
+	wv.inner.SetVisible(true)
+
+	// Attach frontend (scripts, message handler)
+	if err := wv.AttachFrontend(ctx, f.injector, f.router); err != nil {
+		log.Warn().Err(err).Uint64("id", uint64(wv.ID())).Msg("failed to attach frontend to related webview")
+	}
+
+	log.Debug().
+		Uint64("id", uint64(wv.ID())).
+		Uint64("parent_id", uint64(parentID)).
+		Msg("created related webview for popup")
+
+	return wv, nil
+}
+
+// createDirect creates a WebView without using the pool.
+func (f *WebViewFactory) createDirect(ctx context.Context) (*WebView, error) {
+	log := logging.FromContext(ctx)
+
+	wv, err := NewWebView(ctx, f.wkCtx, f.settings)
+	if err != nil {
+		return nil, err
+	}
+
+	// Ensure visible
+	wv.inner.SetVisible(true)
+
+	// Attach frontend
+	if err := wv.AttachFrontend(ctx, f.injector, f.router); err != nil {
+		log.Warn().Err(err).Uint64("id", uint64(wv.ID())).Msg("failed to attach frontend to webview")
+	}
+
+	log.Debug().Uint64("id", uint64(wv.ID())).Msg("created webview directly")
+	return wv, nil
+}
+
+// Release returns a WebView to the pool if available, otherwise destroys it.
+// Related WebViews (popups) should be destroyed directly, not released to pool.
+func (f *WebViewFactory) Release(ctx context.Context, wv *WebView) {
+	if wv == nil || wv.IsDestroyed() {
+		return
+	}
+
+	if f.pool != nil {
+		f.pool.Release(ctx, wv)
+	} else {
+		wv.Destroy()
+	}
+}

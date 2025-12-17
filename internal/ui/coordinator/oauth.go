@@ -1,0 +1,141 @@
+package coordinator
+
+import (
+	"strings"
+)
+
+// oauthFlowPatterns are URL patterns that indicate an OAuth flow is in progress.
+// These appear in authorization URLs and callback redirects.
+var oauthFlowPatterns = []string{
+	// OAuth flow indicators
+	"oauth",
+	"authorize",
+	"authorization",
+	"auth/",
+	"/auth",
+	"login",
+	"signin",
+	"sign-in",
+	// OpenID Connect
+	"oidc",
+	"openid",
+	// Callback/redirect endpoints
+	"callback",
+	"redirect",
+	"/cb",
+}
+
+// oauthCallbackPatterns are URL query parameters that indicate an OAuth callback.
+// These appear when the OAuth provider redirects back to the application.
+var oauthCallbackPatterns = []string{
+	// Success parameters
+	"code=",
+	"access_token=",
+	"id_token=",
+	"token_type=",
+	"refresh_token=",
+	// Error parameters
+	"error=",
+	"error_description=",
+	"error_uri=",
+}
+
+// oauthRequestPatterns are query parameters found in OAuth authorization requests.
+var oauthRequestPatterns = []string{
+	"response_type=",
+	"client_id=",
+	"redirect_uri=",
+	"scope=",
+	"state=",
+	"nonce=",
+}
+
+// IsOAuthURL checks if the URL is related to an OAuth flow.
+// This includes authorization endpoints, login pages, and callback URLs.
+func IsOAuthURL(url string) bool {
+	if url == "" {
+		return false
+	}
+	lower := strings.ToLower(url)
+
+	// Check for OAuth flow patterns in URL path
+	for _, pattern := range oauthFlowPatterns {
+		if strings.Contains(lower, pattern) {
+			return true
+		}
+	}
+
+	// Check for OAuth request parameters
+	for _, pattern := range oauthRequestPatterns {
+		if strings.Contains(lower, pattern) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// IsOAuthCallback checks if the URL is an OAuth callback with response parameters.
+// This indicates the OAuth flow has completed (successfully or with error).
+func IsOAuthCallback(url string) bool {
+	if url == "" {
+		return false
+	}
+	lower := strings.ToLower(url)
+
+	// Must contain callback patterns (code=, access_token=, error=, etc.)
+	for _, pattern := range oauthCallbackPatterns {
+		if strings.Contains(lower, pattern) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// ShouldAutoClose determines if a popup at this URL should auto-close.
+// Returns true for OAuth callbacks that indicate flow completion.
+//
+// This is comprehensive detection that handles:
+// - Success: code=, access_token=, id_token=
+// - Errors: error=, error_description=
+// - Various OAuth providers (Google, GitHub, Auth0, etc.)
+func ShouldAutoClose(url string) bool {
+	// Only auto-close on callback URLs that have OAuth response params
+	return IsOAuthCallback(url)
+}
+
+// IsOAuthSuccess checks if the callback indicates successful authentication.
+func IsOAuthSuccess(url string) bool {
+	if url == "" {
+		return false
+	}
+	lower := strings.ToLower(url)
+
+	// Check for success indicators
+	successPatterns := []string{
+		"code=",
+		"access_token=",
+		"id_token=",
+	}
+
+	for _, pattern := range successPatterns {
+		if strings.Contains(lower, pattern) {
+			// Make sure it's not an error response
+			if !strings.Contains(lower, "error=") {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// IsOAuthError checks if the callback indicates an authentication error.
+func IsOAuthError(url string) bool {
+	if url == "" {
+		return false
+	}
+	lower := strings.ToLower(url)
+	return strings.Contains(lower, "error=")
+}
