@@ -34,13 +34,13 @@ type TreeRenderer struct {
 	// paneToStack maps pane IDs to their containing StackedView.
 	// Every leaf pane is wrapped in a StackedView for easy stacking later.
 	paneToStack map[string]*StackedView
-	ctx         context.Context
 	mu          sync.RWMutex
 }
 
 // NewTreeRenderer creates a new tree renderer.
 func NewTreeRenderer(ctx context.Context, factory WidgetFactory, paneViewFactory PaneViewFactory) *TreeRenderer {
 	log := logging.FromContext(ctx)
+	log.Debug().Msg("creating tree renderer")
 
 	return &TreeRenderer{
 		factory:         factory,
@@ -48,13 +48,12 @@ func NewTreeRenderer(ctx context.Context, factory WidgetFactory, paneViewFactory
 		logger:          log.With().Str("component", "tree-renderer").Logger(),
 		nodeToWidget:    make(map[string]Widget),
 		paneToStack:     make(map[string]*StackedView),
-		ctx:             ctx,
 	}
 }
 
 // Build constructs the entire widget tree from a root PaneNode.
 // Returns the root widget that can be embedded in a container.
-func (tr *TreeRenderer) Build(root *entity.PaneNode) (Widget, error) {
+func (tr *TreeRenderer) Build(ctx context.Context, root *entity.PaneNode) (Widget, error) {
 	if root == nil {
 		return nil, ErrNilRoot
 	}
@@ -66,12 +65,12 @@ func (tr *TreeRenderer) Build(root *entity.PaneNode) (Widget, error) {
 	tr.nodeToWidget = make(map[string]Widget)
 	tr.paneToStack = make(map[string]*StackedView)
 
-	return tr.renderNode(root)
+	return tr.renderNode(ctx, root)
 }
 
 // renderNode recursively renders a single node and its children.
 // Must be called with lock held.
-func (tr *TreeRenderer) renderNode(node *entity.PaneNode) (Widget, error) {
+func (tr *TreeRenderer) renderNode(ctx context.Context, node *entity.PaneNode) (Widget, error) {
 	if node == nil {
 		return nil, nil
 	}
@@ -81,15 +80,15 @@ func (tr *TreeRenderer) renderNode(node *entity.PaneNode) (Widget, error) {
 
 	switch {
 	case node.IsLeaf():
-		widget = tr.renderLeaf(node)
+		widget = tr.renderLeaf(ctx, node)
 	case node.IsSplit():
-		widget, err = tr.renderSplit(node)
+		widget, err = tr.renderSplit(ctx, node)
 	case node.IsStacked:
-		widget, err = tr.renderStacked(node)
+		widget, err = tr.renderStacked(ctx, node)
 	default:
 		// Unknown node type - treat as leaf if it has a pane
 		if node.Pane != nil {
-			widget = tr.renderLeaf(node)
+			widget = tr.renderLeaf(ctx, node)
 		}
 	}
 
@@ -108,7 +107,7 @@ func (tr *TreeRenderer) renderNode(node *entity.PaneNode) (Widget, error) {
 // renderLeaf creates a PaneView widget wrapped in a StackedView.
 // Every pane is wrapped in a StackedView from the start, making stacking trivial.
 // When there's only 1 pane, the StackedView shows no title bar.
-func (tr *TreeRenderer) renderLeaf(node *entity.PaneNode) Widget {
+func (tr *TreeRenderer) renderLeaf(ctx context.Context, node *entity.PaneNode) Widget {
 	if tr.paneViewFactory == nil {
 		return nil
 	}
@@ -136,7 +135,7 @@ func (tr *TreeRenderer) renderLeaf(node *entity.PaneNode) Widget {
 		Str("title", title).
 		Msg("TreeRenderer.renderLeaf: wrapping pane in StackedView")
 
-	stackedView.AddPane(tr.ctx, title, "", paneWidget)
+	stackedView.AddPane(ctx, title, "", paneWidget)
 
 	// Track this pane's StackedView for later stacking operations
 	if node.Pane != nil {
@@ -147,14 +146,14 @@ func (tr *TreeRenderer) renderLeaf(node *entity.PaneNode) Widget {
 }
 
 // renderSplit creates a SplitView for a split node.
-func (tr *TreeRenderer) renderSplit(node *entity.PaneNode) (Widget, error) {
+func (tr *TreeRenderer) renderSplit(ctx context.Context, node *entity.PaneNode) (Widget, error) {
 	// Render children first
-	leftWidget, err := tr.renderNode(node.Left())
+	leftWidget, err := tr.renderNode(ctx, node.Left())
 	if err != nil {
 		return nil, err
 	}
 
-	rightWidget, err := tr.renderNode(node.Right())
+	rightWidget, err := tr.renderNode(ctx, node.Right())
 	if err != nil {
 		return nil, err
 	}
@@ -166,13 +165,13 @@ func (tr *TreeRenderer) renderSplit(node *entity.PaneNode) (Widget, error) {
 	}
 
 	// Create split view
-	splitView := NewSplitView(tr.ctx, tr.factory, orientation, leftWidget, rightWidget, node.SplitRatio)
+	splitView := NewSplitView(ctx, tr.factory, orientation, leftWidget, rightWidget, node.SplitRatio)
 
 	return splitView.Widget(), nil
 }
 
 // renderStacked creates a StackedView for a stacked node.
-func (tr *TreeRenderer) renderStacked(node *entity.PaneNode) (Widget, error) {
+func (tr *TreeRenderer) renderStacked(ctx context.Context, node *entity.PaneNode) (Widget, error) {
 	stackedView := NewStackedView(tr.factory)
 
 	tr.logger.Debug().
@@ -181,7 +180,7 @@ func (tr *TreeRenderer) renderStacked(node *entity.PaneNode) (Widget, error) {
 
 	// Add each child pane to the stack
 	for _, child := range node.Children {
-		childWidget, err := tr.renderNode(child)
+		childWidget, err := tr.renderNode(ctx, child)
 		if err != nil {
 			return nil, err
 		}
@@ -196,7 +195,7 @@ func (tr *TreeRenderer) renderStacked(node *entity.PaneNode) (Widget, error) {
 			favicon = child.Pane.FaviconURL
 		}
 
-		stackedView.AddPane(tr.ctx, title, favicon, childWidget)
+		stackedView.AddPane(ctx, title, favicon, childWidget)
 
 		// Override paneToStack to point to THIS stacked view, not the child's wrapper.
 		// This ensures geometric navigation and stack sync work correctly.
@@ -207,7 +206,7 @@ func (tr *TreeRenderer) renderStacked(node *entity.PaneNode) (Widget, error) {
 
 	// Set active index
 	if node.ActiveStackIndex >= 0 && node.ActiveStackIndex < stackedView.Count() {
-		_ = stackedView.SetActive(tr.ctx, node.ActiveStackIndex)
+		_ = stackedView.SetActive(ctx, node.ActiveStackIndex)
 	}
 
 	return stackedView.Widget(), nil
