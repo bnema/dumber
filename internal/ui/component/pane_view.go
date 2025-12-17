@@ -23,6 +23,7 @@ type PaneView struct {
 	webViewWidget layout.Widget    // The actual WebView widget
 	borderBox     layout.BoxWidget // Border overlay for active indication
 	progressBar   *ProgressBar     // Loading progress indicator
+	toaster       *Toaster         // Toast notification overlay
 	paneID        entity.PaneID
 	isActive      bool
 
@@ -63,18 +64,15 @@ func NewPaneView(factory layout.WidgetFactory, paneID entity.PaneID, webViewWidg
 	overlay.SetClipOverlay(borderBox, false)
 	overlay.SetMeasureOverlay(borderBox, false)
 
-	// Create progress bar overlay at bottom
-	progressBar := NewProgressBar(factory)
-	overlay.AddOverlay(progressBar.Widget())
-	overlay.SetClipOverlay(progressBar.Widget(), false)
-	overlay.SetMeasureOverlay(progressBar.Widget(), false)
+	// Progress bar is created lazily on first use to avoid GTK measurement
+	// issues with the internal progress gizmo before the overlay is realized
 
 	return &PaneView{
 		factory:       factory,
 		overlay:       overlay,
 		webViewWidget: webViewWidget,
 		borderBox:     borderBox,
-		progressBar:   progressBar,
+		progressBar:   nil, // Created lazily in ensureProgressBar()
 		paneID:        paneID,
 		isActive:      false,
 	}
@@ -276,29 +274,77 @@ func (pv *PaneView) GetContentDimensions() (width, height int) {
 	return pv.overlay.GetAllocatedWidth(), pv.overlay.GetAllocatedHeight()
 }
 
+// ensureProgressBar creates the progress bar lazily on first use.
+// This avoids GTK measurement issues with the internal progress gizmo
+// that can occur when the widget is added before the overlay is realized.
+// Must be called with write lock held.
+func (pv *PaneView) ensureProgressBar() *ProgressBar {
+	if pv.progressBar != nil {
+		return pv.progressBar
+	}
+
+	pb := NewProgressBar(pv.factory)
+	pv.overlay.AddOverlay(pb.Widget())
+	pv.overlay.SetClipOverlay(pb.Widget(), false)
+	pv.overlay.SetMeasureOverlay(pb.Widget(), false)
+	pv.progressBar = pb
+	return pb
+}
+
 // SetLoadProgress updates the progress bar with the current load progress.
 // progress should be between 0.0 and 1.0.
 func (pv *PaneView) SetLoadProgress(progress float64) {
-	pv.mu.RLock()
-	pb := pv.progressBar
-	pv.mu.RUnlock()
+	pv.mu.Lock()
+	pb := pv.ensureProgressBar()
+	pv.mu.Unlock()
 
-	if pb != nil {
-		pb.SetProgress(progress)
-	}
+	pb.SetProgress(progress)
 }
 
 // SetLoading shows or hides the progress bar.
 func (pv *PaneView) SetLoading(loading bool) {
-	pv.mu.RLock()
-	pb := pv.progressBar
-	pv.mu.RUnlock()
+	pv.mu.Lock()
+	pb := pv.ensureProgressBar()
+	pv.mu.Unlock()
 
-	if pb != nil {
-		if loading {
-			pb.Show()
-		} else {
-			pb.Hide()
-		}
+	if loading {
+		pb.Show()
+	} else {
+		pb.Hide()
 	}
+}
+
+// ensureToaster creates the toaster lazily on first use.
+// Must be called with write lock held.
+func (pv *PaneView) ensureToaster() *Toaster {
+	if pv.toaster != nil {
+		return pv.toaster
+	}
+
+	t := NewToaster(pv.factory)
+	pv.overlay.AddOverlay(t.Widget())
+	pv.overlay.SetClipOverlay(t.Widget(), false)
+	pv.overlay.SetMeasureOverlay(t.Widget(), false)
+	pv.toaster = t
+	return t
+}
+
+// ShowToast displays a toast notification with the given message and level.
+// If a toast is already visible, updates the text and resets the dismiss timer.
+func (pv *PaneView) ShowToast(ctx context.Context, message string, level ToastLevel) {
+	pv.mu.Lock()
+	t := pv.ensureToaster()
+	pv.mu.Unlock()
+
+	t.Show(ctx, message, level)
+}
+
+// ShowZoomToast displays a zoom level toast notification.
+// Formats the zoom percentage with a % suffix.
+func (pv *PaneView) ShowZoomToast(ctx context.Context, zoomPercent int) {
+	pv.mu.Lock()
+	t := pv.ensureToaster()
+	pv.mu.Unlock()
+
+	t.ShowZoom(ctx, zoomPercent)
 }

@@ -47,6 +47,10 @@ func NewProgressBar(factory layout.WidgetFactory) *ProgressBar {
 	progressBar.SetCanTarget(false)
 	progressBar.SetCanFocus(false)
 
+	// Initialize fraction to 0 to force proper sizing of internal progress gizmo
+	// This prevents GTK warning about negative minimum width
+	progressBar.SetFraction(0)
+
 	// Hidden by default
 	progressBar.SetVisible(false)
 
@@ -110,7 +114,11 @@ func (pb *ProgressBar) startAnimation() {
 		pb.progressBar.SetFraction(pb.currentValue)
 
 		// Continue animation if not at target
-		return pb.currentValue < pb.targetValue
+		if pb.currentValue >= pb.targetValue {
+			pb.animationTimer = 0 // Clear before GLib auto-removes
+			return false
+		}
+		return true
 	}
 
 	pb.animationTimer = glib.TimeoutAdd(progressIntervalMs, &cb, 0)
