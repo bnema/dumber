@@ -20,6 +20,14 @@
     }
   };
 
+  const getFaviconUrl = (item: HistoryEntry): string => {
+    // Use provided favicon_url if available
+    if (item.favicon_url) return item.favicon_url;
+    // Construct DuckDuckGo favicon URL from domain
+    const domain = getDomain(item.url).replace(/^www\./, '');
+    return `https://icons.duckduckgo.com/ip3/${encodeURIComponent(domain)}.ico`;
+  };
+
   const getDisplayTitle = (item: HistoryEntry): string => {
     const trimmed = item.title?.trim();
     if (trimmed) return trimmed;
@@ -75,22 +83,18 @@
   onkeydown={handleKeyDown}
 >
   <div class="item-favicon">
-    {#if entry.favicon_url}
-      <img
-        src={entry.favicon_url}
-        alt=""
-        class="favicon-img"
-        onerror={(e) => {
-          const target = e.target as HTMLImageElement;
-          target.style.display = 'none';
-          const fallback = target.nextElementSibling as HTMLElement;
-          if (fallback) fallback.style.display = 'flex';
-        }}
-      />
-      <div class="favicon-fallback" style="display: none;"></div>
-    {:else}
-      <div class="favicon-fallback"></div>
-    {/if}
+    <img
+      src={getFaviconUrl(entry)}
+      alt=""
+      class="favicon-img"
+      onerror={(e) => {
+        const target = e.target as HTMLImageElement;
+        target.style.display = 'none';
+        const fallback = target.nextElementSibling as HTMLElement;
+        if (fallback) fallback.style.display = 'flex';
+      }}
+    />
+    <div class="favicon-fallback" style="display: none;"></div>
   </div>
 
   <div class="item-content">

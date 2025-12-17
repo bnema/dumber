@@ -18,6 +18,14 @@
     }
   };
 
+  const getFaviconUrl = (fav: Favorite): string => {
+    // Use provided favicon_url if available
+    if (fav.favicon_url) return fav.favicon_url;
+    // Construct DuckDuckGo favicon URL from domain
+    const domain = getDomain(fav.url);
+    return `https://icons.duckduckgo.com/ip3/${encodeURIComponent(domain)}.ico`;
+  };
+
   const getDisplayTitle = (fav: Favorite): string => {
     const trimmed = fav.title?.trim();
     if (trimmed) return trimmed;
@@ -55,22 +63,18 @@
   onkeydown={handleKeyDown}
 >
   <div class="card-favicon">
-    {#if favorite.favicon_url}
-      <img
-        src={favorite.favicon_url}
-        alt=""
-        class="favicon-img"
-        onerror={(e) => {
-          const target = e.target as HTMLImageElement;
-          target.style.display = 'none';
-          const fallback = target.nextElementSibling as HTMLElement;
-          if (fallback) fallback.style.display = 'flex';
-        }}
-      />
-      <div class="favicon-fallback" style="display: none;"></div>
-    {:else}
-      <div class="favicon-fallback"></div>
-    {/if}
+    <img
+      src={getFaviconUrl(favorite)}
+      alt=""
+      class="favicon-img"
+      onerror={(e) => {
+        const target = e.target as HTMLImageElement;
+        target.style.display = 'none';
+        const fallback = target.nextElementSibling as HTMLElement;
+        if (fallback) fallback.style.display = 'flex';
+      }}
+    />
+    <div class="favicon-fallback" style="display: none;"></div>
     {#if favorite.shortcut_key}
       <div class="shortcut-badge">{favorite.shortcut_key}</div>
     {/if}
