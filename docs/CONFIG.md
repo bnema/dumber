@@ -19,7 +19,7 @@ You can still use JSON or YAML if you prefer - dumber automatically detects the 
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `database.path` | string | `~/.local/state/dumber/dumber.sqlite` | Database file path |
+| `database.path` | string | `~/.local/share/dumber/dumber.db` | Database file path |
 
 ## History
 

@@ -14,7 +14,7 @@ const (
 
 const (
 	appName      = "dumber"
-	databaseName = "dumber.sqlite"
+	databaseName = "dumber.db"
 )
 
 // XDGDirs holds the XDG Base Directory paths for the application.
@@ -134,8 +134,8 @@ func GetConfigFile() (string, error) {
 }
 
 // GetDatabaseFile returns the path to the database file in the data directory.
-// The database contains important user data (history, cookies, preferences) and
-// therefore belongs in XDG_DATA_HOME, not XDG_STATE_HOME.
+// The database contains user data (history, favorites, preferences) that should
+// be backed up, so it belongs in XDG_DATA_HOME per the XDG specification.
 func GetDatabaseFile() (string, error) {
 	dataDir, err := GetDataDir()
 	if err != nil {
