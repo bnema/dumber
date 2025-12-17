@@ -8,7 +8,6 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/sahilm/fuzzy"
 )
 
 // SearchHistoryUseCase handles history search and retrieval operations.
@@ -34,8 +33,8 @@ type SearchOutput struct {
 	Matches []entity.HistoryMatch
 }
 
-// Search performs a fuzzy search on history entries.
-// Uses in-memory fuzzy matching on title + URL for token-based matching in any order.
+// Search performs a full-text search on history entries using SQLite FTS5.
+// Returns only entries that actually match the query terms.
 func (uc *SearchHistoryUseCase) Search(ctx context.Context, input SearchInput) (*SearchOutput, error) {
 	log := logging.FromContext(ctx)
 
@@ -48,52 +47,18 @@ func (uc *SearchHistoryUseCase) Search(ctx context.Context, input SearchInput) (
 		limit = 20 // Default limit
 	}
 
-	// Fetch more candidates for fuzzy filtering (10x the limit)
-	candidateLimit := limit * 10
-	if candidateLimit < 100 {
-		candidateLimit = 100
-	}
-
-	candidates, err := uc.historyRepo.GetRecent(ctx, candidateLimit, 0)
+	// Use repository's FTS5 search
+	matches, err := uc.historyRepo.Search(ctx, input.Query, limit)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get history candidates: %w", err)
+		return nil, fmt.Errorf("failed to search history: %w", err)
 	}
-
-	if len(candidates) == 0 {
-		return &SearchOutput{Matches: []entity.HistoryMatch{}}, nil
-	}
-
-	// Build searchable strings: "title url" for each entry
-	searchStrings := make([]string, len(candidates))
-	for i, e := range candidates {
-		searchStrings[i] = e.Title + " " + e.URL
-	}
-
-	// Fuzzy match
-	fuzzyMatches := fuzzy.Find(input.Query, searchStrings)
 
 	log.Debug().
 		Str("query", input.Query).
-		Int("candidates", len(candidates)).
-		Int("matches", len(fuzzyMatches)).
-		Msg("fuzzy search completed")
+		Int("matches", len(matches)).
+		Msg("FTS5 search completed")
 
-	// Convert to HistoryMatch with scores, limited to requested limit
-	resultLimit := limit
-	if len(fuzzyMatches) < resultLimit {
-		resultLimit = len(fuzzyMatches)
-	}
-
-	results := make([]entity.HistoryMatch, 0, resultLimit)
-	for i := 0; i < resultLimit; i++ {
-		m := fuzzyMatches[i]
-		results = append(results, entity.HistoryMatch{
-			Entry: candidates[m.Index],
-			Score: float64(m.Score),
-		})
-	}
-
-	return &SearchOutput{Matches: results}, nil
+	return &SearchOutput{Matches: matches}, nil
 }
 
 // GetRecent retrieves recent history entries with pagination.

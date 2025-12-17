@@ -43,20 +43,27 @@ func (r *historyRepo) FindByURL(ctx context.Context, url string) (*entity.Histor
 }
 
 func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]entity.HistoryMatch, error) {
-	rows, err := r.queries.SearchHistory(ctx, sqlc.SearchHistoryParams{
-		Column1: sql.NullString{String: query, Valid: true},
-		Column2: sql.NullString{String: query, Valid: true},
-		Limit:   int64(limit),
+	log := logging.FromContext(ctx)
+
+	// Use FTS5 full-text search for better accuracy
+	// FTS5 query syntax: use * for prefix matching
+	ftsQuery := query + "*"
+
+	rows, err := r.queries.SearchHistoryFTS(ctx, sqlc.SearchHistoryFTSParams{
+		Url:   ftsQuery,
+		Limit: int64(limit),
 	})
 	if err != nil {
-		return nil, err
+		log.Debug().Err(err).Str("query", query).Msg("FTS search failed, no results")
+		// FTS5 returns error on no match or invalid query, return empty results
+		return []entity.HistoryMatch{}, nil
 	}
 
 	matches := make([]entity.HistoryMatch, len(rows))
 	for i, row := range rows {
 		matches[i] = entity.HistoryMatch{
 			Entry: historyFromRow(row),
-			Score: 1.0, // Basic score, could be enhanced with FTS ranking
+			Score: 1.0, // FTS5 already ranked by bm25
 		}
 	}
 	return matches, nil

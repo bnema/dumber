@@ -293,6 +293,51 @@ func (q *Queries) SearchHistory(ctx context.Context, arg SearchHistoryParams) ([
 	return items, nil
 }
 
+const SearchHistoryFTS = `-- name: SearchHistoryFTS :many
+SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.created_at
+FROM history_fts fts
+JOIN history h ON fts.rowid = h.id
+WHERE fts.url MATCH ?
+ORDER BY bm25(history_fts)
+LIMIT ?
+`
+
+type SearchHistoryFTSParams struct {
+	Url   string `json:"url"`
+	Limit int64  `json:"limit"`
+}
+
+func (q *Queries) SearchHistoryFTS(ctx context.Context, arg SearchHistoryFTSParams) ([]History, error) {
+	rows, err := q.db.QueryContext(ctx, SearchHistoryFTS, arg.Url, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []History{}
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.Title,
+			&i.FaviconUrl,
+			&i.VisitCount,
+			&i.LastVisited,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const UpsertHistory = `-- name: UpsertHistory :exec
 INSERT INTO history (url, title, favicon_url)
 VALUES (?, ?, ?)
