@@ -43,15 +43,15 @@ type ModalState struct {
 	// Callback for mode changes (called synchronously under lock).
 	onModeChange func(from, to Mode)
 
-	ctx context.Context
-	mu  sync.RWMutex
+	mu sync.RWMutex
 }
 
 // NewModalState creates a new modal state manager.
 func NewModalState(ctx context.Context) *ModalState {
+	log := logging.FromContext(ctx)
+	log.Debug().Msg("creating modal state")
 	return &ModalState{
 		mode: ModeNormal,
-		ctx:  ctx,
 	}
 }
 
@@ -64,8 +64,8 @@ func (m *ModalState) Mode() Mode {
 
 // EnterTabMode switches to tab mode with an optional timeout.
 // If timeout is 0, the mode stays until explicitly exited.
-func (m *ModalState) EnterTabMode(timeout time.Duration) {
-	log := logging.FromContext(m.ctx)
+func (m *ModalState) EnterTabMode(ctx context.Context, timeout time.Duration) {
+	log := logging.FromContext(ctx)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -99,8 +99,8 @@ func (m *ModalState) EnterTabMode(timeout time.Duration) {
 
 // EnterPaneMode switches to pane mode with an optional timeout.
 // If timeout is 0, the mode stays until explicitly exited.
-func (m *ModalState) EnterPaneMode(timeout time.Duration) {
-	log := logging.FromContext(m.ctx)
+func (m *ModalState) EnterPaneMode(ctx context.Context, timeout time.Duration) {
+	log := logging.FromContext(ctx)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -133,8 +133,8 @@ func (m *ModalState) EnterPaneMode(timeout time.Duration) {
 }
 
 // ExitMode returns to normal mode.
-func (m *ModalState) ExitMode() {
-	log := logging.FromContext(m.ctx)
+func (m *ModalState) ExitMode(ctx context.Context) {
+	log := logging.FromContext(ctx)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

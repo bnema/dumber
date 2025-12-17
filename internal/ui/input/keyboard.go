@@ -30,9 +30,8 @@ type KeyboardHandler struct {
 	// GTK controller (nil until attached)
 	controller *gtk.EventControllerKey
 
-	ctx    context.Context
-	logger zerolog.Logger
-	mu     sync.RWMutex
+	ctx context.Context
+	mu  sync.RWMutex
 }
 
 // NewKeyboardHandler creates a new keyboard handler.
@@ -42,12 +41,13 @@ func NewKeyboardHandler(
 ) *KeyboardHandler {
 	log := logging.FromContext(ctx)
 
+	log.Debug().Msg("creating keyboard handler")
+
 	h := &KeyboardHandler{
 		shortcuts: NewShortcutSet(ctx, cfg),
 		modal:     NewModalState(ctx),
 		cfg:       cfg,
 		ctx:       ctx,
-		logger:    log.With().Str("component", "keyboard-handler").Logger(),
 	}
 
 	return h
@@ -73,14 +73,16 @@ func (h *KeyboardHandler) Mode() Mode {
 // AttachTo attaches the keyboard handler to a GTK window.
 // The handler will intercept key events in the capture phase.
 func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
+	log := logging.FromContext(h.ctx)
+
 	if window == nil {
-		h.logger.Error().Msg("cannot attach keyboard handler to nil window")
+		log.Error().Msg("cannot attach keyboard handler to nil window")
 		return
 	}
 
 	h.controller = gtk.NewEventControllerKey()
 	if h.controller == nil {
-		h.logger.Error().Msg("failed to create event controller key")
+		log.Error().Msg("failed to create event controller key")
 		return
 	}
 
@@ -96,7 +98,7 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 	// Add controller to window
 	window.AddController(&h.controller.EventController)
 
-	h.logger.Debug().Msg("keyboard handler attached to window")
+	log.Debug().Msg("keyboard handler attached to window")
 }
 
 // Detach removes the keyboard handler.
@@ -134,16 +136,16 @@ func (h *KeyboardHandler) handleKeyPress(keyval uint, keycode uint, state gdk.Mo
 	switch action {
 	case ActionEnterTabMode:
 		timeout := time.Duration(h.cfg.TabMode.TimeoutMilliseconds) * time.Millisecond
-		h.modal.EnterTabMode(timeout)
+		h.modal.EnterTabMode(h.ctx, timeout)
 		return true
 
 	case ActionEnterPaneMode:
 		timeout := time.Duration(h.cfg.PaneMode.TimeoutMilliseconds) * time.Millisecond
-		h.modal.EnterPaneMode(timeout)
+		h.modal.EnterPaneMode(h.ctx, timeout)
 		return true
 
 	case ActionExitMode:
-		h.modal.ExitMode()
+		h.modal.ExitMode(h.ctx)
 		return true
 	}
 
@@ -154,7 +156,8 @@ func (h *KeyboardHandler) handleKeyPress(keyval uint, keycode uint, state gdk.Mo
 
 	if handler != nil {
 		if err := handler(h.ctx, action); err != nil {
-			h.logger.Error().
+			log := logging.FromContext(h.ctx)
+			log.Error().
 				Err(err).
 				Str("action", string(action)).
 				Msg("action handler error")
@@ -163,7 +166,7 @@ func (h *KeyboardHandler) handleKeyPress(keyval uint, keycode uint, state gdk.Mo
 
 	// Auto-exit modal mode after certain actions
 	if mode != ModeNormal && ShouldAutoExitMode(action) {
-		h.modal.ExitMode()
+		h.modal.ExitMode(h.ctx)
 	}
 
 	return true // Consumed the key
@@ -173,18 +176,18 @@ func (h *KeyboardHandler) handleKeyPress(keyval uint, keycode uint, state gdk.Mo
 // Useful for testing or programmatic mode changes.
 func (h *KeyboardHandler) EnterTabMode() {
 	timeout := time.Duration(h.cfg.TabMode.TimeoutMilliseconds) * time.Millisecond
-	h.modal.EnterTabMode(timeout)
+	h.modal.EnterTabMode(h.ctx, timeout)
 }
 
 // EnterPaneMode programmatically enters pane mode.
 // Useful for testing or programmatic mode changes.
 func (h *KeyboardHandler) EnterPaneMode() {
 	timeout := time.Duration(h.cfg.PaneMode.TimeoutMilliseconds) * time.Millisecond
-	h.modal.EnterPaneMode(timeout)
+	h.modal.EnterPaneMode(h.ctx, timeout)
 }
 
 // ExitMode programmatically exits modal mode.
 // Useful for testing or programmatic mode changes.
 func (h *KeyboardHandler) ExitMode() {
-	h.modal.ExitMode()
+	h.modal.ExitMode(h.ctx)
 }
