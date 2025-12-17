@@ -3,6 +3,7 @@ package logging
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -13,6 +14,13 @@ type Config struct {
 	Level      zerolog.Level
 	Format     string // "json" or "console"
 	TimeFormat string
+}
+
+// FileConfig holds file logging configuration
+type FileConfig struct {
+	Enabled   bool
+	LogDir    string
+	SessionID string
 }
 
 // DefaultConfig returns sensible defaults
@@ -44,6 +52,61 @@ func New(cfg Config) zerolog.Logger {
 		With().
 		Timestamp().
 		Logger()
+}
+
+// NewWithFile creates a logger that writes to both stderr and a session log file.
+// The session file uses JSON format for easy parsing by the CLI logs command.
+// LogDir must exist before calling this function (handled by config.EnsureDirectories).
+// Returns the logger and a cleanup function to close the file.
+func NewWithFile(cfg Config, fileCfg FileConfig) (zerolog.Logger, func(), error) {
+	var writers []io.Writer
+	var cleanup func() = func() {}
+
+	// Console output (stderr)
+	switch cfg.Format {
+	case "console", "text", "":
+		writers = append(writers, zerolog.ConsoleWriter{
+			Out:        os.Stderr,
+			TimeFormat: cfg.TimeFormat,
+		})
+	case "json":
+		writers = append(writers, os.Stderr)
+	default:
+		writers = append(writers, zerolog.ConsoleWriter{
+			Out:        os.Stderr,
+			TimeFormat: cfg.TimeFormat,
+		})
+	}
+
+	// Session file output (JSON format for parsing)
+	if fileCfg.Enabled && fileCfg.LogDir != "" && fileCfg.SessionID != "" {
+		// Ensure log directory exists (LogDir is from config, may not have logs subdir)
+		if err := os.MkdirAll(fileCfg.LogDir, 0755); err != nil {
+			return zerolog.Logger{}, nil, err
+		}
+
+		filename := filepath.Join(fileCfg.LogDir, SessionFilename(fileCfg.SessionID))
+		file, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			return zerolog.Logger{}, nil, err
+		}
+
+		writers = append(writers, file)
+		cleanup = func() { file.Close() }
+	}
+
+	multi := zerolog.MultiLevelWriter(writers...)
+	ctx := zerolog.New(multi).
+		Level(cfg.Level).
+		With().
+		Timestamp()
+
+	// Add session ID to all log entries if provided
+	if fileCfg.SessionID != "" {
+		ctx = ctx.Str("session", fileCfg.SessionID)
+	}
+
+	return ctx.Logger(), cleanup, nil
 }
 
 // NewFromEnv creates a logger based on environment variables

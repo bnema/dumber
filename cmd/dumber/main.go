@@ -9,6 +9,7 @@ import (
 
 	"github.com/bnema/dumber/assets"
 	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/cli/cmd"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
@@ -24,7 +25,27 @@ var (
 	buildDate = "unknown"
 )
 
+// initialURL holds the URL to open on startup (from browse command).
+var initialURL string
+
 func main() {
+	// Run GUI mode for browse command
+	if len(os.Args) > 1 && os.Args[1] == "browse" {
+		// Extract URL if provided
+		if len(os.Args) > 2 {
+			initialURL = os.Args[2]
+		}
+		// Strip "browse" and URL from args so GTK doesn't see them
+		os.Args = os.Args[:1]
+		runGUI()
+		return
+	}
+
+	// Default: run CLI (shows help if no subcommand)
+	cmd.Execute()
+}
+
+func runGUI() {
 	// GTK requires all GTK calls to be made from the main thread
 	runtime.LockOSThread()
 
@@ -36,8 +57,30 @@ func main() {
 
 	cfg := config.Get()
 
-	// Initialize logger from config
-	logger := logging.NewFromConfigValues(cfg.Logging.Level, cfg.Logging.Format)
+	// Generate session ID for this browser run
+	sessionID := logging.GenerateSessionID()
+
+	// Initialize logger with session file output
+	logger, logCleanup, err := logging.NewWithFile(
+		logging.Config{
+			Level:      logging.ParseLevel(cfg.Logging.Level),
+			Format:     cfg.Logging.Format,
+			TimeFormat: "15:04:05",
+		},
+		logging.FileConfig{
+			Enabled:   cfg.Logging.EnableFileLog,
+			LogDir:    cfg.Logging.LogDir,
+			SessionID: sessionID,
+		},
+	)
+	if err != nil {
+		// Fall back to stderr-only logger
+		logger = logging.NewFromConfigValues(cfg.Logging.Level, cfg.Logging.Format)
+		fmt.Fprintf(os.Stderr, "Warning: failed to create session log file: %v\n", err)
+	} else {
+		defer logCleanup()
+	}
+
 	logger.Info().
 		Str("version", version).
 		Str("commit", commit).
@@ -61,8 +104,8 @@ func main() {
 		logger.Fatal().Err(mkErr).Str("path", cacheDir).Msg("failed to create cache directory")
 	}
 
-	// Initialize SQLite database
-	dbPath := filepath.Join(stateDir, "dumber.db")
+	// Initialize SQLite database (in data dir per XDG spec - user data)
+	dbPath := filepath.Join(dataDir, "dumber.db")
 	db, err := sqlite.NewConnection(ctx, dbPath)
 	if err != nil {
 		logger.Fatal().Err(err).Str("path", dbPath).Msg("failed to initialize database")
@@ -113,6 +156,7 @@ func main() {
 	deps := &ui.Dependencies{
 		Ctx:           ctx,
 		Config:        cfg,
+		InitialURL:    initialURL,
 		Theme:         themeManager,
 		WebContext:    wkCtx,
 		Pool:          pool,
