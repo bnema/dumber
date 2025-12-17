@@ -130,7 +130,7 @@ func (wv *WorkspaceView) SetWorkspace(ws *entity.Workspace) error {
 
 	// Build new tree
 	if ws.Root != nil {
-		widget, err := wv.treeRenderer.Build(ws.Root)
+		widget, err := wv.treeRenderer.Build(ctx, ws.Root)
 		if err != nil {
 			return err
 		}
@@ -231,7 +231,7 @@ func (wv *WorkspaceView) SetOnPaneFocused(fn func(paneID entity.PaneID)) {
 
 // Rebuild rebuilds the widget tree from the current workspace.
 // Use this after structural changes like splits or closes.
-func (wv *WorkspaceView) Rebuild() error {
+func (wv *WorkspaceView) Rebuild(ctx context.Context) error {
 	wv.mu.RLock()
 	ws := wv.workspace
 	wv.mu.RUnlock()

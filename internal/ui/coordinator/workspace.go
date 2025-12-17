@@ -131,7 +131,7 @@ func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.Spli
 		if splitErr != nil {
 			log.Warn().Err(splitErr).Msg("incremental split failed, falling back to rebuild")
 			// Fallback to full rebuild
-			if err := wsView.Rebuild(); err != nil {
+			if err := wsView.Rebuild(ctx); err != nil {
 				log.Error().Err(err).Msg("failed to rebuild workspace view")
 			}
 			c.contentCoord.AttachToWorkspace(ctx, ws, wsView)
@@ -143,7 +143,7 @@ func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.Spli
 		wsView.FocusPane(ws.ActivePaneID)
 	} else if wsView != nil {
 		// No existing widget (shouldn't happen), fallback to rebuild
-		if err := wsView.Rebuild(); err != nil {
+		if err := wsView.Rebuild(ctx); err != nil {
 			log.Error().Err(err).Msg("failed to rebuild workspace view")
 		}
 		c.contentCoord.AttachToWorkspace(ctx, ws, wsView)
@@ -544,7 +544,7 @@ func (c *WorkspaceCoordinator) ClosePane(ctx context.Context) error {
 		if closeErr != nil {
 			log.Warn().Err(closeErr).Msg("incremental close failed, falling back to rebuild")
 			// Fallback to full rebuild
-			if err := wsView.Rebuild(); err != nil {
+			if err := wsView.Rebuild(ctx); err != nil {
 				log.Error().Err(err).Msg("failed to rebuild workspace view")
 			}
 			c.contentCoord.ReleaseWebView(ctx, closingPaneID)
@@ -557,7 +557,7 @@ func (c *WorkspaceCoordinator) ClosePane(ctx context.Context) error {
 		wsView.FocusPane(ws.ActivePaneID)
 	} else if wsView != nil {
 		// Fallback to rebuild if we couldn't get context
-		if err := wsView.Rebuild(); err != nil {
+		if err := wsView.Rebuild(ctx); err != nil {
 			log.Error().Err(err).Msg("failed to rebuild workspace view")
 		}
 		c.contentCoord.ReleaseWebView(ctx, closingPaneID)

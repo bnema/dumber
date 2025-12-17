@@ -117,7 +117,7 @@ func (c *ContentCoordinator) ReleaseWebView(ctx context.Context, paneID entity.P
 	c.navOriginMu.Unlock()
 
 	if c.pool != nil {
-		c.pool.Release(wv)
+		c.pool.Release(ctx, wv)
 	} else {
 		wv.Destroy()
 	}

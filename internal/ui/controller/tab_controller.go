@@ -21,9 +21,8 @@ type TabController struct {
 	// Callback when tab switch requires content swap
 	onTabSwitch func(tabID entity.TabID, tab *entity.Tab)
 
-	ctx    context.Context
-	logger *zerolog.Logger
-	mu     sync.RWMutex
+	ctx context.Context
+	mu  sync.RWMutex
 }
 
 // NewTabController creates a new controller linking TabList to TabBar.
@@ -33,14 +32,14 @@ func NewTabController(
 	tabBar *component.TabBar,
 	tabsUC *usecase.ManageTabsUseCase,
 ) *TabController {
-	logger := logging.FromContext(ctx)
+	log := logging.FromContext(ctx)
+	log.Debug().Msg("creating tab controller")
 
 	tc := &TabController{
 		tabs:   tabs,
 		tabBar: tabBar,
 		tabsUC: tabsUC,
 		ctx:    ctx,
-		logger: logger,
 	}
 
 	// Wire tab bar callbacks to controller methods
@@ -61,6 +60,8 @@ func (tc *TabController) SetOnTabSwitch(fn func(tabID entity.TabID, tab *entity.
 
 // handleTabSwitch handles tab button click events from the tab bar.
 func (tc *TabController) handleTabSwitch(tabID entity.TabID) {
+	log := logging.FromContext(tc.ctx)
+
 	tc.mu.RLock()
 	currentActive := tc.tabs.ActiveTabID
 	tc.mu.RUnlock()
@@ -69,14 +70,14 @@ func (tc *TabController) handleTabSwitch(tabID entity.TabID) {
 		return // Already active
 	}
 
-	tc.logger.Debug().
+	log.Debug().
 		Str("from", string(currentActive)).
 		Str("to", string(tabID)).
 		Msg("switching tab")
 
 	// Use the use case to update domain state
 	if err := tc.tabsUC.Switch(tc.ctx, tc.tabs, tabID); err != nil {
-		tc.logger.Error().Err(err).Str("tab_id", string(tabID)).Msg("failed to switch tab")
+		log.Error().Err(err).Str("tab_id", string(tabID)).Msg("failed to switch tab")
 		return
 	}
 
@@ -96,11 +97,12 @@ func (tc *TabController) handleTabSwitch(tabID entity.TabID) {
 
 // handleTabClose handles tab close button click events.
 func (tc *TabController) handleTabClose(tabID entity.TabID) {
-	tc.logger.Debug().Str("tab_id", string(tabID)).Msg("closing tab")
+	log := logging.FromContext(tc.ctx)
+	log.Debug().Str("tab_id", string(tabID)).Msg("closing tab")
 
 	wasLast, err := tc.tabsUC.Close(tc.ctx, tc.tabs, tabID)
 	if err != nil {
-		tc.logger.Error().Err(err).Str("tab_id", string(tabID)).Msg("failed to close tab")
+		log.Error().Err(err).Str("tab_id", string(tabID)).Msg("failed to close tab")
 		return
 	}
 
@@ -108,7 +110,7 @@ func (tc *TabController) handleTabClose(tabID entity.TabID) {
 	tc.tabBar.RemoveTab(tabID)
 
 	if wasLast {
-		tc.logger.Info().Msg("last tab closed, application should exit")
+		log.Info().Msg("last tab closed, application should exit")
 		// The application should handle this by monitoring tab count
 		return
 	}
@@ -134,7 +136,8 @@ func (tc *TabController) handleTabCreate() {
 
 // CreateTab creates a new tab with the given name and URL.
 func (tc *TabController) CreateTab(name, url string) *entity.Tab {
-	tc.logger.Debug().
+	log := logging.FromContext(tc.ctx)
+	log.Debug().
 		Str("name", name).
 		Str("url", url).
 		Msg("creating new tab")
@@ -145,7 +148,7 @@ func (tc *TabController) CreateTab(name, url string) *entity.Tab {
 		InitialURL: url,
 	})
 	if err != nil {
-		tc.logger.Error().Err(err).Msg("failed to create tab")
+		log.Error().Err(err).Msg("failed to create tab")
 		return nil
 	}
 
@@ -172,8 +175,9 @@ func (tc *TabController) SwitchToTab(tabID entity.TabID) {
 
 // SwitchToNextTab switches to the next tab.
 func (tc *TabController) SwitchToNextTab() {
+	log := logging.FromContext(tc.ctx)
 	if err := tc.tabsUC.SwitchNext(tc.ctx, tc.tabs); err != nil {
-		tc.logger.Error().Err(err).Msg("failed to switch to next tab")
+		log.Error().Err(err).Msg("failed to switch to next tab")
 		return
 	}
 
@@ -192,8 +196,9 @@ func (tc *TabController) SwitchToNextTab() {
 
 // SwitchToPreviousTab switches to the previous tab.
 func (tc *TabController) SwitchToPreviousTab() {
+	log := logging.FromContext(tc.ctx)
 	if err := tc.tabsUC.SwitchPrevious(tc.ctx, tc.tabs); err != nil {
-		tc.logger.Error().Err(err).Msg("failed to switch to previous tab")
+		log.Error().Err(err).Msg("failed to switch to previous tab")
 		return
 	}
 
@@ -212,8 +217,9 @@ func (tc *TabController) SwitchToPreviousTab() {
 
 // SwitchToTabByIndex switches to tab at the given 0-based index.
 func (tc *TabController) SwitchToTabByIndex(index int) {
+	log := logging.FromContext(tc.ctx)
 	if err := tc.tabsUC.SwitchByIndex(tc.ctx, tc.tabs, index); err != nil {
-		tc.logger.Error().Err(err).Int("index", index).Msg("failed to switch to tab by index")
+		log.Error().Err(err).Int("index", index).Msg("failed to switch to tab by index")
 		return
 	}
 

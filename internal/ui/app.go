@@ -142,7 +142,7 @@ func (a *App) onActivate(ctx context.Context) {
 
 	// Prewarm WebView pool now that GTK is initialized
 	if a.pool != nil {
-		a.pool.Prewarm(0)
+		a.pool.Prewarm(ctx, 0)
 	}
 
 	// Create the main window
@@ -228,7 +228,7 @@ func (a *App) onShutdown(ctx context.Context) {
 		a.faviconCache.Close()
 	}
 	if a.deps.Pool != nil {
-		a.deps.Pool.Close()
+		a.deps.Pool.Close(ctx)
 	}
 
 	log.Info().Msg("application shutdown complete")
