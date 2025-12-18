@@ -12,6 +12,7 @@ import (
 	"github.com/bnema/dumber/internal/cli/cmd"
 	"github.com/bnema/dumber/internal/infrastructure/clipboard"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/media"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
@@ -90,6 +91,15 @@ func runGUI() {
 
 	// Create root context with logger
 	ctx := logging.WithContext(context.Background(), logger)
+
+	// Check media playback requirements (GStreamer/VA-API)
+	mediaDiagAdapter := media.New()
+	checkMediaUC := usecase.NewCheckMediaUseCase(mediaDiagAdapter)
+	if _, err := checkMediaUC.Execute(ctx, usecase.CheckMediaInput{
+		ShowDiagnostics: cfg.Media.ShowDiagnosticsOnStartup,
+	}); err != nil {
+		logger.Fatal().Err(err).Msg("media requirements check failed")
+	}
 
 	// Resolve data/cache directories for WebKit
 	dataDir, err := config.GetDataDir()
