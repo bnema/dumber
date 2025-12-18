@@ -205,6 +205,10 @@ func GetDefaultSearchShortcuts() map[string]SearchShortcut {
 			URL:         "https://www.google.com/search?q=%s",
 			Description: "Google search",
 		},
+		"gi": {
+			URL:         "https://www.google.com/search?tbm=isch&q=%s",
+			Description: "Google Images search",
+		},
 		"gh": {
 			URL:         "https://github.com/search?q=%s",
 			Description: "GitHub search",

@@ -80,6 +80,16 @@ type SearchShortcut struct {
 	Description string `mapstructure:"description" toml:"description" yaml:"description" json:"description"`
 }
 
+// ShortcutURLs returns a simple map of shortcut keys to URL templates.
+// This is useful for passing to url.BuildSearchURL.
+func (c *Config) ShortcutURLs() map[string]string {
+	result := make(map[string]string, len(c.SearchShortcuts))
+	for key, shortcut := range c.SearchShortcuts {
+		result[key] = shortcut.URL
+	}
+	return result
+}
+
 // DmenuConfig holds dmenu/rofi integration configuration.
 type DmenuConfig struct {
 	MaxHistoryItems  int    `mapstructure:"max_history_items" yaml:"max_history_items" toml:"max_history_items"`

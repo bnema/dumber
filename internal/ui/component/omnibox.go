@@ -1122,30 +1122,16 @@ func (o *Omnibox) yankSelectedURL() {
 
 // buildURL constructs a URL from input, handling search shortcuts.
 func (o *Omnibox) buildURL(input string) string {
-	if input == "" {
-		return ""
-	}
+	return url.BuildSearchURL(input, o.shortcutURLs(), o.defaultSearch)
+}
 
-	// Check for search shortcut (e.g., "g:query")
-	if colonIdx := strings.Index(input, ":"); colonIdx > 0 && colonIdx < 10 {
-		prefix := input[:colonIdx]
-		if shortcut, ok := o.shortcuts[prefix]; ok {
-			query := strings.TrimSpace(input[colonIdx+1:])
-			return strings.Replace(shortcut.URL, "%s", query, 1)
-		}
+// shortcutURLs returns a map of shortcut keys to URL templates.
+func (o *Omnibox) shortcutURLs() map[string]string {
+	result := make(map[string]string, len(o.shortcuts))
+	for key, shortcut := range o.shortcuts {
+		result[key] = shortcut.URL
 	}
-
-	// Check if it looks like a URL - use shared URL normalization
-	if url.LooksLikeURL(input) {
-		return url.Normalize(input)
-	}
-
-	// Use default search
-	if o.defaultSearch != "" {
-		return strings.Replace(o.defaultSearch, "%s", input, 1)
-	}
-
-	return input
+	return result
 }
 
 // toggleViewMode switches between history and favorites.

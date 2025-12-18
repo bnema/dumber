@@ -47,8 +47,15 @@ default_search_engine = "https://duckduckgo.com/?q=%s"
 # default_search_engine = "https://search.brave.com/search?q=%s"
 ```
 
-**Default shortcuts:**
+**Default shortcuts (usage: `!shortcut query`):**
 ```toml
+# Examples:
+#   !ddg golang      → DuckDuckGo search for "golang"
+#   !g rust tutorial → Google search for "rust tutorial"
+#   !gi cats         → Google Images search for "cats"
+#   !gh opencode     → GitHub search for "opencode"
+#   !yt music video  → YouTube search for "music video"
+
 [search_shortcuts.ddg]
 url = "https://duckduckgo.com/?q=%s"
 description = "DuckDuckGo search"
@@ -56,6 +63,10 @@ description = "DuckDuckGo search"
 [search_shortcuts.g]
 url = "https://google.com/search?q=%s"
 description = "Google Search"
+
+[search_shortcuts.gi]
+url = "https://google.com/search?tbm=isch&q=%s"
+description = "Google Images"
 
 [search_shortcuts.gh]
 url = "https://github.com/search?q=%s"

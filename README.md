@@ -19,7 +19,7 @@ A dumb browser that works like your favorite terminal multiplexer.
 - **GPU rendering**: Hardware video acceleration with automatic VA-API/VDPAU detection.
 - **Built-in ad blocking**: UBlock-based network filtering (cosmetic filtering in progress).
 - **Launcher integration**: dmenu-style with rofi/fuzzel support, shows favicons and history.
-- **Search shortcuts**: Quick search via aliases (e.g., `g:golang` for Google).
+- **Search shortcuts**: Quick search via bangs (e.g., `!g golang` for Google, `!gi cats` for Google Images).
 - **Customizable themes**: Light and dark palettes with semantic color tokens.
 - **Persistent storage**: SQLite for history, zoom levels, and settings.
 - **Live configuration**: Single config file with hot reload when possible.
@@ -207,7 +207,7 @@ sudo apt install va-driver-all
   - `dumber browse https://example.com`
   - `dumber browse example.com`        # scheme auto‑added
   - `dumber browse dumb://home`        # built-in homepage with stats
-  - `dumber browse g:golang`           # Google search via shortcut
+  - `dumber browse "!g golang"`         # Google search via bang shortcut
 - Show version information:
   - `dumber version`                   # display version, commit, and build date
 - Launcher integration (dmenu‑style examples with favicon support):

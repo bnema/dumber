@@ -159,7 +159,8 @@ func runDmenuSelect() error {
 }
 
 // parseSelection extracts the URL from a dmenu selection.
-// Selection is the URL (stripped of scheme) as displayed by runDmenuPipe.
+// Selection is the URL (stripped of scheme) as displayed by runDmenuPipe,
+// or a bang shortcut like "!g query" for search.
 func parseSelection(selection string) string {
 	selection = strings.TrimSpace(selection)
 
@@ -173,7 +174,13 @@ func parseSelection(selection string) string {
 		return ""
 	}
 
-	// Add https:// scheme if not present (display was stripped of scheme)
+	// Use BuildSearchURL to handle bang shortcuts, URLs, and search queries
+	app := GetApp()
+	if app != nil {
+		return domainurl.BuildSearchURL(selection, app.Config.ShortcutURLs(), app.Config.DefaultSearchEngine)
+	}
+
+	// Fallback: add https:// scheme if no app context
 	if !strings.Contains(selection, "://") {
 		selection = "https://" + selection
 	}
