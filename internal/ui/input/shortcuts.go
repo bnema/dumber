@@ -161,13 +161,13 @@ func (s *ShortcutSet) buildGlobalShortcuts(ctx context.Context, cfg *config.Work
 	// This follows Zellij-style modal keyboard interface.
 	//
 	// However, these standard browser shortcuts ARE global:
-	if binding, ok := ParseKeyString(cfg.Tabs.CloseTab); ok {
-		s.Global[binding] = ActionCloseTab // Ctrl+W
+	if binding, ok := ParseKeyString(cfg.Shortcuts.ClosePane); ok {
+		s.Global[binding] = ActionClosePane // Ctrl+W closes active pane
 	}
-	if binding, ok := ParseKeyString(cfg.Tabs.NextTab); ok {
+	if binding, ok := ParseKeyString(cfg.Shortcuts.NextTab); ok {
 		s.Global[binding] = ActionNextTab // Ctrl+Tab
 	}
-	if binding, ok := ParseKeyString(cfg.Tabs.PreviousTab); ok {
+	if binding, ok := ParseKeyString(cfg.Shortcuts.PreviousTab); ok {
 		s.Global[binding] = ActionPreviousTab // Ctrl+Shift+Tab
 	}
 

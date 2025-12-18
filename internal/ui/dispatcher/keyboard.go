@@ -86,6 +86,8 @@ func (d *KeyboardDispatcher) Dispatch(ctx context.Context, action input.Action) 
 		return d.tabCoord.SwitchByIndex(ctx, 8)
 	case input.ActionSwitchTabIndex10:
 		return d.tabCoord.SwitchByIndex(ctx, 9)
+	case input.ActionRenameTab:
+		log.Debug().Msg("rename tab action (not yet implemented)")
 
 	// Pane actions
 	case input.ActionSplitRight:

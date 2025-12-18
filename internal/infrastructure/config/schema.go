@@ -169,8 +169,8 @@ type WorkspaceConfig struct {
 	PaneMode PaneModeConfig `mapstructure:"pane_mode" yaml:"pane_mode" toml:"pane_mode" json:"pane_mode"`
 	// TabMode defines modal tab behaviour and bindings (Alt+T).
 	TabMode TabModeConfig `mapstructure:"tab_mode" yaml:"tab_mode" toml:"tab_mode" json:"tab_mode"`
-	// Tabs holds classic browser tab shortcuts.
-	Tabs TabKeyConfig `mapstructure:"tabs" yaml:"tabs" toml:"tabs" json:"tabs"`
+	// Shortcuts holds global (non-modal) keyboard shortcuts.
+	Shortcuts GlobalShortcutsConfig `mapstructure:"shortcuts" yaml:"shortcuts" toml:"shortcuts" json:"shortcuts"`
 	// TabBarPosition determines tab bar placement: "top" or "bottom".
 	TabBarPosition string `mapstructure:"tab_bar_position" yaml:"tab_bar_position" toml:"tab_bar_position" json:"tab_bar_position"`
 	// HideTabBarWhenSingleTab hides the tab bar when only one tab exists.
@@ -219,10 +219,9 @@ func (t *TabModeConfig) GetKeyBindings() map[string]string {
 	return keyToAction
 }
 
-// TabKeyConfig defines Zellij-inspired tab shortcuts.
-type TabKeyConfig struct {
-	NewTab      string `mapstructure:"new_tab" yaml:"new_tab" toml:"new_tab" json:"new_tab"`
-	CloseTab    string `mapstructure:"close_tab" yaml:"close_tab" toml:"close_tab" json:"close_tab"`
+// GlobalShortcutsConfig defines global shortcuts (always active, not modal).
+type GlobalShortcutsConfig struct {
+	ClosePane   string `mapstructure:"close_pane" yaml:"close_pane" toml:"close_pane" json:"close_pane"`
 	NextTab     string `mapstructure:"next_tab" yaml:"next_tab" toml:"next_tab" json:"next_tab"`
 	PreviousTab string `mapstructure:"previous_tab" yaml:"previous_tab" toml:"previous_tab" json:"previous_tab"`
 }

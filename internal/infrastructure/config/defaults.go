@@ -126,6 +126,10 @@ func DefaultConfig() *Config {
 					"split-down":  {"arrowdown", "d"},
 					"stack-pane":  {"s"},
 					"close-pane":  {"x"},
+					"focus-right": {"shift+arrowright", "shift+l"},
+					"focus-left":  {"shift+arrowleft", "shift+h"},
+					"focus-up":    {"shift+arrowup", "shift+k"},
+					"focus-down":  {"shift+arrowdown", "shift+j"},
 					"confirm":     {"enter"},
 					"cancel":      {"escape"},
 				},
@@ -143,9 +147,8 @@ func DefaultConfig() *Config {
 					"cancel":       {"escape"},
 				},
 			},
-			Tabs: TabKeyConfig{
-				NewTab:      "ctrl+t",
-				CloseTab:    "ctrl+w",
+			Shortcuts: GlobalShortcutsConfig{
+				ClosePane:   "ctrl+w",
 				NextTab:     "ctrl+tab",
 				PreviousTab: "ctrl+shift+tab",
 			},

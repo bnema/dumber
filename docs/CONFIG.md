@@ -199,7 +199,12 @@ split-right = ["arrowright", "r"]
 split-left = ["arrowleft", "l"]
 split-up = ["arrowup", "u"]
 split-down = ["arrowdown", "d"]
+stack-pane = ["s"]
 close-pane = ["x"]
+focus-right = ["shift+arrowright", "shift+l"]
+focus-left = ["shift+arrowleft", "shift+h"]
+focus-up = ["shift+arrowup", "shift+k"]
+focus-down = ["shift+arrowdown", "shift+j"]
 confirm = ["enter"]
 cancel = ["escape"]
 ```
@@ -228,14 +233,15 @@ cancel = ["escape"]
 
 > **Note:** Actions are inverted to key→action map in memory for O(1) lookup performance during navigation.
 
-### Tab Shortcuts
+### Global Shortcuts
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `workspace.tabs.new_tab` | string | `"ctrl+t"` | New tab shortcut |
-| `workspace.tabs.close_tab` | string | `"ctrl+w"` | Close tab shortcut |
-| `workspace.tabs.next_tab` | string | `"ctrl+tab"` | Next tab shortcut |
-| `workspace.tabs.previous_tab` | string | `"ctrl+shift+tab"` | Previous tab shortcut |
+| `workspace.shortcuts.close_pane` | string | `"ctrl+w"` | Close active pane (closes tab if last pane) |
+| `workspace.shortcuts.next_tab` | string | `"ctrl+tab"` | Next tab shortcut |
+| `workspace.shortcuts.previous_tab` | string | `"ctrl+shift+tab"` | Previous tab shortcut |
+
+> **Note:** New tab creation uses modal tab mode (Ctrl+T then n/c). This follows the Zellij-style modal keyboard interface.
 
 ### Popup Behavior
 
