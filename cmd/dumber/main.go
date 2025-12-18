@@ -14,6 +14,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/clipboard"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
+	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/infrastructure/media"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
@@ -150,6 +151,24 @@ func runGUI() {
 		logger.Fatal().Err(err).Msg("failed to initialize WebKit context")
 	}
 
+	// Content filtering (ad blocking)
+	filterStoreDir := filepath.Join(dataDir, "filters", "store")
+	filterJSONDir := filepath.Join(dataDir, "filters", "json")
+	filterManager, err := filtering.NewManager(filtering.ManagerConfig{
+		StoreDir:   filterStoreDir,
+		JSONDir:    filterJSONDir,
+		Enabled:    cfg.ContentFiltering.Enabled,
+		AutoUpdate: cfg.ContentFiltering.AutoUpdate,
+	})
+	if err != nil {
+		logger.Warn().Err(err).Msg("failed to create filter manager, continuing without content filtering")
+	} else {
+		// Fast init: load compiled filters if cached
+		if err := filterManager.Initialize(ctx); err != nil {
+			logger.Warn().Err(err).Msg("failed to initialize filters, will load async")
+		}
+	}
+
 	// Register dumb:// scheme handler for serving embedded webui
 	schemeHandler := webkit.NewDumbSchemeHandler(ctx)
 	schemeHandler.SetAssets(assets.WebUIAssets)
@@ -168,6 +187,11 @@ func runGUI() {
 	messageRouter := webkit.NewMessageRouter(ctx)
 	poolCfg := webkit.DefaultPoolConfig()
 	pool := webkit.NewWebViewPool(ctx, wkCtx, settings, poolCfg, injector, messageRouter)
+
+	// Set filter applier on the pool if filtering is enabled
+	if filterManager != nil {
+		pool.SetFilterApplier(filterManager)
+	}
 
 	// Create use cases
 	idCounter := uint64(0)
@@ -214,6 +238,7 @@ func runGUI() {
 		// Infrastructure Adapters
 		Clipboard:      clipboardAdapter,
 		FaviconService: faviconService,
+		FilterManager:  filterManager,
 	}
 
 	// Run the application
