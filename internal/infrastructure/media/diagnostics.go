@@ -62,7 +62,8 @@ func (a *Adapter) checkGStreamerPlugins(ctx context.Context, r *port.MediaDiagno
 	}
 	r.GStreamerAvailable = true
 
-	// Check 'va' plugin (modern stateless decoders in gst-plugins-bad)
+	// Check 'va' plugin (modern stateless decoders)
+	// Package: gst-plugin-va (Arch) or gstreamer1.0-plugins-bad (Debian/Ubuntu)
 	if out, err := exec.CommandContext(ctx, gstInspect, "va").Output(); err == nil {
 		r.HasVAPlugin = true
 		a.parseVADecoders(string(out), r)
@@ -224,9 +225,9 @@ func (a *Adapter) generateWarnings(r *port.MediaDiagnosticsResult) {
 		r.Warnings = append(r.Warnings,
 			"No hardware video acceleration detected. Video will use software decoding (higher CPU).")
 		r.Warnings = append(r.Warnings,
-			"Install gst-plugins-bad for VA decoders, plus VA-API driver for your GPU:")
+			"Install VA plugin: gst-plugin-va (Arch) or gstreamer1.0-plugins-bad (Debian/Ubuntu)")
 		r.Warnings = append(r.Warnings,
-			"  AMD: libva-mesa-driver | Intel: intel-media-driver | NVIDIA: nvidia-vaapi-driver")
+			"Install VA-API driver: libva-mesa-driver (AMD) | intel-media-driver (Intel) | nvidia-vaapi-driver (NVIDIA)")
 	}
 
 	// AV1 is the preferred codec - warn if not available
@@ -244,6 +245,6 @@ func (a *Adapter) generateWarnings(r *port.MediaDiagnosticsResult) {
 	// Prefer modern VA plugin over legacy VAAPI
 	if r.HasVAAPIPlugin && !r.HasVAPlugin {
 		r.Warnings = append(r.Warnings,
-			"Using legacy gstreamer-vaapi. Consider gst-plugins-bad for newer VA stateless decoders.")
+			"Using legacy gstreamer-vaapi. Install gst-plugin-va (Arch) or gstreamer1.0-plugins-bad (Debian/Ubuntu) for modern VA stateless decoders.")
 	}
 }
