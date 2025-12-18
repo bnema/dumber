@@ -18,9 +18,10 @@ type Config struct {
 
 // FileConfig holds file logging configuration
 type FileConfig struct {
-	Enabled   bool
-	LogDir    string
-	SessionID string
+	Enabled       bool
+	LogDir        string
+	SessionID     string
+	WriteToStderr bool // if false, logs go to file only (not stderr)
 }
 
 // DefaultConfig returns sensible defaults
@@ -54,7 +55,7 @@ func New(cfg Config) zerolog.Logger {
 		Logger()
 }
 
-// NewWithFile creates a logger that writes to both stderr and a session log file.
+// NewWithFile creates a logger that writes to stderr and/or a session log file.
 // The session file uses JSON format for easy parsing by the CLI logs command.
 // LogDir must exist before calling this function (handled by config.EnsureDirectories).
 // Returns the logger and a cleanup function to close the file.
@@ -62,20 +63,22 @@ func NewWithFile(cfg Config, fileCfg FileConfig) (zerolog.Logger, func(), error)
 	var writers []io.Writer
 	var cleanup func() = func() {}
 
-	// Console output (stderr)
-	switch cfg.Format {
-	case "console", "text", "":
-		writers = append(writers, zerolog.ConsoleWriter{
-			Out:        os.Stderr,
-			TimeFormat: cfg.TimeFormat,
-		})
-	case "json":
-		writers = append(writers, os.Stderr)
-	default:
-		writers = append(writers, zerolog.ConsoleWriter{
-			Out:        os.Stderr,
-			TimeFormat: cfg.TimeFormat,
-		})
+	// Stderr output (only if enabled)
+	if fileCfg.WriteToStderr {
+		switch cfg.Format {
+		case "console", "text", "":
+			writers = append(writers, zerolog.ConsoleWriter{
+				Out:        os.Stderr,
+				TimeFormat: cfg.TimeFormat,
+			})
+		case "json":
+			writers = append(writers, os.Stderr)
+		default:
+			writers = append(writers, zerolog.ConsoleWriter{
+				Out:        os.Stderr,
+				TimeFormat: cfg.TimeFormat,
+			})
+		}
 	}
 
 	// Session file output (JSON format for parsing)
@@ -93,6 +96,11 @@ func NewWithFile(cfg Config, fileCfg FileConfig) (zerolog.Logger, func(), error)
 
 		writers = append(writers, file)
 		cleanup = func() { file.Close() }
+	}
+
+	// Fallback to discard if no writers configured
+	if len(writers) == 0 {
+		writers = append(writers, io.Discard)
 	}
 
 	multi := zerolog.MultiLevelWriter(writers...)

@@ -70,9 +70,10 @@ func runGUI() {
 			TimeFormat: "15:04:05",
 		},
 		logging.FileConfig{
-			Enabled:   cfg.Logging.EnableFileLog,
-			LogDir:    cfg.Logging.LogDir,
-			SessionID: sessionID,
+			Enabled:       cfg.Logging.EnableFileLog,
+			LogDir:        cfg.Logging.LogDir,
+			SessionID:     sessionID,
+			WriteToStderr: true, // GUI: keep stderr output for debugging
 		},
 	)
 	if err != nil {

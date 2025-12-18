@@ -55,9 +55,10 @@ func NewApp() (*App, error) {
 	logDir := filepath.Join(home, ".local", "state", "dumber", "logs")
 
 	logger, logCleanup, err := logging.NewWithFile(logCfg, logging.FileConfig{
-		Enabled:   true,
-		LogDir:    logDir,
-		SessionID: sessionID,
+		Enabled:       true,
+		LogDir:        logDir,
+		SessionID:     sessionID,
+		WriteToStderr: false, // CLI: log to file only, keep terminal clean
 	})
 	if err != nil {
 		// Fallback to no-file logging
