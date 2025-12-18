@@ -12,6 +12,11 @@
   let container: HTMLDivElement;
   let chart: Chart | null = null;
 
+  // Get accent color from CSS variable
+  function getAccentColor(): string {
+    return getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#4ade80';
+  }
+
   // Convert data to Frappe Charts format (ensure all 24 hours)
   const chartData = $derived.by(() => {
     const visitsByHour = new Map<number, number>();
@@ -47,7 +52,7 @@
       data: chartData,
       type: 'bar',
       height: 120,
-      colors: ['#4ade80'],
+      colors: [getAccentColor()],
       axisOptions: { xAxisMode: 'tick' },
       barOptions: { spaceRatio: 0.3 },
       tooltipOptions: { formatTooltipY: (d: number) => `${d} visits` }
@@ -95,7 +100,7 @@
   }
 
   .chart-label {
-    color: #4ade80;
+    color: var(--primary, #4ade80);
     font-weight: 600;
   }
 
@@ -113,12 +118,12 @@
 
   .chart-container :global(.frappe-chart .axis text),
   .chart-container :global(.frappe-chart .chart-label) {
-    fill: #737373;
+    fill: var(--muted-foreground, #737373);
     font-size: 10px;
   }
 
   .chart-container :global(.frappe-chart .axis line),
   .chart-container :global(.frappe-chart .chart-strokes) {
-    stroke: #333;
+    stroke: var(--border, #333);
   }
 </style>
