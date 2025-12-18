@@ -87,3 +87,4 @@ vendor/
 # WebKit runtime data
 serviceworkers/
 storage/
+mediakeys/
