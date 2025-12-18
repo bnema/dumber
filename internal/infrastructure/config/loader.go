@@ -56,44 +56,6 @@ func NewManager() (*Manager, error) {
 		return nil, fmt.Errorf("failed to bind DUMBER_DEFAULT_UI_SCALE: %w", err)
 	}
 
-	// Video acceleration environment variable bindings
-	// These use system-standard env vars (LIBVA_*, GST_*, WEBKIT_*) and DUMBER_* prefix
-	videoAccelEnvBindings := map[string]string{
-		"video_acceleration.enable_vaapi":       "DUMBER_VIDEO_ACCELERATION_ENABLE",
-		"video_acceleration.auto_detect_gpu":    "DUMBER_VIDEO_AUTO_DETECT",
-		"video_acceleration.vaapi_driver_name":  "LIBVA_DRIVER_NAME",
-		"video_acceleration.enable_all_drivers": "GST_VAAPI_ALL_DRIVERS",
-		"video_acceleration.legacy_vaapi":       "WEBKIT_GST_ENABLE_LEGACY_VAAPI",
-	}
-
-	for key, env := range videoAccelEnvBindings {
-		if err := v.BindEnv(key, env); err != nil {
-			return nil, fmt.Errorf("failed to bind environment variable %s: %w", env, err)
-		}
-	}
-
-	// Codec preferences environment variable bindings
-	// These use DUMBER_* prefix for shorter, more convenient env var names
-	codecEnvBindings := map[string]string{
-		"codec_preferences.preferred_codecs":             "DUMBER_PREFERRED_CODECS",
-		"codec_preferences.force_av1":                    "DUMBER_FORCE_AV1",
-		"codec_preferences.block_vp9":                    "DUMBER_BLOCK_VP9",
-		"codec_preferences.block_vp8":                    "DUMBER_BLOCK_VP8",
-		"codec_preferences.av1_hardware_only":            "DUMBER_AV1_HW_ONLY",
-		"codec_preferences.disable_vp9_hardware":         "DUMBER_DISABLE_VP9_HW",
-		"codec_preferences.video_buffer_size_mb":         "DUMBER_VIDEO_BUFFER_MB",
-		"codec_preferences.queue_buffer_time_sec":        "DUMBER_QUEUE_BUFFER_SEC",
-		"codec_preferences.custom_user_agent":            "DUMBER_CUSTOM_UA",
-		"codec_preferences.av1_max_resolution":           "DUMBER_AV1_MAX_RES",
-		"codec_preferences.disable_twitch_codec_control": "DUMBER_DISABLE_TWITCH_CODEC",
-	}
-
-	for key, env := range codecEnvBindings {
-		if err := v.BindEnv(key, env); err != nil {
-			return nil, fmt.Errorf("failed to bind environment variable %s: %w", env, err)
-		}
-	}
-
 	// Logging environment variable bindings
 	if err := v.BindEnv("logging.level", "DUMBER_LOG_LEVEL"); err != nil {
 		return nil, fmt.Errorf("failed to bind DUMBER_LOG_LEVEL: %w", err)
@@ -171,17 +133,6 @@ func (m *Manager) Load() error {
 	default:
 		config.RenderingMode = RenderingModeAuto
 	}
-
-	// TODO: implement in Step 18 - Auto-detect GPU if enabled and driver name is not set
-	// if config.VideoAcceleration.AutoDetectGPU && config.VideoAcceleration.VAAPIDriverName == "" {
-	//     gpuInfo := gpu.DetectGPU()
-	//     if gpuInfo.SupportsVAAPI() {
-	//         config.VideoAcceleration.VAAPIDriverName = gpuInfo.GetVAAPIDriverName()
-	//     }
-	// }
-
-	// TODO: implement in Step 18 - Validate and configure codec preferences based on GPU
-	// config = m.validateAndConfigureCodecPreferences(config)
 
 	// Validate ColorScheme setting using switch statement
 	switch config.Appearance.ColorScheme {
@@ -270,34 +221,13 @@ func (m *Manager) setDefaults() {
 	// Logging defaults
 	m.viper.SetDefault("logging.level", defaults.Logging.Level)
 	m.viper.SetDefault("logging.format", defaults.Logging.Format)
-	m.viper.SetDefault("logging.filename", defaults.Logging.Filename)
-	m.viper.SetDefault("logging.max_size", defaults.Logging.MaxSize)
-	m.viper.SetDefault("logging.max_backups", defaults.Logging.MaxBackups)
 	m.viper.SetDefault("logging.max_age", defaults.Logging.MaxAge)
-	m.viper.SetDefault("logging.compress", defaults.Logging.Compress)
 	m.viper.SetDefault("logging.log_dir", defaults.Logging.LogDir)
 	m.viper.SetDefault("logging.enable_file_log", defaults.Logging.EnableFileLog)
-	m.viper.SetDefault("logging.capture_stdout", defaults.Logging.CaptureStdout)
-	m.viper.SetDefault("logging.capture_stderr", defaults.Logging.CaptureStderr)
-	m.viper.SetDefault("logging.capture_c_output", defaults.Logging.CaptureCOutput)
 	m.viper.SetDefault("logging.capture_console", defaults.Logging.CaptureConsole)
-	m.viper.SetDefault("logging.debug_file", defaults.Logging.DebugFile)
-	m.viper.SetDefault("logging.verbose_webkit", defaults.Logging.VerboseWebKit)
 
 	// Debug defaults
 	m.viper.SetDefault("debug.enable_devtools", defaults.Debug.EnableDevTools)
-	m.viper.SetDefault("debug.enable_webkit_debug", defaults.Debug.EnableWebKitDebug)
-	m.viper.SetDefault("debug.webkit_debug_categories", defaults.Debug.WebKitDebugCategories)
-	m.viper.SetDefault("debug.enable_filtering_debug", defaults.Debug.EnableFilteringDebug)
-	m.viper.SetDefault("debug.enable_webview_debug", defaults.Debug.EnableWebViewDebug)
-	m.viper.SetDefault("debug.log_webkit_crashes", defaults.Debug.LogWebKitCrashes)
-	m.viper.SetDefault("debug.enable_script_debug", defaults.Debug.EnableScriptDebug)
-	m.viper.SetDefault("debug.enable_general_debug", defaults.Debug.EnableGeneralDebug)
-	m.viper.SetDefault("debug.enable_workspace_debug", defaults.Debug.EnableWorkspaceDebug)
-	m.viper.SetDefault("debug.enable_focus_debug", defaults.Debug.EnableFocusDebug)
-	m.viper.SetDefault("debug.enable_css_debug", defaults.Debug.EnableCSSDebug)
-	m.viper.SetDefault("debug.enable_focus_metrics", defaults.Debug.EnableFocusMetrics)
-	m.viper.SetDefault("debug.enable_pane_close_debug", defaults.Debug.EnablePaneCloseDebug)
 
 	// Appearance defaults
 	m.viper.SetDefault("appearance.sans_font", defaults.Appearance.SansFont)
@@ -307,26 +237,6 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("appearance.light_palette", defaults.Appearance.LightPalette)
 	m.viper.SetDefault("appearance.dark_palette", defaults.Appearance.DarkPalette)
 	m.viper.SetDefault("appearance.color_scheme", defaults.Appearance.ColorScheme)
-
-	// Video acceleration defaults
-	m.viper.SetDefault("video_acceleration.enable_vaapi", defaults.VideoAcceleration.EnableVAAPI)
-	m.viper.SetDefault("video_acceleration.auto_detect_gpu", defaults.VideoAcceleration.AutoDetectGPU)
-	m.viper.SetDefault("video_acceleration.vaapi_driver_name", defaults.VideoAcceleration.VAAPIDriverName)
-	m.viper.SetDefault("video_acceleration.enable_all_drivers", defaults.VideoAcceleration.EnableAllDrivers)
-	m.viper.SetDefault("video_acceleration.legacy_vaapi", defaults.VideoAcceleration.LegacyVAAPI)
-
-	// Codec preferences defaults
-	m.viper.SetDefault("codec_preferences.preferred_codecs", defaults.CodecPreferences.PreferredCodecs)
-	m.viper.SetDefault("codec_preferences.force_av1", defaults.CodecPreferences.ForceAV1)
-	m.viper.SetDefault("codec_preferences.block_vp9", defaults.CodecPreferences.BlockVP9)
-	m.viper.SetDefault("codec_preferences.block_vp8", defaults.CodecPreferences.BlockVP8)
-	m.viper.SetDefault("codec_preferences.av1_hardware_only", defaults.CodecPreferences.AV1HardwareOnly)
-	m.viper.SetDefault("codec_preferences.disable_vp9_hardware", defaults.CodecPreferences.DisableVP9Hardware)
-	m.viper.SetDefault("codec_preferences.video_buffer_size_mb", defaults.CodecPreferences.VideoBufferSizeMB)
-	m.viper.SetDefault("codec_preferences.queue_buffer_time_sec", defaults.CodecPreferences.QueueBufferTimeSec)
-	m.viper.SetDefault("codec_preferences.custom_user_agent", defaults.CodecPreferences.CustomUserAgent)
-	m.viper.SetDefault("codec_preferences.av1_max_resolution", defaults.CodecPreferences.AV1MaxResolution)
-	m.viper.SetDefault("codec_preferences.disable_twitch_codec_control", defaults.CodecPreferences.DisableTwitchCodecControl)
 
 	// Rendering defaults
 	m.viper.SetDefault("rendering_mode", string(RenderingModeGPU))

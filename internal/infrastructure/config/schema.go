@@ -6,13 +6,11 @@ type Config struct {
 	History         HistoryConfig             `mapstructure:"history" yaml:"history" toml:"history"`
 	SearchShortcuts map[string]SearchShortcut `mapstructure:"search_shortcuts" yaml:"search_shortcuts" toml:"search_shortcuts"`
 	// DefaultSearchEngine is the URL template for the default search engine (must contain %s placeholder)
-	DefaultSearchEngine string                  `mapstructure:"default_search_engine" yaml:"default_search_engine" toml:"default_search_engine"`
-	Dmenu               DmenuConfig             `mapstructure:"dmenu" yaml:"dmenu" toml:"dmenu"`
-	Logging             LoggingConfig           `mapstructure:"logging" yaml:"logging" toml:"logging"`
-	Appearance          AppearanceConfig        `mapstructure:"appearance" yaml:"appearance" toml:"appearance"`
-	VideoAcceleration   VideoAccelerationConfig `mapstructure:"video_acceleration" yaml:"video_acceleration" toml:"video_acceleration"`
-	CodecPreferences    CodecConfig             `mapstructure:"codec_preferences" yaml:"codec_preferences" toml:"codec_preferences"`
-	Debug               DebugConfig             `mapstructure:"debug" yaml:"debug" toml:"debug"`
+	DefaultSearchEngine string           `mapstructure:"default_search_engine" yaml:"default_search_engine" toml:"default_search_engine"`
+	Dmenu               DmenuConfig      `mapstructure:"dmenu" yaml:"dmenu" toml:"dmenu"`
+	Logging             LoggingConfig    `mapstructure:"logging" yaml:"logging" toml:"logging"`
+	Appearance          AppearanceConfig `mapstructure:"appearance" yaml:"appearance" toml:"appearance"`
+	Debug               DebugConfig      `mapstructure:"debug" yaml:"debug" toml:"debug"`
 	// RenderingMode controls GPU/CPU rendering selection for WebKit
 	RenderingMode RenderingMode `mapstructure:"rendering_mode" yaml:"rendering_mode" toml:"rendering_mode"`
 	// DefaultWebpageZoom sets the default zoom level for pages without saved zoom settings (1.0 = 100%, 1.2 = 120%)
@@ -71,27 +69,16 @@ type DmenuConfig struct {
 
 // LoggingConfig holds logging configuration.
 type LoggingConfig struct {
-	Level      string `mapstructure:"level" yaml:"level" toml:"level"`
-	Format     string `mapstructure:"format" yaml:"format" toml:"format"`
-	Filename   string `mapstructure:"filename" yaml:"filename" toml:"filename"`
-	MaxSize    int    `mapstructure:"max_size" yaml:"max_size" toml:"max_size"`
-	MaxBackups int    `mapstructure:"max_backups" yaml:"max_backups" toml:"max_backups"`
-	MaxAge     int    `mapstructure:"max_age" yaml:"max_age" toml:"max_age"`
-	Compress   bool   `mapstructure:"compress" yaml:"compress" toml:"compress"`
+	Level  string `mapstructure:"level" yaml:"level" toml:"level"`
+	Format string `mapstructure:"format" yaml:"format" toml:"format"`
+	MaxAge int    `mapstructure:"max_age" yaml:"max_age" toml:"max_age"`
 
 	// File output configuration
 	LogDir        string `mapstructure:"log_dir" yaml:"log_dir" toml:"log_dir"`
 	EnableFileLog bool   `mapstructure:"enable_file_log" yaml:"enable_file_log" toml:"enable_file_log"`
 
-	// Capture settings
-	CaptureStdout  bool `mapstructure:"capture_stdout" yaml:"capture_stdout" toml:"capture_stdout" json:"capture_stdout"`
-	CaptureStderr  bool `mapstructure:"capture_stderr" yaml:"capture_stderr" toml:"capture_stderr" json:"capture_stderr"`
-	CaptureCOutput bool `mapstructure:"capture_c_output" yaml:"capture_c_output" toml:"capture_c_output" json:"capture_c_output"`
+	// Capture browser console to logs
 	CaptureConsole bool `mapstructure:"capture_console" yaml:"capture_console" toml:"capture_console" json:"capture_console"`
-
-	// Debug output
-	DebugFile     string `mapstructure:"debug_file" yaml:"debug_file" toml:"debug_file"`
-	VerboseWebKit bool   `mapstructure:"verbose_webkit" yaml:"verbose_webkit" toml:"verbose_webkit"`
 }
 
 // AppearanceConfig holds UI/rendering preferences.
@@ -119,45 +106,6 @@ type ColorPalette struct {
 	Border         string `mapstructure:"border" yaml:"border" toml:"border" json:"border"`
 }
 
-// VideoAccelerationConfig holds video hardware acceleration preferences.
-type VideoAccelerationConfig struct {
-	EnableVAAPI      bool   `mapstructure:"enable_vaapi" yaml:"enable_vaapi" toml:"enable_vaapi"`
-	AutoDetectGPU    bool   `mapstructure:"auto_detect_gpu" yaml:"auto_detect_gpu" toml:"auto_detect_gpu"`
-	VAAPIDriverName  string `mapstructure:"vaapi_driver_name" yaml:"vaapi_driver_name" toml:"vaapi_driver_name"`
-	EnableAllDrivers bool   `mapstructure:"enable_all_drivers" yaml:"enable_all_drivers" toml:"enable_all_drivers"`
-	LegacyVAAPI      bool   `mapstructure:"legacy_vaapi" yaml:"legacy_vaapi" toml:"legacy_vaapi"`
-}
-
-// CodecConfig holds video codec preferences and handling
-type CodecConfig struct {
-	// Codec preference order (e.g., "av1,h264,vp8")
-	PreferredCodecs string `mapstructure:"preferred_codecs" yaml:"preferred_codecs" toml:"preferred_codecs"`
-
-	// Force specific codec for platforms
-	ForceAV1 bool `mapstructure:"force_av1" yaml:"force_av1" toml:"force_av1"`
-
-	// Block problematic codecs
-	BlockVP9 bool `mapstructure:"block_vp9" yaml:"block_vp9" toml:"block_vp9"`
-	BlockVP8 bool `mapstructure:"block_vp8" yaml:"block_vp8" toml:"block_vp8"`
-
-	// Hardware acceleration per codec
-	AV1HardwareOnly    bool `mapstructure:"av1_hardware_only" yaml:"av1_hardware_only" toml:"av1_hardware_only"`
-	DisableVP9Hardware bool `mapstructure:"disable_vp9_hardware" yaml:"disable_vp9_hardware" toml:"disable_vp9_hardware"`
-
-	// Buffer configuration for smooth playback
-	VideoBufferSizeMB  int `mapstructure:"video_buffer_size_mb" yaml:"video_buffer_size_mb" toml:"video_buffer_size_mb"`
-	QueueBufferTimeSec int `mapstructure:"queue_buffer_time_sec" yaml:"queue_buffer_time_sec" toml:"queue_buffer_time_sec"`
-
-	// Custom User-Agent for codec negotiation
-	CustomUserAgent string `mapstructure:"custom_user_agent" yaml:"custom_user_agent" toml:"custom_user_agent"`
-
-	// Maximum resolution for AV1 codec (720p, 1080p, 1440p, 4k, unlimited)
-	AV1MaxResolution string `mapstructure:"av1_max_resolution" yaml:"av1_max_resolution" toml:"av1_max_resolution"`
-
-	// Site-specific codec control settings
-	DisableTwitchCodecControl bool `mapstructure:"disable_twitch_codec_control" yaml:"disable_twitch_codec_control" toml:"disable_twitch_codec_control"`
-}
-
 // ContentFilteringConfig holds content filtering and ad blocking preferences
 type ContentFilteringConfig struct {
 	// Enabled controls whether ad blocking is active (default: true)
@@ -178,43 +126,6 @@ type OmniboxConfig struct {
 type DebugConfig struct {
 	// Enable browser developer tools (F12, Inspect Element in context menu)
 	EnableDevTools bool `mapstructure:"enable_devtools" yaml:"enable_devtools" toml:"enable_devtools"`
-
-	// Enable WebKit internal debug logging
-	EnableWebKitDebug bool `mapstructure:"enable_webkit_debug" yaml:"enable_webkit_debug" toml:"enable_webkit_debug"`
-
-	// WebKit debug categories (comma-separated)
-	// Common values: "Network:preconnectTo", "ContentFilters", "Loading", "JavaScript"
-	WebKitDebugCategories string `mapstructure:"webkit_debug_categories" yaml:"webkit_debug_categories" toml:"webkit_debug_categories"`
-
-	// Enable content filtering debug logs
-	EnableFilteringDebug bool `mapstructure:"enable_filtering_debug" yaml:"enable_filtering_debug" toml:"enable_filtering_debug"`
-
-	// Enable detailed WebView state logging
-	EnableWebViewDebug bool `mapstructure:"enable_webview_debug" yaml:"enable_webview_debug" toml:"enable_webview_debug"`
-
-	// Log WebKit crashes and errors to file
-	LogWebKitCrashes bool `mapstructure:"log_webkit_crashes" yaml:"log_webkit_crashes" toml:"log_webkit_crashes"`
-
-	// Enable script injection debug logs
-	EnableScriptDebug bool `mapstructure:"enable_script_debug" yaml:"enable_script_debug" toml:"enable_script_debug"`
-
-	// Enable general debug mode (equivalent to DUMBER_DEBUG env var)
-	EnableGeneralDebug bool `mapstructure:"enable_general_debug" yaml:"enable_general_debug" toml:"enable_general_debug"`
-
-	// Enable workspace navigation and focus debug logs
-	EnableWorkspaceDebug bool `mapstructure:"enable_workspace_debug" yaml:"enable_workspace_debug" toml:"enable_workspace_debug"`
-
-	// Enable focus state machine debug logs
-	EnableFocusDebug bool `mapstructure:"enable_focus_debug" yaml:"enable_focus_debug" toml:"enable_focus_debug"`
-
-	// Enable CSS reconciler debug logs
-	EnableCSSDebug bool `mapstructure:"enable_css_debug" yaml:"enable_css_debug" toml:"enable_css_debug"`
-
-	// Enable focus metrics tracking
-	EnableFocusMetrics bool `mapstructure:"enable_focus_metrics" yaml:"enable_focus_metrics" toml:"enable_focus_metrics"`
-
-	// Enable detailed pane close instrumentation and tree snapshots
-	EnablePaneCloseDebug bool `mapstructure:"enable_pane_close_debug" yaml:"enable_pane_close_debug" toml:"enable_pane_close_debug"`
 }
 
 // WorkspaceConfig captures layout, pane, and tab behaviour preferences.

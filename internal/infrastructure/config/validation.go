@@ -138,31 +138,7 @@ func validateConfig(config *Config) error {
 		}
 	}
 
-	// Validate codec buffer sizes
-	if config.CodecPreferences.VideoBufferSizeMB < 0 {
-		validationErrors = append(validationErrors, "codec_preferences.video_buffer_size_mb must be non-negative")
-	}
-	if config.CodecPreferences.QueueBufferTimeSec < 0 {
-		validationErrors = append(validationErrors, "codec_preferences.queue_buffer_time_sec must be non-negative")
-	}
-
-	// Validate AV1 max resolution using switch statement
-	if config.CodecPreferences.AV1MaxResolution != "" {
-		switch config.CodecPreferences.AV1MaxResolution {
-		case "720p", "1080p", "1440p", "4k", "unlimited":
-			// Valid
-		default:
-			validationErrors = append(validationErrors, fmt.Sprintf("codec_preferences.av1_max_resolution must be one of: 720p, 1080p, 1440p, 4k, unlimited (got: %s)", config.CodecPreferences.AV1MaxResolution))
-		}
-	}
-
 	// Validate logging values
-	if config.Logging.MaxSize < 0 {
-		validationErrors = append(validationErrors, "logging.max_size must be non-negative")
-	}
-	if config.Logging.MaxBackups < 0 {
-		validationErrors = append(validationErrors, "logging.max_backups must be non-negative")
-	}
 	if config.Logging.MaxAge < 0 {
 		validationErrors = append(validationErrors, "logging.max_age must be non-negative")
 	}

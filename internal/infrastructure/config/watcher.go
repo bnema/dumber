@@ -81,17 +81,6 @@ func (m *Manager) reload() error {
 		config.RenderingMode = RenderingModeAuto
 	}
 
-	// TODO: implement in Step 18 - Auto-detect GPU if enabled and driver name is not set
-	// if config.VideoAcceleration.AutoDetectGPU && config.VideoAcceleration.VAAPIDriverName == "" {
-	//     gpuInfo := gpu.DetectGPU()
-	//     if gpuInfo.SupportsVAAPI() {
-	//         config.VideoAcceleration.VAAPIDriverName = gpuInfo.GetVAAPIDriverName()
-	//     }
-	// }
-
-	// TODO: implement in Step 18 - Validate and configure codec preferences based on GPU
-	// config = m.validateAndConfigureCodecPreferences(config)
-
 	// Validate ColorScheme setting using switch statement
 	switch config.Appearance.ColorScheme {
 	case "prefer-dark", "prefer-light", ThemeDefault:

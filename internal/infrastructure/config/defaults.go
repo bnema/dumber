@@ -10,9 +10,7 @@ const (
 	defaultMaxHistoryItems = 20 // items
 
 	// Logging defaults
-	defaultMaxLogSizeMB  = 100 // MB
-	defaultMaxBackups    = 3   // backup files
-	defaultMaxLogAgeDays = 7   // days
+	defaultMaxLogAgeDays = 7 // days
 
 	// Appearance defaults
 	defaultFontSize = 16 // points
@@ -80,20 +78,11 @@ func DefaultConfig() *Config {
 		},
 		Logging: LoggingConfig{
 			Level:          "info",
-			Format:         "text",              // text or json
-			Filename:       "",                  // empty means stdout
-			MaxSize:        defaultMaxLogSizeMB, // MB
-			MaxBackups:     defaultMaxBackups,
-			MaxAge:         defaultMaxLogAgeDays, // days
-			Compress:       true,
+			Format:         "text", // text or json
+			MaxAge:         defaultMaxLogAgeDays,
 			LogDir:         getDefaultLogDir(),
 			EnableFileLog:  true,
-			CaptureStdout:  false,
-			CaptureStderr:  false,
-			CaptureCOutput: false, // Disabled by default to avoid performance impact
 			CaptureConsole: false, // Disabled by default
-			DebugFile:      "debug.log",
-			VerboseWebKit:  false,
 		},
 		Appearance: AppearanceConfig{
 			SansFont:        "Fira Sans",
@@ -120,40 +109,8 @@ func DefaultConfig() *Config {
 			},
 			ColorScheme: "default", // default follows system theme
 		},
-		VideoAcceleration: VideoAccelerationConfig{
-			EnableVAAPI:      true,
-			AutoDetectGPU:    true,
-			VAAPIDriverName:  "", // TODO: implement in Step 18 - will be auto-detected
-			EnableAllDrivers: true,
-			LegacyVAAPI:      false,
-		},
-		CodecPreferences: CodecConfig{
-			PreferredCodecs:           "av1,h264",                                                                                              // AV1 first, but allow VP9 fallback for higher resolutions
-			ForceAV1:                  false,                                                                                                   // Use smart AV1 negotiation instead of forcing
-			BlockVP9:                  false,                                                                                                   // Allow VP9 for higher resolutions
-			BlockVP8:                  false,                                                                                                   // Allow VP8 fallback for ad segments (lower priority)
-			AV1HardwareOnly:           false,                                                                                                   // Allow software AV1 fallback
-			DisableVP9Hardware:        false,                                                                                                   // Allow VP9 hardware for high res content
-			VideoBufferSizeMB:         64,                                                                                                      // Larger buffer for bursty Twitch/AV1 segments
-			QueueBufferTimeSec:        20,                                                                                                      // More buffering time for smooth playback
-			CustomUserAgent:           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15", // WebKitGTK default (same as Epiphany)
-			AV1MaxResolution:          "1080p",                                                                                                 // Optimal AV1 up to 1080p, fallback to VP9 for higher res
-			DisableTwitchCodecControl: true,                                                                                                    // Disable codec control on Twitch by default (prevents theater/fullscreen freezing)
-		},
 		Debug: DebugConfig{
-			EnableDevTools:        true,
-			EnableWebKitDebug:     false,
-			WebKitDebugCategories: "Network:preconnectTo,ContentFilters",
-			EnableFilteringDebug:  false,
-			EnableWebViewDebug:    false,
-			LogWebKitCrashes:      true, // Always log crashes
-			EnableScriptDebug:     false,
-			EnableGeneralDebug:    false,
-			EnableWorkspaceDebug:  false,
-			EnableFocusDebug:      false,
-			EnableCSSDebug:        false,
-			EnableFocusMetrics:    false,
-			EnablePaneCloseDebug:  false,
+			EnableDevTools: true,
 		},
 		RenderingMode:      RenderingModeGPU,
 		DefaultWebpageZoom: 1.2,            // 120% default zoom for better readability
