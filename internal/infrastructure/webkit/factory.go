@@ -12,11 +12,12 @@ import (
 // It supports creating regular WebViews (optionally via pool) and
 // related WebViews that share session/cookies with a parent (for popups).
 type WebViewFactory struct {
-	wkCtx    *WebKitContext
-	settings *SettingsManager
-	pool     *WebViewPool
-	injector *ContentInjector
-	router   *MessageRouter
+	wkCtx         *WebKitContext
+	settings      *SettingsManager
+	pool          *WebViewPool
+	injector      *ContentInjector
+	router        *MessageRouter
+	filterApplier FilterApplier // Optional content filter applier
 }
 
 // NewWebViewFactory creates a new WebViewFactory.
@@ -34,6 +35,16 @@ func NewWebViewFactory(
 		pool:     pool,
 		injector: injector,
 		router:   router,
+	}
+}
+
+// SetFilterApplier sets the content filter applier.
+// Filters will be applied to all newly created WebViews.
+func (f *WebViewFactory) SetFilterApplier(applier FilterApplier) {
+	f.filterApplier = applier
+	// Also propagate to the pool if present
+	if f.pool != nil {
+		f.pool.SetFilterApplier(applier)
 	}
 }
 
@@ -85,6 +96,11 @@ func (f *WebViewFactory) CreateRelated(ctx context.Context, parentID port.WebVie
 		log.Warn().Err(err).Uint64("id", uint64(wv.ID())).Msg("failed to attach frontend to related webview")
 	}
 
+	// Apply content filters if configured
+	if f.filterApplier != nil {
+		f.filterApplier.ApplyTo(ctx, wv.ucm)
+	}
+
 	log.Debug().
 		Uint64("id", uint64(wv.ID())).
 		Uint64("parent_id", uint64(parentID)).
@@ -108,6 +124,11 @@ func (f *WebViewFactory) createDirect(ctx context.Context) (*WebView, error) {
 	// Attach frontend
 	if err := wv.AttachFrontend(ctx, f.injector, f.router); err != nil {
 		log.Warn().Err(err).Uint64("id", uint64(wv.ID())).Msg("failed to attach frontend to webview")
+	}
+
+	// Apply content filters if configured
+	if f.filterApplier != nil {
+		f.filterApplier.ApplyTo(ctx, wv.ucm)
 	}
 
 	log.Debug().Uint64("id", uint64(wv.ID())).Msg("created webview directly")

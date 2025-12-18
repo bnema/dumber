@@ -7,7 +7,14 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/puregotk-webkit/webkit"
 )
+
+// FilterApplier applies content filters to a UserContentManager.
+// This interface decouples the pool from the filtering package.
+type FilterApplier interface {
+	ApplyTo(ctx context.Context, ucm *webkit.UserContentManager)
+}
 
 // PoolConfig configures the WebView pool behavior.
 type PoolConfig struct {
@@ -37,9 +44,10 @@ type WebViewPool struct {
 	settings *SettingsManager
 	config   PoolConfig
 
-	pool     chan *WebView
-	injector *ContentInjector
-	router   *MessageRouter
+	pool          chan *WebView
+	injector      *ContentInjector
+	router        *MessageRouter
+	filterApplier FilterApplier // Optional content filter applier
 
 	closed atomic.Bool
 	wg     sync.WaitGroup
@@ -75,6 +83,12 @@ func NewWebViewPool(ctx context.Context, wkCtx *WebKitContext, settings *Setting
 	return p
 }
 
+// SetFilterApplier sets the content filter applier.
+// Filters will be applied to all newly created WebViews.
+func (p *WebViewPool) SetFilterApplier(applier FilterApplier) {
+	p.filterApplier = applier
+}
+
 // Acquire gets a WebView from the pool or creates a new one.
 func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 	log := logging.FromContext(ctx)
@@ -89,6 +103,10 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 		if wv != nil && !wv.IsDestroyed() {
 			// Ensure frontend is attached even if this WebView was pooled before injection was configured.
 			_ = wv.AttachFrontend(ctx, p.injector, p.router)
+			// Apply filters if available (may not have been applied during prewarm)
+			if p.filterApplier != nil {
+				p.filterApplier.ApplyTo(ctx, wv.ucm)
+			}
 			log.Debug().Uint64("id", uint64(wv.ID())).Msg("acquired webview from pool")
 			return wv, nil
 		}
@@ -115,6 +133,11 @@ func (p *WebViewPool) createWebView(ctx context.Context) (*WebView, error) {
 
 	if err := wv.AttachFrontend(ctx, p.injector, p.router); err != nil {
 		log.Warn().Err(err).Msg("failed to attach frontend to new webview")
+	}
+
+	// Apply content filters if configured
+	if p.filterApplier != nil {
+		p.filterApplier.ApplyTo(ctx, wv.ucm)
 	}
 
 	return wv, nil
