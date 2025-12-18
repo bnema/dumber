@@ -83,8 +83,9 @@ These settings control the `dumber dmenu` CLI command for rofi/fuzzel integratio
 
 **CLI Usage:**
 ```bash
-# Pipe mode (default) - outputs history for rofi/fuzzel
-dumber dmenu | rofi -dmenu -p "Browse: " | dumber dmenu --select
+# Pipe mode (default) - outputs history for rofi/fuzzel with favicons
+dumber dmenu | rofi -dmenu -show-icons -p "Browse: " | dumber dmenu --select
+dumber dmenu | fuzzel --dmenu -p "Browse: " | dumber dmenu --select
 
 # Interactive TUI mode
 dumber dmenu --interactive
