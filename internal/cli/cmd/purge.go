@@ -2,17 +2,22 @@ package cmd
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/infrastructure/desktop"
 )
 
 var (
-	purgeForce bool
-	purgeAll   bool
+	purgeForce   bool
+	purgeAll     bool
+	purgeDesktop bool
 )
 
 var purgeCmd = &cobra.Command{
@@ -26,7 +31,8 @@ This will delete:
   - ~/.local/state/dumber/ (state, logs)
   - ~/.cache/dumber/       (cache)
 
-Use --force to skip confirmation prompt.`,
+Use --force to skip confirmation prompt.
+Use --desktop to also remove the desktop file from ~/.local/share/applications/`,
 	RunE: runPurge,
 }
 
@@ -34,6 +40,7 @@ func init() {
 	rootCmd.AddCommand(purgeCmd)
 	purgeCmd.Flags().BoolVarP(&purgeForce, "force", "f", false, "skip confirmation prompt")
 	purgeCmd.Flags().BoolVar(&purgeAll, "all", true, "remove all directories (default)")
+	purgeCmd.Flags().BoolVar(&purgeDesktop, "desktop", false, "also remove desktop file")
 }
 
 func runPurge(cmd *cobra.Command, args []string) error {
@@ -71,16 +78,56 @@ func runPurge(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if len(existing) == 0 {
+	// Check desktop integration status if --desktop flag is set
+	var desktopStatus *struct {
+		desktopInstalled bool
+		iconInstalled    bool
+		isDefault        bool
+		desktopPath      string
+		iconPath         string
+	}
+	if purgeDesktop {
+		adapter := desktop.New()
+		status, err := adapter.GetStatus(context.Background())
+		if err == nil && (status.DesktopFileInstalled || status.IconInstalled) {
+			desktopStatus = &struct {
+				desktopInstalled bool
+				iconInstalled    bool
+				isDefault        bool
+				desktopPath      string
+				iconPath         string
+			}{
+				desktopInstalled: status.DesktopFileInstalled,
+				iconInstalled:    status.IconInstalled,
+				isDefault:        status.IsDefaultBrowser,
+				desktopPath:      status.DesktopFilePath,
+				iconPath:         status.IconFilePath,
+			}
+		}
+	}
+
+	// Check if there's anything to remove
+	if len(existing) == 0 && desktopStatus == nil {
 		fmt.Println("No dumber directories found.")
 		return nil
 	}
 
 	// Show what will be deleted
-	fmt.Println("The following directories will be removed:")
+	fmt.Println("The following will be removed:")
 	fmt.Println()
 	for _, d := range existing {
 		fmt.Printf("  \u2022 %s (%s, %s)\n", d.path, d.desc, formatSize(d.size))
+	}
+	if desktopStatus != nil {
+		if desktopStatus.desktopInstalled {
+			fmt.Printf("  \u2022 %s (desktop file)\n", desktopStatus.desktopPath)
+		}
+		if desktopStatus.iconInstalled {
+			fmt.Printf("  \u2022 %s (icon)\n", desktopStatus.iconPath)
+		}
+		if desktopStatus.isDefault {
+			fmt.Println("    \u26a0 Dumber is currently the default browser")
+		}
 	}
 	fmt.Println()
 
@@ -107,13 +154,33 @@ func runPurge(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Remove desktop integration
+	if desktopStatus != nil {
+		adapter := desktop.New()
+		uc := usecase.NewRemoveDesktopUseCase(adapter)
+		result, err := uc.Execute(context.Background())
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("desktop integration: %v", err))
+		} else {
+			if result.WasDesktopInstalled {
+				fmt.Printf("\u2713 Removed %s\n", result.RemovedDesktopPath)
+			}
+			if result.WasIconInstalled {
+				fmt.Printf("\u2713 Removed %s\n", result.RemovedIconPath)
+			}
+			if result.WasDefault {
+				fmt.Println("  \u26a0 Was default browser - please set a new default")
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		fmt.Println()
 		fmt.Println("Errors:")
 		for _, e := range errors {
 			fmt.Printf("  \u2717 %s\n", e)
 		}
-		return fmt.Errorf("failed to remove some directories")
+		return fmt.Errorf("failed to remove some items")
 	}
 
 	fmt.Println()
