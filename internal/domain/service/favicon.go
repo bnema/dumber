@@ -17,9 +17,19 @@ type FaviconService interface {
 	// Store saves favicon bytes for a domain to cache.
 	Store(domain string, data []byte) error
 
-	// DiskPath returns the filesystem path where a domain's favicon is cached.
-	// Used by CLI tools (rofi/fuzzel) that need file paths for icon display.
+	// DiskPath returns the filesystem path where a domain's favicon is cached (ICO).
 	DiskPath(domain string) string
+
+	// DiskPathPNG returns the filesystem path for PNG favicon.
+	// PNG format is required by CLI tools like rofi/fuzzel.
+	DiskPathPNG(domain string) string
+
+	// HasPNGOnDisk checks if a PNG favicon exists on disk for the domain.
+	HasPNGOnDisk(domain string) bool
+
+	// WritePNG writes raw PNG data to disk for a domain.
+	// Used by UI layer to export WebKit textures for CLI tools.
+	WritePNG(domain string, pngData []byte)
 
 	// Close shuts down background workers and releases resources.
 	Close()

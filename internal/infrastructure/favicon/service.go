@@ -59,9 +59,24 @@ func (s *Service) Store(domain string, data []byte) error {
 	return nil
 }
 
-// DiskPath returns the filesystem path where a domain's favicon is cached.
+// DiskPath returns the filesystem path where a domain's favicon is cached (ICO).
 func (s *Service) DiskPath(domain string) string {
 	return s.cache.DiskPath(domain)
+}
+
+// DiskPathPNG returns the filesystem path for PNG favicon.
+func (s *Service) DiskPathPNG(domain string) string {
+	return s.cache.DiskPathPNG(domain)
+}
+
+// HasPNGOnDisk checks if a PNG favicon exists on disk for the domain.
+func (s *Service) HasPNGOnDisk(domain string) bool {
+	return s.cache.HasPNGOnDisk(domain)
+}
+
+// WritePNG writes raw PNG data to disk for a domain.
+func (s *Service) WritePNG(domain string, pngData []byte) {
+	s.cache.WritePNG(domain, pngData)
 }
 
 // Close shuts down background workers and releases resources.

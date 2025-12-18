@@ -151,6 +151,13 @@ func (a *FaviconAdapter) StoreFromWebKit(ctx context.Context, pageURL string, te
 	// Store in texture cache
 	a.setTexture(domain, texture)
 
+	// Export as PNG for CLI tools (rofi/fuzzel) - do this on main thread
+	// since GTK texture operations need to happen there
+	pngPath := a.service.DiskPathPNG(domain)
+	if pngPath != "" && !a.service.HasPNGOnDisk(domain) {
+		texture.SaveToPng(pngPath)
+	}
+
 	// Ensure disk cache is populated (async, in background)
 	go a.service.EnsureDiskCache(ctx, domain)
 }
@@ -168,6 +175,13 @@ func (a *FaviconAdapter) StoreFromWebKitWithOrigin(
 		currentDomain := domainurl.ExtractDomain(currentURL)
 		if originDomain != "" && originDomain != currentDomain {
 			a.setTexture(originDomain, texture)
+
+			// Export PNG for origin domain too
+			pngPath := a.service.DiskPathPNG(originDomain)
+			if pngPath != "" && !a.service.HasPNGOnDisk(originDomain) {
+				texture.SaveToPng(pngPath)
+			}
+
 			go a.service.EnsureDiskCache(ctx, originDomain)
 		}
 	}

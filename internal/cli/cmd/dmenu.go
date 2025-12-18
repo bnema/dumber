@@ -77,8 +77,9 @@ func getDmenuConfig() config.DmenuConfig {
 	return cfg
 }
 
-// getFaviconPath returns the path to a cached favicon for the given URL.
-// Returns empty string if the favicon doesn't exist in cache.
+// getFaviconPath returns the path to a cached PNG favicon for the given URL.
+// Returns empty string if the PNG favicon doesn't exist in cache.
+// PNG format is required by rofi/fuzzel launchers.
 func getFaviconPath(rawURL string) string {
 	cacheDir, err := config.GetFaviconCacheDir()
 	if err != nil {
@@ -88,7 +89,8 @@ func getFaviconPath(rawURL string) string {
 	if domain == "" {
 		return ""
 	}
-	filename := domainurl.SanitizeDomainForFilename(domain)
+	// Use PNG format for fuzzel/rofi compatibility
+	filename := domainurl.SanitizeDomainForPNG(domain)
 	path := filepath.Join(cacheDir, filename)
 	if _, err := os.Stat(path); err == nil {
 		return path
@@ -108,34 +110,27 @@ func runDmenuPipe() error {
 	}
 
 	// Output in rofi/fuzzel compatible format
+	// Display URL (stripped of scheme) so selection directly returns usable URL
 	for _, entry := range entries {
-		title := entry.Title
-		if title == "" {
-			title = entry.URL
-		}
+		// Strip scheme from URL for cleaner display
+		display := entry.URL
+		display = strings.TrimPrefix(display, "https://")
+		display = strings.TrimPrefix(display, "http://")
 
-		// Truncate long titles
-		if len(title) > 80 {
-			title = title[:77] + "..."
+		// Truncate long URLs
+		const maxDisplayLen = 100
+		if len(display) > maxDisplayLen {
+			display = display[:maxDisplayLen-3] + "..."
 		}
 
 		// Check if we have a favicon
 		faviconPath := getFaviconPath(entry.URL)
 
-		// Build display text
-		var displayText string
+		// Format: "URL\0icon\x1f/path\n" (simple, selection returns URL directly)
 		if faviconPath != "" {
-			displayText = title
+			fmt.Printf("%s\x00icon\x1f%s\n", display, faviconPath)
 		} else {
-			displayText = cfg.HistoryPrefix + " " + title
-		}
-
-		// Format: "DisplayText\0icon\x1f/path\x1finfo\x1fURL\n"
-		// Using info field to store URL for selection
-		if faviconPath != "" {
-			fmt.Printf("%s\x00icon\x1f%s\x1finfo\x1f%s\n", displayText, faviconPath, entry.URL)
-		} else {
-			fmt.Printf("%s\x00info\x1f%s\n", displayText, entry.URL)
+			fmt.Println(display)
 		}
 	}
 
@@ -164,32 +159,23 @@ func runDmenuSelect() error {
 }
 
 // parseSelection extracts the URL from a dmenu selection.
+// Selection is the URL (stripped of scheme) as displayed by runDmenuPipe.
 func parseSelection(selection string) string {
 	selection = strings.TrimSpace(selection)
 
-	// Extract info field if present (format: "text\0...info\x1fURL")
-	if infoIndex := strings.Index(selection, "info\x1f"); infoIndex > 0 {
-		info := selection[infoIndex+5:] // Skip "info\x1f"
-		// Info might have more fields after, but URL should be first
-		if endIndex := strings.Index(info, "\x1f"); endIndex > 0 {
-			return strings.TrimSpace(info[:endIndex])
-		}
-		return strings.TrimSpace(info)
-	}
-
-	// Strip metadata if present (format: "text\0...")
+	// Strip metadata if present (format: "url\0icon\x1f...")
 	if nullIndex := strings.Index(selection, "\x00"); nullIndex > 0 {
 		selection = selection[:nullIndex]
 	}
 
-	// Legacy: strip emoji prefix if present
-	selection = strings.TrimPrefix(selection, "🕒 ")
-	selection = strings.TrimPrefix(selection, "🔍 ")
-	selection = strings.TrimPrefix(selection, "🌐 ")
+	selection = strings.TrimSpace(selection)
+	if selection == "" {
+		return ""
+	}
 
-	// If it looks like a URL, return it
-	if strings.Contains(selection, "://") || strings.Contains(selection, ".") {
-		return selection
+	// Add https:// scheme if not present (display was stripped of scheme)
+	if !strings.Contains(selection, "://") {
+		selection = "https://" + selection
 	}
 
 	return selection

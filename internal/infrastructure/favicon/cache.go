@@ -93,7 +93,7 @@ func (c *Cache) Set(domain string, data []byte) {
 	c.queueDiskWrite(domain, data)
 }
 
-// DiskPath returns the filesystem path for a domain's cached favicon.
+// DiskPath returns the filesystem path for a domain's cached favicon (ICO format).
 // Returns empty string if disk caching is disabled or domain is empty.
 func (c *Cache) DiskPath(domain string) string {
 	if c.diskDir == "" || domain == "" {
@@ -101,6 +101,54 @@ func (c *Cache) DiskPath(domain string) string {
 	}
 	filename := domainurl.SanitizeDomainForFilename(domain)
 	return filepath.Join(c.diskDir, filename)
+}
+
+// DiskPathPNG returns the filesystem path for a domain's PNG favicon.
+// PNG format is required by external tools like rofi/fuzzel.
+// Returns empty string if disk caching is disabled or domain is empty.
+func (c *Cache) DiskPathPNG(domain string) string {
+	if c.diskDir == "" || domain == "" {
+		return ""
+	}
+	filename := domainurl.SanitizeDomainForPNG(domain)
+	return filepath.Join(c.diskDir, filename)
+}
+
+// HasPNGOnDisk checks if a PNG favicon exists on disk for the given domain.
+func (c *Cache) HasPNGOnDisk(domain string) bool {
+	path := c.DiskPathPNG(domain)
+	if path == "" {
+		return false
+	}
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// WritePNG writes raw PNG data to disk for a domain.
+// Used by UI layer to export WebKit textures for CLI tools.
+func (c *Cache) WritePNG(domain string, pngData []byte) {
+	if c.diskDir == "" || len(pngData) == 0 || domain == "" {
+		return
+	}
+
+	// Ensure directory exists
+	if err := os.MkdirAll(c.diskDir, diskCacheDirPerm); err != nil {
+		return
+	}
+
+	filename := domainurl.SanitizeDomainForPNG(domain)
+	finalPath := filepath.Join(c.diskDir, filename)
+	tempPath := finalPath + ".tmp"
+
+	// Write to temp file
+	if err := os.WriteFile(tempPath, pngData, diskCacheFilePerm); err != nil {
+		return
+	}
+
+	// Atomic rename
+	if err := os.Rename(tempPath, finalPath); err != nil {
+		_ = os.Remove(tempPath)
+	}
 }
 
 // HasOnDisk checks if a favicon exists on disk for the given domain.

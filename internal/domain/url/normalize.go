@@ -62,6 +62,17 @@ func ExtractDomain(rawURL string) string {
 // SanitizeDomainForFilename converts a domain to a safe filename with .ico extension.
 // Replaces unsafe filesystem characters with underscores.
 func SanitizeDomainForFilename(domain string) string {
+	return sanitizeDomain(domain) + ".ico"
+}
+
+// SanitizeDomainForPNG converts a domain to a safe filename with .png extension.
+// Used for favicon export for tools like rofi/fuzzel that require PNG format.
+func SanitizeDomainForPNG(domain string) string {
+	return sanitizeDomain(domain) + ".png"
+}
+
+// sanitizeDomain replaces unsafe filesystem characters with underscores.
+func sanitizeDomain(domain string) string {
 	replacer := strings.NewReplacer(
 		":", "_",
 		"/", "_",
@@ -73,5 +84,5 @@ func SanitizeDomainForFilename(domain string) string {
 		">", "_",
 		"|", "_",
 	)
-	return replacer.Replace(domain) + ".ico"
+	return replacer.Replace(domain)
 }
