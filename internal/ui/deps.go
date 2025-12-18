@@ -8,6 +8,7 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/favicon"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/ui/theme"
 )
@@ -47,7 +48,8 @@ type Dependencies struct {
 	CopyURLUC   *usecase.CopyURLUseCase
 
 	// Infrastructure Adapters
-	Clipboard port.Clipboard
+	Clipboard      port.Clipboard
+	FaviconService *favicon.Service
 }
 
 // Validate checks that all required dependencies are set.

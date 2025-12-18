@@ -13,6 +13,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/build"
 	"github.com/bnema/dumber/internal/infrastructure/clipboard"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/favicon"
 	"github.com/bnema/dumber/internal/infrastructure/media"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
@@ -183,6 +184,10 @@ func runGUI() {
 	clipboardAdapter := clipboard.New()
 	copyURLUC := usecase.NewCopyURLUseCase(clipboardAdapter)
 
+	// Create favicon service
+	faviconCacheDir, _ := config.GetFaviconCacheDir()
+	faviconService := favicon.NewService(faviconCacheDir)
+
 	// Build dependencies
 	deps := &ui.Dependencies{
 		Ctx:           ctx,
@@ -207,7 +212,8 @@ func runGUI() {
 		NavigateUC:  navigateUC,
 		CopyURLUC:   copyURLUC,
 		// Infrastructure Adapters
-		Clipboard: clipboardAdapter,
+		Clipboard:      clipboardAdapter,
+		FaviconService: faviconService,
 	}
 
 	// Run the application

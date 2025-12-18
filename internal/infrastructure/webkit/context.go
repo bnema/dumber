@@ -11,6 +11,10 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// FaviconDatabase is a type alias for webkit.FaviconDatabase.
+// Re-exported for use by UI layer without direct puregotk-webkit import.
+type FaviconDatabase = webkit.FaviconDatabase
+
 // WebKitContext manages the shared WebContext and persistent NetworkSession.
 // IMPORTANT: This MUST be initialized before creating any WebViews.
 type WebKitContext struct {

@@ -12,7 +12,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/dumber/internal/ui/cache"
+	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
@@ -21,10 +21,10 @@ import (
 
 // ContentCoordinator manages WebView lifecycle, title tracking, and content attachment.
 type ContentCoordinator struct {
-	pool          *webkit.WebViewPool
-	widgetFactory layout.WidgetFactory
-	faviconCache  *cache.FaviconCache
-	zoomUC        *usecase.ManageZoomUseCase
+	pool           *webkit.WebViewPool
+	widgetFactory  layout.WidgetFactory
+	faviconAdapter *adapter.FaviconAdapter
+	zoomUC         *usecase.ManageZoomUseCase
 
 	webViews   map[entity.PaneID]*webkit.WebView
 	paneTitles map[entity.PaneID]string
@@ -68,7 +68,7 @@ func NewContentCoordinator(
 	ctx context.Context,
 	pool *webkit.WebViewPool,
 	widgetFactory layout.WidgetFactory,
-	faviconCache *cache.FaviconCache,
+	faviconAdapter *adapter.FaviconAdapter,
 	getActiveWS func() (*entity.Workspace, *component.WorkspaceView),
 	zoomUC *usecase.ManageZoomUseCase,
 ) *ContentCoordinator {
@@ -76,15 +76,15 @@ func NewContentCoordinator(
 	log.Debug().Msg("creating content coordinator")
 
 	return &ContentCoordinator{
-		pool:          pool,
-		widgetFactory: widgetFactory,
-		faviconCache:  faviconCache,
-		zoomUC:        zoomUC,
-		webViews:      make(map[entity.PaneID]*webkit.WebView),
-		paneTitles:    make(map[entity.PaneID]string),
-		navOrigins:    make(map[entity.PaneID]string),
-		getActiveWS:   getActiveWS,
-		pendingPopups: make(map[port.WebViewID]*PendingPopup),
+		pool:           pool,
+		widgetFactory:  widgetFactory,
+		faviconAdapter: faviconAdapter,
+		zoomUC:         zoomUC,
+		webViews:       make(map[entity.PaneID]*webkit.WebView),
+		paneTitles:     make(map[entity.PaneID]string),
+		navOrigins:     make(map[entity.PaneID]string),
+		getActiveWS:    getActiveWS,
+		pendingPopups:  make(map[port.WebViewID]*PendingPopup),
 	}
 }
 
@@ -386,18 +386,12 @@ func (c *ContentCoordinator) onFaviconChanged(ctx context.Context, paneID entity
 	}
 	uri := wv.URI()
 
-	// Update favicon cache with domain key (final URL after redirects)
-	if c.faviconCache != nil && favicon != nil && uri != "" {
-		c.faviconCache.SetByURL(uri, favicon)
-
-		// Also cache under original navigation URL to handle cross-domain redirects
-		// e.g., google.fr → google.com: cache favicon under both domains
+	// Update favicon cache with domain key (handles cross-domain redirects)
+	if c.faviconAdapter != nil && favicon != nil && uri != "" {
 		c.navOriginMu.RLock()
 		originURL := c.navOrigins[paneID]
 		c.navOriginMu.RUnlock()
-		if originURL != "" && originURL != uri {
-			c.faviconCache.SetByURL(originURL, favicon)
-		}
+		c.faviconAdapter.StoreFromWebKitWithOrigin(ctx, uri, originURL, favicon)
 	}
 
 	// Update StackedView favicon if this pane is in a stack
@@ -445,9 +439,9 @@ func (c *ContentCoordinator) updateStackedPaneFavicon(ctx context.Context, ws *e
 	}
 }
 
-// FaviconCache returns the favicon cache for external use (e.g., omnibox).
-func (c *ContentCoordinator) FaviconCache() *cache.FaviconCache {
-	return c.faviconCache
+// FaviconAdapter returns the favicon adapter for external use (e.g., omnibox).
+func (c *ContentCoordinator) FaviconAdapter() *adapter.FaviconAdapter {
+	return c.faviconAdapter
 }
 
 // SetNavigationOrigin records the original URL before navigation starts.
@@ -463,12 +457,12 @@ func (c *ContentCoordinator) SetNavigationOrigin(paneID entity.PaneID, url strin
 // title bar immediately if a cached favicon exists for the URL.
 // This provides instant favicon display without waiting for WebKit.
 func (c *ContentCoordinator) PreloadCachedFavicon(ctx context.Context, paneID entity.PaneID, url string) {
-	if c.faviconCache == nil || url == "" {
+	if c.faviconAdapter == nil || url == "" {
 		return
 	}
 
 	// Check memory and disk cache (no external fetch)
-	texture := c.faviconCache.GetFromCacheByURL(url)
+	texture := c.faviconAdapter.PreloadFromCache(url)
 	if texture == nil {
 		return
 	}

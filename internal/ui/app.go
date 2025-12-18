@@ -15,7 +15,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/infrastructure/webkit/handlers"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/dumber/internal/ui/cache"
+	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
 	"github.com/bnema/dumber/internal/ui/dispatcher"
@@ -69,7 +69,7 @@ type App struct {
 	injector       *webkit.ContentInjector
 	router         *webkit.MessageRouter
 	settings       *webkit.SettingsManager
-	faviconCache   *cache.FaviconCache
+	faviconAdapter *adapter.FaviconAdapter
 
 	// ID generator for tabs/panes
 	idCounter uint64
@@ -214,7 +214,7 @@ func (a *App) onActivate(ctx context.Context) {
 	a.omniboxCfg = component.OmniboxConfig{
 		HistoryUC:       a.deps.HistoryUC,
 		FavoritesUC:     a.deps.FavoritesUC,
-		FaviconCache:    a.faviconCache,
+		FaviconAdapter:  a.faviconAdapter,
 		CopyURLUC:       a.deps.CopyURLUC,
 		Shortcuts:       a.deps.Config.SearchShortcuts,
 		DefaultSearch:   a.deps.Config.DefaultSearchEngine,
@@ -251,8 +251,8 @@ func (a *App) onShutdown(ctx context.Context) {
 	a.cancel(errors.New("application shutdown"))
 
 	// Cleanup resources
-	if a.faviconCache != nil {
-		a.faviconCache.Close()
+	if a.faviconAdapter != nil {
+		a.faviconAdapter.Close()
 	}
 	if a.deps.Pool != nil {
 		a.deps.Pool.Close(ctx)
@@ -271,19 +271,19 @@ func (a *App) initCoordinators(ctx context.Context) {
 		return a.activeWorkspace(), a.activeWorkspaceView()
 	}
 
-	// Create FaviconCache with FaviconDatabase from WebKitContext
+	// Create FaviconAdapter with service and WebKit FaviconDatabase
+	var faviconDB *webkit.FaviconDatabase
 	if a.deps.WebContext != nil {
-		a.faviconCache = cache.NewFaviconCache(a.deps.WebContext.FaviconDatabase())
-	} else {
-		a.faviconCache = cache.NewFaviconCache(nil)
+		faviconDB = a.deps.WebContext.FaviconDatabase()
 	}
+	a.faviconAdapter = adapter.NewFaviconAdapter(a.deps.FaviconService, faviconDB)
 
 	// 1. Content Coordinator (no dependencies on other coordinators)
 	a.contentCoord = coordinator.NewContentCoordinator(
 		ctx,
 		a.pool,
 		a.widgetFactory,
-		a.faviconCache,
+		a.faviconAdapter,
 		getActiveWS,
 		a.deps.ZoomUC,
 	)

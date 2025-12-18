@@ -12,7 +12,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/dumber/internal/ui/cache"
+	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/glib"
@@ -79,7 +79,7 @@ type Omnibox struct {
 	// Dependencies
 	historyUC       *usecase.SearchHistoryUseCase
 	favoritesUC     *usecase.ManageFavoritesUseCase
-	faviconCache    *cache.FaviconCache
+	faviconAdapter  *adapter.FaviconAdapter
 	copyURLUC       *usecase.CopyURLUseCase
 	shortcuts       map[string]config.SearchShortcut
 	defaultSearch   string
@@ -112,7 +112,7 @@ type Omnibox struct {
 type OmniboxConfig struct {
 	HistoryUC       *usecase.SearchHistoryUseCase
 	FavoritesUC     *usecase.ManageFavoritesUseCase
-	FaviconCache    *cache.FaviconCache
+	FaviconAdapter  *adapter.FaviconAdapter
 	CopyURLUC       *usecase.CopyURLUseCase
 	Shortcuts       map[string]config.SearchShortcut
 	DefaultSearch   string
@@ -137,7 +137,7 @@ func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 		selectedIndex:   -1,
 		historyUC:       cfg.HistoryUC,
 		favoritesUC:     cfg.FavoritesUC,
-		faviconCache:    cfg.FaviconCache,
+		faviconAdapter:  cfg.FaviconAdapter,
 		copyURLUC:       cfg.CopyURLUC,
 		shortcuts:       cfg.Shortcuts,
 		defaultSearch:   cfg.DefaultSearch,
@@ -769,8 +769,8 @@ func (o *Omnibox) createFaviconImage(url, fallbackIcon string) *gtk.Image {
 	favicon.AddCssClass("omnibox-favicon")
 
 	// Async load favicon from cache
-	if o.faviconCache != nil && url != "" {
-		o.faviconCache.GetOrFetch(o.ctx, url, func(texture *gdk.Texture) {
+	if o.faviconAdapter != nil && url != "" {
+		o.faviconAdapter.GetOrFetch(o.ctx, url, func(texture *gdk.Texture) {
 			if texture != nil {
 				var cb glib.SourceFunc = func(data uintptr) bool {
 					favicon.SetFromPaintable(texture)
