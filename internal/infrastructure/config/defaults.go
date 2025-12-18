@@ -174,17 +174,8 @@ func DefaultConfig() *Config {
 			},
 		},
 		ContentFiltering: ContentFilteringConfig{
-			Enabled: true, // Ad blocking enabled by default
-			// Note: Whitelist is now managed via database (content_whitelist table)
-			FilterLists: []string{
-				// Core blocking
-				"https://easylist.to/easylist/easylist.txt",    // Ads
-				"https://easylist.to/easylist/easyprivacy.txt", // Tracking
-				// uBlock extras
-				"https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt",     // uBO optimizations
-				"https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/annoyances.txt",  // Cookie banners, popups
-				"https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/quick-fixes.txt", // Site fixes
-			},
+			Enabled:    true, // Ad blocking enabled by default
+			AutoUpdate: true, // Auto-update filters from GitHub releases
 		},
 		Omnibox: OmniboxConfig{
 			InitialBehavior: defaultOmniboxInitialBehavior,

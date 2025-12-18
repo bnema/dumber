@@ -284,7 +284,7 @@ func (m *Manager) setDefaults() {
 
 	// Content filtering
 	m.viper.SetDefault("content_filtering.enabled", defaults.ContentFiltering.Enabled)
-	m.viper.SetDefault("content_filtering.filter_lists", defaults.ContentFiltering.FilterLists)
+	m.viper.SetDefault("content_filtering.auto_update", defaults.ContentFiltering.AutoUpdate)
 
 	// Omnibox defaults
 	m.viper.SetDefault("omnibox.initial_behavior", defaults.Omnibox.InitialBehavior)

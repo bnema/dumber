@@ -145,9 +145,10 @@ type ColorPalette struct {
 type ContentFilteringConfig struct {
 	// Enabled controls whether ad blocking is active (default: true)
 	Enabled bool `mapstructure:"enabled" yaml:"enabled" toml:"enabled"`
-	// FilterLists URLs of filter lists to use (EasyList, uBlock, etc.)
-	FilterLists []string `mapstructure:"filter_lists" yaml:"filter_lists" toml:"filter_lists"`
-	// Note: Whitelist is now managed via database (content_whitelist table)
+	// AutoUpdate controls whether filters are automatically updated (default: true)
+	AutoUpdate bool `mapstructure:"auto_update" yaml:"auto_update" toml:"auto_update"`
+	// Note: Filters are downloaded from bnema/ublock-webkit-filters GitHub releases
+	// Note: Whitelist is managed via database (content_whitelist table)
 }
 
 // OmniboxConfig holds omnibox behavior preferences
