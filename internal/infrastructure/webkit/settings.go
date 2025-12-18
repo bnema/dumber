@@ -95,9 +95,27 @@ func (sm *SettingsManager) applySettings(ctx context.Context, settings *webkit.S
 	settings.SetEnableEncryptedMedia(true)
 	settings.SetMediaPlaybackRequiresUserGesture(true)
 	settings.SetMediaPlaybackAllowsInline(true)
-	// Force hardware decoding for video content via GStreamer VA-API/NVDEC
-	hwMediaTypes := "video/mp4;video/webm;video/x-h264;video/av01"
-	settings.SetMediaContentTypesRequiringHardwareSupport(&hwMediaTypes)
+
+	// Hardware decoding mode - THE FIX for Twitch Error #4000
+	// Default "auto" allows GStreamer to choose best decoder with software fallback
+	switch cfg.Media.HardwareDecodingMode {
+	case config.HardwareDecodingForce:
+		// Force hardware - will fail if unavailable (not recommended)
+		// Prioritize AV1 (most efficient codec) when user wants forced HW
+		hwTypes := "video/av01;video/mp4;video/webm;video/x-h264;video/x-h265"
+		settings.SetMediaContentTypesRequiringHardwareSupport(&hwTypes)
+		log.Debug().Msg("hardware decoding: forced (may fail without hw support)")
+	case config.HardwareDecodingDisable:
+		// Force software only
+		settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyNeverValue)
+		log.Debug().Msg("hardware decoding: disabled (software only)")
+	default: // HardwareDecodingAuto
+		// Empty string = let GStreamer choose best decoder with software fallback
+		// This fixes Twitch Error #4000 by allowing playback when HW unavailable
+		emptyTypes := ""
+		settings.SetMediaContentTypesRequiringHardwareSupport(&emptyTypes)
+		log.Debug().Msg("hardware decoding: auto (hw preferred, software fallback)")
+	}
 
 	// HTML5 storage
 	settings.SetEnableHtml5LocalStorage(true)
