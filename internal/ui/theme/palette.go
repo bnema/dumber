@@ -114,7 +114,7 @@ func (p Palette) Validate() error {
 	return nil
 }
 
-// ToCSSVars generates CSS custom property declarations.
+// ToCSSVars generates CSS custom property declarations for GTK.
 func (p Palette) ToCSSVars() string {
 	var sb strings.Builder
 	sb.WriteString("  --bg: " + p.Background + ";\n")
@@ -124,5 +124,28 @@ func (p Palette) ToCSSVars() string {
 	sb.WriteString("  --muted: " + p.Muted + ";\n")
 	sb.WriteString("  --accent: " + p.Accent + ";\n")
 	sb.WriteString("  --border: " + p.Border + ";\n")
+	return sb.String()
+}
+
+// ToWebCSSVars generates CSS custom properties for web UI (Tailwind compatibility).
+// Maps GTK palette names to Tailwind variable names used in the WebUI homepage.
+func (p Palette) ToWebCSSVars() string {
+	var sb strings.Builder
+	// Tailwind-compatible variables
+	sb.WriteString("  --background: " + p.Background + ";\n")
+	sb.WriteString("  --foreground: " + p.Text + ";\n")
+	sb.WriteString("  --card: " + p.Surface + ";\n")
+	sb.WriteString("  --card-foreground: " + p.Text + ";\n")
+	sb.WriteString("  --primary: " + p.Accent + ";\n")
+	sb.WriteString("  --primary-foreground: " + p.Background + ";\n")
+	sb.WriteString("  --muted: " + p.SurfaceVariant + ";\n")
+	sb.WriteString("  --muted-foreground: " + p.Muted + ";\n")
+	sb.WriteString("  --border: " + p.Border + ";\n")
+	// Keep GTK names for compatibility
+	sb.WriteString("  --bg: " + p.Background + ";\n")
+	sb.WriteString("  --surface: " + p.Surface + ";\n")
+	sb.WriteString("  --surface-variant: " + p.SurfaceVariant + ";\n")
+	sb.WriteString("  --text: " + p.Text + ";\n")
+	sb.WriteString("  --accent: " + p.Accent + ";\n")
 	return sb.String()
 }

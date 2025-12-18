@@ -136,6 +136,14 @@ func runGUI() {
 
 	settings := webkit.NewSettingsManager(ctx, cfg)
 	injector := webkit.NewContentInjector(themeManager.PrefersDark())
+
+	// Prepare theme CSS for WebUI pages (dumb://*)
+	prepareThemeUC := usecase.NewPrepareWebUIThemeUseCase(injector)
+	themeCSSVars := themeManager.GetCurrentPalette().ToWebCSSVars()
+	if err := prepareThemeUC.Execute(ctx, usecase.PrepareWebUIThemeInput{CSSVars: themeCSSVars}); err != nil {
+		logger.Warn().Err(err).Msg("failed to prepare WebUI theme CSS")
+	}
+
 	messageRouter := webkit.NewMessageRouter(ctx)
 	poolCfg := webkit.DefaultPoolConfig()
 	pool := webkit.NewWebViewPool(ctx, wkCtx, settings, poolCfg, injector, messageRouter)

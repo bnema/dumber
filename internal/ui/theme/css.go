@@ -99,7 +99,8 @@ button.tab-button:hover {
 }
 
 button.tab-button.tab-button-active {
-	background-color: shade(var(--surface-variant), 1.4);
+	background-color: shade(var(--surface-variant), 1.2);
+	border-bottom: 0.125em solid var(--accent);
 	font-weight: 600;
 }
 
@@ -353,7 +354,7 @@ button.stacked-pane-title-button {
 }
 
 button.stacked-pane-title-button:hover {
-	background-color: alpha(var(--accent), 0.15);
+	background-color: shade(var(--surface-variant), 1.15);
 }
 
 button.stacked-pane-title-button:focus {
@@ -363,7 +364,7 @@ button.stacked-pane-title-button:focus {
 
 /* Title bar content box */
 .stacked-pane-titlebar.active {
-	background-color: alpha(var(--accent), 0.1);
+	background-color: shade(var(--surface-variant), 1.2);
 	border-left: 0.1875em solid var(--accent);
 }
 

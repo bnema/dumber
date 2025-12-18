@@ -3,6 +3,7 @@ package webkit
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
@@ -14,6 +15,15 @@ const (
 	// MessageHandlerName is the name of the script message handler registered with WebKit.
 	MessageHandlerName = "dumber"
 )
+
+// themeCSSScript injects CSS custom properties into the page.
+// The %s placeholder is replaced with the CSS variable declarations (newlines escaped as \n).
+const themeCSSScript = `(function() {
+  var style = document.createElement('style');
+  style.setAttribute('data-dumber-theme', '');
+  style.textContent = ':root {%s}';
+  (document.head || document.documentElement).appendChild(style);
+})();`
 
 // darkModeScript patches window.matchMedia and sets theme class on <html>.
 // It must be injected at document start, after __dumber_gtk_prefers_dark is set.
@@ -75,9 +85,12 @@ const darkModeScript = `(function() {
 })();`
 
 // ContentInjector encapsulates script injection into WebViews.
-// It injects minimal scripts for dark mode detection in web pages.
+// It injects minimal scripts for dark mode detection in web pages
+// and theme CSS variables for internal pages (dumb://).
+// Implements port.ContentInjector interface.
 type ContentInjector struct {
-	prefersDark bool
+	prefersDark  bool
+	themeCSSVars string // CSS custom property declarations for WebUI
 }
 
 // NewContentInjector creates a new injector instance.
@@ -86,6 +99,16 @@ func NewContentInjector(prefersDark bool) *ContentInjector {
 	return &ContentInjector{
 		prefersDark: prefersDark,
 	}
+}
+
+// InjectThemeCSS stores CSS variables for injection into internal pages.
+// Implements port.ContentInjector interface.
+// The CSS will be injected when InjectScripts is called on WebView creation.
+func (ci *ContentInjector) InjectThemeCSS(ctx context.Context, css string) error {
+	log := logging.FromContext(ctx).With().Str("component", "content-injector").Logger()
+	ci.themeCSSVars = css
+	log.Debug().Int("css_len", len(css)).Msg("theme CSS vars set for injection")
+	return nil
 }
 
 // PrefersDark returns the current dark mode preference.
@@ -160,6 +183,24 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		),
 		"dark-mode-handler",
 	)
+
+	// 4. Inject theme CSS variables for internal pages (dumb://* only)
+	if ci.themeCSSVars != "" {
+		// Escape newlines for JS string literal
+		escapedCSS := strings.ReplaceAll(ci.themeCSSVars, "\n", "\\n")
+		themeCSSInjectionScript := fmt.Sprintf(themeCSSScript, escapedCSS)
+		addScript(
+			webkit.NewUserScript(
+				themeCSSInjectionScript,
+				webkit.UserContentInjectTopFrameValue,
+				webkit.UserScriptInjectAtDocumentEndValue,
+				nil, // Inject on all pages - allowlist patterns don't work for custom schemes
+				nil,
+			),
+			"theme-css-vars",
+		)
+		log.Debug().Msg("theme CSS vars injection configured")
+	}
 
 	log.Debug().Bool("prefers_dark", ci.prefersDark).Msg("minimal scripts injected")
 }
