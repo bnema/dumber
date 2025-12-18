@@ -133,7 +133,7 @@ func (uc *ManageTabsUseCase) Switch(ctx context.Context, tabs *entity.TabList, t
 	}
 
 	oldActive := tabs.ActiveTabID
-	tabs.ActiveTabID = tabID
+	tabs.SetActive(tabID) // Uses SetActive to track previous tab
 
 	log.Info().
 		Str("from", string(oldActive)).
@@ -256,6 +256,30 @@ func (uc *ManageTabsUseCase) SwitchByIndex(ctx context.Context, tabs *entity.Tab
 	}
 
 	return uc.Switch(ctx, tabs, tabs.Tabs[index].ID)
+}
+
+// SwitchToLastActive switches to the previously active tab (Alt+Tab style).
+func (uc *ManageTabsUseCase) SwitchToLastActive(ctx context.Context, tabs *entity.TabList) error {
+	log := logging.FromContext(ctx)
+
+	if tabs == nil {
+		return fmt.Errorf("tab list is required")
+	}
+
+	// If no previous tab recorded, do nothing
+	if tabs.PreviousActiveTabID == "" {
+		log.Debug().Msg("no previous active tab")
+		return nil
+	}
+
+	// Verify previous tab still exists
+	if tabs.Find(tabs.PreviousActiveTabID) == nil {
+		log.Debug().Str("prev_id", string(tabs.PreviousActiveTabID)).Msg("previous tab no longer exists")
+		tabs.PreviousActiveTabID = ""
+		return nil
+	}
+
+	return uc.Switch(ctx, tabs, tabs.PreviousActiveTabID)
 }
 
 // Pin toggles the pinned state of a tab.

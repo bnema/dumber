@@ -48,8 +48,9 @@ func (t *Tab) PaneCount() int {
 
 // TabList manages an ordered collection of tabs.
 type TabList struct {
-	Tabs        []*Tab
-	ActiveTabID TabID
+	Tabs                []*Tab
+	ActiveTabID         TabID
+	PreviousActiveTabID TabID // Tracks last active tab for Alt+Tab style switching
 }
 
 // NewTabList creates an empty tab list.
@@ -109,6 +110,22 @@ func (tl *TabList) ActiveTab() *Tab {
 // Count returns the number of tabs.
 func (tl *TabList) Count() int {
 	return len(tl.Tabs)
+}
+
+// SetActive sets the active tab and updates the previous active tab.
+func (tl *TabList) SetActive(id TabID) {
+	if id != tl.ActiveTabID && tl.ActiveTabID != "" {
+		tl.PreviousActiveTabID = tl.ActiveTabID
+	}
+	tl.ActiveTabID = id
+}
+
+// TabAt returns the tab at the given 0-based index.
+func (tl *TabList) TabAt(index int) *Tab {
+	if index < 0 || index >= len(tl.Tabs) {
+		return nil
+	}
+	return tl.Tabs[index]
 }
 
 // Move moves a tab to a new position.
