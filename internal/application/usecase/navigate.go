@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -13,9 +15,10 @@ import (
 
 // NavigateUseCase handles URL navigation with history recording and zoom application.
 type NavigateUseCase struct {
-	historyRepo repository.HistoryRepository
-	zoomRepo    repository.ZoomRepository
-	defaultZoom float64
+	historyRepo  repository.HistoryRepository
+	zoomRepo     repository.ZoomRepository
+	defaultZoom  float64
+	recentVisits sync.Map // key: url, value: time.Time - for deduplication
 }
 
 // NewNavigateUseCase creates a new navigation use case.
@@ -71,6 +74,11 @@ func (uc *NavigateUseCase) Execute(ctx context.Context, input NavigateInput) (*N
 	}, nil
 }
 
+// historyDeduplicationWindow is the time window for deduplicating history visits.
+// Visits to the same URL within this window count as a single visit.
+// This prevents inflation from redirects and rapid navigation.
+const historyDeduplicationWindow = 2 * time.Second
+
 // RecordHistory saves or updates the history entry.
 // Should be called on LoadCommitted when URI is guaranteed correct.
 func (uc *NavigateUseCase) RecordHistory(ctx context.Context, url string) {
@@ -78,6 +86,16 @@ func (uc *NavigateUseCase) RecordHistory(ctx context.Context, url string) {
 
 	// Normalize URL to avoid duplicates (e.g., github.com vs github.com/)
 	url = normalizeURLForHistory(url)
+
+	// Time-based deduplication: skip if same URL was recorded recently
+	now := time.Now()
+	if lastTime, ok := uc.recentVisits.Load(url); ok {
+		if now.Sub(lastTime.(time.Time)) < historyDeduplicationWindow {
+			log.Debug().Str("url", url).Msg("skipping duplicate history record within dedup window")
+			return
+		}
+	}
+	uc.recentVisits.Store(url, now)
 
 	// Check if entry exists
 	existing, err := uc.historyRepo.FindByURL(ctx, url)

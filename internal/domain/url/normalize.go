@@ -1,7 +1,10 @@
 // Package url provides URL manipulation utilities for the browser.
 package url
 
-import "strings"
+import (
+	"net/url"
+	"strings"
+)
 
 // Normalize adds https:// prefix if missing for URL-like inputs.
 // Returns the input unchanged if it already has a scheme or doesn't look like a URL.
@@ -40,4 +43,35 @@ func LooksLikeURL(input string) bool {
 	}
 	// Contains a dot and no spaces = likely a URL
 	return strings.Contains(input, ".") && !strings.Contains(input, " ")
+}
+
+// ExtractDomain extracts the normalized domain (host) from a URL string.
+// Normalizes by stripping "www." prefix so youtube.com and www.youtube.com
+// resolve to the same value.
+func ExtractDomain(rawURL string) string {
+	if rawURL == "" {
+		return ""
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed.Host == "" {
+		return ""
+	}
+	return strings.TrimPrefix(parsed.Host, "www.")
+}
+
+// SanitizeDomainForFilename converts a domain to a safe filename with .ico extension.
+// Replaces unsafe filesystem characters with underscores.
+func SanitizeDomainForFilename(domain string) string {
+	replacer := strings.NewReplacer(
+		":", "_",
+		"/", "_",
+		"\\", "_",
+		"*", "_",
+		"?", "_",
+		"\"", "_",
+		"<", "_",
+		">", "_",
+		"|", "_",
+	)
+	return replacer.Replace(domain) + ".ico"
 }

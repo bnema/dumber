@@ -9,10 +9,10 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
+	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
@@ -78,23 +78,6 @@ func NewFaviconCache(faviconDB *webkit.FaviconDatabase) *FaviconCache {
 	return fc
 }
 
-// extractDomain extracts the normalized domain (host) from a URL string.
-// Normalizes by stripping "www." prefix so youtube.com and www.youtube.com
-// resolve to the same cache key.
-func extractDomain(rawURL string) string {
-	if rawURL == "" {
-		return ""
-	}
-	parsed, err := url.Parse(rawURL)
-	if err != nil {
-		return ""
-	}
-	host := parsed.Host
-	// Normalize: strip www. prefix
-	host = strings.TrimPrefix(host, "www.")
-	return host
-}
-
 // Set stores a favicon texture for the given domain.
 func (fc *FaviconCache) Set(domain string, texture *gdk.Texture) {
 	if domain == "" || texture == nil {
@@ -107,7 +90,7 @@ func (fc *FaviconCache) Set(domain string, texture *gdk.Texture) {
 
 // SetByURL stores a favicon texture for the domain extracted from the URL.
 func (fc *FaviconCache) SetByURL(pageURL string, texture *gdk.Texture) {
-	domain := extractDomain(pageURL)
+	domain := domainurl.ExtractDomain(pageURL)
 	fc.Set(domain, texture)
 }
 
@@ -126,7 +109,7 @@ func (fc *FaviconCache) Get(domain string) *gdk.Texture {
 // GetByURL retrieves a favicon texture by extracting the domain from the URL.
 // Returns nil if not found in memory cache.
 func (fc *FaviconCache) GetByURL(pageURL string) *gdk.Texture {
-	domain := extractDomain(pageURL)
+	domain := domainurl.ExtractDomain(pageURL)
 	return fc.Get(domain)
 }
 
@@ -134,7 +117,7 @@ func (fc *FaviconCache) GetByURL(pageURL string) *gdk.Texture {
 // Returns nil if not found. Does not fetch from external sources.
 // If found on disk, also populates memory cache.
 func (fc *FaviconCache) GetFromCacheByURL(pageURL string) *gdk.Texture {
-	domain := extractDomain(pageURL)
+	domain := domainurl.ExtractDomain(pageURL)
 	if domain == "" {
 		return nil
 	}
@@ -163,7 +146,7 @@ func (fc *FaviconCache) GetOrFetch(ctx context.Context, pageURL string, callback
 	}
 
 	log := logging.FromContext(ctx)
-	domain := extractDomain(pageURL)
+	domain := domainurl.ExtractDomain(pageURL)
 
 	// Check in-memory cache first
 	if texture := fc.Get(domain); texture != nil {
@@ -315,22 +298,6 @@ func (fc *FaviconCache) Close() {
 	})
 }
 
-// sanitizeDomainForFilename converts a domain to a safe filename.
-func sanitizeDomainForFilename(domain string) string {
-	replacer := strings.NewReplacer(
-		":", "_",
-		"/", "_",
-		"\\", "_",
-		"*", "_",
-		"?", "_",
-		"\"", "_",
-		"<", "_",
-		">", "_",
-		"|", "_",
-	)
-	return replacer.Replace(domain) + ".ico"
-}
-
 // loadFromDisk attempts to load a favicon from disk cache.
 // Returns nil if not found or on error.
 func (fc *FaviconCache) loadFromDisk(domain string) *gdk.Texture {
@@ -338,7 +305,7 @@ func (fc *FaviconCache) loadFromDisk(domain string) *gdk.Texture {
 		return nil
 	}
 
-	filename := sanitizeDomainForFilename(domain)
+	filename := domainurl.SanitizeDomainForFilename(domain)
 	path := filepath.Join(fc.diskCacheDir, filename)
 
 	//nolint:gosec // path is constructed from sanitized domain, not user input
@@ -375,7 +342,7 @@ func (fc *FaviconCache) writeToDisk(domain string, data []byte) {
 		return
 	}
 
-	filename := sanitizeDomainForFilename(domain)
+	filename := domainurl.SanitizeDomainForFilename(domain)
 	finalPath := filepath.Join(fc.diskCacheDir, filename)
 	tempPath := finalPath + ".tmp"
 

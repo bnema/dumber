@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
 	"github.com/bnema/dumber/internal/cli/model"
+	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 )
 
@@ -75,6 +77,25 @@ func getDmenuConfig() config.DmenuConfig {
 	return cfg
 }
 
+// getFaviconPath returns the path to a cached favicon for the given URL.
+// Returns empty string if the favicon doesn't exist in cache.
+func getFaviconPath(rawURL string) string {
+	cacheDir, err := config.GetFaviconCacheDir()
+	if err != nil {
+		return ""
+	}
+	domain := domainurl.ExtractDomain(rawURL)
+	if domain == "" {
+		return ""
+	}
+	filename := domainurl.SanitizeDomainForFilename(domain)
+	path := filepath.Join(cacheDir, filename)
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	return ""
+}
+
 // runDmenuPipe outputs history entries for launcher consumption.
 func runDmenuPipe() error {
 	app := GetApp()
@@ -113,7 +134,13 @@ func runDmenuPipe() error {
 
 		// Output with URL as the actual value (for selection)
 		// Using tab separator so rofi can use -d '\t'
-		fmt.Printf("%s\t%s\n", parts[0], entry.URL)
+		// Format: EntryName\0icon\x1f/path/to/favicon\tURL (rofi/fuzzel compatible)
+		faviconPath := getFaviconPath(entry.URL)
+		if faviconPath != "" {
+			fmt.Printf("%s\x00icon\x1f%s\t%s\n", parts[0], faviconPath, entry.URL)
+		} else {
+			fmt.Printf("%s\t%s\n", parts[0], entry.URL)
+		}
 	}
 
 	return nil
@@ -168,10 +195,15 @@ func runDmenuInteractive() error {
 	return nil
 }
 
-// openInBrowser opens a URL in the default browser.
+// openInBrowser opens a URL in dumber browser.
 func openInBrowser(url string) error {
-	// Try xdg-open first (Linux)
-	cmd := newCommand("xdg-open", url)
+	// Use the current executable to open in dumber
+	executable, err := os.Executable()
+	if err != nil {
+		// Fallback to searching PATH
+		executable = "dumber"
+	}
+	cmd := newCommand(executable, "browse", url)
 	return cmd.Start()
 }
 
