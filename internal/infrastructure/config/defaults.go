@@ -186,6 +186,11 @@ func DefaultConfig() *Config {
 		Omnibox: OmniboxConfig{
 			InitialBehavior: defaultOmniboxInitialBehavior,
 		},
+		Media: MediaConfig{
+			HardwareDecodingMode:     HardwareDecodingAuto, // THE FIX: auto allows sw fallback
+			PreferAV1:                true,                 // AV1 is most efficient codec
+			ShowDiagnosticsOnStartup: true,                 // Warn users if HW accel unavailable
+		},
 	}
 }
 

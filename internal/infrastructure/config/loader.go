@@ -146,6 +146,18 @@ func (m *Manager) Load() error {
 		config.Appearance.ColorScheme = ThemeDefault
 	}
 
+	// Validate Media.HardwareDecodingMode using switch statement
+	switch strings.ToLower(string(config.Media.HardwareDecodingMode)) {
+	case "", string(HardwareDecodingAuto):
+		config.Media.HardwareDecodingMode = HardwareDecodingAuto
+	case string(HardwareDecodingForce):
+		config.Media.HardwareDecodingMode = HardwareDecodingForce
+	case string(HardwareDecodingDisable):
+		config.Media.HardwareDecodingMode = HardwareDecodingDisable
+	default:
+		config.Media.HardwareDecodingMode = HardwareDecodingAuto
+	}
+
 	// Validate all config values
 	if err := validateConfig(config); err != nil {
 		return fmt.Errorf("configuration validation failed: %w", err)
@@ -277,6 +289,11 @@ func (m *Manager) setDefaults() {
 
 	// Omnibox defaults
 	m.viper.SetDefault("omnibox.initial_behavior", defaults.Omnibox.InitialBehavior)
+
+	// Media defaults
+	m.viper.SetDefault("media.hardware_decoding", string(defaults.Media.HardwareDecodingMode))
+	m.viper.SetDefault("media.prefer_av1", defaults.Media.PreferAV1)
+	m.viper.SetDefault("media.show_diagnostics", defaults.Media.ShowDiagnosticsOnStartup)
 }
 
 // New returns a new default configuration instance.

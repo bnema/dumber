@@ -23,6 +23,8 @@ type Config struct {
 	ContentFiltering ContentFilteringConfig `mapstructure:"content_filtering" yaml:"content_filtering" toml:"content_filtering"`
 	// Omnibox controls the omnibox behavior (initial history display)
 	Omnibox OmniboxConfig `mapstructure:"omnibox" yaml:"omnibox" toml:"omnibox"`
+	// Media controls video playback and hardware acceleration
+	Media MediaConfig `mapstructure:"media" yaml:"media" toml:"media"`
 }
 
 // RenderingMode selects GPU vs CPU rendering.
@@ -34,8 +36,31 @@ const (
 	RenderingModeCPU  RenderingMode = "cpu"
 )
 
+// HardwareDecodingMode controls video hardware acceleration.
+type HardwareDecodingMode string
+
+const (
+	// HardwareDecodingAuto lets GStreamer choose (hw preferred, sw fallback)
+	HardwareDecodingAuto HardwareDecodingMode = "auto"
+	// HardwareDecodingForce requires hardware decoding (fails if unavailable)
+	HardwareDecodingForce HardwareDecodingMode = "force"
+	// HardwareDecodingDisable uses software decoding only
+	HardwareDecodingDisable HardwareDecodingMode = "disable"
+)
+
 // ThemeDefault is the default theme setting (follows system).
 const ThemeDefault = "default"
+
+// MediaConfig holds video playback and hardware acceleration preferences.
+type MediaConfig struct {
+	// HardwareDecodingMode controls hardware vs software video decoding
+	// Values: "auto" (default), "force", "disable"
+	HardwareDecodingMode HardwareDecodingMode `mapstructure:"hardware_decoding" yaml:"hardware_decoding" toml:"hardware_decoding"`
+	// PreferAV1 prioritizes AV1 codec (most efficient) when available
+	PreferAV1 bool `mapstructure:"prefer_av1" yaml:"prefer_av1" toml:"prefer_av1"`
+	// ShowDiagnosticsOnStartup shows media capability warnings at startup
+	ShowDiagnosticsOnStartup bool `mapstructure:"show_diagnostics" yaml:"show_diagnostics" toml:"show_diagnostics"`
+}
 
 // DatabaseConfig holds database-related configuration.
 type DatabaseConfig struct {
