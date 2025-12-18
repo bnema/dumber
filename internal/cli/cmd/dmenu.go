@@ -107,7 +107,7 @@ func runDmenuPipe() error {
 		return fmt.Errorf("get history: %w", err)
 	}
 
-	// Output in rofi-compatible format
+	// Output in rofi/fuzzel compatible format
 	for _, entry := range entries {
 		title := entry.Title
 		if title == "" {
@@ -119,27 +119,23 @@ func runDmenuPipe() error {
 			title = title[:77] + "..."
 		}
 
-		// Build output line based on config
-		var parts []string
-		parts = append(parts, cfg.HistoryPrefix+" "+title)
-
-		if cfg.ShowVisitCount && entry.VisitCount > 0 {
-			parts[0] = fmt.Sprintf("%s (%d)", parts[0], entry.VisitCount)
-		}
-
-		if cfg.ShowLastVisited && !entry.LastVisited.IsZero() {
-			dateStr := entry.LastVisited.Format(cfg.DateFormat)
-			parts[0] = fmt.Sprintf("%s [%s]", parts[0], dateStr)
-		}
-
-		// Output with URL as the actual value (for selection)
-		// Using tab separator so rofi can use -d '\t'
-		// Format: EntryName\0icon\x1f/path/to/favicon\tURL (rofi/fuzzel compatible)
+		// Check if we have a favicon
 		faviconPath := getFaviconPath(entry.URL)
+
+		// Build display text
+		var displayText string
 		if faviconPath != "" {
-			fmt.Printf("%s\x00icon\x1f%s\t%s\n", parts[0], faviconPath, entry.URL)
+			displayText = title
 		} else {
-			fmt.Printf("%s\t%s\n", parts[0], entry.URL)
+			displayText = cfg.HistoryPrefix + " " + title
+		}
+
+		// Format: "DisplayText\0icon\x1f/path\x1finfo\x1fURL\n"
+		// Using info field to store URL for selection
+		if faviconPath != "" {
+			fmt.Printf("%s\x00icon\x1f%s\x1finfo\x1f%s\n", displayText, faviconPath, entry.URL)
+		} else {
+			fmt.Printf("%s\x00info\x1f%s\n", displayText, entry.URL)
 		}
 	}
 
@@ -159,19 +155,44 @@ func runDmenuSelect() error {
 		return nil // No selection
 	}
 
-	// If the line contains a tab, the URL is after it
-	// Otherwise, try to extract URL or use the whole line
-	url := line
-	if idx := strings.Index(line, "\t"); idx != -1 {
-		url = strings.TrimSpace(line[idx+1:])
-	}
-
-	// Try to open the URL
+	url := parseSelection(line)
 	if url != "" {
 		return openInBrowser(url)
 	}
 
 	return nil
+}
+
+// parseSelection extracts the URL from a dmenu selection.
+func parseSelection(selection string) string {
+	selection = strings.TrimSpace(selection)
+
+	// Extract info field if present (format: "text\0...info\x1fURL")
+	if infoIndex := strings.Index(selection, "info\x1f"); infoIndex > 0 {
+		info := selection[infoIndex+5:] // Skip "info\x1f"
+		// Info might have more fields after, but URL should be first
+		if endIndex := strings.Index(info, "\x1f"); endIndex > 0 {
+			return strings.TrimSpace(info[:endIndex])
+		}
+		return strings.TrimSpace(info)
+	}
+
+	// Strip metadata if present (format: "text\0...")
+	if nullIndex := strings.Index(selection, "\x00"); nullIndex > 0 {
+		selection = selection[:nullIndex]
+	}
+
+	// Legacy: strip emoji prefix if present
+	selection = strings.TrimPrefix(selection, "🕒 ")
+	selection = strings.TrimPrefix(selection, "🔍 ")
+	selection = strings.TrimPrefix(selection, "🌐 ")
+
+	// If it looks like a URL, return it
+	if strings.Contains(selection, "://") || strings.Contains(selection, ".") {
+		return selection
+	}
+
+	return selection
 }
 
 // runDmenuInteractive runs the interactive TUI dmenu.
