@@ -25,6 +25,8 @@ type Config struct {
 	Omnibox OmniboxConfig `mapstructure:"omnibox" yaml:"omnibox" toml:"omnibox"`
 	// Media controls video playback and hardware acceleration
 	Media MediaConfig `mapstructure:"media" yaml:"media" toml:"media"`
+	// Runtime configures optional runtime overrides (e.g., /opt prefix for WebKitGTK/GTK).
+	Runtime RuntimeConfig `mapstructure:"runtime" yaml:"runtime" toml:"runtime"`
 }
 
 // RenderingMode selects GPU vs CPU rendering.
@@ -60,6 +62,13 @@ type MediaConfig struct {
 	PreferAV1 bool `mapstructure:"prefer_av1" yaml:"prefer_av1" toml:"prefer_av1"`
 	// ShowDiagnosticsOnStartup shows media capability warnings at startup
 	ShowDiagnosticsOnStartup bool `mapstructure:"show_diagnostics" yaml:"show_diagnostics" toml:"show_diagnostics"`
+}
+
+// RuntimeConfig holds optional runtime overrides.
+type RuntimeConfig struct {
+	// Prefix points to a custom runtime prefix (e.g., /opt/webkitgtk).
+	// This is used to influence pkg-config lookup and dynamic library loading.
+	Prefix string `mapstructure:"prefix" yaml:"prefix" toml:"prefix"`
 }
 
 // DatabaseConfig holds database-related configuration.

@@ -158,6 +158,9 @@ func (m *Manager) Load() error {
 		config.Media.HardwareDecodingMode = HardwareDecodingAuto
 	}
 
+	// Normalize runtime prefix
+	config.Runtime.Prefix = strings.TrimSpace(config.Runtime.Prefix)
+
 	// Validate all config values
 	if err := validateConfig(config); err != nil {
 		return fmt.Errorf("configuration validation failed: %w", err)
@@ -293,6 +296,9 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("media.hardware_decoding", string(defaults.Media.HardwareDecodingMode))
 	m.viper.SetDefault("media.prefer_av1", defaults.Media.PreferAV1)
 	m.viper.SetDefault("media.show_diagnostics", defaults.Media.ShowDiagnosticsOnStartup)
+
+	// Runtime defaults
+	m.viper.SetDefault("runtime.prefix", defaults.Runtime.Prefix)
 }
 
 // New returns a new default configuration instance.

@@ -118,8 +118,10 @@ Prerequisites:
 - Go 1.25+
 - Node.js 20+ and npm (for building the embedded TypeScript frontend)
 - For GUI build: WebKitGTK 6 and GTK4 dev packages (examples)
+  - Minimum runtime versions: WebKitGTK 6.0 >= `2.50`, GTK4 >= `4.20`, GLib >= `2.84`
   - Debian/Ubuntu: `libwebkitgtk-6.0-dev libgtk-4-dev build-essential`
   - Arch: `webkitgtk-6.0 gtk4 base-devel`
+  - Verify your system with: `dumber doctor` (or configure `runtime.prefix` for `/opt` installs)
 
 Build options:
 - GUI (default, recommended):
@@ -191,8 +193,10 @@ sudo apt install va-driver-all
 - Go 1.25+
 - Node.js 20+ and npm (for building the embedded TypeScript frontend)
 - WebKitGTK 6 and GTK4 dev packages:
+  - Minimum runtime versions: WebKitGTK 6.0 >= `2.50`, GTK4 >= `4.20`, GLib >= `2.84`
   - Debian/Ubuntu: `libwebkitgtk-6.0-dev libgtk-4-dev build-essential`
   - Arch: `webkitgtk-6.0 gtk4 base-devel`
+  - Verify your system with: `dumber doctor` (or configure `runtime.prefix` for `/opt` installs)
 
 **Build options:**
 - GUI build (default, recommended):

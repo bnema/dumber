@@ -292,7 +292,25 @@ show_diagnostics = true     # Log warnings if HW accel unavailable
 **Diagnostics CLI:**
 ```bash
 # Check GStreamer plugins and VA-API status
-dumber media
+dumber doctor --media
+```
+
+## Runtime
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `runtime.prefix` | string | `""` | Optional runtime prefix (e.g., `/opt/webkitgtk`) used to locate newer GTK/WebKitGTK installs |
+
+If set, dumber prepends prefix-derived paths to:
+- `PKG_CONFIG_PATH` (for version checks)
+- `LD_LIBRARY_PATH` (for runtime library loading)
+- `GI_TYPELIB_PATH` (GObject introspection)
+- `XDG_DATA_DIRS` (schemas/resources)
+
+**Example:**
+```toml
+[runtime]
+prefix = "/opt/webkitgtk"
 ```
 
 ## Content Filtering

@@ -185,6 +185,9 @@ func DefaultConfig() *Config {
 			PreferAV1:                true,                 // AV1 is most efficient codec
 			ShowDiagnosticsOnStartup: true,                 // Warn users if HW accel unavailable
 		},
+		Runtime: RuntimeConfig{
+			Prefix: "",
+		},
 	}
 }
 

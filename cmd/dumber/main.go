@@ -13,6 +13,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/build"
 	"github.com/bnema/dumber/internal/infrastructure/clipboard"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/deps"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/infrastructure/media"
@@ -70,6 +71,9 @@ func runGUI() {
 
 	cfg := config.Get()
 
+	// Apply optional /opt-style runtime prefix overrides (if configured)
+	deps.ApplyPrefixEnv(cfg.Runtime.Prefix)
+
 	// Generate session ID for this browser run
 	sessionID := logging.GenerateSessionID()
 
@@ -103,6 +107,36 @@ func runGUI() {
 
 	// Create root context with logger
 	ctx := logging.WithContext(context.Background(), logger)
+
+	// Verify runtime requirements (GTK4/WebKitGTK) before creating any WebKit objects
+	probe := deps.NewPkgConfigProbe()
+	checkRuntimeUC := usecase.NewCheckRuntimeDependenciesUseCase(probe)
+	runtimeOut, err := checkRuntimeUC.Execute(ctx, usecase.CheckRuntimeDependenciesInput{
+		Prefix: cfg.Runtime.Prefix,
+	})
+	if err != nil {
+		logger.Fatal().Err(err).Msg("runtime requirements check failed")
+	}
+	if !runtimeOut.OK {
+		for _, c := range runtimeOut.Checks {
+			if c.Installed {
+				logger.Error().
+					Str("dependency", c.PkgConfigName).
+					Str("have", c.Version).
+					Str("need", c.RequiredVersion).
+					Bool("ok", c.MeetsRequirement).
+					Msg("runtime dependency")
+			} else {
+				logger.Error().
+					Str("dependency", c.PkgConfigName).
+					Str("need", c.RequiredVersion).
+					Msg("runtime dependency missing")
+			}
+		}
+		logger.Fatal().
+			Str("hint", "Run: dumber doctor (and set runtime.prefix for /opt installs)").
+			Msg("runtime requirements not met")
+	}
 
 	// Check media playback requirements (GStreamer/VA-API)
 	mediaDiagAdapter := media.New()
