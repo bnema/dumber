@@ -210,9 +210,9 @@ sudo apt install va-driver-all
   - `dumber browse g:golang`           # Google search via shortcut
 - Show version information:
   - `dumber version`                   # display version, commit, and build date
-- Launcher integration (dmenu‑style examples):
-  - rofi:   `dumber dmenu | rofi -dmenu -p "🔍 " | dumber dmenu --select`
-  - fuzzel: `dumber dmenu | fuzzel --dmenu -p "🔍 " | dumber dmenu --select`
+- Launcher integration (dmenu‑style examples with favicon support):
+  - rofi:   `dumber dmenu | rofi -dmenu -show-icons -p "🔍 " | dumber dmenu --select`
+  - fuzzel: `dumber dmenu | fuzzel --dmenu --with-icons -p "🔍 " | dumber dmenu --select`
 - Manage browsing history:
   - `dumber history`                  # list recent history (default: 20 entries)
   - `dumber history list -n 50`       # list 50 recent entries
