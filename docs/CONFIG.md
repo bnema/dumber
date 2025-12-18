@@ -68,16 +68,30 @@ description = "YouTube"
 
 ## Dmenu / Launcher
 
+These settings control the `dumber dmenu` CLI command for rofi/fuzzel integration.
+
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `dmenu.max_history_items` | int | `20` | Max items shown in launcher |
-| `dmenu.show_visit_count` | bool | `true` | Show visit counts |
-| `dmenu.show_last_visited` | bool | `true` | Show last visited dates |
+| `dmenu.show_visit_count` | bool | `true` | Show visit counts in output |
+| `dmenu.show_last_visited` | bool | `true` | Show last visited dates in output |
 | `dmenu.history_prefix` | string | `"🕒"` | Prefix for history items |
 | `dmenu.shortcut_prefix` | string | `"🔍"` | Prefix for shortcuts |
 | `dmenu.url_prefix` | string | `"🌐"` | Prefix for URLs |
 | `dmenu.date_format` | string | `"2006-01-02 15:04"` | Go time format string |
 | `dmenu.sort_by_visit_count` | bool | `true` | Sort by popularity |
+
+**CLI Usage:**
+```bash
+# Pipe mode (default) - outputs history for rofi/fuzzel
+dumber dmenu | rofi -dmenu -p "Browse: " | dumber dmenu --select
+
+# Interactive TUI mode
+dumber dmenu --interactive
+
+# Override max items via CLI flag
+dumber dmenu --max 50
+```
 
 ## Omnibox
 
@@ -101,19 +115,10 @@ initial_behavior = "recent"  # Show recent history when omnibox opens
 |-----|------|---------|--------------|-------------|
 | `logging.level` | string | `"info"` | `debug`, `info`, `warn`, `error` | Log level |
 | `logging.format` | string | `"text"` | `text`, `json` | Log format |
-| `logging.filename` | string | `""` | any | Empty = stdout |
-| `logging.max_size` | int | `100` | > 0 | Max log size in MB |
-| `logging.max_backups` | int | `3` | >= 0 | Number of log backups |
 | `logging.max_age` | int | `7` | >= 0 | Days to keep logs |
-| `logging.compress` | bool | `true` | - | Compress old logs |
 | `logging.log_dir` | string | `~/.local/state/dumber/logs/` | any | Log directory |
 | `logging.enable_file_log` | bool | `true` | - | Enable file logging |
-| `logging.capture_stdout` | bool | `false` | - | Capture stdout to log |
-| `logging.capture_stderr` | bool | `false` | - | Capture stderr to log |
-| `logging.capture_c_output` | bool | `false` | - | Capture C/CGO output |
-| `logging.capture_console` | bool | `false` | - | Capture browser console |
-| `logging.debug_file` | string | `"debug.log"` | any | Debug log filename |
-| `logging.verbose_webkit` | bool | `false` | - | Verbose WebKit logs |
+| `logging.capture_console` | bool | `false` | - | Capture browser console to logs |
 
 ## Appearance
 
@@ -151,48 +156,11 @@ accent = "#a8a8a8"
 border = "#363636"
 ```
 
-## Video Acceleration
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `video_acceleration.enable_vaapi` | bool | `true` | Enable VA-API hardware accel |
-| `video_acceleration.auto_detect_gpu` | bool | `true` | Auto-detect GPU driver |
-| `video_acceleration.vaapi_driver_name` | string | `""` | Driver name (auto-detected) |
-| `video_acceleration.enable_all_drivers` | bool | `true` | Enable all VA-API drivers |
-| `video_acceleration.legacy_vaapi` | bool | `false` | Legacy VA-API mode |
-
-## Codec Preferences
-
-| Key | Type | Default | Valid Values | Description |
-|-----|------|---------|--------------|-------------|
-| `codec_preferences.preferred_codecs` | string | `"av1,h264"` | Comma-separated | Codec priority order |
-| `codec_preferences.force_av1` | bool | `false` | - | Force AV1 codec |
-| `codec_preferences.block_vp9` | bool | `false` | - | Block VP9 codec |
-| `codec_preferences.block_vp8` | bool | `false` | - | Block VP8 codec |
-| `codec_preferences.av1_hardware_only` | bool | `false` | - | Disable AV1 software fallback |
-| `codec_preferences.disable_vp9_hardware` | bool | `false` | - | Disable VP9 hardware accel |
-| `codec_preferences.video_buffer_size_mb` | int | `64` | > 0 | Video buffer size in MB |
-| `codec_preferences.queue_buffer_time_sec` | int | `20` | > 0 | Queue buffer time in seconds |
-| `codec_preferences.custom_user_agent` | string | Chrome UA | any | Custom user agent string |
-| `codec_preferences.av1_max_resolution` | string | `"1080p"` | `720p`, `1080p`, `1440p`, `4k`, `unlimited` | Max AV1 resolution |
-| `codec_preferences.disable_twitch_codec_control` | bool | `true` | - | Disable codec control on Twitch |
-
 ## Debug Options
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `debug.enable_webkit_debug` | bool | `false` | Enable WebKit debug logs |
-| `debug.webkit_debug_categories` | string | `"Network:preconnectTo,ContentFilters"` | Debug categories |
-| `debug.enable_filtering_debug` | bool | `false` | Content filter debug |
-| `debug.enable_webview_debug` | bool | `false` | WebView state debug |
-| `debug.log_webkit_crashes` | bool | `true` | Log WebKit crashes |
-| `debug.enable_script_debug` | bool | `false` | Script injection debug |
-| `debug.enable_general_debug` | bool | `false` | General debug mode |
-| `debug.enable_workspace_debug` | bool | `false` | Workspace navigation debug |
-| `debug.enable_focus_debug` | bool | `false` | Focus state debug |
-| `debug.enable_css_debug` | bool | `false` | CSS reconciler debug |
-| `debug.enable_focus_metrics` | bool | `false` | Focus metrics tracking |
-| `debug.enable_pane_close_debug` | bool | `false` | Pane close debug |
+| `debug.enable_devtools` | bool | `true` | Enable browser developer tools (F12, Inspect Element) |
 
 ## Rendering & Zoom
 
@@ -287,19 +255,9 @@ cancel = ["escape"]
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `content_filtering.enabled` | bool | `true` | Enable ad blocking |
-| `content_filtering.whitelist` | array | See below | Domains to skip ad blocking |
 | `content_filtering.filter_lists` | array | See below | Filter list URLs to use |
 
-**Default whitelist:**
-```toml
-[content_filtering]
-enabled = true
-whitelist = [
-  "twitch.tv",
-  "passport.twitch.tv",
-  "gql.twitch.tv"
-]
-```
+> **Note:** Domain whitelist is managed via the database (`content_whitelist` table), not the config file.
 
 **Default filter lists:**
 ```toml
@@ -329,20 +287,17 @@ filter_lists = [
 
 ## Environment Variables
 
-All config values can be overridden via environment variables with the prefix `DUMB_BROWSER_`:
+All config values can be overridden via environment variables with the prefix `DUMBER_`:
 
 ```bash
 # Database
-DUMB_BROWSER_DATABASE_PATH=/custom/path/db.sqlite
+DUMBER_DATABASE_PATH=/custom/path/db.sqlite
 
 # Rendering
 DUMBER_RENDERING_MODE=cpu
-DUMBER_DEFAULT_ZOOM=1.5
+DUMBER_DEFAULT_WEBPAGE_ZOOM=1.5
 
-# Video/Codec
-DUMBER_VIDEO_ACCELERATION_ENABLE=true
-LIBVA_DRIVER_NAME=iHD
-DUMBER_PREFERRED_CODECS=av1,vp9,h264
+# Logging
+DUMBER_LOG_LEVEL=debug
+DUMBER_LOG_FORMAT=json
 ```
-
-**Note:** Some video/codec env vars use `DUMBER_*` prefix and match GStreamer/VA-API conventions.

@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bnema/dumber/internal/cli/model"
+	"github.com/bnema/dumber/internal/infrastructure/config"
 )
 
 var (
@@ -38,7 +39,7 @@ func init() {
 
 	dmenuCmd.Flags().BoolVarP(&dmenuInteractive, "interactive", "i", false, "use interactive TUI mode")
 	dmenuCmd.Flags().BoolVar(&dmenuSelect, "select", false, "process selection from stdin")
-	dmenuCmd.Flags().IntVar(&dmenuMax, "max", 100, "maximum entries to output")
+	dmenuCmd.Flags().IntVar(&dmenuMax, "max", 0, "maximum entries to output (default from config)")
 }
 
 func runDmenu(cmd *cobra.Command, args []string) error {
@@ -61,18 +62,31 @@ func runDmenu(cmd *cobra.Command, args []string) error {
 	return runDmenuPipe()
 }
 
+// getDmenuConfig returns the dmenu configuration, with CLI flag overrides.
+func getDmenuConfig() config.DmenuConfig {
+	app := GetApp()
+	cfg := app.Config.Dmenu
+
+	// Override max if explicitly set via CLI flag
+	if dmenuMax > 0 {
+		cfg.MaxHistoryItems = dmenuMax
+	}
+
+	return cfg
+}
+
 // runDmenuPipe outputs history entries for launcher consumption.
 func runDmenuPipe() error {
 	app := GetApp()
 	ctx := context.Background()
+	cfg := getDmenuConfig()
 
-	entries, err := app.SearchHistoryUC.GetRecent(ctx, dmenuMax, 0)
+	entries, err := app.SearchHistoryUC.GetRecent(ctx, cfg.MaxHistoryItems, 0)
 	if err != nil {
 		return fmt.Errorf("get history: %w", err)
 	}
 
-	// Output in rofi-compatible format with icon hints
-	// Format: text\0icon\x1ficonpath
+	// Output in rofi-compatible format
 	for _, entry := range entries {
 		title := entry.Title
 		if title == "" {
@@ -84,9 +98,22 @@ func runDmenuPipe() error {
 			title = title[:77] + "..."
 		}
 
+		// Build output line based on config
+		var parts []string
+		parts = append(parts, cfg.HistoryPrefix+" "+title)
+
+		if cfg.ShowVisitCount && entry.VisitCount > 0 {
+			parts[0] = fmt.Sprintf("%s (%d)", parts[0], entry.VisitCount)
+		}
+
+		if cfg.ShowLastVisited && !entry.LastVisited.IsZero() {
+			dateStr := entry.LastVisited.Format(cfg.DateFormat)
+			parts[0] = fmt.Sprintf("%s [%s]", parts[0], dateStr)
+		}
+
 		// Output with URL as the actual value (for selection)
 		// Using tab separator so rofi can use -d '\t'
-		fmt.Printf("%s\t%s\n", title, entry.URL)
+		fmt.Printf("%s\t%s\n", parts[0], entry.URL)
 	}
 
 	return nil
