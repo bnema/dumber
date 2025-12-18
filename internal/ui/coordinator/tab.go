@@ -136,10 +136,7 @@ func (c *TabCoordinator) SwitchNext(ctx context.Context) error {
 		c.mainWindow.TabBar().SetActive(c.tabs.ActiveTabID)
 	}
 
-	// Switch workspace view
-	if c.onTabCreated != nil {
-		// TODO: Add onTabSwitched callback for workspace view switching
-	}
+	// TODO: Add onTabSwitched callback for workspace view switching
 
 	log.Debug().Str("tab_id", string(c.tabs.ActiveTabID)).Msg("switched to next tab")
 	return nil

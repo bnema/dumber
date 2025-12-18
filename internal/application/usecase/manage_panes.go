@@ -649,14 +649,15 @@ func (uc *ManagePanesUseCase) AddToStack(ctx context.Context, ws *entity.Workspa
 // direction: NavUp for previous, NavDown for next.
 func (uc *ManagePanesUseCase) NavigateStack(ctx context.Context, stackNode *entity.PaneNode, direction NavigateDirection) (*entity.Pane, error) {
 	log := logging.FromContext(ctx)
-	log.Debug().
-		Str("stack_id", stackNode.ID).
-		Str("direction", string(direction)).
-		Msg("navigating stack")
 
 	if stackNode == nil {
 		return nil, fmt.Errorf("stack node is required")
 	}
+
+	log.Debug().
+		Str("stack_id", stackNode.ID).
+		Str("direction", string(direction)).
+		Msg("navigating stack")
 	if !stackNode.IsStacked {
 		return nil, fmt.Errorf("node is not a stack")
 	}
@@ -712,14 +713,15 @@ func (uc *ManagePanesUseCase) NavigateStack(ctx context.Context, stackNode *enti
 // If only one pane remains, the stack is dissolved.
 func (uc *ManagePanesUseCase) RemoveFromStack(ctx context.Context, stackNode *entity.PaneNode, paneID entity.PaneID) error {
 	log := logging.FromContext(ctx)
-	log.Debug().
-		Str("stack_id", stackNode.ID).
-		Str("pane_id", string(paneID)).
-		Msg("removing pane from stack")
 
 	if stackNode == nil {
 		return fmt.Errorf("stack node is required")
 	}
+
+	log.Debug().
+		Str("stack_id", stackNode.ID).
+		Str("pane_id", string(paneID)).
+		Msg("removing pane from stack")
 	if !stackNode.IsStacked {
 		return fmt.Errorf("node is not a stack")
 	}

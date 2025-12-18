@@ -174,12 +174,6 @@ func (o *Omnibox) WidgetAsLayout(factory layout.WidgetFactory) layout.Widget {
 	return factory.WrapWidget(&o.outerBox.Widget)
 }
 
-// updateSize sets the omnibox size based on parent window dimensions.
-// Deprecated: use resizeAndCenter with row count instead.
-func (o *Omnibox) updateSize() {
-	o.resizeAndCenter(omniboxMaxResults)
-}
-
 // resizeAndCenter adjusts the omnibox size based on content and centers it.
 // rowCount is the number of result rows to display (0 = no content, max 10).
 func (o *Omnibox) resizeAndCenter(rowCount int) {

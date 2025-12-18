@@ -2,7 +2,6 @@ package model
 
 import (
 	"context"
-	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -133,21 +132,3 @@ func (m CleanupModel) View() string {
 
 // Ensure interface compliance.
 var _ tea.Model = (*CleanupModel)(nil)
-
-// rangeLabelFor returns a human-readable label for cleanup range.
-func rangeLabelFor(r styles.CleanupRange) string {
-	switch r {
-	case styles.CleanupRangeLastHour:
-		return "last hour"
-	case styles.CleanupRangeLast24Hours:
-		return "last 24 hours"
-	case styles.CleanupRangeLast7Days:
-		return "last 7 days"
-	case styles.CleanupRangeLast30Days:
-		return "last 30 days"
-	case styles.CleanupRangeAll:
-		return "all time"
-	default:
-		return fmt.Sprintf("range %d", r)
-	}
-}

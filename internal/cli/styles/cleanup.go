@@ -133,7 +133,7 @@ func (m CleanupModel) View() string {
 	t := m.theme
 
 	// Build header
-	header := t.Title.Copy().
+	header := t.Title.
 		Foreground(t.Error).
 		Render("Clear History")
 

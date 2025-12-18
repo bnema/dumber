@@ -106,8 +106,8 @@ func (d HistoryDelegate) Render(w io.Writer, m list.Model, index int, item list.
 	urlStyle := t.ListItemDesc
 
 	if isSelected {
-		titleStyle = titleStyle.Copy().Foreground(t.Accent).Bold(true)
-		urlStyle = urlStyle.Copy().Foreground(t.Text)
+		titleStyle = titleStyle.Foreground(t.Accent).Bold(true)
+		urlStyle = urlStyle.Foreground(t.Text)
 	}
 
 	// First line: cursor + title
