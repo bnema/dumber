@@ -297,6 +297,19 @@ func (c *ContentCoordinator) RegisterPopupWebView(paneID entity.PaneID, wv *webk
 	}
 }
 
+// ApplyFiltersToAll applies content filters to all active webviews.
+// Called when filters become available after webviews were already created.
+func (c *ContentCoordinator) ApplyFiltersToAll(ctx context.Context, applier webkit.FilterApplier) {
+	log := logging.FromContext(ctx)
+
+	for paneID, wv := range c.webViews {
+		if wv != nil && !wv.IsDestroyed() {
+			applier.ApplyTo(ctx, wv.UserContentManager())
+			log.Debug().Str("pane_id", string(paneID)).Msg("applied filters to existing webview")
+		}
+	}
+}
+
 // GetTitle returns the current title for a pane.
 func (c *ContentCoordinator) GetTitle(paneID entity.PaneID) string {
 	c.titleMu.RLock()

@@ -8,10 +8,12 @@ import (
 	"sync"
 
 	"github.com/jwijenbergh/puregotk/v4/gio"
+	"github.com/jwijenbergh/puregotk/v4/glib"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/infrastructure/webkit/handlers"
 	"github.com/bnema/dumber/internal/logging"
@@ -70,6 +72,9 @@ type App struct {
 	router         *webkit.MessageRouter
 	settings       *webkit.SettingsManager
 	faviconAdapter *adapter.FaviconAdapter
+
+	// App-level toaster for system notifications (filter status, etc.)
+	appToaster *component.Toaster
 
 	// ID generator for tabs/panes
 	idCounter uint64
@@ -179,6 +184,14 @@ func (a *App) onActivate(ctx context.Context) {
 	// Initialize stacked pane manager for incremental widget operations
 	a.stackedPaneMgr = component.NewStackedPaneManager(a.widgetFactory)
 
+	// Create app-level toaster for system notifications
+	a.appToaster = component.NewToaster(a.widgetFactory)
+	if toasterWidget := a.appToaster.Widget(); toasterWidget != nil {
+		if gtkWidget := toasterWidget.GtkWidget(); gtkWidget != nil {
+			a.mainWindow.AddOverlay(gtkWidget)
+		}
+	}
+
 	// Initialize focus manager for geometric navigation
 	a.focusMgr = focus.NewManager(a.panesUC)
 
@@ -240,6 +253,9 @@ func (a *App) onActivate(ctx context.Context) {
 	a.mainWindow.Show()
 
 	log.Info().Msg("main window displayed")
+
+	// Start async filter loading after window is visible
+	a.initFilteringAsync(ctx)
 }
 
 // onShutdown is called when the GTK application is shutting down.
@@ -616,4 +632,47 @@ func (a *App) UpdateOmniboxZoom(factor float64) {
 func (a *App) SetOmniboxOnNavigate(fn func(url string)) {
 	// The navigate callback is set when the omnibox is created via WorkspaceView.ShowOmnibox
 	// The WorkspaceView uses the stored omniboxCfg and sets up navigation via the omnibox's SetOnNavigate
+}
+
+// initFilteringAsync starts background filter loading with toast feedback.
+func (a *App) initFilteringAsync(ctx context.Context) {
+	if a.deps.FilterManager == nil {
+		return
+	}
+
+	a.deps.FilterManager.SetStatusCallback(func(status filtering.FilterStatus) {
+		statusCopy := status // Capture for closure
+		var cb glib.SourceFunc
+		cb = func(_ uintptr) bool {
+			a.showFilterStatus(ctx, statusCopy)
+			return false // Don't repeat
+		}
+		glib.IdleAdd(&cb, 0)
+	})
+	a.deps.FilterManager.LoadAsync(ctx)
+}
+
+// showFilterStatus displays toast notification for filter status.
+func (a *App) showFilterStatus(ctx context.Context, status filtering.FilterStatus) {
+	log := logging.FromContext(ctx)
+
+	switch status.State {
+	case filtering.StateLoading:
+		if a.appToaster != nil {
+			a.appToaster.Show(ctx, status.Message, component.ToastInfo)
+		}
+	case filtering.StateActive:
+		// Apply filters to existing webviews that were created before filters loaded
+		if a.contentCoord != nil && a.deps.FilterManager != nil {
+			a.contentCoord.ApplyFiltersToAll(ctx, a.deps.FilterManager)
+			log.Debug().Msg("applied filters to all existing webviews")
+		}
+		if a.appToaster != nil {
+			a.appToaster.Show(ctx, fmt.Sprintf("Filters active (%s)", status.Version), component.ToastSuccess)
+		}
+	case filtering.StateError:
+		if a.appToaster != nil {
+			a.appToaster.Show(ctx, "Filter load failed: "+status.Message, component.ToastError)
+		}
+	}
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
+	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/ui/theme"
 )
@@ -50,6 +51,7 @@ type Dependencies struct {
 	// Infrastructure Adapters
 	Clipboard      port.Clipboard
 	FaviconService *favicon.Service
+	FilterManager  *filtering.Manager
 }
 
 // Validate checks that all required dependencies are set.
