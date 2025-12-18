@@ -94,6 +94,16 @@ func (c *WebKitContext) initNetworkSession() error {
 		return fmt.Errorf("website data manager is ephemeral")
 	}
 
+	// Debug: verify the directories WebKit is actually using
+	actualDataDir := dataManager.GetBaseDataDirectory()
+	actualCacheDir := dataManager.GetBaseCacheDirectory()
+	c.logger.Info().
+		Str("expected_data_dir", c.dataDir).
+		Str("actual_data_dir", actualDataDir).
+		Str("expected_cache_dir", c.cacheDir).
+		Str("actual_cache_dir", actualCacheDir).
+		Msg("webkit directories configured")
+
 	// Enable favicon collection and get database reference
 	dataManager.SetFaviconsEnabled(true)
 	c.faviconDB = dataManager.GetFaviconDatabase()
