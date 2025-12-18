@@ -79,6 +79,7 @@ func NewFaviconCache(faviconDB *webkit.FaviconDatabase) *FaviconCache {
 }
 
 // Set stores a favicon texture for the given domain.
+// Also queues a disk write if the favicon is not already cached on disk.
 func (fc *FaviconCache) Set(domain string, texture *gdk.Texture) {
 	if domain == "" || texture == nil {
 		return
@@ -86,6 +87,34 @@ func (fc *FaviconCache) Set(domain string, texture *gdk.Texture) {
 	fc.mu.Lock()
 	fc.cache[domain] = texture
 	fc.mu.Unlock()
+
+	// Also save to disk if not already cached
+	fc.ensureDiskCache(domain)
+}
+
+// ensureDiskCache fetches favicon from DuckDuckGo and saves to disk if not already cached.
+func (fc *FaviconCache) ensureDiskCache(domain string) {
+	if fc.diskCacheDir == "" || domain == "" {
+		return
+	}
+
+	// Check if already on disk
+	filename := domainurl.SanitizeDomainForFilename(domain)
+	path := filepath.Join(fc.diskCacheDir, filename)
+	if _, err := os.Stat(path); err == nil {
+		return // Already cached
+	}
+
+	// Fetch from DuckDuckGo in background and save to disk
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), faviconFetchTimeout)
+		defer cancel()
+
+		_, rawData := fc.fetchFromExternal(ctx, domain)
+		if len(rawData) > 0 {
+			fc.queueDiskWrite(domain, rawData)
+		}
+	}()
 }
 
 // SetByURL stores a favicon texture for the domain extracted from the URL.
