@@ -268,6 +268,33 @@ cancel = ["escape"]
 | `workspace.styling.transition_duration` | int | `120` | Border transition duration (ms) |
 | `workspace.styling.ui_scale` | float | `1.0` | UI scale multiplier (1.0 = 100%, 1.2 = 120%) |
 
+## Media
+
+| Key | Type | Default | Valid Values | Description |
+|-----|------|---------|--------------|-------------|
+| `media.hardware_decoding` | string | `"auto"` | `auto`, `force`, `disable` | Hardware video decoding mode |
+| `media.prefer_av1` | bool | `true` | - | Prefer AV1 codec when available |
+| `media.show_diagnostics` | bool | `true` | - | Show media diagnostics warnings at startup |
+
+**Hardware decoding modes:**
+- `auto` (recommended): Hardware preferred with software fallback - fixes Twitch Error #4000
+- `force`: Hardware only - fails if unavailable
+- `disable`: Software only - higher CPU usage
+
+**Example:**
+```toml
+[media]
+hardware_decoding = "auto"  # HW preferred, SW fallback
+prefer_av1 = true           # AV1 is most efficient codec
+show_diagnostics = true     # Log warnings if HW accel unavailable
+```
+
+**Diagnostics CLI:**
+```bash
+# Check GStreamer plugins and VA-API status
+dumber media
+```
+
 ## Content Filtering
 
 | Key | Type | Default | Description |
