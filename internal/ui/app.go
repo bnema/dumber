@@ -183,6 +183,15 @@ func (a *App) onActivate(ctx context.Context) {
 	// Initialize border manager for mode indicators
 	a.borderMgr = focus.NewBorderManager(a.widgetFactory)
 
+	// Attach border overlay to main window (visible for all tabs)
+	if a.borderMgr != nil && a.mainWindow != nil {
+		if borderWidget := a.borderMgr.Widget(); borderWidget != nil {
+			if gtkWidget := borderWidget.GtkWidget(); gtkWidget != nil {
+				a.mainWindow.AddOverlay(gtkWidget)
+			}
+		}
+	}
+
 	// Initialize coordinators
 	a.initCoordinators(ctx)
 
@@ -286,7 +295,17 @@ func (a *App) initCoordinators(ctx context.Context) {
 	a.tabCoord.SetOnTabCreated(func(ctx context.Context, tab *entity.Tab) {
 		a.createWorkspaceView(ctx, tab)
 	})
+	a.tabCoord.SetOnTabSwitched(func(ctx context.Context, tab *entity.Tab) {
+		a.switchWorkspaceView(ctx, tab.ID)
+	})
 	a.tabCoord.SetOnQuit(a.Quit)
+
+	// Wire tab bar click handling to coordinator
+	if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
+		a.mainWindow.TabBar().SetOnSwitch(func(tabID entity.TabID) {
+			a.tabCoord.Switch(ctx, tabID)
+		})
+	}
 
 	// 3. Workspace Coordinator
 	a.wsCoord = coordinator.NewWorkspaceCoordinator(ctx, coordinator.WorkspaceCoordinatorConfig{
@@ -411,10 +430,8 @@ func (a *App) createWorkspaceView(ctx context.Context, tab *entity.Tab) {
 		a.contentCoord.AttachToWorkspace(ctx, tab.Workspace, wsView)
 	}
 
-	// Attach border manager overlay for mode indicators
-	if a.borderMgr != nil {
-		wsView.SetModeBorderOverlay(a.borderMgr.Widget())
-	}
+	// Note: Border overlay is attached to MainWindow, not per-workspace
+	// This ensures it's visible regardless of which tab is active
 
 	// Set omnibox config for this workspace view
 	wsView.SetOmniboxConfig(a.omniboxCfg)
@@ -452,6 +469,37 @@ func (a *App) activeWorkspaceView() *component.WorkspaceView {
 		return nil
 	}
 	return a.workspaceViews[activeTab.ID]
+}
+
+// switchWorkspaceView swaps the displayed workspace view for a tab.
+func (a *App) switchWorkspaceView(ctx context.Context, tabID entity.TabID) {
+	log := logging.FromContext(ctx)
+
+	wsView, exists := a.workspaceViews[tabID]
+	if !exists {
+		log.Warn().Str("tab_id", string(tabID)).Msg("no workspace view for tab")
+		return
+	}
+
+	// Get the workspace view's root widget
+	widget := wsView.Widget()
+	if widget == nil {
+		log.Warn().Str("tab_id", string(tabID)).Msg("workspace view has no widget")
+		return
+	}
+
+	gtkWidget := widget.GtkWidget()
+	if gtkWidget == nil {
+		log.Warn().Str("tab_id", string(tabID)).Msg("workspace view widget has no GTK widget")
+		return
+	}
+
+	// Swap content (MainWindow.SetContent now properly removes old content)
+	if a.mainWindow != nil {
+		a.mainWindow.SetContent(gtkWidget)
+	}
+
+	log.Debug().Str("tab_id", string(tabID)).Msg("workspace view switched")
 }
 
 // ToggleOmnibox implements OmniboxProvider.

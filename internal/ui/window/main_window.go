@@ -24,6 +24,7 @@ type MainWindow struct {
 	tabBar         *component.TabBar
 	contentOverlay *gtk.Overlay // Overlay for content + omnibox
 	contentArea    *gtk.Box     // Container for workspace content
+	currentContent *gtk.Widget  // Track current content for removal on tab switch
 
 	cfg    *config.Config
 	logger zerolog.Logger
@@ -148,15 +149,19 @@ func (mw *MainWindow) ContentArea() *gtk.Box {
 }
 
 // SetContent sets the content of the content area.
-// This removes any existing children first.
+// This removes any existing content first to properly swap workspace views on tab switch.
 func (mw *MainWindow) SetContent(widget *gtk.Widget) {
-	// Remove existing children
-	// Note: GTK4 Box doesn't have a simple "clear" method,
-	// so we'd need to track children. For now, just append.
-	// TODO: Track children for proper content swapping
+	// Remove existing content first
+	if mw.currentContent != nil {
+		mw.contentArea.Remove(mw.currentContent)
+		mw.currentContent = nil
+	}
+
+	// Add new content
 	if widget != nil {
 		widget.SetVisible(true)
 		mw.contentArea.Append(widget)
+		mw.currentContent = widget
 	}
 }
 

@@ -19,8 +19,9 @@ type TabCoordinator struct {
 	config     *config.Config
 
 	// Callbacks to avoid circular dependencies
-	onTabCreated func(ctx context.Context, tab *entity.Tab)
-	onQuit       func()
+	onTabCreated  func(ctx context.Context, tab *entity.Tab)
+	onTabSwitched func(ctx context.Context, tab *entity.Tab)
+	onQuit        func()
 }
 
 // TabCoordinatorConfig holds configuration for TabCoordinator.
@@ -49,6 +50,12 @@ func (c *TabCoordinator) SetOnTabCreated(fn func(ctx context.Context, tab *entit
 	c.onTabCreated = fn
 }
 
+// SetOnTabSwitched sets the callback for when a tab switch occurs.
+// This is used to swap workspace views in the content area.
+func (c *TabCoordinator) SetOnTabSwitched(fn func(ctx context.Context, tab *entity.Tab)) {
+	c.onTabSwitched = fn
+}
+
 // SetOnQuit sets the callback for when the last tab is closed.
 func (c *TabCoordinator) SetOnQuit(fn func()) {
 	c.onQuit = fn
@@ -68,6 +75,9 @@ func (c *TabCoordinator) Create(ctx context.Context, initialURL string) (*entity
 		return nil, err
 	}
 
+	// Set new tab as active (updates domain state and tracks previous)
+	c.tabs.SetActive(output.Tab.ID)
+
 	// Update tab bar
 	if c.mainWindow != nil && c.mainWindow.TabBar() != nil {
 		c.mainWindow.TabBar().AddTab(output.Tab)
@@ -80,6 +90,11 @@ func (c *TabCoordinator) Create(ctx context.Context, initialURL string) (*entity
 	// Notify app to create workspace view
 	if c.onTabCreated != nil {
 		c.onTabCreated(ctx, output.Tab)
+	}
+
+	// Switch to the new tab's workspace view
+	if c.onTabSwitched != nil {
+		c.onTabSwitched(ctx, output.Tab)
 	}
 
 	log.Debug().Str("tab_id", string(output.Tab.ID)).Msg("tab created")
@@ -119,7 +134,49 @@ func (c *TabCoordinator) Close(ctx context.Context) error {
 		c.onQuit()
 	}
 
+	// Switch workspace view to new active tab (if not last)
+	if !wasLast && c.onTabSwitched != nil {
+		if tab := c.tabs.Find(c.tabs.ActiveTabID); tab != nil {
+			c.onTabSwitched(ctx, tab)
+		}
+	}
+
 	log.Debug().Str("tab_id", string(activeID)).Bool("was_last", wasLast).Msg("tab closed")
+	return nil
+}
+
+// Switch switches to a specific tab by ID.
+func (c *TabCoordinator) Switch(ctx context.Context, tabID entity.TabID) error {
+	log := logging.FromContext(ctx)
+
+	// Skip if already active
+	if tabID == c.tabs.ActiveTabID {
+		return nil
+	}
+
+	log.Debug().
+		Str("from", string(c.tabs.ActiveTabID)).
+		Str("to", string(tabID)).
+		Msg("switching tab")
+
+	// Update domain state
+	if err := c.tabsUC.Switch(ctx, c.tabs, tabID); err != nil {
+		log.Error().Err(err).Str("tab_id", string(tabID)).Msg("failed to switch tab")
+		return err
+	}
+
+	// Update tab bar UI
+	if c.mainWindow != nil && c.mainWindow.TabBar() != nil {
+		c.mainWindow.TabBar().SetActive(tabID)
+	}
+
+	// Invoke callback for workspace view switching
+	if c.onTabSwitched != nil {
+		if tab := c.tabs.Find(tabID); tab != nil {
+			c.onTabSwitched(ctx, tab)
+		}
+	}
+
 	return nil
 }
 
@@ -136,7 +193,12 @@ func (c *TabCoordinator) SwitchNext(ctx context.Context) error {
 		c.mainWindow.TabBar().SetActive(c.tabs.ActiveTabID)
 	}
 
-	// TODO: Add onTabSwitched callback for workspace view switching
+	// Invoke callback for workspace view switching
+	if c.onTabSwitched != nil {
+		if tab := c.tabs.Find(c.tabs.ActiveTabID); tab != nil {
+			c.onTabSwitched(ctx, tab)
+		}
+	}
 
 	log.Debug().Str("tab_id", string(c.tabs.ActiveTabID)).Msg("switched to next tab")
 	return nil
@@ -155,7 +217,62 @@ func (c *TabCoordinator) SwitchPrev(ctx context.Context) error {
 		c.mainWindow.TabBar().SetActive(c.tabs.ActiveTabID)
 	}
 
+	// Invoke callback for workspace view switching
+	if c.onTabSwitched != nil {
+		if tab := c.tabs.Find(c.tabs.ActiveTabID); tab != nil {
+			c.onTabSwitched(ctx, tab)
+		}
+	}
+
 	log.Debug().Str("tab_id", string(c.tabs.ActiveTabID)).Msg("switched to previous tab")
+	return nil
+}
+
+// SwitchByIndex switches to a tab by 0-based index.
+func (c *TabCoordinator) SwitchByIndex(ctx context.Context, index int) error {
+	log := logging.FromContext(ctx)
+
+	if err := c.tabsUC.SwitchByIndex(ctx, c.tabs, index); err != nil {
+		log.Error().Err(err).Int("index", index).Msg("failed to switch to tab by index")
+		return err
+	}
+
+	if c.mainWindow != nil && c.mainWindow.TabBar() != nil {
+		c.mainWindow.TabBar().SetActive(c.tabs.ActiveTabID)
+	}
+
+	// Invoke callback for workspace view switching
+	if c.onTabSwitched != nil {
+		if tab := c.tabs.Find(c.tabs.ActiveTabID); tab != nil {
+			c.onTabSwitched(ctx, tab)
+		}
+	}
+
+	log.Debug().Int("index", index).Str("tab_id", string(c.tabs.ActiveTabID)).Msg("switched to tab by index")
+	return nil
+}
+
+// SwitchToLastActive switches to the previously active tab (Alt+Tab style).
+func (c *TabCoordinator) SwitchToLastActive(ctx context.Context) error {
+	log := logging.FromContext(ctx)
+
+	if err := c.tabsUC.SwitchToLastActive(ctx, c.tabs); err != nil {
+		log.Error().Err(err).Msg("failed to switch to last active tab")
+		return err
+	}
+
+	if c.mainWindow != nil && c.mainWindow.TabBar() != nil {
+		c.mainWindow.TabBar().SetActive(c.tabs.ActiveTabID)
+	}
+
+	// Invoke callback for workspace view switching
+	if c.onTabSwitched != nil {
+		if tab := c.tabs.Find(c.tabs.ActiveTabID); tab != nil {
+			c.onTabSwitched(ctx, tab)
+		}
+	}
+
+	log.Debug().Str("tab_id", string(c.tabs.ActiveTabID)).Msg("switched to last active tab")
 	return nil
 }
 
