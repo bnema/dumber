@@ -83,3 +83,7 @@ templates/
 config.yaml
 .dev/
 vendor/
+
+# WebKit runtime data
+serviceworkers/
+storage/
