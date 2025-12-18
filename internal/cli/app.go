@@ -10,6 +10,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/cli/styles"
+	"github.com/bnema/dumber/internal/domain/build"
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
@@ -18,10 +19,11 @@ import (
 
 // App holds CLI dependencies.
 type App struct {
-	Config  *config.Config
-	Theme   *styles.Theme
-	db      *sql.DB
-	History repository.HistoryRepository
+	Config    *config.Config
+	Theme     *styles.Theme
+	BuildInfo build.Info
+	db        *sql.DB
+	History   repository.HistoryRepository
 
 	// Use cases
 	SearchHistoryUC *usecase.SearchHistoryUseCase

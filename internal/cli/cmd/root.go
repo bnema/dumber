@@ -8,11 +8,13 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bnema/dumber/internal/cli"
+	"github.com/bnema/dumber/internal/domain/build"
 )
 
 var (
-	app     *cli.App
-	rootCmd = &cobra.Command{
+	app       *cli.App
+	buildInfo build.Info
+	rootCmd   = &cobra.Command{
 		Use:   "dumber",
 		Short: "A minimal web browser",
 		Long:  `Dumber is a minimal, keyboard-driven web browser built with GTK4 and WebKitGTK.`,
@@ -27,6 +29,8 @@ var (
 			if err != nil {
 				return fmt.Errorf("initialize app: %w", err)
 			}
+			// Set build info from main.go
+			app.BuildInfo = buildInfo
 			return nil
 		},
 		PersistentPostRun: func(cmd *cobra.Command, args []string) {
@@ -68,4 +72,9 @@ Examples:
 
 func init() {
 	rootCmd.AddCommand(browseCmd)
+}
+
+// SetBuildInfo sets the build information (called from main.go before Execute).
+func SetBuildInfo(info build.Info) {
+	buildInfo = info
 }

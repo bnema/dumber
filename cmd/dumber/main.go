@@ -10,6 +10,7 @@ import (
 	"github.com/bnema/dumber/assets"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/cli/cmd"
+	"github.com/bnema/dumber/internal/domain/build"
 	"github.com/bnema/dumber/internal/infrastructure/clipboard"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/media"
@@ -42,6 +43,14 @@ func main() {
 		runGUI()
 		return
 	}
+
+	// Pass build info to CLI
+	cmd.SetBuildInfo(build.Info{
+		Version:   version,
+		Commit:    commit,
+		BuildDate: buildDate,
+		GoVersion: runtime.Version(),
+	})
 
 	// Default: run CLI (shows help if no subcommand)
 	cmd.Execute()
