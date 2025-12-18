@@ -44,11 +44,22 @@ const (
 	ActionExitMode      Action = "exit_mode"
 
 	// Tab actions (global and modal)
-	ActionNewTab      Action = "new_tab"
-	ActionCloseTab    Action = "close_tab"
-	ActionNextTab     Action = "next_tab"
-	ActionPreviousTab Action = "previous_tab"
-	ActionRenameTab   Action = "rename_tab"
+	ActionNewTab           Action = "new_tab"
+	ActionCloseTab         Action = "close_tab"
+	ActionNextTab          Action = "next_tab"
+	ActionPreviousTab      Action = "previous_tab"
+	ActionRenameTab        Action = "rename_tab"
+	ActionSwitchLastTab    Action = "switch_last_tab" // Alt+Tab style switching
+	ActionSwitchTabIndex1  Action = "switch_tab_1"
+	ActionSwitchTabIndex2  Action = "switch_tab_2"
+	ActionSwitchTabIndex3  Action = "switch_tab_3"
+	ActionSwitchTabIndex4  Action = "switch_tab_4"
+	ActionSwitchTabIndex5  Action = "switch_tab_5"
+	ActionSwitchTabIndex6  Action = "switch_tab_6"
+	ActionSwitchTabIndex7  Action = "switch_tab_7"
+	ActionSwitchTabIndex8  Action = "switch_tab_8"
+	ActionSwitchTabIndex9  Action = "switch_tab_9"
+	ActionSwitchTabIndex10 Action = "switch_tab_10"
 
 	// Pane actions (modal)
 	ActionSplitRight Action = "split_right"
@@ -182,6 +193,22 @@ func (s *ShortcutSet) buildGlobalShortcuts(ctx context.Context, cfg *config.Work
 	// Also support Alt+Arrow keys for pane navigation (except Left/Right used for back/forward)
 	s.Global[KeyBinding{uint(gdk.KEY_Up), ModAlt}] = ActionFocusUp
 	s.Global[KeyBinding{uint(gdk.KEY_Down), ModAlt}] = ActionFocusDown
+
+	// Direct tab switching (Alt+1-9, Alt+0 for tab 10)
+	s.Global[KeyBinding{uint(gdk.KEY_1), ModAlt}] = ActionSwitchTabIndex1
+	s.Global[KeyBinding{uint(gdk.KEY_2), ModAlt}] = ActionSwitchTabIndex2
+	s.Global[KeyBinding{uint(gdk.KEY_3), ModAlt}] = ActionSwitchTabIndex3
+	s.Global[KeyBinding{uint(gdk.KEY_4), ModAlt}] = ActionSwitchTabIndex4
+	s.Global[KeyBinding{uint(gdk.KEY_5), ModAlt}] = ActionSwitchTabIndex5
+	s.Global[KeyBinding{uint(gdk.KEY_6), ModAlt}] = ActionSwitchTabIndex6
+	s.Global[KeyBinding{uint(gdk.KEY_7), ModAlt}] = ActionSwitchTabIndex7
+	s.Global[KeyBinding{uint(gdk.KEY_8), ModAlt}] = ActionSwitchTabIndex8
+	s.Global[KeyBinding{uint(gdk.KEY_9), ModAlt}] = ActionSwitchTabIndex9
+	s.Global[KeyBinding{uint(gdk.KEY_0), ModAlt}] = ActionSwitchTabIndex10
+
+	// Alt+Tab style switching (switch to last active tab)
+	s.Global[KeyBinding{uint(gdk.KEY_Tab), ModAlt}] = ActionSwitchLastTab
+	s.Global[KeyBinding{uint(gdk.KEY_Tab), ModAlt | ModShift}] = ActionSwitchLastTab
 }
 
 // buildTabModeShortcuts populates tab mode shortcuts from config.

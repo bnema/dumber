@@ -59,6 +59,28 @@ func (d *KeyboardDispatcher) Dispatch(ctx context.Context, action input.Action) 
 		return d.tabCoord.SwitchNext(ctx)
 	case input.ActionPreviousTab:
 		return d.tabCoord.SwitchPrev(ctx)
+	case input.ActionSwitchLastTab:
+		return d.tabCoord.SwitchToLastActive(ctx)
+	case input.ActionSwitchTabIndex1:
+		return d.tabCoord.SwitchByIndex(ctx, 0)
+	case input.ActionSwitchTabIndex2:
+		return d.tabCoord.SwitchByIndex(ctx, 1)
+	case input.ActionSwitchTabIndex3:
+		return d.tabCoord.SwitchByIndex(ctx, 2)
+	case input.ActionSwitchTabIndex4:
+		return d.tabCoord.SwitchByIndex(ctx, 3)
+	case input.ActionSwitchTabIndex5:
+		return d.tabCoord.SwitchByIndex(ctx, 4)
+	case input.ActionSwitchTabIndex6:
+		return d.tabCoord.SwitchByIndex(ctx, 5)
+	case input.ActionSwitchTabIndex7:
+		return d.tabCoord.SwitchByIndex(ctx, 6)
+	case input.ActionSwitchTabIndex8:
+		return d.tabCoord.SwitchByIndex(ctx, 7)
+	case input.ActionSwitchTabIndex9:
+		return d.tabCoord.SwitchByIndex(ctx, 8)
+	case input.ActionSwitchTabIndex10:
+		return d.tabCoord.SwitchByIndex(ctx, 9)
 
 	// Pane actions
 	case input.ActionSplitRight:
