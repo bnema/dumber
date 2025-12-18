@@ -1,42 +1,51 @@
+template: testify
+template-data:
+  unroll-variadic: true
+filename: mocks.go
 packages:
-  github.com/bnema/dumber/internal/domain/repository:
-    config:
-      dir: "{{.InterfaceDir}}/mocks"
-      filename: "mock_{{.InterfaceName | snakecase}}.go"
-      mockname: "Mock{{.InterfaceName}}"
-      outpkg: "mocks"
-    interfaces:
-      HistoryRepository:
-      FavoriteRepository:
-      FolderRepository:
-      TagRepository:
-      ZoomRepository:
-      ContentWhitelistRepository:
   github.com/bnema/dumber/internal/application/port:
     config:
-      dir: "{{.InterfaceDir}}/mocks"
-      filename: "mock_{{.InterfaceName | snakecase}}.go"
-      mockname: "Mock{{.InterfaceName}}"
-      outpkg: "mocks"
+      dir: '{{.InterfaceDir}}/mocks'
+      structname: Mock{{.InterfaceName}}
+      pkgname: mocks
     interfaces:
-      WebView:
-      WebViewPool:
-      WebViewFactory:
+      WebView: {}
+      WebViewFactory: {}
+      WebViewPool: {}
+  github.com/bnema/dumber/internal/domain/repository:
+    config:
+      dir: '{{.InterfaceDir}}/mocks'
+      structname: Mock{{.InterfaceName}}
+      pkgname: mocks
+    interfaces:
+      ContentWhitelistRepository: {}
+      FavoriteRepository: {}
+      FolderRepository: {}
+      HistoryRepository: {}
+      TagRepository: {}
+      ZoomRepository: {}
+  github.com/bnema/dumber/internal/infrastructure/filtering:
+    config:
+      dir: '{{.InterfaceDir}}/mocks'
+      structname: Mock{{.InterfaceName}}
+      pkgname: mocks
+    interfaces:
+      FilterDownloader: {}
+      FilterStore: {}
   github.com/bnema/dumber/internal/ui/layout:
     config:
-      dir: "{{.InterfaceDir}}/mocks"
-      filename: "mock_{{.InterfaceName | snakecase}}.go"
-      mockname: "Mock{{.InterfaceName}}"
-      outpkg: "mocks"
+      dir: '{{.InterfaceDir}}/mocks'
+      structname: Mock{{.InterfaceName}}
+      pkgname: mocks
     interfaces:
-      Widget:
-      PanedWidget:
-      BoxWidget:
-      OverlayWidget:
-      LabelWidget:
-      ButtonWidget:
-      ImageWidget:
-      ProgressBarWidget:
-      WidgetFactory:
-      PaneRenderer:
-      PaneViewFactory:
+      BoxWidget: {}
+      ButtonWidget: {}
+      ImageWidget: {}
+      LabelWidget: {}
+      OverlayWidget: {}
+      PaneRenderer: {}
+      PaneViewFactory: {}
+      PanedWidget: {}
+      ProgressBarWidget: {}
+      Widget: {}
+      WidgetFactory: {}
