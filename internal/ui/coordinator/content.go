@@ -2,7 +2,9 @@ package coordinator
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -307,6 +309,124 @@ func (c *ContentCoordinator) ApplyFiltersToAll(ctx context.Context, applier webk
 			applier.ApplyTo(ctx, wv.UserContentManager())
 			log.Debug().Str("pane_id", string(paneID)).Msg("applied filters to existing webview")
 		}
+	}
+}
+
+// ApplySettingsToAll reapplies WebKit settings to all active WebViews.
+func (c *ContentCoordinator) ApplySettingsToAll(ctx context.Context, sm *webkit.SettingsManager) {
+	log := logging.FromContext(ctx)
+	if sm == nil {
+		return
+	}
+
+	for paneID, wv := range c.webViews {
+		if wv == nil || wv.IsDestroyed() {
+			continue
+		}
+		sm.ApplyToWebView(ctx, wv.Widget())
+		log.Debug().Str("pane_id", string(paneID)).Msg("reapplied settings to webview")
+	}
+}
+
+// RefreshInjectedScriptsToAll clears and re-injects user scripts into all active WebViews.
+//
+// WebKit user scripts are snapshotted when added to a WebKitUserContentManager, so when
+// appearance settings change at runtime (dark mode, palettes, UI scale), we must refresh
+// the scripts so future navigations pick up the latest values.
+func (c *ContentCoordinator) RefreshInjectedScriptsToAll(ctx context.Context, injector *webkit.ContentInjector) {
+	log := logging.FromContext(ctx)
+	if injector == nil {
+		return
+	}
+
+	for paneID, wv := range c.webViews {
+		if wv == nil || wv.IsDestroyed() {
+			continue
+		}
+		ucm := wv.UserContentManager()
+		if ucm == nil {
+			continue
+		}
+
+		ucm.RemoveAllScripts()
+		injector.InjectScripts(ctx, ucm, wv.ID())
+		log.Debug().Str("pane_id", string(paneID)).Msg("refreshed injected scripts for webview")
+	}
+}
+
+// ApplyWebUIThemeToAll updates theme CSS for already-loaded dumb:// pages.
+// This is necessary because user scripts only run on navigation.
+func (c *ContentCoordinator) ApplyWebUIThemeToAll(ctx context.Context, prefersDark bool, cssText string) {
+	log := logging.FromContext(ctx)
+	if cssText == "" {
+		return
+	}
+
+	// Safely embed CSS in JS
+	cssJSON, err := json.Marshal(cssText)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to marshal WebUI CSS vars")
+		return
+	}
+
+	script := fmt.Sprintf(`(function(){
+  try {
+    var cssText = %s;
+    var prefersDark = %t;
+
+    // Keep the global flag in sync
+    window.__dumber_gtk_prefers_dark = prefersDark;
+
+    // Update dark/light class
+    if (prefersDark) {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+    } else {
+      document.documentElement.classList.add('light');
+      document.documentElement.classList.remove('dark');
+    }
+
+    // Update or insert theme style
+    var style = document.querySelector('style[data-dumber-theme-vars]');
+    if (!style) {
+      style = document.createElement('style');
+      style.setAttribute('data-dumber-theme-vars', '');
+      (document.head || document.documentElement).appendChild(style);
+    }
+    style.textContent = cssText;
+
+    // Notify any running WebUI that theme changed
+    try {
+      window.dispatchEvent(new CustomEvent('dumber:theme-changed', {
+        detail: { prefersDark: prefersDark }
+      }));
+    } catch (e) {
+      // ignore
+    }
+
+    // Keep color-scheme consistent
+    var meta = document.querySelector('meta[name="color-scheme"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'color-scheme';
+      document.documentElement.appendChild(meta);
+    }
+    meta.content = prefersDark ? 'dark light' : 'light dark';
+  } catch (e) {
+    console.error('[dumber] failed to apply theme', e);
+  }
+})();`, string(cssJSON), prefersDark)
+
+	for paneID, wv := range c.webViews {
+		if wv == nil || wv.IsDestroyed() {
+			continue
+		}
+		uri := wv.URI()
+		if !strings.HasPrefix(uri, "dumb://") {
+			continue
+		}
+		wv.RunJavaScript(ctx, script, "")
+		log.Debug().Str("pane_id", string(paneID)).Str("uri", uri).Msg("applied WebUI theme")
 	}
 }
 

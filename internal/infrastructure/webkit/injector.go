@@ -16,12 +16,12 @@ const (
 	MessageHandlerName = "dumber"
 )
 
-// themeCSSScript injects CSS custom properties into the page.
-// The %s placeholder is replaced with the CSS variable declarations (newlines escaped as \n).
+// themeCSSScript injects theme CSS into the page.
+// The %s placeholder is replaced with CSS text (newlines escaped as \n).
 const themeCSSScript = `(function() {
   var style = document.createElement('style');
-  style.setAttribute('data-dumber-theme', '');
-  style.textContent = ':root {%s}';
+  style.setAttribute('data-dumber-theme-vars', '');
+  style.textContent = '%s';
   (document.head || document.documentElement).appendChild(style);
 })();`
 
@@ -48,7 +48,7 @@ const darkModeScript = `(function() {
 
   // Inject root color-scheme style
   const style = document.createElement('style');
-  style.setAttribute('data-dumber-theme', '');
+  style.setAttribute('data-dumber-color-scheme', '');
   style.textContent = ':root{color-scheme:' + (prefersDark ? 'dark' : 'light') + ';}';
   document.documentElement.appendChild(style);
 
@@ -184,10 +184,12 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		"dark-mode-handler",
 	)
 
-	// 4. Inject theme CSS variables for internal pages (dumb://* only)
+	// 4. Inject theme CSS for internal pages (dumb://* only)
 	if ci.themeCSSVars != "" {
-		// Escape newlines for JS string literal
-		escapedCSS := strings.ReplaceAll(ci.themeCSSVars, "\n", "\\n")
+		// Escape for JS string literal
+		escapedCSS := strings.ReplaceAll(ci.themeCSSVars, "\\", "\\\\")
+		escapedCSS = strings.ReplaceAll(escapedCSS, "'", "\\'")
+		escapedCSS = strings.ReplaceAll(escapedCSS, "\n", "\\n")
 		themeCSSInjectionScript := fmt.Sprintf(themeCSSScript, escapedCSS)
 		addScript(
 			webkit.NewUserScript(

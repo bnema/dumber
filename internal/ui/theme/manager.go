@@ -2,6 +2,7 @@ package theme
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
@@ -86,6 +87,14 @@ func (m *Manager) GetDarkPalette() Palette {
 	return m.darkPalette
 }
 
+// GetWebUIThemeCSS returns CSS text that defines both light and dark variables.
+// WebUI uses `:root` for light and `.dark` overrides for dark.
+func (m *Manager) GetWebUIThemeCSS() string {
+	lightVars := m.lightPalette.ToWebCSSVars()
+	darkVars := m.darkPalette.ToWebCSSVars()
+	return fmt.Sprintf(":root{\n%s}\n\n.dark{\n%s}\n", lightVars, darkVars)
+}
+
 // ApplyToDisplay loads the theme CSS into the display.
 func (m *Manager) ApplyToDisplay(ctx context.Context, display *gdk.Display) {
 	log := logging.FromContext(ctx)
@@ -133,6 +142,43 @@ func (m *Manager) SetColorScheme(ctx context.Context, scheme string, display *gd
 		Str("scheme", scheme).
 		Bool("prefers_dark", m.prefersDark).
 		Msg("color scheme changed")
+
+	// Re-apply CSS if display is available
+	if display != nil {
+		m.ApplyToDisplay(ctx, display)
+	}
+}
+
+// UpdateFromConfig updates the theme manager state from a new config.
+func (m *Manager) UpdateFromConfig(ctx context.Context, cfg *config.Config, display *gdk.Display) {
+	log := logging.FromContext(ctx)
+
+	if cfg == nil {
+		return
+	}
+
+	// Update scheme and resolve prefersDark
+	scheme := "system"
+	if cfg.Appearance.ColorScheme != "" {
+		scheme = cfg.Appearance.ColorScheme
+	}
+	m.scheme = scheme
+	m.prefersDark = ResolveColorScheme(scheme)
+
+	// Update palettes
+	m.lightPalette = PaletteFromConfig(&cfg.Appearance.LightPalette, false)
+	m.darkPalette = PaletteFromConfig(&cfg.Appearance.DarkPalette, true)
+
+	// Update UI scale
+	if cfg.DefaultUIScale > 0 {
+		m.uiScale = cfg.DefaultUIScale
+	}
+
+	log.Info().
+		Str("scheme", m.scheme).
+		Bool("prefers_dark", m.prefersDark).
+		Float64("ui_scale", m.uiScale).
+		Msg("theme manager updated from config")
 
 	// Re-apply CSS if display is available
 	if display != nil {

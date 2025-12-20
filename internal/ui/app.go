@@ -7,14 +7,12 @@ import (
 	"os"
 	"sync"
 
-	"github.com/jwijenbergh/puregotk/v4/gio"
-	"github.com/jwijenbergh/puregotk/v4/glib"
-	"github.com/jwijenbergh/puregotk/v4/gtk"
-
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
+
 	"github.com/bnema/dumber/internal/infrastructure/webkit/handlers"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/adapter"
@@ -25,6 +23,10 @@ import (
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/dumber/internal/ui/window"
+	"github.com/jwijenbergh/puregotk/v4/gdk"
+	"github.com/jwijenbergh/puregotk/v4/gio"
+	"github.com/jwijenbergh/puregotk/v4/glib"
+	"github.com/jwijenbergh/puregotk/v4/gtk"
 )
 
 const (
@@ -43,11 +45,12 @@ type App struct {
 	tabsUC *usecase.ManageTabsUseCase
 
 	// Coordinators (new architecture)
-	contentCoord *coordinator.ContentCoordinator
-	tabCoord     *coordinator.TabCoordinator
-	wsCoord      *coordinator.WorkspaceCoordinator
-	navCoord     *coordinator.NavigationCoordinator
-	kbDispatcher *dispatcher.KeyboardDispatcher
+	contentCoord  *coordinator.ContentCoordinator
+	tabCoord      *coordinator.TabCoordinator
+	wsCoord       *coordinator.WorkspaceCoordinator
+	navCoord      *coordinator.NavigationCoordinator
+	kbDispatcher  *dispatcher.KeyboardDispatcher
+	configManager *config.Manager
 
 	// Pane management (used by coordinators)
 	panesUC        *usecase.ManagePanesUseCase
@@ -102,6 +105,7 @@ func New(deps *Dependencies) (*App, error) {
 		injector:       deps.Injector,
 		router:         deps.MessageRouter,
 		settings:       deps.Settings,
+		configManager:  config.GetManager(),
 		cancel:         cancel,
 	}
 	if app.router == nil {
@@ -109,7 +113,7 @@ func New(deps *Dependencies) (*App, error) {
 	}
 
 	// Register message handlers
-	if app.router != nil && deps.HistoryUC != nil && deps.FavoritesUC != nil {
+	if app.router != nil {
 		if err := handlers.RegisterAll(ctx, app.router, handlers.Config{
 			HistoryUC:   deps.HistoryUC,
 			FavoritesUC: deps.FavoritesUC,
@@ -253,6 +257,13 @@ func (a *App) onActivate(ctx context.Context) {
 	a.mainWindow.Show()
 
 	log.Info().Msg("main window displayed")
+
+	// Start watching config for appearance changes
+	a.initConfigWatcher(ctx)
+
+	// Ensure the current appearance config is applied once at startup.
+	// This avoids the WebUI showing default tokens until the first config change event.
+	a.applyAppearanceConfig(ctx, a.deps.Config)
 
 	// Start async filter loading after window is visible
 	a.initFilteringAsync(ctx)
@@ -635,6 +646,88 @@ func (a *App) SetOmniboxOnNavigate(fn func(url string)) {
 }
 
 // initFilteringAsync starts background filter loading with toast feedback.
+func (a *App) initConfigWatcher(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
+	if a.configManager == nil {
+		log.Debug().Msg("no config manager available, skipping watcher")
+		return
+	}
+
+	// Start viper watcher
+	if err := a.configManager.Watch(); err != nil {
+		log.Warn().Err(err).Msg("failed to start config watcher")
+		return
+	}
+
+	// Only appearance is hot-reloaded for now.
+	a.configManager.OnConfigChange(func(newCfg *config.Config) {
+		cfgCopy := newCfg
+		var cb glib.SourceFunc
+		cb = func(_ uintptr) bool {
+			a.applyAppearanceConfig(ctx, cfgCopy)
+			return false
+		}
+		glib.IdleAdd(&cb, 0)
+	})
+
+	log.Debug().Msg("config watcher initialized")
+}
+
+func (a *App) applyAppearanceConfig(ctx context.Context, cfg *config.Config) {
+	log := logging.FromContext(ctx)
+	if cfg == nil {
+		return
+	}
+
+	// Update the shared config pointer in-place so existing references see changes.
+	if a.deps != nil && a.deps.Config != nil {
+		*a.deps.Config = *cfg
+	}
+
+	// Update WebKit settings manager
+	if a.settings != nil {
+		a.settings.UpdateFromConfig(ctx, cfg)
+	}
+
+	// Apply settings to existing webviews via coordinator
+	if a.contentCoord != nil {
+		a.contentCoord.ApplySettingsToAll(ctx, a.settings)
+	}
+
+	// Update GTK theme and injected WebUI theme vars
+	if a.deps != nil && a.deps.Theme != nil {
+		var display *gdk.Display
+		if a.mainWindow != nil && a.mainWindow.Window() != nil {
+			display = a.mainWindow.Window().GetDisplay()
+		}
+		a.deps.Theme.UpdateFromConfig(ctx, cfg, display)
+
+		// Keep injector's dark-mode flag in sync for future navigations
+		if a.injector != nil {
+			a.injector.SetPrefersDark(a.deps.Theme.PrefersDark())
+		}
+
+		prepareThemeUC := usecase.NewPrepareWebUIThemeUseCase(a.injector)
+		cssText := a.deps.Theme.GetWebUIThemeCSS()
+		if err := prepareThemeUC.Execute(ctx, usecase.PrepareWebUIThemeInput{CSSVars: cssText}); err != nil {
+			log.Warn().Err(err).Msg("failed to update WebUI theme CSS")
+		}
+
+		// Refresh injected scripts so future navigations use the latest theme.
+		if a.contentCoord != nil && a.injector != nil {
+			a.contentCoord.RefreshInjectedScriptsToAll(ctx, a.injector)
+		}
+
+		// Apply WebUI theme to already-loaded dumb:// pages
+		if a.contentCoord != nil {
+			a.contentCoord.ApplyWebUIThemeToAll(ctx, a.deps.Theme.PrefersDark(), cssText)
+		}
+	}
+
+	log.Info().Msg("appearance config updated")
+}
+
 func (a *App) initFilteringAsync(ctx context.Context) {
 	if a.deps.FilterManager == nil {
 		return

@@ -213,8 +213,8 @@ func runGUI() {
 
 	// Prepare theme CSS for WebUI pages (dumb://*)
 	prepareThemeUC := usecase.NewPrepareWebUIThemeUseCase(injector)
-	themeCSSVars := themeManager.GetCurrentPalette().ToWebCSSVars()
-	if err := prepareThemeUC.Execute(ctx, usecase.PrepareWebUIThemeInput{CSSVars: themeCSSVars}); err != nil {
+	themeCSSText := themeManager.GetWebUIThemeCSS()
+	if err := prepareThemeUC.Execute(ctx, usecase.PrepareWebUIThemeInput{CSSVars: themeCSSText}); err != nil {
 		logger.Warn().Err(err).Msg("failed to prepare WebUI theme CSS")
 	}
 

@@ -237,13 +237,13 @@ entry.omnibox-entry > *:focus-visible {
 /* Suggestion title/URL */
 .omnibox-suggestion-title {
 	font-size: 0.875em;
-	color: var(--text, #ffffff);
+	color: var(--text);
 	font-weight: 400;
 }
 
 /* Also style labels inside omnibox rows directly */
 .omnibox-row label {
-	color: var(--text, #ffffff);
+	color: var(--text);
 }
 
 .omnibox-row:selected .omnibox-suggestion-title {
@@ -264,8 +264,8 @@ entry.omnibox-entry > *:focus-visible {
 
 /* Keyboard shortcut badge */
 .omnibox-shortcut-badge {
-	background-color: alpha(var(--muted, #909090), 0.3);
-	color: var(--muted, #909090);
+	background-color: alpha(var(--muted), 0.3);
+	color: var(--muted);
 	border-radius: 0.25em;
 	padding: 0.125em 0.375em;
 	font-size: 0.625em;
@@ -275,19 +275,19 @@ entry.omnibox-entry > *:focus-visible {
 }
 
 .omnibox-row:hover .omnibox-shortcut-badge {
-	background-color: alpha(var(--accent, #4ade80), 0.2);
-	color: var(--accent, #4ade80);
+	background-color: alpha(var(--accent), 0.2);
+	color: var(--accent);
 }
 
 .omnibox-row:selected .omnibox-shortcut-badge {
-	background-color: alpha(var(--accent, #4ade80), 0.3);
-	color: var(--accent, #4ade80);
+	background-color: alpha(var(--accent), 0.3);
+	color: var(--accent);
 }
 
 /* Zoom indicator in omnibox header */
 .omnibox-zoom-indicator {
-	background-color: alpha(var(--accent, #4ade80), 0.2);
-	color: var(--accent, #4ade80);
+	background-color: alpha(var(--accent), 0.2);
+	color: var(--accent);
 	border-radius: 0.25em;
 	padding: 0.125em 0.5em;
 	font-size: 0.6875em;
