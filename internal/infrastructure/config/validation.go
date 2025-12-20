@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"strings"
+
+	domainvalidation "github.com/bnema/dumber/internal/domain/validation"
 )
 
 // validateConfig performs comprehensive validation of configuration values
@@ -27,6 +29,31 @@ func validateConfig(config *Config) error {
 	if config.Appearance.DefaultFontSize < 1 || config.Appearance.DefaultFontSize > 72 {
 		validationErrors = append(validationErrors, "appearance.default_font_size must be between 1 and 72")
 	}
+
+	validationErrors = append(validationErrors, domainvalidation.ValidateFontFamily("appearance.sans_font", config.Appearance.SansFont)...)
+	validationErrors = append(validationErrors, domainvalidation.ValidateFontFamily("appearance.serif_font", config.Appearance.SerifFont)...)
+	validationErrors = append(validationErrors, domainvalidation.ValidateFontFamily("appearance.monospace_font", config.Appearance.MonospaceFont)...)
+
+	validationErrors = append(validationErrors, domainvalidation.ValidatePaletteHex(
+		"appearance.light_palette",
+		config.Appearance.LightPalette.Background,
+		config.Appearance.LightPalette.Surface,
+		config.Appearance.LightPalette.SurfaceVariant,
+		config.Appearance.LightPalette.Text,
+		config.Appearance.LightPalette.Muted,
+		config.Appearance.LightPalette.Accent,
+		config.Appearance.LightPalette.Border,
+	)...)
+	validationErrors = append(validationErrors, domainvalidation.ValidatePaletteHex(
+		"appearance.dark_palette",
+		config.Appearance.DarkPalette.Background,
+		config.Appearance.DarkPalette.Surface,
+		config.Appearance.DarkPalette.SurfaceVariant,
+		config.Appearance.DarkPalette.Text,
+		config.Appearance.DarkPalette.Muted,
+		config.Appearance.DarkPalette.Accent,
+		config.Appearance.DarkPalette.Border,
+	)...)
 
 	if config.DefaultWebpageZoom < 0.1 || config.DefaultWebpageZoom > 5.0 {
 		validationErrors = append(validationErrors, "default_webpage_zoom must be between 0.1 and 5.0")

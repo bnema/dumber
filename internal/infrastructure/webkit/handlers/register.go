@@ -17,10 +17,17 @@ type Config struct {
 // RegisterAll registers all message handlers with the router.
 func RegisterAll(ctx context.Context, router *webkit.MessageRouter, cfg Config) error {
 	// Homepage handlers (history, favorites, folders, tags)
-	if err := homepage.RegisterHandlers(ctx, router, homepage.Config{
-		HistoryUC:   cfg.HistoryUC,
-		FavoritesUC: cfg.FavoritesUC,
-	}); err != nil {
+	if cfg.HistoryUC != nil && cfg.FavoritesUC != nil {
+		if err := homepage.RegisterHandlers(ctx, router, homepage.Config{
+			HistoryUC:   cfg.HistoryUC,
+			FavoritesUC: cfg.FavoritesUC,
+		}); err != nil {
+			return err
+		}
+	}
+
+	// Configuration handlers (always available)
+	if err := RegisterConfigHandlers(ctx, router); err != nil {
 		return err
 	}
 

@@ -146,11 +146,11 @@ func (r *MessageRouter) SetupMessageHandler(ucm *webkit.UserContentManager, worl
 		return 0, fmt.Errorf("failed to register script message handler %q in main world", MessageHandlerName)
 	}
 
-	log.Debug().
+	log.Info().
 		Str("handler", MessageHandlerName).
 		Str("world", "main").
 		Uint32("signal_id", signalID).
-		Msg("script message handler connected successfully")
+		Msg("script message handler connected")
 
 	return signalID, nil
 }
@@ -195,6 +195,12 @@ func (r *MessageRouter) handleScriptMessage(valuePtr uintptr) {
 		log.Warn().Str("type", msg.Type).Msg("no handler registered for message type")
 		return
 	}
+
+	log.Info().
+		Str("type", msg.Type).
+		Uint64("webview_id", msg.WebViewID).
+		Int("payload_len", len(msg.Payload)).
+		Msg("received script message")
 
 	resp, err := entry.handler.Handle(r.baseCtx, WebViewID(msg.WebViewID), msg.Payload)
 	if err != nil {

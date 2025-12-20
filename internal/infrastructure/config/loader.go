@@ -180,6 +180,50 @@ func (m *Manager) Get() *Config {
 	return &configCopy
 }
 
+// Save saves the provided configuration to disk and updates Viper.
+func (m *Manager) Save(cfg *Config) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if cfg == nil {
+		return fmt.Errorf("config is nil")
+	}
+
+	// Validate before writing so UI gets immediate errors.
+	if err := validateConfig(cfg); err != nil {
+		return fmt.Errorf("configuration validation failed: %w", err)
+	}
+
+	// Update Viper with the new values.
+	// Since we can't easily update Viper from a struct automatically while preserving
+	// all settings, we update the main keys we care about.
+	m.viper.Set("appearance.sans_font", cfg.Appearance.SansFont)
+	m.viper.Set("appearance.serif_font", cfg.Appearance.SerifFont)
+	m.viper.Set("appearance.monospace_font", cfg.Appearance.MonospaceFont)
+	m.viper.Set("appearance.default_font_size", cfg.Appearance.DefaultFontSize)
+	m.viper.Set("appearance.color_scheme", cfg.Appearance.ColorScheme)
+	m.viper.Set("appearance.light_palette", cfg.Appearance.LightPalette)
+	m.viper.Set("appearance.dark_palette", cfg.Appearance.DarkPalette)
+	m.viper.Set("default_webpage_zoom", cfg.DefaultWebpageZoom)
+	m.viper.Set("default_ui_scale", cfg.DefaultUIScale)
+	m.viper.Set("default_search_engine", cfg.DefaultSearchEngine)
+
+	if err := m.viper.WriteConfig(); err != nil {
+		return fmt.Errorf("failed to write config: %w", err)
+	}
+
+	// We don't update m.config here manually because viper.OnConfigChange
+	// will trigger reload() if Watch() is active.
+	// If Watch() is not active, we should call reload() manually.
+	if !m.watching {
+		if err := m.reload(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // GetConfigFile returns the path to the configuration file being used.
 func (m *Manager) GetConfigFile() string {
 	return m.viper.ConfigFileUsed()
