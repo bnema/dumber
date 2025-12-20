@@ -3,6 +3,8 @@ package webkit
 import (
 	"context"
 	"embed"
+	"encoding/json"
+	"fmt"
 	"io/fs"
 	"mime"
 	"net/http"
@@ -11,7 +13,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/puregotk-webkit/soup"
 	"github.com/bnema/puregotk-webkit/webkit"
 	"github.com/jwijenbergh/puregotk/v4/gio"
 	"github.com/rs/zerolog"
@@ -20,6 +24,7 @@ import (
 // Scheme path constants
 const (
 	HomePath    = "home"
+	ConfigPath  = "config"
 	BlockedPath = "blocked"
 	IndexHTML   = "index.html"
 )
@@ -95,6 +100,98 @@ func (h *DumbSchemeHandler) registerDefaults() {
 			StatusCode:  http.StatusOK,
 		}
 	}))
+
+	// API: Get current config (used by dumb://config)
+	h.RegisterPage("/api/config", PageHandlerFunc(func(req *SchemeRequest) *SchemeResponse {
+		if req.Method != "GET" {
+			return nil
+		}
+
+		cfg := config.Get()
+		resp := struct {
+			Appearance struct {
+				SansFont        string              `json:"sans_font"`
+				SerifFont       string              `json:"serif_font"`
+				MonospaceFont   string              `json:"monospace_font"`
+				DefaultFontSize int                 `json:"default_font_size"`
+				ColorScheme     string              `json:"color_scheme"`
+				LightPalette    config.ColorPalette `json:"light_palette"`
+				DarkPalette     config.ColorPalette `json:"dark_palette"`
+			} `json:"appearance"`
+			DefaultUIScale      float64 `json:"default_ui_scale"`
+			DefaultSearchEngine string  `json:"default_search_engine"`
+		}{
+			DefaultUIScale:      cfg.DefaultUIScale,
+			DefaultSearchEngine: cfg.DefaultSearchEngine,
+		}
+		resp.Appearance.SansFont = cfg.Appearance.SansFont
+		resp.Appearance.SerifFont = cfg.Appearance.SerifFont
+		resp.Appearance.MonospaceFont = cfg.Appearance.MonospaceFont
+		resp.Appearance.DefaultFontSize = cfg.Appearance.DefaultFontSize
+		resp.Appearance.ColorScheme = cfg.Appearance.ColorScheme
+		resp.Appearance.LightPalette = cfg.Appearance.LightPalette
+		resp.Appearance.DarkPalette = cfg.Appearance.DarkPalette
+
+		data, err := json.Marshal(resp)
+		if err != nil {
+			return &SchemeResponse{
+				Data:        []byte(fmt.Sprintf(`{"error": "%s"}`, err)),
+				ContentType: "application/json",
+				StatusCode:  http.StatusInternalServerError,
+			}
+		}
+		return &SchemeResponse{
+			Data:        data,
+			ContentType: "application/json",
+			StatusCode:  http.StatusOK,
+		}
+	}))
+
+	// API: Get default config (used by Reset Defaults in dumb://config)
+	h.RegisterPage("/api/config/default", PageHandlerFunc(func(req *SchemeRequest) *SchemeResponse {
+		if req.Method != "GET" {
+			return nil
+		}
+
+		defaults := config.DefaultConfig()
+		resp := struct {
+			Appearance struct {
+				SansFont        string              `json:"sans_font"`
+				SerifFont       string              `json:"serif_font"`
+				MonospaceFont   string              `json:"monospace_font"`
+				DefaultFontSize int                 `json:"default_font_size"`
+				ColorScheme     string              `json:"color_scheme"`
+				LightPalette    config.ColorPalette `json:"light_palette"`
+				DarkPalette     config.ColorPalette `json:"dark_palette"`
+			} `json:"appearance"`
+			DefaultUIScale      float64 `json:"default_ui_scale"`
+			DefaultSearchEngine string  `json:"default_search_engine"`
+		}{
+			DefaultUIScale:      defaults.DefaultUIScale,
+			DefaultSearchEngine: defaults.DefaultSearchEngine,
+		}
+		resp.Appearance.SansFont = defaults.Appearance.SansFont
+		resp.Appearance.SerifFont = defaults.Appearance.SerifFont
+		resp.Appearance.MonospaceFont = defaults.Appearance.MonospaceFont
+		resp.Appearance.DefaultFontSize = defaults.Appearance.DefaultFontSize
+		resp.Appearance.ColorScheme = defaults.Appearance.ColorScheme
+		resp.Appearance.LightPalette = defaults.Appearance.LightPalette
+		resp.Appearance.DarkPalette = defaults.Appearance.DarkPalette
+
+		data, err := json.Marshal(resp)
+		if err != nil {
+			return &SchemeResponse{
+				Data:        []byte(fmt.Sprintf(`{"error": "%s"}`, err)),
+				ContentType: "application/json",
+				StatusCode:  http.StatusInternalServerError,
+			}
+		}
+		return &SchemeResponse{
+			Data:        data,
+			ContentType: "application/json",
+			StatusCode:  http.StatusOK,
+		}
+	}))
 }
 
 // RegisterPage registers a handler for a specific path.
@@ -139,7 +236,22 @@ func (h *DumbSchemeHandler) HandleRequest(reqPtr uintptr) {
 		return
 	}
 
-	// Try to serve from embedded assets first
+	// API endpoints should never be treated as static assets
+	if strings.HasPrefix(schemeReq.Path, "/api/") {
+		h.mu.RLock()
+		handler, ok := h.handlers[schemeReq.Path]
+		if !ok {
+			handler, ok = h.handlers[strings.TrimPrefix(schemeReq.Path, "/")]
+		}
+		h.mu.RUnlock()
+		if ok {
+			response := handler.Handle(schemeReq)
+			h.sendResponse(req, response)
+			return
+		}
+	}
+
+	// Try to serve from embedded assets
 	if response := h.handleAsset(u); response != nil {
 		h.sendResponse(req, response)
 		return
@@ -190,6 +302,12 @@ func (h *DumbSchemeHandler) handleAsset(u *url.URL) *SchemeResponse {
 		relPath = IndexHTML
 	// dumb://home/<asset> → serve asset
 	case host == HomePath && path != "":
+		relPath = path
+	// dumb://config or dumb://config/ → config.html
+	case host == ConfigPath && (path == "" || path == "/"):
+		relPath = "config.html"
+	// dumb://config/<asset> → serve asset
+	case host == ConfigPath && path != "":
 		relPath = path
 	// dumb://blocked or dumb://blocked/ → blocked.html
 	case host == BlockedPath && (path == "" || path == "/"):
@@ -307,6 +425,17 @@ func (h *DumbSchemeHandler) sendResponse(req *webkit.URISchemeRequest, response 
 	}
 	schemeResp.SetContentType(contentType)
 	schemeResp.SetStatus(uint(response.StatusCode), nil)
+
+	// WebKit can treat custom schemes as CORS-relevant even for same-origin fetch().
+	// We only add CORS headers for our internal API endpoints.
+	if strings.HasPrefix(req.GetPath(), "/api/") {
+		hdrs := soup.NewMessageHeaders(soup.MessageHeadersResponseValue)
+		hdrs.Append("Access-Control-Allow-Origin", "*")
+		hdrs.Append("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		hdrs.Append("Access-Control-Allow-Headers", "Content-Type")
+		hdrs.Append("Access-Control-Max-Age", "86400")
+		schemeResp.SetHttpHeaders(hdrs)
+	}
 
 	req.FinishWithResponse(schemeResp)
 }

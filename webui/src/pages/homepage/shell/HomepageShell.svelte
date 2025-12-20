@@ -6,7 +6,7 @@
   import CommandPalette from './CommandPalette.svelte';
   import StatusBar from './StatusBar.svelte';
   import KeyboardHints from './KeyboardHints.svelte';
-  import { History, Star, BarChart3, Search, Moon, Sun } from '@lucide/svelte';
+  import { History, Star, BarChart3, Search, Moon, Sun, Settings } from '@lucide/svelte';
 
   // Props for slot content
   interface Props {
@@ -33,6 +33,23 @@
   const syncThemeState = () => {
     themeMode = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
   };
+
+  function navigateWithViewTransition(url: string) {
+    const doc = document as any;
+
+    if (typeof doc?.startViewTransition !== 'function') {
+      window.location.href = url;
+      return;
+    }
+
+    const transition = doc.startViewTransition(() => {
+      document.documentElement.dataset.vt = 'leaving';
+    });
+
+    transition.finished.finally(() => {
+      window.location.href = url;
+    });
+  }
 
   const toggleTheme = () => {
     const nextMode = themeMode === 'dark' ? 'light' : 'dark';
@@ -172,6 +189,15 @@
           <Search size={14} strokeWidth={2} />
           <span class="button-text">CMD</span>
           <kbd class="kbd-hint">/</kbd>
+        </button>
+        <button
+          class="action-button"
+          type="button"
+          onclick={() => navigateWithViewTransition('dumb://config')}
+          title="Settings"
+        >
+          <Settings size={14} strokeWidth={2} />
+          <span class="button-text">CFG</span>
         </button>
         <button
           class="theme-toggle"

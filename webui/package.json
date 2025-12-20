@@ -4,12 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "VITE_PAGE=homepage vite build && VITE_PAGE=blocked vite build",
+    "build": "VITE_PAGE=homepage vite build && VITE_PAGE=blocked vite build && VITE_PAGE=config vite build",
     "build:homepage": "VITE_PAGE=homepage vite build",
     "build:blocked": "VITE_PAGE=blocked vite build",
+    "build:config": "VITE_PAGE=config vite build",
     "dev": "VITE_PAGE=homepage vite build --watch",
     "dev:homepage": "VITE_PAGE=homepage vite build --watch",
     "dev:blocked": "VITE_PAGE=blocked vite build --watch",
+    "dev:config": "VITE_PAGE=config vite build --watch",
     "check": "svelte-check",
     "lint": "eslint src --fix",
     "fmt": "prettier --write ."

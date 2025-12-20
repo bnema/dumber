@@ -29,6 +29,18 @@ const pages = {
       filename: "blocked.html",
     },
   },
+  config: {
+    entry: "src/pages/config.ts",
+    output: "config.min.js",
+    global: "DumberConfig",
+    html: {
+      name: "config",
+      title: "Settings",
+      script: "config.min.js",
+      css: "style.css",
+      filename: "config.html",
+    },
+  },
 } as const;
 
 // Get page from VITE_PAGE env var, default to building all
