@@ -9,12 +9,18 @@
  * - Sharp corners (--radius: 0)
  * - High contrast
  * - Vibrant green primary accent
+ *
+ * Theme Flow:
+ * 1. TOML config defines appearance.light_palette / dark_palette
+ * 2. Go ThemeManager converts to CSS variables via palette.ToWebCSSVars()
+ * 3. ContentInjector injects <style data-dumber-theme-vars> into webviews
+ * 4. These CSS values below serve as fallbacks when running outside the browser
  */
 
 @custom-variant dark (&:is(.dark *));
 
 /* ═══════════════════════════════════════════════════════════════
- * LIGHT THEME
+ * LIGHT THEME (fallback values - Go backend overrides at runtime)
  * ═══════════════════════════════════════════════════════════════ */
 :root {
   --radius: 0;
@@ -83,7 +89,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
- * DARK THEME
+ * DARK THEME (fallback values - Go backend overrides at runtime)
  * ═══════════════════════════════════════════════════════════════ */
 .dark {
   /* Core surfaces - true black for maximum contrast */
@@ -209,5 +215,118 @@
   }
   body {
     @apply bg-background text-foreground;
+    transition:
+      background-color 200ms ease,
+      color 200ms ease;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * BROWSER UI BASE
+ * ═══════════════════════════════════════════════════════════════ */
+
+.browser-ui {
+  background-color: var(--background);
+  color: var(--foreground);
+  border-color: var(--border);
+  transition: colors 250ms;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * ANIMATIONS
+ * ═══════════════════════════════════════════════════════════════ */
+
+.slide-in-top {
+  animation: slide-in-top 0.25s ease-out;
+}
+
+.slide-out-top {
+  animation: slide-out-top 0.25s ease-in;
+}
+
+.fade-in {
+  animation: fade-in 0.15s ease-out;
+}
+
+.fade-out {
+  animation: fade-out 0.15s ease-in;
+}
+
+@keyframes slide-in-top {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-out-top {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * FIND HIGHLIGHTING
+ * Styles for in-page search highlights
+ * ═══════════════════════════════════════════════════════════════ */
+
+.find-highlight {
+  background-color: rgb(255 235 59); /* yellow-400 */
+  color: rgb(0 0 0); /* black */
+  padding: 0 0.125rem; /* px-0.5 */
+  border-radius: 0.125rem; /* rounded-sm */
+  box-shadow: 0 0 0 1px rgb(200 185 0) inset;
+}
+
+.find-active {
+  background-color: rgb(255 152 0) !important; /* orange-500 */
+  color: rgb(0 0 0); /* black */
+  box-shadow: 0 0 0 1px rgb(179 107 0) inset !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * COMPONENT ISOLATION
+ * For injecting browser UI into external pages
+ * ═══════════════════════════════════════════════════════════════ */
+
+.browser-component-root {
+  /* Reset any inherited styles from the website */
+  all: initial;
+  /* Apply our design system */
+  font-family:
+    Fira Sans,
+    system-ui,
+    -apple-system,
+    sans-serif;
+  box-sizing: border-box;
+  * {
+    box-sizing: border-box;
   }
 }

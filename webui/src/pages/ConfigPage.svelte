@@ -244,16 +244,12 @@
     {:else if config}
       <Tabs.Root bind:value={activeTab} class="w-full">
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div class="space-y-2">
-            <div class="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-              Config Workspace
-            </div>
-            <div class="text-2xl font-semibold text-foreground">dumb://config</div>
+          <div class="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+            Config Workspace
           </div>
           <Tabs.List class="bg-muted/60">
             <Tabs.Trigger value="appearance">Appearance</Tabs.Trigger>
             <Tabs.Trigger value="search">Search</Tabs.Trigger>
-            <Tabs.Trigger value="shortcuts">Shortcuts</Tabs.Trigger>
           </Tabs.List>
         </div>
 
@@ -366,29 +362,21 @@
           <Card.Root class="rounded-none border-0 bg-transparent py-0 shadow-none">
             <Card.Header>
               <Card.Title>Search</Card.Title>
-              <Card.Description>Default engine and UI scaling.</Card.Description>
+              <Card.Description>Default engine and shortcuts.</Card.Description>
             </Card.Header>
-            <Card.Content class="grid gap-6 md:grid-cols-2">
+            <Card.Content class="space-y-8">
               <div class="space-y-2">
                 <Label for="search_engine">Default Search Engine (use %s for query)</Label>
                 <Input id="search_engine" bind:value={config.default_search_engine} />
               </div>
-              <div class="space-y-2">
-                <Label for="ui_scale_search">UI Scale</Label>
-                <Input id="ui_scale_search" type="number" step="0.1" bind:value={config.default_ui_scale} />
-              </div>
-            </Card.Content>
-          </Card.Root>
-        </Tabs.Content>
 
-        <Tabs.Content value="shortcuts">
-          <Card.Root class="rounded-none border-0 bg-transparent py-0 shadow-none">
-            <Card.Header>
-              <Card.Title>Search Shortcuts</Card.Title>
-              <Card.Description>Map prefixes like g to URL templates.</Card.Description>
-            </Card.Header>
-            <Card.Content>
-              <ShortcutsTable shortcuts={config.search_shortcuts} onUpdate={updateShortcuts} />
+              <div class="space-y-3">
+                <div class="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                  Search Shortcuts
+                </div>
+                <p class="text-sm text-muted-foreground">Map prefixes like g to URL templates.</p>
+                <ShortcutsTable shortcuts={config.search_shortcuts} onUpdate={updateShortcuts} />
+              </div>
             </Card.Content>
           </Card.Root>
         </Tabs.Content>

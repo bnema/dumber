@@ -1,6 +1,6 @@
 import { mount } from "svelte";
 import ConfigPage from "./ConfigPage.svelte";
-import "../lib/styles.css";
+import "../styles/app.css";
 
 // Mount the config page
 const app = mount(ConfigPage, {
