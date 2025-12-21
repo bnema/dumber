@@ -23,10 +23,10 @@ import (
 
 // Scheme path constants
 const (
-	HomePath    = "home"
-	ConfigPath  = "config"
-	BlockedPath = "blocked"
-	IndexHTML   = "index.html"
+	HomePath   = "home"
+	ConfigPath = "config"
+	ErrorPath  = "error"
+	IndexHTML  = "index.html"
 )
 
 // SchemeRequest represents a request to a custom URI scheme.
@@ -120,9 +120,11 @@ func (h *DumbSchemeHandler) registerDefaults() {
 			} `json:"appearance"`
 			DefaultUIScale      float64 `json:"default_ui_scale"`
 			DefaultSearchEngine string  `json:"default_search_engine"`
+			SearchShortcuts     map[string]config.SearchShortcut `json:"search_shortcuts"`
 		}{
 			DefaultUIScale:      cfg.DefaultUIScale,
 			DefaultSearchEngine: cfg.DefaultSearchEngine,
+			SearchShortcuts:     cfg.SearchShortcuts,
 		}
 		resp.Appearance.SansFont = cfg.Appearance.SansFont
 		resp.Appearance.SerifFont = cfg.Appearance.SerifFont
@@ -166,9 +168,11 @@ func (h *DumbSchemeHandler) registerDefaults() {
 			} `json:"appearance"`
 			DefaultUIScale      float64 `json:"default_ui_scale"`
 			DefaultSearchEngine string  `json:"default_search_engine"`
+			SearchShortcuts     map[string]config.SearchShortcut `json:"search_shortcuts"`
 		}{
 			DefaultUIScale:      defaults.DefaultUIScale,
 			DefaultSearchEngine: defaults.DefaultSearchEngine,
+			SearchShortcuts:     defaults.SearchShortcuts,
 		}
 		resp.Appearance.SansFont = defaults.Appearance.SansFont
 		resp.Appearance.SerifFont = defaults.Appearance.SerifFont
@@ -309,18 +313,18 @@ func (h *DumbSchemeHandler) handleAsset(u *url.URL) *SchemeResponse {
 	// dumb://config/<asset> → serve asset
 	case host == ConfigPath && path != "":
 		relPath = path
-	// dumb://blocked or dumb://blocked/ → blocked.html
-	case host == BlockedPath && (path == "" || path == "/"):
-		relPath = "blocked.html"
-	// dumb://blocked/<asset> → serve asset
-	case host == BlockedPath && path != "":
+	// dumb://error or dumb://error/ → error.html
+	case host == ErrorPath && (path == "" || path == "/"):
+		relPath = "error.html"
+	// dumb://error/<asset> → serve asset
+	case host == ErrorPath && path != "":
 		relPath = path
 	// dumb:home (opaque form) → index.html
 	case u.Opaque == HomePath:
 		relPath = IndexHTML
-	// dumb:blocked (opaque form) → blocked.html
-	case u.Opaque == BlockedPath:
-		relPath = "blocked.html"
+	// dumb:error (opaque form) → error.html
+	case u.Opaque == ErrorPath:
+		relPath = "error.html"
 	default:
 		// Not a recognized asset path
 		return nil
