@@ -1,6 +1,13 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import ConfigShell from "./config/ConfigShell.svelte";
+  import ShortcutsTable from "./config/ShortcutsTable.svelte";
+  import { Button } from "$lib/components/ui/button";
+  import { Input } from "$lib/components/ui/input";
+  import { Label } from "$lib/components/ui/label";
+  import { Spinner } from "$lib/components/ui/spinner";
+  import * as Card from "$lib/components/ui/card";
+  import * as Tabs from "$lib/components/ui/tabs";
 
   type ColorPalette = {
     background: string;
@@ -10,6 +17,11 @@
     muted: string;
     accent: string;
     border: string;
+  };
+
+  type SearchShortcut = {
+    url: string;
+    description: string;
   };
 
   type ConfigDTO = {
@@ -24,6 +36,7 @@
     };
     default_ui_scale: number;
     default_search_engine: string;
+    search_shortcuts: Record<string, SearchShortcut>;
   };
 
   const PALETTE_FIELDS: Array<{ key: keyof ColorPalette; label: string }> = [
@@ -40,30 +53,39 @@
     return /^#[0-9a-fA-F]{6}$/.test(value);
   }
 
-
-  let config = $state<ConfigDTO | null>(null);
+  // UI state
   let loading = $state(true);
-  let error = $state<string | null>(null);
+  let loadError = $state<string | null>(null);
+  let config = $state<ConfigDTO | null>(null);
   let saving = $state(false);
   let saveSuccess = $state(false);
+  let saveError = $state<string | null>(null);
   let themeEvents = $state(0);
+  let activeTab = $state("appearance");
 
-  async function fetchConfig() {
+  // Load config from API
+  async function loadConfig() {
+    loading = true;
+    loadError = null;
     try {
       const response = await fetch("/api/config");
       if (!response.ok) throw new Error("Failed to fetch config");
       config = (await response.json()) as ConfigDTO;
     } catch (e: any) {
-      error = e.message;
+      loadError = e.message;
+      console.error("[config] load failed", e);
     } finally {
       loading = false;
     }
   }
 
-  async function resetToDefaults() {
-    error = null;
-    saveSuccess = false;
+  // Reload config (used after save to get normalized values)
+  function reloadConfig() {
+    loadConfig();
+  }
 
+  async function resetToDefaults() {
+    saveSuccess = false;
     const confirmed = window.confirm(
       "Reset this page to default settings? (You still need to click Save to persist.)",
     );
@@ -74,7 +96,7 @@
       if (!response.ok) throw new Error("Failed to fetch default config");
       config = (await response.json()) as ConfigDTO;
     } catch (e: any) {
-      error = e.message;
+      console.error("[config] reset defaults failed", e);
     }
   }
 
@@ -93,7 +115,7 @@
   async function saveConfig() {
     saving = true;
     saveSuccess = false;
-    error = null;
+    saveError = null;
 
     try {
       const bridge = getWebKitBridge();
@@ -118,7 +140,7 @@
       let timeout: number | null = window.setTimeout(() => {
         if (saving) {
           console.warn("[config] save timed out (no callback)");
-          error = "Save timed out (no response from native handler)";
+          saveError = "Save timed out (no response from native handler)";
           saving = false;
         }
       }, 8000);
@@ -136,8 +158,8 @@
         saveSuccess = true;
         saving = false;
 
-        // Refresh config state from backend (in case watcher normalized values)
-        fetchConfig();
+        // Refresh config from backend (in case watcher normalized values)
+        reloadConfig();
 
         setTimeout(() => {
           saveSuccess = false;
@@ -146,7 +168,7 @@
       (window as any).__dumber_config_error = (msg: unknown) => {
         clearSaveTimeout();
         console.error("[config] save error", msg);
-        error = typeof msg === "string" ? msg : "Failed to save config";
+        saveError = typeof msg === "string" ? msg : "Failed to save config";
         saving = false;
       };
 
@@ -165,9 +187,14 @@
       }
     } catch (e: any) {
       console.error("[config] save exception", e);
-      error = e.message;
+      saveError = e.message;
       saving = false;
     }
+  }
+
+  function updateShortcuts(nextShortcuts: Record<string, SearchShortcut>) {
+    if (!config) return;
+    config.search_shortcuts = nextShortcuts;
   }
 
   onMount(() => {
@@ -180,300 +207,220 @@
       themeEvents += 1;
       console.debug("[config] theme changed", (e as CustomEvent).detail);
     };
-    window.addEventListener('dumber:theme-changed', onThemeChanged);
+    window.addEventListener("dumber:theme-changed", onThemeChanged);
 
-    fetchConfig();
+    // Load config on mount
+    loadConfig();
 
     return () => {
-      window.removeEventListener('dumber:theme-changed', onThemeChanged);
+      window.removeEventListener("dumber:theme-changed", onThemeChanged);
     };
   });
 </script>
 
 <ConfigShell>
-  <div class="config-content">
+  <div class="flex w-full flex-col gap-6 px-6 py-8">
     {#if loading}
-      <div class="loading">LOADING…</div>
-    {:else if error}
-      <div class="error">
-        <strong>ERROR</strong>
-        <span>{error}</span>
+      <!-- Loading state with spinner -->
+      <div class="flex flex-col items-center justify-center gap-4 py-16">
+        <Spinner class="size-8" />
+        <div class="text-xs font-semibold uppercase tracking-[0.4em] text-muted-foreground">
+          Loading configuration…
+        </div>
       </div>
+    {:else if loadError}
+      <!-- Error state -->
+      <div class="flex flex-col items-center justify-center gap-4 py-16">
+        <Card.Root class="max-w-md">
+          <Card.Header>
+            <Card.Title class="text-destructive">Failed to load config</Card.Title>
+            <Card.Description>{loadError}</Card.Description>
+          </Card.Header>
+          <Card.Content>
+            <Button variant="outline" onclick={reloadConfig}>Try again</Button>
+          </Card.Content>
+        </Card.Root>
+      </div>
+    {:else if config}
+      <Tabs.Root bind:value={activeTab} class="w-full">
+        <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div class="space-y-2">
+            <div class="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+              Config Workspace
+            </div>
+            <div class="text-2xl font-semibold text-foreground">dumb://config</div>
+          </div>
+          <Tabs.List class="bg-muted/60">
+            <Tabs.Trigger value="appearance">Appearance</Tabs.Trigger>
+            <Tabs.Trigger value="search">Search</Tabs.Trigger>
+            <Tabs.Trigger value="shortcuts">Shortcuts</Tabs.Trigger>
+          </Tabs.List>
+        </div>
+
+        <Tabs.Content value="appearance">
+          <Card.Root class="rounded-none border-0 bg-transparent py-0 shadow-none">
+            <Card.Header>
+              <Card.Title>Appearance</Card.Title>
+              <Card.Description>Fonts, palette, and theme preferences.</Card.Description>
+            </Card.Header>
+            <Card.Content class="space-y-8">
+              <div class="grid gap-6 md:grid-cols-2">
+                <div class="space-y-2">
+                  <Label for="sans_font">Sans-Serif Font</Label>
+                  <Input id="sans_font" bind:value={config.appearance.sans_font} />
+                </div>
+                <div class="space-y-2">
+                  <Label for="serif_font">Serif Font</Label>
+                  <Input id="serif_font" bind:value={config.appearance.serif_font} />
+                </div>
+                <div class="space-y-2">
+                  <Label for="monospace_font">Monospace Font</Label>
+                  <Input id="monospace_font" bind:value={config.appearance.monospace_font} />
+                </div>
+                <div class="space-y-2">
+                  <Label for="font_size">Default Font Size</Label>
+                  <Input id="font_size" type="number" bind:value={config.appearance.default_font_size} />
+                </div>
+                <div class="space-y-2">
+                  <Label for="color_scheme">Color Scheme</Label>
+                  <select
+                    id="color_scheme"
+                    bind:value={config.appearance.color_scheme}
+                    class="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm text-foreground ring-offset-background transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <option value="default">Follow System</option>
+                    <option value="prefer-dark">Always Dark</option>
+                    <option value="prefer-light">Always Light</option>
+                  </select>
+                </div>
+                <div class="space-y-2">
+                  <Label for="ui_scale">UI Scale</Label>
+                  <Input id="ui_scale" type="number" step="0.1" bind:value={config.default_ui_scale} />
+                </div>
+              </div>
+
+              <div class="space-y-6">
+                <div class="space-y-3">
+                  <div class="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    Theme: Light
+                  </div>
+                  <div class="grid gap-4 md:grid-cols-2">
+                    {#each PALETTE_FIELDS as field (field.key)}
+                      <div class="space-y-2">
+                        <Label for={`light_${field.key}`}>{field.label}</Label>
+                        <div class="flex items-center gap-3">
+                          <input
+                            id={`light_${field.key}`}
+                            type="color"
+                            value={config.appearance.light_palette[field.key]}
+                            oninput={(e) => {
+                              const v = (e.currentTarget as HTMLInputElement).value;
+                              config!.appearance.light_palette[field.key] = v;
+                            }}
+                            class="h-10 w-12 border border-border bg-background"
+                          />
+                          <Input bind:value={config.appearance.light_palette[field.key]} />
+                        </div>
+                        {#if !isHexColor(config.appearance.light_palette[field.key])}
+                          <p class="text-xs text-muted-foreground">Expected hex color like #RRGGBB</p>
+                        {/if}
+                      </div>
+                    {/each}
+                  </div>
+                </div>
+
+                <div class="space-y-3">
+                  <div class="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    Theme: Dark
+                  </div>
+                  <div class="grid gap-4 md:grid-cols-2">
+                    {#each PALETTE_FIELDS as field (field.key)}
+                      <div class="space-y-2">
+                        <Label for={`dark_${field.key}`}>{field.label}</Label>
+                        <div class="flex items-center gap-3">
+                          <input
+                            id={`dark_${field.key}`}
+                            type="color"
+                            value={config.appearance.dark_palette[field.key]}
+                            oninput={(e) => {
+                              const v = (e.currentTarget as HTMLInputElement).value;
+                              config!.appearance.dark_palette[field.key] = v;
+                            }}
+                            class="h-10 w-12 border border-border bg-background"
+                          />
+                          <Input bind:value={config.appearance.dark_palette[field.key]} />
+                        </div>
+                        {#if !isHexColor(config.appearance.dark_palette[field.key])}
+                          <p class="text-xs text-muted-foreground">Expected hex color like #RRGGBB</p>
+                        {/if}
+                      </div>
+                    {/each}
+                  </div>
+                </div>
+              </div>
+            </Card.Content>
+          </Card.Root>
+        </Tabs.Content>
+
+        <Tabs.Content value="search">
+          <Card.Root class="rounded-none border-0 bg-transparent py-0 shadow-none">
+            <Card.Header>
+              <Card.Title>Search</Card.Title>
+              <Card.Description>Default engine and UI scaling.</Card.Description>
+            </Card.Header>
+            <Card.Content class="grid gap-6 md:grid-cols-2">
+              <div class="space-y-2">
+                <Label for="search_engine">Default Search Engine (use %s for query)</Label>
+                <Input id="search_engine" bind:value={config.default_search_engine} />
+              </div>
+              <div class="space-y-2">
+                <Label for="ui_scale_search">UI Scale</Label>
+                <Input id="ui_scale_search" type="number" step="0.1" bind:value={config.default_ui_scale} />
+              </div>
+            </Card.Content>
+          </Card.Root>
+        </Tabs.Content>
+
+        <Tabs.Content value="shortcuts">
+          <Card.Root class="rounded-none border-0 bg-transparent py-0 shadow-none">
+            <Card.Header>
+              <Card.Title>Search Shortcuts</Card.Title>
+              <Card.Description>Map prefixes like g to URL templates.</Card.Description>
+            </Card.Header>
+            <Card.Content>
+              <ShortcutsTable shortcuts={config.search_shortcuts} onUpdate={updateShortcuts} />
+            </Card.Content>
+          </Card.Root>
+        </Tabs.Content>
+      </Tabs.Root>
+
+      <div class="flex flex-wrap items-center justify-between gap-4 border-t border-border px-6 py-4">
+        <div class="flex items-center gap-3 text-xs uppercase tracking-[0.3em] text-muted-foreground">
+          {#if saveSuccess}
+            <span class="text-primary">Saved</span>
+          {:else}
+            <span>Ready</span>
+          {/if}
+          {#if themeEvents > 0}
+            <span>Theme x{themeEvents}</span>
+          {/if}
+        </div>
+        <div class="flex items-center gap-3">
+          <Button variant="outline" onclick={resetToDefaults} disabled={saving} type="button">
+            Reset Defaults
+          </Button>
+          <Button onclick={saveConfig} disabled={saving} type="button">
+            {saving ? "Saving…" : "Save"}
+          </Button>
+        </div>
+      </div>
+
+      <!-- Save error display -->
+      {#if saveError}
+        <div class="border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {saveError}
+        </div>
+      {/if}
     {/if}
-
-    {#if config}
-      <div class="stack">
-      <!-- Appearance Section -->
-      <section class="border border-border bg-card p-6 text-card-foreground">
-        <h2 class="mb-6 text-xl font-semibold">Appearance</h2>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div class="space-y-2">
-            <label for="sans_font" class="block text-sm font-medium text-muted-foreground">Sans-Serif Font</label>
-            <input
-              id="sans_font"
-              type="text"
-              bind:value={config.appearance.sans_font}
-              class="w-full border border-input bg-background px-3 py-2 text-foreground outline-none focus:border-ring"
-            />
-          </div>
-
-          <div class="space-y-2">
-            <label for="serif_font" class="block text-sm font-medium text-muted-foreground">Serif Font</label>
-            <input
-              id="serif_font"
-              type="text"
-              bind:value={config.appearance.serif_font}
-              class="w-full border border-input bg-background px-3 py-2 text-foreground outline-none focus:border-ring"
-            />
-          </div>
-
-          <div class="space-y-2">
-            <label for="monospace_font" class="block text-sm font-medium text-muted-foreground">Monospace Font</label>
-            <input
-              id="monospace_font"
-              type="text"
-              bind:value={config.appearance.monospace_font}
-              class="w-full border border-input bg-background px-3 py-2 text-foreground outline-none focus:border-ring"
-            />
-          </div>
-
-          <div class="space-y-2">
-            <label for="font_size" class="block text-sm font-medium text-muted-foreground">Default Font Size</label>
-            <input
-              id="font_size"
-              type="number"
-              bind:value={config.appearance.default_font_size}
-              class="w-full border border-input bg-background px-3 py-2 text-foreground outline-none focus:border-ring"
-            />
-          </div>
-
-          <div class="space-y-2">
-            <label for="color_scheme" class="block text-sm font-medium text-muted-foreground">Color Scheme</label>
-            <select
-              id="color_scheme"
-              bind:value={config.appearance.color_scheme}
-              class="w-full border border-input bg-background px-3 py-2 text-foreground outline-none focus:border-ring"
-            >
-              <option value="default">Follow System</option>
-              <option value="prefer-dark">Always Dark</option>
-              <option value="prefer-light">Always Light</option>
-            </select>
-          </div>
-
-          <div class="space-y-2">
-            <label for="ui_scale" class="block text-sm font-medium text-muted-foreground">UI Scale</label>
-            <input
-              id="ui_scale"
-              type="number"
-              step="0.1"
-              bind:value={config.default_ui_scale}
-              class="w-full border border-input bg-background px-3 py-2 text-foreground outline-none focus:border-ring"
-            />
-          </div>
-        </div>
-
-        <div class="mt-8 space-y-8">
-          <div>
-            <h3 class="mb-3 text-base font-semibold">Theme: Light</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {#each PALETTE_FIELDS as field (field.key)}
-                <div class="space-y-2">
-                  <label class="block text-sm font-medium text-muted-foreground" for={`light_${field.key}`}
-                    >{field.label}</label
-                  >
-                  <div class="flex items-center gap-3">
-                    <input
-                      id={`light_${field.key}`}
-                      type="color"
-                      value={config.appearance.light_palette[field.key]}
-                      oninput={(e) => {
-                        const v = (e.currentTarget as HTMLInputElement).value;
-                        config!.appearance.light_palette[field.key] = v;
-                      }}
-                      class="h-10 w-12 border border-input bg-background"
-                    />
-                    <input
-                      type="text"
-                      bind:value={config.appearance.light_palette[field.key]}
-                      class="w-full border border-input bg-background px-3 py-2 text-foreground outline-none focus:border-ring"
-                    />
-                  </div>
-                  {#if !isHexColor(config.appearance.light_palette[field.key])}
-                    <p class="text-xs text-muted-foreground">Expected hex color like #RRGGBB</p>
-                  {/if}
-                </div>
-              {/each}
-            </div>
-          </div>
-
-          <div>
-            <h3 class="mb-3 text-base font-semibold">Theme: Dark</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {#each PALETTE_FIELDS as field (field.key)}
-                <div class="space-y-2">
-                  <label class="block text-sm font-medium text-muted-foreground" for={`dark_${field.key}`}
-                    >{field.label}</label
-                  >
-                  <div class="flex items-center gap-3">
-                    <input
-                      id={`dark_${field.key}`}
-                      type="color"
-                      value={config.appearance.dark_palette[field.key]}
-                      oninput={(e) => {
-                        const v = (e.currentTarget as HTMLInputElement).value;
-                        config!.appearance.dark_palette[field.key] = v;
-                      }}
-                      class="h-10 w-12 border border-input bg-background"
-                    />
-                    <input
-                      type="text"
-                      bind:value={config.appearance.dark_palette[field.key]}
-                      class="w-full border border-input bg-background px-3 py-2 text-foreground outline-none focus:border-ring"
-                    />
-                  </div>
-                  {#if !isHexColor(config.appearance.dark_palette[field.key])}
-                    <p class="text-xs text-muted-foreground">Expected hex color like #RRGGBB</p>
-                  {/if}
-                </div>
-              {/each}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Search Section -->
-      <section class="border border-border bg-card p-6 text-card-foreground">
-        <h2 class="mb-6 text-xl font-semibold">Search</h2>
-        <div class="space-y-4">
-          <div class="space-y-2">
-            <label for="search_engine" class="block text-sm font-medium text-muted-foreground">Default Search Engine (use %s for query)</label>
-            <input
-              id="search_engine"
-              type="text"
-              bind:value={config.default_search_engine}
-              class="w-full border border-input bg-background px-3 py-2 text-foreground outline-none focus:border-ring"
-            />
-          </div>
-        </div>
-      </section>
-
-      <div class="actions">
-        {#if saveSuccess}
-          <span class="saved">SAVED</span>
-        {/if}
-        {#if themeEvents > 0}
-          <span class="hint">THEME×{themeEvents}</span>
-        {/if}
-        <button onclick={resetToDefaults} disabled={saving} class="reset-button" type="button">
-          RESET DEFAULTS
-        </button>
-        <button onclick={saveConfig} disabled={saving} class="save-button" type="button">
-          {saving ? "SAVING…" : "SAVE"}
-        </button>
-      </div>
-    </div>
-  {/if}
-</div>
+  </div>
 </ConfigShell>
-
-<style>
-  .config-content {
-    width: 100%;
-    max-width: 980px;
-    margin: 0 auto;
-    padding: 1.5rem 1.25rem 2rem;
-  }
-
-  .stack {
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-  }
-
-  .loading {
-    padding: 2rem 0;
-    color: var(--muted-foreground);
-    letter-spacing: 0.1em;
-    font-size: 0.8rem;
-  }
-
-  .error {
-    padding: 0.75rem 1rem;
-    border: 1px solid color-mix(in srgb, var(--border) 50%, #ef4444 50%);
-    background: color-mix(in srgb, var(--card) 70%, #ef4444 30%);
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  .actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.75rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--border);
-  }
-
-  .saved {
-    font-size: 0.7rem;
-    letter-spacing: 0.12em;
-    color: var(--primary, #4ade80);
-  }
-
-  .hint {
-    font-size: 0.7rem;
-    letter-spacing: 0.12em;
-    color: var(--muted-foreground);
-  }
-
-  .reset-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.55rem 1rem;
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    color: var(--foreground);
-    background: transparent;
-    border: 1px solid var(--border);
-    cursor: pointer;
-    transition: all 120ms ease;
-  }
-
-  .reset-button:hover {
-    background: color-mix(in srgb, var(--card) 25%, transparent);
-  }
-
-  .reset-button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .save-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.55rem 1rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    color: var(--background);
-    background: var(--primary, #4ade80);
-    border: 1px solid color-mix(in srgb, var(--primary, #4ade80) 70%, var(--border) 30%);
-    cursor: pointer;
-    transition: all 120ms ease;
-  }
-
-  .save-button:hover {
-    filter: brightness(1.02);
-  }
-
-  .save-button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-</style>
-
