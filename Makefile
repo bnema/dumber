@@ -36,8 +36,8 @@ build: build-frontend ## Build the application (pure Go, no CGO)
 	CGO_ENABLED=0 go build -p $(NPROCS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
 
-build-frontend: ## Build homepage and blocked pages
-	@echo "Building webui pages (homepage + blocked)..."
+build-frontend: ## Build homepage and error pages
+	@echo "Building webui pages (homepage + error)..."
 	@cd webui && npm install --silent && npm run build
 	@echo "Frontend build complete"
 
@@ -108,7 +108,7 @@ clean: ## Clean build artifacts
 	rm -rf $(DIST_DIR)
 	rm -f $(BINARY_NAME)
 	rm -rf webui/dist webui/node_modules
-	rm -f assets/webui/homepage.min.js assets/webui/blocked.min.js assets/webui/index.html assets/webui/blocked.html assets/webui/style.css
+	rm -f assets/webui/homepage.min.js assets/webui/error.min.js assets/webui/config.min.js assets/webui/index.html assets/webui/error.html assets/webui/config.html assets/webui/style.css
 	rm -f coverage.out coverage.html
 	go clean -cache
 	go clean -testcache
