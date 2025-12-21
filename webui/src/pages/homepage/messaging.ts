@@ -142,15 +142,6 @@ function initializeCallbacks(): void {
   callbacksInitialized = true;
 }
 
-function handleLegacyCallback(requestId: string | undefined, data: unknown): void {
-  const request = pendingRequests.get(requestId || 'default');
-  if (request) {
-    clearTimeout(request.timeout);
-    pendingRequests.delete(requestId || 'default');
-    request.resolve(data);
-  }
-}
-
 // Handle both legacy raw data and new Response object format
 function handleLegacyOrResponseCallback(dataOrResponse: unknown): void {
   // Check if it's a Response object (has requestId and success fields)

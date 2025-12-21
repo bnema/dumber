@@ -3,10 +3,26 @@
   import { Button } from '$lib/components/ui/button';
   import * as Card from '$lib/components/ui/card';
 
+  type ErrorConfig = {
+    code: number;
+    title: string;
+    message: string;
+    icon: string;
+    actions: string[];
+  };
+
+  const defaultConfig: ErrorConfig = {
+    code: 404,
+    title: 'Page Not Found',
+    message: 'The page you are looking for does not exist.',
+    icon: 'warning',
+    actions: ['back'],
+  };
+
   // Error configurations
-  const errorConfigs: Record<string, { code: number; title: string; message: string; icon: string; actions: string[] }> = {
+  const errorConfigs: Record<string, ErrorConfig> = {
     blocked: { code: 0, title: 'Page Blocked', message: 'Content blocked by filter', icon: 'shield', actions: ['whitelist', 'bypass', 'back'] },
-    '404': { code: 404, title: 'Page Not Found', message: 'The page you are looking for does not exist.', icon: 'warning', actions: ['back'] },
+    '404': defaultConfig,
     '500': { code: 500, title: 'Server Error', message: 'Something went wrong on the server.', icon: 'error', actions: ['retry', 'back'] },
     '502': { code: 502, title: 'Bad Gateway', message: 'The server received an invalid response.', icon: 'error', actions: ['retry', 'back'] },
     '503': { code: 503, title: 'Service Unavailable', message: 'The server is temporarily unavailable.', icon: 'error', actions: ['retry', 'back'] },
@@ -15,7 +31,7 @@
     timeout: { code: 0, title: 'Connection Timed Out', message: 'The server took too long to respond.', icon: 'warning', actions: ['retry', 'back'] },
   };
 
-  let config = $state(errorConfigs['404']);
+  let config = $state<ErrorConfig>(defaultConfig);
   let targetUrl = $state('');
   let targetDomain = $state('');
   let customMessage = $state('');
@@ -26,7 +42,8 @@
     const params = new URLSearchParams(window.location.search);
     const typeParam = params.get('type') || params.get('code') || '404';
 
-    config = errorConfigs[typeParam] || {
+    const selectedConfig = errorConfigs[typeParam];
+    config = selectedConfig ?? {
       code: parseInt(typeParam) || 0,
       title: `Error ${typeParam}`,
       message: 'An unexpected error occurred.',
