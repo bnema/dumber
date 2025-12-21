@@ -689,7 +689,7 @@ func (wv *WebView) SetZoomLevel(ctx context.Context, level float64) error {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
 	wv.inner.SetZoomLevel(level)
-	logging.FromContext(ctx).Debug().Float64("level", level).Int("webview_id", int(wv.id)).Msg("set webview zoom level")
+	logging.FromContext(ctx).Debug().Float64("factor", level).Int("webview_id", int(wv.id)).Msg("set webview zoom level")
 	return nil
 }
 

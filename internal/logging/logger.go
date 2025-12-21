@@ -119,11 +119,6 @@ func NewWithFile(cfg Config, fileCfg FileConfig) (zerolog.Logger, func(), error)
 		With().
 		Timestamp()
 
-	// Add session ID to all log entries if provided
-	if fileCfg.SessionID != "" {
-		ctx = ctx.Str("session", fileCfg.SessionID)
-	}
-
 	return ctx.Logger(), cleanup, nil
 }
 
