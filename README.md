@@ -221,12 +221,11 @@ sudo apt install va-driver-all
   - rofi:   `dumber dmenu | rofi -dmenu -show-icons -p "🔍 " | dumber dmenu --select`
   - fuzzel: `dumber dmenu | fuzzel --dmenu -p "🔍 " | dumber dmenu --select`
 - Manage browsing history:
-  - `dumber history`                  # list recent history (default: 20 entries)
-  - `dumber history list -n 50`       # list 50 recent entries
-  - `dumber history search golang`    # search history for "golang"
+  - `dumber history`                  # interactive history browser (timeline tabs + fuzzy search)
+  - `dumber history --json`           # output recent entries as JSON
+  - `dumber history --json --max 50`  # limit JSON output to N entries
   - `dumber history stats`            # show history statistics
-  - `dumber history clear`            # clear all history (with confirmation)
-  - `dumber history clear --force`    # clear all history (no confirmation)
+  - `dumber history clear`            # interactive cleanup (select time range)
 - Clean up data and cache:
   - `dumber purge`                        # purge all data (with confirmation)
   - `dumber purge --force`                # purge all data (no confirmation)
