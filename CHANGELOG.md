@@ -4,11 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Clean-architecture rewrite (pure Go)**: Major refactor to a ports/adapters style architecture with explicit `domain`, `application` (use cases), `infrastructure`, and `ui` layers.
+- **New CLI commands**: `doctor` (runtime dependency checks), `about` (build info), `setup` (desktop integration), plus expanded `purge` with an interactive TUI.
+- **WebUI config improvements**: Search shortcut management (CRUD) and reset-to-defaults support.
+- **Find-in-page**: New find UI and shortcut handling.
+
 ### Changed
+- Migrated GUI stack to `puregotk` + `puregotk-webkit` and disabled CGO for pure Go compilation.
+- **Omnibox rewrite**: Replaced injected Svelte/JS omnibox with a native GTK4 widget overlay.
 - Startup defers non-critical work, adds DNS prefetching and a warmed WebView pool for faster tab/pane creation.
 - SQLite WAL checkpoints happen less frequently to reduce contention.
 - Content filters skip caching invalid rules; EasyList parser prefers if-domain over unless-domain.
 - Workspace border overlays can now receive pointer input.
+- Session-based logging and session management for CLI/GUI runs.
 
 ## [0.15.0] - 2025-11-29
 
