@@ -8,6 +8,7 @@ packages:
       filename: mocks.go
       pkgname: mocks
     interfaces:
+      SessionLogger: {}
       WebView: {}
       WebViewFactory: {}
       WebViewPool: {}
@@ -21,6 +22,7 @@ packages:
       FavoriteRepository: {}
       FolderRepository: {}
       HistoryRepository: {}
+      SessionRepository: {}
       TagRepository: {}
       ZoomRepository: {}
   github.com/bnema/dumber/internal/infrastructure/filtering:

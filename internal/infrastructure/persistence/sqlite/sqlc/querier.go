@@ -23,6 +23,7 @@ type Querier interface {
 	DeleteHistoryOlderThan(ctx context.Context, lastVisited sql.NullTime) error
 	DeleteTag(ctx context.Context, id int64) error
 	DeleteZoomLevel(ctx context.Context, domain string) error
+	GetActiveBrowserSession(ctx context.Context) (Session, error)
 	GetAllFavorites(ctx context.Context) ([]Favorite, error)
 	GetAllFolders(ctx context.Context) ([]FavoriteFolder, error)
 	GetAllTags(ctx context.Context) ([]FavoriteTag, error)
@@ -40,14 +41,18 @@ type Querier interface {
 	GetHistoryStats(ctx context.Context) (GetHistoryStatsRow, error)
 	GetHourlyDistribution(ctx context.Context) ([]GetHourlyDistributionRow, error)
 	GetRecentHistory(ctx context.Context, arg GetRecentHistoryParams) ([]History, error)
+	GetRecentSessions(ctx context.Context, limit int64) ([]Session, error)
 	GetRootFolders(ctx context.Context) ([]FavoriteFolder, error)
+	GetSessionByID(ctx context.Context, id string) (Session, error)
 	GetTagByID(ctx context.Context, id int64) (FavoriteTag, error)
 	GetTagByName(ctx context.Context, name string) (FavoriteTag, error)
 	GetTagsForFavorite(ctx context.Context, favoriteID int64) ([]FavoriteTag, error)
 	GetZoomLevel(ctx context.Context, domain string) (ZoomLevel, error)
 	IncrementVisitCount(ctx context.Context, url string) error
+	InsertSession(ctx context.Context, arg InsertSessionParams) error
 	IsWhitelisted(ctx context.Context, domain string) (int64, error)
 	ListZoomLevels(ctx context.Context) ([]ZoomLevel, error)
+	MarkSessionEnded(ctx context.Context, arg MarkSessionEndedParams) error
 	RemoveFromWhitelist(ctx context.Context, domain string) error
 	RemoveTagFromFavorite(ctx context.Context, arg RemoveTagFromFavoriteParams) error
 	SearchHistory(ctx context.Context, arg SearchHistoryParams) ([]History, error)

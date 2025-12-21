@@ -6,6 +6,7 @@ package sqlc
 
 import (
 	"database/sql"
+	"time"
 )
 
 type ContentWhitelist struct {
@@ -60,6 +61,13 @@ type History struct {
 type HistoryFt struct {
 	Url   string `json:"url"`
 	Title string `json:"title"`
+}
+
+type Session struct {
+	ID        string       `json:"id"`
+	Type      string       `json:"type"`
+	StartedAt time.Time    `json:"started_at"`
+	EndedAt   sql.NullTime `json:"ended_at"`
 }
 
 type ZoomLevel struct {
