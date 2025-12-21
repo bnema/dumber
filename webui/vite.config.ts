@@ -17,16 +17,16 @@ const pages = {
       filename: "index.html",
     },
   },
-  blocked: {
-    entry: "src/pages/blocked.ts",
-    output: "blocked.min.js",
-    global: "DumberBlocked",
+  error: {
+    entry: "src/pages/error.ts",
+    output: "error.min.js",
+    global: "DumberError",
     html: {
-      name: "blocked",
-      title: "Page Blocked",
-      script: "blocked.min.js",
+      name: "error",
+      title: "Error",
+      script: "error.min.js",
       css: "style.css",
-      filename: "blocked.html",
+      filename: "error.html",
     },
   },
   config: {
