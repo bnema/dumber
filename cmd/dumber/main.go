@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
+	"syscall"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
@@ -72,33 +74,38 @@ func runGUI() int {
 	// Apply optional /opt-style runtime prefix overrides (if configured)
 	deps.ApplyPrefixEnv(cfg.Runtime.Prefix)
 
-	// Generate session ID for this browser run
-	sessionID := logging.GenerateSessionID()
-
-	logger, logCleanup := initLogger(cfg, sessionID)
-	if logCleanup != nil {
-		defer logCleanup()
-	}
-
-	logger.Info().
+	bootstrapLogger := logging.NewFromConfigValues(cfg.Logging.Level, cfg.Logging.Format)
+	bootstrapLogger.Info().
 		Str("version", version).
 		Str("commit", commit).
 		Str("build_date", buildDate).
 		Msg("starting dumber")
 
-	// Create root context with logger
-	ctx := logging.WithContext(context.Background(), logger)
+	ctx := logging.WithContext(context.Background(), bootstrapLogger)
 
-	checkRuntimeRequirements(ctx, cfg, logger)
+	dataDir, cacheDir := resolveWebKitDirs(bootstrapLogger)
 
-	checkMediaRequirements(ctx, cfg, logger)
-
-	dataDir, cacheDir := resolveWebKitDirs(logger)
-
-	db, dbCleanup := openDatabase(ctx, logger, dataDir)
+	db, dbCleanup := openDatabase(ctx, bootstrapLogger, dataDir)
 	if dbCleanup != nil {
 		defer dbCleanup()
 	}
+
+	browserSession, sessionCtx, err := bootstrap.StartBrowserSession(ctx, cfg, db)
+	if err != nil {
+		bootstrapLogger.Fatal().Err(err).Msg("failed to start session")
+	}
+	if browserSession.LogCleanup != nil {
+		defer browserSession.LogCleanup()
+	}
+	defer func() {
+		_ = browserSession.End(sessionCtx)
+	}()
+
+	logger := browserSession.Logger
+	ctx = sessionCtx
+
+	checkRuntimeRequirements(ctx, cfg, logger)
+	checkMediaRequirements(ctx, cfg, logger)
 
 	// Create repositories
 	historyRepo := sqlite.NewHistoryRepository(db)
@@ -156,8 +163,26 @@ func runGUI() int {
 		faviconService,
 	)
 
+	app, err := ui.New(uiDeps)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to create application")
+		return 1
+	}
+
+	// Ensure sessions are closed on Ctrl+C / SIGTERM.
+	// Without this, the process may exit immediately and skip defers,
+	// leaving the DB session stuck in "active" state.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+	go func() {
+		<-sigCh
+		logger.Info().Msg("received interrupt, quitting")
+		app.Quit()
+	}()
+
 	// Run the application
-	exitCode := ui.RunWithArgs(ctx, uiDeps)
+	exitCode := app.Run(ctx, os.Args)
 	return exitCode
 }
 
@@ -167,28 +192,6 @@ func initConfig() *config.Config {
 		os.Exit(1)
 	}
 	return config.Get()
-}
-
-func initLogger(cfg *config.Config, sessionID string) (zerolog.Logger, func()) {
-	logger, logCleanup, err := logging.NewWithFile(
-		logging.Config{
-			Level:      logging.ParseLevel(cfg.Logging.Level),
-			Format:     cfg.Logging.Format,
-			TimeFormat: "15:04:05",
-		},
-		logging.FileConfig{
-			Enabled:       cfg.Logging.EnableFileLog,
-			LogDir:        cfg.Logging.LogDir,
-			SessionID:     sessionID,
-			WriteToStderr: true, // GUI: keep stderr output for debugging
-		},
-	)
-	if err != nil {
-		logger = logging.NewFromConfigValues(cfg.Logging.Level, cfg.Logging.Format)
-		fmt.Fprintf(os.Stderr, "Warning: failed to create session log file: %v\n", err)
-		return logger, nil
-	}
-	return logger, logCleanup
 }
 
 func checkRuntimeRequirements(ctx context.Context, cfg *config.Config, logger zerolog.Logger) {

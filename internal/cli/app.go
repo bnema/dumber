@@ -8,11 +8,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/cli/styles"
 	"github.com/bnema/dumber/internal/domain/build"
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	infralogging "github.com/bnema/dumber/internal/infrastructure/logging"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/logging"
 )
@@ -27,6 +29,7 @@ type App struct {
 
 	// Use cases
 	SearchHistoryUC *usecase.SearchHistoryUseCase
+	SessionUC       *usecase.ManageSessionUseCase
 
 	// Context with logger
 	ctx        context.Context
@@ -36,40 +39,27 @@ type App struct {
 // NewApp creates a new CLI application with all dependencies.
 func NewApp() (*App, error) {
 	const dataDirPerm = 0o755
+	var err error
 	// Load config
 	cfg := loadConfig()
 
 	// Create theme from config
 	theme := styles.NewTheme(cfg)
 
-	// Initialize logger with file output for debugging
-	// Logs can be viewed with: tail -f ~/.local/state/dumber/logs/session_*.log
-	logCfg := logging.DefaultConfig()
-	if level := os.Getenv("DUMBER_LOG_LEVEL"); level != "" {
-		logCfg.Level = logging.ParseLevel(level)
+	// Start with a quiet logger. If a browser session is active, we'll attach to it.
+	logLevel := cfg.Logging.Level
+	if envLevel := os.Getenv("DUMBER_LOG_LEVEL"); envLevel != "" {
+		logLevel = envLevel
 	}
 
-	// Create session log file
-	home, _ := os.UserHomeDir()
-	sessionID := logging.GenerateSessionID()
-	logDir := filepath.Join(home, ".local", "state", "dumber", "logs")
-
-	logger, logCleanup, err := logging.NewWithFile(logCfg, logging.FileConfig{
-		Enabled:       true,
-		LogDir:        logDir,
-		SessionID:     sessionID,
-		WriteToStderr: false, // CLI: log to file only, keep terminal clean
-	})
-	if err != nil {
-		// Fallback to no-file logging
-		logger = logging.NewFromEnv()
-		logCleanup = func() {}
-	}
-
+	logger, logCleanup, _ := logging.NewWithFile(
+		logging.Config{Level: logging.ParseLevel(logLevel), Format: cfg.Logging.Format, TimeFormat: "15:04:05"},
+		logging.FileConfig{Enabled: false, WriteToStderr: false},
+	)
 	ctx := logging.WithContext(context.Background(), logger)
-	logger.Info().Str("command", "cli").Msg("CLI session started")
 
 	// Determine database path - use share directory per XDG spec (user data)
+	home, _ := os.UserHomeDir()
 	dbFile := cfg.Database.Path
 	if dbFile == "" {
 		dbFile = filepath.Join(home, ".local", "share", "dumber", "dumber.db")
@@ -87,6 +77,26 @@ func NewApp() (*App, error) {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
+	// Attach CLI logs to the active browser session (if any).
+	// This avoids creating extra tiny session log files for each CLI invocation.
+	sessionRepo := sqlite.NewSessionRepository(db)
+	sessionLoggerAdapter := infralogging.NewSessionLoggerAdapter()
+	sessionUC := usecase.NewManageSessionUseCase(sessionRepo, sessionLoggerAdapter)
+	if active, activeErr := sessionUC.GetActiveSession(ctx); activeErr == nil && active != nil {
+		attachedLogger, attachedCleanup, _ := sessionLoggerAdapter.CreateLogger(ctx, active.ID, port.SessionLogConfig{
+			Level:         logLevel,
+			Format:        cfg.Logging.Format,
+			TimeFormat:    "15:04:05",
+			LogDir:        cfg.Logging.LogDir,
+			WriteToStderr: false,
+			EnableFileLog: cfg.Logging.EnableFileLog,
+		})
+		logger = attachedLogger
+		logCleanup = attachedCleanup
+		ctx = logging.WithContext(context.Background(), logger)
+		logger.Info().Str("session_id", string(active.ID)).Msg("attached to active session")
+	}
+
 	logger.Debug().Str("db_path", dbFile).Msg("database connected")
 
 	// Create repositories
@@ -101,6 +111,7 @@ func NewApp() (*App, error) {
 		db:              db,
 		History:         historyRepo,
 		SearchHistoryUC: searchHistoryUC,
+		SessionUC:       sessionUC,
 		ctx:             ctx,
 		logCleanup:      logCleanup,
 	}, nil
