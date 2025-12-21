@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bnema/dumber/internal/cli/styles"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 )
@@ -57,6 +59,16 @@ type SessionInfo struct {
 	Path      string
 	Size      int64
 	ModTime   time.Time
+
+	// DB metadata (optional)
+	StartedAt time.Time
+	EndedAt   *time.Time
+	Type      string
+	FromDB    bool
+}
+
+type sessionManager interface {
+	GetRecentSessions(ctx context.Context, limit int) ([]*entity.Session, error)
 }
 
 func runLogs(_ *cobra.Command, args []string) error {
@@ -65,18 +77,26 @@ func runLogs(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("app not initialized")
 	}
 
+	ctx := app.Ctx()
 	logDir := getLogDir()
 
 	// List sessions if no argument provided
 	if len(args) == 0 {
-		return listSessions(logDir, app.Theme)
+		return listSessions(ctx, app.SessionUC, logDir, app.Theme)
 	}
 
 	// Find session by partial match
 	sessionQuery := args[0]
-	session, err := findSession(logDir, sessionQuery)
+	session, err := findSession(ctx, app.SessionUC, logDir, sessionQuery)
 	if err != nil {
 		return err
+	}
+
+	if _, err := os.Stat(session.Path); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("log file for session '%s' not found at %s", session.ShortID, session.Path)
+		}
+		return fmt.Errorf("stat log file: %w", err)
 	}
 
 	if logsFollow {
@@ -102,8 +122,8 @@ func getLogDir() string {
 }
 
 // listSessions displays all available log sessions.
-func listSessions(logDir string, theme *styles.Theme) error {
-	sessions, err := getSessions(logDir)
+func listSessions(ctx context.Context, sessionMgr sessionManager, logDir string, theme *styles.Theme) error {
+	sessions, err := getSessionsMerged(ctx, sessionMgr, logDir)
 	if err != nil {
 		return err
 	}
@@ -117,14 +137,28 @@ func listSessions(logDir string, theme *styles.Theme) error {
 	fmt.Println(theme.Title.Render("Sessions (newest first):"))
 	fmt.Println()
 
-	// Table format: ShortID | DateTime | Size
+	// Table format: ShortID | DateTime | Status | Size
 	for _, s := range sessions {
-		dateStr := s.ModTime.Format("2006-01-02 15:04:05")
-		sizeStr := formatSize(s.Size)
+		timeStr := sessionSortTime(s).Format("2006-01-02 15:04:05")
 
-		line := fmt.Sprintf("  %s  %s  %s",
+		status := ""
+		if s.FromDB {
+			if s.EndedAt == nil {
+				status = theme.SuccessStyle.Render("active")
+			} else {
+				status = theme.Subtle.Render("ended")
+			}
+		}
+
+		sizeStr := "?"
+		if s.Size > 0 {
+			sizeStr = formatSize(s.Size)
+		}
+
+		line := fmt.Sprintf("  %s  %s  %s  %s",
 			theme.Highlight.Render(s.ShortID),
-			theme.Subtle.Render(dateStr),
+			theme.Subtle.Render(timeStr),
+			status,
 			theme.Subtle.Render(fmt.Sprintf("(%s)", sizeStr)),
 		)
 		fmt.Println(line)
@@ -179,9 +213,80 @@ func getSessions(logDir string) ([]SessionInfo, error) {
 	return sessions, nil
 }
 
+func getSessionsMerged(ctx context.Context, sessionMgr sessionManager, logDir string) ([]SessionInfo, error) {
+	fsSessions, err := getSessions(logDir)
+	if err != nil {
+		return nil, err
+	}
+	if sessionMgr == nil {
+		return fsSessions, nil
+	}
+
+	dbSessions, err := sessionMgr.GetRecentSessions(ctx, 200)
+	if err != nil {
+		if isMissingSessionsTable(err) {
+			return fsSessions, nil
+		}
+		return nil, err
+	}
+
+	byID := make(map[string]SessionInfo, len(dbSessions))
+	merged := make([]SessionInfo, 0, len(dbSessions)+len(fsSessions))
+	for _, s := range dbSessions {
+		if s == nil {
+			continue
+		}
+		filename := logging.SessionFilename(string(s.ID))
+		path := filepath.Join(logDir, filename)
+		info := SessionInfo{
+			SessionID: string(s.ID),
+			ShortID:   s.ShortID(),
+			Filename:  filename,
+			Path:      path,
+			StartedAt: s.StartedAt,
+			EndedAt:   s.EndedAt,
+			Type:      string(s.Type),
+			FromDB:    true,
+		}
+		if stat, statErr := os.Stat(path); statErr == nil {
+			info.Size = stat.Size()
+			info.ModTime = stat.ModTime()
+		}
+		byID[info.SessionID] = info
+		merged = append(merged, info)
+	}
+
+	for _, s := range fsSessions {
+		if _, ok := byID[s.SessionID]; ok {
+			continue
+		}
+		merged = append(merged, s)
+	}
+
+	sort.Slice(merged, func(i, j int) bool {
+		return sessionSortTime(merged[i]).After(sessionSortTime(merged[j]))
+	})
+	return merged, nil
+}
+
+func sessionSortTime(s SessionInfo) time.Time {
+	if !s.StartedAt.IsZero() {
+		return s.StartedAt
+	}
+	return s.ModTime
+}
+
+func isMissingSessionsTable(err error) bool {
+	if err == nil {
+		return false
+	}
+	// sqlite returns e.g. "no such table: sessions" before migrations run.
+	return strings.Contains(err.Error(), "no such table: sessions")
+}
+
 // findSession finds a session by partial ID match.
-func findSession(logDir, query string) (*SessionInfo, error) {
-	sessions, err := getSessions(logDir)
+func findSession(ctx context.Context, sessionMgr sessionManager, logDir, query string) (*SessionInfo, error) {
+	sessions, err := getSessionsMerged(ctx, sessionMgr, logDir)
 	if err != nil {
 		return nil, err
 	}
@@ -190,19 +295,24 @@ func findSession(logDir, query string) (*SessionInfo, error) {
 		return nil, fmt.Errorf("no sessions found")
 	}
 
-	queryLower := strings.ToLower(query)
+	queryNormalized := strings.ToLower(strings.TrimSpace(query))
 
-	// Try exact short ID match first
-	for _, s := range sessions {
-		if strings.EqualFold(s.ShortID, queryLower) {
-			return &s, nil
+	// Try exact short ID match first.
+	// Some entries may not have ShortID populated; derive it from SessionID.
+	for i := range sessions {
+		shortID := sessions[i].ShortID
+		if shortID == "" {
+			shortID = logging.ShortSessionID(sessions[i].SessionID)
+		}
+		if strings.ToLower(shortID) == queryNormalized {
+			return &sessions[i], nil
 		}
 	}
 
 	// Try partial match on full session ID
 	var matches []SessionInfo
 	for _, s := range sessions {
-		if strings.Contains(strings.ToLower(s.SessionID), queryLower) {
+		if strings.Contains(strings.ToLower(s.SessionID), queryNormalized) {
 			matches = append(matches, s)
 		}
 	}
@@ -273,14 +383,29 @@ func tailSession(logPath string, theme *styles.Theme) error {
 	fmt.Println()
 
 	reader := bufio.NewReader(file)
+	pending := ""
 	for {
-		line, err := reader.ReadString('\n')
+		chunk, err := reader.ReadString('\n')
 		if err != nil {
-			// No new data, wait a bit
-			time.Sleep(100 * time.Millisecond)
-			continue
+			if err == io.EOF {
+				// No full line yet; keep partial data.
+				pending += chunk
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+			return fmt.Errorf("read log file: %w", err)
 		}
-		fmt.Print(colorizeLogLine(line, theme))
+
+		pending += chunk
+		for {
+			idx := strings.IndexByte(pending, '\n')
+			if idx == -1 {
+				break
+			}
+			line := pending[:idx]
+			pending = pending[idx+1:]
+			fmt.Println(colorizeLogLine(line, theme))
+		}
 	}
 }
 
