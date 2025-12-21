@@ -27,7 +27,10 @@ const maxRetryFrames = 120
 
 // NewSplitView creates a new split view with the given orientation and children.
 // The ratio determines the initial divider position (0.0-1.0).
-func NewSplitView(ctx context.Context, factory WidgetFactory, orientation Orientation, startChild, endChild Widget, ratio float64) *SplitView {
+func NewSplitView(
+	ctx context.Context, factory WidgetFactory, orientation Orientation,
+	startChild, endChild Widget, ratio float64,
+) *SplitView {
 	log := logging.FromContext(ctx)
 
 	paned := factory.NewPaned(orientation)

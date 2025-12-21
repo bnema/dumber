@@ -11,7 +11,7 @@ type ConfirmModel struct {
 	Message   string
 	Yes       bool // Current selection
 	Confirmed bool // User pressed enter
-	Cancelled bool // User pressed escape
+	Canceled bool // User pressed escape
 	theme     *Theme
 }
 
@@ -48,6 +48,9 @@ func NewConfirm(theme *Theme, message string) ConfirmModel {
 
 // Init implements tea.Model.
 func (m ConfirmModel) Init() tea.Cmd {
+	if m.theme == nil {
+		return nil
+	}
 	return nil
 }
 
@@ -69,7 +72,7 @@ func (m ConfirmModel) Update(msg tea.Msg) (ConfirmModel, tea.Cmd) {
 		case key.Matches(msg, keys.Confirm):
 			m.Confirmed = true
 		case key.Matches(msg, keys.Cancel):
-			m.Cancelled = true
+			m.Canceled = true
 		}
 	}
 
@@ -110,7 +113,7 @@ func (m ConfirmModel) View() string {
 
 // Done returns true if the dialog is complete.
 func (m ConfirmModel) Done() bool {
-	return m.Confirmed || m.Cancelled
+	return m.Confirmed || m.Canceled
 }
 
 // Result returns true if user confirmed "Yes".

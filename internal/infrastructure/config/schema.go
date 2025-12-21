@@ -17,7 +17,7 @@ type Config struct {
 	DefaultWebpageZoom float64 `mapstructure:"default_webpage_zoom" yaml:"default_webpage_zoom" toml:"default_webpage_zoom"`
 	// DefaultUIScale sets the default UI scale for GTK widgets (1.0 = 100%, 2.0 = 200%)
 	DefaultUIScale float64 `mapstructure:"default_ui_scale" yaml:"default_ui_scale" toml:"default_ui_scale"`
-	// Workspace defines workspace, pane, and tab handling behaviour.
+	// Workspace defines workspace, pane, and tab handling behavior.
 	Workspace WorkspaceConfig `mapstructure:"workspace" yaml:"workspace" toml:"workspace"`
 	// ContentFiltering controls ad blocking and content filtering
 	ContentFiltering ContentFilteringConfig `mapstructure:"content_filtering" yaml:"content_filtering" toml:"content_filtering"`
@@ -52,6 +52,13 @@ const (
 
 // ThemeDefault is the default theme setting (follows system).
 const ThemeDefault = "default"
+
+const (
+	// ThemePreferDark explicitly selects dark theme.
+	ThemePreferDark = "prefer-dark"
+	// ThemePreferLight explicitly selects light theme.
+	ThemePreferLight = "prefer-light"
+)
 
 // MediaConfig holds video playback and hardware acceleration preferences.
 type MediaConfig struct {
@@ -173,27 +180,27 @@ type DebugConfig struct {
 	EnableDevTools bool `mapstructure:"enable_devtools" yaml:"enable_devtools" toml:"enable_devtools"`
 }
 
-// WorkspaceConfig captures layout, pane, and tab behaviour preferences.
+// WorkspaceConfig captures layout, pane, and tab behavior preferences.
 type WorkspaceConfig struct {
-	// PaneMode defines modal pane behaviour and bindings.
+	// PaneMode defines modal pane behavior and bindings.
 	PaneMode PaneModeConfig `mapstructure:"pane_mode" yaml:"pane_mode" toml:"pane_mode" json:"pane_mode"`
-	// TabMode defines modal tab behaviour and bindings (Alt+T).
+	// TabMode defines modal tab behavior and bindings (Alt+T).
 	TabMode TabModeConfig `mapstructure:"tab_mode" yaml:"tab_mode" toml:"tab_mode" json:"tab_mode"`
 	// Shortcuts holds global (non-modal) keyboard shortcuts.
 	Shortcuts GlobalShortcutsConfig `mapstructure:"shortcuts" yaml:"shortcuts" toml:"shortcuts" json:"shortcuts"`
 	// TabBarPosition determines tab bar placement: "top" or "bottom".
 	TabBarPosition string `mapstructure:"tab_bar_position" yaml:"tab_bar_position" toml:"tab_bar_position" json:"tab_bar_position"`
 	// HideTabBarWhenSingleTab hides the tab bar when only one tab exists.
-	HideTabBarWhenSingleTab bool `mapstructure:"hide_tab_bar_when_single_tab" yaml:"hide_tab_bar_when_single_tab" toml:"hide_tab_bar_when_single_tab" json:"hide_tab_bar_when_single_tab"`
+	HideTabBarWhenSingleTab bool `mapstructure:"hide_tab_bar_when_single_tab" yaml:"hide_tab_bar_when_single_tab" toml:"hide_tab_bar_when_single_tab" json:"hide_tab_bar_when_single_tab"` //nolint:lll // struct tags must stay on one line
 	// Popups configures default popup placement rules.
 	Popups PopupBehaviorConfig `mapstructure:"popups" yaml:"popups" toml:"popups" json:"popups"`
 	// Styling configures workspace visual appearance.
 	Styling WorkspaceStylingConfig `mapstructure:"styling" yaml:"styling" toml:"styling" json:"styling"`
 }
 
-// PaneModeConfig defines modal behaviour for pane management.
+// PaneModeConfig defines modal behavior for pane management.
 type PaneModeConfig struct {
-	ActivationShortcut  string              `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"`
+	ActivationShortcut  string              `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
 	TimeoutMilliseconds int                 `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
 	Actions             map[string][]string `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
 }
@@ -210,9 +217,9 @@ func (p *PaneModeConfig) GetKeyBindings() map[string]string {
 	return keyToAction
 }
 
-// TabModeConfig defines modal behaviour for tab management (Zellij-style).
+// TabModeConfig defines modal behavior for tab management (Zellij-style).
 type TabModeConfig struct {
-	ActivationShortcut  string              `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"`
+	ActivationShortcut  string              `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
 	TimeoutMilliseconds int                 `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
 	Actions             map[string][]string `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
 }
@@ -263,15 +270,15 @@ type PopupBehaviorConfig struct {
 	OpenInNewPane bool `mapstructure:"open_in_new_pane" yaml:"open_in_new_pane" toml:"open_in_new_pane" json:"open_in_new_pane"`
 
 	// FollowPaneContext determines if popup placement follows parent pane context
-	FollowPaneContext bool `mapstructure:"follow_pane_context" yaml:"follow_pane_context" toml:"follow_pane_context" json:"follow_pane_context"`
+	FollowPaneContext bool `mapstructure:"follow_pane_context" yaml:"follow_pane_context" toml:"follow_pane_context" json:"follow_pane_context"` //nolint:lll // struct tags must stay on one line
 
 	// BlankTargetBehavior determines how target="_blank" links are opened
 	// Accepted values: "split", "stacked" (default), "tabbed"
 	// This is separate from Behavior which controls JavaScript popups
-	BlankTargetBehavior string `mapstructure:"blank_target_behavior" yaml:"blank_target_behavior" toml:"blank_target_behavior" json:"blank_target_behavior"`
+	BlankTargetBehavior string `mapstructure:"blank_target_behavior" yaml:"blank_target_behavior" toml:"blank_target_behavior" json:"blank_target_behavior"` //nolint:lll // struct tags must stay on one line
 
 	// EnableSmartDetection uses WebKitWindowProperties to detect popup vs tab intents
-	EnableSmartDetection bool `mapstructure:"enable_smart_detection" yaml:"enable_smart_detection" toml:"enable_smart_detection" json:"enable_smart_detection"`
+	EnableSmartDetection bool `mapstructure:"enable_smart_detection" yaml:"enable_smart_detection" toml:"enable_smart_detection" json:"enable_smart_detection"` //nolint:lll // struct tags must stay on one line
 
 	// OAuthAutoClose enables auto-closing OAuth popups after successful auth redirects
 	OAuthAutoClose bool `mapstructure:"oauth_auto_close" yaml:"oauth_auto_close" toml:"oauth_auto_close" json:"oauth_auto_close"`
@@ -285,17 +292,17 @@ type WorkspaceStylingConfig struct {
 	BorderColor string `mapstructure:"border_color" yaml:"border_color" toml:"border_color" json:"border_color"`
 
 	// PaneModeBorderWidth in pixels for pane mode indicator border (Ctrl+P N overlay)
-	PaneModeBorderWidth int `mapstructure:"pane_mode_border_width" yaml:"pane_mode_border_width" toml:"pane_mode_border_width" json:"pane_mode_border_width"`
+	PaneModeBorderWidth int `mapstructure:"pane_mode_border_width" yaml:"pane_mode_border_width" toml:"pane_mode_border_width" json:"pane_mode_border_width"` //nolint:lll // struct tags must stay on one line
 	// PaneModeBorderColor for the pane mode indicator border (CSS color value or theme variable)
 	// Defaults to "#4A90E2" (blue) if not set
-	PaneModeBorderColor string `mapstructure:"pane_mode_border_color" yaml:"pane_mode_border_color" toml:"pane_mode_border_color" json:"pane_mode_border_color"`
+	PaneModeBorderColor string `mapstructure:"pane_mode_border_color" yaml:"pane_mode_border_color" toml:"pane_mode_border_color" json:"pane_mode_border_color"` //nolint:lll // struct tags must stay on one line
 
 	// TabModeBorderWidth in pixels for tab mode indicator border (Ctrl+P T overlay)
-	TabModeBorderWidth int `mapstructure:"tab_mode_border_width" yaml:"tab_mode_border_width" toml:"tab_mode_border_width" json:"tab_mode_border_width"`
+	TabModeBorderWidth int `mapstructure:"tab_mode_border_width" yaml:"tab_mode_border_width" toml:"tab_mode_border_width" json:"tab_mode_border_width"` //nolint:lll // struct tags must stay on one line
 	// TabModeBorderColor for the tab mode indicator border (CSS color value or theme variable)
 	// Defaults to "#FFA500" (orange) if not set - MUST be different from PaneModeBorderColor
-	TabModeBorderColor string `mapstructure:"tab_mode_border_color" yaml:"tab_mode_border_color" toml:"tab_mode_border_color" json:"tab_mode_border_color"`
+	TabModeBorderColor string `mapstructure:"tab_mode_border_color" yaml:"tab_mode_border_color" toml:"tab_mode_border_color" json:"tab_mode_border_color"` //nolint:lll // struct tags must stay on one line
 
 	// TransitionDuration in milliseconds for border animations
-	TransitionDuration int `mapstructure:"transition_duration" yaml:"transition_duration" toml:"transition_duration" json:"transition_duration"`
+	TransitionDuration int `mapstructure:"transition_duration" yaml:"transition_duration" toml:"transition_duration" json:"transition_duration"` //nolint:lll // struct tags must stay on one line
 }

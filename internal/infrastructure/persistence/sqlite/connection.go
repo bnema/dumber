@@ -15,6 +15,7 @@ import (
 // NewConnection creates a new SQLite database connection with optimized settings.
 // It creates the database directory if it doesn't exist and applies performance pragmas.
 func NewConnection(ctx context.Context, dbPath string) (*sql.DB, error) {
+	const dbDirPerm = 0o750
 	log := logging.FromContext(ctx)
 
 	if dbPath == "" {
@@ -22,7 +23,7 @@ func NewConnection(ctx context.Context, dbPath string) (*sql.DB, error) {
 	}
 
 	// Ensure database directory exists
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0750); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dbPath), dbDirPerm); err != nil {
 		return nil, fmt.Errorf("failed to create database directory: %w", err)
 	}
 

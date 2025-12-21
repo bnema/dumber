@@ -66,6 +66,23 @@ type DumbSchemeHandler struct {
 	mu       sync.RWMutex
 }
 
+type configAppearancePayload struct {
+	SansFont        string              `json:"sans_font"`
+	SerifFont       string              `json:"serif_font"`
+	MonospaceFont   string              `json:"monospace_font"`
+	DefaultFontSize int                 `json:"default_font_size"`
+	ColorScheme     string              `json:"color_scheme"`
+	LightPalette    config.ColorPalette `json:"light_palette"`
+	DarkPalette     config.ColorPalette `json:"dark_palette"`
+}
+
+type configPayload struct {
+	Appearance          configAppearancePayload              `json:"appearance"`
+	DefaultUIScale      float64                              `json:"default_ui_scale"`
+	DefaultSearchEngine string                               `json:"default_search_engine"`
+	SearchShortcuts     map[string]config.SearchShortcut      `json:"search_shortcuts"`
+}
+
 // NewDumbSchemeHandler creates a new handler for the dumb:// scheme.
 func NewDumbSchemeHandler(ctx context.Context) *DumbSchemeHandler {
 	log := logging.FromContext(ctx)
@@ -93,7 +110,7 @@ func (h *DumbSchemeHandler) SetAssets(assets embed.FS) {
 // registerDefaults sets up default page handlers.
 func (h *DumbSchemeHandler) registerDefaults() {
 	// Error page (static fallback)
-	h.RegisterPage("/error", PageHandlerFunc(func(req *SchemeRequest) *SchemeResponse {
+h.RegisterPage("/error", PageHandlerFunc(func(_ *SchemeRequest) *SchemeResponse {
 		return &SchemeResponse{
 			Data:        []byte(errorPageHTML),
 			ContentType: "text/html",
@@ -107,46 +124,7 @@ func (h *DumbSchemeHandler) registerDefaults() {
 			return nil
 		}
 
-		cfg := config.Get()
-		resp := struct {
-			Appearance struct {
-				SansFont        string              `json:"sans_font"`
-				SerifFont       string              `json:"serif_font"`
-				MonospaceFont   string              `json:"monospace_font"`
-				DefaultFontSize int                 `json:"default_font_size"`
-				ColorScheme     string              `json:"color_scheme"`
-				LightPalette    config.ColorPalette `json:"light_palette"`
-				DarkPalette     config.ColorPalette `json:"dark_palette"`
-			} `json:"appearance"`
-			DefaultUIScale      float64 `json:"default_ui_scale"`
-			DefaultSearchEngine string  `json:"default_search_engine"`
-			SearchShortcuts     map[string]config.SearchShortcut `json:"search_shortcuts"`
-		}{
-			DefaultUIScale:      cfg.DefaultUIScale,
-			DefaultSearchEngine: cfg.DefaultSearchEngine,
-			SearchShortcuts:     cfg.SearchShortcuts,
-		}
-		resp.Appearance.SansFont = cfg.Appearance.SansFont
-		resp.Appearance.SerifFont = cfg.Appearance.SerifFont
-		resp.Appearance.MonospaceFont = cfg.Appearance.MonospaceFont
-		resp.Appearance.DefaultFontSize = cfg.Appearance.DefaultFontSize
-		resp.Appearance.ColorScheme = cfg.Appearance.ColorScheme
-		resp.Appearance.LightPalette = cfg.Appearance.LightPalette
-		resp.Appearance.DarkPalette = cfg.Appearance.DarkPalette
-
-		data, err := json.Marshal(resp)
-		if err != nil {
-			return &SchemeResponse{
-				Data:        []byte(fmt.Sprintf(`{"error": "%s"}`, err)),
-				ContentType: "application/json",
-				StatusCode:  http.StatusInternalServerError,
-			}
-		}
-		return &SchemeResponse{
-			Data:        data,
-			ContentType: "application/json",
-			StatusCode:  http.StatusOK,
-		}
+		return buildConfigResponse(config.Get())
 	}))
 
 	// API: Get default config (used by Reset Defaults in dumb://config)
@@ -155,47 +133,40 @@ func (h *DumbSchemeHandler) registerDefaults() {
 			return nil
 		}
 
-		defaults := config.DefaultConfig()
-		resp := struct {
-			Appearance struct {
-				SansFont        string              `json:"sans_font"`
-				SerifFont       string              `json:"serif_font"`
-				MonospaceFont   string              `json:"monospace_font"`
-				DefaultFontSize int                 `json:"default_font_size"`
-				ColorScheme     string              `json:"color_scheme"`
-				LightPalette    config.ColorPalette `json:"light_palette"`
-				DarkPalette     config.ColorPalette `json:"dark_palette"`
-			} `json:"appearance"`
-			DefaultUIScale      float64 `json:"default_ui_scale"`
-			DefaultSearchEngine string  `json:"default_search_engine"`
-			SearchShortcuts     map[string]config.SearchShortcut `json:"search_shortcuts"`
-		}{
-			DefaultUIScale:      defaults.DefaultUIScale,
-			DefaultSearchEngine: defaults.DefaultSearchEngine,
-			SearchShortcuts:     defaults.SearchShortcuts,
-		}
-		resp.Appearance.SansFont = defaults.Appearance.SansFont
-		resp.Appearance.SerifFont = defaults.Appearance.SerifFont
-		resp.Appearance.MonospaceFont = defaults.Appearance.MonospaceFont
-		resp.Appearance.DefaultFontSize = defaults.Appearance.DefaultFontSize
-		resp.Appearance.ColorScheme = defaults.Appearance.ColorScheme
-		resp.Appearance.LightPalette = defaults.Appearance.LightPalette
-		resp.Appearance.DarkPalette = defaults.Appearance.DarkPalette
-
-		data, err := json.Marshal(resp)
-		if err != nil {
-			return &SchemeResponse{
-				Data:        []byte(fmt.Sprintf(`{"error": "%s"}`, err)),
-				ContentType: "application/json",
-				StatusCode:  http.StatusInternalServerError,
-			}
-		}
-		return &SchemeResponse{
-			Data:        data,
-			ContentType: "application/json",
-			StatusCode:  http.StatusOK,
-		}
+		return buildConfigResponse(config.DefaultConfig())
 	}))
+}
+
+func buildConfigResponse(cfg *config.Config) *SchemeResponse {
+	resp := configPayload{
+		DefaultUIScale:      cfg.DefaultUIScale,
+		DefaultSearchEngine: cfg.DefaultSearchEngine,
+		SearchShortcuts:     cfg.SearchShortcuts,
+		Appearance: configAppearancePayload{
+			SansFont:        cfg.Appearance.SansFont,
+			SerifFont:       cfg.Appearance.SerifFont,
+			MonospaceFont:   cfg.Appearance.MonospaceFont,
+			DefaultFontSize: cfg.Appearance.DefaultFontSize,
+			ColorScheme:     cfg.Appearance.ColorScheme,
+			LightPalette:    cfg.Appearance.LightPalette,
+			DarkPalette:     cfg.Appearance.DarkPalette,
+		},
+	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		return &SchemeResponse{
+			Data:        []byte(fmt.Sprintf(`{"error": %q}`, err)),
+			ContentType: "application/json",
+			StatusCode:  http.StatusInternalServerError,
+		}
+	}
+
+	return &SchemeResponse{
+		Data:        data,
+		ContentType: "application/json",
+		StatusCode:  http.StatusOK,
+	}
 }
 
 // RegisterPage registers a handler for a specific path.
@@ -301,28 +272,28 @@ func (h *DumbSchemeHandler) handleAsset(u *url.URL) *SchemeResponse {
 
 	var relPath string
 	switch {
-	// dumb://home or dumb://home/ → index.html
+	// Home root maps to index.html.
 	case host == HomePath && (path == "" || path == "/"):
 		relPath = IndexHTML
-	// dumb://home/<asset> → serve asset
+	// Home asset paths map directly to assets.
 	case host == HomePath && path != "":
 		relPath = path
-	// dumb://config or dumb://config/ → config.html
+	// Config root maps to config.html.
 	case host == ConfigPath && (path == "" || path == "/"):
 		relPath = "config.html"
-	// dumb://config/<asset> → serve asset
+	// Config asset paths map directly to assets.
 	case host == ConfigPath && path != "":
 		relPath = path
-	// dumb://error or dumb://error/ → error.html
+	// Error root maps to error.html.
 	case host == ErrorPath && (path == "" || path == "/"):
 		relPath = "error.html"
-	// dumb://error/<asset> → serve asset
+	// Error asset paths map directly to assets.
 	case host == ErrorPath && path != "":
 		relPath = path
-	// dumb:home (opaque form) → index.html
+	// Opaque home form maps to index.html.
 	case u.Opaque == HomePath:
 		relPath = IndexHTML
-	// dumb:error (opaque form) → error.html
+	// Opaque error form maps to error.html.
 	case u.Opaque == ErrorPath:
 		relPath = "error.html"
 	default:
@@ -354,6 +325,9 @@ func (h *DumbSchemeHandler) handleAsset(u *url.URL) *SchemeResponse {
 
 // getMimeType determines the MIME type for a given file path.
 func (h *DumbSchemeHandler) getMimeType(filename string) string {
+	if h == nil {
+		return "application/octet-stream"
+	}
 	ext := strings.ToLower(filepath.Ext(filename))
 
 	// Try standard mime type first
@@ -451,7 +425,7 @@ func (h *DumbSchemeHandler) RegisterWithContext(wkCtx *WebKitContext) {
 		return
 	}
 
-	callback := webkit.URISchemeRequestCallback(func(reqPtr, userData uintptr) {
+callback := webkit.URISchemeRequestCallback(func(reqPtr, _ uintptr) {
 		h.HandleRequest(reqPtr)
 	})
 

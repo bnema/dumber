@@ -24,6 +24,7 @@ const (
 	omniboxMaxWidth   = 800 // Maximum width in pixels
 	omniboxHeightPct  = 0.6 // 60% of parent window height
 	omniboxMaxResults = 10
+	omniboxTopMarginPct = 0.2 // 20% from top
 	debounceDelayMs   = 150
 )
 
@@ -236,7 +237,8 @@ func (o *Omnibox) measureAndResize(width, rowCount int) {
 		rowHeight = o.measuredHeights.singleRow
 	} else {
 		// Fallback to hardcoded estimate (before first measurement)
-		rowHeight = int(60 * o.uiScale)
+		const fallbackRowHeight = 60
+		rowHeight = int(fallbackRowHeight * o.uiScale)
 	}
 
 	// Calculate content height for the scrolled window
@@ -275,7 +277,46 @@ func (o *Omnibox) measureAndResize(width, rowCount int) {
 
 // createWidgets builds the GTK widget hierarchy.
 func (o *Omnibox) createWidgets() error {
-	// Create outer container for positioning (will be added to an overlay)
+	if err := o.initOuterBox(); err != nil {
+		return err
+	}
+	if err := o.initMainBox(); err != nil {
+		return err
+	}
+	if err := o.initHeader(); err != nil {
+		return err
+	}
+	if err := o.initEntry(); err != nil {
+		return err
+	}
+	if err := o.initList(); err != nil {
+		return err
+	}
+	o.assembleWidgets()
+	return nil
+}
+
+// setupKeyboardHandling adds keyboard event handling.
+func (o *Omnibox) setupKeyboardHandling() {
+	log := logging.FromContext(o.ctx)
+	controller := gtk.NewEventControllerKey()
+	if controller == nil {
+		log.Error().Msg("failed to create event controller key")
+		return
+	}
+
+	// Set capture phase to intercept before entry
+	controller.SetPropagationPhase(gtk.PhaseCaptureValue)
+
+keyPressedCb := func(_ gtk.EventControllerKey, keyval uint, _ uint, state gdk.ModifierType) bool {
+		return o.handleKeyPress(keyval, state)
+	}
+	controller.ConnectKeyPressed(&keyPressedCb)
+
+	o.outerBox.AddController(&controller.EventController)
+}
+
+func (o *Omnibox) initOuterBox() error {
 	o.outerBox = gtk.NewBox(gtk.OrientationVerticalValue, 0)
 	if o.outerBox == nil {
 		return errNilWidget("outerBox")
@@ -284,15 +325,19 @@ func (o *Omnibox) createWidgets() error {
 	o.outerBox.SetHalign(gtk.AlignCenterValue) // Center horizontally
 	o.outerBox.SetValign(gtk.AlignStartValue)  // Align to top
 	o.outerBox.SetVisible(false)               // Hidden by default
+	return nil
+}
 
-	// Main content box
+func (o *Omnibox) initMainBox() error {
 	o.mainBox = gtk.NewBox(gtk.OrientationVerticalValue, 0)
 	if o.mainBox == nil {
 		return errNilWidget("mainBox")
 	}
 	o.mainBox.AddCssClass("omnibox-container")
+	return nil
+}
 
-	// Header with History/Favorites toggle
+func (o *Omnibox) initHeader() error {
 	o.headerBox = gtk.NewBox(gtk.OrientationHorizontalValue, 0)
 	if o.headerBox == nil {
 		return errNilWidget("headerBox")
@@ -315,18 +360,16 @@ func (o *Omnibox) createWidgets() error {
 	o.favoritesBtn.AddCssClass("omnibox-header-btn")
 	o.favoritesBtn.SetCanFocus(false)
 
-	// Connect header button clicks
-	historyClickCb := func(btn gtk.Button) {
+	historyClickCb := func(_ gtk.Button) {
 		o.setViewMode(ViewModeHistory)
 	}
 	o.historyBtn.ConnectClicked(&historyClickCb)
 
-	favoritesClickCb := func(btn gtk.Button) {
+	favoritesClickCb := func(_ gtk.Button) {
 		o.setViewMode(ViewModeFavorites)
 	}
 	o.favoritesBtn.ConnectClicked(&favoritesClickCb)
 
-	// Zoom indicator label (shown when zoom != 100%)
 	o.zoomLabel = gtk.NewLabel(nil)
 	if o.zoomLabel != nil {
 		o.zoomLabel.AddCssClass("omnibox-zoom-indicator")
@@ -334,14 +377,10 @@ func (o *Omnibox) createWidgets() error {
 		o.zoomLabel.SetHalign(gtk.AlignEndValue)
 		o.zoomLabel.SetHexpand(true)
 	}
+	return nil
+}
 
-	o.headerBox.Append(&o.historyBtn.Widget)
-	o.headerBox.Append(&o.favoritesBtn.Widget)
-	if o.zoomLabel != nil {
-		o.headerBox.Append(&o.zoomLabel.Widget)
-	}
-
-	// Search entry field
+func (o *Omnibox) initEntry() error {
 	o.entry = gtk.NewSearchEntry()
 	if o.entry == nil {
 		return errNilWidget("entry")
@@ -351,8 +390,10 @@ func (o *Omnibox) createWidgets() error {
 
 	placeholder := "Search history or enter URL..."
 	o.entry.SetPlaceholderText(&placeholder)
+	return nil
+}
 
-	// Scrolled window for list
+func (o *Omnibox) initList() error {
 	o.scrolledWin = gtk.NewScrolledWindow()
 	if o.scrolledWin == nil {
 		return errNilWidget("scrolledWin")
@@ -360,10 +401,8 @@ func (o *Omnibox) createWidgets() error {
 	o.scrolledWin.AddCssClass("omnibox-scrolled")
 	o.scrolledWin.SetVexpand(true)
 	o.scrolledWin.SetPolicy(gtk.PolicyNeverValue, gtk.PolicyAutomaticValue)
-	// Let GTK handle natural sizing - propagate child height up to max
 	o.scrolledWin.SetPropagateNaturalHeight(true)
 
-	// List box for suggestions
 	o.listBox = gtk.NewListBox()
 	if o.listBox == nil {
 		return errNilWidget("listBox")
@@ -371,8 +410,7 @@ func (o *Omnibox) createWidgets() error {
 	o.listBox.AddCssClass("omnibox-listbox")
 	o.listBox.SetSelectionMode(gtk.SelectionSingleValue)
 
-	// Connect row selection
-	rowSelectedCb := func(lb gtk.ListBox, rowPtr uintptr) {
+	rowSelectedCb := func(_ gtk.ListBox, rowPtr uintptr) {
 		if rowPtr == 0 {
 			o.mu.Lock()
 			o.selectedIndex = -1
@@ -387,35 +425,21 @@ func (o *Omnibox) createWidgets() error {
 		}
 	}
 	o.listBox.ConnectRowSelected(&rowSelectedCb)
+	return nil
+}
 
-	// Assemble hierarchy
+func (o *Omnibox) assembleWidgets() {
+	o.headerBox.Append(&o.historyBtn.Widget)
+	o.headerBox.Append(&o.favoritesBtn.Widget)
+	if o.zoomLabel != nil {
+		o.headerBox.Append(&o.zoomLabel.Widget)
+	}
+
 	o.scrolledWin.SetChild(&o.listBox.Widget)
 	o.mainBox.Append(&o.headerBox.Widget)
 	o.mainBox.Append(&o.entry.Widget)
 	o.mainBox.Append(&o.scrolledWin.Widget)
 	o.outerBox.Append(&o.mainBox.Widget)
-
-	return nil
-}
-
-// setupKeyboardHandling adds keyboard event handling.
-func (o *Omnibox) setupKeyboardHandling() {
-	log := logging.FromContext(o.ctx)
-	controller := gtk.NewEventControllerKey()
-	if controller == nil {
-		log.Error().Msg("failed to create event controller key")
-		return
-	}
-
-	// Set capture phase to intercept before entry
-	controller.SetPropagationPhase(gtk.PhaseCaptureValue)
-
-	keyPressedCb := func(ctrl gtk.EventControllerKey, keyval uint, keycode uint, state gdk.ModifierType) bool {
-		return o.handleKeyPress(keyval, state)
-	}
-	controller.ConnectKeyPressed(&keyPressedCb)
-
-	o.outerBox.AddController(&controller.EventController)
 }
 
 // setupEntryChanged wires entry text changes to debounced search.
@@ -484,14 +508,16 @@ func (o *Omnibox) handleKeyPress(keyval uint, state gdk.ModifierType) bool {
 	case uint(gdk.KEY_1), uint(gdk.KEY_2), uint(gdk.KEY_3), uint(gdk.KEY_4), uint(gdk.KEY_5),
 		uint(gdk.KEY_6), uint(gdk.KEY_7), uint(gdk.KEY_8), uint(gdk.KEY_9):
 		if ctrl {
-			index := int(keyval - uint(gdk.KEY_1)) // 0-8
+			const firstShortcutKey = uint(gdk.KEY_1)
+			index := int(keyval - firstShortcutKey) // 0-8
 			o.selectAndNavigate(index)
 			return true
 		}
 
 	case uint(gdk.KEY_0):
 		if ctrl {
-			o.selectAndNavigate(9) // 10th item
+			const tenthItemIndex = 9
+			o.selectAndNavigate(tenthItemIndex)
 			return true
 		}
 	}
@@ -597,11 +623,8 @@ func (o *Omnibox) loadInitialHistory() {
 			o.idleAddUpdateSuggestions(nil)
 			return
 
-		case "most_visited":
+		case "most_visited", "recent", "":
 			// TODO: Implement GetMostVisited in use case if needed
-			fallthrough
-
-		case "recent", "":
 			results, err := o.historyUC.GetRecent(ctx, omniboxMaxResults, 0)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to load recent history")
@@ -759,7 +782,7 @@ func (o *Omnibox) rebuildList() {
 }
 
 // createFaviconImage creates a favicon image with async loading from cache.
-func (o *Omnibox) createFaviconImage(url, fallbackIcon string) *gtk.Image {
+func (o *Omnibox) createFaviconImage(rawURL, fallbackIcon string) *gtk.Image {
 	favicon := gtk.NewImage()
 	if favicon == nil {
 		return nil
@@ -769,8 +792,8 @@ func (o *Omnibox) createFaviconImage(url, fallbackIcon string) *gtk.Image {
 	favicon.AddCssClass("omnibox-favicon")
 
 	// Async load favicon from cache
-	if o.faviconAdapter != nil && url != "" {
-		o.faviconAdapter.GetOrFetch(o.ctx, url, func(texture *gdk.Texture) {
+	if o.faviconAdapter != nil && rawURL != "" {
+		o.faviconAdapter.GetOrFetch(o.ctx, rawURL, func(texture *gdk.Texture) {
 			if texture != nil {
 				var cb glib.SourceFunc = func(data uintptr) bool {
 					favicon.SetFromPaintable(texture)
@@ -785,21 +808,22 @@ func (o *Omnibox) createFaviconImage(url, fallbackIcon string) *gtk.Image {
 }
 
 // createRowWithFavicon creates a ListBoxRow with favicon, title, URL, and shortcut badge.
-func (o *Omnibox) createRowWithFavicon(url, title, fallbackIcon string, index int) *gtk.ListBoxRow {
+func (o *Omnibox) createRowWithFavicon(rawURL, title, fallbackIcon string, index int) *gtk.ListBoxRow {
 	row := gtk.NewListBoxRow()
 	if row == nil {
 		return nil
 	}
 	row.AddCssClass("omnibox-row")
 
-	hbox := gtk.NewBox(gtk.OrientationHorizontalValue, 8)
+	const rowSpacing = 8
+	hbox := gtk.NewBox(gtk.OrientationHorizontalValue, rowSpacing)
 	if hbox == nil {
 		return nil
 	}
 	hbox.SetHexpand(true)
 
 	// Favicon image (vertically centered)
-	if favicon := o.createFaviconImage(url, fallbackIcon); favicon != nil {
+	if favicon := o.createFaviconImage(rawURL, fallbackIcon); favicon != nil {
 		favicon.SetValign(gtk.AlignCenterValue)
 		hbox.Append(&favicon.Widget)
 	}
@@ -815,7 +839,7 @@ func (o *Omnibox) createRowWithFavicon(url, title, fallbackIcon string, index in
 	// Title label (or URL if no title)
 	displayTitle := title
 	if displayTitle == "" {
-		displayTitle = url
+		displayTitle = rawURL
 	}
 	titleLabel := gtk.NewLabel(nil)
 	if titleLabel != nil {
@@ -827,10 +851,10 @@ func (o *Omnibox) createRowWithFavicon(url, title, fallbackIcon string, index in
 	}
 
 	// URL label (only if title exists and differs from URL)
-	if title != "" && title != url {
+	if title != "" && title != rawURL {
 		urlLabel := gtk.NewLabel(nil)
 		if urlLabel != nil {
-			urlLabel.SetText(url)
+			urlLabel.SetText(rawURL)
 			urlLabel.AddCssClass("omnibox-suggestion-url")
 			urlLabel.SetHalign(gtk.AlignStartValue)
 			urlLabel.SetEllipsize(2) // PANGO_ELLIPSIZE_END
@@ -841,10 +865,11 @@ func (o *Omnibox) createRowWithFavicon(url, title, fallbackIcon string, index in
 	hbox.Append(&textBox.Widget)
 
 	// Shortcut badge (Ctrl+1-9, Ctrl+0 for 10th)
-	if index <= 9 {
+	const maxShortcutIndex = 9
+	if index <= maxShortcutIndex {
 		shortcutLabel := gtk.NewLabel(nil)
 		if shortcutLabel != nil {
-			if index < 9 {
+			if index < maxShortcutIndex {
 				shortcutLabel.SetText(formatShortcut(index + 1))
 			} else {
 				shortcutLabel.SetText("Ctrl+0")
@@ -947,33 +972,33 @@ func (o *Omnibox) navigateToSelected() {
 	o.mu.RUnlock()
 
 	entryText := o.entry.GetText()
-	var url string
+	var targetURL string
 
 	// Check if user typed a URL-like string (contains . and no spaces)
 	// If so, navigate to that URL directly instead of the selection
 	if o.looksLikeURL(entryText) {
-		url = o.buildURL(entryText)
+		targetURL = o.buildURL(entryText)
 	} else if idx < 0 {
 		// No selection - use entry text as URL/search
-		url = o.buildURL(entryText)
+		targetURL = o.buildURL(entryText)
 	} else if mode == ViewModeHistory {
 		if idx < len(suggestions) {
-			url = suggestions[idx].URL
+			targetURL = suggestions[idx].URL
 		}
 	} else {
 		if idx < len(favorites) {
-			url = favorites[idx].URL
+			targetURL = favorites[idx].URL
 		}
 	}
 
-	if url == "" {
+	if targetURL == "" {
 		return
 	}
 
 	o.Hide(o.ctx)
 
 	if o.onNavigate != nil {
-		o.onNavigate(url)
+		o.onNavigate(targetURL)
 	}
 }
 
@@ -1016,9 +1041,9 @@ func (o *Omnibox) toggleFavorite() {
 
 		go func() {
 			ctx := o.ctx
-			log := logging.FromContext(ctx)
+			goLog := logging.FromContext(ctx)
 
-			log.Debug().Str("url", s.URL).Str("title", s.Title).Msg("adding to favorites")
+			goLog.Debug().Str("url", s.URL).Str("title", s.Title).Msg("adding to favorites")
 
 			input := usecase.AddFavoriteInput{
 				URL:   s.URL,
@@ -1027,11 +1052,11 @@ func (o *Omnibox) toggleFavorite() {
 
 			fav, err := o.favoritesUC.Add(ctx, input)
 			if err != nil {
-				log.Error().Err(err).Str("url", s.URL).Msg("failed to add favorite")
+				goLog.Error().Err(err).Str("url", s.URL).Msg("failed to add favorite")
 				return
 			}
 
-			log.Info().Str("url", s.URL).Int64("id", int64(fav.ID)).Msg("favorite added from omnibox")
+			goLog.Info().Str("url", s.URL).Int64("id", int64(fav.ID)).Msg("favorite added from omnibox")
 		}()
 	} else {
 		// Remove from favorites
@@ -1082,39 +1107,38 @@ func (o *Omnibox) yankSelectedURL() {
 	favorites := o.favorites
 	o.mu.RUnlock()
 
-	var url string
+	var selectedURL string
 	if mode == ViewModeHistory {
 		if idx < 0 || idx >= len(suggestions) {
 			log.Debug().Int("index", idx).Msg("yank URL: invalid selection")
 			return
 		}
-		url = suggestions[idx].URL
+		selectedURL = suggestions[idx].URL
 	} else {
 		if idx < 0 || idx >= len(favorites) {
 			log.Debug().Int("index", idx).Msg("yank URL: invalid selection")
 			return
 		}
-		url = favorites[idx].URL
+		selectedURL = favorites[idx].URL
 	}
 
-	if url == "" {
+	if selectedURL == "" {
 		log.Debug().Msg("yank URL: empty URL")
 		return
 	}
 
 	go func() {
 		ctx := o.ctx
-		if err := o.copyURLUC.Copy(ctx, url); err != nil {
+		if err := o.copyURLUC.Copy(ctx, selectedURL); err != nil {
 			return // Use case already logs the error
 		}
 
 		// Show toast notification on success (must run on GTK main thread)
 		if o.onToast != nil {
-			var cb glib.SourceFunc
-			cb = func(_ uintptr) bool {
+			cb := glib.SourceFunc(func(_ uintptr) bool {
 				o.onToast("URL copied")
 				return false // Don't repeat
-			}
+			})
 			glib.IdleAdd(&cb, 0)
 		}
 	}()
@@ -1201,7 +1225,7 @@ func (o *Omnibox) Show(ctx context.Context, query string) {
 	if width > omniboxMaxWidth {
 		width = omniboxMaxWidth
 	}
-	marginTop := int(float64(parentHeight) * 0.20) // 20% from top
+	marginTop := int(float64(parentHeight) * omniboxTopMarginPct)
 
 	o.mainBox.SetSizeRequest(width, -1)
 	o.outerBox.SetMarginTop(marginTop)

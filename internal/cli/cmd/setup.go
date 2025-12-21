@@ -55,7 +55,7 @@ func init() {
 	setupCmd.AddCommand(setupDefaultCmd)
 }
 
-func runSetupInstall(cmd *cobra.Command, args []string) error {
+func runSetupInstall(_ *cobra.Command, _ []string) error {
 	app := GetApp()
 	if app == nil {
 		return fmt.Errorf("app not initialized")
@@ -105,7 +105,7 @@ func runSetupInstall(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runSetupDefault(cmd *cobra.Command, args []string) error {
+func runSetupDefault(_ *cobra.Command, _ []string) error {
 	app := GetApp()
 	if app == nil {
 		return fmt.Errorf("app not initialized")

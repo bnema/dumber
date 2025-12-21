@@ -156,7 +156,7 @@ func (p *gtkPaned) SetWideHandle(wide bool)    { p.inner.SetWideHandle(wide) }
 func (p *gtkPaned) GetWideHandle() bool        { return p.inner.GetWideHandle() }
 
 func (p *gtkPaned) ConnectMap(callback func()) uint32 {
-	cb := func(w gtk.Widget) {
+	cb := func(_ gtk.Widget) {
 		callback()
 	}
 	return p.inner.ConnectMap(&cb)
@@ -245,7 +245,7 @@ func (b *gtkBox) Remove(child Widget) {
 	b.inner.Remove(child.GtkWidget())
 }
 
-func (b *gtkBox) InsertChildAfter(child Widget, sibling Widget) {
+func (b *gtkBox) InsertChildAfter(child, sibling Widget) {
 	if child == nil {
 		return
 	}
@@ -256,7 +256,7 @@ func (b *gtkBox) InsertChildAfter(child Widget, sibling Widget) {
 	b.inner.InsertChildAfter(child.GtkWidget(), sibGtk)
 }
 
-func (b *gtkBox) ReorderChildAfter(child Widget, sibling Widget) {
+func (b *gtkBox) ReorderChildAfter(child, sibling Widget) {
 	if child == nil {
 		return
 	}
@@ -524,7 +524,7 @@ func (btn *gtkButton) GetChild() Widget {
 }
 
 func (btn *gtkButton) ConnectClicked(callback func()) uint32 {
-	cb := func(b gtk.Button) {
+	cb := func(_ gtk.Button) {
 		callback()
 	}
 	return btn.inner.ConnectClicked(&cb)

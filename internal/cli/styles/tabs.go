@@ -64,7 +64,8 @@ func (m TabsModel) View() string {
 		row += tab
 	}
 
-	return m.theme.TabBar.Width(80).Render(row)
+	const tabBarWidth = 80
+	return m.theme.TabBar.Width(tabBarWidth).Render(row)
 }
 
 // ViewCompact renders a compact tab bar without separators.

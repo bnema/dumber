@@ -18,7 +18,7 @@ func (m *Manager) Watch() error {
 	}
 
 	m.viper.WatchConfig()
-	m.viper.OnConfigChange(func(e fsnotify.Event) {
+	m.viper.OnConfigChange(func(_ fsnotify.Event) {
 		// Reload config
 		if err := m.reload(); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to reload config: %v\n", err)
@@ -83,7 +83,7 @@ func (m *Manager) reload() error {
 
 	// Validate ColorScheme setting using switch statement
 	switch config.Appearance.ColorScheme {
-	case "prefer-dark", "prefer-light", ThemeDefault:
+	case ThemePreferDark, ThemePreferLight, ThemeDefault:
 		// Valid values - no changes needed
 	case "":
 		// Empty string is treated the same as "default"

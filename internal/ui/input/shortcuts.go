@@ -27,6 +27,60 @@ const (
 // modifierMask filters out non-standard modifiers from GDK state.
 const modifierMask = ModCtrl | ModShift | ModAlt
 
+var keyvalByName = map[string]uint{
+	"escape":    uint(gdk.KEY_Escape),
+	"esc":       uint(gdk.KEY_Escape),
+	"return":    uint(gdk.KEY_Return),
+	"enter":     uint(gdk.KEY_Return),
+	"tab":       uint(gdk.KEY_Tab),
+	"space":     uint(gdk.KEY_space),
+	"backspace": uint(gdk.KEY_BackSpace),
+	"delete":    uint(gdk.KEY_Delete),
+	"del":       uint(gdk.KEY_Delete),
+	"home":      uint(gdk.KEY_Home),
+	"end":       uint(gdk.KEY_End),
+	"pageup":    uint(gdk.KEY_Page_Up),
+	"page_up":   uint(gdk.KEY_Page_Up),
+	"pagedown":  uint(gdk.KEY_Page_Down),
+	"page_down": uint(gdk.KEY_Page_Down),
+	"left":      uint(gdk.KEY_Left),
+	"arrowleft": uint(gdk.KEY_Left),
+	"right":     uint(gdk.KEY_Right),
+	"arrowright": uint(gdk.KEY_Right),
+	"up":        uint(gdk.KEY_Up),
+	"arrowup":   uint(gdk.KEY_Up),
+	"down":      uint(gdk.KEY_Down),
+	"arrowdown": uint(gdk.KEY_Down),
+	"f1":        uint(gdk.KEY_F1),
+	"f2":        uint(gdk.KEY_F2),
+	"f3":        uint(gdk.KEY_F3),
+	"f4":        uint(gdk.KEY_F4),
+	"f5":        uint(gdk.KEY_F5),
+	"f6":        uint(gdk.KEY_F6),
+	"f7":        uint(gdk.KEY_F7),
+	"f8":        uint(gdk.KEY_F8),
+	"f9":        uint(gdk.KEY_F9),
+	"f10":       uint(gdk.KEY_F10),
+	"f11":       uint(gdk.KEY_F11),
+	"f12":       uint(gdk.KEY_F12),
+	"plus":      uint(gdk.KEY_plus),
+	"+":         uint(gdk.KEY_plus),
+	"minus":     uint(gdk.KEY_minus),
+	"-":         uint(gdk.KEY_minus),
+	"equal":     uint(gdk.KEY_equal),
+	"=":         uint(gdk.KEY_equal),
+	"0":         uint(gdk.KEY_0),
+	"1":         uint(gdk.KEY_1),
+	"2":         uint(gdk.KEY_2),
+	"3":         uint(gdk.KEY_3),
+	"4":         uint(gdk.KEY_4),
+	"5":         uint(gdk.KEY_5),
+	"6":         uint(gdk.KEY_6),
+	"7":         uint(gdk.KEY_7),
+	"8":         uint(gdk.KEY_8),
+	"9":         uint(gdk.KEY_9),
+}
+
 // KeyBinding represents a single key combination.
 type KeyBinding struct {
 	Keyval    uint     // GDK key value (e.g., gdk.KEY_t)
@@ -140,21 +194,48 @@ func NewShortcutSet(ctx context.Context, cfg *config.WorkspaceConfig) *ShortcutS
 
 // buildGlobalShortcuts populates global shortcuts from config.
 func (s *ShortcutSet) buildGlobalShortcuts(ctx context.Context, cfg *config.WorkspaceConfig) {
+	s.registerActivationShortcuts(ctx, cfg)
+	s.registerConfiguredShortcuts(cfg)
+	s.registerStandardShortcuts()
+	s.registerPaneNavigationShortcuts()
+	s.registerTabSwitchShortcuts()
+}
+
+// buildTabModeShortcuts populates tab mode shortcuts from config.
+func (s *ShortcutSet) buildTabModeShortcuts(ctx context.Context, cfg *config.WorkspaceConfig) {
+	s.buildModeShortcuts(ctx, cfg.TabMode.GetKeyBindings(), s.TabMode, "tab")
+}
+
+// buildPaneModeShortcuts populates pane mode shortcuts from config.
+func (s *ShortcutSet) buildPaneModeShortcuts(ctx context.Context, cfg *config.WorkspaceConfig) {
+	s.buildModeShortcuts(ctx, cfg.PaneMode.GetKeyBindings(), s.PaneMode, "pane")
+}
+
+func (s *ShortcutSet) registerActivationShortcuts(ctx context.Context, cfg *config.WorkspaceConfig) {
 	log := logging.FromContext(ctx)
-	// Mode entry from activation shortcuts
 	if binding, ok := ParseKeyString(cfg.TabMode.ActivationShortcut); ok {
 		s.Global[binding] = ActionEnterTabMode
-		log.Trace().Str("shortcut", cfg.TabMode.ActivationShortcut).Uint("keyval", binding.Keyval).Uint("mod", uint(binding.Modifiers)).Msg("tab mode activation registered")
+		log.Trace().
+			Str("shortcut", cfg.TabMode.ActivationShortcut).
+			Uint("keyval", binding.Keyval).
+			Uint("mod", uint(binding.Modifiers)).
+			Msg("tab mode activation registered")
 	} else {
 		log.Warn().Str("shortcut", cfg.TabMode.ActivationShortcut).Msg("failed to parse tab mode activation shortcut")
 	}
 	if binding, ok := ParseKeyString(cfg.PaneMode.ActivationShortcut); ok {
 		s.Global[binding] = ActionEnterPaneMode
-		log.Trace().Str("shortcut", cfg.PaneMode.ActivationShortcut).Uint("keyval", binding.Keyval).Uint("mod", uint(binding.Modifiers)).Msg("pane mode activation registered")
+		log.Trace().
+			Str("shortcut", cfg.PaneMode.ActivationShortcut).
+			Uint("keyval", binding.Keyval).
+			Uint("mod", uint(binding.Modifiers)).
+			Msg("pane mode activation registered")
 	} else {
 		log.Warn().Str("shortcut", cfg.PaneMode.ActivationShortcut).Msg("failed to parse pane mode activation shortcut")
 	}
+}
 
+func (s *ShortcutSet) registerConfiguredShortcuts(cfg *config.WorkspaceConfig) {
 	// Note: Ctrl+T is NOT registered globally - it enters tab mode.
 	// In tab mode, use:
 	//   n = new tab
@@ -174,8 +255,9 @@ func (s *ShortcutSet) buildGlobalShortcuts(ctx context.Context, cfg *config.Work
 	if binding, ok := ParseKeyString(cfg.Shortcuts.PreviousTab); ok {
 		s.Global[binding] = ActionPreviousTab // Ctrl+Shift+Tab
 	}
+}
 
-	// Standard browser shortcuts (hardcoded defaults)
+func (s *ShortcutSet) registerStandardShortcuts() {
 	s.Global[KeyBinding{uint(gdk.KEY_l), ModCtrl}] = ActionOpenOmnibox
 	s.Global[KeyBinding{uint(gdk.KEY_f), ModCtrl}] = ActionOpenFind
 	s.Global[KeyBinding{uint(gdk.KEY_F3), ModNone}] = ActionFindNext
@@ -196,18 +278,19 @@ func (s *ShortcutSet) buildGlobalShortcuts(ctx context.Context, cfg *config.Work
 	s.Global[KeyBinding{uint(gdk.KEY_q), ModCtrl}] = ActionQuit
 	s.Global[KeyBinding{uint(gdk.KEY_F11), ModNone}] = ActionToggleFullscreen
 	s.Global[KeyBinding{uint(gdk.KEY_C), ModCtrl | ModShift}] = ActionCopyURL
+}
 
-	// Pane navigation (Alt+HJKL like vim)
+func (s *ShortcutSet) registerPaneNavigationShortcuts() {
 	s.Global[KeyBinding{uint(gdk.KEY_h), ModAlt}] = ActionFocusLeft
 	s.Global[KeyBinding{uint(gdk.KEY_l), ModAlt}] = ActionFocusRight
 	s.Global[KeyBinding{uint(gdk.KEY_k), ModAlt}] = ActionFocusUp
 	s.Global[KeyBinding{uint(gdk.KEY_j), ModAlt}] = ActionFocusDown
 
-	// Also support Alt+Arrow keys for pane navigation (except Left/Right used for back/forward)
 	s.Global[KeyBinding{uint(gdk.KEY_Up), ModAlt}] = ActionFocusUp
 	s.Global[KeyBinding{uint(gdk.KEY_Down), ModAlt}] = ActionFocusDown
+}
 
-	// Direct tab switching (Alt+1-9, Alt+0 for tab 10)
+func (s *ShortcutSet) registerTabSwitchShortcuts() {
 	s.Global[KeyBinding{uint(gdk.KEY_1), ModAlt}] = ActionSwitchTabIndex1
 	s.Global[KeyBinding{uint(gdk.KEY_2), ModAlt}] = ActionSwitchTabIndex2
 	s.Global[KeyBinding{uint(gdk.KEY_3), ModAlt}] = ActionSwitchTabIndex3
@@ -219,55 +302,38 @@ func (s *ShortcutSet) buildGlobalShortcuts(ctx context.Context, cfg *config.Work
 	s.Global[KeyBinding{uint(gdk.KEY_9), ModAlt}] = ActionSwitchTabIndex9
 	s.Global[KeyBinding{uint(gdk.KEY_0), ModAlt}] = ActionSwitchTabIndex10
 
-	// Alt+Tab style switching (switch to last active tab)
 	s.Global[KeyBinding{uint(gdk.KEY_Tab), ModAlt}] = ActionSwitchLastTab
 	s.Global[KeyBinding{uint(gdk.KEY_Tab), ModAlt | ModShift}] = ActionSwitchLastTab
 }
 
-// buildTabModeShortcuts populates tab mode shortcuts from config.
-func (s *ShortcutSet) buildTabModeShortcuts(ctx context.Context, cfg *config.WorkspaceConfig) {
+func (s *ShortcutSet) buildModeShortcuts(ctx context.Context, bindings map[string]string, dest map[KeyBinding]Action, mode string) {
 	log := logging.FromContext(ctx)
-	bindings := cfg.TabMode.GetKeyBindings()
 	var registered, parseErrors, unknownActions int
 	for key, configAction := range bindings {
 		if binding, ok := ParseKeyString(key); ok {
 			if action := mapConfigAction(configAction); action != "" {
-				s.TabMode[binding] = action
+				dest[binding] = action
 				registered++
-				log.Trace().Str("key", key).Str("configAction", configAction).Str("action", string(action)).Uint("keyval", binding.Keyval).Msg("tab mode shortcut registered")
+				log.Trace().
+					Str("key", key).
+					Str("configAction", configAction).
+					Str("action", string(action)).
+					Uint("keyval", binding.Keyval).
+					Msg(mode + " mode shortcut registered")
 			} else {
 				unknownActions++
-				log.Warn().Str("key", key).Str("configAction", configAction).Msg("unknown config action in tab mode")
+				log.Warn().Str("key", key).Str("configAction", configAction).Msg("unknown config action in " + mode + " mode")
 			}
 		} else {
 			parseErrors++
-			log.Warn().Str("key", key).Msg("failed to parse tab mode key")
+			log.Warn().Str("key", key).Msg("failed to parse " + mode + " mode key")
 		}
 	}
-	log.Debug().Int("registered", registered).Int("parseErrors", parseErrors).Int("unknownActions", unknownActions).Msg("tab mode shortcuts built")
-}
-
-// buildPaneModeShortcuts populates pane mode shortcuts from config.
-func (s *ShortcutSet) buildPaneModeShortcuts(ctx context.Context, cfg *config.WorkspaceConfig) {
-	log := logging.FromContext(ctx)
-	bindings := cfg.PaneMode.GetKeyBindings()
-	var registered, parseErrors, unknownActions int
-	for key, configAction := range bindings {
-		if binding, ok := ParseKeyString(key); ok {
-			if action := mapConfigAction(configAction); action != "" {
-				s.PaneMode[binding] = action
-				registered++
-				log.Trace().Str("key", key).Str("configAction", configAction).Str("action", string(action)).Uint("keyval", binding.Keyval).Msg("pane mode shortcut registered")
-			} else {
-				unknownActions++
-				log.Warn().Str("key", key).Str("configAction", configAction).Msg("unknown config action in pane mode")
-			}
-		} else {
-			parseErrors++
-			log.Warn().Str("key", key).Msg("failed to parse pane mode key")
-		}
-	}
-	log.Debug().Int("registered", registered).Int("parseErrors", parseErrors).Int("unknownActions", unknownActions).Msg("pane mode shortcuts built")
+	log.Debug().
+		Int("registered", registered).
+		Int("parseErrors", parseErrors).
+		Int("unknownActions", unknownActions).
+		Msg(mode + " mode shortcuts built")
 }
 
 // mapConfigAction maps config action names to Action constants.
@@ -368,94 +434,8 @@ func ParseKeyString(s string) (KeyBinding, bool) {
 
 // stringToKeyval converts a key name to its GDK keyval.
 func stringToKeyval(s string) (uint, bool) {
-	// Special keys
-	switch s {
-	case "escape", "esc":
-		return uint(gdk.KEY_Escape), true
-	case "return", "enter":
-		return uint(gdk.KEY_Return), true
-	case "tab":
-		return uint(gdk.KEY_Tab), true
-	case "space":
-		return uint(gdk.KEY_space), true
-	case "backspace":
-		return uint(gdk.KEY_BackSpace), true
-	case "delete", "del":
-		return uint(gdk.KEY_Delete), true
-	case "home":
-		return uint(gdk.KEY_Home), true
-	case "end":
-		return uint(gdk.KEY_End), true
-	case "pageup", "page_up":
-		return uint(gdk.KEY_Page_Up), true
-	case "pagedown", "page_down":
-		return uint(gdk.KEY_Page_Down), true
-
-	// Arrow keys
-	case "left", "arrowleft":
-		return uint(gdk.KEY_Left), true
-	case "right", "arrowright":
-		return uint(gdk.KEY_Right), true
-	case "up", "arrowup":
-		return uint(gdk.KEY_Up), true
-	case "down", "arrowdown":
-		return uint(gdk.KEY_Down), true
-
-	// Function keys
-	case "f1":
-		return uint(gdk.KEY_F1), true
-	case "f2":
-		return uint(gdk.KEY_F2), true
-	case "f3":
-		return uint(gdk.KEY_F3), true
-	case "f4":
-		return uint(gdk.KEY_F4), true
-	case "f5":
-		return uint(gdk.KEY_F5), true
-	case "f6":
-		return uint(gdk.KEY_F6), true
-	case "f7":
-		return uint(gdk.KEY_F7), true
-	case "f8":
-		return uint(gdk.KEY_F8), true
-	case "f9":
-		return uint(gdk.KEY_F9), true
-	case "f10":
-		return uint(gdk.KEY_F10), true
-	case "f11":
-		return uint(gdk.KEY_F11), true
-	case "f12":
-		return uint(gdk.KEY_F12), true
-
-	// Symbols
-	case "plus", "+":
-		return uint(gdk.KEY_plus), true
-	case "minus", "-":
-		return uint(gdk.KEY_minus), true
-	case "equal", "=":
-		return uint(gdk.KEY_equal), true
-
-	// Numbers
-	case "0":
-		return uint(gdk.KEY_0), true
-	case "1":
-		return uint(gdk.KEY_1), true
-	case "2":
-		return uint(gdk.KEY_2), true
-	case "3":
-		return uint(gdk.KEY_3), true
-	case "4":
-		return uint(gdk.KEY_4), true
-	case "5":
-		return uint(gdk.KEY_5), true
-	case "6":
-		return uint(gdk.KEY_6), true
-	case "7":
-		return uint(gdk.KEY_7), true
-	case "8":
-		return uint(gdk.KEY_8), true
-	case "9":
-		return uint(gdk.KEY_9), true
+	if keyval, ok := keyvalByName[s]; ok {
+		return keyval, true
 	}
 
 	// Single letter keys (a-z)

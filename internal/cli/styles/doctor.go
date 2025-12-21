@@ -7,6 +7,11 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+const (
+	statusYes = "Yes"
+	statusNo  = "No"
+)
+
 type DoctorRenderer struct {
 	theme *Theme
 }
@@ -90,7 +95,12 @@ func (r *DoctorRenderer) renderRuntime(rt DoctorRuntimeReport) string {
 	lines := make([]string, 0, len(rt.Checks)+2)
 
 	if strings.TrimSpace(rt.Prefix) != "" {
-		lines = append(lines, fmt.Sprintf("%s %s %s", r.theme.Subtle.Render("Prefix"), r.theme.Normal.Render(rt.Prefix), r.theme.Subtle.Render("(runtime override)")))
+		lines = append(lines, fmt.Sprintf(
+			"%s %s %s",
+			r.theme.Subtle.Render("Prefix"),
+			r.theme.Normal.Render(rt.Prefix),
+			r.theme.Subtle.Render("(runtime override)"),
+		))
 	}
 
 	for _, c := range rt.Checks {
@@ -133,33 +143,39 @@ func (r *DoctorRenderer) renderMedia(m DoctorMediaReport) string {
 
 	gstIcon := IconCheck
 	gstStyle := r.theme.SuccessStyle
-	gstText := "Yes"
+	gstText := statusYes
 	if !m.GStreamerAvailable {
 		gstIcon = IconX
 		gstStyle = r.theme.ErrorStyle
-		gstText = "No"
+		gstText = statusNo
 	}
 	lines = append(lines, fmt.Sprintf("%s %s %s", gstStyle.Render(gstIcon), r.theme.Subtle.Render("GStreamer"), gstStyle.Render(gstText)))
 
 	hwIcon := IconWarning
 	hwStyle := r.theme.WarningStyle
-	hwText := "No"
+	hwText := statusNo
 	if m.HWAccelAvailable {
 		hwIcon = IconCheck
 		hwStyle = r.theme.SuccessStyle
-		hwText = "Yes"
+		hwText = statusYes
 	}
 	lines = append(lines, fmt.Sprintf("%s %s %s", hwStyle.Render(hwIcon), r.theme.Subtle.Render("HW decode"), hwStyle.Render(hwText)))
 
 	av1Icon := IconWarning
 	av1Style := r.theme.WarningStyle
-	av1Text := "No"
+	av1Text := statusNo
 	if m.AV1HWAvailable {
 		av1Icon = IconCheck
 		av1Style = r.theme.SuccessStyle
-		av1Text = "Yes"
+		av1Text = statusYes
 	}
-	lines = append(lines, fmt.Sprintf("%s %s %s %s", av1Style.Render(av1Icon), r.theme.Subtle.Render("AV1"), av1Style.Render(av1Text), r.theme.Subtle.Render("(preferred)")))
+	lines = append(lines, fmt.Sprintf(
+		"%s %s %s %s",
+		av1Style.Render(av1Icon),
+		r.theme.Subtle.Render("AV1"),
+		av1Style.Render(av1Text),
+		r.theme.Subtle.Render("(preferred)"),
+	))
 
 	plugins := []string{
 		fmt.Sprintf("%s VA (stateless): %s", r.theme.Subtle.Render("•"), pluginStatus(r.theme, m.HasVAPlugin, "recommended")),

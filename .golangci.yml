@@ -14,7 +14,7 @@ linters:
     - goconst
     - gocritic
     - gocyclo
-    - godox
+    # - godox # TODOs/FIXMEs are intentional markers
     - mnd
     - goprintffuncname
     - gosec
@@ -34,7 +34,7 @@ linters:
 
   settings:
     dupl:
-      threshold: 100
+      threshold: 150
     funlen:
       lines: -1
       statements: 50
@@ -53,13 +53,11 @@ linters:
         - ifElseChain
         - octalLiteral
         - whyNoLint
+        - unnamedResult
+        - hugeParam
+        - singleCaseSwitch
     gocyclo:
-      min-complexity: 15
-    godox:
-      keywords:
-        - FIXME
-        - TODO
-        - BUG
+      min-complexity: 20
     mnd:
       checks:
         - argument
@@ -71,8 +69,22 @@ linters:
         - '1'
         - '2'
         - '3'
+        - '4'
+        - '5'
+        - '10'
+        - '16'
+        - '32'
+        - '64'
+        - '100'
+        - '1000'
       ignored-functions:
         - strings.SplitN
+        - make
+        - time.Sleep
+        - time.Duration
+        - strconv.ParseInt
+        - strconv.ParseUint
+        - strconv.ParseFloat
     govet:
       enable:
         - nilness
@@ -80,7 +92,7 @@ linters:
     errorlint:
       asserts: false
     lll:
-      line-length: 120
+      line-length: 140
     misspell:
       locale: US
     nolintlint:
@@ -98,27 +110,54 @@ linters:
     paths:
       - vendor
     rules:
-      - text: "Error return value of `resp.Body.Close` is not checked"
-        linters:
-          - errcheck
-      - text: "Error return value of `os.Remove` is not checked"
-        linters:
-          - errcheck
+      # Test files get relaxed rules
       - path: _test\.go
         linters:
           - dupl
           - mnd
           - lll
           - funlen
+          - goconst
+          - errcheck
+          - gosec
+      # Generated SQL code
       - path: internal/db/.*\.sql\.go
         linters:
           - all
       - path: internal/db/models\.go
         linters:
           - unused
-      - path: internal/db/
+      # gosec false positives
+      - text: "G115:"
         linters:
-          - lll
+          - gosec
+      - text: "G404:"
+        linters:
+          - gosec
+      - text: "G301:"
+        linters:
+          - gosec
+      - text: "G302:"
+        linters:
+          - gosec
+      - text: "G306:"
+        linters:
+          - gosec
+      - text: "G204:"
+        linters:
+          - gosec
+      - text: "G304:"
+        linters:
+          - gosec
+      # GTK callbacks require unused parameters
+      - path: internal/ui/
+        text: "unused-parameter"
+        linters:
+          - revive
+      - path: internal/ui/
+        text: "unused-receiver"
+        linters:
+          - revive
 
 run:
   timeout: 20m

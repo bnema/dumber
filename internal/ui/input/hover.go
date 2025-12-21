@@ -64,13 +64,13 @@ func (h *HoverHandler) AttachTo(widget *gtk.Widget) {
 	}
 
 	// Connect enter handler with debounce
-	enterCb := func(ctrl gtk.EventControllerMotion, x, y float64) {
+	enterCb := func(_ gtk.EventControllerMotion, _ float64, _ float64) {
 		h.handleEnter()
 	}
 	h.motionCtrl.ConnectEnter(&enterCb)
 
 	// Connect leave handler to cancel pending focus
-	leaveCb := func(ctrl gtk.EventControllerMotion) {
+	leaveCb := func(_ gtk.EventControllerMotion) {
 		h.handleLeave()
 	}
 	h.motionCtrl.ConnectLeave(&leaveCb)

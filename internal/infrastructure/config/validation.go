@@ -11,7 +11,30 @@ import (
 func validateConfig(config *Config) error {
 	var validationErrors []string
 
-	// Validate numeric ranges
+	validationErrors = append(validationErrors, validateHistory(config)...)
+	validationErrors = append(validationErrors, validateDmenu(config)...)
+	validationErrors = append(validationErrors, validateAppearance(config)...)
+	validationErrors = append(validationErrors, validateSearchEngine(config)...)
+	validationErrors = append(validationErrors, validatePopups(config)...)
+	validationErrors = append(validationErrors, validateWorkspaceStyling(config)...)
+	validationErrors = append(validationErrors, validatePaneMode(config)...)
+	validationErrors = append(validationErrors, validateTabBar(config)...)
+	validationErrors = append(validationErrors, validateTabMode(config)...)
+	validationErrors = append(validationErrors, validateLogging(config)...)
+	validationErrors = append(validationErrors, validateOmnibox(config)...)
+	validationErrors = append(validationErrors, validateRendering(config)...)
+	validationErrors = append(validationErrors, validateColorScheme(config)...)
+
+	// If there are validation errors, return them
+	if len(validationErrors) > 0 {
+		return fmt.Errorf("config validation failed:\n  - %s", strings.Join(validationErrors, "\n  - "))
+	}
+
+	return nil
+}
+
+func validateHistory(config *Config) []string {
+	var validationErrors []string
 	if config.History.MaxEntries < 0 {
 		validationErrors = append(validationErrors, "history.max_entries must be non-negative")
 	}
@@ -21,19 +44,27 @@ func validateConfig(config *Config) error {
 	if config.History.CleanupIntervalDays < 0 {
 		validationErrors = append(validationErrors, "history.cleanup_interval_days must be non-negative")
 	}
+	return validationErrors
+}
 
+func validateDmenu(config *Config) []string {
 	if config.Dmenu.MaxHistoryItems < 0 {
-		validationErrors = append(validationErrors, "dmenu.max_history_items must be non-negative")
+		return []string{"dmenu.max_history_items must be non-negative"}
 	}
+	return nil
+}
 
+func validateAppearance(config *Config) []string {
+	var validationErrors []string
 	if config.Appearance.DefaultFontSize < 1 || config.Appearance.DefaultFontSize > 72 {
 		validationErrors = append(validationErrors, "appearance.default_font_size must be between 1 and 72")
 	}
-
 	validationErrors = append(validationErrors, domainvalidation.ValidateFontFamily("appearance.sans_font", config.Appearance.SansFont)...)
 	validationErrors = append(validationErrors, domainvalidation.ValidateFontFamily("appearance.serif_font", config.Appearance.SerifFont)...)
-	validationErrors = append(validationErrors, domainvalidation.ValidateFontFamily("appearance.monospace_font", config.Appearance.MonospaceFont)...)
-
+	validationErrors = append(
+		validationErrors,
+		domainvalidation.ValidateFontFamily("appearance.monospace_font", config.Appearance.MonospaceFont)...,
+	)
 	validationErrors = append(validationErrors, domainvalidation.ValidatePaletteHex(
 		"appearance.light_palette",
 		config.Appearance.LightPalette.Background,
@@ -54,48 +85,60 @@ func validateConfig(config *Config) error {
 		config.Appearance.DarkPalette.Accent,
 		config.Appearance.DarkPalette.Border,
 	)...)
-
 	if config.DefaultWebpageZoom < 0.1 || config.DefaultWebpageZoom > 5.0 {
 		validationErrors = append(validationErrors, "default_webpage_zoom must be between 0.1 and 5.0")
 	}
 	if config.DefaultUIScale < 0.5 || config.DefaultUIScale > 3.0 {
 		validationErrors = append(validationErrors, "default_ui_scale must be between 0.5 and 3.0")
 	}
+	return validationErrors
+}
 
-	// Validate default search engine
+func validateSearchEngine(config *Config) []string {
 	if config.DefaultSearchEngine == "" {
-		validationErrors = append(validationErrors, "default_search_engine cannot be empty")
-	} else if !strings.Contains(config.DefaultSearchEngine, "%s") {
-		validationErrors = append(validationErrors, "default_search_engine must contain %s placeholder for the search query")
+		return []string{"default_search_engine cannot be empty"}
 	}
+	if !strings.Contains(config.DefaultSearchEngine, "%s") {
+		return []string{"default_search_engine must contain %s placeholder for the search query"}
+	}
+	return nil
+}
 
-	// Validate popup behavior using switch statement (per CLAUDE.md)
+func validatePopups(config *Config) []string {
+	var validationErrors []string
 	switch config.Workspace.Popups.Behavior {
 	case PopupBehaviorSplit, PopupBehaviorStacked, PopupBehaviorTabbed, PopupBehaviorWindowed:
-		// Valid
 	default:
-		validationErrors = append(validationErrors, fmt.Sprintf("workspace.popups.behavior must be one of: split, stacked, tabbed, windowed (got: %s)", config.Workspace.Popups.Behavior))
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"workspace.popups.behavior must be one of: split, stacked, tabbed, windowed (got: %s)",
+			config.Workspace.Popups.Behavior,
+		))
 	}
 
-	// Validate popup placement for split behavior using switch statement
 	if config.Workspace.Popups.Behavior == PopupBehaviorSplit {
 		switch config.Workspace.Popups.Placement {
 		case "right", "left", "top", "bottom":
-			// Valid
 		default:
-			validationErrors = append(validationErrors, fmt.Sprintf("workspace.popups.placement must be one of: right, left, top, bottom (got: %s)", config.Workspace.Popups.Placement))
+			validationErrors = append(validationErrors, fmt.Sprintf(
+				"workspace.popups.placement must be one of: right, left, top, bottom (got: %s)",
+				config.Workspace.Popups.Placement,
+			))
 		}
 	}
 
-	// Validate blank target behavior using switch statement
 	switch config.Workspace.Popups.BlankTargetBehavior {
 	case "split", "stacked", "tabbed":
-		// Valid
 	default:
-		validationErrors = append(validationErrors, fmt.Sprintf("workspace.popups.blank_target_behavior must be one of: split, stacked, tabbed (got: %s)", config.Workspace.Popups.BlankTargetBehavior))
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"workspace.popups.blank_target_behavior must be one of: split, stacked, tabbed (got: %s)",
+			config.Workspace.Popups.BlankTargetBehavior,
+		))
 	}
+	return validationErrors
+}
 
-	// Validate workspace styling values
+func validateWorkspaceStyling(config *Config) []string {
+	var validationErrors []string
 	if config.Workspace.Styling.BorderWidth < 0 {
 		validationErrors = append(validationErrors, "workspace.styling.border_width must be non-negative")
 	}
@@ -108,18 +151,18 @@ func validateConfig(config *Config) error {
 	if config.Workspace.Styling.TransitionDuration < 0 {
 		validationErrors = append(validationErrors, "workspace.styling.transition_duration must be non-negative")
 	}
+	return validationErrors
+}
 
-	// Validate pane mode timeout
+func validatePaneMode(config *Config) []string {
+	var validationErrors []string
 	if config.Workspace.PaneMode.TimeoutMilliseconds < 0 {
 		validationErrors = append(validationErrors, "workspace.pane_mode.timeout_ms must be non-negative")
 	}
-
-	// Validate pane mode actions
 	if len(config.Workspace.PaneMode.Actions) == 0 {
 		validationErrors = append(validationErrors, "workspace.pane_mode.actions cannot be empty")
 	}
 
-	// Check for duplicate keys and empty action key lists in pane mode
 	seenKeys := make(map[string]string)
 	for action, keys := range config.Workspace.PaneMode.Actions {
 		if len(keys) == 0 {
@@ -127,31 +170,37 @@ func validateConfig(config *Config) error {
 		}
 		for _, key := range keys {
 			if existingAction, exists := seenKeys[key]; exists {
-				validationErrors = append(validationErrors, fmt.Sprintf("duplicate key binding '%s' found in pane_mode actions '%s' and '%s'", key, existingAction, action))
+				validationErrors = append(validationErrors, fmt.Sprintf(
+					"duplicate key binding '%s' found in pane_mode actions '%s' and '%s'",
+					key,
+					existingAction,
+					action,
+				))
 			}
 			seenKeys[key] = action
 		}
 	}
+	return validationErrors
+}
 
-	// Validate tab bar position using switch statement
+func validateTabBar(config *Config) []string {
 	switch config.Workspace.TabBarPosition {
 	case "top", "bottom":
-		// Valid
+		return nil
 	default:
-		validationErrors = append(validationErrors, fmt.Sprintf("workspace.tab_bar_position must be 'top' or 'bottom' (got: %s)", config.Workspace.TabBarPosition))
+		return []string{fmt.Sprintf("workspace.tab_bar_position must be 'top' or 'bottom' (got: %s)", config.Workspace.TabBarPosition)}
 	}
+}
 
-	// Validate tab mode timeout
+func validateTabMode(config *Config) []string {
+	var validationErrors []string
 	if config.Workspace.TabMode.TimeoutMilliseconds < 0 {
 		validationErrors = append(validationErrors, "workspace.tab_mode.timeout_ms must be non-negative")
 	}
-
-	// Validate tab mode actions
 	if len(config.Workspace.TabMode.Actions) == 0 {
 		validationErrors = append(validationErrors, "workspace.tab_mode.actions cannot be empty")
 	}
 
-	// Check for duplicate keys and empty action key lists in tab mode
 	tabSeenKeys := make(map[string]string)
 	for action, keys := range config.Workspace.TabMode.Actions {
 		if len(keys) == 0 {
@@ -159,61 +208,72 @@ func validateConfig(config *Config) error {
 		}
 		for _, key := range keys {
 			if existingAction, exists := tabSeenKeys[key]; exists {
-				validationErrors = append(validationErrors, fmt.Sprintf("duplicate key binding '%s' found in tab_mode actions '%s' and '%s'", key, existingAction, action))
+				validationErrors = append(validationErrors, fmt.Sprintf(
+					"duplicate key binding '%s' found in tab_mode actions '%s' and '%s'",
+					key,
+					existingAction,
+					action,
+				))
 			}
 			tabSeenKeys[key] = action
 		}
 	}
+	return validationErrors
+}
 
-	// Validate logging values
+func validateLogging(config *Config) []string {
+	var validationErrors []string
 	if config.Logging.MaxAge < 0 {
 		validationErrors = append(validationErrors, "logging.max_age must be non-negative")
 	}
-
-	// Validate logging level using switch statement
 	switch config.Logging.Level {
 	case "trace", "debug", "info", "warn", "error", "fatal", "":
-		// Valid (empty uses default)
 	default:
-		validationErrors = append(validationErrors, fmt.Sprintf("logging.level must be one of: trace, debug, info, warn, error, fatal (got: %s)", config.Logging.Level))
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"logging.level must be one of: trace, debug, info, warn, error, fatal (got: %s)",
+			config.Logging.Level,
+		))
 	}
-
-	// Validate logging format using switch statement
 	switch config.Logging.Format {
 	case "text", "json", "console", "":
-		// Valid (empty uses default)
 	default:
-		validationErrors = append(validationErrors, fmt.Sprintf("logging.format must be one of: text, json, console (got: %s)", config.Logging.Format))
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"logging.format must be one of: text, json, console (got: %s)",
+			config.Logging.Format,
+		))
 	}
+	return validationErrors
+}
 
-	// Validate omnibox initial behavior using switch statement
+func validateOmnibox(config *Config) []string {
 	switch config.Omnibox.InitialBehavior {
 	case "recent", "most_visited", "none":
-		// Valid
+		return nil
 	default:
-		validationErrors = append(validationErrors, fmt.Sprintf("omnibox.initial_behavior must be one of: recent, most_visited, none (got: %s)", config.Omnibox.InitialBehavior))
+		return []string{fmt.Sprintf(
+			"omnibox.initial_behavior must be one of: recent, most_visited, none (got: %s)",
+			config.Omnibox.InitialBehavior,
+		)}
 	}
+}
 
-	// Validate rendering mode using switch statement
+func validateRendering(config *Config) []string {
 	switch config.RenderingMode {
 	case RenderingModeAuto, RenderingModeGPU, RenderingModeCPU, "":
-		// Valid (empty uses default)
+		return nil
 	default:
-		validationErrors = append(validationErrors, fmt.Sprintf("rendering_mode must be one of: auto, gpu, cpu (got: %s)", config.RenderingMode))
+		return []string{fmt.Sprintf("rendering_mode must be one of: auto, gpu, cpu (got: %s)", config.RenderingMode)}
 	}
+}
 
-	// Validate color scheme using switch statement
+func validateColorScheme(config *Config) []string {
 	switch config.Appearance.ColorScheme {
-	case "prefer-dark", "prefer-light", ThemeDefault, "":
-		// Valid (empty uses default)
+	case ThemePreferDark, ThemePreferLight, ThemeDefault, "":
+		return nil
 	default:
-		validationErrors = append(validationErrors, fmt.Sprintf("appearance.color_scheme must be one of: prefer-dark, prefer-light, default (got: %s)", config.Appearance.ColorScheme))
+		return []string{fmt.Sprintf(
+			"appearance.color_scheme must be one of: prefer-dark, prefer-light, default (got: %s)",
+			config.Appearance.ColorScheme,
+		)}
 	}
-
-	// If there are validation errors, return them
-	if len(validationErrors) > 0 {
-		return fmt.Errorf("config validation failed:\n  - %s", strings.Join(validationErrors, "\n  - "))
-	}
-
-	return nil
 }

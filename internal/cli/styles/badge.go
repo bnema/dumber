@@ -41,7 +41,11 @@ func (t *Theme) MutedBadge(text string) string {
 
 // StatusBadge renders a status badge with custom colors.
 func (t *Theme) StatusBadge(text string, fg, bg lipgloss.Color) string {
-	style := lipgloss.NewStyle().
+	style := lipgloss.NewStyle()
+	if t != nil {
+		style = t.Badge
+	}
+	style = style.
 		Foreground(fg).
 		Background(bg).
 		Padding(0, 1)
@@ -52,6 +56,12 @@ func (t *Theme) StatusBadge(text string, fg, bg lipgloss.Color) string {
 func RelativeTime(tm time.Time) string {
 	now := time.Now()
 	diff := now.Sub(tm)
+	const (
+		hoursPerDay  = 24
+		daysPerWeek  = 7
+		daysPerMonth = 30
+		daysPerYear  = 365
+	)
 
 	switch {
 	case diff < time.Minute:
@@ -62,26 +72,26 @@ func RelativeTime(tm time.Time) string {
 			return "1m ago"
 		}
 		return fmt.Sprintf("%dm ago", mins)
-	case diff < 24*time.Hour:
+	case diff < hoursPerDay*time.Hour:
 		hours := int(diff.Hours())
 		if hours == 1 {
 			return "1h ago"
 		}
 		return fmt.Sprintf("%dh ago", hours)
-	case diff < 7*24*time.Hour:
-		days := int(diff.Hours() / 24)
+	case diff < time.Duration(daysPerWeek*hoursPerDay)*time.Hour:
+		days := int(diff.Hours() / hoursPerDay)
 		if days == 1 {
 			return "1d ago"
 		}
 		return fmt.Sprintf("%dd ago", days)
-	case diff < 30*24*time.Hour:
-		weeks := int(diff.Hours() / (24 * 7))
+	case diff < time.Duration(daysPerMonth*hoursPerDay)*time.Hour:
+		weeks := int(diff.Hours() / (hoursPerDay * daysPerWeek))
 		if weeks == 1 {
 			return "1w ago"
 		}
 		return fmt.Sprintf("%dw ago", weeks)
-	case diff < 365*24*time.Hour:
-		months := int(diff.Hours() / (24 * 30))
+	case diff < time.Duration(daysPerYear*hoursPerDay)*time.Hour:
+		months := int(diff.Hours() / (hoursPerDay * daysPerMonth))
 		if months == 1 {
 			return "1mo ago"
 		}

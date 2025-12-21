@@ -95,15 +95,17 @@ func (uc *FindInPageUseCase) Bind(controller port.FindController) {
 		return
 	}
 
-	uc.signalIDs = append(uc.signalIDs, controller.OnFoundText(func(matchCount uint) {
-		uc.onFoundText(matchCount)
-	}))
-	uc.signalIDs = append(uc.signalIDs, controller.OnFailedToFindText(func() {
-		uc.onFailedToFind()
-	}))
-	uc.signalIDs = append(uc.signalIDs, controller.OnCountedMatches(func(matchCount uint) {
-		uc.onCountedMatches(matchCount)
-	}))
+	uc.signalIDs = append(uc.signalIDs,
+		controller.OnFoundText(func(matchCount uint) {
+			uc.onFoundText(matchCount)
+		}),
+		controller.OnFailedToFindText(func() {
+			uc.onFailedToFind()
+		}),
+		controller.OnCountedMatches(func(matchCount uint) {
+			uc.onCountedMatches(matchCount)
+		}),
+	)
 
 	log.Debug().Int("signalCount", len(uc.signalIDs)).Msg("controller bound")
 }
@@ -387,7 +389,7 @@ func (uc *FindInPageUseCase) finishSearch() {
 }
 
 func (uc *FindInPageUseCase) buildOptionsLocked(text string) port.FindOptions {
-	caseInsensitive := true
+	var caseInsensitive bool
 	if uc.caseMode == caseModeManual {
 		caseInsensitive = !uc.caseSensitive
 	} else {

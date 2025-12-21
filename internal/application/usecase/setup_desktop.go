@@ -148,7 +148,9 @@ func (uc *RemoveDesktopUseCase) Execute(ctx context.Context) (*RemoveDesktopOutp
 
 	// Unset as default browser first (if applicable)
 	if status.IsDefaultBrowser {
-		_ = uc.desktop.UnsetAsDefaultBrowser(ctx)
+		if err := uc.desktop.UnsetAsDefaultBrowser(ctx); err != nil {
+			log.Warn().Err(err).Msg("failed to unset default browser")
+		}
 	}
 
 	// Remove desktop file

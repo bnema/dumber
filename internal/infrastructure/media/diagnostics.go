@@ -90,6 +90,9 @@ func (a *Adapter) checkGStreamerPlugins(ctx context.Context, r *port.MediaDiagno
 
 // parseVADecoders extracts decoder names from gst-inspect-1.0 va output.
 func (a *Adapter) parseVADecoders(output string, r *port.MediaDiagnosticsResult) {
+	if a == nil {
+		return
+	}
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -111,6 +114,9 @@ func (a *Adapter) parseVADecoders(output string, r *port.MediaDiagnosticsResult)
 
 // parseVAAPIDecoders extracts decoder names from gst-inspect-1.0 vaapi output.
 func (a *Adapter) parseVAAPIDecoders(output string, r *port.MediaDiagnosticsResult) {
+	if a == nil {
+		return
+	}
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -132,6 +138,9 @@ func (a *Adapter) parseVAAPIDecoders(output string, r *port.MediaDiagnosticsResu
 
 // parseNVCodecDecoders extracts decoder names from gst-inspect-1.0 nvcodec output.
 func (a *Adapter) parseNVCodecDecoders(output string, r *port.MediaDiagnosticsResult) {
+	if a == nil {
+		return
+	}
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -154,6 +163,9 @@ func (a *Adapter) parseNVCodecDecoders(output string, r *port.MediaDiagnosticsRe
 // checkVAAPI detects VA-API driver and version.
 func (a *Adapter) checkVAAPI(ctx context.Context, r *port.MediaDiagnosticsResult) {
 	log := logging.FromContext(ctx)
+	if a == nil {
+		return
+	}
 
 	// Check LIBVA_DRIVER_NAME environment first
 	if driver := os.Getenv("LIBVA_DRIVER_NAME"); driver != "" {
@@ -211,23 +223,23 @@ func (a *Adapter) checkVAAPI(ctx context.Context, r *port.MediaDiagnosticsResult
 }
 
 // generateWarnings creates user-friendly warning messages.
+//nolint:revive // receiver required for interface consistency
 func (a *Adapter) generateWarnings(r *port.MediaDiagnosticsResult) {
 	// Critical: GStreamer not installed
 	if !r.GStreamerAvailable {
 		r.Warnings = append(r.Warnings,
-			"CRITICAL: GStreamer not installed. Video playback will not work!")
-		r.Warnings = append(r.Warnings,
-			"Install: gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav")
+			"CRITICAL: GStreamer not installed. Video playback will not work!",
+			"Install: gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav",
+		)
 		return // No point checking other things
 	}
 
 	if !r.HWAccelAvailable {
 		r.Warnings = append(r.Warnings,
-			"No hardware video acceleration detected. Video will use software decoding (higher CPU).")
-		r.Warnings = append(r.Warnings,
-			"Install VA plugin: gst-plugin-va (Arch) or gstreamer1.0-plugins-bad (Debian/Ubuntu)")
-		r.Warnings = append(r.Warnings,
-			"Install VA-API driver: libva-mesa-driver (AMD) | intel-media-driver (Intel) | nvidia-vaapi-driver (NVIDIA)")
+			"No hardware video acceleration detected. Video will use software decoding (higher CPU).",
+			"Install VA plugin: gst-plugin-va (Arch) or gstreamer1.0-plugins-bad (Debian/Ubuntu)",
+			"Install VA-API driver: libva-mesa-driver (AMD) | intel-media-driver (Intel) | nvidia-vaapi-driver (NVIDIA)",
+		)
 	}
 
 	// AV1 is the preferred codec - warn if not available
@@ -245,6 +257,7 @@ func (a *Adapter) generateWarnings(r *port.MediaDiagnosticsResult) {
 	// Prefer modern VA plugin over legacy VAAPI
 	if r.HasVAAPIPlugin && !r.HasVAPlugin {
 		r.Warnings = append(r.Warnings,
-			"Using legacy gstreamer-vaapi. Install gst-plugin-va (Arch) or gstreamer1.0-plugins-bad (Debian/Ubuntu) for modern VA stateless decoders.")
+			"Using legacy gstreamer-vaapi. Install gst-plugin-va (Arch) or "+
+				"gstreamer1.0-plugins-bad (Debian/Ubuntu) for modern VA stateless decoders.")
 	}
 }

@@ -13,6 +13,11 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
+const (
+	cacheDirPerm     = 0o755
+	manifestFilePerm = 0o644
+)
+
 // Downloader handles downloading filter files from GitHub releases.
 type Downloader struct {
 	baseURL    string
@@ -60,7 +65,7 @@ func (d *Downloader) FetchManifest(ctx context.Context) (*Manifest, error) {
 	url := fmt.Sprintf("%s/%s", d.baseURL, FilterFiles.Manifest)
 	log.Debug().Str("url", url).Msg("fetching manifest")
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -69,7 +74,11 @@ func (d *Downloader) FetchManifest(ctx context.Context) (*Manifest, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch manifest: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			log.Debug().Err(closeErr).Msg("failed to close manifest response body")
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("manifest fetch failed with status %d", resp.StatusCode)
@@ -105,7 +114,7 @@ func (d *Downloader) DownloadFilters(ctx context.Context, onProgress func(Downlo
 		Logger()
 
 	// Ensure cache directory exists
-	if err := os.MkdirAll(d.cacheDir, 0o755); err != nil {
+	if err := os.MkdirAll(d.cacheDir, cacheDirPerm); err != nil {
 		return nil, fmt.Errorf("failed to create cache dir: %w", err)
 	}
 
@@ -155,7 +164,7 @@ func (d *Downloader) downloadFile(ctx context.Context, filename string) (string,
 	url := fmt.Sprintf("%s/%s", d.baseURL, filename)
 	localPath := filepath.Join(d.cacheDir, filename)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -164,7 +173,11 @@ func (d *Downloader) downloadFile(ctx context.Context, filename string) (string,
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to download %s: %w", filename, err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			logging.FromContext(ctx).Debug().Err(closeErr).Str("file", filename).Msg("failed to close filter response body")
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", 0, fmt.Errorf("download %s failed with status %d", filename, resp.StatusCode)
@@ -179,15 +192,18 @@ func (d *Downloader) downloadFile(ctx context.Context, filename string) (string,
 
 	bytesWritten, err := io.Copy(file, resp.Body)
 	if err != nil {
-		file.Close()
-		os.Remove(tmpPath)
+		_ = file.Close()
+		_ = os.Remove(tmpPath)
 		return "", 0, fmt.Errorf("failed to write %s: %w", filename, err)
 	}
-	file.Close()
+	if err := file.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return "", 0, fmt.Errorf("failed to close temp file: %w", err)
+	}
 
 	// Atomic rename
 	if err := os.Rename(tmpPath, localPath); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return "", 0, fmt.Errorf("failed to rename temp file: %w", err)
 	}
 
@@ -207,7 +223,7 @@ func (d *Downloader) downloadAndCacheManifest(ctx context.Context) error {
 	}
 
 	path := filepath.Join(d.cacheDir, FilterFiles.Manifest)
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := os.WriteFile(path, data, manifestFilePerm); err != nil {
 		return fmt.Errorf("failed to write manifest: %w", err)
 	}
 

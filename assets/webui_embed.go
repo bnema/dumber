@@ -2,7 +2,6 @@ package assets
 
 import (
 	"embed"
-	_ "embed"
 )
 
 // WebUIAssets contains the embedded webui build output (homepage, error, and config pages).

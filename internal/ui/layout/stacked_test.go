@@ -86,7 +86,10 @@ func TestAddPane_SinglePane_BecomesActive(t *testing.T) {
 	// Arrange
 	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
-	mockTitleBar, _, _, _, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar, mockFavicon, mockLabel, mockButton, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
+	_ = mockFavicon
+	_ = mockLabel
+	_ = mockButton
 
 	// Visibility updates for active pane
 	mockTitleBar.EXPECT().GetParent().Return(nil).Maybe()
@@ -110,13 +113,19 @@ func TestAddPane_MultiplePanes_LastBecomesActive(t *testing.T) {
 	mockFactory, mockBox := setupMockFactory(t)
 
 	// First pane
-	mockTitleBar1, _, _, _, mockContainer1 := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar1, mockFavicon1, mockLabel1, mockButton1, mockContainer1 := setupPaneMocks(t, mockFactory, mockBox)
+	_ = mockFavicon1
+	_ = mockLabel1
+	_ = mockButton1
 	mockTitleBar1.EXPECT().GetParent().Return(nil).Maybe()
 	mockContainer1.EXPECT().SetVisible(true).Once()
 	mockTitleBar1.EXPECT().AddCssClass("active").Once()
 
 	// Second pane - first pane becomes inactive
-	mockTitleBar2, _, _, _, mockContainer2 := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar2, mockFavicon2, mockLabel2, mockButton2, mockContainer2 := setupPaneMocks(t, mockFactory, mockBox)
+	_ = mockFavicon2
+	_ = mockLabel2
+	_ = mockButton2
 
 	// When second pane is added, update visibility for both
 	mockTitleBar1.EXPECT().GetParent().Return(nil).Maybe()
@@ -187,7 +196,10 @@ func TestRemovePane_LastPane_ReturnsError(t *testing.T) {
 	// Arrange
 	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
-	mockTitleBar, _, _, _, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar, mockFavicon, mockLabel, mockButton, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
+	_ = mockFavicon
+	_ = mockLabel
+	_ = mockButton
 
 	mockTitleBar.EXPECT().GetParent().Return(nil).Maybe()
 	mockContainer.EXPECT().SetVisible(true).Once()
@@ -200,7 +212,7 @@ func TestRemovePane_LastPane_ReturnsError(t *testing.T) {
 	err := sv.RemovePane(ctx, 0)
 
 	// Assert
-	assert.ErrorIs(t, err, layout.ErrCannotRemoveLastPane)
+	require.ErrorIs(t, err, layout.ErrCannotRemoveLastPane)
 	assert.Equal(t, 1, sv.Count())
 }
 
@@ -214,14 +226,17 @@ func TestRemovePane_EmptyStack_ReturnsError(t *testing.T) {
 	err := sv.RemovePane(ctx, 0)
 
 	// Assert
-	assert.ErrorIs(t, err, layout.ErrStackEmpty)
+	require.ErrorIs(t, err, layout.ErrStackEmpty)
 }
 
 func TestRemovePane_IndexOutOfBounds(t *testing.T) {
 	// Arrange
 	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
-	mockTitleBar, _, _, _, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar, mockFavicon, mockLabel, mockButton, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
+	_ = mockFavicon
+	_ = mockLabel
+	_ = mockButton
 
 	mockTitleBar.EXPECT().GetParent().Return(nil).Maybe()
 	mockContainer.EXPECT().SetVisible(true).Once()
@@ -234,7 +249,7 @@ func TestRemovePane_IndexOutOfBounds(t *testing.T) {
 	err := sv.RemovePane(ctx, 5)
 
 	// Assert
-	assert.ErrorIs(t, err, layout.ErrIndexOutOfBounds)
+	require.ErrorIs(t, err, layout.ErrIndexOutOfBounds)
 }
 
 func TestSetActive_ValidIndex(t *testing.T) {
@@ -246,7 +261,14 @@ func TestSetActive_ValidIndex(t *testing.T) {
 	titleBars := make([]*mocks.MockBoxWidget, 2)
 
 	for i := 0; i < 2; i++ {
-		titleBars[i], _, _, _, containers[i] = setupPaneMocks(t, mockFactory, mockBox)
+		titleBar, mockFavicon, mockOverlay, mockSpinner, container := setupPaneMocks(t, mockFactory, mockBox)
+		_ = mockFavicon
+		_ = mockOverlay
+		_ = mockSpinner
+
+		titleBars[i] = titleBar
+		containers[i] = container
+
 		titleBars[i].EXPECT().GetParent().Return(nil).Maybe()
 		containers[i].EXPECT().SetVisible(mock.Anything).Maybe()
 		titleBars[i].EXPECT().AddCssClass("active").Maybe()
@@ -269,7 +291,10 @@ func TestSetActive_OutOfBounds(t *testing.T) {
 	// Arrange
 	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
-	mockTitleBar, _, _, _, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar, mockFavicon, mockLabel, mockButton, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
+	_ = mockFavicon
+	_ = mockLabel
+	_ = mockButton
 
 	mockTitleBar.EXPECT().GetParent().Return(nil).Maybe()
 	mockContainer.EXPECT().SetVisible(true).Once()
@@ -282,7 +307,7 @@ func TestSetActive_OutOfBounds(t *testing.T) {
 	err := sv.SetActive(ctx, 5)
 
 	// Assert
-	assert.ErrorIs(t, err, layout.ErrIndexOutOfBounds)
+	require.ErrorIs(t, err, layout.ErrIndexOutOfBounds)
 }
 
 func TestSetActive_EmptyStack(t *testing.T) {
@@ -295,7 +320,7 @@ func TestSetActive_EmptyStack(t *testing.T) {
 	err := sv.SetActive(ctx, 0)
 
 	// Assert
-	assert.ErrorIs(t, err, layout.ErrStackEmpty)
+	require.ErrorIs(t, err, layout.ErrStackEmpty)
 }
 
 func TestUpdateTitle(t *testing.T) {
@@ -329,7 +354,7 @@ func TestUpdateTitle_InvalidIndex(t *testing.T) {
 	err := sv.UpdateTitle(0, "Title")
 
 	// Assert
-	assert.ErrorIs(t, err, layout.ErrIndexOutOfBounds)
+	require.ErrorIs(t, err, layout.ErrIndexOutOfBounds)
 }
 
 func TestUpdateFavicon(t *testing.T) {
@@ -358,7 +383,10 @@ func TestGetContainer(t *testing.T) {
 	// Arrange
 	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
-	mockTitleBar, _, _, _, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar, mockFavicon, mockOverlay, mockSpinner, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
+	_ = mockFavicon
+	_ = mockOverlay
+	_ = mockSpinner
 
 	mockTitleBar.EXPECT().GetParent().Return(nil).Maybe()
 	mockContainer.EXPECT().SetVisible(true).Once()
@@ -384,7 +412,7 @@ func TestGetContainer_InvalidIndex(t *testing.T) {
 	container, err := sv.GetContainer(0)
 
 	// Assert
-	assert.ErrorIs(t, err, layout.ErrIndexOutOfBounds)
+	require.ErrorIs(t, err, layout.ErrIndexOutOfBounds)
 	assert.Nil(t, container)
 }
 
@@ -409,7 +437,14 @@ func TestNavigateNext_WrapsAround(t *testing.T) {
 	titleBars := make([]*mocks.MockBoxWidget, 2)
 
 	for i := 0; i < 2; i++ {
-		titleBars[i], _, _, _, containers[i] = setupPaneMocks(t, mockFactory, mockBox)
+		titleBar, mockFavicon, mockOverlay, mockSpinner, container := setupPaneMocks(t, mockFactory, mockBox)
+		_ = mockFavicon
+		_ = mockOverlay
+		_ = mockSpinner
+
+		titleBars[i] = titleBar
+		containers[i] = container
+
 		titleBars[i].EXPECT().GetParent().Return(nil).Maybe()
 		containers[i].EXPECT().SetVisible(mock.Anything).Maybe()
 		titleBars[i].EXPECT().AddCssClass("active").Maybe()
@@ -440,7 +475,14 @@ func TestNavigatePrevious_WrapsAround(t *testing.T) {
 	titleBars := make([]*mocks.MockBoxWidget, 2)
 
 	for i := 0; i < 2; i++ {
-		titleBars[i], _, _, _, containers[i] = setupPaneMocks(t, mockFactory, mockBox)
+		titleBar, mockFavicon, mockOverlay, mockSpinner, container := setupPaneMocks(t, mockFactory, mockBox)
+		_ = mockFavicon
+		_ = mockOverlay
+		_ = mockSpinner
+
+		titleBars[i] = titleBar
+		containers[i] = container
+
 		titleBars[i].EXPECT().GetParent().Return(nil).Maybe()
 		containers[i].EXPECT().SetVisible(mock.Anything).Maybe()
 		titleBars[i].EXPECT().AddCssClass("active").Maybe()
@@ -472,7 +514,7 @@ func TestNavigateNext_EmptyStack(t *testing.T) {
 	err := sv.NavigateNext(ctx)
 
 	// Assert
-	assert.ErrorIs(t, err, layout.ErrStackEmpty)
+	require.ErrorIs(t, err, layout.ErrStackEmpty)
 }
 
 func TestNavigatePrevious_EmptyStack(t *testing.T) {
@@ -485,7 +527,7 @@ func TestNavigatePrevious_EmptyStack(t *testing.T) {
 	err := sv.NavigatePrevious(ctx)
 
 	// Assert
-	assert.ErrorIs(t, err, layout.ErrStackEmpty)
+	require.ErrorIs(t, err, layout.ErrStackEmpty)
 }
 
 func TestSetOnActivate_Callback(t *testing.T) {
@@ -566,7 +608,10 @@ func TestInsertPaneAfter_AtBeginning(t *testing.T) {
 	mockFactory, mockBox := setupMockFactory(t)
 
 	// First pane - appended normally
-	mockTitleBar1, _, _, _, mockContainer1 := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar1, mockFavicon1, mockOverlay1, mockSpinner1, mockContainer1 := setupPaneMocks(t, mockFactory, mockBox)
+	_ = mockFavicon1
+	_ = mockOverlay1
+	_ = mockSpinner1
 	mockTitleBar1.EXPECT().GetParent().Return(nil).Maybe()
 	mockContainer1.EXPECT().SetVisible(true).Once()
 	mockTitleBar1.EXPECT().AddCssClass("active").Once()
@@ -641,7 +686,10 @@ func TestInsertPaneAfter_AtEnd(t *testing.T) {
 	mockFactory, mockBox := setupMockFactory(t)
 
 	// First pane
-	mockTitleBar1, _, _, _, mockContainer1 := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar1, mockFavicon1, mockOverlay1, mockSpinner1, mockContainer1 := setupPaneMocks(t, mockFactory, mockBox)
+	_ = mockFavicon1
+	_ = mockOverlay1
+	_ = mockSpinner1
 	mockTitleBar1.EXPECT().GetParent().Return(nil).Maybe()
 	mockContainer1.EXPECT().SetVisible(true).Once()
 	mockTitleBar1.EXPECT().AddCssClass("active").Once()
@@ -679,7 +727,14 @@ func TestInsertPaneAfter_MaintainsOrder(t *testing.T) {
 	titleBars := make([]*mocks.MockBoxWidget, 3)
 
 	for i := 0; i < 3; i++ {
-		titleBars[i], _, _, _, containers[i] = setupPaneMocks(t, mockFactory, mockBox)
+		titleBar, mockFavicon, mockOverlay, mockSpinner, container := setupPaneMocks(t, mockFactory, mockBox)
+		_ = mockFavicon
+		_ = mockOverlay
+		_ = mockSpinner
+
+		titleBars[i] = titleBar
+		containers[i] = container
+
 		titleBars[i].EXPECT().GetParent().Return(nil).Maybe()
 		containers[i].EXPECT().SetVisible(mock.Anything).Maybe()
 		titleBars[i].EXPECT().AddCssClass("active").Maybe()
@@ -727,7 +782,10 @@ func TestInsertPaneAfter_InvalidIndexClamped(t *testing.T) {
 	mockFactory, mockBox := setupMockFactory(t)
 
 	// First pane
-	mockTitleBar1, _, _, _, mockContainer1 := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar1, mockFavicon1, mockOverlay1, mockSpinner1, mockContainer1 := setupPaneMocks(t, mockFactory, mockBox)
+	_ = mockFavicon1
+	_ = mockOverlay1
+	_ = mockSpinner1
 	mockTitleBar1.EXPECT().GetParent().Return(nil).Maybe()
 	mockContainer1.EXPECT().SetVisible(true).Once()
 	mockTitleBar1.EXPECT().AddCssClass("active").Once()

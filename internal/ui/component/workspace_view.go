@@ -4,6 +4,7 @@ package component
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -167,7 +168,9 @@ func (wv *WorkspaceView) SetWorkspace(ctx context.Context, ws *entity.Workspace)
 
 	// Set initial active pane
 	if ws.ActivePaneID != "" {
-		wv.setActivePaneIDInternal(ws.ActivePaneID)
+		if err := wv.setActivePaneIDInternal(ws.ActivePaneID); err != nil {
+			return fmt.Errorf("set initial active pane: %w", err)
+		}
 	}
 
 	return nil

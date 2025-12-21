@@ -305,7 +305,18 @@ func NewWebViewWithRelated(ctx context.Context, parent *WebView, settings *Setti
 
 // connectSignals sets up signal handlers for the WebView.
 func (wv *WebView) connectSignals() {
-	// load-changed signal
+	wv.connectLoadChangedSignal()
+	wv.connectCloseSignal()
+	wv.connectCreateSignal()
+	wv.connectReadyToShowSignal()
+	wv.connectTitleSignal()
+	wv.connectURISignal()
+	wv.connectFaviconSignal()
+	wv.connectProgressSignal()
+	wv.connectDecidePolicySignal()
+}
+
+func (wv *WebView) connectLoadChangedSignal() {
 	loadChangedCb := func(inner webkit.WebView, event webkit.LoadEvent) {
 		uri := inner.GetUri()
 		title := inner.GetTitle()
@@ -337,18 +348,20 @@ func (wv *WebView) connectSignals() {
 	}
 	sigID := wv.inner.ConnectLoadChanged(&loadChangedCb)
 	wv.signalIDs = append(wv.signalIDs, sigID)
+}
 
-	// close signal
-	closeCb := func(inner webkit.WebView) {
+func (wv *WebView) connectCloseSignal() {
+	closeCb := func(_ webkit.WebView) {
 		if wv.OnClose != nil {
 			wv.OnClose()
 		}
 	}
-	sigID = wv.inner.ConnectClose(&closeCb)
+	sigID := wv.inner.ConnectClose(&closeCb)
 	wv.signalIDs = append(wv.signalIDs, sigID)
+}
 
-	// create signal for popup window handling
-	createCb := func(inner webkit.WebView, navActionPtr uintptr) gtk.Widget {
+func (wv *WebView) connectCreateSignal() {
+	createCb := func(_ webkit.WebView, navActionPtr uintptr) gtk.Widget {
 		if wv.OnCreate == nil {
 			return gtk.Widget{} // Block popup
 		}
@@ -378,20 +391,21 @@ func (wv *WebView) connectSignals() {
 
 		return newWV.inner.Widget
 	}
-	sigID = wv.inner.ConnectCreate(&createCb)
+	sigID := wv.inner.ConnectCreate(&createCb)
 	wv.signalIDs = append(wv.signalIDs, sigID)
+}
 
-	// ready-to-show signal for popup display
-	readyToShowCb := func(inner webkit.WebView) {
+func (wv *WebView) connectReadyToShowSignal() {
+	readyToShowCb := func(_ webkit.WebView) {
 		if wv.OnReadyToShow != nil {
 			wv.OnReadyToShow()
 		}
 	}
-	sigID = wv.inner.ConnectReadyToShow(&readyToShowCb)
+	sigID := wv.inner.ConnectReadyToShow(&readyToShowCb)
 	wv.signalIDs = append(wv.signalIDs, sigID)
+}
 
-	// notify::title signal for title changes
-	// This fires when the page title changes (e.g., after page load, SPA navigation)
+func (wv *WebView) connectTitleSignal() {
 	titleCb := func() {
 		title := wv.inner.GetTitle()
 		wv.mu.Lock()
@@ -402,11 +416,11 @@ func (wv *WebView) connectSignals() {
 			wv.OnTitleChanged(title)
 		}
 	}
-	sigID = gobject.SignalConnect(wv.inner.GoPointer(), "notify::title", glib.NewCallback(&titleCb))
+	sigID := gobject.SignalConnect(wv.inner.GoPointer(), "notify::title", glib.NewCallback(&titleCb))
 	wv.signalIDs = append(wv.signalIDs, sigID)
+}
 
-	// notify::uri signal for URI changes
-	// This fires when the URI changes (e.g., redirects, SPA navigation via History API)
+func (wv *WebView) connectURISignal() {
 	uriCb := func() {
 		uri := wv.inner.GetUri()
 		wv.mu.Lock()
@@ -418,22 +432,22 @@ func (wv *WebView) connectSignals() {
 			wv.OnURIChanged(uri)
 		}
 	}
-	sigID = gobject.SignalConnect(wv.inner.GoPointer(), "notify::uri", glib.NewCallback(&uriCb))
+	sigID := gobject.SignalConnect(wv.inner.GoPointer(), "notify::uri", glib.NewCallback(&uriCb))
 	wv.signalIDs = append(wv.signalIDs, sigID)
+}
 
-	// notify::favicon signal for favicon changes
-	// This fires when the page favicon changes (after page load or dynamic updates)
+func (wv *WebView) connectFaviconSignal() {
 	faviconCb := func() {
 		favicon := wv.inner.GetFavicon()
 		if wv.OnFaviconChanged != nil {
 			wv.OnFaviconChanged(favicon)
 		}
 	}
-	sigID = gobject.SignalConnect(wv.inner.GoPointer(), "notify::favicon", glib.NewCallback(&faviconCb))
+	sigID := gobject.SignalConnect(wv.inner.GoPointer(), "notify::favicon", glib.NewCallback(&faviconCb))
 	wv.signalIDs = append(wv.signalIDs, sigID)
+}
 
-	// notify::estimated-load-progress signal for load progress updates
-	// This fires frequently during page load with values from 0.0 to 1.0
+func (wv *WebView) connectProgressSignal() {
 	progressCb := func() {
 		progress := wv.inner.GetEstimatedLoadProgress()
 		wv.mu.Lock()
@@ -444,17 +458,16 @@ func (wv *WebView) connectSignals() {
 			wv.OnProgressChanged(progress)
 		}
 	}
-	sigID = gobject.SignalConnect(wv.inner.GoPointer(), "notify::estimated-load-progress", glib.NewCallback(&progressCb))
+	sigID := gobject.SignalConnect(wv.inner.GoPointer(), "notify::estimated-load-progress", glib.NewCallback(&progressCb))
 	wv.signalIDs = append(wv.signalIDs, sigID)
+}
 
-	// decide-policy signal for intercepting middle-click and Ctrl+click on links
-	decidePolicyCb := func(inner webkit.WebView, decisionPtr uintptr, decisionType webkit.PolicyDecisionType) bool {
-		// Only handle navigation actions (not new window or response policies)
+func (wv *WebView) connectDecidePolicySignal() {
+	decidePolicyCb := func(_ webkit.WebView, decisionPtr uintptr, decisionType webkit.PolicyDecisionType) bool {
 		if decisionType != webkit.PolicyDecisionTypeNavigationActionValue {
 			return false // Let WebKit handle
 		}
 
-		// Cast to NavigationPolicyDecision
 		navDecision := webkit.NavigationPolicyDecisionNewFromInternalPtr(decisionPtr)
 		if navDecision == nil {
 			return false
@@ -465,24 +478,19 @@ func (wv *WebView) connectSignals() {
 			return false
 		}
 
-		// Only handle link clicks
 		if navAction.GetNavigationType() != webkit.NavigationTypeLinkClickedValue {
 			return false
 		}
 
-		// Get mouse button and modifiers
 		mouseButton := navAction.GetMouseButton()
 		modifiers := navAction.GetModifiers()
-
-		// Check for middle-click (button 2) or Ctrl+left-click (button 1 + Ctrl)
 		isMiddleClick := mouseButton == 2
 		isCtrlClick := mouseButton == 1 && (gdk.ModifierType(modifiers)&gdk.ControlMaskValue) != 0
 
 		if !isMiddleClick && !isCtrlClick {
-			return false // Normal click, let WebKit handle
+			return false
 		}
 
-		// Get the link URL
 		request := navAction.GetRequest()
 		if request == nil {
 			return false
@@ -499,18 +507,16 @@ func (wv *WebView) connectSignals() {
 			Bool("ctrl", isCtrlClick).
 			Msg("middle-click/ctrl+click on link detected")
 
-		// Call the handler
 		if wv.OnLinkMiddleClick != nil {
 			if wv.OnLinkMiddleClick(linkURI) {
-				// Handler processed it, block the navigation
 				navDecision.Ignore()
 				return true
 			}
 		}
 
-		return false // Let WebKit handle if not handled
+		return false
 	}
-	sigID = wv.inner.ConnectDecidePolicy(&decidePolicyCb)
+	sigID := wv.inner.ConnectDecidePolicy(&decidePolicyCb)
 	wv.signalIDs = append(wv.signalIDs, sigID)
 }
 
@@ -566,6 +572,7 @@ func (wv *WebView) LoadHTML(ctx context.Context, content, baseURI string) error 
 		baseURIPtr = &baseURI
 	}
 	wv.inner.LoadHtml(content, baseURIPtr)
+	logging.FromContext(ctx).Debug().Int("webview_id", int(wv.id)).Msg("loading HTML content")
 	return nil
 }
 
@@ -575,6 +582,7 @@ func (wv *WebView) Reload(ctx context.Context) error {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
 	wv.inner.Reload()
+	logging.FromContext(ctx).Debug().Int("webview_id", int(wv.id)).Msg("reloading webview")
 	return nil
 }
 
@@ -584,6 +592,7 @@ func (wv *WebView) ReloadBypassCache(ctx context.Context) error {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
 	wv.inner.ReloadBypassCache()
+	logging.FromContext(ctx).Debug().Int("webview_id", int(wv.id)).Msg("reloading webview bypassing cache")
 	return nil
 }
 
@@ -593,6 +602,7 @@ func (wv *WebView) Stop(ctx context.Context) error {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
 	wv.inner.StopLoading()
+	logging.FromContext(ctx).Debug().Int("webview_id", int(wv.id)).Msg("stopping webview load")
 	return nil
 }
 
@@ -605,6 +615,7 @@ func (wv *WebView) GoBack(ctx context.Context) error {
 		return fmt.Errorf("cannot go back")
 	}
 	wv.inner.GoBack()
+	logging.FromContext(ctx).Debug().Int("webview_id", int(wv.id)).Msg("webview go back")
 	return nil
 }
 
@@ -617,6 +628,7 @@ func (wv *WebView) GoForward(ctx context.Context) error {
 		return fmt.Errorf("cannot go forward")
 	}
 	wv.inner.GoForward()
+	logging.FromContext(ctx).Debug().Int("webview_id", int(wv.id)).Msg("webview go forward")
 	return nil
 }
 
@@ -677,6 +689,7 @@ func (wv *WebView) SetZoomLevel(ctx context.Context, level float64) error {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
 	wv.inner.SetZoomLevel(level)
+	logging.FromContext(ctx).Debug().Float64("level", level).Int("webview_id", int(wv.id)).Msg("set webview zoom level")
 	return nil
 }
 

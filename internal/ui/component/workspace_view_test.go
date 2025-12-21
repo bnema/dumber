@@ -14,7 +14,7 @@ import (
 	"github.com/bnema/dumber/internal/ui/layout/mocks"
 )
 
-func setupWorkspaceViewBase(t *testing.T, mockFactory *mocks.MockWidgetFactory) (context.Context, *mocks.MockBoxWidget, *mocks.MockOverlayWidget) {
+func setupWorkspaceViewBase(t *testing.T, mockFactory *mocks.MockWidgetFactory) (context.Context, *mocks.MockBoxWidget) {
 	ctx := context.Background()
 	mockContainer := mocks.NewMockBoxWidget(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
@@ -30,7 +30,7 @@ func setupWorkspaceViewBase(t *testing.T, mockFactory *mocks.MockWidgetFactory) 
 	mockOverlay.EXPECT().SetChild(mockContainer).Once()
 	mockOverlay.EXPECT().SetVisible(true).Once()
 
-	return ctx, mockContainer, mockOverlay
+	return ctx, mockContainer
 }
 
 func setupWorkspacePaneViewMocks(t *testing.T, mockFactory *mocks.MockWidgetFactory) (*mocks.MockOverlayWidget, *mocks.MockBoxWidget) {
@@ -76,7 +76,7 @@ func setupStackedLeafMocks(
 	t *testing.T,
 	mockFactory *mocks.MockWidgetFactory,
 	container *mocks.MockOverlayWidget,
-) (*mocks.MockBoxWidget, *mocks.MockBoxWidget) {
+) *mocks.MockBoxWidget {
 	mockStackBox := mocks.NewMockBoxWidget(t)
 	mockTitleBar := mocks.NewMockBoxWidget(t)
 	mockFavicon := mocks.NewMockImageWidget(t)
@@ -118,13 +118,13 @@ func setupStackedLeafMocks(
 	container.EXPECT().SetVisible(true).Once()
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 
-	return mockStackBox, mockTitleBar
+	return mockStackBox
 }
 
 func TestNewWorkspaceView_CreatesEmptyContainer(t *testing.T) {
 	// Arrange
 	mockFactory := mocks.NewMockWidgetFactory(t)
-	ctx, mockBox, _ := setupWorkspaceViewBase(t, mockFactory)
+	ctx, mockBox := setupWorkspaceViewBase(t, mockFactory)
 
 	// Act
 	wv := component.NewWorkspaceView(ctx, mockFactory)
@@ -138,7 +138,7 @@ func TestNewWorkspaceView_CreatesEmptyContainer(t *testing.T) {
 func TestSetWorkspace_NilWorkspace_ReturnsError(t *testing.T) {
 	// Arrange
 	mockFactory := mocks.NewMockWidgetFactory(t)
-	ctx, _, _ := setupWorkspaceViewBase(t, mockFactory)
+	ctx, _ := setupWorkspaceViewBase(t, mockFactory)
 
 	wv := component.NewWorkspaceView(ctx, mockFactory)
 
@@ -152,12 +152,12 @@ func TestSetWorkspace_NilWorkspace_ReturnsError(t *testing.T) {
 func TestSetWorkspace_SinglePane_CreatesPaneView(t *testing.T) {
 	// Arrange
 	mockFactory := mocks.NewMockWidgetFactory(t)
-	ctx, mockBox, _ := setupWorkspaceViewBase(t, mockFactory)
+	ctx, mockBox := setupWorkspaceViewBase(t, mockFactory)
 
 	wv := component.NewWorkspaceView(ctx, mockFactory)
 
 	mockOverlay, mockBorderBox := setupWorkspacePaneViewMocks(t, mockFactory)
-	mockStackBox, _ := setupStackedLeafMocks(t, mockFactory, mockOverlay)
+	mockStackBox := setupStackedLeafMocks(t, mockFactory, mockOverlay)
 
 	mockStackBox.EXPECT().SetVisible(true).Once()
 	mockBox.EXPECT().Append(mockStackBox).Once()
@@ -185,7 +185,7 @@ func TestSetWorkspace_SinglePane_CreatesPaneView(t *testing.T) {
 func TestSetActivePaneID_UpdatesStyling(t *testing.T) {
 	// Arrange
 	mockFactory := mocks.NewMockWidgetFactory(t)
-	ctx, mockBox, _ := setupWorkspaceViewBase(t, mockFactory)
+	ctx, mockBox := setupWorkspaceViewBase(t, mockFactory)
 
 	wv := component.NewWorkspaceView(ctx, mockFactory)
 
@@ -198,9 +198,9 @@ func TestSetActivePaneID_UpdatesStyling(t *testing.T) {
 	// Create mock widgets for split
 	mockPaned := mocks.NewMockPanedWidget(t)
 	mockOverlay1, mockBorderBox1 := setupWorkspacePaneViewMocks(t, mockFactory)
-	mockStackBox1, _ := setupStackedLeafMocks(t, mockFactory, mockOverlay1)
+	mockStackBox1 := setupStackedLeafMocks(t, mockFactory, mockOverlay1)
 	mockOverlay2, mockBorderBox2 := setupWorkspacePaneViewMocks(t, mockFactory)
-	mockStackBox2, _ := setupStackedLeafMocks(t, mockFactory, mockOverlay2)
+	mockStackBox2 := setupStackedLeafMocks(t, mockFactory, mockOverlay2)
 
 	// Split view creation
 	mockFactory.EXPECT().NewPaned(layout.OrientationHorizontal).Return(mockPaned).Once()
@@ -251,7 +251,7 @@ func TestSetActivePaneID_UpdatesStyling(t *testing.T) {
 func TestSetActivePaneID_InvalidID_ReturnsError(t *testing.T) {
 	// Arrange
 	mockFactory := mocks.NewMockWidgetFactory(t)
-	ctx, _, _ := setupWorkspaceViewBase(t, mockFactory)
+	ctx, _ := setupWorkspaceViewBase(t, mockFactory)
 
 	wv := component.NewWorkspaceView(ctx, mockFactory)
 

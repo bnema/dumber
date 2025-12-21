@@ -22,7 +22,7 @@ func NewTagHandlers(favoritesUC *usecase.ManageFavoritesUseCase) *TagHandlers {
 
 // HandleList handles tag_list messages.
 func (h *TagHandlers) HandleList() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, webviewID webkit.WebViewID, payload json.RawMessage) (any, error) {
+	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		requestID := ParseRequestID(payload)
@@ -49,7 +49,7 @@ type createTagRequest struct {
 
 // HandleCreate handles tag_create messages.
 func (h *TagHandlers) HandleCreate() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, webviewID webkit.WebViewID, payload json.RawMessage) (any, error) {
+	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req createTagRequest
@@ -84,7 +84,7 @@ type deleteTagRequest struct {
 
 // HandleDelete handles tag_delete messages.
 func (h *TagHandlers) HandleDelete() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, webviewID webkit.WebViewID, payload json.RawMessage) (any, error) {
+	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req deleteTagRequest
@@ -116,7 +116,7 @@ type updateTagRequest struct {
 // HandleUpdate handles tag_update messages.
 // NOTE: This requires UpdateTag() method to be added to ManageFavoritesUseCase.
 func (h *TagHandlers) HandleUpdate() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, webviewID webkit.WebViewID, payload json.RawMessage) (any, error) {
+	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req updateTagRequest
@@ -155,7 +155,16 @@ type tagAssignRequest struct {
 
 // HandleAssign handles tag_assign messages.
 func (h *TagHandlers) HandleAssign() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, webviewID webkit.WebViewID, payload json.RawMessage) (any, error) {
+	return handleTagAssign("tag_assign", h.favoritesUC.TagFavorite)
+}
+
+// HandleRemove handles tag_remove messages.
+func (h *TagHandlers) HandleRemove() webkit.MessageHandler {
+	return handleTagAssign("tag_remove", h.favoritesUC.UntagFavorite)
+}
+
+func handleTagAssign(action string, op func(context.Context, entity.FavoriteID, entity.TagID) error) webkit.MessageHandler {
+	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req tagAssignRequest
@@ -167,33 +176,9 @@ func (h *TagHandlers) HandleAssign() webkit.MessageHandler {
 			Str("request_id", req.RequestID).
 			Int64("favorite_id", req.FavoriteID).
 			Int64("tag_id", req.TagID).
-			Msg("handling tag_assign")
+			Msg("handling " + action)
 
-		if err := h.favoritesUC.TagFavorite(ctx, entity.FavoriteID(req.FavoriteID), entity.TagID(req.TagID)); err != nil {
-			return NewErrorResponse(req.RequestID, err), nil
-		}
-
-		return NewSuccessResponse(req.RequestID, nil), nil
-	})
-}
-
-// HandleRemove handles tag_remove messages.
-func (h *TagHandlers) HandleRemove() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, webviewID webkit.WebViewID, payload json.RawMessage) (any, error) {
-		log := logging.FromContext(ctx)
-
-		var req tagAssignRequest // same structure as assign
-		if err := json.Unmarshal(payload, &req); err != nil {
-			return NewErrorResponse("", err), nil
-		}
-
-		log.Debug().
-			Str("request_id", req.RequestID).
-			Int64("favorite_id", req.FavoriteID).
-			Int64("tag_id", req.TagID).
-			Msg("handling tag_remove")
-
-		if err := h.favoritesUC.UntagFavorite(ctx, entity.FavoriteID(req.FavoriteID), entity.TagID(req.TagID)); err != nil {
+		if err := op(ctx, entity.FavoriteID(req.FavoriteID), entity.TagID(req.TagID)); err != nil {
 			return NewErrorResponse(req.RequestID, err), nil
 		}
 

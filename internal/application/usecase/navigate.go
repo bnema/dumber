@@ -150,7 +150,7 @@ func (uc *NavigateUseCase) UpdateHistoryTitle(ctx context.Context, url, title st
 
 // Reload reloads the current page.
 func (uc *NavigateUseCase) Reload(ctx context.Context, webview port.WebView, bypassCache bool) error {
-	log := logging.FromContext(ctx)
+	log := logging.FromContext(ctx).With().Float64("default_zoom", uc.defaultZoom).Logger()
 	log.Debug().Bool("bypass_cache", bypassCache).Msg("reloading page")
 
 	if bypassCache {
@@ -161,7 +161,7 @@ func (uc *NavigateUseCase) Reload(ctx context.Context, webview port.WebView, byp
 
 // GoBack navigates back in history.
 func (uc *NavigateUseCase) GoBack(ctx context.Context, webview port.WebView) error {
-	log := logging.FromContext(ctx)
+	log := logging.FromContext(ctx).With().Float64("default_zoom", uc.defaultZoom).Logger()
 
 	if !webview.CanGoBack() {
 		log.Debug().Msg("cannot go back - no history")
@@ -174,7 +174,7 @@ func (uc *NavigateUseCase) GoBack(ctx context.Context, webview port.WebView) err
 
 // GoForward navigates forward in history.
 func (uc *NavigateUseCase) GoForward(ctx context.Context, webview port.WebView) error {
-	log := logging.FromContext(ctx)
+	log := logging.FromContext(ctx).With().Float64("default_zoom", uc.defaultZoom).Logger()
 
 	if !webview.CanGoForward() {
 		log.Debug().Msg("cannot go forward - no history")
@@ -187,7 +187,7 @@ func (uc *NavigateUseCase) GoForward(ctx context.Context, webview port.WebView) 
 
 // Stop stops the current page load.
 func (uc *NavigateUseCase) Stop(ctx context.Context, webview port.WebView) error {
-	log := logging.FromContext(ctx)
+	log := logging.FromContext(ctx).With().Float64("default_zoom", uc.defaultZoom).Logger()
 	log.Debug().Msg("stopping page load")
 	return webview.Stop(ctx)
 }

@@ -87,7 +87,10 @@ func validateWebUIConfig(cfg port.WebUIConfig) error {
 	case "default", "prefer-dark", "prefer-light":
 		// ok
 	default:
-		errs = append(errs, fmt.Sprintf("appearance.color_scheme must be one of: prefer-dark, prefer-light, default (got: %s)", cfg.Appearance.ColorScheme))
+		errs = append(errs, fmt.Sprintf(
+			"appearance.color_scheme must be one of: prefer-dark, prefer-light, default (got: %s)",
+			cfg.Appearance.ColorScheme,
+		))
 	}
 
 	errs = append(errs, validation.ValidatePaletteHex(

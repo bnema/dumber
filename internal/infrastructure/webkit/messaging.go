@@ -106,7 +106,7 @@ func (r *MessageRouter) RegisterHandlerWithCallbacks(msgType, callback, errorCal
 // It registers the script message handler in the MAIN world (not isolated).
 // WebKit's messageHandlers is only available in main world.
 // The isolated world GUI scripts dispatch CustomEvents to main world, which forwards to this handler.
-func (r *MessageRouter) SetupMessageHandler(ucm *webkit.UserContentManager, worldName string) (uint32, error) {
+func (r *MessageRouter) SetupMessageHandler(ucm *webkit.UserContentManager, _ string) (uint32, error) {
 	log := logging.FromContext(r.baseCtx).With().Str("component", "message-router").Logger()
 
 	log.Debug().Msg("SetupMessageHandler called")
@@ -255,7 +255,13 @@ func (r *MessageRouter) dispatchResponse(ctx context.Context, webviewID WebViewI
 		return fmt.Errorf("marshal callback payload: %w", err)
 	}
 
-	script := fmt.Sprintf(`(function(){try{if(window.%[1]s){window.%[1]s(%[2]s);}else{console.warn("dumber callback missing: %[1]s");}}catch(e){console.error("dumber callback %[1]s failed", e);}})();`, callback, string(data))
+	script := fmt.Sprintf(
+		`(function(){try{if(window.%[1]s){window.%[1]s(%[2]s);}`+
+			`else{console.warn("dumber callback missing: %[1]s");}}`+
+			`catch(e){console.error("dumber callback %[1]s failed", e);}})();`,
+		callback,
+		string(data),
+	)
 
 	wv.RunJavaScript(ctx, script, world)
 	return nil

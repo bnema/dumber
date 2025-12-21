@@ -46,8 +46,9 @@ func NewTabButton(tab *entity.Tab) *TabButton {
 	}
 
 	// Configure label for text overflow
+	const maxTabTitleChars = 20
 	tb.label.SetEllipsize(pango.EllipsizeMiddleValue)
-	tb.label.SetMaxWidthChars(20)
+	tb.label.SetMaxWidthChars(maxTabTitleChars)
 	tb.label.AddCssClass("tab-title")
 
 	// Set label as button child

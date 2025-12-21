@@ -64,7 +64,7 @@ func (h *GestureHandler) AttachTo(widget *gtk.Widget) {
 	h.clickGesture.SetButton(0)
 
 	// Connect pressed handler
-	pressedCb := func(gesture gtk.GestureClick, nPress int, x float64, y float64) {
+	pressedCb := func(_ gtk.GestureClick, nPress int, _ float64, _ float64) {
 		h.handlePressed(nPress)
 	}
 	h.clickGesture.ConnectPressed(&pressedCb)

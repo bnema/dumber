@@ -74,7 +74,7 @@ func (f *WebViewFactory) CreateRelated(ctx context.Context, parentID port.WebVie
 	log := logging.FromContext(ctx)
 
 	// Look up parent WebView
-	parent := LookupWebView(WebViewID(parentID))
+	parent := LookupWebView(parentID)
 	if parent == nil {
 		return nil, fmt.Errorf("parent webview %d not found", parentID)
 	}

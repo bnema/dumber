@@ -82,9 +82,11 @@ func (uc *ManageTabsUseCase) Create(ctx context.Context, input CreateTabInput) (
 // Close removes a tab from the list.
 // Returns true if this was the last tab (caller should handle app exit).
 func (uc *ManageTabsUseCase) Close(ctx context.Context, tabs *entity.TabList, tabID entity.TabID) (wasLast bool, err error) {
-	log := logging.FromContext(ctx)
 	ctx = logging.WithTabID(ctx, string(tabID))
-	log = logging.FromContext(ctx)
+	log := logging.FromContext(ctx)
+	if uc == nil {
+		return false, fmt.Errorf("manage tabs use case is nil")
+	}
 
 	log.Debug().Msg("closing tab")
 
@@ -121,6 +123,9 @@ func (uc *ManageTabsUseCase) Close(ctx context.Context, tabs *entity.TabList, ta
 // Switch changes the active tab.
 func (uc *ManageTabsUseCase) Switch(ctx context.Context, tabs *entity.TabList, tabID entity.TabID) error {
 	log := logging.FromContext(ctx)
+	if uc == nil {
+		return fmt.Errorf("manage tabs use case is nil")
+	}
 	log.Debug().Str("tab_id", string(tabID)).Msg("switching to tab")
 
 	if tabs == nil {
@@ -146,6 +151,9 @@ func (uc *ManageTabsUseCase) Switch(ctx context.Context, tabs *entity.TabList, t
 // Move repositions a tab within the tab bar.
 func (uc *ManageTabsUseCase) Move(ctx context.Context, tabs *entity.TabList, tabID entity.TabID, newPosition int) error {
 	log := logging.FromContext(ctx)
+	if uc == nil {
+		return fmt.Errorf("manage tabs use case is nil")
+	}
 	log.Debug().
 		Str("tab_id", string(tabID)).
 		Int("new_position", newPosition).
@@ -168,6 +176,7 @@ func (uc *ManageTabsUseCase) Move(ctx context.Context, tabs *entity.TabList, tab
 }
 
 // Rename changes a tab's custom name.
+//nolint:revive // receiver required for interface consistency
 func (uc *ManageTabsUseCase) Rename(ctx context.Context, tabs *entity.TabList, tabID entity.TabID, name string) error {
 	log := logging.FromContext(ctx)
 	log.Debug().
@@ -196,6 +205,7 @@ func (uc *ManageTabsUseCase) Rename(ctx context.Context, tabs *entity.TabList, t
 
 // GetNext returns the next tab ID in the given direction.
 // direction: 1 for next, -1 for previous.
+//nolint:revive // receiver required for interface consistency
 func (uc *ManageTabsUseCase) GetNext(tabs *entity.TabList, direction int) entity.TabID {
 	if tabs == nil || tabs.Count() == 0 {
 		return ""
@@ -283,6 +293,7 @@ func (uc *ManageTabsUseCase) SwitchToLastActive(ctx context.Context, tabs *entit
 }
 
 // Pin toggles the pinned state of a tab.
+//nolint:revive // receiver required for interface consistency
 func (uc *ManageTabsUseCase) Pin(ctx context.Context, tabs *entity.TabList, tabID entity.TabID, pinned bool) error {
 	log := logging.FromContext(ctx)
 	log.Debug().

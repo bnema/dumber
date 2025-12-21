@@ -44,7 +44,7 @@ func init() {
 	dmenuCmd.Flags().IntVar(&dmenuMax, "max", 0, "maximum entries to output (default from config)")
 }
 
-func runDmenu(cmd *cobra.Command, args []string) error {
+func runDmenu(_ *cobra.Command, _ []string) error {
 	app := GetApp()
 	if app == nil {
 		return fmt.Errorf("app not initialized")

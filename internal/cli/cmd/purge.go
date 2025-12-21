@@ -21,6 +21,27 @@ var (
 	purgeFilters bool
 )
 
+const dumberAppName = "dumber"
+
+type purgeDir struct {
+	path string
+	desc string
+}
+
+type purgeDirWithSize struct {
+	path string
+	desc string
+	size int64
+}
+
+type purgeDesktopStatus struct {
+	desktopInstalled bool
+	iconInstalled    bool
+	isDefault        bool
+	desktopPath      string
+	iconPath         string
+}
+
 var purgeCmd = &cobra.Command{
 	Use:   "purge",
 	Short: "Remove all dumber data and configuration",
@@ -46,7 +67,7 @@ func init() {
 	purgeCmd.Flags().BoolVar(&purgeFilters, "filters", false, "only remove content filter cache")
 }
 
-func runPurge(cmd *cobra.Command, args []string) error {
+func runPurge(_ *cobra.Command, _ []string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("get home dir: %w", err)
@@ -57,61 +78,13 @@ func runPurge(cmd *cobra.Command, args []string) error {
 		return runPurgeFilters(home)
 	}
 
-	// Build list of directories to remove
-	dirs := []struct {
-		path string
-		desc string
-	}{
-		{getXDGPath("XDG_CONFIG_HOME", home, ".config", "dumber"), "config"},
-		{getXDGPath("XDG_DATA_HOME", home, ".local/share", "dumber"), "data"},
-		{getXDGPath("XDG_STATE_HOME", home, ".local/state", "dumber"), "state"},
-		{getXDGPath("XDG_CACHE_HOME", home, ".cache", "dumber"), "cache"},
-	}
+	dirs := purgeDirList(home)
+	existing := collectExistingDirs(dirs)
 
-	// Check which directories exist
-	var existing []struct {
-		path string
-		desc string
-		size int64
-	}
-
-	for _, d := range dirs {
-		if info, err := os.Stat(d.path); err == nil && info.IsDir() {
-			size := getDirSize(d.path)
-			existing = append(existing, struct {
-				path string
-				desc string
-				size int64
-			}{d.path, d.desc, size})
-		}
-	}
-
+	var desktopStatus *purgeDesktopStatus
 	// Check desktop integration status if --desktop flag is set
-	var desktopStatus *struct {
-		desktopInstalled bool
-		iconInstalled    bool
-		isDefault        bool
-		desktopPath      string
-		iconPath         string
-	}
 	if purgeDesktop {
-		adapter := desktop.New()
-		status, err := adapter.GetStatus(context.Background())
-		if err == nil && (status.DesktopFileInstalled || status.IconInstalled) {
-			desktopStatus = &struct {
-				desktopInstalled bool
-				iconInstalled    bool
-				isDefault        bool
-				desktopPath      string
-				iconPath         string
-			}{
-				desktopInstalled: status.DesktopFileInstalled,
-				iconInstalled:    status.IconInstalled,
-				isDefault:        status.IsDefaultBrowser,
-				desktopPath:      status.DesktopFilePath,
-				iconPath:         status.IconFilePath,
-			}
-		}
+		desktopStatus = getDesktopStatus()
 	}
 
 	// Check if there's anything to remove
@@ -120,7 +93,75 @@ func runPurge(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Show what will be deleted
+	describePurgeTargets(existing, desktopStatus)
+
+	// Confirm unless --force
+	if !confirmPurge() {
+		fmt.Println("Aborted.")
+		return nil
+	}
+
+	// Remove directories
+	errors := removeDirs(existing)
+
+	// Remove desktop integration
+	if desktopStatus != nil {
+		errors = removeDesktopIntegration(errors)
+	}
+
+	if len(errors) > 0 {
+		fmt.Println()
+		fmt.Println("Errors:")
+		for _, e := range errors {
+			fmt.Printf("  \u2717 %s\n", e)
+		}
+		return fmt.Errorf("failed to remove some items")
+	}
+
+	fmt.Println()
+	fmt.Println("Purge complete.")
+	return nil
+}
+
+func purgeDirList(home string) []purgeDir {
+	return []purgeDir{
+		{getXDGPath("XDG_CONFIG_HOME", home, ".config"), "config"},
+		{getXDGPath("XDG_DATA_HOME", home, ".local/share"), "data"},
+		{getXDGPath("XDG_STATE_HOME", home, ".local/state"), "state"},
+		{getXDGPath("XDG_CACHE_HOME", home, ".cache"), "cache"},
+	}
+}
+
+func collectExistingDirs(dirs []purgeDir) []purgeDirWithSize {
+	var existing []purgeDirWithSize
+	for _, d := range dirs {
+		if info, err := os.Stat(d.path); err == nil && info.IsDir() {
+			existing = append(existing, purgeDirWithSize{
+				path: d.path,
+				desc: d.desc,
+				size: getDirSize(d.path),
+			})
+		}
+	}
+	return existing
+}
+
+func getDesktopStatus() *purgeDesktopStatus {
+	adapter := desktop.New()
+	status, err := adapter.GetStatus(context.Background())
+	if err != nil || (!status.DesktopFileInstalled && !status.IconInstalled) {
+		return nil
+	}
+	return &purgeDesktopStatus{
+		desktopInstalled: status.DesktopFileInstalled,
+		iconInstalled:    status.IconInstalled,
+		isDefault:        status.IsDefaultBrowser,
+		desktopPath:      status.DesktopFilePath,
+		iconPath:         status.IconFilePath,
+	}
+}
+
+func describePurgeTargets(existing []purgeDirWithSize, desktopStatus *purgeDesktopStatus) {
 	fmt.Println("The following will be removed:")
 	fmt.Println()
 	for _, d := range existing {
@@ -138,21 +179,20 @@ func runPurge(cmd *cobra.Command, args []string) error {
 		}
 	}
 	fmt.Println()
+}
 
-	// Confirm unless --force
-	if !purgeForce {
-		fmt.Print("Are you sure? [y/N]: ")
-		reader := bufio.NewReader(os.Stdin)
-		response, _ := reader.ReadString('\n')
-		response = strings.TrimSpace(strings.ToLower(response))
-
-		if response != "y" && response != "yes" {
-			fmt.Println("Aborted.")
-			return nil
-		}
+func confirmPurge() bool {
+	if purgeForce {
+		return true
 	}
+	fmt.Print("Are you sure? [y/N]: ")
+	reader := bufio.NewReader(os.Stdin)
+	response, _ := reader.ReadString('\n')
+	response = strings.TrimSpace(strings.ToLower(response))
+	return response == "y" || response == "yes"
+}
 
-	// Remove directories
+func removeDirs(existing []purgeDirWithSize) []string {
 	var errors []string
 	for _, d := range existing {
 		if err := os.RemoveAll(d.path); err != nil {
@@ -161,48 +201,35 @@ func runPurge(cmd *cobra.Command, args []string) error {
 			fmt.Printf("\u2713 Removed %s\n", d.path)
 		}
 	}
+	return errors
+}
 
-	// Remove desktop integration
-	if desktopStatus != nil {
-		adapter := desktop.New()
-		uc := usecase.NewRemoveDesktopUseCase(adapter)
-		result, err := uc.Execute(context.Background())
-		if err != nil {
-			errors = append(errors, fmt.Sprintf("desktop integration: %v", err))
-		} else {
-			if result.WasDesktopInstalled {
-				fmt.Printf("\u2713 Removed %s\n", result.RemovedDesktopPath)
-			}
-			if result.WasIconInstalled {
-				fmt.Printf("\u2713 Removed %s\n", result.RemovedIconPath)
-			}
-			if result.WasDefault {
-				fmt.Println("  \u26a0 Was default browser - please set a new default")
-			}
-		}
+func removeDesktopIntegration(errors []string) []string {
+	adapter := desktop.New()
+	uc := usecase.NewRemoveDesktopUseCase(adapter)
+	result, err := uc.Execute(context.Background())
+	if err != nil {
+		return append(errors, fmt.Sprintf("desktop integration: %v", err))
 	}
-
-	if len(errors) > 0 {
-		fmt.Println()
-		fmt.Println("Errors:")
-		for _, e := range errors {
-			fmt.Printf("  \u2717 %s\n", e)
-		}
-		return fmt.Errorf("failed to remove some items")
+	if result.WasDesktopInstalled {
+		fmt.Printf("\u2713 Removed %s\n", result.RemovedDesktopPath)
 	}
-
-	fmt.Println()
-	fmt.Println("Purge complete.")
-	return nil
+	if result.WasIconInstalled {
+		fmt.Printf("\u2713 Removed %s\n", result.RemovedIconPath)
+	}
+	if result.WasDefault {
+		fmt.Println("  \u26a0 Was default browser - please set a new default")
+	}
+	return errors
 }
 
 // getXDGPath returns the XDG path for dumber.
-func getXDGPath(envVar, home, defaultSuffix, appName string) string {
+func getXDGPath(envVar, home, defaultSuffix string) string {
 	base := os.Getenv(envVar)
 	if base == "" {
 		base = filepath.Join(home, defaultSuffix)
 	}
-	return filepath.Join(base, appName)
+	return filepath.Join(base, dumberAppName)
 }
 
 // getDirSize calculates the total size of a directory.
@@ -236,7 +263,7 @@ func formatSize(bytes int64) string {
 
 // runPurgeFilters removes only the content filter cache.
 func runPurgeFilters(home string) error {
-	dataDir := getXDGPath("XDG_DATA_HOME", home, ".local/share", "dumber")
+	dataDir := getXDGPath("XDG_DATA_HOME", home, ".local/share")
 	filterDirs := []struct {
 		path string
 		desc string

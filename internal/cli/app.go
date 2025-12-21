@@ -35,11 +35,9 @@ type App struct {
 
 // NewApp creates a new CLI application with all dependencies.
 func NewApp() (*App, error) {
+	const dataDirPerm = 0o755
 	// Load config
-	cfg, err := loadConfig()
-	if err != nil {
-		return nil, fmt.Errorf("load config: %w", err)
-	}
+	cfg := loadConfig()
 
 	// Create theme from config
 	theme := styles.NewTheme(cfg)
@@ -79,7 +77,7 @@ func NewApp() (*App, error) {
 	dbPath := filepath.Dir(dbFile)
 
 	// Ensure data directory exists
-	if err := os.MkdirAll(dbPath, 0755); err != nil {
+	if err = os.MkdirAll(dbPath, dataDirPerm); err != nil {
 		return nil, fmt.Errorf("create data dir: %w", err)
 	}
 
@@ -125,17 +123,17 @@ func (a *App) Ctx() context.Context {
 }
 
 // loadConfig loads configuration from standard locations.
-func loadConfig() (*config.Config, error) {
+func loadConfig() *config.Config {
 	mgr, err := config.NewManager()
 	if err != nil {
 		// Return default config if manager fails
-		return config.DefaultConfig(), nil
+		return config.DefaultConfig()
 	}
 
 	if err := mgr.Load(); err != nil {
 		// Return default config if loading fails
-		return config.DefaultConfig(), nil
+		return config.DefaultConfig()
 	}
 
-	return mgr.Get(), nil
+	return mgr.Get()
 }

@@ -170,6 +170,9 @@ func (uc *ManagePanesUseCase) Split(ctx context.Context, input SplitPaneInput) (
 // Returns the sibling node that was promoted, or nil if this was the last pane.
 func (uc *ManagePanesUseCase) Close(ctx context.Context, ws *entity.Workspace, paneNode *entity.PaneNode) (*entity.PaneNode, error) {
 	log := logging.FromContext(ctx)
+	if uc == nil {
+		return nil, fmt.Errorf("manage panes use case is nil")
+	}
 	log.Debug().Str("pane_id", paneNode.ID).Msg("closing pane")
 
 	if ws == nil {
@@ -252,6 +255,9 @@ func (uc *ManagePanesUseCase) Close(ctx context.Context, ws *entity.Workspace, p
 // Focus sets the active pane in the workspace.
 func (uc *ManagePanesUseCase) Focus(ctx context.Context, ws *entity.Workspace, paneID entity.PaneID) error {
 	log := logging.FromContext(ctx)
+	if uc == nil {
+		return fmt.Errorf("manage panes use case is nil")
+	}
 	log.Debug().Str("pane_id", string(paneID)).Msg("focusing pane")
 
 	if ws == nil {
@@ -276,7 +282,11 @@ func (uc *ManagePanesUseCase) Focus(ctx context.Context, ws *entity.Workspace, p
 
 // NavigateFocus moves focus to an adjacent pane.
 // Returns the newly focused pane, or nil if navigation not possible.
-func (uc *ManagePanesUseCase) NavigateFocus(ctx context.Context, ws *entity.Workspace, direction NavigateDirection) (*entity.PaneNode, error) {
+func (uc *ManagePanesUseCase) NavigateFocus(
+	ctx context.Context,
+	ws *entity.Workspace,
+	direction NavigateDirection,
+) (*entity.PaneNode, error) {
 	log := logging.FromContext(ctx)
 	log.Debug().Str("direction", string(direction)).Msg("navigating focus")
 
@@ -332,6 +342,9 @@ func (uc *ManagePanesUseCase) NavigateFocusGeometric(
 	input GeometricNavigationInput,
 ) (*GeometricNavigationOutput, error) {
 	log := logging.FromContext(ctx)
+	if uc == nil {
+		return nil, fmt.Errorf("manage panes use case is nil")
+	}
 	log.Debug().
 		Str("direction", string(input.Direction)).
 		Str("active", string(input.ActivePaneID)).
@@ -454,7 +467,7 @@ func (uc *ManagePanesUseCase) findAdjacentPane(node *entity.PaneNode, direction 
 			}
 
 			// Check if we can move in the desired direction
-			targetIndex := childIndex
+			var targetIndex int
 			if isForward {
 				targetIndex = childIndex + 1
 			} else {
@@ -524,7 +537,11 @@ type CreateStackOutput struct {
 //
 // The targetNode keeps its ID but becomes a stack container.
 // This allows the UI layer to update widget mappings incrementally.
-func (uc *ManagePanesUseCase) CreateStack(ctx context.Context, ws *entity.Workspace, paneNode *entity.PaneNode) (*CreateStackOutput, error) {
+func (uc *ManagePanesUseCase) CreateStack(
+	ctx context.Context,
+	ws *entity.Workspace,
+	paneNode *entity.PaneNode,
+) (*CreateStackOutput, error) {
 	log := logging.FromContext(ctx)
 	log.Debug().Str("pane_id", paneNode.ID).Msg("creating stack from pane")
 
@@ -594,7 +611,12 @@ type AddToStackOutput struct {
 
 // AddToStack adds a new pane to an existing stack.
 // Optionally pass a pre-created pane, or nil to create a new one.
-func (uc *ManagePanesUseCase) AddToStack(ctx context.Context, ws *entity.Workspace, stackNode *entity.PaneNode, pane *entity.Pane) (*AddToStackOutput, error) {
+func (uc *ManagePanesUseCase) AddToStack(
+	ctx context.Context,
+	ws *entity.Workspace,
+	stackNode *entity.PaneNode,
+	pane *entity.Pane,
+) (*AddToStackOutput, error) {
 	log := logging.FromContext(ctx)
 
 	if ws == nil {
@@ -660,7 +682,12 @@ func (uc *ManagePanesUseCase) AddToStack(ctx context.Context, ws *entity.Workspa
 
 // NavigateStack cycles through stacked panes.
 // direction: NavUp for previous, NavDown for next.
-func (uc *ManagePanesUseCase) NavigateStack(ctx context.Context, stackNode *entity.PaneNode, direction NavigateDirection) (*entity.Pane, error) {
+//nolint:revive // receiver required for interface consistency
+func (uc *ManagePanesUseCase) NavigateStack(
+	ctx context.Context,
+	stackNode *entity.PaneNode,
+	direction NavigateDirection,
+) (*entity.Pane, error) {
 	log := logging.FromContext(ctx)
 
 	if stackNode == nil {
@@ -724,6 +751,7 @@ func (uc *ManagePanesUseCase) NavigateStack(ctx context.Context, stackNode *enti
 
 // RemoveFromStack removes a pane from a stack.
 // If only one pane remains, the stack is dissolved.
+//nolint:revive // receiver required for interface consistency
 func (uc *ManagePanesUseCase) RemoveFromStack(ctx context.Context, stackNode *entity.PaneNode, paneID entity.PaneID) error {
 	log := logging.FromContext(ctx)
 
@@ -774,6 +802,7 @@ func (uc *ManagePanesUseCase) RemoveFromStack(ctx context.Context, stackNode *en
 }
 
 // GetAllPanes returns all leaf panes in a workspace.
+//nolint:revive // receiver required for interface consistency
 func (uc *ManagePanesUseCase) GetAllPanes(ws *entity.Workspace) []*entity.Pane {
 	if ws == nil || ws.Root == nil {
 		return nil
@@ -782,6 +811,7 @@ func (uc *ManagePanesUseCase) GetAllPanes(ws *entity.Workspace) []*entity.Pane {
 }
 
 // CountPanes returns the number of panes in a workspace.
+//nolint:revive // receiver required for interface consistency
 func (uc *ManagePanesUseCase) CountPanes(ws *entity.Workspace) int {
 	if ws == nil {
 		return 0

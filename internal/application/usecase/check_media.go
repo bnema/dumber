@@ -44,7 +44,10 @@ func (uc *CheckMediaUseCase) Execute(ctx context.Context, input CheckMediaInput)
 
 	// GStreamer is required - fail early if not installed
 	if !result.GStreamerAvailable {
-		return nil, fmt.Errorf("GStreamer not installed - video playback requires GStreamer. Install: gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav")
+		return nil, fmt.Errorf(
+			"GStreamer not installed - video playback requires GStreamer. Install: %s",
+			"gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav",
+		)
 	}
 
 	// Log warnings if requested

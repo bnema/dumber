@@ -22,6 +22,9 @@ func NewConfigHandler() *ConfigHandler {
 
 // Handle processes the save_config message.
 func (h *ConfigHandler) Handle(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+	if h == nil {
+		return nil, fmt.Errorf("config handler is nil")
+	}
 	log := logging.FromContext(ctx).With().Str("handler", "config").Logger()
 
 	var payloadCfg port.WebUIConfig

@@ -43,12 +43,13 @@ func ValidateShortcutURL(value string) []string {
 }
 
 func ValidateShortcutDescription(value string) []string {
+	const maxShortcutDescriptionLength = 200
 	var errs []string
 	value = strings.TrimSpace(value)
 	if strings.ContainsAny(value, "\r\n") {
 		errs = append(errs, "shortcut description must not contain newlines")
 	}
-	if len(value) > 200 {
+	if len(value) > maxShortcutDescriptionLength {
 		errs = append(errs, "shortcut description is too long")
 	}
 	return errs

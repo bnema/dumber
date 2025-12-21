@@ -74,9 +74,9 @@ func TestManager_LoadAsync_ChecksCacheFirst(t *testing.T) {
 	// Track status changes
 	var statuses []filtering.FilterStatus
 	var mu sync.Mutex
-	mgr.SetStatusCallback(func(s filtering.FilterStatus) {
+	mgr.SetStatusCallback(func(status filtering.FilterStatus) {
 		mu.Lock()
-		statuses = append(statuses, s)
+		statuses = append(statuses, status)
 		mu.Unlock()
 	})
 
@@ -165,9 +165,9 @@ func TestManager_LoadAsync_DownloadsWhenCacheMiss(t *testing.T) {
 	// Track status changes
 	var statuses []filtering.FilterStatus
 	var mu sync.Mutex
-	mgr.SetStatusCallback(func(s filtering.FilterStatus) {
+	mgr.SetStatusCallback(func(status filtering.FilterStatus) {
 		mu.Lock()
-		statuses = append(statuses, s)
+		statuses = append(statuses, status)
 		mu.Unlock()
 	})
 
@@ -470,7 +470,7 @@ func TestManager_StatusCallback_CalledOnStateChange(t *testing.T) {
 	// Track callback invocations
 	callCount := 0
 	var mu sync.Mutex
-	mgr.SetStatusCallback(func(s filtering.FilterStatus) {
+	mgr.SetStatusCallback(func(_ filtering.FilterStatus) {
 		mu.Lock()
 		callCount++
 		mu.Unlock()

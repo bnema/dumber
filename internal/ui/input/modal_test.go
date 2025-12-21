@@ -225,7 +225,7 @@ func TestModalState_ExitCancelsTimeout(t *testing.T) {
 
 	// Callback should not have been called again
 	if callCount != 2 {
-		t.Errorf("callback count = %d, want 2 (timeout should have been cancelled)", callCount)
+		t.Errorf("callback count = %d, want 2 (timeout should have been canceled)", callCount)
 	}
 }
 

@@ -36,8 +36,8 @@ func RunMigrations(ctx context.Context, db *sql.DB) error {
 	}
 
 	// Run migrations
-	if err := goose.Up(db, "migrations"); err != nil {
-		return fmt.Errorf("failed to run migrations: %w", err)
+	if migrateErr := goose.Up(db, "migrations"); migrateErr != nil {
+		return fmt.Errorf("failed to run migrations: %w", migrateErr)
 	}
 
 	// Get new version after migration

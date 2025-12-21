@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
@@ -25,7 +26,7 @@ func (r *zoomRepo) Get(ctx context.Context, domain string) (*entity.ZoomLevel, e
 
 	row, err := r.queries.GetZoomLevel(ctx, domain)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err

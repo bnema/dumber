@@ -9,6 +9,12 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const (
+	logFormatConsole = "console"
+	logFormatJSON    = "json"
+	logFormatText    = "text"
+)
+
 // Config holds logging configuration
 type Config struct {
 	Level      zerolog.Level
@@ -28,7 +34,7 @@ type FileConfig struct {
 func DefaultConfig() Config {
 	return Config{
 		Level:      zerolog.InfoLevel,
-		Format:     "console",
+		Format:     logFormatConsole,
 		TimeFormat: time.RFC3339,
 	}
 }
@@ -38,12 +44,12 @@ func New(cfg Config) zerolog.Logger {
 	var output io.Writer = os.Stderr
 
 	switch cfg.Format {
-	case "console":
+	case logFormatConsole:
 		output = zerolog.ConsoleWriter{
 			Out:        os.Stderr,
 			TimeFormat: cfg.TimeFormat,
 		}
-	case "json":
+	case logFormatJSON:
 		// JSON is the default zerolog format
 		output = os.Stderr
 	}
@@ -60,18 +66,22 @@ func New(cfg Config) zerolog.Logger {
 // LogDir must exist before calling this function (handled by config.EnsureDirectories).
 // Returns the logger and a cleanup function to close the file.
 func NewWithFile(cfg Config, fileCfg FileConfig) (zerolog.Logger, func(), error) {
+	const (
+		logDirPerm  = 0o755
+		logFilePerm = 0o644
+	)
 	var writers []io.Writer
-	var cleanup func() = func() {}
+	cleanup := func() {}
 
 	// Stderr output (only if enabled)
 	if fileCfg.WriteToStderr {
 		switch cfg.Format {
-		case "console", "text", "":
+		case logFormatConsole, logFormatText, "":
 			writers = append(writers, zerolog.ConsoleWriter{
 				Out:        os.Stderr,
 				TimeFormat: cfg.TimeFormat,
 			})
-		case "json":
+		case logFormatJSON:
 			writers = append(writers, os.Stderr)
 		default:
 			writers = append(writers, zerolog.ConsoleWriter{
@@ -84,18 +94,18 @@ func NewWithFile(cfg Config, fileCfg FileConfig) (zerolog.Logger, func(), error)
 	// Session file output (JSON format for parsing)
 	if fileCfg.Enabled && fileCfg.LogDir != "" && fileCfg.SessionID != "" {
 		// Ensure log directory exists (LogDir is from config, may not have logs subdir)
-		if err := os.MkdirAll(fileCfg.LogDir, 0755); err != nil {
+		if err := os.MkdirAll(fileCfg.LogDir, logDirPerm); err != nil {
 			return zerolog.Logger{}, nil, err
 		}
 
 		filename := filepath.Join(fileCfg.LogDir, SessionFilename(fileCfg.SessionID))
-		file, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+		file, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, logFilePerm)
 		if err != nil {
 			return zerolog.Logger{}, nil, err
 		}
 
 		writers = append(writers, file)
-		cleanup = func() { file.Close() }
+		cleanup = func() { _ = file.Close() }
 	}
 
 	// Fallback to discard if no writers configured
@@ -129,7 +139,7 @@ func NewFromEnv() zerolog.Logger {
 
 	if format := os.Getenv("DUMBER_LOG_FORMAT"); format != "" {
 		switch format {
-		case "json", "console", "text":
+		case logFormatJSON, logFormatConsole, logFormatText:
 			cfg.Format = format
 		}
 	}
@@ -145,12 +155,12 @@ func NewFromConfigValues(level, format string) zerolog.Logger {
 	cfg.Level = ParseLevel(level)
 
 	switch format {
-	case "json":
-		cfg.Format = "json"
-	case "console", "text", "":
-		cfg.Format = "console"
+	case logFormatJSON:
+		cfg.Format = logFormatJSON
+	case logFormatConsole, logFormatText, "":
+		cfg.Format = logFormatConsole
 	default:
-		cfg.Format = "console"
+		cfg.Format = logFormatConsole
 	}
 
 	return New(cfg)

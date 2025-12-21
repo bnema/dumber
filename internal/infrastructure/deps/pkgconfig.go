@@ -15,7 +15,14 @@ func NewPkgConfigProbe() *PkgConfigProbe {
 	return &PkgConfigProbe{}
 }
 
-func (p *PkgConfigProbe) PkgConfigModVersion(ctx context.Context, pkgName string, prefix string) (string, error) {
+func (p *PkgConfigProbe) PkgConfigModVersion(ctx context.Context, pkgName, prefix string) (string, error) {
+	if p == nil {
+		return "", &port.PkgConfigError{
+			Kind:    port.PkgConfigErrorKindCommandMissing,
+			Package: pkgName,
+			Err:     port.ErrPkgConfigMissing,
+		}
+	}
 	pc, err := exec.LookPath("pkg-config")
 	if err != nil {
 		return "", &port.PkgConfigError{

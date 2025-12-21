@@ -64,6 +64,8 @@ type dmenuLoadedMsg struct {
 	err   error
 }
 
+const defaultDmenuHistoryLimit = 500
+
 // Init implements tea.Model.
 func (m DmenuModel) Init() tea.Cmd {
 	return tea.Batch(
@@ -76,7 +78,7 @@ func (m DmenuModel) Init() tea.Cmd {
 func (m DmenuModel) loadEntries() tea.Msg {
 	ctx := context.Background()
 
-	entries, err := m.historyUC.GetRecent(ctx, 500, 0)
+	entries, err := m.historyUC.GetRecent(ctx, defaultDmenuHistoryLimit, 0)
 	if err != nil {
 		return dmenuLoadedMsg{err: err}
 	}

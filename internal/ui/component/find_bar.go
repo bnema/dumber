@@ -149,6 +149,27 @@ func (fb *FindBar) FindPrevious() {
 }
 
 func (fb *FindBar) createWidgets() error {
+	if err := fb.initContainerWidgets(); err != nil {
+		return err
+	}
+	if err := fb.initInputRowWidgets(); err != nil {
+		return err
+	}
+	if err := fb.initOptionsRowWidgets(); err != nil {
+		return err
+	}
+	fb.assembleWidgets()
+	return nil
+}
+
+func (fb *FindBar) setupHandlers() {
+	fb.connectEntryHandlers()
+	fb.connectNavHandlers()
+	fb.connectToggleHandlers()
+	fb.attachKeyController()
+}
+
+func (fb *FindBar) initContainerWidgets() error {
 	fb.outerBox = gtk.NewBox(gtk.OrientationVerticalValue, 0)
 	if fb.outerBox == nil {
 		return errNilWidget("findOuterBox")
@@ -165,7 +186,10 @@ func (fb *FindBar) createWidgets() error {
 		return errNilWidget("findContainerBox")
 	}
 	fb.containerBox.AddCssClass("find-bar-container")
+	return nil
+}
 
+func (fb *FindBar) initInputRowWidgets() error {
 	fb.inputRow = gtk.NewBox(gtk.OrientationHorizontalValue, findBarRowSpacing)
 	if fb.inputRow == nil {
 		return errNilWidget("findInputRow")
@@ -206,7 +230,10 @@ func (fb *FindBar) createWidgets() error {
 		return errNilWidget("findCloseBtn")
 	}
 	fb.closeBtn.AddCssClass("find-bar-close")
+	return nil
+}
 
+func (fb *FindBar) initOptionsRowWidgets() error {
 	fb.optionsRow = gtk.NewBox(gtk.OrientationHorizontalValue, findBarRowSpacing)
 	if fb.optionsRow == nil {
 		return errNilWidget("findOptionsRow")
@@ -231,7 +258,10 @@ func (fb *FindBar) createWidgets() error {
 	}
 	fb.hlToggle.AddCssClass("find-bar-toggle")
 	fb.hlToggle.SetActive(true)
+	return nil
+}
 
+func (fb *FindBar) assembleWidgets() {
 	fb.inputRow.Append(&fb.entry.Widget)
 	fb.inputRow.Append(&fb.prevBtn.Widget)
 	fb.inputRow.Append(&fb.nextBtn.Widget)
@@ -245,20 +275,21 @@ func (fb *FindBar) createWidgets() error {
 	fb.containerBox.Append(&fb.inputRow.Widget)
 	fb.containerBox.Append(&fb.optionsRow.Widget)
 	fb.outerBox.Append(&fb.containerBox.Widget)
-
-	return nil
 }
 
-func (fb *FindBar) setupHandlers() {
-	if fb.entry != nil {
-		changedCb := func(_ gtk.SearchEntry) {
-			if fb.uc != nil {
-				fb.uc.SetQuery(fb.entry.GetText())
-			}
-		}
-		fb.entry.ConnectSearchChanged(&changedCb)
+func (fb *FindBar) connectEntryHandlers() {
+	if fb.entry == nil {
+		return
 	}
+	changedCb := func(_ gtk.SearchEntry) {
+		if fb.uc != nil {
+			fb.uc.SetQuery(fb.entry.GetText())
+		}
+	}
+	fb.entry.ConnectSearchChanged(&changedCb)
+}
 
+func (fb *FindBar) connectNavHandlers() {
 	if fb.prevBtn != nil {
 		prevCb := func(_ gtk.Button) {
 			fb.FindPrevious()
@@ -282,7 +313,9 @@ func (fb *FindBar) setupHandlers() {
 		}
 		fb.closeBtn.ConnectClicked(&closeCb)
 	}
+}
 
+func (fb *FindBar) connectToggleHandlers() {
 	if fb.caseToggle != nil {
 		caseCb := func(_ gtk.ToggleButton) {
 			if fb.uc != nil {
@@ -309,31 +342,34 @@ func (fb *FindBar) setupHandlers() {
 		}
 		fb.hlToggle.ConnectToggled(&hlCb)
 	}
+}
 
+func (fb *FindBar) attachKeyController() {
 	controller := gtk.NewEventControllerKey()
-	if controller != nil {
-		controller.SetPropagationPhase(gtk.PhaseCaptureValue)
-		keyPressedCb := func(_ gtk.EventControllerKey, keyval uint, _ uint, state gdk.ModifierType) bool {
-			switch keyval {
-			case uint(gdk.KEY_Escape):
-				fb.Hide()
-				if fb.onClose != nil {
-					fb.onClose()
-				}
-				return true
-			case uint(gdk.KEY_Return), uint(gdk.KEY_KP_Enter):
-				if state&gdk.ShiftMaskValue != 0 {
-					fb.FindPrevious()
-				} else {
-					fb.FindNext()
-				}
-				return true
-			}
-			return false
-		}
-		controller.ConnectKeyPressed(&keyPressedCb)
-		fb.outerBox.AddController(&controller.EventController)
+	if controller == nil {
+		return
 	}
+	controller.SetPropagationPhase(gtk.PhaseCaptureValue)
+	keyPressedCb := func(_ gtk.EventControllerKey, keyval uint, _ uint, state gdk.ModifierType) bool {
+		switch keyval {
+		case uint(gdk.KEY_Escape):
+			fb.Hide()
+			if fb.onClose != nil {
+				fb.onClose()
+			}
+			return true
+		case uint(gdk.KEY_Return), uint(gdk.KEY_KP_Enter):
+			if state&gdk.ShiftMaskValue != 0 {
+				fb.FindPrevious()
+			} else {
+				fb.FindNext()
+			}
+			return true
+		}
+		return false
+	}
+	controller.ConnectKeyPressed(&keyPressedCb)
+	fb.outerBox.AddController(&controller.EventController)
 }
 
 func (fb *FindBar) bindUseCase() {

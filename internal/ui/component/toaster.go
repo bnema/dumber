@@ -176,8 +176,7 @@ func (t *Toaster) hide() {
 func (t *Toaster) startDismissTimer(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
-	var cb glib.SourceFunc
-	cb = func(_ uintptr) bool {
+	cb := glib.SourceFunc(func(_ uintptr) bool {
 		t.mu.Lock()
 		defer t.mu.Unlock()
 
@@ -187,7 +186,7 @@ func (t *Toaster) startDismissTimer(ctx context.Context) {
 
 		log.Debug().Msg("toast auto-dismissed")
 		return false // Don't repeat
-	}
+	})
 
 	t.dismissTimer = glib.TimeoutAdd(toastDismissTimeoutMs, &cb, 0)
 }

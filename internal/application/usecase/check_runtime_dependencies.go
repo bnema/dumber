@@ -67,7 +67,10 @@ type CheckRuntimeDependenciesOutput struct {
 }
 
 // Execute checks WebKitGTK and GTK runtime versions.
-func (uc *CheckRuntimeDependenciesUseCase) Execute(ctx context.Context, input CheckRuntimeDependenciesInput) (*CheckRuntimeDependenciesOutput, error) {
+func (uc *CheckRuntimeDependenciesUseCase) Execute(
+	ctx context.Context,
+	input CheckRuntimeDependenciesInput,
+) (*CheckRuntimeDependenciesOutput, error) {
 	log := logging.FromContext(ctx).With().Str("component", "runtime-check").Logger()
 
 	minGTK := input.MinGTK4Version
@@ -156,12 +159,12 @@ func compareVersion(a, b string) (cmp int, ok bool) {
 		return 0, false
 	}
 
-	max := len(av)
-	if len(bv) > max {
-		max = len(bv)
+	maxLen := len(av)
+	if len(bv) > maxLen {
+		maxLen = len(bv)
 	}
 
-	for i := 0; i < max; i++ {
+	for i := 0; i < maxLen; i++ {
 		x := 0
 		if i < len(av) {
 			x = av[i]

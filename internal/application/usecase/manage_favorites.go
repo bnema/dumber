@@ -281,10 +281,10 @@ func (uc *ManageFavoritesUseCase) DeleteFolder(ctx context.Context, id entity.Fo
 
 	// Move favorites to parent folder (or root)
 	for _, fav := range favorites {
-		if err := uc.favoriteRepo.SetFolder(ctx, fav.ID, folder.ParentID); err != nil {
+		if setErr := uc.favoriteRepo.SetFolder(ctx, fav.ID, folder.ParentID); setErr != nil {
 			log.Warn().
 				Int64("favorite_id", int64(fav.ID)).
-				Err(err).
+				Err(setErr).
 				Msg("failed to move favorite from deleted folder")
 		}
 	}

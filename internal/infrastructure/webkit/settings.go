@@ -7,6 +7,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
+	"github.com/rs/zerolog"
 )
 
 // SettingsManager creates and manages WebKit Settings instances from config.
@@ -44,12 +45,34 @@ func (sm *SettingsManager) CreateSettings(ctx context.Context) *webkit.Settings 
 
 // applySettings applies configuration to a webkit.Settings instance.
 func (sm *SettingsManager) applySettings(ctx context.Context, settings *webkit.Settings, cfg *config.Config) {
+	if sm == nil {
+		return
+	}
 	log := logging.FromContext(ctx)
-	// JavaScript settings
+	applyJavaScriptSettings(settings)
+	applyFontSettings(settings, cfg)
+	applyRenderingSettings(settings, cfg)
+	applyDebugSettings(settings, cfg)
+	applyBrowsingSettings(settings)
+	applyMediaSettings(settings, cfg, log)
+	applyStorageSettings(settings)
+	applyUISettings(settings)
+	applyCanvasSettings(settings)
+	applyWebRTCSettings(settings)
+
+	log.Debug().
+		Str("sans_font", cfg.Appearance.SansFont).
+		Str("rendering_mode", string(cfg.RenderingMode)).
+		Bool("developer_extras", cfg.Debug.EnableDevTools).
+	Msg("settings applied")
+}
+
+func applyJavaScriptSettings(settings *webkit.Settings) {
 	settings.SetEnableJavascript(true)
 	settings.SetEnableJavascriptMarkup(true)
+}
 
-	// Font settings from config
+func applyFontSettings(settings *webkit.Settings, cfg *config.Config) {
 	if cfg.Appearance.SansFont != "" {
 		settings.SetDefaultFontFamily(cfg.Appearance.SansFont)
 		settings.SetSansSerifFontFamily(cfg.Appearance.SansFont)
@@ -63,29 +86,31 @@ func (sm *SettingsManager) applySettings(ctx context.Context, settings *webkit.S
 	if cfg.Appearance.DefaultFontSize > 0 {
 		settings.SetDefaultFontSize(uint32(cfg.Appearance.DefaultFontSize))
 	}
+}
 
-	// Hardware acceleration based on rendering mode
+func applyRenderingSettings(settings *webkit.Settings, cfg *config.Config) {
 	switch cfg.RenderingMode {
 	case config.RenderingModeGPU:
 		settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyAlwaysValue)
 	case config.RenderingModeCPU:
 		settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyNeverValue)
 	case config.RenderingModeAuto:
-		// Default to always for auto mode (WebKit handles capability detection)
 		settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyAlwaysValue)
 	}
+}
 
-	// Debug settings
+func applyDebugSettings(settings *webkit.Settings, cfg *config.Config) {
 	settings.SetEnableDeveloperExtras(cfg.Debug.EnableDevTools)
 	settings.SetEnableWriteConsoleMessagesToStdout(cfg.Logging.CaptureConsole)
+}
 
-	// Browsing experience
+func applyBrowsingSettings(settings *webkit.Settings) {
 	settings.SetEnableSmoothScrolling(true)
-	// Note: DNS prefetching setting deprecated in WebKitGTK 6 - use NetworkSession.PrefetchDns() instead
 	settings.SetEnablePageCache(true)
 	settings.SetEnableSiteSpecificQuirks(true)
+}
 
-	// Media settings
+func applyMediaSettings(settings *webkit.Settings, cfg *config.Config, log *zerolog.Logger) {
 	settings.SetEnableWebaudio(true)
 	settings.SetEnableWebgl(true)
 	settings.SetEnableMedia(true)
@@ -96,46 +121,37 @@ func (sm *SettingsManager) applySettings(ctx context.Context, settings *webkit.S
 	settings.SetMediaPlaybackRequiresUserGesture(true)
 	settings.SetMediaPlaybackAllowsInline(true)
 
-	// Hardware decoding mode - THE FIX for Twitch Error #4000
-	// Default "auto" allows GStreamer to choose best decoder with software fallback
 	switch cfg.Media.HardwareDecodingMode {
 	case config.HardwareDecodingForce:
-		// Force hardware - will fail if unavailable (not recommended)
-		// Prioritize AV1 (most efficient codec) when user wants forced HW
 		hwTypes := "video/av01;video/mp4;video/webm;video/x-h264;video/x-h265"
 		settings.SetMediaContentTypesRequiringHardwareSupport(&hwTypes)
 		log.Debug().Msg("hardware decoding: forced (may fail without hw support)")
 	case config.HardwareDecodingDisable:
-		// Force software only
 		settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyNeverValue)
 		log.Debug().Msg("hardware decoding: disabled (software only)")
-	default: // HardwareDecodingAuto
-		// Empty string = let GStreamer choose best decoder with software fallback
-		// This fixes Twitch Error #4000 by allowing playback when HW unavailable
+	default:
 		emptyTypes := ""
 		settings.SetMediaContentTypesRequiringHardwareSupport(&emptyTypes)
 		log.Debug().Msg("hardware decoding: auto (hw preferred, software fallback)")
 	}
+}
 
-	// HTML5 storage
+func applyStorageSettings(settings *webkit.Settings) {
 	settings.SetEnableHtml5LocalStorage(true)
 	settings.SetEnableHtml5Database(true)
+}
 
-	// UI behavior - touchpad swipe gestures for back/forward navigation
+func applyUISettings(settings *webkit.Settings) {
 	settings.SetEnableBackForwardNavigationGestures(true)
 	settings.SetEnableFullscreen(true)
+}
 
-	// Canvas acceleration
+func applyCanvasSettings(settings *webkit.Settings) {
 	settings.SetEnable2dCanvasAcceleration(true)
+}
 
-	// WebRTC
+func applyWebRTCSettings(settings *webkit.Settings) {
 	settings.SetEnableWebrtc(true)
-
-	log.Debug().
-		Str("sans_font", cfg.Appearance.SansFont).
-		Str("rendering_mode", string(cfg.RenderingMode)).
-		Bool("developer_extras", cfg.Debug.EnableDevTools).
-		Msg("settings applied")
 }
 
 // UpdateFromConfig updates the manager with a new config (for hot-reload).

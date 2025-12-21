@@ -15,7 +15,7 @@ func ApplyPrefixEnv(prefix string) {
 	}
 
 	for key, values := range prefixEnv(prefix) {
-		os.Setenv(key, prependPathList(os.Getenv(key), values...))
+		_ = os.Setenv(key, prependPathList(os.Getenv(key), values...))
 	}
 }
 

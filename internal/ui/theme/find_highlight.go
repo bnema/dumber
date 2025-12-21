@@ -9,7 +9,8 @@ import (
 // GenerateFindHighlightCSS builds CSS to style find-in-page matches using the accent color.
 func GenerateFindHighlightCSS(p Palette) string {
 	accent := strings.TrimSpace(p.Accent)
-	dim := rgbaFromHex(accent, 0.50)
+	const highlightDimAlpha = 0.5
+	dim := rgbaFromHex(accent, highlightDimAlpha)
 	active := accent
 
 	return fmt.Sprintf(`/* Find highlight styling */

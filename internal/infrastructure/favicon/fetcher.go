@@ -56,7 +56,11 @@ func (f *Fetcher) Fetch(ctx context.Context, domain string) ([]byte, error) {
 		log.Debug().Err(err).Str("domain", domain).Msg("failed to fetch favicon from DuckDuckGo")
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			log.Debug().Err(closeErr).Str("domain", domain).Msg("failed to close favicon response body")
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		log.Debug().Int("status", resp.StatusCode).Str("domain", domain).Msg("DuckDuckGo favicon API returned non-OK status")

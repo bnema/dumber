@@ -138,17 +138,17 @@ func (c *ContentCoordinator) EnsureWebView(ctx context.Context, paneID entity.Pa
 	wv.OnLoadChanged = func(event webkit.LoadEvent) {
 		switch event {
 		case webkit.LoadStarted:
-			c.onLoadStarted(ctx, paneID)
+			c.onLoadStarted(paneID)
 		case webkit.LoadCommitted:
 			c.onLoadCommitted(ctx, paneID, wv)
 		case webkit.LoadFinished:
-			c.onLoadFinished(ctx, paneID)
+			c.onLoadFinished(paneID)
 		}
 	}
 
 	// Set up progress callback for loading indicator
 	wv.OnProgressChanged = func(progress float64) {
-		c.onProgressChanged(ctx, paneID, progress)
+		c.onProgressChanged(paneID, progress)
 	}
 
 	// Set up URI change callback for SPA navigation (History API)
@@ -483,7 +483,13 @@ func (c *ContentCoordinator) onTitleChanged(ctx context.Context, paneID entity.P
 }
 
 // updateStackedPaneTitle updates the title of a pane in a StackedView.
-func (c *ContentCoordinator) updateStackedPaneTitle(ctx context.Context, ws *entity.Workspace, sv *layout.StackedView, paneID entity.PaneID, title string) {
+func (c *ContentCoordinator) updateStackedPaneTitle(
+	ctx context.Context,
+	ws *entity.Workspace,
+	sv *layout.StackedView,
+	paneID entity.PaneID,
+	title string,
+) {
 	log := logging.FromContext(ctx)
 
 	if ws == nil {
@@ -547,7 +553,13 @@ func (c *ContentCoordinator) onFaviconChanged(ctx context.Context, paneID entity
 }
 
 // updateStackedPaneFavicon updates the favicon of a pane in a StackedView.
-func (c *ContentCoordinator) updateStackedPaneFavicon(ctx context.Context, ws *entity.Workspace, sv *layout.StackedView, paneID entity.PaneID, favicon *gdk.Texture) {
+func (c *ContentCoordinator) updateStackedPaneFavicon(
+	ctx context.Context,
+	ws *entity.Workspace,
+	sv *layout.StackedView,
+	paneID entity.PaneID,
+	favicon *gdk.Texture,
+) {
 	log := logging.FromContext(ctx)
 
 	if ws == nil {
@@ -653,7 +665,7 @@ func (c *ContentCoordinator) onSPANavigation(ctx context.Context, paneID entity.
 }
 
 // onLoadStarted shows the progress bar when page loading begins.
-func (c *ContentCoordinator) onLoadStarted(ctx context.Context, paneID entity.PaneID) {
+func (c *ContentCoordinator) onLoadStarted(paneID entity.PaneID) {
 	_, wsView := c.getActiveWS()
 	if wsView == nil {
 		return
@@ -666,7 +678,7 @@ func (c *ContentCoordinator) onLoadStarted(ctx context.Context, paneID entity.Pa
 }
 
 // onLoadFinished hides the progress bar when page loading completes.
-func (c *ContentCoordinator) onLoadFinished(ctx context.Context, paneID entity.PaneID) {
+func (c *ContentCoordinator) onLoadFinished(paneID entity.PaneID) {
 	_, wsView := c.getActiveWS()
 	if wsView == nil {
 		return
@@ -679,7 +691,7 @@ func (c *ContentCoordinator) onLoadFinished(ctx context.Context, paneID entity.P
 }
 
 // onProgressChanged updates the progress bar with current load progress.
-func (c *ContentCoordinator) onProgressChanged(ctx context.Context, paneID entity.PaneID, progress float64) {
+func (c *ContentCoordinator) onProgressChanged(paneID entity.PaneID, progress float64) {
 	_, wsView := c.getActiveWS()
 	if wsView == nil {
 		return
@@ -761,7 +773,7 @@ func (c *ContentCoordinator) handlePopupCreate(
 	}
 
 	// Create related WebView for session sharing
-	parentID := port.WebViewID(parentWV.ID())
+	parentID := parentWV.ID()
 	popupWV, err := c.factory.CreateRelated(ctx, parentID)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create related webview for popup")
@@ -772,7 +784,7 @@ func (c *ContentCoordinator) handlePopupCreate(
 	popupType := DetectPopupType(req.FrameName)
 
 	// Store pending popup for ready-to-show handling
-	popupID := port.WebViewID(popupWV.ID())
+	popupID := popupWV.ID()
 	pending := &PendingPopup{
 		WebView:         popupWV,
 		ParentPaneID:    parentPaneID,
@@ -863,7 +875,7 @@ func (c *ContentCoordinator) handlePopupReadyToShow(ctx context.Context, popupID
 
 	// Request insertion into workspace
 	if c.onInsertPopup != nil {
-		input := InsertPopupInput{
+		popupInput := InsertPopupInput{
 			ParentPaneID: pending.ParentPaneID,
 			PopupPane:    popupPane,
 			WebView:      pending.WebView,
@@ -873,7 +885,7 @@ func (c *ContentCoordinator) handlePopupReadyToShow(ctx context.Context, popupID
 			TargetURI:    pending.TargetURI,
 		}
 
-		if err := c.onInsertPopup(ctx, input); err != nil {
+		if err := c.onInsertPopup(ctx, popupInput); err != nil {
 			log.Error().Err(err).Msg("failed to insert popup into workspace")
 			// Clean up on failure
 			delete(c.webViews, paneID)
@@ -912,7 +924,7 @@ func (c *ContentCoordinator) handlePopupClose(ctx context.Context, popupID port.
 	// Find pane by WebView ID
 	var paneID entity.PaneID
 	for pid, wv := range c.webViews {
-		if wv != nil && port.WebViewID(wv.ID()) == popupID {
+		if wv != nil && wv.ID() == popupID {
 			paneID = pid
 			break
 		}
@@ -952,17 +964,17 @@ func (c *ContentCoordinator) setupWebViewCallbacks(ctx context.Context, paneID e
 	wv.OnLoadChanged = func(event webkit.LoadEvent) {
 		switch event {
 		case webkit.LoadStarted:
-			c.onLoadStarted(ctx, paneID)
+			c.onLoadStarted(paneID)
 		case webkit.LoadCommitted:
 			c.onLoadCommitted(ctx, paneID, wv)
 		case webkit.LoadFinished:
-			c.onLoadFinished(ctx, paneID)
+			c.onLoadFinished(paneID)
 		}
 	}
 
 	// Progress
 	wv.OnProgressChanged = func(progress float64) {
-		c.onProgressChanged(ctx, paneID, progress)
+		c.onProgressChanged(paneID, progress)
 	}
 
 	// SPA navigation
@@ -1094,7 +1106,7 @@ func (c *ContentCoordinator) handleLinkMiddleClick(ctx context.Context, parentPa
 
 	// Request insertion into workspace
 	if c.onInsertPopup != nil {
-		input := InsertPopupInput{
+		popupInput := InsertPopupInput{
 			ParentPaneID: parentPaneID,
 			PopupPane:    newPane,
 			WebView:      newWV,
@@ -1104,7 +1116,7 @@ func (c *ContentCoordinator) handleLinkMiddleClick(ctx context.Context, parentPa
 			TargetURI:    uri,
 		}
 
-		if err := c.onInsertPopup(ctx, input); err != nil {
+		if err := c.onInsertPopup(ctx, popupInput); err != nil {
 			log.Error().Err(err).Msg("failed to insert middle-click pane into workspace")
 			// Clean up on failure
 			delete(c.webViews, paneID)

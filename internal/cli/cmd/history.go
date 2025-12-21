@@ -16,6 +16,8 @@ var (
 	historyMax  int
 )
 
+const defaultHistoryMax = 50
+
 var historyCmd = &cobra.Command{
 	Use:   "history",
 	Short: "Browse and manage history",
@@ -27,10 +29,10 @@ func init() {
 	rootCmd.AddCommand(historyCmd)
 
 	historyCmd.Flags().BoolVar(&historyJSON, "json", false, "output as JSON")
-	historyCmd.Flags().IntVar(&historyMax, "max", 50, "maximum entries to show (for --json)")
+	historyCmd.Flags().IntVar(&historyMax, "max", defaultHistoryMax, "maximum entries to show (for --json)")
 }
 
-func runHistory(cmd *cobra.Command, args []string) error {
+func runHistory(_ *cobra.Command, _ []string) error {
 	app := GetApp()
 	if app == nil {
 		return fmt.Errorf("app not initialized")
@@ -98,7 +100,7 @@ func init() {
 	historyCmd.AddCommand(statsCmd)
 }
 
-func runStats(cmd *cobra.Command, args []string) error {
+func runStats(_ *cobra.Command, _ []string) error {
 	app := GetApp()
 	if app == nil {
 		return fmt.Errorf("app not initialized")
@@ -124,7 +126,7 @@ func init() {
 	historyCmd.AddCommand(clearCmd)
 }
 
-func runClear(cmd *cobra.Command, args []string) error {
+func runClear(_ *cobra.Command, _ []string) error {
 	app := GetApp()
 	if app == nil {
 		return fmt.Errorf("app not initialized")

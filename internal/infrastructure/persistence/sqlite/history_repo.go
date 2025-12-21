@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -34,7 +35,7 @@ func (r *historyRepo) Save(ctx context.Context, entry *entity.HistoryEntry) erro
 func (r *historyRepo) FindByURL(ctx context.Context, url string) (*entity.HistoryEntry, error) {
 	row, err := r.queries.GetHistoryByURL(ctx, url)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -60,7 +61,8 @@ func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]en
 	}
 
 	matches := make([]entity.HistoryMatch, len(rows))
-	for i, row := range rows {
+	for i := range rows {
+		row := rows[i]
 		matches[i] = entity.HistoryMatch{
 			Entry: historyFromRow(row),
 			Score: 1.0, // FTS5 already ranked by bm25
@@ -79,8 +81,8 @@ func (r *historyRepo) GetRecent(ctx context.Context, limit, offset int) ([]*enti
 	}
 
 	entries := make([]*entity.HistoryEntry, len(rows))
-	for i, row := range rows {
-		entries[i] = historyFromRow(row)
+	for i := range rows {
+		entries[i] = historyFromRow(rows[i])
 	}
 	return entries, nil
 }
@@ -118,9 +120,10 @@ func (r *historyRepo) GetStats(ctx context.Context) (*entity.HistoryStats, error
 
 	// Handle the interface{} type for total_visits
 	var totalVisits int64
-	if v, ok := row.TotalVisits.(int64); ok {
+	switch v := row.TotalVisits.(type) {
+	case int64:
 		totalVisits = v
-	} else if v, ok := row.TotalVisits.(float64); ok {
+	case float64:
 		totalVisits = int64(v)
 	}
 

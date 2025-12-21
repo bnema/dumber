@@ -67,7 +67,7 @@ type CleanupModel struct {
 	Ranges    []CleanupRangeInfo
 	Selected  int
 	Confirmed bool
-	Cancelled bool
+	Canceled bool
 	theme     *Theme
 }
 
@@ -100,6 +100,9 @@ func NewCleanup(theme *Theme) CleanupModel {
 
 // Init implements tea.Model.
 func (m CleanupModel) Init() tea.Cmd {
+	if m.theme == nil {
+		return nil
+	}
 	return nil
 }
 
@@ -121,7 +124,7 @@ func (m CleanupModel) Update(msg tea.Msg) (CleanupModel, tea.Cmd) {
 		case key.Matches(msg, keys.Confirm):
 			m.Confirmed = true
 		case key.Matches(msg, keys.Cancel):
-			m.Cancelled = true
+			m.Canceled = true
 		}
 	}
 
@@ -198,7 +201,7 @@ func (m CleanupModel) View() string {
 
 // Done returns true if the modal is complete.
 func (m CleanupModel) Done() bool {
-	return m.Confirmed || m.Cancelled
+	return m.Confirmed || m.Canceled
 }
 
 // SelectedRange returns the selected cleanup range.

@@ -166,178 +166,216 @@ func (m HistoryModel) loadDomainStats() tea.Msg {
 
 // Update implements tea.Model.
 func (m HistoryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmds []tea.Cmd
-
-	// Handle cleanup modal
 	if m.cleanup != nil {
-		cleanup, cmd := m.cleanup.Update(msg)
-		m.cleanup = &cleanup
-		if m.cleanup.Done() {
-			if m.cleanup.Confirmed {
-				// Perform cleanup
-				cmds = append(cmds, m.performCleanup(m.cleanup.SelectedRange()))
-			}
-			m.cleanup = nil
-		}
-		return m, cmd
+		return m.handleCleanupModal(msg)
 	}
-
-	// Handle confirm dialog
 	if m.confirm != nil {
-		confirm, cmd := m.confirm.Update(msg)
-		m.confirm = &confirm
-		if m.confirm.Done() {
-			if m.confirm.Result() {
-				// Perform the confirmed action (delete current entry)
-				cmds = append(cmds, m.deleteCurrentEntry())
-			}
-			m.confirm = nil
-		}
-		return m, cmd
+		return m.handleConfirmModal(msg)
 	}
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-		m.help.Width = msg.Width
-		m.updateList()
-
+		return m.handleWindowSize(msg)
 	case tea.KeyMsg:
-		// Search mode handling
-		if m.searchMode {
-			switch msg.String() {
-			case "esc":
-				m.searchMode = false
-				m.search.Blur()
-				return m, nil
-			case "enter":
-				m.searchMode = false
-				m.search.Blur()
-				// Perform search
-				return m, m.performSearch(m.search.Value())
-			default:
-				var cmd tea.Cmd
-				m.search, cmd = m.search.Update(msg)
-				return m, cmd
-			}
-		}
-
-		// Normal mode handling
-		switch {
-		case key.Matches(msg, m.keys.Quit):
-			return m, tea.Quit
-
-		case key.Matches(msg, m.keys.Help):
-			m.showHelp = !m.showHelp
-
-		case key.Matches(msg, m.keys.Search):
-			m.searchMode = true
-			m.search.Focus()
-			return m, textinput.Blink
-
-		case key.Matches(msg, m.keys.Tab1):
-			m.tabs.SetActive(0)
-			m.updateList()
-
-		case key.Matches(msg, m.keys.Tab2):
-			m.tabs.SetActive(1)
-			m.updateList()
-
-		case key.Matches(msg, m.keys.Tab3):
-			m.tabs.SetActive(2)
-			m.updateList()
-
-		case key.Matches(msg, m.keys.Tab4):
-			m.tabs.SetActive(3)
-			m.updateList()
-
-		case key.Matches(msg, m.keys.NextTab):
-			// Cycle to next tab (wraps around)
-			next := (m.tabs.Active + 1) % 4
-			m.tabs.SetActive(next)
-			m.updateList()
-
-		case key.Matches(msg, m.keys.PrevTab):
-			// Cycle to previous tab (wraps around)
-			prev := (m.tabs.Active + 3) % 4 // +3 is same as -1 mod 4
-			m.tabs.SetActive(prev)
-			m.updateList()
-
-		case key.Matches(msg, m.keys.Open):
-			// Open selected URL in browser
-			if item := m.list.SelectedItem(); item != nil {
-				if hi, ok := item.(styles.HistoryItem); ok {
-					cmds = append(cmds, m.openURL(hi.URL))
-				}
-			}
-
-		case key.Matches(msg, m.keys.Delete):
-			// Show delete confirmation
-			if item := m.list.SelectedItem(); item != nil {
-				confirm := styles.NewConfirm(m.theme, "Delete this entry?")
-				m.confirm = &confirm
-			}
-
-		case key.Matches(msg, m.keys.DeleteDomain):
-			// Delete all from domain
-			if item := m.list.SelectedItem(); item != nil {
-				if hi, ok := item.(styles.HistoryItem); ok {
-					confirm := styles.NewConfirm(m.theme, "Delete all from "+hi.Domain+"?")
-					m.confirm = &confirm
-				}
-			}
-
-		case key.Matches(msg, m.keys.Cleanup):
-			// Show cleanup modal
-			cleanup := styles.NewCleanup(m.theme)
-			m.cleanup = &cleanup
-
-		case key.Matches(msg, m.keys.Filter):
-			// Cycle through domain filters
-			m.cycleDomainFilter()
-			m.updateList()
-
-		default:
-			// Pass to list
-			var cmd tea.Cmd
-			m.list, cmd = m.list.Update(msg)
-			cmds = append(cmds, cmd)
-		}
+		return m.handleKeyMsg(msg)
 
 	case historyLoadedMsg:
-		if msg.err != nil {
-			m.err = msg.err
-		} else {
-			m.entries = msg.entries
-			m.updateList()
-		}
+		return m.handleHistoryLoaded(msg)
 
 	case domainStatsMsg:
-		if msg.err != nil {
-			m.err = msg.err
-		} else {
-			m.topDomains = msg.domains
-		}
+		return m.handleDomainStats(msg)
 
 	case historyDeletedMsg:
-		if msg.err != nil {
-			m.err = msg.err
-		} else {
-			// Reload history
-			cmds = append(cmds, m.loadHistory)
-		}
+		return m.handleHistoryDeleted(msg)
 
 	case historyCleanedMsg:
-		if msg.err != nil {
-			m.err = msg.err
-		} else {
-			// Reload history
-			cmds = append(cmds, m.loadHistory)
-		}
+		return m.handleHistoryCleaned(msg)
 	}
 
-	return m, tea.Batch(cmds...)
+	return m, nil
+}
+
+func (m HistoryModel) handleCleanupModal(msg tea.Msg) (tea.Model, tea.Cmd) {
+	cleanup, cmd := m.cleanup.Update(msg)
+	m.cleanup = &cleanup
+	if m.cleanup.Done() {
+		if m.cleanup.Confirmed {
+			cmd = m.performCleanup(m.cleanup.SelectedRange())
+		}
+		m.cleanup = nil
+	}
+	return m, cmd
+}
+
+func (m HistoryModel) handleConfirmModal(msg tea.Msg) (tea.Model, tea.Cmd) {
+	confirm, cmd := m.confirm.Update(msg)
+	m.confirm = &confirm
+	if m.confirm.Done() {
+		if m.confirm.Result() {
+			cmd = m.deleteCurrentEntry()
+		}
+		m.confirm = nil
+	}
+	return m, cmd
+}
+
+func (m HistoryModel) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
+	m.width = msg.Width
+	m.height = msg.Height
+	m.help.Width = msg.Width
+	m.updateList()
+	return m, nil
+}
+
+func (m HistoryModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.searchMode {
+		return m.handleSearchKey(msg)
+	}
+	return m.handleNormalKey(msg)
+}
+
+func (m HistoryModel) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.searchMode = false
+		m.search.Blur()
+		return m, nil
+	case "enter":
+		m.searchMode = false
+		m.search.Blur()
+		return m, m.performSearch(m.search.Value())
+	default:
+		var cmd tea.Cmd
+		m.search, cmd = m.search.Update(msg)
+		return m, cmd
+	}
+}
+
+func (m HistoryModel) handleNormalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if updated, cmd, handled := m.handleGlobalKeys(msg); handled {
+		return updated, cmd
+	}
+	if updated, handled := m.handleTabSwitchKeys(msg); handled {
+		return updated, nil
+	}
+	if updated, cmd, handled := m.handleEntryActionKeys(msg); handled {
+		return updated, cmd
+	}
+
+	var cmd tea.Cmd
+	m.list, cmd = m.list.Update(msg)
+	return m, cmd
+}
+
+func (m HistoryModel) handleGlobalKeys(msg tea.KeyMsg) (HistoryModel, tea.Cmd, bool) {
+	switch {
+	case key.Matches(msg, m.keys.Quit):
+		return m, tea.Quit, true
+	case key.Matches(msg, m.keys.Help):
+		m.showHelp = !m.showHelp
+		return m, nil, true
+	case key.Matches(msg, m.keys.Search):
+		m.searchMode = true
+		m.search.Focus()
+		return m, textinput.Blink, true
+	default:
+		return m, nil, false
+	}
+}
+
+func (m HistoryModel) handleTabSwitchKeys(msg tea.KeyMsg) (HistoryModel, bool) {
+	switch {
+	case key.Matches(msg, m.keys.Tab1):
+		m.tabs.SetActive(0)
+	case key.Matches(msg, m.keys.Tab2):
+		m.tabs.SetActive(1)
+	case key.Matches(msg, m.keys.Tab3):
+		m.tabs.SetActive(2)
+	case key.Matches(msg, m.keys.Tab4):
+		m.tabs.SetActive(3)
+	case key.Matches(msg, m.keys.NextTab):
+		next := (m.tabs.Active + 1) % 4
+		m.tabs.SetActive(next)
+	case key.Matches(msg, m.keys.PrevTab):
+		prev := (m.tabs.Active + 3) % 4 // +3 is same as -1 mod 4
+		m.tabs.SetActive(prev)
+	default:
+		return m, false
+	}
+
+	m.updateList()
+	return m, true
+}
+
+func (m HistoryModel) handleEntryActionKeys(msg tea.KeyMsg) (HistoryModel, tea.Cmd, bool) {
+	switch {
+	case key.Matches(msg, m.keys.Open):
+		if item := m.list.SelectedItem(); item != nil {
+			if hi, ok := item.(styles.HistoryItem); ok {
+				return m, m.openURL(hi.URL), true
+			}
+		}
+		return m, nil, true
+	case key.Matches(msg, m.keys.Delete):
+		if m.list.SelectedItem() != nil {
+			confirm := styles.NewConfirm(m.theme, "Delete this entry?")
+			m.confirm = &confirm
+		}
+		return m, nil, true
+	case key.Matches(msg, m.keys.DeleteDomain):
+		if item := m.list.SelectedItem(); item != nil {
+			if hi, ok := item.(styles.HistoryItem); ok {
+				confirm := styles.NewConfirm(m.theme, "Delete all from "+hi.Domain+"?")
+				m.confirm = &confirm
+			}
+		}
+		return m, nil, true
+	case key.Matches(msg, m.keys.Cleanup):
+		cleanup := styles.NewCleanup(m.theme)
+		m.cleanup = &cleanup
+		return m, nil, true
+	case key.Matches(msg, m.keys.Filter):
+		m.cycleDomainFilter()
+		m.updateList()
+		return m, nil, true
+	default:
+		return m, nil, false
+	}
+}
+
+func (m HistoryModel) handleHistoryLoaded(msg historyLoadedMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		m.err = msg.err
+		return m, nil
+	}
+	m.entries = msg.entries
+	m.updateList()
+	return m, nil
+}
+
+func (m HistoryModel) handleDomainStats(msg domainStatsMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		m.err = msg.err
+		return m, nil
+	}
+	m.topDomains = msg.domains
+	return m, nil
+}
+
+func (m HistoryModel) handleHistoryDeleted(msg historyDeletedMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		m.err = msg.err
+		return m, nil
+	}
+	return m, m.loadHistory
+}
+
+func (m HistoryModel) handleHistoryCleaned(msg historyCleanedMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		m.err = msg.err
+		return m, nil
+	}
+	return m, m.loadHistory
 }
 
 // updateList updates the list with entries for the current tab.
@@ -482,6 +520,9 @@ func (m HistoryModel) performCleanup(cleanupRange styles.CleanupRange) tea.Cmd {
 // openURL opens a URL in the default browser.
 func (m HistoryModel) openURL(urlStr string) tea.Cmd {
 	return func() tea.Msg {
+		log := logging.FromContext(m.ctx)
+		log.Debug().Str("url", urlStr).Msg("opening URL in browser")
+
 		// Use xdg-open on Linux
 		_ = exec.Command("xdg-open", urlStr).Start()
 		return nil
@@ -614,6 +655,9 @@ func (m HistoryListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View implements tea.Model.
 func (m HistoryListModel) View() string {
+	if m.err != nil {
+		return ""
+	}
 	return "" // Output handled externally
 }
 

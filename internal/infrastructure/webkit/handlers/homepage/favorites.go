@@ -22,7 +22,7 @@ func NewFavoritesHandlers(favoritesUC *usecase.ManageFavoritesUseCase) *Favorite
 
 // HandleList handles favorite_list messages.
 func (h *FavoritesHandlers) HandleList() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, webviewID webkit.WebViewID, payload json.RawMessage) (any, error) {
+	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		requestID := ParseRequestID(payload)
@@ -49,7 +49,7 @@ type setShortcutRequest struct {
 
 // HandleSetShortcut handles favorite_set_shortcut messages.
 func (h *FavoritesHandlers) HandleSetShortcut() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, webviewID webkit.WebViewID, payload json.RawMessage) (any, error) {
+	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req setShortcutRequest
@@ -78,7 +78,7 @@ type getByShortcutRequest struct {
 
 // HandleGetByShortcut handles favorite_get_by_shortcut messages.
 func (h *FavoritesHandlers) HandleGetByShortcut() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, webviewID webkit.WebViewID, payload json.RawMessage) (any, error) {
+	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req getByShortcutRequest
@@ -109,7 +109,7 @@ type setFolderRequest struct {
 
 // HandleSetFolder handles favorite_set_folder messages.
 func (h *FavoritesHandlers) HandleSetFolder() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, webviewID webkit.WebViewID, payload json.RawMessage) (any, error) {
+	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req setFolderRequest

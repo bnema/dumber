@@ -192,7 +192,6 @@ func (c *Cache) loadFromDisk(domain string) []byte {
 		return nil
 	}
 
-	//nolint:gosec // path is constructed from sanitized domain
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil

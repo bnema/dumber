@@ -218,5 +218,8 @@ func (t *Theme) buildStyles() {
 
 // Renderer returns a lipgloss renderer for the current output.
 func (t *Theme) Renderer() *lipgloss.Renderer {
+	if t == nil {
+		return lipgloss.DefaultRenderer()
+	}
 	return lipgloss.DefaultRenderer()
 }

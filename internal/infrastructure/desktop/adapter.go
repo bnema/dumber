@@ -103,8 +103,8 @@ func getExecutablePath() (string, error) {
 	execPath, err := os.Executable()
 	if err == nil {
 		// Resolve symlinks
-		resolved, err := filepath.EvalSymlinks(execPath)
-		if err == nil {
+		resolved, symlinkErr := filepath.EvalSymlinks(execPath)
+		if symlinkErr == nil {
 			execPath = resolved
 		}
 		return execPath, nil
@@ -130,7 +130,7 @@ func (a *Adapter) GetStatus(ctx context.Context) (*port.DesktopIntegrationStatus
 	}
 	status.DesktopFilePath = desktopPath
 
-	if _, err := os.Stat(desktopPath); err == nil {
+	if _, statErr := os.Stat(desktopPath); statErr == nil {
 		status.DesktopFileInstalled = true
 	}
 
@@ -141,7 +141,7 @@ func (a *Adapter) GetStatus(ctx context.Context) (*port.DesktopIntegrationStatus
 	}
 	status.IconFilePath = iconPath
 
-	if _, err := os.Stat(iconPath); err == nil {
+	if _, iconStatErr := os.Stat(iconPath); iconStatErr == nil {
 		status.IconInstalled = true
 	}
 
@@ -244,6 +244,9 @@ func (a *Adapter) RemoveDesktopFile(ctx context.Context) error {
 
 // InstallIcon writes the icon file to XDG icons directory.
 func (a *Adapter) InstallIcon(ctx context.Context, svgData []byte) (string, error) {
+	if a == nil {
+		return "", fmt.Errorf("desktop adapter is nil")
+	}
 	log := logging.FromContext(ctx)
 
 	iconPath, err := getIconFilePath()
@@ -269,6 +272,9 @@ func (a *Adapter) InstallIcon(ctx context.Context, svgData []byte) (string, erro
 
 // RemoveIcon removes the icon file from XDG icons directory.
 func (a *Adapter) RemoveIcon(ctx context.Context) error {
+	if a == nil {
+		return fmt.Errorf("desktop adapter is nil")
+	}
 	log := logging.FromContext(ctx)
 
 	iconPath, err := getIconFilePath()

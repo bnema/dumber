@@ -94,8 +94,7 @@ func (pb *ProgressBar) SetProgress(progress float64) {
 // startAnimation begins the smooth progress animation.
 // Must be called with lock held.
 func (pb *ProgressBar) startAnimation() {
-	var cb glib.SourceFunc
-	cb = func(_ uintptr) bool {
+	cb := glib.SourceFunc(func(_ uintptr) bool {
 		pb.mu.Lock()
 		defer pb.mu.Unlock()
 
@@ -119,7 +118,7 @@ func (pb *ProgressBar) startAnimation() {
 			return false
 		}
 		return true
-	}
+	})
 
 	pb.animationTimer = glib.TimeoutAdd(progressIntervalMs, &cb, 0)
 }

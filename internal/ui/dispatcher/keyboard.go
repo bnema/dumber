@@ -2,6 +2,7 @@ package dispatcher
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -19,6 +20,7 @@ type KeyboardDispatcher struct {
 	navCoord    *coordinator.NavigationCoordinator
 	zoomUC      *usecase.ManageZoomUseCase
 	copyURLUC   *usecase.CopyURLUseCase
+	actionHandlers map[input.Action]func(ctx context.Context) error
 	onQuit      func()
 	onFindOpen  func(ctx context.Context) error
 	onFindNext  func(ctx context.Context) error
@@ -38,13 +40,15 @@ func NewKeyboardDispatcher(
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("creating keyboard dispatcher")
 
-	return &KeyboardDispatcher{
+	dispatcher := &KeyboardDispatcher{
 		tabCoord:  tabCoord,
 		wsCoord:   wsCoord,
 		navCoord:  navCoord,
 		zoomUC:    zoomUC,
 		copyURLUC: copyURLUC,
 	}
+	dispatcher.initActionHandlers()
+	return dispatcher
 }
 
 // SetOnQuit sets the callback for quit action.
@@ -72,135 +76,139 @@ func (d *KeyboardDispatcher) SetOnFindClose(fn func(ctx context.Context) error) 
 	d.onFindClose = fn
 }
 
+func (d *KeyboardDispatcher) initActionHandlers() {
+	const (
+		firstTabIndex  = 0
+		secondTabIndex = 1
+		thirdTabIndex  = 2
+		fourthTabIndex = 3
+		fifthTabIndex  = 4
+		sixthTabIndex  = 5
+		seventhTabIndex = 6
+		eighthTabIndex  = 7
+		ninthTabIndex   = 8
+		tenthTabIndex   = 9
+	)
+	d.actionHandlers = map[input.Action]func(ctx context.Context) error{
+		// Tab actions
+		input.ActionNewTab:          func(ctx context.Context) error { _, err := d.tabCoord.Create(ctx, "about:blank"); return err },
+		input.ActionCloseTab:        d.tabCoord.Close,
+		input.ActionNextTab:         d.tabCoord.SwitchNext,
+		input.ActionPreviousTab:     d.tabCoord.SwitchPrev,
+		input.ActionSwitchLastTab:   d.tabCoord.SwitchToLastActive,
+		input.ActionSwitchTabIndex1: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, firstTabIndex) },
+		input.ActionSwitchTabIndex2: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, secondTabIndex) },
+		input.ActionSwitchTabIndex3: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, thirdTabIndex) },
+		input.ActionSwitchTabIndex4: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, fourthTabIndex) },
+		input.ActionSwitchTabIndex5: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, fifthTabIndex) },
+		input.ActionSwitchTabIndex6: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, sixthTabIndex) },
+		input.ActionSwitchTabIndex7: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, seventhTabIndex) },
+		input.ActionSwitchTabIndex8: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, eighthTabIndex) },
+		input.ActionSwitchTabIndex9: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, ninthTabIndex) },
+		input.ActionSwitchTabIndex10: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, tenthTabIndex) },
+		input.ActionRenameTab: func(ctx context.Context) error {
+			return d.logNoop(ctx, "rename tab action (not yet implemented)")
+		},
+		// Pane actions
+		input.ActionSplitRight: func(ctx context.Context) error { return d.wsCoord.Split(ctx, usecase.SplitRight) },
+		input.ActionSplitLeft:  func(ctx context.Context) error { return d.wsCoord.Split(ctx, usecase.SplitLeft) },
+		input.ActionSplitUp:    func(ctx context.Context) error { return d.wsCoord.Split(ctx, usecase.SplitUp) },
+		input.ActionSplitDown:  func(ctx context.Context) error { return d.wsCoord.Split(ctx, usecase.SplitDown) },
+		input.ActionClosePane:  d.wsCoord.ClosePane,
+		input.ActionStackPane:  d.wsCoord.StackPane,
+		input.ActionFocusRight: func(ctx context.Context) error { return d.wsCoord.FocusPane(ctx, usecase.NavRight) },
+		input.ActionFocusLeft:  func(ctx context.Context) error { return d.wsCoord.FocusPane(ctx, usecase.NavLeft) },
+		input.ActionFocusUp:    func(ctx context.Context) error { return d.wsCoord.FocusPane(ctx, usecase.NavUp) },
+		input.ActionFocusDown:  func(ctx context.Context) error { return d.wsCoord.FocusPane(ctx, usecase.NavDown) },
+		// Stack navigation
+		input.ActionStackNavUp:   func(ctx context.Context) error { return d.wsCoord.NavigateStack(ctx, "up") },
+		input.ActionStackNavDown: func(ctx context.Context) error { return d.wsCoord.NavigateStack(ctx, "down") },
+		// Navigation
+		input.ActionGoBack:     d.navCoord.GoBack,
+		input.ActionGoForward:  d.navCoord.GoForward,
+		input.ActionReload:     d.navCoord.Reload,
+		input.ActionHardReload: d.navCoord.HardReload,
+		// Zoom actions
+		input.ActionZoomIn:    func(ctx context.Context) error { return d.handleZoom(ctx, "in") },
+		input.ActionZoomOut:   func(ctx context.Context) error { return d.handleZoom(ctx, "out") },
+		input.ActionZoomReset: func(ctx context.Context) error { return d.handleZoom(ctx, "reset") },
+		// UI
+		input.ActionOpenOmnibox: d.navCoord.OpenOmnibox,
+		input.ActionOpenFind:    d.handleFindOpen,
+		input.ActionFindNext:    d.handleFindNext,
+		input.ActionFindPrev:    d.handleFindPrev,
+		input.ActionCloseFind:   d.handleFindClose,
+		input.ActionOpenDevTools: d.navCoord.OpenDevTools,
+		input.ActionToggleFullscreen: func(ctx context.Context) error {
+			return d.logNoop(ctx, "toggle fullscreen action (not yet implemented)")
+		},
+		// Clipboard
+		input.ActionCopyURL: d.handleCopyURL,
+		// Application
+		input.ActionQuit: d.handleQuit,
+	}
+}
+
 // Dispatch routes a keyboard action to the appropriate coordinator.
 func (d *KeyboardDispatcher) Dispatch(ctx context.Context, action input.Action) error {
 	log := logging.FromContext(ctx)
 	log.Debug().Str("action", string(action)).Msg("dispatching keyboard action")
 
-	switch action {
-	// Tab actions
-	case input.ActionNewTab:
-		_, err := d.tabCoord.Create(ctx, "about:blank")
-		return err
-	case input.ActionCloseTab:
-		return d.tabCoord.Close(ctx)
-	case input.ActionNextTab:
-		return d.tabCoord.SwitchNext(ctx)
-	case input.ActionPreviousTab:
-		return d.tabCoord.SwitchPrev(ctx)
-	case input.ActionSwitchLastTab:
-		return d.tabCoord.SwitchToLastActive(ctx)
-	case input.ActionSwitchTabIndex1:
-		return d.tabCoord.SwitchByIndex(ctx, 0)
-	case input.ActionSwitchTabIndex2:
-		return d.tabCoord.SwitchByIndex(ctx, 1)
-	case input.ActionSwitchTabIndex3:
-		return d.tabCoord.SwitchByIndex(ctx, 2)
-	case input.ActionSwitchTabIndex4:
-		return d.tabCoord.SwitchByIndex(ctx, 3)
-	case input.ActionSwitchTabIndex5:
-		return d.tabCoord.SwitchByIndex(ctx, 4)
-	case input.ActionSwitchTabIndex6:
-		return d.tabCoord.SwitchByIndex(ctx, 5)
-	case input.ActionSwitchTabIndex7:
-		return d.tabCoord.SwitchByIndex(ctx, 6)
-	case input.ActionSwitchTabIndex8:
-		return d.tabCoord.SwitchByIndex(ctx, 7)
-	case input.ActionSwitchTabIndex9:
-		return d.tabCoord.SwitchByIndex(ctx, 8)
-	case input.ActionSwitchTabIndex10:
-		return d.tabCoord.SwitchByIndex(ctx, 9)
-	case input.ActionRenameTab:
-		log.Debug().Msg("rename tab action (not yet implemented)")
-
-	// Pane actions
-	case input.ActionSplitRight:
-		return d.wsCoord.Split(ctx, usecase.SplitRight)
-	case input.ActionSplitLeft:
-		return d.wsCoord.Split(ctx, usecase.SplitLeft)
-	case input.ActionSplitUp:
-		return d.wsCoord.Split(ctx, usecase.SplitUp)
-	case input.ActionSplitDown:
-		return d.wsCoord.Split(ctx, usecase.SplitDown)
-	case input.ActionClosePane:
-		return d.wsCoord.ClosePane(ctx)
-	case input.ActionStackPane:
-		return d.wsCoord.StackPane(ctx)
-	case input.ActionFocusRight:
-		return d.wsCoord.FocusPane(ctx, usecase.NavRight)
-	case input.ActionFocusLeft:
-		return d.wsCoord.FocusPane(ctx, usecase.NavLeft)
-	case input.ActionFocusUp:
-		return d.wsCoord.FocusPane(ctx, usecase.NavUp)
-	case input.ActionFocusDown:
-		return d.wsCoord.FocusPane(ctx, usecase.NavDown)
-
-	// Stack navigation
-	case input.ActionStackNavUp:
-		return d.wsCoord.NavigateStack(ctx, "up")
-	case input.ActionStackNavDown:
-		return d.wsCoord.NavigateStack(ctx, "down")
-
-	// Navigation
-	case input.ActionGoBack:
-		return d.navCoord.GoBack(ctx)
-	case input.ActionGoForward:
-		return d.navCoord.GoForward(ctx)
-	case input.ActionReload:
-		return d.navCoord.Reload(ctx)
-	case input.ActionHardReload:
-		return d.navCoord.HardReload(ctx)
-
-	// Zoom actions
-	case input.ActionZoomIn:
-		return d.handleZoom(ctx, "in")
-	case input.ActionZoomOut:
-		return d.handleZoom(ctx, "out")
-	case input.ActionZoomReset:
-		return d.handleZoom(ctx, "reset")
-
-	// UI
-	case input.ActionOpenOmnibox:
-		return d.navCoord.OpenOmnibox(ctx)
-	case input.ActionOpenFind:
-		if d.onFindOpen != nil {
-			return d.onFindOpen(ctx)
-		}
-		log.Debug().Msg("find open action (no handler)")
-	case input.ActionFindNext:
-		if d.onFindNext != nil {
-			return d.onFindNext(ctx)
-		}
-		log.Debug().Msg("find next action (no handler)")
-	case input.ActionFindPrev:
-		if d.onFindPrev != nil {
-			return d.onFindPrev(ctx)
-		}
-		log.Debug().Msg("find prev action (no handler)")
-	case input.ActionCloseFind:
-		if d.onFindClose != nil {
-			return d.onFindClose(ctx)
-		}
-		log.Debug().Msg("find close action (no handler)")
-	case input.ActionOpenDevTools:
-		return d.navCoord.OpenDevTools(ctx)
-	case input.ActionToggleFullscreen:
-		log.Debug().Msg("toggle fullscreen action (not yet implemented)")
-
-	// Clipboard
-	case input.ActionCopyURL:
-		return d.handleCopyURL(ctx)
-
-	// Application
-	case input.ActionQuit:
-		if d.onQuit != nil {
-			d.onQuit()
-		}
-
-	default:
-		log.Warn().Str("action", string(action)).Msg("unhandled keyboard action")
+	if handler, ok := d.actionHandlers[action]; ok {
+		return handler(ctx)
 	}
 
+	log.Warn().Str("action", string(action)).Msg("unhandled keyboard action")
+	return nil
+}
+
+func (d *KeyboardDispatcher) handleFindOpen(ctx context.Context) error {
+	if d.onFindOpen != nil {
+		return d.onFindOpen(ctx)
+	}
+	logging.FromContext(ctx).Debug().Msg("find open action (no handler)")
+	return nil
+}
+
+func (d *KeyboardDispatcher) handleFindNext(ctx context.Context) error {
+	if d.onFindNext != nil {
+		return d.onFindNext(ctx)
+	}
+	logging.FromContext(ctx).Debug().Msg("find next action (no handler)")
+	return nil
+}
+
+func (d *KeyboardDispatcher) handleFindPrev(ctx context.Context) error {
+	if d.onFindPrev != nil {
+		return d.onFindPrev(ctx)
+	}
+	logging.FromContext(ctx).Debug().Msg("find prev action (no handler)")
+	return nil
+}
+
+func (d *KeyboardDispatcher) handleFindClose(ctx context.Context) error {
+	if d.onFindClose != nil {
+		return d.onFindClose(ctx)
+	}
+	logging.FromContext(ctx).Debug().Msg("find close action (no handler)")
+	return nil
+}
+
+func (d *KeyboardDispatcher) logNoop(ctx context.Context, message string) error {
+	if ctx == nil {
+		return fmt.Errorf("missing context")
+	}
+	logging.FromContext(ctx).Debug().Msg(message)
+	return nil
+}
+
+func (d *KeyboardDispatcher) handleQuit(ctx context.Context) error {
+	if d.onQuit != nil {
+		d.onQuit()
+	}
+	if ctx == nil {
+		return fmt.Errorf("missing context")
+	}
 	return nil
 }
 
@@ -297,11 +305,10 @@ func (d *KeyboardDispatcher) handleCopyURL(ctx context.Context) error {
 		}
 
 		// Show toast on GTK main thread
-		var cb glib.SourceFunc
-		cb = func(_ uintptr) bool {
+		cb := glib.SourceFunc(func(_ uintptr) bool {
 			d.wsCoord.ShowToastOnActivePane(ctx, "URL copied", component.ToastSuccess)
 			return false
-		}
+		})
 		glib.IdleAdd(&cb, 0)
 	}()
 

@@ -320,7 +320,12 @@ func (c *TabCoordinator) SetOnAttachPopupToTab(fn func(ctx context.Context, tabI
 
 // CreateWithPane creates a new tab with a pre-created pane and WebView.
 // This is used for tabbed popup behavior where the popup pane already exists.
-func (c *TabCoordinator) CreateWithPane(ctx context.Context, pane *entity.Pane, wv *webkit.WebView, initialURL string) (*entity.Tab, error) {
+func (c *TabCoordinator) CreateWithPane(
+	ctx context.Context,
+	pane *entity.Pane,
+	wv *webkit.WebView,
+	initialURL string,
+) (*entity.Tab, error) {
 	log := logging.FromContext(ctx)
 
 	output, err := c.tabsUC.CreateWithPane(ctx, usecase.CreateTabWithPaneInput{

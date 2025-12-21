@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
@@ -46,7 +47,7 @@ func (r *favoriteRepo) Save(ctx context.Context, fav *entity.Favorite) error {
 func (r *favoriteRepo) FindByID(ctx context.Context, id entity.FavoriteID) (*entity.Favorite, error) {
 	row, err := r.queries.GetFavoriteByID(ctx, int64(id))
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -57,7 +58,7 @@ func (r *favoriteRepo) FindByID(ctx context.Context, id entity.FavoriteID) (*ent
 func (r *favoriteRepo) FindByURL(ctx context.Context, url string) (*entity.Favorite, error) {
 	row, err := r.queries.GetFavoriteByURL(ctx, url)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -91,7 +92,7 @@ func (r *favoriteRepo) GetByFolder(ctx context.Context, folderID *entity.FolderI
 func (r *favoriteRepo) GetByShortcut(ctx context.Context, key int) (*entity.Favorite, error) {
 	row, err := r.queries.GetFavoriteByShortcut(ctx, sql.NullInt64{Int64: int64(key), Valid: true})
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -155,8 +156,8 @@ func favoriteFromRow(row sqlc.Favorite) *entity.Favorite {
 
 func favoritesFromRows(rows []sqlc.Favorite) []*entity.Favorite {
 	favorites := make([]*entity.Favorite, len(rows))
-	for i, row := range rows {
-		favorites[i] = favoriteFromRow(row)
+	for i := range rows {
+		favorites[i] = favoriteFromRow(rows[i])
 	}
 	return favorites
 }
@@ -196,7 +197,7 @@ func (r *folderRepo) Save(ctx context.Context, folder *entity.Folder) error {
 func (r *folderRepo) FindByID(ctx context.Context, id entity.FolderID) (*entity.Folder, error) {
 	row, err := r.queries.GetFolderByID(ctx, int64(id))
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -290,7 +291,7 @@ func (r *tagRepo) Save(ctx context.Context, tag *entity.Tag) error {
 func (r *tagRepo) FindByID(ctx context.Context, id entity.TagID) (*entity.Tag, error) {
 	row, err := r.queries.GetTagByID(ctx, int64(id))
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -301,7 +302,7 @@ func (r *tagRepo) FindByID(ctx context.Context, id entity.TagID) (*entity.Tag, e
 func (r *tagRepo) FindByName(ctx context.Context, name string) (*entity.Tag, error) {
 	row, err := r.queries.GetTagByName(ctx, name)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err

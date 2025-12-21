@@ -25,6 +25,8 @@ type KeyboardHandler struct {
 
 	// Action handler callback
 	onAction ActionHandler
+	// Optional bypass check (e.g., omnibox visible)
+	shouldBypass func() bool
 
 	// GTK controller (nil until attached)
 	controller *gtk.EventControllerKey
@@ -64,6 +66,14 @@ func (h *KeyboardHandler) SetOnModeChange(fn func(from, to Mode)) {
 	h.modal.SetOnModeChange(fn)
 }
 
+// SetShouldBypassInput sets a hook to bypass keyboard handling entirely.
+// When true, events propagate to focused widgets instead.
+func (h *KeyboardHandler) SetShouldBypassInput(fn func() bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.shouldBypass = fn
+}
+
 // Mode returns the current input mode.
 func (h *KeyboardHandler) Mode() Mode {
 	return h.modal.Mode()
@@ -89,8 +99,8 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 	h.controller.SetPropagationPhase(gtk.PhaseCaptureValue)
 
 	// Connect key pressed handler
-	keyPressedCb := func(ctrl gtk.EventControllerKey, keyval uint, keycode uint, state gdk.ModifierType) bool {
-		return h.handleKeyPress(keyval, keycode, state)
+	keyPressedCb := func(_ gtk.EventControllerKey, keyval uint, _ uint, state gdk.ModifierType) bool {
+		return h.handleKeyPress(keyval, state)
 	}
 	h.controller.ConnectKeyPressed(&keyPressedCb)
 
@@ -109,7 +119,14 @@ func (h *KeyboardHandler) Detach() {
 
 // handleKeyPress processes a key press event.
 // Returns true if the event was handled and should not propagate further.
-func (h *KeyboardHandler) handleKeyPress(keyval uint, keycode uint, state gdk.ModifierType) bool {
+func (h *KeyboardHandler) handleKeyPress(keyval uint, state gdk.ModifierType) bool {
+	h.mu.RLock()
+	shouldBypass := h.shouldBypass
+	h.mu.RUnlock()
+	if shouldBypass != nil && shouldBypass() {
+		return false
+	}
+
 	// Build KeyBinding from event
 	modifiers := Modifier(state) & modifierMask
 	binding := KeyBinding{

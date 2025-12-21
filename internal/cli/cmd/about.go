@@ -19,7 +19,7 @@ func init() {
 	rootCmd.AddCommand(aboutCmd)
 }
 
-func runAbout(cmd *cobra.Command, args []string) error {
+func runAbout(_ *cobra.Command, _ []string) error {
 	app := GetApp()
 	if app == nil {
 		return fmt.Errorf("app not initialized")

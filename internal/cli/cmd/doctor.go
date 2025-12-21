@@ -39,7 +39,7 @@ func init() {
 	doctorCmd.Flags().BoolVar(&doctorOnlyRuntime, "runtime", false, "Only run runtime checks (GTK4/WebKitGTK)")
 	doctorCmd.Flags().BoolVar(&doctorOnlyMedia, "media", false, "Only run media checks (GStreamer/VA-API)")
 }
-func runDoctor(cmd *cobra.Command, args []string) error {
+func runDoctor(_ *cobra.Command, _ []string) error {
 	app := GetApp()
 	if app == nil {
 		return fmt.Errorf("app not initialized")
@@ -49,14 +49,8 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--runtime and --media are mutually exclusive")
 	}
 
-	runRuntime := true
-	runMedia := true
-	if doctorOnlyRuntime {
-		runMedia = false
-	}
-	if doctorOnlyMedia {
-		runRuntime = false
-	}
+	runRuntime := !doctorOnlyMedia
+	runMedia := !doctorOnlyRuntime
 
 	report := styles.DoctorReport{OverallOK: true}
 

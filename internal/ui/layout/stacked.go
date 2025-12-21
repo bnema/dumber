@@ -17,6 +17,8 @@ var ErrIndexOutOfBounds = errors.New("index out of bounds")
 // ErrCannotRemoveLastPane is returned when trying to remove the last pane from a stack.
 var ErrCannotRemoveLastPane = errors.New("cannot remove last pane from stack")
 
+const stackedTitleMaxWidthChars = 30
+
 // stackedPane represents a single pane within a stacked container.
 type stackedPane struct {
 	titleBar  BoxWidget // horizontal box with favicon + title label
@@ -85,7 +87,7 @@ func (sv *StackedView) AddPane(ctx context.Context, title, faviconIconName strin
 	// Create title label
 	label := sv.factory.NewLabel(title)
 	label.SetEllipsize(EllipsizeEnd)
-	label.SetMaxWidthChars(30)
+	label.SetMaxWidthChars(stackedTitleMaxWidthChars)
 	label.SetHexpand(true)
 	label.SetXalign(0.0)
 	titleBar.Append(label)
@@ -186,7 +188,7 @@ func (sv *StackedView) InsertPaneAfter(
 	// Create title label
 	label := sv.factory.NewLabel(title)
 	label.SetEllipsize(EllipsizeEnd)
-	label.SetMaxWidthChars(30)
+	label.SetMaxWidthChars(stackedTitleMaxWidthChars)
 	label.SetHexpand(true)
 	label.SetXalign(0.0)
 	titleBar.Append(label)

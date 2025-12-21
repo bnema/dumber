@@ -69,11 +69,15 @@ func (d DomainStatsRow) ToRow() table.Row {
 
 // formatInt formats an integer for display.
 func formatInt(n int) string {
+	const (
+		formatMillion = 1_000_000
+		formatThousand = 1_000
+	)
 	switch {
-	case n >= 1000000:
-		return formatFloat(float64(n)/1000000) + "M"
-	case n >= 1000:
-		return formatFloat(float64(n)/1000) + "K"
+	case n >= formatMillion:
+		return formatFloat(float64(n)/formatMillion) + "M"
+	case n >= formatThousand:
+		return formatFloat(float64(n)/formatThousand) + "K"
 	default:
 		return intToString(n)
 	}

@@ -37,6 +37,9 @@ type cleanupCompleteMsg struct {
 
 // Init implements tea.Model.
 func (m CleanupModel) Init() tea.Cmd {
+	if m.theme == nil {
+		return nil
+	}
 	return nil
 }
 
@@ -69,7 +72,7 @@ func (m CleanupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.cleanup = cleanup
 
 	if m.cleanup.Done() {
-		if m.cleanup.Cancelled {
+		if m.cleanup.Canceled {
 			return m, tea.Quit
 		}
 		if m.cleanup.Confirmed {

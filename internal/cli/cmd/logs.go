@@ -24,6 +24,8 @@ var (
 	logsClearAll bool
 )
 
+const defaultLogsLines = 50
+
 var logsCmd = &cobra.Command{
 	Use:   "logs [session]",
 	Short: "View application logs",
@@ -44,7 +46,7 @@ func init() {
 	rootCmd.AddCommand(logsCmd)
 
 	logsCmd.Flags().BoolVarP(&logsFollow, "follow", "f", false, "follow log output in real-time")
-	logsCmd.Flags().IntVarP(&logsLines, "lines", "n", 50, "number of lines to show")
+	logsCmd.Flags().IntVarP(&logsLines, "lines", "n", defaultLogsLines, "number of lines to show")
 }
 
 // SessionInfo holds metadata about a log session.
@@ -57,7 +59,7 @@ type SessionInfo struct {
 	ModTime   time.Time
 }
 
-func runLogs(cmd *cobra.Command, args []string) error {
+func runLogs(_ *cobra.Command, args []string) error {
 	app := GetApp()
 	if app == nil {
 		return fmt.Errorf("app not initialized")
@@ -188,11 +190,11 @@ func findSession(logDir, query string) (*SessionInfo, error) {
 		return nil, fmt.Errorf("no sessions found")
 	}
 
-	query = strings.ToLower(query)
+	queryLower := strings.ToLower(query)
 
 	// Try exact short ID match first
 	for _, s := range sessions {
-		if strings.ToLower(s.ShortID) == query {
+		if strings.EqualFold(s.ShortID, queryLower) {
 			return &s, nil
 		}
 	}
@@ -200,7 +202,7 @@ func findSession(logDir, query string) (*SessionInfo, error) {
 	// Try partial match on full session ID
 	var matches []SessionInfo
 	for _, s := range sessions {
-		if strings.Contains(strings.ToLower(s.SessionID), query) {
+		if strings.Contains(strings.ToLower(s.SessionID), queryLower) {
 			matches = append(matches, s)
 		}
 	}
@@ -221,12 +223,16 @@ func findSession(logDir, query string) (*SessionInfo, error) {
 }
 
 // showSession displays the last N lines of a session log.
-func showSession(logPath string, lines int, theme *styles.Theme) error {
+func showSession(logPath string, lines int, theme *styles.Theme) (retErr error) {
 	file, err := os.Open(logPath)
 	if err != nil {
 		return fmt.Errorf("open log file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil && retErr == nil {
+			retErr = fmt.Errorf("close log file: %w", closeErr)
+		}
+	}()
 
 	// Read all lines
 	var allLines []string
@@ -258,7 +264,7 @@ func tailSession(logPath string, theme *styles.Theme) error {
 	if err != nil {
 		return fmt.Errorf("open log file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Seek to end
 	_, _ = file.Seek(0, io.SeekEnd)
@@ -366,7 +372,7 @@ func init() {
 	logsClearCmd.Flags().BoolVar(&logsClearAll, "all", false, "remove all session logs")
 }
 
-func runLogsClear(cmd *cobra.Command, args []string) error {
+func runLogsClear(_ *cobra.Command, _ []string) error {
 	app := GetApp()
 	if app == nil {
 		return fmt.Errorf("app not initialized")

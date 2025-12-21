@@ -209,19 +209,23 @@ func (m StatsModel) renderDailyActivity() string {
 
 	// Build sparkline using block characters
 	blocks := []rune{'▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'}
+	const (
+		sparklineMaxDays  = 30
+		sparklineMaxIndex = 7
+	)
 	var result string
 
 	// Show last 30 days or available data
 	days := m.analytics.DailyVisits
-	if len(days) > 30 {
-		days = days[len(days)-30:]
+	if len(days) > sparklineMaxDays {
+		days = days[len(days)-sparklineMaxDays:]
 	}
 
 	for _, d := range days {
 		// Scale to block index (0-7)
-		idx := int(float64(d.Visits) / float64(maxVisits) * 7)
-		if idx > 7 {
-			idx = 7
+		idx := int(float64(d.Visits) / float64(maxVisits) * sparklineMaxIndex)
+		if idx > sparklineMaxIndex {
+			idx = sparklineMaxIndex
 		}
 		result += string(blocks[idx])
 	}
@@ -231,11 +235,15 @@ func (m StatsModel) renderDailyActivity() string {
 
 // formatNumber formats a number for display.
 func formatNumber(n int64) string {
+	const (
+		formatMillion = 1_000_000
+		formatThousand = 1_000
+	)
 	switch {
-	case n >= 1000000:
-		return fmt.Sprintf("%.1fM", float64(n)/1000000)
-	case n >= 1000:
-		return fmt.Sprintf("%.1fK", float64(n)/1000)
+	case n >= formatMillion:
+		return fmt.Sprintf("%.1fM", float64(n)/formatMillion)
+	case n >= formatThousand:
+		return fmt.Sprintf("%.1fK", float64(n)/formatThousand)
 	default:
 		return fmt.Sprintf("%d", n)
 	}

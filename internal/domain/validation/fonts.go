@@ -2,7 +2,8 @@ package validation
 
 import "strings"
 
-func ValidateFontFamily(field string, value string) []string {
+func ValidateFontFamily(field, value string) []string {
+	const maxFontFamilyLength = 200
 	value = strings.TrimSpace(value)
 	var errs []string
 
@@ -15,7 +16,7 @@ func ValidateFontFamily(field string, value string) []string {
 		errs = append(errs, field+" must not contain newlines")
 	}
 
-	if len(value) > 200 {
+	if len(value) > maxFontFamilyLength {
 		errs = append(errs, field+" is too long")
 	}
 

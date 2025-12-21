@@ -13,6 +13,12 @@ import (
 	"github.com/bnema/puregotk-webkit/webkit"
 )
 
+const (
+	storeDirPerm  = 0o755
+	jsonDirPerm   = 0o755
+	mergedFilePerm = 0o644
+)
+
 // Manager orchestrates the content filter lifecycle.
 // It handles downloading, compiling, loading, and applying filters to WebViews.
 type Manager struct {
@@ -47,20 +53,21 @@ type ManagerConfig struct {
 // NewManager creates a new filter Manager.
 func NewManager(cfg ManagerConfig) (*Manager, error) {
 	// Ensure directories exist
-	if err := os.MkdirAll(cfg.StoreDir, 0o755); err != nil {
+	if err := os.MkdirAll(cfg.StoreDir, storeDirPerm); err != nil {
 		return nil, fmt.Errorf("failed to create store dir: %w", err)
 	}
-	if err := os.MkdirAll(cfg.JSONDir, 0o755); err != nil {
+	if err := os.MkdirAll(cfg.JSONDir, jsonDirPerm); err != nil {
 		return nil, fmt.Errorf("failed to create json dir: %w", err)
 	}
 
 	// Use provided implementations or create defaults
 	store := cfg.Store
 	if store == nil {
-		store = NewStore(cfg.StoreDir)
-		if store == nil {
+		newStore := NewStore(cfg.StoreDir)
+		if newStore == nil {
 			return nil, fmt.Errorf("failed to create filter store at %s", cfg.StoreDir)
 		}
+		store = newStore
 	}
 
 	downloader := cfg.Downloader
@@ -243,7 +250,7 @@ func (m *Manager) mergeJSONFiles(ctx context.Context, paths []string) (string, e
 
 	// Write merged file
 	mergedPath := filepath.Join(m.jsonDir, "merged.json")
-	if err := os.WriteFile(mergedPath, merged, 0o644); err != nil {
+	if err := os.WriteFile(mergedPath, merged, mergedFilePerm); err != nil {
 		return "", fmt.Errorf("failed to write merged file: %w", err)
 	}
 

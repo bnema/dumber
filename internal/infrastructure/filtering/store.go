@@ -44,7 +44,7 @@ type CompileResult struct {
 // Compile compiles a JSON filter file and stores it with the given identifier.
 // This is an async operation that may take several seconds for large filter sets.
 // The JSON file must be in Safari Content Blocker format.
-func (s *Store) Compile(ctx context.Context, identifier string, jsonPath string) (*webkit.UserContentFilter, error) {
+func (s *Store) Compile(ctx context.Context, identifier, jsonPath string) (*webkit.UserContentFilter, error) {
 	log := logging.FromContext(ctx).With().
 		Str("component", "filter-store").
 		Str("identifier", identifier).
@@ -90,7 +90,7 @@ func (s *Store) Compile(ctx context.Context, identifier string, jsonPath string)
 		log.Info().Msg("filter compilation completed")
 		return result.Filter, nil
 	case <-ctx.Done():
-		log.Warn().Msg("filter compilation cancelled")
+		log.Warn().Msg("filter compilation canceled")
 		return nil, ctx.Err()
 	}
 }
@@ -142,7 +142,7 @@ func (s *Store) Load(ctx context.Context, identifier string) (*webkit.UserConten
 		log.Debug().Msg("filter loaded successfully")
 		return result.Filter, nil
 	case <-ctx.Done():
-		log.Warn().Msg("filter load cancelled")
+		log.Warn().Msg("filter load canceled")
 		return nil, ctx.Err()
 	}
 }
@@ -192,7 +192,7 @@ func (s *Store) FetchIdentifiers(ctx context.Context) ([]string, error) {
 		log.Debug().Int("count", len(result.Identifiers)).Msg("fetched filter identifiers")
 		return result.Identifiers, nil
 	case <-ctx.Done():
-		log.Warn().Msg("fetch identifiers cancelled")
+		log.Warn().Msg("fetch identifiers canceled")
 		return nil, ctx.Err()
 	}
 }
@@ -237,7 +237,7 @@ func (s *Store) Remove(ctx context.Context, identifier string) error {
 		log.Info().Msg("filter removed")
 		return nil
 	case <-ctx.Done():
-		log.Warn().Msg("remove filter cancelled")
+		log.Warn().Msg("remove filter canceled")
 		return ctx.Err()
 	}
 }

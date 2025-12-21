@@ -229,6 +229,13 @@ func (a *App) onActivate(ctx context.Context) {
 	a.keyboardHandler.SetOnModeChange(func(from, to input.Mode) {
 		a.handleModeChange(ctx, from, to)
 	})
+	a.keyboardHandler.SetShouldBypassInput(func() bool {
+		wsView := a.activeWorkspaceView()
+		if wsView == nil {
+			return false
+		}
+		return wsView.IsOmniboxVisible()
+	})
 	a.keyboardHandler.AttachTo(a.mainWindow.Window())
 
 	// Store omnibox config (omnibox is created per-pane via WorkspaceView)
@@ -242,7 +249,9 @@ func (a *App) onActivate(ctx context.Context) {
 		InitialBehavior: a.deps.Config.Omnibox.InitialBehavior,
 		UIScale:         a.deps.Config.DefaultUIScale,
 		OnNavigate: func(url string) {
-			a.navCoord.Navigate(ctx, url)
+			if err := a.navCoord.Navigate(ctx, url); err != nil {
+				log.Error().Err(err).Str("url", url).Msg("navigation failed")
+			}
 		},
 	}
 	a.navCoord.SetOmniboxProvider(a)
@@ -355,7 +364,9 @@ func (a *App) initCoordinators(ctx context.Context) {
 	// Wire tab bar click handling to coordinator
 	if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
 		a.mainWindow.TabBar().SetOnSwitch(func(tabID entity.TabID) {
-			a.tabCoord.Switch(ctx, tabID)
+			if err := a.tabCoord.Switch(ctx, tabID); err != nil {
+				log.Error().Err(err).Str("tab_id", string(tabID)).Msg("tab switch failed")
+			}
 		})
 	}
 
@@ -751,11 +762,10 @@ func (a *App) initConfigWatcher(ctx context.Context) {
 	// Only appearance is hot-reloaded for now.
 	a.configManager.OnConfigChange(func(newCfg *config.Config) {
 		cfgCopy := newCfg
-		var cb glib.SourceFunc
-		cb = func(_ uintptr) bool {
+		cb := glib.SourceFunc(func(_ uintptr) bool {
 			a.applyAppearanceConfig(ctx, cfgCopy)
 			return false
-		}
+		})
 		glib.IdleAdd(&cb, 0)
 	})
 
@@ -827,11 +837,10 @@ func (a *App) initFilteringAsync(ctx context.Context) {
 
 	a.deps.FilterManager.SetStatusCallback(func(status filtering.FilterStatus) {
 		statusCopy := status // Capture for closure
-		var cb glib.SourceFunc
-		cb = func(_ uintptr) bool {
+		cb := glib.SourceFunc(func(_ uintptr) bool {
 			a.showFilterStatus(ctx, statusCopy)
 			return false // Don't repeat
-		}
+		})
 		glib.IdleAdd(&cb, 0)
 	})
 	a.deps.FilterManager.LoadAsync(ctx)

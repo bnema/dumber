@@ -55,7 +55,12 @@ func (r *AboutRenderer) renderInfoLines(info build.Info) string {
 		fmt.Sprintf("%s %s %s", iconStyle.Render(IconGo), keyStyle.Render("Go"), valStyle.Render(info.GoVersion)),
 		"",
 		fmt.Sprintf("%s %s", iconStyle.Render(IconGithub), keyStyle.Render(build.RepoURL())),
-		fmt.Sprintf("%s %s %s", iconStyle.Render(IconHeart), keyStyle.Render("Made with love by"), valStyle.Render(strings.Join(build.Contributors(), ", "))),
+		fmt.Sprintf(
+			"%s %s %s",
+			iconStyle.Render(IconHeart),
+			keyStyle.Render("Made with love by"),
+			valStyle.Render(strings.Join(build.Contributors(), ", ")),
+		),
 	}
 
 	return strings.Join(lines, "\n")

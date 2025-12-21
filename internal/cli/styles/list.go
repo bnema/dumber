@@ -55,16 +55,25 @@ func NewHistoryDelegate(theme *Theme) HistoryDelegate {
 
 // Height returns the height of each item.
 func (d HistoryDelegate) Height() int {
+	if d.Theme == nil {
+		return 2
+	}
 	return 2
 }
 
 // Spacing returns the spacing between items.
 func (d HistoryDelegate) Spacing() int {
+	if d.Theme == nil {
+		return 0
+	}
 	return 0
 }
 
 // Update handles item-level events.
 func (d HistoryDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd {
+	if d.Theme == nil {
+		return nil
+	}
 	return nil
 }
 
@@ -77,17 +86,22 @@ func (d HistoryDelegate) Render(w io.Writer, m list.Model, index int, item list.
 
 	t := d.Theme
 	isSelected := index == m.Index()
+	const (
+		maxTitleLength = 60
+		maxURLLength   = 50
+		ellipsisLength = 3
+	)
 
 	// Title line
 	title := hi.TitleValue()
-	if len(title) > 60 {
-		title = title[:57] + "..."
+	if len(title) > maxTitleLength {
+		title = title[:maxTitleLength-ellipsisLength] + "..."
 	}
 
 	// URL/description line
 	url := hi.URL
-	if len(url) > 50 {
-		url = url[:47] + "..."
+	if len(url) > maxURLLength {
+		url = url[:maxURLLength-ellipsisLength] + "..."
 	}
 
 	// Metadata badges
@@ -179,16 +193,25 @@ type SimpleDelegate struct {
 
 // Height returns the height of each item.
 func (d SimpleDelegate) Height() int {
+	if d.Theme == nil {
+		return 1
+	}
 	return 1
 }
 
 // Spacing returns the spacing between items.
 func (d SimpleDelegate) Spacing() int {
+	if d.Theme == nil {
+		return 0
+	}
 	return 0
 }
 
 // Update handles item-level events.
 func (d SimpleDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd {
+	if d.Theme == nil {
+		return nil
+	}
 	return nil
 }
 

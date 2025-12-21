@@ -75,26 +75,50 @@ func (m *Manager) Load() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Ensure directories exist
 	if err := EnsureDirectories(); err != nil {
 		return fmt.Errorf("failed to ensure directories: %w", err)
 	}
 
-	// Set defaults
 	m.setDefaults()
 
-	// Read config file if it exists
+	if err := m.readConfigFile(); err != nil {
+		return err
+	}
+
+	config, err := m.unmarshalConfig()
+	if err != nil {
+		return err
+	}
+	if err := ensureDatabasePath(config); err != nil {
+		return err
+	}
+	normalizeConfig(config)
+
+	if err := validateConfig(config); err != nil {
+		return fmt.Errorf("configuration validation failed: %w", err)
+	}
+
+	m.config = config
+	return nil
+}
+
+func (m *Manager) readConfigFile() error {
 	if err := m.viper.ReadInConfig(); err != nil {
 		var configFileNotFoundError viper.ConfigFileNotFoundError
 		if errors.As(err, &configFileNotFoundError) {
-			// Config file not found, create default one
-			if err := m.createDefaultConfig(); err != nil {
+			if createErr := m.createDefaultConfig(); createErr != nil {
 				configDir, _ := GetConfigDir()
-				return fmt.Errorf("failed to create default config at %s: %w\nTry creating the directory manually or check permissions", configDir, err)
+				return fmt.Errorf(
+					"failed to create default config at %s: %w\nTry creating the directory manually or check permissions",
+					configDir,
+					createErr,
+				)
 			}
-			// Re-read the newly created config file
-			if err := m.viper.ReadInConfig(); err != nil {
-				return fmt.Errorf("failed to read newly created config file: %w\nThe config file was created but couldn't be read. Please check the file format", err)
+			if rereadErr := m.viper.ReadInConfig(); rereadErr != nil {
+				return fmt.Errorf(
+					"failed to read newly created config file: %w\nThe config file was created but couldn't be read. Please check the file format",
+					rereadErr,
+				)
 			}
 		} else {
 			configFile := m.viper.ConfigFileUsed()
@@ -105,24 +129,35 @@ func (m *Manager) Load() error {
 			return fmt.Errorf("failed to read config file at %s: %w\nCheck the file format (must be valid TOML) and permissions", configFile, err)
 		}
 	}
+	return nil
+}
 
-	// Unmarshal into config struct
+func (m *Manager) unmarshalConfig() (*Config, error) {
 	config := &Config{}
 	if err := m.viper.Unmarshal(config); err != nil {
 		configFile := m.viper.ConfigFileUsed()
-		return fmt.Errorf("failed to parse config file at %s: %w\nCheck for syntax errors, invalid values, or type mismatches", configFile, err)
+		return nil, fmt.Errorf(
+			"failed to parse config file at %s: %w\nCheck for syntax errors, invalid values, or type mismatches",
+			configFile,
+			err,
+		)
 	}
+	return config, nil
+}
 
-	// Set database path if not specified
-	if config.Database.Path == "" {
-		dbPath, err := GetDatabaseFile()
-		if err != nil {
-			return fmt.Errorf("failed to get database path: %w", err)
-		}
-		config.Database.Path = dbPath
+func ensureDatabasePath(config *Config) error {
+	if config.Database.Path != "" {
+		return nil
 	}
+	dbPath, err := GetDatabaseFile()
+	if err != nil {
+		return fmt.Errorf("failed to get database path: %w", err)
+	}
+	config.Database.Path = dbPath
+	return nil
+}
 
-	// Normalize/validate rendering mode using switch statement
+func normalizeConfig(config *Config) {
 	switch strings.ToLower(string(config.RenderingMode)) {
 	case "", string(RenderingModeAuto):
 		config.RenderingMode = RenderingModeAuto
@@ -134,19 +169,14 @@ func (m *Manager) Load() error {
 		config.RenderingMode = RenderingModeAuto
 	}
 
-	// Validate ColorScheme setting using switch statement
 	switch config.Appearance.ColorScheme {
-	case "prefer-dark", "prefer-light", ThemeDefault:
-		// Valid values - no changes needed
+	case ThemePreferDark, ThemePreferLight, ThemeDefault:
 	case "":
-		// Empty string is treated the same as "default"
 		config.Appearance.ColorScheme = ThemeDefault
 	default:
-		// Invalid value - reset to default
 		config.Appearance.ColorScheme = ThemeDefault
 	}
 
-	// Validate Media.HardwareDecodingMode using switch statement
 	switch strings.ToLower(string(config.Media.HardwareDecodingMode)) {
 	case "", string(HardwareDecodingAuto):
 		config.Media.HardwareDecodingMode = HardwareDecodingAuto
@@ -158,16 +188,7 @@ func (m *Manager) Load() error {
 		config.Media.HardwareDecodingMode = HardwareDecodingAuto
 	}
 
-	// Normalize runtime prefix
 	config.Runtime.Prefix = strings.TrimSpace(config.Runtime.Prefix)
-
-	// Validate all config values
-	if err := validateConfig(config); err != nil {
-		return fmt.Errorf("configuration validation failed: %w", err)
-	}
-
-	m.config = config
-	return nil
 }
 
 // Get returns the current configuration (thread-safe).
@@ -258,16 +279,32 @@ func (m *Manager) setDefaults() {
 
 	// Note: Database.Path is set dynamically in Load(), no defaults needed
 
-	// History defaults
+	m.setHistoryDefaults(defaults)
+	m.setSearchDefaults(defaults)
+	m.setDmenuDefaults(defaults)
+	m.setLoggingDefaults(defaults)
+	m.setDebugDefaults(defaults)
+	m.setAppearanceDefaults(defaults)
+	m.setRenderingDefaults(defaults)
+	m.setWorkspaceDefaults(defaults)
+	m.setContentFilteringDefaults(defaults)
+	m.setOmniboxDefaults(defaults)
+	m.setMediaDefaults(defaults)
+	m.setRuntimeDefaults(defaults)
+}
+
+func (m *Manager) setHistoryDefaults(defaults *Config) {
 	m.viper.SetDefault("history.max_entries", defaults.History.MaxEntries)
 	m.viper.SetDefault("history.retention_period_days", defaults.History.RetentionPeriodDays)
 	m.viper.SetDefault("history.cleanup_interval_days", defaults.History.CleanupIntervalDays)
+}
 
-	// Search shortcuts defaults
+func (m *Manager) setSearchDefaults(defaults *Config) {
 	m.viper.SetDefault("search_shortcuts", defaults.SearchShortcuts)
 	m.viper.SetDefault("default_search_engine", defaults.DefaultSearchEngine)
+}
 
-	// Dmenu defaults
+func (m *Manager) setDmenuDefaults(defaults *Config) {
 	m.viper.SetDefault("dmenu.max_history_items", defaults.Dmenu.MaxHistoryItems)
 	m.viper.SetDefault("dmenu.show_visit_count", defaults.Dmenu.ShowVisitCount)
 	m.viper.SetDefault("dmenu.show_last_visited", defaults.Dmenu.ShowLastVisited)
@@ -276,19 +313,22 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("dmenu.url_prefix", defaults.Dmenu.URLPrefix)
 	m.viper.SetDefault("dmenu.date_format", defaults.Dmenu.DateFormat)
 	m.viper.SetDefault("dmenu.sort_by_visit_count", defaults.Dmenu.SortByVisitCount)
+}
 
-	// Logging defaults
+func (m *Manager) setLoggingDefaults(defaults *Config) {
 	m.viper.SetDefault("logging.level", defaults.Logging.Level)
 	m.viper.SetDefault("logging.format", defaults.Logging.Format)
 	m.viper.SetDefault("logging.max_age", defaults.Logging.MaxAge)
 	m.viper.SetDefault("logging.log_dir", defaults.Logging.LogDir)
 	m.viper.SetDefault("logging.enable_file_log", defaults.Logging.EnableFileLog)
 	m.viper.SetDefault("logging.capture_console", defaults.Logging.CaptureConsole)
+}
 
-	// Debug defaults
+func (m *Manager) setDebugDefaults(defaults *Config) {
 	m.viper.SetDefault("debug.enable_devtools", defaults.Debug.EnableDevTools)
+}
 
-	// Appearance defaults
+func (m *Manager) setAppearanceDefaults(defaults *Config) {
 	m.viper.SetDefault("appearance.sans_font", defaults.Appearance.SansFont)
 	m.viper.SetDefault("appearance.serif_font", defaults.Appearance.SerifFont)
 	m.viper.SetDefault("appearance.monospace_font", defaults.Appearance.MonospaceFont)
@@ -296,13 +336,15 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("appearance.light_palette", defaults.Appearance.LightPalette)
 	m.viper.SetDefault("appearance.dark_palette", defaults.Appearance.DarkPalette)
 	m.viper.SetDefault("appearance.color_scheme", defaults.Appearance.ColorScheme)
+}
 
-	// Rendering defaults
+func (m *Manager) setRenderingDefaults(defaults *Config) {
 	m.viper.SetDefault("rendering_mode", string(RenderingModeGPU))
 	m.viper.SetDefault("default_webpage_zoom", defaults.DefaultWebpageZoom)
 	m.viper.SetDefault("default_ui_scale", defaults.DefaultUIScale)
+}
 
-	// Workspace defaults
+func (m *Manager) setWorkspaceDefaults(defaults *Config) {
 	m.viper.SetDefault("workspace.pane_mode.activation_shortcut", defaults.Workspace.PaneMode.ActivationShortcut)
 	m.viper.SetDefault("workspace.pane_mode.timeout_ms", defaults.Workspace.PaneMode.TimeoutMilliseconds)
 	m.viper.SetDefault("workspace.pane_mode.actions", defaults.Workspace.PaneMode.Actions)
@@ -328,20 +370,24 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("workspace.styling.tab_mode_border_width", defaults.Workspace.Styling.TabModeBorderWidth)
 	m.viper.SetDefault("workspace.styling.tab_mode_border_color", defaults.Workspace.Styling.TabModeBorderColor)
 	m.viper.SetDefault("workspace.styling.transition_duration", defaults.Workspace.Styling.TransitionDuration)
+}
 
-	// Content filtering
+func (m *Manager) setContentFilteringDefaults(defaults *Config) {
 	m.viper.SetDefault("content_filtering.enabled", defaults.ContentFiltering.Enabled)
 	m.viper.SetDefault("content_filtering.auto_update", defaults.ContentFiltering.AutoUpdate)
+}
 
-	// Omnibox defaults
+func (m *Manager) setOmniboxDefaults(defaults *Config) {
 	m.viper.SetDefault("omnibox.initial_behavior", defaults.Omnibox.InitialBehavior)
+}
 
-	// Media defaults
+func (m *Manager) setMediaDefaults(defaults *Config) {
 	m.viper.SetDefault("media.hardware_decoding", string(defaults.Media.HardwareDecodingMode))
 	m.viper.SetDefault("media.prefer_av1", defaults.Media.PreferAV1)
 	m.viper.SetDefault("media.show_diagnostics", defaults.Media.ShowDiagnosticsOnStartup)
+}
 
-	// Runtime defaults
+func (m *Manager) setRuntimeDefaults(defaults *Config) {
 	m.viper.SetDefault("runtime.prefix", defaults.Runtime.Prefix)
 }
 

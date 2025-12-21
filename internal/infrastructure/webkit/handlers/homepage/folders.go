@@ -22,7 +22,7 @@ func NewFolderHandlers(favoritesUC *usecase.ManageFavoritesUseCase) *FolderHandl
 
 // HandleList handles folder_list messages.
 func (h *FolderHandlers) HandleList() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, webviewID webkit.WebViewID, payload json.RawMessage) (any, error) {
+	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		requestID := ParseRequestID(payload)
@@ -49,7 +49,7 @@ type createFolderRequest struct {
 
 // HandleCreate handles folder_create messages.
 func (h *FolderHandlers) HandleCreate() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, webviewID webkit.WebViewID, payload json.RawMessage) (any, error) {
+	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req createFolderRequest
@@ -84,7 +84,7 @@ type deleteFolderRequest struct {
 
 // HandleDelete handles folder_delete messages.
 func (h *FolderHandlers) HandleDelete() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, webviewID webkit.WebViewID, payload json.RawMessage) (any, error) {
+	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req deleteFolderRequest
@@ -116,7 +116,7 @@ type updateFolderRequest struct {
 // HandleUpdate handles folder_update messages.
 // NOTE: This requires UpdateFolder() method to be added to ManageFavoritesUseCase.
 func (h *FolderHandlers) HandleUpdate() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, webviewID webkit.WebViewID, payload json.RawMessage) (any, error) {
+	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req updateFolderRequest

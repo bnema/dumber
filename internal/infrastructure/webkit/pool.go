@@ -54,7 +54,14 @@ type WebViewPool struct {
 }
 
 // NewWebViewPool creates a new WebView pool.
-func NewWebViewPool(ctx context.Context, wkCtx *WebKitContext, settings *SettingsManager, cfg PoolConfig, injector *ContentInjector, router *MessageRouter) *WebViewPool {
+func NewWebViewPool(
+	ctx context.Context,
+	wkCtx *WebKitContext,
+	settings *SettingsManager,
+	cfg PoolConfig,
+	injector *ContentInjector,
+	router *MessageRouter,
+) *WebViewPool {
 	if cfg.MaxSize <= 0 {
 		cfg.MaxSize = 8
 	}
@@ -203,7 +210,6 @@ func (p *WebViewPool) prewarmSync(ctx context.Context, count int) {
 		default:
 			// Pool full, destroy
 			wv.Destroy()
-			break
 		}
 
 		// Small delay between creations to avoid overwhelming the system
