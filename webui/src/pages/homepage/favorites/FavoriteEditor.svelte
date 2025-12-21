@@ -455,18 +455,18 @@
   }
 
   .btn-danger-outline:hover {
-    color: #ef4444;
-    border-color: #ef4444;
+    color: var(--destructive);
+    border-color: var(--destructive);
   }
 
   .btn-danger {
-    background: #b91c1c;
-    color: #fef2f2;
-    border-color: #991b1b;
+    background: var(--destructive);
+    color: var(--destructive-foreground);
+    border-color: color-mix(in srgb, var(--destructive) 80%, black 20%);
   }
 
   .btn-danger:hover {
-    background: #dc2626;
+    background: color-mix(in srgb, var(--destructive) 85%, white 15%);
   }
 
   .btn-cancel {
@@ -489,7 +489,7 @@
   .confirm-text {
     flex: 1;
     font-size: 0.72rem;
-    color: #ef4444;
+    color: var(--destructive);
     font-weight: 500;
   }
 </style>

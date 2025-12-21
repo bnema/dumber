@@ -144,8 +144,8 @@
   }
 
   .cleanup-btn:hover {
-    color: #ef4444;
-    border-color: #ef4444;
+    color: var(--destructive);
+    border-color: var(--destructive);
   }
 
   .cleanup-icon::before {

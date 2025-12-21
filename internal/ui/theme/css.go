@@ -518,22 +518,22 @@ func generateToasterCSS(p Palette) string {
 	color: var(--bg);
 }
 
-/* Toast level: success (green) */
+/* Toast level: success */
 .toast-success {
-	background-color: alpha(#4ade80, 0.9);
+	background-color: alpha(var(--success), 0.9);
 	color: var(--bg);
 }
 
-/* Toast level: warning (yellow/amber) */
+/* Toast level: warning */
 .toast-warning {
-	background-color: alpha(#fbbf24, 0.9);
+	background-color: alpha(var(--warning), 0.9);
 	color: var(--bg);
 }
 
-/* Toast level: error (red) */
+/* Toast level: error */
 .toast-error {
-	background-color: alpha(#ef4444, 0.9);
-	color: white;
+	background-color: alpha(var(--destructive), 0.9);
+	color: var(--bg);
 }
 `
 }

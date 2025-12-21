@@ -18,6 +18,10 @@ type Palette struct {
 	Muted          string // Secondary/disabled text
 	Accent         string // Primary accent color (actions, highlights)
 	Border         string // Border and divider lines
+	// Semantic status colors (not user-editable, derived defaults)
+	Success     string // Success/positive feedback
+	Warning     string // Warning/caution feedback
+	Destructive string // Error/destructive actions
 }
 
 // DefaultDarkPalette returns the default dark theme palette.
@@ -30,6 +34,9 @@ func DefaultDarkPalette() Palette {
 		Muted:          "#909090",
 		Accent:         "#4ade80",
 		Border:         "#333333",
+		Success:        "#4ade80",
+		Warning:        "#fbbf24",
+		Destructive:    "#ef4444",
 	}
 }
 
@@ -43,6 +50,9 @@ func DefaultLightPalette() Palette {
 		Muted:          "#666666",
 		Accent:         "#22c55e",
 		Border:         "#dddddd",
+		Success:        "#22c55e",
+		Warning:        "#f59e0b",
+		Destructive:    "#dc2626",
 	}
 }
 
@@ -67,6 +77,10 @@ func PaletteFromConfig(cfg *config.ColorPalette, isDark bool) Palette {
 		Muted:          coalesce(cfg.Muted, defaults.Muted),
 		Accent:         coalesce(cfg.Accent, defaults.Accent),
 		Border:         coalesce(cfg.Border, defaults.Border),
+		// Semantic colors always use defaults (not user-editable)
+		Success:     defaults.Success,
+		Warning:     defaults.Warning,
+		Destructive: defaults.Destructive,
 	}
 }
 
@@ -124,6 +138,9 @@ func (p Palette) ToCSSVars() string {
 	sb.WriteString("  --muted: " + p.Muted + ";\n")
 	sb.WriteString("  --accent: " + p.Accent + ";\n")
 	sb.WriteString("  --border: " + p.Border + ";\n")
+	sb.WriteString("  --success: " + p.Success + ";\n")
+	sb.WriteString("  --warning: " + p.Warning + ";\n")
+	sb.WriteString("  --destructive: " + p.Destructive + ";\n")
 	return sb.String()
 }
 
@@ -141,6 +158,15 @@ func (p Palette) ToWebCSSVars() string {
 	sb.WriteString("  --muted: " + p.SurfaceVariant + " !important;\n")
 	sb.WriteString("  --muted-foreground: " + p.Muted + " !important;\n")
 	sb.WriteString("  --border: " + p.Border + " !important;\n")
+	// Ring follows primary (accent)
+	sb.WriteString("  --ring: " + p.Accent + " !important;\n")
+	// Semantic colors from palette defaults
+	sb.WriteString("  --success: " + p.Success + " !important;\n")
+	sb.WriteString("  --success-foreground: " + p.Background + " !important;\n")
+	sb.WriteString("  --warning: " + p.Warning + " !important;\n")
+	sb.WriteString("  --warning-foreground: " + p.Text + " !important;\n")
+	sb.WriteString("  --destructive: " + p.Destructive + " !important;\n")
+	sb.WriteString("  --destructive-foreground: " + p.Background + " !important;\n")
 	// Keep GTK names for compatibility
 	sb.WriteString("  --bg: " + p.Background + " !important;\n")
 	sb.WriteString("  --surface: " + p.Surface + " !important;\n")

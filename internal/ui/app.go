@@ -862,7 +862,7 @@ func (a *App) showFilterStatus(ctx context.Context, status filtering.FilterStatu
 			log.Debug().Msg("applied filters to all existing webviews")
 		}
 		if a.appToaster != nil {
-			a.appToaster.Show(ctx, fmt.Sprintf("Filters active (%s)", status.Version), component.ToastSuccess)
+			a.appToaster.Show(ctx, fmt.Sprintf("Ad blocker ready (%s)", status.Version), component.ToastInfo)
 		}
 	case filtering.StateError:
 		if a.appToaster != nil {

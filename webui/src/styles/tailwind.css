@@ -24,6 +24,14 @@
   --dynamic-secondary: var(--secondary);
   --dynamic-destructive: var(--destructive);
   --dynamic-ring: var(--ring);
+
+  /* Semantic status colors - backend can override */
+  --dynamic-success: var(--color-browser-success, var(--success));
+  --dynamic-success-foreground: var(--success-foreground);
+  --dynamic-warning: var(--color-browser-warning, var(--warning));
+  --dynamic-warning-foreground: var(--warning-foreground);
+  --dynamic-info: var(--color-browser-info, var(--info));
+  --dynamic-info-foreground: var(--info-foreground);
 }
 
 /* Dark mode border override */
@@ -53,12 +61,28 @@
   border: 1px solid var(--dynamic-border);
 }
 
-.toast-success,
-.toast-error,
+.toast-success {
+  background-color: var(--dynamic-success);
+  color: var(--dynamic-success-foreground);
+  border: 1px solid color-mix(in srgb, var(--dynamic-success) 50%, var(--dynamic-border) 50%);
+}
+
+.toast-error {
+  background-color: var(--dynamic-destructive);
+  color: var(--destructive-foreground);
+  border: 1px solid color-mix(in srgb, var(--dynamic-destructive) 50%, var(--dynamic-border) 50%);
+}
+
 .toast-info {
-  background-color: var(--toast-bg, var(--dynamic-surface));
-  color: var(--toast-text, var(--dynamic-text));
-  border: 1px solid var(--toast-border, var(--dynamic-border));
+  background-color: var(--dynamic-info);
+  color: var(--dynamic-info-foreground);
+  border: 1px solid color-mix(in srgb, var(--dynamic-info) 50%, var(--dynamic-border) 50%);
+}
+
+.toast-warning {
+  background-color: var(--dynamic-warning);
+  color: var(--dynamic-warning-foreground);
+  border: 1px solid color-mix(in srgb, var(--dynamic-warning) 50%, var(--dynamic-border) 50%);
 }
 
 /* Omnibox/Find bar styles */

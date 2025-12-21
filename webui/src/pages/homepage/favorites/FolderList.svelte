@@ -204,8 +204,8 @@
   }
 
   .add-folder-btn.cancel:hover {
-    color: #ef4444;
-    border-color: #ef4444;
+    color: var(--destructive);
+    border-color: var(--destructive);
   }
 
   .create-input-row {

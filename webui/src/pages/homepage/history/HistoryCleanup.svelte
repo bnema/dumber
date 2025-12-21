@@ -191,7 +191,7 @@
   .modal-icon::before {
     content: '';
     font-size: 0.9rem;
-    color: #fbbf24;
+    color: var(--warning);
   }
 
   .modal-title {
@@ -258,7 +258,7 @@
   }
 
   .cleanup-option.destructive .option-label {
-    color: #ef4444;
+    color: var(--destructive);
   }
 
   .option-main {
@@ -303,7 +303,7 @@
   .confirm-icon::before {
     content: '';
     font-size: 2rem;
-    color: #ef4444;
+    color: var(--destructive);
   }
 
   .confirm-message {
@@ -314,7 +314,7 @@
   }
 
   .confirm-message strong {
-    color: #ef4444;
+    color: var(--destructive);
   }
 
   .confirm-actions {
@@ -359,13 +359,13 @@
   }
 
   .confirm-btn.destructive {
-    background: #b91c1c;
-    color: #fef2f2;
-    border-color: #991b1b;
+    background: var(--destructive);
+    color: var(--destructive-foreground);
+    border-color: color-mix(in srgb, var(--destructive) 80%, black 20%);
   }
 
   .confirm-btn.destructive:hover {
-    background: #dc2626;
+    background: color-mix(in srgb, var(--destructive) 85%, white 15%);
   }
 
   .modal-footer {

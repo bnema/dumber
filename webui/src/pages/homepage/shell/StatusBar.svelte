@@ -235,15 +235,15 @@
   }
 
   .mode-chip[data-color="warning"] {
-    background: color-mix(in srgb, #fbbf24 15%, transparent);
-    border-color: color-mix(in srgb, #fbbf24 40%, var(--border) 60%);
-    color: #fbbf24;
+    background: color-mix(in srgb, var(--warning) 15%, transparent);
+    border-color: color-mix(in srgb, var(--warning) 40%, var(--border) 60%);
+    color: var(--warning);
   }
 
   .mode-chip[data-color="info"] {
-    background: color-mix(in srgb, #60a5fa 15%, transparent);
-    border-color: color-mix(in srgb, #60a5fa 40%, var(--border) 60%);
-    color: #60a5fa;
+    background: color-mix(in srgb, var(--info) 15%, transparent);
+    border-color: color-mix(in srgb, var(--info) 40%, var(--border) 60%);
+    color: var(--info);
   }
 
   /* Pending prefix indicator */
@@ -252,17 +252,17 @@
   }
 
   .prefix-chip[data-color="warning"] {
-    background: color-mix(in srgb, #fbbf24 15%, transparent);
-    border-color: color-mix(in srgb, #fbbf24 50%, var(--border) 50%);
-    color: #fbbf24;
+    background: color-mix(in srgb, var(--warning) 15%, transparent);
+    border-color: color-mix(in srgb, var(--warning) 50%, var(--border) 50%);
+    color: var(--warning);
   }
 
   .prefix-key {
     font-size: 0.7rem;
     font-weight: 700;
     padding: 0.1rem 0.25rem;
-    background: color-mix(in srgb, #fbbf24 25%, transparent);
-    border: 1px solid color-mix(in srgb, #fbbf24 40%, var(--border) 60%);
+    background: color-mix(in srgb, var(--warning) 25%, transparent);
+    border: 1px solid color-mix(in srgb, var(--warning) 40%, var(--border) 60%);
     font-family: ui-monospace, 'Fira Code', 'Cascadia Code', Menlo, Monaco, Consolas, monospace;
   }
 
@@ -273,8 +273,8 @@
   }
 
   @keyframes pulse-border {
-    0%, 100% { border-color: color-mix(in srgb, #fbbf24 50%, var(--border) 50%); }
-    50% { border-color: #fbbf24; }
+    0%, 100% { border-color: color-mix(in srgb, var(--warning) 50%, var(--border) 50%); }
+    50% { border-color: var(--warning); }
   }
 
   @keyframes blink {

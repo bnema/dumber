@@ -533,7 +533,7 @@
 
   .modal-icon {
     font-size: 1rem;
-    color: #fbbf24;
+    color: var(--warning);
   }
 
   .modal-title {
@@ -599,13 +599,13 @@
   }
 
   .modal-btn-confirm {
-    color: #fef2f2;
-    background: #b91c1c;
-    border-color: #991b1b;
+    color: var(--destructive-foreground);
+    background: var(--destructive);
+    border-color: color-mix(in srgb, var(--destructive) 80%, black 20%);
   }
 
   .modal-btn-confirm:hover {
-    background: #dc2626;
+    background: color-mix(in srgb, var(--destructive) 85%, white 15%);
   }
 
   /* Responsive */
