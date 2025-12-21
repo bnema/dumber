@@ -47,6 +47,18 @@ func (g *WebUIConfigGateway) SaveWebUIConfig(ctx context.Context, cfg port.WebUI
 	}
 	current.DefaultUIScale = cfg.DefaultUIScale
 	current.DefaultSearchEngine = cfg.DefaultSearchEngine
+	if len(cfg.SearchShortcuts) == 0 {
+		current.SearchShortcuts = nil
+	} else {
+		shortcuts := make(map[string]SearchShortcut, len(cfg.SearchShortcuts))
+		for key, shortcut := range cfg.SearchShortcuts {
+			shortcuts[key] = SearchShortcut{
+				URL:         shortcut.URL,
+				Description: shortcut.Description,
+			}
+		}
+		current.SearchShortcuts = shortcuts
+	}
 
 	return g.mgr.Save(current)
 }

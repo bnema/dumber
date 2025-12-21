@@ -36,6 +36,18 @@ func normalizeWebUIConfig(cfg port.WebUIConfig) port.WebUIConfig {
 	cfg.Appearance.MonospaceFont = strings.TrimSpace(cfg.Appearance.MonospaceFont)
 	cfg.Appearance.ColorScheme = strings.TrimSpace(cfg.Appearance.ColorScheme)
 	cfg.DefaultSearchEngine = strings.TrimSpace(cfg.DefaultSearchEngine)
+	if len(cfg.SearchShortcuts) > 0 {
+		normalized := make(map[string]port.SearchShortcut, len(cfg.SearchShortcuts))
+		for key, shortcut := range cfg.SearchShortcuts {
+			trimmedKey := strings.TrimSpace(key)
+			shortcut.URL = strings.TrimSpace(shortcut.URL)
+			shortcut.Description = strings.TrimSpace(shortcut.Description)
+			if trimmedKey != "" {
+				normalized[trimmedKey] = shortcut
+			}
+		}
+		cfg.SearchShortcuts = normalized
+	}
 	return cfg
 }
 
@@ -57,6 +69,18 @@ func validateWebUIConfig(cfg port.WebUIConfig) error {
 		errs = append(errs, "default_search_engine cannot be empty")
 	} else if !strings.Contains(cfg.DefaultSearchEngine, "%s") {
 		errs = append(errs, "default_search_engine must contain %s placeholder for the search query")
+	}
+
+	for key, shortcut := range cfg.SearchShortcuts {
+		for _, err := range validation.ValidateShortcutKey(key) {
+			errs = append(errs, fmt.Sprintf("search_shortcuts.%s: %s", key, err))
+		}
+		for _, err := range validation.ValidateShortcutURL(shortcut.URL) {
+			errs = append(errs, fmt.Sprintf("search_shortcuts.%s.url: %s", key, err))
+		}
+		for _, err := range validation.ValidateShortcutDescription(shortcut.Description) {
+			errs = append(errs, fmt.Sprintf("search_shortcuts.%s.description: %s", key, err))
+		}
 	}
 
 	switch cfg.Appearance.ColorScheme {

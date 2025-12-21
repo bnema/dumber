@@ -7,6 +7,7 @@ type WebUIConfig struct {
 	Appearance          WebUIAppearanceConfig `json:"appearance"`
 	DefaultUIScale      float64               `json:"default_ui_scale"`
 	DefaultSearchEngine string                `json:"default_search_engine"`
+	SearchShortcuts     map[string]SearchShortcut `json:"search_shortcuts"`
 }
 
 type WebUIAppearanceConfig struct {
@@ -27,6 +28,11 @@ type ColorPalette struct {
 	Muted          string `json:"muted"`
 	Accent         string `json:"accent"`
 	Border         string `json:"border"`
+}
+
+type SearchShortcut struct {
+	URL         string `json:"url"`
+	Description string `json:"description"`
 }
 
 // WebUIConfigSaver persists WebUI configuration changes.
