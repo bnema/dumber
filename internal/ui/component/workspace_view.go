@@ -44,9 +44,8 @@ type WorkspaceView struct {
 	findBarPaneID entity.PaneID // Which pane has the find bar
 	findBarCfg    FindBarConfig // Stored config for creating find bars
 
-	workspace    *entity.Workspace
-	paneViews    map[entity.PaneID]*PaneView
-	activePaneID entity.PaneID
+	workspace *entity.Workspace
+	paneViews map[entity.PaneID]*PaneView
 
 	onPaneFocused func(paneID entity.PaneID)
 
@@ -185,19 +184,22 @@ func (wv *WorkspaceView) SetActivePaneID(paneID entity.PaneID) error {
 }
 
 // setActivePaneIDInternal updates active pane without locking.
+// Updates the domain model as the single source of truth.
 func (wv *WorkspaceView) setActivePaneIDInternal(paneID entity.PaneID) error {
+	currentActiveID := wv.getActivePaneIDInternal()
+
 	// Destroy omnibox if active pane is changing
-	if wv.activePaneID != paneID && wv.omnibox != nil {
+	if currentActiveID != paneID && wv.omnibox != nil {
 		wv.hideOmniboxInternal()
 	}
 	// Destroy find bar if active pane is changing
-	if wv.activePaneID != paneID && wv.findBar != nil {
+	if currentActiveID != paneID && wv.findBar != nil {
 		wv.hideFindBarInternal()
 	}
 
 	// Deactivate current active pane
-	if wv.activePaneID != "" {
-		if oldPV, ok := wv.paneViews[wv.activePaneID]; ok {
+	if currentActiveID != "" {
+		if oldPV, ok := wv.paneViews[currentActiveID]; ok {
 			oldPV.SetActive(false)
 		}
 	}
@@ -209,17 +211,31 @@ func (wv *WorkspaceView) setActivePaneIDInternal(paneID entity.PaneID) error {
 	}
 
 	newPV.SetActive(true)
-	wv.activePaneID = paneID
+
+	// Update domain model - single source of truth
+	if wv.workspace != nil {
+		wv.workspace.ActivePaneID = paneID
+	}
 
 	return nil
 }
 
 // GetActivePaneID returns the ID of the currently active pane.
+// Reads from the domain model as the single source of truth.
 func (wv *WorkspaceView) GetActivePaneID() entity.PaneID {
 	wv.mu.RLock()
 	defer wv.mu.RUnlock()
 
-	return wv.activePaneID
+	return wv.getActivePaneIDInternal()
+}
+
+// getActivePaneIDInternal returns the active pane ID without locking.
+// Must be called with at least a read lock held.
+func (wv *WorkspaceView) getActivePaneIDInternal() entity.PaneID {
+	if wv.workspace == nil {
+		return ""
+	}
+	return wv.workspace.ActivePaneID
 }
 
 // GetPaneView returns the PaneView for a given pane ID.
@@ -469,9 +485,10 @@ func (wv *WorkspaceView) ShowOmnibox(ctx context.Context, query string) {
 	}
 
 	// Get the active pane view
-	pv := wv.paneViews[wv.activePaneID]
+	activePaneID := wv.getActivePaneIDInternal()
+	pv := wv.paneViews[activePaneID]
 	if pv == nil {
-		wv.logger.Warn().Str("paneID", string(wv.activePaneID)).Msg("cannot show omnibox: active pane not found")
+		wv.logger.Warn().Str("paneID", string(activePaneID)).Msg("cannot show omnibox: active pane not found")
 		return
 	}
 
@@ -502,12 +519,12 @@ func (wv *WorkspaceView) ShowOmnibox(ctx context.Context, query string) {
 	// Store references
 	wv.omnibox = omnibox
 	wv.omniboxWidget = omniboxWidget
-	wv.omniboxPaneID = wv.activePaneID
+	wv.omniboxPaneID = activePaneID
 
 	// Show the omnibox
 	omnibox.Show(ctx, query)
 
-	wv.logger.Debug().Str("paneID", string(wv.activePaneID)).Msg("omnibox shown")
+	wv.logger.Debug().Str("paneID", string(activePaneID)).Msg("omnibox shown")
 }
 
 // HideOmnibox hides and destroys the current omnibox.
@@ -551,9 +568,10 @@ func (wv *WorkspaceView) ShowFindBar(ctx context.Context) {
 		return
 	}
 
-	pv := wv.paneViews[wv.activePaneID]
+	activePaneID := wv.getActivePaneIDInternal()
+	pv := wv.paneViews[activePaneID]
 	if pv == nil {
-		wv.logger.Warn().Str("paneID", string(wv.activePaneID)).Msg("cannot show find bar: active pane not found")
+		wv.logger.Warn().Str("paneID", string(activePaneID)).Msg("cannot show find bar: active pane not found")
 		return
 	}
 
@@ -576,17 +594,17 @@ func (wv *WorkspaceView) ShowFindBar(ctx context.Context) {
 	pv.AddOverlayWidget(findBarWidget)
 
 	if cfg.GetFindController != nil {
-		controller := cfg.GetFindController(wv.activePaneID)
+		controller := cfg.GetFindController(activePaneID)
 		findBar.SetFindController(controller)
 	}
 
 	wv.findBar = findBar
 	wv.findBarWidget = findBarWidget
-	wv.findBarPaneID = wv.activePaneID
+	wv.findBarPaneID = activePaneID
 
 	findBar.Show()
 
-	wv.logger.Debug().Str("paneID", string(wv.activePaneID)).Msg("find bar shown")
+	wv.logger.Debug().Str("paneID", string(activePaneID)).Msg("find bar shown")
 }
 
 // HideFindBar hides and destroys the current find bar.
@@ -663,5 +681,5 @@ func (wv *WorkspaceView) IsOmniboxVisible() bool {
 func (wv *WorkspaceView) GetActivePaneView() *PaneView {
 	wv.mu.RLock()
 	defer wv.mu.RUnlock()
-	return wv.paneViews[wv.activePaneID]
+	return wv.paneViews[wv.getActivePaneIDInternal()]
 }

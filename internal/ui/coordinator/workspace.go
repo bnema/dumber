@@ -266,10 +266,20 @@ func (c *WorkspaceCoordinator) doIncrementalStackSplit(
 		oldPaneView.SetActive(false)
 	}
 
-	// 2. Unparent the existing stack widget from the workspace container
-	// Clear rootWidget ref first so SetRootWidgetDirect won't double-remove
-	wsView.ClearRootWidgetRef()
-	wsView.Container().Remove(existingStackWidget)
+	// 2. Determine if this is a root split or non-root split
+	// The grandparent of the new split node tells us where the stack currently sits
+	grandparentNode := output.ParentNode.Parent
+	isRootSplit := grandparentNode == nil
+
+	log.Debug().
+		Bool("is_root_split", isRootSplit).
+		Str("grandparent_id", func() string {
+			if grandparentNode != nil {
+				return grandparentNode.ID
+			}
+			return nilString
+		}()).
+		Msg("stack split: determined split type")
 
 	// 3. Create new PaneView for the new pane (without WebView - will attach later)
 	newPaneView := component.NewPaneView(factory, output.NewPaneNode.Pane.ID, nil)
@@ -279,34 +289,94 @@ func (c *WorkspaceCoordinator) doIncrementalStackSplit(
 	newStackedView := layout.NewStackedView(factory)
 	newStackedView.AddPane(ctx, output.NewPaneNode.Pane.Title, "", newPaneView.Widget())
 
-	// 5. Create a SplitView with the appropriate orientation and child placement
-	var splitView *layout.SplitView
-	if direction == usecase.SplitLeft {
-		// New pane goes on the left, existing stack on the right
-		splitView = layout.NewSplitView(ctx, factory, layout.OrientationHorizontal,
-			newStackedView.Widget(), existingStackWidget, output.SplitRatio)
+	tr := wsView.TreeRenderer()
+
+	// 5. Handle root vs non-root split differently
+	if isRootSplit {
+		// Root split: stack is direct child of container
+		wsView.ClearRootWidgetRef()
+		wsView.Container().Remove(existingStackWidget)
+
+		// Create a SplitView with the appropriate orientation and child placement
+		var splitView *layout.SplitView
+		if direction == usecase.SplitLeft {
+			splitView = layout.NewSplitView(ctx, factory, layout.OrientationHorizontal,
+				newStackedView.Widget(), existingStackWidget, output.SplitRatio)
+		} else {
+			splitView = layout.NewSplitView(ctx, factory, layout.OrientationHorizontal,
+				existingStackWidget, newStackedView.Widget(), output.SplitRatio)
+		}
+
+		wsView.SetRootWidgetDirect(splitView.Widget())
+
+		if tr != nil {
+			tr.RegisterWidget(output.ParentNode.ID, splitView.Widget())
+		}
 	} else {
-		// New pane goes on the right, existing stack on the left (SplitRight)
-		splitView = layout.NewSplitView(ctx, factory, layout.OrientationHorizontal,
-			existingStackWidget, newStackedView.Widget(), output.SplitRatio)
+		// Non-root split: stack is inside another split, need to replace in grandparent
+		if tr == nil {
+			return fmt.Errorf("tree renderer not available for non-root stack split")
+		}
+
+		grandparentWidget := tr.Lookup(grandparentNode.ID)
+		if grandparentWidget == nil {
+			log.Warn().Str("grandparent_id", grandparentNode.ID).Msg("grandparent widget not found")
+			return fmt.Errorf("grandparent widget not found")
+		}
+
+		panedWidget, ok := grandparentWidget.(layout.PanedWidget)
+		if !ok {
+			log.Warn().Msg("grandparent widget is not a PanedWidget")
+			return fmt.Errorf("grandparent is not a PanedWidget")
+		}
+
+		// Determine if the stack's parent (the new split node) is start or end child
+		isStartChild := grandparentNode.Left() == output.ParentNode
+
+		log.Debug().
+			Bool("is_start_child", isStartChild).
+			Msg("stack split: determined position in grandparent")
+
+		// Clear the position first to unparent the stack widget
+		if isStartChild {
+			panedWidget.SetStartChild(nil)
+		} else {
+			panedWidget.SetEndChild(nil)
+		}
+
+		// Create the new split view
+		var splitView *layout.SplitView
+		if direction == usecase.SplitLeft {
+			splitView = layout.NewSplitView(ctx, factory, layout.OrientationHorizontal,
+				newStackedView.Widget(), existingStackWidget, output.SplitRatio)
+		} else {
+			splitView = layout.NewSplitView(ctx, factory, layout.OrientationHorizontal,
+				existingStackWidget, newStackedView.Widget(), output.SplitRatio)
+		}
+
+		// Put the new split view in the grandparent's slot
+		if isStartChild {
+			panedWidget.SetStartChild(splitView.Widget())
+		} else {
+			panedWidget.SetEndChild(splitView.Widget())
+		}
+
+		tr.RegisterWidget(output.ParentNode.ID, splitView.Widget())
+
+		log.Debug().
+			Bool("was_start_child", isStartChild).
+			Msg("stack split: replaced stack in grandparent with new split view")
 	}
 
-	// 6. Replace the root widget in the workspace view
-	wsView.SetRootWidgetDirect(splitView.Widget())
-
-	// 7. Register the new pane in tracking maps and activate it
+	// 6. Register the new pane in tracking maps and activate it
 	wsView.RegisterPaneView(output.NewPaneNode.Pane.ID, newPaneView)
 	newPaneView.SetActive(true)
 
-	tr := wsView.TreeRenderer()
 	if tr != nil {
-		// Register the new pane's StackedView mapping
 		tr.RegisterPaneInStack(string(output.NewPaneNode.Pane.ID), newStackedView)
-		// Register the split node widget
-		tr.RegisterWidget(output.ParentNode.ID, splitView.Widget())
 	}
 
-	// 8. Attach WebView only for the new pane
+	// 7. Attach WebView only for the new pane
 	wv, err := c.contentCoord.EnsureWebView(ctx, output.NewPaneNode.Pane.ID)
 	if err != nil {
 		log.Warn().Err(err).Str("pane_id", string(output.NewPaneNode.Pane.ID)).Msg("failed to ensure webview for new pane")
