@@ -1,6 +1,6 @@
 # Makefile for dumber (Clean Architecture - puregotk)
 
-.PHONY: build build-frontend test lint clean install-tools dev generate help init
+.PHONY: build build-frontend test lint clean install-tools dev generate help init check-docs
 
 # Load local overrides from .env.local if present (Makefile syntax)
 ifneq (,$(wildcard .env.local))
@@ -70,6 +70,9 @@ mocks: ## Generate mock implementations with mockery
 test: ## Run tests
 	@echo "Running tests..."
 	go test -v ./...
+
+check-docs: ## Verify README/docs match code
+	@go run ./dev/check-docs.go --fail-on-error
 
 test-race: ## Run tests with race detection
 	@echo "Running tests with race detection..."

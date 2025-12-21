@@ -14,10 +14,10 @@ A dumb browser that works like your favorite terminal multiplexer.
 ## Features
 - **Wayland native**: No X11/XWayland dependency, works with Sway, Hyprland, River, Niri, etc.
 - **Tabs and workspaces**: Each tab holds a workspace with split or stacked panes.
-- **Keyboard-driven**: Complete keyboard workflow inspired by Zellij.
+- **Keyboard-driven**: Keyboard workflow inspired by Zellij.
 - **Smart popup handling**: OAuth flows, window.open(), and popup deduplication for tiling WMs.
 - **GPU rendering**: Hardware video acceleration with automatic VA-API/VDPAU detection.
-- **Built-in ad blocking**: UBlock-based network filtering (cosmetic filtering in progress).
+- **Built-in ad blocking**: UBlock-based network + cosmetic filtering.
 - **Launcher integration**: dmenu-style with rofi/fuzzel support, shows favicons and history.
 - **Search shortcuts**: Quick search via bangs (e.g., `!g golang` for Google, `!gi cats` for Google Images).
 - **Customizable themes**: Light and dark palettes with semantic color tokens.
@@ -25,6 +25,10 @@ A dumb browser that works like your favorite terminal multiplexer.
 - **Live configuration**: Single config file with hot reload when possible.
 
 ## Status
+Dumber recently completed a full rewrite in pure Go using the `puregotk` and `puregotk-webkit` libraries.
+
+The project is now structured around clean architecture, which makes it much easier to iterate on features and improve testability.
+
 Early development with regular releases. Core features work well for daily use but expect some rough edges.
 
 ## Controls & Shortcuts
@@ -58,7 +62,6 @@ Early development with regular releases. Core features work well for daily use b
 | **X** (in tab mode) | Close Tab | Close current tab |
 | **L** / **Tab** (in tab mode) | Next Tab | Navigate to next tab |
 | **H** / **Shift+Tab** (in tab mode) | Previous Tab | Navigate to previous tab |
-| **R** (in tab mode) | Rename Tab | Rename current tab |
 | **Escape** (in tab mode) | Exit Tab Mode | Return to normal navigation |
 
 #### Pane Management
@@ -124,15 +127,15 @@ Prerequisites:
   - Verify your system with: `dumber doctor` (or configure `runtime.prefix` for `/opt` installs)
 
 Build options:
-- GUI (default, recommended):
-  - `make build`          # builds frontend + Go with `-tags=webkit_cgo`
-  - Run: `./dist/dumber`  # to see all available commands.
-- CLI‑only (no GUI, CGO disabled):
-  - `make build-no-gui`
-  - Run: `./dist/dumber-no-gui version`
+- Default (recommended):
+  - `make build`          # builds frontend + Go (pure Go; CGO off)
+  - Run: `./dist/dumber`  # run the app
+- Quick (no frontend rebuild):
+  - `make build-quick`
+  - Run: `./dist/dumber`
 
 Development:
-- `make dev` runs `go run .` (non‑CGO; GUI stubs log to console)
+- `make dev` runs `go run ./cmd/dumber`
 - `make test` runs tests; `make lint` runs golangci‑lint
 
 ## Install
@@ -171,7 +174,7 @@ sudo pacman -S gst-plugin-va
 
 **Debian/Ubuntu:**
 
-> ⚠️ **Note:** Ubuntu 24.04 LTS ships with glib 2.80, but this project requires glib 2.84+ due to gotk4 bindings. Use Arch Linux, Fedora 41+, or another distribution with recent glib packages.
+> ⚠️ **Note:** Ubuntu 24.04 LTS ships with GLib 2.80, but this project requires GLib 2.84+ due to newer GTK/WebKitGTK runtime requirements. Use Arch Linux, Fedora 41+, or another distribution with recent GLib packages.
 
 ```bash
 # Core WebKitGTK and GTK4
@@ -210,10 +213,10 @@ sudo apt install va-driver-all
 - Open a URL or search:
   - `dumber browse https://example.com`
   - `dumber browse example.com`        # scheme auto‑added
-  - `dumber browse dumb://home`        # built-in homepage with stats
+  - `dumber browse dumb://home`        # built-in home page (stats, shortcuts, etc.)
   - `dumber browse "!g golang"`         # Google search via bang shortcut
 - Show version information:
-  - `dumber version`                   # display version, commit, and build date
+  - `dumber about`                     # display version, commit, and build date
 - Launcher integration (dmenu‑style examples with favicon support):
   - rofi:   `dumber dmenu | rofi -dmenu -show-icons -p "🔍 " | dumber dmenu --select`
   - fuzzel: `dumber dmenu | fuzzel --dmenu -p "🔍 " | dumber dmenu --select`
@@ -241,7 +244,9 @@ You can invoke dmenu mode in two ways:
 
 Note: The root flag path only generates options; for processing a selection (`--select`), use the `dmenu` subcommand as the receiving command.
 
-In GUI mode the app serves an embedded homepage via `dumb://homepage`, and frontend assets under `dumb://app/...`.
+In GUI mode the app serves an embedded home page via `dumb://home`, and frontend assets under `dumb://app/...`.
+
+There is also a WIP config UI at `dumb://config` for viewing/applying settings with live reload.
 
 ## Tab Management
 
@@ -252,7 +257,6 @@ Each tab holds its own workspace. Each workspace can contain multiple panes (spl
 2. **Create/Close Tabs**: Use keyboard shortcuts:
    - `N` or `C` - New tab
    - `X` - Close current tab
-   - `R` - Rename tab
 3. **Navigate**: Use `Ctrl+Tab` / `Ctrl+Shift+Tab` for quick tab switching, or `L`/`H` in tab mode
 4. **Exit**: Press `Escape` to exit tab mode or wait for timeout
 
@@ -283,13 +287,11 @@ A default config is created on first run. Changes are applied automatically (hot
 
 
 ## Building With WebKitGTK 6 (GTK4)
-- The GUI requires building with `-tags=webkit_cgo` and CGO enabled.
-- Ensure WebKitGTK 6 and GTK4 dev headers are installed (see prerequisites).
-- Make targets handle both frontend and Go build steps:
-  - `make build-gui` (CGO enabled)
-  - `make build` (CGO enabled by default in the Makefile’s main build)
-
-Without the native tag, a stub backend is used: you can still run CLI flows and see logs, but no native window is displayed.
+- Dumber uses pure-Go bindings (no CGO).
+- You still need the system GTK4/WebKitGTK runtime libraries installed to run the GUI.
+- Build targets:
+  - `make build` (builds frontend + binary)
+  - `make build-quick` (binary only; skips frontend build)
 
 ## Media (GStreamer) & Hardware Acceleration
 
@@ -311,22 +313,13 @@ WebKitGTK uses GStreamer for media playback. Dumber includes automatic hardware 
   - Hardware decoding: `gstreamer1.0-plugins-bad` includes VA stateless decoders
   - VA-API drivers: `va-driver-all` (covers most GPUs)
 
+## References
+- puregotk: https://github.com/jwijenbergh/puregotk
+- puregotk-webkit: https://github.com/bnema/puregotk-webkit
+- ublock-webkit-filters (filter list releases): https://github.com/bnema/ublock-webkit-filters
+
 ## Contribute
 I will gladly accept contributions, especially related to UI/UX enhancements. Feel free to open an issue and let's discuss it!
-
-## Security & Privacy
-- History and zoom settings are stored locally in SQLite under XDG state.
-- The `tmp/` directory is ignored by Git and kept out of history.
-
-## Roadmap
-- ✅ WebKitGTK 6 (GTK4) migration (GPU/Vulkan path complete)
-- ✅ GPU rendering (Vulkan via GTK4 renderer) with graceful CPU fallback
-- ✅ Modal pane management with binary tree layout and keyboard-driven workflow
-- ✅ Tab management system with modal controls
-- 🚧 UBlock-based content filtering (early stage - network blocking works, cosmetic filtering needs work)
-- Full Vim-style motion and keyboard navigation across pages and UI
-- Performance work: faster startup, lower memory, snappier UI
-- Other shiny things I'm not yet aware of
 
 ## License
 This project is licensed under the MIT License. See `LICENSE` for details.

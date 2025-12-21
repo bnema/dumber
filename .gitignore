@@ -70,6 +70,7 @@ node_modules/
 
 
 # Development/tooling files
+dev/docs-report.txt
 CLAUDE.md
 CLAUDE.local.md
 .claude/

@@ -266,7 +266,6 @@ cancel = ["escape"]
 | `workspace.styling.tab_mode_border_width` | int | `4` | Tab mode border width (px) - Ctrl+P T overlay |
 | `workspace.styling.tab_mode_border_color` | string | `"#FFA500"` | Tab mode border color (orange) |
 | `workspace.styling.transition_duration` | int | `120` | Border transition duration (ms) |
-| `workspace.styling.ui_scale` | float | `1.0` | UI scale multiplier (1.0 = 100%, 1.2 = 120%) |
 
 ## Media
 
@@ -318,35 +317,11 @@ prefix = "/opt/webkitgtk"
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `content_filtering.enabled` | bool | `true` | Enable ad blocking |
-| `content_filtering.filter_lists` | array | See below | Filter list URLs to use |
+| `content_filtering.auto_update` | bool | `true` | Automatically update filters |
 
-> **Note:** Domain whitelist is managed via the database (`content_whitelist` table), not the config file.
-
-**Default filter lists:**
-```toml
-[content_filtering]
-filter_lists = [
-  # Core blocking
-  "https://easylist.to/easylist/easylist.txt",           # Ads
-  "https://easylist.to/easylist/easyprivacy.txt",        # Tracking
-  # uBlock extras
-  "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt",    # uBO optimizations
-  "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/annoyances.txt", # Cookie banners, popups
-  "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/quick-fixes.txt" # Site fixes
-]
-```
-
-**Custom filter lists example:**
-```toml
-[content_filtering]
-filter_lists = [
-  # Minimal setup
-  "https://easylist.to/easylist/easylist.txt",
-  "https://easylist.to/easylist/easyprivacy.txt",
-  # Regional list
-  "https://easylist-downloads.adblockplus.org/liste_fr.txt"
-]
-```
+Notes:
+- Filter data is downloaded from `bnema/ublock-webkit-filters` GitHub releases.
+- Domain whitelist is managed via the database (`content_whitelist` table), not the config file.
 
 ## Environment Variables
 
