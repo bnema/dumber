@@ -115,6 +115,114 @@ type WebView struct {
 
 	// asyncCallbacks keeps references to async JS callbacks to prevent GC
 	asyncCallbacks []interface{}
+
+	// findController is cached to prevent GC from collecting the Go wrapper
+	findController     *findControllerAdapter
+	findControllerOnce sync.Once
+}
+
+type findControllerAdapter struct {
+	fc *webkit.FindController
+}
+
+func (a *findControllerAdapter) Search(text string, opts port.FindOptions, maxMatches uint) {
+	if a == nil || a.fc == nil {
+		return
+	}
+	var flags uint32
+	if opts.WrapAround {
+		flags |= uint32(webkit.FindOptionsWrapAroundValue)
+	}
+	if opts.CaseInsensitive {
+		flags |= uint32(webkit.FindOptionsCaseInsensitiveValue)
+	}
+	if opts.AtWordStarts {
+		flags |= uint32(webkit.FindOptionsAtWordStartsValue)
+	}
+	a.fc.Search(text, flags, maxMatches)
+}
+
+func (a *findControllerAdapter) CountMatches(text string, opts port.FindOptions, maxMatches uint) {
+	if a == nil || a.fc == nil {
+		return
+	}
+	var flags uint32
+	if opts.WrapAround {
+		flags |= uint32(webkit.FindOptionsWrapAroundValue)
+	}
+	if opts.CaseInsensitive {
+		flags |= uint32(webkit.FindOptionsCaseInsensitiveValue)
+	}
+	if opts.AtWordStarts {
+		flags |= uint32(webkit.FindOptionsAtWordStartsValue)
+	}
+	a.fc.CountMatches(text, flags, maxMatches)
+}
+
+func (a *findControllerAdapter) SearchNext() {
+	if a == nil || a.fc == nil {
+		return
+	}
+	a.fc.SearchNext()
+}
+
+func (a *findControllerAdapter) SearchPrevious() {
+	if a == nil || a.fc == nil {
+		return
+	}
+	a.fc.SearchPrevious()
+}
+
+func (a *findControllerAdapter) SearchFinish() {
+	if a == nil || a.fc == nil {
+		return
+	}
+	a.fc.SearchFinish()
+}
+
+func (a *findControllerAdapter) GetSearchText() string {
+	if a == nil || a.fc == nil {
+		return ""
+	}
+	return a.fc.GetSearchText()
+}
+
+func (a *findControllerAdapter) OnFoundText(callback func(matchCount uint)) uint32 {
+	if a == nil || a.fc == nil || callback == nil {
+		return 0
+	}
+	cb := func(_ webkit.FindController, matchCount uint) {
+		callback(matchCount)
+	}
+	return a.fc.ConnectFoundText(&cb)
+}
+
+func (a *findControllerAdapter) OnFailedToFindText(callback func()) uint32 {
+	if a == nil || a.fc == nil || callback == nil {
+		return 0
+	}
+	cb := func(_ webkit.FindController) {
+		callback()
+	}
+	return a.fc.ConnectFailedToFindText(&cb)
+}
+
+func (a *findControllerAdapter) OnCountedMatches(callback func(matchCount uint)) uint32 {
+	if a == nil || a.fc == nil || callback == nil {
+		return 0
+	}
+	cb := func(_ webkit.FindController, matchCount uint) {
+		callback(matchCount)
+	}
+	return a.fc.ConnectCountedMatches(&cb)
+}
+
+func (a *findControllerAdapter) DisconnectSignal(id uint32) {
+	if a == nil || a.fc == nil || id == 0 {
+		return
+	}
+	obj := gobject.ObjectNewFromInternalPtr(a.fc.GoPointer())
+	gobject.SignalHandlerDisconnect(obj, id)
 }
 
 // NewWebView creates a new WebView with the given context and settings.
@@ -419,6 +527,23 @@ func (wv *WebView) UserContentManager() *webkit.UserContentManager {
 // Widget returns the underlying webkit.WebView for GTK embedding.
 func (wv *WebView) Widget() *webkit.WebView {
 	return wv.inner
+}
+
+// GetFindController returns the WebKit FindController wrapped in the port interface.
+// The adapter is cached to prevent the Go wrapper from being garbage collected.
+func (wv *WebView) GetFindController() port.FindController {
+	if wv == nil || wv.inner == nil {
+		return nil
+	}
+
+	wv.findControllerOnce.Do(func() {
+		fc := wv.inner.GetFindController()
+		if fc != nil {
+			wv.findController = &findControllerAdapter{fc: fc}
+		}
+	})
+
+	return wv.findController
 }
 
 // LoadURI loads the given URI.

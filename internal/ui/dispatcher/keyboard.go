@@ -14,12 +14,16 @@ import (
 
 // KeyboardDispatcher routes keyboard actions to appropriate coordinators.
 type KeyboardDispatcher struct {
-	tabCoord  *coordinator.TabCoordinator
-	wsCoord   *coordinator.WorkspaceCoordinator
-	navCoord  *coordinator.NavigationCoordinator
-	zoomUC    *usecase.ManageZoomUseCase
-	copyURLUC *usecase.CopyURLUseCase
-	onQuit    func()
+	tabCoord    *coordinator.TabCoordinator
+	wsCoord     *coordinator.WorkspaceCoordinator
+	navCoord    *coordinator.NavigationCoordinator
+	zoomUC      *usecase.ManageZoomUseCase
+	copyURLUC   *usecase.CopyURLUseCase
+	onQuit      func()
+	onFindOpen  func(ctx context.Context) error
+	onFindNext  func(ctx context.Context) error
+	onFindPrev  func(ctx context.Context) error
+	onFindClose func(ctx context.Context) error
 }
 
 // NewKeyboardDispatcher creates a new KeyboardDispatcher.
@@ -46,6 +50,26 @@ func NewKeyboardDispatcher(
 // SetOnQuit sets the callback for quit action.
 func (d *KeyboardDispatcher) SetOnQuit(fn func()) {
 	d.onQuit = fn
+}
+
+// SetOnFindOpen sets the callback for opening the find bar.
+func (d *KeyboardDispatcher) SetOnFindOpen(fn func(ctx context.Context) error) {
+	d.onFindOpen = fn
+}
+
+// SetOnFindNext sets the callback for the next match action.
+func (d *KeyboardDispatcher) SetOnFindNext(fn func(ctx context.Context) error) {
+	d.onFindNext = fn
+}
+
+// SetOnFindPrev sets the callback for the previous match action.
+func (d *KeyboardDispatcher) SetOnFindPrev(fn func(ctx context.Context) error) {
+	d.onFindPrev = fn
+}
+
+// SetOnFindClose sets the callback for closing the find bar.
+func (d *KeyboardDispatcher) SetOnFindClose(fn func(ctx context.Context) error) {
+	d.onFindClose = fn
 }
 
 // Dispatch routes a keyboard action to the appropriate coordinator.
@@ -138,6 +162,26 @@ func (d *KeyboardDispatcher) Dispatch(ctx context.Context, action input.Action) 
 	// UI
 	case input.ActionOpenOmnibox:
 		return d.navCoord.OpenOmnibox(ctx)
+	case input.ActionOpenFind:
+		if d.onFindOpen != nil {
+			return d.onFindOpen(ctx)
+		}
+		log.Debug().Msg("find open action (no handler)")
+	case input.ActionFindNext:
+		if d.onFindNext != nil {
+			return d.onFindNext(ctx)
+		}
+		log.Debug().Msg("find next action (no handler)")
+	case input.ActionFindPrev:
+		if d.onFindPrev != nil {
+			return d.onFindPrev(ctx)
+		}
+		log.Debug().Msg("find prev action (no handler)")
+	case input.ActionCloseFind:
+		if d.onFindClose != nil {
+			return d.onFindClose(ctx)
+		}
+		log.Debug().Msg("find close action (no handler)")
 	case input.ActionOpenDevTools:
 		return d.navCoord.OpenDevTools(ctx)
 	case input.ActionToggleFullscreen:

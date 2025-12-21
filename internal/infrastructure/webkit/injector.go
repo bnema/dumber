@@ -91,6 +91,7 @@ const darkModeScript = `(function() {
 type ContentInjector struct {
 	prefersDark  bool
 	themeCSSVars string // CSS custom property declarations for WebUI
+	findCSS      string // CSS for find-in-page highlight styling
 }
 
 // NewContentInjector creates a new injector instance.
@@ -108,6 +109,14 @@ func (ci *ContentInjector) InjectThemeCSS(ctx context.Context, css string) error
 	log := logging.FromContext(ctx).With().Str("component", "content-injector").Logger()
 	ci.themeCSSVars = css
 	log.Debug().Int("css_len", len(css)).Msg("theme CSS vars set for injection")
+	return nil
+}
+
+// InjectFindHighlightCSS stores CSS for find-in-page highlight styling.
+func (ci *ContentInjector) InjectFindHighlightCSS(ctx context.Context, css string) error {
+	log := logging.FromContext(ctx).With().Str("component", "content-injector").Logger()
+	ci.findCSS = css
+	log.Debug().Int("css_len", len(css)).Msg("find highlight CSS set for injection")
 	return nil
 }
 
@@ -202,6 +211,23 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 			"theme-css-vars",
 		)
 		log.Debug().Msg("theme CSS vars injection configured")
+	}
+
+	// 5. Inject find highlight CSS for all pages
+	if ci.findCSS != "" {
+		stylesheet := webkit.NewUserStyleSheet(
+			ci.findCSS,
+			webkit.UserContentInjectAllFramesValue,
+			webkit.UserStyleLevelUserValue,
+			nil,
+			nil,
+		)
+		if stylesheet == nil {
+			log.Warn().Msg("failed to create find highlight stylesheet")
+		} else {
+			ucm.AddStyleSheet(stylesheet)
+			log.Debug().Msg("find highlight stylesheet injected")
+		}
 	}
 
 	log.Debug().Bool("prefers_dark", ci.prefersDark).Msg("minimal scripts injected")

@@ -37,6 +37,12 @@ type WorkspaceView struct {
 	omniboxPaneID entity.PaneID // Which pane has the omnibox
 	omniboxCfg    OmniboxConfig // Stored config for creating omniboxes
 
+	// Find bar lifecycle
+	findBar       *FindBar      // Current find bar (nil if not shown)
+	findBarWidget layout.Widget // Wrapped find bar widget for overlay
+	findBarPaneID entity.PaneID // Which pane has the find bar
+	findBarCfg    FindBarConfig // Stored config for creating find bars
+
 	workspace    *entity.Workspace
 	paneViews    map[entity.PaneID]*PaneView
 	activePaneID entity.PaneID
@@ -180,6 +186,10 @@ func (wv *WorkspaceView) setActivePaneIDInternal(paneID entity.PaneID) error {
 	// Destroy omnibox if active pane is changing
 	if wv.activePaneID != paneID && wv.omnibox != nil {
 		wv.hideOmniboxInternal()
+	}
+	// Destroy find bar if active pane is changing
+	if wv.activePaneID != paneID && wv.findBar != nil {
+		wv.hideFindBarInternal()
 	}
 
 	// Deactivate current active pane
@@ -437,6 +447,13 @@ func (wv *WorkspaceView) SetOmniboxConfig(cfg OmniboxConfig) {
 	wv.omniboxCfg = cfg
 }
 
+// SetFindBarConfig stores the find bar configuration for later use.
+func (wv *WorkspaceView) SetFindBarConfig(cfg FindBarConfig) {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+	wv.findBarCfg = cfg
+}
+
 // ShowOmnibox creates and shows the omnibox in the active pane.
 func (wv *WorkspaceView) ShowOmnibox(ctx context.Context, query string) {
 	wv.mu.Lock()
@@ -518,6 +535,111 @@ func (wv *WorkspaceView) hideOmniboxInternal() {
 	wv.omniboxPaneID = ""
 
 	wv.logger.Debug().Msg("omnibox hidden and destroyed")
+}
+
+// ShowFindBar creates and shows the find bar in the active pane.
+func (wv *WorkspaceView) ShowFindBar(ctx context.Context) {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+
+	// If find bar already exists, just show it
+	if wv.findBar != nil {
+		wv.findBar.Show()
+		return
+	}
+
+	pv := wv.paneViews[wv.activePaneID]
+	if pv == nil {
+		wv.logger.Warn().Str("paneID", string(wv.activePaneID)).Msg("cannot show find bar: active pane not found")
+		return
+	}
+
+	cfg := wv.findBarCfg
+	cfg.OnClose = func() {
+		wv.HideFindBar()
+	}
+	findBar := NewFindBar(ctx, cfg)
+	if findBar == nil {
+		wv.logger.Error().Msg("failed to create find bar")
+		return
+	}
+
+	findBarWidget := findBar.WidgetAsLayout(wv.factory)
+	if findBarWidget == nil {
+		wv.logger.Error().Msg("failed to wrap find bar widget")
+		return
+	}
+
+	pv.AddOverlayWidget(findBarWidget)
+
+	if cfg.GetFindController != nil {
+		controller := cfg.GetFindController(wv.activePaneID)
+		findBar.SetFindController(controller)
+	}
+
+	wv.findBar = findBar
+	wv.findBarWidget = findBarWidget
+	wv.findBarPaneID = wv.activePaneID
+
+	findBar.Show()
+
+	wv.logger.Debug().Str("paneID", string(wv.activePaneID)).Msg("find bar shown")
+}
+
+// HideFindBar hides and destroys the current find bar.
+func (wv *WorkspaceView) HideFindBar() {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+
+	wv.hideFindBarInternal()
+}
+
+// FindNext triggers the next match in the find bar if available.
+func (wv *WorkspaceView) FindNext() {
+	wv.mu.RLock()
+	findBar := wv.findBar
+	wv.mu.RUnlock()
+
+	if findBar != nil {
+		findBar.FindNext()
+	}
+}
+
+// FindPrevious triggers the previous match in the find bar if available.
+func (wv *WorkspaceView) FindPrevious() {
+	wv.mu.RLock()
+	findBar := wv.findBar
+	wv.mu.RUnlock()
+
+	if findBar != nil {
+		findBar.FindPrevious()
+	}
+}
+
+// IsFindBarVisible returns whether the find bar is currently visible.
+func (wv *WorkspaceView) IsFindBarVisible() bool {
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return wv.findBar != nil && wv.findBar.IsVisible()
+}
+
+// hideFindBarInternal destroys the find bar without locking.
+func (wv *WorkspaceView) hideFindBarInternal() {
+	if wv.findBar == nil {
+		return
+	}
+
+	wv.findBar.Hide()
+
+	if pv := wv.paneViews[wv.findBarPaneID]; pv != nil && wv.findBarWidget != nil {
+		pv.RemoveOverlayWidget(wv.findBarWidget)
+	}
+
+	wv.findBar = nil
+	wv.findBarWidget = nil
+	wv.findBarPaneID = ""
+
+	wv.logger.Debug().Msg("find bar hidden and destroyed")
 }
 
 // GetOmnibox returns the current omnibox if visible.

@@ -93,6 +93,10 @@ const (
 
 	// UI
 	ActionOpenOmnibox      Action = "open_omnibox"
+	ActionOpenFind         Action = "open_find"
+	ActionFindNext         Action = "find_next"
+	ActionFindPrev         Action = "find_prev"
+	ActionCloseFind        Action = "close_find"
 	ActionOpenDevTools     Action = "open_devtools"
 	ActionToggleFullscreen Action = "toggle_fullscreen"
 
@@ -173,6 +177,11 @@ func (s *ShortcutSet) buildGlobalShortcuts(ctx context.Context, cfg *config.Work
 
 	// Standard browser shortcuts (hardcoded defaults)
 	s.Global[KeyBinding{uint(gdk.KEY_l), ModCtrl}] = ActionOpenOmnibox
+	s.Global[KeyBinding{uint(gdk.KEY_f), ModCtrl}] = ActionOpenFind
+	s.Global[KeyBinding{uint(gdk.KEY_F3), ModNone}] = ActionFindNext
+	s.Global[KeyBinding{uint(gdk.KEY_F3), ModShift}] = ActionFindPrev
+	s.Global[KeyBinding{uint(gdk.KEY_g), ModCtrl}] = ActionFindNext
+	s.Global[KeyBinding{uint(gdk.KEY_g), ModCtrl | ModShift}] = ActionFindPrev
 	s.Global[KeyBinding{uint(gdk.KEY_r), ModCtrl}] = ActionReload
 	s.Global[KeyBinding{uint(gdk.KEY_R), ModCtrl | ModShift}] = ActionHardReload
 	s.Global[KeyBinding{uint(gdk.KEY_F5), ModNone}] = ActionReload

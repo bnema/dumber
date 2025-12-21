@@ -7,6 +7,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
@@ -22,6 +23,7 @@ import (
 	"github.com/bnema/dumber/internal/ui/focus"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
+	"github.com/bnema/dumber/internal/ui/theme"
 	"github.com/bnema/dumber/internal/ui/window"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/gio"
@@ -67,6 +69,8 @@ type App struct {
 
 	// Omnibox configuration (omnibox is created per workspace view)
 	omniboxCfg component.OmniboxConfig
+	// Find bar configuration (find bar is created per workspace view)
+	findBarCfg component.FindBarConfig
 
 	// Web content (managed by ContentCoordinator)
 	pool           *webkit.WebViewPool
@@ -244,6 +248,20 @@ func (a *App) onActivate(ctx context.Context) {
 	a.navCoord.SetOmniboxProvider(a)
 	log.Debug().Msg("omnibox config stored, provider set")
 
+	// Store find bar config (find bar is created per-pane via WorkspaceView)
+	a.findBarCfg = component.FindBarConfig{
+		GetFindController: func(paneID entity.PaneID) port.FindController {
+			if a.contentCoord == nil {
+				return nil
+			}
+			wv := a.contentCoord.GetWebView(paneID)
+			if wv == nil {
+				return nil
+			}
+			return wv.GetFindController()
+		},
+	}
+
 	// Create an initial tab using coordinator
 	initialURL := "dumb://home"
 	if a.deps.InitialURL != "" {
@@ -412,6 +430,22 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.deps.CopyURLUC,
 	)
 	a.kbDispatcher.SetOnQuit(a.Quit)
+	a.kbDispatcher.SetOnFindOpen(func(ctx context.Context) error {
+		a.ToggleFindBar(ctx)
+		return nil
+	})
+	a.kbDispatcher.SetOnFindNext(func(ctx context.Context) error {
+		a.FindNext(ctx)
+		return nil
+	})
+	a.kbDispatcher.SetOnFindPrev(func(ctx context.Context) error {
+		a.FindPrevious(ctx)
+		return nil
+	})
+	a.kbDispatcher.SetOnFindClose(func(ctx context.Context) error {
+		a.CloseFindBar(ctx)
+		return nil
+	})
 
 	// Wire gesture handler to dispatcher (for mouse button 8/9 navigation)
 	a.contentCoord.SetGestureActionHandler(func(ctx context.Context, action input.Action) error {
@@ -501,6 +535,8 @@ func (a *App) createWorkspaceView(ctx context.Context, tab *entity.Tab) {
 
 	// Set omnibox config for this workspace view
 	wsView.SetOmniboxConfig(a.omniboxCfg)
+	// Set find bar config for this workspace view
+	wsView.SetFindBarConfig(a.findBarCfg)
 
 	// Store in map
 	a.workspaceViews[tab.ID] = wsView
@@ -623,6 +659,58 @@ func (a *App) ToggleOmnibox(ctx context.Context) {
 	}
 }
 
+// ToggleFindBar shows or hides the find bar in the active workspace view.
+func (a *App) ToggleFindBar(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
+	wsView := a.activeWorkspaceView()
+	if wsView == nil {
+		log.Warn().Msg("no active workspace view for find bar toggle")
+		return
+	}
+
+	if wsView.IsFindBarVisible() {
+		wsView.HideFindBar()
+	} else {
+		wsView.ShowFindBar(ctx)
+	}
+}
+
+// FindNext selects the next match in the active find bar.
+func (a *App) FindNext(ctx context.Context) {
+	wsView := a.activeWorkspaceView()
+	if wsView == nil {
+		return
+	}
+
+	if !wsView.IsFindBarVisible() {
+		wsView.ShowFindBar(ctx)
+	}
+	wsView.FindNext()
+}
+
+// FindPrevious selects the previous match in the active find bar.
+func (a *App) FindPrevious(ctx context.Context) {
+	wsView := a.activeWorkspaceView()
+	if wsView == nil {
+		return
+	}
+
+	if !wsView.IsFindBarVisible() {
+		wsView.ShowFindBar(ctx)
+	}
+	wsView.FindPrevious()
+}
+
+// CloseFindBar hides the find bar if visible.
+func (a *App) CloseFindBar(ctx context.Context) {
+	wsView := a.activeWorkspaceView()
+	if wsView == nil {
+		return
+	}
+	wsView.HideFindBar()
+}
+
 // UpdateOmniboxZoom implements OmniboxProvider.
 // Updates the zoom indicator on the current omnibox if visible.
 func (a *App) UpdateOmniboxZoom(factor float64) {
@@ -706,6 +794,10 @@ func (a *App) applyAppearanceConfig(ctx context.Context, cfg *config.Config) {
 		// Keep injector's dark-mode flag in sync for future navigations
 		if a.injector != nil {
 			a.injector.SetPrefersDark(a.deps.Theme.PrefersDark())
+			findCSS := theme.GenerateFindHighlightCSS(a.deps.Theme.GetCurrentPalette())
+			if err := a.injector.InjectFindHighlightCSS(ctx, findCSS); err != nil {
+				log.Warn().Err(err).Msg("failed to update find highlight CSS")
+			}
 		}
 
 		prepareThemeUC := usecase.NewPrepareWebUIThemeUseCase(a.injector)

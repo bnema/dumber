@@ -40,6 +40,10 @@ func GenerateCSSWithScale(p Palette, scale float64) string {
 	sb.WriteString(generateOmniboxCSS(p))
 	sb.WriteString("\n")
 
+	// Find bar styling
+	sb.WriteString(generateFindBarCSS(p))
+	sb.WriteString("\n")
+
 	// Pane styling
 	sb.WriteString(generatePaneCSS(p))
 	sb.WriteString("\n")
@@ -293,6 +297,86 @@ entry.omnibox-entry > *:focus-visible {
 	font-size: 0.6875em;
 	font-weight: 600;
 	margin-left: auto;
+}
+`
+}
+
+// generateFindBarCSS creates find bar styles.
+// Uses em units for scalable UI.
+func generateFindBarCSS(p Palette) string {
+	_ = p
+	return `/* ===== Find Bar Styling ===== */
+.find-bar-outer {
+	margin: 0.5em;
+}
+
+.find-bar-container {
+	background-color: var(--surface-variant);
+	border: 0.0625em solid var(--border);
+	border-radius: 0.25em;
+	box-shadow: 0 0.25em 0.75em alpha(black, 0.2);
+	padding: 0.5em;
+	min-width: 20em;
+}
+
+.find-bar-input-row {
+	margin-bottom: 0.25em;
+}
+
+.find-bar-entry {
+	background-color: var(--bg);
+	color: var(--text);
+	border: 0.0625em solid var(--border);
+	border-radius: 0.1875em;
+	padding: 0.4em 0.5em;
+	caret-color: var(--accent);
+}
+
+entry.find-bar-entry:focus,
+entry.find-bar-entry:focus-within,
+entry.find-bar-entry:focus-visible {
+	border-color: var(--accent);
+	outline-style: none;
+	outline-width: 0;
+	outline-color: transparent;
+}
+
+.find-bar-entry.not-found {
+	background-color: alpha(#ef4444, 0.15);
+	border-color: #ef4444;
+}
+
+.find-bar-count {
+	font-size: 0.8em;
+	color: var(--muted);
+	min-width: 3.5em;
+}
+
+.find-bar-count.find-bar-count-has {
+	color: var(--accent);
+}
+
+.find-bar-nav,
+.find-bar-close,
+.find-bar-toggle {
+	background-image: none;
+	background-color: alpha(var(--bg), 0.6);
+	border: 0.0625em solid var(--border);
+	border-radius: 0.1875em;
+	padding: 0.25em 0.5em;
+	transition: background-color 120ms ease-in-out, border-color 120ms ease-in-out;
+}
+
+.find-bar-nav:hover,
+.find-bar-close:hover,
+.find-bar-toggle:hover {
+	background-color: alpha(var(--accent), 0.15);
+}
+
+.find-bar-toggle:checked {
+	background-color: alpha(var(--accent), 0.2);
+	border-color: var(--accent);
+	color: var(--accent);
 }
 `
 }

@@ -247,6 +247,52 @@ func (_c *MockWebView_GetZoomLevel_Call) RunAndReturn(run func() float64) *MockW
 	return _c
 }
 
+// GetFindController provides a mock function for the type MockWebView
+func (_mock *MockWebView) GetFindController() port.FindController {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetFindController")
+	}
+
+	var r0 port.FindController
+	if returnFunc, ok := ret.Get(0).(func() port.FindController); ok {
+		r0 = returnFunc()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(port.FindController)
+		}
+	}
+	return r0
+}
+
+// MockWebView_GetFindController_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetFindController'
+type MockWebView_GetFindController_Call struct {
+	*mock.Call
+}
+
+// GetFindController is a helper method to define mock.On call
+func (_e *MockWebView_Expecter) GetFindController() *MockWebView_GetFindController_Call {
+	return &MockWebView_GetFindController_Call{Call: _e.mock.On("GetFindController")}
+}
+
+func (_c *MockWebView_GetFindController_Call) Run(run func()) *MockWebView_GetFindController_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockWebView_GetFindController_Call) Return(controller port.FindController) *MockWebView_GetFindController_Call {
+	_c.Call.Return(controller)
+	return _c
+}
+
+func (_c *MockWebView_GetFindController_Call) RunAndReturn(run func() port.FindController) *MockWebView_GetFindController_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GoBack provides a mock function for the type MockWebView
 func (_mock *MockWebView) GoBack(ctx context.Context) error {
 	ret := _mock.Called(ctx)

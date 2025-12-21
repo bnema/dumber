@@ -91,6 +91,29 @@ type WebViewCallbacks struct {
 	OnReadyToShow func()
 }
 
+// FindOptions configures search behavior.
+type FindOptions struct {
+	CaseInsensitive bool
+	AtWordStarts    bool
+	WrapAround      bool
+}
+
+// FindController abstracts WebKit's FindController for clean architecture.
+type FindController interface {
+	Search(text string, options FindOptions, maxMatches uint)
+	CountMatches(text string, options FindOptions, maxMatches uint)
+	SearchNext()
+	SearchPrevious()
+	SearchFinish()
+	GetSearchText() string
+
+	// Signal connections
+	OnFoundText(callback func(matchCount uint)) uint32
+	OnFailedToFindText(callback func()) uint32
+	OnCountedMatches(callback func(matchCount uint)) uint32
+	DisconnectSignal(id uint32)
+}
+
 // WebView defines the port interface for browser view operations.
 // This interface abstracts the underlying browser engine (WebKit, etc.)
 // and exposes only the navigation and state capabilities needed by
@@ -154,6 +177,12 @@ type WebView interface {
 
 	// GetZoomLevel returns the current zoom level.
 	GetZoomLevel() float64
+
+	// --- Find ---
+
+	// GetFindController returns the find controller for text search.
+	// Returns nil if find is not supported.
+	GetFindController() FindController
 
 	// --- Callbacks ---
 
