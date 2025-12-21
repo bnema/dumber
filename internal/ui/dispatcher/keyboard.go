@@ -15,17 +15,17 @@ import (
 
 // KeyboardDispatcher routes keyboard actions to appropriate coordinators.
 type KeyboardDispatcher struct {
-	tabCoord    *coordinator.TabCoordinator
-	wsCoord     *coordinator.WorkspaceCoordinator
-	navCoord    *coordinator.NavigationCoordinator
-	zoomUC      *usecase.ManageZoomUseCase
-	copyURLUC   *usecase.CopyURLUseCase
+	tabCoord       *coordinator.TabCoordinator
+	wsCoord        *coordinator.WorkspaceCoordinator
+	navCoord       *coordinator.NavigationCoordinator
+	zoomUC         *usecase.ManageZoomUseCase
+	copyURLUC      *usecase.CopyURLUseCase
 	actionHandlers map[input.Action]func(ctx context.Context) error
-	onQuit      func()
-	onFindOpen  func(ctx context.Context) error
-	onFindNext  func(ctx context.Context) error
-	onFindPrev  func(ctx context.Context) error
-	onFindClose func(ctx context.Context) error
+	onQuit         func()
+	onFindOpen     func(ctx context.Context) error
+	onFindNext     func(ctx context.Context) error
+	onFindPrev     func(ctx context.Context) error
+	onFindClose    func(ctx context.Context) error
 }
 
 // NewKeyboardDispatcher creates a new KeyboardDispatcher.
@@ -78,12 +78,12 @@ func (d *KeyboardDispatcher) SetOnFindClose(fn func(ctx context.Context) error) 
 
 func (d *KeyboardDispatcher) initActionHandlers() {
 	const (
-		firstTabIndex  = 0
-		secondTabIndex = 1
-		thirdTabIndex  = 2
-		fourthTabIndex = 3
-		fifthTabIndex  = 4
-		sixthTabIndex  = 5
+		firstTabIndex   = 0
+		secondTabIndex  = 1
+		thirdTabIndex   = 2
+		fourthTabIndex  = 3
+		fifthTabIndex   = 4
+		sixthTabIndex   = 5
 		seventhTabIndex = 6
 		eighthTabIndex  = 7
 		ninthTabIndex   = 8
@@ -91,20 +91,20 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 	)
 	d.actionHandlers = map[input.Action]func(ctx context.Context) error{
 		// Tab actions
-		input.ActionNewTab:          func(ctx context.Context) error { _, err := d.tabCoord.Create(ctx, "about:blank"); return err },
-		input.ActionCloseTab:        d.tabCoord.Close,
-		input.ActionNextTab:         d.tabCoord.SwitchNext,
-		input.ActionPreviousTab:     d.tabCoord.SwitchPrev,
-		input.ActionSwitchLastTab:   d.tabCoord.SwitchToLastActive,
-		input.ActionSwitchTabIndex1: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, firstTabIndex) },
-		input.ActionSwitchTabIndex2: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, secondTabIndex) },
-		input.ActionSwitchTabIndex3: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, thirdTabIndex) },
-		input.ActionSwitchTabIndex4: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, fourthTabIndex) },
-		input.ActionSwitchTabIndex5: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, fifthTabIndex) },
-		input.ActionSwitchTabIndex6: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, sixthTabIndex) },
-		input.ActionSwitchTabIndex7: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, seventhTabIndex) },
-		input.ActionSwitchTabIndex8: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, eighthTabIndex) },
-		input.ActionSwitchTabIndex9: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, ninthTabIndex) },
+		input.ActionNewTab:           func(ctx context.Context) error { _, err := d.tabCoord.Create(ctx, "about:blank"); return err },
+		input.ActionCloseTab:         d.tabCoord.Close,
+		input.ActionNextTab:          d.tabCoord.SwitchNext,
+		input.ActionPreviousTab:      d.tabCoord.SwitchPrev,
+		input.ActionSwitchLastTab:    d.tabCoord.SwitchToLastActive,
+		input.ActionSwitchTabIndex1:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, firstTabIndex) },
+		input.ActionSwitchTabIndex2:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, secondTabIndex) },
+		input.ActionSwitchTabIndex3:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, thirdTabIndex) },
+		input.ActionSwitchTabIndex4:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, fourthTabIndex) },
+		input.ActionSwitchTabIndex5:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, fifthTabIndex) },
+		input.ActionSwitchTabIndex6:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, sixthTabIndex) },
+		input.ActionSwitchTabIndex7:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, seventhTabIndex) },
+		input.ActionSwitchTabIndex8:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, eighthTabIndex) },
+		input.ActionSwitchTabIndex9:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, ninthTabIndex) },
 		input.ActionSwitchTabIndex10: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, tenthTabIndex) },
 		input.ActionRenameTab: func(ctx context.Context) error {
 			return d.logNoop(ctx, "rename tab action (not yet implemented)")
@@ -133,11 +133,11 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 		input.ActionZoomOut:   func(ctx context.Context) error { return d.handleZoom(ctx, "out") },
 		input.ActionZoomReset: func(ctx context.Context) error { return d.handleZoom(ctx, "reset") },
 		// UI
-		input.ActionOpenOmnibox: d.navCoord.OpenOmnibox,
-		input.ActionOpenFind:    d.handleFindOpen,
-		input.ActionFindNext:    d.handleFindNext,
-		input.ActionFindPrev:    d.handleFindPrev,
-		input.ActionCloseFind:   d.handleFindClose,
+		input.ActionOpenOmnibox:  d.navCoord.OpenOmnibox,
+		input.ActionOpenFind:     d.handleFindOpen,
+		input.ActionFindNext:     d.handleFindNext,
+		input.ActionFindPrev:     d.handleFindPrev,
+		input.ActionCloseFind:    d.handleFindClose,
 		input.ActionOpenDevTools: d.navCoord.OpenDevTools,
 		input.ActionToggleFullscreen: func(ctx context.Context) error {
 			return d.logNoop(ctx, "toggle fullscreen action (not yet implemented)")

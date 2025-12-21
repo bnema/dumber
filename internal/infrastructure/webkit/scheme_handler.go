@@ -77,10 +77,10 @@ type configAppearancePayload struct {
 }
 
 type configPayload struct {
-	Appearance          configAppearancePayload              `json:"appearance"`
-	DefaultUIScale      float64                              `json:"default_ui_scale"`
-	DefaultSearchEngine string                               `json:"default_search_engine"`
-	SearchShortcuts     map[string]config.SearchShortcut      `json:"search_shortcuts"`
+	Appearance          configAppearancePayload          `json:"appearance"`
+	DefaultUIScale      float64                          `json:"default_ui_scale"`
+	DefaultSearchEngine string                           `json:"default_search_engine"`
+	SearchShortcuts     map[string]config.SearchShortcut `json:"search_shortcuts"`
 }
 
 // NewDumbSchemeHandler creates a new handler for the dumb:// scheme.
@@ -110,7 +110,7 @@ func (h *DumbSchemeHandler) SetAssets(assets embed.FS) {
 // registerDefaults sets up default page handlers.
 func (h *DumbSchemeHandler) registerDefaults() {
 	// Error page (static fallback)
-h.RegisterPage("/error", PageHandlerFunc(func(_ *SchemeRequest) *SchemeResponse {
+	h.RegisterPage("/error", PageHandlerFunc(func(_ *SchemeRequest) *SchemeResponse {
 		return &SchemeResponse{
 			Data:        []byte(errorPageHTML),
 			ContentType: "text/html",
@@ -425,7 +425,7 @@ func (h *DumbSchemeHandler) RegisterWithContext(wkCtx *WebKitContext) {
 		return
 	}
 
-callback := webkit.URISchemeRequestCallback(func(reqPtr, _ uintptr) {
+	callback := webkit.URISchemeRequestCallback(func(reqPtr, _ uintptr) {
 		h.HandleRequest(reqPtr)
 	})
 

@@ -64,7 +64,7 @@ func (sm *SettingsManager) applySettings(ctx context.Context, settings *webkit.S
 		Str("sans_font", cfg.Appearance.SansFont).
 		Str("rendering_mode", string(cfg.RenderingMode)).
 		Bool("developer_extras", cfg.Debug.EnableDevTools).
-	Msg("settings applied")
+		Msg("settings applied")
 }
 
 func applyJavaScriptSettings(settings *webkit.Settings) {

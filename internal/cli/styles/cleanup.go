@@ -67,7 +67,7 @@ type CleanupModel struct {
 	Ranges    []CleanupRangeInfo
 	Selected  int
 	Confirmed bool
-	Canceled bool
+	Canceled  bool
 	theme     *Theme
 }
 

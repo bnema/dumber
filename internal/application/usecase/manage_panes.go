@@ -682,6 +682,7 @@ func (uc *ManagePanesUseCase) AddToStack(
 
 // NavigateStack cycles through stacked panes.
 // direction: NavUp for previous, NavDown for next.
+//
 //nolint:revive // receiver required for interface consistency
 func (uc *ManagePanesUseCase) NavigateStack(
 	ctx context.Context,
@@ -751,6 +752,7 @@ func (uc *ManagePanesUseCase) NavigateStack(
 
 // RemoveFromStack removes a pane from a stack.
 // If only one pane remains, the stack is dissolved.
+//
 //nolint:revive // receiver required for interface consistency
 func (uc *ManagePanesUseCase) RemoveFromStack(ctx context.Context, stackNode *entity.PaneNode, paneID entity.PaneID) error {
 	log := logging.FromContext(ctx)
@@ -802,6 +804,7 @@ func (uc *ManagePanesUseCase) RemoveFromStack(ctx context.Context, stackNode *en
 }
 
 // GetAllPanes returns all leaf panes in a workspace.
+//
 //nolint:revive // receiver required for interface consistency
 func (uc *ManagePanesUseCase) GetAllPanes(ws *entity.Workspace) []*entity.Pane {
 	if ws == nil || ws.Root == nil {
@@ -811,6 +814,7 @@ func (uc *ManagePanesUseCase) GetAllPanes(ws *entity.Workspace) []*entity.Pane {
 }
 
 // CountPanes returns the number of panes in a workspace.
+//
 //nolint:revive // receiver required for interface consistency
 func (uc *ManagePanesUseCase) CountPanes(ws *entity.Workspace) int {
 	if ws == nil {

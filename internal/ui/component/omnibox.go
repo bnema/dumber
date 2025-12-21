@@ -20,12 +20,12 @@ import (
 )
 
 const (
-	omniboxWidthPct   = 0.8 // 80% of parent window width
-	omniboxMaxWidth   = 800 // Maximum width in pixels
-	omniboxHeightPct  = 0.6 // 60% of parent window height
-	omniboxMaxResults = 10
+	omniboxWidthPct     = 0.8 // 80% of parent window width
+	omniboxMaxWidth     = 800 // Maximum width in pixels
+	omniboxHeightPct    = 0.6 // 60% of parent window height
+	omniboxMaxResults   = 10
 	omniboxTopMarginPct = 0.2 // 20% from top
-	debounceDelayMs   = 150
+	debounceDelayMs     = 150
 )
 
 // ViewMode distinguishes history search from favorites display.
@@ -308,7 +308,7 @@ func (o *Omnibox) setupKeyboardHandling() {
 	// Set capture phase to intercept before entry
 	controller.SetPropagationPhase(gtk.PhaseCaptureValue)
 
-keyPressedCb := func(_ gtk.EventControllerKey, keyval uint, _ uint, state gdk.ModifierType) bool {
+	keyPressedCb := func(_ gtk.EventControllerKey, keyval uint, _ uint, state gdk.ModifierType) bool {
 		return o.handleKeyPress(keyval, state)
 	}
 	controller.ConnectKeyPressed(&keyPressedCb)

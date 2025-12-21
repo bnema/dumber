@@ -176,6 +176,7 @@ func (uc *ManageTabsUseCase) Move(ctx context.Context, tabs *entity.TabList, tab
 }
 
 // Rename changes a tab's custom name.
+//
 //nolint:revive // receiver required for interface consistency
 func (uc *ManageTabsUseCase) Rename(ctx context.Context, tabs *entity.TabList, tabID entity.TabID, name string) error {
 	log := logging.FromContext(ctx)
@@ -205,6 +206,7 @@ func (uc *ManageTabsUseCase) Rename(ctx context.Context, tabs *entity.TabList, t
 
 // GetNext returns the next tab ID in the given direction.
 // direction: 1 for next, -1 for previous.
+//
 //nolint:revive // receiver required for interface consistency
 func (uc *ManageTabsUseCase) GetNext(tabs *entity.TabList, direction int) entity.TabID {
 	if tabs == nil || tabs.Count() == 0 {
@@ -293,6 +295,7 @@ func (uc *ManageTabsUseCase) SwitchToLastActive(ctx context.Context, tabs *entit
 }
 
 // Pin toggles the pinned state of a tab.
+//
 //nolint:revive // receiver required for interface consistency
 func (uc *ManageTabsUseCase) Pin(ctx context.Context, tabs *entity.TabList, tabID entity.TabID, pinned bool) error {
 	log := logging.FromContext(ctx)

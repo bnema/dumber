@@ -4,9 +4,9 @@ import "context"
 
 // WebUIConfig represents the subset of configuration editable in dumb://config.
 type WebUIConfig struct {
-	Appearance          WebUIAppearanceConfig `json:"appearance"`
-	DefaultUIScale      float64               `json:"default_ui_scale"`
-	DefaultSearchEngine string                `json:"default_search_engine"`
+	Appearance          WebUIAppearanceConfig     `json:"appearance"`
+	DefaultUIScale      float64                   `json:"default_ui_scale"`
+	DefaultSearchEngine string                    `json:"default_search_engine"`
 	SearchShortcuts     map[string]SearchShortcut `json:"search_shortcuts"`
 }
 

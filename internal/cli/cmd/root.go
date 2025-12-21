@@ -65,7 +65,7 @@ If a URL is provided, navigate to it. Otherwise, open the homepage.
 Examples:
   dumber browse                  # Open browser to homepage
   dumber browse example.com      # Open browser to URL`,
-		Run: func(_ *cobra.Command, _ []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		// This is handled by main.go before cobra runs
 	},
 }

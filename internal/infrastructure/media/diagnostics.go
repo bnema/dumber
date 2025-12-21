@@ -223,6 +223,7 @@ func (a *Adapter) checkVAAPI(ctx context.Context, r *port.MediaDiagnosticsResult
 }
 
 // generateWarnings creates user-friendly warning messages.
+//
 //nolint:revive // receiver required for interface consistency
 func (a *Adapter) generateWarnings(r *port.MediaDiagnosticsResult) {
 	// Critical: GStreamer not installed

@@ -11,7 +11,7 @@ type ConfirmModel struct {
 	Message   string
 	Yes       bool // Current selection
 	Confirmed bool // User pressed enter
-	Canceled bool // User pressed escape
+	Canceled  bool // User pressed escape
 	theme     *Theme
 }
 

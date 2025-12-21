@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	storeDirPerm  = 0o755
-	jsonDirPerm   = 0o755
+	storeDirPerm   = 0o755
+	jsonDirPerm    = 0o755
 	mergedFilePerm = 0o644
 )
 

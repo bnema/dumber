@@ -236,7 +236,7 @@ func (m StatsModel) renderDailyActivity() string {
 // formatNumber formats a number for display.
 func formatNumber(n int64) string {
 	const (
-		formatMillion = 1_000_000
+		formatMillion  = 1_000_000
 		formatThousand = 1_000
 	)
 	switch {

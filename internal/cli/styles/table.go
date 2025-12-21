@@ -70,7 +70,7 @@ func (d DomainStatsRow) ToRow() table.Row {
 // formatInt formats an integer for display.
 func formatInt(n int) string {
 	const (
-		formatMillion = 1_000_000
+		formatMillion  = 1_000_000
 		formatThousand = 1_000
 	)
 	switch {

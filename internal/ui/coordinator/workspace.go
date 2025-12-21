@@ -710,7 +710,7 @@ func (c *WorkspaceCoordinator) ClosePane(ctx context.Context) error {
 					if siblingNode != nil {
 						return siblingNode.ID
 					}
-				return nilString
+					return nilString
 				}()).
 				Bool("sibling_is_start", siblingIsStartChild).
 				Bool("parent_is_start_in_grand", parentIsStartInGrand).
