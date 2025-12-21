@@ -3,7 +3,6 @@ package component_test
 import (
 	"testing"
 
-	"github.com/jwijenbergh/puregotk/v4/gtk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -18,7 +17,6 @@ func TestNewPaneView_CreatesOverlay(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 	mockWebView := mocks.NewMockWidget(t)
 
 	paneID := entity.PaneID("pane-1")
@@ -40,19 +38,6 @@ func TestNewPaneView_CreatesOverlay(t *testing.T) {
 	mockOverlay.EXPECT().SetClipOverlay(mockBorderBox, false).Once()
 	mockOverlay.EXPECT().SetMeasureOverlay(mockBorderBox, false).Once()
 
-	// Progress bar setup
-	mockFactory.EXPECT().NewProgressBar().Return(mockProgressBar).Once()
-	mockProgressBar.EXPECT().AddCssClass("osd").Once()
-	mockProgressBar.EXPECT().SetValign(gtk.AlignEndValue).Once()
-	mockProgressBar.EXPECT().SetHalign(gtk.AlignFillValue).Once()
-	mockProgressBar.EXPECT().SetHexpand(true).Once()
-	mockProgressBar.EXPECT().SetCanTarget(false).Once()
-	mockProgressBar.EXPECT().SetCanFocus(false).Once()
-	mockProgressBar.EXPECT().SetVisible(false).Once()
-	mockOverlay.EXPECT().AddOverlay(mockProgressBar).Once()
-	mockOverlay.EXPECT().SetClipOverlay(mockProgressBar, false).Once()
-	mockOverlay.EXPECT().SetMeasureOverlay(mockProgressBar, false).Once()
-
 	// Act
 	pv := component.NewPaneView(mockFactory, paneID, mockWebView)
 
@@ -67,7 +52,6 @@ func TestNewPaneView_NilWebView(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 
 	paneID := entity.PaneID("pane-1")
 
@@ -87,19 +71,6 @@ func TestNewPaneView_NilWebView(t *testing.T) {
 	mockOverlay.EXPECT().SetClipOverlay(mockBorderBox, false).Once()
 	mockOverlay.EXPECT().SetMeasureOverlay(mockBorderBox, false).Once()
 
-	// Progress bar setup
-	mockFactory.EXPECT().NewProgressBar().Return(mockProgressBar).Once()
-	mockProgressBar.EXPECT().AddCssClass("osd").Once()
-	mockProgressBar.EXPECT().SetValign(gtk.AlignEndValue).Once()
-	mockProgressBar.EXPECT().SetHalign(gtk.AlignFillValue).Once()
-	mockProgressBar.EXPECT().SetHexpand(true).Once()
-	mockProgressBar.EXPECT().SetCanTarget(false).Once()
-	mockProgressBar.EXPECT().SetCanFocus(false).Once()
-	mockProgressBar.EXPECT().SetVisible(false).Once()
-	mockOverlay.EXPECT().AddOverlay(mockProgressBar).Once()
-	mockOverlay.EXPECT().SetClipOverlay(mockProgressBar, false).Once()
-	mockOverlay.EXPECT().SetMeasureOverlay(mockProgressBar, false).Once()
-
 	// Act
 	pv := component.NewPaneView(mockFactory, paneID, nil)
 
@@ -113,10 +84,9 @@ func TestSetActive_True_AddsCSSClass(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 	mockWebView := mocks.NewMockWidget(t)
 
-	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockProgressBar, mockWebView)
+	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
 
@@ -135,10 +105,9 @@ func TestSetActive_False_RemovesCSSClass(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 	mockWebView := mocks.NewMockWidget(t)
 
-	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockProgressBar, mockWebView)
+	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
 
@@ -161,10 +130,9 @@ func TestSetActive_NoChangeWhenSameState(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 	mockWebView := mocks.NewMockWidget(t)
 
-	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockProgressBar, mockWebView)
+	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
 
@@ -180,11 +148,10 @@ func TestPaneID_ReturnsPaneID(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 	mockWebView := mocks.NewMockWidget(t)
 
 	paneID := entity.PaneID("test-pane-123")
-	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockProgressBar, mockWebView)
+	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
 	pv := component.NewPaneView(mockFactory, paneID, mockWebView)
 
@@ -200,10 +167,9 @@ func TestWebViewWidget_ReturnsWebView(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 	mockWebView := mocks.NewMockWidget(t)
 
-	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockProgressBar, mockWebView)
+	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
 
@@ -219,11 +185,10 @@ func TestSetWebViewWidget_ReplacesWidget(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 	mockOldWebView := mocks.NewMockWidget(t)
 	mockNewWebView := mocks.NewMockWidget(t)
 
-	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockProgressBar, mockOldWebView)
+	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockOldWebView)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockOldWebView)
 
@@ -245,10 +210,9 @@ func TestSetWebViewWidget_FromNil(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 	mockNewWebView := mocks.NewMockWidget(t)
 
-	setupPaneViewMocksNoWebView(mockFactory, mockOverlay, mockBorderBox, mockProgressBar)
+	setupPaneViewMocksNoWebView(mockFactory, mockOverlay, mockBorderBox)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), nil)
 
@@ -269,10 +233,9 @@ func TestGrabFocus_DelegatesToWebView(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 	mockWebView := mocks.NewMockWidget(t)
 
-	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockProgressBar, mockWebView)
+	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
 
@@ -290,9 +253,8 @@ func TestGrabFocus_NilWebView_ReturnsFalse(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 
-	setupPaneViewMocksNoWebView(mockFactory, mockOverlay, mockBorderBox, mockProgressBar)
+	setupPaneViewMocksNoWebView(mockFactory, mockOverlay, mockBorderBox)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), nil)
 
@@ -308,10 +270,9 @@ func TestHasFocus_DelegatesToWebView(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 	mockWebView := mocks.NewMockWidget(t)
 
-	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockProgressBar, mockWebView)
+	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
 
@@ -329,9 +290,8 @@ func TestHasFocus_NilWebView_ReturnsFalse(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 
-	setupPaneViewMocksNoWebView(mockFactory, mockOverlay, mockBorderBox, mockProgressBar)
+	setupPaneViewMocksNoWebView(mockFactory, mockOverlay, mockBorderBox)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), nil)
 
@@ -347,10 +307,9 @@ func TestWidget_ReturnsOverlay(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 	mockWebView := mocks.NewMockWidget(t)
 
-	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockProgressBar, mockWebView)
+	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
 
@@ -366,10 +325,9 @@ func TestOverlay_ReturnsOverlayWidget(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 	mockWebView := mocks.NewMockWidget(t)
 
-	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockProgressBar, mockWebView)
+	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
 
@@ -385,10 +343,9 @@ func TestShow_DelegatesToOverlay(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 	mockWebView := mocks.NewMockWidget(t)
 
-	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockProgressBar, mockWebView)
+	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
 
@@ -405,10 +362,9 @@ func TestHide_DelegatesToOverlay(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 	mockWebView := mocks.NewMockWidget(t)
 
-	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockProgressBar, mockWebView)
+	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
 
@@ -425,10 +381,9 @@ func TestSetVisible_DelegatesToOverlay(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 	mockWebView := mocks.NewMockWidget(t)
 
-	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockProgressBar, mockWebView)
+	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
 
@@ -445,10 +400,9 @@ func TestIsVisible_DelegatesToOverlay(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 	mockWebView := mocks.NewMockWidget(t)
 
-	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockProgressBar, mockWebView)
+	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
 
@@ -466,10 +420,9 @@ func TestAddCssClass_DelegatesToOverlay(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 	mockWebView := mocks.NewMockWidget(t)
 
-	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockProgressBar, mockWebView)
+	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
 
@@ -486,10 +439,9 @@ func TestRemoveCssClass_DelegatesToOverlay(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 	mockWebView := mocks.NewMockWidget(t)
 
-	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockProgressBar, mockWebView)
+	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
 
@@ -506,10 +458,9 @@ func TestSetOnFocusIn_SetsCallback(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 	mockWebView := mocks.NewMockWidget(t)
 
-	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockProgressBar, mockWebView)
+	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
 
@@ -527,10 +478,9 @@ func TestSetOnFocusOut_SetsCallback(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 	mockWebView := mocks.NewMockWidget(t)
 
-	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockProgressBar, mockWebView)
+	setupPaneViewMocks(mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
 	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
 
@@ -548,7 +498,6 @@ func setupPaneViewMocks(
 	mockFactory *mocks.MockWidgetFactory,
 	mockOverlay *mocks.MockOverlayWidget,
 	mockBorderBox *mocks.MockBoxWidget,
-	mockProgressBar *mocks.MockProgressBarWidget,
 	mockWebView *mocks.MockWidget,
 ) {
 	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
@@ -567,26 +516,12 @@ func setupPaneViewMocks(
 	mockOverlay.EXPECT().AddOverlay(mockBorderBox).Once()
 	mockOverlay.EXPECT().SetClipOverlay(mockBorderBox, false).Once()
 	mockOverlay.EXPECT().SetMeasureOverlay(mockBorderBox, false).Once()
-
-	// Progress bar setup
-	mockFactory.EXPECT().NewProgressBar().Return(mockProgressBar).Once()
-	mockProgressBar.EXPECT().AddCssClass("osd").Once()
-	mockProgressBar.EXPECT().SetValign(gtk.AlignEndValue).Once()
-	mockProgressBar.EXPECT().SetHalign(gtk.AlignFillValue).Once()
-	mockProgressBar.EXPECT().SetHexpand(true).Once()
-	mockProgressBar.EXPECT().SetCanTarget(false).Once()
-	mockProgressBar.EXPECT().SetCanFocus(false).Once()
-	mockProgressBar.EXPECT().SetVisible(false).Once()
-	mockOverlay.EXPECT().AddOverlay(mockProgressBar).Once()
-	mockOverlay.EXPECT().SetClipOverlay(mockProgressBar, false).Once()
-	mockOverlay.EXPECT().SetMeasureOverlay(mockProgressBar, false).Once()
 }
 
 func setupPaneViewMocksNoWebView(
 	mockFactory *mocks.MockWidgetFactory,
 	mockOverlay *mocks.MockOverlayWidget,
 	mockBorderBox *mocks.MockBoxWidget,
-	mockProgressBar *mocks.MockProgressBarWidget,
 ) {
 	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
 	mockOverlay.EXPECT().SetHexpand(true).Once()
@@ -602,17 +537,4 @@ func setupPaneViewMocksNoWebView(
 	mockOverlay.EXPECT().AddOverlay(mockBorderBox).Once()
 	mockOverlay.EXPECT().SetClipOverlay(mockBorderBox, false).Once()
 	mockOverlay.EXPECT().SetMeasureOverlay(mockBorderBox, false).Once()
-
-	// Progress bar setup
-	mockFactory.EXPECT().NewProgressBar().Return(mockProgressBar).Once()
-	mockProgressBar.EXPECT().AddCssClass("osd").Once()
-	mockProgressBar.EXPECT().SetValign(gtk.AlignEndValue).Once()
-	mockProgressBar.EXPECT().SetHalign(gtk.AlignFillValue).Once()
-	mockProgressBar.EXPECT().SetHexpand(true).Once()
-	mockProgressBar.EXPECT().SetCanTarget(false).Once()
-	mockProgressBar.EXPECT().SetCanFocus(false).Once()
-	mockProgressBar.EXPECT().SetVisible(false).Once()
-	mockOverlay.EXPECT().AddOverlay(mockProgressBar).Once()
-	mockOverlay.EXPECT().SetClipOverlay(mockProgressBar, false).Once()
-	mockOverlay.EXPECT().SetMeasureOverlay(mockProgressBar, false).Once()
 }

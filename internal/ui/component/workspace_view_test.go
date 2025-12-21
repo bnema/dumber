@@ -36,7 +36,6 @@ func setupWorkspaceViewBase(t *testing.T, mockFactory *mocks.MockWidgetFactory) 
 func setupWorkspacePaneViewMocks(t *testing.T, mockFactory *mocks.MockWidgetFactory) (*mocks.MockOverlayWidget, *mocks.MockBoxWidget) {
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockProgressBar := mocks.NewMockProgressBarWidget(t)
 
 	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
 	mockOverlay.EXPECT().SetHexpand(true).Once()
@@ -52,19 +51,6 @@ func setupWorkspacePaneViewMocks(t *testing.T, mockFactory *mocks.MockWidgetFact
 	mockOverlay.EXPECT().AddOverlay(mockBorderBox).Once()
 	mockOverlay.EXPECT().SetClipOverlay(mockBorderBox, false).Once()
 	mockOverlay.EXPECT().SetMeasureOverlay(mockBorderBox, false).Once()
-
-	// Progress bar setup
-	mockFactory.EXPECT().NewProgressBar().Return(mockProgressBar).Once()
-	mockProgressBar.EXPECT().AddCssClass("osd").Once()
-	mockProgressBar.EXPECT().SetValign(mock.Anything).Once()
-	mockProgressBar.EXPECT().SetHalign(mock.Anything).Once()
-	mockProgressBar.EXPECT().SetHexpand(true).Once()
-	mockProgressBar.EXPECT().SetCanTarget(false).Once()
-	mockProgressBar.EXPECT().SetCanFocus(false).Once()
-	mockProgressBar.EXPECT().SetVisible(false).Once()
-	mockOverlay.EXPECT().AddOverlay(mockProgressBar).Once()
-	mockOverlay.EXPECT().SetClipOverlay(mockProgressBar, false).Once()
-	mockOverlay.EXPECT().SetMeasureOverlay(mockProgressBar, false).Once()
 
 	// GtkWidget is called when attaching hover handler - return nil for tests
 	mockOverlay.EXPECT().GtkWidget().Return(nil).Once()

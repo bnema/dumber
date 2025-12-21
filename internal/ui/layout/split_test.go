@@ -131,7 +131,11 @@ func TestSetRatio_ValidRange(t *testing.T) {
 			sv.SetRatio(tt.input)
 
 			// Assert
-			assert.InEpsilon(t, tt.expected, sv.GetRatio(), 0.0001)
+			if tt.expected == 0.0 {
+				assert.Equal(t, tt.expected, sv.GetRatio())
+			} else {
+				assert.InEpsilon(t, tt.expected, sv.GetRatio(), 0.0001)
+			}
 		})
 	}
 }
@@ -164,7 +168,11 @@ func TestSetRatio_OutOfRange_Clamped(t *testing.T) {
 			sv.SetRatio(tt.input)
 
 			// Assert
-			assert.InEpsilon(t, tt.expected, sv.GetRatio(), 0.0001)
+			if tt.expected == 0.0 {
+				assert.Equal(t, tt.expected, sv.GetRatio())
+			} else {
+				assert.InEpsilon(t, tt.expected, sv.GetRatio(), 0.0001)
+			}
 		})
 	}
 }
@@ -368,7 +376,11 @@ func TestNewSplitView_InitialRatio_Clamped(t *testing.T) {
 			sv := layout.NewSplitView(ctx, mockFactory, layout.OrientationHorizontal, nil, nil, tt.input)
 
 			// Assert
-			assert.InEpsilon(t, tt.expected, sv.GetRatio(), 0.0001)
+			if tt.expected == 0.0 {
+				assert.Equal(t, tt.expected, sv.GetRatio())
+			} else {
+				assert.InEpsilon(t, tt.expected, sv.GetRatio(), 0.0001)
+			}
 		})
 	}
 }

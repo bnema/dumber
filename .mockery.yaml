@@ -1,12 +1,11 @@
 template: testify
 template-data:
   unroll-variadic: true
-filename: mocks.go
 packages:
   github.com/bnema/dumber/internal/application/port:
     config:
       dir: '{{.InterfaceDir}}/mocks'
-      structname: Mock{{.InterfaceName}}
+      filename: mocks.go
       pkgname: mocks
     interfaces:
       WebView: {}
@@ -15,7 +14,7 @@ packages:
   github.com/bnema/dumber/internal/domain/repository:
     config:
       dir: '{{.InterfaceDir}}/mocks'
-      structname: Mock{{.InterfaceName}}
+      filename: mocks.go
       pkgname: mocks
     interfaces:
       ContentWhitelistRepository: {}
@@ -27,7 +26,7 @@ packages:
   github.com/bnema/dumber/internal/infrastructure/filtering:
     config:
       dir: '{{.InterfaceDir}}/mocks'
-      structname: Mock{{.InterfaceName}}
+      filename: mocks.go
       pkgname: mocks
     interfaces:
       FilterDownloader: {}
@@ -35,7 +34,7 @@ packages:
   github.com/bnema/dumber/internal/ui/layout:
     config:
       dir: '{{.InterfaceDir}}/mocks'
-      structname: Mock{{.InterfaceName}}
+      filename: mocks.go
       pkgname: mocks
     interfaces:
       BoxWidget: {}
