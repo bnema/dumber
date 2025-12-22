@@ -70,13 +70,13 @@ func PaletteFromConfig(cfg *config.ColorPalette, isDark bool) Palette {
 	}
 
 	return Palette{
-		Background:     coalesce(cfg.Background, defaults.Background),
-		Surface:        coalesce(cfg.Surface, defaults.Surface),
-		SurfaceVariant: coalesce(cfg.SurfaceVariant, defaults.SurfaceVariant),
-		Text:           coalesce(cfg.Text, defaults.Text),
-		Muted:          coalesce(cfg.Muted, defaults.Muted),
-		Accent:         coalesce(cfg.Accent, defaults.Accent),
-		Border:         coalesce(cfg.Border, defaults.Border),
+		Background:     Coalesce(cfg.Background, defaults.Background),
+		Surface:        Coalesce(cfg.Surface, defaults.Surface),
+		SurfaceVariant: Coalesce(cfg.SurfaceVariant, defaults.SurfaceVariant),
+		Text:           Coalesce(cfg.Text, defaults.Text),
+		Muted:          Coalesce(cfg.Muted, defaults.Muted),
+		Accent:         Coalesce(cfg.Accent, defaults.Accent),
+		Border:         Coalesce(cfg.Border, defaults.Border),
 		// Semantic colors always use defaults (not user-editable)
 		Success:     defaults.Success,
 		Warning:     defaults.Warning,
@@ -84,8 +84,8 @@ func PaletteFromConfig(cfg *config.ColorPalette, isDark bool) Palette {
 	}
 }
 
-// coalesce returns the first non-empty string.
-func coalesce(values ...string) string {
+// Coalesce returns the first non-empty string.
+func Coalesce(values ...string) string {
 	for _, v := range values {
 		if v != "" {
 			return v

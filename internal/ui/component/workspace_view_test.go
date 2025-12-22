@@ -147,6 +147,7 @@ func TestSetWorkspace_SinglePane_CreatesPaneView(t *testing.T) {
 
 	mockStackBox.EXPECT().SetVisible(true).Once()
 	mockBox.EXPECT().Append(mockStackBox).Once()
+	mockBox.EXPECT().AddCssClass("single-pane").Once()
 	mockBorderBox.EXPECT().AddCssClass("pane-active").Once()
 
 	pane := entity.NewPane(entity.PaneID("pane-1"))
@@ -204,6 +205,7 @@ func TestSetActivePaneID_UpdatesStyling(t *testing.T) {
 	mockBox.EXPECT().Append(mockPaned).Once()
 
 	// Initial active pane is pane-1
+	mockBox.EXPECT().RemoveCssClass("single-pane").Once()
 	mockBorderBox1.EXPECT().AddCssClass("pane-active").Once()
 
 	splitNode := &entity.PaneNode{

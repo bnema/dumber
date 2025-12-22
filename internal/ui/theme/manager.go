@@ -17,6 +17,7 @@ type Manager struct {
 	lightPalette Palette // Light theme colors
 	darkPalette  Palette // Dark theme colors
 	uiScale      float64 // UI scaling factor (1.0 = 100%)
+	fonts        FontConfig
 	cssProvider  *gtk.CssProvider
 }
 
@@ -49,10 +50,18 @@ func NewManager(ctx context.Context, cfg *config.Config) *Manager {
 		uiScale = cfg.DefaultUIScale
 	}
 
+	fonts := DefaultFontConfig()
+	if cfg != nil {
+		fonts.SansFont = Coalesce(cfg.Appearance.SansFont, fonts.SansFont)
+		fonts.MonospaceFont = Coalesce(cfg.Appearance.MonospaceFont, fonts.MonospaceFont)
+	}
+
 	log.Debug().
 		Str("scheme", scheme).
 		Bool("prefers_dark", prefersDark).
 		Float64("ui_scale", uiScale).
+		Str("sans_font", fonts.SansFont).
+		Str("monospace_font", fonts.MonospaceFont).
 		Msg("theme manager initialized")
 
 	return &Manager{
@@ -61,6 +70,7 @@ func NewManager(ctx context.Context, cfg *config.Config) *Manager {
 		lightPalette: lightPalette,
 		darkPalette:  darkPalette,
 		uiScale:      uiScale,
+		fonts:        fonts,
 	}
 }
 
@@ -104,9 +114,9 @@ func (m *Manager) ApplyToDisplay(ctx context.Context, display *gdk.Display) {
 		return
 	}
 
-	// Generate CSS with current palette and UI scale
+	// Generate CSS with current palette, UI scale and fonts
 	palette := m.GetCurrentPalette()
-	css := GenerateCSSWithScale(palette, m.uiScale)
+	css := GenerateCSSWithScaleAndFonts(palette, m.uiScale, m.fonts)
 
 	// Create CSS provider if needed
 	if m.cssProvider == nil {
@@ -174,10 +184,18 @@ func (m *Manager) UpdateFromConfig(ctx context.Context, cfg *config.Config, disp
 		m.uiScale = cfg.DefaultUIScale
 	}
 
+	defaults := DefaultFontConfig()
+	m.fonts = FontConfig{
+		SansFont:      Coalesce(cfg.Appearance.SansFont, defaults.SansFont),
+		MonospaceFont: Coalesce(cfg.Appearance.MonospaceFont, defaults.MonospaceFont),
+	}
+
 	log.Info().
 		Str("scheme", m.scheme).
 		Bool("prefers_dark", m.prefersDark).
 		Float64("ui_scale", m.uiScale).
+		Str("sans_font", m.fonts.SansFont).
+		Str("monospace_font", m.fonts.MonospaceFont).
 		Msg("theme manager updated from config")
 
 	// Re-apply CSS if display is available

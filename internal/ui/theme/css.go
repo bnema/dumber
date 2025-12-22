@@ -14,8 +14,51 @@ func GenerateCSS(p Palette) string {
 // GenerateCSSWithScale creates GTK4 CSS using the provided palette and UI scale factor.
 // Scale affects font sizes and widget padding/margins proportionally.
 func GenerateCSSWithScale(p Palette, scale float64) string {
+	return GenerateCSSWithScaleAndFonts(p, scale, DefaultFontConfig())
+}
+
+// FontConfig holds font settings for CSS generation.
+type FontConfig struct {
+	SansFont      string
+	MonospaceFont string
+}
+
+// DefaultFontConfig returns safe font fallbacks.
+func DefaultFontConfig() FontConfig {
+	return FontConfig{
+		SansFont:      "sans-serif",
+		MonospaceFont: "monospace",
+	}
+}
+
+// FontCSSVars generates CSS custom properties for fonts.
+func FontCSSVars(fonts FontConfig) string {
+	var sb strings.Builder
+	// Quote the configured family; include generic fallback.
+	sb.WriteString(fmt.Sprintf("  --font-sans: \"%s\", sans-serif;\n", fonts.SansFont))
+	sb.WriteString(fmt.Sprintf("  --font-mono: \"%s\", monospace;\n", fonts.MonospaceFont))
+	return sb.String()
+}
+
+func generateFontCSS() string {
+	return `/* Font styling */
+window, tooltip, popover {
+	font-family: var(--font-sans);
+}
+`
+}
+
+// GenerateCSSWithScaleAndFonts creates GTK4 CSS using the provided palette, UI scale factor and fonts.
+// Scale affects font sizes and widget padding/margins proportionally.
+func GenerateCSSWithScaleAndFonts(p Palette, scale float64, fonts FontConfig) string {
 	if scale <= 0 {
 		scale = 1.0
+	}
+
+	defaults := DefaultFontConfig()
+	fonts = FontConfig{
+		SansFont:      Coalesce(fonts.SansFont, defaults.SansFont),
+		MonospaceFont: Coalesce(fonts.MonospaceFont, defaults.MonospaceFont),
 	}
 
 	var sb strings.Builder
@@ -24,7 +67,12 @@ func GenerateCSSWithScale(p Palette, scale float64) string {
 	sb.WriteString("/* Theme variables */\n")
 	sb.WriteString(":root {\n")
 	sb.WriteString(p.ToCSSVars())
+	sb.WriteString(FontCSSVars(fonts))
 	sb.WriteString("}\n\n")
+
+	// Global font styling
+	sb.WriteString(generateFontCSS())
+	sb.WriteString("\n")
 
 	// Global UI scaling via font-size on all widgets
 	if scale != 1.0 {
@@ -274,7 +322,7 @@ entry.omnibox-entry > *:focus-visible {
 	padding: 0.125em 0.375em;
 	font-size: 0.625em;
 	font-weight: 500;
-	font-family: monospace;
+	font-family: var(--font-mono);
 	margin-left: 0.5em;
 }
 
