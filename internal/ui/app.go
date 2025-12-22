@@ -166,74 +166,127 @@ func (a *App) onActivate(ctx context.Context) {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("GTK application activated")
 
-	// Propagate app color scheme preference to GTK (and WebKit)
-	// so web content can correctly evaluate prefers-color-scheme.
-	if settings := gtk.SettingsGetDefault(); settings != nil {
-		scheme := "default"
-		if a.deps != nil && a.deps.Config != nil && a.deps.Config.Appearance.ColorScheme != "" {
-			scheme = a.deps.Config.Appearance.ColorScheme
-		}
-		prefersDark := theme.ResolveColorScheme(scheme)
-		settings.SetPropertyGtkApplicationPreferDarkTheme(prefersDark)
-		log.Debug().
-			Str("scheme", scheme).
-			Bool("prefers_dark", prefersDark).
-			Msg("set gtk-application-prefer-dark-theme")
-	}
+	a.applyGTKColorSchemePreference(ctx)
+	a.prewarmWebViewPool(ctx)
 
-	// Prewarm WebView pool now that GTK is initialized
-	if a.pool != nil {
-		a.pool.Prewarm(ctx, 0)
-	}
-
-	// Create the main window
-	var err error
-	a.mainWindow, err = window.New(ctx, a.gtkApp, a.deps.Config)
-	if err != nil {
+	if err := a.createMainWindow(ctx); err != nil {
 		log.Error().Err(err).Msg("failed to create main window")
 		return
 	}
 
-	// Apply GTK CSS styling from theme manager
-	if a.deps.Theme != nil {
-		if display := a.mainWindow.Window().GetDisplay(); display != nil {
-			a.deps.Theme.ApplyToDisplay(ctx, display)
-		}
+	a.initLayoutInfrastructure()
+	a.initAppToasterOverlay()
+	a.initFocusAndBorderOverlay()
+
+	a.initCoordinators(ctx)
+	a.initKeyboardHandler(ctx)
+	a.initOmniboxConfig(ctx)
+	a.initFindBarConfig()
+	a.createInitialTab(ctx)
+	a.finalizeActivation(ctx)
+}
+
+func (a *App) applyGTKColorSchemePreference(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
+	// Propagate app color scheme preference to GTK (and WebKit)
+	// so web content can correctly evaluate prefers-color-scheme.
+	settings := gtk.SettingsGetDefault()
+	if settings == nil {
+		return
 	}
 
-	// Initialize widget factory for pane layout
+	scheme := "default"
+	if a.deps != nil && a.deps.Config != nil && a.deps.Config.Appearance.ColorScheme != "" {
+		scheme = a.deps.Config.Appearance.ColorScheme
+	}
+	prefersDark := theme.ResolveColorScheme(scheme)
+	settings.SetPropertyGtkApplicationPreferDarkTheme(prefersDark)
+	log.Debug().
+		Str("scheme", scheme).
+		Bool("prefers_dark", prefersDark).
+		Msg("set gtk-application-prefer-dark-theme")
+}
+
+func (a *App) prewarmWebViewPool(ctx context.Context) {
+	// Prewarm WebView pool now that GTK is initialized.
+	if a.pool == nil {
+		return
+	}
+	a.pool.Prewarm(ctx, 0)
+}
+
+func (a *App) createMainWindow(ctx context.Context) error {
+	mainWindow, err := window.New(ctx, a.gtkApp, a.deps.Config)
+	if err != nil {
+		return err
+	}
+	a.mainWindow = mainWindow
+
+	// Apply GTK CSS styling from theme manager.
+	if a.deps == nil || a.deps.Theme == nil {
+		return nil
+	}
+	if display := a.mainWindow.Window().GetDisplay(); display != nil {
+		a.deps.Theme.ApplyToDisplay(ctx, display)
+	}
+	return nil
+}
+
+func (a *App) initLayoutInfrastructure() {
+	// Initialize widget factory for pane layout.
 	a.widgetFactory = layout.NewGtkWidgetFactory()
 
-	// Initialize stacked pane manager for incremental widget operations
+	// Initialize stacked pane manager for incremental widget operations.
 	a.stackedPaneMgr = component.NewStackedPaneManager(a.widgetFactory)
+}
 
-	// Create app-level toaster for system notifications
-	a.appToaster = component.NewToaster(a.widgetFactory)
-	if toasterWidget := a.appToaster.Widget(); toasterWidget != nil {
-		if gtkWidget := toasterWidget.GtkWidget(); gtkWidget != nil {
-			a.mainWindow.AddOverlay(gtkWidget)
-		}
+func (a *App) initAppToasterOverlay() {
+	if a.mainWindow == nil {
+		return
 	}
 
-	// Initialize focus manager for geometric navigation
+	// Create app-level toaster for system notifications.
+	a.appToaster = component.NewToaster(a.widgetFactory)
+	toasterWidget := a.appToaster.Widget()
+	if toasterWidget == nil {
+		return
+	}
+	gtkWidget := toasterWidget.GtkWidget()
+	if gtkWidget == nil {
+		return
+	}
+	a.mainWindow.AddOverlay(gtkWidget)
+}
+
+func (a *App) initFocusAndBorderOverlay() {
+	// Initialize focus manager for geometric navigation.
 	a.focusMgr = focus.NewManager(a.panesUC)
 
-	// Initialize border manager for mode indicators
+	// Initialize border manager for mode indicators.
 	a.borderMgr = focus.NewBorderManager(a.widgetFactory)
 
-	// Attach border overlay to main window (visible for all tabs)
-	if a.borderMgr != nil && a.mainWindow != nil {
-		if borderWidget := a.borderMgr.Widget(); borderWidget != nil {
-			if gtkWidget := borderWidget.GtkWidget(); gtkWidget != nil {
-				a.mainWindow.AddOverlay(gtkWidget)
-			}
-		}
+	// Attach border overlay to main window (visible for all tabs).
+	if a.borderMgr == nil || a.mainWindow == nil {
+		return
+	}
+	borderWidget := a.borderMgr.Widget()
+	if borderWidget == nil {
+		return
+	}
+	gtkWidget := borderWidget.GtkWidget()
+	if gtkWidget == nil {
+		return
+	}
+	a.mainWindow.AddOverlay(gtkWidget)
+}
+
+func (a *App) initKeyboardHandler(ctx context.Context) {
+	if a.mainWindow == nil || a.deps == nil || a.deps.Config == nil {
+		return
 	}
 
-	// Initialize coordinators
-	a.initCoordinators(ctx)
-
-	// Create keyboard handler and wire to dispatcher
+	// Create keyboard handler and wire to dispatcher.
 	a.keyboardHandler = input.NewKeyboardHandler(
 		ctx,
 		&a.deps.Config.Workspace,
@@ -252,8 +305,16 @@ func (a *App) onActivate(ctx context.Context) {
 		return wsView.IsOmniboxVisible()
 	})
 	a.keyboardHandler.AttachTo(a.mainWindow.Window())
+}
 
-	// Store omnibox config (omnibox is created per-pane via WorkspaceView)
+func (a *App) initOmniboxConfig(ctx context.Context) {
+	if a.deps == nil || a.deps.Config == nil {
+		return
+	}
+
+	log := logging.FromContext(ctx)
+
+	// Store omnibox config (omnibox is created per-pane via WorkspaceView).
 	a.omniboxCfg = component.OmniboxConfig{
 		HistoryUC:       a.deps.HistoryUC,
 		FavoritesUC:     a.deps.FavoritesUC,
@@ -271,8 +332,10 @@ func (a *App) onActivate(ctx context.Context) {
 	}
 	a.navCoord.SetOmniboxProvider(a)
 	log.Debug().Msg("omnibox config stored, provider set")
+}
 
-	// Store find bar config (find bar is created per-pane via WorkspaceView)
+func (a *App) initFindBarConfig() {
+	// Store find bar config (find bar is created per-pane via WorkspaceView).
 	a.findBarCfg = component.FindBarConfig{
 		GetFindController: func(paneID entity.PaneID) port.FindController {
 			if a.contentCoord == nil {
@@ -285,29 +348,40 @@ func (a *App) onActivate(ctx context.Context) {
 			return wv.GetFindController()
 		},
 	}
+}
 
-	// Create an initial tab using coordinator
+func (a *App) createInitialTab(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
+	// Create an initial tab using coordinator.
 	initialURL := "dumb://home"
-	if a.deps.InitialURL != "" {
+	if a.deps != nil && a.deps.InitialURL != "" {
 		initialURL = a.deps.InitialURL
 	}
 	if _, err := a.tabCoord.Create(ctx, initialURL); err != nil {
 		log.Error().Err(err).Msg("failed to create initial tab")
 	}
+}
 
-	// Show the window
-	a.mainWindow.Show()
+func (a *App) finalizeActivation(ctx context.Context) {
+	log := logging.FromContext(ctx)
 
+	// Show the window.
+	if a.mainWindow != nil {
+		a.mainWindow.Show()
+	}
 	log.Info().Msg("main window displayed")
 
-	// Start watching config for appearance changes
+	// Start watching config for appearance changes.
 	a.initConfigWatcher(ctx)
 
 	// Ensure the current appearance config is applied once at startup.
 	// This avoids the WebUI showing default tokens until the first config change event.
-	a.applyAppearanceConfig(ctx, a.deps.Config)
+	if a.deps != nil {
+		a.applyAppearanceConfig(ctx, a.deps.Config)
+	}
 
-	// Start async filter loading after window is visible
+	// Start async filter loading after window is visible.
 	a.initFilteringAsync(ctx)
 }
 
