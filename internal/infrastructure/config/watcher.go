@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -69,29 +68,7 @@ func (m *Manager) reload() error {
 		config.Database.Path = dbPath
 	}
 
-	// Normalize/validate rendering mode using switch statement
-	switch strings.ToLower(string(config.RenderingMode)) {
-	case "", string(RenderingModeAuto):
-		config.RenderingMode = RenderingModeAuto
-	case string(RenderingModeGPU):
-		config.RenderingMode = RenderingModeGPU
-	case string(RenderingModeCPU):
-		config.RenderingMode = RenderingModeCPU
-	default:
-		config.RenderingMode = RenderingModeAuto
-	}
-
-	// Validate ColorScheme setting using switch statement
-	switch config.Appearance.ColorScheme {
-	case ThemePreferDark, ThemePreferLight, ThemeDefault:
-		// Valid values - no changes needed
-	case "":
-		// Empty string is treated the same as "default"
-		config.Appearance.ColorScheme = ThemeDefault
-	default:
-		// Invalid value - reset to default
-		config.Appearance.ColorScheme = ThemeDefault
-	}
+	normalizeConfig(config)
 
 	// Validate all config values
 	if err := validateConfig(config); err != nil {

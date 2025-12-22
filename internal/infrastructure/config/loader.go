@@ -46,9 +46,6 @@ func NewManager() (*Manager, error) {
 	// The explicit bindings below are only for special cases with different naming patterns.
 
 	// Explicit bindings for legacy or system env vars
-	if err := v.BindEnv("rendering_mode", "DUMBER_RENDERING_MODE"); err != nil {
-		return nil, fmt.Errorf("failed to bind DUMBER_RENDERING_MODE: %w", err)
-	}
 	if err := v.BindEnv("default_webpage_zoom", "DUMBER_DEFAULT_WEBPAGE_ZOOM"); err != nil {
 		return nil, fmt.Errorf("failed to bind DUMBER_DEFAULT_WEBPAGE_ZOOM: %w", err)
 	}
@@ -158,15 +155,28 @@ func ensureDatabasePath(config *Config) error {
 }
 
 func normalizeConfig(config *Config) {
-	switch strings.ToLower(string(config.RenderingMode)) {
+	switch strings.ToLower(string(config.Rendering.Mode)) {
 	case "", string(RenderingModeAuto):
-		config.RenderingMode = RenderingModeAuto
+		config.Rendering.Mode = RenderingModeAuto
 	case string(RenderingModeGPU):
-		config.RenderingMode = RenderingModeGPU
+		config.Rendering.Mode = RenderingModeGPU
 	case string(RenderingModeCPU):
-		config.RenderingMode = RenderingModeCPU
+		config.Rendering.Mode = RenderingModeCPU
 	default:
-		config.RenderingMode = RenderingModeAuto
+		config.Rendering.Mode = RenderingModeAuto
+	}
+
+	switch strings.ToLower(string(config.Rendering.GSKRenderer)) {
+	case "", string(GSKRendererAuto):
+		config.Rendering.GSKRenderer = GSKRendererAuto
+	case string(GSKRendererOpenGL):
+		config.Rendering.GSKRenderer = GSKRendererOpenGL
+	case string(GSKRendererVulkan):
+		config.Rendering.GSKRenderer = GSKRendererVulkan
+	case string(GSKRendererCairo):
+		config.Rendering.GSKRenderer = GSKRendererCairo
+	default:
+		config.Rendering.GSKRenderer = GSKRendererAuto
 	}
 
 	switch config.Appearance.ColorScheme {
@@ -352,7 +362,17 @@ func (m *Manager) setAppearanceDefaults(defaults *Config) {
 }
 
 func (m *Manager) setRenderingDefaults(defaults *Config) {
-	m.viper.SetDefault("rendering_mode", string(RenderingModeGPU))
+	m.viper.SetDefault("rendering.mode", string(defaults.Rendering.Mode))
+	m.viper.SetDefault("rendering.disable_dmabuf_renderer", defaults.Rendering.DisableDMABufRenderer)
+	m.viper.SetDefault("rendering.force_compositing_mode", defaults.Rendering.ForceCompositingMode)
+	m.viper.SetDefault("rendering.disable_compositing_mode", defaults.Rendering.DisableCompositingMode)
+	m.viper.SetDefault("rendering.gsk_renderer", string(defaults.Rendering.GSKRenderer))
+	m.viper.SetDefault("rendering.disable_mipmaps", defaults.Rendering.DisableMipmaps)
+	m.viper.SetDefault("rendering.prefer_gl", defaults.Rendering.PreferGL)
+	m.viper.SetDefault("rendering.draw_compositing_indicators", defaults.Rendering.DrawCompositingIndicators)
+	m.viper.SetDefault("rendering.show_fps", defaults.Rendering.ShowFPS)
+	m.viper.SetDefault("rendering.sample_memory", defaults.Rendering.SampleMemory)
+	m.viper.SetDefault("rendering.debug_frames", defaults.Rendering.DebugFrames)
 	m.viper.SetDefault("default_webpage_zoom", defaults.DefaultWebpageZoom)
 	m.viper.SetDefault("default_ui_scale", defaults.DefaultUIScale)
 }

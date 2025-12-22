@@ -112,7 +112,19 @@ func DefaultConfig() *Config {
 		Debug: DebugConfig{
 			EnableDevTools: true,
 		},
-		RenderingMode:      RenderingModeGPU,
+		Rendering: RenderingConfig{
+			Mode:                      RenderingModeGPU,
+			DisableDMABufRenderer:     false,
+			ForceCompositingMode:      false,
+			DisableCompositingMode:    false,
+			GSKRenderer:               GSKRendererVulkan,
+			DisableMipmaps:            false,
+			PreferGL:                  false,
+			DrawCompositingIndicators: false,
+			ShowFPS:                   false,
+			SampleMemory:              false,
+			DebugFrames:               false,
+		},
 		DefaultWebpageZoom: 1.2,            // 120% default zoom for better readability
 		DefaultUIScale:     defaultUIScale, // 1.0 = 100%, 2.0 = 200%
 		Workspace: WorkspaceConfig{

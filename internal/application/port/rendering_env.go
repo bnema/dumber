@@ -17,33 +17,48 @@ const (
 	GPUVendorUnknown GPUVendor = "unknown"
 )
 
-// GStreamerEnvSettings contains settings for GStreamer environment configuration.
+// RenderingEnvSettings contains all rendering-related environment settings.
 // This is a port-local type to avoid import cycles with config package.
-type GStreamerEnvSettings struct {
-	// ForceVSync enables vertical sync for video playback
+type RenderingEnvSettings struct {
+	// --- GStreamer settings (from MediaConfig) ---
+	// ForceVSync enables vertical sync for video playback.
 	ForceVSync bool
-	// GLRenderingMode controls OpenGL API selection: "auto", "gles2", "gl3", "none"
+	// GLRenderingMode controls OpenGL API selection: "auto", "gles2", "gl3", "none".
 	GLRenderingMode string
-	// GStreamerDebugLevel sets GStreamer debug verbosity (0-5)
+	// GStreamerDebugLevel sets GStreamer debug verbosity (0-5).
 	GStreamerDebugLevel int
-	// VideoBufferSizeMB sets buffer size in megabytes for video streaming
+	// VideoBufferSizeMB sets buffer size in megabytes for video streaming.
 	VideoBufferSizeMB int
-	// QueueBufferTimeSec sets queue buffer time in seconds for prebuffering
+	// QueueBufferTimeSec sets queue buffer time in seconds for prebuffering.
 	QueueBufferTimeSec int
+
+	// --- WebKit compositor settings (from RenderingConfig) ---
+	DisableDMABufRenderer  bool
+	ForceCompositingMode   bool
+	DisableCompositingMode bool
+
+	// --- GTK/GSK settings (from RenderingConfig) ---
+	GSKRenderer    string
+	DisableMipmaps bool
+	PreferGL       bool
+
+	// --- Debug settings ---
+	ShowFPS      bool
+	SampleMemory bool
+	DebugFrames  bool
 }
 
-// GStreamerEnvManager configures GStreamer environment variables
-// based on system configuration and detected GPU vendor.
+// RenderingEnvManager configures rendering environment variables
+// for GStreamer, WebKit, and GTK/GSK.
 // Environment variables must be set BEFORE GTK/WebKit initialization.
-type GStreamerEnvManager interface {
+type RenderingEnvManager interface {
 	// DetectGPUVendor identifies the primary GPU vendor from system info.
 	// Uses /sys/class/drm/card*/device/vendor as primary detection method.
 	DetectGPUVendor(ctx context.Context) GPUVendor
 
-	// ApplyEnvironment sets GStreamer environment variables based on
-	// the provided settings and detected GPU vendor.
+	// ApplyEnvironment sets all rendering environment variables.
 	// Must be called before any GTK/GStreamer initialization.
-	ApplyEnvironment(ctx context.Context, settings GStreamerEnvSettings) error
+	ApplyEnvironment(ctx context.Context, settings RenderingEnvSettings) error
 
 	// GetAppliedVars returns a map of environment variables that were set.
 	// Useful for logging and debugging.

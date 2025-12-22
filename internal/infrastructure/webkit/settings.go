@@ -62,7 +62,7 @@ func (sm *SettingsManager) applySettings(ctx context.Context, settings *webkit.S
 
 	log.Debug().
 		Str("sans_font", cfg.Appearance.SansFont).
-		Str("rendering_mode", string(cfg.RenderingMode)).
+		Str("rendering_mode", string(cfg.Rendering.Mode)).
 		Bool("developer_extras", cfg.Debug.EnableDevTools).
 		Msg("settings applied")
 }
@@ -89,7 +89,7 @@ func applyFontSettings(settings *webkit.Settings, cfg *config.Config) {
 }
 
 func applyRenderingSettings(settings *webkit.Settings, cfg *config.Config) {
-	switch cfg.RenderingMode {
+	switch cfg.Rendering.Mode {
 	case config.RenderingModeGPU:
 		settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyAlwaysValue)
 	case config.RenderingModeCPU:
@@ -102,6 +102,7 @@ func applyRenderingSettings(settings *webkit.Settings, cfg *config.Config) {
 func applyDebugSettings(settings *webkit.Settings, cfg *config.Config) {
 	settings.SetEnableDeveloperExtras(cfg.Debug.EnableDevTools)
 	settings.SetEnableWriteConsoleMessagesToStdout(cfg.Logging.CaptureConsole)
+	settings.SetDrawCompositingIndicators(cfg.Rendering.DrawCompositingIndicators)
 }
 
 func applyBrowsingSettings(settings *webkit.Settings) {

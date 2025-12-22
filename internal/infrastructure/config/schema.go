@@ -11,8 +11,6 @@ type Config struct {
 	Logging             LoggingConfig    `mapstructure:"logging" yaml:"logging" toml:"logging"`
 	Appearance          AppearanceConfig `mapstructure:"appearance" yaml:"appearance" toml:"appearance"`
 	Debug               DebugConfig      `mapstructure:"debug" yaml:"debug" toml:"debug"`
-	// RenderingMode controls GPU/CPU rendering selection for WebKit
-	RenderingMode RenderingMode `mapstructure:"rendering_mode" yaml:"rendering_mode" toml:"rendering_mode"`
 	// DefaultWebpageZoom sets the default zoom level for pages without saved zoom settings (1.0 = 100%, 1.2 = 120%)
 	DefaultWebpageZoom float64 `mapstructure:"default_webpage_zoom" yaml:"default_webpage_zoom" toml:"default_webpage_zoom"`
 	// DefaultUIScale sets the default UI scale for GTK widgets (1.0 = 100%, 2.0 = 200%)
@@ -23,6 +21,8 @@ type Config struct {
 	ContentFiltering ContentFilteringConfig `mapstructure:"content_filtering" yaml:"content_filtering" toml:"content_filtering"`
 	// Omnibox controls the omnibox behavior (initial history display)
 	Omnibox OmniboxConfig `mapstructure:"omnibox" yaml:"omnibox" toml:"omnibox"`
+	// Rendering controls WebKit, GTK and compositor behavior.
+	Rendering RenderingConfig `mapstructure:"rendering" yaml:"rendering" toml:"rendering"`
 	// Media controls video playback and hardware acceleration
 	Media MediaConfig `mapstructure:"media" yaml:"media" toml:"media"`
 	// Runtime configures optional runtime overrides (e.g., /opt prefix for WebKitGTK/GTK).
@@ -37,6 +37,61 @@ const (
 	RenderingModeGPU  RenderingMode = "gpu"
 	RenderingModeCPU  RenderingMode = "cpu"
 )
+
+// GSKRendererMode controls the GTK Scene Kit renderer selection.
+type GSKRendererMode string
+
+const (
+	GSKRendererAuto   GSKRendererMode = "auto"
+	GSKRendererOpenGL GSKRendererMode = "opengl"
+	GSKRendererVulkan GSKRendererMode = "vulkan"
+	GSKRendererCairo  GSKRendererMode = "cairo"
+)
+
+// RenderingConfig controls WebKit and GTK/GSK rendering behavior.
+type RenderingConfig struct {
+	// Mode controls GPU/CPU rendering selection for WebKit (auto, gpu, cpu).
+	Mode RenderingMode `mapstructure:"mode" yaml:"mode" toml:"mode"`
+
+	// DisableDMABufRenderer disables DMA-BUF accelerated renderer.
+	// Env: WEBKIT_DISABLE_DMABUF_RENDERER
+	DisableDMABufRenderer bool `mapstructure:"disable_dmabuf_renderer" yaml:"disable_dmabuf_renderer" toml:"disable_dmabuf_renderer"`
+
+	// ForceCompositingMode forces accelerated compositing.
+	// Env: WEBKIT_FORCE_COMPOSITING_MODE
+	ForceCompositingMode bool `mapstructure:"force_compositing_mode" yaml:"force_compositing_mode" toml:"force_compositing_mode"`
+
+	// DisableCompositingMode disables accelerated compositing.
+	// Env: WEBKIT_DISABLE_COMPOSITING_MODE
+	DisableCompositingMode bool `mapstructure:"disable_compositing_mode" yaml:"disable_compositing_mode" toml:"disable_compositing_mode"`
+
+	// GSKRenderer overrides GTK Scene Kit renderer selection.
+	// Env: GSK_RENDERER
+	GSKRenderer GSKRendererMode `mapstructure:"gsk_renderer" yaml:"gsk_renderer" toml:"gsk_renderer"`
+
+	// DisableMipmaps disables mipmap generation.
+	// Env: GSK_GPU_DISABLE=mipmap
+	DisableMipmaps bool `mapstructure:"disable_mipmaps" yaml:"disable_mipmaps" toml:"disable_mipmaps"`
+
+	// PreferGL forces OpenGL over GLES.
+	// Env: GDK_DEBUG=gl-prefer-gl
+	PreferGL bool `mapstructure:"prefer_gl" yaml:"prefer_gl" toml:"prefer_gl"`
+
+	// DrawCompositingIndicators shows compositing layer borders and repaint counters.
+	DrawCompositingIndicators bool `mapstructure:"draw_compositing_indicators" yaml:"draw_compositing_indicators" toml:"draw_compositing_indicators"` //nolint:lll // struct tags exceed lll limit
+
+	// ShowFPS displays WebKit FPS counter.
+	// Env: WEBKIT_SHOW_FPS
+	ShowFPS bool `mapstructure:"show_fps" yaml:"show_fps" toml:"show_fps"`
+
+	// SampleMemory enables memory sampling.
+	// Env: WEBKIT_SAMPLE_MEMORY
+	SampleMemory bool `mapstructure:"sample_memory" yaml:"sample_memory" toml:"sample_memory"`
+
+	// DebugFrames enables frame timing debug output.
+	// Env: GDK_DEBUG=frames
+	DebugFrames bool `mapstructure:"debug_frames" yaml:"debug_frames" toml:"debug_frames"`
+}
 
 // HardwareDecodingMode controls video hardware acceleration.
 type HardwareDecodingMode string

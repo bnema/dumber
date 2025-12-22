@@ -8,8 +8,8 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
-	"github.com/bnema/dumber/internal/infrastructure/media"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/ui/theme"
 	"github.com/rs/zerolog"
@@ -32,24 +32,40 @@ func BuildWebKitStack(
 	themeManager *theme.Manager,
 	logger zerolog.Logger,
 ) WebKitStack {
-	// CRITICAL: Configure GStreamer environment BEFORE WebKit/GTK initialization.
-	// Environment variables must be set before GStreamer initializes its pipelines.
-	gstEnv := media.NewEnvManager()
-	gpuVendor := gstEnv.DetectGPUVendor(ctx)
-	gstSettings := port.GStreamerEnvSettings{
+	// CRITICAL: Configure rendering environment BEFORE WebKit/GTK initialization.
+	// Environment variables must be set before GTK/WebKit/GStreamer initializes.
+	renderEnv := env.NewManager()
+	gpuVendor := renderEnv.DetectGPUVendor(ctx)
+	renderSettings := port.RenderingEnvSettings{
+		// GStreamer settings
 		ForceVSync:          cfg.Media.ForceVSync,
 		GLRenderingMode:     string(cfg.Media.GLRenderingMode),
 		GStreamerDebugLevel: cfg.Media.GStreamerDebugLevel,
 		VideoBufferSizeMB:   cfg.Media.VideoBufferSizeMB,
 		QueueBufferTimeSec:  cfg.Media.QueueBufferTimeSec,
+
+		// WebKit compositor settings
+		DisableDMABufRenderer:  cfg.Rendering.DisableDMABufRenderer,
+		ForceCompositingMode:   cfg.Rendering.ForceCompositingMode,
+		DisableCompositingMode: cfg.Rendering.DisableCompositingMode,
+
+		// GTK/GSK settings
+		GSKRenderer:    string(cfg.Rendering.GSKRenderer),
+		DisableMipmaps: cfg.Rendering.DisableMipmaps,
+		PreferGL:       cfg.Rendering.PreferGL,
+
+		// Debug settings
+		ShowFPS:      cfg.Rendering.ShowFPS,
+		SampleMemory: cfg.Rendering.SampleMemory,
+		DebugFrames:  cfg.Rendering.DebugFrames,
 	}
-	if err := gstEnv.ApplyEnvironment(ctx, gstSettings); err != nil {
-		logger.Warn().Err(err).Msg("failed to apply gstreamer environment")
+	if err := renderEnv.ApplyEnvironment(ctx, renderSettings); err != nil {
+		logger.Warn().Err(err).Msg("failed to apply rendering environment")
 	}
 	logger.Info().
 		Str("gpu", string(gpuVendor)).
-		Interface("vars", gstEnv.GetAppliedVars()).
-		Msg("gstreamer environment configured")
+		Interface("vars", renderEnv.GetAppliedVars()).
+		Msg("rendering environment configured")
 
 	wkCtx, err := webkit.NewWebKitContext(ctx, dataDir, cacheDir)
 	if err != nil {

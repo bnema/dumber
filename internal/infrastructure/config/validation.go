@@ -258,12 +258,36 @@ func validateOmnibox(config *Config) []string {
 }
 
 func validateRendering(config *Config) []string {
-	switch config.RenderingMode {
+	var validationErrors []string
+
+	switch config.Rendering.Mode {
 	case RenderingModeAuto, RenderingModeGPU, RenderingModeCPU, "":
-		return nil
 	default:
-		return []string{fmt.Sprintf("rendering_mode must be one of: auto, gpu, cpu (got: %s)", config.RenderingMode)}
+		validationErrors = append(
+			validationErrors,
+			fmt.Sprintf("rendering.mode must be one of: auto, gpu, cpu (got: %s)", config.Rendering.Mode),
+		)
 	}
+
+	switch config.Rendering.GSKRenderer {
+	case GSKRendererAuto, GSKRendererOpenGL, GSKRendererVulkan, GSKRendererCairo, "":
+	default:
+		validationErrors = append(
+			validationErrors,
+			fmt.Sprintf(
+				"rendering.gsk_renderer must be one of: auto, opengl, vulkan, cairo (got: %s)",
+				config.Rendering.GSKRenderer,
+			),
+		)
+	}
+
+	if config.Rendering.ForceCompositingMode && config.Rendering.DisableCompositingMode {
+		validationErrors = append(validationErrors,
+			"rendering.force_compositing_mode and rendering.disable_compositing_mode cannot both be true",
+		)
+	}
+
+	return validationErrors
 }
 
 func validateColorScheme(config *Config) []string {
