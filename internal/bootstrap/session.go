@@ -20,6 +20,12 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const (
+	recentSessionsLimit = 200
+	lockDirPerm         = 0o755
+	lockFilePerm        = 0o600
+)
+
 type BrowserSession struct {
 	Session    *entity.Session
 	Logger     zerolog.Logger
@@ -92,9 +98,11 @@ func StartBrowserSession(ctx context.Context, cfg *config.Config, db *sql.DB) (*
 	}, sessionCtx, nil
 }
 
-func endStaleActiveBrowserSessions(ctx context.Context, sessionUC *usecase.ManageSessionUseCase, lockDir string, log *zerolog.Logger) error {
+func endStaleActiveBrowserSessions(
+	ctx context.Context, sessionUC *usecase.ManageSessionUseCase, lockDir string, log *zerolog.Logger,
+) error {
 	// We only have GetRecentSessions; fetch enough to cover likely actives.
-	recent, err := sessionUC.GetRecentSessions(ctx, 200)
+	recent, err := sessionUC.GetRecentSessions(ctx, recentSessionsLimit)
 	if err != nil {
 		return err
 	}
@@ -111,7 +119,7 @@ func endStaleActiveBrowserSessions(ctx context.Context, sessionUC *usecase.Manag
 			continue
 		}
 
-		f, err := os.OpenFile(lockPath, os.O_RDWR, 0o600)
+		f, err := os.OpenFile(lockPath, os.O_RDWR, lockFilePerm)
 		if err != nil {
 			continue
 		}
@@ -148,12 +156,12 @@ func lockSessionFile(lockDir string, sessionID entity.SessionID) (*os.File, stri
 	if lockDir == "" {
 		return nil, "", errors.New("lock dir is empty")
 	}
-	if err := os.MkdirAll(lockDir, 0o755); err != nil {
+	if err := os.MkdirAll(lockDir, lockDirPerm); err != nil {
 		return nil, "", err
 	}
 
 	lockPath := sessionLockPath(lockDir, sessionID)
-	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
+	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, lockFilePerm)
 	if err != nil {
 		return nil, "", err
 	}

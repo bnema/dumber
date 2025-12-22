@@ -26,7 +26,10 @@ var (
 	logsClearAll bool
 )
 
-const defaultLogsLines = 50
+const (
+	defaultLogsLines    = 50
+	recentSessionsLimit = 200
+)
 
 var logsCmd = &cobra.Command{
 	Use:   "logs [session]",
@@ -138,8 +141,9 @@ func listSessions(ctx context.Context, sessionMgr sessionManager, logDir string,
 	fmt.Println()
 
 	// Table format: ShortID | DateTime | Status | Size
-	for _, s := range sessions {
-		timeStr := sessionSortTime(s).Format("2006-01-02 15:04:05")
+	for i := range sessions {
+		s := &sessions[i]
+		timeStr := sessionSortTime(*s).Format("2006-01-02 15:04:05")
 
 		status := ""
 		if s.FromDB {
@@ -222,7 +226,7 @@ func getSessionsMerged(ctx context.Context, sessionMgr sessionManager, logDir st
 		return fsSessions, nil
 	}
 
-	dbSessions, err := sessionMgr.GetRecentSessions(ctx, 200)
+	dbSessions, err := sessionMgr.GetRecentSessions(ctx, recentSessionsLimit)
 	if err != nil {
 		if isMissingSessionsTable(err) {
 			return fsSessions, nil
@@ -256,11 +260,11 @@ func getSessionsMerged(ctx context.Context, sessionMgr sessionManager, logDir st
 		merged = append(merged, info)
 	}
 
-	for _, s := range fsSessions {
-		if _, ok := byID[s.SessionID]; ok {
+	for i := range fsSessions {
+		if _, ok := byID[fsSessions[i].SessionID]; ok {
 			continue
 		}
-		merged = append(merged, s)
+		merged = append(merged, fsSessions[i])
 	}
 
 	sort.Slice(merged, func(i, j int) bool {
@@ -304,16 +308,16 @@ func findSession(ctx context.Context, sessionMgr sessionManager, logDir, query s
 		if shortID == "" {
 			shortID = logging.ShortSessionID(sessions[i].SessionID)
 		}
-		if strings.ToLower(shortID) == queryNormalized {
+		if strings.EqualFold(shortID, queryNormalized) {
 			return &sessions[i], nil
 		}
 	}
 
 	// Try partial match on full session ID
 	var matches []SessionInfo
-	for _, s := range sessions {
-		if strings.Contains(strings.ToLower(s.SessionID), queryNormalized) {
-			matches = append(matches, s)
+	for i := range sessions {
+		if strings.Contains(strings.ToLower(sessions[i].SessionID), queryNormalized) {
+			matches = append(matches, sessions[i])
 		}
 	}
 
@@ -325,8 +329,8 @@ func findSession(ctx context.Context, sessionMgr sessionManager, logDir, query s
 	default:
 		// Multiple matches - show them and ask user to be more specific
 		var ids []string
-		for _, m := range matches {
-			ids = append(ids, m.ShortID)
+		for i := range matches {
+			ids = append(ids, matches[i].ShortID)
 		}
 		return nil, fmt.Errorf("multiple sessions match '%s': %s", query, strings.Join(ids, ", "))
 	}
@@ -523,7 +527,8 @@ func runLogsClear(_ *cobra.Command, _ []string) error {
 	cutoff := time.Now().AddDate(0, 0, -maxAge)
 	var removed int
 
-	for _, s := range sessions {
+	for i := range sessions {
+		s := &sessions[i]
 		shouldRemove := logsClearAll || s.ModTime.Before(cutoff)
 		if !shouldRemove {
 			continue

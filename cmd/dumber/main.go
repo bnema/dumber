@@ -20,10 +20,8 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/deps"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
-	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/infrastructure/media"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui"
 	"github.com/bnema/dumber/internal/ui/theme"
@@ -107,61 +105,11 @@ func runGUI() int {
 	checkRuntimeRequirements(ctx, cfg, logger)
 	checkMediaRequirements(ctx, cfg, logger)
 
-	// Create repositories
-	historyRepo := sqlite.NewHistoryRepository(db)
-	favoriteRepo := sqlite.NewFavoriteRepository(db)
-	folderRepo := sqlite.NewFolderRepository(db)
-	tagRepo := sqlite.NewTagRepository(db)
-	zoomRepo := sqlite.NewZoomRepository(db)
-
-	// Theme management
 	themeManager := theme.NewManager(ctx, cfg)
-
 	stack := bootstrap.BuildWebKitStack(ctx, cfg, dataDir, cacheDir, themeManager, logger)
-
-	// Create use cases
-	const idAlphabetSize = 26
-	idCounter := uint64(0)
-	idGenerator := func() string {
-		idCounter++
-		return fmt.Sprintf("%c%d", 'a'+rune(idCounter%idAlphabetSize), idCounter/idAlphabetSize)
-	}
-	tabsUC := usecase.NewManageTabsUseCase(idGenerator)
-	panesUC := usecase.NewManagePanesUseCase(idGenerator)
-	historyUC := usecase.NewSearchHistoryUseCase(historyRepo)
-	favoritesUC := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
-	zoomUC := usecase.NewManageZoomUseCase(zoomRepo, cfg.DefaultWebpageZoom)
-	navigateUC := usecase.NewNavigateUseCase(historyRepo, zoomRepo, cfg.DefaultWebpageZoom)
-	clipboardAdapter := clipboard.New()
-	copyURLUC := usecase.NewCopyURLUseCase(clipboardAdapter)
-
-	// Create favicon service
-	faviconCacheDir, _ := config.GetFaviconCacheDir()
-	faviconService := favicon.NewService(faviconCacheDir)
-
-	uiDeps := buildUIDependencies(
-		ctx,
-		cfg,
-		themeManager,
-		stack.Context,
-		stack.Pool,
-		stack.Settings,
-		stack.Injector,
-		stack.MessageRouter,
-		stack.FilterManager,
-		historyRepo,
-		favoriteRepo,
-		zoomRepo,
-		tabsUC,
-		panesUC,
-		historyUC,
-		favoritesUC,
-		zoomUC,
-		navigateUC,
-		copyURLUC,
-		clipboardAdapter,
-		faviconService,
-	)
+	repos := createRepositories(db)
+	useCases := createUseCases(repos, cfg.DefaultWebpageZoom)
+	uiDeps := buildUIDependencies(ctx, cfg, themeManager, &stack, repos, useCases)
 
 	app, err := ui.New(uiDeps)
 	if err != nil {
@@ -267,51 +215,92 @@ func openDatabase(ctx context.Context, logger zerolog.Logger, dataDir string) (*
 	return db, cleanup
 }
 
+// repositories groups infrastructure layer repository implementations.
+type repositories struct {
+	history  repository.HistoryRepository
+	favorite repository.FavoriteRepository
+	folder   repository.FolderRepository
+	tag      repository.TagRepository
+	zoom     repository.ZoomRepository
+}
+
+func createRepositories(db *sql.DB) *repositories {
+	return &repositories{
+		history:  sqlite.NewHistoryRepository(db),
+		favorite: sqlite.NewFavoriteRepository(db),
+		folder:   sqlite.NewFolderRepository(db),
+		tag:      sqlite.NewTagRepository(db),
+		zoom:     sqlite.NewZoomRepository(db),
+	}
+}
+
+// useCases groups application layer use case implementations.
+type useCases struct {
+	tabs      *usecase.ManageTabsUseCase
+	panes     *usecase.ManagePanesUseCase
+	history   *usecase.SearchHistoryUseCase
+	favorites *usecase.ManageFavoritesUseCase
+	zoom      *usecase.ManageZoomUseCase
+	navigate  *usecase.NavigateUseCase
+	copyURL   *usecase.CopyURLUseCase
+	clipboard port.Clipboard
+	favicon   *favicon.Service
+}
+
+func createUseCases(repos *repositories, defaultZoom float64) *useCases {
+	const idAlphabetSize = 26
+	idCounter := uint64(0)
+	idGenerator := func() string {
+		idCounter++
+		return fmt.Sprintf("%c%d", 'a'+rune(idCounter%idAlphabetSize), idCounter/idAlphabetSize)
+	}
+
+	clipboardAdapter := clipboard.New()
+	faviconCacheDir, _ := config.GetFaviconCacheDir()
+
+	return &useCases{
+		tabs:      usecase.NewManageTabsUseCase(idGenerator),
+		panes:     usecase.NewManagePanesUseCase(idGenerator),
+		history:   usecase.NewSearchHistoryUseCase(repos.history),
+		favorites: usecase.NewManageFavoritesUseCase(repos.favorite, repos.folder, repos.tag),
+		zoom:      usecase.NewManageZoomUseCase(repos.zoom, defaultZoom),
+		navigate:  usecase.NewNavigateUseCase(repos.history, repos.zoom, defaultZoom),
+		copyURL:   usecase.NewCopyURLUseCase(clipboardAdapter),
+		clipboard: clipboardAdapter,
+		favicon:   favicon.NewService(faviconCacheDir),
+	}
+}
+
 func buildUIDependencies(
 	ctx context.Context,
 	cfg *config.Config,
 	themeManager *theme.Manager,
-	wkCtx *webkit.WebKitContext,
-	pool *webkit.WebViewPool,
-	settings *webkit.SettingsManager,
-	injector *webkit.ContentInjector,
-	messageRouter *webkit.MessageRouter,
-	filterManager *filtering.Manager,
-	historyRepo repository.HistoryRepository,
-	favoriteRepo repository.FavoriteRepository,
-	zoomRepo repository.ZoomRepository,
-	tabsUC *usecase.ManageTabsUseCase,
-	panesUC *usecase.ManagePanesUseCase,
-	historyUC *usecase.SearchHistoryUseCase,
-	favoritesUC *usecase.ManageFavoritesUseCase,
-	zoomUC *usecase.ManageZoomUseCase,
-	navigateUC *usecase.NavigateUseCase,
-	copyURLUC *usecase.CopyURLUseCase,
-	clipboardAdapter port.Clipboard,
-	faviconService *favicon.Service,
+	stack *bootstrap.WebKitStack,
+	repos *repositories,
+	uc *useCases,
 ) *ui.Dependencies {
 	return &ui.Dependencies{
 		Ctx:            ctx,
 		Config:         cfg,
 		InitialURL:     initialURL,
 		Theme:          themeManager,
-		WebContext:     wkCtx,
-		Pool:           pool,
-		Settings:       settings,
-		Injector:       injector,
-		MessageRouter:  messageRouter,
-		HistoryRepo:    historyRepo,
-		FavoriteRepo:   favoriteRepo,
-		ZoomRepo:       zoomRepo,
-		TabsUC:         tabsUC,
-		PanesUC:        panesUC,
-		HistoryUC:      historyUC,
-		FavoritesUC:    favoritesUC,
-		ZoomUC:         zoomUC,
-		NavigateUC:     navigateUC,
-		CopyURLUC:      copyURLUC,
-		Clipboard:      clipboardAdapter,
-		FaviconService: faviconService,
-		FilterManager:  filterManager,
+		WebContext:     stack.Context,
+		Pool:           stack.Pool,
+		Settings:       stack.Settings,
+		Injector:       stack.Injector,
+		MessageRouter:  stack.MessageRouter,
+		FilterManager:  stack.FilterManager,
+		HistoryRepo:    repos.history,
+		FavoriteRepo:   repos.favorite,
+		ZoomRepo:       repos.zoom,
+		TabsUC:         uc.tabs,
+		PanesUC:        uc.panes,
+		HistoryUC:      uc.history,
+		FavoritesUC:    uc.favorites,
+		ZoomUC:         uc.zoom,
+		NavigateUC:     uc.navigate,
+		CopyURLUC:      uc.copyURL,
+		Clipboard:      uc.clipboard,
+		FaviconService: uc.favicon,
 	}
 }
