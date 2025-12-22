@@ -166,6 +166,21 @@ func (a *App) onActivate(ctx context.Context) {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("GTK application activated")
 
+	// Propagate app color scheme preference to GTK (and WebKit)
+	// so web content can correctly evaluate prefers-color-scheme.
+	if settings := gtk.SettingsGetDefault(); settings != nil {
+		scheme := "default"
+		if a.deps != nil && a.deps.Config != nil && a.deps.Config.Appearance.ColorScheme != "" {
+			scheme = a.deps.Config.Appearance.ColorScheme
+		}
+		prefersDark := theme.ResolveColorScheme(scheme)
+		settings.SetPropertyGtkApplicationPreferDarkTheme(prefersDark)
+		log.Debug().
+			Str("scheme", scheme).
+			Bool("prefers_dark", prefersDark).
+			Msg("set gtk-application-prefer-dark-theme")
+	}
+
 	// Prewarm WebView pool now that GTK is initialized
 	if a.pool != nil {
 		a.pool.Prewarm(ctx, 0)
