@@ -135,8 +135,8 @@ func (t *Toaster) Show(ctx context.Context, message string, level ToastLevel) {
 	t.startDismissTimer(ctx)
 
 	log.Debug().
-		Str("message", message).
-		Int("level", int(level)).
+		Str("toast_message", message).
+		Int("toast_level", int(level)).
 		Msg("toast shown")
 }
 
