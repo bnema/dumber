@@ -188,8 +188,16 @@ func (wv *WorkspaceView) SetActivePaneID(paneID entity.PaneID) error {
 func (wv *WorkspaceView) setActivePaneIDInternal(paneID entity.PaneID) error {
 	currentActiveID := wv.getActivePaneIDInternal()
 
+	wv.logger.Debug().
+		Str("from_pane", string(currentActiveID)).
+		Str("to_pane", string(paneID)).
+		Bool("omnibox_visible", wv.omnibox != nil).
+		Str("omnibox_pane", string(wv.omniboxPaneID)).
+		Msg("active pane changing")
+
 	// Destroy omnibox if active pane is changing
 	if currentActiveID != paneID && wv.omnibox != nil {
+		wv.logger.Debug().Msg("destroying omnibox due to pane change")
 		wv.hideOmniboxInternal()
 	}
 	// Destroy find bar if active pane is changing
@@ -478,18 +486,27 @@ func (wv *WorkspaceView) ShowOmnibox(ctx context.Context, query string) {
 	wv.mu.Lock()
 	defer wv.mu.Unlock()
 
-	// If omnibox already exists, just show it
-	if wv.omnibox != nil {
-		wv.omnibox.Show(ctx, query)
-		return
-	}
-
 	// Get the active pane view
 	activePaneID := wv.getActivePaneIDInternal()
 	pv := wv.paneViews[activePaneID]
 	if pv == nil {
 		wv.logger.Warn().Str("paneID", string(activePaneID)).Msg("cannot show omnibox: active pane not found")
 		return
+	}
+
+	// If omnibox exists but on different pane, destroy and recreate on active pane
+	if wv.omnibox != nil {
+		if wv.omniboxPaneID != activePaneID {
+			wv.logger.Debug().
+				Str("old_pane", string(wv.omniboxPaneID)).
+				Str("new_pane", string(activePaneID)).
+				Msg("omnibox pane changed, recreating")
+			wv.hideOmniboxInternal()
+		} else {
+			wv.logger.Debug().Str("pane", string(activePaneID)).Msg("showing existing omnibox")
+			wv.omnibox.Show(ctx, query)
+			return
+		}
 	}
 
 	// Create omnibox with pane-specific toast callback

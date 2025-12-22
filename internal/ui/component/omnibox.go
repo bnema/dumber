@@ -20,12 +20,13 @@ import (
 )
 
 const (
-	omniboxWidthPct     = 0.8 // 80% of parent window width
-	omniboxMaxWidth     = 800 // Maximum width in pixels
-	omniboxHeightPct    = 0.6 // 60% of parent window height
-	omniboxMaxResults   = 10
-	omniboxTopMarginPct = 0.2 // 20% from top
-	debounceDelayMs     = 150
+	omniboxWidthPct       = 0.8 // 80% of parent window width
+	omniboxMaxWidth       = 800 // Maximum width in pixels
+	omniboxFallbackHeight = 600 // Fallback height when overlay not yet allocated
+	omniboxHeightPct      = 0.6 // 60% of parent window height
+	omniboxMaxResults     = 10
+	omniboxTopMarginPct   = 0.2 // 20% from top
+	debounceDelayMs       = 150
 )
 
 // ViewMode distinguishes history search from favorites display.
@@ -110,9 +111,6 @@ type Omnibox struct {
 
 	// Callback retention: keep GTK signal callbacks reachable by Go GC.
 	retainedCallbacks []interface{}
-
-	// Used to rate-limit allocation-related logs.
-	loggedInvalidOverlayDims bool
 }
 
 // OmniboxConfig holds configuration for creating an Omnibox.
@@ -195,33 +193,10 @@ func (o *Omnibox) resizeAndCenter(rowCount int) {
 		return
 	}
 
-	// Use GetAllocatedWidth/Height for actual rendered size
+	// Use GetAllocatedWidth for actual rendered size (height not needed here)
 	parentWidth := o.parentOverlay.GetAllocatedWidth()
-	parentHeight := o.parentOverlay.GetAllocatedHeight()
-
-	if parentWidth <= 0 || parentHeight <= 0 {
-		// Overlay may not be allocated yet (e.g., right after adding/switching panes).
-		// Retry once in the next main-loop tick and avoid spamming logs.
-		if !o.loggedInvalidOverlayDims {
-			log := logging.FromContext(o.ctx)
-			log.Error().
-				Int("parent_width", parentWidth).
-				Int("parent_height", parentHeight).
-				Msg("omnibox: invalid parent overlay dimensions")
-			o.loggedInvalidOverlayDims = true
-		}
-
-		var cb glib.SourceFunc = func(uintptr) bool {
-			o.mu.RLock()
-			visible := o.visible
-			o.mu.RUnlock()
-			if visible {
-				o.resizeAndCenter(rowCount)
-			}
-			return false
-		}
-		glib.IdleAdd(&cb, 0)
-		return
+	if parentWidth <= 0 {
+		parentWidth = omniboxMaxWidth
 	}
 
 	width := int(float64(parentWidth) * omniboxWidthPct)
@@ -493,6 +468,13 @@ func (o *Omnibox) handleKeyPress(keyval uint, state gdk.ModifierType) bool {
 		o.Hide(o.ctx)
 		return true
 
+	case uint(gdk.KEY_l), uint(gdk.KEY_L):
+		// Ctrl+L toggles omnibox (hides when visible)
+		if ctrl {
+			o.Hide(o.ctx)
+			return true
+		}
+
 	case uint(gdk.KEY_Return), uint(gdk.KEY_KP_Enter):
 		o.navigateToSelected()
 		return true
@@ -532,24 +514,31 @@ func (o *Omnibox) handleKeyPress(keyval uint, state gdk.ModifierType) bool {
 		}
 		return false // Let entry handle 'y' for typing
 
-	case uint(gdk.KEY_1), uint(gdk.KEY_2), uint(gdk.KEY_3), uint(gdk.KEY_4), uint(gdk.KEY_5),
-		uint(gdk.KEY_6), uint(gdk.KEY_7), uint(gdk.KEY_8), uint(gdk.KEY_9):
-		if ctrl {
-			const firstShortcutKey = uint(gdk.KEY_1)
-			index := int(keyval - firstShortcutKey) // 0-8
-			o.selectAndNavigate(index)
-			return true
-		}
-
-	case uint(gdk.KEY_0):
-		if ctrl {
-			const tenthItemIndex = 9
-			o.selectAndNavigate(tenthItemIndex)
-			return true
-		}
+	default:
+		return o.handleCtrlNumberShortcut(keyval, ctrl)
 	}
 
 	return false // Let entry handle the key
+}
+
+// handleCtrlNumberShortcut handles Ctrl+1-9 and Ctrl+0 for quick navigation.
+func (o *Omnibox) handleCtrlNumberShortcut(keyval uint, ctrl bool) bool {
+	if !ctrl {
+		return false
+	}
+
+	const tenthItemIndex = 9
+	switch keyval {
+	case uint(gdk.KEY_1), uint(gdk.KEY_2), uint(gdk.KEY_3), uint(gdk.KEY_4), uint(gdk.KEY_5),
+		uint(gdk.KEY_6), uint(gdk.KEY_7), uint(gdk.KEY_8), uint(gdk.KEY_9):
+		index := int(keyval - uint(gdk.KEY_1))
+		o.selectAndNavigate(index)
+		return true
+	case uint(gdk.KEY_0):
+		o.selectAndNavigate(tenthItemIndex)
+		return true
+	}
+	return false
 }
 
 // onEntryChanged handles text input changes with debouncing.
@@ -1245,9 +1234,17 @@ func (o *Omnibox) Show(ctx context.Context, query string) {
 		o.scrolledWin.SetMaxContentHeight(0)
 	}
 
-	// Set width and vertical positioning (20% from top)
+	// Get parent dimensions with fallback if not yet allocated
 	parentWidth := o.parentOverlay.GetAllocatedWidth()
 	parentHeight := o.parentOverlay.GetAllocatedHeight()
+	if parentWidth <= 0 {
+		parentWidth = omniboxMaxWidth
+	}
+	if parentHeight <= 0 {
+		parentHeight = omniboxFallbackHeight
+	}
+
+	// Set width and vertical positioning (20% from top)
 	width := int(float64(parentWidth) * omniboxWidthPct)
 	if width > omniboxMaxWidth {
 		width = omniboxMaxWidth
@@ -1258,7 +1255,6 @@ func (o *Omnibox) Show(ctx context.Context, query string) {
 	o.outerBox.SetMarginTop(marginTop)
 
 	// Show the omnibox
-	o.loggedInvalidOverlayDims = false
 	o.outerBox.SetVisible(true)
 
 	// Trigger initial resize (will be updated when results arrive)
