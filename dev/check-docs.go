@@ -436,6 +436,7 @@ func verifyConfigDoc(report *Report, schemaKeys map[string]struct{}, configDocPa
 
 func extractDocKeys(lines []string, schemaKeys map[string]struct{}) map[string]int {
 	keyRe := regexp.MustCompile("`([a-zA-Z0-9_.-]+)`")
+	tableRowRe := regexp.MustCompile(`^\|`)
 	inCode := false
 
 	seen := map[string]int{}
@@ -448,6 +449,35 @@ func extractDocKeys(lines []string, schemaKeys map[string]struct{}) map[string]i
 		if inCode {
 			continue
 		}
+
+		// Prefer extracting keys from the first column of Markdown tables.
+		// This avoids false-positives from enum values shown in other columns.
+		if tableRowRe.MatchString(trim) {
+			// Skip table separator rows.
+			if strings.Contains(trim, "---") {
+				continue
+			}
+			parts := strings.Split(line, "|")
+			if len(parts) >= 3 {
+				firstCell := strings.TrimSpace(parts[1])
+				matches := keyRe.FindAllStringSubmatch(firstCell, -1)
+				for _, m := range matches {
+					k := m[1]
+					if k == "" || k[0] < 'a' || k[0] > 'z' {
+						continue
+					}
+					if strings.ContainsAny(k, " /") {
+						continue
+					}
+					if _, already := seen[k]; !already {
+						seen[k] = i + 1
+					}
+				}
+			}
+			continue
+		}
+
+		// Outside of tables, only accept dotted paths that look like config keys.
 		matches := keyRe.FindAllStringSubmatch(line, -1)
 		for _, m := range matches {
 			k := m[1]
@@ -457,9 +487,6 @@ func extractDocKeys(lines []string, schemaKeys map[string]struct{}) map[string]i
 				}
 				continue
 			}
-
-			// For unknown backticked strings, only accept dotted paths that look
-			// like config keys (filters out enum values like `most_visited`).
 			if !strings.Contains(k, ".") {
 				continue
 			}
@@ -584,7 +611,8 @@ func writeReport(path string, report *Report) error {
 			_, _ = fmt.Fprintln(w)
 		}
 		if idx == 0 {
-			_, _ = fmt.Fprintln(w, "(none)\n")
+			_, _ = fmt.Fprintln(w, "(none)")
+			_, _ = fmt.Fprintln(w)
 		}
 	}
 

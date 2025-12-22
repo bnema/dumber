@@ -174,13 +174,23 @@ border = "#363636"
 |-----|------|---------|-------------|
 | `debug.enable_devtools` | bool | `true` | Enable browser developer tools (F12, Inspect Element) |
 
-## Rendering & Zoom
+## Rendering, UI Scale & Zoom
 
 | Key | Type | Default | Valid Values | Description |
 |-----|------|---------|--------------|-------------|
-| `rendering_mode` | string | `"gpu"` | `auto`, `gpu`, `cpu` | Rendering mode |
-| `use_dom_zoom` | bool | `false` | - | Use DOM-based zoom |
-| `default_zoom` | float | `1.2` | > 0 | Default zoom level (120%) |
+| `rendering.mode` | string | `"gpu"` | `auto`, `gpu`, `cpu` | WebKit hardware acceleration policy |
+| `rendering.disable_dmabuf_renderer` | bool | `false` | - | Disable WebKit DMA-BUF renderer (may fix flicker on Wayland; slower) |
+| `rendering.force_compositing_mode` | bool | `false` | - | Force WebKit compositing mode (`WEBKIT_FORCE_COMPOSITING_MODE`) |
+| `rendering.disable_compositing_mode` | bool | `false` | - | Disable WebKit compositing mode (`WEBKIT_DISABLE_COMPOSITING_MODE`) |
+| `rendering.gsk_renderer` | string | `"vulkan"` | `auto`, `opengl`, `vulkan`, `cairo` | GTK renderer selection (`GSK_RENDERER`) |
+| `rendering.disable_mipmaps` | bool | `false` | - | Disable GTK mipmaps (`GSK_GPU_DISABLE=mipmap`) |
+| `rendering.prefer_gl` | bool | `false` | - | Prefer OpenGL over GLES (`GDK_DEBUG=gl-prefer-gl`) |
+| `rendering.draw_compositing_indicators` | bool | `false` | - | Draw WebKit compositing indicators (debug) |
+| `rendering.show_fps` | bool | `false` | - | Show WebKit FPS counter (`WEBKIT_SHOW_FPS`) |
+| `rendering.sample_memory` | bool | `false` | - | Enable WebKit memory sampling (`WEBKIT_SAMPLE_MEMORY`) |
+| `rendering.debug_frames` | bool | `false` | - | Enable GTK frame timing debug (`GDK_DEBUG=frames`) |
+| `default_ui_scale` | float | `1.0` | > 0 | GTK widget UI scale (1.0=100%, 2.0=200%) |
+| `default_webpage_zoom` | float | `1.2` | > 0 | Default page zoom (1.0=100%, 1.2=120%) |
 
 ## Workspace Configuration
 
@@ -357,8 +367,11 @@ All config values can be overridden via environment variables with the prefix `D
 # Database
 DUMBER_DATABASE_PATH=/custom/path/db.sqlite
 
-# Rendering
+# Rendering (examples)
+# Defaults: rendering.disable_dmabuf_renderer=false, rendering.gsk_renderer="vulkan"
 DUMBER_RENDERING_MODE=cpu
+# DUMBER_RENDERING_DISABLE_DMABUF_RENDERER=true
+# DUMBER_RENDERING_GSK_RENDERER=opengl
 DUMBER_DEFAULT_WEBPAGE_ZOOM=1.5
 
 # Logging
