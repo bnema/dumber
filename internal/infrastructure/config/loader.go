@@ -188,6 +188,19 @@ func normalizeConfig(config *Config) {
 		config.Media.HardwareDecodingMode = HardwareDecodingAuto
 	}
 
+	switch strings.ToLower(string(config.Media.GLRenderingMode)) {
+	case "", string(GLRenderingModeAuto):
+		config.Media.GLRenderingMode = GLRenderingModeAuto
+	case string(GLRenderingModeGLES2):
+		config.Media.GLRenderingMode = GLRenderingModeGLES2
+	case string(GLRenderingModeGL3):
+		config.Media.GLRenderingMode = GLRenderingModeGL3
+	case string(GLRenderingModeNone):
+		config.Media.GLRenderingMode = GLRenderingModeNone
+	default:
+		config.Media.GLRenderingMode = GLRenderingModeAuto
+	}
+
 	config.Runtime.Prefix = strings.TrimSpace(config.Runtime.Prefix)
 }
 
@@ -385,6 +398,11 @@ func (m *Manager) setMediaDefaults(defaults *Config) {
 	m.viper.SetDefault("media.hardware_decoding", string(defaults.Media.HardwareDecodingMode))
 	m.viper.SetDefault("media.prefer_av1", defaults.Media.PreferAV1)
 	m.viper.SetDefault("media.show_diagnostics", defaults.Media.ShowDiagnosticsOnStartup)
+	m.viper.SetDefault("media.force_vsync", defaults.Media.ForceVSync)
+	m.viper.SetDefault("media.gl_rendering_mode", string(defaults.Media.GLRenderingMode))
+	m.viper.SetDefault("media.gstreamer_debug_level", defaults.Media.GStreamerDebugLevel)
+	m.viper.SetDefault("media.video_buffer_size_mb", defaults.Media.VideoBufferSizeMB)
+	m.viper.SetDefault("media.queue_buffer_time_sec", defaults.Media.QueueBufferTimeSec)
 }
 
 func (m *Manager) setRuntimeDefaults(defaults *Config) {

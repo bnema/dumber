@@ -5,9 +5,11 @@ import (
 	"path/filepath"
 
 	"github.com/bnema/dumber/assets"
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
+	"github.com/bnema/dumber/internal/infrastructure/media"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/ui/theme"
 	"github.com/rs/zerolog"
@@ -30,6 +32,25 @@ func BuildWebKitStack(
 	themeManager *theme.Manager,
 	logger zerolog.Logger,
 ) WebKitStack {
+	// CRITICAL: Configure GStreamer environment BEFORE WebKit/GTK initialization.
+	// Environment variables must be set before GStreamer initializes its pipelines.
+	gstEnv := media.NewEnvManager()
+	gpuVendor := gstEnv.DetectGPUVendor(ctx)
+	gstSettings := port.GStreamerEnvSettings{
+		ForceVSync:          cfg.Media.ForceVSync,
+		GLRenderingMode:     string(cfg.Media.GLRenderingMode),
+		GStreamerDebugLevel: cfg.Media.GStreamerDebugLevel,
+		VideoBufferSizeMB:   cfg.Media.VideoBufferSizeMB,
+		QueueBufferTimeSec:  cfg.Media.QueueBufferTimeSec,
+	}
+	if err := gstEnv.ApplyEnvironment(ctx, gstSettings); err != nil {
+		logger.Warn().Err(err).Msg("failed to apply gstreamer environment")
+	}
+	logger.Info().
+		Str("gpu", string(gpuVendor)).
+		Interface("vars", gstEnv.GetAppliedVars()).
+		Msg("gstreamer environment configured")
+
 	wkCtx, err := webkit.NewWebKitContext(ctx, dataDir, cacheDir)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("failed to initialize WebKit context")

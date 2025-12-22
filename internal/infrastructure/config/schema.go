@@ -50,6 +50,20 @@ const (
 	HardwareDecodingDisable HardwareDecodingMode = "disable"
 )
 
+// GLRenderingMode controls OpenGL API selection for video rendering.
+type GLRenderingMode string
+
+const (
+	// GLRenderingModeAuto lets GStreamer choose the best GL API
+	GLRenderingModeAuto GLRenderingMode = "auto"
+	// GLRenderingModeGLES2 forces GLES2 (better for some mobile/embedded GPUs)
+	GLRenderingModeGLES2 GLRenderingMode = "gles2"
+	// GLRenderingModeGL3 forces OpenGL 3.x desktop
+	GLRenderingModeGL3 GLRenderingMode = "gl3"
+	// GLRenderingModeNone disables GL-based rendering
+	GLRenderingModeNone GLRenderingMode = "none"
+)
+
 // ThemeDefault is the default theme setting (follows system).
 const ThemeDefault = "default"
 
@@ -69,6 +83,19 @@ type MediaConfig struct {
 	PreferAV1 bool `mapstructure:"prefer_av1" yaml:"prefer_av1" toml:"prefer_av1"`
 	// ShowDiagnosticsOnStartup shows media capability warnings at startup
 	ShowDiagnosticsOnStartup bool `mapstructure:"show_diagnostics" yaml:"show_diagnostics" toml:"show_diagnostics"`
+	// ForceVSync forces vertical sync for video playback (may help with tearing)
+	ForceVSync bool `mapstructure:"force_vsync" yaml:"force_vsync" toml:"force_vsync"`
+	// GLRenderingMode controls OpenGL API selection for video rendering
+	// Values: "auto" (default), "gles2", "gl3", "none"
+	GLRenderingMode GLRenderingMode `mapstructure:"gl_rendering_mode" yaml:"gl_rendering_mode" toml:"gl_rendering_mode"`
+	// GStreamerDebugLevel sets GStreamer debug verbosity (0=off, 1-5=increasing verbosity)
+	GStreamerDebugLevel int `mapstructure:"gstreamer_debug_level" yaml:"gstreamer_debug_level" toml:"gstreamer_debug_level"`
+	// VideoBufferSizeMB sets the video buffer size in megabytes for smoother streaming
+	// Higher values reduce rebuffering but use more memory. Default: 64 MB
+	VideoBufferSizeMB int `mapstructure:"video_buffer_size_mb" yaml:"video_buffer_size_mb" toml:"video_buffer_size_mb"`
+	// QueueBufferTimeSec sets the queue buffer time in seconds
+	// Higher values allow more prebuffering for bursty streams. Default: 20 seconds
+	QueueBufferTimeSec int `mapstructure:"queue_buffer_time_sec" yaml:"queue_buffer_time_sec" toml:"queue_buffer_time_sec"`
 }
 
 // RuntimeConfig holds optional runtime overrides.

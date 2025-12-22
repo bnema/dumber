@@ -274,18 +274,44 @@ cancel = ["escape"]
 | `media.hardware_decoding` | string | `"auto"` | `auto`, `force`, `disable` | Hardware video decoding mode |
 | `media.prefer_av1` | bool | `true` | - | Prefer AV1 codec when available |
 | `media.show_diagnostics` | bool | `true` | - | Show media diagnostics warnings at startup |
+| `media.force_vsync` | bool | `false` | - | Force VSync for video playback (may help with tearing) |
+| `media.gl_rendering_mode` | string | `"auto"` | `auto`, `gles2`, `gl3`, `none` | OpenGL API selection for video rendering |
+| `media.gstreamer_debug_level` | int | `0` | `0-5` | GStreamer debug verbosity (0=off) |
+| `media.video_buffer_size_mb` | int | `64` | > 0 | Video buffer size in MB for smoother streaming |
+| `media.queue_buffer_time_sec` | int | `20` | > 0 | Queue prebuffer time in seconds |
 
 **Hardware decoding modes:**
 - `auto` (recommended): Hardware preferred with software fallback - fixes Twitch Error #4000
 - `force`: Hardware only - fails if unavailable
 - `disable`: Software only - higher CPU usage
 
+**GL rendering modes:**
+- `auto` (default): Let GStreamer choose the best OpenGL API
+- `gles2`: Force GLES2 (better for some mobile/embedded GPUs)
+- `gl3`: Force OpenGL 3.x desktop
+- `none`: Disable GL-based rendering
+
+**GPU auto-detection:**
+Dumber automatically detects your GPU vendor (AMD/Intel/NVIDIA) and sets optimal VA-API driver settings:
+- **AMD**: Uses `radeonsi` driver
+- **Intel**: Uses `iHD` driver (modern, for Broadwell+)
+- **NVIDIA**: Uses `nvidia` driver with EGL platform
+
+**Buffering settings:**
+- `video_buffer_size_mb`: Controls GStreamer buffer size. Larger buffers reduce rebuffering on bursty streams (Twitch, YouTube). Uses more memory.
+- `queue_buffer_time_sec`: Controls prebuffer duration. Higher values allow more data to be buffered ahead of playback.
+
 **Example:**
 ```toml
 [media]
-hardware_decoding = "auto"  # HW preferred, SW fallback
-prefer_av1 = true           # AV1 is most efficient codec
-show_diagnostics = true     # Log warnings if HW accel unavailable
+hardware_decoding = "auto"    # HW preferred, SW fallback
+prefer_av1 = true             # AV1 is most efficient codec
+show_diagnostics = true       # Log warnings if HW accel unavailable
+force_vsync = false           # Let compositor handle VSync
+gl_rendering_mode = "auto"    # GStreamer picks best GL API
+gstreamer_debug_level = 0     # Increase to 3-5 for debugging
+video_buffer_size_mb = 64     # 64 MB buffer for smooth streaming
+queue_buffer_time_sec = 20    # 20 seconds prebuffer
 ```
 
 **Diagnostics CLI:**

@@ -181,9 +181,14 @@ func DefaultConfig() *Config {
 			InitialBehavior: defaultOmniboxInitialBehavior,
 		},
 		Media: MediaConfig{
-			HardwareDecodingMode:     HardwareDecodingAuto, // THE FIX: auto allows sw fallback
+			HardwareDecodingMode:     HardwareDecodingAuto, // auto allows sw fallback
 			PreferAV1:                true,                 // AV1 is most efficient codec
 			ShowDiagnosticsOnStartup: true,                 // Warn users if HW accel unavailable
+			ForceVSync:               false,                // Let compositor handle VSync
+			GLRenderingMode:          GLRenderingModeAuto,  // GStreamer picks best GL API
+			GStreamerDebugLevel:      0,                    // Disabled by default
+			VideoBufferSizeMB:        64,                   // Larger buffer for bursty streams (Twitch, YouTube)
+			QueueBufferTimeSec:       20,                   // More prebuffering for smooth playback
 		},
 		Runtime: RuntimeConfig{
 			Prefix: "",
