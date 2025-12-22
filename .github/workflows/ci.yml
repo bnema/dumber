@@ -3,10 +3,29 @@ name: CI
 on:
   push:
     branches: [dev, main]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'LICENSE'
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - 'go.sum'
+      - '.golangci.yml'
+      - 'Makefile'
+      - 'sqlc.yaml'
+      - 'assets/**'
+      - '!**.md'
+      - '!docs/**'
+      - '!LICENSE'
+  pull_request:
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - 'go.sum'
+      - '.golangci.yml'
+      - 'Makefile'
+      - 'sqlc.yaml'
+      - 'assets/**'
+      - '!**.md'
+      - '!docs/**'
+      - '!LICENSE'
 
 jobs:
   lint:
@@ -33,6 +52,13 @@ jobs:
           key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-build-
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('webui/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
       - name: Build frontend assets
         run: make build-frontend
       - name: Install golangci-lint
@@ -65,6 +91,13 @@ jobs:
           key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-build-
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('webui/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
       - name: Build frontend assets
         run: make build-frontend
       - name: Run tests

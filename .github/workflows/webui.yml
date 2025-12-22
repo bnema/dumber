@@ -1,0 +1,30 @@
+name: WebUI CI
+
+on:
+  push:
+    branches: [dev, main]
+    paths:
+      - 'webui/**'
+  pull_request:
+    paths:
+      - 'webui/**'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: 'webui/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: webui
+
+      - name: Run checks
+        run: npm run check
+        working-directory: webui
