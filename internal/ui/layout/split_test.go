@@ -55,7 +55,7 @@ func TestNewSplitView_Horizontal(t *testing.T) {
 	// Assert
 	require.NotNil(t, sv)
 	assert.Equal(t, layout.OrientationHorizontal, sv.Orientation())
-	assert.InEpsilon(t, 0.5, sv.GetRatio(), 0.0001)
+	assert.InDelta(t, 0.5, sv.GetRatio(), 0.0001)
 	assert.Equal(t, mockStartChild, sv.StartChild())
 	assert.Equal(t, mockEndChild, sv.EndChild())
 }
@@ -81,7 +81,7 @@ func TestNewSplitView_Vertical(t *testing.T) {
 	// Assert
 	require.NotNil(t, sv)
 	assert.Equal(t, layout.OrientationVertical, sv.Orientation())
-	assert.InEpsilon(t, 0.5, sv.GetRatio(), 0.0001)
+	assert.InDelta(t, 0.5, sv.GetRatio(), 0.0001)
 	assert.Equal(t, mockStartChild, sv.StartChild())
 	assert.Equal(t, mockEndChild, sv.EndChild())
 }
@@ -134,7 +134,7 @@ func TestSetRatio_ValidRange(t *testing.T) {
 			sv.SetRatio(tt.input)
 
 			// Assert
-			assert.InEpsilon(t, tt.expected, sv.GetRatio(), 0.0001)
+			assert.InDelta(t, tt.expected, sv.GetRatio(), 0.0001)
 		})
 	}
 }
@@ -167,7 +167,7 @@ func TestSetRatio_OutOfRange_Clamped(t *testing.T) {
 			sv.SetRatio(tt.input)
 
 			// Assert
-			assert.InEpsilon(t, tt.expected, sv.GetRatio(), 0.0001)
+			assert.InDelta(t, tt.expected, sv.GetRatio(), 0.0001)
 		})
 	}
 }
@@ -371,7 +371,7 @@ func TestNewSplitView_InitialRatio_Clamped(t *testing.T) {
 			sv := layout.NewSplitView(ctx, mockFactory, layout.OrientationHorizontal, nil, nil, tt.input)
 
 			// Assert
-			assert.InEpsilon(t, tt.expected, sv.GetRatio(), 0.0001)
+			assert.InDelta(t, tt.expected, sv.GetRatio(), 0.0001)
 		})
 	}
 }
