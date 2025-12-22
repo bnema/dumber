@@ -6,6 +6,7 @@ package mocks
 
 import (
 	"context"
+	"time"
 
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/puregotk-webkit/webkit"
@@ -743,6 +744,57 @@ func (_c *MockFilterDownloader_HasCachedFilters_Call) Return(b bool) *MockFilter
 }
 
 func (_c *MockFilterDownloader_HasCachedFilters_Call) RunAndReturn(run func() bool) *MockFilterDownloader_HasCachedFilters_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// IsCacheStale provides a mock function for the type MockFilterDownloader
+func (_mock *MockFilterDownloader) IsCacheStale(maxAge time.Duration) bool {
+	ret := _mock.Called(maxAge)
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsCacheStale")
+	}
+
+	var r0 bool
+	if returnFunc, ok := ret.Get(0).(func(time.Duration) bool); ok {
+		r0 = returnFunc(maxAge)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	return r0
+}
+
+// MockFilterDownloader_IsCacheStale_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsCacheStale'
+type MockFilterDownloader_IsCacheStale_Call struct {
+	*mock.Call
+}
+
+// IsCacheStale is a helper method to define mock.On call
+//   - maxAge time.Duration
+func (_e *MockFilterDownloader_Expecter) IsCacheStale(maxAge interface{}) *MockFilterDownloader_IsCacheStale_Call {
+	return &MockFilterDownloader_IsCacheStale_Call{Call: _e.mock.On("IsCacheStale", maxAge)}
+}
+
+func (_c *MockFilterDownloader_IsCacheStale_Call) Run(run func(maxAge time.Duration)) *MockFilterDownloader_IsCacheStale_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 time.Duration
+		if args[0] != nil {
+			arg0 = args[0].(time.Duration)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockFilterDownloader_IsCacheStale_Call) Return(b bool) *MockFilterDownloader_IsCacheStale_Call {
+	_c.Call.Return(b)
+	return _c
+}
+
+func (_c *MockFilterDownloader_IsCacheStale_Call) RunAndReturn(run func(maxAge time.Duration) bool) *MockFilterDownloader_IsCacheStale_Call {
 	_c.Call.Return(run)
 	return _c
 }

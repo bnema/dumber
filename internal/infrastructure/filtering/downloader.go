@@ -286,3 +286,14 @@ func (d *Downloader) NeedsUpdate(ctx context.Context) (bool, error) {
 func (d *Downloader) ClearCache() error {
 	return os.RemoveAll(d.cacheDir)
 }
+
+// IsCacheStale checks if the cached manifest is older than maxAge.
+// Returns true if cache is stale or doesn't exist.
+func (d *Downloader) IsCacheStale(maxAge time.Duration) bool {
+	path := filepath.Join(d.cacheDir, FilterFiles.Manifest)
+	info, err := os.Stat(path)
+	if err != nil {
+		return true
+	}
+	return time.Since(info.ModTime()) > maxAge
+}

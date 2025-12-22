@@ -2,6 +2,7 @@ package filtering
 
 import (
 	"context"
+	"time"
 
 	"github.com/bnema/puregotk-webkit/webkit"
 )
@@ -51,6 +52,9 @@ type FilterDownloader interface {
 
 	// GetCachedFilterPaths returns paths to cached filter JSON files.
 	GetCachedFilterPaths() []string
+
+	// IsCacheStale checks if the cached manifest is older than maxAge.
+	IsCacheStale(maxAge time.Duration) bool
 }
 
 // Ensure concrete types implement the interfaces.

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
@@ -17,6 +18,9 @@ const (
 	storeDirPerm   = 0o755
 	jsonDirPerm    = 0o755
 	mergedFilePerm = 0o644
+
+	// CacheMaxAge is the maximum age of the filter cache before it's considered stale.
+	CacheMaxAge = 24 * time.Hour
 )
 
 // Manager orchestrates the content filter lifecycle.
@@ -167,6 +171,8 @@ func (m *Manager) LoadAsync(ctx context.Context) {
 					Version: version,
 				})
 				log.Info().Str("version", version).Msg("filters loaded from cache")
+
+				m.checkStaleCacheAndUpdate(ctx)
 				return
 			}
 			log.Warn().Err(err).Msg("failed to load cached filter, will download")
@@ -255,6 +261,20 @@ func (m *Manager) mergeJSONFiles(ctx context.Context, paths []string) (string, e
 	}
 
 	return mergedPath, nil
+}
+
+// checkStaleCacheAndUpdate checks if the cache is stale and triggers a background update.
+func (m *Manager) checkStaleCacheAndUpdate(ctx context.Context) {
+	if !m.downloader.IsCacheStale(CacheMaxAge) {
+		return
+	}
+	log := logging.FromContext(ctx)
+	log.Info().Msg("filter cache is stale, checking for updates in background")
+	go func() {
+		if err := m.CheckForUpdates(ctx); err != nil {
+			log.Warn().Err(err).Msg("background filter update check failed")
+		}
+	}()
 }
 
 // getCachedVersion returns the version from the cached manifest.
