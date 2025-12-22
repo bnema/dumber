@@ -1476,13 +1476,8 @@ func (c *WorkspaceCoordinator) onTitleBarClick(ctx context.Context, stackNode *e
 	// Update domain model
 	stackNode.ActiveStackIndex = clickedIndex
 
-	// Update workspace active pane
-	ws, wsView := c.getActiveWS()
-	if ws != nil {
-		ws.ActivePaneID = clickedPaneID
-	}
-
-	// Update workspace view
+	// Update workspace view (also updates domain model)
+	_, wsView := c.getActiveWS()
 	if wsView != nil {
 		if err := wsView.SetActivePaneID(clickedPaneID); err != nil {
 			log.Warn().Err(err).Msg("failed to set active pane in workspace view")
@@ -1665,8 +1660,10 @@ func (c *WorkspaceCoordinator) insertPopupStacked(ctx context.Context, input Ins
 
 	c.insertStackChild(stackNode, input.PopupPane)
 
-	// Update workspace active pane
-	ws.ActivePaneID = input.PopupPane.ID
+	if wsView == nil {
+		// No workspace view to update; keep domain model consistent.
+		ws.ActivePaneID = input.PopupPane.ID
+	}
 
 	if err := c.attachPopupPaneView(ctx, input, wsView, stackNode, log); err != nil {
 		return err
