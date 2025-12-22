@@ -70,6 +70,13 @@ func TestBuildSearchURL(t *testing.T) {
 			want:          "https://example.com",
 		},
 		{
+			name:          "custom scheme dumb unchanged",
+			input:         "dumb://settings",
+			shortcuts:     testShortcuts,
+			defaultSearch: testDefaultSearch,
+			want:          "dumb://settings",
+		},
+		{
 			name:          "plain search query uses default",
 			input:         "how to parse json",
 			shortcuts:     testShortcuts,

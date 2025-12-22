@@ -37,10 +37,26 @@ func Normalize(input string) string {
 
 // LooksLikeURL checks if the input appears to be a URL (not a search query).
 // Returns true for strings like "github.com", "google.com/search", etc.
+// Also returns true for URLs with explicit schemes like "dumb://".
 func LooksLikeURL(input string) bool {
 	if input == "" {
 		return false
 	}
+
+	// Explicit schemes should always be treated as URLs.
+	switch {
+	case strings.HasPrefix(input, "http://"):
+		return true
+	case strings.HasPrefix(input, "https://"):
+		return true
+	case strings.HasPrefix(input, "dumb://"):
+		return true
+	case strings.HasPrefix(input, "file://"):
+		return true
+	case strings.HasPrefix(input, "about:"):
+		return true
+	}
+
 	// Contains a dot and no spaces = likely a URL
 	return strings.Contains(input, ".") && !strings.Contains(input, " ")
 }
