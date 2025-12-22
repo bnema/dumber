@@ -31,6 +31,9 @@ type KeyboardHandler struct {
 	// GTK controller (nil until attached)
 	controller *gtk.EventControllerKey
 
+	// Callback retention: must stay reachable by Go GC.
+	keyPressedCb func(gtk.EventControllerKey, uint, uint, gdk.ModifierType) bool
+
 	ctx context.Context
 	mu  sync.RWMutex
 }
@@ -98,11 +101,11 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 	// Set capture phase to intercept events before WebView gets them
 	h.controller.SetPropagationPhase(gtk.PhaseCaptureValue)
 
-	// Connect key pressed handler
-	keyPressedCb := func(_ gtk.EventControllerKey, keyval uint, _ uint, state gdk.ModifierType) bool {
+	// Connect key pressed handler (retain callback to prevent GC).
+	h.keyPressedCb = func(_ gtk.EventControllerKey, keyval uint, _ uint, state gdk.ModifierType) bool {
 		return h.handleKeyPress(keyval, state)
 	}
-	h.controller.ConnectKeyPressed(&keyPressedCb)
+	h.controller.ConnectKeyPressed(&h.keyPressedCb)
 
 	// Add controller to window
 	window.AddController(&h.controller.EventController)
@@ -115,6 +118,7 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 // but we clear our reference here.
 func (h *KeyboardHandler) Detach() {
 	h.controller = nil
+	h.keyPressedCb = nil
 }
 
 // handleKeyPress processes a key press event.
@@ -124,6 +128,8 @@ func (h *KeyboardHandler) handleKeyPress(keyval uint, state gdk.ModifierType) bo
 	shouldBypass := h.shouldBypass
 	h.mu.RUnlock()
 	if shouldBypass != nil && shouldBypass() {
+		log := logging.FromContext(h.ctx)
+		log.Debug().Uint("keyval", keyval).Uint("state", uint(state)).Msg("keyboard handler bypassed")
 		return false
 	}
 

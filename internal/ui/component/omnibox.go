@@ -107,6 +107,12 @@ type Omnibox struct {
 		singleRow int  // single ListBoxRow natural height
 		valid     bool // whether cache is valid
 	}
+
+	// Callback retention: keep GTK signal callbacks reachable by Go GC.
+	retainedCallbacks []interface{}
+
+	// Used to rate-limit allocation-related logs.
+	loggedInvalidOverlayDims bool
 }
 
 // OmniboxConfig holds configuration for creating an Omnibox.
@@ -194,11 +200,27 @@ func (o *Omnibox) resizeAndCenter(rowCount int) {
 	parentHeight := o.parentOverlay.GetAllocatedHeight()
 
 	if parentWidth <= 0 || parentHeight <= 0 {
-		log := logging.FromContext(o.ctx)
-		log.Error().
-			Int("parent_width", parentWidth).
-			Int("parent_height", parentHeight).
-			Msg("omnibox: invalid parent overlay dimensions")
+		// Overlay may not be allocated yet (e.g., right after adding/switching panes).
+		// Retry once in the next main-loop tick and avoid spamming logs.
+		if !o.loggedInvalidOverlayDims {
+			log := logging.FromContext(o.ctx)
+			log.Error().
+				Int("parent_width", parentWidth).
+				Int("parent_height", parentHeight).
+				Msg("omnibox: invalid parent overlay dimensions")
+			o.loggedInvalidOverlayDims = true
+		}
+
+		var cb glib.SourceFunc = func(uintptr) bool {
+			o.mu.RLock()
+			visible := o.visible
+			o.mu.RUnlock()
+			if visible {
+				o.resizeAndCenter(rowCount)
+			}
+			return false
+		}
+		glib.IdleAdd(&cb, 0)
 		return
 	}
 
@@ -311,6 +333,7 @@ func (o *Omnibox) setupKeyboardHandling() {
 	keyPressedCb := func(_ gtk.EventControllerKey, keyval uint, _ uint, state gdk.ModifierType) bool {
 		return o.handleKeyPress(keyval, state)
 	}
+	o.retainedCallbacks = append(o.retainedCallbacks, keyPressedCb)
 	controller.ConnectKeyPressed(&keyPressedCb)
 
 	o.outerBox.AddController(&controller.EventController)
@@ -363,11 +386,13 @@ func (o *Omnibox) initHeader() error {
 	historyClickCb := func(_ gtk.Button) {
 		o.setViewMode(ViewModeHistory)
 	}
+	o.retainedCallbacks = append(o.retainedCallbacks, historyClickCb)
 	o.historyBtn.ConnectClicked(&historyClickCb)
 
 	favoritesClickCb := func(_ gtk.Button) {
 		o.setViewMode(ViewModeFavorites)
 	}
+	o.retainedCallbacks = append(o.retainedCallbacks, favoritesClickCb)
 	o.favoritesBtn.ConnectClicked(&favoritesClickCb)
 
 	o.zoomLabel = gtk.NewLabel(nil)
@@ -424,6 +449,7 @@ func (o *Omnibox) initList() error {
 			o.mu.Unlock()
 		}
 	}
+	o.retainedCallbacks = append(o.retainedCallbacks, rowSelectedCb)
 	o.listBox.ConnectRowSelected(&rowSelectedCb)
 	return nil
 }
@@ -448,6 +474,7 @@ func (o *Omnibox) setupEntryChanged() {
 	changedCb := func(_ gtk.SearchEntry) {
 		o.onEntryChanged()
 	}
+	o.retainedCallbacks = append(o.retainedCallbacks, changedCb)
 	o.entry.ConnectSearchChanged(&changedCb)
 }
 
@@ -1231,6 +1258,7 @@ func (o *Omnibox) Show(ctx context.Context, query string) {
 	o.outerBox.SetMarginTop(marginTop)
 
 	// Show the omnibox
+	o.loggedInvalidOverlayDims = false
 	o.outerBox.SetVisible(true)
 
 	// Trigger initial resize (will be updated when results arrive)
@@ -1358,6 +1386,13 @@ func (o *Omnibox) Destroy() {
 		o.debounceTimer.Stop()
 	}
 	o.debounceMu.Unlock()
+
+	o.mu.Lock()
+	o.visible = false
+	o.mu.Unlock()
+
+	o.parentOverlay = nil
+	o.retainedCallbacks = nil
 
 	if o.outerBox != nil {
 		o.outerBox.Unparent()

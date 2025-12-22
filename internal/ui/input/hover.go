@@ -25,6 +25,10 @@ type HoverHandler struct {
 	paneID     entity.PaneID
 	onEnter    HoverCallback
 
+	// Callback retention: must stay reachable by Go GC.
+	enterCb func(gtk.EventControllerMotion, float64, float64)
+	leaveCb func(gtk.EventControllerMotion)
+
 	timer    *time.Timer
 	timerMu  sync.Mutex
 	canceled bool
@@ -63,17 +67,17 @@ func (h *HoverHandler) AttachTo(widget *gtk.Widget) {
 		return
 	}
 
-	// Connect enter handler with debounce
-	enterCb := func(_ gtk.EventControllerMotion, _ float64, _ float64) {
+	// Connect enter handler with debounce (retain callbacks to prevent GC)
+	h.enterCb = func(_ gtk.EventControllerMotion, _ float64, _ float64) {
 		h.handleEnter()
 	}
-	h.motionCtrl.ConnectEnter(&enterCb)
+	h.motionCtrl.ConnectEnter(&h.enterCb)
 
 	// Connect leave handler to cancel pending focus
-	leaveCb := func(_ gtk.EventControllerMotion) {
+	h.leaveCb = func(_ gtk.EventControllerMotion) {
 		h.handleLeave()
 	}
-	h.motionCtrl.ConnectLeave(&leaveCb)
+	h.motionCtrl.ConnectLeave(&h.leaveCb)
 
 	// Add controller to widget
 	widget.AddController(&h.motionCtrl.EventController)
@@ -131,4 +135,6 @@ func (h *HoverHandler) Detach() {
 	h.timerMu.Unlock()
 
 	h.motionCtrl = nil
+	h.enterCb = nil
+	h.leaveCb = nil
 }

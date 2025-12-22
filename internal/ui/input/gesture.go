@@ -19,6 +19,9 @@ const (
 type GestureHandler struct {
 	clickGesture *gtk.GestureClick
 
+	// Callback retention: must stay reachable by Go GC.
+	pressedCb func(gtk.GestureClick, int, float64, float64)
+
 	// Action handler callback
 	onAction ActionHandler
 
@@ -63,11 +66,11 @@ func (h *GestureHandler) AttachTo(widget *gtk.Widget) {
 	// Listen to all mouse buttons (not just primary)
 	h.clickGesture.SetButton(0)
 
-	// Connect pressed handler
-	pressedCb := func(_ gtk.GestureClick, nPress int, _ float64, _ float64) {
+	// Connect pressed handler (retain callback to prevent GC)
+	h.pressedCb = func(_ gtk.GestureClick, nPress int, _ float64, _ float64) {
 		h.handlePressed(nPress)
 	}
-	h.clickGesture.ConnectPressed(&pressedCb)
+	h.clickGesture.ConnectPressed(&h.pressedCb)
 
 	// Add controller to widget
 	widget.AddController(&h.clickGesture.EventController)
@@ -118,4 +121,5 @@ func (h *GestureHandler) handlePressed(nPress int) {
 // but we clear our reference here.
 func (h *GestureHandler) Detach() {
 	h.clickGesture = nil
+	h.pressedCb = nil
 }

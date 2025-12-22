@@ -3,12 +3,12 @@ module github.com/bnema/dumber
 go 1.25.3
 
 require (
-	github.com/bnema/puregotk-webkit v0.0.0-00010101000000-000000000000
+	github.com/bnema/puregotk-webkit v0.0.7
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/jwijenbergh/puregotk v0.0.0-20251022075221-eae1610c7d83
+	github.com/jwijenbergh/puregotk v0.0.0-20251222174431-73930527faa3
 	github.com/ncruces/go-sqlite3 v0.30.3
 	github.com/pressly/goose/v3 v3.26.0
 	github.com/rs/zerolog v1.33.0
@@ -16,6 +16,8 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
 )
+
+replace github.com/jwijenbergh/puregotk => github.com/bnema/puregotk v0.0.0-20251222174431-73930527faa3
 
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect
@@ -59,9 +61,4 @@ require (
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-)
-
-replace (
-	github.com/bnema/puregotk-webkit => ../puregotk-webkit
-	github.com/jwijenbergh/puregotk => ../puregotk
 )
