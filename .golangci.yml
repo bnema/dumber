@@ -158,6 +158,11 @@ linters:
         text: "unused-receiver"
         linters:
           - revive
+      # Adapter structs intentionally keep receivers for interface compliance
+      - path: internal/infrastructure/.*adapter\.go
+        text: "unused-receiver"
+        linters:
+          - revive
 
 run:
   timeout: 20m
