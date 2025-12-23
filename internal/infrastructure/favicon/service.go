@@ -2,6 +2,7 @@ package favicon
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/bnema/dumber/internal/logging"
 )
@@ -108,4 +109,43 @@ func (s *Service) EnsureDiskCache(ctx context.Context, domain string) {
 	if len(data) > 0 {
 		s.cache.Set(domain, data)
 	}
+}
+
+// DiskPathPNGSized returns the filesystem path for a sized PNG favicon.
+func (s *Service) DiskPathPNGSized(domain string, size int) string {
+	return s.cache.DiskPathPNGSized(domain, size)
+}
+
+// HasPNGSizedOnDisk checks if a sized PNG favicon exists on disk.
+func (s *Service) HasPNGSizedOnDisk(domain string, size int) bool {
+	return s.cache.HasPNGSizedOnDisk(domain, size)
+}
+
+// EnsureSizedPNG creates a resized PNG from the original if it doesn't exist.
+// This is used to generate normalized icons for dmenu/fuzzel.
+func (s *Service) EnsureSizedPNG(ctx context.Context, domain string, size int) error {
+	if domain == "" {
+		return nil
+	}
+
+	// Already exists?
+	if s.HasPNGSizedOnDisk(domain, size) {
+		return nil
+	}
+
+	// Check source PNG exists
+	srcPath := s.DiskPathPNG(domain)
+	if srcPath == "" || !s.HasPNGOnDisk(domain) {
+		return fmt.Errorf("source PNG not found for domain %s", domain)
+	}
+
+	dstPath := s.DiskPathPNGSized(domain, size)
+	if dstPath == "" {
+		return fmt.Errorf("cannot determine destination path for domain %s", domain)
+	}
+
+	log := logging.FromContext(ctx)
+	log.Debug().Str("domain", domain).Int("size", size).Msg("creating sized favicon")
+
+	return ResizePNG(srcPath, dstPath, size)
 }

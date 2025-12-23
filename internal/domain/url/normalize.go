@@ -2,6 +2,7 @@
 package url
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 )
@@ -101,4 +102,11 @@ func sanitizeDomain(domain string) string {
 		"|", "_",
 	)
 	return replacer.Replace(domain)
+}
+
+// SanitizeDomainForPNGSized converts a domain to a safe filename with size suffix.
+// Example: "google.com" with size 32 -> "google.com.32.png"
+// Used for normalized favicon export for tools like rofi/fuzzel.
+func SanitizeDomainForPNGSized(domain string, size int) string {
+	return fmt.Sprintf("%s.%d.png", sanitizeDomain(domain), size)
 }

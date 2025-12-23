@@ -124,6 +124,27 @@ func (c *Cache) HasPNGOnDisk(domain string) bool {
 	return err == nil
 }
 
+// DiskPathPNGSized returns the filesystem path for a sized PNG favicon.
+// Used for normalized favicon export (e.g., 32x32) for CLI tools like rofi/fuzzel.
+// Returns empty string if disk caching is disabled or domain is empty.
+func (c *Cache) DiskPathPNGSized(domain string, size int) string {
+	if c.diskDir == "" || domain == "" {
+		return ""
+	}
+	filename := domainurl.SanitizeDomainForPNGSized(domain, size)
+	return filepath.Join(c.diskDir, filename)
+}
+
+// HasPNGSizedOnDisk checks if a sized PNG favicon exists on disk for the given domain.
+func (c *Cache) HasPNGSizedOnDisk(domain string, size int) bool {
+	path := c.DiskPathPNGSized(domain, size)
+	if path == "" {
+		return false
+	}
+	_, err := os.Stat(path)
+	return err == nil
+}
+
 // WritePNG writes raw PNG data to disk for a domain.
 // Used by UI layer to export WebKit textures for CLI tools.
 func (c *Cache) WritePNG(domain string, pngData []byte) {

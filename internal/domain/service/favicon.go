@@ -31,6 +31,17 @@ type FaviconService interface {
 	// Used by UI layer to export WebKit textures for CLI tools.
 	WritePNG(domain string, pngData []byte)
 
+	// DiskPathPNGSized returns the filesystem path for a sized PNG favicon.
+	// Used for normalized favicon export (e.g., 32x32) for CLI tools.
+	DiskPathPNGSized(domain string, size int) string
+
+	// HasPNGSizedOnDisk checks if a sized PNG favicon exists on disk.
+	HasPNGSizedOnDisk(domain string, size int) bool
+
+	// EnsureSizedPNG creates a resized PNG from the original if it doesn't exist.
+	// This is used to generate normalized icons for dmenu/fuzzel.
+	EnsureSizedPNG(ctx context.Context, domain string, size int) error
+
 	// Close shuts down background workers and releases resources.
 	Close()
 }

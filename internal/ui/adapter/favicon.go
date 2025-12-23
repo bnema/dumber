@@ -63,6 +63,8 @@ func (a *FaviconAdapter) GetOrFetch(ctx context.Context, pageURL string, callbac
 
 	// Check texture cache first
 	if texture := a.GetTexture(domain); texture != nil {
+		// Ensure sized PNG exists for CLI tools (async, idempotent)
+		go a.ensureSizedPNG(ctx, domain)
 		callback(texture)
 		return
 	}
@@ -72,6 +74,8 @@ func (a *FaviconAdapter) GetOrFetch(ctx context.Context, pageURL string, callbac
 		texture := bytesToTexture(data)
 		if texture != nil {
 			a.setTexture(domain, texture)
+			// Ensure sized PNG exists for CLI tools (async, idempotent)
+			go a.ensureSizedPNG(ctx, domain)
 			callback(texture)
 			return
 		}
@@ -148,6 +152,8 @@ func (a *FaviconAdapter) StoreFromWebKit(ctx context.Context, pageURL string, te
 		return
 	}
 
+	log := logging.FromContext(ctx)
+
 	// Store in texture cache
 	a.setTexture(domain, texture)
 
@@ -155,7 +161,21 @@ func (a *FaviconAdapter) StoreFromWebKit(ctx context.Context, pageURL string, te
 	// since GTK texture operations need to happen there
 	pngPath := a.service.DiskPathPNG(domain)
 	if pngPath != "" && !a.service.HasPNGOnDisk(domain) {
-		texture.SaveToPng(pngPath)
+		if ok := texture.SaveToPng(pngPath); !ok {
+			log.Warn().Str("domain", domain).Str("path", pngPath).Msg("failed to save favicon PNG")
+		} else {
+			log.Debug().Str("domain", domain).Str("path", pngPath).Msg("saved favicon PNG")
+
+			// Create normalized sized copy for dmenu/fuzzel (async)
+			// The original PNG is now on disk, so this should succeed
+			go func() {
+				if err := a.service.EnsureSizedPNG(ctx, domain, favicon.NormalizedIconSize); err != nil {
+					log.Warn().Err(err).Str("domain", domain).Msg("failed to create sized PNG after save")
+				} else {
+					log.Debug().Str("domain", domain).Msg("created sized PNG after save")
+				}
+			}()
+		}
 	}
 
 	// Ensure disk cache is populated (async, in background)
@@ -171,6 +191,7 @@ func (a *FaviconAdapter) StoreFromWebKitWithOrigin(
 
 	// Also store under original URL domain if different
 	if originURL != "" && originURL != currentURL {
+		log := logging.FromContext(ctx)
 		originDomain := domainurl.ExtractDomain(originURL)
 		currentDomain := domainurl.ExtractDomain(currentURL)
 		if originDomain != "" && originDomain != currentDomain {
@@ -179,7 +200,20 @@ func (a *FaviconAdapter) StoreFromWebKitWithOrigin(
 			// Export PNG for origin domain too
 			pngPath := a.service.DiskPathPNG(originDomain)
 			if pngPath != "" && !a.service.HasPNGOnDisk(originDomain) {
-				texture.SaveToPng(pngPath)
+				if ok := texture.SaveToPng(pngPath); !ok {
+					log.Warn().Str("domain", originDomain).Str("path", pngPath).Msg("failed to save origin favicon PNG")
+				} else {
+					log.Debug().Str("domain", originDomain).Str("path", pngPath).Msg("saved origin favicon PNG")
+
+					// Create normalized sized copy for dmenu/fuzzel (async)
+					go func() {
+						if err := a.service.EnsureSizedPNG(ctx, originDomain, favicon.NormalizedIconSize); err != nil {
+							log.Warn().Err(err).Str("domain", originDomain).Msg("failed to create sized PNG for origin")
+						} else {
+							log.Debug().Str("domain", originDomain).Msg("created sized PNG for origin")
+						}
+					}()
+				}
 			}
 
 			go a.service.EnsureDiskCache(ctx, originDomain)
@@ -246,6 +280,35 @@ func (a *FaviconAdapter) setTexture(domain string, texture *gdk.Texture) {
 	a.mu.Lock()
 	a.textureCache[domain] = texture
 	a.mu.Unlock()
+}
+
+// ensureSizedPNG ensures the sized PNG exists for CLI tools.
+// This is idempotent - it only creates the file if it doesn't exist.
+func (a *FaviconAdapter) ensureSizedPNG(ctx context.Context, domain string) {
+	if domain == "" {
+		return
+	}
+
+	log := logging.FromContext(ctx)
+
+	hasPNG := a.service.HasPNGOnDisk(domain)
+	hasSized := a.service.HasPNGSizedOnDisk(domain, favicon.NormalizedIconSize)
+
+	log.Debug().
+		Str("domain", domain).
+		Bool("has_png", hasPNG).
+		Bool("has_sized", hasSized).
+		Msg("checking sized PNG status")
+
+	// Only create if original PNG exists but sized version doesn't
+	if hasPNG && !hasSized {
+		log.Debug().Str("domain", domain).Msg("creating sized PNG")
+		if err := a.service.EnsureSizedPNG(ctx, domain, favicon.NormalizedIconSize); err != nil {
+			log.Warn().Err(err).Str("domain", domain).Msg("failed to create sized PNG")
+		} else {
+			log.Debug().Str("domain", domain).Msg("sized PNG created successfully")
+		}
+	}
 }
 
 // bytesToTexture converts raw favicon bytes to a GDK texture.

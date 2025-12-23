@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -15,6 +14,7 @@ import (
 	"github.com/bnema/dumber/internal/cli/model"
 	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/logging"
 )
 
 var (
@@ -79,22 +79,41 @@ func getDmenuConfig() config.DmenuConfig {
 
 // getFaviconPath returns the path to a cached PNG favicon for the given URL.
 // Returns empty string if the PNG favicon doesn't exist in cache.
-// PNG format is required by rofi/fuzzel launchers.
+// Prefers sized (32x32) PNG for consistent display in fuzzel/rofi.
+// Will create the sized PNG on-demand if only the original exists.
 func getFaviconPath(rawURL string) string {
-	cacheDir, err := config.GetFaviconCacheDir()
-	if err != nil {
+	app := GetApp()
+	if app == nil || app.FaviconService == nil {
 		return ""
 	}
+
 	domain := domainurl.ExtractDomain(rawURL)
 	if domain == "" {
 		return ""
 	}
-	// Use PNG format for fuzzel/rofi compatibility
-	filename := domainurl.SanitizeDomainForPNG(domain)
-	path := filepath.Join(cacheDir, filename)
-	if _, err := os.Stat(path); err == nil {
-		return path
+
+	ctx := app.Ctx()
+	log := logging.FromContext(ctx)
+	const normalizedSize = 32
+
+	// Check if sized PNG already exists
+	if app.FaviconService.HasPNGSizedOnDisk(domain, normalizedSize) {
+		return app.FaviconService.DiskPathPNGSized(domain, normalizedSize)
 	}
+
+	// If original PNG exists but sized doesn't, create it on-demand
+	if app.FaviconService.HasPNGOnDisk(domain) {
+		log.Debug().Str("domain", domain).Msg("creating sized PNG on-demand from dmenu")
+		if err := app.FaviconService.EnsureSizedPNG(ctx, domain, normalizedSize); err != nil {
+			log.Warn().Err(err).Str("domain", domain).Msg("failed to create sized PNG")
+			return ""
+		}
+		log.Debug().Str("domain", domain).Msg("sized PNG created successfully")
+		return app.FaviconService.DiskPathPNGSized(domain, normalizedSize)
+	}
+
+	// No PNG at all for this domain
+	log.Debug().Str("domain", domain).Msg("no favicon PNG found for domain")
 	return ""
 }
 
@@ -127,6 +146,7 @@ func runDmenuPipe() error {
 		faviconPath := getFaviconPath(entry.URL)
 
 		// Format: "URL\0icon\x1f/path\n" (simple, selection returns URL directly)
+		// Note: Icon size is controlled by rofi theme (element-icon { size: X; })
 		if faviconPath != "" {
 			fmt.Printf("%s\x00icon\x1f%s\n", display, faviconPath)
 		} else {

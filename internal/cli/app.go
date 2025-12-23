@@ -14,6 +14,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/build"
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/favicon"
 	infralogging "github.com/bnema/dumber/internal/infrastructure/logging"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/logging"
@@ -30,6 +31,9 @@ type App struct {
 	// Use cases
 	SearchHistoryUC *usecase.SearchHistoryUseCase
 	SessionUC       *usecase.ManageSessionUseCase
+
+	// Services
+	FaviconService *favicon.Service
 
 	// Context with logger
 	ctx        context.Context
@@ -105,6 +109,10 @@ func NewApp() (*App, error) {
 	// Create use cases
 	searchHistoryUC := usecase.NewSearchHistoryUseCase(historyRepo)
 
+	// Create favicon service for CLI (path resolution for dmenu/fuzzel)
+	faviconCacheDir, _ := config.GetFaviconCacheDir()
+	faviconService := favicon.NewService(faviconCacheDir)
+
 	return &App{
 		Config:          cfg,
 		Theme:           theme,
@@ -112,6 +120,7 @@ func NewApp() (*App, error) {
 		History:         historyRepo,
 		SearchHistoryUC: searchHistoryUC,
 		SessionUC:       sessionUC,
+		FaviconService:  faviconService,
 		ctx:             ctx,
 		logCleanup:      logCleanup,
 	}, nil
@@ -121,6 +130,9 @@ func NewApp() (*App, error) {
 func (a *App) Close() error {
 	if a.logCleanup != nil {
 		a.logCleanup()
+	}
+	if a.FaviconService != nil {
+		a.FaviconService.Close()
 	}
 	if a.db != nil {
 		return a.db.Close()
