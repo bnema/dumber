@@ -10,12 +10,19 @@ All notable changes to this project will be documented in this file.
 - **Dark mode detection on websites**: Fixed `prefers-color-scheme: dark` detection by improving matchMedia query normalization and adding proper event listener stubs. Sites like Reddit now correctly detect dark mode preference.
 - **Alt+number tab switching**: Fixed Alt+1-9 shortcuts not working when WebView has focus by using GtkShortcutController with global scope instead of EventControllerKey.
 - **System locking during fullscreen video**: Added idle inhibition via XDG Desktop Portal when WebView enters fullscreen mode. Prevents system from locking/sleeping during fullscreen video playback on Wayland (works with all compositors: GNOME, KDE, sway, hyprland, etc.).
+- **Navigation performance**: Significantly faster page navigation through multiple optimizations:
+  - Async history recording via background worker (SQLite writes no longer block GTK main thread)
+  - LRU cache for per-domain zoom levels (repeat visits skip database queries)
+  - Async favicon preload (cache lookup doesn't block navigation start)
+  - Progress callback throttling at ~60fps (reduces UI callback overhead)
+  - Increased WebView pool prewarm from 2 to 4 for faster initial tab creation
 
 ### Changed
 - **GSK renderer default**: Changed default from `vulkan` to `auto` to let GTK choose the best renderer and avoid potential DMA-BUF synchronization conflicts with WebKit.
 - **Removed invalid GStreamer config**: Removed `video_buffer_size_mb` and `queue_buffer_time_sec` config options as these were not valid GStreamer environment variables (they are element properties that cannot be set via env vars).
 
 ### Added
+- **Performance config section**: New `performance` config section with `zoom_cache_size` (default: 256) and `webview_pool_prewarm_count` (default: 4) for tuning. Not exposed in UI but can be set in config file.
 - **Clean-architecture rewrite (pure Go)**: Major refactor to a ports/adapters style architecture with explicit `domain`, `application` (use cases), `infrastructure`, and `ui` layers.
 - **New CLI commands**: `doctor` (runtime dependency checks), `about` (build info), `setup` (desktop integration), plus expanded `purge` with an interactive TUI.
 - **WebUI config improvements**: Search shortcut management (CRUD) and reset-to-defaults support.

@@ -103,6 +103,10 @@ func BuildWebKitStack(
 
 	messageRouter := webkit.NewMessageRouter(ctx)
 	poolCfg := webkit.DefaultPoolConfig()
+	// Override prewarm count from config if set
+	if cfg.Performance.WebViewPoolPrewarmCount > 0 {
+		poolCfg.PrewarmCount = cfg.Performance.WebViewPoolPrewarmCount
+	}
 	pool := webkit.NewWebViewPool(ctx, wkCtx, settings, poolCfg, injector, messageRouter)
 
 	if filterManager != nil {

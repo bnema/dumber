@@ -33,7 +33,7 @@ func DefaultPoolConfig() PoolConfig {
 	return PoolConfig{
 		MinSize:      2,
 		MaxSize:      8,
-		PrewarmCount: 2,
+		PrewarmCount: 4, // Pre-create 4 WebViews for faster initial tab creation
 		IdleTimeout:  5 * time.Minute,
 	}
 }

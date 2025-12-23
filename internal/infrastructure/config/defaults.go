@@ -42,6 +42,10 @@ const (
 	// Other styling
 	defaultTransitionDuration = 120
 	defaultUIScale            = 1.0 // UI scale multiplier (1.0 = 100%, 1.2 = 120%)
+
+	// Performance defaults
+	defaultZoomCacheSize           = 256 // domains to cache (~20KB memory)
+	defaultWebViewPoolPrewarmCount = 4   // WebViews to pre-create at startup
 )
 
 // getDefaultLogDir returns the default log directory, falls back to empty string on error
@@ -204,6 +208,10 @@ func DefaultConfig() *Config {
 		},
 		Runtime: RuntimeConfig{
 			Prefix: "",
+		},
+		Performance: PerformanceConfig{
+			ZoomCacheSize:           defaultZoomCacheSize,
+			WebViewPoolPrewarmCount: defaultWebViewPoolPrewarmCount,
 		},
 	}
 }

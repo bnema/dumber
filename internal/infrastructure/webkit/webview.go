@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
@@ -93,6 +94,9 @@ type WebView struct {
 	canGoBack bool
 	canGoFwd  bool
 	isLoading bool
+
+	// Progress throttling (~60fps)
+	lastProgressUpdate atomic.Int64 // Unix nanoseconds
 
 	// Signal handler IDs for disconnection
 	signalIDs []uint32
@@ -451,9 +455,24 @@ func (wv *WebView) connectFaviconSignal() {
 	wv.signalIDs = append(wv.signalIDs, sigID)
 }
 
+// progressThrottleInterval limits progress callbacks to ~60fps to reduce UI overhead.
+const progressThrottleInterval = 16 * time.Millisecond
+
 func (wv *WebView) connectProgressSignal() {
 	progressCb := func() {
 		progress := wv.inner.GetEstimatedLoadProgress()
+
+		// Throttle progress updates to ~60fps (16ms interval)
+		// Always allow 0.0 (start) and 1.0 (complete) through
+		now := time.Now().UnixNano()
+		last := wv.lastProgressUpdate.Load()
+		if progress > 0.0 && progress < 1.0 {
+			if now-last < int64(progressThrottleInterval) {
+				return // Skip this update
+			}
+		}
+		wv.lastProgressUpdate.Store(now)
+
 		wv.mu.Lock()
 		wv.progress = progress
 		wv.mu.Unlock()
