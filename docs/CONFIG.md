@@ -182,7 +182,7 @@ border = "#363636"
 | `rendering.disable_dmabuf_renderer` | bool | `false` | - | Disable WebKit DMA-BUF renderer (may fix flicker on Wayland; slower) |
 | `rendering.force_compositing_mode` | bool | `false` | - | Force WebKit compositing mode (`WEBKIT_FORCE_COMPOSITING_MODE`) |
 | `rendering.disable_compositing_mode` | bool | `false` | - | Disable WebKit compositing mode (`WEBKIT_DISABLE_COMPOSITING_MODE`) |
-| `rendering.gsk_renderer` | string | `"vulkan"` | `auto`, `opengl`, `vulkan`, `cairo` | GTK renderer selection (`GSK_RENDERER`) |
+| `rendering.gsk_renderer` | string | `"auto"` | `auto`, `opengl`, `vulkan`, `cairo` | GTK renderer selection (`GSK_RENDERER`) |
 | `rendering.disable_mipmaps` | bool | `false` | - | Disable GTK mipmaps (`GSK_GPU_DISABLE=mipmap`) |
 | `rendering.prefer_gl` | bool | `false` | - | Prefer OpenGL over GLES (`GDK_DEBUG=gl-prefer-gl`) |
 | `rendering.draw_compositing_indicators` | bool | `false` | - | Draw WebKit compositing indicators (debug) |
@@ -282,13 +282,11 @@ cancel = ["escape"]
 | Key | Type | Default | Valid Values | Description |
 |-----|------|---------|--------------|-------------|
 | `media.hardware_decoding` | string | `"auto"` | `auto`, `force`, `disable` | Hardware video decoding mode |
-| `media.prefer_av1` | bool | `true` | - | Prefer AV1 codec when available |
-| `media.show_diagnostics` | bool | `true` | - | Show media diagnostics warnings at startup |
+| `media.prefer_av1` | bool | `false` | - | Prefer AV1 codec when available |
+| `media.show_diagnostics` | bool | `false` | - | Show media diagnostics warnings at startup |
 | `media.force_vsync` | bool | `false` | - | Force VSync for video playback (may help with tearing) |
 | `media.gl_rendering_mode` | string | `"auto"` | `auto`, `gles2`, `gl3`, `none` | OpenGL API selection for video rendering |
 | `media.gstreamer_debug_level` | int | `0` | `0-5` | GStreamer debug verbosity (0=off) |
-| `media.video_buffer_size_mb` | int | `64` | > 0 | Video buffer size in MB for smoother streaming |
-| `media.queue_buffer_time_sec` | int | `20` | > 0 | Queue prebuffer time in seconds |
 
 **Hardware decoding modes:**
 - `auto` (recommended): Hardware preferred with software fallback - fixes Twitch Error #4000
@@ -307,21 +305,15 @@ Dumber automatically detects your GPU vendor (AMD/Intel/NVIDIA) and sets optimal
 - **Intel**: Uses `iHD` driver (modern, for Broadwell+)
 - **NVIDIA**: Uses `nvidia` driver with EGL platform
 
-**Buffering settings:**
-- `video_buffer_size_mb`: Controls GStreamer buffer size. Larger buffers reduce rebuffering on bursty streams (Twitch, YouTube). Uses more memory.
-- `queue_buffer_time_sec`: Controls prebuffer duration. Higher values allow more data to be buffered ahead of playback.
-
 **Example:**
 ```toml
 [media]
 hardware_decoding = "auto"    # HW preferred, SW fallback
-prefer_av1 = true             # AV1 is most efficient codec
-show_diagnostics = true       # Log warnings if HW accel unavailable
+prefer_av1 = false            # Let site choose codec
+show_diagnostics = false      # Enable for debugging
 force_vsync = false           # Let compositor handle VSync
 gl_rendering_mode = "auto"    # GStreamer picks best GL API
 gstreamer_debug_level = 0     # Increase to 3-5 for debugging
-video_buffer_size_mb = 64     # 64 MB buffer for smooth streaming
-queue_buffer_time_sec = 20    # 20 seconds prebuffer
 ```
 
 **Diagnostics CLI:**
@@ -368,7 +360,7 @@ All config values can be overridden via environment variables with the prefix `D
 DUMBER_DATABASE_PATH=/custom/path/db.sqlite
 
 # Rendering (examples)
-# Defaults: rendering.disable_dmabuf_renderer=false, rendering.gsk_renderer="vulkan"
+# Defaults: rendering.disable_dmabuf_renderer=false, rendering.gsk_renderer="auto"
 DUMBER_RENDERING_MODE=cpu
 # DUMBER_RENDERING_DISABLE_DMABUF_RENDERER=true
 # DUMBER_RENDERING_GSK_RENDERER=opengl

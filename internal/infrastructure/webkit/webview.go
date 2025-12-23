@@ -856,19 +856,56 @@ func (wv *WebView) DisconnectSignals() {
 	wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("signals disconnected")
 }
 
-// Destroy cleans up the WebView resources.
+// Destroy cleans up the WebView resources and terminates the web process.
+// This must be called when a WebView is no longer needed to free GPU resources,
+// VA-API decoder contexts, and DMA-BUF buffers held by the web process.
 func (wv *WebView) Destroy() {
 	if wv.destroyed.Swap(true) {
 		return // Already destroyed
 	}
 
-	// Disconnect all signal handlers first
+	// 1. Disconnect all signal handlers first to prevent callbacks during cleanup
 	wv.DisconnectSignals()
 
-	// Unregister from global registry
+	// 2. Clear all callbacks to prevent use-after-free
+	wv.OnLoadChanged = nil
+	wv.OnTitleChanged = nil
+	wv.OnURIChanged = nil
+	wv.OnProgressChanged = nil
+	wv.OnFaviconChanged = nil
+	wv.OnClose = nil
+	wv.OnCreate = nil
+	wv.OnReadyToShow = nil
+	wv.OnLinkMiddleClick = nil
+	wv.OnEnterFullscreen = nil
+	wv.OnLeaveFullscreen = nil
+
+	// 3. Clear async callback references
+	wv.mu.Lock()
+	wv.asyncCallbacks = nil
+	wv.mu.Unlock()
+
+	// 4. Unparent from GTK hierarchy (must happen before process termination)
+	// This releases the widget from any parent container.
+	if wv.inner != nil {
+		wv.inner.Unparent()
+	}
+
+	// 5. Terminate the web process to free GPU resources (VA-API, DMA-BUF, GL contexts)
+	// This is critical to prevent zombie processes that hold video decoder resources.
+	if wv.inner != nil {
+		wv.inner.TerminateWebProcess()
+	}
+
+	// 6. Unregister from global registry
 	globalRegistry.unregister(wv.id)
 
-	wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("webview destroyed")
+	// 7. Clear internal references to allow GC
+	wv.inner = nil
+	wv.ucm = nil
+	wv.findController = nil
+
+	wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("webview destroyed and web process terminated")
 }
 
 // RunJavaScript executes script in the specified world (empty for main world).

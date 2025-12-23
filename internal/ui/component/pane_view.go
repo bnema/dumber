@@ -349,3 +349,38 @@ func (pv *PaneView) ShowZoomToast(ctx context.Context, zoomPercent int) {
 
 	t.ShowZoom(ctx, zoomPercent)
 }
+
+// Cleanup removes the WebView widget from the overlay and clears references.
+// This must be called before destroying the WebView to ensure proper GTK cleanup.
+// After calling Cleanup, the PaneView should not be reused.
+func (pv *PaneView) Cleanup() {
+	pv.mu.Lock()
+	defer pv.mu.Unlock()
+
+	// Clear callbacks to prevent use-after-free
+	pv.onFocusIn = nil
+	pv.onFocusOut = nil
+	pv.onHover = nil
+
+	// Detach hover handler if present
+	if pv.hoverHandler != nil {
+		pv.hoverHandler.Detach()
+		pv.hoverHandler = nil
+	}
+
+	// Remove WebView from overlay (unparents it from GTK hierarchy)
+	if pv.webViewWidget != nil {
+		pv.overlay.SetChild(nil)
+		pv.webViewWidget = nil
+	}
+
+	// Clear other overlay children
+	if pv.progressBar != nil {
+		pv.overlay.RemoveOverlay(pv.progressBar.Widget())
+		pv.progressBar = nil
+	}
+	if pv.toaster != nil {
+		pv.overlay.RemoveOverlay(pv.toaster.Widget())
+		pv.toaster = nil
+	}
+}

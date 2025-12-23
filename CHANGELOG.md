@@ -5,10 +5,15 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **WebKit process leak on pane close**: Fixed zombie WebKit web processes not being terminated when panes were closed. `WebView.Destroy()` now properly calls `TerminateWebProcess()` and unparents GTK widgets, freeing GPU resources (VA-API, DMA-BUF, GL contexts). This should significantly improve video playback stability and reduce memory usage when opening/closing many panes.
 - **White flash on navigation**: Eliminated white page flash when navigating in dark mode by setting WebView background color to match theme and hiding WebView until content commits.
 - **Dark mode detection on websites**: Fixed `prefers-color-scheme: dark` detection by improving matchMedia query normalization and adding proper event listener stubs. Sites like Reddit now correctly detect dark mode preference.
 - **Alt+number tab switching**: Fixed Alt+1-9 shortcuts not working when WebView has focus by using GtkShortcutController with global scope instead of EventControllerKey.
 - **System locking during fullscreen video**: Added idle inhibition via XDG Desktop Portal when WebView enters fullscreen mode. Prevents system from locking/sleeping during fullscreen video playback on Wayland (works with all compositors: GNOME, KDE, sway, hyprland, etc.).
+
+### Changed
+- **GSK renderer default**: Changed default from `vulkan` to `auto` to let GTK choose the best renderer and avoid potential DMA-BUF synchronization conflicts with WebKit.
+- **Removed invalid GStreamer config**: Removed `video_buffer_size_mb` and `queue_buffer_time_sec` config options as these were not valid GStreamer environment variables (they are element properties that cannot be set via env vars).
 
 ### Added
 - **Clean-architecture rewrite (pure Go)**: Major refactor to a ports/adapters style architecture with explicit `domain`, `application` (use cases), `infrastructure`, and `ui` layers.

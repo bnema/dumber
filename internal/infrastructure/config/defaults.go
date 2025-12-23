@@ -117,7 +117,7 @@ func DefaultConfig() *Config {
 			DisableDMABufRenderer:     false,
 			ForceCompositingMode:      false,
 			DisableCompositingMode:    false,
-			GSKRenderer:               GSKRendererVulkan,
+			GSKRenderer:               GSKRendererAuto, // Let GTK choose - Vulkan can conflict with WebKit's DMA-BUF
 			DisableMipmaps:            false,
 			PreferGL:                  false,
 			DrawCompositingIndicators: false,
@@ -194,13 +194,13 @@ func DefaultConfig() *Config {
 		},
 		Media: MediaConfig{
 			HardwareDecodingMode:     HardwareDecodingAuto, // auto allows sw fallback
-			PreferAV1:                true,                 // AV1 is most efficient codec
-			ShowDiagnosticsOnStartup: true,                 // Warn users if HW accel unavailable
+			PreferAV1:                false,                // Don't force codec preference, let site choose
+			ShowDiagnosticsOnStartup: false,                // Disabled - diagnostics can be noisy
 			ForceVSync:               false,                // Let compositor handle VSync
 			GLRenderingMode:          GLRenderingModeAuto,  // GStreamer picks best GL API
 			GStreamerDebugLevel:      0,                    // Disabled by default
-			VideoBufferSizeMB:        64,                   // Larger buffer for bursty streams (Twitch, YouTube)
-			QueueBufferTimeSec:       20,                   // More prebuffering for smooth playback
+			VideoBufferSizeMB:        0,                    // Not a valid GStreamer env var, removed
+			QueueBufferTimeSec:       0,                    // Not a valid GStreamer env var, removed
 		},
 		Runtime: RuntimeConfig{
 			Prefix: "",
