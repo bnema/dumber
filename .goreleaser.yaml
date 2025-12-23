@@ -8,13 +8,13 @@ before:
     - make build-frontend
 
 builds:
-  # Main build with CGO for WebKitGTK
+  # Pure Go build (no CGO required)
   - id: dumber
-    main: .
+    main: ./cmd/dumber
     binary: dumber
 
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
 
     goos:
       - linux
@@ -28,10 +28,6 @@ builds:
       - -X main.version={{.Version}}
       - -X main.commit={{.ShortCommit}}
       - -X main.buildDate={{.Date}}
-
-    # Build tags for WebKitGTK
-    tags:
-      - webkit_cgo
 
 archives:
   - id: default
