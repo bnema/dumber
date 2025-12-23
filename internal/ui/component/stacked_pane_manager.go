@@ -76,7 +76,7 @@ func (spm *StackedPaneManager) AddPaneToStack(
 		Int("stack_size_before", stackedView.Count()).
 		Msg("StackedPaneManager: inserting pane after active position")
 
-	stackedView.InsertPaneAfter(ctx, currentActiveIndex, title, "", widget)
+	stackedView.InsertPaneAfter(ctx, currentActiveIndex, string(newPaneView.PaneID()), title, "", widget)
 
 	// Register the new pane in the TreeRenderer's tracking
 	tr.RegisterPaneInStack(string(newPaneView.PaneID()), stackedView)

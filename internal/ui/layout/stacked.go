@@ -21,6 +21,7 @@ const stackedTitleMaxWidthChars = 30
 
 // stackedPane represents a single pane within a stacked container.
 type stackedPane struct {
+	paneID    string    // unique identifier for this pane
 	titleBar  BoxWidget // horizontal box with favicon + title label
 	container Widget    // the pane view widget
 	title     string
@@ -58,7 +59,7 @@ func NewStackedView(factory WidgetFactory) *StackedView {
 
 // AddPane adds a new pane to the stack.
 // The new pane becomes active (visible).
-func (sv *StackedView) AddPane(ctx context.Context, title, faviconIconName string, container Widget) int {
+func (sv *StackedView) AddPane(ctx context.Context, paneID, title, faviconIconName string, container Widget) int {
 	log := logging.FromContext(ctx)
 	sv.mu.Lock()
 	defer sv.mu.Unlock()
@@ -101,6 +102,7 @@ func (sv *StackedView) AddPane(ctx context.Context, title, faviconIconName strin
 	titleButton.SetHexpand(true)  // But fill horizontal space
 
 	pane := &stackedPane{
+		paneID:    paneID,
 		titleBar:  titleBar,
 		container: container,
 		title:     title,
@@ -148,7 +150,7 @@ func (sv *StackedView) AddPane(ctx context.Context, title, faviconIconName strin
 // The new pane becomes active (visible).
 // Returns the index where the pane was inserted.
 func (sv *StackedView) InsertPaneAfter(
-	ctx context.Context, afterIndex int, title, faviconIconName string, container Widget,
+	ctx context.Context, afterIndex int, paneID, title, faviconIconName string, container Widget,
 ) int {
 	log := logging.FromContext(ctx)
 	sv.mu.Lock()
@@ -202,6 +204,7 @@ func (sv *StackedView) InsertPaneAfter(
 	titleButton.SetHexpand(true)
 
 	pane := &stackedPane{
+		paneID:    paneID,
 		titleBar:  titleBar,
 		container: container,
 		title:     title,
@@ -418,6 +421,20 @@ func (sv *StackedView) Count() int {
 	defer sv.mu.RUnlock()
 
 	return len(sv.panes)
+}
+
+// FindPaneIndex returns the index of the pane with the given ID.
+// Returns -1 if not found.
+func (sv *StackedView) FindPaneIndex(paneID string) int {
+	sv.mu.RLock()
+	defer sv.mu.RUnlock()
+
+	for i, pane := range sv.panes {
+		if pane.paneID == paneID {
+			return i
+		}
+	}
+	return -1
 }
 
 // SetOnActivate sets the callback for when a pane is activated via title bar click.

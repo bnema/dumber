@@ -472,7 +472,7 @@ func (c *ContentCoordinator) onTitleChanged(ctx context.Context, paneID entity.P
 		if tr != nil {
 			stackedView := tr.GetStackedViewForPane(string(paneID))
 			if stackedView != nil {
-				c.updateStackedPaneTitle(ctx, ws, stackedView, paneID, title)
+				c.updateStackedPaneTitle(ctx, stackedView, paneID, title)
 			}
 		}
 	}
@@ -496,32 +496,23 @@ func (c *ContentCoordinator) onTitleChanged(ctx context.Context, paneID entity.P
 // updateStackedPaneTitle updates the title of a pane in a StackedView.
 func (c *ContentCoordinator) updateStackedPaneTitle(
 	ctx context.Context,
-	ws *entity.Workspace,
 	sv *layout.StackedView,
 	paneID entity.PaneID,
 	title string,
 ) {
 	log := logging.FromContext(ctx)
 
-	if ws == nil {
+	// Find the pane's index directly in the StackedView
+	index := sv.FindPaneIndex(string(paneID))
+	if index < 0 {
+		log.Debug().
+			Str("pane_id", string(paneID)).
+			Msg("pane not found in StackedView for title update")
 		return
 	}
 
-	paneNode := ws.FindPane(paneID)
-	if paneNode == nil {
-		return
-	}
-
-	// If the pane is in a stacked parent, find its index
-	if paneNode.Parent != nil && paneNode.Parent.IsStacked {
-		for i, child := range paneNode.Parent.Children {
-			if child.Pane != nil && child.Pane.ID == paneID {
-				if err := sv.UpdateTitle(i, title); err != nil {
-					log.Warn().Err(err).Int("index", i).Msg("failed to update stacked pane title")
-				}
-				return
-			}
-		}
+	if err := sv.UpdateTitle(index, title); err != nil {
+		log.Warn().Err(err).Int("index", index).Msg("failed to update stacked pane title")
 	}
 }
 
@@ -545,13 +536,13 @@ func (c *ContentCoordinator) onFaviconChanged(ctx context.Context, paneID entity
 	}
 
 	// Update StackedView favicon if this pane is in a stack
-	ws, wsView := c.getActiveWS()
+	_, wsView := c.getActiveWS()
 	if wsView != nil {
 		tr := wsView.TreeRenderer()
 		if tr != nil {
 			stackedView := tr.GetStackedViewForPane(string(paneID))
 			if stackedView != nil {
-				c.updateStackedPaneFavicon(ctx, ws, stackedView, paneID, favicon)
+				c.updateStackedPaneFavicon(ctx, stackedView, paneID, favicon)
 			}
 		}
 	}
@@ -566,32 +557,23 @@ func (c *ContentCoordinator) onFaviconChanged(ctx context.Context, paneID entity
 // updateStackedPaneFavicon updates the favicon of a pane in a StackedView.
 func (c *ContentCoordinator) updateStackedPaneFavicon(
 	ctx context.Context,
-	ws *entity.Workspace,
 	sv *layout.StackedView,
 	paneID entity.PaneID,
 	favicon *gdk.Texture,
 ) {
 	log := logging.FromContext(ctx)
 
-	if ws == nil {
+	// Find the pane's index directly in the StackedView
+	index := sv.FindPaneIndex(string(paneID))
+	if index < 0 {
+		log.Debug().
+			Str("pane_id", string(paneID)).
+			Msg("pane not found in StackedView for favicon update")
 		return
 	}
 
-	paneNode := ws.FindPane(paneID)
-	if paneNode == nil {
-		return
-	}
-
-	// If the pane is in a stacked parent, find its index
-	if paneNode.Parent != nil && paneNode.Parent.IsStacked {
-		for i, child := range paneNode.Parent.Children {
-			if child.Pane != nil && child.Pane.ID == paneID {
-				if err := sv.UpdateFaviconTexture(i, favicon); err != nil {
-					log.Warn().Err(err).Int("index", i).Msg("failed to update stacked pane favicon")
-				}
-				return
-			}
-		}
+	if err := sv.UpdateFaviconTexture(index, favicon); err != nil {
+		log.Warn().Err(err).Int("index", index).Msg("failed to update stacked pane favicon")
 	}
 }
 
@@ -624,13 +606,13 @@ func (c *ContentCoordinator) PreloadCachedFavicon(ctx context.Context, paneID en
 	}
 
 	// Update stacked pane favicon if applicable
-	ws, wsView := c.getActiveWS()
+	_, wsView := c.getActiveWS()
 	if wsView != nil {
 		tr := wsView.TreeRenderer()
 		if tr != nil {
 			stackedView := tr.GetStackedViewForPane(string(paneID))
 			if stackedView != nil {
-				c.updateStackedPaneFavicon(ctx, ws, stackedView, paneID, texture)
+				c.updateStackedPaneFavicon(ctx, stackedView, paneID, texture)
 			}
 		}
 	}

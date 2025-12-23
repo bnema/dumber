@@ -99,7 +99,7 @@ func TestAddPane_SinglePane_BecomesActive(t *testing.T) {
 	sv := layout.NewStackedView(mockFactory)
 
 	// Act
-	index := sv.AddPane(ctx, "Test Page", "web-browser-symbolic", mockContainer)
+	index := sv.AddPane(ctx, "pane-1", "Test Page", "web-browser-symbolic", mockContainer)
 
 	// Assert
 	assert.Equal(t, 0, index)
@@ -139,8 +139,8 @@ func TestAddPane_MultiplePanes_LastBecomesActive(t *testing.T) {
 	sv := layout.NewStackedView(mockFactory)
 
 	// Act
-	sv.AddPane(ctx, "Page 1", "", mockContainer1)
-	index := sv.AddPane(ctx, "Page 2", "", mockContainer2)
+	sv.AddPane(ctx, "pane-1", "Page 1", "", mockContainer1)
+	index := sv.AddPane(ctx, "pane-2", "Page 2", "", mockContainer2)
 
 	// Assert
 	assert.Equal(t, 1, index)
@@ -175,9 +175,9 @@ func TestRemovePane_MiddlePane(t *testing.T) {
 	}
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane(ctx, "Page 1", "", containers[0])
-	sv.AddPane(ctx, "Page 2", "", containers[1])
-	sv.AddPane(ctx, "Page 3", "", containers[2])
+	sv.AddPane(ctx, "pane-1", "Page 1", "", containers[0])
+	sv.AddPane(ctx, "pane-2", "Page 2", "", containers[1])
+	sv.AddPane(ctx, "pane-3", "Page 3", "", containers[2])
 
 	// Remove middle pane (index 1)
 	// The parent of titleBar is the button widget
@@ -206,7 +206,7 @@ func TestRemovePane_LastPane_ReturnsError(t *testing.T) {
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane(ctx, "Only Page", "", mockContainer)
+	sv.AddPane(ctx, "pane-1", "Only Page", "", mockContainer)
 
 	// Act
 	err := sv.RemovePane(ctx, 0)
@@ -243,7 +243,7 @@ func TestRemovePane_IndexOutOfBounds(t *testing.T) {
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane(ctx, "Page", "", mockContainer)
+	sv.AddPane(ctx, "pane-1", "Page", "", mockContainer)
 
 	// Act
 	err := sv.RemovePane(ctx, 5)
@@ -276,8 +276,8 @@ func TestSetActive_ValidIndex(t *testing.T) {
 	}
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane(ctx, "Page 1", "", containers[0])
-	sv.AddPane(ctx, "Page 2", "", containers[1])
+	sv.AddPane(ctx, "pane-1", "Page 1", "", containers[0])
+	sv.AddPane(ctx, "pane-2", "Page 2", "", containers[1])
 
 	// Act - switch back to first pane
 	err := sv.SetActive(ctx, 0)
@@ -301,7 +301,7 @@ func TestSetActive_OutOfBounds(t *testing.T) {
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane(ctx, "Page", "", mockContainer)
+	sv.AddPane(ctx, "pane-1", "Page", "", mockContainer)
 
 	// Act
 	err := sv.SetActive(ctx, 5)
@@ -334,7 +334,7 @@ func TestUpdateTitle(t *testing.T) {
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane(ctx, "Old Title", "", mockContainer)
+	sv.AddPane(ctx, "pane-1", "Old Title", "", mockContainer)
 
 	mockLabel.EXPECT().SetText("New Title").Once()
 
@@ -368,7 +368,7 @@ func TestUpdateFavicon(t *testing.T) {
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane(ctx, "Page", "", mockContainer)
+	sv.AddPane(ctx, "pane-1", "Page", "", mockContainer)
 
 	mockFavicon.EXPECT().SetFromIconName("new-icon").Once()
 
@@ -393,7 +393,7 @@ func TestGetContainer(t *testing.T) {
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane(ctx, "Page", "", mockContainer)
+	sv.AddPane(ctx, "pane-1", "Page", "", mockContainer)
 
 	// Act
 	container, err := sv.GetContainer(0)
@@ -452,8 +452,8 @@ func TestNavigateNext_WrapsAround(t *testing.T) {
 	}
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane(ctx, "Page 1", "", containers[0])
-	sv.AddPane(ctx, "Page 2", "", containers[1])
+	sv.AddPane(ctx, "pane-1", "Page 1", "", containers[0])
+	sv.AddPane(ctx, "pane-2", "Page 2", "", containers[1])
 
 	// Currently at index 1 (last added)
 	assert.Equal(t, 1, sv.ActiveIndex())
@@ -490,8 +490,8 @@ func TestNavigatePrevious_WrapsAround(t *testing.T) {
 	}
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane(ctx, "Page 1", "", containers[0])
-	sv.AddPane(ctx, "Page 2", "", containers[1])
+	sv.AddPane(ctx, "pane-1", "Page 1", "", containers[0])
+	sv.AddPane(ctx, "pane-2", "Page 2", "", containers[1])
 
 	// Set to first pane
 	sv.SetActive(ctx, 0)
@@ -617,7 +617,7 @@ func TestInsertPaneAfter_AtBeginning(t *testing.T) {
 	mockTitleBar1.EXPECT().AddCssClass("active").Once()
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane(ctx, "Page 1", "", mockContainer1)
+	sv.AddPane(ctx, "pane-1", "Page 1", "", mockContainer1)
 
 	// Second pane - inserted at beginning (afterIndex=-1)
 	mockTitleBar2, mockContainer2 := setupInsertPaneMocks(t, mockFactory, mockBox, nil)
@@ -632,7 +632,7 @@ func TestInsertPaneAfter_AtBeginning(t *testing.T) {
 	mockTitleBar2.EXPECT().AddCssClass("active").Once()
 
 	// Act
-	index := sv.InsertPaneAfter(ctx, -1, "Page 0", "", mockContainer2)
+	index := sv.InsertPaneAfter(ctx, -1, "pane-0", "Page 0", "", mockContainer2)
 
 	// Assert
 	assert.Equal(t, 0, index)
@@ -658,8 +658,8 @@ func TestInsertPaneAfter_InMiddle(t *testing.T) {
 	}
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane(ctx, "Page 1", "", containers[0])
-	sv.AddPane(ctx, "Page 2", "", containers[1])
+	sv.AddPane(ctx, "pane-1", "Page 1", "", containers[0])
+	sv.AddPane(ctx, "pane-2", "Page 2", "", containers[1])
 
 	// Set active to first pane
 	require.NoError(t, sv.SetActive(ctx, 0))
@@ -672,7 +672,7 @@ func TestInsertPaneAfter_InMiddle(t *testing.T) {
 	mockTitleBar3.EXPECT().RemoveCssClass("active").Maybe()
 
 	// Act
-	index := sv.InsertPaneAfter(ctx, 0, "Page 1.5", "", mockContainer3)
+	index := sv.InsertPaneAfter(ctx, 0, "pane-1.5", "Page 1.5", "", mockContainer3)
 
 	// Assert
 	assert.Equal(t, 1, index)
@@ -695,7 +695,7 @@ func TestInsertPaneAfter_AtEnd(t *testing.T) {
 	mockTitleBar1.EXPECT().AddCssClass("active").Once()
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane(ctx, "Page 1", "", mockContainer1)
+	sv.AddPane(ctx, "pane-1", "Page 1", "", mockContainer1)
 
 	// Insert after last pane (afterIndex=0, becomes index 1)
 	mockTitleBar2, mockContainer2 := setupInsertPaneMocks(t, mockFactory, mockBox, mockContainer1)
@@ -709,7 +709,7 @@ func TestInsertPaneAfter_AtEnd(t *testing.T) {
 	mockTitleBar2.EXPECT().AddCssClass("active").Once()
 
 	// Act
-	index := sv.InsertPaneAfter(ctx, 0, "Page 2", "", mockContainer2)
+	index := sv.InsertPaneAfter(ctx, 0, "pane-2", "Page 2", "", mockContainer2)
 
 	// Assert
 	assert.Equal(t, 1, index)
@@ -742,9 +742,9 @@ func TestInsertPaneAfter_MaintainsOrder(t *testing.T) {
 	}
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane(ctx, "A", "", containers[0]) // index 0
-	sv.AddPane(ctx, "B", "", containers[1]) // index 1
-	sv.AddPane(ctx, "C", "", containers[2]) // index 2
+	sv.AddPane(ctx, "pane-a", "A", "", containers[0]) // index 0
+	sv.AddPane(ctx, "pane-b", "B", "", containers[1]) // index 1
+	sv.AddPane(ctx, "pane-c", "C", "", containers[2]) // index 2
 
 	// Navigate to pane B (index 1)
 	require.NoError(t, sv.SetActive(ctx, 1))
@@ -757,7 +757,7 @@ func TestInsertPaneAfter_MaintainsOrder(t *testing.T) {
 	mockTitleBar4.EXPECT().RemoveCssClass("active").Maybe()
 
 	// Act
-	index := sv.InsertPaneAfter(ctx, 1, "D", "", mockContainer4)
+	index := sv.InsertPaneAfter(ctx, 1, "pane-d", "D", "", mockContainer4)
 
 	// Assert: Order should be A(0), B(1), D(2), C(3)
 	assert.Equal(t, 2, index)
@@ -791,7 +791,7 @@ func TestInsertPaneAfter_InvalidIndexClamped(t *testing.T) {
 	mockTitleBar1.EXPECT().AddCssClass("active").Once()
 
 	sv := layout.NewStackedView(mockFactory)
-	sv.AddPane(ctx, "Page 1", "", mockContainer1)
+	sv.AddPane(ctx, "pane-1", "Page 1", "", mockContainer1)
 
 	// Try to insert at invalid index (100) - should clamp to end
 	mockTitleBar2, mockContainer2 := setupInsertPaneMocks(t, mockFactory, mockBox, mockContainer1)
@@ -805,7 +805,7 @@ func TestInsertPaneAfter_InvalidIndexClamped(t *testing.T) {
 	mockTitleBar2.EXPECT().AddCssClass("active").Once()
 
 	// Act - afterIndex=100 should be clamped to 0 (last valid index)
-	index := sv.InsertPaneAfter(ctx, 100, "Page 2", "", mockContainer2)
+	index := sv.InsertPaneAfter(ctx, 100, "pane-2", "Page 2", "", mockContainer2)
 
 	// Assert
 	assert.Equal(t, 1, index)
