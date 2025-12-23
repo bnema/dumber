@@ -172,6 +172,9 @@ func (wv *WorkspaceView) SetWorkspace(ctx context.Context, ws *entity.Workspace)
 		}
 	}
 
+	// Update single-pane mode based on pane count
+	wv.updateSinglePaneModeInternal()
+
 	return nil
 }
 
@@ -275,6 +278,23 @@ func (wv *WorkspaceView) PaneCount() int {
 	return len(wv.paneViews)
 }
 
+// singlePaneClass is used to hide the active pane border when only one pane exists.
+const singlePaneClass = "single-pane"
+
+// updateSinglePaneModeInternal adds/removes the single-pane CSS class on the container.
+// Must be called with the lock held.
+func (wv *WorkspaceView) updateSinglePaneModeInternal() {
+	if wv.container == nil {
+		return
+	}
+
+	if len(wv.paneViews) <= 1 {
+		wv.container.AddCssClass(singlePaneClass)
+	} else {
+		wv.container.RemoveCssClass(singlePaneClass)
+	}
+}
+
 // SetOnPaneFocused sets the callback for when a pane receives focus.
 func (wv *WorkspaceView) SetOnPaneFocused(fn func(paneID entity.PaneID)) {
 	wv.mu.Lock()
@@ -356,6 +376,7 @@ func (wv *WorkspaceView) RegisterPaneView(paneID entity.PaneID, pv *PaneView) {
 	defer wv.mu.Unlock()
 
 	wv.paneViews[paneID] = pv
+	wv.updateSinglePaneModeInternal()
 }
 
 // UnregisterPaneView removes a PaneView from the tracking map.
@@ -365,6 +386,7 @@ func (wv *WorkspaceView) UnregisterPaneView(paneID entity.PaneID) {
 	defer wv.mu.Unlock()
 
 	delete(wv.paneViews, paneID)
+	wv.updateSinglePaneModeInternal()
 }
 
 // GetRootWidget returns the current root widget of the workspace.

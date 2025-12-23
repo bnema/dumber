@@ -396,6 +396,11 @@ func generatePaneCSS(p Palette) string {
 	border: 0.0625em solid var(--accent);
 }
 
+/* Hide active border when only one pane exists */
+.single-pane .pane-active {
+	border-color: transparent;
+}
+
 /* Pane mode active - thick blue inset border (for overlay) */
 .pane-mode-active {
 	background-color: transparent;
