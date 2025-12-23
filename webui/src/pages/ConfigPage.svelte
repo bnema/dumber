@@ -2,7 +2,9 @@
   import { onMount } from "svelte";
   import ConfigShell from "./config/ConfigShell.svelte";
   import ShortcutsTable from "./config/ShortcutsTable.svelte";
+  import * as AlertDialog from "$lib/components/ui/alert-dialog";
   import { Button } from "$lib/components/ui/button";
+  import { ColorPicker } from "$lib/components/ui/color-picker";
   import { Input } from "$lib/components/ui/input";
   import { Label } from "$lib/components/ui/label";
   import { Spinner } from "$lib/components/ui/spinner";
@@ -84,13 +86,10 @@
     loadConfig();
   }
 
-  async function resetToDefaults() {
-    saveSuccess = false;
-    const confirmed = window.confirm(
-      "Reset this page to default settings? (You still need to click Save to persist.)",
-    );
-    if (!confirmed) return;
+  let resetDialogOpen = $state(false);
 
+  async function doResetToDefaults() {
+    saveSuccess = false;
     try {
       const response = await fetch("/api/config/default");
       if (!response.ok) throw new Error("Failed to fetch default config");
@@ -98,6 +97,7 @@
     } catch (e: any) {
       console.error("[config] reset defaults failed", e);
     }
+    resetDialogOpen = false;
   }
 
   function getWebKitBridge(): { postMessage: (msg: unknown) => void } | null {
@@ -305,15 +305,12 @@
                       <div class="space-y-2">
                         <Label for={`light_${field.key}`}>{field.label}</Label>
                         <div class="flex items-center gap-3">
-                          <input
+                          <ColorPicker
                             id={`light_${field.key}`}
-                            type="color"
                             value={config.appearance.light_palette[field.key]}
-                            oninput={(e) => {
-                              const v = (e.currentTarget as HTMLInputElement).value;
+                            onValueChange={(v) => {
                               config!.appearance.light_palette[field.key] = v;
                             }}
-                            class="h-10 w-12 border border-border bg-background"
                           />
                           <Input bind:value={config.appearance.light_palette[field.key]} />
                         </div>
@@ -334,15 +331,12 @@
                       <div class="space-y-2">
                         <Label for={`dark_${field.key}`}>{field.label}</Label>
                         <div class="flex items-center gap-3">
-                          <input
+                          <ColorPicker
                             id={`dark_${field.key}`}
-                            type="color"
                             value={config.appearance.dark_palette[field.key]}
-                            oninput={(e) => {
-                              const v = (e.currentTarget as HTMLInputElement).value;
+                            onValueChange={(v) => {
                               config!.appearance.dark_palette[field.key] = v;
                             }}
-                            class="h-10 w-12 border border-border bg-background"
                           />
                           <Input bind:value={config.appearance.dark_palette[field.key]} />
                         </div>
@@ -394,9 +388,30 @@
           {/if}
         </div>
         <div class="flex items-center gap-3">
-          <Button variant="outline" onclick={resetToDefaults} disabled={saving} type="button">
-            Reset Defaults
-          </Button>
+          <AlertDialog.Root bind:open={resetDialogOpen}>
+            <AlertDialog.Trigger disabled={saving}>
+              {#snippet child({ props })}
+                <Button variant="outline" {...props} type="button">
+                  Reset Defaults
+                </Button>
+              {/snippet}
+            </AlertDialog.Trigger>
+            <AlertDialog.Content>
+              <AlertDialog.Header>
+                <AlertDialog.Title>Reset to defaults?</AlertDialog.Title>
+                <AlertDialog.Description>
+                  This will reset all settings on this page to their default values.
+                  You will still need to click Save to persist the changes.
+                </AlertDialog.Description>
+              </AlertDialog.Header>
+              <AlertDialog.Footer>
+                <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+                <AlertDialog.Action onclick={doResetToDefaults}>
+                  Reset Defaults
+                </AlertDialog.Action>
+              </AlertDialog.Footer>
+            </AlertDialog.Content>
+          </AlertDialog.Root>
           <Button onclick={saveConfig} disabled={saving} type="button">
             {saving ? "Saving…" : "Save"}
           </Button>
