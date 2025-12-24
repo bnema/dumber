@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
@@ -45,25 +46,34 @@ type PopupRequest struct {
 // webViewRegistry tracks all active WebViews.
 type webViewRegistry struct {
 	views   map[WebViewID]*WebView
+	byUCM   map[uintptr]WebViewID
 	counter atomic.Uint64
 	mu      sync.RWMutex
 }
 
 var globalRegistry = &webViewRegistry{
 	views: make(map[WebViewID]*WebView),
+	byUCM: make(map[uintptr]WebViewID),
 }
 
 func (r *webViewRegistry) register(wv *WebView) WebViewID {
 	id := WebViewID(r.counter.Add(1))
 	r.mu.Lock()
 	r.views[id] = wv
+	if wv != nil && wv.ucm != nil {
+		r.byUCM[wv.ucm.GoPointer()] = id
+	}
 	r.mu.Unlock()
 	return id
 }
 
 func (r *webViewRegistry) unregister(id WebViewID) {
 	r.mu.Lock()
+	wv := r.views[id]
 	delete(r.views, id)
+	if wv != nil && wv.ucm != nil {
+		delete(r.byUCM, wv.ucm.GoPointer())
+	}
 	r.mu.Unlock()
 }
 
@@ -74,9 +84,27 @@ func (r *webViewRegistry) Lookup(id WebViewID) *WebView {
 	return r.views[id]
 }
 
+func (r *webViewRegistry) LookupByUCMPointer(ptr uintptr) *WebView {
+	if ptr == 0 {
+		return nil
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	id, ok := r.byUCM[ptr]
+	if !ok {
+		return nil
+	}
+	return r.views[id]
+}
+
 // LookupWebView returns a WebView by ID from the global registry.
 func LookupWebView(id WebViewID) *WebView {
 	return globalRegistry.Lookup(id)
+}
+
+// LookupWebViewByUCMPointer returns a WebView by its UserContentManager pointer.
+func LookupWebViewByUCMPointer(ptr uintptr) *WebView {
+	return globalRegistry.LookupByUCMPointer(ptr)
 }
 
 // WebView wraps webkit.WebView with Go-level state tracking and callbacks.
@@ -87,6 +115,7 @@ type WebView struct {
 
 	// State (protected by mutex)
 	destroyed atomic.Bool
+	isRelated bool // true if created via NewWebViewWithRelated (shares web process with parent)
 	uri       string
 	title     string
 	progress  float64
@@ -94,19 +123,30 @@ type WebView struct {
 	canGoFwd  bool
 	isLoading bool
 
+	// Media/fullscreen state for idle inhibition cleanup
+	isFullscreen   atomic.Bool
+	isPlayingAudio atomic.Bool
+
+	// Progress throttling (~60fps)
+	lastProgressUpdate atomic.Int64 // Unix nanoseconds
+
 	// Signal handler IDs for disconnection
 	signalIDs []uint32
 
 	// Callbacks (set by UI layer)
-	OnLoadChanged     func(LoadEvent)
-	OnTitleChanged    func(string)
-	OnURIChanged      func(string)
-	OnProgressChanged func(float64)
-	OnFaviconChanged  func(*gdk.Texture) // Called when page favicon changes
-	OnClose           func()
-	OnCreate          func(PopupRequest) *WebView // Return new WebView or nil to block popup
-	OnReadyToShow     func()                      // Called when popup is ready to display
-	OnLinkMiddleClick func(uri string) bool       // Return true if handled (blocks navigation)
+	OnLoadChanged       func(LoadEvent)
+	OnTitleChanged      func(string)
+	OnURIChanged        func(string)
+	OnProgressChanged   func(float64)
+	OnFaviconChanged    func(*gdk.Texture) // Called when page favicon changes
+	OnClose             func()
+	OnCreate            func(PopupRequest) *WebView // Return new WebView or nil to block popup
+	OnReadyToShow       func()                      // Called when popup is ready to display
+	OnLinkMiddleClick   func(uri string) bool       // Return true if handled (blocks navigation)
+	OnEnterFullscreen   func() bool                 // Return true to prevent fullscreen
+	OnLeaveFullscreen   func() bool                 // Return true to prevent leaving fullscreen
+	OnAudioStateChanged func(playing bool)          // Called when audio playback starts/stops
+	OnLinkHover         func(uri string)            // Called when hovering over a link/image/media (empty string when leaving)
 
 	logger zerolog.Logger
 	mu     sync.RWMutex
@@ -227,17 +267,29 @@ func (a *findControllerAdapter) DisconnectSignal(id uint32) {
 
 // NewWebView creates a new WebView with the given context and settings.
 // Uses the persistent NetworkSession from wkCtx for cookie/data persistence.
-func NewWebView(ctx context.Context, wkCtx *WebKitContext, settings *SettingsManager) (*WebView, error) {
+// bgColor is optional - if provided, sets background immediately to prevent white flash.
+func NewWebView(ctx context.Context, wkCtx *WebKitContext, settings *SettingsManager, bgColor *gdk.RGBA) (*WebView, error) {
 	log := logging.FromContext(ctx)
 
 	if wkCtx == nil || !wkCtx.IsInitialized() {
 		return nil, fmt.Errorf("webkit context not initialized")
 	}
 
-	// Use NetworkSession-aware constructor for persistent cookie storage
-	inner := webkit.NewWebViewWithNetworkSession(wkCtx.NetworkSession())
+	// Use options constructor to pass both WebContext and NetworkSession.
+	// This ensures WebViews use our custom WebContext (with memory pressure settings)
+	// and the persistent NetworkSession for cookie/storage.
+	inner := webkit.NewWebViewWithOptions(&webkit.WebViewOptions{
+		WebContext:     wkCtx.Context(),
+		NetworkSession: wkCtx.NetworkSession(),
+	})
 	if inner == nil {
-		return nil, fmt.Errorf("failed to create webkit webview with network session")
+		return nil, fmt.Errorf("failed to create webkit webview with options")
+	}
+
+	// Set background color IMMEDIATELY after creation, before any other operations.
+	// This prevents white flash by ensuring WebKit's renderer starts with correct color.
+	if bgColor != nil {
+		inner.SetBackgroundColor(bgColor)
 	}
 
 	wv := &WebView{
@@ -282,6 +334,7 @@ func NewWebViewWithRelated(ctx context.Context, parent *WebView, settings *Setti
 
 	wv := &WebView{
 		inner:     inner,
+		isRelated: true, // Shares web process with parent - must not terminate process on destroy
 		ucm:       inner.GetUserContentManager(),
 		logger:    log.With().Str("component", "webview-popup").Logger(),
 		signalIDs: make([]uint32, 0, 6),
@@ -314,6 +367,10 @@ func (wv *WebView) connectSignals() {
 	wv.connectFaviconSignal()
 	wv.connectProgressSignal()
 	wv.connectDecidePolicySignal()
+	wv.connectEnterFullscreenSignal()
+	wv.connectLeaveFullscreenSignal()
+	wv.connectAudioStateSignal()
+	wv.connectMouseTargetChangedSignal()
 }
 
 func (wv *WebView) connectLoadChangedSignal() {
@@ -447,9 +504,24 @@ func (wv *WebView) connectFaviconSignal() {
 	wv.signalIDs = append(wv.signalIDs, sigID)
 }
 
+// progressThrottleInterval limits progress callbacks to ~60fps to reduce UI overhead.
+const progressThrottleInterval = 16 * time.Millisecond
+
 func (wv *WebView) connectProgressSignal() {
 	progressCb := func() {
 		progress := wv.inner.GetEstimatedLoadProgress()
+
+		// Throttle progress updates to ~60fps (16ms interval)
+		// Always allow 0.0 (start) and 1.0 (complete) through
+		now := time.Now().UnixNano()
+		last := wv.lastProgressUpdate.Load()
+		if progress > 0.0 && progress < 1.0 {
+			if now-last < int64(progressThrottleInterval) {
+				return // Skip this update
+			}
+		}
+		wv.lastProgressUpdate.Store(now)
+
 		wv.mu.Lock()
 		wv.progress = progress
 		wv.mu.Unlock()
@@ -520,6 +592,78 @@ func (wv *WebView) connectDecidePolicySignal() {
 	wv.signalIDs = append(wv.signalIDs, sigID)
 }
 
+func (wv *WebView) connectEnterFullscreenSignal() {
+	enterFullscreenCb := func(_ webkit.WebView) bool {
+		wv.isFullscreen.Store(true)
+		wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("enter fullscreen")
+		if wv.OnEnterFullscreen != nil {
+			return wv.OnEnterFullscreen()
+		}
+		return false // Allow fullscreen
+	}
+	sigID := wv.inner.ConnectEnterFullscreen(&enterFullscreenCb)
+	wv.signalIDs = append(wv.signalIDs, sigID)
+}
+
+func (wv *WebView) connectLeaveFullscreenSignal() {
+	leaveFullscreenCb := func(_ webkit.WebView) bool {
+		wv.isFullscreen.Store(false)
+		wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("leave fullscreen")
+		if wv.OnLeaveFullscreen != nil {
+			return wv.OnLeaveFullscreen()
+		}
+		return false // Allow leaving fullscreen
+	}
+	sigID := wv.inner.ConnectLeaveFullscreen(&leaveFullscreenCb)
+	wv.signalIDs = append(wv.signalIDs, sigID)
+}
+
+func (wv *WebView) connectAudioStateSignal() {
+	audioCb := func() {
+		playing := wv.inner.IsPlayingAudio()
+		oldState := wv.isPlayingAudio.Swap(playing)
+		if oldState != playing {
+			wv.logger.Debug().
+				Uint64("id", uint64(wv.id)).
+				Bool("playing", playing).
+				Msg("audio state changed")
+			if wv.OnAudioStateChanged != nil {
+				wv.OnAudioStateChanged(playing)
+			}
+		}
+	}
+	sigID := gobject.SignalConnect(wv.inner.GoPointer(), "notify::is-playing-audio", glib.NewCallback(&audioCb))
+	wv.signalIDs = append(wv.signalIDs, sigID)
+}
+
+func (wv *WebView) connectMouseTargetChangedSignal() {
+	mouseTargetCb := func(_ webkit.WebView, hitTestPtr uintptr, _ uint) {
+		if wv.OnLinkHover == nil {
+			return
+		}
+
+		hitResult := webkit.HitTestResultNewFromInternalPtr(hitTestPtr)
+		if hitResult == nil {
+			wv.OnLinkHover("")
+			return
+		}
+
+		var uri string
+		switch {
+		case hitResult.ContextIsLink():
+			uri = hitResult.GetLinkUri()
+		case hitResult.ContextIsImage():
+			uri = hitResult.GetImageUri()
+		case hitResult.ContextIsMedia():
+			uri = hitResult.GetMediaUri()
+		}
+
+		wv.OnLinkHover(uri)
+	}
+	sigID := wv.inner.ConnectMouseTargetChanged(&mouseTargetCb)
+	wv.signalIDs = append(wv.signalIDs, sigID)
+}
+
 // ID returns the unique identifier for this WebView.
 func (wv *WebView) ID() WebViewID {
 	return wv.id
@@ -533,6 +677,16 @@ func (wv *WebView) UserContentManager() *webkit.UserContentManager {
 // Widget returns the underlying webkit.WebView for GTK embedding.
 func (wv *WebView) Widget() *webkit.WebView {
 	return wv.inner
+}
+
+// IsFullscreen returns true if the WebView is currently in fullscreen mode.
+func (wv *WebView) IsFullscreen() bool {
+	return wv.isFullscreen.Load()
+}
+
+// IsPlayingAudio returns true if the WebView is currently playing audio.
+func (wv *WebView) IsPlayingAudio() bool {
+	return wv.isPlayingAudio.Load()
 }
 
 // GetFindController returns the WebKit FindController wrapped in the port interface.
@@ -701,6 +855,22 @@ func (wv *WebView) GetZoomLevel() float64 {
 	return wv.inner.GetZoomLevel()
 }
 
+// SetBackgroundColor sets the WebView background color.
+// This color is shown before content is painted, eliminating white flash.
+// Values are in range 0.0-1.0 for red, green, blue, alpha.
+func (wv *WebView) SetBackgroundColor(r, g, b, a float32) {
+	if wv.destroyed.Load() {
+		return
+	}
+	rgba := &gdk.RGBA{
+		Red:   r,
+		Green: g,
+		Blue:  b,
+		Alpha: a,
+	}
+	wv.inner.SetBackgroundColor(rgba)
+}
+
 // State returns the current WebView state as a snapshot.
 func (wv *WebView) State() port.WebViewState {
 	return port.WebViewState{
@@ -763,6 +933,7 @@ func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
 			return nil
 		}
 	}
+	wv.OnLinkHover = callbacks.OnLinkHover
 }
 
 // ShowDevTools opens the WebKit inspector/developer tools.
@@ -812,19 +983,64 @@ func (wv *WebView) DisconnectSignals() {
 	wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("signals disconnected")
 }
 
-// Destroy cleans up the WebView resources.
+// Destroy cleans up the WebView resources and terminates the web process.
+// This must be called when a WebView is no longer needed to free GPU resources,
+// VA-API decoder contexts, and DMA-BUF buffers held by the web process.
 func (wv *WebView) Destroy() {
 	if wv.destroyed.Swap(true) {
 		return // Already destroyed
 	}
 
-	// Disconnect all signal handlers first
+	// 1. Disconnect all signal handlers first to prevent callbacks during cleanup
 	wv.DisconnectSignals()
 
-	// Unregister from global registry
+	// 2. Clear all callbacks to prevent use-after-free
+	wv.OnLoadChanged = nil
+	wv.OnTitleChanged = nil
+	wv.OnURIChanged = nil
+	wv.OnProgressChanged = nil
+	wv.OnFaviconChanged = nil
+	wv.OnClose = nil
+	wv.OnCreate = nil
+	wv.OnReadyToShow = nil
+	wv.OnLinkMiddleClick = nil
+	wv.OnEnterFullscreen = nil
+	wv.OnLeaveFullscreen = nil
+	wv.OnAudioStateChanged = nil
+	wv.OnLinkHover = nil
+
+	// 3. Clear async callback references
+	wv.mu.Lock()
+	wv.asyncCallbacks = nil
+	wv.mu.Unlock()
+
+	// 4. Unparent from GTK hierarchy (must happen before process termination)
+	// This releases the widget from any parent container.
+	if wv.inner != nil {
+		wv.inner.Unparent()
+	}
+
+	// 5. Terminate the web process to free GPU resources (VA-API, DMA-BUF, GL contexts)
+	// This is critical to prevent zombie processes that hold video decoder resources.
+	// IMPORTANT: Skip for related views (popups) - they share the web process with their
+	// parent. Terminating the shared process would kill the parent WebView too!
+	if !wv.isRelated && wv.inner != nil {
+		wv.inner.TerminateWebProcess()
+	}
+
+	// 6. Unregister from global registry
 	globalRegistry.unregister(wv.id)
 
-	wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("webview destroyed")
+	// 7. Clear internal references to allow GC
+	wv.inner = nil
+	wv.ucm = nil
+	wv.findController = nil
+
+	if wv.isRelated {
+		wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("related webview destroyed (process shared with parent)")
+	} else {
+		wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("webview destroyed and web process terminated")
+	}
 }
 
 // RunJavaScript executes script in the specified world (empty for main world).

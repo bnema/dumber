@@ -50,7 +50,14 @@ window, tooltip, popover {
 
 // GenerateCSSWithScaleAndFonts creates GTK4 CSS using the provided palette, UI scale factor and fonts.
 // Scale affects font sizes and widget padding/margins proportionally.
+// Uses default mode colors.
 func GenerateCSSWithScaleAndFonts(p Palette, scale float64, fonts FontConfig) string {
+	return GenerateCSSFull(p, scale, fonts, DefaultModeColors())
+}
+
+// GenerateCSSFull creates GTK4 CSS using all provided configuration.
+// Scale affects font sizes and widget padding/margins proportionally.
+func GenerateCSSFull(p Palette, scale float64, fonts FontConfig, modeColors ModeColors) string {
 	if scale <= 0 {
 		scale = 1.0
 	}
@@ -68,6 +75,7 @@ func GenerateCSSWithScaleAndFonts(p Palette, scale float64, fonts FontConfig) st
 	sb.WriteString(":root {\n")
 	sb.WriteString(p.ToCSSVars())
 	sb.WriteString(FontCSSVars(fonts))
+	sb.WriteString(modeColors.ToCSSVars())
 	sb.WriteString("}\n\n")
 
 	// Global font styling
@@ -106,6 +114,18 @@ func GenerateCSSWithScaleAndFonts(p Palette, scale float64, fonts FontConfig) st
 
 	// Toaster styling
 	sb.WriteString(generateToasterCSS(p))
+	sb.WriteString("\n")
+
+	// Link status overlay styling
+	sb.WriteString(generateLinkStatusCSS(p))
+	sb.WriteString("\n")
+
+	// Session manager styling
+	sb.WriteString(generateSessionManagerCSS(p))
+	sb.WriteString("\n")
+
+	// Tab picker styling
+	sb.WriteString(generateTabPickerCSS(p))
 
 	return sb.String()
 }
@@ -232,7 +252,7 @@ entry.omnibox-entry:focus-visible {
 	border-color: var(--accent);
 	background-color: shade(var(--bg), 1.05);
 	outline-style: none;
-	outline-width: 0;
+	outline-width: 0px;
 	outline-color: transparent;
 }
 
@@ -279,6 +299,22 @@ entry.omnibox-entry > *:focus-visible {
 	border-left: 0.1875em solid var(--accent);
 }
 
+/* Favorite indicator in history mode - yellowish accent */
+.omnibox-row.omnibox-row-favorite {
+	background-color: alpha(var(--warning), 0.08);
+	border-left: 0.1875em solid var(--warning);
+}
+
+.omnibox-row.omnibox-row-favorite:hover {
+	background-color: alpha(var(--warning), 0.15);
+	border-left: 0.1875em solid var(--warning);
+}
+
+.omnibox-row.omnibox-row-favorite:selected {
+	background-color: alpha(var(--warning), 0.2);
+	border-left: 0.1875em solid var(--warning);
+}
+
 /* Favicon in omnibox rows */
 .omnibox-favicon {
 	min-width: 1em;
@@ -303,15 +339,15 @@ entry.omnibox-entry > *:focus-visible {
 	font-weight: 500;
 }
 
-/* URL text below title */
-.omnibox-suggestion-url {
+/* URL text below title - use .omnibox-row prefix for specificity over .omnibox-row label */
+.omnibox-row .omnibox-suggestion-url {
 	font-size: 0.75em;
-	color: var(--muted);
+	color: alpha(var(--muted), 0.65);
 	font-weight: 400;
 }
 
 .omnibox-row:selected .omnibox-suggestion-url {
-	color: var(--muted);
+	color: alpha(var(--muted), 0.75);
 }
 
 /* Keyboard shortcut badge */
@@ -336,6 +372,16 @@ entry.omnibox-entry > *:focus-visible {
 	color: var(--accent);
 }
 
+/* Bang indicator badge in omnibox header */
+.omnibox-bang-badge {
+	background-color: alpha(var(--accent), 0.18);
+	color: var(--accent);
+	border-radius: 0.25em;
+	padding: 0.125em 0.5em;
+	font-size: 0.6875em;
+	font-weight: 600;
+}
+
 /* Zoom indicator in omnibox header */
 .omnibox-zoom-indicator {
 	background-color: alpha(var(--accent), 0.2);
@@ -344,7 +390,20 @@ entry.omnibox-entry > *:focus-visible {
 	padding: 0.125em 0.5em;
 	font-size: 0.6875em;
 	font-weight: 600;
-	margin-left: auto;
+	/* Note: margin-left: auto not supported in GTK4 CSS, use SetHalign(End) in code */
+}
+
+entry.omnibox-entry.omnibox-entry-bang-active,
+entry.omnibox-entry.omnibox-entry-bang-active:focus,
+entry.omnibox-entry.omnibox-entry-bang-active:focus-within,
+entry.omnibox-entry.omnibox-entry-bang-active:focus-visible {
+	border-color: var(--accent);
+	background-color: shade(var(--bg), 1.05);
+}
+
+.omnibox-row.omnibox-row-bang .omnibox-suggestion-title {
+	color: var(--accent);
+	font-weight: 600;
 }
 `
 }
@@ -385,7 +444,7 @@ entry.find-bar-entry:focus-within,
 entry.find-bar-entry:focus-visible {
 	border-color: var(--accent);
 	outline-style: none;
-	outline-width: 0;
+	outline-width: 0px;
 	outline-color: transparent;
 }
 
@@ -434,6 +493,34 @@ entry.find-bar-entry:focus-visible {
 func generatePaneCSS(p Palette) string {
 	return `/* ===== Pane Styling ===== */
 
+/* Pane overlay container - theme background prevents white flash */
+.pane-overlay {
+	background-color: var(--bg);
+}
+
+/* WebView widget - theme background prevents white flash during page load */
+.webview-themed {
+	background-color: var(--bg);
+}
+
+/* Loading skeleton - shown until WebView paints */
+.loading-skeleton {
+	background-color: var(--bg);
+}
+
+.loading-skeleton-spinner {
+	-gtk-icon-size: 32px;
+	min-width: 32px;
+	min-height: 32px;
+	color: var(--muted);
+}
+
+.loading-skeleton-logo {
+	opacity: 0.08;
+	min-width: 512px;
+	min-height: 512px;
+}
+
 /* Pane border - default transparent */
 .pane-border {
 	border: 0.0625em solid transparent;
@@ -449,17 +536,27 @@ func generatePaneCSS(p Palette) string {
 	border-color: transparent;
 }
 
-/* Pane mode active - thick blue inset border (for overlay) */
+/* Pane mode active - thick inset border (for overlay) */
 .pane-mode-active {
 	background-color: transparent;
-	box-shadow: inset 0 0 0 0.25em #4A90E2;
+	box-shadow: inset 0 0 0 0.25em var(--pane-mode-color);
 	border-radius: 0;
 }
 
-/* Tab mode active - thick orange inset border (for overlay) */
+/* Tab mode active - thick inset border (for overlay) */
 .tab-mode-active {
 	background-color: transparent;
-	box-shadow: inset 0 0 0 0.25em #FFA500;
+	box-shadow: inset 0 0 0 0.25em var(--tab-mode-color);
+	border-radius: 0;
+}
+
+/* Resize mode active - thick inset border */
+.resize-mode-active {
+	background-color: transparent;
+	/* Prefer inset shadow, but also set outline for widgets that don't paint shadows */
+	box-shadow: inset 0 0 0 0.25em var(--resize-mode-color);
+	outline: 0.25em solid var(--resize-mode-color);
+	outline-offset: -0.25em;
 	border-radius: 0;
 }
 `
@@ -536,14 +633,181 @@ progressbar.osd {
 
 progressbar.osd trough {
 	min-height: 4px;
-	min-width: 0px;
+	min-width: 2px;
+	margin: 0;
+	padding: 0;
 	background-color: alpha(var(--bg), 0.3);
 }
 
 progressbar.osd progress {
 	min-height: 4px;
-	min-width: 0px;
+	min-width: 2px;
+	margin: 0;
+	padding: 0;
 	background-color: var(--accent);
+}
+`
+}
+
+// generateSessionManagerCSS creates session manager modal styles.
+// Uses em units for scalable UI, matches omnibox styling patterns.
+func generateSessionManagerCSS(p Palette) string {
+	_ = p
+	return `/* ===== Session Manager Styling ===== */
+
+/* Session manager outer container - for positioning in overlay */
+.session-manager-outer {
+	/* Positioning is handled via SetHalign/SetValign in Go */
+}
+
+/* Session manager main container - the visible popup */
+.session-manager-container {
+	background-color: var(--surface-variant);
+	border: 0.0625em solid var(--border);
+	border-radius: 0.1875em;
+	padding: 0;
+	min-width: 28em;
+	/* Note: max-width not supported in GTK4 CSS, rely on container constraints */
+}
+
+/* Header with title */
+.session-manager-header {
+	background-color: shade(var(--surface-variant), 1.1);
+	border-bottom: 0.0625em solid var(--border);
+	padding: 0.5em 0.75em;
+}
+
+.session-manager-title {
+	font-size: 0.9375em;
+	font-weight: 600;
+	color: var(--text);
+}
+
+/* Scrolled window for session list */
+.session-manager-scrolled {
+	background-color: shade(var(--surface-variant), 0.95);
+}
+
+/* List box */
+.session-manager-list {
+	background-color: transparent;
+}
+
+/* Session rows */
+.session-manager-row {
+	padding: 0.5em 0.75em;
+	margin: 0;
+	border-radius: 0;
+	border-left: 0.1875em solid transparent;
+	border-bottom: 0.0625em solid alpha(var(--border), 0.5);
+	transition: background-color 100ms ease-in-out, border-left 100ms ease-in-out;
+	min-height: 2.75em;
+}
+
+.session-manager-row:last-child {
+	border-bottom: none;
+}
+
+.session-manager-row:hover {
+	background-color: alpha(var(--accent), 0.12);
+	border-left: 0.1875em solid var(--accent);
+}
+
+.session-manager-row:selected,
+row:selected .session-manager-row {
+	background-color: alpha(var(--accent), 0.2);
+	border-left: 0.1875em solid var(--accent);
+}
+
+/* Status indicator dot */
+.session-status {
+	font-size: 0.875em;
+	min-width: 1em;
+	margin-right: 0.5em;
+}
+
+/* Current session - accent color dot */
+.session-current .session-status {
+	color: var(--accent);
+}
+
+/* Active session (other instance) - muted dot */
+.session-active .session-status {
+	color: var(--muted);
+}
+
+/* Exited session - dimmed appearance with subtle stop icon */
+.session-exited {
+	opacity: 0.75;
+}
+
+.session-exited .session-status {
+	color: var(--error);
+	opacity: 0.5;
+}
+
+/* Session ID labels */
+.session-id-short {
+	font-size: 0.875em;
+	font-weight: 600;
+	color: var(--accent);
+	font-family: var(--font-mono);
+}
+
+.session-id-prefix {
+	font-size: 0.875em;
+	font-weight: 400;
+	color: var(--muted);
+	font-family: var(--font-mono);
+}
+
+.session-id-badge {
+	font-size: 0.75em;
+	font-weight: 500;
+	color: var(--accent);
+	margin-left: 0.5em;
+}
+
+/* Tab/pane count label */
+.session-count {
+	font-size: 0.75em;
+	color: var(--muted);
+}
+
+/* Relative time label */
+.session-time {
+	font-size: 0.75em;
+	color: var(--muted);
+	/* Note: margin-left: auto not supported in GTK4 CSS, use SetHalign(End) in code */
+}
+
+/* Section divider for EXITED sessions */
+.session-divider {
+	font-size: 0.6875em;
+	font-weight: 600;
+	color: var(--muted);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	padding: 0.5em 0.75em 0.25em 0.75em;
+	background-color: alpha(var(--border), 0.3);
+	border-bottom: 0.0625em solid var(--border);
+}
+
+/* Footer with keyboard shortcuts */
+.session-manager-footer {
+	background-color: shade(var(--surface-variant), 0.9);
+	border-top: 0.0625em solid var(--border);
+	padding: 0.375em 0.75em;
+	font-size: 0.6875em;
+	color: var(--muted);
+	font-family: var(--font-mono);
+}
+
+/* Session mode border */
+.session-mode-active {
+	background-color: transparent;
+	box-shadow: inset 0 0 0 0.25em var(--session-mode-color);
+	border-radius: 0;
 }
 `
 }
@@ -587,6 +851,64 @@ func generateToasterCSS(p Palette) string {
 .toast-error {
 	background-color: alpha(var(--destructive), 0.9);
 	color: var(--bg);
+}
+
+/* Toast with custom styling (mode indicator toasters) */
+.toast-custom {
+	color: #ffffff;
+}
+
+/* Mode-specific toast colors */
+.toast-pane-mode {
+	background-color: var(--pane-mode-color);
+	color: #ffffff;
+}
+
+.toast-tab-mode {
+	background-color: var(--tab-mode-color);
+	color: #ffffff;
+}
+
+.toast-session-mode {
+	background-color: var(--session-mode-color);
+	color: #ffffff;
+}
+
+.toast-resize-mode {
+	background-color: var(--resize-mode-color);
+	color: #ffffff;
+}
+`
+}
+
+// generateLinkStatusCSS creates link status overlay styles.
+// Uses CSS transitions for fade-in/fade-out effect.
+func generateLinkStatusCSS(p Palette) string {
+	return `/* ===== Link Status Overlay Styling ===== */
+
+/* Link status container - bottom left positioning */
+.link-status {
+	background-color: alpha(var(--surface-variant), 0.95);
+	border-radius: 0.25em 0.25em 0 0;
+	padding: 0.25em 0.5em;
+	margin: 0;
+	font-size: 0.75em;
+	/* Note: max-width not supported in GTK4 CSS, use label SetMaxWidthChars instead */
+	box-shadow: 0 -1px 4px alpha(black, 0.15);
+
+	/* Fade transition - hidden by default */
+	opacity: 0;
+	transition: opacity 150ms ease-in-out;
+}
+
+/* Visible state - triggered by adding .visible class */
+.link-status.visible {
+	opacity: 1;
+}
+
+/* Link status label text */
+.link-status label {
+	color: var(--muted);
 }
 `
 }

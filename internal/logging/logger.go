@@ -10,9 +10,10 @@ import (
 )
 
 const (
-	logFormatConsole = "console"
-	logFormatJSON    = "json"
-	logFormatText    = "text"
+	logFormatConsole  = "console"
+	logFormatJSON     = "json"
+	logFormatText     = "text"
+	ConsoleTimeFormat = "15:04:05"
 )
 
 // Config holds logging configuration
@@ -146,8 +147,16 @@ func NewFromEnv() zerolog.Logger {
 // This is used by main.go to create a logger from the config package's LoggingConfig
 // without creating an import cycle.
 func NewFromConfigValues(level, format string) zerolog.Logger {
+	return NewFromConfigValuesWithTimeFormat(level, format, "")
+}
+
+// NewFromConfigValuesWithTimeFormat creates a logger from level/format and overrides time format.
+func NewFromConfigValuesWithTimeFormat(level, format, timeFormat string) zerolog.Logger {
 	cfg := DefaultConfig()
 	cfg.Level = ParseLevel(level)
+	if timeFormat != "" {
+		cfg.TimeFormat = timeFormat
+	}
 
 	switch format {
 	case logFormatJSON:

@@ -6,6 +6,8 @@ import (
 
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
+	domainurl "github.com/bnema/dumber/internal/domain/url"
+	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
@@ -15,17 +17,20 @@ import (
 
 // KeyboardDispatcher routes keyboard actions to appropriate coordinators.
 type KeyboardDispatcher struct {
-	tabCoord       *coordinator.TabCoordinator
-	wsCoord        *coordinator.WorkspaceCoordinator
-	navCoord       *coordinator.NavigationCoordinator
-	zoomUC         *usecase.ManageZoomUseCase
-	copyURLUC      *usecase.CopyURLUseCase
-	actionHandlers map[input.Action]func(ctx context.Context) error
-	onQuit         func()
-	onFindOpen     func(ctx context.Context) error
-	onFindNext     func(ctx context.Context) error
-	onFindPrev     func(ctx context.Context) error
-	onFindClose    func(ctx context.Context) error
+	tabCoord         *coordinator.TabCoordinator
+	wsCoord          *coordinator.WorkspaceCoordinator
+	navCoord         *coordinator.NavigationCoordinator
+	zoomUC           *usecase.ManageZoomUseCase
+	copyURLUC        *usecase.CopyURLUseCase
+	actionHandlers   map[input.Action]func(ctx context.Context) error
+	onQuit           func()
+	onFindOpen       func(ctx context.Context) error
+	onFindNext       func(ctx context.Context) error
+	onFindPrev       func(ctx context.Context) error
+	onFindClose      func(ctx context.Context) error
+	onSessionOpen    func(ctx context.Context) error
+	onMovePaneToTab  func(ctx context.Context) error
+	onMovePaneToNext func(ctx context.Context) error
 }
 
 // NewKeyboardDispatcher creates a new KeyboardDispatcher.
@@ -76,6 +81,19 @@ func (d *KeyboardDispatcher) SetOnFindClose(fn func(ctx context.Context) error) 
 	d.onFindClose = fn
 }
 
+// SetOnSessionOpen sets the callback for opening the session manager.
+func (d *KeyboardDispatcher) SetOnSessionOpen(fn func(ctx context.Context) error) {
+	d.onSessionOpen = fn
+}
+
+func (d *KeyboardDispatcher) SetOnMovePaneToTab(fn func(ctx context.Context) error) {
+	d.onMovePaneToTab = fn
+}
+
+func (d *KeyboardDispatcher) SetOnMovePaneToNextTab(fn func(ctx context.Context) error) {
+	d.onMovePaneToNext = fn
+}
+
 func (d *KeyboardDispatcher) initActionHandlers() {
 	const (
 		firstTabIndex   = 0
@@ -91,7 +109,11 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 	)
 	d.actionHandlers = map[input.Action]func(ctx context.Context) error{
 		// Tab actions
-		input.ActionNewTab:           func(ctx context.Context) error { _, err := d.tabCoord.Create(ctx, "about:blank"); return err },
+		input.ActionNewTab: func(ctx context.Context) error {
+			cfg := config.Get()
+			_, err := d.tabCoord.Create(ctx, domainurl.Normalize(cfg.Workspace.NewPaneURL))
+			return err
+		},
 		input.ActionCloseTab:         d.tabCoord.Close,
 		input.ActionNextTab:          d.tabCoord.SwitchNext,
 		input.ActionPreviousTab:      d.tabCoord.SwitchPrev,
@@ -116,10 +138,39 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 		input.ActionSplitDown:  func(ctx context.Context) error { return d.wsCoord.Split(ctx, usecase.SplitDown) },
 		input.ActionClosePane:  d.wsCoord.ClosePane,
 		input.ActionStackPane:  d.wsCoord.StackPane,
+		input.ActionMovePaneToTab: func(ctx context.Context) error {
+			return d.handleMovePaneToTab(ctx)
+		},
+		input.ActionMovePaneToNextTab: func(ctx context.Context) error {
+			return d.handleMovePaneToNextTab(ctx)
+		},
+		input.ActionConsumeOrExpelLeft: func(ctx context.Context) error {
+			return d.wsCoord.ConsumeOrExpelPane(ctx, usecase.ConsumeOrExpelLeft)
+		},
+		input.ActionConsumeOrExpelRight: func(ctx context.Context) error {
+			return d.wsCoord.ConsumeOrExpelPane(ctx, usecase.ConsumeOrExpelRight)
+		},
+		input.ActionConsumeOrExpelUp: func(ctx context.Context) error {
+			return d.wsCoord.ConsumeOrExpelPane(ctx, usecase.ConsumeOrExpelUp)
+		},
+		input.ActionConsumeOrExpelDown: func(ctx context.Context) error {
+			return d.wsCoord.ConsumeOrExpelPane(ctx, usecase.ConsumeOrExpelDown)
+		},
 		input.ActionFocusRight: func(ctx context.Context) error { return d.wsCoord.FocusPane(ctx, usecase.NavRight) },
 		input.ActionFocusLeft:  func(ctx context.Context) error { return d.wsCoord.FocusPane(ctx, usecase.NavLeft) },
 		input.ActionFocusUp:    func(ctx context.Context) error { return d.wsCoord.FocusPane(ctx, usecase.NavUp) },
 		input.ActionFocusDown:  func(ctx context.Context) error { return d.wsCoord.FocusPane(ctx, usecase.NavDown) },
+		// Resize actions
+		input.ActionResizeIncreaseLeft:  func(ctx context.Context) error { return d.wsCoord.Resize(ctx, usecase.ResizeIncreaseLeft) },
+		input.ActionResizeIncreaseRight: func(ctx context.Context) error { return d.wsCoord.Resize(ctx, usecase.ResizeIncreaseRight) },
+		input.ActionResizeIncreaseUp:    func(ctx context.Context) error { return d.wsCoord.Resize(ctx, usecase.ResizeIncreaseUp) },
+		input.ActionResizeIncreaseDown:  func(ctx context.Context) error { return d.wsCoord.Resize(ctx, usecase.ResizeIncreaseDown) },
+		input.ActionResizeDecreaseLeft:  func(ctx context.Context) error { return d.wsCoord.Resize(ctx, usecase.ResizeDecreaseLeft) },
+		input.ActionResizeDecreaseRight: func(ctx context.Context) error { return d.wsCoord.Resize(ctx, usecase.ResizeDecreaseRight) },
+		input.ActionResizeDecreaseUp:    func(ctx context.Context) error { return d.wsCoord.Resize(ctx, usecase.ResizeDecreaseUp) },
+		input.ActionResizeDecreaseDown:  func(ctx context.Context) error { return d.wsCoord.Resize(ctx, usecase.ResizeDecreaseDown) },
+		input.ActionResizeIncrease:      func(ctx context.Context) error { return d.wsCoord.Resize(ctx, usecase.ResizeIncrease) },
+		input.ActionResizeDecrease:      func(ctx context.Context) error { return d.wsCoord.Resize(ctx, usecase.ResizeDecrease) },
 		// Stack navigation
 		input.ActionStackNavUp:   func(ctx context.Context) error { return d.wsCoord.NavigateStack(ctx, "up") },
 		input.ActionStackNavDown: func(ctx context.Context) error { return d.wsCoord.NavigateStack(ctx, "down") },
@@ -144,6 +195,8 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 		},
 		// Clipboard
 		input.ActionCopyURL: d.handleCopyURL,
+		// Session management
+		input.ActionOpenSessionManager: d.handleSessionOpen,
 		// Application
 		input.ActionQuit: d.handleQuit,
 	}
@@ -191,6 +244,30 @@ func (d *KeyboardDispatcher) handleFindClose(ctx context.Context) error {
 		return d.onFindClose(ctx)
 	}
 	logging.FromContext(ctx).Debug().Msg("find close action (no handler)")
+	return nil
+}
+
+func (d *KeyboardDispatcher) handleSessionOpen(ctx context.Context) error {
+	if d.onSessionOpen != nil {
+		return d.onSessionOpen(ctx)
+	}
+	logging.FromContext(ctx).Debug().Msg("session open action (no handler)")
+	return nil
+}
+
+func (d *KeyboardDispatcher) handleMovePaneToTab(ctx context.Context) error {
+	if d.onMovePaneToTab != nil {
+		return d.onMovePaneToTab(ctx)
+	}
+	logging.FromContext(ctx).Debug().Msg("move pane to tab action (no handler)")
+	return nil
+}
+
+func (d *KeyboardDispatcher) handleMovePaneToNextTab(ctx context.Context) error {
+	if d.onMovePaneToNext != nil {
+		return d.onMovePaneToNext(ctx)
+	}
+	logging.FromContext(ctx).Debug().Msg("move pane to next tab action (no handler)")
 	return nil
 }
 

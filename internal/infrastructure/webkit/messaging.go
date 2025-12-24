@@ -48,6 +48,9 @@ type MessageRouter struct {
 	mu        sync.RWMutex
 	callbacks []interface{}
 	signals   []uint32
+
+	idMu      sync.Mutex
+	syncedIDs map[WebViewID]bool
 }
 
 // NewMessageRouter creates a new message router.
@@ -59,7 +62,19 @@ func NewMessageRouter(ctx context.Context) *MessageRouter {
 	return &MessageRouter{
 		handlers: make(map[string]handlerEntry),
 		baseCtx:  ctx,
+		syncedIDs: make(map[WebViewID]bool),
 	}
+}
+
+// SetBaseContext updates the base context used for logging and handler execution.
+func (r *MessageRouter) SetBaseContext(ctx context.Context) {
+	if r == nil {
+		return
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	r.baseCtx = ctx
 }
 
 // RegisterHandler registers a handler for a message type.
@@ -120,9 +135,9 @@ func (r *MessageRouter) SetupMessageHandler(ucm *webkit.UserContentManager, _ st
 
 	// Connect to signal BEFORE registering handler to avoid race conditions
 	// (as recommended by WebKit documentation)
-	cb := func(_ webkit.UserContentManager, valuePtr uintptr) {
+	cb := func(ucm webkit.UserContentManager, valuePtr uintptr) {
 		log.Debug().Uint64("value_ptr", uint64(valuePtr)).Msg("signal callback invoked")
-		r.handleScriptMessage(valuePtr)
+		r.handleScriptMessage(ucm, valuePtr)
 	}
 
 	r.mu.Lock()
@@ -156,7 +171,7 @@ func (r *MessageRouter) SetupMessageHandler(ucm *webkit.UserContentManager, _ st
 }
 
 // handleScriptMessage decodes the JSC value and routes it to the correct handler.
-func (r *MessageRouter) handleScriptMessage(valuePtr uintptr) {
+func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager, valuePtr uintptr) {
 	log := logging.FromContext(r.baseCtx).With().Str("component", "message-router").Logger()
 
 	if valuePtr == 0 {
@@ -183,6 +198,12 @@ func (r *MessageRouter) handleScriptMessage(valuePtr uintptr) {
 	}
 	if msg.WebViewID == 0 && msg.WebViewIDAlt != 0 {
 		msg.WebViewID = msg.WebViewIDAlt
+	}
+	if msg.WebViewID == 0 {
+		if senderWV := lookupSenderWebView(senderUCM); senderWV != nil {
+			msg.WebViewID = uint64(senderWV.ID())
+			r.syncWebViewID(senderWV)
+		}
 	}
 
 	if msg.Type == "" {
@@ -221,6 +242,35 @@ func (r *MessageRouter) handleScriptMessage(valuePtr uintptr) {
 				Msg("failed to dispatch callback response")
 		}
 	}
+}
+
+func lookupSenderWebView(senderUCM webkit.UserContentManager) *WebView {
+	ptr := senderUCM.GoPointer()
+	if ptr == 0 {
+		return nil
+	}
+	return LookupWebViewByUCMPointer(ptr)
+}
+
+func (r *MessageRouter) syncWebViewID(wv *WebView) {
+	if wv == nil {
+		return
+	}
+	if !r.markWebViewIDSynced(wv.ID()) {
+		return
+	}
+	script := fmt.Sprintf("window.__dumber_webview_id=%d;", uint64(wv.ID()))
+	wv.RunJavaScript(r.baseCtx, script, "")
+}
+
+func (r *MessageRouter) markWebViewIDSynced(id WebViewID) bool {
+	r.idMu.Lock()
+	defer r.idMu.Unlock()
+	if r.syncedIDs[id] {
+		return false
+	}
+	r.syncedIDs[id] = true
+	return true
 }
 
 // getHandler retrieves a handler by message type.

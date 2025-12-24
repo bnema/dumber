@@ -83,14 +83,14 @@ These settings control the `dumber dmenu` CLI command for rofi/fuzzel integratio
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `dmenu.max_history_items` | int | `20` | Max items shown in launcher |
+| `dmenu.max_history_days` | int | `30` | Number of days of history to show (0 = all) |
 | `dmenu.show_visit_count` | bool | `true` | Show visit counts in output |
 | `dmenu.show_last_visited` | bool | `true` | Show last visited dates in output |
 | `dmenu.history_prefix` | string | `"🕒"` | Prefix for history items |
 | `dmenu.shortcut_prefix` | string | `"🔍"` | Prefix for shortcuts |
 | `dmenu.url_prefix` | string | `"🌐"` | Prefix for URLs |
 | `dmenu.date_format` | string | `"2006-01-02 15:04"` | Go time format string |
-| `dmenu.sort_by_visit_count` | bool | `true` | Sort by popularity |
+| `dmenu.sort_by_visit_count` | bool | `true` | Sort by visit count instead of recency |
 
 **CLI Usage:**
 ```bash
@@ -101,8 +101,14 @@ dumber dmenu | fuzzel --dmenu -p "Browse: " | dumber dmenu --select
 # Interactive TUI mode
 dumber dmenu --interactive
 
-# Override max items via CLI flag
-dumber dmenu --max 50
+# Override history days via CLI flag (show last 7 days)
+dumber dmenu --days 7
+
+# Sort by most visited instead of recency
+dumber dmenu --most-visited
+
+# Combined: most visited from last 14 days
+dumber dmenu --days 14 --most-visited
 ```
 
 ## Omnibox
@@ -110,11 +116,13 @@ dumber dmenu --max 50
 | Key | Type | Default | Valid Values | Description |
 |-----|------|---------|--------------|-------------|
 | `omnibox.initial_behavior` | string | `"recent"` | `recent`, `most_visited`, `none` | Initial history display behavior |
+| `omnibox.auto_open_on_new_pane` | bool | `false` | - | Automatically open the omnibox after creating a new pane |
 
 **Example:**
 ```toml
 [omnibox]
 initial_behavior = "recent"  # Show recent history when omnibox opens
+auto_open_on_new_pane = false
 
 # Alternative options:
 # initial_behavior = "most_visited"  # Show most visited sites
@@ -182,7 +190,7 @@ border = "#363636"
 | `rendering.disable_dmabuf_renderer` | bool | `false` | - | Disable WebKit DMA-BUF renderer (may fix flicker on Wayland; slower) |
 | `rendering.force_compositing_mode` | bool | `false` | - | Force WebKit compositing mode (`WEBKIT_FORCE_COMPOSITING_MODE`) |
 | `rendering.disable_compositing_mode` | bool | `false` | - | Disable WebKit compositing mode (`WEBKIT_DISABLE_COMPOSITING_MODE`) |
-| `rendering.gsk_renderer` | string | `"vulkan"` | `auto`, `opengl`, `vulkan`, `cairo` | GTK renderer selection (`GSK_RENDERER`) |
+| `rendering.gsk_renderer` | string | `"auto"` | `auto`, `opengl`, `vulkan`, `cairo` | GTK renderer selection (`GSK_RENDERER`) |
 | `rendering.disable_mipmaps` | bool | `false` | - | Disable GTK mipmaps (`GSK_GPU_DISABLE=mipmap`) |
 | `rendering.prefer_gl` | bool | `false` | - | Prefer OpenGL over GLES (`GDK_DEBUG=gl-prefer-gl`) |
 | `rendering.draw_compositing_indicators` | bool | `false` | - | Draw WebKit compositing indicators (debug) |
@@ -193,6 +201,19 @@ border = "#363636"
 | `default_webpage_zoom` | float | `1.2` | > 0 | Default page zoom (1.0=100%, 1.2=120%) |
 
 ## Workspace Configuration
+
+### General
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `workspace.new_pane_url` | string | `"about:blank"` | URL loaded for new panes/tabs (supports `http(s)://`, `dumb://`, `file://`, `about:`) |
+| `workspace.switch_to_tab_on_move` | bool | `true` | When moving a pane to another tab, automatically switch to the destination tab |
+
+**Example:**
+```toml
+[workspace]
+new_pane_url = "dumb://home"
+```
 
 ### Pane Mode
 
@@ -211,6 +232,15 @@ split-up = ["arrowup", "u"]
 split-down = ["arrowdown", "d"]
 stack-pane = ["s"]
 close-pane = ["x"]
+move-pane-to-tab = ["m"]
+move-pane-to-next-tab = ["M", "shift+m"]
+
+# Consume-or-expel (niri-style) - very alpha
+consume-or-expel-left = ["bracketleft", "["]
+consume-or-expel-right = ["bracketright", "]"]
+consume-or-expel-up = ["shift+bracketleft", "braceleft", "{"]
+consume-or-expel-down = ["shift+bracketright", "braceright", "}"]
+
 focus-right = ["shift+arrowright", "shift+l"]
 focus-left = ["shift+arrowleft", "shift+h"]
 focus-up = ["shift+arrowup", "shift+k"]
@@ -243,6 +273,38 @@ cancel = ["escape"]
 
 > **Note:** Actions are inverted to key→action map in memory for O(1) lookup performance during navigation.
 
+### Resize Mode
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `workspace.resize_mode.activation_shortcut` | string | `"ctrl+n"` | Resize mode activation key |
+| `workspace.resize_mode.timeout_ms` | int | `3000` | Resize mode timeout (ms) |
+| `workspace.resize_mode.step_percent` | float | `5.0` | Split ratio step per keystroke (percent) |
+| `workspace.resize_mode.min_pane_percent` | float | `10.0` | Minimum pane size (percent) |
+| `workspace.resize_mode.actions` | map | See below | Action→keys mappings |
+
+**Default resize mode actions:**
+```toml
+[workspace.resize_mode.actions]
+resize-increase-left = ["h", "arrowleft"]
+resize-increase-down = ["j", "arrowdown"]
+resize-increase-up = ["k", "arrowup"]
+resize-increase-right = ["l", "arrowright"]
+resize-decrease-left = ["H"]
+resize-decrease-down = ["J"]
+resize-decrease-up = ["K"]
+resize-decrease-right = ["L"]
+resize-increase = ["+", "="]
+resize-decrease = ["-"]
+confirm = ["enter"]
+cancel = ["escape"]
+```
+
+Notes:
+- Directional actions (`resize-increase-*/resize-decrease-*`) move the split divider.
+- Smart actions (`resize-increase` / `resize-decrease`) grow/shrink the active pane (best-effort) by picking a direction automatically.
+- Timeout is refreshed on each resize keypress so you can keep adjusting without re-entering the mode.
+
 ### Global Shortcuts
 
 | Key | Type | Default | Description |
@@ -250,8 +312,14 @@ cancel = ["escape"]
 | `workspace.shortcuts.close_pane` | string | `"ctrl+w"` | Close active pane (closes tab if last pane) |
 | `workspace.shortcuts.next_tab` | string | `"ctrl+tab"` | Next tab shortcut |
 | `workspace.shortcuts.previous_tab` | string | `"ctrl+shift+tab"` | Previous tab shortcut |
+| `workspace.shortcuts.consume_or_expel_left` | string | `"alt+bracketleft"` | Consume into left sibling stack, or expel left if stacked (very alpha) |
+| `workspace.shortcuts.consume_or_expel_right` | string | `"alt+bracketright"` | Consume into right sibling stack, or expel right if stacked (very alpha) |
+| `workspace.shortcuts.consume_or_expel_up` | string | `"alt+shift+bracketleft"` | Consume into upper sibling stack, or expel up if stacked (very alpha) |
+| `workspace.shortcuts.consume_or_expel_down` | string | `"alt+shift+bracketright"` | Consume into lower sibling stack, or expel down if stacked (very alpha) |
 
 > **Note:** New tab creation uses modal tab mode (Ctrl+T then n/c). This follows the Zellij-style modal keyboard interface.
+>
+> **Note:** Consume-or-expel is experimental and may change behavior between releases.
 
 ### Popup Behavior
 
@@ -271,24 +339,72 @@ cancel = ["escape"]
 |-----|------|---------|-------------|
 | `workspace.styling.border_width` | int | `1` | Active pane border width (px) - overlay |
 | `workspace.styling.border_color` | string | `"@theme_selected_bg_color"` | Active pane border color |
-| `workspace.styling.pane_mode_border_width` | int | `4` | Pane mode border width (px) - Ctrl+P N overlay |
-| `workspace.styling.pane_mode_border_color` | string | `"#4A90E2"` | Pane mode border color (blue) |
-| `workspace.styling.tab_mode_border_width` | int | `4` | Tab mode border width (px) - Ctrl+P T overlay |
-| `workspace.styling.tab_mode_border_color` | string | `"#FFA500"` | Tab mode border color (orange) |
+| `workspace.styling.mode_border_width` | int | `4` | Modal mode border width (px) - applies to all modes |
+| `workspace.styling.pane_mode_color` | string | `"#4A90E2"` | Pane mode color (blue) - used for border and toaster |
+| `workspace.styling.tab_mode_color` | string | `"#FFA500"` | Tab mode color (orange) - used for border and toaster |
+| `workspace.styling.session_mode_color` | string | `"#9B59B6"` | Session mode color (purple) - used for border and toaster |
+| `workspace.styling.resize_mode_color` | string | `"#00D4AA"` | Resize mode color (teal) - used for border and toaster |
+| `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | Show toaster notification when modal modes are active |
 | `workspace.styling.transition_duration` | int | `120` | Border transition duration (ms) |
+
+**Example:**
+```toml
+[workspace.styling]
+border_width = 1
+border_color = "@theme_selected_bg_color"
+mode_border_width = 4
+pane_mode_color = "#4A90E2"      # Blue for pane mode
+tab_mode_color = "#FFA500"       # Orange for tab mode
+session_mode_color = "#9B59B6"   # Purple for session mode
+resize_mode_color = "#00D4AA"    # Teal for resize mode
+mode_indicator_toaster_enabled = true
+transition_duration = 120
+```
+
+## Session
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `session.auto_restore` | bool | `false` | Automatically restore the last session on startup |
+| `session.snapshot_interval_ms` | int | `5000` | Minimum interval between snapshots in milliseconds |
+| `session.max_exited_sessions` | int | `50` | Maximum number of exited sessions to keep |
+| `session.max_exited_session_age_days` | int | `7` | Maximum age in days for exited sessions (auto-deleted on startup) |
+
+### Session Mode
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `session.session_mode.activation_shortcut` | string | `"ctrl+o"` | Session mode activation key |
+| `session.session_mode.timeout_ms` | int | `3000` | Session mode timeout (ms) |
+| `session.session_mode.actions` | map | See below | Action to keys mappings |
+
+**Default session mode actions:**
+```toml
+[session.session_mode.actions]
+session-manager = ["s", "w"]
+confirm = ["enter"]
+cancel = ["escape"]
+```
+
+**Example:**
+```toml
+[session]
+auto_restore = false              # Don't auto-restore on startup
+snapshot_interval_ms = 5000       # Save state every 5 seconds (debounced)
+max_exited_sessions = 50          # Keep last 50 exited sessions
+max_exited_session_age_days = 7   # Delete sessions older than 7 days on startup
+```
 
 ## Media
 
 | Key | Type | Default | Valid Values | Description |
 |-----|------|---------|--------------|-------------|
 | `media.hardware_decoding` | string | `"auto"` | `auto`, `force`, `disable` | Hardware video decoding mode |
-| `media.prefer_av1` | bool | `true` | - | Prefer AV1 codec when available |
-| `media.show_diagnostics` | bool | `true` | - | Show media diagnostics warnings at startup |
+| `media.prefer_av1` | bool | `false` | - | Prefer AV1 codec when available |
+| `media.show_diagnostics` | bool | `false` | - | Show media diagnostics warnings at startup |
 | `media.force_vsync` | bool | `false` | - | Force VSync for video playback (may help with tearing) |
 | `media.gl_rendering_mode` | string | `"auto"` | `auto`, `gles2`, `gl3`, `none` | OpenGL API selection for video rendering |
 | `media.gstreamer_debug_level` | int | `0` | `0-5` | GStreamer debug verbosity (0=off) |
-| `media.video_buffer_size_mb` | int | `64` | > 0 | Video buffer size in MB for smoother streaming |
-| `media.queue_buffer_time_sec` | int | `20` | > 0 | Queue prebuffer time in seconds |
 
 **Hardware decoding modes:**
 - `auto` (recommended): Hardware preferred with software fallback - fixes Twitch Error #4000
@@ -307,21 +423,15 @@ Dumber automatically detects your GPU vendor (AMD/Intel/NVIDIA) and sets optimal
 - **Intel**: Uses `iHD` driver (modern, for Broadwell+)
 - **NVIDIA**: Uses `nvidia` driver with EGL platform
 
-**Buffering settings:**
-- `video_buffer_size_mb`: Controls GStreamer buffer size. Larger buffers reduce rebuffering on bursty streams (Twitch, YouTube). Uses more memory.
-- `queue_buffer_time_sec`: Controls prebuffer duration. Higher values allow more data to be buffered ahead of playback.
-
 **Example:**
 ```toml
 [media]
 hardware_decoding = "auto"    # HW preferred, SW fallback
-prefer_av1 = true             # AV1 is most efficient codec
-show_diagnostics = true       # Log warnings if HW accel unavailable
+prefer_av1 = false            # Let site choose codec
+show_diagnostics = false      # Enable for debugging
 force_vsync = false           # Let compositor handle VSync
 gl_rendering_mode = "auto"    # GStreamer picks best GL API
 gstreamer_debug_level = 0     # Increase to 3-5 for debugging
-video_buffer_size_mb = 64     # 64 MB buffer for smooth streaming
-queue_buffer_time_sec = 20    # 20 seconds prebuffer
 ```
 
 **Diagnostics CLI:**
@@ -359,6 +469,120 @@ Notes:
 - Filter data is downloaded from `bnema/ublock-webkit-filters` GitHub releases.
 - Domain whitelist is managed via the database (`content_whitelist` table), not the config file.
 
+## Update
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `update.enable_on_startup` | bool | `true` | Check for updates when browser starts |
+| `update.auto_download` | bool | `false` | Automatically download updates in background |
+| `update.notify_on_new_settings` | bool | `true` | Show toast notification when new config settings are available |
+
+**Example:**
+```toml
+[update]
+enable_on_startup = true       # Check for updates on startup
+auto_download = false          # Don't auto-download (prompt instead)
+notify_on_new_settings = true  # Show toast when config migration available
+```
+
+**CLI Commands:**
+```bash
+# Check config status and available migrations
+dumber config status
+
+# Add missing settings with default values
+dumber config migrate
+
+# Skip confirmation prompt
+dumber config migrate --yes
+```
+
+## Performance Profiles
+
+Performance profiles provide preset configurations for WebKitGTK tuning. These settings affect Skia rendering threads, memory pressure handling, and WebView pool behavior.
+
+> **Note:** Performance settings are applied at browser startup. Changes require a restart to take effect.
+
+| Key | Type | Default | Valid Values | Description |
+|-----|------|---------|--------------|-------------|
+| `performance.profile` | string | `"default"` | `default`, `lite`, `max`, `custom` | Performance profile selection |
+
+### Profiles
+
+| Profile | Description | Use Case |
+|---------|-------------|----------|
+| `default` | No tuning, uses WebKit defaults | Normal browsing, most users |
+| `lite` | Reduced resource usage | Low-RAM systems (< 4GB), battery saving |
+| `max` | Maximum responsiveness | Heavy pages (GitHub PRs, complex SPAs), high-end systems |
+| `custom` | Manual control over all settings | Advanced users who want fine-grained control |
+
+### Profile Settings Matrix
+
+| Setting | default | lite | max |
+|---------|---------|------|-----|
+| Skia CPU threads | unset | 2 | `NumCPU()/2` (min 4) |
+| Skia GPU threads | unset | unset | scales with VRAM |
+| Web process memory (MB) | unset | 768 | unset |
+| Network process memory (MB) | unset | 384 | unset |
+| Conservative threshold | unset | 0.25 | unset |
+| Strict threshold | unset | 0.4 | unset |
+| WebView pool prewarm | 4 | 2 | scales with RAM |
+
+**Example:**
+```toml
+[performance]
+profile = "default"  # Most users - no tuning needed
+
+# For low-RAM systems:
+# profile = "lite"
+
+# For heavy pages (GitHub PRs, complex web apps):
+# profile = "max"
+
+# For manual control:
+# profile = "custom"
+```
+
+### Custom Profile Settings
+
+When `profile = "custom"`, you can configure individual tuning options:
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `performance.skia_cpu_painting_threads` | int | `0` | Skia CPU rendering threads (0=unset) |
+| `performance.skia_gpu_painting_threads` | int | `-1` | Skia GPU rendering threads (-1=unset, 0=disable) |
+| `performance.skia_enable_cpu_rendering` | bool | `false` | Force CPU rendering |
+| `performance.web_process_memory_limit_mb` | int | `0` | Web process memory limit in MB (0=unset) |
+| `performance.web_process_memory_poll_interval_sec` | float | `0` | Memory check interval (0=WebKit default: 30s) |
+| `performance.web_process_memory_conservative_threshold` | float | `0` | Conservative cleanup threshold (0=unset) |
+| `performance.web_process_memory_strict_threshold` | float | `0` | Strict cleanup threshold (0=unset) |
+| `performance.network_process_memory_limit_mb` | int | `0` | Network process memory limit in MB |
+| `performance.network_process_memory_poll_interval_sec` | float | `0` | Network memory check interval |
+| `performance.network_process_memory_conservative_threshold` | float | `0` | Network conservative threshold |
+| `performance.network_process_memory_strict_threshold` | float | `0` | Network strict threshold |
+| `performance.webview_pool_prewarm_count` | int | `4` | WebViews to pre-create at startup |
+| `performance.zoom_cache_size` | int | `256` | Domain zoom levels to cache |
+
+**Custom profile example:**
+```toml
+[performance]
+profile = "custom"
+
+# Skia threading - tune for your CPU
+skia_cpu_painting_threads = 4
+skia_gpu_painting_threads = 2
+
+# Web process memory pressure
+web_process_memory_limit_mb = 1024
+web_process_memory_conservative_threshold = 0.4
+web_process_memory_strict_threshold = 0.6
+
+# WebView pool
+webview_pool_prewarm_count = 6
+```
+
+> **Important:** Individual tuning fields are ignored unless `profile = "custom"`. Setting individual fields with any other profile will produce a validation warning.
+
 ## Environment Variables
 
 All config values can be overridden via environment variables with the prefix `DUMBER_`:
@@ -368,7 +592,7 @@ All config values can be overridden via environment variables with the prefix `D
 DUMBER_DATABASE_PATH=/custom/path/db.sqlite
 
 # Rendering (examples)
-# Defaults: rendering.disable_dmabuf_renderer=false, rendering.gsk_renderer="vulkan"
+# Defaults: rendering.disable_dmabuf_renderer=false, rendering.gsk_renderer="auto"
 DUMBER_RENDERING_MODE=cpu
 # DUMBER_RENDERING_DISABLE_DMABUF_RENDERER=true
 # DUMBER_RENDERING_GSK_RENDERER=opengl

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
@@ -12,17 +13,20 @@ import (
 
 // Manager handles theme state and CSS application.
 type Manager struct {
-	scheme       string  // "light", "dark", "system"
-	prefersDark  bool    // Resolved dark mode preference
-	lightPalette Palette // Light theme colors
-	darkPalette  Palette // Dark theme colors
-	uiScale      float64 // UI scaling factor (1.0 = 100%)
-	fonts        FontConfig
-	cssProvider  *gtk.CssProvider
+	scheme        string  // "light", "dark", "system"
+	prefersDark   bool    // Resolved dark mode preference
+	lightPalette  Palette // Light theme colors
+	darkPalette   Palette // Dark theme colors
+	uiScale       float64 // UI scaling factor (1.0 = 100%)
+	fonts         FontConfig
+	modeColors    ModeColors // Modal mode indicator colors
+	cssProvider   *gtk.CssProvider
+	colorResolver port.ColorSchemeResolver // Resolver for dynamic detection
 }
 
 // NewManager creates a new theme manager from configuration.
-func NewManager(ctx context.Context, cfg *config.Config) *Manager {
+// The ColorSchemeResolver is required for proper color scheme detection.
+func NewManager(ctx context.Context, cfg *config.Config, resolver port.ColorSchemeResolver) *Manager {
 	log := logging.FromContext(ctx)
 
 	// Determine color scheme preference
@@ -31,8 +35,9 @@ func NewManager(ctx context.Context, cfg *config.Config) *Manager {
 		scheme = cfg.Appearance.ColorScheme
 	}
 
-	// Resolve whether we should use dark mode
-	prefersDark := ResolveColorScheme(scheme)
+	// Resolve whether we should use dark mode via resolver
+	pref := resolver.Resolve()
+	prefersDark := pref.PrefersDark
 
 	// Build palettes from config or defaults
 	var lightPalette, darkPalette Palette
@@ -56,6 +61,9 @@ func NewManager(ctx context.Context, cfg *config.Config) *Manager {
 		fonts.MonospaceFont = Coalesce(cfg.Appearance.MonospaceFont, fonts.MonospaceFont)
 	}
 
+	// Build mode colors from config
+	modeColors := modeColorsFromConfig(cfg)
+
 	log.Debug().
 		Str("scheme", scheme).
 		Bool("prefers_dark", prefersDark).
@@ -65,12 +73,29 @@ func NewManager(ctx context.Context, cfg *config.Config) *Manager {
 		Msg("theme manager initialized")
 
 	return &Manager{
-		scheme:       scheme,
-		prefersDark:  prefersDark,
-		lightPalette: lightPalette,
-		darkPalette:  darkPalette,
-		uiScale:      uiScale,
-		fonts:        fonts,
+		scheme:        scheme,
+		prefersDark:   prefersDark,
+		lightPalette:  lightPalette,
+		darkPalette:   darkPalette,
+		uiScale:       uiScale,
+		fonts:         fonts,
+		modeColors:    modeColors,
+		colorResolver: resolver,
+	}
+}
+
+// modeColorsFromConfig extracts mode colors from config, using defaults for missing values.
+func modeColorsFromConfig(cfg *config.Config) ModeColors {
+	defaults := DefaultModeColors()
+	if cfg == nil {
+		return defaults
+	}
+	styling := &cfg.Workspace.Styling
+	return ModeColors{
+		PaneMode:    Coalesce(styling.PaneModeColor, defaults.PaneMode),
+		TabMode:     Coalesce(styling.TabModeColor, defaults.TabMode),
+		SessionMode: Coalesce(styling.SessionModeColor, defaults.SessionMode),
+		ResizeMode:  Coalesce(styling.ResizeModeColor, defaults.ResizeMode),
 	}
 }
 
@@ -87,6 +112,13 @@ func (m *Manager) GetCurrentPalette() Palette {
 	return m.lightPalette
 }
 
+// GetBackgroundRGBA returns the current theme's background color as RGBA float32 values.
+// Used to set WebView background color to eliminate white flash during loading.
+func (m *Manager) GetBackgroundRGBA() (r, g, b, a float32) {
+	palette := m.GetCurrentPalette()
+	return HexToRGBA(palette.Background)
+}
+
 // GetLightPalette returns the light theme palette.
 func (m *Manager) GetLightPalette() Palette {
 	return m.lightPalette
@@ -95,6 +127,11 @@ func (m *Manager) GetLightPalette() Palette {
 // GetDarkPalette returns the dark theme palette.
 func (m *Manager) GetDarkPalette() Palette {
 	return m.darkPalette
+}
+
+// GetModeColors returns the modal mode indicator colors.
+func (m *Manager) GetModeColors() ModeColors {
+	return m.modeColors
 }
 
 // GetWebUIThemeCSS returns CSS text that defines both light and dark variables.
@@ -114,9 +151,9 @@ func (m *Manager) ApplyToDisplay(ctx context.Context, display *gdk.Display) {
 		return
 	}
 
-	// Generate CSS with current palette, UI scale and fonts
+	// Generate CSS with current palette, UI scale, fonts, and mode colors
 	palette := m.GetCurrentPalette()
-	css := GenerateCSSWithScaleAndFonts(palette, m.uiScale, m.fonts)
+	css := GenerateCSSFull(palette, m.uiScale, m.fonts, m.modeColors)
 
 	// Create CSS provider if needed
 	if m.cssProvider == nil {
@@ -146,11 +183,13 @@ func (m *Manager) SetColorScheme(ctx context.Context, scheme string, display *gd
 	log := logging.FromContext(ctx)
 
 	m.scheme = scheme
-	m.prefersDark = ResolveColorScheme(scheme)
+	pref := m.colorResolver.Refresh()
+	m.prefersDark = pref.PrefersDark
 
 	log.Info().
 		Str("scheme", scheme).
 		Bool("prefers_dark", m.prefersDark).
+		Str("source", pref.Source).
 		Msg("color scheme changed")
 
 	// Re-apply CSS if display is available
@@ -167,13 +206,14 @@ func (m *Manager) UpdateFromConfig(ctx context.Context, cfg *config.Config, disp
 		return
 	}
 
-	// Update scheme and resolve prefersDark
+	// Update scheme and resolve prefersDark via resolver
 	scheme := "system"
 	if cfg.Appearance.ColorScheme != "" {
 		scheme = cfg.Appearance.ColorScheme
 	}
 	m.scheme = scheme
-	m.prefersDark = ResolveColorScheme(scheme)
+	pref := m.colorResolver.Refresh()
+	m.prefersDark = pref.PrefersDark
 
 	// Update palettes
 	m.lightPalette = PaletteFromConfig(&cfg.Appearance.LightPalette, false)
@@ -189,6 +229,9 @@ func (m *Manager) UpdateFromConfig(ctx context.Context, cfg *config.Config, disp
 		SansFont:      Coalesce(cfg.Appearance.SansFont, defaults.SansFont),
 		MonospaceFont: Coalesce(cfg.Appearance.MonospaceFont, defaults.MonospaceFont),
 	}
+
+	// Update mode colors
+	m.modeColors = modeColorsFromConfig(cfg)
 
 	log.Info().
 		Str("scheme", m.scheme).

@@ -212,6 +212,20 @@ func normalizeConfig(config *Config) {
 	}
 
 	config.Runtime.Prefix = strings.TrimSpace(config.Runtime.Prefix)
+	normalizePerformanceProfile(config)
+}
+
+func normalizePerformanceProfile(config *Config) {
+	switch strings.ToLower(string(config.Performance.Profile)) {
+	case "", string(ProfileDefault):
+		config.Performance.Profile = ProfileDefault
+	case string(ProfileLite):
+		config.Performance.Profile = ProfileLite
+	case string(ProfileMax):
+		config.Performance.Profile = ProfileMax
+	case string(ProfileCustom):
+		config.Performance.Profile = ProfileCustom
+	}
 }
 
 // Get returns the current configuration (thread-safe).
@@ -251,6 +265,9 @@ func (m *Manager) Save(cfg *Config) error {
 	m.viper.Set("default_webpage_zoom", cfg.DefaultWebpageZoom)
 	m.viper.Set("default_ui_scale", cfg.DefaultUIScale)
 	m.viper.Set("default_search_engine", cfg.DefaultSearchEngine)
+
+	// Performance profile (requires browser restart to take effect)
+	m.viper.Set("performance.profile", string(cfg.Performance.Profile))
 
 	if err := m.viper.WriteConfig(); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
@@ -314,6 +331,9 @@ func (m *Manager) setDefaults() {
 	m.setOmniboxDefaults(defaults)
 	m.setMediaDefaults(defaults)
 	m.setRuntimeDefaults(defaults)
+	m.setSessionDefaults(defaults)
+	m.setUpdateDefaults(defaults)
+	m.setPerformanceDefaults(defaults)
 }
 
 func (m *Manager) setHistoryDefaults(defaults *Config) {
@@ -328,7 +348,7 @@ func (m *Manager) setSearchDefaults(defaults *Config) {
 }
 
 func (m *Manager) setDmenuDefaults(defaults *Config) {
-	m.viper.SetDefault("dmenu.max_history_items", defaults.Dmenu.MaxHistoryItems)
+	m.viper.SetDefault("dmenu.max_history_days", defaults.Dmenu.MaxHistoryDays)
 	m.viper.SetDefault("dmenu.show_visit_count", defaults.Dmenu.ShowVisitCount)
 	m.viper.SetDefault("dmenu.show_last_visited", defaults.Dmenu.ShowLastVisited)
 	m.viper.SetDefault("dmenu.history_prefix", defaults.Dmenu.HistoryPrefix)
@@ -378,17 +398,28 @@ func (m *Manager) setRenderingDefaults(defaults *Config) {
 }
 
 func (m *Manager) setWorkspaceDefaults(defaults *Config) {
+	m.viper.SetDefault("workspace.new_pane_url", defaults.Workspace.NewPaneURL)
 	m.viper.SetDefault("workspace.pane_mode.activation_shortcut", defaults.Workspace.PaneMode.ActivationShortcut)
 	m.viper.SetDefault("workspace.pane_mode.timeout_ms", defaults.Workspace.PaneMode.TimeoutMilliseconds)
 	m.viper.SetDefault("workspace.pane_mode.actions", defaults.Workspace.PaneMode.Actions)
 	m.viper.SetDefault("workspace.tab_mode.activation_shortcut", defaults.Workspace.TabMode.ActivationShortcut)
 	m.viper.SetDefault("workspace.tab_mode.timeout_ms", defaults.Workspace.TabMode.TimeoutMilliseconds)
 	m.viper.SetDefault("workspace.tab_mode.actions", defaults.Workspace.TabMode.Actions)
+	m.viper.SetDefault("workspace.resize_mode.activation_shortcut", defaults.Workspace.ResizeMode.ActivationShortcut)
+	m.viper.SetDefault("workspace.resize_mode.timeout_ms", defaults.Workspace.ResizeMode.TimeoutMilliseconds)
+	m.viper.SetDefault("workspace.resize_mode.step_percent", defaults.Workspace.ResizeMode.StepPercent)
+	m.viper.SetDefault("workspace.resize_mode.min_pane_percent", defaults.Workspace.ResizeMode.MinPanePercent)
+	m.viper.SetDefault("workspace.resize_mode.actions", defaults.Workspace.ResizeMode.Actions)
 	m.viper.SetDefault("workspace.shortcuts.close_pane", defaults.Workspace.Shortcuts.ClosePane)
 	m.viper.SetDefault("workspace.shortcuts.next_tab", defaults.Workspace.Shortcuts.NextTab)
 	m.viper.SetDefault("workspace.shortcuts.previous_tab", defaults.Workspace.Shortcuts.PreviousTab)
+	m.viper.SetDefault("workspace.shortcuts.consume_or_expel_left", defaults.Workspace.Shortcuts.ConsumeOrExpelLeft)
+	m.viper.SetDefault("workspace.shortcuts.consume_or_expel_right", defaults.Workspace.Shortcuts.ConsumeOrExpelRight)
+	m.viper.SetDefault("workspace.shortcuts.consume_or_expel_up", defaults.Workspace.Shortcuts.ConsumeOrExpelUp)
+	m.viper.SetDefault("workspace.shortcuts.consume_or_expel_down", defaults.Workspace.Shortcuts.ConsumeOrExpelDown)
 	m.viper.SetDefault("workspace.tab_bar_position", defaults.Workspace.TabBarPosition)
 	m.viper.SetDefault("workspace.hide_tab_bar_when_single_tab", defaults.Workspace.HideTabBarWhenSingleTab)
+	m.viper.SetDefault("workspace.switch_to_tab_on_move", defaults.Workspace.SwitchToTabOnMove)
 	m.viper.SetDefault("workspace.popups.behavior", string(defaults.Workspace.Popups.Behavior))
 	m.viper.SetDefault("workspace.popups.placement", defaults.Workspace.Popups.Placement)
 	m.viper.SetDefault("workspace.popups.open_in_new_pane", defaults.Workspace.Popups.OpenInNewPane)
@@ -398,10 +429,12 @@ func (m *Manager) setWorkspaceDefaults(defaults *Config) {
 	m.viper.SetDefault("workspace.popups.oauth_auto_close", defaults.Workspace.Popups.OAuthAutoClose)
 	m.viper.SetDefault("workspace.styling.border_width", defaults.Workspace.Styling.BorderWidth)
 	m.viper.SetDefault("workspace.styling.border_color", defaults.Workspace.Styling.BorderColor)
-	m.viper.SetDefault("workspace.styling.pane_mode_border_width", defaults.Workspace.Styling.PaneModeBorderWidth)
-	m.viper.SetDefault("workspace.styling.pane_mode_border_color", defaults.Workspace.Styling.PaneModeBorderColor)
-	m.viper.SetDefault("workspace.styling.tab_mode_border_width", defaults.Workspace.Styling.TabModeBorderWidth)
-	m.viper.SetDefault("workspace.styling.tab_mode_border_color", defaults.Workspace.Styling.TabModeBorderColor)
+	m.viper.SetDefault("workspace.styling.mode_border_width", defaults.Workspace.Styling.ModeBorderWidth)
+	m.viper.SetDefault("workspace.styling.pane_mode_color", defaults.Workspace.Styling.PaneModeColor)
+	m.viper.SetDefault("workspace.styling.tab_mode_color", defaults.Workspace.Styling.TabModeColor)
+	m.viper.SetDefault("workspace.styling.session_mode_color", defaults.Workspace.Styling.SessionModeColor)
+	m.viper.SetDefault("workspace.styling.resize_mode_color", defaults.Workspace.Styling.ResizeModeColor)
+	m.viper.SetDefault("workspace.styling.mode_indicator_toaster_enabled", defaults.Workspace.Styling.ModeIndicatorToasterEnabled)
 	m.viper.SetDefault("workspace.styling.transition_duration", defaults.Workspace.Styling.TransitionDuration)
 }
 
@@ -412,6 +445,7 @@ func (m *Manager) setContentFilteringDefaults(defaults *Config) {
 
 func (m *Manager) setOmniboxDefaults(defaults *Config) {
 	m.viper.SetDefault("omnibox.initial_behavior", defaults.Omnibox.InitialBehavior)
+	m.viper.SetDefault("omnibox.auto_open_on_new_pane", defaults.Omnibox.AutoOpenOnNewPane)
 }
 
 func (m *Manager) setMediaDefaults(defaults *Config) {
@@ -427,6 +461,43 @@ func (m *Manager) setMediaDefaults(defaults *Config) {
 
 func (m *Manager) setRuntimeDefaults(defaults *Config) {
 	m.viper.SetDefault("runtime.prefix", defaults.Runtime.Prefix)
+}
+
+func (m *Manager) setSessionDefaults(defaults *Config) {
+	m.viper.SetDefault("session.auto_restore", defaults.Session.AutoRestore)
+	m.viper.SetDefault("session.snapshot_interval_ms", defaults.Session.SnapshotIntervalMs)
+	m.viper.SetDefault("session.max_exited_sessions", defaults.Session.MaxExitedSessions)
+	m.viper.SetDefault("session.max_exited_session_age_days", defaults.Session.MaxExitedSessionAgeDays)
+	m.viper.SetDefault("session.session_mode.activation_shortcut", defaults.Session.SessionMode.ActivationShortcut)
+	m.viper.SetDefault("session.session_mode.timeout_ms", defaults.Session.SessionMode.TimeoutMilliseconds)
+	m.viper.SetDefault("session.session_mode.actions", defaults.Session.SessionMode.Actions)
+}
+
+func (m *Manager) setUpdateDefaults(defaults *Config) {
+	m.viper.SetDefault("update.enable_on_startup", defaults.Update.EnableOnStartup)
+	m.viper.SetDefault("update.auto_download", defaults.Update.AutoDownload)
+	m.viper.SetDefault("update.notify_on_new_settings", defaults.Update.NotifyOnNewSettings)
+}
+
+func (m *Manager) setPerformanceDefaults(defaults *Config) {
+	m.viper.SetDefault("performance.profile", string(defaults.Performance.Profile))
+	m.viper.SetDefault("performance.zoom_cache_size", defaults.Performance.ZoomCacheSize)
+	m.viper.SetDefault("performance.webview_pool_prewarm_count", defaults.Performance.WebViewPoolPrewarmCount)
+	// Skia threading (only used when profile = "custom")
+	m.viper.SetDefault("performance.skia_cpu_painting_threads", defaults.Performance.SkiaCPUPaintingThreads)
+	m.viper.SetDefault("performance.skia_gpu_painting_threads", defaults.Performance.SkiaGPUPaintingThreads)
+	m.viper.SetDefault("performance.skia_enable_cpu_rendering", defaults.Performance.SkiaEnableCPURendering)
+	// Web process memory pressure
+	m.viper.SetDefault("performance.web_process_memory_limit_mb", defaults.Performance.WebProcessMemoryLimitMB)
+	m.viper.SetDefault("performance.web_process_memory_poll_interval_sec", defaults.Performance.WebProcessMemoryPollIntervalSec)
+	m.viper.SetDefault("performance.web_process_memory_conservative_threshold", defaults.Performance.WebProcessMemoryConservativeThreshold)
+	m.viper.SetDefault("performance.web_process_memory_strict_threshold", defaults.Performance.WebProcessMemoryStrictThreshold)
+	// Network process memory pressure
+	m.viper.SetDefault("performance.network_process_memory_limit_mb", defaults.Performance.NetworkProcessMemoryLimitMB)
+	m.viper.SetDefault("performance.network_process_memory_poll_interval_sec", defaults.Performance.NetworkProcessMemoryPollIntervalSec)
+	netConservativeThreshold := defaults.Performance.NetworkProcessMemoryConservativeThreshold
+	m.viper.SetDefault("performance.network_process_memory_conservative_threshold", netConservativeThreshold)
+	m.viper.SetDefault("performance.network_process_memory_strict_threshold", defaults.Performance.NetworkProcessMemoryStrictThreshold)
 }
 
 // New returns a new default configuration instance.

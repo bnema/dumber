@@ -79,6 +79,15 @@ var keyvalByName = map[string]uint{
 	"7":          uint(gdk.KEY_7),
 	"8":          uint(gdk.KEY_8),
 	"9":          uint(gdk.KEY_9),
+
+	"bracketleft":  uint(gdk.KEY_bracketleft),
+	"bracketright": uint(gdk.KEY_bracketright),
+	"[":            uint(gdk.KEY_bracketleft),
+	"]":            uint(gdk.KEY_bracketright),
+	"braceleft":    uint(gdk.KEY_braceleft),
+	"braceright":   uint(gdk.KEY_braceright),
+	"{":            uint(gdk.KEY_braceleft),
+	"}":            uint(gdk.KEY_braceright),
 }
 
 // KeyBinding represents a single key combination.
@@ -93,9 +102,11 @@ type Action string
 // Predefined actions for the keyboard system.
 const (
 	// Mode management
-	ActionEnterTabMode  Action = "enter_tab_mode"
-	ActionEnterPaneMode Action = "enter_pane_mode"
-	ActionExitMode      Action = "exit_mode"
+	ActionEnterTabMode     Action = "enter_tab_mode"
+	ActionEnterPaneMode    Action = "enter_pane_mode"
+	ActionEnterSessionMode Action = "enter_session_mode"
+	ActionEnterResizeMode  Action = "enter_resize_mode"
+	ActionExitMode         Action = "exit_mode"
 
 	// Tab actions (global and modal)
 	ActionNewTab           Action = "new_tab"
@@ -123,11 +134,31 @@ const (
 	ActionClosePane  Action = "close_pane"
 	ActionStackPane  Action = "stack_pane"
 
+	ActionMovePaneToTab     Action = "move_pane_to_tab"
+	ActionMovePaneToNextTab Action = "move_pane_to_next_tab"
+
+	ActionConsumeOrExpelLeft  Action = "consume_or_expel_left"
+	ActionConsumeOrExpelRight Action = "consume_or_expel_right"
+	ActionConsumeOrExpelUp    Action = "consume_or_expel_up"
+	ActionConsumeOrExpelDown  Action = "consume_or_expel_down"
+
 	// Pane focus navigation
 	ActionFocusRight Action = "focus_right"
 	ActionFocusLeft  Action = "focus_left"
 	ActionFocusUp    Action = "focus_up"
 	ActionFocusDown  Action = "focus_down"
+
+	// Resize actions (modal)
+	ActionResizeIncreaseLeft  Action = "resize_increase_left"
+	ActionResizeIncreaseRight Action = "resize_increase_right"
+	ActionResizeIncreaseUp    Action = "resize_increase_up"
+	ActionResizeIncreaseDown  Action = "resize_increase_down"
+	ActionResizeDecreaseLeft  Action = "resize_decrease_left"
+	ActionResizeDecreaseRight Action = "resize_decrease_right"
+	ActionResizeDecreaseUp    Action = "resize_decrease_up"
+	ActionResizeDecreaseDown  Action = "resize_decrease_down"
+	ActionResizeIncrease      Action = "resize_increase"
+	ActionResizeDecrease      Action = "resize_decrease"
 
 	// Stack navigation (within stacked panes)
 	ActionStackNavUp   Action = "stack_nav_up"
@@ -157,6 +188,9 @@ const (
 	// Clipboard
 	ActionCopyURL Action = "copy_url"
 
+	// Session management
+	ActionOpenSessionManager Action = "open_session_manager"
+
 	// Application
 	ActionQuit Action = "quit"
 )
@@ -172,30 +206,44 @@ type ShortcutSet struct {
 	TabMode ShortcutTable
 	// PaneMode shortcuts are only active in pane mode.
 	PaneMode ShortcutTable
+	// SessionMode shortcuts are only active in session mode.
+	SessionMode ShortcutTable
+	// ResizeMode shortcuts are only active in resize mode.
+	ResizeMode ShortcutTable
 }
 
-// NewShortcutSet creates a ShortcutSet from the workspace configuration.
-func NewShortcutSet(ctx context.Context, cfg *config.WorkspaceConfig) *ShortcutSet {
+// NewShortcutSet creates a ShortcutSet from the configuration.
+func NewShortcutSet(ctx context.Context, cfg *config.Config) *ShortcutSet {
 	log := logging.FromContext(ctx)
 	set := &ShortcutSet{
-		Global:   make(ShortcutTable),
-		TabMode:  make(ShortcutTable),
-		PaneMode: make(ShortcutTable),
+		Global:      make(ShortcutTable),
+		TabMode:     make(ShortcutTable),
+		PaneMode:    make(ShortcutTable),
+		SessionMode: make(ShortcutTable),
+		ResizeMode:  make(ShortcutTable),
 	}
 
 	set.buildGlobalShortcuts(ctx, cfg)
-	set.buildTabModeShortcuts(ctx, cfg)
-	set.buildPaneModeShortcuts(ctx, cfg)
+	set.buildTabModeShortcuts(ctx, &cfg.Workspace)
+	set.buildPaneModeShortcuts(ctx, &cfg.Workspace)
+	set.buildResizeModeShortcuts(ctx, &cfg.Workspace)
+	set.buildSessionModeShortcuts(ctx, &cfg.Session)
 
-	log.Debug().Int("global", len(set.Global)).Int("tab", len(set.TabMode)).Int("pane", len(set.PaneMode)).Msg("shortcuts registered")
+	log.Debug().
+		Int("global", len(set.Global)).
+		Int("tab", len(set.TabMode)).
+		Int("pane", len(set.PaneMode)).
+		Int("resize", len(set.ResizeMode)).
+		Int("session", len(set.SessionMode)).
+		Msg("shortcuts registered")
 
 	return set
 }
 
 // buildGlobalShortcuts populates global shortcuts from config.
-func (s *ShortcutSet) buildGlobalShortcuts(ctx context.Context, cfg *config.WorkspaceConfig) {
+func (s *ShortcutSet) buildGlobalShortcuts(ctx context.Context, cfg *config.Config) {
 	s.registerActivationShortcuts(ctx, cfg)
-	s.registerConfiguredShortcuts(cfg)
+	s.registerConfiguredShortcuts(&cfg.Workspace)
 	s.registerStandardShortcuts()
 	s.registerPaneNavigationShortcuts()
 	s.registerTabSwitchShortcuts()
@@ -211,27 +259,57 @@ func (s *ShortcutSet) buildPaneModeShortcuts(ctx context.Context, cfg *config.Wo
 	s.buildModeShortcuts(ctx, cfg.PaneMode.GetKeyBindings(), s.PaneMode, "pane")
 }
 
-func (s *ShortcutSet) registerActivationShortcuts(ctx context.Context, cfg *config.WorkspaceConfig) {
+// buildSessionModeShortcuts populates session mode shortcuts from config.
+func (s *ShortcutSet) buildSessionModeShortcuts(ctx context.Context, cfg *config.SessionConfig) {
+	s.buildModeShortcuts(ctx, cfg.SessionMode.GetKeyBindings(), s.SessionMode, "session")
+}
+
+// buildResizeModeShortcuts populates resize mode shortcuts from config.
+func (s *ShortcutSet) buildResizeModeShortcuts(ctx context.Context, cfg *config.WorkspaceConfig) {
+	s.buildModeShortcuts(ctx, cfg.ResizeMode.GetKeyBindings(), s.ResizeMode, "resize")
+}
+
+func (s *ShortcutSet) registerActivationShortcuts(ctx context.Context, cfg *config.Config) {
 	log := logging.FromContext(ctx)
-	if binding, ok := ParseKeyString(cfg.TabMode.ActivationShortcut); ok {
+	if binding, ok := ParseKeyString(cfg.Workspace.TabMode.ActivationShortcut); ok {
 		s.Global[binding] = ActionEnterTabMode
 		log.Trace().
-			Str("shortcut", cfg.TabMode.ActivationShortcut).
+			Str("shortcut", cfg.Workspace.TabMode.ActivationShortcut).
 			Uint("keyval", binding.Keyval).
 			Uint("mod", uint(binding.Modifiers)).
 			Msg("tab mode activation registered")
 	} else {
-		log.Warn().Str("shortcut", cfg.TabMode.ActivationShortcut).Msg("failed to parse tab mode activation shortcut")
+		log.Warn().Str("shortcut", cfg.Workspace.TabMode.ActivationShortcut).Msg("failed to parse tab mode activation shortcut")
 	}
-	if binding, ok := ParseKeyString(cfg.PaneMode.ActivationShortcut); ok {
+	if binding, ok := ParseKeyString(cfg.Workspace.PaneMode.ActivationShortcut); ok {
 		s.Global[binding] = ActionEnterPaneMode
 		log.Trace().
-			Str("shortcut", cfg.PaneMode.ActivationShortcut).
+			Str("shortcut", cfg.Workspace.PaneMode.ActivationShortcut).
 			Uint("keyval", binding.Keyval).
 			Uint("mod", uint(binding.Modifiers)).
 			Msg("pane mode activation registered")
 	} else {
-		log.Warn().Str("shortcut", cfg.PaneMode.ActivationShortcut).Msg("failed to parse pane mode activation shortcut")
+		log.Warn().Str("shortcut", cfg.Workspace.PaneMode.ActivationShortcut).Msg("failed to parse pane mode activation shortcut")
+	}
+	if binding, ok := ParseKeyString(cfg.Session.SessionMode.ActivationShortcut); ok {
+		s.Global[binding] = ActionEnterSessionMode
+		log.Trace().
+			Str("shortcut", cfg.Session.SessionMode.ActivationShortcut).
+			Uint("keyval", binding.Keyval).
+			Uint("mod", uint(binding.Modifiers)).
+			Msg("session mode activation registered")
+	} else {
+		log.Warn().Str("shortcut", cfg.Session.SessionMode.ActivationShortcut).Msg("failed to parse session mode activation shortcut")
+	}
+	if binding, ok := ParseKeyString(cfg.Workspace.ResizeMode.ActivationShortcut); ok {
+		s.Global[binding] = ActionEnterResizeMode
+		log.Trace().
+			Str("shortcut", cfg.Workspace.ResizeMode.ActivationShortcut).
+			Uint("keyval", binding.Keyval).
+			Uint("mod", uint(binding.Modifiers)).
+			Msg("resize mode activation registered")
+	} else {
+		log.Warn().Str("shortcut", cfg.Workspace.ResizeMode.ActivationShortcut).Msg("failed to parse resize mode activation shortcut")
 	}
 }
 
@@ -255,6 +333,19 @@ func (s *ShortcutSet) registerConfiguredShortcuts(cfg *config.WorkspaceConfig) {
 	if binding, ok := ParseKeyString(cfg.Shortcuts.PreviousTab); ok {
 		s.Global[binding] = ActionPreviousTab // Ctrl+Shift+Tab
 	}
+
+	if binding, ok := ParseKeyString(cfg.Shortcuts.ConsumeOrExpelLeft); ok {
+		s.Global[binding] = ActionConsumeOrExpelLeft
+	}
+	if binding, ok := ParseKeyString(cfg.Shortcuts.ConsumeOrExpelRight); ok {
+		s.Global[binding] = ActionConsumeOrExpelRight
+	}
+	if binding, ok := ParseKeyString(cfg.Shortcuts.ConsumeOrExpelUp); ok {
+		s.Global[binding] = ActionConsumeOrExpelUp
+	}
+	if binding, ok := ParseKeyString(cfg.Shortcuts.ConsumeOrExpelDown); ok {
+		s.Global[binding] = ActionConsumeOrExpelDown
+	}
 }
 
 func (s *ShortcutSet) registerStandardShortcuts() {
@@ -265,7 +356,7 @@ func (s *ShortcutSet) registerStandardShortcuts() {
 	s.Global[KeyBinding{uint(gdk.KEY_g), ModCtrl}] = ActionFindNext
 	s.Global[KeyBinding{uint(gdk.KEY_g), ModCtrl | ModShift}] = ActionFindPrev
 	s.Global[KeyBinding{uint(gdk.KEY_r), ModCtrl}] = ActionReload
-	s.Global[KeyBinding{uint(gdk.KEY_R), ModCtrl | ModShift}] = ActionHardReload
+	s.Global[KeyBinding{uint('r'), ModCtrl | ModShift}] = ActionHardReload
 	s.Global[KeyBinding{uint(gdk.KEY_F5), ModNone}] = ActionReload
 	s.Global[KeyBinding{uint(gdk.KEY_F5), ModCtrl}] = ActionHardReload
 	s.Global[KeyBinding{uint(gdk.KEY_F12), ModNone}] = ActionOpenDevTools
@@ -277,7 +368,9 @@ func (s *ShortcutSet) registerStandardShortcuts() {
 	s.Global[KeyBinding{uint(gdk.KEY_0), ModCtrl}] = ActionZoomReset
 	s.Global[KeyBinding{uint(gdk.KEY_q), ModCtrl}] = ActionQuit
 	s.Global[KeyBinding{uint(gdk.KEY_F11), ModNone}] = ActionToggleFullscreen
-	s.Global[KeyBinding{uint(gdk.KEY_C), ModCtrl | ModShift}] = ActionCopyURL
+	s.Global[KeyBinding{uint('c'), ModCtrl | ModShift}] = ActionCopyURL
+	// Session management - direct shortcut to open session manager
+	s.Global[KeyBinding{uint(gdk.KEY_s), ModCtrl | ModShift}] = ActionOpenSessionManager
 }
 
 func (s *ShortcutSet) registerPaneNavigationShortcuts() {
@@ -291,18 +384,12 @@ func (s *ShortcutSet) registerPaneNavigationShortcuts() {
 }
 
 func (s *ShortcutSet) registerTabSwitchShortcuts() {
-	s.Global[KeyBinding{uint(gdk.KEY_1), ModAlt}] = ActionSwitchTabIndex1
-	s.Global[KeyBinding{uint(gdk.KEY_2), ModAlt}] = ActionSwitchTabIndex2
-	s.Global[KeyBinding{uint(gdk.KEY_3), ModAlt}] = ActionSwitchTabIndex3
-	s.Global[KeyBinding{uint(gdk.KEY_4), ModAlt}] = ActionSwitchTabIndex4
-	s.Global[KeyBinding{uint(gdk.KEY_5), ModAlt}] = ActionSwitchTabIndex5
-	s.Global[KeyBinding{uint(gdk.KEY_6), ModAlt}] = ActionSwitchTabIndex6
-	s.Global[KeyBinding{uint(gdk.KEY_7), ModAlt}] = ActionSwitchTabIndex7
-	s.Global[KeyBinding{uint(gdk.KEY_8), ModAlt}] = ActionSwitchTabIndex8
-	s.Global[KeyBinding{uint(gdk.KEY_9), ModAlt}] = ActionSwitchTabIndex9
-	s.Global[KeyBinding{uint(gdk.KEY_0), ModAlt}] = ActionSwitchTabIndex10
-
-	s.Global[KeyBinding{uint(gdk.KEY_Tab), ModAlt}] = ActionSwitchLastTab
+	// NOTE: Alt+1-9, Alt+0, and Alt+Tab are now handled by GlobalShortcutHandler
+	// using GtkShortcutController with GTK_SHORTCUT_SCOPE_GLOBAL.
+	// This is necessary because WebKitGTK's WebView consumes these key events
+	// before they reach the EventControllerKey in capture phase.
+	//
+	// Only Alt+Shift+Tab remains here as a fallback binding.
 	s.Global[KeyBinding{uint(gdk.KEY_Tab), ModAlt | ModShift}] = ActionSwitchLastTab
 }
 
@@ -336,58 +423,63 @@ func (s *ShortcutSet) buildModeShortcuts(ctx context.Context, bindings map[strin
 		Msg(mode + " mode shortcuts built")
 }
 
-// mapConfigAction maps config action names to Action constants.
-func mapConfigAction(configAction string) Action {
-	switch configAction {
-	// Mode management
-	case "cancel", "confirm":
-		return ActionExitMode
-
+var configActionToAction = map[string]Action{
 	// Tab actions
-	case "new-tab":
-		return ActionNewTab
-	case "close-tab":
-		return ActionCloseTab
-	case "next-tab":
-		return ActionNextTab
-	case "previous-tab":
-		return ActionPreviousTab
-	case "rename-tab":
-		return ActionRenameTab
+	"new-tab":      ActionNewTab,
+	"close-tab":    ActionCloseTab,
+	"next-tab":     ActionNextTab,
+	"previous-tab": ActionPreviousTab,
+	"rename-tab":   ActionRenameTab,
 
 	// Pane actions
-	case "split-right":
-		return ActionSplitRight
-	case "split-left":
-		return ActionSplitLeft
-	case "split-up":
-		return ActionSplitUp
-	case "split-down":
-		return ActionSplitDown
-	case "close-pane":
-		return ActionClosePane
-	case "stack-pane":
-		return ActionStackPane
+	"split-right":           ActionSplitRight,
+	"split-left":            ActionSplitLeft,
+	"split-up":              ActionSplitUp,
+	"split-down":            ActionSplitDown,
+	"close-pane":            ActionClosePane,
+	"stack-pane":            ActionStackPane,
+	"move-pane-to-tab":      ActionMovePaneToTab,
+	"move-pane-to-next-tab": ActionMovePaneToNextTab,
+
+	"consume-or-expel-left":  ActionConsumeOrExpelLeft,
+	"consume-or-expel-right": ActionConsumeOrExpelRight,
+	"consume-or-expel-up":    ActionConsumeOrExpelUp,
+	"consume-or-expel-down":  ActionConsumeOrExpelDown,
 
 	// Focus navigation
-	case "focus-right":
-		return ActionFocusRight
-	case "focus-left":
-		return ActionFocusLeft
-	case "focus-up":
-		return ActionFocusUp
-	case "focus-down":
-		return ActionFocusDown
+	"focus-right": ActionFocusRight,
+	"focus-left":  ActionFocusLeft,
+	"focus-up":    ActionFocusUp,
+	"focus-down":  ActionFocusDown,
 
 	// Stack navigation
-	case "stack-nav-up", "stack-up":
-		return ActionStackNavUp
-	case "stack-nav-down", "stack-down":
-		return ActionStackNavDown
+	"stack-nav-up":   ActionStackNavUp,
+	"stack-up":       ActionStackNavUp,
+	"stack-nav-down": ActionStackNavDown,
+	"stack-down":     ActionStackNavDown,
 
-	default:
-		return ""
+	// Resize actions
+	"resize-increase-left":  ActionResizeIncreaseLeft,
+	"resize-increase-right": ActionResizeIncreaseRight,
+	"resize-increase-up":    ActionResizeIncreaseUp,
+	"resize-increase-down":  ActionResizeIncreaseDown,
+	"resize-decrease-left":  ActionResizeDecreaseLeft,
+	"resize-decrease-right": ActionResizeDecreaseRight,
+	"resize-decrease-up":    ActionResizeDecreaseUp,
+	"resize-decrease-down":  ActionResizeDecreaseDown,
+	"resize-increase":       ActionResizeIncrease,
+	"resize-decrease":       ActionResizeDecrease,
+
+	// Session actions
+	"session-manager": ActionOpenSessionManager,
+}
+
+// mapConfigAction maps config action names to Action constants.
+func mapConfigAction(configAction string) Action {
+	if configAction == "cancel" || configAction == "confirm" {
+		return ActionExitMode
 	}
+	return configActionToAction[configAction]
 }
 
 // ParseKeyString converts a config key string like "ctrl+t" to a KeyBinding.
@@ -397,7 +489,14 @@ func ParseKeyString(s string) (KeyBinding, bool) {
 		return KeyBinding{}, false
 	}
 
-	s = strings.ToLower(strings.TrimSpace(s))
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return KeyBinding{}, false
+	}
+	if s == "+" {
+		return KeyBinding{Keyval: uint(gdk.KEY_plus), Modifiers: ModNone}, true
+	}
+
 	parts := strings.Split(s, "+")
 
 	var modifiers Modifier
@@ -405,7 +504,12 @@ func ParseKeyString(s string) (KeyBinding, bool) {
 
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
-		switch part {
+		if part == "" {
+			continue
+		}
+
+		lower := strings.ToLower(part)
+		switch lower {
 		case "ctrl", "control":
 			modifiers |= ModCtrl
 		case "shift":
@@ -413,12 +517,26 @@ func ParseKeyString(s string) (KeyBinding, bool) {
 		case "alt":
 			modifiers |= ModAlt
 		default:
+			if keyPart != "" {
+				return KeyBinding{}, false
+			}
 			keyPart = part
 		}
 	}
 
+	// Allow parsing "ctrl++" / "alt+shift++" where the key is "+".
+	if keyPart == "" && strings.HasSuffix(s, "++") {
+		keyPart = "+"
+	}
+
 	if keyPart == "" {
 		return KeyBinding{}, false
+	}
+
+	// Treat uppercase single-letter keys as Shift+<letter>.
+	if len(keyPart) == 1 && keyPart[0] >= 'A' && keyPart[0] <= 'Z' {
+		modifiers |= ModShift
+		keyPart = strings.ToLower(keyPart)
 	}
 
 	keyval, ok := stringToKeyval(keyPart)
@@ -434,7 +552,11 @@ func ParseKeyString(s string) (KeyBinding, bool) {
 
 // stringToKeyval converts a key name to its GDK keyval.
 func stringToKeyval(s string) (uint, bool) {
-	if keyval, ok := keyvalByName[s]; ok {
+	if s == "" {
+		return 0, false
+	}
+
+	if keyval, ok := keyvalByName[strings.ToLower(s)]; ok {
 		return keyval, true
 	}
 
@@ -460,6 +582,10 @@ func (s *ShortcutSet) Lookup(binding KeyBinding, mode Mode) (Action, bool) {
 		modeTable = s.TabMode
 	case ModePane:
 		modeTable = s.PaneMode
+	case ModeResize:
+		modeTable = s.ResizeMode
+	case ModeSession:
+		modeTable = s.SessionMode
 	}
 
 	if modeTable != nil {
@@ -481,7 +607,10 @@ func ShouldAutoExitMode(action Action) bool {
 	switch action {
 	case ActionNewTab, ActionCloseTab, ActionRenameTab,
 		ActionSplitRight, ActionSplitLeft, ActionSplitUp, ActionSplitDown,
-		ActionClosePane, ActionStackPane:
+		ActionClosePane, ActionStackPane,
+		ActionMovePaneToTab, ActionMovePaneToNextTab,
+		ActionConsumeOrExpelLeft, ActionConsumeOrExpelRight, ActionConsumeOrExpelUp, ActionConsumeOrExpelDown,
+		ActionOpenSessionManager:
 		return true
 	default:
 		return false

@@ -2197,6 +2197,130 @@ func (_c *MockHistoryRepository_FindByURL_Call) RunAndReturn(run func(ctx contex
 	return _c
 }
 
+// GetAllMostVisited provides a mock function for the type MockHistoryRepository
+func (_mock *MockHistoryRepository) GetAllMostVisited(ctx context.Context) ([]*entity.HistoryEntry, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAllMostVisited")
+	}
+
+	var r0 []*entity.HistoryEntry
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]*entity.HistoryEntry, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) []*entity.HistoryEntry); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*entity.HistoryEntry)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHistoryRepository_GetAllMostVisited_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAllMostVisited'
+type MockHistoryRepository_GetAllMostVisited_Call struct {
+	*mock.Call
+}
+
+// GetAllMostVisited is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockHistoryRepository_Expecter) GetAllMostVisited(ctx interface{}) *MockHistoryRepository_GetAllMostVisited_Call {
+	return &MockHistoryRepository_GetAllMostVisited_Call{Call: _e.mock.On("GetAllMostVisited", ctx)}
+}
+
+func (_c *MockHistoryRepository_GetAllMostVisited_Call) Run(run func(ctx context.Context)) *MockHistoryRepository_GetAllMostVisited_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHistoryRepository_GetAllMostVisited_Call) Return(historyEntrys []*entity.HistoryEntry, err error) *MockHistoryRepository_GetAllMostVisited_Call {
+	_c.Call.Return(historyEntrys, err)
+	return _c
+}
+
+func (_c *MockHistoryRepository_GetAllMostVisited_Call) RunAndReturn(run func(ctx context.Context) ([]*entity.HistoryEntry, error)) *MockHistoryRepository_GetAllMostVisited_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetAllRecentHistory provides a mock function for the type MockHistoryRepository
+func (_mock *MockHistoryRepository) GetAllRecentHistory(ctx context.Context) ([]*entity.HistoryEntry, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAllRecentHistory")
+	}
+
+	var r0 []*entity.HistoryEntry
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]*entity.HistoryEntry, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) []*entity.HistoryEntry); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*entity.HistoryEntry)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHistoryRepository_GetAllRecentHistory_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAllRecentHistory'
+type MockHistoryRepository_GetAllRecentHistory_Call struct {
+	*mock.Call
+}
+
+// GetAllRecentHistory is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockHistoryRepository_Expecter) GetAllRecentHistory(ctx interface{}) *MockHistoryRepository_GetAllRecentHistory_Call {
+	return &MockHistoryRepository_GetAllRecentHistory_Call{Call: _e.mock.On("GetAllRecentHistory", ctx)}
+}
+
+func (_c *MockHistoryRepository_GetAllRecentHistory_Call) Run(run func(ctx context.Context)) *MockHistoryRepository_GetAllRecentHistory_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHistoryRepository_GetAllRecentHistory_Call) Return(historyEntrys []*entity.HistoryEntry, err error) *MockHistoryRepository_GetAllRecentHistory_Call {
+	_c.Call.Return(historyEntrys, err)
+	return _c
+}
+
+func (_c *MockHistoryRepository_GetAllRecentHistory_Call) RunAndReturn(run func(ctx context.Context) ([]*entity.HistoryEntry, error)) *MockHistoryRepository_GetAllRecentHistory_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetDailyVisitCount provides a mock function for the type MockHistoryRepository
 func (_mock *MockHistoryRepository) GetDailyVisitCount(ctx context.Context, daysAgo string) ([]*entity.DailyVisitCount, error) {
 	ret := _mock.Called(ctx, daysAgo)
@@ -2395,6 +2519,74 @@ func (_c *MockHistoryRepository_GetHourlyDistribution_Call) RunAndReturn(run fun
 	return _c
 }
 
+// GetMostVisited provides a mock function for the type MockHistoryRepository
+func (_mock *MockHistoryRepository) GetMostVisited(ctx context.Context, days int) ([]*entity.HistoryEntry, error) {
+	ret := _mock.Called(ctx, days)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetMostVisited")
+	}
+
+	var r0 []*entity.HistoryEntry
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) ([]*entity.HistoryEntry, error)); ok {
+		return returnFunc(ctx, days)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) []*entity.HistoryEntry); ok {
+		r0 = returnFunc(ctx, days)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*entity.HistoryEntry)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = returnFunc(ctx, days)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHistoryRepository_GetMostVisited_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetMostVisited'
+type MockHistoryRepository_GetMostVisited_Call struct {
+	*mock.Call
+}
+
+// GetMostVisited is a helper method to define mock.On call
+//   - ctx context.Context
+//   - days int
+func (_e *MockHistoryRepository_Expecter) GetMostVisited(ctx interface{}, days interface{}) *MockHistoryRepository_GetMostVisited_Call {
+	return &MockHistoryRepository_GetMostVisited_Call{Call: _e.mock.On("GetMostVisited", ctx, days)}
+}
+
+func (_c *MockHistoryRepository_GetMostVisited_Call) Run(run func(ctx context.Context, days int)) *MockHistoryRepository_GetMostVisited_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHistoryRepository_GetMostVisited_Call) Return(historyEntrys []*entity.HistoryEntry, err error) *MockHistoryRepository_GetMostVisited_Call {
+	_c.Call.Return(historyEntrys, err)
+	return _c
+}
+
+func (_c *MockHistoryRepository_GetMostVisited_Call) RunAndReturn(run func(ctx context.Context, days int) ([]*entity.HistoryEntry, error)) *MockHistoryRepository_GetMostVisited_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetRecent provides a mock function for the type MockHistoryRepository
 func (_mock *MockHistoryRepository) GetRecent(ctx context.Context, limit int, offset int) ([]*entity.HistoryEntry, error) {
 	ret := _mock.Called(ctx, limit, offset)
@@ -2465,6 +2657,74 @@ func (_c *MockHistoryRepository_GetRecent_Call) Return(historyEntrys []*entity.H
 }
 
 func (_c *MockHistoryRepository_GetRecent_Call) RunAndReturn(run func(ctx context.Context, limit int, offset int) ([]*entity.HistoryEntry, error)) *MockHistoryRepository_GetRecent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetRecentSince provides a mock function for the type MockHistoryRepository
+func (_mock *MockHistoryRepository) GetRecentSince(ctx context.Context, days int) ([]*entity.HistoryEntry, error) {
+	ret := _mock.Called(ctx, days)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetRecentSince")
+	}
+
+	var r0 []*entity.HistoryEntry
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) ([]*entity.HistoryEntry, error)); ok {
+		return returnFunc(ctx, days)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) []*entity.HistoryEntry); ok {
+		r0 = returnFunc(ctx, days)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*entity.HistoryEntry)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = returnFunc(ctx, days)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHistoryRepository_GetRecentSince_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetRecentSince'
+type MockHistoryRepository_GetRecentSince_Call struct {
+	*mock.Call
+}
+
+// GetRecentSince is a helper method to define mock.On call
+//   - ctx context.Context
+//   - days int
+func (_e *MockHistoryRepository_Expecter) GetRecentSince(ctx interface{}, days interface{}) *MockHistoryRepository_GetRecentSince_Call {
+	return &MockHistoryRepository_GetRecentSince_Call{Call: _e.mock.On("GetRecentSince", ctx, days)}
+}
+
+func (_c *MockHistoryRepository_GetRecentSince_Call) Run(run func(ctx context.Context, days int)) *MockHistoryRepository_GetRecentSince_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHistoryRepository_GetRecentSince_Call) Return(historyEntrys []*entity.HistoryEntry, err error) *MockHistoryRepository_GetRecentSince_Call {
+	_c.Call.Return(historyEntrys, err)
+	return _c
+}
+
+func (_c *MockHistoryRepository_GetRecentSince_Call) RunAndReturn(run func(ctx context.Context, days int) ([]*entity.HistoryEntry, error)) *MockHistoryRepository_GetRecentSince_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2744,6 +3004,195 @@ type MockSessionRepository_Expecter struct {
 
 func (_m *MockSessionRepository) EXPECT() *MockSessionRepository_Expecter {
 	return &MockSessionRepository_Expecter{mock: &_m.Mock}
+}
+
+// Delete provides a mock function for the type MockSessionRepository
+func (_mock *MockSessionRepository) Delete(ctx context.Context, id entity.SessionID) error {
+	ret := _mock.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Delete")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.SessionID) error); ok {
+		r0 = returnFunc(ctx, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockSessionRepository_Delete_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Delete'
+type MockSessionRepository_Delete_Call struct {
+	*mock.Call
+}
+
+// Delete is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id entity.SessionID
+func (_e *MockSessionRepository_Expecter) Delete(ctx interface{}, id interface{}) *MockSessionRepository_Delete_Call {
+	return &MockSessionRepository_Delete_Call{Call: _e.mock.On("Delete", ctx, id)}
+}
+
+func (_c *MockSessionRepository_Delete_Call) Run(run func(ctx context.Context, id entity.SessionID)) *MockSessionRepository_Delete_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 entity.SessionID
+		if args[1] != nil {
+			arg1 = args[1].(entity.SessionID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSessionRepository_Delete_Call) Return(err error) *MockSessionRepository_Delete_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockSessionRepository_Delete_Call) RunAndReturn(run func(ctx context.Context, id entity.SessionID) error) *MockSessionRepository_Delete_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteExitedBefore provides a mock function for the type MockSessionRepository
+func (_mock *MockSessionRepository) DeleteExitedBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+	ret := _mock.Called(ctx, cutoff)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteExitedBefore")
+	}
+
+	var r0 int64
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time) (int64, error)); ok {
+		return returnFunc(ctx, cutoff)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time) int64); ok {
+		r0 = returnFunc(ctx, cutoff)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, time.Time) error); ok {
+		r1 = returnFunc(ctx, cutoff)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockSessionRepository_DeleteExitedBefore_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteExitedBefore'
+type MockSessionRepository_DeleteExitedBefore_Call struct {
+	*mock.Call
+}
+
+// DeleteExitedBefore is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cutoff time.Time
+func (_e *MockSessionRepository_Expecter) DeleteExitedBefore(ctx interface{}, cutoff interface{}) *MockSessionRepository_DeleteExitedBefore_Call {
+	return &MockSessionRepository_DeleteExitedBefore_Call{Call: _e.mock.On("DeleteExitedBefore", ctx, cutoff)}
+}
+
+func (_c *MockSessionRepository_DeleteExitedBefore_Call) Run(run func(ctx context.Context, cutoff time.Time)) *MockSessionRepository_DeleteExitedBefore_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 time.Time
+		if args[1] != nil {
+			arg1 = args[1].(time.Time)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSessionRepository_DeleteExitedBefore_Call) Return(n int64, err error) *MockSessionRepository_DeleteExitedBefore_Call {
+	_c.Call.Return(n, err)
+	return _c
+}
+
+func (_c *MockSessionRepository_DeleteExitedBefore_Call) RunAndReturn(run func(ctx context.Context, cutoff time.Time) (int64, error)) *MockSessionRepository_DeleteExitedBefore_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteOldestExited provides a mock function for the type MockSessionRepository
+func (_mock *MockSessionRepository) DeleteOldestExited(ctx context.Context, keepCount int) (int64, error) {
+	ret := _mock.Called(ctx, keepCount)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteOldestExited")
+	}
+
+	var r0 int64
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) (int64, error)); ok {
+		return returnFunc(ctx, keepCount)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) int64); ok {
+		r0 = returnFunc(ctx, keepCount)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = returnFunc(ctx, keepCount)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockSessionRepository_DeleteOldestExited_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteOldestExited'
+type MockSessionRepository_DeleteOldestExited_Call struct {
+	*mock.Call
+}
+
+// DeleteOldestExited is a helper method to define mock.On call
+//   - ctx context.Context
+//   - keepCount int
+func (_e *MockSessionRepository_Expecter) DeleteOldestExited(ctx interface{}, keepCount interface{}) *MockSessionRepository_DeleteOldestExited_Call {
+	return &MockSessionRepository_DeleteOldestExited_Call{Call: _e.mock.On("DeleteOldestExited", ctx, keepCount)}
+}
+
+func (_c *MockSessionRepository_DeleteOldestExited_Call) Run(run func(ctx context.Context, keepCount int)) *MockSessionRepository_DeleteOldestExited_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSessionRepository_DeleteOldestExited_Call) Return(n int64, err error) *MockSessionRepository_DeleteOldestExited_Call {
+	_c.Call.Return(n, err)
+	return _c
+}
+
+func (_c *MockSessionRepository_DeleteOldestExited_Call) RunAndReturn(run func(ctx context.Context, keepCount int) (int64, error)) *MockSessionRepository_DeleteOldestExited_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FindByID provides a mock function for the type MockSessionRepository
@@ -3060,6 +3509,337 @@ func (_c *MockSessionRepository_Save_Call) Return(err error) *MockSessionReposit
 }
 
 func (_c *MockSessionRepository_Save_Call) RunAndReturn(run func(ctx context.Context, session *entity.Session) error) *MockSessionRepository_Save_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// NewMockSessionStateRepository creates a new instance of MockSessionStateRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
+// The first argument is typically a *testing.T value.
+func NewMockSessionStateRepository(t interface {
+	mock.TestingT
+	Cleanup(func())
+}) *MockSessionStateRepository {
+	mock := &MockSessionStateRepository{}
+	mock.Mock.Test(t)
+
+	t.Cleanup(func() { mock.AssertExpectations(t) })
+
+	return mock
+}
+
+// MockSessionStateRepository is an autogenerated mock type for the SessionStateRepository type
+type MockSessionStateRepository struct {
+	mock.Mock
+}
+
+type MockSessionStateRepository_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *MockSessionStateRepository) EXPECT() *MockSessionStateRepository_Expecter {
+	return &MockSessionStateRepository_Expecter{mock: &_m.Mock}
+}
+
+// DeleteSnapshot provides a mock function for the type MockSessionStateRepository
+func (_mock *MockSessionStateRepository) DeleteSnapshot(ctx context.Context, sessionID entity.SessionID) error {
+	ret := _mock.Called(ctx, sessionID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteSnapshot")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.SessionID) error); ok {
+		r0 = returnFunc(ctx, sessionID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockSessionStateRepository_DeleteSnapshot_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteSnapshot'
+type MockSessionStateRepository_DeleteSnapshot_Call struct {
+	*mock.Call
+}
+
+// DeleteSnapshot is a helper method to define mock.On call
+//   - ctx context.Context
+//   - sessionID entity.SessionID
+func (_e *MockSessionStateRepository_Expecter) DeleteSnapshot(ctx interface{}, sessionID interface{}) *MockSessionStateRepository_DeleteSnapshot_Call {
+	return &MockSessionStateRepository_DeleteSnapshot_Call{Call: _e.mock.On("DeleteSnapshot", ctx, sessionID)}
+}
+
+func (_c *MockSessionStateRepository_DeleteSnapshot_Call) Run(run func(ctx context.Context, sessionID entity.SessionID)) *MockSessionStateRepository_DeleteSnapshot_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 entity.SessionID
+		if args[1] != nil {
+			arg1 = args[1].(entity.SessionID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSessionStateRepository_DeleteSnapshot_Call) Return(err error) *MockSessionStateRepository_DeleteSnapshot_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockSessionStateRepository_DeleteSnapshot_Call) RunAndReturn(run func(ctx context.Context, sessionID entity.SessionID) error) *MockSessionStateRepository_DeleteSnapshot_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetAllSnapshots provides a mock function for the type MockSessionStateRepository
+func (_mock *MockSessionStateRepository) GetAllSnapshots(ctx context.Context) ([]*entity.SessionState, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAllSnapshots")
+	}
+
+	var r0 []*entity.SessionState
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]*entity.SessionState, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) []*entity.SessionState); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*entity.SessionState)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockSessionStateRepository_GetAllSnapshots_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAllSnapshots'
+type MockSessionStateRepository_GetAllSnapshots_Call struct {
+	*mock.Call
+}
+
+// GetAllSnapshots is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockSessionStateRepository_Expecter) GetAllSnapshots(ctx interface{}) *MockSessionStateRepository_GetAllSnapshots_Call {
+	return &MockSessionStateRepository_GetAllSnapshots_Call{Call: _e.mock.On("GetAllSnapshots", ctx)}
+}
+
+func (_c *MockSessionStateRepository_GetAllSnapshots_Call) Run(run func(ctx context.Context)) *MockSessionStateRepository_GetAllSnapshots_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSessionStateRepository_GetAllSnapshots_Call) Return(sessionStates []*entity.SessionState, err error) *MockSessionStateRepository_GetAllSnapshots_Call {
+	_c.Call.Return(sessionStates, err)
+	return _c
+}
+
+func (_c *MockSessionStateRepository_GetAllSnapshots_Call) RunAndReturn(run func(ctx context.Context) ([]*entity.SessionState, error)) *MockSessionStateRepository_GetAllSnapshots_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetSnapshot provides a mock function for the type MockSessionStateRepository
+func (_mock *MockSessionStateRepository) GetSnapshot(ctx context.Context, sessionID entity.SessionID) (*entity.SessionState, error) {
+	ret := _mock.Called(ctx, sessionID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetSnapshot")
+	}
+
+	var r0 *entity.SessionState
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.SessionID) (*entity.SessionState, error)); ok {
+		return returnFunc(ctx, sessionID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.SessionID) *entity.SessionState); ok {
+		r0 = returnFunc(ctx, sessionID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*entity.SessionState)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, entity.SessionID) error); ok {
+		r1 = returnFunc(ctx, sessionID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockSessionStateRepository_GetSnapshot_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetSnapshot'
+type MockSessionStateRepository_GetSnapshot_Call struct {
+	*mock.Call
+}
+
+// GetSnapshot is a helper method to define mock.On call
+//   - ctx context.Context
+//   - sessionID entity.SessionID
+func (_e *MockSessionStateRepository_Expecter) GetSnapshot(ctx interface{}, sessionID interface{}) *MockSessionStateRepository_GetSnapshot_Call {
+	return &MockSessionStateRepository_GetSnapshot_Call{Call: _e.mock.On("GetSnapshot", ctx, sessionID)}
+}
+
+func (_c *MockSessionStateRepository_GetSnapshot_Call) Run(run func(ctx context.Context, sessionID entity.SessionID)) *MockSessionStateRepository_GetSnapshot_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 entity.SessionID
+		if args[1] != nil {
+			arg1 = args[1].(entity.SessionID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSessionStateRepository_GetSnapshot_Call) Return(sessionState *entity.SessionState, err error) *MockSessionStateRepository_GetSnapshot_Call {
+	_c.Call.Return(sessionState, err)
+	return _c
+}
+
+func (_c *MockSessionStateRepository_GetSnapshot_Call) RunAndReturn(run func(ctx context.Context, sessionID entity.SessionID) (*entity.SessionState, error)) *MockSessionStateRepository_GetSnapshot_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetTotalSnapshotsSize provides a mock function for the type MockSessionStateRepository
+func (_mock *MockSessionStateRepository) GetTotalSnapshotsSize(ctx context.Context) (int64, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetTotalSnapshotsSize")
+	}
+
+	var r0 int64
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (int64, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) int64); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockSessionStateRepository_GetTotalSnapshotsSize_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTotalSnapshotsSize'
+type MockSessionStateRepository_GetTotalSnapshotsSize_Call struct {
+	*mock.Call
+}
+
+// GetTotalSnapshotsSize is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockSessionStateRepository_Expecter) GetTotalSnapshotsSize(ctx interface{}) *MockSessionStateRepository_GetTotalSnapshotsSize_Call {
+	return &MockSessionStateRepository_GetTotalSnapshotsSize_Call{Call: _e.mock.On("GetTotalSnapshotsSize", ctx)}
+}
+
+func (_c *MockSessionStateRepository_GetTotalSnapshotsSize_Call) Run(run func(ctx context.Context)) *MockSessionStateRepository_GetTotalSnapshotsSize_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSessionStateRepository_GetTotalSnapshotsSize_Call) Return(n int64, err error) *MockSessionStateRepository_GetTotalSnapshotsSize_Call {
+	_c.Call.Return(n, err)
+	return _c
+}
+
+func (_c *MockSessionStateRepository_GetTotalSnapshotsSize_Call) RunAndReturn(run func(ctx context.Context) (int64, error)) *MockSessionStateRepository_GetTotalSnapshotsSize_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SaveSnapshot provides a mock function for the type MockSessionStateRepository
+func (_mock *MockSessionStateRepository) SaveSnapshot(ctx context.Context, state *entity.SessionState) error {
+	ret := _mock.Called(ctx, state)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SaveSnapshot")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *entity.SessionState) error); ok {
+		r0 = returnFunc(ctx, state)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockSessionStateRepository_SaveSnapshot_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SaveSnapshot'
+type MockSessionStateRepository_SaveSnapshot_Call struct {
+	*mock.Call
+}
+
+// SaveSnapshot is a helper method to define mock.On call
+//   - ctx context.Context
+//   - state *entity.SessionState
+func (_e *MockSessionStateRepository_Expecter) SaveSnapshot(ctx interface{}, state interface{}) *MockSessionStateRepository_SaveSnapshot_Call {
+	return &MockSessionStateRepository_SaveSnapshot_Call{Call: _e.mock.On("SaveSnapshot", ctx, state)}
+}
+
+func (_c *MockSessionStateRepository_SaveSnapshot_Call) Run(run func(ctx context.Context, state *entity.SessionState)) *MockSessionStateRepository_SaveSnapshot_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *entity.SessionState
+		if args[1] != nil {
+			arg1 = args[1].(*entity.SessionState)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSessionStateRepository_SaveSnapshot_Call) Return(err error) *MockSessionStateRepository_SaveSnapshot_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockSessionStateRepository_SaveSnapshot_Call) RunAndReturn(run func(ctx context.Context, state *entity.SessionState) error) *MockSessionStateRepository_SaveSnapshot_Call {
 	_c.Call.Return(run)
 	return _c
 }

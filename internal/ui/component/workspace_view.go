@@ -47,7 +47,8 @@ type WorkspaceView struct {
 	workspace *entity.Workspace
 	paneViews map[entity.PaneID]*PaneView
 
-	onPaneFocused func(paneID entity.PaneID)
+	onPaneFocused       func(paneID entity.PaneID)
+	onSplitRatioDragged func(nodeID string, ratio float64)
 
 	mu sync.RWMutex
 }
@@ -128,6 +129,14 @@ func NewWorkspaceView(ctx context.Context, factory layout.WidgetFactory) *Worksp
 
 	// Create tree renderer with our adapter as the pane view factory
 	wv.treeRenderer = layout.NewTreeRenderer(ctx, factory, &paneViewFactoryAdapter{wv: wv, ctx: ctx})
+	wv.treeRenderer.SetOnSplitRatioChanged(func(nodeID string, ratio float64) {
+		wv.mu.RLock()
+		cb := wv.onSplitRatioDragged
+		wv.mu.RUnlock()
+		if cb != nil {
+			cb(nodeID, ratio)
+		}
+	})
 
 	return wv
 }
@@ -303,6 +312,13 @@ func (wv *WorkspaceView) SetOnPaneFocused(fn func(paneID entity.PaneID)) {
 	wv.onPaneFocused = fn
 }
 
+func (wv *WorkspaceView) SetOnSplitRatioDragged(fn func(nodeID string, ratio float64)) {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+
+	wv.onSplitRatioDragged = fn
+}
+
 // Rebuild rebuilds the widget tree from the current workspace.
 // Use this after structural changes like splits or closes.
 func (wv *WorkspaceView) Rebuild(ctx context.Context) error {
@@ -379,11 +395,18 @@ func (wv *WorkspaceView) RegisterPaneView(paneID entity.PaneID, pv *PaneView) {
 	wv.updateSinglePaneModeInternal()
 }
 
-// UnregisterPaneView removes a PaneView from the tracking map.
-// Use this when closing a pane incrementally.
+// UnregisterPaneView removes a PaneView from the tracking map and cleans it up.
+// This must be called when closing a pane to properly release GTK resources
+// before destroying the WebView.
 func (wv *WorkspaceView) UnregisterPaneView(paneID entity.PaneID) {
 	wv.mu.Lock()
 	defer wv.mu.Unlock()
+
+	// Call Cleanup on the PaneView to unparent widgets and clear callbacks
+	// This must happen before WebView.Destroy() is called
+	if pv, ok := wv.paneViews[paneID]; ok && pv != nil {
+		pv.Cleanup()
+	}
 
 	delete(wv.paneViews, paneID)
 	wv.updateSinglePaneModeInternal()
@@ -533,8 +556,8 @@ func (wv *WorkspaceView) ShowOmnibox(ctx context.Context, query string) {
 
 	// Create omnibox with pane-specific toast callback
 	cfg := wv.omniboxCfg
-	cfg.OnToast = func(message string) {
-		pv.ShowToast(ctx, message, ToastSuccess)
+	cfg.OnToast = func(toastCtx context.Context, message string, level ToastLevel) {
+		pv.ShowToast(toastCtx, message, level)
 	}
 	omnibox := NewOmnibox(ctx, cfg)
 	if omnibox == nil {
@@ -585,7 +608,13 @@ func (wv *WorkspaceView) hideOmniboxInternal() {
 
 	// Remove from pane overlay
 	if pv := wv.paneViews[wv.omniboxPaneID]; pv != nil && wv.omniboxWidget != nil {
-		pv.RemoveOverlayWidget(wv.omniboxWidget)
+		// The omnibox widget may have been reparented during a rebuild/move.
+		// Avoid GTK criticals by only removing from the overlay that owns it.
+		if parent := wv.omniboxWidget.GetParent(); parent == pv.Overlay() {
+			pv.RemoveOverlayWidget(wv.omniboxWidget)
+		} else if parent != nil {
+			wv.omniboxWidget.Unparent()
+		}
 	}
 
 	// Clear references
@@ -692,7 +721,11 @@ func (wv *WorkspaceView) hideFindBarInternal() {
 	wv.findBar.Hide()
 
 	if pv := wv.paneViews[wv.findBarPaneID]; pv != nil && wv.findBarWidget != nil {
-		pv.RemoveOverlayWidget(wv.findBarWidget)
+		if parent := wv.findBarWidget.GetParent(); parent == pv.Overlay() {
+			pv.RemoveOverlayWidget(wv.findBarWidget)
+		} else if parent != nil {
+			wv.findBarWidget.Unparent()
+		}
 	}
 
 	wv.findBar = nil

@@ -11,6 +11,50 @@ import (
 	"time"
 )
 
+const DeleteExitedSessionsBefore = `-- name: DeleteExitedSessionsBefore :execrows
+DELETE FROM sessions
+WHERE type = 'browser'
+  AND ended_at IS NOT NULL
+  AND ended_at < ?
+`
+
+// Deletes exited browser sessions older than the given cutoff time.
+func (q *Queries) DeleteExitedSessionsBefore(ctx context.Context, endedAt sql.NullTime) (int64, error) {
+	result, err := q.db.ExecContext(ctx, DeleteExitedSessionsBefore, endedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const DeleteOldestExitedSessions = `-- name: DeleteOldestExitedSessions :execrows
+DELETE FROM sessions
+WHERE id IN (
+    SELECT id FROM sessions
+    WHERE type = 'browser' AND ended_at IS NOT NULL
+    ORDER BY ended_at DESC
+    LIMIT -1 OFFSET ?
+)
+`
+
+// Deletes exited browser sessions beyond the keep limit, keeping the most recent ones.
+func (q *Queries) DeleteOldestExitedSessions(ctx context.Context, offset int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, DeleteOldestExitedSessions, offset)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const DeleteSession = `-- name: DeleteSession :exec
+DELETE FROM sessions WHERE id = ?
+`
+
+func (q *Queries) DeleteSession(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, DeleteSession, id)
+	return err
+}
+
 const GetActiveBrowserSession = `-- name: GetActiveBrowserSession :one
 SELECT id, type, started_at, ended_at FROM sessions
 WHERE type = 'browser' AND ended_at IS NULL

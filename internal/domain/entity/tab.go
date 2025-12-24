@@ -79,11 +79,16 @@ func (tl *TabList) Remove(id TabID) bool {
 				tl.Tabs[j].Position = j
 			}
 			// Update active tab if needed
-			if tl.ActiveTabID == id && len(tl.Tabs) > 0 {
-				if i < len(tl.Tabs) {
-					tl.ActiveTabID = tl.Tabs[i].ID
+			if tl.ActiveTabID == id {
+				if len(tl.Tabs) > 0 {
+					if i < len(tl.Tabs) {
+						tl.ActiveTabID = tl.Tabs[i].ID
+					} else {
+						tl.ActiveTabID = tl.Tabs[len(tl.Tabs)-1].ID
+					}
 				} else {
-					tl.ActiveTabID = tl.Tabs[len(tl.Tabs)-1].ID
+					tl.ActiveTabID = ""
+					tl.PreviousActiveTabID = ""
 				}
 			}
 			return true
@@ -154,4 +159,18 @@ func (tl *TabList) Move(id TabID, newPos int) bool {
 		tl.Tabs[i].Position = i
 	}
 	return true
+}
+
+// ReplaceFrom replaces this TabList's contents with those from another TabList.
+// This modifies in-place so existing references to this TabList remain valid.
+func (tl *TabList) ReplaceFrom(other *TabList) {
+	if other == nil {
+		tl.Tabs = make([]*Tab, 0)
+		tl.ActiveTabID = ""
+		tl.PreviousActiveTabID = ""
+		return
+	}
+	tl.Tabs = other.Tabs
+	tl.ActiveTabID = other.ActiveTabID
+	tl.PreviousActiveTabID = other.PreviousActiveTabID
 }

@@ -2,10 +2,14 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
 	"sort"
+	"strings"
 
 	"github.com/bnema/dumber/internal/domain/entity"
+	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -28,6 +32,42 @@ const (
 	NavUp    NavigateDirection = "up"
 	NavDown  NavigateDirection = "down"
 )
+
+// ResizeDirection indicates the direction for pane resizing.
+type ResizeDirection string
+
+const (
+	ResizeIncreaseLeft  ResizeDirection = "increase_left"
+	ResizeIncreaseRight ResizeDirection = "increase_right"
+	ResizeIncreaseUp    ResizeDirection = "increase_up"
+	ResizeIncreaseDown  ResizeDirection = "increase_down"
+
+	ResizeDecreaseLeft  ResizeDirection = "decrease_left"
+	ResizeDecreaseRight ResizeDirection = "decrease_right"
+	ResizeDecreaseUp    ResizeDirection = "decrease_up"
+	ResizeDecreaseDown  ResizeDirection = "decrease_down"
+
+	ResizeIncrease ResizeDirection = "increase"
+	ResizeDecrease ResizeDirection = "decrease"
+)
+
+var ErrNothingToResize = errors.New("nothing to resize")
+
+type ConsumeOrExpelDirection string
+
+const (
+	ConsumeOrExpelLeft  ConsumeOrExpelDirection = "left"
+	ConsumeOrExpelRight ConsumeOrExpelDirection = "right"
+	ConsumeOrExpelUp    ConsumeOrExpelDirection = "up"
+	ConsumeOrExpelDown  ConsumeOrExpelDirection = "down"
+)
+
+type ConsumeOrExpelResult struct {
+	Action       string // "consumed", "expelled", or "none"
+	ErrorMessage string
+}
+
+const consumeOrExpelExpelCycleMarker = "_expel_cycle"
 
 // ManagePanesUseCase handles pane tree operations.
 type ManagePanesUseCase struct {
@@ -91,7 +131,7 @@ func (uc *ManagePanesUseCase) Split(ctx context.Context, input SplitPaneInput) (
 		paneID := entity.PaneID(uc.idGenerator())
 		newPane = entity.NewPane(paneID)
 		if input.InitialURL != "" {
-			newPane.URI = input.InitialURL
+			newPane.URI = domainurl.Normalize(input.InitialURL)
 		} else {
 			newPane.URI = "about:blank"
 		}
@@ -164,6 +204,254 @@ func (uc *ManagePanesUseCase) Split(ctx context.Context, input SplitPaneInput) (
 		ParentNode:  parentNode,
 		SplitRatio:  0.5,
 	}, nil
+}
+
+// Resize adjusts the nearest applicable split ratio for the given direction.
+// stepPercent is applied per keystroke (e.g. 5.0 means 5%).
+// minPanePercent enforces a minimum size for each side of a split.
+func (uc *ManagePanesUseCase) Resize(
+	ctx context.Context,
+	ws *entity.Workspace,
+	paneNode *entity.PaneNode,
+	dir ResizeDirection,
+	stepPercent float64,
+	minPanePercent float64,
+) error {
+	log := logging.FromContext(ctx)
+	if uc == nil {
+		return fmt.Errorf("manage panes use case is nil")
+	}
+
+	if ws == nil {
+		return fmt.Errorf("workspace is required")
+	}
+	if ws.Root == nil {
+		return ErrNothingToResize
+	}
+	if paneNode == nil {
+		return fmt.Errorf("pane node is required")
+	}
+
+	target := paneNode
+	if target.Parent != nil && target.Parent.IsStacked {
+		target = target.Parent
+	}
+
+	actualDir := dir
+	switch dir {
+	case ResizeIncrease:
+		actualDir = findSmartResizeDirection(target, true)
+	case ResizeDecrease:
+		actualDir = findSmartResizeDirection(target, false)
+	}
+	if actualDir == "" {
+		return ErrNothingToResize
+	}
+
+	axis, ok := axisForResizeDirection(actualDir)
+	if !ok {
+		return ErrNothingToResize
+	}
+
+	splitNode := findNearestSplitForAxis(target, axis)
+	if splitNode == nil {
+		return ErrNothingToResize
+	}
+
+	// We treat resize directions as moving the split divider.
+	// SplitRatio is the proportion allocated to the first child (left/top).
+	// - Moving the divider right/down increases SplitRatio.
+	// - Moving the divider left/up decreases SplitRatio.
+	delta := deltaForDividerMove(actualDir, stepPercent)
+
+	minRatio := minPanePercent / 100.0
+	maxRatio := 1.0 - minRatio
+	oldRatio := splitNode.SplitRatio
+	splitNode.SplitRatio = clampFloat64(splitNode.SplitRatio+delta, minRatio, maxRatio)
+
+	log.Debug().
+		Str("direction", string(dir)).
+		Str("actual_direction", string(actualDir)).
+		Float64("old_ratio", oldRatio).
+		Float64("new_ratio", splitNode.SplitRatio).
+		Msg("pane resized")
+
+	return nil
+}
+
+type SetSplitRatioInput struct {
+	Workspace      *entity.Workspace
+	SplitNodeID    string
+	Ratio          float64
+	MinPanePercent float64
+}
+
+func (uc *ManagePanesUseCase) SetSplitRatio(ctx context.Context, input SetSplitRatioInput) error {
+	log := logging.FromContext(ctx)
+	if uc == nil {
+		return fmt.Errorf("manage panes use case is nil")
+	}
+	if input.Workspace == nil {
+		return fmt.Errorf("workspace is required")
+	}
+	if input.Workspace.Root == nil {
+		return ErrNothingToResize
+	}
+	if input.SplitNodeID == "" {
+		return fmt.Errorf("split node id is required")
+	}
+
+	var splitNode *entity.PaneNode
+	input.Workspace.Root.Walk(func(node *entity.PaneNode) bool {
+		if node.ID == input.SplitNodeID {
+			splitNode = node
+			return false
+		}
+		return true
+	})
+
+	if splitNode == nil || !splitNode.IsSplit() {
+		return fmt.Errorf("split node not found: %s", input.SplitNodeID)
+	}
+
+	minRatio := input.MinPanePercent / 100.0
+	maxRatio := 1.0 - minRatio
+	oldRatio := splitNode.SplitRatio
+	clamped := clampFloat64(input.Ratio, minRatio, maxRatio)
+	splitNode.SplitRatio = roundSplitRatio(clamped)
+
+	log.Debug().
+		Str("split_node_id", input.SplitNodeID).
+		Float64("old_ratio", oldRatio).
+		Float64("new_ratio", splitNode.SplitRatio).
+		Msg("split ratio set")
+
+	return nil
+}
+
+func findSmartResizeDirection(target *entity.PaneNode, growActive bool) ResizeDirection {
+	splitNode, axis, isStartChild := findNearestSplitForResize(target)
+	if splitNode == nil {
+		return ""
+	}
+
+	// Smart resize means "grow/shrink the active pane".
+	// SplitRatio is the proportion allocated to the first child (left/top).
+	// - If active is first child: grow by increasing ratio, shrink by decreasing.
+	// - If active is second child: grow by decreasing ratio, shrink by increasing.
+	growMeansIncreaseRatio := isStartChild
+	if !growActive {
+		growMeansIncreaseRatio = !growMeansIncreaseRatio
+	}
+
+	switch axis {
+	case resizeAxisHorizontal:
+		if growMeansIncreaseRatio {
+			return ResizeIncreaseRight
+		}
+		return ResizeIncreaseLeft
+	case resizeAxisVertical:
+		if growMeansIncreaseRatio {
+			return ResizeIncreaseDown
+		}
+		return ResizeIncreaseUp
+	default:
+		return ""
+	}
+}
+
+// findNearestSplitForResize returns the nearest split ancestor for the active pane.
+// It prefers horizontal splits over vertical when both are available at the same depth.
+func findNearestSplitForResize(node *entity.PaneNode) (splitNode *entity.PaneNode, axis resizeAxis, isStartChild bool) {
+	current := node
+	for current != nil && current.Parent != nil {
+		parent := current.Parent
+		if parent.IsSplit() {
+			isStartChild = parent.Left() == current
+			switch parent.SplitDir {
+			case entity.SplitHorizontal:
+				return parent, resizeAxisHorizontal, isStartChild
+			case entity.SplitVertical:
+				return parent, resizeAxisVertical, isStartChild
+			}
+		}
+		current = parent
+	}
+	return nil, resizeAxisNone, false
+}
+
+type resizeAxis int
+
+const (
+	resizeAxisNone resizeAxis = iota
+	resizeAxisHorizontal
+	resizeAxisVertical
+)
+
+func axisForResizeDirection(dir ResizeDirection) (resizeAxis, bool) {
+	switch dir {
+	case ResizeIncreaseLeft, ResizeIncreaseRight, ResizeDecreaseLeft, ResizeDecreaseRight:
+		return resizeAxisHorizontal, true
+	case ResizeIncreaseUp, ResizeIncreaseDown, ResizeDecreaseUp, ResizeDecreaseDown:
+		return resizeAxisVertical, true
+	default:
+		return resizeAxisNone, false
+	}
+}
+
+func deltaForDividerMove(dir ResizeDirection, stepPercent float64) float64 {
+	if stepPercent < 0 {
+		stepPercent = -stepPercent
+	}
+	delta := stepPercent / 100.0
+
+	switch dir {
+	case ResizeIncreaseRight, ResizeIncreaseDown:
+		return delta
+	case ResizeIncreaseLeft, ResizeIncreaseUp:
+		return -delta
+	case ResizeDecreaseRight, ResizeDecreaseDown:
+		return -delta
+	case ResizeDecreaseLeft, ResizeDecreaseUp:
+		return delta
+	default:
+		return 0
+	}
+}
+
+// findNearestSplitForAxis walks up the tree to find the nearest split matching the axis.
+func findNearestSplitForAxis(node *entity.PaneNode, axis resizeAxis) *entity.PaneNode {
+	current := node
+	for current != nil && current.Parent != nil {
+		parent := current.Parent
+		if parent.IsSplit() {
+			if axis == resizeAxisHorizontal && parent.SplitDir == entity.SplitHorizontal {
+				return parent
+			}
+			if axis == resizeAxisVertical && parent.SplitDir == entity.SplitVertical {
+				return parent
+			}
+		}
+		current = parent
+	}
+	return nil
+}
+
+const splitRatioRoundFactor = 100.0
+
+func roundSplitRatio(ratio float64) float64 {
+	// Keep snapshots stable and readable; avoids persisting noisy float values.
+	return math.Round(ratio*splitRatioRoundFactor) / splitRatioRoundFactor
+}
+
+func clampFloat64(v, minVal, maxVal float64) float64 {
+	if v < minVal {
+		return minVal
+	}
+	if v > maxVal {
+		return maxVal
+	}
+	return v
 }
 
 // Close removes a pane and promotes its sibling.
@@ -799,6 +1087,568 @@ func (uc *ManagePanesUseCase) RemoveFromStack(ctx context.Context, stackNode *en
 		Str("pane_id", string(paneID)).
 		Int("remaining", len(stackNode.Children)).
 		Msg("pane removed from stack")
+
+	return nil
+}
+
+func (uc *ManagePanesUseCase) ConsumeOrExpel(
+	ctx context.Context,
+	ws *entity.Workspace,
+	activeNode *entity.PaneNode,
+	direction ConsumeOrExpelDirection,
+) (*ConsumeOrExpelResult, error) {
+	if uc == nil {
+		return nil, fmt.Errorf("manage panes use case is nil")
+	}
+	if ws == nil {
+		return nil, fmt.Errorf("workspace is required")
+	}
+	if ws.Root == nil {
+		return &ConsumeOrExpelResult{Action: "none", ErrorMessage: "Only one pane"}, nil
+	}
+	if activeNode == nil {
+		return nil, fmt.Errorf("active pane node is required")
+	}
+	if activeNode.Pane == nil {
+		return nil, fmt.Errorf("active pane node has no pane")
+	}
+
+	if ws.PaneCount() <= 1 {
+		return &ConsumeOrExpelResult{Action: "none", ErrorMessage: "Only one pane"}, nil
+	}
+
+	// Expel if active pane is inside a stack.
+	if activeNode.Parent != nil && activeNode.Parent.IsStacked {
+		return uc.expelFromStack(ctx, ws, activeNode, direction)
+	}
+
+	// Consume if active pane is not inside a stack.
+	return uc.consumeIntoSiblingStack(ctx, ws, activeNode, direction)
+}
+
+func (*ManagePanesUseCase) consumeIntoSiblingStack(
+	ctx context.Context,
+	ws *entity.Workspace,
+	activeNode *entity.PaneNode,
+	direction ConsumeOrExpelDirection,
+) (*ConsumeOrExpelResult, error) {
+	log := logging.FromContext(ctx)
+
+	sibling, _ := findAdjacentSiblingForConsumeOrExpel(activeNode, direction)
+	if sibling == nil {
+		sibling = fallbackSiblingForConsumeOrExpel(activeNode, direction)
+	}
+	if sibling == nil {
+		return &ConsumeOrExpelResult{Action: "none", ErrorMessage: directionNoSiblingMessage(direction)}, nil
+	}
+
+	// Left/right consume cycles layout for immediate split siblings:
+	//  1) horizontal split -> vertical split (target on top)
+	//  2) vertical split -> stack (top then bottom)
+	if direction == ConsumeOrExpelLeft || direction == ConsumeOrExpelRight {
+		cycled, cycleAction, err := cycleHorizontalToVerticalThenStack(ws, activeNode, sibling, direction)
+		if err != nil {
+			return nil, err
+		}
+		if cycled {
+			switch cycleAction {
+			case "vertical_split":
+				log.Info().
+					Str("pane_id", activeNode.ID).
+					Str("sibling_id", sibling.ID).
+					Msg("pane moved below sibling")
+			case "stack":
+				log.Info().
+					Str("pane_id", activeNode.ID).
+					Str("sibling_id", sibling.ID).
+					Msg("split converted to stack")
+			}
+			return &ConsumeOrExpelResult{Action: "consumed"}, nil
+		}
+	}
+
+	moved, err := detachLeafByPromotingSibling(ws, activeNode)
+	if err != nil {
+		return nil, err
+	}
+	moved.Parent = nil
+
+	stackNode := sibling
+	if stackNode.IsLeaf() {
+		stackNode = convertLeafToStackContainer(stackNode)
+	}
+	if !stackNode.IsStacked {
+		return nil, fmt.Errorf("target sibling is not stackable")
+	}
+
+	// Insert consumed pane at the bottom/end.
+	moved.Parent = stackNode
+	stackNode.Children = append(stackNode.Children, moved)
+	stackNode.ActiveStackIndex = len(stackNode.Children) - 1
+	ws.ActivePaneID = moved.Pane.ID
+
+	log.Info().
+		Str("pane_id", moved.ID).
+		Str("stack_id", stackNode.ID).
+		Int("stack_size", len(stackNode.Children)).
+		Msg("pane consumed into sibling stack")
+
+	return &ConsumeOrExpelResult{Action: "consumed"}, nil
+}
+
+func (uc *ManagePanesUseCase) expelFromStack(
+	ctx context.Context,
+	ws *entity.Workspace,
+	activeNode *entity.PaneNode,
+	direction ConsumeOrExpelDirection,
+) (*ConsumeOrExpelResult, error) {
+	log := logging.FromContext(ctx)
+
+	stackNode := activeNode.Parent
+	if stackNode == nil || !stackNode.IsStacked {
+		return &ConsumeOrExpelResult{Action: "none"}, nil
+	}
+
+	expelled, err := removeLeafFromStack(stackNode, activeNode)
+	if err != nil {
+		return nil, err
+	}
+	expelled.Parent = nil
+
+	// If only one pane remains, dissolve stack into a leaf node.
+	if len(stackNode.Children) == 1 {
+		dissolveStackIntoLeaf(stackNode)
+	}
+
+	// Split around the remaining container (stackNode) with expelled pane.
+	// For left/right, expel cycles stack -> vertical split first:
+	// - left: expelled pane above
+	// - right: expelled pane below
+	splitDirection := direction
+	switch direction {
+	case ConsumeOrExpelLeft:
+		splitDirection = ConsumeOrExpelUp
+	case ConsumeOrExpelRight:
+		splitDirection = ConsumeOrExpelDown
+	}
+
+	if direction == ConsumeOrExpelLeft || direction == ConsumeOrExpelRight {
+		err := splitExistingNodeWithMarker(
+			ws,
+			stackNode,
+			expelled,
+			splitDirection,
+			uc.idGenerator,
+			consumeOrExpelExpelCycleMarker,
+		)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		if err := splitExistingNode(ws, stackNode, expelled, splitDirection, uc.idGenerator); err != nil {
+			return nil, err
+		}
+	}
+	ws.ActivePaneID = expelled.Pane.ID
+
+	log.Info().
+		Str("pane_id", expelled.ID).
+		Str("direction", string(direction)).
+		Msg("pane expelled from stack")
+
+	return &ConsumeOrExpelResult{Action: "expelled"}, nil
+}
+
+func directionNoSiblingMessage(direction ConsumeOrExpelDirection) string {
+	switch direction {
+	case ConsumeOrExpelLeft:
+		return "No pane to the left"
+	case ConsumeOrExpelRight:
+		return "No pane to the right"
+	case ConsumeOrExpelUp:
+		return "No pane above"
+	case ConsumeOrExpelDown:
+		return "No pane below"
+	default:
+		return "No pane in that direction"
+	}
+}
+
+func findAdjacentSiblingForConsumeOrExpel(node *entity.PaneNode, direction ConsumeOrExpelDirection) (*entity.PaneNode, string) {
+	if node == nil {
+		return nil, ""
+	}
+
+	// Determine if we need to go horizontal or vertical.
+	isHorizontal := direction == ConsumeOrExpelLeft || direction == ConsumeOrExpelRight
+	isForward := direction == ConsumeOrExpelRight || direction == ConsumeOrExpelDown
+
+	// Walk up the tree to find an ancestor split matching our direction axis.
+	current := node
+	for current.Parent != nil {
+		parent := current.Parent
+		if parent.IsSplit() {
+			parentIsHorizontal := parent.SplitDir == entity.SplitHorizontal
+			if parentIsHorizontal == isHorizontal {
+				if isForward {
+					if parent.Right() != nil && parent.Left() == current {
+						return parent.Right(), ""
+					}
+				} else {
+					if parent.Left() != nil && parent.Right() == current {
+						return parent.Left(), ""
+					}
+				}
+			}
+		}
+		current = parent
+	}
+
+	return nil, directionNoSiblingMessage(direction)
+}
+
+func fallbackSiblingForConsumeOrExpel(node *entity.PaneNode, direction ConsumeOrExpelDirection) *entity.PaneNode {
+	if node == nil || node.Parent == nil {
+		return nil
+	}
+
+	parent := node.Parent
+	if !parent.IsSplit() {
+		return nil
+	}
+
+	axisHorizontal := direction == ConsumeOrExpelLeft || direction == ConsumeOrExpelRight
+	if axisHorizontal {
+		if parent.SplitDir == entity.SplitHorizontal {
+			return nil
+		}
+	} else {
+		if parent.SplitDir == entity.SplitVertical {
+			return nil
+		}
+	}
+
+	// Cross-axis fallback is only used to enable the leaf cycling behavior
+	// (H -> V -> stack, and after expel: V -> H). It should never cause a leaf to
+	// consume into a stacked/split sibling when pressing an unrelated axis key.
+	var sibling *entity.PaneNode
+	if parent.Left() == node {
+		sibling = parent.Right()
+	} else if parent.Right() == node {
+		sibling = parent.Left()
+	}
+	if sibling == nil {
+		return nil
+	}
+	if !node.IsLeaf() || !sibling.IsLeaf() {
+		return nil
+	}
+	return sibling
+}
+
+func cycleHorizontalToVerticalThenStack(
+	ws *entity.Workspace,
+	activeNode *entity.PaneNode,
+	sibling *entity.PaneNode,
+	direction ConsumeOrExpelDirection,
+) (cycled bool, cycleAction string, err error) {
+	if ws == nil {
+		return false, "", fmt.Errorf("workspace is required")
+	}
+	if activeNode == nil || sibling == nil {
+		return false, "", nil
+	}
+	if !activeNode.IsLeaf() || !sibling.IsLeaf() {
+		return false, "", nil
+	}
+
+	parent := activeNode.Parent
+	if parent == nil || sibling.Parent != parent || !parent.IsSplit() {
+		return false, "", nil
+	}
+
+	switch parent.SplitDir {
+	case entity.SplitHorizontal:
+		// Horizontal -> Vertical: target sibling should be on top.
+		parent.SplitDir = entity.SplitVertical
+		if parent.Children[0] != sibling {
+			parent.Children[0], parent.Children[1] = parent.Children[1], parent.Children[0]
+		}
+		ws.ActivePaneID = activeNode.Pane.ID
+		return true, "vertical_split", nil
+	case entity.SplitVertical:
+		// Vertical -> Horizontal when pressing left/right (reverse of first step).
+		// This is used after expel: stack -> vertical; then Ctrl+[ / Ctrl+] should turn it into left/right.
+		if direction == ConsumeOrExpelRight && strings.Contains(parent.ID, consumeOrExpelExpelCycleMarker) {
+			parent.SplitDir = entity.SplitHorizontal
+			// Active should become the right child.
+			if parent.Children[1] != activeNode {
+				parent.Children[0], parent.Children[1] = parent.Children[1], parent.Children[0]
+			}
+			ws.ActivePaneID = activeNode.Pane.ID
+			return true, "horizontal_split", nil
+		}
+
+		// Otherwise, vertical -> stack.
+		parent.SplitDir = entity.SplitNone
+		parent.SplitRatio = 0
+		parent.IsStacked = true
+		parent.Pane = nil
+		if parent.Children[0] == activeNode {
+			parent.ActiveStackIndex = 0
+		} else if parent.Children[1] == activeNode {
+			parent.ActiveStackIndex = 1
+		} else {
+			parent.ActiveStackIndex = 0
+		}
+		ws.ActivePaneID = activeNode.Pane.ID
+		return true, "stack", nil
+	default:
+		return false, "", nil
+	}
+}
+
+func detachLeafByPromotingSibling(ws *entity.Workspace, leaf *entity.PaneNode) (*entity.PaneNode, error) {
+	if ws == nil {
+		return nil, fmt.Errorf("workspace is required")
+	}
+	if leaf == nil {
+		return nil, fmt.Errorf("leaf is required")
+	}
+	if !leaf.IsLeaf() {
+		return nil, fmt.Errorf("can only detach leaf node")
+	}
+
+	parent := leaf.Parent
+	if parent == nil {
+		return nil, fmt.Errorf("cannot detach root leaf")
+	}
+	if !parent.IsSplit() {
+		return nil, fmt.Errorf("leaf parent is not a split")
+	}
+
+	var sibling *entity.PaneNode
+	for _, child := range parent.Children {
+		if child != leaf {
+			sibling = child
+			break
+		}
+	}
+	if sibling == nil {
+		return nil, fmt.Errorf("no sibling found for leaf")
+	}
+
+	grandparent := parent.Parent
+	if grandparent == nil {
+		ws.Root = sibling
+		sibling.Parent = nil
+	} else {
+		for i, child := range grandparent.Children {
+			if child == parent {
+				grandparent.Children[i] = sibling
+				break
+			}
+		}
+		sibling.Parent = grandparent
+	}
+
+	leaf.Parent = nil
+	return leaf, nil
+}
+
+func convertLeafToStackContainer(leaf *entity.PaneNode) *entity.PaneNode {
+	if leaf == nil || !leaf.IsLeaf() {
+		return leaf
+	}
+
+	originalPane := leaf.Pane
+	originalChildNode := &entity.PaneNode{
+		ID:     leaf.ID + "_0",
+		Pane:   originalPane,
+		Parent: leaf,
+	}
+
+	leaf.Pane = nil
+	leaf.IsStacked = true
+	leaf.ActiveStackIndex = 0
+	leaf.Children = []*entity.PaneNode{originalChildNode}
+
+	return leaf
+}
+
+func removeLeafFromStack(stackNode, leaf *entity.PaneNode) (*entity.PaneNode, error) {
+	if stackNode == nil {
+		return nil, fmt.Errorf("stack node is required")
+	}
+	if !stackNode.IsStacked {
+		return nil, fmt.Errorf("node is not a stack")
+	}
+	if leaf == nil || leaf.Pane == nil {
+		return nil, fmt.Errorf("leaf is required")
+	}
+
+	idx := -1
+	for i, child := range stackNode.Children {
+		if child == leaf {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return nil, fmt.Errorf("pane not found in stack")
+	}
+
+	stackNode.Children = append(stackNode.Children[:idx], stackNode.Children[idx+1:]...)
+	if stackNode.ActiveStackIndex >= len(stackNode.Children) {
+		stackNode.ActiveStackIndex = len(stackNode.Children) - 1
+	}
+	if stackNode.ActiveStackIndex < 0 {
+		stackNode.ActiveStackIndex = 0
+	}
+
+	leaf.Parent = nil
+	return leaf, nil
+}
+
+func dissolveStackIntoLeaf(stackNode *entity.PaneNode) {
+	if stackNode == nil || !stackNode.IsStacked || len(stackNode.Children) != 1 {
+		return
+	}
+
+	remaining := stackNode.Children[0]
+	stackNode.Pane = remaining.Pane
+	stackNode.Children = nil
+	stackNode.IsStacked = false
+	stackNode.ActiveStackIndex = 0
+}
+
+func splitExistingNode(
+	ws *entity.Workspace,
+	targetNode *entity.PaneNode,
+	newSibling *entity.PaneNode,
+	direction ConsumeOrExpelDirection,
+	idGen IDGenerator,
+) error {
+	if ws == nil {
+		return fmt.Errorf("workspace is required")
+	}
+	if targetNode == nil {
+		return fmt.Errorf("target node is required")
+	}
+	if newSibling == nil {
+		return fmt.Errorf("new sibling node is required")
+	}
+	if idGen == nil {
+		return fmt.Errorf("id generator is required")
+	}
+
+	var splitDir entity.SplitDirection
+	switch direction {
+	case ConsumeOrExpelLeft, ConsumeOrExpelRight:
+		splitDir = entity.SplitHorizontal
+	case ConsumeOrExpelUp, ConsumeOrExpelDown:
+		splitDir = entity.SplitVertical
+	default:
+		return fmt.Errorf("invalid direction: %s", direction)
+	}
+
+	parentNode := &entity.PaneNode{
+		ID:         idGen(),
+		SplitDir:   splitDir,
+		SplitRatio: 0.5,
+		Children:   make([]*entity.PaneNode, 2),
+	}
+
+	switch direction {
+	case ConsumeOrExpelLeft, ConsumeOrExpelUp:
+		parentNode.Children[0] = newSibling
+		parentNode.Children[1] = targetNode
+	case ConsumeOrExpelRight, ConsumeOrExpelDown:
+		parentNode.Children[0] = targetNode
+		parentNode.Children[1] = newSibling
+	}
+
+	newSibling.Parent = parentNode
+	oldParent := targetNode.Parent
+	targetNode.Parent = parentNode
+
+	if oldParent == nil {
+		ws.Root = parentNode
+	} else {
+		for i, child := range oldParent.Children {
+			if child == targetNode {
+				oldParent.Children[i] = parentNode
+				break
+			}
+		}
+		parentNode.Parent = oldParent
+	}
+
+	return nil
+}
+
+func splitExistingNodeWithMarker(
+	ws *entity.Workspace,
+	targetNode *entity.PaneNode,
+	newSibling *entity.PaneNode,
+	direction ConsumeOrExpelDirection,
+	idGen IDGenerator,
+	marker string,
+) error {
+	if ws == nil {
+		return fmt.Errorf("workspace is required")
+	}
+	if targetNode == nil {
+		return fmt.Errorf("target node is required")
+	}
+	if newSibling == nil {
+		return fmt.Errorf("new sibling node is required")
+	}
+	if idGen == nil {
+		return fmt.Errorf("id generator is required")
+	}
+
+	var splitDir entity.SplitDirection
+	switch direction {
+	case ConsumeOrExpelLeft, ConsumeOrExpelRight:
+		splitDir = entity.SplitHorizontal
+	case ConsumeOrExpelUp, ConsumeOrExpelDown:
+		splitDir = entity.SplitVertical
+	default:
+		return fmt.Errorf("invalid direction: %s", direction)
+	}
+
+	parentNode := &entity.PaneNode{
+		ID:         idGen() + marker,
+		SplitDir:   splitDir,
+		SplitRatio: 0.5,
+		Children:   make([]*entity.PaneNode, 2),
+	}
+
+	switch direction {
+	case ConsumeOrExpelLeft, ConsumeOrExpelUp:
+		parentNode.Children[0] = newSibling
+		parentNode.Children[1] = targetNode
+	case ConsumeOrExpelRight, ConsumeOrExpelDown:
+		parentNode.Children[0] = targetNode
+		parentNode.Children[1] = newSibling
+	}
+
+	newSibling.Parent = parentNode
+	oldParent := targetNode.Parent
+	targetNode.Parent = parentNode
+
+	if oldParent == nil {
+		ws.Root = parentNode
+	} else {
+		for i, child := range oldParent.Children {
+			if child == targetNode {
+				oldParent.Children[i] = parentNode
+				break
+			}
+		}
+		parentNode.Parent = oldParent
+	}
 
 	return nil
 }

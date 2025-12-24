@@ -4,13 +4,118 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **Dark mode detection on internal pages**: Fixed `dumb://home` and other internal pages showing light theme despite system being in dark mode. Refactored color scheme detection to use a priority-based resolver with proper initialization ordering. The libadwaita detector (highest priority) is now correctly enabled only after `adw.Init()` completes, ensuring WebViews created during bootstrap get the correct theme preference.
+
+## [0.22.0] - 2025-12-28
+
 ### Added
+- **Omnibox bang shortcuts UI**: Typing `!` in the omnibox now shows all configured bangs (search shortcuts) with filtering and Enter-to-autocomplete, plus a header badge when a bang is recognized.
+- **Loading skeleton with app logo**: New panes show a centered 512x512 faded app logo with a spinner while loading, replacing the blank/white flash. Uses `--muted` theme color for the spinner.
+- **App logo favicon for internal pages**: `dumb://` URLs now display the dumber logo as favicon in history, favorites, omnibox suggestions, and dmenu/rofi. WebUI and CLI tools share consistent branding.
+- **Omnibox favorite indicator**: History items that are also bookmarked now display a yellowish left border and subtle background tint in the omnibox. Uses parallel async loading to avoid blocking browser startup.
+- **Mode indicator toaster**: Visual notification showing current modal mode (PANE MODE, TAB MODE, SESSION MODE, RESIZE MODE) at bottom-left corner with mode-specific colors. Configurable via `workspace.styling.mode_indicator_toaster_enabled` (default: true).
+- **Config migration system**: Detects missing config keys when new settings are added in updates and provides tools to add them.
+  - `dumber config status`: Shows config file path and number of new settings available.
+  - `dumber config migrate`: Lists missing keys with types/defaults and adds them to config file.
+  - GUI toast notification on startup when new settings are available (configurable via `update.notify_on_new_settings`).
+- **CLI self-update command**: New `dumber update` command to check for and install updates from the command line.
+  - Interactive spinner animation during check and download phases.
+  - `--force` / `-f` flag to skip version check and reinstall the current version.
+  - Reuses existing auto-update infrastructure (check, download, stage, apply on exit).
+  - Theme-aware styling consistent with other CLI commands.
+- **Config open command**: New `dumber config open` command to open the config file in your preferred editor. Uses `$EDITOR`, then `$VISUAL`, with fallback to nano/vim/vi.
+- **Config schema command**: New `dumber config schema` command that displays all configuration keys with their types, defaults, descriptions, and valid values. Supports `--json` flag for machine-readable output.
+- **CLI gen-docs command**: New `dumber gen-docs` command to generate documentation from CLI command definitions. Supports man pages (installed to `~/.local/share/man/man1/`) and markdown formats. Use `--format markdown` for markdown output or `--output` for custom directory.
+- **Move pane to tab**: New pane-mode actions to move the active pane to another tab.
+  - `Ctrl+P → m`: Opens a tab picker modal.
+  - `Ctrl+P → M`: Moves the active pane to the next tab (creates a new tab if needed).
+  - New config: `workspace.switch_to_tab_on_move` (default: true).
+
+### Changed
+- **Cold start optimization**: Reduced startup time by ~150ms (29% faster) through parallel initialization.
+  - New `internal/bootstrap` package encapsulates all startup orchestration.
+  - `RunParallelInit()` runs 5 goroutines concurrently: directory resolution, pkg-config check, GStreamer check, theme manager creation, and SQLite WASM pre-compilation.
+  - WebView pool prewarming creates one WebView synchronously so first `Acquire()` is instant.
+  - Async session cleanup: stale session marking runs in background, doesn't block startup.
+  - `StartupTimer` logs timing for each bootstrap phase (parallel init, DB/WebKit, app creation).
+  - Database initialization runs in background goroutine while WebKit stack initializes on main thread.
+  - Database path now resolved via `config.GetDatabaseFile()` following clean architecture.
+  - Added connection pool settings optimized for SQLite (`SetMaxOpenConns(1)`, keep-alive).
+  - Reduced `mmap_size` from 30GB to 256MB (reasonable for browser history DB).
+  - Added `PRAGMA foreign_keys = ON` for referential integrity.
+- **Startup deferrals**: Runtime/media checks and SQLite WASM precompile now run after first paint, and DB initialization uses lazy repositories when auto-restore is off to cut cold-start latency further.
+- **Console logging**: Standardized console timestamps to `HH:MM:SS` across bootstrap and session logging.
+
+### Fixed
+- **Omnibox favorite toggle reactivity**: Fixed space key toggle in omnibox not updating UI reactively. Now properly toggles favorites (add if not favorite, remove if favorite) with immediate visual feedback (yellow indicator) and toast notifications. Business logic moved to `ManageFavoritesUseCase.Toggle()` for testability.
+- **Config migration type matching**: Fixed migration incorrectly matching keys of different types (e.g., `_width` int keys with `_color` string keys) during rename detection, preventing value swapping.
+- **Config migrate removes deprecated settings**: Fixed `dumber config migrate` not removing deprecated settings from the config file. Previously deprecated keys were preserved but unused; now they are properly deleted. Supports TOML, YAML, and JSON config formats.
+- **Fullscreen video tab bar**: Fixed tab bar remaining visible during fullscreen video playback. Now hides automatically when entering fullscreen and restores based on normal visibility logic when exiting.
+- **Dark mode navigation flash**: Fixed a brief white flash between the loading skeleton and page content when navigating in dark mode.
+- **Progress bar stuck state**: Added 30-second timeout to progress bar to auto-hide if page load stalls and never completes.
+- **OAuth popup login**: Fixed parent page going blank after OAuth popup closes (e.g., Google login on claude.ai, notion.com). Related WebViews share a web process with their parent; destroying the popup was terminating the shared process, killing the parent. Now skips `TerminateWebProcess()` for popup WebViews.
+- Startup: defer WebView pool prewarm until after initial tab creation to reduce cold-start navigation latency.
+- README CLI examples: updated to match current commands/flags (`purge --force` only, `logs` usage, `sessions list --limit`, removed deprecated `--dmenu` root flag).
+
+## [0.21.0] - 2025-12-26
+
+### Added
+- **Configurable new-pane defaults**: New `workspace.new_pane_url` (default: `about:blank`, supports `dumb://`) and `omnibox.auto_open_on_new_pane` (default: false).
+- **Consume-or-expel panes (very alpha)**: Niri-style pane consume/expel operation to merge a leaf into a sibling stack or expel a stacked pane into a split. Default global shortcuts: `Alt+[` / `Alt+]` (and `Alt+Shift+[` / `Alt+Shift+]`).
+- **Zellij-style pane resize mode**: New modal resize mode (`Ctrl+N`) to adjust split sizes with keyboard (`h/j/k/l` or arrow keys, `+/-` smart resize). Shows a per-pane border indicator and keeps the timeout alive while you resize.
+- **Mouse-driven pane resizing**: Drag split dividers with the mouse; split ratios are persisted in session snapshots (rounded to 2 decimals) and restored on resurrection.
+- **Dynamic window title**: Window title now displays the active pane's page title in format `<Page Title> - Dumber`. Updates when switching tabs/panes or navigating. Truncated at 255 characters.
+- **Link URL status overlay**: Shows destination URL in bottom-left corner when hovering over links, images, or media elements. Standard browser UX pattern with 100ms show delay to avoid flicker and 150ms CSS fade transitions. Configurable via CSS.
+- **Local file path support**: `dumber browse test.html` now correctly opens local HTML files by converting existing file paths to `file://` URLs. Supports absolute paths, relative paths, and `~/` home directory expansion.
+- **Auto-update system**: Automatic update checking and self-updating binary replacement following clean architecture.
+  - **Update check on startup**: Async check against GitHub releases API (configurable via `update.enable_on_startup`, default: true).
+  - **Toast notifications**: Non-intrusive auto-dismiss notifications for update availability.
+  - **Auto-download**: Optional background download with binary staging (configurable via `update.auto_download`, default: false).
+  - **Binary self-update**: Atomic binary replacement on clean exit with `.old` backup. Only works if binary is user-writable (e.g., `~/.local/bin/`).
+  - **CLI update check**: `dumber about` now displays update availability.
+  - **Version-less release archives**: Goreleaser now produces `dumber_linux_x86_64.tar.gz` (version in directory inside) enabling stable GitHub `/releases/latest/download/` URLs.
+- **Session management & resurrection**: Zellij-inspired session management system allowing users to save, list, and restore browser sessions.
+  - **Automatic session snapshots**: Debounced state saving (configurable interval, default 5s) captures tabs, panes, splits, stacks, URLs, titles, and zoom levels.
+  - **Session Manager modal**: Access via `Ctrl+O → s/w` or `Ctrl+Shift+S` to browse and restore sessions with inline preview of tabs and panes.
+  - **Session mode**: New modal mode (`Ctrl+O`) with purple border indicator, similar to pane/tab modes.
+  - **CLI session commands**: `dumber sessions` opens interactive TUI browser; `dumber sessions list` shows saved sessions; `dumber sessions restore <id>` resurrects a session in a new window; `dumber sessions delete <id>` removes a session.
+  - **Session purging**: Integrated into `dumber purge` command for cleaning up old session data. Simplified UI with single "Sessions" toggle instead of individual selection.
+  - **Automatic session cleanup**: Sessions are automatically cleaned up on startup based on `max_exited_sessions` (default: 50) and `max_exited_session_age_days` (default: 7 days).
+  - **Configuration options**: `session.auto_restore`, `session.snapshot_interval_ms`, `session.max_exited_sessions`, `session.max_exited_session_age_days`, plus session mode shortcuts and styling.
+
+### Fixed
+- **Alt/Ctrl+number shortcuts on non-QWERTY keyboards**: Fixed Alt+1-9/0 tab switching and Ctrl+1-9/0 omnibox shortcuts not working on AZERTY, QWERTZ, Dvorak, and other non-QWERTY keyboard layouts. Uses hardware keycodes as fallback when keyval lookup fails, enabling shortcuts to work based on physical key position regardless of layout.
+- **Idle inhibition leak on pane close**: Fixed D-Bus idle inhibit request not being released when closing a pane/tab while in fullscreen or playing audio. The inhibition would remain active until the app exited. Now properly tracks fullscreen and audio state and releases inhibition before destroying WebView.
+- **Audio-based idle inhibition**: Extended idle inhibition to also activate when a page is playing audio (e.g., video/music playback), not just in fullscreen mode. Uses WebKit's `notify::is-playing-audio` signal. The inhibitor uses refcounting, so both fullscreen and audio can be active simultaneously.
+
+## [0.20.1] - 2025-12-25
+
+### Fixed
+- **Stacked pane favicon and title updates**: Fixed favicon and title not updating in stacked pane title bars by tracking pane IDs in StackedView and properly routing update events to the correct pane.
+- **WebKit process leak on pane close**: Fixed zombie WebKit web processes not being terminated when panes were closed. `WebView.Destroy()` now properly calls `TerminateWebProcess()` and unparents GTK widgets, freeing GPU resources (VA-API, DMA-BUF, GL contexts). This should significantly improve video playback stability and reduce memory usage when opening/closing many panes.
+- **White flash on navigation**: Eliminated white page flash when navigating in dark mode by setting WebView background color to match theme and hiding WebView until content commits.
+- **Dark mode detection on websites**: Fixed `prefers-color-scheme: dark` detection by improving matchMedia query normalization and adding proper event listener stubs. Sites like Reddit now correctly detect dark mode preference.
+- **Alt+number tab switching**: Fixed Alt+1-9 shortcuts not working when WebView has focus by using GtkShortcutController with global scope instead of EventControllerKey.
+- **System locking during fullscreen video**: Added idle inhibition via XDG Desktop Portal when WebView enters fullscreen mode. Prevents system from locking/sleeping during fullscreen video playback on Wayland (works with all compositors: GNOME, KDE, sway, hyprland, etc.).
+- **Navigation performance**: Significantly faster page navigation through multiple optimizations:
+  - Async history recording via background worker (SQLite writes no longer block GTK main thread)
+  - LRU cache for per-domain zoom levels (repeat visits skip database queries)
+  - Async favicon preload (cache lookup doesn't block navigation start)
+  - Progress callback throttling at ~60fps (reduces UI callback overhead)
+  - Increased WebView pool prewarm from 2 to 4 for faster initial tab creation
+
+### Changed
+- **Custom color picker and confirm dialogs**: Replaced native GTK color picker and confirm dialogs with custom Svelte components using bits-ui AlertDialog. Fixes Wayland compatibility issues where native dialogs would not display properly (fixes #12).
+- **GSK renderer default**: Changed default from `vulkan` to `auto` to let GTK choose the best renderer and avoid potential DMA-BUF synchronization conflicts with WebKit.
+- **Removed invalid GStreamer config**: Removed `video_buffer_size_mb` and `queue_buffer_time_sec` config options as these were not valid GStreamer environment variables (they are element properties that cannot be set via env vars).
+
+### Added
+- **Performance config section**: New `performance` config section with `zoom_cache_size` (default: 256) and `webview_pool_prewarm_count` (default: 4) for tuning. Not exposed in UI but can be set in config file.
 - **Clean-architecture rewrite (pure Go)**: Major refactor to a ports/adapters style architecture with explicit `domain`, `application` (use cases), `infrastructure`, and `ui` layers.
 - **New CLI commands**: `doctor` (runtime dependency checks), `about` (build info), `setup` (desktop integration), plus expanded `purge` with an interactive TUI.
 - **WebUI config improvements**: Search shortcut management (CRUD) and reset-to-defaults support.
 - **Find-in-page**: New find UI and shortcut handling.
-
-### Changed
 - Migrated GUI stack to `puregotk` + `puregotk-webkit` and disabled CGO for pure Go compilation.
 - **Omnibox rewrite**: Replaced injected Svelte/JS omnibox with a native GTK4 widget overlay.
 - Startup defers non-critical work, adds DNS prefetching and a warmed WebView pool for faster tab/pane creation.

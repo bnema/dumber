@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { ModeWatcher } from 'mode-watcher';
   import { Button } from '$lib/components/ui/button';
   import * as Card from '$lib/components/ui/card';
 
@@ -137,6 +138,7 @@
   <title>{config.title}</title>
 </svelte:head>
 
+<ModeWatcher />
 <div class="min-h-screen flex items-center justify-center p-8 bg-background">
   <Card.Root class="w-full max-w-md">
     <Card.Header class="text-center">

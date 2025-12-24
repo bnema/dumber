@@ -24,6 +24,7 @@ type TabCoordinator struct {
 	onTabSwitched      func(ctx context.Context, tab *entity.Tab)
 	onQuit             func()
 	onAttachPopupToTab func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv *webkit.WebView) // For popup tabs
+	onStateChanged     func()                                                                               // For session snapshots
 }
 
 // TabCoordinatorConfig holds configuration for TabCoordinator.
@@ -63,6 +64,18 @@ func (c *TabCoordinator) SetOnQuit(fn func()) {
 	c.onQuit = fn
 }
 
+// SetOnStateChanged sets the callback for when tab state changes (for session snapshots).
+func (c *TabCoordinator) SetOnStateChanged(fn func()) {
+	c.onStateChanged = fn
+}
+
+// notifyStateChanged triggers the state changed callback if set.
+func (c *TabCoordinator) notifyStateChanged() {
+	if c.onStateChanged != nil {
+		c.onStateChanged()
+	}
+}
+
 // Create creates a new tab with the given initial URL.
 func (c *TabCoordinator) Create(ctx context.Context, initialURL string) (*entity.Tab, error) {
 	log := logging.FromContext(ctx)
@@ -98,6 +111,9 @@ func (c *TabCoordinator) Create(ctx context.Context, initialURL string) (*entity
 	if c.onTabSwitched != nil {
 		c.onTabSwitched(ctx, output.Tab)
 	}
+
+	// Notify state change for session snapshots
+	c.notifyStateChanged()
 
 	log.Debug().Str("tab_id", string(output.Tab.ID)).Msg("tab created")
 	return output.Tab, nil
@@ -141,6 +157,11 @@ func (c *TabCoordinator) Close(ctx context.Context) error {
 		if tab := c.tabs.Find(c.tabs.ActiveTabID); tab != nil {
 			c.onTabSwitched(ctx, tab)
 		}
+	}
+
+	// Notify state change for session snapshots (unless quitting)
+	if !wasLast {
+		c.notifyStateChanged()
 	}
 
 	log.Debug().Str("tab_id", string(activeID)).Bool("was_last", wasLast).Msg("tab closed")
