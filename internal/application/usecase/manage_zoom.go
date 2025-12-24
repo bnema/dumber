@@ -13,20 +13,28 @@ import (
 )
 
 // ManageZoomUseCase handles per-domain zoom level operations.
+// It uses an LRU cache to avoid database queries on every navigation.
 type ManageZoomUseCase struct {
 	zoomRepo    repository.ZoomRepository
 	defaultZoom float64
+	cache       port.Cache[string, *entity.ZoomLevel]
 }
 
 // NewManageZoomUseCase creates a new zoom management use case.
 // defaultZoom is the zoom level to use when resetting (typically from config).
-func NewManageZoomUseCase(zoomRepo repository.ZoomRepository, defaultZoom float64) *ManageZoomUseCase {
+// cache is an LRU cache for zoom levels to avoid database queries on repeat visits.
+func NewManageZoomUseCase(
+	zoomRepo repository.ZoomRepository,
+	defaultZoom float64,
+	cache port.Cache[string, *entity.ZoomLevel],
+) *ManageZoomUseCase {
 	if defaultZoom <= 0 {
 		defaultZoom = entity.ZoomDefault
 	}
 	return &ManageZoomUseCase{
 		zoomRepo:    zoomRepo,
 		defaultZoom: defaultZoom,
+		cache:       cache,
 	}
 }
 
@@ -37,10 +45,20 @@ func (uc *ManageZoomUseCase) DefaultZoom() float64 {
 
 // GetZoom retrieves the zoom level for a domain.
 // Returns the configured default zoom level if none is set.
+// Uses LRU cache to avoid database queries on repeat visits.
 func (uc *ManageZoomUseCase) GetZoom(ctx context.Context, domain string) (*entity.ZoomLevel, error) {
 	log := logging.FromContext(ctx)
-	log.Debug().Str("domain", domain).Msg("getting zoom level")
 
+	// Check cache first (fast path - no I/O)
+	if uc.cache != nil {
+		if cached, ok := uc.cache.Get(domain); ok {
+			log.Debug().Str("domain", domain).Float64("zoom", cached.ZoomFactor).Msg("zoom level from cache")
+			return cached, nil
+		}
+	}
+
+	// Cache miss - fetch from database
+	log.Debug().Str("domain", domain).Msg("zoom cache miss, querying database")
 	zoom, err := uc.zoomRepo.Get(ctx, domain)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get zoom level: %w", err)
@@ -49,6 +67,11 @@ func (uc *ManageZoomUseCase) GetZoom(ctx context.Context, domain string) (*entit
 	if zoom == nil {
 		zoom = entity.NewZoomLevel(domain, uc.defaultZoom)
 		log.Debug().Str("domain", domain).Float64("zoom", zoom.ZoomFactor).Msg("using default zoom")
+	}
+
+	// Cache for future lookups
+	if uc.cache != nil {
+		uc.cache.Set(domain, zoom)
 	}
 
 	return zoom, nil
@@ -64,6 +87,11 @@ func (uc *ManageZoomUseCase) SetZoom(ctx context.Context, domain string, factor 
 		return fmt.Errorf("failed to set zoom level: %w", err)
 	}
 
+	// Update cache
+	if uc.cache != nil {
+		uc.cache.Set(domain, zoom)
+	}
+
 	log.Info().Str("domain", domain).Float64("factor", zoom.ZoomFactor).Msg("zoom level saved")
 	return nil
 }
@@ -75,6 +103,11 @@ func (uc *ManageZoomUseCase) ResetZoom(ctx context.Context, domain string) error
 
 	if err := uc.zoomRepo.Delete(ctx, domain); err != nil {
 		return fmt.Errorf("failed to reset zoom level: %w", err)
+	}
+
+	// Invalidate cache
+	if uc.cache != nil {
+		uc.cache.Remove(domain)
 	}
 
 	log.Info().Str("domain", domain).Msg("zoom level reset to default")
@@ -98,6 +131,11 @@ func (uc *ManageZoomUseCase) ZoomIn(ctx context.Context, domain string, current 
 		return nil, fmt.Errorf("failed to save zoom level: %w", err)
 	}
 
+	// Update cache
+	if uc.cache != nil {
+		uc.cache.Set(domain, zoom)
+	}
+
 	return zoom, nil
 }
 
@@ -116,6 +154,11 @@ func (uc *ManageZoomUseCase) ZoomOut(ctx context.Context, domain string, current
 
 	if err := uc.zoomRepo.Set(ctx, zoom); err != nil {
 		return nil, fmt.Errorf("failed to save zoom level: %w", err)
+	}
+
+	// Update cache
+	if uc.cache != nil {
+		uc.cache.Set(domain, zoom)
 	}
 
 	return zoom, nil

@@ -15,11 +15,14 @@ import (
 	"github.com/bnema/dumber/internal/bootstrap"
 	"github.com/bnema/dumber/internal/cli/cmd"
 	"github.com/bnema/dumber/internal/domain/build"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
+	"github.com/bnema/dumber/internal/infrastructure/cache"
 	"github.com/bnema/dumber/internal/infrastructure/clipboard"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/deps"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
+	"github.com/bnema/dumber/internal/infrastructure/idle"
 	"github.com/bnema/dumber/internal/infrastructure/media"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/logging"
@@ -108,8 +111,14 @@ func runGUI() int {
 	themeManager := theme.NewManager(ctx, cfg)
 	stack := bootstrap.BuildWebKitStack(ctx, cfg, dataDir, cacheDir, themeManager, logger)
 	repos := createRepositories(db)
-	useCases := createUseCases(repos, cfg.DefaultWebpageZoom)
-	uiDeps := buildUIDependencies(ctx, cfg, themeManager, &stack, repos, useCases)
+	useCases := createUseCases(repos, cfg)
+	idleInhibitor := idle.NewPortalInhibitor(ctx)
+	defer func() {
+		if idleInhibitor != nil {
+			_ = idleInhibitor.Close()
+		}
+	}()
+	uiDeps := buildUIDependencies(ctx, cfg, themeManager, &stack, repos, useCases, idleInhibitor)
 
 	app, err := ui.New(uiDeps)
 	if err != nil {
@@ -247,7 +256,7 @@ type useCases struct {
 	favicon   *favicon.Service
 }
 
-func createUseCases(repos *repositories, defaultZoom float64) *useCases {
+func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 	const idAlphabetSize = 26
 	idCounter := uint64(0)
 	idGenerator := func() string {
@@ -257,13 +266,17 @@ func createUseCases(repos *repositories, defaultZoom float64) *useCases {
 
 	clipboardAdapter := clipboard.New()
 	faviconCacheDir, _ := config.GetFaviconCacheDir()
+	defaultZoom := cfg.DefaultWebpageZoom
+
+	// Create LRU cache for zoom levels to avoid database queries on repeat visits
+	zoomCache := cache.NewLRU[string, *entity.ZoomLevel](cfg.Performance.ZoomCacheSize)
 
 	return &useCases{
 		tabs:      usecase.NewManageTabsUseCase(idGenerator),
 		panes:     usecase.NewManagePanesUseCase(idGenerator),
 		history:   usecase.NewSearchHistoryUseCase(repos.history),
 		favorites: usecase.NewManageFavoritesUseCase(repos.favorite, repos.folder, repos.tag),
-		zoom:      usecase.NewManageZoomUseCase(repos.zoom, defaultZoom),
+		zoom:      usecase.NewManageZoomUseCase(repos.zoom, defaultZoom, zoomCache),
 		navigate:  usecase.NewNavigateUseCase(repos.history, repos.zoom, defaultZoom),
 		copyURL:   usecase.NewCopyURLUseCase(clipboardAdapter),
 		clipboard: clipboardAdapter,
@@ -278,6 +291,7 @@ func buildUIDependencies(
 	stack *bootstrap.WebKitStack,
 	repos *repositories,
 	uc *useCases,
+	idleInhibitor port.IdleInhibitor,
 ) *ui.Dependencies {
 	return &ui.Dependencies{
 		Ctx:            ctx,
@@ -302,5 +316,6 @@ func buildUIDependencies(
 		CopyURLUC:      uc.copyURL,
 		Clipboard:      uc.clipboard,
 		FaviconService: uc.favicon,
+		IdleInhibitor:  idleInhibitor,
 	}
 }

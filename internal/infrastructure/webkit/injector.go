@@ -27,9 +27,19 @@ const themeCSSScript = `(function() {
 
 // darkModeScript patches window.matchMedia and sets theme class on <html>.
 // It must be injected at document start, after __dumber_gtk_prefers_dark is set.
+// This script:
+// 1. Sets dark/light class on <html> for CSS-based theme detection
+// 2. Injects color-scheme meta tag and CSS for browser UA style hints
+// 3. Patches matchMedia to return the GTK theme preference for prefers-color-scheme queries
+//
+// The matchMedia patch handles various query formats:
+// - (prefers-color-scheme: dark)
+// - (prefers-color-scheme:dark)  -- no space
+// - screen and (prefers-color-scheme: dark)
+// And provides proper addEventListener/removeEventListener stubs for compatibility.
 const darkModeScript = `(function() {
-  const prefersDark = window.__dumber_gtk_prefers_dark || false;
-  const originalMatchMedia = window.matchMedia.bind(window);
+  var prefersDark = window.__dumber_gtk_prefers_dark || false;
+  var originalMatchMedia = window.matchMedia.bind(window);
 
   // Apply dark/light class to document element for CSS theming
   if (prefersDark) {
@@ -41,44 +51,74 @@ const darkModeScript = `(function() {
   }
 
   // Inject color-scheme meta tag
-  const meta = document.createElement('meta');
+  var meta = document.createElement('meta');
   meta.name = 'color-scheme';
   meta.content = prefersDark ? 'dark light' : 'light dark';
   document.documentElement.appendChild(meta);
 
   // Inject root color-scheme style
-  const style = document.createElement('style');
+  var style = document.createElement('style');
   style.setAttribute('data-dumber-color-scheme', '');
   style.textContent = ':root{color-scheme:' + (prefersDark ? 'dark' : 'light') + ';}';
   document.documentElement.appendChild(style);
 
+  // Helper: Check if query is a prefers-color-scheme query
+  // Normalizes by removing whitespace and lowercasing
+  function isColorSchemeQuery(query, scheme) {
+    if (typeof query !== 'string') return false;
+    var normalized = query.replace(/\s+/g, '').toLowerCase();
+    return normalized.indexOf('prefers-color-scheme:' + scheme) !== -1;
+  }
+
+  // Create a fake MediaQueryList that implements the full interface
+  function createFakeMediaQueryList(query, matches) {
+    var listeners = [];
+    var onchangeHandler = null;
+
+    return {
+      matches: matches,
+      media: query,
+      get onchange() { return onchangeHandler; },
+      set onchange(fn) { onchangeHandler = fn; },
+      // Deprecated but still used by some sites
+      addListener: function(cb) {
+        if (typeof cb === 'function') listeners.push(cb);
+      },
+      removeListener: function(cb) {
+        var idx = listeners.indexOf(cb);
+        if (idx !== -1) listeners.splice(idx, 1);
+      },
+      // Modern API
+      addEventListener: function(type, cb) {
+        if (type === 'change' && typeof cb === 'function') {
+          listeners.push(cb);
+        }
+      },
+      removeEventListener: function(type, cb) {
+        if (type === 'change') {
+          var idx = listeners.indexOf(cb);
+          if (idx !== -1) listeners.splice(idx, 1);
+        }
+      },
+      dispatchEvent: function(event) {
+        for (var i = 0; i < listeners.length; i++) {
+          try { listeners[i](event); } catch (e) {}
+        }
+        if (onchangeHandler) {
+          try { onchangeHandler(event); } catch (e) {}
+        }
+        return true;
+      }
+    };
+  }
+
   // Patch matchMedia for prefers-color-scheme queries
   window.matchMedia = function(query) {
-    if (typeof query === 'string') {
-      if (query.includes('prefers-color-scheme: dark')) {
-        return {
-          matches: prefersDark,
-          media: query,
-          onchange: null,
-          addListener: function() {},
-          removeListener: function() {},
-          addEventListener: function() {},
-          removeEventListener: function() {},
-          dispatchEvent: function() { return false; }
-        };
-      }
-      if (query.includes('prefers-color-scheme: light')) {
-        return {
-          matches: !prefersDark,
-          media: query,
-          onchange: null,
-          addListener: function() {},
-          removeListener: function() {},
-          addEventListener: function() {},
-          removeEventListener: function() {},
-          dispatchEvent: function() { return false; }
-        };
-      }
+    if (isColorSchemeQuery(query, 'dark')) {
+      return createFakeMediaQueryList(query, prefersDark);
+    }
+    if (isColorSchemeQuery(query, 'light')) {
+      return createFakeMediaQueryList(query, !prefersDark);
     }
     return originalMatchMedia(query);
   };

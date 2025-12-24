@@ -63,8 +63,8 @@ func (c *NavigationCoordinator) Navigate(ctx context.Context, url string) error 
 			paneID = string(pane.Pane.ID)
 			// Track original URL for cross-domain redirect favicon caching
 			c.contentCoord.SetNavigationOrigin(pane.Pane.ID, url)
-			// Pre-load cached favicon for instant display in stacked pane title bar
-			c.contentCoord.PreloadCachedFavicon(ctx, pane.Pane.ID, url)
+			// Pre-load cached favicon asynchronously (don't block navigation start)
+			go c.contentCoord.PreloadCachedFavicon(ctx, pane.Pane.ID, url)
 		}
 	}
 

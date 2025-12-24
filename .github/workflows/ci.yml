@@ -65,7 +65,9 @@ jobs:
         run: |
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b /usr/local/bin v2.6.2
       - name: Run golangci-lint
-        run: golangci-lint run --timeout=20m
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          golangci-lint run --timeout=20m
 
   test:
     runs-on: ubuntu-latest

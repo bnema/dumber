@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
@@ -94,6 +95,9 @@ type WebView struct {
 	canGoFwd  bool
 	isLoading bool
 
+	// Progress throttling (~60fps)
+	lastProgressUpdate atomic.Int64 // Unix nanoseconds
+
 	// Signal handler IDs for disconnection
 	signalIDs []uint32
 
@@ -107,6 +111,8 @@ type WebView struct {
 	OnCreate          func(PopupRequest) *WebView // Return new WebView or nil to block popup
 	OnReadyToShow     func()                      // Called when popup is ready to display
 	OnLinkMiddleClick func(uri string) bool       // Return true if handled (blocks navigation)
+	OnEnterFullscreen func() bool                 // Return true to prevent fullscreen
+	OnLeaveFullscreen func() bool                 // Return true to prevent leaving fullscreen
 
 	logger zerolog.Logger
 	mu     sync.RWMutex
@@ -314,6 +320,8 @@ func (wv *WebView) connectSignals() {
 	wv.connectFaviconSignal()
 	wv.connectProgressSignal()
 	wv.connectDecidePolicySignal()
+	wv.connectEnterFullscreenSignal()
+	wv.connectLeaveFullscreenSignal()
 }
 
 func (wv *WebView) connectLoadChangedSignal() {
@@ -447,9 +455,24 @@ func (wv *WebView) connectFaviconSignal() {
 	wv.signalIDs = append(wv.signalIDs, sigID)
 }
 
+// progressThrottleInterval limits progress callbacks to ~60fps to reduce UI overhead.
+const progressThrottleInterval = 16 * time.Millisecond
+
 func (wv *WebView) connectProgressSignal() {
 	progressCb := func() {
 		progress := wv.inner.GetEstimatedLoadProgress()
+
+		// Throttle progress updates to ~60fps (16ms interval)
+		// Always allow 0.0 (start) and 1.0 (complete) through
+		now := time.Now().UnixNano()
+		last := wv.lastProgressUpdate.Load()
+		if progress > 0.0 && progress < 1.0 {
+			if now-last < int64(progressThrottleInterval) {
+				return // Skip this update
+			}
+		}
+		wv.lastProgressUpdate.Store(now)
+
 		wv.mu.Lock()
 		wv.progress = progress
 		wv.mu.Unlock()
@@ -517,6 +540,30 @@ func (wv *WebView) connectDecidePolicySignal() {
 		return false
 	}
 	sigID := wv.inner.ConnectDecidePolicy(&decidePolicyCb)
+	wv.signalIDs = append(wv.signalIDs, sigID)
+}
+
+func (wv *WebView) connectEnterFullscreenSignal() {
+	enterFullscreenCb := func(_ webkit.WebView) bool {
+		wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("enter fullscreen")
+		if wv.OnEnterFullscreen != nil {
+			return wv.OnEnterFullscreen()
+		}
+		return false // Allow fullscreen
+	}
+	sigID := wv.inner.ConnectEnterFullscreen(&enterFullscreenCb)
+	wv.signalIDs = append(wv.signalIDs, sigID)
+}
+
+func (wv *WebView) connectLeaveFullscreenSignal() {
+	leaveFullscreenCb := func(_ webkit.WebView) bool {
+		wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("leave fullscreen")
+		if wv.OnLeaveFullscreen != nil {
+			return wv.OnLeaveFullscreen()
+		}
+		return false // Allow leaving fullscreen
+	}
+	sigID := wv.inner.ConnectLeaveFullscreen(&leaveFullscreenCb)
 	wv.signalIDs = append(wv.signalIDs, sigID)
 }
 
@@ -701,6 +748,22 @@ func (wv *WebView) GetZoomLevel() float64 {
 	return wv.inner.GetZoomLevel()
 }
 
+// SetBackgroundColor sets the WebView background color.
+// This color is shown before content is painted, eliminating white flash.
+// Values are in range 0.0-1.0 for red, green, blue, alpha.
+func (wv *WebView) SetBackgroundColor(r, g, b, a float32) {
+	if wv.destroyed.Load() {
+		return
+	}
+	rgba := &gdk.RGBA{
+		Red:   r,
+		Green: g,
+		Blue:  b,
+		Alpha: a,
+	}
+	wv.inner.SetBackgroundColor(rgba)
+}
+
 // State returns the current WebView state as a snapshot.
 func (wv *WebView) State() port.WebViewState {
 	return port.WebViewState{
@@ -812,19 +875,56 @@ func (wv *WebView) DisconnectSignals() {
 	wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("signals disconnected")
 }
 
-// Destroy cleans up the WebView resources.
+// Destroy cleans up the WebView resources and terminates the web process.
+// This must be called when a WebView is no longer needed to free GPU resources,
+// VA-API decoder contexts, and DMA-BUF buffers held by the web process.
 func (wv *WebView) Destroy() {
 	if wv.destroyed.Swap(true) {
 		return // Already destroyed
 	}
 
-	// Disconnect all signal handlers first
+	// 1. Disconnect all signal handlers first to prevent callbacks during cleanup
 	wv.DisconnectSignals()
 
-	// Unregister from global registry
+	// 2. Clear all callbacks to prevent use-after-free
+	wv.OnLoadChanged = nil
+	wv.OnTitleChanged = nil
+	wv.OnURIChanged = nil
+	wv.OnProgressChanged = nil
+	wv.OnFaviconChanged = nil
+	wv.OnClose = nil
+	wv.OnCreate = nil
+	wv.OnReadyToShow = nil
+	wv.OnLinkMiddleClick = nil
+	wv.OnEnterFullscreen = nil
+	wv.OnLeaveFullscreen = nil
+
+	// 3. Clear async callback references
+	wv.mu.Lock()
+	wv.asyncCallbacks = nil
+	wv.mu.Unlock()
+
+	// 4. Unparent from GTK hierarchy (must happen before process termination)
+	// This releases the widget from any parent container.
+	if wv.inner != nil {
+		wv.inner.Unparent()
+	}
+
+	// 5. Terminate the web process to free GPU resources (VA-API, DMA-BUF, GL contexts)
+	// This is critical to prevent zombie processes that hold video decoder resources.
+	if wv.inner != nil {
+		wv.inner.TerminateWebProcess()
+	}
+
+	// 6. Unregister from global registry
 	globalRegistry.unregister(wv.id)
 
-	wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("webview destroyed")
+	// 7. Clear internal references to allow GC
+	wv.inner = nil
+	wv.ucm = nil
+	wv.findController = nil
+
+	wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("webview destroyed and web process terminated")
 }
 
 // RunJavaScript executes script in the specified world (empty for main world).

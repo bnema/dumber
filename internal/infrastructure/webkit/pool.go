@@ -33,7 +33,7 @@ func DefaultPoolConfig() PoolConfig {
 	return PoolConfig{
 		MinSize:      2,
 		MaxSize:      8,
-		PrewarmCount: 2,
+		PrewarmCount: 4, // Pre-create 4 WebViews for faster initial tab creation
 		IdleTimeout:  5 * time.Minute,
 	}
 }
@@ -48,6 +48,10 @@ type WebViewPool struct {
 	injector      *ContentInjector
 	router        *MessageRouter
 	filterApplier FilterApplier // Optional content filter applier
+
+	// Background color for WebViews (eliminates white flash)
+	bgR, bgG, bgB, bgA float32
+	bgMu               sync.RWMutex
 
 	closed atomic.Bool
 	wg     sync.WaitGroup
@@ -96,6 +100,14 @@ func (p *WebViewPool) SetFilterApplier(applier FilterApplier) {
 	p.filterApplier = applier
 }
 
+// SetBackgroundColor sets the background color for newly created WebViews.
+// This color is shown before content is painted, eliminating white flash.
+func (p *WebViewPool) SetBackgroundColor(r, g, b, a float32) {
+	p.bgMu.Lock()
+	p.bgR, p.bgG, p.bgB, p.bgA = r, g, b, a
+	p.bgMu.Unlock()
+}
+
 // Acquire gets a WebView from the pool or creates a new one.
 func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 	log := logging.FromContext(ctx)
@@ -135,8 +147,16 @@ func (p *WebViewPool) createWebView(ctx context.Context) (*WebView, error) {
 		return nil, err
 	}
 
-	// Ensure WebView is visible when used
-	wv.inner.SetVisible(true)
+	// Set background color to match theme (eliminates white flash)
+	p.bgMu.RLock()
+	r, g, b, a := p.bgR, p.bgG, p.bgB, p.bgA
+	p.bgMu.RUnlock()
+	if a > 0 { // Only set if a valid color was configured
+		wv.SetBackgroundColor(r, g, b, a)
+	}
+
+	// Keep WebView hidden until content is painted (see content.go:onLoadCommitted)
+	wv.inner.SetVisible(false)
 
 	if err := wv.AttachFrontend(ctx, p.injector, p.router); err != nil {
 		log.Warn().Err(err).Msg("failed to attach frontend to new webview")

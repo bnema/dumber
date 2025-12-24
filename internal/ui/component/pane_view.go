@@ -42,10 +42,11 @@ func NewPaneView(factory layout.WidgetFactory, paneID entity.PaneID, webViewWidg
 	overlay.SetHexpand(true)
 	overlay.SetVexpand(true)
 	overlay.SetVisible(true)
+	overlay.AddCssClass("pane-overlay") // Theme background prevents white flash
 
 	// Set the WebView as the main child
+	// Note: WebView may be hidden initially (see pool.go) - shown on LoadCommitted
 	if webViewWidget != nil {
-		webViewWidget.SetVisible(true)
 		overlay.SetChild(webViewWidget)
 	}
 
@@ -347,4 +348,39 @@ func (pv *PaneView) ShowZoomToast(ctx context.Context, zoomPercent int) {
 	pv.mu.Unlock()
 
 	t.ShowZoom(ctx, zoomPercent)
+}
+
+// Cleanup removes the WebView widget from the overlay and clears references.
+// This must be called before destroying the WebView to ensure proper GTK cleanup.
+// After calling Cleanup, the PaneView should not be reused.
+func (pv *PaneView) Cleanup() {
+	pv.mu.Lock()
+	defer pv.mu.Unlock()
+
+	// Clear callbacks to prevent use-after-free
+	pv.onFocusIn = nil
+	pv.onFocusOut = nil
+	pv.onHover = nil
+
+	// Detach hover handler if present
+	if pv.hoverHandler != nil {
+		pv.hoverHandler.Detach()
+		pv.hoverHandler = nil
+	}
+
+	// Remove WebView from overlay (unparents it from GTK hierarchy)
+	if pv.webViewWidget != nil {
+		pv.overlay.SetChild(nil)
+		pv.webViewWidget = nil
+	}
+
+	// Clear other overlay children
+	if pv.progressBar != nil {
+		pv.overlay.RemoveOverlay(pv.progressBar.Widget())
+		pv.progressBar = nil
+	}
+	if pv.toaster != nil {
+		pv.overlay.RemoveOverlay(pv.toaster.Widget())
+		pv.toaster = nil
+	}
 }
