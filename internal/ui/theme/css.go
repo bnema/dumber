@@ -434,6 +434,11 @@ entry.find-bar-entry:focus-visible {
 func generatePaneCSS(p Palette) string {
 	return `/* ===== Pane Styling ===== */
 
+/* Pane overlay container - theme background prevents white flash */
+.pane-overlay {
+	background-color: var(--bg);
+}
+
 /* Pane border - default transparent */
 .pane-border {
 	border: 0.0625em solid transparent;

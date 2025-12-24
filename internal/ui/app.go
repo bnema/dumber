@@ -210,6 +210,13 @@ func (a *App) applyGTKColorSchemePreference(ctx context.Context) {
 }
 
 func (a *App) prewarmWebViewPool(ctx context.Context) {
+	// Set theme background color on pool to eliminate white flash.
+	// Must be done before prewarming so WebViews get the correct color.
+	if a.pool != nil && a.deps != nil && a.deps.Theme != nil {
+		r, g, b, alpha := a.deps.Theme.GetBackgroundRGBA()
+		a.pool.SetBackgroundColor(r, g, b, alpha)
+	}
+
 	// Prewarm WebView pool now that GTK is initialized.
 	if a.pool == nil {
 		return
@@ -504,6 +511,11 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.injector,
 		a.router,
 	)
+	// Set theme background color on factory to eliminate white flash
+	if a.deps.Theme != nil {
+		r, g, b, alpha := a.deps.Theme.GetBackgroundRGBA()
+		a.webViewFactory.SetBackgroundColor(r, g, b, alpha)
+	}
 	a.contentCoord.SetPopupConfig(
 		a.webViewFactory,
 		&a.deps.Config.Workspace.Popups,

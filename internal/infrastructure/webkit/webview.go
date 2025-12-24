@@ -729,6 +729,22 @@ func (wv *WebView) GetZoomLevel() float64 {
 	return wv.inner.GetZoomLevel()
 }
 
+// SetBackgroundColor sets the WebView background color.
+// This color is shown before content is painted, eliminating white flash.
+// Values are in range 0.0-1.0 for red, green, blue, alpha.
+func (wv *WebView) SetBackgroundColor(r, g, b, a float32) {
+	if wv.destroyed.Load() {
+		return
+	}
+	rgba := &gdk.RGBA{
+		Red:   r,
+		Green: g,
+		Blue:  b,
+		Alpha: a,
+	}
+	wv.inner.SetBackgroundColor(rgba)
+}
+
 // State returns the current WebView state as a snapshot.
 func (wv *WebView) State() port.WebViewState {
 	return port.WebViewState{

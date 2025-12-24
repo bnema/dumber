@@ -42,10 +42,11 @@ func NewPaneView(factory layout.WidgetFactory, paneID entity.PaneID, webViewWidg
 	overlay.SetHexpand(true)
 	overlay.SetVexpand(true)
 	overlay.SetVisible(true)
+	overlay.AddCssClass("pane-overlay") // Theme background prevents white flash
 
 	// Set the WebView as the main child
+	// Note: WebView may be hidden initially (see pool.go) - shown on LoadCommitted
 	if webViewWidget != nil {
-		webViewWidget.SetVisible(true)
 		overlay.SetChild(webViewWidget)
 	}
 

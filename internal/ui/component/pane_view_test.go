@@ -25,7 +25,7 @@ func TestNewPaneView_CreatesOverlay(t *testing.T) {
 	mockOverlay.EXPECT().SetHexpand(true).Once()
 	mockOverlay.EXPECT().SetVexpand(true).Once()
 	mockOverlay.EXPECT().SetVisible(true).Once()
-	mockWebView.EXPECT().SetVisible(true).Once()
+	mockOverlay.EXPECT().AddCssClass("pane-overlay").Once() // Theme background
 	mockOverlay.EXPECT().SetChild(mockWebView).Once()
 
 	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
@@ -59,6 +59,7 @@ func TestNewPaneView_NilWebView(t *testing.T) {
 	mockOverlay.EXPECT().SetHexpand(true).Once()
 	mockOverlay.EXPECT().SetVexpand(true).Once()
 	mockOverlay.EXPECT().SetVisible(true).Once()
+	mockOverlay.EXPECT().AddCssClass("pane-overlay").Once() // Theme background
 	// SetChild should NOT be called when webview is nil
 
 	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
@@ -504,7 +505,7 @@ func setupPaneViewMocks(
 	mockOverlay.EXPECT().SetHexpand(true).Once()
 	mockOverlay.EXPECT().SetVexpand(true).Once()
 	mockOverlay.EXPECT().SetVisible(true).Once()
-	mockWebView.EXPECT().SetVisible(true).Once()
+	mockOverlay.EXPECT().AddCssClass("pane-overlay").Once() // Theme background
 	mockOverlay.EXPECT().SetChild(mockWebView).Once()
 
 	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
@@ -527,6 +528,7 @@ func setupPaneViewMocksNoWebView(
 	mockOverlay.EXPECT().SetHexpand(true).Once()
 	mockOverlay.EXPECT().SetVexpand(true).Once()
 	mockOverlay.EXPECT().SetVisible(true).Once()
+	mockOverlay.EXPECT().AddCssClass("pane-overlay").Once() // Theme background
 
 	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
 	mockBorderBox.EXPECT().SetCanFocus(false).Once()

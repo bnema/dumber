@@ -639,7 +639,17 @@ func (c *ContentCoordinator) PreloadCachedFavicon(ctx context.Context, paneID en
 // onLoadCommitted re-applies zoom when page content starts loading and records history.
 // WebKit may reset zoom during document transitions, so we reapply after LoadCommitted.
 // History is recorded here because the URI is guaranteed to be correct after commit.
+// Also shows the WebView widget (it's hidden during creation to avoid white flash).
 func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
+	log := logging.FromContext(ctx)
+
+	// Show the WebView now that content is being painted
+	// (WebViews are hidden on creation to avoid white flash)
+	if inner := wv.Widget(); inner != nil {
+		inner.SetVisible(true)
+		log.Debug().Str("pane_id", string(paneID)).Msg("webview shown on load committed")
+	}
+
 	url := wv.URI()
 	if url == "" {
 		return

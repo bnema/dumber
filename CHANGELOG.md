@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **White flash on navigation**: Eliminated white page flash when navigating in dark mode by setting WebView background color to match theme and hiding WebView until content commits.
+- **Dark mode detection on websites**: Fixed `prefers-color-scheme: dark` detection by improving matchMedia query normalization and adding proper event listener stubs. Sites like Reddit now correctly detect dark mode preference.
 - **Alt+number tab switching**: Fixed Alt+1-9 shortcuts not working when WebView has focus by using GtkShortcutController with global scope instead of EventControllerKey.
 - **System locking during fullscreen video**: Added idle inhibition via XDG Desktop Portal when WebView enters fullscreen mode. Prevents system from locking/sleeping during fullscreen video playback on Wayland (works with all compositors: GNOME, KDE, sway, hyprland, etc.).
 
