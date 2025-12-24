@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -346,5 +347,49 @@ func (a *Adapter) UnsetAsDefaultBrowser(ctx context.Context) error {
 
 	// xdg-settings doesn't have a "reset" - user must set another browser
 	log.Warn().Msg("dumber was default browser - user should set a new default")
+	return nil
+}
+
+// SessionSpawner implements port.SessionSpawner by launching a new dumber process.
+type SessionSpawner struct {
+	ctx context.Context
+}
+
+// NewSessionSpawner creates a new session spawner.
+func NewSessionSpawner(ctx context.Context) *SessionSpawner {
+	return &SessionSpawner{ctx: ctx}
+}
+
+// SpawnWithSession starts a new dumber instance to restore a session.
+func (s *SessionSpawner) SpawnWithSession(sessionID entity.SessionID) error {
+	log := logging.FromContext(s.ctx)
+
+	execPath, err := getExecutablePath()
+	if err != nil {
+		return fmt.Errorf("get executable path: %w", err)
+	}
+
+	// Start a detached process with the --restore-session flag
+	cmd := exec.Command(execPath, "browse", "--restore-session", string(sessionID))
+
+	// Detach from current process group so the new process survives
+	cmd.Stdin = nil
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("spawn session: %w", err)
+	}
+
+	// Release the process so it continues running after we close
+	if err := cmd.Process.Release(); err != nil {
+		log.Warn().Err(err).Msg("failed to release spawned process (non-fatal)")
+	}
+
+	log.Info().
+		Str("session_id", string(sessionID)).
+		Int("pid", cmd.Process.Pid).
+		Msg("spawned dumber with session restoration")
+
 	return nil
 }
