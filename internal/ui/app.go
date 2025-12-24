@@ -412,6 +412,12 @@ func (a *App) onShutdown(ctx context.Context) {
 	if a.deps.Pool != nil {
 		a.deps.Pool.Close(ctx)
 	}
+	// Close idle inhibitor to release D-Bus connection
+	if a.deps.IdleInhibitor != nil {
+		if err := a.deps.IdleInhibitor.Close(); err != nil {
+			log.Warn().Err(err).Msg("failed to close idle inhibitor")
+		}
+	}
 
 	log.Info().Msg("application shutdown complete")
 }
@@ -442,6 +448,11 @@ func (a *App) initCoordinators(ctx context.Context) {
 		getActiveWS,
 		a.deps.ZoomUC,
 	)
+
+	// Set idle inhibitor for fullscreen video playback
+	if a.deps.IdleInhibitor != nil {
+		a.contentCoord.SetIdleInhibitor(a.deps.IdleInhibitor)
+	}
 
 	// 2. Tab Coordinator
 	a.tabCoord = coordinator.NewTabCoordinator(ctx, coordinator.TabCoordinatorConfig{

@@ -107,6 +107,8 @@ type WebView struct {
 	OnCreate          func(PopupRequest) *WebView // Return new WebView or nil to block popup
 	OnReadyToShow     func()                      // Called when popup is ready to display
 	OnLinkMiddleClick func(uri string) bool       // Return true if handled (blocks navigation)
+	OnEnterFullscreen func() bool                 // Return true to prevent fullscreen
+	OnLeaveFullscreen func() bool                 // Return true to prevent leaving fullscreen
 
 	logger zerolog.Logger
 	mu     sync.RWMutex
@@ -314,6 +316,8 @@ func (wv *WebView) connectSignals() {
 	wv.connectFaviconSignal()
 	wv.connectProgressSignal()
 	wv.connectDecidePolicySignal()
+	wv.connectEnterFullscreenSignal()
+	wv.connectLeaveFullscreenSignal()
 }
 
 func (wv *WebView) connectLoadChangedSignal() {
@@ -517,6 +521,30 @@ func (wv *WebView) connectDecidePolicySignal() {
 		return false
 	}
 	sigID := wv.inner.ConnectDecidePolicy(&decidePolicyCb)
+	wv.signalIDs = append(wv.signalIDs, sigID)
+}
+
+func (wv *WebView) connectEnterFullscreenSignal() {
+	enterFullscreenCb := func(_ webkit.WebView) bool {
+		wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("enter fullscreen")
+		if wv.OnEnterFullscreen != nil {
+			return wv.OnEnterFullscreen()
+		}
+		return false // Allow fullscreen
+	}
+	sigID := wv.inner.ConnectEnterFullscreen(&enterFullscreenCb)
+	wv.signalIDs = append(wv.signalIDs, sigID)
+}
+
+func (wv *WebView) connectLeaveFullscreenSignal() {
+	leaveFullscreenCb := func(_ webkit.WebView) bool {
+		wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("leave fullscreen")
+		if wv.OnLeaveFullscreen != nil {
+			return wv.OnLeaveFullscreen()
+		}
+		return false // Allow leaving fullscreen
+	}
+	sigID := wv.inner.ConnectLeaveFullscreen(&leaveFullscreenCb)
 	wv.signalIDs = append(wv.signalIDs, sigID)
 }
 

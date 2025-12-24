@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - **Alt+number tab switching**: Fixed Alt+1-9 shortcuts not working when WebView has focus by using GtkShortcutController with global scope instead of EventControllerKey.
+- **System locking during fullscreen video**: Added idle inhibition via XDG Desktop Portal when WebView enters fullscreen mode. Prevents system from locking/sleeping during fullscreen video playback on Wayland (works with all compositors: GNOME, KDE, sway, hyprland, etc.).
 
 ### Added
 - **Clean-architecture rewrite (pure Go)**: Major refactor to a ports/adapters style architecture with explicit `domain`, `application` (use cases), `infrastructure`, and `ui` layers.

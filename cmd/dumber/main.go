@@ -20,6 +20,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/deps"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
+	"github.com/bnema/dumber/internal/infrastructure/idle"
 	"github.com/bnema/dumber/internal/infrastructure/media"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/logging"
@@ -109,7 +110,13 @@ func runGUI() int {
 	stack := bootstrap.BuildWebKitStack(ctx, cfg, dataDir, cacheDir, themeManager, logger)
 	repos := createRepositories(db)
 	useCases := createUseCases(repos, cfg.DefaultWebpageZoom)
-	uiDeps := buildUIDependencies(ctx, cfg, themeManager, &stack, repos, useCases)
+	idleInhibitor := idle.NewPortalInhibitor(ctx)
+	defer func() {
+		if idleInhibitor != nil {
+			_ = idleInhibitor.Close()
+		}
+	}()
+	uiDeps := buildUIDependencies(ctx, cfg, themeManager, &stack, repos, useCases, idleInhibitor)
 
 	app, err := ui.New(uiDeps)
 	if err != nil {
@@ -278,6 +285,7 @@ func buildUIDependencies(
 	stack *bootstrap.WebKitStack,
 	repos *repositories,
 	uc *useCases,
+	idleInhibitor port.IdleInhibitor,
 ) *ui.Dependencies {
 	return &ui.Dependencies{
 		Ctx:            ctx,
@@ -302,5 +310,6 @@ func buildUIDependencies(
 		CopyURLUC:      uc.copyURL,
 		Clipboard:      uc.clipboard,
 		FaviconService: uc.favicon,
+		IdleInhibitor:  idleInhibitor,
 	}
 }

@@ -63,6 +63,9 @@ type ContentCoordinator struct {
 
 	// ID generator for popup panes
 	generateID func() string
+
+	// Idle inhibitor for fullscreen video playback
+	idleInhibitor port.IdleInhibitor
 }
 
 // NewContentCoordinator creates a new ContentCoordinator.
@@ -103,6 +106,11 @@ func (c *ContentCoordinator) SetOnHistoryRecord(fn func(ctx context.Context, pan
 // SetGestureActionHandler sets the callback for mouse button navigation gestures.
 func (c *ContentCoordinator) SetGestureActionHandler(handler input.ActionHandler) {
 	c.gestureActionHandler = handler
+}
+
+// SetIdleInhibitor sets the idle inhibitor for fullscreen video playback.
+func (c *ContentCoordinator) SetIdleInhibitor(inhibitor port.IdleInhibitor) {
+	c.idleInhibitor = inhibitor
 }
 
 // EnsureWebView acquires or reuses a WebView for the given pane.
@@ -165,6 +173,9 @@ func (c *ContentCoordinator) EnsureWebView(ctx context.Context, paneID entity.Pa
 	wv.OnLinkMiddleClick = func(uri string) bool {
 		return c.handleLinkMiddleClick(ctx, paneID, uri)
 	}
+
+	// Set up fullscreen handlers for idle inhibition
+	c.setupFullscreenHandlers(ctx, paneID, wv)
 
 	// Set up popup handling for this WebView
 	c.SetupPopupHandling(ctx, paneID, wv)
@@ -988,6 +999,9 @@ func (c *ContentCoordinator) setupWebViewCallbacks(ctx context.Context, paneID e
 	wv.OnLinkMiddleClick = func(uri string) bool {
 		return c.handleLinkMiddleClick(ctx, paneID, uri)
 	}
+
+	// Fullscreen handlers for idle inhibition
+	c.setupFullscreenHandlers(ctx, paneID, wv)
 }
 
 // setupOAuthAutoClose monitors the popup for OAuth callback URLs and auto-closes.
@@ -1137,4 +1151,31 @@ func (c *ContentCoordinator) handleLinkMiddleClick(ctx context.Context, parentPa
 		Msg("middle-click link opened in new pane")
 
 	return true
+}
+
+// setupFullscreenHandlers configures fullscreen callbacks for idle inhibition.
+func (c *ContentCoordinator) setupFullscreenHandlers(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
+	log := logging.FromContext(ctx)
+
+	if wv == nil {
+		return
+	}
+
+	wv.OnEnterFullscreen = func() bool {
+		if c.idleInhibitor != nil {
+			if err := c.idleInhibitor.Inhibit(ctx, "Fullscreen video playback"); err != nil {
+				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to inhibit idle")
+			}
+		}
+		return false // Allow fullscreen
+	}
+
+	wv.OnLeaveFullscreen = func() bool {
+		if c.idleInhibitor != nil {
+			if err := c.idleInhibitor.Uninhibit(ctx); err != nil {
+				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to uninhibit idle")
+			}
+		}
+		return false // Allow leaving fullscreen
+	}
 }
