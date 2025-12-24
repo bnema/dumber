@@ -31,6 +31,11 @@ type App struct {
 	// Use cases
 	SearchHistoryUC *usecase.SearchHistoryUseCase
 	SessionUC       *usecase.ManageSessionUseCase
+	ListSessionsUC  *usecase.ListSessionsUseCase
+	RestoreUC       *usecase.RestoreSessionUseCase
+
+	// Repositories
+	SessionStateRepo repository.SessionStateRepository
 
 	// Services
 	FaviconService *favicon.Service
@@ -105,24 +110,30 @@ func NewApp() (*App, error) {
 
 	// Create repositories
 	historyRepo := sqlite.NewHistoryRepository(db)
+	sessionStateRepo := sqlite.NewSessionStateRepository(db)
 
 	// Create use cases
 	searchHistoryUC := usecase.NewSearchHistoryUseCase(historyRepo)
+	listSessionsUC := usecase.NewListSessionsUseCase(sessionRepo, sessionStateRepo, cfg.Logging.LogDir)
+	restoreUC := usecase.NewRestoreSessionUseCase(sessionStateRepo, sessionRepo)
 
 	// Create favicon service for CLI (path resolution for dmenu/fuzzel)
 	faviconCacheDir, _ := config.GetFaviconCacheDir()
 	faviconService := favicon.NewService(faviconCacheDir)
 
 	return &App{
-		Config:          cfg,
-		Theme:           theme,
-		db:              db,
-		History:         historyRepo,
-		SearchHistoryUC: searchHistoryUC,
-		SessionUC:       sessionUC,
-		FaviconService:  faviconService,
-		ctx:             ctx,
-		logCleanup:      logCleanup,
+		Config:           cfg,
+		Theme:            theme,
+		db:               db,
+		History:          historyRepo,
+		SearchHistoryUC:  searchHistoryUC,
+		SessionUC:        sessionUC,
+		ListSessionsUC:   listSessionsUC,
+		RestoreUC:        restoreUC,
+		SessionStateRepo: sessionStateRepo,
+		FaviconService:   faviconService,
+		ctx:              ctx,
+		logCleanup:       logCleanup,
 	}, nil
 }
 
