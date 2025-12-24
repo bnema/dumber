@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **Alt+number tab switching**: Fixed Alt+1-9 shortcuts not working when WebView has focus by using GtkShortcutController with global scope instead of EventControllerKey.
+
 ### Added
 - **Clean-architecture rewrite (pure Go)**: Major refactor to a ports/adapters style architecture with explicit `domain`, `application` (use cases), `infrastructure`, and `ui` layers.
 - **New CLI commands**: `doctor` (runtime dependency checks), `about` (build info), `setup` (desktop integration), plus expanded `purge` with an interactive TUI.

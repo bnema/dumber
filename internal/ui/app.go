@@ -61,7 +61,8 @@ type App struct {
 	stackedPaneMgr *component.StackedPaneManager
 
 	// Input handling
-	keyboardHandler *input.KeyboardHandler
+	keyboardHandler       *input.KeyboardHandler
+	globalShortcutHandler *input.GlobalShortcutHandler
 
 	// Focus and border management
 	focusMgr  *focus.Manager
@@ -305,6 +306,17 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 		return wsView.IsOmniboxVisible()
 	})
 	a.keyboardHandler.AttachTo(a.mainWindow.Window())
+
+	// Create global shortcut handler for Alt+1-9 tab switching.
+	// This uses GtkShortcutController with GTK_SHORTCUT_SCOPE_GLOBAL
+	// to intercept shortcuts even when WebView has focus.
+	a.globalShortcutHandler = input.NewGlobalShortcutHandler(
+		ctx,
+		a.mainWindow.Window(),
+		func(ctx context.Context, action input.Action) error {
+			return a.kbDispatcher.Dispatch(ctx, action)
+		},
+	)
 }
 
 func (a *App) initOmniboxConfig(ctx context.Context) {
