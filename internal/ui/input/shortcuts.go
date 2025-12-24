@@ -291,18 +291,12 @@ func (s *ShortcutSet) registerPaneNavigationShortcuts() {
 }
 
 func (s *ShortcutSet) registerTabSwitchShortcuts() {
-	s.Global[KeyBinding{uint(gdk.KEY_1), ModAlt}] = ActionSwitchTabIndex1
-	s.Global[KeyBinding{uint(gdk.KEY_2), ModAlt}] = ActionSwitchTabIndex2
-	s.Global[KeyBinding{uint(gdk.KEY_3), ModAlt}] = ActionSwitchTabIndex3
-	s.Global[KeyBinding{uint(gdk.KEY_4), ModAlt}] = ActionSwitchTabIndex4
-	s.Global[KeyBinding{uint(gdk.KEY_5), ModAlt}] = ActionSwitchTabIndex5
-	s.Global[KeyBinding{uint(gdk.KEY_6), ModAlt}] = ActionSwitchTabIndex6
-	s.Global[KeyBinding{uint(gdk.KEY_7), ModAlt}] = ActionSwitchTabIndex7
-	s.Global[KeyBinding{uint(gdk.KEY_8), ModAlt}] = ActionSwitchTabIndex8
-	s.Global[KeyBinding{uint(gdk.KEY_9), ModAlt}] = ActionSwitchTabIndex9
-	s.Global[KeyBinding{uint(gdk.KEY_0), ModAlt}] = ActionSwitchTabIndex10
-
-	s.Global[KeyBinding{uint(gdk.KEY_Tab), ModAlt}] = ActionSwitchLastTab
+	// NOTE: Alt+1-9, Alt+0, and Alt+Tab are now handled by GlobalShortcutHandler
+	// using GtkShortcutController with GTK_SHORTCUT_SCOPE_GLOBAL.
+	// This is necessary because WebKitGTK's WebView consumes these key events
+	// before they reach the EventControllerKey in capture phase.
+	//
+	// Only Alt+Shift+Tab remains here as a fallback binding.
 	s.Global[KeyBinding{uint(gdk.KEY_Tab), ModAlt | ModShift}] = ActionSwitchLastTab
 }
 

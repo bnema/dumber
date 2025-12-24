@@ -52,6 +52,7 @@ type Dependencies struct {
 	Clipboard      port.Clipboard
 	FaviconService *favicon.Service
 	FilterManager  *filtering.Manager
+	IdleInhibitor  port.IdleInhibitor
 }
 
 // Validate checks that all required dependencies are set.

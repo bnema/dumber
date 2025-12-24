@@ -63,6 +63,9 @@ type ContentCoordinator struct {
 
 	// ID generator for popup panes
 	generateID func() string
+
+	// Idle inhibitor for fullscreen video playback
+	idleInhibitor port.IdleInhibitor
 }
 
 // NewContentCoordinator creates a new ContentCoordinator.
@@ -103,6 +106,11 @@ func (c *ContentCoordinator) SetOnHistoryRecord(fn func(ctx context.Context, pan
 // SetGestureActionHandler sets the callback for mouse button navigation gestures.
 func (c *ContentCoordinator) SetGestureActionHandler(handler input.ActionHandler) {
 	c.gestureActionHandler = handler
+}
+
+// SetIdleInhibitor sets the idle inhibitor for fullscreen video playback.
+func (c *ContentCoordinator) SetIdleInhibitor(inhibitor port.IdleInhibitor) {
+	c.idleInhibitor = inhibitor
 }
 
 // EnsureWebView acquires or reuses a WebView for the given pane.
@@ -165,6 +173,9 @@ func (c *ContentCoordinator) EnsureWebView(ctx context.Context, paneID entity.Pa
 	wv.OnLinkMiddleClick = func(uri string) bool {
 		return c.handleLinkMiddleClick(ctx, paneID, uri)
 	}
+
+	// Set up fullscreen handlers for idle inhibition
+	c.setupFullscreenHandlers(ctx, paneID, wv)
 
 	// Set up popup handling for this WebView
 	c.SetupPopupHandling(ctx, paneID, wv)
@@ -461,7 +472,7 @@ func (c *ContentCoordinator) onTitleChanged(ctx context.Context, paneID entity.P
 		if tr != nil {
 			stackedView := tr.GetStackedViewForPane(string(paneID))
 			if stackedView != nil {
-				c.updateStackedPaneTitle(ctx, ws, stackedView, paneID, title)
+				c.updateStackedPaneTitle(ctx, stackedView, paneID, title)
 			}
 		}
 	}
@@ -485,32 +496,23 @@ func (c *ContentCoordinator) onTitleChanged(ctx context.Context, paneID entity.P
 // updateStackedPaneTitle updates the title of a pane in a StackedView.
 func (c *ContentCoordinator) updateStackedPaneTitle(
 	ctx context.Context,
-	ws *entity.Workspace,
 	sv *layout.StackedView,
 	paneID entity.PaneID,
 	title string,
 ) {
 	log := logging.FromContext(ctx)
 
-	if ws == nil {
+	// Find the pane's index directly in the StackedView
+	index := sv.FindPaneIndex(string(paneID))
+	if index < 0 {
+		log.Debug().
+			Str("pane_id", string(paneID)).
+			Msg("pane not found in StackedView for title update")
 		return
 	}
 
-	paneNode := ws.FindPane(paneID)
-	if paneNode == nil {
-		return
-	}
-
-	// If the pane is in a stacked parent, find its index
-	if paneNode.Parent != nil && paneNode.Parent.IsStacked {
-		for i, child := range paneNode.Parent.Children {
-			if child.Pane != nil && child.Pane.ID == paneID {
-				if err := sv.UpdateTitle(i, title); err != nil {
-					log.Warn().Err(err).Int("index", i).Msg("failed to update stacked pane title")
-				}
-				return
-			}
-		}
+	if err := sv.UpdateTitle(index, title); err != nil {
+		log.Warn().Err(err).Int("index", index).Msg("failed to update stacked pane title")
 	}
 }
 
@@ -534,13 +536,13 @@ func (c *ContentCoordinator) onFaviconChanged(ctx context.Context, paneID entity
 	}
 
 	// Update StackedView favicon if this pane is in a stack
-	ws, wsView := c.getActiveWS()
+	_, wsView := c.getActiveWS()
 	if wsView != nil {
 		tr := wsView.TreeRenderer()
 		if tr != nil {
 			stackedView := tr.GetStackedViewForPane(string(paneID))
 			if stackedView != nil {
-				c.updateStackedPaneFavicon(ctx, ws, stackedView, paneID, favicon)
+				c.updateStackedPaneFavicon(ctx, stackedView, paneID, favicon)
 			}
 		}
 	}
@@ -555,32 +557,23 @@ func (c *ContentCoordinator) onFaviconChanged(ctx context.Context, paneID entity
 // updateStackedPaneFavicon updates the favicon of a pane in a StackedView.
 func (c *ContentCoordinator) updateStackedPaneFavicon(
 	ctx context.Context,
-	ws *entity.Workspace,
 	sv *layout.StackedView,
 	paneID entity.PaneID,
 	favicon *gdk.Texture,
 ) {
 	log := logging.FromContext(ctx)
 
-	if ws == nil {
+	// Find the pane's index directly in the StackedView
+	index := sv.FindPaneIndex(string(paneID))
+	if index < 0 {
+		log.Debug().
+			Str("pane_id", string(paneID)).
+			Msg("pane not found in StackedView for favicon update")
 		return
 	}
 
-	paneNode := ws.FindPane(paneID)
-	if paneNode == nil {
-		return
-	}
-
-	// If the pane is in a stacked parent, find its index
-	if paneNode.Parent != nil && paneNode.Parent.IsStacked {
-		for i, child := range paneNode.Parent.Children {
-			if child.Pane != nil && child.Pane.ID == paneID {
-				if err := sv.UpdateFaviconTexture(i, favicon); err != nil {
-					log.Warn().Err(err).Int("index", i).Msg("failed to update stacked pane favicon")
-				}
-				return
-			}
-		}
+	if err := sv.UpdateFaviconTexture(index, favicon); err != nil {
+		log.Warn().Err(err).Int("index", index).Msg("failed to update stacked pane favicon")
 	}
 }
 
@@ -613,13 +606,13 @@ func (c *ContentCoordinator) PreloadCachedFavicon(ctx context.Context, paneID en
 	}
 
 	// Update stacked pane favicon if applicable
-	ws, wsView := c.getActiveWS()
+	_, wsView := c.getActiveWS()
 	if wsView != nil {
 		tr := wsView.TreeRenderer()
 		if tr != nil {
 			stackedView := tr.GetStackedViewForPane(string(paneID))
 			if stackedView != nil {
-				c.updateStackedPaneFavicon(ctx, ws, stackedView, paneID, texture)
+				c.updateStackedPaneFavicon(ctx, stackedView, paneID, texture)
 			}
 		}
 	}
@@ -628,7 +621,17 @@ func (c *ContentCoordinator) PreloadCachedFavicon(ctx context.Context, paneID en
 // onLoadCommitted re-applies zoom when page content starts loading and records history.
 // WebKit may reset zoom during document transitions, so we reapply after LoadCommitted.
 // History is recorded here because the URI is guaranteed to be correct after commit.
+// Also shows the WebView widget (it's hidden during creation to avoid white flash).
 func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
+	log := logging.FromContext(ctx)
+
+	// Show the WebView now that content is being painted
+	// (WebViews are hidden on creation to avoid white flash)
+	if inner := wv.Widget(); inner != nil {
+		inner.SetVisible(true)
+		log.Debug().Str("pane_id", string(paneID)).Msg("webview shown on load committed")
+	}
+
 	url := wv.URI()
 	if url == "" {
 		return
@@ -988,6 +991,9 @@ func (c *ContentCoordinator) setupWebViewCallbacks(ctx context.Context, paneID e
 	wv.OnLinkMiddleClick = func(uri string) bool {
 		return c.handleLinkMiddleClick(ctx, paneID, uri)
 	}
+
+	// Fullscreen handlers for idle inhibition
+	c.setupFullscreenHandlers(ctx, paneID, wv)
 }
 
 // setupOAuthAutoClose monitors the popup for OAuth callback URLs and auto-closes.
@@ -1137,4 +1143,31 @@ func (c *ContentCoordinator) handleLinkMiddleClick(ctx context.Context, parentPa
 		Msg("middle-click link opened in new pane")
 
 	return true
+}
+
+// setupFullscreenHandlers configures fullscreen callbacks for idle inhibition.
+func (c *ContentCoordinator) setupFullscreenHandlers(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
+	log := logging.FromContext(ctx)
+
+	if wv == nil {
+		return
+	}
+
+	wv.OnEnterFullscreen = func() bool {
+		if c.idleInhibitor != nil {
+			if err := c.idleInhibitor.Inhibit(ctx, "Fullscreen video playback"); err != nil {
+				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to inhibit idle")
+			}
+		}
+		return false // Allow fullscreen
+	}
+
+	wv.OnLeaveFullscreen = func() bool {
+		if c.idleInhibitor != nil {
+			if err := c.idleInhibitor.Uninhibit(ctx); err != nil {
+				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to uninhibit idle")
+			}
+		}
+		return false // Allow leaving fullscreen
+	}
 }

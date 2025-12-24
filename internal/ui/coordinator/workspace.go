@@ -287,7 +287,7 @@ func (c *WorkspaceCoordinator) doIncrementalStackSplit(
 
 	// 4. Wrap the new PaneView in a StackedView
 	newStackedView := layout.NewStackedView(factory)
-	newStackedView.AddPane(ctx, output.NewPaneNode.Pane.Title, "", newPaneView.Widget())
+	newStackedView.AddPane(ctx, string(output.NewPaneNode.Pane.ID), output.NewPaneNode.Pane.Title, "", newPaneView.Widget())
 
 	tr := wsView.TreeRenderer()
 
@@ -461,7 +461,7 @@ func (c *WorkspaceCoordinator) doIncrementalSplit(
 
 	// 5. Wrap the new PaneView in a StackedView
 	newStackedView := layout.NewStackedView(factory)
-	newStackedView.AddPane(ctx, output.NewPaneNode.Pane.Title, "", newPaneView.Widget())
+	newStackedView.AddPane(ctx, string(output.NewPaneNode.Pane.ID), output.NewPaneNode.Pane.Title, "", newPaneView.Widget())
 
 	orientation, existingFirst, ok := splitOrientation(direction)
 	if !ok {

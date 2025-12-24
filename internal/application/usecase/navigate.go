@@ -13,12 +13,30 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
+const (
+	// historyQueueSize is the buffer size for the async history queue.
+	// If the queue is full, new records are dropped with a warning.
+	historyQueueSize = 100
+)
+
+// historyRecord holds data for async history recording.
+type historyRecord struct {
+	url       string
+	timestamp time.Time
+}
+
 // NavigateUseCase handles URL navigation with history recording and zoom application.
 type NavigateUseCase struct {
 	historyRepo  repository.HistoryRepository
 	zoomRepo     repository.ZoomRepository
 	defaultZoom  float64
 	recentVisits sync.Map // key: url, value: time.Time - for deduplication
+
+	// Async history recording
+	historyQueue chan historyRecord
+	done         chan struct{}
+	wg           sync.WaitGroup
+	ctx          context.Context // Base context for background worker
 }
 
 // NewNavigateUseCase creates a new navigation use case.
@@ -31,11 +49,28 @@ func NewNavigateUseCase(
 	if defaultZoom <= 0 {
 		defaultZoom = entity.ZoomDefault
 	}
-	return &NavigateUseCase{
-		historyRepo: historyRepo,
-		zoomRepo:    zoomRepo,
-		defaultZoom: defaultZoom,
+
+	uc := &NavigateUseCase{
+		historyRepo:  historyRepo,
+		zoomRepo:     zoomRepo,
+		defaultZoom:  defaultZoom,
+		historyQueue: make(chan historyRecord, historyQueueSize),
+		done:         make(chan struct{}),
+		ctx:          context.Background(),
 	}
+
+	// Start background history worker
+	uc.wg.Add(1)
+	go uc.historyWorker()
+
+	return uc
+}
+
+// Close shuts down the background history worker and drains any pending records.
+// This should be called when the application is shutting down.
+func (uc *NavigateUseCase) Close() {
+	close(uc.done)
+	uc.wg.Wait()
 }
 
 // NavigateInput contains parameters for navigation.
@@ -79,7 +114,8 @@ func (uc *NavigateUseCase) Execute(ctx context.Context, input NavigateInput) (*N
 // This prevents inflation from redirects and rapid navigation.
 const historyDeduplicationWindow = 2 * time.Second
 
-// RecordHistory saves or updates the history entry.
+// RecordHistory queues a history entry for async recording.
+// This is non-blocking to avoid SQLite I/O on the GTK main thread.
 // Should be called on LoadCommitted when URI is guaranteed correct.
 func (uc *NavigateUseCase) RecordHistory(ctx context.Context, url string) {
 	log := logging.FromContext(ctx)
@@ -88,6 +124,7 @@ func (uc *NavigateUseCase) RecordHistory(ctx context.Context, url string) {
 	url = normalizeURLForHistory(url)
 
 	// Time-based deduplication: skip if same URL was recorded recently
+	// This check is fast (sync.Map lookup) and stays on the main thread
 	now := time.Now()
 	if lastTime, ok := uc.recentVisits.Load(url); ok {
 		if now.Sub(lastTime.(time.Time)) < historyDeduplicationWindow {
@@ -97,23 +134,67 @@ func (uc *NavigateUseCase) RecordHistory(ctx context.Context, url string) {
 	}
 	uc.recentVisits.Store(url, now)
 
+	// Non-blocking send to async queue
+	select {
+	case uc.historyQueue <- historyRecord{url: url, timestamp: now}:
+		log.Debug().Str("url", url).Msg("history record queued")
+	default:
+		// Queue full - log warning but don't block navigation
+		log.Warn().Str("url", url).Msg("history queue full, dropping record")
+	}
+}
+
+// historyWorker is a background goroutine that processes history records.
+// It drains the queue and persists records to the database without blocking the UI.
+func (uc *NavigateUseCase) historyWorker() {
+	defer uc.wg.Done()
+
+	log := logging.FromContext(uc.ctx).With().
+		Str("component", "history-worker").
+		Logger()
+
+	for {
+		select {
+		case record := <-uc.historyQueue:
+			uc.persistHistory(uc.ctx, record)
+		case <-uc.done:
+			// Drain remaining records before shutdown
+			log.Debug().Int("remaining", len(uc.historyQueue)).Msg("draining history queue")
+			for {
+				select {
+				case record := <-uc.historyQueue:
+					uc.persistHistory(uc.ctx, record)
+				default:
+					log.Debug().Msg("history worker shutdown complete")
+					return
+				}
+			}
+		}
+	}
+}
+
+// persistHistory writes a history record to the database.
+// Called from the background worker goroutine.
+func (uc *NavigateUseCase) persistHistory(ctx context.Context, record historyRecord) {
+	log := logging.FromContext(ctx)
+
 	// Check if entry exists
-	existing, err := uc.historyRepo.FindByURL(ctx, url)
+	existing, err := uc.historyRepo.FindByURL(ctx, record.url)
 	if err != nil {
-		log.Warn().Err(err).Str("url", url).Msg("failed to check history")
+		log.Warn().Err(err).Str("url", record.url).Msg("failed to check history")
 		return
 	}
 
 	if existing != nil {
 		// Increment visit count
-		if err := uc.historyRepo.IncrementVisitCount(ctx, url); err != nil {
-			log.Warn().Err(err).Str("url", url).Msg("failed to increment visit count")
+		if err := uc.historyRepo.IncrementVisitCount(ctx, record.url); err != nil {
+			log.Warn().Err(err).Str("url", record.url).Msg("failed to increment visit count")
 		}
 	} else {
 		// Create new entry
-		entry := entity.NewHistoryEntry(url, "")
+		entry := entity.NewHistoryEntry(record.url, "")
 		if err := uc.historyRepo.Save(ctx, entry); err != nil {
-			log.Warn().Err(err).Str("url", url).Msg("failed to save history")
+			log.Warn().Err(err).Str("url", record.url).Msg("failed to save history")
 		}
 	}
 }

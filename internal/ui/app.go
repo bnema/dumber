@@ -61,7 +61,8 @@ type App struct {
 	stackedPaneMgr *component.StackedPaneManager
 
 	// Input handling
-	keyboardHandler *input.KeyboardHandler
+	keyboardHandler       *input.KeyboardHandler
+	globalShortcutHandler *input.GlobalShortcutHandler
 
 	// Focus and border management
 	focusMgr  *focus.Manager
@@ -209,6 +210,13 @@ func (a *App) applyGTKColorSchemePreference(ctx context.Context) {
 }
 
 func (a *App) prewarmWebViewPool(ctx context.Context) {
+	// Set theme background color on pool to eliminate white flash.
+	// Must be done before prewarming so WebViews get the correct color.
+	if a.pool != nil && a.deps != nil && a.deps.Theme != nil {
+		r, g, b, alpha := a.deps.Theme.GetBackgroundRGBA()
+		a.pool.SetBackgroundColor(r, g, b, alpha)
+	}
+
 	// Prewarm WebView pool now that GTK is initialized.
 	if a.pool == nil {
 		return
@@ -305,6 +313,17 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 		return wsView.IsOmniboxVisible()
 	})
 	a.keyboardHandler.AttachTo(a.mainWindow.Window())
+
+	// Create global shortcut handler for Alt+1-9 tab switching.
+	// This uses GtkShortcutController with GTK_SHORTCUT_SCOPE_GLOBAL
+	// to intercept shortcuts even when WebView has focus.
+	a.globalShortcutHandler = input.NewGlobalShortcutHandler(
+		ctx,
+		a.mainWindow.Window(),
+		func(ctx context.Context, action input.Action) error {
+			return a.kbDispatcher.Dispatch(ctx, action)
+		},
+	)
 }
 
 func (a *App) initOmniboxConfig(ctx context.Context) {
@@ -400,6 +419,12 @@ func (a *App) onShutdown(ctx context.Context) {
 	if a.deps.Pool != nil {
 		a.deps.Pool.Close(ctx)
 	}
+	// Close idle inhibitor to release D-Bus connection
+	if a.deps.IdleInhibitor != nil {
+		if err := a.deps.IdleInhibitor.Close(); err != nil {
+			log.Warn().Err(err).Msg("failed to close idle inhibitor")
+		}
+	}
 
 	log.Info().Msg("application shutdown complete")
 }
@@ -430,6 +455,11 @@ func (a *App) initCoordinators(ctx context.Context) {
 		getActiveWS,
 		a.deps.ZoomUC,
 	)
+
+	// Set idle inhibitor for fullscreen video playback
+	if a.deps.IdleInhibitor != nil {
+		a.contentCoord.SetIdleInhibitor(a.deps.IdleInhibitor)
+	}
 
 	// 2. Tab Coordinator
 	a.tabCoord = coordinator.NewTabCoordinator(ctx, coordinator.TabCoordinatorConfig{
@@ -481,6 +511,11 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.injector,
 		a.router,
 	)
+	// Set theme background color on factory to eliminate white flash
+	if a.deps.Theme != nil {
+		r, g, b, alpha := a.deps.Theme.GetBackgroundRGBA()
+		a.webViewFactory.SetBackgroundColor(r, g, b, alpha)
+	}
 	a.contentCoord.SetPopupConfig(
 		a.webViewFactory,
 		&a.deps.Config.Workspace.Popups,

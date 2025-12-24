@@ -41,6 +41,7 @@ func setupWorkspacePaneViewMocks(t *testing.T, mockFactory *mocks.MockWidgetFact
 	mockOverlay.EXPECT().SetHexpand(true).Once()
 	mockOverlay.EXPECT().SetVexpand(true).Once()
 	mockOverlay.EXPECT().SetVisible(true).Once()
+	mockOverlay.EXPECT().AddCssClass("pane-overlay").Once()
 
 	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
 	mockBorderBox.EXPECT().SetCanFocus(false).Once()

@@ -27,6 +27,8 @@ type Config struct {
 	Media MediaConfig `mapstructure:"media" yaml:"media" toml:"media"`
 	// Runtime configures optional runtime overrides (e.g., /opt prefix for WebKitGTK/GTK).
 	Runtime RuntimeConfig `mapstructure:"runtime" yaml:"runtime" toml:"runtime"`
+	// Performance holds internal performance tuning options (not exposed in UI).
+	Performance PerformanceConfig `mapstructure:"performance" yaml:"performance" toml:"performance"`
 }
 
 // RenderingMode selects GPU vs CPU rendering.
@@ -170,6 +172,20 @@ type HistoryConfig struct {
 	MaxEntries          int `mapstructure:"max_entries" yaml:"max_entries" toml:"max_entries"`
 	RetentionPeriodDays int `mapstructure:"retention_period_days" yaml:"retention_period_days" toml:"retention_period_days"`
 	CleanupIntervalDays int `mapstructure:"cleanup_interval_days" yaml:"cleanup_interval_days" toml:"cleanup_interval_days"`
+}
+
+// PerformanceConfig holds internal performance tuning options.
+// These are not exposed in dumb://config UI but can be set in config file.
+type PerformanceConfig struct {
+	// ZoomCacheSize is the number of domain zoom levels to cache in memory.
+	// Higher values reduce database queries but use more memory.
+	// Default: 256 domains (~20KB memory)
+	ZoomCacheSize int `mapstructure:"zoom_cache_size" yaml:"zoom_cache_size" toml:"zoom_cache_size"`
+
+	// WebViewPoolPrewarmCount is the number of WebViews to pre-create at startup.
+	// Higher values speed up initial tab creation but use more memory.
+	// Default: 4
+	WebViewPoolPrewarmCount int `mapstructure:"webview_pool_prewarm_count" yaml:"webview_pool_prewarm_count" toml:"webview_pool_prewarm_count"` //nolint:lll // struct tags must stay on one line
 }
 
 // SearchShortcut represents a search shortcut configuration.

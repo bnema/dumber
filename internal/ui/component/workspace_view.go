@@ -379,11 +379,18 @@ func (wv *WorkspaceView) RegisterPaneView(paneID entity.PaneID, pv *PaneView) {
 	wv.updateSinglePaneModeInternal()
 }
 
-// UnregisterPaneView removes a PaneView from the tracking map.
-// Use this when closing a pane incrementally.
+// UnregisterPaneView removes a PaneView from the tracking map and cleans it up.
+// This must be called when closing a pane to properly release GTK resources
+// before destroying the WebView.
 func (wv *WorkspaceView) UnregisterPaneView(paneID entity.PaneID) {
 	wv.mu.Lock()
 	defer wv.mu.Unlock()
+
+	// Call Cleanup on the PaneView to unparent widgets and clear callbacks
+	// This must happen before WebView.Destroy() is called
+	if pv, ok := wv.paneViews[paneID]; ok && pv != nil {
+		pv.Cleanup()
+	}
 
 	delete(wv.paneViews, paneID)
 	wv.updateSinglePaneModeInternal()

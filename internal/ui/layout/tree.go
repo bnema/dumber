@@ -135,7 +135,7 @@ func (tr *TreeRenderer) renderLeaf(ctx context.Context, node *entity.PaneNode) W
 		Str("title", title).
 		Msg("TreeRenderer.renderLeaf: wrapping pane in StackedView")
 
-	stackedView.AddPane(ctx, title, "", paneWidget)
+	stackedView.AddPane(ctx, paneID, title, "", paneWidget)
 
 	// Track this pane's StackedView for later stacking operations
 	if node.Pane != nil {
@@ -185,22 +185,24 @@ func (tr *TreeRenderer) renderStacked(ctx context.Context, node *entity.PaneNode
 			return nil, err
 		}
 
-		// Get title and favicon from pane if available
+		// Get pane ID, title, and favicon from pane if available
+		paneID := ""
 		title := "Untitled"
 		favicon := ""
 		if child.Pane != nil {
+			paneID = string(child.Pane.ID)
 			if child.Pane.Title != "" {
 				title = child.Pane.Title
 			}
 			favicon = child.Pane.FaviconURL
 		}
 
-		stackedView.AddPane(ctx, title, favicon, childWidget)
+		stackedView.AddPane(ctx, paneID, title, favicon, childWidget)
 
 		// Override paneToStack to point to THIS stacked view, not the child's wrapper.
 		// This ensures geometric navigation and stack sync work correctly.
 		if child.Pane != nil {
-			tr.paneToStack[string(child.Pane.ID)] = stackedView
+			tr.paneToStack[paneID] = stackedView
 		}
 	}
 

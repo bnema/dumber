@@ -87,6 +87,13 @@ func (m *Manager) GetCurrentPalette() Palette {
 	return m.lightPalette
 }
 
+// GetBackgroundRGBA returns the current theme's background color as RGBA float32 values.
+// Used to set WebView background color to eliminate white flash during loading.
+func (m *Manager) GetBackgroundRGBA() (r, g, b, a float32) {
+	palette := m.GetCurrentPalette()
+	return HexToRGBA(palette.Background)
+}
+
 // GetLightPalette returns the light theme palette.
 func (m *Manager) GetLightPalette() Palette {
 	return m.lightPalette
