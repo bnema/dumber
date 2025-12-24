@@ -18,6 +18,8 @@ const (
 	ModeTab
 	// ModePane is the modal pane management mode.
 	ModePane
+	// ModeSession is the modal session management mode.
+	ModeSession
 )
 
 // String returns a human-readable mode name.
@@ -29,6 +31,8 @@ func (m Mode) String() string {
 		return "tab"
 	case ModePane:
 		return "pane"
+	case ModeSession:
+		return "session"
 	default:
 		return "unknown"
 	}
@@ -126,6 +130,41 @@ func (m *ModalState) EnterPaneMode(ctx context.Context, timeout time.Duration) {
 		Str("to", m.mode.String()).
 		Dur("timeout", timeout).
 		Msg("entered pane mode")
+
+	if m.onModeChange != nil {
+		m.onModeChange(oldMode, m.mode)
+	}
+}
+
+// EnterSessionMode switches to session mode with an optional timeout.
+// If timeout is 0, the mode stays until explicitly exited.
+func (m *ModalState) EnterSessionMode(ctx context.Context, timeout time.Duration) {
+	log := logging.FromContext(ctx)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.mode == ModeSession {
+		// Already in session mode, just reset timeout
+		m.resetTimeoutLocked(ctx, timeout)
+		return
+	}
+
+	m.cancelTimerLocked()
+	oldMode := m.mode
+	m.mode = ModeSession
+	m.timeout = timeout
+
+	if timeout > 0 {
+		m.timer = time.AfterFunc(timeout, func() {
+			m.ExitMode(ctx)
+		})
+	}
+
+	log.Debug().
+		Str("from", oldMode.String()).
+		Str("to", m.mode.String()).
+		Dur("timeout", timeout).
+		Msg("entered session mode")
 
 	if m.onModeChange != nil {
 		m.onModeChange(oldMode, m.mode)

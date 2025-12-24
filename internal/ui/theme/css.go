@@ -106,6 +106,10 @@ func GenerateCSSWithScaleAndFonts(p Palette, scale float64, fonts FontConfig) st
 
 	// Toaster styling
 	sb.WriteString(generateToasterCSS(p))
+	sb.WriteString("\n")
+
+	// Session manager styling
+	sb.WriteString(generateSessionManagerCSS(p))
 
 	return sb.String()
 }
@@ -549,6 +553,157 @@ progressbar.osd progress {
 	min-height: 4px;
 	min-width: 0px;
 	background-color: var(--accent);
+}
+`
+}
+
+// generateSessionManagerCSS creates session manager modal styles.
+// Uses em units for scalable UI, matches omnibox styling patterns.
+func generateSessionManagerCSS(p Palette) string {
+	return `/* ===== Session Manager Styling ===== */
+
+/* Session manager outer container - for positioning in overlay */
+.session-manager-outer {
+	/* Positioning is handled via SetHalign/SetValign in Go */
+}
+
+/* Session manager main container - the visible popup */
+.session-manager-container {
+	background-color: var(--surface-variant);
+	border: 0.0625em solid var(--border);
+	border-radius: 0.1875em;
+	padding: 0;
+	min-width: 28em;
+	max-width: 40em;
+}
+
+/* Header with title */
+.session-manager-header {
+	background-color: shade(var(--surface-variant), 1.1);
+	border-bottom: 0.0625em solid var(--border);
+	padding: 0.5em 0.75em;
+}
+
+.session-manager-title {
+	font-size: 0.9375em;
+	font-weight: 600;
+	color: var(--text);
+}
+
+/* Scrolled window for session list */
+.session-manager-scrolled {
+	background-color: shade(var(--surface-variant), 0.95);
+}
+
+/* List box */
+.session-manager-list {
+	background-color: transparent;
+}
+
+/* Session rows */
+.session-manager-row {
+	padding: 0.5em 0.75em;
+	margin: 0;
+	border-radius: 0;
+	border-left: 0.1875em solid transparent;
+	border-bottom: 0.0625em solid alpha(var(--border), 0.5);
+	transition: background-color 100ms ease-in-out, border-left 100ms ease-in-out;
+	min-height: 2.75em;
+}
+
+.session-manager-row:last-child {
+	border-bottom: none;
+}
+
+.session-manager-row:hover {
+	background-color: alpha(var(--accent), 0.12);
+	border-left: 0.1875em solid var(--accent);
+}
+
+.session-manager-row:selected,
+row:selected .session-manager-row {
+	background-color: alpha(var(--accent), 0.2);
+	border-left: 0.1875em solid var(--accent);
+}
+
+/* Status indicator dot */
+.session-status {
+	font-size: 0.875em;
+	min-width: 1em;
+	margin-right: 0.5em;
+}
+
+/* Current session - accent color dot */
+.session-current .session-status {
+	color: var(--accent);
+}
+
+/* Active session (other instance) - muted dot */
+.session-active .session-status {
+	color: var(--muted);
+}
+
+/* Exited session - no dot, dimmed */
+.session-exited {
+	opacity: 0.7;
+}
+
+.session-exited .session-status {
+	color: transparent;
+}
+
+/* Session ID label */
+.session-id {
+	font-size: 0.875em;
+	font-weight: 500;
+	color: var(--text);
+	font-family: var(--font-mono);
+}
+
+.session-current .session-id {
+	color: var(--accent);
+}
+
+/* Tab/pane count label */
+.session-count {
+	font-size: 0.75em;
+	color: var(--muted);
+}
+
+/* Relative time label */
+.session-time {
+	font-size: 0.75em;
+	color: var(--muted);
+	margin-left: auto;
+}
+
+/* Section divider for EXITED sessions */
+.session-divider {
+	font-size: 0.6875em;
+	font-weight: 600;
+	color: var(--muted);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	padding: 0.5em 0.75em 0.25em 0.75em;
+	background-color: alpha(var(--border), 0.3);
+	border-bottom: 0.0625em solid var(--border);
+}
+
+/* Footer with keyboard shortcuts */
+.session-manager-footer {
+	background-color: shade(var(--surface-variant), 0.9);
+	border-top: 0.0625em solid var(--border);
+	padding: 0.375em 0.75em;
+	font-size: 0.6875em;
+	color: var(--muted);
+	font-family: var(--font-mono);
+}
+
+/* Session mode border (purple) */
+.session-mode-active {
+	background-color: transparent;
+	box-shadow: inset 0 0 0 0.25em #9B59B6;
+	border-radius: 0;
 }
 `
 }
