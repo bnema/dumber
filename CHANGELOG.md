@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **Stacked pane favicon and title updates**: Fixed favicon and title not updating in stacked pane title bars by tracking pane IDs in StackedView and properly routing update events to the correct pane.
 - **WebKit process leak on pane close**: Fixed zombie WebKit web processes not being terminated when panes were closed. `WebView.Destroy()` now properly calls `TerminateWebProcess()` and unparents GTK widgets, freeing GPU resources (VA-API, DMA-BUF, GL contexts). This should significantly improve video playback stability and reduce memory usage when opening/closing many panes.
 - **White flash on navigation**: Eliminated white page flash when navigating in dark mode by setting WebView background color to match theme and hiding WebView until content commits.
 - **Dark mode detection on websites**: Fixed `prefers-color-scheme: dark` detection by improving matchMedia query normalization and adding proper event listener stubs. Sites like Reddit now correctly detect dark mode preference.
@@ -18,6 +19,7 @@ All notable changes to this project will be documented in this file.
   - Increased WebView pool prewarm from 2 to 4 for faster initial tab creation
 
 ### Changed
+- **Custom color picker and confirm dialogs**: Replaced native GTK color picker and confirm dialogs with custom Svelte components using bits-ui AlertDialog. Fixes Wayland compatibility issues where native dialogs would not display properly (fixes #12).
 - **GSK renderer default**: Changed default from `vulkan` to `auto` to let GTK choose the best renderer and avoid potential DMA-BUF synchronization conflicts with WebKit.
 - **Removed invalid GStreamer config**: Removed `video_buffer_size_mb` and `queue_buffer_time_sec` config options as these were not valid GStreamer environment variables (they are element properties that cannot be set via env vars).
 
