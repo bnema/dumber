@@ -10,9 +10,9 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/url"
-	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/adapter"
+	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/glib"
@@ -20,13 +20,8 @@ import (
 )
 
 const (
-	omniboxWidthPct       = 0.8 // 80% of parent window width
-	omniboxMaxWidth       = 800 // Maximum width in pixels
-	omniboxFallbackHeight = 600 // Fallback height when overlay not yet allocated
-	omniboxHeightPct      = 0.6 // 60% of parent window height
-	omniboxMaxResults     = 10
-	omniboxTopMarginPct   = 0.2 // 20% from top
-	debounceDelayMs       = 150
+	debounceDelayMs = 150
+	endBoxSpacing   = 6
 )
 
 // ViewMode distinguishes history search from favorites display.
@@ -42,6 +37,14 @@ type Suggestion struct {
 	URL        string
 	Title      string
 	FaviconURL string
+	IsFavorite bool // Indicates if this URL is also bookmarked as a favorite
+}
+
+// BangSuggestion represents a configured bang shortcut.
+// A bang is invoked by typing "!<key>".
+type BangSuggestion struct {
+	Key         string
+	Description string
 }
 
 // Favorite represents a bookmarked URL.
@@ -62,6 +65,7 @@ type Omnibox struct {
 	historyBtn   *gtk.Button
 	favoritesBtn *gtk.Button
 	zoomLabel    *gtk.Label
+	bangBadge    *gtk.Label
 	entry        *gtk.SearchEntry
 	scrolledWin  *gtk.ScrolledWindow
 	listBox      *gtk.ListBox
@@ -70,20 +74,23 @@ type Omnibox struct {
 	parentOverlay layout.OverlayWidget
 
 	// State
-	mu            sync.RWMutex
-	visible       bool
-	viewMode      ViewMode
-	selectedIndex int
-	suggestions   []Suggestion
-	favorites     []Favorite
-	hasNavigated  bool // true if user navigated with arrow keys (enables space to toggle favorite)
+	mu              sync.RWMutex
+	visible         bool
+	viewMode        ViewMode
+	selectedIndex   int
+	suggestions     []Suggestion
+	favorites       []Favorite
+	bangSuggestions []BangSuggestion
+	bangMode        bool
+	detectedBang    string
+	hasNavigated    bool // true if user navigated with arrow keys (enables space to toggle favorite)
 
 	// Dependencies
 	historyUC       *usecase.SearchHistoryUseCase
 	favoritesUC     *usecase.ManageFavoritesUseCase
 	faviconAdapter  *adapter.FaviconAdapter
 	copyURLUC       *usecase.CopyURLUseCase
-	shortcuts       map[string]config.SearchShortcut
+	shortcutsUC     *usecase.SearchShortcutsUseCase
 	defaultSearch   string
 	initialBehavior string
 	ctx             context.Context
@@ -91,7 +98,7 @@ type Omnibox struct {
 	// Callbacks
 	onNavigate func(url string)
 	onClose    func()
-	onToast    func(message string)
+	onToast    func(ctx context.Context, message string, level ToastLevel)
 
 	// Debouncing
 	debounceTimer *time.Timer
@@ -119,12 +126,12 @@ type OmniboxConfig struct {
 	FavoritesUC     *usecase.ManageFavoritesUseCase
 	FaviconAdapter  *adapter.FaviconAdapter
 	CopyURLUC       *usecase.CopyURLUseCase
-	Shortcuts       map[string]config.SearchShortcut
+	ShortcutsUC     *usecase.SearchShortcutsUseCase
 	DefaultSearch   string
 	InitialBehavior string
-	UIScale         float64              // UI scale for favicon sizing
-	OnNavigate      func(url string)     // Callback when user navigates via omnibox
-	OnToast         func(message string) // Callback to show toast notification
+	UIScale         float64                                                     // UI scale for favicon sizing
+	OnNavigate      func(url string)                                            // Callback when user navigates via omnibox
+	OnToast         func(ctx context.Context, message string, level ToastLevel) // Callback to show toast notification
 }
 
 // NewOmnibox creates a new native GTK4 omnibox widget.
@@ -144,7 +151,7 @@ func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 		favoritesUC:     cfg.FavoritesUC,
 		faviconAdapter:  cfg.FaviconAdapter,
 		copyURLUC:       cfg.CopyURLUC,
-		shortcuts:       cfg.Shortcuts,
+		shortcutsUC:     cfg.ShortcutsUC,
 		defaultSearch:   cfg.DefaultSearch,
 		initialBehavior: cfg.InitialBehavior,
 		onToast:         cfg.OnToast,
@@ -193,20 +200,12 @@ func (o *Omnibox) resizeAndCenter(rowCount int) {
 		return
 	}
 
-	// Use GetAllocatedWidth for actual rendered size (height not needed here)
-	parentWidth := o.parentOverlay.GetAllocatedWidth()
-	if parentWidth <= 0 {
-		parentWidth = omniboxMaxWidth
-	}
-
-	width := int(float64(parentWidth) * omniboxWidthPct)
-	if width > omniboxMaxWidth {
-		width = omniboxMaxWidth
-	}
+	// Calculate width using shared helper
+	width, _ := CalculateModalDimensions(o.parentOverlay, OmniboxSizeDefaults)
 
 	// Cap at max results
-	if rowCount > omniboxMaxResults {
-		rowCount = omniboxMaxResults
+	if rowCount > OmniboxListDefaults.MaxVisibleRows {
+		rowCount = OmniboxListDefaults.MaxVisibleRows
 	}
 
 	// Schedule measurement after GTK has laid out widgets
@@ -233,9 +232,8 @@ func (o *Omnibox) measureAndResize(width, rowCount int) {
 		// Use measured values from GTK4 Measure API
 		rowHeight = o.measuredHeights.singleRow
 	} else {
-		// Fallback to hardcoded estimate (before first measurement)
-		const fallbackRowHeight = 60
-		rowHeight = int(fallbackRowHeight * o.uiScale)
+		// Fallback to scaled estimate (before first measurement)
+		rowHeight = ScaleValue(DefaultRowHeights.Standard, o.uiScale)
 	}
 
 	// Calculate content height for the scrolled window
@@ -246,19 +244,13 @@ func (o *Omnibox) measureAndResize(width, rowCount int) {
 	}
 
 	// Cap at max results
-	maxContentHeight := omniboxMaxResults * rowHeight
+	maxContentHeight := OmniboxListDefaults.MaxVisibleRows * rowHeight
 	if contentHeight > maxContentHeight {
 		contentHeight = maxContentHeight
 	}
 
-	// Set size constraints on ScrolledWindow to control dynamic sizing
-	if o.scrolledWin != nil {
-		// Reset min first to avoid assertion failure when shrinking
-		// GTK requires min <= max, so we reset min before setting new values
-		o.scrolledWin.SetMinContentHeight(-1)
-		o.scrolledWin.SetMaxContentHeight(contentHeight)
-		o.scrolledWin.SetMinContentHeight(contentHeight)
-	}
+	// Set size constraints on ScrolledWindow using shared helper
+	SetScrolledWindowHeight(o.scrolledWin, contentHeight)
 
 	// Force layout recalculation
 	o.outerBox.QueueResize()
@@ -305,8 +297,8 @@ func (o *Omnibox) setupKeyboardHandling() {
 	// Set capture phase to intercept before entry
 	controller.SetPropagationPhase(gtk.PhaseCaptureValue)
 
-	keyPressedCb := func(_ gtk.EventControllerKey, keyval uint, _ uint, state gdk.ModifierType) bool {
-		return o.handleKeyPress(keyval, state)
+	keyPressedCb := func(_ gtk.EventControllerKey, keyval, keycode uint, state gdk.ModifierType) bool {
+		return o.handleKeyPress(keyval, keycode, state)
 	}
 	o.retainedCallbacks = append(o.retainedCallbacks, keyPressedCb)
 	controller.ConnectKeyPressed(&keyPressedCb)
@@ -370,12 +362,16 @@ func (o *Omnibox) initHeader() error {
 	o.retainedCallbacks = append(o.retainedCallbacks, favoritesClickCb)
 	o.favoritesBtn.ConnectClicked(&favoritesClickCb)
 
+	o.bangBadge = gtk.NewLabel(nil)
+	if o.bangBadge != nil {
+		o.bangBadge.AddCssClass("omnibox-bang-badge")
+		o.bangBadge.SetVisible(false)
+	}
+
 	o.zoomLabel = gtk.NewLabel(nil)
 	if o.zoomLabel != nil {
 		o.zoomLabel.AddCssClass("omnibox-zoom-indicator")
 		o.zoomLabel.SetVisible(false)
-		o.zoomLabel.SetHalign(gtk.AlignEndValue)
-		o.zoomLabel.SetHexpand(true)
 	}
 	return nil
 }
@@ -388,7 +384,7 @@ func (o *Omnibox) initEntry() error {
 	o.entry.AddCssClass("omnibox-entry")
 	o.entry.SetHexpand(true)
 
-	placeholder := "Search history or enter URL..."
+	placeholder := "Search history or enter URL… (! lists bangs)"
 	o.entry.SetPlaceholderText(&placeholder)
 	return nil
 }
@@ -432,8 +428,18 @@ func (o *Omnibox) initList() error {
 func (o *Omnibox) assembleWidgets() {
 	o.headerBox.Append(&o.historyBtn.Widget)
 	o.headerBox.Append(&o.favoritesBtn.Widget)
-	if o.zoomLabel != nil {
-		o.headerBox.Append(&o.zoomLabel.Widget)
+
+	endBox := gtk.NewBox(gtk.OrientationHorizontalValue, endBoxSpacing)
+	if endBox != nil {
+		endBox.SetHexpand(true)
+		endBox.SetHalign(gtk.AlignEndValue)
+		if o.bangBadge != nil {
+			endBox.Append(&o.bangBadge.Widget)
+		}
+		if o.zoomLabel != nil {
+			endBox.Append(&o.zoomLabel.Widget)
+		}
+		o.headerBox.Append(&endBox.Widget)
 	}
 
 	o.scrolledWin.SetChild(&o.listBox.Widget)
@@ -455,7 +461,7 @@ func (o *Omnibox) setupEntryChanged() {
 
 // handleKeyPress processes keyboard events.
 // Returns true if the event was handled.
-func (o *Omnibox) handleKeyPress(keyval uint, state gdk.ModifierType) bool {
+func (o *Omnibox) handleKeyPress(keyval, keycode uint, state gdk.ModifierType) bool {
 	ctrl := state&gdk.ControlMaskValue != 0
 
 	switch keyval {
@@ -515,29 +521,45 @@ func (o *Omnibox) handleKeyPress(keyval uint, state gdk.ModifierType) bool {
 		return false // Let entry handle 'y' for typing
 
 	default:
-		return o.handleCtrlNumberShortcut(keyval, ctrl)
+		return o.handleCtrlNumberShortcut(keyval, keycode, ctrl)
 	}
 
 	return false // Let entry handle the key
 }
 
 // handleCtrlNumberShortcut handles Ctrl+1-9 and Ctrl+0 for quick navigation.
-func (o *Omnibox) handleCtrlNumberShortcut(keyval uint, ctrl bool) bool {
+// Uses hardware keycode as fallback for non-QWERTY keyboards (AZERTY, QWERTZ, etc.).
+func (o *Omnibox) handleCtrlNumberShortcut(keyval, keycode uint, ctrl bool) bool {
 	if !ctrl {
 		return false
 	}
 
 	const tenthItemIndex = 9
+
+	// First try keyval (works for QWERTY layouts)
 	switch keyval {
 	case uint(gdk.KEY_1), uint(gdk.KEY_2), uint(gdk.KEY_3), uint(gdk.KEY_4), uint(gdk.KEY_5),
 		uint(gdk.KEY_6), uint(gdk.KEY_7), uint(gdk.KEY_8), uint(gdk.KEY_9):
-		index := int(keyval - uint(gdk.KEY_1))
-		o.selectAndNavigate(index)
+		idx := int(keyval - uint(gdk.KEY_1))
+		o.selectAndNavigate(idx)
 		return true
 	case uint(gdk.KEY_0):
 		o.selectAndNavigate(tenthItemIndex)
 		return true
 	}
+
+	// Fallback: use hardware keycode for non-QWERTY layouts
+	// This enables Ctrl+1-9/0 to work on AZERTY, QWERTZ, etc.
+	if index, ok := input.KeycodeToDigitIndex(keycode); ok {
+		log := logging.FromContext(o.ctx)
+		log.Debug().
+			Uint("keycode", keycode).
+			Int("index", index).
+			Msg("omnibox shortcut via hardware keycode fallback (non-QWERTY layout)")
+		o.selectAndNavigate(index)
+		return true
+	}
+
 	return false
 }
 
@@ -581,6 +603,14 @@ func (o *Omnibox) performSearch() {
 	o.lastQuery = query
 	o.debounceMu.Unlock()
 
+	if strings.HasPrefix(query, "!") {
+		o.updateBangDetection(query)
+		o.loadBangSuggestions(query)
+		return
+	}
+
+	o.clearBangState()
+
 	if mode == ViewModeFavorites {
 		o.loadFavorites(query)
 		return
@@ -600,21 +630,46 @@ func (o *Omnibox) performSearch() {
 			return
 		}
 
-		input := usecase.SearchInput{
-			Query: query,
-			Limit: omniboxMaxResults,
+		// Run history search and favorite URL fetch in parallel
+		type searchResult struct {
+			output *usecase.SearchOutput
+			err    error
 		}
-		output, err := o.historyUC.Search(ctx, input)
-		if err != nil {
-			log.Error().Err(err).Msg("history search failed")
+		searchCh := make(chan searchResult, 1)
+		favCh := make(chan map[string]struct{}, 1)
+
+		go func() {
+			searchInput := usecase.SearchInput{
+				Query: query,
+				Limit: OmniboxListDefaults.MaxResults,
+			}
+			output, err := o.historyUC.Search(ctx, searchInput)
+			searchCh <- searchResult{output, err}
+		}()
+
+		go func() {
+			favCh <- o.getFavoriteURLs(ctx)
+		}()
+
+		// Wait for both results
+		sr := <-searchCh
+		favoriteURLs := <-favCh
+
+		if sr.err != nil {
+			log.Error().Err(sr.err).Msg("history search failed")
+			return
+		}
+		if sr.output == nil {
 			return
 		}
 
-		suggestions := make([]Suggestion, 0, len(output.Matches))
-		for _, r := range output.Matches {
+		suggestions := make([]Suggestion, 0, len(sr.output.Matches))
+		for _, r := range sr.output.Matches {
+			_, isFav := favoriteURLs[r.Entry.URL]
 			suggestions = append(suggestions, Suggestion{
-				URL:   r.Entry.URL,
-				Title: r.Entry.Title,
+				URL:        r.Entry.URL,
+				Title:      r.Entry.Title,
+				IsFavorite: isFav,
 			})
 		}
 
@@ -640,17 +695,43 @@ func (o *Omnibox) loadInitialHistory() {
 			return
 
 		case "most_visited", "recent", "":
-			// TODO: Implement GetMostVisited in use case if needed
-			results, err := o.historyUC.GetRecent(ctx, omniboxMaxResults, 0)
-			if err != nil {
-				log.Error().Err(err).Msg("failed to load recent history")
+			// Run history fetch and favorite URL fetch in parallel
+			type historyResult struct {
+				results []*entity.HistoryEntry
+				err     error
+			}
+			historyCh := make(chan historyResult, 1)
+			favCh := make(chan map[string]struct{}, 1)
+
+			go func() {
+				// TODO: Implement GetMostVisited in use case if needed
+				results, err := o.historyUC.GetRecent(ctx, OmniboxListDefaults.MaxResults, 0)
+				historyCh <- historyResult{results, err}
+			}()
+
+			go func() {
+				favCh <- o.getFavoriteURLs(ctx)
+			}()
+
+			// Wait for both results
+			hr := <-historyCh
+			favoriteURLs := <-favCh
+
+			if hr.err != nil {
+				log.Error().Err(hr.err).Msg("failed to load recent history")
 				return
 			}
-			suggestions = make([]Suggestion, 0, len(results))
-			for _, r := range results {
+			if hr.results == nil {
+				return
+			}
+
+			suggestions = make([]Suggestion, 0, len(hr.results))
+			for _, r := range hr.results {
+				_, isFav := favoriteURLs[r.URL]
 				suggestions = append(suggestions, Suggestion{
-					URL:   r.URL,
-					Title: r.Title,
+					URL:        r.URL,
+					Title:      r.Title,
+					IsFavorite: isFav,
 				})
 			}
 		}
@@ -697,9 +778,108 @@ func (o *Omnibox) loadFavorites(query string) {
 	}()
 }
 
+func (o *Omnibox) loadBangSuggestions(query string) {
+	if o.shortcutsUC == nil {
+		return
+	}
+	output := o.shortcutsUC.FilterBangs(o.ctx, usecase.FilterBangsInput{Query: query})
+	suggestions := make([]BangSuggestion, len(output.Suggestions))
+	for i, s := range output.Suggestions {
+		suggestions[i] = BangSuggestion{Key: s.Key, Description: s.Description}
+	}
+	o.idleAddUpdateBangSuggestions(suggestions)
+}
+
+func (o *Omnibox) updateBangDetection(query string) {
+	if o.shortcutsUC == nil {
+		o.clearDetectedBang()
+		return
+	}
+	output := o.shortcutsUC.DetectBangKey(o.ctx, usecase.DetectBangKeyInput{Query: query})
+	if output.Key == "" {
+		o.clearDetectedBang()
+		return
+	}
+
+	o.setDetectedBang(output.Key, output.Description)
+}
+
+func (o *Omnibox) clearBangState() {
+	o.mu.Lock()
+	o.bangMode = false
+	o.bangSuggestions = nil
+	o.mu.Unlock()
+
+	o.clearDetectedBang()
+}
+
+func (o *Omnibox) setDetectedBang(key, description string) {
+	o.mu.Lock()
+	o.detectedBang = key
+	o.mu.Unlock()
+
+	if o.bangBadge == nil {
+		return
+	}
+	label := description
+	var cb glib.SourceFunc = func(uintptr) bool {
+		o.entry.AddCssClass("omnibox-entry-bang-active")
+		o.bangBadge.SetText(label)
+		o.bangBadge.SetVisible(true)
+		return false
+	}
+	glib.IdleAdd(&cb, 0)
+}
+
+func (o *Omnibox) clearDetectedBang() {
+	o.mu.Lock()
+	o.detectedBang = ""
+	o.mu.Unlock()
+
+	if o.bangBadge == nil {
+		return
+	}
+	var cb glib.SourceFunc = func(uintptr) bool {
+		o.entry.RemoveCssClass("omnibox-entry-bang-active")
+		o.bangBadge.SetVisible(false)
+		return false
+	}
+	glib.IdleAdd(&cb, 0)
+}
+
+func (o *Omnibox) idleAddUpdateBangSuggestions(suggestions []BangSuggestion) {
+	var cb glib.SourceFunc = func(uintptr) bool {
+		o.updateBangSuggestions(suggestions)
+		return false
+	}
+	glib.IdleAdd(&cb, 0)
+}
+
+func (o *Omnibox) updateBangSuggestions(suggestions []BangSuggestion) {
+	o.mu.Lock()
+	o.bangMode = true
+	o.bangSuggestions = suggestions
+	o.selectedIndex = -1
+	o.mu.Unlock()
+
+	o.rebuildList()
+
+	rowCount := len(suggestions)
+	if o.scrolledWin != nil {
+		o.scrolledWin.SetVisible(rowCount > 0)
+	}
+	o.resizeAndCenter(rowCount)
+
+	if rowCount > 0 {
+		o.selectIndex(0)
+	}
+}
+
 // updateSuggestions updates the list with history suggestions.
 func (o *Omnibox) updateSuggestions(suggestions []Suggestion) {
 	o.mu.Lock()
+	o.bangMode = false
+	o.bangSuggestions = nil
 	o.suggestions = suggestions
 	o.selectedIndex = -1
 	o.mu.Unlock()
@@ -722,6 +902,8 @@ func (o *Omnibox) updateSuggestions(suggestions []Suggestion) {
 // updateFavorites updates the list with favorites.
 func (o *Omnibox) updateFavorites(favorites []Favorite) {
 	o.mu.Lock()
+	o.bangMode = false
+	o.bangSuggestions = nil
 	o.favorites = favorites
 	o.selectedIndex = -1
 	o.mu.Unlock()
@@ -750,9 +932,18 @@ func (o *Omnibox) rebuildList() {
 	mode := o.viewMode
 	suggestions := o.suggestions
 	favorites := o.favorites
+	bangMode := o.bangMode
+	bangSuggestions := o.bangSuggestions
 	o.mu.RUnlock()
 
-	if mode == ViewModeHistory {
+	if bangMode {
+		for i, b := range bangSuggestions {
+			row := o.createBangRow(b, i)
+			if row != nil {
+				o.listBox.Append(&row.Widget)
+			}
+		}
+	} else if mode == ViewModeHistory {
 		for i, s := range suggestions {
 			row := o.createSuggestionRow(s, i)
 			if row != nil {
@@ -778,12 +969,14 @@ func (o *Omnibox) rebuildList() {
 			if width <= 0 {
 				return false // Overlay not allocated yet, skip
 			}
-			forWidth := int(float64(width) * omniboxWidthPct)
+			forWidth := int(float64(width) * OmniboxSizeDefaults.WidthPct)
 			if o.measureComponentHeights(forWidth) {
 				// Re-trigger resize with accurate measurements
 				o.mu.RLock()
 				var count int
-				if o.viewMode == ViewModeHistory {
+				if o.bangMode {
+					count = len(o.bangSuggestions)
+				} else if o.viewMode == ViewModeHistory {
 					count = len(o.suggestions)
 				} else {
 					count = len(o.favorites)
@@ -824,7 +1017,14 @@ func (o *Omnibox) createFaviconImage(rawURL, fallbackIcon string) *gtk.Image {
 }
 
 // createRowWithFavicon creates a ListBoxRow with favicon, title, URL, and shortcut badge.
+// Uses rawURL for both favicon fetching and display.
 func (o *Omnibox) createRowWithFavicon(rawURL, title, fallbackIcon string, index int) *gtk.ListBoxRow {
+	return o.createRowWithFaviconURL(rawURL, title, rawURL, fallbackIcon, index)
+}
+
+// createRowWithFaviconURL creates a ListBoxRow with favicon, title, URL label, and shortcut badge.
+// faviconURL is used for async favicon fetching (can be empty to skip), displayURL is shown as secondary label.
+func (o *Omnibox) createRowWithFaviconURL(displayURL, title, faviconURL, fallbackIcon string, index int) *gtk.ListBoxRow {
 	row := gtk.NewListBoxRow()
 	if row == nil {
 		return nil
@@ -839,7 +1039,7 @@ func (o *Omnibox) createRowWithFavicon(rawURL, title, fallbackIcon string, index
 	hbox.SetHexpand(true)
 
 	// Favicon image (vertically centered)
-	if favicon := o.createFaviconImage(rawURL, fallbackIcon); favicon != nil {
+	if favicon := o.createFaviconImage(faviconURL, fallbackIcon); favicon != nil {
 		favicon.SetValign(gtk.AlignCenterValue)
 		hbox.Append(&favicon.Widget)
 	}
@@ -855,7 +1055,7 @@ func (o *Omnibox) createRowWithFavicon(rawURL, title, fallbackIcon string, index
 	// Title label (or URL if no title)
 	displayTitle := title
 	if displayTitle == "" {
-		displayTitle = rawURL
+		displayTitle = displayURL
 	}
 	titleLabel := gtk.NewLabel(nil)
 	if titleLabel != nil {
@@ -867,10 +1067,10 @@ func (o *Omnibox) createRowWithFavicon(rawURL, title, fallbackIcon string, index
 	}
 
 	// URL label (only if title exists and differs from URL)
-	if title != "" && title != rawURL {
+	if title != "" && title != displayURL {
 		urlLabel := gtk.NewLabel(nil)
 		if urlLabel != nil {
-			urlLabel.SetText(rawURL)
+			urlLabel.SetText(displayURL)
 			urlLabel.AddCssClass("omnibox-suggestion-url")
 			urlLabel.SetHalign(gtk.AlignStartValue)
 			urlLabel.SetEllipsize(2) // PANGO_ELLIPSIZE_END
@@ -902,12 +1102,26 @@ func (o *Omnibox) createRowWithFavicon(rawURL, title, fallbackIcon string, index
 
 // createSuggestionRow creates a ListBoxRow for a suggestion.
 func (o *Omnibox) createSuggestionRow(s Suggestion, index int) *gtk.ListBoxRow {
-	return o.createRowWithFavicon(s.URL, s.Title, "web-browser-symbolic", index)
+	row := o.createRowWithFavicon(s.URL, s.Title, "web-browser-symbolic", index)
+	if row != nil && s.IsFavorite {
+		row.AddCssClass("omnibox-row-favorite")
+	}
+	return row
 }
 
 // createFavoriteRow creates a ListBoxRow for a favorite.
 func (o *Omnibox) createFavoriteRow(f Favorite, index int) *gtk.ListBoxRow {
 	return o.createRowWithFavicon(f.URL, f.Title, "starred-symbolic", index)
+}
+
+func (o *Omnibox) createBangRow(b BangSuggestion, index int) *gtk.ListBoxRow {
+	// Pass description as URL param (displayed as secondary label) and empty
+	// faviconURL to skip async favicon fetching - bang rows use static icon only
+	row := o.createRowWithFaviconURL(b.Description, "!"+b.Key, "", "system-search-symbolic", index)
+	if row != nil {
+		row.AddCssClass("omnibox-row-bang")
+	}
+	return row
 }
 
 // selectIndex selects a row by index.
@@ -926,8 +1140,11 @@ func (o *Omnibox) selectNext() {
 	o.mu.Lock()
 	current := o.selectedIndex
 	mode := o.viewMode
+	bangMode := o.bangMode
 	var maxIndex int
-	if mode == ViewModeHistory {
+	if bangMode {
+		maxIndex = len(o.bangSuggestions) - 1
+	} else if mode == ViewModeHistory {
 		maxIndex = len(o.suggestions) - 1
 	} else {
 		maxIndex = len(o.favorites) - 1
@@ -951,8 +1168,11 @@ func (o *Omnibox) selectPrevious() {
 	o.mu.Lock()
 	current := o.selectedIndex
 	mode := o.viewMode
+	bangMode := o.bangMode
 	var maxIndex int
-	if mode == ViewModeHistory {
+	if bangMode {
+		maxIndex = len(o.bangSuggestions) - 1
+	} else if mode == ViewModeHistory {
 		maxIndex = len(o.suggestions) - 1
 	} else {
 		maxIndex = len(o.favorites) - 1
@@ -985,9 +1205,37 @@ func (o *Omnibox) navigateToSelected() {
 	idx := o.selectedIndex
 	suggestions := o.suggestions
 	favorites := o.favorites
+	bangMode := o.bangMode
+	bangSuggestions := o.bangSuggestions
 	o.mu.RUnlock()
 
 	entryText := o.entry.GetText()
+
+	if bangMode {
+		// If user typed a full bang query, navigate using the bang URL.
+		if o.shortcutsUC != nil {
+			navOutput := o.shortcutsUC.BuildNavigationText(o.ctx, usecase.BuildNavigationTextInput{EntryText: entryText})
+			if navOutput.Valid {
+				targetURL := o.buildURL(navOutput.Text)
+				if targetURL == "" {
+					return
+				}
+				o.Hide(o.ctx)
+				if o.onNavigate != nil {
+					o.onNavigate(targetURL)
+				}
+				return
+			}
+		}
+
+		// Otherwise, Enter autocompletes the selected bang.
+		if idx >= 0 && idx < len(bangSuggestions) {
+			o.entry.SetText("!" + bangSuggestions[idx].Key + " ")
+			o.entry.SetPosition(-1)
+			return
+		}
+	}
+
 	var targetURL string
 
 	// Check if user typed a URL-like string (contains . and no spaces)
@@ -1018,10 +1266,10 @@ func (o *Omnibox) navigateToSelected() {
 	}
 }
 
-// looksLikeURL checks if the input appears to be a URL (not a search query).
+// looksLikeURL checks if the text appears to be a URL (not a search query).
 // Returns true for strings like "github.com", "google.com/search", etc.
-func (o *Omnibox) looksLikeURL(input string) bool {
-	return url.LooksLikeURL(input)
+func (o *Omnibox) looksLikeURL(text string) bool {
+	return url.LooksLikeURL(text)
 }
 
 // toggleFavorite adds or removes the selected item from favorites.
@@ -1043,15 +1291,15 @@ func (o *Omnibox) toggleFavorite() {
 	}
 
 	if mode == ViewModeHistory {
-		// Add to favorites
+		// Toggle favorite in history mode
 		if idx < 0 || idx >= len(suggestions) {
-			log.Debug().Int("index", idx).Msg("add favorite: invalid selection")
+			log.Debug().Int("index", idx).Msg("toggle favorite: invalid selection")
 			return
 		}
 
 		s := suggestions[idx]
 		if s.URL == "" {
-			log.Debug().Msg("add favorite: empty URL")
+			log.Debug().Msg("toggle favorite: empty URL")
 			return
 		}
 
@@ -1059,20 +1307,39 @@ func (o *Omnibox) toggleFavorite() {
 			ctx := o.ctx
 			goLog := logging.FromContext(ctx)
 
-			goLog.Debug().Str("url", s.URL).Str("title", s.Title).Msg("adding to favorites")
-
-			input := usecase.AddFavoriteInput{
-				URL:   s.URL,
-				Title: s.Title,
-			}
-
-			fav, err := o.favoritesUC.Add(ctx, input)
+			result, err := o.favoritesUC.Toggle(ctx, s.URL, s.Title)
 			if err != nil {
-				goLog.Error().Err(err).Str("url", s.URL).Msg("failed to add favorite")
+				goLog.Error().Err(err).Str("url", s.URL).Msg("failed to toggle favorite")
+				if o.onToast != nil {
+					msg := "Failed to add favorite"
+					if s.IsFavorite {
+						msg = "Failed to remove favorite"
+					}
+					cb := glib.SourceFunc(func(_ uintptr) bool {
+						o.onToast(ctx, msg, ToastError)
+						return false
+					})
+					glib.IdleAdd(&cb, 0)
+				}
 				return
 			}
 
-			goLog.Info().Str("url", s.URL).Int64("id", int64(fav.ID)).Msg("favorite added from omnibox")
+			// Update suggestion state
+			o.mu.Lock()
+			if idx < len(o.suggestions) && o.suggestions[idx].URL == s.URL {
+				o.suggestions[idx].IsFavorite = result.Added
+			}
+			o.mu.Unlock()
+
+			// Update row CSS and show toast on GTK main thread
+			cb := glib.SourceFunc(func(_ uintptr) bool {
+				o.updateRowFavoriteIndicator(idx, result.Added)
+				if o.onToast != nil {
+					o.onToast(ctx, result.Message, ToastSuccess)
+				}
+				return false
+			})
+			glib.IdleAdd(&cb, 0)
 		}()
 	} else {
 		// Remove from favorites
@@ -1096,14 +1363,43 @@ func (o *Omnibox) toggleFavorite() {
 			err := o.favoritesUC.Remove(ctx, entity.FavoriteID(f.ID))
 			if err != nil {
 				log.Error().Err(err).Int64("id", f.ID).Msg("failed to remove favorite")
+				// Show error toast
+				if o.onToast != nil {
+					cb := glib.SourceFunc(func(_ uintptr) bool {
+						o.onToast(ctx, "Failed to remove favorite", ToastError)
+						return false
+					})
+					glib.IdleAdd(&cb, 0)
+				}
 				return
 			}
 
 			log.Info().Int64("id", f.ID).Str("url", f.URL).Msg("favorite removed from omnibox")
 
-			// Refresh favorites list
+			// Refresh favorites list and show toast
 			o.loadFavorites(o.entry.GetText())
+			if o.onToast != nil {
+				cb := glib.SourceFunc(func(_ uintptr) bool {
+					o.onToast(ctx, "Favorite removed", ToastSuccess)
+					return false
+				})
+				glib.IdleAdd(&cb, 0)
+			}
 		}()
+	}
+}
+
+// updateRowFavoriteIndicator updates a single row's favorite indicator CSS class.
+// Must be called from GTK main thread (via glib.IdleAdd).
+func (o *Omnibox) updateRowFavoriteIndicator(index int, isFavorite bool) {
+	row := o.listBox.GetRowAtIndex(index)
+	if row == nil {
+		return
+	}
+	if isFavorite {
+		row.AddCssClass("omnibox-row-favorite")
+	} else {
+		row.RemoveCssClass("omnibox-row-favorite")
 	}
 }
 
@@ -1152,7 +1448,7 @@ func (o *Omnibox) yankSelectedURL() {
 		// Show toast notification on success (must run on GTK main thread)
 		if o.onToast != nil {
 			cb := glib.SourceFunc(func(_ uintptr) bool {
-				o.onToast("URL copied")
+				o.onToast(ctx, "URL copied", ToastSuccess)
 				return false // Don't repeat
 			})
 			glib.IdleAdd(&cb, 0)
@@ -1160,18 +1456,13 @@ func (o *Omnibox) yankSelectedURL() {
 	}()
 }
 
-// buildURL constructs a URL from input, handling search shortcuts.
-func (o *Omnibox) buildURL(input string) string {
-	return url.BuildSearchURL(input, o.shortcutURLs(), o.defaultSearch)
-}
-
-// shortcutURLs returns a map of shortcut keys to URL templates.
-func (o *Omnibox) shortcutURLs() map[string]string {
-	result := make(map[string]string, len(o.shortcuts))
-	for key, shortcut := range o.shortcuts {
-		result[key] = shortcut.URL
+// buildURL constructs a URL from text, handling search shortcuts.
+func (o *Omnibox) buildURL(text string) string {
+	var shortcutURLs map[string]string
+	if o.shortcutsUC != nil {
+		shortcutURLs = o.shortcutsUC.ShortcutURLs()
 	}
-	return result
+	return url.BuildSearchURL(text, shortcutURLs, o.defaultSearch)
 }
 
 // toggleViewMode switches between history and favorites.
@@ -1234,22 +1525,8 @@ func (o *Omnibox) Show(ctx context.Context, query string) {
 		o.scrolledWin.SetMaxContentHeight(0)
 	}
 
-	// Get parent dimensions with fallback if not yet allocated
-	parentWidth := o.parentOverlay.GetAllocatedWidth()
-	parentHeight := o.parentOverlay.GetAllocatedHeight()
-	if parentWidth <= 0 {
-		parentWidth = omniboxMaxWidth
-	}
-	if parentHeight <= 0 {
-		parentHeight = omniboxFallbackHeight
-	}
-
-	// Set width and vertical positioning (20% from top)
-	width := int(float64(parentWidth) * omniboxWidthPct)
-	if width > omniboxMaxWidth {
-		width = omniboxMaxWidth
-	}
-	marginTop := int(float64(parentHeight) * omniboxTopMarginPct)
+	// Calculate dimensions using shared helper
+	width, marginTop := CalculateModalDimensions(o.parentOverlay, OmniboxSizeDefaults)
 
 	o.mainBox.SetSizeRequest(width, -1)
 	o.outerBox.SetMarginTop(marginTop)
@@ -1292,6 +1569,7 @@ func (o *Omnibox) Hide(ctx context.Context) {
 	o.outerBox.SetVisible(false)
 
 	// Clear state
+	o.clearBangState()
 	o.entry.SetText("")
 	o.listBox.RemoveAll()
 
@@ -1356,6 +1634,21 @@ func (o *Omnibox) idleAddUpdateSuggestions(suggestions []Suggestion) {
 		return false // One-shot callback
 	}
 	glib.IdleAdd(&cb, 0)
+}
+
+// getFavoriteURLs returns a set of all favorited URLs for batch lookup.
+// Returns empty map on error to avoid blocking history display.
+func (o *Omnibox) getFavoriteURLs(ctx context.Context) map[string]struct{} {
+	if o.favoritesUC == nil {
+		return make(map[string]struct{})
+	}
+	urls, err := o.favoritesUC.GetAllURLs(ctx)
+	if err != nil {
+		log := logging.FromContext(ctx)
+		log.Warn().Err(err).Msg("failed to load favorite URLs for indicator")
+		return make(map[string]struct{})
+	}
+	return urls
 }
 
 // idleAddUpdateFavorites schedules updateFavorites on the GTK main thread.

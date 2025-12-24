@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
 )
@@ -25,13 +26,24 @@ const themeCSSScript = `(function() {
   (document.head || document.documentElement).appendChild(style);
 })();`
 
-// darkModeScript patches window.matchMedia and sets theme class on <html>.
-// It must be injected at document start, after __dumber_gtk_prefers_dark is set.
-const darkModeScript = `(function() {
-  const prefersDark = window.__dumber_gtk_prefers_dark || false;
-  const originalMatchMedia = window.matchMedia.bind(window);
+// internalDarkModeScriptTemplate is injected ONLY on internal pages (dumb://*).
+// It sets dark/light class on <html> for Tailwind CSS theming and patches matchMedia
+// for JS-based dark mode detection in WebUI components.
+//
+// NOTE: This script is NOT injected on external pages. External pages receive
+// dark mode preference via libadwaita's StyleManager, which WebKit respects
+// for the native prefers-color-scheme media query.
+//
+// The matchMedia patch handles various query formats:
+// - (prefers-color-scheme: dark)
+// - (prefers-color-scheme:dark)  -- no space
+// - screen and (prefers-color-scheme: dark)
+const internalDarkModeScriptTemplate = `(function() {
+  var prefersDark = %t;
+  window.__dumber_gtk_prefers_dark = prefersDark;
+  var originalMatchMedia = window.matchMedia.bind(window);
 
-  // Apply dark/light class to document element for CSS theming
+  // Apply dark/light class to document element for Tailwind CSS theming
   if (prefersDark) {
     document.documentElement.classList.add('dark');
     document.documentElement.classList.remove('light');
@@ -40,65 +52,84 @@ const darkModeScript = `(function() {
     document.documentElement.classList.remove('dark');
   }
 
-  // Inject color-scheme meta tag
-  const meta = document.createElement('meta');
-  meta.name = 'color-scheme';
-  meta.content = prefersDark ? 'dark light' : 'light dark';
-  document.documentElement.appendChild(meta);
+  // Helper: Check if query is a prefers-color-scheme query
+  function isColorSchemeQuery(query, scheme) {
+    if (typeof query !== 'string') return false;
+    var normalized = query.replace(/\s+/g, '').toLowerCase();
+    return normalized.indexOf('prefers-color-scheme:' + scheme) !== -1;
+  }
 
-  // Inject root color-scheme style
-  const style = document.createElement('style');
-  style.setAttribute('data-dumber-color-scheme', '');
-  style.textContent = ':root{color-scheme:' + (prefersDark ? 'dark' : 'light') + ';}';
-  document.documentElement.appendChild(style);
+  // Create a fake MediaQueryList that implements the full interface
+  function createFakeMediaQueryList(query, matches) {
+    var listeners = [];
+    var onchangeHandler = null;
+
+    return {
+      matches: matches,
+      media: query,
+      get onchange() { return onchangeHandler; },
+      set onchange(fn) { onchangeHandler = fn; },
+      addListener: function(cb) {
+        if (typeof cb === 'function') listeners.push(cb);
+      },
+      removeListener: function(cb) {
+        var idx = listeners.indexOf(cb);
+        if (idx !== -1) listeners.splice(idx, 1);
+      },
+      addEventListener: function(type, cb) {
+        if (type === 'change' && typeof cb === 'function') {
+          listeners.push(cb);
+        }
+      },
+      removeEventListener: function(type, cb) {
+        if (type === 'change') {
+          var idx = listeners.indexOf(cb);
+          if (idx !== -1) listeners.splice(idx, 1);
+        }
+      },
+      dispatchEvent: function(event) {
+        for (var i = 0; i < listeners.length; i++) {
+          try { listeners[i](event); } catch (e) {}
+        }
+        if (onchangeHandler) {
+          try { onchangeHandler(event); } catch (e) {}
+        }
+        return true;
+      }
+    };
+  }
 
   // Patch matchMedia for prefers-color-scheme queries
   window.matchMedia = function(query) {
-    if (typeof query === 'string') {
-      if (query.includes('prefers-color-scheme: dark')) {
-        return {
-          matches: prefersDark,
-          media: query,
-          onchange: null,
-          addListener: function() {},
-          removeListener: function() {},
-          addEventListener: function() {},
-          removeEventListener: function() {},
-          dispatchEvent: function() { return false; }
-        };
-      }
-      if (query.includes('prefers-color-scheme: light')) {
-        return {
-          matches: !prefersDark,
-          media: query,
-          onchange: null,
-          addListener: function() {},
-          removeListener: function() {},
-          addEventListener: function() {},
-          removeEventListener: function() {},
-          dispatchEvent: function() { return false; }
-        };
-      }
+    if (isColorSchemeQuery(query, 'dark')) {
+      return createFakeMediaQueryList(query, prefersDark);
+    }
+    if (isColorSchemeQuery(query, 'light')) {
+      return createFakeMediaQueryList(query, !prefersDark);
     }
     return originalMatchMedia(query);
   };
 })();`
 
+// internalPageAllowList restricts script injection to internal dumb:// pages only.
+var internalPageAllowList = []string{"dumb://*"}
+
 // ContentInjector encapsulates script injection into WebViews.
-// It injects minimal scripts for dark mode detection in web pages
-// and theme CSS variables for internal pages (dumb://).
+// It injects dark mode detection scripts for internal pages (dumb://)
+// and theme CSS variables for WebUI styling.
+// External pages receive dark mode preference via libadwaita's StyleManager.
 // Implements port.ContentInjector interface.
 type ContentInjector struct {
-	prefersDark  bool
-	themeCSSVars string // CSS custom property declarations for WebUI
-	findCSS      string // CSS for find-in-page highlight styling
+	colorResolver port.ColorSchemeResolver
+	themeCSSVars  string // CSS custom property declarations for WebUI
+	findCSS       string // CSS for find-in-page highlight styling
 }
 
 // NewContentInjector creates a new injector instance.
-// The prefersDark parameter should come from ThemeManager.PrefersDark().
-func NewContentInjector(prefersDark bool) *ContentInjector {
+// The resolver is used to dynamically determine dark mode preference.
+func NewContentInjector(resolver port.ColorSchemeResolver) *ContentInjector {
 	return &ContentInjector{
-		prefersDark: prefersDark,
+		colorResolver: resolver,
 	}
 }
 
@@ -120,22 +151,19 @@ func (ci *ContentInjector) InjectFindHighlightCSS(ctx context.Context, css strin
 	return nil
 }
 
-// PrefersDark returns the current dark mode preference.
+// PrefersDark returns the current dark mode preference from the resolver.
 func (ci *ContentInjector) PrefersDark() bool {
-	return ci.prefersDark
+	return ci.colorResolver.Resolve().PrefersDark
 }
 
-// SetPrefersDark updates the dark mode preference.
-// Call this when theme changes at runtime.
-func (ci *ContentInjector) SetPrefersDark(prefersDark bool) {
-	ci.prefersDark = prefersDark
-}
-
-// InjectScripts adds the minimal dark mode detection scripts to the given content manager.
-// Only injects:
-// - window.__dumber_gtk_prefers_dark flag
-// - window.__dumber_webview_id (for debugging)
-// - darkModeScript (patches matchMedia for prefers-color-scheme)
+// InjectScripts adds scripts to the given content manager.
+// For internal pages (dumb://*):
+//   - Injects dark mode detection (class on <html>, matchMedia patch)
+//   - Injects theme CSS variables for WebUI styling
+//
+// For external pages:
+//   - Only injects find highlight CSS
+//   - Dark mode is handled natively via libadwaita's StyleManager
 func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserContentManager, webviewID WebViewID) {
 	log := logging.FromContext(ctx).With().Str("component", "content-injector").Logger()
 
@@ -153,20 +181,9 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		log.Debug().Str("script", label).Msg("injected user script")
 	}
 
-	// 1. Inject GTK dark mode preference (must be before dark mode handler)
-	darkModePrefScript := fmt.Sprintf("window.__dumber_gtk_prefers_dark=%t;", ci.prefersDark)
-	addScript(
-		webkit.NewUserScript(
-			darkModePrefScript,
-			webkit.UserContentInjectTopFrameValue,
-			webkit.UserScriptInjectAtDocumentStartValue,
-			nil,
-			nil,
-		),
-		"gtk-dark-mode-pref",
-	)
+	prefersDark := ci.PrefersDark()
 
-	// 2. Inject WebView ID for debugging
+	// 1. Inject WebView ID for debugging (internal pages only)
 	if webviewID != 0 {
 		idScript := fmt.Sprintf("window.__dumber_webview_id=%d;", uint64(webviewID))
 		addScript(
@@ -174,26 +191,31 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 				idScript,
 				webkit.UserContentInjectTopFrameValue,
 				webkit.UserScriptInjectAtDocumentStartValue,
-				nil,
+				internalPageAllowList,
 				nil,
 			),
 			"webview-id",
 		)
+		log.Debug().Uint64("webview_id", uint64(webviewID)).Msg("webview ID script injected")
+	} else {
+		log.Warn().Msg("webview ID is 0, skipping ID injection")
 	}
 
-	// 3. Inject dark mode handler (patches matchMedia using __dumber_gtk_prefers_dark)
+	// 2. Inject dark mode handler for internal pages only
+	// This sets .dark/.light class on <html> and patches matchMedia for WebUI
+	internalDarkModeScript := fmt.Sprintf(internalDarkModeScriptTemplate, prefersDark)
 	addScript(
 		webkit.NewUserScript(
-			darkModeScript,
+			internalDarkModeScript,
 			webkit.UserContentInjectTopFrameValue,
 			webkit.UserScriptInjectAtDocumentStartValue,
-			nil,
+			internalPageAllowList,
 			nil,
 		),
-		"dark-mode-handler",
+		"internal-dark-mode-handler",
 	)
 
-	// 4. Inject theme CSS for internal pages (dumb://* only)
+	// 3. Inject theme CSS for internal pages (dumb://* only)
 	if ci.themeCSSVars != "" {
 		// Escape for JS string literal
 		escapedCSS := strings.ReplaceAll(ci.themeCSSVars, "\\", "\\\\")
@@ -205,15 +227,15 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 				themeCSSInjectionScript,
 				webkit.UserContentInjectTopFrameValue,
 				webkit.UserScriptInjectAtDocumentEndValue,
-				nil, // Inject on all pages - allowlist patterns don't work for custom schemes
+				internalPageAllowList,
 				nil,
 			),
 			"theme-css-vars",
 		)
-		log.Debug().Msg("theme CSS vars injection configured")
+		log.Debug().Msg("theme CSS vars injection configured for internal pages")
 	}
 
-	// 5. Inject find highlight CSS for all pages
+	// 4. Inject find highlight CSS for all pages
 	if ci.findCSS != "" {
 		stylesheet := webkit.NewUserStyleSheet(
 			ci.findCSS,
@@ -230,5 +252,5 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		}
 	}
 
-	log.Debug().Bool("prefers_dark", ci.prefersDark).Msg("minimal scripts injected")
+	log.Debug().Bool("prefers_dark", prefersDark).Msg("scripts injected")
 }

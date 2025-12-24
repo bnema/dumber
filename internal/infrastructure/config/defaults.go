@@ -7,7 +7,7 @@ const (
 	defaultRetentionDays     = 365   // 1 year
 
 	// Dmenu defaults
-	defaultMaxHistoryItems = 20 // items
+	defaultMaxHistoryDays = 30 // days
 
 	// Logging defaults
 	defaultMaxLogAgeDays = 7 // days
@@ -15,33 +15,60 @@ const (
 	// Appearance defaults
 	defaultFontSize = 16 // points
 
+	// Workspace defaults
+	defaultNewPaneURL = "about:blank"
+
 	// Omnibox defaults
-	defaultOmniboxInitialBehavior = "recent"
+	defaultOmniboxInitialBehavior   = "recent"
+	defaultOmniboxAutoOpenOnNewPane = false
 
 	// Workspace defaults
-	defaultPaneActivationShortcut  = "ctrl+p"
-	defaultPaneTimeoutMilliseconds = 3000
-	defaultTabActivationShortcut   = "ctrl+t"
-	defaultTabTimeoutMilliseconds  = 3000
-	defaultTabBarPosition          = "bottom"
-	defaultPopupPlacement          = "right"
+	defaultPaneActivationShortcut    = "ctrl+p"
+	defaultPaneTimeoutMilliseconds   = 3000
+	defaultTabActivationShortcut     = "ctrl+t"
+	defaultTabTimeoutMilliseconds    = 3000
+	defaultResizeActivationShortcut  = "ctrl+n"
+	defaultResizeTimeoutMilliseconds = 3000
+	defaultResizeStepPercent         = 5.0
+	defaultResizeMinPanePercent      = 10.0
+	defaultTabBarPosition            = "bottom"
+	defaultPopupPlacement            = "right"
+
+	// Session defaults
+	defaultSessionActivationShortcut  = "ctrl+o"
+	defaultSessionTimeoutMilliseconds = 3000
+	defaultSnapshotIntervalMs         = 5000
+	defaultMaxExitedSessions          = 50
+	defaultMaxExitedSessionAgeDays    = 7
 
 	// Workspace styling defaults
 	// Active pane border (overlay)
 	defaultBorderWidth = 1
 	defaultBorderColor = "@theme_selected_bg_color"
 
-	// Pane mode border (Ctrl+P N - overlay)
-	defaultPaneModeBorderWidth = 4
-	defaultPaneModeBorderColor = "#4A90E2" // Blue for pane mode indicator
+	// Mode border width (consolidated for all modes)
+	defaultModeBorderWidth = 4
 
-	// Tab mode border (Ctrl+P T - overlay)
-	defaultTabModeBorderWidth = 4
-	defaultTabModeBorderColor = "#FFA500" // Orange for tab mode indicator
+	// Mode colors (used for both borders and toaster)
+	defaultPaneModeColor    = "#4A90E2" // Blue for pane mode
+	defaultTabModeColor     = "#FFA500" // Orange for tab mode
+	defaultSessionModeColor = "#9B59B6" // Purple for session mode
+	defaultResizeModeColor  = "#00D4AA" // Cyan/teal for resize mode
+
+	// Mode indicator toaster
+	defaultModeIndicatorToasterEnabled = true
 
 	// Other styling
 	defaultTransitionDuration = 120
 	defaultUIScale            = 1.0 // UI scale multiplier (1.0 = 100%, 1.2 = 120%)
+
+	// Performance defaults
+	defaultZoomCacheSize           = 256 // domains to cache (~20KB memory)
+	defaultWebViewPoolPrewarmCount = 4   // WebViews to pre-create at startup
+
+	// Skia threading defaults (0 = unset, -1 = unset for GPU threads)
+	defaultSkiaCPUPaintingThreads = 0
+	defaultSkiaGPUPaintingThreads = -1 // -1 means unset; 0 would disable GPU tile painting
 )
 
 // getDefaultLogDir returns the default log directory, falls back to empty string on error
@@ -67,7 +94,7 @@ func DefaultConfig() *Config {
 		SearchShortcuts:     GetDefaultSearchShortcuts(),
 		DefaultSearchEngine: "https://duckduckgo.com/?q=%s",
 		Dmenu: DmenuConfig{
-			MaxHistoryItems:  defaultMaxHistoryItems,
+			MaxHistoryDays:   defaultMaxHistoryDays,
 			ShowVisitCount:   true,
 			ShowLastVisited:  true,
 			HistoryPrefix:    "🕒",
@@ -117,7 +144,7 @@ func DefaultConfig() *Config {
 			DisableDMABufRenderer:     false,
 			ForceCompositingMode:      false,
 			DisableCompositingMode:    false,
-			GSKRenderer:               GSKRendererVulkan,
+			GSKRenderer:               GSKRendererAuto, // Let GTK choose - Vulkan can conflict with WebKit's DMA-BUF
 			DisableMipmaps:            false,
 			PreferGL:                  false,
 			DrawCompositingIndicators: false,
@@ -128,16 +155,26 @@ func DefaultConfig() *Config {
 		DefaultWebpageZoom: 1.2,            // 120% default zoom for better readability
 		DefaultUIScale:     defaultUIScale, // 1.0 = 100%, 2.0 = 200%
 		Workspace: WorkspaceConfig{
+			NewPaneURL:        defaultNewPaneURL,
+			SwitchToTabOnMove: true,
 			PaneMode: PaneModeConfig{
 				ActivationShortcut:  defaultPaneActivationShortcut,
 				TimeoutMilliseconds: defaultPaneTimeoutMilliseconds,
 				Actions: map[string][]string{
-					"split-right": {"arrowright", "r"},
-					"split-left":  {"arrowleft", "l"},
-					"split-up":    {"arrowup", "u"},
-					"split-down":  {"arrowdown", "d"},
-					"stack-pane":  {"s"},
-					"close-pane":  {"x"},
+					"split-right":           {"arrowright", "r"},
+					"split-left":            {"arrowleft", "l"},
+					"split-up":              {"arrowup", "u"},
+					"split-down":            {"arrowdown", "d"},
+					"stack-pane":            {"s"},
+					"close-pane":            {"x"},
+					"move-pane-to-tab":      {"m"},
+					"move-pane-to-next-tab": {"M", "shift+m"},
+
+					"consume-or-expel-left":  {"bracketleft", "["},
+					"consume-or-expel-right": {"bracketright", "]"},
+					"consume-or-expel-up":    {"shift+bracketleft", "braceleft", "{"},
+					"consume-or-expel-down":  {"shift+bracketright", "braceright", "}"},
+
 					"focus-right": {"shift+arrowright", "shift+l"},
 					"focus-left":  {"shift+arrowleft", "shift+h"},
 					"focus-up":    {"shift+arrowup", "shift+k"},
@@ -159,10 +196,35 @@ func DefaultConfig() *Config {
 					"cancel":       {"escape"},
 				},
 			},
+			ResizeMode: ResizeModeConfig{
+				ActivationShortcut:  defaultResizeActivationShortcut,
+				TimeoutMilliseconds: defaultResizeTimeoutMilliseconds,
+				StepPercent:         defaultResizeStepPercent,
+				MinPanePercent:      defaultResizeMinPanePercent,
+				Actions: map[string][]string{
+					"resize-increase-left":  {"h", "arrowleft"},
+					"resize-increase-down":  {"j", "arrowdown"},
+					"resize-increase-up":    {"k", "arrowup"},
+					"resize-increase-right": {"l", "arrowright"},
+					"resize-decrease-left":  {"H"},
+					"resize-decrease-down":  {"J"},
+					"resize-decrease-up":    {"K"},
+					"resize-decrease-right": {"L"},
+					"resize-increase":       {"+", "="},
+					"resize-decrease":       {"-"},
+					"confirm":               {"enter"},
+					"cancel":                {"escape"},
+				},
+			},
 			Shortcuts: GlobalShortcutsConfig{
 				ClosePane:   "ctrl+w",
 				NextTab:     "ctrl+tab",
 				PreviousTab: "ctrl+shift+tab",
+
+				ConsumeOrExpelLeft:  "alt+bracketleft",
+				ConsumeOrExpelRight: "alt+bracketright",
+				ConsumeOrExpelUp:    "alt+shift+bracketleft",
+				ConsumeOrExpelDown:  "alt+shift+bracketright",
 			},
 			TabBarPosition:          defaultTabBarPosition,
 			HideTabBarWhenSingleTab: true,
@@ -176,13 +238,15 @@ func DefaultConfig() *Config {
 				OAuthAutoClose:       true,      // Auto-close OAuth popups on success
 			},
 			Styling: WorkspaceStylingConfig{
-				BorderWidth:         defaultBorderWidth,
-				BorderColor:         defaultBorderColor,
-				PaneModeBorderWidth: defaultPaneModeBorderWidth,
-				PaneModeBorderColor: defaultPaneModeBorderColor,
-				TabModeBorderWidth:  defaultTabModeBorderWidth,
-				TabModeBorderColor:  defaultTabModeBorderColor,
-				TransitionDuration:  defaultTransitionDuration,
+				BorderWidth:                 defaultBorderWidth,
+				BorderColor:                 defaultBorderColor,
+				ModeBorderWidth:             defaultModeBorderWidth,
+				PaneModeColor:               defaultPaneModeColor,
+				TabModeColor:                defaultTabModeColor,
+				SessionModeColor:            defaultSessionModeColor,
+				ResizeModeColor:             defaultResizeModeColor,
+				ModeIndicatorToasterEnabled: defaultModeIndicatorToasterEnabled,
+				TransitionDuration:          defaultTransitionDuration,
 			},
 		},
 		ContentFiltering: ContentFilteringConfig{
@@ -190,20 +254,61 @@ func DefaultConfig() *Config {
 			AutoUpdate: true, // Auto-update filters from GitHub releases
 		},
 		Omnibox: OmniboxConfig{
-			InitialBehavior: defaultOmniboxInitialBehavior,
+			InitialBehavior:   defaultOmniboxInitialBehavior,
+			AutoOpenOnNewPane: defaultOmniboxAutoOpenOnNewPane,
+		},
+		Session: SessionConfig{
+			AutoRestore:             false,
+			SnapshotIntervalMs:      defaultSnapshotIntervalMs,
+			MaxExitedSessions:       defaultMaxExitedSessions,
+			MaxExitedSessionAgeDays: defaultMaxExitedSessionAgeDays,
+			SessionMode: SessionModeConfig{
+				ActivationShortcut:  defaultSessionActivationShortcut,
+				TimeoutMilliseconds: defaultSessionTimeoutMilliseconds,
+				Actions: map[string][]string{
+					"session-manager": {"s", "w"},
+					"confirm":         {"enter"},
+					"cancel":          {"escape"},
+				},
+			},
 		},
 		Media: MediaConfig{
 			HardwareDecodingMode:     HardwareDecodingAuto, // auto allows sw fallback
-			PreferAV1:                true,                 // AV1 is most efficient codec
-			ShowDiagnosticsOnStartup: true,                 // Warn users if HW accel unavailable
+			PreferAV1:                false,                // Don't force codec preference, let site choose
+			ShowDiagnosticsOnStartup: false,                // Disabled - diagnostics can be noisy
 			ForceVSync:               false,                // Let compositor handle VSync
 			GLRenderingMode:          GLRenderingModeAuto,  // GStreamer picks best GL API
 			GStreamerDebugLevel:      0,                    // Disabled by default
-			VideoBufferSizeMB:        64,                   // Larger buffer for bursty streams (Twitch, YouTube)
-			QueueBufferTimeSec:       20,                   // More prebuffering for smooth playback
+			VideoBufferSizeMB:        0,                    // Not a valid GStreamer env var, removed
+			QueueBufferTimeSec:       0,                    // Not a valid GStreamer env var, removed
 		},
 		Runtime: RuntimeConfig{
 			Prefix: "",
+		},
+		Performance: PerformanceConfig{
+			Profile:                 ProfileDefault, // Use WebKit defaults, no tuning
+			ZoomCacheSize:           defaultZoomCacheSize,
+			WebViewPoolPrewarmCount: defaultWebViewPoolPrewarmCount,
+			// Skia threading - balanced defaults (unset = use WebKit defaults)
+			// These only apply when Profile is "custom"
+			SkiaCPUPaintingThreads: defaultSkiaCPUPaintingThreads,
+			SkiaGPUPaintingThreads: defaultSkiaGPUPaintingThreads,
+			SkiaEnableCPURendering: false,
+			// Web process memory pressure - all unset by default
+			WebProcessMemoryLimitMB:               0,
+			WebProcessMemoryPollIntervalSec:       0,
+			WebProcessMemoryConservativeThreshold: 0,
+			WebProcessMemoryStrictThreshold:       0,
+			// Network process memory pressure - all unset by default
+			NetworkProcessMemoryLimitMB:               0,
+			NetworkProcessMemoryPollIntervalSec:       0,
+			NetworkProcessMemoryConservativeThreshold: 0,
+			NetworkProcessMemoryStrictThreshold:       0,
+		},
+		Update: UpdateConfig{
+			EnableOnStartup:     true,  // Check for updates on startup by default
+			AutoDownload:        false, // Conservative: don't auto-download by default
+			NotifyOnNewSettings: true,  // Show toast when new config settings available
 		},
 	}
 }

@@ -54,6 +54,7 @@ func (m *Manager) ApplyEnvironment(ctx context.Context, settings port.RenderingE
 	m.applyWebKitEnv(settings)
 	m.applyGTKEnv(settings)
 	m.applyDebugEnv(settings)
+	m.applySkiaEnv(settings)
 
 	log.Debug().
 		Interface("vars", m.appliedVars).
@@ -91,18 +92,10 @@ func (m *Manager) applyGStreamerEnv(settings port.RenderingEnvSettings) {
 		m.setEnv("GST_DEBUG", fmt.Sprintf("%d", level))
 	}
 
-	// Video buffer size
-	if settings.VideoBufferSizeMB > 0 {
-		bufferBytes := settings.VideoBufferSizeMB * 1024 * 1024
-		m.setEnv("GST_BUFFER_SIZE", fmt.Sprintf("%d", bufferBytes))
-		m.setEnv("GST_QUEUE2_MAX_SIZE_BYTES", fmt.Sprintf("%d", bufferBytes))
-	}
-
-	// Queue buffer time
-	if settings.QueueBufferTimeSec > 0 {
-		bufferTimeNs := settings.QueueBufferTimeSec * 1_000_000_000
-		m.setEnv("GST_QUEUE2_MAX_SIZE_TIME", fmt.Sprintf("%d", bufferTimeNs))
-	}
+	// NOTE: GST_BUFFER_SIZE, GST_QUEUE2_MAX_SIZE_BYTES, GST_QUEUE2_MAX_SIZE_TIME
+	// are NOT valid GStreamer environment variables. They are element properties
+	// that must be set programmatically on individual GStreamer elements.
+	// WebKitGTK manages its own GStreamer pipeline internally.
 }
 
 func (m *Manager) applyGPUSpecificEnv() {
@@ -167,6 +160,23 @@ func (m *Manager) applyDebugEnv(settings port.RenderingEnvSettings) {
 	}
 	if settings.SampleMemory {
 		m.setEnv("WEBKIT_SAMPLE_MEMORY", "1")
+	}
+}
+
+func (m *Manager) applySkiaEnv(settings port.RenderingEnvSettings) {
+	// CPU painting threads: only set if > 0 and env var not already set
+	if settings.SkiaCPUPaintingThreads > 0 && os.Getenv("WEBKIT_SKIA_CPU_PAINTING_THREADS") == "" {
+		m.setEnv("WEBKIT_SKIA_CPU_PAINTING_THREADS", fmt.Sprintf("%d", settings.SkiaCPUPaintingThreads))
+	}
+
+	// GPU painting threads: only set if >= 0 (0 is valid: disables GPU tile painting)
+	if settings.SkiaGPUPaintingThreads >= 0 && os.Getenv("WEBKIT_SKIA_GPU_PAINTING_THREADS") == "" {
+		m.setEnv("WEBKIT_SKIA_GPU_PAINTING_THREADS", fmt.Sprintf("%d", settings.SkiaGPUPaintingThreads))
+	}
+
+	// CPU rendering: only set if true and env var not already set
+	if settings.SkiaEnableCPURendering && os.Getenv("WEBKIT_SKIA_ENABLE_CPU_RENDERING") == "" {
+		m.setEnv("WEBKIT_SKIA_ENABLE_CPU_RENDERING", "1")
 	}
 }
 

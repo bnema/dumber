@@ -10,4 +10,8 @@ type XDGPaths interface {
 	FilterJSONDir() (string, error)
 	FilterStoreDir() (string, error)
 	FilterCacheDir() (string, error)
+
+	// ManDir returns the user man page directory (man1 section).
+	// Typically $XDG_DATA_HOME/man/man1 or ~/.local/share/man/man1.
+	ManDir() (string, error)
 }

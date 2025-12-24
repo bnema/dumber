@@ -2,10 +2,12 @@ package coordinator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
+	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
@@ -32,6 +34,7 @@ type WorkspaceCoordinator struct {
 	generateID       func() string
 	onCloseLastPane  func(ctx context.Context) error
 	onCreatePopupTab func(ctx context.Context, input InsertPopupInput) error // For tabbed popup behavior
+	onStateChanged   func()                                                  // For session snapshots
 }
 
 // WorkspaceCoordinatorConfig holds configuration for WorkspaceCoordinator.
@@ -82,6 +85,18 @@ func (c *WorkspaceCoordinator) SetOnCloseLastPane(fn func(ctx context.Context) e
 	c.onCloseLastPane = fn
 }
 
+// SetOnStateChanged sets the callback for when workspace state changes (for session snapshots).
+func (c *WorkspaceCoordinator) SetOnStateChanged(fn func()) {
+	c.onStateChanged = fn
+}
+
+// notifyStateChanged triggers the state changed callback if set.
+func (c *WorkspaceCoordinator) notifyStateChanged() {
+	if c.onStateChanged != nil {
+		c.onStateChanged()
+	}
+}
+
 // setupPaneViewHover configures hover-to-focus behavior on a PaneView.
 func setupPaneViewHover(ctx context.Context, pv *component.PaneView, wsView *component.WorkspaceView) {
 	pv.SetOnHover(func(paneID entity.PaneID) {
@@ -112,6 +127,7 @@ func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.Spli
 		Workspace:  splitCtx.ws,
 		TargetPane: splitCtx.activePane,
 		Direction:  direction,
+		InitialURL: domainurl.Normalize(config.Get().Workspace.NewPaneURL),
 	})
 	if err != nil {
 		log.Error().Err(err).Str("direction", string(direction)).Msg("failed to split pane")
@@ -128,6 +144,13 @@ func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.Spli
 	if splitCtx.wsView != nil {
 		c.applySplitToView(ctx, splitCtx.wsView, splitCtx.ws, output, direction, splitCtx.existingWidget, splitCtx.isStackSplit, oldActivePaneID)
 	}
+
+	if splitCtx.wsView != nil && config.Get().Omnibox.AutoOpenOnNewPane {
+		splitCtx.wsView.ShowOmnibox(ctx, "")
+	}
+
+	// Notify state change for session snapshots
+	c.notifyStateChanged()
 
 	log.Info().Str("direction", string(direction)).Str("new_pane_id", string(output.NewPaneNode.Pane.ID)).Msg("pane split completed")
 
@@ -287,7 +310,7 @@ func (c *WorkspaceCoordinator) doIncrementalStackSplit(
 
 	// 4. Wrap the new PaneView in a StackedView
 	newStackedView := layout.NewStackedView(factory)
-	newStackedView.AddPane(ctx, output.NewPaneNode.Pane.Title, "", newPaneView.Widget())
+	newStackedView.AddPane(ctx, string(output.NewPaneNode.Pane.ID), output.NewPaneNode.Pane.Title, "", newPaneView.Widget())
 
 	tr := wsView.TreeRenderer()
 
@@ -306,11 +329,12 @@ func (c *WorkspaceCoordinator) doIncrementalStackSplit(
 			splitView = layout.NewSplitView(ctx, factory, layout.OrientationHorizontal,
 				existingStackWidget, newStackedView.Widget(), output.SplitRatio)
 		}
+		c.wireSplitRatioPersistence(ctx, splitView, output.ParentNode.ID)
 
 		wsView.SetRootWidgetDirect(splitView.Widget())
 
 		if tr != nil {
-			tr.RegisterWidget(output.ParentNode.ID, splitView.Widget())
+			tr.RegisterSplit(output.ParentNode.ID, splitView.Widget(), layout.OrientationHorizontal)
 		}
 	} else {
 		// Non-root split: stack is inside another split, need to replace in grandparent
@@ -353,6 +377,7 @@ func (c *WorkspaceCoordinator) doIncrementalStackSplit(
 			splitView = layout.NewSplitView(ctx, factory, layout.OrientationHorizontal,
 				existingStackWidget, newStackedView.Widget(), output.SplitRatio)
 		}
+		c.wireSplitRatioPersistence(ctx, splitView, output.ParentNode.ID)
 
 		// Put the new split view in the grandparent's slot
 		if isStartChild {
@@ -361,7 +386,7 @@ func (c *WorkspaceCoordinator) doIncrementalStackSplit(
 			panedWidget.SetEndChild(splitView.Widget())
 		}
 
-		tr.RegisterWidget(output.ParentNode.ID, splitView.Widget())
+		tr.RegisterSplit(output.ParentNode.ID, splitView.Widget(), layout.OrientationHorizontal)
 
 		log.Debug().
 			Bool("was_start_child", isStartChild).
@@ -461,7 +486,7 @@ func (c *WorkspaceCoordinator) doIncrementalSplit(
 
 	// 5. Wrap the new PaneView in a StackedView
 	newStackedView := layout.NewStackedView(factory)
-	newStackedView.AddPane(ctx, output.NewPaneNode.Pane.Title, "", newPaneView.Widget())
+	newStackedView.AddPane(ctx, string(output.NewPaneNode.Pane.ID), output.NewPaneNode.Pane.Title, "", newPaneView.Widget())
 
 	orientation, existingFirst, ok := splitOrientation(direction)
 	if !ok {
@@ -545,6 +570,18 @@ func splitOrientation(direction usecase.SplitDirection) (layout.Orientation, boo
 	}
 }
 
+func (c *WorkspaceCoordinator) wireSplitRatioPersistence(ctx context.Context, splitView *layout.SplitView, splitNodeID string) {
+	if c == nil || splitView == nil || splitNodeID == "" {
+		return
+	}
+
+	splitView.SetOnRatioChanged(func(ratio float64) {
+		if err := c.SetSplitRatio(ctx, splitNodeID, ratio); err != nil {
+			logging.FromContext(ctx).Warn().Err(err).Str("split_node_id", splitNodeID).Msg("failed to persist split ratio")
+		}
+	})
+}
+
 func (c *WorkspaceCoordinator) replaceRootSplit(
 	ctx context.Context,
 	wsView *component.WorkspaceView,
@@ -567,9 +604,10 @@ func (c *WorkspaceCoordinator) replaceRootSplit(
 		splitView = layout.NewSplitView(ctx, factory, orientation,
 			newStackedView.Widget(), existingRootWidget, output.SplitRatio)
 	}
+	c.wireSplitRatioPersistence(ctx, splitView, output.ParentNode.ID)
 
 	wsView.SetRootWidgetDirect(splitView.Widget())
-	tr.RegisterWidget(output.ParentNode.ID, splitView.Widget())
+	tr.RegisterSplit(output.ParentNode.ID, splitView.Widget(), orientation)
 
 	logging.FromContext(ctx).Debug().Msg("root split: replaced root with new split view")
 	return nil
@@ -626,6 +664,7 @@ func (c *WorkspaceCoordinator) replaceNonRootSplit(
 		splitView = layout.NewSplitView(ctx, factory, orientation,
 			newStackedView.Widget(), activePaneWidget, output.SplitRatio)
 	}
+	c.wireSplitRatioPersistence(ctx, splitView, output.ParentNode.ID)
 
 	if isStartChild {
 		panedWidget.SetStartChild(splitView.Widget())
@@ -633,7 +672,7 @@ func (c *WorkspaceCoordinator) replaceNonRootSplit(
 		panedWidget.SetEndChild(splitView.Widget())
 	}
 
-	tr.RegisterWidget(output.ParentNode.ID, splitView.Widget())
+	tr.RegisterSplit(output.ParentNode.ID, splitView.Widget(), orientation)
 
 	log.Debug().
 		Bool("was_start_child", isStartChild).
@@ -740,6 +779,9 @@ func (c *WorkspaceCoordinator) ClosePane(ctx context.Context) error {
 		parentIsStartInGrand,
 	)
 
+	// Notify state change for session snapshots
+	c.notifyStateChanged()
+
 	log.Info().Msg("pane closed")
 	return nil
 }
@@ -826,6 +868,9 @@ func (c *WorkspaceCoordinator) ClosePaneByID(ctx context.Context, paneID entity.
 		siblingIsStartChild,
 		parentIsStartInGrand,
 	)
+
+	// Notify state change for session snapshots
+	c.notifyStateChanged()
 
 	log.Info().Str("pane_id", string(paneID)).Msg("pane closed by ID")
 	return nil
@@ -1177,7 +1222,7 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 
 	newPaneID := entity.PaneID(c.generateID())
 	newPane := entity.NewPane(newPaneID)
-	newPane.URI = "about:blank"
+	newPane.URI = domainurl.Normalize(config.Get().Workspace.NewPaneURL)
 	newPane.Title = defaultPaneTitle
 
 	stackNode, needsFirstPaneTitleUpdate := c.ensureStackNode(ctx, stackCtx.activeNode, stackCtx.activePaneID, stackCtx.originalTitle)
@@ -1214,9 +1259,9 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 		if widget != nil {
 			newPaneView.SetWebViewWidget(widget)
 		}
-		// Load blank page
-		if err := wv.LoadURI(ctx, "about:blank"); err != nil {
-			log.Warn().Err(err).Msg("failed to load blank page")
+		// Load initial page for the new pane
+		if err := wv.LoadURI(ctx, newPane.URI); err != nil {
+			log.Warn().Err(err).Str("uri", newPane.URI).Msg("failed to load initial page")
 		}
 	}
 
@@ -1226,6 +1271,10 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 	// Update workspace view
 	if err := stackCtx.wsView.SetActivePaneID(newPaneID); err != nil {
 		log.Warn().Err(err).Msg("failed to set active pane")
+	}
+
+	if config.Get().Omnibox.AutoOpenOnNewPane {
+		stackCtx.wsView.ShowOmnibox(ctx, "")
 	}
 
 	// Set up title bar click callback
@@ -1239,6 +1288,9 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 			})
 		}
 	}
+
+	// Notify state change for session snapshots
+	c.notifyStateChanged()
 
 	log.Info().
 		Str("original_pane", string(stackCtx.activePaneID)).
@@ -1810,6 +1862,50 @@ func (c *WorkspaceCoordinator) insertPopupTabbed(ctx context.Context, input Inse
 	return nil
 }
 
+func (c *WorkspaceCoordinator) ConsumeOrExpelPane(ctx context.Context, direction usecase.ConsumeOrExpelDirection) error {
+	log := logging.FromContext(ctx)
+
+	if c.panesUC == nil {
+		log.Warn().Msg("panes use case not available")
+		return nil
+	}
+
+	ws, wsView := c.getActiveWS()
+	if ws == nil {
+		log.Warn().Msg("no active workspace")
+		return nil
+	}
+
+	activeNode := ws.ActivePane()
+	if activeNode == nil {
+		log.Warn().Msg("no active pane")
+		return nil
+	}
+
+	result, err := c.panesUC.ConsumeOrExpel(ctx, ws, activeNode, direction)
+	if err != nil {
+		return err
+	}
+	if result != nil && result.ErrorMessage != "" {
+		c.ShowToastOnActivePane(ctx, result.ErrorMessage, component.ToastWarning)
+		return nil
+	}
+
+	if wsView != nil {
+		if err := wsView.Rebuild(ctx); err != nil {
+			log.Warn().Err(err).Msg("failed to rebuild workspace view")
+		}
+		c.contentCoord.AttachToWorkspace(ctx, ws, wsView)
+		if err := wsView.SetActivePaneID(ws.ActivePaneID); err != nil {
+			log.Warn().Err(err).Msg("failed to set active pane in workspace view")
+		}
+		wsView.FocusPane(ws.ActivePaneID)
+	}
+
+	c.notifyStateChanged()
+	return nil
+}
+
 // ShowZoomToast displays a zoom level toast on the active pane.
 func (c *WorkspaceCoordinator) ShowZoomToast(ctx context.Context, zoomPercent int) {
 	_, wsView := c.getActiveWS()
@@ -1834,4 +1930,89 @@ func (c *WorkspaceCoordinator) ShowToastOnActivePane(ctx context.Context, messag
 	if paneView != nil {
 		paneView.ShowToast(ctx, message, level)
 	}
+}
+
+// Resize updates the active split ratio and applies it to GTK widgets.
+func (c *WorkspaceCoordinator) Resize(ctx context.Context, dir usecase.ResizeDirection) error {
+	log := logging.FromContext(ctx)
+
+	if c.panesUC == nil {
+		log.Warn().Msg("panes use case not available")
+		return nil
+	}
+
+	ws, wsView := c.getActiveWS()
+	if ws == nil {
+		log.Warn().Msg("no active workspace")
+		return nil
+	}
+
+	target := ws.ActivePane()
+	if target == nil {
+		return nil
+	}
+
+	cfg := config.Get()
+	err := c.panesUC.Resize(ctx, ws, target, dir, cfg.Workspace.ResizeMode.StepPercent, cfg.Workspace.ResizeMode.MinPanePercent)
+	if errors.Is(err, usecase.ErrNothingToResize) {
+		c.ShowToastOnActivePane(ctx, "Nothing to resize", component.ToastInfo)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	if wsView != nil {
+		c.updateSplitPositions(wsView, ws)
+	}
+
+	c.notifyStateChanged()
+	return nil
+}
+
+func (c *WorkspaceCoordinator) SetSplitRatio(ctx context.Context, splitNodeID string, ratio float64) error {
+	log := logging.FromContext(ctx)
+
+	if c.panesUC == nil {
+		log.Warn().Msg("panes use case not available")
+		return nil
+	}
+
+	ws, _ := c.getActiveWS()
+	if ws == nil {
+		log.Warn().Msg("no active workspace")
+		return nil
+	}
+
+	cfg := config.Get()
+	err := c.panesUC.SetSplitRatio(ctx, usecase.SetSplitRatioInput{
+		Workspace:      ws,
+		SplitNodeID:    splitNodeID,
+		Ratio:          ratio,
+		MinPanePercent: cfg.Workspace.ResizeMode.MinPanePercent,
+	})
+	if err != nil {
+		return err
+	}
+
+	c.notifyStateChanged()
+	return nil
+}
+
+func (c *WorkspaceCoordinator) updateSplitPositions(wsView *component.WorkspaceView, ws *entity.Workspace) {
+	if wsView == nil || ws == nil || ws.Root == nil {
+		return
+	}
+
+	tr := wsView.TreeRenderer()
+	if tr == nil {
+		return
+	}
+
+	ws.Root.Walk(func(node *entity.PaneNode) bool {
+		if node.IsSplit() {
+			_ = tr.UpdateSplitRatio(node.ID, node.SplitRatio)
+		}
+		return true
+	})
 }

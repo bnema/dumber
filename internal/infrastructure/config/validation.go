@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
+	domainurl "github.com/bnema/dumber/internal/domain/url"
 	domainvalidation "github.com/bnema/dumber/internal/domain/validation"
 )
 
@@ -21,9 +23,12 @@ func validateConfig(config *Config) error {
 	validationErrors = append(validationErrors, validateTabBar(config)...)
 	validationErrors = append(validationErrors, validateTabMode(config)...)
 	validationErrors = append(validationErrors, validateLogging(config)...)
+	validationErrors = append(validationErrors, validateWorkspaceNewPaneURL(config)...)
 	validationErrors = append(validationErrors, validateOmnibox(config)...)
 	validationErrors = append(validationErrors, validateRendering(config)...)
 	validationErrors = append(validationErrors, validateColorScheme(config)...)
+	validationErrors = append(validationErrors, validateSession(config)...)
+	validationErrors = append(validationErrors, validatePerformanceProfile(config)...)
 
 	// If there are validation errors, return them
 	if len(validationErrors) > 0 {
@@ -48,8 +53,8 @@ func validateHistory(config *Config) []string {
 }
 
 func validateDmenu(config *Config) []string {
-	if config.Dmenu.MaxHistoryItems < 0 {
-		return []string{"dmenu.max_history_items must be non-negative"}
+	if config.Dmenu.MaxHistoryDays < 0 {
+		return []string{"dmenu.max_history_days must be non-negative"}
 	}
 	return nil
 }
@@ -142,11 +147,8 @@ func validateWorkspaceStyling(config *Config) []string {
 	if config.Workspace.Styling.BorderWidth < 0 {
 		validationErrors = append(validationErrors, "workspace.styling.border_width must be non-negative")
 	}
-	if config.Workspace.Styling.PaneModeBorderWidth < 0 {
-		validationErrors = append(validationErrors, "workspace.styling.pane_mode_border_width must be non-negative")
-	}
-	if config.Workspace.Styling.TabModeBorderWidth < 0 {
-		validationErrors = append(validationErrors, "workspace.styling.tab_mode_border_width must be non-negative")
+	if config.Workspace.Styling.ModeBorderWidth < 0 {
+		validationErrors = append(validationErrors, "workspace.styling.mode_border_width must be non-negative")
 	}
 	if config.Workspace.Styling.TransitionDuration < 0 {
 		validationErrors = append(validationErrors, "workspace.styling.transition_duration must be non-negative")
@@ -245,6 +247,37 @@ func validateLogging(config *Config) []string {
 	return validationErrors
 }
 
+func validateWorkspaceNewPaneURL(config *Config) []string {
+	var validationErrors []string
+
+	if config.Workspace.NewPaneURL == "" {
+		validationErrors = append(validationErrors, "workspace.new_pane_url cannot be empty")
+		return validationErrors
+	}
+
+	normalized := domainurl.Normalize(config.Workspace.NewPaneURL)
+	parsed, err := url.Parse(normalized)
+	if err != nil {
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"workspace.new_pane_url must be a valid URL (got: %s)",
+			config.Workspace.NewPaneURL,
+		))
+		return validationErrors
+	}
+
+	switch parsed.Scheme {
+	case "http", "https", "dumb", "file", "about":
+		// ok
+	default:
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"workspace.new_pane_url must use one of: http, https, dumb, file, about (got: %s)",
+			parsed.Scheme,
+		))
+	}
+
+	return validationErrors
+}
+
 func validateOmnibox(config *Config) []string {
 	switch config.Omnibox.InitialBehavior {
 	case "recent", "most_visited", "none":
@@ -300,4 +333,62 @@ func validateColorScheme(config *Config) []string {
 			config.Appearance.ColorScheme,
 		)}
 	}
+}
+
+func validateSession(config *Config) []string {
+	var validationErrors []string
+	if config.Session.MaxExitedSessions < 0 {
+		validationErrors = append(validationErrors, "session.max_exited_sessions must be non-negative")
+	}
+	if config.Session.MaxExitedSessionAgeDays < 0 {
+		validationErrors = append(validationErrors, "session.max_exited_session_age_days must be non-negative")
+	}
+	if config.Session.SnapshotIntervalMs < 0 {
+		validationErrors = append(validationErrors, "session.snapshot_interval_ms must be non-negative")
+	}
+	return validationErrors
+}
+
+func validatePerformanceProfile(config *Config) []string {
+	var validationErrors []string
+
+	// Validate profile name
+	if !IsValidPerformanceProfile(config.Performance.Profile) {
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"performance.profile must be one of: default, lite, max, custom (got: %s)",
+			config.Performance.Profile,
+		))
+	}
+
+	// When profile is not "custom", warn if individual fields are set
+	// (they will be ignored in favor of profile-computed values)
+	if config.Performance.Profile != ProfileCustom && config.Performance.Profile != "" {
+		if HasCustomPerformanceFields(&config.Performance) {
+			validationErrors = append(validationErrors,
+				"performance tuning fields (skia_*, *_memory_*) are ignored when profile is not 'custom'; "+
+					"set profile = \"custom\" to use individual field values",
+			)
+		}
+	}
+
+	// Validate memory pressure threshold ordering: WebKit requires conservative < strict
+	webCons := config.Performance.WebProcessMemoryConservativeThreshold
+	webStrict := config.Performance.WebProcessMemoryStrictThreshold
+	if webCons > 0 && webStrict > 0 && webCons >= webStrict {
+		validationErrors = append(validationErrors,
+			"performance.web_process_memory_conservative_threshold must be less than "+
+				"web_process_memory_strict_threshold when both are set",
+		)
+	}
+
+	netCons := config.Performance.NetworkProcessMemoryConservativeThreshold
+	netStrict := config.Performance.NetworkProcessMemoryStrictThreshold
+	if netCons > 0 && netStrict > 0 && netCons >= netStrict {
+		validationErrors = append(validationErrors,
+			"performance.network_process_memory_conservative_threshold must be less than "+
+				"network_process_memory_strict_threshold when both are set",
+		)
+	}
+
+	return validationErrors
 }

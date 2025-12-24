@@ -9,6 +9,7 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
+	"github.com/rs/zerolog"
 )
 
 // ActionHandler is called when a keyboard action is triggered.
@@ -21,7 +22,7 @@ type ActionHandler func(ctx context.Context, action Action) error
 type KeyboardHandler struct {
 	shortcuts *ShortcutSet
 	modal     *ModalState
-	cfg       *config.WorkspaceConfig
+	cfg       *config.Config
 
 	// Action handler callback
 	onAction ActionHandler
@@ -39,10 +40,7 @@ type KeyboardHandler struct {
 }
 
 // NewKeyboardHandler creates a new keyboard handler.
-func NewKeyboardHandler(
-	ctx context.Context,
-	cfg *config.WorkspaceConfig,
-) *KeyboardHandler {
+func NewKeyboardHandler(ctx context.Context, cfg *config.Config) *KeyboardHandler {
 	log := logging.FromContext(ctx)
 
 	log.Debug().Msg("creating keyboard handler")
@@ -102,8 +100,9 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 	h.controller.SetPropagationPhase(gtk.PhaseCaptureValue)
 
 	// Connect key pressed handler (retain callback to prevent GC).
-	h.keyPressedCb = func(_ gtk.EventControllerKey, keyval uint, _ uint, state gdk.ModifierType) bool {
-		return h.handleKeyPress(keyval, state)
+	// The callback receives: keyval (translated key), keycode (hardware key position), state (modifiers)
+	h.keyPressedCb = func(_ gtk.EventControllerKey, keyval uint, keycode uint, state gdk.ModifierType) bool {
+		return h.handleKeyPress(keyval, keycode, state)
 	}
 	h.controller.ConnectKeyPressed(&h.keyPressedCb)
 
@@ -123,18 +122,31 @@ func (h *KeyboardHandler) Detach() {
 
 // handleKeyPress processes a key press event.
 // Returns true if the event was handled and should not propagate further.
-func (h *KeyboardHandler) handleKeyPress(keyval uint, state gdk.ModifierType) bool {
+// Parameters:
+//   - keyval: the translated key value (depends on keyboard layout)
+//   - keycode: the hardware keycode (physical key position, layout-independent)
+//   - state: modifier keys state
+func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.ModifierType) bool {
+	log := logging.FromContext(h.ctx)
+
 	h.mu.RLock()
 	shouldBypass := h.shouldBypass
 	h.mu.RUnlock()
 	if shouldBypass != nil && shouldBypass() {
-		log := logging.FromContext(h.ctx)
-		log.Debug().Uint("keyval", keyval).Uint("state", uint(state)).Msg("keyboard handler bypassed")
+		log.Debug().Uint("keyval", keyval).Uint("keycode", keycode).Uint("state", uint(state)).Msg("keyboard handler bypassed")
 		return false
 	}
 
 	// Build KeyBinding from event
 	modifiers := Modifier(state) & modifierMask
+
+	// GTK reports shifted letters as uppercase keyvals (e.g. Shift+M -> gdk.KEY_M).
+	// Normalize ASCII A-Z to lowercase so bindings can consistently use lowercase
+	// keyvals and rely on ModShift to represent Shift.
+	if keyval >= uint('A') && keyval <= uint('Z') {
+		keyval += (uint('a') - uint('A'))
+	}
+
 	binding := KeyBinding{
 		Keyval:    keyval,
 		Modifiers: modifiers,
@@ -142,8 +154,7 @@ func (h *KeyboardHandler) handleKeyPress(keyval uint, state gdk.ModifierType) bo
 
 	mode := h.modal.Mode()
 
-	// Look up the action for this key binding
-	action, found := h.shortcuts.Lookup(binding, mode)
+	action, found := h.lookupAction(log, binding, mode, modifiers, keycode)
 
 	if !found {
 		if mode != ModeNormal {
@@ -154,20 +165,7 @@ func (h *KeyboardHandler) handleKeyPress(keyval uint, state gdk.ModifierType) bo
 		return false
 	}
 
-	// Handle special mode actions first
-	switch action {
-	case ActionEnterTabMode:
-		timeout := time.Duration(h.cfg.TabMode.TimeoutMilliseconds) * time.Millisecond
-		h.modal.EnterTabMode(h.ctx, timeout)
-		return true
-
-	case ActionEnterPaneMode:
-		timeout := time.Duration(h.cfg.PaneMode.TimeoutMilliseconds) * time.Millisecond
-		h.modal.EnterPaneMode(h.ctx, timeout)
-		return true
-
-	case ActionExitMode:
-		h.modal.ExitMode(h.ctx)
+	if h.handleModeAction(action) {
 		return true
 	}
 
@@ -186,6 +184,11 @@ func (h *KeyboardHandler) handleKeyPress(keyval uint, state gdk.ModifierType) bo
 		}
 	}
 
+	// In resize mode, any resize keypress should extend the timeout.
+	if mode == ModeResize && isResizeAction(action) {
+		h.modal.ResetTimeout(h.ctx)
+	}
+
 	// Auto-exit modal mode after certain actions
 	if mode != ModeNormal && ShouldAutoExitMode(action) {
 		h.modal.ExitMode(h.ctx)
@@ -194,18 +197,116 @@ func (h *KeyboardHandler) handleKeyPress(keyval uint, state gdk.ModifierType) bo
 	return true // Consumed the key
 }
 
+func (h *KeyboardHandler) lookupAction(
+	log *zerolog.Logger,
+	binding KeyBinding,
+	mode Mode,
+	modifiers Modifier,
+	keycode uint,
+) (Action, bool) {
+	action, found := h.shortcuts.Lookup(binding, mode)
+
+	// Fallback: check hardware keycode for Alt+number shortcuts on non-QWERTY layouts.
+	if !found && mode == ModeNormal && modifiers == ModAlt {
+		if keycodeAction, ok := KeycodeToTabAction[keycode]; ok {
+			action = keycodeAction
+			found = true
+			if log != nil {
+				log.Debug().
+					Uint("keycode", keycode).
+					Str("action", string(action)).
+					Msg("tab switch via hardware keycode fallback (non-QWERTY layout)")
+			}
+		}
+	}
+
+	if !found && mode == ModeNormal && (modifiers == ModAlt || modifiers == (ModAlt|ModShift)) {
+		if bracketActions, ok := KeycodeToBracketAction[keycode]; ok {
+			if modifiers == (ModAlt | ModShift) {
+				action = bracketActions.WithShift
+			} else {
+				action = bracketActions.NoShift
+			}
+			found = action != ""
+			if found && log != nil {
+				log.Debug().
+					Uint("keycode", keycode).
+					Str("action", string(action)).
+					Msg("consume/expel via hardware keycode fallback (non-QWERTY layout)")
+			}
+		}
+	}
+
+	return action, found
+}
+
+func isResizeAction(action Action) bool {
+	switch action {
+	case ActionResizeIncreaseLeft,
+		ActionResizeIncreaseRight,
+		ActionResizeIncreaseUp,
+		ActionResizeIncreaseDown,
+		ActionResizeDecreaseLeft,
+		ActionResizeDecreaseRight,
+		ActionResizeDecreaseUp,
+		ActionResizeDecreaseDown,
+		ActionResizeIncrease,
+		ActionResizeDecrease:
+		return true
+	default:
+		return false
+	}
+}
+
+func (h *KeyboardHandler) handleModeAction(action Action) bool {
+	switch action {
+	case ActionEnterTabMode:
+		timeout := time.Duration(h.cfg.Workspace.TabMode.TimeoutMilliseconds) * time.Millisecond
+		h.modal.EnterTabMode(h.ctx, timeout)
+		return true
+	case ActionEnterPaneMode:
+		timeout := time.Duration(h.cfg.Workspace.PaneMode.TimeoutMilliseconds) * time.Millisecond
+		h.modal.EnterPaneMode(h.ctx, timeout)
+		return true
+	case ActionEnterSessionMode:
+		timeout := time.Duration(h.cfg.Session.SessionMode.TimeoutMilliseconds) * time.Millisecond
+		h.modal.EnterSessionMode(h.ctx, timeout)
+		return true
+	case ActionEnterResizeMode:
+		if h.modal.Mode() == ModeResize {
+			h.modal.ExitMode(h.ctx)
+			return true
+		}
+		timeout := time.Duration(h.cfg.Workspace.ResizeMode.TimeoutMilliseconds) * time.Millisecond
+		h.modal.EnterResizeMode(h.ctx, timeout)
+		return true
+	case ActionExitMode:
+		h.modal.ExitMode(h.ctx)
+		return true
+	default:
+		return false
+	}
+}
+
 // EnterTabMode programmatically enters tab mode.
 // Useful for testing or programmatic mode changes.
 func (h *KeyboardHandler) EnterTabMode() {
-	timeout := time.Duration(h.cfg.TabMode.TimeoutMilliseconds) * time.Millisecond
+	timeout := time.Duration(h.cfg.Workspace.TabMode.TimeoutMilliseconds) * time.Millisecond
 	h.modal.EnterTabMode(h.ctx, timeout)
 }
 
 // EnterPaneMode programmatically enters pane mode.
 // Useful for testing or programmatic mode changes.
 func (h *KeyboardHandler) EnterPaneMode() {
-	timeout := time.Duration(h.cfg.PaneMode.TimeoutMilliseconds) * time.Millisecond
+	timeout := time.Duration(h.cfg.Workspace.PaneMode.TimeoutMilliseconds) * time.Millisecond
 	h.modal.EnterPaneMode(h.ctx, timeout)
+}
+
+// EnterSessionMode programmatically enters session mode.
+// Useful for testing or programmatic mode changes.
+func (h *KeyboardHandler) EnterSessionMode() {
+	timeout := time.Duration(h.cfg.Session.SessionMode.TimeoutMilliseconds) * time.Millisecond
+	h.modal.EnterSessionMode(h.ctx, timeout)
 }
 
 // ExitMode programmatically exits modal mode.

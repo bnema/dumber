@@ -20,10 +20,12 @@ const (
 type PaneView struct {
 	factory       layout.WidgetFactory
 	overlay       layout.OverlayWidget
-	webViewWidget layout.Widget    // The actual WebView widget
-	borderBox     layout.BoxWidget // Border overlay for active indication
-	progressBar   *ProgressBar     // Loading progress indicator
-	toaster       *Toaster         // Toast notification overlay
+	webViewWidget layout.Widget      // The actual WebView widget
+	borderBox     layout.BoxWidget   // Border overlay for active indication
+	progressBar   *ProgressBar       // Loading progress indicator
+	toaster       *Toaster           // Toast notification overlay
+	linkStatus    *LinkStatusOverlay // Link hover URL overlay
+	loading       *LoadingSkeleton   // Placeholder shown until WebView paints
 	paneID        entity.PaneID
 	isActive      bool
 
@@ -42,12 +44,22 @@ func NewPaneView(factory layout.WidgetFactory, paneID entity.PaneID, webViewWidg
 	overlay.SetHexpand(true)
 	overlay.SetVexpand(true)
 	overlay.SetVisible(true)
+	overlay.AddCssClass("pane-overlay") // Theme background prevents white flash
 
 	// Set the WebView as the main child
+	// Note: WebView may be hidden initially (see pool.go) - shown on LoadCommitted
 	if webViewWidget != nil {
-		webViewWidget.SetVisible(true)
 		overlay.SetChild(webViewWidget)
 	}
+
+	// Loading skeleton overlay (shown until WebView paints)
+	loading := NewLoadingSkeleton(factory)
+	loading.Widget().SetCanFocus(false)
+	loading.Widget().SetCanTarget(false)
+	overlay.AddOverlay(loading.Widget())
+	// Don't let loading affect layout
+	overlay.SetClipOverlay(loading.Widget(), false)
+	overlay.SetMeasureOverlay(loading.Widget(), false)
 
 	// Create border overlay box (used for active pane indication)
 	// This is an empty box that gets styled via CSS to show a border
@@ -73,6 +85,7 @@ func NewPaneView(factory layout.WidgetFactory, paneID entity.PaneID, webViewWidg
 		webViewWidget: webViewWidget,
 		borderBox:     borderBox,
 		progressBar:   nil, // Created lazily in ensureProgressBar()
+		loading:       loading,
 		paneID:        paneID,
 		isActive:      false,
 	}
@@ -131,13 +144,28 @@ func (pv *PaneView) SetWebViewWidget(widget layout.Widget) {
 	pv.webViewWidget = widget
 
 	if widget != nil {
+		// If this widget already had a parent, we're reparenting an existing WebView
+		// (e.g. after rebuilding/moving panes). In that case the WebView has likely
+		// already painted, so the loading skeleton should be hidden immediately.
+		hadParent := widget.GetParent() != nil
+		wasVisible := false
+		if hadParent {
+			wasVisible = widget.IsVisible()
+		}
+
 		// Unparent widget from any previous parent (critical for rebuild scenarios)
 		// In GTK4, a widget can only have one parent at a time
-		if widget.GetParent() != nil {
+		if hadParent {
 			widget.Unparent()
 		}
-		widget.SetVisible(true)
 		pv.overlay.SetChild(widget)
+
+		if hadParent && wasVisible {
+			widget.SetVisible(true)
+		}
+		if hadParent && pv.loading != nil {
+			pv.loading.SetVisible(false)
+		}
 	}
 }
 
@@ -314,6 +342,17 @@ func (pv *PaneView) SetLoading(loading bool) {
 	}
 }
 
+// HideLoadingSkeleton hides the loading skeleton overlay (if present).
+func (pv *PaneView) HideLoadingSkeleton() {
+	pv.mu.Lock()
+	loading := pv.loading
+	pv.mu.Unlock()
+
+	if loading != nil {
+		loading.SetVisible(false)
+	}
+}
+
 // ensureToaster creates the toaster lazily on first use.
 // Must be called with write lock held.
 func (pv *PaneView) ensureToaster() *Toaster {
@@ -347,4 +386,80 @@ func (pv *PaneView) ShowZoomToast(ctx context.Context, zoomPercent int) {
 	pv.mu.Unlock()
 
 	t.ShowZoom(ctx, zoomPercent)
+}
+
+// ensureLinkStatus creates the link status overlay lazily on first use.
+// Must be called with write lock held.
+func (pv *PaneView) ensureLinkStatus() *LinkStatusOverlay {
+	if pv.linkStatus != nil {
+		return pv.linkStatus
+	}
+
+	ls := NewLinkStatusOverlay(pv.factory)
+	pv.overlay.AddOverlay(ls.Widget())
+	pv.overlay.SetClipOverlay(ls.Widget(), false)
+	pv.overlay.SetMeasureOverlay(ls.Widget(), false)
+	pv.linkStatus = ls
+	return ls
+}
+
+// ShowLinkStatus displays the link status overlay with the given URI.
+// If uri is empty, hides the overlay instead.
+func (pv *PaneView) ShowLinkStatus(uri string) {
+	pv.mu.Lock()
+	ls := pv.ensureLinkStatus()
+	pv.mu.Unlock()
+
+	ls.Show(uri)
+}
+
+// HideLinkStatus hides the link status overlay.
+func (pv *PaneView) HideLinkStatus() {
+	pv.mu.Lock()
+	ls := pv.linkStatus
+	pv.mu.Unlock()
+
+	if ls != nil {
+		ls.Hide()
+	}
+}
+
+// Cleanup removes the WebView widget from the overlay and clears references.
+// This must be called before destroying the WebView to ensure proper GTK cleanup.
+// After calling Cleanup, the PaneView should not be reused.
+func (pv *PaneView) Cleanup() {
+	pv.mu.Lock()
+	defer pv.mu.Unlock()
+
+	// Clear callbacks to prevent use-after-free
+	pv.onFocusIn = nil
+	pv.onFocusOut = nil
+	pv.onHover = nil
+
+	// Detach hover handler if present
+	if pv.hoverHandler != nil {
+		pv.hoverHandler.Detach()
+		pv.hoverHandler = nil
+	}
+
+	// Remove WebView from overlay (unparents it from GTK hierarchy)
+	if pv.webViewWidget != nil {
+		pv.overlay.SetChild(nil)
+		pv.webViewWidget = nil
+	}
+
+	// Clear other overlay children
+	if pv.progressBar != nil {
+		pv.overlay.RemoveOverlay(pv.progressBar.Widget())
+		pv.progressBar = nil
+	}
+	if pv.toaster != nil {
+		pv.overlay.RemoveOverlay(pv.toaster.Widget())
+		pv.toaster = nil
+	}
+	if pv.linkStatus != nil {
+		pv.linkStatus.Cleanup() // Cancel pending timers before removal
+		pv.overlay.RemoveOverlay(pv.linkStatus.Widget())
+		pv.linkStatus = nil
+	}
 }

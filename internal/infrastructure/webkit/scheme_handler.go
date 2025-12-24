@@ -13,7 +13,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/soup"
 	"github.com/bnema/puregotk-webkit/webkit"
@@ -59,11 +61,13 @@ func (f PageHandlerFunc) Handle(req *SchemeRequest) *SchemeResponse {
 
 // DumbSchemeHandler handles dumb:// URI scheme requests.
 type DumbSchemeHandler struct {
-	handlers map[string]PageHandler
-	assets   embed.FS
-	assetDir string // subdirectory within embed.FS (e.g., "assets/webui")
-	logger   zerolog.Logger
-	mu       sync.RWMutex
+	handlers   map[string]PageHandler
+	assets     embed.FS
+	assetDir   string // subdirectory within embed.FS (e.g., "assets/webui")
+	logger     zerolog.Logger
+	mu         sync.RWMutex
+	hwSurveyor *env.HardwareSurveyor
+	ctx        context.Context
 }
 
 type configAppearancePayload struct {
@@ -76,8 +80,45 @@ type configAppearancePayload struct {
 	DarkPalette     config.ColorPalette `json:"dark_palette"`
 }
 
+type configHardwarePayload struct {
+	CPUCores   int    `json:"cpu_cores"`
+	CPUThreads int    `json:"cpu_threads"`
+	TotalRAMMB int    `json:"total_ram_mb"`
+	GPUVendor  string `json:"gpu_vendor"`
+	GPUName    string `json:"gpu_name"`
+	VRAMMB     int    `json:"vram_mb"`
+}
+
+type configPerformancePayload struct {
+	Profile  string                    `json:"profile"`
+	Custom   configCustomPerformance   `json:"custom"`
+	Resolved configResolvedPerformance `json:"resolved"`
+	Hardware configHardwarePayload     `json:"hardware"`
+}
+
+// configCustomPerformance holds user-editable fields for custom profile.
+type configCustomPerformance struct {
+	SkiaCPUThreads         int `json:"skia_cpu_threads"`
+	SkiaGPUThreads         int `json:"skia_gpu_threads"`
+	WebProcessMemoryMB     int `json:"web_process_memory_mb"`
+	NetworkProcessMemoryMB int `json:"network_process_memory_mb"`
+	WebViewPoolPrewarm     int `json:"webview_pool_prewarm"`
+}
+
+// configResolvedPerformance shows the actual values that will be applied at startup.
+type configResolvedPerformance struct {
+	SkiaCPUThreads         int     `json:"skia_cpu_threads"`
+	SkiaGPUThreads         int     `json:"skia_gpu_threads"`
+	WebProcessMemoryMB     int     `json:"web_process_memory_mb"`
+	NetworkProcessMemoryMB int     `json:"network_process_memory_mb"`
+	WebViewPoolPrewarm     int     `json:"webview_pool_prewarm"`
+	ConservativeThreshold  float64 `json:"conservative_threshold"`
+	StrictThreshold        float64 `json:"strict_threshold"`
+}
+
 type configPayload struct {
 	Appearance          configAppearancePayload          `json:"appearance"`
+	Performance         configPerformancePayload         `json:"performance"`
 	DefaultUIScale      float64                          `json:"default_ui_scale"`
 	DefaultSearchEngine string                           `json:"default_search_engine"`
 	SearchShortcuts     map[string]config.SearchShortcut `json:"search_shortcuts"`
@@ -88,9 +129,11 @@ func NewDumbSchemeHandler(ctx context.Context) *DumbSchemeHandler {
 	log := logging.FromContext(ctx)
 
 	h := &DumbSchemeHandler{
-		handlers: make(map[string]PageHandler),
-		assetDir: "webui",
-		logger:   log.With().Str("component", "scheme-handler").Logger(),
+		handlers:   make(map[string]PageHandler),
+		assetDir:   "webui",
+		logger:     log.With().Str("component", "scheme-handler").Logger(),
+		hwSurveyor: env.NewHardwareSurveyor(),
+		ctx:        ctx,
 	}
 
 	// Register default pages
@@ -124,7 +167,7 @@ func (h *DumbSchemeHandler) registerDefaults() {
 			return nil
 		}
 
-		return buildConfigResponse(config.Get())
+		return h.buildConfigResponse(config.Get())
 	}))
 
 	// API: Get default config (used by Reset Defaults in dumb://config)
@@ -133,11 +176,23 @@ func (h *DumbSchemeHandler) registerDefaults() {
 			return nil
 		}
 
-		return buildConfigResponse(config.DefaultConfig())
+		return h.buildConfigResponse(config.DefaultConfig())
 	}))
 }
 
-func buildConfigResponse(cfg *config.Config) *SchemeResponse {
+func (h *DumbSchemeHandler) buildConfigResponse(cfg *config.Config) *SchemeResponse {
+	// Get hardware info for display and profile resolution
+	// Use background context since survey results are cached and we don't want
+	// request context cancellation to affect this
+	var hw *port.HardwareInfo
+	if h.hwSurveyor != nil {
+		hwInfo := h.hwSurveyor.Survey(context.Background())
+		hw = &hwInfo
+	}
+
+	// Resolve performance profile with hardware info
+	resolved := config.ResolvePerformanceProfile(&cfg.Performance, hw)
+
 	resp := configPayload{
 		DefaultUIScale:      cfg.DefaultUIScale,
 		DefaultSearchEngine: cfg.DefaultSearchEngine,
@@ -150,6 +205,26 @@ func buildConfigResponse(cfg *config.Config) *SchemeResponse {
 			ColorScheme:     cfg.Appearance.ColorScheme,
 			LightPalette:    cfg.Appearance.LightPalette,
 			DarkPalette:     cfg.Appearance.DarkPalette,
+		},
+		Performance: configPerformancePayload{
+			Profile: string(cfg.Performance.Profile),
+			Custom: configCustomPerformance{
+				SkiaCPUThreads:         cfg.Performance.SkiaCPUPaintingThreads,
+				SkiaGPUThreads:         cfg.Performance.SkiaGPUPaintingThreads,
+				WebProcessMemoryMB:     cfg.Performance.WebProcessMemoryLimitMB,
+				NetworkProcessMemoryMB: cfg.Performance.NetworkProcessMemoryLimitMB,
+				WebViewPoolPrewarm:     cfg.Performance.WebViewPoolPrewarmCount,
+			},
+			Resolved: configResolvedPerformance{
+				SkiaCPUThreads:         resolved.SkiaCPUPaintingThreads,
+				SkiaGPUThreads:         resolved.SkiaGPUPaintingThreads,
+				WebProcessMemoryMB:     resolved.WebProcessMemoryLimitMB,
+				NetworkProcessMemoryMB: resolved.NetworkProcessMemoryLimitMB,
+				WebViewPoolPrewarm:     resolved.WebViewPoolPrewarmCount,
+				ConservativeThreshold:  resolved.WebProcessMemoryConservativeThreshold,
+				StrictThreshold:        resolved.WebProcessMemoryStrictThreshold,
+			},
+			Hardware: buildHardwarePayload(hw),
 		},
 	}
 
@@ -166,6 +241,21 @@ func buildConfigResponse(cfg *config.Config) *SchemeResponse {
 		Data:        data,
 		ContentType: "application/json",
 		StatusCode:  http.StatusOK,
+	}
+}
+
+// buildHardwarePayload converts HardwareInfo to JSON payload.
+func buildHardwarePayload(hw *port.HardwareInfo) configHardwarePayload {
+	if hw == nil {
+		return configHardwarePayload{}
+	}
+	return configHardwarePayload{
+		CPUCores:   hw.CPUCores,
+		CPUThreads: hw.CPUThreads,
+		TotalRAMMB: hw.TotalRAMMB(),
+		GPUVendor:  string(hw.GPUVendor),
+		GPUName:    hw.GPUName,
+		VRAMMB:     hw.VRAMMB(),
 	}
 }
 
@@ -419,6 +509,8 @@ func (h *DumbSchemeHandler) sendResponse(req *webkit.URISchemeRequest, response 
 }
 
 // RegisterWithContext registers the dumb:// scheme with a WebKitContext.
+// The scheme is always registered on the default WebContext to ensure WebViews
+// (which use the default WebContext) can load dumb:// URLs.
 func (h *DumbSchemeHandler) RegisterWithContext(wkCtx *WebKitContext) {
 	if wkCtx == nil || wkCtx.Context() == nil {
 		h.logger.Error().Msg("cannot register scheme: context is nil")
@@ -429,15 +521,31 @@ func (h *DumbSchemeHandler) RegisterWithContext(wkCtx *WebKitContext) {
 		h.HandleRequest(reqPtr)
 	})
 
-	wkCtx.Context().RegisterUriScheme("dumb", &callback, 0, nil)
+	// Always register on the default WebContext since WebViews use it
+	defaultCtx := webkit.WebContextGetDefault()
+	if defaultCtx != nil {
+		defaultCtx.RegisterUriScheme("dumb", &callback, 0, nil)
 
-	// Mark scheme as local, secure, and CORS-enabled for proper security policies
-	secMgr := wkCtx.Context().GetSecurityManager()
-	if secMgr != nil {
-		secMgr.RegisterUriSchemeAsLocal("dumb")
-		secMgr.RegisterUriSchemeAsSecure("dumb")
-		secMgr.RegisterUriSchemeAsCorsEnabled("dumb")
-		h.logger.Debug().Msg("dumb:// scheme registered as local, secure, and CORS-enabled")
+		// Mark scheme as local, secure, and CORS-enabled for proper security policies
+		if secMgr := defaultCtx.GetSecurityManager(); secMgr != nil {
+			secMgr.RegisterUriSchemeAsLocal("dumb")
+			secMgr.RegisterUriSchemeAsSecure("dumb")
+			secMgr.RegisterUriSchemeAsCorsEnabled("dumb")
+		}
+		h.logger.Debug().Msg("dumb:// scheme registered on default WebContext")
+	}
+
+	// Also register on custom WebContext if different from default
+	customCtx := wkCtx.Context()
+	if customCtx != nil && customCtx.GoPointer() != 0 && (defaultCtx == nil || customCtx.GoPointer() != defaultCtx.GoPointer()) {
+		wkCtx.Context().RegisterUriScheme("dumb", &callback, 0, nil)
+
+		if secMgr := customCtx.GetSecurityManager(); secMgr != nil {
+			secMgr.RegisterUriSchemeAsLocal("dumb")
+			secMgr.RegisterUriSchemeAsSecure("dumb")
+			secMgr.RegisterUriSchemeAsCorsEnabled("dumb")
+		}
+		h.logger.Debug().Msg("dumb:// scheme also registered on custom WebContext")
 	}
 
 	h.logger.Info().Msg("dumb:// scheme registered")

@@ -18,6 +18,9 @@ type WebViewFactory struct {
 	injector      *ContentInjector
 	router        *MessageRouter
 	filterApplier FilterApplier // Optional content filter applier
+
+	// Background color for WebViews (eliminates white flash)
+	bg bgColor
 }
 
 // NewWebViewFactory creates a new WebViewFactory.
@@ -45,6 +48,16 @@ func (f *WebViewFactory) SetFilterApplier(applier FilterApplier) {
 	// Also propagate to the pool if present
 	if f.pool != nil {
 		f.pool.SetFilterApplier(applier)
+	}
+}
+
+// SetBackgroundColor sets the background color for newly created WebViews.
+// This color is shown before content is painted, eliminating white flash.
+func (f *WebViewFactory) SetBackgroundColor(r, g, b, a float32) {
+	f.bg.set(r, g, b, a)
+	// Also propagate to the pool if present
+	if f.pool != nil {
+		f.pool.SetBackgroundColor(r, g, b, a)
 	}
 }
 
@@ -88,8 +101,13 @@ func (f *WebViewFactory) CreateRelated(ctx context.Context, parentID port.WebVie
 		return nil, fmt.Errorf("create related webview: %w", err)
 	}
 
-	// Ensure visible
-	wv.inner.SetVisible(true)
+	// Set background color to match theme (eliminates white flash)
+	if r, g, b, a := f.bg.get(); a > 0 {
+		wv.SetBackgroundColor(r, g, b, a)
+	}
+
+	// Keep hidden until content is painted
+	wv.inner.SetVisible(false)
 
 	// Attach frontend (scripts, message handler)
 	if err := wv.AttachFrontend(ctx, f.injector, f.router); err != nil {
@@ -113,13 +131,16 @@ func (f *WebViewFactory) CreateRelated(ctx context.Context, parentID port.WebVie
 func (f *WebViewFactory) createDirect(ctx context.Context) (*WebView, error) {
 	log := logging.FromContext(ctx)
 
-	wv, err := NewWebView(ctx, f.wkCtx, f.settings)
+	wv, err := NewWebView(ctx, f.wkCtx, f.settings, f.bg.toGdkRGBA())
 	if err != nil {
 		return nil, err
 	}
 
-	// Ensure visible
-	wv.inner.SetVisible(true)
+	// Add CSS class for theme background styling (prevents white flash)
+	wv.inner.AddCssClass("webview-themed")
+
+	// Keep hidden until content is painted
+	wv.inner.SetVisible(false)
 
 	// Attach frontend
 	if err := wv.AttachFrontend(ctx, f.injector, f.router); err != nil {

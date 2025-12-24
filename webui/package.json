@@ -29,6 +29,7 @@
     "eslint": "^8.57.0",
     "postcss": "^8.4.47",
     "svelte": "^5.0.0",
+    "svelte-awesome-color-picker": "^4.1.0",
     "svelte-check": "^4.0.0",
     "tailwind-variants": "^3.2.2",
     "tailwindcss": "^4.0.0",
@@ -41,6 +42,7 @@
     "bits-ui": "^2.14.4",
     "clsx": "^2.1.1",
     "frappe-charts": "^1.6.2",
+    "mode-watcher": "^1.1.0",
     "tailwind-merge": "^3.4.0"
   }
 }

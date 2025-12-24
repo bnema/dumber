@@ -20,3 +20,23 @@ LIMIT ?;
 UPDATE sessions
 SET ended_at = ?
 WHERE id = ?;
+
+-- name: DeleteSession :exec
+DELETE FROM sessions WHERE id = ?;
+
+-- name: DeleteOldestExitedSessions :execrows
+-- Deletes exited browser sessions beyond the keep limit, keeping the most recent ones.
+DELETE FROM sessions
+WHERE id IN (
+    SELECT id FROM sessions
+    WHERE type = 'browser' AND ended_at IS NOT NULL
+    ORDER BY ended_at DESC
+    LIMIT -1 OFFSET ?
+);
+
+-- name: DeleteExitedSessionsBefore :execrows
+-- Deletes exited browser sessions older than the given cutoff time.
+DELETE FROM sessions
+WHERE type = 'browser'
+  AND ended_at IS NOT NULL
+  AND ended_at < ?;

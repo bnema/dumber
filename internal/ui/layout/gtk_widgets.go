@@ -2,6 +2,7 @@ package layout
 
 import (
 	"github.com/jwijenbergh/puregotk/v4/gdk"
+	"github.com/jwijenbergh/puregotk/v4/gobject"
 	"github.com/jwijenbergh/puregotk/v4/graphene"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 	"github.com/jwijenbergh/puregotk/v4/pango"
@@ -17,6 +18,7 @@ var (
 	_ ButtonWidget      = (*gtkButton)(nil)
 	_ ImageWidget       = (*gtkImage)(nil)
 	_ ProgressBarWidget = (*gtkProgressBar)(nil)
+	_ SpinnerWidget     = (*gtkSpinner)(nil)
 	_ WidgetFactory     = (*GtkWidgetFactory)(nil)
 )
 
@@ -160,6 +162,13 @@ func (p *gtkPaned) ConnectMap(callback func()) uint32 {
 		callback()
 	}
 	return p.inner.ConnectMap(&cb)
+}
+
+func (p *gtkPaned) ConnectNotifyPosition(callback func()) uint32 {
+	cb := func(_ gobject.Object, _ uintptr) {
+		callback()
+	}
+	return p.inner.ConnectNotifyWithDetail("position", &cb)
 }
 
 func (p *gtkPaned) AddTickCallback(callback func() bool) uint {
@@ -679,6 +688,66 @@ func (p *gtkProgressBar) ComputePoint(target Widget) (x, y float64, ok bool) {
 func (p *gtkProgressBar) SetFraction(fraction float64) { p.inner.SetFraction(fraction) }
 func (p *gtkProgressBar) GetFraction() float64         { return p.inner.GetFraction() }
 
+// gtkSpinner wraps gtk.Spinner to implement SpinnerWidget.
+type gtkSpinner struct {
+	inner *gtk.Spinner
+}
+
+func (s *gtkSpinner) Show()                         { s.inner.Show() }
+func (s *gtkSpinner) Hide()                         { s.inner.Hide() }
+func (s *gtkSpinner) SetVisible(visible bool)       { s.inner.SetVisible(visible) }
+func (s *gtkSpinner) IsVisible() bool               { return s.inner.GetVisible() }
+func (s *gtkSpinner) GrabFocus() bool               { return s.inner.GrabFocus() }
+func (s *gtkSpinner) HasFocus() bool                { return s.inner.HasFocus() }
+func (s *gtkSpinner) SetCanFocus(canFocus bool)     { s.inner.SetCanFocus(canFocus) }
+func (s *gtkSpinner) SetFocusOnClick(focus bool)    { s.inner.SetFocusOnClick(focus) }
+func (s *gtkSpinner) SetCanTarget(canTarget bool)   { s.inner.SetCanTarget(canTarget) }
+func (s *gtkSpinner) SetHexpand(expand bool)        { s.inner.SetHexpand(expand) }
+func (s *gtkSpinner) SetVexpand(expand bool)        { s.inner.SetVexpand(expand) }
+func (s *gtkSpinner) GetHexpand() bool              { return s.inner.GetHexpand() }
+func (s *gtkSpinner) GetVexpand() bool              { return s.inner.GetVexpand() }
+func (s *gtkSpinner) SetHalign(align gtk.Align)     { s.inner.SetHalign(align) }
+func (s *gtkSpinner) SetValign(align gtk.Align)     { s.inner.SetValign(align) }
+func (s *gtkSpinner) SetSizeRequest(w, h int)       { s.inner.SetSizeRequest(w, h) }
+func (s *gtkSpinner) AddCssClass(class string)      { s.inner.AddCssClass(class) }
+func (s *gtkSpinner) RemoveCssClass(class string)   { s.inner.RemoveCssClass(class) }
+func (s *gtkSpinner) HasCssClass(class string) bool { return s.inner.HasCssClass(class) }
+func (s *gtkSpinner) Unparent()                     { s.inner.Unparent() }
+func (s *gtkSpinner) GtkWidget() *gtk.Widget        { return &s.inner.Widget }
+
+func (s *gtkSpinner) GetParent() Widget {
+	parent := s.inner.GetParent()
+	if parent == nil {
+		return nil
+	}
+	return &gtkWidget{inner: parent}
+}
+
+func (s *gtkSpinner) GetAllocatedWidth() int               { return s.inner.GetAllocatedWidth() }
+func (s *gtkSpinner) GetAllocatedHeight() int              { return s.inner.GetAllocatedHeight() }
+func (s *gtkSpinner) AddController(c *gtk.EventController) { s.inner.AddController(c) }
+
+func (s *gtkSpinner) ComputePoint(target Widget) (x, y float64, ok bool) {
+	srcPoint := &graphene.Point{X: 0, Y: 0}
+	outPoint := &graphene.Point{}
+
+	var targetGtk *gtk.Widget
+	if target != nil {
+		targetGtk = target.GtkWidget()
+	}
+
+	ok = s.inner.ComputePoint(targetGtk, srcPoint, outPoint)
+	if !ok {
+		return 0, 0, false
+	}
+	return float64(outPoint.X), float64(outPoint.Y), true
+}
+
+func (s *gtkSpinner) Start()                    { s.inner.Start() }
+func (s *gtkSpinner) Stop()                     { s.inner.Stop() }
+func (s *gtkSpinner) SetSpinning(spinning bool) { s.inner.SetSpinning(spinning) }
+func (s *gtkSpinner) GetSpinning() bool         { return s.inner.GetSpinning() }
+
 // GtkWidgetFactory creates real GTK widgets.
 type GtkWidgetFactory struct{}
 
@@ -726,6 +795,11 @@ func (f *GtkWidgetFactory) NewImage() ImageWidget {
 func (f *GtkWidgetFactory) NewProgressBar() ProgressBarWidget {
 	progressBar := gtk.NewProgressBar()
 	return &gtkProgressBar{inner: progressBar}
+}
+
+func (f *GtkWidgetFactory) NewSpinner() SpinnerWidget {
+	spinner := gtk.NewSpinner()
+	return &gtkSpinner{inner: spinner}
 }
 
 func (f *GtkWidgetFactory) WrapWidget(w *gtk.Widget) Widget {

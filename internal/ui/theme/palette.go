@@ -24,6 +24,34 @@ type Palette struct {
 	Destructive string // Error/destructive actions
 }
 
+// ModeColors holds colors for modal mode indicators (borders and toasters).
+type ModeColors struct {
+	PaneMode    string // Color for pane mode (default: #4A90E2 blue)
+	TabMode     string // Color for tab mode (default: #FFA500 orange)
+	SessionMode string // Color for session mode (default: #9B59B6 purple)
+	ResizeMode  string // Color for resize mode (default: #00D4AA teal)
+}
+
+// DefaultModeColors returns the default mode indicator colors.
+func DefaultModeColors() ModeColors {
+	return ModeColors{
+		PaneMode:    "#4A90E2",
+		TabMode:     "#FFA500",
+		SessionMode: "#9B59B6",
+		ResizeMode:  "#00D4AA",
+	}
+}
+
+// ToCSSVars generates CSS custom property declarations for mode colors.
+func (m ModeColors) ToCSSVars() string {
+	var sb strings.Builder
+	sb.WriteString("  --pane-mode-color: " + m.PaneMode + ";\n")
+	sb.WriteString("  --tab-mode-color: " + m.TabMode + ";\n")
+	sb.WriteString("  --session-mode-color: " + m.SessionMode + ";\n")
+	sb.WriteString("  --resize-mode-color: " + m.ResizeMode + ";\n")
+	return sb.String()
+}
+
 // DefaultDarkPalette returns the default dark theme palette.
 func DefaultDarkPalette() Palette {
 	return Palette{
@@ -96,6 +124,70 @@ func Coalesce(values ...string) string {
 
 // hexColorRegex matches valid hex colors (#RGB, #RRGGBB, #RRGGBBAA).
 var hexColorRegex = regexp.MustCompile(`^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$`)
+
+// Hex format length constants.
+const (
+	hexLenShort    = 3   // #RGB
+	hexLenStandard = 6   // #RRGGBB
+	hexLenWithAlha = 8   // #RRGGBBAA
+	maxColorValue  = 255 // Maximum value for 8-bit color channel
+)
+
+// HexToRGBA converts a hex color string to RGBA float32 values (0.0-1.0).
+// Supports #RGB, #RRGGBB, and #RRGGBBAA formats.
+// Returns opaque black (0,0,0,1) if parsing fails.
+func HexToRGBA(hex string) (r, g, b, a float32) {
+	// Default to opaque black
+	if hex == "" || hex[0] != '#' {
+		return 0, 0, 0, 1
+	}
+	hex = hex[1:]
+
+	var ri, gi, bi, ai uint64
+	switch len(hex) {
+	case hexLenShort: // #RGB
+		ri, _ = parseHex(hex[0:1])
+		gi, _ = parseHex(hex[1:2])
+		bi, _ = parseHex(hex[2:3])
+		ri *= 17 // 0xF -> 0xFF
+		gi *= 17
+		bi *= 17
+		ai = maxColorValue
+	case hexLenStandard: // #RRGGBB
+		ri, _ = parseHex(hex[0:2])
+		gi, _ = parseHex(hex[2:4])
+		bi, _ = parseHex(hex[4:6])
+		ai = maxColorValue
+	case hexLenWithAlha: // #RRGGBBAA
+		ri, _ = parseHex(hex[0:2])
+		gi, _ = parseHex(hex[2:4])
+		bi, _ = parseHex(hex[4:6])
+		ai, _ = parseHex(hex[6:8])
+	default:
+		return 0, 0, 0, 1
+	}
+
+	return float32(ri) / maxColorValue, float32(gi) / maxColorValue, float32(bi) / maxColorValue, float32(ai) / maxColorValue
+}
+
+// parseHex parses a hex string to uint64.
+func parseHex(s string) (uint64, error) {
+	var result uint64
+	for _, c := range s {
+		result *= 16
+		switch {
+		case c >= '0' && c <= '9':
+			result += uint64(c - '0')
+		case c >= 'a' && c <= 'f':
+			result += uint64(c - 'a' + 10)
+		case c >= 'A' && c <= 'F':
+			result += uint64(c - 'A' + 10)
+		default:
+			return 0, fmt.Errorf("invalid hex char: %c", c)
+		}
+	}
+	return result, nil
+}
 
 // ValidateHexColor checks if a string is a valid hex color.
 func ValidateHexColor(color string) error {

@@ -70,6 +70,15 @@ type Session struct {
 	EndedAt   sql.NullTime `json:"ended_at"`
 }
 
+type SessionState struct {
+	SessionID string    `json:"session_id"`
+	StateJson string    `json:"state_json"`
+	Version   int64     `json:"version"`
+	TabCount  int64     `json:"tab_count"`
+	PaneCount int64     `json:"pane_count"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 type ZoomLevel struct {
 	Domain     string       `json:"domain"`
 	ZoomFactor float64      `json:"zoom_factor"`

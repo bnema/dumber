@@ -89,6 +89,9 @@ type WebViewCallbacks struct {
 	OnCreate func(request PopupRequest) WebView
 	// OnReadyToShow is called when a popup WebView is ready to display.
 	OnReadyToShow func()
+	// OnLinkHover is called when hovering over a link, image, or media element.
+	// The uri parameter contains the target URL, or empty string when leaving.
+	OnLinkHover func(uri string)
 }
 
 // FindOptions configures search behavior.
@@ -189,6 +192,14 @@ type WebView interface {
 	// SetCallbacks registers callback handlers for WebView events.
 	// Pass nil to clear all callbacks.
 	SetCallbacks(callbacks *WebViewCallbacks)
+
+	// --- Media/Fullscreen State ---
+
+	// IsFullscreen returns true if the WebView is currently in fullscreen mode.
+	IsFullscreen() bool
+
+	// IsPlayingAudio returns true if the WebView is currently playing audio.
+	IsPlayingAudio() bool
 
 	// --- Lifecycle ---
 

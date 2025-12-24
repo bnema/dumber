@@ -24,11 +24,12 @@ var purgeCmd = &cobra.Command{
 
 This can remove:
   - Config directory
-  - Data directory
+  - Data directory (includes database)
   - State directory
   - Cache directory
   - Content filter caches
   - Desktop integration files
+  - Inactive browser sessions
 
 Use --force to remove everything without prompting.`,
 	RunE: runPurge,
@@ -54,20 +55,48 @@ func runPurge(_ *cobra.Command, _ []string) error {
 		return runPurgeForce(app, purgeUC)
 	}
 
-	m := model.NewPurgeModel(app.Theme, purgeUC)
+	// Build session config from app dependencies
+	cfg := model.PurgeModelConfig{
+		ListSessionsUC:  app.ListSessionsUC,
+		DeleteSessionUC: app.DeleteSessionUC,
+	}
+
+	m := model.NewPurgeModel(app.Ctx(), app.Theme, purgeUC, cfg)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	_, err := p.Run()
 	return err
 }
 
 func runPurgeForce(app *cli.App, purgeUC *usecase.PurgeDataUseCase) error {
-	out, err := purgeUC.PurgeAll(app.Ctx())
+	ctx := app.Ctx()
+	theme := app.Theme
+
+	// First, delete all inactive sessions (before we delete the database)
+	if app.ListSessionsUC != nil && app.DeleteSessionUC != nil {
+		output, err := app.ListSessionsUC.GetPurgeableSessions(ctx)
+		if err == nil && output != nil {
+			for _, s := range output.Sessions {
+				sessionID := s.Info.Session.ID
+				if delErr := app.DeleteSessionUC.Execute(ctx, usecase.DeleteSessionInput{
+					SessionID:        sessionID,
+					CurrentSessionID: "", // CLI has no current session
+				}); delErr != nil {
+					fmt.Printf("%s Session %s: %v\n", theme.ErrorStyle.Render(styles.IconX), sessionID, delErr)
+				} else {
+					fmt.Printf("%s Session %s\n", theme.SuccessStyle.Render(styles.IconCheck), sessionID)
+				}
+			}
+		}
+	}
+
+	// Then purge all directories
+	out, err := purgeUC.PurgeAll(ctx)
 	if out != nil {
 		for _, r := range out.Results {
 			if r.Success {
-				fmt.Printf("%s %s\n", app.Theme.SuccessStyle.Render(styles.IconCheck), r.Target.Path)
+				fmt.Printf("%s %s\n", theme.SuccessStyle.Render(styles.IconCheck), r.Target.Path)
 			} else {
-				fmt.Printf("%s %s: %v\n", app.Theme.ErrorStyle.Render(styles.IconX), r.Target.Path, r.Error)
+				fmt.Printf("%s %s: %v\n", theme.ErrorStyle.Render(styles.IconX), r.Target.Path, r.Error)
 			}
 		}
 	}

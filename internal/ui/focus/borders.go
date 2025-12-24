@@ -10,8 +10,9 @@ import (
 
 // CSS classes for mode borders.
 const (
-	paneModeClass = "pane-mode-active"
-	tabModeClass  = "tab-mode-active"
+	paneModeClass    = "pane-mode-active"
+	tabModeClass     = "tab-mode-active"
+	sessionModeClass = "session-mode-active"
 )
 
 // BorderManager manages mode indicator borders on the workspace container.
@@ -58,6 +59,8 @@ func (bm *BorderManager) OnModeChange(ctx context.Context, from, to input.Mode) 
 		bm.borderOverlay.RemoveCssClass(paneModeClass)
 	case input.ModeTab:
 		bm.borderOverlay.RemoveCssClass(tabModeClass)
+	case input.ModeSession:
+		bm.borderOverlay.RemoveCssClass(sessionModeClass)
 	}
 
 	// Add new mode class and set visibility
@@ -68,7 +71,13 @@ func (bm *BorderManager) OnModeChange(ctx context.Context, from, to input.Mode) 
 	case input.ModeTab:
 		bm.borderOverlay.AddCssClass(tabModeClass)
 		bm.borderOverlay.SetVisible(true)
+	case input.ModeSession:
+		bm.borderOverlay.AddCssClass(sessionModeClass)
+		bm.borderOverlay.SetVisible(true)
 	case input.ModeNormal:
+		bm.borderOverlay.SetVisible(false)
+	default:
+		// Resize mode is handled by per-pane stack border, not global overlay.
 		bm.borderOverlay.SetVisible(false)
 	}
 

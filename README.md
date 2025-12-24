@@ -23,6 +23,7 @@ A dumb browser that works like your favorite terminal multiplexer.
 - **Customizable themes**: Light and dark palettes with semantic color tokens.
 - **Persistent storage**: SQLite for history, zoom levels, and settings.
 - **Live configuration**: Single config file with hot reload when possible.
+- **Session management**: Zellij-style session save/restore with automatic snapshots and resurrection.
 
 ## Status
 Dumber recently completed a full rewrite in pure Go using the `puregotk` and `puregotk-webkit` libraries.
@@ -30,6 +31,8 @@ Dumber recently completed a full rewrite in pure Go using the `puregotk` and `pu
 The project is now structured around clean architecture, which makes it much easier to iterate on features and improve testability.
 
 Early development with regular releases. Core features work well for daily use but expect some rough edges.
+
+Some features are very alpha/experimental (notably consume-or-expel panes) and may change behavior between releases.
 
 ## Controls & Shortcuts
 
@@ -74,14 +77,37 @@ Early development with regular releases. Core features work well for daily use b
 | **↓** / **D** (in pane mode) | Split Down | Create new pane below |
 | **S** (in pane mode) | Stack Pane | Create stacked pane (Zellij-style) |
 | **X** (in pane mode) | Close Pane | Close current pane |
+| **m** (in pane mode) | Move Pane To Tab | Opens a tab picker modal |
+| **M** (in pane mode) | Move Pane To Next Tab | Moves to the next tab, creates new tab if needed |
 | **Enter** (in pane mode) | Confirm Action | Confirm pane operation |
 | **Escape** (in pane mode) | Exit Pane Mode | Return to normal navigation |
 | **Alt+Arrow Keys** | Navigate Panes | Move focus between panes |
 | **Alt+Up/Down** | Navigate Stack | Navigate between stacked panes |
+| **Alt+[** / **Alt+]** | Consume / Expel Pane | Experimental (alpha): merge into sibling stack, or expel out of stack |
+| **Alt+Shift+[** / **Alt+Shift+]** | Consume / Expel Pane (Vertical) | Experimental (alpha): up/down variants |
+
+#### Resize Mode
+| Shortcut | Action | Notes |
+|----------|--------|-------|
+| **Ctrl+N** | Enter Resize Mode | Modal mode for pane resizing |
+| **←/↓/↑/→** / **h/j/k/l** (in resize mode) | Move Divider | Resizes the nearest split by moving the divider |
+| **H/J/K/L** (in resize mode) | Move Divider (Inverse) | Inverts the direction |
+| **+ / -** (in resize mode) | Smart Resize | Grow/shrink the active pane (best-effort) |
+| **Enter** (in resize mode) | Confirm | Exit resize mode |
+| **Escape** (in resize mode) | Cancel | Exit resize mode |
+
+#### Session Management
+| Shortcut | Action | Notes |
+|----------|--------|-------|
+| **Ctrl+O** | Enter Session Mode | Modal mode for session operations |
+| **Ctrl+Shift+S** | Open Session Manager | Direct access to session browser |
+| **S** / **W** (in session mode) | Open Session Manager | Browse and restore sessions |
+| **Escape** (in session mode) | Exit Session Mode | Return to normal navigation |
 
 ### Mouse Controls
 | Action | Result | Notes |
 |--------|---------|-------|
+| **Drag pane divider** | Resize panes | Updates split ratio and persists in session snapshots |
 | **Ctrl+Scroll Up** | Zoom In | Smooth zoom control |
 | **Ctrl+Scroll Down** | Zoom Out | Smooth zoom control |
 | **Mouse Button 8** | Navigate Back | Side button (back) |
@@ -108,12 +134,19 @@ All zoom changes are automatically persisted per-domain and restored on next vis
 
 Download the latest release from the [releases page](https://github.com/bnema/dumber/releases):
 ```bash
-wget https://github.com/bnema/dumber/releases/latest/download/dumber_<version>_linux_x86_64.tar.gz
-tar -xzf dumber_<version>_linux_x86_64.tar.gz
-sudo install -m 755 dumber /usr/local/bin/
+# Download latest release
+wget https://github.com/bnema/dumber/releases/latest/download/dumber_linux_x86_64.tar.gz
+
+# Extract and install to ~/.local/bin (enables auto-updates)
+tar -xzf dumber_linux_x86_64.tar.gz
+mkdir -p ~/.local/bin
+install -m 755 dumber_*/dumber ~/.local/bin/
+
+# Ensure ~/.local/bin is in your PATH (add to ~/.bashrc or ~/.zshrc if needed)
+# export PATH="$HOME/.local/bin:$PATH"
 ```
 
-Then install runtime dependencies (see [Install](#install) section for details).
+Then install runtime dependencies (see [Dependencies](#dependencies) section below).
 
 **Option 2: Build From Source**
 
@@ -142,18 +175,11 @@ Development:
 
 ### Pre-built Binaries (Recommended)
 
-Pre-built binaries are available for Linux (x86_64/amd64) in the [releases page](https://github.com/bnema/dumber/releases). These include all frontend assets and are ready to use:
+Pre-built binaries are available for Linux (x86_64/amd64) in the [releases page](https://github.com/bnema/dumber/releases). See [Quick Start](#quick-start) for installation instructions.
 
-```bash
-# Download and install latest release
-wget https://github.com/bnema/dumber/releases/latest/download/dumber_<version>_linux_x86_64.tar.gz
-tar -xzf dumber_<version>_linux_x86_64.tar.gz
-sudo install -m 755 dumber /usr/local/bin/
-```
+### Dependencies
 
-Replace `<version>` with the desired version (e.g., `0.14.1`), or use the direct link from the releases page.
-
-**Dependencies** (required for both pre-built binaries and source builds):
+Required for both pre-built binaries and source builds:
 
 **Arch Linux:**
 ```bash
@@ -210,38 +236,61 @@ sudo apt install va-driver-all
   - The resulting `./dist/dumber-no-gui` binary runs CLI flows with GUI code stubbed
 
 ## Usage
-- Open a URL or search:
+- Open a URL, local file, or search:
   - `dumber browse https://example.com`
-  - `dumber browse example.com`        # scheme auto‑added
-  - `dumber browse dumb://home`        # built-in home page (stats, shortcuts, etc.)
-  - `dumber browse "!g golang"`         # Google search via bang shortcut
+  - `dumber browse example.com`         # scheme auto‑added
+  - `dumber browse ./test.html`         # local file path (converted to file://)
+  - `dumber browse dumb://home`         # built-in home page (stats, shortcuts, etc.)
+  - `dumber browse "!g golang"`        # search via bang shortcut
 - Show version information:
-  - `dumber about`                     # display version, commit, and build date
+  - `dumber about`                      # version, commit, and build date
+- Check for and install updates:
+  - `dumber update`                     # check and install if available
+  - `dumber update --force`             # force reinstall (skips version check)
 - Launcher integration (dmenu‑style examples with favicon support):
   - rofi:   `dumber dmenu | rofi -dmenu -show-icons -p "🔍 " | dumber dmenu --select`
   - fuzzel: `dumber dmenu | fuzzel --dmenu -p "🔍 " | dumber dmenu --select`
+  - `dumber dmenu --interactive`        # built-in TUI fuzzy finder
+  - `dumber dmenu --days 7`             # show history from last 7 days (default: 30)
+  - `dumber dmenu --most-visited`       # sort by visit count instead of recency
 - Manage browsing history:
-  - `dumber history`                  # interactive history browser (timeline tabs + fuzzy search)
-  - `dumber history --json`           # output recent entries as JSON
-  - `dumber history --json --max 50`  # limit JSON output to N entries
-  - `dumber history stats`            # show history statistics
-  - `dumber history clear`            # interactive cleanup (select time range)
-- Clean up data and cache:
-  - `dumber purge`                        # purge all data (with confirmation)
-  - `dumber purge --force`                # purge all data (no confirmation)
-  - `dumber purge -d -H -c`               # purge database and both caches
-  - `dumber purge --browser-data`         # purge WebKit data (cookies, etc.)
+  - `dumber history`                    # interactive history browser (timeline tabs + fuzzy search)
+  - `dumber history --json`             # output recent entries as JSON
+  - `dumber history --json --max 50`    # limit JSON output to N entries
+  - `dumber history stats`              # show history statistics
+  - `dumber history clear`              # interactive time-range cleanup
+- Clean up data:
+  - `dumber purge`                      # interactive selection (TUI)
+  - `dumber purge --force`              # remove everything (no prompts)
+- Manage configuration:
+  - `dumber config status`              # show config path and migration availability
+  - `dumber config migrate`             # add missing default settings to config
+  - `dumber config migrate --yes`       # skip confirmation prompt
+- Manage sessions:
+  - `dumber sessions`                   # interactive session browser (TUI)
+  - `dumber sessions list`              # list saved sessions
+  - `dumber sessions list --json`       # output sessions as JSON
+  - `dumber sessions list --limit 50`   # limit number of sessions shown
+  - `dumber sessions restore <id>`      # restore a session in a new window
+  - `dumber sessions delete <id>`       # delete a saved session
 - Manage logs:
-  - `dumber logs list`                    # list available log files
-  - `dumber logs tail`                    # tail current log file
-  - `dumber logs clean`                   # clean up old log files
+  - `dumber logs`                       # list sessions with log files
+  - `dumber logs <session>`             # show logs for a session (full ID or unique suffix)
+  - `dumber logs -f <session>`          # follow logs in real time
+  - `dumber logs -n 200 <session>`      # show last N lines
+  - `dumber logs clear`                 # clean up old log files
+  - `dumber logs clear --all`           # remove all log files
+- Generate documentation:
+  - `dumber gen-docs`                   # install man pages to ~/.local/share/man/man1/
+  - `dumber gen-docs --format markdown` # generate markdown docs to ./docs/
+  - `dumber gen-docs --output ./man`    # generate to custom directory
 
 ### Dmenu mode invocation
 You can invoke dmenu mode in two ways:
-- Subcommand (recommended): `dumber dmenu` … and `dumber dmenu --select`
-- Root flag (generate options only): `dumber --dmenu`
+- Piped launcher (generate options): `dumber dmenu`
+- Receive selection from stdin: `dumber dmenu --select`
 
-Note: The root flag path only generates options; for processing a selection (`--select`), use the `dmenu` subcommand as the receiving command.
+For a built-in fuzzy finder UI, use: `dumber dmenu --interactive`
 
 In GUI mode the app serves an embedded home page via `dumb://home`, and frontend assets under `dumb://app/...`.
 
@@ -259,7 +308,7 @@ Each tab holds its own workspace. Each workspace can contain multiple panes (spl
 3. **Navigate**: Use `Ctrl+Tab` / `Ctrl+Shift+Tab` for quick tab switching, or `L`/`H` in tab mode
 4. **Exit**: Press `Escape` to exit tab mode or wait for timeout
 
-Tab mode provides visual feedback with an orange border indicator.
+
 
 ## Pane Management
 
@@ -275,6 +324,19 @@ Split your browser window into multiple panes, each running independent web sess
    - `S` - Stack panes (Zellij-style, shows title bars for collapsed panes)
 3. **Navigate**: Use `Alt+Arrow Keys` to move focus between split panes, or `Alt+Up/Down` to navigate within stacked panes
 4. **Close**: Press `X` in pane mode to close the current pane
+
+## Session Management
+
+Dumber automatically saves your browser session (tabs, panes, split ratios, URLs) and allows you to restore previous sessions.
+
+### How it Works
+1. **Automatic Snapshots**: Session state is saved automatically (debounced, every 5s by default) and on graceful shutdown
+2. **Session Manager**: Press `Ctrl+O → s` or `Ctrl+Shift+S` to open the session manager modal
+3. **Browse Sessions**: View active and exited sessions with tab/pane previews
+4. **Restore**: Select an exited session to restore it in a new browser window
+5. **CLI Access**: Use `dumber sessions` for an interactive TUI, or `dumber sessions list/restore/delete` for scripting
+
+
 
 ## Configuration
 

@@ -17,6 +17,8 @@ type Config struct {
 	DefaultUIScale float64 `mapstructure:"default_ui_scale" yaml:"default_ui_scale" toml:"default_ui_scale"`
 	// Workspace defines workspace, pane, and tab handling behavior.
 	Workspace WorkspaceConfig `mapstructure:"workspace" yaml:"workspace" toml:"workspace"`
+	// Session controls session persistence and restoration.
+	Session SessionConfig `mapstructure:"session" yaml:"session" toml:"session"`
 	// ContentFiltering controls ad blocking and content filtering
 	ContentFiltering ContentFilteringConfig `mapstructure:"content_filtering" yaml:"content_filtering" toml:"content_filtering"`
 	// Omnibox controls the omnibox behavior (initial history display)
@@ -27,6 +29,10 @@ type Config struct {
 	Media MediaConfig `mapstructure:"media" yaml:"media" toml:"media"`
 	// Runtime configures optional runtime overrides (e.g., /opt prefix for WebKitGTK/GTK).
 	Runtime RuntimeConfig `mapstructure:"runtime" yaml:"runtime" toml:"runtime"`
+	// Performance holds internal performance tuning options (not exposed in UI).
+	Performance PerformanceConfig `mapstructure:"performance" yaml:"performance" toml:"performance"`
+	// Update controls automatic update checking and downloading.
+	Update UpdateConfig `mapstructure:"update" yaml:"update" toml:"update"`
 }
 
 // RenderingMode selects GPU vs CPU rendering.
@@ -119,6 +125,20 @@ const (
 	GLRenderingModeNone GLRenderingMode = "none"
 )
 
+// PerformanceProfile selects preset performance tuning settings.
+type PerformanceProfile string
+
+const (
+	// ProfileDefault uses WebKit defaults (no tuning applied).
+	ProfileDefault PerformanceProfile = "default"
+	// ProfileLite reduces resource usage for low-RAM systems.
+	ProfileLite PerformanceProfile = "lite"
+	// ProfileMax maximizes responsiveness for heavy pages (GitHub PRs, etc).
+	ProfileMax PerformanceProfile = "max"
+	// ProfileCustom allows full control over individual performance settings.
+	ProfileCustom PerformanceProfile = "custom"
+)
+
 // ThemeDefault is the default theme setting (follows system).
 const ThemeDefault = "default"
 
@@ -172,6 +192,74 @@ type HistoryConfig struct {
 	CleanupIntervalDays int `mapstructure:"cleanup_interval_days" yaml:"cleanup_interval_days" toml:"cleanup_interval_days"`
 }
 
+// PerformanceConfig holds internal performance tuning options.
+// These are not exposed in dumb://config UI but can be set in config file.
+type PerformanceConfig struct {
+	// Profile selects a preset performance configuration.
+	// Values: "default" (no tuning), "lite" (low RAM), "max" (heavy pages), "custom" (manual control)
+	// When profile is not "custom", individual tuning fields below are ignored and computed from the profile.
+	// Default: "default"
+	Profile PerformanceProfile `mapstructure:"profile" yaml:"profile" toml:"profile"`
+
+	// ZoomCacheSize is the number of domain zoom levels to cache in memory.
+	// Higher values reduce database queries but use more memory.
+	// Default: 256 domains (~20KB memory)
+	ZoomCacheSize int `mapstructure:"zoom_cache_size" yaml:"zoom_cache_size" toml:"zoom_cache_size"`
+
+	// WebViewPoolPrewarmCount is the number of WebViews to pre-create at startup.
+	// Higher values speed up initial tab creation but use more memory.
+	// Default: 4 (custom mode), computed from profile otherwise
+	WebViewPoolPrewarmCount int `mapstructure:"webview_pool_prewarm_count" yaml:"webview_pool_prewarm_count" toml:"webview_pool_prewarm_count"` //nolint:lll // struct tags must stay on one line
+
+	// --- Skia rendering threads (env vars) ---
+	// NOTE: Fields below only apply when Profile is "custom".
+	// SkiaCPUPaintingThreads sets WEBKIT_SKIA_CPU_PAINTING_THREADS.
+	// Default: 0 (unset, uses WebKit default)
+	SkiaCPUPaintingThreads int `mapstructure:"skia_cpu_painting_threads" yaml:"skia_cpu_painting_threads" toml:"skia_cpu_painting_threads"` //nolint:lll // struct tags must stay on one line
+
+	// SkiaGPUPaintingThreads sets WEBKIT_SKIA_GPU_PAINTING_THREADS.
+	// Default: -1 (unset). Value 0 disables GPU tile painting.
+	SkiaGPUPaintingThreads int `mapstructure:"skia_gpu_painting_threads" yaml:"skia_gpu_painting_threads" toml:"skia_gpu_painting_threads"` //nolint:lll // struct tags must stay on one line
+
+	// SkiaEnableCPURendering forces CPU rendering via WEBKIT_SKIA_ENABLE_CPU_RENDERING=1.
+	// Default: false
+	SkiaEnableCPURendering bool `mapstructure:"skia_enable_cpu_rendering" yaml:"skia_enable_cpu_rendering" toml:"skia_enable_cpu_rendering"` //nolint:lll // struct tags must stay on one line
+
+	// --- Web process memory pressure ---
+	// WebProcessMemoryLimitMB sets memory limit in MB for web processes.
+	// Default: 0 (unset, uses WebKit default: system RAM capped at 3GB)
+	WebProcessMemoryLimitMB int `mapstructure:"web_process_memory_limit_mb" yaml:"web_process_memory_limit_mb" toml:"web_process_memory_limit_mb"` //nolint:lll // struct tags must stay on one line
+
+	// WebProcessMemoryPollIntervalSec sets poll interval for memory checks.
+	// Default: 0 (unset, uses WebKit default: 30 seconds)
+	WebProcessMemoryPollIntervalSec float64 `mapstructure:"web_process_memory_poll_interval_sec" yaml:"web_process_memory_poll_interval_sec" toml:"web_process_memory_poll_interval_sec"` //nolint:lll // struct tags must stay on one line
+
+	// WebProcessMemoryConservativeThreshold sets threshold for conservative memory release.
+	// Valid: (0, 1). Default: 0 (unset, uses WebKit default: 0.33)
+	WebProcessMemoryConservativeThreshold float64 `mapstructure:"web_process_memory_conservative_threshold" yaml:"web_process_memory_conservative_threshold" toml:"web_process_memory_conservative_threshold"` //nolint:lll // struct tags must stay on one line
+
+	// WebProcessMemoryStrictThreshold sets threshold for strict memory release.
+	// Valid: (0, 1). Default: 0 (unset, uses WebKit default: 0.5)
+	WebProcessMemoryStrictThreshold float64 `mapstructure:"web_process_memory_strict_threshold" yaml:"web_process_memory_strict_threshold" toml:"web_process_memory_strict_threshold"` //nolint:lll // struct tags must stay on one line
+
+	// --- Network process memory pressure ---
+	// NetworkProcessMemoryLimitMB sets memory limit in MB for network process.
+	// Default: 0 (unset)
+	NetworkProcessMemoryLimitMB int `mapstructure:"network_process_memory_limit_mb" yaml:"network_process_memory_limit_mb" toml:"network_process_memory_limit_mb"` //nolint:lll // struct tags must stay on one line
+
+	// NetworkProcessMemoryPollIntervalSec sets poll interval for memory checks.
+	// Default: 0 (unset)
+	NetworkProcessMemoryPollIntervalSec float64 `mapstructure:"network_process_memory_poll_interval_sec" yaml:"network_process_memory_poll_interval_sec" toml:"network_process_memory_poll_interval_sec"` //nolint:lll // struct tags must stay on one line
+
+	// NetworkProcessMemoryConservativeThreshold sets threshold for conservative memory release.
+	// Valid: (0, 1). Default: 0 (unset)
+	NetworkProcessMemoryConservativeThreshold float64 `mapstructure:"network_process_memory_conservative_threshold" yaml:"network_process_memory_conservative_threshold" toml:"network_process_memory_conservative_threshold"` //nolint:lll // struct tags must stay on one line
+
+	// NetworkProcessMemoryStrictThreshold sets threshold for strict memory release.
+	// Valid: (0, 1). Default: 0 (unset)
+	NetworkProcessMemoryStrictThreshold float64 `mapstructure:"network_process_memory_strict_threshold" yaml:"network_process_memory_strict_threshold" toml:"network_process_memory_strict_threshold"` //nolint:lll // struct tags must stay on one line
+}
+
 // SearchShortcut represents a search shortcut configuration.
 type SearchShortcut struct {
 	URL         string `mapstructure:"url" toml:"url" yaml:"url" json:"url"`
@@ -190,7 +278,7 @@ func (c *Config) ShortcutURLs() map[string]string {
 
 // DmenuConfig holds dmenu/rofi integration configuration.
 type DmenuConfig struct {
-	MaxHistoryItems  int    `mapstructure:"max_history_items" yaml:"max_history_items" toml:"max_history_items"`
+	MaxHistoryDays   int    `mapstructure:"max_history_days" yaml:"max_history_days" toml:"max_history_days"`
 	ShowVisitCount   bool   `mapstructure:"show_visit_count" yaml:"show_visit_count" toml:"show_visit_count"`
 	ShowLastVisited  bool   `mapstructure:"show_last_visited" yaml:"show_last_visited" toml:"show_last_visited"`
 	HistoryPrefix    string `mapstructure:"history_prefix" yaml:"history_prefix" toml:"history_prefix"`
@@ -254,6 +342,9 @@ type OmniboxConfig struct {
 	// InitialBehavior controls what to show when omnibox opens with empty input
 	// Values: "recent" (recent visits), "most_visited" (most visited sites), "none" (nothing)
 	InitialBehavior string `mapstructure:"initial_behavior" yaml:"initial_behavior" toml:"initial_behavior"`
+	// AutoOpenOnNewPane opens the omnibox automatically when a new pane is created.
+	// Default: false
+	AutoOpenOnNewPane bool `mapstructure:"auto_open_on_new_pane" yaml:"auto_open_on_new_pane" toml:"auto_open_on_new_pane"`
 }
 
 // DebugConfig holds debug and troubleshooting options
@@ -262,18 +353,40 @@ type DebugConfig struct {
 	EnableDevTools bool `mapstructure:"enable_devtools" yaml:"enable_devtools" toml:"enable_devtools"`
 }
 
+// UpdateConfig holds automatic update settings.
+type UpdateConfig struct {
+	// EnableOnStartup enables checking for updates when the browser starts.
+	// Default: true
+	EnableOnStartup bool `mapstructure:"enable_on_startup" yaml:"enable_on_startup" toml:"enable_on_startup"`
+	// AutoDownload automatically downloads updates in the background.
+	// When enabled, updates are applied on browser exit.
+	// Default: false
+	AutoDownload bool `mapstructure:"auto_download" yaml:"auto_download" toml:"auto_download"`
+	// NotifyOnNewSettings shows a toast notification on startup when new config settings are available.
+	// Default: true
+	NotifyOnNewSettings bool `mapstructure:"notify_on_new_settings" yaml:"notify_on_new_settings" toml:"notify_on_new_settings"`
+}
+
 // WorkspaceConfig captures layout, pane, and tab behavior preferences.
 type WorkspaceConfig struct {
+	// NewPaneURL is the URL loaded when creating a new empty pane/tab.
+	// Default: "about:blank"
+	NewPaneURL string `mapstructure:"new_pane_url" yaml:"new_pane_url" toml:"new_pane_url"`
 	// PaneMode defines modal pane behavior and bindings.
 	PaneMode PaneModeConfig `mapstructure:"pane_mode" yaml:"pane_mode" toml:"pane_mode" json:"pane_mode"`
 	// TabMode defines modal tab behavior and bindings (Alt+T).
 	TabMode TabModeConfig `mapstructure:"tab_mode" yaml:"tab_mode" toml:"tab_mode" json:"tab_mode"`
+	// ResizeMode defines modal pane resizing behavior and bindings (Ctrl+N).
+	ResizeMode ResizeModeConfig `mapstructure:"resize_mode" yaml:"resize_mode" toml:"resize_mode" json:"resize_mode"`
 	// Shortcuts holds global (non-modal) keyboard shortcuts.
 	Shortcuts GlobalShortcutsConfig `mapstructure:"shortcuts" yaml:"shortcuts" toml:"shortcuts" json:"shortcuts"`
 	// TabBarPosition determines tab bar placement: "top" or "bottom".
 	TabBarPosition string `mapstructure:"tab_bar_position" yaml:"tab_bar_position" toml:"tab_bar_position" json:"tab_bar_position"`
 	// HideTabBarWhenSingleTab hides the tab bar when only one tab exists.
 	HideTabBarWhenSingleTab bool `mapstructure:"hide_tab_bar_when_single_tab" yaml:"hide_tab_bar_when_single_tab" toml:"hide_tab_bar_when_single_tab" json:"hide_tab_bar_when_single_tab"` //nolint:lll // struct tags must stay on one line
+	// SwitchToTabOnMove controls whether moving a pane to another tab switches focus to that tab.
+	// Default: true
+	SwitchToTabOnMove bool `mapstructure:"switch_to_tab_on_move" yaml:"switch_to_tab_on_move" toml:"switch_to_tab_on_move" json:"switch_to_tab_on_move"` //nolint:lll // struct tags must stay on one line
 	// Popups configures default popup placement rules.
 	Popups PopupBehaviorConfig `mapstructure:"popups" yaml:"popups" toml:"popups" json:"popups"`
 	// Styling configures workspace visual appearance.
@@ -318,11 +431,37 @@ func (t *TabModeConfig) GetKeyBindings() map[string]string {
 	return keyToAction
 }
 
+// ResizeModeConfig defines modal behavior for resizing panes (Zellij-style).
+type ResizeModeConfig struct {
+	ActivationShortcut  string              `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
+	TimeoutMilliseconds int                 `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
+	StepPercent         float64             `mapstructure:"step_percent" yaml:"step_percent" toml:"step_percent" json:"step_percent"`
+	MinPanePercent      float64             `mapstructure:"min_pane_percent" yaml:"min_pane_percent" toml:"min_pane_percent" json:"min_pane_percent"` //nolint:lll // struct tags must stay on one line
+	Actions             map[string][]string `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
+}
+
+// GetKeyBindings returns an inverted map for O(1) key→action lookup.
+// This is built from the action→keys structure in the config.
+func (r *ResizeModeConfig) GetKeyBindings() map[string]string {
+	keyToAction := make(map[string]string)
+	for action, keys := range r.Actions {
+		for _, key := range keys {
+			keyToAction[key] = action
+		}
+	}
+	return keyToAction
+}
+
 // GlobalShortcutsConfig defines global shortcuts (always active, not modal).
 type GlobalShortcutsConfig struct {
 	ClosePane   string `mapstructure:"close_pane" yaml:"close_pane" toml:"close_pane" json:"close_pane"`
 	NextTab     string `mapstructure:"next_tab" yaml:"next_tab" toml:"next_tab" json:"next_tab"`
 	PreviousTab string `mapstructure:"previous_tab" yaml:"previous_tab" toml:"previous_tab" json:"previous_tab"`
+
+	ConsumeOrExpelLeft  string `mapstructure:"consume_or_expel_left" yaml:"consume_or_expel_left" toml:"consume_or_expel_left" json:"consume_or_expel_left"`     //nolint:lll // struct tags must stay on one line
+	ConsumeOrExpelRight string `mapstructure:"consume_or_expel_right" yaml:"consume_or_expel_right" toml:"consume_or_expel_right" json:"consume_or_expel_right"` //nolint:lll // struct tags must stay on one line
+	ConsumeOrExpelUp    string `mapstructure:"consume_or_expel_up" yaml:"consume_or_expel_up" toml:"consume_or_expel_up" json:"consume_or_expel_up"`             //nolint:lll // struct tags must stay on one line
+	ConsumeOrExpelDown  string `mapstructure:"consume_or_expel_down" yaml:"consume_or_expel_down" toml:"consume_or_expel_down" json:"consume_or_expel_down"`     //nolint:lll // struct tags must stay on one line
 }
 
 // PopupBehavior defines how popup windows should be opened
@@ -373,18 +512,64 @@ type WorkspaceStylingConfig struct {
 	// BorderColor for focused panes (CSS color value or theme variable)
 	BorderColor string `mapstructure:"border_color" yaml:"border_color" toml:"border_color" json:"border_color"`
 
-	// PaneModeBorderWidth in pixels for pane mode indicator border (Ctrl+P N overlay)
-	PaneModeBorderWidth int `mapstructure:"pane_mode_border_width" yaml:"pane_mode_border_width" toml:"pane_mode_border_width" json:"pane_mode_border_width"` //nolint:lll // struct tags must stay on one line
-	// PaneModeBorderColor for the pane mode indicator border (CSS color value or theme variable)
-	// Defaults to "#4A90E2" (blue) if not set
-	PaneModeBorderColor string `mapstructure:"pane_mode_border_color" yaml:"pane_mode_border_color" toml:"pane_mode_border_color" json:"pane_mode_border_color"` //nolint:lll // struct tags must stay on one line
+	// ModeBorderWidth in pixels for all mode indicator borders (pane, tab, session, resize)
+	ModeBorderWidth int `mapstructure:"mode_border_width" yaml:"mode_border_width" toml:"mode_border_width" json:"mode_border_width"` //nolint:lll // struct tags must stay on one line
 
-	// TabModeBorderWidth in pixels for tab mode indicator border (Ctrl+P T overlay)
-	TabModeBorderWidth int `mapstructure:"tab_mode_border_width" yaml:"tab_mode_border_width" toml:"tab_mode_border_width" json:"tab_mode_border_width"` //nolint:lll // struct tags must stay on one line
-	// TabModeBorderColor for the tab mode indicator border (CSS color value or theme variable)
-	// Defaults to "#FFA500" (orange) if not set - MUST be different from PaneModeBorderColor
-	TabModeBorderColor string `mapstructure:"tab_mode_border_color" yaml:"tab_mode_border_color" toml:"tab_mode_border_color" json:"tab_mode_border_color"` //nolint:lll // struct tags must stay on one line
+	// PaneModeColor for pane mode indicator (border and toaster). Defaults to "#4A90E2" (blue)
+	PaneModeColor string `mapstructure:"pane_mode_color" yaml:"pane_mode_color" toml:"pane_mode_color" json:"pane_mode_color"` //nolint:lll // struct tags must stay on one line
+	// TabModeColor for tab mode indicator (border and toaster). Defaults to "#FFA500" (orange)
+	TabModeColor string `mapstructure:"tab_mode_color" yaml:"tab_mode_color" toml:"tab_mode_color" json:"tab_mode_color"` //nolint:lll // struct tags must stay on one line
+	// SessionModeColor for session mode indicator (border and toaster). Defaults to "#9B59B6" (purple)
+	SessionModeColor string `mapstructure:"session_mode_color" yaml:"session_mode_color" toml:"session_mode_color" json:"session_mode_color"` //nolint:lll // struct tags must stay on one line
+	// ResizeModeColor for resize mode indicator (border and toaster). Defaults to "#00D4AA" (teal)
+	ResizeModeColor string `mapstructure:"resize_mode_color" yaml:"resize_mode_color" toml:"resize_mode_color" json:"resize_mode_color"` //nolint:lll // struct tags must stay on one line
+
+	// ModeIndicatorToasterEnabled shows a toaster notification when modal modes are active.
+	// Default: true
+	ModeIndicatorToasterEnabled bool `mapstructure:"mode_indicator_toaster_enabled" yaml:"mode_indicator_toaster_enabled" toml:"mode_indicator_toaster_enabled" json:"mode_indicator_toaster_enabled"` //nolint:lll // struct tags must stay on one line
 
 	// TransitionDuration in milliseconds for border animations
 	TransitionDuration int `mapstructure:"transition_duration" yaml:"transition_duration" toml:"transition_duration" json:"transition_duration"` //nolint:lll // struct tags must stay on one line
+}
+
+// SessionConfig holds session persistence settings.
+type SessionConfig struct {
+	// AutoRestore automatically restores the last session on startup.
+	// Default: false
+	AutoRestore bool `mapstructure:"auto_restore" yaml:"auto_restore" toml:"auto_restore" json:"auto_restore"`
+
+	// SnapshotIntervalMs is the minimum interval between snapshots in milliseconds.
+	// Default: 5000
+	SnapshotIntervalMs int `mapstructure:"snapshot_interval_ms" yaml:"snapshot_interval_ms" toml:"snapshot_interval_ms" json:"snapshot_interval_ms"` //nolint:lll // struct tags must stay on one line
+
+	// MaxExitedSessions is the maximum number of exited sessions to keep.
+	// Default: 50
+	MaxExitedSessions int `mapstructure:"max_exited_sessions" yaml:"max_exited_sessions" toml:"max_exited_sessions" json:"max_exited_sessions"` //nolint:lll // struct tags must stay on one line
+
+	// MaxExitedSessionAgeDays is the maximum age in days for exited sessions.
+	// Sessions older than this will be automatically deleted on startup.
+	// Default: 7
+	MaxExitedSessionAgeDays int `mapstructure:"max_exited_session_age_days" yaml:"max_exited_session_age_days" toml:"max_exited_session_age_days" json:"max_exited_session_age_days"` //nolint:lll // struct tags must stay on one line
+
+	// SessionMode defines modal behavior for session management (Ctrl+O).
+	SessionMode SessionModeConfig `mapstructure:"session_mode" yaml:"session_mode" toml:"session_mode" json:"session_mode"`
+}
+
+// SessionModeConfig defines modal behavior for session management.
+type SessionModeConfig struct {
+	ActivationShortcut  string              `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
+	TimeoutMilliseconds int                 `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
+	Actions             map[string][]string `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
+}
+
+// GetKeyBindings returns an inverted map for O(1) key→action lookup.
+// This is built from the action→keys structure in the config.
+func (s *SessionModeConfig) GetKeyBindings() map[string]string {
+	keyToAction := make(map[string]string)
+	for action, keys := range s.Actions {
+		for _, key := range keys {
+			keyToAction[key] = action
+		}
+	}
+	return keyToAction
 }
