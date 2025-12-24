@@ -6,6 +6,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
@@ -53,6 +54,12 @@ type Dependencies struct {
 	FaviconService *favicon.Service
 	FilterManager  *filtering.Manager
 	IdleInhibitor  port.IdleInhibitor
+
+	// Session management
+	SessionStateRepo repository.SessionStateRepository
+	SessionRepo      repository.SessionRepository
+	CurrentSessionID entity.SessionID
+	SnapshotUC       *usecase.SnapshotSessionUseCase
 }
 
 // Validate checks that all required dependencies are set.

@@ -32,6 +32,7 @@ type WorkspaceCoordinator struct {
 	generateID       func() string
 	onCloseLastPane  func(ctx context.Context) error
 	onCreatePopupTab func(ctx context.Context, input InsertPopupInput) error // For tabbed popup behavior
+	onStateChanged   func()                                                  // For session snapshots
 }
 
 // WorkspaceCoordinatorConfig holds configuration for WorkspaceCoordinator.
@@ -82,6 +83,18 @@ func (c *WorkspaceCoordinator) SetOnCloseLastPane(fn func(ctx context.Context) e
 	c.onCloseLastPane = fn
 }
 
+// SetOnStateChanged sets the callback for when workspace state changes (for session snapshots).
+func (c *WorkspaceCoordinator) SetOnStateChanged(fn func()) {
+	c.onStateChanged = fn
+}
+
+// notifyStateChanged triggers the state changed callback if set.
+func (c *WorkspaceCoordinator) notifyStateChanged() {
+	if c.onStateChanged != nil {
+		c.onStateChanged()
+	}
+}
+
 // setupPaneViewHover configures hover-to-focus behavior on a PaneView.
 func setupPaneViewHover(ctx context.Context, pv *component.PaneView, wsView *component.WorkspaceView) {
 	pv.SetOnHover(func(paneID entity.PaneID) {
@@ -128,6 +141,9 @@ func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.Spli
 	if splitCtx.wsView != nil {
 		c.applySplitToView(ctx, splitCtx.wsView, splitCtx.ws, output, direction, splitCtx.existingWidget, splitCtx.isStackSplit, oldActivePaneID)
 	}
+
+	// Notify state change for session snapshots
+	c.notifyStateChanged()
 
 	log.Info().Str("direction", string(direction)).Str("new_pane_id", string(output.NewPaneNode.Pane.ID)).Msg("pane split completed")
 
@@ -740,6 +756,9 @@ func (c *WorkspaceCoordinator) ClosePane(ctx context.Context) error {
 		parentIsStartInGrand,
 	)
 
+	// Notify state change for session snapshots
+	c.notifyStateChanged()
+
 	log.Info().Msg("pane closed")
 	return nil
 }
@@ -826,6 +845,9 @@ func (c *WorkspaceCoordinator) ClosePaneByID(ctx context.Context, paneID entity.
 		siblingIsStartChild,
 		parentIsStartInGrand,
 	)
+
+	// Notify state change for session snapshots
+	c.notifyStateChanged()
 
 	log.Info().Str("pane_id", string(paneID)).Msg("pane closed by ID")
 	return nil
@@ -1239,6 +1261,9 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 			})
 		}
 	}
+
+	// Notify state change for session snapshots
+	c.notifyStateChanged()
 
 	log.Info().
 		Str("original_pane", string(stackCtx.activePaneID)).

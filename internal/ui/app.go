@@ -12,6 +12,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
+	"github.com/bnema/dumber/internal/infrastructure/snapshot"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 
 	"github.com/bnema/dumber/internal/infrastructure/webkit/handlers"
@@ -83,6 +84,10 @@ type App struct {
 
 	// App-level toaster for system notifications (filter status, etc.)
 	appToaster *component.Toaster
+
+	// Session management
+	sessionManager  *component.SessionManager
+	snapshotService *snapshot.Service
 
 	// ID generator for tabs/panes
 	idCounter uint64
@@ -183,6 +188,8 @@ func (a *App) onActivate(ctx context.Context) {
 	a.initKeyboardHandler(ctx)
 	a.initOmniboxConfig(ctx)
 	a.initFindBarConfig()
+	a.initSessionManager(ctx)
+	a.initSnapshotService(ctx)
 	a.createInitialTab(ctx)
 	a.finalizeActivation(ctx)
 }
@@ -295,10 +302,7 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 	}
 
 	// Create keyboard handler and wire to dispatcher.
-	a.keyboardHandler = input.NewKeyboardHandler(
-		ctx,
-		&a.deps.Config.Workspace,
-	)
+	a.keyboardHandler = input.NewKeyboardHandler(ctx, a.deps.Config)
 	a.keyboardHandler.SetOnAction(func(ctx context.Context, action input.Action) error {
 		return a.kbDispatcher.Dispatch(ctx, action)
 	})
@@ -369,6 +373,106 @@ func (a *App) initFindBarConfig() {
 	}
 }
 
+func (a *App) initSessionManager(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
+	if a.deps == nil {
+		log.Debug().Msg("deps not available, skipping session manager")
+		return
+	}
+
+	// Session manager can work without a repo - it just shows an empty list
+	var listSessionsUC *usecase.ListSessionsUseCase
+	if a.deps.SessionRepo != nil && a.deps.SessionStateRepo != nil {
+		listSessionsUC = usecase.NewListSessionsUseCase(
+			a.deps.SessionRepo,
+			a.deps.SessionStateRepo,
+			a.deps.Config.Logging.LogDir,
+		)
+	}
+
+	// Create session manager component
+	a.sessionManager = component.NewSessionManager(ctx, component.SessionManagerConfig{
+		ListSessionsUC: listSessionsUC,
+		CurrentSession: a.deps.CurrentSessionID,
+		OnClose: func() {
+			log.Debug().Msg("session manager closed")
+		},
+		OnOpen: func(sessionID entity.SessionID) {
+			log.Info().Str("session_id", string(sessionID)).Msg("session restoration requested")
+			// TODO: Implement session spawning/resurrection
+		},
+	})
+
+	if a.sessionManager == nil {
+		log.Warn().Msg("failed to create session manager")
+		return
+	}
+
+	// Add session manager to main window overlay
+	if a.mainWindow != nil {
+		widget := a.sessionManager.Widget()
+		if widget != nil {
+			a.mainWindow.AddOverlay(widget)
+		}
+	}
+
+	// Wire session manager action to keyboard dispatcher
+	a.kbDispatcher.SetOnSessionOpen(func(ctx context.Context) error {
+		a.ToggleSessionManager(ctx)
+		return nil
+	})
+
+	log.Debug().Msg("session manager initialized")
+}
+
+// ToggleSessionManager shows or hides the session manager.
+func (a *App) ToggleSessionManager(ctx context.Context) {
+	if a.sessionManager == nil {
+		return
+	}
+	a.sessionManager.Toggle(ctx)
+}
+
+func (a *App) initSnapshotService(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
+	if a.deps == nil || a.deps.SnapshotUC == nil {
+		log.Debug().Msg("snapshot use case not available, skipping snapshot service")
+		return
+	}
+
+	intervalMs := 5000 // default
+	if a.deps.Config != nil && a.deps.Config.Session.SnapshotIntervalMs > 0 {
+		intervalMs = a.deps.Config.Session.SnapshotIntervalMs
+	}
+
+	a.snapshotService = snapshot.NewService(a.deps.SnapshotUC, a, intervalMs)
+	a.snapshotService.Start(ctx)
+
+	log.Debug().Int("interval_ms", intervalMs).Msg("snapshot service started")
+}
+
+// GetTabList implements port.TabListProvider.
+func (a *App) GetTabList() *entity.TabList {
+	return a.tabs
+}
+
+// GetSessionID implements port.TabListProvider.
+func (a *App) GetSessionID() entity.SessionID {
+	if a.deps == nil {
+		return ""
+	}
+	return a.deps.CurrentSessionID
+}
+
+// MarkDirty signals that session state has changed and should be saved.
+func (a *App) MarkDirty() {
+	if a.snapshotService != nil {
+		a.snapshotService.MarkDirty()
+	}
+}
+
 func (a *App) createInitialTab(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
@@ -408,6 +512,13 @@ func (a *App) finalizeActivation(ctx context.Context) {
 func (a *App) onShutdown(ctx context.Context) {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("GTK application shutting down")
+
+	// Save final session state before shutdown
+	if a.snapshotService != nil {
+		if err := a.snapshotService.Stop(ctx); err != nil {
+			log.Warn().Err(err).Msg("failed to save final session state")
+		}
+	}
 
 	// Cancel context to signal all goroutines
 	a.cancel(errors.New("application shutdown"))
@@ -475,6 +586,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.switchWorkspaceView(ctx, tab.ID)
 	})
 	a.tabCoord.SetOnQuit(a.Quit)
+	a.tabCoord.SetOnStateChanged(a.MarkDirty)
 	// Wire popup tab WebView attachment
 	a.tabCoord.SetOnAttachPopupToTab(func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv *webkit.WebView) {
 		a.attachPopupToTab(ctx, tabID, pane, wv)
@@ -502,6 +614,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 	a.wsCoord.SetOnCloseLastPane(func(ctx context.Context) error {
 		return a.tabCoord.Close(ctx)
 	})
+	a.wsCoord.SetOnStateChanged(a.MarkDirty)
 
 	// Wire popup handling
 	a.webViewFactory = webkit.NewWebViewFactory(
