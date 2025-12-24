@@ -118,7 +118,7 @@ func runGUI() int {
 			_ = idleInhibitor.Close()
 		}
 	}()
-	uiDeps := buildUIDependencies(ctx, cfg, themeManager, &stack, repos, useCases, idleInhibitor)
+	uiDeps := buildUIDependencies(ctx, cfg, themeManager, &stack, repos, useCases, idleInhibitor, browserSession.Session.ID)
 
 	app, err := ui.New(uiDeps)
 	if err != nil {
@@ -226,20 +226,24 @@ func openDatabase(ctx context.Context, logger zerolog.Logger, dataDir string) (*
 
 // repositories groups infrastructure layer repository implementations.
 type repositories struct {
-	history  repository.HistoryRepository
-	favorite repository.FavoriteRepository
-	folder   repository.FolderRepository
-	tag      repository.TagRepository
-	zoom     repository.ZoomRepository
+	history      repository.HistoryRepository
+	favorite     repository.FavoriteRepository
+	folder       repository.FolderRepository
+	tag          repository.TagRepository
+	zoom         repository.ZoomRepository
+	session      repository.SessionRepository
+	sessionState repository.SessionStateRepository
 }
 
 func createRepositories(db *sql.DB) *repositories {
 	return &repositories{
-		history:  sqlite.NewHistoryRepository(db),
-		favorite: sqlite.NewFavoriteRepository(db),
-		folder:   sqlite.NewFolderRepository(db),
-		tag:      sqlite.NewTagRepository(db),
-		zoom:     sqlite.NewZoomRepository(db),
+		history:      sqlite.NewHistoryRepository(db),
+		favorite:     sqlite.NewFavoriteRepository(db),
+		folder:       sqlite.NewFolderRepository(db),
+		tag:          sqlite.NewTagRepository(db),
+		zoom:         sqlite.NewZoomRepository(db),
+		session:      sqlite.NewSessionRepository(db),
+		sessionState: sqlite.NewSessionStateRepository(db),
 	}
 }
 
@@ -252,6 +256,7 @@ type useCases struct {
 	zoom      *usecase.ManageZoomUseCase
 	navigate  *usecase.NavigateUseCase
 	copyURL   *usecase.CopyURLUseCase
+	snapshot  *usecase.SnapshotSessionUseCase
 	clipboard port.Clipboard
 	favicon   *favicon.Service
 }
@@ -279,6 +284,7 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 		zoom:      usecase.NewManageZoomUseCase(repos.zoom, defaultZoom, zoomCache),
 		navigate:  usecase.NewNavigateUseCase(repos.history, repos.zoom, defaultZoom),
 		copyURL:   usecase.NewCopyURLUseCase(clipboardAdapter),
+		snapshot:  usecase.NewSnapshotSessionUseCase(repos.sessionState),
 		clipboard: clipboardAdapter,
 		favicon:   favicon.NewService(faviconCacheDir),
 	}
@@ -292,30 +298,35 @@ func buildUIDependencies(
 	repos *repositories,
 	uc *useCases,
 	idleInhibitor port.IdleInhibitor,
+	currentSessionID entity.SessionID,
 ) *ui.Dependencies {
 	return &ui.Dependencies{
-		Ctx:            ctx,
-		Config:         cfg,
-		InitialURL:     initialURL,
-		Theme:          themeManager,
-		WebContext:     stack.Context,
-		Pool:           stack.Pool,
-		Settings:       stack.Settings,
-		Injector:       stack.Injector,
-		MessageRouter:  stack.MessageRouter,
-		FilterManager:  stack.FilterManager,
-		HistoryRepo:    repos.history,
-		FavoriteRepo:   repos.favorite,
-		ZoomRepo:       repos.zoom,
-		TabsUC:         uc.tabs,
-		PanesUC:        uc.panes,
-		HistoryUC:      uc.history,
-		FavoritesUC:    uc.favorites,
-		ZoomUC:         uc.zoom,
-		NavigateUC:     uc.navigate,
-		CopyURLUC:      uc.copyURL,
-		Clipboard:      uc.clipboard,
-		FaviconService: uc.favicon,
-		IdleInhibitor:  idleInhibitor,
+		Ctx:              ctx,
+		Config:           cfg,
+		InitialURL:       initialURL,
+		Theme:            themeManager,
+		WebContext:       stack.Context,
+		Pool:             stack.Pool,
+		Settings:         stack.Settings,
+		Injector:         stack.Injector,
+		MessageRouter:    stack.MessageRouter,
+		FilterManager:    stack.FilterManager,
+		HistoryRepo:      repos.history,
+		FavoriteRepo:     repos.favorite,
+		ZoomRepo:         repos.zoom,
+		TabsUC:           uc.tabs,
+		PanesUC:          uc.panes,
+		HistoryUC:        uc.history,
+		FavoritesUC:      uc.favorites,
+		ZoomUC:           uc.zoom,
+		NavigateUC:       uc.navigate,
+		CopyURLUC:        uc.copyURL,
+		Clipboard:        uc.clipboard,
+		FaviconService:   uc.favicon,
+		IdleInhibitor:    idleInhibitor,
+		SessionRepo:      repos.session,
+		SessionStateRepo: repos.sessionState,
+		CurrentSessionID: currentSessionID,
+		SnapshotUC:       uc.snapshot,
 	}
 }
