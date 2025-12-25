@@ -155,3 +155,17 @@ func (tl *TabList) Move(id TabID, newPos int) bool {
 	}
 	return true
 }
+
+// ReplaceFrom replaces this TabList's contents with those from another TabList.
+// This modifies in-place so existing references to this TabList remain valid.
+func (tl *TabList) ReplaceFrom(other *TabList) {
+	if other == nil {
+		tl.Tabs = make([]*Tab, 0)
+		tl.ActiveTabID = ""
+		tl.PreviousActiveTabID = ""
+		return
+	}
+	tl.Tabs = other.Tabs
+	tl.ActiveTabID = other.ActiveTabID
+	tl.PreviousActiveTabID = other.PreviousActiveTabID
+}

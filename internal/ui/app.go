@@ -532,13 +532,14 @@ func (a *App) restoreSession(ctx context.Context, sessionID entity.SessionID) er
 		return fmt.Errorf("failed to build tab list from snapshot")
 	}
 
-	// Replace empty tabs with restored ones
-	a.tabs = restoredTabs
+	// Replace tabs in-place to preserve references held by TabCoordinator
+	a.tabs.ReplaceFrom(restoredTabs)
 
 	// Create UI for each restored tab and add to tab bar
+	// Don't attach to content area yet - only the active tab should be attached
 	tabBar := a.mainWindow.TabBar()
 	for _, tab := range a.tabs.Tabs {
-		a.createWorkspaceView(ctx, tab)
+		a.createWorkspaceViewWithoutAttach(ctx, tab)
 		if tabBar != nil {
 			tabBar.AddTab(tab)
 		}
@@ -549,7 +550,7 @@ func (a *App) restoreSession(ctx context.Context, sessionID entity.SessionID) er
 			Msg("restored tab with workspace")
 	}
 
-	// Switch to active tab
+	// Switch to active tab - this attaches the active workspace view to content area
 	activeTab := a.tabs.ActiveTab()
 	if activeTab != nil {
 		a.switchWorkspaceView(ctx, activeTab.ID)
@@ -743,6 +744,13 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.navCoord.RecordHistory(ctx, paneID, url)
 	})
 
+	// Wire pane URI updates for session snapshots (searches all tabs)
+	a.contentCoord.SetOnPaneURIUpdated(func(paneID entity.PaneID, url string) {
+		a.updatePaneURIInAllTabs(paneID, url)
+		// Mark dirty so snapshot captures the new URI
+		a.MarkDirty()
+	})
+
 	// 5. Keyboard Dispatcher
 	a.kbDispatcher = dispatcher.NewKeyboardDispatcher(
 		ctx,
@@ -828,6 +836,24 @@ func (a *App) handleModeChange(ctx context.Context, from, to input.Mode) {
 
 // createWorkspaceView creates a WorkspaceView for a tab and attaches it to the content area.
 func (a *App) createWorkspaceView(ctx context.Context, tab *entity.Tab) {
+	a.createWorkspaceViewWithoutAttach(ctx, tab)
+
+	// Attach to content area
+	wsView := a.workspaceViews[tab.ID]
+	if wsView != nil && a.mainWindow != nil {
+		widget := wsView.Widget()
+		if widget != nil {
+			gtkWidget := widget.GtkWidget()
+			if gtkWidget != nil {
+				a.mainWindow.SetContent(gtkWidget)
+			}
+		}
+	}
+}
+
+// createWorkspaceViewWithoutAttach creates a WorkspaceView for a tab without attaching to content area.
+// Used during session restoration where we create all views first, then attach only the active one.
+func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.Tab) {
 	log := logging.FromContext(ctx)
 
 	if a.widgetFactory == nil {
@@ -864,18 +890,7 @@ func (a *App) createWorkspaceView(ctx context.Context, tab *entity.Tab) {
 	// Store in map
 	a.workspaceViews[tab.ID] = wsView
 
-	// Attach to content area
-	if a.mainWindow != nil {
-		widget := wsView.Widget()
-		if widget != nil {
-			gtkWidget := widget.GtkWidget()
-			if gtkWidget != nil {
-				a.mainWindow.SetContent(gtkWidget)
-			}
-		}
-	}
-
-	log.Debug().Str("tab_id", string(tab.ID)).Msg("workspace view created and attached")
+	log.Debug().Str("tab_id", string(tab.ID)).Msg("workspace view created")
 }
 
 // activeWorkspace returns the workspace of the active tab.
@@ -885,6 +900,21 @@ func (a *App) activeWorkspace() *entity.Workspace {
 		return nil
 	}
 	return activeTab.Workspace
+}
+
+// updatePaneURIInAllTabs finds a pane by ID across all tabs and updates its URI.
+// This is necessary because panes in inactive tabs also need URI updates for session snapshots.
+func (a *App) updatePaneURIInAllTabs(paneID entity.PaneID, url string) {
+	for _, tab := range a.tabs.Tabs {
+		if tab.Workspace == nil {
+			continue
+		}
+		paneNode := tab.Workspace.FindPane(paneID)
+		if paneNode != nil && paneNode.Pane != nil {
+			paneNode.Pane.URI = url
+			return // Pane IDs are unique, no need to continue
+		}
+	}
 }
 
 // activeWorkspaceView returns the workspace view for the active tab.
