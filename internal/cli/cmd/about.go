@@ -51,7 +51,10 @@ func checkForUpdates(app *cli.App) error {
 
 	// Create update checker
 	checker := updater.NewGitHubChecker()
-	applier := updater.NewApplier("")
+	applier, err := updater.NewApplierFromXDG()
+	if err != nil {
+		return fmt.Errorf("failed to create applier: %w", err)
+	}
 
 	checkUC := usecase.NewCheckUpdateUseCase(checker, applier, app.BuildInfo)
 
@@ -62,7 +65,7 @@ func checkForUpdates(app *cli.App) error {
 
 	if result.UpdateAvailable {
 		fmt.Println()
-		fmt.Printf("  ✨ Update available: %s → %s\n", result.CurrentVersion, result.LatestVersion)
+		fmt.Printf("  Update available: %s -> %s\n", result.CurrentVersion, result.LatestVersion)
 		fmt.Printf("     %s\n", result.ReleaseURL)
 	}
 

@@ -3,13 +3,17 @@ package updater
 
 import (
 	"archive/tar"
+	"bufio"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -30,6 +34,9 @@ const (
 	// Uses version-less filename for stable "latest" download URL.
 	downloadURLTemplate = "https://github.com/bnema/dumber/releases/latest/download/dumber_%s_%s.tar.gz"
 
+	// Checksums file URL pattern.
+	checksumsURLTemplate = "https://github.com/bnema/dumber/releases/latest/download/checksums.txt"
+
 	// HTTP client timeout for API requests.
 	apiTimeout = 10 * time.Second
 
@@ -41,6 +48,15 @@ const (
 
 	// Maximum size for extracted binary (100MB) - prevents decompression bombs.
 	maxBinarySize = 100 * 1024 * 1024
+
+	// Maximum archive download size (150MB) - prevents unbounded downloads.
+	maxArchiveSize = 150 * 1024 * 1024
+
+	// Minimum binary size (1MB) - prevents truncated/corrupt binaries.
+	minBinarySize = 1 * 1024 * 1024
+
+	// Allowed GitHub download host.
+	allowedDownloadHost = "github.com"
 )
 
 // githubRelease represents the GitHub API response for a release.
@@ -193,13 +209,133 @@ func NewGitHubDownloader() *GitHubDownloader {
 	}
 }
 
+// validateDownloadURL ensures the URL is a valid GitHub releases URL.
+func validateDownloadURL(downloadURL string) error {
+	parsed, err := url.Parse(downloadURL)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+
+	if parsed.Scheme != "https" {
+		return fmt.Errorf("URL must use HTTPS, got %s", parsed.Scheme)
+	}
+
+	if parsed.Host != allowedDownloadHost {
+		return fmt.Errorf("URL must be from %s, got %s", allowedDownloadHost, parsed.Host)
+	}
+
+	// Verify it's a releases download path: /owner/repo/releases/...
+	if !strings.Contains(parsed.Path, "/releases/") {
+		return fmt.Errorf("URL must be a GitHub releases URL")
+	}
+
+	return nil
+}
+
+// fetchChecksums downloads the checksums.txt file and returns a map of filename -> sha256.
+func (g *GitHubDownloader) fetchChecksums(ctx context.Context) (map[string]string, error) {
+	log := logging.FromContext(ctx)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, checksumsURLTemplate, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create checksums request: %w", err)
+	}
+	req.Header.Set("User-Agent", "dumber-browser")
+
+	resp, err := g.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch checksums: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("checksums fetch failed with status %d", resp.StatusCode)
+	}
+
+	checksums := make(map[string]string)
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		// Format: "sha256  filename" (two spaces between)
+		parts := strings.Fields(line)
+		if len(parts) >= 2 {
+			hash := parts[0]
+			filename := parts[len(parts)-1] // Last field is filename
+			checksums[filename] = hash
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("failed to parse checksums: %w", err)
+	}
+
+	log.Debug().Int("count", len(checksums)).Msg("fetched checksums")
+	return checksums, nil
+}
+
+// verifyChecksum verifies the SHA256 checksum of a file.
+func verifyChecksum(filePath, expectedHash string) error {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to open file for checksum: %w", err)
+	}
+	defer func() { _ = file.Close() }()
+
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return fmt.Errorf("failed to compute checksum: %w", err)
+	}
+
+	actualHash := hex.EncodeToString(hash.Sum(nil))
+	if !strings.EqualFold(actualHash, expectedHash) {
+		return fmt.Errorf("checksum mismatch: expected %s, got %s", expectedHash, actualHash)
+	}
+
+	return nil
+}
+
+// getExpectedChecksum fetches checksums and returns the hash for the given URL.
+func (g *GitHubDownloader) getExpectedChecksum(ctx context.Context, downloadURL string) (string, error) {
+	checksums, err := g.fetchChecksums(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch checksums: %w", err)
+	}
+
+	parsedURL, err := url.Parse(downloadURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse download URL: %w", err)
+	}
+
+	archiveFilename := filepath.Base(parsedURL.Path)
+	expectedHash, ok := checksums[archiveFilename]
+	if !ok {
+		return "", fmt.Errorf("no checksum found for %s", archiveFilename)
+	}
+
+	return expectedHash, nil
+}
+
 // Download fetches the update archive from the given URL.
 func (g *GitHubDownloader) Download(ctx context.Context, downloadURL, destDir string) (string, error) {
 	log := logging.FromContext(ctx)
 
+	// Validate the download URL is from GitHub releases.
+	if err := validateDownloadURL(downloadURL); err != nil {
+		return "", fmt.Errorf("invalid download URL: %w", err)
+	}
+
 	// Ensure destination directory exists.
 	if err := os.MkdirAll(destDir, execPerm); err != nil {
 		return "", fmt.Errorf("failed to create download directory: %w", err)
+	}
+
+	// Fetch and look up expected checksum for this archive.
+	expectedHash, err := g.getExpectedChecksum(ctx, downloadURL)
+	if err != nil {
+		return "", err
 	}
 
 	// Create the request.
@@ -221,7 +357,11 @@ func (g *GitHubDownloader) Download(ctx context.Context, downloadURL, destDir st
 		return "", fmt.Errorf("download failed with status %d", resp.StatusCode)
 	}
 
-	// Extract filename from URL.
+	// Check Content-Length if available to enforce size limit.
+	if resp.ContentLength > maxArchiveSize {
+		return "", fmt.Errorf("archive too large: %d bytes (max %d)", resp.ContentLength, maxArchiveSize)
+	}
+
 	archivePath := filepath.Join(destDir, "dumber_update.tar.gz")
 
 	// Create the file.
@@ -230,8 +370,9 @@ func (g *GitHubDownloader) Download(ctx context.Context, downloadURL, destDir st
 		return "", fmt.Errorf("failed to create archive file: %w", err)
 	}
 
-	// Copy the response body to the file.
-	written, err := io.Copy(file, resp.Body)
+	// Use LimitReader to prevent unbounded downloads even if Content-Length is missing/spoofed.
+	limitedReader := io.LimitReader(resp.Body, maxArchiveSize+1)
+	written, err := io.Copy(file, limitedReader)
 	if closeErr := file.Close(); closeErr != nil && err == nil {
 		err = closeErr
 	}
@@ -240,12 +381,68 @@ func (g *GitHubDownloader) Download(ctx context.Context, downloadURL, destDir st
 		return "", fmt.Errorf("failed to write archive: %w", err)
 	}
 
+	// Check if we hit the limit (means file was too large).
+	if written > maxArchiveSize {
+		_ = os.Remove(archivePath)
+		return "", fmt.Errorf("archive exceeds maximum size of %d bytes", maxArchiveSize)
+	}
+
+	// Verify checksum before returning.
+	if err := verifyChecksum(archivePath, expectedHash); err != nil {
+		_ = os.Remove(archivePath)
+		return "", fmt.Errorf("checksum verification failed: %w", err)
+	}
+
+	// Safely truncate hash for logging (SHA256 is 64 chars, but be defensive).
+	displayHash := expectedHash
+	if len(displayHash) > 16 {
+		displayHash = displayHash[:16] + "..."
+	}
+
 	log.Debug().
 		Int64("bytes", written).
 		Str("path", archivePath).
-		Msg("download completed")
+		Str("checksum", displayHash).
+		Msg("download completed and verified")
 
 	return archivePath, nil
+}
+
+// sanitizeTarPath validates and sanitizes a tar header name to prevent path traversal.
+func sanitizeTarPath(name, destDir string) (string, error) {
+	// Clean the path to remove any . or .. components.
+	cleaned := filepath.Clean(name)
+
+	// Reject absolute paths.
+	if filepath.IsAbs(cleaned) {
+		return "", fmt.Errorf("absolute path not allowed: %s", name)
+	}
+
+	// Reject paths that contain ".." as a path component (not as part of filename).
+	// Split by separator and check each component.
+	for _, part := range strings.Split(cleaned, string(filepath.Separator)) {
+		if part == ".." {
+			return "", fmt.Errorf("path traversal detected: %s", name)
+		}
+	}
+
+	// Join with destination and verify result is within destDir.
+	fullPath := filepath.Join(destDir, cleaned)
+	absDestDir, err := filepath.Abs(destDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute dest path: %w", err)
+	}
+	absFullPath, err := filepath.Abs(fullPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute full path: %w", err)
+	}
+
+	// Ensure the resolved path is within destDir.
+	if !strings.HasPrefix(absFullPath, absDestDir+string(filepath.Separator)) && absFullPath != absDestDir {
+		return "", fmt.Errorf("path escapes destination directory: %s", name)
+	}
+
+	return fullPath, nil
 }
 
 // Extract extracts the dumber binary from the tar.gz archive.
@@ -279,6 +476,13 @@ func (*GitHubDownloader) Extract(ctx context.Context, archivePath, destDir strin
 
 		// Look for the dumber binary (inside dumber_VERSION/ directory).
 		if header.Typeflag == tar.TypeReg && strings.HasSuffix(header.Name, "/dumber") {
+			// Sanitize the path to prevent path traversal attacks.
+			_, err := sanitizeTarPath(header.Name, destDir)
+			if err != nil {
+				return "", fmt.Errorf("invalid tar entry: %w", err)
+			}
+
+			// We always extract to a fixed name regardless of archive path.
 			binaryPath = filepath.Join(destDir, "dumber")
 
 			outFile, err := os.OpenFile(binaryPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, execPerm)
@@ -294,6 +498,12 @@ func (*GitHubDownloader) Extract(ctx context.Context, archivePath, destDir strin
 			if err != nil && !errors.Is(err, io.EOF) {
 				_ = os.Remove(binaryPath)
 				return "", fmt.Errorf("failed to extract binary: %w", err)
+			}
+
+			// Verify minimum binary size to detect truncated/corrupt files.
+			if written < minBinarySize {
+				_ = os.Remove(binaryPath)
+				return "", fmt.Errorf("binary too small (%d bytes), expected at least %d bytes", written, minBinarySize)
 			}
 
 			log.Debug().Int64("bytes", written).Str("path", binaryPath).Msg("extracted binary")
