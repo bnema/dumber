@@ -240,7 +240,7 @@ entry.omnibox-entry:focus-visible {
 	border-color: var(--accent);
 	background-color: shade(var(--bg), 1.05);
 	outline-style: none;
-	outline-width: 0;
+	outline-width: 0px;
 	outline-color: transparent;
 }
 
@@ -393,7 +393,7 @@ entry.find-bar-entry:focus-within,
 entry.find-bar-entry:focus-visible {
 	border-color: var(--accent);
 	outline-style: none;
-	outline-width: 0;
+	outline-width: 0px;
 	outline-color: transparent;
 }
 
@@ -578,7 +578,7 @@ func generateSessionManagerCSS(p Palette) string {
 	border-radius: 0.1875em;
 	padding: 0;
 	min-width: 28em;
-	max-width: 40em;
+	/* Note: max-width not supported in GTK4 CSS, rely on container constraints */
 }
 
 /* Header with title */
@@ -778,7 +778,7 @@ func generateLinkStatusCSS(p Palette) string {
 	padding: 0.25em 0.5em;
 	margin: 0;
 	font-size: 0.75em;
-	max-width: 50em;
+	/* Note: max-width not supported in GTK4 CSS, use label SetMaxWidthChars instead */
 	box-shadow: 0 -1px 4px alpha(black, 0.15);
 
 	/* Fade transition - hidden by default */
