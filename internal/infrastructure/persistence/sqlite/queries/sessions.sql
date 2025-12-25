@@ -20,3 +20,6 @@ LIMIT ?;
 UPDATE sessions
 SET ended_at = ?
 WHERE id = ?;
+
+-- name: DeleteSession :exec
+DELETE FROM sessions WHERE id = ?;

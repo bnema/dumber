@@ -6,6 +6,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
@@ -18,9 +19,10 @@ import (
 // This struct is created once at startup and passed to UI components.
 type Dependencies struct {
 	// Core context and configuration
-	Ctx        context.Context
-	Config     *config.Config
-	InitialURL string // URL to open on startup (optional)
+	Ctx              context.Context
+	Config           *config.Config
+	InitialURL       string // URL to open on startup (optional)
+	RestoreSessionID string // Session ID to restore on startup (optional)
 
 	// Theme management
 	Theme *theme.Manager
@@ -53,6 +55,12 @@ type Dependencies struct {
 	FaviconService *favicon.Service
 	FilterManager  *filtering.Manager
 	IdleInhibitor  port.IdleInhibitor
+
+	// Session management
+	SessionStateRepo repository.SessionStateRepository
+	SessionRepo      repository.SessionRepository
+	CurrentSessionID entity.SessionID
+	SnapshotUC       *usecase.SnapshotSessionUseCase
 }
 
 // Validate checks that all required dependencies are set.

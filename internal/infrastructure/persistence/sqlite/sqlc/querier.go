@@ -21,11 +21,14 @@ type Querier interface {
 	DeleteHistoryByDomain(ctx context.Context, arg DeleteHistoryByDomainParams) error
 	DeleteHistoryByID(ctx context.Context, id int64) error
 	DeleteHistoryOlderThan(ctx context.Context, lastVisited sql.NullTime) error
+	DeleteSession(ctx context.Context, id string) error
+	DeleteSessionState(ctx context.Context, sessionID string) error
 	DeleteTag(ctx context.Context, id int64) error
 	DeleteZoomLevel(ctx context.Context, domain string) error
 	GetActiveBrowserSession(ctx context.Context) (Session, error)
 	GetAllFavorites(ctx context.Context) ([]Favorite, error)
 	GetAllFolders(ctx context.Context) ([]FavoriteFolder, error)
+	GetAllSessionStates(ctx context.Context) ([]SessionState, error)
 	GetAllTags(ctx context.Context) ([]FavoriteTag, error)
 	GetAllWhitelistedDomains(ctx context.Context) ([]string, error)
 	GetChildFolders(ctx context.Context, parentID sql.NullInt64) ([]FavoriteFolder, error)
@@ -44,9 +47,12 @@ type Querier interface {
 	GetRecentSessions(ctx context.Context, limit int64) ([]Session, error)
 	GetRootFolders(ctx context.Context) ([]FavoriteFolder, error)
 	GetSessionByID(ctx context.Context, id string) (Session, error)
+	GetSessionState(ctx context.Context, sessionID string) (SessionState, error)
+	GetSessionsWithState(ctx context.Context, limit int64) ([]GetSessionsWithStateRow, error)
 	GetTagByID(ctx context.Context, id int64) (FavoriteTag, error)
 	GetTagByName(ctx context.Context, name string) (FavoriteTag, error)
 	GetTagsForFavorite(ctx context.Context, favoriteID int64) ([]FavoriteTag, error)
+	GetTotalSessionStatesSize(ctx context.Context) (interface{}, error)
 	GetZoomLevel(ctx context.Context, domain string) (ZoomLevel, error)
 	IncrementVisitCount(ctx context.Context, url string) error
 	InsertSession(ctx context.Context, arg InsertSessionParams) error
@@ -66,6 +72,7 @@ type Querier interface {
 	UpdateFolderPosition(ctx context.Context, arg UpdateFolderPositionParams) error
 	UpdateTag(ctx context.Context, arg UpdateTagParams) error
 	UpsertHistory(ctx context.Context, arg UpsertHistoryParams) error
+	UpsertSessionState(ctx context.Context, arg UpsertSessionStateParams) error
 }
 
 var _ Querier = (*Queries)(nil)

@@ -23,6 +23,7 @@ A dumb browser that works like your favorite terminal multiplexer.
 - **Customizable themes**: Light and dark palettes with semantic color tokens.
 - **Persistent storage**: SQLite for history, zoom levels, and settings.
 - **Live configuration**: Single config file with hot reload when possible.
+- **Session management**: Zellij-style session save/restore with automatic snapshots and resurrection.
 
 ## Status
 Dumber recently completed a full rewrite in pure Go using the `puregotk` and `puregotk-webkit` libraries.
@@ -78,6 +79,14 @@ Early development with regular releases. Core features work well for daily use b
 | **Escape** (in pane mode) | Exit Pane Mode | Return to normal navigation |
 | **Alt+Arrow Keys** | Navigate Panes | Move focus between panes |
 | **Alt+Up/Down** | Navigate Stack | Navigate between stacked panes |
+
+#### Session Management
+| Shortcut | Action | Notes |
+|----------|--------|-------|
+| **Ctrl+O** | Enter Session Mode | Modal mode for session operations |
+| **Ctrl+Shift+S** | Open Session Manager | Direct access to session browser |
+| **S** / **W** (in session mode) | Open Session Manager | Browse and restore sessions |
+| **Escape** (in session mode) | Exit Session Mode | Return to normal navigation |
 
 ### Mouse Controls
 | Action | Result | Notes |
@@ -231,6 +240,12 @@ sudo apt install va-driver-all
   - `dumber purge --force`                # purge all data (no confirmation)
   - `dumber purge -d -H -c`               # purge database and both caches
   - `dumber purge --browser-data`         # purge WebKit data (cookies, etc.)
+- Manage sessions:
+  - `dumber sessions`                     # interactive session browser (TUI)
+  - `dumber sessions list`                # list saved sessions
+  - `dumber sessions list --json`         # output sessions as JSON
+  - `dumber sessions restore <id>`        # restore a session in new window
+  - `dumber sessions delete <id>`         # delete a saved session
 - Manage logs:
   - `dumber logs list`                    # list available log files
   - `dumber logs tail`                    # tail current log file
@@ -275,6 +290,19 @@ Split your browser window into multiple panes, each running independent web sess
    - `S` - Stack panes (Zellij-style, shows title bars for collapsed panes)
 3. **Navigate**: Use `Alt+Arrow Keys` to move focus between split panes, or `Alt+Up/Down` to navigate within stacked panes
 4. **Close**: Press `X` in pane mode to close the current pane
+
+## Session Management
+
+Dumber automatically saves your browser session (tabs, panes, splits, URLs) and allows you to restore previous sessions.
+
+### How it Works
+1. **Automatic Snapshots**: Session state is saved automatically (debounced, every 5s by default) and on graceful shutdown
+2. **Session Manager**: Press `Ctrl+O → s` or `Ctrl+Shift+S` to open the session manager modal
+3. **Browse Sessions**: View active and exited sessions with tab/pane previews
+4. **Restore**: Select an exited session to restore it in a new browser window
+5. **CLI Access**: Use `dumber sessions` for an interactive TUI, or `dumber sessions list/restore/delete` for scripting
+
+Session mode provides visual feedback with a purple border indicator.
 
 ## Configuration
 

@@ -11,7 +11,9 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
+	"github.com/bnema/dumber/internal/infrastructure/snapshot"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 
 	"github.com/bnema/dumber/internal/infrastructure/webkit/handlers"
@@ -83,6 +85,10 @@ type App struct {
 
 	// App-level toaster for system notifications (filter status, etc.)
 	appToaster *component.Toaster
+
+	// Session management
+	sessionManager  *component.SessionManager
+	snapshotService *snapshot.Service
 
 	// ID generator for tabs/panes
 	idCounter uint64
@@ -183,6 +189,8 @@ func (a *App) onActivate(ctx context.Context) {
 	a.initKeyboardHandler(ctx)
 	a.initOmniboxConfig(ctx)
 	a.initFindBarConfig()
+	a.initSessionManager(ctx)
+	a.initSnapshotService(ctx)
 	a.createInitialTab(ctx)
 	a.finalizeActivation(ctx)
 }
@@ -295,10 +303,7 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 	}
 
 	// Create keyboard handler and wire to dispatcher.
-	a.keyboardHandler = input.NewKeyboardHandler(
-		ctx,
-		&a.deps.Config.Workspace,
-	)
+	a.keyboardHandler = input.NewKeyboardHandler(ctx, a.deps.Config)
 	a.keyboardHandler.SetOnAction(func(ctx context.Context, action input.Action) error {
 		return a.kbDispatcher.Dispatch(ctx, action)
 	})
@@ -306,6 +311,10 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 		a.handleModeChange(ctx, from, to)
 	})
 	a.keyboardHandler.SetShouldBypassInput(func() bool {
+		// Bypass keyboard handler when session manager is visible
+		if a.sessionManager != nil && a.sessionManager.IsVisible() {
+			return true
+		}
 		wsView := a.activeWorkspaceView()
 		if wsView == nil {
 			return false
@@ -369,8 +378,144 @@ func (a *App) initFindBarConfig() {
 	}
 }
 
+func (a *App) initSessionManager(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
+	if a.deps == nil {
+		log.Debug().Msg("deps not available, skipping session manager")
+		return
+	}
+
+	// Session manager can work without a repo - it just shows an empty list
+	var listSessionsUC *usecase.ListSessionsUseCase
+	var deleteSessionUC *usecase.DeleteSessionUseCase
+	if a.deps.SessionRepo != nil && a.deps.SessionStateRepo != nil {
+		listSessionsUC = usecase.NewListSessionsUseCase(
+			a.deps.SessionRepo,
+			a.deps.SessionStateRepo,
+			a.deps.Config.Logging.LogDir,
+		)
+		deleteSessionUC = usecase.NewDeleteSessionUseCase(
+			a.deps.SessionStateRepo,
+			a.deps.SessionRepo,
+			a.deps.Config.Logging.LogDir,
+		)
+	}
+
+	// Create session spawner for restoration
+	spawner := desktop.NewSessionSpawner(ctx)
+
+	// Create session manager component
+	a.sessionManager = component.NewSessionManager(ctx, component.SessionManagerConfig{
+		ListSessionsUC:  listSessionsUC,
+		DeleteSessionUC: deleteSessionUC,
+		CurrentSession:  a.deps.CurrentSessionID,
+		UIScale:         a.deps.Config.DefaultUIScale,
+		OnClose: func() {
+			log.Debug().Msg("session manager closed")
+		},
+		OnOpen: func(sessionID entity.SessionID) {
+			log.Info().Str("session_id", string(sessionID)).Msg("session restoration requested")
+			if err := spawner.SpawnWithSession(sessionID); err != nil {
+				log.Error().Err(err).Str("session_id", string(sessionID)).Msg("failed to spawn session")
+			}
+		},
+		OnToast: func(ctx context.Context, message string, level component.ToastLevel) {
+			if a.appToaster != nil {
+				a.appToaster.Show(ctx, message, level)
+			}
+		},
+	})
+
+	if a.sessionManager == nil {
+		log.Warn().Msg("failed to create session manager")
+		return
+	}
+
+	// Add session manager to main window overlay
+	if a.mainWindow != nil {
+		widget := a.sessionManager.Widget()
+		if widget != nil {
+			a.mainWindow.AddOverlay(widget)
+		}
+	}
+
+	// Wire session manager action to keyboard dispatcher
+	a.kbDispatcher.SetOnSessionOpen(func(ctx context.Context) error {
+		a.ToggleSessionManager(ctx)
+		return nil
+	})
+
+	log.Debug().Msg("session manager initialized")
+}
+
+// ToggleSessionManager shows or hides the session manager.
+func (a *App) ToggleSessionManager(ctx context.Context) {
+	if a.sessionManager == nil {
+		return
+	}
+	a.sessionManager.Toggle(ctx)
+}
+
+func (a *App) initSnapshotService(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
+	if a.deps == nil || a.deps.SnapshotUC == nil {
+		log.Debug().Msg("snapshot use case not available, skipping snapshot service")
+		return
+	}
+
+	intervalMs := 5000 // default
+	if a.deps.Config != nil && a.deps.Config.Session.SnapshotIntervalMs > 0 {
+		intervalMs = a.deps.Config.Session.SnapshotIntervalMs
+	}
+
+	a.snapshotService = snapshot.NewService(a.deps.SnapshotUC, a, intervalMs)
+	a.snapshotService.Start(ctx)
+
+	log.Debug().Int("interval_ms", intervalMs).Msg("snapshot service started")
+}
+
+// GetTabList implements port.TabListProvider.
+func (a *App) GetTabList() *entity.TabList {
+	return a.tabs
+}
+
+// GetSessionID implements port.TabListProvider.
+func (a *App) GetSessionID() entity.SessionID {
+	if a.deps == nil {
+		return ""
+	}
+	return a.deps.CurrentSessionID
+}
+
+// MarkDirty signals that session state has changed and should be saved.
+func (a *App) MarkDirty() {
+	if a.snapshotService != nil {
+		a.snapshotService.MarkDirty()
+	}
+}
+
 func (a *App) createInitialTab(ctx context.Context) {
 	log := logging.FromContext(ctx)
+
+	// Check if we should restore a session
+	if a.deps != nil && a.deps.RestoreSessionID != "" {
+		if err := a.restoreSession(ctx, entity.SessionID(a.deps.RestoreSessionID)); err != nil {
+			log.Error().Err(err).Str("session_id", a.deps.RestoreSessionID).Msg("failed to restore session, creating default tab")
+			// Show error toast and fall through to create default tab
+			if a.appToaster != nil {
+				a.appToaster.Show(ctx, "Session restore failed", component.ToastWarning)
+			}
+		} else {
+			log.Info().Str("session_id", a.deps.RestoreSessionID).Msg("session restored")
+			// Show success toast for session restoration
+			if a.appToaster != nil {
+				a.appToaster.Show(ctx, "Session restored", component.ToastSuccess)
+			}
+			return
+		}
+	}
 
 	// Create an initial tab using coordinator.
 	initialURL := "dumb://home"
@@ -380,6 +525,61 @@ func (a *App) createInitialTab(ctx context.Context) {
 	if _, err := a.tabCoord.Create(ctx, initialURL); err != nil {
 		log.Error().Err(err).Msg("failed to create initial tab")
 	}
+}
+
+func (a *App) restoreSession(ctx context.Context, sessionID entity.SessionID) error {
+	log := logging.FromContext(ctx)
+
+	if a.deps == nil || a.deps.SessionStateRepo == nil {
+		return fmt.Errorf("session state repo not available")
+	}
+
+	// Load session state
+	state, err := a.deps.SessionStateRepo.GetSnapshot(ctx, sessionID)
+	if err != nil {
+		return fmt.Errorf("load session state: %w", err)
+	}
+	if state == nil {
+		return fmt.Errorf("session state not found")
+	}
+
+	log.Info().Int("tabs", len(state.Tabs)).Int("panes", state.CountPanes()).Msg("restoring session state")
+
+	// Build complete TabList from snapshot (state-first approach)
+	// This reconstructs the full pane tree with new IDs
+	restoredTabs := entity.TabListFromSnapshot(state, a.generateID)
+	if restoredTabs == nil || len(restoredTabs.Tabs) == 0 {
+		return fmt.Errorf("failed to build tab list from snapshot")
+	}
+
+	// Replace tabs in-place to preserve references held by TabCoordinator
+	a.tabs.ReplaceFrom(restoredTabs)
+
+	// Create UI for each restored tab and add to tab bar
+	// Don't attach to content area yet - only the active tab should be attached
+	tabBar := a.mainWindow.TabBar()
+	for _, tab := range a.tabs.Tabs {
+		a.createWorkspaceViewWithoutAttach(ctx, tab)
+		if tabBar != nil {
+			tabBar.AddTab(tab)
+		}
+		log.Debug().
+			Str("tab_id", string(tab.ID)).
+			Str("name", tab.Name).
+			Int("panes", tab.Workspace.PaneCount()).
+			Msg("restored tab with workspace")
+	}
+
+	// Switch to active tab - this attaches the active workspace view to content area
+	activeTab := a.tabs.ActiveTab()
+	if activeTab != nil {
+		a.switchWorkspaceView(ctx, activeTab.ID)
+		if tabBar != nil {
+			tabBar.SetActive(activeTab.ID)
+		}
+	}
+
+	return nil
 }
 
 func (a *App) finalizeActivation(ctx context.Context) {
@@ -408,6 +608,13 @@ func (a *App) finalizeActivation(ctx context.Context) {
 func (a *App) onShutdown(ctx context.Context) {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("GTK application shutting down")
+
+	// Save final session state before shutdown
+	if a.snapshotService != nil {
+		if err := a.snapshotService.Stop(ctx); err != nil {
+			log.Warn().Err(err).Msg("failed to save final session state")
+		}
+	}
 
 	// Cancel context to signal all goroutines
 	a.cancel(errors.New("application shutdown"))
@@ -475,6 +682,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.switchWorkspaceView(ctx, tab.ID)
 	})
 	a.tabCoord.SetOnQuit(a.Quit)
+	a.tabCoord.SetOnStateChanged(a.MarkDirty)
 	// Wire popup tab WebView attachment
 	a.tabCoord.SetOnAttachPopupToTab(func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv *webkit.WebView) {
 		a.attachPopupToTab(ctx, tabID, pane, wv)
@@ -502,6 +710,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 	a.wsCoord.SetOnCloseLastPane(func(ctx context.Context) error {
 		return a.tabCoord.Close(ctx)
 	})
+	a.wsCoord.SetOnStateChanged(a.MarkDirty)
 
 	// Wire popup handling
 	a.webViewFactory = webkit.NewWebViewFactory(
@@ -553,6 +762,13 @@ func (a *App) initCoordinators(ctx context.Context) {
 	// Wire history recording on LoadCommitted (URI is guaranteed correct at this point)
 	a.contentCoord.SetOnHistoryRecord(func(ctx context.Context, paneID entity.PaneID, url string) {
 		a.navCoord.RecordHistory(ctx, paneID, url)
+	})
+
+	// Wire pane URI updates for session snapshots (searches all tabs)
+	a.contentCoord.SetOnPaneURIUpdated(func(paneID entity.PaneID, url string) {
+		a.updatePaneURIInAllTabs(paneID, url)
+		// Mark dirty so snapshot captures the new URI
+		a.MarkDirty()
 	})
 
 	// 5. Keyboard Dispatcher
@@ -640,6 +856,24 @@ func (a *App) handleModeChange(ctx context.Context, from, to input.Mode) {
 
 // createWorkspaceView creates a WorkspaceView for a tab and attaches it to the content area.
 func (a *App) createWorkspaceView(ctx context.Context, tab *entity.Tab) {
+	a.createWorkspaceViewWithoutAttach(ctx, tab)
+
+	// Attach to content area
+	wsView := a.workspaceViews[tab.ID]
+	if wsView != nil && a.mainWindow != nil {
+		widget := wsView.Widget()
+		if widget != nil {
+			gtkWidget := widget.GtkWidget()
+			if gtkWidget != nil {
+				a.mainWindow.SetContent(gtkWidget)
+			}
+		}
+	}
+}
+
+// createWorkspaceViewWithoutAttach creates a WorkspaceView for a tab without attaching to content area.
+// Used during session restoration where we create all views first, then attach only the active one.
+func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.Tab) {
 	log := logging.FromContext(ctx)
 
 	if a.widgetFactory == nil {
@@ -676,18 +910,7 @@ func (a *App) createWorkspaceView(ctx context.Context, tab *entity.Tab) {
 	// Store in map
 	a.workspaceViews[tab.ID] = wsView
 
-	// Attach to content area
-	if a.mainWindow != nil {
-		widget := wsView.Widget()
-		if widget != nil {
-			gtkWidget := widget.GtkWidget()
-			if gtkWidget != nil {
-				a.mainWindow.SetContent(gtkWidget)
-			}
-		}
-	}
-
-	log.Debug().Str("tab_id", string(tab.ID)).Msg("workspace view created and attached")
+	log.Debug().Str("tab_id", string(tab.ID)).Msg("workspace view created")
 }
 
 // activeWorkspace returns the workspace of the active tab.
@@ -697,6 +920,21 @@ func (a *App) activeWorkspace() *entity.Workspace {
 		return nil
 	}
 	return activeTab.Workspace
+}
+
+// updatePaneURIInAllTabs finds a pane by ID across all tabs and updates its URI.
+// This is necessary because panes in inactive tabs also need URI updates for session snapshots.
+func (a *App) updatePaneURIInAllTabs(paneID entity.PaneID, url string) {
+	for _, tab := range a.tabs.Tabs {
+		if tab.Workspace == nil {
+			continue
+		}
+		paneNode := tab.Workspace.FindPane(paneID)
+		if paneNode != nil && paneNode.Pane != nil {
+			paneNode.Pane.URI = url
+			return // Pane IDs are unique, no need to continue
+		}
+	}
 }
 
 // activeWorkspaceView returns the workspace view for the active tab.

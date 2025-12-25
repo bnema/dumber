@@ -40,4 +40,17 @@ const (
 
 	// UI
 	IconCursor = "\uf054" // chevron-right
+
+	// Sessions / browser
+	IconSession      = "\uf2d2" // window
+	IconSessionStack = "\uf24d" // clone/stack
+	IconTab          = "\uf0ce" // table
+	IconPane         = "\uf0db" // columns
+	IconTree         = "\uf1bb" // tree
+	IconClock        = "\uf017" // clock
+	IconPlay         = "\uf04b" // play (running)
+	IconStop         = "\uf04d" // stop (exited)
+	IconRestore      = "\uf0e2" // rotate-left (restore)
+	IconExpand       = "\uf065" // expand
+	IconCollapse     = "\uf066" // compress
 )

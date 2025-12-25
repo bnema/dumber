@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Session management & resurrection**: Zellij-inspired session management system allowing users to save, list, and restore browser sessions.
+  - **Automatic session snapshots**: Debounced state saving (configurable interval, default 5s) captures tabs, panes, splits, stacks, URLs, titles, and zoom levels.
+  - **Session Manager modal**: Access via `Ctrl+O → s/w` or `Ctrl+Shift+S` to browse and restore sessions with inline preview of tabs and panes.
+  - **Session mode**: New modal mode (`Ctrl+O`) with purple border indicator, similar to pane/tab modes.
+  - **CLI session commands**: `dumber sessions` opens interactive TUI browser; `dumber sessions list` shows saved sessions; `dumber sessions restore <id>` resurrects a session in a new window; `dumber sessions delete <id>` removes a session.
+  - **Session purging**: Integrated into `dumber purge` command for cleaning up old session data.
+  - **Configuration options**: `session.auto_restore`, `session.snapshot_interval_ms`, `session.max_exited_sessions`, `session.max_listed_sessions`, plus session mode shortcuts and styling.
+
 ### Fixed
 - **Idle inhibition leak on pane close**: Fixed D-Bus idle inhibit request not being released when closing a pane/tab while in fullscreen or playing audio. The inhibition would remain active until the app exited. Now properly tracks fullscreen and audio state and releases inhibition before destroying WebView.
 - **Audio-based idle inhibition**: Extended idle inhibition to also activate when a page is playing audio (e.g., video/music playback), not just in fullscreen mode. Uses WebKit's `notify::is-playing-audio` signal. The inhibitor uses refcounting, so both fullscreen and audio can be active simultaneously.

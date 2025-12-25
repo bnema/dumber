@@ -9,6 +9,8 @@ packages:
       pkgname: mocks
     interfaces:
       SessionLogger: {}
+      SessionSpawner: {}
+      TabListProvider: {}
       WebView: {}
       WebViewFactory: {}
       WebViewPool: {}
@@ -23,6 +25,7 @@ packages:
       FolderRepository: {}
       HistoryRepository: {}
       SessionRepository: {}
+      SessionStateRepository: {}
       TagRepository: {}
       ZoomRepository: {}
   github.com/bnema/dumber/internal/infrastructure/filtering:

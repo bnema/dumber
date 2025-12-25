@@ -30,3 +30,9 @@ type PurgeResult struct {
 	Success bool
 	Error   error
 }
+
+// SessionPurgeItem represents an inactive session in the purge selection UI.
+type SessionPurgeItem struct {
+	Info     SessionInfo
+	Selected bool
+}
