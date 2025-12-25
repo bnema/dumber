@@ -49,6 +49,9 @@ type ContentCoordinator struct {
 	// Callback when pane URI changes (for session snapshots)
 	onPaneURIUpdated func(paneID entity.PaneID, url string)
 
+	// Callback when active pane title changes (for window title updates)
+	onWindowTitleChanged func(title string)
+
 	// Gesture action handler for mouse button navigation
 	gestureActionHandler input.ActionHandler
 
@@ -109,6 +112,11 @@ func (c *ContentCoordinator) SetOnHistoryRecord(fn func(ctx context.Context, pan
 // SetOnPaneURIUpdated sets the callback for pane URI changes (for session snapshots).
 func (c *ContentCoordinator) SetOnPaneURIUpdated(fn func(paneID entity.PaneID, url string)) {
 	c.onPaneURIUpdated = fn
+}
+
+// SetOnWindowTitleChanged sets the callback for active pane title changes (for window title updates).
+func (c *ContentCoordinator) SetOnWindowTitleChanged(fn func(title string)) {
+	c.onWindowTitleChanged = fn
 }
 
 // SetGestureActionHandler sets the callback for mouse button navigation gestures.
@@ -483,12 +491,17 @@ func (c *ContentCoordinator) onTitleChanged(ctx context.Context, paneID entity.P
 	c.paneTitles[paneID] = title
 	c.titleMu.Unlock()
 
-	// Update domain model
+	// Update domain model and check if this is the active pane
+	isActivePaneTitle := false
 	ws, wsView := c.getActiveWS()
 	if ws != nil {
 		paneNode := ws.FindPane(paneID)
 		if paneNode != nil && paneNode.Pane != nil {
 			paneNode.Pane.Title = title
+		}
+		// Check if this pane is the active one
+		if ws.ActivePaneID == paneID {
+			isActivePaneTitle = true
 		}
 	}
 
@@ -511,6 +524,11 @@ func (c *ContentCoordinator) onTitleChanged(ctx context.Context, paneID entity.P
 				c.onTitleUpdated(ctx, paneID, url, title)
 			}
 		}
+	}
+
+	// Notify window title update if this is the active pane
+	if isActivePaneTitle && c.onWindowTitleChanged != nil {
+		c.onWindowTitleChanged(title)
 	}
 
 	log.Debug().

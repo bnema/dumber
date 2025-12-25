@@ -796,6 +796,11 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.navCoord.RecordHistory(ctx, paneID, url)
 	})
 
+	// Wire window title updates when active pane's title changes
+	a.contentCoord.SetOnWindowTitleChanged(func(title string) {
+		a.updateWindowTitle(title)
+	})
+
 	// Wire pane URI updates for session snapshots (searches all tabs)
 	a.contentCoord.SetOnPaneURIUpdated(func(paneID entity.PaneID, url string) {
 		a.updatePaneURIInAllTabs(paneID, url)
@@ -873,6 +878,31 @@ func RunWithArgs(ctx context.Context, deps *Dependencies) int {
 		return 1
 	}
 	return app.Run(ctx, os.Args)
+}
+
+// updateWindowTitle updates the window title with the given page title.
+// Format: "<Page Title> - Dumber" or just "Dumber" if title is empty.
+func (a *App) updateWindowTitle(pageTitle string) {
+	if a.mainWindow == nil {
+		return
+	}
+
+	title := "Dumber"
+	if pageTitle != "" {
+		title = pageTitle + " - Dumber"
+	}
+	a.mainWindow.SetTitle(title)
+}
+
+// updateWindowTitleFromActivePane updates the window title based on the current active pane.
+func (a *App) updateWindowTitleFromActivePane() {
+	ws := a.activeWorkspace()
+	if ws == nil || a.contentCoord == nil {
+		a.updateWindowTitle("")
+		return
+	}
+	title := a.contentCoord.GetTitle(ws.ActivePaneID)
+	a.updateWindowTitle(title)
 }
 
 // handleModeChange is called when the input mode changes.
@@ -1042,6 +1072,9 @@ func (a *App) switchWorkspaceView(ctx context.Context, tabID entity.TabID) {
 	if a.mainWindow != nil {
 		a.mainWindow.SetContent(gtkWidget)
 	}
+
+	// Update window title with the new active pane's title
+	a.updateWindowTitleFromActivePane()
 
 	log.Debug().Str("tab_id", string(tabID)).Msg("workspace view switched")
 }
