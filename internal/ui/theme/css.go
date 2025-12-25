@@ -352,7 +352,7 @@ entry.omnibox-entry > *:focus-visible {
 	padding: 0.125em 0.5em;
 	font-size: 0.6875em;
 	font-weight: 600;
-	margin-left: auto;
+	/* Note: margin-left: auto not supported in GTK4 CSS, use SetHalign(End) in code */
 }
 `
 }
@@ -549,13 +549,17 @@ progressbar.osd {
 
 progressbar.osd trough {
 	min-height: 4px;
-	min-width: 0px;
+	min-width: 2px;
+	margin: 0;
+	padding: 0;
 	background-color: alpha(var(--bg), 0.3);
 }
 
 progressbar.osd progress {
 	min-height: 4px;
-	min-width: 0px;
+	min-width: 2px;
+	margin: 0;
+	padding: 0;
 	background-color: var(--accent);
 }
 `
@@ -689,7 +693,7 @@ row:selected .session-manager-row {
 .session-time {
 	font-size: 0.75em;
 	color: var(--muted);
-	margin-left: auto;
+	/* Note: margin-left: auto not supported in GTK4 CSS, use SetHalign(End) in code */
 }
 
 /* Section divider for EXITED sessions */
