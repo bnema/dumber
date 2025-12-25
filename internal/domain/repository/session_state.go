@@ -20,4 +20,7 @@ type SessionStateRepository interface {
 	// GetAllSnapshots returns all snapshots with summary info.
 	// Used by ListSessionsUseCase.
 	GetAllSnapshots(ctx context.Context) ([]*entity.SessionState, error)
+
+	// GetTotalSnapshotsSize returns the total size of all session snapshots in bytes.
+	GetTotalSnapshotsSize(ctx context.Context) (int64, error)
 }

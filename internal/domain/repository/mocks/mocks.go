@@ -3335,6 +3335,66 @@ func (_c *MockSessionStateRepository_GetSnapshot_Call) RunAndReturn(run func(ctx
 	return _c
 }
 
+// GetTotalSnapshotsSize provides a mock function for the type MockSessionStateRepository
+func (_mock *MockSessionStateRepository) GetTotalSnapshotsSize(ctx context.Context) (int64, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetTotalSnapshotsSize")
+	}
+
+	var r0 int64
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (int64, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) int64); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockSessionStateRepository_GetTotalSnapshotsSize_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTotalSnapshotsSize'
+type MockSessionStateRepository_GetTotalSnapshotsSize_Call struct {
+	*mock.Call
+}
+
+// GetTotalSnapshotsSize is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockSessionStateRepository_Expecter) GetTotalSnapshotsSize(ctx interface{}) *MockSessionStateRepository_GetTotalSnapshotsSize_Call {
+	return &MockSessionStateRepository_GetTotalSnapshotsSize_Call{Call: _e.mock.On("GetTotalSnapshotsSize", ctx)}
+}
+
+func (_c *MockSessionStateRepository_GetTotalSnapshotsSize_Call) Run(run func(ctx context.Context)) *MockSessionStateRepository_GetTotalSnapshotsSize_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSessionStateRepository_GetTotalSnapshotsSize_Call) Return(n int64, err error) *MockSessionStateRepository_GetTotalSnapshotsSize_Call {
+	_c.Call.Return(n, err)
+	return _c
+}
+
+func (_c *MockSessionStateRepository_GetTotalSnapshotsSize_Call) RunAndReturn(run func(ctx context.Context) (int64, error)) *MockSessionStateRepository_GetTotalSnapshotsSize_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SaveSnapshot provides a mock function for the type MockSessionStateRepository
 func (_mock *MockSessionStateRepository) SaveSnapshot(ctx context.Context, state *entity.SessionState) error {
 	ret := _mock.Called(ctx, state)

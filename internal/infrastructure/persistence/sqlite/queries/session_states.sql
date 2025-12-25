@@ -30,3 +30,7 @@ LEFT JOIN session_states ss ON s.id = ss.session_id
 WHERE s.type = 'browser'
 ORDER BY s.started_at DESC
 LIMIT ?;
+
+-- name: GetTotalSessionStatesSize :one
+SELECT COALESCE(SUM(LENGTH(state_json)), 0) as total_size
+FROM session_states;
