@@ -297,6 +297,27 @@ func verifyChecksum(filePath, expectedHash string) error {
 	return nil
 }
 
+// getExpectedChecksum fetches checksums and returns the hash for the given URL.
+func (g *GitHubDownloader) getExpectedChecksum(ctx context.Context, downloadURL string) (string, error) {
+	checksums, err := g.fetchChecksums(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch checksums: %w", err)
+	}
+
+	parsedURL, err := url.Parse(downloadURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse download URL: %w", err)
+	}
+
+	archiveFilename := filepath.Base(parsedURL.Path)
+	expectedHash, ok := checksums[archiveFilename]
+	if !ok {
+		return "", fmt.Errorf("no checksum found for %s", archiveFilename)
+	}
+
+	return expectedHash, nil
+}
+
 // Download fetches the update archive from the given URL.
 func (g *GitHubDownloader) Download(ctx context.Context, downloadURL, destDir string) (string, error) {
 	log := logging.FromContext(ctx)
@@ -311,18 +332,10 @@ func (g *GitHubDownloader) Download(ctx context.Context, downloadURL, destDir st
 		return "", fmt.Errorf("failed to create download directory: %w", err)
 	}
 
-	// Fetch checksums first for verification.
-	checksums, err := g.fetchChecksums(ctx)
+	// Fetch and look up expected checksum for this archive.
+	expectedHash, err := g.getExpectedChecksum(ctx, downloadURL)
 	if err != nil {
-		return "", fmt.Errorf("failed to fetch checksums: %w", err)
-	}
-
-	// Extract expected filename from URL to look up checksum.
-	parsedURL, _ := url.Parse(downloadURL)
-	archiveFilename := filepath.Base(parsedURL.Path)
-	expectedHash, ok := checksums[archiveFilename]
-	if !ok {
-		return "", fmt.Errorf("no checksum found for %s", archiveFilename)
+		return "", err
 	}
 
 	// Create the request.
@@ -380,10 +393,16 @@ func (g *GitHubDownloader) Download(ctx context.Context, downloadURL, destDir st
 		return "", fmt.Errorf("checksum verification failed: %w", err)
 	}
 
+	// Safely truncate hash for logging (SHA256 is 64 chars, but be defensive).
+	displayHash := expectedHash
+	if len(displayHash) > 16 {
+		displayHash = displayHash[:16] + "..."
+	}
+
 	log.Debug().
 		Int64("bytes", written).
 		Str("path", archivePath).
-		Str("checksum", expectedHash[:16]+"...").
+		Str("checksum", displayHash).
 		Msg("download completed and verified")
 
 	return archivePath, nil
@@ -399,9 +418,12 @@ func sanitizeTarPath(name, destDir string) (string, error) {
 		return "", fmt.Errorf("absolute path not allowed: %s", name)
 	}
 
-	// Reject paths that try to escape using ..
-	if strings.HasPrefix(cleaned, "..") || strings.Contains(cleaned, string(filepath.Separator)+"..") {
-		return "", fmt.Errorf("path traversal detected: %s", name)
+	// Reject paths that contain ".." as a path component (not as part of filename).
+	// Split by separator and check each component.
+	for _, part := range strings.Split(cleaned, string(filepath.Separator)) {
+		if part == ".." {
+			return "", fmt.Errorf("path traversal detected: %s", name)
+		}
 	}
 
 	// Join with destination and verify result is within destDir.
