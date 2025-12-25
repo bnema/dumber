@@ -117,12 +117,19 @@ All zoom changes are automatically persisted per-domain and restored on next vis
 
 Download the latest release from the [releases page](https://github.com/bnema/dumber/releases):
 ```bash
-wget https://github.com/bnema/dumber/releases/latest/download/dumber_<version>_linux_x86_64.tar.gz
-tar -xzf dumber_<version>_linux_x86_64.tar.gz
-sudo install -m 755 dumber /usr/local/bin/
+# Download latest release
+wget https://github.com/bnema/dumber/releases/latest/download/dumber_linux_x86_64.tar.gz
+
+# Extract and install to ~/.local/bin (enables auto-updates)
+tar -xzf dumber_linux_x86_64.tar.gz
+mkdir -p ~/.local/bin
+install -m 755 dumber_*/dumber ~/.local/bin/
+
+# Ensure ~/.local/bin is in your PATH (add to ~/.bashrc or ~/.zshrc if needed)
+# export PATH="$HOME/.local/bin:$PATH"
 ```
 
-Then install runtime dependencies (see [Install](#install) section for details).
+Then install runtime dependencies (see [Dependencies](#dependencies) section below).
 
 **Option 2: Build From Source**
 
@@ -151,18 +158,11 @@ Development:
 
 ### Pre-built Binaries (Recommended)
 
-Pre-built binaries are available for Linux (x86_64/amd64) in the [releases page](https://github.com/bnema/dumber/releases). These include all frontend assets and are ready to use:
+Pre-built binaries are available for Linux (x86_64/amd64) in the [releases page](https://github.com/bnema/dumber/releases). See [Quick Start](#quick-start) for installation instructions.
 
-```bash
-# Download and install latest release
-wget https://github.com/bnema/dumber/releases/latest/download/dumber_<version>_linux_x86_64.tar.gz
-tar -xzf dumber_<version>_linux_x86_64.tar.gz
-sudo install -m 755 dumber /usr/local/bin/
-```
+### Dependencies
 
-Replace `<version>` with the desired version (e.g., `0.14.1`), or use the direct link from the releases page.
-
-**Dependencies** (required for both pre-built binaries and source builds):
+Required for both pre-built binaries and source builds:
 
 **Arch Linux:**
 ```bash
