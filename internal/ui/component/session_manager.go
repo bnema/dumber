@@ -55,13 +55,15 @@ type SessionManager struct {
 	populatingList   bool  // True while rebuilding list, to ignore selection callbacks
 
 	// Dependencies
-	listSessionsUC *usecase.ListSessionsUseCase
-	spawner        port.SessionSpawner
-	currentSession entity.SessionID
+	listSessionsUC  *usecase.ListSessionsUseCase
+	deleteSessionUC *usecase.DeleteSessionUseCase
+	spawner         port.SessionSpawner
+	currentSession  entity.SessionID
 
 	// Callbacks
 	onClose func()
 	onOpen  func(sessionID entity.SessionID)
+	onToast func(ctx context.Context, message string, level ToastLevel)
 
 	// GTK callback retention
 	retainedCallbacks []interface{}
@@ -71,11 +73,13 @@ type SessionManager struct {
 
 // SessionManagerConfig holds configuration for creating a SessionManager.
 type SessionManagerConfig struct {
-	ListSessionsUC *usecase.ListSessionsUseCase
-	Spawner        port.SessionSpawner
-	CurrentSession entity.SessionID
-	OnClose        func()
-	OnOpen         func(sessionID entity.SessionID)
+	ListSessionsUC  *usecase.ListSessionsUseCase
+	DeleteSessionUC *usecase.DeleteSessionUseCase
+	Spawner         port.SessionSpawner
+	CurrentSession  entity.SessionID
+	OnClose         func()
+	OnOpen          func(sessionID entity.SessionID)
+	OnToast         func(ctx context.Context, message string, level ToastLevel)
 }
 
 // NewSessionManager creates a new SessionManager component.
@@ -83,14 +87,16 @@ func NewSessionManager(ctx context.Context, cfg SessionManagerConfig) *SessionMa
 	log := logging.FromContext(ctx)
 
 	sm := &SessionManager{
-		ctx:            ctx,
-		listSessionsUC: cfg.ListSessionsUC,
-		spawner:        cfg.Spawner,
-		currentSession: cfg.CurrentSession,
-		onClose:        cfg.OnClose,
-		onOpen:         cfg.OnOpen,
-		selectedIndex:  -1,
-		expandedIndex:  -1,
+		ctx:             ctx,
+		listSessionsUC:  cfg.ListSessionsUC,
+		deleteSessionUC: cfg.DeleteSessionUC,
+		spawner:         cfg.Spawner,
+		currentSession:  cfg.CurrentSession,
+		onClose:         cfg.OnClose,
+		onOpen:          cfg.OnOpen,
+		onToast:         cfg.OnToast,
+		selectedIndex:   -1,
+		expandedIndex:   -1,
 	}
 
 	if err := sm.createWidgets(); err != nil {
@@ -932,17 +938,43 @@ func (sm *SessionManager) deleteSelected() {
 
 	log := logging.FromContext(sm.ctx)
 
-	// Don't delete current or active sessions
+	// Don't delete current or active sessions (early check before async)
 	if info.IsCurrent || info.IsActive {
 		log.Debug().Msg("cannot delete current or active session")
+		if sm.onToast != nil {
+			sm.onToast(sm.ctx, "Cannot delete active session", ToastWarning)
+		}
 		return
 	}
 
-	log.Info().Str("session_id", string(info.Session.ID)).Msg("deleting session")
+	if sm.deleteSessionUC == nil {
+		log.Error().Msg("delete session use case not available")
+		return
+	}
 
-	// TODO: Implement session deletion via use case
-	// For now, just reload the list
-	go sm.loadSessions()
+	sessionID := info.Session.ID
+	log.Info().Str("session_id", string(sessionID)).Msg("deleting session")
+
+	go func() {
+		err := sm.deleteSessionUC.Execute(sm.ctx, usecase.DeleteSessionInput{
+			SessionID:        sessionID,
+			CurrentSessionID: sm.currentSession,
+		})
+
+		cb := glib.SourceFunc(func(_ uintptr) bool {
+			if err != nil {
+				log.Error().Err(err).Msg("failed to delete session")
+				if sm.onToast != nil {
+					sm.onToast(sm.ctx, "Failed to delete session", ToastError)
+				}
+			} else if sm.onToast != nil {
+				sm.onToast(sm.ctx, "Session deleted", ToastSuccess)
+			}
+			sm.loadSessions()
+			return false
+		})
+		glib.IdleAdd(&cb, 0)
+	}()
 }
 
 // Destroy cleans up session manager resources.
