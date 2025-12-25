@@ -99,8 +99,9 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 	h.controller.SetPropagationPhase(gtk.PhaseCaptureValue)
 
 	// Connect key pressed handler (retain callback to prevent GC).
-	h.keyPressedCb = func(_ gtk.EventControllerKey, keyval uint, _ uint, state gdk.ModifierType) bool {
-		return h.handleKeyPress(keyval, state)
+	// The callback receives: keyval (translated key), keycode (hardware key position), state (modifiers)
+	h.keyPressedCb = func(_ gtk.EventControllerKey, keyval uint, keycode uint, state gdk.ModifierType) bool {
+		return h.handleKeyPress(keyval, keycode, state)
 	}
 	h.controller.ConnectKeyPressed(&h.keyPressedCb)
 
@@ -120,13 +121,18 @@ func (h *KeyboardHandler) Detach() {
 
 // handleKeyPress processes a key press event.
 // Returns true if the event was handled and should not propagate further.
-func (h *KeyboardHandler) handleKeyPress(keyval uint, state gdk.ModifierType) bool {
+// Parameters:
+//   - keyval: the translated key value (depends on keyboard layout)
+//   - keycode: the hardware keycode (physical key position, layout-independent)
+//   - state: modifier keys state
+func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.ModifierType) bool {
+	log := logging.FromContext(h.ctx)
+
 	h.mu.RLock()
 	shouldBypass := h.shouldBypass
 	h.mu.RUnlock()
 	if shouldBypass != nil && shouldBypass() {
-		log := logging.FromContext(h.ctx)
-		log.Debug().Uint("keyval", keyval).Uint("state", uint(state)).Msg("keyboard handler bypassed")
+		log.Debug().Uint("keyval", keyval).Uint("keycode", keycode).Uint("state", uint(state)).Msg("keyboard handler bypassed")
 		return false
 	}
 
@@ -141,6 +147,20 @@ func (h *KeyboardHandler) handleKeyPress(keyval uint, state gdk.ModifierType) bo
 
 	// Look up the action for this key binding
 	action, found := h.shortcuts.Lookup(binding, mode)
+
+	// Fallback: check hardware keycode for Alt+number shortcuts on non-QWERTY layouts
+	// This enables Alt+1-9/0 to work on AZERTY, QWERTZ, and other Latin layouts
+	// where number keys produce different characters without Shift.
+	if !found && mode == ModeNormal && modifiers == ModAlt {
+		if keycodeAction, ok := KeycodeToTabAction[keycode]; ok {
+			action = keycodeAction
+			found = true
+			log.Debug().
+				Uint("keycode", keycode).
+				Str("action", string(action)).
+				Msg("tab switch via hardware keycode fallback (non-QWERTY layout)")
+		}
+	}
 
 	if !found {
 		if mode != ModeNormal {
