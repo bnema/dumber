@@ -130,6 +130,18 @@ func (q *Queries) GetSessionsWithState(ctx context.Context, limit int64) ([]GetS
 	return items, nil
 }
 
+const GetTotalSessionStatesSize = `-- name: GetTotalSessionStatesSize :one
+SELECT COALESCE(SUM(LENGTH(state_json)), 0) as total_size
+FROM session_states
+`
+
+func (q *Queries) GetTotalSessionStatesSize(ctx context.Context) (interface{}, error) {
+	row := q.db.QueryRowContext(ctx, GetTotalSessionStatesSize)
+	var total_size interface{}
+	err := row.Scan(&total_size)
+	return total_size, err
+}
+
 const UpsertSessionState = `-- name: UpsertSessionState :exec
 INSERT INTO session_states (session_id, state_json, version, tab_count, pane_count, updated_at)
 VALUES (?, ?, ?, ?, ?, ?)

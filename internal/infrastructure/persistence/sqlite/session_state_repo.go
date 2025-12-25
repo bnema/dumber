@@ -99,3 +99,20 @@ func (r *sessionStateRepo) GetAllSnapshots(ctx context.Context) ([]*entity.Sessi
 
 	return states, nil
 }
+
+// GetTotalSnapshotsSize returns the total size of all session snapshots in bytes.
+func (r *sessionStateRepo) GetTotalSnapshotsSize(ctx context.Context) (int64, error) {
+	result, err := r.queries.GetTotalSessionStatesSize(ctx)
+	if err != nil {
+		return 0, err
+	}
+	// SQLite returns int64 for SUM, but COALESCE wraps it as interface{}
+	switch v := result.(type) {
+	case int64:
+		return v, nil
+	case float64:
+		return int64(v), nil
+	default:
+		return 0, nil
+	}
+}

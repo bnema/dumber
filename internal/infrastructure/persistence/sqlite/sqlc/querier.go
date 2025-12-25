@@ -52,6 +52,7 @@ type Querier interface {
 	GetTagByID(ctx context.Context, id int64) (FavoriteTag, error)
 	GetTagByName(ctx context.Context, name string) (FavoriteTag, error)
 	GetTagsForFavorite(ctx context.Context, favoriteID int64) ([]FavoriteTag, error)
+	GetTotalSessionStatesSize(ctx context.Context) (interface{}, error)
 	GetZoomLevel(ctx context.Context, domain string) (ZoomLevel, error)
 	IncrementVisitCount(ctx context.Context, url string) error
 	InsertSession(ctx context.Context, arg InsertSessionParams) error
