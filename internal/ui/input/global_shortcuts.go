@@ -84,6 +84,13 @@ func NewGlobalShortcutHandler(
 		Str("action", string(ActionSwitchLastTab)).
 		Msg("registered global shortcut")
 
+	// Ctrl+Shift+S for direct session manager access (needs global scope for WebView focus)
+	h.registerShortcut(uint(gdk.KEY_s), gdk.ControlMaskValue|gdk.ShiftMaskValue, ActionOpenSessionManager)
+	log.Trace().
+		Uint("keyval", uint(gdk.KEY_s)).
+		Str("action", string(ActionOpenSessionManager)).
+		Msg("registered global shortcut")
+
 	// Attach to window
 	window.AddController(&h.controller.EventController)
 

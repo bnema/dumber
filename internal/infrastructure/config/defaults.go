@@ -26,6 +26,13 @@ const (
 	defaultTabBarPosition          = "bottom"
 	defaultPopupPlacement          = "right"
 
+	// Session defaults
+	defaultSessionActivationShortcut  = "ctrl+o"
+	defaultSessionTimeoutMilliseconds = 3000
+	defaultSnapshotIntervalMs         = 5000
+	defaultMaxExitedSessions          = 10
+	defaultMaxListedSessions          = 50
+
 	// Workspace styling defaults
 	// Active pane border (overlay)
 	defaultBorderWidth = 1
@@ -38,6 +45,10 @@ const (
 	// Tab mode border (Ctrl+P T - overlay)
 	defaultTabModeBorderWidth = 4
 	defaultTabModeBorderColor = "#FFA500" // Orange for tab mode indicator
+
+	// Session mode border (Ctrl+O - overlay)
+	defaultSessionModeBorderWidth = 4
+	defaultSessionModeBorderColor = "#9B59B6" // Purple for session mode indicator
 
 	// Other styling
 	defaultTransitionDuration = 120
@@ -180,13 +191,15 @@ func DefaultConfig() *Config {
 				OAuthAutoClose:       true,      // Auto-close OAuth popups on success
 			},
 			Styling: WorkspaceStylingConfig{
-				BorderWidth:         defaultBorderWidth,
-				BorderColor:         defaultBorderColor,
-				PaneModeBorderWidth: defaultPaneModeBorderWidth,
-				PaneModeBorderColor: defaultPaneModeBorderColor,
-				TabModeBorderWidth:  defaultTabModeBorderWidth,
-				TabModeBorderColor:  defaultTabModeBorderColor,
-				TransitionDuration:  defaultTransitionDuration,
+				BorderWidth:            defaultBorderWidth,
+				BorderColor:            defaultBorderColor,
+				PaneModeBorderWidth:    defaultPaneModeBorderWidth,
+				PaneModeBorderColor:    defaultPaneModeBorderColor,
+				TabModeBorderWidth:     defaultTabModeBorderWidth,
+				TabModeBorderColor:     defaultTabModeBorderColor,
+				SessionModeBorderWidth: defaultSessionModeBorderWidth,
+				SessionModeBorderColor: defaultSessionModeBorderColor,
+				TransitionDuration:     defaultTransitionDuration,
 			},
 		},
 		ContentFiltering: ContentFilteringConfig{
@@ -195,6 +208,21 @@ func DefaultConfig() *Config {
 		},
 		Omnibox: OmniboxConfig{
 			InitialBehavior: defaultOmniboxInitialBehavior,
+		},
+		Session: SessionConfig{
+			AutoRestore:        false,
+			SnapshotIntervalMs: defaultSnapshotIntervalMs,
+			MaxExitedSessions:  defaultMaxExitedSessions,
+			MaxListedSessions:  defaultMaxListedSessions,
+			SessionMode: SessionModeConfig{
+				ActivationShortcut:  defaultSessionActivationShortcut,
+				TimeoutMilliseconds: defaultSessionTimeoutMilliseconds,
+				Actions: map[string][]string{
+					"session-manager": {"s", "w"},
+					"confirm":         {"enter"},
+					"cancel":          {"escape"},
+				},
+			},
 		},
 		Media: MediaConfig{
 			HardwareDecodingMode:     HardwareDecodingAuto, // auto allows sw fallback

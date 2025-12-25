@@ -46,6 +46,9 @@ type ContentCoordinator struct {
 	// Callback when page is committed (for history recording)
 	onHistoryRecord func(ctx context.Context, paneID entity.PaneID, url string)
 
+	// Callback when pane URI changes (for session snapshots)
+	onPaneURIUpdated func(paneID entity.PaneID, url string)
+
 	// Gesture action handler for mouse button navigation
 	gestureActionHandler input.ActionHandler
 
@@ -101,6 +104,11 @@ func (c *ContentCoordinator) SetOnTitleUpdated(fn func(ctx context.Context, pane
 // SetOnHistoryRecord sets the callback for recording history on page commit.
 func (c *ContentCoordinator) SetOnHistoryRecord(fn func(ctx context.Context, paneID entity.PaneID, url string)) {
 	c.onHistoryRecord = fn
+}
+
+// SetOnPaneURIUpdated sets the callback for pane URI changes (for session snapshots).
+func (c *ContentCoordinator) SetOnPaneURIUpdated(fn func(paneID entity.PaneID, url string)) {
+	c.onPaneURIUpdated = fn
 }
 
 // SetGestureActionHandler sets the callback for mouse button navigation gestures.
@@ -655,6 +663,9 @@ func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.
 		return
 	}
 
+	// Update domain model with current URI for session snapshots
+	c.updatePaneURI(paneID, url)
+
 	// Record history - URI is guaranteed to be correct at LoadCommitted
 	if c.onHistoryRecord != nil {
 		c.onHistoryRecord(ctx, paneID, url)
@@ -679,9 +690,20 @@ func (c *ContentCoordinator) onSPANavigation(ctx context.Context, paneID entity.
 	log := logging.FromContext(ctx)
 	log.Debug().Str("pane_id", string(paneID)).Str("url", url).Msg("SPA navigation detected")
 
+	// Update domain model with current URI for session snapshots
+	c.updatePaneURI(paneID, url)
+
 	// Record history for SPA navigation
 	if c.onHistoryRecord != nil {
 		c.onHistoryRecord(ctx, paneID, url)
+	}
+}
+
+// updatePaneURI updates the pane's URI in the domain model.
+// This is called on navigation so that session snapshots capture the current URL.
+func (c *ContentCoordinator) updatePaneURI(paneID entity.PaneID, url string) {
+	if c.onPaneURIUpdated != nil {
+		c.onPaneURIUpdated(paneID, url)
 	}
 }
 

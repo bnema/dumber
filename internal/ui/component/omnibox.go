@@ -20,13 +20,7 @@ import (
 )
 
 const (
-	omniboxWidthPct       = 0.8 // 80% of parent window width
-	omniboxMaxWidth       = 800 // Maximum width in pixels
-	omniboxFallbackHeight = 600 // Fallback height when overlay not yet allocated
-	omniboxHeightPct      = 0.6 // 60% of parent window height
-	omniboxMaxResults     = 10
-	omniboxTopMarginPct   = 0.2 // 20% from top
-	debounceDelayMs       = 150
+	debounceDelayMs = 150
 )
 
 // ViewMode distinguishes history search from favorites display.
@@ -193,20 +187,12 @@ func (o *Omnibox) resizeAndCenter(rowCount int) {
 		return
 	}
 
-	// Use GetAllocatedWidth for actual rendered size (height not needed here)
-	parentWidth := o.parentOverlay.GetAllocatedWidth()
-	if parentWidth <= 0 {
-		parentWidth = omniboxMaxWidth
-	}
-
-	width := int(float64(parentWidth) * omniboxWidthPct)
-	if width > omniboxMaxWidth {
-		width = omniboxMaxWidth
-	}
+	// Calculate width using shared helper
+	width, _ := CalculateModalDimensions(o.parentOverlay, OmniboxSizeDefaults)
 
 	// Cap at max results
-	if rowCount > omniboxMaxResults {
-		rowCount = omniboxMaxResults
+	if rowCount > OmniboxListDefaults.MaxVisibleRows {
+		rowCount = OmniboxListDefaults.MaxVisibleRows
 	}
 
 	// Schedule measurement after GTK has laid out widgets
@@ -233,9 +219,8 @@ func (o *Omnibox) measureAndResize(width, rowCount int) {
 		// Use measured values from GTK4 Measure API
 		rowHeight = o.measuredHeights.singleRow
 	} else {
-		// Fallback to hardcoded estimate (before first measurement)
-		const fallbackRowHeight = 60
-		rowHeight = int(fallbackRowHeight * o.uiScale)
+		// Fallback to scaled estimate (before first measurement)
+		rowHeight = ScaleValue(DefaultRowHeights.Standard, o.uiScale)
 	}
 
 	// Calculate content height for the scrolled window
@@ -246,19 +231,13 @@ func (o *Omnibox) measureAndResize(width, rowCount int) {
 	}
 
 	// Cap at max results
-	maxContentHeight := omniboxMaxResults * rowHeight
+	maxContentHeight := OmniboxListDefaults.MaxVisibleRows * rowHeight
 	if contentHeight > maxContentHeight {
 		contentHeight = maxContentHeight
 	}
 
-	// Set size constraints on ScrolledWindow to control dynamic sizing
-	if o.scrolledWin != nil {
-		// Reset min first to avoid assertion failure when shrinking
-		// GTK requires min <= max, so we reset min before setting new values
-		o.scrolledWin.SetMinContentHeight(-1)
-		o.scrolledWin.SetMaxContentHeight(contentHeight)
-		o.scrolledWin.SetMinContentHeight(contentHeight)
-	}
+	// Set size constraints on ScrolledWindow using shared helper
+	SetScrolledWindowHeight(o.scrolledWin, contentHeight)
 
 	// Force layout recalculation
 	o.outerBox.QueueResize()
@@ -602,7 +581,7 @@ func (o *Omnibox) performSearch() {
 
 		input := usecase.SearchInput{
 			Query: query,
-			Limit: omniboxMaxResults,
+			Limit: OmniboxListDefaults.MaxResults,
 		}
 		output, err := o.historyUC.Search(ctx, input)
 		if err != nil {
@@ -641,7 +620,7 @@ func (o *Omnibox) loadInitialHistory() {
 
 		case "most_visited", "recent", "":
 			// TODO: Implement GetMostVisited in use case if needed
-			results, err := o.historyUC.GetRecent(ctx, omniboxMaxResults, 0)
+			results, err := o.historyUC.GetRecent(ctx, OmniboxListDefaults.MaxResults, 0)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to load recent history")
 				return
@@ -778,7 +757,7 @@ func (o *Omnibox) rebuildList() {
 			if width <= 0 {
 				return false // Overlay not allocated yet, skip
 			}
-			forWidth := int(float64(width) * omniboxWidthPct)
+			forWidth := int(float64(width) * OmniboxSizeDefaults.WidthPct)
 			if o.measureComponentHeights(forWidth) {
 				// Re-trigger resize with accurate measurements
 				o.mu.RLock()
@@ -1234,22 +1213,8 @@ func (o *Omnibox) Show(ctx context.Context, query string) {
 		o.scrolledWin.SetMaxContentHeight(0)
 	}
 
-	// Get parent dimensions with fallback if not yet allocated
-	parentWidth := o.parentOverlay.GetAllocatedWidth()
-	parentHeight := o.parentOverlay.GetAllocatedHeight()
-	if parentWidth <= 0 {
-		parentWidth = omniboxMaxWidth
-	}
-	if parentHeight <= 0 {
-		parentHeight = omniboxFallbackHeight
-	}
-
-	// Set width and vertical positioning (20% from top)
-	width := int(float64(parentWidth) * omniboxWidthPct)
-	if width > omniboxMaxWidth {
-		width = omniboxMaxWidth
-	}
-	marginTop := int(float64(parentHeight) * omniboxTopMarginPct)
+	// Calculate dimensions using shared helper
+	width, marginTop := CalculateModalDimensions(o.parentOverlay, OmniboxSizeDefaults)
 
 	o.mainBox.SetSizeRequest(width, -1)
 	o.outerBox.SetMarginTop(marginTop)

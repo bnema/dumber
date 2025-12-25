@@ -17,6 +17,8 @@ type Config struct {
 	DefaultUIScale float64 `mapstructure:"default_ui_scale" yaml:"default_ui_scale" toml:"default_ui_scale"`
 	// Workspace defines workspace, pane, and tab handling behavior.
 	Workspace WorkspaceConfig `mapstructure:"workspace" yaml:"workspace" toml:"workspace"`
+	// Session controls session persistence and restoration.
+	Session SessionConfig `mapstructure:"session" yaml:"session" toml:"session"`
 	// ContentFiltering controls ad blocking and content filtering
 	ContentFiltering ContentFilteringConfig `mapstructure:"content_filtering" yaml:"content_filtering" toml:"content_filtering"`
 	// Omnibox controls the omnibox behavior (initial history display)
@@ -401,6 +403,53 @@ type WorkspaceStylingConfig struct {
 	// Defaults to "#FFA500" (orange) if not set - MUST be different from PaneModeBorderColor
 	TabModeBorderColor string `mapstructure:"tab_mode_border_color" yaml:"tab_mode_border_color" toml:"tab_mode_border_color" json:"tab_mode_border_color"` //nolint:lll // struct tags must stay on one line
 
+	// SessionModeBorderWidth in pixels for session mode indicator border (Ctrl+O overlay)
+	SessionModeBorderWidth int `mapstructure:"session_mode_border_width" yaml:"session_mode_border_width" toml:"session_mode_border_width" json:"session_mode_border_width"` //nolint:lll // struct tags must stay on one line
+	// SessionModeBorderColor for the session mode indicator border (CSS color value or theme variable)
+	// Defaults to "#9B59B6" (purple) if not set - MUST be different from other mode colors
+	SessionModeBorderColor string `mapstructure:"session_mode_border_color" yaml:"session_mode_border_color" toml:"session_mode_border_color" json:"session_mode_border_color"` //nolint:lll // struct tags must stay on one line
+
 	// TransitionDuration in milliseconds for border animations
 	TransitionDuration int `mapstructure:"transition_duration" yaml:"transition_duration" toml:"transition_duration" json:"transition_duration"` //nolint:lll // struct tags must stay on one line
+}
+
+// SessionConfig holds session persistence settings.
+type SessionConfig struct {
+	// AutoRestore automatically restores the last session on startup.
+	// Default: false
+	AutoRestore bool `mapstructure:"auto_restore" yaml:"auto_restore" toml:"auto_restore" json:"auto_restore"`
+
+	// SnapshotIntervalMs is the minimum interval between snapshots in milliseconds.
+	// Default: 5000
+	SnapshotIntervalMs int `mapstructure:"snapshot_interval_ms" yaml:"snapshot_interval_ms" toml:"snapshot_interval_ms" json:"snapshot_interval_ms"` //nolint:lll // struct tags must stay on one line
+
+	// MaxExitedSessions is the maximum number of exited sessions to keep.
+	// Default: 10
+	MaxExitedSessions int `mapstructure:"max_exited_sessions" yaml:"max_exited_sessions" toml:"max_exited_sessions" json:"max_exited_sessions"` //nolint:lll // struct tags must stay on one line
+
+	// MaxListedSessions is the maximum number of sessions to list in CLI/TUI.
+	// Default: 50
+	MaxListedSessions int `mapstructure:"max_listed_sessions" yaml:"max_listed_sessions" toml:"max_listed_sessions" json:"max_listed_sessions"` //nolint:lll // struct tags must stay on one line
+
+	// SessionMode defines modal behavior for session management (Ctrl+O).
+	SessionMode SessionModeConfig `mapstructure:"session_mode" yaml:"session_mode" toml:"session_mode" json:"session_mode"`
+}
+
+// SessionModeConfig defines modal behavior for session management.
+type SessionModeConfig struct {
+	ActivationShortcut  string              `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
+	TimeoutMilliseconds int                 `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
+	Actions             map[string][]string `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
+}
+
+// GetKeyBindings returns an inverted map for O(1) key→action lookup.
+// This is built from the action→keys structure in the config.
+func (s *SessionModeConfig) GetKeyBindings() map[string]string {
+	keyToAction := make(map[string]string)
+	for action, keys := range s.Actions {
+		for _, key := range keys {
+			keyToAction[key] = action
+		}
+	}
+	return keyToAction
 }

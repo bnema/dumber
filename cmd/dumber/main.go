@@ -41,6 +41,9 @@ var (
 // initialURL holds the URL to open on startup (from browse command).
 var initialURL string
 
+// restoreSessionID holds the session ID to restore on startup.
+var restoreSessionID string
+
 func main() {
 	// Run GUI mode for browse command
 	if len(os.Args) > 1 && os.Args[1] == "browse" {
@@ -48,6 +51,8 @@ func main() {
 		if len(os.Args) > 2 {
 			initialURL = os.Args[2]
 		}
+		// Check for session restoration via environment variable
+		restoreSessionID = os.Getenv("DUMBER_RESTORE_SESSION")
 		// Strip "browse" and URL from args so GTK doesn't see them
 		os.Args = os.Args[:1]
 		os.Exit(runGUI())
@@ -102,27 +107,47 @@ func runGUI() int {
 		_ = browserSession.End(sessionCtx)
 	}()
 
-	logger := browserSession.Logger
 	ctx = sessionCtx
+	log := logging.FromContext(ctx)
 
-	checkRuntimeRequirements(ctx, cfg, logger)
-	checkMediaRequirements(ctx, cfg, logger)
+	checkRuntimeRequirements(ctx, cfg, *log)
+	checkMediaRequirements(ctx, cfg, *log)
 
 	themeManager := theme.NewManager(ctx, cfg)
-	stack := bootstrap.BuildWebKitStack(ctx, cfg, dataDir, cacheDir, themeManager, logger)
+	stack := bootstrap.BuildWebKitStack(ctx, cfg, dataDir, cacheDir, themeManager, *log)
 	repos := createRepositories(db)
-	useCases := createUseCases(repos, cfg)
+
+	stateDir, _ := config.GetStateDir()
+	useCases := createUseCases(repos, cfg, stateDir)
+
+	// Auto-restore: find last restorable session if enabled and no explicit restore requested
+	if cfg.Session.AutoRestore && restoreSessionID == "" {
+		var out *usecase.GetLastRestorableSessionOutput
+		out, err = useCases.lastRestorable.Execute(ctx, usecase.GetLastRestorableSessionInput{
+			ExcludeSessionID: browserSession.Session.ID,
+		})
+		if err != nil {
+			log.Warn().Err(err).Msg("auto-restore: failed to find restorable session")
+		} else if out.SessionID != "" {
+			restoreSessionID = string(out.SessionID)
+			log.Info().
+				Str("session_id", restoreSessionID).
+				Int("tabs", len(out.State.Tabs)).
+				Msg("auto-restore: found last session")
+		}
+	}
+
 	idleInhibitor := idle.NewPortalInhibitor(ctx)
 	defer func() {
 		if idleInhibitor != nil {
 			_ = idleInhibitor.Close()
 		}
 	}()
-	uiDeps := buildUIDependencies(ctx, cfg, themeManager, &stack, repos, useCases, idleInhibitor)
+	uiDeps := buildUIDependencies(ctx, cfg, themeManager, &stack, repos, useCases, idleInhibitor, browserSession.Session.ID)
 
 	app, err := ui.New(uiDeps)
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to create application")
+		log.Error().Err(err).Msg("failed to create application")
 		return 1
 	}
 
@@ -134,7 +159,7 @@ func runGUI() int {
 	defer signal.Stop(sigCh)
 	go func() {
 		<-sigCh
-		logger.Info().Msg("received interrupt, quitting")
+		log.Info().Msg("received interrupt, quitting")
 		app.Quit()
 	}()
 
@@ -226,37 +251,43 @@ func openDatabase(ctx context.Context, logger zerolog.Logger, dataDir string) (*
 
 // repositories groups infrastructure layer repository implementations.
 type repositories struct {
-	history  repository.HistoryRepository
-	favorite repository.FavoriteRepository
-	folder   repository.FolderRepository
-	tag      repository.TagRepository
-	zoom     repository.ZoomRepository
+	history      repository.HistoryRepository
+	favorite     repository.FavoriteRepository
+	folder       repository.FolderRepository
+	tag          repository.TagRepository
+	zoom         repository.ZoomRepository
+	session      repository.SessionRepository
+	sessionState repository.SessionStateRepository
 }
 
 func createRepositories(db *sql.DB) *repositories {
 	return &repositories{
-		history:  sqlite.NewHistoryRepository(db),
-		favorite: sqlite.NewFavoriteRepository(db),
-		folder:   sqlite.NewFolderRepository(db),
-		tag:      sqlite.NewTagRepository(db),
-		zoom:     sqlite.NewZoomRepository(db),
+		history:      sqlite.NewHistoryRepository(db),
+		favorite:     sqlite.NewFavoriteRepository(db),
+		folder:       sqlite.NewFolderRepository(db),
+		tag:          sqlite.NewTagRepository(db),
+		zoom:         sqlite.NewZoomRepository(db),
+		session:      sqlite.NewSessionRepository(db),
+		sessionState: sqlite.NewSessionStateRepository(db),
 	}
 }
 
 // useCases groups application layer use case implementations.
 type useCases struct {
-	tabs      *usecase.ManageTabsUseCase
-	panes     *usecase.ManagePanesUseCase
-	history   *usecase.SearchHistoryUseCase
-	favorites *usecase.ManageFavoritesUseCase
-	zoom      *usecase.ManageZoomUseCase
-	navigate  *usecase.NavigateUseCase
-	copyURL   *usecase.CopyURLUseCase
-	clipboard port.Clipboard
-	favicon   *favicon.Service
+	tabs           *usecase.ManageTabsUseCase
+	panes          *usecase.ManagePanesUseCase
+	history        *usecase.SearchHistoryUseCase
+	favorites      *usecase.ManageFavoritesUseCase
+	zoom           *usecase.ManageZoomUseCase
+	navigate       *usecase.NavigateUseCase
+	copyURL        *usecase.CopyURLUseCase
+	snapshot       *usecase.SnapshotSessionUseCase
+	lastRestorable *usecase.GetLastRestorableSessionUseCase
+	clipboard      port.Clipboard
+	favicon        *favicon.Service
 }
 
-func createUseCases(repos *repositories, cfg *config.Config) *useCases {
+func createUseCases(repos *repositories, cfg *config.Config, stateDir string) *useCases {
 	const idAlphabetSize = 26
 	idCounter := uint64(0)
 	idGenerator := func() string {
@@ -272,15 +303,17 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 	zoomCache := cache.NewLRU[string, *entity.ZoomLevel](cfg.Performance.ZoomCacheSize)
 
 	return &useCases{
-		tabs:      usecase.NewManageTabsUseCase(idGenerator),
-		panes:     usecase.NewManagePanesUseCase(idGenerator),
-		history:   usecase.NewSearchHistoryUseCase(repos.history),
-		favorites: usecase.NewManageFavoritesUseCase(repos.favorite, repos.folder, repos.tag),
-		zoom:      usecase.NewManageZoomUseCase(repos.zoom, defaultZoom, zoomCache),
-		navigate:  usecase.NewNavigateUseCase(repos.history, repos.zoom, defaultZoom),
-		copyURL:   usecase.NewCopyURLUseCase(clipboardAdapter),
-		clipboard: clipboardAdapter,
-		favicon:   favicon.NewService(faviconCacheDir),
+		tabs:           usecase.NewManageTabsUseCase(idGenerator),
+		panes:          usecase.NewManagePanesUseCase(idGenerator),
+		history:        usecase.NewSearchHistoryUseCase(repos.history),
+		favorites:      usecase.NewManageFavoritesUseCase(repos.favorite, repos.folder, repos.tag),
+		zoom:           usecase.NewManageZoomUseCase(repos.zoom, defaultZoom, zoomCache),
+		navigate:       usecase.NewNavigateUseCase(repos.history, repos.zoom, defaultZoom),
+		copyURL:        usecase.NewCopyURLUseCase(clipboardAdapter),
+		snapshot:       usecase.NewSnapshotSessionUseCase(repos.sessionState),
+		lastRestorable: usecase.NewGetLastRestorableSessionUseCase(repos.session, repos.sessionState, stateDir),
+		clipboard:      clipboardAdapter,
+		favicon:        favicon.NewService(faviconCacheDir),
 	}
 }
 
@@ -292,30 +325,36 @@ func buildUIDependencies(
 	repos *repositories,
 	uc *useCases,
 	idleInhibitor port.IdleInhibitor,
+	currentSessionID entity.SessionID,
 ) *ui.Dependencies {
 	return &ui.Dependencies{
-		Ctx:            ctx,
-		Config:         cfg,
-		InitialURL:     initialURL,
-		Theme:          themeManager,
-		WebContext:     stack.Context,
-		Pool:           stack.Pool,
-		Settings:       stack.Settings,
-		Injector:       stack.Injector,
-		MessageRouter:  stack.MessageRouter,
-		FilterManager:  stack.FilterManager,
-		HistoryRepo:    repos.history,
-		FavoriteRepo:   repos.favorite,
-		ZoomRepo:       repos.zoom,
-		TabsUC:         uc.tabs,
-		PanesUC:        uc.panes,
-		HistoryUC:      uc.history,
-		FavoritesUC:    uc.favorites,
-		ZoomUC:         uc.zoom,
-		NavigateUC:     uc.navigate,
-		CopyURLUC:      uc.copyURL,
-		Clipboard:      uc.clipboard,
-		FaviconService: uc.favicon,
-		IdleInhibitor:  idleInhibitor,
+		Ctx:              ctx,
+		Config:           cfg,
+		InitialURL:       initialURL,
+		RestoreSessionID: restoreSessionID,
+		Theme:            themeManager,
+		WebContext:       stack.Context,
+		Pool:             stack.Pool,
+		Settings:         stack.Settings,
+		Injector:         stack.Injector,
+		MessageRouter:    stack.MessageRouter,
+		FilterManager:    stack.FilterManager,
+		HistoryRepo:      repos.history,
+		FavoriteRepo:     repos.favorite,
+		ZoomRepo:         repos.zoom,
+		TabsUC:           uc.tabs,
+		PanesUC:          uc.panes,
+		HistoryUC:        uc.history,
+		FavoritesUC:      uc.favorites,
+		ZoomUC:           uc.zoom,
+		NavigateUC:       uc.navigate,
+		CopyURLUC:        uc.copyURL,
+		Clipboard:        uc.clipboard,
+		FaviconService:   uc.favicon,
+		IdleInhibitor:    idleInhibitor,
+		SessionRepo:      repos.session,
+		SessionStateRepo: repos.sessionState,
+		CurrentSessionID: currentSessionID,
+		SnapshotUC:       uc.snapshot,
 	}
 }

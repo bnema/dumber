@@ -26,6 +26,7 @@ type KeyboardDispatcher struct {
 	onFindNext     func(ctx context.Context) error
 	onFindPrev     func(ctx context.Context) error
 	onFindClose    func(ctx context.Context) error
+	onSessionOpen  func(ctx context.Context) error
 }
 
 // NewKeyboardDispatcher creates a new KeyboardDispatcher.
@@ -74,6 +75,11 @@ func (d *KeyboardDispatcher) SetOnFindPrev(fn func(ctx context.Context) error) {
 // SetOnFindClose sets the callback for closing the find bar.
 func (d *KeyboardDispatcher) SetOnFindClose(fn func(ctx context.Context) error) {
 	d.onFindClose = fn
+}
+
+// SetOnSessionOpen sets the callback for opening the session manager.
+func (d *KeyboardDispatcher) SetOnSessionOpen(fn func(ctx context.Context) error) {
+	d.onSessionOpen = fn
 }
 
 func (d *KeyboardDispatcher) initActionHandlers() {
@@ -144,6 +150,8 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 		},
 		// Clipboard
 		input.ActionCopyURL: d.handleCopyURL,
+		// Session management
+		input.ActionOpenSessionManager: d.handleSessionOpen,
 		// Application
 		input.ActionQuit: d.handleQuit,
 	}
@@ -191,6 +199,14 @@ func (d *KeyboardDispatcher) handleFindClose(ctx context.Context) error {
 		return d.onFindClose(ctx)
 	}
 	logging.FromContext(ctx).Debug().Msg("find close action (no handler)")
+	return nil
+}
+
+func (d *KeyboardDispatcher) handleSessionOpen(ctx context.Context) error {
+	if d.onSessionOpen != nil {
+		return d.onSessionOpen(ctx)
+	}
+	logging.FromContext(ctx).Debug().Msg("session open action (no handler)")
 	return nil
 }
 

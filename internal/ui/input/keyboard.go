@@ -21,7 +21,7 @@ type ActionHandler func(ctx context.Context, action Action) error
 type KeyboardHandler struct {
 	shortcuts *ShortcutSet
 	modal     *ModalState
-	cfg       *config.WorkspaceConfig
+	cfg       *config.Config
 
 	// Action handler callback
 	onAction ActionHandler
@@ -39,10 +39,7 @@ type KeyboardHandler struct {
 }
 
 // NewKeyboardHandler creates a new keyboard handler.
-func NewKeyboardHandler(
-	ctx context.Context,
-	cfg *config.WorkspaceConfig,
-) *KeyboardHandler {
+func NewKeyboardHandler(ctx context.Context, cfg *config.Config) *KeyboardHandler {
 	log := logging.FromContext(ctx)
 
 	log.Debug().Msg("creating keyboard handler")
@@ -157,13 +154,18 @@ func (h *KeyboardHandler) handleKeyPress(keyval uint, state gdk.ModifierType) bo
 	// Handle special mode actions first
 	switch action {
 	case ActionEnterTabMode:
-		timeout := time.Duration(h.cfg.TabMode.TimeoutMilliseconds) * time.Millisecond
+		timeout := time.Duration(h.cfg.Workspace.TabMode.TimeoutMilliseconds) * time.Millisecond
 		h.modal.EnterTabMode(h.ctx, timeout)
 		return true
 
 	case ActionEnterPaneMode:
-		timeout := time.Duration(h.cfg.PaneMode.TimeoutMilliseconds) * time.Millisecond
+		timeout := time.Duration(h.cfg.Workspace.PaneMode.TimeoutMilliseconds) * time.Millisecond
 		h.modal.EnterPaneMode(h.ctx, timeout)
+		return true
+
+	case ActionEnterSessionMode:
+		timeout := time.Duration(h.cfg.Session.SessionMode.TimeoutMilliseconds) * time.Millisecond
+		h.modal.EnterSessionMode(h.ctx, timeout)
 		return true
 
 	case ActionExitMode:
@@ -197,15 +199,22 @@ func (h *KeyboardHandler) handleKeyPress(keyval uint, state gdk.ModifierType) bo
 // EnterTabMode programmatically enters tab mode.
 // Useful for testing or programmatic mode changes.
 func (h *KeyboardHandler) EnterTabMode() {
-	timeout := time.Duration(h.cfg.TabMode.TimeoutMilliseconds) * time.Millisecond
+	timeout := time.Duration(h.cfg.Workspace.TabMode.TimeoutMilliseconds) * time.Millisecond
 	h.modal.EnterTabMode(h.ctx, timeout)
 }
 
 // EnterPaneMode programmatically enters pane mode.
 // Useful for testing or programmatic mode changes.
 func (h *KeyboardHandler) EnterPaneMode() {
-	timeout := time.Duration(h.cfg.PaneMode.TimeoutMilliseconds) * time.Millisecond
+	timeout := time.Duration(h.cfg.Workspace.PaneMode.TimeoutMilliseconds) * time.Millisecond
 	h.modal.EnterPaneMode(h.ctx, timeout)
+}
+
+// EnterSessionMode programmatically enters session mode.
+// Useful for testing or programmatic mode changes.
+func (h *KeyboardHandler) EnterSessionMode() {
+	timeout := time.Duration(h.cfg.Session.SessionMode.TimeoutMilliseconds) * time.Millisecond
+	h.modal.EnterSessionMode(h.ctx, timeout)
 }
 
 // ExitMode programmatically exits modal mode.
