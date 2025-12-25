@@ -21,6 +21,7 @@ All notable changes to this project will be documented in this file.
   - **Configuration options**: `session.auto_restore`, `session.snapshot_interval_ms`, `session.max_exited_sessions`, `session.max_listed_sessions`, plus session mode shortcuts and styling.
 
 ### Fixed
+- **Alt/Ctrl+number shortcuts on non-QWERTY keyboards**: Fixed Alt+1-9/0 tab switching and Ctrl+1-9/0 omnibox shortcuts not working on AZERTY, QWERTZ, Dvorak, and other non-QWERTY keyboard layouts. Uses hardware keycodes as fallback when keyval lookup fails, enabling shortcuts to work based on physical key position regardless of layout.
 - **Idle inhibition leak on pane close**: Fixed D-Bus idle inhibit request not being released when closing a pane/tab while in fullscreen or playing audio. The inhibition would remain active until the app exited. Now properly tracks fullscreen and audio state and releases inhibition before destroying WebView.
 - **Audio-based idle inhibition**: Extended idle inhibition to also activate when a page is playing audio (e.g., video/music playback), not just in fullscreen mode. Uses WebKit's `notify::is-playing-audio` signal. The inhibitor uses refcounting, so both fullscreen and audio can be active simultaneously.
 
