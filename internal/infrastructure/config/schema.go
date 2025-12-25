@@ -437,12 +437,13 @@ type SessionConfig struct {
 	SnapshotIntervalMs int `mapstructure:"snapshot_interval_ms" yaml:"snapshot_interval_ms" toml:"snapshot_interval_ms" json:"snapshot_interval_ms"` //nolint:lll // struct tags must stay on one line
 
 	// MaxExitedSessions is the maximum number of exited sessions to keep.
-	// Default: 10
+	// Default: 50
 	MaxExitedSessions int `mapstructure:"max_exited_sessions" yaml:"max_exited_sessions" toml:"max_exited_sessions" json:"max_exited_sessions"` //nolint:lll // struct tags must stay on one line
 
-	// MaxListedSessions is the maximum number of sessions to list in CLI/TUI.
-	// Default: 50
-	MaxListedSessions int `mapstructure:"max_listed_sessions" yaml:"max_listed_sessions" toml:"max_listed_sessions" json:"max_listed_sessions"` //nolint:lll // struct tags must stay on one line
+	// MaxExitedSessionAgeDays is the maximum age in days for exited sessions.
+	// Sessions older than this will be automatically deleted on startup.
+	// Default: 7
+	MaxExitedSessionAgeDays int `mapstructure:"max_exited_session_age_days" yaml:"max_exited_session_age_days" toml:"max_exited_session_age_days" json:"max_exited_session_age_days"` //nolint:lll // struct tags must stay on one line
 
 	// SessionMode defines modal behavior for session management (Ctrl+O).
 	SessionMode SessionModeConfig `mapstructure:"session_mode" yaml:"session_mode" toml:"session_mode" json:"session_mode"`
