@@ -118,6 +118,7 @@ type WebView struct {
 	OnEnterFullscreen   func() bool                 // Return true to prevent fullscreen
 	OnLeaveFullscreen   func() bool                 // Return true to prevent leaving fullscreen
 	OnAudioStateChanged func(playing bool)          // Called when audio playback starts/stops
+	OnLinkHover         func(uri string)            // Called when hovering over a link/image/media (empty string when leaving)
 
 	logger zerolog.Logger
 	mu     sync.RWMutex
@@ -328,6 +329,7 @@ func (wv *WebView) connectSignals() {
 	wv.connectEnterFullscreenSignal()
 	wv.connectLeaveFullscreenSignal()
 	wv.connectAudioStateSignal()
+	wv.connectMouseTargetChangedSignal()
 }
 
 func (wv *WebView) connectLoadChangedSignal() {
@@ -590,6 +592,34 @@ func (wv *WebView) connectAudioStateSignal() {
 		}
 	}
 	sigID := gobject.SignalConnect(wv.inner.GoPointer(), "notify::is-playing-audio", glib.NewCallback(&audioCb))
+	wv.signalIDs = append(wv.signalIDs, sigID)
+}
+
+func (wv *WebView) connectMouseTargetChangedSignal() {
+	mouseTargetCb := func(_ webkit.WebView, hitTestPtr uintptr, _ uint) {
+		if wv.OnLinkHover == nil {
+			return
+		}
+
+		hitResult := webkit.HitTestResultNewFromInternalPtr(hitTestPtr)
+		if hitResult == nil {
+			wv.OnLinkHover("")
+			return
+		}
+
+		var uri string
+		switch {
+		case hitResult.ContextIsLink():
+			uri = hitResult.GetLinkUri()
+		case hitResult.ContextIsImage():
+			uri = hitResult.GetImageUri()
+		case hitResult.ContextIsMedia():
+			uri = hitResult.GetMediaUri()
+		}
+
+		wv.OnLinkHover(uri)
+	}
+	sigID := wv.inner.ConnectMouseTargetChanged(&mouseTargetCb)
 	wv.signalIDs = append(wv.signalIDs, sigID)
 }
 
@@ -862,6 +892,7 @@ func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
 			return nil
 		}
 	}
+	wv.OnLinkHover = callbacks.OnLinkHover
 }
 
 // ShowDevTools opens the WebKit inspector/developer tools.
@@ -935,6 +966,7 @@ func (wv *WebView) Destroy() {
 	wv.OnEnterFullscreen = nil
 	wv.OnLeaveFullscreen = nil
 	wv.OnAudioStateChanged = nil
+	wv.OnLinkHover = nil
 
 	// 3. Clear async callback references
 	wv.mu.Lock()

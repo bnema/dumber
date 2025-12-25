@@ -108,6 +108,10 @@ func GenerateCSSWithScaleAndFonts(p Palette, scale float64, fonts FontConfig) st
 	sb.WriteString(generateToasterCSS(p))
 	sb.WriteString("\n")
 
+	// Link status overlay styling
+	sb.WriteString(generateLinkStatusCSS(p))
+	sb.WriteString("\n")
+
 	// Session manager styling
 	sb.WriteString(generateSessionManagerCSS(p))
 
@@ -758,6 +762,38 @@ func generateToasterCSS(p Palette) string {
 .toast-error {
 	background-color: alpha(var(--destructive), 0.9);
 	color: var(--bg);
+}
+`
+}
+
+// generateLinkStatusCSS creates link status overlay styles.
+// Uses CSS transitions for fade-in/fade-out effect.
+func generateLinkStatusCSS(p Palette) string {
+	return `/* ===== Link Status Overlay Styling ===== */
+
+/* Link status container - bottom left positioning */
+.link-status {
+	background-color: alpha(var(--surface-variant), 0.95);
+	border-radius: 0.25em 0.25em 0 0;
+	padding: 0.25em 0.5em;
+	margin: 0;
+	font-size: 0.75em;
+	max-width: 50em;
+	box-shadow: 0 -1px 4px alpha(black, 0.15);
+
+	/* Fade transition - hidden by default */
+	opacity: 0;
+	transition: opacity 150ms ease-in-out;
+}
+
+/* Visible state - triggered by adding .visible class */
+.link-status.visible {
+	opacity: 1;
+}
+
+/* Link status label text */
+.link-status label {
+	color: var(--muted);
 }
 `
 }
