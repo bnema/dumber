@@ -437,7 +437,7 @@ func (m *Manager) setSessionDefaults(defaults *Config) {
 	m.viper.SetDefault("session.auto_restore", defaults.Session.AutoRestore)
 	m.viper.SetDefault("session.snapshot_interval_ms", defaults.Session.SnapshotIntervalMs)
 	m.viper.SetDefault("session.max_exited_sessions", defaults.Session.MaxExitedSessions)
-	m.viper.SetDefault("session.max_listed_sessions", defaults.Session.MaxListedSessions)
+	m.viper.SetDefault("session.max_exited_session_age_days", defaults.Session.MaxExitedSessionAgeDays)
 	m.viper.SetDefault("session.session_mode.activation_shortcut", defaults.Session.SessionMode.ActivationShortcut)
 	m.viper.SetDefault("session.session_mode.timeout_ms", defaults.Session.SessionMode.TimeoutMilliseconds)
 	m.viper.SetDefault("session.session_mode.actions", defaults.Session.SessionMode.Actions)
