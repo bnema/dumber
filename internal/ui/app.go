@@ -410,6 +410,7 @@ func (a *App) initSessionManager(ctx context.Context) {
 		ListSessionsUC:  listSessionsUC,
 		DeleteSessionUC: deleteSessionUC,
 		CurrentSession:  a.deps.CurrentSessionID,
+		UIScale:         a.deps.Config.DefaultUIScale,
 		OnClose: func() {
 			log.Debug().Msg("session manager closed")
 		},
