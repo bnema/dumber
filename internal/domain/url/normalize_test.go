@@ -108,9 +108,19 @@ func TestNormalize_LocalFiles(t *testing.T) {
 			want:  "file://" + tmpDir,
 		},
 		{
-			name:  "non-existent file treated as URL",
+			name:  "non-existent absolute path returned unchanged",
 			input: "/nonexistent/file.html",
-			want:  "https:///nonexistent/file.html",
+			want:  "/nonexistent/file.html",
+		},
+		{
+			name:  "non-existent relative path with dot prefix returned unchanged",
+			input: "./nonexistent/file.html",
+			want:  "./nonexistent/file.html",
+		},
+		{
+			name:  "non-existent home path returned unchanged",
+			input: "~/nonexistent/file.html",
+			want:  "~/nonexistent/file.html",
 		},
 	}
 

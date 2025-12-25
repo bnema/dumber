@@ -3,7 +3,6 @@ package component
 
 import (
 	"sync"
-	"time"
 
 	"github.com/jwijenbergh/puregotk/v4/glib"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
@@ -102,7 +101,7 @@ func (l *LinkStatusOverlay) Show(uri string) {
 		return false // Don't repeat
 	})
 
-	l.showTimer = glib.TimeoutAdd(uint(linkStatusShowDelayMs/time.Millisecond), &cb, 0)
+	l.showTimer = glib.TimeoutAdd(linkStatusShowDelayMs, &cb, 0)
 }
 
 // Hide manually hides the link status overlay.
@@ -137,4 +136,19 @@ func (l *LinkStatusOverlay) IsVisible() bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	return l.visible
+}
+
+// Cleanup cancels any pending timers and clears state.
+// Must be called before removing the overlay from the UI.
+func (l *LinkStatusOverlay) Cleanup() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	// Cancel pending show timer to prevent use-after-free
+	if l.showTimer != 0 {
+		glib.SourceRemove(l.showTimer)
+		l.showTimer = 0
+	}
+	l.pendingURI = ""
+	l.visible = false
 }

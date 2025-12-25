@@ -19,6 +19,23 @@ func expandHome(path string) string {
 	return path
 }
 
+// looksLikeFilePath returns true if the input looks like a filesystem path.
+// This includes absolute paths (/path), relative paths (./path, ../path),
+// and home-relative paths (~/path).
+func looksLikeFilePath(input string) bool {
+	switch {
+	case strings.HasPrefix(input, "/"):
+		return true
+	case strings.HasPrefix(input, "./"):
+		return true
+	case strings.HasPrefix(input, "../"):
+		return true
+	case strings.HasPrefix(input, "~/"):
+		return true
+	}
+	return false
+}
+
 // Normalize adds https:// prefix if missing for URL-like inputs.
 // Returns the input unchanged if it already has a scheme or doesn't look like a URL.
 // If the input is an existing local file, returns a file:// URL.
@@ -41,9 +58,23 @@ func Normalize(input string) string {
 		return input
 	}
 
-	// Check if input is an existing file path
-	expanded := expandHome(input)
-	absPath, err := filepath.Abs(expanded)
+	// Check if input looks like a file path
+	if looksLikeFilePath(input) {
+		expanded := expandHome(input)
+		absPath, err := filepath.Abs(expanded)
+		if err == nil {
+			if _, statErr := os.Stat(absPath); statErr == nil {
+				// File exists, convert to file:// URL
+				return "file://" + absPath
+			}
+		}
+		// Path-like input but file doesn't exist - return unchanged
+		// Don't treat as URL to avoid malformed URLs like https:///path
+		return input
+	}
+
+	// Check if input is an existing file in current directory (relative without ./ prefix)
+	absPath, err := filepath.Abs(input)
 	if err == nil {
 		if _, statErr := os.Stat(absPath); statErr == nil {
 			return "file://" + absPath
