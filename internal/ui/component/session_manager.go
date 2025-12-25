@@ -17,17 +17,9 @@ import (
 )
 
 const (
-	sessionManagerWidthPct  = 0.6 // 60% of parent window width
-	sessionManagerMaxWidth  = 600 // Maximum width in pixels
-	sessionManagerTopMargin = 0.15
-	sessionMaxVisibleRows   = 6 // Show 5 + current at max, rest is scrollable
-	sessionDefaultListLimit = 50
-	sessionIDMaxDisplay     = 20
-	sessionRowBoxSpacing    = 8
-	sessionRowHeight        = 50 // Approximate height per session row
-	sessionTreeRowHeight    = 28 // Approximate height per tree row
-	sessionDividerRowHeight = 30 // Height for divider rows
-	sessionMaxTitleLen      = 45 // Max chars for pane title display
+	sessionIDMaxDisplay  = 20
+	sessionRowBoxSpacing = 8
+	sessionMaxTitleLen   = 45 // Max chars for pane title display
 )
 
 // SessionManager is a modal overlay for managing sessions.
@@ -68,6 +60,17 @@ type SessionManager struct {
 	// GTK callback retention
 	retainedCallbacks []interface{}
 
+	// Scaling
+	uiScale float64
+
+	// Cached measurements (populated after first layout)
+	measuredHeights struct {
+		sessionRow int  // Session row natural height
+		treeRow    int  // Tree row natural height
+		dividerRow int  // Divider row natural height
+		valid      bool // Whether cache is valid
+	}
+
 	ctx context.Context
 }
 
@@ -77,6 +80,7 @@ type SessionManagerConfig struct {
 	DeleteSessionUC *usecase.DeleteSessionUseCase
 	Spawner         port.SessionSpawner
 	CurrentSession  entity.SessionID
+	UIScale         float64
 	OnClose         func()
 	OnOpen          func(sessionID entity.SessionID)
 	OnToast         func(ctx context.Context, message string, level ToastLevel)
@@ -85,6 +89,11 @@ type SessionManagerConfig struct {
 // NewSessionManager creates a new SessionManager component.
 func NewSessionManager(ctx context.Context, cfg SessionManagerConfig) *SessionManager {
 	log := logging.FromContext(ctx)
+
+	uiScale := cfg.UIScale
+	if uiScale <= 0 {
+		uiScale = 1.0
+	}
 
 	sm := &SessionManager{
 		ctx:             ctx,
@@ -97,6 +106,7 @@ func NewSessionManager(ctx context.Context, cfg SessionManagerConfig) *SessionMa
 		onToast:         cfg.OnToast,
 		selectedIndex:   -1,
 		expandedIndex:   -1,
+		uiScale:         uiScale,
 	}
 
 	if err := sm.createWidgets(); err != nil {
@@ -210,27 +220,7 @@ func (sm *SessionManager) resizeAndCenter() {
 		return
 	}
 
-	var parentWidth, parentHeight int
-
-	if sm.parentOverlay != nil {
-		parentWidth = sm.parentOverlay.GetAllocatedWidth()
-		parentHeight = sm.parentOverlay.GetAllocatedHeight()
-	}
-
-	// Use defaults if parent overlay not set or not yet allocated
-	if parentWidth <= 0 {
-		parentWidth = sessionManagerMaxWidth
-	}
-	if parentHeight <= 0 {
-		parentHeight = 600
-	}
-
-	width := int(float64(parentWidth) * sessionManagerWidthPct)
-	if width > sessionManagerMaxWidth {
-		width = sessionManagerMaxWidth
-	}
-
-	marginTop := int(float64(parentHeight) * sessionManagerTopMargin)
+	width, marginTop := CalculateModalDimensions(sm.parentOverlay, SessionManagerSizeDefaults)
 
 	sm.mainBox.SetSizeRequest(width, -1)
 	sm.outerBox.SetMarginTop(marginTop)
@@ -419,7 +409,7 @@ func (sm *SessionManager) loadSessions() {
 		return
 	}
 
-	output, err := sm.listSessionsUC.Execute(sm.ctx, sm.currentSession, sessionDefaultListLimit)
+	output, err := sm.listSessionsUC.Execute(sm.ctx, sm.currentSession, SessionManagerListDefaults.MaxResults)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to list sessions")
 		return
@@ -488,6 +478,11 @@ func (sm *SessionManager) populateList() {
 	sm.mu.Unlock()
 
 	sm.selectBySessionIndex(selectedIdx)
+
+	// Attempt to measure actual widget heights for accurate sizing
+	width, _ := CalculateModalDimensions(sm.parentOverlay, SessionManagerSizeDefaults)
+	sm.measureWidgetHeights(width)
+
 	sm.resizeForContent(state.sessionRowCount, state.dividerCount, state.treeRowCount)
 }
 
@@ -548,14 +543,23 @@ func (sm *SessionManager) resizeForContent(sessionRowCount, dividerCount, treeRo
 		return
 	}
 
+	// Get row heights - use measured values if available, otherwise scale defaults
+	var sessionH, treeH, dividerH int
+	if sm.measuredHeights.valid {
+		sessionH = sm.measuredHeights.sessionRow
+		treeH = sm.measuredHeights.treeRow
+		dividerH = sm.measuredHeights.dividerRow
+	} else {
+		sessionH = ScaleValue(DefaultRowHeights.Standard, sm.uiScale)
+		treeH = ScaleValue(DefaultRowHeights.Compact, sm.uiScale)
+		dividerH = ScaleValue(DefaultRowHeights.Divider, sm.uiScale)
+	}
+
 	// Calculate actual content height
-	contentHeight := sessionRowCount*sessionRowHeight +
-		dividerCount*sessionDividerRowHeight +
-		treeRowCount*sessionTreeRowHeight
+	contentHeight := sessionRowCount*sessionH + dividerCount*dividerH + treeRowCount*treeH
 
 	// Calculate max visible height - limit to prevent oversized modal
-	// Allow up to sessionMaxVisibleRows session rows plus one divider
-	maxVisibleHeight := sessionMaxVisibleRows*sessionRowHeight + sessionDividerRowHeight
+	maxVisibleHeight := SessionManagerListDefaults.MaxVisibleRows*sessionH + dividerH
 
 	// Cap at max visible height - rest will be scrollable
 	if contentHeight > maxVisibleHeight {
@@ -563,20 +567,51 @@ func (sm *SessionManager) resizeForContent(sessionRowCount, dividerCount, treeRo
 	}
 
 	// Ensure minimum height for at least one row
-	if contentHeight < sessionRowHeight {
-		contentHeight = sessionRowHeight
+	if contentHeight < sessionH {
+		contentHeight = sessionH
 	}
 
-	// Schedule resize on main thread
-	// Use the same pattern as omnibox: reset min to -1 first to avoid GTK assertion
+	// Schedule resize on main thread using shared helper
 	cb := glib.SourceFunc(func(_ uintptr) bool {
-		sm.scrolledWindow.SetMinContentHeight(-1)
-		sm.scrolledWindow.SetMaxContentHeight(contentHeight)
-		sm.scrolledWindow.SetMinContentHeight(contentHeight)
+		SetScrolledWindowHeight(sm.scrolledWindow, contentHeight)
 		sm.outerBox.QueueResize()
 		return false
 	})
 	glib.IdleAdd(&cb, 0)
+}
+
+// measureWidgetHeights attempts to measure actual row heights from the list.
+// Must be called after list is populated. Updates measuredHeights cache if successful.
+func (sm *SessionManager) measureWidgetHeights(forWidth int) {
+	if sm.listBox == nil || sm.measuredHeights.valid {
+		return
+	}
+
+	// We need to find different row types and measure them.
+	// Session rows have "session-row" class, tree rows have "session-tree-row" class,
+	// divider rows have "session-divider" class.
+
+	// For now, measure using first row and estimate others based on ratio.
+	// This is simpler and works well enough since we have fallback scaling.
+	row := sm.listBox.GetRowAtIndex(0)
+	if row == nil {
+		return
+	}
+
+	sessionH := MeasureWidgetHeight(&row.Widget, forWidth)
+	if sessionH <= 0 {
+		return
+	}
+
+	// Estimate tree and divider heights based on ratio to standard row
+	// These ratios match the original constants: tree=28/50, divider=30/50
+	treeH := sessionH * DefaultRowHeights.Compact / DefaultRowHeights.Standard
+	dividerH := sessionH * DefaultRowHeights.Divider / DefaultRowHeights.Standard
+
+	sm.measuredHeights.sessionRow = sessionH
+	sm.measuredHeights.treeRow = treeH
+	sm.measuredHeights.dividerRow = dividerH
+	sm.measuredHeights.valid = true
 }
 
 // createTreeRows creates tree rows showing the tab/pane structure of a session.
