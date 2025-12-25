@@ -2746,6 +2746,63 @@ func (_m *MockSessionRepository) EXPECT() *MockSessionRepository_Expecter {
 	return &MockSessionRepository_Expecter{mock: &_m.Mock}
 }
 
+// Delete provides a mock function for the type MockSessionRepository
+func (_mock *MockSessionRepository) Delete(ctx context.Context, id entity.SessionID) error {
+	ret := _mock.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Delete")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.SessionID) error); ok {
+		r0 = returnFunc(ctx, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockSessionRepository_Delete_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Delete'
+type MockSessionRepository_Delete_Call struct {
+	*mock.Call
+}
+
+// Delete is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id entity.SessionID
+func (_e *MockSessionRepository_Expecter) Delete(ctx interface{}, id interface{}) *MockSessionRepository_Delete_Call {
+	return &MockSessionRepository_Delete_Call{Call: _e.mock.On("Delete", ctx, id)}
+}
+
+func (_c *MockSessionRepository_Delete_Call) Run(run func(ctx context.Context, id entity.SessionID)) *MockSessionRepository_Delete_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 entity.SessionID
+		if args[1] != nil {
+			arg1 = args[1].(entity.SessionID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSessionRepository_Delete_Call) Return(err error) *MockSessionRepository_Delete_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockSessionRepository_Delete_Call) RunAndReturn(run func(ctx context.Context, id entity.SessionID) error) *MockSessionRepository_Delete_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FindByID provides a mock function for the type MockSessionRepository
 func (_mock *MockSessionRepository) FindByID(ctx context.Context, id entity.SessionID) (*entity.Session, error) {
 	ret := _mock.Called(ctx, id)
