@@ -592,6 +592,50 @@ func (_c *MockWebView_IsDestroyed_Call) RunAndReturn(run func() bool) *MockWebVi
 	return _c
 }
 
+// IsFullscreen provides a mock function for the type MockWebView
+func (_mock *MockWebView) IsFullscreen() bool {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsFullscreen")
+	}
+
+	var r0 bool
+	if returnFunc, ok := ret.Get(0).(func() bool); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	return r0
+}
+
+// MockWebView_IsFullscreen_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsFullscreen'
+type MockWebView_IsFullscreen_Call struct {
+	*mock.Call
+}
+
+// IsFullscreen is a helper method to define mock.On call
+func (_e *MockWebView_Expecter) IsFullscreen() *MockWebView_IsFullscreen_Call {
+	return &MockWebView_IsFullscreen_Call{Call: _e.mock.On("IsFullscreen")}
+}
+
+func (_c *MockWebView_IsFullscreen_Call) Run(run func()) *MockWebView_IsFullscreen_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockWebView_IsFullscreen_Call) Return(b bool) *MockWebView_IsFullscreen_Call {
+	_c.Call.Return(b)
+	return _c
+}
+
+func (_c *MockWebView_IsFullscreen_Call) RunAndReturn(run func() bool) *MockWebView_IsFullscreen_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // IsLoading provides a mock function for the type MockWebView
 func (_mock *MockWebView) IsLoading() bool {
 	ret := _mock.Called()
@@ -632,6 +676,50 @@ func (_c *MockWebView_IsLoading_Call) Return(b bool) *MockWebView_IsLoading_Call
 }
 
 func (_c *MockWebView_IsLoading_Call) RunAndReturn(run func() bool) *MockWebView_IsLoading_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// IsPlayingAudio provides a mock function for the type MockWebView
+func (_mock *MockWebView) IsPlayingAudio() bool {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsPlayingAudio")
+	}
+
+	var r0 bool
+	if returnFunc, ok := ret.Get(0).(func() bool); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	return r0
+}
+
+// MockWebView_IsPlayingAudio_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsPlayingAudio'
+type MockWebView_IsPlayingAudio_Call struct {
+	*mock.Call
+}
+
+// IsPlayingAudio is a helper method to define mock.On call
+func (_e *MockWebView_Expecter) IsPlayingAudio() *MockWebView_IsPlayingAudio_Call {
+	return &MockWebView_IsPlayingAudio_Call{Call: _e.mock.On("IsPlayingAudio")}
+}
+
+func (_c *MockWebView_IsPlayingAudio_Call) Run(run func()) *MockWebView_IsPlayingAudio_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockWebView_IsPlayingAudio_Call) Return(b bool) *MockWebView_IsPlayingAudio_Call {
+	_c.Call.Return(b)
+	return _c
+}
+
+func (_c *MockWebView_IsPlayingAudio_Call) RunAndReturn(run func() bool) *MockWebView_IsPlayingAudio_Call {
 	_c.Call.Return(run)
 	return _c
 }
