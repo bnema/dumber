@@ -2,8 +2,6 @@ package usecase
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -98,13 +96,7 @@ func (uc *ListSessionsUseCase) Execute(ctx context.Context, currentSessionID ent
 
 // hasActiveLock checks if a session has an active lock file.
 func (uc *ListSessionsUseCase) hasActiveLock(sessionID entity.SessionID) bool {
-	if uc.lockDir == "" {
-		return false
-	}
-
-	lockPath := filepath.Join(uc.lockDir, string(sessionID)+".lock")
-	_, err := os.Stat(lockPath)
-	return err == nil
+	return isSessionLocked(uc.lockDir, sessionID)
 }
 
 // sortSessionInfos sorts sessions by: current first, then active, then by UpdatedAt descending.

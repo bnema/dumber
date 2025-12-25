@@ -11,6 +11,15 @@ import (
 	"time"
 )
 
+const DeleteSession = `-- name: DeleteSession :exec
+DELETE FROM sessions WHERE id = ?
+`
+
+func (q *Queries) DeleteSession(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, DeleteSession, id)
+	return err
+}
+
 const GetActiveBrowserSession = `-- name: GetActiveBrowserSession :one
 SELECT id, type, started_at, ended_at FROM sessions
 WHERE type = 'browser' AND ended_at IS NULL

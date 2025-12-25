@@ -21,6 +21,7 @@ type Querier interface {
 	DeleteHistoryByDomain(ctx context.Context, arg DeleteHistoryByDomainParams) error
 	DeleteHistoryByID(ctx context.Context, id int64) error
 	DeleteHistoryOlderThan(ctx context.Context, lastVisited sql.NullTime) error
+	DeleteSession(ctx context.Context, id string) error
 	DeleteSessionState(ctx context.Context, sessionID string) error
 	DeleteTag(ctx context.Context, id int64) error
 	DeleteZoomLevel(ctx context.Context, domain string) error
