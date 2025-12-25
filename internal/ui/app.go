@@ -388,10 +388,16 @@ func (a *App) initSessionManager(ctx context.Context) {
 
 	// Session manager can work without a repo - it just shows an empty list
 	var listSessionsUC *usecase.ListSessionsUseCase
+	var deleteSessionUC *usecase.DeleteSessionUseCase
 	if a.deps.SessionRepo != nil && a.deps.SessionStateRepo != nil {
 		listSessionsUC = usecase.NewListSessionsUseCase(
 			a.deps.SessionRepo,
 			a.deps.SessionStateRepo,
+			a.deps.Config.Logging.LogDir,
+		)
+		deleteSessionUC = usecase.NewDeleteSessionUseCase(
+			a.deps.SessionStateRepo,
+			a.deps.SessionRepo,
 			a.deps.Config.Logging.LogDir,
 		)
 	}
@@ -401,8 +407,9 @@ func (a *App) initSessionManager(ctx context.Context) {
 
 	// Create session manager component
 	a.sessionManager = component.NewSessionManager(ctx, component.SessionManagerConfig{
-		ListSessionsUC: listSessionsUC,
-		CurrentSession: a.deps.CurrentSessionID,
+		ListSessionsUC:  listSessionsUC,
+		DeleteSessionUC: deleteSessionUC,
+		CurrentSession:  a.deps.CurrentSessionID,
 		OnClose: func() {
 			log.Debug().Msg("session manager closed")
 		},
@@ -410,6 +417,11 @@ func (a *App) initSessionManager(ctx context.Context) {
 			log.Info().Str("session_id", string(sessionID)).Msg("session restoration requested")
 			if err := spawner.SpawnWithSession(sessionID); err != nil {
 				log.Error().Err(err).Str("session_id", string(sessionID)).Msg("failed to spawn session")
+			}
+		},
+		OnToast: func(ctx context.Context, message string, level component.ToastLevel) {
+			if a.appToaster != nil {
+				a.appToaster.Show(ctx, message, level)
 			}
 		},
 	})
