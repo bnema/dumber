@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Dynamic window title**: Window title now displays the active pane's page title in format `<Page Title> - Dumber`. Updates when switching tabs/panes or navigating. Truncated at 255 characters.
 - **Auto-update system**: Automatic update checking and self-updating binary replacement following clean architecture.
   - **Update check on startup**: Async check against GitHub releases API (configurable via `update.enable_on_startup`, default: true).
   - **Toast notifications**: Non-intrusive auto-dismiss notifications for update availability.
@@ -17,8 +18,9 @@ All notable changes to this project will be documented in this file.
   - **Session Manager modal**: Access via `Ctrl+O → s/w` or `Ctrl+Shift+S` to browse and restore sessions with inline preview of tabs and panes.
   - **Session mode**: New modal mode (`Ctrl+O`) with purple border indicator, similar to pane/tab modes.
   - **CLI session commands**: `dumber sessions` opens interactive TUI browser; `dumber sessions list` shows saved sessions; `dumber sessions restore <id>` resurrects a session in a new window; `dumber sessions delete <id>` removes a session.
-  - **Session purging**: Integrated into `dumber purge` command for cleaning up old session data.
-  - **Configuration options**: `session.auto_restore`, `session.snapshot_interval_ms`, `session.max_exited_sessions`, `session.max_listed_sessions`, plus session mode shortcuts and styling.
+  - **Session purging**: Integrated into `dumber purge` command for cleaning up old session data. Simplified UI with single "Sessions" toggle instead of individual selection.
+  - **Automatic session cleanup**: Sessions are automatically cleaned up on startup based on `max_exited_sessions` (default: 50) and `max_exited_session_age_days` (default: 7 days).
+  - **Configuration options**: `session.auto_restore`, `session.snapshot_interval_ms`, `session.max_exited_sessions`, `session.max_exited_session_age_days`, plus session mode shortcuts and styling.
 
 ### Fixed
 - **Alt/Ctrl+number shortcuts on non-QWERTY keyboards**: Fixed Alt+1-9/0 tab switching and Ctrl+1-9/0 omnibox shortcuts not working on AZERTY, QWERTZ, Dvorak, and other non-QWERTY keyboard layouts. Uses hardware keycodes as fallback when keyval lookup fails, enabling shortcuts to work based on physical key position regardless of layout.

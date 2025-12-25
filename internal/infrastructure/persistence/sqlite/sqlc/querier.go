@@ -16,11 +16,15 @@ type Querier interface {
 	CreateFolder(ctx context.Context, arg CreateFolderParams) (FavoriteFolder, error)
 	CreateTag(ctx context.Context, arg CreateTagParams) (FavoriteTag, error)
 	DeleteAllHistory(ctx context.Context) error
+	// Deletes exited browser sessions older than the given cutoff time.
+	DeleteExitedSessionsBefore(ctx context.Context, endedAt sql.NullTime) (int64, error)
 	DeleteFavorite(ctx context.Context, id int64) error
 	DeleteFolder(ctx context.Context, id int64) error
 	DeleteHistoryByDomain(ctx context.Context, arg DeleteHistoryByDomainParams) error
 	DeleteHistoryByID(ctx context.Context, id int64) error
 	DeleteHistoryOlderThan(ctx context.Context, lastVisited sql.NullTime) error
+	// Deletes exited browser sessions beyond the keep limit, keeping the most recent ones.
+	DeleteOldestExitedSessions(ctx context.Context, offset int64) (int64, error)
 	DeleteSession(ctx context.Context, id string) error
 	DeleteSessionState(ctx context.Context, sessionID string) error
 	DeleteTag(ctx context.Context, id int64) error

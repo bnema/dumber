@@ -56,6 +56,20 @@ func StartBrowserSession(ctx context.Context, cfg *config.Config, db *sql.DB) (*
 		}
 	}
 
+	// Clean up old exited sessions based on config limits
+	cleanupUC := usecase.NewCleanupSessionsUseCase(sessionRepo)
+	cleanupOutput, err := cleanupUC.Execute(ctx, usecase.CleanupSessionsInput{
+		MaxExitedSessions:       cfg.Session.MaxExitedSessions,
+		MaxExitedSessionAgeDays: cfg.Session.MaxExitedSessionAgeDays,
+	})
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to cleanup old sessions")
+	} else if cleanupOutput.TotalDeleted > 0 {
+		log.Info().
+			Int64("deleted", cleanupOutput.TotalDeleted).
+			Msg("cleaned up old sessions on startup")
+	}
+
 	now := time.Now()
 	out, err := sessionUC.StartSession(ctx, usecase.StartSessionInput{
 		Type: entity.SessionTypeBrowser,
