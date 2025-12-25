@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **Idle inhibition leak on pane close**: Fixed D-Bus idle inhibit request not being released when closing a pane/tab while in fullscreen or playing audio. The inhibition would remain active until the app exited. Now properly tracks fullscreen and audio state and releases inhibition before destroying WebView.
+- **Audio-based idle inhibition**: Extended idle inhibition to also activate when a page is playing audio (e.g., video/music playback), not just in fullscreen mode. Uses WebKit's `notify::is-playing-audio` signal. The inhibitor uses refcounting, so both fullscreen and audio can be active simultaneously.
+
+## [0.20.1] - 2025-12-25
+
+### Fixed
 - **Stacked pane favicon and title updates**: Fixed favicon and title not updating in stacked pane title bars by tracking pane IDs in StackedView and properly routing update events to the correct pane.
 - **WebKit process leak on pane close**: Fixed zombie WebKit web processes not being terminated when panes were closed. `WebView.Destroy()` now properly calls `TerminateWebProcess()` and unparents GTK widgets, freeing GPU resources (VA-API, DMA-BUF, GL contexts). This should significantly improve video playback stability and reduce memory usage when opening/closing many panes.
 - **White flash on navigation**: Eliminated white page flash when navigating in dark mode by setting WebView background color to match theme and hiding WebView until content commits.
@@ -29,8 +35,6 @@ All notable changes to this project will be documented in this file.
 - **New CLI commands**: `doctor` (runtime dependency checks), `about` (build info), `setup` (desktop integration), plus expanded `purge` with an interactive TUI.
 - **WebUI config improvements**: Search shortcut management (CRUD) and reset-to-defaults support.
 - **Find-in-page**: New find UI and shortcut handling.
-
-### Changed
 - Migrated GUI stack to `puregotk` + `puregotk-webkit` and disabled CGO for pure Go compilation.
 - **Omnibox rewrite**: Replaced injected Svelte/JS omnibox with a native GTK4 widget overlay.
 - Startup defers non-critical work, adds DNS prefetching and a warmed WebView pool for faster tab/pane creation.
