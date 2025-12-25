@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Auto-update system**: Automatic update checking and self-updating binary replacement following clean architecture.
+  - **Update check on startup**: Async check against GitHub releases API (configurable via `update.enable_on_startup`, default: true).
+  - **Toast notifications**: Non-intrusive auto-dismiss notifications for update availability.
+  - **Auto-download**: Optional background download with binary staging (configurable via `update.auto_download`, default: false).
+  - **Binary self-update**: Atomic binary replacement on clean exit with `.old` backup. Only works if binary is user-writable (e.g., `~/.local/bin/`).
+  - **CLI update check**: `dumber about` now displays update availability.
+  - **Version-less release archives**: Goreleaser now produces `dumber_linux_x86_64.tar.gz` (version in directory inside) enabling stable GitHub `/releases/latest/download/` URLs.
 - **Session management & resurrection**: Zellij-inspired session management system allowing users to save, list, and restore browser sessions.
   - **Automatic session snapshots**: Debounced state saving (configurable interval, default 5s) captures tabs, panes, splits, stacks, URLs, titles, and zoom levels.
   - **Session Manager modal**: Access via `Ctrl+O → s/w` or `Ctrl+Shift+S` to browse and restore sessions with inline preview of tabs and panes.
