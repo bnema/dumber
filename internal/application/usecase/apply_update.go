@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -64,7 +65,7 @@ func (uc *ApplyUpdateUseCase) Execute(ctx context.Context, input ApplyUpdateInpu
 	}
 
 	// Create download directory.
-	downloadDir := uc.cacheDir + "/updates"
+	downloadDir := filepath.Join(uc.cacheDir, "updates")
 	if err := os.MkdirAll(downloadDir, updateDirPerm); err != nil {
 		return nil, fmt.Errorf("failed to create download directory: %w", err)
 	}

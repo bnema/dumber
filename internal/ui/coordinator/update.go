@@ -3,6 +3,7 @@ package coordinator
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/jwijenbergh/puregotk/v4/glib"
 
@@ -19,6 +20,7 @@ type UpdateCoordinator struct {
 	applyUC  *usecase.ApplyUpdateUseCase
 	toaster  *component.Toaster
 	config   *config.Config
+	mu       sync.RWMutex // Protects status and lastInfo
 	status   entity.UpdateStatus
 	lastInfo *usecase.CheckUpdateOutput
 }
@@ -59,21 +61,29 @@ func (c *UpdateCoordinator) checkAsync(ctx context.Context) {
 	result, err := c.checkUC.Execute(ctx, usecase.CheckUpdateInput{})
 	if err != nil {
 		log.Warn().Err(err).Msg("background update check failed")
+		c.mu.Lock()
 		c.status = entity.UpdateStatusFailed
+		c.mu.Unlock()
 		return
 	}
 
+	c.mu.Lock()
 	c.lastInfo = result
+	c.mu.Unlock()
 
 	if !result.UpdateAvailable {
+		c.mu.Lock()
 		c.status = entity.UpdateStatusUpToDate
+		c.mu.Unlock()
 		log.Debug().
 			Str("version", result.CurrentVersion).
 			Msg("already on latest version")
 		return
 	}
 
+	c.mu.Lock()
 	c.status = entity.UpdateStatusAvailable
+	c.mu.Unlock()
 	log.Info().
 		Str("current", result.CurrentVersion).
 		Str("latest", result.LatestVersion).
@@ -85,7 +95,8 @@ func (c *UpdateCoordinator) checkAsync(ctx context.Context) {
 
 	// Auto-download if enabled and possible.
 	if c.config.Update.AutoDownload && result.CanAutoUpdate {
-		c.downloadAsync(ctx, result.DownloadURL)
+		// Spawn download in separate goroutine to not block check completion.
+		go c.downloadAsync(ctx, result.DownloadURL)
 	}
 }
 
@@ -112,24 +123,31 @@ func (c *UpdateCoordinator) showUpdateNotification(ctx context.Context, result *
 func (c *UpdateCoordinator) downloadAsync(ctx context.Context, downloadURL string) {
 	log := logging.FromContext(ctx)
 
+	c.mu.Lock()
 	c.status = entity.UpdateStatusDownloading
+	c.mu.Unlock()
 
 	result, err := c.applyUC.Execute(ctx, usecase.ApplyUpdateInput{
 		DownloadURL: downloadURL,
 	})
 	if err != nil {
 		log.Error().Err(err).Msg("update download failed")
+		c.mu.Lock()
 		c.status = entity.UpdateStatusFailed
+		c.mu.Unlock()
 		c.showToast(ctx, "Update download failed", component.ToastError)
 		return
 	}
 
+	c.mu.Lock()
 	if result.Status == entity.UpdateStatusReady {
 		c.status = entity.UpdateStatusReady
+		c.mu.Unlock()
 		log.Info().Msg("update ready, will apply on exit")
 		c.showToast(ctx, "Update ready - applies on exit", component.ToastSuccess)
 	} else {
 		c.status = entity.UpdateStatusFailed
+		c.mu.Unlock()
 		log.Warn().Str("message", result.Message).Msg("update staging failed")
 		c.showToast(ctx, result.Message, component.ToastWarning)
 	}
@@ -155,11 +173,15 @@ func (c *UpdateCoordinator) FinalizeOnExit(ctx context.Context) error {
 
 // Status returns the current update status.
 func (c *UpdateCoordinator) Status() entity.UpdateStatus {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.status
 }
 
 // LastCheckResult returns the result of the last update check.
 func (c *UpdateCoordinator) LastCheckResult() *usecase.CheckUpdateOutput {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.lastInfo
 }
 
