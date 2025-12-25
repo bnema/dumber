@@ -30,8 +30,8 @@ const (
 	defaultSessionActivationShortcut  = "ctrl+o"
 	defaultSessionTimeoutMilliseconds = 3000
 	defaultSnapshotIntervalMs         = 5000
-	defaultMaxExitedSessions          = 10
-	defaultMaxListedSessions          = 50
+	defaultMaxExitedSessions          = 50
+	defaultMaxExitedSessionAgeDays    = 7
 
 	// Workspace styling defaults
 	// Active pane border (overlay)
@@ -210,10 +210,10 @@ func DefaultConfig() *Config {
 			InitialBehavior: defaultOmniboxInitialBehavior,
 		},
 		Session: SessionConfig{
-			AutoRestore:        false,
-			SnapshotIntervalMs: defaultSnapshotIntervalMs,
-			MaxExitedSessions:  defaultMaxExitedSessions,
-			MaxListedSessions:  defaultMaxListedSessions,
+			AutoRestore:             false,
+			SnapshotIntervalMs:      defaultSnapshotIntervalMs,
+			MaxExitedSessions:       defaultMaxExitedSessions,
+			MaxExitedSessionAgeDays: defaultMaxExitedSessionAgeDays,
 			SessionMode: SessionModeConfig{
 				ActivationShortcut:  defaultSessionActivationShortcut,
 				TimeoutMilliseconds: defaultSessionTimeoutMilliseconds,

@@ -68,7 +68,6 @@ func TestPurgeModel_SelectedSessionIDs_ReturnsNilWhenDataSelected(t *testing.T) 
 					EndedAt:   &endedAt,
 				},
 			},
-			Selected: true,
 		},
 	}
 
@@ -78,8 +77,9 @@ func TestPurgeModel_SelectedSessionIDs_ReturnsNilWhenDataSelected(t *testing.T) 
 	ids := m.SelectedSessionIDs()
 	assert.Nil(t, ids, "should return nil when Data is selected")
 
-	// Deselect Data
+	// Deselect Data and select all sessions
 	m.Items[0].Selected = false
+	m.ToggleAllSessions() // Now allSessionsSelected = true
 	ids = m.SelectedSessionIDs()
 	require.Len(t, ids, 1)
 	assert.Equal(t, entity.SessionID("session1"), ids[0])
@@ -104,7 +104,6 @@ func TestPurgeModel_SelectedCount_IncludesSessions(t *testing.T) {
 					EndedAt:   &endedAt,
 				},
 			},
-			Selected: true,
 		},
 		{
 			Info: entity.SessionInfo{
@@ -115,13 +114,17 @@ func TestPurgeModel_SelectedCount_IncludesSessions(t *testing.T) {
 					EndedAt:   &endedAt,
 				},
 			},
-			Selected: false, // Not selected
 		},
 	}
 
 	m := styles.NewPurgeWithSessions(theme, targets, sessions, 500)
 
-	// 2 targets + 1 selected session = 3
+	// 2 targets selected, sessions not selected = 2
+	assert.Equal(t, 2, m.SelectedCount())
+
+	// Select all sessions (as a single item)
+	m.ToggleAllSessions()
+	// 2 targets + 1 sessions item = 3
 	assert.Equal(t, 3, m.SelectedCount())
 }
 
@@ -143,7 +146,6 @@ func TestPurgeModel_ToggleAllSessions(t *testing.T) {
 					EndedAt:   &endedAt,
 				},
 			},
-			Selected: true,
 		},
 		{
 			Info: entity.SessionInfo{
@@ -154,24 +156,27 @@ func TestPurgeModel_ToggleAllSessions(t *testing.T) {
 					EndedAt:   &endedAt,
 				},
 			},
-			Selected: true,
 		},
 	}
 
 	m := styles.NewPurgeWithSessions(theme, targets, sessions, 500)
 
-	// All sessions are selected, toggle should deselect all
-	m.ToggleAllSessions()
-	assert.False(t, m.Sessions[0].Selected)
-	assert.False(t, m.Sessions[1].Selected)
+	// Initially sessions are not selected
+	ids := m.SelectedSessionIDs()
+	assert.Nil(t, ids, "sessions should not be selected initially")
 
-	// Now toggle again to select all
+	// Toggle to select all
 	m.ToggleAllSessions()
-	assert.True(t, m.Sessions[0].Selected)
-	assert.True(t, m.Sessions[1].Selected)
+	ids = m.SelectedSessionIDs()
+	require.Len(t, ids, 2, "all sessions should be selected after toggle")
+
+	// Toggle again to deselect all
+	m.ToggleAllSessions()
+	ids = m.SelectedSessionIDs()
+	assert.Nil(t, ids, "sessions should be deselected after second toggle")
 }
 
-func TestPurgeModel_SelectedSize_IncludesSessionsProportionally(t *testing.T) {
+func TestPurgeModel_SelectedSize_IncludesAllSessionsWhenSelected(t *testing.T) {
 	theme := testTheme()
 
 	targets := []entity.PurgeTarget{
@@ -189,7 +194,6 @@ func TestPurgeModel_SelectedSize_IncludesSessionsProportionally(t *testing.T) {
 					EndedAt:   &endedAt,
 				},
 			},
-			Selected: true,
 		},
 		{
 			Info: entity.SessionInfo{
@@ -200,15 +204,19 @@ func TestPurgeModel_SelectedSize_IncludesSessionsProportionally(t *testing.T) {
 					EndedAt:   &endedAt,
 				},
 			},
-			Selected: false, // Not selected
 		},
 	}
 
-	// Total sessions size is 1000, 1 of 2 sessions selected = 500
+	// Total sessions size is 1000
 	m := styles.NewPurgeWithSessions(theme, targets, sessions, 1000)
 
-	// 100 (config) + 500 (1/2 of sessions) = 600
-	assert.Equal(t, int64(600), m.SelectedSize())
+	// Only config selected = 100
+	assert.Equal(t, int64(100), m.SelectedSize())
+
+	// Select all sessions
+	m.ToggleAllSessions()
+	// 100 (config) + 1000 (all sessions) = 1100
+	assert.Equal(t, int64(1100), m.SelectedSize())
 }
 
 func TestPurgeModel_SelectedSize_IncludesFullSessionsSizeWhenDataSelected(t *testing.T) {
@@ -229,7 +237,6 @@ func TestPurgeModel_SelectedSize_IncludesFullSessionsSizeWhenDataSelected(t *tes
 					EndedAt:   &endedAt,
 				},
 			},
-			Selected: false, // Not individually selected, but Data is selected
 		},
 	}
 

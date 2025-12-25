@@ -24,6 +24,7 @@ func validateConfig(config *Config) error {
 	validationErrors = append(validationErrors, validateOmnibox(config)...)
 	validationErrors = append(validationErrors, validateRendering(config)...)
 	validationErrors = append(validationErrors, validateColorScheme(config)...)
+	validationErrors = append(validationErrors, validateSession(config)...)
 
 	// If there are validation errors, return them
 	if len(validationErrors) > 0 {
@@ -300,4 +301,18 @@ func validateColorScheme(config *Config) []string {
 			config.Appearance.ColorScheme,
 		)}
 	}
+}
+
+func validateSession(config *Config) []string {
+	var validationErrors []string
+	if config.Session.MaxExitedSessions < 0 {
+		validationErrors = append(validationErrors, "session.max_exited_sessions must be non-negative")
+	}
+	if config.Session.MaxExitedSessionAgeDays < 0 {
+		validationErrors = append(validationErrors, "session.max_exited_session_age_days must be non-negative")
+	}
+	if config.Session.SnapshotIntervalMs < 0 {
+		validationErrors = append(validationErrors, "session.snapshot_interval_ms must be non-negative")
+	}
+	return validationErrors
 }
