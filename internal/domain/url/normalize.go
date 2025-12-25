@@ -4,11 +4,24 @@ package url
 import (
 	"fmt"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
+// expandHome expands ~ prefix to user's home directory.
+func expandHome(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, path[2:])
+		}
+	}
+	return path
+}
+
 // Normalize adds https:// prefix if missing for URL-like inputs.
 // Returns the input unchanged if it already has a scheme or doesn't look like a URL.
+// If the input is an existing local file, returns a file:// URL.
 func Normalize(input string) string {
 	if input == "" {
 		return ""
@@ -26,6 +39,15 @@ func Normalize(input string) string {
 		return input
 	case strings.HasPrefix(input, "about:"):
 		return input
+	}
+
+	// Check if input is an existing file path
+	expanded := expandHome(input)
+	absPath, err := filepath.Abs(expanded)
+	if err == nil {
+		if _, statErr := os.Stat(absPath); statErr == nil {
+			return "file://" + absPath
+		}
 	}
 
 	// Looks like a URL (contains . and no spaces)
