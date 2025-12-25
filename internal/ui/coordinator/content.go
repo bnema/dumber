@@ -190,6 +190,11 @@ func (c *ContentCoordinator) EnsureWebView(ctx context.Context, paneID entity.Pa
 		return c.handleLinkMiddleClick(ctx, paneID, uri)
 	}
 
+	// Set up link hover callback for status overlay
+	wv.OnLinkHover = func(uri string) {
+		c.onLinkHover(paneID, uri)
+	}
+
 	// Set up fullscreen handlers for idle inhibition
 	c.setupIdleInhibitionHandlers(ctx, paneID, wv)
 
@@ -764,6 +769,25 @@ func (c *ContentCoordinator) onProgressChanged(paneID entity.PaneID, progress fl
 	}
 }
 
+// onLinkHover updates the link status overlay when hovering over links.
+func (c *ContentCoordinator) onLinkHover(paneID entity.PaneID, uri string) {
+	_, wsView := c.getActiveWS()
+	if wsView == nil {
+		return
+	}
+
+	paneView := wsView.GetPaneView(paneID)
+	if paneView == nil {
+		return
+	}
+
+	if uri != "" {
+		paneView.ShowLinkStatus(uri)
+	} else {
+		paneView.HideLinkStatus()
+	}
+}
+
 // --- Popup Handling ---
 
 // SetPopupConfig configures popup handling.
@@ -1048,6 +1072,11 @@ func (c *ContentCoordinator) setupWebViewCallbacks(ctx context.Context, paneID e
 	// Middle-click / Ctrl+click handler for opening links in new pane
 	wv.OnLinkMiddleClick = func(uri string) bool {
 		return c.handleLinkMiddleClick(ctx, paneID, uri)
+	}
+
+	// Link hover callback for status overlay
+	wv.OnLinkHover = func(uri string) {
+		c.onLinkHover(paneID, uri)
 	}
 
 	// Fullscreen handlers for idle inhibition
