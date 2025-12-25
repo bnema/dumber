@@ -13,6 +13,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/adapter"
+	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/glib"
@@ -284,8 +285,8 @@ func (o *Omnibox) setupKeyboardHandling() {
 	// Set capture phase to intercept before entry
 	controller.SetPropagationPhase(gtk.PhaseCaptureValue)
 
-	keyPressedCb := func(_ gtk.EventControllerKey, keyval uint, _ uint, state gdk.ModifierType) bool {
-		return o.handleKeyPress(keyval, state)
+	keyPressedCb := func(_ gtk.EventControllerKey, keyval, keycode uint, state gdk.ModifierType) bool {
+		return o.handleKeyPress(keyval, keycode, state)
 	}
 	o.retainedCallbacks = append(o.retainedCallbacks, keyPressedCb)
 	controller.ConnectKeyPressed(&keyPressedCb)
@@ -434,7 +435,7 @@ func (o *Omnibox) setupEntryChanged() {
 
 // handleKeyPress processes keyboard events.
 // Returns true if the event was handled.
-func (o *Omnibox) handleKeyPress(keyval uint, state gdk.ModifierType) bool {
+func (o *Omnibox) handleKeyPress(keyval, keycode uint, state gdk.ModifierType) bool {
 	ctrl := state&gdk.ControlMaskValue != 0
 
 	switch keyval {
@@ -494,29 +495,45 @@ func (o *Omnibox) handleKeyPress(keyval uint, state gdk.ModifierType) bool {
 		return false // Let entry handle 'y' for typing
 
 	default:
-		return o.handleCtrlNumberShortcut(keyval, ctrl)
+		return o.handleCtrlNumberShortcut(keyval, keycode, ctrl)
 	}
 
 	return false // Let entry handle the key
 }
 
 // handleCtrlNumberShortcut handles Ctrl+1-9 and Ctrl+0 for quick navigation.
-func (o *Omnibox) handleCtrlNumberShortcut(keyval uint, ctrl bool) bool {
+// Uses hardware keycode as fallback for non-QWERTY keyboards (AZERTY, QWERTZ, etc.).
+func (o *Omnibox) handleCtrlNumberShortcut(keyval, keycode uint, ctrl bool) bool {
 	if !ctrl {
 		return false
 	}
 
 	const tenthItemIndex = 9
+
+	// First try keyval (works for QWERTY layouts)
 	switch keyval {
 	case uint(gdk.KEY_1), uint(gdk.KEY_2), uint(gdk.KEY_3), uint(gdk.KEY_4), uint(gdk.KEY_5),
 		uint(gdk.KEY_6), uint(gdk.KEY_7), uint(gdk.KEY_8), uint(gdk.KEY_9):
-		index := int(keyval - uint(gdk.KEY_1))
-		o.selectAndNavigate(index)
+		idx := int(keyval - uint(gdk.KEY_1))
+		o.selectAndNavigate(idx)
 		return true
 	case uint(gdk.KEY_0):
 		o.selectAndNavigate(tenthItemIndex)
 		return true
 	}
+
+	// Fallback: use hardware keycode for non-QWERTY layouts
+	// This enables Ctrl+1-9/0 to work on AZERTY, QWERTZ, etc.
+	if index, ok := input.KeycodeToDigitIndex(keycode); ok {
+		log := logging.FromContext(o.ctx)
+		log.Debug().
+			Uint("keycode", keycode).
+			Int("index", index).
+			Msg("omnibox shortcut via hardware keycode fallback (non-QWERTY layout)")
+		o.selectAndNavigate(index)
+		return true
+	}
+
 	return false
 }
 
@@ -579,11 +596,11 @@ func (o *Omnibox) performSearch() {
 			return
 		}
 
-		input := usecase.SearchInput{
+		searchInput := usecase.SearchInput{
 			Query: query,
 			Limit: OmniboxListDefaults.MaxResults,
 		}
-		output, err := o.historyUC.Search(ctx, input)
+		output, err := o.historyUC.Search(ctx, searchInput)
 		if err != nil {
 			log.Error().Err(err).Msg("history search failed")
 			return
@@ -997,10 +1014,10 @@ func (o *Omnibox) navigateToSelected() {
 	}
 }
 
-// looksLikeURL checks if the input appears to be a URL (not a search query).
+// looksLikeURL checks if the text appears to be a URL (not a search query).
 // Returns true for strings like "github.com", "google.com/search", etc.
-func (o *Omnibox) looksLikeURL(input string) bool {
-	return url.LooksLikeURL(input)
+func (o *Omnibox) looksLikeURL(text string) bool {
+	return url.LooksLikeURL(text)
 }
 
 // toggleFavorite adds or removes the selected item from favorites.
@@ -1040,12 +1057,12 @@ func (o *Omnibox) toggleFavorite() {
 
 			goLog.Debug().Str("url", s.URL).Str("title", s.Title).Msg("adding to favorites")
 
-			input := usecase.AddFavoriteInput{
+			addInput := usecase.AddFavoriteInput{
 				URL:   s.URL,
 				Title: s.Title,
 			}
 
-			fav, err := o.favoritesUC.Add(ctx, input)
+			fav, err := o.favoritesUC.Add(ctx, addInput)
 			if err != nil {
 				goLog.Error().Err(err).Str("url", s.URL).Msg("failed to add favorite")
 				return
@@ -1139,9 +1156,9 @@ func (o *Omnibox) yankSelectedURL() {
 	}()
 }
 
-// buildURL constructs a URL from input, handling search shortcuts.
-func (o *Omnibox) buildURL(input string) string {
-	return url.BuildSearchURL(input, o.shortcutURLs(), o.defaultSearch)
+// buildURL constructs a URL from text, handling search shortcuts.
+func (o *Omnibox) buildURL(text string) string {
+	return url.BuildSearchURL(text, o.shortcutURLs(), o.defaultSearch)
 }
 
 // shortcutURLs returns a map of shortcut keys to URL templates.
