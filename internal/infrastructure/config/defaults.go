@@ -241,6 +241,10 @@ func DefaultConfig() *Config {
 			ZoomCacheSize:           defaultZoomCacheSize,
 			WebViewPoolPrewarmCount: defaultWebViewPoolPrewarmCount,
 		},
+		Update: UpdateConfig{
+			EnableOnStartup: true,  // Check for updates on startup by default
+			AutoDownload:    false, // Conservative: don't auto-download by default
+		},
 	}
 }
 

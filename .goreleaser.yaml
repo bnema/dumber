@@ -33,14 +33,14 @@ archives:
   - id: default
     name_template: >-
       {{ .ProjectName }}_
-      {{- .Version }}_
       {{- .Os }}_
       {{- if eq .Arch "amd64" }}x86_64
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
+    wrap_in_directory: "{{ .ProjectName }}_{{ .Version }}"
     format_overrides:
       - goos: linux
-        format: tar.gz
+        formats: ['tar.gz']
     files:
       - LICENSE
       - README.md
@@ -109,9 +109,16 @@ release:
 
     ### Linux (x86_64/amd64)
     ```bash
-    wget https://github.com/bnema/dumber/releases/download/{{.Tag}}/dumber_{{.Version}}_linux_x86_64.tar.gz
-    tar -xzf dumber_{{.Version}}_linux_x86_64.tar.gz
-    sudo install -m 755 dumber /usr/local/bin/
+    # Download latest release
+    wget https://github.com/bnema/dumber/releases/latest/download/dumber_linux_x86_64.tar.gz
+
+    # Extract and install to ~/.local/bin (enables auto-updates)
+    tar -xzf dumber_linux_x86_64.tar.gz
+    mkdir -p ~/.local/bin
+    install -m 755 dumber_*/dumber ~/.local/bin/
+
+    # Ensure ~/.local/bin is in your PATH (add to ~/.bashrc or ~/.zshrc if needed)
+    # export PATH="$HOME/.local/bin:$PATH"
     ```
 
     ### Dependencies

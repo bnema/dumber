@@ -25,6 +25,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/idle"
 	"github.com/bnema/dumber/internal/infrastructure/media"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
+	"github.com/bnema/dumber/internal/infrastructure/updater"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui"
 	"github.com/bnema/dumber/internal/ui/theme"
@@ -118,7 +119,13 @@ func runGUI() int {
 	repos := createRepositories(db)
 
 	stateDir, _ := config.GetStateDir()
-	useCases := createUseCases(repos, cfg, stateDir)
+	buildInfo := build.Info{
+		Version:   version,
+		Commit:    commit,
+		BuildDate: buildDate,
+		GoVersion: runtime.Version(),
+	}
+	useCases := createUseCases(repos, cfg, stateDir, buildInfo)
 
 	// Auto-restore: find last restorable session if enabled and no explicit restore requested
 	if cfg.Session.AutoRestore && restoreSessionID == "" {
@@ -283,11 +290,13 @@ type useCases struct {
 	copyURL        *usecase.CopyURLUseCase
 	snapshot       *usecase.SnapshotSessionUseCase
 	lastRestorable *usecase.GetLastRestorableSessionUseCase
+	checkUpdate    *usecase.CheckUpdateUseCase
+	applyUpdate    *usecase.ApplyUpdateUseCase
 	clipboard      port.Clipboard
 	favicon        *favicon.Service
 }
 
-func createUseCases(repos *repositories, cfg *config.Config, stateDir string) *useCases {
+func createUseCases(repos *repositories, cfg *config.Config, stateDir string, buildInfo build.Info) *useCases {
 	const idAlphabetSize = 26
 	idCounter := uint64(0)
 	idGenerator := func() string {
@@ -297,10 +306,16 @@ func createUseCases(repos *repositories, cfg *config.Config, stateDir string) *u
 
 	clipboardAdapter := clipboard.New()
 	faviconCacheDir, _ := config.GetFaviconCacheDir()
+	cacheDir, _ := config.GetXDGDirs()
 	defaultZoom := cfg.DefaultWebpageZoom
 
 	// Create LRU cache for zoom levels to avoid database queries on repeat visits
 	zoomCache := cache.NewLRU[string, *entity.ZoomLevel](cfg.Performance.ZoomCacheSize)
+
+	// Create update infrastructure
+	updateChecker := updater.NewGitHubChecker()
+	updateDownloader := updater.NewGitHubDownloader()
+	updateApplier := updater.NewApplier(stateDir)
 
 	return &useCases{
 		tabs:           usecase.NewManageTabsUseCase(idGenerator),
@@ -312,6 +327,8 @@ func createUseCases(repos *repositories, cfg *config.Config, stateDir string) *u
 		copyURL:        usecase.NewCopyURLUseCase(clipboardAdapter),
 		snapshot:       usecase.NewSnapshotSessionUseCase(repos.sessionState),
 		lastRestorable: usecase.NewGetLastRestorableSessionUseCase(repos.session, repos.sessionState, stateDir),
+		checkUpdate:    usecase.NewCheckUpdateUseCase(updateChecker, updateApplier, buildInfo),
+		applyUpdate:    usecase.NewApplyUpdateUseCase(updateDownloader, updateApplier, cacheDir.CacheHome),
 		clipboard:      clipboardAdapter,
 		favicon:        favicon.NewService(faviconCacheDir),
 	}
@@ -356,5 +373,7 @@ func buildUIDependencies(
 		SessionStateRepo: repos.sessionState,
 		CurrentSessionID: currentSessionID,
 		SnapshotUC:       uc.snapshot,
+		CheckUpdateUC:    uc.checkUpdate,
+		ApplyUpdateUC:    uc.applyUpdate,
 	}
 }

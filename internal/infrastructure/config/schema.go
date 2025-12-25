@@ -31,6 +31,8 @@ type Config struct {
 	Runtime RuntimeConfig `mapstructure:"runtime" yaml:"runtime" toml:"runtime"`
 	// Performance holds internal performance tuning options (not exposed in UI).
 	Performance PerformanceConfig `mapstructure:"performance" yaml:"performance" toml:"performance"`
+	// Update controls automatic update checking and downloading.
+	Update UpdateConfig `mapstructure:"update" yaml:"update" toml:"update"`
 }
 
 // RenderingMode selects GPU vs CPU rendering.
@@ -278,6 +280,17 @@ type OmniboxConfig struct {
 type DebugConfig struct {
 	// Enable browser developer tools (F12, Inspect Element in context menu)
 	EnableDevTools bool `mapstructure:"enable_devtools" yaml:"enable_devtools" toml:"enable_devtools"`
+}
+
+// UpdateConfig holds automatic update settings.
+type UpdateConfig struct {
+	// EnableOnStartup enables checking for updates when the browser starts.
+	// Default: true
+	EnableOnStartup bool `mapstructure:"enable_on_startup" yaml:"enable_on_startup" toml:"enable_on_startup"`
+	// AutoDownload automatically downloads updates in the background.
+	// When enabled, updates are applied on browser exit.
+	// Default: false
+	AutoDownload bool `mapstructure:"auto_download" yaml:"auto_download" toml:"auto_download"`
 }
 
 // WorkspaceConfig captures layout, pane, and tab behavior preferences.
