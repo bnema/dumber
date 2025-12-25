@@ -285,8 +285,8 @@ cancel = ["escape"]
 |-----|------|---------|-------------|
 | `session.auto_restore` | bool | `false` | Automatically restore the last session on startup |
 | `session.snapshot_interval_ms` | int | `5000` | Minimum interval between snapshots in milliseconds |
-| `session.max_exited_sessions` | int | `10` | Maximum number of exited sessions to keep |
-| `session.max_listed_sessions` | int | `50` | Maximum number of sessions to list in CLI/TUI |
+| `session.max_exited_sessions` | int | `50` | Maximum number of exited sessions to keep |
+| `session.max_exited_session_age_days` | int | `7` | Maximum age in days for exited sessions (auto-deleted on startup) |
 
 ### Session Mode
 
@@ -307,10 +307,10 @@ cancel = ["escape"]
 **Example:**
 ```toml
 [session]
-auto_restore = false           # Don't auto-restore on startup
-snapshot_interval_ms = 5000    # Save state every 5 seconds (debounced)
-max_exited_sessions = 10       # Keep last 10 exited sessions
-max_listed_sessions = 50       # Show up to 50 sessions in CLI/TUI
+auto_restore = false              # Don't auto-restore on startup
+snapshot_interval_ms = 5000       # Save state every 5 seconds (debounced)
+max_exited_sessions = 50          # Keep last 50 exited sessions
+max_exited_session_age_days = 7   # Delete sessions older than 7 days on startup
 ```
 
 ## Media
