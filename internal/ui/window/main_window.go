@@ -170,6 +170,20 @@ func (mw *MainWindow) Window() *gtk.ApplicationWindow {
 	return mw.window
 }
 
+// SetTitle updates the window title with proper formatting.
+// The title is capped at 255 characters for display.
+func (mw *MainWindow) SetTitle(title string) {
+	if mw.window == nil {
+		return
+	}
+	// Truncate title to 255 characters max
+	const maxTitleLen = 255
+	if len(title) > maxTitleLen {
+		title = title[:maxTitleLen-3] + "..."
+	}
+	mw.window.SetTitle(&title)
+}
+
 // AddOverlay adds a widget to the content overlay.
 // The widget will be displayed on top of the workspace content.
 func (mw *MainWindow) AddOverlay(widget *gtk.Widget) {
