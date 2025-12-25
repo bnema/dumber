@@ -3,6 +3,7 @@ package component
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -348,7 +349,7 @@ func (sm *SessionManager) initList() error {
 }
 
 func (sm *SessionManager) initFooter() error {
-	footerText := "↑↓/jk navigate  Tab expand  Enter open  x delete  Esc close"
+	footerText := "↑↓/jk navigate  Enter expand  r restore  x delete  Esc close"
 	sm.footerLabel = gtk.NewLabel(&footerText)
 	if sm.footerLabel == nil {
 		return errNilWidget("sessionFooterLabel")
@@ -387,15 +388,17 @@ func (sm *SessionManager) handleKeyPress(keyval uint, _ gdk.ModifierType) bool {
 		sm.selectNext()
 		return true
 
-	case uint(gdk.KEY_Tab), uint(gdk.KEY_space):
+	case uint(gdk.KEY_Return), uint(gdk.KEY_KP_Enter), uint(gdk.KEY_space):
+		// Enter/Space expands/collapses to preview session contents
 		sm.toggleExpanded()
 		return true
 
-	case uint(gdk.KEY_Return), uint(gdk.KEY_KP_Enter):
+	case uint(gdk.KEY_r), uint(gdk.KEY_o):
+		// r/o restores the selected session
 		sm.openSelected()
 		return true
 
-	case uint(gdk.KEY_x), uint(gdk.KEY_Delete):
+	case uint(gdk.KEY_x), uint(gdk.KEY_d), uint(gdk.KEY_Delete):
 		sm.deleteSelected()
 		return true
 	}
@@ -539,13 +542,14 @@ func (sm *SessionManager) resizeForContent(sessionRowCount, dividerCount, treeRo
 		return
 	}
 
-	// Calculate max visible height (6 session rows max visible, accounting for divider)
-	maxVisibleHeight := sessionMaxVisibleRows*sessionRowHeight + sessionDividerRowHeight
-
 	// Calculate actual content height
 	contentHeight := sessionRowCount*sessionRowHeight +
 		dividerCount*sessionDividerRowHeight +
 		treeRowCount*sessionTreeRowHeight
+
+	// Calculate max visible height - limit to prevent oversized modal
+	// Allow up to sessionMaxVisibleRows session rows plus one divider
+	maxVisibleHeight := sessionMaxVisibleRows*sessionRowHeight + sessionDividerRowHeight
 
 	// Cap at max visible height - rest will be scrollable
 	if contentHeight > maxVisibleHeight {
@@ -557,10 +561,12 @@ func (sm *SessionManager) resizeForContent(sessionRowCount, dividerCount, treeRo
 		contentHeight = sessionRowHeight
 	}
 
-	// Schedule resize
+	// Schedule resize on main thread
+	// Use the same pattern as omnibox: reset min to -1 first to avoid GTK assertion
 	cb := glib.SourceFunc(func(_ uintptr) bool {
-		sm.scrolledWindow.SetMinContentHeight(contentHeight)
+		sm.scrolledWindow.SetMinContentHeight(-1)
 		sm.scrolledWindow.SetMaxContentHeight(contentHeight)
+		sm.scrolledWindow.SetMinContentHeight(contentHeight)
 		sm.outerBox.QueueResize()
 		return false
 	})
@@ -668,9 +674,9 @@ func (sm *SessionManager) createTreeRow(text, nodeType string, hasSibling bool, 
 
 	// Build indent and branch prefix
 	var prefix string
-	indent := "      " // Base indent to align with session row content
+	indent := "  " // Base indent (minimal, tree branches provide visual alignment)
 	for i := 0; i < depth; i++ {
-		indent += "    " // 4 spaces per depth level
+		indent += "   " // 3 spaces per depth level
 	}
 
 	// Branch character
@@ -753,13 +759,13 @@ func (sm *SessionManager) addStatusIndicator(hbox *gtk.Box, info entity.SessionI
 	var statusText string
 	switch {
 	case info.IsCurrent:
-		statusText = "●"
+		statusText = "●" // Filled dot for current
 		hbox.AddCssClass("session-current")
 	case info.IsActive:
-		statusText = "○"
+		statusText = "○" // Empty dot for other active instance
 		hbox.AddCssClass("session-active")
 	default:
-		statusText = " "
+		statusText = "◼" // Small square for exited (like stop icon)
 		hbox.AddCssClass("session-exited")
 	}
 	statusLabel := gtk.NewLabel(&statusText)
@@ -777,20 +783,47 @@ func (sm *SessionManager) addSessionInfo(hbox *gtk.Box, info entity.SessionInfo)
 	}
 	infoBox.SetHexpand(true)
 
-	// Session ID (short)
-	idText := string(info.Session.ID)
-	if len(idText) > sessionIDMaxDisplay {
-		idText = idText[:sessionIDMaxDisplay]
-	}
-	if info.IsCurrent {
-		idText += " (current)"
-	}
-	idLabel := gtk.NewLabel(&idText)
-	if idLabel != nil {
-		idLabel.AddCssClass("session-id")
-		idLabel.SetHalign(gtk.AlignStartValue)
-		idLabel.SetEllipsize(2) // PANGO_ELLIPSIZE_END
-		infoBox.Append(&idLabel.Widget)
+	// Session ID row: shortID (accent) + rest of ID (dimmed) + optional (current) badge
+	idRowBox := gtk.NewBox(gtk.OrientationHorizontalValue, 0)
+	if idRowBox != nil {
+		idRowBox.SetHalign(gtk.AlignStartValue)
+
+		fullID := string(info.Session.ID)
+		shortID := info.Session.ShortID() // Last 4 chars
+
+		// Short ID with accent color (displayed first)
+		shortLabel := gtk.NewLabel(&shortID)
+		if shortLabel != nil {
+			shortLabel.AddCssClass("session-id-short")
+			idRowBox.Append(&shortLabel.Widget)
+		}
+
+		// Rest of the ID (prefix before the short suffix), dimmed
+		// Format: "20251225_083026_7566" -> shortID="7566", prefix="20251225_083026"
+		// Remove trailing underscore for cleaner display
+		if len(fullID) > 4 {
+			prefix := fullID[:len(fullID)-4]
+			// Trim trailing underscore if present
+			prefix = strings.TrimSuffix(prefix, "_")
+			prefix = " " + prefix
+			prefixLabel := gtk.NewLabel(&prefix)
+			if prefixLabel != nil {
+				prefixLabel.AddCssClass("session-id-prefix")
+				idRowBox.Append(&prefixLabel.Widget)
+			}
+		}
+
+		// Current badge
+		if info.IsCurrent {
+			badge := " (current)"
+			badgeLabel := gtk.NewLabel(&badge)
+			if badgeLabel != nil {
+				badgeLabel.AddCssClass("session-id-badge")
+				idRowBox.Append(&badgeLabel.Widget)
+			}
+		}
+
+		infoBox.Append(&idRowBox.Widget)
 	}
 
 	// Tab/pane count

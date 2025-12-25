@@ -643,25 +643,36 @@ row:selected .session-manager-row {
 	color: var(--muted);
 }
 
-/* Exited session - no dot, dimmed */
+/* Exited session - dimmed appearance with subtle stop icon */
 .session-exited {
-	opacity: 0.7;
+	opacity: 0.75;
 }
 
 .session-exited .session-status {
-	color: transparent;
+	color: var(--error);
+	opacity: 0.5;
 }
 
-/* Session ID label */
-.session-id {
+/* Session ID labels */
+.session-id-short {
 	font-size: 0.875em;
-	font-weight: 500;
-	color: var(--text);
+	font-weight: 600;
+	color: var(--accent);
 	font-family: var(--font-mono);
 }
 
-.session-current .session-id {
+.session-id-prefix {
+	font-size: 0.875em;
+	font-weight: 400;
+	color: var(--muted);
+	font-family: var(--font-mono);
+}
+
+.session-id-badge {
+	font-size: 0.75em;
+	font-weight: 500;
 	color: var(--accent);
+	margin-left: 0.5em;
 }
 
 /* Tab/pane count label */
