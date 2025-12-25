@@ -95,6 +95,10 @@ type WebView struct {
 	canGoFwd  bool
 	isLoading bool
 
+	// Media/fullscreen state for idle inhibition cleanup
+	isFullscreen   atomic.Bool
+	isPlayingAudio atomic.Bool
+
 	// Progress throttling (~60fps)
 	lastProgressUpdate atomic.Int64 // Unix nanoseconds
 
@@ -102,17 +106,18 @@ type WebView struct {
 	signalIDs []uint32
 
 	// Callbacks (set by UI layer)
-	OnLoadChanged     func(LoadEvent)
-	OnTitleChanged    func(string)
-	OnURIChanged      func(string)
-	OnProgressChanged func(float64)
-	OnFaviconChanged  func(*gdk.Texture) // Called when page favicon changes
-	OnClose           func()
-	OnCreate          func(PopupRequest) *WebView // Return new WebView or nil to block popup
-	OnReadyToShow     func()                      // Called when popup is ready to display
-	OnLinkMiddleClick func(uri string) bool       // Return true if handled (blocks navigation)
-	OnEnterFullscreen func() bool                 // Return true to prevent fullscreen
-	OnLeaveFullscreen func() bool                 // Return true to prevent leaving fullscreen
+	OnLoadChanged       func(LoadEvent)
+	OnTitleChanged      func(string)
+	OnURIChanged        func(string)
+	OnProgressChanged   func(float64)
+	OnFaviconChanged    func(*gdk.Texture) // Called when page favicon changes
+	OnClose             func()
+	OnCreate            func(PopupRequest) *WebView // Return new WebView or nil to block popup
+	OnReadyToShow       func()                      // Called when popup is ready to display
+	OnLinkMiddleClick   func(uri string) bool       // Return true if handled (blocks navigation)
+	OnEnterFullscreen   func() bool                 // Return true to prevent fullscreen
+	OnLeaveFullscreen   func() bool                 // Return true to prevent leaving fullscreen
+	OnAudioStateChanged func(playing bool)          // Called when audio playback starts/stops
 
 	logger zerolog.Logger
 	mu     sync.RWMutex
@@ -322,6 +327,7 @@ func (wv *WebView) connectSignals() {
 	wv.connectDecidePolicySignal()
 	wv.connectEnterFullscreenSignal()
 	wv.connectLeaveFullscreenSignal()
+	wv.connectAudioStateSignal()
 }
 
 func (wv *WebView) connectLoadChangedSignal() {
@@ -545,6 +551,7 @@ func (wv *WebView) connectDecidePolicySignal() {
 
 func (wv *WebView) connectEnterFullscreenSignal() {
 	enterFullscreenCb := func(_ webkit.WebView) bool {
+		wv.isFullscreen.Store(true)
 		wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("enter fullscreen")
 		if wv.OnEnterFullscreen != nil {
 			return wv.OnEnterFullscreen()
@@ -557,6 +564,7 @@ func (wv *WebView) connectEnterFullscreenSignal() {
 
 func (wv *WebView) connectLeaveFullscreenSignal() {
 	leaveFullscreenCb := func(_ webkit.WebView) bool {
+		wv.isFullscreen.Store(false)
 		wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("leave fullscreen")
 		if wv.OnLeaveFullscreen != nil {
 			return wv.OnLeaveFullscreen()
@@ -564,6 +572,24 @@ func (wv *WebView) connectLeaveFullscreenSignal() {
 		return false // Allow leaving fullscreen
 	}
 	sigID := wv.inner.ConnectLeaveFullscreen(&leaveFullscreenCb)
+	wv.signalIDs = append(wv.signalIDs, sigID)
+}
+
+func (wv *WebView) connectAudioStateSignal() {
+	audioCb := func() {
+		playing := wv.inner.IsPlayingAudio()
+		oldState := wv.isPlayingAudio.Swap(playing)
+		if oldState != playing {
+			wv.logger.Debug().
+				Uint64("id", uint64(wv.id)).
+				Bool("playing", playing).
+				Msg("audio state changed")
+			if wv.OnAudioStateChanged != nil {
+				wv.OnAudioStateChanged(playing)
+			}
+		}
+	}
+	sigID := gobject.SignalConnect(wv.inner.GoPointer(), "notify::is-playing-audio", glib.NewCallback(&audioCb))
 	wv.signalIDs = append(wv.signalIDs, sigID)
 }
 
@@ -580,6 +606,16 @@ func (wv *WebView) UserContentManager() *webkit.UserContentManager {
 // Widget returns the underlying webkit.WebView for GTK embedding.
 func (wv *WebView) Widget() *webkit.WebView {
 	return wv.inner
+}
+
+// IsFullscreen returns true if the WebView is currently in fullscreen mode.
+func (wv *WebView) IsFullscreen() bool {
+	return wv.isFullscreen.Load()
+}
+
+// IsPlayingAudio returns true if the WebView is currently playing audio.
+func (wv *WebView) IsPlayingAudio() bool {
+	return wv.isPlayingAudio.Load()
 }
 
 // GetFindController returns the WebKit FindController wrapped in the port interface.
@@ -898,6 +934,7 @@ func (wv *WebView) Destroy() {
 	wv.OnLinkMiddleClick = nil
 	wv.OnEnterFullscreen = nil
 	wv.OnLeaveFullscreen = nil
+	wv.OnAudioStateChanged = nil
 
 	// 3. Clear async callback references
 	wv.mu.Lock()

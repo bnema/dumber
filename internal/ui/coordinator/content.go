@@ -175,7 +175,7 @@ func (c *ContentCoordinator) EnsureWebView(ctx context.Context, paneID entity.Pa
 	}
 
 	// Set up fullscreen handlers for idle inhibition
-	c.setupFullscreenHandlers(ctx, paneID, wv)
+	c.setupIdleInhibitionHandlers(ctx, paneID, wv)
 
 	// Set up popup handling for this WebView
 	c.SetupPopupHandling(ctx, paneID, wv)
@@ -193,6 +193,24 @@ func (c *ContentCoordinator) ReleaseWebView(ctx context.Context, paneID entity.P
 		return
 	}
 	delete(c.webViews, paneID)
+
+	// CRITICAL: If this webview was inhibiting idle (fullscreen or audio playing),
+	// we must release the inhibition before destroying the webview.
+	// Otherwise the D-Bus inhibit request stays active forever.
+	if c.idleInhibitor != nil {
+		if wv.IsFullscreen() {
+			log.Debug().Str("pane_id", string(paneID)).Msg("releasing idle inhibition (was fullscreen)")
+			if err := c.idleInhibitor.Uninhibit(ctx); err != nil {
+				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to uninhibit idle on release (fullscreen)")
+			}
+		}
+		if wv.IsPlayingAudio() {
+			log.Debug().Str("pane_id", string(paneID)).Msg("releasing idle inhibition (was playing audio)")
+			if err := c.idleInhibitor.Uninhibit(ctx); err != nil {
+				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to uninhibit idle on release (audio)")
+			}
+		}
+	}
 
 	// Clean up title tracking
 	c.titleMu.Lock()
@@ -993,7 +1011,7 @@ func (c *ContentCoordinator) setupWebViewCallbacks(ctx context.Context, paneID e
 	}
 
 	// Fullscreen handlers for idle inhibition
-	c.setupFullscreenHandlers(ctx, paneID, wv)
+	c.setupIdleInhibitionHandlers(ctx, paneID, wv)
 }
 
 // setupOAuthAutoClose monitors the popup for OAuth callback URLs and auto-closes.
@@ -1145,14 +1163,19 @@ func (c *ContentCoordinator) handleLinkMiddleClick(ctx context.Context, parentPa
 	return true
 }
 
-// setupFullscreenHandlers configures fullscreen callbacks for idle inhibition.
-func (c *ContentCoordinator) setupFullscreenHandlers(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
+// setupIdleInhibitionHandlers configures fullscreen and audio callbacks for idle inhibition.
+// Idle is inhibited when:
+// - The webview enters fullscreen mode (e.g., fullscreen video)
+// - The webview is playing audio (e.g., video/music playback)
+// The inhibitor uses refcounting, so both can be active simultaneously.
+func (c *ContentCoordinator) setupIdleInhibitionHandlers(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
 	log := logging.FromContext(ctx)
 
 	if wv == nil {
 		return
 	}
 
+	// Fullscreen handling
 	wv.OnEnterFullscreen = func() bool {
 		if c.idleInhibitor != nil {
 			if err := c.idleInhibitor.Inhibit(ctx, "Fullscreen video playback"); err != nil {
@@ -1169,5 +1192,21 @@ func (c *ContentCoordinator) setupFullscreenHandlers(ctx context.Context, paneID
 			}
 		}
 		return false // Allow leaving fullscreen
+	}
+
+	// Audio playback handling
+	wv.OnAudioStateChanged = func(playing bool) {
+		if c.idleInhibitor == nil {
+			return
+		}
+		if playing {
+			if err := c.idleInhibitor.Inhibit(ctx, "Media playback"); err != nil {
+				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to inhibit idle for audio")
+			}
+		} else {
+			if err := c.idleInhibitor.Uninhibit(ctx); err != nil {
+				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to uninhibit idle for audio")
+			}
+		}
 	}
 }

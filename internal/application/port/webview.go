@@ -190,6 +190,14 @@ type WebView interface {
 	// Pass nil to clear all callbacks.
 	SetCallbacks(callbacks *WebViewCallbacks)
 
+	// --- Media/Fullscreen State ---
+
+	// IsFullscreen returns true if the WebView is currently in fullscreen mode.
+	IsFullscreen() bool
+
+	// IsPlayingAudio returns true if the WebView is currently playing audio.
+	IsPlayingAudio() bool
+
 	// --- Lifecycle ---
 
 	// IsDestroyed returns true if the WebView has been destroyed.
