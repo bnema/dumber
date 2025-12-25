@@ -218,7 +218,7 @@ func DefaultConfig() *Config {
 				ActivationShortcut:  defaultSessionActivationShortcut,
 				TimeoutMilliseconds: defaultSessionTimeoutMilliseconds,
 				Actions: map[string][]string{
-					"session-manager": {"w"},
+					"session-manager": {"s", "w"},
 					"confirm":         {"enter"},
 					"cancel":          {"escape"},
 				},

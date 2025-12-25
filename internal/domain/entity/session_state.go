@@ -167,3 +167,136 @@ func countPanesInNode(node *PaneNodeSnapshot) int {
 	}
 	return count
 }
+
+// IDGenerator is a function that generates unique IDs.
+type IDGenerator func() string
+
+// TabListFromSnapshot reconstructs a TabList from a SessionState snapshot.
+// Generates new IDs for all entities using the provided generator.
+// This is the inverse of SnapshotFromTabList.
+func TabListFromSnapshot(state *SessionState, idGen IDGenerator) *TabList {
+	if state == nil {
+		return NewTabList()
+	}
+
+	tabs := NewTabList()
+
+	for i, tabSnap := range state.Tabs {
+		tab := tabFromSnapshot(&tabSnap, idGen)
+		if tab == nil {
+			continue
+		}
+		tabs.Tabs = append(tabs.Tabs, tab)
+		tab.Position = len(tabs.Tabs) - 1
+
+		if i == state.ActiveTabIndex {
+			tabs.ActiveTabID = tab.ID
+		}
+	}
+
+	// Ensure we have an active tab
+	if tabs.ActiveTabID == "" && len(tabs.Tabs) > 0 {
+		tabs.ActiveTabID = tabs.Tabs[0].ID
+	}
+
+	return tabs
+}
+
+func tabFromSnapshot(snap *TabSnapshot, idGen IDGenerator) *Tab {
+	if snap == nil {
+		return nil
+	}
+
+	ws := workspaceFromSnapshot(&snap.Workspace, idGen)
+	if ws == nil {
+		return nil
+	}
+
+	return &Tab{
+		ID:        TabID(idGen()),
+		Name:      snap.Name,
+		Workspace: ws,
+		Position:  snap.Position,
+		IsPinned:  snap.IsPinned,
+		CreatedAt: time.Now(),
+	}
+}
+
+func workspaceFromSnapshot(snap *WorkspaceSnapshot, idGen IDGenerator) *Workspace {
+	if snap == nil {
+		return nil
+	}
+
+	root := paneNodeFromSnapshot(snap.Root, nil, idGen)
+	if root == nil {
+		return nil
+	}
+
+	// Find the active pane ID in the restored tree
+	// We need to map the snapshot's ActivePaneID to the new pane ID
+	var activePaneID PaneID
+	root.Walk(func(node *PaneNode) bool {
+		if node.Pane != nil {
+			// Use the first pane as active if we can't find the original
+			if activePaneID == "" {
+				activePaneID = node.Pane.ID
+			}
+		}
+		return true
+	})
+
+	return &Workspace{
+		ID:           WorkspaceID(idGen()),
+		Root:         root,
+		ActivePaneID: activePaneID,
+		CreatedAt:    time.Now(),
+	}
+}
+
+func paneNodeFromSnapshot(snap *PaneNodeSnapshot, parent *PaneNode, idGen IDGenerator) *PaneNode {
+	if snap == nil {
+		return nil
+	}
+
+	node := &PaneNode{
+		ID:               idGen(),
+		Parent:           parent,
+		SplitDir:         snap.SplitDir,
+		SplitRatio:       snap.SplitRatio,
+		IsStacked:        snap.IsStacked,
+		ActiveStackIndex: snap.ActiveStackIndex,
+	}
+
+	// Restore pane if this is a leaf node
+	if snap.Pane != nil {
+		node.Pane = paneFromSnapshot(snap.Pane, idGen)
+	}
+
+	// Restore children recursively
+	if len(snap.Children) > 0 {
+		node.Children = make([]*PaneNode, 0, len(snap.Children))
+		for _, childSnap := range snap.Children {
+			child := paneNodeFromSnapshot(childSnap, node, idGen)
+			if child != nil {
+				node.Children = append(node.Children, child)
+			}
+		}
+	}
+
+	return node
+}
+
+func paneFromSnapshot(snap *PaneSnapshot, idGen IDGenerator) *Pane {
+	if snap == nil {
+		return nil
+	}
+
+	return &Pane{
+		ID:         PaneID(idGen()),
+		URI:        snap.URI,
+		Title:      snap.Title,
+		ZoomFactor: snap.ZoomFactor,
+		WindowType: WindowMain,
+		CreatedAt:  time.Now(),
+	}
+}

@@ -19,10 +19,14 @@ const (
 	sessionManagerWidthPct  = 0.6 // 60% of parent window width
 	sessionManagerMaxWidth  = 600 // Maximum width in pixels
 	sessionManagerTopMargin = 0.15
-	sessionListMaxHeight    = 400
+	sessionMaxVisibleRows   = 6 // Show 5 + current at max, rest is scrollable
 	sessionDefaultListLimit = 50
 	sessionIDMaxDisplay     = 20
 	sessionRowBoxSpacing    = 8
+	sessionRowHeight        = 50 // Approximate height per session row
+	sessionTreeRowHeight    = 28 // Approximate height per tree row
+	sessionDividerRowHeight = 30 // Height for divider rows
+	sessionMaxTitleLen      = 45 // Max chars for pane title display
 )
 
 // SessionManager is a modal overlay for managing sessions.
@@ -40,10 +44,14 @@ type SessionManager struct {
 	parentOverlay layout.OverlayWidget
 
 	// State
-	mu            sync.RWMutex
-	visible       bool
-	sessions      []entity.SessionInfo
-	selectedIndex int
+	mu               sync.RWMutex
+	visible          bool
+	sessions         []entity.SessionInfo
+	selectedIndex    int   // Index into sessions slice
+	expandedIndex    int   // -1 means none expanded
+	sessionToListRow []int // Maps session index to list row index
+	listRowToSession []int // Maps list row index to session index (-1 for non-session rows)
+	populatingList   bool  // True while rebuilding list, to ignore selection callbacks
 
 	// Dependencies
 	listSessionsUC *usecase.ListSessionsUseCase
@@ -81,6 +89,7 @@ func NewSessionManager(ctx context.Context, cfg SessionManagerConfig) *SessionMa
 		onClose:        cfg.OnClose,
 		onOpen:         cfg.OnOpen,
 		selectedIndex:  -1,
+		expandedIndex:  -1,
 	}
 
 	if err := sm.createWidgets(); err != nil {
@@ -296,9 +305,9 @@ func (sm *SessionManager) initList() error {
 		return errNilWidget("sessionScrolledWindow")
 	}
 	sm.scrolledWindow.AddCssClass("session-manager-scrolled")
-	sm.scrolledWindow.SetMaxContentHeight(sessionListMaxHeight)
 	sm.scrolledWindow.SetPolicy(gtk.PolicyNeverValue, gtk.PolicyAutomaticValue)
-	sm.scrolledWindow.SetPropagateNaturalHeight(true)
+	// Don't propagate natural height - we control it via resizeForContent
+	sm.scrolledWindow.SetPropagateNaturalHeight(false)
 
 	sm.listBox = gtk.NewListBox()
 	if sm.listBox == nil {
@@ -307,20 +316,29 @@ func (sm *SessionManager) initList() error {
 	sm.listBox.AddCssClass("session-manager-list")
 	sm.listBox.SetSelectionMode(gtk.SelectionSingleValue)
 
-	// Connect row selection
+	// Connect row selection - map list row index to session index
 	rowSelectedCb := func(_ gtk.ListBox, rowPtr uintptr) {
 		if rowPtr == 0 {
-			sm.mu.Lock()
-			sm.selectedIndex = -1
-			sm.mu.Unlock()
 			return
 		}
 		row := gtk.ListBoxRowNewFromInternalPtr(rowPtr)
-		if row != nil {
-			sm.mu.Lock()
-			sm.selectedIndex = row.GetIndex()
-			sm.mu.Unlock()
+		if row == nil {
+			return
 		}
+		listRowIdx := row.GetIndex()
+		sm.mu.Lock()
+		// Ignore selection changes while rebuilding the list
+		if sm.populatingList {
+			sm.mu.Unlock()
+			return
+		}
+		if listRowIdx >= 0 && listRowIdx < len(sm.listRowToSession) {
+			sessionIdx := sm.listRowToSession[listRowIdx]
+			if sessionIdx >= 0 {
+				sm.selectedIndex = sessionIdx
+			}
+		}
+		sm.mu.Unlock()
 	}
 	sm.retainedCallbacks = append(sm.retainedCallbacks, rowSelectedCb)
 	sm.listBox.ConnectRowSelected(&rowSelectedCb)
@@ -330,7 +348,7 @@ func (sm *SessionManager) initList() error {
 }
 
 func (sm *SessionManager) initFooter() error {
-	footerText := "↑↓/jk navigate  Enter open  x delete  Esc close"
+	footerText := "↑↓/jk navigate  Tab expand  Enter open  x delete  Esc close"
 	sm.footerLabel = gtk.NewLabel(&footerText)
 	if sm.footerLabel == nil {
 		return errNilWidget("sessionFooterLabel")
@@ -367,6 +385,10 @@ func (sm *SessionManager) handleKeyPress(keyval uint, _ gdk.ModifierType) bool {
 
 	case uint(gdk.KEY_Down), uint(gdk.KEY_j):
 		sm.selectNext()
+		return true
+
+	case uint(gdk.KEY_Tab), uint(gdk.KEY_space):
+		sm.toggleExpanded()
 		return true
 
 	case uint(gdk.KEY_Return), uint(gdk.KEY_KP_Enter):
@@ -407,89 +429,284 @@ func (sm *SessionManager) loadSessions() {
 	glib.IdleAdd(&cb, 0)
 }
 
+// populateListState holds state during list population.
+type populateListState struct {
+	listRowToSession []int
+	listRowCount     int
+	sessionRowCount  int
+	treeRowCount     int
+	dividerCount     int
+	expandedIdx      int
+	firstExitedIdx   int
+	hasActive        bool
+}
+
 func (sm *SessionManager) populateList() {
-	sm.mu.RLock()
+	sm.mu.Lock()
 	sessions := sm.sessions
-	sm.mu.RUnlock()
+	selectedIdx := sm.selectedIndex
+	sm.populatingList = true
+	sm.sessionToListRow = make([]int, len(sessions))
+	sm.listRowToSession = nil
+	expandedIdx := sm.expandedIndex
+	sm.mu.Unlock()
 
 	if sm.listBox == nil {
+		sm.mu.Lock()
+		sm.populatingList = false
+		sm.mu.Unlock()
 		return
 	}
 
-	// Clear existing rows
 	sm.listBox.RemoveAll()
 
-	// Separate active and exited sessions
-	var activeSessions, exitedSessions []entity.SessionInfo
-	for _, info := range sessions {
+	state := &populateListState{expandedIdx: expandedIdx, firstExitedIdx: -1}
+	for i, info := range sessions {
 		if info.IsCurrent || info.IsActive {
-			activeSessions = append(activeSessions, info)
-		} else {
-			exitedSessions = append(exitedSessions, info)
+			state.hasActive = true
+		} else if state.firstExitedIdx == -1 {
+			state.firstExitedIdx = i
 		}
 	}
 
-	// Add active session rows
-	for _, info := range activeSessions {
-		row := sm.createSessionRow(info)
-		if row != nil {
-			sm.listBox.Append(&row.Widget)
-		}
+	for i, info := range sessions {
+		sm.addSessionToList(i, info, state)
 	}
 
-	// Add divider if there are exited sessions
-	if len(exitedSessions) > 0 && len(activeSessions) > 0 {
-		divider := sm.createDividerRow("EXITED")
-		if divider != nil {
-			sm.listBox.Append(&divider.Widget)
-		}
-	}
+	sm.mu.Lock()
+	sm.listRowToSession = state.listRowToSession
+	sm.populatingList = false
+	sm.mu.Unlock()
 
-	// Add exited session rows
-	for _, info := range exitedSessions {
-		row := sm.createSessionRow(info)
-		if row != nil {
-			sm.listBox.Append(&row.Widget)
-		}
-	}
-
-	// Select first row
-	if len(sessions) > 0 {
-		firstRow := sm.listBox.GetRowAtIndex(0)
-		if firstRow != nil {
-			sm.listBox.SelectRow(firstRow)
-		}
-	}
-
-	// Resize based on content
-	rowCount := len(activeSessions) + len(exitedSessions)
-	if len(exitedSessions) > 0 && len(activeSessions) > 0 {
-		rowCount++ // divider row
-	}
-	sm.resizeForContent(rowCount)
+	sm.selectBySessionIndex(selectedIdx)
+	sm.resizeForContent(state.sessionRowCount, state.dividerCount, state.treeRowCount)
 }
 
-func (sm *SessionManager) resizeForContent(rowCount int) {
+func (sm *SessionManager) addSessionToList(i int, info entity.SessionInfo, state *populateListState) {
+	// Add divider before first exited session
+	if i == state.firstExitedIdx && state.hasActive {
+		if divider := sm.createDividerRow("EXITED"); divider != nil {
+			sm.listBox.Append(&divider.Widget)
+			state.listRowToSession = append(state.listRowToSession, -1)
+			state.listRowCount++
+			state.dividerCount++
+		}
+	}
+
+	sm.mu.Lock()
+	sm.sessionToListRow[i] = state.listRowCount
+	sm.mu.Unlock()
+	state.listRowToSession = append(state.listRowToSession, i)
+
+	if row := sm.createSessionRow(info); row != nil {
+		sm.listBox.Append(&row.Widget)
+		state.listRowCount++
+		state.sessionRowCount++
+	}
+
+	if i == state.expandedIdx && info.State != nil {
+		for _, treeRow := range sm.createTreeRows(info.State) {
+			sm.listBox.Append(&treeRow.Widget)
+			state.listRowToSession = append(state.listRowToSession, -1)
+			state.listRowCount++
+			state.treeRowCount++
+		}
+	}
+}
+
+func (sm *SessionManager) selectBySessionIndex(sessionIdx int) {
+	sm.mu.RLock()
+	if sessionIdx < 0 || sessionIdx >= len(sm.sessionToListRow) {
+		sm.mu.RUnlock()
+		return
+	}
+	listRow := sm.sessionToListRow[sessionIdx]
+	sm.mu.RUnlock()
+
+	row := sm.listBox.GetRowAtIndex(listRow)
+	if row == nil {
+		return
+	}
+
+	sm.listBox.SelectRow(row)
+
+	// Scroll the row into view using GrabFocus which triggers scroll
+	row.GrabFocus()
+}
+
+func (sm *SessionManager) resizeForContent(sessionRowCount, dividerCount, treeRowCount int) {
 	if sm.scrolledWindow == nil {
 		return
 	}
 
-	const rowHeight = 50
-	contentHeight := rowCount * rowHeight
+	// Calculate max visible height (6 session rows max visible, accounting for divider)
+	maxVisibleHeight := sessionMaxVisibleRows*sessionRowHeight + sessionDividerRowHeight
 
-	if contentHeight > sessionListMaxHeight {
-		contentHeight = sessionListMaxHeight
+	// Calculate actual content height
+	contentHeight := sessionRowCount*sessionRowHeight +
+		dividerCount*sessionDividerRowHeight +
+		treeRowCount*sessionTreeRowHeight
+
+	// Cap at max visible height - rest will be scrollable
+	if contentHeight > maxVisibleHeight {
+		contentHeight = maxVisibleHeight
+	}
+
+	// Ensure minimum height for at least one row
+	if contentHeight < sessionRowHeight {
+		contentHeight = sessionRowHeight
 	}
 
 	// Schedule resize
 	cb := glib.SourceFunc(func(_ uintptr) bool {
-		sm.scrolledWindow.SetMinContentHeight(-1)
-		sm.scrolledWindow.SetMaxContentHeight(contentHeight)
 		sm.scrolledWindow.SetMinContentHeight(contentHeight)
+		sm.scrolledWindow.SetMaxContentHeight(contentHeight)
 		sm.outerBox.QueueResize()
 		return false
 	})
 	glib.IdleAdd(&cb, 0)
+}
+
+// createTreeRows creates tree rows showing the tab/pane structure of a session.
+func (sm *SessionManager) createTreeRows(state *entity.SessionState) []*gtk.ListBoxRow {
+	if state == nil {
+		return nil
+	}
+
+	var rows []*gtk.ListBoxRow
+
+	for tabIdx, tab := range state.Tabs {
+		isLastTab := tabIdx == len(state.Tabs)-1
+
+		// Tab row
+		tabRow := sm.createTreeRow(tab.Name, "tab", !isLastTab, 0)
+		if tabRow != nil {
+			rows = append(rows, tabRow)
+		}
+
+		// Pane rows under this tab
+		paneRows := sm.createPaneTreeRows(&tab.Workspace)
+		rows = append(rows, paneRows...)
+	}
+
+	return rows
+}
+
+// createPaneTreeRows creates rows for the pane tree under a tab.
+func (sm *SessionManager) createPaneTreeRows(ws *entity.WorkspaceSnapshot) []*gtk.ListBoxRow {
+	if ws == nil || ws.Root == nil {
+		return nil
+	}
+
+	var rows []*gtk.ListBoxRow
+	sm.collectPaneRows(&rows, ws.Root, 1, true)
+	return rows
+}
+
+// collectPaneRows recursively collects pane tree rows.
+func (sm *SessionManager) collectPaneRows(
+	rows *[]*gtk.ListBoxRow,
+	node *entity.PaneNodeSnapshot,
+	depth int,
+	isLast bool,
+) {
+	if node == nil {
+		return
+	}
+
+	if node.Pane != nil {
+		// Leaf node (actual pane)
+		title := node.Pane.Title
+		if title == "" {
+			title = node.Pane.URI
+		}
+		if len(title) > sessionMaxTitleLen {
+			title = title[:sessionMaxTitleLen-3] + "..."
+		}
+
+		row := sm.createTreeRow(title, "pane", !isLast, depth)
+		if row != nil {
+			*rows = append(*rows, row)
+		}
+	} else if len(node.Children) > 0 {
+		// Container node (split)
+		splitLabel := "split"
+		if node.IsStacked {
+			splitLabel = "stacked"
+		} else if node.SplitRatio > 0 {
+			splitLabel = fmt.Sprintf("split %.0f%%", node.SplitRatio*100)
+		}
+
+		row := sm.createTreeRow(splitLabel, "split", !isLast, depth)
+		if row != nil {
+			*rows = append(*rows, row)
+		}
+
+		// Recurse into children
+		for i, child := range node.Children {
+			isLastChild := i == len(node.Children)-1
+			sm.collectPaneRows(rows, child, depth+1, isLastChild)
+		}
+	}
+}
+
+// createTreeRow creates a single tree row with proper indentation and branch characters.
+func (sm *SessionManager) createTreeRow(text, nodeType string, hasSibling bool, depth int) *gtk.ListBoxRow {
+	row := gtk.NewListBoxRow()
+	if row == nil {
+		return nil
+	}
+	row.SetSelectable(false)
+	row.SetActivatable(false)
+	row.AddCssClass("session-tree-row")
+
+	hbox := gtk.NewBox(gtk.OrientationHorizontalValue, 4)
+	if hbox == nil {
+		return nil
+	}
+	hbox.AddCssClass("session-tree-content")
+
+	// Build indent and branch prefix
+	var prefix string
+	indent := "      " // Base indent to align with session row content
+	for i := 0; i < depth; i++ {
+		indent += "    " // 4 spaces per depth level
+	}
+
+	// Branch character
+	if hasSibling {
+		prefix = "├── "
+	} else {
+		prefix = "└── "
+	}
+
+	// Icon based on node type
+	var icon string
+	switch nodeType {
+	case "tab":
+		icon = "󰓩 " // Tab icon (nerd font)
+	case "pane":
+		icon = "󰕮 " // Pane icon
+	case "split":
+		icon = "󰯍 " // Split icon
+	default:
+		icon = "  "
+	}
+
+	// Create the label with all parts
+	labelText := indent + prefix + icon + text
+	label := gtk.NewLabel(&labelText)
+	if label == nil {
+		return nil
+	}
+	label.AddCssClass("session-tree-label")
+	label.SetHalign(gtk.AlignStartValue)
+	label.SetEllipsize(2) // PANGO_ELLIPSIZE_END
+
+	hbox.Append(&label.Widget)
+	row.SetChild(&hbox.Widget)
+
+	return row
 }
 
 func (sm *SessionManager) createDividerRow(text string) *gtk.ListBoxRow {
@@ -598,35 +815,51 @@ func (sm *SessionManager) addRelativeTime(hbox *gtk.Box, info entity.SessionInfo
 	}
 }
 
-func (sm *SessionManager) selectIndex(index int) {
-	row := sm.listBox.GetRowAtIndex(index)
-	if row != nil {
-		sm.listBox.SelectRow(row)
-	}
-}
-
 func (sm *SessionManager) selectPrevious() {
 	sm.mu.Lock()
-	if sm.selectedIndex > 0 {
-		sm.selectedIndex--
+	maxIndex := len(sm.sessions) - 1
+	if maxIndex < 0 {
+		sm.mu.Unlock()
+		return
+	}
+	sm.selectedIndex--
+	if sm.selectedIndex < 0 {
+		sm.selectedIndex = maxIndex // Wrap to bottom
 	}
 	idx := sm.selectedIndex
 	sm.mu.Unlock()
 
-	sm.selectIndex(idx)
+	sm.selectBySessionIndex(idx)
 }
 
 func (sm *SessionManager) selectNext() {
 	sm.mu.Lock()
 	maxIndex := len(sm.sessions) - 1
-	// Account for divider row
-	if sm.selectedIndex < maxIndex {
-		sm.selectedIndex++
+	if maxIndex < 0 {
+		sm.mu.Unlock()
+		return
+	}
+	sm.selectedIndex++
+	if sm.selectedIndex > maxIndex {
+		sm.selectedIndex = 0 // Wrap to top
 	}
 	idx := sm.selectedIndex
 	sm.mu.Unlock()
 
-	sm.selectIndex(idx)
+	sm.selectBySessionIndex(idx)
+}
+
+func (sm *SessionManager) toggleExpanded() {
+	sm.mu.Lock()
+	if sm.expandedIndex == sm.selectedIndex {
+		sm.expandedIndex = -1 // collapse
+	} else {
+		sm.expandedIndex = sm.selectedIndex // expand
+	}
+	sm.mu.Unlock()
+
+	// Rebuild the list to show/hide tree
+	sm.populateList()
 }
 
 func (sm *SessionManager) openSelected() {

@@ -11,6 +11,7 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/infrastructure/snapshot"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
@@ -310,6 +311,10 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 		a.handleModeChange(ctx, from, to)
 	})
 	a.keyboardHandler.SetShouldBypassInput(func() bool {
+		// Bypass keyboard handler when session manager is visible
+		if a.sessionManager != nil && a.sessionManager.IsVisible() {
+			return true
+		}
 		wsView := a.activeWorkspaceView()
 		if wsView == nil {
 			return false
@@ -391,6 +396,9 @@ func (a *App) initSessionManager(ctx context.Context) {
 		)
 	}
 
+	// Create session spawner for restoration
+	spawner := desktop.NewSessionSpawner(ctx)
+
 	// Create session manager component
 	a.sessionManager = component.NewSessionManager(ctx, component.SessionManagerConfig{
 		ListSessionsUC: listSessionsUC,
@@ -400,7 +408,9 @@ func (a *App) initSessionManager(ctx context.Context) {
 		},
 		OnOpen: func(sessionID entity.SessionID) {
 			log.Info().Str("session_id", string(sessionID)).Msg("session restoration requested")
-			// TODO: Implement session spawning/resurrection
+			if err := spawner.SpawnWithSession(sessionID); err != nil {
+				log.Error().Err(err).Str("session_id", string(sessionID)).Msg("failed to spawn session")
+			}
 		},
 	})
 
@@ -476,6 +486,17 @@ func (a *App) MarkDirty() {
 func (a *App) createInitialTab(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
+	// Check if we should restore a session
+	if a.deps != nil && a.deps.RestoreSessionID != "" {
+		if err := a.restoreSession(ctx, entity.SessionID(a.deps.RestoreSessionID)); err != nil {
+			log.Error().Err(err).Str("session_id", a.deps.RestoreSessionID).Msg("failed to restore session, creating default tab")
+			// Fall through to create default tab
+		} else {
+			log.Info().Str("session_id", a.deps.RestoreSessionID).Msg("session restored")
+			return
+		}
+	}
+
 	// Create an initial tab using coordinator.
 	initialURL := "dumb://home"
 	if a.deps != nil && a.deps.InitialURL != "" {
@@ -484,6 +505,60 @@ func (a *App) createInitialTab(ctx context.Context) {
 	if _, err := a.tabCoord.Create(ctx, initialURL); err != nil {
 		log.Error().Err(err).Msg("failed to create initial tab")
 	}
+}
+
+func (a *App) restoreSession(ctx context.Context, sessionID entity.SessionID) error {
+	log := logging.FromContext(ctx)
+
+	if a.deps == nil || a.deps.SessionStateRepo == nil {
+		return fmt.Errorf("session state repo not available")
+	}
+
+	// Load session state
+	state, err := a.deps.SessionStateRepo.GetSnapshot(ctx, sessionID)
+	if err != nil {
+		return fmt.Errorf("load session state: %w", err)
+	}
+	if state == nil {
+		return fmt.Errorf("session state not found")
+	}
+
+	log.Info().Int("tabs", len(state.Tabs)).Int("panes", state.CountPanes()).Msg("restoring session state")
+
+	// Build complete TabList from snapshot (state-first approach)
+	// This reconstructs the full pane tree with new IDs
+	restoredTabs := entity.TabListFromSnapshot(state, a.generateID)
+	if restoredTabs == nil || len(restoredTabs.Tabs) == 0 {
+		return fmt.Errorf("failed to build tab list from snapshot")
+	}
+
+	// Replace empty tabs with restored ones
+	a.tabs = restoredTabs
+
+	// Create UI for each restored tab and add to tab bar
+	tabBar := a.mainWindow.TabBar()
+	for _, tab := range a.tabs.Tabs {
+		a.createWorkspaceView(ctx, tab)
+		if tabBar != nil {
+			tabBar.AddTab(tab)
+		}
+		log.Debug().
+			Str("tab_id", string(tab.ID)).
+			Str("name", tab.Name).
+			Int("panes", tab.Workspace.PaneCount()).
+			Msg("restored tab with workspace")
+	}
+
+	// Switch to active tab
+	activeTab := a.tabs.ActiveTab()
+	if activeTab != nil {
+		a.switchWorkspaceView(ctx, activeTab.ID)
+		if tabBar != nil {
+			tabBar.SetActive(activeTab.ID)
+		}
+	}
+
+	return nil
 }
 
 func (a *App) finalizeActivation(ctx context.Context) {

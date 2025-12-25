@@ -41,6 +41,9 @@ var (
 // initialURL holds the URL to open on startup (from browse command).
 var initialURL string
 
+// restoreSessionID holds the session ID to restore on startup.
+var restoreSessionID string
+
 func main() {
 	// Run GUI mode for browse command
 	if len(os.Args) > 1 && os.Args[1] == "browse" {
@@ -48,6 +51,8 @@ func main() {
 		if len(os.Args) > 2 {
 			initialURL = os.Args[2]
 		}
+		// Check for session restoration via environment variable
+		restoreSessionID = os.Getenv("DUMBER_RESTORE_SESSION")
 		// Strip "browse" and URL from args so GTK doesn't see them
 		os.Args = os.Args[:1]
 		os.Exit(runGUI())
@@ -304,6 +309,7 @@ func buildUIDependencies(
 		Ctx:              ctx,
 		Config:           cfg,
 		InitialURL:       initialURL,
+		RestoreSessionID: restoreSessionID,
 		Theme:            themeManager,
 		WebContext:       stack.Context,
 		Pool:             stack.Pool,

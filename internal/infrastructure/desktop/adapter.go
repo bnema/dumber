@@ -360,6 +360,9 @@ func NewSessionSpawner(ctx context.Context) *SessionSpawner {
 	return &SessionSpawner{ctx: ctx}
 }
 
+// RestoreSessionEnvVar is the environment variable used to pass session ID for restoration.
+const RestoreSessionEnvVar = "DUMBER_RESTORE_SESSION"
+
 // SpawnWithSession starts a new dumber instance to restore a session.
 func (s *SessionSpawner) SpawnWithSession(sessionID entity.SessionID) error {
 	log := logging.FromContext(s.ctx)
@@ -369,8 +372,11 @@ func (s *SessionSpawner) SpawnWithSession(sessionID entity.SessionID) error {
 		return fmt.Errorf("get executable path: %w", err)
 	}
 
-	// Start a detached process with the --restore-session flag
-	cmd := exec.Command(execPath, "browse", "--restore-session", string(sessionID))
+	// Start dumber browse with session ID in environment
+	cmd := exec.Command(execPath, "browse")
+
+	// Inherit environment and add restore session ID
+	cmd.Env = append(os.Environ(), RestoreSessionEnvVar+"="+string(sessionID))
 
 	// Detach from current process group so the new process survives
 	cmd.Stdin = nil
@@ -381,6 +387,9 @@ func (s *SessionSpawner) SpawnWithSession(sessionID entity.SessionID) error {
 		return fmt.Errorf("spawn session: %w", err)
 	}
 
+	// Capture PID before releasing
+	pid := cmd.Process.Pid
+
 	// Release the process so it continues running after we close
 	if err := cmd.Process.Release(); err != nil {
 		log.Warn().Err(err).Msg("failed to release spawned process (non-fatal)")
@@ -388,7 +397,7 @@ func (s *SessionSpawner) SpawnWithSession(sessionID entity.SessionID) error {
 
 	log.Info().
 		Str("session_id", string(sessionID)).
-		Int("pid", cmd.Process.Pid).
+		Int("pid", pid).
 		Msg("spawned dumber with session restoration")
 
 	return nil
