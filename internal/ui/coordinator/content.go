@@ -190,11 +190,6 @@ func (c *ContentCoordinator) EnsureWebView(ctx context.Context, paneID entity.Pa
 		return c.handleLinkMiddleClick(ctx, paneID, uri)
 	}
 
-	// Set up link hover callback for status overlay
-	wv.OnLinkHover = func(uri string) {
-		c.onLinkHover(paneID, uri)
-	}
-
 	// Set up fullscreen handlers for idle inhibition
 	c.setupIdleInhibitionHandlers(ctx, paneID, wv)
 

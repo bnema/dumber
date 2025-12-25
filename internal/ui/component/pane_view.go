@@ -421,6 +421,7 @@ func (pv *PaneView) Cleanup() {
 		pv.toaster = nil
 	}
 	if pv.linkStatus != nil {
+		pv.linkStatus.Cleanup() // Cancel pending timers before removal
 		pv.overlay.RemoveOverlay(pv.linkStatus.Widget())
 		pv.linkStatus = nil
 	}
