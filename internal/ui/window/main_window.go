@@ -176,10 +176,11 @@ func (mw *MainWindow) SetTitle(title string) {
 	if mw.window == nil {
 		return
 	}
-	// Truncate title to 255 characters max
+	// Truncate title to 255 characters max (by runes, to avoid breaking UTF-8)
 	const maxTitleLen = 255
-	if len(title) > maxTitleLen {
-		title = title[:maxTitleLen-3] + "..."
+	runes := []rune(title)
+	if len(runes) > maxTitleLen {
+		title = string(runes[:maxTitleLen-3]) + "..."
 	}
 	mw.window.SetTitle(&title)
 }
