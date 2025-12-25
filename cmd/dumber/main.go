@@ -107,16 +107,36 @@ func runGUI() int {
 		_ = browserSession.End(sessionCtx)
 	}()
 
-	logger := browserSession.Logger
 	ctx = sessionCtx
+	log := logging.FromContext(ctx)
 
-	checkRuntimeRequirements(ctx, cfg, logger)
-	checkMediaRequirements(ctx, cfg, logger)
+	checkRuntimeRequirements(ctx, cfg, *log)
+	checkMediaRequirements(ctx, cfg, *log)
 
 	themeManager := theme.NewManager(ctx, cfg)
-	stack := bootstrap.BuildWebKitStack(ctx, cfg, dataDir, cacheDir, themeManager, logger)
+	stack := bootstrap.BuildWebKitStack(ctx, cfg, dataDir, cacheDir, themeManager, *log)
 	repos := createRepositories(db)
-	useCases := createUseCases(repos, cfg)
+
+	stateDir, _ := config.GetStateDir()
+	useCases := createUseCases(repos, cfg, stateDir)
+
+	// Auto-restore: find last restorable session if enabled and no explicit restore requested
+	if cfg.Session.AutoRestore && restoreSessionID == "" {
+		var out *usecase.GetLastRestorableSessionOutput
+		out, err = useCases.lastRestorable.Execute(ctx, usecase.GetLastRestorableSessionInput{
+			ExcludeSessionID: browserSession.Session.ID,
+		})
+		if err != nil {
+			log.Warn().Err(err).Msg("auto-restore: failed to find restorable session")
+		} else if out.SessionID != "" {
+			restoreSessionID = string(out.SessionID)
+			log.Info().
+				Str("session_id", restoreSessionID).
+				Int("tabs", len(out.State.Tabs)).
+				Msg("auto-restore: found last session")
+		}
+	}
+
 	idleInhibitor := idle.NewPortalInhibitor(ctx)
 	defer func() {
 		if idleInhibitor != nil {
@@ -127,7 +147,7 @@ func runGUI() int {
 
 	app, err := ui.New(uiDeps)
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to create application")
+		log.Error().Err(err).Msg("failed to create application")
 		return 1
 	}
 
@@ -139,7 +159,7 @@ func runGUI() int {
 	defer signal.Stop(sigCh)
 	go func() {
 		<-sigCh
-		logger.Info().Msg("received interrupt, quitting")
+		log.Info().Msg("received interrupt, quitting")
 		app.Quit()
 	}()
 
@@ -254,19 +274,20 @@ func createRepositories(db *sql.DB) *repositories {
 
 // useCases groups application layer use case implementations.
 type useCases struct {
-	tabs      *usecase.ManageTabsUseCase
-	panes     *usecase.ManagePanesUseCase
-	history   *usecase.SearchHistoryUseCase
-	favorites *usecase.ManageFavoritesUseCase
-	zoom      *usecase.ManageZoomUseCase
-	navigate  *usecase.NavigateUseCase
-	copyURL   *usecase.CopyURLUseCase
-	snapshot  *usecase.SnapshotSessionUseCase
-	clipboard port.Clipboard
-	favicon   *favicon.Service
+	tabs           *usecase.ManageTabsUseCase
+	panes          *usecase.ManagePanesUseCase
+	history        *usecase.SearchHistoryUseCase
+	favorites      *usecase.ManageFavoritesUseCase
+	zoom           *usecase.ManageZoomUseCase
+	navigate       *usecase.NavigateUseCase
+	copyURL        *usecase.CopyURLUseCase
+	snapshot       *usecase.SnapshotSessionUseCase
+	lastRestorable *usecase.GetLastRestorableSessionUseCase
+	clipboard      port.Clipboard
+	favicon        *favicon.Service
 }
 
-func createUseCases(repos *repositories, cfg *config.Config) *useCases {
+func createUseCases(repos *repositories, cfg *config.Config, stateDir string) *useCases {
 	const idAlphabetSize = 26
 	idCounter := uint64(0)
 	idGenerator := func() string {
@@ -282,16 +303,17 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 	zoomCache := cache.NewLRU[string, *entity.ZoomLevel](cfg.Performance.ZoomCacheSize)
 
 	return &useCases{
-		tabs:      usecase.NewManageTabsUseCase(idGenerator),
-		panes:     usecase.NewManagePanesUseCase(idGenerator),
-		history:   usecase.NewSearchHistoryUseCase(repos.history),
-		favorites: usecase.NewManageFavoritesUseCase(repos.favorite, repos.folder, repos.tag),
-		zoom:      usecase.NewManageZoomUseCase(repos.zoom, defaultZoom, zoomCache),
-		navigate:  usecase.NewNavigateUseCase(repos.history, repos.zoom, defaultZoom),
-		copyURL:   usecase.NewCopyURLUseCase(clipboardAdapter),
-		snapshot:  usecase.NewSnapshotSessionUseCase(repos.sessionState),
-		clipboard: clipboardAdapter,
-		favicon:   favicon.NewService(faviconCacheDir),
+		tabs:           usecase.NewManageTabsUseCase(idGenerator),
+		panes:          usecase.NewManagePanesUseCase(idGenerator),
+		history:        usecase.NewSearchHistoryUseCase(repos.history),
+		favorites:      usecase.NewManageFavoritesUseCase(repos.favorite, repos.folder, repos.tag),
+		zoom:           usecase.NewManageZoomUseCase(repos.zoom, defaultZoom, zoomCache),
+		navigate:       usecase.NewNavigateUseCase(repos.history, repos.zoom, defaultZoom),
+		copyURL:        usecase.NewCopyURLUseCase(clipboardAdapter),
+		snapshot:       usecase.NewSnapshotSessionUseCase(repos.sessionState),
+		lastRestorable: usecase.NewGetLastRestorableSessionUseCase(repos.session, repos.sessionState, stateDir),
+		clipboard:      clipboardAdapter,
+		favicon:        favicon.NewService(faviconCacheDir),
 	}
 }
 

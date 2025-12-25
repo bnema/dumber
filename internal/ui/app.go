@@ -502,9 +502,16 @@ func (a *App) createInitialTab(ctx context.Context) {
 	if a.deps != nil && a.deps.RestoreSessionID != "" {
 		if err := a.restoreSession(ctx, entity.SessionID(a.deps.RestoreSessionID)); err != nil {
 			log.Error().Err(err).Str("session_id", a.deps.RestoreSessionID).Msg("failed to restore session, creating default tab")
-			// Fall through to create default tab
+			// Show error toast and fall through to create default tab
+			if a.appToaster != nil {
+				a.appToaster.Show(ctx, "Session restore failed", component.ToastWarning)
+			}
 		} else {
 			log.Info().Str("session_id", a.deps.RestoreSessionID).Msg("session restored")
+			// Show success toast for session restoration
+			if a.appToaster != nil {
+				a.appToaster.Show(ctx, "Session restored", component.ToastSuccess)
+			}
 			return
 		}
 	}

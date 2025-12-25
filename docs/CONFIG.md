@@ -275,7 +275,43 @@ cancel = ["escape"]
 | `workspace.styling.pane_mode_border_color` | string | `"#4A90E2"` | Pane mode border color (blue) |
 | `workspace.styling.tab_mode_border_width` | int | `4` | Tab mode border width (px) - Ctrl+P T overlay |
 | `workspace.styling.tab_mode_border_color` | string | `"#FFA500"` | Tab mode border color (orange) |
+| `workspace.styling.session_mode_border_width` | int | `4` | Session mode border width (px) - Ctrl+O overlay |
+| `workspace.styling.session_mode_border_color` | string | `"#9B59B6"` | Session mode border color (purple) |
 | `workspace.styling.transition_duration` | int | `120` | Border transition duration (ms) |
+
+## Session
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `session.auto_restore` | bool | `false` | Automatically restore the last session on startup |
+| `session.snapshot_interval_ms` | int | `5000` | Minimum interval between snapshots in milliseconds |
+| `session.max_exited_sessions` | int | `10` | Maximum number of exited sessions to keep |
+| `session.max_listed_sessions` | int | `50` | Maximum number of sessions to list in CLI/TUI |
+
+### Session Mode
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `session.session_mode.activation_shortcut` | string | `"ctrl+o"` | Session mode activation key |
+| `session.session_mode.timeout_ms` | int | `3000` | Session mode timeout (ms) |
+| `session.session_mode.actions` | map | See below | Action to keys mappings |
+
+**Default session mode actions:**
+```toml
+[session.session_mode.actions]
+session-manager = ["s", "w"]
+confirm = ["enter"]
+cancel = ["escape"]
+```
+
+**Example:**
+```toml
+[session]
+auto_restore = false           # Don't auto-restore on startup
+snapshot_interval_ms = 5000    # Save state every 5 seconds (debounced)
+max_exited_sessions = 10       # Keep last 10 exited sessions
+max_listed_sessions = 50       # Show up to 50 sessions in CLI/TUI
+```
 
 ## Media
 
