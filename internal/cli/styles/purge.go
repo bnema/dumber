@@ -383,7 +383,7 @@ func (m PurgeModel) renderSessionsItem(isCursor bool) string {
 	}
 
 	// Format: Sessions (5 inactive, 12.3 MB) or (included with Data)
-	label := fmt.Sprintf("%s Sessions", IconLogs)
+	label := fmt.Sprintf("%s Sessions", IconSession)
 	var detail string
 	if enabled {
 		detail = fmt.Sprintf("(%d inactive, %s)", len(m.Sessions), formatSize(m.SessionsSize))
