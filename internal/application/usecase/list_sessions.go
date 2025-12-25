@@ -211,3 +211,46 @@ func GetRelativeTime(t time.Time) string {
 func formatDuration(n int, unit string) string {
 	return string(rune('0'+n/10)) + string(rune('0'+n%10)) + unit + " ago"
 }
+
+// PurgeableSessionsOutput contains inactive sessions that can be purged.
+type PurgeableSessionsOutput struct {
+	Sessions  []entity.SessionPurgeItem
+	TotalSize int64
+}
+
+// GetPurgeableSessions returns all inactive sessions that can be safely deleted.
+// These are sessions that have ended and have no active lock file.
+func (uc *ListSessionsUseCase) GetPurgeableSessions(ctx context.Context) (*PurgeableSessionsOutput, error) {
+	log := logging.FromContext(ctx)
+
+	// Get all sessions (no current session in CLI context)
+	output, err := uc.Execute(ctx, "", maxPurgeableSessions)
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter to only inactive sessions
+	var purgeable []entity.SessionPurgeItem
+	for _, info := range output.Sessions {
+		if !info.IsActive {
+			purgeable = append(purgeable, entity.SessionPurgeItem{
+				Info:     info,
+				Selected: true, // Default to selected
+			})
+		}
+	}
+
+	// Get total size of all snapshots
+	totalSize, err := uc.stateRepo.GetTotalSnapshotsSize(ctx)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to get total snapshots size")
+		totalSize = 0
+	}
+
+	return &PurgeableSessionsOutput{
+		Sessions:  purgeable,
+		TotalSize: totalSize,
+	}, nil
+}
+
+const maxPurgeableSessions = 1000
