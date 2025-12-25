@@ -61,7 +61,7 @@ func runSessions(_ *cobra.Command, _ []string) error {
 		RestoreUC:         app.RestoreUC,
 		DeleteSessionUC:   app.DeleteSessionUC,
 		CurrentSession:    currentSessionID,
-		MaxListedSessions: app.Config.Session.MaxListedSessions,
+		MaxExitedSessions: app.Config.Session.MaxExitedSessions,
 	})
 
 	p := tea.NewProgram(m, tea.WithAltScreen())

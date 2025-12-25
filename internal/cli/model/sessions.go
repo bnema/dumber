@@ -115,12 +115,12 @@ type SessionsModelConfig struct {
 	RestoreUC         *usecase.RestoreSessionUseCase
 	DeleteSessionUC   *usecase.DeleteSessionUseCase
 	CurrentSession    entity.SessionID
-	MaxListedSessions int
+	MaxExitedSessions int
 }
 
 // NewSessionsModel creates a new sessions browser model.
 func NewSessionsModel(ctx context.Context, theme *styles.Theme, cfg SessionsModelConfig) SessionsModel {
-	maxListed := cfg.MaxListedSessions
+	maxListed := cfg.MaxExitedSessions
 	if maxListed <= 0 {
 		maxListed = 50 // fallback default
 	}

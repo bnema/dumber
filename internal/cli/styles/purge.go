@@ -3,7 +3,6 @@ package styles
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -18,42 +17,69 @@ type PurgeItem struct {
 	Selected bool
 }
 
-// PurgeModel is the multi-select purge modal with sessions support.
+// PurgeModel is the multi-select purge modal with simplified sessions support.
+// Sessions are handled as a single "purge all" option instead of individual selection.
 type PurgeModel struct {
 	Items        []PurgeItem
 	Sessions     []entity.SessionPurgeItem
 	SessionsSize int64 // Total size of all session snapshots
-	Cursor       int
+	Cursor       int   // Flat cursor index across all rows
 	Confirmed    bool
 	Canceled     bool
 	theme        *Theme
 
-	// Track cursor position: false = items section, true = sessions section
-	inSessionsSection bool
+	// allSessionsSelected indicates if all sessions should be purged
+	allSessionsSelected bool
 }
 
 // PurgeKeyMap defines keybindings for purge modal.
 type PurgeKeyMap struct {
-	Up             key.Binding
-	Down           key.Binding
-	Toggle         key.Binding
-	ToggleAll      key.Binding
-	ToggleSessions key.Binding
-	Confirm        key.Binding
-	Cancel         key.Binding
+	Up        key.Binding
+	Down      key.Binding
+	Toggle    key.Binding
+	ToggleAll key.Binding
+	Confirm   key.Binding
+	Cancel    key.Binding
 }
 
 // DefaultPurgeKeyMap returns default keybindings.
 func DefaultPurgeKeyMap() PurgeKeyMap {
 	return PurgeKeyMap{
-		Up:             key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
-		Down:           key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
-		Toggle:         key.NewBinding(key.WithKeys(" "), key.WithHelp("space", "toggle")),
-		ToggleAll:      key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "toggle all")),
-		ToggleSessions: key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "toggle sessions")),
-		Confirm:        key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "confirm")),
-		Cancel:         key.NewBinding(key.WithKeys("esc", "q"), key.WithHelp("esc", "cancel")),
+		Up:        key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
+		Down:      key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
+		Toggle:    key.NewBinding(key.WithKeys(" "), key.WithHelp("space", "toggle")),
+		ToggleAll: key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "toggle all")),
+		Confirm:   key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "confirm")),
+		Cancel:    key.NewBinding(key.WithKeys("esc", "q"), key.WithHelp("esc", "cancel")),
 	}
+}
+
+// rowType indicates what kind of row we're dealing with
+type rowType int
+
+const (
+	rowTypeItem rowType = iota
+	rowTypeSessions
+)
+
+// row represents a single row in the flat list
+type row struct {
+	Type      rowType
+	ItemIndex int  // index into Items array (only for rowTypeItem)
+	Exists    bool // whether this row is selectable
+}
+
+// buildRows creates a flat list of rows in display order
+func (m PurgeModel) buildRows() []row {
+	var rows []row
+	for i, it := range m.Items {
+		rows = append(rows, row{Type: rowTypeItem, ItemIndex: i, Exists: it.Exists})
+		// Insert sessions row right after Data
+		if it.Type == entity.PurgeTargetData && m.hasSessionsItem() {
+			rows = append(rows, row{Type: rowTypeSessions, Exists: m.SessionsEnabled()})
+		}
+	}
+	return rows
 }
 
 // NewPurge creates a new purge modal with the given targets.
@@ -97,8 +123,6 @@ func (m PurgeModel) Update(msg tea.Msg) (PurgeModel, tea.Cmd) {
 			m.toggleCurrent()
 		case key.Matches(msg, keys.ToggleAll):
 			m.toggleAll()
-		case key.Matches(msg, keys.ToggleSessions):
-			m.ToggleAllSessions()
 		case key.Matches(msg, keys.Confirm):
 			m.Confirmed = true
 		case key.Matches(msg, keys.Cancel):
@@ -119,73 +143,53 @@ func (m PurgeModel) isDataSelected() bool {
 	return false
 }
 
-// SessionsEnabled returns true if sessions can be individually selected.
+// SessionsEnabled returns true if sessions can be selected.
 // Sessions are disabled when Data is selected (database will be removed).
 func (m PurgeModel) SessionsEnabled() bool {
 	return !m.isDataSelected()
 }
 
-// totalSelectableCount returns the total number of selectable items across both sections.
-func (m PurgeModel) totalSelectableCount() int {
-	count := 0
-	for _, it := range m.Items {
-		if it.Exists {
-			count++
-		}
-	}
-	if m.SessionsEnabled() {
-		count += len(m.Sessions)
-	}
-	return count
+// hasSessionsItem returns true if there are sessions available to purge.
+func (m PurgeModel) hasSessionsItem() bool {
+	return len(m.Sessions) > 0
 }
 
 func (m *PurgeModel) moveCursor(delta int) {
-	total := m.totalSelectableCount()
-	if total == 0 {
+	rows := m.buildRows()
+	if len(rows) == 0 {
 		return
 	}
 
-	// Build a flat list of selectable indices
-	// Items first, then sessions (if enabled)
-	type position struct {
-		inSessions bool
-		index      int
-	}
-	var positions []position
-
-	for i, it := range m.Items {
-		if it.Exists {
-			positions = append(positions, position{inSessions: false, index: i})
-		}
-	}
-	if m.SessionsEnabled() {
-		for i := range m.Sessions {
-			positions = append(positions, position{inSessions: true, index: i})
+	// Build list of selectable row indices
+	var selectableIndices []int
+	for i, r := range rows {
+		if r.Exists {
+			selectableIndices = append(selectableIndices, i)
 		}
 	}
 
-	if len(positions) == 0 {
+	if len(selectableIndices) == 0 {
 		return
 	}
 
-	// Find current position in the flat list
-	currentFlat := 0
-	for i, p := range positions {
-		if p.inSessions == m.inSessionsSection && p.index == m.Cursor {
-			currentFlat = i
+	// Find current position in selectable list
+	currentPos := 0
+	for i, idx := range selectableIndices {
+		if idx == m.Cursor {
+			currentPos = i
 			break
 		}
 	}
 
-	// Move in the flat list
-	newFlat := (currentFlat + delta + len(positions)) % len(positions)
-	m.inSessionsSection = positions[newFlat].inSessions
-	m.Cursor = positions[newFlat].index
+	// Move
+	newPos := (currentPos + delta + len(selectableIndices)) % len(selectableIndices)
+	m.Cursor = selectableIndices[newPos]
 }
 
 func (m PurgeModel) firstSelectableIndex() int {
-	for i, it := range m.Items {
-		if it.Exists {
+	rows := m.buildRows()
+	for i, r := range rows {
+		if r.Exists {
 			return i
 		}
 	}
@@ -193,27 +197,26 @@ func (m PurgeModel) firstSelectableIndex() int {
 }
 
 func (m *PurgeModel) toggleCurrent() {
-	if m.inSessionsSection {
-		if !m.SessionsEnabled() {
-			return
-		}
-		if m.Cursor >= 0 && m.Cursor < len(m.Sessions) {
-			m.Sessions[m.Cursor].Selected = !m.Sessions[m.Cursor].Selected
-		}
+	rows := m.buildRows()
+	if m.Cursor < 0 || m.Cursor >= len(rows) {
 		return
 	}
 
-	if m.Cursor < 0 || m.Cursor >= len(m.Items) {
+	r := rows[m.Cursor]
+	if !r.Exists {
 		return
 	}
-	if !m.Items[m.Cursor].Exists {
-		return
+
+	switch r.Type {
+	case rowTypeItem:
+		m.Items[r.ItemIndex].Selected = !m.Items[r.ItemIndex].Selected
+	case rowTypeSessions:
+		m.allSessionsSelected = !m.allSessionsSelected
 	}
-	m.Items[m.Cursor].Selected = !m.Items[m.Cursor].Selected
 }
 
 func (m *PurgeModel) toggleAll() {
-	// Toggle all items
+	// Check if any selectable item is unselected
 	anyUnselected := false
 	for _, it := range m.Items {
 		if it.Exists && !it.Selected {
@@ -221,46 +224,27 @@ func (m *PurgeModel) toggleAll() {
 			break
 		}
 	}
-	// Also check sessions if enabled
-	if m.SessionsEnabled() {
-		for _, s := range m.Sessions {
-			if !s.Selected {
-				anyUnselected = true
-				break
-			}
-		}
+	if m.hasSessionsItem() && m.SessionsEnabled() && !m.allSessionsSelected {
+		anyUnselected = true
 	}
 
+	// Set all to the opposite state
 	for i := range m.Items {
-		if !m.Items[i].Exists {
-			continue
+		if m.Items[i].Exists {
+			m.Items[i].Selected = anyUnselected
 		}
-		m.Items[i].Selected = anyUnselected
 	}
-	if m.SessionsEnabled() {
-		for i := range m.Sessions {
-			m.Sessions[i].Selected = anyUnselected
-		}
+	if m.hasSessionsItem() && m.SessionsEnabled() {
+		m.allSessionsSelected = anyUnselected
 	}
 }
 
 // ToggleAllSessions toggles the selection state of all sessions.
 func (m *PurgeModel) ToggleAllSessions() {
-	if !m.SessionsEnabled() || len(m.Sessions) == 0 {
+	if !m.hasSessionsItem() || !m.SessionsEnabled() {
 		return
 	}
-
-	anyUnselected := false
-	for _, s := range m.Sessions {
-		if !s.Selected {
-			anyUnselected = true
-			break
-		}
-	}
-
-	for i := range m.Sessions {
-		m.Sessions[i].Selected = anyUnselected
-	}
+	m.allSessionsSelected = !m.allSessionsSelected
 }
 
 // View implements tea.Model.
@@ -270,33 +254,20 @@ func (m PurgeModel) View() string {
 	header := t.Title.Render(fmt.Sprintf("%s Purge", IconTrash))
 	subtitle := t.Subtle.Render("Select items to remove")
 
-	// Application Data section
-	dataSectionHeader := t.Subtle.Render("── Application Data ──")
+	// Build rows and render
+	rows := m.buildRows()
 	var itemRows []string
-	for i, it := range m.Items {
-		itemRows = append(itemRows, m.renderItemRow(i, it))
+	for i, r := range rows {
+		isCursor := i == m.Cursor
+		switch r.Type {
+		case rowTypeItem:
+			itemRows = append(itemRows, m.renderItemRow(r.ItemIndex, m.Items[r.ItemIndex], isCursor))
+		case rowTypeSessions:
+			itemRows = append(itemRows, m.renderSessionsItem(isCursor))
+		}
 	}
+
 	itemsList := lipgloss.JoinVertical(lipgloss.Left, itemRows...)
-
-	// Sessions section
-	var sessionsList string
-	if len(m.Sessions) > 0 {
-		sessionsEnabled := m.SessionsEnabled()
-		var sessionHeader string
-		if sessionsEnabled {
-			sessionHeader = t.Subtle.Render(fmt.Sprintf("── Inactive Sessions (%d total, %s) ──",
-				len(m.Sessions), formatSize(m.SessionsSize)))
-		} else {
-			sessionHeader = t.Subtle.Render("── Inactive Sessions (database will be removed) ──")
-		}
-
-		var sessionRows []string
-		sessionRows = append(sessionRows, sessionHeader)
-		for i, s := range m.Sessions {
-			sessionRows = append(sessionRows, m.renderSessionRow(i, s, sessionsEnabled))
-		}
-		sessionsList = lipgloss.JoinVertical(lipgloss.Left, sessionRows...)
-	}
 
 	selectedCount := m.SelectedCount()
 	size := m.SelectedSize()
@@ -314,35 +285,30 @@ func (m PurgeModel) View() string {
 		summary = t.Subtle.Render("0 selected")
 	}
 
-	helpText := "↑/↓ j/k move • space toggle • a all"
-	if len(m.Sessions) > 0 && m.SessionsEnabled() {
-		helpText += " • s sessions"
-	}
-	helpText += " • enter • esc"
+	helpText := "↑/↓ j/k move • space toggle • a all • enter • esc"
 	help := t.Subtle.Render(helpText)
 
 	contentParts := []string{
 		header,
 		subtitle,
 		"",
-		dataSectionHeader,
 		itemsList,
+		"",
+		summary,
+		"",
+		help,
 	}
-	if sessionsList != "" {
-		contentParts = append(contentParts, "", sessionsList)
-	}
-	contentParts = append(contentParts, "", summary, "", help)
 
 	content := lipgloss.JoinVertical(lipgloss.Left, contentParts...)
 
 	return t.Box.Render(content)
 }
 
-func (m PurgeModel) renderItemRow(i int, it PurgeItem) string {
+func (m PurgeModel) renderItemRow(_ int, it PurgeItem, isCursor bool) string {
 	t := m.theme
 
 	cursor := "  "
-	if !m.inSessionsSection && i == m.Cursor {
+	if isCursor && it.Exists {
 		cursor = IconCursor + " "
 	}
 
@@ -391,11 +357,13 @@ func (m PurgeModel) renderItemRow(i int, it PurgeItem) string {
 	return lipgloss.JoinHorizontal(lipgloss.Left, left, " ", missing)
 }
 
-func (m PurgeModel) renderSessionRow(i int, s entity.SessionPurgeItem, enabled bool) string {
+// renderSessionsItem renders the single "Sessions" item.
+func (m PurgeModel) renderSessionsItem(isCursor bool) string {
 	t := m.theme
+	enabled := m.SessionsEnabled()
 
 	cursor := "  "
-	if m.inSessionsSection && i == m.Cursor && enabled {
+	if isCursor && enabled {
 		cursor = IconCursor + " "
 	}
 
@@ -406,44 +374,31 @@ func (m PurgeModel) renderSessionRow(i int, s entity.SessionPurgeItem, enabled b
 	detailStyle := t.Subtle
 
 	if enabled {
-		if s.Selected {
+		if m.allSessionsSelected {
 			checkbox = IconCheckboxChecked
 		}
 		checkboxStyle = lipgloss.NewStyle().Foreground(t.Accent)
 		cursorStyle = lipgloss.NewStyle().Foreground(t.Accent)
 		labelStyle = t.Normal
-		detailStyle = t.Subtle
 	}
 
-	// Format: ...abc1   2 tabs  3 panes   2d ago
-	shortID := s.Info.Session.ShortID()
-	tabLabel := "tab"
-	if s.Info.TabCount != 1 {
-		tabLabel = "tabs"
-	}
-	paneLabel := "pane"
-	if s.Info.PaneCount != 1 {
-		paneLabel = "panes"
+	// Format: Sessions (5 inactive, 12.3 MB) or (included with Data)
+	label := fmt.Sprintf("%s Sessions", IconLogs)
+	var detail string
+	if enabled {
+		detail = fmt.Sprintf("(%d inactive, %s)", len(m.Sessions), formatSize(m.SessionsSize))
+	} else {
+		detail = fmt.Sprintf("(%d inactive, included with Data)", len(m.Sessions))
 	}
 
-	const idPadWidth = 8
-	const tabPadWidth = 8
-	const panePadWidth = 9
-
-	idPart := labelStyle.Render(padRight("..."+shortID, idPadWidth))
-	tabPart := detailStyle.Render(padRight(fmt.Sprintf("%d %s", s.Info.TabCount, tabLabel), tabPadWidth))
-	panePart := detailStyle.Render(padRight(fmt.Sprintf("%d %s", s.Info.PaneCount, paneLabel), panePadWidth))
-	timePart := detailStyle.Render(getRelativeTime(s.Info.UpdatedAt))
-
+	const labelPadWidth = 12
 	return lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		cursorStyle.Render(cursor),
 		checkboxStyle.Render(checkbox),
 		" ",
-		idPart,
-		tabPart,
-		panePart,
-		timePart,
+		labelStyle.Render(padRight(label, labelPadWidth)),
+		detailStyle.Render(detail),
 	)
 }
 
@@ -493,45 +448,6 @@ func formatSize(bytes int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
-func getRelativeTime(t time.Time) string {
-	now := time.Now()
-	diff := now.Sub(t)
-
-	const (
-		hoursPerDay = 24
-		daysPerWeek = 7
-	)
-
-	switch {
-	case diff < time.Minute:
-		return "just now"
-	case diff < time.Hour:
-		mins := int(diff.Minutes())
-		if mins == 1 {
-			return "1m ago"
-		}
-		return fmt.Sprintf("%dm ago", mins)
-	case diff < hoursPerDay*time.Hour:
-		hours := int(diff.Hours())
-		if hours == 1 {
-			return "1h ago"
-		}
-		return fmt.Sprintf("%dh ago", hours)
-	case diff < daysPerWeek*hoursPerDay*time.Hour:
-		days := int(diff.Hours() / hoursPerDay)
-		if days == 1 {
-			return "1d ago"
-		}
-		return fmt.Sprintf("%dd ago", days)
-	default:
-		weeks := int(diff.Hours() / hoursPerDay / daysPerWeek)
-		if weeks == 1 {
-			return "1w ago"
-		}
-		return fmt.Sprintf("%dw ago", weeks)
-	}
-}
-
 // Done returns true if the modal is complete.
 func (m PurgeModel) Done() bool {
 	return m.Confirmed || m.Canceled
@@ -553,7 +469,7 @@ func (m PurgeModel) SelectedTypes() []entity.PurgeTargetType {
 	return out
 }
 
-// SelectedCount returns the number of selected items (targets + sessions).
+// SelectedCount returns the number of selected items (targets + sessions as 1 if selected).
 func (m PurgeModel) SelectedCount() int {
 	count := 0
 	for _, it := range m.Items {
@@ -561,13 +477,9 @@ func (m PurgeModel) SelectedCount() int {
 			count++
 		}
 	}
-	// Only count sessions if they're enabled (Data not selected)
-	if m.SessionsEnabled() {
-		for _, s := range m.Sessions {
-			if s.Selected {
-				count++
-			}
-		}
+	// Count sessions as 1 item if selected (and enabled)
+	if m.hasSessionsItem() && m.SessionsEnabled() && m.allSessionsSelected {
+		count++
 	}
 	return count
 }
@@ -584,35 +496,27 @@ func (m PurgeModel) SelectedSize() int64 {
 	// If Data is selected, sessions are implicitly included
 	if m.isDataSelected() {
 		total += m.SessionsSize
-	} else {
-		// Otherwise, count only selected sessions
-		// Note: individual session sizes aren't tracked, only total
-		// When sessions are selected, we include the total size proportionally
-		selectedCount := 0
-		for _, s := range m.Sessions {
-			if s.Selected {
-				selectedCount++
-			}
-		}
-		if len(m.Sessions) > 0 && selectedCount > 0 {
-			total += m.SessionsSize * int64(selectedCount) / int64(len(m.Sessions))
-		}
+	} else if m.allSessionsSelected {
+		// Sessions are explicitly selected
+		total += m.SessionsSize
 	}
 	return total
 }
 
-// SelectedSessionIDs returns the IDs of selected sessions.
-// Returns nil if Data is selected (sessions are deleted with the database).
+// SelectedSessionIDs returns the IDs of all sessions if sessions are selected.
+// Returns nil if Data is selected (sessions are deleted with the database)
+// or if sessions are not selected.
 func (m PurgeModel) SelectedSessionIDs() []entity.SessionID {
 	if m.isDataSelected() {
 		return nil
 	}
+	if !m.allSessionsSelected {
+		return nil
+	}
 
-	var ids []entity.SessionID
+	ids := make([]entity.SessionID, 0, len(m.Sessions))
 	for _, s := range m.Sessions {
-		if s.Selected {
-			ids = append(ids, s.Info.Session.ID)
-		}
+		ids = append(ids, s.Info.Session.ID)
 	}
 	return ids
 }
