@@ -87,6 +87,12 @@ func (r *sessionRepo) MarkEnded(ctx context.Context, id entity.SessionID, endedA
 	})
 }
 
+func (r *sessionRepo) Delete(ctx context.Context, id entity.SessionID) error {
+	log := logging.FromContext(ctx)
+	log.Debug().Str("session_id", string(id)).Msg("deleting session")
+	return r.queries.DeleteSession(ctx, string(id))
+}
+
 func sessionFromRow(row sqlc.Session) *entity.Session {
 	var endedAt *time.Time
 	if row.EndedAt.Valid {

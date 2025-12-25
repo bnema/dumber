@@ -16,4 +16,7 @@ type SessionRepository interface {
 	GetActive(ctx context.Context) (*entity.Session, error)
 	GetRecent(ctx context.Context, limit int) ([]*entity.Session, error)
 	MarkEnded(ctx context.Context, id entity.SessionID, endedAt time.Time) error
+
+	// Delete removes a session record.
+	Delete(ctx context.Context, id entity.SessionID) error
 }
