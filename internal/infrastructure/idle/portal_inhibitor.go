@@ -30,11 +30,12 @@ var _ port.IdleInhibitor = (*PortalInhibitor)(nil)
 // PortalInhibitor implements idle inhibition using XDG Desktop Portal.
 // This works on Wayland with any compositor (GNOME, KDE, sway, hyprland, etc.).
 type PortalInhibitor struct {
-	conn        *dbus.Conn
-	requestPath dbus.ObjectPath // Active inhibit request handle
-	refcount    int
-	supported   bool
-	mu          sync.Mutex
+	conn            *dbus.Conn
+	requestPath     dbus.ObjectPath // Active inhibit request handle
+	refcount        int
+	supported       bool
+	requestComplete bool // True if the portal sent a Response signal (request no longer exists)
+	mu              sync.Mutex
 }
 
 // NewPortalInhibitor creates a new portal-based idle inhibitor.
@@ -113,12 +114,71 @@ func (p *PortalInhibitor) Inhibit(ctx context.Context, reason string) error {
 	}
 
 	p.requestPath = handlePath
+	p.requestComplete = false
+
+	// Subscribe to the Response signal to know when the inhibition ends
+	// Some portals complete the request immediately with a Response signal
+	go p.watchForResponse(ctx, handlePath)
+
 	log.Info().
 		Str("handle", string(handlePath)).
 		Str("reason", reason).
 		Msg("idle inhibitor: activated")
 
 	return nil
+}
+
+// watchForResponse monitors for the Response signal on the request object.
+// Some portals (particularly GNOME) complete the Inhibit request immediately,
+// which removes the Request object. We need to track this to avoid calling
+// Close on a non-existent object.
+func (p *PortalInhibitor) watchForResponse(ctx context.Context, handlePath dbus.ObjectPath) {
+	log := logging.FromContext(ctx)
+
+	if p.conn == nil {
+		return
+	}
+
+	// Add match rule for the Response signal on this specific request
+	matchRule := fmt.Sprintf(
+		"type='signal',interface='%s',member='Response',path='%s'",
+		requestIface, handlePath,
+	)
+
+	if err := p.conn.BusObject().Call("org.freedesktop.DBus.AddMatch", 0, matchRule).Err; err != nil {
+		log.Debug().Err(err).Msg("idle inhibitor: failed to add signal match")
+		return
+	}
+
+	// Create a channel to receive signals
+	signals := make(chan *dbus.Signal, 1)
+	p.conn.Signal(signals)
+
+	defer func() {
+		p.conn.RemoveSignal(signals)
+		_ = p.conn.BusObject().Call("org.freedesktop.DBus.RemoveMatch", 0, matchRule).Err
+	}()
+
+	// Wait for either a Response signal or context cancellation
+	for {
+		select {
+		case sig := <-signals:
+			if sig == nil {
+				return
+			}
+			if sig.Path == handlePath && sig.Name == requestIface+".Response" {
+				p.mu.Lock()
+				p.requestComplete = true
+				p.mu.Unlock()
+				log.Debug().
+					Str("handle", string(handlePath)).
+					Msg("idle inhibitor: request completed by portal")
+				return
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 // Uninhibit decrements the refcount. When zero, releases inhibition.
@@ -145,17 +205,19 @@ func (p *PortalInhibitor) Uninhibit(ctx context.Context) error {
 		return nil
 	}
 
-	// Close the request to release inhibition
-	obj := p.conn.Object(portalDest, p.requestPath)
-	err := obj.Call(requestIface+".Close", 0).Err
-
-	if err != nil {
-		log.Warn().Err(err).Msg("idle inhibitor: failed to close request")
-		// Don't return error - the request may have already been closed
-	} else {
-		log.Info().Msg("idle inhibitor: deactivated")
+	// If the portal already completed the request with a Response signal,
+	// the Request object no longer exists - don't try to close it
+	if p.requestComplete {
+		log.Info().Msg("idle inhibitor: deactivated (completed by portal)")
+		p.requestPath = ""
+		return nil
 	}
 
+	// Close the request to release inhibition
+	obj := p.conn.Object(portalDest, p.requestPath)
+	_ = obj.Call(requestIface+".Close", 0).Err
+
+	log.Info().Msg("idle inhibitor: deactivated")
 	p.requestPath = ""
 	return nil
 }
@@ -172,13 +234,13 @@ func (p *PortalInhibitor) Close() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	// Release any active inhibition
-	if p.conn != nil && p.requestPath != "" {
+	// Release any active inhibition (only if not already completed by portal)
+	if p.conn != nil && p.requestPath != "" && !p.requestComplete {
 		obj := p.conn.Object(portalDest, p.requestPath)
 		_ = obj.Call(requestIface+".Close", 0).Err
-		p.requestPath = ""
 	}
-
+	p.requestPath = ""
+	p.requestComplete = false
 	p.refcount = 0
 
 	if p.conn != nil {
