@@ -306,6 +306,8 @@ func (s *ShortcutSet) registerStandardShortcuts() {
 	s.Global[KeyBinding{uint(gdk.KEY_q), ModCtrl}] = ActionQuit
 	s.Global[KeyBinding{uint(gdk.KEY_F11), ModNone}] = ActionToggleFullscreen
 	s.Global[KeyBinding{uint(gdk.KEY_C), ModCtrl | ModShift}] = ActionCopyURL
+	// Session management - direct shortcut to open session manager
+	s.Global[KeyBinding{uint(gdk.KEY_s), ModCtrl | ModShift}] = ActionOpenSessionManager
 }
 
 func (s *ShortcutSet) registerPaneNavigationShortcuts() {
@@ -509,7 +511,8 @@ func ShouldAutoExitMode(action Action) bool {
 	switch action {
 	case ActionNewTab, ActionCloseTab, ActionRenameTab,
 		ActionSplitRight, ActionSplitLeft, ActionSplitUp, ActionSplitDown,
-		ActionClosePane, ActionStackPane:
+		ActionClosePane, ActionStackPane,
+		ActionOpenSessionManager:
 		return true
 	default:
 		return false

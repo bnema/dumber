@@ -314,6 +314,7 @@ func (m *Manager) setDefaults() {
 	m.setOmniboxDefaults(defaults)
 	m.setMediaDefaults(defaults)
 	m.setRuntimeDefaults(defaults)
+	m.setSessionDefaults(defaults)
 }
 
 func (m *Manager) setHistoryDefaults(defaults *Config) {
@@ -402,6 +403,8 @@ func (m *Manager) setWorkspaceDefaults(defaults *Config) {
 	m.viper.SetDefault("workspace.styling.pane_mode_border_color", defaults.Workspace.Styling.PaneModeBorderColor)
 	m.viper.SetDefault("workspace.styling.tab_mode_border_width", defaults.Workspace.Styling.TabModeBorderWidth)
 	m.viper.SetDefault("workspace.styling.tab_mode_border_color", defaults.Workspace.Styling.TabModeBorderColor)
+	m.viper.SetDefault("workspace.styling.session_mode_border_width", defaults.Workspace.Styling.SessionModeBorderWidth)
+	m.viper.SetDefault("workspace.styling.session_mode_border_color", defaults.Workspace.Styling.SessionModeBorderColor)
 	m.viper.SetDefault("workspace.styling.transition_duration", defaults.Workspace.Styling.TransitionDuration)
 }
 
@@ -427,6 +430,16 @@ func (m *Manager) setMediaDefaults(defaults *Config) {
 
 func (m *Manager) setRuntimeDefaults(defaults *Config) {
 	m.viper.SetDefault("runtime.prefix", defaults.Runtime.Prefix)
+}
+
+func (m *Manager) setSessionDefaults(defaults *Config) {
+	m.viper.SetDefault("session.auto_restore", defaults.Session.AutoRestore)
+	m.viper.SetDefault("session.snapshot_interval_ms", defaults.Session.SnapshotIntervalMs)
+	m.viper.SetDefault("session.max_exited_sessions", defaults.Session.MaxExitedSessions)
+	m.viper.SetDefault("session.max_listed_sessions", defaults.Session.MaxListedSessions)
+	m.viper.SetDefault("session.session_mode.activation_shortcut", defaults.Session.SessionMode.ActivationShortcut)
+	m.viper.SetDefault("session.session_mode.timeout_ms", defaults.Session.SessionMode.TimeoutMilliseconds)
+	m.viper.SetDefault("session.session_mode.actions", defaults.Session.SessionMode.Actions)
 }
 
 // New returns a new default configuration instance.
