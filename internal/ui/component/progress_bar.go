@@ -43,12 +43,16 @@ func NewProgressBar(factory layout.WidgetFactory) *ProgressBar {
 	progressBar.SetHalign(gtk.AlignFillValue)
 	progressBar.SetHexpand(true)
 
+	// Set minimum size to prevent GTK warning about negative minimum width (-2)
+	// The internal "progress" gizmo needs valid dimensions before realization
+	// Using 0 for width (not -1) ensures GTK doesn't calculate negative sizes
+	progressBar.SetSizeRequest(0, 4)
+
 	// Don't intercept pointer events - let clicks pass through to WebView
 	progressBar.SetCanTarget(false)
 	progressBar.SetCanFocus(false)
 
-	// Initialize fraction to 0 to force proper sizing of internal progress gizmo
-	// This prevents GTK warning about negative minimum width
+	// Initialize fraction to 0
 	progressBar.SetFraction(0)
 
 	// Hidden by default

@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **Dynamic window title**: Window title now displays the active pane's page title in format `<Page Title> - Dumber`. Updates when switching tabs/panes or navigating. Truncated at 255 characters.
+- **Link URL status overlay**: Shows destination URL in bottom-left corner when hovering over links, images, or media elements. Standard browser UX pattern with 100ms show delay to avoid flicker and 150ms CSS fade transitions. Configurable via CSS.
+- **Local file path support**: `dumber browse test.html` now correctly opens local HTML files by converting existing file paths to `file://` URLs. Supports absolute paths, relative paths, and `~/` home directory expansion.
 - **Auto-update system**: Automatic update checking and self-updating binary replacement following clean architecture.
   - **Update check on startup**: Async check against GitHub releases API (configurable via `update.enable_on_startup`, default: true).
   - **Toast notifications**: Non-intrusive auto-dismiss notifications for update availability.

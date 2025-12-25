@@ -108,6 +108,10 @@ func GenerateCSSWithScaleAndFonts(p Palette, scale float64, fonts FontConfig) st
 	sb.WriteString(generateToasterCSS(p))
 	sb.WriteString("\n")
 
+	// Link status overlay styling
+	sb.WriteString(generateLinkStatusCSS(p))
+	sb.WriteString("\n")
+
 	// Session manager styling
 	sb.WriteString(generateSessionManagerCSS(p))
 
@@ -236,7 +240,7 @@ entry.omnibox-entry:focus-visible {
 	border-color: var(--accent);
 	background-color: shade(var(--bg), 1.05);
 	outline-style: none;
-	outline-width: 0;
+	outline-width: 0px;
 	outline-color: transparent;
 }
 
@@ -348,7 +352,7 @@ entry.omnibox-entry > *:focus-visible {
 	padding: 0.125em 0.5em;
 	font-size: 0.6875em;
 	font-weight: 600;
-	margin-left: auto;
+	/* Note: margin-left: auto not supported in GTK4 CSS, use SetHalign(End) in code */
 }
 `
 }
@@ -389,7 +393,7 @@ entry.find-bar-entry:focus-within,
 entry.find-bar-entry:focus-visible {
 	border-color: var(--accent);
 	outline-style: none;
-	outline-width: 0;
+	outline-width: 0px;
 	outline-color: transparent;
 }
 
@@ -545,13 +549,17 @@ progressbar.osd {
 
 progressbar.osd trough {
 	min-height: 4px;
-	min-width: 0px;
+	min-width: 2px;
+	margin: 0;
+	padding: 0;
 	background-color: alpha(var(--bg), 0.3);
 }
 
 progressbar.osd progress {
 	min-height: 4px;
-	min-width: 0px;
+	min-width: 2px;
+	margin: 0;
+	padding: 0;
 	background-color: var(--accent);
 }
 `
@@ -574,7 +582,7 @@ func generateSessionManagerCSS(p Palette) string {
 	border-radius: 0.1875em;
 	padding: 0;
 	min-width: 28em;
-	max-width: 40em;
+	/* Note: max-width not supported in GTK4 CSS, rely on container constraints */
 }
 
 /* Header with title */
@@ -685,7 +693,7 @@ row:selected .session-manager-row {
 .session-time {
 	font-size: 0.75em;
 	color: var(--muted);
-	margin-left: auto;
+	/* Note: margin-left: auto not supported in GTK4 CSS, use SetHalign(End) in code */
 }
 
 /* Section divider for EXITED sessions */
@@ -758,6 +766,38 @@ func generateToasterCSS(p Palette) string {
 .toast-error {
 	background-color: alpha(var(--destructive), 0.9);
 	color: var(--bg);
+}
+`
+}
+
+// generateLinkStatusCSS creates link status overlay styles.
+// Uses CSS transitions for fade-in/fade-out effect.
+func generateLinkStatusCSS(p Palette) string {
+	return `/* ===== Link Status Overlay Styling ===== */
+
+/* Link status container - bottom left positioning */
+.link-status {
+	background-color: alpha(var(--surface-variant), 0.95);
+	border-radius: 0.25em 0.25em 0 0;
+	padding: 0.25em 0.5em;
+	margin: 0;
+	font-size: 0.75em;
+	/* Note: max-width not supported in GTK4 CSS, use label SetMaxWidthChars instead */
+	box-shadow: 0 -1px 4px alpha(black, 0.15);
+
+	/* Fade transition - hidden by default */
+	opacity: 0;
+	transition: opacity 150ms ease-in-out;
+}
+
+/* Visible state - triggered by adding .visible class */
+.link-status.visible {
+	opacity: 1;
+}
+
+/* Link status label text */
+.link-status label {
+	color: var(--muted);
 }
 `
 }

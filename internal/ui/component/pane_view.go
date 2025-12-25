@@ -20,10 +20,11 @@ const (
 type PaneView struct {
 	factory       layout.WidgetFactory
 	overlay       layout.OverlayWidget
-	webViewWidget layout.Widget    // The actual WebView widget
-	borderBox     layout.BoxWidget // Border overlay for active indication
-	progressBar   *ProgressBar     // Loading progress indicator
-	toaster       *Toaster         // Toast notification overlay
+	webViewWidget layout.Widget      // The actual WebView widget
+	borderBox     layout.BoxWidget   // Border overlay for active indication
+	progressBar   *ProgressBar       // Loading progress indicator
+	toaster       *Toaster           // Toast notification overlay
+	linkStatus    *LinkStatusOverlay // Link hover URL overlay
 	paneID        entity.PaneID
 	isActive      bool
 
@@ -350,6 +351,42 @@ func (pv *PaneView) ShowZoomToast(ctx context.Context, zoomPercent int) {
 	t.ShowZoom(ctx, zoomPercent)
 }
 
+// ensureLinkStatus creates the link status overlay lazily on first use.
+// Must be called with write lock held.
+func (pv *PaneView) ensureLinkStatus() *LinkStatusOverlay {
+	if pv.linkStatus != nil {
+		return pv.linkStatus
+	}
+
+	ls := NewLinkStatusOverlay(pv.factory)
+	pv.overlay.AddOverlay(ls.Widget())
+	pv.overlay.SetClipOverlay(ls.Widget(), false)
+	pv.overlay.SetMeasureOverlay(ls.Widget(), false)
+	pv.linkStatus = ls
+	return ls
+}
+
+// ShowLinkStatus displays the link status overlay with the given URI.
+// If uri is empty, hides the overlay instead.
+func (pv *PaneView) ShowLinkStatus(uri string) {
+	pv.mu.Lock()
+	ls := pv.ensureLinkStatus()
+	pv.mu.Unlock()
+
+	ls.Show(uri)
+}
+
+// HideLinkStatus hides the link status overlay.
+func (pv *PaneView) HideLinkStatus() {
+	pv.mu.Lock()
+	ls := pv.linkStatus
+	pv.mu.Unlock()
+
+	if ls != nil {
+		ls.Hide()
+	}
+}
+
 // Cleanup removes the WebView widget from the overlay and clears references.
 // This must be called before destroying the WebView to ensure proper GTK cleanup.
 // After calling Cleanup, the PaneView should not be reused.
@@ -382,5 +419,10 @@ func (pv *PaneView) Cleanup() {
 	if pv.toaster != nil {
 		pv.overlay.RemoveOverlay(pv.toaster.Widget())
 		pv.toaster = nil
+	}
+	if pv.linkStatus != nil {
+		pv.linkStatus.Cleanup() // Cancel pending timers before removal
+		pv.overlay.RemoveOverlay(pv.linkStatus.Widget())
+		pv.linkStatus = nil
 	}
 }

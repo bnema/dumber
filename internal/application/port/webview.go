@@ -89,6 +89,9 @@ type WebViewCallbacks struct {
 	OnCreate func(request PopupRequest) WebView
 	// OnReadyToShow is called when a popup WebView is ready to display.
 	OnReadyToShow func()
+	// OnLinkHover is called when hovering over a link, image, or media element.
+	// The uri parameter contains the target URL, or empty string when leaving.
+	OnLinkHover func(uri string)
 }
 
 // FindOptions configures search behavior.
