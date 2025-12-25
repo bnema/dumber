@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -208,10 +209,10 @@ func TestSanitizeTarPath(t *testing.T) {
 			errMsg:  "path traversal",
 		},
 		{
-			name:    "double dot at start",
-			path:    "..dumber",
-			wantErr: true, // Starts with ".." so rejected as path traversal
-			errMsg:  "path traversal",
+			name:     "double dot at start of filename",
+			path:     "..dumber",
+			wantErr:  false, // Valid filename, not a path traversal (.. is not a path component)
+			wantPath: "/tmp/extract/..dumber",
 		},
 		{
 			name:    "absolute path unix",
@@ -356,15 +357,5 @@ func TestSizeLimits(t *testing.T) {
 
 // contains checks if substr is in s (helper for error message checks).
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || substr == "" ||
-		(s != "" && substr != "" && findSubstring(s, substr)))
-}
-
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+	return strings.Contains(s, substr)
 }

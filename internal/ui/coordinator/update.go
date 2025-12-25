@@ -67,12 +67,10 @@ func (c *UpdateCoordinator) checkAsync(ctx context.Context) {
 		return
 	}
 
+	// Update both lastInfo and status atomically to avoid inconsistent reads.
 	c.mu.Lock()
 	c.lastInfo = result
-	c.mu.Unlock()
-
 	if !result.UpdateAvailable {
-		c.mu.Lock()
 		c.status = entity.UpdateStatusUpToDate
 		c.mu.Unlock()
 		log.Debug().
@@ -80,8 +78,6 @@ func (c *UpdateCoordinator) checkAsync(ctx context.Context) {
 			Msg("already on latest version")
 		return
 	}
-
-	c.mu.Lock()
 	c.status = entity.UpdateStatusAvailable
 	c.mu.Unlock()
 	log.Info().
