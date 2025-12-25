@@ -59,7 +59,7 @@ func runSessions(_ *cobra.Command, _ []string) error {
 	m := model.NewSessionsModel(app.Ctx(), app.Theme, model.SessionsModelConfig{
 		ListSessionsUC:    app.ListSessionsUC,
 		RestoreUC:         app.RestoreUC,
-		SessionStateRepo:  app.SessionStateRepo,
+		DeleteSessionUC:   app.DeleteSessionUC,
 		CurrentSession:    currentSessionID,
 		MaxListedSessions: app.Config.Session.MaxListedSessions,
 	})
@@ -237,7 +237,7 @@ func runSessionsDelete(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("app not initialized")
 	}
 
-	if app.SessionStateRepo == nil || app.ListSessionsUC == nil {
+	if app.DeleteSessionUC == nil || app.ListSessionsUC == nil {
 		return fmt.Errorf("session management not available")
 	}
 
@@ -247,13 +247,17 @@ func runSessionsDelete(_ *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Check if session is active
-	if sessionInfo.IsActive || sessionInfo.IsCurrent {
-		return fmt.Errorf("cannot delete active session - close the browser first")
+	// Get current session ID
+	var currentSessionID entity.SessionID
+	if active, activeErr := app.SessionUC.GetActiveSession(app.Ctx()); activeErr == nil && active != nil {
+		currentSessionID = active.ID
 	}
 
-	// Delete the session state
-	if err := app.SessionStateRepo.DeleteSnapshot(app.Ctx(), sessionInfo.Session.ID); err != nil {
+	// Delete using use case (handles validation internally)
+	if err := app.DeleteSessionUC.Execute(app.Ctx(), usecase.DeleteSessionInput{
+		SessionID:        sessionInfo.Session.ID,
+		CurrentSessionID: currentSessionID,
+	}); err != nil {
 		return fmt.Errorf("delete session: %w", err)
 	}
 

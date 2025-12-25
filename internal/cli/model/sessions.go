@@ -39,13 +39,11 @@ type SessionsModel struct {
 	maxListedSessions int
 
 	// Dependencies
-	ctx              context.Context
-	listSessionsUC   *usecase.ListSessionsUseCase
-	restoreUC        *usecase.RestoreSessionUseCase
-	sessionStateRepo interface {
-		DeleteSnapshot(ctx context.Context, sessionID entity.SessionID) error
-	}
-	theme *styles.Theme
+	ctx             context.Context
+	listSessionsUC  *usecase.ListSessionsUseCase
+	restoreUC       *usecase.RestoreSessionUseCase
+	deleteSessionUC *usecase.DeleteSessionUseCase
+	theme           *styles.Theme
 }
 
 // sessionsKeyMap defines keybindings for the sessions browser.
@@ -113,11 +111,9 @@ func defaultSessionsKeyMap() sessionsKeyMap {
 
 // SessionsModelConfig holds configuration for the sessions model.
 type SessionsModelConfig struct {
-	ListSessionsUC   *usecase.ListSessionsUseCase
-	RestoreUC        *usecase.RestoreSessionUseCase
-	SessionStateRepo interface {
-		DeleteSnapshot(ctx context.Context, sessionID entity.SessionID) error
-	}
+	ListSessionsUC    *usecase.ListSessionsUseCase
+	RestoreUC         *usecase.RestoreSessionUseCase
+	DeleteSessionUC   *usecase.DeleteSessionUseCase
 	CurrentSession    entity.SessionID
 	MaxListedSessions int
 }
@@ -140,7 +136,7 @@ func NewSessionsModel(ctx context.Context, theme *styles.Theme, cfg SessionsMode
 		ctx:               ctx,
 		listSessionsUC:    cfg.ListSessionsUC,
 		restoreUC:         cfg.RestoreUC,
-		sessionStateRepo:  cfg.SessionStateRepo,
+		deleteSessionUC:   cfg.DeleteSessionUC,
 		currentSession:    cfg.CurrentSession,
 		theme:             theme,
 	}
@@ -312,14 +308,14 @@ func (m SessionsModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m SessionsModel) deleteSession(sessionID entity.SessionID) tea.Cmd {
 	return func() tea.Msg {
-		log := logging.FromContext(m.ctx)
-		log.Info().Str("session_id", string(sessionID)).Msg("deleting session")
-
-		if m.sessionStateRepo == nil {
-			return sessionDeletedMsg{sessionID: sessionID, err: fmt.Errorf("session state repo not available")}
+		if m.deleteSessionUC == nil {
+			return sessionDeletedMsg{sessionID: sessionID, err: fmt.Errorf("delete session use case not available")}
 		}
 
-		err := m.sessionStateRepo.DeleteSnapshot(m.ctx, sessionID)
+		err := m.deleteSessionUC.Execute(m.ctx, usecase.DeleteSessionInput{
+			SessionID:        sessionID,
+			CurrentSessionID: m.currentSession,
+		})
 		return sessionDeletedMsg{sessionID: sessionID, err: err}
 	}
 }
