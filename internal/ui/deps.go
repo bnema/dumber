@@ -61,6 +61,10 @@ type Dependencies struct {
 	SessionRepo      repository.SessionRepository
 	CurrentSessionID entity.SessionID
 	SnapshotUC       *usecase.SnapshotSessionUseCase
+
+	// Update management
+	CheckUpdateUC *usecase.CheckUpdateUseCase
+	ApplyUpdateUC *usecase.ApplyUpdateUseCase
 }
 
 // Validate checks that all required dependencies are set.

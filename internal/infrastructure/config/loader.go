@@ -315,6 +315,7 @@ func (m *Manager) setDefaults() {
 	m.setMediaDefaults(defaults)
 	m.setRuntimeDefaults(defaults)
 	m.setSessionDefaults(defaults)
+	m.setUpdateDefaults(defaults)
 }
 
 func (m *Manager) setHistoryDefaults(defaults *Config) {
@@ -440,6 +441,11 @@ func (m *Manager) setSessionDefaults(defaults *Config) {
 	m.viper.SetDefault("session.session_mode.activation_shortcut", defaults.Session.SessionMode.ActivationShortcut)
 	m.viper.SetDefault("session.session_mode.timeout_ms", defaults.Session.SessionMode.TimeoutMilliseconds)
 	m.viper.SetDefault("session.session_mode.actions", defaults.Session.SessionMode.Actions)
+}
+
+func (m *Manager) setUpdateDefaults(defaults *Config) {
+	m.viper.SetDefault("update.enable_on_startup", defaults.Update.EnableOnStartup)
+	m.viper.SetDefault("update.auto_download", defaults.Update.AutoDownload)
 }
 
 // New returns a new default configuration instance.

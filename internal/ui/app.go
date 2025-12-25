@@ -90,6 +90,9 @@ type App struct {
 	sessionManager  *component.SessionManager
 	snapshotService *snapshot.Service
 
+	// Update management
+	updateCoord *coordinator.UpdateCoordinator
+
 	// ID generator for tabs/panes
 	idCounter uint64
 	idMu      sync.Mutex
@@ -191,6 +194,7 @@ func (a *App) onActivate(ctx context.Context) {
 	a.initFindBarConfig()
 	a.initSessionManager(ctx)
 	a.initSnapshotService(ctx)
+	a.initUpdateCoordinator(ctx)
 	a.createInitialTab(ctx)
 	a.finalizeActivation(ctx)
 }
@@ -476,6 +480,27 @@ func (a *App) initSnapshotService(ctx context.Context) {
 	log.Debug().Int("interval_ms", intervalMs).Msg("snapshot service started")
 }
 
+func (a *App) initUpdateCoordinator(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
+	if a.deps == nil || a.deps.CheckUpdateUC == nil {
+		log.Debug().Msg("update use cases not available, skipping update coordinator")
+		return
+	}
+
+	a.updateCoord = coordinator.NewUpdateCoordinator(
+		a.deps.CheckUpdateUC,
+		a.deps.ApplyUpdateUC,
+		a.appToaster,
+		a.deps.Config,
+	)
+
+	// Start async update check
+	a.updateCoord.CheckOnStartup(ctx)
+
+	log.Debug().Msg("update coordinator initialized")
+}
+
 // GetTabList implements port.TabListProvider.
 func (a *App) GetTabList() *entity.TabList {
 	return a.tabs
@@ -613,6 +638,13 @@ func (a *App) onShutdown(ctx context.Context) {
 	if a.snapshotService != nil {
 		if err := a.snapshotService.Stop(ctx); err != nil {
 			log.Warn().Err(err).Msg("failed to save final session state")
+		}
+	}
+
+	// Apply staged update if available (before cleanup)
+	if a.updateCoord != nil {
+		if err := a.updateCoord.FinalizeOnExit(ctx); err != nil {
+			log.Warn().Err(err).Msg("failed to apply staged update")
 		}
 	}
 
