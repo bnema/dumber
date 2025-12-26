@@ -19,12 +19,16 @@ const (
 	defaultOmniboxInitialBehavior = "recent"
 
 	// Workspace defaults
-	defaultPaneActivationShortcut  = "ctrl+p"
-	defaultPaneTimeoutMilliseconds = 3000
-	defaultTabActivationShortcut   = "ctrl+t"
-	defaultTabTimeoutMilliseconds  = 3000
-	defaultTabBarPosition          = "bottom"
-	defaultPopupPlacement          = "right"
+	defaultPaneActivationShortcut    = "ctrl+p"
+	defaultPaneTimeoutMilliseconds   = 3000
+	defaultTabActivationShortcut     = "ctrl+t"
+	defaultTabTimeoutMilliseconds    = 3000
+	defaultResizeActivationShortcut  = "ctrl+n"
+	defaultResizeTimeoutMilliseconds = 3000
+	defaultResizeStepPercent         = 5.0
+	defaultResizeMinPanePercent      = 10.0
+	defaultTabBarPosition            = "bottom"
+	defaultPopupPlacement            = "right"
 
 	// Session defaults
 	defaultSessionActivationShortcut  = "ctrl+o"
@@ -49,6 +53,10 @@ const (
 	// Session mode border (Ctrl+O - overlay)
 	defaultSessionModeBorderWidth = 4
 	defaultSessionModeBorderColor = "#9B59B6" // Purple for session mode indicator
+
+	// Resize mode border (Ctrl+N - overlay)
+	defaultResizeModeBorderWidth = 4
+	defaultResizeModeBorderColor = "#00D4AA" // Cyan/teal for resize mode indicator
 
 	// Other styling
 	defaultTransitionDuration = 120
@@ -174,6 +182,26 @@ func DefaultConfig() *Config {
 					"cancel":       {"escape"},
 				},
 			},
+			ResizeMode: ResizeModeConfig{
+				ActivationShortcut:  defaultResizeActivationShortcut,
+				TimeoutMilliseconds: defaultResizeTimeoutMilliseconds,
+				StepPercent:         defaultResizeStepPercent,
+				MinPanePercent:      defaultResizeMinPanePercent,
+				Actions: map[string][]string{
+					"resize-increase-left":  {"h", "arrowleft"},
+					"resize-increase-down":  {"j", "arrowdown"},
+					"resize-increase-up":    {"k", "arrowup"},
+					"resize-increase-right": {"l", "arrowright"},
+					"resize-decrease-left":  {"H"},
+					"resize-decrease-down":  {"J"},
+					"resize-decrease-up":    {"K"},
+					"resize-decrease-right": {"L"},
+					"resize-increase":       {"+", "="},
+					"resize-decrease":       {"-"},
+					"confirm":               {"enter"},
+					"cancel":                {"escape"},
+				},
+			},
 			Shortcuts: GlobalShortcutsConfig{
 				ClosePane:   "ctrl+w",
 				NextTab:     "ctrl+tab",
@@ -199,6 +227,8 @@ func DefaultConfig() *Config {
 				TabModeBorderColor:     defaultTabModeBorderColor,
 				SessionModeBorderWidth: defaultSessionModeBorderWidth,
 				SessionModeBorderColor: defaultSessionModeBorderColor,
+				ResizeModeBorderWidth:  defaultResizeModeBorderWidth,
+				ResizeModeBorderColor:  defaultResizeModeBorderColor,
 				TransitionDuration:     defaultTransitionDuration,
 			},
 		},
