@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -298,7 +299,8 @@ func (uc *ManagePanesUseCase) SetSplitRatio(ctx context.Context, input SetSplitR
 	minRatio := input.MinPanePercent / 100.0
 	maxRatio := 1.0 - minRatio
 	oldRatio := splitNode.SplitRatio
-	splitNode.SplitRatio = clampFloat64(input.Ratio, minRatio, maxRatio)
+	clamped := clampFloat64(input.Ratio, minRatio, maxRatio)
+	splitNode.SplitRatio = roundSplitRatio(clamped)
 
 	log.Debug().
 		Str("split_node_id", input.SplitNodeID).
@@ -415,6 +417,13 @@ func findNearestSplitForAxis(node *entity.PaneNode, axis resizeAxis) *entity.Pan
 		current = parent
 	}
 	return nil
+}
+
+const splitRatioRoundFactor = 100.0
+
+func roundSplitRatio(ratio float64) float64 {
+	// Keep snapshots stable and readable; avoids persisting noisy float values.
+	return math.Round(ratio*splitRatioRoundFactor) / splitRatioRoundFactor
 }
 
 func clampFloat64(v, minVal, maxVal float64) float64 {
