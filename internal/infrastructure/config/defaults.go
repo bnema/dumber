@@ -15,12 +15,12 @@ const (
 	// Appearance defaults
 	defaultFontSize = 16 // points
 
-	// Defaults
-	defaultNewPaneURL               = "about:blank"
-	defaultAutoOpenOmniboxOnNewPane = false
+	// Workspace defaults
+	defaultNewPaneURL = "about:blank"
 
 	// Omnibox defaults
-	defaultOmniboxInitialBehavior = "recent"
+	defaultOmniboxInitialBehavior   = "recent"
+	defaultOmniboxAutoOpenOnNewPane = false
 
 	// Workspace defaults
 	defaultPaneActivationShortcut    = "ctrl+p"
@@ -154,11 +154,8 @@ func DefaultConfig() *Config {
 		},
 		DefaultWebpageZoom: 1.2,            // 120% default zoom for better readability
 		DefaultUIScale:     defaultUIScale, // 1.0 = 100%, 2.0 = 200%
-		Defaults: DefaultsConfig{
-			NewPaneURL:               defaultNewPaneURL,
-			AutoOpenOmniboxOnNewPane: defaultAutoOpenOmniboxOnNewPane,
-		},
 		Workspace: WorkspaceConfig{
+			NewPaneURL: defaultNewPaneURL,
 			PaneMode: PaneModeConfig{
 				ActivationShortcut:  defaultPaneActivationShortcut,
 				TimeoutMilliseconds: defaultPaneTimeoutMilliseconds,
@@ -245,7 +242,8 @@ func DefaultConfig() *Config {
 			AutoUpdate: true, // Auto-update filters from GitHub releases
 		},
 		Omnibox: OmniboxConfig{
-			InitialBehavior: defaultOmniboxInitialBehavior,
+			InitialBehavior:   defaultOmniboxInitialBehavior,
+			AutoOpenOnNewPane: defaultOmniboxAutoOpenOnNewPane,
 		},
 		Session: SessionConfig{
 			AutoRestore:             false,

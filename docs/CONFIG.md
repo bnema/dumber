@@ -110,29 +110,17 @@ dumber dmenu --max 50
 | Key | Type | Default | Valid Values | Description |
 |-----|------|---------|--------------|-------------|
 | `omnibox.initial_behavior` | string | `"recent"` | `recent`, `most_visited`, `none` | Initial history display behavior |
+| `omnibox.auto_open_on_new_pane` | bool | `false` | - | Automatically open the omnibox after creating a new pane |
 
 **Example:**
 ```toml
 [omnibox]
 initial_behavior = "recent"  # Show recent history when omnibox opens
+auto_open_on_new_pane = false
 
 # Alternative options:
 # initial_behavior = "most_visited"  # Show most visited sites
 # initial_behavior = "none"          # Show no initial suggestions
-```
-
-## Defaults
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `defaults.new_pane_url` | string | `"about:blank"` | URL loaded for new panes/tabs (supports `http(s)://`, `dumb://`, `file://`, `about:`) |
-| `defaults.auto_open_omnibox_on_new_pane` | bool | `false` | Automatically open the omnibox after creating a new pane |
-
-**Example:**
-```toml
-[defaults]
-new_pane_url = "dumb://home"
-auto_open_omnibox_on_new_pane = false
 ```
 
 ## Logging
@@ -207,6 +195,18 @@ border = "#363636"
 | `default_webpage_zoom` | float | `1.2` | > 0 | Default page zoom (1.0=100%, 1.2=120%) |
 
 ## Workspace Configuration
+
+### General
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `workspace.new_pane_url` | string | `"about:blank"` | URL loaded for new panes/tabs (supports `http(s)://`, `dumb://`, `file://`, `about:`) |
+
+**Example:**
+```toml
+[workspace]
+new_pane_url = "dumb://home"
+```
 
 ### Pane Mode
 

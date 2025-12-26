@@ -101,7 +101,7 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 		// Tab actions
 		input.ActionNewTab: func(ctx context.Context) error {
 			cfg := config.Get()
-			_, err := d.tabCoord.Create(ctx, domainurl.Normalize(cfg.Defaults.NewPaneURL))
+			_, err := d.tabCoord.Create(ctx, domainurl.Normalize(cfg.Workspace.NewPaneURL))
 			return err
 		},
 		input.ActionCloseTab:         d.tabCoord.Close,

@@ -15,8 +15,6 @@ type Config struct {
 	DefaultWebpageZoom float64 `mapstructure:"default_webpage_zoom" yaml:"default_webpage_zoom" toml:"default_webpage_zoom"`
 	// DefaultUIScale sets the default UI scale for GTK widgets (1.0 = 100%, 2.0 = 200%)
 	DefaultUIScale float64 `mapstructure:"default_ui_scale" yaml:"default_ui_scale" toml:"default_ui_scale"`
-	// Defaults controls default behavior like new-pane URL.
-	Defaults DefaultsConfig `mapstructure:"defaults" yaml:"defaults" toml:"defaults"`
 	// Workspace defines workspace, pane, and tab handling behavior.
 	Workspace WorkspaceConfig `mapstructure:"workspace" yaml:"workspace" toml:"workspace"`
 	// Session controls session persistence and restoration.
@@ -35,19 +33,6 @@ type Config struct {
 	Performance PerformanceConfig `mapstructure:"performance" yaml:"performance" toml:"performance"`
 	// Update controls automatic update checking and downloading.
 	Update UpdateConfig `mapstructure:"update" yaml:"update" toml:"update"`
-}
-
-// DefaultsConfig controls default behavior like new-pane URL.
-//
-// These defaults are applied when a new pane/tab is created without an explicit URL.
-// This is not currently exposed in dumb://config UI.
-type DefaultsConfig struct {
-	// NewPaneURL is the URL loaded when creating a new empty pane.
-	// Default: "about:blank"
-	NewPaneURL string `mapstructure:"new_pane_url" yaml:"new_pane_url" toml:"new_pane_url"`
-	// AutoOpenOmniboxOnNewPane opens the omnibox automatically when a new pane is created.
-	// Default: false
-	AutoOpenOmniboxOnNewPane bool `mapstructure:"auto_open_omnibox_on_new_pane" yaml:"auto_open_omnibox_on_new_pane" toml:"auto_open_omnibox_on_new_pane"` //nolint:lll // struct tags must stay on one line
 }
 
 // RenderingMode selects GPU vs CPU rendering.
@@ -289,6 +274,9 @@ type OmniboxConfig struct {
 	// InitialBehavior controls what to show when omnibox opens with empty input
 	// Values: "recent" (recent visits), "most_visited" (most visited sites), "none" (nothing)
 	InitialBehavior string `mapstructure:"initial_behavior" yaml:"initial_behavior" toml:"initial_behavior"`
+	// AutoOpenOnNewPane opens the omnibox automatically when a new pane is created.
+	// Default: false
+	AutoOpenOnNewPane bool `mapstructure:"auto_open_on_new_pane" yaml:"auto_open_on_new_pane" toml:"auto_open_on_new_pane"`
 }
 
 // DebugConfig holds debug and troubleshooting options
@@ -310,6 +298,9 @@ type UpdateConfig struct {
 
 // WorkspaceConfig captures layout, pane, and tab behavior preferences.
 type WorkspaceConfig struct {
+	// NewPaneURL is the URL loaded when creating a new empty pane/tab.
+	// Default: "about:blank"
+	NewPaneURL string `mapstructure:"new_pane_url" yaml:"new_pane_url" toml:"new_pane_url"`
 	// PaneMode defines modal pane behavior and bindings.
 	PaneMode PaneModeConfig `mapstructure:"pane_mode" yaml:"pane_mode" toml:"pane_mode" json:"pane_mode"`
 	// TabMode defines modal tab behavior and bindings (Alt+T).
