@@ -24,6 +24,9 @@ type SplitView struct {
 	pendingNotifyRatio  float64
 	notifyDebounceTimer *time.Timer
 
+	hasAppliedRatio     bool
+	suppressNotifyUntil time.Time
+
 	mu sync.RWMutex
 }
 
@@ -80,6 +83,21 @@ func NewSplitView(
 		if totalSize <= 0 {
 			return
 		}
+
+		now := time.Now()
+
+		sv.mu.Lock()
+		// Ignore early notifications before we've applied the snapshot ratio.
+		// GTK often emits an initial notify::position (typically 50/50) during allocation.
+		if !sv.hasAppliedRatio {
+			sv.mu.Unlock()
+			return
+		}
+		if !sv.suppressNotifyUntil.IsZero() && now.Before(sv.suppressNotifyUntil) {
+			sv.mu.Unlock()
+			return
+		}
+		sv.mu.Unlock()
 
 		ratio := clampRatio(float64(position) / float64(totalSize))
 
@@ -204,7 +222,19 @@ func (sv *SplitView) ApplyRatio() bool {
 		Float64("ratio", ratio).
 		Int("position", position).
 		Msg("ApplyRatio: setting position")
+
+	// Avoid treating programmatic SetPosition as a user resize.
+	// We suppress notify::position briefly; GTK may emit during/after SetPosition.
+	sv.mu.Lock()
+	sv.suppressNotifyUntil = time.Now().Add(50 * time.Millisecond)
+	sv.mu.Unlock()
+
 	sv.paned.SetPosition(position)
+
+	sv.mu.Lock()
+	sv.hasAppliedRatio = true
+	sv.mu.Unlock()
+
 	return true
 }
 
