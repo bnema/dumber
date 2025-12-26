@@ -128,6 +128,18 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 		input.ActionSplitDown:  func(ctx context.Context) error { return d.wsCoord.Split(ctx, usecase.SplitDown) },
 		input.ActionClosePane:  d.wsCoord.ClosePane,
 		input.ActionStackPane:  d.wsCoord.StackPane,
+		input.ActionConsumeOrExpelLeft: func(ctx context.Context) error {
+			return d.wsCoord.ConsumeOrExpelPane(ctx, usecase.ConsumeOrExpelLeft)
+		},
+		input.ActionConsumeOrExpelRight: func(ctx context.Context) error {
+			return d.wsCoord.ConsumeOrExpelPane(ctx, usecase.ConsumeOrExpelRight)
+		},
+		input.ActionConsumeOrExpelUp: func(ctx context.Context) error {
+			return d.wsCoord.ConsumeOrExpelPane(ctx, usecase.ConsumeOrExpelUp)
+		},
+		input.ActionConsumeOrExpelDown: func(ctx context.Context) error {
+			return d.wsCoord.ConsumeOrExpelPane(ctx, usecase.ConsumeOrExpelDown)
+		},
 		input.ActionFocusRight: func(ctx context.Context) error { return d.wsCoord.FocusPane(ctx, usecase.NavRight) },
 		input.ActionFocusLeft:  func(ctx context.Context) error { return d.wsCoord.FocusPane(ctx, usecase.NavLeft) },
 		input.ActionFocusUp:    func(ctx context.Context) error { return d.wsCoord.FocusPane(ctx, usecase.NavUp) },
