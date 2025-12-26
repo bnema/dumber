@@ -225,6 +225,13 @@ split-up = ["arrowup", "u"]
 split-down = ["arrowdown", "d"]
 stack-pane = ["s"]
 close-pane = ["x"]
+
+# Consume-or-expel (niri-style) - very alpha
+consume-or-expel-left = ["bracketleft", "["]
+consume-or-expel-right = ["bracketright", "]"]
+consume-or-expel-up = ["shift+bracketleft", "braceleft", "{"]
+consume-or-expel-down = ["shift+bracketright", "braceright", "}"]
+
 focus-right = ["shift+arrowright", "shift+l"]
 focus-left = ["shift+arrowleft", "shift+h"]
 focus-up = ["shift+arrowup", "shift+k"]
@@ -296,8 +303,14 @@ Notes:
 | `workspace.shortcuts.close_pane` | string | `"ctrl+w"` | Close active pane (closes tab if last pane) |
 | `workspace.shortcuts.next_tab` | string | `"ctrl+tab"` | Next tab shortcut |
 | `workspace.shortcuts.previous_tab` | string | `"ctrl+shift+tab"` | Previous tab shortcut |
+| `workspace.shortcuts.consume_or_expel_left` | string | `"alt+bracketleft"` | Consume into left sibling stack, or expel left if stacked (very alpha) |
+| `workspace.shortcuts.consume_or_expel_right` | string | `"alt+bracketright"` | Consume into right sibling stack, or expel right if stacked (very alpha) |
+| `workspace.shortcuts.consume_or_expel_up` | string | `"alt+shift+bracketleft"` | Consume into upper sibling stack, or expel up if stacked (very alpha) |
+| `workspace.shortcuts.consume_or_expel_down` | string | `"alt+shift+bracketright"` | Consume into lower sibling stack, or expel down if stacked (very alpha) |
 
 > **Note:** New tab creation uses modal tab mode (Ctrl+T then n/c). This follows the Zellij-style modal keyboard interface.
+>
+> **Note:** Consume-or-expel is experimental and may change behavior between releases.
 
 ### Popup Behavior
 

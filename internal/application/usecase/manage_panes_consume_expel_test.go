@@ -117,7 +117,7 @@ func TestManagePanesUseCase_ConsumeOrExpel_ConsumeIntoExistingStack_AppendsToEnd
 	uc := NewManagePanesUseCase(func() string { return "id" })
 	ctx := context.Background()
 
-	stackNode := stack("stack", leaf("a"), leaf("b"))
+	stackNode := stack(leaf("a"), leaf("b"))
 	c := leaf("c")
 	root := split(entity.SplitHorizontal, stackNode, c)
 	ws := &entity.Workspace{Root: root, ActivePaneID: c.Pane.ID}
@@ -140,11 +140,35 @@ func TestManagePanesUseCase_ConsumeOrExpel_ConsumeIntoExistingStack_AppendsToEnd
 	}
 }
 
+func TestManagePanesUseCase_ConsumeOrExpel_ConsumeLeft_InVerticalSplitWithStackedSibling_Noops(t *testing.T) {
+	uc := NewManagePanesUseCase(func() string { return "id" })
+	ctx := context.Background()
+
+	top := leaf("top")
+	bottomStack := stack(leaf("a"), leaf("b"))
+	root := split(entity.SplitVertical, top, bottomStack)
+	ws := &entity.Workspace{Root: root, ActivePaneID: top.Pane.ID}
+
+	res, err := uc.ConsumeOrExpel(ctx, ws, top, ConsumeOrExpelLeft)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res == nil || res.Action != "none" {
+		t.Fatalf("result action=%v, want none", res)
+	}
+	if res.ErrorMessage != "No pane to the left" {
+		t.Fatalf("error=%q, want %q", res.ErrorMessage, "No pane to the left")
+	}
+	if ws.Root != root {
+		t.Fatalf("tree should be unchanged")
+	}
+}
+
 func TestManagePanesUseCase_ConsumeOrExpel_Expel_DissolvesTwoPaneStack(t *testing.T) {
 	uc := NewManagePanesUseCase(func() string { return "id" })
 	ctx := context.Background()
 
-	stackNode := stack("stack", leaf("a"), leaf("b"))
+	stackNode := stack(leaf("a"), leaf("b"))
 	b := stackNode.Children[1]
 	ws := &entity.Workspace{Root: stackNode, ActivePaneID: b.Pane.ID}
 
@@ -155,22 +179,81 @@ func TestManagePanesUseCase_ConsumeOrExpel_Expel_DissolvesTwoPaneStack(t *testin
 	if res == nil || res.Action != "expelled" {
 		t.Fatalf("result action=%v, want expelled", res)
 	}
-	if ws.Root == nil || !ws.Root.IsSplit() || ws.Root.SplitDir != entity.SplitHorizontal {
-		t.Fatalf("root should be a horizontal split")
+	if ws.Root == nil || !ws.Root.IsSplit() || ws.Root.SplitDir != entity.SplitVertical {
+		t.Fatalf("root should be a vertical split")
 	}
 
-	left := ws.Root.Left()
-	right := ws.Root.Right()
-	if left == nil || right == nil {
+	top := ws.Root.Left()
+	bottom := ws.Root.Right()
+	if top == nil || bottom == nil {
 		t.Fatalf("split children should exist")
 	}
-	if !left.IsLeaf() || left.Pane == nil || left.Pane.ID != "a" {
-		t.Fatalf("left child should be leaf a")
+	if !top.IsLeaf() || top.Pane == nil || top.Pane.ID != "a" {
+		t.Fatalf("top child should be leaf a")
 	}
-	if !right.IsLeaf() || right.Pane == nil || right.Pane.ID != "b" {
-		t.Fatalf("right child should be leaf b")
+	if !bottom.IsLeaf() || bottom.Pane == nil || bottom.Pane.ID != "b" {
+		t.Fatalf("bottom child should be leaf b")
 	}
 	if ws.ActivePaneID != "b" {
+		t.Fatalf("active=%s, want b", ws.ActivePaneID)
+	}
+}
+
+func TestManagePanesUseCase_ConsumeOrExpel_ExpelThenConsumeRight_CyclesVerticalToHorizontal(t *testing.T) {
+	uc := NewManagePanesUseCase(func() string { return "id" })
+	ctx := context.Background()
+
+	stackNode := stack(leaf("a"), leaf("b"))
+	b := stackNode.Children[1]
+	ws := &entity.Workspace{Root: stackNode, ActivePaneID: b.Pane.ID}
+
+	// First press (on stacked pane): stack -> vertical split with active on bottom.
+	mustConsumeOrExpelAction(t, uc, ctx, ws, b, ConsumeOrExpelRight, "expelled")
+	mustSplitRoot(t, ws, entity.SplitVertical)
+	if string(ws.ActivePaneID) != "b" {
+		t.Fatalf("active=%s, want b", ws.ActivePaneID)
+	}
+
+	active := ws.ActivePane()
+	mustLeafPaneID(t, active, "b")
+
+	// Second press (on bottom pane): vertical -> horizontal split with active on right.
+	mustConsumeOrExpelAction(t, uc, ctx, ws, active, ConsumeOrExpelRight, "consumed")
+	root := mustSplitRoot(t, ws, entity.SplitHorizontal)
+	mustLeafPaneID(t, root.Left(), "a")
+	mustLeafPaneID(t, root.Right(), "b")
+	if string(ws.ActivePaneID) != "b" {
+		t.Fatalf("active=%s, want b", ws.ActivePaneID)
+	}
+}
+
+func TestManagePanesUseCase_ConsumeOrExpel_ExpelThenConsumeLeft_ReturnsToStack(t *testing.T) {
+	uc := NewManagePanesUseCase(func() string { return "id" })
+	ctx := context.Background()
+
+	stackNode := stack(leaf("a"), leaf("b"))
+	b := stackNode.Children[1]
+	ws := &entity.Workspace{Root: stackNode, ActivePaneID: b.Pane.ID}
+
+	// First press (on stacked pane): stack -> vertical split with active on bottom.
+	mustConsumeOrExpelAction(t, uc, ctx, ws, b, ConsumeOrExpelRight, "expelled")
+	mustSplitRoot(t, ws, entity.SplitVertical)
+	if string(ws.ActivePaneID) != "b" {
+		t.Fatalf("active=%s, want b", ws.ActivePaneID)
+	}
+
+	active := ws.ActivePane()
+	mustLeafPaneID(t, active, "b")
+
+	// Second press (on bottom pane): vertical -> stack (return to original).
+	mustConsumeOrExpelAction(t, uc, ctx, ws, active, ConsumeOrExpelLeft, "consumed")
+	if ws.Root == nil || !ws.Root.IsStacked {
+		t.Fatalf("root should be a stack")
+	}
+	if got := panesInOrder(ws.Root); got != "a,b" {
+		t.Fatalf("stack panes=%s, want a,b", got)
+	}
+	if string(ws.ActivePaneID) != "b" {
 		t.Fatalf("active=%s, want b", ws.ActivePaneID)
 	}
 }
@@ -179,7 +262,7 @@ func TestManagePanesUseCase_ConsumeOrExpel_Expel_StackRemainsWhenMoreThanTwo(t *
 	uc := NewManagePanesUseCase(func() string { return "id" })
 	ctx := context.Background()
 
-	stackNode := stack("stack", leaf("a"), leaf("b"), leaf("c"))
+	stackNode := stack(leaf("a"), leaf("b"), leaf("c"))
 	b := stackNode.Children[1]
 	ws := &entity.Workspace{Root: stackNode, ActivePaneID: b.Pane.ID}
 
@@ -190,19 +273,19 @@ func TestManagePanesUseCase_ConsumeOrExpel_Expel_StackRemainsWhenMoreThanTwo(t *
 	if res == nil || res.Action != "expelled" {
 		t.Fatalf("result action=%v, want expelled", res)
 	}
-	if ws.Root == nil || !ws.Root.IsSplit() {
-		t.Fatalf("root should be a split")
+	if ws.Root == nil || !ws.Root.IsSplit() || ws.Root.SplitDir != entity.SplitVertical {
+		t.Fatalf("root should be a vertical split")
 	}
-	left := ws.Root.Left()
-	right := ws.Root.Right()
-	if left == nil || !left.IsStacked {
-		t.Fatalf("left child should be stack")
+	top := ws.Root.Left()
+	bottom := ws.Root.Right()
+	if top == nil || !top.IsStacked {
+		t.Fatalf("top child should be stack")
 	}
-	if panesInOrder(left) != "a,c" {
-		t.Fatalf("remaining stack panes=%s, want a,c", panesInOrder(left))
+	if panesInOrder(top) != "a,c" {
+		t.Fatalf("remaining stack panes=%s, want a,c", panesInOrder(top))
 	}
-	if right == nil || !right.IsLeaf() || right.Pane.ID != "b" {
-		t.Fatalf("right child should be expelled leaf b")
+	if bottom == nil || !bottom.IsLeaf() || bottom.Pane.ID != "b" {
+		t.Fatalf("bottom child should be expelled leaf b")
 	}
 	if ws.ActivePaneID != "b" {
 		t.Fatalf("active=%s, want b", ws.ActivePaneID)
@@ -281,6 +364,40 @@ func TestManagePanesUseCase_ConsumeOrExpel_OnlyOnePane(t *testing.T) {
 	}
 }
 
+func mustConsumeOrExpelAction(
+	t *testing.T,
+	uc *ManagePanesUseCase,
+	ctx context.Context,
+	ws *entity.Workspace,
+	node *entity.PaneNode,
+	direction ConsumeOrExpelDirection,
+	wantAction string,
+) {
+	t.Helper()
+	res, err := uc.ConsumeOrExpel(ctx, ws, node, direction)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res == nil || res.Action != wantAction {
+		t.Fatalf("result action=%v, want %s", res, wantAction)
+	}
+}
+
+func mustSplitRoot(t *testing.T, ws *entity.Workspace, dir entity.SplitDirection) *entity.PaneNode {
+	t.Helper()
+	if ws == nil || ws.Root == nil || !ws.Root.IsSplit() || ws.Root.SplitDir != dir {
+		t.Fatalf("root should be a %v split", dir)
+	}
+	return ws.Root
+}
+
+func mustLeafPaneID(t *testing.T, node *entity.PaneNode, want string) {
+	t.Helper()
+	if node == nil || !node.IsLeaf() || node.Pane == nil || string(node.Pane.ID) != want {
+		t.Fatalf("leaf pane=%v, want %s", node, want)
+	}
+}
+
 func leaf(id string) *entity.PaneNode {
 	return &entity.PaneNode{ID: id, Pane: &entity.Pane{ID: entity.PaneID(id)}}
 }
@@ -292,8 +409,8 @@ func split(dir entity.SplitDirection, left, right *entity.PaneNode) *entity.Pane
 	return root
 }
 
-func stack(id string, panes ...*entity.PaneNode) *entity.PaneNode {
-	n := &entity.PaneNode{ID: id, IsStacked: true, ActiveStackIndex: 0}
+func stack(panes ...*entity.PaneNode) *entity.PaneNode {
+	n := &entity.PaneNode{ID: "stack", IsStacked: true, ActiveStackIndex: 0}
 	children := make([]*entity.PaneNode, 0, len(panes))
 	for _, p := range panes {
 		p.Parent = n

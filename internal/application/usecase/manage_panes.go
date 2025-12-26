@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	domainurl "github.com/bnema/dumber/internal/domain/url"
@@ -65,6 +66,8 @@ type ConsumeOrExpelResult struct {
 	Action       string // "consumed", "expelled", or "none"
 	ErrorMessage string
 }
+
+const consumeOrExpelExpelCycleMarker = "_expel_cycle"
 
 // ManagePanesUseCase handles pane tree operations.
 type ManagePanesUseCase struct {
@@ -1143,7 +1146,7 @@ func (*ManagePanesUseCase) consumeIntoSiblingStack(
 	//  1) horizontal split -> vertical split (target on top)
 	//  2) vertical split -> stack (top then bottom)
 	if direction == ConsumeOrExpelLeft || direction == ConsumeOrExpelRight {
-		cycled, cycleAction, err := cycleHorizontalToVerticalThenStack(ws, activeNode, sibling)
+		cycled, cycleAction, err := cycleHorizontalToVerticalThenStack(ws, activeNode, sibling, direction)
 		if err != nil {
 			return nil, err
 		}
@@ -1218,8 +1221,33 @@ func (uc *ManagePanesUseCase) expelFromStack(
 	}
 
 	// Split around the remaining container (stackNode) with expelled pane.
-	if err := splitExistingNode(ws, stackNode, expelled, direction, uc.idGenerator); err != nil {
-		return nil, err
+	// For left/right, expel cycles stack -> vertical split first:
+	// - left: expelled pane above
+	// - right: expelled pane below
+	splitDirection := direction
+	switch direction {
+	case ConsumeOrExpelLeft:
+		splitDirection = ConsumeOrExpelUp
+	case ConsumeOrExpelRight:
+		splitDirection = ConsumeOrExpelDown
+	}
+
+	if direction == ConsumeOrExpelLeft || direction == ConsumeOrExpelRight {
+		err := splitExistingNodeWithMarker(
+			ws,
+			stackNode,
+			expelled,
+			splitDirection,
+			uc.idGenerator,
+			consumeOrExpelExpelCycleMarker,
+		)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		if err := splitExistingNode(ws, stackNode, expelled, splitDirection, uc.idGenerator); err != nil {
+			return nil, err
+		}
 	}
 	ws.ActivePaneID = expelled.Pane.ID
 
@@ -1300,20 +1328,29 @@ func fallbackSiblingForConsumeOrExpel(node *entity.PaneNode, direction ConsumeOr
 		}
 	}
 
+	// Cross-axis fallback is only used to enable the leaf cycling behavior
+	// (H -> V -> stack, and after expel: V -> H). It should never cause a leaf to
+	// consume into a stacked/split sibling when pressing an unrelated axis key.
+	var sibling *entity.PaneNode
 	if parent.Left() == node {
-		return parent.Right()
+		sibling = parent.Right()
+	} else if parent.Right() == node {
+		sibling = parent.Left()
 	}
-	if parent.Right() == node {
-		return parent.Left()
+	if sibling == nil {
+		return nil
 	}
-
-	return nil
+	if !node.IsLeaf() || !sibling.IsLeaf() {
+		return nil
+	}
+	return sibling
 }
 
 func cycleHorizontalToVerticalThenStack(
 	ws *entity.Workspace,
 	activeNode *entity.PaneNode,
 	sibling *entity.PaneNode,
+	direction ConsumeOrExpelDirection,
 ) (cycled bool, cycleAction string, err error) {
 	if ws == nil {
 		return false, "", fmt.Errorf("workspace is required")
@@ -1332,6 +1369,7 @@ func cycleHorizontalToVerticalThenStack(
 
 	switch parent.SplitDir {
 	case entity.SplitHorizontal:
+		// Horizontal -> Vertical: target sibling should be on top.
 		parent.SplitDir = entity.SplitVertical
 		if parent.Children[0] != sibling {
 			parent.Children[0], parent.Children[1] = parent.Children[1], parent.Children[0]
@@ -1339,6 +1377,26 @@ func cycleHorizontalToVerticalThenStack(
 		ws.ActivePaneID = activeNode.Pane.ID
 		return true, "vertical_split", nil
 	case entity.SplitVertical:
+		// Vertical -> Horizontal when pressing left/right (reverse of first step).
+		// This is used after expel: stack -> vertical; then Ctrl+[ / Ctrl+] should turn it into left/right.
+		if direction == ConsumeOrExpelRight && strings.Contains(parent.ID, consumeOrExpelExpelCycleMarker) {
+			parent.SplitDir = entity.SplitHorizontal
+			if direction == ConsumeOrExpelRight {
+				// Active should become the right child.
+				if parent.Children[1] != activeNode {
+					parent.Children[0], parent.Children[1] = parent.Children[1], parent.Children[0]
+				}
+			} else {
+				// Active should become the left child.
+				if parent.Children[0] != activeNode {
+					parent.Children[0], parent.Children[1] = parent.Children[1], parent.Children[0]
+				}
+			}
+			ws.ActivePaneID = activeNode.Pane.ID
+			return true, "horizontal_split", nil
+		}
+
+		// Otherwise, vertical -> stack.
 		parent.SplitDir = entity.SplitNone
 		parent.SplitRatio = 0
 		parent.IsStacked = true
@@ -1503,6 +1561,72 @@ func splitExistingNode(
 
 	parentNode := &entity.PaneNode{
 		ID:         idGen(),
+		SplitDir:   splitDir,
+		SplitRatio: 0.5,
+		Children:   make([]*entity.PaneNode, 2),
+	}
+
+	switch direction {
+	case ConsumeOrExpelLeft, ConsumeOrExpelUp:
+		parentNode.Children[0] = newSibling
+		parentNode.Children[1] = targetNode
+	case ConsumeOrExpelRight, ConsumeOrExpelDown:
+		parentNode.Children[0] = targetNode
+		parentNode.Children[1] = newSibling
+	}
+
+	newSibling.Parent = parentNode
+	oldParent := targetNode.Parent
+	targetNode.Parent = parentNode
+
+	if oldParent == nil {
+		ws.Root = parentNode
+	} else {
+		for i, child := range oldParent.Children {
+			if child == targetNode {
+				oldParent.Children[i] = parentNode
+				break
+			}
+		}
+		parentNode.Parent = oldParent
+	}
+
+	return nil
+}
+
+func splitExistingNodeWithMarker(
+	ws *entity.Workspace,
+	targetNode *entity.PaneNode,
+	newSibling *entity.PaneNode,
+	direction ConsumeOrExpelDirection,
+	idGen IDGenerator,
+	marker string,
+) error {
+	if ws == nil {
+		return fmt.Errorf("workspace is required")
+	}
+	if targetNode == nil {
+		return fmt.Errorf("target node is required")
+	}
+	if newSibling == nil {
+		return fmt.Errorf("new sibling node is required")
+	}
+	if idGen == nil {
+		return fmt.Errorf("id generator is required")
+	}
+
+	var splitDir entity.SplitDirection
+	switch direction {
+	case ConsumeOrExpelLeft, ConsumeOrExpelRight:
+		splitDir = entity.SplitHorizontal
+	case ConsumeOrExpelUp, ConsumeOrExpelDown:
+		splitDir = entity.SplitVertical
+	default:
+		return fmt.Errorf("invalid direction: %s", direction)
+	}
+
+	parentNode := &entity.PaneNode{
+		ID:         idGen() + marker,
 		SplitDir:   splitDir,
 		SplitRatio: 0.5,
 		Children:   make([]*entity.PaneNode, 2),

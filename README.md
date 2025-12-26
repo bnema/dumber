@@ -32,6 +32,8 @@ The project is now structured around clean architecture, which makes it much eas
 
 Early development with regular releases. Core features work well for daily use but expect some rough edges.
 
+Some features are very alpha/experimental (notably consume-or-expel panes) and may change behavior between releases.
+
 ## Controls & Shortcuts
 
 ### Keyboard Shortcuts
@@ -79,6 +81,8 @@ Early development with regular releases. Core features work well for daily use b
 | **Escape** (in pane mode) | Exit Pane Mode | Return to normal navigation |
 | **Alt+Arrow Keys** | Navigate Panes | Move focus between panes |
 | **Alt+Up/Down** | Navigate Stack | Navigate between stacked panes |
+| **Alt+[** / **Alt+]** | Consume / Expel Pane | Experimental (alpha): merge into sibling stack, or expel out of stack |
+| **Alt+Shift+[** / **Alt+Shift+]** | Consume / Expel Pane (Vertical) | Experimental (alpha): up/down variants |
 
 #### Resize Mode
 | Shortcut | Action | Notes |
