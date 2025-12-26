@@ -199,6 +199,7 @@ func TestSetActivePaneID_UpdatesStyling(t *testing.T) {
 	mockStackBox2.EXPECT().SetVisible(true).Once()
 	mockPaned.EXPECT().SetStartChild(mockStackBox1).Once()
 	mockPaned.EXPECT().SetEndChild(mockStackBox2).Once()
+	mockPaned.EXPECT().ConnectNotifyPosition(mock.Anything).Return(uint32(0)).Once()
 	mockPaned.EXPECT().GetAllocatedWidth().Return(0).Once()
 	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
 	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()

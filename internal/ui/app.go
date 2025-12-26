@@ -70,6 +70,8 @@ type App struct {
 	focusMgr  *focus.Manager
 	borderMgr *focus.BorderManager
 
+	resizeModeBorderTarget layout.Widget
+
 	// Omnibox configuration (omnibox is created per workspace view)
 	omniboxCfg component.OmniboxConfig
 	// Find bar configuration (find bar is created per workspace view)
@@ -910,9 +912,58 @@ func (a *App) handleModeChange(ctx context.Context, from, to input.Mode) {
 	log := logging.FromContext(ctx)
 	log.Debug().Str("from", from.String()).Str("to", to.String()).Msg("input mode changed")
 
-	// Update border overlay visibility based on mode
+	if from == input.ModeResize && to != input.ModeResize {
+		a.clearResizeModeBorder()
+	}
+	if to == input.ModeResize {
+		a.applyResizeModeBorder(ctx, a.activeWorkspace())
+	}
+
+	// Update global border overlay visibility based on mode.
+	// Note: resize mode border is handled per-pane (stack container), not via global overlay.
 	if a.borderMgr != nil {
 		a.borderMgr.OnModeChange(ctx, from, to)
+	}
+}
+
+func (a *App) clearResizeModeBorder() {
+	if a.resizeModeBorderTarget != nil {
+		a.resizeModeBorderTarget.RemoveCssClass("resize-mode-active")
+		a.resizeModeBorderTarget = nil
+	}
+}
+
+func (a *App) applyResizeModeBorder(ctx context.Context, ws *entity.Workspace) {
+	wsView := a.activeWorkspaceView()
+	if wsView == nil || ws == nil {
+		a.clearResizeModeBorder()
+		return
+	}
+
+	paneID := ws.ActivePaneID
+	if paneID == "" {
+		a.clearResizeModeBorder()
+		return
+	}
+
+	// Important: wrap the whole stack container when the active pane is in a stack.
+	target := wsView.GetStackContainerWidget(paneID)
+	if target == nil {
+		a.clearResizeModeBorder()
+		return
+	}
+
+	if !target.HasCssClass("resize-mode-active") {
+		target.AddCssClass("resize-mode-active")
+	}
+
+	if a.resizeModeBorderTarget != target {
+		if a.resizeModeBorderTarget != nil {
+			a.resizeModeBorderTarget.RemoveCssClass("resize-mode-active")
+		} else {
+			logging.FromContext(ctx).Debug().Str("pane_id", string(paneID)).Msg("resize mode border attached")
+		}
+		a.resizeModeBorderTarget = target
 	}
 }
 
@@ -961,13 +1012,29 @@ func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.
 		a.contentCoord.AttachToWorkspace(ctx, tab.Workspace, wsView)
 	}
 
-	// Note: Border overlay is attached to MainWindow, not per-workspace
-	// This ensures it's visible regardless of which tab is active
+	// Note: Mode borders for tab/pane/session are attached to MainWindow.
+	// Resize mode border is attached to the active pane's stack container.
 
 	// Set omnibox config for this workspace view
 	wsView.SetOmniboxConfig(a.omniboxCfg)
 	// Set find bar config for this workspace view
 	wsView.SetFindBarConfig(a.findBarCfg)
+
+	wsView.SetOnPaneFocused(func(paneID entity.PaneID) {
+		if a.keyboardHandler != nil && a.keyboardHandler.Mode() == input.ModeResize {
+			ws := a.activeWorkspace()
+			if ws != nil {
+				ws.ActivePaneID = paneID
+			}
+			a.applyResizeModeBorder(ctx, ws)
+		}
+	})
+
+	wsView.SetOnSplitRatioDragged(func(nodeID string, ratio float64) {
+		if a.wsCoord != nil {
+			_ = a.wsCoord.SetSplitRatio(ctx, nodeID, ratio)
+		}
+	})
 
 	// Store in map
 	a.workspaceViews[tab.ID] = wsView

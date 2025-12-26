@@ -47,7 +47,8 @@ type WorkspaceView struct {
 	workspace *entity.Workspace
 	paneViews map[entity.PaneID]*PaneView
 
-	onPaneFocused func(paneID entity.PaneID)
+	onPaneFocused       func(paneID entity.PaneID)
+	onSplitRatioDragged func(nodeID string, ratio float64)
 
 	mu sync.RWMutex
 }
@@ -128,6 +129,14 @@ func NewWorkspaceView(ctx context.Context, factory layout.WidgetFactory) *Worksp
 
 	// Create tree renderer with our adapter as the pane view factory
 	wv.treeRenderer = layout.NewTreeRenderer(ctx, factory, &paneViewFactoryAdapter{wv: wv, ctx: ctx})
+	wv.treeRenderer.SetOnSplitRatioChanged(func(nodeID string, ratio float64) {
+		wv.mu.RLock()
+		cb := wv.onSplitRatioDragged
+		wv.mu.RUnlock()
+		if cb != nil {
+			cb(nodeID, ratio)
+		}
+	})
 
 	return wv
 }
@@ -301,6 +310,13 @@ func (wv *WorkspaceView) SetOnPaneFocused(fn func(paneID entity.PaneID)) {
 	defer wv.mu.Unlock()
 
 	wv.onPaneFocused = fn
+}
+
+func (wv *WorkspaceView) SetOnSplitRatioDragged(fn func(nodeID string, ratio float64)) {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+
+	wv.onSplitRatioDragged = fn
 }
 
 // Rebuild rebuilds the widget tree from the current workspace.

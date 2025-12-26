@@ -29,6 +29,8 @@ func setupSplitViewMocks(mockPaned *mocks.MockPanedWidget, orientation layout.Or
 		mockPaned.EXPECT().GetAllocatedHeight().Return(0).Once()
 	}
 
+	mockPaned.EXPECT().ConnectNotifyPosition(mock.Anything).Return(uint32(0)).Once()
+
 	// Since allocation is 0, ApplyRatio returns false and callbacks are registered
 	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
 	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()

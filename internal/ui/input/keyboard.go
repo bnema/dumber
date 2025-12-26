@@ -9,6 +9,7 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
+	"github.com/rs/zerolog"
 )
 
 // ActionHandler is called when a keyboard action is triggered.
@@ -145,22 +146,7 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 
 	mode := h.modal.Mode()
 
-	// Look up the action for this key binding
-	action, found := h.shortcuts.Lookup(binding, mode)
-
-	// Fallback: check hardware keycode for Alt+number shortcuts on non-QWERTY layouts
-	// This enables Alt+1-9/0 to work on AZERTY, QWERTZ, and other Latin layouts
-	// where number keys produce different characters without Shift.
-	if !found && mode == ModeNormal && modifiers == ModAlt {
-		if keycodeAction, ok := KeycodeToTabAction[keycode]; ok {
-			action = keycodeAction
-			found = true
-			log.Debug().
-				Uint("keycode", keycode).
-				Str("action", string(action)).
-				Msg("tab switch via hardware keycode fallback (non-QWERTY layout)")
-		}
-	}
+	action, found := h.lookupAction(log, binding, mode, modifiers, keycode)
 
 	if !found {
 		if mode != ModeNormal {
@@ -171,25 +157,7 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 		return false
 	}
 
-	// Handle special mode actions first
-	switch action {
-	case ActionEnterTabMode:
-		timeout := time.Duration(h.cfg.Workspace.TabMode.TimeoutMilliseconds) * time.Millisecond
-		h.modal.EnterTabMode(h.ctx, timeout)
-		return true
-
-	case ActionEnterPaneMode:
-		timeout := time.Duration(h.cfg.Workspace.PaneMode.TimeoutMilliseconds) * time.Millisecond
-		h.modal.EnterPaneMode(h.ctx, timeout)
-		return true
-
-	case ActionEnterSessionMode:
-		timeout := time.Duration(h.cfg.Session.SessionMode.TimeoutMilliseconds) * time.Millisecond
-		h.modal.EnterSessionMode(h.ctx, timeout)
-		return true
-
-	case ActionExitMode:
-		h.modal.ExitMode(h.ctx)
+	if h.handleModeAction(action) {
 		return true
 	}
 
@@ -208,12 +176,91 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 		}
 	}
 
+	// In resize mode, any resize keypress should extend the timeout.
+	if mode == ModeResize && isResizeAction(action) {
+		h.modal.ResetTimeout(h.ctx)
+	}
+
 	// Auto-exit modal mode after certain actions
 	if mode != ModeNormal && ShouldAutoExitMode(action) {
 		h.modal.ExitMode(h.ctx)
 	}
 
 	return true // Consumed the key
+}
+
+func (h *KeyboardHandler) lookupAction(
+	log *zerolog.Logger,
+	binding KeyBinding,
+	mode Mode,
+	modifiers Modifier,
+	keycode uint,
+) (Action, bool) {
+	action, found := h.shortcuts.Lookup(binding, mode)
+
+	// Fallback: check hardware keycode for Alt+number shortcuts on non-QWERTY layouts.
+	if !found && mode == ModeNormal && modifiers == ModAlt {
+		if keycodeAction, ok := KeycodeToTabAction[keycode]; ok {
+			action = keycodeAction
+			found = true
+			if log != nil {
+				log.Debug().
+					Uint("keycode", keycode).
+					Str("action", string(action)).
+					Msg("tab switch via hardware keycode fallback (non-QWERTY layout)")
+			}
+		}
+	}
+
+	return action, found
+}
+
+func isResizeAction(action Action) bool {
+	switch action {
+	case ActionResizeIncreaseLeft,
+		ActionResizeIncreaseRight,
+		ActionResizeIncreaseUp,
+		ActionResizeIncreaseDown,
+		ActionResizeDecreaseLeft,
+		ActionResizeDecreaseRight,
+		ActionResizeDecreaseUp,
+		ActionResizeDecreaseDown,
+		ActionResizeIncrease,
+		ActionResizeDecrease:
+		return true
+	default:
+		return false
+	}
+}
+
+func (h *KeyboardHandler) handleModeAction(action Action) bool {
+	switch action {
+	case ActionEnterTabMode:
+		timeout := time.Duration(h.cfg.Workspace.TabMode.TimeoutMilliseconds) * time.Millisecond
+		h.modal.EnterTabMode(h.ctx, timeout)
+		return true
+	case ActionEnterPaneMode:
+		timeout := time.Duration(h.cfg.Workspace.PaneMode.TimeoutMilliseconds) * time.Millisecond
+		h.modal.EnterPaneMode(h.ctx, timeout)
+		return true
+	case ActionEnterSessionMode:
+		timeout := time.Duration(h.cfg.Session.SessionMode.TimeoutMilliseconds) * time.Millisecond
+		h.modal.EnterSessionMode(h.ctx, timeout)
+		return true
+	case ActionEnterResizeMode:
+		if h.modal.Mode() == ModeResize {
+			h.modal.ExitMode(h.ctx)
+			return true
+		}
+		timeout := time.Duration(h.cfg.Workspace.ResizeMode.TimeoutMilliseconds) * time.Millisecond
+		h.modal.EnterResizeMode(h.ctx, timeout)
+		return true
+	case ActionExitMode:
+		h.modal.ExitMode(h.ctx)
+		return true
+	default:
+		return false
+	}
 }
 
 // EnterTabMode programmatically enters tab mode.

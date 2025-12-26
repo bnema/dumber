@@ -243,6 +243,38 @@ cancel = ["escape"]
 
 > **Note:** Actions are inverted to key→action map in memory for O(1) lookup performance during navigation.
 
+### Resize Mode
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `workspace.resize_mode.activation_shortcut` | string | `"ctrl+n"` | Resize mode activation key |
+| `workspace.resize_mode.timeout_ms` | int | `3000` | Resize mode timeout (ms) |
+| `workspace.resize_mode.step_percent` | float | `5.0` | Split ratio step per keystroke (percent) |
+| `workspace.resize_mode.min_pane_percent` | float | `10.0` | Minimum pane size (percent) |
+| `workspace.resize_mode.actions` | map | See below | Action→keys mappings |
+
+**Default resize mode actions:**
+```toml
+[workspace.resize_mode.actions]
+resize-increase-left = ["h", "arrowleft"]
+resize-increase-down = ["j", "arrowdown"]
+resize-increase-up = ["k", "arrowup"]
+resize-increase-right = ["l", "arrowright"]
+resize-decrease-left = ["H"]
+resize-decrease-down = ["J"]
+resize-decrease-up = ["K"]
+resize-decrease-right = ["L"]
+resize-increase = ["+", "="]
+resize-decrease = ["-"]
+confirm = ["enter"]
+cancel = ["escape"]
+```
+
+Notes:
+- Directional actions (`resize-increase-*/resize-decrease-*`) move the split divider.
+- Smart actions (`resize-increase` / `resize-decrease`) grow/shrink the active pane (best-effort) by picking a direction automatically.
+- Timeout is refreshed on each resize keypress so you can keep adjusting without re-entering the mode.
+
 ### Global Shortcuts
 
 | Key | Type | Default | Description |
@@ -277,6 +309,8 @@ cancel = ["escape"]
 | `workspace.styling.tab_mode_border_color` | string | `"#FFA500"` | Tab mode border color (orange) |
 | `workspace.styling.session_mode_border_width` | int | `4` | Session mode border width (px) - Ctrl+O overlay |
 | `workspace.styling.session_mode_border_color` | string | `"#9B59B6"` | Session mode border color (purple) |
+| `workspace.styling.resize_mode_border_width` | int | `4` | Resize mode border width (px) |
+| `workspace.styling.resize_mode_border_color` | string | `"#00D4AA"` | Resize mode border color (teal) |
 | `workspace.styling.transition_duration` | int | `120` | Border transition duration (ms) |
 
 ## Session

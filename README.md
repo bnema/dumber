@@ -80,6 +80,16 @@ Early development with regular releases. Core features work well for daily use b
 | **Alt+Arrow Keys** | Navigate Panes | Move focus between panes |
 | **Alt+Up/Down** | Navigate Stack | Navigate between stacked panes |
 
+#### Resize Mode
+| Shortcut | Action | Notes |
+|----------|--------|-------|
+| **Ctrl+N** | Enter Resize Mode | Modal mode for pane resizing |
+| **←/↓/↑/→** / **h/j/k/l** (in resize mode) | Move Divider | Resizes the nearest split by moving the divider |
+| **H/J/K/L** (in resize mode) | Move Divider (Inverse) | Inverts the direction |
+| **+ / -** (in resize mode) | Smart Resize | Grow/shrink the active pane (best-effort) |
+| **Enter** (in resize mode) | Confirm | Exit resize mode |
+| **Escape** (in resize mode) | Cancel | Exit resize mode |
+
 #### Session Management
 | Shortcut | Action | Notes |
 |----------|--------|-------|
@@ -91,6 +101,7 @@ Early development with regular releases. Core features work well for daily use b
 ### Mouse Controls
 | Action | Result | Notes |
 |--------|---------|-------|
+| **Drag pane divider** | Resize panes | Updates split ratio and persists in session snapshots |
 | **Ctrl+Scroll Up** | Zoom In | Smooth zoom control |
 | **Ctrl+Scroll Down** | Zoom Out | Smooth zoom control |
 | **Mouse Button 8** | Navigate Back | Side button (back) |
@@ -293,7 +304,7 @@ Split your browser window into multiple panes, each running independent web sess
 
 ## Session Management
 
-Dumber automatically saves your browser session (tabs, panes, splits, URLs) and allows you to restore previous sessions.
+Dumber automatically saves your browser session (tabs, panes, split ratios, URLs) and allows you to restore previous sessions.
 
 ### How it Works
 1. **Automatic Snapshots**: Session state is saved automatically (debounced, every 5s by default) and on graceful shutdown

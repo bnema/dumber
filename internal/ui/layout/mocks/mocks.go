@@ -1495,6 +1495,57 @@ func (_c *MockPanedWidget_ConnectMap_Call) RunAndReturn(run func(callback func()
 	return _c
 }
 
+// ConnectNotifyPosition provides a mock function for the type MockPanedWidget
+func (_mock *MockPanedWidget) ConnectNotifyPosition(callback func()) uint32 {
+	ret := _mock.Called(callback)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ConnectNotifyPosition")
+	}
+
+	var r0 uint32
+	if returnFunc, ok := ret.Get(0).(func(func()) uint32); ok {
+		r0 = returnFunc(callback)
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+	return r0
+}
+
+// MockPanedWidget_ConnectNotifyPosition_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ConnectNotifyPosition'
+type MockPanedWidget_ConnectNotifyPosition_Call struct {
+	*mock.Call
+}
+
+// ConnectNotifyPosition is a helper method to define mock.On call
+//   - callback func()
+func (_e *MockPanedWidget_Expecter) ConnectNotifyPosition(callback interface{}) *MockPanedWidget_ConnectNotifyPosition_Call {
+	return &MockPanedWidget_ConnectNotifyPosition_Call{Call: _e.mock.On("ConnectNotifyPosition", callback)}
+}
+
+func (_c *MockPanedWidget_ConnectNotifyPosition_Call) Run(run func(callback func())) *MockPanedWidget_ConnectNotifyPosition_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 func()
+		if args[0] != nil {
+			arg0 = args[0].(func())
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockPanedWidget_ConnectNotifyPosition_Call) Return(v uint32) *MockPanedWidget_ConnectNotifyPosition_Call {
+	_c.Call.Return(v)
+	return _c
+}
+
+func (_c *MockPanedWidget_ConnectNotifyPosition_Call) RunAndReturn(run func(callback func()) uint32) *MockPanedWidget_ConnectNotifyPosition_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetAllocatedHeight provides a mock function for the type MockPanedWidget
 func (_mock *MockPanedWidget) GetAllocatedHeight() int {
 	ret := _mock.Called()
