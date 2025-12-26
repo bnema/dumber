@@ -126,6 +126,17 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 		input.ActionFocusLeft:  func(ctx context.Context) error { return d.wsCoord.FocusPane(ctx, usecase.NavLeft) },
 		input.ActionFocusUp:    func(ctx context.Context) error { return d.wsCoord.FocusPane(ctx, usecase.NavUp) },
 		input.ActionFocusDown:  func(ctx context.Context) error { return d.wsCoord.FocusPane(ctx, usecase.NavDown) },
+		// Resize actions
+		input.ActionResizeIncreaseLeft:  func(ctx context.Context) error { return d.wsCoord.Resize(ctx, usecase.ResizeIncreaseLeft) },
+		input.ActionResizeIncreaseRight: func(ctx context.Context) error { return d.wsCoord.Resize(ctx, usecase.ResizeIncreaseRight) },
+		input.ActionResizeIncreaseUp:    func(ctx context.Context) error { return d.wsCoord.Resize(ctx, usecase.ResizeIncreaseUp) },
+		input.ActionResizeIncreaseDown:  func(ctx context.Context) error { return d.wsCoord.Resize(ctx, usecase.ResizeIncreaseDown) },
+		input.ActionResizeDecreaseLeft:  func(ctx context.Context) error { return d.wsCoord.Resize(ctx, usecase.ResizeDecreaseLeft) },
+		input.ActionResizeDecreaseRight: func(ctx context.Context) error { return d.wsCoord.Resize(ctx, usecase.ResizeDecreaseRight) },
+		input.ActionResizeDecreaseUp:    func(ctx context.Context) error { return d.wsCoord.Resize(ctx, usecase.ResizeDecreaseUp) },
+		input.ActionResizeDecreaseDown:  func(ctx context.Context) error { return d.wsCoord.Resize(ctx, usecase.ResizeDecreaseDown) },
+		input.ActionResizeIncrease:      func(ctx context.Context) error { return d.wsCoord.Resize(ctx, usecase.ResizeIncrease) },
+		input.ActionResizeDecrease:      func(ctx context.Context) error { return d.wsCoord.Resize(ctx, usecase.ResizeDecrease) },
 		// Stack navigation
 		input.ActionStackNavUp:   func(ctx context.Context) error { return d.wsCoord.NavigateStack(ctx, "up") },
 		input.ActionStackNavDown: func(ctx context.Context) error { return d.wsCoord.NavigateStack(ctx, "down") },
