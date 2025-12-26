@@ -76,6 +76,9 @@ func (bm *BorderManager) OnModeChange(ctx context.Context, from, to input.Mode) 
 		bm.borderOverlay.SetVisible(true)
 	case input.ModeNormal:
 		bm.borderOverlay.SetVisible(false)
+	default:
+		// Resize mode is handled by per-pane stack border, not global overlay.
+		bm.borderOverlay.SetVisible(false)
 	}
 
 	bm.currentMode = to
