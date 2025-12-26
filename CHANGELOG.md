@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **Zellij-style pane resize mode**: New modal resize mode (`Ctrl+N`) to adjust split sizes with keyboard (`h/j/k/l` or arrow keys, `+/-` smart resize). Shows a per-pane border indicator and keeps the timeout alive while you resize.
+- **Mouse-driven pane resizing**: Drag split dividers with the mouse; split ratios are persisted in session snapshots (rounded to 2 decimals) and restored on resurrection.
 - **Dynamic window title**: Window title now displays the active pane's page title in format `<Page Title> - Dumber`. Updates when switching tabs/panes or navigating. Truncated at 255 characters.
 - **Link URL status overlay**: Shows destination URL in bottom-left corner when hovering over links, images, or media elements. Standard browser UX pattern with 100ms show delay to avoid flicker and 150ms CSS fade transitions. Configurable via CSS.
 - **Local file path support**: `dumber browse test.html` now correctly opens local HTML files by converting existing file paths to `file://` URLs. Supports absolute paths, relative paths, and `~/` home directory expansion.
