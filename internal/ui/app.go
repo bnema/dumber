@@ -335,6 +335,7 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 	a.globalShortcutHandler = input.NewGlobalShortcutHandler(
 		ctx,
 		a.mainWindow.Window(),
+		a.deps.Config,
 		func(ctx context.Context, action input.Action) error {
 			return a.kbDispatcher.Dispatch(ctx, action)
 		},
