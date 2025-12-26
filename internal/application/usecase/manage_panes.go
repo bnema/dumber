@@ -221,19 +221,9 @@ func (uc *ManagePanesUseCase) Resize(
 	actualDir := dir
 	switch dir {
 	case ResizeIncrease:
-		actualDir = findFirstAvailableDirection(target, []ResizeDirection{
-			ResizeIncreaseRight,
-			ResizeIncreaseDown,
-			ResizeIncreaseLeft,
-			ResizeIncreaseUp,
-		})
+		actualDir = findSmartResizeDirection(target, true)
 	case ResizeDecrease:
-		actualDir = findFirstAvailableDirection(target, []ResizeDirection{
-			ResizeDecreaseLeft,
-			ResizeDecreaseUp,
-			ResizeDecreaseRight,
-			ResizeDecreaseDown,
-		})
+		actualDir = findSmartResizeDirection(target, false)
 	}
 	if actualDir == "" {
 		return ErrNothingToResize
@@ -270,18 +260,55 @@ func (uc *ManagePanesUseCase) Resize(
 	return nil
 }
 
-func findFirstAvailableDirection(target *entity.PaneNode, dirs []ResizeDirection) ResizeDirection {
-	for _, d := range dirs {
-		axis, ok := axisForResizeDirection(d)
-		if !ok {
-			continue
-		}
-		splitNode := findNearestSplitForAxis(target, axis)
-		if splitNode != nil {
-			return d
-		}
+func findSmartResizeDirection(target *entity.PaneNode, growActive bool) ResizeDirection {
+	splitNode, axis, isStartChild := findNearestSplitForResize(target)
+	if splitNode == nil {
+		return ""
 	}
-	return ""
+
+	// Smart resize means "grow/shrink the active pane".
+	// SplitRatio is the proportion allocated to the first child (left/top).
+	// - If active is first child: grow by increasing ratio, shrink by decreasing.
+	// - If active is second child: grow by decreasing ratio, shrink by increasing.
+	growMeansIncreaseRatio := isStartChild
+	if !growActive {
+		growMeansIncreaseRatio = !growMeansIncreaseRatio
+	}
+
+	switch axis {
+	case resizeAxisHorizontal:
+		if growMeansIncreaseRatio {
+			return ResizeIncreaseRight
+		}
+		return ResizeIncreaseLeft
+	case resizeAxisVertical:
+		if growMeansIncreaseRatio {
+			return ResizeIncreaseDown
+		}
+		return ResizeIncreaseUp
+	default:
+		return ""
+	}
+}
+
+// findNearestSplitForResize returns the nearest split ancestor for the active pane.
+// It prefers horizontal splits over vertical when both are available at the same depth.
+func findNearestSplitForResize(node *entity.PaneNode) (splitNode *entity.PaneNode, axis resizeAxis, isStartChild bool) {
+	current := node
+	for current != nil && current.Parent != nil {
+		parent := current.Parent
+		if parent.IsSplit() {
+			isStartChild = parent.Left() == current
+			switch parent.SplitDir {
+			case entity.SplitHorizontal:
+				return parent, resizeAxisHorizontal, isStartChild
+			case entity.SplitVertical:
+				return parent, resizeAxisVertical, isStartChild
+			}
+		}
+		current = parent
+	}
+	return nil, resizeAxisNone, false
 }
 
 type resizeAxis int

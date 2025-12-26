@@ -80,6 +80,16 @@ Early development with regular releases. Core features work well for daily use b
 | **Alt+Arrow Keys** | Navigate Panes | Move focus between panes |
 | **Alt+Up/Down** | Navigate Stack | Navigate between stacked panes |
 
+#### Resize Mode
+| Shortcut | Action | Notes |
+|----------|--------|-------|
+| **Ctrl+N** | Enter Resize Mode | Modal mode for pane resizing |
+| **←/↓/↑/→** / **h/j/k/l** (in resize mode) | Move Divider | Resizes the nearest split by moving the divider |
+| **H/J/K/L** (in resize mode) | Move Divider (Inverse) | Inverts the direction |
+| **+ / -** (in resize mode) | Smart Resize | Grow/shrink the active pane (best-effort) |
+| **Enter** (in resize mode) | Confirm | Exit resize mode |
+| **Escape** (in resize mode) | Cancel | Exit resize mode |
+
 #### Session Management
 | Shortcut | Action | Notes |
 |----------|--------|-------|
