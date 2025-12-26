@@ -35,6 +35,7 @@ type SplitView struct {
 const maxRetryFrames = 120
 
 const notifyPositionDebounceDelay = 100 * time.Millisecond
+const notifyPositionSuppressAfterApplyDelay = 50 * time.Millisecond
 
 // NewSplitView creates a new split view with the given orientation and children.
 // The ratio determines the initial divider position (0.0-1.0).
@@ -226,7 +227,7 @@ func (sv *SplitView) ApplyRatio() bool {
 	// Avoid treating programmatic SetPosition as a user resize.
 	// We suppress notify::position briefly; GTK may emit during/after SetPosition.
 	sv.mu.Lock()
-	sv.suppressNotifyUntil = time.Now().Add(50 * time.Millisecond)
+	sv.suppressNotifyUntil = time.Now().Add(notifyPositionSuppressAfterApplyDelay)
 	sv.mu.Unlock()
 
 	sv.paned.SetPosition(position)
