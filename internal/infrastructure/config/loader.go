@@ -309,6 +309,7 @@ func (m *Manager) setDefaults() {
 	m.setDebugDefaults(defaults)
 	m.setAppearanceDefaults(defaults)
 	m.setRenderingDefaults(defaults)
+	m.setDefaultsDefaults(defaults)
 	m.setWorkspaceDefaults(defaults)
 	m.setContentFilteringDefaults(defaults)
 	m.setOmniboxDefaults(defaults)
@@ -377,6 +378,11 @@ func (m *Manager) setRenderingDefaults(defaults *Config) {
 	m.viper.SetDefault("rendering.debug_frames", defaults.Rendering.DebugFrames)
 	m.viper.SetDefault("default_webpage_zoom", defaults.DefaultWebpageZoom)
 	m.viper.SetDefault("default_ui_scale", defaults.DefaultUIScale)
+}
+
+func (m *Manager) setDefaultsDefaults(defaults *Config) {
+	m.viper.SetDefault("defaults.new_pane_url", defaults.Defaults.NewPaneURL)
+	m.viper.SetDefault("defaults.auto_open_omnibox_on_new_pane", defaults.Defaults.AutoOpenOmniboxOnNewPane)
 }
 
 func (m *Manager) setWorkspaceDefaults(defaults *Config) {

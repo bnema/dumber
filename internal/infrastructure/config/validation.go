@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
+	domainurl "github.com/bnema/dumber/internal/domain/url"
 	domainvalidation "github.com/bnema/dumber/internal/domain/validation"
 )
 
@@ -21,6 +23,7 @@ func validateConfig(config *Config) error {
 	validationErrors = append(validationErrors, validateTabBar(config)...)
 	validationErrors = append(validationErrors, validateTabMode(config)...)
 	validationErrors = append(validationErrors, validateLogging(config)...)
+	validationErrors = append(validationErrors, validateDefaults(config)...)
 	validationErrors = append(validationErrors, validateOmnibox(config)...)
 	validationErrors = append(validationErrors, validateRendering(config)...)
 	validationErrors = append(validationErrors, validateColorScheme(config)...)
@@ -243,6 +246,37 @@ func validateLogging(config *Config) []string {
 			config.Logging.Format,
 		))
 	}
+	return validationErrors
+}
+
+func validateDefaults(config *Config) []string {
+	var validationErrors []string
+
+	if config.Defaults.NewPaneURL == "" {
+		validationErrors = append(validationErrors, "defaults.new_pane_url cannot be empty")
+		return validationErrors
+	}
+
+	normalized := domainurl.Normalize(config.Defaults.NewPaneURL)
+	parsed, err := url.Parse(normalized)
+	if err != nil {
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"defaults.new_pane_url must be a valid URL (got: %s)",
+			config.Defaults.NewPaneURL,
+		))
+		return validationErrors
+	}
+
+	switch parsed.Scheme {
+	case "http", "https", "dumb", "file", "about":
+		// ok
+	default:
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"defaults.new_pane_url must use one of: http, https, dumb, file, about (got: %s)",
+			parsed.Scheme,
+		))
+	}
+
 	return validationErrors
 }
 
