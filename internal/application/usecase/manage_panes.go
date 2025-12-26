@@ -260,6 +260,55 @@ func (uc *ManagePanesUseCase) Resize(
 	return nil
 }
 
+type SetSplitRatioInput struct {
+	Workspace      *entity.Workspace
+	SplitNodeID    string
+	Ratio          float64
+	MinPanePercent float64
+}
+
+func (uc *ManagePanesUseCase) SetSplitRatio(ctx context.Context, input SetSplitRatioInput) error {
+	log := logging.FromContext(ctx)
+	if uc == nil {
+		return fmt.Errorf("manage panes use case is nil")
+	}
+	if input.Workspace == nil {
+		return fmt.Errorf("workspace is required")
+	}
+	if input.Workspace.Root == nil {
+		return ErrNothingToResize
+	}
+	if input.SplitNodeID == "" {
+		return fmt.Errorf("split node id is required")
+	}
+
+	var splitNode *entity.PaneNode
+	input.Workspace.Root.Walk(func(node *entity.PaneNode) bool {
+		if node.ID == input.SplitNodeID {
+			splitNode = node
+			return false
+		}
+		return true
+	})
+
+	if splitNode == nil || !splitNode.IsSplit() {
+		return fmt.Errorf("split node not found: %s", input.SplitNodeID)
+	}
+
+	minRatio := input.MinPanePercent / 100.0
+	maxRatio := 1.0 - minRatio
+	oldRatio := splitNode.SplitRatio
+	splitNode.SplitRatio = clampFloat64(input.Ratio, minRatio, maxRatio)
+
+	log.Debug().
+		Str("split_node_id", input.SplitNodeID).
+		Float64("old_ratio", oldRatio).
+		Float64("new_ratio", splitNode.SplitRatio).
+		Msg("split ratio set")
+
+	return nil
+}
+
 func findSmartResizeDirection(target *entity.PaneNode, growActive bool) ResizeDirection {
 	splitNode, axis, isStartChild := findNearestSplitForResize(target)
 	if splitNode == nil {

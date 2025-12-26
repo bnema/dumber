@@ -1030,6 +1030,12 @@ func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.
 		}
 	})
 
+	wsView.SetOnSplitRatioDragged(func(nodeID string, ratio float64) {
+		if a.wsCoord != nil {
+			_ = a.wsCoord.SetSplitRatio(ctx, nodeID, ratio)
+		}
+	})
+
 	// Store in map
 	a.workspaceViews[tab.ID] = wsView
 
