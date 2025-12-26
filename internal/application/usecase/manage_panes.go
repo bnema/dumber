@@ -1381,16 +1381,9 @@ func cycleHorizontalToVerticalThenStack(
 		// This is used after expel: stack -> vertical; then Ctrl+[ / Ctrl+] should turn it into left/right.
 		if direction == ConsumeOrExpelRight && strings.Contains(parent.ID, consumeOrExpelExpelCycleMarker) {
 			parent.SplitDir = entity.SplitHorizontal
-			if direction == ConsumeOrExpelRight {
-				// Active should become the right child.
-				if parent.Children[1] != activeNode {
-					parent.Children[0], parent.Children[1] = parent.Children[1], parent.Children[0]
-				}
-			} else {
-				// Active should become the left child.
-				if parent.Children[0] != activeNode {
-					parent.Children[0], parent.Children[1] = parent.Children[1], parent.Children[0]
-				}
+			// Active should become the right child.
+			if parent.Children[1] != activeNode {
+				parent.Children[0], parent.Children[1] = parent.Children[1], parent.Children[0]
 			}
 			ws.ActivePaneID = activeNode.Pane.ID
 			return true, "horizontal_split", nil
