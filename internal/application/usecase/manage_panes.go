@@ -331,10 +331,10 @@ func axisForResizeDirection(dir ResizeDirection) (resizeAxis, bool) {
 }
 
 func deltaForDividerMove(dir ResizeDirection, stepPercent float64) float64 {
-	delta := stepPercent / 100.0
-	if delta < 0 {
-		delta = -delta
+	if stepPercent < 0 {
+		stepPercent = -stepPercent
 	}
+	delta := stepPercent / 100.0
 
 	switch dir {
 	case ResizeIncreaseRight, ResizeIncreaseDown:

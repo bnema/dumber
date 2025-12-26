@@ -953,16 +953,16 @@ func (a *App) applyResizeModeBorder(ctx context.Context, ws *entity.Workspace) {
 		return
 	}
 
-	if a.resizeModeBorderTarget != nil && a.resizeModeBorderTarget != target {
-		a.resizeModeBorderTarget.RemoveCssClass("resize-mode-active")
-	}
 	if !target.HasCssClass("resize-mode-active") {
 		target.AddCssClass("resize-mode-active")
 	}
-	if a.resizeModeBorderTarget == nil {
-		logging.FromContext(ctx).Debug().Str("pane_id", string(paneID)).Msg("resize mode border attached")
-	}
+
 	if a.resizeModeBorderTarget != target {
+		if a.resizeModeBorderTarget != nil {
+			a.resizeModeBorderTarget.RemoveCssClass("resize-mode-active")
+		} else {
+			logging.FromContext(ctx).Debug().Str("pane_id", string(paneID)).Msg("resize mode border attached")
+		}
 		a.resizeModeBorderTarget = target
 	}
 }
