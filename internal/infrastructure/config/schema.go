@@ -383,6 +383,11 @@ type GlobalShortcutsConfig struct {
 	ClosePane   string `mapstructure:"close_pane" yaml:"close_pane" toml:"close_pane" json:"close_pane"`
 	NextTab     string `mapstructure:"next_tab" yaml:"next_tab" toml:"next_tab" json:"next_tab"`
 	PreviousTab string `mapstructure:"previous_tab" yaml:"previous_tab" toml:"previous_tab" json:"previous_tab"`
+
+	ConsumeOrExpelLeft  string `mapstructure:"consume_or_expel_left" yaml:"consume_or_expel_left" toml:"consume_or_expel_left" json:"consume_or_expel_left"`     //nolint:lll // struct tags must stay on one line
+	ConsumeOrExpelRight string `mapstructure:"consume_or_expel_right" yaml:"consume_or_expel_right" toml:"consume_or_expel_right" json:"consume_or_expel_right"` //nolint:lll // struct tags must stay on one line
+	ConsumeOrExpelUp    string `mapstructure:"consume_or_expel_up" yaml:"consume_or_expel_up" toml:"consume_or_expel_up" json:"consume_or_expel_up"`             //nolint:lll // struct tags must stay on one line
+	ConsumeOrExpelDown  string `mapstructure:"consume_or_expel_down" yaml:"consume_or_expel_down" toml:"consume_or_expel_down" json:"consume_or_expel_down"`     //nolint:lll // struct tags must stay on one line
 }
 
 // PopupBehavior defines how popup windows should be opened

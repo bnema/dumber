@@ -22,6 +22,9 @@ const (
 	KeycodeDigit8 uint = 17 // Physical '8' key position
 	KeycodeDigit9 uint = 18 // Physical '9' key position
 	KeycodeDigit0 uint = 19 // Physical '0' key position
+
+	KeycodeBracketLeft  uint = 34 // Physical '[' key position (US layout)
+	KeycodeBracketRight uint = 35 // Physical ']' key position (US layout)
 )
 
 // KeycodeToTabAction maps hardware keycodes for the number row to tab switch actions.
@@ -38,6 +41,20 @@ var KeycodeToTabAction = map[uint]Action{
 	KeycodeDigit8: ActionSwitchTabIndex8,
 	KeycodeDigit9: ActionSwitchTabIndex9,
 	KeycodeDigit0: ActionSwitchTabIndex10,
+}
+
+var KeycodeToBracketAction = map[uint]struct {
+	NoShift   Action
+	WithShift Action
+}{
+	KeycodeBracketLeft: {
+		NoShift:   ActionConsumeOrExpelLeft,
+		WithShift: ActionConsumeOrExpelUp,
+	},
+	KeycodeBracketRight: {
+		NoShift:   ActionConsumeOrExpelRight,
+		WithShift: ActionConsumeOrExpelDown,
+	},
 }
 
 // KeycodeToDigitIndex converts a hardware keycode to a digit index (0-9).

@@ -166,6 +166,12 @@ func DefaultConfig() *Config {
 					"split-down":  {"arrowdown", "d"},
 					"stack-pane":  {"s"},
 					"close-pane":  {"x"},
+
+					"consume-or-expel-left":  {"bracketleft", "["},
+					"consume-or-expel-right": {"bracketright", "]"},
+					"consume-or-expel-up":    {"shift+bracketleft", "braceleft", "{"},
+					"consume-or-expel-down":  {"shift+bracketright", "braceright", "}"},
+
 					"focus-right": {"shift+arrowright", "shift+l"},
 					"focus-left":  {"shift+arrowleft", "shift+h"},
 					"focus-up":    {"shift+arrowup", "shift+k"},
@@ -211,6 +217,11 @@ func DefaultConfig() *Config {
 				ClosePane:   "ctrl+w",
 				NextTab:     "ctrl+tab",
 				PreviousTab: "ctrl+shift+tab",
+
+				ConsumeOrExpelLeft:  "alt+bracketleft",
+				ConsumeOrExpelRight: "alt+bracketright",
+				ConsumeOrExpelUp:    "alt+shift+bracketleft",
+				ConsumeOrExpelDown:  "alt+shift+bracketright",
 			},
 			TabBarPosition:          defaultTabBarPosition,
 			HideTabBarWhenSingleTab: true,
