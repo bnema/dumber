@@ -299,6 +299,8 @@ type WorkspaceConfig struct {
 	PaneMode PaneModeConfig `mapstructure:"pane_mode" yaml:"pane_mode" toml:"pane_mode" json:"pane_mode"`
 	// TabMode defines modal tab behavior and bindings (Alt+T).
 	TabMode TabModeConfig `mapstructure:"tab_mode" yaml:"tab_mode" toml:"tab_mode" json:"tab_mode"`
+	// ResizeMode defines modal pane resizing behavior and bindings (Ctrl+N).
+	ResizeMode ResizeModeConfig `mapstructure:"resize_mode" yaml:"resize_mode" toml:"resize_mode" json:"resize_mode"`
 	// Shortcuts holds global (non-modal) keyboard shortcuts.
 	Shortcuts GlobalShortcutsConfig `mapstructure:"shortcuts" yaml:"shortcuts" toml:"shortcuts" json:"shortcuts"`
 	// TabBarPosition determines tab bar placement: "top" or "bottom".
@@ -342,6 +344,27 @@ type TabModeConfig struct {
 func (t *TabModeConfig) GetKeyBindings() map[string]string {
 	keyToAction := make(map[string]string)
 	for action, keys := range t.Actions {
+		for _, key := range keys {
+			keyToAction[key] = action
+		}
+	}
+	return keyToAction
+}
+
+// ResizeModeConfig defines modal behavior for resizing panes (Zellij-style).
+type ResizeModeConfig struct {
+	ActivationShortcut  string              `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
+	TimeoutMilliseconds int                 `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
+	StepPercent         float64             `mapstructure:"step_percent" yaml:"step_percent" toml:"step_percent" json:"step_percent"`
+	MinPanePercent      float64             `mapstructure:"min_pane_percent" yaml:"min_pane_percent" toml:"min_pane_percent" json:"min_pane_percent"` //nolint:lll // struct tags must stay on one line
+	Actions             map[string][]string `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
+}
+
+// GetKeyBindings returns an inverted map for O(1) key→action lookup.
+// This is built from the action→keys structure in the config.
+func (r *ResizeModeConfig) GetKeyBindings() map[string]string {
+	keyToAction := make(map[string]string)
+	for action, keys := range r.Actions {
 		for _, key := range keys {
 			keyToAction[key] = action
 		}
@@ -421,6 +444,12 @@ type WorkspaceStylingConfig struct {
 	// SessionModeBorderColor for the session mode indicator border (CSS color value or theme variable)
 	// Defaults to "#9B59B6" (purple) if not set - MUST be different from other mode colors
 	SessionModeBorderColor string `mapstructure:"session_mode_border_color" yaml:"session_mode_border_color" toml:"session_mode_border_color" json:"session_mode_border_color"` //nolint:lll // struct tags must stay on one line
+
+	// ResizeModeBorderWidth in pixels for resize mode indicator border (Ctrl+N overlay)
+	ResizeModeBorderWidth int `mapstructure:"resize_mode_border_width" yaml:"resize_mode_border_width" toml:"resize_mode_border_width" json:"resize_mode_border_width"` //nolint:lll // struct tags must stay on one line
+	// ResizeModeBorderColor for the resize mode indicator border (CSS color value or theme variable)
+	// Defaults to "#00D4AA" (cyan/teal) if not set - MUST be different from other mode colors
+	ResizeModeBorderColor string `mapstructure:"resize_mode_border_color" yaml:"resize_mode_border_color" toml:"resize_mode_border_color" json:"resize_mode_border_color"` //nolint:lll // struct tags must stay on one line
 
 	// TransitionDuration in milliseconds for border animations
 	TransitionDuration int `mapstructure:"transition_duration" yaml:"transition_duration" toml:"transition_duration" json:"transition_duration"` //nolint:lll // struct tags must stay on one line
