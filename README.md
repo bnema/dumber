@@ -234,44 +234,49 @@ sudo apt install va-driver-all
   - The resulting `./dist/dumber-no-gui` binary runs CLI flows with GUI code stubbed
 
 ## Usage
-- Open a URL or search:
+- Open a URL, local file, or search:
   - `dumber browse https://example.com`
-  - `dumber browse example.com`        # scheme auto‑added
-  - `dumber browse dumb://home`        # built-in home page (stats, shortcuts, etc.)
-  - `dumber browse "!g golang"`         # Google search via bang shortcut
+  - `dumber browse example.com`         # scheme auto‑added
+  - `dumber browse ./test.html`         # local file path (converted to file://)
+  - `dumber browse dumb://home`         # built-in home page (stats, shortcuts, etc.)
+  - `dumber browse "!g golang"`        # search via bang shortcut
 - Show version information:
-  - `dumber about`                     # display version, commit, and build date
+  - `dumber about`                      # version, commit, and build date
 - Launcher integration (dmenu‑style examples with favicon support):
   - rofi:   `dumber dmenu | rofi -dmenu -show-icons -p "🔍 " | dumber dmenu --select`
   - fuzzel: `dumber dmenu | fuzzel --dmenu -p "🔍 " | dumber dmenu --select`
+  - `dumber dmenu --interactive`        # built-in TUI fuzzy finder
+  - `dumber dmenu --max 200`            # limit output entries
 - Manage browsing history:
-  - `dumber history`                  # interactive history browser (timeline tabs + fuzzy search)
-  - `dumber history --json`           # output recent entries as JSON
-  - `dumber history --json --max 50`  # limit JSON output to N entries
-  - `dumber history stats`            # show history statistics
-  - `dumber history clear`            # interactive cleanup (select time range)
-- Clean up data and cache:
-  - `dumber purge`                        # purge all data (with confirmation)
-  - `dumber purge --force`                # purge all data (no confirmation)
-  - `dumber purge -d -H -c`               # purge database and both caches
-  - `dumber purge --browser-data`         # purge WebKit data (cookies, etc.)
+  - `dumber history`                    # interactive history browser (timeline tabs + fuzzy search)
+  - `dumber history --json`             # output recent entries as JSON
+  - `dumber history --json --max 50`    # limit JSON output to N entries
+  - `dumber history stats`              # show history statistics
+  - `dumber history clear`              # interactive time-range cleanup
+- Clean up data:
+  - `dumber purge`                      # interactive selection (TUI)
+  - `dumber purge --force`              # remove everything (no prompts)
 - Manage sessions:
-  - `dumber sessions`                     # interactive session browser (TUI)
-  - `dumber sessions list`                # list saved sessions
-  - `dumber sessions list --json`         # output sessions as JSON
-  - `dumber sessions restore <id>`        # restore a session in new window
-  - `dumber sessions delete <id>`         # delete a saved session
+  - `dumber sessions`                   # interactive session browser (TUI)
+  - `dumber sessions list`              # list saved sessions
+  - `dumber sessions list --json`       # output sessions as JSON
+  - `dumber sessions list --limit 50`   # limit number of sessions shown
+  - `dumber sessions restore <id>`      # restore a session in a new window
+  - `dumber sessions delete <id>`       # delete a saved session
 - Manage logs:
-  - `dumber logs list`                    # list available log files
-  - `dumber logs tail`                    # tail current log file
-  - `dumber logs clean`                   # clean up old log files
+  - `dumber logs`                       # list sessions with log files
+  - `dumber logs <session>`             # show logs for a session (full ID or unique suffix)
+  - `dumber logs -f <session>`          # follow logs in real time
+  - `dumber logs -n 200 <session>`      # show last N lines
+  - `dumber logs clear`                 # clean up old log files
+  - `dumber logs clear --all`           # remove all log files
 
 ### Dmenu mode invocation
 You can invoke dmenu mode in two ways:
-- Subcommand (recommended): `dumber dmenu` … and `dumber dmenu --select`
-- Root flag (generate options only): `dumber --dmenu`
+- Piped launcher (generate options): `dumber dmenu`
+- Receive selection from stdin: `dumber dmenu --select`
 
-Note: The root flag path only generates options; for processing a selection (`--select`), use the `dmenu` subcommand as the receiving command.
+For a built-in fuzzy finder UI, use: `dumber dmenu --interactive`
 
 In GUI mode the app serves an embedded home page via `dumb://home`, and frontend assets under `dumb://app/...`.
 
