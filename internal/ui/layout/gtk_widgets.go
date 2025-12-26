@@ -1,7 +1,9 @@
 package layout
 
 import (
+	"github.com/jwijenbergh/purego"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
+	"github.com/jwijenbergh/puregotk/v4/gobject"
 	"github.com/jwijenbergh/puregotk/v4/graphene"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 	"github.com/jwijenbergh/puregotk/v4/pango"
@@ -160,6 +162,13 @@ func (p *gtkPaned) ConnectMap(callback func()) uint32 {
 		callback()
 	}
 	return p.inner.ConnectMap(&cb)
+}
+
+func (p *gtkPaned) ConnectNotifyPosition(callback func()) uint32 {
+	cbPtr := purego.NewCallback(func() {
+		callback()
+	})
+	return gobject.SignalConnect(p.inner.GoPointer(), "notify::position", cbPtr)
 }
 
 func (p *gtkPaned) AddTickCallback(callback func() bool) uint {

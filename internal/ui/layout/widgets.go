@@ -95,6 +95,7 @@ type PanedWidget interface {
 
 	// Signals
 	ConnectMap(callback func()) uint32
+	ConnectNotifyPosition(callback func()) uint32
 
 	// Tick callback for frame-based updates (returns signal ID)
 	// Callback returns true to continue, false to stop
