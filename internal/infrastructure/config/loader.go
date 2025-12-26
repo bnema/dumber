@@ -309,7 +309,6 @@ func (m *Manager) setDefaults() {
 	m.setDebugDefaults(defaults)
 	m.setAppearanceDefaults(defaults)
 	m.setRenderingDefaults(defaults)
-	m.setDefaultsDefaults(defaults)
 	m.setWorkspaceDefaults(defaults)
 	m.setContentFilteringDefaults(defaults)
 	m.setOmniboxDefaults(defaults)
@@ -380,12 +379,8 @@ func (m *Manager) setRenderingDefaults(defaults *Config) {
 	m.viper.SetDefault("default_ui_scale", defaults.DefaultUIScale)
 }
 
-func (m *Manager) setDefaultsDefaults(defaults *Config) {
-	m.viper.SetDefault("defaults.new_pane_url", defaults.Defaults.NewPaneURL)
-	m.viper.SetDefault("defaults.auto_open_omnibox_on_new_pane", defaults.Defaults.AutoOpenOmniboxOnNewPane)
-}
-
 func (m *Manager) setWorkspaceDefaults(defaults *Config) {
+	m.viper.SetDefault("workspace.new_pane_url", defaults.Workspace.NewPaneURL)
 	m.viper.SetDefault("workspace.pane_mode.activation_shortcut", defaults.Workspace.PaneMode.ActivationShortcut)
 	m.viper.SetDefault("workspace.pane_mode.timeout_ms", defaults.Workspace.PaneMode.TimeoutMilliseconds)
 	m.viper.SetDefault("workspace.pane_mode.actions", defaults.Workspace.PaneMode.Actions)
@@ -429,6 +424,7 @@ func (m *Manager) setContentFilteringDefaults(defaults *Config) {
 
 func (m *Manager) setOmniboxDefaults(defaults *Config) {
 	m.viper.SetDefault("omnibox.initial_behavior", defaults.Omnibox.InitialBehavior)
+	m.viper.SetDefault("omnibox.auto_open_on_new_pane", defaults.Omnibox.AutoOpenOnNewPane)
 }
 
 func (m *Manager) setMediaDefaults(defaults *Config) {

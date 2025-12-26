@@ -23,7 +23,7 @@ func validateConfig(config *Config) error {
 	validationErrors = append(validationErrors, validateTabBar(config)...)
 	validationErrors = append(validationErrors, validateTabMode(config)...)
 	validationErrors = append(validationErrors, validateLogging(config)...)
-	validationErrors = append(validationErrors, validateDefaults(config)...)
+	validationErrors = append(validationErrors, validateWorkspaceNewPaneURL(config)...)
 	validationErrors = append(validationErrors, validateOmnibox(config)...)
 	validationErrors = append(validationErrors, validateRendering(config)...)
 	validationErrors = append(validationErrors, validateColorScheme(config)...)
@@ -249,20 +249,20 @@ func validateLogging(config *Config) []string {
 	return validationErrors
 }
 
-func validateDefaults(config *Config) []string {
+func validateWorkspaceNewPaneURL(config *Config) []string {
 	var validationErrors []string
 
-	if config.Defaults.NewPaneURL == "" {
-		validationErrors = append(validationErrors, "defaults.new_pane_url cannot be empty")
+	if config.Workspace.NewPaneURL == "" {
+		validationErrors = append(validationErrors, "workspace.new_pane_url cannot be empty")
 		return validationErrors
 	}
 
-	normalized := domainurl.Normalize(config.Defaults.NewPaneURL)
+	normalized := domainurl.Normalize(config.Workspace.NewPaneURL)
 	parsed, err := url.Parse(normalized)
 	if err != nil {
 		validationErrors = append(validationErrors, fmt.Sprintf(
-			"defaults.new_pane_url must be a valid URL (got: %s)",
-			config.Defaults.NewPaneURL,
+			"workspace.new_pane_url must be a valid URL (got: %s)",
+			config.Workspace.NewPaneURL,
 		))
 		return validationErrors
 	}
@@ -272,7 +272,7 @@ func validateDefaults(config *Config) []string {
 		// ok
 	default:
 		validationErrors = append(validationErrors, fmt.Sprintf(
-			"defaults.new_pane_url must use one of: http, https, dumb, file, about (got: %s)",
+			"workspace.new_pane_url must use one of: http, https, dumb, file, about (got: %s)",
 			parsed.Scheme,
 		))
 	}

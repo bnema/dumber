@@ -127,7 +127,7 @@ func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.Spli
 		Workspace:  splitCtx.ws,
 		TargetPane: splitCtx.activePane,
 		Direction:  direction,
-		InitialURL: domainurl.Normalize(config.Get().Defaults.NewPaneURL),
+		InitialURL: domainurl.Normalize(config.Get().Workspace.NewPaneURL),
 	})
 	if err != nil {
 		log.Error().Err(err).Str("direction", string(direction)).Msg("failed to split pane")
@@ -145,7 +145,7 @@ func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.Spli
 		c.applySplitToView(ctx, splitCtx.wsView, splitCtx.ws, output, direction, splitCtx.existingWidget, splitCtx.isStackSplit, oldActivePaneID)
 	}
 
-	if splitCtx.wsView != nil && config.Get().Defaults.AutoOpenOmniboxOnNewPane {
+	if splitCtx.wsView != nil && config.Get().Omnibox.AutoOpenOnNewPane {
 		splitCtx.wsView.ShowOmnibox(ctx, "")
 	}
 
@@ -1222,7 +1222,7 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 
 	newPaneID := entity.PaneID(c.generateID())
 	newPane := entity.NewPane(newPaneID)
-	newPane.URI = domainurl.Normalize(config.Get().Defaults.NewPaneURL)
+	newPane.URI = domainurl.Normalize(config.Get().Workspace.NewPaneURL)
 	newPane.Title = defaultPaneTitle
 
 	stackNode, needsFirstPaneTitleUpdate := c.ensureStackNode(ctx, stackCtx.activeNode, stackCtx.activePaneID, stackCtx.originalTitle)
@@ -1273,7 +1273,7 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 		log.Warn().Err(err).Msg("failed to set active pane")
 	}
 
-	if config.Get().Defaults.AutoOpenOmniboxOnNewPane {
+	if config.Get().Omnibox.AutoOpenOnNewPane {
 		stackCtx.wsView.ShowOmnibox(ctx, "")
 	}
 
