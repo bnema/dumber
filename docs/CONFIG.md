@@ -121,6 +121,20 @@ initial_behavior = "recent"  # Show recent history when omnibox opens
 # initial_behavior = "none"          # Show no initial suggestions
 ```
 
+## Defaults
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `defaults.new_pane_url` | string | `"about:blank"` | URL loaded for new panes/tabs (supports `http(s)://`, `dumb://`, `file://`, `about:`) |
+| `defaults.auto_open_omnibox_on_new_pane` | bool | `false` | Automatically open the omnibox after creating a new pane |
+
+**Example:**
+```toml
+[defaults]
+new_pane_url = "dumb://home"
+auto_open_omnibox_on_new_pane = false
+```
+
 ## Logging
 
 | Key | Type | Default | Valid Values | Description |
