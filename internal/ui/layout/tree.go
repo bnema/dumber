@@ -3,6 +3,7 @@ package layout
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -27,10 +28,11 @@ type PaneViewFactory interface {
 // It maps each node to its corresponding GTK widget and maintains
 // a lookup table for finding widgets by node ID.
 type TreeRenderer struct {
-	factory         WidgetFactory
-	paneViewFactory PaneViewFactory
-	logger          zerolog.Logger
-	nodeToWidget    map[string]Widget
+	factory          WidgetFactory
+	paneViewFactory  PaneViewFactory
+	logger           zerolog.Logger
+	nodeToWidget     map[string]Widget
+	splitOrientation map[string]Orientation
 	// paneToStack maps pane IDs to their containing StackedView.
 	// Every leaf pane is wrapped in a StackedView for easy stacking later.
 	paneToStack map[string]*StackedView
@@ -43,11 +45,12 @@ func NewTreeRenderer(ctx context.Context, factory WidgetFactory, paneViewFactory
 	log.Debug().Msg("creating tree renderer")
 
 	return &TreeRenderer{
-		factory:         factory,
-		paneViewFactory: paneViewFactory,
-		logger:          log.With().Str("component", "tree-renderer").Logger(),
-		nodeToWidget:    make(map[string]Widget),
-		paneToStack:     make(map[string]*StackedView),
+		factory:          factory,
+		paneViewFactory:  paneViewFactory,
+		logger:           log.With().Str("component", "tree-renderer").Logger(),
+		nodeToWidget:     make(map[string]Widget),
+		splitOrientation: make(map[string]Orientation),
+		paneToStack:      make(map[string]*StackedView),
 	}
 }
 
@@ -63,6 +66,7 @@ func (tr *TreeRenderer) Build(ctx context.Context, root *entity.PaneNode) (Widge
 
 	// Clear previous mappings
 	tr.nodeToWidget = make(map[string]Widget)
+	tr.splitOrientation = make(map[string]Orientation)
 	tr.paneToStack = make(map[string]*StackedView)
 
 	return tr.renderNode(ctx, root)
@@ -166,6 +170,7 @@ func (tr *TreeRenderer) renderSplit(ctx context.Context, node *entity.PaneNode) 
 
 	// Create split view
 	splitView := NewSplitView(ctx, tr.factory, orientation, leftWidget, rightWidget, node.SplitRatio)
+	tr.splitOrientation[node.ID] = orientation
 
 	return splitView.Widget(), nil
 }
@@ -247,6 +252,7 @@ func (tr *TreeRenderer) Clear() {
 	defer tr.mu.Unlock()
 
 	tr.nodeToWidget = make(map[string]Widget)
+	tr.splitOrientation = make(map[string]Orientation)
 }
 
 // RegisterWidget adds or updates a node-to-widget mapping.
@@ -258,6 +264,15 @@ func (tr *TreeRenderer) RegisterWidget(nodeID string, widget Widget) {
 	tr.nodeToWidget[nodeID] = widget
 }
 
+// RegisterSplit registers a split widget with its orientation.
+func (tr *TreeRenderer) RegisterSplit(nodeID string, widget Widget, orientation Orientation) {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+
+	tr.nodeToWidget[nodeID] = widget
+	tr.splitOrientation[nodeID] = orientation
+}
+
 // UnregisterWidget removes a node-to-widget mapping.
 // Use this when a node is removed or replaced during incremental operations.
 func (tr *TreeRenderer) UnregisterWidget(nodeID string) {
@@ -265,6 +280,7 @@ func (tr *TreeRenderer) UnregisterWidget(nodeID string) {
 	defer tr.mu.Unlock()
 
 	delete(tr.nodeToWidget, nodeID)
+	delete(tr.splitOrientation, nodeID)
 }
 
 // UpdateSplitRatio updates the ratio of a split view by node ID.
@@ -272,19 +288,33 @@ func (tr *TreeRenderer) UnregisterWidget(nodeID string) {
 func (tr *TreeRenderer) UpdateSplitRatio(nodeID string, ratio float64) error {
 	tr.mu.RLock()
 	widget, ok := tr.nodeToWidget[nodeID]
+	orientation, okOrient := tr.splitOrientation[nodeID]
 	tr.mu.RUnlock()
 
 	if !ok {
 		return ErrNodeNotFound
 	}
 
-	// The widget should be a PanedWidget from a SplitView
-	// We can't directly update the ratio since we only store the Widget interface
-	// The caller would need to track SplitView instances separately or
-	// use the underlying PanedWidget's SetPosition method
+	paned, ok := widget.(PanedWidget)
+	if !ok {
+		return fmt.Errorf("widget is not a PanedWidget")
+	}
+	if !okOrient {
+		return fmt.Errorf("split orientation not found")
+	}
 
-	// For now, we can at least verify the widget exists
-	_ = widget
+	totalSize := 0
+	switch orientation {
+	case OrientationHorizontal:
+		totalSize = paned.GetAllocatedWidth()
+	case OrientationVertical:
+		totalSize = paned.GetAllocatedHeight()
+	}
+	if totalSize <= 0 {
+		return nil
+	}
+
+	paned.SetPosition(int(float64(totalSize) * ratio))
 	return nil
 }
 
