@@ -212,6 +212,23 @@ func (h *KeyboardHandler) lookupAction(
 		}
 	}
 
+	if !found && mode == ModeNormal && (modifiers == ModCtrl || modifiers == (ModCtrl|ModShift)) {
+		if bracketActions, ok := KeycodeToBracketAction[keycode]; ok {
+			if modifiers == (ModCtrl | ModShift) {
+				action = bracketActions.WithShift
+			} else {
+				action = bracketActions.NoShift
+			}
+			found = action != ""
+			if found && log != nil {
+				log.Debug().
+					Uint("keycode", keycode).
+					Str("action", string(action)).
+					Msg("consume/expel via hardware keycode fallback (non-QWERTY layout)")
+			}
+		}
+	}
+
 	return action, found
 }
 

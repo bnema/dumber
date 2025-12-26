@@ -4,6 +4,7 @@ package input
 import (
 	"context"
 
+	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/glib"
@@ -27,6 +28,7 @@ type GlobalShortcutHandler struct {
 func NewGlobalShortcutHandler(
 	ctx context.Context,
 	window *gtk.ApplicationWindow,
+	cfg *config.Config,
 	onAction ActionHandler,
 ) *GlobalShortcutHandler {
 	log := logging.FromContext(ctx)
@@ -90,6 +92,23 @@ func NewGlobalShortcutHandler(
 		Uint("keyval", uint(gdk.KEY_s)).
 		Str("action", string(ActionOpenSessionManager)).
 		Msg("registered global shortcut")
+
+	if cfg != nil {
+		registerFromConfig := func(key string, action Action) {
+			binding, ok := ParseKeyString(key)
+			if !ok {
+				log.Warn().Str("shortcut", key).Str("action", string(action)).Msg("failed to parse global shortcut")
+				return
+			}
+			h.registerShortcut(binding.Keyval, gdk.ModifierType(binding.Modifiers), action)
+			log.Trace().Str("shortcut", key).Str("action", string(action)).Msg("registered global shortcut")
+		}
+
+		registerFromConfig(cfg.Workspace.Shortcuts.ConsumeOrExpelLeft, ActionConsumeOrExpelLeft)
+		registerFromConfig(cfg.Workspace.Shortcuts.ConsumeOrExpelRight, ActionConsumeOrExpelRight)
+		registerFromConfig(cfg.Workspace.Shortcuts.ConsumeOrExpelUp, ActionConsumeOrExpelUp)
+		registerFromConfig(cfg.Workspace.Shortcuts.ConsumeOrExpelDown, ActionConsumeOrExpelDown)
+	}
 
 	// Attach to window
 	window.AddController(&h.controller.EventController)

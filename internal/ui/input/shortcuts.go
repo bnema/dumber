@@ -79,6 +79,15 @@ var keyvalByName = map[string]uint{
 	"7":          uint(gdk.KEY_7),
 	"8":          uint(gdk.KEY_8),
 	"9":          uint(gdk.KEY_9),
+
+	"bracketleft":  uint(gdk.KEY_bracketleft),
+	"bracketright": uint(gdk.KEY_bracketright),
+	"[":            uint(gdk.KEY_bracketleft),
+	"]":            uint(gdk.KEY_bracketright),
+	"braceleft":    uint(gdk.KEY_braceleft),
+	"braceright":   uint(gdk.KEY_braceright),
+	"{":            uint(gdk.KEY_braceleft),
+	"}":            uint(gdk.KEY_braceright),
 }
 
 // KeyBinding represents a single key combination.
@@ -124,6 +133,11 @@ const (
 	ActionSplitDown  Action = "split_down"
 	ActionClosePane  Action = "close_pane"
 	ActionStackPane  Action = "stack_pane"
+
+	ActionConsumeOrExpelLeft  Action = "consume_or_expel_left"
+	ActionConsumeOrExpelRight Action = "consume_or_expel_right"
+	ActionConsumeOrExpelUp    Action = "consume_or_expel_up"
+	ActionConsumeOrExpelDown  Action = "consume_or_expel_down"
 
 	// Pane focus navigation
 	ActionFocusRight Action = "focus_right"
@@ -316,6 +330,19 @@ func (s *ShortcutSet) registerConfiguredShortcuts(cfg *config.WorkspaceConfig) {
 	if binding, ok := ParseKeyString(cfg.Shortcuts.PreviousTab); ok {
 		s.Global[binding] = ActionPreviousTab // Ctrl+Shift+Tab
 	}
+
+	if binding, ok := ParseKeyString(cfg.Shortcuts.ConsumeOrExpelLeft); ok {
+		s.Global[binding] = ActionConsumeOrExpelLeft
+	}
+	if binding, ok := ParseKeyString(cfg.Shortcuts.ConsumeOrExpelRight); ok {
+		s.Global[binding] = ActionConsumeOrExpelRight
+	}
+	if binding, ok := ParseKeyString(cfg.Shortcuts.ConsumeOrExpelUp); ok {
+		s.Global[binding] = ActionConsumeOrExpelUp
+	}
+	if binding, ok := ParseKeyString(cfg.Shortcuts.ConsumeOrExpelDown); ok {
+		s.Global[binding] = ActionConsumeOrExpelDown
+	}
 }
 
 func (s *ShortcutSet) registerStandardShortcuts() {
@@ -408,6 +435,11 @@ var configActionToAction = map[string]Action{
 	"split-down":  ActionSplitDown,
 	"close-pane":  ActionClosePane,
 	"stack-pane":  ActionStackPane,
+
+	"consume-or-expel-left":  ActionConsumeOrExpelLeft,
+	"consume-or-expel-right": ActionConsumeOrExpelRight,
+	"consume-or-expel-up":    ActionConsumeOrExpelUp,
+	"consume-or-expel-down":  ActionConsumeOrExpelDown,
 
 	// Focus navigation
 	"focus-right": ActionFocusRight,
@@ -556,6 +588,7 @@ func ShouldAutoExitMode(action Action) bool {
 	case ActionNewTab, ActionCloseTab, ActionRenameTab,
 		ActionSplitRight, ActionSplitLeft, ActionSplitUp, ActionSplitDown,
 		ActionClosePane, ActionStackPane,
+		ActionConsumeOrExpelLeft, ActionConsumeOrExpelRight, ActionConsumeOrExpelUp, ActionConsumeOrExpelDown,
 		ActionOpenSessionManager:
 		return true
 	default:

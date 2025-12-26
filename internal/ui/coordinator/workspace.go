@@ -1862,6 +1862,50 @@ func (c *WorkspaceCoordinator) insertPopupTabbed(ctx context.Context, input Inse
 	return nil
 }
 
+func (c *WorkspaceCoordinator) ConsumeOrExpelPane(ctx context.Context, direction usecase.ConsumeOrExpelDirection) error {
+	log := logging.FromContext(ctx)
+
+	if c.panesUC == nil {
+		log.Warn().Msg("panes use case not available")
+		return nil
+	}
+
+	ws, wsView := c.getActiveWS()
+	if ws == nil {
+		log.Warn().Msg("no active workspace")
+		return nil
+	}
+
+	activeNode := ws.ActivePane()
+	if activeNode == nil {
+		log.Warn().Msg("no active pane")
+		return nil
+	}
+
+	result, err := c.panesUC.ConsumeOrExpel(ctx, ws, activeNode, direction)
+	if err != nil {
+		return err
+	}
+	if result != nil && result.ErrorMessage != "" {
+		c.ShowToastOnActivePane(ctx, result.ErrorMessage, component.ToastWarning)
+		return nil
+	}
+
+	if wsView != nil {
+		if err := wsView.Rebuild(ctx); err != nil {
+			log.Warn().Err(err).Msg("failed to rebuild workspace view")
+		}
+		c.contentCoord.AttachToWorkspace(ctx, ws, wsView)
+		if err := wsView.SetActivePaneID(ws.ActivePaneID); err != nil {
+			log.Warn().Err(err).Msg("failed to set active pane in workspace view")
+		}
+		wsView.FocusPane(ws.ActivePaneID)
+	}
+
+	c.notifyStateChanged()
+	return nil
+}
+
 // ShowZoomToast displays a zoom level toast on the active pane.
 func (c *WorkspaceCoordinator) ShowZoomToast(ctx context.Context, zoomPercent int) {
 	_, wsView := c.getActiveWS()
