@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
@@ -28,6 +29,26 @@ const (
 	NavUp    NavigateDirection = "up"
 	NavDown  NavigateDirection = "down"
 )
+
+// ResizeDirection indicates the direction for pane resizing.
+type ResizeDirection string
+
+const (
+	ResizeIncreaseLeft  ResizeDirection = "increase_left"
+	ResizeIncreaseRight ResizeDirection = "increase_right"
+	ResizeIncreaseUp    ResizeDirection = "increase_up"
+	ResizeIncreaseDown  ResizeDirection = "increase_down"
+
+	ResizeDecreaseLeft  ResizeDirection = "decrease_left"
+	ResizeDecreaseRight ResizeDirection = "decrease_right"
+	ResizeDecreaseUp    ResizeDirection = "decrease_up"
+	ResizeDecreaseDown  ResizeDirection = "decrease_down"
+
+	ResizeIncrease ResizeDirection = "increase"
+	ResizeDecrease ResizeDirection = "decrease"
+)
+
+var ErrNothingToResize = errors.New("nothing to resize")
 
 // ManagePanesUseCase handles pane tree operations.
 type ManagePanesUseCase struct {
@@ -164,6 +185,170 @@ func (uc *ManagePanesUseCase) Split(ctx context.Context, input SplitPaneInput) (
 		ParentNode:  parentNode,
 		SplitRatio:  0.5,
 	}, nil
+}
+
+// Resize adjusts the nearest applicable split ratio for the given direction.
+// stepPercent is applied per keystroke (e.g. 5.0 means 5%).
+// minPanePercent enforces a minimum size for each side of a split.
+func (uc *ManagePanesUseCase) Resize(
+	ctx context.Context,
+	ws *entity.Workspace,
+	paneNode *entity.PaneNode,
+	dir ResizeDirection,
+	stepPercent float64,
+	minPanePercent float64,
+) error {
+	log := logging.FromContext(ctx)
+	if uc == nil {
+		return fmt.Errorf("manage panes use case is nil")
+	}
+
+	if ws == nil {
+		return fmt.Errorf("workspace is required")
+	}
+	if ws.Root == nil {
+		return ErrNothingToResize
+	}
+	if paneNode == nil {
+		return fmt.Errorf("pane node is required")
+	}
+
+	target := paneNode
+	if target.Parent != nil && target.Parent.IsStacked {
+		target = target.Parent
+	}
+
+	actualDir := dir
+	switch dir {
+	case ResizeIncrease:
+		actualDir = findFirstAvailableDirection(target, []ResizeDirection{
+			ResizeIncreaseRight,
+			ResizeIncreaseDown,
+			ResizeIncreaseLeft,
+			ResizeIncreaseUp,
+		})
+	case ResizeDecrease:
+		actualDir = findFirstAvailableDirection(target, []ResizeDirection{
+			ResizeDecreaseLeft,
+			ResizeDecreaseUp,
+			ResizeDecreaseRight,
+			ResizeDecreaseDown,
+		})
+	}
+	if actualDir == "" {
+		return ErrNothingToResize
+	}
+
+	axis, ok := axisForResizeDirection(actualDir)
+	if !ok {
+		return ErrNothingToResize
+	}
+
+	splitNode := findNearestSplitForAxis(target, axis)
+	if splitNode == nil {
+		return ErrNothingToResize
+	}
+
+	// We treat resize directions as moving the split divider.
+	// SplitRatio is the proportion allocated to the first child (left/top).
+	// - Moving the divider right/down increases SplitRatio.
+	// - Moving the divider left/up decreases SplitRatio.
+	delta := deltaForDividerMove(actualDir, stepPercent)
+
+	minRatio := minPanePercent / 100.0
+	maxRatio := 1.0 - minRatio
+	oldRatio := splitNode.SplitRatio
+	splitNode.SplitRatio = clampFloat64(splitNode.SplitRatio+delta, minRatio, maxRatio)
+
+	log.Debug().
+		Str("direction", string(dir)).
+		Str("actual_direction", string(actualDir)).
+		Float64("old_ratio", oldRatio).
+		Float64("new_ratio", splitNode.SplitRatio).
+		Msg("pane resized")
+
+	return nil
+}
+
+func findFirstAvailableDirection(target *entity.PaneNode, dirs []ResizeDirection) ResizeDirection {
+	for _, d := range dirs {
+		axis, ok := axisForResizeDirection(d)
+		if !ok {
+			continue
+		}
+		splitNode := findNearestSplitForAxis(target, axis)
+		if splitNode != nil {
+			return d
+		}
+	}
+	return ""
+}
+
+type resizeAxis int
+
+const (
+	resizeAxisNone resizeAxis = iota
+	resizeAxisHorizontal
+	resizeAxisVertical
+)
+
+func axisForResizeDirection(dir ResizeDirection) (resizeAxis, bool) {
+	switch dir {
+	case ResizeIncreaseLeft, ResizeIncreaseRight, ResizeDecreaseLeft, ResizeDecreaseRight:
+		return resizeAxisHorizontal, true
+	case ResizeIncreaseUp, ResizeIncreaseDown, ResizeDecreaseUp, ResizeDecreaseDown:
+		return resizeAxisVertical, true
+	default:
+		return resizeAxisNone, false
+	}
+}
+
+func deltaForDividerMove(dir ResizeDirection, stepPercent float64) float64 {
+	delta := stepPercent / 100.0
+	if delta < 0 {
+		delta = -delta
+	}
+
+	switch dir {
+	case ResizeIncreaseRight, ResizeIncreaseDown:
+		return delta
+	case ResizeIncreaseLeft, ResizeIncreaseUp:
+		return -delta
+	case ResizeDecreaseRight, ResizeDecreaseDown:
+		return -delta
+	case ResizeDecreaseLeft, ResizeDecreaseUp:
+		return delta
+	default:
+		return 0
+	}
+}
+
+// findNearestSplitForAxis walks up the tree to find the nearest split matching the axis.
+func findNearestSplitForAxis(node *entity.PaneNode, axis resizeAxis) *entity.PaneNode {
+	current := node
+	for current != nil && current.Parent != nil {
+		parent := current.Parent
+		if parent.IsSplit() {
+			if axis == resizeAxisHorizontal && parent.SplitDir == entity.SplitHorizontal {
+				return parent
+			}
+			if axis == resizeAxisVertical && parent.SplitDir == entity.SplitVertical {
+				return parent
+			}
+		}
+		current = parent
+	}
+	return nil
+}
+
+func clampFloat64(v, minVal, maxVal float64) float64 {
+	if v < minVal {
+		return minVal
+	}
+	if v > maxVal {
+		return maxVal
+	}
+	return v
 }
 
 // Close removes a pane and promotes its sibling.

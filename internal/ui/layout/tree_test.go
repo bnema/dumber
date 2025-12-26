@@ -538,7 +538,7 @@ func TestUpdateSplitRatio_ExistingNode(t *testing.T) {
 	mockRightStackBox.EXPECT().SetVisible(true).Once()
 	mockPaned.EXPECT().SetStartChild(mockLeftStackBox).Once()
 	mockPaned.EXPECT().SetEndChild(mockRightStackBox).Once()
-	mockPaned.EXPECT().GetAllocatedWidth().Return(0).Once()
+	mockPaned.EXPECT().GetAllocatedWidth().Return(0).Twice()
 	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
 	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
 
