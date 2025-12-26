@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **Configurable new-pane defaults**: New `workspace.new_pane_url` (default: `about:blank`, supports `dumb://`) and `omnibox.auto_open_on_new_pane` (default: false).
+- **Consume-or-expel panes (very alpha)**: Niri-style pane consume/expel operation to merge a leaf into a sibling stack or expel a stacked pane into a split. Default global shortcuts: `Alt+[` / `Alt+]` (and `Alt+Shift+[` / `Alt+Shift+]`).
 - **Zellij-style pane resize mode**: New modal resize mode (`Ctrl+N`) to adjust split sizes with keyboard (`h/j/k/l` or arrow keys, `+/-` smart resize). Shows a per-pane border indicator and keeps the timeout alive while you resize.
 - **Mouse-driven pane resizing**: Drag split dividers with the mouse; split ratios are persisted in session snapshots (rounded to 2 decimals) and restored on resurrection.
 - **Dynamic window title**: Window title now displays the active pane's page title in format `<Page Title> - Dumber`. Updates when switching tabs/panes or navigating. Truncated at 255 characters.

@@ -212,9 +212,9 @@ func (h *KeyboardHandler) lookupAction(
 		}
 	}
 
-	if !found && mode == ModeNormal && (modifiers == ModCtrl || modifiers == (ModCtrl|ModShift)) {
+	if !found && mode == ModeNormal && (modifiers == ModAlt || modifiers == (ModAlt|ModShift)) {
 		if bracketActions, ok := KeycodeToBracketAction[keycode]; ok {
-			if modifiers == (ModCtrl | ModShift) {
+			if modifiers == (ModAlt | ModShift) {
 				action = bracketActions.WithShift
 			} else {
 				action = bracketActions.NoShift
