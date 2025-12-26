@@ -96,6 +96,7 @@ const (
 	ActionEnterTabMode     Action = "enter_tab_mode"
 	ActionEnterPaneMode    Action = "enter_pane_mode"
 	ActionEnterSessionMode Action = "enter_session_mode"
+	ActionEnterResizeMode  Action = "enter_resize_mode"
 	ActionExitMode         Action = "exit_mode"
 
 	// Tab actions (global and modal)
@@ -129,6 +130,18 @@ const (
 	ActionFocusLeft  Action = "focus_left"
 	ActionFocusUp    Action = "focus_up"
 	ActionFocusDown  Action = "focus_down"
+
+	// Resize actions (modal)
+	ActionResizeIncreaseLeft  Action = "resize_increase_left"
+	ActionResizeIncreaseRight Action = "resize_increase_right"
+	ActionResizeIncreaseUp    Action = "resize_increase_up"
+	ActionResizeIncreaseDown  Action = "resize_increase_down"
+	ActionResizeDecreaseLeft  Action = "resize_decrease_left"
+	ActionResizeDecreaseRight Action = "resize_decrease_right"
+	ActionResizeDecreaseUp    Action = "resize_decrease_up"
+	ActionResizeDecreaseDown  Action = "resize_decrease_down"
+	ActionResizeIncrease      Action = "resize_increase"
+	ActionResizeDecrease      Action = "resize_decrease"
 
 	// Stack navigation (within stacked panes)
 	ActionStackNavUp   Action = "stack_nav_up"
@@ -178,6 +191,8 @@ type ShortcutSet struct {
 	PaneMode ShortcutTable
 	// SessionMode shortcuts are only active in session mode.
 	SessionMode ShortcutTable
+	// ResizeMode shortcuts are only active in resize mode.
+	ResizeMode ShortcutTable
 }
 
 // NewShortcutSet creates a ShortcutSet from the configuration.
@@ -188,17 +203,20 @@ func NewShortcutSet(ctx context.Context, cfg *config.Config) *ShortcutSet {
 		TabMode:     make(ShortcutTable),
 		PaneMode:    make(ShortcutTable),
 		SessionMode: make(ShortcutTable),
+		ResizeMode:  make(ShortcutTable),
 	}
 
 	set.buildGlobalShortcuts(ctx, cfg)
 	set.buildTabModeShortcuts(ctx, &cfg.Workspace)
 	set.buildPaneModeShortcuts(ctx, &cfg.Workspace)
+	set.buildResizeModeShortcuts(ctx, &cfg.Workspace)
 	set.buildSessionModeShortcuts(ctx, &cfg.Session)
 
 	log.Debug().
 		Int("global", len(set.Global)).
 		Int("tab", len(set.TabMode)).
 		Int("pane", len(set.PaneMode)).
+		Int("resize", len(set.ResizeMode)).
 		Int("session", len(set.SessionMode)).
 		Msg("shortcuts registered")
 
@@ -227,6 +245,11 @@ func (s *ShortcutSet) buildPaneModeShortcuts(ctx context.Context, cfg *config.Wo
 // buildSessionModeShortcuts populates session mode shortcuts from config.
 func (s *ShortcutSet) buildSessionModeShortcuts(ctx context.Context, cfg *config.SessionConfig) {
 	s.buildModeShortcuts(ctx, cfg.SessionMode.GetKeyBindings(), s.SessionMode, "session")
+}
+
+// buildResizeModeShortcuts populates resize mode shortcuts from config.
+func (s *ShortcutSet) buildResizeModeShortcuts(ctx context.Context, cfg *config.WorkspaceConfig) {
+	s.buildModeShortcuts(ctx, cfg.ResizeMode.GetKeyBindings(), s.ResizeMode, "resize")
 }
 
 func (s *ShortcutSet) registerActivationShortcuts(ctx context.Context, cfg *config.Config) {
@@ -260,6 +283,16 @@ func (s *ShortcutSet) registerActivationShortcuts(ctx context.Context, cfg *conf
 			Msg("session mode activation registered")
 	} else {
 		log.Warn().Str("shortcut", cfg.Session.SessionMode.ActivationShortcut).Msg("failed to parse session mode activation shortcut")
+	}
+	if binding, ok := ParseKeyString(cfg.Workspace.ResizeMode.ActivationShortcut); ok {
+		s.Global[binding] = ActionEnterResizeMode
+		log.Trace().
+			Str("shortcut", cfg.Workspace.ResizeMode.ActivationShortcut).
+			Uint("keyval", binding.Keyval).
+			Uint("mod", uint(binding.Modifiers)).
+			Msg("resize mode activation registered")
+	} else {
+		log.Warn().Str("shortcut", cfg.Workspace.ResizeMode.ActivationShortcut).Msg("failed to parse resize mode activation shortcut")
 	}
 }
 
@@ -360,62 +393,56 @@ func (s *ShortcutSet) buildModeShortcuts(ctx context.Context, bindings map[strin
 		Msg(mode + " mode shortcuts built")
 }
 
-// mapConfigAction maps config action names to Action constants.
-func mapConfigAction(configAction string) Action {
-	switch configAction {
-	// Mode management
-	case "cancel", "confirm":
-		return ActionExitMode
-
+var configActionToAction = map[string]Action{
 	// Tab actions
-	case "new-tab":
-		return ActionNewTab
-	case "close-tab":
-		return ActionCloseTab
-	case "next-tab":
-		return ActionNextTab
-	case "previous-tab":
-		return ActionPreviousTab
-	case "rename-tab":
-		return ActionRenameTab
+	"new-tab":      ActionNewTab,
+	"close-tab":    ActionCloseTab,
+	"next-tab":     ActionNextTab,
+	"previous-tab": ActionPreviousTab,
+	"rename-tab":   ActionRenameTab,
 
 	// Pane actions
-	case "split-right":
-		return ActionSplitRight
-	case "split-left":
-		return ActionSplitLeft
-	case "split-up":
-		return ActionSplitUp
-	case "split-down":
-		return ActionSplitDown
-	case "close-pane":
-		return ActionClosePane
-	case "stack-pane":
-		return ActionStackPane
+	"split-right": ActionSplitRight,
+	"split-left":  ActionSplitLeft,
+	"split-up":    ActionSplitUp,
+	"split-down":  ActionSplitDown,
+	"close-pane":  ActionClosePane,
+	"stack-pane":  ActionStackPane,
 
 	// Focus navigation
-	case "focus-right":
-		return ActionFocusRight
-	case "focus-left":
-		return ActionFocusLeft
-	case "focus-up":
-		return ActionFocusUp
-	case "focus-down":
-		return ActionFocusDown
+	"focus-right": ActionFocusRight,
+	"focus-left":  ActionFocusLeft,
+	"focus-up":    ActionFocusUp,
+	"focus-down":  ActionFocusDown,
 
 	// Stack navigation
-	case "stack-nav-up", "stack-up":
-		return ActionStackNavUp
-	case "stack-nav-down", "stack-down":
-		return ActionStackNavDown
+	"stack-nav-up":   ActionStackNavUp,
+	"stack-up":       ActionStackNavUp,
+	"stack-nav-down": ActionStackNavDown,
+	"stack-down":     ActionStackNavDown,
+
+	// Resize actions
+	"resize-increase-left":  ActionResizeIncreaseLeft,
+	"resize-increase-right": ActionResizeIncreaseRight,
+	"resize-increase-up":    ActionResizeIncreaseUp,
+	"resize-increase-down":  ActionResizeIncreaseDown,
+	"resize-decrease-left":  ActionResizeDecreaseLeft,
+	"resize-decrease-right": ActionResizeDecreaseRight,
+	"resize-decrease-up":    ActionResizeDecreaseUp,
+	"resize-decrease-down":  ActionResizeDecreaseDown,
+	"resize-increase":       ActionResizeIncrease,
+	"resize-decrease":       ActionResizeDecrease,
 
 	// Session actions
-	case "session-manager":
-		return ActionOpenSessionManager
+	"session-manager": ActionOpenSessionManager,
+}
 
-	default:
-		return ""
+// mapConfigAction maps config action names to Action constants.
+func mapConfigAction(configAction string) Action {
+	if configAction == "cancel" || configAction == "confirm" {
+		return ActionExitMode
 	}
+	return configActionToAction[configAction]
 }
 
 // ParseKeyString converts a config key string like "ctrl+t" to a KeyBinding.
@@ -488,6 +515,8 @@ func (s *ShortcutSet) Lookup(binding KeyBinding, mode Mode) (Action, bool) {
 		modeTable = s.TabMode
 	case ModePane:
 		modeTable = s.PaneMode
+	case ModeResize:
+		modeTable = s.ResizeMode
 	case ModeSession:
 		modeTable = s.SessionMode
 	}

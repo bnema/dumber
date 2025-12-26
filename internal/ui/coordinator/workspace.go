@@ -2,6 +2,7 @@ package coordinator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/bnema/dumber/internal/application/usecase"
@@ -326,7 +327,7 @@ func (c *WorkspaceCoordinator) doIncrementalStackSplit(
 		wsView.SetRootWidgetDirect(splitView.Widget())
 
 		if tr != nil {
-			tr.RegisterWidget(output.ParentNode.ID, splitView.Widget())
+			tr.RegisterSplit(output.ParentNode.ID, splitView.Widget(), layout.OrientationHorizontal)
 		}
 	} else {
 		// Non-root split: stack is inside another split, need to replace in grandparent
@@ -377,7 +378,7 @@ func (c *WorkspaceCoordinator) doIncrementalStackSplit(
 			panedWidget.SetEndChild(splitView.Widget())
 		}
 
-		tr.RegisterWidget(output.ParentNode.ID, splitView.Widget())
+		tr.RegisterSplit(output.ParentNode.ID, splitView.Widget(), layout.OrientationHorizontal)
 
 		log.Debug().
 			Bool("was_start_child", isStartChild).
@@ -585,7 +586,7 @@ func (c *WorkspaceCoordinator) replaceRootSplit(
 	}
 
 	wsView.SetRootWidgetDirect(splitView.Widget())
-	tr.RegisterWidget(output.ParentNode.ID, splitView.Widget())
+	tr.RegisterSplit(output.ParentNode.ID, splitView.Widget(), orientation)
 
 	logging.FromContext(ctx).Debug().Msg("root split: replaced root with new split view")
 	return nil
@@ -649,7 +650,7 @@ func (c *WorkspaceCoordinator) replaceNonRootSplit(
 		panedWidget.SetEndChild(splitView.Widget())
 	}
 
-	tr.RegisterWidget(output.ParentNode.ID, splitView.Widget())
+	tr.RegisterSplit(output.ParentNode.ID, splitView.Widget(), orientation)
 
 	log.Debug().
 		Bool("was_start_child", isStartChild).
@@ -1859,4 +1860,60 @@ func (c *WorkspaceCoordinator) ShowToastOnActivePane(ctx context.Context, messag
 	if paneView != nil {
 		paneView.ShowToast(ctx, message, level)
 	}
+}
+
+// Resize updates the active split ratio and applies it to GTK widgets.
+func (c *WorkspaceCoordinator) Resize(ctx context.Context, dir usecase.ResizeDirection) error {
+	log := logging.FromContext(ctx)
+
+	if c.panesUC == nil {
+		log.Warn().Msg("panes use case not available")
+		return nil
+	}
+
+	ws, wsView := c.getActiveWS()
+	if ws == nil {
+		log.Warn().Msg("no active workspace")
+		return nil
+	}
+
+	target := ws.ActivePane()
+	if target == nil {
+		return nil
+	}
+
+	cfg := config.Get()
+	err := c.panesUC.Resize(ctx, ws, target, dir, cfg.Workspace.ResizeMode.StepPercent, cfg.Workspace.ResizeMode.MinPanePercent)
+	if errors.Is(err, usecase.ErrNothingToResize) {
+		c.ShowToastOnActivePane(ctx, "Nothing to resize", component.ToastInfo)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	if wsView != nil {
+		c.updateSplitPositions(wsView, ws)
+	}
+
+	c.notifyStateChanged()
+	return nil
+}
+
+func (c *WorkspaceCoordinator) updateSplitPositions(wsView *component.WorkspaceView, ws *entity.Workspace) {
+	if wsView == nil || ws == nil || ws.Root == nil {
+		return
+	}
+
+	tr := wsView.TreeRenderer()
+	if tr == nil {
+		return
+	}
+
+	ws.Root.Walk(func(node *entity.PaneNode) bool {
+		if node.IsSplit() {
+			_ = tr.UpdateSplitRatio(node.ID, node.SplitRatio)
+		}
+		return true
+	})
 }
