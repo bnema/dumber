@@ -323,6 +323,7 @@ func (c *WorkspaceCoordinator) doIncrementalStackSplit(
 			splitView = layout.NewSplitView(ctx, factory, layout.OrientationHorizontal,
 				existingStackWidget, newStackedView.Widget(), output.SplitRatio)
 		}
+		c.wireSplitRatioPersistence(ctx, splitView, output.ParentNode.ID)
 
 		wsView.SetRootWidgetDirect(splitView.Widget())
 
@@ -370,6 +371,7 @@ func (c *WorkspaceCoordinator) doIncrementalStackSplit(
 			splitView = layout.NewSplitView(ctx, factory, layout.OrientationHorizontal,
 				existingStackWidget, newStackedView.Widget(), output.SplitRatio)
 		}
+		c.wireSplitRatioPersistence(ctx, splitView, output.ParentNode.ID)
 
 		// Put the new split view in the grandparent's slot
 		if isStartChild {
@@ -562,6 +564,18 @@ func splitOrientation(direction usecase.SplitDirection) (layout.Orientation, boo
 	}
 }
 
+func (c *WorkspaceCoordinator) wireSplitRatioPersistence(ctx context.Context, splitView *layout.SplitView, splitNodeID string) {
+	if c == nil || splitView == nil || splitNodeID == "" {
+		return
+	}
+
+	splitView.SetOnRatioChanged(func(ratio float64) {
+		if err := c.SetSplitRatio(ctx, splitNodeID, ratio); err != nil {
+			logging.FromContext(ctx).Warn().Err(err).Str("split_node_id", splitNodeID).Msg("failed to persist split ratio")
+		}
+	})
+}
+
 func (c *WorkspaceCoordinator) replaceRootSplit(
 	ctx context.Context,
 	wsView *component.WorkspaceView,
@@ -584,6 +598,7 @@ func (c *WorkspaceCoordinator) replaceRootSplit(
 		splitView = layout.NewSplitView(ctx, factory, orientation,
 			newStackedView.Widget(), existingRootWidget, output.SplitRatio)
 	}
+	c.wireSplitRatioPersistence(ctx, splitView, output.ParentNode.ID)
 
 	wsView.SetRootWidgetDirect(splitView.Widget())
 	tr.RegisterSplit(output.ParentNode.ID, splitView.Widget(), orientation)
@@ -643,6 +658,7 @@ func (c *WorkspaceCoordinator) replaceNonRootSplit(
 		splitView = layout.NewSplitView(ctx, factory, orientation,
 			newStackedView.Widget(), activePaneWidget, output.SplitRatio)
 	}
+	c.wireSplitRatioPersistence(ctx, splitView, output.ParentNode.ID)
 
 	if isStartChild {
 		panedWidget.SetStartChild(splitView.Widget())
