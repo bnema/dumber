@@ -3,8 +3,10 @@ package layout
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/jwijenbergh/puregotk/v4/glib"
 	"github.com/rs/zerolog"
 )
 
@@ -18,12 +20,18 @@ type SplitView struct {
 	ratio       float64 // 0.0-1.0, relative position of divider
 	logger      zerolog.Logger
 
+	onRatioChanged      func(ratio float64)
+	pendingNotifyRatio  float64
+	notifyDebounceTimer *time.Timer
+
 	mu sync.RWMutex
 }
 
 // maxRetryFrames is the maximum number of frames to wait for allocation to stabilize.
 // At 60fps, 120 frames = ~2 seconds timeout.
 const maxRetryFrames = 120
+
+const notifyPositionDebounceDelay = 100 * time.Millisecond
 
 // NewSplitView creates a new split view with the given orientation and children.
 // The ratio determines the initial divider position (0.0-1.0).
@@ -60,6 +68,45 @@ func NewSplitView(
 		endChild.SetVisible(true)
 		paned.SetEndChild(endChild)
 	}
+
+	paned.ConnectNotifyPosition(func() {
+		position := paned.GetPosition()
+		var totalSize int
+		if orientation == OrientationHorizontal {
+			totalSize = paned.GetAllocatedWidth()
+		} else {
+			totalSize = paned.GetAllocatedHeight()
+		}
+		if totalSize <= 0 {
+			return
+		}
+
+		ratio := clampRatio(float64(position) / float64(totalSize))
+
+		sv.mu.Lock()
+		sv.ratio = ratio
+		sv.pendingNotifyRatio = ratio
+		onRatioChanged := sv.onRatioChanged
+
+		if sv.notifyDebounceTimer != nil {
+			sv.notifyDebounceTimer.Stop()
+		}
+		sv.notifyDebounceTimer = time.AfterFunc(notifyPositionDebounceDelay, func() {
+			if onRatioChanged == nil {
+				return
+			}
+			cb := glib.SourceFunc(func(_ uintptr) bool {
+				sv.mu.RLock()
+				pending := sv.pendingNotifyRatio
+				sv.mu.RUnlock()
+				onRatioChanged(pending)
+				return false
+			})
+			glib.IdleAdd(&cb, 0)
+		})
+
+		sv.mu.Unlock()
+	})
 
 	// Try to apply ratio immediately (in case widget is already allocated)
 	if sv.ApplyRatio() {
@@ -112,6 +159,13 @@ func (sv *SplitView) GetRatio() float64 {
 	defer sv.mu.RUnlock()
 
 	return sv.ratio
+}
+
+func (sv *SplitView) SetOnRatioChanged(fn func(ratio float64)) {
+	sv.mu.Lock()
+	defer sv.mu.Unlock()
+
+	sv.onRatioChanged = fn
 }
 
 // ApplyRatio converts the ratio to a pixel position and applies it.

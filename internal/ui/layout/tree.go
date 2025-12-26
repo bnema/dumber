@@ -36,7 +36,9 @@ type TreeRenderer struct {
 	// paneToStack maps pane IDs to their containing StackedView.
 	// Every leaf pane is wrapped in a StackedView for easy stacking later.
 	paneToStack map[string]*StackedView
-	mu          sync.RWMutex
+
+	onSplitRatioChanged func(nodeID string, ratio float64)
+	mu                  sync.RWMutex
 }
 
 // NewTreeRenderer creates a new tree renderer.
@@ -52,6 +54,13 @@ func NewTreeRenderer(ctx context.Context, factory WidgetFactory, paneViewFactory
 		splitOrientation: make(map[string]Orientation),
 		paneToStack:      make(map[string]*StackedView),
 	}
+}
+
+func (tr *TreeRenderer) SetOnSplitRatioChanged(fn func(nodeID string, ratio float64)) {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+
+	tr.onSplitRatioChanged = fn
 }
 
 // Build constructs the entire widget tree from a root PaneNode.
@@ -170,6 +179,15 @@ func (tr *TreeRenderer) renderSplit(ctx context.Context, node *entity.PaneNode) 
 
 	// Create split view
 	splitView := NewSplitView(ctx, tr.factory, orientation, leftWidget, rightWidget, node.SplitRatio)
+	nodeID := node.ID
+	splitView.SetOnRatioChanged(func(ratio float64) {
+		tr.mu.RLock()
+		cb := tr.onSplitRatioChanged
+		tr.mu.RUnlock()
+		if cb != nil {
+			cb(nodeID, ratio)
+		}
+	})
 	tr.splitOrientation[node.ID] = orientation
 
 	return splitView.Widget(), nil
