@@ -453,6 +453,10 @@ func ParseKeyString(s string) (KeyBinding, bool) {
 	}
 
 	s = strings.ToLower(strings.TrimSpace(s))
+	if s == "+" {
+		return KeyBinding{Keyval: uint(gdk.KEY_plus), Modifiers: ModNone}, true
+	}
+
 	parts := strings.Split(s, "+")
 
 	var modifiers Modifier
@@ -460,6 +464,9 @@ func ParseKeyString(s string) (KeyBinding, bool) {
 
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
 		switch part {
 		case "ctrl", "control":
 			modifiers |= ModCtrl
@@ -468,8 +475,16 @@ func ParseKeyString(s string) (KeyBinding, bool) {
 		case "alt":
 			modifiers |= ModAlt
 		default:
+			if keyPart != "" {
+				return KeyBinding{}, false
+			}
 			keyPart = part
 		}
+	}
+
+	// Allow parsing "ctrl++" / "alt+shift++" where the key is "+".
+	if keyPart == "" && strings.HasSuffix(s, "++") {
+		keyPart = "+"
 	}
 
 	if keyPart == "" {
