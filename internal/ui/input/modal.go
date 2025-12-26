@@ -20,6 +20,8 @@ const (
 	ModePane
 	// ModeSession is the modal session management mode.
 	ModeSession
+	// ModeResize is the modal pane resizing mode.
+	ModeResize
 )
 
 // String returns a human-readable mode name.
@@ -33,6 +35,8 @@ func (m Mode) String() string {
 		return "pane"
 	case ModeSession:
 		return "session"
+	case ModeResize:
+		return "resize"
 	default:
 		return "unknown"
 	}
@@ -165,6 +169,41 @@ func (m *ModalState) EnterSessionMode(ctx context.Context, timeout time.Duration
 		Str("to", m.mode.String()).
 		Dur("timeout", timeout).
 		Msg("entered session mode")
+
+	if m.onModeChange != nil {
+		m.onModeChange(oldMode, m.mode)
+	}
+}
+
+// EnterResizeMode switches to resize mode with an optional timeout.
+// If timeout is 0, the mode stays until explicitly exited.
+func (m *ModalState) EnterResizeMode(ctx context.Context, timeout time.Duration) {
+	log := logging.FromContext(ctx)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.mode == ModeResize {
+		// Already in resize mode, just reset timeout
+		m.resetTimeoutLocked(ctx, timeout)
+		return
+	}
+
+	m.cancelTimerLocked()
+	oldMode := m.mode
+	m.mode = ModeResize
+	m.timeout = timeout
+
+	if timeout > 0 {
+		m.timer = time.AfterFunc(timeout, func() {
+			m.ExitMode(ctx)
+		})
+	}
+
+	log.Debug().
+		Str("from", oldMode.String()).
+		Str("to", m.mode.String()).
+		Dur("timeout", timeout).
+		Msg("entered resize mode")
 
 	if m.onModeChange != nil {
 		m.onModeChange(oldMode, m.mode)

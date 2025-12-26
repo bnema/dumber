@@ -475,6 +475,16 @@ func generatePaneCSS(p Palette) string {
 	box-shadow: inset 0 0 0 0.25em #FFA500;
 	border-radius: 0;
 }
+
+/* Resize mode active - thick teal inset border */
+.resize-mode-active {
+	background-color: transparent;
+	/* Prefer inset shadow, but also set outline for widgets that don't paint shadows */
+	box-shadow: inset 0 0 0 0.25em #00D4AA;
+	outline: 0.25em solid #00D4AA;
+	outline-offset: -0.25em;
+	border-radius: 0;
+}
 `
 }
 
