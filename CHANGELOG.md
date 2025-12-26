@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.21.0] - 2025-12-26
+
 ### Added
 - **Configurable new-pane defaults**: New `workspace.new_pane_url` (default: `about:blank`, supports `dumb://`) and `omnibox.auto_open_on_new_pane` (default: false).
 - **Consume-or-expel panes (very alpha)**: Niri-style pane consume/expel operation to merge a leaf into a sibling stack or expel a stacked pane into a split. Default global shortcuts: `Alt+[` / `Alt+]` (and `Alt+Shift+[` / `Alt+Shift+]`).
