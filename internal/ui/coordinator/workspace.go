@@ -1900,6 +1900,35 @@ func (c *WorkspaceCoordinator) Resize(ctx context.Context, dir usecase.ResizeDir
 	return nil
 }
 
+func (c *WorkspaceCoordinator) SetSplitRatio(ctx context.Context, splitNodeID string, ratio float64) error {
+	log := logging.FromContext(ctx)
+
+	if c.panesUC == nil {
+		log.Warn().Msg("panes use case not available")
+		return nil
+	}
+
+	ws, _ := c.getActiveWS()
+	if ws == nil {
+		log.Warn().Msg("no active workspace")
+		return nil
+	}
+
+	cfg := config.Get()
+	err := c.panesUC.SetSplitRatio(ctx, usecase.SetSplitRatioInput{
+		Workspace:      ws,
+		SplitNodeID:    splitNodeID,
+		Ratio:          ratio,
+		MinPanePercent: cfg.Workspace.ResizeMode.MinPanePercent,
+	})
+	if err != nil {
+		return err
+	}
+
+	c.notifyStateChanged()
+	return nil
+}
+
 func (c *WorkspaceCoordinator) updateSplitPositions(wsView *component.WorkspaceView, ws *entity.Workspace) {
 	if wsView == nil || ws == nil || ws.Root == nil {
 		return
