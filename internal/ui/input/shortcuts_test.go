@@ -50,6 +50,12 @@ func TestParseKeyString_SingleKeys(t *testing.T) {
 			wantOk: true,
 		},
 		{
+			name:   "plus symbol",
+			input:  "+",
+			want:   KeyBinding{Keyval: uint(gdk.KEY_plus), Modifiers: ModNone},
+			wantOk: true,
+		},
+		{
 			name:   "f5",
 			input:  "f5",
 			want:   KeyBinding{Keyval: uint(gdk.KEY_F5), Modifiers: ModNone},
@@ -148,6 +154,12 @@ func TestParseKeyString_WithModifiers(t *testing.T) {
 			name:   "ctrl+r",
 			input:  "ctrl+r",
 			want:   KeyBinding{Keyval: uint('r'), Modifiers: ModCtrl},
+			wantOk: true,
+		},
+		{
+			name:   "ctrl++",
+			input:  "ctrl++",
+			want:   KeyBinding{Keyval: uint(gdk.KEY_plus), Modifiers: ModCtrl},
 			wantOk: true,
 		},
 	}
