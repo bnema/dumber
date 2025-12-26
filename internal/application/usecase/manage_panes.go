@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/bnema/dumber/internal/domain/entity"
+	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -113,7 +114,7 @@ func (uc *ManagePanesUseCase) Split(ctx context.Context, input SplitPaneInput) (
 		paneID := entity.PaneID(uc.idGenerator())
 		newPane = entity.NewPane(paneID)
 		if input.InitialURL != "" {
-			newPane.URI = input.InitialURL
+			newPane.URI = domainurl.Normalize(input.InitialURL)
 		} else {
 			newPane.URI = "about:blank"
 		}

@@ -6,6 +6,8 @@ import (
 
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
+	domainurl "github.com/bnema/dumber/internal/domain/url"
+	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
@@ -97,7 +99,11 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 	)
 	d.actionHandlers = map[input.Action]func(ctx context.Context) error{
 		// Tab actions
-		input.ActionNewTab:           func(ctx context.Context) error { _, err := d.tabCoord.Create(ctx, "about:blank"); return err },
+		input.ActionNewTab: func(ctx context.Context) error {
+			cfg := config.Get()
+			_, err := d.tabCoord.Create(ctx, domainurl.Normalize(cfg.Defaults.NewPaneURL))
+			return err
+		},
 		input.ActionCloseTab:         d.tabCoord.Close,
 		input.ActionNextTab:          d.tabCoord.SwitchNext,
 		input.ActionPreviousTab:      d.tabCoord.SwitchPrev,

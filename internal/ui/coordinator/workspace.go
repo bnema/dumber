@@ -7,6 +7,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
+	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
@@ -126,6 +127,7 @@ func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.Spli
 		Workspace:  splitCtx.ws,
 		TargetPane: splitCtx.activePane,
 		Direction:  direction,
+		InitialURL: domainurl.Normalize(config.Get().Defaults.NewPaneURL),
 	})
 	if err != nil {
 		log.Error().Err(err).Str("direction", string(direction)).Msg("failed to split pane")
@@ -141,6 +143,10 @@ func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.Spli
 	// Update the workspace view
 	if splitCtx.wsView != nil {
 		c.applySplitToView(ctx, splitCtx.wsView, splitCtx.ws, output, direction, splitCtx.existingWidget, splitCtx.isStackSplit, oldActivePaneID)
+	}
+
+	if splitCtx.wsView != nil && config.Get().Defaults.AutoOpenOmniboxOnNewPane {
+		splitCtx.wsView.ShowOmnibox(ctx, "")
 	}
 
 	// Notify state change for session snapshots
@@ -1216,7 +1222,7 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 
 	newPaneID := entity.PaneID(c.generateID())
 	newPane := entity.NewPane(newPaneID)
-	newPane.URI = "about:blank"
+	newPane.URI = domainurl.Normalize(config.Get().Defaults.NewPaneURL)
 	newPane.Title = defaultPaneTitle
 
 	stackNode, needsFirstPaneTitleUpdate := c.ensureStackNode(ctx, stackCtx.activeNode, stackCtx.activePaneID, stackCtx.originalTitle)
@@ -1253,9 +1259,9 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 		if widget != nil {
 			newPaneView.SetWebViewWidget(widget)
 		}
-		// Load blank page
-		if err := wv.LoadURI(ctx, "about:blank"); err != nil {
-			log.Warn().Err(err).Msg("failed to load blank page")
+		// Load initial page for the new pane
+		if err := wv.LoadURI(ctx, newPane.URI); err != nil {
+			log.Warn().Err(err).Str("uri", newPane.URI).Msg("failed to load initial page")
 		}
 	}
 
@@ -1265,6 +1271,10 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 	// Update workspace view
 	if err := stackCtx.wsView.SetActivePaneID(newPaneID); err != nil {
 		log.Warn().Err(err).Msg("failed to set active pane")
+	}
+
+	if config.Get().Defaults.AutoOpenOmniboxOnNewPane {
+		stackCtx.wsView.ShowOmnibox(ctx, "")
 	}
 
 	// Set up title bar click callback
