@@ -199,7 +199,7 @@ func unlockAndClose(f *os.File) error {
 
 // runSessionCleanupAsync performs stale session cleanup and old session pruning
 // in a background goroutine. This avoids blocking startup for non-critical tasks.
-// Uses context.Background() to ensure cleanup completes even if startup context is cancelled.
+// Uses context.Background() to ensure cleanup completes even if startup context is canceled.
 func runSessionCleanupAsync(
 	_ context.Context,
 	sessionUC *usecase.ManageSessionUseCase,
