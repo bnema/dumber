@@ -212,8 +212,8 @@ func (m *Migrator) findMissingKeys(defaultKeys []string, userKeys map[string]boo
 	missing := make([]string, 0)
 
 	for _, key := range defaultKeys {
-		// Check if key or any parent key exists in user config
-		if m.keyOrParentExists(key, userKeys) {
+		// Check if key or any related key exists in user config
+		if m.keyOrRelatedExists(key, userKeys) {
 			continue
 		}
 		missing = append(missing, key)
@@ -224,9 +224,11 @@ func (m *Migrator) findMissingKeys(defaultKeys []string, userKeys map[string]boo
 	return missing
 }
 
-// keyOrParentExists checks if a key or any of its parent keys exist in the map.
-// This handles cases where a user has defined a parent section but not all children.
-func (*Migrator) keyOrParentExists(key string, keys map[string]bool) bool {
+// keyOrRelatedExists checks if a key, any parent, or any child keys exist in the map.
+// This handles cases where:
+// - User has defined a parent section but not all children
+// - Default is a struct key but user has individual sub-keys (e.g., palettes)
+func (*Migrator) keyOrRelatedExists(key string, keys map[string]bool) bool {
 	if keys[key] {
 		return true
 	}
@@ -238,6 +240,15 @@ func (*Migrator) keyOrParentExists(key string, keys map[string]bool) bool {
 		parentKey := strings.Join(parts[:i], ".")
 		if keys[parentKey] {
 			// Parent exists as a leaf map, so child is implicitly defined
+			return true
+		}
+	}
+
+	// Check if any child keys exist (e.g., default is "appearance.dark_palette"
+	// but user has "appearance.dark_palette.background")
+	keyPrefix := key + "."
+	for userKey := range keys {
+		if strings.HasPrefix(userKey, keyPrefix) {
 			return true
 		}
 	}
