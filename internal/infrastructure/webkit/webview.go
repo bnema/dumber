@@ -88,6 +88,7 @@ type WebView struct {
 
 	// State (protected by mutex)
 	destroyed atomic.Bool
+	isRelated bool // true if created via NewWebViewWithRelated (shares web process with parent)
 	uri       string
 	title     string
 	progress  float64
@@ -294,6 +295,7 @@ func NewWebViewWithRelated(ctx context.Context, parent *WebView, settings *Setti
 
 	wv := &WebView{
 		inner:     inner,
+		isRelated: true, // Shares web process with parent - must not terminate process on destroy
 		ucm:       inner.GetUserContentManager(),
 		logger:    log.With().Str("component", "webview-popup").Logger(),
 		signalIDs: make([]uint32, 0, 6),
@@ -981,7 +983,9 @@ func (wv *WebView) Destroy() {
 
 	// 5. Terminate the web process to free GPU resources (VA-API, DMA-BUF, GL contexts)
 	// This is critical to prevent zombie processes that hold video decoder resources.
-	if wv.inner != nil {
+	// IMPORTANT: Skip for related views (popups) - they share the web process with their
+	// parent. Terminating the shared process would kill the parent WebView too!
+	if !wv.isRelated && wv.inner != nil {
 		wv.inner.TerminateWebProcess()
 	}
 
@@ -993,7 +997,11 @@ func (wv *WebView) Destroy() {
 	wv.ucm = nil
 	wv.findController = nil
 
-	wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("webview destroyed and web process terminated")
+	if wv.isRelated {
+		wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("related webview destroyed (process shared with parent)")
+	} else {
+		wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("webview destroyed and web process terminated")
+	}
 }
 
 // RunJavaScript executes script in the specified world (empty for main world).
