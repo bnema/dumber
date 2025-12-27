@@ -199,7 +199,7 @@ func (*Migrator) isUserDataSection(keyPath string) bool {
 	}
 
 	for _, suffix := range userDataSuffixes {
-		if len(keyPath) > len(suffix) && keyPath[len(keyPath)-len(suffix):] == suffix {
+		if strings.HasSuffix(keyPath, suffix) {
 			return true
 		}
 	}

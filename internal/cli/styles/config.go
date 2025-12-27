@@ -2,6 +2,7 @@ package styles
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -75,8 +76,7 @@ func (r *ConfigRenderer) RenderMigrationSuccess(count int, path string) string {
 	pathStyle := r.theme.Subtle
 
 	// Get just the filename from the path
-	parts := strings.Split(path, "/")
-	filename := parts[len(parts)-1]
+	filename := filepath.Base(path)
 
 	return fmt.Sprintf(
 		"\n  %s Added %s new settings to %s\n",
