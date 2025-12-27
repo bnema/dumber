@@ -211,6 +211,16 @@ type ProgressBarWidget interface {
 	GetFraction() float64
 }
 
+// SpinnerWidget wraps gtk.Spinner for displaying indefinite loading.
+type SpinnerWidget interface {
+	Widget
+
+	Start()
+	Stop()
+	SetSpinning(spinning bool)
+	GetSpinning() bool
+}
+
 // WidgetFactory creates widget instances.
 // This abstraction allows tests to inject mock factories.
 type WidgetFactory interface {
@@ -224,6 +234,7 @@ type WidgetFactory interface {
 	NewButton() ButtonWidget
 	NewImage() ImageWidget
 	NewProgressBar() ProgressBarWidget
+	NewSpinner() SpinnerWidget
 
 	// Wrap existing GTK widget
 	WrapWidget(w *gtk.Widget) Widget

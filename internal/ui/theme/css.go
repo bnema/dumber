@@ -447,6 +447,24 @@ func generatePaneCSS(p Palette) string {
 	background-color: var(--bg);
 }
 
+/* Loading skeleton - shown until WebView paints */
+.loading-skeleton {
+	background-color: var(--bg);
+}
+
+.loading-skeleton-spinner {
+	-gtk-icon-size: 32px;
+	min-width: 32px;
+	min-height: 32px;
+}
+
+.loading-skeleton-text {
+	font-family: var(--font-mono);
+	font-size: 1.5em;
+	letter-spacing: 0.1em;
+	color: var(--muted);
+}
+
 /* Pane border - default transparent */
 .pane-border {
 	border: 0.0625em solid transparent;
