@@ -31,6 +31,8 @@ All notable changes to this project will be documented in this file.
   - Added connection pool settings optimized for SQLite (`SetMaxOpenConns(1)`, keep-alive).
   - Reduced `mmap_size` from 30GB to 256MB (reasonable for browser history DB).
   - Added `PRAGMA foreign_keys = ON` for referential integrity.
+- **Startup deferrals**: Runtime/media checks and SQLite WASM precompile now run after first paint, and DB initialization uses lazy repositories when auto-restore is off to cut cold-start latency further.
+- **Console logging**: Standardized console timestamps to `HH:MM:SS` across bootstrap and session logging.
 
 ### Fixed
 - **OAuth popup login**: Fixed parent page going blank after OAuth popup closes (e.g., Google login on claude.ai, notion.com). Related WebViews share a web process with their parent; destroying the popup was terminating the shared process, killing the parent. Now skips `TerminateWebProcess()` for popup WebViews.
