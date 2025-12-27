@@ -525,7 +525,11 @@ func (a *App) attachTabPickerToActivePane() {
 				continue
 			}
 			if oldPV := view.GetPaneView(a.tabPickerPaneID); oldPV != nil {
-				oldPV.RemoveOverlayWidget(a.tabPickerWidget)
+				if parent := a.tabPickerWidget.GetParent(); parent == oldPV.Overlay() {
+					oldPV.RemoveOverlayWidget(a.tabPickerWidget)
+				} else if parent != nil {
+					a.tabPickerWidget.Unparent()
+				}
 				break
 			}
 		}
