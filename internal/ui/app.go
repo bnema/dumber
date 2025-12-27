@@ -228,12 +228,22 @@ func (a *App) applyGTKColorSchemePreference(ctx context.Context) {
 }
 
 func (a *App) setupPoolBackgroundColor(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
 	// Set theme background color on pool to eliminate white flash.
 	// Must be done before any WebView creation so WebViews get the correct color.
-	if a.pool != nil && a.deps != nil && a.deps.Theme != nil {
-		r, g, b, alpha := a.deps.Theme.GetBackgroundRGBA()
-		a.pool.SetBackgroundColor(r, g, b, alpha)
+	if a.pool == nil {
+		log.Debug().Msg("webview pool not available; skipping background color setup")
+		return
 	}
+	if a.deps == nil || a.deps.Theme == nil {
+		log.Debug().Msg("theme not available; skipping webview pool background color setup")
+		return
+	}
+
+	r, g, b, alpha := a.deps.Theme.GetBackgroundRGBA()
+	a.pool.SetBackgroundColor(r, g, b, alpha)
+	log.Debug().Msg("configured webview pool background color")
 }
 
 func (a *App) prewarmWebViewPoolAsync(ctx context.Context) {
