@@ -35,8 +35,9 @@ Use 'dumber browse' to launch the graphical browser, or explore the
 subcommands for CLI-based operations like history search and session
 management.`,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-			// Skip initialization for help commands
-			if cmd.Name() == "help" || cmd.Name() == "completion" {
+			// Skip initialization for commands that don't need app context
+			switch cmd.Name() {
+			case "help", "completion", "gen-docs":
 				return nil
 			}
 
