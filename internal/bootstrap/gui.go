@@ -236,44 +236,47 @@ type ParallelDBWebKitInput struct {
 
 // Note: Database path is resolved via config.GetDatabaseFile() internally.
 
+// dbInitResult holds the result of database initialization for channel communication.
+type dbInitResult struct {
+	db      *sql.DB
+	cleanup func()
+	err     error
+}
+
 // RunParallelDBWebKit initializes database in background while WebKit runs on main thread.
 // Database init happens in goroutine (pure Go/WASM), WebKit must stay on main thread (GTK).
 // This saves ~150ms by overlapping DB migrations with WebKit context creation.
 func RunParallelDBWebKit(input ParallelDBWebKitInput) (*ParallelDBWebKitResult, error) {
 	log := logging.FromContext(input.Ctx)
 
-	var (
-		db        *sql.DB
-		dbCleanup func()
-		dbErr     error
-		dbDone    = make(chan struct{})
-	)
+	dbCh := make(chan dbInitResult, 1)
 
 	// Database initialization in background (WASM is thread-safe)
 	go func() {
-		defer close(dbDone)
 		dbResult, err := OpenDatabase(input.Ctx)
 		if err != nil {
-			dbErr = err
+			dbCh <- dbInitResult{err: err}
 			return
 		}
-		db = dbResult.DB
-		dbCleanup = dbResult.Cleanup
+		dbCh <- dbInitResult{
+			db:      dbResult.DB,
+			cleanup: dbResult.Cleanup,
+		}
 	}()
 
 	// WebKit stack on main thread (GTK requirement)
 	stack := BuildWebKitStack(input.Ctx, input.Config, input.DataDir, input.CacheDir, input.ThemeManager, *log)
 
 	// Wait for database
-	<-dbDone
+	dbRes := <-dbCh
 
-	if dbErr != nil {
-		return nil, fmt.Errorf("database initialization: %w", dbErr)
+	if dbRes.err != nil {
+		return nil, fmt.Errorf("database initialization: %w", dbRes.err)
 	}
 
 	return &ParallelDBWebKitResult{
-		DB:        db,
-		DBCleanup: dbCleanup,
+		DB:        dbRes.db,
+		DBCleanup: dbRes.cleanup,
 		Stack:     stack,
 	}, nil
 }
