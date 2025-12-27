@@ -207,9 +207,11 @@ func TestParseKeyString_CaseInsensitive(t *testing.T) {
 		input1 string
 		input2 string
 	}{
-		{"ctrl+t", "CTRL+T"},
+		// Modifiers and named keys are case-insensitive.
+		{"ctrl+t", "CTRL+t"},
 		{"Escape", "escape"},
 		{"Tab", "TAB"},
+		// If shift is explicitly present, the key letter case shouldn't matter.
 		{"Ctrl+Shift+T", "ctrl+shift+t"},
 	}
 
@@ -227,6 +229,17 @@ func TestParseKeyString_CaseInsensitive(t *testing.T) {
 				t.Errorf("ParseKeyString case sensitivity: %q=%v, %q=%v", tt.input1, got1, tt.input2, got2)
 			}
 		})
+	}
+}
+
+func TestParseKeyString_UppercaseSingleLetterAddsShift(t *testing.T) {
+	got1, ok1 := ParseKeyString("M")
+	got2, ok2 := ParseKeyString("shift+m")
+	if !ok1 || !ok2 {
+		t.Fatalf("ParseKeyString should succeed for M and shift+m")
+	}
+	if got1 != got2 {
+		t.Fatalf("ParseKeyString uppercase should imply shift: got %v want %v", got1, got2)
 	}
 }
 
@@ -336,6 +349,8 @@ func TestShouldAutoExitMode(t *testing.T) {
 		ActionSplitDown,
 		ActionClosePane,
 		ActionStackPane,
+		ActionMovePaneToTab,
+		ActionMovePaneToNextTab,
 	}
 
 	stayActions := []Action{
