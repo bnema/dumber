@@ -811,6 +811,15 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.MarkDirty()
 	})
 
+	// Hide loading skeleton once the WebView paints
+	a.contentCoord.SetOnWebViewShown(func(paneID entity.PaneID) {
+		if wsView := a.activeWorkspaceView(); wsView != nil {
+			if pv := wsView.GetPaneView(paneID); pv != nil {
+				pv.HideLoadingSkeleton()
+			}
+		}
+	})
+
 	// 5. Keyboard Dispatcher
 	a.kbDispatcher = dispatcher.NewKeyboardDispatcher(
 		ctx,

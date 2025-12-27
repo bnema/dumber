@@ -14,6 +14,56 @@ import (
 	"github.com/bnema/dumber/internal/ui/layout/mocks"
 )
 
+func setupLoadingSkeletonMocksWorkspace(
+	mockFactory *mocks.MockWidgetFactory,
+	mockOverlay *mocks.MockOverlayWidget,
+	mockLoadingContainer *mocks.MockBoxWidget,
+	mockLoadingContent *mocks.MockBoxWidget,
+	mockLoadingSpinner *mocks.MockSpinnerWidget,
+	mockLoadingLabel *mocks.MockLabelWidget,
+) {
+	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockLoadingContainer).Once()
+	mockLoadingContainer.EXPECT().SetHexpand(true).Maybe()
+	mockLoadingContainer.EXPECT().SetVexpand(true).Maybe()
+	mockLoadingContainer.EXPECT().SetHalign(mock.Anything).Maybe()
+	mockLoadingContainer.EXPECT().SetValign(mock.Anything).Maybe()
+	mockLoadingContainer.EXPECT().SetCanFocus(false).Maybe()
+	mockLoadingContainer.EXPECT().SetCanTarget(false).Maybe()
+	mockLoadingContainer.EXPECT().AddCssClass("loading-skeleton").Maybe()
+	mockLoadingContainer.EXPECT().SetVisible(true).Maybe()
+
+	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 6).Return(mockLoadingContent).Once()
+	mockLoadingContent.EXPECT().SetHalign(mock.Anything).Maybe()
+	mockLoadingContent.EXPECT().SetValign(mock.Anything).Maybe()
+	mockLoadingContent.EXPECT().SetCanFocus(false).Maybe()
+	mockLoadingContent.EXPECT().SetCanTarget(false).Maybe()
+	mockLoadingContent.EXPECT().AddCssClass("loading-skeleton-content").Maybe()
+
+	mockFactory.EXPECT().NewSpinner().Return(mockLoadingSpinner).Once()
+	mockLoadingSpinner.EXPECT().SetHalign(mock.Anything).Maybe()
+	mockLoadingSpinner.EXPECT().SetValign(mock.Anything).Maybe()
+	mockLoadingSpinner.EXPECT().SetCanFocus(false).Maybe()
+	mockLoadingSpinner.EXPECT().SetCanTarget(false).Maybe()
+	mockLoadingSpinner.EXPECT().SetSizeRequest(32, 32).Maybe()
+	mockLoadingSpinner.EXPECT().AddCssClass("loading-skeleton-spinner").Maybe()
+	mockLoadingSpinner.EXPECT().Start().Maybe()
+
+	mockFactory.EXPECT().NewLabel("Loading...").Return(mockLoadingLabel).Once()
+	mockLoadingLabel.EXPECT().SetHalign(mock.Anything).Maybe()
+	mockLoadingLabel.EXPECT().SetValign(mock.Anything).Maybe()
+	mockLoadingLabel.EXPECT().SetCanFocus(false).Maybe()
+	mockLoadingLabel.EXPECT().SetCanTarget(false).Maybe()
+	mockLoadingLabel.EXPECT().AddCssClass("loading-skeleton-text").Maybe()
+
+	mockLoadingContent.EXPECT().Append(mockLoadingSpinner).Maybe()
+	mockLoadingContent.EXPECT().Append(mockLoadingLabel).Maybe()
+	mockLoadingContainer.EXPECT().Append(mockLoadingContent).Maybe()
+
+	mockOverlay.EXPECT().AddOverlay(mockLoadingContainer).Once()
+	mockOverlay.EXPECT().SetClipOverlay(mockLoadingContainer, false).Once()
+	mockOverlay.EXPECT().SetMeasureOverlay(mockLoadingContainer, false).Once()
+}
+
 func setupWorkspaceViewBase(t *testing.T, mockFactory *mocks.MockWidgetFactory) (context.Context, *mocks.MockBoxWidget) {
 	ctx := context.Background()
 	mockContainer := mocks.NewMockBoxWidget(t)
@@ -37,11 +87,18 @@ func setupWorkspacePaneViewMocks(t *testing.T, mockFactory *mocks.MockWidgetFact
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
 
+	mockLoadingContainer := mocks.NewMockBoxWidget(t)
+	mockLoadingContent := mocks.NewMockBoxWidget(t)
+	mockLoadingSpinner := mocks.NewMockSpinnerWidget(t)
+	mockLoadingLabel := mocks.NewMockLabelWidget(t)
+
 	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
 	mockOverlay.EXPECT().SetHexpand(true).Once()
 	mockOverlay.EXPECT().SetVexpand(true).Once()
 	mockOverlay.EXPECT().SetVisible(true).Once()
 	mockOverlay.EXPECT().AddCssClass("pane-overlay").Once()
+
+	setupLoadingSkeletonMocksWorkspace(mockFactory, mockOverlay, mockLoadingContainer, mockLoadingContent, mockLoadingSpinner, mockLoadingLabel)
 
 	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
 	mockBorderBox.EXPECT().SetCanFocus(false).Once()
