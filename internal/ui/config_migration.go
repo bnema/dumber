@@ -12,6 +12,7 @@ import (
 // checkConfigMigration checks if user config needs migration and shows a toast.
 func (a *App) checkConfigMigration(ctx context.Context) {
 	log := logging.FromContext(ctx)
+	cfg := config.Get()
 
 	migrator := config.NewMigrator()
 	result, err := migrator.CheckMigration()
@@ -24,13 +25,14 @@ func (a *App) checkConfigMigration(ctx context.Context) {
 		return // No migration needed
 	}
 
-	// Show toast notification
-	if a.appToaster != nil {
-		msg := fmt.Sprintf("Config has %d new settings. Run 'dumber config migrate'", len(result.MissingKeys))
-		a.appToaster.Show(ctx, msg, component.ToastInfo)
-	}
-
+	// Log is always shown for debugging purposes
 	log.Info().
 		Int("missing_keys", len(result.MissingKeys)).
 		Msg("config migration available")
+
+	// Show toast notification if enabled
+	if cfg.Update.NotifyOnNewSettings && a.appToaster != nil {
+		msg := fmt.Sprintf("Config has %d new settings. Run 'dumber config migrate'", len(result.MissingKeys))
+		a.appToaster.Show(ctx, msg, component.ToastInfo)
+	}
 }

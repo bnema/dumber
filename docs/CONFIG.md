@@ -451,6 +451,34 @@ Notes:
 - Filter data is downloaded from `bnema/ublock-webkit-filters` GitHub releases.
 - Domain whitelist is managed via the database (`content_whitelist` table), not the config file.
 
+## Update
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `update.enable_on_startup` | bool | `true` | Check for updates when browser starts |
+| `update.auto_download` | bool | `false` | Automatically download updates in background |
+| `update.notify_on_new_settings` | bool | `true` | Show toast notification when new config settings are available |
+
+**Example:**
+```toml
+[update]
+enable_on_startup = true       # Check for updates on startup
+auto_download = false          # Don't auto-download (prompt instead)
+notify_on_new_settings = true  # Show toast when config migration available
+```
+
+**CLI Commands:**
+```bash
+# Check config status and available migrations
+dumber config status
+
+# Add missing settings with default values
+dumber config migrate
+
+# Skip confirmation prompt
+dumber config migrate --yes
+```
+
 ## Environment Variables
 
 All config values can be overridden via environment variables with the prefix `DUMBER_`:
