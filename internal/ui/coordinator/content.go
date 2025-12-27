@@ -52,6 +52,9 @@ type ContentCoordinator struct {
 	// Callback when active pane title changes (for window title updates)
 	onWindowTitleChanged func(title string)
 
+	// Callback when the WebView becomes visible (first real commit)
+	onWebViewShown func(paneID entity.PaneID)
+
 	// Gesture action handler for mouse button navigation
 	gestureActionHandler input.ActionHandler
 
@@ -117,6 +120,11 @@ func (c *ContentCoordinator) SetOnPaneURIUpdated(fn func(paneID entity.PaneID, u
 // SetOnWindowTitleChanged sets the callback for active pane title changes (for window title updates).
 func (c *ContentCoordinator) SetOnWindowTitleChanged(fn func(title string)) {
 	c.onWindowTitleChanged = fn
+}
+
+// SetOnWebViewShown sets a callback that fires when a pane's WebView is shown.
+func (c *ContentCoordinator) SetOnWebViewShown(fn func(paneID entity.PaneID)) {
+	c.onWebViewShown = fn
 }
 
 // SetGestureActionHandler sets the callback for mouse button navigation gestures.
@@ -674,16 +682,46 @@ func (c *ContentCoordinator) PreloadCachedFavicon(ctx context.Context, paneID en
 func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
 	log := logging.FromContext(ctx)
 
-	// Show the WebView now that content is being painted
-	// (WebViews are hidden on creation to avoid white flash)
-	if inner := wv.Widget(); inner != nil {
-		inner.SetVisible(true)
-		log.Debug().Str("pane_id", string(paneID)).Msg("webview shown on load committed")
-	}
-
 	url := wv.URI()
 	if url == "" {
 		return
+	}
+
+	// Show the WebView now that content is being painted
+	// (WebViews are hidden on creation to avoid white flash)
+	// Skip showing if this is about:blank but the pane is loading a different URL
+	// This prevents the brief flash of about:blank during initial navigation
+	shouldShow := true
+	if url == "about:blank" {
+		// Get the pane's intended URI from the workspace
+		ws, _ := c.getActiveWS()
+		if ws != nil {
+			if paneNode := ws.FindPane(paneID); paneNode != nil && paneNode.Pane != nil {
+				// Don't show about:blank if the pane is supposed to load a different URL
+				if paneNode.Pane.URI != "" && paneNode.Pane.URI != "about:blank" {
+					shouldShow = false
+					log.Debug().
+						Str("pane_id", string(paneID)).
+						Str("pane_uri", paneNode.Pane.URI).
+						Msg("skipping webview show for about:blank (pane loading different URL)")
+				}
+			}
+		}
+	}
+
+	if !shouldShow {
+		// Avoid updating UI/domain state to about:blank when we know the pane is
+		// navigating to a different URL. This prevents the omnibox/window title from
+		// briefly showing about:blank on cold start.
+		return
+	}
+
+	if inner := wv.Widget(); inner != nil {
+		inner.SetVisible(true)
+		log.Debug().Str("pane_id", string(paneID)).Str("url", url).Msg("webview shown on load committed")
+	}
+	if c.onWebViewShown != nil {
+		c.onWebViewShown(paneID)
 	}
 
 	// Update domain model with current URI for session snapshots

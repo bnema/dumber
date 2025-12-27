@@ -51,5 +51,6 @@ packages:
       PaneViewFactory: {}
       PanedWidget: {}
       ProgressBarWidget: {}
+      SpinnerWidget: {}
       Widget: {}
       WidgetFactory: {}
