@@ -8,6 +8,7 @@ import (
 
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
+	"github.com/jwijenbergh/puregotk/v4/glib"
 )
 
 // FilterApplier applies content filters to a UserContentManager.
@@ -205,6 +206,85 @@ func (p *WebViewPool) Prewarm(ctx context.Context, count int) {
 		return
 	}
 	p.prewarmSync(ctx, count)
+}
+
+// PrewarmAsync schedules WebView creation on the GTK idle loop.
+// This avoids blocking startup (especially cold-start navigation) while still
+// warming up WebViews for subsequent tab creation.
+func (p *WebViewPool) PrewarmAsync(ctx context.Context, count int) {
+	log := logging.FromContext(ctx)
+
+	if count <= 0 {
+		count = p.config.PrewarmCount
+	}
+	if count <= 0 {
+		return
+	}
+	if p.closed.Load() {
+		return
+	}
+
+	log.Debug().Int("count", count).Int("pool_size", len(p.pool)).Msg("scheduling async webview pool prewarm")
+
+	p.wg.Add(1)
+	var doneOnce sync.Once
+	remaining := count
+
+	var schedule func()
+	schedule = func() {
+		// Stop early if the caller canceled the operation.
+		if err := ctx.Err(); err != nil {
+			log.Debug().Err(err).Msg("async webview pool prewarm canceled")
+			doneOnce.Do(p.wg.Done)
+			return
+		}
+
+		cb := glib.SourceFunc(func(_ uintptr) bool {
+			// Stop if the caller canceled the operation.
+			if err := ctx.Err(); err != nil {
+				log.Debug().Err(err).Msg("async webview pool prewarm canceled")
+				doneOnce.Do(p.wg.Done)
+				return false
+			}
+
+			// Stop if pool is closing/closed.
+			if p.closed.Load() {
+				doneOnce.Do(p.wg.Done)
+				return false
+			}
+
+			// Stop early if we reached capacity.
+			if len(p.pool) >= p.config.MaxSize {
+				doneOnce.Do(p.wg.Done)
+				return false
+			}
+
+			wv, err := p.createWebView(ctx)
+			if err != nil {
+				log.Warn().Err(err).Msg("failed to prewarm webview")
+			} else {
+				select {
+				case p.pool <- wv:
+					log.Debug().Uint64("id", uint64(wv.ID())).Msg("prewarmed webview added to pool")
+				default:
+					wv.Destroy()
+				}
+			}
+
+			remaining--
+			if remaining <= 0 {
+				log.Debug().Int("pool_size", len(p.pool)).Msg("async webview pool prewarm complete")
+				doneOnce.Do(p.wg.Done)
+				return false
+			}
+
+			schedule()
+			return false
+		})
+		glib.IdleAdd(&cb, 0)
+	}
+
+	schedule()
 }
 
 // prewarmSync creates WebViews synchronously.

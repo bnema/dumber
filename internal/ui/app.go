@@ -179,7 +179,9 @@ func (a *App) onActivate(ctx context.Context) {
 	log.Debug().Msg("GTK application activated")
 
 	a.applyGTKColorSchemePreference(ctx)
-	a.prewarmWebViewPool(ctx)
+	// Configure pool background color early (prevents white flash), but avoid
+	// synchronous prewarming that delays the first navigation on cold start.
+	a.setupPoolBackgroundColor(ctx)
 
 	if err := a.createMainWindow(ctx); err != nil {
 		log.Error().Err(err).Msg("failed to create main window")
@@ -198,6 +200,8 @@ func (a *App) onActivate(ctx context.Context) {
 	a.initSnapshotService(ctx)
 	a.initUpdateCoordinator(ctx)
 	a.createInitialTab(ctx)
+	// Prewarm the remaining WebViews after the initial tab starts loading.
+	a.prewarmWebViewPoolAsync(ctx)
 	a.finalizeActivation(ctx)
 }
 
@@ -223,19 +227,31 @@ func (a *App) applyGTKColorSchemePreference(ctx context.Context) {
 		Msg("set gtk-application-prefer-dark-theme")
 }
 
-func (a *App) prewarmWebViewPool(ctx context.Context) {
+func (a *App) setupPoolBackgroundColor(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
 	// Set theme background color on pool to eliminate white flash.
-	// Must be done before prewarming so WebViews get the correct color.
-	if a.pool != nil && a.deps != nil && a.deps.Theme != nil {
-		r, g, b, alpha := a.deps.Theme.GetBackgroundRGBA()
-		a.pool.SetBackgroundColor(r, g, b, alpha)
+	// Must be done before any WebView creation so WebViews get the correct color.
+	if a.pool == nil {
+		log.Debug().Msg("webview pool not available; skipping background color setup")
+		return
+	}
+	if a.deps == nil || a.deps.Theme == nil {
+		log.Debug().Msg("theme not available; skipping webview pool background color setup")
+		return
 	}
 
-	// Prewarm WebView pool now that GTK is initialized.
+	r, g, b, alpha := a.deps.Theme.GetBackgroundRGBA()
+	a.pool.SetBackgroundColor(r, g, b, alpha)
+	log.Debug().Msg("configured webview pool background color")
+}
+
+func (a *App) prewarmWebViewPoolAsync(ctx context.Context) {
+	// Prewarm WebView pool after startup so cold-start navigation is not blocked.
 	if a.pool == nil {
 		return
 	}
-	a.pool.Prewarm(ctx, 0)
+	a.pool.PrewarmAsync(ctx, 0)
 }
 
 func (a *App) createMainWindow(ctx context.Context) error {
