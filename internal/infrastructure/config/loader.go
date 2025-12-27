@@ -460,6 +460,7 @@ func (m *Manager) setSessionDefaults(defaults *Config) {
 func (m *Manager) setUpdateDefaults(defaults *Config) {
 	m.viper.SetDefault("update.enable_on_startup", defaults.Update.EnableOnStartup)
 	m.viper.SetDefault("update.auto_download", defaults.Update.AutoDownload)
+	m.viper.SetDefault("update.notify_on_new_settings", defaults.Update.NotifyOnNewSettings)
 }
 
 // New returns a new default configuration instance.
