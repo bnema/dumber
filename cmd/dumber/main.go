@@ -83,7 +83,7 @@ func runGUI() int {
 	ctx := logging.WithContext(context.Background(), bootstrapLogger)
 	timer.Mark("logger")
 
-	// Parallel phase: directories, runtime/media checks, theme
+	// Parallel phase: directories, runtime/media checks, theme, WASM precompile
 	initResult, err := bootstrap.RunParallelInit(bootstrap.ParallelInitInput{
 		Ctx:    ctx,
 		Config: cfg,
@@ -94,15 +94,23 @@ func runGUI() int {
 	}
 	timer.MarkDuration("parallel_phase", initResult.Duration)
 
-	// Database and session
-	db, dbCleanup, dbErr := bootstrap.OpenDatabase(ctx, initResult.DataDir)
-	if dbErr != nil {
-		bootstrapLogger.Fatal().Err(dbErr).Msg("failed to initialize database")
+	// Parallel phase 2: Database + WebKit stack initialize concurrently
+	dbWebKit, err := bootstrap.RunParallelDBWebKit(bootstrap.ParallelDBWebKitInput{
+		Ctx:          ctx,
+		Config:       cfg,
+		DataDir:      initResult.DataDir,
+		CacheDir:     initResult.CacheDir,
+		ThemeManager: initResult.ThemeManager,
+	})
+	if err != nil {
+		bootstrapLogger.Fatal().Err(err).Msg("failed to initialize database/webkit")
 	}
-	if dbCleanup != nil {
-		defer dbCleanup()
+	if dbWebKit.DBCleanup != nil {
+		defer dbWebKit.DBCleanup()
 	}
-	timer.Mark("database")
+	db := dbWebKit.DB
+	stack := dbWebKit.Stack
+	timer.Mark("db_webkit_parallel")
 
 	browserSession, sessionCtx, err := bootstrap.StartBrowserSession(ctx, cfg, db)
 	if err != nil {
@@ -116,10 +124,6 @@ func runGUI() int {
 
 	ctx = sessionCtx
 	log := logging.FromContext(ctx)
-
-	// WebKit stack
-	stack := bootstrap.BuildWebKitStack(ctx, cfg, initResult.DataDir, initResult.CacheDir, initResult.ThemeManager, *log)
-	timer.Mark("webkit_stack")
 
 	// Repositories and use cases
 	repos := createRepositories(db)

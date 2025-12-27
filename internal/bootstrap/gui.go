@@ -17,7 +17,14 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/theme"
+	sqlite3 "github.com/ncruces/go-sqlite3"
 )
+
+// DatabaseResult holds database connection and cleanup function.
+type DatabaseResult struct {
+	DB      *sql.DB
+	Cleanup func()
+}
 
 // ParallelInitResult holds the results of parallel initialization phase.
 type ParallelInitResult struct {
@@ -76,7 +83,14 @@ func RunParallelInit(input ParallelInitInput) (*ParallelInitResult, error) {
 	)
 
 	start := time.Now()
-	wg.Add(4)
+	wg.Add(5)
+
+	// Pre-initialize SQLite WASM runtime (expensive compilation)
+	// This runs concurrently with other checks so it's hidden from critical path.
+	go func() {
+		defer wg.Done()
+		_ = sqlite3.Initialize()
+	}()
 
 	// Resolve directories
 	go func() {
@@ -171,16 +185,91 @@ func resolveWebKitDirs() (dataDir, cacheDir string, err error) {
 	return dataDir, cacheDir, nil
 }
 
-// OpenDatabase opens and initializes the SQLite database.
+// OpenDatabase opens and initializes the SQLite database using XDG paths.
 // Returns error if database cannot be opened or migrations fail.
-func OpenDatabase(ctx context.Context, dataDir string) (*sql.DB, func(), error) {
-	dbPath := filepath.Join(dataDir, "dumber.db")
+func OpenDatabase(ctx context.Context) (*DatabaseResult, error) {
+	dbPath, err := config.GetDatabaseFile()
+	if err != nil {
+		return nil, fmt.Errorf("resolve database path: %w", err)
+	}
 	db, err := sqlite.NewConnection(ctx, dbPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("initialize database at %s: %w", dbPath, err)
+		return nil, fmt.Errorf("initialize database at %s: %w", dbPath, err)
 	}
-	cleanup := func() {
-		_ = sqlite.Close(db)
+	return &DatabaseResult{
+		DB: db,
+		Cleanup: func() {
+			_ = sqlite.Close(db)
+		},
+	}, nil
+}
+
+// CreateLazyDatabase creates a lazy database provider that defers initialization.
+// The database is initialized on first access, allowing the UI to render faster.
+func CreateLazyDatabase() (*sqlite.LazyDB, error) {
+	dbPath, err := config.GetDatabaseFile()
+	if err != nil {
+		return nil, fmt.Errorf("resolve database path: %w", err)
 	}
-	return db, cleanup, nil
+	return sqlite.NewLazyDB(dbPath), nil
+}
+
+// ParallelDBWebKitResult holds results from parallel DB and WebKit initialization.
+type ParallelDBWebKitResult struct {
+	DB        *sql.DB
+	DBCleanup func()
+	Stack     WebKitStack
+}
+
+// ParallelDBWebKitInput holds inputs for parallel DB and WebKit initialization.
+type ParallelDBWebKitInput struct {
+	Ctx          context.Context
+	Config       *config.Config
+	DataDir      string // For WebKit context
+	CacheDir     string // For WebKit cache
+	ThemeManager *theme.Manager
+}
+
+// Note: Database path is resolved via config.GetDatabaseFile() internally.
+
+// RunParallelDBWebKit initializes database in background while WebKit runs on main thread.
+// Database init happens in goroutine (pure Go/WASM), WebKit must stay on main thread (GTK).
+// This saves ~150ms by overlapping DB migrations with WebKit context creation.
+func RunParallelDBWebKit(input ParallelDBWebKitInput) (*ParallelDBWebKitResult, error) {
+	log := logging.FromContext(input.Ctx)
+
+	var (
+		db        *sql.DB
+		dbCleanup func()
+		dbErr     error
+		dbDone    = make(chan struct{})
+	)
+
+	// Database initialization in background (WASM is thread-safe)
+	go func() {
+		defer close(dbDone)
+		dbResult, err := OpenDatabase(input.Ctx)
+		if err != nil {
+			dbErr = err
+			return
+		}
+		db = dbResult.DB
+		dbCleanup = dbResult.Cleanup
+	}()
+
+	// WebKit stack on main thread (GTK requirement)
+	stack := BuildWebKitStack(input.Ctx, input.Config, input.DataDir, input.CacheDir, input.ThemeManager, *log)
+
+	// Wait for database
+	<-dbDone
+
+	if dbErr != nil {
+		return nil, fmt.Errorf("database initialization: %w", dbErr)
+	}
+
+	return &ParallelDBWebKitResult{
+		DB:        db,
+		DBCleanup: dbCleanup,
+		Stack:     stack,
+	}, nil
 }

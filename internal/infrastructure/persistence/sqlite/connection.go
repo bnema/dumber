@@ -33,6 +33,9 @@ func NewConnection(ctx context.Context, dbPath string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
+	// Configure connection pool (must be done before any queries)
+	configurePool(db)
+
 	// Test the connection
 	if err := db.Ping(); err != nil {
 		_ = db.Close()
@@ -59,12 +62,13 @@ func NewConnection(ctx context.Context, dbPath string) (*sql.DB, error) {
 // applyPragmas configures SQLite for optimal performance.
 func applyPragmas(db *sql.DB) error {
 	pragmas := []string{
-		"PRAGMA journal_mode = WAL",      // Write-Ahead Logging for concurrent access
-		"PRAGMA synchronous = NORMAL",    // Safe in WAL mode
-		"PRAGMA cache_size = -64000",     // 64MB cache
-		"PRAGMA temp_store = MEMORY",     // Temporary tables in RAM
-		"PRAGMA mmap_size = 30000000000", // 30GB memory-mapped I/O
-		"PRAGMA busy_timeout = 5000",     // Wait 5 seconds on lock contention
+		"PRAGMA journal_mode = WAL",    // Write-Ahead Logging for concurrent access
+		"PRAGMA synchronous = NORMAL",  // Safe in WAL mode
+		"PRAGMA cache_size = -64000",   // 64MB cache
+		"PRAGMA temp_store = MEMORY",   // Temporary tables in RAM
+		"PRAGMA mmap_size = 268435456", // 256MB memory-mapped I/O (reasonable for browser history)
+		"PRAGMA busy_timeout = 5000",   // Wait 5 seconds on lock contention
+		"PRAGMA foreign_keys = ON",     // Enable referential integrity
 	}
 
 	for _, pragma := range pragmas {
@@ -74,6 +78,15 @@ func applyPragmas(db *sql.DB) error {
 	}
 
 	return nil
+}
+
+// configurePool sets connection pool parameters optimized for SQLite.
+// SQLite only supports one writer at a time, so we limit connections.
+func configurePool(db *sql.DB) {
+	db.SetMaxOpenConns(1)    // SQLite is single-writer
+	db.SetMaxIdleConns(1)    // Keep one connection alive
+	db.SetConnMaxLifetime(0) // Never expire connections
+	db.SetConnMaxIdleTime(0) // Never close idle connections
 }
 
 // Close closes the database connection gracefully.
