@@ -2,6 +2,7 @@ package webkit
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -10,6 +11,9 @@ import (
 	"github.com/bnema/puregotk-webkit/webkit"
 	"github.com/jwijenbergh/puregotk/v4/glib"
 )
+
+// ErrPoolClosed is returned when operations are attempted on a closed pool.
+var ErrPoolClosed = errors.New("webview pool is closed")
 
 // FilterApplier applies content filters to a UserContentManager.
 // This interface decouples the pool from the filtering package.
@@ -114,7 +118,7 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 	log := logging.FromContext(ctx)
 
 	if p.closed.Load() {
-		return nil, context.Canceled
+		return nil, ErrPoolClosed
 	}
 
 	// Try to get from pool first (non-blocking)
@@ -194,6 +198,34 @@ func (p *WebViewPool) Release(ctx context.Context, wv *WebView) {
 	// WebViews that have been attached to the UI.
 	log.Debug().Uint64("id", uint64(wv.ID())).Msg("destroying webview (not pooling used views)")
 	wv.Destroy()
+}
+
+// PrewarmFirst creates exactly one WebView synchronously.
+// Call this during startup (before GTK activate) to ensure first Acquire() is instant.
+// This is the most impactful optimization for cold start since WebView creation
+// is the heaviest operation (spawns WebKit web process).
+// Returns error if WebView creation fails; caller should log and continue.
+func (p *WebViewPool) PrewarmFirst(ctx context.Context) error {
+	if p.closed.Load() {
+		return ErrPoolClosed
+	}
+	if len(p.pool) > 0 {
+		return nil // Already have at least one
+	}
+
+	log := logging.FromContext(ctx)
+	wv, err := p.createWebView(ctx)
+	if err != nil {
+		return err
+	}
+
+	select {
+	case p.pool <- wv:
+		log.Debug().Uint64("id", uint64(wv.ID())).Msg("prewarmed first webview for cold start")
+	default:
+		wv.Destroy() // Pool somehow full (shouldn't happen)
+	}
+	return nil
 }
 
 // Prewarm creates WebViews synchronously to populate the pool.

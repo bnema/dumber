@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"runtime"
 	"syscall"
 
@@ -23,16 +22,14 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/deps"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
 	"github.com/bnema/dumber/internal/infrastructure/idle"
-	"github.com/bnema/dumber/internal/infrastructure/media"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/infrastructure/updater"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui"
 	"github.com/bnema/dumber/internal/ui/theme"
-	"github.com/rs/zerolog"
 )
 
-// Build-time variables (set via ldflags)
+// Build-time variables (set via ldflags).
 var (
 	version   = "dev"
 	commit    = "unknown"
@@ -48,13 +45,10 @@ var restoreSessionID string
 func main() {
 	// Run GUI mode for browse command
 	if len(os.Args) > 1 && os.Args[1] == "browse" {
-		// Extract URL if provided
 		if len(os.Args) > 2 {
 			initialURL = os.Args[2]
 		}
-		// Check for session restoration via environment variable
 		restoreSessionID = os.Getenv("DUMBER_RESTORE_SESSION")
-		// Strip "browse" and URL from args so GTK doesn't see them
 		os.Args = os.Args[:1]
 		os.Exit(runGUI())
 		return
@@ -73,75 +67,58 @@ func main() {
 }
 
 func runGUI() int {
-	// GTK requires all GTK calls to be made from the main thread
 	runtime.LockOSThread()
+	timer := bootstrap.NewStartupTimer()
 
 	cfg := initConfig()
+	timer.Mark("config")
 
-	// Apply optional /opt-style runtime prefix overrides (if configured)
-	deps.ApplyPrefixEnv(cfg.Runtime.Prefix)
+	ctx := initStartupContext(cfg)
+	timer.Mark("logger")
+	bootstrapLog := logging.FromContext(ctx)
 
-	bootstrapLogger := logging.NewFromConfigValues(cfg.Logging.Level, cfg.Logging.Format)
-	bootstrapLogger.Info().
-		Str("version", version).
-		Str("commit", commit).
-		Str("build_date", buildDate).
-		Msg("starting dumber")
+	// Parallel phase: directories and theme setup
+	initResult, err := bootstrap.RunParallelInit(bootstrap.ParallelInitInput{
+		Ctx:    ctx,
+		Config: cfg,
+	})
+	if err != nil {
+		handleParallelInitError(ctx, err)
+		return 1
+	}
+	timer.MarkDuration("parallel_phase", initResult.Duration)
 
-	ctx := logging.WithContext(context.Background(), bootstrapLogger)
+	needsEagerDB := restoreSessionID != "" || cfg.Session.AutoRestore
 
-	dataDir, cacheDir := resolveWebKitDirs(bootstrapLogger)
-
-	db, dbCleanup := openDatabase(ctx, bootstrapLogger, dataDir)
+	stack, repos, dbCleanup, err := initStackAndRepos(ctx, cfg, initResult, needsEagerDB)
+	if err != nil {
+		bootstrapLog.Fatal().Err(err).Msg("failed to initialize database/webkit")
+	}
 	if dbCleanup != nil {
 		defer dbCleanup()
 	}
+	timer.Mark("db_webkit_parallel")
 
-	browserSession, sessionCtx, err := bootstrap.StartBrowserSession(ctx, cfg, db)
+	browserSession, sessionCtx, err := bootstrap.StartBrowserSession(ctx, cfg, repos.session, !needsEagerDB)
 	if err != nil {
-		bootstrapLogger.Fatal().Err(err).Msg("failed to start session")
+		bootstrapLog.Fatal().Err(err).Msg("failed to start session")
 	}
 	if browserSession.LogCleanup != nil {
 		defer browserSession.LogCleanup()
 	}
-	defer func() {
-		_ = browserSession.End(sessionCtx)
-	}()
+	defer func() { _ = browserSession.End(sessionCtx) }()
+	timer.Mark("session")
 
 	ctx = sessionCtx
 	log := logging.FromContext(ctx)
-
-	checkRuntimeRequirements(ctx, cfg, *log)
-	checkMediaRequirements(ctx, cfg, *log)
-
-	themeManager := theme.NewManager(ctx, cfg)
-	stack := bootstrap.BuildWebKitStack(ctx, cfg, dataDir, cacheDir, themeManager, *log)
-	repos := createRepositories(db)
-
-	stateDir, _ := config.GetStateDir()
-	buildInfo := build.Info{
-		Version:   version,
-		Commit:    commit,
-		BuildDate: buildDate,
-		GoVersion: runtime.Version(),
+	if stack.MessageRouter != nil {
+		stack.MessageRouter.SetBaseContext(ctx)
 	}
-	useCases := createUseCases(repos, cfg, stateDir, buildInfo)
 
-	// Auto-restore: find last restorable session if enabled and no explicit restore requested
-	if cfg.Session.AutoRestore && restoreSessionID == "" {
-		var out *usecase.GetLastRestorableSessionOutput
-		out, err = useCases.lastRestorable.Execute(ctx, usecase.GetLastRestorableSessionInput{
-			ExcludeSessionID: browserSession.Session.ID,
-		})
-		if err != nil {
-			log.Warn().Err(err).Msg("auto-restore: failed to find restorable session")
-		} else if out.SessionID != "" {
-			restoreSessionID = string(out.SessionID)
-			log.Info().
-				Str("session_id", restoreSessionID).
-				Int("tabs", len(out.State.Tabs)).
-				Msg("auto-restore: found last session")
-		}
+	// Repositories and use cases
+	useCases := createUseCases(repos, cfg)
+	if needsEagerDB {
+		handleAutoRestore(ctx, cfg, useCases, browserSession.Session.ID)
 	}
 
 	idleInhibitor := idle.NewPortalInhibitor(ctx)
@@ -150,29 +127,99 @@ func runGUI() int {
 			_ = idleInhibitor.Close()
 		}
 	}()
-	uiDeps := buildUIDependencies(ctx, cfg, themeManager, &stack, repos, useCases, idleInhibitor, browserSession.Session.ID)
+	timer.Mark("use_cases")
 
+	// Build UI
+	uiDeps := buildUIDependencies(ctx, cfg, initResult.ThemeManager, &stack, repos, useCases, idleInhibitor, browserSession.Session.ID)
+	configureDeferredInit(uiDeps, cfg, browserSession)
 	app, err := ui.New(uiDeps)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create application")
 		return 1
 	}
+	timer.Mark("ui_deps")
+	timer.Log(ctx)
 
-	// Ensure sessions are closed on Ctrl+C / SIGTERM.
-	// Without this, the process may exit immediately and skip defers,
-	// leaving the DB session stuck in "active" state.
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-	defer signal.Stop(sigCh)
-	go func() {
-		<-sigCh
-		log.Info().Msg("received interrupt, quitting")
-		app.Quit()
-	}()
+	// Signal handling
+	setupSignalHandler(ctx, app)
 
-	// Run the application
-	exitCode := app.Run(ctx, os.Args)
-	return exitCode
+	return app.Run(ctx, os.Args)
+}
+
+func initStartupContext(cfg *config.Config) context.Context {
+	deps.ApplyPrefixEnv(cfg.Runtime.Prefix)
+	bootstrapLogger := logging.NewFromConfigValuesWithTimeFormat(
+		cfg.Logging.Level,
+		cfg.Logging.Format,
+		logging.ConsoleTimeFormat,
+	)
+	bootstrapLogger.Info().
+		Str("version", version).
+		Str("commit", commit).
+		Str("build_date", buildDate).
+		Msg("starting dumber")
+	ctx := logging.WithContext(context.Background(), bootstrapLogger)
+	return ctx
+}
+
+func initStackAndRepos(
+	ctx context.Context,
+	cfg *config.Config,
+	initResult *bootstrap.ParallelInitResult,
+	needsEagerDB bool,
+) (bootstrap.WebKitStack, *repositories, func(), error) {
+	if needsEagerDB {
+		// Parallel phase 2: Database + WebKit stack initialize concurrently
+		dbWebKit, err := bootstrap.RunParallelDBWebKit(bootstrap.ParallelDBWebKitInput{
+			Ctx:          ctx,
+			Config:       cfg,
+			DataDir:      initResult.DataDir,
+			CacheDir:     initResult.CacheDir,
+			ThemeManager: initResult.ThemeManager,
+		})
+		if err != nil {
+			return bootstrap.WebKitStack{}, nil, nil, err
+		}
+		return dbWebKit.Stack, createRepositories(dbWebKit.DB), dbWebKit.DBCleanup, nil
+	}
+
+	log := logging.FromContext(ctx)
+	stack := bootstrap.BuildWebKitStack(ctx, cfg, initResult.DataDir, initResult.CacheDir, initResult.ThemeManager, *log)
+
+	lazyDB, err := bootstrap.CreateLazyDatabase()
+	if err != nil {
+		return stack, nil, nil, err
+	}
+	dbCleanup := func() { _ = lazyDB.Close() }
+	return stack, createLazyRepositories(lazyDB), dbCleanup, nil
+}
+
+func configureDeferredInit(
+	uiDeps *ui.Dependencies,
+	cfg *config.Config,
+	session *bootstrap.BrowserSession,
+) {
+	if uiDeps == nil {
+		return
+	}
+	uiDeps.OnFirstWebViewShown = func(cbCtx context.Context) {
+		logger := logging.FromContext(cbCtx)
+		bgCtx := logging.WithContext(context.Background(), *logger)
+		go func() {
+			result := bootstrap.RunDeferredInit(bootstrap.DeferredInitInput{
+				Ctx:    bgCtx,
+				Config: cfg,
+			})
+			logDeferredInitResults(bgCtx, result)
+		}()
+		if session != nil && session.Persist != nil {
+			go func() {
+				if persistErr := session.Persist(bgCtx); persistErr != nil {
+					logger.Error().Err(persistErr).Msg("deferred session persistence failed")
+				}
+			}()
+		}
+	}
 }
 
 func initConfig() *config.Config {
@@ -183,77 +230,74 @@ func initConfig() *config.Config {
 	return config.Get()
 }
 
-func checkRuntimeRequirements(ctx context.Context, cfg *config.Config, logger zerolog.Logger) {
-	probe := deps.NewPkgConfigProbe()
-	checkRuntimeUC := usecase.NewCheckRuntimeDependenciesUseCase(probe)
-	runtimeOut, err := checkRuntimeUC.Execute(ctx, usecase.CheckRuntimeDependenciesInput{
-		Prefix: cfg.Runtime.Prefix,
-	})
-	if err != nil {
-		logger.Fatal().Err(err).Msg("runtime requirements check failed")
+func handleParallelInitError(ctx context.Context, err error) {
+	log := logging.FromContext(ctx)
+	if runtimeErr, ok := err.(*bootstrap.RuntimeRequirementsError); ok {
+		runtimeErr.LogDetails(ctx)
+		log.Fatal().Err(runtimeErr).
+			Str("hint", "Run: dumber doctor (and set runtime.prefix for /opt installs)").
+			Msg("runtime requirements not met")
 	}
-	if runtimeOut.OK {
+	log.Fatal().Err(err).Msg("initialization failed")
+}
+
+func logDeferredInitResults(ctx context.Context, result bootstrap.DeferredInitResult) {
+	log := logging.FromContext(ctx)
+	if result.SQLiteErr != nil {
+		log.Warn().Err(result.SQLiteErr).Msg("deferred sqlite wasm init failed")
+	}
+	if result.RuntimeErr != nil {
+		if runtimeErr, ok := result.RuntimeErr.(*bootstrap.RuntimeRequirementsError); ok {
+			runtimeErr.LogDetails(ctx)
+			log.Warn().Err(runtimeErr).
+				Str("hint", "Run: dumber doctor (and set runtime.prefix for /opt installs)").
+				Msg("runtime requirements not met")
+		} else {
+			log.Warn().Err(result.RuntimeErr).Msg("runtime requirements check failed")
+		}
+	}
+	if result.MediaErr != nil {
+		log.Warn().Err(result.MediaErr).Msg("media check failed")
+	}
+	log.Debug().Dur("duration", result.Duration).Msg("deferred init complete")
+}
+
+func handleAutoRestore(
+	ctx context.Context,
+	cfg *config.Config,
+	uc *useCases,
+	currentSessionID entity.SessionID,
+) {
+	if !cfg.Session.AutoRestore || restoreSessionID != "" {
 		return
 	}
-	for _, c := range runtimeOut.Checks {
-		if c.Installed {
-			logger.Error().
-				Str("dependency", c.PkgConfigName).
-				Str("have", c.Version).
-				Str("need", c.RequiredVersion).
-				Bool("ok", c.MeetsRequirement).
-				Msg("runtime dependency")
-		} else {
-			logger.Error().
-				Str("dependency", c.PkgConfigName).
-				Str("need", c.RequiredVersion).
-				Msg("runtime dependency missing")
-		}
+	log := logging.FromContext(ctx)
+	out, err := uc.lastRestorable.Execute(ctx, usecase.GetLastRestorableSessionInput{
+		ExcludeSessionID: currentSessionID,
+	})
+	if err != nil {
+		log.Warn().Err(err).Msg("auto-restore: failed to find restorable session")
+		return
 	}
-	logger.Fatal().
-		Str("hint", "Run: dumber doctor (and set runtime.prefix for /opt installs)").
-		Msg("runtime requirements not met")
-}
-
-func checkMediaRequirements(ctx context.Context, cfg *config.Config, logger zerolog.Logger) {
-	mediaDiagAdapter := media.New()
-	checkMediaUC := usecase.NewCheckMediaUseCase(mediaDiagAdapter)
-	if _, mediaErr := checkMediaUC.Execute(ctx, usecase.CheckMediaInput{
-		ShowDiagnostics: cfg.Media.ShowDiagnosticsOnStartup,
-	}); mediaErr != nil {
-		logger.Fatal().Err(mediaErr).Msg("media requirements check failed")
+	if out.SessionID != "" {
+		restoreSessionID = string(out.SessionID)
+		log.Info().
+			Str("session_id", restoreSessionID).
+			Int("tabs", len(out.State.Tabs)).
+			Msg("auto-restore: found last session")
 	}
 }
 
-func resolveWebKitDirs(logger zerolog.Logger) (string, string) {
-	const cacheDirPerm = 0o755
-	dataDir, err := config.GetDataDir()
-	if err != nil {
-		logger.Fatal().Err(err).Msg("failed to resolve data directory")
-	}
-	stateDir, err := config.GetStateDir()
-	if err != nil {
-		logger.Fatal().Err(err).Msg("failed to resolve state directory")
-	}
-	cacheDir := filepath.Join(stateDir, "webkit-cache")
-	if mkErr := os.MkdirAll(cacheDir, cacheDirPerm); mkErr != nil {
-		logger.Fatal().Err(mkErr).Str("path", cacheDir).Msg("failed to create cache directory")
-	}
-	return dataDir, cacheDir
-}
-
-func openDatabase(ctx context.Context, logger zerolog.Logger, dataDir string) (*sql.DB, func()) {
-	dbPath := filepath.Join(dataDir, "dumber.db")
-	db, err := sqlite.NewConnection(ctx, dbPath)
-	if err != nil {
-		logger.Fatal().Err(err).Str("path", dbPath).Msg("failed to initialize database")
-	}
-	cleanup := func() {
-		if err := sqlite.Close(db); err != nil {
-			logger.Error().Err(err).Msg("failed to close database")
-		}
-	}
-	return db, cleanup
+func setupSignalHandler(ctx context.Context, app *ui.App) {
+	log := logging.FromContext(ctx)
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		sig := <-sigCh
+		signal.Stop(sigCh)
+		log.Info().Str("signal", sig.String()).Msg("received interrupt, quitting")
+		app.Quit()
+	}()
 }
 
 // repositories groups infrastructure layer repository implementations.
@@ -279,6 +323,18 @@ func createRepositories(db *sql.DB) *repositories {
 	}
 }
 
+func createLazyRepositories(provider port.DatabaseProvider) *repositories {
+	return &repositories{
+		history:      sqlite.NewLazyHistoryRepository(provider),
+		favorite:     sqlite.NewLazyFavoriteRepository(provider),
+		folder:       sqlite.NewLazyFolderRepository(provider),
+		tag:          sqlite.NewLazyTagRepository(provider),
+		zoom:         sqlite.NewLazyZoomRepository(provider),
+		session:      sqlite.NewLazySessionRepository(provider),
+		sessionState: sqlite.NewLazySessionStateRepository(provider),
+	}
+}
+
 // useCases groups application layer use case implementations.
 type useCases struct {
 	tabs           *usecase.ManageTabsUseCase
@@ -296,7 +352,7 @@ type useCases struct {
 	favicon        *favicon.Service
 }
 
-func createUseCases(repos *repositories, cfg *config.Config, stateDir string, buildInfo build.Info) *useCases {
+func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 	const idAlphabetSize = 26
 	idCounter := uint64(0)
 	idGenerator := func() string {
@@ -306,13 +362,17 @@ func createUseCases(repos *repositories, cfg *config.Config, stateDir string, bu
 
 	clipboardAdapter := clipboard.New()
 	faviconCacheDir, _ := config.GetFaviconCacheDir()
-	cacheDir, _ := config.GetXDGDirs()
+	xdgDirs, _ := config.GetXDGDirs()
+	stateDir, _ := config.GetStateDir()
 	defaultZoom := cfg.DefaultWebpageZoom
-
-	// Create LRU cache for zoom levels to avoid database queries on repeat visits
 	zoomCache := cache.NewLRU[string, *entity.ZoomLevel](cfg.Performance.ZoomCacheSize)
 
-	// Create update infrastructure
+	buildInfo := build.Info{
+		Version:   version,
+		Commit:    commit,
+		BuildDate: buildDate,
+		GoVersion: runtime.Version(),
+	}
 	updateChecker := updater.NewGitHubChecker()
 	updateDownloader := updater.NewGitHubDownloader()
 	updateApplier := updater.NewApplier(stateDir)
@@ -328,7 +388,7 @@ func createUseCases(repos *repositories, cfg *config.Config, stateDir string, bu
 		snapshot:       usecase.NewSnapshotSessionUseCase(repos.sessionState),
 		lastRestorable: usecase.NewGetLastRestorableSessionUseCase(repos.session, repos.sessionState, stateDir),
 		checkUpdate:    usecase.NewCheckUpdateUseCase(updateChecker, updateApplier, buildInfo),
-		applyUpdate:    usecase.NewApplyUpdateUseCase(updateDownloader, updateApplier, cacheDir.CacheHome),
+		applyUpdate:    usecase.NewApplyUpdateUseCase(updateDownloader, updateApplier, xdgDirs.CacheHome),
 		clipboard:      clipboardAdapter,
 		favicon:        favicon.NewService(faviconCacheDir),
 	}
