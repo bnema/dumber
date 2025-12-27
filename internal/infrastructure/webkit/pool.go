@@ -8,6 +8,7 @@ import (
 
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
+	"github.com/jwijenbergh/puregotk/v4/glib"
 )
 
 // FilterApplier applies content filters to a UserContentManager.
@@ -205,6 +206,65 @@ func (p *WebViewPool) Prewarm(ctx context.Context, count int) {
 		return
 	}
 	p.prewarmSync(ctx, count)
+}
+
+// PrewarmAsync schedules WebView creation on the GTK idle loop.
+// This avoids blocking startup (especially cold-start navigation) while still
+// warming up WebViews for subsequent tab creation.
+func (p *WebViewPool) PrewarmAsync(ctx context.Context, count int) {
+	if count <= 0 {
+		count = p.config.PrewarmCount
+	}
+	if count <= 0 || p.closed.Load() {
+		return
+	}
+
+	p.wg.Add(1)
+	var doneOnce sync.Once
+	remaining := count
+
+	var schedule func()
+	schedule = func() {
+		cb := glib.SourceFunc(func(_ uintptr) bool {
+			log := logging.FromContext(ctx)
+
+			// Stop if pool is closing/closed.
+			if p.closed.Load() {
+				doneOnce.Do(p.wg.Done)
+				return false
+			}
+
+			// Stop early if we reached capacity.
+			if len(p.pool) >= p.config.MaxSize {
+				doneOnce.Do(p.wg.Done)
+				return false
+			}
+
+			wv, err := p.createWebView(ctx)
+			if err != nil {
+				log.Warn().Err(err).Msg("failed to prewarm webview")
+			} else {
+				select {
+				case p.pool <- wv:
+					log.Debug().Uint64("id", uint64(wv.ID())).Msg("prewarmed webview added to pool")
+				default:
+					wv.Destroy()
+				}
+			}
+
+			remaining--
+			if remaining <= 0 {
+				doneOnce.Do(p.wg.Done)
+				return false
+			}
+
+			schedule()
+			return false
+		})
+		glib.IdleAdd(&cb, 0)
+	}
+
+	schedule()
 }
 
 // prewarmSync creates WebViews synchronously.

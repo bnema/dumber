@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- Startup: defer WebView pool prewarm until after initial tab creation to reduce cold-start navigation latency.
 - README CLI examples: updated to match current commands/flags (`purge --force` only, `logs` usage, `sessions list --limit`, removed deprecated `--dmenu` root flag).
 
 ## [0.21.0] - 2025-12-26
