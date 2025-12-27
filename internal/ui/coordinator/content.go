@@ -75,6 +75,9 @@ type ContentCoordinator struct {
 
 	// Idle inhibitor for fullscreen video playback
 	idleInhibitor port.IdleInhibitor
+
+	// Callback when fullscreen state changes (for hiding/showing tab bar)
+	onFullscreenChanged func(entering bool)
 }
 
 // NewContentCoordinator creates a new ContentCoordinator.
@@ -135,6 +138,11 @@ func (c *ContentCoordinator) SetGestureActionHandler(handler input.ActionHandler
 // SetIdleInhibitor sets the idle inhibitor for fullscreen video playback.
 func (c *ContentCoordinator) SetIdleInhibitor(inhibitor port.IdleInhibitor) {
 	c.idleInhibitor = inhibitor
+}
+
+// SetOnFullscreenChanged sets the callback for fullscreen state changes.
+func (c *ContentCoordinator) SetOnFullscreenChanged(fn func(entering bool)) {
+	c.onFullscreenChanged = fn
 }
 
 // EnsureWebView acquires or reuses a WebView for the given pane.
@@ -1289,6 +1297,9 @@ func (c *ContentCoordinator) setupIdleInhibitionHandlers(ctx context.Context, pa
 				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to inhibit idle")
 			}
 		}
+		if c.onFullscreenChanged != nil {
+			c.onFullscreenChanged(true)
+		}
 		return false // Allow fullscreen
 	}
 
@@ -1297,6 +1308,9 @@ func (c *ContentCoordinator) setupIdleInhibitionHandlers(ctx context.Context, pa
 			if err := c.idleInhibitor.Uninhibit(ctx); err != nil {
 				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to uninhibit idle")
 			}
+		}
+		if c.onFullscreenChanged != nil {
+			c.onFullscreenChanged(false)
 		}
 		return false // Allow leaving fullscreen
 	}

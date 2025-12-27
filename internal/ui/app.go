@@ -1035,6 +1035,20 @@ func (a *App) initCoordinators(ctx context.Context) {
 		})
 	}
 
+	// Set fullscreen callback to hide/show tab bar (after tabCoord is initialized)
+	a.contentCoord.SetOnFullscreenChanged(func(entering bool) {
+		if a.mainWindow == nil || a.mainWindow.TabBar() == nil {
+			return
+		}
+		if entering {
+			// Hide tab bar when entering fullscreen video
+			a.mainWindow.TabBar().SetVisible(false)
+		} else {
+			// Restore tab bar visibility based on normal logic
+			a.tabCoord.UpdateBarVisibility(ctx)
+		}
+	})
+
 	// 3. Workspace Coordinator
 	a.wsCoord = coordinator.NewWorkspaceCoordinator(ctx, coordinator.WorkspaceCoordinatorConfig{
 		PanesUC:        a.panesUC,

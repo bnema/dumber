@@ -35,6 +35,8 @@ All notable changes to this project will be documented in this file.
 - **Console logging**: Standardized console timestamps to `HH:MM:SS` across bootstrap and session logging.
 
 ### Fixed
+- **Fullscreen video tab bar**: Fixed tab bar remaining visible during fullscreen video playback. Now hides automatically when entering fullscreen and restores based on normal visibility logic when exiting.
+- **Progress bar stuck state**: Added 30-second timeout to progress bar to auto-hide if page load stalls and never completes.
 - **OAuth popup login**: Fixed parent page going blank after OAuth popup closes (e.g., Google login on claude.ai, notion.com). Related WebViews share a web process with their parent; destroying the popup was terminating the shared process, killing the parent. Now skips `TerminateWebProcess()` for popup WebViews.
 - Startup: defer WebView pool prewarm until after initial tab creation to reduce cold-start navigation latency.
 - README CLI examples: updated to match current commands/flags (`purge --force` only, `logs` usage, `sessions list --limit`, removed deprecated `--dmenu` root flag).
