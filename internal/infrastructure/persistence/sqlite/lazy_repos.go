@@ -1,3 +1,18 @@
+// Package sqlite provides SQLite implementations of domain repositories.
+//
+// # Lazy Repository Infrastructure
+//
+// This file contains lazy-loading repository wrappers that defer database initialization
+// until first access. While currently unused (the application uses eager initialization
+// via OpenDatabase in RunParallelDBWebKit), this infrastructure is kept for potential
+// future optimization scenarios:
+//
+//   - CLI commands that may not need database access
+//   - Further startup latency reduction by deferring DB init past first paint
+//   - Testing with mock DatabaseProvider implementations
+//
+// The lazy wrappers implement the same repository interfaces as their eager counterparts,
+// making them drop-in replacements when lazy initialization becomes beneficial.
 package sqlite
 
 import (

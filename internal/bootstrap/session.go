@@ -199,8 +199,9 @@ func unlockAndClose(f *os.File) error {
 
 // runSessionCleanupAsync performs stale session cleanup and old session pruning
 // in a background goroutine. This avoids blocking startup for non-critical tasks.
+// Uses context.Background() to ensure cleanup completes even if startup context is cancelled.
 func runSessionCleanupAsync(
-	ctx context.Context,
+	_ context.Context,
 	sessionUC *usecase.ManageSessionUseCase,
 	cleanupUC *usecase.CleanupSessionsUseCase,
 	cfg *config.Config,
@@ -208,9 +209,12 @@ func runSessionCleanupAsync(
 	log *zerolog.Logger,
 ) {
 	go func() {
+		// Use detached context: cleanup should complete regardless of startup context lifecycle.
+		bgCtx := context.Background()
+
 		// End stale active sessions (orphaned from crashed processes)
 		if lockDir != "" {
-			if err := endStaleActiveBrowserSessions(ctx, sessionUC, lockDir, log); err != nil {
+			if err := endStaleActiveBrowserSessions(bgCtx, sessionUC, lockDir, log); err != nil {
 				if log != nil {
 					log.Warn().Err(err).Msg("background: failed to mark stale sessions ended")
 				}
@@ -218,7 +222,7 @@ func runSessionCleanupAsync(
 		}
 
 		// Clean up old exited sessions based on config limits
-		cleanupOutput, err := cleanupUC.Execute(ctx, usecase.CleanupSessionsInput{
+		cleanupOutput, err := cleanupUC.Execute(bgCtx, usecase.CleanupSessionsInput{
 			MaxExitedSessions:       cfg.Session.MaxExitedSessions,
 			MaxExitedSessionAgeDays: cfg.Session.MaxExitedSessionAgeDays,
 		})

@@ -52,7 +52,10 @@ func (t *StartupTimer) MarkDuration(phase string, d time.Duration) {
 }
 
 // Total returns the total elapsed time since timer creation.
+// Thread-safe: uses mutex for memory visibility guarantees.
 func (t *StartupTimer) Total() time.Duration {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	return time.Since(t.start)
 }
 
