@@ -1,6 +1,6 @@
 # Makefile for dumber (Clean Architecture - puregotk)
 
-.PHONY: build build-frontend test lint clean install-tools dev generate help init check-docs
+.PHONY: build build-frontend test lint clean install-tools dev generate help init check-docs man
 
 # Load local overrides from .env.local if present (Makefile syntax)
 ifneq (,$(wildcard .env.local))
@@ -136,6 +136,11 @@ check: ## Check that all tools and dependencies are working
 	@echo "\nRunning tests..."
 	@$(MAKE) test
 	@echo "\nAll checks passed!"
+
+# Documentation
+man: build-quick ## Install man pages to ~/.local/share/man/man1/
+	@echo "Installing man pages..."
+	$(DIST_DIR)/$(BINARY_NAME) gen-docs
 
 # Native release targets
 .PHONY: release-snapshot release
