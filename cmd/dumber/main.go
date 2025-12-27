@@ -73,17 +73,11 @@ func runGUI() int {
 	cfg := initConfig()
 	timer.Mark("config")
 
-	deps.ApplyPrefixEnv(cfg.Runtime.Prefix)
-	bootstrapLogger := logging.NewFromConfigValues(cfg.Logging.Level, cfg.Logging.Format)
-	bootstrapLogger.Info().
-		Str("version", version).
-		Str("commit", commit).
-		Str("build_date", buildDate).
-		Msg("starting dumber")
-	ctx := logging.WithContext(context.Background(), bootstrapLogger)
+	ctx := initStartupContext(cfg)
 	timer.Mark("logger")
+	bootstrapLog := logging.FromContext(ctx)
 
-	// Parallel phase: directories, runtime/media checks, theme, WASM precompile
+	// Parallel phase: directories and theme setup
 	initResult, err := bootstrap.RunParallelInit(bootstrap.ParallelInitInput{
 		Ctx:    ctx,
 		Config: cfg,
@@ -94,27 +88,20 @@ func runGUI() int {
 	}
 	timer.MarkDuration("parallel_phase", initResult.Duration)
 
-	// Parallel phase 2: Database + WebKit stack initialize concurrently
-	dbWebKit, err := bootstrap.RunParallelDBWebKit(bootstrap.ParallelDBWebKitInput{
-		Ctx:          ctx,
-		Config:       cfg,
-		DataDir:      initResult.DataDir,
-		CacheDir:     initResult.CacheDir,
-		ThemeManager: initResult.ThemeManager,
-	})
+	needsEagerDB := restoreSessionID != "" || cfg.Session.AutoRestore
+
+	stack, repos, dbCleanup, err := initStackAndRepos(ctx, cfg, initResult, needsEagerDB)
 	if err != nil {
-		bootstrapLogger.Fatal().Err(err).Msg("failed to initialize database/webkit")
+		bootstrapLog.Fatal().Err(err).Msg("failed to initialize database/webkit")
 	}
-	if dbWebKit.DBCleanup != nil {
-		defer dbWebKit.DBCleanup()
+	if dbCleanup != nil {
+		defer dbCleanup()
 	}
-	db := dbWebKit.DB
-	stack := dbWebKit.Stack
 	timer.Mark("db_webkit_parallel")
 
-	browserSession, sessionCtx, err := bootstrap.StartBrowserSession(ctx, cfg, db)
+	browserSession, sessionCtx, err := bootstrap.StartBrowserSession(ctx, cfg, repos.session, !needsEagerDB)
 	if err != nil {
-		bootstrapLogger.Fatal().Err(err).Msg("failed to start session")
+		bootstrapLog.Fatal().Err(err).Msg("failed to start session")
 	}
 	if browserSession.LogCleanup != nil {
 		defer browserSession.LogCleanup()
@@ -124,11 +111,15 @@ func runGUI() int {
 
 	ctx = sessionCtx
 	log := logging.FromContext(ctx)
+	if stack.MessageRouter != nil {
+		stack.MessageRouter.SetBaseContext(ctx)
+	}
 
 	// Repositories and use cases
-	repos := createRepositories(db)
 	useCases := createUseCases(repos, cfg)
-	handleAutoRestore(ctx, cfg, useCases, browserSession.Session.ID)
+	if needsEagerDB {
+		handleAutoRestore(ctx, cfg, useCases, browserSession.Session.ID)
+	}
 
 	idleInhibitor := idle.NewPortalInhibitor(ctx)
 	defer func() {
@@ -140,6 +131,7 @@ func runGUI() int {
 
 	// Build UI
 	uiDeps := buildUIDependencies(ctx, cfg, initResult.ThemeManager, &stack, repos, useCases, idleInhibitor, browserSession.Session.ID)
+	configureDeferredInit(uiDeps, cfg, browserSession)
 	app, err := ui.New(uiDeps)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create application")
@@ -152,6 +144,82 @@ func runGUI() int {
 	setupSignalHandler(ctx, app)
 
 	return app.Run(ctx, os.Args)
+}
+
+func initStartupContext(cfg *config.Config) context.Context {
+	deps.ApplyPrefixEnv(cfg.Runtime.Prefix)
+	bootstrapLogger := logging.NewFromConfigValuesWithTimeFormat(
+		cfg.Logging.Level,
+		cfg.Logging.Format,
+		logging.ConsoleTimeFormat,
+	)
+	bootstrapLogger.Info().
+		Str("version", version).
+		Str("commit", commit).
+		Str("build_date", buildDate).
+		Msg("starting dumber")
+	ctx := logging.WithContext(context.Background(), bootstrapLogger)
+	return ctx
+}
+
+func initStackAndRepos(
+	ctx context.Context,
+	cfg *config.Config,
+	initResult *bootstrap.ParallelInitResult,
+	needsEagerDB bool,
+) (bootstrap.WebKitStack, *repositories, func(), error) {
+	if needsEagerDB {
+		// Parallel phase 2: Database + WebKit stack initialize concurrently
+		dbWebKit, err := bootstrap.RunParallelDBWebKit(bootstrap.ParallelDBWebKitInput{
+			Ctx:          ctx,
+			Config:       cfg,
+			DataDir:      initResult.DataDir,
+			CacheDir:     initResult.CacheDir,
+			ThemeManager: initResult.ThemeManager,
+		})
+		if err != nil {
+			return bootstrap.WebKitStack{}, nil, nil, err
+		}
+		return dbWebKit.Stack, createRepositories(dbWebKit.DB), dbWebKit.DBCleanup, nil
+	}
+
+	log := logging.FromContext(ctx)
+	stack := bootstrap.BuildWebKitStack(ctx, cfg, initResult.DataDir, initResult.CacheDir, initResult.ThemeManager, *log)
+
+	lazyDB, err := bootstrap.CreateLazyDatabase()
+	if err != nil {
+		return stack, nil, nil, err
+	}
+	dbCleanup := func() { _ = lazyDB.Close() }
+	return stack, createLazyRepositories(lazyDB), dbCleanup, nil
+}
+
+func configureDeferredInit(
+	uiDeps *ui.Dependencies,
+	cfg *config.Config,
+	session *bootstrap.BrowserSession,
+) {
+	if uiDeps == nil {
+		return
+	}
+	uiDeps.OnFirstWebViewShown = func(cbCtx context.Context) {
+		logger := logging.FromContext(cbCtx)
+		bgCtx := logging.WithContext(context.Background(), *logger)
+		go func() {
+			result := bootstrap.RunDeferredInit(bootstrap.DeferredInitInput{
+				Ctx:    bgCtx,
+				Config: cfg,
+			})
+			logDeferredInitResults(bgCtx, result)
+		}()
+		if session != nil && session.Persist != nil {
+			go func() {
+				if persistErr := session.Persist(bgCtx); persistErr != nil {
+					logger.Error().Err(persistErr).Msg("deferred session persistence failed")
+				}
+			}()
+		}
+	}
 }
 
 func initConfig() *config.Config {
@@ -171,6 +239,27 @@ func handleParallelInitError(ctx context.Context, err error) {
 			Msg("runtime requirements not met")
 	}
 	log.Fatal().Err(err).Msg("initialization failed")
+}
+
+func logDeferredInitResults(ctx context.Context, result bootstrap.DeferredInitResult) {
+	log := logging.FromContext(ctx)
+	if result.SQLiteErr != nil {
+		log.Warn().Err(result.SQLiteErr).Msg("deferred sqlite wasm init failed")
+	}
+	if result.RuntimeErr != nil {
+		if runtimeErr, ok := result.RuntimeErr.(*bootstrap.RuntimeRequirementsError); ok {
+			runtimeErr.LogDetails(ctx)
+			log.Warn().Err(runtimeErr).
+				Str("hint", "Run: dumber doctor (and set runtime.prefix for /opt installs)").
+				Msg("runtime requirements not met")
+		} else {
+			log.Warn().Err(result.RuntimeErr).Msg("runtime requirements check failed")
+		}
+	}
+	if result.MediaErr != nil {
+		log.Warn().Err(result.MediaErr).Msg("media check failed")
+	}
+	log.Debug().Dur("duration", result.Duration).Msg("deferred init complete")
 }
 
 func handleAutoRestore(
@@ -231,6 +320,18 @@ func createRepositories(db *sql.DB) *repositories {
 		zoom:         sqlite.NewZoomRepository(db),
 		session:      sqlite.NewSessionRepository(db),
 		sessionState: sqlite.NewSessionStateRepository(db),
+	}
+}
+
+func createLazyRepositories(provider port.DatabaseProvider) *repositories {
+	return &repositories{
+		history:      sqlite.NewLazyHistoryRepository(provider),
+		favorite:     sqlite.NewLazyFavoriteRepository(provider),
+		folder:       sqlite.NewLazyFolderRepository(provider),
+		tag:          sqlite.NewLazyTagRepository(provider),
+		zoom:         sqlite.NewLazyZoomRepository(provider),
+		session:      sqlite.NewLazySessionRepository(provider),
+		sessionState: sqlite.NewLazySessionStateRepository(provider),
 	}
 }
 

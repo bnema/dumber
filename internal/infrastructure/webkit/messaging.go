@@ -62,6 +62,17 @@ func NewMessageRouter(ctx context.Context) *MessageRouter {
 	}
 }
 
+// SetBaseContext updates the base context used for logging and handler execution.
+func (r *MessageRouter) SetBaseContext(ctx context.Context) {
+	if r == nil {
+		return
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	r.baseCtx = ctx
+}
+
 // RegisterHandler registers a handler for a message type.
 func (r *MessageRouter) RegisterHandler(msgType string, handler MessageHandler) error {
 	if msgType == "" {

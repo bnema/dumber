@@ -2,20 +2,20 @@ package bootstrap
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	infralogging "github.com/bnema/dumber/internal/infrastructure/logging"
-	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	corelogging "github.com/bnema/dumber/internal/logging"
 	"github.com/rs/zerolog"
 )
@@ -31,11 +31,20 @@ type BrowserSession struct {
 	Logger     zerolog.Logger
 	LogCleanup func()
 
-	End func(context.Context) error
+	Persist func(context.Context) error
+	End     func(context.Context) error
 }
 
-func StartBrowserSession(ctx context.Context, cfg *config.Config, db *sql.DB) (*BrowserSession, context.Context, error) {
+func StartBrowserSession(
+	ctx context.Context,
+	cfg *config.Config,
+	sessionRepo repository.SessionRepository,
+	deferPersist bool,
+) (*BrowserSession, context.Context, error) {
 	log := corelogging.FromContext(ctx)
+	if sessionRepo == nil {
+		return nil, ctx, errors.New("session repository is nil")
+	}
 
 	lockDir := cfg.Logging.LogDir
 	if lockDir == "" {
@@ -44,55 +53,108 @@ func StartBrowserSession(ctx context.Context, cfg *config.Config, db *sql.DB) (*
 		}
 	}
 
-	sessionRepo := sqlite.NewSessionRepository(db)
 	sessionLoggerAdapter := infralogging.NewSessionLoggerAdapter()
 	sessionUC := usecase.NewManageSessionUseCase(sessionRepo, sessionLoggerAdapter)
 	cleanupUC := usecase.NewCleanupSessionsUseCase(sessionRepo)
 
-	// Defer stale session cleanup and old session pruning to background.
-	// This avoids blocking startup for non-critical housekeeping tasks.
-	runSessionCleanupAsync(ctx, sessionUC, cleanupUC, cfg, lockDir, log)
-
 	now := time.Now()
-	out, err := sessionUC.StartSession(ctx, usecase.StartSessionInput{
-		Type: entity.SessionTypeBrowser,
-		Now:  now,
-		LogConfig: port.SessionLogConfig{
-			Level:         cfg.Logging.Level,
-			Format:        cfg.Logging.Format,
-			TimeFormat:    "15:04:05",
-			LogDir:        cfg.Logging.LogDir,
-			WriteToStderr: true,
-			EnableFileLog: cfg.Logging.EnableFileLog,
-		},
-	})
-	if err != nil {
+	session := &entity.Session{
+		ID:        entity.SessionID(corelogging.GenerateSessionID()),
+		Type:      entity.SessionTypeBrowser,
+		StartedAt: now.UTC(),
+	}
+	if err := session.Validate(); err != nil {
 		return nil, ctx, err
 	}
 
-	lockFile, lockPath, lockErr := lockSessionFile(lockDir, out.Session.ID)
-	if lockErr != nil {
-		// Don’t fail startup if locking fails; it only affects stale-session cleanup.
-		out.Logger.Warn().Err(lockErr).Msg("failed to acquire session lock")
+	logger, cleanup, err := sessionLoggerAdapter.CreateLogger(ctx, session.ID, port.SessionLogConfig{
+		Level:         cfg.Logging.Level,
+		Format:        cfg.Logging.Format,
+		TimeFormat:    corelogging.ConsoleTimeFormat,
+		LogDir:        cfg.Logging.LogDir,
+		WriteToStderr: true,
+		EnableFileLog: cfg.Logging.EnableFileLog,
+	})
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to create session logger")
 	}
 
-	sessionCtx := corelogging.WithContext(context.Background(), out.Logger)
+	sessionCtx := corelogging.WithContext(context.Background(), logger)
+
+	var (
+		lockMu     sync.Mutex
+		lockFile   *os.File
+		lockPath   string
+		persistMu  sync.Once
+		persistErr error
+	)
+
+	persistFn := func(persistCtx context.Context) error {
+		persistMu.Do(func() {
+			saveCtx := corelogging.WithContext(context.Background(), logger)
+			if err := sessionRepo.Save(saveCtx, session); err != nil {
+				persistErr = fmt.Errorf("save session: %w", err)
+				return
+			}
+
+			logger.Info().
+				Str("session_id", string(session.ID)).
+				Str("type", string(session.Type)).
+				Msg("session started")
+
+			lf, lp, lockErr := lockSessionFile(lockDir, session.ID)
+			if lockErr != nil {
+				// Don’t fail startup if locking fails; it only affects stale-session cleanup.
+				logger.Warn().Err(lockErr).Msg("failed to acquire session lock")
+			} else {
+				lockMu.Lock()
+				lockFile = lf
+				lockPath = lp
+				lockMu.Unlock()
+			}
+
+			// Defer stale session cleanup and old session pruning to background.
+			// This avoids blocking startup for non-critical housekeeping tasks.
+			runSessionCleanupAsync(persistCtx, sessionUC, cleanupUC, cfg, lockDir, log)
+		})
+		return persistErr
+	}
 
 	endFn := func(endCtx context.Context) error {
-		endErr := sessionUC.EndSession(endCtx, out.Session.ID, time.Now())
-		if lockFile != nil {
-			_ = unlockAndClose(lockFile)
-			_ = os.Remove(lockPath)
+		_ = persistFn(endCtx)
+		endErr := sessionUC.EndSession(endCtx, session.ID, time.Now())
+
+		lockMu.Lock()
+		lf := lockFile
+		lp := lockPath
+		lockMu.Unlock()
+
+		if lf != nil {
+			_ = unlockAndClose(lf)
+			_ = os.Remove(lp)
 		}
 		return endErr
 	}
 
-	return &BrowserSession{
-		Session:    out.Session,
-		Logger:     out.Logger,
-		LogCleanup: out.LogCleanup,
+	browserSession := &BrowserSession{
+		Session:    session,
+		Logger:     logger,
+		LogCleanup: cleanup,
 		End:        endFn,
-	}, sessionCtx, nil
+	}
+
+	if deferPersist {
+		browserSession.Persist = persistFn
+	} else {
+		if err := persistFn(ctx); err != nil {
+			if cleanup != nil {
+				cleanup()
+			}
+			return nil, ctx, err
+		}
+	}
+
+	return browserSession, sessionCtx, nil
 }
 
 func endStaleActiveBrowserSessions(

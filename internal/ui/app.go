@@ -99,8 +99,9 @@ type App struct {
 	updateCoord *coordinator.UpdateCoordinator
 
 	// ID generator for tabs/panes
-	idCounter uint64
-	idMu      sync.Mutex
+	idCounter             uint64
+	idMu                  sync.Mutex
+	firstWebViewShownOnce sync.Once
 
 	movePaneToTabUC *usecase.MovePaneToTabUseCase
 
@@ -1127,6 +1128,11 @@ func (a *App) initCoordinators(ctx context.Context) {
 			if pv := wsView.GetPaneView(paneID); pv != nil {
 				pv.HideLoadingSkeleton()
 			}
+		}
+		if a.deps != nil && a.deps.OnFirstWebViewShown != nil {
+			a.firstWebViewShownOnce.Do(func() {
+				a.deps.OnFirstWebViewShown(ctx)
+			})
 		}
 	})
 
