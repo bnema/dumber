@@ -279,6 +279,10 @@ sudo apt install va-driver-all
   - `dumber logs -n 200 <session>`      # show last N lines
   - `dumber logs clear`                 # clean up old log files
   - `dumber logs clear --all`           # remove all log files
+- Generate documentation:
+  - `dumber gen-docs`                   # install man pages to ~/.local/share/man/man1/
+  - `dumber gen-docs --format markdown` # generate markdown docs to ./docs/
+  - `dumber gen-docs --output ./man`    # generate to custom directory
 
 ### Dmenu mode invocation
 You can invoke dmenu mode in two ways:
