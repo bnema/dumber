@@ -157,12 +157,13 @@ func (pb *ProgressBar) resetTimeout() {
 	// Start new timeout
 	cb := glib.SourceFunc(func(_ uintptr) bool {
 		pb.mu.Lock()
-		// Clear timer ID before unlocking (timer is being removed)
-		pb.timeoutTimer = 0
-		pb.mu.Unlock()
+		defer pb.mu.Unlock()
 
-		// Hide the progress bar (acquires lock internally)
-		pb.Hide()
+		// Clear timer ID (timer is being removed)
+		pb.timeoutTimer = 0
+
+		// Hide the progress bar inline to avoid race condition
+		pb.hideInternal()
 		return false // Don't repeat
 	})
 
@@ -174,6 +175,12 @@ func (pb *ProgressBar) Hide() {
 	pb.mu.Lock()
 	defer pb.mu.Unlock()
 
+	pb.hideInternal()
+}
+
+// hideInternal performs the actual hide operation.
+// Must be called with lock held.
+func (pb *ProgressBar) hideInternal() {
 	if pb.visible {
 		pb.visible = false
 		pb.progressBar.SetVisible(false)
