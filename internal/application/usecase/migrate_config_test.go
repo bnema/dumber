@@ -1,0 +1,206 @@
+package usecase
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
+	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/port/mocks"
+)
+
+func TestMigrateConfigUseCase_Check_NoMigrationNeeded(t *testing.T) {
+	mockMigrator := mocks.NewMockConfigMigrator(t)
+	mockMigrator.EXPECT().CheckMigration().Return(nil, nil)
+
+	uc := NewMigrateConfigUseCase(mockMigrator)
+	ctx := context.Background()
+
+	result, err := uc.Check(ctx, CheckConfigMigrationInput{})
+
+	require.NoError(t, err)
+	assert.False(t, result.NeedsMigration)
+	assert.Empty(t, result.MissingKeys)
+}
+
+func TestMigrateConfigUseCase_Check_MigrationNeeded(t *testing.T) {
+	mockMigrator := mocks.NewMockConfigMigrator(t)
+
+	migrationResult := &port.MigrationResult{
+		MissingKeys: []string{"key1", "key2"},
+		ConfigFile:  "/path/to/config.toml",
+	}
+	mockMigrator.EXPECT().CheckMigration().Return(migrationResult, nil)
+
+	// Mock GetKeyInfo for each missing key
+	mockMigrator.EXPECT().GetKeyInfo("key1").Return(port.KeyInfo{
+		Key:          "key1",
+		Type:         "bool",
+		DefaultValue: "true",
+	})
+	mockMigrator.EXPECT().GetKeyInfo("key2").Return(port.KeyInfo{
+		Key:          "key2",
+		Type:         "string",
+		DefaultValue: `"default"`,
+	})
+
+	uc := NewMigrateConfigUseCase(mockMigrator)
+	ctx := context.Background()
+
+	result, err := uc.Check(ctx, CheckConfigMigrationInput{})
+
+	require.NoError(t, err)
+	assert.True(t, result.NeedsMigration)
+	assert.Len(t, result.MissingKeys, 2)
+	assert.Equal(t, "/path/to/config.toml", result.ConfigFile)
+
+	// Verify key info
+	assert.Equal(t, "key1", result.MissingKeys[0].Key)
+	assert.Equal(t, "bool", result.MissingKeys[0].Type)
+	assert.Equal(t, "key2", result.MissingKeys[1].Key)
+	assert.Equal(t, "string", result.MissingKeys[1].Type)
+}
+
+func TestMigrateConfigUseCase_Check_Error(t *testing.T) {
+	mockMigrator := mocks.NewMockConfigMigrator(t)
+	expectedErr := errors.New("check failed")
+	mockMigrator.EXPECT().CheckMigration().Return(nil, expectedErr)
+
+	uc := NewMigrateConfigUseCase(mockMigrator)
+	ctx := context.Background()
+
+	result, err := uc.Check(ctx, CheckConfigMigrationInput{})
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Equal(t, expectedErr, err)
+}
+
+func TestMigrateConfigUseCase_Execute_NoMigrationNeeded(t *testing.T) {
+	mockMigrator := mocks.NewMockConfigMigrator(t)
+	mockMigrator.EXPECT().CheckMigration().Return(nil, nil)
+
+	uc := NewMigrateConfigUseCase(mockMigrator)
+	ctx := context.Background()
+
+	result, err := uc.Execute(ctx, MigrateConfigInput{})
+
+	require.NoError(t, err)
+	assert.Empty(t, result.AddedKeys)
+}
+
+func TestMigrateConfigUseCase_Execute_Success(t *testing.T) {
+	mockMigrator := mocks.NewMockConfigMigrator(t)
+
+	migrationResult := &port.MigrationResult{
+		MissingKeys: []string{"key1", "key2"},
+		ConfigFile:  "/path/to/config.toml",
+	}
+	mockMigrator.EXPECT().CheckMigration().Return(migrationResult, nil)
+	mockMigrator.EXPECT().Migrate().Return([]string{"key1", "key2"}, nil)
+
+	uc := NewMigrateConfigUseCase(mockMigrator)
+	ctx := context.Background()
+
+	result, err := uc.Execute(ctx, MigrateConfigInput{})
+
+	require.NoError(t, err)
+	assert.Len(t, result.AddedKeys, 2)
+	assert.Equal(t, "/path/to/config.toml", result.ConfigFile)
+}
+
+func TestMigrateConfigUseCase_Execute_MigrateError(t *testing.T) {
+	mockMigrator := mocks.NewMockConfigMigrator(t)
+
+	migrationResult := &port.MigrationResult{
+		MissingKeys: []string{"key1"},
+		ConfigFile:  "/path/to/config.toml",
+	}
+	mockMigrator.EXPECT().CheckMigration().Return(migrationResult, nil)
+
+	expectedErr := errors.New("migrate failed")
+	mockMigrator.EXPECT().Migrate().Return(nil, expectedErr)
+
+	uc := NewMigrateConfigUseCase(mockMigrator)
+	ctx := context.Background()
+
+	result, err := uc.Execute(ctx, MigrateConfigInput{})
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Equal(t, expectedErr, err)
+}
+
+func TestMigrateConfigUseCase_Execute_CheckError(t *testing.T) {
+	mockMigrator := mocks.NewMockConfigMigrator(t)
+
+	expectedErr := errors.New("check failed")
+	mockMigrator.EXPECT().CheckMigration().Return(nil, expectedErr)
+
+	uc := NewMigrateConfigUseCase(mockMigrator)
+	ctx := context.Background()
+
+	result, err := uc.Execute(ctx, MigrateConfigInput{})
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Equal(t, expectedErr, err)
+}
+
+func TestMigrateConfigUseCase_Check_EmptyMissingKeys(t *testing.T) {
+	mockMigrator := mocks.NewMockConfigMigrator(t)
+
+	// Return a result with empty missing keys
+	migrationResult := &port.MigrationResult{
+		MissingKeys: []string{},
+		ConfigFile:  "/path/to/config.toml",
+	}
+	mockMigrator.EXPECT().CheckMigration().Return(migrationResult, nil)
+
+	uc := NewMigrateConfigUseCase(mockMigrator)
+	ctx := context.Background()
+
+	result, err := uc.Check(ctx, CheckConfigMigrationInput{})
+
+	require.NoError(t, err)
+	assert.False(t, result.NeedsMigration)
+	assert.Empty(t, result.MissingKeys)
+}
+
+func TestNewMigrateConfigUseCase(t *testing.T) {
+	mockMigrator := mocks.NewMockConfigMigrator(t)
+	uc := NewMigrateConfigUseCase(mockMigrator)
+
+	assert.NotNil(t, uc)
+	assert.Equal(t, mockMigrator, uc.migrator)
+}
+
+// Ensure mock expectations are set up correctly
+func TestMigrateConfigUseCase_MockExpectations(t *testing.T) {
+	mockMigrator := mocks.NewMockConfigMigrator(t)
+
+	// Set up expectations with mock.Anything for flexibility
+	mockMigrator.On("CheckMigration").Return(&port.MigrationResult{
+		MissingKeys: []string{"test.key"},
+		ConfigFile:  "/test/config.toml",
+	}, nil).Once()
+
+	mockMigrator.On("GetKeyInfo", mock.AnythingOfType("string")).Return(port.KeyInfo{
+		Key:          "test.key",
+		Type:         "string",
+		DefaultValue: `"test"`,
+	}).Once()
+
+	uc := NewMigrateConfigUseCase(mockMigrator)
+	ctx := context.Background()
+
+	result, err := uc.Check(ctx, CheckConfigMigrationInput{})
+
+	require.NoError(t, err)
+	assert.True(t, result.NeedsMigration)
+	mockMigrator.AssertExpectations(t)
+}
