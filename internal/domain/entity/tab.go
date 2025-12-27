@@ -79,11 +79,16 @@ func (tl *TabList) Remove(id TabID) bool {
 				tl.Tabs[j].Position = j
 			}
 			// Update active tab if needed
-			if tl.ActiveTabID == id && len(tl.Tabs) > 0 {
-				if i < len(tl.Tabs) {
-					tl.ActiveTabID = tl.Tabs[i].ID
+			if tl.ActiveTabID == id {
+				if len(tl.Tabs) > 0 {
+					if i < len(tl.Tabs) {
+						tl.ActiveTabID = tl.Tabs[i].ID
+					} else {
+						tl.ActiveTabID = tl.Tabs[len(tl.Tabs)-1].ID
+					}
 				} else {
-					tl.ActiveTabID = tl.Tabs[len(tl.Tabs)-1].ID
+					tl.ActiveTabID = ""
+					tl.PreviousActiveTabID = ""
 				}
 			}
 			return true
