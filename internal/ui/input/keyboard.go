@@ -144,7 +144,7 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 	// Normalize ASCII A-Z to lowercase so bindings can consistently use lowercase
 	// keyvals and rely on ModShift to represent Shift.
 	if keyval >= uint('A') && keyval <= uint('Z') {
-		keyval = keyval + (uint('a') - uint('A'))
+		keyval += (uint('a') - uint('A'))
 	}
 
 	binding := KeyBinding{
