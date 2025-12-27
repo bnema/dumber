@@ -292,8 +292,9 @@ func DefaultConfig() *Config {
 			WebViewPoolPrewarmCount: defaultWebViewPoolPrewarmCount,
 		},
 		Update: UpdateConfig{
-			EnableOnStartup: true,  // Check for updates on startup by default
-			AutoDownload:    false, // Conservative: don't auto-download by default
+			EnableOnStartup:     true,  // Check for updates on startup by default
+			AutoDownload:        false, // Conservative: don't auto-download by default
+			NotifyOnNewSettings: true,  // Show toast when new config settings available
 		},
 	}
 }

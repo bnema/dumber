@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Config migration system**: Detects missing config keys when new settings are added in updates and provides tools to add them.
+  - `dumber config status`: Shows config file path and number of new settings available.
+  - `dumber config migrate`: Lists missing keys with types/defaults and adds them to config file.
+  - GUI toast notification on startup when new settings are available (configurable via `update.notify_on_new_settings`).
 - **CLI self-update command**: New `dumber update` command to check for and install updates from the command line.
   - Interactive spinner animation during check and download phases.
   - `--force` / `-f` flag to skip version check and reinstall the current version.

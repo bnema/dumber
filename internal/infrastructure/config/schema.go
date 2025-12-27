@@ -294,6 +294,9 @@ type UpdateConfig struct {
 	// When enabled, updates are applied on browser exit.
 	// Default: false
 	AutoDownload bool `mapstructure:"auto_download" yaml:"auto_download" toml:"auto_download"`
+	// NotifyOnNewSettings shows a toast notification on startup when new config settings are available.
+	// Default: true
+	NotifyOnNewSettings bool `mapstructure:"notify_on_new_settings" yaml:"notify_on_new_settings" toml:"notify_on_new_settings"`
 }
 
 // WorkspaceConfig captures layout, pane, and tab behavior preferences.

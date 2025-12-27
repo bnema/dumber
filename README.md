@@ -261,6 +261,10 @@ sudo apt install va-driver-all
 - Clean up data:
   - `dumber purge`                      # interactive selection (TUI)
   - `dumber purge --force`              # remove everything (no prompts)
+- Manage configuration:
+  - `dumber config status`              # show config path and migration availability
+  - `dumber config migrate`             # add missing default settings to config
+  - `dumber config migrate --yes`       # skip confirmation prompt
 - Manage sessions:
   - `dumber sessions`                   # interactive session browser (TUI)
   - `dumber sessions list`              # list saved sessions
