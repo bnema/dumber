@@ -214,7 +214,7 @@ func runSessionCleanupAsync(
 	go func() {
 		// Use a detached background context instead of the startup context:
 		// session cleanup is critical and must run to completion even if the
-		// startup context is cancelled or times out.
+		// startup context is canceled or times out.
 		bgCtx := context.Background()
 
 		// End stale active sessions (orphaned from crashed processes)
