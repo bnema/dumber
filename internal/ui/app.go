@@ -929,6 +929,9 @@ func (a *App) finalizeActivation(ctx context.Context) {
 
 	// Start async filter loading after window is visible.
 	a.initFilteringAsync(ctx)
+
+	// Check for config migration after window is visible.
+	a.checkConfigMigration(ctx)
 }
 
 // onShutdown is called when the GTK application is shutting down.
