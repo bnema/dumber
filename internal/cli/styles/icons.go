@@ -53,4 +53,9 @@ const (
 	IconRestore      = "\uf0e2" // rotate-left (restore)
 	IconExpand       = "\uf065" // expand
 	IconCollapse     = "\uf066" // compress
+
+	// Update / download
+	IconDownload = "\uf019" // download
+	IconUpdate   = "\uf021" // refresh/sync
+	IconRocket   = "\uf135" // rocket (upgrade)
 )
