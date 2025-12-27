@@ -19,6 +19,15 @@ All notable changes to this project will be documented in this file.
   - `Ctrl+P → M`: Moves the active pane to the next tab (creates a new tab if needed).
   - New config: `workspace.switch_to_tab_on_move` (default: true).
 
+### Changed
+- **Cold start optimization**: Reduced startup time by ~150ms (29% faster) through parallel initialization.
+  - SQLite WASM runtime pre-compilation runs concurrently with GStreamer/runtime checks.
+  - Database initialization runs in background goroutine while WebKit stack initializes on main thread.
+  - Database path now resolved via `config.GetDatabaseFile()` following clean architecture.
+  - Added connection pool settings optimized for SQLite (`SetMaxOpenConns(1)`, keep-alive).
+  - Reduced `mmap_size` from 30GB to 256MB (reasonable for browser history DB).
+  - Added `PRAGMA foreign_keys = ON` for referential integrity.
+
 ### Fixed
 - **OAuth popup login**: Fixed parent page going blank after OAuth popup closes (e.g., Google login on claude.ai, notion.com). Related WebViews share a web process with their parent; destroying the popup was terminating the shared process, killing the parent. Now skips `TerminateWebProcess()` for popup WebViews.
 - Startup: defer WebView pool prewarm until after initial tab creation to reduce cold-start navigation latency.
