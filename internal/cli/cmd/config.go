@@ -22,6 +22,12 @@ var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Manage configuration",
 	Long:  `View configuration status and migrate to add new default settings.`,
+}
+
+var configStatusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Show config file status and migration availability",
+	Long:  `Display the config file path and check if any new settings are available.`,
 	RunE:  runConfigStatus,
 }
 
@@ -36,6 +42,7 @@ Existing settings are never modified - only missing keys are added with default 
 
 func init() {
 	rootCmd.AddCommand(configCmd)
+	configCmd.AddCommand(configStatusCmd)
 	configCmd.AddCommand(configMigrateCmd)
 	configMigrateCmd.Flags().BoolVarP(&configYes, "yes", "y", false, "skip confirmation prompt")
 }
