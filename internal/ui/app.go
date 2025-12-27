@@ -1006,6 +1006,20 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.contentCoord.SetIdleInhibitor(a.deps.IdleInhibitor)
 	}
 
+	// Set fullscreen callback to hide/show tab bar
+	a.contentCoord.SetOnFullscreenChanged(func(entering bool) {
+		if a.mainWindow == nil || a.mainWindow.TabBar() == nil {
+			return
+		}
+		if entering {
+			// Hide tab bar when entering fullscreen video
+			a.mainWindow.TabBar().SetVisible(false)
+		} else {
+			// Restore tab bar visibility based on normal logic
+			a.tabCoord.UpdateBarVisibility(ctx)
+		}
+	})
+
 	// 2. Tab Coordinator
 	a.tabCoord = coordinator.NewTabCoordinator(ctx, coordinator.TabCoordinatorConfig{
 		TabsUC:     a.tabsUC,
