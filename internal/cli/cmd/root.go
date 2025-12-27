@@ -16,8 +16,24 @@ var (
 	buildInfo build.Info
 	rootCmd   = &cobra.Command{
 		Use:   "dumber",
-		Short: "A minimal web browser",
-		Long:  `Dumber is a minimal, keyboard-driven web browser built with GTK4 and WebKitGTK.`,
+		Short: "A fully unfeatured unbloated browser for tiling WMs",
+		Long: `Dumber - a dumb browser that works like your favorite terminal multiplexer.
+
+A fully unfeatured unbloated browser for tiling WMs, built with GTK4 and WebKitGTK.
+
+Features:
+  - Wayland native (Sway, Hyprland, River, Niri, etc.)
+  - Tabs and workspaces with split or stacked panes
+  - Keyboard-driven workflow inspired by Zellij
+  - GPU rendering with automatic VA-API/VDPAU detection
+  - Built-in ad blocking (UBlock-based network + cosmetic filtering)
+  - Launcher integration (rofi/fuzzel) with favicons
+  - Search shortcuts via bangs (!g, !gi, etc.)
+  - Session management with auto-save and restore
+
+Use 'dumber browse' to launch the graphical browser, or explore the
+subcommands for CLI-based operations like history search and session
+management.`,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			// Skip initialization for help commands
 			if cmd.Name() == "help" || cmd.Name() == "completion" {
