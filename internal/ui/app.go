@@ -90,6 +90,9 @@ type App struct {
 
 	// Session management
 	sessionManager  *component.SessionManager
+	tabPicker       *component.TabPicker
+	tabPickerWidget layout.Widget
+	tabPickerPaneID entity.PaneID
 	snapshotService *snapshot.Service
 
 	// Update management
@@ -98,6 +101,8 @@ type App struct {
 	// ID generator for tabs/panes
 	idCounter uint64
 	idMu      sync.Mutex
+
+	movePaneToTabUC *usecase.MovePaneToTabUseCase
 
 	// lifecycle
 	cancel context.CancelCauseFunc
@@ -197,6 +202,7 @@ func (a *App) onActivate(ctx context.Context) {
 	a.initOmniboxConfig(ctx)
 	a.initFindBarConfig()
 	a.initSessionManager(ctx)
+	a.initTabPicker(ctx)
 	a.initSnapshotService(ctx)
 	a.initUpdateCoordinator(ctx)
 	a.createInitialTab(ctx)
@@ -333,8 +339,11 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 		a.handleModeChange(ctx, from, to)
 	})
 	a.keyboardHandler.SetShouldBypassInput(func() bool {
-		// Bypass keyboard handler when session manager is visible
+		// Bypass keyboard handler when modals are visible
 		if a.sessionManager != nil && a.sessionManager.IsVisible() {
+			return true
+		}
+		if a.tabPicker != nil && a.tabPicker.IsVisible() {
 			return true
 		}
 		wsView := a.activeWorkspaceView()
@@ -478,6 +487,276 @@ func (a *App) ToggleSessionManager(ctx context.Context) {
 		return
 	}
 	a.sessionManager.Toggle(ctx)
+}
+
+func (a *App) attachTabPickerToActivePane() {
+	if a.tabPicker == nil || a.widgetFactory == nil {
+		return
+	}
+	wsView := a.activeWorkspaceView()
+	if wsView == nil {
+		return
+	}
+
+	activeTab := a.tabs.ActiveTab()
+	if activeTab == nil || activeTab.Workspace == nil {
+		return
+	}
+	activePaneID := activeTab.Workspace.ActivePaneID
+	if activePaneID == "" {
+		return
+	}
+	pv := wsView.GetPaneView(activePaneID)
+	if pv == nil {
+		return
+	}
+
+	if a.tabPickerWidget == nil {
+		a.tabPickerWidget = a.tabPicker.WidgetAsLayout(a.widgetFactory)
+		if a.tabPickerWidget == nil {
+			return
+		}
+	}
+
+	// If currently attached to a different pane overlay, detach.
+	if a.tabPickerPaneID != "" && a.tabPickerPaneID != activePaneID {
+		for _, view := range a.workspaceViews {
+			if view == nil {
+				continue
+			}
+			if oldPV := view.GetPaneView(a.tabPickerPaneID); oldPV != nil {
+				oldPV.RemoveOverlayWidget(a.tabPickerWidget)
+				break
+			}
+		}
+	}
+
+	// Ensure the widget can be reparented.
+	if parent := a.tabPickerWidget.GetParent(); parent != nil {
+		a.tabPickerWidget.Unparent()
+	}
+
+	a.tabPicker.SetParentOverlay(pv.Overlay())
+	pv.AddOverlayWidget(a.tabPickerWidget)
+	a.tabPickerPaneID = activePaneID
+}
+
+func (a *App) HandleMovePaneToTab(ctx context.Context) error {
+	if a.movePaneToTabUC == nil {
+		return nil
+	}
+	if a.tabPicker == nil {
+		return nil
+	}
+
+	sourceTab := a.tabs.ActiveTab()
+	if sourceTab == nil || sourceTab.Workspace == nil {
+		return nil
+	}
+
+	// If there is only 1 tab, auto-create a new tab and move there.
+	if a.tabs.Count() <= 1 {
+		return a.MoveActivePaneToTab(ctx, "")
+	}
+
+	items := make([]component.TabPickerItem, 0, a.tabs.Count())
+	for _, tab := range a.tabs.Tabs {
+		if tab == nil {
+			continue
+		}
+		if tab.ID == sourceTab.ID {
+			continue
+		}
+		items = append(items, component.TabPickerItem{
+			TabID: tab.ID,
+			Title: tab.Title(),
+			IsNew: false,
+			Index: tab.Position,
+		})
+	}
+	items = append(items, component.TabPickerItem{IsNew: true, Index: -1})
+
+	a.attachTabPickerToActivePane()
+	a.tabPicker.Show(ctx, items)
+	return nil
+}
+
+func (a *App) HandleMovePaneToNextTab(ctx context.Context) error {
+	if a.movePaneToTabUC == nil {
+		return nil
+	}
+	active := a.tabs.ActiveTab()
+	if active == nil {
+		return nil
+	}
+
+	nextPos := active.Position + 1
+	if nextPos >= a.tabs.Count() {
+		// Create a new tab on the right.
+		return a.MoveActivePaneToTab(ctx, "")
+	}
+	next := a.tabs.TabAt(nextPos)
+	if next == nil {
+		return nil
+	}
+	return a.MoveActivePaneToTab(ctx, next.ID)
+}
+
+func (a *App) MoveActivePaneToTab(ctx context.Context, targetTabID entity.TabID) error {
+	in, sourceTab := a.buildMovePaneToTabInput(targetTabID)
+	if in == nil {
+		return nil
+	}
+
+	out, err := a.movePaneToTabUC.Execute(*in)
+	if err != nil {
+		return err
+	}
+	if out == nil || out.TargetTab == nil {
+		return nil
+	}
+
+	a.applyMovePaneToTabUI(ctx, out, sourceTab)
+	a.switchToTargetTabIfConfigured(ctx, out)
+	a.updateTabBarVisibility(ctx)
+	a.MarkDirty()
+	return nil
+}
+
+func (a *App) buildMovePaneToTabInput(targetTabID entity.TabID) (*usecase.MovePaneToTabInput, *entity.Tab) {
+	if a.movePaneToTabUC == nil {
+		return nil, nil
+	}
+	activeTab := a.tabs.ActiveTab()
+	if activeTab == nil || activeTab.Workspace == nil {
+		return nil, nil
+	}
+	sourcePaneID := activeTab.Workspace.ActivePaneID
+	if sourcePaneID == "" {
+		return nil, nil
+	}
+
+	in := &usecase.MovePaneToTabInput{
+		TabList:      a.tabs,
+		SourceTabID:  activeTab.ID,
+		SourcePaneID: sourcePaneID,
+		TargetTabID:  targetTabID,
+	}
+	return in, activeTab
+}
+
+func (a *App) applyMovePaneToTabUI(ctx context.Context, out *usecase.MovePaneToTabOutput, sourceTab *entity.Tab) {
+	if out == nil || out.TargetTab == nil {
+		return
+	}
+	sourceTabID := entity.TabID("")
+	if sourceTab != nil {
+		sourceTabID = sourceTab.ID
+	}
+
+	if out.SourceTabClosed {
+		a.removeSourceTabUI(sourceTabID)
+	}
+	if out.NewTabCreated {
+		a.ensureTargetTabUI(ctx, out.TargetTab)
+	}
+
+	if !out.SourceTabClosed {
+		a.rebuildAndAttachWorkspace(ctx, sourceTabID, sourceTab)
+	}
+	a.rebuildAndAttachWorkspace(ctx, out.TargetTab.ID, out.TargetTab)
+}
+
+func (a *App) removeSourceTabUI(sourceTabID entity.TabID) {
+	delete(a.workspaceViews, sourceTabID)
+	if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
+		a.mainWindow.TabBar().RemoveTab(sourceTabID)
+	}
+}
+
+func (a *App) ensureTargetTabUI(ctx context.Context, tab *entity.Tab) {
+	if tab == nil {
+		return
+	}
+	if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
+		a.mainWindow.TabBar().AddTab(tab)
+	}
+	a.createWorkspaceViewWithoutAttach(ctx, tab)
+}
+
+func (a *App) rebuildAndAttachWorkspace(ctx context.Context, tabID entity.TabID, tab *entity.Tab) {
+	wsView := a.workspaceViews[tabID]
+	if wsView == nil {
+		return
+	}
+	_ = wsView.Rebuild(ctx)
+
+	if tab == nil || tab.Workspace == nil || a.contentCoord == nil {
+		return
+	}
+	a.contentCoord.AttachToWorkspace(ctx, tab.Workspace, wsView)
+}
+
+func (a *App) switchToTargetTabIfConfigured(ctx context.Context, out *usecase.MovePaneToTabOutput) {
+	if out == nil || out.TargetTab == nil {
+		return
+	}
+
+	switchToTarget := config.Get().Workspace.SwitchToTabOnMove
+	if out.SourceTabClosed {
+		switchToTarget = true
+	}
+	if !switchToTarget {
+		return
+	}
+
+	a.tabs.SetActive(out.TargetTab.ID)
+	if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
+		a.mainWindow.TabBar().SetActive(out.TargetTab.ID)
+	}
+	a.switchWorkspaceView(ctx, out.TargetTab.ID)
+}
+
+func (a *App) updateTabBarVisibility(ctx context.Context) {
+	if a.tabCoord != nil {
+		a.tabCoord.UpdateBarVisibility(ctx)
+	}
+}
+
+func (a *App) initTabPicker(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
+	if a.deps == nil || a.deps.Config == nil {
+		log.Debug().Msg("deps/config not available, skipping tab picker")
+		return
+	}
+
+	a.tabPicker = component.NewTabPicker(ctx, component.TabPickerConfig{
+		UIScale: a.deps.Config.DefaultUIScale,
+		OnClose: func() {
+			log.Debug().Msg("tab picker closed")
+		},
+		OnSelect: func(item component.TabPickerItem) {
+			cb := glib.SourceFunc(func(_ uintptr) bool {
+				var targetID entity.TabID
+				if !item.IsNew {
+					targetID = item.TabID
+				}
+				if err := a.MoveActivePaneToTab(ctx, targetID); err != nil {
+					log.Warn().Err(err).Msg("move pane to tab failed")
+				}
+				return false
+			})
+			glib.IdleAdd(&cb, 0)
+		},
+	})
+
+	if a.tabPicker == nil {
+		log.Warn().Msg("failed to create tab picker")
+		return
+	}
+
+	log.Debug().Msg("tab picker initialized")
 }
 
 func (a *App) initSnapshotService(ctx context.Context) {
@@ -798,6 +1077,9 @@ func (a *App) initCoordinators(ctx context.Context) {
 		return nil
 	})
 
+	// Move pane use case (cross-tab)
+	a.movePaneToTabUC = usecase.NewMovePaneToTabUseCase(a.generateID)
+
 	// 4. Navigation Coordinator
 	a.navCoord = coordinator.NewNavigationCoordinator(
 		ctx,
@@ -829,7 +1111,12 @@ func (a *App) initCoordinators(ctx context.Context) {
 
 	// Hide loading skeleton once the WebView paints
 	a.contentCoord.SetOnWebViewShown(func(paneID entity.PaneID) {
-		if wsView := a.activeWorkspaceView(); wsView != nil {
+		// The WebView can be shown while its pane is in a background tab, so scan
+		// all WorkspaceViews rather than only the active one.
+		for _, wsView := range a.workspaceViews {
+			if wsView == nil {
+				continue
+			}
 			if pv := wsView.GetPaneView(paneID); pv != nil {
 				pv.HideLoadingSkeleton()
 			}
@@ -861,6 +1148,12 @@ func (a *App) initCoordinators(ctx context.Context) {
 	a.kbDispatcher.SetOnFindClose(func(ctx context.Context) error {
 		a.CloseFindBar(ctx)
 		return nil
+	})
+	a.kbDispatcher.SetOnMovePaneToTab(func(ctx context.Context) error {
+		return a.HandleMovePaneToTab(ctx)
+	})
+	a.kbDispatcher.SetOnMovePaneToNextTab(func(ctx context.Context) error {
+		return a.HandleMovePaneToNextTab(ctx)
 	})
 
 	// Wire gesture handler to dispatcher (for mouse button 8/9 navigation)
