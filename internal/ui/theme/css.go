@@ -114,6 +114,10 @@ func GenerateCSSWithScaleAndFonts(p Palette, scale float64, fonts FontConfig) st
 
 	// Session manager styling
 	sb.WriteString(generateSessionManagerCSS(p))
+	sb.WriteString("\n")
+
+	// Tab picker styling
+	sb.WriteString(generateTabPickerCSS(p))
 
 	return sb.String()
 }
@@ -596,6 +600,7 @@ progressbar.osd progress {
 // generateSessionManagerCSS creates session manager modal styles.
 // Uses em units for scalable UI, matches omnibox styling patterns.
 func generateSessionManagerCSS(p Palette) string {
+	_ = p
 	return `/* ===== Session Manager Styling ===== */
 
 /* Session manager outer container - for positioning in overlay */
