@@ -401,6 +401,7 @@ func (m *Manager) setWorkspaceDefaults(defaults *Config) {
 	m.viper.SetDefault("workspace.shortcuts.consume_or_expel_down", defaults.Workspace.Shortcuts.ConsumeOrExpelDown)
 	m.viper.SetDefault("workspace.tab_bar_position", defaults.Workspace.TabBarPosition)
 	m.viper.SetDefault("workspace.hide_tab_bar_when_single_tab", defaults.Workspace.HideTabBarWhenSingleTab)
+	m.viper.SetDefault("workspace.switch_to_tab_on_move", defaults.Workspace.SwitchToTabOnMove)
 	m.viper.SetDefault("workspace.popups.behavior", string(defaults.Workspace.Popups.Behavior))
 	m.viper.SetDefault("workspace.popups.placement", defaults.Workspace.Popups.Placement)
 	m.viper.SetDefault("workspace.popups.open_in_new_pane", defaults.Workspace.Popups.OpenInNewPane)
