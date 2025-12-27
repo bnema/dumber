@@ -244,6 +244,9 @@ sudo apt install va-driver-all
   - `dumber browse "!g golang"`        # search via bang shortcut
 - Show version information:
   - `dumber about`                      # version, commit, and build date
+- Check for and install updates:
+  - `dumber update`                     # check and install if available
+  - `dumber update --force`             # force reinstall (skips version check)
 - Launcher integration (dmenu‑style examples with favicon support):
   - rofi:   `dumber dmenu | rofi -dmenu -show-icons -p "🔍 " | dumber dmenu --select`
   - fuzzel: `dumber dmenu | fuzzel --dmenu -p "🔍 " | dumber dmenu --select`
