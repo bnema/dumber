@@ -13,6 +13,11 @@ import (
 // LazyDB implements port.DatabaseProvider with lazy initialization.
 // The database connection is created on first access, deferring the ~300-400ms
 // WASM compilation and migration overhead until actually needed.
+//
+// Currently unused: the application uses eager initialization via OpenDatabase
+// in RunParallelDBWebKit. This implementation is kept for potential future use
+// in scenarios where deferring database initialization past first paint provides
+// additional latency benefits, or for CLI commands that may not need DB access.
 type LazyDB struct {
 	dbPath string
 	db     *sql.DB

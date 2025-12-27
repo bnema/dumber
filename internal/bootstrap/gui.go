@@ -206,6 +206,10 @@ func OpenDatabase(ctx context.Context) (*DatabaseResult, error) {
 
 // CreateLazyDatabase creates a lazy database provider that defers initialization.
 // The database is initialized on first access, allowing the UI to render faster.
+//
+// Currently unused: the application uses OpenDatabase with RunParallelDBWebKit for
+// eager initialization. This function is kept for potential future use when lazy
+// initialization past first paint becomes beneficial.
 func CreateLazyDatabase() (*sqlite.LazyDB, error) {
 	dbPath, err := config.GetDatabaseFile()
 	if err != nil {
