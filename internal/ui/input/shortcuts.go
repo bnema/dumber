@@ -356,7 +356,7 @@ func (s *ShortcutSet) registerStandardShortcuts() {
 	s.Global[KeyBinding{uint(gdk.KEY_g), ModCtrl}] = ActionFindNext
 	s.Global[KeyBinding{uint(gdk.KEY_g), ModCtrl | ModShift}] = ActionFindPrev
 	s.Global[KeyBinding{uint(gdk.KEY_r), ModCtrl}] = ActionReload
-	s.Global[KeyBinding{uint(gdk.KEY_R), ModCtrl | ModShift}] = ActionHardReload
+	s.Global[KeyBinding{uint('r'), ModCtrl | ModShift}] = ActionHardReload
 	s.Global[KeyBinding{uint(gdk.KEY_F5), ModNone}] = ActionReload
 	s.Global[KeyBinding{uint(gdk.KEY_F5), ModCtrl}] = ActionHardReload
 	s.Global[KeyBinding{uint(gdk.KEY_F12), ModNone}] = ActionOpenDevTools
@@ -368,7 +368,7 @@ func (s *ShortcutSet) registerStandardShortcuts() {
 	s.Global[KeyBinding{uint(gdk.KEY_0), ModCtrl}] = ActionZoomReset
 	s.Global[KeyBinding{uint(gdk.KEY_q), ModCtrl}] = ActionQuit
 	s.Global[KeyBinding{uint(gdk.KEY_F11), ModNone}] = ActionToggleFullscreen
-	s.Global[KeyBinding{uint(gdk.KEY_C), ModCtrl | ModShift}] = ActionCopyURL
+	s.Global[KeyBinding{uint('c'), ModCtrl | ModShift}] = ActionCopyURL
 	// Session management - direct shortcut to open session manager
 	s.Global[KeyBinding{uint(gdk.KEY_s), ModCtrl | ModShift}] = ActionOpenSessionManager
 }

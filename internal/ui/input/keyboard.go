@@ -139,6 +139,14 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 
 	// Build KeyBinding from event
 	modifiers := Modifier(state) & modifierMask
+
+	// GTK reports shifted letters as uppercase keyvals (e.g. Shift+M -> gdk.KEY_M).
+	// Normalize ASCII A-Z to lowercase so bindings can consistently use lowercase
+	// keyvals and rely on ModShift to represent Shift.
+	if keyval >= uint('A') && keyval <= uint('Z') {
+		keyval = keyval + (uint('a') - uint('A'))
+	}
+
 	binding := KeyBinding{
 		Keyval:    keyval,
 		Modifiers: modifiers,
