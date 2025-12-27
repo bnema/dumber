@@ -21,7 +21,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - **Cold start optimization**: Reduced startup time by ~150ms (29% faster) through parallel initialization.
-  - SQLite WASM runtime pre-compilation runs concurrently with GStreamer/runtime checks.
+  - New `internal/bootstrap` package encapsulates all startup orchestration.
+  - `RunParallelInit()` runs 5 goroutines concurrently: directory resolution, pkg-config check, GStreamer check, theme manager creation, and SQLite WASM pre-compilation.
+  - WebView pool prewarming creates one WebView synchronously so first `Acquire()` is instant.
+  - Async session cleanup: stale session marking runs in background, doesn't block startup.
+  - `StartupTimer` logs timing for each bootstrap phase (parallel init, DB/WebKit, app creation).
   - Database initialization runs in background goroutine while WebKit stack initializes on main thread.
   - Database path now resolved via `config.GetDatabaseFile()` following clean architecture.
   - Added connection pool settings optimized for SQLite (`SetMaxOpenConns(1)`, keep-alive).
