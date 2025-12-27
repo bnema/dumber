@@ -229,6 +229,12 @@ func TestMigrator_FindMissingKeys(t *testing.T) {
 			userKeys:    map[string]bool{"parent": true},
 			expected:    []string{}, // Parent covers children
 		},
+		{
+			name:        "child keys cover parent (struct defaults like palettes)",
+			defaultKeys: []string{"appearance.dark_palette"},
+			userKeys:    map[string]bool{"appearance.dark_palette.background": true, "appearance.dark_palette.accent": true},
+			expected:    []string{}, // Child keys mean parent is defined
+		},
 	}
 
 	for _, tt := range tests {
