@@ -212,12 +212,19 @@ func (p *WebViewPool) Prewarm(ctx context.Context, count int) {
 // This avoids blocking startup (especially cold-start navigation) while still
 // warming up WebViews for subsequent tab creation.
 func (p *WebViewPool) PrewarmAsync(ctx context.Context, count int) {
+	log := logging.FromContext(ctx)
+
 	if count <= 0 {
 		count = p.config.PrewarmCount
 	}
-	if count <= 0 || p.closed.Load() {
+	if count <= 0 {
 		return
 	}
+	if p.closed.Load() {
+		return
+	}
+
+	log.Debug().Int("count", count).Int("pool_size", len(p.pool)).Msg("scheduling async webview pool prewarm")
 
 	p.wg.Add(1)
 	var doneOnce sync.Once
@@ -254,6 +261,7 @@ func (p *WebViewPool) PrewarmAsync(ctx context.Context, count int) {
 
 			remaining--
 			if remaining <= 0 {
+				log.Debug().Int("pool_size", len(p.pool)).Msg("async webview pool prewarm complete")
 				doneOnce.Do(p.wg.Done)
 				return false
 			}
