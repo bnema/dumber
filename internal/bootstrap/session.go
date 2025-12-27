@@ -47,28 +47,11 @@ func StartBrowserSession(ctx context.Context, cfg *config.Config, db *sql.DB) (*
 	sessionRepo := sqlite.NewSessionRepository(db)
 	sessionLoggerAdapter := infralogging.NewSessionLoggerAdapter()
 	sessionUC := usecase.NewManageSessionUseCase(sessionRepo, sessionLoggerAdapter)
-
-	// If a previous browser process died without cleanup, it may have left sessions "active".
-	// Use per-session lock files to distinguish truly running sessions from stale ones.
-	if lockDir != "" {
-		if err := endStaleActiveBrowserSessions(ctx, sessionUC, lockDir, log); err != nil {
-			log.Warn().Err(err).Msg("failed to mark stale sessions ended")
-		}
-	}
-
-	// Clean up old exited sessions based on config limits
 	cleanupUC := usecase.NewCleanupSessionsUseCase(sessionRepo)
-	cleanupOutput, err := cleanupUC.Execute(ctx, usecase.CleanupSessionsInput{
-		MaxExitedSessions:       cfg.Session.MaxExitedSessions,
-		MaxExitedSessionAgeDays: cfg.Session.MaxExitedSessionAgeDays,
-	})
-	if err != nil {
-		log.Warn().Err(err).Msg("failed to cleanup old sessions")
-	} else if cleanupOutput.TotalDeleted > 0 {
-		log.Info().
-			Int64("deleted", cleanupOutput.TotalDeleted).
-			Msg("cleaned up old sessions on startup")
-	}
+
+	// Defer stale session cleanup and old session pruning to background.
+	// This avoids blocking startup for non-critical housekeeping tasks.
+	runSessionCleanupAsync(ctx, sessionUC, cleanupUC, cfg, lockDir, log)
 
 	now := time.Now()
 	out, err := sessionUC.StartSession(ctx, usecase.StartSessionInput{
@@ -212,4 +195,41 @@ func unlockAndClose(f *os.File) error {
 	}
 	_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
 	return f.Close()
+}
+
+// runSessionCleanupAsync performs stale session cleanup and old session pruning
+// in a background goroutine. This avoids blocking startup for non-critical tasks.
+func runSessionCleanupAsync(
+	ctx context.Context,
+	sessionUC *usecase.ManageSessionUseCase,
+	cleanupUC *usecase.CleanupSessionsUseCase,
+	cfg *config.Config,
+	lockDir string,
+	log *zerolog.Logger,
+) {
+	go func() {
+		// End stale active sessions (orphaned from crashed processes)
+		if lockDir != "" {
+			if err := endStaleActiveBrowserSessions(ctx, sessionUC, lockDir, log); err != nil {
+				if log != nil {
+					log.Warn().Err(err).Msg("background: failed to mark stale sessions ended")
+				}
+			}
+		}
+
+		// Clean up old exited sessions based on config limits
+		cleanupOutput, err := cleanupUC.Execute(ctx, usecase.CleanupSessionsInput{
+			MaxExitedSessions:       cfg.Session.MaxExitedSessions,
+			MaxExitedSessionAgeDays: cfg.Session.MaxExitedSessionAgeDays,
+		})
+		if err != nil {
+			if log != nil {
+				log.Warn().Err(err).Msg("background: failed to cleanup old sessions")
+			}
+		} else if cleanupOutput.TotalDeleted > 0 {
+			if log != nil {
+				log.Info().Int64("deleted", cleanupOutput.TotalDeleted).Msg("background: cleaned up old sessions")
+			}
+		}
+	}()
 }

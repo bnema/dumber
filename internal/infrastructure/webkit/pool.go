@@ -196,6 +196,34 @@ func (p *WebViewPool) Release(ctx context.Context, wv *WebView) {
 	wv.Destroy()
 }
 
+// PrewarmFirst creates exactly one WebView synchronously.
+// Call this during startup (before GTK activate) to ensure first Acquire() is instant.
+// This is the most impactful optimization for cold start since WebView creation
+// is the heaviest operation (spawns WebKit web process).
+// Returns error if WebView creation fails; caller should log and continue.
+func (p *WebViewPool) PrewarmFirst(ctx context.Context) error {
+	if p.closed.Load() {
+		return context.Canceled
+	}
+	if len(p.pool) > 0 {
+		return nil // Already have at least one
+	}
+
+	log := logging.FromContext(ctx)
+	wv, err := p.createWebView(ctx)
+	if err != nil {
+		return err
+	}
+
+	select {
+	case p.pool <- wv:
+		log.Debug().Uint64("id", uint64(wv.ID())).Msg("prewarmed first webview for cold start")
+	default:
+		wv.Destroy() // Pool somehow full (shouldn't happen)
+	}
+	return nil
+}
+
 // Prewarm creates WebViews synchronously to populate the pool.
 // Must be called from the GTK main thread (after GTK application is initialized).
 func (p *WebViewPool) Prewarm(ctx context.Context, count int) {
