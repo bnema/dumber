@@ -8,6 +8,7 @@ packages:
       filename: mocks.go
       pkgname: mocks
     interfaces:
+      ConfigMigrator: {}
       SessionLogger: {}
       SessionSpawner: {}
       TabListProvider: {}
