@@ -674,16 +674,38 @@ func (c *ContentCoordinator) PreloadCachedFavicon(ctx context.Context, paneID en
 func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
 	log := logging.FromContext(ctx)
 
-	// Show the WebView now that content is being painted
-	// (WebViews are hidden on creation to avoid white flash)
-	if inner := wv.Widget(); inner != nil {
-		inner.SetVisible(true)
-		log.Debug().Str("pane_id", string(paneID)).Msg("webview shown on load committed")
-	}
-
 	url := wv.URI()
 	if url == "" {
 		return
+	}
+
+	// Show the WebView now that content is being painted
+	// (WebViews are hidden on creation to avoid white flash)
+	// Skip showing if this is about:blank but the pane is loading a different URL
+	// This prevents the brief flash of about:blank during initial navigation
+	shouldShow := true
+	if url == "about:blank" {
+		// Get the pane's intended URI from the workspace
+		ws, _ := c.getActiveWS()
+		if ws != nil {
+			if pane := ws.FindPane(paneID); pane != nil {
+				// Don't show about:blank if the pane is supposed to load a different URL
+				if pane.URI != "" && pane.URI != "about:blank" {
+					shouldShow = false
+					log.Debug().
+						Str("pane_id", string(paneID)).
+						Str("pane_uri", pane.URI).
+						Msg("skipping webview show for about:blank (pane loading different URL)")
+				}
+			}
+		}
+	}
+
+	if shouldShow {
+		if inner := wv.Widget(); inner != nil {
+			inner.SetVisible(true)
+			log.Debug().Str("pane_id", string(paneID)).Str("url", url).Msg("webview shown on load committed")
+		}
 	}
 
 	// Update domain model with current URI for session snapshots
