@@ -19,10 +19,11 @@ import (
 // This struct is created once at startup and passed to UI components.
 type Dependencies struct {
 	// Core context and configuration
-	Ctx              context.Context
-	Config           *config.Config
-	InitialURL       string // URL to open on startup (optional)
-	RestoreSessionID string // Session ID to restore on startup (optional)
+	Ctx                 context.Context
+	Config              *config.Config
+	InitialURL          string // URL to open on startup (optional)
+	RestoreSessionID    string // Session ID to restore on startup (optional)
+	OnFirstWebViewShown func(context.Context)
 
 	// Theme management
 	Theme *theme.Manager

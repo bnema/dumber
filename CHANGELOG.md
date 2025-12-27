@@ -19,6 +19,21 @@ All notable changes to this project will be documented in this file.
   - `Ctrl+P → M`: Moves the active pane to the next tab (creates a new tab if needed).
   - New config: `workspace.switch_to_tab_on_move` (default: true).
 
+### Changed
+- **Cold start optimization**: Reduced startup time by ~150ms (29% faster) through parallel initialization.
+  - New `internal/bootstrap` package encapsulates all startup orchestration.
+  - `RunParallelInit()` runs 5 goroutines concurrently: directory resolution, pkg-config check, GStreamer check, theme manager creation, and SQLite WASM pre-compilation.
+  - WebView pool prewarming creates one WebView synchronously so first `Acquire()` is instant.
+  - Async session cleanup: stale session marking runs in background, doesn't block startup.
+  - `StartupTimer` logs timing for each bootstrap phase (parallel init, DB/WebKit, app creation).
+  - Database initialization runs in background goroutine while WebKit stack initializes on main thread.
+  - Database path now resolved via `config.GetDatabaseFile()` following clean architecture.
+  - Added connection pool settings optimized for SQLite (`SetMaxOpenConns(1)`, keep-alive).
+  - Reduced `mmap_size` from 30GB to 256MB (reasonable for browser history DB).
+  - Added `PRAGMA foreign_keys = ON` for referential integrity.
+- **Startup deferrals**: Runtime/media checks and SQLite WASM precompile now run after first paint, and DB initialization uses lazy repositories when auto-restore is off to cut cold-start latency further.
+- **Console logging**: Standardized console timestamps to `HH:MM:SS` across bootstrap and session logging.
+
 ### Fixed
 - **OAuth popup login**: Fixed parent page going blank after OAuth popup closes (e.g., Google login on claude.ai, notion.com). Related WebViews share a web process with their parent; destroying the popup was terminating the shared process, killing the parent. Now skips `TerminateWebProcess()` for popup WebViews.
 - Startup: defer WebView pool prewarm until after initial tab creation to reduce cold-start navigation latency.

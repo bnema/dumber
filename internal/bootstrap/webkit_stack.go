@@ -113,6 +113,13 @@ func BuildWebKitStack(
 		pool.SetFilterApplier(filterManager)
 	}
 
+	// Pre-create ONE WebView synchronously for instant first navigation.
+	// This is the heaviest operation but happens before window is shown,
+	// so users perceive it as part of the normal "loading" phase.
+	if err := pool.PrewarmFirst(ctx); err != nil {
+		logger.Warn().Err(err).Msg("failed to prewarm first webview, first tab may be slower")
+	}
+
 	return WebKitStack{
 		Context:       wkCtx,
 		Settings:      settings,
