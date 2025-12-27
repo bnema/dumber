@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **CLI self-update command**: New `dumber update` command to check for and install updates from the command line.
+  - Interactive spinner animation during check and download phases.
+  - `--force` / `-f` flag to skip version check and reinstall the current version.
+  - Reuses existing auto-update infrastructure (check, download, stage, apply on exit).
+  - Theme-aware styling consistent with other CLI commands.
 - **Move pane to tab**: New pane-mode actions to move the active pane to another tab.
   - `Ctrl+P → m`: Opens a tab picker modal.
   - `Ctrl+P → M`: Moves the active pane to the next tab (creates a new tab if needed).
