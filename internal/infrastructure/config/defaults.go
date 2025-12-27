@@ -155,17 +155,20 @@ func DefaultConfig() *Config {
 		DefaultWebpageZoom: 1.2,            // 120% default zoom for better readability
 		DefaultUIScale:     defaultUIScale, // 1.0 = 100%, 2.0 = 200%
 		Workspace: WorkspaceConfig{
-			NewPaneURL: defaultNewPaneURL,
+			NewPaneURL:        defaultNewPaneURL,
+			SwitchToTabOnMove: true,
 			PaneMode: PaneModeConfig{
 				ActivationShortcut:  defaultPaneActivationShortcut,
 				TimeoutMilliseconds: defaultPaneTimeoutMilliseconds,
 				Actions: map[string][]string{
-					"split-right": {"arrowright", "r"},
-					"split-left":  {"arrowleft", "l"},
-					"split-up":    {"arrowup", "u"},
-					"split-down":  {"arrowdown", "d"},
-					"stack-pane":  {"s"},
-					"close-pane":  {"x"},
+					"split-right":           {"arrowright", "r"},
+					"split-left":            {"arrowleft", "l"},
+					"split-up":              {"arrowup", "u"},
+					"split-down":            {"arrowdown", "d"},
+					"stack-pane":            {"s"},
+					"close-pane":            {"x"},
+					"move-pane-to-tab":      {"m"},
+					"move-pane-to-next-tab": {"M", "shift+m"},
 
 					"consume-or-expel-left":  {"bracketleft", "["},
 					"consume-or-expel-right": {"bracketright", "]"},

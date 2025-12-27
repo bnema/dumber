@@ -313,6 +313,9 @@ type WorkspaceConfig struct {
 	TabBarPosition string `mapstructure:"tab_bar_position" yaml:"tab_bar_position" toml:"tab_bar_position" json:"tab_bar_position"`
 	// HideTabBarWhenSingleTab hides the tab bar when only one tab exists.
 	HideTabBarWhenSingleTab bool `mapstructure:"hide_tab_bar_when_single_tab" yaml:"hide_tab_bar_when_single_tab" toml:"hide_tab_bar_when_single_tab" json:"hide_tab_bar_when_single_tab"` //nolint:lll // struct tags must stay on one line
+	// SwitchToTabOnMove controls whether moving a pane to another tab switches focus to that tab.
+	// Default: true
+	SwitchToTabOnMove bool `mapstructure:"switch_to_tab_on_move" yaml:"switch_to_tab_on_move" toml:"switch_to_tab_on_move" json:"switch_to_tab_on_move"` //nolint:lll // struct tags must stay on one line
 	// Popups configures default popup placement rules.
 	Popups PopupBehaviorConfig `mapstructure:"popups" yaml:"popups" toml:"popups" json:"popups"`
 	// Styling configures workspace visual appearance.

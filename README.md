@@ -77,6 +77,8 @@ Some features are very alpha/experimental (notably consume-or-expel panes) and m
 | **↓** / **D** (in pane mode) | Split Down | Create new pane below |
 | **S** (in pane mode) | Stack Pane | Create stacked pane (Zellij-style) |
 | **X** (in pane mode) | Close Pane | Close current pane |
+| **m** (in pane mode) | Move Pane To Tab | Opens a tab picker modal |
+| **M** (in pane mode) | Move Pane To Next Tab | Moves to the next tab, creates new tab if needed |
 | **Enter** (in pane mode) | Confirm Action | Confirm pane operation |
 | **Escape** (in pane mode) | Exit Pane Mode | Return to normal navigation |
 | **Alt+Arrow Keys** | Navigate Panes | Move focus between panes |
