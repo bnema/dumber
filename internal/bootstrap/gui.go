@@ -34,8 +34,22 @@ type ParallelInitResult struct {
 	Duration     time.Duration
 }
 
+// DeferredInitResult holds results from deferred initialization checks.
+type DeferredInitResult struct {
+	RuntimeErr error
+	MediaErr   error
+	SQLiteErr  error
+	Duration   time.Duration
+}
+
 // ParallelInitInput holds the input for parallel initialization.
 type ParallelInitInput struct {
+	Ctx    context.Context
+	Config *config.Config
+}
+
+// DeferredInitInput holds the input for deferred initialization.
+type DeferredInitInput struct {
 	Ctx    context.Context
 	Config *config.Config
 }
@@ -69,45 +83,24 @@ func (e *RuntimeRequirementsError) LogDetails(ctx context.Context) {
 	}
 }
 
-// RunParallelInit runs the parallel initialization phase.
-// This includes directory resolution, runtime/media checks, and theme creation.
+// RunParallelInit runs the essential parallel initialization phase.
+// This includes directory resolution and theme creation.
 // Returns the first fatal error encountered, or nil with the results.
 func RunParallelInit(input ParallelInitInput) (*ParallelInitResult, error) {
 	var (
 		dataDir, cacheDir string
 		themeManager      *theme.Manager
 		dirsErr           error
-		runtimeErr        error
-		mediaErr          error
 		wg                sync.WaitGroup
 	)
 
 	start := time.Now()
-	wg.Add(5)
-
-	// Pre-initialize SQLite WASM runtime (expensive compilation)
-	// This runs concurrently with other checks so it's hidden from critical path.
-	go func() {
-		defer wg.Done()
-		_ = sqlite3.Initialize()
-	}()
+	wg.Add(2)
 
 	// Resolve directories
 	go func() {
 		defer wg.Done()
 		dataDir, cacheDir, dirsErr = resolveWebKitDirs()
-	}()
-
-	// Runtime checks (pkg-config subprocess)
-	go func() {
-		defer wg.Done()
-		runtimeErr = CheckRuntimeRequirements(input.Ctx, input.Config)
-	}()
-
-	// Media checks (GStreamer subprocess)
-	go func() {
-		defer wg.Done()
-		mediaErr = CheckMediaRequirements(input.Ctx, input.Config)
 	}()
 
 	// Theme manager (CPU-bound, no I/O)
@@ -120,13 +113,8 @@ func RunParallelInit(input ParallelInitInput) (*ParallelInitResult, error) {
 	duration := time.Since(start)
 
 	// Return first fatal error
-	switch {
-	case dirsErr != nil:
+	if dirsErr != nil {
 		return nil, fmt.Errorf("resolve directories: %w", dirsErr)
-	case runtimeErr != nil:
-		return nil, runtimeErr
-	case mediaErr != nil:
-		return nil, fmt.Errorf("media check: %w", mediaErr)
 	}
 
 	return &ParallelInitResult{
@@ -135,6 +123,44 @@ func RunParallelInit(input ParallelInitInput) (*ParallelInitResult, error) {
 		ThemeManager: themeManager,
 		Duration:     duration,
 	}, nil
+}
+
+// RunDeferredInit runs deferred initialization checks off the critical path.
+// This includes SQLite WASM precompile, runtime requirements, and media checks.
+func RunDeferredInit(input DeferredInitInput) DeferredInitResult {
+	var (
+		runtimeErr error
+		mediaErr   error
+		sqliteErr  error
+		wg         sync.WaitGroup
+	)
+
+	start := time.Now()
+	wg.Add(3)
+
+	go func() {
+		defer wg.Done()
+		sqliteErr = sqlite3.Initialize()
+	}()
+
+	go func() {
+		defer wg.Done()
+		runtimeErr = CheckRuntimeRequirements(input.Ctx, input.Config)
+	}()
+
+	go func() {
+		defer wg.Done()
+		mediaErr = CheckMediaRequirements(input.Ctx, input.Config)
+	}()
+
+	wg.Wait()
+
+	return DeferredInitResult{
+		RuntimeErr: runtimeErr,
+		MediaErr:   mediaErr,
+		SQLiteErr:  sqliteErr,
+		Duration:   time.Since(start),
+	}
 }
 
 // CheckRuntimeRequirements verifies WebKitGTK and other runtime dependencies.
