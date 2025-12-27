@@ -201,6 +201,7 @@ border = "#363636"
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `workspace.new_pane_url` | string | `"about:blank"` | URL loaded for new panes/tabs (supports `http(s)://`, `dumb://`, `file://`, `about:`) |
+| `workspace.switch_to_tab_on_move` | bool | `true` | When moving a pane to another tab, automatically switch to the destination tab |
 
 **Example:**
 ```toml
@@ -225,6 +226,8 @@ split-up = ["arrowup", "u"]
 split-down = ["arrowdown", "d"]
 stack-pane = ["s"]
 close-pane = ["x"]
+move-pane-to-tab = ["m"]
+move-pane-to-next-tab = ["M", "shift+m"]
 
 # Consume-or-expel (niri-style) - very alpha
 consume-or-expel-left = ["bracketleft", "["]

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Move pane to tab**: New pane-mode actions to move the active pane to another tab.
+  - `Ctrl+P → m`: Opens a tab picker modal.
+  - `Ctrl+P → M`: Moves the active pane to the next tab (creates a new tab if needed).
+  - New config: `workspace.switch_to_tab_on_move` (default: true).
+
 ### Fixed
 - Startup: defer WebView pool prewarm until after initial tab creation to reduce cold-start navigation latency.
 - README CLI examples: updated to match current commands/flags (`purge --force` only, `logs` usage, `sessions list --limit`, removed deprecated `--dmenu` root flag).
