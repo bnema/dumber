@@ -232,8 +232,20 @@ func (p *WebViewPool) PrewarmAsync(ctx context.Context, count int) {
 
 	var schedule func()
 	schedule = func() {
+		// Stop early if the caller canceled the operation.
+		if err := ctx.Err(); err != nil {
+			log.Debug().Err(err).Msg("async webview pool prewarm canceled")
+			doneOnce.Do(p.wg.Done)
+			return
+		}
+
 		cb := glib.SourceFunc(func(_ uintptr) bool {
-			log := logging.FromContext(ctx)
+			// Stop if the caller canceled the operation.
+			if err := ctx.Err(); err != nil {
+				log.Debug().Err(err).Msg("async webview pool prewarm canceled")
+				doneOnce.Do(p.wg.Done)
+				return false
+			}
 
 			// Stop if pool is closing/closed.
 			if p.closed.Load() {
