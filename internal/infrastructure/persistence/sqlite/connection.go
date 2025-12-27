@@ -82,6 +82,10 @@ func applyPragmas(db *sql.DB) error {
 
 // configurePool sets connection pool parameters optimized for SQLite.
 // SQLite only supports one writer at a time, so we limit connections.
+//
+// Connections are configured to never expire or close while idle. This is safe
+// because the application's lifecycle matches the database connection's lifecycle:
+// the process terminates before the underlying database file is rotated or replaced.
 func configurePool(db *sql.DB) {
 	db.SetMaxOpenConns(1)    // SQLite is single-writer
 	db.SetMaxIdleConns(1)    // Keep one connection alive

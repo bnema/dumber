@@ -201,15 +201,20 @@ func unlockAndClose(f *os.File) error {
 // in a background goroutine. This avoids blocking startup for non-critical tasks.
 // Uses context.Background() to ensure cleanup completes even if startup context is canceled.
 func runSessionCleanupAsync(
-	_ context.Context,
+	startupCtx context.Context,
 	sessionUC *usecase.ManageSessionUseCase,
 	cleanupUC *usecase.CleanupSessionsUseCase,
 	cfg *config.Config,
 	lockDir string,
 	log *zerolog.Logger,
 ) {
+	// Silence unused parameter warning - startupCtx is intentionally unused.
+	_ = startupCtx
+
 	go func() {
-		// Use detached context: cleanup should complete regardless of startup context lifecycle.
+		// Use a detached background context instead of the startup context:
+		// session cleanup is critical and must run to completion even if the
+		// startup context is cancelled or times out.
 		bgCtx := context.Background()
 
 		// End stale active sessions (orphaned from crashed processes)

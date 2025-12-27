@@ -164,9 +164,9 @@ func initConfig() *config.Config {
 
 func handleParallelInitError(ctx context.Context, err error) {
 	log := logging.FromContext(ctx)
-	if err, ok := err.(*bootstrap.RuntimeRequirementsError); ok {
-		err.LogDetails(ctx)
-		log.Fatal().Err(err).
+	if runtimeErr, ok := err.(*bootstrap.RuntimeRequirementsError); ok {
+		runtimeErr.LogDetails(ctx)
+		log.Fatal().Err(runtimeErr).
 			Str("hint", "Run: dumber doctor (and set runtime.prefix for /opt installs)").
 			Msg("runtime requirements not met")
 	}
@@ -204,8 +204,9 @@ func setupSignalHandler(ctx context.Context, app *ui.App) {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		<-sigCh
-		log.Info().Msg("received interrupt, quitting")
+		sig := <-sigCh
+		signal.Stop(sigCh)
+		log.Info().Str("signal", sig.String()).Msg("received interrupt, quitting")
 		app.Quit()
 	}()
 }
