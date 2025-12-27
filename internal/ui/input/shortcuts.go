@@ -134,6 +134,9 @@ const (
 	ActionClosePane  Action = "close_pane"
 	ActionStackPane  Action = "stack_pane"
 
+	ActionMovePaneToTab     Action = "move_pane_to_tab"
+	ActionMovePaneToNextTab Action = "move_pane_to_next_tab"
+
 	ActionConsumeOrExpelLeft  Action = "consume_or_expel_left"
 	ActionConsumeOrExpelRight Action = "consume_or_expel_right"
 	ActionConsumeOrExpelUp    Action = "consume_or_expel_up"
@@ -429,12 +432,14 @@ var configActionToAction = map[string]Action{
 	"rename-tab":   ActionRenameTab,
 
 	// Pane actions
-	"split-right": ActionSplitRight,
-	"split-left":  ActionSplitLeft,
-	"split-up":    ActionSplitUp,
-	"split-down":  ActionSplitDown,
-	"close-pane":  ActionClosePane,
-	"stack-pane":  ActionStackPane,
+	"split-right":           ActionSplitRight,
+	"split-left":            ActionSplitLeft,
+	"split-up":              ActionSplitUp,
+	"split-down":            ActionSplitDown,
+	"close-pane":            ActionClosePane,
+	"stack-pane":            ActionStackPane,
+	"move-pane-to-tab":      ActionMovePaneToTab,
+	"move-pane-to-next-tab": ActionMovePaneToNextTab,
 
 	"consume-or-expel-left":  ActionConsumeOrExpelLeft,
 	"consume-or-expel-right": ActionConsumeOrExpelRight,
@@ -484,7 +489,10 @@ func ParseKeyString(s string) (KeyBinding, bool) {
 		return KeyBinding{}, false
 	}
 
-	s = strings.ToLower(strings.TrimSpace(s))
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return KeyBinding{}, false
+	}
 	if s == "+" {
 		return KeyBinding{Keyval: uint(gdk.KEY_plus), Modifiers: ModNone}, true
 	}
@@ -499,7 +507,9 @@ func ParseKeyString(s string) (KeyBinding, bool) {
 		if part == "" {
 			continue
 		}
-		switch part {
+
+		lower := strings.ToLower(part)
+		switch lower {
 		case "ctrl", "control":
 			modifiers |= ModCtrl
 		case "shift":
@@ -523,6 +533,12 @@ func ParseKeyString(s string) (KeyBinding, bool) {
 		return KeyBinding{}, false
 	}
 
+	// Treat uppercase single-letter keys as Shift+<letter>.
+	if len(keyPart) == 1 && keyPart[0] >= 'A' && keyPart[0] <= 'Z' {
+		modifiers |= ModShift
+		keyPart = strings.ToLower(keyPart)
+	}
+
 	keyval, ok := stringToKeyval(keyPart)
 	if !ok {
 		return KeyBinding{}, false
@@ -536,7 +552,11 @@ func ParseKeyString(s string) (KeyBinding, bool) {
 
 // stringToKeyval converts a key name to its GDK keyval.
 func stringToKeyval(s string) (uint, bool) {
-	if keyval, ok := keyvalByName[s]; ok {
+	if s == "" {
+		return 0, false
+	}
+
+	if keyval, ok := keyvalByName[strings.ToLower(s)]; ok {
 		return keyval, true
 	}
 
@@ -588,6 +608,7 @@ func ShouldAutoExitMode(action Action) bool {
 	case ActionNewTab, ActionCloseTab, ActionRenameTab,
 		ActionSplitRight, ActionSplitLeft, ActionSplitUp, ActionSplitDown,
 		ActionClosePane, ActionStackPane,
+		ActionMovePaneToTab, ActionMovePaneToNextTab,
 		ActionConsumeOrExpelLeft, ActionConsumeOrExpelRight, ActionConsumeOrExpelUp, ActionConsumeOrExpelDown,
 		ActionOpenSessionManager:
 		return true
