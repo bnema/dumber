@@ -1,14 +1,17 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 
 	"github.com/bnema/dumber/internal/application/port"
 )
@@ -252,6 +255,13 @@ const (
 	typeNameString = "string"
 )
 
+// Config format constants.
+const (
+	configFormatTOML = "toml"
+	configFormatYAML = "yaml"
+	configFormatJSON = "json"
+)
+
 // typesAreCompatible checks if the default types for two keys are compatible.
 // This prevents matching int keys with string keys during rename detection.
 func (m *Migrator) typesAreCompatible(oldKey, newKey string) bool {
@@ -339,7 +349,7 @@ func keysAreSimilar(oldKey, newKey string) bool {
 	return matches >= minTokens-1 && matches > 0
 }
 
-// Migrate adds missing default keys to the user's config file.
+// Migrate adds missing default keys to the user's config file and removes deprecated keys.
 func (m *Migrator) Migrate() ([]string, error) {
 	changes, err := m.DetectChanges()
 	if err != nil {
@@ -355,37 +365,55 @@ func (m *Migrator) Migrate() ([]string, error) {
 		return nil, fmt.Errorf("failed to get config file path: %w", err)
 	}
 
-	// Create a new Viper instance to read user config
+	// Read the raw config file into a nested map
+	rawConfig, err := m.readRawConfig(configFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	// Build sets of keys to remove and renames to apply
+	keysToRemove := make(map[string]bool)
+	renames := make(map[string]string) // oldKey -> newKey
+
+	var appliedKeys []string
+	for _, change := range changes {
+		switch change.Type {
+		case port.KeyChangeRenamed:
+			renames[change.OldKey] = change.NewKey
+			keysToRemove[change.OldKey] = true
+			appliedKeys = append(appliedKeys, fmt.Sprintf("%s -> %s", change.OldKey, change.NewKey))
+		case port.KeyChangeAdded:
+			appliedKeys = append(appliedKeys, change.NewKey)
+		case port.KeyChangeRemoved:
+			keysToRemove[change.OldKey] = true
+			appliedKeys = append(appliedKeys, fmt.Sprintf("(removed: %s)", change.OldKey))
+		}
+	}
+
+	// Apply renames: copy value from old key to new key before removing old key
+	for oldKey, newKey := range renames {
+		if value := m.getNestedValue(rawConfig, oldKey); value != nil {
+			m.setNestedValue(rawConfig, newKey, value)
+		}
+	}
+
+	// Remove deprecated and renamed keys from the raw config
+	for key := range keysToRemove {
+		m.deleteNestedKey(rawConfig, key)
+	}
+
+	// Create a new Viper instance with defaults for added keys
 	userViper := viper.New()
 	userViper.SetConfigFile(configFile)
-	userViper.SetConfigType("toml")
+	userViper.SetConfigType(m.getConfigType(configFile))
 
 	// Set all defaults first
 	mgr := &Manager{viper: userViper}
 	mgr.setDefaults()
 
-	// Read existing config (this merges with defaults)
-	if err := userViper.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
-	}
-
-	// Apply changes
-	var appliedKeys []string
-	for _, change := range changes {
-		switch change.Type {
-		case port.KeyChangeRenamed:
-			// Copy value from old key to new key
-			if userViper.IsSet(change.OldKey) {
-				userViper.Set(change.NewKey, userViper.Get(change.OldKey))
-				appliedKeys = append(appliedKeys, fmt.Sprintf("%s -> %s", change.OldKey, change.NewKey))
-			}
-		case port.KeyChangeAdded:
-			// New key is already set via defaults, just track it
-			appliedKeys = append(appliedKeys, change.NewKey)
-		case port.KeyChangeRemoved:
-			// Nothing to do - old key will be preserved but not used
-			appliedKeys = append(appliedKeys, fmt.Sprintf("(deprecated: %s)", change.OldKey))
-		}
+	// Merge the cleaned raw config on top of defaults
+	if err := userViper.MergeConfigMap(rawConfig); err != nil {
+		return nil, fmt.Errorf("failed to merge config: %w", err)
 	}
 
 	// Write the merged config back
@@ -394,6 +422,149 @@ func (m *Migrator) Migrate() ([]string, error) {
 	}
 
 	return appliedKeys, nil
+}
+
+// getConfigType returns the config type based on file extension.
+func (*Migrator) getConfigType(configFile string) string {
+	ext := strings.TrimPrefix(filepath.Ext(configFile), ".")
+	switch ext {
+	case configFormatYAML, "yml":
+		return configFormatYAML
+	case configFormatJSON:
+		return configFormatJSON
+	case configFormatTOML:
+		return configFormatTOML
+	default:
+		return configFormatTOML // default to TOML
+	}
+}
+
+// readRawConfig reads the config file into a nested map without applying defaults.
+func (m *Migrator) readRawConfig(configFile string) (map[string]any, error) {
+	data, err := os.ReadFile(configFile)
+	if err != nil {
+		return nil, err
+	}
+
+	var rawConfig map[string]any
+	configType := m.getConfigType(configFile)
+
+	switch configType {
+	case configFormatTOML:
+		if err := toml.Unmarshal(data, &rawConfig); err != nil {
+			return nil, fmt.Errorf("failed to parse TOML: %w", err)
+		}
+	case configFormatYAML:
+		if err := yaml.Unmarshal(data, &rawConfig); err != nil {
+			return nil, fmt.Errorf("failed to parse YAML: %w", err)
+		}
+	case configFormatJSON:
+		if err := json.Unmarshal(data, &rawConfig); err != nil {
+			return nil, fmt.Errorf("failed to parse JSON: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("unsupported config type: %s", configType)
+	}
+
+	return rawConfig, nil
+}
+
+// getNestedValue retrieves a value from a nested map using dot-notation key.
+func (*Migrator) getNestedValue(m map[string]any, key string) any {
+	parts := strings.Split(key, ".")
+	current := m
+
+	for i, part := range parts {
+		val, ok := current[part]
+		if !ok {
+			return nil
+		}
+
+		if i == len(parts)-1 {
+			return val
+		}
+
+		nested, ok := val.(map[string]any)
+		if !ok {
+			return nil
+		}
+		current = nested
+	}
+	return nil
+}
+
+// setNestedValue sets a value in a nested map using dot-notation key.
+func (*Migrator) setNestedValue(m map[string]any, key string, value any) {
+	parts := strings.Split(key, ".")
+	current := m
+
+	for i, part := range parts {
+		if i == len(parts)-1 {
+			current[part] = value
+			return
+		}
+
+		val, ok := current[part]
+		if !ok {
+			// Create intermediate map
+			newMap := make(map[string]any)
+			current[part] = newMap
+			current = newMap
+			continue
+		}
+
+		nested, ok := val.(map[string]any)
+		if !ok {
+			// Overwrite non-map value with a map
+			newMap := make(map[string]any)
+			current[part] = newMap
+			current = newMap
+			continue
+		}
+		current = nested
+	}
+}
+
+// deleteNestedKey removes a key from a nested map using dot-notation key.
+// It also cleans up empty parent maps.
+func (m *Migrator) deleteNestedKey(config map[string]any, key string) {
+	parts := strings.Split(key, ".")
+	m.deleteNestedKeyRecursive(config, parts)
+}
+
+// deleteNestedKeyRecursive recursively deletes a key and cleans up empty parents.
+func (m *Migrator) deleteNestedKeyRecursive(current map[string]any, parts []string) bool {
+	if len(parts) == 0 {
+		return false
+	}
+
+	part := parts[0]
+	val, ok := current[part]
+	if !ok {
+		return false
+	}
+
+	if len(parts) == 1 {
+		// This is the leaf key, delete it
+		delete(current, part)
+		return true
+	}
+
+	// Navigate deeper
+	nested, ok := val.(map[string]any)
+	if !ok {
+		return false
+	}
+
+	// Recursively delete in the nested map
+	deleted := m.deleteNestedKeyRecursive(nested, parts[1:])
+
+	// If the nested map is now empty, remove it too
+	if deleted && len(nested) == 0 {
+		delete(current, part)
+	}
+
+	return deleted
 }
 
 // GetKeyInfo returns detailed information about a config key.
@@ -412,6 +583,11 @@ func (m *Migrator) GetKeyInfo(key string) port.KeyInfo {
 		Type:         m.getTypeName(value),
 		DefaultValue: m.formatValue(value),
 	}
+}
+
+// GetConfigFile returns the path to the user's config file.
+func (*Migrator) GetConfigFile() (string, error) {
+	return GetConfigFile()
 }
 
 // getAllDefaultKeys returns all keys from the default configuration.
