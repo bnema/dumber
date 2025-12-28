@@ -2,6 +2,12 @@ package config
 
 import "runtime"
 
+const (
+	// maxSkiaCPUThreads is the maximum number of Skia CPU painting threads
+	// supported by WebKitGTK (0-8 range).
+	maxSkiaCPUThreads = 8
+)
+
 // ResolvedPerformanceSettings contains the computed performance settings
 // after profile resolution. These are the actual values to apply.
 type ResolvedPerformanceSettings struct {
@@ -93,10 +99,13 @@ func resolveLiteProfile() ResolvedPerformanceSettings {
 
 // resolveMaxProfile returns settings optimized for maximum responsiveness.
 func resolveMaxProfile() ResolvedPerformanceSettings {
-	// Use half of available CPUs, minimum 4
+	// Use half of available CPUs, minimum 4, maximum 8 (WebKitGTK Skia limit)
 	cpuThreads := runtime.NumCPU() / 2
 	if cpuThreads < 4 {
 		cpuThreads = 4
+	}
+	if cpuThreads > maxSkiaCPUThreads {
+		cpuThreads = maxSkiaCPUThreads
 	}
 
 	return ResolvedPerformanceSettings{

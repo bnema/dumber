@@ -75,9 +75,13 @@ func TestResolvePerformanceProfile_Max(t *testing.T) {
 	result := ResolvePerformanceProfile(cfg)
 
 	// Max should have high resource allocation
+	// CPU threads: NumCPU/2, clamped to [4, 8] range (WebKitGTK Skia limit)
 	expectedCPUThreads := runtime.NumCPU() / 2
 	if expectedCPUThreads < 4 {
 		expectedCPUThreads = 4
+	}
+	if expectedCPUThreads > 8 {
+		expectedCPUThreads = 8
 	}
 	if result.SkiaCPUPaintingThreads != expectedCPUThreads {
 		t.Errorf("expected SkiaCPUPaintingThreads=%d, got %d", expectedCPUThreads, result.SkiaCPUPaintingThreads)
