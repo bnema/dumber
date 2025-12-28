@@ -28,6 +28,7 @@ func validateConfig(config *Config) error {
 	validationErrors = append(validationErrors, validateRendering(config)...)
 	validationErrors = append(validationErrors, validateColorScheme(config)...)
 	validationErrors = append(validationErrors, validateSession(config)...)
+	validationErrors = append(validationErrors, validatePerformanceProfile(config)...)
 
 	// If there are validation errors, return them
 	if len(validationErrors) > 0 {
@@ -345,5 +346,30 @@ func validateSession(config *Config) []string {
 	if config.Session.SnapshotIntervalMs < 0 {
 		validationErrors = append(validationErrors, "session.snapshot_interval_ms must be non-negative")
 	}
+	return validationErrors
+}
+
+func validatePerformanceProfile(config *Config) []string {
+	var validationErrors []string
+
+	// Validate profile name
+	if !IsValidPerformanceProfile(config.Performance.Profile) {
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"performance.profile must be one of: default, lite, max, custom (got: %s)",
+			config.Performance.Profile,
+		))
+	}
+
+	// When profile is not "custom", warn if individual fields are set
+	// (they will be ignored in favor of profile-computed values)
+	if config.Performance.Profile != ProfileCustom && config.Performance.Profile != "" {
+		if HasCustomPerformanceFields(&config.Performance) {
+			validationErrors = append(validationErrors,
+				"performance tuning fields (skia_*, *_memory_*) are ignored when profile is not 'custom'; "+
+					"set profile = \"custom\" to use individual field values",
+			)
+		}
+	}
+
 	return validationErrors
 }

@@ -76,8 +76,13 @@ type configAppearancePayload struct {
 	DarkPalette     config.ColorPalette `json:"dark_palette"`
 }
 
+type configPerformancePayload struct {
+	Profile string `json:"profile"`
+}
+
 type configPayload struct {
 	Appearance          configAppearancePayload          `json:"appearance"`
+	Performance         configPerformancePayload         `json:"performance"`
 	DefaultUIScale      float64                          `json:"default_ui_scale"`
 	DefaultSearchEngine string                           `json:"default_search_engine"`
 	SearchShortcuts     map[string]config.SearchShortcut `json:"search_shortcuts"`
@@ -150,6 +155,9 @@ func buildConfigResponse(cfg *config.Config) *SchemeResponse {
 			ColorScheme:     cfg.Appearance.ColorScheme,
 			LightPalette:    cfg.Appearance.LightPalette,
 			DarkPalette:     cfg.Appearance.DarkPalette,
+		},
+		Performance: configPerformancePayload{
+			Profile: string(cfg.Performance.Profile),
 		},
 	}
 
