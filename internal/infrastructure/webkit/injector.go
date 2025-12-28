@@ -25,6 +25,34 @@ const themeCSSScript = `(function() {
   (document.head || document.documentElement).appendChild(style);
 })();`
 
+// earlyBackgroundScript injects a temporary background color to prevent white flash.
+// It's injected at document start and removed after the page loads.
+// The %s placeholder is replaced with the hex color (e.g., "#0a0a0b").
+const earlyBackgroundScript = `(function() {
+  var style = document.createElement('style');
+  style.id = '__dumber_early_bg';
+  style.textContent = 'html,body{background-color:%s!important}';
+  document.documentElement.appendChild(style);
+  
+  // Remove the style after page content loads to avoid overriding page styles
+  function removeEarlyBg() {
+    var s = document.getElementById('__dumber_early_bg');
+    if (s) s.remove();
+  }
+  
+  // Try multiple events to ensure removal
+  if (document.readyState === 'complete') {
+    setTimeout(removeEarlyBg, 100);
+  } else {
+    window.addEventListener('DOMContentLoaded', function() {
+      setTimeout(removeEarlyBg, 100);
+    }, {once: true});
+    window.addEventListener('load', function() {
+      setTimeout(removeEarlyBg, 100);
+    }, {once: true});
+  }
+})();`
+
 // darkModeScript patches window.matchMedia and sets theme class on <html>.
 // It must be injected at document start, after __dumber_gtk_prefers_dark is set.
 // This script:
@@ -132,6 +160,7 @@ type ContentInjector struct {
 	prefersDark  bool
 	themeCSSVars string // CSS custom property declarations for WebUI
 	findCSS      string // CSS for find-in-page highlight styling
+	bgColor      string // Background color hex for early injection (prevents white flash)
 }
 
 // NewContentInjector creates a new injector instance.
@@ -171,6 +200,13 @@ func (ci *ContentInjector) SetPrefersDark(prefersDark bool) {
 	ci.prefersDark = prefersDark
 }
 
+// SetBackgroundColor sets the background color for early CSS injection.
+// This color is applied to html/body at document start to prevent white flash.
+// The hex color should include the # prefix (e.g., "#0a0a0b").
+func (ci *ContentInjector) SetBackgroundColor(hex string) {
+	ci.bgColor = hex
+}
+
 // InjectScripts adds the minimal dark mode detection scripts to the given content manager.
 // Only injects:
 // - window.__dumber_gtk_prefers_dark flag
@@ -193,7 +229,22 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		log.Debug().Str("script", label).Msg("injected user script")
 	}
 
-	// 1. Inject GTK dark mode preference (must be before dark mode handler)
+	// 1. Inject early background color to prevent white flash (must be first!)
+	if ci.bgColor != "" {
+		earlyBgScript := fmt.Sprintf(earlyBackgroundScript, ci.bgColor)
+		addScript(
+			webkit.NewUserScript(
+				earlyBgScript,
+				webkit.UserContentInjectTopFrameValue,
+				webkit.UserScriptInjectAtDocumentStartValue,
+				nil,
+				nil,
+			),
+			"early-background",
+		)
+	}
+
+	// 2. Inject GTK dark mode preference (must be before dark mode handler)
 	darkModePrefScript := fmt.Sprintf("window.__dumber_gtk_prefers_dark=%t;", ci.prefersDark)
 	addScript(
 		webkit.NewUserScript(
@@ -206,7 +257,7 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		"gtk-dark-mode-pref",
 	)
 
-	// 2. Inject WebView ID for debugging
+	// 3. Inject WebView ID for debugging
 	if webviewID != 0 {
 		idScript := fmt.Sprintf("window.__dumber_webview_id=%d;", uint64(webviewID))
 		addScript(
@@ -221,7 +272,7 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		)
 	}
 
-	// 3. Inject dark mode handler (patches matchMedia using __dumber_gtk_prefers_dark)
+	// 4. Inject dark mode handler (patches matchMedia using __dumber_gtk_prefers_dark)
 	addScript(
 		webkit.NewUserScript(
 			darkModeScript,
@@ -233,7 +284,7 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		"dark-mode-handler",
 	)
 
-	// 4. Inject theme CSS for internal pages (dumb://* only)
+	// 5. Inject theme CSS for internal pages (dumb://* only)
 	if ci.themeCSSVars != "" {
 		// Escape for JS string literal
 		escapedCSS := strings.ReplaceAll(ci.themeCSSVars, "\\", "\\\\")
@@ -253,7 +304,7 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		log.Debug().Msg("theme CSS vars injection configured")
 	}
 
-	// 5. Inject find highlight CSS for all pages
+	// 6. Inject find highlight CSS for all pages
 	if ci.findCSS != "" {
 		stylesheet := webkit.NewUserStyleSheet(
 			ci.findCSS,

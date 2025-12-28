@@ -475,6 +475,11 @@ func generatePaneCSS(p Palette) string {
 	background-color: var(--bg);
 }
 
+/* WebView widget - theme background prevents white flash during page load */
+.webview-themed {
+	background-color: var(--bg);
+}
+
 /* Loading skeleton - shown until WebView paints */
 .loading-skeleton {
 	background-color: var(--bg);
