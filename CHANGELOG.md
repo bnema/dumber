@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Omnibox bang shortcuts UI**: Typing `!` in the omnibox now shows all configured bangs (search shortcuts) with filtering and Enter-to-autocomplete, plus a header badge when a bang is recognized.
 - **Omnibox favorite indicator**: History items that are also bookmarked now display a yellowish left border and subtle background tint in the omnibox. Uses parallel async loading to avoid blocking browser startup.
 - **Mode indicator toaster**: Visual notification showing current modal mode (PANE MODE, TAB MODE, SESSION MODE, RESIZE MODE) at bottom-left corner with mode-specific colors. Configurable via `workspace.styling.mode_indicator_toaster_enabled` (default: true).
 - **Config migration system**: Detects missing config keys when new settings are added in updates and provides tools to add them.

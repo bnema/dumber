@@ -3,6 +3,7 @@ package component
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -22,6 +23,7 @@ import (
 
 const (
 	debounceDelayMs = 150
+	endBoxSpacing   = 6
 )
 
 // ViewMode distinguishes history search from favorites display.
@@ -38,6 +40,13 @@ type Suggestion struct {
 	Title      string
 	FaviconURL string
 	IsFavorite bool // Indicates if this URL is also bookmarked as a favorite
+}
+
+// BangSuggestion represents a configured bang shortcut.
+// A bang is invoked by typing "!<key>".
+type BangSuggestion struct {
+	Key         string
+	Description string
 }
 
 // Favorite represents a bookmarked URL.
@@ -58,6 +67,7 @@ type Omnibox struct {
 	historyBtn   *gtk.Button
 	favoritesBtn *gtk.Button
 	zoomLabel    *gtk.Label
+	bangBadge    *gtk.Label
 	entry        *gtk.SearchEntry
 	scrolledWin  *gtk.ScrolledWindow
 	listBox      *gtk.ListBox
@@ -66,13 +76,16 @@ type Omnibox struct {
 	parentOverlay layout.OverlayWidget
 
 	// State
-	mu            sync.RWMutex
-	visible       bool
-	viewMode      ViewMode
-	selectedIndex int
-	suggestions   []Suggestion
-	favorites     []Favorite
-	hasNavigated  bool // true if user navigated with arrow keys (enables space to toggle favorite)
+	mu              sync.RWMutex
+	visible         bool
+	viewMode        ViewMode
+	selectedIndex   int
+	suggestions     []Suggestion
+	favorites       []Favorite
+	bangSuggestions []BangSuggestion
+	bangMode        bool
+	detectedBang    string
+	hasNavigated    bool // true if user navigated with arrow keys (enables space to toggle favorite)
 
 	// Dependencies
 	historyUC       *usecase.SearchHistoryUseCase
@@ -351,12 +364,16 @@ func (o *Omnibox) initHeader() error {
 	o.retainedCallbacks = append(o.retainedCallbacks, favoritesClickCb)
 	o.favoritesBtn.ConnectClicked(&favoritesClickCb)
 
+	o.bangBadge = gtk.NewLabel(nil)
+	if o.bangBadge != nil {
+		o.bangBadge.AddCssClass("omnibox-bang-badge")
+		o.bangBadge.SetVisible(false)
+	}
+
 	o.zoomLabel = gtk.NewLabel(nil)
 	if o.zoomLabel != nil {
 		o.zoomLabel.AddCssClass("omnibox-zoom-indicator")
 		o.zoomLabel.SetVisible(false)
-		o.zoomLabel.SetHalign(gtk.AlignEndValue)
-		o.zoomLabel.SetHexpand(true)
 	}
 	return nil
 }
@@ -369,7 +386,7 @@ func (o *Omnibox) initEntry() error {
 	o.entry.AddCssClass("omnibox-entry")
 	o.entry.SetHexpand(true)
 
-	placeholder := "Search history or enter URL..."
+	placeholder := "Search history or enter URL… (! lists bangs)"
 	o.entry.SetPlaceholderText(&placeholder)
 	return nil
 }
@@ -413,8 +430,18 @@ func (o *Omnibox) initList() error {
 func (o *Omnibox) assembleWidgets() {
 	o.headerBox.Append(&o.historyBtn.Widget)
 	o.headerBox.Append(&o.favoritesBtn.Widget)
-	if o.zoomLabel != nil {
-		o.headerBox.Append(&o.zoomLabel.Widget)
+
+	endBox := gtk.NewBox(gtk.OrientationHorizontalValue, endBoxSpacing)
+	if endBox != nil {
+		endBox.SetHexpand(true)
+		endBox.SetHalign(gtk.AlignEndValue)
+		if o.bangBadge != nil {
+			endBox.Append(&o.bangBadge.Widget)
+		}
+		if o.zoomLabel != nil {
+			endBox.Append(&o.zoomLabel.Widget)
+		}
+		o.headerBox.Append(&endBox.Widget)
 	}
 
 	o.scrolledWin.SetChild(&o.listBox.Widget)
@@ -577,6 +604,14 @@ func (o *Omnibox) performSearch() {
 	}
 	o.lastQuery = query
 	o.debounceMu.Unlock()
+
+	if strings.HasPrefix(query, "!") {
+		o.updateBangDetection(query)
+		o.loadBangSuggestions(query)
+		return
+	}
+
+	o.clearBangState()
 
 	if mode == ViewModeFavorites {
 		o.loadFavorites(query)
@@ -745,9 +780,142 @@ func (o *Omnibox) loadFavorites(query string) {
 	}()
 }
 
+func buildBangSuggestions(shortcuts map[string]config.SearchShortcut, query string) []BangSuggestion {
+	prefix := strings.TrimPrefix(query, "!")
+	if idx := strings.Index(prefix, " "); idx >= 0 {
+		prefix = prefix[:idx]
+	}
+	prefix = strings.ToLower(prefix)
+
+	suggestions := make([]BangSuggestion, 0, len(shortcuts))
+	for key, shortcut := range shortcuts {
+		if !strings.HasPrefix(strings.ToLower(key), prefix) {
+			continue
+		}
+		description := shortcut.Description
+		if description == "" {
+			description = shortcut.URL
+		}
+		suggestions = append(suggestions, BangSuggestion{
+			Key:         key,
+			Description: description,
+		})
+	}
+
+	sort.Slice(suggestions, func(i, j int) bool {
+		return strings.ToLower(suggestions[i].Key) < strings.ToLower(suggestions[j].Key)
+	})
+
+	return suggestions
+}
+
+func (o *Omnibox) loadBangSuggestions(query string) {
+	suggestions := buildBangSuggestions(o.shortcuts, query)
+	o.idleAddUpdateBangSuggestions(suggestions)
+}
+
+func (o *Omnibox) updateBangDetection(query string) {
+	spaceIdx := strings.Index(query, " ")
+	if !strings.HasPrefix(query, "!") || spaceIdx <= 1 {
+		o.clearDetectedBang()
+		return
+	}
+
+	candidate := query[1:spaceIdx]
+	for key := range o.shortcuts {
+		if strings.EqualFold(key, candidate) {
+			o.setDetectedBang(key)
+			return
+		}
+	}
+
+	o.clearDetectedBang()
+}
+
+func (o *Omnibox) clearBangState() {
+	o.mu.Lock()
+	o.bangMode = false
+	o.bangSuggestions = nil
+	o.mu.Unlock()
+
+	o.clearDetectedBang()
+}
+
+func (o *Omnibox) setDetectedBang(key string) {
+	o.mu.Lock()
+	o.detectedBang = key
+	o.mu.Unlock()
+
+	if o.bangBadge == nil {
+		return
+	}
+	shortcut, ok := o.shortcuts[key]
+	if !ok {
+		return
+	}
+	description := shortcut.Description
+	if description == "" {
+		description = shortcut.URL
+	}
+	label := description
+	var cb glib.SourceFunc = func(uintptr) bool {
+		o.entry.AddCssClass("omnibox-entry-bang-active")
+		o.bangBadge.SetText(label)
+		o.bangBadge.SetVisible(true)
+		return false
+	}
+	glib.IdleAdd(&cb, 0)
+}
+
+func (o *Omnibox) clearDetectedBang() {
+	o.mu.Lock()
+	o.detectedBang = ""
+	o.mu.Unlock()
+
+	if o.bangBadge == nil {
+		return
+	}
+	var cb glib.SourceFunc = func(uintptr) bool {
+		o.entry.RemoveCssClass("omnibox-entry-bang-active")
+		o.bangBadge.SetVisible(false)
+		return false
+	}
+	glib.IdleAdd(&cb, 0)
+}
+
+func (o *Omnibox) idleAddUpdateBangSuggestions(suggestions []BangSuggestion) {
+	var cb glib.SourceFunc = func(uintptr) bool {
+		o.updateBangSuggestions(suggestions)
+		return false
+	}
+	glib.IdleAdd(&cb, 0)
+}
+
+func (o *Omnibox) updateBangSuggestions(suggestions []BangSuggestion) {
+	o.mu.Lock()
+	o.bangMode = true
+	o.bangSuggestions = suggestions
+	o.selectedIndex = -1
+	o.mu.Unlock()
+
+	o.rebuildList()
+
+	rowCount := len(suggestions)
+	if o.scrolledWin != nil {
+		o.scrolledWin.SetVisible(rowCount > 0)
+	}
+	o.resizeAndCenter(rowCount)
+
+	if rowCount > 0 {
+		o.selectIndex(0)
+	}
+}
+
 // updateSuggestions updates the list with history suggestions.
 func (o *Omnibox) updateSuggestions(suggestions []Suggestion) {
 	o.mu.Lock()
+	o.bangMode = false
+	o.bangSuggestions = nil
 	o.suggestions = suggestions
 	o.selectedIndex = -1
 	o.mu.Unlock()
@@ -770,6 +938,8 @@ func (o *Omnibox) updateSuggestions(suggestions []Suggestion) {
 // updateFavorites updates the list with favorites.
 func (o *Omnibox) updateFavorites(favorites []Favorite) {
 	o.mu.Lock()
+	o.bangMode = false
+	o.bangSuggestions = nil
 	o.favorites = favorites
 	o.selectedIndex = -1
 	o.mu.Unlock()
@@ -798,9 +968,18 @@ func (o *Omnibox) rebuildList() {
 	mode := o.viewMode
 	suggestions := o.suggestions
 	favorites := o.favorites
+	bangMode := o.bangMode
+	bangSuggestions := o.bangSuggestions
 	o.mu.RUnlock()
 
-	if mode == ViewModeHistory {
+	if bangMode {
+		for i, b := range bangSuggestions {
+			row := o.createBangRow(b, i)
+			if row != nil {
+				o.listBox.Append(&row.Widget)
+			}
+		}
+	} else if mode == ViewModeHistory {
 		for i, s := range suggestions {
 			row := o.createSuggestionRow(s, i)
 			if row != nil {
@@ -831,7 +1010,9 @@ func (o *Omnibox) rebuildList() {
 				// Re-trigger resize with accurate measurements
 				o.mu.RLock()
 				var count int
-				if o.viewMode == ViewModeHistory {
+				if o.bangMode {
+					count = len(o.bangSuggestions)
+				} else if o.viewMode == ViewModeHistory {
 					count = len(o.suggestions)
 				} else {
 					count = len(o.favorites)
@@ -962,6 +1143,14 @@ func (o *Omnibox) createFavoriteRow(f Favorite, index int) *gtk.ListBoxRow {
 	return o.createRowWithFavicon(f.URL, f.Title, "starred-symbolic", index)
 }
 
+func (o *Omnibox) createBangRow(b BangSuggestion, index int) *gtk.ListBoxRow {
+	row := o.createRowWithFavicon(b.Description, "!"+b.Key, "system-search-symbolic", index)
+	if row != nil {
+		row.AddCssClass("omnibox-row-bang")
+	}
+	return row
+}
+
 // selectIndex selects a row by index.
 func (o *Omnibox) selectIndex(index int) {
 	// Note: Don't hold mutex when calling SelectRow - it triggers rowSelectedCb
@@ -978,8 +1167,11 @@ func (o *Omnibox) selectNext() {
 	o.mu.Lock()
 	current := o.selectedIndex
 	mode := o.viewMode
+	bangMode := o.bangMode
 	var maxIndex int
-	if mode == ViewModeHistory {
+	if bangMode {
+		maxIndex = len(o.bangSuggestions) - 1
+	} else if mode == ViewModeHistory {
 		maxIndex = len(o.suggestions) - 1
 	} else {
 		maxIndex = len(o.favorites) - 1
@@ -1003,8 +1195,11 @@ func (o *Omnibox) selectPrevious() {
 	o.mu.Lock()
 	current := o.selectedIndex
 	mode := o.viewMode
+	bangMode := o.bangMode
 	var maxIndex int
-	if mode == ViewModeHistory {
+	if bangMode {
+		maxIndex = len(o.bangSuggestions) - 1
+	} else if mode == ViewModeHistory {
 		maxIndex = len(o.suggestions) - 1
 	} else {
 		maxIndex = len(o.favorites) - 1
@@ -1037,9 +1232,33 @@ func (o *Omnibox) navigateToSelected() {
 	idx := o.selectedIndex
 	suggestions := o.suggestions
 	favorites := o.favorites
+	bangMode := o.bangMode
+	bangSuggestions := o.bangSuggestions
 	o.mu.RUnlock()
 
 	entryText := o.entry.GetText()
+	if shortcutKey, query, found := url.ParseBangShortcut(entryText); found {
+		resolvedKey := shortcutKey
+		for key := range o.shortcuts {
+			if strings.EqualFold(key, shortcutKey) {
+				resolvedKey = key
+				break
+			}
+		}
+		entryText = "!" + resolvedKey + " " + query
+	}
+
+	if bangMode {
+		// If the user already typed a bang query ("!key something"), Enter should navigate.
+		if _, _, found := url.ParseBangShortcut(entryText); !found {
+			if idx >= 0 && idx < len(bangSuggestions) {
+				o.entry.SetText("!" + bangSuggestions[idx].Key + " ")
+				o.entry.SetPosition(-1)
+				return
+			}
+		}
+	}
+
 	var targetURL string
 
 	// Check if user typed a URL-like string (contains . and no spaces)
@@ -1330,6 +1549,7 @@ func (o *Omnibox) Hide(ctx context.Context) {
 	o.outerBox.SetVisible(false)
 
 	// Clear state
+	o.clearBangState()
 	o.entry.SetText("")
 	o.listBox.RemoveAll()
 
