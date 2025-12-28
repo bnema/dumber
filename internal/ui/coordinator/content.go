@@ -859,7 +859,7 @@ func (c *ContentCoordinator) revealIfPending(ctx context.Context, paneID entity.
 			Str("pane_id", string(paneID)).
 			Str("url", url).
 			Str("reason", reason).
-			Msg("webview shown after load commit")
+			Msg("webview revealed")
 	}
 	if c.onWebViewShown != nil {
 		c.onWebViewShown(paneID)
