@@ -42,6 +42,22 @@ func (m Mode) String() string {
 	}
 }
 
+// DisplayName returns the mode name for display in UI (e.g., toaster).
+func (m Mode) DisplayName() string {
+	switch m {
+	case ModeTab:
+		return "TAB MODE"
+	case ModePane:
+		return "PANE MODE"
+	case ModeSession:
+		return "SESSION MODE"
+	case ModeResize:
+		return "RESIZE MODE"
+	default:
+		return ""
+	}
+}
+
 // ModalState manages the current input mode with optional timeout.
 type ModalState struct {
 	mode    Mode

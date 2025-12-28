@@ -4,7 +4,55 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.22.0] - 2025-12-28
+
+### Added
+- **Omnibox bang shortcuts UI**: Typing `!` in the omnibox now shows all configured bangs (search shortcuts) with filtering and Enter-to-autocomplete, plus a header badge when a bang is recognized.
+- **Loading skeleton with app logo**: New panes show a centered 512x512 faded app logo with a spinner while loading, replacing the blank/white flash. Uses `--muted` theme color for the spinner.
+- **App logo favicon for internal pages**: `dumb://` URLs now display the dumber logo as favicon in history, favorites, omnibox suggestions, and dmenu/rofi. WebUI and CLI tools share consistent branding.
+- **Omnibox favorite indicator**: History items that are also bookmarked now display a yellowish left border and subtle background tint in the omnibox. Uses parallel async loading to avoid blocking browser startup.
+- **Mode indicator toaster**: Visual notification showing current modal mode (PANE MODE, TAB MODE, SESSION MODE, RESIZE MODE) at bottom-left corner with mode-specific colors. Configurable via `workspace.styling.mode_indicator_toaster_enabled` (default: true).
+- **Config migration system**: Detects missing config keys when new settings are added in updates and provides tools to add them.
+  - `dumber config status`: Shows config file path and number of new settings available.
+  - `dumber config migrate`: Lists missing keys with types/defaults and adds them to config file.
+  - GUI toast notification on startup when new settings are available (configurable via `update.notify_on_new_settings`).
+- **CLI self-update command**: New `dumber update` command to check for and install updates from the command line.
+  - Interactive spinner animation during check and download phases.
+  - `--force` / `-f` flag to skip version check and reinstall the current version.
+  - Reuses existing auto-update infrastructure (check, download, stage, apply on exit).
+  - Theme-aware styling consistent with other CLI commands.
+- **Config open command**: New `dumber config open` command to open the config file in your preferred editor. Uses `$EDITOR`, then `$VISUAL`, with fallback to nano/vim/vi.
+- **Config schema command**: New `dumber config schema` command that displays all configuration keys with their types, defaults, descriptions, and valid values. Supports `--json` flag for machine-readable output.
+- **CLI gen-docs command**: New `dumber gen-docs` command to generate documentation from CLI command definitions. Supports man pages (installed to `~/.local/share/man/man1/`) and markdown formats. Use `--format markdown` for markdown output or `--output` for custom directory.
+- **Move pane to tab**: New pane-mode actions to move the active pane to another tab.
+  - `Ctrl+P → m`: Opens a tab picker modal.
+  - `Ctrl+P → M`: Moves the active pane to the next tab (creates a new tab if needed).
+  - New config: `workspace.switch_to_tab_on_move` (default: true).
+
+### Changed
+- **Cold start optimization**: Reduced startup time by ~150ms (29% faster) through parallel initialization.
+  - New `internal/bootstrap` package encapsulates all startup orchestration.
+  - `RunParallelInit()` runs 5 goroutines concurrently: directory resolution, pkg-config check, GStreamer check, theme manager creation, and SQLite WASM pre-compilation.
+  - WebView pool prewarming creates one WebView synchronously so first `Acquire()` is instant.
+  - Async session cleanup: stale session marking runs in background, doesn't block startup.
+  - `StartupTimer` logs timing for each bootstrap phase (parallel init, DB/WebKit, app creation).
+  - Database initialization runs in background goroutine while WebKit stack initializes on main thread.
+  - Database path now resolved via `config.GetDatabaseFile()` following clean architecture.
+  - Added connection pool settings optimized for SQLite (`SetMaxOpenConns(1)`, keep-alive).
+  - Reduced `mmap_size` from 30GB to 256MB (reasonable for browser history DB).
+  - Added `PRAGMA foreign_keys = ON` for referential integrity.
+- **Startup deferrals**: Runtime/media checks and SQLite WASM precompile now run after first paint, and DB initialization uses lazy repositories when auto-restore is off to cut cold-start latency further.
+- **Console logging**: Standardized console timestamps to `HH:MM:SS` across bootstrap and session logging.
+
 ### Fixed
+- **Omnibox favorite toggle reactivity**: Fixed space key toggle in omnibox not updating UI reactively. Now properly toggles favorites (add if not favorite, remove if favorite) with immediate visual feedback (yellow indicator) and toast notifications. Business logic moved to `ManageFavoritesUseCase.Toggle()` for testability.
+- **Config migration type matching**: Fixed migration incorrectly matching keys of different types (e.g., `_width` int keys with `_color` string keys) during rename detection, preventing value swapping.
+- **Config migrate removes deprecated settings**: Fixed `dumber config migrate` not removing deprecated settings from the config file. Previously deprecated keys were preserved but unused; now they are properly deleted. Supports TOML, YAML, and JSON config formats.
+- **Fullscreen video tab bar**: Fixed tab bar remaining visible during fullscreen video playback. Now hides automatically when entering fullscreen and restores based on normal visibility logic when exiting.
+- **Dark mode navigation flash**: Fixed a brief white flash between the loading skeleton and page content when navigating in dark mode.
+- **Progress bar stuck state**: Added 30-second timeout to progress bar to auto-hide if page load stalls and never completes.
+- **OAuth popup login**: Fixed parent page going blank after OAuth popup closes (e.g., Google login on claude.ai, notion.com). Related WebViews share a web process with their parent; destroying the popup was terminating the shared process, killing the parent. Now skips `TerminateWebProcess()` for popup WebViews.
+- Startup: defer WebView pool prewarm until after initial tab creation to reduce cold-start navigation latency.
 - README CLI examples: updated to match current commands/flags (`purge --force` only, `logs` usage, `sessions list --limit`, removed deprecated `--dmenu` root flag).
 
 ## [0.21.0] - 2025-12-26

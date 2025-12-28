@@ -46,19 +46,33 @@ func (a *FaviconAdapter) GetTexture(domain string) *gdk.Texture {
 }
 
 // GetTextureByURL returns a cached texture by extracting domain from URL.
+// For internal dumb:// URLs, returns the app logo texture.
 func (a *FaviconAdapter) GetTextureByURL(pageURL string) *gdk.Texture {
+	// Handle internal dumb:// scheme URLs
+	if favicon.IsInternalURL(pageURL) {
+		return a.GetTexture(favicon.InternalDomain)
+	}
 	domain := domainurl.ExtractDomain(pageURL)
 	return a.GetTexture(domain)
 }
 
 // GetOrFetch retrieves a favicon texture, checking caches and fetching if needed.
 // The callback is invoked on the GTK main thread with the texture (or nil).
+// For internal dumb:// URLs, returns the app logo texture.
 func (a *FaviconAdapter) GetOrFetch(ctx context.Context, pageURL string, callback func(*gdk.Texture)) {
 	if callback == nil {
 		return
 	}
 
 	log := logging.FromContext(ctx)
+
+	// Handle internal dumb:// scheme URLs - use app logo
+	if favicon.IsInternalURL(pageURL) {
+		texture := a.getOrCreateLogoTexture()
+		callback(texture)
+		return
+	}
+
 	domain := domainurl.ExtractDomain(pageURL)
 
 	// Check texture cache first
@@ -309,6 +323,23 @@ func (a *FaviconAdapter) ensureSizedPNG(ctx context.Context, domain string) {
 			log.Debug().Str("domain", domain).Msg("sized PNG created successfully")
 		}
 	}
+}
+
+// getOrCreateLogoTexture returns the app logo texture, creating it if needed.
+// The texture is cached under the InternalDomain key.
+func (a *FaviconAdapter) getOrCreateLogoTexture() *gdk.Texture {
+	// Check cache first
+	if texture := a.GetTexture(favicon.InternalDomain); texture != nil {
+		return texture
+	}
+
+	// Create texture from logo bytes
+	logoBytes := favicon.GetLogoBytes()
+	texture := bytesToTexture(logoBytes)
+	if texture != nil {
+		a.setTexture(favicon.InternalDomain, texture)
+	}
+	return texture
 }
 
 // bytesToTexture converts raw favicon bytes to a GDK texture.

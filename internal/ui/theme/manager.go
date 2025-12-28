@@ -18,6 +18,7 @@ type Manager struct {
 	darkPalette  Palette // Dark theme colors
 	uiScale      float64 // UI scaling factor (1.0 = 100%)
 	fonts        FontConfig
+	modeColors   ModeColors // Modal mode indicator colors
 	cssProvider  *gtk.CssProvider
 }
 
@@ -56,6 +57,9 @@ func NewManager(ctx context.Context, cfg *config.Config) *Manager {
 		fonts.MonospaceFont = Coalesce(cfg.Appearance.MonospaceFont, fonts.MonospaceFont)
 	}
 
+	// Build mode colors from config
+	modeColors := modeColorsFromConfig(cfg)
+
 	log.Debug().
 		Str("scheme", scheme).
 		Bool("prefers_dark", prefersDark).
@@ -71,6 +75,22 @@ func NewManager(ctx context.Context, cfg *config.Config) *Manager {
 		darkPalette:  darkPalette,
 		uiScale:      uiScale,
 		fonts:        fonts,
+		modeColors:   modeColors,
+	}
+}
+
+// modeColorsFromConfig extracts mode colors from config, using defaults for missing values.
+func modeColorsFromConfig(cfg *config.Config) ModeColors {
+	defaults := DefaultModeColors()
+	if cfg == nil {
+		return defaults
+	}
+	styling := &cfg.Workspace.Styling
+	return ModeColors{
+		PaneMode:    Coalesce(styling.PaneModeColor, defaults.PaneMode),
+		TabMode:     Coalesce(styling.TabModeColor, defaults.TabMode),
+		SessionMode: Coalesce(styling.SessionModeColor, defaults.SessionMode),
+		ResizeMode:  Coalesce(styling.ResizeModeColor, defaults.ResizeMode),
 	}
 }
 
@@ -104,6 +124,11 @@ func (m *Manager) GetDarkPalette() Palette {
 	return m.darkPalette
 }
 
+// GetModeColors returns the modal mode indicator colors.
+func (m *Manager) GetModeColors() ModeColors {
+	return m.modeColors
+}
+
 // GetWebUIThemeCSS returns CSS text that defines both light and dark variables.
 // WebUI uses `:root` for light and `.dark` overrides for dark.
 func (m *Manager) GetWebUIThemeCSS() string {
@@ -121,9 +146,9 @@ func (m *Manager) ApplyToDisplay(ctx context.Context, display *gdk.Display) {
 		return
 	}
 
-	// Generate CSS with current palette, UI scale and fonts
+	// Generate CSS with current palette, UI scale, fonts, and mode colors
 	palette := m.GetCurrentPalette()
-	css := GenerateCSSWithScaleAndFonts(palette, m.uiScale, m.fonts)
+	css := GenerateCSSFull(palette, m.uiScale, m.fonts, m.modeColors)
 
 	// Create CSS provider if needed
 	if m.cssProvider == nil {
@@ -196,6 +221,9 @@ func (m *Manager) UpdateFromConfig(ctx context.Context, cfg *config.Config, disp
 		SansFont:      Coalesce(cfg.Appearance.SansFont, defaults.SansFont),
 		MonospaceFont: Coalesce(cfg.Appearance.MonospaceFont, defaults.MonospaceFont),
 	}
+
+	// Update mode colors
+	m.modeColors = modeColorsFromConfig(cfg)
 
 	log.Info().
 		Str("scheme", m.scheme).

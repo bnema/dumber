@@ -2,13 +2,18 @@ package webkit
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
+	"github.com/jwijenbergh/puregotk/v4/glib"
 )
+
+// ErrPoolClosed is returned when operations are attempted on a closed pool.
+var ErrPoolClosed = errors.New("webview pool is closed")
 
 // FilterApplier applies content filters to a UserContentManager.
 // This interface decouples the pool from the filtering package.
@@ -50,8 +55,7 @@ type WebViewPool struct {
 	filterApplier FilterApplier // Optional content filter applier
 
 	// Background color for WebViews (eliminates white flash)
-	bgR, bgG, bgB, bgA float32
-	bgMu               sync.RWMutex
+	bg bgColor
 
 	closed atomic.Bool
 	wg     sync.WaitGroup
@@ -103,9 +107,7 @@ func (p *WebViewPool) SetFilterApplier(applier FilterApplier) {
 // SetBackgroundColor sets the background color for newly created WebViews.
 // This color is shown before content is painted, eliminating white flash.
 func (p *WebViewPool) SetBackgroundColor(r, g, b, a float32) {
-	p.bgMu.Lock()
-	p.bgR, p.bgG, p.bgB, p.bgA = r, g, b, a
-	p.bgMu.Unlock()
+	p.bg.set(r, g, b, a)
 }
 
 // Acquire gets a WebView from the pool or creates a new one.
@@ -113,13 +115,20 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 	log := logging.FromContext(ctx)
 
 	if p.closed.Load() {
-		return nil, context.Canceled
+		return nil, ErrPoolClosed
 	}
 
 	// Try to get from pool first (non-blocking)
 	select {
 	case wv := <-p.pool:
 		if wv != nil && !wv.IsDestroyed() {
+			if r, g, b, a := p.bg.get(); a > 0 {
+				wv.SetBackgroundColor(r, g, b, a)
+			}
+			wv.inner.AddCssClass("webview-themed")
+			// Keep pooled WebViews hidden until we explicitly reveal them.
+			wv.inner.SetVisible(false)
+
 			// Ensure frontend is attached even if this WebView was pooled before injection was configured.
 			_ = wv.AttachFrontend(ctx, p.injector, p.router)
 			// Apply filters if available (may not have been applied during prewarm)
@@ -142,18 +151,13 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 func (p *WebViewPool) createWebView(ctx context.Context) (*WebView, error) {
 	log := logging.FromContext(ctx)
 
-	wv, err := NewWebView(ctx, p.wkCtx, p.settings)
+	wv, err := NewWebView(ctx, p.wkCtx, p.settings, p.bg.toGdkRGBA())
 	if err != nil {
 		return nil, err
 	}
 
-	// Set background color to match theme (eliminates white flash)
-	p.bgMu.RLock()
-	r, g, b, a := p.bgR, p.bgG, p.bgB, p.bgA
-	p.bgMu.RUnlock()
-	if a > 0 { // Only set if a valid color was configured
-		wv.SetBackgroundColor(r, g, b, a)
-	}
+	// Add CSS class for theme background styling (prevents white flash)
+	wv.inner.AddCssClass("webview-themed")
 
 	// Keep WebView hidden until content is painted (see content.go:onLoadCommitted)
 	wv.inner.SetVisible(false)
@@ -195,6 +199,34 @@ func (p *WebViewPool) Release(ctx context.Context, wv *WebView) {
 	wv.Destroy()
 }
 
+// PrewarmFirst creates exactly one WebView synchronously.
+// Call this during startup (before GTK activate) to ensure first Acquire() is instant.
+// This is the most impactful optimization for cold start since WebView creation
+// is the heaviest operation (spawns WebKit web process).
+// Returns error if WebView creation fails; caller should log and continue.
+func (p *WebViewPool) PrewarmFirst(ctx context.Context) error {
+	if p.closed.Load() {
+		return ErrPoolClosed
+	}
+	if len(p.pool) > 0 {
+		return nil // Already have at least one
+	}
+
+	log := logging.FromContext(ctx)
+	wv, err := p.createWebView(ctx)
+	if err != nil {
+		return err
+	}
+
+	select {
+	case p.pool <- wv:
+		log.Debug().Uint64("id", uint64(wv.ID())).Msg("prewarmed first webview for cold start")
+	default:
+		wv.Destroy() // Pool somehow full (shouldn't happen)
+	}
+	return nil
+}
+
 // Prewarm creates WebViews synchronously to populate the pool.
 // Must be called from the GTK main thread (after GTK application is initialized).
 func (p *WebViewPool) Prewarm(ctx context.Context, count int) {
@@ -205,6 +237,85 @@ func (p *WebViewPool) Prewarm(ctx context.Context, count int) {
 		return
 	}
 	p.prewarmSync(ctx, count)
+}
+
+// PrewarmAsync schedules WebView creation on the GTK idle loop.
+// This avoids blocking startup (especially cold-start navigation) while still
+// warming up WebViews for subsequent tab creation.
+func (p *WebViewPool) PrewarmAsync(ctx context.Context, count int) {
+	log := logging.FromContext(ctx)
+
+	if count <= 0 {
+		count = p.config.PrewarmCount
+	}
+	if count <= 0 {
+		return
+	}
+	if p.closed.Load() {
+		return
+	}
+
+	log.Debug().Int("count", count).Int("pool_size", len(p.pool)).Msg("scheduling async webview pool prewarm")
+
+	p.wg.Add(1)
+	var doneOnce sync.Once
+	remaining := count
+
+	var schedule func()
+	schedule = func() {
+		// Stop early if the caller canceled the operation.
+		if err := ctx.Err(); err != nil {
+			log.Debug().Err(err).Msg("async webview pool prewarm canceled")
+			doneOnce.Do(p.wg.Done)
+			return
+		}
+
+		cb := glib.SourceFunc(func(_ uintptr) bool {
+			// Stop if the caller canceled the operation.
+			if err := ctx.Err(); err != nil {
+				log.Debug().Err(err).Msg("async webview pool prewarm canceled")
+				doneOnce.Do(p.wg.Done)
+				return false
+			}
+
+			// Stop if pool is closing/closed.
+			if p.closed.Load() {
+				doneOnce.Do(p.wg.Done)
+				return false
+			}
+
+			// Stop early if we reached capacity.
+			if len(p.pool) >= p.config.MaxSize {
+				doneOnce.Do(p.wg.Done)
+				return false
+			}
+
+			wv, err := p.createWebView(ctx)
+			if err != nil {
+				log.Warn().Err(err).Msg("failed to prewarm webview")
+			} else {
+				select {
+				case p.pool <- wv:
+					log.Debug().Uint64("id", uint64(wv.ID())).Msg("prewarmed webview added to pool")
+				default:
+					wv.Destroy()
+				}
+			}
+
+			remaining--
+			if remaining <= 0 {
+				log.Debug().Int("pool_size", len(p.pool)).Msg("async webview pool prewarm complete")
+				doneOnce.Do(p.wg.Done)
+				return false
+			}
+
+			schedule()
+			return false
+		})
+		glib.IdleAdd(&cb, 0)
+	}
+
+	schedule()
 }
 
 // prewarmSync creates WebViews synchronously.

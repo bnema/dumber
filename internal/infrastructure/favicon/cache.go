@@ -172,6 +172,33 @@ func (c *Cache) WritePNG(domain string, pngData []byte) {
 	}
 }
 
+// WritePNGSized writes raw PNG data to disk for a domain at a specific size.
+// Used for internal favicons that are pre-sized (e.g., embedded app logo).
+func (c *Cache) WritePNGSized(domain string, pngData []byte, size int) {
+	if c.diskDir == "" || len(pngData) == 0 || domain == "" {
+		return
+	}
+
+	// Ensure directory exists
+	if err := os.MkdirAll(c.diskDir, diskCacheDirPerm); err != nil {
+		return
+	}
+
+	filename := domainurl.SanitizeDomainForPNGSized(domain, size)
+	finalPath := filepath.Join(c.diskDir, filename)
+	tempPath := finalPath + ".tmp"
+
+	// Write to temp file
+	if err := os.WriteFile(tempPath, pngData, diskCacheFilePerm); err != nil {
+		return
+	}
+
+	// Atomic rename
+	if err := os.Rename(tempPath, finalPath); err != nil {
+		_ = os.Remove(tempPath)
+	}
+}
+
 // HasOnDisk checks if a favicon exists on disk for the given domain.
 func (c *Cache) HasOnDisk(domain string) bool {
 	path := c.DiskPath(domain)

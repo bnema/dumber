@@ -25,6 +25,7 @@ type PaneView struct {
 	progressBar   *ProgressBar       // Loading progress indicator
 	toaster       *Toaster           // Toast notification overlay
 	linkStatus    *LinkStatusOverlay // Link hover URL overlay
+	loading       *LoadingSkeleton   // Placeholder shown until WebView paints
 	paneID        entity.PaneID
 	isActive      bool
 
@@ -51,6 +52,15 @@ func NewPaneView(factory layout.WidgetFactory, paneID entity.PaneID, webViewWidg
 		overlay.SetChild(webViewWidget)
 	}
 
+	// Loading skeleton overlay (shown until WebView paints)
+	loading := NewLoadingSkeleton(factory)
+	loading.Widget().SetCanFocus(false)
+	loading.Widget().SetCanTarget(false)
+	overlay.AddOverlay(loading.Widget())
+	// Don't let loading affect layout
+	overlay.SetClipOverlay(loading.Widget(), false)
+	overlay.SetMeasureOverlay(loading.Widget(), false)
+
 	// Create border overlay box (used for active pane indication)
 	// This is an empty box that gets styled via CSS to show a border
 	borderBox := factory.NewBox(layout.OrientationVertical, 0)
@@ -75,6 +85,7 @@ func NewPaneView(factory layout.WidgetFactory, paneID entity.PaneID, webViewWidg
 		webViewWidget: webViewWidget,
 		borderBox:     borderBox,
 		progressBar:   nil, // Created lazily in ensureProgressBar()
+		loading:       loading,
 		paneID:        paneID,
 		isActive:      false,
 	}
@@ -133,13 +144,28 @@ func (pv *PaneView) SetWebViewWidget(widget layout.Widget) {
 	pv.webViewWidget = widget
 
 	if widget != nil {
+		// If this widget already had a parent, we're reparenting an existing WebView
+		// (e.g. after rebuilding/moving panes). In that case the WebView has likely
+		// already painted, so the loading skeleton should be hidden immediately.
+		hadParent := widget.GetParent() != nil
+		wasVisible := false
+		if hadParent {
+			wasVisible = widget.IsVisible()
+		}
+
 		// Unparent widget from any previous parent (critical for rebuild scenarios)
 		// In GTK4, a widget can only have one parent at a time
-		if widget.GetParent() != nil {
+		if hadParent {
 			widget.Unparent()
 		}
-		widget.SetVisible(true)
 		pv.overlay.SetChild(widget)
+
+		if hadParent && wasVisible {
+			widget.SetVisible(true)
+		}
+		if hadParent && pv.loading != nil {
+			pv.loading.SetVisible(false)
+		}
 	}
 }
 
@@ -313,6 +339,17 @@ func (pv *PaneView) SetLoading(loading bool) {
 		pb.Show()
 	} else {
 		pb.Hide()
+	}
+}
+
+// HideLoadingSkeleton hides the loading skeleton overlay (if present).
+func (pv *PaneView) HideLoadingSkeleton() {
+	pv.mu.Lock()
+	loading := pv.loading
+	pv.mu.Unlock()
+
+	if loading != nil {
+		loading.SetVisible(false)
 	}
 }
 

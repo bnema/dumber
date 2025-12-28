@@ -52,6 +52,12 @@ type ContentCoordinator struct {
 	// Callback when active pane title changes (for window title updates)
 	onWindowTitleChanged func(title string)
 
+	// Callback when the WebView becomes visible (first real commit)
+	onWebViewShown func(paneID entity.PaneID)
+
+	revealMu      sync.Mutex
+	pendingReveal map[entity.PaneID]bool
+
 	// Gesture action handler for mouse button navigation
 	gestureActionHandler input.ActionHandler
 
@@ -72,6 +78,9 @@ type ContentCoordinator struct {
 
 	// Idle inhibitor for fullscreen video playback
 	idleInhibitor port.IdleInhibitor
+
+	// Callback when fullscreen state changes (for hiding/showing tab bar)
+	onFullscreenChanged func(entering bool)
 }
 
 // NewContentCoordinator creates a new ContentCoordinator.
@@ -94,6 +103,7 @@ func NewContentCoordinator(
 		webViews:       make(map[entity.PaneID]*webkit.WebView),
 		paneTitles:     make(map[entity.PaneID]string),
 		navOrigins:     make(map[entity.PaneID]string),
+		pendingReveal:  make(map[entity.PaneID]bool),
 		getActiveWS:    getActiveWS,
 		pendingPopups:  make(map[port.WebViewID]*PendingPopup),
 	}
@@ -119,6 +129,11 @@ func (c *ContentCoordinator) SetOnWindowTitleChanged(fn func(title string)) {
 	c.onWindowTitleChanged = fn
 }
 
+// SetOnWebViewShown sets a callback that fires when a pane's WebView is shown.
+func (c *ContentCoordinator) SetOnWebViewShown(fn func(paneID entity.PaneID)) {
+	c.onWebViewShown = fn
+}
+
 // SetGestureActionHandler sets the callback for mouse button navigation gestures.
 func (c *ContentCoordinator) SetGestureActionHandler(handler input.ActionHandler) {
 	c.gestureActionHandler = handler
@@ -127,6 +142,11 @@ func (c *ContentCoordinator) SetGestureActionHandler(handler input.ActionHandler
 // SetIdleInhibitor sets the idle inhibitor for fullscreen video playback.
 func (c *ContentCoordinator) SetIdleInhibitor(inhibitor port.IdleInhibitor) {
 	c.idleInhibitor = inhibitor
+}
+
+// SetOnFullscreenChanged sets the callback for fullscreen state changes.
+func (c *ContentCoordinator) SetOnFullscreenChanged(fn func(entering bool)) {
+	c.onFullscreenChanged = fn
 }
 
 // EnsureWebView acquires or reuses a WebView for the given pane.
@@ -674,16 +694,44 @@ func (c *ContentCoordinator) PreloadCachedFavicon(ctx context.Context, paneID en
 func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
 	log := logging.FromContext(ctx)
 
-	// Show the WebView now that content is being painted
-	// (WebViews are hidden on creation to avoid white flash)
-	if inner := wv.Widget(); inner != nil {
-		inner.SetVisible(true)
-		log.Debug().Str("pane_id", string(paneID)).Msg("webview shown on load committed")
-	}
-
 	url := wv.URI()
 	if url == "" {
 		return
+	}
+
+	// Show the WebView now that content is being painted
+	// (WebViews are hidden on creation to avoid white flash)
+	// Skip showing if this is about:blank but the pane is loading a different URL
+	// This prevents the brief flash of about:blank during initial navigation
+	shouldShow := true
+	if url == "about:blank" {
+		// Get the pane's intended URI from the workspace
+		ws, _ := c.getActiveWS()
+		if ws != nil {
+			if paneNode := ws.FindPane(paneID); paneNode != nil && paneNode.Pane != nil {
+				// Don't show about:blank if the pane is supposed to load a different URL
+				if paneNode.Pane.URI != "" && paneNode.Pane.URI != "about:blank" {
+					shouldShow = false
+					log.Debug().
+						Str("pane_id", string(paneID)).
+						Str("pane_uri", paneNode.Pane.URI).
+						Msg("skipping webview show for about:blank (pane loading different URL)")
+				}
+			}
+		}
+	}
+
+	if !shouldShow {
+		// Avoid updating UI/domain state to about:blank when we know the pane is
+		// navigating to a different URL. This prevents the omnibox/window title from
+		// briefly showing about:blank on cold start.
+		c.clearPendingReveal(paneID)
+		return
+	}
+
+	c.markPendingReveal(paneID)
+	if wv.EstimatedProgress() > 0 {
+		c.revealIfPending(ctx, paneID, url, "progress-after-commit")
 	}
 
 	// Update domain model with current URI for session snapshots
@@ -754,10 +802,16 @@ func (c *ContentCoordinator) onLoadFinished(paneID entity.PaneID) {
 	if paneView != nil {
 		paneView.SetLoading(false)
 	}
+
+	c.revealIfPending(context.Background(), paneID, "", "load-finished")
 }
 
 // onProgressChanged updates the progress bar with current load progress.
 func (c *ContentCoordinator) onProgressChanged(paneID entity.PaneID, progress float64) {
+	if progress > 0 {
+		c.revealIfPending(context.Background(), paneID, "", "progress")
+	}
+
 	_, wsView := c.getActiveWS()
 	if wsView == nil {
 		return
@@ -766,6 +820,49 @@ func (c *ContentCoordinator) onProgressChanged(paneID entity.PaneID, progress fl
 	paneView := wsView.GetPaneView(paneID)
 	if paneView != nil {
 		paneView.SetLoadProgress(progress)
+	}
+}
+
+func (c *ContentCoordinator) markPendingReveal(paneID entity.PaneID) {
+	c.revealMu.Lock()
+	c.pendingReveal[paneID] = true
+	c.revealMu.Unlock()
+}
+
+func (c *ContentCoordinator) clearPendingReveal(paneID entity.PaneID) {
+	c.revealMu.Lock()
+	delete(c.pendingReveal, paneID)
+	c.revealMu.Unlock()
+}
+
+func (c *ContentCoordinator) revealIfPending(ctx context.Context, paneID entity.PaneID, url, reason string) {
+	c.revealMu.Lock()
+	pending := c.pendingReveal[paneID]
+	if pending {
+		delete(c.pendingReveal, paneID)
+	}
+	c.revealMu.Unlock()
+
+	if !pending {
+		return
+	}
+
+	wv := c.webViews[paneID]
+	if wv == nil || wv.IsDestroyed() {
+		return
+	}
+
+	if inner := wv.Widget(); inner != nil {
+		inner.SetVisible(true)
+		logging.FromContext(ctx).
+			Debug().
+			Str("pane_id", string(paneID)).
+			Str("url", url).
+			Str("reason", reason).
+			Msg("webview revealed")
+	}
+	if c.onWebViewShown != nil {
+		c.onWebViewShown(paneID)
 	}
 }
 
@@ -1251,6 +1348,9 @@ func (c *ContentCoordinator) setupIdleInhibitionHandlers(ctx context.Context, pa
 				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to inhibit idle")
 			}
 		}
+		if c.onFullscreenChanged != nil {
+			c.onFullscreenChanged(true)
+		}
 		return false // Allow fullscreen
 	}
 
@@ -1259,6 +1359,9 @@ func (c *ContentCoordinator) setupIdleInhibitionHandlers(ctx context.Context, pa
 			if err := c.idleInhibitor.Uninhibit(ctx); err != nil {
 				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to uninhibit idle")
 			}
+		}
+		if c.onFullscreenChanged != nil {
+			c.onFullscreenChanged(false)
 		}
 		return false // Allow leaving fullscreen
 	}

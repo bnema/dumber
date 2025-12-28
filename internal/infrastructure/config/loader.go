@@ -401,6 +401,7 @@ func (m *Manager) setWorkspaceDefaults(defaults *Config) {
 	m.viper.SetDefault("workspace.shortcuts.consume_or_expel_down", defaults.Workspace.Shortcuts.ConsumeOrExpelDown)
 	m.viper.SetDefault("workspace.tab_bar_position", defaults.Workspace.TabBarPosition)
 	m.viper.SetDefault("workspace.hide_tab_bar_when_single_tab", defaults.Workspace.HideTabBarWhenSingleTab)
+	m.viper.SetDefault("workspace.switch_to_tab_on_move", defaults.Workspace.SwitchToTabOnMove)
 	m.viper.SetDefault("workspace.popups.behavior", string(defaults.Workspace.Popups.Behavior))
 	m.viper.SetDefault("workspace.popups.placement", defaults.Workspace.Popups.Placement)
 	m.viper.SetDefault("workspace.popups.open_in_new_pane", defaults.Workspace.Popups.OpenInNewPane)
@@ -410,14 +411,12 @@ func (m *Manager) setWorkspaceDefaults(defaults *Config) {
 	m.viper.SetDefault("workspace.popups.oauth_auto_close", defaults.Workspace.Popups.OAuthAutoClose)
 	m.viper.SetDefault("workspace.styling.border_width", defaults.Workspace.Styling.BorderWidth)
 	m.viper.SetDefault("workspace.styling.border_color", defaults.Workspace.Styling.BorderColor)
-	m.viper.SetDefault("workspace.styling.pane_mode_border_width", defaults.Workspace.Styling.PaneModeBorderWidth)
-	m.viper.SetDefault("workspace.styling.pane_mode_border_color", defaults.Workspace.Styling.PaneModeBorderColor)
-	m.viper.SetDefault("workspace.styling.tab_mode_border_width", defaults.Workspace.Styling.TabModeBorderWidth)
-	m.viper.SetDefault("workspace.styling.tab_mode_border_color", defaults.Workspace.Styling.TabModeBorderColor)
-	m.viper.SetDefault("workspace.styling.session_mode_border_width", defaults.Workspace.Styling.SessionModeBorderWidth)
-	m.viper.SetDefault("workspace.styling.session_mode_border_color", defaults.Workspace.Styling.SessionModeBorderColor)
-	m.viper.SetDefault("workspace.styling.resize_mode_border_width", defaults.Workspace.Styling.ResizeModeBorderWidth)
-	m.viper.SetDefault("workspace.styling.resize_mode_border_color", defaults.Workspace.Styling.ResizeModeBorderColor)
+	m.viper.SetDefault("workspace.styling.mode_border_width", defaults.Workspace.Styling.ModeBorderWidth)
+	m.viper.SetDefault("workspace.styling.pane_mode_color", defaults.Workspace.Styling.PaneModeColor)
+	m.viper.SetDefault("workspace.styling.tab_mode_color", defaults.Workspace.Styling.TabModeColor)
+	m.viper.SetDefault("workspace.styling.session_mode_color", defaults.Workspace.Styling.SessionModeColor)
+	m.viper.SetDefault("workspace.styling.resize_mode_color", defaults.Workspace.Styling.ResizeModeColor)
+	m.viper.SetDefault("workspace.styling.mode_indicator_toaster_enabled", defaults.Workspace.Styling.ModeIndicatorToasterEnabled)
 	m.viper.SetDefault("workspace.styling.transition_duration", defaults.Workspace.Styling.TransitionDuration)
 }
 
@@ -459,6 +458,7 @@ func (m *Manager) setSessionDefaults(defaults *Config) {
 func (m *Manager) setUpdateDefaults(defaults *Config) {
 	m.viper.SetDefault("update.enable_on_startup", defaults.Update.EnableOnStartup)
 	m.viper.SetDefault("update.auto_download", defaults.Update.AutoDownload)
+	m.viper.SetDefault("update.notify_on_new_settings", defaults.Update.NotifyOnNewSettings)
 }
 
 // New returns a new default configuration instance.

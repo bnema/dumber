@@ -77,6 +77,8 @@ Some features are very alpha/experimental (notably consume-or-expel panes) and m
 | **↓** / **D** (in pane mode) | Split Down | Create new pane below |
 | **S** (in pane mode) | Stack Pane | Create stacked pane (Zellij-style) |
 | **X** (in pane mode) | Close Pane | Close current pane |
+| **m** (in pane mode) | Move Pane To Tab | Opens a tab picker modal |
+| **M** (in pane mode) | Move Pane To Next Tab | Moves to the next tab, creates new tab if needed |
 | **Enter** (in pane mode) | Confirm Action | Confirm pane operation |
 | **Escape** (in pane mode) | Exit Pane Mode | Return to normal navigation |
 | **Alt+Arrow Keys** | Navigate Panes | Move focus between panes |
@@ -242,6 +244,9 @@ sudo apt install va-driver-all
   - `dumber browse "!g golang"`        # search via bang shortcut
 - Show version information:
   - `dumber about`                      # version, commit, and build date
+- Check for and install updates:
+  - `dumber update`                     # check and install if available
+  - `dumber update --force`             # force reinstall (skips version check)
 - Launcher integration (dmenu‑style examples with favicon support):
   - rofi:   `dumber dmenu | rofi -dmenu -show-icons -p "🔍 " | dumber dmenu --select`
   - fuzzel: `dumber dmenu | fuzzel --dmenu -p "🔍 " | dumber dmenu --select`
@@ -256,6 +261,10 @@ sudo apt install va-driver-all
 - Clean up data:
   - `dumber purge`                      # interactive selection (TUI)
   - `dumber purge --force`              # remove everything (no prompts)
+- Manage configuration:
+  - `dumber config status`              # show config path and migration availability
+  - `dumber config migrate`             # add missing default settings to config
+  - `dumber config migrate --yes`       # skip confirmation prompt
 - Manage sessions:
   - `dumber sessions`                   # interactive session browser (TUI)
   - `dumber sessions list`              # list saved sessions
@@ -270,6 +279,10 @@ sudo apt install va-driver-all
   - `dumber logs -n 200 <session>`      # show last N lines
   - `dumber logs clear`                 # clean up old log files
   - `dumber logs clear --all`           # remove all log files
+- Generate documentation:
+  - `dumber gen-docs`                   # install man pages to ~/.local/share/man/man1/
+  - `dumber gen-docs --format markdown` # generate markdown docs to ./docs/
+  - `dumber gen-docs --output ./man`    # generate to custom directory
 
 ### Dmenu mode invocation
 You can invoke dmenu mode in two ways:
@@ -294,7 +307,7 @@ Each tab holds its own workspace. Each workspace can contain multiple panes (spl
 3. **Navigate**: Use `Ctrl+Tab` / `Ctrl+Shift+Tab` for quick tab switching, or `L`/`H` in tab mode
 4. **Exit**: Press `Escape` to exit tab mode or wait for timeout
 
-Tab mode provides visual feedback with an orange border indicator.
+
 
 ## Pane Management
 
@@ -322,7 +335,7 @@ Dumber automatically saves your browser session (tabs, panes, split ratios, URLs
 4. **Restore**: Select an exited session to restore it in a new browser window
 5. **CLI Access**: Use `dumber sessions` for an interactive TUI, or `dumber sessions list/restore/delete` for scripting
 
-Session mode provides visual feedback with a purple border indicator.
+
 
 ## Configuration
 
