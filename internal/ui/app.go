@@ -389,13 +389,23 @@ func (a *App) initOmniboxConfig(ctx context.Context) {
 
 	log := logging.FromContext(ctx)
 
+	// Convert config shortcuts to use case type
+	shortcuts := make(map[string]usecase.SearchShortcut, len(a.deps.Config.SearchShortcuts))
+	for key, shortcut := range a.deps.Config.SearchShortcuts {
+		shortcuts[key] = usecase.SearchShortcut{
+			URL:         shortcut.URL,
+			Description: shortcut.Description,
+		}
+	}
+	shortcutsUC := usecase.NewSearchShortcutsUseCase(shortcuts)
+
 	// Store omnibox config (omnibox is created per-pane via WorkspaceView).
 	a.omniboxCfg = component.OmniboxConfig{
 		HistoryUC:       a.deps.HistoryUC,
 		FavoritesUC:     a.deps.FavoritesUC,
 		FaviconAdapter:  a.faviconAdapter,
 		CopyURLUC:       a.deps.CopyURLUC,
-		Shortcuts:       a.deps.Config.SearchShortcuts,
+		ShortcutsUC:     shortcutsUC,
 		DefaultSearch:   a.deps.Config.DefaultSearchEngine,
 		InitialBehavior: a.deps.Config.Omnibox.InitialBehavior,
 		UIScale:         a.deps.Config.DefaultUIScale,
