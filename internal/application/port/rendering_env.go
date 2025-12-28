@@ -46,6 +46,16 @@ type RenderingEnvSettings struct {
 	ShowFPS      bool
 	SampleMemory bool
 	DebugFrames  bool
+
+	// --- Skia rendering thread settings (from PerformanceConfig) ---
+	// SkiaCPUPaintingThreads sets WEBKIT_SKIA_CPU_PAINTING_THREADS.
+	// 0 means unset (use WebKit default).
+	SkiaCPUPaintingThreads int
+	// SkiaGPUPaintingThreads sets WEBKIT_SKIA_GPU_PAINTING_THREADS.
+	// -1 means unset; 0 disables GPU tile painting.
+	SkiaGPUPaintingThreads int
+	// SkiaEnableCPURendering forces CPU rendering via WEBKIT_SKIA_ENABLE_CPU_RENDERING=1.
+	SkiaEnableCPURendering bool
 }
 
 // RenderingEnvManager configures rendering environment variables
