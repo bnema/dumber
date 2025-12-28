@@ -1307,15 +1307,13 @@ func (a *App) updateModeIndicatorToaster(ctx context.Context, mode input.Mode) {
 	}
 
 	// Show persistent toaster at bottom-left with mode display name.
-	// Note: Call Show() first, then ApplyModeClass() because Show() clears custom styles.
+	// Mode class is applied atomically with Show() to avoid visual flicker.
+	modeClass := getModeToastClass(mode)
 	a.modeToaster.Show(ctx, mode.DisplayName(), component.ToastInfo,
 		component.WithDuration(0), // Persistent until mode exits.
 		component.WithPosition(component.ToastPositionBottomLeft),
+		component.WithModeClass(modeClass),
 	)
-
-	// Apply mode-specific CSS class after Show() to override the default level styling.
-	modeClass := getModeToastClass(mode)
-	a.modeToaster.ApplyModeClass(modeClass)
 }
 
 // getModeToastClass returns the CSS class for the given mode's toast styling.
