@@ -53,12 +53,57 @@ Existing settings are never modified - only missing keys are added with default 
 	RunE: runConfigMigrate,
 }
 
+var configSchemaJSON bool
+
+var configSchemaCmd = &cobra.Command{
+	Use:   "schema",
+	Short: "Show all config keys with types and valid values",
+	Long: `Display a reference of all configuration keys with their types, defaults,
+descriptions, and valid values.
+
+Use --json for machine-readable output.`,
+	RunE: runConfigSchema,
+}
+
 func init() {
 	rootCmd.AddCommand(configCmd)
 	configCmd.AddCommand(configOpenCmd)
 	configCmd.AddCommand(configStatusCmd)
 	configCmd.AddCommand(configMigrateCmd)
+	configCmd.AddCommand(configSchemaCmd)
 	configMigrateCmd.Flags().BoolVarP(&configYes, "yes", "y", false, "skip confirmation prompt")
+	configSchemaCmd.Flags().BoolVar(&configSchemaJSON, "json", false, "output as JSON")
+}
+
+// runConfigSchema displays all configuration keys with their metadata.
+func runConfigSchema(_ *cobra.Command, _ []string) error {
+	app := GetApp()
+	if app == nil {
+		return fmt.Errorf("app not initialized")
+	}
+
+	provider := config.NewSchemaProvider()
+	uc := usecase.NewGetConfigSchemaUseCase(provider)
+
+	ctx := context.Background()
+	result, err := uc.Execute(ctx, usecase.GetConfigSchemaInput{})
+	if err != nil {
+		return fmt.Errorf("get config schema: %w", err)
+	}
+
+	renderer := styles.NewConfigSchemaRenderer(app.Theme)
+
+	if configSchemaJSON {
+		output, err := renderer.RenderJSON(result.Keys)
+		if err != nil {
+			return err
+		}
+		fmt.Println(output)
+		return nil
+	}
+
+	fmt.Println(renderer.Render(result.Keys))
+	return nil
 }
 
 // runConfigOpen opens the config file in the user's preferred editor.

@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
   - Reuses existing auto-update infrastructure (check, download, stage, apply on exit).
   - Theme-aware styling consistent with other CLI commands.
 - **Config open command**: New `dumber config open` command to open the config file in your preferred editor. Uses `$EDITOR`, then `$VISUAL`, with fallback to nano/vim/vi.
+- **Config schema command**: New `dumber config schema` command that displays all configuration keys with their types, defaults, descriptions, and valid values. Supports `--json` flag for machine-readable output.
 - **Move pane to tab**: New pane-mode actions to move the active pane to another tab.
   - `Ctrl+P → m`: Opens a tab picker modal.
   - `Ctrl+P → M`: Moves the active pane to the next tab (creates a new tab if needed).
