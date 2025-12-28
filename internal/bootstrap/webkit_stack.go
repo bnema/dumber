@@ -95,6 +95,9 @@ func BuildWebKitStack(
 	settings := webkit.NewSettingsManager(ctx, cfg)
 	injector := webkit.NewContentInjector(themeManager.PrefersDark())
 
+	// Set background color on injector for early CSS injection (prevents white flash)
+	injector.SetBackgroundColor(themeManager.GetCurrentPalette().Background)
+
 	prepareThemeUC := usecase.NewPrepareWebUIThemeUseCase(injector)
 	themeCSSText := themeManager.GetWebUIThemeCSS()
 	if err := prepareThemeUC.Execute(ctx, usecase.PrepareWebUIThemeInput{CSSVars: themeCSSText}); err != nil {
@@ -108,6 +111,9 @@ func BuildWebKitStack(
 		poolCfg.PrewarmCount = cfg.Performance.WebViewPoolPrewarmCount
 	}
 	pool := webkit.NewWebViewPool(ctx, wkCtx, settings, poolCfg, injector, messageRouter)
+	// Ensure prewarmed WebViews pick up the theme background color.
+	bgR, bgG, bgB, bgA := themeManager.GetBackgroundRGBA()
+	pool.SetBackgroundColor(bgR, bgG, bgB, bgA)
 
 	if filterManager != nil {
 		pool.SetFilterApplier(filterManager)

@@ -39,6 +39,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - **Config migration type matching**: Fixed migration incorrectly matching keys of different types (e.g., `_width` int keys with `_color` string keys) during rename detection, preventing value swapping.
 - **Fullscreen video tab bar**: Fixed tab bar remaining visible during fullscreen video playback. Now hides automatically when entering fullscreen and restores based on normal visibility logic when exiting.
+- **Dark mode navigation flash**: Fixed a brief white flash between the loading skeleton and page content when navigating in dark mode.
 - **Progress bar stuck state**: Added 30-second timeout to progress bar to auto-hide if page load stalls and never completes.
 - **OAuth popup login**: Fixed parent page going blank after OAuth popup closes (e.g., Google login on claude.ai, notion.com). Related WebViews share a web process with their parent; destroying the popup was terminating the shared process, killing the parent. Now skips `TerminateWebProcess()` for popup WebViews.
 - Startup: defer WebView pool prewarm until after initial tab creation to reduce cold-start navigation latency.

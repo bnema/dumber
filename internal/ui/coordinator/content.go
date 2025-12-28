@@ -55,6 +55,9 @@ type ContentCoordinator struct {
 	// Callback when the WebView becomes visible (first real commit)
 	onWebViewShown func(paneID entity.PaneID)
 
+	revealMu      sync.Mutex
+	pendingReveal map[entity.PaneID]bool
+
 	// Gesture action handler for mouse button navigation
 	gestureActionHandler input.ActionHandler
 
@@ -100,6 +103,7 @@ func NewContentCoordinator(
 		webViews:       make(map[entity.PaneID]*webkit.WebView),
 		paneTitles:     make(map[entity.PaneID]string),
 		navOrigins:     make(map[entity.PaneID]string),
+		pendingReveal:  make(map[entity.PaneID]bool),
 		getActiveWS:    getActiveWS,
 		pendingPopups:  make(map[port.WebViewID]*PendingPopup),
 	}
@@ -721,15 +725,13 @@ func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.
 		// Avoid updating UI/domain state to about:blank when we know the pane is
 		// navigating to a different URL. This prevents the omnibox/window title from
 		// briefly showing about:blank on cold start.
+		c.clearPendingReveal(paneID)
 		return
 	}
 
-	if inner := wv.Widget(); inner != nil {
-		inner.SetVisible(true)
-		log.Debug().Str("pane_id", string(paneID)).Str("url", url).Msg("webview shown on load committed")
-	}
-	if c.onWebViewShown != nil {
-		c.onWebViewShown(paneID)
+	c.markPendingReveal(paneID)
+	if wv.EstimatedProgress() > 0 {
+		c.revealIfPending(ctx, paneID, url, "progress-after-commit")
 	}
 
 	// Update domain model with current URI for session snapshots
@@ -800,10 +802,16 @@ func (c *ContentCoordinator) onLoadFinished(paneID entity.PaneID) {
 	if paneView != nil {
 		paneView.SetLoading(false)
 	}
+
+	c.revealIfPending(context.Background(), paneID, "", "load-finished")
 }
 
 // onProgressChanged updates the progress bar with current load progress.
 func (c *ContentCoordinator) onProgressChanged(paneID entity.PaneID, progress float64) {
+	if progress > 0 {
+		c.revealIfPending(context.Background(), paneID, "", "progress")
+	}
+
 	_, wsView := c.getActiveWS()
 	if wsView == nil {
 		return
@@ -812,6 +820,49 @@ func (c *ContentCoordinator) onProgressChanged(paneID entity.PaneID, progress fl
 	paneView := wsView.GetPaneView(paneID)
 	if paneView != nil {
 		paneView.SetLoadProgress(progress)
+	}
+}
+
+func (c *ContentCoordinator) markPendingReveal(paneID entity.PaneID) {
+	c.revealMu.Lock()
+	c.pendingReveal[paneID] = true
+	c.revealMu.Unlock()
+}
+
+func (c *ContentCoordinator) clearPendingReveal(paneID entity.PaneID) {
+	c.revealMu.Lock()
+	delete(c.pendingReveal, paneID)
+	c.revealMu.Unlock()
+}
+
+func (c *ContentCoordinator) revealIfPending(ctx context.Context, paneID entity.PaneID, url, reason string) {
+	c.revealMu.Lock()
+	pending := c.pendingReveal[paneID]
+	if pending {
+		delete(c.pendingReveal, paneID)
+	}
+	c.revealMu.Unlock()
+
+	if !pending {
+		return
+	}
+
+	wv := c.webViews[paneID]
+	if wv == nil || wv.IsDestroyed() {
+		return
+	}
+
+	if inner := wv.Widget(); inner != nil {
+		inner.SetVisible(true)
+		logging.FromContext(ctx).
+			Debug().
+			Str("pane_id", string(paneID)).
+			Str("url", url).
+			Str("reason", reason).
+			Msg("webview revealed")
+	}
+	if c.onWebViewShown != nil {
+		c.onWebViewShown(paneID)
 	}
 }
 

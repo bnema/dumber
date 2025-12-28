@@ -148,15 +148,21 @@ func (pv *PaneView) SetWebViewWidget(widget layout.Widget) {
 		// (e.g. after rebuilding/moving panes). In that case the WebView has likely
 		// already painted, so the loading skeleton should be hidden immediately.
 		hadParent := widget.GetParent() != nil
+		wasVisible := false
+		if hadParent {
+			wasVisible = widget.IsVisible()
+		}
 
 		// Unparent widget from any previous parent (critical for rebuild scenarios)
 		// In GTK4, a widget can only have one parent at a time
 		if hadParent {
 			widget.Unparent()
 		}
-		widget.SetVisible(true)
 		pv.overlay.SetChild(widget)
 
+		if hadParent && wasVisible {
+			widget.SetVisible(true)
+		}
 		if hadParent && pv.loading != nil {
 			pv.loading.SetVisible(false)
 		}

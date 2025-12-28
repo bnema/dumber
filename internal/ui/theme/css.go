@@ -339,15 +339,15 @@ entry.omnibox-entry > *:focus-visible {
 	font-weight: 500;
 }
 
-/* URL text below title */
-.omnibox-suggestion-url {
+/* URL text below title - use .omnibox-row prefix for specificity over .omnibox-row label */
+.omnibox-row .omnibox-suggestion-url {
 	font-size: 0.75em;
-	color: var(--muted);
+	color: alpha(var(--muted), 0.65);
 	font-weight: 400;
 }
 
 .omnibox-row:selected .omnibox-suggestion-url {
-	color: var(--muted);
+	color: alpha(var(--muted), 0.75);
 }
 
 /* Keyboard shortcut badge */
@@ -472,6 +472,11 @@ func generatePaneCSS(p Palette) string {
 
 /* Pane overlay container - theme background prevents white flash */
 .pane-overlay {
+	background-color: var(--bg);
+}
+
+/* WebView widget - theme background prevents white flash during page load */
+.webview-themed {
 	background-color: var(--bg);
 }
 
