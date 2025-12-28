@@ -111,6 +111,9 @@ func BuildWebKitStack(
 		poolCfg.PrewarmCount = cfg.Performance.WebViewPoolPrewarmCount
 	}
 	pool := webkit.NewWebViewPool(ctx, wkCtx, settings, poolCfg, injector, messageRouter)
+	// Ensure prewarmed WebViews pick up the theme background color.
+	bgR, bgG, bgB, bgA := themeManager.GetBackgroundRGBA()
+	pool.SetBackgroundColor(bgR, bgG, bgB, bgA)
 
 	if filterManager != nil {
 		pool.SetFilterApplier(filterManager)
