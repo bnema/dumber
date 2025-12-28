@@ -196,6 +196,58 @@ func (uc *ManageFavoritesUseCase) IsFavorite(ctx context.Context, url string) (b
 	return fav != nil, nil
 }
 
+// ToggleResult indicates the result of a toggle operation.
+type ToggleResult struct {
+	Added   bool // true if favorite was added, false if removed
+	URL     string
+	Title   string
+	Message string // User-friendly message
+}
+
+// Toggle adds or removes a URL from favorites based on current state.
+// If the URL is already a favorite, it removes it. Otherwise, it adds it.
+func (uc *ManageFavoritesUseCase) Toggle(ctx context.Context, url, title string) (*ToggleResult, error) {
+	log := logging.FromContext(ctx)
+	log.Debug().Str("url", url).Msg("toggling favorite")
+
+	if url == "" {
+		return nil, fmt.Errorf("URL cannot be empty")
+	}
+
+	// Check if already favorited
+	existing, err := uc.favoriteRepo.FindByURL(ctx, url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check existing favorite: %w", err)
+	}
+
+	if existing != nil {
+		// Remove favorite
+		if err := uc.favoriteRepo.Delete(ctx, existing.ID); err != nil {
+			return nil, fmt.Errorf("failed to remove favorite: %w", err)
+		}
+		log.Info().Str("url", url).Int64("id", int64(existing.ID)).Msg("favorite removed via toggle")
+		return &ToggleResult{
+			Added:   false,
+			URL:     url,
+			Title:   existing.Title,
+			Message: "Favorite removed",
+		}, nil
+	}
+
+	// Add favorite
+	fav := entity.NewFavorite(url, title)
+	if err := uc.favoriteRepo.Save(ctx, fav); err != nil {
+		return nil, fmt.Errorf("failed to add favorite: %w", err)
+	}
+	log.Info().Str("url", url).Int64("id", int64(fav.ID)).Msg("favorite added via toggle")
+	return &ToggleResult{
+		Added:   true,
+		URL:     url,
+		Title:   title,
+		Message: "Favorite added",
+	}, nil
+}
+
 // GetAllURLs returns a set of all favorited URLs for efficient batch lookup.
 func (uc *ManageFavoritesUseCase) GetAllURLs(ctx context.Context) (map[string]struct{}, error) {
 	log := logging.FromContext(ctx)

@@ -40,6 +40,7 @@ All notable changes to this project will be documented in this file.
 - **Console logging**: Standardized console timestamps to `HH:MM:SS` across bootstrap and session logging.
 
 ### Fixed
+- **Omnibox favorite toggle reactivity**: Fixed space key toggle in omnibox not updating UI reactively. Now properly toggles favorites (add if not favorite, remove if favorite) with immediate visual feedback (yellow indicator) and toast notifications. Business logic moved to `ManageFavoritesUseCase.Toggle()` for testability.
 - **Config migration type matching**: Fixed migration incorrectly matching keys of different types (e.g., `_width` int keys with `_color` string keys) during rename detection, preventing value swapping.
 - **Fullscreen video tab bar**: Fixed tab bar remaining visible during fullscreen video playback. Now hides automatically when entering fullscreen and restores based on normal visibility logic when exiting.
 - **Dark mode navigation flash**: Fixed a brief white flash between the loading skeleton and page content when navigating in dark mode.
