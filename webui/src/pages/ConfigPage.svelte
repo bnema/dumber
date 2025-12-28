@@ -427,6 +427,7 @@
               </div>
 
               <!-- Profile selector -->
+              {#if config.performance}
               <div class="space-y-4">
                 {#each PERFORMANCE_PROFILES as profile (profile.value)}
                   <label
@@ -447,9 +448,14 @@
                   </label>
                 {/each}
               </div>
+              {:else}
+              <div class="text-sm text-muted-foreground">
+                Performance settings not available. This may be due to a configuration error.
+              </div>
+              {/if}
 
               <!-- Custom profile note -->
-              {#if config.performance.profile === "custom"}
+              {#if config.performance?.profile === "custom"}
                 <div class="rounded-md border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
                   <p>
                     Custom profile settings are configured in your <code class="rounded bg-muted px-1 py-0.5">config.toml</code> file.
@@ -459,7 +465,7 @@
               {/if}
 
               <!-- Resolved values display -->
-              {#if config.performance.resolved}
+              {#if config.performance?.resolved}
                 <div class="space-y-3">
                   <div class="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                     Resolved Settings (applied on restart)
