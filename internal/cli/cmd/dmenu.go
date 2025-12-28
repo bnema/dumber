@@ -11,9 +11,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
+	"github.com/bnema/dumber/assets"
 	"github.com/bnema/dumber/internal/cli/model"
 	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/favicon"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -87,6 +89,13 @@ func getFaviconPath(rawURL string) string {
 		return ""
 	}
 
+	const normalizedSize = 32
+
+	// Handle internal dumb:// URLs - use embedded app logo
+	if favicon.IsInternalURL(rawURL) {
+		return app.FaviconService.EnsureInternalFaviconPNG(assets.LogoPNG32, normalizedSize)
+	}
+
 	domain := domainurl.ExtractDomain(rawURL)
 	if domain == "" {
 		return ""
@@ -94,7 +103,6 @@ func getFaviconPath(rawURL string) string {
 
 	ctx := app.Ctx()
 	log := logging.FromContext(ctx)
-	const normalizedSize = 32
 
 	// Check if sized PNG already exists
 	if app.FaviconService.HasPNGSizedOnDisk(domain, normalizedSize) {
