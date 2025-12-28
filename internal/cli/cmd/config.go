@@ -56,7 +56,8 @@ func runConfigStatus(_ *cobra.Command, _ []string) error {
 
 	renderer := styles.NewConfigRenderer(app.Theme)
 	migrator := config.NewMigrator()
-	uc := usecase.NewMigrateConfigUseCase(migrator)
+	diffFormatter := config.NewDiffFormatter()
+	uc := usecase.NewMigrateConfigUseCase(migrator, diffFormatter)
 
 	// Get config file path
 	configFile, err := config.GetConfigFile()
@@ -100,7 +101,8 @@ func runConfigMigrate(_ *cobra.Command, _ []string) error {
 
 	renderer := styles.NewConfigRenderer(app.Theme)
 	migrator := config.NewMigrator()
-	uc := usecase.NewMigrateConfigUseCase(migrator)
+	diffFormatter := config.NewDiffFormatter()
+	uc := usecase.NewMigrateConfigUseCase(migrator, diffFormatter)
 
 	// Get config file path
 	configFile, err := config.GetConfigFile()
@@ -115,22 +117,23 @@ func runConfigMigrate(_ *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	// Check for migration
+	// Detect changes (includes renames, additions, and removals)
 	ctx := context.Background()
-	result, err := uc.Check(ctx, usecase.CheckConfigMigrationInput{})
+	detectResult, err := uc.DetectChanges(ctx, usecase.DetectChangesInput{})
 	if err != nil {
 		fmt.Println(renderer.RenderError(err))
 		return nil
 	}
 
-	if !result.NeedsMigration {
+	if !detectResult.HasChanges {
 		fmt.Println(renderer.RenderUpToDate(configFile))
 		return nil
 	}
 
-	// Show config info and missing keys
-	fmt.Println(renderer.RenderConfigInfo(configFile, len(result.MissingKeys)))
-	fmt.Println(renderer.RenderMissingKeys(result.MissingKeys))
+	// Show config info with change summary
+	fmt.Println(renderer.RenderConfigInfo(configFile, len(detectResult.Changes)))
+	fmt.Println(renderer.RenderChangesSummary(detectResult.Changes))
+	fmt.Println(renderer.RenderChanges(detectResult.Changes))
 
 	// If --yes flag, proceed without confirmation
 	if configYes {
@@ -138,7 +141,7 @@ func runConfigMigrate(_ *cobra.Command, _ []string) error {
 	}
 
 	// Show confirmation dialog
-	return runMigrateWithConfirmation(ctx, uc, renderer, app.Theme, result.MissingKeys)
+	return runMigrateWithConfirmation(ctx, uc, renderer, app.Theme, detectResult.Changes)
 }
 
 // executeMigration performs the actual migration.
@@ -166,12 +169,12 @@ const (
 
 // migrateModel is the bubbletea model for the migrate confirmation.
 type migrateModel struct {
-	spinner     spinner.Model
-	renderer    *styles.ConfigRenderer
-	confirm     styles.ConfirmModel
-	state       migrateState
-	uc          *usecase.MigrateConfigUseCase
-	missingKeys []port.KeyInfo
+	spinner  spinner.Model
+	renderer *styles.ConfigRenderer
+	confirm  styles.ConfirmModel
+	state    migrateState
+	uc       *usecase.MigrateConfigUseCase
+	changes  []port.KeyChange
 
 	result   string
 	err      error
@@ -188,21 +191,21 @@ func newMigrateModel(
 	renderer *styles.ConfigRenderer,
 	theme *styles.Theme,
 	uc *usecase.MigrateConfigUseCase,
-	missingKeys []port.KeyInfo,
+	changes []port.KeyChange,
 ) migrateModel {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(theme.Accent)
 
-	confirm := styles.NewConfirm(theme, "Add these settings with default values?")
+	confirm := styles.NewConfirm(theme, "Apply these changes?")
 
 	return migrateModel{
-		spinner:     s,
-		renderer:    renderer,
-		confirm:     confirm,
-		state:       migrateStateConfirm,
-		uc:          uc,
-		missingKeys: missingKeys,
+		spinner:  s,
+		renderer: renderer,
+		confirm:  confirm,
+		state:    migrateStateConfirm,
+		uc:       uc,
+		changes:  changes,
 	}
 }
 
@@ -289,12 +292,12 @@ func runMigrateWithConfirmation(
 	uc *usecase.MigrateConfigUseCase,
 	renderer *styles.ConfigRenderer,
 	theme *styles.Theme,
-	missingKeys []port.KeyInfo,
+	changes []port.KeyChange,
 ) error {
 	// Suppress unused ctx warning - kept for consistency with other run functions
 	_ = ctx
 
-	m := newMigrateModel(renderer, theme, uc, missingKeys)
+	m := newMigrateModel(renderer, theme, uc, changes)
 	p := tea.NewProgram(m)
 
 	_, err := p.Run()
