@@ -173,3 +173,15 @@ func (s *Service) EnsureSizedPNG(ctx context.Context, domain string, size int) e
 
 	return ResizePNG(srcPath, dstPath, size)
 }
+
+// EnsureInternalFaviconPNG ensures the internal app logo PNG exists on disk.
+// Returns the path to the sized PNG file. Used by dmenu to get a filesystem
+// path to the internal favicon for rofi/fuzzel display.
+func (s *Service) EnsureInternalFaviconPNG(pngData []byte, size int) string {
+	if s.HasPNGSizedOnDisk(InternalDomain, size) {
+		return s.DiskPathPNGSized(InternalDomain, size)
+	}
+
+	s.cache.WritePNGSized(InternalDomain, pngData, size)
+	return s.DiskPathPNGSized(InternalDomain, size)
+}
