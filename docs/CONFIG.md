@@ -491,6 +491,96 @@ dumber config migrate
 dumber config migrate --yes
 ```
 
+## Performance Profiles
+
+Performance profiles provide preset configurations for WebKitGTK tuning. These settings affect Skia rendering threads, memory pressure handling, and WebView pool behavior.
+
+> **Note:** Performance settings are applied at browser startup. Changes require a restart to take effect.
+
+| Key | Type | Default | Valid Values | Description |
+|-----|------|---------|--------------|-------------|
+| `performance.profile` | string | `"default"` | `default`, `lite`, `max`, `custom` | Performance profile selection |
+
+### Profiles
+
+| Profile | Description | Use Case |
+|---------|-------------|----------|
+| `default` | No tuning, uses WebKit defaults | Normal browsing, most users |
+| `lite` | Reduced resource usage | Low-RAM systems (< 4GB), battery saving |
+| `max` | Maximum responsiveness | Heavy pages (GitHub PRs, complex SPAs), high-end systems |
+| `custom` | Manual control over all settings | Advanced users who want fine-grained control |
+
+### Profile Settings Matrix
+
+| Setting | default | lite | max |
+|---------|---------|------|-----|
+| Skia CPU threads | unset | 2 | `NumCPU()/2` (min 4) |
+| Skia GPU threads | unset | unset | 2 |
+| Web process memory (MB) | unset | 512 | 2048 |
+| Network process memory (MB) | unset | 256 | 512 |
+| Conservative threshold | unset | 0.25 | 0.5 |
+| Strict threshold | unset | 0.4 | 0.7 |
+| Kill threshold | unset | 0.8 | unset (never) |
+| WebView pool prewarm | 4 | 2 | 8 |
+
+**Example:**
+```toml
+[performance]
+profile = "default"  # Most users - no tuning needed
+
+# For low-RAM systems:
+# profile = "lite"
+
+# For heavy pages (GitHub PRs, complex web apps):
+# profile = "max"
+
+# For manual control:
+# profile = "custom"
+```
+
+### Custom Profile Settings
+
+When `profile = "custom"`, you can configure individual tuning options:
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `performance.skia_cpu_painting_threads` | int | `0` | Skia CPU rendering threads (0=unset) |
+| `performance.skia_gpu_painting_threads` | int | `-1` | Skia GPU rendering threads (-1=unset, 0=disable) |
+| `performance.skia_enable_cpu_rendering` | bool | `false` | Force CPU rendering |
+| `performance.web_process_memory_limit_mb` | int | `0` | Web process memory limit in MB (0=unset) |
+| `performance.web_process_memory_poll_interval_sec` | float | `0` | Memory check interval (0=WebKit default: 30s) |
+| `performance.web_process_memory_conservative_threshold` | float | `0` | Conservative cleanup threshold (0=unset) |
+| `performance.web_process_memory_strict_threshold` | float | `0` | Strict cleanup threshold (0=unset) |
+| `performance.web_process_memory_kill_threshold` | float | `-1` | Process kill threshold (-1=unset, 0=never kill) |
+| `performance.network_process_memory_limit_mb` | int | `0` | Network process memory limit in MB |
+| `performance.network_process_memory_poll_interval_sec` | float | `0` | Network memory check interval |
+| `performance.network_process_memory_conservative_threshold` | float | `0` | Network conservative threshold |
+| `performance.network_process_memory_strict_threshold` | float | `0` | Network strict threshold |
+| `performance.network_process_memory_kill_threshold` | float | `-1` | Network process kill threshold |
+| `performance.webview_pool_prewarm_count` | int | `4` | WebViews to pre-create at startup |
+| `performance.zoom_cache_size` | int | `256` | Domain zoom levels to cache |
+
+**Custom profile example:**
+```toml
+[performance]
+profile = "custom"
+
+# Skia threading - tune for your CPU
+skia_cpu_painting_threads = 4
+skia_gpu_painting_threads = 2
+
+# Web process memory pressure
+web_process_memory_limit_mb = 1024
+web_process_memory_conservative_threshold = 0.4
+web_process_memory_strict_threshold = 0.6
+web_process_memory_kill_threshold = -1  # Never kill
+
+# WebView pool
+webview_pool_prewarm_count = 6
+```
+
+> **Important:** Individual tuning fields are ignored unless `profile = "custom"`. Setting individual fields with any other profile will produce a validation warning.
+
 ## Environment Variables
 
 All config values can be overridden via environment variables with the prefix `DUMBER_`:
