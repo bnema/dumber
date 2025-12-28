@@ -13,7 +13,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/soup"
 	"github.com/bnema/puregotk-webkit/webkit"
@@ -59,11 +61,13 @@ func (f PageHandlerFunc) Handle(req *SchemeRequest) *SchemeResponse {
 
 // DumbSchemeHandler handles dumb:// URI scheme requests.
 type DumbSchemeHandler struct {
-	handlers map[string]PageHandler
-	assets   embed.FS
-	assetDir string // subdirectory within embed.FS (e.g., "assets/webui")
-	logger   zerolog.Logger
-	mu       sync.RWMutex
+	handlers   map[string]PageHandler
+	assets     embed.FS
+	assetDir   string // subdirectory within embed.FS (e.g., "assets/webui")
+	logger     zerolog.Logger
+	mu         sync.RWMutex
+	hwSurveyor *env.HardwareSurveyor
+	ctx        context.Context
 }
 
 type configAppearancePayload struct {
@@ -76,9 +80,19 @@ type configAppearancePayload struct {
 	DarkPalette     config.ColorPalette `json:"dark_palette"`
 }
 
+type configHardwarePayload struct {
+	CPUCores   int    `json:"cpu_cores"`
+	CPUThreads int    `json:"cpu_threads"`
+	TotalRAMMB int    `json:"total_ram_mb"`
+	GPUVendor  string `json:"gpu_vendor"`
+	GPUName    string `json:"gpu_name"`
+	VRAMMB     int    `json:"vram_mb"`
+}
+
 type configPerformancePayload struct {
 	Profile  string                    `json:"profile"`
 	Resolved configResolvedPerformance `json:"resolved"`
+	Hardware configHardwarePayload     `json:"hardware"`
 }
 
 // configResolvedPerformance shows the actual values that will be applied at startup.
@@ -106,9 +120,11 @@ func NewDumbSchemeHandler(ctx context.Context) *DumbSchemeHandler {
 	log := logging.FromContext(ctx)
 
 	h := &DumbSchemeHandler{
-		handlers: make(map[string]PageHandler),
-		assetDir: "webui",
-		logger:   log.With().Str("component", "scheme-handler").Logger(),
+		handlers:   make(map[string]PageHandler),
+		assetDir:   "webui",
+		logger:     log.With().Str("component", "scheme-handler").Logger(),
+		hwSurveyor: env.NewHardwareSurveyor(),
+		ctx:        ctx,
 	}
 
 	// Register default pages
@@ -142,7 +158,7 @@ func (h *DumbSchemeHandler) registerDefaults() {
 			return nil
 		}
 
-		return buildConfigResponse(config.Get())
+		return h.buildConfigResponse(config.Get())
 	}))
 
 	// API: Get default config (used by Reset Defaults in dumb://config)
@@ -151,13 +167,22 @@ func (h *DumbSchemeHandler) registerDefaults() {
 			return nil
 		}
 
-		return buildConfigResponse(config.DefaultConfig())
+		return h.buildConfigResponse(config.DefaultConfig())
 	}))
 }
 
-func buildConfigResponse(cfg *config.Config) *SchemeResponse {
-	// Resolve performance profile to get actual values
-	resolved := config.ResolvePerformanceProfile(&cfg.Performance)
+func (h *DumbSchemeHandler) buildConfigResponse(cfg *config.Config) *SchemeResponse {
+	// Get hardware info for display and profile resolution
+	// Use background context since survey results are cached and we don't want
+	// request context cancellation to affect this
+	var hw *port.HardwareInfo
+	if h.hwSurveyor != nil {
+		hwInfo := h.hwSurveyor.Survey(context.Background())
+		hw = &hwInfo
+	}
+
+	// Resolve performance profile with hardware info
+	resolved := config.ResolvePerformanceProfile(&cfg.Performance, hw)
 
 	resp := configPayload{
 		DefaultUIScale:      cfg.DefaultUIScale,
@@ -184,6 +209,7 @@ func buildConfigResponse(cfg *config.Config) *SchemeResponse {
 				StrictThreshold:        resolved.WebProcessMemoryStrictThreshold,
 				KillThreshold:          resolved.WebProcessMemoryKillThreshold,
 			},
+			Hardware: buildHardwarePayload(hw),
 		},
 	}
 
@@ -200,6 +226,21 @@ func buildConfigResponse(cfg *config.Config) *SchemeResponse {
 		Data:        data,
 		ContentType: "application/json",
 		StatusCode:  http.StatusOK,
+	}
+}
+
+// buildHardwarePayload converts HardwareInfo to JSON payload.
+func buildHardwarePayload(hw *port.HardwareInfo) configHardwarePayload {
+	if hw == nil {
+		return configHardwarePayload{}
+	}
+	return configHardwarePayload{
+		CPUCores:   hw.CPUCores,
+		CPUThreads: hw.CPUThreads,
+		TotalRAMMB: hw.TotalRAMMB(),
+		GPUVendor:  string(hw.GPUVendor),
+		GPUName:    hw.GPUName,
+		VRAMMB:     hw.VRAMMB(),
 	}
 }
 
