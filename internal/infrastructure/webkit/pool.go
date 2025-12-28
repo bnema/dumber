@@ -126,6 +126,16 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 	select {
 	case wv := <-p.pool:
 		if wv != nil && !wv.IsDestroyed() {
+			p.bgMu.RLock()
+			r, g, b, a := p.bgR, p.bgG, p.bgB, p.bgA
+			p.bgMu.RUnlock()
+			if a > 0 {
+				wv.SetBackgroundColor(r, g, b, a)
+			}
+			wv.inner.AddCssClass("webview-themed")
+			// Keep pooled WebViews hidden until we explicitly reveal them.
+			wv.inner.SetVisible(false)
+
 			// Ensure frontend is attached even if this WebView was pooled before injection was configured.
 			_ = wv.AttachFrontend(ctx, p.injector, p.router)
 			// Apply filters if available (may not have been applied during prewarm)
