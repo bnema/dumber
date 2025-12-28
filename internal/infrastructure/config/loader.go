@@ -266,6 +266,9 @@ func (m *Manager) Save(cfg *Config) error {
 	m.viper.Set("default_ui_scale", cfg.DefaultUIScale)
 	m.viper.Set("default_search_engine", cfg.DefaultSearchEngine)
 
+	// Performance profile (requires browser restart to take effect)
+	m.viper.Set("performance.profile", string(cfg.Performance.Profile))
+
 	if err := m.viper.WriteConfig(); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
