@@ -470,30 +470,48 @@
                   <div class="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                     Resolved Settings (applied on restart)
                   </div>
-                  <div class="grid gap-3 rounded-md border border-border bg-muted/20 p-4 text-sm md:grid-cols-2">
-                    <div class="flex justify-between">
-                      <span class="text-muted-foreground">Skia CPU Threads</span>
-                      <span class="font-mono">{config.performance.resolved.skia_cpu_threads === 0 ? 'unset' : config.performance.resolved.skia_cpu_threads}</span>
+                  <div class="space-y-4 rounded-md border border-border bg-muted/20 p-4 text-sm">
+                    <div class="space-y-1">
+                      <div class="flex justify-between">
+                        <span class="font-medium">Skia CPU Threads</span>
+                        <span class="font-mono">{config.performance.resolved.skia_cpu_threads === 0 ? 'unset' : config.performance.resolved.skia_cpu_threads}</span>
+                      </div>
+                      <p class="text-xs text-muted-foreground">Parallel threads for CPU-based 2D rendering. More threads = faster paint operations.</p>
                     </div>
-                    <div class="flex justify-between">
-                      <span class="text-muted-foreground">Skia GPU Threads</span>
-                      <span class="font-mono">{config.performance.resolved.skia_gpu_threads === -1 ? 'unset' : config.performance.resolved.skia_gpu_threads}</span>
+                    <div class="space-y-1">
+                      <div class="flex justify-between">
+                        <span class="font-medium">Skia GPU Threads</span>
+                        <span class="font-mono">{config.performance.resolved.skia_gpu_threads === -1 ? 'unset' : config.performance.resolved.skia_gpu_threads}</span>
+                      </div>
+                      <p class="text-xs text-muted-foreground">Threads for GPU texture uploads and shader compilation.</p>
                     </div>
-                    <div class="flex justify-between">
-                      <span class="text-muted-foreground">Web Process Memory</span>
-                      <span class="font-mono">{config.performance.resolved.web_process_memory_mb === 0 ? 'unset' : config.performance.resolved.web_process_memory_mb + ' MB'}</span>
+                    <div class="space-y-1">
+                      <div class="flex justify-between">
+                        <span class="font-medium">Web Process Memory</span>
+                        <span class="font-mono">{config.performance.resolved.web_process_memory_mb === 0 ? 'unset' : config.performance.resolved.web_process_memory_mb + ' MB'}</span>
+                      </div>
+                      <p class="text-xs text-muted-foreground">Memory limit for web content processes (JavaScript, DOM, rendering).</p>
                     </div>
-                    <div class="flex justify-between">
-                      <span class="text-muted-foreground">Network Process Memory</span>
-                      <span class="font-mono">{config.performance.resolved.network_process_memory_mb === 0 ? 'unset' : config.performance.resolved.network_process_memory_mb + ' MB'}</span>
+                    <div class="space-y-1">
+                      <div class="flex justify-between">
+                        <span class="font-medium">Network Process Memory</span>
+                        <span class="font-mono">{config.performance.resolved.network_process_memory_mb === 0 ? 'unset' : config.performance.resolved.network_process_memory_mb + ' MB'}</span>
+                      </div>
+                      <p class="text-xs text-muted-foreground">Memory limit for network operations (HTTP cache, connections).</p>
                     </div>
-                    <div class="flex justify-between">
-                      <span class="text-muted-foreground">WebView Pool Prewarm</span>
-                      <span class="font-mono">{config.performance.resolved.webview_pool_prewarm}</span>
+                    <div class="space-y-1">
+                      <div class="flex justify-between">
+                        <span class="font-medium">WebView Pool Prewarm</span>
+                        <span class="font-mono">{config.performance.resolved.webview_pool_prewarm}</span>
+                      </div>
+                      <p class="text-xs text-muted-foreground">Pre-created WebViews at startup for faster new tab/pane creation.</p>
                     </div>
-                    <div class="flex justify-between">
-                      <span class="text-muted-foreground">Memory Kill Threshold</span>
-                      <span class="font-mono">{config.performance.resolved.kill_threshold === -1 ? 'never' : (config.performance.resolved.kill_threshold * 100).toFixed(0) + '%'}</span>
+                    <div class="space-y-1">
+                      <div class="flex justify-between">
+                        <span class="font-medium">Memory Kill Threshold</span>
+                        <span class="font-mono">{config.performance.resolved.kill_threshold === -1 ? 'never' : (config.performance.resolved.kill_threshold * 100).toFixed(0) + '%'}</span>
+                      </div>
+                      <p class="text-xs text-muted-foreground">When memory usage exceeds this threshold, WebKit may terminate the process to free memory.</p>
                     </div>
                   </div>
                 </div>
