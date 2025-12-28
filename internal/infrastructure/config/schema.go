@@ -294,6 +294,9 @@ type UpdateConfig struct {
 	// When enabled, updates are applied on browser exit.
 	// Default: false
 	AutoDownload bool `mapstructure:"auto_download" yaml:"auto_download" toml:"auto_download"`
+	// NotifyOnNewSettings shows a toast notification on startup when new config settings are available.
+	// Default: true
+	NotifyOnNewSettings bool `mapstructure:"notify_on_new_settings" yaml:"notify_on_new_settings" toml:"notify_on_new_settings"`
 }
 
 // WorkspaceConfig captures layout, pane, and tab behavior preferences.
@@ -313,6 +316,9 @@ type WorkspaceConfig struct {
 	TabBarPosition string `mapstructure:"tab_bar_position" yaml:"tab_bar_position" toml:"tab_bar_position" json:"tab_bar_position"`
 	// HideTabBarWhenSingleTab hides the tab bar when only one tab exists.
 	HideTabBarWhenSingleTab bool `mapstructure:"hide_tab_bar_when_single_tab" yaml:"hide_tab_bar_when_single_tab" toml:"hide_tab_bar_when_single_tab" json:"hide_tab_bar_when_single_tab"` //nolint:lll // struct tags must stay on one line
+	// SwitchToTabOnMove controls whether moving a pane to another tab switches focus to that tab.
+	// Default: true
+	SwitchToTabOnMove bool `mapstructure:"switch_to_tab_on_move" yaml:"switch_to_tab_on_move" toml:"switch_to_tab_on_move" json:"switch_to_tab_on_move"` //nolint:lll // struct tags must stay on one line
 	// Popups configures default popup placement rules.
 	Popups PopupBehaviorConfig `mapstructure:"popups" yaml:"popups" toml:"popups" json:"popups"`
 	// Styling configures workspace visual appearance.
@@ -438,29 +444,21 @@ type WorkspaceStylingConfig struct {
 	// BorderColor for focused panes (CSS color value or theme variable)
 	BorderColor string `mapstructure:"border_color" yaml:"border_color" toml:"border_color" json:"border_color"`
 
-	// PaneModeBorderWidth in pixels for pane mode indicator border (Ctrl+P N overlay)
-	PaneModeBorderWidth int `mapstructure:"pane_mode_border_width" yaml:"pane_mode_border_width" toml:"pane_mode_border_width" json:"pane_mode_border_width"` //nolint:lll // struct tags must stay on one line
-	// PaneModeBorderColor for the pane mode indicator border (CSS color value or theme variable)
-	// Defaults to "#4A90E2" (blue) if not set
-	PaneModeBorderColor string `mapstructure:"pane_mode_border_color" yaml:"pane_mode_border_color" toml:"pane_mode_border_color" json:"pane_mode_border_color"` //nolint:lll // struct tags must stay on one line
+	// ModeBorderWidth in pixels for all mode indicator borders (pane, tab, session, resize)
+	ModeBorderWidth int `mapstructure:"mode_border_width" yaml:"mode_border_width" toml:"mode_border_width" json:"mode_border_width"` //nolint:lll // struct tags must stay on one line
 
-	// TabModeBorderWidth in pixels for tab mode indicator border (Ctrl+P T overlay)
-	TabModeBorderWidth int `mapstructure:"tab_mode_border_width" yaml:"tab_mode_border_width" toml:"tab_mode_border_width" json:"tab_mode_border_width"` //nolint:lll // struct tags must stay on one line
-	// TabModeBorderColor for the tab mode indicator border (CSS color value or theme variable)
-	// Defaults to "#FFA500" (orange) if not set - MUST be different from PaneModeBorderColor
-	TabModeBorderColor string `mapstructure:"tab_mode_border_color" yaml:"tab_mode_border_color" toml:"tab_mode_border_color" json:"tab_mode_border_color"` //nolint:lll // struct tags must stay on one line
+	// PaneModeColor for pane mode indicator (border and toaster). Defaults to "#4A90E2" (blue)
+	PaneModeColor string `mapstructure:"pane_mode_color" yaml:"pane_mode_color" toml:"pane_mode_color" json:"pane_mode_color"` //nolint:lll // struct tags must stay on one line
+	// TabModeColor for tab mode indicator (border and toaster). Defaults to "#FFA500" (orange)
+	TabModeColor string `mapstructure:"tab_mode_color" yaml:"tab_mode_color" toml:"tab_mode_color" json:"tab_mode_color"` //nolint:lll // struct tags must stay on one line
+	// SessionModeColor for session mode indicator (border and toaster). Defaults to "#9B59B6" (purple)
+	SessionModeColor string `mapstructure:"session_mode_color" yaml:"session_mode_color" toml:"session_mode_color" json:"session_mode_color"` //nolint:lll // struct tags must stay on one line
+	// ResizeModeColor for resize mode indicator (border and toaster). Defaults to "#00D4AA" (teal)
+	ResizeModeColor string `mapstructure:"resize_mode_color" yaml:"resize_mode_color" toml:"resize_mode_color" json:"resize_mode_color"` //nolint:lll // struct tags must stay on one line
 
-	// SessionModeBorderWidth in pixels for session mode indicator border (Ctrl+O overlay)
-	SessionModeBorderWidth int `mapstructure:"session_mode_border_width" yaml:"session_mode_border_width" toml:"session_mode_border_width" json:"session_mode_border_width"` //nolint:lll // struct tags must stay on one line
-	// SessionModeBorderColor for the session mode indicator border (CSS color value or theme variable)
-	// Defaults to "#9B59B6" (purple) if not set - MUST be different from other mode colors
-	SessionModeBorderColor string `mapstructure:"session_mode_border_color" yaml:"session_mode_border_color" toml:"session_mode_border_color" json:"session_mode_border_color"` //nolint:lll // struct tags must stay on one line
-
-	// ResizeModeBorderWidth in pixels for resize mode indicator border (Ctrl+N overlay)
-	ResizeModeBorderWidth int `mapstructure:"resize_mode_border_width" yaml:"resize_mode_border_width" toml:"resize_mode_border_width" json:"resize_mode_border_width"` //nolint:lll // struct tags must stay on one line
-	// ResizeModeBorderColor for the resize mode indicator border (CSS color value or theme variable)
-	// Defaults to "#00D4AA" (cyan/teal) if not set - MUST be different from other mode colors
-	ResizeModeBorderColor string `mapstructure:"resize_mode_border_color" yaml:"resize_mode_border_color" toml:"resize_mode_border_color" json:"resize_mode_border_color"` //nolint:lll // struct tags must stay on one line
+	// ModeIndicatorToasterEnabled shows a toaster notification when modal modes are active.
+	// Default: true
+	ModeIndicatorToasterEnabled bool `mapstructure:"mode_indicator_toaster_enabled" yaml:"mode_indicator_toaster_enabled" toml:"mode_indicator_toaster_enabled" json:"mode_indicator_toaster_enabled"` //nolint:lll // struct tags must stay on one line
 
 	// TransitionDuration in milliseconds for border animations
 	TransitionDuration int `mapstructure:"transition_duration" yaml:"transition_duration" toml:"transition_duration" json:"transition_duration"` //nolint:lll // struct tags must stay on one line

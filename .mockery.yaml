@@ -8,6 +8,10 @@ packages:
       filename: mocks.go
       pkgname: mocks
     interfaces:
+      ConfigMigrator: {}
+      ConfigSchemaProvider: {}
+      DatabaseProvider: {}
+      DiffFormatter: {}
       SessionLogger: {}
       SessionSpawner: {}
       TabListProvider: {}
@@ -51,5 +55,6 @@ packages:
       PaneViewFactory: {}
       PanedWidget: {}
       ProgressBarWidget: {}
+      SpinnerWidget: {}
       Widget: {}
       WidgetFactory: {}

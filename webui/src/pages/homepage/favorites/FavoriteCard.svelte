@@ -21,6 +21,10 @@
   const getFaviconUrl = (fav: Favorite): string => {
     // Use provided favicon_url if available
     if (fav.favicon_url) return fav.favicon_url;
+    // Handle internal dumb:// URLs - use embedded favicon
+    if (fav.url.startsWith('dumb://')) {
+      return 'favicon.png';
+    }
     // Construct DuckDuckGo favicon URL from domain
     const domain = getDomain(fav.url);
     return `https://icons.duckduckgo.com/ip3/${encodeURIComponent(domain)}.ico`;

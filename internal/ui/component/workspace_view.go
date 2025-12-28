@@ -556,8 +556,8 @@ func (wv *WorkspaceView) ShowOmnibox(ctx context.Context, query string) {
 
 	// Create omnibox with pane-specific toast callback
 	cfg := wv.omniboxCfg
-	cfg.OnToast = func(message string) {
-		pv.ShowToast(ctx, message, ToastSuccess)
+	cfg.OnToast = func(toastCtx context.Context, message string, level ToastLevel) {
+		pv.ShowToast(toastCtx, message, level)
 	}
 	omnibox := NewOmnibox(ctx, cfg)
 	if omnibox == nil {
@@ -608,7 +608,13 @@ func (wv *WorkspaceView) hideOmniboxInternal() {
 
 	// Remove from pane overlay
 	if pv := wv.paneViews[wv.omniboxPaneID]; pv != nil && wv.omniboxWidget != nil {
-		pv.RemoveOverlayWidget(wv.omniboxWidget)
+		// The omnibox widget may have been reparented during a rebuild/move.
+		// Avoid GTK criticals by only removing from the overlay that owns it.
+		if parent := wv.omniboxWidget.GetParent(); parent == pv.Overlay() {
+			pv.RemoveOverlayWidget(wv.omniboxWidget)
+		} else if parent != nil {
+			wv.omniboxWidget.Unparent()
+		}
 	}
 
 	// Clear references
@@ -715,7 +721,11 @@ func (wv *WorkspaceView) hideFindBarInternal() {
 	wv.findBar.Hide()
 
 	if pv := wv.paneViews[wv.findBarPaneID]; pv != nil && wv.findBarWidget != nil {
-		pv.RemoveOverlayWidget(wv.findBarWidget)
+		if parent := wv.findBarWidget.GetParent(); parent == pv.Overlay() {
+			pv.RemoveOverlayWidget(wv.findBarWidget)
+		} else if parent != nil {
+			wv.findBarWidget.Unparent()
+		}
 	}
 
 	wv.findBar = nil

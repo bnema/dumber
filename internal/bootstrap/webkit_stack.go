@@ -95,6 +95,9 @@ func BuildWebKitStack(
 	settings := webkit.NewSettingsManager(ctx, cfg)
 	injector := webkit.NewContentInjector(themeManager.PrefersDark())
 
+	// Set background color on injector for early CSS injection (prevents white flash)
+	injector.SetBackgroundColor(themeManager.GetCurrentPalette().Background)
+
 	prepareThemeUC := usecase.NewPrepareWebUIThemeUseCase(injector)
 	themeCSSText := themeManager.GetWebUIThemeCSS()
 	if err := prepareThemeUC.Execute(ctx, usecase.PrepareWebUIThemeInput{CSSVars: themeCSSText}); err != nil {
@@ -108,9 +111,19 @@ func BuildWebKitStack(
 		poolCfg.PrewarmCount = cfg.Performance.WebViewPoolPrewarmCount
 	}
 	pool := webkit.NewWebViewPool(ctx, wkCtx, settings, poolCfg, injector, messageRouter)
+	// Ensure prewarmed WebViews pick up the theme background color.
+	bgR, bgG, bgB, bgA := themeManager.GetBackgroundRGBA()
+	pool.SetBackgroundColor(bgR, bgG, bgB, bgA)
 
 	if filterManager != nil {
 		pool.SetFilterApplier(filterManager)
+	}
+
+	// Pre-create ONE WebView synchronously for instant first navigation.
+	// This is the heaviest operation but happens before window is shown,
+	// so users perceive it as part of the normal "loading" phase.
+	if err := pool.PrewarmFirst(ctx); err != nil {
+		logger.Warn().Err(err).Msg("failed to prewarm first webview, first tab may be slower")
 	}
 
 	return WebKitStack{

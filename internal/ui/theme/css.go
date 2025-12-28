@@ -50,7 +50,14 @@ window, tooltip, popover {
 
 // GenerateCSSWithScaleAndFonts creates GTK4 CSS using the provided palette, UI scale factor and fonts.
 // Scale affects font sizes and widget padding/margins proportionally.
+// Uses default mode colors.
 func GenerateCSSWithScaleAndFonts(p Palette, scale float64, fonts FontConfig) string {
+	return GenerateCSSFull(p, scale, fonts, DefaultModeColors())
+}
+
+// GenerateCSSFull creates GTK4 CSS using all provided configuration.
+// Scale affects font sizes and widget padding/margins proportionally.
+func GenerateCSSFull(p Palette, scale float64, fonts FontConfig, modeColors ModeColors) string {
 	if scale <= 0 {
 		scale = 1.0
 	}
@@ -68,6 +75,7 @@ func GenerateCSSWithScaleAndFonts(p Palette, scale float64, fonts FontConfig) st
 	sb.WriteString(":root {\n")
 	sb.WriteString(p.ToCSSVars())
 	sb.WriteString(FontCSSVars(fonts))
+	sb.WriteString(modeColors.ToCSSVars())
 	sb.WriteString("}\n\n")
 
 	// Global font styling
@@ -114,6 +122,10 @@ func GenerateCSSWithScaleAndFonts(p Palette, scale float64, fonts FontConfig) st
 
 	// Session manager styling
 	sb.WriteString(generateSessionManagerCSS(p))
+	sb.WriteString("\n")
+
+	// Tab picker styling
+	sb.WriteString(generateTabPickerCSS(p))
 
 	return sb.String()
 }
@@ -287,6 +299,22 @@ entry.omnibox-entry > *:focus-visible {
 	border-left: 0.1875em solid var(--accent);
 }
 
+/* Favorite indicator in history mode - yellowish accent */
+.omnibox-row.omnibox-row-favorite {
+	background-color: alpha(var(--warning), 0.08);
+	border-left: 0.1875em solid var(--warning);
+}
+
+.omnibox-row.omnibox-row-favorite:hover {
+	background-color: alpha(var(--warning), 0.15);
+	border-left: 0.1875em solid var(--warning);
+}
+
+.omnibox-row.omnibox-row-favorite:selected {
+	background-color: alpha(var(--warning), 0.2);
+	border-left: 0.1875em solid var(--warning);
+}
+
 /* Favicon in omnibox rows */
 .omnibox-favicon {
 	min-width: 1em;
@@ -311,15 +339,15 @@ entry.omnibox-entry > *:focus-visible {
 	font-weight: 500;
 }
 
-/* URL text below title */
-.omnibox-suggestion-url {
+/* URL text below title - use .omnibox-row prefix for specificity over .omnibox-row label */
+.omnibox-row .omnibox-suggestion-url {
 	font-size: 0.75em;
-	color: var(--muted);
+	color: alpha(var(--muted), 0.65);
 	font-weight: 400;
 }
 
 .omnibox-row:selected .omnibox-suggestion-url {
-	color: var(--muted);
+	color: alpha(var(--muted), 0.75);
 }
 
 /* Keyboard shortcut badge */
@@ -344,6 +372,16 @@ entry.omnibox-entry > *:focus-visible {
 	color: var(--accent);
 }
 
+/* Bang indicator badge in omnibox header */
+.omnibox-bang-badge {
+	background-color: alpha(var(--accent), 0.18);
+	color: var(--accent);
+	border-radius: 0.25em;
+	padding: 0.125em 0.5em;
+	font-size: 0.6875em;
+	font-weight: 600;
+}
+
 /* Zoom indicator in omnibox header */
 .omnibox-zoom-indicator {
 	background-color: alpha(var(--accent), 0.2);
@@ -353,6 +391,19 @@ entry.omnibox-entry > *:focus-visible {
 	font-size: 0.6875em;
 	font-weight: 600;
 	/* Note: margin-left: auto not supported in GTK4 CSS, use SetHalign(End) in code */
+}
+
+entry.omnibox-entry.omnibox-entry-bang-active,
+entry.omnibox-entry.omnibox-entry-bang-active:focus,
+entry.omnibox-entry.omnibox-entry-bang-active:focus-within,
+entry.omnibox-entry.omnibox-entry-bang-active:focus-visible {
+	border-color: var(--accent);
+	background-color: shade(var(--bg), 1.05);
+}
+
+.omnibox-row.omnibox-row-bang .omnibox-suggestion-title {
+	color: var(--accent);
+	font-weight: 600;
 }
 `
 }
@@ -447,6 +498,29 @@ func generatePaneCSS(p Palette) string {
 	background-color: var(--bg);
 }
 
+/* WebView widget - theme background prevents white flash during page load */
+.webview-themed {
+	background-color: var(--bg);
+}
+
+/* Loading skeleton - shown until WebView paints */
+.loading-skeleton {
+	background-color: var(--bg);
+}
+
+.loading-skeleton-spinner {
+	-gtk-icon-size: 32px;
+	min-width: 32px;
+	min-height: 32px;
+	color: var(--muted);
+}
+
+.loading-skeleton-logo {
+	opacity: 0.08;
+	min-width: 512px;
+	min-height: 512px;
+}
+
 /* Pane border - default transparent */
 .pane-border {
 	border: 0.0625em solid transparent;
@@ -462,26 +536,26 @@ func generatePaneCSS(p Palette) string {
 	border-color: transparent;
 }
 
-/* Pane mode active - thick blue inset border (for overlay) */
+/* Pane mode active - thick inset border (for overlay) */
 .pane-mode-active {
 	background-color: transparent;
-	box-shadow: inset 0 0 0 0.25em #4A90E2;
+	box-shadow: inset 0 0 0 0.25em var(--pane-mode-color);
 	border-radius: 0;
 }
 
-/* Tab mode active - thick orange inset border (for overlay) */
+/* Tab mode active - thick inset border (for overlay) */
 .tab-mode-active {
 	background-color: transparent;
-	box-shadow: inset 0 0 0 0.25em #FFA500;
+	box-shadow: inset 0 0 0 0.25em var(--tab-mode-color);
 	border-radius: 0;
 }
 
-/* Resize mode active - thick teal inset border */
+/* Resize mode active - thick inset border */
 .resize-mode-active {
 	background-color: transparent;
 	/* Prefer inset shadow, but also set outline for widgets that don't paint shadows */
-	box-shadow: inset 0 0 0 0.25em #00D4AA;
-	outline: 0.25em solid #00D4AA;
+	box-shadow: inset 0 0 0 0.25em var(--resize-mode-color);
+	outline: 0.25em solid var(--resize-mode-color);
 	outline-offset: -0.25em;
 	border-radius: 0;
 }
@@ -578,6 +652,7 @@ progressbar.osd progress {
 // generateSessionManagerCSS creates session manager modal styles.
 // Uses em units for scalable UI, matches omnibox styling patterns.
 func generateSessionManagerCSS(p Palette) string {
+	_ = p
 	return `/* ===== Session Manager Styling ===== */
 
 /* Session manager outer container - for positioning in overlay */
@@ -728,10 +803,10 @@ row:selected .session-manager-row {
 	font-family: var(--font-mono);
 }
 
-/* Session mode border (purple) */
+/* Session mode border */
 .session-mode-active {
 	background-color: transparent;
-	box-shadow: inset 0 0 0 0.25em #9B59B6;
+	box-shadow: inset 0 0 0 0.25em var(--session-mode-color);
 	border-radius: 0;
 }
 `
@@ -776,6 +851,32 @@ func generateToasterCSS(p Palette) string {
 .toast-error {
 	background-color: alpha(var(--destructive), 0.9);
 	color: var(--bg);
+}
+
+/* Toast with custom styling (mode indicator toasters) */
+.toast-custom {
+	color: #ffffff;
+}
+
+/* Mode-specific toast colors */
+.toast-pane-mode {
+	background-color: var(--pane-mode-color);
+	color: #ffffff;
+}
+
+.toast-tab-mode {
+	background-color: var(--tab-mode-color);
+	color: #ffffff;
+}
+
+.toast-session-mode {
+	background-color: var(--session-mode-color);
+	color: #ffffff;
+}
+
+.toast-resize-mode {
+	background-color: var(--resize-mode-color);
+	color: #ffffff;
 }
 `
 }

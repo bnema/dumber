@@ -15,11 +15,14 @@ const (
 	progressStep = 0.02
 	// Animation interval in milliseconds
 	progressIntervalMs = 16 // ~60fps
+	// Timeout to auto-hide progress bar if stuck (30 seconds)
+	progressTimeoutMs = 30000
 )
 
 // ProgressBar displays a slim loading progress indicator at the bottom of a pane.
 // Uses native GtkProgressBar with "osd" styling for overlay appearance.
 // Implements smooth animation by incrementing towards the target value.
+// Includes a 30-second timeout to auto-hide if the page load stalls.
 type ProgressBar struct {
 	progressBar layout.ProgressBarWidget
 
@@ -27,6 +30,7 @@ type ProgressBar struct {
 	currentValue   float64 // Current displayed value
 	targetValue    float64 // Target value to animate towards
 	animationTimer uint    // Timer source ID for animation
+	timeoutTimer   uint    // Timer source ID for auto-hide timeout
 
 	mu sync.Mutex
 }
@@ -127,7 +131,7 @@ func (pb *ProgressBar) startAnimation() {
 	pb.animationTimer = glib.TimeoutAdd(progressIntervalMs, &cb, 0)
 }
 
-// Show makes the progress bar visible.
+// Show makes the progress bar visible and starts the auto-hide timeout.
 func (pb *ProgressBar) Show() {
 	pb.mu.Lock()
 	defer pb.mu.Unlock()
@@ -136,6 +140,34 @@ func (pb *ProgressBar) Show() {
 		pb.visible = true
 		pb.progressBar.SetVisible(true)
 	}
+
+	// Reset timeout timer on every Show call
+	pb.resetTimeout()
+}
+
+// resetTimeout cancels any existing timeout and starts a new one.
+// Must be called with lock held.
+func (pb *ProgressBar) resetTimeout() {
+	// Cancel existing timeout
+	if pb.timeoutTimer != 0 {
+		glib.SourceRemove(pb.timeoutTimer)
+		pb.timeoutTimer = 0
+	}
+
+	// Start new timeout
+	cb := glib.SourceFunc(func(_ uintptr) bool {
+		pb.mu.Lock()
+		defer pb.mu.Unlock()
+
+		// Clear timer ID (timer is being removed)
+		pb.timeoutTimer = 0
+
+		// Hide the progress bar inline to avoid race condition
+		pb.hideInternal()
+		return false // Don't repeat
+	})
+
+	pb.timeoutTimer = glib.TimeoutAdd(progressTimeoutMs, &cb, 0)
 }
 
 // Hide makes the progress bar invisible and resets state.
@@ -143,6 +175,12 @@ func (pb *ProgressBar) Hide() {
 	pb.mu.Lock()
 	defer pb.mu.Unlock()
 
+	pb.hideInternal()
+}
+
+// hideInternal performs the actual hide operation.
+// Must be called with lock held.
+func (pb *ProgressBar) hideInternal() {
 	if pb.visible {
 		pb.visible = false
 		pb.progressBar.SetVisible(false)
@@ -151,6 +189,12 @@ func (pb *ProgressBar) Hide() {
 		if pb.animationTimer != 0 {
 			glib.SourceRemove(pb.animationTimer)
 			pb.animationTimer = 0
+		}
+
+		// Stop timeout timer
+		if pb.timeoutTimer != 0 {
+			glib.SourceRemove(pb.timeoutTimer)
+			pb.timeoutTimer = 0
 		}
 
 		// Reset values

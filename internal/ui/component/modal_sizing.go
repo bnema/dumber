@@ -65,6 +65,21 @@ var SessionManagerListDefaults = ListDisplayDefaults{
 	MaxResults:     50,
 }
 
+// TabPickerSizeDefaults provides default sizing for tab picker modal.
+var TabPickerSizeDefaults = ModalSizeConfig{
+	WidthPct:       0.6,
+	MaxWidth:       600,
+	TopMarginPct:   0.15,
+	FallbackWidth:  600,
+	FallbackHeight: 600,
+}
+
+// TabPickerListDefaults provides display limits for tab picker modal.
+var TabPickerListDefaults = ListDisplayDefaults{
+	MaxVisibleRows: 8,
+	MaxResults:     20,
+}
+
 // CalculateModalDimensions computes width and top margin based on parent overlay.
 // Returns calculated width and top margin in pixels.
 func CalculateModalDimensions(parent layout.OverlayWidget, cfg ModalSizeConfig) (width, marginTop int) {

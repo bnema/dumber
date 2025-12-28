@@ -17,18 +17,20 @@ import (
 
 // KeyboardDispatcher routes keyboard actions to appropriate coordinators.
 type KeyboardDispatcher struct {
-	tabCoord       *coordinator.TabCoordinator
-	wsCoord        *coordinator.WorkspaceCoordinator
-	navCoord       *coordinator.NavigationCoordinator
-	zoomUC         *usecase.ManageZoomUseCase
-	copyURLUC      *usecase.CopyURLUseCase
-	actionHandlers map[input.Action]func(ctx context.Context) error
-	onQuit         func()
-	onFindOpen     func(ctx context.Context) error
-	onFindNext     func(ctx context.Context) error
-	onFindPrev     func(ctx context.Context) error
-	onFindClose    func(ctx context.Context) error
-	onSessionOpen  func(ctx context.Context) error
+	tabCoord         *coordinator.TabCoordinator
+	wsCoord          *coordinator.WorkspaceCoordinator
+	navCoord         *coordinator.NavigationCoordinator
+	zoomUC           *usecase.ManageZoomUseCase
+	copyURLUC        *usecase.CopyURLUseCase
+	actionHandlers   map[input.Action]func(ctx context.Context) error
+	onQuit           func()
+	onFindOpen       func(ctx context.Context) error
+	onFindNext       func(ctx context.Context) error
+	onFindPrev       func(ctx context.Context) error
+	onFindClose      func(ctx context.Context) error
+	onSessionOpen    func(ctx context.Context) error
+	onMovePaneToTab  func(ctx context.Context) error
+	onMovePaneToNext func(ctx context.Context) error
 }
 
 // NewKeyboardDispatcher creates a new KeyboardDispatcher.
@@ -84,6 +86,14 @@ func (d *KeyboardDispatcher) SetOnSessionOpen(fn func(ctx context.Context) error
 	d.onSessionOpen = fn
 }
 
+func (d *KeyboardDispatcher) SetOnMovePaneToTab(fn func(ctx context.Context) error) {
+	d.onMovePaneToTab = fn
+}
+
+func (d *KeyboardDispatcher) SetOnMovePaneToNextTab(fn func(ctx context.Context) error) {
+	d.onMovePaneToNext = fn
+}
+
 func (d *KeyboardDispatcher) initActionHandlers() {
 	const (
 		firstTabIndex   = 0
@@ -128,6 +138,12 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 		input.ActionSplitDown:  func(ctx context.Context) error { return d.wsCoord.Split(ctx, usecase.SplitDown) },
 		input.ActionClosePane:  d.wsCoord.ClosePane,
 		input.ActionStackPane:  d.wsCoord.StackPane,
+		input.ActionMovePaneToTab: func(ctx context.Context) error {
+			return d.handleMovePaneToTab(ctx)
+		},
+		input.ActionMovePaneToNextTab: func(ctx context.Context) error {
+			return d.handleMovePaneToNextTab(ctx)
+		},
 		input.ActionConsumeOrExpelLeft: func(ctx context.Context) error {
 			return d.wsCoord.ConsumeOrExpelPane(ctx, usecase.ConsumeOrExpelLeft)
 		},
@@ -236,6 +252,22 @@ func (d *KeyboardDispatcher) handleSessionOpen(ctx context.Context) error {
 		return d.onSessionOpen(ctx)
 	}
 	logging.FromContext(ctx).Debug().Msg("session open action (no handler)")
+	return nil
+}
+
+func (d *KeyboardDispatcher) handleMovePaneToTab(ctx context.Context) error {
+	if d.onMovePaneToTab != nil {
+		return d.onMovePaneToTab(ctx)
+	}
+	logging.FromContext(ctx).Debug().Msg("move pane to tab action (no handler)")
+	return nil
+}
+
+func (d *KeyboardDispatcher) handleMovePaneToNextTab(ctx context.Context) error {
+	if d.onMovePaneToNext != nil {
+		return d.onMovePaneToNext(ctx)
+	}
+	logging.FromContext(ctx).Debug().Msg("move pane to next tab action (no handler)")
 	return nil
 }
 
