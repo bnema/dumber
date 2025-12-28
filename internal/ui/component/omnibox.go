@@ -3,7 +3,6 @@ package component
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -11,7 +10,6 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/url"
-	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/input"
@@ -92,7 +90,7 @@ type Omnibox struct {
 	favoritesUC     *usecase.ManageFavoritesUseCase
 	faviconAdapter  *adapter.FaviconAdapter
 	copyURLUC       *usecase.CopyURLUseCase
-	shortcuts       map[string]config.SearchShortcut
+	shortcutsUC     *usecase.SearchShortcutsUseCase
 	defaultSearch   string
 	initialBehavior string
 	ctx             context.Context
@@ -128,7 +126,7 @@ type OmniboxConfig struct {
 	FavoritesUC     *usecase.ManageFavoritesUseCase
 	FaviconAdapter  *adapter.FaviconAdapter
 	CopyURLUC       *usecase.CopyURLUseCase
-	Shortcuts       map[string]config.SearchShortcut
+	ShortcutsUC     *usecase.SearchShortcutsUseCase
 	DefaultSearch   string
 	InitialBehavior string
 	UIScale         float64              // UI scale for favicon sizing
@@ -153,7 +151,7 @@ func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 		favoritesUC:     cfg.FavoritesUC,
 		faviconAdapter:  cfg.FaviconAdapter,
 		copyURLUC:       cfg.CopyURLUC,
-		shortcuts:       cfg.Shortcuts,
+		shortcutsUC:     cfg.ShortcutsUC,
 		defaultSearch:   cfg.DefaultSearch,
 		initialBehavior: cfg.InitialBehavior,
 		onToast:         cfg.OnToast,
@@ -780,87 +778,30 @@ func (o *Omnibox) loadFavorites(query string) {
 	}()
 }
 
-func buildBangSuggestions(shortcuts map[string]config.SearchShortcut, query string) []BangSuggestion {
-	prefix := strings.TrimPrefix(query, "!")
-	if idx := strings.Index(prefix, " "); idx >= 0 {
-		prefix = prefix[:idx]
-	}
-	prefix = strings.ToLower(prefix)
-
-	suggestions := make([]BangSuggestion, 0, len(shortcuts))
-	for key, shortcut := range shortcuts {
-		if !strings.HasPrefix(strings.ToLower(key), prefix) {
-			continue
-		}
-		description := shortcut.Description
-		if description == "" {
-			description = shortcut.URL
-		}
-		suggestions = append(suggestions, BangSuggestion{
-			Key:         key,
-			Description: description,
-		})
-	}
-
-	sort.Slice(suggestions, func(i, j int) bool {
-		return strings.ToLower(suggestions[i].Key) < strings.ToLower(suggestions[j].Key)
-	})
-
-	return suggestions
-}
-
-func detectBangKey(shortcuts map[string]config.SearchShortcut, query string) string {
-	spaceIdx := strings.Index(query, " ")
-	if !strings.HasPrefix(query, "!") || spaceIdx <= 1 {
-		return ""
-	}
-
-	candidate := query[1:spaceIdx]
-	for key := range shortcuts {
-		if strings.EqualFold(key, candidate) {
-			return key
-		}
-	}
-
-	return ""
-}
-
-func normalizeBangKey(shortcuts map[string]config.SearchShortcut, shortcutKey string) (string, bool) {
-	for key := range shortcuts {
-		if strings.EqualFold(key, shortcutKey) {
-			return key, true
-		}
-	}
-	return "", false
-}
-
-func buildBangNavigationText(shortcuts map[string]config.SearchShortcut, entryText string) string {
-	shortcutKey, query, found := url.ParseBangShortcut(entryText)
-	if !found || query == "" {
-		return ""
-	}
-
-	resolvedKey, ok := normalizeBangKey(shortcuts, shortcutKey)
-	if !ok {
-		return ""
-	}
-
-	return "!" + resolvedKey + " " + query
-}
-
 func (o *Omnibox) loadBangSuggestions(query string) {
-	suggestions := buildBangSuggestions(o.shortcuts, query)
+	if o.shortcutsUC == nil {
+		return
+	}
+	output := o.shortcutsUC.FilterBangs(o.ctx, usecase.FilterBangsInput{Query: query})
+	suggestions := make([]BangSuggestion, len(output.Suggestions))
+	for i, s := range output.Suggestions {
+		suggestions[i] = BangSuggestion{Key: s.Key, Description: s.Description}
+	}
 	o.idleAddUpdateBangSuggestions(suggestions)
 }
 
 func (o *Omnibox) updateBangDetection(query string) {
-	key := detectBangKey(o.shortcuts, query)
-	if key == "" {
+	if o.shortcutsUC == nil {
+		o.clearDetectedBang()
+		return
+	}
+	output := o.shortcutsUC.DetectBangKey(o.ctx, usecase.DetectBangKeyInput{Query: query})
+	if output.Key == "" {
 		o.clearDetectedBang()
 		return
 	}
 
-	o.setDetectedBang(key)
+	o.setDetectedBang(output.Key, output.Description)
 }
 
 func (o *Omnibox) clearBangState() {
@@ -872,21 +813,13 @@ func (o *Omnibox) clearBangState() {
 	o.clearDetectedBang()
 }
 
-func (o *Omnibox) setDetectedBang(key string) {
+func (o *Omnibox) setDetectedBang(key, description string) {
 	o.mu.Lock()
 	o.detectedBang = key
 	o.mu.Unlock()
 
 	if o.bangBadge == nil {
 		return
-	}
-	shortcut, ok := o.shortcuts[key]
-	if !ok {
-		return
-	}
-	description := shortcut.Description
-	if description == "" {
-		description = shortcut.URL
 	}
 	label := description
 	var cb glib.SourceFunc = func(uintptr) bool {
@@ -1271,16 +1204,19 @@ func (o *Omnibox) navigateToSelected() {
 
 	if bangMode {
 		// If user typed a full bang query, navigate using the bang URL.
-		if navText := buildBangNavigationText(o.shortcuts, entryText); navText != "" {
-			targetURL := o.buildURL(navText)
-			if targetURL == "" {
+		if o.shortcutsUC != nil {
+			navOutput := o.shortcutsUC.BuildNavigationText(o.ctx, usecase.BuildNavigationTextInput{EntryText: entryText})
+			if navOutput.Valid {
+				targetURL := o.buildURL(navOutput.Text)
+				if targetURL == "" {
+					return
+				}
+				o.Hide(o.ctx)
+				if o.onNavigate != nil {
+					o.onNavigate(targetURL)
+				}
 				return
 			}
-			o.Hide(o.ctx)
-			if o.onNavigate != nil {
-				o.onNavigate(targetURL)
-			}
-			return
 		}
 
 		// Otherwise, Enter autocompletes the selected bang.
@@ -1465,16 +1401,11 @@ func (o *Omnibox) yankSelectedURL() {
 
 // buildURL constructs a URL from text, handling search shortcuts.
 func (o *Omnibox) buildURL(text string) string {
-	return url.BuildSearchURL(text, o.shortcutURLs(), o.defaultSearch)
-}
-
-// shortcutURLs returns a map of shortcut keys to URL templates.
-func (o *Omnibox) shortcutURLs() map[string]string {
-	result := make(map[string]string, len(o.shortcuts))
-	for key, shortcut := range o.shortcuts {
-		result[key] = shortcut.URL
+	var shortcutURLs map[string]string
+	if o.shortcutsUC != nil {
+		shortcutURLs = o.shortcutsUC.ShortcutURLs()
 	}
-	return result
+	return url.BuildSearchURL(text, shortcutURLs, o.defaultSearch)
 }
 
 // toggleViewMode switches between history and favorites.
