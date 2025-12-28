@@ -26,6 +26,10 @@
     description: string;
   };
 
+  type PerformanceConfig = {
+    profile: string;
+  };
+
   type ConfigDTO = {
     appearance: {
       sans_font: string;
@@ -36,10 +40,18 @@
       light_palette: ColorPalette;
       dark_palette: ColorPalette;
     };
+    performance: PerformanceConfig;
     default_ui_scale: number;
     default_search_engine: string;
     search_shortcuts: Record<string, SearchShortcut>;
   };
+
+  const PERFORMANCE_PROFILES = [
+    { value: "default", label: "Default", description: "No tuning, uses WebKit defaults. Recommended for most users." },
+    { value: "lite", label: "Lite", description: "Reduced resource usage for low-RAM systems (< 4GB) or battery saving." },
+    { value: "max", label: "Max", description: "Maximum responsiveness for heavy pages (GitHub PRs, complex SPAs)." },
+    { value: "custom", label: "Custom", description: "Manual control via config file. Edit config.toml to set individual values." },
+  ];
 
   const PALETTE_FIELDS: Array<{ key: keyof ColorPalette; label: string }> = [
     { key: "background", label: "Background" },
@@ -250,6 +262,7 @@
           <Tabs.List class="bg-muted/60">
             <Tabs.Trigger value="appearance">Appearance</Tabs.Trigger>
             <Tabs.Trigger value="search">Search</Tabs.Trigger>
+            <Tabs.Trigger value="performance">Performance</Tabs.Trigger>
           </Tabs.List>
         </div>
 
@@ -371,6 +384,61 @@
                 <p class="text-sm text-muted-foreground">Map prefixes like g to URL templates.</p>
                 <ShortcutsTable shortcuts={config.search_shortcuts} onUpdate={updateShortcuts} />
               </div>
+            </Card.Content>
+          </Card.Root>
+        </Tabs.Content>
+
+        <Tabs.Content value="performance">
+          <Card.Root class="rounded-none border-0 bg-transparent py-0 shadow-none">
+            <Card.Header>
+              <Card.Title>Performance Profile</Card.Title>
+              <Card.Description>
+                WebKitGTK rendering and memory tuning presets.
+              </Card.Description>
+            </Card.Header>
+            <Card.Content class="space-y-6">
+              <!-- Restart warning banner -->
+              <div class="flex items-start gap-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                <span class="text-amber-500">⚠</span>
+                <div class="space-y-1">
+                  <p class="text-sm font-medium text-amber-500">Restart Required</p>
+                  <p class="text-xs text-muted-foreground">
+                    Performance settings are applied at browser startup. Changes will take effect after restarting Dumber.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Profile selector -->
+              <div class="space-y-4">
+                {#each PERFORMANCE_PROFILES as profile (profile.value)}
+                  <label
+                    class="flex cursor-pointer items-start gap-4 rounded-md border p-4 transition-colors hover:bg-muted/50 {config.performance.profile === profile.value ? 'border-primary bg-primary/5' : ''}"
+                  >
+                    <input
+                      type="radio"
+                      name="performance_profile"
+                      value={profile.value}
+                      checked={config.performance.profile === profile.value}
+                      onchange={() => config!.performance.profile = profile.value}
+                      class="mt-1 accent-primary"
+                    />
+                    <div class="space-y-1">
+                      <div class="font-medium">{profile.label}</div>
+                      <div class="text-sm text-muted-foreground">{profile.description}</div>
+                    </div>
+                  </label>
+                {/each}
+              </div>
+
+              <!-- Custom profile note -->
+              {#if config.performance.profile === "custom"}
+                <div class="rounded-md border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                  <p>
+                    Custom profile settings are configured in your <code class="rounded bg-muted px-1 py-0.5">config.toml</code> file.
+                    See the <a href="https://github.com/bnema/dumber/blob/main/docs/CONFIG.md#performance-profiles" target="_blank" class="text-primary underline">documentation</a> for available options.
+                  </p>
+                </div>
+              {/if}
             </Card.Content>
           </Card.Root>
         </Tabs.Content>
