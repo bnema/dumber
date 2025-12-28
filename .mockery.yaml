@@ -20,6 +20,7 @@ packages:
       WebViewPool: {}
       MemoryPressureApplier: {}
       WebKitContextProvider: {}
+      HardwareSurveyor: {}
   github.com/bnema/dumber/internal/domain/repository:
     config:
       dir: '{{.InterfaceDir}}/mocks'

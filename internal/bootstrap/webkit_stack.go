@@ -32,8 +32,19 @@ func BuildWebKitStack(
 	themeManager *theme.Manager,
 	logger zerolog.Logger,
 ) WebKitStack {
+	// Detect hardware for performance profile scaling
+	hwSurveyor := env.NewHardwareSurveyor()
+	hwInfo := hwSurveyor.Survey(ctx)
+	logger.Info().
+		Int("cpu_cores", hwInfo.CPUCores).
+		Int("cpu_threads", hwInfo.CPUThreads).
+		Uint64("ram_mb", hwInfo.TotalRAM/(1024*1024)).
+		Str("gpu_vendor", string(hwInfo.GPUVendor)).
+		Uint64("vram_mb", hwInfo.VRAM/(1024*1024)).
+		Msg("hardware survey completed")
+
 	// Resolve performance profile to get actual settings
-	perfSettings := config.ResolvePerformanceProfile(&cfg.Performance)
+	perfSettings := config.ResolvePerformanceProfile(&cfg.Performance, &hwInfo)
 	logger.Info().
 		Str("profile", string(cfg.Performance.Profile)).
 		Int("skia_cpu_threads", perfSettings.SkiaCPUPaintingThreads).
