@@ -56,7 +56,8 @@ func runConfigStatus(_ *cobra.Command, _ []string) error {
 
 	renderer := styles.NewConfigRenderer(app.Theme)
 	migrator := config.NewMigrator()
-	uc := usecase.NewMigrateConfigUseCase(migrator)
+	diffFormatter := config.NewDiffFormatter()
+	uc := usecase.NewMigrateConfigUseCase(migrator, diffFormatter)
 
 	// Get config file path
 	configFile, err := config.GetConfigFile()
@@ -100,7 +101,8 @@ func runConfigMigrate(_ *cobra.Command, _ []string) error {
 
 	renderer := styles.NewConfigRenderer(app.Theme)
 	migrator := config.NewMigrator()
-	uc := usecase.NewMigrateConfigUseCase(migrator)
+	diffFormatter := config.NewDiffFormatter()
+	uc := usecase.NewMigrateConfigUseCase(migrator, diffFormatter)
 
 	// Get config file path
 	configFile, err := config.GetConfigFile()

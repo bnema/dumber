@@ -28,8 +28,6 @@ const (
 	KeyChangeRemoved
 	// KeyChangeRenamed indicates a key was renamed (detected via similarity).
 	KeyChangeRenamed
-	// KeyChangeConsolidated indicates multiple keys were merged into one.
-	KeyChangeConsolidated
 )
 
 // String returns a display symbol for the change type.
@@ -41,8 +39,6 @@ func (t KeyChangeType) String() string {
 		return "-"
 	case KeyChangeRenamed:
 		return "~"
-	case KeyChangeConsolidated:
-		return ">"
 	default:
 		return "?"
 	}
@@ -73,4 +69,10 @@ type ConfigMigrator interface {
 
 	// GetKeyInfo returns detailed information about a config key.
 	GetKeyInfo(key string) KeyInfo
+}
+
+// DiffFormatter formats config changes for display.
+type DiffFormatter interface {
+	// FormatChangesAsDiff returns changes formatted as a diff-like string for display.
+	FormatChangesAsDiff(changes []KeyChange) string
 }
