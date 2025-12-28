@@ -211,7 +211,6 @@ func TestSetWebViewWidget_ReplacesWidget(t *testing.T) {
 	// Expect removal of old widget and addition of new
 	mockOverlay.EXPECT().SetChild(nil).Once()
 	mockNewWebView.EXPECT().GetParent().Return(nil).Once()
-	mockNewWebView.EXPECT().SetVisible(true).Once()
 	mockOverlay.EXPECT().SetChild(mockNewWebView).Once()
 
 	// Act
@@ -234,7 +233,6 @@ func TestSetWebViewWidget_FromNil(t *testing.T) {
 
 	// Expect only setting new child (no removal since old was nil)
 	mockNewWebView.EXPECT().GetParent().Return(nil).Once()
-	mockNewWebView.EXPECT().SetVisible(true).Once()
 	mockOverlay.EXPECT().SetChild(mockNewWebView).Once()
 
 	// Act
