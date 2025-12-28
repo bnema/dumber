@@ -18,14 +18,57 @@ type KeyInfo struct {
 	DefaultValue string
 }
 
+// KeyChangeType indicates the type of config key change.
+type KeyChangeType int
+
+const (
+	// KeyChangeAdded indicates a new key was added to defaults.
+	KeyChangeAdded KeyChangeType = iota
+	// KeyChangeRemoved indicates a key in user config no longer exists in defaults.
+	KeyChangeRemoved
+	// KeyChangeRenamed indicates a key was renamed (detected via similarity).
+	KeyChangeRenamed
+	// KeyChangeConsolidated indicates multiple keys were merged into one.
+	KeyChangeConsolidated
+)
+
+// String returns a display symbol for the change type.
+func (t KeyChangeType) String() string {
+	switch t {
+	case KeyChangeAdded:
+		return "+"
+	case KeyChangeRemoved:
+		return "-"
+	case KeyChangeRenamed:
+		return "~"
+	case KeyChangeConsolidated:
+		return ">"
+	default:
+		return "?"
+	}
+}
+
+// KeyChange represents a detected change between user config and defaults.
+type KeyChange struct {
+	Type     KeyChangeType // Type of change
+	OldKey   string        // Old key name (for removed/renamed)
+	NewKey   string        // New key name (for added/renamed)
+	OldValue string        // Old value (for renamed/consolidated)
+	NewValue string        // New/default value
+}
+
 // ConfigMigrator checks for and applies config migrations.
 type ConfigMigrator interface {
 	// CheckMigration checks if user config is missing any default keys.
 	// Returns nil if no migration is needed (config file doesn't exist or is complete).
 	CheckMigration() (*MigrationResult, error)
 
+	// DetectChanges analyzes user config and returns all detected changes.
+	// This provides a detailed diff-like view of what migration would do.
+	DetectChanges() ([]KeyChange, error)
+
 	// Migrate adds missing default keys to the user's config file.
-	// Returns the list of keys that were added.
+	// Returns the list of keys that were added/renamed.
 	Migrate() ([]string, error)
 
 	// GetKeyInfo returns detailed information about a config key.

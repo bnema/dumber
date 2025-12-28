@@ -71,20 +71,291 @@ func (m *Migrator) CheckMigration() (*port.MigrationResult, error) {
 	}, nil
 }
 
+// DetectChanges analyzes user config and returns all detected changes.
+// This provides a detailed diff-like view of what migration would do.
+func (m *Migrator) DetectChanges() ([]port.KeyChange, error) {
+	configFile, err := GetConfigFile()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get config file path: %w", err)
+	}
+
+	// If config file doesn't exist, no changes to detect
+	if _, statErr := os.Stat(configFile); os.IsNotExist(statErr) {
+		return nil, nil
+	}
+
+	// Get user-defined keys with values
+	userKeysWithValues, err := m.getUserConfigKeysWithValues(configFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse user config: %w", err)
+	}
+
+	// Get all default keys
+	defaultKeys := m.getAllDefaultKeys()
+	defaultKeySet := make(map[string]bool)
+	for _, k := range defaultKeys {
+		defaultKeySet[k] = true
+	}
+
+	// Build user key set for lookup
+	userKeySet := make(map[string]bool)
+	for k := range userKeysWithValues {
+		userKeySet[k] = true
+	}
+
+	var changes []port.KeyChange
+
+	// Find deprecated keys (in user config but not in defaults)
+	deprecatedKeys := m.findDeprecatedKeys(userKeysWithValues, defaultKeySet)
+
+	// Find missing keys (in defaults but not in user config)
+	missingKeys := m.findMissingKeys(defaultKeys, userKeySet)
+
+	// Try to match deprecated keys with missing keys (detect renames)
+	renames, unmatchedDeprecated, unmatchedMissing := m.matchRenamedKeys(deprecatedKeys, missingKeys)
+
+	// Add rename changes
+	for oldKey, newKey := range renames {
+		oldValue := m.formatValue(userKeysWithValues[oldKey])
+		newValue := m.formatValue(m.defaultViper.Get(newKey))
+		changes = append(changes, port.KeyChange{
+			Type:     port.KeyChangeRenamed,
+			OldKey:   oldKey,
+			NewKey:   newKey,
+			OldValue: oldValue,
+			NewValue: newValue,
+		})
+	}
+
+	// Add removed changes (deprecated keys that couldn't be matched)
+	for _, oldKey := range unmatchedDeprecated {
+		changes = append(changes, port.KeyChange{
+			Type:     port.KeyChangeRemoved,
+			OldKey:   oldKey,
+			OldValue: m.formatValue(userKeysWithValues[oldKey]),
+		})
+	}
+
+	// Add new key changes (missing keys that couldn't be matched)
+	for _, newKey := range unmatchedMissing {
+		changes = append(changes, port.KeyChange{
+			Type:     port.KeyChangeAdded,
+			NewKey:   newKey,
+			NewValue: m.formatValue(m.defaultViper.Get(newKey)),
+		})
+	}
+
+	// Sort changes for consistent output
+	sort.Slice(changes, func(i, j int) bool {
+		// Sort by type first, then by key
+		if changes[i].Type != changes[j].Type {
+			return changes[i].Type < changes[j].Type
+		}
+		keyI := changes[i].NewKey
+		if keyI == "" {
+			keyI = changes[i].OldKey
+		}
+		keyJ := changes[j].NewKey
+		if keyJ == "" {
+			keyJ = changes[j].OldKey
+		}
+		return keyI < keyJ
+	})
+
+	return changes, nil
+}
+
+// findDeprecatedKeys returns user keys that don't exist in defaults.
+func (m *Migrator) findDeprecatedKeys(userKeys map[string]any, defaultKeys map[string]bool) []string {
+	var deprecated []string
+	for userKey := range userKeys {
+		if !m.keyOrRelatedExistsInDefaults(userKey, defaultKeys) {
+			deprecated = append(deprecated, userKey)
+		}
+	}
+	sort.Strings(deprecated)
+	return deprecated
+}
+
+// keyOrRelatedExistsInDefaults checks if a user key exists in defaults.
+func (*Migrator) keyOrRelatedExistsInDefaults(userKey string, defaultKeys map[string]bool) bool {
+	if defaultKeys[userKey] {
+		return true
+	}
+
+	// Check if this is a parent of any default key
+	userKeyPrefix := userKey + "."
+	for defaultKey := range defaultKeys {
+		if strings.HasPrefix(defaultKey, userKeyPrefix) {
+			return true
+		}
+	}
+
+	// Check if any parent of this user key exists
+	parts := strings.Split(userKey, ".")
+	for i := len(parts) - 1; i > 0; i-- {
+		parentKey := strings.Join(parts[:i], ".")
+		if defaultKeys[parentKey] {
+			return true
+		}
+	}
+
+	return false
+}
+
+// matchRenamedKeys attempts to match deprecated keys with missing keys.
+// Returns: renames map, unmatched deprecated, unmatched missing.
+func (m *Migrator) matchRenamedKeys(deprecated, missing []string) (map[string]string, []string, []string) {
+	renames := make(map[string]string)
+	usedDeprecated := make(map[string]bool)
+	usedMissing := make(map[string]bool)
+
+	// First pass: exact suffix matching (e.g., "foo_border_color" -> "foo_color")
+	for _, oldKey := range deprecated {
+		for _, newKey := range missing {
+			if usedMissing[newKey] {
+				continue
+			}
+
+			// Check if keys are similar (same parent path + related leaf names)
+			// AND have compatible types (don't match int keys with string keys)
+			if keysAreSimilar(oldKey, newKey) && m.typesAreCompatible(oldKey, newKey) {
+				renames[oldKey] = newKey
+				usedDeprecated[oldKey] = true
+				usedMissing[newKey] = true
+				break
+			}
+		}
+	}
+
+	// Collect unmatched
+	var unmatchedDeprecated []string
+	for _, k := range deprecated {
+		if !usedDeprecated[k] {
+			unmatchedDeprecated = append(unmatchedDeprecated, k)
+		}
+	}
+
+	var unmatchedMissing []string
+	for _, k := range missing {
+		if !usedMissing[k] {
+			unmatchedMissing = append(unmatchedMissing, k)
+		}
+	}
+
+	return renames, unmatchedDeprecated, unmatchedMissing
+}
+
+// Type name constants for migration compatibility checks.
+const (
+	typeNameInt    = "int"
+	typeNameString = "string"
+)
+
+// typesAreCompatible checks if the default types for two keys are compatible.
+// This prevents matching int keys with string keys during rename detection.
+func (m *Migrator) typesAreCompatible(oldKey, newKey string) bool {
+	// Get the type of the new key from defaults
+	newValue := m.defaultViper.Get(newKey)
+	if newValue == nil {
+		return false
+	}
+
+	newType := m.getTypeName(newValue)
+
+	// Infer expected old type from key name patterns
+	// Keys ending in "_width" are typically int
+	// Keys ending in "_color" are typically string
+	if strings.HasSuffix(oldKey, "_width") && newType == typeNameString {
+		return false
+	}
+	if strings.HasSuffix(oldKey, "_color") && newType == typeNameInt {
+		return false
+	}
+
+	// Additional checks based on new key patterns
+	if strings.HasSuffix(newKey, "_width") && newType != typeNameInt {
+		return false
+	}
+	if strings.HasSuffix(newKey, "_color") && newType != typeNameString {
+		return false
+	}
+
+	return true
+}
+
+// keysAreSimilar checks if two keys are likely renames of each other.
+func keysAreSimilar(oldKey, newKey string) bool {
+	oldParts := strings.Split(oldKey, ".")
+	newParts := strings.Split(newKey, ".")
+
+	// Must have same parent path (all but last part)
+	if len(oldParts) != len(newParts) {
+		return false
+	}
+	if len(oldParts) < 2 {
+		return false
+	}
+
+	// Check parent path matches
+	for i := 0; i < len(oldParts)-1; i++ {
+		if oldParts[i] != newParts[i] {
+			return false
+		}
+	}
+
+	// Check if leaf names are similar (one is substring of the other, or share a common base)
+	oldLeaf := oldParts[len(oldParts)-1]
+	newLeaf := newParts[len(newParts)-1]
+
+	// Direct substring check
+	if strings.Contains(oldLeaf, newLeaf) || strings.Contains(newLeaf, oldLeaf) {
+		return true
+	}
+
+	// Common prefix/suffix matching (e.g., "pane_mode_border_color" vs "pane_mode_color")
+	// Extract common parts by splitting on underscore
+	oldTokens := strings.Split(oldLeaf, "_")
+	newTokens := strings.Split(newLeaf, "_")
+
+	// Count matching tokens
+	matches := 0
+	for _, ot := range oldTokens {
+		for _, nt := range newTokens {
+			if ot == nt {
+				matches++
+				break
+			}
+		}
+	}
+
+	// If most tokens match, consider similar
+	minTokens := len(oldTokens)
+	if len(newTokens) < minTokens {
+		minTokens = len(newTokens)
+	}
+	return matches >= minTokens-1 && matches > 0
+}
+
 // Migrate adds missing default keys to the user's config file.
 func (m *Migrator) Migrate() ([]string, error) {
-	result, err := m.CheckMigration()
+	changes, err := m.DetectChanges()
 	if err != nil {
 		return nil, err
 	}
 
-	if result == nil || len(result.MissingKeys) == 0 {
+	if len(changes) == 0 {
 		return nil, nil
+	}
+
+	configFile, err := GetConfigFile()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get config file path: %w", err)
 	}
 
 	// Create a new Viper instance to read user config
 	userViper := viper.New()
-	userViper.SetConfigFile(result.ConfigFile)
+	userViper.SetConfigFile(configFile)
 	userViper.SetConfigType("toml")
 
 	// Set all defaults first
@@ -96,12 +367,31 @@ func (m *Migrator) Migrate() ([]string, error) {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
+	// Apply changes
+	var appliedKeys []string
+	for _, change := range changes {
+		switch change.Type {
+		case port.KeyChangeRenamed:
+			// Copy value from old key to new key
+			if userViper.IsSet(change.OldKey) {
+				userViper.Set(change.NewKey, userViper.Get(change.OldKey))
+				appliedKeys = append(appliedKeys, fmt.Sprintf("%s -> %s", change.OldKey, change.NewKey))
+			}
+		case port.KeyChangeAdded:
+			// New key is already set via defaults, just track it
+			appliedKeys = append(appliedKeys, change.NewKey)
+		case port.KeyChangeRemoved:
+			// Nothing to do - old key will be preserved but not used
+			appliedKeys = append(appliedKeys, fmt.Sprintf("(deprecated: %s)", change.OldKey))
+		}
+	}
+
 	// Write the merged config back
 	if err := userViper.WriteConfig(); err != nil {
 		return nil, fmt.Errorf("failed to write config file: %w", err)
 	}
 
-	return result.MissingKeys, nil
+	return appliedKeys, nil
 }
 
 // GetKeyInfo returns detailed information about a config key.
@@ -142,6 +432,20 @@ func (m *Migrator) getAllDefaultKeys() []string {
 
 // getUserConfigKeys parses the user's TOML file and returns all defined keys.
 func (m *Migrator) getUserConfigKeys(configFile string) (map[string]bool, error) {
+	keysWithValues, err := m.getUserConfigKeysWithValues(configFile)
+	if err != nil {
+		return nil, err
+	}
+
+	keys := make(map[string]bool)
+	for k := range keysWithValues {
+		keys[k] = true
+	}
+	return keys, nil
+}
+
+// getUserConfigKeysWithValues parses the user's TOML file and returns keys with their values.
+func (m *Migrator) getUserConfigKeysWithValues(configFile string) (map[string]any, error) {
 	data, err := os.ReadFile(configFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
@@ -153,11 +457,35 @@ func (m *Migrator) getUserConfigKeys(configFile string) (map[string]bool, error)
 		return nil, fmt.Errorf("failed to parse TOML: %w", err)
 	}
 
-	// Flatten the map to dot-notation keys
-	keys := make(map[string]bool)
-	m.flattenMap(rawConfig, "", keys)
+	// Flatten the map to dot-notation keys with values
+	result := make(map[string]any)
+	m.flattenMapWithValues(rawConfig, "", result)
 
-	return keys, nil
+	return result, nil
+}
+
+// flattenMapWithValues recursively flattens a nested map to dot-notation keys with values.
+func (m *Migrator) flattenMapWithValues(data map[string]any, prefix string, result map[string]any) {
+	for k, v := range data {
+		key := k
+		if prefix != "" {
+			key = prefix + "." + k
+		}
+
+		switch val := v.(type) {
+		case map[string]any:
+			// Check if this key represents user data (like search_shortcuts, actions)
+			// that should be treated as a single key rather than recursed into.
+			if m.isUserDataSection(key) {
+				result[key] = v
+			} else {
+				// Recurse into nested config sections
+				m.flattenMapWithValues(val, key, result)
+			}
+		default:
+			result[key] = v
+		}
+	}
 }
 
 // flattenMap recursively flattens a nested map to dot-notation keys.
@@ -338,4 +666,30 @@ func (*Migrator) formatValue(value any) string {
 		}
 		return fmt.Sprintf("%v", v)
 	}
+}
+
+// FormatChangesAsDiff returns changes formatted as a diff for display.
+func FormatChangesAsDiff(changes []port.KeyChange) string {
+	if len(changes) == 0 {
+		return "No changes detected."
+	}
+
+	var sb strings.Builder
+	sb.WriteString("Config migration changes:\n\n")
+
+	for _, change := range changes {
+		switch change.Type {
+		case port.KeyChangeAdded:
+			sb.WriteString(fmt.Sprintf("  + %s = %s\n", change.NewKey, change.NewValue))
+		case port.KeyChangeRemoved:
+			sb.WriteString(fmt.Sprintf("  - %s = %s (deprecated)\n", change.OldKey, change.OldValue))
+		case port.KeyChangeRenamed:
+			sb.WriteString(fmt.Sprintf("  ~ %s -> %s\n", change.OldKey, change.NewKey))
+			sb.WriteString(fmt.Sprintf("    (value: %s)\n", change.OldValue))
+		case port.KeyChangeConsolidated:
+			sb.WriteString(fmt.Sprintf("  > %s -> %s\n", change.OldKey, change.NewKey))
+		}
+	}
+
+	return sb.String()
 }

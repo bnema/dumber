@@ -87,6 +87,8 @@ type App struct {
 
 	// App-level toaster for system notifications (filter status, etc.)
 	appToaster *component.Toaster
+	// Mode indicator toaster for modal mode notifications (pane, tab, session, resize)
+	modeToaster *component.Toaster
 
 	// Session management
 	sessionManager  *component.SessionManager
@@ -302,6 +304,18 @@ func (a *App) initAppToasterOverlay() {
 		return
 	}
 	a.mainWindow.AddOverlay(gtkWidget)
+
+	// Create mode indicator toaster for modal mode notifications.
+	a.modeToaster = component.NewToaster(a.widgetFactory)
+	modeToasterWidget := a.modeToaster.Widget()
+	if modeToasterWidget == nil {
+		return
+	}
+	modeGtkWidget := modeToasterWidget.GtkWidget()
+	if modeGtkWidget == nil {
+		return
+	}
+	a.mainWindow.AddOverlay(modeGtkWidget)
 }
 
 func (a *App) initFocusAndBorderOverlay() {
@@ -1269,6 +1283,54 @@ func (a *App) handleModeChange(ctx context.Context, from, to input.Mode) {
 	// Note: resize mode border is handled per-pane (stack container), not via global overlay.
 	if a.borderMgr != nil {
 		a.borderMgr.OnModeChange(ctx, from, to)
+	}
+
+	// Show/hide mode indicator toaster based on config.
+	a.updateModeIndicatorToaster(ctx, to)
+}
+
+// updateModeIndicatorToaster shows or hides the mode indicator toaster based on mode and config.
+func (a *App) updateModeIndicatorToaster(ctx context.Context, mode input.Mode) {
+	if a.modeToaster == nil {
+		return
+	}
+
+	// Check if mode indicator toaster is enabled in config.
+	if a.deps == nil || a.deps.Config == nil || !a.deps.Config.Workspace.Styling.ModeIndicatorToasterEnabled {
+		a.modeToaster.Hide()
+		return
+	}
+
+	if mode == input.ModeNormal {
+		a.modeToaster.Hide()
+		return
+	}
+
+	// Show persistent toaster at bottom-left with mode display name.
+	// Note: Call Show() first, then ApplyModeClass() because Show() clears custom styles.
+	a.modeToaster.Show(ctx, mode.DisplayName(), component.ToastInfo,
+		component.WithDuration(0), // Persistent until mode exits.
+		component.WithPosition(component.ToastPositionBottomLeft),
+	)
+
+	// Apply mode-specific CSS class after Show() to override the default level styling.
+	modeClass := getModeToastClass(mode)
+	a.modeToaster.ApplyModeClass(modeClass)
+}
+
+// getModeToastClass returns the CSS class for the given mode's toast styling.
+func getModeToastClass(mode input.Mode) string {
+	switch mode {
+	case input.ModePane:
+		return "toast-pane-mode"
+	case input.ModeTab:
+		return "toast-tab-mode"
+	case input.ModeSession:
+		return "toast-session-mode"
+	case input.ModeResize:
+		return "toast-resize-mode"
+	default:
+		return ""
 	}
 }
 

@@ -146,11 +146,8 @@ func validateWorkspaceStyling(config *Config) []string {
 	if config.Workspace.Styling.BorderWidth < 0 {
 		validationErrors = append(validationErrors, "workspace.styling.border_width must be non-negative")
 	}
-	if config.Workspace.Styling.PaneModeBorderWidth < 0 {
-		validationErrors = append(validationErrors, "workspace.styling.pane_mode_border_width must be non-negative")
-	}
-	if config.Workspace.Styling.TabModeBorderWidth < 0 {
-		validationErrors = append(validationErrors, "workspace.styling.tab_mode_border_width must be non-negative")
+	if config.Workspace.Styling.ModeBorderWidth < 0 {
+		validationErrors = append(validationErrors, "workspace.styling.mode_border_width must be non-negative")
 	}
 	if config.Workspace.Styling.TransitionDuration < 0 {
 		validationErrors = append(validationErrors, "workspace.styling.transition_duration must be non-negative")

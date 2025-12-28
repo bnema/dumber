@@ -46,21 +46,17 @@ const (
 	defaultBorderWidth = 1
 	defaultBorderColor = "@theme_selected_bg_color"
 
-	// Pane mode border (Ctrl+P N - overlay)
-	defaultPaneModeBorderWidth = 4
-	defaultPaneModeBorderColor = "#4A90E2" // Blue for pane mode indicator
+	// Mode border width (consolidated for all modes)
+	defaultModeBorderWidth = 4
 
-	// Tab mode border (Ctrl+P T - overlay)
-	defaultTabModeBorderWidth = 4
-	defaultTabModeBorderColor = "#FFA500" // Orange for tab mode indicator
+	// Mode colors (used for both borders and toaster)
+	defaultPaneModeColor    = "#4A90E2" // Blue for pane mode
+	defaultTabModeColor     = "#FFA500" // Orange for tab mode
+	defaultSessionModeColor = "#9B59B6" // Purple for session mode
+	defaultResizeModeColor  = "#00D4AA" // Cyan/teal for resize mode
 
-	// Session mode border (Ctrl+O - overlay)
-	defaultSessionModeBorderWidth = 4
-	defaultSessionModeBorderColor = "#9B59B6" // Purple for session mode indicator
-
-	// Resize mode border (Ctrl+N - overlay)
-	defaultResizeModeBorderWidth = 4
-	defaultResizeModeBorderColor = "#00D4AA" // Cyan/teal for resize mode indicator
+	// Mode indicator toaster
+	defaultModeIndicatorToasterEnabled = true
 
 	// Other styling
 	defaultTransitionDuration = 120
@@ -238,17 +234,15 @@ func DefaultConfig() *Config {
 				OAuthAutoClose:       true,      // Auto-close OAuth popups on success
 			},
 			Styling: WorkspaceStylingConfig{
-				BorderWidth:            defaultBorderWidth,
-				BorderColor:            defaultBorderColor,
-				PaneModeBorderWidth:    defaultPaneModeBorderWidth,
-				PaneModeBorderColor:    defaultPaneModeBorderColor,
-				TabModeBorderWidth:     defaultTabModeBorderWidth,
-				TabModeBorderColor:     defaultTabModeBorderColor,
-				SessionModeBorderWidth: defaultSessionModeBorderWidth,
-				SessionModeBorderColor: defaultSessionModeBorderColor,
-				ResizeModeBorderWidth:  defaultResizeModeBorderWidth,
-				ResizeModeBorderColor:  defaultResizeModeBorderColor,
-				TransitionDuration:     defaultTransitionDuration,
+				BorderWidth:                 defaultBorderWidth,
+				BorderColor:                 defaultBorderColor,
+				ModeBorderWidth:             defaultModeBorderWidth,
+				PaneModeColor:               defaultPaneModeColor,
+				TabModeColor:                defaultTabModeColor,
+				SessionModeColor:            defaultSessionModeColor,
+				ResizeModeColor:             defaultResizeModeColor,
+				ModeIndicatorToasterEnabled: defaultModeIndicatorToasterEnabled,
+				TransitionDuration:          defaultTransitionDuration,
 			},
 		},
 		ContentFiltering: ContentFilteringConfig{

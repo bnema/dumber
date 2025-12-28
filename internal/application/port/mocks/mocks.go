@@ -96,6 +96,61 @@ func (_c *MockConfigMigrator_CheckMigration_Call) RunAndReturn(run func() (*port
 	return _c
 }
 
+// DetectChanges provides a mock function for the type MockConfigMigrator
+func (_mock *MockConfigMigrator) DetectChanges() ([]port.KeyChange, error) {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for DetectChanges")
+	}
+
+	var r0 []port.KeyChange
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func() ([]port.KeyChange, error)); ok {
+		return returnFunc()
+	}
+	if returnFunc, ok := ret.Get(0).(func() []port.KeyChange); ok {
+		r0 = returnFunc()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]port.KeyChange)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func() error); ok {
+		r1 = returnFunc()
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockConfigMigrator_DetectChanges_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DetectChanges'
+type MockConfigMigrator_DetectChanges_Call struct {
+	*mock.Call
+}
+
+// DetectChanges is a helper method to define mock.On call
+func (_e *MockConfigMigrator_Expecter) DetectChanges() *MockConfigMigrator_DetectChanges_Call {
+	return &MockConfigMigrator_DetectChanges_Call{Call: _e.mock.On("DetectChanges")}
+}
+
+func (_c *MockConfigMigrator_DetectChanges_Call) Run(run func()) *MockConfigMigrator_DetectChanges_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockConfigMigrator_DetectChanges_Call) Return(keyChanges []port.KeyChange, err error) *MockConfigMigrator_DetectChanges_Call {
+	_c.Call.Return(keyChanges, err)
+	return _c
+}
+
+func (_c *MockConfigMigrator_DetectChanges_Call) RunAndReturn(run func() ([]port.KeyChange, error)) *MockConfigMigrator_DetectChanges_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetKeyInfo provides a mock function for the type MockConfigMigrator
 func (_mock *MockConfigMigrator) GetKeyInfo(key string) port.KeyInfo {
 	ret := _mock.Called(key)
