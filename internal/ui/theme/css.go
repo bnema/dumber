@@ -372,6 +372,16 @@ entry.omnibox-entry > *:focus-visible {
 	color: var(--accent);
 }
 
+/* Bang indicator badge in omnibox header */
+.omnibox-bang-badge {
+	background-color: alpha(var(--accent), 0.18);
+	color: var(--accent);
+	border-radius: 0.25em;
+	padding: 0.125em 0.5em;
+	font-size: 0.6875em;
+	font-weight: 600;
+}
+
 /* Zoom indicator in omnibox header */
 .omnibox-zoom-indicator {
 	background-color: alpha(var(--accent), 0.2);
@@ -381,6 +391,19 @@ entry.omnibox-entry > *:focus-visible {
 	font-size: 0.6875em;
 	font-weight: 600;
 	/* Note: margin-left: auto not supported in GTK4 CSS, use SetHalign(End) in code */
+}
+
+entry.omnibox-entry.omnibox-entry-bang-active,
+entry.omnibox-entry.omnibox-entry-bang-active:focus,
+entry.omnibox-entry.omnibox-entry-bang-active:focus-within,
+entry.omnibox-entry.omnibox-entry-bang-active:focus-visible {
+	border-color: var(--accent);
+	background-color: shade(var(--bg), 1.05);
+}
+
+.omnibox-row.omnibox-row-bang .omnibox-suggestion-title {
+	color: var(--accent);
+	font-weight: 600;
 }
 `
 }
