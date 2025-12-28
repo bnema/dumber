@@ -26,6 +26,10 @@ func (*MemoryPressureApplier) ApplyNetworkProcessSettings(ctx context.Context, c
 		return nil
 	}
 
+	if cfg.ConservativeThreshold > 0 && cfg.StrictThreshold <= 0 {
+		log.Warn().Msg("conservative threshold set without strict threshold; skipping conservative to avoid WebKit assertion")
+	}
+
 	settings := buildMemoryPressureSettings(cfg)
 	if settings == nil {
 		return nil
@@ -52,6 +56,10 @@ func (*MemoryPressureApplier) ApplyWebProcessSettings(ctx context.Context, cfg *
 	if cfg == nil || !cfg.IsConfigured() {
 		log.Debug().Msg("no web process memory pressure settings configured")
 		return nil, nil
+	}
+
+	if cfg.ConservativeThreshold > 0 && cfg.StrictThreshold <= 0 {
+		log.Warn().Msg("conservative threshold set without strict threshold; skipping conservative to avoid WebKit assertion")
 	}
 
 	settings := buildMemoryPressureSettings(cfg)
@@ -88,12 +96,20 @@ func buildMemoryPressureSettings(cfg *port.MemoryPressureConfig) *webkit.MemoryP
 	}
 
 	// Thresholds must be in (0, 1)
-	if cfg.ConservativeThreshold > 0 && cfg.ConservativeThreshold < 1 {
-		settings.SetConservativeThreshold(cfg.ConservativeThreshold)
+	// IMPORTANT: WebKit asserts that conservative < strict, so set strict first.
+	strict := cfg.StrictThreshold
+	conservative := cfg.ConservativeThreshold
+
+	if strict > 0 && strict < 1 {
+		settings.SetStrictThreshold(strict)
 	}
 
-	if cfg.StrictThreshold > 0 && cfg.StrictThreshold < 1 {
-		settings.SetStrictThreshold(cfg.StrictThreshold)
+	// Only set conservative when we also have a strict threshold; otherwise
+	// WebKit's internal default strict value may not be initialized yet.
+	if conservative > 0 && conservative < 1 && strict > 0 {
+		if conservative < strict {
+			settings.SetConservativeThreshold(conservative)
+		}
 	}
 
 	// Kill threshold: -1 = unset, 0 = never kill, >0 = threshold
