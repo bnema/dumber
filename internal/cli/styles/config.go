@@ -187,7 +187,7 @@ func (r *ConfigRenderer) RenderMigrationSuccess(count int, path string) string {
 	filename := filepath.Base(path)
 
 	return fmt.Sprintf(
-		"\n  %s Added %s new settings to %s\n",
+		"\n  %s Applied %s changes to %s\n",
 		iconStyle.Render(IconCheck),
 		countStyle.Render(fmt.Sprintf("%d", count)),
 		pathStyle.Render(filename),
