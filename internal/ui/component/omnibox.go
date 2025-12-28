@@ -809,27 +809,58 @@ func buildBangSuggestions(shortcuts map[string]config.SearchShortcut, query stri
 	return suggestions
 }
 
+func detectBangKey(shortcuts map[string]config.SearchShortcut, query string) string {
+	spaceIdx := strings.Index(query, " ")
+	if !strings.HasPrefix(query, "!") || spaceIdx <= 1 {
+		return ""
+	}
+
+	candidate := query[1:spaceIdx]
+	for key := range shortcuts {
+		if strings.EqualFold(key, candidate) {
+			return key
+		}
+	}
+
+	return ""
+}
+
+func normalizeBangKey(shortcuts map[string]config.SearchShortcut, shortcutKey string) (string, bool) {
+	for key := range shortcuts {
+		if strings.EqualFold(key, shortcutKey) {
+			return key, true
+		}
+	}
+	return "", false
+}
+
+func buildBangNavigationText(shortcuts map[string]config.SearchShortcut, entryText string) string {
+	shortcutKey, query, found := url.ParseBangShortcut(entryText)
+	if !found || query == "" {
+		return ""
+	}
+
+	resolvedKey, ok := normalizeBangKey(shortcuts, shortcutKey)
+	if !ok {
+		return ""
+	}
+
+	return "!" + resolvedKey + " " + query
+}
+
 func (o *Omnibox) loadBangSuggestions(query string) {
 	suggestions := buildBangSuggestions(o.shortcuts, query)
 	o.idleAddUpdateBangSuggestions(suggestions)
 }
 
 func (o *Omnibox) updateBangDetection(query string) {
-	spaceIdx := strings.Index(query, " ")
-	if !strings.HasPrefix(query, "!") || spaceIdx <= 1 {
+	key := detectBangKey(o.shortcuts, query)
+	if key == "" {
 		o.clearDetectedBang()
 		return
 	}
 
-	candidate := query[1:spaceIdx]
-	for key := range o.shortcuts {
-		if strings.EqualFold(key, candidate) {
-			o.setDetectedBang(key)
-			return
-		}
-	}
-
-	o.clearDetectedBang()
+	o.setDetectedBang(key)
 }
 
 func (o *Omnibox) clearBangState() {
@@ -1240,15 +1271,8 @@ func (o *Omnibox) navigateToSelected() {
 
 	if bangMode {
 		// If user typed a full bang query, navigate using the bang URL.
-		if shortcutKey, query, found := url.ParseBangShortcut(entryText); found {
-			resolvedKey := shortcutKey
-			for key := range o.shortcuts {
-				if strings.EqualFold(key, shortcutKey) {
-					resolvedKey = key
-					break
-				}
-			}
-			targetURL := o.buildURL("!" + resolvedKey + " " + query)
+		if navText := buildBangNavigationText(o.shortcuts, entryText); navText != "" {
+			targetURL := o.buildURL(navText)
 			if targetURL == "" {
 				return
 			}

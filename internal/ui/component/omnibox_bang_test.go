@@ -71,3 +71,58 @@ func TestBuildBangSuggestions(t *testing.T) {
 		})
 	}
 }
+
+func TestDetectBangKey(t *testing.T) {
+	shortcuts := map[string]config.SearchShortcut{
+		"gh":  {URL: "https://github.com/search?q=%s"},
+		"ddg": {URL: "https://duckduckgo.com/?q=%s"},
+	}
+
+	cases := []struct {
+		name  string
+		query string
+		want  string
+	}{
+		{name: "no bang prefix", query: "gh test", want: ""},
+		{name: "bang only has no space", query: "!gh", want: ""},
+		{name: "space at position 1", query: "! test", want: ""},
+		{name: "unknown bang", query: "!nope test", want: ""},
+		{name: "case-insensitive match", query: "!GH test", want: "gh"},
+		{name: "valid bang key", query: "!ddg test", want: "ddg"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := detectBangKey(shortcuts, tc.query); got != tc.want {
+				t.Fatalf("detectBangKey(%q)=%q want=%q", tc.query, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestBuildBangNavigationText(t *testing.T) {
+	shortcuts := map[string]config.SearchShortcut{
+		"gh":  {URL: "https://github.com/search?q=%s"},
+		"ddg": {URL: "https://duckduckgo.com/?q=%s"},
+	}
+
+	cases := []struct {
+		name      string
+		entryText string
+		want      string
+	}{
+		{name: "not a bang shortcut", entryText: "example.com", want: ""},
+		{name: "bang key without query", entryText: "!gh ", want: ""},
+		{name: "unknown bang key", entryText: "!nope test", want: ""},
+		{name: "normalizes key case", entryText: "!GH dumber", want: "!gh dumber"},
+		{name: "keeps query unchanged", entryText: "!ddg some query", want: "!ddg some query"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := buildBangNavigationText(shortcuts, tc.entryText); got != tc.want {
+				t.Fatalf("buildBangNavigationText(%q)=%q want=%q", tc.entryText, got, tc.want)
+			}
+		})
+	}
+}
