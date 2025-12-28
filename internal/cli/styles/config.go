@@ -21,16 +21,16 @@ func NewConfigRenderer(theme *Theme) *ConfigRenderer {
 }
 
 // RenderConfigInfo renders the config file info with status.
-func (r *ConfigRenderer) RenderConfigInfo(path string, missingCount int) string {
+func (r *ConfigRenderer) RenderConfigInfo(path string, changeCount int) string {
 	iconStyle := lipgloss.NewStyle().Foreground(r.theme.Accent)
 	pathStyle := r.theme.Subtle
 
 	var status string
-	if missingCount > 0 {
+	if changeCount > 0 {
 		countStyle := lipgloss.NewStyle().Foreground(r.theme.Warning)
-		status = fmt.Sprintf("\n  %s %s new settings available",
+		status = fmt.Sprintf("\n  %s %s changes detected",
 			iconStyle.Render(IconInfo),
-			countStyle.Render(fmt.Sprintf("%d", missingCount)),
+			countStyle.Render(fmt.Sprintf("%d", changeCount)),
 		)
 	}
 
