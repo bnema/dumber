@@ -1,11 +1,50 @@
 package config
 
-import "runtime"
+import (
+	"runtime"
+
+	"github.com/bnema/dumber/internal/application/port"
+)
 
 const (
 	// maxSkiaCPUThreads is the maximum number of Skia CPU painting threads
 	// supported by WebKitGTK (0-8 range).
 	maxSkiaCPUThreads = 8
+
+	// Memory tier thresholds (in bytes)
+	ramTierLow    = 8 * 1024 * 1024 * 1024  // 8 GB
+	ramTierMedium = 16 * 1024 * 1024 * 1024 // 16 GB
+	ramTierHigh   = 32 * 1024 * 1024 * 1024 // 32 GB
+
+	// VRAM tier thresholds (in bytes)
+	vramTierLow  = 4 * 1024 * 1024 * 1024  // 4 GB (low-end discrete / integrated)
+	vramTierMid  = 8 * 1024 * 1024 * 1024  // 8 GB (mid-range discrete)
+	vramTierHigh = 16 * 1024 * 1024 * 1024 // 16 GB (high-end discrete)
+
+	// GPU thread scaling values
+	gpuThreadsHigh = 8 // For 16GB+ VRAM
+	gpuThreadsMid  = 6 // For 8-16GB VRAM
+	gpuThreadsLow  = 4 // For 4-8GB VRAM
+	gpuThreadsMin  = 2 // For <4GB VRAM or unknown
+
+	// Memory limit values (in MB)
+	webMemHigh     = 4096 // For 32GB+ RAM
+	webMemMedium   = 3072 // For 16-32GB RAM
+	webMemLow      = 2048 // For 8-16GB RAM
+	webMemMin      = 1024 // For <8GB RAM
+	netMemHigh     = 1024 // For 32GB+ RAM
+	netMemMedium   = 768  // For 16-32GB RAM
+	netMemLow      = 512  // For 8-16GB RAM
+	netMemMin      = 256  // For <8GB RAM
+	webMemFallback = 2048 // When RAM unknown
+	netMemFallback = 512  // When RAM unknown
+
+	// WebView pool prewarm counts
+	poolPrewarmHigh     = 12 // For 32GB+ RAM
+	poolPrewarmMedium   = 8  // For 16-32GB RAM
+	poolPrewarmLow      = 6  // For 8-16GB RAM
+	poolPrewarmMin      = 4  // For <8GB RAM
+	poolPrewarmFallback = 8  // When RAM unknown
 )
 
 // ResolvedPerformanceSettings contains the computed performance settings
@@ -36,13 +75,15 @@ type ResolvedPerformanceSettings struct {
 
 // ResolvePerformanceProfile computes the actual performance settings based on
 // the selected profile. For ProfileCustom, it returns the user's configured values.
-// For other profiles, it computes appropriate values.
-func ResolvePerformanceProfile(cfg *PerformanceConfig) ResolvedPerformanceSettings {
+// For other profiles, it computes appropriate values based on detected hardware.
+//
+// The hw parameter is optional - if nil, fallback values are used.
+func ResolvePerformanceProfile(cfg *PerformanceConfig, hw *port.HardwareInfo) ResolvedPerformanceSettings {
 	switch cfg.Profile {
 	case ProfileLite:
-		return resolveLiteProfile()
+		return resolveLiteProfile(hw)
 	case ProfileMax:
-		return resolveMaxProfile()
+		return resolveMaxProfile(hw)
 	case ProfileCustom:
 		return resolveCustomProfile(cfg)
 	default: // ProfileDefault or empty
@@ -75,9 +116,16 @@ func resolveDefaultProfile() ResolvedPerformanceSettings {
 }
 
 // resolveLiteProfile returns settings optimized for low-RAM systems.
-func resolveLiteProfile() ResolvedPerformanceSettings {
+// Uses hardware info to scale CPU threads if available.
+func resolveLiteProfile(hw *port.HardwareInfo) ResolvedPerformanceSettings {
+	// Use 2 CPU threads, or scale down on very low-core systems
+	cpuThreads := 2
+	if hw != nil && hw.CPUCores > 0 && hw.CPUCores < 4 {
+		cpuThreads = 1
+	}
+
 	return ResolvedPerformanceSettings{
-		SkiaCPUPaintingThreads: 2,
+		SkiaCPUPaintingThreads: cpuThreads,
 		SkiaGPUPaintingThreads: -1, // unset
 		SkiaEnableCPURendering: false,
 
@@ -98,34 +146,121 @@ func resolveLiteProfile() ResolvedPerformanceSettings {
 }
 
 // resolveMaxProfile returns settings optimized for maximum responsiveness.
-func resolveMaxProfile() ResolvedPerformanceSettings {
-	// Use half of available CPUs, minimum 4, maximum 8 (WebKitGTK Skia limit)
-	cpuThreads := runtime.NumCPU() / 2
-	if cpuThreads < 4 {
-		cpuThreads = 4
-	}
-	if cpuThreads > maxSkiaCPUThreads {
-		cpuThreads = maxSkiaCPUThreads
-	}
+// Scales values based on detected hardware capabilities.
+func resolveMaxProfile(hw *port.HardwareInfo) ResolvedPerformanceSettings {
+	// CPU threads: use physical cores (not threads), capped at WebKitGTK limit
+	cpuThreads := computeMaxCPUThreads(hw)
+
+	// GPU threads: scale based on VRAM
+	gpuThreads := computeMaxGPUThreads(hw)
+
+	// Memory limits: scale based on system RAM
+	webMemMB, netMemMB := computeMaxMemoryLimits(hw)
+
+	// WebView pool: scale based on RAM
+	poolPrewarm := computeMaxPoolPrewarm(hw)
 
 	return ResolvedPerformanceSettings{
 		SkiaCPUPaintingThreads: cpuThreads,
-		SkiaGPUPaintingThreads: 2,
+		SkiaGPUPaintingThreads: gpuThreads,
 		SkiaEnableCPURendering: false,
 
-		WebProcessMemoryLimitMB:               2048,
+		WebProcessMemoryLimitMB:               webMemMB,
 		WebProcessMemoryPollIntervalSec:       0, // use WebKit default
 		WebProcessMemoryConservativeThreshold: 0.5,
 		WebProcessMemoryStrictThreshold:       0.7,
 		WebProcessMemoryKillThreshold:         -1, // never kill
 
-		NetworkProcessMemoryLimitMB:               512,
+		NetworkProcessMemoryLimitMB:               netMemMB,
 		NetworkProcessMemoryPollIntervalSec:       0,
 		NetworkProcessMemoryConservativeThreshold: 0.5,
 		NetworkProcessMemoryStrictThreshold:       0.7,
 		NetworkProcessMemoryKillThreshold:         -1,
 
-		WebViewPoolPrewarmCount: 8,
+		WebViewPoolPrewarmCount: poolPrewarm,
+	}
+}
+
+// computeMaxCPUThreads calculates Skia CPU threads for max profile.
+// Uses physical cores (not hyperthreaded) capped at WebKitGTK's limit.
+func computeMaxCPUThreads(hw *port.HardwareInfo) int {
+	var cpuThreads int
+
+	if hw != nil && hw.CPUCores > 0 {
+		// Use physical cores directly - they're better for parallel painting
+		cpuThreads = hw.CPUCores
+	} else {
+		// Fallback: assume hyperthreading, use half of logical CPUs
+		cpuThreads = runtime.NumCPU() / 2
+	}
+
+	// Minimum 4 for meaningful parallelism
+	if cpuThreads < 4 {
+		cpuThreads = 4
+	}
+	// Cap at WebKitGTK Skia limit
+	if cpuThreads > maxSkiaCPUThreads {
+		cpuThreads = maxSkiaCPUThreads
+	}
+
+	return cpuThreads
+}
+
+// computeMaxGPUThreads calculates Skia GPU threads based on VRAM.
+func computeMaxGPUThreads(hw *port.HardwareInfo) int {
+	if hw == nil || hw.VRAM == 0 {
+		// No VRAM info - use conservative default
+		return gpuThreadsMin
+	}
+
+	// Scale GPU threads based on VRAM tiers
+	switch {
+	case hw.VRAM >= vramTierHigh: // 16GB+ VRAM (high-end: RX 7900, RTX 4080+)
+		return gpuThreadsHigh
+	case hw.VRAM >= vramTierMid: // 8-16GB VRAM (mid-range: RX 7800, RTX 4070)
+		return gpuThreadsMid
+	case hw.VRAM >= vramTierLow: // 4-8GB VRAM (entry discrete)
+		return gpuThreadsLow
+	default: // <4GB VRAM (integrated / old discrete)
+		return gpuThreadsMin
+	}
+}
+
+// computeMaxMemoryLimits returns web process and network process memory limits.
+func computeMaxMemoryLimits(hw *port.HardwareInfo) (webMB, netMB int) {
+	if hw == nil || hw.TotalRAM == 0 {
+		// Fallback: assume 16GB system
+		return webMemFallback, netMemFallback
+	}
+
+	// Scale memory limits based on system RAM
+	switch {
+	case hw.TotalRAM >= ramTierHigh: // 32GB+ RAM
+		return webMemHigh, netMemHigh
+	case hw.TotalRAM >= ramTierMedium: // 16-32GB RAM
+		return webMemMedium, netMemMedium
+	case hw.TotalRAM >= ramTierLow: // 8-16GB RAM
+		return webMemLow, netMemLow
+	default: // <8GB RAM
+		return webMemMin, netMemMin
+	}
+}
+
+// computeMaxPoolPrewarm returns WebView pool prewarm count based on RAM.
+func computeMaxPoolPrewarm(hw *port.HardwareInfo) int {
+	if hw == nil || hw.TotalRAM == 0 {
+		return poolPrewarmFallback
+	}
+
+	switch {
+	case hw.TotalRAM >= ramTierHigh: // 32GB+
+		return poolPrewarmHigh
+	case hw.TotalRAM >= ramTierMedium: // 16-32GB
+		return poolPrewarmMedium
+	case hw.TotalRAM >= ramTierLow: // 8-16GB
+		return poolPrewarmLow
+	default: // <8GB
+		return poolPrewarmMin
 	}
 }
 
