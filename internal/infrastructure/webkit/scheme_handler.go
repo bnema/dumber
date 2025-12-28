@@ -77,7 +77,20 @@ type configAppearancePayload struct {
 }
 
 type configPerformancePayload struct {
-	Profile string `json:"profile"`
+	Profile  string                    `json:"profile"`
+	Resolved configResolvedPerformance `json:"resolved"`
+}
+
+// configResolvedPerformance shows the actual values that will be applied at startup.
+type configResolvedPerformance struct {
+	SkiaCPUThreads         int     `json:"skia_cpu_threads"`
+	SkiaGPUThreads         int     `json:"skia_gpu_threads"`
+	WebProcessMemoryMB     int     `json:"web_process_memory_mb"`
+	NetworkProcessMemoryMB int     `json:"network_process_memory_mb"`
+	WebViewPoolPrewarm     int     `json:"webview_pool_prewarm"`
+	ConservativeThreshold  float64 `json:"conservative_threshold"`
+	StrictThreshold        float64 `json:"strict_threshold"`
+	KillThreshold          float64 `json:"kill_threshold"`
 }
 
 type configPayload struct {
@@ -143,6 +156,9 @@ func (h *DumbSchemeHandler) registerDefaults() {
 }
 
 func buildConfigResponse(cfg *config.Config) *SchemeResponse {
+	// Resolve performance profile to get actual values
+	resolved := config.ResolvePerformanceProfile(&cfg.Performance)
+
 	resp := configPayload{
 		DefaultUIScale:      cfg.DefaultUIScale,
 		DefaultSearchEngine: cfg.DefaultSearchEngine,
@@ -158,6 +174,16 @@ func buildConfigResponse(cfg *config.Config) *SchemeResponse {
 		},
 		Performance: configPerformancePayload{
 			Profile: string(cfg.Performance.Profile),
+			Resolved: configResolvedPerformance{
+				SkiaCPUThreads:         resolved.SkiaCPUPaintingThreads,
+				SkiaGPUThreads:         resolved.SkiaGPUPaintingThreads,
+				WebProcessMemoryMB:     resolved.WebProcessMemoryLimitMB,
+				NetworkProcessMemoryMB: resolved.NetworkProcessMemoryLimitMB,
+				WebViewPoolPrewarm:     resolved.WebViewPoolPrewarmCount,
+				ConservativeThreshold:  resolved.WebProcessMemoryConservativeThreshold,
+				StrictThreshold:        resolved.WebProcessMemoryStrictThreshold,
+				KillThreshold:          resolved.WebProcessMemoryKillThreshold,
+			},
 		},
 	}
 
