@@ -299,6 +299,22 @@ entry.omnibox-entry > *:focus-visible {
 	border-left: 0.1875em solid var(--accent);
 }
 
+/* Favorite indicator in history mode - yellowish accent */
+.omnibox-row.omnibox-row-favorite {
+	background-color: alpha(var(--warning), 0.08);
+	border-left: 0.1875em solid var(--warning);
+}
+
+.omnibox-row.omnibox-row-favorite:hover {
+	background-color: alpha(var(--warning), 0.15);
+	border-left: 0.1875em solid var(--warning);
+}
+
+.omnibox-row.omnibox-row-favorite:selected {
+	background-color: alpha(var(--warning), 0.2);
+	border-left: 0.1875em solid var(--warning);
+}
+
 /* Favicon in omnibox rows */
 .omnibox-favicon {
 	min-width: 1em;
