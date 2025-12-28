@@ -318,12 +318,14 @@ func keysAreSimilar(oldKey, newKey string) bool {
 	oldTokens := strings.Split(oldLeaf, "_")
 	newTokens := strings.Split(newLeaf, "_")
 
-	// Count matching tokens
+	// Count matching tokens, ensuring each new token is matched at most once
 	matches := 0
+	matchedNew := make([]bool, len(newTokens))
 	for _, ot := range oldTokens {
-		for _, nt := range newTokens {
-			if ot == nt {
+		for j, nt := range newTokens {
+			if ot == nt && !matchedNew[j] {
 				matches++
+				matchedNew[j] = true
 				break
 			}
 		}
