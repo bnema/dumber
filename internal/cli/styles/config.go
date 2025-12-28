@@ -69,6 +69,114 @@ func (r *ConfigRenderer) RenderMissingKeys(keys []port.KeyInfo) string {
 	return sb.String()
 }
 
+// RenderChanges renders the list of detected changes (added, renamed, removed).
+func (r *ConfigRenderer) RenderChanges(changes []port.KeyChange) string {
+	if len(changes) == 0 {
+		return ""
+	}
+
+	addStyle := lipgloss.NewStyle().Foreground(r.theme.Success)
+	renameStyle := lipgloss.NewStyle().Foreground(r.theme.Warning)
+	removeStyle := lipgloss.NewStyle().Foreground(r.theme.Error)
+	keyStyle := r.theme.Highlight
+	valueStyle := r.theme.Subtle
+
+	// Group changes by type
+	var added, renamed, removed []port.KeyChange
+	for _, c := range changes {
+		switch c.Type {
+		case port.KeyChangeAdded:
+			added = append(added, c)
+		case port.KeyChangeRenamed:
+			renamed = append(renamed, c)
+		case port.KeyChangeRemoved:
+			removed = append(removed, c)
+		}
+	}
+
+	var sb strings.Builder
+
+	// Show renamed keys first (most important for user to understand)
+	if len(renamed) > 0 {
+		sb.WriteString(fmt.Sprintf("\n  Renamed settings (%d):\n", len(renamed)))
+		for _, c := range renamed {
+			sb.WriteString(fmt.Sprintf(
+				"    %s %s %s %s\n      Value: %s\n",
+				renameStyle.Render("~"),
+				valueStyle.Render(c.OldKey),
+				renameStyle.Render("→"),
+				keyStyle.Render(c.NewKey),
+				valueStyle.Render(c.OldValue),
+			))
+		}
+	}
+
+	// Show new settings
+	if len(added) > 0 {
+		sb.WriteString(fmt.Sprintf("\n  New settings (%d):\n", len(added)))
+		for _, c := range added {
+			sb.WriteString(fmt.Sprintf(
+				"    %s %s\n      Default: %s\n",
+				addStyle.Render("+"),
+				keyStyle.Render(c.NewKey),
+				valueStyle.Render(c.NewValue),
+			))
+		}
+	}
+
+	// Show deprecated settings (will be removed)
+	if len(removed) > 0 {
+		sb.WriteString(fmt.Sprintf("\n  Deprecated settings (%d):\n", len(removed)))
+		for _, c := range removed {
+			sb.WriteString(fmt.Sprintf(
+				"    %s %s %s\n",
+				removeStyle.Render("-"),
+				valueStyle.Render(c.OldKey),
+				removeStyle.Render("(will be ignored)"),
+			))
+		}
+	}
+
+	return sb.String()
+}
+
+// RenderChangesSummary renders a summary of changes for the config info header.
+func (r *ConfigRenderer) RenderChangesSummary(changes []port.KeyChange) string {
+	var added, renamed, removed int
+	for _, c := range changes {
+		switch c.Type {
+		case port.KeyChangeAdded:
+			added++
+		case port.KeyChangeRenamed:
+			renamed++
+		case port.KeyChangeRemoved:
+			removed++
+		}
+	}
+
+	iconStyle := lipgloss.NewStyle().Foreground(r.theme.Accent)
+	addStyle := lipgloss.NewStyle().Foreground(r.theme.Success)
+	renameStyle := lipgloss.NewStyle().Foreground(r.theme.Warning)
+	removeStyle := lipgloss.NewStyle().Foreground(r.theme.Error)
+
+	var parts []string
+	if renamed > 0 {
+		parts = append(parts, renameStyle.Render(fmt.Sprintf("%d renamed", renamed)))
+	}
+	if added > 0 {
+		parts = append(parts, addStyle.Render(fmt.Sprintf("%d new", added)))
+	}
+	if removed > 0 {
+		parts = append(parts, removeStyle.Render(fmt.Sprintf("%d deprecated", removed)))
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+
+	return fmt.Sprintf("\n  %s %s", iconStyle.Render(IconInfo), strings.Join(parts, ", "))
+}
+
 // RenderMigrationSuccess renders the success message after migration.
 func (r *ConfigRenderer) RenderMigrationSuccess(count int, path string) string {
 	iconStyle := lipgloss.NewStyle().Foreground(r.theme.Success)
