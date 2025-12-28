@@ -26,8 +26,20 @@
     description: string;
   };
 
+  type ResolvedPerformance = {
+    skia_cpu_threads: number;
+    skia_gpu_threads: number;
+    web_process_memory_mb: number;
+    network_process_memory_mb: number;
+    webview_pool_prewarm: number;
+    conservative_threshold: number;
+    strict_threshold: number;
+    kill_threshold: number;
+  };
+
   type PerformanceConfig = {
     profile: string;
+    resolved: ResolvedPerformance;
   };
 
   type ConfigDTO = {
@@ -437,6 +449,41 @@
                     Custom profile settings are configured in your <code class="rounded bg-muted px-1 py-0.5">config.toml</code> file.
                     See the <a href="https://github.com/bnema/dumber/blob/main/docs/CONFIG.md#performance-profiles" target="_blank" class="text-primary underline">documentation</a> for available options.
                   </p>
+                </div>
+              {/if}
+
+              <!-- Resolved values display -->
+              {#if config.performance.resolved}
+                <div class="space-y-3">
+                  <div class="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    Resolved Settings (applied on restart)
+                  </div>
+                  <div class="grid gap-3 rounded-md border border-border bg-muted/20 p-4 text-sm md:grid-cols-2">
+                    <div class="flex justify-between">
+                      <span class="text-muted-foreground">Skia CPU Threads</span>
+                      <span class="font-mono">{config.performance.resolved.skia_cpu_threads === 0 ? 'unset' : config.performance.resolved.skia_cpu_threads}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-muted-foreground">Skia GPU Threads</span>
+                      <span class="font-mono">{config.performance.resolved.skia_gpu_threads === -1 ? 'unset' : config.performance.resolved.skia_gpu_threads}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-muted-foreground">Web Process Memory</span>
+                      <span class="font-mono">{config.performance.resolved.web_process_memory_mb === 0 ? 'unset' : config.performance.resolved.web_process_memory_mb + ' MB'}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-muted-foreground">Network Process Memory</span>
+                      <span class="font-mono">{config.performance.resolved.network_process_memory_mb === 0 ? 'unset' : config.performance.resolved.network_process_memory_mb + ' MB'}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-muted-foreground">WebView Pool Prewarm</span>
+                      <span class="font-mono">{config.performance.resolved.webview_pool_prewarm}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-muted-foreground">Memory Kill Threshold</span>
+                      <span class="font-mono">{config.performance.resolved.kill_threshold === -1 ? 'never' : (config.performance.resolved.kill_threshold * 100).toFixed(0) + '%'}</span>
+                    </div>
+                  </div>
                 </div>
               {/if}
             </Card.Content>
