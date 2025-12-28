@@ -2,8 +2,6 @@ package usecase
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
@@ -48,13 +46,15 @@ type MigrateConfigOutput struct {
 
 // MigrateConfigUseCase handles config migration operations.
 type MigrateConfigUseCase struct {
-	migrator port.ConfigMigrator
+	migrator      port.ConfigMigrator
+	diffFormatter port.DiffFormatter
 }
 
 // NewMigrateConfigUseCase creates a new migrate config use case.
-func NewMigrateConfigUseCase(migrator port.ConfigMigrator) *MigrateConfigUseCase {
+func NewMigrateConfigUseCase(migrator port.ConfigMigrator, diffFormatter port.DiffFormatter) *MigrateConfigUseCase {
 	return &MigrateConfigUseCase{
-		migrator: migrator,
+		migrator:      migrator,
+		diffFormatter: diffFormatter,
 	}
 }
 
@@ -122,7 +122,7 @@ func (uc *MigrateConfigUseCase) DetectChanges(ctx context.Context, _ DetectChang
 	return &DetectChangesOutput{
 		HasChanges: true,
 		Changes:    changes,
-		DiffText:   formatChangesAsDiff(changes),
+		DiffText:   uc.diffFormatter.FormatChangesAsDiff(changes),
 	}, nil
 }
 
@@ -160,30 +160,4 @@ func (uc *MigrateConfigUseCase) Execute(ctx context.Context, _ MigrateConfigInpu
 		AddedKeys:  addedKeys,
 		ConfigFile: checkResult.ConfigFile,
 	}, nil
-}
-
-// formatChangesAsDiff returns changes formatted as a diff for display.
-func formatChangesAsDiff(changes []port.KeyChange) string {
-	if len(changes) == 0 {
-		return "No changes detected."
-	}
-
-	var sb strings.Builder
-	sb.WriteString("Config migration changes:\n\n")
-
-	for _, change := range changes {
-		switch change.Type {
-		case port.KeyChangeAdded:
-			sb.WriteString(fmt.Sprintf("  + %s = %s\n", change.NewKey, change.NewValue))
-		case port.KeyChangeRemoved:
-			sb.WriteString(fmt.Sprintf("  - %s = %s (deprecated)\n", change.OldKey, change.OldValue))
-		case port.KeyChangeRenamed:
-			sb.WriteString(fmt.Sprintf("  ~ %s -> %s\n", change.OldKey, change.NewKey))
-			sb.WriteString(fmt.Sprintf("    (value: %s)\n", change.OldValue))
-		case port.KeyChangeConsolidated:
-			sb.WriteString(fmt.Sprintf("  > %s -> %s\n", change.OldKey, change.NewKey))
-		}
-	}
-
-	return sb.String()
 }

@@ -15,9 +15,10 @@ import (
 
 func TestMigrateConfigUseCase_Check_NoMigrationNeeded(t *testing.T) {
 	mockMigrator := mocks.NewMockConfigMigrator(t)
+	mockFormatter := mocks.NewMockDiffFormatter(t)
 	mockMigrator.EXPECT().CheckMigration().Return(nil, nil)
 
-	uc := NewMigrateConfigUseCase(mockMigrator)
+	uc := NewMigrateConfigUseCase(mockMigrator, mockFormatter)
 	ctx := context.Background()
 
 	result, err := uc.Check(ctx, CheckConfigMigrationInput{})
@@ -29,6 +30,7 @@ func TestMigrateConfigUseCase_Check_NoMigrationNeeded(t *testing.T) {
 
 func TestMigrateConfigUseCase_Check_MigrationNeeded(t *testing.T) {
 	mockMigrator := mocks.NewMockConfigMigrator(t)
+	mockFormatter := mocks.NewMockDiffFormatter(t)
 
 	migrationResult := &port.MigrationResult{
 		MissingKeys: []string{"key1", "key2"},
@@ -48,7 +50,7 @@ func TestMigrateConfigUseCase_Check_MigrationNeeded(t *testing.T) {
 		DefaultValue: `"default"`,
 	})
 
-	uc := NewMigrateConfigUseCase(mockMigrator)
+	uc := NewMigrateConfigUseCase(mockMigrator, mockFormatter)
 	ctx := context.Background()
 
 	result, err := uc.Check(ctx, CheckConfigMigrationInput{})
@@ -67,10 +69,11 @@ func TestMigrateConfigUseCase_Check_MigrationNeeded(t *testing.T) {
 
 func TestMigrateConfigUseCase_Check_Error(t *testing.T) {
 	mockMigrator := mocks.NewMockConfigMigrator(t)
+	mockFormatter := mocks.NewMockDiffFormatter(t)
 	expectedErr := errors.New("check failed")
 	mockMigrator.EXPECT().CheckMigration().Return(nil, expectedErr)
 
-	uc := NewMigrateConfigUseCase(mockMigrator)
+	uc := NewMigrateConfigUseCase(mockMigrator, mockFormatter)
 	ctx := context.Background()
 
 	result, err := uc.Check(ctx, CheckConfigMigrationInput{})
@@ -82,9 +85,10 @@ func TestMigrateConfigUseCase_Check_Error(t *testing.T) {
 
 func TestMigrateConfigUseCase_Execute_NoMigrationNeeded(t *testing.T) {
 	mockMigrator := mocks.NewMockConfigMigrator(t)
+	mockFormatter := mocks.NewMockDiffFormatter(t)
 	mockMigrator.EXPECT().CheckMigration().Return(nil, nil)
 
-	uc := NewMigrateConfigUseCase(mockMigrator)
+	uc := NewMigrateConfigUseCase(mockMigrator, mockFormatter)
 	ctx := context.Background()
 
 	result, err := uc.Execute(ctx, MigrateConfigInput{})
@@ -95,6 +99,7 @@ func TestMigrateConfigUseCase_Execute_NoMigrationNeeded(t *testing.T) {
 
 func TestMigrateConfigUseCase_Execute_Success(t *testing.T) {
 	mockMigrator := mocks.NewMockConfigMigrator(t)
+	mockFormatter := mocks.NewMockDiffFormatter(t)
 
 	migrationResult := &port.MigrationResult{
 		MissingKeys: []string{"key1", "key2"},
@@ -103,7 +108,7 @@ func TestMigrateConfigUseCase_Execute_Success(t *testing.T) {
 	mockMigrator.EXPECT().CheckMigration().Return(migrationResult, nil)
 	mockMigrator.EXPECT().Migrate().Return([]string{"key1", "key2"}, nil)
 
-	uc := NewMigrateConfigUseCase(mockMigrator)
+	uc := NewMigrateConfigUseCase(mockMigrator, mockFormatter)
 	ctx := context.Background()
 
 	result, err := uc.Execute(ctx, MigrateConfigInput{})
@@ -115,6 +120,7 @@ func TestMigrateConfigUseCase_Execute_Success(t *testing.T) {
 
 func TestMigrateConfigUseCase_Execute_MigrateError(t *testing.T) {
 	mockMigrator := mocks.NewMockConfigMigrator(t)
+	mockFormatter := mocks.NewMockDiffFormatter(t)
 
 	migrationResult := &port.MigrationResult{
 		MissingKeys: []string{"key1"},
@@ -125,7 +131,7 @@ func TestMigrateConfigUseCase_Execute_MigrateError(t *testing.T) {
 	expectedErr := errors.New("migrate failed")
 	mockMigrator.EXPECT().Migrate().Return(nil, expectedErr)
 
-	uc := NewMigrateConfigUseCase(mockMigrator)
+	uc := NewMigrateConfigUseCase(mockMigrator, mockFormatter)
 	ctx := context.Background()
 
 	result, err := uc.Execute(ctx, MigrateConfigInput{})
@@ -137,11 +143,12 @@ func TestMigrateConfigUseCase_Execute_MigrateError(t *testing.T) {
 
 func TestMigrateConfigUseCase_Execute_CheckError(t *testing.T) {
 	mockMigrator := mocks.NewMockConfigMigrator(t)
+	mockFormatter := mocks.NewMockDiffFormatter(t)
 
 	expectedErr := errors.New("check failed")
 	mockMigrator.EXPECT().CheckMigration().Return(nil, expectedErr)
 
-	uc := NewMigrateConfigUseCase(mockMigrator)
+	uc := NewMigrateConfigUseCase(mockMigrator, mockFormatter)
 	ctx := context.Background()
 
 	result, err := uc.Execute(ctx, MigrateConfigInput{})
@@ -153,6 +160,7 @@ func TestMigrateConfigUseCase_Execute_CheckError(t *testing.T) {
 
 func TestMigrateConfigUseCase_Check_EmptyMissingKeys(t *testing.T) {
 	mockMigrator := mocks.NewMockConfigMigrator(t)
+	mockFormatter := mocks.NewMockDiffFormatter(t)
 
 	// Return a result with empty missing keys
 	migrationResult := &port.MigrationResult{
@@ -161,7 +169,7 @@ func TestMigrateConfigUseCase_Check_EmptyMissingKeys(t *testing.T) {
 	}
 	mockMigrator.EXPECT().CheckMigration().Return(migrationResult, nil)
 
-	uc := NewMigrateConfigUseCase(mockMigrator)
+	uc := NewMigrateConfigUseCase(mockMigrator, mockFormatter)
 	ctx := context.Background()
 
 	result, err := uc.Check(ctx, CheckConfigMigrationInput{})
@@ -173,15 +181,18 @@ func TestMigrateConfigUseCase_Check_EmptyMissingKeys(t *testing.T) {
 
 func TestNewMigrateConfigUseCase(t *testing.T) {
 	mockMigrator := mocks.NewMockConfigMigrator(t)
-	uc := NewMigrateConfigUseCase(mockMigrator)
+	mockFormatter := mocks.NewMockDiffFormatter(t)
+	uc := NewMigrateConfigUseCase(mockMigrator, mockFormatter)
 
 	assert.NotNil(t, uc)
 	assert.Equal(t, mockMigrator, uc.migrator)
+	assert.Equal(t, mockFormatter, uc.diffFormatter)
 }
 
 // Ensure mock expectations are set up correctly
 func TestMigrateConfigUseCase_MockExpectations(t *testing.T) {
 	mockMigrator := mocks.NewMockConfigMigrator(t)
+	mockFormatter := mocks.NewMockDiffFormatter(t)
 
 	// Set up expectations with mock.Anything for flexibility
 	mockMigrator.On("CheckMigration").Return(&port.MigrationResult{
@@ -195,7 +206,7 @@ func TestMigrateConfigUseCase_MockExpectations(t *testing.T) {
 		DefaultValue: `"test"`,
 	}).Once()
 
-	uc := NewMigrateConfigUseCase(mockMigrator)
+	uc := NewMigrateConfigUseCase(mockMigrator, mockFormatter)
 	ctx := context.Background()
 
 	result, err := uc.Check(ctx, CheckConfigMigrationInput{})
@@ -207,9 +218,10 @@ func TestMigrateConfigUseCase_MockExpectations(t *testing.T) {
 
 func TestMigrateConfigUseCase_DetectChanges_NoChanges(t *testing.T) {
 	mockMigrator := mocks.NewMockConfigMigrator(t)
+	mockFormatter := mocks.NewMockDiffFormatter(t)
 	mockMigrator.EXPECT().DetectChanges().Return(nil, nil)
 
-	uc := NewMigrateConfigUseCase(mockMigrator)
+	uc := NewMigrateConfigUseCase(mockMigrator, mockFormatter)
 	ctx := context.Background()
 
 	result, err := uc.DetectChanges(ctx, DetectChangesInput{})
@@ -222,6 +234,7 @@ func TestMigrateConfigUseCase_DetectChanges_NoChanges(t *testing.T) {
 
 func TestMigrateConfigUseCase_DetectChanges_WithAddedKey(t *testing.T) {
 	mockMigrator := mocks.NewMockConfigMigrator(t)
+	mockFormatter := mocks.NewMockDiffFormatter(t)
 
 	changes := []port.KeyChange{
 		{
@@ -231,8 +244,9 @@ func TestMigrateConfigUseCase_DetectChanges_WithAddedKey(t *testing.T) {
 		},
 	}
 	mockMigrator.EXPECT().DetectChanges().Return(changes, nil)
+	mockFormatter.EXPECT().FormatChangesAsDiff(changes).Return("Config migration changes:\n\n  + workspace.styling.mode_indicator_toaster_enabled = true\n")
 
-	uc := NewMigrateConfigUseCase(mockMigrator)
+	uc := NewMigrateConfigUseCase(mockMigrator, mockFormatter)
 	ctx := context.Background()
 
 	result, err := uc.DetectChanges(ctx, DetectChangesInput{})
@@ -245,6 +259,7 @@ func TestMigrateConfigUseCase_DetectChanges_WithAddedKey(t *testing.T) {
 
 func TestMigrateConfigUseCase_DetectChanges_WithRenamedKey(t *testing.T) {
 	mockMigrator := mocks.NewMockConfigMigrator(t)
+	mockFormatter := mocks.NewMockDiffFormatter(t)
 
 	changes := []port.KeyChange{
 		{
@@ -255,8 +270,9 @@ func TestMigrateConfigUseCase_DetectChanges_WithRenamedKey(t *testing.T) {
 		},
 	}
 	mockMigrator.EXPECT().DetectChanges().Return(changes, nil)
+	mockFormatter.EXPECT().FormatChangesAsDiff(changes).Return("Config migration changes:\n\n  ~ workspace.styling.pane_mode_border_color -> workspace.styling.pane_mode_color\n    (value: \"#4A90E2\")\n")
 
-	uc := NewMigrateConfigUseCase(mockMigrator)
+	uc := NewMigrateConfigUseCase(mockMigrator, mockFormatter)
 	ctx := context.Background()
 
 	result, err := uc.DetectChanges(ctx, DetectChangesInput{})
@@ -269,6 +285,7 @@ func TestMigrateConfigUseCase_DetectChanges_WithRenamedKey(t *testing.T) {
 
 func TestMigrateConfigUseCase_DetectChanges_WithRemovedKey(t *testing.T) {
 	mockMigrator := mocks.NewMockConfigMigrator(t)
+	mockFormatter := mocks.NewMockDiffFormatter(t)
 
 	changes := []port.KeyChange{
 		{
@@ -278,8 +295,9 @@ func TestMigrateConfigUseCase_DetectChanges_WithRemovedKey(t *testing.T) {
 		},
 	}
 	mockMigrator.EXPECT().DetectChanges().Return(changes, nil)
+	mockFormatter.EXPECT().FormatChangesAsDiff(changes).Return("Config migration changes:\n\n  - workspace.styling.pane_mode_border_width = 4 (deprecated)\n")
 
-	uc := NewMigrateConfigUseCase(mockMigrator)
+	uc := NewMigrateConfigUseCase(mockMigrator, mockFormatter)
 	ctx := context.Background()
 
 	result, err := uc.DetectChanges(ctx, DetectChangesInput{})
@@ -293,10 +311,11 @@ func TestMigrateConfigUseCase_DetectChanges_WithRemovedKey(t *testing.T) {
 
 func TestMigrateConfigUseCase_DetectChanges_Error(t *testing.T) {
 	mockMigrator := mocks.NewMockConfigMigrator(t)
+	mockFormatter := mocks.NewMockDiffFormatter(t)
 	expectedErr := errors.New("detect changes failed")
 	mockMigrator.EXPECT().DetectChanges().Return(nil, expectedErr)
 
-	uc := NewMigrateConfigUseCase(mockMigrator)
+	uc := NewMigrateConfigUseCase(mockMigrator, mockFormatter)
 	ctx := context.Background()
 
 	result, err := uc.DetectChanges(ctx, DetectChangesInput{})
@@ -308,6 +327,7 @@ func TestMigrateConfigUseCase_DetectChanges_Error(t *testing.T) {
 
 func TestMigrateConfigUseCase_DetectChanges_MultipleChanges(t *testing.T) {
 	mockMigrator := mocks.NewMockConfigMigrator(t)
+	mockFormatter := mocks.NewMockDiffFormatter(t)
 
 	changes := []port.KeyChange{
 		{
@@ -328,8 +348,15 @@ func TestMigrateConfigUseCase_DetectChanges_MultipleChanges(t *testing.T) {
 		},
 	}
 	mockMigrator.EXPECT().DetectChanges().Return(changes, nil)
+	mockFormatter.EXPECT().FormatChangesAsDiff(changes).Return(
+		"Config migration changes:\n\n" +
+			"  + workspace.styling.mode_border_width = 4\n" +
+			"  ~ workspace.styling.pane_mode_border_color -> workspace.styling.pane_mode_color\n" +
+			"    (value: \"#4A90E2\")\n" +
+			"  - workspace.styling.pane_mode_border_width = 4 (deprecated)\n",
+	)
 
-	uc := NewMigrateConfigUseCase(mockMigrator)
+	uc := NewMigrateConfigUseCase(mockMigrator, mockFormatter)
 	ctx := context.Background()
 
 	result, err := uc.DetectChanges(ctx, DetectChangesInput{})
@@ -342,47 +369,4 @@ func TestMigrateConfigUseCase_DetectChanges_MultipleChanges(t *testing.T) {
 	assert.Contains(t, result.DiffText, "+ workspace.styling.mode_border_width")
 	assert.Contains(t, result.DiffText, "~ workspace.styling.pane_mode_border_color")
 	assert.Contains(t, result.DiffText, "- workspace.styling.pane_mode_border_width")
-}
-
-func TestFormatChangesAsDiff_EmptyChanges(t *testing.T) {
-	result := formatChangesAsDiff(nil)
-	assert.Equal(t, "No changes detected.", result)
-
-	result = formatChangesAsDiff([]port.KeyChange{})
-	assert.Equal(t, "No changes detected.", result)
-}
-
-func TestFormatChangesAsDiff_AllChangeTypes(t *testing.T) {
-	changes := []port.KeyChange{
-		{
-			Type:     port.KeyChangeAdded,
-			NewKey:   "new.key",
-			NewValue: `"value"`,
-		},
-		{
-			Type:     port.KeyChangeRemoved,
-			OldKey:   "old.key",
-			OldValue: `"old_value"`,
-		},
-		{
-			Type:     port.KeyChangeRenamed,
-			OldKey:   "renamed.old",
-			NewKey:   "renamed.new",
-			OldValue: `"renamed_value"`,
-		},
-		{
-			Type:   port.KeyChangeConsolidated,
-			OldKey: "consolidated.old",
-			NewKey: "consolidated.new",
-		},
-	}
-
-	result := formatChangesAsDiff(changes)
-
-	assert.Contains(t, result, "Config migration changes:")
-	assert.Contains(t, result, `+ new.key = "value"`)
-	assert.Contains(t, result, `- old.key = "old_value" (deprecated)`)
-	assert.Contains(t, result, "~ renamed.old -> renamed.new")
-	assert.Contains(t, result, `(value: "renamed_value")`)
-	assert.Contains(t, result, "> consolidated.old -> consolidated.new")
 }
