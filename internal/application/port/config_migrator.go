@@ -63,12 +63,15 @@ type ConfigMigrator interface {
 	// This provides a detailed diff-like view of what migration would do.
 	DetectChanges() ([]KeyChange, error)
 
-	// Migrate adds missing default keys to the user's config file.
-	// Returns the list of keys that were added/renamed.
+	// Migrate adds missing default keys and removes deprecated keys from the user's config file.
+	// Returns the list of keys that were added/renamed/removed.
 	Migrate() ([]string, error)
 
 	// GetKeyInfo returns detailed information about a config key.
 	GetKeyInfo(key string) KeyInfo
+
+	// GetConfigFile returns the path to the user's config file.
+	GetConfigFile() (string, error)
 }
 
 // DiffFormatter formats config changes for display.

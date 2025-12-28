@@ -86,7 +86,7 @@ func TestMigrateConfigUseCase_Check_Error(t *testing.T) {
 func TestMigrateConfigUseCase_Execute_NoMigrationNeeded(t *testing.T) {
 	mockMigrator := mocks.NewMockConfigMigrator(t)
 	mockFormatter := mocks.NewMockDiffFormatter(t)
-	mockMigrator.EXPECT().CheckMigration().Return(nil, nil)
+	mockMigrator.EXPECT().DetectChanges().Return(nil, nil)
 
 	uc := NewMigrateConfigUseCase(mockMigrator, mockFormatter)
 	ctx := context.Background()
@@ -101,11 +101,12 @@ func TestMigrateConfigUseCase_Execute_Success(t *testing.T) {
 	mockMigrator := mocks.NewMockConfigMigrator(t)
 	mockFormatter := mocks.NewMockDiffFormatter(t)
 
-	migrationResult := &port.MigrationResult{
-		MissingKeys: []string{"key1", "key2"},
-		ConfigFile:  "/path/to/config.toml",
+	changes := []port.KeyChange{
+		{Type: port.KeyChangeAdded, NewKey: "key1"},
+		{Type: port.KeyChangeAdded, NewKey: "key2"},
 	}
-	mockMigrator.EXPECT().CheckMigration().Return(migrationResult, nil)
+	mockMigrator.EXPECT().DetectChanges().Return(changes, nil)
+	mockMigrator.EXPECT().GetConfigFile().Return("/path/to/config.toml", nil)
 	mockMigrator.EXPECT().Migrate().Return([]string{"key1", "key2"}, nil)
 
 	uc := NewMigrateConfigUseCase(mockMigrator, mockFormatter)
@@ -122,11 +123,11 @@ func TestMigrateConfigUseCase_Execute_MigrateError(t *testing.T) {
 	mockMigrator := mocks.NewMockConfigMigrator(t)
 	mockFormatter := mocks.NewMockDiffFormatter(t)
 
-	migrationResult := &port.MigrationResult{
-		MissingKeys: []string{"key1"},
-		ConfigFile:  "/path/to/config.toml",
+	changes := []port.KeyChange{
+		{Type: port.KeyChangeAdded, NewKey: "key1"},
 	}
-	mockMigrator.EXPECT().CheckMigration().Return(migrationResult, nil)
+	mockMigrator.EXPECT().DetectChanges().Return(changes, nil)
+	mockMigrator.EXPECT().GetConfigFile().Return("/path/to/config.toml", nil)
 
 	expectedErr := errors.New("migrate failed")
 	mockMigrator.EXPECT().Migrate().Return(nil, expectedErr)
@@ -141,12 +142,12 @@ func TestMigrateConfigUseCase_Execute_MigrateError(t *testing.T) {
 	assert.Equal(t, expectedErr, err)
 }
 
-func TestMigrateConfigUseCase_Execute_CheckError(t *testing.T) {
+func TestMigrateConfigUseCase_Execute_DetectChangesError(t *testing.T) {
 	mockMigrator := mocks.NewMockConfigMigrator(t)
 	mockFormatter := mocks.NewMockDiffFormatter(t)
 
-	expectedErr := errors.New("check failed")
-	mockMigrator.EXPECT().CheckMigration().Return(nil, expectedErr)
+	expectedErr := errors.New("detect changes failed")
+	mockMigrator.EXPECT().DetectChanges().Return(nil, expectedErr)
 
 	uc := NewMigrateConfigUseCase(mockMigrator, mockFormatter)
 	ctx := context.Background()

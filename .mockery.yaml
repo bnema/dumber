@@ -9,6 +9,7 @@ packages:
       pkgname: mocks
     interfaces:
       ConfigMigrator: {}
+      ConfigSchemaProvider: {}
       DatabaseProvider: {}
       DiffFormatter: {}
       SessionLogger: {}
