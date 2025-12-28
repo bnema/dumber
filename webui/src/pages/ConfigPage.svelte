@@ -86,6 +86,7 @@
   let saving = $state(false);
   let saveSuccess = $state(false);
   let saveError = $state<string | null>(null);
+  let showRestartWarning = $state(false);
   let themeEvents = $state(0);
   let activeTab = $state("appearance");
 
@@ -181,6 +182,11 @@
         console.debug("[config] save success", resp);
         saveSuccess = true;
         saving = false;
+
+        // Show restart warning if performance tab was active
+        if (activeTab === "performance") {
+          showRestartWarning = true;
+        }
 
         // Refresh config from backend (in case watcher normalized values)
         reloadConfig();
@@ -409,13 +415,13 @@
               </Card.Description>
             </Card.Header>
             <Card.Content class="space-y-6">
-              <!-- Restart warning banner -->
-              <div class="flex items-start gap-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-                <span class="text-amber-500">⚠</span>
+              <!-- Experimental feature warning -->
+              <div class="flex items-start gap-3 rounded-md border border-info/30 bg-info/10 px-4 py-3">
+                <span class="text-info">🧪</span>
                 <div class="space-y-1">
-                  <p class="text-sm font-medium text-amber-500">Restart Required</p>
+                  <p class="text-sm font-medium text-info">Experimental Feature</p>
                   <p class="text-xs text-muted-foreground">
-                    Performance settings are applied at browser startup. Changes will take effect after restarting Dumber.
+                    Performance profiles are experimental. Results may vary depending on your hardware and WebKitGTK version.
                   </p>
                 </div>
               </div>
@@ -537,6 +543,19 @@
       {#if saveError}
         <div class="border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {saveError}
+        </div>
+      {/if}
+
+      <!-- Restart warning after saving performance settings -->
+      {#if showRestartWarning}
+        <div class="flex items-start gap-3 border border-warning/30 bg-warning/10 px-4 py-3">
+          <span class="text-warning">⚠</span>
+          <div class="space-y-1">
+            <p class="text-sm font-medium text-warning">Restart Required</p>
+            <p class="text-xs text-muted-foreground">
+              Performance settings are applied at browser startup. Restart Dumber for changes to take effect.
+            </p>
+          </div>
         </div>
       {/if}
     {/if}
