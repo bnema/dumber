@@ -340,6 +340,283 @@ func TestMigrator_FormatValue(t *testing.T) {
 	}
 }
 
+func TestKeysAreSimilar(t *testing.T) {
+	tests := []struct {
+		name     string
+		oldKey   string
+		newKey   string
+		expected bool
+	}{
+		{
+			name:     "identical keys",
+			oldKey:   "section.pane_mode_color",
+			newKey:   "section.pane_mode_color",
+			expected: true,
+		},
+		{
+			name:     "substring match - old contains new",
+			oldKey:   "section.pane_mode_border_color",
+			newKey:   "section.pane_mode_color",
+			expected: true,
+		},
+		{
+			name:     "substring match - new contains old",
+			oldKey:   "section.mode_color",
+			newKey:   "section.pane_mode_color",
+			expected: true,
+		},
+		{
+			name:     "token matching - border removed",
+			oldKey:   "section.tab_mode_border_color",
+			newKey:   "section.tab_mode_color",
+			expected: true,
+		},
+		{
+			name:     "different parent paths",
+			oldKey:   "section_a.pane_mode_color",
+			newKey:   "section_b.pane_mode_color",
+			expected: false,
+		},
+		{
+			name:     "different depth",
+			oldKey:   "pane_mode_color",
+			newKey:   "section.pane_mode_color",
+			expected: false,
+		},
+		{
+			name:     "completely different keys",
+			oldKey:   "section.foo_bar",
+			newKey:   "section.baz_qux",
+			expected: false,
+		},
+		{
+			name:     "top level keys rejected",
+			oldKey:   "foo",
+			newKey:   "bar",
+			expected: false,
+		},
+		{
+			name:     "no common tokens",
+			oldKey:   "section.aaa_bbb",
+			newKey:   "section.ccc_ddd",
+			expected: false,
+		},
+		{
+			name:     "single token difference allowed",
+			oldKey:   "section.pane_mode_border_width",
+			newKey:   "section.mode_border_width",
+			expected: true,
+		},
+		{
+			name:     "duplicate tokens in old key - no double counting",
+			oldKey:   "section.mode_mode_mode",
+			newKey:   "section.mode_other_another",
+			expected: false, // oldTokens=[mode,mode,mode], newTokens=[mode,other,another], matches=1 (only one mode can match), minTokens=3, needs 1>=2 which is false
+		},
+		{
+			name:     "enough common tokens with duplicates",
+			oldKey:   "section.pane_mode_border",
+			newKey:   "section.pane_mode_color",
+			expected: true, // oldTokens=[pane,mode,border], newTokens=[pane,mode,color], matches=2, minTokens=3, 2>=2 && 2>0 = true
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := keysAreSimilar(tt.oldKey, tt.newKey)
+			assert.Equal(t, tt.expected, result, "keysAreSimilar(%q, %q)", tt.oldKey, tt.newKey)
+		})
+	}
+}
+
+func TestMigrator_TypesAreCompatible(t *testing.T) {
+	m := NewMigrator()
+
+	tests := []struct {
+		name     string
+		oldKey   string
+		newKey   string
+		expected bool
+	}{
+		{
+			name:     "color to color - compatible (using real key)",
+			oldKey:   "workspace.styling.pane_mode_border_color",
+			newKey:   "workspace.styling.pane_mode_color",
+			expected: true,
+		},
+		{
+			name:     "width to width - compatible (using real key)",
+			oldKey:   "workspace.styling.pane_mode_border_width",
+			newKey:   "workspace.styling.mode_border_width",
+			expected: true,
+		},
+		{
+			name:     "width suffix to color type - incompatible",
+			oldKey:   "workspace.styling.some_width",
+			newKey:   "workspace.styling.pane_mode_color", // real key with string type
+			expected: false,
+		},
+		{
+			name:     "color suffix to int type - incompatible",
+			oldKey:   "workspace.styling.some_color",
+			newKey:   "workspace.styling.mode_border_width", // real key with int type
+			expected: false,
+		},
+		{
+			name:     "generic key to string type - compatible",
+			oldKey:   "workspace.styling.some_setting",
+			newKey:   "workspace.styling.pane_mode_color", // real key with string type
+			expected: true,
+		},
+		{
+			name:     "non-existent new key - incompatible",
+			oldKey:   "section.old_key",
+			newKey:   "section.nonexistent_key_xyz",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := m.typesAreCompatible(tt.oldKey, tt.newKey)
+			assert.Equal(t, tt.expected, result, "typesAreCompatible(%q, %q)", tt.oldKey, tt.newKey)
+		})
+	}
+}
+
+func TestMigrator_FindDeprecatedKeys(t *testing.T) {
+	m := NewMigrator()
+
+	tests := []struct {
+		name        string
+		userKeys    map[string]any
+		defaultKeys map[string]bool
+		expected    []string
+	}{
+		{
+			name: "no deprecated keys",
+			userKeys: map[string]any{
+				"history.max_entries": 1000,
+				"logging.level":       "info",
+			},
+			defaultKeys: map[string]bool{
+				"history.max_entries": true,
+				"logging.level":       true,
+			},
+			expected: []string{},
+		},
+		{
+			name: "one deprecated key",
+			userKeys: map[string]any{
+				"history.max_entries": 1000,
+				"old.deprecated_key":  "value",
+			},
+			defaultKeys: map[string]bool{
+				"history.max_entries": true,
+			},
+			expected: []string{"old.deprecated_key"},
+		},
+		{
+			name: "multiple deprecated keys",
+			userKeys: map[string]any{
+				"old.key1": "a",
+				"old.key2": "b",
+				"old.key3": "c",
+			},
+			defaultKeys: map[string]bool{
+				"new.key1": true,
+			},
+			expected: []string{"old.key1", "old.key2", "old.key3"},
+		},
+		{
+			name: "parent key exists in defaults",
+			userKeys: map[string]any{
+				"parent.child": "value",
+			},
+			defaultKeys: map[string]bool{
+				"parent.child":       true,
+				"parent.other_child": true,
+			},
+			expected: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := m.findDeprecatedKeys(tt.userKeys, tt.defaultKeys)
+			assert.ElementsMatch(t, tt.expected, result)
+		})
+	}
+}
+
+func TestMigrator_MatchRenamedKeys(t *testing.T) {
+	m := NewMigrator()
+
+	tests := []struct {
+		name                 string
+		deprecated           []string
+		missing              []string
+		expectedRenames      map[string]string
+		expectedUnmatchedOld []string
+		expectedUnmatchedNew []string
+	}{
+		{
+			name:                 "no keys to match",
+			deprecated:           []string{},
+			missing:              []string{},
+			expectedRenames:      map[string]string{},
+			expectedUnmatchedOld: nil,
+			expectedUnmatchedNew: nil,
+		},
+		{
+			name:       "simple rename match (using real keys)",
+			deprecated: []string{"workspace.styling.pane_mode_border_color"},
+			missing:    []string{"workspace.styling.pane_mode_color"},
+			expectedRenames: map[string]string{
+				"workspace.styling.pane_mode_border_color": "workspace.styling.pane_mode_color",
+			},
+			expectedUnmatchedOld: nil,
+			expectedUnmatchedNew: nil,
+		},
+		{
+			name:                 "no match possible - different types (width vs color)",
+			deprecated:           []string{"workspace.styling.pane_mode_border_width"},
+			missing:              []string{"workspace.styling.pane_mode_color"},
+			expectedRenames:      map[string]string{},
+			expectedUnmatchedOld: []string{"workspace.styling.pane_mode_border_width"},
+			expectedUnmatchedNew: []string{"workspace.styling.pane_mode_color"},
+		},
+		{
+			name:                 "no match possible - different parents",
+			deprecated:           []string{"old_section.some_key"},
+			missing:              []string{"new_section.some_key"},
+			expectedRenames:      map[string]string{},
+			expectedUnmatchedOld: []string{"old_section.some_key"},
+			expectedUnmatchedNew: []string{"new_section.some_key"},
+		},
+		{
+			name:       "multiple renames (using real keys)",
+			deprecated: []string{"workspace.styling.pane_mode_border_color", "workspace.styling.tab_mode_border_color"},
+			missing:    []string{"workspace.styling.pane_mode_color", "workspace.styling.tab_mode_color"},
+			expectedRenames: map[string]string{
+				"workspace.styling.pane_mode_border_color": "workspace.styling.pane_mode_color",
+				"workspace.styling.tab_mode_border_color":  "workspace.styling.tab_mode_color",
+			},
+			expectedUnmatchedOld: nil,
+			expectedUnmatchedNew: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			renames, unmatchedOld, unmatchedNew := m.matchRenamedKeys(tt.deprecated, tt.missing)
+			assert.Equal(t, tt.expectedRenames, renames, "renames mismatch")
+			assert.ElementsMatch(t, tt.expectedUnmatchedOld, unmatchedOld, "unmatched old mismatch")
+			assert.ElementsMatch(t, tt.expectedUnmatchedNew, unmatchedNew, "unmatched new mismatch")
+		})
+	}
+}
+
 func TestMigrator_CheckMigration_NoConfigFile(t *testing.T) {
 	// This test would need to temporarily modify the config path
 	// which is difficult without refactoring. Skip for now.

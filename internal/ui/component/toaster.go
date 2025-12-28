@@ -137,6 +137,7 @@ type Toaster struct {
 	hasCustomStyle  bool
 	customBgColor   string // Current custom background color
 	customTextColor string // Current custom text color
+	customModeClass string // Current mode-specific CSS class (e.g., "toast-pane-mode")
 
 	mu sync.Mutex
 }
@@ -332,12 +333,12 @@ func (t *Toaster) applyCustomStyle(opts ToastOptions) {
 func (t *Toaster) clearCustomStyle() {
 	if t.hasCustomStyle {
 		t.container.RemoveCssClass("toast-custom")
-		// Remove any mode-specific classes
-		t.container.RemoveCssClass("toast-pane-mode")
-		t.container.RemoveCssClass("toast-tab-mode")
-		t.container.RemoveCssClass("toast-session-mode")
-		t.container.RemoveCssClass("toast-resize-mode")
-		// Re-add level class if it was removed
+		// Remove mode-specific class if one was applied
+		if t.customModeClass != "" {
+			t.container.RemoveCssClass(t.customModeClass)
+			t.customModeClass = ""
+		}
+		// Re-add level class if it was removed due to custom background
 		if t.customBgColor != "" {
 			t.container.AddCssClass(t.currentLevel.cssClass())
 		}
@@ -360,7 +361,7 @@ func (t *Toaster) ApplyModeClass(modeClass string) {
 	t.container.RemoveCssClass(t.currentLevel.cssClass())
 	t.container.AddCssClass(modeClass)
 	t.hasCustomStyle = true
-	t.customBgColor = modeClass // Store class name for cleanup tracking
+	t.customModeClass = modeClass // Store class name for cleanup tracking
 }
 
 // startDismissTimerWithDuration starts the auto-dismiss timer with the given duration.
