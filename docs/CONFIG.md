@@ -333,15 +333,27 @@ Notes:
 |-----|------|---------|-------------|
 | `workspace.styling.border_width` | int | `1` | Active pane border width (px) - overlay |
 | `workspace.styling.border_color` | string | `"@theme_selected_bg_color"` | Active pane border color |
-| `workspace.styling.pane_mode_border_width` | int | `4` | Pane mode border width (px) - Ctrl+P N overlay |
-| `workspace.styling.pane_mode_border_color` | string | `"#4A90E2"` | Pane mode border color (blue) |
-| `workspace.styling.tab_mode_border_width` | int | `4` | Tab mode border width (px) - Ctrl+P T overlay |
-| `workspace.styling.tab_mode_border_color` | string | `"#FFA500"` | Tab mode border color (orange) |
-| `workspace.styling.session_mode_border_width` | int | `4` | Session mode border width (px) - Ctrl+O overlay |
-| `workspace.styling.session_mode_border_color` | string | `"#9B59B6"` | Session mode border color (purple) |
-| `workspace.styling.resize_mode_border_width` | int | `4` | Resize mode border width (px) |
-| `workspace.styling.resize_mode_border_color` | string | `"#00D4AA"` | Resize mode border color (teal) |
+| `workspace.styling.mode_border_width` | int | `4` | Modal mode border width (px) - applies to all modes |
+| `workspace.styling.pane_mode_color` | string | `"#4A90E2"` | Pane mode color (blue) - used for border and toaster |
+| `workspace.styling.tab_mode_color` | string | `"#FFA500"` | Tab mode color (orange) - used for border and toaster |
+| `workspace.styling.session_mode_color` | string | `"#9B59B6"` | Session mode color (purple) - used for border and toaster |
+| `workspace.styling.resize_mode_color` | string | `"#00D4AA"` | Resize mode color (teal) - used for border and toaster |
+| `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | Show toaster notification when modal modes are active |
 | `workspace.styling.transition_duration` | int | `120` | Border transition duration (ms) |
+
+**Example:**
+```toml
+[workspace.styling]
+border_width = 1
+border_color = "@theme_selected_bg_color"
+mode_border_width = 4
+pane_mode_color = "#4A90E2"      # Blue for pane mode
+tab_mode_color = "#FFA500"       # Orange for tab mode
+session_mode_color = "#9B59B6"   # Purple for session mode
+resize_mode_color = "#00D4AA"    # Teal for resize mode
+mode_indicator_toaster_enabled = true
+transition_duration = 120
+```
 
 ## Session
 

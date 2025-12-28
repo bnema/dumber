@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Mode indicator toaster**: Visual notification showing current modal mode (PANE MODE, TAB MODE, SESSION MODE, RESIZE MODE) at bottom-left corner with mode-specific colors. Configurable via `workspace.styling.mode_indicator_toaster_enabled` (default: true).
 - **Config migration system**: Detects missing config keys when new settings are added in updates and provides tools to add them.
   - `dumber config status`: Shows config file path and number of new settings available.
   - `dumber config migrate`: Lists missing keys with types/defaults and adds them to config file.
@@ -35,6 +36,7 @@ All notable changes to this project will be documented in this file.
 - **Console logging**: Standardized console timestamps to `HH:MM:SS` across bootstrap and session logging.
 
 ### Fixed
+- **Config migration type matching**: Fixed migration incorrectly matching keys of different types (e.g., `_width` int keys with `_color` string keys) during rename detection, preventing value swapping.
 - **Fullscreen video tab bar**: Fixed tab bar remaining visible during fullscreen video playback. Now hides automatically when entering fullscreen and restores based on normal visibility logic when exiting.
 - **Progress bar stuck state**: Added 30-second timeout to progress bar to auto-hide if page load stalls and never completes.
 - **OAuth popup login**: Fixed parent page going blank after OAuth popup closes (e.g., Google login on claude.ai, notion.com). Related WebViews share a web process with their parent; destroying the popup was terminating the shared process, killing the parent. Now skips `TerminateWebProcess()` for popup WebViews.

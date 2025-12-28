@@ -20,6 +20,19 @@ type CheckConfigMigrationOutput struct {
 	ConfigFile string
 }
 
+// DetectChangesInput holds the input for detecting config changes.
+type DetectChangesInput struct{}
+
+// DetectChangesOutput holds the result of change detection.
+type DetectChangesOutput struct {
+	// HasChanges is true if any changes were detected.
+	HasChanges bool
+	// Changes contains all detected changes.
+	Changes []port.KeyChange
+	// DiffText is a formatted diff-like string representation.
+	DiffText string
+}
+
 // MigrateConfigInput holds the input for migrating config.
 type MigrateConfigInput struct{}
 
@@ -33,13 +46,15 @@ type MigrateConfigOutput struct {
 
 // MigrateConfigUseCase handles config migration operations.
 type MigrateConfigUseCase struct {
-	migrator port.ConfigMigrator
+	migrator      port.ConfigMigrator
+	diffFormatter port.DiffFormatter
 }
 
 // NewMigrateConfigUseCase creates a new migrate config use case.
-func NewMigrateConfigUseCase(migrator port.ConfigMigrator) *MigrateConfigUseCase {
+func NewMigrateConfigUseCase(migrator port.ConfigMigrator, diffFormatter port.DiffFormatter) *MigrateConfigUseCase {
 	return &MigrateConfigUseCase{
-		migrator: migrator,
+		migrator:      migrator,
+		diffFormatter: diffFormatter,
 	}
 }
 
@@ -78,6 +93,36 @@ func (uc *MigrateConfigUseCase) Check(ctx context.Context, _ CheckConfigMigratio
 		NeedsMigration: true,
 		MissingKeys:    keyInfos,
 		ConfigFile:     result.ConfigFile,
+	}, nil
+}
+
+// DetectChanges detects all config changes and returns a diff-like output.
+func (uc *MigrateConfigUseCase) DetectChanges(ctx context.Context, _ DetectChangesInput) (*DetectChangesOutput, error) {
+	log := logging.FromContext(ctx)
+
+	changes, err := uc.migrator.DetectChanges()
+	if err != nil {
+		log.Warn().Err(err).Msg("config change detection failed")
+		return nil, err
+	}
+
+	if len(changes) == 0 {
+		log.Debug().Msg("no config changes detected")
+		return &DetectChangesOutput{
+			HasChanges: false,
+			Changes:    nil,
+			DiffText:   "No changes detected.",
+		}, nil
+	}
+
+	log.Debug().
+		Int("changes", len(changes)).
+		Msg("config changes detected")
+
+	return &DetectChangesOutput{
+		HasChanges: true,
+		Changes:    changes,
+		DiffText:   uc.diffFormatter.FormatChangesAsDiff(changes),
 	}, nil
 }
 

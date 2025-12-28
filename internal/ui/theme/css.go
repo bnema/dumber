@@ -50,7 +50,14 @@ window, tooltip, popover {
 
 // GenerateCSSWithScaleAndFonts creates GTK4 CSS using the provided palette, UI scale factor and fonts.
 // Scale affects font sizes and widget padding/margins proportionally.
+// Uses default mode colors.
 func GenerateCSSWithScaleAndFonts(p Palette, scale float64, fonts FontConfig) string {
+	return GenerateCSSFull(p, scale, fonts, DefaultModeColors())
+}
+
+// GenerateCSSFull creates GTK4 CSS using all provided configuration.
+// Scale affects font sizes and widget padding/margins proportionally.
+func GenerateCSSFull(p Palette, scale float64, fonts FontConfig, modeColors ModeColors) string {
 	if scale <= 0 {
 		scale = 1.0
 	}
@@ -68,6 +75,7 @@ func GenerateCSSWithScaleAndFonts(p Palette, scale float64, fonts FontConfig) st
 	sb.WriteString(":root {\n")
 	sb.WriteString(p.ToCSSVars())
 	sb.WriteString(FontCSSVars(fonts))
+	sb.WriteString(modeColors.ToCSSVars())
 	sb.WriteString("}\n\n")
 
 	// Global font styling
@@ -484,26 +492,26 @@ func generatePaneCSS(p Palette) string {
 	border-color: transparent;
 }
 
-/* Pane mode active - thick blue inset border (for overlay) */
+/* Pane mode active - thick inset border (for overlay) */
 .pane-mode-active {
 	background-color: transparent;
-	box-shadow: inset 0 0 0 0.25em #4A90E2;
+	box-shadow: inset 0 0 0 0.25em var(--pane-mode-color);
 	border-radius: 0;
 }
 
-/* Tab mode active - thick orange inset border (for overlay) */
+/* Tab mode active - thick inset border (for overlay) */
 .tab-mode-active {
 	background-color: transparent;
-	box-shadow: inset 0 0 0 0.25em #FFA500;
+	box-shadow: inset 0 0 0 0.25em var(--tab-mode-color);
 	border-radius: 0;
 }
 
-/* Resize mode active - thick teal inset border */
+/* Resize mode active - thick inset border */
 .resize-mode-active {
 	background-color: transparent;
 	/* Prefer inset shadow, but also set outline for widgets that don't paint shadows */
-	box-shadow: inset 0 0 0 0.25em #00D4AA;
-	outline: 0.25em solid #00D4AA;
+	box-shadow: inset 0 0 0 0.25em var(--resize-mode-color);
+	outline: 0.25em solid var(--resize-mode-color);
 	outline-offset: -0.25em;
 	border-radius: 0;
 }
@@ -751,10 +759,10 @@ row:selected .session-manager-row {
 	font-family: var(--font-mono);
 }
 
-/* Session mode border (purple) */
+/* Session mode border */
 .session-mode-active {
 	background-color: transparent;
-	box-shadow: inset 0 0 0 0.25em #9B59B6;
+	box-shadow: inset 0 0 0 0.25em var(--session-mode-color);
 	border-radius: 0;
 }
 `
@@ -799,6 +807,32 @@ func generateToasterCSS(p Palette) string {
 .toast-error {
 	background-color: alpha(var(--destructive), 0.9);
 	color: var(--bg);
+}
+
+/* Toast with custom styling (mode indicator toasters) */
+.toast-custom {
+	color: #ffffff;
+}
+
+/* Mode-specific toast colors */
+.toast-pane-mode {
+	background-color: var(--pane-mode-color);
+	color: #ffffff;
+}
+
+.toast-tab-mode {
+	background-color: var(--tab-mode-color);
+	color: #ffffff;
+}
+
+.toast-session-mode {
+	background-color: var(--session-mode-color);
+	color: #ffffff;
+}
+
+.toast-resize-mode {
+	background-color: var(--resize-mode-color);
+	color: #ffffff;
 }
 `
 }
