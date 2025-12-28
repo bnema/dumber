@@ -132,7 +132,7 @@ func (r *ConfigRenderer) RenderChanges(changes []port.KeyChange) string {
 				"    %s %s %s\n",
 				removeStyle.Render("-"),
 				valueStyle.Render(c.OldKey),
-				removeStyle.Render("(will be ignored)"),
+				removeStyle.Render("(will be removed)"),
 			))
 		}
 	}
