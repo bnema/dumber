@@ -55,8 +55,7 @@ type WebViewPool struct {
 	filterApplier FilterApplier // Optional content filter applier
 
 	// Background color for WebViews (eliminates white flash)
-	bgR, bgG, bgB, bgA float32
-	bgMu               sync.RWMutex
+	bg bgColor
 
 	closed atomic.Bool
 	wg     sync.WaitGroup
@@ -108,9 +107,7 @@ func (p *WebViewPool) SetFilterApplier(applier FilterApplier) {
 // SetBackgroundColor sets the background color for newly created WebViews.
 // This color is shown before content is painted, eliminating white flash.
 func (p *WebViewPool) SetBackgroundColor(r, g, b, a float32) {
-	p.bgMu.Lock()
-	p.bgR, p.bgG, p.bgB, p.bgA = r, g, b, a
-	p.bgMu.Unlock()
+	p.bg.set(r, g, b, a)
 }
 
 // Acquire gets a WebView from the pool or creates a new one.
@@ -125,6 +122,13 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 	select {
 	case wv := <-p.pool:
 		if wv != nil && !wv.IsDestroyed() {
+			if r, g, b, a := p.bg.get(); a > 0 {
+				wv.SetBackgroundColor(r, g, b, a)
+			}
+			wv.inner.AddCssClass("webview-themed")
+			// Keep pooled WebViews hidden until we explicitly reveal them.
+			wv.inner.SetVisible(false)
+
 			// Ensure frontend is attached even if this WebView was pooled before injection was configured.
 			_ = wv.AttachFrontend(ctx, p.injector, p.router)
 			// Apply filters if available (may not have been applied during prewarm)
@@ -147,18 +151,13 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 func (p *WebViewPool) createWebView(ctx context.Context) (*WebView, error) {
 	log := logging.FromContext(ctx)
 
-	wv, err := NewWebView(ctx, p.wkCtx, p.settings)
+	wv, err := NewWebView(ctx, p.wkCtx, p.settings, p.bg.toGdkRGBA())
 	if err != nil {
 		return nil, err
 	}
 
-	// Set background color to match theme (eliminates white flash)
-	p.bgMu.RLock()
-	r, g, b, a := p.bgR, p.bgG, p.bgB, p.bgA
-	p.bgMu.RUnlock()
-	if a > 0 { // Only set if a valid color was configured
-		wv.SetBackgroundColor(r, g, b, a)
-	}
+	// Add CSS class for theme background styling (prevents white flash)
+	wv.inner.AddCssClass("webview-themed")
 
 	// Keep WebView hidden until content is painted (see content.go:onLoadCommitted)
 	wv.inner.SetVisible(false)

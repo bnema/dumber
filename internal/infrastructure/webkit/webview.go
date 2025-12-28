@@ -240,7 +240,8 @@ func (a *findControllerAdapter) DisconnectSignal(id uint32) {
 
 // NewWebView creates a new WebView with the given context and settings.
 // Uses the persistent NetworkSession from wkCtx for cookie/data persistence.
-func NewWebView(ctx context.Context, wkCtx *WebKitContext, settings *SettingsManager) (*WebView, error) {
+// bgColor is optional - if provided, sets background immediately to prevent white flash.
+func NewWebView(ctx context.Context, wkCtx *WebKitContext, settings *SettingsManager, bgColor *gdk.RGBA) (*WebView, error) {
 	log := logging.FromContext(ctx)
 
 	if wkCtx == nil || !wkCtx.IsInitialized() {
@@ -251,6 +252,12 @@ func NewWebView(ctx context.Context, wkCtx *WebKitContext, settings *SettingsMan
 	inner := webkit.NewWebViewWithNetworkSession(wkCtx.NetworkSession())
 	if inner == nil {
 		return nil, fmt.Errorf("failed to create webkit webview with network session")
+	}
+
+	// Set background color IMMEDIATELY after creation, before any other operations.
+	// This prevents white flash by ensuring WebKit's renderer starts with correct color.
+	if bgColor != nil {
+		inner.SetBackgroundColor(bgColor)
 	}
 
 	wv := &WebView{
