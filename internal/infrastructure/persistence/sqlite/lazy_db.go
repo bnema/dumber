@@ -42,18 +42,30 @@ func (l *LazyDB) DB(ctx context.Context) (*sql.DB, error) {
 		log := logging.FromContext(ctx)
 		log.Debug().Str("path", l.dbPath).Msg("lazy database initialization starting")
 
-		l.db, l.err = NewConnection(ctx, l.dbPath)
-		if l.err != nil {
-			log.Error().Err(l.err).Msg("lazy database initialization failed")
+		db, err := NewConnection(ctx, l.dbPath)
+
+		// Acquire lock before assigning to ensure IsInitialized() sees
+		// a consistent state when reading l.db under RLock.
+		l.mu.Lock()
+		l.db = db
+		l.err = err
+		l.mu.Unlock()
+
+		if err != nil {
+			log.Error().Err(err).Msg("lazy database initialization failed")
 		} else {
 			log.Debug().Msg("lazy database initialized successfully")
 		}
 	})
 
-	if l.err != nil {
-		return nil, fmt.Errorf("database initialization failed: %w", l.err)
+	l.mu.RLock()
+	db, err := l.db, l.err
+	l.mu.RUnlock()
+
+	if err != nil {
+		return nil, fmt.Errorf("database initialization failed: %w", err)
 	}
-	return l.db, nil
+	return db, nil
 }
 
 // Close closes the database connection if it was initialized.

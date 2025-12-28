@@ -606,16 +606,26 @@ func (o *Omnibox) performSearch() {
 		favCh := make(chan map[string]struct{}, 1)
 
 		go func() {
-			searchInput := usecase.SearchInput{
-				Query: query,
-				Limit: OmniboxListDefaults.MaxResults,
+			select {
+			case <-ctx.Done():
+				searchCh <- searchResult{nil, ctx.Err()}
+			default:
+				searchInput := usecase.SearchInput{
+					Query: query,
+					Limit: OmniboxListDefaults.MaxResults,
+				}
+				output, err := o.historyUC.Search(ctx, searchInput)
+				searchCh <- searchResult{output, err}
 			}
-			output, err := o.historyUC.Search(ctx, searchInput)
-			searchCh <- searchResult{output, err}
 		}()
 
 		go func() {
-			favCh <- o.getFavoriteURLs(ctx)
+			select {
+			case <-ctx.Done():
+				favCh <- nil
+			default:
+				favCh <- o.getFavoriteURLs(ctx)
+			}
 		}()
 
 		// Wait for both results
@@ -668,13 +678,23 @@ func (o *Omnibox) loadInitialHistory() {
 			favCh := make(chan map[string]struct{}, 1)
 
 			go func() {
-				// TODO: Implement GetMostVisited in use case if needed
-				results, err := o.historyUC.GetRecent(ctx, OmniboxListDefaults.MaxResults, 0)
-				historyCh <- historyResult{results, err}
+				select {
+				case <-ctx.Done():
+					historyCh <- historyResult{nil, ctx.Err()}
+				default:
+					// TODO: Implement GetMostVisited in use case if needed
+					results, err := o.historyUC.GetRecent(ctx, OmniboxListDefaults.MaxResults, 0)
+					historyCh <- historyResult{results, err}
+				}
 			}()
 
 			go func() {
-				favCh <- o.getFavoriteURLs(ctx)
+				select {
+				case <-ctx.Done():
+					favCh <- nil
+				default:
+					favCh <- o.getFavoriteURLs(ctx)
+				}
 			}()
 
 			// Wait for both results
