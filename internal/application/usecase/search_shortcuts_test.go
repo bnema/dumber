@@ -1,18 +1,19 @@
-package component
+package usecase
 
 import (
+	"context"
 	"testing"
-
-	"github.com/bnema/dumber/internal/infrastructure/config"
 )
 
-func TestBuildBangSuggestions(t *testing.T) {
-	shortcuts := map[string]config.SearchShortcut{
+func TestFilterBangs(t *testing.T) {
+	shortcuts := map[string]SearchShortcut{
 		"ddg": {URL: "https://duckduckgo.com/?q=%s", Description: "DuckDuckGo search"},
 		"g":   {URL: "https://google.com/search?q=%s", Description: "Google search"},
 		"gh":  {URL: "https://github.com/search?q=%s", Description: "GitHub search"},
 		"n":   {URL: "https://news.ycombinator.com/", Description: ""},
 	}
+	uc := NewSearchShortcutsUseCase(shortcuts)
+	ctx := context.Background()
 
 	cases := []struct {
 		name      string
@@ -52,7 +53,8 @@ func TestBuildBangSuggestions(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := buildBangSuggestions(shortcuts, tc.query)
+			output := uc.FilterBangs(ctx, FilterBangsInput{Query: tc.query})
+			got := output.Suggestions
 			if len(got) != len(tc.wantKeys) {
 				t.Fatalf("len=%d want=%d", len(got), len(tc.wantKeys))
 			}
@@ -73,10 +75,12 @@ func TestBuildBangSuggestions(t *testing.T) {
 }
 
 func TestDetectBangKey(t *testing.T) {
-	shortcuts := map[string]config.SearchShortcut{
+	shortcuts := map[string]SearchShortcut{
 		"gh":  {URL: "https://github.com/search?q=%s"},
 		"ddg": {URL: "https://duckduckgo.com/?q=%s"},
 	}
+	uc := NewSearchShortcutsUseCase(shortcuts)
+	ctx := context.Background()
 
 	cases := []struct {
 		name  string
@@ -93,35 +97,73 @@ func TestDetectBangKey(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := detectBangKey(shortcuts, tc.query); got != tc.want {
-				t.Fatalf("detectBangKey(%q)=%q want=%q", tc.query, got, tc.want)
+			output := uc.DetectBangKey(ctx, DetectBangKeyInput{Query: tc.query})
+			if output.Key != tc.want {
+				t.Fatalf("DetectBangKey(%q)=%q want=%q", tc.query, output.Key, tc.want)
 			}
 		})
 	}
 }
 
-func TestBuildBangNavigationText(t *testing.T) {
-	shortcuts := map[string]config.SearchShortcut{
+func TestBuildNavigationText(t *testing.T) {
+	shortcuts := map[string]SearchShortcut{
 		"gh":  {URL: "https://github.com/search?q=%s"},
 		"ddg": {URL: "https://duckduckgo.com/?q=%s"},
 	}
+	uc := NewSearchShortcutsUseCase(shortcuts)
+	ctx := context.Background()
 
 	cases := []struct {
 		name      string
 		entryText string
 		want      string
+		wantValid bool
 	}{
-		{name: "not a bang shortcut", entryText: "example.com", want: ""},
-		{name: "bang key without query", entryText: "!gh ", want: ""},
-		{name: "unknown bang key", entryText: "!nope test", want: ""},
-		{name: "normalizes key case", entryText: "!GH dumber", want: "!gh dumber"},
-		{name: "keeps query unchanged", entryText: "!ddg some query", want: "!ddg some query"},
+		{name: "not a bang shortcut", entryText: "example.com", want: "", wantValid: false},
+		{name: "bang key without query", entryText: "!gh ", want: "", wantValid: false},
+		{name: "unknown bang key", entryText: "!nope test", want: "", wantValid: false},
+		{name: "normalizes key case", entryText: "!GH dumber", want: "!gh dumber", wantValid: true},
+		{name: "keeps query unchanged", entryText: "!ddg some query", want: "!ddg some query", wantValid: true},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := buildBangNavigationText(shortcuts, tc.entryText); got != tc.want {
-				t.Fatalf("buildBangNavigationText(%q)=%q want=%q", tc.entryText, got, tc.want)
+			output := uc.BuildNavigationText(ctx, BuildNavigationTextInput{EntryText: tc.entryText})
+			if output.Text != tc.want {
+				t.Fatalf("BuildNavigationText(%q).Text=%q want=%q", tc.entryText, output.Text, tc.want)
+			}
+			if output.Valid != tc.wantValid {
+				t.Fatalf("BuildNavigationText(%q).Valid=%v want=%v", tc.entryText, output.Valid, tc.wantValid)
+			}
+		})
+	}
+}
+
+func TestGetShortcut(t *testing.T) {
+	shortcuts := map[string]SearchShortcut{
+		"gh": {URL: "https://github.com/search?q=%s", Description: "GitHub"},
+	}
+	uc := NewSearchShortcutsUseCase(shortcuts)
+
+	cases := []struct {
+		name    string
+		key     string
+		wantOK  bool
+		wantURL string
+	}{
+		{name: "exact match", key: "gh", wantOK: true, wantURL: "https://github.com/search?q=%s"},
+		{name: "case insensitive", key: "GH", wantOK: true, wantURL: "https://github.com/search?q=%s"},
+		{name: "not found", key: "unknown", wantOK: false, wantURL: ""},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			shortcut, ok := uc.GetShortcut(tc.key)
+			if ok != tc.wantOK {
+				t.Fatalf("GetShortcut(%q) ok=%v want=%v", tc.key, ok, tc.wantOK)
+			}
+			if shortcut.URL != tc.wantURL {
+				t.Fatalf("GetShortcut(%q).URL=%q want=%q", tc.key, shortcut.URL, tc.wantURL)
 			}
 		})
 	}
