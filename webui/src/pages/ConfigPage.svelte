@@ -37,9 +37,19 @@
     kill_threshold: number;
   };
 
+  type HardwareInfo = {
+    cpu_cores: number;
+    cpu_threads: number;
+    total_ram_mb: number;
+    gpu_vendor: string;
+    gpu_name: string;
+    vram_mb: number;
+  };
+
   type PerformanceConfig = {
     profile: string;
     resolved: ResolvedPerformance;
+    hardware: HardwareInfo;
   };
 
   type ConfigDTO = {
@@ -61,7 +71,7 @@
   const PERFORMANCE_PROFILES = [
     { value: "default", label: "Default", description: "No tuning, uses WebKit defaults. Recommended for most users." },
     { value: "lite", label: "Lite", description: "Reduced resource usage for low-RAM systems (< 4GB) or battery saving." },
-    { value: "max", label: "Max", description: "Maximum responsiveness for heavy pages (GitHub PRs, complex SPAs)." },
+    { value: "max", label: "Max", description: "Maximum responsiveness, scales based on detected hardware." },
     { value: "custom", label: "Custom", description: "Manual control via config file. Edit config.toml to set individual values." },
   ];
 
@@ -415,6 +425,22 @@
               </Card.Description>
             </Card.Header>
             <Card.Content class="space-y-6">
+              <!-- Detected Hardware Card -->
+              {#if config.performance?.hardware}
+                {@const hw = config.performance.hardware}
+                <div class="rounded-md border border-border bg-muted/30 px-4 py-3">
+                  <div class="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                    Detected Hardware
+                  </div>
+                  <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                    <div><span class="text-muted-foreground">CPU:</span> <span class="font-mono">{hw.cpu_cores}c/{hw.cpu_threads}t</span></div>
+                    <div><span class="text-muted-foreground">RAM:</span> <span class="font-mono">{hw.total_ram_mb > 0 ? (hw.total_ram_mb / 1024).toFixed(0) + ' GB' : '?'}</span></div>
+                    <div><span class="text-muted-foreground">GPU:</span> <span class="font-mono capitalize">{hw.gpu_vendor || 'Unknown'}</span></div>
+                    <div><span class="text-muted-foreground">VRAM:</span> <span class="font-mono">{hw.vram_mb > 0 ? (hw.vram_mb / 1024).toFixed(0) + ' GB' : '?'}</span></div>
+                  </div>
+                </div>
+              {/if}
+
               <!-- Experimental feature warning -->
               <div class="flex items-start gap-3 rounded-md border border-info/30 bg-info/10 px-4 py-3">
                 <span class="text-info">🧪</span>
