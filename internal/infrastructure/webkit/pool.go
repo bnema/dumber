@@ -9,6 +9,7 @@ import (
 
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
+	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/glib"
 )
 
@@ -147,18 +148,23 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 func (p *WebViewPool) createWebView(ctx context.Context) (*WebView, error) {
 	log := logging.FromContext(ctx)
 
-	wv, err := NewWebView(ctx, p.wkCtx, p.settings)
+	// Build background color for immediate application during WebView creation
+	p.bgMu.RLock()
+	r, g, b, a := p.bgR, p.bgG, p.bgB, p.bgA
+	p.bgMu.RUnlock()
+
+	var bgColor *gdk.RGBA
+	if a > 0 { // Only set if a valid color was configured
+		bgColor = &gdk.RGBA{Red: r, Green: g, Blue: b, Alpha: a}
+	}
+
+	wv, err := NewWebView(ctx, p.wkCtx, p.settings, bgColor)
 	if err != nil {
 		return nil, err
 	}
 
-	// Set background color to match theme (eliminates white flash)
-	p.bgMu.RLock()
-	r, g, b, a := p.bgR, p.bgG, p.bgB, p.bgA
-	p.bgMu.RUnlock()
-	if a > 0 { // Only set if a valid color was configured
-		wv.SetBackgroundColor(r, g, b, a)
-	}
+	// Add CSS class for theme background styling (prevents white flash)
+	wv.inner.AddCssClass("webview-themed")
 
 	// Keep WebView hidden until content is painted (see content.go:onLoadCommitted)
 	wv.inner.SetVisible(false)

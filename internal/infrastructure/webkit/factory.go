@@ -7,6 +7,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/jwijenbergh/puregotk/v4/gdk"
 )
 
 // WebViewFactory creates WebView instances for the application.
@@ -138,18 +139,23 @@ func (f *WebViewFactory) CreateRelated(ctx context.Context, parentID port.WebVie
 func (f *WebViewFactory) createDirect(ctx context.Context) (*WebView, error) {
 	log := logging.FromContext(ctx)
 
-	wv, err := NewWebView(ctx, f.wkCtx, f.settings)
+	// Build background color for immediate application during WebView creation
+	f.bgMu.RLock()
+	r, g, b, a := f.bgR, f.bgG, f.bgB, f.bgA
+	f.bgMu.RUnlock()
+
+	var bgColor *gdk.RGBA
+	if a > 0 { // Only set if a valid color was configured
+		bgColor = &gdk.RGBA{Red: r, Green: g, Blue: b, Alpha: a}
+	}
+
+	wv, err := NewWebView(ctx, f.wkCtx, f.settings, bgColor)
 	if err != nil {
 		return nil, err
 	}
 
-	// Set background color to match theme (eliminates white flash)
-	f.bgMu.RLock()
-	r, g, b, a := f.bgR, f.bgG, f.bgB, f.bgA
-	f.bgMu.RUnlock()
-	if a > 0 {
-		wv.SetBackgroundColor(r, g, b, a)
-	}
+	// Add CSS class for theme background styling (prevents white flash)
+	wv.inner.AddCssClass("webview-themed")
 
 	// Keep hidden until content is painted
 	wv.inner.SetVisible(false)
