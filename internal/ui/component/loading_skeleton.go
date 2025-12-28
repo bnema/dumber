@@ -1,22 +1,24 @@
 package component
 
 import (
-	"strings"
-
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 )
 
 // LoadingSkeleton displays a themed loading placeholder.
 // It is intended to be embedded as an overlay while primary content is loading.
+// Shows a faded app logo and spinner.
 type LoadingSkeleton struct {
 	container layout.BoxWidget
 	content   layout.BoxWidget
 	spinner   layout.SpinnerWidget
-	label     layout.LabelWidget
+	logo      layout.ImageWidget
 }
 
-const loadingSkeletonSpacing = 6
+const (
+	loadingSkeletonSpacing  = 6
+	loadingSkeletonLogoSize = 512
+)
 
 func NewLoadingSkeleton(factory layout.WidgetFactory) *LoadingSkeleton {
 	container := factory.NewBox(layout.OrientationVertical, 0)
@@ -43,23 +45,31 @@ func NewLoadingSkeleton(factory layout.WidgetFactory) *LoadingSkeleton {
 	spinner.SetSizeRequest(32, 32)
 	spinner.AddCssClass("loading-skeleton-spinner")
 
-	text := "Loading..."
-	label := factory.NewLabel(text)
-	label.SetHalign(gtk.AlignCenterValue)
-	label.SetValign(gtk.AlignCenterValue)
-	label.SetCanFocus(false)
-	label.SetCanTarget(false)
-	label.AddCssClass("loading-skeleton-text")
+	// Faded app logo
+	logo := factory.NewImage()
+	logo.SetHalign(gtk.AlignCenterValue)
+	logo.SetValign(gtk.AlignCenterValue)
+	logo.SetCanFocus(false)
+	logo.SetCanTarget(false)
+	logo.SetSizeRequest(loadingSkeletonLogoSize, loadingSkeletonLogoSize)
+	logo.SetPixelSize(loadingSkeletonLogoSize)
+	logo.AddCssClass("loading-skeleton-logo")
 
+	// Set logo texture if available
+	if logoTexture := GetLogoTexture(); logoTexture != nil {
+		logo.SetFromPaintable(logoTexture)
+	}
+
+	// Layout: logo, spinner (vertically centered)
+	content.Append(logo)
 	content.Append(spinner)
-	content.Append(label)
 	container.Append(content)
 
 	ls := &LoadingSkeleton{
 		container: container,
 		content:   content,
 		spinner:   spinner,
-		label:     label,
+		logo:      logo,
 	}
 	ls.SetVisible(true)
 	return ls
@@ -70,17 +80,6 @@ func (ls *LoadingSkeleton) Widget() layout.Widget {
 		return nil
 	}
 	return ls.container
-}
-
-func (ls *LoadingSkeleton) SetText(text string) {
-	if ls == nil || ls.label == nil {
-		return
-	}
-	trimmed := strings.TrimSpace(text)
-	if trimmed == "" {
-		trimmed = "Loading..."
-	}
-	ls.label.SetText(trimmed)
 }
 
 func (ls *LoadingSkeleton) SetVisible(visible bool) {

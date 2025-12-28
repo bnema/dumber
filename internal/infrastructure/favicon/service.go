@@ -3,9 +3,17 @@ package favicon
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"github.com/bnema/dumber/assets"
 	"github.com/bnema/dumber/internal/logging"
 )
+
+// InternalScheme is the URL scheme used for internal browser pages.
+const InternalScheme = "dumb://"
+
+// InternalDomain is the pseudo-domain used for caching internal page favicons.
+const InternalDomain = "dumb"
 
 // Service implements the domain FaviconService interface.
 // It coordinates between the cache and fetcher components.
@@ -30,6 +38,11 @@ func (s *Service) Get(ctx context.Context, domain string) ([]byte, error) {
 		return nil, nil
 	}
 
+	// Internal domain returns the app logo
+	if domain == InternalDomain {
+		return assets.LogoSVG, nil
+	}
+
 	// Check cache first (memory + disk)
 	if data, ok := s.cache.Get(domain); ok {
 		return data, nil
@@ -47,6 +60,17 @@ func (s *Service) Get(ctx context.Context, domain string) ([]byte, error) {
 	}
 
 	return data, nil
+}
+
+// IsInternalURL checks if a URL uses the internal dumb:// scheme.
+func IsInternalURL(url string) bool {
+	return strings.HasPrefix(url, InternalScheme)
+}
+
+// GetLogoBytes returns the raw SVG bytes of the app logo.
+// Used for internal pages that need the logo as a favicon.
+func GetLogoBytes() []byte {
+	return assets.LogoSVG
 }
 
 // GetCached returns favicon bytes only if already cached (no external fetch).
