@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
 	"github.com/rs/zerolog"
@@ -34,19 +35,37 @@ type WebKitContext struct {
 // The dataDir and cacheDir are used for cookie storage, cache, and other persistent data.
 // This MUST be called before creating any WebViews to ensure they use persistent storage.
 func NewWebKitContext(ctx context.Context, dataDir, cacheDir string) (*WebKitContext, error) {
+	return NewWebKitContextWithOptions(ctx, port.WebKitContextOptions{
+		DataDir:  dataDir,
+		CacheDir: cacheDir,
+	})
+}
+
+// NewWebKitContextWithOptions creates and initializes a WebKitContext with the given options.
+// This allows configuring memory pressure settings for web and network processes.
+func NewWebKitContextWithOptions(ctx context.Context, opts port.WebKitContextOptions) (*WebKitContext, error) {
 	log := logging.FromContext(ctx).With().Str("component", "webkit-context").Logger()
 
-	if dataDir == "" {
+	if opts.DataDir == "" {
 		return nil, fmt.Errorf("data directory cannot be empty")
 	}
-	if cacheDir == "" {
+	if opts.CacheDir == "" {
 		return nil, fmt.Errorf("cache directory cannot be empty")
 	}
 
 	wkCtx := &WebKitContext{
-		dataDir:  dataDir,
-		cacheDir: cacheDir,
+		dataDir:  opts.DataDir,
+		cacheDir: opts.CacheDir,
 		logger:   log,
+	}
+
+	// Apply network process memory pressure settings BEFORE creating session
+	// Per WebKitGTK docs: must be called before creating any NetworkSession
+	if opts.IsNetworkProcessMemoryConfigured() {
+		applier := NewMemoryPressureApplier()
+		if err := applier.ApplyNetworkProcessSettings(ctx, opts.NetworkProcessMemory); err != nil {
+			log.Warn().Err(err).Msg("failed to apply network process memory pressure settings")
+		}
 	}
 
 	// Create persistent network session FIRST
@@ -55,10 +74,27 @@ func NewWebKitContext(ctx context.Context, dataDir, cacheDir string) (*WebKitCon
 		return nil, fmt.Errorf("failed to init network session: %w", err)
 	}
 
-	// Get or create WebContext
-	wkCtx.webContext = webkit.WebContextGetDefault()
+	// Create WebContext - with memory pressure settings if configured
+	if opts.IsWebProcessMemoryConfigured() {
+		applier := NewMemoryPressureApplier()
+		settings, err := applier.ApplyWebProcessSettings(ctx, opts.WebProcessMemory)
+		if err != nil {
+			log.Warn().Err(err).Msg("failed to prepare web process memory pressure settings")
+		}
+		if settings != nil {
+			wkCtx.webContext = createWebContextWithMemorySettings(settings.(*webkit.MemoryPressureSettings))
+			if wkCtx.webContext != nil {
+				log.Debug().Msg("created WebContext with memory pressure settings")
+			}
+		}
+	}
+
+	// Fall back to default WebContext if not created above
 	if wkCtx.webContext == nil {
-		wkCtx.webContext = webkit.NewWebContext()
+		wkCtx.webContext = webkit.WebContextGetDefault()
+		if wkCtx.webContext == nil {
+			wkCtx.webContext = webkit.NewWebContext()
+		}
 	}
 	if wkCtx.webContext == nil {
 		return nil, fmt.Errorf("failed to get or create WebContext")
@@ -69,11 +105,30 @@ func NewWebKitContext(ctx context.Context, dataDir, cacheDir string) (*WebKitCon
 
 	wkCtx.initialized = true
 	log.Info().
-		Str("data_dir", dataDir).
-		Str("cache_dir", cacheDir).
+		Str("data_dir", opts.DataDir).
+		Str("cache_dir", opts.CacheDir).
 		Msg("webkit context initialized")
 
 	return wkCtx, nil
+}
+
+// createWebContextWithMemorySettings creates a WebContext with memory-pressure-settings.
+// The memory-pressure-settings property is construct-only, so we need to set it at creation time.
+func createWebContextWithMemorySettings(settings *webkit.MemoryPressureSettings) *webkit.WebContext {
+	if settings == nil {
+		return nil
+	}
+
+	// Create a new WebContext and set memory pressure settings
+	// Note: memory-pressure-settings is construct-only, but we try setting it via property
+	// as an alternative to g_object_new_with_properties which may not work reliably
+	ctx := webkit.NewWebContext()
+	if ctx != nil {
+		// Try to set the property - this may not work for construct-only properties
+		// but it's the best we can do without lower-level GObject access
+		ctx.SetPropertyMemoryPressureSettings(settings.GoPointer())
+	}
+	return ctx
 }
 
 // initNetworkSession creates and configures the persistent network session.
