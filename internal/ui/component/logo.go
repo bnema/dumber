@@ -35,9 +35,3 @@ func GetLogoTexture() *gdk.Texture {
 	})
 	return logoTexture
 }
-
-// LogoSVGBytes returns the raw SVG bytes of the dumber logo.
-// Useful for infrastructure services that need the logo data without GTK dependencies.
-func LogoSVGBytes() []byte {
-	return assets.LogoSVG
-}
