@@ -9,7 +9,6 @@ import (
 
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
-	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/glib"
 )
 
@@ -56,8 +55,7 @@ type WebViewPool struct {
 	filterApplier FilterApplier // Optional content filter applier
 
 	// Background color for WebViews (eliminates white flash)
-	bgR, bgG, bgB, bgA float32
-	bgMu               sync.RWMutex
+	bg bgColor
 
 	closed atomic.Bool
 	wg     sync.WaitGroup
@@ -109,9 +107,7 @@ func (p *WebViewPool) SetFilterApplier(applier FilterApplier) {
 // SetBackgroundColor sets the background color for newly created WebViews.
 // This color is shown before content is painted, eliminating white flash.
 func (p *WebViewPool) SetBackgroundColor(r, g, b, a float32) {
-	p.bgMu.Lock()
-	p.bgR, p.bgG, p.bgB, p.bgA = r, g, b, a
-	p.bgMu.Unlock()
+	p.bg.set(r, g, b, a)
 }
 
 // Acquire gets a WebView from the pool or creates a new one.
@@ -126,10 +122,7 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 	select {
 	case wv := <-p.pool:
 		if wv != nil && !wv.IsDestroyed() {
-			p.bgMu.RLock()
-			r, g, b, a := p.bgR, p.bgG, p.bgB, p.bgA
-			p.bgMu.RUnlock()
-			if a > 0 {
+			if r, g, b, a := p.bg.get(); a > 0 {
 				wv.SetBackgroundColor(r, g, b, a)
 			}
 			wv.inner.AddCssClass("webview-themed")
@@ -158,17 +151,7 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 func (p *WebViewPool) createWebView(ctx context.Context) (*WebView, error) {
 	log := logging.FromContext(ctx)
 
-	// Build background color for immediate application during WebView creation
-	p.bgMu.RLock()
-	r, g, b, a := p.bgR, p.bgG, p.bgB, p.bgA
-	p.bgMu.RUnlock()
-
-	var bgColor *gdk.RGBA
-	if a > 0 { // Only set if a valid color was configured
-		bgColor = &gdk.RGBA{Red: r, Green: g, Blue: b, Alpha: a}
-	}
-
-	wv, err := NewWebView(ctx, p.wkCtx, p.settings, bgColor)
+	wv, err := NewWebView(ctx, p.wkCtx, p.settings, p.bg.toGdkRGBA())
 	if err != nil {
 		return nil, err
 	}
