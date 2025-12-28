@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
   - `--force` / `-f` flag to skip version check and reinstall the current version.
   - Reuses existing auto-update infrastructure (check, download, stage, apply on exit).
   - Theme-aware styling consistent with other CLI commands.
+- **Config open command**: New `dumber config open` command to open the config file in your preferred editor. Uses `$EDITOR`, then `$VISUAL`, with fallback to nano/vim/vi.
 - **Move pane to tab**: New pane-mode actions to move the active pane to another tab.
   - `Ctrl+P → m`: Opens a tab picker modal.
   - `Ctrl+P → M`: Moves the active pane to the next tab (creates a new tab if needed).
