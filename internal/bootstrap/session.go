@@ -89,6 +89,10 @@ func StartBrowserSession(
 		persistErr error
 	)
 
+	// persistFn ensures the session is saved exactly once. Using sync.Once is intentional:
+	// if the first persist fails, we cache the error and return it on subsequent calls
+	// rather than retrying. This prevents duplicate session records and ensures consistent
+	// error handling during shutdown sequences where persistFn may be called multiple times.
 	persistFn := func(persistCtx context.Context) error {
 		persistMu.Do(func() {
 			saveCtx := corelogging.WithContext(context.Background(), logger)
