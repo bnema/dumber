@@ -307,7 +307,7 @@ Each tab holds its own workspace. Each workspace can contain multiple panes (spl
 3. **Navigate**: Use `Ctrl+Tab` / `Ctrl+Shift+Tab` for quick tab switching, or `L`/`H` in tab mode
 4. **Exit**: Press `Escape` to exit tab mode or wait for timeout
 
-Tab mode provides visual feedback with an orange border indicator.
+
 
 ## Pane Management
 
@@ -335,7 +335,7 @@ Dumber automatically saves your browser session (tabs, panes, split ratios, URLs
 4. **Restore**: Select an exited session to restore it in a new browser window
 5. **CLI Access**: Use `dumber sessions` for an interactive TUI, or `dumber sessions list/restore/delete` for scripting
 
-Session mode provides visual feedback with a purple border indicator.
+
 
 ## Configuration
 
