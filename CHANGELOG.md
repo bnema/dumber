@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **Omnibox bang shortcuts UI**: Typing `!` in the omnibox now shows all configured bangs (search shortcuts) with filtering and Enter-to-autocomplete, plus a header badge when a bang is recognized.
+- **Loading skeleton with app logo**: New panes show a centered 512x512 faded app logo with a spinner while loading, replacing the blank/white flash. Uses `--muted` theme color for the spinner.
+- **App logo favicon for internal pages**: `dumb://` URLs now display the dumber logo as favicon in history, favorites, omnibox suggestions, and dmenu/rofi. WebUI and CLI tools share consistent branding.
 - **Omnibox favorite indicator**: History items that are also bookmarked now display a yellowish left border and subtle background tint in the omnibox. Uses parallel async loading to avoid blocking browser startup.
 - **Mode indicator toaster**: Visual notification showing current modal mode (PANE MODE, TAB MODE, SESSION MODE, RESIZE MODE) at bottom-left corner with mode-specific colors. Configurable via `workspace.styling.mode_indicator_toaster_enabled` (default: true).
 - **Config migration system**: Detects missing config keys when new settings are added in updates and provides tools to add them.

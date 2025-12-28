@@ -23,6 +23,10 @@
   const getFaviconUrl = (item: HistoryEntry): string => {
     // Use provided favicon_url if available
     if (item.favicon_url) return item.favicon_url;
+    // Handle internal dumb:// URLs - use embedded favicon
+    if (item.url.startsWith('dumb://')) {
+      return 'favicon.png';
+    }
     // Construct DuckDuckGo favicon URL from domain
     const domain = getDomain(item.url).replace(/^www\./, '');
     return `https://icons.duckduckgo.com/ip3/${encodeURIComponent(domain)}.ico`;

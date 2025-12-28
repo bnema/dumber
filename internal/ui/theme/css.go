@@ -512,13 +512,13 @@ func generatePaneCSS(p Palette) string {
 	-gtk-icon-size: 32px;
 	min-width: 32px;
 	min-height: 32px;
+	color: var(--muted);
 }
 
-.loading-skeleton-text {
-	font-family: var(--font-mono);
-	font-size: 1.5em;
-	letter-spacing: 0.1em;
-	color: var(--muted);
+.loading-skeleton-logo {
+	opacity: 0.08;
+	min-width: 512px;
+	min-height: 512px;
 }
 
 /* Pane border - default transparent */

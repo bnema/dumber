@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { resolve } from "path";
 import { pageGenerator } from "./vite-plugin-pages";
+import { copyFileSync, existsSync, mkdirSync } from "fs";
 
 // Page configurations for dumb:// protocol pages
 const pages = {
@@ -46,6 +47,20 @@ const pages = {
 // Get page from VITE_PAGE env var, default to building all
 const targetPage = process.env.VITE_PAGE as keyof typeof pages | undefined;
 
+// Copy public assets to output directory
+function copyPublicAssets() {
+  const outDir = resolve(__dirname, "../assets/webui");
+  const publicDir = resolve(__dirname, "public");
+  if (!existsSync(outDir)) {
+    mkdirSync(outDir, { recursive: true });
+  }
+  // Copy favicon.png for dumb:// URL favicons
+  const faviconSrc = resolve(publicDir, "favicon.png");
+  if (existsSync(faviconSrc)) {
+    copyFileSync(faviconSrc, resolve(outDir, "favicon.png"));
+  }
+}
+
 // Build single page config
 function buildPageConfig(pageName: keyof typeof pages) {
   const page = pages[pageName];
@@ -55,6 +70,12 @@ function buildPageConfig(pageName: keyof typeof pages) {
         emitCss: false, // Inline component CSS for shadow DOM compatibility
       }),
       pageGenerator([page.html]),
+      {
+        name: "copy-public-assets",
+        closeBundle() {
+          copyPublicAssets();
+        },
+      },
     ],
     build: {
       rollupOptions: {
