@@ -76,30 +76,35 @@ func TestFilterBangs(t *testing.T) {
 
 func TestDetectBangKey(t *testing.T) {
 	shortcuts := map[string]SearchShortcut{
-		"gh":  {URL: "https://github.com/search?q=%s"},
-		"ddg": {URL: "https://duckduckgo.com/?q=%s"},
+		"gh":  {URL: "https://github.com/search?q=%s", Description: "GitHub search"},
+		"ddg": {URL: "https://duckduckgo.com/?q=%s", Description: ""},
 	}
 	uc := NewSearchShortcutsUseCase(shortcuts)
 	ctx := context.Background()
 
 	cases := []struct {
-		name  string
-		query string
-		want  string
+		name      string
+		query     string
+		wantKey   string
+		wantDescr string
 	}{
-		{name: "no bang prefix", query: "gh test", want: ""},
-		{name: "bang only has no space", query: "!gh", want: ""},
-		{name: "space at position 1", query: "! test", want: ""},
-		{name: "unknown bang", query: "!nope test", want: ""},
-		{name: "case-insensitive match", query: "!GH test", want: "gh"},
-		{name: "valid bang key", query: "!ddg test", want: "ddg"},
+		{name: "no bang prefix", query: "gh test", wantKey: "", wantDescr: ""},
+		{name: "bang only has no space", query: "!gh", wantKey: "", wantDescr: ""},
+		{name: "space at position 1", query: "! test", wantKey: "", wantDescr: ""},
+		{name: "unknown bang", query: "!nope test", wantKey: "", wantDescr: ""},
+		{name: "case-insensitive match", query: "!GH test", wantKey: "gh", wantDescr: "GitHub search"},
+		{name: "valid bang key", query: "!ddg test", wantKey: "ddg", wantDescr: "https://duckduckgo.com/?q=%s"},
+		{name: "description fallback to URL", query: "!DDG query", wantKey: "ddg", wantDescr: "https://duckduckgo.com/?q=%s"},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			output := uc.DetectBangKey(ctx, DetectBangKeyInput{Query: tc.query})
-			if output.Key != tc.want {
-				t.Fatalf("DetectBangKey(%q)=%q want=%q", tc.query, output.Key, tc.want)
+			if output.Key != tc.wantKey {
+				t.Fatalf("DetectBangKey(%q).Key=%q want=%q", tc.query, output.Key, tc.wantKey)
+			}
+			if output.Description != tc.wantDescr {
+				t.Fatalf("DetectBangKey(%q).Description=%q want=%q", tc.query, output.Description, tc.wantDescr)
 			}
 		})
 	}

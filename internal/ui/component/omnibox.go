@@ -1017,7 +1017,14 @@ func (o *Omnibox) createFaviconImage(rawURL, fallbackIcon string) *gtk.Image {
 }
 
 // createRowWithFavicon creates a ListBoxRow with favicon, title, URL, and shortcut badge.
+// Uses rawURL for both favicon fetching and display.
 func (o *Omnibox) createRowWithFavicon(rawURL, title, fallbackIcon string, index int) *gtk.ListBoxRow {
+	return o.createRowWithFaviconURL(rawURL, title, rawURL, fallbackIcon, index)
+}
+
+// createRowWithFaviconURL creates a ListBoxRow with favicon, title, URL label, and shortcut badge.
+// faviconURL is used for async favicon fetching (can be empty to skip), displayURL is shown as secondary label.
+func (o *Omnibox) createRowWithFaviconURL(displayURL, title, faviconURL, fallbackIcon string, index int) *gtk.ListBoxRow {
 	row := gtk.NewListBoxRow()
 	if row == nil {
 		return nil
@@ -1032,7 +1039,7 @@ func (o *Omnibox) createRowWithFavicon(rawURL, title, fallbackIcon string, index
 	hbox.SetHexpand(true)
 
 	// Favicon image (vertically centered)
-	if favicon := o.createFaviconImage(rawURL, fallbackIcon); favicon != nil {
+	if favicon := o.createFaviconImage(faviconURL, fallbackIcon); favicon != nil {
 		favicon.SetValign(gtk.AlignCenterValue)
 		hbox.Append(&favicon.Widget)
 	}
@@ -1048,7 +1055,7 @@ func (o *Omnibox) createRowWithFavicon(rawURL, title, fallbackIcon string, index
 	// Title label (or URL if no title)
 	displayTitle := title
 	if displayTitle == "" {
-		displayTitle = rawURL
+		displayTitle = displayURL
 	}
 	titleLabel := gtk.NewLabel(nil)
 	if titleLabel != nil {
@@ -1060,10 +1067,10 @@ func (o *Omnibox) createRowWithFavicon(rawURL, title, fallbackIcon string, index
 	}
 
 	// URL label (only if title exists and differs from URL)
-	if title != "" && title != rawURL {
+	if title != "" && title != displayURL {
 		urlLabel := gtk.NewLabel(nil)
 		if urlLabel != nil {
-			urlLabel.SetText(rawURL)
+			urlLabel.SetText(displayURL)
 			urlLabel.AddCssClass("omnibox-suggestion-url")
 			urlLabel.SetHalign(gtk.AlignStartValue)
 			urlLabel.SetEllipsize(2) // PANGO_ELLIPSIZE_END
@@ -1108,7 +1115,9 @@ func (o *Omnibox) createFavoriteRow(f Favorite, index int) *gtk.ListBoxRow {
 }
 
 func (o *Omnibox) createBangRow(b BangSuggestion, index int) *gtk.ListBoxRow {
-	row := o.createRowWithFavicon(b.Description, "!"+b.Key, "system-search-symbolic", index)
+	// Pass description as URL param (displayed as secondary label) and empty
+	// faviconURL to skip async favicon fetching - bang rows use static icon only
+	row := o.createRowWithFaviconURL(b.Description, "!"+b.Key, "", "system-search-symbolic", index)
 	if row != nil {
 		row.AddCssClass("omnibox-row-bang")
 	}
