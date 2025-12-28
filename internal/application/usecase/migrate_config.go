@@ -126,17 +126,17 @@ func (uc *MigrateConfigUseCase) DetectChanges(ctx context.Context, _ DetectChang
 	}, nil
 }
 
-// Execute adds missing default keys to the user's config file.
+// Execute adds missing default keys and removes deprecated keys from the user's config file.
 func (uc *MigrateConfigUseCase) Execute(ctx context.Context, _ MigrateConfigInput) (*MigrateConfigOutput, error) {
 	log := logging.FromContext(ctx)
 
-	// First check if migration is needed
-	checkResult, err := uc.migrator.CheckMigration()
+	// Check for any changes (added, removed, or renamed keys)
+	changes, err := uc.migrator.DetectChanges()
 	if err != nil {
 		return nil, err
 	}
 
-	if checkResult == nil || len(checkResult.MissingKeys) == 0 {
+	if len(changes) == 0 {
 		log.Debug().Msg("no migration needed")
 		return &MigrateConfigOutput{
 			AddedKeys:  nil,
@@ -144,20 +144,23 @@ func (uc *MigrateConfigUseCase) Execute(ctx context.Context, _ MigrateConfigInpu
 		}, nil
 	}
 
+	// Get config file path for output
+	configFile, _ := uc.migrator.GetConfigFile()
+
 	// Perform migration
-	addedKeys, err := uc.migrator.Migrate()
+	appliedKeys, err := uc.migrator.Migrate()
 	if err != nil {
 		log.Error().Err(err).Msg("config migration failed")
 		return nil, err
 	}
 
 	log.Info().
-		Int("added_keys", len(addedKeys)).
-		Str("config_file", checkResult.ConfigFile).
+		Int("applied_keys", len(appliedKeys)).
+		Str("config_file", configFile).
 		Msg("config migration completed")
 
 	return &MigrateConfigOutput{
-		AddedKeys:  addedKeys,
-		ConfigFile: checkResult.ConfigFile,
+		AddedKeys:  appliedKeys,
+		ConfigFile: configFile,
 	}, nil
 }

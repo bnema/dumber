@@ -628,3 +628,248 @@ func TestMigrator_Migrate_NoConfigFile(t *testing.T) {
 	// which is difficult without refactoring. Skip for now.
 	t.Skip("requires config path mocking")
 }
+
+func TestMigrator_GetConfigType(t *testing.T) {
+	m := NewMigrator()
+
+	tests := []struct {
+		name       string
+		configFile string
+		expected   string
+	}{
+		{
+			name:       "toml file",
+			configFile: "/path/to/config.toml",
+			expected:   "toml",
+		},
+		{
+			name:       "yaml file",
+			configFile: "/path/to/config.yaml",
+			expected:   "yaml",
+		},
+		{
+			name:       "yml file",
+			configFile: "/path/to/config.yml",
+			expected:   "yaml",
+		},
+		{
+			name:       "json file",
+			configFile: "/path/to/config.json",
+			expected:   "json",
+		},
+		{
+			name:       "unknown extension defaults to toml",
+			configFile: "/path/to/config.unknown",
+			expected:   "toml",
+		},
+		{
+			name:       "no extension defaults to toml",
+			configFile: "/path/to/config",
+			expected:   "toml",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := m.getConfigType(tt.configFile)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestMigrator_GetNestedValue(t *testing.T) {
+	m := NewMigrator()
+
+	config := map[string]any{
+		"level1": map[string]any{
+			"level2": map[string]any{
+				"level3": "deep_value",
+			},
+			"simple": "simple_value",
+		},
+		"top": "top_value",
+	}
+
+	tests := []struct {
+		name     string
+		key      string
+		expected any
+	}{
+		{
+			name:     "top level key",
+			key:      "top",
+			expected: "top_value",
+		},
+		{
+			name:     "nested key",
+			key:      "level1.simple",
+			expected: "simple_value",
+		},
+		{
+			name:     "deeply nested key",
+			key:      "level1.level2.level3",
+			expected: "deep_value",
+		},
+		{
+			name:     "non-existent key",
+			key:      "nonexistent",
+			expected: nil,
+		},
+		{
+			name:     "non-existent nested key",
+			key:      "level1.nonexistent",
+			expected: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := m.getNestedValue(config, tt.key)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestMigrator_SetNestedValue(t *testing.T) {
+	m := NewMigrator()
+
+	t.Run("set top level value", func(t *testing.T) {
+		config := make(map[string]any)
+		m.setNestedValue(config, "top", "value")
+		assert.Equal(t, "value", config["top"])
+	})
+
+	t.Run("set nested value with existing parent", func(t *testing.T) {
+		config := map[string]any{
+			"parent": map[string]any{},
+		}
+		m.setNestedValue(config, "parent.child", "value")
+		parent := config["parent"].(map[string]any)
+		assert.Equal(t, "value", parent["child"])
+	})
+
+	t.Run("set nested value creates intermediate maps", func(t *testing.T) {
+		config := make(map[string]any)
+		m.setNestedValue(config, "a.b.c", "deep_value")
+
+		a := config["a"].(map[string]any)
+		b := a["b"].(map[string]any)
+		assert.Equal(t, "deep_value", b["c"])
+	})
+}
+
+func TestMigrator_DeleteNestedKey(t *testing.T) {
+	m := NewMigrator()
+
+	t.Run("delete top level key", func(t *testing.T) {
+		config := map[string]any{
+			"keep":   "value",
+			"delete": "value",
+		}
+		m.deleteNestedKey(config, "delete")
+		assert.Contains(t, config, "keep")
+		assert.NotContains(t, config, "delete")
+	})
+
+	t.Run("delete nested key", func(t *testing.T) {
+		config := map[string]any{
+			"parent": map[string]any{
+				"keep":   "value",
+				"delete": "value",
+			},
+		}
+		m.deleteNestedKey(config, "parent.delete")
+		parent := config["parent"].(map[string]any)
+		assert.Contains(t, parent, "keep")
+		assert.NotContains(t, parent, "delete")
+	})
+
+	t.Run("delete nested key cleans up empty parents", func(t *testing.T) {
+		config := map[string]any{
+			"keep": "value",
+			"parent": map[string]any{
+				"child": map[string]any{
+					"leaf": "value",
+				},
+			},
+		}
+		m.deleteNestedKey(config, "parent.child.leaf")
+		// Both parent and child should be removed since they're empty
+		assert.NotContains(t, config, "parent")
+		assert.Contains(t, config, "keep")
+	})
+
+	t.Run("delete non-existent key is no-op", func(t *testing.T) {
+		config := map[string]any{
+			"keep": "value",
+		}
+		m.deleteNestedKey(config, "nonexistent")
+		assert.Contains(t, config, "keep")
+	})
+}
+
+func TestMigrator_ReadRawConfig(t *testing.T) {
+	m := NewMigrator()
+
+	t.Run("read TOML config", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configFile := filepath.Join(tmpDir, "config.toml")
+
+		content := `
+[section]
+key = "value"
+number = 42
+`
+		err := os.WriteFile(configFile, []byte(content), 0o644)
+		require.NoError(t, err)
+
+		config, err := m.readRawConfig(configFile)
+		require.NoError(t, err)
+
+		section := config["section"].(map[string]any)
+		assert.Equal(t, "value", section["key"])
+		assert.Equal(t, int64(42), section["number"])
+	})
+
+	t.Run("read YAML config", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configFile := filepath.Join(tmpDir, "config.yaml")
+
+		content := `
+section:
+  key: value
+  number: 42
+`
+		err := os.WriteFile(configFile, []byte(content), 0o644)
+		require.NoError(t, err)
+
+		config, err := m.readRawConfig(configFile)
+		require.NoError(t, err)
+
+		section := config["section"].(map[string]any)
+		assert.Equal(t, "value", section["key"])
+		assert.Equal(t, 42, section["number"])
+	})
+
+	t.Run("read JSON config", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configFile := filepath.Join(tmpDir, "config.json")
+
+		content := `{
+  "section": {
+    "key": "value",
+    "number": 42
+  }
+}`
+		err := os.WriteFile(configFile, []byte(content), 0o644)
+		require.NoError(t, err)
+
+		config, err := m.readRawConfig(configFile)
+		require.NoError(t, err)
+
+		section := config["section"].(map[string]any)
+		assert.Equal(t, "value", section["key"])
+		// JSON numbers are float64
+		assert.InDelta(t, 42.0, section["number"].(float64), 0.001)
+	})
+}

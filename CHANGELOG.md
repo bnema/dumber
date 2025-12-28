@@ -19,6 +19,8 @@ All notable changes to this project will be documented in this file.
   - `--force` / `-f` flag to skip version check and reinstall the current version.
   - Reuses existing auto-update infrastructure (check, download, stage, apply on exit).
   - Theme-aware styling consistent with other CLI commands.
+- **Config open command**: New `dumber config open` command to open the config file in your preferred editor. Uses `$EDITOR`, then `$VISUAL`, with fallback to nano/vim/vi.
+- **Config schema command**: New `dumber config schema` command that displays all configuration keys with their types, defaults, descriptions, and valid values. Supports `--json` flag for machine-readable output.
 - **Move pane to tab**: New pane-mode actions to move the active pane to another tab.
   - `Ctrl+P → m`: Opens a tab picker modal.
   - `Ctrl+P → M`: Moves the active pane to the next tab (creates a new tab if needed).
@@ -40,7 +42,9 @@ All notable changes to this project will be documented in this file.
 - **Console logging**: Standardized console timestamps to `HH:MM:SS` across bootstrap and session logging.
 
 ### Fixed
+- **Omnibox favorite toggle reactivity**: Fixed space key toggle in omnibox not updating UI reactively. Now properly toggles favorites (add if not favorite, remove if favorite) with immediate visual feedback (yellow indicator) and toast notifications. Business logic moved to `ManageFavoritesUseCase.Toggle()` for testability.
 - **Config migration type matching**: Fixed migration incorrectly matching keys of different types (e.g., `_width` int keys with `_color` string keys) during rename detection, preventing value swapping.
+- **Config migrate removes deprecated settings**: Fixed `dumber config migrate` not removing deprecated settings from the config file. Previously deprecated keys were preserved but unused; now they are properly deleted. Supports TOML, YAML, and JSON config formats.
 - **Fullscreen video tab bar**: Fixed tab bar remaining visible during fullscreen video playback. Now hides automatically when entering fullscreen and restores based on normal visibility logic when exiting.
 - **Dark mode navigation flash**: Fixed a brief white flash between the loading skeleton and page content when navigating in dark mode.
 - **Progress bar stuck state**: Added 30-second timeout to progress bar to auto-hide if page load stalls and never completes.

@@ -98,7 +98,7 @@ type Omnibox struct {
 	// Callbacks
 	onNavigate func(url string)
 	onClose    func()
-	onToast    func(message string)
+	onToast    func(ctx context.Context, message string, level ToastLevel)
 
 	// Debouncing
 	debounceTimer *time.Timer
@@ -129,9 +129,9 @@ type OmniboxConfig struct {
 	ShortcutsUC     *usecase.SearchShortcutsUseCase
 	DefaultSearch   string
 	InitialBehavior string
-	UIScale         float64              // UI scale for favicon sizing
-	OnNavigate      func(url string)     // Callback when user navigates via omnibox
-	OnToast         func(message string) // Callback to show toast notification
+	UIScale         float64                                                     // UI scale for favicon sizing
+	OnNavigate      func(url string)                                            // Callback when user navigates via omnibox
+	OnToast         func(ctx context.Context, message string, level ToastLevel) // Callback to show toast notification
 }
 
 // NewOmnibox creates a new native GTK4 omnibox widget.
@@ -1291,15 +1291,15 @@ func (o *Omnibox) toggleFavorite() {
 	}
 
 	if mode == ViewModeHistory {
-		// Add to favorites
+		// Toggle favorite in history mode
 		if idx < 0 || idx >= len(suggestions) {
-			log.Debug().Int("index", idx).Msg("add favorite: invalid selection")
+			log.Debug().Int("index", idx).Msg("toggle favorite: invalid selection")
 			return
 		}
 
 		s := suggestions[idx]
 		if s.URL == "" {
-			log.Debug().Msg("add favorite: empty URL")
+			log.Debug().Msg("toggle favorite: empty URL")
 			return
 		}
 
@@ -1307,20 +1307,39 @@ func (o *Omnibox) toggleFavorite() {
 			ctx := o.ctx
 			goLog := logging.FromContext(ctx)
 
-			goLog.Debug().Str("url", s.URL).Str("title", s.Title).Msg("adding to favorites")
-
-			addInput := usecase.AddFavoriteInput{
-				URL:   s.URL,
-				Title: s.Title,
-			}
-
-			fav, err := o.favoritesUC.Add(ctx, addInput)
+			result, err := o.favoritesUC.Toggle(ctx, s.URL, s.Title)
 			if err != nil {
-				goLog.Error().Err(err).Str("url", s.URL).Msg("failed to add favorite")
+				goLog.Error().Err(err).Str("url", s.URL).Msg("failed to toggle favorite")
+				if o.onToast != nil {
+					msg := "Failed to add favorite"
+					if s.IsFavorite {
+						msg = "Failed to remove favorite"
+					}
+					cb := glib.SourceFunc(func(_ uintptr) bool {
+						o.onToast(ctx, msg, ToastError)
+						return false
+					})
+					glib.IdleAdd(&cb, 0)
+				}
 				return
 			}
 
-			goLog.Info().Str("url", s.URL).Int64("id", int64(fav.ID)).Msg("favorite added from omnibox")
+			// Update suggestion state
+			o.mu.Lock()
+			if idx < len(o.suggestions) && o.suggestions[idx].URL == s.URL {
+				o.suggestions[idx].IsFavorite = result.Added
+			}
+			o.mu.Unlock()
+
+			// Update row CSS and show toast on GTK main thread
+			cb := glib.SourceFunc(func(_ uintptr) bool {
+				o.updateRowFavoriteIndicator(idx, result.Added)
+				if o.onToast != nil {
+					o.onToast(ctx, result.Message, ToastSuccess)
+				}
+				return false
+			})
+			glib.IdleAdd(&cb, 0)
 		}()
 	} else {
 		// Remove from favorites
@@ -1344,14 +1363,43 @@ func (o *Omnibox) toggleFavorite() {
 			err := o.favoritesUC.Remove(ctx, entity.FavoriteID(f.ID))
 			if err != nil {
 				log.Error().Err(err).Int64("id", f.ID).Msg("failed to remove favorite")
+				// Show error toast
+				if o.onToast != nil {
+					cb := glib.SourceFunc(func(_ uintptr) bool {
+						o.onToast(ctx, "Failed to remove favorite", ToastError)
+						return false
+					})
+					glib.IdleAdd(&cb, 0)
+				}
 				return
 			}
 
 			log.Info().Int64("id", f.ID).Str("url", f.URL).Msg("favorite removed from omnibox")
 
-			// Refresh favorites list
+			// Refresh favorites list and show toast
 			o.loadFavorites(o.entry.GetText())
+			if o.onToast != nil {
+				cb := glib.SourceFunc(func(_ uintptr) bool {
+					o.onToast(ctx, "Favorite removed", ToastSuccess)
+					return false
+				})
+				glib.IdleAdd(&cb, 0)
+			}
 		}()
+	}
+}
+
+// updateRowFavoriteIndicator updates a single row's favorite indicator CSS class.
+// Must be called from GTK main thread (via glib.IdleAdd).
+func (o *Omnibox) updateRowFavoriteIndicator(index int, isFavorite bool) {
+	row := o.listBox.GetRowAtIndex(index)
+	if row == nil {
+		return
+	}
+	if isFavorite {
+		row.AddCssClass("omnibox-row-favorite")
+	} else {
+		row.RemoveCssClass("omnibox-row-favorite")
 	}
 }
 
@@ -1400,7 +1448,7 @@ func (o *Omnibox) yankSelectedURL() {
 		// Show toast notification on success (must run on GTK main thread)
 		if o.onToast != nil {
 			cb := glib.SourceFunc(func(_ uintptr) bool {
-				o.onToast("URL copied")
+				o.onToast(ctx, "URL copied", ToastSuccess)
 				return false // Don't repeat
 			})
 			glib.IdleAdd(&cb, 0)
