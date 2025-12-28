@@ -37,6 +37,7 @@ type Suggestion struct {
 	URL        string
 	Title      string
 	FaviconURL string
+	IsFavorite bool // Indicates if this URL is also bookmarked as a favorite
 }
 
 // Favorite represents a bookmarked URL.
@@ -596,21 +597,43 @@ func (o *Omnibox) performSearch() {
 			return
 		}
 
-		searchInput := usecase.SearchInput{
-			Query: query,
-			Limit: OmniboxListDefaults.MaxResults,
+		// Run history search and favorite URL fetch in parallel
+		type searchResult struct {
+			output *usecase.SearchOutput
+			err    error
 		}
-		output, err := o.historyUC.Search(ctx, searchInput)
-		if err != nil {
-			log.Error().Err(err).Msg("history search failed")
+		searchCh := make(chan searchResult, 1)
+		favCh := make(chan map[string]struct{}, 1)
+
+		go func() {
+			searchInput := usecase.SearchInput{
+				Query: query,
+				Limit: OmniboxListDefaults.MaxResults,
+			}
+			output, err := o.historyUC.Search(ctx, searchInput)
+			searchCh <- searchResult{output, err}
+		}()
+
+		go func() {
+			favCh <- o.getFavoriteURLs(ctx)
+		}()
+
+		// Wait for both results
+		sr := <-searchCh
+		favoriteURLs := <-favCh
+
+		if sr.err != nil {
+			log.Error().Err(sr.err).Msg("history search failed")
 			return
 		}
 
-		suggestions := make([]Suggestion, 0, len(output.Matches))
-		for _, r := range output.Matches {
+		suggestions := make([]Suggestion, 0, len(sr.output.Matches))
+		for _, r := range sr.output.Matches {
+			_, isFav := favoriteURLs[r.Entry.URL]
 			suggestions = append(suggestions, Suggestion{
-				URL:   r.Entry.URL,
-				Title: r.Entry.Title,
+				URL:        r.Entry.URL,
+				Title:      r.Entry.Title,
+				IsFavorite: isFav,
 			})
 		}
 
@@ -636,17 +659,40 @@ func (o *Omnibox) loadInitialHistory() {
 			return
 
 		case "most_visited", "recent", "":
-			// TODO: Implement GetMostVisited in use case if needed
-			results, err := o.historyUC.GetRecent(ctx, OmniboxListDefaults.MaxResults, 0)
-			if err != nil {
-				log.Error().Err(err).Msg("failed to load recent history")
+			// Run history fetch and favorite URL fetch in parallel
+			type historyResult struct {
+				results []*entity.HistoryEntry
+				err     error
+			}
+			historyCh := make(chan historyResult, 1)
+			favCh := make(chan map[string]struct{}, 1)
+
+			go func() {
+				// TODO: Implement GetMostVisited in use case if needed
+				results, err := o.historyUC.GetRecent(ctx, OmniboxListDefaults.MaxResults, 0)
+				historyCh <- historyResult{results, err}
+			}()
+
+			go func() {
+				favCh <- o.getFavoriteURLs(ctx)
+			}()
+
+			// Wait for both results
+			hr := <-historyCh
+			favoriteURLs := <-favCh
+
+			if hr.err != nil {
+				log.Error().Err(hr.err).Msg("failed to load recent history")
 				return
 			}
-			suggestions = make([]Suggestion, 0, len(results))
-			for _, r := range results {
+
+			suggestions = make([]Suggestion, 0, len(hr.results))
+			for _, r := range hr.results {
+				_, isFav := favoriteURLs[r.URL]
 				suggestions = append(suggestions, Suggestion{
-					URL:   r.URL,
-					Title: r.Title,
+					URL:        r.URL,
+					Title:      r.Title,
+					IsFavorite: isFav,
 				})
 			}
 		}
@@ -898,7 +944,11 @@ func (o *Omnibox) createRowWithFavicon(rawURL, title, fallbackIcon string, index
 
 // createSuggestionRow creates a ListBoxRow for a suggestion.
 func (o *Omnibox) createSuggestionRow(s Suggestion, index int) *gtk.ListBoxRow {
-	return o.createRowWithFavicon(s.URL, s.Title, "web-browser-symbolic", index)
+	row := o.createRowWithFavicon(s.URL, s.Title, "web-browser-symbolic", index)
+	if row != nil && s.IsFavorite {
+		row.AddCssClass("omnibox-row-favorite")
+	}
+	return row
 }
 
 // createFavoriteRow creates a ListBoxRow for a favorite.
@@ -1338,6 +1388,21 @@ func (o *Omnibox) idleAddUpdateSuggestions(suggestions []Suggestion) {
 		return false // One-shot callback
 	}
 	glib.IdleAdd(&cb, 0)
+}
+
+// getFavoriteURLs returns a set of all favorited URLs for batch lookup.
+// Returns empty map on error to avoid blocking history display.
+func (o *Omnibox) getFavoriteURLs(ctx context.Context) map[string]struct{} {
+	if o.favoritesUC == nil {
+		return make(map[string]struct{})
+	}
+	urls, err := o.favoritesUC.GetAllURLs(ctx)
+	if err != nil {
+		log := logging.FromContext(ctx)
+		log.Warn().Err(err).Msg("failed to load favorite URLs for indicator")
+		return make(map[string]struct{})
+	}
+	return urls
 }
 
 // idleAddUpdateFavorites schedules updateFavorites on the GTK main thread.

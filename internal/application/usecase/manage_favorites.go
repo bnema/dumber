@@ -196,6 +196,25 @@ func (uc *ManageFavoritesUseCase) IsFavorite(ctx context.Context, url string) (b
 	return fav != nil, nil
 }
 
+// GetAllURLs returns a set of all favorited URLs for efficient batch lookup.
+func (uc *ManageFavoritesUseCase) GetAllURLs(ctx context.Context) (map[string]struct{}, error) {
+	log := logging.FromContext(ctx)
+	log.Debug().Msg("getting all favorite URLs")
+
+	favs, err := uc.favoriteRepo.GetAll(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get favorites: %w", err)
+	}
+
+	urls := make(map[string]struct{}, len(favs))
+	for _, fav := range favs {
+		urls[fav.URL] = struct{}{}
+	}
+
+	log.Debug().Int("count", len(urls)).Msg("retrieved favorite URLs")
+	return urls, nil
+}
+
 // GetTree builds a complete hierarchical view of folders and favorites.
 func (uc *ManageFavoritesUseCase) GetTree(ctx context.Context) (*entity.FavoriteTree, error) {
 	log := logging.FromContext(ctx)
