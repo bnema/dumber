@@ -24,6 +24,34 @@ type Palette struct {
 	Destructive string // Error/destructive actions
 }
 
+// ModeColors holds colors for modal mode indicators (borders and toasters).
+type ModeColors struct {
+	PaneMode    string // Color for pane mode (default: #4A90E2 blue)
+	TabMode     string // Color for tab mode (default: #FFA500 orange)
+	SessionMode string // Color for session mode (default: #9B59B6 purple)
+	ResizeMode  string // Color for resize mode (default: #00D4AA teal)
+}
+
+// DefaultModeColors returns the default mode indicator colors.
+func DefaultModeColors() ModeColors {
+	return ModeColors{
+		PaneMode:    "#4A90E2",
+		TabMode:     "#FFA500",
+		SessionMode: "#9B59B6",
+		ResizeMode:  "#00D4AA",
+	}
+}
+
+// ToCSSVars generates CSS custom property declarations for mode colors.
+func (m ModeColors) ToCSSVars() string {
+	var sb strings.Builder
+	sb.WriteString("  --pane-mode-color: " + m.PaneMode + ";\n")
+	sb.WriteString("  --tab-mode-color: " + m.TabMode + ";\n")
+	sb.WriteString("  --session-mode-color: " + m.SessionMode + ";\n")
+	sb.WriteString("  --resize-mode-color: " + m.ResizeMode + ";\n")
+	return sb.String()
+}
+
 // DefaultDarkPalette returns the default dark theme palette.
 func DefaultDarkPalette() Palette {
 	return Palette{

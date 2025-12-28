@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
@@ -18,6 +20,19 @@ type CheckConfigMigrationOutput struct {
 	MissingKeys []port.KeyInfo
 	// ConfigFile is the path to the config file.
 	ConfigFile string
+}
+
+// DetectChangesInput holds the input for detecting config changes.
+type DetectChangesInput struct{}
+
+// DetectChangesOutput holds the result of change detection.
+type DetectChangesOutput struct {
+	// HasChanges is true if any changes were detected.
+	HasChanges bool
+	// Changes contains all detected changes.
+	Changes []port.KeyChange
+	// DiffText is a formatted diff-like string representation.
+	DiffText string
 }
 
 // MigrateConfigInput holds the input for migrating config.
@@ -81,6 +96,36 @@ func (uc *MigrateConfigUseCase) Check(ctx context.Context, _ CheckConfigMigratio
 	}, nil
 }
 
+// DetectChanges detects all config changes and returns a diff-like output.
+func (uc *MigrateConfigUseCase) DetectChanges(ctx context.Context, _ DetectChangesInput) (*DetectChangesOutput, error) {
+	log := logging.FromContext(ctx)
+
+	changes, err := uc.migrator.DetectChanges()
+	if err != nil {
+		log.Warn().Err(err).Msg("config change detection failed")
+		return nil, err
+	}
+
+	if len(changes) == 0 {
+		log.Debug().Msg("no config changes detected")
+		return &DetectChangesOutput{
+			HasChanges: false,
+			Changes:    nil,
+			DiffText:   "No changes detected.",
+		}, nil
+	}
+
+	log.Debug().
+		Int("changes", len(changes)).
+		Msg("config changes detected")
+
+	return &DetectChangesOutput{
+		HasChanges: true,
+		Changes:    changes,
+		DiffText:   formatChangesAsDiff(changes),
+	}, nil
+}
+
 // Execute adds missing default keys to the user's config file.
 func (uc *MigrateConfigUseCase) Execute(ctx context.Context, _ MigrateConfigInput) (*MigrateConfigOutput, error) {
 	log := logging.FromContext(ctx)
@@ -115,4 +160,30 @@ func (uc *MigrateConfigUseCase) Execute(ctx context.Context, _ MigrateConfigInpu
 		AddedKeys:  addedKeys,
 		ConfigFile: checkResult.ConfigFile,
 	}, nil
+}
+
+// formatChangesAsDiff returns changes formatted as a diff for display.
+func formatChangesAsDiff(changes []port.KeyChange) string {
+	if len(changes) == 0 {
+		return "No changes detected."
+	}
+
+	var sb strings.Builder
+	sb.WriteString("Config migration changes:\n\n")
+
+	for _, change := range changes {
+		switch change.Type {
+		case port.KeyChangeAdded:
+			sb.WriteString(fmt.Sprintf("  + %s = %s\n", change.NewKey, change.NewValue))
+		case port.KeyChangeRemoved:
+			sb.WriteString(fmt.Sprintf("  - %s = %s (deprecated)\n", change.OldKey, change.OldValue))
+		case port.KeyChangeRenamed:
+			sb.WriteString(fmt.Sprintf("  ~ %s -> %s\n", change.OldKey, change.NewKey))
+			sb.WriteString(fmt.Sprintf("    (value: %s)\n", change.OldValue))
+		case port.KeyChangeConsolidated:
+			sb.WriteString(fmt.Sprintf("  > %s -> %s\n", change.OldKey, change.NewKey))
+		}
+	}
+
+	return sb.String()
 }
