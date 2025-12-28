@@ -23,7 +23,7 @@ func TestNewPaneView_CreatesOverlay(t *testing.T) {
 	mockLoadingContainer := mocks.NewMockBoxWidget(t)
 	mockLoadingContent := mocks.NewMockBoxWidget(t)
 	mockLoadingSpinner := mocks.NewMockSpinnerWidget(t)
-	mockLoadingLabel := mocks.NewMockLabelWidget(t)
+	mockLoadingLogo := mocks.NewMockImageWidget(t)
 
 	paneID := entity.PaneID("pane-1")
 
@@ -34,7 +34,7 @@ func TestNewPaneView_CreatesOverlay(t *testing.T) {
 	mockOverlay.EXPECT().AddCssClass("pane-overlay").Once() // Theme background
 	mockOverlay.EXPECT().SetChild(mockWebView).Once()
 
-	setupLoadingSkeletonMocks(mockFactory, mockOverlay, mockLoadingContainer, mockLoadingContent, mockLoadingSpinner, mockLoadingLabel)
+	setupLoadingSkeletonMocks(mockFactory, mockOverlay, mockLoadingContainer, mockLoadingContent, mockLoadingSpinner, mockLoadingLogo)
 
 	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
 	mockBorderBox.EXPECT().SetCanFocus(false).Once()
@@ -64,7 +64,7 @@ func TestNewPaneView_NilWebView(t *testing.T) {
 	mockLoadingContainer := mocks.NewMockBoxWidget(t)
 	mockLoadingContent := mocks.NewMockBoxWidget(t)
 	mockLoadingSpinner := mocks.NewMockSpinnerWidget(t)
-	mockLoadingLabel := mocks.NewMockLabelWidget(t)
+	mockLoadingLogo := mocks.NewMockImageWidget(t)
 
 	paneID := entity.PaneID("pane-1")
 
@@ -75,7 +75,7 @@ func TestNewPaneView_NilWebView(t *testing.T) {
 	mockOverlay.EXPECT().AddCssClass("pane-overlay").Once() // Theme background
 	// SetChild should NOT be called when webview is nil
 
-	setupLoadingSkeletonMocks(mockFactory, mockOverlay, mockLoadingContainer, mockLoadingContent, mockLoadingSpinner, mockLoadingLabel)
+	setupLoadingSkeletonMocks(mockFactory, mockOverlay, mockLoadingContainer, mockLoadingContent, mockLoadingSpinner, mockLoadingLogo)
 
 	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
 	mockBorderBox.EXPECT().SetCanFocus(false).Once()
@@ -514,7 +514,7 @@ func setupLoadingSkeletonMocks(
 	mockLoadingContainer *mocks.MockBoxWidget,
 	mockLoadingContent *mocks.MockBoxWidget,
 	mockLoadingSpinner *mocks.MockSpinnerWidget,
-	mockLoadingLabel *mocks.MockLabelWidget,
+	mockLoadingLogo *mocks.MockImageWidget,
 ) {
 	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockLoadingContainer).Once()
 	mockLoadingContainer.EXPECT().SetHexpand(true).Maybe()
@@ -542,15 +542,18 @@ func setupLoadingSkeletonMocks(
 	mockLoadingSpinner.EXPECT().AddCssClass("loading-skeleton-spinner").Maybe()
 	mockLoadingSpinner.EXPECT().Start().Maybe()
 
-	mockFactory.EXPECT().NewLabel("Loading...").Return(mockLoadingLabel).Once()
-	mockLoadingLabel.EXPECT().SetHalign(mock.Anything).Maybe()
-	mockLoadingLabel.EXPECT().SetValign(mock.Anything).Maybe()
-	mockLoadingLabel.EXPECT().SetCanFocus(false).Maybe()
-	mockLoadingLabel.EXPECT().SetCanTarget(false).Maybe()
-	mockLoadingLabel.EXPECT().AddCssClass("loading-skeleton-text").Maybe()
+	mockFactory.EXPECT().NewImage().Return(mockLoadingLogo).Once()
+	mockLoadingLogo.EXPECT().SetHalign(mock.Anything).Maybe()
+	mockLoadingLogo.EXPECT().SetValign(mock.Anything).Maybe()
+	mockLoadingLogo.EXPECT().SetCanFocus(false).Maybe()
+	mockLoadingLogo.EXPECT().SetCanTarget(false).Maybe()
+	mockLoadingLogo.EXPECT().SetSizeRequest(512, 512).Maybe()
+	mockLoadingLogo.EXPECT().SetPixelSize(512).Maybe()
+	mockLoadingLogo.EXPECT().AddCssClass("loading-skeleton-logo").Maybe()
+	mockLoadingLogo.EXPECT().SetFromPaintable(mock.Anything).Maybe()
 
+	mockLoadingContent.EXPECT().Append(mockLoadingLogo).Maybe()
 	mockLoadingContent.EXPECT().Append(mockLoadingSpinner).Maybe()
-	mockLoadingContent.EXPECT().Append(mockLoadingLabel).Maybe()
 	mockLoadingContainer.EXPECT().Append(mockLoadingContent).Maybe()
 
 	mockOverlay.EXPECT().AddOverlay(mockLoadingContainer).Once()
@@ -569,7 +572,7 @@ func setupPaneViewMocks(
 	mockLoadingContainer := mocks.NewMockBoxWidget(t)
 	mockLoadingContent := mocks.NewMockBoxWidget(t)
 	mockLoadingSpinner := mocks.NewMockSpinnerWidget(t)
-	mockLoadingLabel := mocks.NewMockLabelWidget(t)
+	mockLoadingLogo := mocks.NewMockImageWidget(t)
 
 	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
 	mockOverlay.EXPECT().SetHexpand(true).Once()
@@ -578,7 +581,7 @@ func setupPaneViewMocks(
 	mockOverlay.EXPECT().AddCssClass("pane-overlay").Once() // Theme background
 	mockOverlay.EXPECT().SetChild(mockWebView).Once()
 
-	setupLoadingSkeletonMocks(mockFactory, mockOverlay, mockLoadingContainer, mockLoadingContent, mockLoadingSpinner, mockLoadingLabel)
+	setupLoadingSkeletonMocks(mockFactory, mockOverlay, mockLoadingContainer, mockLoadingContent, mockLoadingSpinner, mockLoadingLogo)
 
 	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
 	mockBorderBox.EXPECT().SetCanFocus(false).Once()
@@ -600,7 +603,7 @@ func setupPaneViewMocksNoWebView(
 	mockLoadingContainer := mocks.NewMockBoxWidget(t)
 	mockLoadingContent := mocks.NewMockBoxWidget(t)
 	mockLoadingSpinner := mocks.NewMockSpinnerWidget(t)
-	mockLoadingLabel := mocks.NewMockLabelWidget(t)
+	mockLoadingLogo := mocks.NewMockImageWidget(t)
 
 	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
 	mockOverlay.EXPECT().SetHexpand(true).Once()
@@ -608,7 +611,7 @@ func setupPaneViewMocksNoWebView(
 	mockOverlay.EXPECT().SetVisible(true).Once()
 	mockOverlay.EXPECT().AddCssClass("pane-overlay").Once() // Theme background
 
-	setupLoadingSkeletonMocks(mockFactory, mockOverlay, mockLoadingContainer, mockLoadingContent, mockLoadingSpinner, mockLoadingLabel)
+	setupLoadingSkeletonMocks(mockFactory, mockOverlay, mockLoadingContainer, mockLoadingContent, mockLoadingSpinner, mockLoadingLogo)
 
 	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBorderBox).Once()
 	mockBorderBox.EXPECT().SetCanFocus(false).Once()
