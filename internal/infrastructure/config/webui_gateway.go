@@ -60,5 +60,10 @@ func (g *WebUIConfigGateway) SaveWebUIConfig(ctx context.Context, cfg port.WebUI
 		current.SearchShortcuts = shortcuts
 	}
 
+	// Performance profile (requires restart to take effect)
+	if cfg.Performance.Profile != "" {
+		current.Performance.Profile = PerformanceProfile(cfg.Performance.Profile)
+	}
+
 	return g.mgr.Save(current)
 }
