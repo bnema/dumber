@@ -151,6 +151,59 @@ func (_c *MockConfigMigrator_DetectChanges_Call) RunAndReturn(run func() ([]port
 	return _c
 }
 
+// GetConfigFile provides a mock function for the type MockConfigMigrator
+func (_mock *MockConfigMigrator) GetConfigFile() (string, error) {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetConfigFile")
+	}
+
+	var r0 string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func() (string, error)); ok {
+		return returnFunc()
+	}
+	if returnFunc, ok := ret.Get(0).(func() string); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+	if returnFunc, ok := ret.Get(1).(func() error); ok {
+		r1 = returnFunc()
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockConfigMigrator_GetConfigFile_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetConfigFile'
+type MockConfigMigrator_GetConfigFile_Call struct {
+	*mock.Call
+}
+
+// GetConfigFile is a helper method to define mock.On call
+func (_e *MockConfigMigrator_Expecter) GetConfigFile() *MockConfigMigrator_GetConfigFile_Call {
+	return &MockConfigMigrator_GetConfigFile_Call{Call: _e.mock.On("GetConfigFile")}
+}
+
+func (_c *MockConfigMigrator_GetConfigFile_Call) Run(run func()) *MockConfigMigrator_GetConfigFile_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockConfigMigrator_GetConfigFile_Call) Return(s string, err error) *MockConfigMigrator_GetConfigFile_Call {
+	_c.Call.Return(s, err)
+	return _c
+}
+
+func (_c *MockConfigMigrator_GetConfigFile_Call) RunAndReturn(run func() (string, error)) *MockConfigMigrator_GetConfigFile_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetKeyInfo provides a mock function for the type MockConfigMigrator
 func (_mock *MockConfigMigrator) GetKeyInfo(key string) port.KeyInfo {
 	ret := _mock.Called(key)

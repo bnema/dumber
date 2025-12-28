@@ -42,6 +42,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - **Omnibox favorite toggle reactivity**: Fixed space key toggle in omnibox not updating UI reactively. Now properly toggles favorites (add if not favorite, remove if favorite) with immediate visual feedback (yellow indicator) and toast notifications. Business logic moved to `ManageFavoritesUseCase.Toggle()` for testability.
 - **Config migration type matching**: Fixed migration incorrectly matching keys of different types (e.g., `_width` int keys with `_color` string keys) during rename detection, preventing value swapping.
+- **Config migrate removes deprecated settings**: Fixed `dumber config migrate` not removing deprecated settings from the config file. Previously deprecated keys were preserved but unused; now they are properly deleted. Supports TOML, YAML, and JSON config formats.
 - **Fullscreen video tab bar**: Fixed tab bar remaining visible during fullscreen video playback. Now hides automatically when entering fullscreen and restores based on normal visibility logic when exiting.
 - **Dark mode navigation flash**: Fixed a brief white flash between the loading skeleton and page content when navigating in dark mode.
 - **Progress bar stuck state**: Added 30-second timeout to progress bar to auto-hide if page load stalls and never completes.
