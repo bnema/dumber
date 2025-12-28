@@ -32,6 +32,15 @@ func BuildWebKitStack(
 	themeManager *theme.Manager,
 	logger zerolog.Logger,
 ) WebKitStack {
+	// Resolve performance profile to get actual settings
+	perfSettings := config.ResolvePerformanceProfile(&cfg.Performance)
+	logger.Info().
+		Str("profile", string(cfg.Performance.Profile)).
+		Int("skia_cpu_threads", perfSettings.SkiaCPUPaintingThreads).
+		Int("skia_gpu_threads", perfSettings.SkiaGPUPaintingThreads).
+		Int("webview_pool_prewarm", perfSettings.WebViewPoolPrewarmCount).
+		Msg("resolved performance profile")
+
 	// CRITICAL: Configure rendering environment BEFORE WebKit/GTK initialization.
 	// Environment variables must be set before GTK/WebKit/GStreamer initializes.
 	renderEnv := env.NewManager()
@@ -58,6 +67,11 @@ func BuildWebKitStack(
 		ShowFPS:      cfg.Rendering.ShowFPS,
 		SampleMemory: cfg.Rendering.SampleMemory,
 		DebugFrames:  cfg.Rendering.DebugFrames,
+
+		// Skia rendering thread settings (from resolved profile)
+		SkiaCPUPaintingThreads: perfSettings.SkiaCPUPaintingThreads,
+		SkiaGPUPaintingThreads: perfSettings.SkiaGPUPaintingThreads,
+		SkiaEnableCPURendering: perfSettings.SkiaEnableCPURendering,
 	}
 	if err := renderEnv.ApplyEnvironment(ctx, renderSettings); err != nil {
 		logger.Warn().Err(err).Msg("failed to apply rendering environment")
@@ -67,7 +81,35 @@ func BuildWebKitStack(
 		Interface("vars", renderEnv.GetAppliedVars()).
 		Msg("rendering environment configured")
 
-	wkCtx, err := webkit.NewWebKitContext(ctx, dataDir, cacheDir)
+	// Build WebKitContext options with memory pressure settings
+	wkOpts := port.WebKitContextOptions{
+		DataDir:  dataDir,
+		CacheDir: cacheDir,
+	}
+
+	// Configure web process memory pressure if any setting is configured
+	if hasWebProcessMemoryConfig(&perfSettings) {
+		wkOpts.WebProcessMemory = &port.MemoryPressureConfig{
+			MemoryLimitMB:         perfSettings.WebProcessMemoryLimitMB,
+			PollIntervalSec:       perfSettings.WebProcessMemoryPollIntervalSec,
+			ConservativeThreshold: perfSettings.WebProcessMemoryConservativeThreshold,
+			StrictThreshold:       perfSettings.WebProcessMemoryStrictThreshold,
+			KillThreshold:         perfSettings.WebProcessMemoryKillThreshold,
+		}
+	}
+
+	// Configure network process memory pressure if any setting is configured
+	if hasNetworkProcessMemoryConfig(&perfSettings) {
+		wkOpts.NetworkProcessMemory = &port.MemoryPressureConfig{
+			MemoryLimitMB:         perfSettings.NetworkProcessMemoryLimitMB,
+			PollIntervalSec:       perfSettings.NetworkProcessMemoryPollIntervalSec,
+			ConservativeThreshold: perfSettings.NetworkProcessMemoryConservativeThreshold,
+			StrictThreshold:       perfSettings.NetworkProcessMemoryStrictThreshold,
+			KillThreshold:         perfSettings.NetworkProcessMemoryKillThreshold,
+		}
+	}
+
+	wkCtx, err := webkit.NewWebKitContextWithOptions(ctx, wkOpts)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("failed to initialize WebKit context")
 	}
@@ -106,9 +148,9 @@ func BuildWebKitStack(
 
 	messageRouter := webkit.NewMessageRouter(ctx)
 	poolCfg := webkit.DefaultPoolConfig()
-	// Override prewarm count from config if set
-	if cfg.Performance.WebViewPoolPrewarmCount > 0 {
-		poolCfg.PrewarmCount = cfg.Performance.WebViewPoolPrewarmCount
+	// Override prewarm count from resolved profile settings
+	if perfSettings.WebViewPoolPrewarmCount > 0 {
+		poolCfg.PrewarmCount = perfSettings.WebViewPoolPrewarmCount
 	}
 	pool := webkit.NewWebViewPool(ctx, wkCtx, settings, poolCfg, injector, messageRouter)
 	// Ensure prewarmed WebViews pick up the theme background color.
@@ -134,4 +176,22 @@ func BuildWebKitStack(
 		Pool:          pool,
 		FilterManager: filterManager,
 	}
+}
+
+// hasWebProcessMemoryConfig returns true if any web process memory setting is configured.
+func hasWebProcessMemoryConfig(p *config.ResolvedPerformanceSettings) bool {
+	return p.WebProcessMemoryLimitMB > 0 ||
+		p.WebProcessMemoryPollIntervalSec > 0 ||
+		p.WebProcessMemoryConservativeThreshold > 0 ||
+		p.WebProcessMemoryStrictThreshold > 0 ||
+		p.WebProcessMemoryKillThreshold >= 0
+}
+
+// hasNetworkProcessMemoryConfig returns true if any network process memory setting is configured.
+func hasNetworkProcessMemoryConfig(p *config.ResolvedPerformanceSettings) bool {
+	return p.NetworkProcessMemoryLimitMB > 0 ||
+		p.NetworkProcessMemoryPollIntervalSec > 0 ||
+		p.NetworkProcessMemoryConservativeThreshold > 0 ||
+		p.NetworkProcessMemoryStrictThreshold > 0 ||
+		p.NetworkProcessMemoryKillThreshold >= 0
 }
