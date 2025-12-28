@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.22.0] - 2025-12-28
+
 ### Added
 - **Omnibox bang shortcuts UI**: Typing `!` in the omnibox now shows all configured bangs (search shortcuts) with filtering and Enter-to-autocomplete, plus a header badge when a bang is recognized.
 - **Loading skeleton with app logo**: New panes show a centered 512x512 faded app logo with a spinner while loading, replacing the blank/white flash. Uses `--muted` theme color for the spinner.
@@ -21,6 +23,7 @@ All notable changes to this project will be documented in this file.
   - Theme-aware styling consistent with other CLI commands.
 - **Config open command**: New `dumber config open` command to open the config file in your preferred editor. Uses `$EDITOR`, then `$VISUAL`, with fallback to nano/vim/vi.
 - **Config schema command**: New `dumber config schema` command that displays all configuration keys with their types, defaults, descriptions, and valid values. Supports `--json` flag for machine-readable output.
+- **CLI gen-docs command**: New `dumber gen-docs` command to generate documentation from CLI command definitions. Supports man pages (installed to `~/.local/share/man/man1/`) and markdown formats. Use `--format markdown` for markdown output or `--output` for custom directory.
 - **Move pane to tab**: New pane-mode actions to move the active pane to another tab.
   - `Ctrl+P → m`: Opens a tab picker modal.
   - `Ctrl+P → M`: Moves the active pane to the next tab (creates a new tab if needed).
