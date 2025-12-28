@@ -3,11 +3,9 @@ package webkit
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/jwijenbergh/puregotk/v4/gdk"
 )
 
 // WebViewFactory creates WebView instances for the application.
@@ -22,8 +20,7 @@ type WebViewFactory struct {
 	filterApplier FilterApplier // Optional content filter applier
 
 	// Background color for WebViews (eliminates white flash)
-	bgR, bgG, bgB, bgA float32
-	bgMu               sync.RWMutex
+	bg bgColor
 }
 
 // NewWebViewFactory creates a new WebViewFactory.
@@ -57,9 +54,7 @@ func (f *WebViewFactory) SetFilterApplier(applier FilterApplier) {
 // SetBackgroundColor sets the background color for newly created WebViews.
 // This color is shown before content is painted, eliminating white flash.
 func (f *WebViewFactory) SetBackgroundColor(r, g, b, a float32) {
-	f.bgMu.Lock()
-	f.bgR, f.bgG, f.bgB, f.bgA = r, g, b, a
-	f.bgMu.Unlock()
+	f.bg.set(r, g, b, a)
 	// Also propagate to the pool if present
 	if f.pool != nil {
 		f.pool.SetBackgroundColor(r, g, b, a)
@@ -107,10 +102,7 @@ func (f *WebViewFactory) CreateRelated(ctx context.Context, parentID port.WebVie
 	}
 
 	// Set background color to match theme (eliminates white flash)
-	f.bgMu.RLock()
-	r, g, b, a := f.bgR, f.bgG, f.bgB, f.bgA
-	f.bgMu.RUnlock()
-	if a > 0 {
+	if r, g, b, a := f.bg.get(); a > 0 {
 		wv.SetBackgroundColor(r, g, b, a)
 	}
 
@@ -139,17 +131,7 @@ func (f *WebViewFactory) CreateRelated(ctx context.Context, parentID port.WebVie
 func (f *WebViewFactory) createDirect(ctx context.Context) (*WebView, error) {
 	log := logging.FromContext(ctx)
 
-	// Build background color for immediate application during WebView creation
-	f.bgMu.RLock()
-	r, g, b, a := f.bgR, f.bgG, f.bgB, f.bgA
-	f.bgMu.RUnlock()
-
-	var bgColor *gdk.RGBA
-	if a > 0 { // Only set if a valid color was configured
-		bgColor = &gdk.RGBA{Red: r, Green: g, Blue: b, Alpha: a}
-	}
-
-	wv, err := NewWebView(ctx, f.wkCtx, f.settings, bgColor)
+	wv, err := NewWebView(ctx, f.wkCtx, f.settings, f.bg.toGdkRGBA())
 	if err != nil {
 		return nil, err
 	}
