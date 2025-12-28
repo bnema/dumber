@@ -1237,25 +1237,33 @@ func (o *Omnibox) navigateToSelected() {
 	o.mu.RUnlock()
 
 	entryText := o.entry.GetText()
-	if shortcutKey, query, found := url.ParseBangShortcut(entryText); found {
-		resolvedKey := shortcutKey
-		for key := range o.shortcuts {
-			if strings.EqualFold(key, shortcutKey) {
-				resolvedKey = key
-				break
-			}
-		}
-		entryText = "!" + resolvedKey + " " + query
-	}
 
 	if bangMode {
-		// If the user already typed a bang query ("!key something"), Enter should navigate.
-		if _, _, found := url.ParseBangShortcut(entryText); !found {
-			if idx >= 0 && idx < len(bangSuggestions) {
-				o.entry.SetText("!" + bangSuggestions[idx].Key + " ")
-				o.entry.SetPosition(-1)
+		// If user typed a full bang query, navigate using the bang URL.
+		if shortcutKey, query, found := url.ParseBangShortcut(entryText); found {
+			resolvedKey := shortcutKey
+			for key := range o.shortcuts {
+				if strings.EqualFold(key, shortcutKey) {
+					resolvedKey = key
+					break
+				}
+			}
+			targetURL := o.buildURL("!" + resolvedKey + " " + query)
+			if targetURL == "" {
 				return
 			}
+			o.Hide(o.ctx)
+			if o.onNavigate != nil {
+				o.onNavigate(targetURL)
+			}
+			return
+		}
+
+		// Otherwise, Enter autocompletes the selected bang.
+		if idx >= 0 && idx < len(bangSuggestions) {
+			o.entry.SetText("!" + bangSuggestions[idx].Key + " ")
+			o.entry.SetPosition(-1)
+			return
 		}
 	}
 
