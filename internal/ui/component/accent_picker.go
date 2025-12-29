@@ -76,6 +76,9 @@ func NewAccentPicker(factory layout.WidgetFactory) *AccentPicker {
 	// Set up key event handling
 	ap.setupKeyboardHandling()
 
+	// Set up hover-to-focus: regain focus when mouse enters
+	ap.setupHoverFocus()
+
 	return ap
 }
 
@@ -207,6 +210,26 @@ func (ap *AccentPicker) setupKeyboardHandling() {
 	keyCtrl.ConnectKeyPressed(&keyPressedCb)
 	ap.keyController = keyCtrl
 	ap.container.AddController(&keyCtrl.EventController)
+}
+
+// setupHoverFocus sets up mouse hover to regain focus.
+// This ensures the picker regains focus when the mouse enters,
+// so keyboard navigation (including Escape) continues to work.
+func (ap *AccentPicker) setupHoverFocus() {
+	motionCtrl := gtk.NewEventControllerMotion()
+
+	enterCb := func(_ gtk.EventControllerMotion, _ float64, _ float64) {
+		ap.mu.Lock()
+		visible := ap.visible
+		ap.mu.Unlock()
+
+		if visible {
+			ap.container.GrabFocus()
+		}
+	}
+
+	motionCtrl.ConnectEnter(&enterCb)
+	ap.container.AddController(&motionCtrl.EventController)
 }
 
 // handleKeyPress processes a key press event.
