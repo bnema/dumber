@@ -27,6 +27,7 @@ import (
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/dumber/internal/ui/theme"
 	"github.com/bnema/dumber/internal/ui/window"
+	"github.com/jwijenbergh/puregotk/v4/adw"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/gio"
 	"github.com/jwijenbergh/puregotk/v4/glib"
@@ -217,23 +218,43 @@ func (a *App) onActivate(ctx context.Context) {
 func (a *App) applyGTKColorSchemePreference(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
-	// Propagate app color scheme preference to GTK (and WebKit)
-	// so web content can correctly evaluate prefers-color-scheme.
-	settings := gtk.SettingsGetDefault()
-	if settings == nil {
-		return
-	}
+	// Initialize libadwaita (required before using StyleManager).
+	// This also initializes GTK implicitly.
+	adw.Init()
 
-	scheme := "default"
+	// Get the config color scheme preference
+	scheme := "system"
 	if a.deps != nil && a.deps.Config != nil && a.deps.Config.Appearance.ColorScheme != "" {
 		scheme = a.deps.Config.Appearance.ColorScheme
 	}
-	prefersDark := theme.ResolveColorScheme(scheme)
-	settings.SetPropertyGtkApplicationPreferDarkTheme(prefersDark)
+
+	// Apply color scheme via libadwaita's StyleManager.
+	// This properly communicates the preference to GTK and WebKit,
+	// so web content can correctly evaluate prefers-color-scheme media queries.
+	styleMgr := adw.StyleManagerGetDefault()
+	if styleMgr == nil {
+		log.Warn().Msg("failed to get adw.StyleManager")
+		return
+	}
+
+	var adwScheme adw.ColorScheme
+	switch scheme {
+	case "dark", "prefer-dark":
+		adwScheme = adw.ColorSchemeForceDarkValue
+	case "light", "prefer-light":
+		adwScheme = adw.ColorSchemeForceLightValue
+	default:
+		// "system" or empty - follow system preference
+		adwScheme = adw.ColorSchemePreferLightValue
+	}
+
+	styleMgr.SetColorScheme(adwScheme)
+	prefersDark := styleMgr.GetDark()
+
 	log.Debug().
 		Str("scheme", scheme).
 		Bool("prefers_dark", prefersDark).
-		Msg("set gtk-application-prefer-dark-theme")
+		Msg("applied color scheme via adw.StyleManager")
 }
 
 func (a *App) setupPoolBackgroundColor(ctx context.Context) {
