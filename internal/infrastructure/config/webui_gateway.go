@@ -15,13 +15,20 @@ func NewWebUIConfigGateway(mgr *Manager) *WebUIConfigGateway {
 	return &WebUIConfigGateway{mgr: mgr}
 }
 
-// clampInt returns v clamped to [min, max].
-func clampInt(v, min, max int) int {
-	if v < min {
-		return min
+// Validation limits for custom performance fields.
+const (
+	maxWebProcessMemoryMB     = 16384
+	maxNetworkProcessMemoryMB = 4096
+	maxWebViewPoolPrewarm     = 20
+)
+
+// clampInt returns v clamped to [lo, hi].
+func clampInt(v, lo, hi int) int {
+	if v < lo {
+		return lo
 	}
-	if v > max {
-		return max
+	if v > hi {
+		return hi
 	}
 	return v
 }
@@ -80,9 +87,9 @@ func (g *WebUIConfigGateway) SaveWebUIConfig(ctx context.Context, cfg port.WebUI
 	if cfg.Performance.Profile == string(ProfileCustom) {
 		current.Performance.SkiaCPUPaintingThreads = clampInt(cfg.Performance.Custom.SkiaCPUThreads, 0, maxSkiaCPUThreads)
 		current.Performance.SkiaGPUPaintingThreads = clampInt(cfg.Performance.Custom.SkiaGPUThreads, -1, maxSkiaCPUThreads)
-		current.Performance.WebProcessMemoryLimitMB = clampInt(cfg.Performance.Custom.WebProcessMemoryMB, 0, 16384)
-		current.Performance.NetworkProcessMemoryLimitMB = clampInt(cfg.Performance.Custom.NetworkProcessMemoryMB, 0, 4096)
-		current.Performance.WebViewPoolPrewarmCount = clampInt(cfg.Performance.Custom.WebViewPoolPrewarm, 0, 20)
+		current.Performance.WebProcessMemoryLimitMB = clampInt(cfg.Performance.Custom.WebProcessMemoryMB, 0, maxWebProcessMemoryMB)
+		current.Performance.NetworkProcessMemoryLimitMB = clampInt(cfg.Performance.Custom.NetworkProcessMemoryMB, 0, maxNetworkProcessMemoryMB)
+		current.Performance.WebViewPoolPrewarmCount = clampInt(cfg.Performance.Custom.WebViewPoolPrewarm, 0, maxWebViewPoolPrewarm)
 	}
 
 	return g.mgr.Save(current)
