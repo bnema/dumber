@@ -83,14 +83,14 @@ These settings control the `dumber dmenu` CLI command for rofi/fuzzel integratio
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `dmenu.max_history_items` | int | `20` | Max items shown in launcher |
+| `dmenu.max_history_days` | int | `30` | Number of days of history to show (0 = all) |
 | `dmenu.show_visit_count` | bool | `true` | Show visit counts in output |
 | `dmenu.show_last_visited` | bool | `true` | Show last visited dates in output |
 | `dmenu.history_prefix` | string | `"🕒"` | Prefix for history items |
 | `dmenu.shortcut_prefix` | string | `"🔍"` | Prefix for shortcuts |
 | `dmenu.url_prefix` | string | `"🌐"` | Prefix for URLs |
 | `dmenu.date_format` | string | `"2006-01-02 15:04"` | Go time format string |
-| `dmenu.sort_by_visit_count` | bool | `true` | Sort by popularity |
+| `dmenu.sort_by_visit_count` | bool | `true` | Sort by visit count instead of recency |
 
 **CLI Usage:**
 ```bash
@@ -101,8 +101,14 @@ dumber dmenu | fuzzel --dmenu -p "Browse: " | dumber dmenu --select
 # Interactive TUI mode
 dumber dmenu --interactive
 
-# Override max items via CLI flag
-dumber dmenu --max 50
+# Override history days via CLI flag (show last 7 days)
+dumber dmenu --days 7
+
+# Sort by most visited instead of recency
+dumber dmenu --most-visited
+
+# Combined: most visited from last 14 days
+dumber dmenu --days 14 --most-visited
 ```
 
 ## Omnibox

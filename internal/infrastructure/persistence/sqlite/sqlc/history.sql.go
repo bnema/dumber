@@ -198,6 +198,43 @@ func (q *Queries) GetHourlyDistribution(ctx context.Context) ([]GetHourlyDistrib
 	return items, nil
 }
 
+const GetMostVisited = `-- name: GetMostVisited :many
+SELECT id, url, title, favicon_url, visit_count, last_visited, created_at FROM history
+WHERE last_visited >= datetime('now', ?)
+ORDER BY visit_count DESC, last_visited DESC
+`
+
+func (q *Queries) GetMostVisited(ctx context.Context, datetime interface{}) ([]History, error) {
+	rows, err := q.db.QueryContext(ctx, GetMostVisited, datetime)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []History{}
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.Title,
+			&i.FaviconUrl,
+			&i.VisitCount,
+			&i.LastVisited,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const GetRecentHistory = `-- name: GetRecentHistory :many
 SELECT id, url, title, favicon_url, visit_count, last_visited, created_at FROM history ORDER BY last_visited DESC LIMIT ? OFFSET ?
 `
@@ -209,6 +246,43 @@ type GetRecentHistoryParams struct {
 
 func (q *Queries) GetRecentHistory(ctx context.Context, arg GetRecentHistoryParams) ([]History, error) {
 	rows, err := q.db.QueryContext(ctx, GetRecentHistory, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []History{}
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.Title,
+			&i.FaviconUrl,
+			&i.VisitCount,
+			&i.LastVisited,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const GetRecentHistorySince = `-- name: GetRecentHistorySince :many
+SELECT id, url, title, favicon_url, visit_count, last_visited, created_at FROM history
+WHERE last_visited >= datetime('now', ?)
+ORDER BY last_visited DESC
+`
+
+func (q *Queries) GetRecentHistorySince(ctx context.Context, datetime interface{}) ([]History, error) {
+	rows, err := q.db.QueryContext(ctx, GetRecentHistorySince, datetime)
 	if err != nil {
 		return nil, err
 	}

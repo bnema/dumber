@@ -13,6 +13,7 @@ import (
 
 	"github.com/bnema/dumber/assets"
 	"github.com/bnema/dumber/internal/cli/model"
+	"github.com/bnema/dumber/internal/domain/entity"
 	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
@@ -22,7 +23,8 @@ import (
 var (
 	dmenuInteractive bool
 	dmenuSelect      bool
-	dmenuMax         int
+	dmenuDays        int
+	dmenuMostVisited bool
 )
 
 var dmenuCmd = &cobra.Command{
@@ -43,7 +45,8 @@ func init() {
 
 	dmenuCmd.Flags().BoolVarP(&dmenuInteractive, "interactive", "i", false, "use interactive TUI mode")
 	dmenuCmd.Flags().BoolVar(&dmenuSelect, "select", false, "process selection from stdin")
-	dmenuCmd.Flags().IntVar(&dmenuMax, "max", 0, "maximum entries to output (default from config)")
+	dmenuCmd.Flags().IntVar(&dmenuDays, "days", 0, "number of days of history to show (default from config)")
+	dmenuCmd.Flags().BoolVarP(&dmenuMostVisited, "most-visited", "m", false, "sort by visit count instead of recency")
 }
 
 func runDmenu(_ *cobra.Command, _ []string) error {
@@ -71,9 +74,14 @@ func getDmenuConfig() config.DmenuConfig {
 	app := GetApp()
 	cfg := app.Config.Dmenu
 
-	// Override max if explicitly set via CLI flag
-	if dmenuMax > 0 {
-		cfg.MaxHistoryItems = dmenuMax
+	// Override days if explicitly set via CLI flag
+	if dmenuDays > 0 {
+		cfg.MaxHistoryDays = dmenuDays
+	}
+
+	// Override sort_by_visit_count if --most-visited flag is set
+	if dmenuMostVisited {
+		cfg.SortByVisitCount = true
 	}
 
 	return cfg
@@ -131,7 +139,14 @@ func runDmenuPipe() error {
 	ctx := context.Background()
 	cfg := getDmenuConfig()
 
-	entries, err := app.SearchHistoryUC.GetRecent(ctx, cfg.MaxHistoryItems, 0)
+	var entries []*entity.HistoryEntry
+	var err error
+
+	if cfg.SortByVisitCount {
+		entries, err = app.SearchHistoryUC.GetMostVisited(ctx, cfg.MaxHistoryDays)
+	} else {
+		entries, err = app.SearchHistoryUC.GetRecentSince(ctx, cfg.MaxHistoryDays)
+	}
 	if err != nil {
 		return fmt.Errorf("get history: %w", err)
 	}
