@@ -13,7 +13,17 @@ type WebUIConfig struct {
 
 // WebUIPerformanceConfig represents performance settings editable in dumb://config.
 type WebUIPerformanceConfig struct {
-	Profile string `json:"profile"`
+	Profile string                       `json:"profile"`
+	Custom  WebUICustomPerformanceConfig `json:"custom"`
+}
+
+// WebUICustomPerformanceConfig holds user-editable fields for custom profile.
+type WebUICustomPerformanceConfig struct {
+	SkiaCPUThreads         int `json:"skia_cpu_threads"`
+	SkiaGPUThreads         int `json:"skia_gpu_threads"`
+	WebProcessMemoryMB     int `json:"web_process_memory_mb"`
+	NetworkProcessMemoryMB int `json:"network_process_memory_mb"`
+	WebViewPoolPrewarm     int `json:"webview_pool_prewarm"`
 }
 
 type WebUIAppearanceConfig struct {

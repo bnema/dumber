@@ -65,5 +65,14 @@ func (g *WebUIConfigGateway) SaveWebUIConfig(ctx context.Context, cfg port.WebUI
 		current.Performance.Profile = PerformanceProfile(cfg.Performance.Profile)
 	}
 
+	// Custom performance fields (only used when profile is "custom")
+	if cfg.Performance.Profile == string(ProfileCustom) {
+		current.Performance.SkiaCPUPaintingThreads = cfg.Performance.Custom.SkiaCPUThreads
+		current.Performance.SkiaGPUPaintingThreads = cfg.Performance.Custom.SkiaGPUThreads
+		current.Performance.WebProcessMemoryLimitMB = cfg.Performance.Custom.WebProcessMemoryMB
+		current.Performance.NetworkProcessMemoryLimitMB = cfg.Performance.Custom.NetworkProcessMemoryMB
+		current.Performance.WebViewPoolPrewarmCount = cfg.Performance.Custom.WebViewPoolPrewarm
+	}
+
 	return g.mgr.Save(current)
 }
