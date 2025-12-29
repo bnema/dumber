@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -76,6 +77,68 @@ func (r *historyRepo) GetRecent(ctx context.Context, limit, offset int) ([]*enti
 		Limit:  int64(limit),
 		Offset: int64(offset),
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	entries := make([]*entity.HistoryEntry, len(rows))
+	for i := range rows {
+		entries[i] = historyFromRow(rows[i])
+	}
+	return entries, nil
+}
+
+func (r *historyRepo) GetRecentSince(ctx context.Context, days int) ([]*entity.HistoryEntry, error) {
+	if days <= 0 {
+		return nil, fmt.Errorf("days must be positive, got %d", days)
+	}
+	// Format: "-N days" for SQLite datetime modifier
+	daysModifier := fmt.Sprintf("-%d days", days)
+	rows, err := r.queries.GetRecentHistorySince(ctx, daysModifier)
+	if err != nil {
+		return nil, err
+	}
+
+	entries := make([]*entity.HistoryEntry, len(rows))
+	for i := range rows {
+		entries[i] = historyFromRow(rows[i])
+	}
+	return entries, nil
+}
+
+func (r *historyRepo) GetMostVisited(ctx context.Context, days int) ([]*entity.HistoryEntry, error) {
+	if days <= 0 {
+		return nil, fmt.Errorf("days must be positive, got %d", days)
+	}
+	// Format: "-N days" for SQLite datetime modifier
+	daysModifier := fmt.Sprintf("-%d days", days)
+	rows, err := r.queries.GetMostVisited(ctx, daysModifier)
+	if err != nil {
+		return nil, err
+	}
+
+	entries := make([]*entity.HistoryEntry, len(rows))
+	for i := range rows {
+		entries[i] = historyFromRow(rows[i])
+	}
+	return entries, nil
+}
+
+func (r *historyRepo) GetAllRecentHistory(ctx context.Context) ([]*entity.HistoryEntry, error) {
+	rows, err := r.queries.GetAllRecentHistory(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	entries := make([]*entity.HistoryEntry, len(rows))
+	for i := range rows {
+		entries[i] = historyFromRow(rows[i])
+	}
+	return entries, nil
+}
+
+func (r *historyRepo) GetAllMostVisited(ctx context.Context) ([]*entity.HistoryEntry, error) {
+	rows, err := r.queries.GetAllMostVisited(ctx)
 	if err != nil {
 		return nil, err
 	}

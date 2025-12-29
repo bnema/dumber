@@ -56,3 +56,21 @@ JOIN history h ON fts.rowid = h.id
 WHERE fts.url MATCH ?
 ORDER BY bm25(history_fts)
 LIMIT ?;
+
+-- name: GetRecentHistorySince :many
+SELECT * FROM history
+WHERE last_visited >= datetime('now', ?)
+ORDER BY last_visited DESC;
+
+-- name: GetMostVisited :many
+SELECT * FROM history
+WHERE last_visited >= datetime('now', ?)
+ORDER BY visit_count DESC, last_visited DESC;
+
+-- name: GetAllRecentHistory :many
+SELECT * FROM history
+ORDER BY last_visited DESC;
+
+-- name: GetAllMostVisited :many
+SELECT * FROM history
+ORDER BY visit_count DESC, last_visited DESC;
