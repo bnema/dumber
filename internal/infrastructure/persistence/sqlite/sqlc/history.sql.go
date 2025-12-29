@@ -58,6 +58,78 @@ func (q *Queries) DeleteHistoryOlderThan(ctx context.Context, lastVisited sql.Nu
 	return err
 }
 
+const GetAllMostVisited = `-- name: GetAllMostVisited :many
+SELECT id, url, title, favicon_url, visit_count, last_visited, created_at FROM history
+ORDER BY visit_count DESC, last_visited DESC
+`
+
+func (q *Queries) GetAllMostVisited(ctx context.Context) ([]History, error) {
+	rows, err := q.db.QueryContext(ctx, GetAllMostVisited)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []History{}
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.Title,
+			&i.FaviconUrl,
+			&i.VisitCount,
+			&i.LastVisited,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const GetAllRecentHistory = `-- name: GetAllRecentHistory :many
+SELECT id, url, title, favicon_url, visit_count, last_visited, created_at FROM history
+ORDER BY last_visited DESC
+`
+
+func (q *Queries) GetAllRecentHistory(ctx context.Context) ([]History, error) {
+	rows, err := q.db.QueryContext(ctx, GetAllRecentHistory)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []History{}
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.Title,
+			&i.FaviconUrl,
+			&i.VisitCount,
+			&i.LastVisited,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const GetDailyVisitCount = `-- name: GetDailyVisitCount :many
 SELECT date(last_visited) as day, COUNT(*) as entries, SUM(visit_count) as visits FROM history WHERE last_visited >= date('now', ?) GROUP BY day ORDER BY day ASC
 `

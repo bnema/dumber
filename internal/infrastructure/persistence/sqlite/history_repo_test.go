@@ -224,3 +224,102 @@ func TestHistoryRepository_TimeFilterIntegrity(t *testing.T) {
 	timeDiff := time.Since(found.LastVisited)
 	assert.Less(t, timeDiff, time.Minute, "LastVisited should be recent, got %v ago", timeDiff)
 }
+
+func TestHistoryRepository_GetRecentSince_RejectsNonPositiveDays(t *testing.T) {
+	ctx := historyTestCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewHistoryRepository(db)
+
+	// days = 0 should return error
+	_, err = repo.GetRecentSince(ctx, 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "days must be positive")
+
+	// days < 0 should return error
+	_, err = repo.GetRecentSince(ctx, -5)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "days must be positive")
+}
+
+func TestHistoryRepository_GetMostVisited_RejectsNonPositiveDays(t *testing.T) {
+	ctx := historyTestCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewHistoryRepository(db)
+
+	// days = 0 should return error
+	_, err = repo.GetMostVisited(ctx, 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "days must be positive")
+
+	// days < 0 should return error
+	_, err = repo.GetMostVisited(ctx, -5)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "days must be positive")
+}
+
+func TestHistoryRepository_GetAllRecentHistory(t *testing.T) {
+	ctx := historyTestCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewHistoryRepository(db)
+
+	// Save some entries
+	entries := []*entity.HistoryEntry{
+		{URL: "https://example.com", Title: "Example"},
+		{URL: "https://github.com", Title: "GitHub"},
+	}
+	for _, e := range entries {
+		require.NoError(t, repo.Save(ctx, e))
+	}
+
+	// Get all recent history
+	results, err := repo.GetAllRecentHistory(ctx)
+	require.NoError(t, err)
+	require.Len(t, results, 2)
+}
+
+func TestHistoryRepository_GetAllMostVisited(t *testing.T) {
+	ctx := historyTestCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewHistoryRepository(db)
+
+	// Save entries with different visit counts
+	entry1 := &entity.HistoryEntry{URL: "https://example.com", Title: "Example"}
+	entry2 := &entity.HistoryEntry{URL: "https://github.com", Title: "GitHub"}
+
+	require.NoError(t, repo.Save(ctx, entry1))
+	require.NoError(t, repo.Save(ctx, entry2))
+
+	// Increment github visits
+	for i := 0; i < 3; i++ {
+		require.NoError(t, repo.IncrementVisitCount(ctx, "https://github.com"))
+	}
+
+	// Get all most visited
+	results, err := repo.GetAllMostVisited(ctx)
+	require.NoError(t, err)
+	require.Len(t, results, 2)
+
+	// First should be github (4 visits)
+	assert.Equal(t, "https://github.com", results[0].URL)
+	assert.Equal(t, int64(4), results[0].VisitCount)
+}

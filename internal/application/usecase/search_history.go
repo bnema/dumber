@@ -76,26 +76,48 @@ func (uc *SearchHistoryUseCase) GetRecent(ctx context.Context, limit, offset int
 }
 
 // GetRecentSince retrieves history entries visited within the last N days.
+// If days is 0, returns all history entries.
+// If days is negative, defaults to 30 days.
 func (uc *SearchHistoryUseCase) GetRecentSince(ctx context.Context, days int) ([]*entity.HistoryEntry, error) {
-	if days <= 0 {
-		days = 30 // Default to 30 days
+	if days < 0 {
+		days = 30 // Default to 30 days for negative values
 	}
 
-	entries, err := uc.historyRepo.GetRecentSince(ctx, days)
+	var entries []*entity.HistoryEntry
+	var err error
+
+	switch days {
+	case 0:
+		entries, err = uc.historyRepo.GetAllRecentHistory(ctx)
+	default:
+		entries, err = uc.historyRepo.GetRecentSince(ctx, days)
+	}
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to get recent history since %d days: %w", days, err)
+		return nil, fmt.Errorf("failed to get recent history: %w", err)
 	}
 
 	return entries, nil
 }
 
 // GetMostVisited retrieves history entries sorted by visit count within the last N days.
+// If days is 0, returns all history entries sorted by visit count.
+// If days is negative, defaults to 30 days.
 func (uc *SearchHistoryUseCase) GetMostVisited(ctx context.Context, days int) ([]*entity.HistoryEntry, error) {
-	if days <= 0 {
-		days = 30 // Default to 30 days
+	if days < 0 {
+		days = 30 // Default to 30 days for negative values
 	}
 
-	entries, err := uc.historyRepo.GetMostVisited(ctx, days)
+	var entries []*entity.HistoryEntry
+	var err error
+
+	switch days {
+	case 0:
+		entries, err = uc.historyRepo.GetAllMostVisited(ctx)
+	default:
+		entries, err = uc.historyRepo.GetMostVisited(ctx, days)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get most visited history: %w", err)
 	}
