@@ -3,7 +3,7 @@ module github.com/bnema/dumber
 go 1.25.3
 
 require (
-	github.com/bnema/puregotk-webkit v0.0.7
+	github.com/bnema/puregotk-webkit v0.0.9
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
@@ -19,6 +19,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/image v0.34.0
 	golang.org/x/sys v0.38.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 replace github.com/jwijenbergh/puregotk => github.com/bnema/puregotk v0.0.0-20251222174431-73930527faa3
@@ -64,5 +65,4 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

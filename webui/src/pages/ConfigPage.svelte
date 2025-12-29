@@ -10,6 +10,7 @@
   import { Spinner } from "$lib/components/ui/spinner";
   import * as Card from "$lib/components/ui/card";
   import * as Tabs from "$lib/components/ui/tabs";
+  import { FlaskConical, RefreshCw } from "@lucide/svelte";
 
   type ColorPalette = {
     background: string;
@@ -26,6 +27,41 @@
     description: string;
   };
 
+  type ResolvedPerformance = {
+    skia_cpu_threads: number;
+    skia_gpu_threads: number;
+    web_process_memory_mb: number;
+    network_process_memory_mb: number;
+    webview_pool_prewarm: number;
+    conservative_threshold: number;
+    strict_threshold: number;
+    kill_threshold: number;
+  };
+
+  type HardwareInfo = {
+    cpu_cores: number;
+    cpu_threads: number;
+    total_ram_mb: number;
+    gpu_vendor: string;
+    gpu_name: string;
+    vram_mb: number;
+  };
+
+  type CustomPerformance = {
+    skia_cpu_threads: number;
+    skia_gpu_threads: number;
+    web_process_memory_mb: number;
+    network_process_memory_mb: number;
+    webview_pool_prewarm: number;
+  };
+
+  type PerformanceConfig = {
+    profile: string;
+    custom: CustomPerformance;
+    resolved: ResolvedPerformance;
+    hardware: HardwareInfo;
+  };
+
   type ConfigDTO = {
     appearance: {
       sans_font: string;
@@ -36,10 +72,18 @@
       light_palette: ColorPalette;
       dark_palette: ColorPalette;
     };
+    performance: PerformanceConfig;
     default_ui_scale: number;
     default_search_engine: string;
     search_shortcuts: Record<string, SearchShortcut>;
   };
+
+  const PERFORMANCE_PROFILES = [
+    { value: "default", label: "Default", description: "No tuning, uses WebKit defaults. Recommended for most users." },
+    { value: "lite", label: "Lite", description: "Reduced resource usage for low-RAM systems (< 4GB) or battery saving." },
+    { value: "max", label: "Max", description: "Maximum responsiveness, scales based on detected hardware." },
+    { value: "custom", label: "Custom", description: "Manual control via config file. Edit config.toml to set individual values." },
+  ];
 
   const PALETTE_FIELDS: Array<{ key: keyof ColorPalette; label: string }> = [
     { key: "background", label: "Background" },
@@ -62,6 +106,7 @@
   let saving = $state(false);
   let saveSuccess = $state(false);
   let saveError = $state<string | null>(null);
+  let showRestartWarning = $state(false);
   let themeEvents = $state(0);
   let activeTab = $state("appearance");
 
@@ -158,6 +203,11 @@
         saveSuccess = true;
         saving = false;
 
+        // Show restart warning if performance tab was active
+        if (activeTab === "performance") {
+          showRestartWarning = true;
+        }
+
         // Refresh config from backend (in case watcher normalized values)
         reloadConfig();
 
@@ -250,6 +300,7 @@
           <Tabs.List class="bg-muted/60">
             <Tabs.Trigger value="appearance">Appearance</Tabs.Trigger>
             <Tabs.Trigger value="search">Search</Tabs.Trigger>
+            <Tabs.Trigger value="performance">Performance</Tabs.Trigger>
           </Tabs.List>
         </div>
 
@@ -374,6 +425,191 @@
             </Card.Content>
           </Card.Root>
         </Tabs.Content>
+
+        <Tabs.Content value="performance">
+          <Card.Root class="rounded-none border-0 bg-transparent py-0 shadow-none">
+            <Card.Header>
+              <Card.Title>Performance Profile</Card.Title>
+              <Card.Description>
+                WebKitGTK rendering and memory tuning presets.
+              </Card.Description>
+            </Card.Header>
+            <Card.Content class="space-y-6">
+              <!-- Detected Hardware Card -->
+              {#if config.performance?.hardware}
+                {@const hw = config.performance.hardware}
+                <div class="rounded-md border border-border bg-muted/30 px-4 py-3">
+                  <div class="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                    Detected Hardware
+                  </div>
+                  <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                    <div><span class="text-muted-foreground">CPU:</span> <span class="font-mono">{hw.cpu_cores}c/{hw.cpu_threads}t</span></div>
+                    <div><span class="text-muted-foreground">RAM:</span> <span class="font-mono">{hw.total_ram_mb > 0 ? (hw.total_ram_mb / 1024).toFixed(0) + ' GB' : '?'}</span></div>
+                    <div><span class="text-muted-foreground">GPU:</span> <span class="font-mono capitalize">{hw.gpu_vendor || 'Unknown'}</span></div>
+                    <div><span class="text-muted-foreground">VRAM:</span> <span class="font-mono">{hw.vram_mb > 0 ? (hw.vram_mb / 1024).toFixed(0) + ' GB' : (hw.gpu_vendor === 'intel' ? 'Shared' : '?')}</span></div>
+                  </div>
+                </div>
+              {/if}
+
+              <!-- Experimental feature warning -->
+              <div class="flex items-start gap-3 rounded-md border border-info/30 bg-info/10 px-4 py-3">
+                <FlaskConical class="mt-0.5 size-4 shrink-0 text-info" />
+                <div class="space-y-1">
+                  <p class="text-sm font-medium text-info">Experimental Feature</p>
+                  <p class="text-xs text-muted-foreground">
+                    Performance profiles are experimental. Results may vary depending on your hardware and WebKitGTK version.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Profile selector -->
+              {#if config.performance}
+              <div class="space-y-4">
+                {#each PERFORMANCE_PROFILES as profile (profile.value)}
+                  <label
+                    class="flex cursor-pointer items-start gap-4 rounded-md border p-4 transition-colors hover:bg-muted/50 {config.performance.profile === profile.value ? 'border-primary bg-primary/5' : ''}"
+                  >
+                    <input
+                      type="radio"
+                      name="performance_profile"
+                      value={profile.value}
+                      checked={config.performance.profile === profile.value}
+                      onchange={() => config!.performance.profile = profile.value}
+                      class="mt-1 accent-primary"
+                    />
+                    <div class="space-y-1">
+                      <div class="font-medium">{profile.label}</div>
+                      <div class="text-sm text-muted-foreground">{profile.description}</div>
+                    </div>
+                  </label>
+                {/each}
+              </div>
+              {:else}
+              <div class="text-sm text-muted-foreground">
+                Performance settings not available. This may be due to a configuration error.
+              </div>
+              {/if}
+
+              <!-- Custom profile fields -->
+              {#if config.performance?.profile === "custom"}
+                <div class="space-y-4 rounded-md border border-border bg-muted/20 p-4">
+                  <div class="text-sm font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                    Custom Settings
+                  </div>
+                  <div class="grid gap-4 md:grid-cols-2">
+                    <div class="space-y-2">
+                      <Label for="skia_cpu_threads">Skia CPU Threads</Label>
+                      <Input
+                        id="skia_cpu_threads"
+                        type="number"
+                        min="0"
+                        max="8"
+                        bind:value={config.performance.custom.skia_cpu_threads}
+                      />
+                      <p class="text-xs text-muted-foreground">0 = unset (WebKit default). Max 8.</p>
+                    </div>
+                    <div class="space-y-2">
+                      <Label for="skia_gpu_threads">Skia GPU Threads</Label>
+                      <Input
+                        id="skia_gpu_threads"
+                        type="number"
+                        min="-1"
+                        bind:value={config.performance.custom.skia_gpu_threads}
+                      />
+                      <p class="text-xs text-muted-foreground">-1 = unset, 0 = disable GPU tiles.</p>
+                    </div>
+                    <div class="space-y-2">
+                      <Label for="web_process_memory">Web Process Memory (MB)</Label>
+                      <Input
+                        id="web_process_memory"
+                        type="number"
+                        min="0"
+                        step="256"
+                        bind:value={config.performance.custom.web_process_memory_mb}
+                      />
+                      <p class="text-xs text-muted-foreground">0 = unset (WebKit default).</p>
+                    </div>
+                    <div class="space-y-2">
+                      <Label for="network_process_memory">Network Process Memory (MB)</Label>
+                      <Input
+                        id="network_process_memory"
+                        type="number"
+                        min="0"
+                        step="128"
+                        bind:value={config.performance.custom.network_process_memory_mb}
+                      />
+                      <p class="text-xs text-muted-foreground">0 = unset (WebKit default).</p>
+                    </div>
+                    <div class="space-y-2">
+                      <Label for="webview_pool_prewarm">WebView Pool Prewarm</Label>
+                      <Input
+                        id="webview_pool_prewarm"
+                        type="number"
+                        min="0"
+                        max="20"
+                        bind:value={config.performance.custom.webview_pool_prewarm}
+                      />
+                      <p class="text-xs text-muted-foreground">Pre-created WebViews at startup.</p>
+                    </div>
+                  </div>
+                </div>
+              {/if}
+
+              <!-- Resolved values display -->
+              {#if config.performance?.resolved}
+                <div class="space-y-3">
+                  <div class="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    Resolved Settings (applied on restart)
+                  </div>
+                  <div class="space-y-4 rounded-md border border-border bg-muted/20 p-4 text-sm">
+                    <div class="space-y-1">
+                      <div class="flex justify-between">
+                        <span class="font-medium">Skia CPU Threads</span>
+                        <span class="font-mono">{config.performance.resolved.skia_cpu_threads === 0 ? 'unset' : config.performance.resolved.skia_cpu_threads}</span>
+                      </div>
+                      <p class="text-xs text-muted-foreground">Parallel threads for CPU-based 2D rendering. More threads = faster paint operations.</p>
+                    </div>
+                    <div class="space-y-1">
+                      <div class="flex justify-between">
+                        <span class="font-medium">Skia GPU Threads</span>
+                        <span class="font-mono">{config.performance.resolved.skia_gpu_threads === -1 ? 'unset' : config.performance.resolved.skia_gpu_threads}</span>
+                      </div>
+                      <p class="text-xs text-muted-foreground">Threads for GPU texture uploads and shader compilation.</p>
+                    </div>
+                    <div class="space-y-1">
+                      <div class="flex justify-between">
+                        <span class="font-medium">Web Process Memory</span>
+                        <span class="font-mono">{config.performance.resolved.web_process_memory_mb === 0 ? 'unset' : config.performance.resolved.web_process_memory_mb + ' MB'}</span>
+                      </div>
+                      <p class="text-xs text-muted-foreground">Memory limit for web content processes (JavaScript, DOM, rendering).</p>
+                    </div>
+                    <div class="space-y-1">
+                      <div class="flex justify-between">
+                        <span class="font-medium">Network Process Memory</span>
+                        <span class="font-mono">{config.performance.resolved.network_process_memory_mb === 0 ? 'unset' : config.performance.resolved.network_process_memory_mb + ' MB'}</span>
+                      </div>
+                      <p class="text-xs text-muted-foreground">Memory limit for network operations (HTTP cache, connections).</p>
+                    </div>
+                    <div class="space-y-1">
+                      <div class="flex justify-between">
+                        <span class="font-medium">WebView Pool Prewarm</span>
+                        <span class="font-mono">{config.performance.resolved.webview_pool_prewarm}</span>
+                      </div>
+                      <p class="text-xs text-muted-foreground">Pre-created WebViews at startup for faster new tab/pane creation.</p>
+                    </div>
+                    <div class="space-y-1">
+                      <div class="flex justify-between">
+                        <span class="font-medium">Memory Kill Threshold</span>
+                        <span class="font-mono">{config.performance.resolved.kill_threshold === -1 ? 'never' : (config.performance.resolved.kill_threshold * 100).toFixed(0) + '%'}</span>
+                      </div>
+                      <p class="text-xs text-muted-foreground">When memory usage exceeds this threshold, WebKit may terminate the process to free memory.</p>
+                    </div>
+                  </div>
+                </div>
+              {/if}
+            </Card.Content>
+          </Card.Root>
+        </Tabs.Content>
       </Tabs.Root>
 
       <div class="flex flex-wrap items-center justify-between gap-4 border-t border-border px-6 py-4">
@@ -422,6 +658,19 @@
       {#if saveError}
         <div class="border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {saveError}
+        </div>
+      {/if}
+
+      <!-- Restart warning after saving performance settings -->
+      {#if showRestartWarning}
+        <div class="flex items-start gap-3 border border-warning/30 bg-warning/10 px-4 py-3">
+          <RefreshCw class="mt-0.5 size-4 shrink-0 text-warning" />
+          <div class="space-y-1">
+            <p class="text-sm font-medium text-warning">Restart Required</p>
+            <p class="text-xs text-muted-foreground">
+              Performance settings are applied at browser startup. Restart Dumber for changes to take effect.
+            </p>
+          </div>
         </div>
       {/if}
     {/if}

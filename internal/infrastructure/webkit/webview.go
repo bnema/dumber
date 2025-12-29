@@ -248,10 +248,15 @@ func NewWebView(ctx context.Context, wkCtx *WebKitContext, settings *SettingsMan
 		return nil, fmt.Errorf("webkit context not initialized")
 	}
 
-	// Use NetworkSession-aware constructor for persistent cookie storage
-	inner := webkit.NewWebViewWithNetworkSession(wkCtx.NetworkSession())
+	// Use options constructor to pass both WebContext and NetworkSession.
+	// This ensures WebViews use our custom WebContext (with memory pressure settings)
+	// and the persistent NetworkSession for cookie/storage.
+	inner := webkit.NewWebViewWithOptions(&webkit.WebViewOptions{
+		WebContext:     wkCtx.Context(),
+		NetworkSession: wkCtx.NetworkSession(),
+	})
 	if inner == nil {
-		return nil, fmt.Errorf("failed to create webkit webview with network session")
+		return nil, fmt.Errorf("failed to create webkit webview with options")
 	}
 
 	// Set background color IMMEDIATELY after creation, before any other operations.
