@@ -74,21 +74,29 @@ func NewWebKitContextWithOptions(ctx context.Context, opts port.WebKitContextOpt
 		return nil, fmt.Errorf("failed to init network session: %w", err)
 	}
 
-	// WebViews in this codebase are created via WebKit's default WebContext.
-	// If we create a separate WebContext here and only register our custom
-	// dumb:// scheme on it, internal pages will break with "The URL can't be shown".
-	//
-	// Additionally, WebKit's "memory-pressure-settings" is a construct-only property,
-	// so setting it after `webkit.NewWebContext()` triggers a GLib critical and has no effect.
-	// Until we can reliably construct a WebContext with memory-pressure-settings AND ensure
-	// all WebViews use that context, we intentionally stick to the default WebContext.
+	// Create WebContext - use custom constructor if memory pressure settings are configured
 	if opts.IsWebProcessMemoryConfigured() {
-		log.Warn().Msg("web process memory pressure settings requested but not applied (construct-only WebContext property; would break dumb:// scheme registration)")
+		memSettings := buildMemoryPressureSettings(opts.WebProcessMemory)
+		if memSettings != nil {
+			wkCtx.webContext = webkit.NewWebContextWithMemoryPressureSettings(memSettings)
+			if wkCtx.webContext != nil {
+				log.Info().
+					Int("limit_mb", opts.WebProcessMemory.MemoryLimitMB).
+					Float64("poll_sec", opts.WebProcessMemory.PollIntervalSec).
+					Float64("conservative", opts.WebProcessMemory.ConservativeThreshold).
+					Float64("strict", opts.WebProcessMemory.StrictThreshold).
+					Float64("kill", opts.WebProcessMemory.KillThreshold).
+					Msg("created WebContext with memory pressure settings")
+			}
+		}
 	}
 
-	wkCtx.webContext = webkit.WebContextGetDefault()
+	// Fall back to default WebContext if custom creation failed or wasn't needed
 	if wkCtx.webContext == nil {
-		return nil, fmt.Errorf("failed to get default WebContext")
+		wkCtx.webContext = webkit.WebContextGetDefault()
+	}
+	if wkCtx.webContext == nil {
+		return nil, fmt.Errorf("failed to create or get WebContext")
 	}
 
 	// Set cache model for browser-style caching
@@ -101,25 +109,6 @@ func NewWebKitContextWithOptions(ctx context.Context, opts port.WebKitContextOpt
 		Msg("webkit context initialized")
 
 	return wkCtx, nil
-}
-
-// createWebContextWithMemorySettings creates a WebContext with memory-pressure-settings.
-// The memory-pressure-settings property is construct-only, so we need to set it at creation time.
-func createWebContextWithMemorySettings(settings *webkit.MemoryPressureSettings) *webkit.WebContext {
-	if settings == nil {
-		return nil
-	}
-
-	// Create a new WebContext and set memory pressure settings
-	// Note: memory-pressure-settings is construct-only, but we try setting it via property
-	// as an alternative to g_object_new_with_properties which may not work reliably
-	ctx := webkit.NewWebContext()
-	if ctx != nil {
-		// Try to set the property - this may not work for construct-only properties
-		// but it's the best we can do without lower-level GObject access
-		ctx.SetPropertyMemoryPressureSettings(settings.GoPointer())
-	}
-	return ctx
 }
 
 // initNetworkSession creates and configures the persistent network session.
