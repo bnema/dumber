@@ -908,6 +908,46 @@ func (_c *MockWidget_SetFocusOnClick_Call) RunAndReturn(run func(focusOnClick bo
 	return _c
 }
 
+// SetFocusable provides a mock function for the type MockWidget
+func (_mock *MockWidget) SetFocusable(focusable bool) {
+	_mock.Called(focusable)
+	return
+}
+
+// MockWidget_SetFocusable_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetFocusable'
+type MockWidget_SetFocusable_Call struct {
+	*mock.Call
+}
+
+// SetFocusable is a helper method to define mock.On call
+//   - focusable bool
+func (_e *MockWidget_Expecter) SetFocusable(focusable interface{}) *MockWidget_SetFocusable_Call {
+	return &MockWidget_SetFocusable_Call{Call: _e.mock.On("SetFocusable", focusable)}
+}
+
+func (_c *MockWidget_SetFocusable_Call) Run(run func(focusable bool)) *MockWidget_SetFocusable_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 bool
+		if args[0] != nil {
+			arg0 = args[0].(bool)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWidget_SetFocusable_Call) Return() *MockWidget_SetFocusable_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockWidget_SetFocusable_Call) RunAndReturn(run func(focusable bool)) *MockWidget_SetFocusable_Call {
+	_c.Run(run)
+	return _c
+}
+
 // SetHalign provides a mock function for the type MockWidget
 func (_mock *MockWidget) SetHalign(align gtk.Align) {
 	_mock.Called(align)
@@ -2582,6 +2622,46 @@ func (_c *MockPanedWidget_SetFocusOnClick_Call) Return() *MockPanedWidget_SetFoc
 }
 
 func (_c *MockPanedWidget_SetFocusOnClick_Call) RunAndReturn(run func(focusOnClick bool)) *MockPanedWidget_SetFocusOnClick_Call {
+	_c.Run(run)
+	return _c
+}
+
+// SetFocusable provides a mock function for the type MockPanedWidget
+func (_mock *MockPanedWidget) SetFocusable(focusable bool) {
+	_mock.Called(focusable)
+	return
+}
+
+// MockPanedWidget_SetFocusable_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetFocusable'
+type MockPanedWidget_SetFocusable_Call struct {
+	*mock.Call
+}
+
+// SetFocusable is a helper method to define mock.On call
+//   - focusable bool
+func (_e *MockPanedWidget_Expecter) SetFocusable(focusable interface{}) *MockPanedWidget_SetFocusable_Call {
+	return &MockPanedWidget_SetFocusable_Call{Call: _e.mock.On("SetFocusable", focusable)}
+}
+
+func (_c *MockPanedWidget_SetFocusable_Call) Run(run func(focusable bool)) *MockPanedWidget_SetFocusable_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 bool
+		if args[0] != nil {
+			arg0 = args[0].(bool)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockPanedWidget_SetFocusable_Call) Return() *MockPanedWidget_SetFocusable_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockPanedWidget_SetFocusable_Call) RunAndReturn(run func(focusable bool)) *MockPanedWidget_SetFocusable_Call {
 	_c.Run(run)
 	return _c
 }
@@ -4339,6 +4419,46 @@ func (_c *MockBoxWidget_SetFocusOnClick_Call) RunAndReturn(run func(focusOnClick
 	return _c
 }
 
+// SetFocusable provides a mock function for the type MockBoxWidget
+func (_mock *MockBoxWidget) SetFocusable(focusable bool) {
+	_mock.Called(focusable)
+	return
+}
+
+// MockBoxWidget_SetFocusable_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetFocusable'
+type MockBoxWidget_SetFocusable_Call struct {
+	*mock.Call
+}
+
+// SetFocusable is a helper method to define mock.On call
+//   - focusable bool
+func (_e *MockBoxWidget_Expecter) SetFocusable(focusable interface{}) *MockBoxWidget_SetFocusable_Call {
+	return &MockBoxWidget_SetFocusable_Call{Call: _e.mock.On("SetFocusable", focusable)}
+}
+
+func (_c *MockBoxWidget_SetFocusable_Call) Run(run func(focusable bool)) *MockBoxWidget_SetFocusable_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 bool
+		if args[0] != nil {
+			arg0 = args[0].(bool)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockBoxWidget_SetFocusable_Call) Return() *MockBoxWidget_SetFocusable_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockBoxWidget_SetFocusable_Call) RunAndReturn(run func(focusable bool)) *MockBoxWidget_SetFocusable_Call {
+	_c.Run(run)
+	return _c
+}
+
 // SetHalign provides a mock function for the type MockBoxWidget
 func (_mock *MockBoxWidget) SetHalign(align gtk.Align) {
 	_mock.Called(align)
@@ -5902,6 +6022,46 @@ func (_c *MockOverlayWidget_SetFocusOnClick_Call) RunAndReturn(run func(focusOnC
 	return _c
 }
 
+// SetFocusable provides a mock function for the type MockOverlayWidget
+func (_mock *MockOverlayWidget) SetFocusable(focusable bool) {
+	_mock.Called(focusable)
+	return
+}
+
+// MockOverlayWidget_SetFocusable_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetFocusable'
+type MockOverlayWidget_SetFocusable_Call struct {
+	*mock.Call
+}
+
+// SetFocusable is a helper method to define mock.On call
+//   - focusable bool
+func (_e *MockOverlayWidget_Expecter) SetFocusable(focusable interface{}) *MockOverlayWidget_SetFocusable_Call {
+	return &MockOverlayWidget_SetFocusable_Call{Call: _e.mock.On("SetFocusable", focusable)}
+}
+
+func (_c *MockOverlayWidget_SetFocusable_Call) Run(run func(focusable bool)) *MockOverlayWidget_SetFocusable_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 bool
+		if args[0] != nil {
+			arg0 = args[0].(bool)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockOverlayWidget_SetFocusable_Call) Return() *MockOverlayWidget_SetFocusable_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockOverlayWidget_SetFocusable_Call) RunAndReturn(run func(focusable bool)) *MockOverlayWidget_SetFocusable_Call {
+	_c.Run(run)
+	return _c
+}
+
 // SetHalign provides a mock function for the type MockOverlayWidget
 func (_mock *MockOverlayWidget) SetHalign(align gtk.Align) {
 	_mock.Called(align)
@@ -7157,6 +7317,46 @@ func (_c *MockLabelWidget_SetFocusOnClick_Call) Return() *MockLabelWidget_SetFoc
 }
 
 func (_c *MockLabelWidget_SetFocusOnClick_Call) RunAndReturn(run func(focusOnClick bool)) *MockLabelWidget_SetFocusOnClick_Call {
+	_c.Run(run)
+	return _c
+}
+
+// SetFocusable provides a mock function for the type MockLabelWidget
+func (_mock *MockLabelWidget) SetFocusable(focusable bool) {
+	_mock.Called(focusable)
+	return
+}
+
+// MockLabelWidget_SetFocusable_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetFocusable'
+type MockLabelWidget_SetFocusable_Call struct {
+	*mock.Call
+}
+
+// SetFocusable is a helper method to define mock.On call
+//   - focusable bool
+func (_e *MockLabelWidget_Expecter) SetFocusable(focusable interface{}) *MockLabelWidget_SetFocusable_Call {
+	return &MockLabelWidget_SetFocusable_Call{Call: _e.mock.On("SetFocusable", focusable)}
+}
+
+func (_c *MockLabelWidget_SetFocusable_Call) Run(run func(focusable bool)) *MockLabelWidget_SetFocusable_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 bool
+		if args[0] != nil {
+			arg0 = args[0].(bool)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockLabelWidget_SetFocusable_Call) Return() *MockLabelWidget_SetFocusable_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockLabelWidget_SetFocusable_Call) RunAndReturn(run func(focusable bool)) *MockLabelWidget_SetFocusable_Call {
 	_c.Run(run)
 	return _c
 }
@@ -8631,6 +8831,46 @@ func (_c *MockButtonWidget_SetFocusOnClick_Call) RunAndReturn(run func(focusOnCl
 	return _c
 }
 
+// SetFocusable provides a mock function for the type MockButtonWidget
+func (_mock *MockButtonWidget) SetFocusable(focusable bool) {
+	_mock.Called(focusable)
+	return
+}
+
+// MockButtonWidget_SetFocusable_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetFocusable'
+type MockButtonWidget_SetFocusable_Call struct {
+	*mock.Call
+}
+
+// SetFocusable is a helper method to define mock.On call
+//   - focusable bool
+func (_e *MockButtonWidget_Expecter) SetFocusable(focusable interface{}) *MockButtonWidget_SetFocusable_Call {
+	return &MockButtonWidget_SetFocusable_Call{Call: _e.mock.On("SetFocusable", focusable)}
+}
+
+func (_c *MockButtonWidget_SetFocusable_Call) Run(run func(focusable bool)) *MockButtonWidget_SetFocusable_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 bool
+		if args[0] != nil {
+			arg0 = args[0].(bool)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockButtonWidget_SetFocusable_Call) Return() *MockButtonWidget_SetFocusable_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockButtonWidget_SetFocusable_Call) RunAndReturn(run func(focusable bool)) *MockButtonWidget_SetFocusable_Call {
+	_c.Run(run)
+	return _c
+}
+
 // SetHalign provides a mock function for the type MockButtonWidget
 func (_mock *MockButtonWidget) SetHalign(align gtk.Align) {
 	_mock.Called(align)
@@ -9829,6 +10069,46 @@ func (_c *MockImageWidget_SetFocusOnClick_Call) Return() *MockImageWidget_SetFoc
 }
 
 func (_c *MockImageWidget_SetFocusOnClick_Call) RunAndReturn(run func(focusOnClick bool)) *MockImageWidget_SetFocusOnClick_Call {
+	_c.Run(run)
+	return _c
+}
+
+// SetFocusable provides a mock function for the type MockImageWidget
+func (_mock *MockImageWidget) SetFocusable(focusable bool) {
+	_mock.Called(focusable)
+	return
+}
+
+// MockImageWidget_SetFocusable_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetFocusable'
+type MockImageWidget_SetFocusable_Call struct {
+	*mock.Call
+}
+
+// SetFocusable is a helper method to define mock.On call
+//   - focusable bool
+func (_e *MockImageWidget_Expecter) SetFocusable(focusable interface{}) *MockImageWidget_SetFocusable_Call {
+	return &MockImageWidget_SetFocusable_Call{Call: _e.mock.On("SetFocusable", focusable)}
+}
+
+func (_c *MockImageWidget_SetFocusable_Call) Run(run func(focusable bool)) *MockImageWidget_SetFocusable_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 bool
+		if args[0] != nil {
+			arg0 = args[0].(bool)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockImageWidget_SetFocusable_Call) Return() *MockImageWidget_SetFocusable_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockImageWidget_SetFocusable_Call) RunAndReturn(run func(focusable bool)) *MockImageWidget_SetFocusable_Call {
 	_c.Run(run)
 	return _c
 }
@@ -11166,6 +11446,46 @@ func (_c *MockProgressBarWidget_SetFocusOnClick_Call) RunAndReturn(run func(focu
 	return _c
 }
 
+// SetFocusable provides a mock function for the type MockProgressBarWidget
+func (_mock *MockProgressBarWidget) SetFocusable(focusable bool) {
+	_mock.Called(focusable)
+	return
+}
+
+// MockProgressBarWidget_SetFocusable_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetFocusable'
+type MockProgressBarWidget_SetFocusable_Call struct {
+	*mock.Call
+}
+
+// SetFocusable is a helper method to define mock.On call
+//   - focusable bool
+func (_e *MockProgressBarWidget_Expecter) SetFocusable(focusable interface{}) *MockProgressBarWidget_SetFocusable_Call {
+	return &MockProgressBarWidget_SetFocusable_Call{Call: _e.mock.On("SetFocusable", focusable)}
+}
+
+func (_c *MockProgressBarWidget_SetFocusable_Call) Run(run func(focusable bool)) *MockProgressBarWidget_SetFocusable_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 bool
+		if args[0] != nil {
+			arg0 = args[0].(bool)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockProgressBarWidget_SetFocusable_Call) Return() *MockProgressBarWidget_SetFocusable_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockProgressBarWidget_SetFocusable_Call) RunAndReturn(run func(focusable bool)) *MockProgressBarWidget_SetFocusable_Call {
+	_c.Run(run)
+	return _c
+}
+
 // SetFraction provides a mock function for the type MockProgressBarWidget
 func (_mock *MockProgressBarWidget) SetFraction(fraction float64) {
 	_mock.Called(fraction)
@@ -12375,6 +12695,46 @@ func (_c *MockSpinnerWidget_SetFocusOnClick_Call) Return() *MockSpinnerWidget_Se
 }
 
 func (_c *MockSpinnerWidget_SetFocusOnClick_Call) RunAndReturn(run func(focusOnClick bool)) *MockSpinnerWidget_SetFocusOnClick_Call {
+	_c.Run(run)
+	return _c
+}
+
+// SetFocusable provides a mock function for the type MockSpinnerWidget
+func (_mock *MockSpinnerWidget) SetFocusable(focusable bool) {
+	_mock.Called(focusable)
+	return
+}
+
+// MockSpinnerWidget_SetFocusable_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetFocusable'
+type MockSpinnerWidget_SetFocusable_Call struct {
+	*mock.Call
+}
+
+// SetFocusable is a helper method to define mock.On call
+//   - focusable bool
+func (_e *MockSpinnerWidget_Expecter) SetFocusable(focusable interface{}) *MockSpinnerWidget_SetFocusable_Call {
+	return &MockSpinnerWidget_SetFocusable_Call{Call: _e.mock.On("SetFocusable", focusable)}
+}
+
+func (_c *MockSpinnerWidget_SetFocusable_Call) Run(run func(focusable bool)) *MockSpinnerWidget_SetFocusable_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 bool
+		if args[0] != nil {
+			arg0 = args[0].(bool)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSpinnerWidget_SetFocusable_Call) Return() *MockSpinnerWidget_SetFocusable_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockSpinnerWidget_SetFocusable_Call) RunAndReturn(run func(focusable bool)) *MockSpinnerWidget_SetFocusable_Call {
 	_c.Run(run)
 	return _c
 }
