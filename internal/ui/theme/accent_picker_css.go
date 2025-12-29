@@ -14,6 +14,17 @@ func generateAccentPickerCSS(p Palette) string {
 	padding: 0.375em 0.5em;
 	margin-bottom: 1em;
 	box-shadow: 0 2px 8px alpha(black, 0.2);
+	transition: border-color 100ms ease-in-out;
+}
+
+/* Focused state - accent border like omnibox */
+.accent-picker:focus,
+.accent-picker:focus-within,
+.accent-picker:focus-visible {
+	border-color: var(--accent);
+	outline-style: none;
+	outline-width: 0px;
+	outline-color: transparent;
 }
 
 /* Individual accent character label */
