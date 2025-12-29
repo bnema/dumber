@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
 )
@@ -118,16 +119,16 @@ var internalPageAllowList = []string{"dumb://*"}
 // External pages receive dark mode preference via libadwaita's StyleManager.
 // Implements port.ContentInjector interface.
 type ContentInjector struct {
-	prefersDark  bool
-	themeCSSVars string // CSS custom property declarations for WebUI
-	findCSS      string // CSS for find-in-page highlight styling
+	colorResolver port.ColorSchemeResolver
+	themeCSSVars  string // CSS custom property declarations for WebUI
+	findCSS       string // CSS for find-in-page highlight styling
 }
 
 // NewContentInjector creates a new injector instance.
-// The prefersDark parameter should come from ThemeManager.PrefersDark().
-func NewContentInjector(prefersDark bool) *ContentInjector {
+// The resolver is used to dynamically determine dark mode preference.
+func NewContentInjector(resolver port.ColorSchemeResolver) *ContentInjector {
 	return &ContentInjector{
-		prefersDark: prefersDark,
+		colorResolver: resolver,
 	}
 }
 
@@ -149,15 +150,9 @@ func (ci *ContentInjector) InjectFindHighlightCSS(ctx context.Context, css strin
 	return nil
 }
 
-// PrefersDark returns the current dark mode preference.
+// PrefersDark returns the current dark mode preference from the resolver.
 func (ci *ContentInjector) PrefersDark() bool {
-	return ci.prefersDark
-}
-
-// SetPrefersDark updates the dark mode preference.
-// Call this when theme changes at runtime.
-func (ci *ContentInjector) SetPrefersDark(prefersDark bool) {
-	ci.prefersDark = prefersDark
+	return ci.colorResolver.Resolve().PrefersDark
 }
 
 // InjectScripts adds scripts to the given content manager.
@@ -186,7 +181,8 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 	}
 
 	// 1. Inject GTK dark mode preference for internal pages only
-	darkModePrefScript := fmt.Sprintf("window.__dumber_gtk_prefers_dark=%t;", ci.prefersDark)
+	prefersDark := ci.PrefersDark()
+	darkModePrefScript := fmt.Sprintf("window.__dumber_gtk_prefers_dark=%t;", prefersDark)
 	addScript(
 		webkit.NewUserScript(
 			darkModePrefScript,
@@ -263,5 +259,5 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		}
 	}
 
-	log.Debug().Bool("prefers_dark", ci.prefersDark).Msg("scripts injected")
+	log.Debug().Bool("prefers_dark", prefersDark).Msg("scripts injected")
 }
