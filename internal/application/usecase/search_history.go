@@ -75,6 +75,34 @@ func (uc *SearchHistoryUseCase) GetRecent(ctx context.Context, limit, offset int
 	return entries, nil
 }
 
+// GetRecentSince retrieves history entries visited within the last N days.
+func (uc *SearchHistoryUseCase) GetRecentSince(ctx context.Context, days int) ([]*entity.HistoryEntry, error) {
+	if days <= 0 {
+		days = 30 // Default to 30 days
+	}
+
+	entries, err := uc.historyRepo.GetRecentSince(ctx, days)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recent history since %d days: %w", days, err)
+	}
+
+	return entries, nil
+}
+
+// GetMostVisited retrieves history entries sorted by visit count within the last N days.
+func (uc *SearchHistoryUseCase) GetMostVisited(ctx context.Context, days int) ([]*entity.HistoryEntry, error) {
+	if days <= 0 {
+		days = 30 // Default to 30 days
+	}
+
+	entries, err := uc.historyRepo.GetMostVisited(ctx, days)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get most visited history: %w", err)
+	}
+
+	return entries, nil
+}
+
 // FindByURL retrieves a history entry by its URL.
 func (uc *SearchHistoryUseCase) FindByURL(ctx context.Context, url string) (*entity.HistoryEntry, error) {
 	log := logging.FromContext(ctx)

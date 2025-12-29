@@ -286,7 +286,7 @@ func (c *Config) ShortcutURLs() map[string]string {
 
 // DmenuConfig holds dmenu/rofi integration configuration.
 type DmenuConfig struct {
-	MaxHistoryItems  int    `mapstructure:"max_history_items" yaml:"max_history_items" toml:"max_history_items"`
+	MaxHistoryDays   int    `mapstructure:"max_history_days" yaml:"max_history_days" toml:"max_history_days"`
 	ShowVisitCount   bool   `mapstructure:"show_visit_count" yaml:"show_visit_count" toml:"show_visit_count"`
 	ShowLastVisited  bool   `mapstructure:"show_last_visited" yaml:"show_last_visited" toml:"show_last_visited"`
 	HistoryPrefix    string `mapstructure:"history_prefix" yaml:"history_prefix" toml:"history_prefix"`

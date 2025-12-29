@@ -2395,6 +2395,74 @@ func (_c *MockHistoryRepository_GetHourlyDistribution_Call) RunAndReturn(run fun
 	return _c
 }
 
+// GetMostVisited provides a mock function for the type MockHistoryRepository
+func (_mock *MockHistoryRepository) GetMostVisited(ctx context.Context, days int) ([]*entity.HistoryEntry, error) {
+	ret := _mock.Called(ctx, days)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetMostVisited")
+	}
+
+	var r0 []*entity.HistoryEntry
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) ([]*entity.HistoryEntry, error)); ok {
+		return returnFunc(ctx, days)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) []*entity.HistoryEntry); ok {
+		r0 = returnFunc(ctx, days)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*entity.HistoryEntry)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = returnFunc(ctx, days)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHistoryRepository_GetMostVisited_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetMostVisited'
+type MockHistoryRepository_GetMostVisited_Call struct {
+	*mock.Call
+}
+
+// GetMostVisited is a helper method to define mock.On call
+//   - ctx context.Context
+//   - days int
+func (_e *MockHistoryRepository_Expecter) GetMostVisited(ctx interface{}, days interface{}) *MockHistoryRepository_GetMostVisited_Call {
+	return &MockHistoryRepository_GetMostVisited_Call{Call: _e.mock.On("GetMostVisited", ctx, days)}
+}
+
+func (_c *MockHistoryRepository_GetMostVisited_Call) Run(run func(ctx context.Context, days int)) *MockHistoryRepository_GetMostVisited_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHistoryRepository_GetMostVisited_Call) Return(historyEntrys []*entity.HistoryEntry, err error) *MockHistoryRepository_GetMostVisited_Call {
+	_c.Call.Return(historyEntrys, err)
+	return _c
+}
+
+func (_c *MockHistoryRepository_GetMostVisited_Call) RunAndReturn(run func(ctx context.Context, days int) ([]*entity.HistoryEntry, error)) *MockHistoryRepository_GetMostVisited_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetRecent provides a mock function for the type MockHistoryRepository
 func (_mock *MockHistoryRepository) GetRecent(ctx context.Context, limit int, offset int) ([]*entity.HistoryEntry, error) {
 	ret := _mock.Called(ctx, limit, offset)
@@ -2465,6 +2533,74 @@ func (_c *MockHistoryRepository_GetRecent_Call) Return(historyEntrys []*entity.H
 }
 
 func (_c *MockHistoryRepository_GetRecent_Call) RunAndReturn(run func(ctx context.Context, limit int, offset int) ([]*entity.HistoryEntry, error)) *MockHistoryRepository_GetRecent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetRecentSince provides a mock function for the type MockHistoryRepository
+func (_mock *MockHistoryRepository) GetRecentSince(ctx context.Context, days int) ([]*entity.HistoryEntry, error) {
+	ret := _mock.Called(ctx, days)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetRecentSince")
+	}
+
+	var r0 []*entity.HistoryEntry
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) ([]*entity.HistoryEntry, error)); ok {
+		return returnFunc(ctx, days)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) []*entity.HistoryEntry); ok {
+		r0 = returnFunc(ctx, days)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*entity.HistoryEntry)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = returnFunc(ctx, days)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHistoryRepository_GetRecentSince_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetRecentSince'
+type MockHistoryRepository_GetRecentSince_Call struct {
+	*mock.Call
+}
+
+// GetRecentSince is a helper method to define mock.On call
+//   - ctx context.Context
+//   - days int
+func (_e *MockHistoryRepository_Expecter) GetRecentSince(ctx interface{}, days interface{}) *MockHistoryRepository_GetRecentSince_Call {
+	return &MockHistoryRepository_GetRecentSince_Call{Call: _e.mock.On("GetRecentSince", ctx, days)}
+}
+
+func (_c *MockHistoryRepository_GetRecentSince_Call) Run(run func(ctx context.Context, days int)) *MockHistoryRepository_GetRecentSince_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHistoryRepository_GetRecentSince_Call) Return(historyEntrys []*entity.HistoryEntry, err error) *MockHistoryRepository_GetRecentSince_Call {
+	_c.Call.Return(historyEntrys, err)
+	return _c
+}
+
+func (_c *MockHistoryRepository_GetRecentSince_Call) RunAndReturn(run func(ctx context.Context, days int) ([]*entity.HistoryEntry, error)) *MockHistoryRepository_GetRecentSince_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -53,8 +53,8 @@ func validateHistory(config *Config) []string {
 }
 
 func validateDmenu(config *Config) []string {
-	if config.Dmenu.MaxHistoryItems < 0 {
-		return []string{"dmenu.max_history_items must be non-negative"}
+	if config.Dmenu.MaxHistoryDays < 0 {
+		return []string{"dmenu.max_history_days must be non-negative"}
 	}
 	return nil
 }
