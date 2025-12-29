@@ -126,6 +126,10 @@ func GenerateCSSFull(p Palette, scale float64, fonts FontConfig, modeColors Mode
 
 	// Tab picker styling
 	sb.WriteString(generateTabPickerCSS(p))
+	sb.WriteString("\n")
+
+	// Accent picker styling
+	sb.WriteString(generateAccentPickerCSS(p))
 
 	return sb.String()
 }
