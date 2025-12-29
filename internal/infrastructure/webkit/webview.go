@@ -248,25 +248,15 @@ func NewWebView(ctx context.Context, wkCtx *WebKitContext, settings *SettingsMan
 		return nil, fmt.Errorf("webkit context not initialized")
 	}
 
-	// Use NetworkSession-aware constructor for persistent cookie/storage.
-	inner := webkit.NewWebViewWithNetworkSession(wkCtx.NetworkSession())
+	// Use options constructor to pass both WebContext and NetworkSession.
+	// This ensures WebViews use our custom WebContext (with memory pressure settings)
+	// and the persistent NetworkSession for cookie/storage.
+	inner := webkit.NewWebViewWithOptions(&webkit.WebViewOptions{
+		WebContext:     wkCtx.Context(),
+		NetworkSession: wkCtx.NetworkSession(),
+	})
 	if inner == nil {
-		return nil, fmt.Errorf("failed to create webkit webview with network session")
-	}
-
-	// Sanity check: our internal dumb:// scheme must be registered on the same WebContext
-	// that the WebView is actually using.
-	if expectedCtx := wkCtx.Context(); expectedCtx != nil {
-		if actualCtx := inner.GetContext(); actualCtx != nil {
-			expectedPtr := expectedCtx.GoPointer()
-			actualPtr := actualCtx.GoPointer()
-			if expectedPtr != 0 && actualPtr != 0 && expectedPtr != actualPtr {
-				log.Warn().
-					Uint64("expected_web_context", uint64(expectedPtr)).
-					Uint64("actual_web_context", uint64(actualPtr)).
-					Msg("webview WebContext mismatch; internal dumb:// pages may fail")
-			}
-		}
+		return nil, fmt.Errorf("failed to create webkit webview with options")
 	}
 
 	// Set background color IMMEDIATELY after creation, before any other operations.
