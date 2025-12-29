@@ -66,27 +66,28 @@ func TestGetAccents(t *testing.T) {
 
 func TestGetAccents_UppercaseFromLowercase(t *testing.T) {
 	// When passing lowercase char with uppercase=true, should return uppercase accents
-	got := GetAccents('e', true)
-	if len(got) == 0 {
+	uppercase := GetAccents('e', true)
+	lowercase := GetAccents('e', false)
+
+	if len(uppercase) == 0 {
 		t.Fatal("expected accents for 'e' with uppercase=true")
 	}
 
-	// Verify all returned accents are uppercase
-	for _, accent := range got {
-		lower := GetAccents('e', false)
-		found := false
-		for _, l := range lower {
-			if accent != l {
-				found = true
-				break
-			}
+	if len(uppercase) != len(lowercase) {
+		t.Fatalf("uppercase and lowercase accent counts differ: %d vs %d", len(uppercase), len(lowercase))
+	}
+
+	// Verify each uppercase accent is different from the corresponding lowercase accent
+	for i, upper := range uppercase {
+		lower := lowercase[i]
+		if upper == lower {
+			t.Errorf("accent at index %d is same for uppercase and lowercase: %q", i, upper)
 		}
-		if !found && accent == got[0] {
-			// First accent should be uppercase version of first lowercase accent
-			if accent != 'È' {
-				t.Errorf("expected uppercase accent È, got %q", accent)
-			}
-		}
+	}
+
+	// Verify first accent is È (uppercase of è)
+	if uppercase[0] != 'È' {
+		t.Errorf("expected first uppercase accent to be È, got %q", uppercase[0])
 	}
 }
 
