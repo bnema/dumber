@@ -12,14 +12,15 @@ const (
 	maxSkiaCPUThreads = 8
 
 	// Memory tier thresholds (in bytes)
-	ramTierLow    = 8 * 1024 * 1024 * 1024  // 8 GB
-	ramTierMedium = 16 * 1024 * 1024 * 1024 // 16 GB
-	ramTierHigh   = 32 * 1024 * 1024 * 1024 // 32 GB
+	// Explicitly typed as uint64 to prevent overflow on 32-bit systems.
+	ramTierLow    uint64 = 8 * 1024 * 1024 * 1024  // 8 GB
+	ramTierMedium uint64 = 16 * 1024 * 1024 * 1024 // 16 GB
+	ramTierHigh   uint64 = 32 * 1024 * 1024 * 1024 // 32 GB
 
 	// VRAM tier thresholds (in bytes)
-	vramTierLow  = 4 * 1024 * 1024 * 1024  // 4 GB (low-end discrete / integrated)
-	vramTierMid  = 8 * 1024 * 1024 * 1024  // 8 GB (mid-range discrete)
-	vramTierHigh = 16 * 1024 * 1024 * 1024 // 16 GB (high-end discrete)
+	vramTierLow  uint64 = 4 * 1024 * 1024 * 1024  // 4 GB (low-end discrete / integrated)
+	vramTierMid  uint64 = 8 * 1024 * 1024 * 1024  // 8 GB (mid-range discrete)
+	vramTierHigh uint64 = 16 * 1024 * 1024 * 1024 // 16 GB (high-end discrete)
 
 	// GPU thread scaling values
 	gpuThreadsHigh = 8 // For 16GB+ VRAM

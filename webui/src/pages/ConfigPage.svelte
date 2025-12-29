@@ -446,7 +446,7 @@
                     <div><span class="text-muted-foreground">CPU:</span> <span class="font-mono">{hw.cpu_cores}c/{hw.cpu_threads}t</span></div>
                     <div><span class="text-muted-foreground">RAM:</span> <span class="font-mono">{hw.total_ram_mb > 0 ? (hw.total_ram_mb / 1024).toFixed(0) + ' GB' : '?'}</span></div>
                     <div><span class="text-muted-foreground">GPU:</span> <span class="font-mono capitalize">{hw.gpu_vendor || 'Unknown'}</span></div>
-                    <div><span class="text-muted-foreground">VRAM:</span> <span class="font-mono">{hw.vram_mb > 0 ? (hw.vram_mb / 1024).toFixed(0) + ' GB' : '?'}</span></div>
+                    <div><span class="text-muted-foreground">VRAM:</span> <span class="font-mono">{hw.vram_mb > 0 ? (hw.vram_mb / 1024).toFixed(0) + ' GB' : (hw.gpu_vendor === 'intel' ? 'Shared' : '?')}</span></div>
                   </div>
                 </div>
               {/if}
