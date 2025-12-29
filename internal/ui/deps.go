@@ -60,6 +60,9 @@ type Dependencies struct {
 	FilterManager  *filtering.Manager
 	IdleInhibitor  port.IdleInhibitor
 
+	// Accent picker for dead keys support
+	InsertAccentUC *usecase.InsertAccentUseCase
+
 	// Session management
 	SessionStateRepo repository.SessionStateRepository
 	SessionRepo      repository.SessionRepository
