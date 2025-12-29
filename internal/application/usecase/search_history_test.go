@@ -34,7 +34,7 @@ func TestSearchHistoryUseCase_GetRecentSince_ReturnsEntries(t *testing.T) {
 	assert.Equal(t, "https://github.com", result[1].URL)
 }
 
-func TestSearchHistoryUseCase_GetRecentSince_DefaultsTo30Days(t *testing.T) {
+func TestSearchHistoryUseCase_GetRecentSince_ZeroMeansAll(t *testing.T) {
 	ctx := testContext()
 
 	historyRepo := repomocks.NewMockHistoryRepository(t)
@@ -43,8 +43,8 @@ func TestSearchHistoryUseCase_GetRecentSince_DefaultsTo30Days(t *testing.T) {
 		{ID: 1, URL: "https://example.com", Title: "Example"},
 	}
 
-	// When days <= 0, should default to 30
-	historyRepo.EXPECT().GetRecentSince(mock.Anything, 30).Return(entries, nil)
+	// When days == 0, should call GetAllRecentHistory
+	historyRepo.EXPECT().GetAllRecentHistory(mock.Anything).Return(entries, nil)
 
 	uc := usecase.NewSearchHistoryUseCase(historyRepo)
 
@@ -81,7 +81,7 @@ func TestSearchHistoryUseCase_GetRecentSince_ReturnsErrorOnRepoFailure(t *testin
 	result, err := uc.GetRecentSince(ctx, 7)
 	require.Error(t, err)
 	assert.Nil(t, result)
-	assert.Contains(t, err.Error(), "failed to get recent history since 7 days")
+	assert.Contains(t, err.Error(), "failed to get recent history")
 }
 
 func TestSearchHistoryUseCase_GetMostVisited_ReturnsEntries(t *testing.T) {
@@ -105,15 +105,15 @@ func TestSearchHistoryUseCase_GetMostVisited_ReturnsEntries(t *testing.T) {
 	assert.Equal(t, int64(100), result[0].VisitCount)
 }
 
-func TestSearchHistoryUseCase_GetMostVisited_DefaultsTo30Days(t *testing.T) {
+func TestSearchHistoryUseCase_GetMostVisited_ZeroMeansAll(t *testing.T) {
 	ctx := testContext()
 
 	historyRepo := repomocks.NewMockHistoryRepository(t)
 
 	entries := []*entity.HistoryEntry{}
 
-	// When days <= 0, should default to 30
-	historyRepo.EXPECT().GetMostVisited(mock.Anything, 30).Return(entries, nil)
+	// When days == 0, should call GetAllMostVisited
+	historyRepo.EXPECT().GetAllMostVisited(mock.Anything).Return(entries, nil)
 
 	uc := usecase.NewSearchHistoryUseCase(historyRepo)
 

@@ -66,3 +66,11 @@ ORDER BY last_visited DESC;
 SELECT * FROM history
 WHERE last_visited >= datetime('now', ?)
 ORDER BY visit_count DESC, last_visited DESC;
+
+-- name: GetAllRecentHistory :many
+SELECT * FROM history
+ORDER BY last_visited DESC;
+
+-- name: GetAllMostVisited :many
+SELECT * FROM history
+ORDER BY visit_count DESC, last_visited DESC;

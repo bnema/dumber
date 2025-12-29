@@ -2197,6 +2197,130 @@ func (_c *MockHistoryRepository_FindByURL_Call) RunAndReturn(run func(ctx contex
 	return _c
 }
 
+// GetAllMostVisited provides a mock function for the type MockHistoryRepository
+func (_mock *MockHistoryRepository) GetAllMostVisited(ctx context.Context) ([]*entity.HistoryEntry, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAllMostVisited")
+	}
+
+	var r0 []*entity.HistoryEntry
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]*entity.HistoryEntry, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) []*entity.HistoryEntry); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*entity.HistoryEntry)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHistoryRepository_GetAllMostVisited_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAllMostVisited'
+type MockHistoryRepository_GetAllMostVisited_Call struct {
+	*mock.Call
+}
+
+// GetAllMostVisited is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockHistoryRepository_Expecter) GetAllMostVisited(ctx interface{}) *MockHistoryRepository_GetAllMostVisited_Call {
+	return &MockHistoryRepository_GetAllMostVisited_Call{Call: _e.mock.On("GetAllMostVisited", ctx)}
+}
+
+func (_c *MockHistoryRepository_GetAllMostVisited_Call) Run(run func(ctx context.Context)) *MockHistoryRepository_GetAllMostVisited_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHistoryRepository_GetAllMostVisited_Call) Return(historyEntrys []*entity.HistoryEntry, err error) *MockHistoryRepository_GetAllMostVisited_Call {
+	_c.Call.Return(historyEntrys, err)
+	return _c
+}
+
+func (_c *MockHistoryRepository_GetAllMostVisited_Call) RunAndReturn(run func(ctx context.Context) ([]*entity.HistoryEntry, error)) *MockHistoryRepository_GetAllMostVisited_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetAllRecentHistory provides a mock function for the type MockHistoryRepository
+func (_mock *MockHistoryRepository) GetAllRecentHistory(ctx context.Context) ([]*entity.HistoryEntry, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAllRecentHistory")
+	}
+
+	var r0 []*entity.HistoryEntry
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]*entity.HistoryEntry, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) []*entity.HistoryEntry); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*entity.HistoryEntry)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHistoryRepository_GetAllRecentHistory_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAllRecentHistory'
+type MockHistoryRepository_GetAllRecentHistory_Call struct {
+	*mock.Call
+}
+
+// GetAllRecentHistory is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockHistoryRepository_Expecter) GetAllRecentHistory(ctx interface{}) *MockHistoryRepository_GetAllRecentHistory_Call {
+	return &MockHistoryRepository_GetAllRecentHistory_Call{Call: _e.mock.On("GetAllRecentHistory", ctx)}
+}
+
+func (_c *MockHistoryRepository_GetAllRecentHistory_Call) Run(run func(ctx context.Context)) *MockHistoryRepository_GetAllRecentHistory_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHistoryRepository_GetAllRecentHistory_Call) Return(historyEntrys []*entity.HistoryEntry, err error) *MockHistoryRepository_GetAllRecentHistory_Call {
+	_c.Call.Return(historyEntrys, err)
+	return _c
+}
+
+func (_c *MockHistoryRepository_GetAllRecentHistory_Call) RunAndReturn(run func(ctx context.Context) ([]*entity.HistoryEntry, error)) *MockHistoryRepository_GetAllRecentHistory_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetDailyVisitCount provides a mock function for the type MockHistoryRepository
 func (_mock *MockHistoryRepository) GetDailyVisitCount(ctx context.Context, daysAgo string) ([]*entity.DailyVisitCount, error) {
 	ret := _mock.Called(ctx, daysAgo)

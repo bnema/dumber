@@ -32,6 +32,8 @@ type Querier interface {
 	GetActiveBrowserSession(ctx context.Context) (Session, error)
 	GetAllFavorites(ctx context.Context) ([]Favorite, error)
 	GetAllFolders(ctx context.Context) ([]FavoriteFolder, error)
+	GetAllMostVisited(ctx context.Context) ([]History, error)
+	GetAllRecentHistory(ctx context.Context) ([]History, error)
 	GetAllSessionStates(ctx context.Context) ([]SessionState, error)
 	GetAllTags(ctx context.Context) ([]FavoriteTag, error)
 	GetAllWhitelistedDomains(ctx context.Context) ([]string, error)

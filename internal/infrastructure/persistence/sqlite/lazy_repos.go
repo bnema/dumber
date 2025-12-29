@@ -93,6 +93,20 @@ func (r *LazyHistoryRepository) GetMostVisited(ctx context.Context, days int) ([
 	return r.repo.GetMostVisited(ctx, days)
 }
 
+func (r *LazyHistoryRepository) GetAllRecentHistory(ctx context.Context) ([]*entity.HistoryEntry, error) {
+	if err := r.init(ctx); err != nil {
+		return nil, err
+	}
+	return r.repo.GetAllRecentHistory(ctx)
+}
+
+func (r *LazyHistoryRepository) GetAllMostVisited(ctx context.Context) ([]*entity.HistoryEntry, error) {
+	if err := r.init(ctx); err != nil {
+		return nil, err
+	}
+	return r.repo.GetAllMostVisited(ctx)
+}
+
 func (r *LazyHistoryRepository) IncrementVisitCount(ctx context.Context, url string) error {
 	if err := r.init(ctx); err != nil {
 		return err

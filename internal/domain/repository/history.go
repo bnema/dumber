@@ -22,10 +22,18 @@ type HistoryRepository interface {
 	GetRecent(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error)
 
 	// GetRecentSince retrieves history entries visited within the last N days.
+	// days must be > 0.
 	GetRecentSince(ctx context.Context, days int) ([]*entity.HistoryEntry, error)
 
 	// GetMostVisited retrieves history entries sorted by visit count within the last N days.
+	// days must be > 0.
 	GetMostVisited(ctx context.Context, days int) ([]*entity.HistoryEntry, error)
+
+	// GetAllRecentHistory retrieves all history entries sorted by recency.
+	GetAllRecentHistory(ctx context.Context) ([]*entity.HistoryEntry, error)
+
+	// GetAllMostVisited retrieves all history entries sorted by visit count.
+	GetAllMostVisited(ctx context.Context) ([]*entity.HistoryEntry, error)
 
 	// IncrementVisitCount increments the visit count for a URL.
 	IncrementVisitCount(ctx context.Context, url string) error
