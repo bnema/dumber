@@ -13,9 +13,6 @@ import (
 const (
 	accentPickerSpacing    = 8 // Spacing between accent items in pixels.
 	maxNumberedAccentItems = 9 // Maximum items that can be selected with number keys (1-9).
-	accentIndex6           = 6 // Index for accent at position 7 (0-indexed).
-	accentIndex7           = 7 // Index for accent at position 8 (0-indexed).
-	accentIndex8           = 8 // Index for accent at position 9 (0-indexed).
 )
 
 // AccentPicker displays an overlay with accent character options.
@@ -175,28 +172,26 @@ func (ap *AccentPicker) updateSelection() {
 // selectAccent selects the accent at the given index.
 func (ap *AccentPicker) selectAccent(index int) {
 	ap.mu.Lock()
-	if index < 0 || index >= len(ap.accents) {
+	if index < 0 || index >= len(ap.accents) || ap.selectedCb == nil {
 		ap.mu.Unlock()
 		return
 	}
 	accent := ap.accents[index]
-	cb := ap.selectedCb
+	// Invoke callback while holding lock to avoid race with Hide() clearing callbacks
+	ap.selectedCb(accent)
 	ap.mu.Unlock()
-
-	if cb != nil {
-		cb(accent)
-	}
 }
 
 // cancel cancels the accent picker.
 func (ap *AccentPicker) cancel() {
 	ap.mu.Lock()
-	cb := ap.cancelCb
-	ap.mu.Unlock()
-
-	if cb != nil {
-		cb()
+	if ap.cancelCb == nil {
+		ap.mu.Unlock()
+		return
 	}
+	// Invoke callback while holding lock to avoid race with Hide() clearing callbacks
+	ap.cancelCb()
+	ap.mu.Unlock()
 }
 
 // setupKeyboardHandling sets up key event handling for navigation.
@@ -309,12 +304,12 @@ func (ap *AccentPicker) numberKeyToIndex(keyval uint) (int, bool) {
 		uint(gdk.KEY_KP_5): 4,
 		uint(gdk.KEY_6):    5,
 		uint(gdk.KEY_KP_6): 5,
-		uint(gdk.KEY_7):    accentIndex6,
-		uint(gdk.KEY_KP_7): accentIndex6,
-		uint(gdk.KEY_8):    accentIndex7,
-		uint(gdk.KEY_KP_8): accentIndex7,
-		uint(gdk.KEY_9):    accentIndex8,
-		uint(gdk.KEY_KP_9): accentIndex8,
+		uint(gdk.KEY_7):    6,
+		uint(gdk.KEY_KP_7): 6,
+		uint(gdk.KEY_8):    7,
+		uint(gdk.KEY_KP_8): 7,
+		uint(gdk.KEY_9):    8,
+		uint(gdk.KEY_KP_9): 8,
 	}
 
 	if idx, ok := keyMap[keyval]; ok {

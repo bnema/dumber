@@ -97,10 +97,11 @@ func (t *WebViewTarget) InsertText(ctx context.Context, text string) error {
 
 	// Restore original clipboard after a short delay
 	// This allows the paste operation to complete first
+	// Use context.Background() since this cleanup should complete regardless of ctx cancellation
 	go func() {
 		time.Sleep(clipboardRestoreDelay)
 		if originalClipboard != "" {
-			if err := t.clipboard.WriteText(ctx, originalClipboard); err != nil {
+			if err := t.clipboard.WriteText(context.Background(), originalClipboard); err != nil {
 				log.Debug().Err(err).Msg("failed to restore clipboard")
 			}
 		}

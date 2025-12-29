@@ -103,8 +103,9 @@ func (uc *InsertAccentUseCase) OnKeyPressed(ctx context.Context, char rune, shif
 		Bool("shift", shiftHeld).
 		Msg("starting long-press detection")
 
+	// Use context.Background() since timer fires after delay and original ctx may be canceled
 	uc.timer = time.AfterFunc(LongPressDelay, func() {
-		uc.onLongPressTriggered(ctx)
+		uc.onLongPressTriggered(context.Background())
 	})
 
 	// Allow the first key press through (user might just want to type quickly)
