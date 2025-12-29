@@ -10,6 +10,7 @@
   import { Spinner } from "$lib/components/ui/spinner";
   import * as Card from "$lib/components/ui/card";
   import * as Tabs from "$lib/components/ui/tabs";
+  import { FlaskConical, RefreshCw } from "@lucide/svelte";
 
   type ColorPalette = {
     background: string;
@@ -46,8 +47,17 @@
     vram_mb: number;
   };
 
+  type CustomPerformance = {
+    skia_cpu_threads: number;
+    skia_gpu_threads: number;
+    web_process_memory_mb: number;
+    network_process_memory_mb: number;
+    webview_pool_prewarm: number;
+  };
+
   type PerformanceConfig = {
     profile: string;
+    custom: CustomPerformance;
     resolved: ResolvedPerformance;
     hardware: HardwareInfo;
   };
@@ -443,7 +453,7 @@
 
               <!-- Experimental feature warning -->
               <div class="flex items-start gap-3 rounded-md border border-info/30 bg-info/10 px-4 py-3">
-                <span class="text-info">🧪</span>
+                <FlaskConical class="mt-0.5 size-4 shrink-0 text-info" />
                 <div class="space-y-1">
                   <p class="text-sm font-medium text-info">Experimental Feature</p>
                   <p class="text-xs text-muted-foreground">
@@ -480,13 +490,68 @@
               </div>
               {/if}
 
-              <!-- Custom profile note -->
+              <!-- Custom profile fields -->
               {#if config.performance?.profile === "custom"}
-                <div class="rounded-md border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                  <p>
-                    Custom profile settings are configured in your <code class="rounded bg-muted px-1 py-0.5">config.toml</code> file.
-                    See the <a href="https://github.com/bnema/dumber/blob/main/docs/CONFIG.md#performance-profiles" target="_blank" class="text-primary underline">documentation</a> for available options.
-                  </p>
+                <div class="space-y-4 rounded-md border border-border bg-muted/20 p-4">
+                  <div class="text-sm font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                    Custom Settings
+                  </div>
+                  <div class="grid gap-4 md:grid-cols-2">
+                    <div class="space-y-2">
+                      <Label for="skia_cpu_threads">Skia CPU Threads</Label>
+                      <Input
+                        id="skia_cpu_threads"
+                        type="number"
+                        min="0"
+                        max="8"
+                        bind:value={config.performance.custom.skia_cpu_threads}
+                      />
+                      <p class="text-xs text-muted-foreground">0 = unset (WebKit default). Max 8.</p>
+                    </div>
+                    <div class="space-y-2">
+                      <Label for="skia_gpu_threads">Skia GPU Threads</Label>
+                      <Input
+                        id="skia_gpu_threads"
+                        type="number"
+                        min="-1"
+                        bind:value={config.performance.custom.skia_gpu_threads}
+                      />
+                      <p class="text-xs text-muted-foreground">-1 = unset, 0 = disable GPU tiles.</p>
+                    </div>
+                    <div class="space-y-2">
+                      <Label for="web_process_memory">Web Process Memory (MB)</Label>
+                      <Input
+                        id="web_process_memory"
+                        type="number"
+                        min="0"
+                        step="256"
+                        bind:value={config.performance.custom.web_process_memory_mb}
+                      />
+                      <p class="text-xs text-muted-foreground">0 = unset (WebKit default).</p>
+                    </div>
+                    <div class="space-y-2">
+                      <Label for="network_process_memory">Network Process Memory (MB)</Label>
+                      <Input
+                        id="network_process_memory"
+                        type="number"
+                        min="0"
+                        step="128"
+                        bind:value={config.performance.custom.network_process_memory_mb}
+                      />
+                      <p class="text-xs text-muted-foreground">0 = unset (WebKit default).</p>
+                    </div>
+                    <div class="space-y-2">
+                      <Label for="webview_pool_prewarm">WebView Pool Prewarm</Label>
+                      <Input
+                        id="webview_pool_prewarm"
+                        type="number"
+                        min="0"
+                        max="20"
+                        bind:value={config.performance.custom.webview_pool_prewarm}
+                      />
+                      <p class="text-xs text-muted-foreground">Pre-created WebViews at startup.</p>
+                    </div>
+                  </div>
                 </div>
               {/if}
 
@@ -599,7 +664,7 @@
       <!-- Restart warning after saving performance settings -->
       {#if showRestartWarning}
         <div class="flex items-start gap-3 border border-warning/30 bg-warning/10 px-4 py-3">
-          <span class="text-warning">⚠</span>
+          <RefreshCw class="mt-0.5 size-4 shrink-0 text-warning" />
           <div class="space-y-1">
             <p class="text-sm font-medium text-warning">Restart Required</p>
             <p class="text-xs text-muted-foreground">
