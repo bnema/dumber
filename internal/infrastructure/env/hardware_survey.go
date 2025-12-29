@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
@@ -19,8 +20,10 @@ const (
 )
 
 // HardwareSurveyor implements port.HardwareSurveyor for Linux systems.
+// It is safe for concurrent use after creation.
 type HardwareSurveyor struct {
-	cached *port.HardwareInfo
+	once   sync.Once
+	cached port.HardwareInfo
 }
 
 // NewHardwareSurveyor creates a new hardware surveyor.
@@ -29,12 +32,16 @@ func NewHardwareSurveyor() *HardwareSurveyor {
 }
 
 // Survey detects and returns hardware information.
-// Results are cached after the first call.
+// Results are cached after the first call. Safe for concurrent use.
 func (s *HardwareSurveyor) Survey(ctx context.Context) port.HardwareInfo {
-	if s.cached != nil {
-		return *s.cached
-	}
+	s.once.Do(func() {
+		s.cached = s.doSurvey(ctx)
+	})
+	return s.cached
+}
 
+// doSurvey performs the actual hardware detection.
+func (s *HardwareSurveyor) doSurvey(ctx context.Context) port.HardwareInfo {
 	log := logging.FromContext(ctx)
 
 	info := port.HardwareInfo{
@@ -63,7 +70,6 @@ func (s *HardwareSurveyor) Survey(ctx context.Context) port.HardwareInfo {
 		Uint64("vram_mb", info.VRAM/(1024*1024)).
 		Msg("hardware survey completed")
 
-	s.cached = &info
 	return info
 }
 
