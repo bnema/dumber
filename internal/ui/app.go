@@ -156,6 +156,10 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("creating GTK application")
 
+	// Initialize libadwaita once (required before using StyleManager).
+	// This also initializes GTK implicitly.
+	adw.Init()
+
 	// TODO: Use AppID once puregotk GC bug is fixed (nullable-string-gc-memory-corruption)
 	a.gtkApp = gtk.NewApplication(nil, gio.GApplicationFlagsNoneValue)
 	if a.gtkApp == nil {
@@ -218,12 +222,8 @@ func (a *App) onActivate(ctx context.Context) {
 func (a *App) applyGTKColorSchemePreference(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
-	// Initialize libadwaita (required before using StyleManager).
-	// This also initializes GTK implicitly.
-	adw.Init()
-
-	// Get the config color scheme preference
-	scheme := "system"
+	// Get the config color scheme preference (default follows system theme)
+	scheme := "default"
 	if a.deps != nil && a.deps.Config != nil && a.deps.Config.Appearance.ColorScheme != "" {
 		scheme = a.deps.Config.Appearance.ColorScheme
 	}
@@ -244,8 +244,8 @@ func (a *App) applyGTKColorSchemePreference(ctx context.Context) {
 	case "light", "prefer-light":
 		adwScheme = adw.ColorSchemeForceLightValue
 	default:
-		// "system" or empty - follow system preference
-		adwScheme = adw.ColorSchemePreferLightValue
+		// "default" or empty - follow system preference
+		adwScheme = adw.ColorSchemeDefaultValue
 	}
 
 	styleMgr.SetColorScheme(adwScheme)
