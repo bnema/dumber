@@ -86,7 +86,7 @@ func (g *WebUIConfigGateway) SaveWebUIConfig(ctx context.Context, cfg port.WebUI
 	// Custom performance fields (only used when profile is "custom")
 	if cfg.Performance.Profile == string(ProfileCustom) {
 		current.Performance.SkiaCPUPaintingThreads = clampInt(cfg.Performance.Custom.SkiaCPUThreads, 0, maxSkiaCPUThreads)
-		current.Performance.SkiaGPUPaintingThreads = clampInt(cfg.Performance.Custom.SkiaGPUThreads, -1, maxSkiaCPUThreads)
+		current.Performance.SkiaGPUPaintingThreads = clampInt(cfg.Performance.Custom.SkiaGPUThreads, -1, maxSkiaGPUThreads)
 		current.Performance.WebProcessMemoryLimitMB = clampInt(cfg.Performance.Custom.WebProcessMemoryMB, 0, maxWebProcessMemoryMB)
 		current.Performance.NetworkProcessMemoryLimitMB = clampInt(cfg.Performance.Custom.NetworkProcessMemoryMB, 0, maxNetworkProcessMemoryMB)
 		current.Performance.WebViewPoolPrewarmCount = clampInt(cfg.Performance.Custom.WebViewPoolPrewarm, 0, maxWebViewPoolPrewarm)
