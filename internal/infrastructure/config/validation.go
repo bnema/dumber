@@ -371,5 +371,24 @@ func validatePerformanceProfile(config *Config) []string {
 		}
 	}
 
+	// Validate memory pressure threshold ordering: WebKit requires conservative < strict
+	webCons := config.Performance.WebProcessMemoryConservativeThreshold
+	webStrict := config.Performance.WebProcessMemoryStrictThreshold
+	if webCons > 0 && webStrict > 0 && webCons >= webStrict {
+		validationErrors = append(validationErrors,
+			"performance.web_process_memory_conservative_threshold must be less than "+
+				"web_process_memory_strict_threshold when both are set",
+		)
+	}
+
+	netCons := config.Performance.NetworkProcessMemoryConservativeThreshold
+	netStrict := config.Performance.NetworkProcessMemoryStrictThreshold
+	if netCons > 0 && netStrict > 0 && netCons >= netStrict {
+		validationErrors = append(validationErrors,
+			"performance.network_process_memory_conservative_threshold must be less than "+
+				"network_process_memory_strict_threshold when both are set",
+		)
+	}
+
 	return validationErrors
 }

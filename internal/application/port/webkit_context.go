@@ -58,11 +58,17 @@ type WebKitContextOptions struct {
 
 // IsWebProcessMemoryConfigured returns true if web process memory settings are configured.
 func (o *WebKitContextOptions) IsWebProcessMemoryConfigured() bool {
+	if o == nil {
+		return false
+	}
 	return o.WebProcessMemory.IsConfigured()
 }
 
 // IsNetworkProcessMemoryConfigured returns true if network process memory settings are configured.
 func (o *WebKitContextOptions) IsNetworkProcessMemoryConfigured() bool {
+	if o == nil {
+		return false
+	}
 	return o.NetworkProcessMemory.IsConfigured()
 }
 

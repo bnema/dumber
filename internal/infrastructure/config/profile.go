@@ -11,6 +11,10 @@ const (
 	// supported by WebKitGTK (0-8 range).
 	maxSkiaCPUThreads = 8
 
+	// maxSkiaGPUThreads is the maximum number of Skia GPU painting threads
+	// supported by WebKitGTK (-1 to 8 range, where -1 means "let WebKit decide").
+	maxSkiaGPUThreads = 8
+
 	// Memory tier thresholds (in bytes)
 	// Explicitly typed as uint64 to prevent overflow on 32-bit systems.
 	ramTierLow    uint64 = 8 * 1024 * 1024 * 1024  // 8 GB

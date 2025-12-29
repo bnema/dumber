@@ -539,7 +539,7 @@ func (h *DumbSchemeHandler) RegisterWithContext(wkCtx *WebKitContext) {
 
 	// Also register on custom WebContext if different from default
 	customCtx := wkCtx.Context()
-	if customCtx.GoPointer() != 0 && (defaultCtx == nil || customCtx.GoPointer() != defaultCtx.GoPointer()) {
+	if customCtx != nil && customCtx.GoPointer() != 0 && (defaultCtx == nil || customCtx.GoPointer() != defaultCtx.GoPointer()) {
 		wkCtx.Context().RegisterUriScheme("dumb", &callback, 0, nil)
 
 		if secMgr := customCtx.GetSecurityManager(); secMgr != nil {

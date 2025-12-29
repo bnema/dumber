@@ -37,13 +37,23 @@ func (h HardwareInfo) CPUThreadsOrDefault(fallback int) int {
 }
 
 // TotalRAMMB returns total RAM in megabytes.
+// Returns 0 if RAM exceeds int range (unlikely on any real system).
 func (h HardwareInfo) TotalRAMMB() int {
-	return int(h.TotalRAM / (1024 * 1024))
+	mb := h.TotalRAM / (1024 * 1024)
+	if mb > uint64(^uint(0)>>1) { // Check against max int
+		return 0
+	}
+	return int(mb)
 }
 
 // VRAMMB returns VRAM in megabytes.
+// Returns 0 if VRAM exceeds int range (unlikely on any real system).
 func (h HardwareInfo) VRAMMB() int {
-	return int(h.VRAM / (1024 * 1024))
+	mb := h.VRAM / (1024 * 1024)
+	if mb > uint64(^uint(0)>>1) { // Check against max int
+		return 0
+	}
+	return int(mb)
 }
 
 // HasDedicatedGPU returns true if a discrete GPU with VRAM was detected.
