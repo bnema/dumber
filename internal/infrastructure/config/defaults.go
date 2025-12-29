@@ -7,7 +7,7 @@ const (
 	defaultRetentionDays     = 365   // 1 year
 
 	// Dmenu defaults
-	defaultMaxHistoryItems = 20 // items
+	defaultMaxHistoryDays = 30 // days
 
 	// Logging defaults
 	defaultMaxLogAgeDays = 7 // days
@@ -97,7 +97,7 @@ func DefaultConfig() *Config {
 		SearchShortcuts:     GetDefaultSearchShortcuts(),
 		DefaultSearchEngine: "https://duckduckgo.com/?q=%s",
 		Dmenu: DmenuConfig{
-			MaxHistoryItems:  defaultMaxHistoryItems,
+			MaxHistoryDays:   defaultMaxHistoryDays,
 			ShowVisitCount:   true,
 			ShowLastVisited:  true,
 			HistoryPrefix:    "🕒",

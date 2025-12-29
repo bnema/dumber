@@ -348,7 +348,7 @@ func (m *Manager) setSearchDefaults(defaults *Config) {
 }
 
 func (m *Manager) setDmenuDefaults(defaults *Config) {
-	m.viper.SetDefault("dmenu.max_history_items", defaults.Dmenu.MaxHistoryItems)
+	m.viper.SetDefault("dmenu.max_history_days", defaults.Dmenu.MaxHistoryDays)
 	m.viper.SetDefault("dmenu.show_visit_count", defaults.Dmenu.ShowVisitCount)
 	m.viper.SetDefault("dmenu.show_last_visited", defaults.Dmenu.ShowLastVisited)
 	m.viper.SetDefault("dmenu.history_prefix", defaults.Dmenu.HistoryPrefix)
