@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
@@ -12,18 +13,30 @@ import (
 
 // Manager handles theme state and CSS application.
 type Manager struct {
-	scheme       string  // "light", "dark", "system"
-	prefersDark  bool    // Resolved dark mode preference
-	lightPalette Palette // Light theme colors
-	darkPalette  Palette // Dark theme colors
-	uiScale      float64 // UI scaling factor (1.0 = 100%)
-	fonts        FontConfig
-	modeColors   ModeColors // Modal mode indicator colors
-	cssProvider  *gtk.CssProvider
+	scheme        string  // "light", "dark", "system"
+	prefersDark   bool    // Resolved dark mode preference
+	lightPalette  Palette // Light theme colors
+	darkPalette   Palette // Dark theme colors
+	uiScale       float64 // UI scaling factor (1.0 = 100%)
+	fonts         FontConfig
+	modeColors    ModeColors // Modal mode indicator colors
+	cssProvider   *gtk.CssProvider
+	colorResolver port.ColorSchemeResolver // Resolver for dynamic detection
+}
+
+// ManagerOption is a functional option for configuring Manager.
+type ManagerOption func(*Manager)
+
+// WithResolver configures the Manager to use a ColorSchemeResolver.
+func WithResolver(resolver port.ColorSchemeResolver) ManagerOption {
+	return func(m *Manager) {
+		m.colorResolver = resolver
+	}
 }
 
 // NewManager creates a new theme manager from configuration.
-func NewManager(ctx context.Context, cfg *config.Config) *Manager {
+// The ColorSchemeResolver is required for proper color scheme detection.
+func NewManager(ctx context.Context, cfg *config.Config, resolver port.ColorSchemeResolver) *Manager {
 	log := logging.FromContext(ctx)
 
 	// Determine color scheme preference
@@ -32,8 +45,9 @@ func NewManager(ctx context.Context, cfg *config.Config) *Manager {
 		scheme = cfg.Appearance.ColorScheme
 	}
 
-	// Resolve whether we should use dark mode
-	prefersDark := ResolveColorScheme(scheme)
+	// Resolve whether we should use dark mode via resolver
+	pref := resolver.Resolve()
+	prefersDark := pref.PrefersDark
 
 	// Build palettes from config or defaults
 	var lightPalette, darkPalette Palette
@@ -69,13 +83,14 @@ func NewManager(ctx context.Context, cfg *config.Config) *Manager {
 		Msg("theme manager initialized")
 
 	return &Manager{
-		scheme:       scheme,
-		prefersDark:  prefersDark,
-		lightPalette: lightPalette,
-		darkPalette:  darkPalette,
-		uiScale:      uiScale,
-		fonts:        fonts,
-		modeColors:   modeColors,
+		scheme:        scheme,
+		prefersDark:   prefersDark,
+		lightPalette:  lightPalette,
+		darkPalette:   darkPalette,
+		uiScale:       uiScale,
+		fonts:         fonts,
+		modeColors:    modeColors,
+		colorResolver: resolver,
 	}
 }
 
@@ -178,11 +193,13 @@ func (m *Manager) SetColorScheme(ctx context.Context, scheme string, display *gd
 	log := logging.FromContext(ctx)
 
 	m.scheme = scheme
-	m.prefersDark = ResolveColorScheme(scheme)
+	pref := m.colorResolver.Refresh()
+	m.prefersDark = pref.PrefersDark
 
 	log.Info().
 		Str("scheme", scheme).
 		Bool("prefers_dark", m.prefersDark).
+		Str("source", pref.Source).
 		Msg("color scheme changed")
 
 	// Re-apply CSS if display is available
@@ -199,13 +216,14 @@ func (m *Manager) UpdateFromConfig(ctx context.Context, cfg *config.Config, disp
 		return
 	}
 
-	// Update scheme and resolve prefersDark
+	// Update scheme and resolve prefersDark via resolver
 	scheme := "system"
 	if cfg.Appearance.ColorScheme != "" {
 		scheme = cfg.Appearance.ColorScheme
 	}
 	m.scheme = scheme
-	m.prefersDark = ResolveColorScheme(scheme)
+	pref := m.colorResolver.Refresh()
+	m.prefersDark = pref.PrefersDark
 
 	// Update palettes
 	m.lightPalette = PaletteFromConfig(&cfg.Appearance.LightPalette, false)
