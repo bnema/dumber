@@ -10,7 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/infrastructure/colorscheme"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/deps"
 	"github.com/bnema/dumber/internal/infrastructure/media"
@@ -28,10 +30,12 @@ type DatabaseResult struct {
 
 // ParallelInitResult holds the results of parallel initialization phase.
 type ParallelInitResult struct {
-	DataDir      string
-	CacheDir     string
-	ThemeManager *theme.Manager
-	Duration     time.Duration
+	DataDir         string
+	CacheDir        string
+	ThemeManager    *theme.Manager
+	ColorResolver   port.ColorSchemeResolver
+	AdwaitaDetector *colorscheme.AdwaitaDetector
+	Duration        time.Duration
 }
 
 // DeferredInitResult holds results from deferred initialization checks.
@@ -84,17 +88,30 @@ func (e *RuntimeRequirementsError) LogDetails(ctx context.Context) {
 }
 
 // RunParallelInit runs the essential parallel initialization phase.
-// This includes directory resolution and theme creation.
+// This includes directory resolution, color scheme resolver creation, and theme creation.
 // Returns the first fatal error encountered, or nil with the results.
 func RunParallelInit(input ParallelInitInput) (*ParallelInitResult, error) {
 	var (
 		dataDir, cacheDir string
-		themeManager      *theme.Manager
 		dirsErr           error
 		wg                sync.WaitGroup
 	)
 
 	start := time.Now()
+
+	// Create color scheme resolver with initial detectors.
+	// AdwaitaDetector is created but NOT marked available yet (requires adw.Init()).
+	configAdapter := colorscheme.NewConfigAdapter(input.Config)
+	resolver := colorscheme.NewResolver(configAdapter)
+
+	// Register detectors that are available before GTK init
+	resolver.RegisterDetector(colorscheme.NewEnvDetector())
+	resolver.RegisterDetector(colorscheme.NewGsettingsDetector())
+
+	// Create adwaita detector (will be marked available after adw.Init())
+	adwaitaDetector := colorscheme.NewAdwaitaDetector()
+	resolver.RegisterDetector(adwaitaDetector)
+
 	wg.Add(2)
 
 	// Resolve directories
@@ -104,9 +121,10 @@ func RunParallelInit(input ParallelInitInput) (*ParallelInitResult, error) {
 	}()
 
 	// Theme manager (CPU-bound, no I/O)
+	var themeManager *theme.Manager
 	go func() {
 		defer wg.Done()
-		themeManager = theme.NewManager(input.Ctx, input.Config)
+		themeManager = theme.NewManager(input.Ctx, input.Config, resolver)
 	}()
 
 	wg.Wait()
@@ -118,10 +136,12 @@ func RunParallelInit(input ParallelInitInput) (*ParallelInitResult, error) {
 	}
 
 	return &ParallelInitResult{
-		DataDir:      dataDir,
-		CacheDir:     cacheDir,
-		ThemeManager: themeManager,
-		Duration:     duration,
+		DataDir:         dataDir,
+		CacheDir:        cacheDir,
+		ThemeManager:    themeManager,
+		ColorResolver:   resolver,
+		AdwaitaDetector: adwaitaDetector,
+		Duration:        duration,
 	}, nil
 }
 
@@ -253,11 +273,12 @@ type ParallelDBWebKitResult struct {
 
 // ParallelDBWebKitInput holds inputs for parallel DB and WebKit initialization.
 type ParallelDBWebKitInput struct {
-	Ctx          context.Context
-	Config       *config.Config
-	DataDir      string // For WebKit context
-	CacheDir     string // For WebKit cache
-	ThemeManager *theme.Manager
+	Ctx           context.Context
+	Config        *config.Config
+	DataDir       string // For WebKit context
+	CacheDir      string // For WebKit cache
+	ThemeManager  *theme.Manager
+	ColorResolver port.ColorSchemeResolver
 }
 
 // Note: Database path is resolved via config.GetDatabaseFile() internally.
@@ -291,7 +312,15 @@ func RunParallelDBWebKit(input ParallelDBWebKitInput) (*ParallelDBWebKitResult, 
 	}()
 
 	// WebKit stack on main thread (GTK requirement)
-	stack := BuildWebKitStack(input.Ctx, input.Config, input.DataDir, input.CacheDir, input.ThemeManager, *log)
+	stack := BuildWebKitStack(WebKitStackInput{
+		Ctx:           input.Ctx,
+		Config:        input.Config,
+		DataDir:       input.DataDir,
+		CacheDir:      input.CacheDir,
+		ThemeManager:  input.ThemeManager,
+		ColorResolver: input.ColorResolver,
+		Logger:        *log,
+	})
 
 	// Wait for database
 	dbRes := <-dbCh

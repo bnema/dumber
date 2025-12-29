@@ -160,6 +160,13 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	// This also initializes GTK implicitly.
 	adw.Init()
 
+	// Mark adwaita detector as available now that adw.Init() is complete.
+	// This enables the highest-priority color scheme detector.
+	if a.deps != nil && a.deps.AdwaitaDetector != nil {
+		a.deps.AdwaitaDetector.MarkAvailable()
+		log.Debug().Msg("adwaita detector marked available")
+	}
+
 	// TODO: Use AppID once puregotk GC bug is fixed (nullable-string-gc-memory-corruption)
 	a.gtkApp = gtk.NewApplication(nil, gio.GApplicationFlagsNoneValue)
 	if a.gtkApp == nil {
@@ -249,11 +256,24 @@ func (a *App) applyGTKColorSchemePreference(ctx context.Context) {
 	}
 
 	styleMgr.SetColorScheme(adwScheme)
-	prefersDark := styleMgr.GetDark()
+
+	// Refresh the color resolver now that adwaita detector is available.
+	// This ensures all components get the correct preference.
+	var pref string
+	var prefersDark bool
+	if a.deps != nil && a.deps.ColorResolver != nil {
+		result := a.deps.ColorResolver.Refresh()
+		prefersDark = result.PrefersDark
+		pref = result.Source
+	} else {
+		prefersDark = styleMgr.GetDark()
+		pref = "adw.StyleManager"
+	}
 
 	log.Debug().
 		Str("scheme", scheme).
 		Bool("prefers_dark", prefersDark).
+		Str("source", pref).
 		Msg("applied color scheme via adw.StyleManager")
 }
 
@@ -1732,9 +1752,8 @@ func (a *App) applyAppearanceConfig(ctx context.Context, cfg *config.Config) {
 		}
 		a.deps.Theme.UpdateFromConfig(ctx, cfg, display)
 
-		// Keep injector's dark-mode flag in sync for future navigations
+		// Update find highlight CSS for future navigations
 		if a.injector != nil {
-			a.injector.SetPrefersDark(a.deps.Theme.PrefersDark())
 			findCSS := theme.GenerateFindHighlightCSS(a.deps.Theme.GetCurrentPalette())
 			if err := a.injector.InjectFindHighlightCSS(ctx, findCSS); err != nil {
 				log.Warn().Err(err).Msg("failed to update find highlight CSS")

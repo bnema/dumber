@@ -15,6 +15,17 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// WebKitStackInput holds the input for BuildWebKitStack.
+type WebKitStackInput struct {
+	Ctx           context.Context
+	Config        *config.Config
+	DataDir       string
+	CacheDir      string
+	ThemeManager  *theme.Manager
+	ColorResolver port.ColorSchemeResolver
+	Logger        zerolog.Logger
+}
+
 type WebKitStack struct {
 	Context       *webkit.WebKitContext
 	Settings      *webkit.SettingsManager
@@ -24,14 +35,14 @@ type WebKitStack struct {
 	FilterManager *filtering.Manager
 }
 
-func BuildWebKitStack(
-	ctx context.Context,
-	cfg *config.Config,
-	dataDir string,
-	cacheDir string,
-	themeManager *theme.Manager,
-	logger zerolog.Logger,
-) WebKitStack {
+func BuildWebKitStack(input WebKitStackInput) WebKitStack {
+	ctx := input.Ctx
+	cfg := input.Config
+	dataDir := input.DataDir
+	cacheDir := input.CacheDir
+	themeManager := input.ThemeManager
+	colorResolver := input.ColorResolver
+	logger := input.Logger
 	// Detect hardware for performance profile scaling
 	hwSurveyor := env.NewHardwareSurveyor()
 	hwInfo := hwSurveyor.Survey(ctx)
@@ -52,45 +63,8 @@ func BuildWebKitStack(
 		Int("webview_pool_prewarm", perfSettings.WebViewPoolPrewarmCount).
 		Msg("resolved performance profile")
 
-	// CRITICAL: Configure rendering environment BEFORE WebKit/GTK initialization.
-	// Environment variables must be set before GTK/WebKit/GStreamer initializes.
-	renderEnv := env.NewManager()
-	gpuVendor := renderEnv.DetectGPUVendor(ctx)
-	renderSettings := port.RenderingEnvSettings{
-		// GStreamer settings
-		ForceVSync:          cfg.Media.ForceVSync,
-		GLRenderingMode:     string(cfg.Media.GLRenderingMode),
-		GStreamerDebugLevel: cfg.Media.GStreamerDebugLevel,
-		VideoBufferSizeMB:   cfg.Media.VideoBufferSizeMB,
-		QueueBufferTimeSec:  cfg.Media.QueueBufferTimeSec,
-
-		// WebKit compositor settings
-		DisableDMABufRenderer:  cfg.Rendering.DisableDMABufRenderer,
-		ForceCompositingMode:   cfg.Rendering.ForceCompositingMode,
-		DisableCompositingMode: cfg.Rendering.DisableCompositingMode,
-
-		// GTK/GSK settings
-		GSKRenderer:    string(cfg.Rendering.GSKRenderer),
-		DisableMipmaps: cfg.Rendering.DisableMipmaps,
-		PreferGL:       cfg.Rendering.PreferGL,
-
-		// Debug settings
-		ShowFPS:      cfg.Rendering.ShowFPS,
-		SampleMemory: cfg.Rendering.SampleMemory,
-		DebugFrames:  cfg.Rendering.DebugFrames,
-
-		// Skia rendering thread settings (from resolved profile)
-		SkiaCPUPaintingThreads: perfSettings.SkiaCPUPaintingThreads,
-		SkiaGPUPaintingThreads: perfSettings.SkiaGPUPaintingThreads,
-		SkiaEnableCPURendering: perfSettings.SkiaEnableCPURendering,
-	}
-	if err := renderEnv.ApplyEnvironment(ctx, renderSettings); err != nil {
-		logger.Warn().Err(err).Msg("failed to apply rendering environment")
-	}
-	logger.Info().
-		Str("gpu", string(gpuVendor)).
-		Interface("vars", renderEnv.GetAppliedVars()).
-		Msg("rendering environment configured")
+	// Configure rendering environment (must happen before WebKit/GTK init)
+	configureRenderingEnvironment(ctx, cfg, &perfSettings, logger)
 
 	// Build WebKitContext options with memory pressure settings
 	wkOpts := port.WebKitContextOptions{
@@ -146,7 +120,7 @@ func BuildWebKitStack(
 	schemeHandler.RegisterWithContext(wkCtx)
 
 	settings := webkit.NewSettingsManager(ctx, cfg)
-	injector := webkit.NewContentInjector(themeManager.PrefersDark())
+	injector := webkit.NewContentInjector(colorResolver)
 
 	prepareThemeUC := usecase.NewPrepareWebUIThemeUseCase(injector)
 	themeCSSText := themeManager.GetWebUIThemeCSS()
@@ -202,4 +176,51 @@ func hasNetworkProcessMemoryConfig(p *config.ResolvedPerformanceSettings) bool {
 		p.NetworkProcessMemoryConservativeThreshold > 0 ||
 		p.NetworkProcessMemoryStrictThreshold > 0 ||
 		p.NetworkProcessMemoryKillThreshold >= 0
+}
+
+// configureRenderingEnvironment sets up the rendering environment before WebKit/GTK initialization.
+// Environment variables must be set before GTK/WebKit/GStreamer initializes.
+func configureRenderingEnvironment(
+	ctx context.Context,
+	cfg *config.Config,
+	perfSettings *config.ResolvedPerformanceSettings,
+	logger zerolog.Logger,
+) {
+	renderEnv := env.NewManager()
+	gpuVendor := renderEnv.DetectGPUVendor(ctx)
+	renderSettings := port.RenderingEnvSettings{
+		// GStreamer settings
+		ForceVSync:          cfg.Media.ForceVSync,
+		GLRenderingMode:     string(cfg.Media.GLRenderingMode),
+		GStreamerDebugLevel: cfg.Media.GStreamerDebugLevel,
+		VideoBufferSizeMB:   cfg.Media.VideoBufferSizeMB,
+		QueueBufferTimeSec:  cfg.Media.QueueBufferTimeSec,
+
+		// WebKit compositor settings
+		DisableDMABufRenderer:  cfg.Rendering.DisableDMABufRenderer,
+		ForceCompositingMode:   cfg.Rendering.ForceCompositingMode,
+		DisableCompositingMode: cfg.Rendering.DisableCompositingMode,
+
+		// GTK/GSK settings
+		GSKRenderer:    string(cfg.Rendering.GSKRenderer),
+		DisableMipmaps: cfg.Rendering.DisableMipmaps,
+		PreferGL:       cfg.Rendering.PreferGL,
+
+		// Debug settings
+		ShowFPS:      cfg.Rendering.ShowFPS,
+		SampleMemory: cfg.Rendering.SampleMemory,
+		DebugFrames:  cfg.Rendering.DebugFrames,
+
+		// Skia rendering thread settings (from resolved profile)
+		SkiaCPUPaintingThreads: perfSettings.SkiaCPUPaintingThreads,
+		SkiaGPUPaintingThreads: perfSettings.SkiaGPUPaintingThreads,
+		SkiaEnableCPURendering: perfSettings.SkiaEnableCPURendering,
+	}
+	if err := renderEnv.ApplyEnvironment(ctx, renderSettings); err != nil {
+		logger.Warn().Err(err).Msg("failed to apply rendering environment")
+	}
+	logger.Info().
+		Str("gpu", string(gpuVendor)).
+		Interface("vars", renderEnv.GetAppliedVars()).
+		Msg("rendering environment configured")
 }

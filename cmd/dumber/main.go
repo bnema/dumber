@@ -18,6 +18,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/cache"
 	"github.com/bnema/dumber/internal/infrastructure/clipboard"
+	"github.com/bnema/dumber/internal/infrastructure/colorscheme"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/deps"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
@@ -130,7 +131,11 @@ func runGUI() int {
 	timer.Mark("use_cases")
 
 	// Build UI
-	uiDeps := buildUIDependencies(ctx, cfg, initResult.ThemeManager, &stack, repos, useCases, idleInhibitor, browserSession.Session.ID)
+	uiDeps := buildUIDependencies(
+		ctx, cfg, initResult.ThemeManager,
+		initResult.ColorResolver, initResult.AdwaitaDetector,
+		&stack, repos, useCases, idleInhibitor, browserSession.Session.ID,
+	)
 	configureDeferredInit(uiDeps, cfg, browserSession)
 	app, err := ui.New(uiDeps)
 	if err != nil {
@@ -171,11 +176,12 @@ func initStackAndRepos(
 	if needsEagerDB {
 		// Parallel phase 2: Database + WebKit stack initialize concurrently
 		dbWebKit, err := bootstrap.RunParallelDBWebKit(bootstrap.ParallelDBWebKitInput{
-			Ctx:          ctx,
-			Config:       cfg,
-			DataDir:      initResult.DataDir,
-			CacheDir:     initResult.CacheDir,
-			ThemeManager: initResult.ThemeManager,
+			Ctx:           ctx,
+			Config:        cfg,
+			DataDir:       initResult.DataDir,
+			CacheDir:      initResult.CacheDir,
+			ThemeManager:  initResult.ThemeManager,
+			ColorResolver: initResult.ColorResolver,
 		})
 		if err != nil {
 			return bootstrap.WebKitStack{}, nil, nil, err
@@ -184,7 +190,15 @@ func initStackAndRepos(
 	}
 
 	log := logging.FromContext(ctx)
-	stack := bootstrap.BuildWebKitStack(ctx, cfg, initResult.DataDir, initResult.CacheDir, initResult.ThemeManager, *log)
+	stack := bootstrap.BuildWebKitStack(bootstrap.WebKitStackInput{
+		Ctx:           ctx,
+		Config:        cfg,
+		DataDir:       initResult.DataDir,
+		CacheDir:      initResult.CacheDir,
+		ThemeManager:  initResult.ThemeManager,
+		ColorResolver: initResult.ColorResolver,
+		Logger:        *log,
+	})
 
 	lazyDB, err := bootstrap.CreateLazyDatabase()
 	if err != nil {
@@ -398,6 +412,8 @@ func buildUIDependencies(
 	ctx context.Context,
 	cfg *config.Config,
 	themeManager *theme.Manager,
+	colorResolver port.ColorSchemeResolver,
+	adwaitaDetector *colorscheme.AdwaitaDetector,
 	stack *bootstrap.WebKitStack,
 	repos *repositories,
 	uc *useCases,
@@ -410,6 +426,8 @@ func buildUIDependencies(
 		InitialURL:       initialURL,
 		RestoreSessionID: restoreSessionID,
 		Theme:            themeManager,
+		ColorResolver:    colorResolver,
+		AdwaitaDetector:  adwaitaDetector,
 		WebContext:       stack.Context,
 		Pool:             stack.Pool,
 		Settings:         stack.Settings,
