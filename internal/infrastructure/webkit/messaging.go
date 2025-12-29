@@ -60,8 +60,8 @@ func NewMessageRouter(ctx context.Context) *MessageRouter {
 	}
 
 	return &MessageRouter{
-		handlers: make(map[string]handlerEntry),
-		baseCtx:  ctx,
+		handlers:  make(map[string]handlerEntry),
+		baseCtx:   ctx,
 		syncedIDs: make(map[WebViewID]bool),
 	}
 }
