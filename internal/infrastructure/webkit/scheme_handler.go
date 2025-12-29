@@ -91,8 +91,18 @@ type configHardwarePayload struct {
 
 type configPerformancePayload struct {
 	Profile  string                    `json:"profile"`
+	Custom   configCustomPerformance   `json:"custom"`
 	Resolved configResolvedPerformance `json:"resolved"`
 	Hardware configHardwarePayload     `json:"hardware"`
+}
+
+// configCustomPerformance holds user-editable fields for custom profile.
+type configCustomPerformance struct {
+	SkiaCPUThreads         int `json:"skia_cpu_threads"`
+	SkiaGPUThreads         int `json:"skia_gpu_threads"`
+	WebProcessMemoryMB     int `json:"web_process_memory_mb"`
+	NetworkProcessMemoryMB int `json:"network_process_memory_mb"`
+	WebViewPoolPrewarm     int `json:"webview_pool_prewarm"`
 }
 
 // configResolvedPerformance shows the actual values that will be applied at startup.
@@ -199,6 +209,13 @@ func (h *DumbSchemeHandler) buildConfigResponse(cfg *config.Config) *SchemeRespo
 		},
 		Performance: configPerformancePayload{
 			Profile: string(cfg.Performance.Profile),
+			Custom: configCustomPerformance{
+				SkiaCPUThreads:         cfg.Performance.SkiaCPUPaintingThreads,
+				SkiaGPUThreads:         cfg.Performance.SkiaGPUPaintingThreads,
+				WebProcessMemoryMB:     cfg.Performance.WebProcessMemoryLimitMB,
+				NetworkProcessMemoryMB: cfg.Performance.NetworkProcessMemoryLimitMB,
+				WebViewPoolPrewarm:     cfg.Performance.WebViewPoolPrewarmCount,
+			},
 			Resolved: configResolvedPerformance{
 				SkiaCPUThreads:         resolved.SkiaCPUPaintingThreads,
 				SkiaGPUThreads:         resolved.SkiaGPUPaintingThreads,
@@ -494,6 +511,8 @@ func (h *DumbSchemeHandler) sendResponse(req *webkit.URISchemeRequest, response 
 }
 
 // RegisterWithContext registers the dumb:// scheme with a WebKitContext.
+// The scheme is always registered on the default WebContext to ensure WebViews
+// (which use the default WebContext) can load dumb:// URLs.
 func (h *DumbSchemeHandler) RegisterWithContext(wkCtx *WebKitContext) {
 	if wkCtx == nil || wkCtx.Context() == nil {
 		h.logger.Error().Msg("cannot register scheme: context is nil")
@@ -504,15 +523,31 @@ func (h *DumbSchemeHandler) RegisterWithContext(wkCtx *WebKitContext) {
 		h.HandleRequest(reqPtr)
 	})
 
-	wkCtx.Context().RegisterUriScheme("dumb", &callback, 0, nil)
+	// Always register on the default WebContext since WebViews use it
+	defaultCtx := webkit.WebContextGetDefault()
+	if defaultCtx != nil {
+		defaultCtx.RegisterUriScheme("dumb", &callback, 0, nil)
 
-	// Mark scheme as local, secure, and CORS-enabled for proper security policies
-	secMgr := wkCtx.Context().GetSecurityManager()
-	if secMgr != nil {
-		secMgr.RegisterUriSchemeAsLocal("dumb")
-		secMgr.RegisterUriSchemeAsSecure("dumb")
-		secMgr.RegisterUriSchemeAsCorsEnabled("dumb")
-		h.logger.Debug().Msg("dumb:// scheme registered as local, secure, and CORS-enabled")
+		// Mark scheme as local, secure, and CORS-enabled for proper security policies
+		if secMgr := defaultCtx.GetSecurityManager(); secMgr != nil {
+			secMgr.RegisterUriSchemeAsLocal("dumb")
+			secMgr.RegisterUriSchemeAsSecure("dumb")
+			secMgr.RegisterUriSchemeAsCorsEnabled("dumb")
+		}
+		h.logger.Debug().Msg("dumb:// scheme registered on default WebContext")
+	}
+
+	// Also register on custom WebContext if different from default
+	customCtx := wkCtx.Context()
+	if customCtx.GoPointer() != 0 && (defaultCtx == nil || customCtx.GoPointer() != defaultCtx.GoPointer()) {
+		wkCtx.Context().RegisterUriScheme("dumb", &callback, 0, nil)
+
+		if secMgr := customCtx.GetSecurityManager(); secMgr != nil {
+			secMgr.RegisterUriSchemeAsLocal("dumb")
+			secMgr.RegisterUriSchemeAsSecure("dumb")
+			secMgr.RegisterUriSchemeAsCorsEnabled("dumb")
+		}
+		h.logger.Debug().Msg("dumb:// scheme also registered on custom WebContext")
 	}
 
 	h.logger.Info().Msg("dumb:// scheme registered")
