@@ -36,7 +36,6 @@
     webview_pool_prewarm: number;
     conservative_threshold: number;
     strict_threshold: number;
-    kill_threshold: number;
   };
 
   type HardwareInfo = {
@@ -595,13 +594,6 @@
                         <span class="font-mono">{config.performance.resolved.webview_pool_prewarm}</span>
                       </div>
                       <p class="text-xs text-muted-foreground">Pre-created WebViews at startup for faster new tab/pane creation.</p>
-                    </div>
-                    <div class="space-y-1">
-                      <div class="flex justify-between">
-                        <span class="font-medium">Memory Kill Threshold</span>
-                        <span class="font-mono">{config.performance.resolved.kill_threshold === -1 ? 'never' : (config.performance.resolved.kill_threshold * 100).toFixed(0) + '%'}</span>
-                      </div>
-                      <p class="text-xs text-muted-foreground">When memory usage exceeds this threshold, WebKit may terminate the process to free memory.</p>
                     </div>
                   </div>
                 </div>

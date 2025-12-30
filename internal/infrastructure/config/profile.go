@@ -65,14 +65,12 @@ type ResolvedPerformanceSettings struct {
 	WebProcessMemoryPollIntervalSec       float64
 	WebProcessMemoryConservativeThreshold float64
 	WebProcessMemoryStrictThreshold       float64
-	WebProcessMemoryKillThreshold         float64
 
 	// Network process memory pressure
 	NetworkProcessMemoryLimitMB               int
 	NetworkProcessMemoryPollIntervalSec       float64
 	NetworkProcessMemoryConservativeThreshold float64
 	NetworkProcessMemoryStrictThreshold       float64
-	NetworkProcessMemoryKillThreshold         float64
 
 	// WebView pool
 	WebViewPoolPrewarmCount int
@@ -108,13 +106,11 @@ func resolveDefaultProfile() ResolvedPerformanceSettings {
 		WebProcessMemoryPollIntervalSec:       0,
 		WebProcessMemoryConservativeThreshold: 0,
 		WebProcessMemoryStrictThreshold:       0,
-		WebProcessMemoryKillThreshold:         -1,
 
 		NetworkProcessMemoryLimitMB:               0,
 		NetworkProcessMemoryPollIntervalSec:       0,
 		NetworkProcessMemoryConservativeThreshold: 0,
 		NetworkProcessMemoryStrictThreshold:       0,
-		NetworkProcessMemoryKillThreshold:         -1,
 
 		WebViewPoolPrewarmCount: 4,
 	}
@@ -134,17 +130,15 @@ func resolveLiteProfile(hw *port.HardwareInfo) ResolvedPerformanceSettings {
 		SkiaGPUPaintingThreads: -1, // unset
 		SkiaEnableCPURendering: false,
 
-		WebProcessMemoryLimitMB:               512,
+		WebProcessMemoryLimitMB:               768,
 		WebProcessMemoryPollIntervalSec:       0, // use WebKit default (30s)
 		WebProcessMemoryConservativeThreshold: 0.25,
 		WebProcessMemoryStrictThreshold:       0.4,
-		WebProcessMemoryKillThreshold:         0.8,
 
-		NetworkProcessMemoryLimitMB:               256,
+		NetworkProcessMemoryLimitMB:               384,
 		NetworkProcessMemoryPollIntervalSec:       0,
 		NetworkProcessMemoryConservativeThreshold: 0.25,
 		NetworkProcessMemoryStrictThreshold:       0.4,
-		NetworkProcessMemoryKillThreshold:         0.8,
 
 		WebViewPoolPrewarmCount: 2,
 	}
@@ -159,9 +153,6 @@ func resolveMaxProfile(hw *port.HardwareInfo) ResolvedPerformanceSettings {
 	// GPU threads: scale based on VRAM
 	gpuThreads := computeMaxGPUThreads(hw)
 
-	// Memory limits: scale based on system RAM
-	webMemMB, netMemMB := computeMaxMemoryLimits(hw)
-
 	// WebView pool: scale based on RAM
 	poolPrewarm := computeMaxPoolPrewarm(hw)
 
@@ -170,17 +161,16 @@ func resolveMaxProfile(hw *port.HardwareInfo) ResolvedPerformanceSettings {
 		SkiaGPUPaintingThreads: gpuThreads,
 		SkiaEnableCPURendering: false,
 
-		WebProcessMemoryLimitMB:               webMemMB,
-		WebProcessMemoryPollIntervalSec:       0, // use WebKit default
-		WebProcessMemoryConservativeThreshold: 0.5,
-		WebProcessMemoryStrictThreshold:       0.7,
-		WebProcessMemoryKillThreshold:         -1, // never kill
+		// Max profile: no memory limits, let WebKit use defaults
+		WebProcessMemoryLimitMB:               0,
+		WebProcessMemoryPollIntervalSec:       0,
+		WebProcessMemoryConservativeThreshold: 0,
+		WebProcessMemoryStrictThreshold:       0,
 
-		NetworkProcessMemoryLimitMB:               netMemMB,
+		NetworkProcessMemoryLimitMB:               0,
 		NetworkProcessMemoryPollIntervalSec:       0,
-		NetworkProcessMemoryConservativeThreshold: 0.5,
-		NetworkProcessMemoryStrictThreshold:       0.7,
-		NetworkProcessMemoryKillThreshold:         -1,
+		NetworkProcessMemoryConservativeThreshold: 0,
+		NetworkProcessMemoryStrictThreshold:       0,
 
 		WebViewPoolPrewarmCount: poolPrewarm,
 	}
@@ -280,13 +270,11 @@ func resolveCustomProfile(cfg *PerformanceConfig) ResolvedPerformanceSettings {
 		WebProcessMemoryPollIntervalSec:       cfg.WebProcessMemoryPollIntervalSec,
 		WebProcessMemoryConservativeThreshold: cfg.WebProcessMemoryConservativeThreshold,
 		WebProcessMemoryStrictThreshold:       cfg.WebProcessMemoryStrictThreshold,
-		WebProcessMemoryKillThreshold:         cfg.WebProcessMemoryKillThreshold,
 
 		NetworkProcessMemoryLimitMB:               cfg.NetworkProcessMemoryLimitMB,
 		NetworkProcessMemoryPollIntervalSec:       cfg.NetworkProcessMemoryPollIntervalSec,
 		NetworkProcessMemoryConservativeThreshold: cfg.NetworkProcessMemoryConservativeThreshold,
 		NetworkProcessMemoryStrictThreshold:       cfg.NetworkProcessMemoryStrictThreshold,
-		NetworkProcessMemoryKillThreshold:         cfg.NetworkProcessMemoryKillThreshold,
 
 		WebViewPoolPrewarmCount: cfg.WebViewPoolPrewarmCount,
 	}
@@ -302,12 +290,10 @@ func HasCustomPerformanceFields(cfg *PerformanceConfig) bool {
 		cfg.WebProcessMemoryPollIntervalSec != 0 ||
 		cfg.WebProcessMemoryConservativeThreshold != 0 ||
 		cfg.WebProcessMemoryStrictThreshold != 0 ||
-		cfg.WebProcessMemoryKillThreshold != -1 ||
 		cfg.NetworkProcessMemoryLimitMB != 0 ||
 		cfg.NetworkProcessMemoryPollIntervalSec != 0 ||
 		cfg.NetworkProcessMemoryConservativeThreshold != 0 ||
-		cfg.NetworkProcessMemoryStrictThreshold != 0 ||
-		cfg.NetworkProcessMemoryKillThreshold != -1
+		cfg.NetworkProcessMemoryStrictThreshold != 0
 }
 
 // IsValidPerformanceProfile returns true if the profile name is recognized.

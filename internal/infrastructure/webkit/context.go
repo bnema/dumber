@@ -85,7 +85,6 @@ func NewWebKitContextWithOptions(ctx context.Context, opts port.WebKitContextOpt
 					Float64("poll_sec", opts.WebProcessMemory.PollIntervalSec).
 					Float64("conservative", opts.WebProcessMemory.ConservativeThreshold).
 					Float64("strict", opts.WebProcessMemory.StrictThreshold).
-					Float64("kill", opts.WebProcessMemory.KillThreshold).
 					Msg("created WebContext with memory pressure settings")
 			}
 		}

@@ -4,7 +4,7 @@ package port
 import "context"
 
 // MemoryPressureConfig holds memory pressure settings for a WebKit process.
-// Zero values mean "use WebKit defaults" except for KillThreshold where -1 means unset.
+// Zero values mean "use WebKit defaults".
 type MemoryPressureConfig struct {
 	// MemoryLimitMB sets the memory limit in megabytes.
 	// 0 means unset (uses WebKit default: system RAM capped at 3GB).
@@ -21,10 +21,6 @@ type MemoryPressureConfig struct {
 	// StrictThreshold sets threshold for strict memory release.
 	// Must be in (0, 1). 0 means unset (uses WebKit default: 0.5).
 	StrictThreshold float64
-
-	// KillThreshold sets threshold for killing the process.
-	// -1 means unset; 0 means never kill; values > 1 are allowed by WebKit.
-	KillThreshold float64
 }
 
 // IsConfigured returns true if any memory pressure setting is configured.
@@ -35,8 +31,7 @@ func (c *MemoryPressureConfig) IsConfigured() bool {
 	return c.MemoryLimitMB > 0 ||
 		c.PollIntervalSec > 0 ||
 		c.ConservativeThreshold > 0 ||
-		c.StrictThreshold > 0 ||
-		c.KillThreshold >= 0
+		c.StrictThreshold > 0
 }
 
 // WebKitContextOptions configures WebKitContext creation.
