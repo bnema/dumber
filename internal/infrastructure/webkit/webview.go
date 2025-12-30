@@ -46,25 +46,34 @@ type PopupRequest struct {
 // webViewRegistry tracks all active WebViews.
 type webViewRegistry struct {
 	views   map[WebViewID]*WebView
+	byUCM   map[uintptr]WebViewID
 	counter atomic.Uint64
 	mu      sync.RWMutex
 }
 
 var globalRegistry = &webViewRegistry{
 	views: make(map[WebViewID]*WebView),
+	byUCM: make(map[uintptr]WebViewID),
 }
 
 func (r *webViewRegistry) register(wv *WebView) WebViewID {
 	id := WebViewID(r.counter.Add(1))
 	r.mu.Lock()
 	r.views[id] = wv
+	if wv != nil && wv.ucm != nil {
+		r.byUCM[wv.ucm.GoPointer()] = id
+	}
 	r.mu.Unlock()
 	return id
 }
 
 func (r *webViewRegistry) unregister(id WebViewID) {
 	r.mu.Lock()
+	wv := r.views[id]
 	delete(r.views, id)
+	if wv != nil && wv.ucm != nil {
+		delete(r.byUCM, wv.ucm.GoPointer())
+	}
 	r.mu.Unlock()
 }
 
@@ -75,9 +84,27 @@ func (r *webViewRegistry) Lookup(id WebViewID) *WebView {
 	return r.views[id]
 }
 
+func (r *webViewRegistry) LookupByUCMPointer(ptr uintptr) *WebView {
+	if ptr == 0 {
+		return nil
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	id, ok := r.byUCM[ptr]
+	if !ok {
+		return nil
+	}
+	return r.views[id]
+}
+
 // LookupWebView returns a WebView by ID from the global registry.
 func LookupWebView(id WebViewID) *WebView {
 	return globalRegistry.Lookup(id)
+}
+
+// LookupWebViewByUCMPointer returns a WebView by its UserContentManager pointer.
+func LookupWebViewByUCMPointer(ptr uintptr) *WebView {
+	return globalRegistry.LookupByUCMPointer(ptr)
 }
 
 // WebView wraps webkit.WebView with Go-level state tracking and callbacks.
