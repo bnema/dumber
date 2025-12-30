@@ -14,6 +14,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/infrastructure/snapshot"
+	"github.com/bnema/dumber/internal/infrastructure/textinput"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 
 	"github.com/bnema/dumber/internal/infrastructure/webkit/handlers"
@@ -107,6 +108,11 @@ type App struct {
 	firstWebViewShownOnce sync.Once
 
 	movePaneToTabUC *usecase.MovePaneToTabUseCase
+
+	// Accent picker for dead keys support
+	accentPicker        *component.AccentPicker
+	insertAccentUC      *usecase.InsertAccentUseCase
+	accentFocusProvider *textinput.FocusProvider
 
 	// lifecycle
 	cancel context.CancelCauseFunc
@@ -217,6 +223,7 @@ func (a *App) onActivate(ctx context.Context) {
 	a.initLayoutInfrastructure()
 	a.initAppToasterOverlay()
 	a.initFocusAndBorderOverlay()
+	a.initAccentPicker(ctx)
 
 	a.initCoordinators(ctx)
 	a.initKeyboardHandler(ctx)
@@ -387,6 +394,49 @@ func (a *App) initFocusAndBorderOverlay() {
 	a.mainWindow.AddOverlay(gtkWidget)
 }
 
+func (a *App) initAccentPicker(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
+	if a.widgetFactory == nil || a.mainWindow == nil {
+		log.Debug().Msg("widget factory or main window not available, skipping accent picker")
+		return
+	}
+
+	// Create accent picker component
+	a.accentPicker = component.NewAccentPicker(a.widgetFactory)
+	if a.accentPicker == nil {
+		log.Warn().Msg("failed to create accent picker")
+		return
+	}
+
+	// Add to main window overlay
+	pickerWidget := a.accentPicker.Widget()
+	if pickerWidget != nil {
+		gtkWidget := pickerWidget.GtkWidget()
+		if gtkWidget != nil {
+			a.mainWindow.AddOverlay(gtkWidget)
+		}
+	}
+
+	// Create focus provider (tracks which input has focus)
+	a.accentFocusProvider = textinput.NewFocusProvider()
+
+	// Create the use case with glib.IdleAdd for thread-safe GTK calls
+	a.insertAccentUC = usecase.NewInsertAccentUseCase(
+		a.accentFocusProvider,
+		a.accentPicker,
+		func(fn func()) {
+			cb := glib.SourceFunc(func(_ uintptr) bool {
+				fn()
+				return false // Don't repeat
+			})
+			glib.IdleAdd(&cb, 0)
+		},
+	)
+
+	log.Debug().Msg("accent picker initialized")
+}
+
 func (a *App) initKeyboardHandler(ctx context.Context) {
 	if a.mainWindow == nil || a.deps == nil || a.deps.Config == nil {
 		return
@@ -414,6 +464,10 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 		}
 		return wsView.IsOmniboxVisible()
 	})
+	// Wire accent handler for dead keys support
+	if a.insertAccentUC != nil {
+		a.keyboardHandler.SetAccentHandler(a.insertAccentUC)
+	}
 	a.keyboardHandler.AttachTo(a.mainWindow.Window())
 
 	// Create global shortcut handler for Alt+1-9 tab switching.
@@ -461,6 +515,18 @@ func (a *App) initOmniboxConfig(ctx context.Context) {
 				log.Error().Err(err).Str("url", url).Msg("navigation failed")
 			}
 		},
+		OnFocusIn: func(entry *gtk.SearchEntry) {
+			// Set omnibox entry as the focused input for accent picker
+			if a.accentFocusProvider != nil && entry != nil {
+				a.accentFocusProvider.SetFocusedInput(textinput.NewGTKEntryTarget(entry))
+			}
+		},
+		OnFocusOut: func() {
+			// When omnibox loses focus, set WebView as the focused input
+			if a.accentFocusProvider != nil {
+				a.accentFocusProvider.SetFocusedInput(a.getActiveWebViewTarget())
+			}
+		},
 	}
 	a.navCoord.SetOmniboxProvider(a)
 	log.Debug().Msg("omnibox config stored, provider set")
@@ -478,6 +544,18 @@ func (a *App) initFindBarConfig() {
 				return nil
 			}
 			return wv.GetFindController()
+		},
+		OnFocusIn: func(entry *gtk.SearchEntry) {
+			// Set find bar entry as the focused input for accent picker
+			if a.accentFocusProvider != nil && entry != nil {
+				a.accentFocusProvider.SetFocusedInput(textinput.NewGTKEntryTarget(entry))
+			}
+		},
+		OnFocusOut: func() {
+			// When find bar loses focus, set WebView as the focused input
+			if a.accentFocusProvider != nil {
+				a.accentFocusProvider.SetFocusedInput(a.getActiveWebViewTarget())
+			}
 		},
 	}
 }
@@ -1219,6 +1297,12 @@ func (a *App) initCoordinators(ctx context.Context) {
 				a.deps.OnFirstWebViewShown(ctx)
 			})
 		}
+
+		// Set the WebView as the focused input for accent picker (if this is the active pane)
+		ws := a.activeWorkspace()
+		if ws != nil && ws.ActivePaneID == paneID && a.accentFocusProvider != nil {
+			a.accentFocusProvider.SetFocusedInput(a.getActiveWebViewTarget())
+		}
 	})
 
 	// 5. Keyboard Dispatcher
@@ -1536,6 +1620,23 @@ func (a *App) activeWorkspaceView() *component.WorkspaceView {
 		return nil
 	}
 	return a.workspaceViews[activeTab.ID]
+}
+
+// getActiveWebViewTarget returns a TextInputTarget for the active pane's WebView.
+// Used by the accent picker to insert accented characters into web content.
+func (a *App) getActiveWebViewTarget() port.TextInputTarget {
+	ws := a.activeWorkspace()
+	if ws == nil || a.contentCoord == nil || a.deps == nil || a.deps.Clipboard == nil {
+		return nil
+	}
+
+	wv := a.contentCoord.GetWebView(ws.ActivePaneID)
+	if wv == nil {
+		return nil
+	}
+
+	// Get the underlying webkit.WebView for the text input target
+	return textinput.NewWebViewTarget(wv.Widget(), a.deps.Clipboard)
 }
 
 // attachPopupToTab attaches a popup WebView to a newly created tab.

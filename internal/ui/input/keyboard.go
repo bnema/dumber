@@ -17,6 +17,20 @@ import (
 // Return an error if the action fails.
 type ActionHandler func(ctx context.Context, action Action) error
 
+// AccentHandler handles long-press accent detection.
+// Called for character keys that may have accent variants.
+type AccentHandler interface {
+	// OnKeyPressed is called when a key is pressed.
+	// Returns true if the accent handler is handling this key (picker visible or will show).
+	OnKeyPressed(ctx context.Context, char rune, shiftHeld bool) bool
+	// OnKeyReleased is called when a key is released.
+	OnKeyReleased(ctx context.Context, char rune)
+	// IsPickerVisible returns true if the accent picker is currently visible.
+	IsPickerVisible() bool
+	// Cancel cancels any pending long-press detection.
+	Cancel(ctx context.Context)
+}
+
 // KeyboardHandler processes keyboard events and dispatches actions.
 // It manages modal input modes and routes key events to the appropriate handlers.
 type KeyboardHandler struct {
@@ -28,12 +42,15 @@ type KeyboardHandler struct {
 	onAction ActionHandler
 	// Optional bypass check (e.g., omnibox visible)
 	shouldBypass func() bool
+	// Optional accent handler for dead keys support
+	accentHandler AccentHandler
 
 	// GTK controller (nil until attached)
 	controller *gtk.EventControllerKey
 
 	// Callback retention: must stay reachable by Go GC.
-	keyPressedCb func(gtk.EventControllerKey, uint, uint, gdk.ModifierType) bool
+	keyPressedCb  func(gtk.EventControllerKey, uint, uint, gdk.ModifierType) bool
+	keyReleasedCb func(gtk.EventControllerKey, uint, uint, gdk.ModifierType)
 
 	ctx context.Context
 	mu  sync.RWMutex
@@ -75,6 +92,13 @@ func (h *KeyboardHandler) SetShouldBypassInput(fn func() bool) {
 	h.shouldBypass = fn
 }
 
+// SetAccentHandler sets the handler for long-press accent detection.
+func (h *KeyboardHandler) SetAccentHandler(handler AccentHandler) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.accentHandler = handler
+}
+
 // Mode returns the current input mode.
 func (h *KeyboardHandler) Mode() Mode {
 	return h.modal.Mode()
@@ -106,6 +130,12 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 	}
 	h.controller.ConnectKeyPressed(&h.keyPressedCb)
 
+	// Connect key released handler for accent detection.
+	h.keyReleasedCb = func(_ gtk.EventControllerKey, keyval uint, _ uint, _ gdk.ModifierType) {
+		h.handleKeyRelease(keyval)
+	}
+	h.controller.ConnectKeyReleased(&h.keyReleasedCb)
+
 	// Add controller to window
 	window.AddController(&h.controller.EventController)
 
@@ -118,6 +148,7 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 func (h *KeyboardHandler) Detach() {
 	h.controller = nil
 	h.keyPressedCb = nil
+	h.keyReleasedCb = nil
 }
 
 // handleKeyPress processes a key press event.
@@ -131,45 +162,71 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 
 	h.mu.RLock()
 	shouldBypass := h.shouldBypass
+	accentHandler := h.accentHandler
 	h.mu.RUnlock()
+
+	// Check if accent picker is visible - it takes priority
+	if accentHandler != nil && accentHandler.IsPickerVisible() {
+		return false // Let the accent picker handle the key via its own controller
+	}
+
+	modifiers := Modifier(state) & modifierMask
+
+	// Check accent detection first - works in both normal and bypass mode
+	// This enables accent picker for omnibox (GTK SearchEntry) as well as WebView
+	if h.tryAccentDetection(accentHandler, keyval, modifiers) {
+		return true
+	}
+
 	if shouldBypass != nil && shouldBypass() {
 		log.Debug().Uint("keyval", keyval).Uint("keycode", keycode).Uint("state", uint(state)).Msg("keyboard handler bypassed")
 		return false
 	}
 
-	// Build KeyBinding from event
-	modifiers := Modifier(state) & modifierMask
+	// Normalize uppercase letters for consistent binding lookup
+	keyval = normalizeKeyval(keyval)
 
-	// GTK reports shifted letters as uppercase keyvals (e.g. Shift+M -> gdk.KEY_M).
-	// Normalize ASCII A-Z to lowercase so bindings can consistently use lowercase
-	// keyvals and rely on ModShift to represent Shift.
-	if keyval >= uint('A') && keyval <= uint('Z') {
-		keyval += (uint('a') - uint('A'))
-	}
-
-	binding := KeyBinding{
-		Keyval:    keyval,
-		Modifiers: modifiers,
-	}
-
+	binding := KeyBinding{Keyval: keyval, Modifiers: modifiers}
 	mode := h.modal.Mode()
-
 	action, found := h.lookupAction(log, binding, mode, modifiers, keycode)
 
 	if !found {
-		if mode != ModeNormal {
-			// In modal mode, consume unrecognized keys to prevent WebView handling
-			return true
-		}
-		// In normal mode, let the key pass through to WebView
-		return false
+		return mode != ModeNormal // Consume unrecognized keys in modal mode
 	}
 
+	return h.dispatchAction(action, mode)
+}
+
+// tryAccentDetection starts long-press detection for accent-eligible keys.
+// Returns true if the key should be suppressed (blocked from reaching the WebView).
+func (h *KeyboardHandler) tryAccentDetection(accentHandler AccentHandler, keyval uint, modifiers Modifier) bool {
+	if h.modal.Mode() != ModeNormal || accentHandler == nil {
+		return false
+	}
+	// Only consider keys without Ctrl/Alt modifiers (Shift is OK for uppercase)
+	if modifiers != 0 && modifiers != ModShift {
+		return false
+	}
+	if char := keyvalToRune(keyval); char != 0 {
+		return accentHandler.OnKeyPressed(h.ctx, char, modifiers == ModShift)
+	}
+	return false
+}
+
+// normalizeKeyval converts uppercase A-Z to lowercase for consistent binding lookup.
+func normalizeKeyval(keyval uint) uint {
+	if keyval >= uint('A') && keyval <= uint('Z') {
+		return keyval + (uint('a') - uint('A'))
+	}
+	return keyval
+}
+
+// dispatchAction dispatches the action and handles mode-related logic.
+func (h *KeyboardHandler) dispatchAction(action Action, mode Mode) bool {
 	if h.handleModeAction(action) {
 		return true
 	}
 
-	// Dispatch action to handler
 	h.mu.RLock()
 	handler := h.onAction
 	h.mu.RUnlock()
@@ -177,19 +234,14 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 	if handler != nil {
 		if err := handler(h.ctx, action); err != nil {
 			log := logging.FromContext(h.ctx)
-			log.Error().
-				Err(err).
-				Str("action", string(action)).
-				Msg("action handler error")
+			log.Error().Err(err).Str("action", string(action)).Msg("action handler error")
 		}
 	}
 
-	// In resize mode, any resize keypress should extend the timeout.
 	if mode == ModeResize && isResizeAction(action) {
 		h.modal.ResetTimeout(h.ctx)
 	}
 
-	// Auto-exit modal mode after certain actions
 	if mode != ModeNormal && ShouldAutoExitMode(action) {
 		h.modal.ExitMode(h.ctx)
 	}
@@ -313,4 +365,34 @@ func (h *KeyboardHandler) EnterSessionMode() {
 // Useful for testing or programmatic mode changes.
 func (h *KeyboardHandler) ExitMode() {
 	h.modal.ExitMode(h.ctx)
+}
+
+// handleKeyRelease processes a key release event for accent detection.
+func (h *KeyboardHandler) handleKeyRelease(keyval uint) {
+	h.mu.RLock()
+	accentHandler := h.accentHandler
+	h.mu.RUnlock()
+
+	if accentHandler == nil {
+		return
+	}
+
+	// Convert keyval to rune for the accent handler
+	if char := keyvalToRune(keyval); char != 0 {
+		accentHandler.OnKeyReleased(h.ctx, char)
+	}
+}
+
+// keyvalToRune converts a GTK keyval to a lowercase rune.
+// Returns 0 if the keyval is not a printable character with potential accents.
+func keyvalToRune(keyval uint) rune {
+	// Handle lowercase a-z
+	if keyval >= uint('a') && keyval <= uint('z') {
+		return rune(keyval)
+	}
+	// Handle uppercase A-Z (convert to lowercase for accent lookup)
+	if keyval >= uint('A') && keyval <= uint('Z') {
+		return rune(keyval + ('a' - 'A'))
+	}
+	return 0
 }

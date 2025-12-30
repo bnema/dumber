@@ -28,6 +28,7 @@ type Widget interface {
 	GrabFocus() bool
 	HasFocus() bool
 	SetCanFocus(canFocus bool)
+	SetFocusable(focusable bool) // GTK4: makes widget able to receive keyboard focus
 	SetFocusOnClick(focusOnClick bool)
 
 	// Pointer events
