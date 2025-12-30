@@ -50,7 +50,7 @@ jobs:
       - name: Install WebKitGTK 6.0 dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkitgtk-6.0-dev libgtk-4-dev
+          sudo apt-get install -y libwebkitgtk-6.0-dev libgtk-4-dev libadwaita-1-dev
       - name: Build frontend assets
         run: make build-frontend
       - name: Run golangci-lint
@@ -73,10 +73,13 @@ jobs:
       - name: Install WebKitGTK 6.0 dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkitgtk-6.0-dev libgtk-4-dev
+          sudo apt-get install -y libwebkitgtk-6.0-dev libgtk-4-dev libadwaita-1-dev
       - name: Build frontend assets
         run: make build-frontend
       - name: Run tests
+        env:
+          GDK_BACKEND: wayland
+          WAYLAND_DISPLAY: wayland-0
         run: CGO_ENABLED=1 go test -tags=webkit_cgo -v ./...
 
   release:
@@ -93,7 +96,7 @@ jobs:
       - name: Install WebKitGTK 6.0 dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkitgtk-6.0-dev libgtk-4-dev
+          sudo apt-get install -y libwebkitgtk-6.0-dev libgtk-4-dev libadwaita-1-dev
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
