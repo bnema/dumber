@@ -170,6 +170,6 @@ func TestSelfUpdateBlockedReason_Constants(t *testing.T) {
 	}
 
 	// Verify SelfUpdateAllowed is empty string
-	assert.Equal(t, port.SelfUpdateBlockedReason(""), port.SelfUpdateAllowed,
+	assert.Equal(t, port.SelfUpdateAllowed, port.SelfUpdateBlockedReason(""),
 		"SelfUpdateAllowed should be empty string")
 }
