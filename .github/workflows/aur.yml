@@ -1,0 +1,106 @@
+name: AUR Publish
+
+on:
+  workflow_run:
+    workflows: ["Flatpak"]
+    types:
+      - completed
+
+jobs:
+  publish-aur:
+    name: Publish to AUR
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get release info
+        id: release
+        run: |
+          TAG=$(git describe --tags --abbrev=0)
+          VERSION=${TAG#v}
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Wait 1 hour before publishing
+        run: |
+          echo "Waiting 1 hour before publishing to AUR..."
+          echo "This gives time to cancel if there are issues with the release."
+          echo "Started at: $(date -u)"
+          sleep 3600
+          echo "Wait complete at: $(date -u)"
+
+      - name: Verify release still exists
+        run: |
+          TAG="${{ steps.release.outputs.tag }}"
+          if ! gh release view "$TAG" &>/dev/null; then
+            echo "::error::Release $TAG no longer exists. Aborting AUR publish."
+            exit 1
+          fi
+          echo "Release $TAG verified, proceeding with AUR publish."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download checksums
+        id: checksum
+        run: |
+          curl -sL "https://github.com/bnema/dumber/releases/download/${{ steps.release.outputs.tag }}/checksums.txt" -o checksums.txt
+          SHA256=$(grep 'dumber_linux_x86_64.tar.gz' checksums.txt | cut -d' ' -f1)
+          echo "sha256=${SHA256}" >> $GITHUB_OUTPUT
+
+      - name: Generate PKGBUILD for dumber-browser-bin
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          SHA256: ${{ steps.checksum.outputs.sha256 }}
+        run: |
+          mkdir -p pkgbuild/dumber-browser-bin
+          cat > pkgbuild/dumber-browser-bin/PKGBUILD << EOF
+          # Maintainer: bnema <b at bnema dot dev>
+          pkgname=dumber-browser-bin
+          pkgver=${VERSION}
+          pkgrel=1
+          pkgdesc="A minimal keyboard-driven browser for tiling WMs"
+          arch=('x86_64')
+          url="https://github.com/bnema/dumber"
+          license=('MIT')
+          depends=('gtk4' 'webkitgtk-6.0')
+          optdepends=(
+              'gstreamer: Media playback support'
+              'gst-plugins-base: Base media codecs'
+              'gst-plugins-good: Additional media codecs'
+              'gst-plugins-bad: Extended media codecs'
+              'gst-libav: FFmpeg-based codecs'
+          )
+          provides=('dumber-browser' 'dumber')
+          conflicts=('dumber-browser' 'dumber-browser-git')
+          source=("\${pkgname}-\${pkgver}.tar.gz::https://github.com/bnema/dumber/releases/download/v\${pkgver}/dumber_linux_x86_64.tar.gz"
+                  "dev.bnema.Dumber.desktop::https://raw.githubusercontent.com/bnema/dumber/v\${pkgver}/dev.bnema.Dumber.desktop"
+                  "logo-512.png::https://raw.githubusercontent.com/bnema/dumber/v\${pkgver}/assets/logo-512.png"
+                  "LICENSE::https://raw.githubusercontent.com/bnema/dumber/v\${pkgver}/LICENSE")
+          sha256sums=('${SHA256}'
+                      'SKIP'
+                      'SKIP'
+                      'SKIP')
+
+          package() {
+              cd "dumber_\${pkgver}"
+              install -Dm755 dumber "\${pkgdir}/usr/bin/dumber"
+              install -Dm644 "\${srcdir}/dev.bnema.Dumber.desktop" "\${pkgdir}/usr/share/applications/dev.bnema.Dumber.desktop"
+              install -Dm644 "\${srcdir}/logo-512.png" "\${pkgdir}/usr/share/icons/hicolor/512x512/apps/dev.bnema.Dumber.png"
+              install -Dm644 LICENSE "\${pkgdir}/usr/share/licenses/\${pkgname}/LICENSE"
+          }
+          EOF
+
+      - name: Publish dumber-browser-bin to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
+        with:
+          pkgname: dumber-browser-bin
+          pkgbuild: ./pkgbuild/dumber-browser-bin/PKGBUILD
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "Update to ${{ steps.release.outputs.version }}"
+          ssh_keyscan_types: rsa,ecdsa,ed25519
