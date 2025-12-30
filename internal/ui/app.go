@@ -165,6 +165,12 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	if a.deps != nil && a.deps.AdwaitaDetector != nil {
 		a.deps.AdwaitaDetector.MarkAvailable()
 		log.Debug().Msg("adwaita detector marked available")
+
+		// Refresh scripts in pooled WebViews that were prewarmed before adw.Init().
+		// They have the wrong dark mode preference injected; re-inject with correct value.
+		if a.pool != nil {
+			a.pool.RefreshScripts(ctx)
+		}
 	}
 
 	// TODO: Use AppID once puregotk GC bug is fixed (nullable-string-gc-memory-corruption)
