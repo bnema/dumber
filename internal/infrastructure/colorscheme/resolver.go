@@ -22,6 +22,11 @@ type ConfigProvider interface {
 	GetColorScheme() string
 }
 
+// callbackWrapper wraps a callback function to enable pointer comparison for removal.
+type callbackWrapper struct {
+	fn func(port.ColorSchemePreference)
+}
+
 // Resolver implements port.ColorSchemeResolver.
 // It manages multiple detectors and respects config overrides.
 type Resolver struct {
@@ -29,7 +34,7 @@ type Resolver struct {
 	config    ConfigProvider
 	detectors []port.ColorSchemeDetector
 	current   port.ColorSchemePreference
-	callbacks []func(port.ColorSchemePreference)
+	callbacks []*callbackWrapper
 }
 
 // NewResolver creates a new color scheme resolver.
@@ -118,13 +123,13 @@ func (r *Resolver) Refresh() port.ColorSchemePreference {
 	if newPref.PrefersDark != r.current.PrefersDark {
 		r.current = newPref
 		// Copy callbacks to avoid holding lock during callback invocation
-		callbacks := make([]func(port.ColorSchemePreference), len(r.callbacks))
+		callbacks := make([]*callbackWrapper, len(r.callbacks))
 		copy(callbacks, r.callbacks)
 
 		// Invoke callbacks outside of lock
 		r.mu.Unlock()
 		for _, cb := range callbacks {
-			cb(newPref)
+			cb.fn(newPref)
 		}
 		r.mu.Lock()
 	} else {
@@ -139,17 +144,21 @@ func (r *Resolver) OnChange(callback func(port.ColorSchemePreference)) func() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.callbacks = append(r.callbacks, callback)
-	idx := len(r.callbacks) - 1
+	// Wrap callback to enable pointer comparison for removal
+	wrapper := &callbackWrapper{fn: callback}
+	r.callbacks = append(r.callbacks, wrapper)
 
 	// Return unregister function
 	return func() {
 		r.mu.Lock()
 		defer r.mu.Unlock()
 
-		// Remove callback by setting to nil and compacting later
-		if idx < len(r.callbacks) {
-			r.callbacks = append(r.callbacks[:idx], r.callbacks[idx+1:]...)
+		// Find and remove callback by pointer equality
+		for i, cb := range r.callbacks {
+			if cb == wrapper {
+				r.callbacks = append(r.callbacks[:i], r.callbacks[i+1:]...)
+				return
+			}
 		}
 	}
 }
