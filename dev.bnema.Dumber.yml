@@ -7,14 +7,15 @@ command: dumber
 finish-args:
   # Display (Wayland only)
   - --socket=wayland
+  # GPU rendering and hardware video decoding (VA-API)
   - --device=dri
   # Network (browser)
   - --share=network
-  # Audio/Video playback
+  # Audio/Video playback via PulseAudio
   - --socket=pulseaudio
-  # Camera/Webcam access (for video calls)
+  # Camera/Webcam access (for video calls like Zoom, Meet, etc.)
   - --device=all
-  # Downloads
+  # Downloads folder
   - --filesystem=xdg-download
   # Open local HTML files
   - --filesystem=home:ro

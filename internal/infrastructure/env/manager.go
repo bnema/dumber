@@ -12,6 +12,14 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
+// IsFlatpak returns true if the application is running inside a Flatpak sandbox.
+// The Flatpak runtime provides all required libraries, so host pkg-config checks
+// should be skipped when running in this environment.
+func IsFlatpak() bool {
+	_, err := os.Stat("/.flatpak-info")
+	return err == nil
+}
+
 // Manager implements port.RenderingEnvManager for configuring
 // environment variables for GStreamer, WebKit, and GTK/GSK.
 type Manager struct {
