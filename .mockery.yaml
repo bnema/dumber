@@ -23,6 +23,9 @@ packages:
       HardwareSurveyor: {}
       ColorSchemeDetector: {}
       ColorSchemeResolver: {}
+      TextInputTarget: {}
+      FocusedInputProvider: {}
+      AccentPickerUI: {}
   github.com/bnema/dumber/internal/domain/repository:
     config:
       dir: '{{.InterfaceDir}}/mocks'

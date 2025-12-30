@@ -125,6 +125,7 @@ Some features are very alpha/experimental (notably consume-or-expel panes) and m
 | **Space** | Toggle Favorite | Omnibox mode: favorite/unfavorite selected item |
 | **Ctrl+1-9, 0** | Quick Navigate | Jump to result by number (1-10) |
 | **↑/↓ Arrow** | Navigate Results | Browse suggestions/matches |
+| **Hold key 400ms** | Accent Picker | Shows accented variants in any text input (e.g., hold 'e' for è, é, ê, ë) |
 
 All zoom changes are automatically persisted per-domain and restored on next visit.
 

@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **macOS-style accent picker**: Long-press (400ms) on keys with accent variants (e, a, o, u, i, c, n, s, y, z) shows a popup with accented character options. Select with number keys 1-9, arrow keys + Enter, or click. Works in omnibox, find bar (Ctrl+F), and web page inputs. Implements dead keys/compose sequence alternative for users who can't use system-level input methods.
+
 ### Fixed
 - **Dark mode detection on internal pages**: Fixed `dumb://home` and other internal pages showing light theme despite system being in dark mode. Refactored color scheme detection to use a priority-based resolver with proper initialization ordering. The libadwaita detector (highest priority) is now correctly enabled only after `adw.Init()` completes, ensuring WebViews created during bootstrap get the correct theme preference.
 

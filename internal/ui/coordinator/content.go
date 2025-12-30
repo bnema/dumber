@@ -61,13 +61,13 @@ type ContentCoordinator struct {
 	revealMu      sync.Mutex
 	pendingReveal map[entity.PaneID]bool
 
-	appearanceMu           sync.Mutex
-	pendingScriptRefresh   map[entity.PaneID]bool
-	pendingThemePanes      map[entity.PaneID]bool
-	pendingThemeUpdate     pendingThemeUpdate
-	hasPendingThemeUpdate  bool
-	currentTheme           pendingThemeUpdate
-	hasCurrentTheme        bool
+	appearanceMu          sync.Mutex
+	pendingScriptRefresh  map[entity.PaneID]bool
+	pendingThemePanes     map[entity.PaneID]bool
+	pendingThemeUpdate    pendingThemeUpdate
+	hasPendingThemeUpdate bool
+	currentTheme          pendingThemeUpdate
+	hasCurrentTheme       bool
 
 	// Gesture action handler for mouse button navigation
 	gestureActionHandler input.ActionHandler
@@ -92,6 +92,9 @@ type ContentCoordinator struct {
 
 	// Callback when fullscreen state changes (for hiding/showing tab bar)
 	onFullscreenChanged func(entering bool)
+
+	// Callback when WebView gains focus (for accent picker text input targeting)
+	onWebViewFocused func(paneID entity.PaneID, wv *webkit.WebView)
 }
 
 type pendingThemeUpdate struct {
@@ -163,6 +166,11 @@ func (c *ContentCoordinator) SetIdleInhibitor(inhibitor port.IdleInhibitor) {
 // SetOnFullscreenChanged sets the callback for fullscreen state changes.
 func (c *ContentCoordinator) SetOnFullscreenChanged(fn func(entering bool)) {
 	c.onFullscreenChanged = fn
+}
+
+// SetOnWebViewFocused sets the callback for when a WebView gains focus.
+func (c *ContentCoordinator) SetOnWebViewFocused(fn func(paneID entity.PaneID, wv *webkit.WebView)) {
+	c.onWebViewFocused = fn
 }
 
 // EnsureWebView acquires or reuses a WebView for the given pane.
