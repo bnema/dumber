@@ -8,6 +8,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/logging"
@@ -94,6 +95,31 @@ func (a *Applier) CanSelfUpdate(ctx context.Context) bool {
 
 	log.Debug().Str("path", binaryPath).Msg("binary is writable, self-update enabled")
 	return true
+}
+
+// SelfUpdateBlockedReason returns why self-update is blocked, or empty if allowed.
+func (a *Applier) SelfUpdateBlockedReason(ctx context.Context) port.SelfUpdateBlockedReason {
+	// Flatpak sandboxed apps should not self-update; Flatpak handles updates.
+	if env.IsFlatpak() {
+		return port.SelfUpdateBlockedFlatpak
+	}
+
+	// Pacman/AUR packages should not self-update; use pacman or AUR helper.
+	if env.IsPacman() {
+		return port.SelfUpdateBlockedPacman
+	}
+
+	binaryPath, err := a.GetBinaryPath()
+	if err != nil {
+		return port.SelfUpdateBlockedNotWritable
+	}
+
+	// Check if we have write permission on the binary file.
+	if err := unix.Access(binaryPath, unix.W_OK); err != nil {
+		return port.SelfUpdateBlockedNotWritable
+	}
+
+	return port.SelfUpdateAllowed
 }
 
 // GetBinaryPath returns the path to the currently running binary.
