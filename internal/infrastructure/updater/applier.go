@@ -9,6 +9,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -63,7 +64,7 @@ func (a *Applier) CanSelfUpdate(ctx context.Context) bool {
 	log := logging.FromContext(ctx)
 
 	// Flatpak sandboxed apps should not self-update; Flatpak handles updates.
-	if isFlatpak() {
+	if env.IsFlatpak() {
 		log.Debug().Msg("running in Flatpak sandbox, self-update disabled")
 		return false
 	}
@@ -86,12 +87,6 @@ func (a *Applier) CanSelfUpdate(ctx context.Context) bool {
 
 	log.Debug().Str("path", binaryPath).Msg("binary is writable, self-update enabled")
 	return true
-}
-
-// isFlatpak returns true if the application is running inside a Flatpak sandbox.
-func isFlatpak() bool {
-	_, err := os.Stat("/.flatpak-info")
-	return err == nil
 }
 
 // GetBinaryPath returns the path to the currently running binary.

@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Dumber
 Comment=A minimal keyboard-driven browser for tiling WMs
-Exec=dumber
+Exec=dumber browse
 Icon=dev.bnema.Dumber
 Terminal=false
 Type=Application

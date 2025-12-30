@@ -15,6 +15,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/colorscheme"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/deps"
+	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/infrastructure/media"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/logging"
@@ -185,7 +186,16 @@ func RunDeferredInit(input DeferredInitInput) DeferredInitResult {
 
 // CheckRuntimeRequirements verifies WebKitGTK and other runtime dependencies.
 // Returns error if requirements are not met; caller should log details and exit.
+// Note: When running in a Flatpak sandbox, runtime checks are skipped because
+// the Flatpak runtime provides all required libraries.
 func CheckRuntimeRequirements(ctx context.Context, cfg *config.Config) error {
+	// Skip pkg-config checks in Flatpak - the runtime provides all dependencies
+	if env.IsFlatpak() {
+		log := logging.FromContext(ctx)
+		log.Debug().Msg("running in Flatpak sandbox, skipping runtime dependency checks")
+		return nil
+	}
+
 	probe := deps.NewPkgConfigProbe()
 	checkRuntimeUC := usecase.NewCheckRuntimeDependenciesUseCase(probe)
 	runtimeOut, err := checkRuntimeUC.Execute(ctx, usecase.CheckRuntimeDependenciesInput{
