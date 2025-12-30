@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Dumber
+Comment=A minimal keyboard-driven browser for tiling WMs
+Exec=dumber
+Icon=dev.bnema.Dumber
+Terminal=false
+Type=Application
+Categories=Network;WebBrowser;GTK;
+Keywords=browser;webkit;wayland;tiling;keyboard;
+StartupNotify=true
+StartupWMClass=dumber
+MimeType=text/html;text/xml;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;

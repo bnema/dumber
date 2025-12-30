@@ -58,8 +58,15 @@ func (a *Applier) stagedBinaryPath() string {
 }
 
 // CanSelfUpdate checks if the current binary is writable by the current user.
+// Returns false if running inside a Flatpak sandbox (updates handled by Flatpak).
 func (a *Applier) CanSelfUpdate(ctx context.Context) bool {
 	log := logging.FromContext(ctx)
+
+	// Flatpak sandboxed apps should not self-update; Flatpak handles updates.
+	if isFlatpak() {
+		log.Debug().Msg("running in Flatpak sandbox, self-update disabled")
+		return false
+	}
 
 	binaryPath, err := a.GetBinaryPath()
 	if err != nil {
@@ -79,6 +86,12 @@ func (a *Applier) CanSelfUpdate(ctx context.Context) bool {
 
 	log.Debug().Str("path", binaryPath).Msg("binary is writable, self-update enabled")
 	return true
+}
+
+// isFlatpak returns true if the application is running inside a Flatpak sandbox.
+func isFlatpak() bool {
+	_, err := os.Stat("/.flatpak-info")
+	return err == nil
 }
 
 // GetBinaryPath returns the path to the currently running binary.

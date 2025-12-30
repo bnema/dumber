@@ -1,0 +1,52 @@
+id: dev.bnema.Dumber
+runtime: org.gnome.Platform
+runtime-version: '48'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.golang
+  - org.freedesktop.Sdk.Extension.node20
+command: dumber
+
+finish-args:
+  # Display (Wayland only)
+  - --socket=wayland
+  - --device=dri
+  # Network (browser)
+  - --share=network
+  # Audio/Video playback
+  - --socket=pulseaudio
+  # Camera/Webcam access (for video calls)
+  - --device=all
+  # Downloads
+  - --filesystem=xdg-download
+  # Open local HTML files
+  - --filesystem=home:ro
+  # PipeWire for screen sharing and modern audio/video
+  - --filesystem=xdg-run/pipewire-0:ro
+
+modules:
+  - name: dumber
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/golang/bin:/usr/lib/sdk/node20/bin
+      env:
+        GOROOT: /usr/lib/sdk/golang
+        GOPATH: /run/build/dumber/go
+        CGO_ENABLED: '0'
+    build-commands:
+      # TODO: Fix npm/vite PATH issue - see issues/flatpak-build-npm-vite-path-issue.md
+      # Build frontend
+      - npm ci --prefix webui
+      - npm run build --prefix webui
+      # Build Go binary
+      - go build -ldflags="-s -w" -o /app/bin/dumber ./cmd/dumber
+      # Install desktop file
+      - install -Dm644 dev.bnema.Dumber.desktop /app/share/applications/dev.bnema.Dumber.desktop
+      # Install icons
+      - install -Dm644 assets/logo.svg /app/share/icons/hicolor/scalable/apps/dev.bnema.Dumber.svg
+      - install -Dm644 assets/logo-32.png /app/share/icons/hicolor/32x32/apps/dev.bnema.Dumber.png
+      # Install metainfo
+      - install -Dm644 dev.bnema.Dumber.metainfo.xml /app/share/metainfo/dev.bnema.Dumber.metainfo.xml
+    sources:
+      - type: dir
+        path: .
