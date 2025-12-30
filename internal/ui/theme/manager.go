@@ -24,16 +24,6 @@ type Manager struct {
 	colorResolver port.ColorSchemeResolver // Resolver for dynamic detection
 }
 
-// ManagerOption is a functional option for configuring Manager.
-type ManagerOption func(*Manager)
-
-// WithResolver configures the Manager to use a ColorSchemeResolver.
-func WithResolver(resolver port.ColorSchemeResolver) ManagerOption {
-	return func(m *Manager) {
-		m.colorResolver = resolver
-	}
-}
-
 // NewManager creates a new theme manager from configuration.
 // The ColorSchemeResolver is required for proper color scheme detection.
 func NewManager(ctx context.Context, cfg *config.Config, resolver port.ColorSchemeResolver) *Manager {

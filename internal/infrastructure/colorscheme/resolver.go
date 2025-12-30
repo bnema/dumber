@@ -1,7 +1,8 @@
 package colorscheme
 
 import (
-	"sort"
+	"cmp"
+	"slices"
 	"strings"
 	"sync"
 
@@ -30,11 +31,12 @@ type callbackWrapper struct {
 // Resolver implements port.ColorSchemeResolver.
 // It manages multiple detectors and respects config overrides.
 type Resolver struct {
-	mu        sync.RWMutex
-	config    ConfigProvider
-	detectors []port.ColorSchemeDetector
-	current   port.ColorSchemePreference
-	callbacks []*callbackWrapper
+	mu              sync.RWMutex
+	config          ConfigProvider
+	detectors       []port.ColorSchemeDetector
+	sortedDetectors []port.ColorSchemeDetector // cached sorted detectors
+	current         port.ColorSchemePreference
+	callbacks       []*callbackWrapper
 }
 
 // NewResolver creates a new color scheme resolver.
@@ -78,15 +80,8 @@ func (r *Resolver) resolveInternal() port.ColorSchemePreference {
 		}
 	}
 
-	// Sort detectors by priority (highest first)
-	sorted := make([]port.ColorSchemeDetector, len(r.detectors))
-	copy(sorted, r.detectors)
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].Priority() > sorted[j].Priority()
-	})
-
-	// Try each detector in priority order
-	for _, detector := range sorted {
+	// Try each detector in priority order (already sorted)
+	for _, detector := range r.sortedDetectors {
 		if !detector.Available() {
 			continue
 		}
@@ -110,30 +105,41 @@ func (r *Resolver) RegisterDetector(detector port.ColorSchemeDetector) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.detectors = append(r.detectors, detector)
+	r.rebuildSortedDetectors()
+}
+
+// rebuildSortedDetectors creates a sorted copy of detectors by priority (highest first).
+// Caller must hold the write lock.
+func (r *Resolver) rebuildSortedDetectors() {
+	r.sortedDetectors = make([]port.ColorSchemeDetector, len(r.detectors))
+	copy(r.sortedDetectors, r.detectors)
+	slices.SortFunc(r.sortedDetectors, func(a, b port.ColorSchemeDetector) int {
+		return cmp.Compare(b.Priority(), a.Priority()) // descending order
+	})
 }
 
 // Refresh implements port.ColorSchemeResolver.
 func (r *Resolver) Refresh() port.ColorSchemePreference {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 
 	newPref := r.resolveInternal()
 
-	// Only notify if preference changed
+	// Prepare callbacks to invoke if preference changed
+	var callbacks []*callbackWrapper
 	if newPref.PrefersDark != r.current.PrefersDark {
 		r.current = newPref
-		// Copy callbacks to avoid holding lock during callback invocation
-		callbacks := make([]*callbackWrapper, len(r.callbacks))
+		callbacks = make([]*callbackWrapper, len(r.callbacks))
 		copy(callbacks, r.callbacks)
-
-		// Invoke callbacks outside of lock
-		r.mu.Unlock()
-		for _, cb := range callbacks {
-			cb.fn(newPref)
-		}
-		r.mu.Lock()
 	} else {
 		r.current = newPref
+	}
+
+	// Release lock before invoking callbacks to avoid deadlocks
+	r.mu.Unlock()
+
+	// Invoke callbacks outside of lock
+	for _, cb := range callbacks {
+		cb.fn(newPref)
 	}
 
 	return newPref
