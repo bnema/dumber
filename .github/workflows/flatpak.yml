@@ -107,17 +107,11 @@ jobs:
           echo "Generated manifest:"
           cat dev.bnema.Dumber.yml
 
-      - name: Import GPG key
-        run: |
-          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
-          gpg --list-secret-keys --keyid-format=long
-
       - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
           bundle: dumber.flatpak
           manifest-path: dev.bnema.Dumber.yml
           cache-key: flatpak-builder-${{ steps.version.outputs.version }}
-          gpg-sign: ${{ secrets.GPG_KEY_ID }}
 
       - name: Upload Flatpak to Release
         if: startsWith(github.ref, 'refs/tags/')
