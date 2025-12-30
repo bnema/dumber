@@ -41,8 +41,8 @@ modules:
       # For local builds, update these values manually:
       #   curl -sL <url> | sha256sum
       - type: archive
-        url: https://github.com/bnema/dumber/releases/download/v0.23.0/dumber_linux_x86_64.tar.gz
-        sha256: 0fbdc5c5b17a5332606ea33afd16750a8e9be44328bb0a7c1e19782a30d8757a
+        url: https://github.com/bnema/dumber/releases/download/v0.23.1/dumber_linux_x86_64.tar.gz
+        sha256: PLACEHOLDER_UPDATED_BY_CI
         dest-filename: dumber_linux_x86_64.tar.gz
       # Desktop file
       - type: file
