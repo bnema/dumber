@@ -178,6 +178,18 @@ Development:
 
 Pre-built binaries are available for Linux (x86_64/amd64) in the [releases page](https://github.com/bnema/dumber/releases). See [Quick Start](#quick-start) for installation instructions.
 
+### Arch Linux (AUR)
+
+Dumber is available on the AUR:
+
+```bash
+# Binary package (pre-built, recommended)
+yay -S dumber-browser-bin
+
+# Or build from source (latest git)
+yay -S dumber-browser-git
+```
+
 ### Flatpak
 
 A Flatpak bundle is available in each release. This is the easiest way to install Dumber with all dependencies included:

@@ -96,3 +96,14 @@ flatpak-repo/
 .flatpak-builder/
 *.flatpak
 builddir/
+
+# AUR build artifacts
+aur/aur-*/
+aur/*/src/
+aur/*/pkg/
+aur/*/*.tar.gz
+aur/*/*.tar.zst
+aur/*/*.pkg.tar.zst
+aur/*/LICENSE
+aur/*/dev.bnema.Dumber.desktop
+aur/*/logo-512.png
