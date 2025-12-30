@@ -87,7 +87,7 @@ jobs:
                 - install -Dm755 dumber /app/bin/dumber
                 - install -Dm644 dev.bnema.Dumber.desktop /app/share/applications/dev.bnema.Dumber.desktop
                 - install -Dm644 logo.svg /app/share/icons/hicolor/scalable/apps/dev.bnema.Dumber.svg
-                - install -Dm644 logo-32.png /app/share/icons/hicolor/32x32/apps/dev.bnema.Dumber.png
+                - install -Dm644 logo-512.png /app/share/icons/hicolor/512x512/apps/dev.bnema.Dumber.png
                 - install -Dm644 dev.bnema.Dumber.metainfo.xml /app/share/metainfo/dev.bnema.Dumber.metainfo.xml
               sources:
                 - type: archive
@@ -99,8 +99,8 @@ jobs:
                   path: assets/logo.svg
                   dest-filename: logo.svg
                 - type: file
-                  path: assets/logo-32.png
-                  dest-filename: logo-32.png
+                  path: assets/logo-512.png
+                  dest-filename: logo-512.png
                 - type: file
                   path: dev.bnema.Dumber.metainfo.xml
           EOF
