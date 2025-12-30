@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>dev.bnema.Dumber</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Dumber</name>
+  <summary>A minimal keyboard-driven browser for tiling WMs</summary>
+  <description>
+    <p>
+      A dumb browser that works like your favorite terminal multiplexer.
+      Wayland native, keyboard-driven with Zellij-inspired workflow, featuring
+      tabs with split and stacked panes, built-in ad blocking, and session management.
+    </p>
+    <p>Features include:</p>
+    <ul>
+      <li>Wayland native - no X11/XWayland dependency</li>
+      <li>Tabs and workspaces with split or stacked panes</li>
+      <li>Keyboard-driven workflow inspired by Zellij</li>
+      <li>Smart popup handling for OAuth flows and tiling WMs</li>
+      <li>GPU rendering with automatic VA-API/VDPAU detection</li>
+      <li>Built-in ad blocking with UBlock-based filtering</li>
+      <li>Launcher integration with rofi/fuzzel support</li>
+      <li>Search shortcuts via bangs</li>
+      <li>Customizable light and dark themes</li>
+      <li>Session save/restore with automatic snapshots</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">dev.bnema.Dumber.desktop</launchable>
+  <url type="homepage">https://github.com/bnema/dumber</url>
+  <url type="bugtracker">https://github.com/bnema/dumber/issues</url>
+  <url type="vcs-browser">https://github.com/bnema/dumber</url>
+  <developer id="dev.bnema">
+    <name>bnema</name>
+  </developer>
+  <branding>
+    <color type="primary" scheme_preference="light">#f5f5f5</color>
+    <color type="primary" scheme_preference="dark">#1a1a1a</color>
+  </branding>
+  <content_rating type="oars-1.1" />
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+  <categories>
+    <category>Network</category>
+    <category>WebBrowser</category>
+  </categories>
+  <keywords>
+    <keyword>browser</keyword>
+    <keyword>webkit</keyword>
+    <keyword>wayland</keyword>
+    <keyword>tiling</keyword>
+    <keyword>keyboard</keyword>
+    <keyword>minimal</keyword>
+  </keywords>
+  <releases>
+    <release version="0.23.1" date="2025-12-30">
+      <description>
+        <p>Added Flatpak packaging support with automatic builds on GitHub releases.</p>
+      </description>
+    </release>
+    <release version="0.23.0" date="2025-12-29">
+      <description>
+        <p>Previous release with improved session management and bug fixes.</p>
+      </description>
+    </release>
+  </releases>
+</component>

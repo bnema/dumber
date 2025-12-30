@@ -1,0 +1,59 @@
+id: dev.bnema.Dumber
+runtime: org.gnome.Platform
+runtime-version: '48'
+sdk: org.gnome.Sdk
+command: dumber
+
+finish-args:
+  # Display (Wayland only)
+  - --socket=wayland
+  # GPU rendering and hardware video decoding (VA-API)
+  - --device=dri
+  # Network (browser)
+  - --share=network
+  # Audio/Video playback via PulseAudio
+  - --socket=pulseaudio
+  # Camera/Webcam access (for video calls like Zoom, Meet, etc.)
+  - --device=all
+  # Downloads folder
+  - --filesystem=xdg-download
+  # Open local HTML files
+  - --filesystem=home:ro
+  # PipeWire for screen sharing and modern audio/video
+  - --filesystem=xdg-run/pipewire-0:ro
+
+modules:
+  - name: dumber
+    buildsystem: simple
+    build-commands:
+      # Install the pre-built binary (archive is auto-extracted)
+      - install -Dm755 dumber /app/bin/dumber
+      # Install desktop file
+      - install -Dm644 dev.bnema.Dumber.desktop /app/share/applications/dev.bnema.Dumber.desktop
+      # Install icons
+      - install -Dm644 logo.svg /app/share/icons/hicolor/scalable/apps/dev.bnema.Dumber.svg
+      - install -Dm644 logo-512.png /app/share/icons/hicolor/512x512/apps/dev.bnema.Dumber.png
+      # Install metainfo
+      - install -Dm644 dev.bnema.Dumber.metainfo.xml /app/share/metainfo/dev.bnema.Dumber.metainfo.xml
+    sources:
+      # Pre-built binary from GitHub release
+      # NOTE: URL and SHA256 are dynamically generated in CI
+      # For local builds, update these values manually:
+      #   curl -sL <url> | sha256sum
+      - type: archive
+        url: https://github.com/bnema/dumber/releases/download/v0.23.1/dumber_linux_x86_64.tar.gz
+        sha256: PLACEHOLDER_UPDATED_BY_CI
+        dest-filename: dumber_linux_x86_64.tar.gz
+      # Desktop file
+      - type: file
+        path: dev.bnema.Dumber.desktop
+      # Icons
+      - type: file
+        path: assets/logo.svg
+        dest-filename: logo.svg
+      - type: file
+        path: assets/logo-512.png
+        dest-filename: logo-512.png
+      # Metainfo
+      - type: file
+        path: dev.bnema.Dumber.metainfo.xml

@@ -178,6 +178,26 @@ Development:
 
 Pre-built binaries are available for Linux (x86_64/amd64) in the [releases page](https://github.com/bnema/dumber/releases). See [Quick Start](#quick-start) for installation instructions.
 
+### Flatpak
+
+A Flatpak bundle is available in each release. This is the easiest way to install Dumber with all dependencies included:
+
+```bash
+# Download the Flatpak bundle from the latest release
+wget https://github.com/bnema/dumber/releases/latest/download/dumber.flatpak
+
+# Install it (user-level, no root required)
+flatpak install --user dumber.flatpak
+
+# Run it
+flatpak run dev.bnema.Dumber browse
+```
+
+To uninstall:
+```bash
+flatpak uninstall --user dev.bnema.Dumber
+```
+
 ### Dependencies
 
 Required for both pre-built binaries and source builds:
