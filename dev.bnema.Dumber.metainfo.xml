@@ -57,9 +57,14 @@
     <keyword>minimal</keyword>
   </keywords>
   <releases>
-    <release version="0.15.0" date="2024-12-29">
+    <release version="0.23.1" date="2025-12-30">
       <description>
-        <p>Latest release with improved session management and bug fixes.</p>
+        <p>Added Flatpak packaging support with automatic builds on GitHub releases.</p>
+      </description>
+    </release>
+    <release version="0.23.0" date="2025-12-29">
+      <description>
+        <p>Previous release with improved session management and bug fixes.</p>
       </description>
     </release>
   </releases>
