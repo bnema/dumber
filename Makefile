@@ -1,6 +1,6 @@
 # Makefile for dumber (Clean Architecture - puregotk)
 
-.PHONY: build build-frontend test lint clean install-tools dev generate help init check-docs man
+.PHONY: build build-frontend test lint clean install-tools dev generate help init check-docs man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean
 
 # Load local overrides from .env.local if present (Makefile syntax)
 ifneq (,$(wildcard .env.local))
@@ -152,3 +152,32 @@ release-snapshot: build-frontend ## Build snapshot using goreleaser
 release: ## Create full release using goreleaser
 	@echo "Building release with goreleaser..."
 	GITHUB_TOKEN=$$(gh auth token) goreleaser release --clean
+
+# Flatpak targets
+flatpak-deps: ## Install Flatpak build dependencies (Arch)
+	@echo "Installing Flatpak build dependencies..."
+	sudo pacman -S --needed flatpak flatpak-builder
+	flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+	flatpak install --user -y flathub org.gnome.Platform//48 org.gnome.Sdk//48
+	flatpak install --user -y flathub org.freedesktop.Sdk.Extension.golang//24.08
+	flatpak install --user -y flathub org.freedesktop.Sdk.Extension.node20//24.08
+	@echo "Flatpak dependencies installed!"
+
+flatpak-build: ## Build Flatpak bundle locally
+	@echo "Building Flatpak bundle..."
+	flatpak-builder --force-clean --user --repo=flatpak-repo flatpak-build dev.bnema.Dumber.yml
+	flatpak build-bundle flatpak-repo dumber.flatpak dev.bnema.Dumber
+	@echo "Flatpak bundle created: dumber.flatpak"
+
+flatpak-install: ## Install Flatpak locally for testing
+	@echo "Installing Flatpak locally..."
+	flatpak-builder --force-clean --user --install flatpak-build dev.bnema.Dumber.yml
+	@echo "Flatpak installed! Run with: make flatpak-run"
+
+flatpak-run: ## Run the installed Flatpak
+	flatpak run dev.bnema.Dumber
+
+flatpak-clean: ## Clean Flatpak build artifacts
+	@echo "Cleaning Flatpak build artifacts..."
+	rm -rf flatpak-build flatpak-repo .flatpak-builder dumber.flatpak
+	@echo "Flatpak artifacts cleaned!"
