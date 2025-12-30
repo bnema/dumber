@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
   - `dumber-browser-git`: Build from source, tracks latest git.
   - Install with `yay -S dumber-browser-bin` or `paru -S dumber-browser-bin`.
   - Automatic AUR updates via GitHub Actions (1 hour delay after Flatpak build for safety).
+- **Pacman/AUR install detection**: Self-updater is disabled when installed via pacman/AUR (uses `pacman -Qo` to detect package ownership).
 
 ### Changed
 
