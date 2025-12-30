@@ -7,7 +7,7 @@ const (
 	defaultRetentionDays     = 365   // 1 year
 
 	// Dmenu defaults
-	defaultMaxHistoryItems = 20 // items
+	defaultMaxHistoryDays = 30 // days
 
 	// Logging defaults
 	defaultMaxLogAgeDays = 7 // days
@@ -65,6 +65,10 @@ const (
 	// Performance defaults
 	defaultZoomCacheSize           = 256 // domains to cache (~20KB memory)
 	defaultWebViewPoolPrewarmCount = 4   // WebViews to pre-create at startup
+
+	// Skia threading defaults (0 = unset, -1 = unset for GPU threads)
+	defaultSkiaCPUPaintingThreads = 0
+	defaultSkiaGPUPaintingThreads = -1 // -1 means unset; 0 would disable GPU tile painting
 )
 
 // getDefaultLogDir returns the default log directory, falls back to empty string on error
@@ -90,7 +94,7 @@ func DefaultConfig() *Config {
 		SearchShortcuts:     GetDefaultSearchShortcuts(),
 		DefaultSearchEngine: "https://duckduckgo.com/?q=%s",
 		Dmenu: DmenuConfig{
-			MaxHistoryItems:  defaultMaxHistoryItems,
+			MaxHistoryDays:   defaultMaxHistoryDays,
 			ShowVisitCount:   true,
 			ShowLastVisited:  true,
 			HistoryPrefix:    "🕒",
@@ -282,8 +286,24 @@ func DefaultConfig() *Config {
 			Prefix: "",
 		},
 		Performance: PerformanceConfig{
+			Profile:                 ProfileDefault, // Use WebKit defaults, no tuning
 			ZoomCacheSize:           defaultZoomCacheSize,
 			WebViewPoolPrewarmCount: defaultWebViewPoolPrewarmCount,
+			// Skia threading - balanced defaults (unset = use WebKit defaults)
+			// These only apply when Profile is "custom"
+			SkiaCPUPaintingThreads: defaultSkiaCPUPaintingThreads,
+			SkiaGPUPaintingThreads: defaultSkiaGPUPaintingThreads,
+			SkiaEnableCPURendering: false,
+			// Web process memory pressure - all unset by default
+			WebProcessMemoryLimitMB:               0,
+			WebProcessMemoryPollIntervalSec:       0,
+			WebProcessMemoryConservativeThreshold: 0,
+			WebProcessMemoryStrictThreshold:       0,
+			// Network process memory pressure - all unset by default
+			NetworkProcessMemoryLimitMB:               0,
+			NetworkProcessMemoryPollIntervalSec:       0,
+			NetworkProcessMemoryConservativeThreshold: 0,
+			NetworkProcessMemoryStrictThreshold:       0,
 		},
 		Update: UpdateConfig{
 			EnableOnStartup:     true,  // Check for updates on startup by default

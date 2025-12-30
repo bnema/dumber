@@ -14,6 +14,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/infrastructure/snapshot"
+	"github.com/bnema/dumber/internal/infrastructure/textinput"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 
 	"github.com/bnema/dumber/internal/infrastructure/webkit/handlers"
@@ -27,6 +28,7 @@ import (
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/dumber/internal/ui/theme"
 	"github.com/bnema/dumber/internal/ui/window"
+	"github.com/jwijenbergh/puregotk/v4/adw"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/gio"
 	"github.com/jwijenbergh/puregotk/v4/glib"
@@ -107,6 +109,11 @@ type App struct {
 
 	movePaneToTabUC *usecase.MovePaneToTabUseCase
 
+	// Accent picker for dead keys support
+	accentPicker        *component.AccentPicker
+	insertAccentUC      *usecase.InsertAccentUseCase
+	accentFocusProvider *textinput.FocusProvider
+
 	// lifecycle
 	cancel context.CancelCauseFunc
 }
@@ -155,6 +162,23 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("creating GTK application")
 
+	// Initialize libadwaita once (required before using StyleManager).
+	// This also initializes GTK implicitly.
+	adw.Init()
+
+	// Mark adwaita detector as available now that adw.Init() is complete.
+	// This enables the highest-priority color scheme detector.
+	if a.deps != nil && a.deps.AdwaitaDetector != nil {
+		a.deps.AdwaitaDetector.MarkAvailable()
+		log.Debug().Msg("adwaita detector marked available")
+
+		// Refresh scripts in pooled WebViews that were prewarmed before adw.Init().
+		// They have the wrong dark mode preference injected; re-inject with correct value.
+		if a.pool != nil {
+			a.pool.RefreshScripts(ctx)
+		}
+	}
+
 	// TODO: Use AppID once puregotk GC bug is fixed (nullable-string-gc-memory-corruption)
 	a.gtkApp = gtk.NewApplication(nil, gio.GApplicationFlagsNoneValue)
 	if a.gtkApp == nil {
@@ -199,6 +223,7 @@ func (a *App) onActivate(ctx context.Context) {
 	a.initLayoutInfrastructure()
 	a.initAppToasterOverlay()
 	a.initFocusAndBorderOverlay()
+	a.initAccentPicker(ctx)
 
 	a.initCoordinators(ctx)
 	a.initKeyboardHandler(ctx)
@@ -217,23 +242,52 @@ func (a *App) onActivate(ctx context.Context) {
 func (a *App) applyGTKColorSchemePreference(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
-	// Propagate app color scheme preference to GTK (and WebKit)
-	// so web content can correctly evaluate prefers-color-scheme.
-	settings := gtk.SettingsGetDefault()
-	if settings == nil {
-		return
-	}
-
+	// Get the config color scheme preference (default follows system theme)
 	scheme := "default"
 	if a.deps != nil && a.deps.Config != nil && a.deps.Config.Appearance.ColorScheme != "" {
 		scheme = a.deps.Config.Appearance.ColorScheme
 	}
-	prefersDark := theme.ResolveColorScheme(scheme)
-	settings.SetPropertyGtkApplicationPreferDarkTheme(prefersDark)
+
+	// Apply color scheme via libadwaita's StyleManager.
+	// This properly communicates the preference to GTK and WebKit,
+	// so web content can correctly evaluate prefers-color-scheme media queries.
+	styleMgr := adw.StyleManagerGetDefault()
+	if styleMgr == nil {
+		log.Warn().Msg("failed to get adw.StyleManager")
+		return
+	}
+
+	var adwScheme adw.ColorScheme
+	switch scheme {
+	case "dark", "prefer-dark":
+		adwScheme = adw.ColorSchemeForceDarkValue
+	case "light", "prefer-light":
+		adwScheme = adw.ColorSchemeForceLightValue
+	default:
+		// "default" or empty - follow system preference
+		adwScheme = adw.ColorSchemeDefaultValue
+	}
+
+	styleMgr.SetColorScheme(adwScheme)
+
+	// Refresh the color resolver now that adwaita detector is available.
+	// This ensures all components get the correct preference.
+	var pref string
+	var prefersDark bool
+	if a.deps != nil && a.deps.ColorResolver != nil {
+		result := a.deps.ColorResolver.Refresh()
+		prefersDark = result.PrefersDark
+		pref = result.Source
+	} else {
+		prefersDark = styleMgr.GetDark()
+		pref = "adw.StyleManager"
+	}
+
 	log.Debug().
 		Str("scheme", scheme).
 		Bool("prefers_dark", prefersDark).
-		Msg("set gtk-application-prefer-dark-theme")
+		Str("source", pref).
+		Msg("applied color scheme via adw.StyleManager")
 }
 
 func (a *App) setupPoolBackgroundColor(ctx context.Context) {
@@ -340,6 +394,49 @@ func (a *App) initFocusAndBorderOverlay() {
 	a.mainWindow.AddOverlay(gtkWidget)
 }
 
+func (a *App) initAccentPicker(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
+	if a.widgetFactory == nil || a.mainWindow == nil {
+		log.Debug().Msg("widget factory or main window not available, skipping accent picker")
+		return
+	}
+
+	// Create accent picker component
+	a.accentPicker = component.NewAccentPicker(a.widgetFactory)
+	if a.accentPicker == nil {
+		log.Warn().Msg("failed to create accent picker")
+		return
+	}
+
+	// Add to main window overlay
+	pickerWidget := a.accentPicker.Widget()
+	if pickerWidget != nil {
+		gtkWidget := pickerWidget.GtkWidget()
+		if gtkWidget != nil {
+			a.mainWindow.AddOverlay(gtkWidget)
+		}
+	}
+
+	// Create focus provider (tracks which input has focus)
+	a.accentFocusProvider = textinput.NewFocusProvider()
+
+	// Create the use case with glib.IdleAdd for thread-safe GTK calls
+	a.insertAccentUC = usecase.NewInsertAccentUseCase(
+		a.accentFocusProvider,
+		a.accentPicker,
+		func(fn func()) {
+			cb := glib.SourceFunc(func(_ uintptr) bool {
+				fn()
+				return false // Don't repeat
+			})
+			glib.IdleAdd(&cb, 0)
+		},
+	)
+
+	log.Debug().Msg("accent picker initialized")
+}
+
 func (a *App) initKeyboardHandler(ctx context.Context) {
 	if a.mainWindow == nil || a.deps == nil || a.deps.Config == nil {
 		return
@@ -367,6 +464,10 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 		}
 		return wsView.IsOmniboxVisible()
 	})
+	// Wire accent handler for dead keys support
+	if a.insertAccentUC != nil {
+		a.keyboardHandler.SetAccentHandler(a.insertAccentUC)
+	}
 	a.keyboardHandler.AttachTo(a.mainWindow.Window())
 
 	// Create global shortcut handler for Alt+1-9 tab switching.
@@ -414,6 +515,18 @@ func (a *App) initOmniboxConfig(ctx context.Context) {
 				log.Error().Err(err).Str("url", url).Msg("navigation failed")
 			}
 		},
+		OnFocusIn: func(entry *gtk.SearchEntry) {
+			// Set omnibox entry as the focused input for accent picker
+			if a.accentFocusProvider != nil && entry != nil {
+				a.accentFocusProvider.SetFocusedInput(textinput.NewGTKEntryTarget(entry))
+			}
+		},
+		OnFocusOut: func() {
+			// When omnibox loses focus, set WebView as the focused input
+			if a.accentFocusProvider != nil {
+				a.accentFocusProvider.SetFocusedInput(a.getActiveWebViewTarget())
+			}
+		},
 	}
 	a.navCoord.SetOmniboxProvider(a)
 	log.Debug().Msg("omnibox config stored, provider set")
@@ -431,6 +544,18 @@ func (a *App) initFindBarConfig() {
 				return nil
 			}
 			return wv.GetFindController()
+		},
+		OnFocusIn: func(entry *gtk.SearchEntry) {
+			// Set find bar entry as the focused input for accent picker
+			if a.accentFocusProvider != nil && entry != nil {
+				a.accentFocusProvider.SetFocusedInput(textinput.NewGTKEntryTarget(entry))
+			}
+		},
+		OnFocusOut: func() {
+			// When find bar loses focus, set WebView as the focused input
+			if a.accentFocusProvider != nil {
+				a.accentFocusProvider.SetFocusedInput(a.getActiveWebViewTarget())
+			}
 		},
 	}
 }
@@ -1172,6 +1297,12 @@ func (a *App) initCoordinators(ctx context.Context) {
 				a.deps.OnFirstWebViewShown(ctx)
 			})
 		}
+
+		// Set the WebView as the focused input for accent picker (if this is the active pane)
+		ws := a.activeWorkspace()
+		if ws != nil && ws.ActivePaneID == paneID && a.accentFocusProvider != nil {
+			a.accentFocusProvider.SetFocusedInput(a.getActiveWebViewTarget())
+		}
 	})
 
 	// 5. Keyboard Dispatcher
@@ -1491,6 +1622,23 @@ func (a *App) activeWorkspaceView() *component.WorkspaceView {
 	return a.workspaceViews[activeTab.ID]
 }
 
+// getActiveWebViewTarget returns a TextInputTarget for the active pane's WebView.
+// Used by the accent picker to insert accented characters into web content.
+func (a *App) getActiveWebViewTarget() port.TextInputTarget {
+	ws := a.activeWorkspace()
+	if ws == nil || a.contentCoord == nil || a.deps == nil || a.deps.Clipboard == nil {
+		return nil
+	}
+
+	wv := a.contentCoord.GetWebView(ws.ActivePaneID)
+	if wv == nil {
+		return nil
+	}
+
+	// Get the underlying webkit.WebView for the text input target
+	return textinput.NewWebViewTarget(wv.Widget(), a.deps.Clipboard)
+}
+
 // attachPopupToTab attaches a popup WebView to a newly created tab.
 // This is called when a popup uses tabbed behavior.
 func (a *App) attachPopupToTab(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv *webkit.WebView) {
@@ -1711,9 +1859,8 @@ func (a *App) applyAppearanceConfig(ctx context.Context, cfg *config.Config) {
 		}
 		a.deps.Theme.UpdateFromConfig(ctx, cfg, display)
 
-		// Keep injector's dark-mode flag in sync for future navigations
+		// Update find highlight CSS for future navigations
 		if a.injector != nil {
-			a.injector.SetPrefersDark(a.deps.Theme.PrefersDark())
 			findCSS := theme.GenerateFindHighlightCSS(a.deps.Theme.GetCurrentPalette())
 			if err := a.injector.InjectFindHighlightCSS(ctx, findCSS); err != nil {
 				log.Warn().Err(err).Msg("failed to update find highlight CSS")

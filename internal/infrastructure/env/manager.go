@@ -54,6 +54,7 @@ func (m *Manager) ApplyEnvironment(ctx context.Context, settings port.RenderingE
 	m.applyWebKitEnv(settings)
 	m.applyGTKEnv(settings)
 	m.applyDebugEnv(settings)
+	m.applySkiaEnv(settings)
 
 	log.Debug().
 		Interface("vars", m.appliedVars).
@@ -159,6 +160,23 @@ func (m *Manager) applyDebugEnv(settings port.RenderingEnvSettings) {
 	}
 	if settings.SampleMemory {
 		m.setEnv("WEBKIT_SAMPLE_MEMORY", "1")
+	}
+}
+
+func (m *Manager) applySkiaEnv(settings port.RenderingEnvSettings) {
+	// CPU painting threads: only set if > 0 and env var not already set
+	if settings.SkiaCPUPaintingThreads > 0 && os.Getenv("WEBKIT_SKIA_CPU_PAINTING_THREADS") == "" {
+		m.setEnv("WEBKIT_SKIA_CPU_PAINTING_THREADS", fmt.Sprintf("%d", settings.SkiaCPUPaintingThreads))
+	}
+
+	// GPU painting threads: only set if >= 0 (0 is valid: disables GPU tile painting)
+	if settings.SkiaGPUPaintingThreads >= 0 && os.Getenv("WEBKIT_SKIA_GPU_PAINTING_THREADS") == "" {
+		m.setEnv("WEBKIT_SKIA_GPU_PAINTING_THREADS", fmt.Sprintf("%d", settings.SkiaGPUPaintingThreads))
+	}
+
+	// CPU rendering: only set if true and env var not already set
+	if settings.SkiaEnableCPURendering && os.Getenv("WEBKIT_SKIA_ENABLE_CPU_RENDERING") == "" {
+		m.setEnv("WEBKIT_SKIA_ENABLE_CPU_RENDERING", "1")
 	}
 }
 

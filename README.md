@@ -125,6 +125,7 @@ Some features are very alpha/experimental (notably consume-or-expel panes) and m
 | **Space** | Toggle Favorite | Omnibox mode: favorite/unfavorite selected item |
 | **Ctrl+1-9, 0** | Quick Navigate | Jump to result by number (1-10) |
 | **↑/↓ Arrow** | Navigate Results | Browse suggestions/matches |
+| **Hold key 400ms** | Accent Picker | Shows accented variants in any text input (e.g., hold 'e' for è, é, ê, ë) |
 
 All zoom changes are automatically persisted per-domain and restored on next visit.
 
@@ -251,7 +252,8 @@ sudo apt install va-driver-all
   - rofi:   `dumber dmenu | rofi -dmenu -show-icons -p "🔍 " | dumber dmenu --select`
   - fuzzel: `dumber dmenu | fuzzel --dmenu -p "🔍 " | dumber dmenu --select`
   - `dumber dmenu --interactive`        # built-in TUI fuzzy finder
-  - `dumber dmenu --max 200`            # limit output entries
+  - `dumber dmenu --days 7`             # show history from last 7 days (default: 30)
+  - `dumber dmenu --most-visited`       # sort by visit count instead of recency
 - Manage browsing history:
   - `dumber history`                    # interactive history browser (timeline tabs + fuzzy search)
   - `dumber history --json`             # output recent entries as JSON

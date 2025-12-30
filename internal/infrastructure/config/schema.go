@@ -125,6 +125,20 @@ const (
 	GLRenderingModeNone GLRenderingMode = "none"
 )
 
+// PerformanceProfile selects preset performance tuning settings.
+type PerformanceProfile string
+
+const (
+	// ProfileDefault uses WebKit defaults (no tuning applied).
+	ProfileDefault PerformanceProfile = "default"
+	// ProfileLite reduces resource usage for low-RAM systems.
+	ProfileLite PerformanceProfile = "lite"
+	// ProfileMax maximizes responsiveness for heavy pages (GitHub PRs, etc).
+	ProfileMax PerformanceProfile = "max"
+	// ProfileCustom allows full control over individual performance settings.
+	ProfileCustom PerformanceProfile = "custom"
+)
+
 // ThemeDefault is the default theme setting (follows system).
 const ThemeDefault = "default"
 
@@ -181,6 +195,12 @@ type HistoryConfig struct {
 // PerformanceConfig holds internal performance tuning options.
 // These are not exposed in dumb://config UI but can be set in config file.
 type PerformanceConfig struct {
+	// Profile selects a preset performance configuration.
+	// Values: "default" (no tuning), "lite" (low RAM), "max" (heavy pages), "custom" (manual control)
+	// When profile is not "custom", individual tuning fields below are ignored and computed from the profile.
+	// Default: "default"
+	Profile PerformanceProfile `mapstructure:"profile" yaml:"profile" toml:"profile"`
+
 	// ZoomCacheSize is the number of domain zoom levels to cache in memory.
 	// Higher values reduce database queries but use more memory.
 	// Default: 256 domains (~20KB memory)
@@ -188,8 +208,56 @@ type PerformanceConfig struct {
 
 	// WebViewPoolPrewarmCount is the number of WebViews to pre-create at startup.
 	// Higher values speed up initial tab creation but use more memory.
-	// Default: 4
+	// Default: 4 (custom mode), computed from profile otherwise
 	WebViewPoolPrewarmCount int `mapstructure:"webview_pool_prewarm_count" yaml:"webview_pool_prewarm_count" toml:"webview_pool_prewarm_count"` //nolint:lll // struct tags must stay on one line
+
+	// --- Skia rendering threads (env vars) ---
+	// NOTE: Fields below only apply when Profile is "custom".
+	// SkiaCPUPaintingThreads sets WEBKIT_SKIA_CPU_PAINTING_THREADS.
+	// Default: 0 (unset, uses WebKit default)
+	SkiaCPUPaintingThreads int `mapstructure:"skia_cpu_painting_threads" yaml:"skia_cpu_painting_threads" toml:"skia_cpu_painting_threads"` //nolint:lll // struct tags must stay on one line
+
+	// SkiaGPUPaintingThreads sets WEBKIT_SKIA_GPU_PAINTING_THREADS.
+	// Default: -1 (unset). Value 0 disables GPU tile painting.
+	SkiaGPUPaintingThreads int `mapstructure:"skia_gpu_painting_threads" yaml:"skia_gpu_painting_threads" toml:"skia_gpu_painting_threads"` //nolint:lll // struct tags must stay on one line
+
+	// SkiaEnableCPURendering forces CPU rendering via WEBKIT_SKIA_ENABLE_CPU_RENDERING=1.
+	// Default: false
+	SkiaEnableCPURendering bool `mapstructure:"skia_enable_cpu_rendering" yaml:"skia_enable_cpu_rendering" toml:"skia_enable_cpu_rendering"` //nolint:lll // struct tags must stay on one line
+
+	// --- Web process memory pressure ---
+	// WebProcessMemoryLimitMB sets memory limit in MB for web processes.
+	// Default: 0 (unset, uses WebKit default: system RAM capped at 3GB)
+	WebProcessMemoryLimitMB int `mapstructure:"web_process_memory_limit_mb" yaml:"web_process_memory_limit_mb" toml:"web_process_memory_limit_mb"` //nolint:lll // struct tags must stay on one line
+
+	// WebProcessMemoryPollIntervalSec sets poll interval for memory checks.
+	// Default: 0 (unset, uses WebKit default: 30 seconds)
+	WebProcessMemoryPollIntervalSec float64 `mapstructure:"web_process_memory_poll_interval_sec" yaml:"web_process_memory_poll_interval_sec" toml:"web_process_memory_poll_interval_sec"` //nolint:lll // struct tags must stay on one line
+
+	// WebProcessMemoryConservativeThreshold sets threshold for conservative memory release.
+	// Valid: (0, 1). Default: 0 (unset, uses WebKit default: 0.33)
+	WebProcessMemoryConservativeThreshold float64 `mapstructure:"web_process_memory_conservative_threshold" yaml:"web_process_memory_conservative_threshold" toml:"web_process_memory_conservative_threshold"` //nolint:lll // struct tags must stay on one line
+
+	// WebProcessMemoryStrictThreshold sets threshold for strict memory release.
+	// Valid: (0, 1). Default: 0 (unset, uses WebKit default: 0.5)
+	WebProcessMemoryStrictThreshold float64 `mapstructure:"web_process_memory_strict_threshold" yaml:"web_process_memory_strict_threshold" toml:"web_process_memory_strict_threshold"` //nolint:lll // struct tags must stay on one line
+
+	// --- Network process memory pressure ---
+	// NetworkProcessMemoryLimitMB sets memory limit in MB for network process.
+	// Default: 0 (unset)
+	NetworkProcessMemoryLimitMB int `mapstructure:"network_process_memory_limit_mb" yaml:"network_process_memory_limit_mb" toml:"network_process_memory_limit_mb"` //nolint:lll // struct tags must stay on one line
+
+	// NetworkProcessMemoryPollIntervalSec sets poll interval for memory checks.
+	// Default: 0 (unset)
+	NetworkProcessMemoryPollIntervalSec float64 `mapstructure:"network_process_memory_poll_interval_sec" yaml:"network_process_memory_poll_interval_sec" toml:"network_process_memory_poll_interval_sec"` //nolint:lll // struct tags must stay on one line
+
+	// NetworkProcessMemoryConservativeThreshold sets threshold for conservative memory release.
+	// Valid: (0, 1). Default: 0 (unset)
+	NetworkProcessMemoryConservativeThreshold float64 `mapstructure:"network_process_memory_conservative_threshold" yaml:"network_process_memory_conservative_threshold" toml:"network_process_memory_conservative_threshold"` //nolint:lll // struct tags must stay on one line
+
+	// NetworkProcessMemoryStrictThreshold sets threshold for strict memory release.
+	// Valid: (0, 1). Default: 0 (unset)
+	NetworkProcessMemoryStrictThreshold float64 `mapstructure:"network_process_memory_strict_threshold" yaml:"network_process_memory_strict_threshold" toml:"network_process_memory_strict_threshold"` //nolint:lll // struct tags must stay on one line
 }
 
 // SearchShortcut represents a search shortcut configuration.
@@ -210,7 +278,7 @@ func (c *Config) ShortcutURLs() map[string]string {
 
 // DmenuConfig holds dmenu/rofi integration configuration.
 type DmenuConfig struct {
-	MaxHistoryItems  int    `mapstructure:"max_history_items" yaml:"max_history_items" toml:"max_history_items"`
+	MaxHistoryDays   int    `mapstructure:"max_history_days" yaml:"max_history_days" toml:"max_history_days"`
 	ShowVisitCount   bool   `mapstructure:"show_visit_count" yaml:"show_visit_count" toml:"show_visit_count"`
 	ShowLastVisited  bool   `mapstructure:"show_last_visited" yaml:"show_last_visited" toml:"show_last_visited"`
 	HistoryPrefix    string `mapstructure:"history_prefix" yaml:"history_prefix" toml:"history_prefix"`

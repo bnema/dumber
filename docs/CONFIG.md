@@ -83,14 +83,14 @@ These settings control the `dumber dmenu` CLI command for rofi/fuzzel integratio
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `dmenu.max_history_items` | int | `20` | Max items shown in launcher |
+| `dmenu.max_history_days` | int | `30` | Number of days of history to show (0 = all) |
 | `dmenu.show_visit_count` | bool | `true` | Show visit counts in output |
 | `dmenu.show_last_visited` | bool | `true` | Show last visited dates in output |
 | `dmenu.history_prefix` | string | `"🕒"` | Prefix for history items |
 | `dmenu.shortcut_prefix` | string | `"🔍"` | Prefix for shortcuts |
 | `dmenu.url_prefix` | string | `"🌐"` | Prefix for URLs |
 | `dmenu.date_format` | string | `"2006-01-02 15:04"` | Go time format string |
-| `dmenu.sort_by_visit_count` | bool | `true` | Sort by popularity |
+| `dmenu.sort_by_visit_count` | bool | `true` | Sort by visit count instead of recency |
 
 **CLI Usage:**
 ```bash
@@ -101,8 +101,14 @@ dumber dmenu | fuzzel --dmenu -p "Browse: " | dumber dmenu --select
 # Interactive TUI mode
 dumber dmenu --interactive
 
-# Override max items via CLI flag
-dumber dmenu --max 50
+# Override history days via CLI flag (show last 7 days)
+dumber dmenu --days 7
+
+# Sort by most visited instead of recency
+dumber dmenu --most-visited
+
+# Combined: most visited from last 14 days
+dumber dmenu --days 14 --most-visited
 ```
 
 ## Omnibox
@@ -490,6 +496,92 @@ dumber config migrate
 # Skip confirmation prompt
 dumber config migrate --yes
 ```
+
+## Performance Profiles
+
+Performance profiles provide preset configurations for WebKitGTK tuning. These settings affect Skia rendering threads, memory pressure handling, and WebView pool behavior.
+
+> **Note:** Performance settings are applied at browser startup. Changes require a restart to take effect.
+
+| Key | Type | Default | Valid Values | Description |
+|-----|------|---------|--------------|-------------|
+| `performance.profile` | string | `"default"` | `default`, `lite`, `max`, `custom` | Performance profile selection |
+
+### Profiles
+
+| Profile | Description | Use Case |
+|---------|-------------|----------|
+| `default` | No tuning, uses WebKit defaults | Normal browsing, most users |
+| `lite` | Reduced resource usage | Low-RAM systems (< 4GB), battery saving |
+| `max` | Maximum responsiveness | Heavy pages (GitHub PRs, complex SPAs), high-end systems |
+| `custom` | Manual control over all settings | Advanced users who want fine-grained control |
+
+### Profile Settings Matrix
+
+| Setting | default | lite | max |
+|---------|---------|------|-----|
+| Skia CPU threads | unset | 2 | `NumCPU()/2` (min 4) |
+| Skia GPU threads | unset | unset | scales with VRAM |
+| Web process memory (MB) | unset | 768 | unset |
+| Network process memory (MB) | unset | 384 | unset |
+| Conservative threshold | unset | 0.25 | unset |
+| Strict threshold | unset | 0.4 | unset |
+| WebView pool prewarm | 4 | 2 | scales with RAM |
+
+**Example:**
+```toml
+[performance]
+profile = "default"  # Most users - no tuning needed
+
+# For low-RAM systems:
+# profile = "lite"
+
+# For heavy pages (GitHub PRs, complex web apps):
+# profile = "max"
+
+# For manual control:
+# profile = "custom"
+```
+
+### Custom Profile Settings
+
+When `profile = "custom"`, you can configure individual tuning options:
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `performance.skia_cpu_painting_threads` | int | `0` | Skia CPU rendering threads (0=unset) |
+| `performance.skia_gpu_painting_threads` | int | `-1` | Skia GPU rendering threads (-1=unset, 0=disable) |
+| `performance.skia_enable_cpu_rendering` | bool | `false` | Force CPU rendering |
+| `performance.web_process_memory_limit_mb` | int | `0` | Web process memory limit in MB (0=unset) |
+| `performance.web_process_memory_poll_interval_sec` | float | `0` | Memory check interval (0=WebKit default: 30s) |
+| `performance.web_process_memory_conservative_threshold` | float | `0` | Conservative cleanup threshold (0=unset) |
+| `performance.web_process_memory_strict_threshold` | float | `0` | Strict cleanup threshold (0=unset) |
+| `performance.network_process_memory_limit_mb` | int | `0` | Network process memory limit in MB |
+| `performance.network_process_memory_poll_interval_sec` | float | `0` | Network memory check interval |
+| `performance.network_process_memory_conservative_threshold` | float | `0` | Network conservative threshold |
+| `performance.network_process_memory_strict_threshold` | float | `0` | Network strict threshold |
+| `performance.webview_pool_prewarm_count` | int | `4` | WebViews to pre-create at startup |
+| `performance.zoom_cache_size` | int | `256` | Domain zoom levels to cache |
+
+**Custom profile example:**
+```toml
+[performance]
+profile = "custom"
+
+# Skia threading - tune for your CPU
+skia_cpu_painting_threads = 4
+skia_gpu_painting_threads = 2
+
+# Web process memory pressure
+web_process_memory_limit_mb = 1024
+web_process_memory_conservative_threshold = 0.4
+web_process_memory_strict_threshold = 0.6
+
+# WebView pool
+webview_pool_prewarm_count = 6
+```
+
+> **Important:** Individual tuning fields are ignored unless `profile = "custom"`. Setting individual fields with any other profile will produce a validation warning.
 
 ## Environment Variables
 

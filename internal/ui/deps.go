@@ -8,6 +8,7 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
+	"github.com/bnema/dumber/internal/infrastructure/colorscheme"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
@@ -25,8 +26,10 @@ type Dependencies struct {
 	RestoreSessionID    string // Session ID to restore on startup (optional)
 	OnFirstWebViewShown func(context.Context)
 
-	// Theme management
-	Theme *theme.Manager
+	// Theme and color scheme management
+	Theme           *theme.Manager
+	ColorResolver   port.ColorSchemeResolver
+	AdwaitaDetector *colorscheme.AdwaitaDetector
 
 	// WebKit infrastructure
 	WebContext    *webkit.WebKitContext
@@ -56,6 +59,9 @@ type Dependencies struct {
 	FaviconService *favicon.Service
 	FilterManager  *filtering.Manager
 	IdleInhibitor  port.IdleInhibitor
+
+	// Accent picker for dead keys support
+	InsertAccentUC *usecase.InsertAccentUseCase
 
 	// Session management
 	SessionStateRepo repository.SessionStateRepository
