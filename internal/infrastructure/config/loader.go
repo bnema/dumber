@@ -492,14 +492,12 @@ func (m *Manager) setPerformanceDefaults(defaults *Config) {
 	m.viper.SetDefault("performance.web_process_memory_poll_interval_sec", defaults.Performance.WebProcessMemoryPollIntervalSec)
 	m.viper.SetDefault("performance.web_process_memory_conservative_threshold", defaults.Performance.WebProcessMemoryConservativeThreshold)
 	m.viper.SetDefault("performance.web_process_memory_strict_threshold", defaults.Performance.WebProcessMemoryStrictThreshold)
-	m.viper.SetDefault("performance.web_process_memory_kill_threshold", defaults.Performance.WebProcessMemoryKillThreshold)
 	// Network process memory pressure
 	m.viper.SetDefault("performance.network_process_memory_limit_mb", defaults.Performance.NetworkProcessMemoryLimitMB)
 	m.viper.SetDefault("performance.network_process_memory_poll_interval_sec", defaults.Performance.NetworkProcessMemoryPollIntervalSec)
 	netConservativeThreshold := defaults.Performance.NetworkProcessMemoryConservativeThreshold
 	m.viper.SetDefault("performance.network_process_memory_conservative_threshold", netConservativeThreshold)
 	m.viper.SetDefault("performance.network_process_memory_strict_threshold", defaults.Performance.NetworkProcessMemoryStrictThreshold)
-	m.viper.SetDefault("performance.network_process_memory_kill_threshold", defaults.Performance.NetworkProcessMemoryKillThreshold)
 }
 
 // New returns a new default configuration instance.

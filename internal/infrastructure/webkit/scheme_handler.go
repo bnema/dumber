@@ -114,7 +114,6 @@ type configResolvedPerformance struct {
 	WebViewPoolPrewarm     int     `json:"webview_pool_prewarm"`
 	ConservativeThreshold  float64 `json:"conservative_threshold"`
 	StrictThreshold        float64 `json:"strict_threshold"`
-	KillThreshold          float64 `json:"kill_threshold"`
 }
 
 type configPayload struct {
@@ -224,7 +223,6 @@ func (h *DumbSchemeHandler) buildConfigResponse(cfg *config.Config) *SchemeRespo
 				WebViewPoolPrewarm:     resolved.WebViewPoolPrewarmCount,
 				ConservativeThreshold:  resolved.WebProcessMemoryConservativeThreshold,
 				StrictThreshold:        resolved.WebProcessMemoryStrictThreshold,
-				KillThreshold:          resolved.WebProcessMemoryKillThreshold,
 			},
 			Hardware: buildHardwarePayload(hw),
 		},
