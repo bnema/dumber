@@ -25,11 +25,28 @@ type UpdateDownloader interface {
 	Extract(ctx context.Context, archivePath string, destDir string) (binaryPath string, err error)
 }
 
+// SelfUpdateBlockedReason indicates why self-update is not available.
+type SelfUpdateBlockedReason string
+
+const (
+	// SelfUpdateAllowed means self-update is possible.
+	SelfUpdateAllowed SelfUpdateBlockedReason = ""
+	// SelfUpdateBlockedFlatpak means updates are managed by Flatpak.
+	SelfUpdateBlockedFlatpak SelfUpdateBlockedReason = "flatpak"
+	// SelfUpdateBlockedPacman means updates are managed by pacman/AUR.
+	SelfUpdateBlockedPacman SelfUpdateBlockedReason = "pacman"
+	// SelfUpdateBlockedNotWritable means the binary is not writable.
+	SelfUpdateBlockedNotWritable SelfUpdateBlockedReason = "not_writable"
+)
+
 // UpdateApplier stages and applies updates.
 type UpdateApplier interface {
 	// CanSelfUpdate checks if the current binary is writable by the current user.
 	// Returns true if auto-update is possible, false if user lacks write permission.
 	CanSelfUpdate(ctx context.Context) bool
+
+	// SelfUpdateBlockedReason returns why self-update is blocked, or empty if allowed.
+	SelfUpdateBlockedReason(ctx context.Context) SelfUpdateBlockedReason
 
 	// GetBinaryPath returns the path to the currently running binary.
 	GetBinaryPath() (string, error)

@@ -10,6 +10,17 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+## [0.23.2] - 2025-12-31
+
+### Added
+- **AUR packaging support**: Dumber is now available on the Arch User Repository (AUR).
+  - `dumber-browser-bin`: Pre-built binary package from GitHub releases (recommended).
+  - `dumber-browser-git`: Build from source, tracks latest git.
+  - Install with `yay -S dumber-browser-bin` or `paru -S dumber-browser-bin`.
+  - Automatic AUR updates via GitHub Actions (1 hour delay after Flatpak build for safety).
+- **Pacman/AUR install detection**: Self-updater is disabled when installed via pacman/AUR (uses `pacman -Qo` to detect package ownership). Shows specific message: "use your package manager instead".
+- **Improved update error messages**: Self-update now shows specific messages for Flatpak ("use 'flatpak update'") and pacman/AUR ("use your package manager") installs instead of generic "binary not writable" error.
+
 ## [0.23.1] - 2025-12-30
 
 ### Added
