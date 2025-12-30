@@ -21,6 +21,8 @@ packages:
       MemoryPressureApplier: {}
       WebKitContextProvider: {}
       HardwareSurveyor: {}
+      ColorSchemeDetector: {}
+      ColorSchemeResolver: {}
   github.com/bnema/dumber/internal/domain/repository:
     config:
       dir: '{{.InterfaceDir}}/mocks'

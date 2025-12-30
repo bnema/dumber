@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **Dark mode detection on internal pages**: Fixed `dumb://home` and other internal pages showing light theme despite system being in dark mode. Refactored color scheme detection to use a priority-based resolver with proper initialization ordering. The libadwaita detector (highest priority) is now correctly enabled only after `adw.Init()` completes, ensuring WebViews created during bootstrap get the correct theme preference.
+
 ## [0.22.0] - 2025-12-28
 
 ### Added

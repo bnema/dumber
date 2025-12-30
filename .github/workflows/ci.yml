@@ -77,7 +77,7 @@ jobs:
       - name: Install dependencies
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm git go nodejs npm webkitgtk-6.0 gtk4 gobject-introspection base-devel
+          pacman -S --noconfirm git go nodejs npm webkitgtk-6.0 gtk4 libadwaita gobject-introspection base-devel
       - uses: actions/checkout@v6
       - name: Cache Go modules
         uses: actions/cache@v4
@@ -103,4 +103,7 @@ jobs:
       - name: Build frontend assets
         run: make build-frontend
       - name: Run tests
+        env:
+          GDK_BACKEND: wayland
+          WAYLAND_DISPLAY: wayland-0
         run: go test -v ./...

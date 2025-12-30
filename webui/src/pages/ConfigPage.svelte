@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { ModeWatcher } from "mode-watcher";
   import ConfigShell from "./config/ConfigShell.svelte";
   import ShortcutsTable from "./config/ShortcutsTable.svelte";
   import * as AlertDialog from "$lib/components/ui/alert-dialog";
@@ -175,9 +176,6 @@
       if (!bridge) {
         throw new Error("WebKit bridge not available (not running inside Dumber)");
       }
-      if (!webviewId) {
-        throw new Error("Missing window.__dumber_webview_id; cannot dispatch/receive callbacks");
-      }
       if (!config) {
         throw new Error("Config not loaded");
       }
@@ -268,6 +266,7 @@
   });
 </script>
 
+<ModeWatcher />
 <ConfigShell>
   <div class="flex w-full flex-col gap-6 px-6 py-8">
     {#if loading}

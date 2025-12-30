@@ -353,6 +353,57 @@ func (p *WebViewPool) Size() int {
 	return len(p.pool)
 }
 
+// RefreshScripts clears and re-injects scripts to all pooled WebViews.
+// This is needed after adw.Init() to update dark mode preference that was
+// injected with the wrong value during early prewarming.
+func (p *WebViewPool) RefreshScripts(ctx context.Context) {
+	if p.closed.Load() || p.injector == nil {
+		return
+	}
+
+	log := logging.FromContext(ctx)
+
+	// Drain and refresh each WebView, then put it back
+	count := len(p.pool)
+	if count == 0 {
+		return
+	}
+
+	refreshed := 0
+refreshLoop:
+	for i := 0; i < count; i++ {
+		select {
+		case wv := <-p.pool:
+			if wv == nil || wv.IsDestroyed() {
+				continue
+			}
+
+			// Clear existing scripts and re-inject with updated values
+			if wv.ucm != nil {
+				wv.ucm.RemoveAllScripts()
+				wv.ucm.RemoveAllStyleSheets()
+				p.injector.InjectScripts(ctx, wv.ucm, wv.ID())
+			}
+
+			// Put back in pool
+			select {
+			case p.pool <- wv:
+				refreshed++
+			default:
+				wv.Destroy()
+			}
+		default:
+			// Pool was modified during iteration, stop
+			break refreshLoop
+		}
+	}
+
+	log.Debug().
+		Int("refreshed", refreshed).
+		Bool("prefers_dark", p.injector.PrefersDark()).
+		Msg("refreshed scripts in pooled webviews")
+}
+
 // Close shuts down the pool and destroys all pooled WebViews.
 func (p *WebViewPool) Close(ctx context.Context) {
 	if p.closed.Swap(true) {
