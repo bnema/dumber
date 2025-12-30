@@ -10,6 +10,10 @@ on:
     types:
       - completed
 
+concurrency:
+  group: aur-publish
+  cancel-in-progress: true
+
 jobs:
   publish-aur:
     name: Publish to AUR
