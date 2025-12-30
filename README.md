@@ -230,7 +230,7 @@ sudo pacman -S gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugl
 sudo pacman -S gst-plugin-va
 
 # VA-API drivers (choose based on your GPU)
-# AMD: sudo pacman -S libva-mesa-driver mesa
+# AMD: sudo pacman -S mesa
 # NVIDIA: sudo pacman -S libva-nvidia-driver
 # Intel: sudo pacman -S libva-intel-driver intel-media-driver
 ```
@@ -405,7 +405,7 @@ WebKitGTK uses GStreamer for media playback. Dumber includes automatic hardware 
 - Arch Linux:
   - `sudo pacman -S gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-plugin-pipewire pipewire pipewire-pulse`
   - Hardware decoding: `gst-plugin-va` (stateless VA decoders - required for WebKitGTK)
-  - VA-API drivers: `libva-mesa-driver mesa` (AMD), `libva-nvidia-driver` (NVIDIA), `libva-intel-driver intel-media-driver` (Intel)
+  - VA-API drivers: `mesa` (AMD), `libva-nvidia-driver` (NVIDIA), `libva-intel-driver intel-media-driver` (Intel)
 - Debian/Ubuntu:
   - `sudo apt install gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-pipewire`
   - Hardware decoding: `gstreamer1.0-plugins-bad` includes VA stateless decoders
