@@ -9,6 +9,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -58,8 +59,15 @@ func (a *Applier) stagedBinaryPath() string {
 }
 
 // CanSelfUpdate checks if the current binary is writable by the current user.
+// Returns false if running inside a Flatpak sandbox (updates handled by Flatpak).
 func (a *Applier) CanSelfUpdate(ctx context.Context) bool {
 	log := logging.FromContext(ctx)
+
+	// Flatpak sandboxed apps should not self-update; Flatpak handles updates.
+	if env.IsFlatpak() {
+		log.Debug().Msg("running in Flatpak sandbox, self-update disabled")
+		return false
+	}
 
 	binaryPath, err := a.GetBinaryPath()
 	if err != nil {

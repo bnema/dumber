@@ -10,6 +10,17 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+## [0.23.1] - 2025-12-30
+
+### Added
+- **Flatpak packaging support**: Dumber is now available as a Flatpak bundle for easy installation with all dependencies included.
+  - `dumber.flatpak` bundle attached to each GitHub release.
+  - Install with `flatpak install --user dumber.flatpak`.
+  - Includes Wayland, GPU, audio, webcam, and PipeWire permissions.
+  - Automatic builds via GitHub Actions on every release.
+- **Flatpak runtime detection**: Skip pkg-config runtime checks when running inside Flatpak sandbox (GNOME runtime provides all dependencies).
+- **Self-updater disabled in Flatpak**: Binary self-update is disabled when running as Flatpak (use Flatpak update mechanisms instead).
+
 ## [0.23.0] - 2025-12-30
 
 ### Added

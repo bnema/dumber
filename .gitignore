@@ -89,3 +89,10 @@ vendor/
 serviceworkers/
 storage/
 mediakeys/
+
+# Flatpak build artifacts
+flatpak-build/
+flatpak-repo/
+.flatpak-builder/
+*.flatpak
+builddir/
