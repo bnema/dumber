@@ -69,9 +69,6 @@ const (
 	// Skia threading defaults (0 = unset, -1 = unset for GPU threads)
 	defaultSkiaCPUPaintingThreads = 0
 	defaultSkiaGPUPaintingThreads = -1 // -1 means unset; 0 would disable GPU tile painting
-
-	// Memory pressure defaults (-1 = unset for kill threshold, 0 = unset for others)
-	defaultMemoryPressureKillThreshold = -1.0
 )
 
 // getDefaultLogDir returns the default log directory, falls back to empty string on error
@@ -302,13 +299,11 @@ func DefaultConfig() *Config {
 			WebProcessMemoryPollIntervalSec:       0,
 			WebProcessMemoryConservativeThreshold: 0,
 			WebProcessMemoryStrictThreshold:       0,
-			WebProcessMemoryKillThreshold:         defaultMemoryPressureKillThreshold,
 			// Network process memory pressure - all unset by default
 			NetworkProcessMemoryLimitMB:               0,
 			NetworkProcessMemoryPollIntervalSec:       0,
 			NetworkProcessMemoryConservativeThreshold: 0,
 			NetworkProcessMemoryStrictThreshold:       0,
-			NetworkProcessMemoryKillThreshold:         defaultMemoryPressureKillThreshold,
 		},
 		Update: UpdateConfig{
 			EnableOnStartup:     true,  // Check for updates on startup by default

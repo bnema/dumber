@@ -242,10 +242,6 @@ type PerformanceConfig struct {
 	// Valid: (0, 1). Default: 0 (unset, uses WebKit default: 0.5)
 	WebProcessMemoryStrictThreshold float64 `mapstructure:"web_process_memory_strict_threshold" yaml:"web_process_memory_strict_threshold" toml:"web_process_memory_strict_threshold"` //nolint:lll // struct tags must stay on one line
 
-	// WebProcessMemoryKillThreshold sets threshold for killing processes.
-	// Default: -1 (unset). Value 0 means never kill.
-	WebProcessMemoryKillThreshold float64 `mapstructure:"web_process_memory_kill_threshold" yaml:"web_process_memory_kill_threshold" toml:"web_process_memory_kill_threshold"` //nolint:lll // struct tags must stay on one line
-
 	// --- Network process memory pressure ---
 	// NetworkProcessMemoryLimitMB sets memory limit in MB for network process.
 	// Default: 0 (unset)
@@ -262,10 +258,6 @@ type PerformanceConfig struct {
 	// NetworkProcessMemoryStrictThreshold sets threshold for strict memory release.
 	// Valid: (0, 1). Default: 0 (unset)
 	NetworkProcessMemoryStrictThreshold float64 `mapstructure:"network_process_memory_strict_threshold" yaml:"network_process_memory_strict_threshold" toml:"network_process_memory_strict_threshold"` //nolint:lll // struct tags must stay on one line
-
-	// NetworkProcessMemoryKillThreshold sets threshold for killing network process.
-	// Default: -1 (unset). Value 0 means never kill.
-	NetworkProcessMemoryKillThreshold float64 `mapstructure:"network_process_memory_kill_threshold" yaml:"network_process_memory_kill_threshold" toml:"network_process_memory_kill_threshold"` //nolint:lll // struct tags must stay on one line
 }
 
 // SearchShortcut represents a search shortcut configuration.
