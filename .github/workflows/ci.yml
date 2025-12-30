@@ -103,4 +103,7 @@ jobs:
       - name: Build frontend assets
         run: make build-frontend
       - name: Run tests
+        env:
+          GDK_BACKEND: wayland
+          WAYLAND_DISPLAY: wayland-0
         run: go test -v ./...
