@@ -41,7 +41,6 @@ func (*MemoryPressureApplier) ApplyNetworkProcessSettings(ctx context.Context, c
 		Float64("poll_sec", cfg.PollIntervalSec).
 		Float64("conservative", cfg.ConservativeThreshold).
 		Float64("strict", cfg.StrictThreshold).
-		Float64("kill", cfg.KillThreshold).
 		Msg("applied network process memory pressure settings")
 
 	return nil
@@ -72,7 +71,6 @@ func (*MemoryPressureApplier) ApplyWebProcessSettings(ctx context.Context, cfg *
 		Float64("poll_sec", cfg.PollIntervalSec).
 		Float64("conservative", cfg.ConservativeThreshold).
 		Float64("strict", cfg.StrictThreshold).
-		Float64("kill", cfg.KillThreshold).
 		Msg("prepared web process memory pressure settings")
 
 	return settings, nil
@@ -110,11 +108,6 @@ func buildMemoryPressureSettings(cfg *port.MemoryPressureConfig) *webkit.MemoryP
 		if conservative < strict {
 			settings.SetConservativeThreshold(conservative)
 		}
-	}
-
-	// Kill threshold: -1 = unset, 0 = never kill, >0 = threshold
-	if cfg.KillThreshold >= 0 {
-		settings.SetKillThreshold(cfg.KillThreshold)
 	}
 
 	return settings

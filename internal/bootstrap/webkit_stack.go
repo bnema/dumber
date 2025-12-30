@@ -79,7 +79,6 @@ func BuildWebKitStack(input WebKitStackInput) WebKitStack {
 			PollIntervalSec:       perfSettings.WebProcessMemoryPollIntervalSec,
 			ConservativeThreshold: perfSettings.WebProcessMemoryConservativeThreshold,
 			StrictThreshold:       perfSettings.WebProcessMemoryStrictThreshold,
-			KillThreshold:         perfSettings.WebProcessMemoryKillThreshold,
 		}
 	}
 
@@ -90,7 +89,6 @@ func BuildWebKitStack(input WebKitStackInput) WebKitStack {
 			PollIntervalSec:       perfSettings.NetworkProcessMemoryPollIntervalSec,
 			ConservativeThreshold: perfSettings.NetworkProcessMemoryConservativeThreshold,
 			StrictThreshold:       perfSettings.NetworkProcessMemoryStrictThreshold,
-			KillThreshold:         perfSettings.NetworkProcessMemoryKillThreshold,
 		}
 	}
 
@@ -165,8 +163,7 @@ func hasWebProcessMemoryConfig(p *config.ResolvedPerformanceSettings) bool {
 	return p.WebProcessMemoryLimitMB > 0 ||
 		p.WebProcessMemoryPollIntervalSec > 0 ||
 		p.WebProcessMemoryConservativeThreshold > 0 ||
-		p.WebProcessMemoryStrictThreshold > 0 ||
-		p.WebProcessMemoryKillThreshold >= 0
+		p.WebProcessMemoryStrictThreshold > 0
 }
 
 // hasNetworkProcessMemoryConfig returns true if any network process memory setting is configured.
@@ -174,8 +171,7 @@ func hasNetworkProcessMemoryConfig(p *config.ResolvedPerformanceSettings) bool {
 	return p.NetworkProcessMemoryLimitMB > 0 ||
 		p.NetworkProcessMemoryPollIntervalSec > 0 ||
 		p.NetworkProcessMemoryConservativeThreshold > 0 ||
-		p.NetworkProcessMemoryStrictThreshold > 0 ||
-		p.NetworkProcessMemoryKillThreshold >= 0
+		p.NetworkProcessMemoryStrictThreshold > 0
 }
 
 // configureRenderingEnvironment sets up the rendering environment before WebKit/GTK initialization.

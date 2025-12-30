@@ -19,10 +19,8 @@ func TestMemoryPressureConfig_IsConfigured(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "empty config with default kill threshold",
-			config: &port.MemoryPressureConfig{
-				KillThreshold: -1, // explicit unset
-			},
+			name:     "empty config",
+			config:   &port.MemoryPressureConfig{},
 			expected: false,
 		},
 		{
@@ -54,34 +52,12 @@ func TestMemoryPressureConfig_IsConfigured(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "KillThreshold set to 0 (never kill)",
-			config: &port.MemoryPressureConfig{
-				KillThreshold: 0,
-			},
-			expected: true,
-		},
-		{
-			name: "KillThreshold set to positive value",
-			config: &port.MemoryPressureConfig{
-				KillThreshold: 1.5,
-			},
-			expected: true,
-		},
-		{
-			name: "KillThreshold unset (-1)",
-			config: &port.MemoryPressureConfig{
-				KillThreshold: -1,
-			},
-			expected: false,
-		},
-		{
 			name: "all defaults (unset)",
 			config: &port.MemoryPressureConfig{
 				MemoryLimitMB:         0,
 				PollIntervalSec:       0,
 				ConservativeThreshold: 0,
 				StrictThreshold:       0,
-				KillThreshold:         -1,
 			},
 			expected: false,
 		},
@@ -92,7 +68,6 @@ func TestMemoryPressureConfig_IsConfigured(t *testing.T) {
 				PollIntervalSec:       15.0,
 				ConservativeThreshold: 0.25,
 				StrictThreshold:       0.6,
-				KillThreshold:         0.9,
 			},
 			expected: true,
 		},
@@ -118,11 +93,9 @@ func TestWebKitContextOptions_IsWebProcessMemoryConfigured(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "empty WebProcessMemory with default kill threshold",
+			name: "empty WebProcessMemory",
 			opts: port.WebKitContextOptions{
-				WebProcessMemory: &port.MemoryPressureConfig{
-					KillThreshold: -1, // explicit unset
-				},
+				WebProcessMemory: &port.MemoryPressureConfig{},
 			},
 			expected: false,
 		},
@@ -157,11 +130,9 @@ func TestWebKitContextOptions_IsNetworkProcessMemoryConfigured(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "empty NetworkProcessMemory with default kill threshold",
+			name: "empty NetworkProcessMemory",
 			opts: port.WebKitContextOptions{
-				NetworkProcessMemory: &port.MemoryPressureConfig{
-					KillThreshold: -1, // explicit unset
-				},
+				NetworkProcessMemory: &port.MemoryPressureConfig{},
 			},
 			expected: false,
 		},

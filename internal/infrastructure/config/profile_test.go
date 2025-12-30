@@ -55,17 +55,14 @@ func TestResolvePerformanceProfile_Lite_NoHardware(t *testing.T) {
 	if result.SkiaCPUPaintingThreads != 2 {
 		t.Errorf("expected SkiaCPUPaintingThreads=2, got %d", result.SkiaCPUPaintingThreads)
 	}
-	if result.WebProcessMemoryLimitMB != 512 {
-		t.Errorf("expected WebProcessMemoryLimitMB=512, got %d", result.WebProcessMemoryLimitMB)
+	if result.WebProcessMemoryLimitMB != 768 {
+		t.Errorf("expected WebProcessMemoryLimitMB=768, got %d", result.WebProcessMemoryLimitMB)
 	}
-	if result.NetworkProcessMemoryLimitMB != 256 {
-		t.Errorf("expected NetworkProcessMemoryLimitMB=256, got %d", result.NetworkProcessMemoryLimitMB)
+	if result.NetworkProcessMemoryLimitMB != 384 {
+		t.Errorf("expected NetworkProcessMemoryLimitMB=384, got %d", result.NetworkProcessMemoryLimitMB)
 	}
 	if result.WebViewPoolPrewarmCount != 2 {
 		t.Errorf("expected WebViewPoolPrewarmCount=2, got %d", result.WebViewPoolPrewarmCount)
-	}
-	if result.WebProcessMemoryKillThreshold != 0.8 {
-		t.Errorf("expected WebProcessMemoryKillThreshold=0.8, got %f", result.WebProcessMemoryKillThreshold)
 	}
 }
 
@@ -109,15 +106,12 @@ func TestResolvePerformanceProfile_Max_NoHardware(t *testing.T) {
 	if result.SkiaGPUPaintingThreads != 2 {
 		t.Errorf("expected SkiaGPUPaintingThreads=2 (fallback), got %d", result.SkiaGPUPaintingThreads)
 	}
-	// Memory: fallback assumes 16GB system
-	if result.WebProcessMemoryLimitMB != 2048 {
-		t.Errorf("expected WebProcessMemoryLimitMB=2048, got %d", result.WebProcessMemoryLimitMB)
+	// Max profile: no memory limits (unset)
+	if result.WebProcessMemoryLimitMB != 0 {
+		t.Errorf("expected WebProcessMemoryLimitMB=0 (unset), got %d", result.WebProcessMemoryLimitMB)
 	}
 	if result.WebViewPoolPrewarmCount != 8 {
 		t.Errorf("expected WebViewPoolPrewarmCount=8, got %d", result.WebViewPoolPrewarmCount)
-	}
-	if result.WebProcessMemoryKillThreshold != -1 {
-		t.Errorf("expected WebProcessMemoryKillThreshold=-1 (never kill), got %f", result.WebProcessMemoryKillThreshold)
 	}
 }
 
@@ -143,12 +137,12 @@ func TestResolvePerformanceProfile_Max_HighEndSystem(t *testing.T) {
 	if result.SkiaGPUPaintingThreads != 8 {
 		t.Errorf("expected SkiaGPUPaintingThreads=8 for 16GB VRAM, got %d", result.SkiaGPUPaintingThreads)
 	}
-	// Memory: high-end tier (32GB+ RAM)
-	if result.WebProcessMemoryLimitMB != 4096 {
-		t.Errorf("expected WebProcessMemoryLimitMB=4096 for 64GB RAM, got %d", result.WebProcessMemoryLimitMB)
+	// Max profile: no memory limits (unset)
+	if result.WebProcessMemoryLimitMB != 0 {
+		t.Errorf("expected WebProcessMemoryLimitMB=0 (unset) for max profile, got %d", result.WebProcessMemoryLimitMB)
 	}
-	if result.NetworkProcessMemoryLimitMB != 1024 {
-		t.Errorf("expected NetworkProcessMemoryLimitMB=1024 for 64GB RAM, got %d", result.NetworkProcessMemoryLimitMB)
+	if result.NetworkProcessMemoryLimitMB != 0 {
+		t.Errorf("expected NetworkProcessMemoryLimitMB=0 (unset) for max profile, got %d", result.NetworkProcessMemoryLimitMB)
 	}
 	// Pool prewarm: high-end tier
 	if result.WebViewPoolPrewarmCount != 12 {
@@ -178,9 +172,9 @@ func TestResolvePerformanceProfile_Max_MidRangeSystem(t *testing.T) {
 	if result.SkiaGPUPaintingThreads != 6 {
 		t.Errorf("expected SkiaGPUPaintingThreads=6 for 8GB VRAM, got %d", result.SkiaGPUPaintingThreads)
 	}
-	// Memory: mid-range tier (16-32GB RAM)
-	if result.WebProcessMemoryLimitMB != 3072 {
-		t.Errorf("expected WebProcessMemoryLimitMB=3072 for 16GB RAM, got %d", result.WebProcessMemoryLimitMB)
+	// Max profile: no memory limits (unset)
+	if result.WebProcessMemoryLimitMB != 0 {
+		t.Errorf("expected WebProcessMemoryLimitMB=0 (unset) for max profile, got %d", result.WebProcessMemoryLimitMB)
 	}
 	// Pool prewarm: mid-range tier
 	if result.WebViewPoolPrewarmCount != 8 {
@@ -210,9 +204,9 @@ func TestResolvePerformanceProfile_Max_LowEndSystem(t *testing.T) {
 	if result.SkiaGPUPaintingThreads != 2 {
 		t.Errorf("expected SkiaGPUPaintingThreads=2 for 2GB VRAM, got %d", result.SkiaGPUPaintingThreads)
 	}
-	// Memory: low tier (<8GB RAM)
-	if result.WebProcessMemoryLimitMB != 1024 {
-		t.Errorf("expected WebProcessMemoryLimitMB=1024 for 4GB RAM, got %d", result.WebProcessMemoryLimitMB)
+	// Max profile: no memory limits (unset)
+	if result.WebProcessMemoryLimitMB != 0 {
+		t.Errorf("expected WebProcessMemoryLimitMB=0 (unset) for max profile, got %d", result.WebProcessMemoryLimitMB)
 	}
 	// Pool prewarm: low tier
 	if result.WebViewPoolPrewarmCount != 4 {
@@ -267,40 +261,33 @@ func TestHasCustomPerformanceFields(t *testing.T) {
 		{
 			name: "all defaults - no custom fields",
 			cfg: PerformanceConfig{
-				SkiaCPUPaintingThreads:            0,
-				SkiaGPUPaintingThreads:            -1,
-				SkiaEnableCPURendering:            false,
-				WebProcessMemoryKillThreshold:     -1,
-				NetworkProcessMemoryKillThreshold: -1,
+				SkiaCPUPaintingThreads: 0,
+				SkiaGPUPaintingThreads: -1,
+				SkiaEnableCPURendering: false,
 			},
 			expected: false,
 		},
 		{
 			name: "skia cpu threads set",
 			cfg: PerformanceConfig{
-				SkiaCPUPaintingThreads:            4,
-				SkiaGPUPaintingThreads:            -1,
-				WebProcessMemoryKillThreshold:     -1,
-				NetworkProcessMemoryKillThreshold: -1,
+				SkiaCPUPaintingThreads: 4,
+				SkiaGPUPaintingThreads: -1,
 			},
 			expected: true,
 		},
 		{
 			name: "memory limit set",
 			cfg: PerformanceConfig{
-				SkiaGPUPaintingThreads:            -1,
-				WebProcessMemoryLimitMB:           1024,
-				WebProcessMemoryKillThreshold:     -1,
-				NetworkProcessMemoryKillThreshold: -1,
+				SkiaGPUPaintingThreads:  -1,
+				WebProcessMemoryLimitMB: 1024,
 			},
 			expected: true,
 		},
 		{
-			name: "kill threshold changed from -1",
+			name: "conservative threshold set",
 			cfg: PerformanceConfig{
-				SkiaGPUPaintingThreads:            -1,
-				WebProcessMemoryKillThreshold:     0.9,
-				NetworkProcessMemoryKillThreshold: -1,
+				SkiaGPUPaintingThreads:                -1,
+				WebProcessMemoryConservativeThreshold: 0.4,
 			},
 			expected: true,
 		},
