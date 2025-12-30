@@ -183,6 +183,11 @@ func TestIsFlatpak(t *testing.T) {
 }
 
 func TestIsPacman(t *testing.T) {
+	// Only run these tests on Arch-based systems with pacman
+	if _, err := os.Stat("/usr/bin/pacman"); os.IsNotExist(err) {
+		t.Skip("pacman not found, skipping Arch-specific tests")
+	}
+
 	tests := []struct {
 		name     string
 		binary   string
@@ -200,24 +205,16 @@ func TestIsPacman(t *testing.T) {
 		},
 	}
 
-	// Only run these tests on Arch-based systems with pacman
-	if _, err := os.Stat("/usr/bin/pacman"); os.IsNotExist(err) {
-		t.Skip("pacman not found, skipping Arch-specific tests")
-	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// We can't easily test IsPacman directly since it uses os.Executable()
-			// but we can test the underlying logic with exec.Command
-			if tt.binary == "/usr/bin/bash" {
-				// Verify pacman -Qo works for a known system binary
-				cmd := exec.Command("pacman", "-Qo", tt.binary)
-				err := cmd.Run()
-				if tt.expected {
-					assert.NoError(t, err, "pacman should own %s", tt.binary)
-				} else {
-					assert.Error(t, err, "pacman should not own %s", tt.binary)
-				}
+			// but we can test the underlying pacman -Qo logic with exec.Command
+			cmd := exec.Command("pacman", "-Qo", tt.binary)
+			err := cmd.Run()
+			if tt.expected {
+				assert.NoError(t, err, "pacman should own %s", tt.binary)
+			} else {
+				assert.Error(t, err, "pacman should not own %s", tt.binary)
 			}
 		})
 	}

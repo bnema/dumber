@@ -26,9 +26,9 @@ sha256sums=('c8230e3a5258333fed401439b08c6ef7b0681dd14f4e97a7e837dfc2c4cc83a0'
             'SKIP')
 
 package() {
-    cd "dumber_${pkgver}"
+    cd "${srcdir}"
     install -Dm755 dumber "${pkgdir}/usr/bin/dumber"
     install -Dm644 "${srcdir}/dev.bnema.Dumber.desktop" "${pkgdir}/usr/share/applications/dev.bnema.Dumber.desktop"
     install -Dm644 "${srcdir}/logo-512.png" "${pkgdir}/usr/share/icons/hicolor/512x512/apps/dev.bnema.Dumber.png"
-    install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    install -Dm644 "${srcdir}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }
