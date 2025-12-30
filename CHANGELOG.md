@@ -5,10 +5,31 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [0.23.0] - 2025-12-30
+
+### Added
 - **macOS-style accent picker**: Long-press (400ms) on keys with accent variants (e, a, o, u, i, c, n, s, y, z) shows a popup with accented character options. Select with number keys 1-9, arrow keys + Enter, or click. Works in omnibox, find bar (Ctrl+F), and web page inputs. Implements dead keys/compose sequence alternative for users who can't use system-level input methods.
+- **Performance profiles (WebKit tuning presets)**: New `performance.profile` setting (`default`, `lite`, `max`, `custom`) plus WebUI support for selecting and editing performance tuning values.
+- **dmenu history enhancements**: New `dumber dmenu --days N` (time-window history) and `--most-visited` (sort by visit count).
+
+### Changed
+- **Color scheme detection architecture**: Refactored theme preference detection into a priority-based `ColorSchemeResolver` with multiple detectors (libadwaita/GTK/gsettings/env) and a change notification API for consistent dark-mode behavior.
+- **dmenu history limiting**: dmenu history limiting is now time-based (days) instead of a fixed max item count.
+- **WebKit dependency**: Bumped `github.com/bnema/puregotk-webkit` to `v0.0.9`.
 
 ### Fixed
 - **Dark mode detection on internal pages**: Fixed `dumb://home` and other internal pages showing light theme despite system being in dark mode. Refactored color scheme detection to use a priority-based resolver with proper initialization ordering. The libadwaita detector (highest priority) is now correctly enabled only after `adw.Init()` completes, ensuring WebViews created during bootstrap get the correct theme preference.
+- **External site form theming artifacts**: Removed injected `color-scheme` overrides that caused odd styling in some forms/inputs on regular websites.
+- **WebKit memory pressure stability**: Fixed an assertion by applying strict memory thresholds before conservative thresholds when configuring WebKit’s memory pressure handlers.
+- **Web process termination on perf tuning**: Removed the “memory kill” threshold because it could terminate the web process immediately in some environments.
+- **`dumb://` scheme context mismatch**: Fixed internal pages sometimes using a different WebKit context than expected by always using the default context.
+- **Accent picker Escape behavior**: Fixed cases where Escape wouldn’t dismiss the accent picker after mouse interaction by restoring focus appropriately.
+- **dmenu history days edge case**: Fixed `dumber dmenu --days 0` to mean “all history”, and added validation for invalid day values.
 
 ## [0.22.0] - 2025-12-28
 
