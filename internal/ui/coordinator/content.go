@@ -21,12 +21,15 @@ import (
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 )
 
+const aboutBlankURI = "about:blank"
+
 // ContentCoordinator manages WebView lifecycle, title tracking, and content attachment.
 type ContentCoordinator struct {
 	pool           *webkit.WebViewPool
 	widgetFactory  layout.WidgetFactory
 	faviconAdapter *adapter.FaviconAdapter
 	zoomUC         *usecase.ManageZoomUseCase
+	injector       *webkit.ContentInjector
 
 	webViews   map[entity.PaneID]*webkit.WebView
 	paneTitles map[entity.PaneID]string
@@ -58,6 +61,14 @@ type ContentCoordinator struct {
 	revealMu      sync.Mutex
 	pendingReveal map[entity.PaneID]bool
 
+	appearanceMu          sync.Mutex
+	pendingScriptRefresh  map[entity.PaneID]bool
+	pendingThemePanes     map[entity.PaneID]bool
+	pendingThemeUpdate    pendingThemeUpdate
+	hasPendingThemeUpdate bool
+	currentTheme          pendingThemeUpdate
+	hasCurrentTheme       bool
+
 	// Gesture action handler for mouse button navigation
 	gestureActionHandler input.ActionHandler
 
@@ -81,6 +92,14 @@ type ContentCoordinator struct {
 
 	// Callback when fullscreen state changes (for hiding/showing tab bar)
 	onFullscreenChanged func(entering bool)
+
+	// Callback when WebView gains focus (for accent picker text input targeting)
+	onWebViewFocused func(paneID entity.PaneID, wv *webkit.WebView)
+}
+
+type pendingThemeUpdate struct {
+	prefersDark bool
+	cssText     string
 }
 
 // NewContentCoordinator creates a new ContentCoordinator.
@@ -149,6 +168,11 @@ func (c *ContentCoordinator) SetOnFullscreenChanged(fn func(entering bool)) {
 	c.onFullscreenChanged = fn
 }
 
+// SetOnWebViewFocused sets the callback for when a WebView gains focus.
+func (c *ContentCoordinator) SetOnWebViewFocused(fn func(paneID entity.PaneID, wv *webkit.WebView)) {
+	c.onWebViewFocused = fn
+}
+
 // EnsureWebView acquires or reuses a WebView for the given pane.
 func (c *ContentCoordinator) EnsureWebView(ctx context.Context, paneID entity.PaneID) (*webkit.WebView, error) {
 	log := logging.FromContext(ctx)
@@ -186,7 +210,7 @@ func (c *ContentCoordinator) EnsureWebView(ctx context.Context, paneID entity.Pa
 		case webkit.LoadCommitted:
 			c.onLoadCommitted(ctx, paneID, wv)
 		case webkit.LoadFinished:
-			c.onLoadFinished(paneID)
+			c.onLoadFinished(ctx, paneID, wv)
 		}
 	}
 
@@ -234,6 +258,7 @@ func (c *ContentCoordinator) ReleaseWebView(ctx context.Context, paneID entity.P
 		return
 	}
 	delete(c.webViews, paneID)
+	c.clearPendingAppearance(paneID)
 
 	// CRITICAL: If this webview was inhibiting idle (fullscreen or audio playing),
 	// we must release the inhibition before destroying the webview.
@@ -403,24 +428,26 @@ func (c *ContentCoordinator) ApplySettingsToAll(ctx context.Context, sm *webkit.
 // WebKit user scripts are snapshotted when added to a WebKitUserContentManager, so when
 // appearance settings change at runtime (dark mode, palettes, UI scale), we must refresh
 // the scripts so future navigations pick up the latest values.
+// Script refresh is deferred for any WebView that is currently loading to avoid
+// removing scripts mid-navigation.
 func (c *ContentCoordinator) RefreshInjectedScriptsToAll(ctx context.Context, injector *webkit.ContentInjector) {
 	log := logging.FromContext(ctx)
 	if injector == nil {
 		return
 	}
 
+	c.injector = injector
 	for paneID, wv := range c.webViews {
 		if wv == nil || wv.IsDestroyed() {
 			continue
 		}
-		ucm := wv.UserContentManager()
-		if ucm == nil {
+		if c.shouldDeferAppearance(wv) {
+			c.queueScriptRefresh(paneID)
+			log.Debug().Str("pane_id", string(paneID)).Msg("deferred script refresh until load finished")
 			continue
 		}
 
-		ucm.RemoveAllScripts()
-		injector.InjectScripts(ctx, ucm, wv.ID())
-		log.Debug().Str("pane_id", string(paneID)).Msg("refreshed injected scripts for webview")
+		c.refreshInjectedScripts(ctx, injector, paneID, wv)
 	}
 }
 
@@ -432,11 +459,31 @@ func (c *ContentCoordinator) ApplyWebUIThemeToAll(ctx context.Context, prefersDa
 		return
 	}
 
-	// Safely embed CSS in JS
+	c.setCurrentTheme(prefersDark, cssText)
+
+	script, err := buildWebUIThemeScript(prefersDark, cssText)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to build WebUI theme script")
+		return
+	}
+
+	for paneID, wv := range c.webViews {
+		if wv == nil || wv.IsDestroyed() {
+			continue
+		}
+		if c.shouldDeferAppearance(wv) {
+			c.queueThemeApply(paneID, prefersDark, cssText)
+			log.Debug().Str("pane_id", string(paneID)).Msg("deferred WebUI theme apply until load committed")
+			continue
+		}
+		c.applyWebUITheme(ctx, paneID, wv, script, prefersDark)
+	}
+}
+
+func buildWebUIThemeScript(prefersDark bool, cssText string) (string, error) {
 	cssJSON, err := json.Marshal(cssText)
 	if err != nil {
-		log.Warn().Err(err).Msg("failed to marshal WebUI CSS vars")
-		return
+		return "", err
 	}
 
 	script := fmt.Sprintf(`(function(){
@@ -487,17 +534,185 @@ func (c *ContentCoordinator) ApplyWebUIThemeToAll(ctx context.Context, prefersDa
   }
 })();`, string(cssJSON), prefersDark)
 
-	for paneID, wv := range c.webViews {
-		if wv == nil || wv.IsDestroyed() {
-			continue
-		}
-		uri := wv.URI()
-		if !strings.HasPrefix(uri, "dumb://") {
-			continue
-		}
-		wv.RunJavaScript(ctx, script, "")
-		log.Debug().Str("pane_id", string(paneID)).Str("uri", uri).Msg("applied WebUI theme")
+	return script, nil
+}
+
+func (c *ContentCoordinator) applyWebUITheme(
+	ctx context.Context,
+	paneID entity.PaneID,
+	wv *webkit.WebView,
+	script string,
+	prefersDark bool,
+) {
+	if wv == nil || wv.IsDestroyed() {
+		return
 	}
+	uri := wv.URI()
+	if !strings.HasPrefix(uri, "dumb://") {
+		return
+	}
+	wv.RunJavaScript(ctx, script, "")
+	logging.FromContext(ctx).
+		Debug().
+		Str("pane_id", string(paneID)).
+		Str("uri", uri).
+		Bool("prefers_dark", prefersDark).
+		Msg("applied WebUI theme")
+}
+
+func (c *ContentCoordinator) queueThemeApply(paneID entity.PaneID, prefersDark bool, cssText string) {
+	c.appearanceMu.Lock()
+	if c.pendingThemePanes == nil {
+		c.pendingThemePanes = make(map[entity.PaneID]bool)
+	}
+	c.pendingThemePanes[paneID] = true
+	c.pendingThemeUpdate = pendingThemeUpdate{
+		prefersDark: prefersDark,
+		cssText:     cssText,
+	}
+	c.hasPendingThemeUpdate = true
+	c.appearanceMu.Unlock()
+}
+
+func (c *ContentCoordinator) setCurrentTheme(prefersDark bool, cssText string) {
+	c.appearanceMu.Lock()
+	c.currentTheme = pendingThemeUpdate{
+		prefersDark: prefersDark,
+		cssText:     cssText,
+	}
+	c.hasCurrentTheme = true
+	c.appearanceMu.Unlock()
+}
+
+func (c *ContentCoordinator) getCurrentTheme() (pendingThemeUpdate, bool) {
+	c.appearanceMu.Lock()
+	defer c.appearanceMu.Unlock()
+
+	if !c.hasCurrentTheme {
+		return pendingThemeUpdate{}, false
+	}
+	return c.currentTheme, true
+}
+
+func (c *ContentCoordinator) takePendingThemeApply(paneID entity.PaneID) (pendingThemeUpdate, bool) {
+	c.appearanceMu.Lock()
+	defer c.appearanceMu.Unlock()
+
+	if !c.hasPendingThemeUpdate || c.pendingThemePanes == nil || !c.pendingThemePanes[paneID] {
+		return pendingThemeUpdate{}, false
+	}
+	delete(c.pendingThemePanes, paneID)
+	update := c.pendingThemeUpdate
+	if len(c.pendingThemePanes) == 0 {
+		c.hasPendingThemeUpdate = false
+	}
+	return update, true
+}
+
+func (c *ContentCoordinator) applyPendingThemeUpdate(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) bool {
+	update, ok := c.takePendingThemeApply(paneID)
+	if !ok {
+		return false
+	}
+
+	script, err := buildWebUIThemeScript(update.prefersDark, update.cssText)
+	if err != nil {
+		logging.FromContext(ctx).Warn().Err(err).Msg("failed to build deferred WebUI theme script")
+		return false
+	}
+	c.applyWebUITheme(ctx, paneID, wv, script, update.prefersDark)
+	return true
+}
+
+func (c *ContentCoordinator) applyCurrentTheme(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) bool {
+	update, ok := c.getCurrentTheme()
+	if !ok || update.cssText == "" {
+		return false
+	}
+
+	script, err := buildWebUIThemeScript(update.prefersDark, update.cssText)
+	if err != nil {
+		logging.FromContext(ctx).Warn().Err(err).Msg("failed to build current WebUI theme script")
+		return false
+	}
+	c.applyWebUITheme(ctx, paneID, wv, script, update.prefersDark)
+	return true
+}
+
+func (c *ContentCoordinator) queueScriptRefresh(paneID entity.PaneID) {
+	c.appearanceMu.Lock()
+	if c.pendingScriptRefresh == nil {
+		c.pendingScriptRefresh = make(map[entity.PaneID]bool)
+	}
+	c.pendingScriptRefresh[paneID] = true
+	c.appearanceMu.Unlock()
+}
+
+func (c *ContentCoordinator) takePendingScriptRefresh(paneID entity.PaneID) bool {
+	c.appearanceMu.Lock()
+	defer c.appearanceMu.Unlock()
+
+	if c.pendingScriptRefresh == nil || !c.pendingScriptRefresh[paneID] {
+		return false
+	}
+	delete(c.pendingScriptRefresh, paneID)
+	return true
+}
+
+func (c *ContentCoordinator) refreshPendingScripts(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
+	if wv == nil || wv.IsDestroyed() || c.shouldDeferAppearance(wv) {
+		return
+	}
+	if !c.takePendingScriptRefresh(paneID) {
+		return
+	}
+	if c.injector == nil {
+		return
+	}
+	c.refreshInjectedScripts(ctx, c.injector, paneID, wv)
+}
+
+func (c *ContentCoordinator) shouldDeferAppearance(wv *webkit.WebView) bool {
+	if wv == nil || wv.IsDestroyed() {
+		return false
+	}
+	if wv.IsLoading() {
+		return true
+	}
+	return wv.EstimatedProgress() < 1.0
+}
+
+func (c *ContentCoordinator) refreshInjectedScripts(
+	ctx context.Context,
+	injector *webkit.ContentInjector,
+	paneID entity.PaneID,
+	wv *webkit.WebView,
+) {
+	if injector == nil || wv == nil || wv.IsDestroyed() {
+		return
+	}
+	ucm := wv.UserContentManager()
+	if ucm == nil {
+		return
+	}
+	ucm.RemoveAllScripts()
+	ucm.RemoveAllStyleSheets()
+	injector.InjectScripts(ctx, ucm, wv.ID())
+	logging.FromContext(ctx).Debug().Str("pane_id", string(paneID)).Msg("refreshed injected scripts for webview")
+}
+
+func (c *ContentCoordinator) clearPendingAppearance(paneID entity.PaneID) {
+	c.appearanceMu.Lock()
+	if c.pendingScriptRefresh != nil {
+		delete(c.pendingScriptRefresh, paneID)
+	}
+	if c.pendingThemePanes != nil {
+		delete(c.pendingThemePanes, paneID)
+		if len(c.pendingThemePanes) == 0 {
+			c.hasPendingThemeUpdate = false
+		}
+	}
+	c.appearanceMu.Unlock()
 }
 
 // GetTitle returns the current title for a pane.
@@ -704,13 +919,13 @@ func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.
 	// Skip showing if this is about:blank but the pane is loading a different URL
 	// This prevents the brief flash of about:blank during initial navigation
 	shouldShow := true
-	if url == "about:blank" {
+	if url == aboutBlankURI {
 		// Get the pane's intended URI from the workspace
 		ws, _ := c.getActiveWS()
 		if ws != nil {
 			if paneNode := ws.FindPane(paneID); paneNode != nil && paneNode.Pane != nil {
 				// Don't show about:blank if the pane is supposed to load a different URL
-				if paneNode.Pane.URI != "" && paneNode.Pane.URI != "about:blank" {
+				if paneNode.Pane.URI != "" && paneNode.Pane.URI != aboutBlankURI {
 					shouldShow = false
 					log.Debug().
 						Str("pane_id", string(paneID)).
@@ -727,6 +942,10 @@ func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.
 		// briefly showing about:blank on cold start.
 		c.clearPendingReveal(paneID)
 		return
+	}
+
+	if !c.applyPendingThemeUpdate(ctx, paneID, wv) {
+		c.applyCurrentTheme(ctx, paneID, wv)
 	}
 
 	c.markPendingReveal(paneID)
@@ -753,6 +972,27 @@ func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.
 	}
 
 	_ = c.zoomUC.ApplyToWebView(ctx, wv, domain)
+}
+
+func (c *ContentCoordinator) shouldSkipAboutBlankAppearance(paneID entity.PaneID, wv *webkit.WebView) bool {
+	if wv == nil || wv.IsDestroyed() {
+		return false
+	}
+	if wv.URI() != aboutBlankURI {
+		return false
+	}
+	ws, _ := c.getActiveWS()
+	if ws == nil {
+		return false
+	}
+	paneNode := ws.FindPane(paneID)
+	if paneNode == nil || paneNode.Pane == nil {
+		return false
+	}
+	if paneNode.Pane.URI != "" && paneNode.Pane.URI != aboutBlankURI {
+		return true
+	}
+	return false
 }
 
 // onSPANavigation records history when URL changes via JavaScript (History API).
@@ -792,7 +1032,7 @@ func (c *ContentCoordinator) onLoadStarted(paneID entity.PaneID) {
 }
 
 // onLoadFinished hides the progress bar when page loading completes.
-func (c *ContentCoordinator) onLoadFinished(paneID entity.PaneID) {
+func (c *ContentCoordinator) onLoadFinished(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
 	_, wsView := c.getActiveWS()
 	if wsView == nil {
 		return
@@ -804,6 +1044,11 @@ func (c *ContentCoordinator) onLoadFinished(paneID entity.PaneID) {
 	}
 
 	c.revealIfPending(context.Background(), paneID, "", "load-finished")
+	if c.shouldSkipAboutBlankAppearance(paneID, wv) {
+		return
+	}
+	c.applyPendingThemeUpdate(ctx, paneID, wv)
+	c.refreshPendingScripts(ctx, paneID, wv)
 }
 
 // onProgressChanged updates the progress bar with current load progress.
@@ -1150,7 +1395,7 @@ func (c *ContentCoordinator) setupWebViewCallbacks(ctx context.Context, paneID e
 		case webkit.LoadCommitted:
 			c.onLoadCommitted(ctx, paneID, wv)
 		case webkit.LoadFinished:
-			c.onLoadFinished(paneID)
+			c.onLoadFinished(ctx, paneID, wv)
 		}
 	}
 

@@ -264,10 +264,10 @@ func (*SchemaProvider) getSearchKeys(defaults *Config) []entity.ConfigKeyInfo {
 func (*SchemaProvider) getDmenuKeys(defaults *Config) []entity.ConfigKeyInfo {
 	return []entity.ConfigKeyInfo{
 		{
-			Key:         "dmenu.max_history_items",
+			Key:         "dmenu.max_history_days",
 			Type:        "int",
-			Default:     fmt.Sprintf("%d", defaults.Dmenu.MaxHistoryItems),
-			Description: "Maximum history items shown in dmenu",
+			Default:     fmt.Sprintf("%d", defaults.Dmenu.MaxHistoryDays),
+			Description: "Number of days of history to show in dmenu (0 = all)",
 			Range:       ">=0",
 			Section:     SectionDmenu,
 		},

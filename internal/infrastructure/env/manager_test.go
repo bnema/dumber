@@ -1,0 +1,172 @@
+package env_test
+
+import (
+	"context"
+	"os"
+	"testing"
+
+	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/infrastructure/env"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestManager_ApplyEnvironment_SkiaEnv(t *testing.T) {
+	// Save original env vars and restore after test
+	origCPU := os.Getenv("WEBKIT_SKIA_CPU_PAINTING_THREADS")
+	origGPU := os.Getenv("WEBKIT_SKIA_GPU_PAINTING_THREADS")
+	origCPURender := os.Getenv("WEBKIT_SKIA_ENABLE_CPU_RENDERING")
+	t.Cleanup(func() {
+		restoreEnv("WEBKIT_SKIA_CPU_PAINTING_THREADS", origCPU)
+		restoreEnv("WEBKIT_SKIA_GPU_PAINTING_THREADS", origGPU)
+		restoreEnv("WEBKIT_SKIA_ENABLE_CPU_RENDERING", origCPURender)
+	})
+
+	tests := []struct {
+		name           string
+		settings       port.RenderingEnvSettings
+		presetEnv      map[string]string
+		expectedVars   map[string]string
+		unexpectedVars []string
+	}{
+		{
+			name: "CPU threads set when > 0",
+			settings: port.RenderingEnvSettings{
+				SkiaCPUPaintingThreads: 4,
+				SkiaGPUPaintingThreads: -1, // unset
+			},
+			expectedVars: map[string]string{
+				"WEBKIT_SKIA_CPU_PAINTING_THREADS": "4",
+			},
+			unexpectedVars: []string{"WEBKIT_SKIA_GPU_PAINTING_THREADS"},
+		},
+		{
+			name: "GPU threads set when >= 0",
+			settings: port.RenderingEnvSettings{
+				SkiaCPUPaintingThreads: 0, // unset
+				SkiaGPUPaintingThreads: 2,
+			},
+			expectedVars: map[string]string{
+				"WEBKIT_SKIA_GPU_PAINTING_THREADS": "2",
+			},
+			unexpectedVars: []string{"WEBKIT_SKIA_CPU_PAINTING_THREADS"},
+		},
+		{
+			name: "GPU threads 0 disables GPU tile painting",
+			settings: port.RenderingEnvSettings{
+				SkiaGPUPaintingThreads: 0,
+			},
+			expectedVars: map[string]string{
+				"WEBKIT_SKIA_GPU_PAINTING_THREADS": "0",
+			},
+		},
+		{
+			name: "CPU rendering enabled",
+			settings: port.RenderingEnvSettings{
+				SkiaEnableCPURendering: true,
+			},
+			expectedVars: map[string]string{
+				"WEBKIT_SKIA_ENABLE_CPU_RENDERING": "1",
+			},
+		},
+		{
+			name: "CPU rendering disabled (default)",
+			settings: port.RenderingEnvSettings{
+				SkiaEnableCPURendering: false,
+			},
+			unexpectedVars: []string{"WEBKIT_SKIA_ENABLE_CPU_RENDERING"},
+		},
+		{
+			name: "does not override existing CPU threads env var",
+			settings: port.RenderingEnvSettings{
+				SkiaCPUPaintingThreads: 8,
+			},
+			presetEnv: map[string]string{
+				"WEBKIT_SKIA_CPU_PAINTING_THREADS": "2",
+			},
+			expectedVars: map[string]string{
+				"WEBKIT_SKIA_CPU_PAINTING_THREADS": "2", // keeps original
+			},
+		},
+		{
+			name: "does not override existing GPU threads env var",
+			settings: port.RenderingEnvSettings{
+				SkiaGPUPaintingThreads: 4,
+			},
+			presetEnv: map[string]string{
+				"WEBKIT_SKIA_GPU_PAINTING_THREADS": "1",
+			},
+			expectedVars: map[string]string{
+				"WEBKIT_SKIA_GPU_PAINTING_THREADS": "1", // keeps original
+			},
+		},
+		{
+			name: "does not override existing CPU rendering env var",
+			settings: port.RenderingEnvSettings{
+				SkiaEnableCPURendering: true,
+			},
+			presetEnv: map[string]string{
+				"WEBKIT_SKIA_ENABLE_CPU_RENDERING": "0",
+			},
+			expectedVars: map[string]string{
+				"WEBKIT_SKIA_ENABLE_CPU_RENDERING": "0", // keeps original
+			},
+		},
+		{
+			name: "all unset by default",
+			settings: port.RenderingEnvSettings{
+				SkiaCPUPaintingThreads: 0,  // unset
+				SkiaGPUPaintingThreads: -1, // unset
+				SkiaEnableCPURendering: false,
+			},
+			unexpectedVars: []string{
+				"WEBKIT_SKIA_CPU_PAINTING_THREADS",
+				"WEBKIT_SKIA_GPU_PAINTING_THREADS",
+				"WEBKIT_SKIA_ENABLE_CPU_RENDERING",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Clear env vars before each test
+			os.Unsetenv("WEBKIT_SKIA_CPU_PAINTING_THREADS")
+			os.Unsetenv("WEBKIT_SKIA_GPU_PAINTING_THREADS")
+			os.Unsetenv("WEBKIT_SKIA_ENABLE_CPU_RENDERING")
+
+			// Set any preset env vars
+			for k, v := range tt.presetEnv {
+				os.Setenv(k, v)
+			}
+
+			manager := env.NewManager()
+			ctx := context.Background()
+
+			err := manager.ApplyEnvironment(ctx, tt.settings)
+			require.NoError(t, err)
+
+			// Check expected vars are set correctly
+			for k, v := range tt.expectedVars {
+				actual := os.Getenv(k)
+				assert.Equal(t, v, actual, "env var %s", k)
+			}
+
+			// Check unexpected vars are not set (or were not set by us)
+			appliedVars := manager.GetAppliedVars()
+			for _, k := range tt.unexpectedVars {
+				_, wasApplied := appliedVars[k]
+				if tt.presetEnv[k] == "" {
+					assert.False(t, wasApplied, "env var %s should not be applied", k)
+				}
+			}
+		})
+	}
+}
+
+func restoreEnv(key, value string) {
+	if value == "" {
+		os.Unsetenv(key)
+	} else {
+		os.Setenv(key, value)
+	}
+}

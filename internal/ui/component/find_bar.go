@@ -39,16 +39,19 @@ type FindBar struct {
 
 	uc *usecase.FindInPageUseCase
 
-	visible bool
-	mu      sync.RWMutex
-	ctx     context.Context
-	onClose func()
+	visible           bool
+	mu                sync.RWMutex
+	ctx               context.Context
+	onClose           func()
+	retainedCallbacks []interface{} // Keep callbacks alive for GC
 }
 
 // FindBarConfig holds configuration for creating a FindBar.
 type FindBarConfig struct {
 	OnClose           func()
 	GetFindController func(paneID entity.PaneID) port.FindController
+	OnFocusIn         func(entry *gtk.SearchEntry) // Callback when entry gains focus (for accent picker)
+	OnFocusOut        func()                       // Callback when entry loses focus
 }
 
 // NewFindBar creates a new FindBar component.
@@ -68,6 +71,7 @@ func NewFindBar(ctx context.Context, cfg FindBarConfig) *FindBar {
 
 	fb.setupHandlers()
 	fb.bindUseCase()
+	fb.setupFocusCallbacks(cfg.OnFocusIn, cfg.OnFocusOut)
 
 	log.Debug().Msg("find bar created")
 	return fb
@@ -404,4 +408,39 @@ func (fb *FindBar) bindUseCase() {
 		})
 		glib.IdleAdd(&cb, 0)
 	})
+}
+
+// setupFocusCallbacks wires focus in/out callbacks for accent picker integration.
+func (fb *FindBar) setupFocusCallbacks(onFocusIn func(*gtk.SearchEntry), onFocusOut func()) {
+	if onFocusIn == nil && onFocusOut == nil {
+		return
+	}
+
+	if fb.entry == nil {
+		return
+	}
+
+	focusController := gtk.NewEventControllerFocus()
+	if focusController == nil {
+		return
+	}
+
+	if onFocusIn != nil {
+		entry := fb.entry // Capture for closure
+		focusInCb := func(_ gtk.EventControllerFocus) {
+			onFocusIn(entry)
+		}
+		fb.retainedCallbacks = append(fb.retainedCallbacks, focusInCb)
+		focusController.ConnectEnter(&focusInCb)
+	}
+
+	if onFocusOut != nil {
+		focusOutCb := func(_ gtk.EventControllerFocus) {
+			onFocusOut()
+		}
+		fb.retainedCallbacks = append(fb.retainedCallbacks, focusOutCb)
+		focusController.ConnectLeave(&focusOutCb)
+	}
+
+	fb.entry.AddController(&focusController.EventController)
 }

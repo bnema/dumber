@@ -18,6 +18,14 @@ packages:
       WebView: {}
       WebViewFactory: {}
       WebViewPool: {}
+      MemoryPressureApplier: {}
+      WebKitContextProvider: {}
+      HardwareSurveyor: {}
+      ColorSchemeDetector: {}
+      ColorSchemeResolver: {}
+      TextInputTarget: {}
+      FocusedInputProvider: {}
+      AccentPickerUI: {}
   github.com/bnema/dumber/internal/domain/repository:
     config:
       dir: '{{.InterfaceDir}}/mocks'

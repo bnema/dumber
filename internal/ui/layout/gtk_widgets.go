@@ -34,6 +34,7 @@ func (w *gtkWidget) IsVisible() bool               { return w.inner.GetVisible()
 func (w *gtkWidget) GrabFocus() bool               { return w.inner.GrabFocus() }
 func (w *gtkWidget) HasFocus() bool                { return w.inner.HasFocus() }
 func (w *gtkWidget) SetCanFocus(canFocus bool)     { w.inner.SetCanFocus(canFocus) }
+func (w *gtkWidget) SetFocusable(focusable bool)   { w.inner.SetFocusable(focusable) }
 func (w *gtkWidget) SetFocusOnClick(focus bool)    { w.inner.SetFocusOnClick(focus) }
 func (w *gtkWidget) SetCanTarget(canTarget bool)   { w.inner.SetCanTarget(canTarget) }
 func (w *gtkWidget) SetHexpand(expand bool)        { w.inner.SetHexpand(expand) }
@@ -89,6 +90,7 @@ func (p *gtkPaned) IsVisible() bool               { return p.inner.GetVisible() 
 func (p *gtkPaned) GrabFocus() bool               { return p.inner.GrabFocus() }
 func (p *gtkPaned) HasFocus() bool                { return p.inner.HasFocus() }
 func (p *gtkPaned) SetCanFocus(canFocus bool)     { p.inner.SetCanFocus(canFocus) }
+func (p *gtkPaned) SetFocusable(focusable bool)   { p.inner.SetFocusable(focusable) }
 func (p *gtkPaned) SetFocusOnClick(focus bool)    { p.inner.SetFocusOnClick(focus) }
 func (p *gtkPaned) SetCanTarget(canTarget bool)   { p.inner.SetCanTarget(canTarget) }
 func (p *gtkPaned) SetHexpand(expand bool)        { p.inner.SetHexpand(expand) }
@@ -210,6 +212,7 @@ func (b *gtkBox) IsVisible() bool               { return b.inner.GetVisible() }
 func (b *gtkBox) GrabFocus() bool               { return b.inner.GrabFocus() }
 func (b *gtkBox) HasFocus() bool                { return b.inner.HasFocus() }
 func (b *gtkBox) SetCanFocus(canFocus bool)     { b.inner.SetCanFocus(canFocus) }
+func (b *gtkBox) SetFocusable(focusable bool)   { b.inner.SetFocusable(focusable) }
 func (b *gtkBox) SetFocusOnClick(focus bool)    { b.inner.SetFocusOnClick(focus) }
 func (b *gtkBox) SetCanTarget(canTarget bool)   { b.inner.SetCanTarget(canTarget) }
 func (b *gtkBox) SetHexpand(expand bool)        { b.inner.SetHexpand(expand) }
@@ -315,6 +318,7 @@ func (o *gtkOverlay) IsVisible() bool               { return o.inner.GetVisible(
 func (o *gtkOverlay) GrabFocus() bool               { return o.inner.GrabFocus() }
 func (o *gtkOverlay) HasFocus() bool                { return o.inner.HasFocus() }
 func (o *gtkOverlay) SetCanFocus(canFocus bool)     { o.inner.SetCanFocus(canFocus) }
+func (o *gtkOverlay) SetFocusable(focusable bool)   { o.inner.SetFocusable(focusable) }
 func (o *gtkOverlay) SetFocusOnClick(focus bool)    { o.inner.SetFocusOnClick(focus) }
 func (o *gtkOverlay) SetCanTarget(canTarget bool)   { o.inner.SetCanTarget(canTarget) }
 func (o *gtkOverlay) SetHexpand(expand bool)        { o.inner.SetHexpand(expand) }
@@ -428,6 +432,7 @@ func (l *gtkLabel) IsVisible() bool               { return l.inner.GetVisible() 
 func (l *gtkLabel) GrabFocus() bool               { return l.inner.GrabFocus() }
 func (l *gtkLabel) HasFocus() bool                { return l.inner.HasFocus() }
 func (l *gtkLabel) SetCanFocus(canFocus bool)     { l.inner.SetCanFocus(canFocus) }
+func (l *gtkLabel) SetFocusable(focusable bool)   { l.inner.SetFocusable(focusable) }
 func (l *gtkLabel) SetFocusOnClick(focus bool)    { l.inner.SetFocusOnClick(focus) }
 func (l *gtkLabel) SetCanTarget(canTarget bool)   { l.inner.SetCanTarget(canTarget) }
 func (l *gtkLabel) SetHexpand(expand bool)        { l.inner.SetHexpand(expand) }
@@ -490,6 +495,7 @@ func (btn *gtkButton) IsVisible() bool               { return btn.inner.GetVisib
 func (btn *gtkButton) GrabFocus() bool               { return btn.inner.GrabFocus() }
 func (btn *gtkButton) HasFocus() bool                { return btn.inner.HasFocus() }
 func (btn *gtkButton) SetCanFocus(canFocus bool)     { btn.inner.SetCanFocus(canFocus) }
+func (btn *gtkButton) SetFocusable(focusable bool)   { btn.inner.SetFocusable(focusable) }
 func (btn *gtkButton) SetFocusOnClick(focus bool)    { btn.inner.SetFocusOnClick(focus) }
 func (btn *gtkButton) SetCanTarget(canTarget bool)   { btn.inner.SetCanTarget(canTarget) }
 func (btn *gtkButton) SetHexpand(expand bool)        { btn.inner.SetHexpand(expand) }
@@ -571,6 +577,7 @@ func (img *gtkImage) IsVisible() bool               { return img.inner.GetVisibl
 func (img *gtkImage) GrabFocus() bool               { return img.inner.GrabFocus() }
 func (img *gtkImage) HasFocus() bool                { return img.inner.HasFocus() }
 func (img *gtkImage) SetCanFocus(canFocus bool)     { img.inner.SetCanFocus(canFocus) }
+func (img *gtkImage) SetFocusable(focusable bool)   { img.inner.SetFocusable(focusable) }
 func (img *gtkImage) SetFocusOnClick(focus bool)    { img.inner.SetFocusOnClick(focus) }
 func (img *gtkImage) SetCanTarget(canTarget bool)   { img.inner.SetCanTarget(canTarget) }
 func (img *gtkImage) SetHexpand(expand bool)        { img.inner.SetHexpand(expand) }
@@ -642,6 +649,7 @@ func (p *gtkProgressBar) IsVisible() bool               { return p.inner.GetVisi
 func (p *gtkProgressBar) GrabFocus() bool               { return p.inner.GrabFocus() }
 func (p *gtkProgressBar) HasFocus() bool                { return p.inner.HasFocus() }
 func (p *gtkProgressBar) SetCanFocus(canFocus bool)     { p.inner.SetCanFocus(canFocus) }
+func (p *gtkProgressBar) SetFocusable(focusable bool)   { p.inner.SetFocusable(focusable) }
 func (p *gtkProgressBar) SetFocusOnClick(focus bool)    { p.inner.SetFocusOnClick(focus) }
 func (p *gtkProgressBar) SetCanTarget(canTarget bool)   { p.inner.SetCanTarget(canTarget) }
 func (p *gtkProgressBar) SetHexpand(expand bool)        { p.inner.SetHexpand(expand) }
@@ -700,6 +708,7 @@ func (s *gtkSpinner) IsVisible() bool               { return s.inner.GetVisible(
 func (s *gtkSpinner) GrabFocus() bool               { return s.inner.GrabFocus() }
 func (s *gtkSpinner) HasFocus() bool                { return s.inner.HasFocus() }
 func (s *gtkSpinner) SetCanFocus(canFocus bool)     { s.inner.SetCanFocus(canFocus) }
+func (s *gtkSpinner) SetFocusable(focusable bool)   { s.inner.SetFocusable(focusable) }
 func (s *gtkSpinner) SetFocusOnClick(focus bool)    { s.inner.SetFocusOnClick(focus) }
 func (s *gtkSpinner) SetCanTarget(canTarget bool)   { s.inner.SetCanTarget(canTarget) }
 func (s *gtkSpinner) SetHexpand(expand bool)        { s.inner.SetHexpand(expand) }

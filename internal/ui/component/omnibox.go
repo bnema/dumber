@@ -132,6 +132,8 @@ type OmniboxConfig struct {
 	UIScale         float64                                                     // UI scale for favicon sizing
 	OnNavigate      func(url string)                                            // Callback when user navigates via omnibox
 	OnToast         func(ctx context.Context, message string, level ToastLevel) // Callback to show toast notification
+	OnFocusIn       func(entry *gtk.SearchEntry)                                // Callback when entry gains focus (for accent picker)
+	OnFocusOut      func()                                                      // Callback when entry loses focus
 }
 
 // NewOmnibox creates a new native GTK4 omnibox widget.
@@ -166,6 +168,7 @@ func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 
 	o.setupKeyboardHandling()
 	o.setupEntryChanged()
+	o.setupFocusCallbacks(cfg.OnFocusIn, cfg.OnFocusOut)
 
 	// Set navigation callback if provided
 	if cfg.OnNavigate != nil {
@@ -457,6 +460,37 @@ func (o *Omnibox) setupEntryChanged() {
 	}
 	o.retainedCallbacks = append(o.retainedCallbacks, changedCb)
 	o.entry.ConnectSearchChanged(&changedCb)
+}
+
+// setupFocusCallbacks wires focus in/out callbacks for accent picker integration.
+func (o *Omnibox) setupFocusCallbacks(onFocusIn func(*gtk.SearchEntry), onFocusOut func()) {
+	if onFocusIn == nil && onFocusOut == nil {
+		return
+	}
+
+	focusController := gtk.NewEventControllerFocus()
+	if focusController == nil {
+		return
+	}
+
+	if onFocusIn != nil {
+		entry := o.entry // Capture for closure
+		focusInCb := func(_ gtk.EventControllerFocus) {
+			onFocusIn(entry)
+		}
+		o.retainedCallbacks = append(o.retainedCallbacks, focusInCb)
+		focusController.ConnectEnter(&focusInCb)
+	}
+
+	if onFocusOut != nil {
+		focusOutCb := func(_ gtk.EventControllerFocus) {
+			onFocusOut()
+		}
+		o.retainedCallbacks = append(o.retainedCallbacks, focusOutCb)
+		focusController.ConnectLeave(&focusOutCb)
+	}
+
+	o.entry.AddController(&focusController.EventController)
 }
 
 // handleKeyPress processes keyboard events.

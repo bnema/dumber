@@ -28,6 +28,7 @@ func validateConfig(config *Config) error {
 	validationErrors = append(validationErrors, validateRendering(config)...)
 	validationErrors = append(validationErrors, validateColorScheme(config)...)
 	validationErrors = append(validationErrors, validateSession(config)...)
+	validationErrors = append(validationErrors, validatePerformanceProfile(config)...)
 
 	// If there are validation errors, return them
 	if len(validationErrors) > 0 {
@@ -52,8 +53,8 @@ func validateHistory(config *Config) []string {
 }
 
 func validateDmenu(config *Config) []string {
-	if config.Dmenu.MaxHistoryItems < 0 {
-		return []string{"dmenu.max_history_items must be non-negative"}
+	if config.Dmenu.MaxHistoryDays < 0 {
+		return []string{"dmenu.max_history_days must be non-negative"}
 	}
 	return nil
 }
@@ -345,5 +346,49 @@ func validateSession(config *Config) []string {
 	if config.Session.SnapshotIntervalMs < 0 {
 		validationErrors = append(validationErrors, "session.snapshot_interval_ms must be non-negative")
 	}
+	return validationErrors
+}
+
+func validatePerformanceProfile(config *Config) []string {
+	var validationErrors []string
+
+	// Validate profile name
+	if !IsValidPerformanceProfile(config.Performance.Profile) {
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"performance.profile must be one of: default, lite, max, custom (got: %s)",
+			config.Performance.Profile,
+		))
+	}
+
+	// When profile is not "custom", warn if individual fields are set
+	// (they will be ignored in favor of profile-computed values)
+	if config.Performance.Profile != ProfileCustom && config.Performance.Profile != "" {
+		if HasCustomPerformanceFields(&config.Performance) {
+			validationErrors = append(validationErrors,
+				"performance tuning fields (skia_*, *_memory_*) are ignored when profile is not 'custom'; "+
+					"set profile = \"custom\" to use individual field values",
+			)
+		}
+	}
+
+	// Validate memory pressure threshold ordering: WebKit requires conservative < strict
+	webCons := config.Performance.WebProcessMemoryConservativeThreshold
+	webStrict := config.Performance.WebProcessMemoryStrictThreshold
+	if webCons > 0 && webStrict > 0 && webCons >= webStrict {
+		validationErrors = append(validationErrors,
+			"performance.web_process_memory_conservative_threshold must be less than "+
+				"web_process_memory_strict_threshold when both are set",
+		)
+	}
+
+	netCons := config.Performance.NetworkProcessMemoryConservativeThreshold
+	netStrict := config.Performance.NetworkProcessMemoryStrictThreshold
+	if netCons > 0 && netStrict > 0 && netCons >= netStrict {
+		validationErrors = append(validationErrors,
+			"performance.network_process_memory_conservative_threshold must be less than "+
+				"network_process_memory_strict_threshold when both are set",
+		)
+	}
+
 	return validationErrors
 }

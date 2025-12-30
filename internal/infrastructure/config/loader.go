@@ -212,6 +212,20 @@ func normalizeConfig(config *Config) {
 	}
 
 	config.Runtime.Prefix = strings.TrimSpace(config.Runtime.Prefix)
+	normalizePerformanceProfile(config)
+}
+
+func normalizePerformanceProfile(config *Config) {
+	switch strings.ToLower(string(config.Performance.Profile)) {
+	case "", string(ProfileDefault):
+		config.Performance.Profile = ProfileDefault
+	case string(ProfileLite):
+		config.Performance.Profile = ProfileLite
+	case string(ProfileMax):
+		config.Performance.Profile = ProfileMax
+	case string(ProfileCustom):
+		config.Performance.Profile = ProfileCustom
+	}
 }
 
 // Get returns the current configuration (thread-safe).
@@ -251,6 +265,9 @@ func (m *Manager) Save(cfg *Config) error {
 	m.viper.Set("default_webpage_zoom", cfg.DefaultWebpageZoom)
 	m.viper.Set("default_ui_scale", cfg.DefaultUIScale)
 	m.viper.Set("default_search_engine", cfg.DefaultSearchEngine)
+
+	// Performance profile (requires browser restart to take effect)
+	m.viper.Set("performance.profile", string(cfg.Performance.Profile))
 
 	if err := m.viper.WriteConfig(); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
@@ -316,6 +333,7 @@ func (m *Manager) setDefaults() {
 	m.setRuntimeDefaults(defaults)
 	m.setSessionDefaults(defaults)
 	m.setUpdateDefaults(defaults)
+	m.setPerformanceDefaults(defaults)
 }
 
 func (m *Manager) setHistoryDefaults(defaults *Config) {
@@ -330,7 +348,7 @@ func (m *Manager) setSearchDefaults(defaults *Config) {
 }
 
 func (m *Manager) setDmenuDefaults(defaults *Config) {
-	m.viper.SetDefault("dmenu.max_history_items", defaults.Dmenu.MaxHistoryItems)
+	m.viper.SetDefault("dmenu.max_history_days", defaults.Dmenu.MaxHistoryDays)
 	m.viper.SetDefault("dmenu.show_visit_count", defaults.Dmenu.ShowVisitCount)
 	m.viper.SetDefault("dmenu.show_last_visited", defaults.Dmenu.ShowLastVisited)
 	m.viper.SetDefault("dmenu.history_prefix", defaults.Dmenu.HistoryPrefix)
@@ -459,6 +477,27 @@ func (m *Manager) setUpdateDefaults(defaults *Config) {
 	m.viper.SetDefault("update.enable_on_startup", defaults.Update.EnableOnStartup)
 	m.viper.SetDefault("update.auto_download", defaults.Update.AutoDownload)
 	m.viper.SetDefault("update.notify_on_new_settings", defaults.Update.NotifyOnNewSettings)
+}
+
+func (m *Manager) setPerformanceDefaults(defaults *Config) {
+	m.viper.SetDefault("performance.profile", string(defaults.Performance.Profile))
+	m.viper.SetDefault("performance.zoom_cache_size", defaults.Performance.ZoomCacheSize)
+	m.viper.SetDefault("performance.webview_pool_prewarm_count", defaults.Performance.WebViewPoolPrewarmCount)
+	// Skia threading (only used when profile = "custom")
+	m.viper.SetDefault("performance.skia_cpu_painting_threads", defaults.Performance.SkiaCPUPaintingThreads)
+	m.viper.SetDefault("performance.skia_gpu_painting_threads", defaults.Performance.SkiaGPUPaintingThreads)
+	m.viper.SetDefault("performance.skia_enable_cpu_rendering", defaults.Performance.SkiaEnableCPURendering)
+	// Web process memory pressure
+	m.viper.SetDefault("performance.web_process_memory_limit_mb", defaults.Performance.WebProcessMemoryLimitMB)
+	m.viper.SetDefault("performance.web_process_memory_poll_interval_sec", defaults.Performance.WebProcessMemoryPollIntervalSec)
+	m.viper.SetDefault("performance.web_process_memory_conservative_threshold", defaults.Performance.WebProcessMemoryConservativeThreshold)
+	m.viper.SetDefault("performance.web_process_memory_strict_threshold", defaults.Performance.WebProcessMemoryStrictThreshold)
+	// Network process memory pressure
+	m.viper.SetDefault("performance.network_process_memory_limit_mb", defaults.Performance.NetworkProcessMemoryLimitMB)
+	m.viper.SetDefault("performance.network_process_memory_poll_interval_sec", defaults.Performance.NetworkProcessMemoryPollIntervalSec)
+	netConservativeThreshold := defaults.Performance.NetworkProcessMemoryConservativeThreshold
+	m.viper.SetDefault("performance.network_process_memory_conservative_threshold", netConservativeThreshold)
+	m.viper.SetDefault("performance.network_process_memory_strict_threshold", defaults.Performance.NetworkProcessMemoryStrictThreshold)
 }
 
 // New returns a new default configuration instance.

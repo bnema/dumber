@@ -46,25 +46,34 @@ type PopupRequest struct {
 // webViewRegistry tracks all active WebViews.
 type webViewRegistry struct {
 	views   map[WebViewID]*WebView
+	byUCM   map[uintptr]WebViewID
 	counter atomic.Uint64
 	mu      sync.RWMutex
 }
 
 var globalRegistry = &webViewRegistry{
 	views: make(map[WebViewID]*WebView),
+	byUCM: make(map[uintptr]WebViewID),
 }
 
 func (r *webViewRegistry) register(wv *WebView) WebViewID {
 	id := WebViewID(r.counter.Add(1))
 	r.mu.Lock()
 	r.views[id] = wv
+	if wv != nil && wv.ucm != nil {
+		r.byUCM[wv.ucm.GoPointer()] = id
+	}
 	r.mu.Unlock()
 	return id
 }
 
 func (r *webViewRegistry) unregister(id WebViewID) {
 	r.mu.Lock()
+	wv := r.views[id]
 	delete(r.views, id)
+	if wv != nil && wv.ucm != nil {
+		delete(r.byUCM, wv.ucm.GoPointer())
+	}
 	r.mu.Unlock()
 }
 
@@ -75,9 +84,27 @@ func (r *webViewRegistry) Lookup(id WebViewID) *WebView {
 	return r.views[id]
 }
 
+func (r *webViewRegistry) LookupByUCMPointer(ptr uintptr) *WebView {
+	if ptr == 0 {
+		return nil
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	id, ok := r.byUCM[ptr]
+	if !ok {
+		return nil
+	}
+	return r.views[id]
+}
+
 // LookupWebView returns a WebView by ID from the global registry.
 func LookupWebView(id WebViewID) *WebView {
 	return globalRegistry.Lookup(id)
+}
+
+// LookupWebViewByUCMPointer returns a WebView by its UserContentManager pointer.
+func LookupWebViewByUCMPointer(ptr uintptr) *WebView {
+	return globalRegistry.LookupByUCMPointer(ptr)
 }
 
 // WebView wraps webkit.WebView with Go-level state tracking and callbacks.
@@ -248,10 +275,15 @@ func NewWebView(ctx context.Context, wkCtx *WebKitContext, settings *SettingsMan
 		return nil, fmt.Errorf("webkit context not initialized")
 	}
 
-	// Use NetworkSession-aware constructor for persistent cookie storage
-	inner := webkit.NewWebViewWithNetworkSession(wkCtx.NetworkSession())
+	// Use options constructor to pass both WebContext and NetworkSession.
+	// This ensures WebViews use our custom WebContext (with memory pressure settings)
+	// and the persistent NetworkSession for cookie/storage.
+	inner := webkit.NewWebViewWithOptions(&webkit.WebViewOptions{
+		WebContext:     wkCtx.Context(),
+		NetworkSession: wkCtx.NetworkSession(),
+	})
 	if inner == nil {
-		return nil, fmt.Errorf("failed to create webkit webview with network session")
+		return nil, fmt.Errorf("failed to create webkit webview with options")
 	}
 
 	// Set background color IMMEDIATELY after creation, before any other operations.
