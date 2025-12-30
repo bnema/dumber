@@ -26,7 +26,7 @@ const themeCSSScript = `(function() {
   (document.head || document.documentElement).appendChild(style);
 })();`
 
-// internalDarkModeScript is injected ONLY on internal pages (dumb://*).
+// internalDarkModeScriptTemplate is injected ONLY on internal pages (dumb://*).
 // It sets dark/light class on <html> for Tailwind CSS theming and patches matchMedia
 // for JS-based dark mode detection in WebUI components.
 //
@@ -38,8 +38,9 @@ const themeCSSScript = `(function() {
 // - (prefers-color-scheme: dark)
 // - (prefers-color-scheme:dark)  -- no space
 // - screen and (prefers-color-scheme: dark)
-const internalDarkModeScript = `(function() {
-  var prefersDark = window.__dumber_gtk_prefers_dark || false;
+const internalDarkModeScriptTemplate = `(function() {
+  var prefersDark = %t;
+  window.__dumber_gtk_prefers_dark = prefersDark;
   var originalMatchMedia = window.matchMedia.bind(window);
 
   // Apply dark/light class to document element for Tailwind CSS theming
@@ -180,21 +181,9 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		log.Debug().Str("script", label).Msg("injected user script")
 	}
 
-	// 1. Inject GTK dark mode preference for internal pages only
 	prefersDark := ci.PrefersDark()
-	darkModePrefScript := fmt.Sprintf("window.__dumber_gtk_prefers_dark=%t;", prefersDark)
-	addScript(
-		webkit.NewUserScript(
-			darkModePrefScript,
-			webkit.UserContentInjectTopFrameValue,
-			webkit.UserScriptInjectAtDocumentStartValue,
-			internalPageAllowList,
-			nil,
-		),
-		"gtk-dark-mode-pref",
-	)
 
-	// 2. Inject WebView ID for debugging (internal pages only)
+	// 1. Inject WebView ID for debugging (internal pages only)
 	if webviewID != 0 {
 		idScript := fmt.Sprintf("window.__dumber_webview_id=%d;", uint64(webviewID))
 		addScript(
@@ -207,10 +196,14 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 			),
 			"webview-id",
 		)
+		log.Debug().Uint64("webview_id", uint64(webviewID)).Msg("webview ID script injected")
+	} else {
+		log.Warn().Msg("webview ID is 0, skipping ID injection")
 	}
 
-	// 3. Inject dark mode handler for internal pages only
+	// 2. Inject dark mode handler for internal pages only
 	// This sets .dark/.light class on <html> and patches matchMedia for WebUI
+	internalDarkModeScript := fmt.Sprintf(internalDarkModeScriptTemplate, prefersDark)
 	addScript(
 		webkit.NewUserScript(
 			internalDarkModeScript,
@@ -222,7 +215,7 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		"internal-dark-mode-handler",
 	)
 
-	// 4. Inject theme CSS for internal pages (dumb://* only)
+	// 3. Inject theme CSS for internal pages (dumb://* only)
 	if ci.themeCSSVars != "" {
 		// Escape for JS string literal
 		escapedCSS := strings.ReplaceAll(ci.themeCSSVars, "\\", "\\\\")
@@ -242,7 +235,7 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		log.Debug().Msg("theme CSS vars injection configured for internal pages")
 	}
 
-	// 5. Inject find highlight CSS for all pages
+	// 4. Inject find highlight CSS for all pages
 	if ci.findCSS != "" {
 		stylesheet := webkit.NewUserStyleSheet(
 			ci.findCSS,
