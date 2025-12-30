@@ -99,23 +99,29 @@ func (a *Applier) CanSelfUpdate(ctx context.Context) bool {
 
 // SelfUpdateBlockedReason returns why self-update is blocked, or empty if allowed.
 func (a *Applier) SelfUpdateBlockedReason(ctx context.Context) port.SelfUpdateBlockedReason {
+	log := logging.FromContext(ctx)
+
 	// Flatpak sandboxed apps should not self-update; Flatpak handles updates.
 	if env.IsFlatpak() {
+		log.Debug().Msg("self-update blocked: running in Flatpak sandbox")
 		return port.SelfUpdateBlockedFlatpak
 	}
 
 	// Pacman/AUR packages should not self-update; use pacman or AUR helper.
 	if env.IsPacman() {
+		log.Debug().Msg("self-update blocked: installed via pacman/AUR")
 		return port.SelfUpdateBlockedPacman
 	}
 
 	binaryPath, err := a.GetBinaryPath()
 	if err != nil {
+		log.Debug().Err(err).Msg("self-update blocked: failed to get binary path")
 		return port.SelfUpdateBlockedNotWritable
 	}
 
 	// Check if we have write permission on the binary file.
 	if err := unix.Access(binaryPath, unix.W_OK); err != nil {
+		log.Debug().Str("path", binaryPath).Err(err).Msg("self-update blocked: binary not writable")
 		return port.SelfUpdateBlockedNotWritable
 	}
 
