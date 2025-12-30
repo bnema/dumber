@@ -58,9 +58,19 @@ func (uc *ApplyUpdateUseCase) Execute(ctx context.Context, input ApplyUpdateInpu
 
 	// Check if we can self-update.
 	if !uc.applier.CanSelfUpdate(ctx) {
+		reason := uc.applier.SelfUpdateBlockedReason(ctx)
+		var message string
+		switch reason {
+		case port.SelfUpdateBlockedFlatpak:
+			message = "Cannot auto-update: installed via Flatpak (use 'flatpak update' instead)"
+		case port.SelfUpdateBlockedPacman:
+			message = "Cannot auto-update: installed via pacman/AUR (use your package manager instead)"
+		default:
+			message = "Cannot auto-update: binary is not writable"
+		}
 		return &ApplyUpdateOutput{
 			Status:  entity.UpdateStatusFailed,
-			Message: "Cannot auto-update: binary is not writable",
+			Message: message,
 		}, nil
 	}
 

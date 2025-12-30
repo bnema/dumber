@@ -8,6 +8,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/logging"
@@ -59,13 +60,20 @@ func (a *Applier) stagedBinaryPath() string {
 }
 
 // CanSelfUpdate checks if the current binary is writable by the current user.
-// Returns false if running inside a Flatpak sandbox (updates handled by Flatpak).
+// Returns false if running inside a Flatpak sandbox (updates handled by Flatpak)
+// or if installed via pacman/AUR (updates handled by package manager).
 func (a *Applier) CanSelfUpdate(ctx context.Context) bool {
 	log := logging.FromContext(ctx)
 
 	// Flatpak sandboxed apps should not self-update; Flatpak handles updates.
 	if env.IsFlatpak() {
 		log.Debug().Msg("running in Flatpak sandbox, self-update disabled")
+		return false
+	}
+
+	// Pacman/AUR packages should not self-update; use pacman or AUR helper.
+	if env.IsPacman() {
+		log.Debug().Msg("installed via pacman/AUR, self-update disabled")
 		return false
 	}
 
@@ -87,6 +95,37 @@ func (a *Applier) CanSelfUpdate(ctx context.Context) bool {
 
 	log.Debug().Str("path", binaryPath).Msg("binary is writable, self-update enabled")
 	return true
+}
+
+// SelfUpdateBlockedReason returns why self-update is blocked, or empty if allowed.
+func (a *Applier) SelfUpdateBlockedReason(ctx context.Context) port.SelfUpdateBlockedReason {
+	log := logging.FromContext(ctx)
+
+	// Flatpak sandboxed apps should not self-update; Flatpak handles updates.
+	if env.IsFlatpak() {
+		log.Debug().Msg("self-update blocked: running in Flatpak sandbox")
+		return port.SelfUpdateBlockedFlatpak
+	}
+
+	// Pacman/AUR packages should not self-update; use pacman or AUR helper.
+	if env.IsPacman() {
+		log.Debug().Msg("self-update blocked: installed via pacman/AUR")
+		return port.SelfUpdateBlockedPacman
+	}
+
+	binaryPath, err := a.GetBinaryPath()
+	if err != nil {
+		log.Debug().Err(err).Msg("self-update blocked: failed to get binary path")
+		return port.SelfUpdateBlockedNotWritable
+	}
+
+	// Check if we have write permission on the binary file.
+	if err := unix.Access(binaryPath, unix.W_OK); err != nil {
+		log.Debug().Str("path", binaryPath).Err(err).Msg("self-update blocked: binary not writable")
+		return port.SelfUpdateBlockedNotWritable
+	}
+
+	return port.SelfUpdateAllowed
 }
 
 // GetBinaryPath returns the path to the currently running binary.

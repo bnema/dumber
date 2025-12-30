@@ -3,6 +3,7 @@ package env_test
 import (
 	"context"
 	"os"
+	"os/exec"
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -169,4 +170,62 @@ func restoreEnv(key, value string) {
 	} else {
 		os.Setenv(key, value)
 	}
+}
+
+func TestIsFlatpak(t *testing.T) {
+	// IsFlatpak checks for /.flatpak-info file existence
+	// In normal test environment, this should return false
+	result := env.IsFlatpak()
+
+	// We can't easily mock filesystem, so just verify it returns a boolean
+	// and doesn't panic. In CI/dev environment it should be false.
+	assert.False(t, result, "should not detect Flatpak in test environment")
+}
+
+func TestIsPacman(t *testing.T) {
+	// Only run these tests on Arch-based systems with pacman
+	if _, err := os.Stat("/usr/bin/pacman"); os.IsNotExist(err) {
+		t.Skip("pacman not found, skipping Arch-specific tests")
+	}
+
+	tests := []struct {
+		name     string
+		binary   string
+		expected bool
+	}{
+		{
+			name:     "system binary owned by pacman",
+			binary:   "/usr/bin/bash",
+			expected: true, // bash is always installed via pacman on Arch
+		},
+		{
+			name:     "non-existent binary",
+			binary:   "/nonexistent/path/to/binary",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// We can't easily test IsPacman directly since it uses os.Executable()
+			// but we can test the underlying pacman -Qo logic with exec.Command
+			cmd := exec.Command("pacman", "-Qo", tt.binary)
+			err := cmd.Run()
+			if tt.expected {
+				assert.NoError(t, err, "pacman should own %s", tt.binary)
+			} else {
+				assert.Error(t, err, "pacman should not own %s", tt.binary)
+			}
+		})
+	}
+}
+
+func TestIsPacman_NonArchSystem(t *testing.T) {
+	// On non-Arch systems, IsPacman should return false (pacman not found)
+	if _, err := os.Stat("/usr/bin/pacman"); err == nil {
+		t.Skip("pacman found, skipping non-Arch test")
+	}
+
+	result := env.IsPacman()
+	assert.False(t, result, "should return false when pacman is not installed")
 }

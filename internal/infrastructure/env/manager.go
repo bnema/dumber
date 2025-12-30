@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -18,6 +19,30 @@ import (
 func IsFlatpak() bool {
 	_, err := os.Stat("/.flatpak-info")
 	return err == nil
+}
+
+// IsPacman returns true if the application was installed via pacman (including AUR).
+// Packages managed by pacman should not self-update; use pacman/AUR helpers instead.
+// Detection uses `pacman -Qo` to check if the binary is owned by a package.
+func IsPacman() bool {
+	exe, err := os.Executable()
+	if err != nil {
+		return false
+	}
+	resolved, err := filepath.EvalSymlinks(exe)
+	if err != nil {
+		return false
+	}
+
+	// Check if pacman exists and if it owns this binary
+	pacman, err := exec.LookPath("pacman")
+	if err != nil {
+		return false
+	}
+
+	// pacman -Qo returns 0 if the file is owned by a package
+	cmd := exec.Command(pacman, "-Qo", resolved)
+	return cmd.Run() == nil
 }
 
 // Manager implements port.RenderingEnvManager for configuring
