@@ -1,6 +1,6 @@
 id: dev.bnema.Dumber
 runtime: org.gnome.Platform
-runtime-version: '48'
+runtime-version: '49'
 sdk: org.gnome.Sdk
 command: dumber
 
@@ -21,6 +21,10 @@ finish-args:
   - --filesystem=home:ro
   # PipeWire for screen sharing and modern audio/video
   - --filesystem=xdg-run/pipewire-0:ro
+  # Workaround for flatpak-spawn locale crash (flatpak/flatpak#5564)
+  # When user's locale falls back to C, PS1's UTF-8 emoji causes
+  # "Invalid byte sequence in conversion input" error in flatpak-spawn
+  - --unset-env=PS1
 
 modules:
   - name: dumber
