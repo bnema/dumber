@@ -7,7 +7,6 @@ name: AUR Publish
 on:
   workflow_run:
     workflows: ["CI", "Flatpak"]
-    branches: [main]
     types:
       - completed
 
@@ -26,6 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
       - name: Calculate pkgver
