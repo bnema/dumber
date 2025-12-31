@@ -11,7 +11,7 @@ on:
       - completed
 
 concurrency:
-  group: aur-publish
+  group: aur-publish-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: true
 
 jobs:
