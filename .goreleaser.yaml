@@ -45,6 +45,10 @@ archives:
       - LICENSE
       - README.md
       - CHANGELOG.md
+      - dev.bnema.Dumber.desktop
+      - src: assets/logo-512.png
+        dst: .
+        strip_parent: true
 
 checksum:
   name_template: 'checksums.txt'
