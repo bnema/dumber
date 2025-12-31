@@ -1,24 +1,122 @@
 name: AUR Publish
 
-# This workflow only publishes the dumber-browser-bin package to AUR.
-# The dumber-browser-git package does not need automated updates since it
-# always builds from the latest source using `git+https://` in its PKGBUILD.
+# This workflow publishes both AUR packages:
+# - dumber-browser-bin: Published after Flatpak workflow completes (on release)
+# - dumber-browser-git: Published after CI workflow completes on main branch
 
 on:
   workflow_run:
-    workflows: ["Flatpak"]
+    workflows: ["CI", "Flatpak"]
+    branches: [main]
     types:
       - completed
 
-concurrency:
-  group: aur-publish-${{ github.event.workflow_run.head_branch }}
-  cancel-in-progress: true
-
 jobs:
-  publish-aur:
-    name: Publish to AUR
+  publish-aur-git:
+    name: Publish dumber-browser-git to AUR
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: >
+      github.event.workflow_run.name == 'CI' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    concurrency:
+      group: aur-git-publish
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate pkgver
+        id: pkgver
+        run: |
+          # Use same logic as PKGBUILD pkgver() function
+          PKGVER=$(git describe --long --tags 2>/dev/null | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g' || echo "0.0.0.r$(git rev-list --count HEAD).g$(git rev-parse --short HEAD)")
+          echo "version=${PKGVER}" >> $GITHUB_OUTPUT
+          echo "Calculated pkgver: ${PKGVER}"
+
+      - name: Generate PKGBUILD for dumber-browser-git
+        run: |
+          PKGVER="${{ steps.pkgver.outputs.version }}"
+          
+          mkdir -p pkgbuild/dumber-browser-git
+          
+          printf '%s\n' \
+            '# Maintainer: bnema <b at bnema dot dev>' \
+            'pkgname=dumber-browser-git' \
+            "pkgver=${PKGVER}" \
+            'pkgrel=1' \
+            'pkgdesc="A minimal keyboard-driven browser for tiling WMs (git version)"' \
+            "arch=('x86_64')" \
+            'url="https://github.com/bnema/dumber"' \
+            "license=('MIT')" \
+            "makedepends=('go>=1.25' 'npm' 'git')" \
+            "depends=('gtk4' 'webkitgtk-6.0')" \
+            'optdepends=(' \
+            "    'gst-plugins-base: Base media codecs'" \
+            "    'gst-plugins-good: Additional media codecs'" \
+            "    'gst-plugins-bad: Extended media codecs'" \
+            "    'gst-plugins-ugly: Patented media codecs'" \
+            "    'gst-libav: FFmpeg-based codecs'" \
+            "    'gst-plugin-pipewire: PipeWire audio support'" \
+            "    'gst-plugin-va: Hardware video decoding (VA-API stateless decoders)'" \
+            "    'pipewire: Audio/video routing'" \
+            "    'pipewire-pulse: PulseAudio replacement'" \
+            "    'mesa: VA-API driver for AMD GPUs'" \
+            "    'libva-nvidia-driver: VA-API driver for NVIDIA GPUs'" \
+            "    'libva-intel-driver: VA-API driver for older Intel GPUs'" \
+            "    'intel-media-driver: VA-API driver for newer Intel GPUs (Broadwell+)'" \
+            ')' \
+            "provides=('dumber-browser' 'dumber')" \
+            "conflicts=('dumber-browser' 'dumber-browser-bin')" \
+            'source=("git+https://github.com/bnema/dumber.git")' \
+            "sha256sums=('SKIP')" \
+            '' \
+            'pkgver() {' \
+            '    cd dumber' \
+            '    git describe --long --tags 2>/dev/null | sed '"'"'s/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'"'"' || echo "0.0.0.r$(git rev-list --count HEAD).g$(git rev-parse --short HEAD)"' \
+            '}' \
+            '' \
+            'build() {' \
+            '    cd dumber' \
+            '    export CGO_ENABLED=0' \
+            '    export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"' \
+            '    make build' \
+            '}' \
+            '' \
+            'package() {' \
+            '    cd dumber' \
+            '    install -Dm755 dist/dumber "${pkgdir}/usr/bin/dumber"' \
+            '    install -Dm644 dev.bnema.Dumber.desktop "${pkgdir}/usr/share/applications/dev.bnema.Dumber.desktop"' \
+            '    install -Dm644 assets/logo-512.png "${pkgdir}/usr/share/icons/hicolor/512x512/apps/dev.bnema.Dumber.png"' \
+            '    install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"' \
+            '}' \
+            > pkgbuild/dumber-browser-git/PKGBUILD
+          
+          echo "Generated PKGBUILD:"
+          cat pkgbuild/dumber-browser-git/PKGBUILD
+
+      - name: Publish dumber-browser-git to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
+        with:
+          pkgname: dumber-browser-git
+          pkgbuild: ./pkgbuild/dumber-browser-git/PKGBUILD
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "Update to ${{ steps.pkgver.outputs.version }}"
+          ssh_keyscan_types: rsa,ecdsa,ed25519
+
+  publish-aur-bin:
+    name: Publish dumber-browser-bin to AUR
+    runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.name == 'Flatpak' &&
+      github.event.workflow_run.conclusion == 'success'
+    concurrency:
+      group: aur-bin-publish-${{ github.event.workflow_run.head_branch }}
+      cancel-in-progress: true
 
     steps:
       - uses: actions/checkout@v4
