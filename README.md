@@ -21,18 +21,28 @@ A dumb browser that works like your favorite terminal multiplexer.
 - **Launcher integration**: dmenu-style with rofi/fuzzel support, shows favicons and history.
 - **Search shortcuts**: Quick search via bangs (e.g., `!g golang` for Google, `!gi cats` for Google Images).
 - **Customizable themes**: Light and dark palettes with semantic color tokens.
-- **Persistent storage**: SQLite for history, zoom levels, and settings.
+- **Persistent storage**: SQLite for history, favorites, per-domain zoom levels, and sessions.
 - **Live configuration**: Single config file with hot reload when possible.
 - **Session management**: Zellij-style session save/restore with automatic snapshots and resurrection.
 
 ## Status
-Dumber recently completed a full rewrite in pure Go using the `puregotk` and `puregotk-webkit` libraries.
+Dumber is almost feature-complete. Next steps will focus on stability, performance, and bug fixing.
 
-The project is now structured around clean architecture, which makes it much easier to iterate on features and improve testability.
+Core features work well for daily use but expect some rough edges. Some features are still alpha/experimental (notably consume-or-expel panes) and may change behavior between releases.
 
-Early development with regular releases. Core features work well for daily use but expect some rough edges.
+## Quick Start
 
-Some features are very alpha/experimental (notably consume-or-expel panes) and may change behavior between releases.
+```bash
+# Download and install
+wget https://github.com/bnema/dumber/releases/latest/download/dumber_linux_x86_64.tar.gz
+tar -xzf dumber_linux_x86_64.tar.gz
+mkdir -p ~/.local/bin && install -m 755 dumber_*/dumber ~/.local/bin/
+
+# Run
+dumber browse https://example.com
+```
+
+See [Install](#install) for AUR, Flatpak, building from source, and runtime dependencies.
 
 ## Controls & Shortcuts
 
@@ -128,49 +138,6 @@ Some features are very alpha/experimental (notably consume-or-expel panes) and m
 | **Hold key 400ms** | Accent Picker | Shows accented variants in any text input (e.g., hold 'e' for è, é, ê, ë) |
 
 All zoom changes are automatically persisted per-domain and restored on next visit.
-
-## Quick Start
-
-**Option 1: Use Pre-built Binaries (Recommended)**
-
-Download the latest release from the [releases page](https://github.com/bnema/dumber/releases):
-```bash
-# Download latest release
-wget https://github.com/bnema/dumber/releases/latest/download/dumber_linux_x86_64.tar.gz
-
-# Extract and install to ~/.local/bin (enables auto-updates)
-tar -xzf dumber_linux_x86_64.tar.gz
-mkdir -p ~/.local/bin
-install -m 755 dumber_*/dumber ~/.local/bin/
-
-# Ensure ~/.local/bin is in your PATH (add to ~/.bashrc or ~/.zshrc if needed)
-# export PATH="$HOME/.local/bin:$PATH"
-```
-
-Then install runtime dependencies (see [Dependencies](#dependencies) section below).
-
-**Option 2: Build From Source**
-
-Prerequisites:
-- Go 1.25+
-- Node.js 20+ and npm (for building the embedded TypeScript frontend)
-- For GUI build: WebKitGTK 6 and GTK4 dev packages (examples)
-  - Minimum runtime versions: WebKitGTK 6.0 >= `2.50`, GTK4 >= `4.20`, GLib >= `2.84`
-  - Debian/Ubuntu: `libwebkitgtk-6.0-dev libgtk-4-dev build-essential`
-  - Arch: `webkitgtk-6.0 gtk4 base-devel`
-  - Verify your system with: `dumber doctor` (or configure `runtime.prefix` for `/opt` installs)
-
-Build options:
-- Default (recommended):
-  - `make build`          # builds frontend + Go (pure Go; CGO off)
-  - Run: `./dist/dumber`  # run the app
-- Quick (no frontend rebuild):
-  - `make build-quick`
-  - Run: `./dist/dumber`
-
-Development:
-- `make dev` runs `go run ./cmd/dumber`
-- `make test` runs tests; `make lint` runs golangci‑lint
 
 ## Install
 
@@ -384,12 +351,50 @@ A default config is created on first run. Changes are applied automatically (hot
 **Full documentation**: [docs/CONFIG.md](docs/CONFIG.md) - Complete reference for all settings, workspace controls, shortcuts, styling, and more.
 
 
-## Building With WebKitGTK 6 (GTK4)
-- Dumber uses pure-Go bindings (no CGO).
-- You still need the system GTK4/WebKitGTK runtime libraries installed to run the GUI.
-- Build targets:
-  - `make build` (builds frontend + binary)
-  - `make build-quick` (binary only; skips frontend build)
+## Development
+
+Dumber uses pure-Go bindings (no CGO) but requires GTK4/WebKitGTK runtime libraries for the GUI.
+
+### Environment
+
+Set `ENV=dev` to use a local `.dev/dumber/` directory for config, data, state, and cache instead of XDG paths. Useful for testing without affecting your real browser data.
+
+### Make Targets
+
+| Target | Description |
+|--------|-------------|
+| `make build` | Build frontend + binary (recommended) |
+| `make build-quick` | Build binary only (faster for backend work) |
+| `make build-frontend` | Build webui pages (homepage, error, config) |
+| `make dev` | Run with `go run` |
+| `make test` | Run tests |
+| `make test-race` | Run tests with race detection |
+| `make test-cover` | Run tests with coverage report |
+| `make lint` | Run golangci-lint |
+| `make lint-fix` | Run golangci-lint with auto-fix |
+| `make fmt` | Format Go code |
+| `make generate` | Generate SQLC code |
+| `make mocks` | Generate mock implementations |
+| `make install-tools` | Install dev tools (sqlc, golangci-lint) |
+| `make check` | Verify tools, build, and tests work |
+| `make clean` | Remove build artifacts |
+
+### Flatpak
+
+| Target | Description |
+|--------|-------------|
+| `make flatpak-deps` | Install Flatpak build dependencies |
+| `make flatpak-build` | Build Flatpak bundle |
+| `make flatpak-install` | Install Flatpak locally for testing |
+| `make flatpak-run` | Run the installed Flatpak |
+| `make flatpak-clean` | Clean Flatpak build artifacts |
+
+### Release
+
+| Target | Description |
+|--------|-------------|
+| `make release-snapshot` | Build snapshot with goreleaser |
+| `make release` | Create full release with goreleaser |
 
 ## Media (GStreamer) & Hardware Acceleration
 
