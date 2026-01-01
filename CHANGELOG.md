@@ -6,17 +6,19 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **Auto-copy on selection**: Text selected in web pages is automatically copied to the clipboard (like zellij/tmux). Shows brief "Copied to clipboard" toast notification. Configurable via `clipboard.auto_copy_on_selection` (default: true). Fixes #83.
+- **Stacked pane close buttons**: Close buttons in stacked pane title bars allow closing individual panes directly. Includes proper signal cleanup on removal.
 
 ### Changed
 - **Flatpak runtime**: Bumped to GNOME 49 runtime.
+- **Focus method refactored**: `Focus()` now delegates to `ApplyFocusChange()` to ensure stack index is updated when focusing stacked panes.
 
 ### Fixed
 - **Flatpak locale crash**: Attempted fix for crash on systems with certain locale configurations by adding proper locale data to the Flatpak bundle.
 - **Stacked pane vertical splits**: Vertical splits from stacked panes now correctly split around the entire stack instead of just the active pane.
-- **Pane border focus**: Fixed stale border remaining on previously hovered pane when using keyboard navigation to switch focus.
+- **Pane border focus**: Fixed stale border remaining on previously hovered pane when using keyboard navigation to switch focus. Fixes #89.
 - **Geometric focus navigation**: Fixed focus jumping to wrong pane when navigating left/right in complex layouts. Navigation now prioritizes panes at the same vertical level (for left/right) or horizontal level (for up/down).
 - **Link status overlay auto-hide**: Link URL overlay now automatically hides after 10 seconds of inactivity instead of staying visible indefinitely. Timer resets when hovering new links. Fixes #82.
-- **Omnibox multi-word search**: History search now matches all words in query (AND logic) and searches both URL and title fields. Prefix matching enabled (e.g., "git iss" matches "github.com/issues"). Fixes #87.
+- **Omnibox multi-word search**: History search now matches all words in query (AND logic) and searches both URL and title fields. Prefix matching enabled (e.g., "git iss" matches "github.com/issues"). FTS5 special characters are now sanitized to prevent syntax errors. Results interleave URL and title matches for better balance. Fixes #87.
 
 ## [0.23.2] - 2025-12-31
 
