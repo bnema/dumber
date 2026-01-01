@@ -129,6 +129,7 @@ func setupStackedLeafMocks(
 	mockFavicon := mocks.NewMockImageWidget(t)
 	mockLabel := mocks.NewMockLabelWidget(t)
 	mockButton := mocks.NewMockButtonWidget(t)
+	mockCloseButton := mocks.NewMockButtonWidget(t)
 
 	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockStackBox).Once()
 	mockStackBox.EXPECT().SetHexpand(true).Once()
@@ -150,13 +151,26 @@ func setupStackedLeafMocks(
 	mockLabel.EXPECT().SetXalign(float32(0.0)).Once()
 	mockTitleBar.EXPECT().Append(mockLabel).Once()
 
+	// Close button (uses SetIconName directly instead of child image)
+	mockFactory.EXPECT().NewButton().Return(mockCloseButton).Once()
+	mockCloseButton.EXPECT().SetIconName("window-close-symbolic").Once()
+	mockCloseButton.EXPECT().AddCssClass("stacked-pane-close-button").Once()
+	mockCloseButton.EXPECT().SetFocusOnClick(false).Once()
+	mockCloseButton.EXPECT().SetVexpand(false).Once()
+	mockCloseButton.EXPECT().SetHexpand(false).Once()
+	mockTitleBar.EXPECT().Append(mockCloseButton).Once()
+
+	// Title bar button
 	mockFactory.EXPECT().NewButton().Return(mockButton).Once()
 	mockButton.EXPECT().SetChild(mockTitleBar).Once()
 	mockButton.EXPECT().AddCssClass("stacked-pane-title-button").Once()
 	mockButton.EXPECT().SetFocusOnClick(false).Once()
 	mockButton.EXPECT().SetVexpand(false).Once()
 	mockButton.EXPECT().SetHexpand(true).Once()
+
+	// Click handlers
 	mockButton.EXPECT().ConnectClicked(mock.Anything).Return(uint32(1)).Once()
+	mockCloseButton.EXPECT().ConnectClicked(mock.Anything).Return(uint32(2)).Once()
 
 	mockStackBox.EXPECT().Append(mockButton).Once()
 	mockStackBox.EXPECT().Append(container).Once()
