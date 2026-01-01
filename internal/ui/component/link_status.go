@@ -13,6 +13,8 @@ import (
 const (
 	// linkStatusShowDelayMs is the delay before showing the overlay to avoid flicker.
 	linkStatusShowDelayMs = 100
+	// linkStatusAutoHideMs is the delay before auto-hiding the overlay (e.g., during fullscreen video).
+	linkStatusAutoHideMs = 10000
 	// linkStatusMaxChars is the maximum characters before truncation.
 	linkStatusMaxChars = 80
 )
@@ -24,10 +26,11 @@ type LinkStatusOverlay struct {
 	container layout.BoxWidget
 	label     layout.LabelWidget
 
-	pendingURI string // URI waiting to be shown after delay
-	showTimer  uint   // GLib timer for delayed show
-	visible    bool   // Whether overlay is currently visible (has .visible class)
-	mu         sync.Mutex
+	pendingURI    string // URI waiting to be shown after delay
+	showTimer     uint   // GLib timer for delayed show
+	autoHideTimer uint   // GLib timer for auto-hide after timeout
+	visible       bool   // Whether overlay is currently visible (has .visible class)
+	mu            sync.Mutex
 }
 
 // NewLinkStatusOverlay creates a new link status overlay component.
@@ -96,6 +99,8 @@ func (l *LinkStatusOverlay) Show(uri string) {
 				l.visible = true
 				l.container.AddCssClass("visible")
 			}
+			// Start or reset auto-hide timer
+			l.resetAutoHideTimerLocked()
 		}
 		l.showTimer = 0
 		return false // Don't repeat
@@ -118,12 +123,38 @@ func (l *LinkStatusOverlay) hide() {
 		glib.SourceRemove(l.showTimer)
 		l.showTimer = 0
 	}
+	// Cancel auto-hide timer
+	if l.autoHideTimer != 0 {
+		glib.SourceRemove(l.autoHideTimer)
+		l.autoHideTimer = 0
+	}
 	l.pendingURI = ""
 
 	if l.visible {
 		l.visible = false
 		l.container.RemoveCssClass("visible")
 	}
+}
+
+// resetAutoHideTimerLocked starts or resets the auto-hide timer (must be called with lock held).
+func (l *LinkStatusOverlay) resetAutoHideTimerLocked() {
+	// Cancel existing auto-hide timer
+	if l.autoHideTimer != 0 {
+		glib.SourceRemove(l.autoHideTimer)
+		l.autoHideTimer = 0
+	}
+
+	// Start new auto-hide timer
+	cb := glib.SourceFunc(func(_ uintptr) bool {
+		l.mu.Lock()
+		defer l.mu.Unlock()
+
+		l.autoHideTimer = 0
+		l.hide()
+		return false // Don't repeat
+	})
+
+	l.autoHideTimer = glib.TimeoutAdd(linkStatusAutoHideMs, &cb, 0)
 }
 
 // Widget returns the underlying widget for embedding in overlays.
@@ -148,6 +179,11 @@ func (l *LinkStatusOverlay) Cleanup() {
 	if l.showTimer != 0 {
 		glib.SourceRemove(l.showTimer)
 		l.showTimer = 0
+	}
+	// Cancel auto-hide timer
+	if l.autoHideTimer != 0 {
+		glib.SourceRemove(l.autoHideTimer)
+		l.autoHideTimer = 0
 	}
 	l.pendingURI = ""
 	l.visible = false

@@ -120,6 +120,11 @@ func BuildWebKitStack(input WebKitStackInput) WebKitStack {
 	settings := webkit.NewSettingsManager(ctx, cfg)
 	injector := webkit.NewContentInjector(colorResolver)
 
+	// Set up auto-copy on selection config getter
+	injector.SetAutoCopyConfigGetter(func() bool {
+		return config.Get().Clipboard.AutoCopyOnSelection
+	})
+
 	prepareThemeUC := usecase.NewPrepareWebUIThemeUseCase(injector)
 	themeCSSText := themeManager.GetWebUIThemeCSS()
 	if err := prepareThemeUC.Execute(ctx, usecase.PrepareWebUIThemeInput{CSSVars: themeCSSText}); err != nil {

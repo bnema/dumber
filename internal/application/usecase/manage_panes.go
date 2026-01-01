@@ -540,31 +540,13 @@ func (uc *ManagePanesUseCase) Close(ctx context.Context, ws *entity.Workspace, p
 }
 
 // Focus sets the active pane in the workspace.
+// Delegates to ApplyFocusChange to ensure stack index is updated when focusing a stacked pane.
 func (uc *ManagePanesUseCase) Focus(ctx context.Context, ws *entity.Workspace, paneID entity.PaneID) error {
 	log := logging.FromContext(ctx)
-	if uc == nil {
-		return fmt.Errorf("manage panes use case is nil")
-	}
 	log.Debug().Str("pane_id", string(paneID)).Msg("focusing pane")
 
-	if ws == nil {
-		return fmt.Errorf("workspace is required")
-	}
-
-	node := ws.FindPane(paneID)
-	if node == nil {
-		return fmt.Errorf("pane not found: %s", paneID)
-	}
-
-	oldActive := ws.ActivePaneID
-	ws.ActivePaneID = paneID
-
-	log.Info().
-		Str("from", string(oldActive)).
-		Str("to", string(paneID)).
-		Msg("focus changed")
-
-	return nil
+	_, err := uc.ApplyFocusChange(ctx, ws, paneID)
+	return err
 }
 
 // NavigateFocus moves focus to an adjacent pane.
