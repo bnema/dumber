@@ -112,15 +112,14 @@ func (uc *ManagePanesUseCase) Split(ctx context.Context, input SplitPaneInput) (
 		return nil, fmt.Errorf("target pane is required")
 	}
 
-	// If target is inside a stack and splitting left/right, split around the entire stack
+	// If target is inside a stack, split around the entire stack
 	// (i.e., create the new pane as a sibling to the stack, not inside it)
+	// This applies to all directions - we don't want to nest split containers inside stacks.
 	targetNode := input.TargetPane
-	if input.Direction == SplitLeft || input.Direction == SplitRight {
-		if targetNode.Parent != nil && targetNode.Parent.IsStacked {
-			// Promote to the stack container so split happens outside the stack
-			targetNode = targetNode.Parent
-			log.Debug().Msg("target is inside a stack, splitting around stack container")
-		}
+	if targetNode.Parent != nil && targetNode.Parent.IsStacked {
+		// Promote to the stack container so split happens outside the stack
+		targetNode = targetNode.Parent
+		log.Debug().Msg("target is inside a stack, splitting around stack container")
 	}
 
 	// Create new pane

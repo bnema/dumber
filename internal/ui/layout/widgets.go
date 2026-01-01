@@ -179,6 +179,7 @@ type ButtonWidget interface {
 	GetLabel() string
 	SetChild(child Widget)
 	GetChild() Widget
+	SetIconName(iconName string)
 
 	// Connect click handler, returns signal ID for disconnection
 	ConnectClicked(callback func()) uint32

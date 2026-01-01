@@ -17,7 +17,10 @@ var ErrIndexOutOfBounds = errors.New("index out of bounds")
 // ErrCannotRemoveLastPane is returned when trying to remove the last pane from a stack.
 var ErrCannotRemoveLastPane = errors.New("cannot remove last pane from stack")
 
-const stackedTitleMaxWidthChars = 30
+const (
+	stackedTitleMaxWidthChars = 30
+	stackedPaneCloseIcon      = "window-close-symbolic"
+)
 
 // stackedPane represents a single pane within a stacked container.
 type stackedPane struct {
@@ -38,7 +41,8 @@ type StackedView struct {
 	panes       []*stackedPane
 	activeIndex int
 
-	onActivate func(index int) // called when a pane is activated via title bar click
+	onActivate  func(index int)     // called when a pane is activated via title bar click
+	onClosePane func(paneID string) // called when a pane's close button is clicked
 
 	mu sync.RWMutex
 }
@@ -57,20 +61,18 @@ func NewStackedView(factory WidgetFactory) *StackedView {
 	}
 }
 
-// AddPane adds a new pane to the stack.
-// The new pane becomes active (visible).
-func (sv *StackedView) AddPane(ctx context.Context, paneID, title, faviconIconName string, container Widget) int {
-	log := logging.FromContext(ctx)
-	sv.mu.Lock()
-	defer sv.mu.Unlock()
+// titleBarComponents holds the widgets created for a pane's title bar.
+type titleBarComponents struct {
+	titleBar    BoxWidget
+	titleButton ButtonWidget
+	closeBtn    ButtonWidget
+	favicon     ImageWidget
+	label       LabelWidget
+}
 
-	log.Debug().
-		Str("title", title).
-		Bool("container_nil", container == nil).
-		Int("current_count", len(sv.panes)).
-		Msg("StackedView.AddPane called")
-
-	// Create title bar - must not expand vertically
+// createTitleBar creates the title bar widgets for a pane.
+func (sv *StackedView) createTitleBar(title, faviconIconName string) titleBarComponents {
+	// Create title bar container - must not expand vertically
 	titleBar := sv.factory.NewBox(OrientationHorizontal, 4)
 	titleBar.AddCssClass("stacked-pane-titlebar")
 	titleBar.SetVexpand(false)
@@ -93,6 +95,15 @@ func (sv *StackedView) AddPane(ctx context.Context, paneID, title, faviconIconNa
 	label.SetXalign(0.0)
 	titleBar.Append(label)
 
+	// Create close button using GTK's native icon button support
+	closeBtn := sv.factory.NewButton()
+	closeBtn.SetIconName(stackedPaneCloseIcon)
+	closeBtn.AddCssClass("stacked-pane-close-button")
+	closeBtn.SetFocusOnClick(false)
+	closeBtn.SetVexpand(false)
+	closeBtn.SetHexpand(false)
+	titleBar.Append(closeBtn)
+
 	// Make title bar clickable - ensure it doesn't expand vertically
 	titleButton := sv.factory.NewButton()
 	titleButton.SetChild(titleBar)
@@ -101,35 +112,52 @@ func (sv *StackedView) AddPane(ctx context.Context, paneID, title, faviconIconNa
 	titleButton.SetVexpand(false) // Critical: don't let title bar expand vertically
 	titleButton.SetHexpand(true)  // But fill horizontal space
 
+	return titleBarComponents{
+		titleBar:    titleBar,
+		titleButton: titleButton,
+		closeBtn:    closeBtn,
+		favicon:     favicon,
+		label:       label,
+	}
+}
+
+// AddPane adds a new pane to the stack.
+// The new pane becomes active (visible).
+func (sv *StackedView) AddPane(ctx context.Context, paneID, title, faviconIconName string, container Widget) int {
+	log := logging.FromContext(ctx)
+	sv.mu.Lock()
+	defer sv.mu.Unlock()
+
+	log.Debug().
+		Str("title", title).
+		Bool("container_nil", container == nil).
+		Int("current_count", len(sv.panes)).
+		Msg("StackedView.AddPane called")
+
+	// Create title bar components
+	tb := sv.createTitleBar(title, faviconIconName)
+
 	pane := &stackedPane{
 		paneID:    paneID,
-		titleBar:  titleBar,
+		titleBar:  tb.titleBar,
 		container: container,
 		title:     title,
-		favicon:   favicon,
-		label:     label,
+		favicon:   tb.favicon,
+		label:     tb.label,
 		isActive:  false,
 	}
 
 	index := len(sv.panes)
 	sv.panes = append(sv.panes, pane)
 
-	// Connect click handler
-	titleButton.ConnectClicked(func() {
-		sv.mu.RLock()
-		callback := sv.onActivate
-		sv.mu.RUnlock()
-
-		if callback != nil {
-			callback(index)
-		}
-	})
+	// Connect click handlers using paneID (not index, to handle removals)
+	sv.connectTitleBarHandlers(tb, paneID)
 
 	// Add to container
 	log.Debug().
 		Int("index", index).
 		Msg("StackedView: appending titleButton and container to box")
-	sv.box.Append(titleButton)
+	sv.box.Append(tb.titleButton)
 	if container != nil {
 		sv.box.Append(container)
 	}
@@ -143,6 +171,33 @@ func (sv *StackedView) AddPane(ctx context.Context, paneID, title, faviconIconNa
 		Msg("StackedView.AddPane completed")
 
 	return index
+}
+
+// connectTitleBarHandlers connects the click handlers for a title bar.
+// Uses paneID lookup instead of captured index to handle pane removals correctly.
+func (sv *StackedView) connectTitleBarHandlers(tb titleBarComponents, paneID string) {
+	// Connect title bar click handler for activation
+	tb.titleButton.ConnectClicked(func() {
+		sv.mu.RLock()
+		callback := sv.onActivate
+		currentIndex := sv.findPaneIndexInternal(paneID)
+		sv.mu.RUnlock()
+
+		if callback != nil && currentIndex >= 0 {
+			callback(currentIndex)
+		}
+	})
+
+	// Connect close button click handler
+	tb.closeBtn.ConnectClicked(func() {
+		sv.mu.RLock()
+		onClose := sv.onClosePane
+		sv.mu.RUnlock()
+
+		if onClose != nil {
+			onClose(paneID)
+		}
+	})
 }
 
 // InsertPaneAfter inserts a new pane after the specified index position.
@@ -172,44 +227,16 @@ func (sv *StackedView) InsertPaneAfter(
 		Int("current_count", len(sv.panes)).
 		Msg("StackedView.InsertPaneAfter called")
 
-	// Create title bar - must not expand vertically
-	titleBar := sv.factory.NewBox(OrientationHorizontal, 4)
-	titleBar.AddCssClass("stacked-pane-titlebar")
-	titleBar.SetVexpand(false)
-
-	// Create favicon image
-	favicon := sv.factory.NewImage()
-	if faviconIconName != "" {
-		favicon.SetFromIconName(faviconIconName)
-	} else {
-		favicon.SetFromIconName("web-browser-symbolic")
-	}
-	favicon.SetPixelSize(16)
-	titleBar.Append(favicon)
-
-	// Create title label
-	label := sv.factory.NewLabel(title)
-	label.SetEllipsize(EllipsizeEnd)
-	label.SetMaxWidthChars(stackedTitleMaxWidthChars)
-	label.SetHexpand(true)
-	label.SetXalign(0.0)
-	titleBar.Append(label)
-
-	// Make title bar clickable - ensure it doesn't expand vertically
-	titleButton := sv.factory.NewButton()
-	titleButton.SetChild(titleBar)
-	titleButton.AddCssClass("stacked-pane-title-button")
-	titleButton.SetFocusOnClick(false)
-	titleButton.SetVexpand(false)
-	titleButton.SetHexpand(true)
+	// Create title bar components
+	tb := sv.createTitleBar(title, faviconIconName)
 
 	pane := &stackedPane{
 		paneID:    paneID,
-		titleBar:  titleBar,
+		titleBar:  tb.titleBar,
 		container: container,
 		title:     title,
-		favicon:   favicon,
-		label:     label,
+		favicon:   tb.favicon,
+		label:     tb.label,
 		isActive:  false,
 	}
 
@@ -218,19 +245,25 @@ func (sv *StackedView) InsertPaneAfter(
 	copy(sv.panes[insertIndex+1:], sv.panes[insertIndex:])
 	sv.panes[insertIndex] = pane
 
-	// Connect click handler - use captured index
-	capturedIndex := insertIndex
-	titleButton.ConnectClicked(func() {
-		sv.mu.RLock()
-		callback := sv.onActivate
-		sv.mu.RUnlock()
-
-		if callback != nil {
-			callback(capturedIndex)
-		}
-	})
+	// Connect click handlers using paneID (not index, to handle removals)
+	sv.connectTitleBarHandlers(tb, paneID)
 
 	// Insert widgets at correct position in GTK box
+	sv.insertTitleBarWidgets(tb.titleButton, container, insertIndex)
+
+	// Set this pane as active
+	sv.setActiveInternal(ctx, insertIndex)
+
+	log.Debug().
+		Int("insert_index", insertIndex).
+		Int("new_count", len(sv.panes)).
+		Msg("StackedView.InsertPaneAfter completed")
+
+	return insertIndex
+}
+
+// insertTitleBarWidgets inserts the title bar button and container at the correct position.
+func (sv *StackedView) insertTitleBarWidgets(titleButton ButtonWidget, container Widget, insertIndex int) {
 	if insertIndex > 0 && sv.panes[insertIndex-1] != nil {
 		// Insert after the previous pane's container
 		prevPane := sv.panes[insertIndex-1]
@@ -262,16 +295,6 @@ func (sv *StackedView) InsertPaneAfter(
 		}
 		sv.box.Prepend(titleButton)
 	}
-
-	// Set this pane as active
-	sv.setActiveInternal(ctx, insertIndex)
-
-	log.Debug().
-		Int("insert_index", insertIndex).
-		Int("new_count", len(sv.panes)).
-		Msg("StackedView.InsertPaneAfter completed")
-
-	return insertIndex
 }
 
 // RemovePane removes a pane from the stack by index.
@@ -429,6 +452,12 @@ func (sv *StackedView) FindPaneIndex(paneID string) int {
 	sv.mu.RLock()
 	defer sv.mu.RUnlock()
 
+	return sv.findPaneIndexInternal(paneID)
+}
+
+// findPaneIndexInternal returns the index of a pane by ID.
+// Caller must hold at least a read lock on sv.mu.
+func (sv *StackedView) findPaneIndexInternal(paneID string) int {
 	for i, pane := range sv.panes {
 		if pane.paneID == paneID {
 			return i
@@ -443,6 +472,14 @@ func (sv *StackedView) SetOnActivate(fn func(index int)) {
 	defer sv.mu.Unlock()
 
 	sv.onActivate = fn
+}
+
+// SetOnClosePane sets the callback for when a pane's close button is clicked.
+func (sv *StackedView) SetOnClosePane(fn func(paneID string)) {
+	sv.mu.Lock()
+	defer sv.mu.Unlock()
+
+	sv.onClosePane = fn
 }
 
 // UpdateTitle updates the title of a pane at the given index.
