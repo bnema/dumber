@@ -11,6 +11,8 @@ import (
 
 // TestNavigateWithinStack_UsesActiveStackIndex tests that navigation uses
 // ActiveStackIndex from the domain model instead of pointer comparison.
+// Note: navigateWithinStack is a pure function that returns the target pane ID
+// without modifying state. The actual state mutation happens in ApplyFocusChange.
 func TestNavigateWithinStack_UsesActiveStackIndex(t *testing.T) {
 	// Create a stack with 3 children
 	pane0 := &entity.Pane{ID: "pane0"}
@@ -36,60 +38,53 @@ func TestNavigateWithinStack_UsesActiveStackIndex(t *testing.T) {
 	m := NewManager(nil)
 
 	tests := []struct {
-		name         string
-		activeIndex  int
-		direction    usecase.NavigateDirection
-		wantCanNav   bool
-		wantPaneID   entity.PaneID
-		wantNewIndex int
+		name        string
+		activeIndex int
+		direction   usecase.NavigateDirection
+		wantCanNav  bool
+		wantPaneID  entity.PaneID
 	}{
 		{
-			name:         "navigate down from middle",
-			activeIndex:  1,
-			direction:    usecase.NavDown,
-			wantCanNav:   true,
-			wantPaneID:   "pane2",
-			wantNewIndex: 2,
+			name:        "navigate down from middle",
+			activeIndex: 1,
+			direction:   usecase.NavDown,
+			wantCanNav:  true,
+			wantPaneID:  "pane2",
 		},
 		{
-			name:         "navigate up from middle",
-			activeIndex:  1,
-			direction:    usecase.NavUp,
-			wantCanNav:   true,
-			wantPaneID:   "pane0",
-			wantNewIndex: 0,
+			name:        "navigate up from middle",
+			activeIndex: 1,
+			direction:   usecase.NavUp,
+			wantCanNav:  true,
+			wantPaneID:  "pane0",
 		},
 		{
-			name:         "navigate down from last - boundary",
-			activeIndex:  2,
-			direction:    usecase.NavDown,
-			wantCanNav:   false,
-			wantPaneID:   "",
-			wantNewIndex: 2, // unchanged
+			name:        "navigate down from last - boundary",
+			activeIndex: 2,
+			direction:   usecase.NavDown,
+			wantCanNav:  false,
+			wantPaneID:  "",
 		},
 		{
-			name:         "navigate up from first - boundary",
-			activeIndex:  0,
-			direction:    usecase.NavUp,
-			wantCanNav:   false,
-			wantPaneID:   "",
-			wantNewIndex: 0, // unchanged
+			name:        "navigate up from first - boundary",
+			activeIndex: 0,
+			direction:   usecase.NavUp,
+			wantCanNav:  false,
+			wantPaneID:  "",
 		},
 		{
-			name:         "navigate down from first",
-			activeIndex:  0,
-			direction:    usecase.NavDown,
-			wantCanNav:   true,
-			wantPaneID:   "pane1",
-			wantNewIndex: 1,
+			name:        "navigate down from first",
+			activeIndex: 0,
+			direction:   usecase.NavDown,
+			wantCanNav:  true,
+			wantPaneID:  "pane1",
 		},
 		{
-			name:         "navigate up from last",
-			activeIndex:  2,
-			direction:    usecase.NavUp,
-			wantCanNav:   true,
-			wantPaneID:   "pane1",
-			wantNewIndex: 1,
+			name:        "navigate up from last",
+			activeIndex: 2,
+			direction:   usecase.NavUp,
+			wantCanNav:  true,
+			wantPaneID:  "pane1",
 		},
 	}
 
@@ -98,16 +93,11 @@ func TestNavigateWithinStack_UsesActiveStackIndex(t *testing.T) {
 			// Set up the active index
 			stackNode.ActiveStackIndex = tt.activeIndex
 
-			// Call the private function through reflection or test it indirectly
-			// Since navigateWithinStack is private, we test its behavior
+			// navigateWithinStack is a pure function - it does not modify state
 			canNav, paneID := m.navigateWithinStack(stackNode, stackNode.Children[tt.activeIndex], tt.direction)
 
 			assert.Equal(t, tt.wantCanNav, canNav)
 			assert.Equal(t, tt.wantPaneID, paneID)
-
-			if canNav {
-				assert.Equal(t, tt.wantNewIndex, stackNode.ActiveStackIndex)
-			}
 		})
 	}
 }
@@ -193,9 +183,10 @@ func TestNavigateWithinStack_InvalidDirection(t *testing.T) {
 	assert.Empty(t, paneID)
 }
 
-// TestNavigateWithinStack_UpdatesActiveStackIndex tests that navigation properly
-// updates the ActiveStackIndex on the stack node.
-func TestNavigateWithinStack_UpdatesActiveStackIndex(t *testing.T) {
+// TestNavigateWithinStack_ReturnsCorrectPaneID tests that navigation returns
+// the correct target pane ID for sequential navigation.
+// Note: navigateWithinStack is now a pure function - state updates happen in ApplyFocusChange.
+func TestNavigateWithinStack_ReturnsCorrectPaneID(t *testing.T) {
 	pane0 := &entity.Pane{ID: "pane0"}
 	pane1 := &entity.Pane{ID: "pane1"}
 	pane2 := &entity.Pane{ID: "pane2"}
@@ -213,22 +204,27 @@ func TestNavigateWithinStack_UpdatesActiveStackIndex(t *testing.T) {
 
 	m := NewManager(nil)
 
-	// Navigate down twice
+	// Navigate down from first - should return pane1
 	stackNode.ActiveStackIndex = 0
-	canNav, _ := m.navigateWithinStack(stackNode, child0, usecase.NavDown)
+	canNav, paneID := m.navigateWithinStack(stackNode, child0, usecase.NavDown)
 	assert.True(t, canNav)
-	assert.Equal(t, 1, stackNode.ActiveStackIndex)
+	assert.Equal(t, entity.PaneID("pane1"), paneID)
 
-	canNav, _ = m.navigateWithinStack(stackNode, child1, usecase.NavDown)
+	// Navigate down from middle - should return pane2
+	stackNode.ActiveStackIndex = 1
+	canNav, paneID = m.navigateWithinStack(stackNode, child1, usecase.NavDown)
 	assert.True(t, canNav)
-	assert.Equal(t, 2, stackNode.ActiveStackIndex)
+	assert.Equal(t, entity.PaneID("pane2"), paneID)
 
-	// Navigate up twice
-	canNav, _ = m.navigateWithinStack(stackNode, child2, usecase.NavUp)
+	// Navigate up from last - should return pane1
+	stackNode.ActiveStackIndex = 2
+	canNav, paneID = m.navigateWithinStack(stackNode, child2, usecase.NavUp)
 	assert.True(t, canNav)
-	assert.Equal(t, 1, stackNode.ActiveStackIndex)
+	assert.Equal(t, entity.PaneID("pane1"), paneID)
 
-	canNav, _ = m.navigateWithinStack(stackNode, child1, usecase.NavUp)
+	// Navigate up from middle - should return pane0
+	stackNode.ActiveStackIndex = 1
+	canNav, paneID = m.navigateWithinStack(stackNode, child1, usecase.NavUp)
 	assert.True(t, canNav)
-	assert.Equal(t, 0, stackNode.ActiveStackIndex)
+	assert.Equal(t, entity.PaneID("pane0"), paneID)
 }
