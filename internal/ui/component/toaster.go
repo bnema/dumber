@@ -16,6 +16,8 @@ import (
 const (
 	// Default auto-dismiss timeout in milliseconds.
 	toastDismissTimeoutMs = 1500
+	// ToastBriefDurationMs is the duration for brief notifications (e.g., clipboard copy).
+	ToastBriefDurationMs = 800
 )
 
 // ToastLevel indicates the visual style of a toast notification.

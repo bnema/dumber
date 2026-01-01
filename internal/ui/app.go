@@ -156,7 +156,7 @@ func New(deps *Dependencies) (*App, error) {
 				cb := glib.SourceFunc(func(_ uintptr) bool {
 					if app.appToaster != nil {
 						app.appToaster.Show(ctx, "Copied to clipboard", component.ToastInfo,
-							component.WithDuration(800), // Brief notification
+							component.WithDuration(component.ToastBriefDurationMs),
 							component.WithPosition(component.ToastPositionBottomRight),
 						)
 					}
