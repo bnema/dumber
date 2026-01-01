@@ -11,10 +11,9 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
-// Fallback chains for each font category.
-// The first available font in the chain will be selected.
+// Fallback chains for each font category (unexported to prevent modification).
 var (
-	SansSerifFallbackChain = []string{
+	sansSerifFallbackChain = []string{
 		"Fira Sans",
 		"Noto Sans",
 		"DejaVu Sans",
@@ -22,14 +21,14 @@ var (
 		"FreeSans",
 	}
 
-	SerifFallbackChain = []string{
+	serifFallbackChain = []string{
 		"Noto Serif",
 		"DejaVu Serif",
 		"Liberation Serif",
 		"FreeSerif",
 	}
 
-	MonospaceFallbackChain = []string{
+	monospaceFallbackChain = []string{
 		"Fira Code",
 		"JetBrains Mono",
 		"Noto Sans Mono",
@@ -38,6 +37,27 @@ var (
 		"FreeMono",
 	}
 )
+
+// SansSerifFallbackChain returns the fallback chain for sans-serif fonts.
+func SansSerifFallbackChain() []string {
+	result := make([]string, len(sansSerifFallbackChain))
+	copy(result, sansSerifFallbackChain)
+	return result
+}
+
+// SerifFallbackChain returns the fallback chain for serif fonts.
+func SerifFallbackChain() []string {
+	result := make([]string, len(serifFallbackChain))
+	copy(result, serifFallbackChain)
+	return result
+}
+
+// MonospaceFallbackChain returns the fallback chain for monospace fonts.
+func MonospaceFallbackChain() []string {
+	result := make([]string, len(monospaceFallbackChain))
+	copy(result, monospaceFallbackChain)
+	return result
+}
 
 // Generic CSS fallbacks when no fonts from the chain are found.
 const (

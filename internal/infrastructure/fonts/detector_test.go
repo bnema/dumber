@@ -67,12 +67,12 @@ func TestDetector_SelectBestFont_SansSerif(t *testing.T) {
 		t.Skip("fc-list not available on this system")
 	}
 
-	font := detector.SelectBestFont(ctx, port.FontCategorySansSerif, SansSerifFallbackChain)
+	font := detector.SelectBestFont(ctx, port.FontCategorySansSerif, SansSerifFallbackChain())
 	assert.NotEmpty(t, font)
 
 	// Should either be a font from the chain or the generic fallback
 	isFromChain := false
-	for _, f := range SansSerifFallbackChain {
+	for _, f := range SansSerifFallbackChain() {
 		if font == f {
 			isFromChain = true
 			break
@@ -93,11 +93,11 @@ func TestDetector_SelectBestFont_Serif(t *testing.T) {
 		t.Skip("fc-list not available on this system")
 	}
 
-	font := detector.SelectBestFont(ctx, port.FontCategorySerif, SerifFallbackChain)
+	font := detector.SelectBestFont(ctx, port.FontCategorySerif, SerifFallbackChain())
 	assert.NotEmpty(t, font)
 
 	isFromChain := false
-	for _, f := range SerifFallbackChain {
+	for _, f := range SerifFallbackChain() {
 		if font == f {
 			isFromChain = true
 			break
@@ -118,11 +118,11 @@ func TestDetector_SelectBestFont_Monospace(t *testing.T) {
 		t.Skip("fc-list not available on this system")
 	}
 
-	font := detector.SelectBestFont(ctx, port.FontCategoryMonospace, MonospaceFallbackChain)
+	font := detector.SelectBestFont(ctx, port.FontCategoryMonospace, MonospaceFallbackChain())
 	assert.NotEmpty(t, font)
 
 	isFromChain := false
-	for _, f := range MonospaceFallbackChain {
+	for _, f := range MonospaceFallbackChain() {
 		if font == f {
 			isFromChain = true
 			break
@@ -194,14 +194,14 @@ func TestDetector_genericFallback(t *testing.T) {
 }
 
 func TestFallbackChains_NotEmpty(t *testing.T) {
-	assert.NotEmpty(t, SansSerifFallbackChain, "sans-serif fallback chain should not be empty")
-	assert.NotEmpty(t, SerifFallbackChain, "serif fallback chain should not be empty")
-	assert.NotEmpty(t, MonospaceFallbackChain, "monospace fallback chain should not be empty")
+	assert.NotEmpty(t, SansSerifFallbackChain(), "sans-serif fallback chain should not be empty")
+	assert.NotEmpty(t, SerifFallbackChain(), "serif fallback chain should not be empty")
+	assert.NotEmpty(t, MonospaceFallbackChain(), "monospace fallback chain should not be empty")
 }
 
 func TestFallbackChains_PreferredFontsFirst(t *testing.T) {
 	// Verify preferred fonts are first in chain
-	assert.Equal(t, "Fira Sans", SansSerifFallbackChain[0], "Fira Sans should be first in sans-serif chain")
-	assert.Equal(t, "Noto Serif", SerifFallbackChain[0], "Noto Serif should be first in serif chain")
-	assert.Equal(t, "Fira Code", MonospaceFallbackChain[0], "Fira Code should be first in monospace chain")
+	assert.Equal(t, "Fira Sans", SansSerifFallbackChain()[0], "Fira Sans should be first in sans-serif chain")
+	assert.Equal(t, "Noto Serif", SerifFallbackChain()[0], "Noto Serif should be first in serif chain")
+	assert.Equal(t, "Fira Code", MonospaceFallbackChain()[0], "Fira Code should be first in monospace chain")
 }
