@@ -137,8 +137,12 @@ func (m *Manager) NavigateGeometric(
 			stackNode := activeNode.Parent
 			canNavigate, newPaneID := m.navigateWithinStack(stackNode, activeNode, direction)
 			if canNavigate {
-				ws.ActivePaneID = newPaneID
-				return ws.FindPane(newPaneID), nil
+				// Apply focus change through use case (handles stack index updates)
+				targetNode, err := m.panesUC.ApplyFocusChange(ctx, ws, newPaneID)
+				if err != nil {
+					return nil, err
+				}
+				return targetNode, nil
 			}
 			// At stack boundary - fall through to geometric navigation
 			log.Debug().Msg("at stack boundary, using geometric navigation")
@@ -164,26 +168,10 @@ func (m *Manager) NavigateGeometric(
 		return nil, nil
 	}
 
-	// Update workspace
-	ws.ActivePaneID = output.TargetPaneID
-
-	// Find target node and update stack index if target is in a stack
-	targetNode := ws.FindPane(output.TargetPaneID)
-	if targetNode != nil && targetNode.Parent != nil && targetNode.Parent.IsStacked {
-		// Update the stack's ActiveStackIndex to match the target pane
-		oldIndex := targetNode.Parent.ActiveStackIndex
-		for i, child := range targetNode.Parent.Children {
-			if child == targetNode {
-				targetNode.Parent.ActiveStackIndex = i
-				log.Debug().
-					Str("target_pane_id", string(output.TargetPaneID)).
-					Int("old_stack_index", oldIndex).
-					Int("new_stack_index", i).
-					Int("num_children", len(targetNode.Parent.Children)).
-					Msg("updated stack index for geometric nav into stack")
-				break
-			}
-		}
+	// Apply focus change through use case (handles stack index updates)
+	targetNode, err := m.panesUC.ApplyFocusChange(ctx, ws, output.TargetPaneID)
+	if err != nil {
+		return nil, err
 	}
 
 	return targetNode, nil
@@ -192,6 +180,8 @@ func (m *Manager) NavigateGeometric(
 // navigateWithinStack tries to navigate within a stack.
 // Returns (canNavigate, newPaneID). If canNavigate is false, the pane is at a
 // boundary and navigation should escape the stack.
+// Note: This method does not modify domain state; the caller should use
+// ApplyFocusChange to apply the focus change.
 func (m *Manager) navigateWithinStack(
 	stackNode, currentNode *entity.PaneNode, direction usecase.NavigateDirection,
 ) (bool, entity.PaneID) {
@@ -209,7 +199,6 @@ func (m *Manager) navigateWithinStack(
 		return false, ""
 	}
 
-	stackNode.ActiveStackIndex = newIdx
 	return m.getPaneIDFromStackChild(stackNode.Children[newIdx])
 }
 
