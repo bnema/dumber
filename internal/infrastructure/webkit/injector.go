@@ -150,7 +150,6 @@ type ContentInjector struct {
 	colorResolver        port.ColorSchemeResolver
 	themeCSSVars         string      // CSS custom property declarations for WebUI
 	findCSS              string      // CSS for find-in-page highlight styling
-	autoCopyOnSelection  bool        // Whether to inject auto-copy selection script
 	autoCopyConfigGetter func() bool // Dynamic getter for auto-copy config
 }
 

@@ -71,7 +71,13 @@ func (h *ClipboardHandler) HandleAutoCopySelection() webkit.MessageHandler {
 }
 
 // RegisterClipboardHandlers registers clipboard handlers with the router.
-func RegisterClipboardHandlers(ctx context.Context, router *webkit.MessageRouter, clipboard port.Clipboard, configGetter func() *config.Config, onCopied func(textLen int)) error {
+func RegisterClipboardHandlers(
+	ctx context.Context,
+	router *webkit.MessageRouter,
+	clipboard port.Clipboard,
+	configGetter func() *config.Config,
+	onCopied func(textLen int),
+) error {
 	handler := NewClipboardHandler(clipboard, configGetter, onCopied)
 
 	// Register auto_copy_selection handler
