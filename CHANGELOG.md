@@ -7,8 +7,12 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 ### Changed
+- **Flatpak runtime**: Bumped to GNOME 49 runtime.
 
 ### Fixed
+- **Flatpak locale crash**: Attempted fix for crash on systems with certain locale configurations by adding proper locale data to the Flatpak bundle.
+- **Stacked pane vertical splits**: Vertical splits from stacked panes now correctly split around the entire stack instead of just the active pane.
+- **Pane border focus**: Fixed stale border remaining on previously hovered pane when using keyboard navigation to switch focus.
 
 ## [0.23.2] - 2025-12-31
 
