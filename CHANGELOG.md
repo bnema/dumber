@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - **Flatpak locale crash**: Attempted fix for crash on systems with certain locale configurations by adding proper locale data to the Flatpak bundle.
 - **Stacked pane vertical splits**: Vertical splits from stacked panes now correctly split around the entire stack instead of just the active pane.
 - **Pane border focus**: Fixed stale border remaining on previously hovered pane when using keyboard navigation to switch focus.
+- **Geometric focus navigation**: Fixed focus jumping to wrong pane when navigating left/right in complex layouts. Navigation now prioritizes panes at the same vertical level (for left/right) or horizontal level (for up/down).
 
 ## [0.23.2] - 2025-12-31
 
