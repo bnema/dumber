@@ -70,7 +70,8 @@ type Querier interface {
 	RemoveFromWhitelist(ctx context.Context, domain string) error
 	RemoveTagFromFavorite(ctx context.Context, arg RemoveTagFromFavoriteParams) error
 	SearchHistory(ctx context.Context, arg SearchHistoryParams) ([]History, error)
-	SearchHistoryFTS(ctx context.Context, arg SearchHistoryFTSParams) ([]History, error)
+	SearchHistoryFTSTitle(ctx context.Context, arg SearchHistoryFTSTitleParams) ([]History, error)
+	SearchHistoryFTSUrl(ctx context.Context, arg SearchHistoryFTSUrlParams) ([]History, error)
 	SetFavoriteFolder(ctx context.Context, arg SetFavoriteFolderParams) error
 	SetFavoriteShortcut(ctx context.Context, arg SetFavoriteShortcutParams) error
 	SetZoomLevel(ctx context.Context, arg SetZoomLevelParams) error

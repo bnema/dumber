@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -47,28 +48,70 @@ func (r *historyRepo) FindByURL(ctx context.Context, url string) (*entity.Histor
 func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]entity.HistoryMatch, error) {
 	log := logging.FromContext(ctx)
 
-	// Use FTS5 full-text search for better accuracy
-	// FTS5 query syntax: use * for prefix matching
-	ftsQuery := query + "*"
-
-	rows, err := r.queries.SearchHistoryFTS(ctx, sqlc.SearchHistoryFTSParams{
-		Url:   ftsQuery,
-		Limit: int64(limit),
-	})
-	if err != nil {
-		log.Debug().Err(err).Str("query", query).Msg("FTS search failed, no results")
-		// FTS5 returns error on no match or invalid query, return empty results
+	// Split query into words and add prefix matching to each
+	// This enables multi-word searches like "github issues" -> "github* issues*"
+	words := strings.Fields(query)
+	if len(words) == 0 {
 		return []entity.HistoryMatch{}, nil
 	}
 
-	matches := make([]entity.HistoryMatch, len(rows))
-	for i := range rows {
-		row := rows[i]
-		matches[i] = entity.HistoryMatch{
-			Entry: historyFromRow(row),
-			Score: 1.0, // FTS5 already ranked by bm25
+	// Build FTS5 query: "word1* word2*" (implicit AND between terms)
+	parts := make([]string, len(words))
+	for i, word := range words {
+		parts[i] = word + "*"
+	}
+	ftsQuery := strings.Join(parts, " ")
+
+	// Search both URL and title columns, then merge results
+	urlRows, urlErr := r.queries.SearchHistoryFTSUrl(ctx, sqlc.SearchHistoryFTSUrlParams{
+		Query: ftsQuery,
+		Limit: int64(limit),
+	})
+	if urlErr != nil {
+		log.Debug().Err(urlErr).Str("query", query).Msg("FTS URL search failed")
+		urlRows = []sqlc.History{}
+	}
+
+	titleRows, titleErr := r.queries.SearchHistoryFTSTitle(ctx, sqlc.SearchHistoryFTSTitleParams{
+		Query: ftsQuery,
+		Limit: int64(limit),
+	})
+	if titleErr != nil {
+		log.Debug().Err(titleErr).Str("query", query).Msg("FTS title search failed")
+		titleRows = []sqlc.History{}
+	}
+
+	// Merge results, deduplicating by ID
+	seen := make(map[int64]bool)
+	var matches []entity.HistoryMatch
+
+	for i := range urlRows {
+		row := urlRows[i]
+		if !seen[row.ID] {
+			seen[row.ID] = true
+			matches = append(matches, entity.HistoryMatch{
+				Entry: historyFromRow(row),
+				Score: 1.0,
+			})
 		}
 	}
+
+	for i := range titleRows {
+		row := titleRows[i]
+		if !seen[row.ID] {
+			seen[row.ID] = true
+			matches = append(matches, entity.HistoryMatch{
+				Entry: historyFromRow(row),
+				Score: 1.0,
+			})
+		}
+	}
+
+	// Limit results
+	if len(matches) > limit {
+		matches = matches[:limit]
+	}
+
 	return matches, nil
 }
 
