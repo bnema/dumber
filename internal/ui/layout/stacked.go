@@ -216,28 +216,38 @@ func (sv *StackedView) connectTitleBarHandlers(tb titleBarComponents, paneID str
 
 // disconnectPaneSignals disconnects signal handlers from a pane's buttons.
 // This prevents memory leaks when panes are removed from the stack.
+// Note: This is a no-op when using mock widgets in tests (GtkWidget returns nil).
 func (sv *StackedView) disconnectPaneSignals(pane *stackedPane) {
 	if pane == nil {
 		return
 	}
 
 	// Disconnect title button click signal
-	if pane.titleButton != nil && pane.titleClickSignalID != 0 {
-		gtkWidget := pane.titleButton.GtkWidget()
-		if gtkWidget != nil {
-			obj := gobject.ObjectNewFromInternalPtr(gtkWidget.GoPointer())
-			gobject.SignalHandlerDisconnect(obj, pane.titleClickSignalID)
-		}
-	}
+	disconnectButtonSignal(pane.titleButton, pane.titleClickSignalID)
 
 	// Disconnect close button click signal
-	if pane.closeButton != nil && pane.closeClickSignalID != 0 {
-		gtkWidget := pane.closeButton.GtkWidget()
-		if gtkWidget != nil {
-			obj := gobject.ObjectNewFromInternalPtr(gtkWidget.GoPointer())
-			gobject.SignalHandlerDisconnect(obj, pane.closeClickSignalID)
-		}
+	disconnectButtonSignal(pane.closeButton, pane.closeClickSignalID)
+}
+
+// disconnectButtonSignal safely disconnects a signal from a button widget.
+// Returns silently if button is nil, signal ID is 0, or widget doesn't support GTK operations.
+func disconnectButtonSignal(btn ButtonWidget, signalID uint32) {
+	if btn == nil || signalID == 0 {
+		return
 	}
+
+	gtkWidget := btn.GtkWidget()
+	if gtkWidget == nil {
+		return
+	}
+
+	ptr := gtkWidget.GoPointer()
+	if ptr == 0 {
+		return
+	}
+
+	obj := gobject.ObjectNewFromInternalPtr(ptr)
+	gobject.SignalHandlerDisconnect(obj, signalID)
 }
 
 // InsertPaneAfter inserts a new pane after the specified index position.
