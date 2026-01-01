@@ -25,20 +25,23 @@ func setupMockFactory(t *testing.T) (*mocks.MockWidgetFactory, *mocks.MockBoxWid
 }
 
 // setupPaneMocks creates mocks needed for AddPane
+// Note: The stacked view now uses GestureClick on the titleBar directly instead of wrapping it in a button.
+// The GestureClick is added via AddController which we mock to accept any EventController.
 func setupPaneMocks(t *testing.T, mockFactory *mocks.MockWidgetFactory, mockBox *mocks.MockBoxWidget) (
-	*mocks.MockBoxWidget, *mocks.MockImageWidget, *mocks.MockLabelWidget, *mocks.MockButtonWidget, *mocks.MockWidget,
+	*mocks.MockBoxWidget, *mocks.MockImageWidget, *mocks.MockLabelWidget, *mocks.MockWidget,
 ) {
 	mockTitleBar := mocks.NewMockBoxWidget(t)
 	mockFavicon := mocks.NewMockImageWidget(t)
 	mockLabel := mocks.NewMockLabelWidget(t)
-	mockButton := mocks.NewMockButtonWidget(t)
 	mockCloseButton := mocks.NewMockButtonWidget(t)
 	mockContainer := mocks.NewMockWidget(t)
 
-	// Title bar creation
+	// Title bar creation - now directly used without button wrapper
 	mockFactory.EXPECT().NewBox(layout.OrientationHorizontal, 4).Return(mockTitleBar).Once()
 	mockTitleBar.EXPECT().AddCssClass("stacked-pane-titlebar").Once()
+	mockTitleBar.EXPECT().AddCssClass("stacked-pane-title-clickable").Once()
 	mockTitleBar.EXPECT().SetVexpand(false).Once()
+	mockTitleBar.EXPECT().SetHexpand(true).Once()
 
 	// Favicon
 	mockFactory.EXPECT().NewImage().Return(mockFavicon).Once()
@@ -63,27 +66,20 @@ func setupPaneMocks(t *testing.T, mockFactory *mocks.MockWidgetFactory, mockBox 
 	mockCloseButton.EXPECT().SetHexpand(false).Once()
 	mockTitleBar.EXPECT().Append(mockCloseButton).Once()
 
-	// Button wrapping title bar
-	mockFactory.EXPECT().NewButton().Return(mockButton).Once()
-	mockButton.EXPECT().SetChild(mockTitleBar).Once()
-	mockButton.EXPECT().AddCssClass("stacked-pane-title-button").Once()
-	mockButton.EXPECT().SetFocusOnClick(false).Once()
-	mockButton.EXPECT().SetVexpand(false).Once()
-	mockButton.EXPECT().SetHexpand(true).Once()
+	// GestureClick is added to titleBar via AddController
+	mockTitleBar.EXPECT().AddController(mock.Anything).Once()
 
-	// Click handlers (title bar activation and close button)
-	mockButton.EXPECT().ConnectClicked(mock.Anything).Return(uint32(1)).Once()
+	// Close button click handler
 	mockCloseButton.EXPECT().ConnectClicked(mock.Anything).Return(uint32(2)).Once()
 
 	// Signal disconnection calls GtkWidget() - return nil to skip actual GTK operations in tests
-	mockButton.EXPECT().GtkWidget().Return(nil).Maybe()
 	mockCloseButton.EXPECT().GtkWidget().Return(nil).Maybe()
 
-	// Adding to main box
-	mockBox.EXPECT().Append(mockButton).Once()
+	// Adding to main box - now titleBar is added directly (no button wrapper)
+	mockBox.EXPECT().Append(mockTitleBar).Once()
 	mockBox.EXPECT().Append(mockContainer).Once()
 
-	return mockTitleBar, mockFavicon, mockLabel, mockButton, mockContainer
+	return mockTitleBar, mockFavicon, mockLabel, mockContainer
 }
 
 func TestNewStackedView_EmptyStack(t *testing.T) {
@@ -103,13 +99,12 @@ func TestAddPane_SinglePane_BecomesActive(t *testing.T) {
 	// Arrange
 	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
-	mockTitleBar, mockFavicon, mockLabel, mockButton, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar, mockFavicon, mockLabel, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
 	_ = mockFavicon
 	_ = mockLabel
-	_ = mockButton
 
-	// Visibility updates for active pane
-	mockTitleBar.EXPECT().GetParent().Return(nil).Maybe()
+	// Visibility updates for active pane - titleBar is now directly in box, SetVisible called on it
+	mockTitleBar.EXPECT().SetVisible(false).Once() // Active pane hides its title bar
 	mockContainer.EXPECT().SetVisible(true).Once()
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 
@@ -130,26 +125,24 @@ func TestAddPane_MultiplePanes_LastBecomesActive(t *testing.T) {
 	mockFactory, mockBox := setupMockFactory(t)
 
 	// First pane
-	mockTitleBar1, mockFavicon1, mockLabel1, mockButton1, mockContainer1 := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar1, mockFavicon1, mockLabel1, mockContainer1 := setupPaneMocks(t, mockFactory, mockBox)
 	_ = mockFavicon1
 	_ = mockLabel1
-	_ = mockButton1
-	mockTitleBar1.EXPECT().GetParent().Return(nil).Maybe()
+	mockTitleBar1.EXPECT().SetVisible(false).Once() // Active pane hides its title bar
 	mockContainer1.EXPECT().SetVisible(true).Once()
 	mockTitleBar1.EXPECT().AddCssClass("active").Once()
 
 	// Second pane - first pane becomes inactive
-	mockTitleBar2, mockFavicon2, mockLabel2, mockButton2, mockContainer2 := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar2, mockFavicon2, mockLabel2, mockContainer2 := setupPaneMocks(t, mockFactory, mockBox)
 	_ = mockFavicon2
 	_ = mockLabel2
-	_ = mockButton2
 
 	// When second pane is added, update visibility for both
-	mockTitleBar1.EXPECT().GetParent().Return(nil).Maybe()
+	mockTitleBar1.EXPECT().SetVisible(true).Once() // First pane becomes inactive, show its title bar
 	mockContainer1.EXPECT().SetVisible(false).Once()
 	mockTitleBar1.EXPECT().RemoveCssClass("active").Once()
 
-	mockTitleBar2.EXPECT().GetParent().Return(nil).Maybe()
+	mockTitleBar2.EXPECT().SetVisible(false).Once() // Second pane is active, hide its title bar
 	mockContainer2.EXPECT().SetVisible(true).Once()
 	mockTitleBar2.EXPECT().AddCssClass("active").Once()
 
@@ -173,22 +166,17 @@ func TestRemovePane_MiddlePane(t *testing.T) {
 	// Setup 3 panes (simplified - just track the key behaviors)
 	containers := make([]*mocks.MockWidget, 3)
 	titleBars := make([]*mocks.MockBoxWidget, 3)
-	buttons := make([]*mocks.MockButtonWidget, 3)
 
 	for i := 0; i < 3; i++ {
-		var btn *mocks.MockButtonWidget
-		titleBars[i], _, _, btn, containers[i] = setupPaneMocks(t, mockFactory, mockBox)
-		buttons[i] = btn
+		titleBars[i], _, _, containers[i] = setupPaneMocks(t, mockFactory, mockBox)
 	}
 
 	// Allow any visibility calls during setup and removal
 	for i := 0; i < 3; i++ {
-		titleBars[i].EXPECT().GetParent().Return(buttons[i]).Maybe()
 		containers[i].EXPECT().SetVisible(mock.Anything).Maybe()
+		titleBars[i].EXPECT().SetVisible(mock.Anything).Maybe()
 		titleBars[i].EXPECT().AddCssClass("active").Maybe()
 		titleBars[i].EXPECT().RemoveCssClass("active").Maybe()
-		// Button visibility changes when panes are activated/deactivated
-		buttons[i].EXPECT().SetVisible(mock.Anything).Maybe()
 	}
 
 	sv := layout.NewStackedView(mockFactory)
@@ -197,8 +185,8 @@ func TestRemovePane_MiddlePane(t *testing.T) {
 	sv.AddPane(ctx, "pane-3", "Page 3", "", containers[2])
 
 	// Remove middle pane (index 1)
-	// The parent of titleBar is the button widget
-	mockBox.EXPECT().Remove(buttons[1]).Once()
+	// The titleBar is now directly in the box (no button wrapper)
+	mockBox.EXPECT().Remove(titleBars[1]).Once()
 	mockBox.EXPECT().Remove(containers[1]).Once()
 
 	// Act
@@ -213,12 +201,11 @@ func TestRemovePane_LastPane_ReturnsError(t *testing.T) {
 	// Arrange
 	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
-	mockTitleBar, mockFavicon, mockLabel, mockButton, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar, mockFavicon, mockLabel, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
 	_ = mockFavicon
 	_ = mockLabel
-	_ = mockButton
 
-	mockTitleBar.EXPECT().GetParent().Return(nil).Maybe()
+	mockTitleBar.EXPECT().SetVisible(false).Once() // Active pane hides its title bar
 	mockContainer.EXPECT().SetVisible(true).Once()
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 
@@ -250,12 +237,11 @@ func TestRemovePane_IndexOutOfBounds(t *testing.T) {
 	// Arrange
 	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
-	mockTitleBar, mockFavicon, mockLabel, mockButton, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar, mockFavicon, mockLabel, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
 	_ = mockFavicon
 	_ = mockLabel
-	_ = mockButton
 
-	mockTitleBar.EXPECT().GetParent().Return(nil).Maybe()
+	mockTitleBar.EXPECT().SetVisible(false).Once() // Active pane hides its title bar
 	mockContainer.EXPECT().SetVisible(true).Once()
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 
@@ -278,15 +264,14 @@ func TestSetActive_ValidIndex(t *testing.T) {
 	titleBars := make([]*mocks.MockBoxWidget, 2)
 
 	for i := 0; i < 2; i++ {
-		titleBar, mockFavicon, mockOverlay, mockSpinner, container := setupPaneMocks(t, mockFactory, mockBox)
+		titleBar, mockFavicon, mockLabel, container := setupPaneMocks(t, mockFactory, mockBox)
 		_ = mockFavicon
-		_ = mockOverlay
-		_ = mockSpinner
+		_ = mockLabel
 
 		titleBars[i] = titleBar
 		containers[i] = container
 
-		titleBars[i].EXPECT().GetParent().Return(nil).Maybe()
+		titleBars[i].EXPECT().SetVisible(mock.Anything).Maybe()
 		containers[i].EXPECT().SetVisible(mock.Anything).Maybe()
 		titleBars[i].EXPECT().AddCssClass("active").Maybe()
 		titleBars[i].EXPECT().RemoveCssClass("active").Maybe()
@@ -308,12 +293,11 @@ func TestSetActive_OutOfBounds(t *testing.T) {
 	// Arrange
 	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
-	mockTitleBar, mockFavicon, mockLabel, mockButton, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar, mockFavicon, mockLabel, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
 	_ = mockFavicon
 	_ = mockLabel
-	_ = mockButton
 
-	mockTitleBar.EXPECT().GetParent().Return(nil).Maybe()
+	mockTitleBar.EXPECT().SetVisible(false).Once() // Active pane hides its title bar
 	mockContainer.EXPECT().SetVisible(true).Once()
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 
@@ -344,9 +328,9 @@ func TestUpdateTitle(t *testing.T) {
 	// Arrange
 	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
-	mockTitleBar, _, mockLabel, _, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar, _, mockLabel, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
 
-	mockTitleBar.EXPECT().GetParent().Return(nil).Maybe()
+	mockTitleBar.EXPECT().SetVisible(false).Once() // Active pane hides its title bar
 	mockContainer.EXPECT().SetVisible(true).Once()
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 
@@ -378,9 +362,9 @@ func TestUpdateFavicon(t *testing.T) {
 	// Arrange
 	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
-	mockTitleBar, mockFavicon, _, _, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar, mockFavicon, _, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
 
-	mockTitleBar.EXPECT().GetParent().Return(nil).Maybe()
+	mockTitleBar.EXPECT().SetVisible(false).Once() // Active pane hides its title bar
 	mockContainer.EXPECT().SetVisible(true).Once()
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 
@@ -400,12 +384,11 @@ func TestGetContainer(t *testing.T) {
 	// Arrange
 	ctx := context.Background()
 	mockFactory, mockBox := setupMockFactory(t)
-	mockTitleBar, mockFavicon, mockOverlay, mockSpinner, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar, mockFavicon, mockLabel, mockContainer := setupPaneMocks(t, mockFactory, mockBox)
 	_ = mockFavicon
-	_ = mockOverlay
-	_ = mockSpinner
+	_ = mockLabel
 
-	mockTitleBar.EXPECT().GetParent().Return(nil).Maybe()
+	mockTitleBar.EXPECT().SetVisible(false).Once() // Active pane hides its title bar
 	mockContainer.EXPECT().SetVisible(true).Once()
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 
@@ -454,15 +437,14 @@ func TestNavigateNext_WrapsAround(t *testing.T) {
 	titleBars := make([]*mocks.MockBoxWidget, 2)
 
 	for i := 0; i < 2; i++ {
-		titleBar, mockFavicon, mockOverlay, mockSpinner, container := setupPaneMocks(t, mockFactory, mockBox)
+		titleBar, mockFavicon, mockLabel, container := setupPaneMocks(t, mockFactory, mockBox)
 		_ = mockFavicon
-		_ = mockOverlay
-		_ = mockSpinner
+		_ = mockLabel
 
 		titleBars[i] = titleBar
 		containers[i] = container
 
-		titleBars[i].EXPECT().GetParent().Return(nil).Maybe()
+		titleBars[i].EXPECT().SetVisible(mock.Anything).Maybe()
 		containers[i].EXPECT().SetVisible(mock.Anything).Maybe()
 		titleBars[i].EXPECT().AddCssClass("active").Maybe()
 		titleBars[i].EXPECT().RemoveCssClass("active").Maybe()
@@ -492,15 +474,14 @@ func TestNavigatePrevious_WrapsAround(t *testing.T) {
 	titleBars := make([]*mocks.MockBoxWidget, 2)
 
 	for i := 0; i < 2; i++ {
-		titleBar, mockFavicon, mockOverlay, mockSpinner, container := setupPaneMocks(t, mockFactory, mockBox)
+		titleBar, mockFavicon, mockLabel, container := setupPaneMocks(t, mockFactory, mockBox)
 		_ = mockFavicon
-		_ = mockOverlay
-		_ = mockSpinner
+		_ = mockLabel
 
 		titleBars[i] = titleBar
 		containers[i] = container
 
-		titleBars[i].EXPECT().GetParent().Return(nil).Maybe()
+		titleBars[i].EXPECT().SetVisible(mock.Anything).Maybe()
 		containers[i].EXPECT().SetVisible(mock.Anything).Maybe()
 		titleBars[i].EXPECT().AddCssClass("active").Maybe()
 		titleBars[i].EXPECT().RemoveCssClass("active").Maybe()
@@ -575,14 +556,15 @@ func setupInsertPaneMocks(
 	mockTitleBar := mocks.NewMockBoxWidget(t)
 	mockFavicon := mocks.NewMockImageWidget(t)
 	mockLabel := mocks.NewMockLabelWidget(t)
-	mockButton := mocks.NewMockButtonWidget(t)
 	mockCloseButton := mocks.NewMockButtonWidget(t)
 	mockContainer := mocks.NewMockWidget(t)
 
-	// Title bar creation
+	// Title bar creation - now directly used without button wrapper
 	mockFactory.EXPECT().NewBox(layout.OrientationHorizontal, 4).Return(mockTitleBar).Once()
 	mockTitleBar.EXPECT().AddCssClass("stacked-pane-titlebar").Once()
+	mockTitleBar.EXPECT().AddCssClass("stacked-pane-title-clickable").Once()
 	mockTitleBar.EXPECT().SetVexpand(false).Once()
+	mockTitleBar.EXPECT().SetHexpand(true).Once()
 
 	// Favicon
 	mockFactory.EXPECT().NewImage().Return(mockFavicon).Once()
@@ -607,26 +589,23 @@ func setupInsertPaneMocks(
 	mockCloseButton.EXPECT().SetHexpand(false).Once()
 	mockTitleBar.EXPECT().Append(mockCloseButton).Once()
 
-	// Button wrapping title bar
-	mockFactory.EXPECT().NewButton().Return(mockButton).Once()
-	mockButton.EXPECT().SetChild(mockTitleBar).Once()
-	mockButton.EXPECT().AddCssClass("stacked-pane-title-button").Once()
-	mockButton.EXPECT().SetFocusOnClick(false).Once()
-	mockButton.EXPECT().SetVexpand(false).Once()
-	mockButton.EXPECT().SetHexpand(true).Once()
+	// GestureClick is added to titleBar via AddController
+	mockTitleBar.EXPECT().AddController(mock.Anything).Once()
 
-	// Click handlers (title bar activation and close button)
-	mockButton.EXPECT().ConnectClicked(mock.Anything).Return(uint32(1)).Once()
+	// Close button click handler
 	mockCloseButton.EXPECT().ConnectClicked(mock.Anything).Return(uint32(2)).Once()
 
-	// Position-aware insertion using InsertChildAfter
+	// Signal disconnection calls GtkWidget() - return nil to skip actual GTK operations in tests
+	mockCloseButton.EXPECT().GtkWidget().Return(nil).Maybe()
+
+	// Position-aware insertion using InsertChildAfter - now using titleBar directly
 	if siblingContainer != nil {
-		mockBox.EXPECT().InsertChildAfter(mockButton, siblingContainer).Once()
-		mockBox.EXPECT().InsertChildAfter(mockContainer, mockButton).Once()
+		mockBox.EXPECT().InsertChildAfter(mockTitleBar, siblingContainer).Once()
+		mockBox.EXPECT().InsertChildAfter(mockContainer, mockTitleBar).Once()
 	} else {
 		// Insert at beginning using Prepend
 		mockBox.EXPECT().Prepend(mockContainer).Once()
-		mockBox.EXPECT().Prepend(mockButton).Once()
+		mockBox.EXPECT().Prepend(mockTitleBar).Once()
 	}
 
 	return mockTitleBar, mockContainer
@@ -638,11 +617,10 @@ func TestInsertPaneAfter_AtBeginning(t *testing.T) {
 	mockFactory, mockBox := setupMockFactory(t)
 
 	// First pane - appended normally
-	mockTitleBar1, mockFavicon1, mockOverlay1, mockSpinner1, mockContainer1 := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar1, mockFavicon1, mockLabel1, mockContainer1 := setupPaneMocks(t, mockFactory, mockBox)
 	_ = mockFavicon1
-	_ = mockOverlay1
-	_ = mockSpinner1
-	mockTitleBar1.EXPECT().GetParent().Return(nil).Maybe()
+	_ = mockLabel1
+	mockTitleBar1.EXPECT().SetVisible(false).Once() // Active pane hides its title bar
 	mockContainer1.EXPECT().SetVisible(true).Once()
 	mockTitleBar1.EXPECT().AddCssClass("active").Once()
 
@@ -653,11 +631,11 @@ func TestInsertPaneAfter_AtBeginning(t *testing.T) {
 	mockTitleBar2, mockContainer2 := setupInsertPaneMocks(t, mockFactory, mockBox, nil)
 
 	// Visibility updates
-	mockTitleBar1.EXPECT().GetParent().Return(nil).Maybe()
+	mockTitleBar1.EXPECT().SetVisible(true).Once() // First pane becomes inactive, show its title bar
 	mockContainer1.EXPECT().SetVisible(false).Once()
 	mockTitleBar1.EXPECT().RemoveCssClass("active").Once()
 
-	mockTitleBar2.EXPECT().GetParent().Return(nil).Maybe()
+	mockTitleBar2.EXPECT().SetVisible(false).Once() // Second pane is active, hide its title bar
 	mockContainer2.EXPECT().SetVisible(true).Once()
 	mockTitleBar2.EXPECT().AddCssClass("active").Once()
 
@@ -680,8 +658,8 @@ func TestInsertPaneAfter_InMiddle(t *testing.T) {
 	titleBars := make([]*mocks.MockBoxWidget, 2)
 
 	for i := 0; i < 2; i++ {
-		titleBars[i], _, _, _, containers[i] = setupPaneMocks(t, mockFactory, mockBox)
-		titleBars[i].EXPECT().GetParent().Return(nil).Maybe()
+		titleBars[i], _, _, containers[i] = setupPaneMocks(t, mockFactory, mockBox)
+		titleBars[i].EXPECT().SetVisible(mock.Anything).Maybe()
 		containers[i].EXPECT().SetVisible(mock.Anything).Maybe()
 		titleBars[i].EXPECT().AddCssClass("active").Maybe()
 		titleBars[i].EXPECT().RemoveCssClass("active").Maybe()
@@ -696,7 +674,7 @@ func TestInsertPaneAfter_InMiddle(t *testing.T) {
 
 	// Insert new pane after index 0 (should become index 1)
 	mockTitleBar3, mockContainer3 := setupInsertPaneMocks(t, mockFactory, mockBox, containers[0])
-	mockTitleBar3.EXPECT().GetParent().Return(nil).Maybe()
+	mockTitleBar3.EXPECT().SetVisible(mock.Anything).Maybe()
 	mockContainer3.EXPECT().SetVisible(mock.Anything).Maybe()
 	mockTitleBar3.EXPECT().AddCssClass("active").Maybe()
 	mockTitleBar3.EXPECT().RemoveCssClass("active").Maybe()
@@ -716,11 +694,10 @@ func TestInsertPaneAfter_AtEnd(t *testing.T) {
 	mockFactory, mockBox := setupMockFactory(t)
 
 	// First pane
-	mockTitleBar1, mockFavicon1, mockOverlay1, mockSpinner1, mockContainer1 := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar1, mockFavicon1, mockLabel1, mockContainer1 := setupPaneMocks(t, mockFactory, mockBox)
 	_ = mockFavicon1
-	_ = mockOverlay1
-	_ = mockSpinner1
-	mockTitleBar1.EXPECT().GetParent().Return(nil).Maybe()
+	_ = mockLabel1
+	mockTitleBar1.EXPECT().SetVisible(false).Once() // Active pane hides its title bar
 	mockContainer1.EXPECT().SetVisible(true).Once()
 	mockTitleBar1.EXPECT().AddCssClass("active").Once()
 
@@ -730,11 +707,11 @@ func TestInsertPaneAfter_AtEnd(t *testing.T) {
 	// Insert after last pane (afterIndex=0, becomes index 1)
 	mockTitleBar2, mockContainer2 := setupInsertPaneMocks(t, mockFactory, mockBox, mockContainer1)
 
-	mockTitleBar1.EXPECT().GetParent().Return(nil).Maybe()
+	mockTitleBar1.EXPECT().SetVisible(true).Once() // First pane becomes inactive, show its title bar
 	mockContainer1.EXPECT().SetVisible(false).Once()
 	mockTitleBar1.EXPECT().RemoveCssClass("active").Once()
 
-	mockTitleBar2.EXPECT().GetParent().Return(nil).Maybe()
+	mockTitleBar2.EXPECT().SetVisible(false).Once() // Second pane is active, hide its title bar
 	mockContainer2.EXPECT().SetVisible(true).Once()
 	mockTitleBar2.EXPECT().AddCssClass("active").Once()
 
@@ -757,15 +734,14 @@ func TestInsertPaneAfter_MaintainsOrder(t *testing.T) {
 	titleBars := make([]*mocks.MockBoxWidget, 3)
 
 	for i := 0; i < 3; i++ {
-		titleBar, mockFavicon, mockOverlay, mockSpinner, container := setupPaneMocks(t, mockFactory, mockBox)
+		titleBar, mockFavicon, mockLabel, container := setupPaneMocks(t, mockFactory, mockBox)
 		_ = mockFavicon
-		_ = mockOverlay
-		_ = mockSpinner
+		_ = mockLabel
 
 		titleBars[i] = titleBar
 		containers[i] = container
 
-		titleBars[i].EXPECT().GetParent().Return(nil).Maybe()
+		titleBars[i].EXPECT().SetVisible(mock.Anything).Maybe()
 		containers[i].EXPECT().SetVisible(mock.Anything).Maybe()
 		titleBars[i].EXPECT().AddCssClass("active").Maybe()
 		titleBars[i].EXPECT().RemoveCssClass("active").Maybe()
@@ -781,7 +757,7 @@ func TestInsertPaneAfter_MaintainsOrder(t *testing.T) {
 
 	// Insert D after B (should be at index 2, C moves to index 3)
 	mockTitleBar4, mockContainer4 := setupInsertPaneMocks(t, mockFactory, mockBox, containers[1])
-	mockTitleBar4.EXPECT().GetParent().Return(nil).Maybe()
+	mockTitleBar4.EXPECT().SetVisible(mock.Anything).Maybe()
 	mockContainer4.EXPECT().SetVisible(mock.Anything).Maybe()
 	mockTitleBar4.EXPECT().AddCssClass("active").Maybe()
 	mockTitleBar4.EXPECT().RemoveCssClass("active").Maybe()
@@ -812,11 +788,10 @@ func TestInsertPaneAfter_InvalidIndexClamped(t *testing.T) {
 	mockFactory, mockBox := setupMockFactory(t)
 
 	// First pane
-	mockTitleBar1, mockFavicon1, mockOverlay1, mockSpinner1, mockContainer1 := setupPaneMocks(t, mockFactory, mockBox)
+	mockTitleBar1, mockFavicon1, mockLabel1, mockContainer1 := setupPaneMocks(t, mockFactory, mockBox)
 	_ = mockFavicon1
-	_ = mockOverlay1
-	_ = mockSpinner1
-	mockTitleBar1.EXPECT().GetParent().Return(nil).Maybe()
+	_ = mockLabel1
+	mockTitleBar1.EXPECT().SetVisible(false).Once() // Active pane hides its title bar
 	mockContainer1.EXPECT().SetVisible(true).Once()
 	mockTitleBar1.EXPECT().AddCssClass("active").Once()
 
@@ -826,11 +801,11 @@ func TestInsertPaneAfter_InvalidIndexClamped(t *testing.T) {
 	// Try to insert at invalid index (100) - should clamp to end
 	mockTitleBar2, mockContainer2 := setupInsertPaneMocks(t, mockFactory, mockBox, mockContainer1)
 
-	mockTitleBar1.EXPECT().GetParent().Return(nil).Maybe()
+	mockTitleBar1.EXPECT().SetVisible(true).Once() // First pane becomes inactive, show its title bar
 	mockContainer1.EXPECT().SetVisible(false).Once()
 	mockTitleBar1.EXPECT().RemoveCssClass("active").Once()
 
-	mockTitleBar2.EXPECT().GetParent().Return(nil).Maybe()
+	mockTitleBar2.EXPECT().SetVisible(false).Once() // Second pane is active, hide its title bar
 	mockContainer2.EXPECT().SetVisible(true).Once()
 	mockTitleBar2.EXPECT().AddCssClass("active").Once()
 
