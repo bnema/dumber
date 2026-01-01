@@ -668,10 +668,11 @@ func (uc *ManagePanesUseCase) ApplyFocusChange(
 
 // NavigateFocusGeometric finds the nearest pane in the given direction using geometry.
 // Algorithm:
-//  1. Get center of active pane
+//  1. Get active pane rectangle
 //  2. Filter candidates that are in the direction (dx < 0 for Left, etc.)
-//  3. Score by: primary_distance * 1000 + perpendicular_distance
-//  4. Return lowest scoring candidate
+//  3. Prioritize panes with perpendicular overlap (same row for left/right, same column for up/down)
+//  4. Score by: overlap_penalty + primary_distance * 1000 + perpendicular_distance
+//  5. Return lowest scoring candidate
 func (uc *ManagePanesUseCase) NavigateFocusGeometric(
 	ctx context.Context,
 	input GeometricNavigationInput,
@@ -699,50 +700,7 @@ func (uc *ManagePanesUseCase) NavigateFocusGeometric(
 		return &GeometricNavigationOutput{Found: false}, nil
 	}
 
-	acx, acy := activeRect.Center()
-
-	type candidate struct {
-		paneID entity.PaneID
-		score  int
-	}
-	var candidates []candidate
-
-	for _, rect := range input.PaneRects {
-		if rect.PaneID == input.ActivePaneID {
-			continue
-		}
-
-		cx, cy := rect.Center()
-		dx := cx - acx
-		dy := cy - acy
-
-		var inDirection bool
-		var primaryDist, perpDist int
-
-		switch input.Direction {
-		case NavLeft:
-			inDirection = dx < 0
-			primaryDist = abs(dx)
-			perpDist = abs(dy)
-		case NavRight:
-			inDirection = dx > 0
-			primaryDist = abs(dx)
-			perpDist = abs(dy)
-		case NavUp:
-			inDirection = dy < 0
-			primaryDist = abs(dy)
-			perpDist = abs(dx)
-		case NavDown:
-			inDirection = dy > 0
-			primaryDist = abs(dy)
-			perpDist = abs(dx)
-		}
-
-		if inDirection {
-			score := primaryDist*1000 + perpDist
-			candidates = append(candidates, candidate{rect.PaneID, score})
-		}
-	}
+	candidates := scoreNavigationCandidates(*activeRect, input.PaneRects, input.Direction)
 
 	if len(candidates) == 0 {
 		log.Debug().Msg("no candidates in direction")
@@ -763,6 +721,70 @@ func (uc *ManagePanesUseCase) NavigateFocusGeometric(
 		TargetPaneID: candidates[0].paneID,
 		Found:        true,
 	}, nil
+}
+
+// navCandidate represents a pane candidate for navigation with its score.
+type navCandidate struct {
+	paneID entity.PaneID
+	score  int
+}
+
+// scoreNavigationCandidates scores all panes in the given direction from activeRect.
+// Panes with perpendicular overlap are heavily preferred (same row for left/right, same column for up/down).
+func scoreNavigationCandidates(
+	activeRect entity.PaneRect,
+	paneRects []entity.PaneRect,
+	direction NavigateDirection,
+) []navCandidate {
+	// Large penalty for panes without perpendicular overlap.
+	// This ensures panes at the same level are always preferred.
+	const noOverlapPenalty = 10_000_000
+
+	acx, acy := activeRect.Center()
+	var candidates []navCandidate
+
+	for _, rect := range paneRects {
+		if rect.PaneID == activeRect.PaneID {
+			continue
+		}
+
+		cx, cy := rect.Center()
+		dx := cx - acx
+		dy := cy - acy
+
+		inDirection, primaryDist, perpDist, hasOverlap := evalDirection(activeRect, rect, dx, dy, direction)
+
+		if inDirection {
+			score := primaryDist*1000 + perpDist
+			if !hasOverlap {
+				score += noOverlapPenalty
+			}
+			candidates = append(candidates, navCandidate{rect.PaneID, score})
+		}
+	}
+
+	return candidates
+}
+
+// evalDirection determines if a candidate rect is in the given direction from activeRect.
+// Returns: inDirection, primaryDist, perpDist, hasOverlap
+func evalDirection(
+	activeRect, rect entity.PaneRect,
+	dx, dy int,
+	direction NavigateDirection,
+) (inDirection bool, primaryDist, perpDist int, hasOverlap bool) {
+	switch direction {
+	case NavLeft:
+		return dx < 0, abs(dx), abs(dy), activeRect.OverlapsVertically(rect)
+	case NavRight:
+		return dx > 0, abs(dx), abs(dy), activeRect.OverlapsVertically(rect)
+	case NavUp:
+		return dy < 0, abs(dy), abs(dx), activeRect.OverlapsHorizontally(rect)
+	case NavDown:
+		return dy > 0, abs(dy), abs(dx), activeRect.OverlapsHorizontally(rect)
+	default:
+		return false, 0, 0, false
+	}
 }
 
 // abs returns the absolute value of an integer.
