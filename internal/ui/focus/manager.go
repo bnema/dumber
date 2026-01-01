@@ -38,16 +38,24 @@ func NewManager(panesUC *usecase.ManagePanesUseCase) *Manager {
 // For panes in stacks, uses the stack container's geometry since individual
 // collapsed panes have no allocated size.
 // Only visible panes are included - for stacked panes, only the active one is visible.
-func (m *Manager) CollectPaneRects(provider PaneGeometryProvider) []entity.PaneRect {
+func (m *Manager) CollectPaneRects(ctx context.Context, provider PaneGeometryProvider) []entity.PaneRect {
+	log := logging.FromContext(ctx)
 	var rects []entity.PaneRect
 
 	container := provider.ContainerWidget()
 
-	for _, paneID := range provider.GetPaneIDs() {
+	allPaneIDs := provider.GetPaneIDs()
+	log.Debug().Int("total_panes", len(allPaneIDs)).Msg("CollectPaneRects: starting")
+
+	for _, paneID := range allPaneIDs {
 		paneWidget := provider.GetPaneWidget(paneID)
 
 		// Skip panes that aren't visible (includes inactive stacked panes)
 		if paneWidget == nil || !paneWidget.IsVisible() {
+			log.Debug().
+				Str("pane_id", string(paneID)).
+				Bool("widget_nil", paneWidget == nil).
+				Msg("CollectPaneRects: skipping invisible pane")
 			continue
 		}
 
@@ -77,6 +85,14 @@ func (m *Manager) CollectPaneRects(provider PaneGeometryProvider) []entity.PaneR
 			continue
 		}
 
+		log.Debug().
+			Str("pane_id", string(paneID)).
+			Int("x", int(x)).
+			Int("y", int(y)).
+			Int("w", w).
+			Int("h", h).
+			Msg("CollectPaneRects: added visible pane")
+
 		rects = append(rects, entity.PaneRect{
 			PaneID: paneID,
 			X:      int(x),
@@ -85,6 +101,8 @@ func (m *Manager) CollectPaneRects(provider PaneGeometryProvider) []entity.PaneR
 			H:      h,
 		})
 	}
+
+	log.Debug().Int("visible_panes", len(rects)).Msg("CollectPaneRects: done")
 
 	return rects
 }
@@ -128,7 +146,7 @@ func (m *Manager) NavigateGeometric(
 	}
 
 	// Collect geometry from visible panes
-	rects := m.CollectPaneRects(provider)
+	rects := m.CollectPaneRects(ctx, provider)
 	if len(rects) == 0 {
 		return nil, nil
 	}
@@ -149,8 +167,26 @@ func (m *Manager) NavigateGeometric(
 	// Update workspace
 	ws.ActivePaneID = output.TargetPaneID
 
-	// Return target node
-	return ws.FindPane(output.TargetPaneID), nil
+	// Find target node and update stack index if target is in a stack
+	targetNode := ws.FindPane(output.TargetPaneID)
+	if targetNode != nil && targetNode.Parent != nil && targetNode.Parent.IsStacked {
+		// Update the stack's ActiveStackIndex to match the target pane
+		oldIndex := targetNode.Parent.ActiveStackIndex
+		for i, child := range targetNode.Parent.Children {
+			if child == targetNode {
+				targetNode.Parent.ActiveStackIndex = i
+				log.Debug().
+					Str("target_pane_id", string(output.TargetPaneID)).
+					Int("old_stack_index", oldIndex).
+					Int("new_stack_index", i).
+					Int("num_children", len(targetNode.Parent.Children)).
+					Msg("updated stack index for geometric nav into stack")
+				break
+			}
+		}
+	}
+
+	return targetNode, nil
 }
 
 // navigateWithinStack tries to navigate within a stack.

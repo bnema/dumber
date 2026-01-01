@@ -32,6 +32,7 @@ func setupPaneMocks(t *testing.T, mockFactory *mocks.MockWidgetFactory, mockBox 
 	mockFavicon := mocks.NewMockImageWidget(t)
 	mockLabel := mocks.NewMockLabelWidget(t)
 	mockButton := mocks.NewMockButtonWidget(t)
+	mockCloseButton := mocks.NewMockButtonWidget(t)
 	mockContainer := mocks.NewMockWidget(t)
 
 	// Title bar creation
@@ -53,6 +54,15 @@ func setupPaneMocks(t *testing.T, mockFactory *mocks.MockWidgetFactory, mockBox 
 	mockLabel.EXPECT().SetXalign(float32(0.0)).Once()
 	mockTitleBar.EXPECT().Append(mockLabel).Once()
 
+	// Close button (uses SetIconName directly instead of child image)
+	mockFactory.EXPECT().NewButton().Return(mockCloseButton).Once()
+	mockCloseButton.EXPECT().SetIconName("window-close-symbolic").Once()
+	mockCloseButton.EXPECT().AddCssClass("stacked-pane-close-button").Once()
+	mockCloseButton.EXPECT().SetFocusOnClick(false).Once()
+	mockCloseButton.EXPECT().SetVexpand(false).Once()
+	mockCloseButton.EXPECT().SetHexpand(false).Once()
+	mockTitleBar.EXPECT().Append(mockCloseButton).Once()
+
 	// Button wrapping title bar
 	mockFactory.EXPECT().NewButton().Return(mockButton).Once()
 	mockButton.EXPECT().SetChild(mockTitleBar).Once()
@@ -60,7 +70,10 @@ func setupPaneMocks(t *testing.T, mockFactory *mocks.MockWidgetFactory, mockBox 
 	mockButton.EXPECT().SetFocusOnClick(false).Once()
 	mockButton.EXPECT().SetVexpand(false).Once()
 	mockButton.EXPECT().SetHexpand(true).Once()
+
+	// Click handlers (title bar activation and close button)
 	mockButton.EXPECT().ConnectClicked(mock.Anything).Return(uint32(1)).Once()
+	mockCloseButton.EXPECT().ConnectClicked(mock.Anything).Return(uint32(2)).Once()
 
 	// Adding to main box
 	mockBox.EXPECT().Append(mockButton).Once()
@@ -559,6 +572,7 @@ func setupInsertPaneMocks(
 	mockFavicon := mocks.NewMockImageWidget(t)
 	mockLabel := mocks.NewMockLabelWidget(t)
 	mockButton := mocks.NewMockButtonWidget(t)
+	mockCloseButton := mocks.NewMockButtonWidget(t)
 	mockContainer := mocks.NewMockWidget(t)
 
 	// Title bar creation
@@ -580,6 +594,15 @@ func setupInsertPaneMocks(
 	mockLabel.EXPECT().SetXalign(float32(0.0)).Once()
 	mockTitleBar.EXPECT().Append(mockLabel).Once()
 
+	// Close button (uses SetIconName directly instead of child image)
+	mockFactory.EXPECT().NewButton().Return(mockCloseButton).Once()
+	mockCloseButton.EXPECT().SetIconName("window-close-symbolic").Once()
+	mockCloseButton.EXPECT().AddCssClass("stacked-pane-close-button").Once()
+	mockCloseButton.EXPECT().SetFocusOnClick(false).Once()
+	mockCloseButton.EXPECT().SetVexpand(false).Once()
+	mockCloseButton.EXPECT().SetHexpand(false).Once()
+	mockTitleBar.EXPECT().Append(mockCloseButton).Once()
+
 	// Button wrapping title bar
 	mockFactory.EXPECT().NewButton().Return(mockButton).Once()
 	mockButton.EXPECT().SetChild(mockTitleBar).Once()
@@ -587,7 +610,10 @@ func setupInsertPaneMocks(
 	mockButton.EXPECT().SetFocusOnClick(false).Once()
 	mockButton.EXPECT().SetVexpand(false).Once()
 	mockButton.EXPECT().SetHexpand(true).Once()
+
+	// Click handlers (title bar activation and close button)
 	mockButton.EXPECT().ConnectClicked(mock.Anything).Return(uint32(1)).Once()
+	mockCloseButton.EXPECT().ConnectClicked(mock.Anything).Return(uint32(2)).Once()
 
 	// Position-aware insertion using InsertChildAfter
 	if siblingContainer != nil {

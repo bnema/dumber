@@ -623,6 +623,43 @@ button.stacked-pane-title-button:focus {
 button.stacked-pane-title-button:hover .stacked-pane-titlebar label {
 	color: var(--accent);
 }
+
+/* Close button in stacked pane title bar */
+.stacked-pane-close-button {
+	background: transparent;
+	border: none;
+	border-radius: 4px;
+	padding: 4px;
+	margin: 0 2px;
+	min-width: 20px;
+	min-height: 20px;
+	opacity: 0.4;
+	transition: opacity 100ms ease-in-out, background-color 100ms ease-in-out;
+}
+
+.stacked-pane-close-button > image {
+	margin: 0;
+	padding: 0;
+}
+
+.stacked-pane-close-button:hover {
+	opacity: 1.0;
+	background: alpha(var(--destructive), 0.2);
+}
+
+.stacked-pane-close-button:hover > image {
+	color: var(--destructive);
+}
+
+/* Show close button more prominently when hovering title bar */
+button.stacked-pane-title-button:hover .stacked-pane-close-button {
+	opacity: 0.7;
+}
+
+.stacked-pane-close-button:focus {
+	outline: none;
+	box-shadow: none;
+}
 `
 }
 
