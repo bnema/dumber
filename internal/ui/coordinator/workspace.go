@@ -1141,6 +1141,9 @@ func (c *WorkspaceCoordinator) FocusPane(ctx context.Context, direction usecase.
 		return nil
 	}
 
+	// Save old active pane ID before navigation updates the domain model
+	oldActivePaneID := ws.ActivePaneID
+
 	// Use geometric navigation if focus manager is available
 	var newPane *entity.PaneNode
 	var err error
@@ -1168,6 +1171,11 @@ func (c *WorkspaceCoordinator) FocusPane(ctx context.Context, direction usecase.
 	// Cancel pending hover timers and suppress future hover focus (Issue #89)
 	wsView.CancelAllPendingHovers()
 	wsView.SuppressHover(component.KeyboardFocusSuppressDuration)
+
+	// Deactivate old pane explicitly (domain model already updated by NavigateGeometric)
+	if oldActivePaneID != "" && oldActivePaneID != newPane.Pane.ID {
+		wsView.DeactivatePane(oldActivePaneID)
+	}
 
 	// Update the workspace view's active pane
 	if err := wsView.SetActivePaneID(newPane.Pane.ID); err != nil {
