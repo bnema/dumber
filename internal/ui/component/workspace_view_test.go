@@ -128,16 +128,18 @@ func setupStackedLeafMocks(
 	mockTitleBar := mocks.NewMockBoxWidget(t)
 	mockFavicon := mocks.NewMockImageWidget(t)
 	mockLabel := mocks.NewMockLabelWidget(t)
-	mockButton := mocks.NewMockButtonWidget(t)
 	mockCloseButton := mocks.NewMockButtonWidget(t)
 
 	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockStackBox).Once()
 	mockStackBox.EXPECT().SetHexpand(true).Once()
 	mockStackBox.EXPECT().SetVexpand(true).Once()
 
+	// Title bar creation - now directly used without button wrapper
 	mockFactory.EXPECT().NewBox(layout.OrientationHorizontal, 4).Return(mockTitleBar).Once()
 	mockTitleBar.EXPECT().AddCssClass("stacked-pane-titlebar").Once()
+	mockTitleBar.EXPECT().AddCssClass("stacked-pane-title-clickable").Once()
 	mockTitleBar.EXPECT().SetVexpand(false).Once()
+	mockTitleBar.EXPECT().SetHexpand(true).Once()
 
 	mockFactory.EXPECT().NewImage().Return(mockFavicon).Once()
 	mockFavicon.EXPECT().SetFromIconName(mock.Anything).Once()
@@ -160,22 +162,21 @@ func setupStackedLeafMocks(
 	mockCloseButton.EXPECT().SetHexpand(false).Once()
 	mockTitleBar.EXPECT().Append(mockCloseButton).Once()
 
-	// Title bar button
-	mockFactory.EXPECT().NewButton().Return(mockButton).Once()
-	mockButton.EXPECT().SetChild(mockTitleBar).Once()
-	mockButton.EXPECT().AddCssClass("stacked-pane-title-button").Once()
-	mockButton.EXPECT().SetFocusOnClick(false).Once()
-	mockButton.EXPECT().SetVexpand(false).Once()
-	mockButton.EXPECT().SetHexpand(true).Once()
+	// GestureClick is added to titleBar via AddController
+	mockTitleBar.EXPECT().AddController(mock.Anything).Once()
 
-	// Click handlers
-	mockButton.EXPECT().ConnectClicked(mock.Anything).Return(uint32(1)).Once()
+	// Close button click handler
 	mockCloseButton.EXPECT().ConnectClicked(mock.Anything).Return(uint32(2)).Once()
 
-	mockStackBox.EXPECT().Append(mockButton).Once()
+	// Signal disconnection calls GtkWidget() - return nil to skip actual GTK operations in tests
+	mockCloseButton.EXPECT().GtkWidget().Return(nil).Maybe()
+
+	// Adding to main box - now titleBar is added directly (no button wrapper)
+	mockStackBox.EXPECT().Append(mockTitleBar).Once()
 	mockStackBox.EXPECT().Append(container).Once()
 
-	mockTitleBar.EXPECT().GetParent().Return(nil).Maybe()
+	// Visibility updates for active pane - titleBar is now directly in box, SetVisible called on it
+	mockTitleBar.EXPECT().SetVisible(false).Once() // Active pane hides its title bar
 	container.EXPECT().SetVisible(true).Once()
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 
