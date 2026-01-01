@@ -114,15 +114,44 @@ const internalDarkModeScriptTemplate = `(function() {
 // internalPageAllowList restricts script injection to internal dumb:// pages only.
 var internalPageAllowList = []string{"dumb://*"}
 
+// autoCopySelectionScript is injected to enable auto-copy on text selection (zellij-style).
+// It listens for selection changes, debounces them, and posts to the Go message handler.
+// Skips selections in input fields/textareas and requires minimum 2 characters.
+const autoCopySelectionScript = `(function() {
+  var debounceTimer = null;
+  var MIN_LENGTH = 2;
+  
+  document.addEventListener('selectionchange', function() {
+    // Skip if selection is inside input/textarea/contenteditable
+    var activeEl = document.activeElement;
+    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) {
+      return;
+    }
+    
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(function() {
+      var text = window.getSelection().toString().trim();
+      if (text.length >= MIN_LENGTH && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.dumber) {
+        window.webkit.messageHandlers.dumber.postMessage({
+          type: 'auto_copy_selection',
+          payload: { text: text }
+        });
+      }
+    }, 300);
+  });
+})();`
+
 // ContentInjector encapsulates script injection into WebViews.
 // It injects dark mode detection scripts for internal pages (dumb://)
 // and theme CSS variables for WebUI styling.
 // External pages receive dark mode preference via libadwaita's StyleManager.
 // Implements port.ContentInjector interface.
 type ContentInjector struct {
-	colorResolver port.ColorSchemeResolver
-	themeCSSVars  string // CSS custom property declarations for WebUI
-	findCSS       string // CSS for find-in-page highlight styling
+	colorResolver        port.ColorSchemeResolver
+	themeCSSVars         string      // CSS custom property declarations for WebUI
+	findCSS              string      // CSS for find-in-page highlight styling
+	autoCopyOnSelection  bool        // Whether to inject auto-copy selection script
+	autoCopyConfigGetter func() bool // Dynamic getter for auto-copy config
 }
 
 // NewContentInjector creates a new injector instance.
@@ -131,6 +160,12 @@ func NewContentInjector(resolver port.ColorSchemeResolver) *ContentInjector {
 	return &ContentInjector{
 		colorResolver: resolver,
 	}
+}
+
+// SetAutoCopyConfigGetter sets the function to dynamically check if auto-copy is enabled.
+// This is called during script injection to determine whether to inject the selection listener.
+func (ci *ContentInjector) SetAutoCopyConfigGetter(getter func() bool) {
+	ci.autoCopyConfigGetter = getter
 }
 
 // InjectThemeCSS stores CSS variables for injection into internal pages.
@@ -252,5 +287,21 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		}
 	}
 
-	log.Debug().Bool("prefers_dark", prefersDark).Msg("scripts injected")
+	// 5. Inject auto-copy selection script for all pages (if enabled)
+	autoCopyEnabled := ci.autoCopyConfigGetter != nil && ci.autoCopyConfigGetter()
+	if autoCopyEnabled {
+		addScript(
+			webkit.NewUserScript(
+				autoCopySelectionScript,
+				webkit.UserContentInjectTopFrameValue,
+				webkit.UserScriptInjectAtDocumentEndValue,
+				nil, // All pages
+				nil,
+			),
+			"auto-copy-selection",
+		)
+		log.Debug().Msg("auto-copy selection script injected")
+	}
+
+	log.Debug().Bool("prefers_dark", prefersDark).Bool("auto_copy", autoCopyEnabled).Msg("scripts injected")
 }

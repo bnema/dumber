@@ -146,8 +146,24 @@ func New(deps *Dependencies) (*App, error) {
 	// Register message handlers
 	if app.router != nil {
 		if err := handlers.RegisterAll(ctx, app.router, handlers.Config{
-			HistoryUC:   deps.HistoryUC,
-			FavoritesUC: deps.FavoritesUC,
+			HistoryUC:    deps.HistoryUC,
+			FavoritesUC:  deps.FavoritesUC,
+			Clipboard:    deps.Clipboard,
+			ConfigGetter: config.Get,
+			OnClipboardCopied: func(textLen int) {
+				// Show brief toast on auto-copy (similar to zellij footer notification)
+				// Must schedule on GTK main thread since this is called from WebKit handler
+				cb := glib.SourceFunc(func(_ uintptr) bool {
+					if app.appToaster != nil {
+						app.appToaster.Show(ctx, "Copied to clipboard", component.ToastInfo,
+							component.WithDuration(800), // Brief notification
+							component.WithPosition(component.ToastPositionBottomRight),
+						)
+					}
+					return false
+				})
+				glib.IdleAdd(&cb, 0)
+			},
 		}); err != nil {
 			return nil, err
 		}

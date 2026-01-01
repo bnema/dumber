@@ -328,6 +328,7 @@ func (m *Manager) setDefaults() {
 	m.setRenderingDefaults(defaults)
 	m.setWorkspaceDefaults(defaults)
 	m.setContentFilteringDefaults(defaults)
+	m.setClipboardDefaults(defaults)
 	m.setOmniboxDefaults(defaults)
 	m.setMediaDefaults(defaults)
 	m.setRuntimeDefaults(defaults)
@@ -441,6 +442,10 @@ func (m *Manager) setWorkspaceDefaults(defaults *Config) {
 func (m *Manager) setContentFilteringDefaults(defaults *Config) {
 	m.viper.SetDefault("content_filtering.enabled", defaults.ContentFiltering.Enabled)
 	m.viper.SetDefault("content_filtering.auto_update", defaults.ContentFiltering.AutoUpdate)
+}
+
+func (m *Manager) setClipboardDefaults(defaults *Config) {
+	m.viper.SetDefault("clipboard.auto_copy_on_selection", defaults.Clipboard.AutoCopyOnSelection)
 }
 
 func (m *Manager) setOmniboxDefaults(defaults *Config) {

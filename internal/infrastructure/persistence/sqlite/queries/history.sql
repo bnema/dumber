@@ -49,13 +49,21 @@ SELECT date(last_visited) as day, COUNT(*) as entries, SUM(visit_count) as visit
 -- name: DeleteHistoryByDomain :exec
 DELETE FROM history WHERE url LIKE '%://' || ? || '/%' OR url LIKE '%://' || ? || '?%' OR url LIKE '%://' || ? || '#%' OR url LIKE '%://' || ?;
 
--- name: SearchHistoryFTS :many
+-- name: SearchHistoryFTSUrl :many
 SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.created_at
 FROM history_fts fts
 JOIN history h ON fts.rowid = h.id
-WHERE fts.url MATCH ?
-ORDER BY bm25(history_fts)
-LIMIT ?;
+WHERE fts.url MATCH @query
+ORDER BY h.visit_count DESC, h.last_visited DESC
+LIMIT @limit;
+
+-- name: SearchHistoryFTSTitle :many
+SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.created_at
+FROM history_fts fts
+JOIN history h ON fts.rowid = h.id
+WHERE fts.title MATCH @query
+ORDER BY h.visit_count DESC, h.last_visited DESC
+LIMIT @limit;
 
 -- name: GetRecentHistorySince :many
 SELECT * FROM history
