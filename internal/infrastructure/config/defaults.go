@@ -253,6 +253,9 @@ func DefaultConfig() *Config {
 			Enabled:    true, // Ad blocking enabled by default
 			AutoUpdate: true, // Auto-update filters from GitHub releases
 		},
+		Clipboard: ClipboardConfig{
+			AutoCopyOnSelection: true, // Enabled by default (zellij-style)
+		},
 		Omnibox: OmniboxConfig{
 			InitialBehavior:   defaultOmniboxInitialBehavior,
 			AutoOpenOnNewPane: defaultOmniboxAutoOpenOnNewPane,
