@@ -618,6 +618,54 @@ type GeometricNavigationOutput struct {
 	Found        bool
 }
 
+// ApplyFocusChange sets the active pane and updates the stack index if the target pane is in a stack.
+// This is the canonical way to change focus to a pane, ensuring stack state is kept in sync.
+func (uc *ManagePanesUseCase) ApplyFocusChange(
+	ctx context.Context,
+	ws *entity.Workspace,
+	targetPaneID entity.PaneID,
+) (*entity.PaneNode, error) {
+	log := logging.FromContext(ctx)
+	if uc == nil {
+		return nil, fmt.Errorf("manage panes use case is nil")
+	}
+	if ws == nil {
+		return nil, fmt.Errorf("workspace is required")
+	}
+
+	targetNode := ws.FindPane(targetPaneID)
+	if targetNode == nil {
+		return nil, fmt.Errorf("pane not found: %s", targetPaneID)
+	}
+
+	oldActive := ws.ActivePaneID
+	ws.ActivePaneID = targetPaneID
+
+	// Update stack index if target is in a stack
+	if targetNode.Parent != nil && targetNode.Parent.IsStacked {
+		oldIndex := targetNode.Parent.ActiveStackIndex
+		for i, child := range targetNode.Parent.Children {
+			if child == targetNode {
+				targetNode.Parent.ActiveStackIndex = i
+				log.Debug().
+					Str("target_pane_id", string(targetPaneID)).
+					Int("old_stack_index", oldIndex).
+					Int("new_stack_index", i).
+					Int("num_children", len(targetNode.Parent.Children)).
+					Msg("updated stack index for focus change")
+				break
+			}
+		}
+	}
+
+	log.Info().
+		Str("from", string(oldActive)).
+		Str("to", string(targetPaneID)).
+		Msg("focus changed")
+
+	return targetNode, nil
+}
+
 // NavigateFocusGeometric finds the nearest pane in the given direction using geometry.
 // Algorithm:
 //  1. Get center of active pane
