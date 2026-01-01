@@ -11,6 +11,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/fonts"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/spf13/viper"
 )
 
@@ -322,7 +323,10 @@ func (m *Manager) createDefaultConfig() error {
 // detectAndSetFonts detects available system fonts and sets the best available
 // fonts from the fallback chains. This runs only during first-run config creation.
 func (m *Manager) detectAndSetFonts() {
-	ctx := context.Background()
+	// Create context with logger for debugging first-run font detection.
+	logger := logging.NewFromEnv()
+	ctx := logging.WithContext(context.Background(), logger)
+
 	detector := fonts.NewDetector()
 
 	if !detector.IsAvailable(ctx) {
@@ -330,9 +334,9 @@ func (m *Manager) detectAndSetFonts() {
 		return
 	}
 
-	sansFont := detector.SelectBestFont(ctx, port.FontCategorySansSerif, fonts.SansSerifFallbackChain)
-	serifFont := detector.SelectBestFont(ctx, port.FontCategorySerif, fonts.SerifFallbackChain)
-	monoFont := detector.SelectBestFont(ctx, port.FontCategoryMonospace, fonts.MonospaceFallbackChain)
+	sansFont := detector.SelectBestFont(ctx, port.FontCategorySansSerif, fonts.SansSerifFallbackChain())
+	serifFont := detector.SelectBestFont(ctx, port.FontCategorySerif, fonts.SerifFallbackChain())
+	monoFont := detector.SelectBestFont(ctx, port.FontCategoryMonospace, fonts.MonospaceFallbackChain())
 
 	m.viper.Set("appearance.sans_font", sansFont)
 	m.viper.Set("appearance.serif_font", serifFont)
