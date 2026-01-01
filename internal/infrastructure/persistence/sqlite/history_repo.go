@@ -56,9 +56,10 @@ func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]en
 	}
 
 	// Build FTS5 query: "word1* word2*" (implicit AND between terms)
+	// Sanitize each word to remove FTS5 special characters
 	parts := make([]string, len(words))
 	for i, word := range words {
-		parts[i] = word + "*"
+		parts[i] = sanitizeFTS5Word(word) + "*"
 	}
 	ftsQuery := strings.Join(parts, " ")
 
@@ -81,38 +82,56 @@ func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]en
 		titleRows = []sqlc.History{}
 	}
 
-	// Merge results, deduplicating by ID
+	// Merge results by interleaving URL and title matches for balanced results
 	seen := make(map[int64]bool)
 	var matches []entity.HistoryMatch
 
-	for i := range urlRows {
-		row := urlRows[i]
-		if !seen[row.ID] {
-			seen[row.ID] = true
-			matches = append(matches, entity.HistoryMatch{
-				Entry: historyFromRow(row),
-				Score: 1.0,
-			})
+	i, j := 0, 0
+	for len(matches) < limit && (i < len(urlRows) || j < len(titleRows)) {
+		// Take next URL match if available
+		if i < len(urlRows) {
+			row := urlRows[i]
+			i++
+			if !seen[row.ID] {
+				seen[row.ID] = true
+				matches = append(matches, entity.HistoryMatch{
+					Entry: historyFromRow(row),
+					Score: 1.0,
+				})
+			}
 		}
-	}
 
-	for i := range titleRows {
-		row := titleRows[i]
-		if !seen[row.ID] {
-			seen[row.ID] = true
-			matches = append(matches, entity.HistoryMatch{
-				Entry: historyFromRow(row),
-				Score: 1.0,
-			})
+		// Take next title match if available
+		if j < len(titleRows) && len(matches) < limit {
+			row := titleRows[j]
+			j++
+			if !seen[row.ID] {
+				seen[row.ID] = true
+				matches = append(matches, entity.HistoryMatch{
+					Entry: historyFromRow(row),
+					Score: 1.0,
+				})
+			}
 		}
-	}
-
-	// Limit results
-	if len(matches) > limit {
-		matches = matches[:limit]
 	}
 
 	return matches, nil
+}
+
+// sanitizeFTS5Word removes FTS5 special characters from a search word.
+// FTS5 special chars: " * ( ) : ^ - AND OR NOT NEAR
+func sanitizeFTS5Word(word string) string {
+	// Remove characters that have special meaning in FTS5
+	var result strings.Builder
+	for _, r := range word {
+		switch r {
+		case '"', '*', '(', ')', ':', '^', '-':
+			// Skip FTS5 special characters
+		default:
+			result.WriteRune(r)
+		}
+	}
+	return result.String()
 }
 
 func (r *historyRepo) GetRecent(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error) {
