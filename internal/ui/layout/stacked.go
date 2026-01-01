@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/jwijenbergh/puregotk/v4/gobject"
 )
 
 // ErrStackEmpty is returned when operating on an empty stack.
@@ -31,6 +32,12 @@ type stackedPane struct {
 	favicon   ImageWidget
 	label     LabelWidget
 	isActive  bool
+
+	// Signal handler IDs for cleanup on removal
+	titleClickSignalID uint32
+	closeClickSignalID uint32
+	titleButton        ButtonWidget // stored for signal disconnection
+	closeButton        ButtonWidget // stored for signal disconnection
 }
 
 // StackedView manages a stack of panes where only one is visible at a time.
@@ -137,21 +144,25 @@ func (sv *StackedView) AddPane(ctx context.Context, paneID, title, faviconIconNa
 	// Create title bar components
 	tb := sv.createTitleBar(title, faviconIconName)
 
+	// Connect click handlers using paneID (not index, to handle removals)
+	titleSignalID, closeSignalID := sv.connectTitleBarHandlers(tb, paneID)
+
 	pane := &stackedPane{
-		paneID:    paneID,
-		titleBar:  tb.titleBar,
-		container: container,
-		title:     title,
-		favicon:   tb.favicon,
-		label:     tb.label,
-		isActive:  false,
+		paneID:             paneID,
+		titleBar:           tb.titleBar,
+		container:          container,
+		title:              title,
+		favicon:            tb.favicon,
+		label:              tb.label,
+		isActive:           false,
+		titleClickSignalID: titleSignalID,
+		closeClickSignalID: closeSignalID,
+		titleButton:        tb.titleButton,
+		closeButton:        tb.closeBtn,
 	}
 
 	index := len(sv.panes)
 	sv.panes = append(sv.panes, pane)
-
-	// Connect click handlers using paneID (not index, to handle removals)
-	sv.connectTitleBarHandlers(tb, paneID)
 
 	// Add to container
 	log.Debug().
@@ -175,9 +186,10 @@ func (sv *StackedView) AddPane(ctx context.Context, paneID, title, faviconIconNa
 
 // connectTitleBarHandlers connects the click handlers for a title bar.
 // Uses paneID lookup instead of captured index to handle pane removals correctly.
-func (sv *StackedView) connectTitleBarHandlers(tb titleBarComponents, paneID string) {
+// Returns the signal IDs for later disconnection.
+func (sv *StackedView) connectTitleBarHandlers(tb titleBarComponents, paneID string) (titleSignalID, closeSignalID uint32) {
 	// Connect title bar click handler for activation
-	tb.titleButton.ConnectClicked(func() {
+	titleSignalID = tb.titleButton.ConnectClicked(func() {
 		sv.mu.RLock()
 		callback := sv.onActivate
 		currentIndex := sv.findPaneIndexInternal(paneID)
@@ -189,7 +201,7 @@ func (sv *StackedView) connectTitleBarHandlers(tb titleBarComponents, paneID str
 	})
 
 	// Connect close button click handler
-	tb.closeBtn.ConnectClicked(func() {
+	closeSignalID = tb.closeBtn.ConnectClicked(func() {
 		sv.mu.RLock()
 		onClose := sv.onClosePane
 		sv.mu.RUnlock()
@@ -198,6 +210,34 @@ func (sv *StackedView) connectTitleBarHandlers(tb titleBarComponents, paneID str
 			onClose(paneID)
 		}
 	})
+
+	return titleSignalID, closeSignalID
+}
+
+// disconnectPaneSignals disconnects signal handlers from a pane's buttons.
+// This prevents memory leaks when panes are removed from the stack.
+func (sv *StackedView) disconnectPaneSignals(pane *stackedPane) {
+	if pane == nil {
+		return
+	}
+
+	// Disconnect title button click signal
+	if pane.titleButton != nil && pane.titleClickSignalID != 0 {
+		gtkWidget := pane.titleButton.GtkWidget()
+		if gtkWidget != nil {
+			obj := gobject.ObjectNewFromInternalPtr(gtkWidget.GoPointer())
+			gobject.SignalHandlerDisconnect(obj, pane.titleClickSignalID)
+		}
+	}
+
+	// Disconnect close button click signal
+	if pane.closeButton != nil && pane.closeClickSignalID != 0 {
+		gtkWidget := pane.closeButton.GtkWidget()
+		if gtkWidget != nil {
+			obj := gobject.ObjectNewFromInternalPtr(gtkWidget.GoPointer())
+			gobject.SignalHandlerDisconnect(obj, pane.closeClickSignalID)
+		}
+	}
 }
 
 // InsertPaneAfter inserts a new pane after the specified index position.
@@ -230,23 +270,27 @@ func (sv *StackedView) InsertPaneAfter(
 	// Create title bar components
 	tb := sv.createTitleBar(title, faviconIconName)
 
+	// Connect click handlers using paneID (not index, to handle removals)
+	titleSignalID, closeSignalID := sv.connectTitleBarHandlers(tb, paneID)
+
 	pane := &stackedPane{
-		paneID:    paneID,
-		titleBar:  tb.titleBar,
-		container: container,
-		title:     title,
-		favicon:   tb.favicon,
-		label:     tb.label,
-		isActive:  false,
+		paneID:             paneID,
+		titleBar:           tb.titleBar,
+		container:          container,
+		title:              title,
+		favicon:            tb.favicon,
+		label:              tb.label,
+		isActive:           false,
+		titleClickSignalID: titleSignalID,
+		closeClickSignalID: closeSignalID,
+		titleButton:        tb.titleButton,
+		closeButton:        tb.closeBtn,
 	}
 
 	// Insert into slice at correct position
 	sv.panes = append(sv.panes, nil)
 	copy(sv.panes[insertIndex+1:], sv.panes[insertIndex:])
 	sv.panes[insertIndex] = pane
-
-	// Connect click handlers using paneID (not index, to handle removals)
-	sv.connectTitleBarHandlers(tb, paneID)
 
 	// Insert widgets at correct position in GTK box
 	sv.insertTitleBarWidgets(tb.titleButton, container, insertIndex)
@@ -320,6 +364,9 @@ func (sv *StackedView) RemovePane(ctx context.Context, index int) error {
 	}
 
 	pane := sv.panes[index]
+
+	// Disconnect signal handlers before removing widgets to prevent memory leaks
+	sv.disconnectPaneSignals(pane)
 
 	// Remove from container
 	if pane.titleBar != nil {
