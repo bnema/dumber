@@ -244,6 +244,18 @@ func (pv *PaneView) AttachHoverHandler(ctx context.Context) {
 	}
 }
 
+// CancelPendingHover cancels any pending hover focus timer.
+// Called when keyboard navigation occurs to prevent hover from overriding keyboard focus.
+func (pv *PaneView) CancelPendingHover() {
+	pv.mu.RLock()
+	handler := pv.hoverHandler
+	pv.mu.RUnlock()
+
+	if handler != nil {
+		handler.Cancel()
+	}
+}
+
 // Widget returns the underlying overlay widget for embedding in containers.
 func (pv *PaneView) Widget() layout.Widget {
 	return pv.overlay

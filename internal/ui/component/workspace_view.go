@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
@@ -50,6 +51,10 @@ type WorkspaceView struct {
 	onPaneFocused       func(paneID entity.PaneID)
 	onSplitRatioDragged func(nodeID string, ratio float64)
 
+	// Hover suppression for keyboard navigation (Issue #89)
+	// Prevents hover focus from overriding keyboard-initiated focus changes
+	hoverSuppressedUntil time.Time
+
 	mu sync.RWMutex
 }
 
@@ -86,6 +91,11 @@ func (a *paneViewFactoryAdapter) CreatePaneView(node *entity.PaneNode) layout.Wi
 
 	// Set up hover callback for focus-follows-mouse
 	pv.SetOnHover(func(paneID entity.PaneID) {
+		// Skip if hover is suppressed (keyboard navigation just happened)
+		if a.wv.IsHoverSuppressed() {
+			return
+		}
+
 		// Skip if this pane is already active
 		if a.wv.GetActivePaneID() == paneID {
 			return
@@ -345,6 +355,18 @@ func (wv *WorkspaceView) FocusPane(paneID entity.PaneID) bool {
 	}
 
 	return pv.GrabFocus()
+}
+
+// DeactivatePane removes the active visual indicator from a pane.
+// This is used when keyboard navigation overrides mouse hover focus.
+func (wv *WorkspaceView) DeactivatePane(paneID entity.PaneID) {
+	wv.mu.RLock()
+	pv, ok := wv.paneViews[paneID]
+	wv.mu.RUnlock()
+
+	if ok && pv != nil {
+		pv.SetActive(false)
+	}
 }
 
 // SetWebViewWidget attaches a WebView widget to a specific pane.
@@ -754,4 +776,36 @@ func (wv *WorkspaceView) GetActivePaneView() *PaneView {
 	wv.mu.RLock()
 	defer wv.mu.RUnlock()
 	return wv.paneViews[wv.getActivePaneIDInternal()]
+}
+
+// KeyboardFocusSuppressDuration is the time to suppress hover focus after keyboard navigation.
+const KeyboardFocusSuppressDuration = 300 * time.Millisecond
+
+// SuppressHover temporarily blocks hover focus changes after keyboard navigation.
+// This prevents the race condition where a pending hover timer overrides
+// an explicit keyboard focus change (Issue #89).
+func (wv *WorkspaceView) SuppressHover(duration time.Duration) {
+	wv.mu.Lock()
+	wv.hoverSuppressedUntil = time.Now().Add(duration)
+	wv.mu.Unlock()
+}
+
+// IsHoverSuppressed returns true if hover focus is temporarily suppressed.
+func (wv *WorkspaceView) IsHoverSuppressed() bool {
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return time.Now().Before(wv.hoverSuppressedUntil)
+}
+
+// CancelAllPendingHovers cancels any pending hover timers on all pane views.
+// Called when keyboard navigation occurs to ensure hover doesn't override keyboard focus.
+func (wv *WorkspaceView) CancelAllPendingHovers() {
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+
+	for _, pv := range wv.paneViews {
+		if pv != nil {
+			pv.CancelPendingHover()
+		}
+	}
 }
