@@ -357,6 +357,18 @@ func (wv *WorkspaceView) FocusPane(paneID entity.PaneID) bool {
 	return pv.GrabFocus()
 }
 
+// DeactivatePane removes the active visual indicator from a pane.
+// This is used when keyboard navigation overrides mouse hover focus.
+func (wv *WorkspaceView) DeactivatePane(paneID entity.PaneID) {
+	wv.mu.RLock()
+	pv, ok := wv.paneViews[paneID]
+	wv.mu.RUnlock()
+
+	if ok && pv != nil {
+		pv.SetActive(false)
+	}
+}
+
 // SetWebViewWidget attaches a WebView widget to a specific pane.
 func (wv *WorkspaceView) SetWebViewWidget(paneID entity.PaneID, widget layout.Widget) error {
 	wv.mu.RLock()
