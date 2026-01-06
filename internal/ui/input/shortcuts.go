@@ -170,6 +170,7 @@ const (
 	ActionReload     Action = "reload"
 	ActionHardReload Action = "hard_reload"
 	ActionStop       Action = "stop"
+	ActionPrintPage  Action = "print_page"
 
 	// Zoom
 	ActionZoomIn    Action = "zoom_in"
@@ -360,8 +361,8 @@ func (s *ShortcutSet) registerStandardShortcuts() {
 	s.Global[KeyBinding{uint(gdk.KEY_F5), ModNone}] = ActionReload
 	s.Global[KeyBinding{uint(gdk.KEY_F5), ModCtrl}] = ActionHardReload
 	s.Global[KeyBinding{uint(gdk.KEY_F12), ModNone}] = ActionOpenDevTools
-	s.Global[KeyBinding{uint(gdk.KEY_Left), ModAlt}] = ActionGoBack
-	s.Global[KeyBinding{uint(gdk.KEY_Right), ModAlt}] = ActionGoForward
+	s.Global[KeyBinding{uint(gdk.KEY_Left), ModCtrl}] = ActionGoBack
+	s.Global[KeyBinding{uint(gdk.KEY_Right), ModCtrl}] = ActionGoForward
 	s.Global[KeyBinding{uint(gdk.KEY_plus), ModCtrl}] = ActionZoomIn
 	s.Global[KeyBinding{uint(gdk.KEY_equal), ModCtrl}] = ActionZoomIn // Ctrl+= (no shift needed)
 	s.Global[KeyBinding{uint(gdk.KEY_minus), ModCtrl}] = ActionZoomOut
@@ -369,6 +370,7 @@ func (s *ShortcutSet) registerStandardShortcuts() {
 	s.Global[KeyBinding{uint(gdk.KEY_q), ModCtrl}] = ActionQuit
 	s.Global[KeyBinding{uint(gdk.KEY_F11), ModNone}] = ActionToggleFullscreen
 	s.Global[KeyBinding{uint('c'), ModCtrl | ModShift}] = ActionCopyURL
+	s.Global[KeyBinding{uint('p'), ModCtrl | ModShift}] = ActionPrintPage
 	// Session management - direct shortcut to open session manager
 	s.Global[KeyBinding{uint(gdk.KEY_s), ModCtrl | ModShift}] = ActionOpenSessionManager
 }
@@ -379,6 +381,8 @@ func (s *ShortcutSet) registerPaneNavigationShortcuts() {
 	s.Global[KeyBinding{uint(gdk.KEY_k), ModAlt}] = ActionFocusUp
 	s.Global[KeyBinding{uint(gdk.KEY_j), ModAlt}] = ActionFocusDown
 
+	s.Global[KeyBinding{uint(gdk.KEY_Left), ModAlt}] = ActionFocusLeft
+	s.Global[KeyBinding{uint(gdk.KEY_Right), ModAlt}] = ActionFocusRight
 	s.Global[KeyBinding{uint(gdk.KEY_Up), ModAlt}] = ActionFocusUp
 	s.Global[KeyBinding{uint(gdk.KEY_Down), ModAlt}] = ActionFocusDown
 }

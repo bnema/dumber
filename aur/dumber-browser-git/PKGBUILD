@@ -43,7 +43,7 @@ build() {
 package() {
     cd dumber
     install -Dm755 dist/dumber "${pkgdir}/usr/bin/dumber"
-    install -Dm644 dev.bnema.Dumber.desktop "${pkgdir}/usr/share/applications/dev.bnema.Dumber.desktop"
+    install -Dm644 flatpak/dev.bnema.Dumber.desktop "${pkgdir}/usr/share/applications/dev.bnema.Dumber.desktop"
     install -Dm644 assets/logo-512.png "${pkgdir}/usr/share/icons/hicolor/512x512/apps/dev.bnema.Dumber.png"
     install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }

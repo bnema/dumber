@@ -45,7 +45,9 @@ archives:
       - LICENSE
       - README.md
       - CHANGELOG.md
-      - dev.bnema.Dumber.desktop
+      - src: flatpak/dev.bnema.Dumber.desktop
+        dst: .
+        strip_parent: true
       - src: assets/logo-512.png
         dst: .
         strip_parent: true

@@ -15,11 +15,12 @@ import (
 )
 
 const (
-	appName         = "dumber"
-	desktopFileName = "dumber.desktop"
-	iconFileName    = "dumber.svg"
-	filePerm        = 0644
-	dirPerm         = 0755
+	appName                = "dumber"
+	desktopFileName        = "dumber.desktop"
+	packageDesktopFileName = "dev.bnema.Dumber.desktop" // Used by AUR/Flatpak
+	iconFileName           = "dumber.svg"
+	filePerm               = 0644
+	dirPerm                = 0755
 )
 
 // desktopFileTemplate is the freedesktop.org desktop entry format.
@@ -157,7 +158,7 @@ func (a *Adapter) GetStatus(ctx context.Context) (*port.DesktopIntegrationStatus
 		out, err := exec.CommandContext(ctx, a.xdgSettingsPath, "get", "default-web-browser").Output()
 		if err == nil {
 			currentDefault := strings.TrimSpace(string(out))
-			status.IsDefaultBrowser = currentDefault == desktopFileName
+			status.IsDefaultBrowser = currentDefault == desktopFileName || currentDefault == packageDesktopFileName
 		}
 	}
 
@@ -306,23 +307,51 @@ func (a *Adapter) SetAsDefaultBrowser(ctx context.Context) error {
 		return fmt.Errorf("xdg-settings not found (install xdg-utils)")
 	}
 
-	// Check if desktop file is installed
-	desktopPath, err := getDesktopFilePath()
-	if err != nil {
-		return err
-	}
-	if _, err := os.Stat(desktopPath); os.IsNotExist(err) {
+	// Determine which desktop file to use
+	// Priority: package manager desktop file (AUR/Flatpak) > user-installed
+	desktopFile := a.findDesktopFile(ctx)
+	if desktopFile == "" {
 		return fmt.Errorf("desktop file not installed - run 'dumber setup install' first")
 	}
 
 	// Set default browser
-	cmd := exec.CommandContext(ctx, a.xdgSettingsPath, "set", "default-web-browser", desktopFileName)
+	cmd := exec.CommandContext(ctx, a.xdgSettingsPath, "set", "default-web-browser", desktopFile)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("xdg-settings failed: %s", strings.TrimSpace(string(out)))
 	}
 
-	log.Info().Msg("dumber set as default browser")
+	log.Info().Str("desktop_file", desktopFile).Msg("dumber set as default browser")
 	return nil
+}
+
+// findDesktopFile returns the desktop file name to use for default browser setting.
+// Checks system paths first (AUR/Flatpak), then user path (manual install).
+func (a *Adapter) findDesktopFile(ctx context.Context) string {
+	log := logging.FromContext(ctx)
+
+	// Check system-wide paths for package manager installs
+	systemPaths := []string{
+		"/usr/share/applications/" + packageDesktopFileName,
+		"/app/share/applications/" + packageDesktopFileName, // Flatpak
+	}
+
+	for _, path := range systemPaths {
+		if _, err := os.Stat(path); err == nil {
+			log.Debug().Str("path", path).Msg("found package desktop file")
+			return packageDesktopFileName
+		}
+	}
+
+	// Check user path for manual installs
+	userPath, err := getDesktopFilePath()
+	if err == nil {
+		if _, err := os.Stat(userPath); err == nil {
+			log.Debug().Str("path", userPath).Msg("found user desktop file")
+			return desktopFileName
+		}
+	}
+
+	return ""
 }
 
 // UnsetAsDefaultBrowser resets default browser if dumber is currently default.
