@@ -14,6 +14,7 @@ const (
 	SectionWorkspace        = "Workspace"
 	SectionSession          = "Session"
 	SectionOmnibox          = "Omnibox"
+	SectionClipboard        = "Clipboard"
 	SectionContentFiltering = "Content Filtering"
 	SectionRendering        = "Rendering"
 	SectionMedia            = "Media"
@@ -63,6 +64,9 @@ func (p *SchemaProvider) GetSchema() []entity.ConfigKeyInfo {
 
 	// Omnibox section
 	keys = append(keys, p.getOmniboxKeys(defaults)...)
+
+	// Clipboard section
+	keys = append(keys, p.getClipboardKeys(defaults)...)
 
 	// Content Filtering section
 	keys = append(keys, p.getContentFilteringKeys(defaults)...)
@@ -459,6 +463,34 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 			Description: "Global shortcut to switch to previous tab",
 			Section:     SectionWorkspace,
 		},
+		{
+			Key:         "workspace.shortcuts.consume_or_expel_left",
+			Type:        "string",
+			Default:     defaults.Workspace.Shortcuts.ConsumeOrExpelLeft,
+			Description: "Consume into left sibling stack or expel left (alpha)",
+			Section:     SectionWorkspace,
+		},
+		{
+			Key:         "workspace.shortcuts.consume_or_expel_right",
+			Type:        "string",
+			Default:     defaults.Workspace.Shortcuts.ConsumeOrExpelRight,
+			Description: "Consume into right sibling stack or expel right (alpha)",
+			Section:     SectionWorkspace,
+		},
+		{
+			Key:         "workspace.shortcuts.consume_or_expel_up",
+			Type:        "string",
+			Default:     defaults.Workspace.Shortcuts.ConsumeOrExpelUp,
+			Description: "Consume into upper sibling stack or expel up (alpha)",
+			Section:     SectionWorkspace,
+		},
+		{
+			Key:         "workspace.shortcuts.consume_or_expel_down",
+			Type:        "string",
+			Default:     defaults.Workspace.Shortcuts.ConsumeOrExpelDown,
+			Description: "Consume into lower sibling stack or expel down (alpha)",
+			Section:     SectionWorkspace,
+		},
 		// Popups
 		{
 			Key:         "workspace.popups.behavior",
@@ -679,6 +711,18 @@ func (*SchemaProvider) getContentFilteringKeys(defaults *Config) []entity.Config
 	}
 }
 
+func (*SchemaProvider) getClipboardKeys(defaults *Config) []entity.ConfigKeyInfo {
+	return []entity.ConfigKeyInfo{
+		{
+			Key:         "clipboard.auto_copy_on_selection",
+			Type:        "bool",
+			Default:     fmt.Sprintf("%t", defaults.Clipboard.AutoCopyOnSelection),
+			Description: "Auto-copy selected text to clipboard (zellij-style)",
+			Section:     SectionClipboard,
+		},
+	}
+}
+
 func (*SchemaProvider) getRenderingKeys(defaults *Config) []entity.ConfigKeyInfo {
 	return []entity.ConfigKeyInfo{
 		{
@@ -854,6 +898,14 @@ func (*SchemaProvider) getDebugKeys(defaults *Config) []entity.ConfigKeyInfo {
 func (*SchemaProvider) getPerformanceKeys(defaults *Config) []entity.ConfigKeyInfo {
 	return []entity.ConfigKeyInfo{
 		{
+			Key:         "performance.profile",
+			Type:        "string",
+			Default:     string(defaults.Performance.Profile),
+			Description: "Performance profile preset (custom enables manual tuning)",
+			Values:      []string{"default", "lite", "max", "custom"},
+			Section:     SectionPerformance,
+		},
+		{
 			Key:         "performance.zoom_cache_size",
 			Type:        "int",
 			Default:     fmt.Sprintf("%d", defaults.Performance.ZoomCacheSize),
@@ -867,6 +919,93 @@ func (*SchemaProvider) getPerformanceKeys(defaults *Config) []entity.ConfigKeyIn
 			Default:     fmt.Sprintf("%d", defaults.Performance.WebViewPoolPrewarmCount),
 			Description: "WebViews to pre-create at startup",
 			Range:       ">=0",
+			Section:     SectionPerformance,
+		},
+		{
+			Key:         "performance.skia_cpu_painting_threads",
+			Type:        "int",
+			Default:     fmt.Sprintf("%d", defaults.Performance.SkiaCPUPaintingThreads),
+			Description: "Skia CPU rendering threads (0=unset, custom profile only)",
+			Range:       ">=0",
+			Section:     SectionPerformance,
+		},
+		{
+			Key:         "performance.skia_gpu_painting_threads",
+			Type:        "int",
+			Default:     fmt.Sprintf("%d", defaults.Performance.SkiaGPUPaintingThreads),
+			Description: "Skia GPU rendering threads (-1=unset, 0=disable, custom profile only)",
+			Range:       ">=-1",
+			Section:     SectionPerformance,
+		},
+		{
+			Key:         "performance.skia_enable_cpu_rendering",
+			Type:        "bool",
+			Default:     fmt.Sprintf("%t", defaults.Performance.SkiaEnableCPURendering),
+			Description: "Force CPU rendering (custom profile only)",
+			Section:     SectionPerformance,
+		},
+		{
+			Key:         "performance.web_process_memory_limit_mb",
+			Type:        "int",
+			Default:     fmt.Sprintf("%d", defaults.Performance.WebProcessMemoryLimitMB),
+			Description: "Web process memory limit in MB (0=unset, custom profile only)",
+			Range:       ">=0",
+			Section:     SectionPerformance,
+		},
+		{
+			Key:         "performance.web_process_memory_poll_interval_sec",
+			Type:        "float64",
+			Default:     fmt.Sprintf("%.1f", defaults.Performance.WebProcessMemoryPollIntervalSec),
+			Description: "Memory check interval in seconds (0=default 30s, custom profile only)",
+			Range:       ">=0",
+			Section:     SectionPerformance,
+		},
+		{
+			Key:         "performance.web_process_memory_conservative_threshold",
+			Type:        "float64",
+			Default:     fmt.Sprintf("%.2f", defaults.Performance.WebProcessMemoryConservativeThreshold),
+			Description: "Conservative memory cleanup threshold (0-1, custom profile only)",
+			Range:       "0-1",
+			Section:     SectionPerformance,
+		},
+		{
+			Key:         "performance.web_process_memory_strict_threshold",
+			Type:        "float64",
+			Default:     fmt.Sprintf("%.2f", defaults.Performance.WebProcessMemoryStrictThreshold),
+			Description: "Strict memory cleanup threshold (0-1, custom profile only)",
+			Range:       "0-1",
+			Section:     SectionPerformance,
+		},
+		{
+			Key:         "performance.network_process_memory_limit_mb",
+			Type:        "int",
+			Default:     fmt.Sprintf("%d", defaults.Performance.NetworkProcessMemoryLimitMB),
+			Description: "Network process memory limit in MB (0=unset, custom profile only)",
+			Range:       ">=0",
+			Section:     SectionPerformance,
+		},
+		{
+			Key:         "performance.network_process_memory_poll_interval_sec",
+			Type:        "float64",
+			Default:     fmt.Sprintf("%.1f", defaults.Performance.NetworkProcessMemoryPollIntervalSec),
+			Description: "Network memory check interval in seconds (custom profile only)",
+			Range:       ">=0",
+			Section:     SectionPerformance,
+		},
+		{
+			Key:         "performance.network_process_memory_conservative_threshold",
+			Type:        "float64",
+			Default:     fmt.Sprintf("%.2f", defaults.Performance.NetworkProcessMemoryConservativeThreshold),
+			Description: "Network conservative memory threshold (0-1, custom profile only)",
+			Range:       "0-1",
+			Section:     SectionPerformance,
+		},
+		{
+			Key:         "performance.network_process_memory_strict_threshold",
+			Type:        "float64",
+			Default:     fmt.Sprintf("%.2f", defaults.Performance.NetworkProcessMemoryStrictThreshold),
+			Description: "Network strict memory threshold (0-1, custom profile only)",
+			Range:       "0-1",
 			Section:     SectionPerformance,
 		},
 	}

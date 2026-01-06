@@ -458,6 +458,20 @@ If set, dumber prepends prefix-derived paths to:
 prefix = "/opt/webkitgtk"
 ```
 
+## Clipboard
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `clipboard.auto_copy_on_selection` | bool | `true` | Automatically copy selected text to clipboard (zellij/tmux-style) |
+
+When enabled, selecting text in a web page immediately copies it to the clipboard with a brief toast notification. Does not apply to text selection in input fields or textareas.
+
+**Example:**
+```toml
+[clipboard]
+auto_copy_on_selection = true  # Enabled by default
+```
+
 ## Content Filtering
 
 | Key | Type | Default | Description |

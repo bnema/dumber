@@ -8951,6 +8951,46 @@ func (_c *MockButtonWidget_SetHexpand_Call) RunAndReturn(run func(expand bool)) 
 	return _c
 }
 
+// SetIconName provides a mock function for the type MockButtonWidget
+func (_mock *MockButtonWidget) SetIconName(iconName string) {
+	_mock.Called(iconName)
+	return
+}
+
+// MockButtonWidget_SetIconName_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetIconName'
+type MockButtonWidget_SetIconName_Call struct {
+	*mock.Call
+}
+
+// SetIconName is a helper method to define mock.On call
+//   - iconName string
+func (_e *MockButtonWidget_Expecter) SetIconName(iconName interface{}) *MockButtonWidget_SetIconName_Call {
+	return &MockButtonWidget_SetIconName_Call{Call: _e.mock.On("SetIconName", iconName)}
+}
+
+func (_c *MockButtonWidget_SetIconName_Call) Run(run func(iconName string)) *MockButtonWidget_SetIconName_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockButtonWidget_SetIconName_Call) Return() *MockButtonWidget_SetIconName_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockButtonWidget_SetIconName_Call) RunAndReturn(run func(iconName string)) *MockButtonWidget_SetIconName_Call {
+	_c.Run(run)
+	return _c
+}
+
 // SetLabel provides a mock function for the type MockButtonWidget
 func (_mock *MockButtonWidget) SetLabel(label string) {
 	_mock.Called(label)

@@ -572,6 +572,7 @@ func generateStackedPaneCSS(p Palette) string {
 	return `/* ===== Stacked Pane Styling ===== */
 
 /* Title bar for inactive panes in a stack */
+/* The title bar is now a Box with GestureClick, not wrapped in a button */
 .stacked-pane-titlebar {
 	background-color: var(--surface-variant);
 	border-bottom: 0.0625em solid var(--border);
@@ -579,25 +580,13 @@ func generateStackedPaneCSS(p Palette) string {
 	min-height: 1.5em;
 }
 
-/* Title bar button wrapper - clickable area */
-button.stacked-pane-title-button {
-	background-color: var(--surface-variant);
-	background-image: none;
-	border: none;
-	border-bottom: 0.0625em solid var(--border);
-	border-radius: 0;
-	padding: 0;
-	margin: 0;
+/* Clickable title bar - hover styling */
+.stacked-pane-titlebar.stacked-pane-title-clickable {
 	transition: background-color 150ms ease-in-out;
 }
 
-button.stacked-pane-title-button:hover {
+.stacked-pane-titlebar.stacked-pane-title-clickable:hover {
 	background-color: shade(var(--surface-variant), 1.15);
-}
-
-button.stacked-pane-title-button:focus {
-	outline: none;
-	box-shadow: none;
 }
 
 /* Title bar content box */
@@ -620,8 +609,46 @@ button.stacked-pane-title-button:focus {
 	font-weight: 400;
 }
 
-button.stacked-pane-title-button:hover .stacked-pane-titlebar label {
+/* Hover effect on title bar label */
+.stacked-pane-titlebar.stacked-pane-title-clickable:hover label {
 	color: var(--accent);
+}
+
+/* Close button in stacked pane title bar */
+.stacked-pane-close-button {
+	background: transparent;
+	border: none;
+	border-radius: 4px;
+	padding: 4px;
+	margin: 0 2px;
+	min-width: 20px;
+	min-height: 20px;
+	opacity: 0.4;
+	transition: opacity 100ms ease-in-out, background-color 100ms ease-in-out;
+}
+
+.stacked-pane-close-button > image {
+	margin: 0;
+	padding: 0;
+}
+
+.stacked-pane-close-button:hover {
+	opacity: 1.0;
+	background: alpha(var(--destructive), 0.2);
+}
+
+.stacked-pane-close-button:hover > image {
+	color: var(--destructive);
+}
+
+/* Show close button more prominently when hovering title bar */
+.stacked-pane-titlebar.stacked-pane-title-clickable:hover .stacked-pane-close-button {
+	opacity: 0.7;
+}
+
+.stacked-pane-close-button:focus {
+	outline: none;
+	box-shadow: none;
 }
 `
 }

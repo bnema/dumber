@@ -115,6 +115,12 @@ func (h *HoverHandler) handleEnter() {
 
 // handleLeave cancels any pending focus switch.
 func (h *HoverHandler) handleLeave() {
+	h.Cancel()
+}
+
+// Cancel cancels any pending focus switch.
+// This can be called externally to cancel hover when keyboard navigation occurs.
+func (h *HoverHandler) Cancel() {
 	h.timerMu.Lock()
 	defer h.timerMu.Unlock()
 

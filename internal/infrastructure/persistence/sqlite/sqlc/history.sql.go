@@ -439,22 +439,67 @@ func (q *Queries) SearchHistory(ctx context.Context, arg SearchHistoryParams) ([
 	return items, nil
 }
 
-const SearchHistoryFTS = `-- name: SearchHistoryFTS :many
+const SearchHistoryFTSTitle = `-- name: SearchHistoryFTSTitle :many
 SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.created_at
 FROM history_fts fts
 JOIN history h ON fts.rowid = h.id
-WHERE fts.url MATCH ?
-ORDER BY bm25(history_fts)
-LIMIT ?
+WHERE fts.title MATCH ?1
+ORDER BY h.visit_count DESC, h.last_visited DESC
+LIMIT ?2
 `
 
-type SearchHistoryFTSParams struct {
-	Url   string `json:"url"`
+type SearchHistoryFTSTitleParams struct {
+	Query string `json:"query"`
 	Limit int64  `json:"limit"`
 }
 
-func (q *Queries) SearchHistoryFTS(ctx context.Context, arg SearchHistoryFTSParams) ([]History, error) {
-	rows, err := q.db.QueryContext(ctx, SearchHistoryFTS, arg.Url, arg.Limit)
+func (q *Queries) SearchHistoryFTSTitle(ctx context.Context, arg SearchHistoryFTSTitleParams) ([]History, error) {
+	rows, err := q.db.QueryContext(ctx, SearchHistoryFTSTitle, arg.Query, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []History{}
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.Title,
+			&i.FaviconUrl,
+			&i.VisitCount,
+			&i.LastVisited,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const SearchHistoryFTSUrl = `-- name: SearchHistoryFTSUrl :many
+SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.created_at
+FROM history_fts fts
+JOIN history h ON fts.rowid = h.id
+WHERE fts.url MATCH ?1
+ORDER BY h.visit_count DESC, h.last_visited DESC
+LIMIT ?2
+`
+
+type SearchHistoryFTSUrlParams struct {
+	Query string `json:"query"`
+	Limit int64  `json:"limit"`
+}
+
+func (q *Queries) SearchHistoryFTSUrl(ctx context.Context, arg SearchHistoryFTSUrlParams) ([]History, error) {
+	rows, err := q.db.QueryContext(ctx, SearchHistoryFTSUrl, arg.Query, arg.Limit)
 	if err != nil {
 		return nil, err
 	}

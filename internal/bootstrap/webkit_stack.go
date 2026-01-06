@@ -120,6 +120,11 @@ func BuildWebKitStack(input WebKitStackInput) WebKitStack {
 	settings := webkit.NewSettingsManager(ctx, cfg)
 	injector := webkit.NewContentInjector(colorResolver)
 
+	// Set up auto-copy on selection config getter
+	injector.SetAutoCopyConfigGetter(func() bool {
+		return config.Get().Clipboard.AutoCopyOnSelection
+	})
+
 	prepareThemeUC := usecase.NewPrepareWebUIThemeUseCase(injector)
 	themeCSSText := themeManager.GetWebUIThemeCSS()
 	if err := prepareThemeUC.Execute(ctx, usecase.PrepareWebUIThemeInput{CSSVars: themeCSSText}); err != nil {
@@ -189,8 +194,6 @@ func configureRenderingEnvironment(
 		ForceVSync:          cfg.Media.ForceVSync,
 		GLRenderingMode:     string(cfg.Media.GLRenderingMode),
 		GStreamerDebugLevel: cfg.Media.GStreamerDebugLevel,
-		VideoBufferSizeMB:   cfg.Media.VideoBufferSizeMB,
-		QueueBufferTimeSec:  cfg.Media.QueueBufferTimeSec,
 
 		// WebKit compositor settings
 		DisableDMABufRenderer:  cfg.Rendering.DisableDMABufRenderer,
