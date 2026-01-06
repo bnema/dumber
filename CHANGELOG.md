@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Print shortcut**: `Ctrl+Shift+P` opens the print dialog for the current page. Fixes #99.
+
+### Changed
+- **Flatpak files location**: Moved flatpak-related files to `flatpak/` directory. Fixes #101.
+- **Navigation shortcuts**: `Ctrl+Left/Right` now triggers back/forward navigation, `Alt+Left/Right` moves focus between panes. Fixes #98.
+
+### Fixed
+- **Flatpak favicons**: Fixed favicons not displaying in omnibox for Flatpak installs by ensuring cache directory exists before saving. Fixes #105.
+- **Flatpak desktop launcher**: Fixed .desktop file not launching application from app launchers by adding locale environment variables. Fixes #104.
+- **Flatpak update notifications**: Skip GitHub update checks for Flatpak and AUR installs (use package manager instead). Fixes #107.
+- **Active border with stacked panes**: Hide active pane border when only one pane area is visible (stacked panes count as one). Fixes #108.
+- **Setup command for AUR**: `dumber setup` now detects AUR and Flatpak installations and locates the correct .desktop file. Fixes #102.
+
+### Removed
+- **dev/ directory**: Removed development scripts directory. Fixes #103.
+
 ## [0.24.0] - 2026-01-06
 
 ### Added
