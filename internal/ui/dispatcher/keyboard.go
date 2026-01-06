@@ -179,6 +179,7 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 		input.ActionGoForward:  d.navCoord.GoForward,
 		input.ActionReload:     d.navCoord.Reload,
 		input.ActionHardReload: d.navCoord.HardReload,
+		input.ActionPrintPage:  d.navCoord.PrintPage,
 		// Zoom actions
 		input.ActionZoomIn:    func(ctx context.Context) error { return d.handleZoom(ctx, "in") },
 		input.ActionZoomOut:   func(ctx context.Context) error { return d.handleZoom(ctx, "out") },
