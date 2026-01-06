@@ -192,31 +192,43 @@ func (a *FaviconAdapter) StoreFromWebKitWithOrigin(
 }
 
 // saveFaviconToDisk exports a favicon texture to PNG and ensures disk cache is populated.
+// Uses glib.IdleAdd to defer disk I/O until GTK main loop is idle, avoiding UI blocking.
 func (a *FaviconAdapter) saveFaviconToDisk(ctx context.Context, domain string, texture *gdk.Texture) {
 	log := logging.FromContext(ctx)
 
-	// Export as PNG for CLI tools (rofi/fuzzel) - do this on main thread
-	// since GTK texture operations need to happen there
+	// Check if PNG save is needed before scheduling idle callback
 	pngPath := a.service.DiskPathPNG(domain)
-	if pngPath != "" && !a.service.HasPNGOnDisk(domain) {
-		// Ensure cache directory exists before SaveToPng (GTK won't create it)
+	needsPNGSave := pngPath != "" && !a.service.HasPNGOnDisk(domain)
+
+	if needsPNGSave {
+		// Ensure cache directory exists (cheap check, do it now)
 		if err := a.service.EnsureCacheDir(); err != nil {
 			log.Warn().Err(err).Str("domain", domain).Msg("failed to create favicon cache dir")
-		} else if ok := texture.SaveToPng(pngPath); !ok {
-			log.Warn().Str("domain", domain).Str("path", pngPath).Msg("failed to save favicon PNG")
-		} else {
-			log.Debug().Str("domain", domain).Str("path", pngPath).Msg("saved favicon PNG")
-
-			// Create normalized sized copy for dmenu/fuzzel (async)
-			// The original PNG is now on disk, so this should succeed
-			go func() {
-				if err := a.service.EnsureSizedPNG(ctx, domain, favicon.NormalizedIconSize); err != nil {
-					log.Warn().Err(err).Str("domain", domain).Msg("failed to create sized PNG")
-				} else {
-					log.Debug().Str("domain", domain).Msg("created sized PNG")
-				}
-			}()
+			needsPNGSave = false
 		}
+	}
+
+	if needsPNGSave {
+		// Schedule PNG save for when GTK main loop is idle (non-blocking)
+		// texture.SaveToPng must run on main thread but we defer it to avoid blocking
+		cb := glib.SourceFunc(func(_ uintptr) bool {
+			if ok := texture.SaveToPng(pngPath); !ok {
+				log.Warn().Str("domain", domain).Str("path", pngPath).Msg("failed to save favicon PNG")
+			} else {
+				log.Debug().Str("domain", domain).Str("path", pngPath).Msg("saved favicon PNG")
+
+				// Create normalized sized copy for dmenu/fuzzel (async)
+				go func() {
+					if err := a.service.EnsureSizedPNG(ctx, domain, favicon.NormalizedIconSize); err != nil {
+						log.Warn().Err(err).Str("domain", domain).Msg("failed to create sized PNG")
+					} else {
+						log.Debug().Str("domain", domain).Msg("created sized PNG")
+					}
+				}()
+			}
+			return false // don't repeat
+		})
+		glib.IdleAdd(&cb, 0)
 	}
 
 	// Ensure disk cache is populated (async, in background)
