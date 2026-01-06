@@ -200,6 +200,26 @@ func (c *NavigationCoordinator) OpenDevTools(ctx context.Context) error {
 	return fmt.Errorf("webview does not support devtools")
 }
 
+// PrintPage opens the print dialog for the active WebView.
+func (c *NavigationCoordinator) PrintPage(ctx context.Context) error {
+	log := logging.FromContext(ctx)
+
+	wv := c.contentCoord.ActiveWebView(ctx)
+	if wv == nil {
+		log.Warn().Msg("no active webview for print")
+		return fmt.Errorf("no active webview")
+	}
+
+	log.Debug().Uint64("webview_id", uint64(wv.ID())).Msg("opening print dialog")
+
+	// Type assert to access Print (not in port.WebView interface)
+	if webkitWV, ok := interface{}(wv).(*webkit.WebView); ok {
+		return webkitWV.Print()
+	}
+
+	return fmt.Errorf("webview does not support printing")
+}
+
 // UpdateHistoryTitle updates the title of a history entry after page load.
 func (c *NavigationCoordinator) UpdateHistoryTitle(ctx context.Context, paneID entity.PaneID, url, title string) {
 	log := logging.FromContext(ctx)

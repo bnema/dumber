@@ -297,17 +297,23 @@ func (wv *WorkspaceView) PaneCount() int {
 	return len(wv.paneViews)
 }
 
-// singlePaneClass is used to hide the active pane border when only one pane exists.
+// singlePaneClass is used to hide the active pane border when only one visible area exists.
 const singlePaneClass = "single-pane"
 
 // updateSinglePaneModeInternal adds/removes the single-pane CSS class on the container.
+// Uses VisibleAreaCount from the domain model: stacked panes count as 1 visible area.
 // Must be called with the lock held.
 func (wv *WorkspaceView) updateSinglePaneModeInternal() {
 	if wv.container == nil {
 		return
 	}
 
-	if len(wv.paneViews) <= 1 {
+	visibleAreas := 0
+	if wv.workspace != nil {
+		visibleAreas = wv.workspace.VisibleAreaCount()
+	}
+
+	if visibleAreas <= 1 {
 		wv.container.AddCssClass(singlePaneClass)
 	} else {
 		wv.container.RemoveCssClass(singlePaneClass)

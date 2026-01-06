@@ -950,6 +950,21 @@ func (wv *WebView) ShowDevTools() error {
 	return nil
 }
 
+// Print opens the print dialog for the current page.
+func (wv *WebView) Print() error {
+	if wv.destroyed.Load() {
+		return fmt.Errorf("webview %d is destroyed", wv.id)
+	}
+	printOp := webkit.NewPrintOperation(wv.inner)
+	if printOp == nil {
+		return fmt.Errorf("failed to create print operation for webview %d", wv.id)
+	}
+	// RunDialog with nil parent window - GTK will use the widget's toplevel
+	printOp.RunDialog(nil)
+	wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("print dialog opened")
+	return nil
+}
+
 // IsDestroyed returns true if the WebView has been destroyed.
 func (wv *WebView) IsDestroyed() bool {
 	return wv.destroyed.Load()

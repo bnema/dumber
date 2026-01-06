@@ -64,3 +64,12 @@ func (w *Workspace) AllPanes() []*Pane {
 	})
 	return panes
 }
+
+// VisibleAreaCount returns the number of visible pane areas.
+// Stacked panes count as 1 (only one visible at a time).
+func (w *Workspace) VisibleAreaCount() int {
+	if w.Root == nil {
+		return 0
+	}
+	return w.Root.VisibleAreaCount()
+}
