@@ -166,34 +166,11 @@ func (a *FaviconAdapter) StoreFromWebKit(ctx context.Context, pageURL string, te
 		return
 	}
 
-	log := logging.FromContext(ctx)
-
 	// Store in texture cache
 	a.setTexture(domain, texture)
 
-	// Export as PNG for CLI tools (rofi/fuzzel) - do this on main thread
-	// since GTK texture operations need to happen there
-	pngPath := a.service.DiskPathPNG(domain)
-	if pngPath != "" && !a.service.HasPNGOnDisk(domain) {
-		if ok := texture.SaveToPng(pngPath); !ok {
-			log.Warn().Str("domain", domain).Str("path", pngPath).Msg("failed to save favicon PNG")
-		} else {
-			log.Debug().Str("domain", domain).Str("path", pngPath).Msg("saved favicon PNG")
-
-			// Create normalized sized copy for dmenu/fuzzel (async)
-			// The original PNG is now on disk, so this should succeed
-			go func() {
-				if err := a.service.EnsureSizedPNG(ctx, domain, favicon.NormalizedIconSize); err != nil {
-					log.Warn().Err(err).Str("domain", domain).Msg("failed to create sized PNG after save")
-				} else {
-					log.Debug().Str("domain", domain).Msg("created sized PNG after save")
-				}
-			}()
-		}
-	}
-
-	// Ensure disk cache is populated (async, in background)
-	go a.service.EnsureDiskCache(ctx, domain)
+	// Export as PNG and ensure disk cache
+	a.saveFaviconToDisk(ctx, domain, texture)
 }
 
 // StoreFromWebKitWithOrigin stores a favicon for both current URL and original URL.
@@ -205,34 +182,45 @@ func (a *FaviconAdapter) StoreFromWebKitWithOrigin(
 
 	// Also store under original URL domain if different
 	if originURL != "" && originURL != currentURL {
-		log := logging.FromContext(ctx)
 		originDomain := domainurl.ExtractDomain(originURL)
 		currentDomain := domainurl.ExtractDomain(currentURL)
 		if originDomain != "" && originDomain != currentDomain {
 			a.setTexture(originDomain, texture)
-
-			// Export PNG for origin domain too
-			pngPath := a.service.DiskPathPNG(originDomain)
-			if pngPath != "" && !a.service.HasPNGOnDisk(originDomain) {
-				if ok := texture.SaveToPng(pngPath); !ok {
-					log.Warn().Str("domain", originDomain).Str("path", pngPath).Msg("failed to save origin favicon PNG")
-				} else {
-					log.Debug().Str("domain", originDomain).Str("path", pngPath).Msg("saved origin favicon PNG")
-
-					// Create normalized sized copy for dmenu/fuzzel (async)
-					go func() {
-						if err := a.service.EnsureSizedPNG(ctx, originDomain, favicon.NormalizedIconSize); err != nil {
-							log.Warn().Err(err).Str("domain", originDomain).Msg("failed to create sized PNG for origin")
-						} else {
-							log.Debug().Str("domain", originDomain).Msg("created sized PNG for origin")
-						}
-					}()
-				}
-			}
-
-			go a.service.EnsureDiskCache(ctx, originDomain)
+			a.saveFaviconToDisk(ctx, originDomain, texture)
 		}
 	}
+}
+
+// saveFaviconToDisk exports a favicon texture to PNG and ensures disk cache is populated.
+func (a *FaviconAdapter) saveFaviconToDisk(ctx context.Context, domain string, texture *gdk.Texture) {
+	log := logging.FromContext(ctx)
+
+	// Export as PNG for CLI tools (rofi/fuzzel) - do this on main thread
+	// since GTK texture operations need to happen there
+	pngPath := a.service.DiskPathPNG(domain)
+	if pngPath != "" && !a.service.HasPNGOnDisk(domain) {
+		// Ensure cache directory exists before SaveToPng (GTK won't create it)
+		if err := a.service.EnsureCacheDir(); err != nil {
+			log.Warn().Err(err).Str("domain", domain).Msg("failed to create favicon cache dir")
+		} else if ok := texture.SaveToPng(pngPath); !ok {
+			log.Warn().Str("domain", domain).Str("path", pngPath).Msg("failed to save favicon PNG")
+		} else {
+			log.Debug().Str("domain", domain).Str("path", pngPath).Msg("saved favicon PNG")
+
+			// Create normalized sized copy for dmenu/fuzzel (async)
+			// The original PNG is now on disk, so this should succeed
+			go func() {
+				if err := a.service.EnsureSizedPNG(ctx, domain, favicon.NormalizedIconSize); err != nil {
+					log.Warn().Err(err).Str("domain", domain).Msg("failed to create sized PNG")
+				} else {
+					log.Debug().Str("domain", domain).Msg("created sized PNG")
+				}
+			}()
+		}
+	}
+
+	// Ensure disk cache is populated (async, in background)
+	go a.service.EnsureDiskCache(ctx, domain)
 }
 
 // PreloadFromCache attempts to load a favicon from cache without fetching.
