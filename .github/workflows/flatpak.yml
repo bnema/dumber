@@ -94,7 +94,8 @@ jobs:
                   url: https://github.com/bnema/dumber/releases/download/${VERSION}/dumber_linux_x86_64.tar.gz
                   sha256: ${SHA256}
                 - type: file
-                  path: dev.bnema.Dumber.desktop
+                  path: flatpak/dev.bnema.Dumber.desktop
+                  dest-filename: dev.bnema.Dumber.desktop
                 - type: file
                   path: assets/logo.svg
                   dest-filename: logo.svg
@@ -102,7 +103,8 @@ jobs:
                   path: assets/logo-512.png
                   dest-filename: logo-512.png
                 - type: file
-                  path: dev.bnema.Dumber.metainfo.xml
+                  path: flatpak/dev.bnema.Dumber.metainfo.xml
+                  dest-filename: dev.bnema.Dumber.metainfo.xml
           EOF
           echo "Generated manifest:"
           cat dev.bnema.Dumber.yml
