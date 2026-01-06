@@ -9,6 +9,7 @@ import (
 	"github.com/bnema/dumber/assets"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
+	"github.com/bnema/dumber/internal/infrastructure/env"
 )
 
 var setupCmd = &cobra.Command{
@@ -62,6 +63,23 @@ func runSetupInstall(_ *cobra.Command, _ []string) error {
 	}
 
 	theme := app.Theme
+
+	// Check if installed via package manager
+	switch {
+	case env.IsFlatpak():
+		fmt.Printf("%s Desktop integration already handled by Flatpak\n",
+			theme.SuccessStyle.Render("\u2713"))
+		fmt.Println()
+		fmt.Println(theme.Subtle.Render("Run 'dumber setup default' to set as default browser"))
+		return nil
+	case env.IsPacman():
+		fmt.Printf("%s Desktop integration already handled by AUR package\n",
+			theme.SuccessStyle.Render("\u2713"))
+		fmt.Println()
+		fmt.Println(theme.Subtle.Render("Run 'dumber setup default' to set as default browser"))
+		return nil
+	}
+
 	adapter := desktop.New()
 	uc := usecase.NewInstallDesktopUseCase(adapter)
 
