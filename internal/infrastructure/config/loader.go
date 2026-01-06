@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -8,6 +9,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/infrastructure/fonts"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/spf13/viper"
 )
 
@@ -302,6 +306,9 @@ func (m *Manager) createDefaultConfig() error {
 		return err
 	}
 
+	// Detect available fonts and override defaults before writing config.
+	m.detectAndSetFonts()
+
 	// Ensure TOML format and write config
 	m.viper.SetConfigType("toml")
 	if err := m.viper.SafeWriteConfigAs(configFile); err != nil {
@@ -311,6 +318,29 @@ func (m *Manager) createDefaultConfig() error {
 	fmt.Printf("Created default configuration file: %s (TOML format)\n", configFile)
 
 	return nil
+}
+
+// detectAndSetFonts detects available system fonts and sets the best available
+// fonts from the fallback chains. This runs only during first-run config creation.
+func (m *Manager) detectAndSetFonts() {
+	// Create context with logger for debugging first-run font detection.
+	logger := logging.NewFromEnv()
+	ctx := logging.WithContext(context.Background(), logger)
+
+	detector := fonts.NewDetector()
+
+	if !detector.IsAvailable(ctx) {
+		// fc-list not available, keep hardcoded defaults
+		return
+	}
+
+	sansFont := detector.SelectBestFont(ctx, port.FontCategorySansSerif, fonts.SansSerifFallbackChain())
+	serifFont := detector.SelectBestFont(ctx, port.FontCategorySerif, fonts.SerifFallbackChain())
+	monoFont := detector.SelectBestFont(ctx, port.FontCategoryMonospace, fonts.MonospaceFallbackChain())
+
+	m.viper.Set("appearance.sans_font", sansFont)
+	m.viper.Set("appearance.serif_font", serifFont)
+	m.viper.Set("appearance.monospace_font", monoFont)
 }
 
 // setDefaults sets default configuration values in Viper.
@@ -328,6 +358,7 @@ func (m *Manager) setDefaults() {
 	m.setRenderingDefaults(defaults)
 	m.setWorkspaceDefaults(defaults)
 	m.setContentFilteringDefaults(defaults)
+	m.setClipboardDefaults(defaults)
 	m.setOmniboxDefaults(defaults)
 	m.setMediaDefaults(defaults)
 	m.setRuntimeDefaults(defaults)
@@ -443,6 +474,10 @@ func (m *Manager) setContentFilteringDefaults(defaults *Config) {
 	m.viper.SetDefault("content_filtering.auto_update", defaults.ContentFiltering.AutoUpdate)
 }
 
+func (m *Manager) setClipboardDefaults(defaults *Config) {
+	m.viper.SetDefault("clipboard.auto_copy_on_selection", defaults.Clipboard.AutoCopyOnSelection)
+}
+
 func (m *Manager) setOmniboxDefaults(defaults *Config) {
 	m.viper.SetDefault("omnibox.initial_behavior", defaults.Omnibox.InitialBehavior)
 	m.viper.SetDefault("omnibox.auto_open_on_new_pane", defaults.Omnibox.AutoOpenOnNewPane)
@@ -455,8 +490,6 @@ func (m *Manager) setMediaDefaults(defaults *Config) {
 	m.viper.SetDefault("media.force_vsync", defaults.Media.ForceVSync)
 	m.viper.SetDefault("media.gl_rendering_mode", string(defaults.Media.GLRenderingMode))
 	m.viper.SetDefault("media.gstreamer_debug_level", defaults.Media.GStreamerDebugLevel)
-	m.viper.SetDefault("media.video_buffer_size_mb", defaults.Media.VideoBufferSizeMB)
-	m.viper.SetDefault("media.queue_buffer_time_sec", defaults.Media.QueueBufferTimeSec)
 }
 
 func (m *Manager) setRuntimeDefaults(defaults *Config) {

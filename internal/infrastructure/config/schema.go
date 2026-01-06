@@ -21,6 +21,8 @@ type Config struct {
 	Session SessionConfig `mapstructure:"session" yaml:"session" toml:"session"`
 	// ContentFiltering controls ad blocking and content filtering
 	ContentFiltering ContentFilteringConfig `mapstructure:"content_filtering" yaml:"content_filtering" toml:"content_filtering"`
+	// Clipboard controls clipboard-related behavior
+	Clipboard ClipboardConfig `mapstructure:"clipboard" yaml:"clipboard" toml:"clipboard"`
 	// Omnibox controls the omnibox behavior (initial history display)
 	Omnibox OmniboxConfig `mapstructure:"omnibox" yaml:"omnibox" toml:"omnibox"`
 	// Rendering controls WebKit, GTK and compositor behavior.
@@ -165,12 +167,6 @@ type MediaConfig struct {
 	GLRenderingMode GLRenderingMode `mapstructure:"gl_rendering_mode" yaml:"gl_rendering_mode" toml:"gl_rendering_mode"`
 	// GStreamerDebugLevel sets GStreamer debug verbosity (0=off, 1-5=increasing verbosity)
 	GStreamerDebugLevel int `mapstructure:"gstreamer_debug_level" yaml:"gstreamer_debug_level" toml:"gstreamer_debug_level"`
-	// VideoBufferSizeMB sets the video buffer size in megabytes for smoother streaming
-	// Higher values reduce rebuffering but use more memory. Default: 64 MB
-	VideoBufferSizeMB int `mapstructure:"video_buffer_size_mb" yaml:"video_buffer_size_mb" toml:"video_buffer_size_mb"`
-	// QueueBufferTimeSec sets the queue buffer time in seconds
-	// Higher values allow more prebuffering for bursty streams. Default: 20 seconds
-	QueueBufferTimeSec int `mapstructure:"queue_buffer_time_sec" yaml:"queue_buffer_time_sec" toml:"queue_buffer_time_sec"`
 }
 
 // RuntimeConfig holds optional runtime overrides.
@@ -335,6 +331,15 @@ type ContentFilteringConfig struct {
 	AutoUpdate bool `mapstructure:"auto_update" yaml:"auto_update" toml:"auto_update"`
 	// Note: Filters are downloaded from bnema/ublock-webkit-filters GitHub releases
 	// Note: Whitelist is managed via database (content_whitelist table)
+}
+
+// ClipboardConfig holds clipboard-related behavior preferences
+type ClipboardConfig struct {
+	// AutoCopyOnSelection automatically copies selected text to clipboard (zellij-style).
+	// When enabled, selecting text in a webview immediately copies it to clipboard.
+	// Does not apply to text selection in input fields or textareas.
+	// Default: true
+	AutoCopyOnSelection bool `mapstructure:"auto_copy_on_selection" yaml:"auto_copy_on_selection" toml:"auto_copy_on_selection" json:"autoCopyOnSelection"` //nolint:lll // struct tags must stay on one line
 }
 
 // OmniboxConfig holds omnibox behavior preferences

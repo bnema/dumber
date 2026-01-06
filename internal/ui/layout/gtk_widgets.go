@@ -519,8 +519,9 @@ func (btn *gtkButton) GetParent() Widget {
 	return &gtkWidget{inner: parent}
 }
 
-func (btn *gtkButton) SetLabel(label string) { btn.inner.SetLabel(label) }
-func (btn *gtkButton) GetLabel() string      { return btn.inner.GetLabel() }
+func (btn *gtkButton) SetLabel(label string)   { btn.inner.SetLabel(label) }
+func (btn *gtkButton) GetLabel() string        { return btn.inner.GetLabel() }
+func (btn *gtkButton) SetIconName(name string) { btn.inner.SetIconName(name) }
 
 func (btn *gtkButton) SetChild(child Widget) {
 	if child == nil {

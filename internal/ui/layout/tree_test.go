@@ -19,11 +19,10 @@ func setupStackedLeafMocks(t *testing.T, mockFactory *mocks.MockWidgetFactory) (
 	mockStackBox.EXPECT().SetHexpand(true).Once()
 	mockStackBox.EXPECT().SetVexpand(true).Once()
 
-	mockTitleBar, mockFavicon, mockOverlay, mockSpinner, mockContainer := setupPaneMocks(t, mockFactory, mockStackBox)
+	mockTitleBar, mockFavicon, mockLabel, mockContainer := setupPaneMocks(t, mockFactory, mockStackBox)
 	_ = mockFavicon
-	_ = mockOverlay
-	_ = mockSpinner
-	mockTitleBar.EXPECT().GetParent().Return(nil).Maybe()
+	_ = mockLabel
+	mockTitleBar.EXPECT().SetVisible(false).Once() // Active pane hides its title bar
 	mockContainer.EXPECT().SetVisible(true).Once()
 	mockTitleBar.EXPECT().AddCssClass("active").Once()
 

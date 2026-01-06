@@ -27,10 +27,6 @@ type RenderingEnvSettings struct {
 	GLRenderingMode string
 	// GStreamerDebugLevel sets GStreamer debug verbosity (0-5).
 	GStreamerDebugLevel int
-	// VideoBufferSizeMB sets buffer size in megabytes for video streaming.
-	VideoBufferSizeMB int
-	// QueueBufferTimeSec sets queue buffer time in seconds for prebuffering.
-	QueueBufferTimeSec int
 
 	// --- WebKit compositor settings (from RenderingConfig) ---
 	DisableDMABufRenderer  bool

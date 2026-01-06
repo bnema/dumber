@@ -112,15 +112,14 @@ func (uc *ManagePanesUseCase) Split(ctx context.Context, input SplitPaneInput) (
 		return nil, fmt.Errorf("target pane is required")
 	}
 
-	// If target is inside a stack and splitting left/right, split around the entire stack
+	// If target is inside a stack, split around the entire stack
 	// (i.e., create the new pane as a sibling to the stack, not inside it)
+	// This applies to all directions - we don't want to nest split containers inside stacks.
 	targetNode := input.TargetPane
-	if input.Direction == SplitLeft || input.Direction == SplitRight {
-		if targetNode.Parent != nil && targetNode.Parent.IsStacked {
-			// Promote to the stack container so split happens outside the stack
-			targetNode = targetNode.Parent
-			log.Debug().Msg("target is inside a stack, splitting around stack container")
-		}
+	if targetNode.Parent != nil && targetNode.Parent.IsStacked {
+		// Promote to the stack container so split happens outside the stack
+		targetNode = targetNode.Parent
+		log.Debug().Msg("target is inside a stack, splitting around stack container")
 	}
 
 	// Create new pane
@@ -541,31 +540,13 @@ func (uc *ManagePanesUseCase) Close(ctx context.Context, ws *entity.Workspace, p
 }
 
 // Focus sets the active pane in the workspace.
+// Delegates to ApplyFocusChange to ensure stack index is updated when focusing a stacked pane.
 func (uc *ManagePanesUseCase) Focus(ctx context.Context, ws *entity.Workspace, paneID entity.PaneID) error {
 	log := logging.FromContext(ctx)
-	if uc == nil {
-		return fmt.Errorf("manage panes use case is nil")
-	}
 	log.Debug().Str("pane_id", string(paneID)).Msg("focusing pane")
 
-	if ws == nil {
-		return fmt.Errorf("workspace is required")
-	}
-
-	node := ws.FindPane(paneID)
-	if node == nil {
-		return fmt.Errorf("pane not found: %s", paneID)
-	}
-
-	oldActive := ws.ActivePaneID
-	ws.ActivePaneID = paneID
-
-	log.Info().
-		Str("from", string(oldActive)).
-		Str("to", string(paneID)).
-		Msg("focus changed")
-
-	return nil
+	_, err := uc.ApplyFocusChange(ctx, ws, paneID)
+	return err
 }
 
 // NavigateFocus moves focus to an adjacent pane.
@@ -619,12 +600,61 @@ type GeometricNavigationOutput struct {
 	Found        bool
 }
 
+// ApplyFocusChange sets the active pane and updates the stack index if the target pane is in a stack.
+// This is the canonical way to change focus to a pane, ensuring stack state is kept in sync.
+func (uc *ManagePanesUseCase) ApplyFocusChange(
+	ctx context.Context,
+	ws *entity.Workspace,
+	targetPaneID entity.PaneID,
+) (*entity.PaneNode, error) {
+	log := logging.FromContext(ctx)
+	if uc == nil {
+		return nil, fmt.Errorf("manage panes use case is nil")
+	}
+	if ws == nil {
+		return nil, fmt.Errorf("workspace is required")
+	}
+
+	targetNode := ws.FindPane(targetPaneID)
+	if targetNode == nil {
+		return nil, fmt.Errorf("pane not found: %s", targetPaneID)
+	}
+
+	oldActive := ws.ActivePaneID
+	ws.ActivePaneID = targetPaneID
+
+	// Update stack index if target is in a stack
+	if targetNode.Parent != nil && targetNode.Parent.IsStacked {
+		oldIndex := targetNode.Parent.ActiveStackIndex
+		for i, child := range targetNode.Parent.Children {
+			if child == targetNode {
+				targetNode.Parent.ActiveStackIndex = i
+				log.Debug().
+					Str("target_pane_id", string(targetPaneID)).
+					Int("old_stack_index", oldIndex).
+					Int("new_stack_index", i).
+					Int("num_children", len(targetNode.Parent.Children)).
+					Msg("updated stack index for focus change")
+				break
+			}
+		}
+	}
+
+	log.Info().
+		Str("from", string(oldActive)).
+		Str("to", string(targetPaneID)).
+		Msg("focus changed")
+
+	return targetNode, nil
+}
+
 // NavigateFocusGeometric finds the nearest pane in the given direction using geometry.
 // Algorithm:
-//  1. Get center of active pane
+//  1. Get active pane rectangle
 //  2. Filter candidates that are in the direction (dx < 0 for Left, etc.)
-//  3. Score by: primary_distance * 1000 + perpendicular_distance
-//  4. Return lowest scoring candidate
+//  3. Prioritize panes with perpendicular overlap (same row for left/right, same column for up/down)
+//  4. Score by: overlap_penalty + primary_distance * 1000 + perpendicular_distance
+//  5. Return lowest scoring candidate
 func (uc *ManagePanesUseCase) NavigateFocusGeometric(
 	ctx context.Context,
 	input GeometricNavigationInput,
@@ -652,50 +682,7 @@ func (uc *ManagePanesUseCase) NavigateFocusGeometric(
 		return &GeometricNavigationOutput{Found: false}, nil
 	}
 
-	acx, acy := activeRect.Center()
-
-	type candidate struct {
-		paneID entity.PaneID
-		score  int
-	}
-	var candidates []candidate
-
-	for _, rect := range input.PaneRects {
-		if rect.PaneID == input.ActivePaneID {
-			continue
-		}
-
-		cx, cy := rect.Center()
-		dx := cx - acx
-		dy := cy - acy
-
-		var inDirection bool
-		var primaryDist, perpDist int
-
-		switch input.Direction {
-		case NavLeft:
-			inDirection = dx < 0
-			primaryDist = abs(dx)
-			perpDist = abs(dy)
-		case NavRight:
-			inDirection = dx > 0
-			primaryDist = abs(dx)
-			perpDist = abs(dy)
-		case NavUp:
-			inDirection = dy < 0
-			primaryDist = abs(dy)
-			perpDist = abs(dx)
-		case NavDown:
-			inDirection = dy > 0
-			primaryDist = abs(dy)
-			perpDist = abs(dx)
-		}
-
-		if inDirection {
-			score := primaryDist*1000 + perpDist
-			candidates = append(candidates, candidate{rect.PaneID, score})
-		}
-	}
+	candidates := scoreNavigationCandidates(*activeRect, input.PaneRects, input.Direction)
 
 	if len(candidates) == 0 {
 		log.Debug().Msg("no candidates in direction")
@@ -716,6 +703,70 @@ func (uc *ManagePanesUseCase) NavigateFocusGeometric(
 		TargetPaneID: candidates[0].paneID,
 		Found:        true,
 	}, nil
+}
+
+// navCandidate represents a pane candidate for navigation with its score.
+type navCandidate struct {
+	paneID entity.PaneID
+	score  int
+}
+
+// scoreNavigationCandidates scores all panes in the given direction from activeRect.
+// Panes with perpendicular overlap are heavily preferred (same row for left/right, same column for up/down).
+func scoreNavigationCandidates(
+	activeRect entity.PaneRect,
+	paneRects []entity.PaneRect,
+	direction NavigateDirection,
+) []navCandidate {
+	// Large penalty for panes without perpendicular overlap.
+	// This ensures panes at the same level are always preferred.
+	const noOverlapPenalty = 10_000_000
+
+	acx, acy := activeRect.Center()
+	var candidates []navCandidate
+
+	for _, rect := range paneRects {
+		if rect.PaneID == activeRect.PaneID {
+			continue
+		}
+
+		cx, cy := rect.Center()
+		dx := cx - acx
+		dy := cy - acy
+
+		inDirection, primaryDist, perpDist, hasOverlap := evalDirection(activeRect, rect, dx, dy, direction)
+
+		if inDirection {
+			score := primaryDist*1000 + perpDist
+			if !hasOverlap {
+				score += noOverlapPenalty
+			}
+			candidates = append(candidates, navCandidate{rect.PaneID, score})
+		}
+	}
+
+	return candidates
+}
+
+// evalDirection determines if a candidate rect is in the given direction from activeRect.
+// Returns: inDirection, primaryDist, perpDist, hasOverlap
+func evalDirection(
+	activeRect, rect entity.PaneRect,
+	dx, dy int,
+	direction NavigateDirection,
+) (inDirection bool, primaryDist, perpDist int, hasOverlap bool) {
+	switch direction {
+	case NavLeft:
+		return dx < 0, abs(dx), abs(dy), activeRect.OverlapsVertically(rect)
+	case NavRight:
+		return dx > 0, abs(dx), abs(dy), activeRect.OverlapsVertically(rect)
+	case NavUp:
+		return dy < 0, abs(dy), abs(dx), activeRect.OverlapsHorizontally(rect)
+	case NavDown:
+		return dy > 0, abs(dy), abs(dx), activeRect.OverlapsHorizontally(rect)
+	default:
+		return false, 0, 0, false
+	}
 }
 
 // abs returns the absolute value of an integer.

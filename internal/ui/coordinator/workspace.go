@@ -179,12 +179,14 @@ func (c *WorkspaceCoordinator) prepareSplit(
 		return nil, false
 	}
 
-	isStackSplit := (direction == usecase.SplitLeft || direction == usecase.SplitRight) &&
-		activePane.Parent != nil && activePane.Parent.IsStacked
+	// Check if active pane is inside a stack
+	isInStack := activePane.Parent != nil && activePane.Parent.IsStacked
+	// isStackSplit is only true for horizontal splits - these use a special code path
+	isStackSplit := (direction == usecase.SplitLeft || direction == usecase.SplitRight) && isInStack
 
 	var existingWidget layout.Widget
 	if wsView != nil {
-		existingWidget = c.resolveSplitWidget(wsView, activePane, isStackSplit)
+		existingWidget = c.resolveSplitWidget(wsView, activePane, isInStack)
 	}
 
 	return &splitContext{
@@ -199,27 +201,29 @@ func (c *WorkspaceCoordinator) prepareSplit(
 func (c *WorkspaceCoordinator) resolveSplitWidget(
 	wsView *component.WorkspaceView,
 	activePane *entity.PaneNode,
-	isStackSplit bool,
+	isInStack bool,
 ) layout.Widget {
 	if wsView == nil {
 		return nil
 	}
 
-	if !isStackSplit {
-		return wsView.GetRootWidget()
+	// When splitting from inside a stack (any direction), we need the stack widget
+	// because the domain model promotes the split to happen around the stack container
+	if isInStack {
+		tr := wsView.TreeRenderer()
+		if tr == nil {
+			return nil
+		}
+
+		stackedView := tr.GetStackedViewForPane(string(activePane.Pane.ID))
+		if stackedView == nil {
+			return nil
+		}
+
+		return stackedView.Widget()
 	}
 
-	tr := wsView.TreeRenderer()
-	if tr == nil {
-		return nil
-	}
-
-	stackedView := tr.GetStackedViewForPane(string(activePane.Pane.ID))
-	if stackedView == nil {
-		return nil
-	}
-
-	return stackedView.Widget()
+	return wsView.GetRootWidget()
 }
 
 func (c *WorkspaceCoordinator) applySplitToView(
@@ -1137,6 +1141,9 @@ func (c *WorkspaceCoordinator) FocusPane(ctx context.Context, direction usecase.
 		return nil
 	}
 
+	// Save old active pane ID before navigation updates the domain model
+	oldActivePaneID := ws.ActivePaneID
+
 	// Use geometric navigation if focus manager is available
 	var newPane *entity.PaneNode
 	var err error
@@ -1159,6 +1166,15 @@ func (c *WorkspaceCoordinator) FocusPane(ctx context.Context, direction usecase.
 	if newPane == nil {
 		log.Debug().Str("direction", string(direction)).Msg("no pane in that direction")
 		return nil
+	}
+
+	// Cancel pending hover timers and suppress future hover focus (Issue #89)
+	wsView.CancelAllPendingHovers()
+	wsView.SuppressHover(component.KeyboardFocusSuppressDuration)
+
+	// Deactivate old pane explicitly (domain model already updated by NavigateGeometric)
+	if oldActivePaneID != "" && oldActivePaneID != newPane.Pane.ID {
+		wsView.DeactivatePane(oldActivePaneID)
 	}
 
 	// Update the workspace view's active pane
@@ -1277,7 +1293,7 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 		stackCtx.wsView.ShowOmnibox(ctx, "")
 	}
 
-	// Set up title bar click callback
+	// Set up title bar click and close callbacks
 	tr := stackCtx.wsView.TreeRenderer()
 	if tr != nil {
 		stackedView := tr.GetStackedViewForPane(string(stackCtx.activePaneID))
@@ -1285,6 +1301,9 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 			capturedStackNode := stackNode
 			stackedView.SetOnActivate(func(index int) {
 				c.onTitleBarClick(ctx, capturedStackNode, stackedView, index)
+			})
+			stackedView.SetOnClosePane(func(paneID string) {
+				c.onStackedPaneClose(ctx, entity.PaneID(paneID))
 			})
 		}
 	}
@@ -1531,6 +1550,10 @@ func (c *WorkspaceCoordinator) onTitleBarClick(ctx context.Context, stackNode *e
 	// Update workspace view (also updates domain model)
 	_, wsView := c.getActiveWS()
 	if wsView != nil {
+		// Cancel pending hover timers and suppress future hover focus (Issue #89)
+		wsView.CancelAllPendingHovers()
+		wsView.SuppressHover(component.KeyboardFocusSuppressDuration)
+
 		if err := wsView.SetActivePaneID(clickedPaneID); err != nil {
 			log.Warn().Err(err).Msg("failed to set active pane in workspace view")
 		}
@@ -1541,6 +1564,17 @@ func (c *WorkspaceCoordinator) onTitleBarClick(ctx context.Context, stackNode *e
 		Int("to_index", clickedIndex).
 		Str("pane_id", string(clickedPaneID)).
 		Msg("switched active pane via title bar click")
+}
+
+// onStackedPaneClose handles close button clicks on stacked pane title bars.
+func (c *WorkspaceCoordinator) onStackedPaneClose(ctx context.Context, paneID entity.PaneID) {
+	log := logging.FromContext(ctx)
+
+	log.Debug().Str("pane_id", string(paneID)).Msg("closing stacked pane via close button")
+
+	if err := c.ClosePaneByID(ctx, paneID); err != nil {
+		log.Error().Err(err).Str("pane_id", string(paneID)).Msg("failed to close stacked pane")
+	}
 }
 
 // --- Popup Insertion ---
@@ -1835,6 +1869,9 @@ func (c *WorkspaceCoordinator) attachPopupPaneView(
 			capturedStackNode := stackNode
 			stackedView.SetOnActivate(func(index int) {
 				c.onTitleBarClick(ctx, capturedStackNode, stackedView, index)
+			})
+			stackedView.SetOnClosePane(func(paneID string) {
+				c.onStackedPaneClose(ctx, entity.PaneID(paneID))
 			})
 		}
 	}

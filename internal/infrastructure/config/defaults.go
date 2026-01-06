@@ -253,6 +253,9 @@ func DefaultConfig() *Config {
 			Enabled:    true, // Ad blocking enabled by default
 			AutoUpdate: true, // Auto-update filters from GitHub releases
 		},
+		Clipboard: ClipboardConfig{
+			AutoCopyOnSelection: true, // Enabled by default (zellij-style)
+		},
 		Omnibox: OmniboxConfig{
 			InitialBehavior:   defaultOmniboxInitialBehavior,
 			AutoOpenOnNewPane: defaultOmniboxAutoOpenOnNewPane,
@@ -279,8 +282,6 @@ func DefaultConfig() *Config {
 			ForceVSync:               false,                // Let compositor handle VSync
 			GLRenderingMode:          GLRenderingModeAuto,  // GStreamer picks best GL API
 			GStreamerDebugLevel:      0,                    // Disabled by default
-			VideoBufferSizeMB:        0,                    // Not a valid GStreamer env var, removed
-			QueueBufferTimeSec:       0,                    // Not a valid GStreamer env var, removed
 		},
 		Runtime: RuntimeConfig{
 			Prefix: "",
