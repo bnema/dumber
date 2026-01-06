@@ -185,3 +185,9 @@ func (s *Service) EnsureInternalFaviconPNG(pngData []byte, size int) string {
 	s.cache.WritePNGSized(InternalDomain, pngData, size)
 	return s.DiskPathPNGSized(InternalDomain, size)
 }
+
+// EnsureCacheDir ensures the favicon cache directory exists.
+// Call this before using DiskPathPNG with external save functions like GTK's SaveToPng.
+func (s *Service) EnsureCacheDir() error {
+	return s.cache.EnsureDir()
+}
