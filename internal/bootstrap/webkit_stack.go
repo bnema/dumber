@@ -194,8 +194,6 @@ func configureRenderingEnvironment(
 		ForceVSync:          cfg.Media.ForceVSync,
 		GLRenderingMode:     string(cfg.Media.GLRenderingMode),
 		GStreamerDebugLevel: cfg.Media.GStreamerDebugLevel,
-		VideoBufferSizeMB:   cfg.Media.VideoBufferSizeMB,
-		QueueBufferTimeSec:  cfg.Media.QueueBufferTimeSec,
 
 		// WebKit compositor settings
 		DisableDMABufRenderer:  cfg.Rendering.DisableDMABufRenderer,

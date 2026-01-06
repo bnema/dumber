@@ -490,8 +490,6 @@ func (m *Manager) setMediaDefaults(defaults *Config) {
 	m.viper.SetDefault("media.force_vsync", defaults.Media.ForceVSync)
 	m.viper.SetDefault("media.gl_rendering_mode", string(defaults.Media.GLRenderingMode))
 	m.viper.SetDefault("media.gstreamer_debug_level", defaults.Media.GStreamerDebugLevel)
-	m.viper.SetDefault("media.video_buffer_size_mb", defaults.Media.VideoBufferSizeMB)
-	m.viper.SetDefault("media.queue_buffer_time_sec", defaults.Media.QueueBufferTimeSec)
 }
 
 func (m *Manager) setRuntimeDefaults(defaults *Config) {
