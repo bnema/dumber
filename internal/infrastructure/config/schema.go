@@ -167,12 +167,6 @@ type MediaConfig struct {
 	GLRenderingMode GLRenderingMode `mapstructure:"gl_rendering_mode" yaml:"gl_rendering_mode" toml:"gl_rendering_mode"`
 	// GStreamerDebugLevel sets GStreamer debug verbosity (0=off, 1-5=increasing verbosity)
 	GStreamerDebugLevel int `mapstructure:"gstreamer_debug_level" yaml:"gstreamer_debug_level" toml:"gstreamer_debug_level"`
-	// VideoBufferSizeMB sets the video buffer size in megabytes for smoother streaming
-	// Higher values reduce rebuffering but use more memory. Default: 64 MB
-	VideoBufferSizeMB int `mapstructure:"video_buffer_size_mb" yaml:"video_buffer_size_mb" toml:"video_buffer_size_mb"`
-	// QueueBufferTimeSec sets the queue buffer time in seconds
-	// Higher values allow more prebuffering for bursty streams. Default: 20 seconds
-	QueueBufferTimeSec int `mapstructure:"queue_buffer_time_sec" yaml:"queue_buffer_time_sec" toml:"queue_buffer_time_sec"`
 }
 
 // RuntimeConfig holds optional runtime overrides.
