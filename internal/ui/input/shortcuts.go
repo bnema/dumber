@@ -170,6 +170,7 @@ const (
 	ActionReload     Action = "reload"
 	ActionHardReload Action = "hard_reload"
 	ActionStop       Action = "stop"
+	ActionPrintPage  Action = "print_page"
 
 	// Zoom
 	ActionZoomIn    Action = "zoom_in"
@@ -369,6 +370,7 @@ func (s *ShortcutSet) registerStandardShortcuts() {
 	s.Global[KeyBinding{uint(gdk.KEY_q), ModCtrl}] = ActionQuit
 	s.Global[KeyBinding{uint(gdk.KEY_F11), ModNone}] = ActionToggleFullscreen
 	s.Global[KeyBinding{uint('c'), ModCtrl | ModShift}] = ActionCopyURL
+	s.Global[KeyBinding{uint('p'), ModCtrl | ModShift}] = ActionPrintPage
 	// Session management - direct shortcut to open session manager
 	s.Global[KeyBinding{uint(gdk.KEY_s), ModCtrl | ModShift}] = ActionOpenSessionManager
 }
