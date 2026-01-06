@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Dumber
 Comment=A minimal keyboard-driven browser for tiling WMs
-Exec=dumber browse
+Exec=env LANG=C.UTF-8 LC_ALL=C.UTF-8 dumber browse %U
 Icon=dev.bnema.Dumber
 Terminal=false
 Type=Application
