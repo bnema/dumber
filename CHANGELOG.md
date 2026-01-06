@@ -4,10 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-01-06
+
 ### Added
 - **Auto-copy on selection**: Text selected in web pages is automatically copied to the clipboard (like zellij/tmux). Shows brief "Copied to clipboard" toast notification. Configurable via `clipboard.auto_copy_on_selection` (default: true). Fixes #83.
 - **Font availability detection**: On first run, detects available system fonts using fontconfig (`fc-list`) and selects the best font from a fallback chain instead of hardcoding `Fira Sans` / `Fira Code`. Fallback chains: sans-serif (Fira Sans, Noto Sans, DejaVu Sans, Liberation Sans, FreeSans), serif (Noto Serif, DejaVu Serif, Liberation Serif, FreeSerif), monospace (Fira Code, JetBrains Mono, Noto Sans Mono, DejaVu Sans Mono, Liberation Mono, FreeMono). Falls back to generic CSS fonts if none available. Fixes #85.
 - **Stacked pane close buttons**: Close buttons in stacked pane title bars allow closing individual panes directly. Includes proper signal cleanup on removal.
+- **AUR git package CI**: Automated CI workflow to publish `dumber-browser-git` AUR package on push to main branch.
 
 ### Changed
 - **Flatpak runtime**: Bumped to GNOME 49 runtime.
