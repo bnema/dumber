@@ -64,7 +64,7 @@ func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.D
 	download.ConnectDecideDestination(&decideDestCb)
 
 	// Handle failed signal.
-	failedCb := func(d webkit.Download, errPtr uintptr) {
+	failedCb := func(d webkit.Download, _ uintptr) {
 		failedMu.Lock()
 		downloadFailed = true
 		failedMu.Unlock()
