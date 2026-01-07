@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -240,6 +241,7 @@ func (a *App) onActivate(ctx context.Context) {
 	a.initAppToasterOverlay()
 	a.initFocusAndBorderOverlay()
 	a.initAccentPicker(ctx)
+	a.initDownloadHandler(ctx)
 
 	a.initCoordinators(ctx)
 	a.initKeyboardHandler(ctx)
@@ -451,6 +453,68 @@ func (a *App) initAccentPicker(ctx context.Context) {
 	)
 
 	log.Debug().Msg("accent picker initialized")
+}
+
+func (a *App) initDownloadHandler(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
+	if a.deps == nil || a.deps.WebContext == nil {
+		log.Debug().Msg("WebContext not available, skipping download handler")
+		return
+	}
+
+	// Determine download path from config, fallback to XDG.
+	downloadPath := ""
+	if a.deps.Config != nil {
+		downloadPath = a.deps.Config.Downloads.Path
+	}
+	if downloadPath == "" && a.deps.XDG != nil {
+		var err error
+		downloadPath, err = a.deps.XDG.DownloadDir()
+		if err != nil {
+			log.Warn().Err(err).Msg("failed to get XDG download dir")
+		}
+	}
+	if downloadPath == "" {
+		// Final fallback to ~/Downloads.
+		home, _ := os.UserHomeDir()
+		downloadPath = filepath.Join(home, "Downloads")
+	}
+
+	// Create download event adapter to show toasts.
+	eventAdapter := &downloadEventAdapter{app: a, ctx: ctx}
+
+	// Create and wire the download handler.
+	handler := webkit.NewDownloadHandler(downloadPath, eventAdapter)
+	a.deps.WebContext.SetDownloadHandler(ctx, handler)
+
+	log.Info().Str("path", downloadPath).Msg("download handler initialized")
+}
+
+// downloadEventAdapter implements port.DownloadEventHandler and shows toasts.
+type downloadEventAdapter struct {
+	app *App
+	ctx context.Context
+}
+
+func (d *downloadEventAdapter) OnDownloadEvent(ctx context.Context, event port.DownloadEvent) {
+	// Must schedule on GTK main thread.
+	cb := glib.SourceFunc(func(_ uintptr) bool {
+		if d.app.appToaster == nil {
+			return false
+		}
+
+		switch event.Type {
+		case port.DownloadEventStarted:
+			d.app.appToaster.Show(ctx, "Download started: "+event.Filename, component.ToastInfo)
+		case port.DownloadEventFinished:
+			d.app.appToaster.Show(ctx, "Download complete: "+event.Filename, component.ToastSuccess)
+		case port.DownloadEventFailed:
+			d.app.appToaster.Show(ctx, "Download failed: "+event.Filename, component.ToastError)
+		}
+		return false
+	})
+	glib.IdleAdd(&cb, 0)
 }
 
 func (a *App) initKeyboardHandler(ctx context.Context) {

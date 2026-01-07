@@ -31,6 +31,9 @@ type Dependencies struct {
 	ColorResolver   port.ColorSchemeResolver
 	AdwaitaDetector *colorscheme.AdwaitaDetector
 
+	// XDG paths
+	XDG port.XDGPaths
+
 	// WebKit infrastructure
 	WebContext    *webkit.WebKitContext
 	Pool          *webkit.WebViewPool
