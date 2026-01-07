@@ -72,4 +72,18 @@ func (a *Adapter) ManDir() (string, error) {
 	return filepath.Join(dataHome, "man", "man1"), nil
 }
 
+func (a *Adapter) DownloadDir() (string, error) {
+	// Check XDG_DOWNLOAD_DIR first (set by xdg-user-dirs).
+	if dir := os.Getenv("XDG_DOWNLOAD_DIR"); dir != "" {
+		return dir, nil
+	}
+
+	// Fallback to ~/Downloads.
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, "Downloads"), nil
+}
+
 var _ port.XDGPaths = (*Adapter)(nil)

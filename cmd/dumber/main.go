@@ -25,6 +25,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/idle"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/infrastructure/updater"
+	"github.com/bnema/dumber/internal/infrastructure/xdg"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui"
 	"github.com/bnema/dumber/internal/ui/theme"
@@ -428,6 +429,7 @@ func buildUIDependencies(
 		Theme:            themeManager,
 		ColorResolver:    colorResolver,
 		AdwaitaDetector:  adwaitaDetector,
+		XDG:              xdg.New(),
 		WebContext:       stack.Context,
 		Pool:             stack.Pool,
 		Settings:         stack.Settings,
