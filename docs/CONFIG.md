@@ -597,6 +597,23 @@ webview_pool_prewarm_count = 6
 
 > **Important:** Individual tuning fields are ignored unless `profile = "custom"`. Setting individual fields with any other profile will produce a validation warning.
 
+## Downloads
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `downloads.path` | string | `""` | Download directory path (empty = `$XDG_DOWNLOAD_DIR` or `~/Downloads`) |
+
+Downloads are saved to the configured directory with toast notifications for download started, completed, and failed events.
+
+**Example:**
+```toml
+[downloads]
+path = ""  # Use system default ($XDG_DOWNLOAD_DIR or ~/Downloads)
+
+# Or specify a custom directory:
+# path = "/home/user/my-downloads"
+```
+
 ## Environment Variables
 
 All config values can be overridden via environment variables with the prefix `DUMBER_`:
