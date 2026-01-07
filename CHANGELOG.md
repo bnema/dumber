@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **File download handling**: Downloads from websites now save to the user's download directory with toast notifications for start/complete/failed states. Configurable via `downloads.path` (defaults to `$XDG_DOWNLOAD_DIR` or `~/Downloads`).
 - **Print shortcut**: `Ctrl+Shift+P` opens the print dialog for the current page. Fixes #99.
 
 ### Changed
