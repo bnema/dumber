@@ -482,7 +482,7 @@ func (a *App) initDownloadHandler(ctx context.Context) {
 	}
 
 	// Create download event adapter to show toasts.
-	eventAdapter := &downloadEventAdapter{app: a, ctx: ctx}
+	eventAdapter := &downloadEventAdapter{app: a}
 
 	// Create and wire the download handler.
 	handler := webkit.NewDownloadHandler(downloadPath, eventAdapter)
@@ -494,7 +494,6 @@ func (a *App) initDownloadHandler(ctx context.Context) {
 // downloadEventAdapter implements port.DownloadEventHandler and shows toasts.
 type downloadEventAdapter struct {
 	app *App
-	ctx context.Context
 }
 
 func (d *downloadEventAdapter) OnDownloadEvent(ctx context.Context, event port.DownloadEvent) {
