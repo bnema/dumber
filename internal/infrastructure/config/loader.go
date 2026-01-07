@@ -365,6 +365,7 @@ func (m *Manager) setDefaults() {
 	m.setSessionDefaults(defaults)
 	m.setUpdateDefaults(defaults)
 	m.setPerformanceDefaults(defaults)
+	m.setDownloadsDefaults(defaults)
 }
 
 func (m *Manager) setHistoryDefaults(defaults *Config) {
@@ -531,6 +532,10 @@ func (m *Manager) setPerformanceDefaults(defaults *Config) {
 	netConservativeThreshold := defaults.Performance.NetworkProcessMemoryConservativeThreshold
 	m.viper.SetDefault("performance.network_process_memory_conservative_threshold", netConservativeThreshold)
 	m.viper.SetDefault("performance.network_process_memory_strict_threshold", defaults.Performance.NetworkProcessMemoryStrictThreshold)
+}
+
+func (m *Manager) setDownloadsDefaults(defaults *Config) {
+	m.viper.SetDefault("downloads.path", defaults.Downloads.Path)
 }
 
 // New returns a new default configuration instance.

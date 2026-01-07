@@ -311,6 +311,9 @@ func DefaultConfig() *Config {
 			AutoDownload:        false, // Conservative: don't auto-download by default
 			NotifyOnNewSettings: true,  // Show toast when new config settings available
 		},
+		Downloads: DownloadsConfig{
+			Path: "", // Empty = use XDG_DOWNLOAD_DIR or ~/Downloads
+		},
 	}
 }
 

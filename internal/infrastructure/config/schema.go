@@ -35,6 +35,8 @@ type Config struct {
 	Performance PerformanceConfig `mapstructure:"performance" yaml:"performance" toml:"performance"`
 	// Update controls automatic update checking and downloading.
 	Update UpdateConfig `mapstructure:"update" yaml:"update" toml:"update"`
+	// Downloads configures file download behavior.
+	Downloads DownloadsConfig `mapstructure:"downloads" yaml:"downloads" toml:"downloads"`
 }
 
 // RenderingMode selects GPU vs CPU rendering.
@@ -370,6 +372,13 @@ type UpdateConfig struct {
 	// NotifyOnNewSettings shows a toast notification on startup when new config settings are available.
 	// Default: true
 	NotifyOnNewSettings bool `mapstructure:"notify_on_new_settings" yaml:"notify_on_new_settings" toml:"notify_on_new_settings"`
+}
+
+// DownloadsConfig holds file download preferences.
+type DownloadsConfig struct {
+	// Path is the directory where downloads are saved.
+	// Empty string means use XDG_DOWNLOAD_DIR or ~/Downloads.
+	Path string `mapstructure:"path" yaml:"path" toml:"path"`
 }
 
 // WorkspaceConfig captures layout, pane, and tab behavior preferences.
