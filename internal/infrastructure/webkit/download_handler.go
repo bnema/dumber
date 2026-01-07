@@ -2,6 +2,8 @@ package webkit
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -9,6 +11,11 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
+)
+
+const (
+	// dirPerm is the permission mode for creating download directories.
+	dirPerm = 0755
 )
 
 // DownloadHandler manages WebKit downloads and notifies the UI layer.
@@ -40,22 +47,38 @@ func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.D
 	var failedMu sync.Mutex
 
 	// Handle decide-destination signal to set download path.
+	//nolint:unparam // bool return is required by WebKit's signal signature (false = handled synchronously)
 	decideDestCb := func(d webkit.Download, suggestedFilename string) bool {
-		destPath := filepath.Join(downloadPath, suggestedFilename)
-		// WebKit expects a file:// URI for the destination.
-		d.SetDestination("file://" + destPath)
+		// Ensure download directory exists.
+		if err := os.MkdirAll(downloadPath, dirPerm); err != nil {
+			log.Error().Err(err).Str("path", downloadPath).Msg("failed to create download directory")
+			return false
+		}
+
+		// Sanitize filename to prevent path traversal attacks.
+		safeName := sanitizeFilename(suggestedFilename)
+		destPath := filepath.Join(downloadPath, safeName)
+
+		log.Debug().
+			Str("suggested", suggestedFilename).
+			Str("sanitized", safeName).
+			Str("destPath", destPath).
+			Msg("setting download destination")
+
+		// WebKit expects an absolute file path for the destination.
+		d.SetDestination(destPath)
 
 		// Notify: download started.
 		if eventHandler != nil {
 			eventHandler.OnDownloadEvent(ctx, port.DownloadEvent{
 				Type:        port.DownloadEventStarted,
-				Filename:    suggestedFilename,
+				Filename:    safeName,
 				Destination: destPath,
 			})
 		}
 
 		log.Info().
-			Str("filename", suggestedFilename).
+			Str("filename", safeName).
 			Str("destination", destPath).
 			Msg("download started")
 
@@ -72,11 +95,15 @@ func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.D
 		dest := d.GetDestination()
 		filename := extractFilename(dest)
 
+		// Create error for the failed download.
+		downloadErr := fmt.Errorf("download failed: %s", filename)
+
 		if eventHandler != nil {
 			eventHandler.OnDownloadEvent(ctx, port.DownloadEvent{
 				Type:        port.DownloadEventFailed,
 				Filename:    filename,
 				Destination: dest,
+				Error:       downloadErr,
 			})
 		}
 
@@ -123,4 +150,18 @@ func extractFilename(dest string) string {
 	// Remove file:// prefix if present.
 	path := strings.TrimPrefix(dest, "file://")
 	return filepath.Base(path)
+}
+
+// sanitizeFilename sanitizes a suggested filename to prevent path traversal attacks.
+// It extracts only the base name and handles edge cases like "." or "..".
+func sanitizeFilename(name string) string {
+	// Get only the base name (removes any directory components).
+	clean := filepath.Base(name)
+
+	// If Base returns "." or ".." (edge cases), use fallback.
+	if clean == "." || clean == ".." || clean == "" {
+		return "download"
+	}
+
+	return clean
 }
