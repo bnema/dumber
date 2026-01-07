@@ -263,6 +263,7 @@ func (c *WorkspaceCoordinator) applySplitToView(
 
 	if needsAttach {
 		c.contentCoord.AttachToWorkspace(ctx, ws, wsView)
+		c.SetupStackedPaneCallbacks(ctx, ws, wsView)
 	}
 	if err := wsView.SetActivePaneID(ws.ActivePaneID); err != nil {
 		log.Warn().Err(err).Msg("failed to set active pane in workspace view")
@@ -1055,6 +1056,7 @@ func (c *WorkspaceCoordinator) finalizePaneClose(
 			}
 			c.contentCoord.ReleaseWebView(ctx, paneID)
 			c.contentCoord.AttachToWorkspace(ctx, ws, wsView)
+			c.SetupStackedPaneCallbacks(ctx, ws, wsView)
 		}
 	} else {
 		if err := wsView.Rebuild(ctx); err != nil {
@@ -1062,6 +1064,7 @@ func (c *WorkspaceCoordinator) finalizePaneClose(
 		}
 		c.contentCoord.ReleaseWebView(ctx, paneID)
 		c.contentCoord.AttachToWorkspace(ctx, ws, wsView)
+		c.SetupStackedPaneCallbacks(ctx, ws, wsView)
 	}
 
 	if err := wsView.SetActivePaneID(ws.ActivePaneID); err != nil {
@@ -1095,17 +1098,10 @@ func (c *WorkspaceCoordinator) doIncrementalStackClose(
 		return fmt.Errorf("stacked view not found for pane %s", closingPaneID)
 	}
 
-	// Find the index of the closing pane in the stack
-	closingIndex := -1
-	for i, child := range stackNode.Children {
-		if child.Pane != nil && child.Pane.ID == closingPaneID {
-			closingIndex = i
-			break
-		}
-	}
-
+	// Find the index of the closing pane in the StackedView UI
+	closingIndex := stackedView.FindPaneIndex(string(closingPaneID))
 	if closingIndex < 0 {
-		return fmt.Errorf("pane %s not found in stack", closingPaneID)
+		return fmt.Errorf("pane %s not found in stacked view", closingPaneID)
 	}
 
 	// Remove the pane from the StackedView widget
@@ -1120,10 +1116,46 @@ func (c *WorkspaceCoordinator) doIncrementalStackClose(
 	// Release the closing pane's webview
 	c.contentCoord.ReleaseWebView(ctx, closingPaneID)
 
+	// Sync remaining title bars with current titles from ContentCoordinator.
+	// The domain model (stackNode.Children) has already been updated by the use case,
+	// so we iterate the remaining children and update their titles in the UI.
+	c.syncStackedPaneTitles(ctx, stackedView, stackNode)
+
 	log.Debug().
 		Int("removed_index", closingIndex).
 		Msg("incremental stack close completed successfully")
 	return nil
+}
+
+// syncStackedPaneTitles updates all title bars in a StackedView with current titles.
+func (c *WorkspaceCoordinator) syncStackedPaneTitles(ctx context.Context, stackedView *layout.StackedView, stackNode *entity.PaneNode) {
+	log := logging.FromContext(ctx)
+
+	if stackedView == nil || stackNode == nil {
+		return
+	}
+
+	for i, child := range stackNode.Children {
+		if child.Pane == nil {
+			continue
+		}
+
+		title := c.contentCoord.GetTitle(child.Pane.ID)
+		if title == "" {
+			title = child.Pane.Title
+		}
+		if title == "" {
+			title = defaultPaneTitle
+		}
+
+		if err := stackedView.UpdateTitle(i, title); err != nil {
+			log.Warn().
+				Err(err).
+				Int("index", i).
+				Str("pane_id", string(child.Pane.ID)).
+				Msg("failed to sync title bar")
+		}
+	}
 }
 
 // FocusPane navigates focus to an adjacent pane.
@@ -1228,6 +1260,7 @@ func (c *WorkspaceCoordinator) syncStackedViewActive(ctx context.Context, wsView
 }
 
 // StackPane adds a new pane stacked on top of the active pane.
+// Uses CreateStack use case for new stacks, AddToStack for existing stacks.
 func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 	log := logging.FromContext(ctx)
 
@@ -1236,19 +1269,64 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 		return nil
 	}
 
+	// Create new pane entity
 	newPaneID := entity.PaneID(c.generateID())
 	newPane := entity.NewPane(newPaneID)
 	newPane.URI = domainurl.Normalize(config.Get().Workspace.NewPaneURL)
 	newPane.Title = defaultPaneTitle
 
-	stackNode, needsFirstPaneTitleUpdate := c.ensureStackNode(ctx, stackCtx.activeNode, stackCtx.activePaneID, stackCtx.originalTitle)
-	insertIndex := insertStackChild(stackNode, newPaneID, newPane)
+	// Determine if we need to create a new stack or add to existing
+	var stackNode *entity.PaneNode
+	var needsFirstPaneTitleUpdate bool
 
-	log.Debug().
-		Int("stack_size", len(stackNode.Children)).
-		Int("insert_index", insertIndex).
-		Int("active_index", stackNode.ActiveStackIndex).
-		Msg("domain tree updated with position-aware insertion")
+	if stackCtx.activeNode.Parent != nil && stackCtx.activeNode.Parent.IsStacked {
+		// Already in a stack - use AddToStack use case
+		stackNode = stackCtx.activeNode.Parent
+		output, err := c.panesUC.AddToStack(ctx, stackCtx.ws, stackNode, newPane)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to add pane to stack via use case")
+			return err
+		}
+		log.Debug().
+			Int("stack_size", len(stackNode.Children)).
+			Int("insert_index", output.StackIndex).
+			Msg("added to existing stack via use case")
+	} else if stackCtx.activeNode.IsStacked {
+		// Active node is already a stack container - add to it
+		stackNode = stackCtx.activeNode
+		output, err := c.panesUC.AddToStack(ctx, stackCtx.ws, stackNode, newPane)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to add pane to stack via use case")
+			return err
+		}
+		log.Debug().
+			Int("stack_size", len(stackNode.Children)).
+			Int("insert_index", output.StackIndex).
+			Msg("added to stack container via use case")
+	} else {
+		// Need to create a new stack - use CreateStack use case
+		// But CreateStack creates its own pane, so we need a different approach
+		// Convert to stack first, then the new pane is already created
+		output, err := c.panesUC.CreateStack(ctx, stackCtx.ws, stackCtx.activeNode)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to create stack via use case")
+			return err
+		}
+		stackNode = output.StackNode
+		// CreateStack creates its own new pane, use that instead
+		newPane = output.NewPane
+		newPaneID = newPane.ID
+		needsFirstPaneTitleUpdate = true
+
+		// Update the original pane's title in the domain
+		if output.OriginalNode != nil && output.OriginalNode.Pane != nil {
+			output.OriginalNode.Pane.Title = stackCtx.originalTitle
+		}
+
+		log.Debug().
+			Int("stack_size", len(stackNode.Children)).
+			Msg("created new stack via use case")
+	}
 
 	// Create PaneView for the new pane
 	newPaneView := component.NewPaneView(c.widgetFactory, newPaneID, nil)
@@ -1280,9 +1358,6 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 			log.Warn().Err(err).Str("uri", newPane.URI).Msg("failed to load initial page")
 		}
 	}
-
-	// Update workspace active pane ID
-	stackCtx.ws.ActivePaneID = newPaneID
 
 	// Update workspace view
 	if err := stackCtx.wsView.SetActivePaneID(newPaneID); err != nil {
@@ -1362,71 +1437,6 @@ func (c *WorkspaceCoordinator) prepareStackPane(
 		activePaneID:  activePaneID,
 		originalTitle: originalTitle,
 	}, true
-}
-
-func (c *WorkspaceCoordinator) ensureStackNode(
-	ctx context.Context,
-	activeNode *entity.PaneNode,
-	activePaneID entity.PaneID,
-	originalTitle string,
-) (*entity.PaneNode, bool) {
-	log := logging.FromContext(ctx)
-	if activeNode.Parent != nil && activeNode.Parent.IsStacked {
-		stackNode := activeNode.Parent
-		log.Debug().
-			Str("stack_id", stackNode.ID).
-			Str("active_pane", string(activePaneID)).
-			Int("stack_size", len(stackNode.Children)).
-			Msg("adding to existing stack via parent")
-		return stackNode, false
-	}
-
-	if activeNode.IsStacked {
-		return activeNode, false
-	}
-
-	originalPane := activeNode.Pane
-	originalPane.Title = originalTitle
-	originalPaneChild := &entity.PaneNode{
-		ID:     activeNode.ID + "_0",
-		Pane:   originalPane,
-		Parent: activeNode,
-	}
-
-	activeNode.Pane = nil
-	activeNode.IsStacked = true
-	activeNode.Children = []*entity.PaneNode{originalPaneChild}
-
-	log.Debug().
-		Str("node_id", activeNode.ID).
-		Str("original_pane", string(originalPane.ID)).
-		Str("original_title", originalTitle).
-		Msg("converted leaf to stacked node")
-
-	return activeNode, true
-}
-
-func insertStackChild(stackNode *entity.PaneNode, newPaneID entity.PaneID, newPane *entity.Pane) int {
-	newChildNode := &entity.PaneNode{
-		ID:     stackNode.ID + "_" + string(newPaneID),
-		Pane:   newPane,
-		Parent: stackNode,
-	}
-
-	currentActiveIndex := stackNode.ActiveStackIndex
-	if currentActiveIndex < 0 || currentActiveIndex >= len(stackNode.Children) {
-		currentActiveIndex = len(stackNode.Children) - 1
-		if currentActiveIndex < 0 {
-			currentActiveIndex = -1
-		}
-	}
-	insertIndex := currentActiveIndex + 1
-
-	stackNode.Children = append(stackNode.Children, nil)
-	copy(stackNode.Children[insertIndex+1:], stackNode.Children[insertIndex:])
-	stackNode.Children[insertIndex] = newChildNode
-	stackNode.ActiveStackIndex = insertIndex
-	return insertIndex
 }
 
 func (c *WorkspaceCoordinator) updateFirstStackTitle(
@@ -1575,6 +1585,54 @@ func (c *WorkspaceCoordinator) onStackedPaneClose(ctx context.Context, paneID en
 	if err := c.ClosePaneByID(ctx, paneID); err != nil {
 		log.Error().Err(err).Str("pane_id", string(paneID)).Msg("failed to close stacked pane")
 	}
+}
+
+// SetupStackedPaneCallbacks sets up title bar click and close callbacks for all stacked panes.
+// This must be called after Rebuild() to restore callbacks on newly created StackedView instances.
+func (c *WorkspaceCoordinator) SetupStackedPaneCallbacks(ctx context.Context, ws *entity.Workspace, wsView *component.WorkspaceView) {
+	log := logging.FromContext(ctx)
+
+	if ws == nil || ws.Root == nil || wsView == nil {
+		return
+	}
+
+	tr := wsView.TreeRenderer()
+	if tr == nil {
+		return
+	}
+
+	// Walk the tree and set up callbacks for all stacked nodes
+	ws.Root.Walk(func(node *entity.PaneNode) bool {
+		if !node.IsStacked || len(node.Children) == 0 {
+			return true
+		}
+
+		// Get the StackedView for any pane in this stack
+		firstChild := node.Children[0]
+		if firstChild.Pane == nil {
+			return true
+		}
+
+		stackedView := tr.GetStackedViewForPane(string(firstChild.Pane.ID))
+		if stackedView == nil {
+			return true
+		}
+
+		capturedStackNode := node
+		stackedView.SetOnActivate(func(index int) {
+			c.onTitleBarClick(ctx, capturedStackNode, stackedView, index)
+		})
+		stackedView.SetOnClosePane(func(paneID string) {
+			c.onStackedPaneClose(ctx, entity.PaneID(paneID))
+		})
+
+		log.Debug().
+			Str("stack_id", node.ID).
+			Int("stack_size", len(node.Children)).
+			Msg("set up stacked pane callbacks")
+
+		return true
+	})
 }
 
 // --- Popup Insertion ---
@@ -1726,6 +1784,7 @@ func (c *WorkspaceCoordinator) attachPopupWebView(
 }
 
 // insertPopupStacked inserts a popup as a stacked pane on top of the parent.
+// Uses CreateStack and AddToStack use cases for proper domain model management.
 func (c *WorkspaceCoordinator) insertPopupStacked(ctx context.Context, input InsertPopupInput) error {
 	log := logging.FromContext(ctx)
 
@@ -1739,16 +1798,17 @@ func (c *WorkspaceCoordinator) insertPopupStacked(ctx context.Context, input Ins
 		return fmt.Errorf("parent pane not found: %s", input.ParentPaneID)
 	}
 
-	stackNode := c.resolveStackNode(input, parentNode, log)
-	if stackNode == nil {
-		return fmt.Errorf("failed to resolve stack node for popup")
+	// Resolve or create stack node
+	stackNode := c.resolveOrCreateStackNode(ctx, parentNode, input.ParentPaneID)
+
+	// Add popup pane to stack using use case
+	if _, err := c.panesUC.AddToStack(ctx, ws, stackNode, input.PopupPane); err != nil {
+		return fmt.Errorf("failed to add popup to stack: %w", err)
 	}
 
-	c.insertStackChild(stackNode, input.PopupPane)
-
 	if wsView == nil {
-		// No workspace view to update; keep domain model consistent.
-		ws.ActivePaneID = input.PopupPane.ID
+		// No workspace view to update; domain model already updated by use case.
+		return nil
 	}
 
 	if err := c.attachPopupPaneView(ctx, input, wsView, stackNode, log); err != nil {
@@ -1763,27 +1823,37 @@ func (c *WorkspaceCoordinator) insertPopupStacked(ctx context.Context, input Ins
 	return nil
 }
 
-func (c *WorkspaceCoordinator) resolveStackNode(
-	input InsertPopupInput,
+// resolveOrCreateStackNode finds an existing stack or creates one for popup insertion.
+// Note: For popups, we can't use CreateStack use case since it creates a new pane,
+// but we already have the popup pane. This conversion is a special case.
+func (c *WorkspaceCoordinator) resolveOrCreateStackNode(
+	ctx context.Context,
 	parentNode *entity.PaneNode,
-	log *zerolog.Logger,
+	parentPaneID entity.PaneID,
 ) *entity.PaneNode {
+	log := logging.FromContext(ctx)
+
+	// Check if parent is already in a stack
 	if parentNode.Parent != nil && parentNode.Parent.IsStacked {
+		log.Debug().
+			Str("stack_id", parentNode.Parent.ID).
+			Msg("using existing parent stack for popup")
 		return parentNode.Parent
 	}
+
+	// Check if parent is already a stack container
 	if parentNode.IsStacked {
+		log.Debug().
+			Str("stack_id", parentNode.ID).
+			Msg("parent is already a stack container")
 		return parentNode
 	}
-	return c.convertToStackedNode(input, parentNode, log)
-}
 
-func (c *WorkspaceCoordinator) convertToStackedNode(
-	input InsertPopupInput,
-	parentNode *entity.PaneNode,
-	log *zerolog.Logger,
-) *entity.PaneNode {
+	// Need to convert leaf to stack for popup insertion.
+	// We can't use CreateStack use case since it creates a new pane,
+	// but we already have the popup pane to insert.
 	originalPane := parentNode.Pane
-	originalTitle := c.contentCoord.GetTitle(input.ParentPaneID)
+	originalTitle := c.contentCoord.GetTitle(parentPaneID)
 	if originalTitle == "" {
 		originalTitle = originalPane.Title
 	}
@@ -1792,14 +1862,17 @@ func (c *WorkspaceCoordinator) convertToStackedNode(
 	}
 	originalPane.Title = originalTitle
 
+	// Create child node for the original pane
 	originalPaneChild := &entity.PaneNode{
 		ID:     parentNode.ID + "_0",
 		Pane:   originalPane,
 		Parent: parentNode,
 	}
 
+	// Convert parentNode to stack container
 	parentNode.Pane = nil
 	parentNode.IsStacked = true
+	parentNode.ActiveStackIndex = 0
 	parentNode.Children = []*entity.PaneNode{originalPaneChild}
 
 	log.Debug().
@@ -1808,28 +1881,6 @@ func (c *WorkspaceCoordinator) convertToStackedNode(
 		Msg("converted leaf to stacked node for popup")
 
 	return parentNode
-}
-
-func (c *WorkspaceCoordinator) insertStackChild(stackNode *entity.PaneNode, pane *entity.Pane) {
-	newChildNode := &entity.PaneNode{
-		ID:     stackNode.ID + "_popup_" + string(pane.ID),
-		Pane:   pane,
-		Parent: stackNode,
-	}
-
-	currentActiveIndex := stackNode.ActiveStackIndex
-	if currentActiveIndex < 0 || currentActiveIndex >= len(stackNode.Children) {
-		currentActiveIndex = len(stackNode.Children) - 1
-		if currentActiveIndex < 0 {
-			currentActiveIndex = -1
-		}
-	}
-	insertIndex := currentActiveIndex + 1
-
-	stackNode.Children = append(stackNode.Children, nil)
-	copy(stackNode.Children[insertIndex+1:], stackNode.Children[insertIndex:])
-	stackNode.Children[insertIndex] = newChildNode
-	stackNode.ActiveStackIndex = insertIndex
 }
 
 func (c *WorkspaceCoordinator) attachPopupPaneView(
@@ -1933,6 +1984,7 @@ func (c *WorkspaceCoordinator) ConsumeOrExpelPane(ctx context.Context, direction
 			log.Warn().Err(err).Msg("failed to rebuild workspace view")
 		}
 		c.contentCoord.AttachToWorkspace(ctx, ws, wsView)
+		c.SetupStackedPaneCallbacks(ctx, ws, wsView)
 		if err := wsView.SetActivePaneID(ws.ActivePaneID); err != nil {
 			log.Warn().Err(err).Msg("failed to set active pane in workspace view")
 		}
