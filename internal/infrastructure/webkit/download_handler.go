@@ -52,6 +52,7 @@ func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.D
 		// Ensure download directory exists.
 		if err := os.MkdirAll(downloadPath, dirPerm); err != nil {
 			log.Error().Err(err).Str("path", downloadPath).Msg("failed to create download directory")
+			d.Cancel()
 			return false
 		}
 
@@ -149,12 +150,23 @@ func (h *DownloadHandler) SetDownloadPath(path string) {
 func extractFilename(dest string) string {
 	// Remove file:// prefix if present.
 	path := strings.TrimPrefix(dest, "file://")
-	return filepath.Base(path)
+	base := filepath.Base(path)
+
+	// Handle edge cases consistently with sanitizeFilename.
+	if base == "." || base == "" {
+		return "download"
+	}
+	return base
 }
 
 // sanitizeFilename sanitizes a suggested filename to prevent path traversal attacks.
 // It extracts only the base name and handles edge cases like "." or "..".
 func sanitizeFilename(name string) string {
+	// Normalize Windows-style separators to forward slashes.
+	// filepath.Base only handles the OS-native separator, so on Linux
+	// backslashes would not be treated as path separators.
+	name = strings.ReplaceAll(name, "\\", "/")
+
 	// Get only the base name (removes any directory components).
 	clean := filepath.Base(name)
 

@@ -65,7 +65,7 @@ func TestSanitizeFilename(t *testing.T) {
 		{
 			name:     "windows style path",
 			input:    "..\\..\\Windows\\System32\\config",
-			expected: "..\\..\\Windows\\System32\\config",
+			expected: "config",
 		},
 	}
 
@@ -106,7 +106,7 @@ func TestExtractFilename(t *testing.T) {
 		{
 			name:     "empty string",
 			input:    "",
-			expected: ".",
+			expected: "download",
 		},
 		{
 			name:     "file URI with spaces",
