@@ -476,9 +476,14 @@ func (a *App) initDownloadHandler(ctx context.Context) {
 		}
 	}
 	if downloadPath == "" {
-		// Final fallback to ~/Downloads.
-		home, _ := os.UserHomeDir()
-		downloadPath = filepath.Join(home, "Downloads")
+		// Final fallback to ~/Downloads, with /tmp as last resort.
+		home, err := os.UserHomeDir()
+		if err != nil {
+			log.Warn().Err(err).Msg("failed to get home dir, using /tmp for downloads")
+			downloadPath = "/tmp"
+		} else {
+			downloadPath = filepath.Join(home, "Downloads")
+		}
 	}
 
 	// Create download event adapter to show toasts.
