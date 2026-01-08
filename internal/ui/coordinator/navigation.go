@@ -133,6 +133,7 @@ func (c *NavigationCoordinator) HardReload(ctx context.Context) error {
 }
 
 // GoBack navigates back in history.
+// Calls webview directly - the webview layer handles SPA navigation via JS fallback.
 func (c *NavigationCoordinator) GoBack(ctx context.Context) error {
 	log := logging.FromContext(ctx)
 
@@ -142,14 +143,11 @@ func (c *NavigationCoordinator) GoBack(ctx context.Context) error {
 		return nil
 	}
 
-	if c.navigateUC != nil {
-		return c.navigateUC.GoBack(ctx, wv)
-	}
-
 	return wv.GoBack(ctx)
 }
 
 // GoForward navigates forward in history.
+// Calls webview directly - the webview layer handles SPA navigation via JS fallback.
 func (c *NavigationCoordinator) GoForward(ctx context.Context) error {
 	log := logging.FromContext(ctx)
 
@@ -157,10 +155,6 @@ func (c *NavigationCoordinator) GoForward(ctx context.Context) error {
 	if wv == nil {
 		log.Debug().Msg("no active webview for go forward")
 		return nil
-	}
-
-	if c.navigateUC != nil {
-		return c.navigateUC.GoForward(ctx, wv)
 	}
 
 	return wv.GoForward(ctx)
