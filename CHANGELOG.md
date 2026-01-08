@@ -13,6 +13,8 @@ All notable changes to this project will be documented in this file.
 - **Navigation shortcuts**: `Ctrl+Left/Right` now triggers back/forward navigation, `Alt+Left/Right` moves focus between panes. Fixes #98.
 
 ### Fixed
+- **Accent picker freeze**: Fixed UI freeze when selecting an accent by pressing Enter or Escape. The deadlock was caused by the callback (which calls `Hide()`) being invoked while holding the mutex that `Hide()` also needs to acquire.
+- **Stacked pane title mismatch**: Fixed title bar showing wrong page title after closing panes in a stack. Refactored stacked pane management to use proper use cases, ensuring domain model stays in sync with UI.
 - **Flatpak favicons**: Fixed favicons not displaying in omnibox for Flatpak installs by ensuring cache directory exists before saving. Fixes #105.
 - **Flatpak desktop launcher**: Fixed .desktop file not launching application from app launchers by adding locale environment variables. Fixes #104.
 - **Flatpak update notifications**: Skip GitHub update checks for Flatpak and AUR installs (use package manager instead). Fixes #107.
