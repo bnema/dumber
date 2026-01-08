@@ -99,12 +99,11 @@ func (c *UpdateCoordinator) checkAsync(ctx context.Context) {
 // showUpdateNotification displays a toast notification about the update.
 func (c *UpdateCoordinator) showUpdateNotification(ctx context.Context, result *usecase.CheckUpdateOutput) {
 	var msg string
-	if result.CanAutoUpdate && c.config.Update.AutoDownload {
+	switch {
+	case result.CanAutoUpdate && c.config.Update.AutoDownload:
 		msg = fmt.Sprintf("Downloading update %s...", result.LatestVersion)
-	} else if result.CanAutoUpdate {
+	default:
 		msg = fmt.Sprintf("Update %s available", result.LatestVersion)
-	} else {
-		msg = fmt.Sprintf("Update %s available (manual install required)", result.LatestVersion)
 	}
 
 	// Dispatch to GTK main thread.

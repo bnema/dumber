@@ -156,3 +156,37 @@ func (n *PaneNode) LeafCount() int {
 	})
 	return count
 }
+
+// VisibleAreaCount returns the number of visible pane areas in the tree.
+// A stacked node counts as 1 visible area (only one pane visible at a time).
+// A leaf node counts as 1 visible area.
+// A split node's visible areas are the sum of its children's visible areas.
+func (n *PaneNode) VisibleAreaCount() int {
+	switch {
+	case n.IsLeaf():
+		return 1
+	case n.IsStacked:
+		// Stacked panes: only one is visible at a time
+		return 1
+	case n.IsSplit():
+		// Split: sum of both children's visible areas
+		count := 0
+		if left := n.Left(); left != nil {
+			count += left.VisibleAreaCount()
+		}
+		if right := n.Right(); right != nil {
+			count += right.VisibleAreaCount()
+		}
+		return count
+	default:
+		// Fallback for other container types
+		if len(n.Children) == 0 {
+			return 1
+		}
+		count := 0
+		for _, child := range n.Children {
+			count += child.VisibleAreaCount()
+		}
+		return count
+	}
+}

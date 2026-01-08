@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -86,6 +87,20 @@ func (g *GitHubChecker) CheckForUpdate(ctx context.Context, currentVersion strin
 	// Skip check for dev builds.
 	if currentVersion == "" || currentVersion == "dev" {
 		log.Debug().Str("version", currentVersion).Msg("skipping update check for dev build")
+		return &entity.UpdateInfo{
+			CurrentVersion: currentVersion,
+			LatestVersion:  currentVersion,
+			IsNewer:        false,
+		}, nil
+	}
+
+	// Skip check for package manager installs (Flatpak, AUR).
+	// These should use their respective package managers for updates.
+	if env.IsFlatpak() || env.IsPacman() {
+		log.Debug().
+			Bool("flatpak", env.IsFlatpak()).
+			Bool("pacman", env.IsPacman()).
+			Msg("skipping update check for package manager install")
 		return &entity.UpdateInfo{
 			CurrentVersion: currentVersion,
 			LatestVersion:  currentVersion,

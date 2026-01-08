@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **File download handling**: Downloads from websites now save to the user's download directory with toast notifications for start/complete/failed states. Configurable via `downloads.path` (defaults to `$XDG_DOWNLOAD_DIR` or `~/Downloads`).
+- **Print shortcut**: `Ctrl+Shift+P` opens the print dialog for the current page. Fixes #99.
+
+### Changed
+- **Flatpak files location**: Moved flatpak-related files to `flatpak/` directory. Fixes #101.
+- **Navigation shortcuts**: `Ctrl+Left/Right` now triggers back/forward navigation, `Alt+Left/Right` moves focus between panes. Fixes #98.
+- **Update notification**: Simplified update toaster message for AUR/Flatpak users - no longer shows "manual install required". Fixes #109.
+
+### Fixed
+- **SPA mouse navigation**: Fixed unreliable back/forward mouse button navigation in Single Page Applications. WebKit's `BackForwardList` doesn't track JavaScript History API (`pushState`/`replaceState`) navigation. Now uses JavaScript `history.back()`/`history.forward()` as fallback when WebKit native navigation is unavailable.
+- **Accent picker freeze**: Fixed UI freeze when selecting an accent by pressing Enter or Escape. The deadlock was caused by the callback (which calls `Hide()`) being invoked while holding the mutex that `Hide()` also needs to acquire.
+- **Stacked pane title mismatch**: Fixed title bar showing wrong page title after closing panes in a stack. Refactored stacked pane management to use proper use cases, ensuring domain model stays in sync with UI.
+- **Flatpak favicons**: Fixed favicons not displaying in omnibox for Flatpak installs by ensuring cache directory exists before saving. Fixes #105.
+- **Flatpak desktop launcher**: Fixed .desktop file not launching application from app launchers by adding locale environment variables. Fixes #104.
+- **Flatpak update notifications**: Skip GitHub update checks for Flatpak and AUR installs (use package manager instead). Fixes #107.
+- **Active border with stacked panes**: Hide active pane border when only one pane area is visible (stacked panes count as one). Fixes #108.
+- **Setup command for AUR**: `dumber setup` now detects AUR and Flatpak installations and locates the correct .desktop file. Fixes #102.
+
+### Removed
+- **dev/ directory**: Removed development scripts directory. Fixes #103.
+
 ## [0.24.0] - 2026-01-06
 
 ### Added

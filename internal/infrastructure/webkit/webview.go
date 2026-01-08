@@ -761,28 +761,46 @@ func (wv *WebView) Stop(ctx context.Context) error {
 }
 
 // GoBack navigates back in history.
+// Uses WebKit native navigation first, falls back to JavaScript history.back() for SPA compatibility.
 func (wv *WebView) GoBack(ctx context.Context) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
-	if !wv.inner.CanGoBack() {
-		return fmt.Errorf("cannot go back")
+	log := logging.FromContext(ctx)
+
+	// Try WebKit native navigation first if available (for non-SPA pages)
+	if wv.inner.CanGoBack() {
+		wv.inner.GoBack()
+		log.Debug().Int("webview_id", int(wv.id)).Msg("webview go back (native)")
+		return nil
 	}
-	wv.inner.GoBack()
-	logging.FromContext(ctx).Debug().Int("webview_id", int(wv.id)).Msg("webview go back")
+
+	// Fall back to JavaScript history.back() for SPA navigation
+	// This handles pushState/replaceState history that WebKit's BackForwardList doesn't track
+	wv.RunJavaScript(ctx, "history.back()", "")
+	log.Debug().Int("webview_id", int(wv.id)).Msg("webview go back (js fallback)")
 	return nil
 }
 
 // GoForward navigates forward in history.
+// Uses WebKit native navigation first, falls back to JavaScript history.forward() for SPA compatibility.
 func (wv *WebView) GoForward(ctx context.Context) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
-	if !wv.inner.CanGoForward() {
-		return fmt.Errorf("cannot go forward")
+	log := logging.FromContext(ctx)
+
+	// Try WebKit native navigation first if available (for non-SPA pages)
+	if wv.inner.CanGoForward() {
+		wv.inner.GoForward()
+		log.Debug().Int("webview_id", int(wv.id)).Msg("webview go forward (native)")
+		return nil
 	}
-	wv.inner.GoForward()
-	logging.FromContext(ctx).Debug().Int("webview_id", int(wv.id)).Msg("webview go forward")
+
+	// Fall back to JavaScript history.forward() for SPA navigation
+	// This handles pushState/replaceState history that WebKit's BackForwardList doesn't track
+	wv.RunJavaScript(ctx, "history.forward()", "")
+	log.Debug().Int("webview_id", int(wv.id)).Msg("webview go forward (js fallback)")
 	return nil
 }
 
@@ -947,6 +965,21 @@ func (wv *WebView) ShowDevTools() error {
 	}
 	inspector.Show()
 	wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("devtools shown")
+	return nil
+}
+
+// Print opens the print dialog for the current page.
+func (wv *WebView) Print() error {
+	if wv.destroyed.Load() {
+		return fmt.Errorf("webview %d is destroyed", wv.id)
+	}
+	printOp := webkit.NewPrintOperation(wv.inner)
+	if printOp == nil {
+		return fmt.Errorf("failed to create print operation for webview %d", wv.id)
+	}
+	// RunDialog with nil parent window - GTK will use the widget's toplevel
+	printOp.RunDialog(nil)
+	wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("print dialog opened")
 	return nil
 }
 
