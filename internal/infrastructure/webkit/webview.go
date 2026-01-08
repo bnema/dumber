@@ -778,7 +778,7 @@ func (wv *WebView) GoBack(ctx context.Context) error {
 	// Fall back to JavaScript history.back() for SPA navigation
 	// This handles pushState/replaceState history that WebKit's BackForwardList doesn't track
 	wv.RunJavaScript(ctx, "history.back()", "")
-	log.Debug().Int("webview_id", int(wv.id)).Msg("webview go back (js)")
+	log.Debug().Int("webview_id", int(wv.id)).Msg("webview go back (js fallback)")
 	return nil
 }
 
@@ -800,7 +800,7 @@ func (wv *WebView) GoForward(ctx context.Context) error {
 	// Fall back to JavaScript history.forward() for SPA navigation
 	// This handles pushState/replaceState history that WebKit's BackForwardList doesn't track
 	wv.RunJavaScript(ctx, "history.forward()", "")
-	log.Debug().Int("webview_id", int(wv.id)).Msg("webview go forward (js)")
+	log.Debug().Int("webview_id", int(wv.id)).Msg("webview go forward (js fallback)")
 	return nil
 }
 
