@@ -33,6 +33,13 @@ func NewDownloadHandler(downloadPath string, handler port.DownloadEventHandler) 
 	}
 }
 
+// downloadState tracks the state of a single download to prevent duplicate notifications.
+// This is allocated per-download to ensure proper isolation between concurrent downloads.
+type downloadState struct {
+	failed bool
+	mu     sync.Mutex
+}
+
 // HandleDownload sets up signal handlers for a new download.
 func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.Download) {
 	log := logging.FromContext(ctx)
@@ -42,9 +49,9 @@ func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.D
 	eventHandler := h.eventHandler
 	h.mu.RUnlock()
 
-	// Track if download failed (to avoid duplicate finished notifications).
-	var downloadFailed bool
-	var failedMu sync.Mutex
+	// Track download state in a dedicated struct to ensure proper isolation.
+	// Each download gets its own state to prevent interference between concurrent downloads.
+	state := &downloadState{}
 
 	// Handle decide-destination signal to set download path.
 	//nolint:unparam // bool return is required by WebKit's signal signature (false = handled synchronously)
@@ -89,9 +96,9 @@ func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.D
 
 	// Handle failed signal.
 	failedCb := func(d webkit.Download, _ uintptr) {
-		failedMu.Lock()
-		downloadFailed = true
-		failedMu.Unlock()
+		state.mu.Lock()
+		state.failed = true
+		state.mu.Unlock()
 
 		dest := d.GetDestination()
 		filename := extractFilename(dest)
@@ -114,9 +121,9 @@ func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.D
 
 	// Handle finished signal.
 	finishedCb := func(d webkit.Download) {
-		failedMu.Lock()
-		failed := downloadFailed
-		failedMu.Unlock()
+		state.mu.Lock()
+		failed := state.failed
+		state.mu.Unlock()
 
 		// Don't send finished event if we already sent a failed event.
 		if failed {
