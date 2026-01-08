@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - **Navigation shortcuts**: `Ctrl+Left/Right` now triggers back/forward navigation, `Alt+Left/Right` moves focus between panes. Fixes #98.
 
 ### Fixed
+- **SPA mouse navigation**: Fixed unreliable back/forward mouse button navigation in Single Page Applications. WebKit's `BackForwardList` doesn't track JavaScript History API (`pushState`/`replaceState`) navigation. Now uses JavaScript `history.back()`/`history.forward()` as fallback when WebKit native navigation is unavailable.
 - **Accent picker freeze**: Fixed UI freeze when selecting an accent by pressing Enter or Escape. The deadlock was caused by the callback (which calls `Hide()`) being invoked while holding the mutex that `Hide()` also needs to acquire.
 - **Stacked pane title mismatch**: Fixed title bar showing wrong page title after closing panes in a stack. Refactored stacked pane management to use proper use cases, ensuring domain model stays in sync with UI.
 - **Flatpak favicons**: Fixed favicons not displaying in omnibox for Flatpak installs by ensuring cache directory exists before saving. Fixes #105.
