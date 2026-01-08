@@ -26,9 +26,10 @@ type WebKitContext struct {
 	dataDir  string
 	cacheDir string
 
-	logger      zerolog.Logger
-	mu          sync.RWMutex
-	initialized bool
+	logger          zerolog.Logger
+	mu              sync.RWMutex
+	initialized     bool
+	downloadHandler *DownloadHandler
 }
 
 // NewWebKitContext creates and initializes a WebKitContext with a persistent NetworkSession.
@@ -235,4 +236,28 @@ func (c *WebKitContext) Close() error {
 	c.initialized = false
 	c.logger.Debug().Msg("webkit context closed")
 	return nil
+}
+
+// SetDownloadHandler configures download handling for this context.
+// The handler will be notified of all download events from the NetworkSession.
+func (c *WebKitContext) SetDownloadHandler(ctx context.Context, handler *DownloadHandler) {
+	c.mu.Lock()
+	c.downloadHandler = handler
+	session := c.networkSession
+	c.mu.Unlock()
+
+	if session == nil || handler == nil {
+		return
+	}
+
+	// Connect download-started signal on NetworkSession.
+	downloadStartedCb := func(_ webkit.NetworkSession, downloadPtr uintptr) {
+		download := webkit.DownloadNewFromInternalPtr(downloadPtr)
+		if download != nil {
+			handler.HandleDownload(ctx, download)
+		}
+	}
+	session.ConnectDownloadStarted(&downloadStartedCb)
+
+	c.logger.Debug().Msg("download handler connected to network session")
 }

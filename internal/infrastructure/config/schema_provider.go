@@ -25,6 +25,7 @@ const (
 	SectionRuntime          = "Runtime"
 	SectionDatabase         = "Database"
 	SectionSearch           = "Search"
+	SectionDownloads        = "Downloads"
 )
 
 // SchemaProvider implements port.ConfigSchemaProvider.
@@ -91,6 +92,9 @@ func (p *SchemaProvider) GetSchema() []entity.ConfigKeyInfo {
 
 	// Database section
 	keys = append(keys, p.getDatabaseKeys()...)
+
+	// Downloads section
+	keys = append(keys, p.getDownloadsKeys(defaults)...)
 
 	return keys
 }
@@ -1037,6 +1041,18 @@ func (*SchemaProvider) getDatabaseKeys() []entity.ConfigKeyInfo {
 			Default:     dbPath,
 			Description: "Path to SQLite database file",
 			Section:     SectionDatabase,
+		},
+	}
+}
+
+func (*SchemaProvider) getDownloadsKeys(_ *Config) []entity.ConfigKeyInfo {
+	return []entity.ConfigKeyInfo{
+		{
+			Key:         "downloads.path",
+			Type:        "string",
+			Default:     "(empty = $XDG_DOWNLOAD_DIR or ~/Downloads)",
+			Description: "Directory where downloads are saved",
+			Section:     SectionDownloads,
 		},
 	}
 }

@@ -218,6 +218,15 @@ func (c *Cache) Close() {
 	})
 }
 
+// EnsureDir ensures the cache directory exists on disk.
+// Call this before using DiskPathPNG with external save functions.
+func (c *Cache) EnsureDir() error {
+	if c.diskDir == "" {
+		return nil
+	}
+	return os.MkdirAll(c.diskDir, diskCacheDirPerm)
+}
+
 // Clear removes all entries from the in-memory cache.
 func (c *Cache) Clear() {
 	c.mu.Lock()

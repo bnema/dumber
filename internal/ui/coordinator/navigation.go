@@ -133,6 +133,7 @@ func (c *NavigationCoordinator) HardReload(ctx context.Context) error {
 }
 
 // GoBack navigates back in history.
+// Calls webview directly - the webview layer handles SPA navigation via JS fallback.
 func (c *NavigationCoordinator) GoBack(ctx context.Context) error {
 	log := logging.FromContext(ctx)
 
@@ -142,14 +143,11 @@ func (c *NavigationCoordinator) GoBack(ctx context.Context) error {
 		return nil
 	}
 
-	if c.navigateUC != nil {
-		return c.navigateUC.GoBack(ctx, wv)
-	}
-
 	return wv.GoBack(ctx)
 }
 
 // GoForward navigates forward in history.
+// Calls webview directly - the webview layer handles SPA navigation via JS fallback.
 func (c *NavigationCoordinator) GoForward(ctx context.Context) error {
 	log := logging.FromContext(ctx)
 
@@ -157,10 +155,6 @@ func (c *NavigationCoordinator) GoForward(ctx context.Context) error {
 	if wv == nil {
 		log.Debug().Msg("no active webview for go forward")
 		return nil
-	}
-
-	if c.navigateUC != nil {
-		return c.navigateUC.GoForward(ctx, wv)
 	}
 
 	return wv.GoForward(ctx)
@@ -198,6 +192,26 @@ func (c *NavigationCoordinator) OpenDevTools(ctx context.Context) error {
 	}
 
 	return fmt.Errorf("webview does not support devtools")
+}
+
+// PrintPage opens the print dialog for the active WebView.
+func (c *NavigationCoordinator) PrintPage(ctx context.Context) error {
+	log := logging.FromContext(ctx)
+
+	wv := c.contentCoord.ActiveWebView(ctx)
+	if wv == nil {
+		log.Warn().Msg("no active webview for print")
+		return fmt.Errorf("no active webview")
+	}
+
+	log.Debug().Uint64("webview_id", uint64(wv.ID())).Msg("opening print dialog")
+
+	// Type assert to access Print (not in port.WebView interface)
+	if webkitWV, ok := interface{}(wv).(*webkit.WebView); ok {
+		return webkitWV.Print()
+	}
+
+	return fmt.Errorf("webview does not support printing")
 }
 
 // UpdateHistoryTitle updates the title of a history entry after page load.

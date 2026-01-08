@@ -240,32 +240,6 @@ func (uc *NavigateUseCase) Reload(ctx context.Context, webview port.WebView, byp
 	return webview.Reload(ctx)
 }
 
-// GoBack navigates back in history.
-func (uc *NavigateUseCase) GoBack(ctx context.Context, webview port.WebView) error {
-	log := logging.FromContext(ctx).With().Float64("default_zoom", uc.defaultZoom).Logger()
-
-	if !webview.CanGoBack() {
-		log.Debug().Msg("cannot go back - no history")
-		return nil
-	}
-
-	log.Debug().Msg("navigating back")
-	return webview.GoBack(ctx)
-}
-
-// GoForward navigates forward in history.
-func (uc *NavigateUseCase) GoForward(ctx context.Context, webview port.WebView) error {
-	log := logging.FromContext(ctx).With().Float64("default_zoom", uc.defaultZoom).Logger()
-
-	if !webview.CanGoForward() {
-		log.Debug().Msg("cannot go forward - no history")
-		return nil
-	}
-
-	log.Debug().Msg("navigating forward")
-	return webview.GoForward(ctx)
-}
-
 // Stop stops the current page load.
 func (uc *NavigateUseCase) Stop(ctx context.Context, webview port.WebView) error {
 	log := logging.FromContext(ctx).With().Float64("default_zoom", uc.defaultZoom).Logger()

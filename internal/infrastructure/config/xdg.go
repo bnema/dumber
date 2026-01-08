@@ -185,6 +185,7 @@ func EnsureDirectories() error {
 		dirs.ConfigHome,
 		dirs.DataHome,
 		dirs.StateHome,
+		dirs.CacheHome,
 	}
 
 	for _, dir := range directories {
