@@ -761,28 +761,46 @@ func (wv *WebView) Stop(ctx context.Context) error {
 }
 
 // GoBack navigates back in history.
+// Uses JavaScript history.back() first for SPA compatibility, falls back to WebKit native.
 func (wv *WebView) GoBack(ctx context.Context) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
-	if !wv.inner.CanGoBack() {
-		return fmt.Errorf("cannot go back")
+	log := logging.FromContext(ctx)
+
+	// Try WebKit native navigation first if available (for non-SPA pages)
+	if wv.inner.CanGoBack() {
+		wv.inner.GoBack()
+		log.Debug().Int("webview_id", int(wv.id)).Msg("webview go back (native)")
+		return nil
 	}
-	wv.inner.GoBack()
-	logging.FromContext(ctx).Debug().Int("webview_id", int(wv.id)).Msg("webview go back")
+
+	// Fall back to JavaScript history.back() for SPA navigation
+	// This handles pushState/replaceState history that WebKit's BackForwardList doesn't track
+	wv.RunJavaScript(ctx, "history.back()", "")
+	log.Debug().Int("webview_id", int(wv.id)).Msg("webview go back (js)")
 	return nil
 }
 
 // GoForward navigates forward in history.
+// Uses JavaScript history.forward() first for SPA compatibility, falls back to WebKit native.
 func (wv *WebView) GoForward(ctx context.Context) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
-	if !wv.inner.CanGoForward() {
-		return fmt.Errorf("cannot go forward")
+	log := logging.FromContext(ctx)
+
+	// Try WebKit native navigation first if available (for non-SPA pages)
+	if wv.inner.CanGoForward() {
+		wv.inner.GoForward()
+		log.Debug().Int("webview_id", int(wv.id)).Msg("webview go forward (native)")
+		return nil
 	}
-	wv.inner.GoForward()
-	logging.FromContext(ctx).Debug().Int("webview_id", int(wv.id)).Msg("webview go forward")
+
+	// Fall back to JavaScript history.forward() for SPA navigation
+	// This handles pushState/replaceState history that WebKit's BackForwardList doesn't track
+	wv.RunJavaScript(ctx, "history.forward()", "")
+	log.Debug().Int("webview_id", int(wv.id)).Msg("webview go forward (js)")
 	return nil
 }
 
