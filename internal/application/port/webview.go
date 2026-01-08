@@ -143,11 +143,11 @@ type WebView interface {
 	Stop(ctx context.Context) error
 
 	// GoBack navigates back in history.
-	// Returns error if back navigation is not possible.
+	// Uses WebKit native navigation if available, falls back to JavaScript history.back() for SPA compatibility.
 	GoBack(ctx context.Context) error
 
 	// GoForward navigates forward in history.
-	// Returns error if forward navigation is not possible.
+	// Uses WebKit native navigation if available, falls back to JavaScript history.forward() for SPA compatibility.
 	GoForward(ctx context.Context) error
 
 	// --- State Queries ---

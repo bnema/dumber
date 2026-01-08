@@ -761,7 +761,7 @@ func (wv *WebView) Stop(ctx context.Context) error {
 }
 
 // GoBack navigates back in history.
-// Uses JavaScript history.back() first for SPA compatibility, falls back to WebKit native.
+// Uses WebKit native navigation first, falls back to JavaScript history.back() for SPA compatibility.
 func (wv *WebView) GoBack(ctx context.Context) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
@@ -783,7 +783,7 @@ func (wv *WebView) GoBack(ctx context.Context) error {
 }
 
 // GoForward navigates forward in history.
-// Uses JavaScript history.forward() first for SPA compatibility, falls back to WebKit native.
+// Uses WebKit native navigation first, falls back to JavaScript history.forward() for SPA compatibility.
 func (wv *WebView) GoForward(ctx context.Context) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
