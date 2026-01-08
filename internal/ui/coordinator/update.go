@@ -99,11 +99,10 @@ func (c *UpdateCoordinator) checkAsync(ctx context.Context) {
 // showUpdateNotification displays a toast notification about the update.
 func (c *UpdateCoordinator) showUpdateNotification(ctx context.Context, result *usecase.CheckUpdateOutput) {
 	var msg string
-	if result.CanAutoUpdate && c.config.Update.AutoDownload {
+	switch {
+	case result.CanAutoUpdate && c.config.Update.AutoDownload:
 		msg = fmt.Sprintf("Downloading update %s...", result.LatestVersion)
-	} else if result.CanAutoUpdate {
-		msg = fmt.Sprintf("Update %s available", result.LatestVersion)
-	} else {
+	default:
 		msg = fmt.Sprintf("Update %s available", result.LatestVersion)
 	}
 
