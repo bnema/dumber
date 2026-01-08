@@ -177,9 +177,9 @@ func (ap *AccentPicker) selectAccent(index int) {
 		return
 	}
 	accent := ap.accents[index]
-	// Invoke callback while holding lock to avoid race with Hide() clearing callbacks
-	ap.selectedCb(accent)
-	ap.mu.Unlock()
+	cb := ap.selectedCb // Copy callback reference before unlocking
+	ap.mu.Unlock()      // Release lock BEFORE calling callback to avoid deadlock
+	cb(accent)          // Callback may call Hide() which needs to acquire ap.mu
 }
 
 // cancel cancels the accent picker.
@@ -189,9 +189,9 @@ func (ap *AccentPicker) cancel() {
 		ap.mu.Unlock()
 		return
 	}
-	// Invoke callback while holding lock to avoid race with Hide() clearing callbacks
-	ap.cancelCb()
-	ap.mu.Unlock()
+	cb := ap.cancelCb // Copy callback reference before unlocking
+	ap.mu.Unlock()    // Release lock BEFORE calling callback to avoid deadlock
+	cb()              // Callback may call Hide() which needs to acquire ap.mu
 }
 
 // setupKeyboardHandling sets up key event handling for navigation.
