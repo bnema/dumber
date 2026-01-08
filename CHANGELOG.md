@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.25.0] - 2026-01-08
 
 ### Added
 - **File download handling**: Downloads from websites now save to the user's download directory with toast notifications for start/complete/failed states. Configurable via `downloads.path` (defaults to `$XDG_DOWNLOAD_DIR` or `~/Downloads`).
