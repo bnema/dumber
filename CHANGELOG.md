@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - **Flatpak files location**: Moved flatpak-related files to `flatpak/` directory. Fixes #101.
 - **Navigation shortcuts**: `Ctrl+Left/Right` now triggers back/forward navigation, `Alt+Left/Right` moves focus between panes. Fixes #98.
+- **Update notification**: Simplified update toaster message for AUR/Flatpak users - no longer shows "manual install required". Fixes #109.
 
 ### Fixed
 - **SPA mouse navigation**: Fixed unreliable back/forward mouse button navigation in Single Page Applications. WebKit's `BackForwardList` doesn't track JavaScript History API (`pushState`/`replaceState`) navigation. Now uses JavaScript `history.back()`/`history.forward()` as fallback when WebKit native navigation is unavailable.

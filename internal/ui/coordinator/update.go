@@ -104,7 +104,7 @@ func (c *UpdateCoordinator) showUpdateNotification(ctx context.Context, result *
 	} else if result.CanAutoUpdate {
 		msg = fmt.Sprintf("Update %s available", result.LatestVersion)
 	} else {
-		msg = fmt.Sprintf("Update %s available (manual install required)", result.LatestVersion)
+		msg = fmt.Sprintf("Update %s available", result.LatestVersion)
 	}
 
 	// Dispatch to GTK main thread.
