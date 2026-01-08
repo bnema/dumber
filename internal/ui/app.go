@@ -928,6 +928,9 @@ func (a *App) rebuildAndAttachWorkspace(ctx context.Context, tabID entity.TabID,
 		return
 	}
 	a.contentCoord.AttachToWorkspace(ctx, tab.Workspace, wsView)
+	if a.wsCoord != nil {
+		a.wsCoord.SetupStackedPaneCallbacks(ctx, tab.Workspace, wsView)
+	}
 }
 
 func (a *App) switchToTargetTabIfConfigured(ctx context.Context, out *usecase.MovePaneToTabOutput) {

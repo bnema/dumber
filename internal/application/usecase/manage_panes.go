@@ -455,6 +455,7 @@ func clampFloat64(v, minVal, maxVal float64) float64 {
 
 // Close removes a pane and promotes its sibling.
 // Returns the sibling node that was promoted, or nil if this was the last pane.
+// For stacked panes, removes the pane from the stack via RemoveFromStack.
 func (uc *ManagePanesUseCase) Close(ctx context.Context, ws *entity.Workspace, paneNode *entity.PaneNode) (*entity.PaneNode, error) {
 	log := logging.FromContext(ctx)
 	if uc == nil {
@@ -482,7 +483,12 @@ func (uc *ManagePanesUseCase) Close(ctx context.Context, ws *entity.Workspace, p
 		return nil, nil
 	}
 
-	// Find sibling
+	// Handle stacked panes differently - they can have more than 2 children
+	if parent.IsStacked {
+		return uc.closeStackedPane(ctx, ws, paneNode, parent)
+	}
+
+	// Binary split: find sibling (the other child of parent)
 	var sibling *entity.PaneNode
 	for _, child := range parent.Children {
 		if child != paneNode {
@@ -537,6 +543,94 @@ func (uc *ManagePanesUseCase) Close(ctx context.Context, ws *entity.Workspace, p
 		Msg("pane closed, sibling promoted")
 
 	return sibling, nil
+}
+
+// closeStackedPane handles closing a pane within a stack.
+// If multiple panes remain, removes the pane from the stack.
+// If only one pane would remain, dissolves the stack.
+func (uc *ManagePanesUseCase) closeStackedPane(
+	ctx context.Context,
+	ws *entity.Workspace,
+	paneNode *entity.PaneNode,
+	stackNode *entity.PaneNode,
+) (*entity.PaneNode, error) {
+	log := logging.FromContext(ctx)
+
+	paneID := paneNode.Pane.ID
+
+	// If more than 2 panes in stack, just remove this one
+	if len(stackNode.Children) > 2 {
+		if err := uc.RemoveFromStack(ctx, stackNode, paneID); err != nil {
+			return nil, fmt.Errorf("failed to remove pane from stack: %w", err)
+		}
+
+		// Update active pane if we closed the active one
+		if ws.ActivePaneID == paneID {
+			// Use the pane at the current active index
+			if stackNode.ActiveStackIndex >= 0 && stackNode.ActiveStackIndex < len(stackNode.Children) {
+				activeChild := stackNode.Children[stackNode.ActiveStackIndex]
+				if activeChild.Pane != nil {
+					ws.ActivePaneID = activeChild.Pane.ID
+				}
+			}
+		}
+
+		log.Info().
+			Str("pane_id", string(paneID)).
+			Int("remaining", len(stackNode.Children)).
+			Msg("pane removed from stack")
+
+		return stackNode, nil
+	}
+
+	// If exactly 2 panes, remove this one and dissolve the stack
+	if len(stackNode.Children) == 2 {
+		// Find the remaining pane
+		var remaining *entity.PaneNode
+		for _, child := range stackNode.Children {
+			if child.Pane != nil && child.Pane.ID != paneID {
+				remaining = child
+				break
+			}
+		}
+
+		if remaining == nil {
+			return nil, fmt.Errorf("no remaining pane found in stack")
+		}
+
+		// Dissolve the stack: promote remaining pane to stack's position
+		grandparent := stackNode.Parent
+
+		if grandparent == nil {
+			// Stack was root, remaining becomes new root
+			ws.Root = remaining
+			remaining.Parent = nil
+		} else {
+			// Replace stack with remaining in grandparent
+			for i, child := range grandparent.Children {
+				if child == stackNode {
+					grandparent.Children[i] = remaining
+					break
+				}
+			}
+			remaining.Parent = grandparent
+		}
+
+		// Update active pane if we closed the active one
+		if ws.ActivePaneID == paneID && remaining.Pane != nil {
+			ws.ActivePaneID = remaining.Pane.ID
+		}
+
+		log.Info().
+			Str("closed_pane_id", string(paneID)).
+			Str("remaining_pane_id", remaining.ID).
+			Msg("stack dissolved, remaining pane promoted")
+
+		return remaining, nil
+	}
+
+	// Should not happen: stack with less than 2 children
+	return nil, fmt.Errorf("invalid stack: has %d children", len(stackNode.Children))
 }
 
 // Focus sets the active pane in the workspace.
