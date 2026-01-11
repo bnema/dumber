@@ -289,6 +289,49 @@ func (m *Manager) Save(cfg *Config) error {
 	return nil
 }
 
+// SaveKeybindings saves keybinding-related configuration to disk.
+func (m *Manager) SaveKeybindings(cfg *Config) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if cfg == nil {
+		return fmt.Errorf("config is nil")
+	}
+
+	// Update Viper with keybinding values
+	// Pane mode
+	m.viper.Set("workspace.pane_mode.actions", cfg.Workspace.PaneMode.Actions)
+	m.viper.Set("workspace.pane_mode.activation_shortcut", cfg.Workspace.PaneMode.ActivationShortcut)
+
+	// Tab mode
+	m.viper.Set("workspace.tab_mode.actions", cfg.Workspace.TabMode.Actions)
+	m.viper.Set("workspace.tab_mode.activation_shortcut", cfg.Workspace.TabMode.ActivationShortcut)
+
+	// Resize mode
+	m.viper.Set("workspace.resize_mode.actions", cfg.Workspace.ResizeMode.Actions)
+	m.viper.Set("workspace.resize_mode.activation_shortcut", cfg.Workspace.ResizeMode.ActivationShortcut)
+
+	// Session mode
+	m.viper.Set("session.session_mode.actions", cfg.Session.SessionMode.Actions)
+	m.viper.Set("session.session_mode.activation_shortcut", cfg.Session.SessionMode.ActivationShortcut)
+
+	// Global shortcuts
+	m.viper.Set("workspace.shortcuts.actions", cfg.Workspace.Shortcuts.Actions)
+
+	if err := m.viper.WriteConfig(); err != nil {
+		return fmt.Errorf("failed to write config: %w", err)
+	}
+
+	// Reload if not watching
+	if !m.watching {
+		if err := m.reload(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // GetConfigFile returns the path to the configuration file being used.
 func (m *Manager) GetConfigFile() string {
 	return m.viper.ConfigFileUsed()
@@ -443,13 +486,7 @@ func (m *Manager) setWorkspaceDefaults(defaults *Config) {
 	m.viper.SetDefault("workspace.resize_mode.step_percent", defaults.Workspace.ResizeMode.StepPercent)
 	m.viper.SetDefault("workspace.resize_mode.min_pane_percent", defaults.Workspace.ResizeMode.MinPanePercent)
 	m.viper.SetDefault("workspace.resize_mode.actions", defaults.Workspace.ResizeMode.Actions)
-	m.viper.SetDefault("workspace.shortcuts.close_pane", defaults.Workspace.Shortcuts.ClosePane)
-	m.viper.SetDefault("workspace.shortcuts.next_tab", defaults.Workspace.Shortcuts.NextTab)
-	m.viper.SetDefault("workspace.shortcuts.previous_tab", defaults.Workspace.Shortcuts.PreviousTab)
-	m.viper.SetDefault("workspace.shortcuts.consume_or_expel_left", defaults.Workspace.Shortcuts.ConsumeOrExpelLeft)
-	m.viper.SetDefault("workspace.shortcuts.consume_or_expel_right", defaults.Workspace.Shortcuts.ConsumeOrExpelRight)
-	m.viper.SetDefault("workspace.shortcuts.consume_or_expel_up", defaults.Workspace.Shortcuts.ConsumeOrExpelUp)
-	m.viper.SetDefault("workspace.shortcuts.consume_or_expel_down", defaults.Workspace.Shortcuts.ConsumeOrExpelDown)
+	m.viper.SetDefault("workspace.shortcuts.actions", defaults.Workspace.Shortcuts.Actions)
 	m.viper.SetDefault("workspace.tab_bar_position", defaults.Workspace.TabBarPosition)
 	m.viper.SetDefault("workspace.hide_tab_bar_when_single_tab", defaults.Workspace.HideTabBarWhenSingleTab)
 	m.viper.SetDefault("workspace.switch_to_tab_on_move", defaults.Workspace.SwitchToTabOnMove)

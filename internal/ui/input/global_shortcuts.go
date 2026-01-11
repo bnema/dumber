@@ -94,20 +94,29 @@ func NewGlobalShortcutHandler(
 		Msg("registered global shortcut")
 
 	if cfg != nil {
-		registerFromConfig := func(key string, action Action) {
-			binding, ok := ParseKeyString(key)
-			if !ok {
-				log.Warn().Str("shortcut", key).Str("action", string(action)).Msg("failed to parse global shortcut")
-				return
-			}
-			h.registerShortcut(binding.Keyval, gdk.ModifierType(binding.Modifiers), action)
-			log.Trace().Str("shortcut", key).Str("action", string(action)).Msg("registered global shortcut")
+		// Map action names to action constants for global shortcuts
+		actionMap := map[string]Action{
+			"consume_or_expel_left":  ActionConsumeOrExpelLeft,
+			"consume_or_expel_right": ActionConsumeOrExpelRight,
+			"consume_or_expel_up":    ActionConsumeOrExpelUp,
+			"consume_or_expel_down":  ActionConsumeOrExpelDown,
 		}
 
-		registerFromConfig(cfg.Workspace.Shortcuts.ConsumeOrExpelLeft, ActionConsumeOrExpelLeft)
-		registerFromConfig(cfg.Workspace.Shortcuts.ConsumeOrExpelRight, ActionConsumeOrExpelRight)
-		registerFromConfig(cfg.Workspace.Shortcuts.ConsumeOrExpelUp, ActionConsumeOrExpelUp)
-		registerFromConfig(cfg.Workspace.Shortcuts.ConsumeOrExpelDown, ActionConsumeOrExpelDown)
+		for actionName, actionBinding := range cfg.Workspace.Shortcuts.Actions {
+			action, ok := actionMap[actionName]
+			if !ok {
+				continue
+			}
+			for _, keyStr := range actionBinding.Keys {
+				binding, ok := ParseKeyString(keyStr)
+				if !ok {
+					log.Warn().Str("shortcut", keyStr).Str("action", string(action)).Msg("failed to parse global shortcut")
+					continue
+				}
+				h.registerShortcut(binding.Keyval, gdk.ModifierType(binding.Modifiers), action)
+				log.Trace().Str("shortcut", keyStr).Str("action", string(action)).Msg("registered global shortcut")
+			}
+		}
 	}
 
 	// Attach to window
