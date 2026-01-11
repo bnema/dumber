@@ -3,6 +3,7 @@
   import { ModeWatcher } from "mode-watcher";
   import ConfigShell from "./config/ConfigShell.svelte";
   import ShortcutsTable from "./config/ShortcutsTable.svelte";
+  import KeybindingsTab from "./config/KeybindingsTab.svelte";
   import * as AlertDialog from "$lib/components/ui/alert-dialog";
   import { Button } from "$lib/components/ui/button";
   import { ColorPicker } from "$lib/components/ui/color-picker";
@@ -298,6 +299,7 @@
           <Tabs.List class="bg-muted/60">
             <Tabs.Trigger value="appearance">Appearance</Tabs.Trigger>
             <Tabs.Trigger value="search">Search</Tabs.Trigger>
+            <Tabs.Trigger value="keybindings">Keybindings</Tabs.Trigger>
             <Tabs.Trigger value="performance">Performance</Tabs.Trigger>
           </Tabs.List>
         </div>
@@ -422,6 +424,10 @@
               </div>
             </Card.Content>
           </Card.Root>
+        </Tabs.Content>
+
+        <Tabs.Content value="keybindings">
+          <KeybindingsTab />
         </Tabs.Content>
 
         <Tabs.Content value="performance">
