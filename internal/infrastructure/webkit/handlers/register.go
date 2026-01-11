@@ -36,6 +36,11 @@ func RegisterAll(ctx context.Context, router *webkit.MessageRouter, cfg Config) 
 		return err
 	}
 
+	// Keybindings handlers (always available)
+	if err := RegisterKeybindingsHandlers(ctx, router); err != nil {
+		return err
+	}
+
 	// Clipboard handlers (for auto-copy on selection feature)
 	if cfg.Clipboard != nil && cfg.ConfigGetter != nil {
 		if err := RegisterClipboardHandlers(ctx, router, cfg.Clipboard, cfg.ConfigGetter, cfg.OnClipboardCopied); err != nil {
