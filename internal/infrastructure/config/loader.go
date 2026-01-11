@@ -130,7 +130,24 @@ func (m *Manager) readConfigFile() error {
 			return fmt.Errorf("failed to read config file at %s: %w\nCheck the file format (must be valid TOML) and permissions", configFile, err)
 		}
 	}
+
+	// Transform legacy action bindings before unmarshaling
+	m.transformLegacyActionBindings()
+
 	return nil
+}
+
+// transformLegacyActionBindings converts old-format action bindings to new format.
+// This is called after reading config but before unmarshaling.
+func (m *Manager) transformLegacyActionBindings() {
+	rawConfig := m.viper.AllSettings()
+	transformer := NewLegacyConfigTransformer()
+	transformer.TransformLegacyActions(rawConfig)
+
+	// Apply transformed config back to viper
+	for key, value := range rawConfig {
+		m.viper.Set(key, value)
+	}
 }
 
 func (m *Manager) unmarshalConfig() (*Config, error) {

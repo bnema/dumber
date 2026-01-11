@@ -74,10 +74,18 @@
   }
 
   async function saveBinding(keys: string[]) {
-    if (!editingBinding) return;
+    console.log("[DEBUG] saveBinding called with keys:", keys, "editingBinding:", editingBinding);
+    if (!editingBinding) {
+      console.log("[DEBUG] saveBinding: no editingBinding, returning");
+      return;
+    }
 
     const bridge = getWebKitBridge();
-    if (!bridge) return;
+    console.log("[DEBUG] saveBinding: bridge =", bridge);
+    if (!bridge) {
+      console.log("[DEBUG] saveBinding: no bridge, returning");
+      return;
+    }
 
     (window as any).__dumber_keybinding_set = () => {
       loadKeybindings();

@@ -189,7 +189,7 @@
 
     <AlertDialog.Footer>
       <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-      <AlertDialog.Action onclick={() => onSave(newKeys)}>Save</AlertDialog.Action>
+      <AlertDialog.Action onclick={() => { console.log("[DEBUG] Save clicked, newKeys:", newKeys); onSave(newKeys); }}>Save</AlertDialog.Action>
     </AlertDialog.Footer>
   </AlertDialog.Content>
 </AlertDialog.Root>

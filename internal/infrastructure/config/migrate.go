@@ -371,6 +371,10 @@ func (m *Migrator) Migrate() ([]string, error) {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
+	// Transform legacy action bindings (slice -> ActionBinding struct)
+	transformer := NewLegacyConfigTransformer()
+	transformer.TransformLegacyActions(rawConfig)
+
 	// Build sets of keys to remove and renames to apply
 	keysToRemove := make(map[string]bool)
 	renames := make(map[string]string) // oldKey -> newKey
@@ -634,6 +638,10 @@ func (m *Migrator) getUserConfigKeysWithValues(configFile string) (map[string]an
 	if err := toml.Unmarshal(data, &rawConfig); err != nil {
 		return nil, fmt.Errorf("failed to parse TOML: %w", err)
 	}
+
+	// Transform legacy action bindings before flattening
+	transformer := NewLegacyConfigTransformer()
+	transformer.TransformLegacyActions(rawConfig)
 
 	// Flatten the map to dot-notation keys with values
 	result := make(map[string]any)
