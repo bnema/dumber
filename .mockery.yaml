@@ -27,6 +27,8 @@ packages:
       FocusedInputProvider: {}
       AccentPickerUI: {}
       FontDetector: {}
+      KeybindingsProvider: {}
+      KeybindingsSaver: {}
   github.com/bnema/dumber/internal/domain/repository:
     config:
       dir: '{{.InterfaceDir}}/mocks'
