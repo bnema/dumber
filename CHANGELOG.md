@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Visual keybindings editor**: New Keybindings tab in `dumb://config` allows editing all keyboard shortcuts via a visual UI. Supports key capture, reset to defaults, and per-binding reset. Fixes #123.
+- **Keybindings hot reload**: Changed keybindings take effect immediately without restarting the browser.
+
+### Changed
+- **Simplified keybinding syntax**: Keybindings now use symbol syntax (`[`, `]`, `{`, `}`) instead of verbose GTK names (`bracketleft`, `braceleft`). Fixes #122.
+- **BREAKING: Global shortcuts config structure**: `workspace.shortcuts` changed from individual string fields to unified `Actions` map with `ActionBinding` (keys + description). Existing custom shortcuts in config.toml will be replaced with defaults. Use the new Keybindings UI to reconfigure.
+
 ### Fixed
 - **Session snapshot FK constraint**: Fixed SQLite foreign key constraint violation when snapshot service tried to save before session was persisted to database. Added ready flag and callback notification pattern.
 - **Stacked pane index out of bounds**: Fixed crash when domain model and UI got out of sync during stacked pane operations. Added bounds checking and proper rollback when UI updates fail.
