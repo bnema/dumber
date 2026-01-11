@@ -213,7 +213,13 @@ func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager,
 
 	entry, ok := r.getHandler(msg.Type)
 	if !ok || entry.handler == nil {
-		log.Warn().Str("type", msg.Type).Msg("no handler registered for message type")
+		log.Warn().Str("type", msg.Type).Int("registered_handlers", len(r.handlers)).Msg("no handler registered for message type")
+		// Debug: list all registered handlers
+		r.mu.RLock()
+		for handlerType := range r.handlers {
+			log.Debug().Str("registered_type", handlerType).Msg("available handler")
+		}
+		r.mu.RUnlock()
 		return
 	}
 
@@ -221,9 +227,11 @@ func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager,
 		Str("type", msg.Type).
 		Uint64("webview_id", msg.WebViewID).
 		Int("payload_len", len(msg.Payload)).
-		Msg("received script message")
+		Str("callback", entry.callback).
+		Msg("received script message, dispatching to handler")
 
 	resp, err := entry.handler.Handle(r.baseCtx, WebViewID(msg.WebViewID), msg.Payload)
+	log.Debug().Str("type", msg.Type).Err(err).Msg("handler execution completed")
 	if err != nil {
 		log.Error().Err(err).Str("type", msg.Type).Msg("message handler returned error")
 		if entry.errorCallback != "" {
