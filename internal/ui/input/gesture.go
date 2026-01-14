@@ -107,11 +107,20 @@ func (h *GestureHandler) handlePressed(nPress int) {
 	if handler != nil {
 		if err := handler(h.ctx, action); err != nil {
 			log := logging.FromContext(h.ctx)
-			log.Error().
-				Err(err).
-				Str("action", string(action)).
-				Uint("button", button).
-				Msg("gesture action handler error")
+			// Navigation errors are expected (e.g., no back/forward history)
+			if action == ActionGoBack || action == ActionGoForward {
+				log.Debug().
+					Err(err).
+					Str("action", string(action)).
+					Uint("button", button).
+					Msg("gesture navigation not available")
+			} else {
+				log.Error().
+					Err(err).
+					Str("action", string(action)).
+					Uint("button", button).
+					Msg("gesture action handler error")
+			}
 		}
 	}
 }
