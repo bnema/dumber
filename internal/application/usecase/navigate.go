@@ -17,6 +17,9 @@ const (
 	// historyQueueSize is the buffer size for the async history queue.
 	// If the queue is full, new records are dropped with a warning.
 	historyQueueSize = 100
+
+	// logURLMaxLen is the max length for URLs in log messages.
+	logURLMaxLen = 60
 )
 
 // historyRecord holds data for async history recording.
@@ -137,7 +140,7 @@ func (uc *NavigateUseCase) RecordHistory(ctx context.Context, url string) {
 	// Non-blocking send to async queue
 	select {
 	case uc.historyQueue <- historyRecord{url: url, timestamp: now}:
-		log.Debug().Str("url", url).Msg("history record queued")
+		log.Debug().Str("url", logging.TruncateURL(url, logURLMaxLen)).Msg("history record queued")
 	default:
 		// Queue full - log warning but don't block navigation
 		log.Warn().Str("url", url).Msg("history queue full, dropping record")
@@ -205,7 +208,7 @@ func (uc *NavigateUseCase) UpdateHistoryTitle(ctx context.Context, url, title st
 
 	// Normalize URL to match storage (e.g., github.com/ -> github.com)
 	url = normalizeURLForHistory(url)
-	log.Debug().Str("url", url).Str("title", title).Msg("updating history title")
+	log.Debug().Str("url", logging.TruncateURL(url, logURLMaxLen)).Str("title", title).Msg("updating history title")
 
 	entry, err := uc.historyRepo.FindByURL(ctx, url)
 	if err != nil {
