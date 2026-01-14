@@ -217,6 +217,11 @@ func configureDeferredInit(
 	if uiDeps == nil {
 		return
 	}
+
+	// If session was already persisted (not deferred), mark snapshot service ready immediately
+	// via callback that will be set by the app after initialization
+	sessionAlreadyPersisted := session == nil || session.Persist == nil
+
 	uiDeps.OnFirstWebViewShown = func(cbCtx context.Context) {
 		logger := logging.FromContext(cbCtx)
 		bgCtx := logging.WithContext(context.Background(), *logger)
@@ -227,10 +232,19 @@ func configureDeferredInit(
 			})
 			logDeferredInitResults(bgCtx, result)
 		}()
-		if session != nil && session.Persist != nil {
+
+		if sessionAlreadyPersisted {
+			// Session was persisted eagerly, notify immediately
+			if uiDeps.OnSessionPersisted != nil {
+				uiDeps.OnSessionPersisted()
+			}
+		} else if session.Persist != nil {
+			// Session persist is deferred, notify after it completes
 			go func() {
 				if persistErr := session.Persist(bgCtx); persistErr != nil {
 					logger.Error().Err(persistErr).Msg("deferred session persistence failed")
+				} else if uiDeps.OnSessionPersisted != nil {
+					uiDeps.OnSessionPersisted()
 				}
 			}()
 		}

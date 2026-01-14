@@ -19,6 +19,7 @@ type Service struct {
 	mu     sync.Mutex
 	timer  *time.Timer
 	dirty  bool
+	ready  bool // true when session is persisted to DB and snapshots can be saved
 	ctx    context.Context
 	cancel context.CancelFunc
 }
@@ -46,6 +47,15 @@ func (s *Service) Start(ctx context.Context) {
 
 	s.ctx, s.cancel = context.WithCancel(ctx)
 	logging.FromContext(ctx).Debug().Dur("interval", s.interval).Msg("snapshot service started")
+}
+
+// SetReady marks the service as ready to save snapshots.
+// Call this after the session has been persisted to the database
+// to avoid FK constraint violations.
+func (s *Service) SetReady() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.ready = true
 }
 
 // Stop stops the service and saves final state.
@@ -112,7 +122,13 @@ func (s *Service) SaveNow(ctx context.Context) error {
 func (s *Service) saveSnapshot(ctx context.Context) error {
 	s.mu.Lock()
 	s.dirty = false
+	ready := s.ready
 	s.mu.Unlock()
+
+	// Don't save until session is persisted to avoid FK constraint violations
+	if !ready {
+		return nil
+	}
 
 	tabList := s.provider.GetTabList()
 	sessionID := s.provider.GetSessionID()

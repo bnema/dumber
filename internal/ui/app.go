@@ -1016,6 +1016,11 @@ func (a *App) initSnapshotService(ctx context.Context) {
 	a.snapshotService = snapshot.NewService(a.deps.SnapshotUC, a, intervalMs)
 	a.snapshotService.Start(ctx)
 
+	// Set up callback for main.go to notify when session is persisted
+	a.deps.OnSessionPersisted = func() {
+		a.snapshotService.SetReady()
+	}
+
 	log.Debug().Int("interval_ms", intervalMs).Msg("snapshot service started")
 }
 
