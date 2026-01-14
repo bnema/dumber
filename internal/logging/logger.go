@@ -189,3 +189,11 @@ func ParseLevel(level string) zerolog.Level {
 		return zerolog.InfoLevel
 	}
 }
+
+// TruncateURL truncates a URL to maxLen characters for logging.
+func TruncateURL(url string, maxLen int) string {
+	if len(url) <= maxLen {
+		return url
+	}
+	return url[:maxLen] + "..."
+}
