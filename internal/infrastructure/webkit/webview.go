@@ -327,10 +327,19 @@ func NewWebViewWithRelated(ctx context.Context, parent *WebView, settings *Setti
 		return nil, fmt.Errorf("parent webview %d is destroyed", parent.id)
 	}
 
+	log.Debug().
+		Uint64("parent_ptr", uint64(parent.inner.GoPointer())).
+		Msg("creating related webview with parent pointer")
+
 	inner := webkit.NewWebViewWithRelatedView(parent.inner)
 	if inner == nil {
 		return nil, fmt.Errorf("failed to create related webkit webview")
 	}
+
+	log.Debug().
+		Uint64("new_ptr", uint64(inner.GoPointer())).
+		Uint64("new_widget_ptr", uint64(inner.Widget.GoPointer())).
+		Msg("related webview created, checking pointers")
 
 	wv := &WebView{
 		inner:     inner,
@@ -445,6 +454,12 @@ func (wv *WebView) connectCreateSignal() {
 		if newWV == nil {
 			return gtk.Widget{} // Block popup
 		}
+
+		// DEBUG: Log the pointer being returned
+		wv.logger.Debug().
+			Uint64("returning_ptr", uint64(newWV.inner.GoPointer())).
+			Uint64("returning_widget_ptr", uint64(newWV.inner.Widget.GoPointer())).
+			Msg("create signal returning webview widget")
 
 		return newWV.inner.Widget
 	}
