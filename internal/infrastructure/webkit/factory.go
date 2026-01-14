@@ -6,6 +6,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
+	wk "github.com/bnema/puregotk-webkit/webkit"
 )
 
 // WebViewFactory creates WebView instances for the application.
@@ -112,6 +113,24 @@ func (f *WebViewFactory) CreateRelated(ctx context.Context, parentID port.WebVie
 	// Attach frontend (scripts, message handler)
 	if err := wv.AttachFrontend(ctx, f.injector, f.router); err != nil {
 		log.Warn().Err(err).Uint64("id", uint64(wv.ID())).Msg("failed to attach frontend to related webview")
+	}
+
+	// DEBUG: Inject script to check window.opener status
+	openerDebugScript := wk.NewUserScript(
+		`console.log('[DUMBER DEBUG] window.opener:', window.opener);
+		 console.log('[DUMBER DEBUG] window.opener type:', typeof window.opener);
+		 if (window.opener) {
+		   console.log('[DUMBER DEBUG] window.opener.location:', window.opener.location?.href || 'BLOCKED');
+		   console.log('[DUMBER DEBUG] can postMessage:', typeof window.opener.postMessage);
+		 }`,
+		wk.UserContentInjectAllFramesValue,
+		wk.UserScriptInjectAtDocumentStartValue,
+		nil,
+		nil,
+	)
+	if openerDebugScript != nil {
+		wv.ucm.AddScript(openerDebugScript)
+		log.Debug().Msg("injected window.opener debug script into popup")
 	}
 
 	// Apply content filters if configured

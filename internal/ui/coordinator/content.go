@@ -21,7 +21,10 @@ import (
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 )
 
-const aboutBlankURI = "about:blank"
+const (
+	aboutBlankURI = "about:blank"
+	logURLMaxLen  = 80
+)
 
 // ContentCoordinator manages WebView lifecycle, title tracking, and content attachment.
 type ContentCoordinator struct {
@@ -1289,16 +1292,28 @@ func (c *ContentCoordinator) handlePopupReadyToShow(ctx context.Context, popupID
 	popupPane.URI = pending.TargetURI
 
 	// Enable OAuth auto-close if configured
-	if c.popupConfig != nil && c.popupConfig.OAuthAutoClose && IsOAuthURL(pending.TargetURI) {
-		popupPane.AutoClose = true
-		c.setupOAuthAutoClose(ctx, paneID, pending.WebView)
-	}
+	hasConfig := c.popupConfig != nil
+	oauthEnabled := hasConfig && c.popupConfig.OAuthAutoClose
+	isOAuth := IsOAuthURL(pending.TargetURI)
+	log.Debug().
+		Bool("has_config", hasConfig).
+		Bool("oauth_enabled", oauthEnabled).
+		Bool("is_oauth", isOAuth).
+		Str("uri", logging.TruncateURL(pending.TargetURI, logURLMaxLen)).
+		Msg("popup OAuth check")
 
 	// Register WebView in our map
 	c.webViews[paneID] = pending.WebView
 
-	// Setup standard callbacks
+	// Setup standard callbacks first
 	c.setupWebViewCallbacks(ctx, paneID, pending.WebView)
+
+	// Setup OAuth auto-close AFTER standard callbacks so we can wrap them
+	if hasConfig && oauthEnabled && isOAuth {
+		popupPane.AutoClose = true
+		c.setupOAuthAutoClose(ctx, paneID, pending.WebView)
+		log.Debug().Str("pane_id", string(paneID)).Msg("OAuth auto-close enabled for popup")
+	}
 
 	// Request insertion into workspace
 	if c.onInsertPopup != nil {
@@ -1426,8 +1441,43 @@ func (c *ContentCoordinator) setupWebViewCallbacks(ctx context.Context, paneID e
 }
 
 // setupOAuthAutoClose monitors the popup for OAuth callback URLs and auto-closes.
+// It uses URL pattern detection for standard OAuth callbacks (code=, access_token=, etc.)
+// For providers using postMessage (like Google Sign-In), we rely on the provider calling
+// window.close() which triggers WebKit's close signal.
+// A long safety timeout (30s) catches popups that get stuck.
 func (c *ContentCoordinator) setupOAuthAutoClose(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
 	log := logging.FromContext(ctx)
+
+	// Safety timeout - only triggers if popup gets stuck (provider should close via window.close)
+	var safetyTimer *time.Timer
+	var safetyTimerMu sync.Mutex
+	const oauthSafetyTimeout = 30 * time.Second
+
+	startSafetyTimer := func() {
+		safetyTimerMu.Lock()
+		defer safetyTimerMu.Unlock()
+		if safetyTimer != nil {
+			safetyTimer.Stop()
+		}
+		safetyTimer = time.AfterFunc(oauthSafetyTimeout, func() {
+			if wv != nil && !wv.IsDestroyed() {
+				log.Warn().Str("pane", string(paneID)).Msg("oauth safety timeout, closing stuck popup")
+				wv.Close()
+			}
+		})
+	}
+
+	cancelSafetyTimer := func() {
+		safetyTimerMu.Lock()
+		defer safetyTimerMu.Unlock()
+		if safetyTimer != nil {
+			safetyTimer.Stop()
+			safetyTimer = nil
+		}
+	}
+
+	// Start safety timer immediately
+	startSafetyTimer()
 
 	// Wrap the existing OnURIChanged to also check for OAuth callbacks
 	originalURIChanged := wv.OnURIChanged
@@ -1437,39 +1487,32 @@ func (c *ContentCoordinator) setupOAuthAutoClose(ctx context.Context, paneID ent
 			originalURIChanged(uri)
 		}
 
-		// Check for OAuth callback
+		// Check for OAuth callback (URL-based detection)
 		if ShouldAutoClose(uri) {
-			log.Info().
-				Str("pane_id", string(paneID)).
-				Str("uri", uri).
-				Msg("OAuth callback detected, auto-closing popup")
-
-			// Trigger close after a short delay to let the page process
+			cancelSafetyTimer()
+			log.Info().Str("pane", string(paneID)).Msg("oauth callback detected, closing")
 			go func() {
 				time.Sleep(500 * time.Millisecond)
 				if wv != nil && !wv.IsDestroyed() {
-					// This will trigger handlePopupClose
 					wv.Close()
 				}
 			}()
 		}
 	}
 
-	// Also check on load committed for immediate redirects
+	// Monitor load events for URL-based detection
 	originalLoadChanged := wv.OnLoadChanged
 	wv.OnLoadChanged = func(event webkit.LoadEvent) {
 		if originalLoadChanged != nil {
 			originalLoadChanged(event)
 		}
 
+		// Check URL on commit for immediate detection
 		if event == webkit.LoadCommitted {
 			uri := wv.URI()
 			if ShouldAutoClose(uri) {
-				log.Info().
-					Str("pane_id", string(paneID)).
-					Str("uri", uri).
-					Msg("OAuth callback detected on load, auto-closing popup")
-
+				cancelSafetyTimer()
+				log.Info().Str("pane", string(paneID)).Msg("oauth callback on load, closing")
 				go func() {
 					time.Sleep(500 * time.Millisecond)
 					if wv != nil && !wv.IsDestroyed() {
