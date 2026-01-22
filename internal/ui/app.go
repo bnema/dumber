@@ -590,6 +590,9 @@ func (a *App) initOmniboxConfig(ctx context.Context) {
 	}
 	shortcutsUC := usecase.NewSearchShortcutsUseCase(shortcuts)
 
+	// Create autocomplete use case for inline suggestions
+	autocompleteUC := usecase.NewAutocompleteUseCase(a.deps.HistoryUC, a.deps.FavoritesUC, shortcutsUC)
+
 	// Store omnibox config (omnibox is created per-pane via WorkspaceView).
 	a.omniboxCfg = component.OmniboxConfig{
 		HistoryUC:       a.deps.HistoryUC,
@@ -597,6 +600,7 @@ func (a *App) initOmniboxConfig(ctx context.Context) {
 		FaviconAdapter:  a.faviconAdapter,
 		CopyURLUC:       a.deps.CopyURLUC,
 		ShortcutsUC:     shortcutsUC,
+		AutocompleteUC:  autocompleteUC,
 		DefaultSearch:   a.deps.Config.DefaultSearchEngine,
 		InitialBehavior: a.deps.Config.Omnibox.InitialBehavior,
 		UIScale:         a.deps.Config.DefaultUIScale,
