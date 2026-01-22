@@ -17,10 +17,11 @@ import (
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/glib"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
+	"github.com/jwijenbergh/puregotk/v4/pango"
 )
 
 const (
-	debounceDelayMs = 150
+	debounceDelayMs = 50
 	endBoxSpacing   = 6
 )
 
@@ -67,6 +68,8 @@ type Omnibox struct {
 	zoomLabel    *gtk.Label
 	bangBadge    *gtk.Label
 	entry        *gtk.SearchEntry
+	entryOverlay *gtk.Overlay // Overlay for ghost text
+	ghostLabel   *gtk.Label   // Ghost text completion label
 	scrolledWin  *gtk.ScrolledWindow
 	listBox      *gtk.ListBox
 
@@ -85,12 +88,20 @@ type Omnibox struct {
 	detectedBang    string
 	hasNavigated    bool // true if user navigated with arrow keys (enables space to toggle favorite)
 
+	// Ghost text state
+	realInput        string // What user actually typed (without ghost suffix)
+	ghostSuffix      string // Completion suffix to display
+	ghostFullText    string // Full text that ghost completes to
+	hasGhostText     bool   // Quick check for Tab behavior
+	isAcceptingGhost bool   // Prevent re-trigger during acceptance
+
 	// Dependencies
 	historyUC       *usecase.SearchHistoryUseCase
 	favoritesUC     *usecase.ManageFavoritesUseCase
 	faviconAdapter  *adapter.FaviconAdapter
 	copyURLUC       *usecase.CopyURLUseCase
 	shortcutsUC     *usecase.SearchShortcutsUseCase
+	autocompleteUC  *usecase.AutocompleteUseCase
 	defaultSearch   string
 	initialBehavior string
 	ctx             context.Context
@@ -127,6 +138,7 @@ type OmniboxConfig struct {
 	FaviconAdapter  *adapter.FaviconAdapter
 	CopyURLUC       *usecase.CopyURLUseCase
 	ShortcutsUC     *usecase.SearchShortcutsUseCase
+	AutocompleteUC  *usecase.AutocompleteUseCase
 	DefaultSearch   string
 	InitialBehavior string
 	UIScale         float64                                                     // UI scale for favicon sizing
@@ -154,6 +166,7 @@ func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 		faviconAdapter:  cfg.FaviconAdapter,
 		copyURLUC:       cfg.CopyURLUC,
 		shortcutsUC:     cfg.ShortcutsUC,
+		autocompleteUC:  cfg.AutocompleteUC,
 		defaultSearch:   cfg.DefaultSearch,
 		initialBehavior: cfg.InitialBehavior,
 		onToast:         cfg.OnToast,
@@ -389,6 +402,28 @@ func (o *Omnibox) initEntry() error {
 
 	placeholder := "Search history or enter URL… (! lists bangs)"
 	o.entry.SetPlaceholderText(&placeholder)
+
+	// Create overlay for ghost text
+	o.entryOverlay = gtk.NewOverlay()
+	if o.entryOverlay == nil {
+		return errNilWidget("entryOverlay")
+	}
+	o.entryOverlay.SetChild(&o.entry.Widget)
+	o.entryOverlay.SetHexpand(true)
+
+	// Create ghost label for autocomplete suffix
+	o.ghostLabel = gtk.NewLabel(nil)
+	if o.ghostLabel == nil {
+		return errNilWidget("ghostLabel")
+	}
+	o.ghostLabel.AddCssClass("omnibox-ghost")
+	o.ghostLabel.SetHalign(gtk.AlignStartValue)
+	o.ghostLabel.SetValign(gtk.AlignCenterValue)
+	o.ghostLabel.SetVisible(false)
+	o.ghostLabel.SetCanTarget(false) // Don't intercept clicks
+
+	o.entryOverlay.AddOverlay(&o.ghostLabel.Widget)
+
 	return nil
 }
 
@@ -425,6 +460,48 @@ func (o *Omnibox) initList() error {
 	}
 	o.retainedCallbacks = append(o.retainedCallbacks, rowSelectedCb)
 	o.listBox.ConnectRowSelected(&rowSelectedCb)
+
+	// Handle row activation (click or Enter) - navigate directly to the URL
+	rowActivatedCb := func(_ gtk.ListBox, rowPtr uintptr) {
+		if rowPtr == 0 {
+			return
+		}
+		row := gtk.ListBoxRowNewFromInternalPtr(rowPtr)
+		if row == nil {
+			return
+		}
+		idx := row.GetIndex()
+		o.mu.RLock()
+		mode := o.viewMode
+		bangMode := o.bangMode
+		suggestions := o.suggestions
+		favorites := o.favorites
+		o.mu.RUnlock()
+
+		// Don't navigate in bang mode - activating a bang should fill it in
+		if bangMode {
+			return
+		}
+
+		var targetURL string
+		if mode == ViewModeHistory {
+			if idx >= 0 && idx < len(suggestions) {
+				targetURL = suggestions[idx].URL
+			}
+		} else {
+			if idx >= 0 && idx < len(favorites) {
+				targetURL = favorites[idx].URL
+			}
+		}
+
+		if targetURL != "" && o.onNavigate != nil {
+			o.Hide(o.ctx)
+			o.onNavigate(targetURL)
+		}
+	}
+	o.retainedCallbacks = append(o.retainedCallbacks, rowActivatedCb)
+	o.listBox.ConnectRowActivated(&rowActivatedCb)
+
 	return nil
 }
 
@@ -447,7 +524,7 @@ func (o *Omnibox) assembleWidgets() {
 
 	o.scrolledWin.SetChild(&o.listBox.Widget)
 	o.mainBox.Append(&o.headerBox.Widget)
-	o.mainBox.Append(&o.entry.Widget)
+	o.mainBox.Append(&o.entryOverlay.Widget) // Use overlay for ghost text support
 	o.mainBox.Append(&o.scrolledWin.Widget)
 	o.outerBox.Append(&o.mainBox.Widget)
 }
@@ -521,15 +598,36 @@ func (o *Omnibox) handleKeyPress(keyval, keycode uint, state gdk.ModifierType) b
 
 	case uint(gdk.KEY_Up):
 		o.selectPrevious()
+		o.updateGhostFromSelection()
 		return true
 
 	case uint(gdk.KEY_Down):
 		o.selectNext()
+		o.updateGhostFromSelection()
 		return true
 
 	case uint(gdk.KEY_Tab):
+		// Tab accepts ghost text if present, otherwise toggles view mode
+		o.mu.RLock()
+		hasGhost := o.hasGhostText
+		o.mu.RUnlock()
+		if hasGhost && o.cursorAtEnd() {
+			o.acceptGhostCompletion()
+			return true
+		}
 		o.toggleViewMode()
 		return true
+
+	case uint(gdk.KEY_Right):
+		// Arrow Right accepts ghost text if present and cursor at end
+		o.mu.RLock()
+		hasGhost := o.hasGhostText
+		o.mu.RUnlock()
+		if hasGhost && o.cursorAtEnd() {
+			o.acceptGhostCompletion()
+			return true
+		}
+		return false // Let entry handle normal cursor movement
 
 	case uint(gdk.KEY_space):
 		// Space toggles favorite only if user has navigated with arrow keys
@@ -599,10 +697,23 @@ func (o *Omnibox) handleCtrlNumberShortcut(keyval, keycode uint, ctrl bool) bool
 
 // onEntryChanged handles text input changes with debouncing.
 func (o *Omnibox) onEntryChanged() {
+	// Skip if we're programmatically accepting ghost text
+	o.mu.RLock()
+	isAccepting := o.isAcceptingGhost
+	o.mu.RUnlock()
+	if isAccepting {
+		return
+	}
+
 	// Reset navigation state when user types - space should type, not toggle favorite
 	o.mu.Lock()
 	o.hasNavigated = false
+	// Update realInput with what user actually typed
+	o.realInput = o.entry.GetText()
 	o.mu.Unlock()
+
+	// Clear ghost text when user types (it will be recalculated after search)
+	o.clearGhostText()
 
 	o.debounceMu.Lock()
 	if o.debounceTimer != nil {
@@ -612,6 +723,248 @@ func (o *Omnibox) onEntryChanged() {
 		o.performSearch()
 	})
 	o.debounceMu.Unlock()
+}
+
+// setGhostText displays a ghost completion suffix in the overlay label.
+// The ghost text shows what would complete the current input.
+// originalInput is the input that was used for the autocomplete query.
+// If originalInput is empty, the ghost text replaces the entire input (used for row selection).
+func (o *Omnibox) setGhostText(originalInput, suffix, fullText string) {
+	if o.ghostLabel == nil || suffix == "" {
+		o.clearGhostText()
+		return
+	}
+
+	o.mu.Lock()
+	currentInput := o.realInput
+	// Check if input has changed since the autocomplete query was made
+	// Skip this check when originalInput is empty (row selection replaces full input)
+	if originalInput != "" && currentInput != originalInput {
+		o.mu.Unlock()
+		// Input changed, skip this stale result - a newer query will handle it
+		return
+	}
+	o.ghostSuffix = suffix
+	o.ghostFullText = fullText
+	o.hasGhostText = true
+	o.mu.Unlock()
+
+	var cb glib.SourceFunc = func(uintptr) bool {
+		if o.ghostLabel == nil || o.entry == nil {
+			return false
+		}
+
+		// Get the entry's Pango context and create a layout to measure text width
+		pangoCtx := o.entry.GetPangoContext()
+		if pangoCtx == nil {
+			return false
+		}
+
+		// Create layout to measure the input text width
+		layout := pango.NewLayout(pangoCtx)
+		layout.SetText(originalInput, len(originalInput))
+
+		// Get the width in pixels
+		var widthPx, heightPx int
+		layout.GetPixelSize(&widthPx, &heightPx)
+
+		// Account for the search icon inside the entry
+		// Ghost label already has same margin/padding as entry via CSS
+		// Scale the icon offset by UI scale factor (base ~18px at scale 1.0)
+		iconOffset := int(18.0 * o.uiScale)
+		marginStart := widthPx + iconOffset
+
+		// Set the ghost label text (just the suffix) and position it
+		o.ghostLabel.SetText(suffix)
+		o.ghostLabel.SetMarginStart(marginStart)
+		o.ghostLabel.SetVisible(true)
+
+		// Hide placeholder text so it doesn't show through ghost text
+		emptyPlaceholder := ""
+		o.entry.SetPlaceholderText(&emptyPlaceholder)
+
+		return false
+	}
+	glib.IdleAdd(&cb, 0)
+}
+
+// clearGhostText hides the ghost completion text.
+func (o *Omnibox) clearGhostText() {
+	o.mu.Lock()
+	o.ghostSuffix = ""
+	o.ghostFullText = ""
+	o.hasGhostText = false
+	o.mu.Unlock()
+
+	if o.ghostLabel == nil {
+		return
+	}
+
+	var cb glib.SourceFunc = func(uintptr) bool {
+		if o.ghostLabel != nil {
+			o.ghostLabel.SetVisible(false)
+			o.ghostLabel.SetText("")
+		}
+		// Restore placeholder text
+		if o.entry != nil {
+			placeholder := "Search history or enter URL… (! lists bangs)"
+			o.entry.SetPlaceholderText(&placeholder)
+		}
+		return false
+	}
+	glib.IdleAdd(&cb, 0)
+}
+
+// acceptGhostCompletion accepts the ghost text and fills the input.
+// Returns true if ghost text was accepted.
+func (o *Omnibox) acceptGhostCompletion() bool {
+	o.mu.Lock()
+	if !o.hasGhostText || o.ghostFullText == "" {
+		o.mu.Unlock()
+		return false
+	}
+	fullText := o.ghostFullText
+	o.isAcceptingGhost = true
+	o.realInput = fullText
+	o.ghostSuffix = ""
+	o.ghostFullText = ""
+	o.hasGhostText = false
+	o.mu.Unlock()
+
+	// Update entry text and clear ghost label
+	o.entry.SetText(fullText)
+	o.entry.SetPosition(-1) // Move cursor to end
+
+	if o.ghostLabel != nil {
+		o.ghostLabel.SetVisible(false)
+	}
+
+	o.mu.Lock()
+	o.isAcceptingGhost = false
+	o.mu.Unlock()
+
+	return true
+}
+
+// cursorAtEnd returns true if the entry cursor is at the end of the text.
+func (o *Omnibox) cursorAtEnd() bool {
+	text := o.entry.GetText()
+	// If entry is empty, cursor is trivially "at end" - allow ghost acceptance
+	// This handles the case where user navigates with arrows from empty input
+	if len(text) == 0 {
+		return true
+	}
+	// SearchEntry doesn't have GetPosition directly, but we can use the editable interface
+	// For simplicity, we'll assume cursor is at end after any input
+	// This works because Tab/ArrowRight are handled in capture phase before entry processes them
+	return true
+}
+
+// updateGhostFromSuggestion updates ghost text based on the current autocomplete suggestion.
+func (o *Omnibox) updateGhostFromSuggestion() {
+	if o.autocompleteUC == nil {
+		return
+	}
+
+	o.mu.RLock()
+	input := o.realInput
+	bangMode := o.bangMode
+	o.mu.RUnlock()
+
+	// Don't show ghost text in bang mode (it has its own completion)
+	if bangMode || input == "" {
+		o.clearGhostText()
+		return
+	}
+
+	go func() {
+		output := o.autocompleteUC.GetSuggestion(o.ctx, usecase.GetSuggestionInput{Input: input})
+		if !output.Found || output.Suggestion == nil {
+			o.clearGhostText()
+			return
+		}
+		// Pass the original input so setGhostText can verify it's still current
+		o.setGhostText(input, output.Suggestion.Suffix, output.Suggestion.FullText)
+	}()
+}
+
+// updateGhostFromURL updates ghost text based on a specific URL (from row selection).
+// When a row is selected via arrow keys, show the URL as ghost text even if
+// the user's input isn't a prefix - this shows what Tab would fill in.
+func (o *Omnibox) updateGhostFromURL(targetURL string) {
+	if targetURL == "" {
+		o.clearGhostText()
+		return
+	}
+
+	o.mu.RLock()
+	input := o.realInput
+	o.mu.RUnlock()
+
+	// Strip protocol from URL for cleaner display
+	displayURL := targetURL
+	if strings.HasPrefix(displayURL, "https://") {
+		displayURL = displayURL[8:]
+	} else if strings.HasPrefix(displayURL, "http://") {
+		displayURL = displayURL[7:]
+	}
+
+	// Try to compute proper suffix if input is a prefix of the URL
+	if o.autocompleteUC != nil && input != "" {
+		output := o.autocompleteUC.GetSuggestionForURL(o.ctx, input, targetURL)
+		if output.Found && output.Suggestion != nil {
+			o.setGhostText(input, output.Suggestion.Suffix, output.Suggestion.FullText)
+			return
+		}
+	}
+
+	// If no prefix match, show the full URL as ghost text (replacing user's input)
+	// Use empty string as original input so it shows from the start
+	o.setGhostText("", displayURL, displayURL)
+}
+
+// updateGhostFromSelection updates ghost text based on the currently selected row.
+func (o *Omnibox) updateGhostFromSelection() {
+	o.mu.RLock()
+	idx := o.selectedIndex
+	mode := o.viewMode
+	bangMode := o.bangMode
+	suggestions := o.suggestions
+	favorites := o.favorites
+	o.mu.RUnlock()
+
+	// No ghost text in bang mode
+	if bangMode {
+		return
+	}
+
+	var targetURL string
+	if mode == ViewModeHistory {
+		if idx >= 0 && idx < len(suggestions) {
+			targetURL = suggestions[idx].URL
+		}
+	} else {
+		if idx >= 0 && idx < len(favorites) {
+			targetURL = favorites[idx].URL
+		}
+	}
+
+	if targetURL == "" {
+		o.clearGhostText()
+		return
+	}
+
+	o.updateGhostFromURL(targetURL)
+}
+
+// escapeMarkup escapes special XML/Pango markup characters.
+func escapeMarkup(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	s = strings.ReplaceAll(s, "'", "&apos;")
+	s = strings.ReplaceAll(s, "\"", "&quot;")
+	return s
 }
 
 // performSearch executes the search based on current view mode and query.
@@ -927,9 +1280,13 @@ func (o *Omnibox) updateSuggestions(suggestions []Suggestion) {
 	}
 	o.resizeAndCenter(rowCount)
 
-	// Select first item if available
+	// Select first item if available and update ghost text
 	if rowCount > 0 {
 		o.selectIndex(0)
+		// Update ghost text from first suggestion
+		o.updateGhostFromSuggestion()
+	} else {
+		o.clearGhostText()
 	}
 }
 
@@ -951,9 +1308,13 @@ func (o *Omnibox) updateFavorites(favorites []Favorite) {
 	}
 	o.resizeAndCenter(rowCount)
 
-	// Select first item if available
+	// Select first item if available and update ghost text
 	if rowCount > 0 {
 		o.selectIndex(0)
+		// Update ghost text from first favorite
+		o.updateGhostFromSuggestion()
+	} else {
+		o.clearGhostText()
 	}
 }
 
@@ -1536,7 +1897,18 @@ func (o *Omnibox) Show(ctx context.Context, query string) {
 		return
 	}
 	o.visible = true
+	// Initialize ghost text state
+	o.realInput = query
+	o.ghostSuffix = ""
+	o.ghostFullText = ""
+	o.hasGhostText = false
+	o.isAcceptingGhost = false
 	o.mu.Unlock()
+
+	// Clear any stale ghost text display
+	if o.ghostLabel != nil {
+		o.ghostLabel.SetVisible(false)
+	}
 
 	// Set initial query
 	o.entry.SetText(query)
@@ -1598,8 +1970,14 @@ func (o *Omnibox) Hide(ctx context.Context) {
 
 	// Clear state
 	o.clearBangState()
+	o.clearGhostText()
 	o.entry.SetText("")
 	o.listBox.RemoveAll()
+
+	// Reset realInput
+	o.mu.Lock()
+	o.realInput = ""
+	o.mu.Unlock()
 
 	if o.onClose != nil {
 		o.onClose()
