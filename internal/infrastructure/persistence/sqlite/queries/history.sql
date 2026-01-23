@@ -57,6 +57,21 @@ WHERE fts.url MATCH @query
 ORDER BY h.visit_count DESC, h.last_visited DESC
 LIMIT @limit;
 
+-- name: SearchHistoryFTSUrlWithDomainBoost :many
+SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.created_at,
+       CASE
+           WHEN h.url LIKE '%://' || @term || '.%' THEN 2
+           WHEN h.url LIKE '%://%.' || @term || '.%' THEN 2
+           WHEN h.url LIKE '%://' || @term || '/%' THEN 2
+           WHEN h.url LIKE '%://%.' || @term || '/%' THEN 1
+           ELSE 0
+       END as domain_boost
+FROM history_fts fts
+JOIN history h ON fts.rowid = h.id
+WHERE fts.url MATCH @query
+ORDER BY domain_boost DESC, h.visit_count DESC, h.last_visited DESC
+LIMIT @limit;
+
 -- name: SearchHistoryFTSTitle :many
 SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.created_at
 FROM history_fts fts

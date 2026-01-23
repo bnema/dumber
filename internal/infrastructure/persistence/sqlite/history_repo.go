@@ -66,13 +66,15 @@ func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]en
 	ftsQuery := strings.Join(parts, " ")
 
 	// Search both URL and title columns, then merge results
-	urlRows, urlErr := r.queries.SearchHistoryFTSUrl(ctx, sqlc.SearchHistoryFTSUrlParams{
+	// Use domain-boosted query for URL search to prioritize domain matches
+	urlRows, urlErr := r.queries.SearchHistoryFTSUrlWithDomainBoost(ctx, sqlc.SearchHistoryFTSUrlWithDomainBoostParams{
+		Term:  sql.NullString{String: words[0], Valid: true},
 		Query: ftsQuery,
 		Limit: int64(limit),
 	})
 	if urlErr != nil {
 		log.Debug().Err(urlErr).Str("query", query).Msg("FTS URL search failed")
-		urlRows = []sqlc.History{}
+		urlRows = []sqlc.SearchHistoryFTSUrlWithDomainBoostRow{}
 	}
 
 	titleRows, titleErr := r.queries.SearchHistoryFTSTitle(ctx, sqlc.SearchHistoryFTSTitleParams{
@@ -97,7 +99,7 @@ func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]en
 			if !seen[row.ID] {
 				seen[row.ID] = true
 				matches = append(matches, entity.HistoryMatch{
-					Entry: historyFromRow(row),
+					Entry: historyFromDomainBoostRow(row),
 					Score: 1.0,
 				})
 			}
@@ -118,6 +120,18 @@ func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]en
 	}
 
 	return matches, nil
+}
+
+func historyFromDomainBoostRow(row sqlc.SearchHistoryFTSUrlWithDomainBoostRow) *entity.HistoryEntry {
+	return &entity.HistoryEntry{
+		ID:          row.ID,
+		URL:         row.Url,
+		Title:       row.Title.String,
+		FaviconURL:  row.FaviconUrl.String,
+		VisitCount:  row.VisitCount.Int64,
+		LastVisited: row.LastVisited.Time,
+		CreatedAt:   row.CreatedAt.Time,
+	}
 }
 
 // sanitizeFTS5Word removes FTS5 special characters from a search word.
