@@ -3,9 +3,11 @@ package component
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -16,14 +18,14 @@ import (
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/glib"
+	"github.com/jwijenbergh/puregotk/v4/graphene"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 	"github.com/jwijenbergh/puregotk/v4/pango"
 )
 
 const (
-	debounceDelayMs     = 50
-	endBoxSpacing       = 6
-	ghostIconOffsetBase = 18 // Base icon offset for ghost text positioning (scaled by uiScale)
+	debounceDelayMs = 50
+	endBoxSpacing   = 6
 )
 
 // ViewMode distinguishes history search from favorites display.
@@ -419,7 +421,8 @@ func (o *Omnibox) initEntry() error {
 	}
 	o.ghostLabel.AddCssClass("omnibox-ghost")
 	o.ghostLabel.SetHalign(gtk.AlignStartValue)
-	o.ghostLabel.SetValign(gtk.AlignCenterValue)
+	o.ghostLabel.SetValign(gtk.AlignCenterValue) // Center vertically to match entry's centered text
+	o.ghostLabel.SetXalign(0)
 	o.ghostLabel.SetVisible(false)
 	o.ghostLabel.SetCanTarget(false) // Don't intercept clicks
 
@@ -770,15 +773,41 @@ func (o *Omnibox) setGhostText(originalInput, suffix, fullText string) {
 		var widthPx, heightPx int
 		layout.GetPixelSize(&widthPx, &heightPx)
 
-		// Account for the search icon inside the entry
-		// Ghost label already has same margin/padding as entry via CSS
-		// Scale the icon offset by UI scale factor
-		iconOffset := int(float64(ghostIconOffsetBase) * o.uiScale)
-		marginStart := widthPx + iconOffset
-
-		// Set the ghost label text (just the suffix) and position it
+		// Set the ghost label text (just the suffix) and position it horizontally
 		o.ghostLabel.SetText(suffix)
+
+		marginStart := widthPx
+		delegate := o.entry.GetDelegate()
+		if delegate != nil && o.entryOverlay != nil {
+			textWidget := gtk.TextNewFromInternalPtr(delegate.GoPointer())
+			if textWidget != nil {
+				var textBounds graphene.Rect
+				if textWidget.ComputeBounds(&o.entryOverlay.Widget, &textBounds) {
+					cursorPos := uint(utf8.RuneCountInString(originalInput))
+					var strongRect, weakRect graphene.Rect
+					textWidget.ComputeCursorExtents(cursorPos, &strongRect, &weakRect)
+					cursorX := float64(textBounds.GetX() + strongRect.GetX())
+					marginStart = int(math.Round(cursorX))
+				}
+			}
+		}
+
+		// Clamp horizontal position to entry bounds
+		if marginStart < 0 {
+			marginStart = 0
+		}
+		if o.entryOverlay != nil {
+			var entryBounds graphene.Rect
+			if o.entry.ComputeBounds(&o.entryOverlay.Widget, &entryBounds) {
+				minStart := int(math.Round(float64(entryBounds.GetX())))
+				if marginStart < minStart {
+					marginStart = minStart
+				}
+			}
+		}
+
 		o.ghostLabel.SetMarginStart(marginStart)
+		// Vertical positioning handled by CSS (.omnibox-ghost) to scale correctly with UI
 		o.ghostLabel.SetVisible(true)
 
 		// Hide placeholder text so it doesn't show through ghost text
