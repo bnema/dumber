@@ -450,16 +450,17 @@ func (wv *WebView) connectCreateSignal() {
 			ParentID:      wv.id,
 		}
 
+		wv.logger.Info().Msg("CREATE SIGNAL: before OnCreate")
 		newWV := wv.OnCreate(popupReq)
+		wv.logger.Info().Bool("nil", newWV == nil).Msg("CREATE SIGNAL: after OnCreate")
 		if newWV == nil {
 			return gtk.Widget{} // Block popup
 		}
 
-		// DEBUG: Log the pointer being returned
-		wv.logger.Debug().
-			Uint64("returning_ptr", uint64(newWV.inner.GoPointer())).
-			Uint64("returning_widget_ptr", uint64(newWV.inner.Widget.GoPointer())).
-			Msg("create signal returning webview widget")
+		wv.logger.Info().
+			Uint64("parent_id", uint64(wv.id)).
+			Uint64("popup_id", uint64(newWV.id)).
+			Msg("CREATE SIGNAL: returning webview widget to WebKit")
 
 		return newWV.inner.Widget
 	}
@@ -902,6 +903,15 @@ func (wv *WebView) SetBackgroundColor(r, g, b, a float32) {
 		Alpha: a,
 	}
 	wv.inner.SetBackgroundColor(rgba)
+}
+
+// Show makes the WebView widget visible.
+// This should be called after the WebView is ready to be displayed.
+func (wv *WebView) Show() {
+	if wv.destroyed.Load() {
+		return
+	}
+	wv.inner.SetVisible(true)
 }
 
 // State returns the current WebView state as a snapshot.
