@@ -1272,21 +1272,21 @@ func (o *Omnibox) navigateToSelected() {
 
 	var targetURL string
 
-	// Check if user typed a URL-like string (contains . and no spaces)
-	// If so, navigate to that URL directly instead of the selection
-	if o.looksLikeURL(entryText) {
-		targetURL = o.buildURL(entryText)
-	} else if idx < 0 {
-		// No selection - use entry text as URL/search
-		targetURL = o.buildURL(entryText)
-	} else if mode == ViewModeHistory {
-		if idx < len(suggestions) {
-			targetURL = suggestions[idx].URL
+	// If user has selected a result, navigate to that result
+	// Otherwise, treat entry text as URL/search
+	if idx >= 0 {
+		if mode == ViewModeHistory {
+			if idx < len(suggestions) {
+				targetURL = suggestions[idx].URL
+			}
+		} else {
+			if idx < len(favorites) {
+				targetURL = favorites[idx].URL
+			}
 		}
 	} else {
-		if idx < len(favorites) {
-			targetURL = favorites[idx].URL
-		}
+		// No selection - use entry text as URL/search
+		targetURL = o.buildURL(entryText)
 	}
 
 	if targetURL == "" {
@@ -1298,12 +1298,6 @@ func (o *Omnibox) navigateToSelected() {
 	if o.onNavigate != nil {
 		o.onNavigate(targetURL)
 	}
-}
-
-// looksLikeURL checks if the text appears to be a URL (not a search query).
-// Returns true for strings like "github.com", "google.com/search", etc.
-func (o *Omnibox) looksLikeURL(text string) bool {
-	return url.LooksLikeURL(text)
 }
 
 // toggleFavorite adds or removes the selected item from favorites.
