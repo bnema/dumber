@@ -75,11 +75,20 @@ func runGUI() int {
 	cfg := initConfig()
 	timer.Mark("config")
 
+	// Initialize startup trace for cold start tracking (debug/trace only)
+	logging.InitStartupTrace(cfg.Logging.Level)
+	logging.Trace().Mark("config_loaded")
+
 	ctx := initStartupContext(cfg)
 	timer.Mark("logger")
 	bootstrapLog := logging.FromContext(ctx)
 
+	// Set logger for startup trace and mark logger init
+	logging.Trace().SetLogger(bootstrapLog)
+	logging.Trace().Mark("logger_init")
+
 	// Parallel phase: directories and theme setup
+	logging.Trace().Mark("parallel_start")
 	initResult, err := bootstrap.RunParallelInit(bootstrap.ParallelInitInput{
 		Ctx:    ctx,
 		Config: cfg,
@@ -89,6 +98,7 @@ func runGUI() int {
 		return 1
 	}
 	timer.MarkDuration("parallel_phase", initResult.Duration)
+	logging.Trace().Mark("parallel_done")
 
 	needsEagerDB := restoreSessionID != "" || cfg.Session.AutoRestore
 
@@ -113,6 +123,10 @@ func runGUI() int {
 
 	ctx = sessionCtx
 	log := logging.FromContext(ctx)
+
+	// Update startup trace with session logger so milestones go to log file
+	logging.Trace().UpdateLogger(log)
+
 	if stack.MessageRouter != nil {
 		stack.MessageRouter.SetBaseContext(ctx)
 	}

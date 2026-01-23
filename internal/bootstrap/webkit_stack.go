@@ -44,9 +44,11 @@ func BuildWebKitStack(input WebKitStackInput) WebKitStack {
 	themeManager := input.ThemeManager
 	colorResolver := input.ColorResolver
 	logger := input.Logger
+
 	// Detect hardware for performance profile scaling
 	hwSurveyor := env.NewHardwareSurveyor()
 	hwInfo := hwSurveyor.Survey(ctx)
+	logging.Trace().Mark("hardware_survey")
 	logger.Info().
 		Int("cpu_cores", hwInfo.CPUCores).
 		Int("cpu_threads", hwInfo.CPUThreads).
@@ -57,6 +59,7 @@ func BuildWebKitStack(input WebKitStackInput) WebKitStack {
 
 	// Resolve performance profile to get actual settings
 	perfSettings := config.ResolvePerformanceProfile(&cfg.Performance, &hwInfo)
+	logging.Trace().Mark("performance_profile")
 	logger.Info().
 		Str("profile", string(cfg.Performance.Profile)).
 		Int("skia_cpu_threads", perfSettings.SkiaCPUPaintingThreads).
@@ -66,6 +69,7 @@ func BuildWebKitStack(input WebKitStackInput) WebKitStack {
 
 	// Configure rendering environment (must happen before WebKit/GTK init)
 	configureRenderingEnvironment(ctx, cfg, &perfSettings, logger)
+	logging.Trace().Mark("render_env")
 
 	// Build WebKitContext options with memory pressure settings
 	wkOpts := port.WebKitContextOptions{
@@ -97,6 +101,7 @@ func BuildWebKitStack(input WebKitStackInput) WebKitStack {
 	if err != nil {
 		logger.Fatal().Err(err).Msg("failed to initialize WebKit context")
 	}
+	logging.Trace().Mark("webkit_context")
 
 	filterStoreDir := filepath.Join(dataDir, "filters", "store")
 	filterJSONDir := filepath.Join(dataDir, "filters", "json")
@@ -113,6 +118,7 @@ func BuildWebKitStack(input WebKitStackInput) WebKitStack {
 			logger.Warn().Err(err).Msg("failed to initialize filters, will load async")
 		}
 	}
+	logging.Trace().Mark("filter_manager")
 
 	schemeHandler := webkit.NewDumbSchemeHandler(ctx)
 	schemeHandler.SetAssets(assets.WebUIAssets)
@@ -133,6 +139,8 @@ func BuildWebKitStack(input WebKitStackInput) WebKitStack {
 	}
 
 	messageRouter := webkit.NewMessageRouter(ctx)
+	logging.Trace().Mark("settings_manager")
+
 	poolCfg := webkit.DefaultPoolConfig()
 	// Override prewarm count from resolved profile settings
 	if perfSettings.WebViewPoolPrewarmCount > 0 {
@@ -153,6 +161,7 @@ func BuildWebKitStack(input WebKitStackInput) WebKitStack {
 	if err := pool.PrewarmFirst(ctx); err != nil {
 		logger.Warn().Err(err).Msg("failed to prewarm first webview, first tab may be slower")
 	}
+	logging.Trace().Mark("pool_prewarm_first")
 
 	return WebKitStack{
 		Context:       wkCtx,
