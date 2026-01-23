@@ -25,6 +25,7 @@ type Dependencies struct {
 	InitialURL          string // URL to open on startup (optional)
 	RestoreSessionID    string // Session ID to restore on startup (optional)
 	OnFirstWebViewShown func(context.Context)
+	OnSessionPersisted  func() // Called by main after session is persisted to DB
 
 	// Theme and color scheme management
 	Theme           *theme.Manager

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **Session snapshot FK constraint**: Fixed SQLite foreign key constraint violation when snapshot service tried to save before session was persisted to database. Added ready flag and callback notification pattern.
+- **Stacked pane index out of bounds**: Fixed crash when domain model and UI got out of sync during stacked pane operations. Added bounds checking and proper rollback when UI updates fail.
+- **Noisy gesture navigation logs**: Mouse button back/forward navigation errors (expected when no history) now log at debug level instead of error level.
+
 ## [0.25.0] - 2026-01-08
 
 ### Added

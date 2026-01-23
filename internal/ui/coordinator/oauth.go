@@ -101,7 +101,6 @@ func IsOAuthCallback(url string) bool {
 // - Errors: error=, error_description=
 // - Various OAuth providers (Google, GitHub, Auth0, etc.)
 func ShouldAutoClose(url string) bool {
-	// Only auto-close on callback URLs that have OAuth response params
 	return IsOAuthCallback(url)
 }
 

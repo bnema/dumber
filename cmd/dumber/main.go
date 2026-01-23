@@ -29,6 +29,7 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui"
 	"github.com/bnema/dumber/internal/ui/theme"
+	"github.com/rs/zerolog"
 )
 
 // Build-time variables (set via ldflags).
@@ -75,17 +76,12 @@ func runGUI() int {
 	cfg := initConfig()
 	timer.Mark("config")
 
-	ctx := initStartupContext(cfg)
+	ctx := initStartupContextWithTrace(cfg)
 	timer.Mark("logger")
 	bootstrapLog := logging.FromContext(ctx)
 
-	// Parallel phase: directories and theme setup
-	initResult, err := bootstrap.RunParallelInit(bootstrap.ParallelInitInput{
-		Ctx:    ctx,
-		Config: cfg,
-	})
+	initResult, err := runParallelInitPhase(ctx, cfg)
 	if err != nil {
-		handleParallelInitError(ctx, err)
 		return 1
 	}
 	timer.MarkDuration("parallel_phase", initResult.Duration)
@@ -101,44 +97,27 @@ func runGUI() int {
 	}
 	timer.Mark("db_webkit_parallel")
 
-	browserSession, sessionCtx, err := bootstrap.StartBrowserSession(ctx, cfg, repos.session, !needsEagerDB)
-	if err != nil {
-		bootstrapLog.Fatal().Err(err).Msg("failed to start session")
-	}
-	if browserSession.LogCleanup != nil {
-		defer browserSession.LogCleanup()
-	}
-	defer func() { _ = browserSession.End(sessionCtx) }()
+	ctx, browserSession, sessionCleanup := initBrowserSession(ctx, cfg, repos, bootstrapLog)
+	defer sessionCleanup()
 	timer.Mark("session")
 
-	ctx = sessionCtx
 	log := logging.FromContext(ctx)
+	logging.Trace().UpdateLogger(log)
+
 	if stack.MessageRouter != nil {
 		stack.MessageRouter.SetBaseContext(ctx)
 	}
 
-	// Repositories and use cases
 	useCases := createUseCases(repos, cfg)
 	if needsEagerDB {
 		handleAutoRestore(ctx, cfg, useCases, browserSession.Session.ID)
 	}
 
 	idleInhibitor := idle.NewPortalInhibitor(ctx)
-	defer func() {
-		if idleInhibitor != nil {
-			_ = idleInhibitor.Close()
-		}
-	}()
+	defer closeIdleInhibitor(idleInhibitor)
 	timer.Mark("use_cases")
 
-	// Build UI
-	uiDeps := buildUIDependencies(
-		ctx, cfg, initResult.ThemeManager,
-		initResult.ColorResolver, initResult.AdwaitaDetector,
-		&stack, repos, useCases, idleInhibitor, browserSession.Session.ID,
-	)
-	configureDeferredInit(uiDeps, cfg, browserSession)
-	app, err := ui.New(uiDeps)
+	app, err := buildAndConfigureApp(ctx, cfg, initResult, &stack, repos, useCases, idleInhibitor, browserSession)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create application")
 		return 1
@@ -146,10 +125,81 @@ func runGUI() int {
 	timer.Mark("ui_deps")
 	timer.Log(ctx)
 
-	// Signal handling
 	setupSignalHandler(ctx, app)
 
 	return app.Run(ctx, os.Args)
+}
+
+func initStartupContextWithTrace(cfg *config.Config) context.Context {
+	logging.InitStartupTrace(cfg.Logging.Level)
+	logging.Trace().Mark("config_loaded")
+
+	ctx := initStartupContext(cfg)
+	bootstrapLog := logging.FromContext(ctx)
+
+	logging.Trace().SetLogger(bootstrapLog)
+	logging.Trace().Mark("logger_init")
+
+	return ctx
+}
+
+func runParallelInitPhase(ctx context.Context, cfg *config.Config) (*bootstrap.ParallelInitResult, error) {
+	logging.Trace().Mark("parallel_start")
+	initResult, err := bootstrap.RunParallelInit(bootstrap.ParallelInitInput{
+		Ctx:    ctx,
+		Config: cfg,
+	})
+	if err != nil {
+		handleParallelInitError(ctx, err)
+		return nil, err
+	}
+	logging.Trace().Mark("parallel_done")
+	return initResult, nil
+}
+
+func initBrowserSession(
+	ctx context.Context,
+	cfg *config.Config,
+	repos *repositories,
+	bootstrapLog *zerolog.Logger,
+) (context.Context, *bootstrap.BrowserSession, func()) {
+	deferPersist := restoreSessionID == "" && !cfg.Session.AutoRestore
+	browserSession, sessionCtx, err := bootstrap.StartBrowserSession(ctx, cfg, repos.session, deferPersist)
+	if err != nil {
+		bootstrapLog.Fatal().Err(err).Msg("failed to start session")
+	}
+	cleanup := func() {
+		if browserSession.LogCleanup != nil {
+			browserSession.LogCleanup()
+		}
+		_ = browserSession.End(sessionCtx)
+	}
+	return sessionCtx, browserSession, cleanup
+}
+
+func closeIdleInhibitor(inhibitor port.IdleInhibitor) {
+	if inhibitor != nil {
+		_ = inhibitor.Close()
+	}
+}
+
+func buildAndConfigureApp(
+	ctx context.Context,
+	cfg *config.Config,
+	initResult *bootstrap.ParallelInitResult,
+	stack *bootstrap.WebKitStack,
+	repos *repositories,
+	useCases *useCases,
+	idleInhibitor port.IdleInhibitor,
+	browserSession *bootstrap.BrowserSession,
+) (*ui.App, error) {
+	uiDeps := buildUIDependencies(
+		ctx, cfg, initResult.ThemeManager,
+		initResult.ColorResolver, initResult.AdwaitaDetector,
+		stack, repos, useCases, idleInhibitor, browserSession.Session.ID,
+	)
+	configureDeferredInit(uiDeps, cfg, browserSession)
+	return ui.New(uiDeps)
 }
 
 func initStartupContext(cfg *config.Config) context.Context {
@@ -217,6 +267,11 @@ func configureDeferredInit(
 	if uiDeps == nil {
 		return
 	}
+
+	// If session was already persisted (not deferred), mark snapshot service ready immediately
+	// via callback that will be set by the app after initialization
+	sessionAlreadyPersisted := session == nil || session.Persist == nil
+
 	uiDeps.OnFirstWebViewShown = func(cbCtx context.Context) {
 		logger := logging.FromContext(cbCtx)
 		bgCtx := logging.WithContext(context.Background(), *logger)
@@ -227,10 +282,19 @@ func configureDeferredInit(
 			})
 			logDeferredInitResults(bgCtx, result)
 		}()
-		if session != nil && session.Persist != nil {
+
+		if sessionAlreadyPersisted {
+			// Session was persisted eagerly, notify immediately
+			if uiDeps.OnSessionPersisted != nil {
+				uiDeps.OnSessionPersisted()
+			}
+		} else if session.Persist != nil {
+			// Session persist is deferred, notify after it completes
 			go func() {
 				if persistErr := session.Persist(bgCtx); persistErr != nil {
 					logger.Error().Err(persistErr).Msg("deferred session persistence failed")
+				} else if uiDeps.OnSessionPersisted != nil {
+					uiDeps.OnSessionPersisted()
 				}
 			}()
 		}
