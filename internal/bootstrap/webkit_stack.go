@@ -11,6 +11,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/theme"
 	"github.com/rs/zerolog"
 )
@@ -222,4 +223,10 @@ func configureRenderingEnvironment(
 		Str("gpu", string(gpuVendor)).
 		Interface("vars", renderEnv.GetAppliedVars()).
 		Msg("rendering environment configured")
+
+	// Install GLib log handler if configured (captures GTK4/WebKitGTK6 messages)
+	if cfg.Logging.CaptureGTKLogs {
+		enableDebug := cfg.Logging.Level == "debug" || cfg.Logging.Level == "trace"
+		logging.InstallGLibLogHandler(ctx, logger, enableDebug)
+	}
 }
