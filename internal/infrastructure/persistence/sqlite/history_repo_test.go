@@ -484,3 +484,74 @@ func TestHistoryRepository_Search_PrefixMatching(t *testing.T) {
 	assert.True(t, urls["https://github.com"])
 	assert.True(t, urls["https://gitlab.com"])
 }
+
+func TestHistoryRepository_Search_DomainLikeQuery(t *testing.T) {
+	ctx := historyTestCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewHistoryRepository(db)
+
+	// Save entries with domain-like URLs
+	entries := []*entity.HistoryEntry{
+		{URL: "https://gordon.bnema.dev/", Title: "Gordon - Self-hosted Deployment Platform"},
+		{URL: "https://example.com", Title: "Example Site"},
+		{URL: "https://other.gordon.io", Title: "Another Gordon Site"},
+	}
+	for _, e := range entries {
+		require.NoError(t, repo.Save(ctx, e))
+	}
+
+	// Search with period in query (domain-like) - periods should be treated as separators
+	// "gordon.bnem" should match "gordon.bnema.dev" (tokens: gordon, bnem -> gordon, bnema)
+	results, err := repo.Search(ctx, "gordon.bnem", 10)
+	require.NoError(t, err)
+	require.NotEmpty(t, results, "domain-like query 'gordon.bnem' should match gordon.bnema.dev")
+
+	// Verify the gordon.bnema.dev entry is found
+	found := false
+	for _, r := range results {
+		if r.Entry.URL == "https://gordon.bnema.dev/" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "gordon.bnema.dev should be in results")
+}
+
+func TestHistoryRepository_Search_SpecialCharacters(t *testing.T) {
+	ctx := historyTestCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewHistoryRepository(db)
+
+	// Save entry
+	require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{
+		URL:   "https://example.com/path",
+		Title: "Example Page",
+	}))
+
+	// Search with FTS5 special characters - should not cause errors
+	specialQueries := []string{
+		"example:",     // colon
+		"example*",     // asterisk
+		"example()",    // parentheses
+		`example"test`, // quotes
+		"example^",     // caret
+		"example-test", // hyphen
+	}
+
+	for _, q := range specialQueries {
+		results, err := repo.Search(ctx, q, 10)
+		require.NoError(t, err, "query %q should not cause error", q)
+		// May or may not find results, but should not error
+		_ = results
+	}
+}
