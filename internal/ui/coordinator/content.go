@@ -1261,19 +1261,6 @@ func (c *ContentCoordinator) handlePopupCreate(
 		Str("uri", logging.TruncateURL(req.TargetURI, logURLMaxLen)).
 		Msg("popup OAuth check")
 
-	// Register WebView in our map
-	c.webViews[paneID] = popupWV
-
-	// Setup standard callbacks
-	c.setupWebViewCallbacks(ctx, paneID, popupWV)
-
-	// Setup OAuth auto-close if configured
-	if hasConfig && oauthEnabled && isOAuth {
-		popupPane.AutoClose = true
-		c.setupOAuthAutoClose(ctx, paneID, popupWV)
-		log.Debug().Str("pane_id", string(paneID)).Msg("OAuth auto-close enabled for popup")
-	}
-
 	// Insert into workspace IMMEDIATELY (WebView stays hidden)
 	// This is required for WebKit to establish window.opener relationship
 	if c.onInsertPopup != nil {
@@ -1289,11 +1276,22 @@ func (c *ContentCoordinator) handlePopupCreate(
 
 		if err := c.onInsertPopup(ctx, popupInput); err != nil {
 			log.Error().Err(err).Msg("failed to insert popup into workspace")
-			// Clean up on failure
-			delete(c.webViews, paneID)
 			popupWV.Destroy()
 			return nil
 		}
+	}
+
+	// Register WebView in our map (after successful insertion)
+	c.webViews[paneID] = popupWV
+
+	// Setup standard callbacks (after successful insertion to avoid leak)
+	c.setupWebViewCallbacks(ctx, paneID, popupWV)
+
+	// Setup OAuth auto-close if configured
+	if hasConfig && oauthEnabled && isOAuth {
+		popupPane.AutoClose = true
+		c.setupOAuthAutoClose(ctx, paneID, popupWV)
+		log.Debug().Str("pane_id", string(paneID)).Msg("OAuth auto-close enabled for popup")
 	}
 
 	// Store pending popup for ready-to-show handling (just visibility now)
@@ -1324,7 +1322,7 @@ func (c *ContentCoordinator) handlePopupCreate(
 		Uint64("popup_id", uint64(popupID)).
 		Str("pane_id", string(paneID)).
 		Str("popup_type", popupType.String()).
-		Str("target_uri", req.TargetURI).
+		Str("target_uri", logging.TruncateURL(req.TargetURI, logURLMaxLen)).
 		Msg("popup inserted (hidden), awaiting ready-to-show for visibility")
 
 	return popupWV
@@ -1361,7 +1359,7 @@ func (c *ContentCoordinator) handlePopupReadyToShow(ctx context.Context, popupID
 
 	log.Info().
 		Uint64("popup_id", uint64(popupID)).
-		Str("target_uri", pending.TargetURI).
+		Str("target_uri", logging.TruncateURL(pending.TargetURI, logURLMaxLen)).
 		Msg("popup now visible")
 }
 
@@ -1542,6 +1540,15 @@ func (c *ContentCoordinator) setupOAuthAutoClose(ctx context.Context, paneID ent
 					}
 				}()
 			}
+		}
+	}
+
+	// Wrap OnClose to cancel safety timer when popup closes normally
+	originalOnClose := wv.OnClose
+	wv.OnClose = func() {
+		cancelSafetyTimer()
+		if originalOnClose != nil {
+			originalOnClose()
 		}
 	}
 }

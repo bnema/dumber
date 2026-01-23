@@ -188,6 +188,12 @@ func configureRenderingEnvironment(
 	perfSettings *config.ResolvedPerformanceSettings,
 	logger zerolog.Logger,
 ) {
+	// Install GLib log handler FIRST if configured (must be before any GTK/GLib calls)
+	if cfg.Logging.CaptureGTKLogs {
+		enableDebug := cfg.Logging.Level == "debug" || cfg.Logging.Level == "trace"
+		logging.InstallGLibLogHandler(ctx, logger, enableDebug)
+	}
+
 	renderEnv := env.NewManager()
 	gpuVendor := renderEnv.DetectGPUVendor(ctx)
 	renderSettings := port.RenderingEnvSettings{
@@ -223,10 +229,4 @@ func configureRenderingEnvironment(
 		Str("gpu", string(gpuVendor)).
 		Interface("vars", renderEnv.GetAppliedVars()).
 		Msg("rendering environment configured")
-
-	// Install GLib log handler if configured (captures GTK4/WebKitGTK6 messages)
-	if cfg.Logging.CaptureGTKLogs {
-		enableDebug := cfg.Logging.Level == "debug" || cfg.Logging.Level == "trace"
-		logging.InstallGLibLogHandler(ctx, logger, enableDebug)
-	}
 }

@@ -450,17 +450,17 @@ func (wv *WebView) connectCreateSignal() {
 			ParentID:      wv.id,
 		}
 
-		wv.logger.Info().Msg("CREATE SIGNAL: before OnCreate")
+		wv.logger.Debug().Msg("create signal: invoking OnCreate handler")
 		newWV := wv.OnCreate(popupReq)
-		wv.logger.Info().Bool("nil", newWV == nil).Msg("CREATE SIGNAL: after OnCreate")
+		wv.logger.Debug().Bool("nil", newWV == nil).Msg("create signal: OnCreate returned")
 		if newWV == nil {
 			return gtk.Widget{} // Block popup
 		}
 
-		wv.logger.Info().
+		wv.logger.Debug().
 			Uint64("parent_id", uint64(wv.id)).
 			Uint64("popup_id", uint64(newWV.id)).
-			Msg("CREATE SIGNAL: returning webview widget to WebKit")
+			Msg("create signal: returning webview widget to WebKit")
 
 		return newWV.inner.Widget
 	}
