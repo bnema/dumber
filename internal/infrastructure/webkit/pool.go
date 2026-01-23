@@ -312,7 +312,8 @@ func (p *WebViewPool) PrewarmAsync(ctx context.Context, count int) {
 			schedule()
 			return false
 		})
-		glib.IdleAdd(&cb, 0)
+		// Use LOW priority so initial navigation and other high-priority work runs first
+		glib.IdleAddFull(glib.PRIORITY_LOW, &cb, 0, nil)
 	}
 
 	schedule()

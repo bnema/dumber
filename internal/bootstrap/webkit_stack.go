@@ -39,13 +39,41 @@ type WebKitStack struct {
 func BuildWebKitStack(input WebKitStackInput) WebKitStack {
 	ctx := input.Ctx
 	cfg := input.Config
-	dataDir := input.DataDir
-	cacheDir := input.CacheDir
-	themeManager := input.ThemeManager
-	colorResolver := input.ColorResolver
 	logger := input.Logger
 
-	// Detect hardware for performance profile scaling
+	perfSettings := surveyHardwareAndResolveProfile(ctx, cfg, logger)
+
+	configureRenderingEnvironment(ctx, cfg, &perfSettings, logger)
+	logging.Trace().Mark("render_env")
+
+	wkOpts := buildWebKitContextOptions(input.DataDir, input.CacheDir, &perfSettings)
+	wkCtx, err := webkit.NewWebKitContextWithOptions(ctx, wkOpts)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("failed to initialize WebKit context")
+	}
+	logging.Trace().Mark("webkit_context")
+
+	filterManager := initFilterManager(ctx, cfg, input.DataDir, logger)
+
+	schemeHandler := webkit.NewDumbSchemeHandler(ctx)
+	schemeHandler.SetAssets(assets.WebUIAssets)
+	schemeHandler.RegisterWithContext(wkCtx)
+
+	settings, injector, messageRouter := initWebKitComponents(ctx, cfg, input.ThemeManager, input.ColorResolver, logger)
+
+	pool := initWebViewPool(ctx, wkCtx, settings, injector, messageRouter, input.ThemeManager, filterManager, &perfSettings, logger)
+
+	return WebKitStack{
+		Context:       wkCtx,
+		Settings:      settings,
+		Injector:      injector,
+		MessageRouter: messageRouter,
+		Pool:          pool,
+		FilterManager: filterManager,
+	}
+}
+
+func surveyHardwareAndResolveProfile(ctx context.Context, cfg *config.Config, logger zerolog.Logger) config.ResolvedPerformanceSettings {
 	hwSurveyor := env.NewHardwareSurveyor()
 	hwInfo := hwSurveyor.Survey(ctx)
 	logging.Trace().Mark("hardware_survey")
@@ -57,7 +85,6 @@ func BuildWebKitStack(input WebKitStackInput) WebKitStack {
 		Uint64("vram_mb", hwInfo.VRAM/(1024*1024)).
 		Msg("hardware survey completed")
 
-	// Resolve performance profile to get actual settings
 	perfSettings := config.ResolvePerformanceProfile(&cfg.Performance, &hwInfo)
 	logging.Trace().Mark("performance_profile")
 	logger.Info().
@@ -67,18 +94,16 @@ func BuildWebKitStack(input WebKitStackInput) WebKitStack {
 		Int("webview_pool_prewarm", perfSettings.WebViewPoolPrewarmCount).
 		Msg("resolved performance profile")
 
-	// Configure rendering environment (must happen before WebKit/GTK init)
-	configureRenderingEnvironment(ctx, cfg, &perfSettings, logger)
-	logging.Trace().Mark("render_env")
+	return perfSettings
+}
 
-	// Build WebKitContext options with memory pressure settings
+func buildWebKitContextOptions(dataDir, cacheDir string, perfSettings *config.ResolvedPerformanceSettings) port.WebKitContextOptions {
 	wkOpts := port.WebKitContextOptions{
 		DataDir:  dataDir,
 		CacheDir: cacheDir,
 	}
 
-	// Configure web process memory pressure if any setting is configured
-	if hasWebProcessMemoryConfig(&perfSettings) {
+	if hasWebProcessMemoryConfig(perfSettings) {
 		wkOpts.WebProcessMemory = &port.MemoryPressureConfig{
 			MemoryLimitMB:         perfSettings.WebProcessMemoryLimitMB,
 			PollIntervalSec:       perfSettings.WebProcessMemoryPollIntervalSec,
@@ -87,8 +112,7 @@ func BuildWebKitStack(input WebKitStackInput) WebKitStack {
 		}
 	}
 
-	// Configure network process memory pressure if any setting is configured
-	if hasNetworkProcessMemoryConfig(&perfSettings) {
+	if hasNetworkProcessMemoryConfig(perfSettings) {
 		wkOpts.NetworkProcessMemory = &port.MemoryPressureConfig{
 			MemoryLimitMB:         perfSettings.NetworkProcessMemoryLimitMB,
 			PollIntervalSec:       perfSettings.NetworkProcessMemoryPollIntervalSec,
@@ -97,12 +121,10 @@ func BuildWebKitStack(input WebKitStackInput) WebKitStack {
 		}
 	}
 
-	wkCtx, err := webkit.NewWebKitContextWithOptions(ctx, wkOpts)
-	if err != nil {
-		logger.Fatal().Err(err).Msg("failed to initialize WebKit context")
-	}
-	logging.Trace().Mark("webkit_context")
+	return wkOpts
+}
 
+func initFilterManager(ctx context.Context, cfg *config.Config, dataDir string, logger zerolog.Logger) *filtering.Manager {
 	filterStoreDir := filepath.Join(dataDir, "filters", "store")
 	filterJSONDir := filepath.Join(dataDir, "filters", "json")
 	filterManager, err := filtering.NewManager(filtering.ManagerConfig{
@@ -113,21 +135,25 @@ func BuildWebKitStack(input WebKitStackInput) WebKitStack {
 	})
 	if err != nil {
 		logger.Warn().Err(err).Msg("failed to create filter manager, continuing without content filtering")
-	} else {
-		if err := filterManager.Initialize(ctx); err != nil {
-			logger.Warn().Err(err).Msg("failed to initialize filters, will load async")
-		}
+		return nil
+	}
+	if err := filterManager.Initialize(ctx); err != nil {
+		logger.Warn().Err(err).Msg("failed to initialize filters, will load async")
 	}
 	logging.Trace().Mark("filter_manager")
+	return filterManager
+}
 
-	schemeHandler := webkit.NewDumbSchemeHandler(ctx)
-	schemeHandler.SetAssets(assets.WebUIAssets)
-	schemeHandler.RegisterWithContext(wkCtx)
-
+func initWebKitComponents(
+	ctx context.Context,
+	cfg *config.Config,
+	themeManager *theme.Manager,
+	colorResolver port.ColorSchemeResolver,
+	logger zerolog.Logger,
+) (*webkit.SettingsManager, *webkit.ContentInjector, *webkit.MessageRouter) {
 	settings := webkit.NewSettingsManager(ctx, cfg)
 	injector := webkit.NewContentInjector(colorResolver)
 
-	// Set up auto-copy on selection config getter
 	injector.SetAutoCopyConfigGetter(func() bool {
 		return config.Get().Clipboard.AutoCopyOnSelection
 	})
@@ -141,13 +167,26 @@ func BuildWebKitStack(input WebKitStackInput) WebKitStack {
 	messageRouter := webkit.NewMessageRouter(ctx)
 	logging.Trace().Mark("settings_manager")
 
+	return settings, injector, messageRouter
+}
+
+func initWebViewPool(
+	ctx context.Context,
+	wkCtx *webkit.WebKitContext,
+	settings *webkit.SettingsManager,
+	injector *webkit.ContentInjector,
+	messageRouter *webkit.MessageRouter,
+	themeManager *theme.Manager,
+	filterManager *filtering.Manager,
+	perfSettings *config.ResolvedPerformanceSettings,
+	logger zerolog.Logger,
+) *webkit.WebViewPool {
 	poolCfg := webkit.DefaultPoolConfig()
-	// Override prewarm count from resolved profile settings
 	if perfSettings.WebViewPoolPrewarmCount > 0 {
 		poolCfg.PrewarmCount = perfSettings.WebViewPoolPrewarmCount
 	}
 	pool := webkit.NewWebViewPool(ctx, wkCtx, settings, poolCfg, injector, messageRouter)
-	// Ensure prewarmed WebViews pick up the theme background color.
+
 	bgR, bgG, bgB, bgA := themeManager.GetBackgroundRGBA()
 	pool.SetBackgroundColor(bgR, bgG, bgB, bgA)
 
@@ -155,22 +194,12 @@ func BuildWebKitStack(input WebKitStackInput) WebKitStack {
 		pool.SetFilterApplier(filterManager)
 	}
 
-	// Pre-create ONE WebView synchronously for instant first navigation.
-	// This is the heaviest operation but happens before window is shown,
-	// so users perceive it as part of the normal "loading" phase.
 	if err := pool.PrewarmFirst(ctx); err != nil {
 		logger.Warn().Err(err).Msg("failed to prewarm first webview, first tab may be slower")
 	}
 	logging.Trace().Mark("pool_prewarm_first")
 
-	return WebKitStack{
-		Context:       wkCtx,
-		Settings:      settings,
-		Injector:      injector,
-		MessageRouter: messageRouter,
-		Pool:          pool,
-		FilterManager: filterManager,
-	}
+	return pool
 }
 
 // hasWebProcessMemoryConfig returns true if any web process memory setting is configured.

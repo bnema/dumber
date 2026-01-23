@@ -115,6 +115,10 @@ type App struct {
 	insertAccentUC      *usecase.InsertAccentUseCase
 	accentFocusProvider *textinput.FocusProvider
 
+	// Deferred initialization - runs after first load_started to avoid blocking initial navigation
+	deferredInitOnce sync.Once
+	deferredInitFn   func()
+
 	// lifecycle
 	cancel context.CancelCauseFunc
 }
@@ -256,8 +260,6 @@ func (a *App) onActivate(ctx context.Context) {
 	a.initSnapshotService(ctx)
 	a.initUpdateCoordinator(ctx)
 	a.createInitialTab(ctx)
-	// Prewarm the remaining WebViews after the initial tab starts loading.
-	a.prewarmWebViewPoolAsync(ctx)
 	a.finalizeActivation(ctx)
 }
 
@@ -1158,26 +1160,48 @@ func (a *App) restoreSession(ctx context.Context, sessionID entity.SessionID) er
 func (a *App) finalizeActivation(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
-	// Show the window.
+	// Show the window
 	if a.mainWindow != nil {
 		a.mainWindow.Show()
 	}
 	log.Info().Msg("main window displayed")
 
-	// Start watching config for appearance changes.
-	a.initConfigWatcher(ctx)
+	// Defer non-critical initialization until after first navigation starts.
+	// This keeps pool prewarm, config watcher, and filter loading from
+	// competing with the initial page load.
+	a.runAfterFirstLoadStarted(func() {
+		a.prewarmWebViewPoolAsync(ctx)
+		a.initConfigWatcher(ctx)
+		a.initFilteringAsync(ctx)
+		a.checkConfigMigration(ctx)
+	})
+}
 
-	// Ensure the current appearance config is applied once at startup.
-	// This avoids the WebUI showing default tokens until the first config change event.
-	if a.deps != nil {
-		a.applyAppearanceConfig(ctx, a.deps.Config)
-	}
+// runAfterFirstLoadStarted schedules work to run after the first navigation starts.
+// This keeps the GTK main loop free to process the initial load_uri() quickly,
+// reducing the gap between webview_attached and load_started.
+func (a *App) runAfterFirstLoadStarted(fn func()) {
+	a.deferredInitFn = fn
+}
 
-	// Start async filter loading after window is visible.
-	a.initFilteringAsync(ctx)
+// triggerDeferredInit is called from ContentCoordinator on first load_started.
+// It runs deferred initialization at LOW priority so navigation continues unblocked.
+func (a *App) triggerDeferredInit(ctx context.Context) {
+	a.deferredInitOnce.Do(func() {
+		if a.deferredInitFn == nil {
+			return
+		}
+		log := logging.FromContext(ctx)
+		log.Debug().Msg("triggering deferred initialization")
 
-	// Check for config migration after window is visible.
-	a.checkConfigMigration(ctx)
+		fn := a.deferredInitFn
+		cb := glib.SourceFunc(func(_ uintptr) bool {
+			fn()
+			return false
+		})
+		// Use LOW priority so navigation processing continues first
+		glib.IdleAddFull(glib.PRIORITY_LOW, &cb, 0, nil)
+	})
 }
 
 // onShutdown is called when the GTK application is shutting down.
@@ -1250,6 +1274,11 @@ func (a *App) initCoordinators(ctx context.Context) {
 	if a.deps.IdleInhibitor != nil {
 		a.contentCoord.SetIdleInhibitor(a.deps.IdleInhibitor)
 	}
+
+	// Wire deferred init trigger - runs after first navigation starts
+	a.contentCoord.SetOnFirstLoadStarted(func() {
+		a.triggerDeferredInit(ctx)
+	})
 
 	// 2. Tab Coordinator
 	a.tabCoord = coordinator.NewTabCoordinator(ctx, coordinator.TabCoordinatorConfig{

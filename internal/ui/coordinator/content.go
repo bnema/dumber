@@ -98,6 +98,10 @@ type ContentCoordinator struct {
 
 	// Callback when WebView gains focus (for accent picker text input targeting)
 	onWebViewFocused func(paneID entity.PaneID, wv *webkit.WebView)
+
+	// Callback for first load_started event (triggers deferred initialization)
+	onFirstLoadStarted func()
+	loadStartedOnce    sync.Once
 }
 
 type pendingThemeUpdate struct {
@@ -174,6 +178,13 @@ func (c *ContentCoordinator) SetOnFullscreenChanged(fn func(entering bool)) {
 // SetOnWebViewFocused sets the callback for when a WebView gains focus.
 func (c *ContentCoordinator) SetOnWebViewFocused(fn func(paneID entity.PaneID, wv *webkit.WebView)) {
 	c.onWebViewFocused = fn
+}
+
+// SetOnFirstLoadStarted sets the callback for when the first navigation starts.
+// This is used to trigger deferred initialization after the initial load_uri()
+// has been processed by the GTK main loop.
+func (c *ContentCoordinator) SetOnFirstLoadStarted(fn func()) {
+	c.onFirstLoadStarted = fn
 }
 
 // EnsureWebView acquires or reuses a WebView for the given pane.
@@ -1032,6 +1043,14 @@ func (c *ContentCoordinator) updatePaneURI(paneID entity.PaneID, url string) {
 // onLoadStarted shows the progress bar when page loading begins.
 func (c *ContentCoordinator) onLoadStarted(paneID entity.PaneID) {
 	logging.Trace().Mark("load_started")
+
+	// Trigger deferred initialization on first load_started.
+	// This ensures non-critical init runs after initial navigation starts.
+	c.loadStartedOnce.Do(func() {
+		if c.onFirstLoadStarted != nil {
+			c.onFirstLoadStarted()
+		}
+	})
 
 	_, wsView := c.getActiveWS()
 	if wsView == nil {
