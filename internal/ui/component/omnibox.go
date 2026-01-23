@@ -21,8 +21,9 @@ import (
 )
 
 const (
-	debounceDelayMs = 50
-	endBoxSpacing   = 6
+	debounceDelayMs     = 50
+	endBoxSpacing       = 6
+	ghostIconOffsetBase = 18 // Base icon offset for ghost text positioning (scaled by uiScale)
 )
 
 // ViewMode distinguishes history search from favorites display.
@@ -570,6 +571,20 @@ func (o *Omnibox) setupFocusCallbacks(onFocusIn func(*gtk.SearchEntry), onFocusO
 	o.entry.AddController(&focusController.EventController)
 }
 
+// hasGhost returns whether ghost text is currently visible.
+func (o *Omnibox) hasGhost() bool {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	return o.hasGhostText
+}
+
+// hasUserNavigated returns whether user has navigated with arrow keys.
+func (o *Omnibox) hasUserNavigated() bool {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	return o.hasNavigated
+}
+
 // handleKeyPress processes keyboard events.
 // Returns true if the event was handled.
 func (o *Omnibox) handleKeyPress(keyval, keycode uint, state gdk.ModifierType) bool {
@@ -608,10 +623,7 @@ func (o *Omnibox) handleKeyPress(keyval, keycode uint, state gdk.ModifierType) b
 
 	case uint(gdk.KEY_Tab):
 		// Tab accepts ghost text if present, otherwise toggles view mode
-		o.mu.RLock()
-		hasGhost := o.hasGhostText
-		o.mu.RUnlock()
-		if hasGhost && o.cursorAtEnd() {
+		if o.hasGhost() {
 			o.acceptGhostCompletion()
 			return true
 		}
@@ -619,11 +631,8 @@ func (o *Omnibox) handleKeyPress(keyval, keycode uint, state gdk.ModifierType) b
 		return true
 
 	case uint(gdk.KEY_Right):
-		// Arrow Right accepts ghost text if present and cursor at end
-		o.mu.RLock()
-		hasGhost := o.hasGhostText
-		o.mu.RUnlock()
-		if hasGhost && o.cursorAtEnd() {
+		// Arrow Right accepts ghost text if present
+		if o.hasGhost() {
 			o.acceptGhostCompletion()
 			return true
 		}
@@ -631,11 +640,7 @@ func (o *Omnibox) handleKeyPress(keyval, keycode uint, state gdk.ModifierType) b
 
 	case uint(gdk.KEY_space):
 		// Space toggles favorite only if user has navigated with arrow keys
-		// Otherwise, let space pass through to entry for typing
-		o.mu.RLock()
-		navigated := o.hasNavigated
-		o.mu.RUnlock()
-		if navigated {
+		if o.hasUserNavigated() {
 			o.toggleFavorite()
 			return true
 		}
@@ -643,10 +648,7 @@ func (o *Omnibox) handleKeyPress(keyval, keycode uint, state gdk.ModifierType) b
 
 	case uint(gdk.KEY_y):
 		// 'y' yanks (copies) the selected URL to clipboard when navigating
-		o.mu.RLock()
-		navigated := o.hasNavigated
-		o.mu.RUnlock()
-		if navigated {
+		if o.hasUserNavigated() {
 			o.yankSelectedURL()
 			return true
 		}
@@ -770,8 +772,8 @@ func (o *Omnibox) setGhostText(originalInput, suffix, fullText string) {
 
 		// Account for the search icon inside the entry
 		// Ghost label already has same margin/padding as entry via CSS
-		// Scale the icon offset by UI scale factor (base ~18px at scale 1.0)
-		iconOffset := int(18.0 * o.uiScale)
+		// Scale the icon offset by UI scale factor
+		iconOffset := int(float64(ghostIconOffsetBase) * o.uiScale)
 		marginStart := widthPx + iconOffset
 
 		// Set the ghost label text (just the suffix) and position it
@@ -816,12 +818,11 @@ func (o *Omnibox) clearGhostText() {
 }
 
 // acceptGhostCompletion accepts the ghost text and fills the input.
-// Returns true if ghost text was accepted.
-func (o *Omnibox) acceptGhostCompletion() bool {
+func (o *Omnibox) acceptGhostCompletion() {
 	o.mu.Lock()
 	if !o.hasGhostText || o.ghostFullText == "" {
 		o.mu.Unlock()
-		return false
+		return
 	}
 	fullText := o.ghostFullText
 	o.isAcceptingGhost = true
@@ -842,22 +843,6 @@ func (o *Omnibox) acceptGhostCompletion() bool {
 	o.mu.Lock()
 	o.isAcceptingGhost = false
 	o.mu.Unlock()
-
-	return true
-}
-
-// cursorAtEnd returns true if the entry cursor is at the end of the text.
-func (o *Omnibox) cursorAtEnd() bool {
-	text := o.entry.GetText()
-	// If entry is empty, cursor is trivially "at end" - allow ghost acceptance
-	// This handles the case where user navigates with arrows from empty input
-	if len(text) == 0 {
-		return true
-	}
-	// SearchEntry doesn't have GetPosition directly, but we can use the editable interface
-	// For simplicity, we'll assume cursor is at end after any input
-	// This works because Tab/ArrowRight are handled in capture phase before entry processes them
-	return true
 }
 
 // updateGhostFromSuggestion updates ghost text based on the current autocomplete suggestion.
@@ -867,24 +852,24 @@ func (o *Omnibox) updateGhostFromSuggestion() {
 	}
 
 	o.mu.RLock()
-	input := o.realInput
+	userInput := o.realInput
 	bangMode := o.bangMode
 	o.mu.RUnlock()
 
 	// Don't show ghost text in bang mode (it has its own completion)
-	if bangMode || input == "" {
+	if bangMode || userInput == "" {
 		o.clearGhostText()
 		return
 	}
 
 	go func() {
-		output := o.autocompleteUC.GetSuggestion(o.ctx, usecase.GetSuggestionInput{Input: input})
+		output := o.autocompleteUC.GetSuggestion(o.ctx, usecase.GetSuggestionInput{Input: userInput})
 		if !output.Found || output.Suggestion == nil {
 			o.clearGhostText()
 			return
 		}
 		// Pass the original input so setGhostText can verify it's still current
-		o.setGhostText(input, output.Suggestion.Suffix, output.Suggestion.FullText)
+		o.setGhostText(userInput, output.Suggestion.Suffix, output.Suggestion.FullText)
 	}()
 }
 
@@ -898,7 +883,7 @@ func (o *Omnibox) updateGhostFromURL(targetURL string) {
 	}
 
 	o.mu.RLock()
-	input := o.realInput
+	userInput := o.realInput
 	o.mu.RUnlock()
 
 	// Strip protocol from URL for cleaner display
@@ -910,10 +895,10 @@ func (o *Omnibox) updateGhostFromURL(targetURL string) {
 	}
 
 	// Try to compute proper suffix if input is a prefix of the URL
-	if o.autocompleteUC != nil && input != "" {
-		output := o.autocompleteUC.GetSuggestionForURL(o.ctx, input, targetURL)
+	if o.autocompleteUC != nil && userInput != "" {
+		output := o.autocompleteUC.GetSuggestionForURL(o.ctx, userInput, targetURL)
 		if output.Found && output.Suggestion != nil {
-			o.setGhostText(input, output.Suggestion.Suffix, output.Suggestion.FullText)
+			o.setGhostText(userInput, output.Suggestion.Suffix, output.Suggestion.FullText)
 			return
 		}
 	}
@@ -955,16 +940,6 @@ func (o *Omnibox) updateGhostFromSelection() {
 	}
 
 	o.updateGhostFromURL(targetURL)
-}
-
-// escapeMarkup escapes special XML/Pango markup characters.
-func escapeMarkup(s string) string {
-	s = strings.ReplaceAll(s, "&", "&amp;")
-	s = strings.ReplaceAll(s, "<", "&lt;")
-	s = strings.ReplaceAll(s, ">", "&gt;")
-	s = strings.ReplaceAll(s, "'", "&apos;")
-	s = strings.ReplaceAll(s, "\"", "&quot;")
-	return s
 }
 
 // performSearch executes the search based on current view mode and query.
