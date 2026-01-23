@@ -182,6 +182,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	// Initialize libadwaita once (required before using StyleManager).
 	// This also initializes GTK implicitly.
 	adw.Init()
+	logging.Trace().Mark("gtk_init")
 
 	// Mark adwaita detector as available now that adw.Init() is complete.
 	// This enables the highest-priority color scheme detector.
@@ -203,6 +204,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		return 1
 	}
 	defer a.gtkApp.Unref()
+	logging.Trace().Mark("gtk_app_created")
 
 	// Connect activate signal
 	activateCb := func(_ gio.Application) {
@@ -236,6 +238,7 @@ func (a *App) onActivate(ctx context.Context) {
 		log.Error().Err(err).Msg("failed to create main window")
 		return
 	}
+	logging.Trace().Mark("window_created")
 
 	a.initLayoutInfrastructure()
 	a.initAppToasterOverlay()
@@ -244,6 +247,7 @@ func (a *App) onActivate(ctx context.Context) {
 	a.initDownloadHandler(ctx)
 
 	a.initCoordinators(ctx)
+	logging.Trace().Mark("coordinators_init")
 	a.initKeyboardHandler(ctx)
 	a.initOmniboxConfig(ctx)
 	a.initFindBarConfig()

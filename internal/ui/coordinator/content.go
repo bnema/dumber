@@ -188,10 +188,16 @@ func (c *ContentCoordinator) EnsureWebView(ctx context.Context, paneID entity.Pa
 		return nil, fmt.Errorf("webview pool not configured")
 	}
 
+	// Mark tab_created on first webview (first tab)
+	if len(c.webViews) == 0 {
+		logging.Trace().Mark("tab_created")
+	}
+
 	wv, err := c.pool.Acquire(ctx)
 	if err != nil {
 		return nil, err
 	}
+	logging.Trace().Mark("webview_acquired")
 
 	c.webViews[paneID] = wv
 
@@ -334,6 +340,7 @@ func (c *ContentCoordinator) AttachToWorkspace(ctx context.Context, ws *entity.W
 		if err := wsView.SetWebViewWidget(pane.ID, widget); err != nil {
 			log.Warn().Err(err).Str("pane_id", string(pane.ID)).Msg("failed to attach webview widget")
 		}
+		logging.Trace().Mark("webview_attached")
 	}
 }
 
@@ -911,6 +918,7 @@ func (c *ContentCoordinator) PreloadCachedFavicon(ctx context.Context, paneID en
 // Also shows the WebView widget (it's hidden during creation to avoid white flash).
 func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
 	log := logging.FromContext(ctx)
+	logging.Trace().Mark("load_committed")
 
 	url := wv.URI()
 	if url == "" {
@@ -1023,6 +1031,8 @@ func (c *ContentCoordinator) updatePaneURI(paneID entity.PaneID, url string) {
 
 // onLoadStarted shows the progress bar when page loading begins.
 func (c *ContentCoordinator) onLoadStarted(paneID entity.PaneID) {
+	logging.Trace().Mark("load_started")
+
 	_, wsView := c.getActiveWS()
 	if wsView == nil {
 		return
@@ -1109,6 +1119,11 @@ func (c *ContentCoordinator) revealIfPending(ctx context.Context, paneID entity.
 			Str("reason", reason).
 			Msg("webview revealed")
 	}
+
+	// Mark first_paint and finish startup trace
+	logging.Trace().Mark("first_paint")
+	logging.Trace().Finish()
+
 	if c.onWebViewShown != nil {
 		c.onWebViewShown(paneID)
 	}
