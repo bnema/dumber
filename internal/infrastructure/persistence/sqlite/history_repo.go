@@ -50,9 +50,14 @@ func (r *historyRepo) FindByURL(ctx context.Context, url string) (*entity.Histor
 func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]entity.HistoryMatch, error) {
 	log := logging.FromContext(ctx)
 
+	// Replace periods with spaces before splitting - FTS5 tokenizer treats periods as separators
+	// so "gordon.bne" in URLs is indexed as "gordon" + "bne" tokens
+	// This allows searching "gordon.bne" to match URLs containing both terms
+	normalizedQuery := strings.ReplaceAll(query, ".", " ")
+
 	// Split query into words and add prefix matching to each
 	// This enables multi-word searches like "github issues" -> "github* issues*"
-	words := strings.Fields(query)
+	words := strings.Fields(normalizedQuery)
 	if len(words) == 0 {
 		return []entity.HistoryMatch{}, nil
 	}
@@ -67,8 +72,9 @@ func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]en
 
 	// Search both URL and title columns, then merge results
 	// Use domain-boosted query for URL search to prioritize domain matches
+	// Use sanitized first word for domain boost (intentional: domain boost targets first search term)
 	urlRows, urlErr := r.queries.SearchHistoryFTSUrlWithDomainBoost(ctx, sqlc.SearchHistoryFTSUrlWithDomainBoostParams{
-		Term:  sql.NullString{String: words[0], Valid: true},
+		Term:  sql.NullString{String: sanitizeFTS5Word(words[0]), Valid: true},
 		Query: ftsQuery,
 		Limit: int64(limit),
 	})
@@ -136,6 +142,7 @@ func historyFromDomainBoostRow(row sqlc.SearchHistoryFTSUrlWithDomainBoostRow) *
 
 // sanitizeFTS5Word removes FTS5 special characters from a search word.
 // FTS5 special chars: " * ( ) : ^ - AND OR NOT NEAR
+// Note: Periods are handled earlier by replacing with spaces (tokenizer separator)
 func sanitizeFTS5Word(word string) string {
 	// Remove characters that have special meaning in FTS5
 	var result strings.Builder
