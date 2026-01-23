@@ -121,14 +121,15 @@ func (s *Service) SaveNow(ctx context.Context) error {
 
 func (s *Service) saveSnapshot(ctx context.Context) error {
 	s.mu.Lock()
-	s.dirty = false
 	ready := s.ready
-	s.mu.Unlock()
-
-	// Don't save until session is persisted to avoid FK constraint violations
 	if !ready {
+		// Don't clear dirty if not ready - keep pending snapshot for later
+		s.mu.Unlock()
 		return nil
 	}
+	// Only clear dirty when we're actually going to save
+	s.dirty = false
+	s.mu.Unlock()
 
 	tabList := s.provider.GetTabList()
 	sessionID := s.provider.GetSessionID()
