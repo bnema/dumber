@@ -110,6 +110,7 @@ func DefaultConfig() *Config {
 			LogDir:         getDefaultLogDir(),
 			EnableFileLog:  true,
 			CaptureConsole: false, // Disabled by default
+			CaptureGTKLogs: false, // Disabled by default
 		},
 		Appearance: AppearanceConfig{
 			SansFont:        "Fira Sans",

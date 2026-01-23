@@ -397,6 +397,7 @@ func (m *Manager) setLoggingDefaults(defaults *Config) {
 	m.viper.SetDefault("logging.log_dir", defaults.Logging.LogDir)
 	m.viper.SetDefault("logging.enable_file_log", defaults.Logging.EnableFileLog)
 	m.viper.SetDefault("logging.capture_console", defaults.Logging.CaptureConsole)
+	m.viper.SetDefault("logging.capture_gtk_logs", defaults.Logging.CaptureGTKLogs)
 }
 
 func (m *Manager) setDebugDefaults(defaults *Config) {
