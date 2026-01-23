@@ -21,7 +21,10 @@ import (
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 )
 
-const aboutBlankURI = "about:blank"
+const (
+	aboutBlankURI = "about:blank"
+	logURLMaxLen  = 80
+)
 
 // ContentCoordinator manages WebView lifecycle, title tracking, and content attachment.
 type ContentCoordinator struct {
@@ -95,6 +98,10 @@ type ContentCoordinator struct {
 
 	// Callback when WebView gains focus (for accent picker text input targeting)
 	onWebViewFocused func(paneID entity.PaneID, wv *webkit.WebView)
+
+	// Callback for first load_started event (triggers deferred initialization)
+	onFirstLoadStarted func()
+	loadStartedOnce    sync.Once
 }
 
 type pendingThemeUpdate struct {
@@ -173,6 +180,13 @@ func (c *ContentCoordinator) SetOnWebViewFocused(fn func(paneID entity.PaneID, w
 	c.onWebViewFocused = fn
 }
 
+// SetOnFirstLoadStarted sets the callback for when the first navigation starts.
+// This is used to trigger deferred initialization after the initial load_uri()
+// has been processed by the GTK main loop.
+func (c *ContentCoordinator) SetOnFirstLoadStarted(fn func()) {
+	c.onFirstLoadStarted = fn
+}
+
 // EnsureWebView acquires or reuses a WebView for the given pane.
 func (c *ContentCoordinator) EnsureWebView(ctx context.Context, paneID entity.PaneID) (*webkit.WebView, error) {
 	log := logging.FromContext(ctx)
@@ -185,10 +199,16 @@ func (c *ContentCoordinator) EnsureWebView(ctx context.Context, paneID entity.Pa
 		return nil, fmt.Errorf("webview pool not configured")
 	}
 
+	// Mark tab_created on first webview (first tab)
+	if len(c.webViews) == 0 {
+		logging.Trace().Mark("tab_created")
+	}
+
 	wv, err := c.pool.Acquire(ctx)
 	if err != nil {
 		return nil, err
 	}
+	logging.Trace().Mark("webview_acquired")
 
 	c.webViews[paneID] = wv
 
@@ -331,6 +351,7 @@ func (c *ContentCoordinator) AttachToWorkspace(ctx context.Context, ws *entity.W
 		if err := wsView.SetWebViewWidget(pane.ID, widget); err != nil {
 			log.Warn().Err(err).Str("pane_id", string(pane.ID)).Msg("failed to attach webview widget")
 		}
+		logging.Trace().Mark("webview_attached")
 	}
 }
 
@@ -908,6 +929,7 @@ func (c *ContentCoordinator) PreloadCachedFavicon(ctx context.Context, paneID en
 // Also shows the WebView widget (it's hidden during creation to avoid white flash).
 func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
 	log := logging.FromContext(ctx)
+	logging.Trace().Mark("load_committed")
 
 	url := wv.URI()
 	if url == "" {
@@ -1020,6 +1042,16 @@ func (c *ContentCoordinator) updatePaneURI(paneID entity.PaneID, url string) {
 
 // onLoadStarted shows the progress bar when page loading begins.
 func (c *ContentCoordinator) onLoadStarted(paneID entity.PaneID) {
+	logging.Trace().Mark("load_started")
+
+	// Trigger deferred initialization on first load_started.
+	// This ensures non-critical init runs after initial navigation starts.
+	c.loadStartedOnce.Do(func() {
+		if c.onFirstLoadStarted != nil {
+			c.onFirstLoadStarted()
+		}
+	})
+
 	_, wsView := c.getActiveWS()
 	if wsView == nil {
 		return
@@ -1106,6 +1138,11 @@ func (c *ContentCoordinator) revealIfPending(ctx context.Context, paneID entity.
 			Str("reason", reason).
 			Msg("webview revealed")
 	}
+
+	// Mark first_paint and finish startup trace
+	logging.Trace().Mark("first_paint")
+	logging.Trace().Finish()
+
 	if c.onWebViewShown != nil {
 		c.onWebViewShown(paneID)
 	}
@@ -1170,8 +1207,34 @@ func (c *ContentCoordinator) SetupPopupHandling(ctx context.Context, paneID enti
 	log.Debug().Str("pane_id", string(paneID)).Msg("popup handling configured for webview")
 }
 
+// createPopupPane creates a new pane entity for a popup window.
+func (c *ContentCoordinator) createPopupPane(
+	popupID port.WebViewID,
+	parentPaneID entity.PaneID,
+	targetURI string,
+) (entity.PaneID, *entity.Pane) {
+	var paneID entity.PaneID
+	if c.generateID != nil {
+		paneID = entity.PaneID(c.generateID())
+	} else {
+		paneID = entity.PaneID(fmt.Sprintf("popup_%d", popupID))
+	}
+
+	popupPane := entity.NewPane(paneID)
+	popupPane.WindowType = entity.WindowPopup
+	popupPane.IsRelated = true
+	popupPane.ParentPaneID = &parentPaneID
+	popupPane.URI = targetURI
+
+	return paneID, popupPane
+}
+
 // handlePopupCreate handles the WebKit "create" signal for popup windows.
 // Returns a new related WebView if popup is allowed, nil to block.
+//
+// IMPORTANT: The WebView MUST be added to a GtkWindow hierarchy BEFORE this
+// signal handler returns. Otherwise WebKit won't establish window.opener.
+// The WebView stays hidden until ready-to-show signal is received.
 func (c *ContentCoordinator) handlePopupCreate(
 	ctx context.Context,
 	parentPaneID entity.PaneID,
@@ -1199,7 +1262,7 @@ func (c *ContentCoordinator) handlePopupCreate(
 		return nil
 	}
 
-	// Create related WebView for session sharing
+	// Create related WebView for session sharing (created hidden)
 	parentID := parentWV.ID()
 	popupWV, err := c.factory.CreateRelated(ctx, parentID)
 	if err != nil {
@@ -1209,9 +1272,63 @@ func (c *ContentCoordinator) handlePopupCreate(
 
 	// Detect popup type
 	popupType := DetectPopupType(req.FrameName)
-
-	// Store pending popup for ready-to-show handling
 	popupID := popupWV.ID()
+
+	// Determine behavior from config
+	behavior := GetBehavior(popupType, c.popupConfig)
+	placement := "right"
+	if c.popupConfig != nil {
+		placement = c.popupConfig.Placement
+	}
+
+	// Create popup pane entity
+	paneID, popupPane := c.createPopupPane(popupID, parentPaneID, req.TargetURI)
+
+	// Check OAuth configuration
+	hasConfig := c.popupConfig != nil
+	oauthEnabled := hasConfig && c.popupConfig.OAuthAutoClose
+	isOAuth := IsOAuthURL(req.TargetURI)
+	log.Debug().
+		Bool("has_config", hasConfig).
+		Bool("oauth_enabled", oauthEnabled).
+		Bool("is_oauth", isOAuth).
+		Str("uri", logging.TruncateURL(req.TargetURI, logURLMaxLen)).
+		Msg("popup OAuth check")
+
+	// Insert into workspace IMMEDIATELY (WebView stays hidden)
+	// This is required for WebKit to establish window.opener relationship
+	if c.onInsertPopup != nil {
+		popupInput := InsertPopupInput{
+			ParentPaneID: parentPaneID,
+			PopupPane:    popupPane,
+			WebView:      popupWV,
+			Behavior:     behavior,
+			Placement:    placement,
+			PopupType:    popupType,
+			TargetURI:    req.TargetURI,
+		}
+
+		if err := c.onInsertPopup(ctx, popupInput); err != nil {
+			log.Error().Err(err).Msg("failed to insert popup into workspace")
+			popupWV.Destroy()
+			return nil
+		}
+	}
+
+	// Register WebView in our map (after successful insertion)
+	c.webViews[paneID] = popupWV
+
+	// Setup standard callbacks (after successful insertion to avoid leak)
+	c.setupWebViewCallbacks(ctx, paneID, popupWV)
+
+	// Setup OAuth auto-close if configured
+	if hasConfig && oauthEnabled && isOAuth {
+		popupPane.AutoClose = true
+		c.setupOAuthAutoClose(ctx, paneID, popupWV)
+		log.Debug().Str("pane_id", string(paneID)).Msg("OAuth auto-close enabled for popup")
+	}
+
+	// Store pending popup for ready-to-show handling (just visibility now)
 	pending := &PendingPopup{
 		WebView:         popupWV,
 		ParentPaneID:    parentPaneID,
@@ -1227,7 +1344,7 @@ func (c *ContentCoordinator) handlePopupCreate(
 	c.pendingPopups[popupID] = pending
 	c.popupMu.Unlock()
 
-	// Wire ready-to-show and close signals
+	// Wire ready-to-show (now just for visibility) and close signals
 	popupWV.OnReadyToShow = func() {
 		c.handlePopupReadyToShow(ctx, popupID)
 	}
@@ -1237,15 +1354,17 @@ func (c *ContentCoordinator) handlePopupCreate(
 
 	log.Info().
 		Uint64("popup_id", uint64(popupID)).
+		Str("pane_id", string(paneID)).
 		Str("popup_type", popupType.String()).
-		Str("target_uri", req.TargetURI).
-		Msg("popup created, awaiting ready-to-show")
+		Str("target_uri", logging.TruncateURL(req.TargetURI, logURLMaxLen)).
+		Msg("popup inserted (hidden), awaiting ready-to-show for visibility")
 
 	return popupWV
 }
 
 // handlePopupReadyToShow handles the WebKit "ready-to-show" signal.
-// This is called when the popup is configured and ready to be displayed.
+// The popup WebView was already inserted into the workspace (hidden) during
+// the create signal. This handler just makes it visible.
 func (c *ContentCoordinator) handlePopupReadyToShow(ctx context.Context, popupID port.WebViewID) {
 	log := logging.FromContext(ctx)
 
@@ -1265,67 +1384,17 @@ func (c *ContentCoordinator) handlePopupReadyToShow(ctx context.Context, popupID
 	log.Debug().
 		Uint64("popup_id", uint64(popupID)).
 		Str("popup_type", pending.PopupType.String()).
-		Msg("popup ready to show")
+		Msg("popup ready to show - making visible")
 
-	// Determine behavior from config
-	behavior := GetBehavior(pending.PopupType, c.popupConfig)
-	placement := "right"
-	if c.popupConfig != nil {
-		placement = c.popupConfig.Placement
-	}
-
-	// Create popup pane entity
-	var paneID entity.PaneID
-	if c.generateID != nil {
-		paneID = entity.PaneID(c.generateID())
-	} else {
-		paneID = entity.PaneID(fmt.Sprintf("popup_%d", popupID))
-	}
-
-	popupPane := entity.NewPane(paneID)
-	popupPane.WindowType = entity.WindowPopup
-	popupPane.IsRelated = true
-	popupPane.ParentPaneID = &pending.ParentPaneID
-	popupPane.URI = pending.TargetURI
-
-	// Enable OAuth auto-close if configured
-	if c.popupConfig != nil && c.popupConfig.OAuthAutoClose && IsOAuthURL(pending.TargetURI) {
-		popupPane.AutoClose = true
-		c.setupOAuthAutoClose(ctx, paneID, pending.WebView)
-	}
-
-	// Register WebView in our map
-	c.webViews[paneID] = pending.WebView
-
-	// Setup standard callbacks
-	c.setupWebViewCallbacks(ctx, paneID, pending.WebView)
-
-	// Request insertion into workspace
-	if c.onInsertPopup != nil {
-		popupInput := InsertPopupInput{
-			ParentPaneID: pending.ParentPaneID,
-			PopupPane:    popupPane,
-			WebView:      pending.WebView,
-			Behavior:     behavior,
-			Placement:    placement,
-			PopupType:    pending.PopupType,
-			TargetURI:    pending.TargetURI,
-		}
-
-		if err := c.onInsertPopup(ctx, popupInput); err != nil {
-			log.Error().Err(err).Msg("failed to insert popup into workspace")
-			// Clean up on failure
-			delete(c.webViews, paneID)
-			pending.WebView.Destroy()
-			return
-		}
+	// Make the WebView visible now that it's ready
+	if pending.WebView != nil {
+		pending.WebView.Show()
 	}
 
 	log.Info().
-		Str("pane_id", string(paneID)).
-		Str("behavior", string(behavior)).
-		Str("placement", placement).
-		Msg("popup inserted into workspace")
+		Uint64("popup_id", uint64(popupID)).
+		Str("target_uri", logging.TruncateURL(pending.TargetURI, logURLMaxLen)).
+		Msg("popup now visible")
 }
 
 // handlePopupClose handles the WebKit "close" signal for popup windows.
@@ -1426,8 +1495,43 @@ func (c *ContentCoordinator) setupWebViewCallbacks(ctx context.Context, paneID e
 }
 
 // setupOAuthAutoClose monitors the popup for OAuth callback URLs and auto-closes.
+// It uses URL pattern detection for standard OAuth callbacks (code=, access_token=, etc.)
+// For providers using postMessage (like Google Sign-In), we rely on the provider calling
+// window.close() which triggers WebKit's close signal.
+// A long safety timeout (30s) catches popups that get stuck.
 func (c *ContentCoordinator) setupOAuthAutoClose(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
 	log := logging.FromContext(ctx)
+
+	// Safety timeout - only triggers if popup gets stuck (provider should close via window.close)
+	var safetyTimer *time.Timer
+	var safetyTimerMu sync.Mutex
+	const oauthSafetyTimeout = 30 * time.Second
+
+	startSafetyTimer := func() {
+		safetyTimerMu.Lock()
+		defer safetyTimerMu.Unlock()
+		if safetyTimer != nil {
+			safetyTimer.Stop()
+		}
+		safetyTimer = time.AfterFunc(oauthSafetyTimeout, func() {
+			if wv != nil && !wv.IsDestroyed() {
+				log.Warn().Str("pane", string(paneID)).Msg("oauth safety timeout, closing stuck popup")
+				wv.Close()
+			}
+		})
+	}
+
+	cancelSafetyTimer := func() {
+		safetyTimerMu.Lock()
+		defer safetyTimerMu.Unlock()
+		if safetyTimer != nil {
+			safetyTimer.Stop()
+			safetyTimer = nil
+		}
+	}
+
+	// Start safety timer immediately
+	startSafetyTimer()
 
 	// Wrap the existing OnURIChanged to also check for OAuth callbacks
 	originalURIChanged := wv.OnURIChanged
@@ -1437,39 +1541,32 @@ func (c *ContentCoordinator) setupOAuthAutoClose(ctx context.Context, paneID ent
 			originalURIChanged(uri)
 		}
 
-		// Check for OAuth callback
+		// Check for OAuth callback (URL-based detection)
 		if ShouldAutoClose(uri) {
-			log.Info().
-				Str("pane_id", string(paneID)).
-				Str("uri", uri).
-				Msg("OAuth callback detected, auto-closing popup")
-
-			// Trigger close after a short delay to let the page process
+			cancelSafetyTimer()
+			log.Info().Str("pane", string(paneID)).Msg("oauth callback detected, closing")
 			go func() {
 				time.Sleep(500 * time.Millisecond)
 				if wv != nil && !wv.IsDestroyed() {
-					// This will trigger handlePopupClose
 					wv.Close()
 				}
 			}()
 		}
 	}
 
-	// Also check on load committed for immediate redirects
+	// Monitor load events for URL-based detection
 	originalLoadChanged := wv.OnLoadChanged
 	wv.OnLoadChanged = func(event webkit.LoadEvent) {
 		if originalLoadChanged != nil {
 			originalLoadChanged(event)
 		}
 
+		// Check URL on commit for immediate detection
 		if event == webkit.LoadCommitted {
 			uri := wv.URI()
 			if ShouldAutoClose(uri) {
-				log.Info().
-					Str("pane_id", string(paneID)).
-					Str("uri", uri).
-					Msg("OAuth callback detected on load, auto-closing popup")
-
+				cancelSafetyTimer()
+				log.Info().Str("pane", string(paneID)).Msg("oauth callback on load, closing")
 				go func() {
 					time.Sleep(500 * time.Millisecond)
 					if wv != nil && !wv.IsDestroyed() {
@@ -1477,6 +1574,15 @@ func (c *ContentCoordinator) setupOAuthAutoClose(ctx context.Context, paneID ent
 					}
 				}()
 			}
+		}
+	}
+
+	// Wrap OnClose to cancel safety timer when popup closes normally
+	originalOnClose := wv.OnClose
+	wv.OnClose = func() {
+		cancelSafetyTimer()
+		if originalOnClose != nil {
+			originalOnClose()
 		}
 	}
 }

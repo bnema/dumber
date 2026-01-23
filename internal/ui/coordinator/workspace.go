@@ -1135,8 +1135,21 @@ func (c *WorkspaceCoordinator) syncStackedPaneTitles(ctx context.Context, stacke
 		return
 	}
 
+	// Get UI pane count to avoid index out of bounds when domain and UI are out of sync
+	uiPaneCount := stackedView.Count()
+
 	for i, child := range stackNode.Children {
 		if child.Pane == nil {
+			continue
+		}
+
+		// Skip if index exceeds UI pane count (domain/UI desync)
+		if i >= uiPaneCount {
+			log.Debug().
+				Int("index", i).
+				Int("ui_count", uiPaneCount).
+				Str("pane_id", string(child.Pane.ID)).
+				Msg("skipping title sync: index exceeds UI pane count")
 			continue
 		}
 
@@ -1798,11 +1811,13 @@ func (c *WorkspaceCoordinator) insertPopupStacked(ctx context.Context, input Ins
 		return fmt.Errorf("parent pane not found: %s", input.ParentPaneID)
 	}
 
-	// Resolve or create stack node
-	stackNode := c.resolveOrCreateStackNode(ctx, parentNode, input.ParentPaneID)
+	// Resolve or create stack node (track conversion for potential rollback)
+	stackNode, conversionInfo := c.resolveOrCreateStackNode(ctx, parentNode, input.ParentPaneID)
 
 	// Add popup pane to stack using use case
 	if _, err := c.panesUC.AddToStack(ctx, ws, stackNode, input.PopupPane); err != nil {
+		// Rollback stack conversion if we created a new stack
+		conversionInfo.revert()
 		return fmt.Errorf("failed to add popup to stack: %w", err)
 	}
 
@@ -1812,6 +1827,17 @@ func (c *WorkspaceCoordinator) insertPopupStacked(ctx context.Context, input Ins
 	}
 
 	if err := c.attachPopupPaneView(ctx, input, wsView, stackNode, log); err != nil {
+		// UI update failed - rollback domain changes to maintain consistency
+		log.Warn().Err(err).Msg("rolling back domain changes due to UI failure")
+
+		// Remove popup pane from stack
+		if removeErr := c.panesUC.RemoveFromStack(ctx, stackNode, input.PopupPane.ID); removeErr != nil {
+			log.Error().Err(removeErr).Msg("failed to rollback popup pane addition")
+		}
+
+		// Revert stack conversion if we created a new stack
+		conversionInfo.revert()
+
 		return err
 	}
 
@@ -1823,14 +1849,35 @@ func (c *WorkspaceCoordinator) insertPopupStacked(ctx context.Context, input Ins
 	return nil
 }
 
+// stackConversionInfo holds state needed to revert a leaf-to-stack conversion.
+type stackConversionInfo struct {
+	wasConverted bool             // true if resolveOrCreateStackNode converted a leaf to a stack
+	originalPane *entity.Pane     // the pane that was in the node before conversion
+	node         *entity.PaneNode // the node that was converted
+}
+
+// revert undoes a leaf-to-stack conversion.
+func (info *stackConversionInfo) revert() {
+	if !info.wasConverted || info.node == nil {
+		return
+	}
+
+	// Restore node to leaf state
+	info.node.Pane = info.originalPane
+	info.node.IsStacked = false
+	info.node.ActiveStackIndex = 0
+	info.node.Children = nil
+}
+
 // resolveOrCreateStackNode finds an existing stack or creates one for popup insertion.
 // Note: For popups, we can't use CreateStack use case since it creates a new pane,
 // but we already have the popup pane. This conversion is a special case.
+// Returns the stack node and conversion info for potential rollback.
 func (c *WorkspaceCoordinator) resolveOrCreateStackNode(
 	ctx context.Context,
 	parentNode *entity.PaneNode,
 	parentPaneID entity.PaneID,
-) *entity.PaneNode {
+) (*entity.PaneNode, stackConversionInfo) {
 	log := logging.FromContext(ctx)
 
 	// Check if parent is already in a stack
@@ -1838,7 +1885,7 @@ func (c *WorkspaceCoordinator) resolveOrCreateStackNode(
 		log.Debug().
 			Str("stack_id", parentNode.Parent.ID).
 			Msg("using existing parent stack for popup")
-		return parentNode.Parent
+		return parentNode.Parent, stackConversionInfo{}
 	}
 
 	// Check if parent is already a stack container
@@ -1846,7 +1893,7 @@ func (c *WorkspaceCoordinator) resolveOrCreateStackNode(
 		log.Debug().
 			Str("stack_id", parentNode.ID).
 			Msg("parent is already a stack container")
-		return parentNode
+		return parentNode, stackConversionInfo{}
 	}
 
 	// Need to convert leaf to stack for popup insertion.
@@ -1880,7 +1927,11 @@ func (c *WorkspaceCoordinator) resolveOrCreateStackNode(
 		Str("original_pane", string(originalPane.ID)).
 		Msg("converted leaf to stacked node for popup")
 
-	return parentNode
+	return parentNode, stackConversionInfo{
+		wasConverted: true,
+		originalPane: originalPane,
+		node:         parentNode,
+	}
 }
 
 func (c *WorkspaceCoordinator) attachPopupPaneView(
