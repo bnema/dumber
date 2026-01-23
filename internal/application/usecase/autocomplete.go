@@ -165,7 +165,7 @@ func (uc *AutocompleteUseCase) findBangSuggestion(ctx context.Context, input str
 
 // GetSuggestionForURL returns an autocomplete suggestion specifically for a URL.
 // This is used when the user selects a row from the list to update ghost text.
-func (uc *AutocompleteUseCase) GetSuggestionForURL(ctx context.Context, input, targetURL string) *GetSuggestionOutput {
+func (*AutocompleteUseCase) GetSuggestionForURL(_ context.Context, input, targetURL string) *GetSuggestionOutput {
 	if input == "" || targetURL == "" {
 		return &GetSuggestionOutput{Found: false}
 	}

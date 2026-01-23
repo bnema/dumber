@@ -53,7 +53,7 @@ func StripProtocol(url string) string {
 // ComputeURLCompletionSuffix computes the completion suffix for URLs,
 // handling protocol stripping for better matching.
 // It tries matching with and without protocol prefixes.
-func ComputeURLCompletionSuffix(input, fullURL string) (suffix string, matchedURL string, ok bool) {
+func ComputeURLCompletionSuffix(input, fullURL string) (suffix, matchedURL string, ok bool) {
 	// First try direct match
 	if suffix, ok := ComputeCompletionSuffix(input, fullURL); ok {
 		return suffix, fullURL, true
