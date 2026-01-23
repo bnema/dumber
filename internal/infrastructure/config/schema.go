@@ -298,6 +298,9 @@ type LoggingConfig struct {
 
 	// Capture browser console to logs
 	CaptureConsole bool `mapstructure:"capture_console" yaml:"capture_console" toml:"capture_console" json:"capture_console"`
+
+	// Capture GTK4/WebKitGTK6 messages to session logs
+	CaptureGTKLogs bool `mapstructure:"capture_gtk_logs" yaml:"capture_gtk_logs" toml:"capture_gtk_logs" json:"capture_gtk_logs"`
 }
 
 // AppearanceConfig holds UI/rendering preferences.

@@ -14,6 +14,8 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
+const logURLMaxLen = 60
+
 type historyRepo struct {
 	queries *sqlc.Queries
 }
@@ -25,7 +27,7 @@ func NewHistoryRepository(db *sql.DB) repository.HistoryRepository {
 
 func (r *historyRepo) Save(ctx context.Context, entry *entity.HistoryEntry) error {
 	log := logging.FromContext(ctx)
-	log.Debug().Str("url", entry.URL).Msg("saving history entry")
+	log.Debug().Str("url", logging.TruncateURL(entry.URL, logURLMaxLen)).Msg("saving history entry")
 
 	return r.queries.UpsertHistory(ctx, sqlc.UpsertHistoryParams{
 		Url:        entry.URL,

@@ -327,10 +327,19 @@ func NewWebViewWithRelated(ctx context.Context, parent *WebView, settings *Setti
 		return nil, fmt.Errorf("parent webview %d is destroyed", parent.id)
 	}
 
+	log.Debug().
+		Uint64("parent_ptr", uint64(parent.inner.GoPointer())).
+		Msg("creating related webview with parent pointer")
+
 	inner := webkit.NewWebViewWithRelatedView(parent.inner)
 	if inner == nil {
 		return nil, fmt.Errorf("failed to create related webkit webview")
 	}
+
+	log.Debug().
+		Uint64("new_ptr", uint64(inner.GoPointer())).
+		Uint64("new_widget_ptr", uint64(inner.Widget.GoPointer())).
+		Msg("related webview created, checking pointers")
 
 	wv := &WebView{
 		inner:     inner,
@@ -441,10 +450,17 @@ func (wv *WebView) connectCreateSignal() {
 			ParentID:      wv.id,
 		}
 
+		wv.logger.Debug().Msg("create signal: invoking OnCreate handler")
 		newWV := wv.OnCreate(popupReq)
+		wv.logger.Debug().Bool("nil", newWV == nil).Msg("create signal: OnCreate returned")
 		if newWV == nil {
 			return gtk.Widget{} // Block popup
 		}
+
+		wv.logger.Debug().
+			Uint64("parent_id", uint64(wv.id)).
+			Uint64("popup_id", uint64(newWV.id)).
+			Msg("create signal: returning webview widget to WebKit")
 
 		return newWV.inner.Widget
 	}
@@ -887,6 +903,15 @@ func (wv *WebView) SetBackgroundColor(r, g, b, a float32) {
 		Alpha: a,
 	}
 	wv.inner.SetBackgroundColor(rgba)
+}
+
+// Show makes the WebView widget visible.
+// This should be called after the WebView is ready to be displayed.
+func (wv *WebView) Show() {
+	if wv.destroyed.Load() {
+		return
+	}
+	wv.inner.SetVisible(true)
 }
 
 // State returns the current WebView state as a snapshot.
