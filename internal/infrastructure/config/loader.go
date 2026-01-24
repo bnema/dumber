@@ -297,39 +297,6 @@ func (m *Manager) Save(cfg *Config) error {
 	return nil
 }
 
-// SaveKeybindings saves keybinding-related configuration to disk with ordered sections.
-func (m *Manager) SaveKeybindings(cfg *Config) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if cfg == nil {
-		return fmt.Errorf("config is nil")
-	}
-
-	// Write full config with ordered sections
-	configFile := m.viper.ConfigFileUsed()
-	if configFile == "" {
-		var err error
-		configFile, err = GetConfigFile()
-		if err != nil {
-			return fmt.Errorf("failed to determine config file path: %w", err)
-		}
-	}
-
-	if err := WriteConfigOrdered(cfg, configFile); err != nil {
-		return fmt.Errorf("failed to write config: %w", err)
-	}
-
-	// Reload if not watching
-	if !m.watching {
-		if err := m.reload(); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // GetConfigFile returns the path to the configuration file being used.
 func (m *Manager) GetConfigFile() string {
 	return m.viper.ConfigFileUsed()

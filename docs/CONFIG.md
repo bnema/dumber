@@ -307,16 +307,31 @@ Notes:
 
 ### Global Shortcuts
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `workspace.shortcuts.close_pane` | string | `"ctrl+w"` | Close active pane (closes tab if last pane) |
-| `workspace.shortcuts.next_tab` | string | `"ctrl+tab"` | Next tab shortcut |
-| `workspace.shortcuts.previous_tab` | string | `"ctrl+shift+tab"` | Previous tab shortcut |
-| `workspace.shortcuts.consume_or_expel_left` | string | `"alt+["` | Consume into left sibling stack, or expel left if stacked (very alpha) |
-| `workspace.shortcuts.consume_or_expel_right` | string | `"alt+]"` | Consume into right sibling stack, or expel right if stacked (very alpha) |
-| `workspace.shortcuts.consume_or_expel_up` | string | `"alt+{"` | Consume into upper sibling stack, or expel up if stacked (very alpha) |
-| `workspace.shortcuts.consume_or_expel_down` | string | `"alt+}"` | Consume into lower sibling stack, or expel down if stacked (very alpha) |
+Global shortcuts are configured under `workspace.shortcuts.actions` using the same `ActionBinding` structure as modal keybindings:
 
+| Action | Default Keys | Description |
+|--------|--------------|-------------|
+| `close_pane` | `ctrl+w` | Close active pane (closes tab if last pane) |
+| `next_tab` | `ctrl+tab` | Switch to next tab |
+| `previous_tab` | `ctrl+shift+tab` | Switch to previous tab |
+| `consume_or_expel_left` | `alt+[` | Consume into left sibling stack, or expel left if stacked |
+| `consume_or_expel_right` | `alt+]` | Consume into right sibling stack, or expel right if stacked |
+| `consume_or_expel_up` | `alt+{` | Consume into upper sibling stack, or expel up if stacked |
+| `consume_or_expel_down` | `alt+}` | Consume into lower sibling stack, or expel down if stacked |
+
+**Example:**
+```toml
+[workspace.shortcuts.actions.close_pane]
+  keys = ["ctrl+w"]
+  desc = "Close active pane"
+
+[workspace.shortcuts.actions.next_tab]
+  keys = ["ctrl+tab", "alt+l"]
+  desc = "Switch to next tab"
+```
+
+> **Tip:** Use `dumb://config` → Keybindings tab to edit shortcuts visually.
+>
 > **Note:** New tab creation uses modal tab mode (Ctrl+T then n/c). This follows the Zellij-style modal keyboard interface.
 >
 > **Note:** Consume-or-expel is experimental and may change behavior between releases.

@@ -60,8 +60,6 @@ export function toPlainObject<T>(obj: T): T {
  * @throws Error if bridge is not available or serialization fails
  */
 export function postMessage(msg: BridgeMessage): void {
-  console.log("[bridge] postMessage called with:", msg);
-
   const bridge = getWebKitBridge();
   if (!bridge) {
     throw new Error("WebKit bridge not available");
@@ -74,22 +72,12 @@ export function postMessage(msg: BridgeMessage): void {
 
   // Convert to plain object to strip Svelte 5 Proxies
   // This is critical - WebKit silently drops messages with Proxy objects
-  let plainMsg: BridgeMessage;
-  try {
-    plainMsg = toPlainObject(msg);
-    console.log("[bridge] Serialized message (Proxy stripped):", plainMsg);
-  } catch (err) {
-    console.error("[bridge] Failed to serialize message:", err, msg);
-    throw err;
-  }
-
-  console.log("[bridge] Sending to WebKit bridge...");
+  const plainMsg = toPlainObject(msg);
   bridge.postMessage(plainMsg);
-  console.log("[bridge] Message sent successfully");
 }
 
 /**
- * Post a message and set up success/error callbacks.
+ * Post a message and set up success/error callbacks with automatic cleanup.
  *
  * @param type - Message type (e.g., "get_keybindings", "set_keybinding")
  * @param payload - Message payload (will be serialized to strip Proxies)
@@ -106,13 +94,23 @@ export function postMessageWithCallbacks<TResponse, TPayload extends Record<stri
   onSuccess: (response: TResponse) => void,
   onError: (error: string) => void,
 ): void {
-  // Set up callbacks on window
+  // Cleanup function to remove callbacks from window
+  const cleanup = () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (window as any)[successCallback];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (window as any)[errorCallback];
+  };
+
+  // Set up callbacks on window with automatic cleanup
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (window as any)[successCallback] = (response: TResponse) => {
+    cleanup();
     onSuccess(response);
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (window as any)[errorCallback] = (msg: string) => {
+    cleanup();
     onError(typeof msg === "string" ? msg : "Unknown error");
   };
 
@@ -123,6 +121,7 @@ export function postMessageWithCallbacks<TResponse, TPayload extends Record<stri
       payload,
     });
   } catch (err) {
+    cleanup();
     const message = err instanceof Error ? err.message : String(err);
     onError(message);
   }

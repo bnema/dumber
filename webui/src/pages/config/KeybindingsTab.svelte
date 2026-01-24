@@ -93,11 +93,9 @@
     }
 
     (window as any).__dumber_keybinding_set = (response: { status: string; conflicts?: KeybindingConflict[] }) => {
-      console.log("[KeybindingsTab] Received set_keybinding response:", response);
       // Verify we got a valid success response from backend
       if (!response || response.status !== "success") {
         error = "Failed to save keybinding: invalid response";
-        console.error("[KeybindingsTab] Invalid response:", response);
         return;
       }
       if (response.conflicts && response.conflicts.length > 0) {
@@ -109,18 +107,11 @@
       editingBinding = null;
       showSuccess("Keybinding saved successfully");
     };
-    (window as any).__dumber_keybinding_error = (msg: string) => {
-      console.error("[KeybindingsTab] set_keybinding error:", msg);
+    (window as any).__dumber_keybinding_set_error = (msg: string) => {
       error = typeof msg === "string" ? msg : "Failed to save keybinding";
     };
 
     try {
-      console.log("[KeybindingsTab] Sending set_keybinding:", {
-        mode: editingBinding.mode,
-        action: editingBinding.action,
-        keys: keys,
-      });
-      // postMessage handles Svelte 5 Proxy serialization automatically
       postMessage({
         type: "set_keybinding",
         webviewId: getWebViewId(),
@@ -130,9 +121,7 @@
           keys: keys,
         },
       });
-      console.log("[KeybindingsTab] Message posted, waiting for callback...");
     } catch (err) {
-      console.error("[KeybindingsTab] postMessage failed:", err);
       error = err instanceof Error ? err.message : "Failed to save keybinding";
     }
   }
@@ -141,9 +130,11 @@
     if (!getWebKitBridge()) return;
 
     (window as any).__dumber_keybinding_reset = () => {
+      conflicts = []; // Clear conflicts after reset
       loadKeybindings();
+      showSuccess("Keybinding reset to default");
     };
-    (window as any).__dumber_keybinding_error = (msg: string) => {
+    (window as any).__dumber_keybinding_reset_error = (msg: string) => {
       error = typeof msg === "string" ? msg : "Failed to reset keybinding";
     };
 
@@ -162,10 +153,12 @@
     if (!getWebKitBridge()) return;
 
     (window as any).__dumber_keybindings_reset_all = () => {
+      conflicts = []; // Clear conflicts after reset all
       loadKeybindings();
       resetAllDialogOpen = false;
+      showSuccess("All keybindings reset to defaults");
     };
-    (window as any).__dumber_keybinding_error = (msg: string) => {
+    (window as any).__dumber_keybindings_reset_all_error = (msg: string) => {
       error = typeof msg === "string" ? msg : "Failed to reset keybindings";
     };
 
