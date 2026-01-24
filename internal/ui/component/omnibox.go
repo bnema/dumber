@@ -425,9 +425,11 @@ func (o *Omnibox) initEntry() error {
 	o.ghostLabel.SetValign(gtk.AlignCenterValue) // Center vertically to match entry's centered text
 	o.ghostLabel.SetXalign(0)
 	o.ghostLabel.SetVisible(false)
-	o.ghostLabel.SetCanTarget(false) // Don't intercept clicks
+	o.ghostLabel.SetCanTarget(false)                   // Don't intercept clicks
+	o.ghostLabel.SetEllipsize(pango.EllipsizeEndValue) // Truncate with ellipsis if too long
 
 	o.entryOverlay.AddOverlay(&o.ghostLabel.Widget)
+	o.entryOverlay.SetClipOverlay(&o.ghostLabel.Widget, true) // Clip ghost text to entry bounds
 
 	return nil
 }
@@ -741,15 +743,8 @@ func (o *Omnibox) setGhostText(originalInput, suffix, fullText string) {
 		return
 	}
 
+	// Store ghost state optimistically - will be validated on main thread
 	o.mu.Lock()
-	currentInput := o.realInput
-	// Check if input has changed since the autocomplete query was made
-	// Skip this check when originalInput is empty (row selection replaces full input)
-	if originalInput != "" && currentInput != originalInput {
-		o.mu.Unlock()
-		// Input changed, skip this stale result - a newer query will handle it
-		return
-	}
 	o.ghostSuffix = suffix
 	o.ghostFullText = fullText
 	o.hasGhostText = true
@@ -757,6 +752,14 @@ func (o *Omnibox) setGhostText(originalInput, suffix, fullText string) {
 
 	var cb glib.SourceFunc = func(uintptr) bool {
 		if o.ghostLabel == nil || o.entry == nil {
+			return false
+		}
+
+		// Check if input has changed since the autocomplete query was made
+		// This check runs on GTK main thread where entry.GetText() is reliable
+		// Skip this check when originalInput is empty (row selection replaces full input)
+		if originalInput != "" && o.entry.GetText() != originalInput {
+			// Input changed, skip this stale result - a newer query will handle it
 			return false
 		}
 
