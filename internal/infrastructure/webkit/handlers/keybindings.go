@@ -75,7 +75,7 @@ func (*KeybindingsHandler) HandleSetKeybinding(ctx context.Context, _ webkit.Web
 
 	updateKeybinding(cfg, req)
 
-	if err := mgr.SaveKeybindings(cfg); err != nil {
+	if err := mgr.Save(cfg); err != nil {
 		return nil, fmt.Errorf("failed to save: %w", err)
 	}
 
@@ -113,7 +113,7 @@ func (*KeybindingsHandler) HandleResetKeybinding(ctx context.Context, _ webkit.W
 	cfg := mgr.Get()
 	updateKeybinding(cfg, setReq)
 
-	if err := mgr.SaveKeybindings(cfg); err != nil {
+	if err := mgr.Save(cfg); err != nil {
 		return nil, fmt.Errorf("failed to save: %w", err)
 	}
 
@@ -140,7 +140,7 @@ func (*KeybindingsHandler) HandleResetAllKeybindings(ctx context.Context, _ webk
 	cfg.Workspace.Shortcuts = defaults.Workspace.Shortcuts
 	cfg.Session.SessionMode.Actions = defaults.Session.SessionMode.Actions
 
-	if err := mgr.SaveKeybindings(cfg); err != nil {
+	if err := mgr.Save(cfg); err != nil {
 		return nil, fmt.Errorf("failed to save: %w", err)
 	}
 
@@ -356,7 +356,7 @@ func RegisterKeybindingsHandlers(ctx context.Context, router *webkit.MessageRout
 	if err := router.RegisterHandlerWithCallbacks(
 		"set_keybinding",
 		"__dumber_keybinding_set",
-		"__dumber_keybinding_error",
+		"__dumber_keybinding_set_error",
 		"",
 		webkit.MessageHandlerFunc(handler.HandleSetKeybinding),
 	); err != nil {
@@ -367,7 +367,7 @@ func RegisterKeybindingsHandlers(ctx context.Context, router *webkit.MessageRout
 	if err := router.RegisterHandlerWithCallbacks(
 		"reset_keybinding",
 		"__dumber_keybinding_reset",
-		"__dumber_keybinding_error",
+		"__dumber_keybinding_reset_error",
 		"",
 		webkit.MessageHandlerFunc(handler.HandleResetKeybinding),
 	); err != nil {
@@ -378,7 +378,7 @@ func RegisterKeybindingsHandlers(ctx context.Context, router *webkit.MessageRout
 	if err := router.RegisterHandlerWithCallbacks(
 		"reset_all_keybindings",
 		"__dumber_keybindings_reset_all",
-		"__dumber_keybindings_error",
+		"__dumber_keybindings_reset_all_error",
 		"",
 		webkit.MessageHandlerFunc(handler.HandleResetAllKeybindings),
 	); err != nil {

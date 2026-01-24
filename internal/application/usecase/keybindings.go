@@ -7,6 +7,15 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 )
 
+// validModes defines the valid keybinding modes.
+var validModes = map[string]bool{
+	"global":  true,
+	"pane":    true,
+	"tab":     true,
+	"resize":  true,
+	"session": true,
+}
+
 // GetKeybindingsUseCase retrieves all keybindings.
 type GetKeybindingsUseCase struct {
 	provider port.KeybindingsProvider
@@ -96,7 +105,6 @@ func validateSetKeybindingRequest(req port.SetKeybindingRequest) error {
 	if req.Action == "" {
 		return fmt.Errorf("action is required")
 	}
-	validModes := map[string]bool{"global": true, "pane": true, "tab": true, "resize": true, "session": true}
 	if !validModes[req.Mode] {
 		return fmt.Errorf("invalid mode: %s", req.Mode)
 	}
@@ -110,7 +118,6 @@ func validateResetKeybindingRequest(req port.ResetKeybindingRequest) error {
 	if req.Action == "" {
 		return fmt.Errorf("action is required")
 	}
-	validModes := map[string]bool{"global": true, "pane": true, "tab": true, "resize": true, "session": true}
 	if !validModes[req.Mode] {
 		return fmt.Errorf("invalid mode: %s", req.Mode)
 	}

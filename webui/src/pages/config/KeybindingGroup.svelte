@@ -2,6 +2,7 @@
   import { Button } from "$lib/components/ui/button";
   import * as Table from "$lib/components/ui/table";
   import { RotateCcw, Edit3 } from "@lucide/svelte";
+  import { formatKey } from "$lib/utils/keys";
 
   type KeybindingEntry = {
     action: string;
@@ -25,18 +26,6 @@
   }
 
   let { group, onEdit, onReset }: Props = $props();
-
-  function formatKey(key: string): string {
-    return key
-      .replace(/arrowleft/gi, "Left")
-      .replace(/arrowright/gi, "Right")
-      .replace(/arrowup/gi, "Up")
-      .replace(/arrowdown/gi, "Down")
-      .replace(/\+/g, " + ")
-      .replace(/ctrl/gi, "Ctrl")
-      .replace(/alt/gi, "Alt")
-      .replace(/shift/gi, "Shift");
-  }
 </script>
 
 <div class="space-y-3">

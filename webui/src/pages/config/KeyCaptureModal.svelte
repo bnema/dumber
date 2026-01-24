@@ -3,6 +3,7 @@
   import { Button } from "$lib/components/ui/button";
   import * as AlertDialog from "$lib/components/ui/alert-dialog";
   import { Keyboard, X, Plus } from "@lucide/svelte";
+  import { formatKey } from "$lib/utils/keys";
 
   type KeybindingEntry = {
     action: string;
@@ -28,10 +29,6 @@
   let isCapturing = $state(false);
   let capturedKey = $state<string | null>(null);
   let isSaving = $state(false);
-
-  $effect(() => {
-    console.log("[KeyCaptureModal] State - newKeys:", newKeys, "capturedKey:", capturedKey);
-  });
 
   function handleKeyDown(e: KeyboardEvent) {
     if (!isCapturing) return;
@@ -86,30 +83,14 @@
   }
 
   function addCapturedKey() {
-    console.log("[KeyCaptureModal] addCapturedKey called, capturedKey:", capturedKey, "newKeys before:", newKeys);
     if (capturedKey && !newKeys.includes(capturedKey)) {
       newKeys = [...newKeys, capturedKey];
-      console.log("[KeyCaptureModal] Added key, newKeys after:", newKeys);
-    } else {
-      console.log("[KeyCaptureModal] Key not added (null or duplicate)");
     }
     capturedKey = null;
   }
 
   function removeKey(index: number) {
     newKeys = newKeys.filter((_, i) => i !== index);
-  }
-
-  function formatKey(key: string): string {
-    return key
-      .replace(/arrowleft/gi, "Left")
-      .replace(/arrowright/gi, "Right")
-      .replace(/arrowup/gi, "Up")
-      .replace(/arrowdown/gi, "Down")
-      .replace(/\+/g, " + ")
-      .replace(/ctrl/gi, "Ctrl")
-      .replace(/alt/gi, "Alt")
-      .replace(/shift/gi, "Shift");
   }
 
   onMount(() => {
@@ -197,9 +178,7 @@
         let keysToSave = [...newKeys];
         if (capturedKey && !keysToSave.includes(capturedKey)) {
           keysToSave.push(capturedKey);
-          console.log("[KeyCaptureModal] Auto-added pending captured key:", capturedKey);
         }
-        console.log("[KeyCaptureModal] Save clicked, keysToSave:", keysToSave);
         isSaving = true;
         onSave(keysToSave);
       }}>Save</AlertDialog.Action>
