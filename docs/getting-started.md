@@ -40,7 +40,7 @@ Press `Ctrl+L` to open the omnibox for:
 Edit `~/.config/dumber/config.toml` or use:
 
 ```bash
-dumber config edit
+dumber config open
 ```
 
 See [Configuration](./config/index.md) for all options.

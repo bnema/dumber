@@ -75,7 +75,7 @@ Press `Escape` or `Enter` to exit any mode.
 
 ## Global Shortcuts
 
-These work outside of modal modes:
+These work outside modal modes:
 
 | Action | Keys |
 |--------|------|
