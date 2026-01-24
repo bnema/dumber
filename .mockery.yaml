@@ -30,6 +30,7 @@ packages:
       FontDetector: {}
       KeybindingsProvider: {}
       KeybindingsSaver: {}
+      DownloadResponse: {}
   github.com/bnema/dumber/internal/domain/repository:
     config:
       dir: '{{.InterfaceDir}}/mocks'

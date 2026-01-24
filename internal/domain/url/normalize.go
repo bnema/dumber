@@ -82,6 +82,9 @@ func Normalize(input string) string {
 	}
 
 	// Looks like a URL (contains . and no spaces)
+	if input == "localhost" || strings.HasPrefix(input, "localhost:") || strings.HasPrefix(input, "localhost/") {
+		return "http://" + input
+	}
 	if strings.Contains(input, ".") && !strings.Contains(input, " ") {
 		return "https://" + input
 	}
@@ -112,6 +115,9 @@ func LooksLikeURL(input string) bool {
 	}
 
 	// Contains a dot and no spaces = likely a URL
+	if input == "localhost" || strings.HasPrefix(input, "localhost:") || strings.HasPrefix(input, "localhost/") {
+		return true
+	}
 	return strings.Contains(input, ".") && !strings.Contains(input, " ")
 }
 
