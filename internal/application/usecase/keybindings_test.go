@@ -74,48 +74,79 @@ func TestGetKeybindingsUseCase_Execute(t *testing.T) {
 func TestSetKeybindingUseCase_Execute(t *testing.T) {
 	t.Run("successfully sets keybinding", func(t *testing.T) {
 		// Arrange
+		mockProvider := mocks.NewMockKeybindingsProvider(t)
 		mockSaver := mocks.NewMockKeybindingsSaver(t)
 		req := port.SetKeybindingRequest{
 			Mode:   "pane",
 			Action: "split-right",
 			Keys:   []string{"r"},
 		}
+		mockProvider.EXPECT().CheckConflicts(mock.Anything, req.Mode, req.Action, req.Keys).Return(nil, nil)
 		mockSaver.EXPECT().SetKeybinding(mock.Anything, req).Return(nil)
 
-		uc := usecase.NewSetKeybindingUseCase(mockSaver)
+		uc := usecase.NewSetKeybindingUseCase(mockProvider, mockSaver)
 
 		// Act
-		err := uc.Execute(context.Background(), req)
+		resp, err := uc.Execute(context.Background(), req)
 
 		// Assert
 		require.NoError(t, err)
-		mock.AssertExpectationsForObjects(t, mockSaver)
+		assert.Empty(t, resp.Conflicts)
+		mock.AssertExpectationsForObjects(t, mockProvider, mockSaver)
+	})
+
+	t.Run("returns conflicts when detected", func(t *testing.T) {
+		// Arrange
+		mockProvider := mocks.NewMockKeybindingsProvider(t)
+		mockSaver := mocks.NewMockKeybindingsSaver(t)
+		req := port.SetKeybindingRequest{
+			Mode:   "pane",
+			Action: "split-right",
+			Keys:   []string{"r"},
+		}
+		conflicts := []port.KeybindingConflict{
+			{ConflictingAction: "other-action", ConflictingMode: "pane", Key: "r"},
+		}
+		mockProvider.EXPECT().CheckConflicts(mock.Anything, req.Mode, req.Action, req.Keys).Return(conflicts, nil)
+		mockSaver.EXPECT().SetKeybinding(mock.Anything, req).Return(nil)
+
+		uc := usecase.NewSetKeybindingUseCase(mockProvider, mockSaver)
+
+		// Act
+		resp, err := uc.Execute(context.Background(), req)
+
+		// Assert
+		require.NoError(t, err)
+		assert.Equal(t, conflicts, resp.Conflicts)
+		mock.AssertExpectationsForObjects(t, mockProvider, mockSaver)
 	})
 
 	t.Run("returns error when saver fails", func(t *testing.T) {
 		// Arrange
+		mockProvider := mocks.NewMockKeybindingsProvider(t)
 		mockSaver := mocks.NewMockKeybindingsSaver(t)
 		req := port.SetKeybindingRequest{
 			Mode:   "pane",
 			Action: "split-right",
 			Keys:   []string{"r"},
 		}
+		mockProvider.EXPECT().CheckConflicts(mock.Anything, req.Mode, req.Action, req.Keys).Return(nil, nil)
 		mockSaver.EXPECT().SetKeybinding(mock.Anything, req).Return(errors.New("save error"))
 
-		uc := usecase.NewSetKeybindingUseCase(mockSaver)
+		uc := usecase.NewSetKeybindingUseCase(mockProvider, mockSaver)
 
 		// Act
-		err := uc.Execute(context.Background(), req)
+		_, err := uc.Execute(context.Background(), req)
 
 		// Assert
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "save error")
-		mock.AssertExpectationsForObjects(t, mockSaver)
+		mock.AssertExpectationsForObjects(t, mockProvider, mockSaver)
 	})
 
 	t.Run("returns error when saver is nil", func(t *testing.T) {
 		// Arrange
-		uc := usecase.NewSetKeybindingUseCase(nil)
+		uc := usecase.NewSetKeybindingUseCase(nil, nil)
 		req := port.SetKeybindingRequest{
 			Mode:   "pane",
 			Action: "split-right",
@@ -123,7 +154,7 @@ func TestSetKeybindingUseCase_Execute(t *testing.T) {
 		}
 
 		// Act
-		err := uc.Execute(context.Background(), req)
+		_, err := uc.Execute(context.Background(), req)
 
 		// Assert
 		require.Error(t, err)
@@ -132,6 +163,7 @@ func TestSetKeybindingUseCase_Execute(t *testing.T) {
 
 	t.Run("returns error when mode is empty", func(t *testing.T) {
 		// Arrange
+		mockProvider := mocks.NewMockKeybindingsProvider(t)
 		mockSaver := mocks.NewMockKeybindingsSaver(t)
 		req := port.SetKeybindingRequest{
 			Mode:   "",
@@ -139,10 +171,10 @@ func TestSetKeybindingUseCase_Execute(t *testing.T) {
 			Keys:   []string{"r"},
 		}
 
-		uc := usecase.NewSetKeybindingUseCase(mockSaver)
+		uc := usecase.NewSetKeybindingUseCase(mockProvider, mockSaver)
 
 		// Act
-		err := uc.Execute(context.Background(), req)
+		_, err := uc.Execute(context.Background(), req)
 
 		// Assert
 		require.Error(t, err)
@@ -151,6 +183,7 @@ func TestSetKeybindingUseCase_Execute(t *testing.T) {
 
 	t.Run("returns error when action is empty", func(t *testing.T) {
 		// Arrange
+		mockProvider := mocks.NewMockKeybindingsProvider(t)
 		mockSaver := mocks.NewMockKeybindingsSaver(t)
 		req := port.SetKeybindingRequest{
 			Mode:   "pane",
@@ -158,10 +191,10 @@ func TestSetKeybindingUseCase_Execute(t *testing.T) {
 			Keys:   []string{"r"},
 		}
 
-		uc := usecase.NewSetKeybindingUseCase(mockSaver)
+		uc := usecase.NewSetKeybindingUseCase(mockProvider, mockSaver)
 
 		// Act
-		err := uc.Execute(context.Background(), req)
+		_, err := uc.Execute(context.Background(), req)
 
 		// Assert
 		require.Error(t, err)
@@ -170,6 +203,7 @@ func TestSetKeybindingUseCase_Execute(t *testing.T) {
 
 	t.Run("returns error for invalid mode", func(t *testing.T) {
 		// Arrange
+		mockProvider := mocks.NewMockKeybindingsProvider(t)
 		mockSaver := mocks.NewMockKeybindingsSaver(t)
 		req := port.SetKeybindingRequest{
 			Mode:   "invalid",
@@ -177,10 +211,10 @@ func TestSetKeybindingUseCase_Execute(t *testing.T) {
 			Keys:   []string{"r"},
 		}
 
-		uc := usecase.NewSetKeybindingUseCase(mockSaver)
+		uc := usecase.NewSetKeybindingUseCase(mockProvider, mockSaver)
 
 		// Act
-		err := uc.Execute(context.Background(), req)
+		_, err := uc.Execute(context.Background(), req)
 
 		// Assert
 		require.Error(t, err)

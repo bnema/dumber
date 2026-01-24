@@ -36,25 +36,40 @@ func (uc *GetKeybindingsUseCase) Execute(ctx context.Context) (port.KeybindingsC
 
 // SetKeybindingUseCase updates a single keybinding.
 type SetKeybindingUseCase struct {
-	saver port.KeybindingsSaver
+	provider port.KeybindingsProvider
+	saver    port.KeybindingsSaver
 }
 
 // NewSetKeybindingUseCase creates a new SetKeybindingUseCase.
-func NewSetKeybindingUseCase(saver port.KeybindingsSaver) *SetKeybindingUseCase {
-	return &SetKeybindingUseCase{saver: saver}
+func NewSetKeybindingUseCase(provider port.KeybindingsProvider, saver port.KeybindingsSaver) *SetKeybindingUseCase {
+	return &SetKeybindingUseCase{provider: provider, saver: saver}
 }
 
-// Execute updates a keybinding.
-func (uc *SetKeybindingUseCase) Execute(ctx context.Context, req port.SetKeybindingRequest) error {
+// Execute updates a keybinding and returns any conflicts.
+func (uc *SetKeybindingUseCase) Execute(ctx context.Context, req port.SetKeybindingRequest) (port.SetKeybindingResponse, error) {
 	if uc == nil || uc.saver == nil {
-		return fmt.Errorf("keybindings saver is nil")
+		return port.SetKeybindingResponse{}, fmt.Errorf("keybindings saver is nil")
 	}
 
 	if err := validateSetKeybindingRequest(req); err != nil {
-		return err
+		return port.SetKeybindingResponse{}, err
 	}
 
-	return uc.saver.SetKeybinding(ctx, req)
+	// Check for conflicts before saving
+	var conflicts []port.KeybindingConflict
+	if uc.provider != nil {
+		var err error
+		conflicts, err = uc.provider.CheckConflicts(ctx, req.Mode, req.Action, req.Keys)
+		if err != nil {
+			return port.SetKeybindingResponse{}, fmt.Errorf("failed to check conflicts: %w", err)
+		}
+	}
+
+	if err := uc.saver.SetKeybinding(ctx, req); err != nil {
+		return port.SetKeybindingResponse{}, err
+	}
+
+	return port.SetKeybindingResponse{Conflicts: conflicts}, nil
 }
 
 // ResetKeybindingUseCase resets a keybinding to default.
