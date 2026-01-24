@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/domain/autocomplete"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
@@ -916,12 +917,7 @@ func (o *Omnibox) updateGhostFromURL(targetURL string) {
 	o.mu.RUnlock()
 
 	// Strip protocol from URL for cleaner display
-	displayURL := targetURL
-	if strings.HasPrefix(displayURL, "https://") {
-		displayURL = displayURL[8:]
-	} else if strings.HasPrefix(displayURL, "http://") {
-		displayURL = displayURL[7:]
-	}
+	displayURL := autocomplete.StripProtocol(targetURL)
 
 	// Try to compute proper suffix if input is a prefix of the URL
 	if o.autocompleteUC != nil && userInput != "" {
