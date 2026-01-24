@@ -24,6 +24,14 @@ func (m *Manager) Watch() error {
 		// Acquire write lock before reload (reload modifies m.config)
 		m.mu.Lock()
 
+		// Track whether notifyCallbacksLocked will handle the unlock
+		willNotify := false
+		defer func() {
+			if !willNotify {
+				m.mu.Unlock()
+			}
+		}()
+
 		// Skip reload if this was triggered by our own Save() - the in-memory
 		// config is already correct and viper may have stale cached data
 		if m.skipNextReload {
@@ -34,6 +42,7 @@ func (m *Manager) Watch() error {
 				log.Warn().Err(err).Msg("failed to sync viper config after Save")
 				// Continue anyway - in-memory config is correct, just viper internal state is off
 			}
+			willNotify = true
 			m.notifyCallbacksLocked()
 			return
 		}
@@ -41,9 +50,9 @@ func (m *Manager) Watch() error {
 		log.Debug().Msg("reloading config from external change")
 		if err := m.reload(); err != nil {
 			log.Warn().Err(err).Msg("failed to reload config")
-			m.mu.Unlock()
-			return
+			return // defer will unlock
 		}
+		willNotify = true
 		m.notifyCallbacksLocked()
 	})
 
