@@ -72,6 +72,7 @@ type Querier interface {
 	SearchHistory(ctx context.Context, arg SearchHistoryParams) ([]History, error)
 	SearchHistoryFTSTitle(ctx context.Context, arg SearchHistoryFTSTitleParams) ([]History, error)
 	SearchHistoryFTSUrl(ctx context.Context, arg SearchHistoryFTSUrlParams) ([]History, error)
+	SearchHistoryFTSUrlWithDomainBoost(ctx context.Context, arg SearchHistoryFTSUrlWithDomainBoostParams) ([]SearchHistoryFTSUrlWithDomainBoostRow, error)
 	SetFavoriteFolder(ctx context.Context, arg SetFavoriteFolderParams) error
 	SetFavoriteShortcut(ctx context.Context, arg SetFavoriteShortcutParams) error
 	SetZoomLevel(ctx context.Context, arg SetZoomLevelParams) error

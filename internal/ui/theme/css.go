@@ -409,6 +409,16 @@ entry.omnibox-entry.omnibox-entry-bang-active:focus-visible {
 	color: var(--accent);
 	font-weight: 600;
 }
+
+/* Ghost text autocomplete overlay - positioned to align with entry text */
+.omnibox-ghost {
+	font-size: 1em;
+	color: var(--muted);
+	margin-top: -0.0625em; /* Nudge up 1px to align with entry text baseline */
+	background-color: transparent;
+	/* Allow clicks to pass through to entry below */
+	pointer-events: none;
+}
 `
 }
 

@@ -139,7 +139,7 @@
         <label class="form-label" for="fav-shortcut">QUICK ACCESS KEY</label>
         <select id="fav-shortcut" class="form-select" bind:value={shortcutKey}>
           <option value={null}>— None —</option>
-          {#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as key}
+          {#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as key (key)}
             <option value={key}>{key}</option>
           {/each}
         </select>

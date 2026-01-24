@@ -3,6 +3,8 @@ package webkit
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -552,60 +554,156 @@ func (wv *WebView) connectProgressSignal() {
 
 func (wv *WebView) connectDecidePolicySignal() {
 	decidePolicyCb := func(_ webkit.WebView, decisionPtr uintptr, decisionType webkit.PolicyDecisionType) bool {
-		if decisionType != webkit.PolicyDecisionTypeNavigationActionValue {
-			return false // Let WebKit handle
-		}
-
-		navDecision := webkit.NavigationPolicyDecisionNewFromInternalPtr(decisionPtr)
-		if navDecision == nil {
+		switch decisionType {
+		case webkit.PolicyDecisionTypeResponseValue:
+			return wv.handleResponsePolicyDecision(decisionPtr)
+		case webkit.PolicyDecisionTypeNavigationActionValue:
+			return wv.handleNavigationPolicyDecision(decisionPtr)
+		default:
 			return false
 		}
-
-		navAction := navDecision.GetNavigationAction()
-		if navAction == nil {
-			return false
-		}
-
-		if navAction.GetNavigationType() != webkit.NavigationTypeLinkClickedValue {
-			return false
-		}
-
-		mouseButton := navAction.GetMouseButton()
-		modifiers := navAction.GetModifiers()
-		isMiddleClick := mouseButton == 2
-		isCtrlClick := mouseButton == 1 && (gdk.ModifierType(modifiers)&gdk.ControlMaskValue) != 0
-
-		if !isMiddleClick && !isCtrlClick {
-			return false
-		}
-
-		request := navAction.GetRequest()
-		if request == nil {
-			return false
-		}
-
-		linkURI := request.GetUri()
-		if linkURI == "" {
-			return false
-		}
-
-		wv.logger.Debug().
-			Str("uri", linkURI).
-			Uint("button", mouseButton).
-			Bool("ctrl", isCtrlClick).
-			Msg("middle-click/ctrl+click on link detected")
-
-		if wv.OnLinkMiddleClick != nil {
-			if wv.OnLinkMiddleClick(linkURI) {
-				navDecision.Ignore()
-				return true
-			}
-		}
-
-		return false
 	}
 	sigID := wv.inner.ConnectDecidePolicy(&decidePolicyCb)
 	wv.signalIDs = append(wv.signalIDs, sigID)
+}
+
+// handleResponsePolicyDecision handles response policy decisions (e.g., forcing downloads).
+func (wv *WebView) handleResponsePolicyDecision(decisionPtr uintptr) bool {
+	responseDecision := webkit.ResponsePolicyDecisionNewFromInternalPtr(decisionPtr)
+	if responseDecision == nil {
+		return false
+	}
+
+	if !responseDecision.IsMainFrameMainResource() {
+		return false
+	}
+
+	if !shouldForceDownload(responseDecision) {
+		return false
+	}
+
+	policyDecision := webkit.PolicyDecisionNewFromInternalPtr(decisionPtr)
+	if policyDecision == nil {
+		return false
+	}
+
+	response := responseDecision.GetResponse()
+	mimeType := ""
+	uri := ""
+	if response != nil {
+		mimeType = response.GetMimeType()
+		uri = response.GetUri()
+	}
+
+	wv.logger.Debug().
+		Str("mime_type", mimeType).
+		Str("uri", uri).
+		Msg("forcing download for response")
+
+	// Start a fresh download instead of converting the in-progress response.
+	// Using policyDecision.Download() can fail due to race conditions where
+	// the network connection is released before the download can use it.
+	// By ignoring the policy and starting a new download, we avoid this issue.
+	// We defer the download to the next idle cycle to let WebKit clean up
+	// the ignored navigation first.
+	if uri != "" {
+		policyDecision.Ignore()
+		downloadURI := uri
+		inner := wv.inner
+		cb := glib.SourceFunc(func(_ uintptr) bool {
+			inner.DownloadUri(downloadURI)
+			return false // Don't repeat
+		})
+		// Store callback reference to prevent GC before GTK calls it
+		wv.mu.Lock()
+		wv.asyncCallbacks = append(wv.asyncCallbacks, &cb)
+		wv.mu.Unlock()
+		glib.IdleAdd(&cb, 0)
+		return true
+	}
+
+	// Fallback to old behavior if URI is not available
+	policyDecision.Download()
+	return true
+}
+
+// handleNavigationPolicyDecision handles navigation policy decisions (e.g., middle-click).
+func (wv *WebView) handleNavigationPolicyDecision(decisionPtr uintptr) bool {
+	navDecision := webkit.NavigationPolicyDecisionNewFromInternalPtr(decisionPtr)
+	if navDecision == nil {
+		return false
+	}
+
+	navAction := navDecision.GetNavigationAction()
+	if navAction == nil {
+		return false
+	}
+
+	if navAction.GetNavigationType() != webkit.NavigationTypeLinkClickedValue {
+		return false
+	}
+
+	mouseButton := navAction.GetMouseButton()
+	modifiers := navAction.GetModifiers()
+	isMiddleClick := mouseButton == 2
+	isCtrlClick := mouseButton == 1 && (gdk.ModifierType(modifiers)&gdk.ControlMaskValue) != 0
+
+	if !isMiddleClick && !isCtrlClick {
+		return false
+	}
+
+	request := navAction.GetRequest()
+	if request == nil {
+		return false
+	}
+
+	linkURI := request.GetUri()
+	if linkURI == "" {
+		return false
+	}
+
+	wv.logger.Debug().
+		Str("uri", linkURI).
+		Uint("button", mouseButton).
+		Bool("ctrl", isCtrlClick).
+		Msg("middle-click/ctrl+click on link detected")
+
+	if wv.OnLinkMiddleClick != nil {
+		if wv.OnLinkMiddleClick(linkURI) {
+			navDecision.Ignore()
+			return true
+		}
+	}
+
+	return false
+}
+
+func shouldForceDownload(responseDecision *webkit.ResponsePolicyDecision) bool {
+	if responseDecision == nil {
+		return false
+	}
+
+	response := responseDecision.GetResponse()
+	if response == nil {
+		return false
+	}
+
+	mimeType := strings.ToLower(response.GetMimeType())
+	if strings.HasPrefix(mimeType, "application/pdf") {
+		return true
+	}
+
+	uri := response.GetUri()
+	if uri == "" {
+		return false
+	}
+
+	parsed, err := url.Parse(uri)
+	if err != nil {
+		return strings.Contains(strings.ToLower(uri), ".pdf")
+	}
+
+	return strings.HasSuffix(strings.ToLower(parsed.Path), ".pdf")
 }
 
 func (wv *WebView) connectEnterFullscreenSignal() {
@@ -903,6 +1001,12 @@ func (wv *WebView) SetBackgroundColor(r, g, b, a float32) {
 		Alpha: a,
 	}
 	wv.inner.SetBackgroundColor(rgba)
+}
+
+// ResetBackgroundToDefault sets WebView background to white (browser default).
+// Used for external pages to prevent dark background from bleeding through.
+func (wv *WebView) ResetBackgroundToDefault() {
+	wv.SetBackgroundColor(1.0, 1.0, 1.0, 1.0)
 }
 
 // Show makes the WebView widget visible.

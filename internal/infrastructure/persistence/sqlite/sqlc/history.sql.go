@@ -529,6 +529,71 @@ func (q *Queries) SearchHistoryFTSUrl(ctx context.Context, arg SearchHistoryFTSU
 	return items, nil
 }
 
+const SearchHistoryFTSUrlWithDomainBoost = `-- name: SearchHistoryFTSUrlWithDomainBoost :many
+SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.created_at,
+       CASE
+           WHEN h.url LIKE '%://' || ?1 || '.%' THEN 2
+           WHEN h.url LIKE '%://%.' || ?1 || '.%' THEN 2
+           WHEN h.url LIKE '%://' || ?1 || '/%' THEN 2
+           WHEN h.url LIKE '%://%.' || ?1 || '/%' THEN 1
+           ELSE 0
+       END as domain_boost
+FROM history_fts fts
+JOIN history h ON fts.rowid = h.id
+WHERE fts.url MATCH ?2
+ORDER BY domain_boost DESC, h.visit_count DESC, h.last_visited DESC
+LIMIT ?3
+`
+
+type SearchHistoryFTSUrlWithDomainBoostParams struct {
+	Term  sql.NullString `json:"term"`
+	Query string         `json:"query"`
+	Limit int64          `json:"limit"`
+}
+
+type SearchHistoryFTSUrlWithDomainBoostRow struct {
+	ID          int64          `json:"id"`
+	Url         string         `json:"url"`
+	Title       sql.NullString `json:"title"`
+	FaviconUrl  sql.NullString `json:"favicon_url"`
+	VisitCount  sql.NullInt64  `json:"visit_count"`
+	LastVisited sql.NullTime   `json:"last_visited"`
+	CreatedAt   sql.NullTime   `json:"created_at"`
+	DomainBoost int64          `json:"domain_boost"`
+}
+
+func (q *Queries) SearchHistoryFTSUrlWithDomainBoost(ctx context.Context, arg SearchHistoryFTSUrlWithDomainBoostParams) ([]SearchHistoryFTSUrlWithDomainBoostRow, error) {
+	rows, err := q.db.QueryContext(ctx, SearchHistoryFTSUrlWithDomainBoost, arg.Term, arg.Query, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchHistoryFTSUrlWithDomainBoostRow{}
+	for rows.Next() {
+		var i SearchHistoryFTSUrlWithDomainBoostRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.Title,
+			&i.FaviconUrl,
+			&i.VisitCount,
+			&i.LastVisited,
+			&i.CreatedAt,
+			&i.DomainBoost,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const UpsertHistory = `-- name: UpsertHistory :exec
 INSERT INTO history (url, title, favicon_url)
 VALUES (?, ?, ?)
