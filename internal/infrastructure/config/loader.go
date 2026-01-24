@@ -17,11 +17,12 @@ import (
 
 // Manager handles configuration loading, watching, and reloading.
 type Manager struct {
-	config    *Config
-	viper     *viper.Viper
-	mu        sync.RWMutex
-	callbacks []func(*Config)
-	watching  bool
+	config         *Config
+	viper          *viper.Viper
+	mu             sync.RWMutex
+	callbacks      []func(*Config)
+	watching       bool
+	skipNextReload bool // Set by Save() to prevent fsnotify reload from overwriting in-memory config
 }
 
 // NewManager creates a new configuration manager.
@@ -283,12 +284,22 @@ func (m *Manager) Save(cfg *Config) error {
 		}
 	}
 
+	// Set flag BEFORE writing to prevent fsnotify-triggered reload from
+	// overwriting our in-memory config with stale viper cache
+	m.skipNextReload = true
+
 	if err := WriteConfigOrdered(cfg, configFile); err != nil {
+		m.skipNextReload = false // Reset on error
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 
-	// Reload config from disk to sync Viper's internal state
+	// Update in-memory config immediately (don't wait for file watcher)
+	// This ensures subsequent Get() calls return the new values
+	m.config = cfg
+
+	// Also reload from disk to sync Viper's internal state (if not watching)
 	if !m.watching {
+		m.skipNextReload = false // Clear flag since we're doing manual reload
 		if err := m.reload(); err != nil {
 			return err
 		}

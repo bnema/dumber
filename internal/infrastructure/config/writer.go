@@ -4,99 +4,158 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/pelletier/go-toml/v2"
 )
 
 // WriteConfigOrdered writes the configuration to disk with consistent ordering.
-// - Struct fields are written in definition order (go-toml v2 behavior)
-// - TOML sections are sorted alphabetically within each parent for deterministic output
+// Uses atomic write (temp file + rename) to prevent race conditions with file watchers.
 func WriteConfigOrdered(cfg *Config, path string) error {
 	if cfg == nil {
 		return fmt.Errorf("config is nil")
 	}
 
+	content, err := encodeConfigToTOML(cfg)
+	if err != nil {
+		return err
+	}
+
+	return atomicWriteFile(path, content, filePerm)
+}
+
+// encodeConfigToTOML encodes the config struct to sorted TOML content.
+func encodeConfigToTOML(cfg *Config) (string, error) {
 	var buf bytes.Buffer
 	enc := toml.NewEncoder(&buf)
 	enc.SetIndentTables(true)
 
 	if err := enc.Encode(cfg); err != nil {
-		return fmt.Errorf("failed to encode config: %w", err)
+		return "", fmt.Errorf("failed to encode config: %w", err)
 	}
 
-	// Post-process to sort TOML sections alphabetically
-	sorted := sortTOMLSections(buf.String())
+	return sortTOMLSections(buf.String()), nil
+}
 
-	if err := os.WriteFile(path, []byte(sorted), filePerm); err != nil {
-		return fmt.Errorf("failed to write config file: %w", err)
+// atomicWriteFile writes content to a file atomically using temp file + rename.
+// This ensures file watchers only see complete content, not partial writes.
+func atomicWriteFile(path, content string, perm os.FileMode) error {
+	dir := filepath.Dir(path)
+	tmpFile, err := os.CreateTemp(dir, ".config-*.tmp")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+
+	// Cleanup on error
+	success := false
+	defer func() {
+		if !success {
+			if removeErr := os.Remove(tmpPath); removeErr != nil {
+				log := logging.NewFromEnv()
+				log.Warn().Err(removeErr).Str("path", tmpPath).Msg("failed to cleanup temp config file")
+			}
+		}
+	}()
+
+	if err := writeAndSync(tmpFile, content); err != nil {
+		return err
+	}
+
+	if err := os.Chmod(tmpPath, perm); err != nil {
+		return fmt.Errorf("failed to set file permissions: %w", err)
+	}
+
+	if err := os.Rename(tmpPath, path); err != nil {
+		return fmt.Errorf("failed to rename temp file: %w", err)
+	}
+
+	success = true
+	return nil
+}
+
+// writeAndSync writes content to file and syncs to disk.
+func writeAndSync(f *os.File, content string) (err error) {
+	// Ensure file is closed, capturing close error if no prior error
+	defer func() {
+		closeErr := f.Close()
+		if err == nil && closeErr != nil {
+			err = fmt.Errorf("failed to close file: %w", closeErr)
+		}
+	}()
+
+	if _, err = f.WriteString(content); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	if err = f.Sync(); err != nil {
+		return fmt.Errorf("failed to sync file: %w", err)
 	}
 
 	return nil
 }
 
-// sortTOMLSections sorts TOML content so sections are in alphabetical order.
-// This handles both top-level sections and indented nested sections.
+// tomlSection represents a parsed TOML section with its header and content lines.
+type tomlSection struct {
+	header string   // Section name without brackets (e.g., "workspace.shortcuts")
+	lines  []string // All lines belonging to this section, including the header
+}
+
+// sortTOMLSections sorts TOML content so sections appear in alphabetical order.
 func sortTOMLSections(content string) string {
 	lines := strings.Split(content, "\n")
+	preamble, sections := parseTOMLSections(lines)
 
-	// Parse into sections
-	type section struct {
-		header string   // e.g., "appearance" or "workspace.pane_mode.actions.cancel"
-		lines  []string // lines belonging to this section (including header)
-	}
-
-	var sections []section
-	var currentSection *section
-	var preamble []string // lines before first section
-
-	// Match section headers with optional leading whitespace (for indented sub-tables)
-	sectionRegex := regexp.MustCompile(`^(\s*)\[([^\]]+)\]\s*$`)
-
-	for _, line := range lines {
-		if match := sectionRegex.FindStringSubmatch(line); match != nil {
-			// New section found
-			if currentSection != nil {
-				sections = append(sections, *currentSection)
-			}
-			currentSection = &section{
-				header: match[2], // Just the section name, without brackets or indent
-				lines:  []string{line},
-			}
-		} else if currentSection != nil {
-			currentSection.lines = append(currentSection.lines, line)
-		} else {
-			// Before any section (top-level keys)
-			preamble = append(preamble, line)
-		}
-	}
-
-	// Don't forget the last section
-	if currentSection != nil {
-		sections = append(sections, *currentSection)
-	}
-
-	// Sort sections alphabetically by header
 	sort.Slice(sections, func(i, j int) bool {
 		return sections[i].header < sections[j].header
 	})
 
-	// Rebuild content
+	return buildTOMLOutput(preamble, sections)
+}
+
+// parseTOMLSections parses TOML lines into preamble (top-level keys) and sections.
+func parseTOMLSections(lines []string) (preamble []string, sections []tomlSection) {
+	sectionRegex := regexp.MustCompile(`^(\s*)\[([^\]]+)\]\s*$`)
+	var current *tomlSection
+
+	for _, line := range lines {
+		if match := sectionRegex.FindStringSubmatch(line); match != nil {
+			if current != nil {
+				sections = append(sections, *current)
+			}
+			current = &tomlSection{
+				header: match[2],
+				lines:  []string{line},
+			}
+		} else if current != nil {
+			current.lines = append(current.lines, line)
+		} else {
+			preamble = append(preamble, line)
+		}
+	}
+
+	if current != nil {
+		sections = append(sections, *current)
+	}
+
+	return preamble, sections
+}
+
+// buildTOMLOutput reconstructs TOML content from preamble and sorted sections.
+func buildTOMLOutput(preamble []string, sections []tomlSection) string {
 	var result strings.Builder
 
-	// Write preamble (top-level keys) first
 	for _, line := range preamble {
 		result.WriteString(line)
 		result.WriteString("\n")
 	}
 
-	// Write sorted sections
 	for i, sec := range sections {
-		// Add blank line before section (except first if preamble is empty)
 		if i > 0 || len(preamble) > 0 {
-			// Check if previous content already ends with blank line
 			content := result.String()
 			if !strings.HasSuffix(content, "\n\n") && content != "" {
 				result.WriteString("\n")
@@ -109,7 +168,6 @@ func sortTOMLSections(content string) string {
 		}
 	}
 
-	// Trim trailing whitespace but ensure single newline at end
 	output := strings.TrimRight(result.String(), "\n")
 	if output != "" {
 		output += "\n"
