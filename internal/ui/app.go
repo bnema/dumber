@@ -13,6 +13,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
+	"github.com/bnema/dumber/internal/infrastructure/filesystem"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/infrastructure/snapshot"
 	"github.com/bnema/dumber/internal/infrastructure/textinput"
@@ -495,8 +496,11 @@ func (a *App) initDownloadHandler(ctx context.Context) {
 	// Create download event adapter to show toasts.
 	eventAdapter := &downloadEventAdapter{app: a}
 
+	// Create use case for preparing download destinations with file deduplication.
+	prepareDownloadUC := usecase.NewPrepareDownloadUseCase(filesystem.New())
+
 	// Create and wire the download handler.
-	handler := webkit.NewDownloadHandler(downloadPath, eventAdapter)
+	handler := webkit.NewDownloadHandler(downloadPath, eventAdapter, prepareDownloadUC)
 	a.deps.WebContext.SetDownloadHandler(ctx, handler)
 
 	log.Info().Str("path", downloadPath).Msg("download handler initialized")
