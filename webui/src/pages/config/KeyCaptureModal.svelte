@@ -30,6 +30,13 @@
   let capturedKey = $state<string | null>(null);
   let isSaving = $state(false);
 
+  // Symbol keys that are already shifted (pressing shift produces these characters)
+  // Don't add 'shift' modifier for these since they're self-describing
+  const SHIFTED_SYMBOLS = new Set([
+    "{", "}", "(", ")", "<", ">", "!", "@", "#", "$", "%", "^", "&", "*",
+    "+", "_", ":", '"', "?", "|", "~",
+  ]);
+
   function handleKeyDown(e: KeyboardEvent) {
     if (!isCapturing) return;
     e.preventDefault();
@@ -38,7 +45,6 @@
     const parts: string[] = [];
     if (e.ctrlKey) parts.push("ctrl");
     if (e.altKey) parts.push("alt");
-    if (e.shiftKey) parts.push("shift");
 
     let key = e.key.toLowerCase();
     switch (key) {
@@ -77,6 +83,12 @@
         break;
     }
 
+    // Only add shift modifier for letter keys and non-symbol keys
+    // Symbol keys like { } + etc. are already the shifted result
+    if (e.shiftKey && !SHIFTED_SYMBOLS.has(e.key)) {
+      parts.push("shift");
+    }
+
     parts.push(key);
     capturedKey = parts.join("+");
     isCapturing = false;
@@ -101,7 +113,12 @@
       keysToSave.push(capturedKey);
     }
     isSaving = true;
-    onSave(keysToSave);
+    try {
+      onSave(keysToSave);
+    } finally {
+      // Reset isSaving so modal remains dismissible if save fails
+      isSaving = false;
+    }
   }
 
   onMount(() => {
