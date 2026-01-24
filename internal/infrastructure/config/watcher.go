@@ -30,7 +30,10 @@ func (m *Manager) Watch() error {
 			log.Debug().Msg("skipping reload (triggered by own Save)")
 			m.skipNextReload = false
 			// Still need to sync viper's internal state with the file we just wrote
-			_ = m.viper.ReadInConfig()
+			if err := m.viper.ReadInConfig(); err != nil {
+				log.Warn().Err(err).Msg("failed to sync viper config after Save")
+				// Continue anyway - in-memory config is correct, just viper internal state is off
+			}
 			m.notifyCallbacksLocked()
 			return
 		}
