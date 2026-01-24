@@ -2,8 +2,8 @@ package config
 
 import (
 	"fmt"
-	"os"
 
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/fsnotify/fsnotify"
 )
 
@@ -17,27 +17,60 @@ func (m *Manager) Watch() error {
 	}
 
 	m.viper.WatchConfig()
-	m.viper.OnConfigChange(func(_ fsnotify.Event) {
-		// Reload config
-		if err := m.reload(); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to reload config: %v\n", err)
+	m.viper.OnConfigChange(func(e fsnotify.Event) {
+		log := logging.NewFromEnv()
+		log.Debug().Str("op", e.Op.String()).Str("file", e.Name).Msg("fsnotify config change detected")
+
+		// Acquire write lock before reload (reload modifies m.config)
+		m.mu.Lock()
+
+		// Track whether notifyCallbacksLocked will handle the unlock
+		willNotify := false
+		defer func() {
+			if !willNotify {
+				m.mu.Unlock()
+			}
+		}()
+
+		// Skip reload if this was triggered by our own Save() - the in-memory
+		// config is already correct and viper may have stale cached data
+		if m.skipNextReload {
+			log.Debug().Msg("skipping reload (triggered by own Save)")
+			m.skipNextReload = false
+			// Still need to sync viper's internal state with the file we just wrote
+			if err := m.viper.ReadInConfig(); err != nil {
+				log.Warn().Err(err).Msg("failed to sync viper config after Save")
+				// Continue anyway - in-memory config is correct, just viper internal state is off
+			}
+			willNotify = true
+			m.notifyCallbacksLocked()
 			return
 		}
 
-		// Notify callbacks
-		m.mu.RLock()
-		config := m.config
-		callbacks := make([]func(*Config), len(m.callbacks))
-		copy(callbacks, m.callbacks)
-		m.mu.RUnlock()
-
-		for _, callback := range callbacks {
-			callback(config)
+		log.Debug().Msg("reloading config from external change")
+		if err := m.reload(); err != nil {
+			log.Warn().Err(err).Msg("failed to reload config")
+			return // defer will unlock
 		}
+		willNotify = true
+		m.notifyCallbacksLocked()
 	})
 
 	m.watching = true
 	return nil
+}
+
+// notifyCallbacksLocked copies callbacks and config, releases lock, then notifies.
+// Must be called with m.mu held for write. Releases the lock before calling callbacks.
+func (m *Manager) notifyCallbacksLocked() {
+	config := m.config
+	callbacks := make([]func(*Config), len(m.callbacks))
+	copy(callbacks, m.callbacks)
+	m.mu.Unlock()
+
+	for _, callback := range callbacks {
+		callback(config)
+	}
 }
 
 // OnConfigChange registers a callback function to be called when config changes.

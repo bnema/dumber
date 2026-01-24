@@ -17,11 +17,12 @@ import (
 
 // Manager handles configuration loading, watching, and reloading.
 type Manager struct {
-	config    *Config
-	viper     *viper.Viper
-	mu        sync.RWMutex
-	callbacks []func(*Config)
-	watching  bool
+	config         *Config
+	viper          *viper.Viper
+	mu             sync.RWMutex
+	callbacks      []func(*Config)
+	watching       bool
+	skipNextReload bool // Set by Save() to prevent fsnotify reload from overwriting in-memory config
 }
 
 // NewManager creates a new configuration manager.
@@ -130,7 +131,24 @@ func (m *Manager) readConfigFile() error {
 			return fmt.Errorf("failed to read config file at %s: %w\nCheck the file format (must be valid TOML) and permissions", configFile, err)
 		}
 	}
+
+	// Transform legacy action bindings before unmarshaling
+	m.transformLegacyActionBindings()
+
 	return nil
+}
+
+// transformLegacyActionBindings converts old-format action bindings to new format.
+// This is called after reading config but before unmarshaling.
+func (m *Manager) transformLegacyActionBindings() {
+	rawConfig := m.viper.AllSettings()
+	transformer := NewLegacyConfigTransformer()
+	transformer.TransformLegacyActions(rawConfig)
+
+	// Apply transformed config back to viper
+	for key, value := range rawConfig {
+		m.viper.Set(key, value)
+	}
 }
 
 func (m *Manager) unmarshalConfig() (*Config, error) {
@@ -242,7 +260,7 @@ func (m *Manager) Get() *Config {
 	return &configCopy
 }
 
-// Save saves the provided configuration to disk and updates Viper.
+// Save saves the provided configuration to disk with ordered sections.
 func (m *Manager) Save(cfg *Config) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -256,31 +274,32 @@ func (m *Manager) Save(cfg *Config) error {
 		return fmt.Errorf("configuration validation failed: %w", err)
 	}
 
-	// Update Viper with the new values.
-	// Since we can't easily update Viper from a struct automatically while preserving
-	// all settings, we update the main keys we care about.
-	m.viper.Set("appearance.sans_font", cfg.Appearance.SansFont)
-	m.viper.Set("appearance.serif_font", cfg.Appearance.SerifFont)
-	m.viper.Set("appearance.monospace_font", cfg.Appearance.MonospaceFont)
-	m.viper.Set("appearance.default_font_size", cfg.Appearance.DefaultFontSize)
-	m.viper.Set("appearance.color_scheme", cfg.Appearance.ColorScheme)
-	m.viper.Set("appearance.light_palette", cfg.Appearance.LightPalette)
-	m.viper.Set("appearance.dark_palette", cfg.Appearance.DarkPalette)
-	m.viper.Set("default_webpage_zoom", cfg.DefaultWebpageZoom)
-	m.viper.Set("default_ui_scale", cfg.DefaultUIScale)
-	m.viper.Set("default_search_engine", cfg.DefaultSearchEngine)
+	// Write config with ordered sections (bypasses Viper's random map ordering)
+	configFile := m.viper.ConfigFileUsed()
+	if configFile == "" {
+		var err error
+		configFile, err = GetConfigFile()
+		if err != nil {
+			return fmt.Errorf("failed to determine config file path: %w", err)
+		}
+	}
 
-	// Performance profile (requires browser restart to take effect)
-	m.viper.Set("performance.profile", string(cfg.Performance.Profile))
+	// Set flag BEFORE writing to prevent fsnotify-triggered reload from
+	// overwriting our in-memory config with stale viper cache
+	m.skipNextReload = true
 
-	if err := m.viper.WriteConfig(); err != nil {
+	if err := WriteConfigOrdered(cfg, configFile); err != nil {
+		m.skipNextReload = false // Reset on error
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 
-	// We don't update m.config here manually because viper.OnConfigChange
-	// will trigger reload() if Watch() is active.
-	// If Watch() is not active, we should call reload() manually.
+	// Update in-memory config immediately (don't wait for file watcher)
+	// This ensures subsequent Get() calls return the new values
+	m.config = cfg
+
+	// Also reload from disk to sync Viper's internal state (if not watching)
 	if !m.watching {
+		m.skipNextReload = false // Clear flag since we're doing manual reload
 		if err := m.reload(); err != nil {
 			return err
 		}
@@ -294,7 +313,7 @@ func (m *Manager) GetConfigFile() string {
 	return m.viper.ConfigFileUsed()
 }
 
-// createDefaultConfig creates a default configuration file.
+// createDefaultConfig creates a default configuration file with ordered sections.
 func (m *Manager) createDefaultConfig() error {
 	configFile, err := GetConfigFile()
 	if err != nil {
@@ -306,12 +325,14 @@ func (m *Manager) createDefaultConfig() error {
 		return err
 	}
 
-	// Detect available fonts and override defaults before writing config.
-	m.detectAndSetFonts()
+	// Start with default config
+	cfg := DefaultConfig()
 
-	// Ensure TOML format and write config
-	m.viper.SetConfigType("toml")
-	if err := m.viper.SafeWriteConfigAs(configFile); err != nil {
+	// Detect available fonts and override defaults
+	m.detectAndSetFontsOnConfig(cfg)
+
+	// Write config with ordered sections
+	if err := WriteConfigOrdered(cfg, configFile); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
@@ -320,9 +341,9 @@ func (m *Manager) createDefaultConfig() error {
 	return nil
 }
 
-// detectAndSetFonts detects available system fonts and sets the best available
-// fonts from the fallback chains. This runs only during first-run config creation.
-func (m *Manager) detectAndSetFonts() {
+// detectAndSetFontsOnConfig detects available system fonts and sets the best available
+// fonts from the fallback chains directly on the Config struct.
+func (*Manager) detectAndSetFontsOnConfig(cfg *Config) {
 	// Create context with logger for debugging first-run font detection.
 	logger := logging.NewFromEnv()
 	ctx := logging.WithContext(context.Background(), logger)
@@ -334,13 +355,9 @@ func (m *Manager) detectAndSetFonts() {
 		return
 	}
 
-	sansFont := detector.SelectBestFont(ctx, port.FontCategorySansSerif, fonts.SansSerifFallbackChain())
-	serifFont := detector.SelectBestFont(ctx, port.FontCategorySerif, fonts.SerifFallbackChain())
-	monoFont := detector.SelectBestFont(ctx, port.FontCategoryMonospace, fonts.MonospaceFallbackChain())
-
-	m.viper.Set("appearance.sans_font", sansFont)
-	m.viper.Set("appearance.serif_font", serifFont)
-	m.viper.Set("appearance.monospace_font", monoFont)
+	cfg.Appearance.SansFont = detector.SelectBestFont(ctx, port.FontCategorySansSerif, fonts.SansSerifFallbackChain())
+	cfg.Appearance.SerifFont = detector.SelectBestFont(ctx, port.FontCategorySerif, fonts.SerifFallbackChain())
+	cfg.Appearance.MonospaceFont = detector.SelectBestFont(ctx, port.FontCategoryMonospace, fonts.MonospaceFallbackChain())
 }
 
 // setDefaults sets default configuration values in Viper.
@@ -443,13 +460,7 @@ func (m *Manager) setWorkspaceDefaults(defaults *Config) {
 	m.viper.SetDefault("workspace.resize_mode.step_percent", defaults.Workspace.ResizeMode.StepPercent)
 	m.viper.SetDefault("workspace.resize_mode.min_pane_percent", defaults.Workspace.ResizeMode.MinPanePercent)
 	m.viper.SetDefault("workspace.resize_mode.actions", defaults.Workspace.ResizeMode.Actions)
-	m.viper.SetDefault("workspace.shortcuts.close_pane", defaults.Workspace.Shortcuts.ClosePane)
-	m.viper.SetDefault("workspace.shortcuts.next_tab", defaults.Workspace.Shortcuts.NextTab)
-	m.viper.SetDefault("workspace.shortcuts.previous_tab", defaults.Workspace.Shortcuts.PreviousTab)
-	m.viper.SetDefault("workspace.shortcuts.consume_or_expel_left", defaults.Workspace.Shortcuts.ConsumeOrExpelLeft)
-	m.viper.SetDefault("workspace.shortcuts.consume_or_expel_right", defaults.Workspace.Shortcuts.ConsumeOrExpelRight)
-	m.viper.SetDefault("workspace.shortcuts.consume_or_expel_up", defaults.Workspace.Shortcuts.ConsumeOrExpelUp)
-	m.viper.SetDefault("workspace.shortcuts.consume_or_expel_down", defaults.Workspace.Shortcuts.ConsumeOrExpelDown)
+	m.viper.SetDefault("workspace.shortcuts.actions", defaults.Workspace.Shortcuts.Actions)
 	m.viper.SetDefault("workspace.tab_bar_position", defaults.Workspace.TabBarPosition)
 	m.viper.SetDefault("workspace.hide_tab_bar_when_single_tab", defaults.Workspace.HideTabBarWhenSingleTab)
 	m.viper.SetDefault("workspace.switch_to_tab_on_move", defaults.Workspace.SwitchToTabOnMove)

@@ -10,6 +10,7 @@ packages:
     interfaces:
       ConfigMigrator: {}
       ConfigSchemaProvider: {}
+      ConfigTransformer: {}
       DatabaseProvider: {}
       DiffFormatter: {}
       SessionLogger: {}
@@ -27,6 +28,9 @@ packages:
       FocusedInputProvider: {}
       AccentPickerUI: {}
       FontDetector: {}
+      KeybindingsProvider: {}
+      KeybindingsSaver: {}
+      DownloadResponse: {}
   github.com/bnema/dumber/internal/domain/repository:
     config:
       dir: '{{.InterfaceDir}}/mocks'

@@ -13,6 +13,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
+	"github.com/bnema/dumber/internal/infrastructure/filesystem"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/infrastructure/snapshot"
 	"github.com/bnema/dumber/internal/infrastructure/textinput"
@@ -495,8 +496,11 @@ func (a *App) initDownloadHandler(ctx context.Context) {
 	// Create download event adapter to show toasts.
 	eventAdapter := &downloadEventAdapter{app: a}
 
+	// Create use case for preparing download destinations with file deduplication.
+	prepareDownloadUC := usecase.NewPrepareDownloadUseCase(filesystem.New())
+
 	// Create and wire the download handler.
-	handler := webkit.NewDownloadHandler(downloadPath, eventAdapter)
+	handler := webkit.NewDownloadHandler(downloadPath, eventAdapter, prepareDownloadUC)
 	a.deps.WebContext.SetDownloadHandler(ctx, handler)
 
 	log.Info().Str("path", downloadPath).Msg("download handler initialized")
@@ -590,6 +594,9 @@ func (a *App) initOmniboxConfig(ctx context.Context) {
 	}
 	shortcutsUC := usecase.NewSearchShortcutsUseCase(shortcuts)
 
+	// Create autocomplete use case for inline suggestions
+	autocompleteUC := usecase.NewAutocompleteUseCase(a.deps.HistoryUC, a.deps.FavoritesUC, shortcutsUC)
+
 	// Store omnibox config (omnibox is created per-pane via WorkspaceView).
 	a.omniboxCfg = component.OmniboxConfig{
 		HistoryUC:       a.deps.HistoryUC,
@@ -597,6 +604,7 @@ func (a *App) initOmniboxConfig(ctx context.Context) {
 		FaviconAdapter:  a.faviconAdapter,
 		CopyURLUC:       a.deps.CopyURLUC,
 		ShortcutsUC:     shortcutsUC,
+		AutocompleteUC:  autocompleteUC,
 		DefaultSearch:   a.deps.Config.DefaultSearchEngine,
 		InitialBehavior: a.deps.Config.Omnibox.InitialBehavior,
 		UIScale:         a.deps.Config.DefaultUIScale,
@@ -1942,11 +1950,15 @@ func (a *App) initConfigWatcher(ctx context.Context) {
 		return
 	}
 
-	// Only appearance is hot-reloaded for now.
+	// Hot-reload appearance and keybindings on config change.
 	a.configManager.OnConfigChange(func(newCfg *config.Config) {
 		cfgCopy := newCfg
 		cb := glib.SourceFunc(func(_ uintptr) bool {
 			a.applyAppearanceConfig(ctx, cfgCopy)
+			// Reload keyboard shortcuts
+			if a.keyboardHandler != nil {
+				a.keyboardHandler.ReloadShortcuts(ctx, cfgCopy)
+			}
 			return false
 		})
 		glib.IdleAdd(&cb, 0)

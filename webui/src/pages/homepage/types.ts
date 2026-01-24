@@ -3,6 +3,8 @@
 // Mirrors Go models from internal/db/models.go and related query files
 // ═══════════════════════════════════════════════════════════════════════════════
 
+import type { Component } from 'svelte';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // History Types
 // ─────────────────────────────────────────────────────────────────────────────
@@ -110,7 +112,7 @@ export interface CommandPaletteItem {
   id: string;
   label: string;
   description?: string;
-  icon?: import('svelte').Component | string;
+  icon?: Component | string;
   action: () => void;
   shortcut?: string;
 }

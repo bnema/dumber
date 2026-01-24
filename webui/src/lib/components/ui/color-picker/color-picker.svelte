@@ -21,17 +21,8 @@
 
 	let open = $state(false);
 
-	// svelte-awesome-color-picker uses hex binding
-	let hex = $state(value);
-
-	// Sync hex when value changes externally
-	$effect(() => {
-		hex = value;
-	});
-
 	function handleInput(event: { hex: string | null }) {
 		if (event.hex) {
-			hex = event.hex;
 			value = event.hex;
 			onValueChange?.(event.hex);
 		}
@@ -60,7 +51,7 @@
 			sideOffset={4}
 		>
 			<ColorPicker
-				bind:hex
+				bind:hex={value}
 				onInput={handleInput}
 				isDialog={false}
 			/>
@@ -68,10 +59,10 @@
 			<div class="mt-2 flex items-center gap-2">
 				<span
 					class="block h-6 w-6 shrink-0 border border-border"
-					style="background-color: {hex};"
+					style="background-color: {value};"
 					aria-hidden="true"
 				></span>
-				<span class="font-mono text-sm text-foreground">{hex}</span>
+				<span class="font-mono text-sm text-foreground">{value}</span>
 			</div>
 		</Popover.Content>
 	</Popover.Portal>

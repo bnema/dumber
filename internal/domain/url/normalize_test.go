@@ -62,6 +62,36 @@ func TestNormalize(t *testing.T) {
 			input: "hello",
 			want:  "hello",
 		},
+		{
+			name:  "localhost",
+			input: "localhost",
+			want:  "http://localhost",
+		},
+		{
+			name:  "localhost with port",
+			input: "localhost:5173",
+			want:  "http://localhost:5173",
+		},
+		{
+			name:  "localhost with alt port",
+			input: "localhost:8080",
+			want:  "http://localhost:8080",
+		},
+		{
+			name:  "localhost with path",
+			input: "localhost/api/v1",
+			want:  "http://localhost/api/v1",
+		},
+		{
+			name:  "localhost.com is a domain not localhost",
+			input: "localhost.com",
+			want:  "https://localhost.com",
+		},
+		{
+			name:  "localhostevil.com is a domain not localhost",
+			input: "localhostevil.com",
+			want:  "https://localhostevil.com",
+		},
 	}
 
 	for _, tt := range tests {
@@ -256,6 +286,36 @@ func TestLooksLikeURL(t *testing.T) {
 			name:  "single word",
 			input: "hello",
 			want:  false,
+		},
+		{
+			name:  "localhost",
+			input: "localhost",
+			want:  true,
+		},
+		{
+			name:  "localhost with port",
+			input: "localhost:5173",
+			want:  true,
+		},
+		{
+			name:  "localhost with alt port",
+			input: "localhost:8080",
+			want:  true,
+		},
+		{
+			name:  "localhost with path",
+			input: "localhost/api/v1",
+			want:  true,
+		},
+		{
+			name:  "localhost.com is a domain not localhost",
+			input: "localhost.com",
+			want:  true,
+		},
+		{
+			name:  "localhostevil.com is a domain not localhost",
+			input: "localhostevil.com",
+			want:  true,
 		},
 	}
 

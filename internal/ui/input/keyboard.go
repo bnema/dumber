@@ -79,6 +79,19 @@ func (h *KeyboardHandler) SetOnAction(fn ActionHandler) {
 	h.onAction = fn
 }
 
+// ReloadShortcuts rebuilds the shortcut set from the new config.
+// This enables hot-reloading of keybindings without restarting.
+func (h *KeyboardHandler) ReloadShortcuts(ctx context.Context, cfg *config.Config) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	log := logging.FromContext(ctx)
+	log.Debug().Msg("reloading shortcuts from config")
+
+	h.shortcuts = NewShortcutSet(ctx, cfg)
+	h.cfg = cfg
+}
+
 // SetOnModeChange sets the callback for mode changes (for UI updates).
 func (h *KeyboardHandler) SetOnModeChange(fn func(from, to Mode)) {
 	h.modal.SetOnModeChange(fn)
