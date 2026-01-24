@@ -2,13 +2,17 @@
 set -e
 
 # Dumber installer script
-# Usage: curl -fsSL https://dumber.bnema.dev/install | bash
+# Usage: curl -fsSL https://dumber.bnema.dev/install | sh
 
 REPO="bnema/dumber"
 
-# Prefer ~/.local/bin if it exists, otherwise /usr/local/bin
+# Prefer ~/.local/bin if it exists and is in PATH, otherwise /usr/local/bin
 if [ -d "$HOME/.local/bin" ]; then
     INSTALL_DIR="$HOME/.local/bin"
+    case ":$PATH:" in
+        *":$HOME/.local/bin:"*) ;;
+        *) echo "Warning: $HOME/.local/bin is not in your PATH" ;;
+    esac
 else
     INSTALL_DIR="/usr/local/bin"
 fi

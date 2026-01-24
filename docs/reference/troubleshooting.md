@@ -19,9 +19,9 @@ dumber doctor --media   # GStreamer/VA-API only
 **Solution:**
 1. Run `dumber doctor --runtime`
 2. Install missing dependencies:
-   - Arch: `pacman -S webkit2gtk-4.1 gtk4`
-   - Fedora: `dnf install webkit2gtk4.1 gtk4`
-   - Ubuntu: `apt install libwebkit2gtk-4.1-0 libgtk-4-1`
+   - Arch: `pacman -S webkitgtk-6.0 gtk4`
+   - Fedora: `dnf install webkitgtk6.0 gtk4`
+   - Ubuntu: `apt install libwebkitgtk-6.0-4 libgtk-4-1`
 
 ### Video playback issues
 
@@ -129,4 +129,4 @@ dumber purge
 ## Getting Help
 
 - Check logs: `dumber logs`
-- GitHub Issues: https://github.com/bnema/dumber/issues
+- [GitHub Issues](https://github.com/bnema/dumber/issues)

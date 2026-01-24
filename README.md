@@ -4,8 +4,8 @@
 
 A TTY-inspired browser multiplexer for tiling window managers.
 
-- Website: https://dumber.bnema.dev
-- Documentation: https://dumber.bnema.dev/docs
+- Website: [dumber.bnema.dev](https://dumber.bnema.dev)
+- Documentation: [dumber.bnema.dev/docs](https://dumber.bnema.dev/docs)
 
 ---
 
@@ -60,11 +60,13 @@ flatpak run dev.bnema.Dumber browse
 ### Dependencies
 
 **Arch Linux:**
+
 ```bash
 sudo pacman -S webkitgtk-6.0 gtk4 gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugin-va
 ```
 
 **Debian/Ubuntu:**
+
 ```bash
 sudo apt install libwebkitgtk-6.0-4 libgtk-4-1 gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad
 ```
