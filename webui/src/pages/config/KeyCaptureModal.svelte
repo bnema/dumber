@@ -46,42 +46,19 @@
     if (e.ctrlKey) parts.push("ctrl");
     if (e.altKey) parts.push("alt");
 
-    let key = e.key.toLowerCase();
-    switch (key) {
-      case "control":
-      case "alt":
-      case "shift":
-      case "meta":
-        return; // Modifier only, wait for actual key
-      case "arrowleft":
-        key = "arrowleft";
-        break;
-      case "arrowright":
-        key = "arrowright";
-        break;
-      case "arrowup":
-        key = "arrowup";
-        break;
-      case "arrowdown":
-        key = "arrowdown";
-        break;
-      case "escape":
-        // Escape closes the modal entirely
-        onCancel();
-        return;
-      case " ":
-        key = "space";
-        break;
-      case "enter":
-        key = "enter";
-        break;
-      case "tab":
-        key = "tab";
-        break;
-      case "backspace":
-        key = "backspace";
-        break;
+    // Ignore modifier-only presses
+    if (["control", "alt", "shift", "meta"].includes(e.key.toLowerCase())) {
+      return;
     }
+
+    // Escape closes the modal
+    if (e.key === "Escape") {
+      onCancel();
+      return;
+    }
+
+    // Normalize key name
+    const key = e.key === " " ? "space" : e.key.toLowerCase();
 
     // Only add shift modifier for letter keys and non-symbol keys
     // Symbol keys like { } + etc. are already the shifted result
