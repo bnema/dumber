@@ -37,6 +37,7 @@
   });
 
   // Recompute timeline from filtered entries
+  /* eslint-disable svelte/prefer-svelte-reactivity -- temporary Map/Date for data grouping, not reactive state */
   const displayedTimeline = $derived(() => {
     const entries = displayedEntries();
     if (entries.length === 0) return [];
@@ -78,6 +79,7 @@
 
     return result.sort((a, b) => b.date.localeCompare(a.date));
   });
+  /* eslint-enable svelte/prefer-svelte-reactivity */
 
   const handleSelectEntry = (entry: HistoryEntry) => {
     navigateTo(entry.url);

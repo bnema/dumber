@@ -174,6 +174,8 @@ func (r *MessageRouter) SetupMessageHandler(ucm *webkit.UserContentManager, _ st
 func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager, valuePtr uintptr) {
 	log := logging.FromContext(r.baseCtx).With().Str("component", "message-router").Logger()
 
+	log.Debug().Uint64("value_ptr", uint64(valuePtr)).Msg("handleScriptMessage entry")
+
 	if valuePtr == 0 {
 		log.Warn().Msg("received script message with nil value pointer")
 		return
@@ -186,8 +188,14 @@ func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager,
 	}
 
 	rawJSON := jscValue.ToJson(0)
+	log.Debug().Int("json_len", len(rawJSON)).Msg("ToJson result")
 	if rawJSON == "" {
-		log.Warn().Msg("script message JSON is empty")
+		// This typically happens when the JS side sends non-serializable values
+		// like Svelte 5 Proxy objects or functions. The frontend should use
+		// JSON.parse(JSON.stringify(obj)) to convert Proxies to plain objects.
+		log.Error().
+			Msg("script message JSON serialization failed (ToJson returned empty) - " +
+				"this usually means JS sent non-serializable values like Proxy objects")
 		return
 	}
 
@@ -213,7 +221,13 @@ func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager,
 
 	entry, ok := r.getHandler(msg.Type)
 	if !ok || entry.handler == nil {
-		log.Warn().Str("type", msg.Type).Msg("no handler registered for message type")
+		log.Warn().Str("type", msg.Type).Int("registered_handlers", len(r.handlers)).Msg("no handler registered for message type")
+		// Debug: list all registered handlers
+		r.mu.RLock()
+		for handlerType := range r.handlers {
+			log.Debug().Str("registered_type", handlerType).Msg("available handler")
+		}
+		r.mu.RUnlock()
 		return
 	}
 
@@ -221,9 +235,11 @@ func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager,
 		Str("type", msg.Type).
 		Uint64("webview_id", msg.WebViewID).
 		Int("payload_len", len(msg.Payload)).
-		Msg("received script message")
+		Str("callback", entry.callback).
+		Msg("received script message, dispatching to handler")
 
 	resp, err := entry.handler.Handle(r.baseCtx, WebViewID(msg.WebViewID), msg.Payload)
+	log.Debug().Str("type", msg.Type).Err(err).Msg("handler execution completed")
 	if err != nil {
 		log.Error().Err(err).Str("type", msg.Type).Msg("message handler returned error")
 		if entry.errorCallback != "" {

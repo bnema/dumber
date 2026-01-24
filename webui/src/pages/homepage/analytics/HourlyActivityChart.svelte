@@ -19,6 +19,7 @@
 
   // Convert data to Frappe Charts format (ensure all 24 hours)
   const chartData = $derived.by(() => {
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- temporary Map for data transformation
     const visitsByHour = new Map<number, number>();
     hourlyDistribution.forEach(h => visitsByHour.set(h.hour, h.visit_count));
 
