@@ -14,6 +14,12 @@
   import * as Tabs from "$lib/components/ui/tabs";
   import { FlaskConical, RefreshCw } from "@lucide/svelte";
 
+  function getErrorMessage(e: unknown): string {
+    if (e instanceof Error) return e.message;
+    if (typeof e === "string") return e;
+    return "Unknown error";
+  }
+
   type ColorPalette = {
     background: string;
     surface: string;
@@ -119,8 +125,8 @@
       const response = await fetch("/api/config");
       if (!response.ok) throw new Error("Failed to fetch config");
       config = (await response.json()) as ConfigDTO;
-    } catch (e: any) {
-      loadError = e.message;
+    } catch (e: unknown) {
+      loadError = getErrorMessage(e);
       console.error("[config] load failed", e);
     } finally {
       loading = false;
@@ -140,14 +146,14 @@
       const response = await fetch("/api/config/default");
       if (!response.ok) throw new Error("Failed to fetch default config");
       config = (await response.json()) as ConfigDTO;
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[config] reset defaults failed", e);
     }
     resetDialogOpen = false;
   }
 
   function getWebKitBridge(): { postMessage: (msg: unknown) => void } | null {
-    const bridge = (window as any).webkit?.messageHandlers?.dumber;
+    const bridge = window.webkit?.messageHandlers?.dumber;
     if (bridge && typeof bridge.postMessage === "function") {
       return bridge;
     }
@@ -155,7 +161,7 @@
   }
 
   function getWebViewId(): number {
-    return (window as any).__dumber_webview_id || 0;
+    return window.__dumber_webview_id || 0;
   }
 
   async function saveConfig() {
@@ -195,7 +201,7 @@
         }
       };
 
-      (window as any).__dumber_config_saved = (resp?: unknown) => {
+      window.__dumber_config_saved = (resp?: unknown) => {
         clearSaveTimeout();
         console.debug("[config] save success", resp);
         saveSuccess = true;
@@ -213,7 +219,7 @@
           saveSuccess = false;
         }, 3000);
       };
-      (window as any).__dumber_config_error = (msg: unknown) => {
+      window.__dumber_config_error = (msg: unknown) => {
         clearSaveTimeout();
         console.error("[config] save error", msg);
         saveError = typeof msg === "string" ? msg : "Failed to save config";
@@ -228,14 +234,13 @@
           webview_id: webviewId,
           payload,
         });
-        console.debug("[config] postMessage sent", { payloadBytes: JSON.stringify(payload).length });
       } catch (postErr) {
         console.error("[config] postMessage threw", postErr);
         throw postErr;
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[config] save exception", e);
-      saveError = e.message;
+      saveError = getErrorMessage(e);
       saving = false;
     }
   }
@@ -247,8 +252,8 @@
 
   onMount(() => {
     console.debug("[config] mount", {
-      webviewId: (window as any).__dumber_webview_id,
-      hasBridge: Boolean((window as any).webkit?.messageHandlers?.dumber),
+      webviewId: window.__dumber_webview_id,
+      hasBridge: Boolean(window.webkit?.messageHandlers?.dumber),
     });
 
     const onThemeChanged = (e: Event) => {
@@ -342,7 +347,12 @@
                 </div>
                 <div class="space-y-2">
                   <Label for="ui_scale">UI Scale</Label>
-                  <Input id="ui_scale" type="number" step="0.1" bind:value={config.default_ui_scale} />
+                  <Input
+                    id="ui_scale"
+                    type="number"
+                    step="0.1"
+                    bind:value={config.default_ui_scale}
+                  />
                 </div>
               </div>
 
@@ -620,35 +630,37 @@
             <span>Theme x{themeEvents}</span>
           {/if}
         </div>
-        <div class="flex items-center gap-3">
-          <AlertDialog.Root bind:open={resetDialogOpen}>
-            <AlertDialog.Trigger disabled={saving}>
-              {#snippet child({ props })}
-                <Button variant="outline" {...props} type="button">
-                  Reset Defaults
-                </Button>
-              {/snippet}
-            </AlertDialog.Trigger>
-            <AlertDialog.Content>
-              <AlertDialog.Header>
-                <AlertDialog.Title>Reset to defaults?</AlertDialog.Title>
-                <AlertDialog.Description>
-                  This will reset all settings on this page to their default values.
-                  You will still need to click Save to persist the changes.
-                </AlertDialog.Description>
-              </AlertDialog.Header>
-              <AlertDialog.Footer>
-                <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-                <AlertDialog.Action onclick={doResetToDefaults}>
-                  Reset Defaults
-                </AlertDialog.Action>
-              </AlertDialog.Footer>
-            </AlertDialog.Content>
-          </AlertDialog.Root>
-          <Button onclick={saveConfig} disabled={saving} type="button">
-            {saving ? "Saving…" : "Save"}
-          </Button>
-        </div>
+        {#if activeTab !== "keybindings"}
+          <div class="flex items-center gap-3">
+            <AlertDialog.Root bind:open={resetDialogOpen}>
+              <AlertDialog.Trigger disabled={saving}>
+                {#snippet child({ props })}
+                  <Button variant="outline" {...props} type="button">
+                    Reset Defaults
+                  </Button>
+                {/snippet}
+              </AlertDialog.Trigger>
+              <AlertDialog.Content>
+                <AlertDialog.Header>
+                  <AlertDialog.Title>Reset to defaults?</AlertDialog.Title>
+                  <AlertDialog.Description>
+                    This will reset all settings on this page to their default values.
+                    You will still need to click Save to persist the changes.
+                  </AlertDialog.Description>
+                </AlertDialog.Header>
+                <AlertDialog.Footer>
+                  <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+                  <AlertDialog.Action onclick={doResetToDefaults}>
+                    Reset Defaults
+                  </AlertDialog.Action>
+                </AlertDialog.Footer>
+              </AlertDialog.Content>
+            </AlertDialog.Root>
+            <Button onclick={saveConfig} disabled={saving} type="button">
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        {/if}
       </div>
 
       <!-- Save error display -->

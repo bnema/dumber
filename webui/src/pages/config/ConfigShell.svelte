@@ -9,14 +9,12 @@
   let { children }: Props = $props();
 
   function navigateWithViewTransition(url: string) {
-    const doc = document as any;
-
-    if (typeof doc?.startViewTransition !== 'function') {
+    if (typeof document.startViewTransition !== 'function') {
       window.location.href = url;
       return;
     }
 
-    const transition = doc.startViewTransition(() => {
+    const transition = document.startViewTransition(() => {
       document.documentElement.dataset.vt = 'leaving';
     });
 
@@ -34,6 +32,7 @@
 <svelte:head>
   <title>dumb://config</title>
   <meta name="description" content="Dumber Browser - Settings" />
+  <!-- eslint-disable-next-line svelte/no-at-html-tags -- trusted static styles for shell initialization -->
   {@html `<style>
     html, body { margin: 0; padding: 0; }
     html { background: var(--background, #0a0a0a); }

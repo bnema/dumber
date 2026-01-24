@@ -56,7 +56,7 @@
           <Table.Cell class="text-muted-foreground">{binding.description}</Table.Cell>
           <Table.Cell>
             <div class="flex flex-wrap gap-1">
-              {#each binding.keys as key}
+              {#each binding.keys as key (key)}
                 <kbd class="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">
                   {formatKey(key)}
                 </kbd>

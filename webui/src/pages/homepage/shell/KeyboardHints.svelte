@@ -136,7 +136,7 @@
             {#each navHints as hint (hint.description)}
               <div class="hint-row">
                 <div class="hint-keys">
-                  {#each hint.keys as key, i}
+                  {#each hint.keys as key, i (key)}
                     {#if i > 0}<span class="key-sep">/</span>{/if}
                     <kbd>{key}</kbd>
                   {/each}
@@ -157,7 +157,7 @@
             {#each panelSwitchHints as hint (hint.description)}
               <div class="hint-row">
                 <div class="hint-keys">
-                  {#each hint.keys as key, i}
+                  {#each hint.keys as key, i (key)}
                     {#if i > 0}<span class="key-sep">/</span>{/if}
                     <kbd>{key}</kbd>
                   {/each}
@@ -179,7 +179,7 @@
               {#each panelHints as hint (hint.description)}
                 <div class="hint-row">
                   <div class="hint-keys">
-                    {#each hint.keys as key, i}
+                    {#each hint.keys as key, i (key)}
                       {#if i > 0}<span class="key-sep">/</span>{/if}
                       <kbd>{key}</kbd>
                     {/each}
@@ -201,7 +201,7 @@
             {#each quickAccessHints as hint (hint.description)}
               <div class="hint-row">
                 <div class="hint-keys">
-                  {#each hint.keys as key, i}
+                  {#each hint.keys as key, i (key)}
                     {#if i > 0}<span class="key-sep">/</span>{/if}
                     <kbd>{key}</kbd>
                   {/each}
