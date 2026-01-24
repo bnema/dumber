@@ -35,14 +35,12 @@
   };
 
   function navigateWithViewTransition(url: string) {
-    const doc = document as any;
-
-    if (typeof doc?.startViewTransition !== 'function') {
+    if (typeof document.startViewTransition !== 'function') {
       window.location.href = url;
       return;
     }
 
-    const transition = doc.startViewTransition(() => {
+    const transition = document.startViewTransition(() => {
       document.documentElement.dataset.vt = 'leaving';
     });
 
@@ -53,17 +51,15 @@
 
   const toggleTheme = () => {
     const nextMode = themeMode === 'dark' ? 'light' : 'dark';
-    const manager = (window as any).__dumber_color_scheme_manager as
-      | { setUserPreference?: (theme: ThemeMode) => void }
-      | undefined;
+    const manager = window.__dumber_color_scheme_manager;
 
     if (manager?.setUserPreference) {
       manager.setUserPreference(nextMode);
       return;
     }
 
-    if ((window as any).__dumber_setTheme) {
-      (window as any).__dumber_setTheme(nextMode);
+    if (window.__dumber_setTheme) {
+      window.__dumber_setTheme(nextMode);
       localStorage.setItem('dumber.theme', nextMode);
       return;
     }
@@ -109,6 +105,7 @@
 <svelte:head>
   <title>dumb://home</title>
   <meta name="description" content="Dumber Browser - Homepage" />
+  <!-- eslint-disable-next-line svelte/no-at-html-tags -- trusted static styles for shell initialization -->
   {@html `<style>
     html, body { margin: 0; padding: 0; }
     html { background: var(--background, #0a0a0a); }

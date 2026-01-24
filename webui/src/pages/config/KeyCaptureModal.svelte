@@ -21,10 +21,10 @@
 
   let { binding, onSave, onCancel }: Props = $props();
 
-  // Initialize with a plain copy of the binding keys (not a Proxy reference)
-  // untrack() tells Svelte we intentionally want the initial value only
+  // Initialize with a plain copy of the binding keys using $state.snapshot()
+  // to strip Svelte 5 Proxy wrappers. untrack() ensures we only read the initial value.
   let newKeys = $state<string[]>(
-    untrack(() => JSON.parse(JSON.stringify(binding.keys)) as string[])
+    untrack(() => $state.snapshot(binding.keys) as string[])
   );
   let isCapturing = $state(false);
   let capturedKey = $state<string | null>(null);
@@ -93,6 +93,17 @@
     newKeys = newKeys.filter((_, i) => i !== index);
   }
 
+  function handleSave() {
+    // Use $state.snapshot() to get plain array without Svelte 5 Proxy wrappers
+    const keysToSave = $state.snapshot(newKeys) as string[];
+    // Auto-add any pending captured key before saving
+    if (capturedKey && !keysToSave.includes(capturedKey)) {
+      keysToSave.push(capturedKey);
+    }
+    isSaving = true;
+    onSave(keysToSave);
+  }
+
   onMount(() => {
     const handler = (e: KeyboardEvent) => handleKeyDown(e);
     window.addEventListener("keydown", handler, true);
@@ -116,7 +127,7 @@
           Current Bindings
         </div>
         <div class="flex flex-wrap gap-2">
-          {#each newKeys as key, i}
+          {#each newKeys as key, i (key)}
             <div class="flex items-center gap-1 rounded bg-muted px-2 py-1">
               <kbd class="text-xs font-mono">{formatKey(key)}</kbd>
               <button
@@ -173,15 +184,7 @@
 
     <AlertDialog.Footer>
       <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-      <AlertDialog.Action onclick={() => {
-        // Auto-add any pending captured key before saving
-        let keysToSave = [...newKeys];
-        if (capturedKey && !keysToSave.includes(capturedKey)) {
-          keysToSave.push(capturedKey);
-        }
-        isSaving = true;
-        onSave(keysToSave);
-      }}>Save</AlertDialog.Action>
+      <AlertDialog.Action onclick={handleSave}>Save</AlertDialog.Action>
     </AlertDialog.Footer>
   </AlertDialog.Content>
 </AlertDialog.Root>

@@ -41,6 +41,13 @@
   let resetAllDialogOpen = $state(false);
   let successMessage = $state<string | null>(null);
   let conflicts = $state<KeybindingConflict[]>([]);
+  let hasPendingReset = $state(false);
+  let savingReset = $state(false);
+
+  // Type-safe callback setup helper
+  function setupCallback<T>(name: string, handler: (data: T) => void): void {
+    (window as unknown as Record<string, (data: T) => void>)[name] = handler;
+  }
 
   async function loadKeybindings() {
     loading = true;
@@ -52,14 +59,14 @@
       return;
     }
 
-    (window as any).__dumber_keybindings_loaded = (data: KeybindingsConfig) => {
+    setupCallback<KeybindingsConfig>("__dumber_keybindings_loaded", (data) => {
       keybindings = data;
       loading = false;
-    };
-    (window as any).__dumber_keybindings_error = (msg: string) => {
+    });
+    setupCallback<string>("__dumber_keybindings_error", (msg) => {
       error = typeof msg === "string" ? msg : "Failed to load keybindings";
       loading = false;
-    };
+    });
 
     try {
       postMessage({
@@ -83,45 +90,50 @@
   }
 
   async function saveBinding(keys: string[]) {
-    if (!editingBinding) {
-      return;
-    }
+    if (!editingBinding) return;
 
     if (!getWebKitBridge()) {
       error = "WebKit bridge not available";
       return;
     }
 
-    (window as any).__dumber_keybinding_set = (response: { status: string; conflicts?: KeybindingConflict[] }) => {
-      // Verify we got a valid success response from backend
-      if (!response || response.status !== "success") {
-        error = "Failed to save keybinding: invalid response";
-        return;
+    // Timeout to detect if backend never responds (message silently dropped)
+    const timeoutId = setTimeout(() => {
+      error = "Save timed out - backend did not respond";
+    }, 5000);
+
+    setupCallback<{ status: string; conflicts?: KeybindingConflict[] }>(
+      "__dumber_keybinding_set",
+      (response) => {
+        clearTimeout(timeoutId);
+        if (!response || response.status !== "success") {
+          error = "Failed to save keybinding: invalid response";
+          return;
+        }
+        conflicts = response.conflicts?.length ? response.conflicts : [];
+        loadKeybindings();
+        editingBinding = null;
+        showSuccess("Keybinding saved successfully");
       }
-      if (response.conflicts && response.conflicts.length > 0) {
-        conflicts = response.conflicts;
-      } else {
-        conflicts = [];
-      }
-      loadKeybindings();
-      editingBinding = null;
-      showSuccess("Keybinding saved successfully");
-    };
-    (window as any).__dumber_keybinding_set_error = (msg: string) => {
+    );
+    setupCallback<string>("__dumber_keybinding_set_error", (msg) => {
+      clearTimeout(timeoutId);
       error = typeof msg === "string" ? msg : "Failed to save keybinding";
-    };
+    });
+
+    // Create plain payload - extract primitive values explicitly to avoid any proxy issues
+    const mode = String(editingBinding.mode);
+    const action = String(editingBinding.action);
+    const payload = { mode, action, keys: [...keys] };
 
     try {
       postMessage({
         type: "set_keybinding",
         webviewId: getWebViewId(),
-        payload: {
-          mode: editingBinding.mode,
-          action: editingBinding.action,
-          keys: keys,
-        },
+        payload,
       });
     } catch (err) {
+      clearTimeout(timeoutId);
       error = err instanceof Error ? err.message : "Failed to save keybinding";
     }
   }
@@ -129,14 +141,14 @@
   async function resetBinding(mode: string, action: string) {
     if (!getWebKitBridge()) return;
 
-    (window as any).__dumber_keybinding_reset = () => {
-      conflicts = []; // Clear conflicts after reset
+    setupCallback<void>("__dumber_keybinding_reset", () => {
+      conflicts = [];
       loadKeybindings();
       showSuccess("Keybinding reset to default");
-    };
-    (window as any).__dumber_keybinding_reset_error = (msg: string) => {
+    });
+    setupCallback<string>("__dumber_keybinding_reset_error", (msg) => {
       error = typeof msg === "string" ? msg : "Failed to reset keybinding";
-    };
+    });
 
     try {
       postMessage({
@@ -149,18 +161,43 @@
     }
   }
 
-  async function resetAllBindings() {
+  // Reset All: update local state to defaults WITHOUT saving
+  function resetAllBindings() {
+    if (!keybindings) return;
+
+    // Reset each binding's keys to default_keys in local state
+    const resetGroups = keybindings.groups.map(group => ({
+      ...group,
+      bindings: group.bindings.map(binding => ({
+        ...binding,
+        keys: [...binding.default_keys],
+        is_custom: false,
+      })),
+    }));
+
+    keybindings = { groups: resetGroups };
+    hasPendingReset = true;
+    conflicts = [];
+    resetAllDialogOpen = false;
+    showSuccess("Preview: all keybindings reset to defaults. Click Save to apply.");
+  }
+
+  // Actually save the reset to backend
+  async function saveResetAll() {
     if (!getWebKitBridge()) return;
 
-    (window as any).__dumber_keybindings_reset_all = () => {
-      conflicts = []; // Clear conflicts after reset all
+    savingReset = true;
+
+    setupCallback<void>("__dumber_keybindings_reset_all", () => {
+      hasPendingReset = false;
+      savingReset = false;
       loadKeybindings();
-      resetAllDialogOpen = false;
-      showSuccess("All keybindings reset to defaults");
-    };
-    (window as any).__dumber_keybindings_reset_all_error = (msg: string) => {
-      error = typeof msg === "string" ? msg : "Failed to reset keybindings";
-    };
+      showSuccess("All keybindings saved successfully");
+    });
+    setupCallback<string>("__dumber_keybindings_reset_all_error", (msg) => {
+      error = typeof msg === "string" ? msg : "Failed to save keybindings";
+      savingReset = false;
+    });
 
     try {
       postMessage({
@@ -169,8 +206,15 @@
         payload: {},
       });
     } catch (err) {
-      error = err instanceof Error ? err.message : "Failed to reset keybindings";
+      error = err instanceof Error ? err.message : "Failed to save keybindings";
+      savingReset = false;
     }
+  }
+
+  // Cancel pending reset and reload from backend
+  function cancelReset() {
+    hasPendingReset = false;
+    loadKeybindings();
   }
 
   onMount(() => {
@@ -188,36 +232,51 @@
         </Card.Description>
       </div>
       <div class="flex gap-2">
-        <Button variant="outline" size="sm" onclick={loadKeybindings}>
-          <RefreshCw class="mr-1 size-4" />
-          Refresh
-        </Button>
-        <AlertDialog.Root bind:open={resetAllDialogOpen}>
-          <AlertDialog.Trigger>
-            {#snippet child({ props })}
-              <Button variant="outline" size="sm" {...props}>
-                <RotateCcw class="mr-1 size-4" />
-                Reset All
-              </Button>
-            {/snippet}
-          </AlertDialog.Trigger>
-          <AlertDialog.Content>
-            <AlertDialog.Header>
-              <AlertDialog.Title>Reset all keybindings?</AlertDialog.Title>
-              <AlertDialog.Description>
-                This will restore all keybindings to their default values. This action cannot be undone.
-              </AlertDialog.Description>
-            </AlertDialog.Header>
-            <AlertDialog.Footer>
-              <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-              <AlertDialog.Action onclick={resetAllBindings}>Reset All</AlertDialog.Action>
-            </AlertDialog.Footer>
-          </AlertDialog.Content>
-        </AlertDialog.Root>
+        {#if hasPendingReset}
+          <Button variant="outline" size="sm" onclick={cancelReset} disabled={savingReset}>
+            Cancel
+          </Button>
+          <Button size="sm" onclick={saveResetAll} disabled={savingReset}>
+            {savingReset ? "Saving…" : "Save"}
+          </Button>
+        {:else}
+          <Button variant="outline" size="sm" onclick={loadKeybindings}>
+            <RefreshCw class="mr-1 size-4" />
+            Refresh
+          </Button>
+          <AlertDialog.Root bind:open={resetAllDialogOpen}>
+            <AlertDialog.Trigger>
+              {#snippet child({ props })}
+                <Button variant="outline" size="sm" {...props}>
+                  <RotateCcw class="mr-1 size-4" />
+                  Reset All
+                </Button>
+              {/snippet}
+            </AlertDialog.Trigger>
+            <AlertDialog.Content>
+              <AlertDialog.Header>
+                <AlertDialog.Title>Reset all keybindings?</AlertDialog.Title>
+                <AlertDialog.Description>
+                  This will preview all keybindings with their default values. You'll need to click Save to apply.
+                </AlertDialog.Description>
+              </AlertDialog.Header>
+              <AlertDialog.Footer>
+                <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+                <AlertDialog.Action onclick={resetAllBindings}>Reset All</AlertDialog.Action>
+              </AlertDialog.Footer>
+            </AlertDialog.Content>
+          </AlertDialog.Root>
+        {/if}
       </div>
     </div>
   </Card.Header>
   <Card.Content class="space-y-6">
+    {#if hasPendingReset}
+      <div class="flex items-center gap-2 rounded-md border border-yellow-500/50 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-600 dark:text-yellow-400">
+        <AlertTriangle class="size-4" />
+        <span>Unsaved changes: all keybindings previewed with defaults. Click <strong>Save</strong> to apply or <strong>Cancel</strong> to discard.</span>
+      </div>
+    {/if}
     {#if loading}
       <div class="flex items-center justify-center py-8">
         <Spinner class="size-6" />
@@ -241,7 +300,7 @@
           <span class="font-medium">Keybinding conflicts detected</span>
         </div>
         <ul class="mt-2 list-disc pl-6 text-muted-foreground">
-          {#each conflicts as conflict}
+          {#each conflicts as conflict (conflict.key + conflict.conflicting_action)}
             <li>
               <kbd class="font-mono text-xs">{conflict.key}</kbd> is also bound to
               <strong>{conflict.conflicting_action}</strong> in <em>{conflict.conflicting_mode}</em> mode

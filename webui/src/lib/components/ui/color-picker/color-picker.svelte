@@ -21,17 +21,11 @@
 
 	let open = $state(false);
 
-	// svelte-awesome-color-picker uses hex binding
-	let hex = $state(value);
-
-	// Sync hex when value changes externally
-	$effect(() => {
-		hex = value;
-	});
+	// svelte-awesome-color-picker uses hex binding - use writable derived to sync with value
+	let hex = $derived.by(() => value);
 
 	function handleInput(event: { hex: string | null }) {
 		if (event.hex) {
-			hex = event.hex;
 			value = event.hex;
 			onValueChange?.(event.hex);
 		}

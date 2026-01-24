@@ -38,7 +38,7 @@
           label: 'entries',
           filtered: false,
         };
-      case 'favorites':
+      case 'favorites': {
         const filtered = homepageState.filteredFavorites;
         const total = homepageState.favorites.length;
         return {
@@ -46,6 +46,7 @@
           label: filtered.length === total ? 'items' : `of ${total}`,
           filtered: filtered.length !== total,
         };
+      }
       case 'analytics':
         return {
           count: homepageState.domainStats.length,

@@ -70,7 +70,11 @@
       const handler = (event: MessageEvent) => {
         if (event.data?.requestId === requestId) {
           window.removeEventListener('message', handler);
-          event.data.success ? resolve(event.data.data) : reject(new Error(event.data.error || 'Unknown error'));
+          if (event.data.success) {
+            resolve(event.data.data);
+          } else {
+            reject(new Error(event.data.error || 'Unknown error'));
+          }
         }
       };
       window.addEventListener('message', handler);
@@ -110,7 +114,11 @@
   }
 
   function retry() {
-    targetUrl ? window.location.href = targetUrl : window.location.reload();
+    if (targetUrl) {
+      window.location.href = targetUrl;
+    } else {
+      window.location.reload();
+    }
   }
 
   function goBack() {
@@ -144,6 +152,7 @@
     <Card.Header class="text-center">
       <div class="flex justify-center mb-4">
         <svg class="w-16 h-16 {iconColors[config.icon] || 'text-muted-foreground'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <!-- eslint-disable-next-line svelte/no-at-html-tags -- trusted static SVG paths -->
           {@html icons[config.icon] || icons.error}
         </svg>
       </div>
