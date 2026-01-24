@@ -61,7 +61,12 @@ func (u *PrepareDownloadUseCase) Execute(ctx context.Context, input PrepareDownl
 	if u.fs != nil {
 		safeName = download.MakeUniqueFilename(input.DownloadDir, safeName, func(path string) bool {
 			exists, err := u.fs.Exists(ctx, path)
-			return err == nil && exists
+			if err != nil {
+				log.Warn().Err(err).Str("path", path).
+					Msg("failed to check file existence; assuming exists")
+				return true // Conservative: assume exists to avoid overwrite
+			}
+			return exists
 		})
 	}
 

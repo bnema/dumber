@@ -77,6 +77,21 @@ func TestNormalize(t *testing.T) {
 			input: "localhost:8080",
 			want:  "http://localhost:8080",
 		},
+		{
+			name:  "localhost with path",
+			input: "localhost/api/v1",
+			want:  "http://localhost/api/v1",
+		},
+		{
+			name:  "localhost.com is a domain not localhost",
+			input: "localhost.com",
+			want:  "https://localhost.com",
+		},
+		{
+			name:  "localhostevil.com is a domain not localhost",
+			input: "localhostevil.com",
+			want:  "https://localhostevil.com",
+		},
 	}
 
 	for _, tt := range tests {
@@ -285,6 +300,21 @@ func TestLooksLikeURL(t *testing.T) {
 		{
 			name:  "localhost with alt port",
 			input: "localhost:8080",
+			want:  true,
+		},
+		{
+			name:  "localhost with path",
+			input: "localhost/api/v1",
+			want:  true,
+		},
+		{
+			name:  "localhost.com is a domain not localhost",
+			input: "localhost.com",
+			want:  true,
+		},
+		{
+			name:  "localhostevil.com is a domain not localhost",
+			input: "localhostevil.com",
 			want:  true,
 		},
 	}

@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,6 +18,31 @@ type mockDownloadResponse struct {
 func (m *mockDownloadResponse) GetMimeType() string          { return m.mimeType }
 func (m *mockDownloadResponse) GetSuggestedFilename() string { return m.suggestedFilename }
 func (m *mockDownloadResponse) GetUri() string               { return m.uri }
+
+// mockFileSystem implements port.FileSystem for testing.
+type mockFileSystem struct {
+	existingFiles map[string]bool
+	existsErr     error
+}
+
+func (m *mockFileSystem) Exists(_ context.Context, path string) (bool, error) {
+	if m.existsErr != nil {
+		return false, m.existsErr
+	}
+	return m.existingFiles[path], nil
+}
+
+func (*mockFileSystem) IsDirectory(_ context.Context, _ string) (bool, error) {
+	return false, nil
+}
+
+func (*mockFileSystem) GetSize(_ context.Context, _ string) (int64, error) {
+	return 0, nil
+}
+
+func (*mockFileSystem) RemoveAll(_ context.Context, _ string) error {
+	return nil
+}
 
 func TestPrepareDownloadUseCase_Execute(t *testing.T) {
 	ctx := context.Background()
@@ -167,5 +193,81 @@ func TestPrepareDownloadUseCase_ResolvePriority(t *testing.T) {
 
 		result := uc.Execute(ctx, input)
 		assert.Equal(t, "response.pdf", result.Filename)
+	})
+}
+
+func TestPrepareDownloadUseCase_Deduplication(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("existing file triggers _(1) suffix", func(t *testing.T) {
+		fs := &mockFileSystem{
+			existingFiles: map[string]bool{
+				"/tmp/downloads/document.pdf": true,
+			},
+		}
+		uc := NewPrepareDownloadUseCase(fs)
+
+		input := PrepareDownloadInput{
+			SuggestedFilename: "document.pdf",
+			DownloadDir:       "/tmp/downloads",
+		}
+
+		result := uc.Execute(ctx, input)
+		assert.Equal(t, "document_(1).pdf", result.Filename)
+		assert.Equal(t, "/tmp/downloads/document_(1).pdf", result.DestinationPath)
+	})
+
+	t.Run("multiple existing files increment suffix", func(t *testing.T) {
+		fs := &mockFileSystem{
+			existingFiles: map[string]bool{
+				"/tmp/downloads/document.pdf":     true,
+				"/tmp/downloads/document_(1).pdf": true,
+			},
+		}
+		uc := NewPrepareDownloadUseCase(fs)
+
+		input := PrepareDownloadInput{
+			SuggestedFilename: "document.pdf",
+			DownloadDir:       "/tmp/downloads",
+		}
+
+		result := uc.Execute(ctx, input)
+		assert.Equal(t, "document_(2).pdf", result.Filename)
+		assert.Equal(t, "/tmp/downloads/document_(2).pdf", result.DestinationPath)
+	})
+
+	t.Run("fs.Exists error assumes file exists (conservative)", func(t *testing.T) {
+		fs := &mockFileSystem{
+			existingFiles: map[string]bool{},
+			existsErr:     errors.New("permission denied"),
+		}
+		uc := NewPrepareDownloadUseCase(fs)
+
+		input := PrepareDownloadInput{
+			SuggestedFilename: "document.pdf",
+			DownloadDir:       "/tmp/downloads",
+		}
+
+		result := uc.Execute(ctx, input)
+		// When fs.Exists returns an error, we conservatively assume file exists
+		// This triggers deduplication to use timestamp fallback (after 1000 attempts)
+		assert.NotEqual(t, "document.pdf", result.Filename)
+		assert.Contains(t, result.Filename, "document_")
+	})
+
+	t.Run("non-existing file uses original name", func(t *testing.T) {
+		fs := &mockFileSystem{
+			existingFiles: map[string]bool{},
+		}
+		uc := NewPrepareDownloadUseCase(fs)
+
+		input := PrepareDownloadInput{
+			SuggestedFilename: "document.pdf",
+			DownloadDir:       "/tmp/downloads",
+		}
+
+		result := uc.Execute(ctx, input)
+		assert.Equal(t, "document.pdf", result.Filename)
+		assert.Equal(t, "/tmp/downloads/document.pdf", result.DestinationPath)
 	})
 }

@@ -48,12 +48,20 @@ func SanitizeFilenameWithExtension(name, mimeType string) string {
 
 // GetExtensionFromMimeType returns a file extension for a given MIME type.
 // Returns empty string if MIME type is unknown or empty.
+// Handles MIME types with parameters (e.g., "application/pdf; charset=binary").
 func GetExtensionFromMimeType(mimeType string) string {
 	if mimeType == "" {
 		return ""
 	}
 
-	exts, err := mime.ExtensionsByType(mimeType)
+	// Parse media type to extract bare type without parameters.
+	// mime.ExtensionsByType expects "application/pdf", not "application/pdf; charset=binary".
+	mediaType, _, err := mime.ParseMediaType(mimeType)
+	if err != nil || mediaType == "" {
+		return ""
+	}
+
+	exts, err := mime.ExtensionsByType(mediaType)
 	if err != nil || len(exts) == 0 {
 		return ""
 	}
