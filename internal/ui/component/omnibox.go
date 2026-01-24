@@ -1018,8 +1018,14 @@ func (o *Omnibox) updateGhostFromURL(targetURL string) {
 		}
 	}
 
-	// If no prefix match, show the full URL as ghost text (replacing user's input)
-	// Use empty string as original input so it shows from the start
+	// If user has typed something but it's not a prefix match, don't show ghost text
+	// This prevents confusing ghost text when scrolling through history
+	if userInput != "" {
+		o.clearGhostText()
+		return
+	}
+
+	// Only show full URL as ghost text when input is empty (initial state)
 	o.setGhostText("", displayURL, displayURL)
 }
 
