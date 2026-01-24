@@ -139,6 +139,7 @@ auto_open_on_new_pane = false
 | `logging.log_dir` | string | `~/.local/state/dumber/logs/` | any | Log directory |
 | `logging.enable_file_log` | bool | `true` | - | Enable file logging |
 | `logging.capture_console` | bool | `false` | - | Capture browser console to logs |
+| `logging.capture_gtk_webkit_logs` | bool | `false` | - | Capture GTK and WebKit logs for debugging |
 
 ## Appearance
 
