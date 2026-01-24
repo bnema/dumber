@@ -259,7 +259,7 @@ func (m *Manager) Get() *Config {
 	return &configCopy
 }
 
-// Save saves the provided configuration to disk and updates Viper.
+// Save saves the provided configuration to disk with ordered sections.
 func (m *Manager) Save(cfg *Config) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -273,30 +273,21 @@ func (m *Manager) Save(cfg *Config) error {
 		return fmt.Errorf("configuration validation failed: %w", err)
 	}
 
-	// Update Viper with the new values.
-	// Since we can't easily update Viper from a struct automatically while preserving
-	// all settings, we update the main keys we care about.
-	m.viper.Set("appearance.sans_font", cfg.Appearance.SansFont)
-	m.viper.Set("appearance.serif_font", cfg.Appearance.SerifFont)
-	m.viper.Set("appearance.monospace_font", cfg.Appearance.MonospaceFont)
-	m.viper.Set("appearance.default_font_size", cfg.Appearance.DefaultFontSize)
-	m.viper.Set("appearance.color_scheme", cfg.Appearance.ColorScheme)
-	m.viper.Set("appearance.light_palette", cfg.Appearance.LightPalette)
-	m.viper.Set("appearance.dark_palette", cfg.Appearance.DarkPalette)
-	m.viper.Set("default_webpage_zoom", cfg.DefaultWebpageZoom)
-	m.viper.Set("default_ui_scale", cfg.DefaultUIScale)
-	m.viper.Set("default_search_engine", cfg.DefaultSearchEngine)
+	// Write config with ordered sections (bypasses Viper's random map ordering)
+	configFile := m.viper.ConfigFileUsed()
+	if configFile == "" {
+		var err error
+		configFile, err = GetConfigFile()
+		if err != nil {
+			return fmt.Errorf("failed to determine config file path: %w", err)
+		}
+	}
 
-	// Performance profile (requires browser restart to take effect)
-	m.viper.Set("performance.profile", string(cfg.Performance.Profile))
-
-	if err := m.viper.WriteConfig(); err != nil {
+	if err := WriteConfigOrdered(cfg, configFile); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 
-	// We don't update m.config here manually because viper.OnConfigChange
-	// will trigger reload() if Watch() is active.
-	// If Watch() is not active, we should call reload() manually.
+	// Reload config from disk to sync Viper's internal state
 	if !m.watching {
 		if err := m.reload(); err != nil {
 			return err
@@ -306,7 +297,7 @@ func (m *Manager) Save(cfg *Config) error {
 	return nil
 }
 
-// SaveKeybindings saves keybinding-related configuration to disk.
+// SaveKeybindings saves keybinding-related configuration to disk with ordered sections.
 func (m *Manager) SaveKeybindings(cfg *Config) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -315,27 +306,17 @@ func (m *Manager) SaveKeybindings(cfg *Config) error {
 		return fmt.Errorf("config is nil")
 	}
 
-	// Update Viper with keybinding values
-	// Pane mode
-	m.viper.Set("workspace.pane_mode.actions", cfg.Workspace.PaneMode.Actions)
-	m.viper.Set("workspace.pane_mode.activation_shortcut", cfg.Workspace.PaneMode.ActivationShortcut)
+	// Write full config with ordered sections
+	configFile := m.viper.ConfigFileUsed()
+	if configFile == "" {
+		var err error
+		configFile, err = GetConfigFile()
+		if err != nil {
+			return fmt.Errorf("failed to determine config file path: %w", err)
+		}
+	}
 
-	// Tab mode
-	m.viper.Set("workspace.tab_mode.actions", cfg.Workspace.TabMode.Actions)
-	m.viper.Set("workspace.tab_mode.activation_shortcut", cfg.Workspace.TabMode.ActivationShortcut)
-
-	// Resize mode
-	m.viper.Set("workspace.resize_mode.actions", cfg.Workspace.ResizeMode.Actions)
-	m.viper.Set("workspace.resize_mode.activation_shortcut", cfg.Workspace.ResizeMode.ActivationShortcut)
-
-	// Session mode
-	m.viper.Set("session.session_mode.actions", cfg.Session.SessionMode.Actions)
-	m.viper.Set("session.session_mode.activation_shortcut", cfg.Session.SessionMode.ActivationShortcut)
-
-	// Global shortcuts
-	m.viper.Set("workspace.shortcuts.actions", cfg.Workspace.Shortcuts.Actions)
-
-	if err := m.viper.WriteConfig(); err != nil {
+	if err := WriteConfigOrdered(cfg, configFile); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 
@@ -354,7 +335,7 @@ func (m *Manager) GetConfigFile() string {
 	return m.viper.ConfigFileUsed()
 }
 
-// createDefaultConfig creates a default configuration file.
+// createDefaultConfig creates a default configuration file with ordered sections.
 func (m *Manager) createDefaultConfig() error {
 	configFile, err := GetConfigFile()
 	if err != nil {
@@ -366,12 +347,14 @@ func (m *Manager) createDefaultConfig() error {
 		return err
 	}
 
-	// Detect available fonts and override defaults before writing config.
-	m.detectAndSetFonts()
+	// Start with default config
+	cfg := DefaultConfig()
 
-	// Ensure TOML format and write config
-	m.viper.SetConfigType("toml")
-	if err := m.viper.SafeWriteConfigAs(configFile); err != nil {
+	// Detect available fonts and override defaults
+	m.detectAndSetFontsOnConfig(cfg)
+
+	// Write config with ordered sections
+	if err := WriteConfigOrdered(cfg, configFile); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
@@ -380,9 +363,9 @@ func (m *Manager) createDefaultConfig() error {
 	return nil
 }
 
-// detectAndSetFonts detects available system fonts and sets the best available
-// fonts from the fallback chains. This runs only during first-run config creation.
-func (m *Manager) detectAndSetFonts() {
+// detectAndSetFontsOnConfig detects available system fonts and sets the best available
+// fonts from the fallback chains directly on the Config struct.
+func (m *Manager) detectAndSetFontsOnConfig(cfg *Config) {
 	// Create context with logger for debugging first-run font detection.
 	logger := logging.NewFromEnv()
 	ctx := logging.WithContext(context.Background(), logger)
@@ -394,13 +377,9 @@ func (m *Manager) detectAndSetFonts() {
 		return
 	}
 
-	sansFont := detector.SelectBestFont(ctx, port.FontCategorySansSerif, fonts.SansSerifFallbackChain())
-	serifFont := detector.SelectBestFont(ctx, port.FontCategorySerif, fonts.SerifFallbackChain())
-	monoFont := detector.SelectBestFont(ctx, port.FontCategoryMonospace, fonts.MonospaceFallbackChain())
-
-	m.viper.Set("appearance.sans_font", sansFont)
-	m.viper.Set("appearance.serif_font", serifFont)
-	m.viper.Set("appearance.monospace_font", monoFont)
+	cfg.Appearance.SansFont = detector.SelectBestFont(ctx, port.FontCategorySansSerif, fonts.SansSerifFallbackChain())
+	cfg.Appearance.SerifFont = detector.SelectBestFont(ctx, port.FontCategorySerif, fonts.SerifFallbackChain())
+	cfg.Appearance.MonospaceFont = detector.SelectBestFont(ctx, port.FontCategoryMonospace, fonts.MonospaceFallbackChain())
 }
 
 // setDefaults sets default configuration values in Viper.
