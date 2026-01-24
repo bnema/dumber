@@ -24,6 +24,12 @@ import (
 const (
 	aboutBlankURI = "about:blank"
 	logURLMaxLen  = 80
+
+	// Dark theme background color (#0a0a0b) as float32 RGBA values
+	darkBgR = 0.039
+	darkBgG = 0.039
+	darkBgB = 0.043
+	darkBgA = 1.0
 )
 
 // ContentCoordinator manages WebView lifecycle, title tracking, and content attachment.
@@ -934,6 +940,23 @@ func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.
 	url := wv.URI()
 	if url == "" {
 		return
+	}
+
+	// Set appropriate background color based on page type to prevent dark background bleeding.
+	switch {
+	case strings.HasPrefix(url, "dumb://"):
+		// Internal pages: apply themed background
+		theme, ok := c.getCurrentTheme()
+		if ok && theme.prefersDark {
+			wv.SetBackgroundColor(darkBgR, darkBgG, darkBgB, darkBgA)
+		} else {
+			wv.ResetBackgroundToDefault()
+		}
+	case strings.HasPrefix(url, "about:"):
+		// Keep pool background (no action)
+	default:
+		// External pages: white background
+		wv.ResetBackgroundToDefault()
 	}
 
 	// Show the WebView now that content is being painted
