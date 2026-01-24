@@ -12,11 +12,14 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - **Simplified keybinding syntax**: Keybindings now use symbol syntax (`[`, `]`, `{`, `}`) instead of verbose GTK names (`bracketleft`, `braceleft`). Fixes #122.
 - **BREAKING: Global shortcuts config structure**: `workspace.shortcuts` changed from individual string fields to unified `Actions` map with `ActionBinding` (keys + description). Existing custom shortcuts in config.toml will be replaced with defaults. Use the new Keybindings UI to reconfigure.
+- **Keybindings clean architecture**: Refactored keybindings handler to follow ports/adapters pattern. Business logic moved from handler to use cases, config access via gateway adapter instead of global singleton.
 
 ### Upgrade Notes
 > **Recommended**: Delete your `config.toml` and restart dumber to regenerate a fresh config with the new keybinding structure and alphabetically sorted sections. Your settings will reset to defaults, but you can reconfigure keybindings via the new visual editor at `dumb://config` → Keybindings tab.
 
 ### Fixed
+- **Config save/read race condition**: Fixed UI scale and other config values returning stale data after save. Implemented atomic file writes (temp file + rename) and `skipNextReload` flag to prevent fsnotify-triggered reload from overwriting correct in-memory config with stale viper cache.
+- **WebUI lint warnings**: Added ESLint Svelte plugin and resolved 33 lint errors and 14 `any` type warnings across all components. Created `dumber.d.ts` for proper TypeScript types for WebKit bridge communication.
 - **Session snapshot FK constraint**: Fixed SQLite foreign key constraint violation when snapshot service tried to save before session was persisted to database. Added ready flag and callback notification pattern.
 - **Stacked pane index out of bounds**: Fixed crash when domain model and UI got out of sync during stacked pane operations. Added bounds checking and proper rollback when UI updates fail.
 - **Noisy gesture navigation logs**: Mouse button back/forward navigation errors (expected when no history) now log at debug level instead of error level.
