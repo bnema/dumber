@@ -7,10 +7,14 @@ All notable changes to this project will be documented in this file.
 ### Added
 - **Visual keybindings editor**: New Keybindings tab in `dumb://config` allows editing all keyboard shortcuts via a visual UI. Supports key capture, reset to defaults, and per-binding reset. Fixes #123.
 - **Keybindings hot reload**: Changed keybindings take effect immediately without restarting the browser.
+- **Ordered config file**: Config file sections are now written in alphabetical order for better readability and deterministic output.
 
 ### Changed
 - **Simplified keybinding syntax**: Keybindings now use symbol syntax (`[`, `]`, `{`, `}`) instead of verbose GTK names (`bracketleft`, `braceleft`). Fixes #122.
 - **BREAKING: Global shortcuts config structure**: `workspace.shortcuts` changed from individual string fields to unified `Actions` map with `ActionBinding` (keys + description). Existing custom shortcuts in config.toml will be replaced with defaults. Use the new Keybindings UI to reconfigure.
+
+### Upgrade Notes
+> **Recommended**: Delete your `config.toml` and restart dumber to regenerate a fresh config with the new keybinding structure and alphabetically sorted sections. Your settings will reset to defaults, but you can reconfigure keybindings via the new visual editor at `dumb://config` → Keybindings tab.
 
 ### Fixed
 - **Session snapshot FK constraint**: Fixed SQLite foreign key constraint violation when snapshot service tried to save before session was persisted to database. Added ready flag and callback notification pattern.
