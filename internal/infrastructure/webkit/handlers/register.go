@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
@@ -37,7 +38,11 @@ func RegisterAll(ctx context.Context, router *webkit.MessageRouter, cfg Config) 
 	}
 
 	// Keybindings handlers (always available)
-	if err := RegisterKeybindingsHandlers(ctx, router); err != nil {
+	keybindingsHandler, err := createKeybindingsHandler()
+	if err != nil {
+		return fmt.Errorf("failed to create keybindings handler: %w", err)
+	}
+	if err := RegisterKeybindingsHandlers(ctx, router, keybindingsHandler); err != nil {
 		return err
 	}
 
@@ -54,4 +59,21 @@ func RegisterAll(ctx context.Context, router *webkit.MessageRouter, cfg Config) 
 	// - etc.
 
 	return nil
+}
+
+// createKeybindingsHandler wires the gateway and use cases for keybindings.
+func createKeybindingsHandler() (*KeybindingsHandler, error) {
+	mgr := config.GetManager()
+	if mgr == nil {
+		return nil, fmt.Errorf("config manager not initialized")
+	}
+
+	gateway := config.NewKeybindingsGateway(mgr)
+
+	return NewKeybindingsHandler(
+		usecase.NewGetKeybindingsUseCase(gateway),
+		usecase.NewSetKeybindingUseCase(gateway, gateway),
+		usecase.NewResetKeybindingUseCase(gateway),
+		usecase.NewResetAllKeybindingsUseCase(gateway),
+	), nil
 }

@@ -46,10 +46,16 @@ type KeybindingConflict struct {
 	Key               string `json:"key"`
 }
 
+// SetKeybindingResponse is the response from setting a keybinding.
+type SetKeybindingResponse struct {
+	Conflicts []KeybindingConflict `json:"conflicts"`
+}
+
 // KeybindingsProvider provides keybinding configuration data.
 type KeybindingsProvider interface {
 	GetKeybindings(ctx context.Context) (KeybindingsConfig, error)
 	GetDefaultKeybindings(ctx context.Context) (KeybindingsConfig, error)
+	CheckConflicts(ctx context.Context, mode, action string, keys []string) ([]KeybindingConflict, error)
 }
 
 // KeybindingsSaver persists keybinding changes.

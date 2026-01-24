@@ -1589,6 +1589,86 @@ func (_m *MockKeybindingsProvider) EXPECT() *MockKeybindingsProvider_Expecter {
 	return &MockKeybindingsProvider_Expecter{mock: &_m.Mock}
 }
 
+// CheckConflicts provides a mock function for the type MockKeybindingsProvider
+func (_mock *MockKeybindingsProvider) CheckConflicts(ctx context.Context, mode string, action string, keys []string) ([]port.KeybindingConflict, error) {
+	ret := _mock.Called(ctx, mode, action, keys)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CheckConflicts")
+	}
+
+	var r0 []port.KeybindingConflict
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, []string) ([]port.KeybindingConflict, error)); ok {
+		return returnFunc(ctx, mode, action, keys)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, []string) []port.KeybindingConflict); ok {
+		r0 = returnFunc(ctx, mode, action, keys)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]port.KeybindingConflict)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, []string) error); ok {
+		r1 = returnFunc(ctx, mode, action, keys)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockKeybindingsProvider_CheckConflicts_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CheckConflicts'
+type MockKeybindingsProvider_CheckConflicts_Call struct {
+	*mock.Call
+}
+
+// CheckConflicts is a helper method to define mock.On call
+//   - ctx context.Context
+//   - mode string
+//   - action string
+//   - keys []string
+func (_e *MockKeybindingsProvider_Expecter) CheckConflicts(ctx interface{}, mode interface{}, action interface{}, keys interface{}) *MockKeybindingsProvider_CheckConflicts_Call {
+	return &MockKeybindingsProvider_CheckConflicts_Call{Call: _e.mock.On("CheckConflicts", ctx, mode, action, keys)}
+}
+
+func (_c *MockKeybindingsProvider_CheckConflicts_Call) Run(run func(ctx context.Context, mode string, action string, keys []string)) *MockKeybindingsProvider_CheckConflicts_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 []string
+		if args[3] != nil {
+			arg3 = args[3].([]string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockKeybindingsProvider_CheckConflicts_Call) Return(keybindingConflicts []port.KeybindingConflict, err error) *MockKeybindingsProvider_CheckConflicts_Call {
+	_c.Call.Return(keybindingConflicts, err)
+	return _c
+}
+
+func (_c *MockKeybindingsProvider_CheckConflicts_Call) RunAndReturn(run func(ctx context.Context, mode string, action string, keys []string) ([]port.KeybindingConflict, error)) *MockKeybindingsProvider_CheckConflicts_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetDefaultKeybindings provides a mock function for the type MockKeybindingsProvider
 func (_mock *MockKeybindingsProvider) GetDefaultKeybindings(ctx context.Context) (port.KeybindingsConfig, error) {
 	ret := _mock.Called(ctx)

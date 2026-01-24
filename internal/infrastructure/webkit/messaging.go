@@ -174,6 +174,8 @@ func (r *MessageRouter) SetupMessageHandler(ucm *webkit.UserContentManager, _ st
 func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager, valuePtr uintptr) {
 	log := logging.FromContext(r.baseCtx).With().Str("component", "message-router").Logger()
 
+	log.Debug().Uint64("value_ptr", uint64(valuePtr)).Msg("handleScriptMessage entry")
+
 	if valuePtr == 0 {
 		log.Warn().Msg("received script message with nil value pointer")
 		return
@@ -186,6 +188,7 @@ func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager,
 	}
 
 	rawJSON := jscValue.ToJson(0)
+	log.Debug().Int("json_len", len(rawJSON)).Msg("ToJson result")
 	if rawJSON == "" {
 		// This typically happens when the JS side sends non-serializable values
 		// like Svelte 5 Proxy objects or functions. The frontend should use
