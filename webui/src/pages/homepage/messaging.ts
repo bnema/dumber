@@ -23,8 +23,12 @@ import { homepageState } from './state.svelte';
 // REQUEST TRACKING
 // ═══════════════════════════════════════════════════════════════════════════════
 
-interface PendingRequest<T = unknown> {
-  resolve: (value: T) => void;
+// Pending requests store resolvers for different response types.
+// The resolve function accepts `unknown` since requests with different
+// response types share the same map. Type safety is maintained at the
+// sendMessage<T> API level.
+interface PendingRequest {
+  resolve: (value: unknown) => void;
   reject: (error: Error) => void;
   timeout: ReturnType<typeof setTimeout>;
 }
@@ -38,8 +42,8 @@ let callbacksInitialized = false;
 // WEBKIT BRIDGE UTILITIES
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function getWebKitBridge(): { postMessage: (msg: unknown) => void } | null {
-  const bridge = (window as any).webkit?.messageHandlers?.dumber;
+function getWebKitBridge(): DumberBridge | null {
+  const bridge = window.webkit?.messageHandlers?.dumber;
   if (bridge && typeof bridge.postMessage === 'function') {
     return bridge;
   }
@@ -47,7 +51,7 @@ function getWebKitBridge(): { postMessage: (msg: unknown) => void } | null {
 }
 
 function getWebViewId(): number {
-  return (window as any).__dumber_webview_id || 0;
+  return window.__dumber_webview_id ?? 0;
 }
 
 function generateRequestId(type: string): string {
@@ -62,9 +66,7 @@ function initializeCallbacks(): void {
   if (callbacksInitialized) return;
 
   // Generic response handler - accepts a single Response object from Go backend
-  (window as any).__dumber_homepage_response = (
-    response: { requestId: string; success: boolean; data?: unknown; error?: string }
-  ) => {
+  window.__dumber_homepage_response = (response) => {
     const request = pendingRequests.get(response.requestId);
     if (!request) return;
 
@@ -74,61 +76,60 @@ function initializeCallbacks(): void {
     if (response.success) {
       request.resolve(response.data);
     } else {
-      request.reject(new Error(response.error || 'Unknown error'));
+      request.reject(new Error(response.error ?? 'Unknown error'));
     }
   };
 
   // Legacy callbacks for backward compatibility
   // These can receive either raw data or a Response object
-  (window as any).__dumber_history_timeline = (dataOrResponse: unknown) => {
+  window.__dumber_history_timeline = (dataOrResponse) => {
     handleLegacyOrResponseCallback(dataOrResponse);
   };
 
-  (window as any).__dumber_folders = (dataOrResponse: unknown) => {
+  window.__dumber_folders = (dataOrResponse) => {
     handleLegacyOrResponseCallback(dataOrResponse);
   };
 
-  (window as any).__dumber_tags = (dataOrResponse: unknown) => {
+  window.__dumber_tags = (dataOrResponse) => {
     handleLegacyOrResponseCallback(dataOrResponse);
   };
 
-  (window as any).__dumber_favorites = (dataOrResponse: unknown) => {
+  window.__dumber_favorites = (dataOrResponse) => {
     handleLegacyOrResponseCallback(dataOrResponse);
   };
 
-  (window as any).__dumber_analytics = (dataOrResponse: unknown) => {
+  window.__dumber_analytics = (dataOrResponse) => {
     handleLegacyOrResponseCallback(dataOrResponse);
   };
 
-  (window as any).__dumber_domain_stats = (dataOrResponse: unknown) => {
+  window.__dumber_domain_stats = (dataOrResponse) => {
     handleLegacyOrResponseCallback(dataOrResponse);
   };
 
-  (window as any).__dumber_history_search_results = (dataOrResponse: unknown) => {
+  window.__dumber_history_search_results = (dataOrResponse) => {
     handleLegacyOrResponseCallback(dataOrResponse);
   };
 
-  (window as any).__dumber_history_deleted = (dataOrResponse: unknown) => {
+  window.__dumber_history_deleted = (dataOrResponse) => {
     handleLegacyOrResponseCallback(dataOrResponse);
   };
 
-  (window as any).__dumber_history_cleared = (dataOrResponse: unknown) => {
+  window.__dumber_history_cleared = (dataOrResponse) => {
     handleLegacyOrResponseCallback(dataOrResponse);
   };
 
-  (window as any).__dumber_error = (errorOrResponse: unknown) => {
+  window.__dumber_error = (errorOrResponse) => {
     // Handle both formats: direct error string or Response object with error
-    const response = errorOrResponse as { requestId?: string; error?: string } | string;
-    if (typeof response === 'string') {
+    if (typeof errorOrResponse === 'string') {
       // Legacy format: direct error string
-      console.error('[messaging] Legacy error:', response);
-    } else if (response && typeof response === 'object') {
+      console.error('[messaging] Legacy error:', errorOrResponse);
+    } else if (errorOrResponse && typeof errorOrResponse === 'object') {
       // Response object format
-      const request = pendingRequests.get(response.requestId || 'default');
+      const request = pendingRequests.get(errorOrResponse.requestId ?? 'default');
       if (request) {
         clearTimeout(request.timeout);
-        pendingRequests.delete(response.requestId || 'default');
-        request.reject(new Error(response.error || 'Unknown error'));
+        pendingRequests.delete(errorOrResponse.requestId ?? 'default');
+        request.reject(new Error(errorOrResponse.error ?? 'Unknown error'));
       }
     }
   };
@@ -188,7 +189,13 @@ async function sendMessage<T = unknown>(
       reject(new Error(`Request timeout: ${type}`));
     }, REQUEST_TIMEOUT_MS);
 
-    pendingRequests.set(requestId, { resolve: resolve as any, reject, timeout });
+    // Cast resolve to accept unknown - type safety is maintained at API level
+    // since sendMessage<T> returns Promise<T> and callers expect typed responses
+    pendingRequests.set(requestId, {
+      resolve: resolve as (value: unknown) => void,
+      reject,
+      timeout,
+    });
 
     try {
       bridge.postMessage({
