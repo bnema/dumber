@@ -187,7 +187,12 @@ func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager,
 
 	rawJSON := jscValue.ToJson(0)
 	if rawJSON == "" {
-		log.Warn().Msg("script message JSON is empty")
+		// This typically happens when the JS side sends non-serializable values
+		// like Svelte 5 Proxy objects or functions. The frontend should use
+		// JSON.parse(JSON.stringify(obj)) to convert Proxies to plain objects.
+		log.Error().
+			Msg("script message JSON serialization failed (ToJson returned empty) - " +
+				"this usually means JS sent non-serializable values like Proxy objects")
 		return
 	}
 

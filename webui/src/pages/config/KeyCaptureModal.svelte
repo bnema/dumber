@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { Button } from "$lib/components/ui/button";
   import * as AlertDialog from "$lib/components/ui/alert-dialog";
   import { Keyboard, X, Plus } from "@lucide/svelte";
@@ -20,18 +20,17 @@
 
   let { binding, onSave, onCancel }: Props = $props();
 
-  // Use $derived for initial keys to maintain reactivity if binding changes
-  let newKeys = $state<string[]>([]);
+  // Initialize with a plain copy of the binding keys (not a Proxy reference)
+  // untrack() tells Svelte we intentionally want the initial value only
+  let newKeys = $state<string[]>(
+    untrack(() => JSON.parse(JSON.stringify(binding.keys)) as string[])
+  );
   let isCapturing = $state(false);
   let capturedKey = $state<string | null>(null);
-  let initialized = $state(false);
+  let isSaving = $state(false);
 
-  // Initialize keys from binding on mount
   $effect(() => {
-    if (!initialized) {
-      newKeys = [...binding.keys];
-      initialized = true;
-    }
+    console.log("[KeyCaptureModal] State - newKeys:", newKeys, "capturedKey:", capturedKey);
   });
 
   function handleKeyDown(e: KeyboardEvent) {
@@ -64,8 +63,8 @@
         key = "arrowdown";
         break;
       case "escape":
-        isCapturing = false;
-        capturedKey = null;
+        // Escape closes the modal entirely
+        onCancel();
         return;
       case " ":
         key = "space";
@@ -87,8 +86,12 @@
   }
 
   function addCapturedKey() {
+    console.log("[KeyCaptureModal] addCapturedKey called, capturedKey:", capturedKey, "newKeys before:", newKeys);
     if (capturedKey && !newKeys.includes(capturedKey)) {
       newKeys = [...newKeys, capturedKey];
+      console.log("[KeyCaptureModal] Added key, newKeys after:", newKeys);
+    } else {
+      console.log("[KeyCaptureModal] Key not added (null or duplicate)");
     }
     capturedKey = null;
   }
@@ -116,7 +119,7 @@
   });
 </script>
 
-<AlertDialog.Root open={true} onOpenChange={(open) => !open && onCancel()}>
+<AlertDialog.Root open={true} onOpenChange={(open) => !open && !isSaving && onCancel()}>
   <AlertDialog.Content class="max-w-md">
     <AlertDialog.Header>
       <AlertDialog.Title>Edit Keybinding</AlertDialog.Title>
@@ -189,7 +192,17 @@
 
     <AlertDialog.Footer>
       <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-      <AlertDialog.Action onclick={() => { console.log("[DEBUG] Save clicked, newKeys:", newKeys); onSave(newKeys); }}>Save</AlertDialog.Action>
+      <AlertDialog.Action onclick={() => {
+        // Auto-add any pending captured key before saving
+        let keysToSave = [...newKeys];
+        if (capturedKey && !keysToSave.includes(capturedKey)) {
+          keysToSave.push(capturedKey);
+          console.log("[KeyCaptureModal] Auto-added pending captured key:", capturedKey);
+        }
+        console.log("[KeyCaptureModal] Save clicked, keysToSave:", keysToSave);
+        isSaving = true;
+        onSave(keysToSave);
+      }}>Save</AlertDialog.Action>
     </AlertDialog.Footer>
   </AlertDialog.Content>
 </AlertDialog.Root>
