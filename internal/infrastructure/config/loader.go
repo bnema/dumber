@@ -365,7 +365,7 @@ func (m *Manager) createDefaultConfig() error {
 
 // detectAndSetFontsOnConfig detects available system fonts and sets the best available
 // fonts from the fallback chains directly on the Config struct.
-func (m *Manager) detectAndSetFontsOnConfig(cfg *Config) {
+func (*Manager) detectAndSetFontsOnConfig(cfg *Config) {
 	// Create context with logger for debugging first-run font detection.
 	logger := logging.NewFromEnv()
 	ctx := logging.WithContext(context.Background(), logger)

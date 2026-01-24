@@ -96,10 +96,3 @@ background = '#000'
 
 	t.Logf("Sorted output:\n%s", result)
 }
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
