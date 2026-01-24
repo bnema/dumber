@@ -27,11 +27,15 @@ type DownloadHandler struct {
 }
 
 // NewDownloadHandler creates a new download handler.
+// Panics if prepareDownloadUC is nil (fail fast on misconfiguration).
 func NewDownloadHandler(
 	downloadPath string,
 	handler port.DownloadEventHandler,
 	prepareDownloadUC *usecase.PrepareDownloadUseCase,
 ) *DownloadHandler {
+	if prepareDownloadUC == nil {
+		panic("prepareDownloadUC is required")
+	}
 	return &DownloadHandler{
 		downloadPath:      downloadPath,
 		eventHandler:      handler,

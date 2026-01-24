@@ -139,6 +139,26 @@ func TestGetExtensionFromMimeType(t *testing.T) {
 			input:    "application/pdf",
 			expected: ".pdf",
 		},
+		{
+			name:     "pdf mime type with charset param",
+			input:    "application/pdf; charset=binary",
+			expected: ".pdf",
+		},
+		{
+			name:     "text html with charset",
+			input:    "text/html; charset=utf-8",
+			expected: ".htm",
+		},
+		{
+			name:     "mime type with multiple params",
+			input:    "application/json; charset=utf-8; boundary=something",
+			expected: ".json",
+		},
+		{
+			name:     "invalid mime type",
+			input:    "not-a-valid-mime",
+			expected: "",
+		},
 	}
 
 	for _, tt := range tests {
