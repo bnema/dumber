@@ -133,6 +133,10 @@ type Omnibox struct {
 
 	// Callback retention: keep GTK signal callbacks reachable by Go GC.
 	retainedCallbacks []interface{}
+
+	// Click outside handler
+	clickOutsideController *gtk.GestureClick
+	clickOutsideCb         func(gtk.GestureClick, int, float64, float64)
 }
 
 // OmniboxConfig holds configuration for creating an Omnibox.
@@ -202,6 +206,86 @@ func (o *Omnibox) SetParentOverlay(overlay layout.OverlayWidget) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.parentOverlay = overlay
+	o.setupClickOutsideHandler()
+}
+
+// setupClickOutsideHandler attaches a click gesture to the parent overlay
+// that hides the omnibox when clicking outside its bounds.
+func (o *Omnibox) setupClickOutsideHandler() {
+	if o.parentOverlay == nil {
+		return
+	}
+
+	log := logging.FromContext(o.ctx)
+
+	// Create gesture click controller
+	o.clickOutsideController = gtk.NewGestureClick()
+	if o.clickOutsideController == nil {
+		log.Error().Msg("failed to create click outside controller")
+		return
+	}
+
+	// Listen to primary button only
+	o.clickOutsideController.SetButton(1) // GDK_BUTTON_PRIMARY
+
+	// Set capture phase so we see clicks before they reach the omnibox
+	o.clickOutsideController.SetPropagationPhase(gtk.PhaseCaptureValue)
+
+	// Connect pressed handler
+	o.clickOutsideCb = func(_ gtk.GestureClick, _ int, x, y float64) {
+		o.handleClickOutside(x, y)
+	}
+	o.clickOutsideController.ConnectPressed(&o.clickOutsideCb)
+
+	// Add controller to parent overlay
+	gtkWidget := o.parentOverlay.GtkWidget()
+	if gtkWidget != nil {
+		gtkWidget.AddController(&o.clickOutsideController.EventController)
+	}
+
+	log.Debug().Msg("click outside handler attached to parent overlay")
+}
+
+// handleClickOutside checks if a click is outside the omnibox bounds and hides if so.
+func (o *Omnibox) handleClickOutside(clickX, clickY float64) {
+	o.mu.RLock()
+	visible := o.visible
+	o.mu.RUnlock()
+
+	if !visible || o.outerBox == nil || o.parentOverlay == nil {
+		return
+	}
+
+	// Get omnibox position relative to parent overlay using graphene points
+	srcPoint := &graphene.Point{X: 0, Y: 0}
+	outPoint := &graphene.Point{}
+	ok := o.outerBox.ComputePoint(o.parentOverlay.GtkWidget(), srcPoint, outPoint)
+	if !ok {
+		return
+	}
+
+	boxX := float64(outPoint.X)
+	boxY := float64(outPoint.Y)
+
+	// Get omnibox dimensions
+	boxWidth := float64(o.outerBox.GetAllocatedWidth())
+	boxHeight := float64(o.outerBox.GetAllocatedHeight())
+
+	// Check if click is inside omnibox bounds
+	isInside := clickX >= boxX && clickX <= boxX+boxWidth &&
+		clickY >= boxY && clickY <= boxY+boxHeight
+
+	if !isInside {
+		logging.FromContext(o.ctx).Debug().
+			Float64("clickX", clickX).
+			Float64("clickY", clickY).
+			Float64("boxX", boxX).
+			Float64("boxY", boxY).
+			Float64("boxWidth", boxWidth).
+			Float64("boxHeight", boxHeight).
+			Msg("click outside omnibox, hiding")
+		o.Hide(o.ctx)
+	}
 }
 
 // WidgetAsLayout returns the omnibox's outer widget as a layout.Widget.
@@ -2098,6 +2182,8 @@ func (o *Omnibox) Destroy() {
 
 	o.parentOverlay = nil
 	o.retainedCallbacks = nil
+	o.clickOutsideController = nil
+	o.clickOutsideCb = nil
 
 	if o.outerBox != nil {
 		o.outerBox.Unparent()
