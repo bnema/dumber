@@ -71,6 +71,7 @@ let pendingKeyPrefix = $state<string | null>(null);
 // HELPER FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/* eslint-disable svelte/prefer-svelte-reactivity -- helper function uses temporary Map/Date, not reactive state */
 function groupHistoryByDate(entries: HistoryEntry[]): TimelineGroup[] {
   const groups = new Map<string, HistoryEntry[]>();
   const today = new Date();
@@ -109,6 +110,7 @@ function groupHistoryByDate(entries: HistoryEntry[]): TimelineGroup[] {
 
   return result.sort((a, b) => b.date.localeCompare(a.date));
 }
+/* eslint-enable svelte/prefer-svelte-reactivity */
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // EXPORTED STORE

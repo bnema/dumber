@@ -1,0 +1,140 @@
+package usecase
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/bnema/dumber/internal/application/port"
+)
+
+// validModes defines the valid keybinding modes.
+var validModes = map[string]bool{
+	"global":  true,
+	"pane":    true,
+	"tab":     true,
+	"resize":  true,
+	"session": true,
+}
+
+// GetKeybindingsUseCase retrieves all keybindings.
+type GetKeybindingsUseCase struct {
+	provider port.KeybindingsProvider
+}
+
+// NewGetKeybindingsUseCase creates a new GetKeybindingsUseCase.
+func NewGetKeybindingsUseCase(provider port.KeybindingsProvider) *GetKeybindingsUseCase {
+	return &GetKeybindingsUseCase{provider: provider}
+}
+
+// Execute retrieves all keybindings.
+func (uc *GetKeybindingsUseCase) Execute(ctx context.Context) (port.KeybindingsConfig, error) {
+	if uc == nil || uc.provider == nil {
+		return port.KeybindingsConfig{}, fmt.Errorf("keybindings provider is nil")
+	}
+	return uc.provider.GetKeybindings(ctx)
+}
+
+// SetKeybindingUseCase updates a single keybinding.
+type SetKeybindingUseCase struct {
+	provider port.KeybindingsProvider
+	saver    port.KeybindingsSaver
+}
+
+// NewSetKeybindingUseCase creates a new SetKeybindingUseCase.
+func NewSetKeybindingUseCase(provider port.KeybindingsProvider, saver port.KeybindingsSaver) *SetKeybindingUseCase {
+	return &SetKeybindingUseCase{provider: provider, saver: saver}
+}
+
+// Execute updates a keybinding and returns any conflicts.
+func (uc *SetKeybindingUseCase) Execute(ctx context.Context, req port.SetKeybindingRequest) (port.SetKeybindingResponse, error) {
+	if uc == nil || uc.saver == nil {
+		return port.SetKeybindingResponse{}, fmt.Errorf("keybindings saver is nil")
+	}
+
+	if err := validateSetKeybindingRequest(req); err != nil {
+		return port.SetKeybindingResponse{}, err
+	}
+
+	// Check for conflicts before saving
+	var conflicts []port.KeybindingConflict
+	if uc.provider != nil {
+		var err error
+		conflicts, err = uc.provider.CheckConflicts(ctx, req.Mode, req.Action, req.Keys)
+		if err != nil {
+			return port.SetKeybindingResponse{}, fmt.Errorf("failed to check conflicts: %w", err)
+		}
+	}
+
+	if err := uc.saver.SetKeybinding(ctx, req); err != nil {
+		return port.SetKeybindingResponse{}, err
+	}
+
+	return port.SetKeybindingResponse{Conflicts: conflicts}, nil
+}
+
+// ResetKeybindingUseCase resets a keybinding to default.
+type ResetKeybindingUseCase struct {
+	saver port.KeybindingsSaver
+}
+
+// NewResetKeybindingUseCase creates a new ResetKeybindingUseCase.
+func NewResetKeybindingUseCase(saver port.KeybindingsSaver) *ResetKeybindingUseCase {
+	return &ResetKeybindingUseCase{saver: saver}
+}
+
+// Execute resets a keybinding to default.
+func (uc *ResetKeybindingUseCase) Execute(ctx context.Context, req port.ResetKeybindingRequest) error {
+	if uc == nil || uc.saver == nil {
+		return fmt.Errorf("keybindings saver is nil")
+	}
+
+	if err := validateResetKeybindingRequest(req); err != nil {
+		return err
+	}
+
+	return uc.saver.ResetKeybinding(ctx, req)
+}
+
+// ResetAllKeybindingsUseCase resets all keybindings to defaults.
+type ResetAllKeybindingsUseCase struct {
+	saver port.KeybindingsSaver
+}
+
+// NewResetAllKeybindingsUseCase creates a new ResetAllKeybindingsUseCase.
+func NewResetAllKeybindingsUseCase(saver port.KeybindingsSaver) *ResetAllKeybindingsUseCase {
+	return &ResetAllKeybindingsUseCase{saver: saver}
+}
+
+// Execute resets all keybindings to defaults.
+func (uc *ResetAllKeybindingsUseCase) Execute(ctx context.Context) error {
+	if uc == nil || uc.saver == nil {
+		return fmt.Errorf("keybindings saver is nil")
+	}
+	return uc.saver.ResetAllKeybindings(ctx)
+}
+
+func validateSetKeybindingRequest(req port.SetKeybindingRequest) error {
+	if req.Mode == "" {
+		return fmt.Errorf("mode is required")
+	}
+	if req.Action == "" {
+		return fmt.Errorf("action is required")
+	}
+	if !validModes[req.Mode] {
+		return fmt.Errorf("invalid mode: %s", req.Mode)
+	}
+	return nil
+}
+
+func validateResetKeybindingRequest(req port.ResetKeybindingRequest) error {
+	if req.Mode == "" {
+		return fmt.Errorf("mode is required")
+	}
+	if req.Action == "" {
+		return fmt.Errorf("action is required")
+	}
+	if !validModes[req.Mode] {
+		return fmt.Errorf("invalid mode: %s", req.Mode)
+	}
+	return nil
+}

@@ -165,7 +165,7 @@
 
   // Reset selection when query changes
   $effect(() => {
-    query; // Track query
+    void query; // Track query changes
     selectedIndex = 0;
   });
 

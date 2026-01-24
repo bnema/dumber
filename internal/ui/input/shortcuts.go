@@ -325,27 +325,27 @@ func (s *ShortcutSet) registerConfiguredShortcuts(cfg *config.WorkspaceConfig) {
 	// This follows Zellij-style modal keyboard interface.
 	//
 	// However, these standard browser shortcuts ARE global:
-	if binding, ok := ParseKeyString(cfg.Shortcuts.ClosePane); ok {
-		s.Global[binding] = ActionClosePane // Ctrl+W closes active pane
-	}
-	if binding, ok := ParseKeyString(cfg.Shortcuts.NextTab); ok {
-		s.Global[binding] = ActionNextTab // Ctrl+Tab
-	}
-	if binding, ok := ParseKeyString(cfg.Shortcuts.PreviousTab); ok {
-		s.Global[binding] = ActionPreviousTab // Ctrl+Shift+Tab
+	// Map action names to action constants
+	actionMap := map[string]Action{
+		"close_pane":             ActionClosePane,
+		"next_tab":               ActionNextTab,
+		"previous_tab":           ActionPreviousTab,
+		"consume_or_expel_left":  ActionConsumeOrExpelLeft,
+		"consume_or_expel_right": ActionConsumeOrExpelRight,
+		"consume_or_expel_up":    ActionConsumeOrExpelUp,
+		"consume_or_expel_down":  ActionConsumeOrExpelDown,
 	}
 
-	if binding, ok := ParseKeyString(cfg.Shortcuts.ConsumeOrExpelLeft); ok {
-		s.Global[binding] = ActionConsumeOrExpelLeft
-	}
-	if binding, ok := ParseKeyString(cfg.Shortcuts.ConsumeOrExpelRight); ok {
-		s.Global[binding] = ActionConsumeOrExpelRight
-	}
-	if binding, ok := ParseKeyString(cfg.Shortcuts.ConsumeOrExpelUp); ok {
-		s.Global[binding] = ActionConsumeOrExpelUp
-	}
-	if binding, ok := ParseKeyString(cfg.Shortcuts.ConsumeOrExpelDown); ok {
-		s.Global[binding] = ActionConsumeOrExpelDown
+	for actionName, actionBinding := range cfg.Shortcuts.Actions {
+		action, ok := actionMap[actionName]
+		if !ok {
+			continue
+		}
+		for _, keyStr := range actionBinding.Keys {
+			if binding, ok := ParseKeyString(keyStr); ok {
+				s.Global[binding] = action
+			}
+		}
 	}
 }
 

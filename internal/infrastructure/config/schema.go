@@ -410,19 +410,25 @@ type WorkspaceConfig struct {
 	Styling WorkspaceStylingConfig `mapstructure:"styling" yaml:"styling" toml:"styling" json:"styling"`
 }
 
+// ActionBinding defines a keybinding with optional description.
+type ActionBinding struct {
+	Keys []string `mapstructure:"keys" yaml:"keys" toml:"keys" json:"keys"`
+	Desc string   `mapstructure:"desc" yaml:"desc" toml:"desc" json:"desc,omitempty"`
+}
+
 // PaneModeConfig defines modal behavior for pane management.
 type PaneModeConfig struct {
-	ActivationShortcut  string              `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
-	TimeoutMilliseconds int                 `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
-	Actions             map[string][]string `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
+	ActivationShortcut  string                   `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
+	TimeoutMilliseconds int                      `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
+	Actions             map[string]ActionBinding `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
 }
 
 // GetKeyBindings returns an inverted map for O(1) key→action lookup.
 // This is built from the action→keys structure in the config.
 func (p *PaneModeConfig) GetKeyBindings() map[string]string {
 	keyToAction := make(map[string]string)
-	for action, keys := range p.Actions {
-		for _, key := range keys {
+	for action, binding := range p.Actions {
+		for _, key := range binding.Keys {
 			keyToAction[key] = action
 		}
 	}
@@ -431,17 +437,17 @@ func (p *PaneModeConfig) GetKeyBindings() map[string]string {
 
 // TabModeConfig defines modal behavior for tab management (Zellij-style).
 type TabModeConfig struct {
-	ActivationShortcut  string              `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
-	TimeoutMilliseconds int                 `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
-	Actions             map[string][]string `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
+	ActivationShortcut  string                   `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
+	TimeoutMilliseconds int                      `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
+	Actions             map[string]ActionBinding `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
 }
 
 // GetKeyBindings returns an inverted map for O(1) key→action lookup.
 // This is built from the action→keys structure in the config.
 func (t *TabModeConfig) GetKeyBindings() map[string]string {
 	keyToAction := make(map[string]string)
-	for action, keys := range t.Actions {
-		for _, key := range keys {
+	for action, binding := range t.Actions {
+		for _, key := range binding.Keys {
 			keyToAction[key] = action
 		}
 	}
@@ -450,19 +456,19 @@ func (t *TabModeConfig) GetKeyBindings() map[string]string {
 
 // ResizeModeConfig defines modal behavior for resizing panes (Zellij-style).
 type ResizeModeConfig struct {
-	ActivationShortcut  string              `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
-	TimeoutMilliseconds int                 `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
-	StepPercent         float64             `mapstructure:"step_percent" yaml:"step_percent" toml:"step_percent" json:"step_percent"`
-	MinPanePercent      float64             `mapstructure:"min_pane_percent" yaml:"min_pane_percent" toml:"min_pane_percent" json:"min_pane_percent"` //nolint:lll // struct tags must stay on one line
-	Actions             map[string][]string `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
+	ActivationShortcut  string                   `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
+	TimeoutMilliseconds int                      `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
+	StepPercent         float64                  `mapstructure:"step_percent" yaml:"step_percent" toml:"step_percent" json:"step_percent"`
+	MinPanePercent      float64                  `mapstructure:"min_pane_percent" yaml:"min_pane_percent" toml:"min_pane_percent" json:"min_pane_percent"` //nolint:lll // struct tags must stay on one line
+	Actions             map[string]ActionBinding `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
 }
 
 // GetKeyBindings returns an inverted map for O(1) key→action lookup.
 // This is built from the action→keys structure in the config.
 func (r *ResizeModeConfig) GetKeyBindings() map[string]string {
 	keyToAction := make(map[string]string)
-	for action, keys := range r.Actions {
-		for _, key := range keys {
+	for action, binding := range r.Actions {
+		for _, key := range binding.Keys {
 			keyToAction[key] = action
 		}
 	}
@@ -471,14 +477,18 @@ func (r *ResizeModeConfig) GetKeyBindings() map[string]string {
 
 // GlobalShortcutsConfig defines global shortcuts (always active, not modal).
 type GlobalShortcutsConfig struct {
-	ClosePane   string `mapstructure:"close_pane" yaml:"close_pane" toml:"close_pane" json:"close_pane"`
-	NextTab     string `mapstructure:"next_tab" yaml:"next_tab" toml:"next_tab" json:"next_tab"`
-	PreviousTab string `mapstructure:"previous_tab" yaml:"previous_tab" toml:"previous_tab" json:"previous_tab"`
+	Actions map[string]ActionBinding `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
+}
 
-	ConsumeOrExpelLeft  string `mapstructure:"consume_or_expel_left" yaml:"consume_or_expel_left" toml:"consume_or_expel_left" json:"consume_or_expel_left"`     //nolint:lll // struct tags must stay on one line
-	ConsumeOrExpelRight string `mapstructure:"consume_or_expel_right" yaml:"consume_or_expel_right" toml:"consume_or_expel_right" json:"consume_or_expel_right"` //nolint:lll // struct tags must stay on one line
-	ConsumeOrExpelUp    string `mapstructure:"consume_or_expel_up" yaml:"consume_or_expel_up" toml:"consume_or_expel_up" json:"consume_or_expel_up"`             //nolint:lll // struct tags must stay on one line
-	ConsumeOrExpelDown  string `mapstructure:"consume_or_expel_down" yaml:"consume_or_expel_down" toml:"consume_or_expel_down" json:"consume_or_expel_down"`     //nolint:lll // struct tags must stay on one line
+// GetKeyBindings returns an inverted map for O(1) key→action lookup.
+func (g *GlobalShortcutsConfig) GetKeyBindings() map[string]string {
+	keyToAction := make(map[string]string)
+	for action, binding := range g.Actions {
+		for _, key := range binding.Keys {
+			keyToAction[key] = action
+		}
+	}
+	return keyToAction
 }
 
 // PopupBehavior defines how popup windows should be opened
@@ -574,17 +584,17 @@ type SessionConfig struct {
 
 // SessionModeConfig defines modal behavior for session management.
 type SessionModeConfig struct {
-	ActivationShortcut  string              `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
-	TimeoutMilliseconds int                 `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
-	Actions             map[string][]string `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
+	ActivationShortcut  string                   `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
+	TimeoutMilliseconds int                      `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
+	Actions             map[string]ActionBinding `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
 }
 
 // GetKeyBindings returns an inverted map for O(1) key→action lookup.
 // This is built from the action→keys structure in the config.
 func (s *SessionModeConfig) GetKeyBindings() map[string]string {
 	keyToAction := make(map[string]string)
-	for action, keys := range s.Actions {
-		for _, key := range keys {
+	for action, binding := range s.Actions {
+		for _, key := range binding.Keys {
 			keyToAction[key] = action
 		}
 	}

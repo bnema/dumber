@@ -1946,11 +1946,15 @@ func (a *App) initConfigWatcher(ctx context.Context) {
 		return
 	}
 
-	// Only appearance is hot-reloaded for now.
+	// Hot-reload appearance and keybindings on config change.
 	a.configManager.OnConfigChange(func(newCfg *config.Config) {
 		cfgCopy := newCfg
 		cb := glib.SourceFunc(func(_ uintptr) bool {
 			a.applyAppearanceConfig(ctx, cfgCopy)
+			// Reload keyboard shortcuts
+			if a.keyboardHandler != nil {
+				a.keyboardHandler.ReloadShortcuts(ctx, cfgCopy)
+			}
 			return false
 		})
 		glib.IdleAdd(&cb, 0)
