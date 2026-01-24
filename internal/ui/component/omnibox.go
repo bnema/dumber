@@ -876,15 +876,18 @@ func (o *Omnibox) acceptGhostCompletion() {
 }
 
 // updateGhostFromSuggestion updates ghost text based on the current autocomplete suggestion.
-func (o *Omnibox) updateGhostFromSuggestion() {
+// The query parameter is the search query that was used, ensuring we don't use stale input.
+func (o *Omnibox) updateGhostFromSuggestion(query string) {
 	if o.autocompleteUC == nil {
 		return
 	}
 
 	o.mu.RLock()
-	userInput := o.realInput
 	bangMode := o.bangMode
 	o.mu.RUnlock()
+
+	// Use the query that triggered this search, not realInput which may have changed
+	userInput := query
 
 	// Don't show ghost text in bang mode (it has its own completion)
 	if bangMode || userInput == "" {
@@ -1060,8 +1063,8 @@ func (o *Omnibox) performSearch() {
 			})
 		}
 
-		// Marshal back to GTK main thread
-		o.idleAddUpdateSuggestions(suggestions)
+		// Marshal back to GTK main thread, passing query to ensure ghost text uses correct input
+		o.idleAddUpdateSuggestions(suggestions, query)
 	}()
 }
 
@@ -1078,7 +1081,7 @@ func (o *Omnibox) loadInitialHistory() {
 
 		switch o.initialBehavior {
 		case "none":
-			o.idleAddUpdateSuggestions(nil)
+			o.idleAddUpdateSuggestions(nil, "")
 			return
 
 		case "most_visited", "recent", "":
@@ -1123,7 +1126,7 @@ func (o *Omnibox) loadInitialHistory() {
 			}
 		}
 
-		o.idleAddUpdateSuggestions(suggestions)
+		o.idleAddUpdateSuggestions(suggestions, "")
 	}()
 }
 
@@ -1161,7 +1164,7 @@ func (o *Omnibox) loadFavorites(query string) {
 			})
 		}
 
-		o.idleAddUpdateFavorites(favorites)
+		o.idleAddUpdateFavorites(favorites, query)
 	}()
 }
 
@@ -1263,7 +1266,8 @@ func (o *Omnibox) updateBangSuggestions(suggestions []BangSuggestion) {
 }
 
 // updateSuggestions updates the list with history suggestions.
-func (o *Omnibox) updateSuggestions(suggestions []Suggestion) {
+// The query parameter is the search query that triggered this update.
+func (o *Omnibox) updateSuggestions(suggestions []Suggestion, query string) {
 	o.mu.Lock()
 	o.bangMode = false
 	o.bangSuggestions = nil
@@ -1284,14 +1288,15 @@ func (o *Omnibox) updateSuggestions(suggestions []Suggestion) {
 	if rowCount > 0 {
 		o.selectIndex(0)
 		// Update ghost text from first suggestion
-		o.updateGhostFromSuggestion()
+		o.updateGhostFromSuggestion(query)
 	} else {
 		o.clearGhostText()
 	}
 }
 
 // updateFavorites updates the list with favorites.
-func (o *Omnibox) updateFavorites(favorites []Favorite) {
+// The query parameter is the search query that triggered this update.
+func (o *Omnibox) updateFavorites(favorites []Favorite, query string) {
 	o.mu.Lock()
 	o.bangMode = false
 	o.bangSuggestions = nil
@@ -1312,7 +1317,7 @@ func (o *Omnibox) updateFavorites(favorites []Favorite) {
 	if rowCount > 0 {
 		o.selectIndex(0)
 		// Update ghost text from first favorite
-		o.updateGhostFromSuggestion()
+		o.updateGhostFromSuggestion(query)
 	} else {
 		o.clearGhostText()
 	}
@@ -2034,9 +2039,10 @@ func (o *Omnibox) UpdateZoomIndicator(factor float64) {
 }
 
 // idleAddUpdateSuggestions schedules updateSuggestions on the GTK main thread.
-func (o *Omnibox) idleAddUpdateSuggestions(suggestions []Suggestion) {
+// The query parameter is passed through to ensure ghost text uses the correct input.
+func (o *Omnibox) idleAddUpdateSuggestions(suggestions []Suggestion, query string) {
 	var cb glib.SourceFunc = func(data uintptr) bool {
-		o.updateSuggestions(suggestions)
+		o.updateSuggestions(suggestions, query)
 		return false // One-shot callback
 	}
 	glib.IdleAdd(&cb, 0)
@@ -2058,9 +2064,10 @@ func (o *Omnibox) getFavoriteURLs(ctx context.Context) map[string]struct{} {
 }
 
 // idleAddUpdateFavorites schedules updateFavorites on the GTK main thread.
-func (o *Omnibox) idleAddUpdateFavorites(favorites []Favorite) {
+// The query parameter is passed through to ensure ghost text uses the correct input.
+func (o *Omnibox) idleAddUpdateFavorites(favorites []Favorite, query string) {
 	var cb glib.SourceFunc = func(data uintptr) bool {
-		o.updateFavorites(favorites)
+		o.updateFavorites(favorites, query)
 		return false // One-shot callback, return false to remove source
 	}
 	glib.IdleAdd(&cb, 0)
