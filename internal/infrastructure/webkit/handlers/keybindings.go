@@ -13,6 +13,7 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
+const modeGlobal = "global"
 
 // KeybindingsHandler handles keybinding-related messages.
 type KeybindingsHandler struct{}
@@ -49,9 +50,11 @@ func (*KeybindingsHandler) HandleGetKeybindings(ctx context.Context, _ webkit.We
 // HandleSetKeybinding updates a single keybinding.
 func (*KeybindingsHandler) HandleSetKeybinding(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
 	log := logging.FromContext(ctx).With().Str("handler", "keybindings").Logger()
+	log.Debug().RawJSON("payload", payload).Msg("HandleSetKeybinding called")
 
 	var req port.SetKeybindingRequest
 	if err := json.Unmarshal(payload, &req); err != nil {
+		log.Error().Err(err).RawJSON("payload", payload).Msg("failed to unmarshal request")
 		return nil, fmt.Errorf("invalid request: %w", err)
 	}
 
@@ -63,13 +66,23 @@ func (*KeybindingsHandler) HandleSetKeybinding(ctx context.Context, _ webkit.Web
 	}
 
 	cfg := mgr.Get()
+
+	// Check for conflicts before saving
+	conflicts := checkConflicts(cfg, req.Mode, req.Action, req.Keys)
+	if len(conflicts) > 0 {
+		log.Warn().Int("conflicts", len(conflicts)).Msg("keybinding conflicts detected")
+	}
+
 	updateKeybinding(cfg, req)
 
 	if err := mgr.SaveKeybindings(cfg); err != nil {
 		return nil, fmt.Errorf("failed to save: %w", err)
 	}
 
-	return map[string]any{"status": "success"}, nil
+	return map[string]any{
+		"status":    "success",
+		"conflicts": conflicts,
+	}, nil
 }
 
 // HandleResetKeybinding resets a keybinding to default.
@@ -137,7 +150,7 @@ func (*KeybindingsHandler) HandleResetAllKeybindings(ctx context.Context, _ webk
 // buildGlobalGroup builds the global shortcuts group.
 func buildGlobalGroup(cfg, defaults *config.Config) port.KeybindingGroup {
 	return port.KeybindingGroup{
-		Mode:        "global",
+		Mode:        modeGlobal,
 		DisplayName: "Global Shortcuts",
 		Bindings:    buildModeBindings(cfg.Workspace.Shortcuts.Actions, defaults.Workspace.Shortcuts.Actions),
 	}
@@ -213,7 +226,7 @@ func buildModeBindings(actions, defaultActions map[string]config.ActionBinding) 
 // updateKeybinding updates a keybinding in the config.
 func updateKeybinding(cfg *config.Config, req port.SetKeybindingRequest) {
 	switch req.Mode {
-	case "global":
+	case modeGlobal:
 		updateGlobalShortcut(cfg, req.Action, req.Keys)
 	case "pane":
 		if existing, ok := cfg.Workspace.PaneMode.Actions[req.Action]; ok {
@@ -249,7 +262,7 @@ func updateGlobalShortcut(cfg *config.Config, action string, keys []string) {
 // getDefaultKeys returns the default keys for an action.
 func getDefaultKeys(defaults *config.Config, mode, action string) []string {
 	switch mode {
-	case "global":
+	case modeGlobal:
 		return getDefaultGlobalKeys(defaults, action)
 	case "pane":
 		return defaults.Workspace.PaneMode.Actions[action].Keys
@@ -269,6 +282,58 @@ func getDefaultGlobalKeys(defaults *config.Config, action string) []string {
 		return binding.Keys
 	}
 	return nil
+}
+
+// checkConflicts scans all modes for keybinding conflicts.
+// Returns a list of conflicts where the same key is bound to different actions.
+func checkConflicts(cfg *config.Config, targetMode, targetAction string, newKeys []string) []port.KeybindingConflict {
+	var conflicts []port.KeybindingConflict
+
+	// Build a map of key -> (mode, action) for all bindings
+	type binding struct {
+		mode   string
+		action string
+	}
+	keyMap := make(map[string][]binding)
+
+	// Helper to add bindings from a mode
+	addBindings := func(mode string, actions map[string]config.ActionBinding) {
+		for action, ab := range actions {
+			for _, key := range ab.Keys {
+				keyMap[key] = append(keyMap[key], binding{mode: mode, action: action})
+			}
+		}
+	}
+
+	// Collect all current bindings
+	addBindings(modeGlobal, cfg.Workspace.Shortcuts.Actions)
+	addBindings("pane", cfg.Workspace.PaneMode.Actions)
+	addBindings("tab", cfg.Workspace.TabMode.Actions)
+	addBindings("resize", cfg.Workspace.ResizeMode.Actions)
+	addBindings("session", cfg.Session.SessionMode.Actions)
+
+	// Check each new key for conflicts
+	for _, newKey := range newKeys {
+		if existing, ok := keyMap[newKey]; ok {
+			for _, b := range existing {
+				// Skip if it's the same action we're updating
+				if b.mode == targetMode && b.action == targetAction {
+					continue
+				}
+				// Global shortcuts conflict with everything
+				// Modal bindings only conflict within same mode or with global
+				if targetMode == modeGlobal || b.mode == modeGlobal || b.mode == targetMode {
+					conflicts = append(conflicts, port.KeybindingConflict{
+						ConflictingAction: b.action,
+						ConflictingMode:   b.mode,
+						Key:               newKey,
+					})
+				}
+			}
+		}
+	}
+
+	return conflicts
 }
 
 // RegisterKeybindingsHandlers registers keybindings handlers with the router.
