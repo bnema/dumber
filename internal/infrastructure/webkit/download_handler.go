@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/usecase"
+	downloadutil "github.com/bnema/dumber/internal/domain/download"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
 )
@@ -20,16 +20,22 @@ const (
 
 // DownloadHandler manages WebKit downloads and notifies the UI layer.
 type DownloadHandler struct {
-	downloadPath string
-	eventHandler port.DownloadEventHandler
-	mu           sync.RWMutex
+	downloadPath      string
+	eventHandler      port.DownloadEventHandler
+	prepareDownloadUC *usecase.PrepareDownloadUseCase
+	mu                sync.RWMutex
 }
 
 // NewDownloadHandler creates a new download handler.
-func NewDownloadHandler(downloadPath string, handler port.DownloadEventHandler) *DownloadHandler {
+func NewDownloadHandler(
+	downloadPath string,
+	handler port.DownloadEventHandler,
+	prepareDownloadUC *usecase.PrepareDownloadUseCase,
+) *DownloadHandler {
 	return &DownloadHandler{
-		downloadPath: downloadPath,
-		eventHandler: handler,
+		downloadPath:      downloadPath,
+		eventHandler:      handler,
+		prepareDownloadUC: prepareDownloadUC,
 	}
 }
 
@@ -47,6 +53,7 @@ func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.D
 	h.mu.RLock()
 	downloadPath := h.downloadPath
 	eventHandler := h.eventHandler
+	prepareDownloadUC := h.prepareDownloadUC
 	h.mu.RUnlock()
 
 	// Track download state in a dedicated struct to ensure proper isolation.
@@ -63,31 +70,40 @@ func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.D
 			return false
 		}
 
-		// Sanitize filename to prevent path traversal attacks.
-		safeName := sanitizeFilename(suggestedFilename)
-		destPath := filepath.Join(downloadPath, safeName)
+		// Wrap WebKit response as port.DownloadResponse
+		var response port.DownloadResponse
+		if resp := d.GetResponse(); resp != nil {
+			response = &uriResponseAdapter{resp: resp}
+		}
+
+		// Use PrepareDownloadUseCase to resolve filename
+		output := prepareDownloadUC.Execute(ctx, usecase.PrepareDownloadInput{
+			SuggestedFilename: suggestedFilename,
+			Response:          response,
+			DownloadDir:       downloadPath,
+		})
 
 		log.Debug().
 			Str("suggested", suggestedFilename).
-			Str("sanitized", safeName).
-			Str("destPath", destPath).
+			Str("sanitized", output.Filename).
+			Str("destPath", output.DestinationPath).
 			Msg("setting download destination")
 
 		// WebKit expects an absolute file path for the destination.
-		d.SetDestination(destPath)
+		d.SetDestination(output.DestinationPath)
 
 		// Notify: download started.
 		if eventHandler != nil {
 			eventHandler.OnDownloadEvent(ctx, port.DownloadEvent{
 				Type:        port.DownloadEventStarted,
-				Filename:    safeName,
-				Destination: destPath,
+				Filename:    output.Filename,
+				Destination: output.DestinationPath,
 			})
 		}
 
 		log.Info().
-			Str("filename", safeName).
-			Str("destination", destPath).
+			Str("filename", output.Filename).
+			Str("destination", output.DestinationPath).
 			Msg("download started")
 
 		return false // false = we handled it synchronously
@@ -101,7 +117,7 @@ func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.D
 		state.mu.Unlock()
 
 		dest := d.GetDestination()
-		filename := extractFilename(dest)
+		filename := downloadutil.ExtractFilenameFromDestination(dest)
 
 		// Create error for the failed download.
 		downloadErr := fmt.Errorf("download failed: %s", filename)
@@ -131,7 +147,7 @@ func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.D
 		}
 
 		dest := d.GetDestination()
-		filename := extractFilename(dest)
+		filename := downloadutil.ExtractFilenameFromDestination(dest)
 
 		if eventHandler != nil {
 			eventHandler.OnDownloadEvent(ctx, port.DownloadEvent{
@@ -153,34 +169,28 @@ func (h *DownloadHandler) SetDownloadPath(path string) {
 	h.downloadPath = path
 }
 
-// extractFilename extracts the filename from a file:// URI or path.
-func extractFilename(dest string) string {
-	// Remove file:// prefix if present.
-	path := strings.TrimPrefix(dest, "file://")
-	base := filepath.Base(path)
-
-	// Handle edge cases consistently with sanitizeFilename.
-	if base == "." || base == "" {
-		return "download"
-	}
-	return base
+// uriResponseAdapter wraps webkit.URIResponse to implement port.DownloadResponse.
+type uriResponseAdapter struct {
+	resp *webkit.URIResponse
 }
 
-// sanitizeFilename sanitizes a suggested filename to prevent path traversal attacks.
-// It extracts only the base name and handles edge cases like "." or "..".
-func sanitizeFilename(name string) string {
-	// Normalize Windows-style separators to forward slashes.
-	// filepath.Base only handles the OS-native separator, so on Linux
-	// backslashes would not be treated as path separators.
-	name = strings.ReplaceAll(name, "\\", "/")
-
-	// Get only the base name (removes any directory components).
-	clean := filepath.Base(name)
-
-	// If Base returns "." or ".." (edge cases), use fallback.
-	if clean == "." || clean == ".." || clean == "" {
-		return "download"
+func (a *uriResponseAdapter) GetMimeType() string {
+	if a.resp == nil {
+		return ""
 	}
+	return a.resp.GetMimeType()
+}
 
-	return clean
+func (a *uriResponseAdapter) GetSuggestedFilename() string {
+	if a.resp == nil {
+		return ""
+	}
+	return a.resp.GetSuggestedFilename()
+}
+
+func (a *uriResponseAdapter) GetUri() string {
+	if a.resp == nil {
+		return ""
+	}
+	return a.resp.GetUri()
 }

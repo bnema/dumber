@@ -62,6 +62,21 @@ func TestNormalize(t *testing.T) {
 			input: "hello",
 			want:  "hello",
 		},
+		{
+			name:  "localhost",
+			input: "localhost",
+			want:  "http://localhost",
+		},
+		{
+			name:  "localhost with port",
+			input: "localhost:5173",
+			want:  "http://localhost:5173",
+		},
+		{
+			name:  "localhost with alt port",
+			input: "localhost:8080",
+			want:  "http://localhost:8080",
+		},
 	}
 
 	for _, tt := range tests {
@@ -256,6 +271,21 @@ func TestLooksLikeURL(t *testing.T) {
 			name:  "single word",
 			input: "hello",
 			want:  false,
+		},
+		{
+			name:  "localhost",
+			input: "localhost",
+			want:  true,
+		},
+		{
+			name:  "localhost with port",
+			input: "localhost:5173",
+			want:  true,
+		},
+		{
+			name:  "localhost with alt port",
+			input: "localhost:8080",
+			want:  true,
 		},
 	}
 

@@ -26,3 +26,11 @@ type DownloadEvent struct {
 type DownloadEventHandler interface {
 	OnDownloadEvent(ctx context.Context, event DownloadEvent)
 }
+
+// DownloadResponse provides access to response metadata for downloads.
+// This abstracts the WebKit URIResponse to allow testing without CGO.
+type DownloadResponse interface {
+	GetMimeType() string
+	GetSuggestedFilename() string
+	GetUri() string
+}
