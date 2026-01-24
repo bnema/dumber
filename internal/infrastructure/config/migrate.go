@@ -420,8 +420,14 @@ func (m *Migrator) Migrate() ([]string, error) {
 		return nil, fmt.Errorf("failed to merge config: %w", err)
 	}
 
-	// Write the merged config back
-	if err := userViper.WriteConfig(); err != nil {
+	// Unmarshal to Config struct for ordered writing
+	var cfg Config
+	if err := userViper.Unmarshal(&cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal merged config: %w", err)
+	}
+
+	// Write with ordered sections
+	if err := WriteConfigOrdered(&cfg, configFile); err != nil {
 		return nil, fmt.Errorf("failed to write config file: %w", err)
 	}
 
