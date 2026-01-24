@@ -40,8 +40,8 @@ func (m *Manager) Watch() error {
 
 		log.Debug().Msg("reloading config from external change")
 		if err := m.reload(); err != nil {
-			m.mu.Unlock()
 			log.Warn().Err(err).Msg("failed to reload config")
+			m.mu.Unlock()
 			return
 		}
 		m.notifyCallbacksLocked()

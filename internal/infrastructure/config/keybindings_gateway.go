@@ -229,13 +229,21 @@ func (*KeybindingsGateway) getDefaultKeys(defaults *Config, mode, action string)
 			return binding.Keys
 		}
 	case "pane":
-		return defaults.Workspace.PaneMode.Actions[action].Keys
+		if binding, ok := defaults.Workspace.PaneMode.Actions[action]; ok {
+			return binding.Keys
+		}
 	case "tab":
-		return defaults.Workspace.TabMode.Actions[action].Keys
+		if binding, ok := defaults.Workspace.TabMode.Actions[action]; ok {
+			return binding.Keys
+		}
 	case "resize":
-		return defaults.Workspace.ResizeMode.Actions[action].Keys
+		if binding, ok := defaults.Workspace.ResizeMode.Actions[action]; ok {
+			return binding.Keys
+		}
 	case "session":
-		return defaults.Session.SessionMode.Actions[action].Keys
+		if binding, ok := defaults.Session.SessionMode.Actions[action]; ok {
+			return binding.Keys
+		}
 	}
 	return nil
 }
