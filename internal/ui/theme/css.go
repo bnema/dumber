@@ -414,9 +414,7 @@ entry.omnibox-entry.omnibox-entry-bang-active:focus-visible {
 .omnibox-ghost {
 	font-size: 1em;
 	color: var(--muted);
-	padding: 0.625em 0.75em;
-	margin: 0.5em 0.75em;
-	/* Match the entry padding/margin exactly for alignment */
+	margin-top: -0.0625em; /* Nudge up 1px to align with entry text baseline */
 	background-color: transparent;
 	/* Allow clicks to pass through to entry below */
 	pointer-events: none;

@@ -3,11 +3,14 @@ package component
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/domain/autocomplete"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
@@ -16,14 +19,14 @@ import (
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/glib"
+	"github.com/jwijenbergh/puregotk/v4/graphene"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 	"github.com/jwijenbergh/puregotk/v4/pango"
 )
 
 const (
-	debounceDelayMs     = 50
-	endBoxSpacing       = 6
-	ghostIconOffsetBase = 18 // Base icon offset for ghost text positioning (scaled by uiScale)
+	debounceDelayMs = 50
+	endBoxSpacing   = 6
 )
 
 // ViewMode distinguishes history search from favorites display.
@@ -419,11 +422,14 @@ func (o *Omnibox) initEntry() error {
 	}
 	o.ghostLabel.AddCssClass("omnibox-ghost")
 	o.ghostLabel.SetHalign(gtk.AlignStartValue)
-	o.ghostLabel.SetValign(gtk.AlignCenterValue)
+	o.ghostLabel.SetValign(gtk.AlignCenterValue) // Center vertically to match entry's centered text
+	o.ghostLabel.SetXalign(0)
 	o.ghostLabel.SetVisible(false)
-	o.ghostLabel.SetCanTarget(false) // Don't intercept clicks
+	o.ghostLabel.SetCanTarget(false)                   // Don't intercept clicks
+	o.ghostLabel.SetEllipsize(pango.EllipsizeEndValue) // Truncate with ellipsis if too long
 
 	o.entryOverlay.AddOverlay(&o.ghostLabel.Widget)
+	o.entryOverlay.SetClipOverlay(&o.ghostLabel.Widget, true) // Clip ghost text to entry bounds
 
 	return nil
 }
@@ -737,15 +743,8 @@ func (o *Omnibox) setGhostText(originalInput, suffix, fullText string) {
 		return
 	}
 
+	// Store ghost state optimistically - will be validated on main thread
 	o.mu.Lock()
-	currentInput := o.realInput
-	// Check if input has changed since the autocomplete query was made
-	// Skip this check when originalInput is empty (row selection replaces full input)
-	if originalInput != "" && currentInput != originalInput {
-		o.mu.Unlock()
-		// Input changed, skip this stale result - a newer query will handle it
-		return
-	}
 	o.ghostSuffix = suffix
 	o.ghostFullText = fullText
 	o.hasGhostText = true
@@ -753,6 +752,14 @@ func (o *Omnibox) setGhostText(originalInput, suffix, fullText string) {
 
 	var cb glib.SourceFunc = func(uintptr) bool {
 		if o.ghostLabel == nil || o.entry == nil {
+			return false
+		}
+
+		// Check if input has changed since the autocomplete query was made
+		// This check runs on GTK main thread where entry.GetText() is reliable
+		// Skip this check when originalInput is empty (row selection replaces full input)
+		if originalInput != "" && o.entry.GetText() != originalInput {
+			// Input changed, skip this stale result - a newer query will handle it
 			return false
 		}
 
@@ -770,15 +777,41 @@ func (o *Omnibox) setGhostText(originalInput, suffix, fullText string) {
 		var widthPx, heightPx int
 		layout.GetPixelSize(&widthPx, &heightPx)
 
-		// Account for the search icon inside the entry
-		// Ghost label already has same margin/padding as entry via CSS
-		// Scale the icon offset by UI scale factor
-		iconOffset := int(float64(ghostIconOffsetBase) * o.uiScale)
-		marginStart := widthPx + iconOffset
-
-		// Set the ghost label text (just the suffix) and position it
+		// Set the ghost label text (just the suffix) and position it horizontally
 		o.ghostLabel.SetText(suffix)
+
+		marginStart := widthPx
+		delegate := o.entry.GetDelegate()
+		if delegate != nil && o.entryOverlay != nil {
+			textWidget := gtk.TextNewFromInternalPtr(delegate.GoPointer())
+			if textWidget != nil {
+				var textBounds graphene.Rect
+				if textWidget.ComputeBounds(&o.entryOverlay.Widget, &textBounds) {
+					cursorPos := uint(utf8.RuneCountInString(originalInput))
+					var strongRect, weakRect graphene.Rect
+					textWidget.ComputeCursorExtents(cursorPos, &strongRect, &weakRect)
+					cursorX := float64(textBounds.GetX() + strongRect.GetX())
+					marginStart = int(math.Round(cursorX))
+				}
+			}
+		}
+
+		// Clamp horizontal position to entry bounds
+		if marginStart < 0 {
+			marginStart = 0
+		}
+		if o.entryOverlay != nil {
+			var entryBounds graphene.Rect
+			if o.entry.ComputeBounds(&o.entryOverlay.Widget, &entryBounds) {
+				minStart := int(math.Round(float64(entryBounds.GetX())))
+				if marginStart < minStart {
+					marginStart = minStart
+				}
+			}
+		}
+
 		o.ghostLabel.SetMarginStart(marginStart)
+		// Vertical positioning handled by CSS (.omnibox-ghost) to scale correctly with UI
 		o.ghostLabel.SetVisible(true)
 
 		// Hide placeholder text so it doesn't show through ghost text
@@ -846,15 +879,18 @@ func (o *Omnibox) acceptGhostCompletion() {
 }
 
 // updateGhostFromSuggestion updates ghost text based on the current autocomplete suggestion.
-func (o *Omnibox) updateGhostFromSuggestion() {
+// The query parameter is the search query that was used, ensuring we don't use stale input.
+func (o *Omnibox) updateGhostFromSuggestion(query string) {
 	if o.autocompleteUC == nil {
 		return
 	}
 
 	o.mu.RLock()
-	userInput := o.realInput
 	bangMode := o.bangMode
 	o.mu.RUnlock()
+
+	// Use the query that triggered this search, not realInput which may have changed
+	userInput := query
 
 	// Don't show ghost text in bang mode (it has its own completion)
 	if bangMode || userInput == "" {
@@ -887,12 +923,7 @@ func (o *Omnibox) updateGhostFromURL(targetURL string) {
 	o.mu.RUnlock()
 
 	// Strip protocol from URL for cleaner display
-	displayURL := targetURL
-	if strings.HasPrefix(displayURL, "https://") {
-		displayURL = displayURL[8:]
-	} else if strings.HasPrefix(displayURL, "http://") {
-		displayURL = displayURL[7:]
-	}
+	displayURL := autocomplete.StripProtocol(targetURL)
 
 	// Try to compute proper suffix if input is a prefix of the URL
 	if o.autocompleteUC != nil && userInput != "" {
@@ -1035,8 +1066,8 @@ func (o *Omnibox) performSearch() {
 			})
 		}
 
-		// Marshal back to GTK main thread
-		o.idleAddUpdateSuggestions(suggestions)
+		// Marshal back to GTK main thread, passing query to ensure ghost text uses correct input
+		o.idleAddUpdateSuggestions(suggestions, query)
 	}()
 }
 
@@ -1053,7 +1084,7 @@ func (o *Omnibox) loadInitialHistory() {
 
 		switch o.initialBehavior {
 		case "none":
-			o.idleAddUpdateSuggestions(nil)
+			o.idleAddUpdateSuggestions(nil, "")
 			return
 
 		case "most_visited", "recent", "":
@@ -1098,7 +1129,7 @@ func (o *Omnibox) loadInitialHistory() {
 			}
 		}
 
-		o.idleAddUpdateSuggestions(suggestions)
+		o.idleAddUpdateSuggestions(suggestions, "")
 	}()
 }
 
@@ -1136,7 +1167,7 @@ func (o *Omnibox) loadFavorites(query string) {
 			})
 		}
 
-		o.idleAddUpdateFavorites(favorites)
+		o.idleAddUpdateFavorites(favorites, query)
 	}()
 }
 
@@ -1238,7 +1269,8 @@ func (o *Omnibox) updateBangSuggestions(suggestions []BangSuggestion) {
 }
 
 // updateSuggestions updates the list with history suggestions.
-func (o *Omnibox) updateSuggestions(suggestions []Suggestion) {
+// The query parameter is the search query that triggered this update.
+func (o *Omnibox) updateSuggestions(suggestions []Suggestion, query string) {
 	o.mu.Lock()
 	o.bangMode = false
 	o.bangSuggestions = nil
@@ -1259,14 +1291,15 @@ func (o *Omnibox) updateSuggestions(suggestions []Suggestion) {
 	if rowCount > 0 {
 		o.selectIndex(0)
 		// Update ghost text from first suggestion
-		o.updateGhostFromSuggestion()
+		o.updateGhostFromSuggestion(query)
 	} else {
 		o.clearGhostText()
 	}
 }
 
 // updateFavorites updates the list with favorites.
-func (o *Omnibox) updateFavorites(favorites []Favorite) {
+// The query parameter is the search query that triggered this update.
+func (o *Omnibox) updateFavorites(favorites []Favorite, query string) {
 	o.mu.Lock()
 	o.bangMode = false
 	o.bangSuggestions = nil
@@ -1287,7 +1320,7 @@ func (o *Omnibox) updateFavorites(favorites []Favorite) {
 	if rowCount > 0 {
 		o.selectIndex(0)
 		// Update ghost text from first favorite
-		o.updateGhostFromSuggestion()
+		o.updateGhostFromSuggestion(query)
 	} else {
 		o.clearGhostText()
 	}
@@ -2009,9 +2042,10 @@ func (o *Omnibox) UpdateZoomIndicator(factor float64) {
 }
 
 // idleAddUpdateSuggestions schedules updateSuggestions on the GTK main thread.
-func (o *Omnibox) idleAddUpdateSuggestions(suggestions []Suggestion) {
+// The query parameter is passed through to ensure ghost text uses the correct input.
+func (o *Omnibox) idleAddUpdateSuggestions(suggestions []Suggestion, query string) {
 	var cb glib.SourceFunc = func(data uintptr) bool {
-		o.updateSuggestions(suggestions)
+		o.updateSuggestions(suggestions, query)
 		return false // One-shot callback
 	}
 	glib.IdleAdd(&cb, 0)
@@ -2033,9 +2067,10 @@ func (o *Omnibox) getFavoriteURLs(ctx context.Context) map[string]struct{} {
 }
 
 // idleAddUpdateFavorites schedules updateFavorites on the GTK main thread.
-func (o *Omnibox) idleAddUpdateFavorites(favorites []Favorite) {
+// The query parameter is passed through to ensure ghost text uses the correct input.
+func (o *Omnibox) idleAddUpdateFavorites(favorites []Favorite, query string) {
 	var cb glib.SourceFunc = func(data uintptr) bool {
-		o.updateFavorites(favorites)
+		o.updateFavorites(favorites, query)
 		return false // One-shot callback, return false to remove source
 	}
 	glib.IdleAdd(&cb, 0)
