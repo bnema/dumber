@@ -1,19 +1,7 @@
-# Configuration Reference
+# Configuration Guide
 
-**Primary format**: TOML (recommended)
 **Location**: `~/.config/dumber/config.toml`
-**Also supports**: JSON (`.json`) and YAML (`.yaml`)
-**JSON Schema**: `~/.config/dumber/config.schema.json` (auto-generated for JSON format)
-
-## Why TOML?
-
-TOML is the recommended format for dumber configuration because:
-- **Clear structure**: Explicit sections make complex configs easy to read and modify
-- **No ambiguity**: No whitespace sensitivity or type coercion issues
-- **Comments supported**: Add documentation directly in your config
-- **Industry standard**: Used by Cargo, Hugo, and many modern tools
-
-You can still use JSON or YAML if you prefer - dumber automatically detects the format.
+**Formats**: TOML (recommended), JSON, YAML
 
 ## Database
 
