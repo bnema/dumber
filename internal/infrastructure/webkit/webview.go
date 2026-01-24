@@ -905,6 +905,12 @@ func (wv *WebView) SetBackgroundColor(r, g, b, a float32) {
 	wv.inner.SetBackgroundColor(rgba)
 }
 
+// ResetBackgroundToDefault sets WebView background to white (browser default).
+// Used for external pages to prevent dark background from bleeding through.
+func (wv *WebView) ResetBackgroundToDefault() {
+	wv.SetBackgroundColor(1.0, 1.0, 1.0, 1.0)
+}
+
 // Show makes the WebView widget visible.
 // This should be called after the WebView is ready to be displayed.
 func (wv *WebView) Show() {
