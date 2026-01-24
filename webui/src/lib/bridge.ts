@@ -77,12 +77,26 @@ export function postMessage(msg: BridgeMessage): void {
 }
 
 /**
+ * Internal callback registry using Map for tracking pending requests.
+ * Callbacks must also be exposed on window for Go backend to call,
+ * but we track them here for proper cleanup and to prevent leaks.
+ */
+const pendingCallbacks = new Map<string, {
+  cleanup: () => void;
+  timeoutId: ReturnType<typeof setTimeout>;
+}>();
+
+let callbackCounter = 0;
+const CALLBACK_TIMEOUT_MS = 30000;
+
+/**
  * Post a message and set up success/error callbacks with automatic cleanup.
+ * Uses unique IDs to prevent naming conflicts between concurrent requests.
  *
  * @param type - Message type (e.g., "get_keybindings", "set_keybinding")
  * @param payload - Message payload (will be serialized to strip Proxies)
- * @param successCallback - Window function name to call on success
- * @param errorCallback - Window function name to call on error
+ * @param successCallback - Base name for success callback (will be made unique)
+ * @param errorCallback - Base name for error callback (will be made unique)
  * @param onSuccess - Handler for success response
  * @param onError - Handler for error response
  */
@@ -94,22 +108,40 @@ export function postMessageWithCallbacks<TResponse, TPayload extends Record<stri
   onSuccess: (response: TResponse) => void,
   onError: (error: string) => void,
 ): void {
-  // Cleanup function to remove callbacks from window
+  const id = ++callbackCounter;
+  const successKey = `${successCallback}_${id}`;
+  const errorKey = `${errorCallback}_${id}`;
+
+  // Cleanup removes from both window and our tracking Map
   const cleanup = () => {
+    const entry = pendingCallbacks.get(successKey);
+    if (entry) {
+      clearTimeout(entry.timeoutId);
+      pendingCallbacks.delete(successKey);
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    delete (window as any)[successCallback];
+    delete (window as any)[successKey];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    delete (window as any)[errorCallback];
+    delete (window as any)[errorKey];
   };
 
-  // Set up callbacks on window with automatic cleanup
+  // Timeout prevents memory leaks if backend never responds
+  const timeoutId = setTimeout(() => {
+    cleanup();
+    onError("Request timed out");
+  }, CALLBACK_TIMEOUT_MS);
+
+  // Track in our Map for proper lifecycle management
+  pendingCallbacks.set(successKey, { cleanup, timeoutId });
+
+  // Expose on window for Go backend (it calls window[callbackName](response))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (window as any)[successCallback] = (response: TResponse) => {
+  (window as any)[successKey] = (response: TResponse) => {
     cleanup();
     onSuccess(response);
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (window as any)[errorCallback] = (msg: string) => {
+  (window as any)[errorKey] = (msg: unknown) => {
     cleanup();
     onError(typeof msg === "string" ? msg : "Unknown error");
   };
@@ -118,11 +150,14 @@ export function postMessageWithCallbacks<TResponse, TPayload extends Record<stri
     postMessage({
       type,
       webviewId: getWebViewId(),
-      payload,
+      payload: {
+        ...payload,
+        successCallback: successKey,
+        errorCallback: errorKey,
+      },
     });
   } catch (err) {
     cleanup();
-    const message = err instanceof Error ? err.message : String(err);
-    onError(message);
+    onError(err instanceof Error ? err.message : String(err));
   }
 }
