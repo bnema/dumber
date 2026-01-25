@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.26.1] - 2026-01-25
+
+### Fixed
+- **Popups not working in split panes**: Fixed `window.open()` and `target="_blank"` links not functioning in split panes. Popup handling was not being set up for WebViews created via `EnsureWebView`.
+
+### Changed
+- **WebView callback setup refactoring**: Consolidated duplicate callback setup code into single `setupWebViewCallbacks` function. `EnsureWebView` now delegates to this function instead of inline setup. Made `setupPopupHandling` private since no external callers remain.
+
 ## [0.26.0] - 2026-01-24
 
 ### Added
