@@ -17,6 +17,7 @@ Dumber provides commands for browser management, history, sessions, and diagnost
 | `dumber logs` | View application logs |
 | `dumber purge` | Remove data and configuration |
 | `dumber about` | Show version information |
+| `dumber gen-docs` | Generate documentation from CLI commands |
 | `dumber completion` | Generate shell completions |
 
 ## Command Reference
@@ -199,8 +200,12 @@ dumber logs clear [flags]
 Remove dumber data and configuration.
 
 ```bash
-dumber purge
+dumber purge [flags]
 ```
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--force` | `-f` | Remove all items without prompting |
 
 ### about
 
@@ -208,6 +213,30 @@ Show version and build information.
 
 ```bash
 dumber about
+```
+
+### gen-docs
+
+Generate documentation (man pages or markdown) from CLI commands.
+
+```bash
+dumber gen-docs [flags]
+```
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--output` | `-o` | Output directory for generated docs |
+| `--format` | `-f` | Output format: man, markdown (default: man) |
+
+**Supported formats:**
+- `man` - Unix manual pages (groff format)
+- `markdown` - Markdown files (for websites/wikis)
+
+**Examples:**
+```bash
+dumber gen-docs                     # Install man pages to ~/.local/share/man/man1/
+dumber gen-docs --format markdown   # Generate markdown docs
+dumber gen-docs --output ./man      # Generate to local directory
 ```
 
 ## Environment Variables

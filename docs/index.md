@@ -23,7 +23,7 @@ A browser designed for Wayland compositors that works like your favorite termina
 ### Configuration
 
 - [Configuration Overview](./config/index.md) - All configuration options
-- [Configuration Reference](./config/reference.md) - Quick reference table
+- [Configuration Reference](./reference/configuration.md) - Quick reference table
 
 ### CLI Reference
 
@@ -31,6 +31,7 @@ A browser designed for Wayland compositors that works like your favorite termina
 
 ### Reference
 
+- [Dependencies](./reference/dependencies.md) - System dependencies for Arch and Debian/Ubuntu
 - [Keybindings](./reference/keybindings.md) - Keyboard shortcuts reference
 - [Troubleshooting](./reference/troubleshooting.md) - Common issues and solutions
 
