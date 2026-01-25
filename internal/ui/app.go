@@ -129,7 +129,6 @@ func New(deps *Dependencies) (*App, error) {
 	if err := deps.Validate(); err != nil {
 		return nil, err
 	}
-
 	ctx, cancel := context.WithCancelCause(deps.Ctx)
 
 	app := &App{
@@ -1798,11 +1797,7 @@ func (a *App) attachPopupToTab(ctx context.Context, tabID entity.TabID, pane *en
 				log.Warn().Str("pane_id", string(pane.ID)).Msg("pane view not found for popup")
 			}
 		}
-
-		// Setup popup handling for nested popups
-		a.contentCoord.SetupPopupHandling(ctx, pane.ID, wv)
 	}
-
 	log.Debug().
 		Str("tab_id", string(tabID)).
 		Str("pane_id", string(pane.ID)).
