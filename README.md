@@ -1,6 +1,6 @@
 # Dumber
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT) [![Go Report Card](https://goreportcard.com/badge/github.com/bnema/dumber)](https://goreportcard.com/report/github.com/bnema/dumber)
 
 A TTY-inspired browser multiplexer for tiling window managers.
 
@@ -116,6 +116,14 @@ make build
 | `make test` | Run tests |
 | `make lint` | Run golangci-lint |
 | `make flatpak-build` | Build Flatpak bundle |
+
+## Contributing
+
+We welcome bug fixes, performance/stability improvements, and WebUI/UX enhancements. We're not accepting new feature PRs.
+
+**All PRs must target the `next` branch.** We test there first before releasing to `main`.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Community
 
