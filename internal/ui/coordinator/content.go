@@ -217,59 +217,7 @@ func (c *ContentCoordinator) EnsureWebView(ctx context.Context, paneID entity.Pa
 	logging.Trace().Mark("webview_acquired")
 
 	c.webViews[paneID] = wv
-
-	// Set up title change callback
-	wv.OnTitleChanged = func(title string) {
-		c.onTitleChanged(ctx, paneID, title)
-	}
-
-	// Set up favicon change callback
-	wv.OnFaviconChanged = func(favicon *gdk.Texture) {
-		c.onFaviconChanged(ctx, paneID, favicon)
-	}
-
-	// Set up load change callback to re-apply zoom on navigation and handle progress bar
-	wv.OnLoadChanged = func(event webkit.LoadEvent) {
-		switch event {
-		case webkit.LoadStarted:
-			c.onLoadStarted(paneID)
-		case webkit.LoadCommitted:
-			c.onLoadCommitted(ctx, paneID, wv)
-		case webkit.LoadFinished:
-			c.onLoadFinished(ctx, paneID, wv)
-		}
-	}
-
-	// Set up progress callback for loading indicator
-	wv.OnProgressChanged = func(progress float64) {
-		c.onProgressChanged(paneID, progress)
-	}
-
-	// Set up URI change callback for SPA navigation (History API)
-	// This fires when URL changes via JavaScript without a full page load
-	wv.OnURIChanged = func(uri string) {
-		// Only record if not loading (SPA navigation via History API)
-		// Full page loads are handled by OnLoadCommitted
-		if !wv.IsLoading() && uri != "" {
-			c.onSPANavigation(ctx, paneID, uri)
-		}
-	}
-
-	// Set up middle-click / Ctrl+click handler for opening links in new pane
-	wv.OnLinkMiddleClick = func(uri string) bool {
-		return c.handleLinkMiddleClick(ctx, paneID, uri)
-	}
-
-	// Set up link hover callback for status overlay
-	wv.OnLinkHover = func(uri string) {
-		c.onLinkHover(paneID, uri)
-	}
-
-	// Set up fullscreen handlers for idle inhibition
-	c.setupIdleInhibitionHandlers(ctx, paneID, wv)
-
-	// Set up popup handling for this WebView
-	c.SetupPopupHandling(ctx, paneID, wv)
+	c.setupWebViewCallbacks(ctx, paneID, wv)
 
 	log.Debug().Str("pane_id", string(paneID)).Msg("webview acquired for pane")
 	return wv, nil
@@ -1213,9 +1161,9 @@ func (c *ContentCoordinator) SetOnClosePane(fn func(ctx context.Context, paneID 
 	c.onClosePane = fn
 }
 
-// SetupPopupHandling wires the popup create signal for a WebView.
+// setupPopupHandling wires the popup create signal for a WebView.
 // This should be called after acquiring a WebView for a pane.
-func (c *ContentCoordinator) SetupPopupHandling(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
+func (c *ContentCoordinator) setupPopupHandling(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
 	log := logging.FromContext(ctx)
 
 	if wv == nil {
@@ -1467,7 +1415,7 @@ func (c *ContentCoordinator) handlePopupClose(ctx context.Context, popupID port.
 	log.Info().Str("pane_id", string(paneID)).Msg("popup closed")
 }
 
-// setupWebViewCallbacks configures standard callbacks for a WebView.
+// setupWebViewCallbacks configures standard callbacks and popup handling.
 func (c *ContentCoordinator) setupWebViewCallbacks(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
 	// Title changes
 	wv.OnTitleChanged = func(title string) {
@@ -1515,6 +1463,9 @@ func (c *ContentCoordinator) setupWebViewCallbacks(ctx context.Context, paneID e
 
 	// Fullscreen handlers for idle inhibition
 	c.setupIdleInhibitionHandlers(ctx, paneID, wv)
+
+	// Popup handling for nested popups
+	c.setupPopupHandling(ctx, paneID, wv)
 }
 
 // setupOAuthAutoClose monitors the popup for OAuth callback URLs and auto-closes.
