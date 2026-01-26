@@ -800,11 +800,18 @@ func (o *Omnibox) onEntryChanged() {
 		return
 	}
 
+	entryText := o.entry.GetText()
+	if trimmed := url.TrimLeadingSpacesIfURL(entryText); trimmed != entryText {
+		o.entry.SetText(trimmed)
+		o.entry.SetPosition(-1)
+		return
+	}
+
 	// Reset navigation state when user types - space should type, not toggle favorite
 	o.mu.Lock()
 	o.hasNavigated = false
 	// Update realInput with what user actually typed
-	o.realInput = o.entry.GetText()
+	o.realInput = entryText
 	o.mu.Unlock()
 
 	// Clear ghost text when user types (it will be recalculated after search)
