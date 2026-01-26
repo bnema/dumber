@@ -559,8 +559,12 @@ func (wv *WorkspaceView) SetAutoOpenOnNewPane(enabled bool) {
 }
 
 // NotifyNewPaneCreated handles new pane creation events.
-// If auto-open is enabled, shows the omnibox after GTK layout completes.
+// Suppresses hover focus to keep focus on the new pane, and optionally shows omnibox.
 func (wv *WorkspaceView) NotifyNewPaneCreated(ctx context.Context) {
+	// Suppress hover focus so mouse position doesn't steal focus from new pane
+	wv.SuppressHover(KeyboardFocusSuppressDuration)
+	wv.CancelAllPendingHovers()
+
 	wv.mu.RLock()
 	autoOpen := wv.autoOpenOnNewPane
 	wv.mu.RUnlock()
