@@ -837,102 +837,113 @@ func (o *Omnibox) setGhostText(originalInput, suffix, fullText string) {
 	o.hasGhostText = true
 	o.mu.Unlock()
 
-	var schedulePosition func(attempt int)
-	schedulePosition = func(attempt int) {
-		var cb glib.SourceFunc = func(uintptr) bool {
-			if o.ghostLabel == nil || o.entry == nil {
-				return false
-			}
+	o.scheduleGhostPosition(originalInput, suffix, 0)
+}
 
-			// Check if input has changed since the autocomplete query was made
-			// This check runs on GTK main thread where entry.GetText() is reliable
-			// Skip this check when originalInput is empty (row selection replaces full input)
-			if originalInput != "" && o.entry.GetText() != originalInput {
-				// Input changed, skip this stale result - a newer query will handle it
-				return false
-			}
-
-			if attempt < ghostPositionMaxAttempts {
-				entryWidth := o.entry.GetAllocatedWidth()
-				overlayWidth := 0
-				if o.entryOverlay != nil {
-					overlayWidth = o.entryOverlay.GetAllocatedWidth()
-				}
-				if entryWidth <= 0 || overlayWidth <= 0 {
-					retryCb := glib.SourceFunc(func(uintptr) bool {
-						schedulePosition(attempt + 1)
-						return false
-					})
-					glib.TimeoutAdd(ghostPositionRetryMs, &retryCb, 0)
-					return false
-				}
-			}
-
-			// Get the entry's Pango context and create a layout to measure text width
-			pangoCtx := o.entry.GetPangoContext()
-			if pangoCtx == nil {
-				return false
-			}
-
-			// Create layout to measure the input text width
-			layout := pango.NewLayout(pangoCtx)
-			layout.SetText(originalInput, len(originalInput))
-
-			// Get the width in pixels
-			var widthPx, heightPx int
-			layout.GetPixelSize(&widthPx, &heightPx)
-
-			// Set the ghost label text (just the suffix) and position it horizontally
-			o.ghostLabel.SetText(suffix)
-
-			marginStart := widthPx
-			delegate := o.entry.GetDelegate()
-			if delegate != nil && o.entryOverlay != nil {
-				textWidget := gtk.TextNewFromInternalPtr(delegate.GoPointer())
-				if textWidget != nil {
-					var textBounds graphene.Rect
-					if textWidget.ComputeBounds(&o.entryOverlay.Widget, &textBounds) {
-						textStart := float64(textBounds.GetX())
-						cursorPos := uint(utf8.RuneCountInString(originalInput))
-						var strongRect, weakRect graphene.Rect
-						textWidget.ComputeCursorExtents(cursorPos, &strongRect, &weakRect)
-						cursorX := float64(textBounds.GetX() + strongRect.GetX())
-						marginStart = int(math.Round(cursorX))
-						if cursorX < textStart {
-							marginStart = int(math.Round(textStart))
-						}
-					}
-				}
-			}
-
-			// Clamp horizontal position to entry bounds
-			if marginStart < 0 {
-				marginStart = 0
-			}
-			if o.entryOverlay != nil {
-				var entryBounds graphene.Rect
-				if o.entry.ComputeBounds(&o.entryOverlay.Widget, &entryBounds) {
-					minStart := int(math.Round(float64(entryBounds.GetX())))
-					if marginStart < minStart {
-						marginStart = minStart
-					}
-				}
-			}
-
-			o.ghostLabel.SetMarginStart(marginStart)
-			// Vertical positioning handled by CSS (.omnibox-ghost) to scale correctly with UI
-			o.ghostLabel.SetVisible(true)
-
-			// Hide placeholder text so it doesn't show through ghost text
-			emptyPlaceholder := ""
-			o.entry.SetPlaceholderText(&emptyPlaceholder)
-
+func (o *Omnibox) scheduleGhostPosition(originalInput, suffix string, attempt int) {
+	var cb glib.SourceFunc = func(uintptr) bool {
+		if o.ghostLabel == nil || o.entry == nil {
 			return false
 		}
-		glib.IdleAdd(&cb, 0)
+		if o.shouldSkipGhostUpdate(originalInput) {
+			return false
+		}
+		if !o.ghostPositionReady(attempt) {
+			o.retryGhostPosition(originalInput, suffix, attempt+1)
+			return false
+		}
+
+		marginStart, ok := o.computeGhostMarginStart(originalInput)
+		if !ok {
+			return false
+		}
+		o.applyGhostPosition(suffix, marginStart)
+		return false
+	}
+	glib.IdleAdd(&cb, 0)
+}
+
+func (o *Omnibox) shouldSkipGhostUpdate(originalInput string) bool {
+	if originalInput == "" {
+		return false
+	}
+	return o.entry.GetText() != originalInput
+}
+
+func (o *Omnibox) ghostPositionReady(attempt int) bool {
+	if attempt >= ghostPositionMaxAttempts {
+		return true
+	}
+	entryWidth := o.entry.GetAllocatedWidth()
+	overlayWidth := 0
+	if o.entryOverlay != nil {
+		overlayWidth = o.entryOverlay.GetAllocatedWidth()
+	}
+	return entryWidth > 0 && overlayWidth > 0
+}
+
+func (o *Omnibox) retryGhostPosition(originalInput, suffix string, attempt int) {
+	var retryCb glib.SourceFunc = func(uintptr) bool {
+		o.scheduleGhostPosition(originalInput, suffix, attempt)
+		return false
+	}
+	glib.TimeoutAdd(ghostPositionRetryMs, &retryCb, 0)
+}
+
+func (o *Omnibox) computeGhostMarginStart(originalInput string) (int, bool) {
+	pangoCtx := o.entry.GetPangoContext()
+	if pangoCtx == nil {
+		return 0, false
 	}
 
-	schedulePosition(0)
+	textLayout := pango.NewLayout(pangoCtx)
+	textLayout.SetText(originalInput, len(originalInput))
+
+	var widthPx, heightPx int
+	textLayout.GetPixelSize(&widthPx, &heightPx)
+
+	marginStart := widthPx
+	delegate := o.entry.GetDelegate()
+	if delegate != nil && o.entryOverlay != nil {
+		textWidget := gtk.TextNewFromInternalPtr(delegate.GoPointer())
+		if textWidget != nil {
+			var textBounds graphene.Rect
+			if textWidget.ComputeBounds(&o.entryOverlay.Widget, &textBounds) {
+				textStart := float64(textBounds.GetX())
+				cursorPos := uint(utf8.RuneCountInString(originalInput))
+				var strongRect, weakRect graphene.Rect
+				textWidget.ComputeCursorExtents(cursorPos, &strongRect, &weakRect)
+				cursorX := float64(textBounds.GetX() + strongRect.GetX())
+				marginStart = int(math.Round(cursorX))
+				if cursorX < textStart {
+					marginStart = int(math.Round(textStart))
+				}
+			}
+		}
+	}
+
+	if marginStart < 0 {
+		marginStart = 0
+	}
+	if o.entryOverlay != nil {
+		var entryBounds graphene.Rect
+		if o.entry.ComputeBounds(&o.entryOverlay.Widget, &entryBounds) {
+			minStart := int(math.Round(float64(entryBounds.GetX())))
+			if marginStart < minStart {
+				marginStart = minStart
+			}
+		}
+	}
+
+	return marginStart, true
+}
+
+func (o *Omnibox) applyGhostPosition(suffix string, marginStart int) {
+	o.ghostLabel.SetText(suffix)
+	o.ghostLabel.SetMarginStart(marginStart)
+	o.ghostLabel.SetVisible(true)
+	emptyPlaceholder := ""
+	o.entry.SetPlaceholderText(&emptyPlaceholder)
 }
 
 // clearGhostText hides the ghost completion text.
