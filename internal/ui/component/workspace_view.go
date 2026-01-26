@@ -11,6 +11,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/layout"
+	"github.com/jwijenbergh/puregotk/v4/glib"
 	"github.com/rs/zerolog"
 )
 
@@ -54,6 +55,9 @@ type WorkspaceView struct {
 	// Hover suppression for keyboard navigation (Issue #89)
 	// Prevents hover focus from overriding keyboard-initiated focus changes
 	hoverSuppressedUntil time.Time
+
+	// Auto-open omnibox on new pane creation
+	autoOpenOnNewPane bool
 
 	mu sync.RWMutex
 }
@@ -545,6 +549,32 @@ func (wv *WorkspaceView) SetFindBarConfig(cfg FindBarConfig) {
 	wv.mu.Lock()
 	defer wv.mu.Unlock()
 	wv.findBarCfg = cfg
+}
+
+// SetAutoOpenOnNewPane configures whether to show omnibox when a new pane is created.
+func (wv *WorkspaceView) SetAutoOpenOnNewPane(enabled bool) {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+	wv.autoOpenOnNewPane = enabled
+}
+
+// NotifyNewPaneCreated handles new pane creation events.
+// If auto-open is enabled, shows the omnibox after GTK layout completes.
+func (wv *WorkspaceView) NotifyNewPaneCreated(ctx context.Context) {
+	wv.mu.RLock()
+	autoOpen := wv.autoOpenOnNewPane
+	wv.mu.RUnlock()
+
+	if !autoOpen {
+		return
+	}
+
+	// Defer omnibox show until after GTK layout allocation completes
+	cb := glib.SourceFunc(func(uintptr) bool {
+		wv.ShowOmnibox(ctx, "")
+		return false
+	})
+	glib.IdleAdd(&cb, 0)
 }
 
 // ShowOmnibox creates and shows the omnibox in the active pane.
