@@ -871,15 +871,29 @@ func (o *Omnibox) shouldSkipGhostUpdate(originalInput string) bool {
 }
 
 func (o *Omnibox) ghostPositionReady(attempt int) bool {
-	if attempt >= ghostPositionMaxAttempts {
-		return true
-	}
 	entryWidth := o.entry.GetAllocatedWidth()
 	overlayWidth := 0
 	if o.entryOverlay != nil {
 		overlayWidth = o.entryOverlay.GetAllocatedWidth()
 	}
-	return entryWidth > 0 && overlayWidth > 0
+
+	if entryWidth > 0 && overlayWidth > 0 {
+		return true
+	}
+
+	// Max attempts reached but widgets still not allocated - give up
+	if attempt >= ghostPositionMaxAttempts {
+		log := logging.FromContext(o.ctx)
+		log.Debug().
+			Int("attempt", attempt).
+			Int("entryWidth", entryWidth).
+			Int("overlayWidth", overlayWidth).
+			Msg("ghost position timeout, clearing ghost text")
+		o.clearGhostText()
+		return false
+	}
+
+	return false
 }
 
 func (o *Omnibox) retryGhostPosition(originalInput, suffix string, attempt int) {
