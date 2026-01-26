@@ -25,15 +25,35 @@ func NewHistoryRepository(db *sql.DB) repository.HistoryRepository {
 	return &historyRepo{queries: sqlc.New(db)}
 }
 
+// aboutBlankURL is the special URL for blank pages that should not accumulate visit counts.
+const aboutBlankURL = "about:blank"
+
 func (r *historyRepo) Save(ctx context.Context, entry *entity.HistoryEntry) error {
 	log := logging.FromContext(ctx)
 	log.Debug().Str("url", logging.TruncateURL(entry.URL, logURLMaxLen)).Msg("saving history entry")
 
-	return r.queries.UpsertHistory(ctx, sqlc.UpsertHistoryParams{
+	err := r.queries.UpsertHistory(ctx, sqlc.UpsertHistoryParams{
 		Url:        entry.URL,
 		Title:      sql.NullString{String: entry.Title, Valid: entry.Title != ""},
 		FaviconUrl: sql.NullString{String: entry.FaviconURL, Valid: entry.FaviconURL != ""},
 	})
+	if err != nil {
+		return err
+	}
+
+	// Cap about:blank visit count to 1 so it exists but never dominates suggestions
+	if entry.URL == aboutBlankURL {
+		capErr := r.queries.CapVisitCount(ctx, sqlc.CapVisitCountParams{
+			VisitCount:   sql.NullInt64{Int64: 1, Valid: true},
+			Url:          aboutBlankURL,
+			VisitCount_2: sql.NullInt64{Int64: 1, Valid: true},
+		})
+		if capErr != nil {
+			log.Debug().Err(capErr).Msg("failed to cap about:blank visit count")
+		}
+	}
+
+	return nil
 }
 
 func (r *historyRepo) FindByURL(ctx context.Context, url string) (*entity.HistoryEntry, error) {
@@ -239,6 +259,10 @@ func (r *historyRepo) GetAllMostVisited(ctx context.Context) ([]*entity.HistoryE
 }
 
 func (r *historyRepo) IncrementVisitCount(ctx context.Context, url string) error {
+	// Skip incrementing about:blank - it should always have visit_count = 1
+	if url == aboutBlankURL {
+		return nil
+	}
 	return r.queries.IncrementVisitCount(ctx, url)
 }
 
