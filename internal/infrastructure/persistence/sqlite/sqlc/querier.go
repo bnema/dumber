@@ -12,6 +12,7 @@ import (
 type Querier interface {
 	AddToWhitelist(ctx context.Context, domain string) error
 	AssignTagToFavorite(ctx context.Context, arg AssignTagToFavoriteParams) error
+	CapVisitCount(ctx context.Context, arg CapVisitCountParams) error
 	CreateFavorite(ctx context.Context, arg CreateFavoriteParams) (Favorite, error)
 	CreateFolder(ctx context.Context, arg CreateFolderParams) (FavoriteFolder, error)
 	CreateTag(ctx context.Context, arg CreateTagParams) (FavoriteTag, error)

@@ -97,3 +97,6 @@ ORDER BY last_visited DESC;
 -- name: GetAllMostVisited :many
 SELECT * FROM history
 ORDER BY visit_count DESC, last_visited DESC;
+
+-- name: CapVisitCount :exec
+UPDATE history SET visit_count = ? WHERE url = ? AND visit_count > ?;
