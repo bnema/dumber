@@ -25,15 +25,35 @@ func NewHistoryRepository(db *sql.DB) repository.HistoryRepository {
 	return &historyRepo{queries: sqlc.New(db)}
 }
 
+// aboutBlankURL is the special URL for blank pages that should not accumulate visit counts.
+const aboutBlankURL = "about:blank"
+
 func (r *historyRepo) Save(ctx context.Context, entry *entity.HistoryEntry) error {
 	log := logging.FromContext(ctx)
 	log.Debug().Str("url", logging.TruncateURL(entry.URL, logURLMaxLen)).Msg("saving history entry")
 
-	return r.queries.UpsertHistory(ctx, sqlc.UpsertHistoryParams{
+	err := r.queries.UpsertHistory(ctx, sqlc.UpsertHistoryParams{
 		Url:        entry.URL,
 		Title:      sql.NullString{String: entry.Title, Valid: entry.Title != ""},
 		FaviconUrl: sql.NullString{String: entry.FaviconURL, Valid: entry.FaviconURL != ""},
 	})
+	if err != nil {
+		return err
+	}
+
+	// Cap about:blank visit count to 1 so it exists but never dominates suggestions
+	if entry.URL == aboutBlankURL {
+		capErr := r.queries.CapVisitCount(ctx, sqlc.CapVisitCountParams{
+			VisitCount:   sql.NullInt64{Int64: 1, Valid: true},
+			Url:          aboutBlankURL,
+			VisitCount_2: sql.NullInt64{Int64: 1, Valid: true},
+		})
+		if capErr != nil {
+			log.Debug().Err(capErr).Msg("failed to cap about:blank visit count")
+		}
+	}
+
+	return nil
 }
 
 func (r *historyRepo) FindByURL(ctx context.Context, url string) (*entity.HistoryEntry, error) {
@@ -50,10 +70,13 @@ func (r *historyRepo) FindByURL(ctx context.Context, url string) (*entity.Histor
 func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]entity.HistoryMatch, error) {
 	log := logging.FromContext(ctx)
 
-	// Replace periods with spaces before splitting - FTS5 tokenizer treats periods as separators
-	// so "gordon.bne" in URLs is indexed as "gordon" + "bne" tokens
-	// This allows searching "gordon.bne" to match URLs containing both terms
-	normalizedQuery := strings.ReplaceAll(query, ".", " ")
+	// Replace separators with spaces before splitting - FTS5 tokenizer treats these as separators
+	// so "gordon.bne" or "github.com/bnema" are indexed as separate tokens
+	// This allows searching "gordon.bne" or "github.com/bnema" to match URLs containing both terms
+	normalizedQuery := strings.NewReplacer(
+		".", " ",
+		"/", " ",
+	).Replace(query)
 
 	// Split query into words and add prefix matching to each
 	// This enables multi-word searches like "github issues" -> "github* issues*"
@@ -148,7 +171,7 @@ func sanitizeFTS5Word(word string) string {
 	var result strings.Builder
 	for _, r := range word {
 		switch r {
-		case '"', '*', '(', ')', ':', '^', '-':
+		case '"', '*', '(', ')', ':', '^', '-', '/':
 			// Skip FTS5 special characters
 		default:
 			result.WriteRune(r)
@@ -236,6 +259,10 @@ func (r *historyRepo) GetAllMostVisited(ctx context.Context) ([]*entity.HistoryE
 }
 
 func (r *historyRepo) IncrementVisitCount(ctx context.Context, url string) error {
+	// Skip incrementing about:blank - it should always have visit_count = 1
+	if url == aboutBlankURL {
+		return nil
+	}
 	return r.queries.IncrementVisitCount(ctx, url)
 }
 

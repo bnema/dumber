@@ -90,10 +90,12 @@ func CalculateModalDimensions(parent layout.OverlayWidget, cfg ModalSizeConfig) 
 		parentHeight = parent.GetAllocatedHeight()
 	}
 
-	if parentWidth <= 0 {
+	// Use fallback if parent not allocated or too small to be useful
+	// A width < 100 is too small for any meaningful modal
+	if parentWidth < 100 {
 		parentWidth = cfg.FallbackWidth
 	}
-	if parentHeight <= 0 {
+	if parentHeight < 100 {
 		parentHeight = cfg.FallbackHeight
 	}
 

@@ -546,6 +546,7 @@ func TestHistoryRepository_Search_SpecialCharacters(t *testing.T) {
 		`example"test`, // quotes
 		"example^",     // caret
 		"example-test", // hyphen
+		"example/",     // slash
 	}
 
 	for _, q := range specialQueries {
@@ -554,4 +555,94 @@ func TestHistoryRepository_Search_SpecialCharacters(t *testing.T) {
 		// May or may not find results, but should not error
 		_ = results
 	}
+}
+
+func TestHistoryRepository_Search_SlashSeparatedQuery(t *testing.T) {
+	ctx := historyTestCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewHistoryRepository(db)
+
+	require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{
+		URL:   "https://github.com/bnema/dumber",
+		Title: "Dumber",
+	}))
+
+	results, err := repo.Search(ctx, "github.com/bnema", 10)
+	require.NoError(t, err)
+	require.NotEmpty(t, results, "slash-separated query should match history")
+}
+
+func TestHistoryRepository_AboutBlank_CappedVisitCount(t *testing.T) {
+	ctx := historyTestCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewHistoryRepository(db)
+
+	// Save about:blank multiple times - visit count should stay at 1
+	for i := 0; i < 5; i++ {
+		require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{
+			URL:   "about:blank",
+			Title: "New Tab",
+		}))
+	}
+
+	// Verify about:blank has visit_count = 1
+	found, err := repo.FindByURL(ctx, "about:blank")
+	require.NoError(t, err)
+	require.NotNil(t, found)
+	assert.Equal(t, int64(1), found.VisitCount, "about:blank should always have visit_count = 1")
+
+	// Try incrementing visit count directly - should be ignored
+	require.NoError(t, repo.IncrementVisitCount(ctx, "about:blank"))
+
+	found2, err := repo.FindByURL(ctx, "about:blank")
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), found2.VisitCount, "about:blank increment should be ignored")
+}
+
+func TestHistoryRepository_AboutBlank_NotDominant(t *testing.T) {
+	ctx := historyTestCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewHistoryRepository(db)
+
+	// Save about:blank many times
+	for i := 0; i < 10; i++ {
+		require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{
+			URL:   "about:blank",
+			Title: "New Tab",
+		}))
+	}
+
+	// Save a regular entry with multiple visits
+	require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{
+		URL:   "https://example.com",
+		Title: "Example",
+	}))
+	require.NoError(t, repo.IncrementVisitCount(ctx, "https://example.com"))
+	require.NoError(t, repo.IncrementVisitCount(ctx, "https://example.com"))
+
+	// Get most visited - example.com should be first (3 visits vs 1)
+	results, err := repo.GetAllMostVisited(ctx)
+	require.NoError(t, err)
+	require.Len(t, results, 2)
+
+	assert.Equal(t, "https://example.com", results[0].URL, "example.com should be first with higher visit count")
+	assert.Equal(t, int64(3), results[0].VisitCount)
+
+	assert.Equal(t, "about:blank", results[1].URL, "about:blank should be second with capped visit count")
+	assert.Equal(t, int64(1), results[1].VisitCount)
 }

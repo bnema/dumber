@@ -25,8 +25,11 @@ import (
 )
 
 const (
-	debounceDelayMs = 50
-	endBoxSpacing   = 6
+	debounceDelayMs           = 50
+	endBoxSpacing             = 6
+	defaultOmniboxPlaceholder = "Search history or enter URL… (! lists bangs)"
+	ghostPositionRetryMs      = 16
+	ghostPositionMaxAttempts  = 5
 )
 
 // ViewMode distinguishes history search from favorites display.
@@ -304,24 +307,21 @@ func (o *Omnibox) resizeAndCenter(rowCount int) {
 		return
 	}
 
-	// Calculate width using shared helper
-	width, _ := CalculateModalDimensions(o.parentOverlay, OmniboxSizeDefaults)
-
 	// Cap at max results
 	if rowCount > OmniboxListDefaults.MaxVisibleRows {
 		rowCount = OmniboxListDefaults.MaxVisibleRows
 	}
 
 	// Schedule measurement after GTK has laid out widgets
-	// This ensures we get accurate heights from actual rendered content
 	var cb glib.SourceFunc = func(uintptr) bool {
+		width, _ := CalculateModalDimensions(o.parentOverlay, OmniboxSizeDefaults)
 		o.measureAndResize(width, rowCount)
-		return false // One-shot
+		return false
 	}
 	glib.IdleAdd(&cb, 0)
 }
 
-// measureAndResize calculates and sets the omnibox height based on row count.
+// measureAndResize calculates and sets the omnibox size based on content.
 // Uses measured widget heights when available, falls back to estimates.
 func (o *Omnibox) measureAndResize(width, rowCount int) {
 	if o.outerBox == nil || o.mainBox == nil {
@@ -329,6 +329,9 @@ func (o *Omnibox) measureAndResize(width, rowCount int) {
 	}
 
 	log := logging.FromContext(o.ctx)
+
+	// Apply width to mainBox - this allows the omnibox to adapt when parent resizes
+	o.mainBox.SetSizeRequest(width, -1)
 
 	var rowHeight int
 
@@ -488,7 +491,7 @@ func (o *Omnibox) initEntry() error {
 	o.entry.AddCssClass("omnibox-entry")
 	o.entry.SetHexpand(true)
 
-	placeholder := "Search history or enter URL… (! lists bangs)"
+	placeholder := defaultOmniboxPlaceholder
 	o.entry.SetPlaceholderText(&placeholder)
 
 	// Create overlay for ghost text
@@ -834,77 +837,128 @@ func (o *Omnibox) setGhostText(originalInput, suffix, fullText string) {
 	o.hasGhostText = true
 	o.mu.Unlock()
 
+	o.scheduleGhostPosition(originalInput, suffix, 0)
+}
+
+func (o *Omnibox) scheduleGhostPosition(originalInput, suffix string, attempt int) {
 	var cb glib.SourceFunc = func(uintptr) bool {
 		if o.ghostLabel == nil || o.entry == nil {
 			return false
 		}
-
-		// Check if input has changed since the autocomplete query was made
-		// This check runs on GTK main thread where entry.GetText() is reliable
-		// Skip this check when originalInput is empty (row selection replaces full input)
-		if originalInput != "" && o.entry.GetText() != originalInput {
-			// Input changed, skip this stale result - a newer query will handle it
+		if o.shouldSkipGhostUpdate(originalInput) {
+			return false
+		}
+		if !o.ghostPositionReady(attempt) {
+			o.retryGhostPosition(originalInput, suffix, attempt+1)
 			return false
 		}
 
-		// Get the entry's Pango context and create a layout to measure text width
-		pangoCtx := o.entry.GetPangoContext()
-		if pangoCtx == nil {
+		marginStart, ok := o.computeGhostMarginStart(originalInput)
+		if !ok {
 			return false
 		}
-
-		// Create layout to measure the input text width
-		layout := pango.NewLayout(pangoCtx)
-		layout.SetText(originalInput, len(originalInput))
-
-		// Get the width in pixels
-		var widthPx, heightPx int
-		layout.GetPixelSize(&widthPx, &heightPx)
-
-		// Set the ghost label text (just the suffix) and position it horizontally
-		o.ghostLabel.SetText(suffix)
-
-		marginStart := widthPx
-		delegate := o.entry.GetDelegate()
-		if delegate != nil && o.entryOverlay != nil {
-			textWidget := gtk.TextNewFromInternalPtr(delegate.GoPointer())
-			if textWidget != nil {
-				var textBounds graphene.Rect
-				if textWidget.ComputeBounds(&o.entryOverlay.Widget, &textBounds) {
-					cursorPos := uint(utf8.RuneCountInString(originalInput))
-					var strongRect, weakRect graphene.Rect
-					textWidget.ComputeCursorExtents(cursorPos, &strongRect, &weakRect)
-					cursorX := float64(textBounds.GetX() + strongRect.GetX())
-					marginStart = int(math.Round(cursorX))
-				}
-			}
-		}
-
-		// Clamp horizontal position to entry bounds
-		if marginStart < 0 {
-			marginStart = 0
-		}
-		if o.entryOverlay != nil {
-			var entryBounds graphene.Rect
-			if o.entry.ComputeBounds(&o.entryOverlay.Widget, &entryBounds) {
-				minStart := int(math.Round(float64(entryBounds.GetX())))
-				if marginStart < minStart {
-					marginStart = minStart
-				}
-			}
-		}
-
-		o.ghostLabel.SetMarginStart(marginStart)
-		// Vertical positioning handled by CSS (.omnibox-ghost) to scale correctly with UI
-		o.ghostLabel.SetVisible(true)
-
-		// Hide placeholder text so it doesn't show through ghost text
-		emptyPlaceholder := ""
-		o.entry.SetPlaceholderText(&emptyPlaceholder)
-
+		o.applyGhostPosition(suffix, marginStart)
 		return false
 	}
 	glib.IdleAdd(&cb, 0)
+}
+
+func (o *Omnibox) shouldSkipGhostUpdate(originalInput string) bool {
+	if originalInput == "" {
+		return false
+	}
+	return o.entry.GetText() != originalInput
+}
+
+func (o *Omnibox) ghostPositionReady(attempt int) bool {
+	entryWidth := o.entry.GetAllocatedWidth()
+	overlayWidth := 0
+	if o.entryOverlay != nil {
+		overlayWidth = o.entryOverlay.GetAllocatedWidth()
+	}
+
+	if entryWidth > 0 && overlayWidth > 0 {
+		return true
+	}
+
+	// Max attempts reached but widgets still not allocated - give up
+	if attempt >= ghostPositionMaxAttempts {
+		log := logging.FromContext(o.ctx)
+		log.Debug().
+			Int("attempt", attempt).
+			Int("entryWidth", entryWidth).
+			Int("overlayWidth", overlayWidth).
+			Msg("ghost position timeout, clearing ghost text")
+		o.clearGhostText()
+		return false
+	}
+
+	return false
+}
+
+func (o *Omnibox) retryGhostPosition(originalInput, suffix string, attempt int) {
+	var retryCb glib.SourceFunc = func(uintptr) bool {
+		o.scheduleGhostPosition(originalInput, suffix, attempt)
+		return false
+	}
+	glib.TimeoutAdd(ghostPositionRetryMs, &retryCb, 0)
+}
+
+func (o *Omnibox) computeGhostMarginStart(originalInput string) (int, bool) {
+	pangoCtx := o.entry.GetPangoContext()
+	if pangoCtx == nil {
+		return 0, false
+	}
+
+	textLayout := pango.NewLayout(pangoCtx)
+	defer textLayout.Unref() // Prevent memory leak
+	textLayout.SetText(originalInput, len(originalInput))
+
+	var widthPx, heightPx int
+	textLayout.GetPixelSize(&widthPx, &heightPx)
+
+	marginStart := widthPx
+	delegate := o.entry.GetDelegate()
+	if delegate != nil && o.entryOverlay != nil {
+		textWidget := gtk.TextNewFromInternalPtr(delegate.GoPointer())
+		if textWidget != nil {
+			var textBounds graphene.Rect
+			if textWidget.ComputeBounds(&o.entryOverlay.Widget, &textBounds) {
+				textStart := float64(textBounds.GetX())
+				cursorPos := uint(utf8.RuneCountInString(originalInput))
+				var strongRect, weakRect graphene.Rect
+				textWidget.ComputeCursorExtents(cursorPos, &strongRect, &weakRect)
+				cursorX := float64(textBounds.GetX() + strongRect.GetX())
+				marginStart = int(math.Round(cursorX))
+				if cursorX < textStart {
+					marginStart = int(math.Round(textStart))
+				}
+			}
+		}
+	}
+
+	if marginStart < 0 {
+		marginStart = 0
+	}
+	if o.entryOverlay != nil {
+		var entryBounds graphene.Rect
+		if o.entry.ComputeBounds(&o.entryOverlay.Widget, &entryBounds) {
+			minStart := int(math.Round(float64(entryBounds.GetX())))
+			if marginStart < minStart {
+				marginStart = minStart
+			}
+		}
+	}
+
+	return marginStart, true
+}
+
+func (o *Omnibox) applyGhostPosition(suffix string, marginStart int) {
+	o.ghostLabel.SetText(suffix)
+	o.ghostLabel.SetMarginStart(marginStart)
+	o.ghostLabel.SetVisible(true)
+	emptyPlaceholder := ""
+	o.entry.SetPlaceholderText(&emptyPlaceholder)
 }
 
 // clearGhostText hides the ghost completion text.
@@ -926,9 +980,39 @@ func (o *Omnibox) clearGhostText() {
 		}
 		// Restore placeholder text
 		if o.entry != nil {
-			placeholder := "Search history or enter URL… (! lists bangs)"
+			placeholder := defaultOmniboxPlaceholder
 			o.entry.SetPlaceholderText(&placeholder)
 		}
+		return false
+	}
+	glib.IdleAdd(&cb, 0)
+}
+
+// clearGhostTextIfInput clears ghost text only if the entry text matches expectedInput.
+// This prevents stale background results from wiping newer ghost text.
+func (o *Omnibox) clearGhostTextIfInput(expectedInput string) {
+	if o.entry == nil {
+		return
+	}
+
+	var cb glib.SourceFunc = func(uintptr) bool {
+		if o.entry == nil {
+			return false
+		}
+		if o.entry.GetText() != expectedInput {
+			return false
+		}
+		o.mu.Lock()
+		o.ghostSuffix = ""
+		o.ghostFullText = ""
+		o.hasGhostText = false
+		o.mu.Unlock()
+		if o.ghostLabel != nil {
+			o.ghostLabel.SetVisible(false)
+			o.ghostLabel.SetText("")
+		}
+		placeholder := defaultOmniboxPlaceholder
+		o.entry.SetPlaceholderText(&placeholder)
 		return false
 	}
 	glib.IdleAdd(&cb, 0)
@@ -962,75 +1046,40 @@ func (o *Omnibox) acceptGhostCompletion() {
 	o.mu.Unlock()
 }
 
-// updateGhostFromSuggestion updates ghost text based on the current autocomplete suggestion.
-// The query parameter is the search query that was used, ensuring we don't use stale input.
-func (o *Omnibox) updateGhostFromSuggestion(query string) {
-	if o.autocompleteUC == nil {
-		return
-	}
-
-	o.mu.RLock()
-	bangMode := o.bangMode
-	o.mu.RUnlock()
-
-	// Use the query that triggered this search, not realInput which may have changed
-	userInput := query
-
-	// Don't show ghost text in bang mode (it has its own completion)
-	if bangMode || userInput == "" {
-		o.clearGhostText()
-		return
-	}
-
-	go func() {
-		output := o.autocompleteUC.GetSuggestion(o.ctx, usecase.GetSuggestionInput{Input: userInput})
-		if !output.Found || output.Suggestion == nil {
-			o.clearGhostText()
-			return
-		}
-		// Pass the original input so setGhostText can verify it's still current
-		o.setGhostText(userInput, output.Suggestion.Suffix, output.Suggestion.FullText)
-	}()
-}
-
 // updateGhostFromURL updates ghost text based on a specific URL (from row selection).
 // When a row is selected via arrow keys, show the URL as ghost text even if
 // the user's input isn't a prefix - this shows what Tab would fill in.
-func (o *Omnibox) updateGhostFromURL(targetURL string) {
-	if targetURL == "" {
-		o.clearGhostText()
-		return
-	}
 
-	o.mu.RLock()
-	userInput := o.realInput
-	o.mu.RUnlock()
+func (o *Omnibox) updateGhostFromURL(userInput, targetURL string) bool {
+	if targetURL == "" {
+		return false
+	}
 
 	// Strip protocol from URL for cleaner display
 	displayURL := autocomplete.StripProtocol(targetURL)
 
-	// Try to compute proper suffix if input is a prefix of the URL
-	if o.autocompleteUC != nil && userInput != "" {
-		output := o.autocompleteUC.GetSuggestionForURL(o.ctx, userInput, targetURL)
-		if output.Found && output.Suggestion != nil {
-			o.setGhostText(userInput, output.Suggestion.Suffix, output.Suggestion.FullText)
-			return
-		}
-	}
-
-	// If user has typed something but it's not a prefix match, don't show ghost text
-	// This prevents confusing ghost text when scrolling through history
-	if userInput != "" {
-		o.clearGhostText()
-		return
-	}
-
 	// Only show full URL as ghost text when input is empty (initial state)
-	o.setGhostText("", displayURL, displayURL)
+	if userInput == "" {
+		o.setGhostText("", displayURL, displayURL)
+		return true
+	}
+
+	// Try to compute proper suffix if input is a prefix of the URL
+	if suffix, matchedURL, ok := autocomplete.ComputeURLCompletionSuffix(userInput, targetURL); ok {
+		o.setGhostText(userInput, suffix, matchedURL)
+		return true
+	}
+
+	return false
 }
 
 // updateGhostFromSelection updates ghost text based on the currently selected row.
 func (o *Omnibox) updateGhostFromSelection() {
+	o.updateGhostFromSelectionWithInput(o.entry.GetText())
+}
+
+// updateGhostFromSelectionWithInput updates ghost text based on selected row and input.
+func (o *Omnibox) updateGhostFromSelectionWithInput(entryText string) {
 	o.mu.RLock()
 	idx := o.selectedIndex
 	mode := o.viewMode
@@ -1041,6 +1090,12 @@ func (o *Omnibox) updateGhostFromSelection() {
 
 	// No ghost text in bang mode
 	if bangMode {
+		o.clearGhostTextIfInput(entryText)
+		return
+	}
+
+	if entryText != "" {
+		o.resolveGhostCompletion(entryText, mode, suggestions, favorites)
 		return
 	}
 
@@ -1056,11 +1111,49 @@ func (o *Omnibox) updateGhostFromSelection() {
 	}
 
 	if targetURL == "" {
-		o.clearGhostText()
+		o.clearGhostTextIfInput(entryText)
 		return
 	}
 
-	o.updateGhostFromURL(targetURL)
+	if o.updateGhostFromURL(entryText, targetURL) {
+		return
+	}
+
+	o.clearGhostTextIfInput(entryText)
+}
+
+func (o *Omnibox) resolveGhostCompletion(entryText string, mode ViewMode, suggestions []Suggestion, favorites []Favorite) {
+	if o.autocompleteUC == nil {
+		o.clearGhostTextIfInput(entryText)
+		return
+	}
+
+	visibleURLs := make([]string, 0, len(suggestions))
+	if mode == ViewModeHistory {
+		for _, s := range suggestions {
+			if s.URL != "" {
+				visibleURLs = append(visibleURLs, s.URL)
+			}
+		}
+	} else {
+		for _, f := range favorites {
+			if f.URL != "" {
+				visibleURLs = append(visibleURLs, f.URL)
+			}
+		}
+	}
+
+	go func() {
+		suggestion := o.autocompleteUC.ResolveCompletion(o.ctx, entryText, usecase.CompletionOptions{
+			VisibleURLs: visibleURLs,
+			AllowBangs:  false,
+		})
+		if suggestion == nil {
+			o.clearGhostTextIfInput(entryText)
+			return
+		}
+		o.setGhostText(entryText, suggestion.Suffix, suggestion.FullText)
+	}()
 }
 
 // performSearch executes the search based on current view mode and query.
@@ -1380,10 +1473,9 @@ func (o *Omnibox) updateSuggestions(suggestions []Suggestion, query string) {
 	// Select first item if available and update ghost text
 	if rowCount > 0 {
 		o.selectIndex(0)
-		// Update ghost text from first suggestion
-		o.updateGhostFromSuggestion(query)
+		o.updateGhostFromSelectionWithInput(query)
 	} else {
-		o.clearGhostText()
+		o.clearGhostTextIfInput(query)
 	}
 }
 
@@ -1409,10 +1501,9 @@ func (o *Omnibox) updateFavorites(favorites []Favorite, query string) {
 	// Select first item if available and update ghost text
 	if rowCount > 0 {
 		o.selectIndex(0)
-		// Update ghost text from first favorite
-		o.updateGhostFromSuggestion(query)
+		o.updateGhostFromSelectionWithInput(query)
 	} else {
-		o.clearGhostText()
+		o.clearGhostTextIfInput(query)
 	}
 }
 
