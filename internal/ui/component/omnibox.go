@@ -30,6 +30,7 @@ const (
 	defaultOmniboxPlaceholder = "Search history or enter URL… (! lists bangs)"
 	ghostPositionRetryMs      = 16
 	ghostPositionMaxAttempts  = 5
+	minGhostInputLength       = 1
 )
 
 // ViewMode distinguishes history search from favorites display.
@@ -1091,12 +1092,18 @@ func (o *Omnibox) updateGhostFromSelectionWithInput(entryText string) {
 	idx := o.selectedIndex
 	mode := o.viewMode
 	bangMode := o.bangMode
+	hasNavigated := o.hasNavigated
 	suggestions := o.suggestions
 	favorites := o.favorites
 	o.mu.RUnlock()
 
 	// No ghost text in bang mode
 	if bangMode {
+		o.clearGhostTextIfInput(entryText)
+		return
+	}
+
+	if utf8.RuneCountInString(entryText) < minGhostInputLength && !hasNavigated {
 		o.clearGhostTextIfInput(entryText)
 		return
 	}
