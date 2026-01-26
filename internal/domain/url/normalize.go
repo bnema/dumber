@@ -169,3 +169,15 @@ func sanitizeDomain(domain string) string {
 func SanitizeDomainForPNGSized(domain string, size int) string {
 	return fmt.Sprintf("%s.%d.png", sanitizeDomain(domain), size)
 }
+
+// TrimLeadingSpacesIfURL removes leading whitespace from input if the trimmed
+// result looks like a URL. Returns the original input unchanged if it doesn't
+// contain leading spaces or if the trimmed result is not a URL.
+// This handles cases like pasting "  https://example.com" from clipboard.
+func TrimLeadingSpacesIfURL(input string) string {
+	trimmed := strings.TrimLeft(input, " \t")
+	if trimmed != input && LooksLikeURL(trimmed) {
+		return trimmed
+	}
+	return input
+}
