@@ -71,10 +71,10 @@ func TestAutocompleteUseCase_GetSuggestion_HistoryFallback(t *testing.T) {
 
 	// History returns a match
 	historyRepo := repomocks.NewMockHistoryRepository(t)
-	historyMatches := []entity.HistoryMatch{
-		{Entry: &entity.HistoryEntry{URL: "https://news.ycombinator.com", Title: "Hacker News"}},
+	historyEntries := []*entity.HistoryEntry{
+		{URL: "https://news.ycombinator.com", Title: "Hacker News"},
 	}
-	historyRepo.EXPECT().Search(mock.Anything, "news", 10).Return(historyMatches, nil)
+	historyRepo.EXPECT().GetRecent(mock.Anything, mock.Anything, 0).Return(historyEntries, nil)
 
 	favoritesUC := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
 	historyUC := usecase.NewSearchHistoryUseCase(historyRepo)
@@ -136,7 +136,7 @@ func TestAutocompleteUseCase_GetSuggestion_NoMatch(t *testing.T) {
 	favoriteRepo.EXPECT().GetAll(mock.Anything).Return([]*entity.Favorite{}, nil)
 
 	historyRepo := repomocks.NewMockHistoryRepository(t)
-	historyRepo.EXPECT().Search(mock.Anything, "xyz123", 10).Return([]entity.HistoryMatch{}, nil)
+	historyRepo.EXPECT().GetRecent(mock.Anything, mock.Anything, 0).Return([]*entity.HistoryEntry{}, nil)
 
 	favoritesUC := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
 	historyUC := usecase.NewSearchHistoryUseCase(historyRepo)
@@ -146,6 +146,70 @@ func TestAutocompleteUseCase_GetSuggestion_NoMatch(t *testing.T) {
 
 	require.NotNil(t, output)
 	assert.False(t, output.Found)
+}
+
+func TestAutocompleteUseCase_ResolveCompletion_VisibleURLsOrder(t *testing.T) {
+	ctx := testContext()
+	uc := usecase.NewAutocompleteUseCase(nil, nil, nil)
+
+	urls := []string{
+		"https://bnema.dev",
+		"https://bnema.io",
+	}
+
+	suggestion := uc.ResolveCompletion(ctx, "bnem", usecase.CompletionOptions{
+		VisibleURLs: urls,
+		AllowBangs:  false,
+	})
+
+	require.NotNil(t, suggestion)
+	assert.Equal(t, "bnema.dev", suggestion.FullText)
+	assert.Equal(t, "a.dev", suggestion.Suffix)
+}
+
+func TestAutocompleteUseCase_GetSuggestion_FavoritesCached(t *testing.T) {
+	ctx := testContext()
+
+	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
+	folderRepo := repomocks.NewMockFolderRepository(t)
+	tagRepo := repomocks.NewMockTagRepository(t)
+
+	favorites := []*entity.Favorite{
+		{ID: 1, URL: "https://github.com/user/repo", Title: "Repo"},
+	}
+	favoriteRepo.EXPECT().GetAll(mock.Anything).Return(favorites, nil).Once()
+
+	favoritesUC := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+	uc := usecase.NewAutocompleteUseCase(nil, favoritesUC, nil)
+
+	output := uc.GetSuggestion(ctx, usecase.GetSuggestionInput{Input: "github"})
+	require.NotNil(t, output)
+	assert.True(t, output.Found)
+
+	output = uc.GetSuggestion(ctx, usecase.GetSuggestionInput{Input: "github"})
+	require.NotNil(t, output)
+	assert.True(t, output.Found)
+}
+
+func TestAutocompleteUseCase_GetSuggestion_HistoryCached(t *testing.T) {
+	ctx := testContext()
+
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	historyEntries := []*entity.HistoryEntry{
+		{URL: "https://news.ycombinator.com", Title: "Hacker News"},
+	}
+	historyRepo.EXPECT().GetRecent(mock.Anything, mock.Anything, 0).Return(historyEntries, nil).Once()
+
+	historyUC := usecase.NewSearchHistoryUseCase(historyRepo)
+	uc := usecase.NewAutocompleteUseCase(historyUC, nil, nil)
+
+	output := uc.GetSuggestion(ctx, usecase.GetSuggestionInput{Input: "news"})
+	require.NotNil(t, output)
+	assert.True(t, output.Found)
+
+	output = uc.GetSuggestion(ctx, usecase.GetSuggestionInput{Input: "news"})
+	require.NotNil(t, output)
+	assert.True(t, output.Found)
 }
 
 func TestAutocompleteUseCase_GetSuggestionForURL_EmptyInput(t *testing.T) {
@@ -266,11 +330,11 @@ func TestAutocompleteUseCase_GetSuggestion_HistoryNotPrefixMatch(t *testing.T) {
 
 	// History returns results but none are prefix matches
 	historyRepo := repomocks.NewMockHistoryRepository(t)
-	historyMatches := []entity.HistoryMatch{
+	historyEntries := []*entity.HistoryEntry{
 		// URL doesn't start with "git", so no prefix match
-		{Entry: &entity.HistoryEntry{URL: "https://example.com/git", Title: "Example"}},
+		{URL: "https://example.com/git", Title: "Example"},
 	}
-	historyRepo.EXPECT().Search(mock.Anything, "git", 10).Return(historyMatches, nil)
+	historyRepo.EXPECT().GetRecent(mock.Anything, mock.Anything, 0).Return(historyEntries, nil)
 
 	favoritesUC := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
 	historyUC := usecase.NewSearchHistoryUseCase(historyRepo)

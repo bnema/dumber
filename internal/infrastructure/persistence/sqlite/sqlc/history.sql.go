@@ -10,6 +10,21 @@ import (
 	"database/sql"
 )
 
+const CapVisitCount = `-- name: CapVisitCount :exec
+UPDATE history SET visit_count = ? WHERE url = ? AND visit_count > ?
+`
+
+type CapVisitCountParams struct {
+	VisitCount   sql.NullInt64 `json:"visit_count"`
+	Url          string        `json:"url"`
+	VisitCount_2 sql.NullInt64 `json:"visit_count_2"`
+}
+
+func (q *Queries) CapVisitCount(ctx context.Context, arg CapVisitCountParams) error {
+	_, err := q.db.ExecContext(ctx, CapVisitCount, arg.VisitCount, arg.Url, arg.VisitCount_2)
+	return err
+}
+
 const DeleteAllHistory = `-- name: DeleteAllHistory :exec
 DELETE FROM history
 `
