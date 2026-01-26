@@ -307,24 +307,21 @@ func (o *Omnibox) resizeAndCenter(rowCount int) {
 		return
 	}
 
-	// Calculate width using shared helper
-	width, _ := CalculateModalDimensions(o.parentOverlay, OmniboxSizeDefaults)
-
 	// Cap at max results
 	if rowCount > OmniboxListDefaults.MaxVisibleRows {
 		rowCount = OmniboxListDefaults.MaxVisibleRows
 	}
 
 	// Schedule measurement after GTK has laid out widgets
-	// This ensures we get accurate heights from actual rendered content
 	var cb glib.SourceFunc = func(uintptr) bool {
+		width, _ := CalculateModalDimensions(o.parentOverlay, OmniboxSizeDefaults)
 		o.measureAndResize(width, rowCount)
-		return false // One-shot
+		return false
 	}
 	glib.IdleAdd(&cb, 0)
 }
 
-// measureAndResize calculates and sets the omnibox height based on row count.
+// measureAndResize calculates and sets the omnibox size based on content.
 // Uses measured widget heights when available, falls back to estimates.
 func (o *Omnibox) measureAndResize(width, rowCount int) {
 	if o.outerBox == nil || o.mainBox == nil {
@@ -332,6 +329,9 @@ func (o *Omnibox) measureAndResize(width, rowCount int) {
 	}
 
 	log := logging.FromContext(o.ctx)
+
+	// Apply width to mainBox - this allows the omnibox to adapt when parent resizes
+	o.mainBox.SetSizeRequest(width, -1)
 
 	var rowHeight int
 
