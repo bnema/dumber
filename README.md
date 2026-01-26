@@ -15,6 +15,9 @@ Dumber is a Wayland-native browser that works like your terminal multiplexer. Ta
 
 No bloat. No Chrome. No Electron.
 
+[dumber.webm](https://github.com/user-attachments/assets/d281d60b-dd05-4676-847b-c6187585f2f0)
+
+
 **Features:**
 - Zellij-style panes with modal keyboard navigation
 - Wayland native (Sway, Hyprland, River, Niri)
