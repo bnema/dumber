@@ -1698,6 +1698,8 @@ func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.
 	wsView.SetOmniboxConfig(a.omniboxCfg)
 	// Set find bar config for this workspace view
 	wsView.SetFindBarConfig(a.findBarCfg)
+	// Set auto-open omnibox on new pane
+	wsView.SetAutoOpenOnNewPane(config.Get().Omnibox.AutoOpenOnNewPane)
 
 	wsView.SetOnPaneFocused(func(paneID entity.PaneID) {
 		if a.keyboardHandler != nil && a.keyboardHandler.Mode() == input.ModeResize {

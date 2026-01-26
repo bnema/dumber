@@ -145,8 +145,8 @@ func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.Spli
 		c.applySplitToView(ctx, splitCtx.wsView, splitCtx.ws, output, direction, splitCtx.existingWidget, splitCtx.isStackSplit, oldActivePaneID)
 	}
 
-	if splitCtx.wsView != nil && config.Get().Omnibox.AutoOpenOnNewPane {
-		splitCtx.wsView.ShowOmnibox(ctx, "")
+	if splitCtx.wsView != nil {
+		splitCtx.wsView.NotifyNewPaneCreated(ctx)
 	}
 
 	// Notify state change for session snapshots
@@ -1377,9 +1377,7 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 		log.Warn().Err(err).Msg("failed to set active pane")
 	}
 
-	if config.Get().Omnibox.AutoOpenOnNewPane {
-		stackCtx.wsView.ShowOmnibox(ctx, "")
-	}
+	stackCtx.wsView.NotifyNewPaneCreated(ctx)
 
 	// Set up title bar click and close callbacks
 	tr := stackCtx.wsView.TreeRenderer()
