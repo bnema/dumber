@@ -546,6 +546,7 @@ func TestHistoryRepository_Search_SpecialCharacters(t *testing.T) {
 		`example"test`, // quotes
 		"example^",     // caret
 		"example-test", // hyphen
+		"example/",     // slash
 	}
 
 	for _, q := range specialQueries {
@@ -554,4 +555,24 @@ func TestHistoryRepository_Search_SpecialCharacters(t *testing.T) {
 		// May or may not find results, but should not error
 		_ = results
 	}
+}
+
+func TestHistoryRepository_Search_SlashSeparatedQuery(t *testing.T) {
+	ctx := historyTestCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewHistoryRepository(db)
+
+	require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{
+		URL:   "https://github.com/bnema/dumber",
+		Title: "Dumber",
+	}))
+
+	results, err := repo.Search(ctx, "github.com/bnema", 10)
+	require.NoError(t, err)
+	require.NotEmpty(t, results, "slash-separated query should match history")
 }
