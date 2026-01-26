@@ -897,6 +897,7 @@ func (o *Omnibox) computeGhostMarginStart(originalInput string) (int, bool) {
 	}
 
 	textLayout := pango.NewLayout(pangoCtx)
+	defer textLayout.Unref() // Prevent memory leak
 	textLayout.SetText(originalInput, len(originalInput))
 
 	var widthPx, heightPx int
