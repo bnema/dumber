@@ -50,10 +50,13 @@ func (r *historyRepo) FindByURL(ctx context.Context, url string) (*entity.Histor
 func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]entity.HistoryMatch, error) {
 	log := logging.FromContext(ctx)
 
-	// Replace periods with spaces before splitting - FTS5 tokenizer treats periods as separators
-	// so "gordon.bne" in URLs is indexed as "gordon" + "bne" tokens
-	// This allows searching "gordon.bne" to match URLs containing both terms
-	normalizedQuery := strings.ReplaceAll(query, ".", " ")
+	// Replace separators with spaces before splitting - FTS5 tokenizer treats these as separators
+	// so "gordon.bne" or "github.com/bnema" are indexed as separate tokens
+	// This allows searching "gordon.bne" or "github.com/bnema" to match URLs containing both terms
+	normalizedQuery := strings.NewReplacer(
+		".", " ",
+		"/", " ",
+	).Replace(query)
 
 	// Split query into words and add prefix matching to each
 	// This enables multi-word searches like "github issues" -> "github* issues*"
@@ -148,7 +151,7 @@ func sanitizeFTS5Word(word string) string {
 	var result strings.Builder
 	for _, r := range word {
 		switch r {
-		case '"', '*', '(', ')', ':', '^', '-':
+		case '"', '*', '(', ')', ':', '^', '-', '/':
 			// Skip FTS5 special characters
 		default:
 			result.WriteRune(r)
