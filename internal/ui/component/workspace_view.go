@@ -213,15 +213,8 @@ func (wv *WorkspaceView) setActivePaneIDInternal(paneID entity.PaneID) error {
 	wv.logger.Debug().
 		Str("from_pane", string(currentActiveID)).
 		Str("to_pane", string(paneID)).
-		Bool("omnibox_visible", wv.omnibox != nil).
-		Str("omnibox_pane", string(wv.omniboxPaneID)).
 		Msg("active pane changing")
 
-	// Destroy omnibox if active pane is changing
-	if currentActiveID != paneID && wv.omnibox != nil {
-		wv.logger.Debug().Msg("destroying omnibox due to pane change")
-		wv.hideOmniboxInternal()
-	}
 	// Destroy find bar if active pane is changing
 	if currentActiveID != paneID && wv.findBar != nil {
 		wv.hideFindBarInternal()
