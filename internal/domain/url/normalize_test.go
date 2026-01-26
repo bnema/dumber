@@ -231,6 +231,79 @@ func TestExpandHome(t *testing.T) {
 	}
 }
 
+func TestTrimLeadingSpacesIfURL(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "single space before https URL",
+			input: " https://example.com",
+			want:  "https://example.com",
+		},
+		{
+			name:  "multiple spaces before https URL",
+			input: "   https://example.com",
+			want:  "https://example.com",
+		},
+		{
+			name:  "tab before URL",
+			input: "\thttps://example.com",
+			want:  "https://example.com",
+		},
+		{
+			name:  "mixed whitespace before URL",
+			input: " \t https://example.com",
+			want:  "https://example.com",
+		},
+		{
+			name:  "space before domain",
+			input: " example.com",
+			want:  "example.com",
+		},
+		{
+			name:  "spaces before localhost",
+			input: "  localhost:8080",
+			want:  "localhost:8080",
+		},
+		{
+			name:  "no leading space URL unchanged",
+			input: "https://example.com",
+			want:  "https://example.com",
+		},
+		{
+			name:  "search query with leading space unchanged",
+			input: " hello world",
+			want:  " hello world",
+		},
+		{
+			name:  "single word with leading space unchanged",
+			input: " hello",
+			want:  " hello",
+		},
+		{
+			name:  "empty string unchanged",
+			input: "",
+			want:  "",
+		},
+		{
+			name:  "only spaces unchanged",
+			input: "   ",
+			want:  "   ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := TrimLeadingSpacesIfURL(tt.input)
+			if got != tt.want {
+				t.Errorf("TrimLeadingSpacesIfURL(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestLooksLikeURL(t *testing.T) {
 	tests := []struct {
 		name  string
