@@ -18,7 +18,7 @@
 - **domain**: Pure functions only. No I/O.
 - **boundaries**: Interfaces only. Mock with `mockery generate`.
 
-## Anti-patterns
+## Anti-patterns strictly forbidden
 
 ```
 ❌ app doing business logic
