@@ -11,7 +11,9 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
+	urlutil "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/adapter"
@@ -1444,9 +1446,31 @@ func (c *ContentCoordinator) setupWebViewCallbacks(ctx context.Context, paneID e
 		c.onProgressChanged(paneID, progress)
 	}
 
-	// SPA navigation
+	// SPA navigation and external scheme handling
 	wv.OnURIChanged = func(uri string) {
-		if !wv.IsLoading() && uri != "" {
+		log := logging.FromContext(ctx)
+		if uri == "" {
+			return
+		}
+
+		// Check for external URL schemes (vscode://, vscode-insiders://, spotify://, etc.)
+		// These are typically triggered by JavaScript redirects (window.location)
+		isExternal := urlutil.IsExternalScheme(uri)
+		log.Debug().Str("pane_id", string(paneID)).Str("uri", uri).Bool("is_external", isExternal).Bool("is_loading", wv.IsLoading()).Msg("OnURIChanged")
+
+		if isExternal {
+			log.Info().Str("pane_id", string(paneID)).Str("uri", uri).Msg("external scheme detected, launching externally")
+
+			// Launch externally
+			desktop.LaunchExternalURL(uri)
+
+			// Stop loading to prevent WebKit from showing an error page
+			// The page stays on the previous URL before the JS redirect
+			_ = wv.Stop(ctx)
+			return
+		}
+
+		if !wv.IsLoading() {
 			c.onSPANavigation(ctx, paneID, uri)
 		}
 	}
