@@ -8,6 +8,18 @@ import (
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 )
 
+// DirectNavigator allows direct back/forward navigation on a WebView.
+// This is used to call GoBack/GoForward directly from gesture handlers
+// without going through callback chains, preserving user gesture context.
+type DirectNavigator interface {
+	GoBackDirect()
+	GoForwardDirect()
+}
+
+// gtkEventSequenceClaimed matches GTK_EVENT_SEQUENCE_CLAIMED (value 1)
+// Used to tell GTK we've handled the gesture and to stop propagating it.
+const gtkEventSequenceClaimed = gtk.EventSequenceClaimedValue
+
 const (
 	// Mouse button constants for X11/Wayland
 	mouseButtonBack    = 8 // Side button - back
@@ -22,8 +34,12 @@ type GestureHandler struct {
 	// Callback retention: must stay reachable by Go GC.
 	pressedCb func(gtk.GestureClick, int, float64, float64)
 
-	// Action handler callback
+	// Action handler callback (fallback if no direct navigator)
 	onAction ActionHandler
+
+	// Direct navigator for calling GoBack/GoForward without callback chains.
+	// This preserves user gesture context like Epiphany does.
+	navigator DirectNavigator
 
 	ctx context.Context
 	mu  sync.RWMutex
@@ -40,10 +56,20 @@ func NewGestureHandler(ctx context.Context) *GestureHandler {
 }
 
 // SetOnAction sets the callback for when navigation actions are triggered.
+// This is a fallback if no DirectNavigator is set.
 func (h *GestureHandler) SetOnAction(fn ActionHandler) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.onAction = fn
+}
+
+// SetNavigator sets a direct navigator for back/forward operations.
+// When set, GoBack/GoForward are called directly without callback chains,
+// preserving user gesture context.
+func (h *GestureHandler) SetNavigator(nav DirectNavigator) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.navigator = nav
 }
 
 // AttachTo attaches the gesture handler to a GTK widget.
@@ -88,41 +114,38 @@ func (h *GestureHandler) handlePressed(nPress int) {
 	// Get the button that was pressed
 	button := h.clickGesture.GetCurrentButton()
 
-	var action Action
+	log := logging.FromContext(h.ctx)
+
+	// Try direct navigation first (preserves user gesture context)
+	h.mu.RLock()
+	nav := h.navigator
+	handler := h.onAction
+	h.mu.RUnlock()
+
 	switch button {
 	case mouseButtonBack:
-		action = ActionGoBack
+		if nav != nil {
+			log.Debug().Uint("button", button).Msg("gesture: direct go back")
+			nav.GoBackDirect()
+		} else if handler != nil {
+			handler(h.ctx, ActionGoBack)
+		}
 	case mouseButtonForward:
-		action = ActionGoForward
+		if nav != nil {
+			log.Debug().Uint("button", button).Msg("gesture: direct go forward")
+			nav.GoForwardDirect()
+		} else if handler != nil {
+			handler(h.ctx, ActionGoForward)
+		}
 	default:
 		// Not a navigation button, ignore
 		return
 	}
 
-	// Dispatch action to handler
-	h.mu.RLock()
-	handler := h.onAction
-	h.mu.RUnlock()
-
-	if handler != nil {
-		if err := handler(h.ctx, action); err != nil {
-			log := logging.FromContext(h.ctx)
-			// Navigation errors are expected (e.g., no back/forward history)
-			if action == ActionGoBack || action == ActionGoForward {
-				log.Debug().
-					Err(err).
-					Str("action", string(action)).
-					Uint("button", button).
-					Msg("gesture navigation not available")
-			} else {
-				log.Error().
-					Err(err).
-					Str("action", string(action)).
-					Uint("button", button).
-					Msg("gesture action handler error")
-			}
-		}
-	}
+	// Claim the gesture sequence to stop event propagation.
+	// This matches Epiphany's behavior: gtk_gesture_set_state(gesture, GTK_EVENT_SEQUENCE_CLAIMED)
+	// Without this, GTK may continue propagating the event which can interfere with WebKit.
+	h.clickGesture.Gesture.SetState(gtkEventSequenceClaimed)
 }
 
 // Detach removes the gesture handler.

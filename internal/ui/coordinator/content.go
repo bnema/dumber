@@ -329,11 +329,16 @@ func (c *ContentCoordinator) WrapWidget(ctx context.Context, wv *webkit.WebView)
 	widget := c.widgetFactory.WrapWidget(&gtkView.Widget)
 
 	// Attach gesture handler for mouse button 8/9 navigation
-	if widget != nil && c.gestureActionHandler != nil {
+	if widget != nil {
 		gestureHandler := input.NewGestureHandler(ctx)
-		gestureHandler.SetOnAction(c.gestureActionHandler)
+		// Pass WebView directly to preserve user gesture context (like Epiphany)
+		gestureHandler.SetNavigator(wv)
+		// Keep callback as fallback
+		if c.gestureActionHandler != nil {
+			gestureHandler.SetOnAction(c.gestureActionHandler)
+		}
 		gestureHandler.AttachTo(widget.GtkWidget())
-		log.Debug().Msg("gesture handler attached to webview")
+		log.Debug().Msg("gesture handler attached to webview with direct navigator")
 	}
 
 	return widget
