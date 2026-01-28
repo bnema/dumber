@@ -181,3 +181,33 @@ func TrimLeadingSpacesIfURL(input string) string {
 	}
 	return input
 }
+
+// IsExternalScheme returns true if the URL uses a scheme that should be
+// launched externally (e.g., vscode://, vscode-insiders://, spotify://, steam://)
+// rather than handled by the browser.
+func IsExternalScheme(uri string) bool {
+	if uri == "" {
+		return false
+	}
+
+	// Internal schemes we handle
+	if strings.HasPrefix(uri, "http://") ||
+		strings.HasPrefix(uri, "https://") ||
+		strings.HasPrefix(uri, "file://") ||
+		strings.HasPrefix(uri, "dumb://") ||
+		strings.HasPrefix(uri, "about:") ||
+		strings.HasPrefix(uri, "data:") ||
+		strings.HasPrefix(uri, "blob:") ||
+		strings.HasPrefix(uri, "javascript:") {
+		return false
+	}
+
+	// Check if it looks like a valid URL with a scheme
+	parsed, err := url.Parse(uri)
+	if err != nil {
+		return false
+	}
+
+	// Must have a non-empty scheme to be considered external
+	return parsed.Scheme != ""
+}

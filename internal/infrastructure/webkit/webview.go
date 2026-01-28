@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
+	urlutil "github.com/bnema/dumber/internal/domain/url"
+	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
@@ -557,7 +559,8 @@ func (wv *WebView) connectDecidePolicySignal() {
 		switch decisionType {
 		case webkit.PolicyDecisionTypeResponseValue:
 			return wv.handleResponsePolicyDecision(decisionPtr)
-		case webkit.PolicyDecisionTypeNavigationActionValue:
+		case webkit.PolicyDecisionTypeNavigationActionValue, webkit.PolicyDecisionTypeNewWindowActionValue:
+			// Both navigation and new window actions use NavigationPolicyDecision
 			return wv.handleNavigationPolicyDecision(decisionPtr)
 		default:
 			return false
@@ -627,7 +630,7 @@ func (wv *WebView) handleResponsePolicyDecision(decisionPtr uintptr) bool {
 	return true
 }
 
-// handleNavigationPolicyDecision handles navigation policy decisions (e.g., middle-click).
+// handleNavigationPolicyDecision handles navigation policy decisions (e.g., middle-click, external schemes).
 func (wv *WebView) handleNavigationPolicyDecision(decisionPtr uintptr) bool {
 	navDecision := webkit.NavigationPolicyDecisionNewFromInternalPtr(decisionPtr)
 	if navDecision == nil {
@@ -639,6 +642,55 @@ func (wv *WebView) handleNavigationPolicyDecision(decisionPtr uintptr) bool {
 		return false
 	}
 
+	request := navAction.GetRequest()
+	if request == nil {
+		return false
+	}
+
+	linkURI := request.GetUri()
+	if linkURI == "" {
+		return false
+	}
+
+	// Debug logging to trace navigation decisions
+	wv.logger.Debug().
+		Str("uri", linkURI).
+		Int("nav_type", int(navAction.GetNavigationType())).
+		Bool("user_gesture", navAction.IsUserGesture()).
+		Msg("navigation policy decision")
+
+	// Check for external URL schemes (e.g., vscode://, vscode-insiders://, spotify://)
+	// These need to be launched via xdg-open rather than handled by WebKit
+	if urlutil.IsExternalScheme(linkURI) {
+		wv.logger.Info().
+			Str("uri", linkURI).
+			Msg("launching external URL scheme via xdg-open")
+
+		// Launch asynchronously to avoid blocking WebKit
+		go desktop.LaunchExternalURL(linkURI)
+
+		// Ignore the navigation to prevent WebKit from showing an error
+		navDecision.Ignore()
+
+		// Go back to the previous page to avoid showing WebKit's error page.
+		// This handles OAuth flows where after successful auth, the callback
+		// redirects to a custom scheme (vscode://, vscode-insiders://, etc.)
+		// Schedule on idle to let WebKit process the ignored decision first
+		cb := glib.SourceFunc(func(_ uintptr) bool {
+			if wv.inner != nil && !wv.destroyed.Load() {
+				wv.inner.GoBack()
+			}
+			return false // Don't repeat
+		})
+		wv.mu.Lock()
+		wv.asyncCallbacks = append(wv.asyncCallbacks, &cb)
+		wv.mu.Unlock()
+		glib.IdleAdd(&cb, 0)
+
+		return true
+	}
+
+	// Only handle link clicks for middle-click/ctrl-click (open in new tab)
 	if navAction.GetNavigationType() != webkit.NavigationTypeLinkClickedValue {
 		return false
 	}
@@ -649,16 +701,6 @@ func (wv *WebView) handleNavigationPolicyDecision(decisionPtr uintptr) bool {
 	isCtrlClick := mouseButton == 1 && (gdk.ModifierType(modifiers)&gdk.ControlMaskValue) != 0
 
 	if !isMiddleClick && !isCtrlClick {
-		return false
-	}
-
-	request := navAction.GetRequest()
-	if request == nil {
-		return false
-	}
-
-	linkURI := request.GetUri()
-	if linkURI == "" {
 		return false
 	}
 
