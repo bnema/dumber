@@ -384,6 +384,7 @@ func (wv *WebView) connectSignals() {
 	wv.connectLeaveFullscreenSignal()
 	wv.connectAudioStateSignal()
 	wv.connectMouseTargetChangedSignal()
+	wv.connectBackForwardListChangedSignal()
 }
 
 func (wv *WebView) connectLoadChangedSignal() {
@@ -394,8 +395,8 @@ func (wv *WebView) connectLoadChangedSignal() {
 		wv.mu.Lock()
 		wv.uri = uri
 		wv.title = title
-		wv.canGoBack = inner.CanGoBack()
-		wv.canGoFwd = inner.CanGoForward()
+		// Note: canGoBack/canGoFwd are updated via back-forward-list::changed signal
+		// which fires for both traditional navigation and SPA history.pushState()
 		wv.progress = inner.GetEstimatedLoadProgress()
 
 		switch event {
@@ -820,6 +821,33 @@ func (wv *WebView) connectMouseTargetChangedSignal() {
 	wv.signalIDs = append(wv.signalIDs, sigID)
 }
 
+func (wv *WebView) connectBackForwardListChangedSignal() {
+	backForwardList := wv.inner.GetBackForwardList()
+	if backForwardList == nil {
+		wv.logger.Warn().Msg("failed to get back-forward-list")
+		return
+	}
+
+	// The "changed" signal is emitted when the back-forward list changes,
+	// including for SPA navigation via history.pushState/replaceState.
+	// Parameters: (item_added, items_removed) - we ignore them and just refresh state.
+	changedCb := func(_ webkit.BackForwardList, _ uintptr, _ uintptr) {
+		canBack := wv.inner.CanGoBack()
+		canFwd := wv.inner.CanGoForward()
+		wv.logger.Debug().
+			Bool("can_go_back", canBack).
+			Bool("can_go_forward", canFwd).
+			Uint("list_length", backForwardList.GetLength()).
+			Msg("back-forward-list changed")
+		wv.mu.Lock()
+		wv.canGoBack = canBack
+		wv.canGoFwd = canFwd
+		wv.mu.Unlock()
+	}
+	sigID := backForwardList.ConnectChanged(&changedCb)
+	wv.signalIDs = append(wv.signalIDs, sigID)
+}
+
 // ID returns the unique identifier for this WebView.
 func (wv *WebView) ID() WebViewID {
 	return wv.id
@@ -917,47 +945,65 @@ func (wv *WebView) Stop(ctx context.Context) error {
 }
 
 // GoBack navigates back in history.
-// Uses WebKit native navigation first, falls back to JavaScript history.back() for SPA compatibility.
+// After calling WebKit's GoBack, dispatches a popstate event via JS to ensure
+// SPAs that use history.pushState receive the navigation notification.
+// WebKit's programmatic go_back() doesn't fire popstate for pushState entries.
 func (wv *WebView) GoBack(ctx context.Context) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
-	log := logging.FromContext(ctx)
 
-	// Try WebKit native navigation first if available (for non-SPA pages)
-	if wv.inner.CanGoBack() {
-		wv.inner.GoBack()
-		log.Debug().Int("webview_id", int(wv.id)).Msg("webview go back (native)")
-		return nil
-	}
+	logging.FromContext(ctx).Debug().
+		Int("webview_id", int(wv.id)).
+		Bool("can_go_back", wv.inner.CanGoBack()).
+		Str("current_uri", wv.inner.GetUri()).
+		Msg("webview go back")
 
-	// Fall back to JavaScript history.back() for SPA navigation
-	// This handles pushState/replaceState history that WebKit's BackForwardList doesn't track
-	wv.RunJavaScript(ctx, "history.back()", "")
-	log.Debug().Int("webview_id", int(wv.id)).Msg("webview go back (js fallback)")
+	wv.inner.GoBack()
+
+	// Note: We don't dispatch popstate manually anymore.
+	// WebKit's go_back() should handle SPA navigation correctly.
+	// If issues persist, the problem is likely elsewhere.
+
 	return nil
 }
 
 // GoForward navigates forward in history.
-// Uses WebKit native navigation first, falls back to JavaScript history.forward() for SPA compatibility.
 func (wv *WebView) GoForward(ctx context.Context) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
-	log := logging.FromContext(ctx)
 
-	// Try WebKit native navigation first if available (for non-SPA pages)
-	if wv.inner.CanGoForward() {
-		wv.inner.GoForward()
-		log.Debug().Int("webview_id", int(wv.id)).Msg("webview go forward (native)")
-		return nil
-	}
+	logging.FromContext(ctx).Debug().
+		Int("webview_id", int(wv.id)).
+		Bool("can_go_forward", wv.inner.CanGoForward()).
+		Str("current_uri", wv.inner.GetUri()).
+		Msg("webview go forward")
 
-	// Fall back to JavaScript history.forward() for SPA navigation
-	// This handles pushState/replaceState history that WebKit's BackForwardList doesn't track
-	wv.RunJavaScript(ctx, "history.forward()", "")
-	log.Debug().Int("webview_id", int(wv.id)).Msg("webview go forward (js fallback)")
+	wv.inner.GoForward()
+
 	return nil
+}
+
+// GoBackDirect calls WebKit's go_back directly without any wrappers.
+// This is intended for use from gesture handlers where preserving user
+// gesture context is critical for SPA popstate handling.
+// Matches Epiphany: webkit_web_view_go_back(web_view) directly in gesture callback.
+func (wv *WebView) GoBackDirect() {
+	if wv.destroyed.Load() {
+		return
+	}
+	wv.inner.GoBack()
+}
+
+// GoForwardDirect calls WebKit's go_forward directly without any wrappers.
+// This is intended for use from gesture handlers where preserving user
+// gesture context is critical for SPA popstate handling.
+func (wv *WebView) GoForwardDirect() {
+	if wv.destroyed.Load() {
+		return
+	}
+	wv.inner.GoForward()
 }
 
 // CanGoBack returns true if back navigation is possible.
