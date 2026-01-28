@@ -10,7 +10,7 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/jwijenbergh/puregotk v0.0.0-20260115100645-c78e1521129b
-	github.com/ncruces/go-sqlite3 v0.30.4
+	github.com/ncruces/go-sqlite3 v0.30.5
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/pressly/goose/v3 v3.26.0
 	github.com/rs/zerolog v1.34.0
