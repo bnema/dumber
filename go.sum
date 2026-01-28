@@ -84,8 +84,8 @@ github.com/muesli/cancelreader v0.2.2 h1:3I4Kt4BQjOR54NavqnDogx/MIoWBFa0StPA8ELU
 github.com/muesli/cancelreader v0.2.2/go.mod h1:3XuTXfFS2VjM+HTLZY9Ak0l6eUKfijIfMUZ4EgX0QYo=
 github.com/muesli/termenv v0.16.0 h1:S5AlUN9dENB57rsbnkPyfdGuWIlkmzJjbFf0Tf5FWUc=
 github.com/muesli/termenv v0.16.0/go.mod h1:ZRfOIKPFDYQoDFF4Olj7/QJbW60Ol/kL1pU3VfY/Cnk=
-github.com/ncruces/go-sqlite3 v0.30.4 h1:j9hEoOL7f9ZoXl8uqXVniaq1VNwlWAXihZbTvhqPPjA=
-github.com/ncruces/go-sqlite3 v0.30.4/go.mod h1:7WR20VSC5IZusKhUdiR9y1NsUqnZgqIYCmKKoMEYg68=
+github.com/ncruces/go-sqlite3 v0.30.5 h1:6usmTQ6khriL8oWilkAZSJM/AIpAlVL2zFrlcpDldCE=
+github.com/ncruces/go-sqlite3 v0.30.5/go.mod h1:0I0JFflTKzfs3Ogfv8erP7CCoV/Z8uxigVDNOR0AQ5E=
 github.com/ncruces/go-strftime v0.1.9 h1:bY0MQC28UADQmHmaF5dgpLmImcShSi2kHU9XLdhx/f4=
 github.com/ncruces/go-strftime v0.1.9/go.mod h1:Fwc5htZGVVkseilnfgOVb9mKy6w1naJmn9CehxcKcls=
 github.com/ncruces/julianday v1.0.0 h1:fH0OKwa7NWvniGQtxdJRxAgkBMolni2BjDHaWTxqt7M=
