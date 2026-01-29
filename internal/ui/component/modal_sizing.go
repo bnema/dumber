@@ -24,8 +24,9 @@ type RowHeightDefaults struct {
 
 // ListDisplayDefaults holds display limits for list-based modals.
 type ListDisplayDefaults struct {
-	MaxVisibleRows int // Maximum rows visible before scrolling
-	MaxResults     int // Maximum results to fetch/display
+	MaxVisibleRows      int // Maximum rows visible before scrolling
+	MaxResults          int // Maximum results to fetch/display
+	SmallMaxVisibleRows int // Reduced row count when rows don't fit (0 = no adaptation)
 }
 
 // Package-level defaults for row heights.
@@ -46,8 +47,9 @@ var OmniboxSizeDefaults = ModalSizeConfig{
 
 // OmniboxListDefaults provides display limits for omnibox modal.
 var OmniboxListDefaults = ListDisplayDefaults{
-	MaxVisibleRows: 10,
-	MaxResults:     10,
+	MaxVisibleRows:      10,
+	MaxResults:          10,
+	SmallMaxVisibleRows: 5,
 }
 
 // SessionManagerSizeDefaults provides default sizing for session manager modal.
@@ -78,6 +80,25 @@ var TabPickerSizeDefaults = ModalSizeConfig{
 var TabPickerListDefaults = ListDisplayDefaults{
 	MaxVisibleRows: 8,
 	MaxResults:     20,
+}
+
+// EffectiveMaxRows returns the maximum number of visible rows that fit
+// in the available space. It computes available height by subtracting the
+// top margin (TopMarginPct of parentHeight) and an estimated chrome height
+// (header + search entry ≈ 120px). If MaxVisibleRows worth of rows don't
+// fit, it falls back to SmallMaxVisibleRows.
+func EffectiveMaxRows(parentHeight, rowHeight int, sizeCfg ModalSizeConfig, defaults ListDisplayDefaults) int {
+	if parentHeight <= 0 || rowHeight <= 0 || defaults.SmallMaxVisibleRows <= 0 {
+		return defaults.MaxVisibleRows
+	}
+	topMargin := int(float64(parentHeight) * sizeCfg.TopMarginPct)
+	const chromeHeight = 150 // header tabs + search entry + bottom padding
+	available := parentHeight - topMargin - chromeHeight
+	needed := defaults.MaxVisibleRows * rowHeight
+	if available < needed {
+		return defaults.SmallMaxVisibleRows
+	}
+	return defaults.MaxVisibleRows
 }
 
 // CalculateModalDimensions computes width and top margin based on parent overlay.
