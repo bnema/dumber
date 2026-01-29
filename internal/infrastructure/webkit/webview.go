@@ -163,6 +163,9 @@ type WebView struct {
 	// findController is cached to prevent GC from collecting the Go wrapper
 	findController     *findControllerAdapter
 	findControllerOnce sync.Once
+
+	backForwardList         *webkit.BackForwardList
+	backForwardListSignalID uint32
 }
 
 type findControllerAdapter struct {
@@ -853,7 +856,8 @@ func (wv *WebView) connectBackForwardListChangedSignal() {
 		wv.mu.Unlock()
 	}
 	sigID := backForwardList.ConnectChanged(&changedCb)
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.backForwardList = backForwardList
+	wv.backForwardListSignalID = sigID
 }
 
 // ID returns the unique identifier for this WebView.
@@ -1235,6 +1239,13 @@ func (wv *WebView) DisconnectSignals() {
 		gobject.SignalHandlerDisconnect(obj, sigID)
 	}
 	wv.signalIDs = wv.signalIDs[:0] // Clear the slice
+
+	if wv.backForwardList != nil && wv.backForwardListSignalID != 0 {
+		bfObj := gobject.ObjectNewFromInternalPtr(wv.backForwardList.GoPointer())
+		gobject.SignalHandlerDisconnect(bfObj, wv.backForwardListSignalID)
+		wv.backForwardListSignalID = 0
+		wv.backForwardList = nil
+	}
 
 	wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("signals disconnected")
 }
