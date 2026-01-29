@@ -686,7 +686,7 @@ func (wv *WebView) handleNavigationPolicyDecision(decisionPtr uintptr) bool {
 		// redirects to a custom scheme (vscode://, vscode-insiders://, etc.)
 		// Schedule on idle to let WebKit process the ignored decision first
 		cb := glib.SourceFunc(func(_ uintptr) bool {
-			if wv.inner != nil && !wv.destroyed.Load() {
+			if wv.inner != nil && !wv.destroyed.Load() && wv.inner.CanGoBack() {
 				wv.inner.GoBack()
 			}
 			return false // Don't repeat
