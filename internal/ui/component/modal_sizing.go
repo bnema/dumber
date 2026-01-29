@@ -84,15 +84,15 @@ var TabPickerListDefaults = ListDisplayDefaults{
 
 // EffectiveMaxRows returns the maximum number of visible rows that fit
 // in the available space. It computes available height by subtracting the
-// top margin (TopMarginPct of parentHeight) and an estimated chrome height
-// (header + search entry ≈ 120px). If MaxVisibleRows worth of rows don't
-// fit, it falls back to SmallMaxVisibleRows.
+// top margin (TopMarginPct of parentHeight) and chrome height (header tabs +
+// search entry, estimated as 2× rowHeight to scale with the UI). If
+// MaxVisibleRows worth of rows don't fit, it falls back to SmallMaxVisibleRows.
 func EffectiveMaxRows(parentHeight, rowHeight int, sizeCfg ModalSizeConfig, defaults ListDisplayDefaults) int {
 	if parentHeight <= 0 || rowHeight <= 0 || defaults.SmallMaxVisibleRows <= 0 {
 		return defaults.MaxVisibleRows
 	}
 	topMargin := int(float64(parentHeight) * sizeCfg.TopMarginPct)
-	const chromeHeight = 150 // header tabs + search entry + bottom padding
+	chromeHeight := 2 * rowHeight // header tabs + search entry, scales with UI
 	available := parentHeight - topMargin - chromeHeight
 	needed := defaults.MaxVisibleRows * rowHeight
 	if available < needed {
