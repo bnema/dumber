@@ -122,20 +122,30 @@ func (h *GestureHandler) handlePressed(nPress int) {
 	handler := h.onAction
 	h.mu.RUnlock()
 
+	handled := false
+
 	switch button {
 	case mouseButtonBack:
 		if nav != nil {
 			log.Debug().Uint("button", button).Msg("gesture: direct go back")
 			nav.GoBackDirect()
+			handled = true
 		} else if handler != nil {
-			_ = handler(h.ctx, ActionGoBack)
+			if err := handler(h.ctx, ActionGoBack); err != nil {
+				log.Warn().Err(err).Msg("gesture action failed")
+			}
+			handled = true
 		}
 	case mouseButtonForward:
 		if nav != nil {
 			log.Debug().Uint("button", button).Msg("gesture: direct go forward")
 			nav.GoForwardDirect()
+			handled = true
 		} else if handler != nil {
-			_ = handler(h.ctx, ActionGoForward)
+			if err := handler(h.ctx, ActionGoForward); err != nil {
+				log.Warn().Err(err).Msg("gesture action failed")
+			}
+			handled = true
 		}
 	default:
 		// Not a navigation button, ignore
@@ -145,7 +155,9 @@ func (h *GestureHandler) handlePressed(nPress int) {
 	// Claim the gesture sequence to stop event propagation.
 	// This matches Epiphany's behavior: gtk_gesture_set_state(gesture, GTK_EVENT_SEQUENCE_CLAIMED)
 	// Without this, GTK may continue propagating the event which can interfere with WebKit.
-	h.clickGesture.SetState(gtkEventSequenceClaimed)
+	if handled {
+		h.clickGesture.SetState(gtkEventSequenceClaimed)
+	}
 }
 
 // Detach removes the gesture handler.

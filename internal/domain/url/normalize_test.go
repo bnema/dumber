@@ -401,3 +401,111 @@ func TestLooksLikeURL(t *testing.T) {
 		})
 	}
 }
+
+func TestIsExternalScheme(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{
+			name:  "empty string",
+			input: "",
+			want:  false,
+		},
+		{
+			name:  "http scheme",
+			input: "http://example.com",
+			want:  false,
+		},
+		{
+			name:  "https scheme",
+			input: "https://example.com",
+			want:  false,
+		},
+		{
+			name:  "file scheme",
+			input: "file:///path/to/file.html",
+			want:  false,
+		},
+		{
+			name:  "dumb scheme",
+			input: "dumb://home",
+			want:  false,
+		},
+		{
+			name:  "about scheme",
+			input: "about:blank",
+			want:  false,
+		},
+		{
+			name:  "data scheme",
+			input: "data:text/plain;base64,SGVsbG8gV29ybGQ==",
+			want:  false,
+		},
+		{
+			name:  "blob scheme",
+			input: "blob:https://example.com/blob-id",
+			want:  false,
+		},
+		{
+			name:  "javascript scheme",
+			input: "javascript:alert('hello')",
+			want:  false,
+		},
+		{
+			name:  "vscode scheme",
+			input: "vscode://open",
+			want:  true,
+		},
+		{
+			name:  "spotify scheme",
+			input: "spotify:track:123",
+			want:  true,
+		},
+		{
+			name:  "steam scheme",
+			input: "steam://run/123",
+			want:  true,
+		},
+		{
+			name:  "uppercase HTTP scheme",
+			input: "HTTP://example.com",
+			want:  false,
+		},
+		{
+			name:  "uppercase ABOUT scheme",
+			input: "ABOUT:blank",
+			want:  false,
+		},
+		{
+			name:  "uppercase VSCODE scheme",
+			input: "VSCODE://open",
+			want:  true,
+		},
+		{
+			name:  "malformed URL",
+			input: "://invalid",
+			want:  false,
+		},
+		{
+			name:  "no scheme",
+			input: "example.com",
+			want:  false,
+		},
+		{
+			name:  "scheme only",
+			input: "custom://",
+			want:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsExternalScheme(tt.input)
+			if got != tt.want {
+				t.Errorf("IsExternalScheme(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}

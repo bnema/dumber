@@ -1477,6 +1477,11 @@ func (c *ContentCoordinator) setupWebViewCallbacks(ctx context.Context, paneID e
 			// Stop loading to prevent WebKit from showing an error page
 			// The page stays on the previous URL before the JS redirect
 			_ = wv.Stop(ctx)
+
+			// Navigate back to avoid stale URI in omnibox/history
+			if wv.CanGoBack() {
+				_ = wv.GoBack(ctx)
+			}
 			return
 		}
 
