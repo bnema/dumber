@@ -301,16 +301,33 @@ func (o *Omnibox) WidgetAsLayout(factory layout.WidgetFactory) layout.Widget {
 	return factory.WrapWidget(&o.outerBox.Widget)
 }
 
+// estimateRowHeight returns the current best estimate for a single row height.
+func (o *Omnibox) estimateRowHeight() int {
+	if o.measuredHeights.valid && o.measuredHeights.singleRow > 0 {
+		return o.measuredHeights.singleRow
+	}
+	return ScaleValue(DefaultRowHeights.Standard, o.uiScale)
+}
+
+// effectiveMaxRows returns the max visible rows adapted to the current parent pane height.
+// Must be called on the GTK main thread.
+func (o *Omnibox) effectiveMaxRows() int {
+	if o.parentOverlay == nil {
+		return OmniboxListDefaults.MaxVisibleRows
+	}
+	return EffectiveMaxRows(o.parentOverlay.GetAllocatedHeight(), o.estimateRowHeight(), OmniboxSizeDefaults, OmniboxListDefaults)
+}
+
 // resizeAndCenter adjusts the omnibox size based on content and centers it.
-// rowCount is the number of result rows to display (0 = no content, max 10).
+// rowCount is the number of result rows to display (0 = no content, adapts to parent height).
 func (o *Omnibox) resizeAndCenter(rowCount int) {
 	if o.parentOverlay == nil || o.outerBox == nil || o.mainBox == nil {
 		return
 	}
 
-	// Cap at max results
-	if rowCount > OmniboxListDefaults.MaxVisibleRows {
-		rowCount = OmniboxListDefaults.MaxVisibleRows
+	// Cap at effective max rows (adapts to parent pane height)
+	if maxRows := o.effectiveMaxRows(); rowCount > maxRows {
+		rowCount = maxRows
 	}
 
 	// Schedule measurement after GTK has laid out widgets
@@ -351,8 +368,8 @@ func (o *Omnibox) measureAndResize(width, rowCount int) {
 		contentHeight = rowCount * rowHeight
 	}
 
-	// Cap at max results
-	maxContentHeight := OmniboxListDefaults.MaxVisibleRows * rowHeight
+	// Cap at effective max rows (adapts to parent pane height)
+	maxContentHeight := o.effectiveMaxRows() * rowHeight
 	if contentHeight > maxContentHeight {
 		contentHeight = maxContentHeight
 	}
@@ -823,7 +840,12 @@ func (o *Omnibox) onEntryChanged() {
 		o.debounceTimer.Stop()
 	}
 	o.debounceTimer = time.AfterFunc(debounceDelayMs*time.Millisecond, func() {
-		o.performSearch()
+		// Schedule on GTK main thread — performSearch reads GTK widget state
+		var cb glib.SourceFunc = func(uintptr) bool {
+			o.performSearch()
+			return false
+		}
+		glib.IdleAdd(&cb, 0)
 	})
 	o.debounceMu.Unlock()
 }
@@ -1212,7 +1234,13 @@ func (o *Omnibox) performSearch() {
 		return
 	}
 
-	// Perform fuzzy search
+	// Perform fuzzy history search in background
+	o.searchHistory(query, o.effectiveMaxRows())
+}
+
+// searchHistory runs a fuzzy history search in a background goroutine.
+// query is the search text; limit caps the number of results.
+func (o *Omnibox) searchHistory(query string, limit int) {
 	go func() {
 		ctx := o.ctx
 		log := logging.FromContext(ctx)
@@ -1231,7 +1259,7 @@ func (o *Omnibox) performSearch() {
 		go func() {
 			searchInput := usecase.SearchInput{
 				Query: query,
-				Limit: OmniboxListDefaults.MaxResults,
+				Limit: limit,
 			}
 			output, err := o.historyUC.Search(ctx, searchInput)
 			searchCh <- searchResult{output, err}
@@ -1274,6 +1302,9 @@ func (o *Omnibox) loadInitialHistory() {
 		return
 	}
 
+	// Capture effective result limit on the GTK main thread before spawning goroutine
+	initialLimit := o.effectiveMaxRows()
+
 	go func() {
 		ctx := o.ctx
 		log := logging.FromContext(ctx)
@@ -1295,7 +1326,7 @@ func (o *Omnibox) loadInitialHistory() {
 
 			go func() {
 				// TODO: Implement GetMostVisited in use case if needed
-				results, err := o.historyUC.GetRecent(ctx, OmniboxListDefaults.MaxResults, 0)
+				results, err := o.historyUC.GetRecent(ctx, initialLimit, 0)
 				historyCh <- historyResult{results, err}
 			}()
 

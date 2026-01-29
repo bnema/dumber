@@ -224,6 +224,11 @@ func (wv *WorkspaceView) setActivePaneIDInternal(paneID entity.PaneID) error {
 		wv.hideFindBarInternal()
 	}
 
+	// Hide omnibox if active pane is changing
+	if currentActiveID != paneID && wv.omnibox != nil {
+		wv.hideOmniboxInternal()
+	}
+
 	// Deactivate current active pane
 	if currentActiveID != "" {
 		if oldPV, ok := wv.paneViews[currentActiveID]; ok {

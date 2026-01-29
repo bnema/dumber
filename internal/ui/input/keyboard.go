@@ -41,7 +41,7 @@ type KeyboardHandler struct {
 	// Action handler callback
 	onAction ActionHandler
 	// Optional bypass check (e.g., omnibox visible)
-	shouldBypass func() bool
+	shouldBypass func(modifiers Modifier) bool
 	// Optional accent handler for dead keys support
 	accentHandler AccentHandler
 
@@ -99,7 +99,7 @@ func (h *KeyboardHandler) SetOnModeChange(fn func(from, to Mode)) {
 
 // SetShouldBypassInput sets a hook to bypass keyboard handling entirely.
 // When true, events propagate to focused widgets instead.
-func (h *KeyboardHandler) SetShouldBypassInput(fn func() bool) {
+func (h *KeyboardHandler) SetShouldBypassInput(fn func(modifiers Modifier) bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.shouldBypass = fn
@@ -191,7 +191,7 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 		return true
 	}
 
-	if shouldBypass != nil && shouldBypass() {
+	if shouldBypass != nil && shouldBypass(modifiers) {
 		log.Debug().Uint("keyval", keyval).Uint("keycode", keycode).Uint("state", uint(state)).Msg("keyboard handler bypassed")
 		return false
 	}
