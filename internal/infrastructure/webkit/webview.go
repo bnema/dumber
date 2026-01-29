@@ -945,9 +945,7 @@ func (wv *WebView) Stop(ctx context.Context) error {
 }
 
 // GoBack navigates back in history.
-// After calling WebKit's GoBack, dispatches a popstate event via JS to ensure
-// SPAs that use history.pushState receive the navigation notification.
-// WebKit's programmatic go_back() doesn't fire popstate for pushState entries.
+// Uses WebKit's native history navigation.
 func (wv *WebView) GoBack(ctx context.Context) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)

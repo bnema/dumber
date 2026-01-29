@@ -400,9 +400,14 @@ func LaunchExternalURL(uri string) {
 	cmd.Stdin = nil
 	cmd.Stdout = nil
 	cmd.Stderr = nil
-	_ = cmd.Start()
+	if err := cmd.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to launch external URL %q with xdg-open: %v\n", uri, err)
+		return
+	}
 	if cmd.Process != nil {
-		_ = cmd.Process.Release()
+		if err := cmd.Process.Release(); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to release xdg-open process for URL %q: %v\n", uri, err)
+		}
 	}
 }
 
