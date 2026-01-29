@@ -128,14 +128,14 @@ func (h *GestureHandler) handlePressed(nPress int) {
 			log.Debug().Uint("button", button).Msg("gesture: direct go back")
 			nav.GoBackDirect()
 		} else if handler != nil {
-			handler(h.ctx, ActionGoBack)
+			_ = handler(h.ctx, ActionGoBack)
 		}
 	case mouseButtonForward:
 		if nav != nil {
 			log.Debug().Uint("button", button).Msg("gesture: direct go forward")
 			nav.GoForwardDirect()
 		} else if handler != nil {
-			handler(h.ctx, ActionGoForward)
+			_ = handler(h.ctx, ActionGoForward)
 		}
 	default:
 		// Not a navigation button, ignore
@@ -145,7 +145,7 @@ func (h *GestureHandler) handlePressed(nPress int) {
 	// Claim the gesture sequence to stop event propagation.
 	// This matches Epiphany's behavior: gtk_gesture_set_state(gesture, GTK_EVENT_SEQUENCE_CLAIMED)
 	// Without this, GTK may continue propagating the event which can interfere with WebKit.
-	h.clickGesture.Gesture.SetState(gtkEventSequenceClaimed)
+	h.clickGesture.SetState(gtkEventSequenceClaimed)
 }
 
 // Detach removes the gesture handler.

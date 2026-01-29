@@ -1461,7 +1461,12 @@ func (c *ContentCoordinator) setupWebViewCallbacks(ctx context.Context, paneID e
 		// Check for external URL schemes (vscode://, vscode-insiders://, spotify://, etc.)
 		// These are typically triggered by JavaScript redirects (window.location)
 		isExternal := urlutil.IsExternalScheme(uri)
-		log.Debug().Str("pane_id", string(paneID)).Str("uri", uri).Bool("is_external", isExternal).Bool("is_loading", wv.IsLoading()).Msg("OnURIChanged")
+		log.Debug().
+			Str("pane_id", string(paneID)).
+			Str("uri", uri).
+			Bool("is_external", isExternal).
+			Bool("is_loading", wv.IsLoading()).
+			Msg("OnURIChanged")
 
 		if isExternal {
 			log.Info().Str("pane_id", string(paneID)).Str("uri", uri).Msg("external scheme detected, launching externally")
