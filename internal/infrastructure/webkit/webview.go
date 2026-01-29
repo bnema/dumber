@@ -662,7 +662,15 @@ func (wv *WebView) handleNavigationPolicyDecision(decisionPtr uintptr) bool {
 
 	// Check for external URL schemes (e.g., vscode://, vscode-insiders://, spotify://)
 	// These need to be launched via xdg-open rather than handled by WebKit
+	// Only launch for user-initiated actions to prevent automatic redirects
+	// from silently opening external applications
 	if urlutil.IsExternalScheme(linkURI) {
+		if !navAction.IsUserGesture() {
+			// For non-user-initiated redirects, ignore silently
+			navDecision.Ignore()
+			return true
+		}
+
 		wv.logger.Info().
 			Str("uri", linkURI).
 			Msg("launching external URL scheme via xdg-open")
