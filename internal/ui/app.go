@@ -543,7 +543,7 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 	a.keyboardHandler.SetOnModeChange(func(from, to input.Mode) {
 		a.handleModeChange(ctx, from, to)
 	})
-	a.keyboardHandler.SetShouldBypassInput(func() bool {
+	a.keyboardHandler.SetShouldBypassInput(func(modifiers input.Modifier) bool {
 		// Bypass keyboard handler when modals are visible
 		if a.sessionManager != nil && a.sessionManager.IsVisible() {
 			return true
@@ -555,7 +555,11 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 		if wsView == nil {
 			return false
 		}
-		return wsView.IsOmniboxVisible()
+		if wsView.IsOmniboxVisible() {
+			// Let Alt-modified keys through for pane navigation
+			return modifiers&input.ModAlt == 0
+		}
+		return false
 	})
 	// Wire accent handler for dead keys support
 	if a.insertAccentUC != nil {
