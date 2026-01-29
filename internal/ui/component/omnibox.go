@@ -313,7 +313,7 @@ func (o *Omnibox) estimateRowHeight() int {
 // Must be called on the GTK main thread.
 func (o *Omnibox) effectiveMaxRows() int {
 	if o.parentOverlay == nil {
-		return OmniboxListDefaults.MaxResults
+		return OmniboxListDefaults.MaxVisibleRows
 	}
 	return EffectiveMaxRows(o.parentOverlay.GetAllocatedHeight(), o.estimateRowHeight(), OmniboxSizeDefaults, OmniboxListDefaults)
 }
@@ -840,7 +840,12 @@ func (o *Omnibox) onEntryChanged() {
 		o.debounceTimer.Stop()
 	}
 	o.debounceTimer = time.AfterFunc(debounceDelayMs*time.Millisecond, func() {
-		o.performSearch()
+		// Schedule on GTK main thread — performSearch reads GTK widget state
+		var cb glib.SourceFunc = func(uintptr) bool {
+			o.performSearch()
+			return false
+		}
+		glib.IdleAdd(&cb, 0)
 	})
 	o.debounceMu.Unlock()
 }

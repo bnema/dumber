@@ -143,3 +143,94 @@ func TestListDisplayDefaults_Values(t *testing.T) {
 	assert.Positive(t, SessionManagerListDefaults.MaxVisibleRows)
 	assert.Positive(t, SessionManagerListDefaults.MaxResults)
 }
+
+func TestEffectiveMaxRows(t *testing.T) {
+	sizeCfg := ModalSizeConfig{TopMarginPct: 0.2}
+	defaults := ListDisplayDefaults{
+		MaxVisibleRows:      10,
+		MaxResults:          10,
+		SmallMaxVisibleRows: 5,
+	}
+
+	tests := []struct {
+		name         string
+		parentHeight int
+		rowHeight    int
+		want         int
+	}{
+		{
+			name:         "tall pane returns MaxVisibleRows",
+			parentHeight: 1200,
+			rowHeight:    72,
+			want:         10,
+		},
+		{
+			name:         "short pane returns SmallMaxVisibleRows",
+			parentHeight: 800,
+			rowHeight:    72,
+			want:         5,
+		},
+		{
+			name:         "zero parentHeight returns MaxVisibleRows",
+			parentHeight: 0,
+			rowHeight:    72,
+			want:         10,
+		},
+		{
+			name:         "zero rowHeight returns MaxVisibleRows",
+			parentHeight: 800,
+			rowHeight:    0,
+			want:         10,
+		},
+		{
+			name:         "negative parentHeight returns MaxVisibleRows",
+			parentHeight: -100,
+			rowHeight:    72,
+			want:         10,
+		},
+		{
+			name:         "exact fit returns MaxVisibleRows",
+			parentHeight: 1150, // available = 1150 - 230 - 144 = 776, needed = 720
+			rowHeight:    72,
+			want:         10,
+		},
+		{
+			name:         "boundary: available equals needed still fits",
+			parentHeight: 1080, // available = 1080 - 216 - 144 = 720, needed = 720 → fits
+			rowHeight:    72,
+			want:         10,
+		},
+		{
+			name:         "boundary: one pixel under triggers small",
+			parentHeight: 1079, // available = 1079 - 215 - 144 = 720, needed = 720 → check
+			rowHeight:    72,
+			want:         10, // int(1079*0.2) = 215, 1079-215-144 = 720 → still fits
+		},
+		{
+			name:         "just below boundary triggers small",
+			parentHeight: 1078, // available = 1078 - 215 - 144 = 719, needed = 720 → doesn't fit
+			rowHeight:    72,
+			want:         5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := EffectiveMaxRows(tt.parentHeight, tt.rowHeight, sizeCfg, defaults)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestEffectiveMaxRows_NoAdaptation(t *testing.T) {
+	sizeCfg := ModalSizeConfig{TopMarginPct: 0.2}
+	defaults := ListDisplayDefaults{
+		MaxVisibleRows:      10,
+		MaxResults:          10,
+		SmallMaxVisibleRows: 0, // adaptation disabled
+	}
+
+	// Even with a short pane, should return MaxVisibleRows when SmallMaxVisibleRows is 0
+	got := EffectiveMaxRows(500, 72, sizeCfg, defaults)
+	assert.Equal(t, 10, got)
+}
