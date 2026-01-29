@@ -181,3 +181,25 @@ func TrimLeadingSpacesIfURL(input string) string {
 	}
 	return input
 }
+
+// IsExternalScheme returns true if the URL uses a scheme that should be
+// launched externally (e.g., vscode://, vscode-insiders://, spotify://, steam://)
+// rather than handled by the browser.
+// URL schemes are case-insensitive per RFC 3986.
+func IsExternalScheme(uri string) bool {
+	if uri == "" {
+		return false
+	}
+
+	parsed, err := url.Parse(uri)
+	if err != nil || parsed.Scheme == "" {
+		return false
+	}
+
+	switch strings.ToLower(parsed.Scheme) {
+	case "http", "https", "file", "dumb", "about", "data", "blob", "javascript":
+		return false
+	default:
+		return true
+	}
+}

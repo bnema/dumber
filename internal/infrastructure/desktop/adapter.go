@@ -392,6 +392,25 @@ func NewSessionSpawner(ctx context.Context) *SessionSpawner {
 // RestoreSessionEnvVar is the environment variable used to pass session ID for restoration.
 const RestoreSessionEnvVar = "DUMBER_RESTORE_SESSION"
 
+// LaunchExternalURL opens a URL with the system's default handler (xdg-open on Linux).
+// Used for external URL schemes like vscode://, spotify://, steam://, etc.
+func LaunchExternalURL(uri string) {
+	cmd := exec.Command("xdg-open", uri)
+	// Detach from current process - we don't care about the result
+	cmd.Stdin = nil
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	if err := cmd.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to launch external URL %q with xdg-open: %v\n", uri, err)
+		return
+	}
+	if cmd.Process != nil {
+		if err := cmd.Process.Release(); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to release xdg-open process for URL %q: %v\n", uri, err)
+		}
+	}
+}
+
 // SpawnWithSession starts a new dumber instance to restore a session.
 func (s *SessionSpawner) SpawnWithSession(sessionID entity.SessionID) error {
 	log := logging.FromContext(s.ctx)

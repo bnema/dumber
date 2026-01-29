@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
+	urlutil "github.com/bnema/dumber/internal/domain/url"
+	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
@@ -161,6 +163,9 @@ type WebView struct {
 	// findController is cached to prevent GC from collecting the Go wrapper
 	findController     *findControllerAdapter
 	findControllerOnce sync.Once
+
+	backForwardList         *webkit.BackForwardList
+	backForwardListSignalID uint32
 }
 
 type findControllerAdapter struct {
@@ -382,6 +387,7 @@ func (wv *WebView) connectSignals() {
 	wv.connectLeaveFullscreenSignal()
 	wv.connectAudioStateSignal()
 	wv.connectMouseTargetChangedSignal()
+	wv.connectBackForwardListChangedSignal()
 }
 
 func (wv *WebView) connectLoadChangedSignal() {
@@ -392,8 +398,8 @@ func (wv *WebView) connectLoadChangedSignal() {
 		wv.mu.Lock()
 		wv.uri = uri
 		wv.title = title
-		wv.canGoBack = inner.CanGoBack()
-		wv.canGoFwd = inner.CanGoForward()
+		// Note: canGoBack/canGoFwd are updated via back-forward-list::changed signal
+		// which fires for both traditional navigation and SPA history.pushState()
 		wv.progress = inner.GetEstimatedLoadProgress()
 
 		switch event {
@@ -557,7 +563,8 @@ func (wv *WebView) connectDecidePolicySignal() {
 		switch decisionType {
 		case webkit.PolicyDecisionTypeResponseValue:
 			return wv.handleResponsePolicyDecision(decisionPtr)
-		case webkit.PolicyDecisionTypeNavigationActionValue:
+		case webkit.PolicyDecisionTypeNavigationActionValue, webkit.PolicyDecisionTypeNewWindowActionValue:
+			// Both navigation and new window actions use NavigationPolicyDecision
 			return wv.handleNavigationPolicyDecision(decisionPtr)
 		default:
 			return false
@@ -627,7 +634,7 @@ func (wv *WebView) handleResponsePolicyDecision(decisionPtr uintptr) bool {
 	return true
 }
 
-// handleNavigationPolicyDecision handles navigation policy decisions (e.g., middle-click).
+// handleNavigationPolicyDecision handles navigation policy decisions (e.g., middle-click, external schemes).
 func (wv *WebView) handleNavigationPolicyDecision(decisionPtr uintptr) bool {
 	navDecision := webkit.NavigationPolicyDecisionNewFromInternalPtr(decisionPtr)
 	if navDecision == nil {
@@ -639,6 +646,63 @@ func (wv *WebView) handleNavigationPolicyDecision(decisionPtr uintptr) bool {
 		return false
 	}
 
+	request := navAction.GetRequest()
+	if request == nil {
+		return false
+	}
+
+	linkURI := request.GetUri()
+	if linkURI == "" {
+		return false
+	}
+
+	// Debug logging to trace navigation decisions
+	wv.logger.Debug().
+		Str("uri", linkURI).
+		Int("nav_type", int(navAction.GetNavigationType())).
+		Bool("user_gesture", navAction.IsUserGesture()).
+		Msg("navigation policy decision")
+
+	// Check for external URL schemes (e.g., vscode://, vscode-insiders://, spotify://)
+	// These need to be launched via xdg-open rather than handled by WebKit
+	// Only launch for user-initiated actions to prevent automatic redirects
+	// from silently opening external applications
+	if urlutil.IsExternalScheme(linkURI) {
+		if !navAction.IsUserGesture() {
+			// For non-user-initiated redirects, ignore silently
+			navDecision.Ignore()
+			return true
+		}
+
+		wv.logger.Info().
+			Str("uri", linkURI).
+			Msg("launching external URL scheme via xdg-open")
+
+		// Launch asynchronously to avoid blocking WebKit
+		go desktop.LaunchExternalURL(linkURI)
+
+		// Ignore the navigation to prevent WebKit from showing an error
+		navDecision.Ignore()
+
+		// Go back to the previous page to avoid showing WebKit's error page.
+		// This handles OAuth flows where after successful auth, the callback
+		// redirects to a custom scheme (vscode://, vscode-insiders://, etc.)
+		// Schedule on idle to let WebKit process the ignored decision first
+		cb := glib.SourceFunc(func(_ uintptr) bool {
+			if wv.inner != nil && !wv.destroyed.Load() && wv.inner.CanGoBack() {
+				wv.inner.GoBack()
+			}
+			return false // Don't repeat
+		})
+		wv.mu.Lock()
+		wv.asyncCallbacks = append(wv.asyncCallbacks, &cb)
+		wv.mu.Unlock()
+		glib.IdleAdd(&cb, 0)
+
+		return true
+	}
+
+	// Only handle link clicks for middle-click/ctrl-click (open in new tab)
 	if navAction.GetNavigationType() != webkit.NavigationTypeLinkClickedValue {
 		return false
 	}
@@ -649,16 +713,6 @@ func (wv *WebView) handleNavigationPolicyDecision(decisionPtr uintptr) bool {
 	isCtrlClick := mouseButton == 1 && (gdk.ModifierType(modifiers)&gdk.ControlMaskValue) != 0
 
 	if !isMiddleClick && !isCtrlClick {
-		return false
-	}
-
-	request := navAction.GetRequest()
-	if request == nil {
-		return false
-	}
-
-	linkURI := request.GetUri()
-	if linkURI == "" {
 		return false
 	}
 
@@ -778,6 +832,34 @@ func (wv *WebView) connectMouseTargetChangedSignal() {
 	wv.signalIDs = append(wv.signalIDs, sigID)
 }
 
+func (wv *WebView) connectBackForwardListChangedSignal() {
+	backForwardList := wv.inner.GetBackForwardList()
+	if backForwardList == nil {
+		wv.logger.Warn().Msg("failed to get back-forward-list")
+		return
+	}
+
+	// The "changed" signal is emitted when the back-forward list changes,
+	// including for SPA navigation via history.pushState/replaceState.
+	// Parameters: (item_added, items_removed) - we ignore them and just refresh state.
+	changedCb := func(_ webkit.BackForwardList, _ uintptr, _ uintptr) {
+		canBack := wv.inner.CanGoBack()
+		canFwd := wv.inner.CanGoForward()
+		wv.logger.Debug().
+			Bool("can_go_back", canBack).
+			Bool("can_go_forward", canFwd).
+			Uint("list_length", backForwardList.GetLength()).
+			Msg("back-forward-list changed")
+		wv.mu.Lock()
+		wv.canGoBack = canBack
+		wv.canGoFwd = canFwd
+		wv.mu.Unlock()
+	}
+	sigID := backForwardList.ConnectChanged(&changedCb)
+	wv.backForwardList = backForwardList
+	wv.backForwardListSignalID = sigID
+}
+
 // ID returns the unique identifier for this WebView.
 func (wv *WebView) ID() WebViewID {
 	return wv.id
@@ -875,47 +957,63 @@ func (wv *WebView) Stop(ctx context.Context) error {
 }
 
 // GoBack navigates back in history.
-// Uses WebKit native navigation first, falls back to JavaScript history.back() for SPA compatibility.
+// Uses WebKit's native history navigation.
 func (wv *WebView) GoBack(ctx context.Context) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
-	log := logging.FromContext(ctx)
 
-	// Try WebKit native navigation first if available (for non-SPA pages)
-	if wv.inner.CanGoBack() {
-		wv.inner.GoBack()
-		log.Debug().Int("webview_id", int(wv.id)).Msg("webview go back (native)")
-		return nil
-	}
+	logging.FromContext(ctx).Debug().
+		Int("webview_id", int(wv.id)).
+		Bool("can_go_back", wv.inner.CanGoBack()).
+		Str("current_uri", wv.inner.GetUri()).
+		Msg("webview go back")
 
-	// Fall back to JavaScript history.back() for SPA navigation
-	// This handles pushState/replaceState history that WebKit's BackForwardList doesn't track
-	wv.RunJavaScript(ctx, "history.back()", "")
-	log.Debug().Int("webview_id", int(wv.id)).Msg("webview go back (js fallback)")
+	wv.inner.GoBack()
+
+	// Note: We don't dispatch popstate manually anymore.
+	// WebKit's go_back() should handle SPA navigation correctly.
+	// If issues persist, the problem is likely elsewhere.
+
 	return nil
 }
 
 // GoForward navigates forward in history.
-// Uses WebKit native navigation first, falls back to JavaScript history.forward() for SPA compatibility.
 func (wv *WebView) GoForward(ctx context.Context) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
-	log := logging.FromContext(ctx)
 
-	// Try WebKit native navigation first if available (for non-SPA pages)
-	if wv.inner.CanGoForward() {
-		wv.inner.GoForward()
-		log.Debug().Int("webview_id", int(wv.id)).Msg("webview go forward (native)")
-		return nil
-	}
+	logging.FromContext(ctx).Debug().
+		Int("webview_id", int(wv.id)).
+		Bool("can_go_forward", wv.inner.CanGoForward()).
+		Str("current_uri", wv.inner.GetUri()).
+		Msg("webview go forward")
 
-	// Fall back to JavaScript history.forward() for SPA navigation
-	// This handles pushState/replaceState history that WebKit's BackForwardList doesn't track
-	wv.RunJavaScript(ctx, "history.forward()", "")
-	log.Debug().Int("webview_id", int(wv.id)).Msg("webview go forward (js fallback)")
+	wv.inner.GoForward()
+
 	return nil
+}
+
+// GoBackDirect calls WebKit's go_back directly without any wrappers.
+// This is intended for use from gesture handlers where preserving user
+// gesture context is critical for SPA popstate handling.
+// Matches Epiphany: webkit_web_view_go_back(web_view) directly in gesture callback.
+func (wv *WebView) GoBackDirect() {
+	if wv.destroyed.Load() {
+		return
+	}
+	wv.inner.GoBack()
+}
+
+// GoForwardDirect calls WebKit's go_forward directly without any wrappers.
+// This is intended for use from gesture handlers where preserving user
+// gesture context is critical for SPA popstate handling.
+func (wv *WebView) GoForwardDirect() {
+	if wv.destroyed.Load() {
+		return
+	}
+	wv.inner.GoForward()
 }
 
 // CanGoBack returns true if back navigation is possible.
@@ -1141,6 +1239,13 @@ func (wv *WebView) DisconnectSignals() {
 		gobject.SignalHandlerDisconnect(obj, sigID)
 	}
 	wv.signalIDs = wv.signalIDs[:0] // Clear the slice
+
+	if wv.backForwardList != nil && wv.backForwardListSignalID != 0 {
+		bfObj := gobject.ObjectNewFromInternalPtr(wv.backForwardList.GoPointer())
+		gobject.SignalHandlerDisconnect(bfObj, wv.backForwardListSignalID)
+		wv.backForwardListSignalID = 0
+		wv.backForwardList = nil
+	}
 
 	wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("signals disconnected")
 }
