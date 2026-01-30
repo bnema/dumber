@@ -388,6 +388,7 @@ type repositories struct {
 	folder       repository.FolderRepository
 	tag          repository.TagRepository
 	zoom         repository.ZoomRepository
+	permission   repository.PermissionRepository
 	session      repository.SessionRepository
 	sessionState repository.SessionStateRepository
 }
@@ -399,6 +400,7 @@ func createRepositories(db *sql.DB) *repositories {
 		folder:       sqlite.NewFolderRepository(db),
 		tag:          sqlite.NewTagRepository(db),
 		zoom:         sqlite.NewZoomRepository(db),
+		permission:   sqlite.NewPermissionRepository(db),
 		session:      sqlite.NewSessionRepository(db),
 		sessionState: sqlite.NewSessionStateRepository(db),
 	}
@@ -411,6 +413,7 @@ func createLazyRepositories(provider port.DatabaseProvider) *repositories {
 		folder:       sqlite.NewLazyFolderRepository(provider),
 		tag:          sqlite.NewLazyTagRepository(provider),
 		zoom:         sqlite.NewLazyZoomRepository(provider),
+		permission:   sqlite.NewLazyPermissionRepository(provider),
 		session:      sqlite.NewLazySessionRepository(provider),
 		sessionState: sqlite.NewLazySessionStateRepository(provider),
 	}
@@ -423,6 +426,7 @@ type useCases struct {
 	history        *usecase.SearchHistoryUseCase
 	favorites      *usecase.ManageFavoritesUseCase
 	zoom           *usecase.ManageZoomUseCase
+	permission     *usecase.HandlePermissionUseCase
 	navigate       *usecase.NavigateUseCase
 	copyURL        *usecase.CopyURLUseCase
 	snapshot       *usecase.SnapshotSessionUseCase
@@ -458,12 +462,16 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 	updateDownloader := updater.NewGitHubDownloader()
 	updateApplier := updater.NewApplier(stateDir)
 
+	// Permission use case will be initialized later with dialog presenter
+	permissionUC := usecase.NewHandlePermissionUseCase(repos.permission, nil)
+
 	return &useCases{
 		tabs:           usecase.NewManageTabsUseCase(idGenerator),
 		panes:          usecase.NewManagePanesUseCase(idGenerator),
 		history:        usecase.NewSearchHistoryUseCase(repos.history),
 		favorites:      usecase.NewManageFavoritesUseCase(repos.favorite, repos.folder, repos.tag),
 		zoom:           usecase.NewManageZoomUseCase(repos.zoom, defaultZoom, zoomCache),
+		permission:     permissionUC,
 		navigate:       usecase.NewNavigateUseCase(repos.history, repos.zoom, defaultZoom),
 		copyURL:        usecase.NewCopyURLUseCase(clipboardAdapter),
 		snapshot:       usecase.NewSnapshotSessionUseCase(repos.sessionState),
@@ -505,11 +513,13 @@ func buildUIDependencies(
 		HistoryRepo:      repos.history,
 		FavoriteRepo:     repos.favorite,
 		ZoomRepo:         repos.zoom,
+		PermissionRepo:   repos.permission,
 		TabsUC:           uc.tabs,
 		PanesUC:          uc.panes,
 		HistoryUC:        uc.history,
 		FavoritesUC:      uc.favorites,
 		ZoomUC:           uc.zoom,
+		PermissionUC:     uc.permission,
 		NavigateUC:       uc.navigate,
 		CopyURLUC:        uc.copyURL,
 		Clipboard:        uc.clipboard,

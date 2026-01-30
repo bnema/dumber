@@ -40,6 +40,63 @@ func NewLazyHistoryRepository(provider port.DatabaseProvider) repository.History
 	return &LazyHistoryRepository{provider: provider}
 }
 
+// LazyPermissionRepository wraps a permission repository with lazy database initialization.
+type LazyPermissionRepository struct {
+	provider port.DatabaseProvider
+	repo     repository.PermissionRepository
+	once     sync.Once
+	initErr  error
+}
+
+// NewLazyPermissionRepository creates a lazy-loading permission repository.
+func NewLazyPermissionRepository(provider port.DatabaseProvider) repository.PermissionRepository {
+	return &LazyPermissionRepository{provider: provider}
+}
+
+func (r *LazyPermissionRepository) init(ctx context.Context) error {
+	r.once.Do(func() {
+		db, err := r.provider.DB(ctx)
+		if err != nil {
+			r.initErr = err
+			return
+		}
+		r.repo = NewPermissionRepository(db)
+	})
+	return r.initErr
+}
+
+func (r *LazyPermissionRepository) Get(
+	ctx context.Context,
+	origin string,
+	permType entity.PermissionType,
+) (*entity.PermissionRecord, error) {
+	if err := r.init(ctx); err != nil {
+		return nil, err
+	}
+	return r.repo.Get(ctx, origin, permType)
+}
+
+func (r *LazyPermissionRepository) Set(ctx context.Context, record *entity.PermissionRecord) error {
+	if err := r.init(ctx); err != nil {
+		return err
+	}
+	return r.repo.Set(ctx, record)
+}
+
+func (r *LazyPermissionRepository) Delete(ctx context.Context, origin string, permType entity.PermissionType) error {
+	if err := r.init(ctx); err != nil {
+		return err
+	}
+	return r.repo.Delete(ctx, origin, permType)
+}
+
+func (r *LazyPermissionRepository) GetAll(ctx context.Context, origin string) ([]*entity.PermissionRecord, error) {
+	if err := r.init(ctx); err != nil {
+		return nil, err
+	}
+	return r.repo.GetAll(ctx, origin)
+}
+
 func (r *LazyHistoryRepository) init(ctx context.Context) error {
 	r.once.Do(func() {
 		db, err := r.provider.DB(ctx)
@@ -696,6 +753,7 @@ type LazyRepositories struct {
 	Session      repository.SessionRepository
 	SessionState repository.SessionStateRepository
 	Filter       repository.ContentWhitelistRepository
+	Permission   repository.PermissionRepository
 }
 
 // NewLazyRepositories creates all lazy repositories from a database provider.
@@ -709,6 +767,7 @@ func NewLazyRepositories(provider port.DatabaseProvider) *LazyRepositories {
 		Session:      NewLazySessionRepository(provider),
 		SessionState: NewLazySessionStateRepository(provider),
 		Filter:       NewLazyContentWhitelistRepository(provider),
+		Permission:   NewLazyPermissionRepository(provider),
 	}
 }
 
