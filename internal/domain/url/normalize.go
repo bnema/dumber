@@ -206,7 +206,9 @@ func IsExternalScheme(uri string) bool {
 
 // ExtractOrigin extracts the origin (scheme://host) from a URI.
 // This normalizes URIs to origins for permission storage and comparison.
+// Canonicalizes by lowercasing scheme and host, and omitting default ports.
 // Example: "https://example.com/path?query" -> "https://example.com"
+// Example: "HTTPS://EXAMPLE.COM:443/" -> "https://example.com"
 func ExtractOrigin(uri string) (string, error) {
 	parsed, err := url.Parse(uri)
 	if err != nil {
@@ -217,5 +219,24 @@ func ExtractOrigin(uri string) (string, error) {
 		return "", fmt.Errorf("URI missing scheme or host: %s", uri)
 	}
 
-	return parsed.Scheme + "://" + parsed.Host, nil
+	// Canonicalize: lowercase scheme and hostname
+	scheme := strings.ToLower(parsed.Scheme)
+	hostname := strings.ToLower(parsed.Hostname())
+
+	// Determine if we should include the port
+	port := parsed.Port()
+	if port != "" {
+		// Omit default ports
+		if (scheme == "http" && port == "80") || (scheme == "https" && port == "443") {
+			port = ""
+		}
+	}
+
+	// Build canonical origin
+	origin := scheme + "://" + hostname
+	if port != "" {
+		origin = origin + ":" + port
+	}
+
+	return origin, nil
 }

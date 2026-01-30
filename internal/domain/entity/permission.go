@@ -1,8 +1,7 @@
 package entity
 
-import (
-	"time"
-)
+// DomainTimestamp represents a Unix timestamp in seconds.
+// This is a domain-owned type to avoid importing time in the domain layer.
 
 // PermissionType represents the type of permission being requested.
 type PermissionType string
@@ -58,7 +57,7 @@ type PermissionRecord struct {
 	Origin    string             // The origin (domain) this permission applies to
 	Type      PermissionType     // The type of permission
 	Decision  PermissionDecision // The decision: granted, denied, or prompt
-	UpdatedAt time.Time          // When this record was last updated
+	UpdatedAt int64              // Unix timestamp in seconds when this record was last updated
 }
 
 // IsGranted returns true if the permission is granted.

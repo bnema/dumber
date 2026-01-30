@@ -83,6 +83,12 @@ func (uc *HandlePermissionUseCase) HandlePermissionRequest(
 	}
 
 	// Check if all types are auto-allow
+	// Also handle empty permTypes as a deny (shouldn't happen but defensive)
+	if len(permTypes) == 0 {
+		log.Warn().Msg("permission request with empty types, denying")
+		callback.Deny()
+		return
+	}
 	if isAutoAllowSet(permTypes) {
 		log.Debug().Msg("auto-allowing permission request")
 		callback.Allow()
@@ -165,13 +171,15 @@ func (uc *HandlePermissionUseCase) checkStoredPermissions(
 	hasPrompt := false
 
 	for _, permType := range permTypes {
-		// Skip auto-allow types
+		// Skip auto-allow types - they're handled before this function
 		if entity.IsAutoAllow(permType) {
 			continue
 		}
 
-		// Skip non-persistable types (shouldn't happen, but defensive)
+		// Non-persistable types that aren't auto-allow should prompt
+		// This shouldn't happen in practice, but we handle it defensively
 		if !entity.CanPersist(permType) {
+			hasPrompt = true
 			continue
 		}
 
@@ -266,7 +274,7 @@ func (uc *HandlePermissionUseCase) persistPermission(
 			Origin:    origin,
 			Type:      permType,
 			Decision:  decision,
-			UpdatedAt: time.Now(),
+			UpdatedAt: time.Now().Unix(),
 		}
 
 		if err := uc.permRepo.Set(ctx, record); err != nil {
