@@ -154,6 +154,11 @@ type WebView struct {
 	OnLinkHover            func(uri string)            // Called when hovering over a link/image/media (empty string when leaving)
 	OnWebProcessTerminated func(reason webkit.WebProcessTerminationReason, reasonLabel string, uri string)
 
+	// PermissionRequest is called when a site requests permission (mic, camera, screen sharing).
+	// Return true to indicate the request was handled. Call allow()/deny() to respond.
+	// The permission types are determined from the request object.
+	OnPermissionRequest func(origin string, permTypes []string, allow, deny func()) bool
+
 	logger zerolog.Logger
 	mu     sync.RWMutex
 
@@ -412,6 +417,7 @@ func (wv *WebView) connectSignals() {
 	wv.connectMouseTargetChangedSignal()
 	wv.connectBackForwardListChangedSignal()
 	wv.connectWebProcessTerminatedSignal()
+	wv.connectPermissionRequestSignal()
 }
 
 func (wv *WebView) connectLoadChangedSignal() {
@@ -930,6 +936,158 @@ func (wv *WebView) connectWebProcessTerminatedSignal() {
 	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
 }
 
+// connectPermissionRequestSignal sets up the permission-request signal handler.
+// This is emitted when a site calls getUserMedia() or getDisplayMedia().
+func (wv *WebView) connectPermissionRequestSignal() {
+	permissionCb := func(_ webkit.WebView, requestPtr uintptr) bool {
+		if wv.OnPermissionRequest == nil {
+			return false // Not handled, WebKit will deny by default
+		}
+
+		// Extract and normalize origin from current URI
+		uri := wv.URI()
+		if uri == "" {
+			wv.logger.Debug().Msg("permission request with empty origin, denying")
+			return false
+		}
+		origin, err := extractOrigin(uri)
+		if err != nil {
+			wv.logger.Debug().Str("uri", uri).Err(err).Msg("permission request: failed to extract origin, denying")
+			return false
+		}
+
+		// Determine permission types from the request
+		permTypes := wv.determinePermissionTypes(requestPtr)
+		if len(permTypes) == 0 {
+			wv.logger.Warn().Msg("permission request with unknown type, denying")
+			return false
+		}
+
+		// Ref the request object to prevent use-after-free
+		// The request may outlive the signal handler if we show a dialog
+		requestObj := gobject.ObjectNewFromInternalPtr(requestPtr)
+		if requestObj == nil {
+			wv.logger.Warn().Msg("permission request: failed to wrap request object")
+			return false
+		}
+		requestObj.Ref()
+
+		// Create allow/deny callbacks that wrap the WebKit permission request
+		allowCalled := false
+		denyCalled := false
+
+		allow := func() {
+			if allowCalled || denyCalled {
+				requestObj.Unref()
+				return
+			}
+			allowCalled = true
+			wv.allowPermissionRequest(requestPtr)
+			requestObj.Unref()
+		}
+
+		deny := func() {
+			if allowCalled || denyCalled {
+				requestObj.Unref()
+				return
+			}
+			denyCalled = true
+			wv.denyPermissionRequest(requestPtr)
+			requestObj.Unref()
+		}
+
+		// Call the handler
+		return wv.OnPermissionRequest(origin, permTypes, allow, deny)
+	}
+
+	sigID := wv.inner.ConnectPermissionRequest(&permissionCb)
+	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
+}
+
+// extractOrigin extracts the origin (scheme://host) from a URI.
+func extractOrigin(uri string) (string, error) {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return "", err
+	}
+	if u.Scheme == "" || u.Host == "" {
+		return "", fmt.Errorf("URI missing scheme or host")
+	}
+	return u.Scheme + "://" + u.Host, nil
+}
+
+// determinePermissionTypes extracts permission types from a WebKit permission request.
+// This uses type checking to identify UserMediaPermissionRequest and its specific types.
+func (wv *WebView) determinePermissionTypes(requestPtr uintptr) []string {
+	_ = wv // suppress unused receiver warning, method may need receiver in future
+	var types []string
+
+	// Try to cast to UserMediaPermissionRequest
+	userMediaReq := webkit.UserMediaPermissionRequestNewFromInternalPtr(requestPtr)
+	if userMediaReq != nil {
+		if webkit.UserMediaPermissionIsForAudioDevice(userMediaReq) {
+			types = append(types, "microphone")
+		}
+		if webkit.UserMediaPermissionIsForVideoDevice(userMediaReq) {
+			// Check if this is display capture or camera
+			if webkit.UserMediaPermissionIsForDisplayDevice(userMediaReq) {
+				types = append(types, "display")
+			} else {
+				types = append(types, "camera")
+			}
+		}
+		return types
+	}
+
+	// Check for device enumeration request
+	deviceInfoReq := webkit.DeviceInfoPermissionRequestNewFromInternalPtr(requestPtr)
+	if deviceInfoReq != nil {
+		return []string{"device_info"}
+	}
+
+	// Unknown permission type - could be clipboard, notifications, geolocation, etc.
+	// For now, return empty to trigger denial. Future phases will add these types.
+	return nil
+}
+
+// allowPermissionRequest calls Allow() on the WebKit permission request.
+func (wv *WebView) allowPermissionRequest(requestPtr uintptr) {
+	// Try UserMediaPermissionRequest first
+	userMediaReq := webkit.UserMediaPermissionRequestNewFromInternalPtr(requestPtr)
+	if userMediaReq != nil {
+		userMediaReq.Allow()
+		wv.logger.Debug().Msg("permission request allowed")
+		return
+	}
+
+	// Try DeviceInfoPermissionRequest
+	deviceInfoReq := webkit.DeviceInfoPermissionRequestNewFromInternalPtr(requestPtr)
+	if deviceInfoReq != nil {
+		deviceInfoReq.Allow()
+		wv.logger.Debug().Msg("permission request allowed")
+		return
+	}
+}
+
+// denyPermissionRequest calls Deny() on the WebKit permission request.
+func (wv *WebView) denyPermissionRequest(requestPtr uintptr) {
+	// Try UserMediaPermissionRequest first
+	userMediaReq := webkit.UserMediaPermissionRequestNewFromInternalPtr(requestPtr)
+	if userMediaReq != nil {
+		userMediaReq.Deny()
+		wv.logger.Debug().Msg("permission request denied")
+		return
+	}
+
+	// Try DeviceInfoPermissionRequest
+	deviceInfoReq := webkit.DeviceInfoPermissionRequestNewFromInternalPtr(requestPtr)
+	if deviceInfoReq != nil {
+		deviceInfoReq.Deny()
+		wv.logger.Debug().Msg("permission request denied")
+		return
+	}
+}
+
 // ID returns the unique identifier for this WebView.
 func (wv *WebView) ID() WebViewID {
 	return wv.id
@@ -1214,6 +1372,7 @@ func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
 		wv.OnCreate = nil
 		wv.OnLinkHover = nil
 		wv.OnWebProcessTerminated = nil
+		wv.OnPermissionRequest = nil
 		return
 	}
 
@@ -1260,6 +1419,7 @@ func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
 	} else {
 		wv.OnWebProcessTerminated = nil
 	}
+	wv.OnPermissionRequest = callbacks.OnPermissionRequest
 }
 
 // ShowDevTools opens the WebKit inspector/developer tools.
@@ -1374,6 +1534,7 @@ func (wv *WebView) DestroyWithPolicy(policy string) {
 	wv.OnAudioStateChanged = nil
 	wv.OnLinkHover = nil
 	wv.OnWebProcessTerminated = nil
+	wv.OnPermissionRequest = nil
 
 	// 3. Clear async callback references
 	wv.mu.Lock()
