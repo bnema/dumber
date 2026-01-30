@@ -10,6 +10,9 @@ import (
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 )
 
+// buttonSpacing is the spacing between buttons in the permission popup.
+const buttonSpacing = 6
+
 // PermissionPopup is a custom overlay component for permission prompts.
 // It replaces the Adwaita AlertDialog to sidestep the purego ConnectResponse bug
 // and match the app's custom UI style.
@@ -135,8 +138,8 @@ func (pp *PermissionPopup) dismiss(allowed, persistent bool) {
 	}
 }
 
-func (pp *PermissionPopup) createWidgets() error {
-	// Outer box - positioned in overlay, hidden by default
+// setupContainers creates and configures the outer and main boxes.
+func (pp *PermissionPopup) setupContainers() error {
 	pp.outerBox = gtk.NewBox(gtk.OrientationVerticalValue, 0)
 	if pp.outerBox == nil {
 		return errNilWidget("permissionPopupOuterBox")
@@ -146,14 +149,16 @@ func (pp *PermissionPopup) createWidgets() error {
 	pp.outerBox.SetValign(gtk.AlignStartValue)
 	pp.outerBox.SetVisible(false)
 
-	// Main box - styled container
 	pp.mainBox = gtk.NewBox(gtk.OrientationVerticalValue, 0)
 	if pp.mainBox == nil {
 		return errNilWidget("permissionPopupMainBox")
 	}
 	pp.mainBox.AddCssClass("permission-popup-container")
+	return nil
+}
 
-	// Heading label
+// setupLabels creates and configures the heading and body labels.
+func (pp *PermissionPopup) setupLabels() error {
 	emptyText := ""
 	pp.headingLabel = gtk.NewLabel(&emptyText)
 	if pp.headingLabel == nil {
@@ -162,7 +167,6 @@ func (pp *PermissionPopup) createWidgets() error {
 	pp.headingLabel.AddCssClass("permission-popup-heading")
 	pp.headingLabel.SetHalign(gtk.AlignStartValue)
 
-	// Body label
 	pp.bodyLabel = gtk.NewLabel(&emptyText)
 	if pp.bodyLabel == nil {
 		return errNilWidget("permissionPopupBodyLabel")
@@ -170,9 +174,20 @@ func (pp *PermissionPopup) createWidgets() error {
 	pp.bodyLabel.AddCssClass("permission-popup-body")
 	pp.bodyLabel.SetHalign(gtk.AlignStartValue)
 	pp.bodyLabel.SetWrap(true)
+	return nil
+}
+
+func (pp *PermissionPopup) createWidgets() error {
+	if err := pp.setupContainers(); err != nil {
+		return err
+	}
+
+	if err := pp.setupLabels(); err != nil {
+		return err
+	}
 
 	// Button row
-	btnRow := gtk.NewBox(gtk.OrientationHorizontalValue, 6)
+	btnRow := gtk.NewBox(gtk.OrientationHorizontalValue, buttonSpacing)
 	if btnRow == nil {
 		return errNilWidget("permissionPopupBtnRow")
 	}
@@ -180,50 +195,32 @@ func (pp *PermissionPopup) createWidgets() error {
 	btnRow.SetHalign(gtk.AlignEndValue)
 
 	// Create buttons: Always Deny | Deny | Allow | Always Allow
-	pp.btnAlwaysDeny = gtk.NewButtonWithLabel("Always Deny")
-	if pp.btnAlwaysDeny == nil {
-		return errNilWidget("permissionPopupBtnAlwaysDeny")
+	var err error
+	pp.btnAlwaysDeny, err = pp.createPermissionButton("Always Deny", []string{"permission-popup-btn", "permission-popup-btn-destructive"})
+	if err != nil {
+		return err
 	}
-	pp.btnAlwaysDeny.AddCssClass("permission-popup-btn")
-	pp.btnAlwaysDeny.AddCssClass("permission-popup-btn-destructive")
 
-	pp.btnDeny = gtk.NewButtonWithLabel("Deny")
-	if pp.btnDeny == nil {
-		return errNilWidget("permissionPopupBtnDeny")
+	pp.btnDeny, err = pp.createPermissionButton("Deny", []string{"permission-popup-btn", "permission-popup-btn-deny"})
+	if err != nil {
+		return err
 	}
-	pp.btnDeny.AddCssClass("permission-popup-btn")
-	pp.btnDeny.AddCssClass("permission-popup-btn-deny")
 
-	pp.btnAllow = gtk.NewButtonWithLabel("Allow")
-	if pp.btnAllow == nil {
-		return errNilWidget("permissionPopupBtnAllow")
+	pp.btnAllow, err = pp.createPermissionButton("Allow", []string{"permission-popup-btn", "permission-popup-btn-allow"})
+	if err != nil {
+		return err
 	}
-	pp.btnAllow.AddCssClass("permission-popup-btn")
-	pp.btnAllow.AddCssClass("permission-popup-btn-allow")
 
-	pp.btnAlwaysAllow = gtk.NewButtonWithLabel("Always Allow")
-	if pp.btnAlwaysAllow == nil {
-		return errNilWidget("permissionPopupBtnAlwaysAllow")
+	pp.btnAlwaysAllow, err = pp.createPermissionButton("Always Allow", []string{"permission-popup-btn", "permission-popup-btn-allow"})
+	if err != nil {
+		return err
 	}
-	pp.btnAlwaysAllow.AddCssClass("permission-popup-btn")
-	pp.btnAlwaysAllow.AddCssClass("permission-popup-btn-allow")
 
 	// Wire button clicks
-	alwaysDenyCb := func(_ gtk.Button) { pp.dismiss(false, true) }
-	pp.retainedCallbacks = append(pp.retainedCallbacks, alwaysDenyCb)
-	pp.btnAlwaysDeny.ConnectClicked(&alwaysDenyCb)
-
-	denyCb := func(_ gtk.Button) { pp.dismiss(false, false) }
-	pp.retainedCallbacks = append(pp.retainedCallbacks, denyCb)
-	pp.btnDeny.ConnectClicked(&denyCb)
-
-	allowCb := func(_ gtk.Button) { pp.dismiss(true, false) }
-	pp.retainedCallbacks = append(pp.retainedCallbacks, allowCb)
-	pp.btnAllow.ConnectClicked(&allowCb)
-
-	alwaysAllowCb := func(_ gtk.Button) { pp.dismiss(true, true) }
-	pp.retainedCallbacks = append(pp.retainedCallbacks, alwaysAllowCb)
-	pp.btnAlwaysAllow.ConnectClicked(&alwaysAllowCb)
+	pp.wireButton(pp.btnAlwaysDeny, false, true)
+	pp.wireButton(pp.btnDeny, false, false)
+	pp.wireButton(pp.btnAllow, true, false)
+	pp.wireButton(pp.btnAlwaysAllow, true, true)
 
 	// Assemble button row
 	btnRow.Append(&pp.btnAlwaysDeny.Widget)
@@ -240,6 +237,25 @@ func (pp *PermissionPopup) createWidgets() error {
 	pp.outerBox.Append(&pp.mainBox.Widget)
 
 	return nil
+}
+
+// createPermissionButton creates a permission button with the given label and CSS classes.
+func (pp *PermissionPopup) createPermissionButton(label string, cssClasses []string) (*gtk.Button, error) {
+	btn := gtk.NewButtonWithLabel(label)
+	if btn == nil {
+		return nil, errNilWidget("permissionPopupBtn" + label)
+	}
+	for _, class := range cssClasses {
+		btn.AddCssClass(class)
+	}
+	return btn, nil
+}
+
+// wireButton connects a button click to the dismiss callback.
+func (pp *PermissionPopup) wireButton(btn *gtk.Button, allowed, persistent bool) {
+	cb := func(_ gtk.Button) { pp.dismiss(allowed, persistent) }
+	pp.retainedCallbacks = append(pp.retainedCallbacks, cb)
+	btn.ConnectClicked(&cb)
 }
 
 func (pp *PermissionPopup) attachKeyController() {
