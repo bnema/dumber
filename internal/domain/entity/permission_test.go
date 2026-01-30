@@ -66,7 +66,7 @@ func TestPermissionRecord_IsGranted(t *testing.T) {
 				Origin:    "https://example.com",
 				Type:      entity.PermissionTypeMicrophone,
 				Decision:  tt.decision,
-				UpdatedAt: time.Now(),
+				UpdatedAt: time.Now().Unix(),
 			}
 			assert.Equal(t, tt.expected, record.IsGranted())
 		})
@@ -90,7 +90,7 @@ func TestPermissionRecord_IsDenied(t *testing.T) {
 				Origin:    "https://example.com",
 				Type:      entity.PermissionTypeCamera,
 				Decision:  tt.decision,
-				UpdatedAt: time.Now(),
+				UpdatedAt: time.Now().Unix(),
 			}
 			assert.Equal(t, tt.expected, record.IsDenied())
 		})

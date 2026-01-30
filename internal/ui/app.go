@@ -349,10 +349,21 @@ func (a *App) createMainWindow(ctx context.Context) error {
 	}
 	a.mainWindow = mainWindow
 
-	// Create and set the permission dialog presenter
+	// Create permission popup and dialog presenter
 	if a.deps != nil && a.deps.PermissionUC != nil {
-		permDialog := dialog.NewPermissionDialog(a.mainWindow.Window())
-		a.deps.PermissionUC.SetDialogPresenter(permDialog)
+		uiScale := 1.0
+		if a.deps.Config != nil {
+			uiScale = a.deps.Config.DefaultUIScale
+		}
+		permPopup := component.NewPermissionPopup(nil, uiScale)
+		if permPopup != nil {
+			// Add popup to the main window's content overlay
+			if w := permPopup.Widget(); w != nil {
+				a.mainWindow.AddOverlay(w)
+			}
+			permDialog := dialog.NewPermissionDialog(permPopup)
+			a.deps.PermissionUC.SetDialogPresenter(permDialog)
+		}
 	}
 
 	// Apply GTK CSS styling from theme manager.
