@@ -31,3 +31,13 @@
 
 ## Commands
 
+Run before committing:
+- `make lint` - golangci-lint
+- `make test` - unit tests
+- `make check` - verify build, tests, tools
+- `go fmt ./...` - format code
+
+## Misc
+
+- vendor dir is gitignored
+
