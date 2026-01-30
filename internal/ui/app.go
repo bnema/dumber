@@ -24,6 +24,7 @@ import (
 	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
+	"github.com/bnema/dumber/internal/ui/dialog"
 	"github.com/bnema/dumber/internal/ui/dispatcher"
 	"github.com/bnema/dumber/internal/ui/focus"
 	"github.com/bnema/dumber/internal/ui/input"
@@ -347,6 +348,12 @@ func (a *App) createMainWindow(ctx context.Context) error {
 		return err
 	}
 	a.mainWindow = mainWindow
+
+	// Create and set the permission dialog presenter
+	if a.deps != nil && a.deps.PermissionUC != nil {
+		permDialog := dialog.NewPermissionDialog(a.mainWindow.Window())
+		a.deps.PermissionUC.SetDialogPresenter(permDialog)
+	}
 
 	// Apply GTK CSS styling from theme manager.
 	if a.deps == nil || a.deps.Theme == nil {
@@ -1279,6 +1286,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.faviconAdapter,
 		getActiveWS,
 		a.deps.ZoomUC,
+		a.deps.PermissionUC,
 	)
 
 	// Set idle inhibitor for fullscreen video playback
