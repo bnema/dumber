@@ -17,7 +17,8 @@ These permissions require explicit user approval:
 
 - **Microphone** - Websites can request audio capture access
 - **Camera** - Websites can request video capture access
-- **Microphone + Camera** - Combined requests for both audio and video
+
+When both microphone and camera are requested together, a combined dialog is shown.
 
 ## Permission Dialog
 
@@ -34,10 +35,10 @@ When a site requests mic/camera access, a dialog appears with four options:
 
 ### Origin-Based Storage
 
-Permissions are stored per-origin, not per-page. This means:
+Permissions are stored per-origin (scheme + host), not per-page. This means:
 
-- `https://meet.google.com/room1` and `https://meet.google.com/room2` share the same permission
-- `https://github.com` and `https://gist.github.com` share the same permission
+- `https://meet.google.com/room1` and `https://meet.google.com/room2` share the same permission (same host)
+- `https://github.com` and `https://gist.github.com` have different permissions (different hosts)
 
 ### Permission States
 

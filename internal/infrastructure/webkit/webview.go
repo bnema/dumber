@@ -950,7 +950,7 @@ func (wv *WebView) connectPermissionRequestSignal() {
 			wv.logger.Debug().Msg("permission request with empty origin, denying")
 			return false
 		}
-		origin, err := extractOrigin(uri)
+		origin, err := urlutil.ExtractOrigin(uri)
 		if err != nil {
 			wv.logger.Debug().Str("uri", uri).Err(err).Msg("permission request: failed to extract origin, denying")
 			return false
@@ -978,7 +978,6 @@ func (wv *WebView) connectPermissionRequestSignal() {
 
 		allow := func() {
 			if allowCalled || denyCalled {
-				requestObj.Unref()
 				return
 			}
 			allowCalled = true
@@ -988,7 +987,6 @@ func (wv *WebView) connectPermissionRequestSignal() {
 
 		deny := func() {
 			if allowCalled || denyCalled {
-				requestObj.Unref()
 				return
 			}
 			denyCalled = true
@@ -1002,18 +1000,6 @@ func (wv *WebView) connectPermissionRequestSignal() {
 
 	sigID := wv.inner.ConnectPermissionRequest(&permissionCb)
 	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
-}
-
-// extractOrigin extracts the origin (scheme://host) from a URI.
-func extractOrigin(uri string) (string, error) {
-	u, err := url.Parse(uri)
-	if err != nil {
-		return "", err
-	}
-	if u.Scheme == "" || u.Host == "" {
-		return "", fmt.Errorf("URI missing scheme or host")
-	}
-	return u.Scheme + "://" + u.Host, nil
 }
 
 // determinePermissionTypes extracts permission types from a WebKit permission request.

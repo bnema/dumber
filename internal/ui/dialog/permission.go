@@ -104,7 +104,7 @@ func (d *PermissionDialog) buildHeading(permTypes []entity.PermissionType) strin
 
 	for _, pt := range permTypes {
 		switch pt {
-		case entity.PermissionTypeMicrophone, entity.PermissionTypeMicrophoneAndCamera:
+		case entity.PermissionTypeMicrophone:
 			hasMic = true
 		case entity.PermissionTypeCamera:
 			hasCam = true
@@ -130,7 +130,7 @@ func (d *PermissionDialog) buildBody(origin string, permTypes []entity.Permissio
 
 	for _, pt := range permTypes {
 		switch pt {
-		case entity.PermissionTypeMicrophone, entity.PermissionTypeMicrophoneAndCamera:
+		case entity.PermissionTypeMicrophone:
 			hasMic = true
 		case entity.PermissionTypeCamera:
 			hasCam = true

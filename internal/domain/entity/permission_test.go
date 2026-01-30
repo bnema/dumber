@@ -15,7 +15,6 @@ func TestPermissionType_Constants(t *testing.T) {
 	}{
 		{entity.PermissionTypeMicrophone, "microphone"},
 		{entity.PermissionTypeCamera, "camera"},
-		{entity.PermissionTypeMicrophoneAndCamera, "microphone_and_camera"},
 		{entity.PermissionTypeDisplay, "display"},
 		{entity.PermissionTypeDeviceInfo, "device_info"},
 		{entity.PermissionTypeClipboard, "clipboard"},
@@ -112,7 +111,6 @@ func TestCanPersist(t *testing.T) {
 		// Persistable
 		{"microphone", entity.PermissionTypeMicrophone, true},
 		{"camera", entity.PermissionTypeCamera, true},
-		{"microphone and camera", entity.PermissionTypeMicrophoneAndCamera, true},
 		{"clipboard", entity.PermissionTypeClipboard, true},
 		{"notification", entity.PermissionTypeNotification, true},
 		{"geolocation", entity.PermissionTypeGeolocation, true},

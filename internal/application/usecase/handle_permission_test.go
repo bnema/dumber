@@ -12,7 +12,6 @@ import (
 	repomocks "github.com/bnema/dumber/internal/domain/repository/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 func TestHandlePermissionUseCase_AutoAllowDisplayCapture(t *testing.T) {
@@ -359,53 +358,26 @@ func TestHandlePermissionUseCase_NonPersistableNotSaved(t *testing.T) {
 	permRepo.AssertNotCalled(t, "Set")
 }
 
-func TestExtractOrigin_ValidURI(t *testing.T) {
-	tests := []struct {
-		name     string
-		uri      string
-		expected string
-	}{
-		{
-			name:     "https with port",
-			uri:      "https://example.com:8443/path?query=1",
-			expected: "https://example.com:8443",
-		},
-		{
-			name:     "https without port",
-			uri:      "https://example.com/path",
-			expected: "https://example.com",
-		},
-		{
-			name:     "http",
-			uri:      "http://localhost:8080/app",
-			expected: "http://localhost:8080",
-		},
+func TestHandlePermissionUseCase_NoDialogPresenter(t *testing.T) {
+	ctx := testContext()
+	permRepo := repomocks.NewMockPermissionRepository(t)
+
+	// Create use case with nil dialog presenter
+	uc := usecase.NewHandlePermissionUseCase(permRepo, nil)
+
+	denied := false
+	callback := usecase.PermissionCallback{
+		Allow: func() {},
+		Deny:  func() { denied = true },
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			origin, err := usecase.ExtractOrigin(tt.uri)
-			require.NoError(t, err)
-			assert.Equal(t, tt.expected, origin)
-		})
-	}
-}
+	// Mic request with no stored permission and no dialog should be denied
+	permRepo.EXPECT().Get(mock.Anything, "https://meet.example.com", entity.PermissionTypeMicrophone).
+		Return(nil, nil)
 
-func TestExtractOrigin_InvalidURI(t *testing.T) {
-	tests := []struct {
-		name string
-		uri  string
-	}{
-		{name: "empty", uri: ""},
-		{name: "no scheme", uri: "example.com"},
-		{name: "no host", uri: "https://"},
-	}
+	uc.HandlePermissionRequest(ctx, "https://meet.example.com", []entity.PermissionType{
+		entity.PermissionTypeMicrophone,
+	}, callback)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			origin, err := usecase.ExtractOrigin(tt.uri)
-			require.Error(t, err)
-			assert.Empty(t, origin)
-		})
-	}
+	assert.True(t, denied, "should deny when no dialog presenter is available")
 }

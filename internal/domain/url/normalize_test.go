@@ -509,3 +509,60 @@ func TestIsExternalScheme(t *testing.T) {
 		})
 	}
 }
+
+func TestExtractOrigin_ValidURI(t *testing.T) {
+	tests := []struct {
+		name     string
+		uri      string
+		expected string
+	}{
+		{
+			name:     "https with port",
+			uri:      "https://example.com:8443/path?query=1",
+			expected: "https://example.com:8443",
+		},
+		{
+			name:     "https without port",
+			uri:      "https://example.com/path",
+			expected: "https://example.com",
+		},
+		{
+			name:     "http",
+			uri:      "http://localhost:8080/app",
+			expected: "http://localhost:8080",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			origin, err := ExtractOrigin(tt.uri)
+			if err != nil {
+				t.Errorf("ExtractOrigin(%q) returned error: %v", tt.uri, err)
+				return
+			}
+			if origin != tt.expected {
+				t.Errorf("ExtractOrigin(%q) = %q, want %q", tt.uri, origin, tt.expected)
+			}
+		})
+	}
+}
+
+func TestExtractOrigin_InvalidURI(t *testing.T) {
+	tests := []struct {
+		name string
+		uri  string
+	}{
+		{name: "empty", uri: ""},
+		{name: "no scheme", uri: "example.com"},
+		{name: "no host", uri: "https://"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			origin, err := ExtractOrigin(tt.uri)
+			if err == nil {
+				t.Errorf("ExtractOrigin(%q) should return error, got origin: %q", tt.uri, origin)
+			}
+		})
+	}
+}
