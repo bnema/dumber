@@ -3,6 +3,7 @@
 ## Quick Links
 
 - [Configuration](./configuration.md) - All config keys
+- [Permissions](./permissions.md) - Website permission handling (mic, camera, screen sharing)
 - [Dependencies](./dependencies.md) - System dependencies for Arch and Debian/Ubuntu
 - [Keybindings](./keybindings.md) - All keyboard shortcuts
 - [Troubleshooting](./troubleshooting.md) - Common issues and solutions

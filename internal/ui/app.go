@@ -24,6 +24,7 @@ import (
 	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
+	"github.com/bnema/dumber/internal/ui/dialog"
 	"github.com/bnema/dumber/internal/ui/dispatcher"
 	"github.com/bnema/dumber/internal/ui/focus"
 	"github.com/bnema/dumber/internal/ui/input"
@@ -347,6 +348,23 @@ func (a *App) createMainWindow(ctx context.Context) error {
 		return err
 	}
 	a.mainWindow = mainWindow
+
+	// Create permission popup and dialog presenter
+	if a.deps != nil && a.deps.PermissionUC != nil {
+		uiScale := 1.0
+		if a.deps.Config != nil {
+			uiScale = a.deps.Config.DefaultUIScale
+		}
+		permPopup := component.NewPermissionPopup(nil, uiScale)
+		if permPopup != nil {
+			// Add popup to the main window's content overlay
+			if w := permPopup.Widget(); w != nil {
+				a.mainWindow.AddOverlay(w)
+			}
+			permDialog := dialog.NewPermissionDialog(permPopup)
+			a.deps.PermissionUC.SetDialogPresenter(permDialog)
+		}
+	}
 
 	// Apply GTK CSS styling from theme manager.
 	if a.deps == nil || a.deps.Theme == nil {
@@ -1279,6 +1297,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.faviconAdapter,
 		getActiveWS,
 		a.deps.ZoomUC,
+		a.deps.PermissionUC,
 	)
 
 	// Set idle inhibitor for fullscreen video playback

@@ -92,6 +92,11 @@ type WebViewCallbacks struct {
 	// OnLinkHover is called when hovering over a link, image, or media element.
 	// The uri parameter contains the target URL, or empty string when leaving.
 	OnLinkHover func(uri string)
+
+	// OnPermissionRequest is called when a site requests permission (mic, camera, screen sharing).
+	// Return true to indicate the request was handled. Call allow()/deny() to respond.
+	// The permission types are passed as strings ("microphone", "camera", "display", etc.).
+	OnPermissionRequest func(origin string, permTypes []string, allow, deny func()) bool
 }
 
 // FindOptions configures search behavior.
