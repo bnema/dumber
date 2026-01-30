@@ -531,6 +531,36 @@ func TestExtractOrigin_ValidURI(t *testing.T) {
 			uri:      "http://localhost:8080/app",
 			expected: "http://localhost:8080",
 		},
+		{
+			name:     "uppercase host",
+			uri:      "https://EXAMPLE.COM/path",
+			expected: "https://example.com",
+		},
+		{
+			name:     "uppercase scheme",
+			uri:      "HTTPS://example.com/path",
+			expected: "https://example.com",
+		},
+		{
+			name:     "https default port omitted",
+			uri:      "https://example.com:443/path",
+			expected: "https://example.com",
+		},
+		{
+			name:     "http default port omitted",
+			uri:      "http://example.com:80/path",
+			expected: "http://example.com",
+		},
+		{
+			name:     "https explicit non-default port kept",
+			uri:      "https://example.com:8080/path",
+			expected: "https://example.com:8080",
+		},
+		{
+			name:     "mixed case with default port",
+			uri:      "HTTPS://EXAMPLE.COM:443/path",
+			expected: "https://example.com",
+		},
 	}
 
 	for _, tt := range tests {

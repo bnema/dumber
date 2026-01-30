@@ -8,21 +8,21 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/jwijenbergh/puregotk/v4/adw"
-	"github.com/jwijenbergh/puregotk/v4/gtk"
+	"github.com/bnema/dumber/internal/ui/component"
 )
 
 // PermissionDialog implements the port.PermissionDialogPresenter interface.
-// It shows Adwaita AlertDialogs for media permission requests.
+// It uses a custom PermissionPopup overlay to sidestep the purego ConnectResponse bug
+// and match the app's custom UI style.
 type PermissionDialog struct {
-	// parentWindow is the parent window for modal dialogs (can be nil)
-	parentWindow *gtk.ApplicationWindow
+	popup *component.PermissionPopup
 }
 
 // NewPermissionDialog creates a new permission dialog presenter.
-func NewPermissionDialog(parentWindow *gtk.ApplicationWindow) *PermissionDialog {
+// The popup is created once and reused for each permission request.
+func NewPermissionDialog(popup *component.PermissionPopup) *PermissionDialog {
 	return &PermissionDialog{
-		parentWindow: parentWindow,
+		popup: popup,
 	}
 }
 
@@ -35,66 +35,28 @@ func (d *PermissionDialog) ShowPermissionDialog(
 ) {
 	log := logging.FromContext(ctx)
 
-	// Build dialog text
-	heading := d.buildHeading(permTypes)
-	body := d.buildBody(origin, permTypes)
-
-	// Create alert dialog
-	dialog := adw.NewAlertDialog(&heading, &body)
-	if dialog == nil {
-		log.Error().Msg("failed to create permission dialog")
-		// Deny by default if dialog creation fails
+	if d.popup == nil {
+		log.Error().Msg("permission popup not available")
 		callback(port.PermissionDialogResult{Allowed: false, Persistent: false})
 		return
 	}
 
-	// Add responses: Allow, Always Allow, Deny, Always Deny
-	// Using underscore prefix for mnemonic keyboard shortcuts
-	dialog.AddResponse("allow", "_Allow")
-	dialog.AddResponse("allow_always", "Always _Allow")
-	dialog.AddResponse("deny", "_Deny")
-	dialog.AddResponse("deny_always", "Always _Deny")
+	// Build dialog text
+	heading := d.buildHeading(permTypes)
+	body := d.buildBody(origin, permTypes)
 
-	// Set appearances
-	dialog.SetResponseAppearance("allow", adw.ResponseSuggestedValue)
-	dialog.SetResponseAppearance("allow_always", adw.ResponseSuggestedValue)
-	dialog.SetResponseAppearance("deny", adw.ResponseDefaultValue)
-	dialog.SetResponseAppearance("deny_always", adw.ResponseDestructiveValue)
-
-	// Set default response to Deny (conservative default)
-	defaultResponse := "deny"
-	dialog.SetDefaultResponse(&defaultResponse)
-	dialog.SetCloseResponse("deny")
-
-	// Connect response signal - store callback to prevent GC
-	responseCb := func(_ adw.AlertDialog, response string) {
-		switch response {
-		case "allow":
-			callback(port.PermissionDialogResult{Allowed: true, Persistent: false})
-		case "allow_always":
-			callback(port.PermissionDialogResult{Allowed: true, Persistent: true})
-		case "deny_always":
-			callback(port.PermissionDialogResult{Allowed: false, Persistent: true})
-		default:
-			callback(port.PermissionDialogResult{Allowed: false, Persistent: false})
-		}
-	}
-	dialog.ConnectResponse(&responseCb)
-
-	// Present the dialog
-	if d.parentWindow != nil {
-		// Get the widget representation of the window
-		parentWidget := gtk.WidgetNewFromInternalPtr(d.parentWindow.GoPointer())
-		dialog.Present(parentWidget)
-	} else {
-		// Present without parent - GTK will use default window
-		dialog.Present(nil)
-	}
+	d.popup.Show(ctx, heading, body, func(allowed, persistent bool) {
+		log.Debug().
+			Bool("allowed", allowed).
+			Bool("persistent", persistent).
+			Msg("permission popup response")
+		callback(port.PermissionDialogResult{Allowed: allowed, Persistent: persistent})
+	})
 
 	log.Debug().
 		Str("origin", origin).
 		Strs("types", entity.PermissionTypesToStrings(permTypes)).
-		Msg("showing permission dialog")
+		Msg("showing permission popup")
 }
 
 // buildHeading creates the dialog heading based on permission types.

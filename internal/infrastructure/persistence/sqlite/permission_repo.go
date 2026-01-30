@@ -40,6 +40,12 @@ func (r *permissionRepo) Get(ctx context.Context, origin string, permType entity
 
 func (r *permissionRepo) Set(ctx context.Context, record *entity.PermissionRecord) error {
 	log := logging.FromContext(ctx)
+
+	if record == nil {
+		log.Error().Msg("cannot set nil permission record")
+		return errors.New("cannot set nil permission record")
+	}
+
 	log.Debug().
 		Str("origin", record.Origin).
 		Str("type", string(record.Type)).
@@ -86,7 +92,7 @@ func permissionFromRow(row sqlc.Permission) *entity.PermissionRecord {
 		Decision: entity.PermissionDecision(row.Decision),
 	}
 	if row.UpdatedAt.Valid {
-		record.UpdatedAt = row.UpdatedAt.Time
+		record.UpdatedAt = row.UpdatedAt.Time.Unix()
 	}
 	return record
 }

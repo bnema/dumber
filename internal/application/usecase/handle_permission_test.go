@@ -73,7 +73,7 @@ func TestHandlePermissionUseCase_StoredPermissionGranted(t *testing.T) {
 			Origin:    "https://meet.example.com",
 			Type:      entity.PermissionTypeMicrophone,
 			Decision:  entity.PermissionGranted,
-			UpdatedAt: time.Now(),
+			UpdatedAt: time.Now().Unix(),
 		}, nil)
 
 	allowed := false
@@ -103,7 +103,7 @@ func TestHandlePermissionUseCase_StoredPermissionDenied(t *testing.T) {
 			Origin:    "https://meet.example.com",
 			Type:      entity.PermissionTypeCamera,
 			Decision:  entity.PermissionDenied,
-			UpdatedAt: time.Now(),
+			UpdatedAt: time.Now().Unix(),
 		}, nil)
 
 	denied := false
