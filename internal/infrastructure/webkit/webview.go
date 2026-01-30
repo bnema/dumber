@@ -1004,17 +1004,28 @@ func (wv *WebView) connectPermissionRequestSignal() {
 
 // determinePermissionTypes extracts permission types from a WebKit permission request.
 // This uses type checking to identify UserMediaPermissionRequest and its specific types.
+// We use GObject property accessors as the primary method because the C function wrappers
+// can hit a purego bug where bool return values are misread.
 func (wv *WebView) determinePermissionTypes(requestPtr uintptr) []string {
-	_ = wv // suppress unused receiver warning, method may need receiver in future
 	var types []string
 
 	// Try to cast to UserMediaPermissionRequest
 	userMediaReq := webkit.UserMediaPermissionRequestNewFromInternalPtr(requestPtr)
 	if userMediaReq != nil {
-		if webkit.UserMediaPermissionIsForAudioDevice(userMediaReq) {
+		// Use GObject property accessors — more reliable than the C function wrappers
+		// which can hit the purego bool return value bug.
+		isAudio := userMediaReq.GetPropertyIsForAudioDevice()
+		isVideo := userMediaReq.GetPropertyIsForVideoDevice()
+
+		wv.logger.Debug().
+			Bool("is_audio", isAudio).
+			Bool("is_video", isVideo).
+			Msg("permission request type detection")
+
+		if isAudio {
 			types = append(types, "microphone")
 		}
-		if webkit.UserMediaPermissionIsForVideoDevice(userMediaReq) {
+		if isVideo {
 			// Check if this is display capture or camera
 			if webkit.UserMediaPermissionIsForDisplayDevice(userMediaReq) {
 				types = append(types, "display")
