@@ -203,3 +203,19 @@ func IsExternalScheme(uri string) bool {
 		return true
 	}
 }
+
+// ExtractOrigin extracts the origin (scheme://host) from a URI.
+// This normalizes URIs to origins for permission storage and comparison.
+// Example: "https://example.com/path?query" -> "https://example.com"
+func ExtractOrigin(uri string) (string, error) {
+	parsed, err := url.Parse(uri)
+	if err != nil {
+		return "", fmt.Errorf("invalid URI: %w", err)
+	}
+
+	if parsed.Scheme == "" || parsed.Host == "" {
+		return "", fmt.Errorf("URI missing scheme or host: %s", uri)
+	}
+
+	return parsed.Scheme + "://" + parsed.Host, nil
+}

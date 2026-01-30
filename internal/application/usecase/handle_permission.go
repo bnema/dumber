@@ -3,8 +3,7 @@ package usecase
 
 import (
 	"context"
-	"fmt"
-	"net/url"
+	"sync"
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -27,6 +26,7 @@ type PermissionCallback struct {
 type HandlePermissionUseCase struct {
 	permRepo repository.PermissionRepository
 	dialog   port.PermissionDialogPresenter
+	dialogMu sync.RWMutex
 }
 
 // NewHandlePermissionUseCase creates a new permission handling use case.
@@ -43,7 +43,16 @@ func NewHandlePermissionUseCase(
 // SetDialogPresenter sets the dialog presenter. This can be called after
 // initialization when the UI window is available.
 func (uc *HandlePermissionUseCase) SetDialogPresenter(dialog port.PermissionDialogPresenter) {
+	uc.dialogMu.Lock()
+	defer uc.dialogMu.Unlock()
 	uc.dialog = dialog
+}
+
+// getDialog safely returns the current dialog presenter.
+func (uc *HandlePermissionUseCase) getDialog() port.PermissionDialogPresenter {
+	uc.dialogMu.RLock()
+	defer uc.dialogMu.RUnlock()
+	return uc.dialog
 }
 
 // HandlePermissionRequest processes a permission request from WebKit.
@@ -74,7 +83,7 @@ func (uc *HandlePermissionUseCase) HandlePermissionRequest(
 	}
 
 	// Check if all types are auto-allow
-	if uc.isAutoAllowSet(permTypes) {
+	if isAutoAllowSet(permTypes) {
 		log.Debug().Msg("auto-allowing permission request")
 		callback.Allow()
 		return
@@ -135,8 +144,7 @@ func (uc *HandlePermissionUseCase) QueryPermissionState(
 }
 
 // isAutoAllowSet returns true if all permission types in the set are auto-allow.
-func (uc *HandlePermissionUseCase) isAutoAllowSet(permTypes []entity.PermissionType) bool {
-	_ = uc // suppress unused receiver warning, method kept for consistency
+func isAutoAllowSet(permTypes []entity.PermissionType) bool {
 	for _, pt := range permTypes {
 		if !entity.IsAutoAllow(pt) {
 			return false
@@ -209,14 +217,16 @@ func (uc *HandlePermissionUseCase) showPermissionDialog(
 ) {
 	log := logging.FromContext(ctx)
 
+	dialog := uc.getDialog()
+
 	// If no dialog presenter is set, deny the permission
-	if uc.dialog == nil {
+	if dialog == nil {
 		log.Warn().Str("origin", origin).Msg("no dialog presenter available, denying permission")
 		callback.Deny()
 		return
 	}
 
-	uc.dialog.ShowPermissionDialog(ctx, origin, permTypes, func(result port.PermissionDialogResult) {
+	dialog.ShowPermissionDialog(ctx, origin, permTypes, func(result port.PermissionDialogResult) {
 		if result.Allowed {
 			log.Debug().Bool("persistent", result.Persistent).Msg("user allowed permission")
 			callback.Allow()
@@ -267,21 +277,4 @@ func (uc *HandlePermissionUseCase) persistPermission(
 				Msg("failed to persist permission")
 		}
 	}
-}
-
-// ExtractOrigin extracts the origin (scheme://host) from a URI.
-// This normalizes URIs to origins for permission storage.
-func ExtractOrigin(uri string) (string, error) {
-	u, err := url.Parse(uri)
-	if err != nil {
-		return "", fmt.Errorf("invalid URI: %w", err)
-	}
-
-	if u.Scheme == "" || u.Host == "" {
-		return "", fmt.Errorf("URI missing scheme or host: %s", uri)
-	}
-
-	// Return scheme://host (without path, query, fragment)
-	origin := fmt.Sprintf("%s://%s", u.Scheme, u.Host)
-	return origin, nil
 }

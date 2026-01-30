@@ -14,9 +14,6 @@ const (
 	// PermissionTypeCamera represents camera access permission.
 	PermissionTypeCamera PermissionType = "camera"
 
-	// PermissionTypeMicrophoneAndCamera represents combined mic and camera permission.
-	PermissionTypeMicrophoneAndCamera PermissionType = "microphone_and_camera"
-
 	// PermissionTypeDisplay represents screen sharing/display capture permission.
 	PermissionTypeDisplay PermissionType = "display"
 
