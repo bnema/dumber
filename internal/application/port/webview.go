@@ -104,6 +104,11 @@ type WebViewCallbacks struct {
 	OnLinkHover func(uri string)
 	// OnWebProcessTerminated is called when the web process exits unexpectedly.
 	OnWebProcessTerminated func(reason WebProcessTerminationReason, reasonLabel string, uri string)
+
+	// OnPermissionRequest is called when a site requests permission (mic, camera, screen sharing).
+	// Return true to indicate the request was handled. Call allow()/deny() to respond.
+	// The permission types are passed as strings ("microphone", "camera", "display", etc.).
+	OnPermissionRequest func(origin string, permTypes []string, allow, deny func()) bool
 }
 
 // FindOptions configures search behavior.
