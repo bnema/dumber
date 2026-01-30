@@ -90,6 +90,7 @@ type ContentCoordinator struct {
 	widgetFactory  layout.WidgetFactory
 	faviconAdapter *adapter.FaviconAdapter
 	zoomUC         *usecase.ManageZoomUseCase
+	permissionUC   *usecase.HandlePermissionUseCase
 	injector       *webkit.ContentInjector
 
 	webViews   map[entity.PaneID]*webkit.WebView
@@ -186,6 +187,7 @@ func NewContentCoordinator(
 	faviconAdapter *adapter.FaviconAdapter,
 	getActiveWS func() (*entity.Workspace, *component.WorkspaceView),
 	zoomUC *usecase.ManageZoomUseCase,
+	permissionUC *usecase.HandlePermissionUseCase,
 ) *ContentCoordinator {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("creating content coordinator")
@@ -195,6 +197,7 @@ func NewContentCoordinator(
 		widgetFactory:  widgetFactory,
 		faviconAdapter: faviconAdapter,
 		zoomUC:         zoomUC,
+		permissionUC:   permissionUC,
 		webViews:       make(map[entity.PaneID]*webkit.WebView),
 		paneTitles:     make(map[entity.PaneID]string),
 		navOrigins:     make(map[entity.PaneID]string),
@@ -1646,6 +1649,10 @@ func (c *ContentCoordinator) setupWebViewCallbacks(ctx context.Context, paneID e
 		}
 	}
 
+	// Permission request handler
+	wv.OnPermissionRequest = func(origin string, permTypes []string, allow, deny func()) bool {
+		return c.handlePermissionRequest(ctx, origin, permTypes, allow, deny)
+	}
 	// Fullscreen handlers for idle inhibition
 	c.setupIdleInhibitionHandlers(ctx, paneID, wv)
 
@@ -1940,6 +1947,68 @@ func (c *ContentCoordinator) handleLinkMiddleClick(ctx context.Context, parentPa
 		Str("uri", uri).
 		Msg("middle-click link opened in new pane")
 
+	return true
+}
+
+// handlePermissionRequest processes media permission requests from WebKit.
+// It delegates to the permission use case which handles auto-allow, stored permissions, and dialogs.
+func (c *ContentCoordinator) handlePermissionRequest(
+	ctx context.Context,
+	origin string,
+	permTypes []string,
+	allow, deny func(),
+) bool {
+	log := logging.FromContext(ctx)
+
+	// Convert string permission types to entity types
+	entityTypes := make([]entity.PermissionType, 0, len(permTypes))
+	for _, pt := range permTypes {
+		switch pt {
+		case "microphone":
+			entityTypes = append(entityTypes, entity.PermissionTypeMicrophone)
+		case "camera":
+			entityTypes = append(entityTypes, entity.PermissionTypeCamera)
+		case "display":
+			entityTypes = append(entityTypes, entity.PermissionTypeDisplay)
+		case "device_info":
+			entityTypes = append(entityTypes, entity.PermissionTypeDeviceInfo)
+		default:
+			log.Warn().Str("type", pt).Msg("unknown permission type, skipping")
+		}
+	}
+
+	if len(entityTypes) == 0 {
+		log.Warn().Str("origin", origin).Msg("permission request with no valid types, denying")
+		deny()
+		return true
+	}
+
+	// Check if permission use case is available
+	if c.permissionUC == nil {
+		log.Warn().Str("origin", origin).Msg("no permission use case available, auto-allowing low-risk permissions")
+		// Auto-allow display and device_info, deny others
+		allAutoAllow := true
+		for _, pt := range entityTypes {
+			if !entity.IsAutoAllow(pt) {
+				allAutoAllow = false
+				break
+			}
+		}
+		if allAutoAllow {
+			allow()
+		} else {
+			deny()
+		}
+		return true
+	}
+
+	// Delegate to use case
+	callback := usecase.PermissionCallback{
+		Allow: allow,
+		Deny:  deny,
+	}
+
+	c.permissionUC.HandlePermissionRequest(ctx, origin, entityTypes, callback)
 	return true
 }
 
