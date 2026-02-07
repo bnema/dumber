@@ -19,9 +19,10 @@ type LoadingSkeleton struct {
 }
 
 const (
-	loadingSkeletonSpacing     = 6
-	loadingSkeletonLogoSize    = 256
-	loadingSkeletonSpinnerSize = 32
+	loadingSkeletonSpacing         = 6
+	loadingSkeletonLogoSize        = 256
+	loadingSkeletonSpinnerSize     = 32
+	loadingSkeletonVersionMaxChars = 16
 )
 
 // skeletonVersion is set via SetSkeletonVersion during startup.
@@ -83,6 +84,8 @@ func NewLoadingSkeleton(factory layout.WidgetFactory) *LoadingSkeleton {
 	versionLabel.SetValign(gtk.AlignCenterValue)
 	versionLabel.SetCanFocus(false)
 	versionLabel.SetCanTarget(false)
+	versionLabel.SetMaxWidthChars(loadingSkeletonVersionMaxChars)
+	versionLabel.SetEllipsize(layout.EllipsizeEnd)
 	versionLabel.AddCssClass("loading-skeleton-version")
 
 	// Layout: logo, spinner, version (vertically centered)

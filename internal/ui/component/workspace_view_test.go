@@ -66,6 +66,8 @@ func setupLoadingSkeletonMocksWorkspace(
 	mockLoadingVersion.EXPECT().SetValign(mock.Anything).Maybe()
 	mockLoadingVersion.EXPECT().SetCanFocus(false).Maybe()
 	mockLoadingVersion.EXPECT().SetCanTarget(false).Maybe()
+	mockLoadingVersion.EXPECT().SetMaxWidthChars(mock.Anything).Maybe()
+	mockLoadingVersion.EXPECT().SetEllipsize(mock.Anything).Maybe()
 	mockLoadingVersion.EXPECT().AddCssClass("loading-skeleton-version").Maybe()
 
 	mockLoadingContent.EXPECT().Append(mockLoadingLogo).Maybe()
