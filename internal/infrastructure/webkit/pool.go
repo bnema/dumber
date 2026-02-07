@@ -196,6 +196,14 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Re-check after creation: if pool closed during createWebView, destroy
+	// the new WebView and return an error to avoid leaking resources.
+	if p.closed.Load() {
+		wv.DestroyWithPolicy(p.terminatePolicy)
+		return nil, ErrPoolClosed
+	}
+
 	log.Debug().
 		Uint64("id", uint64(wv.ID())).
 		Dur("latency", time.Since(start)).

@@ -1205,7 +1205,7 @@ func (c *ContentCoordinator) revealIfPending(ctx context.Context, paneID entity.
 		logging.FromContext(ctx).
 			Debug().
 			Str("pane_id", string(paneID)).
-			Str("url", uri).
+			Str("uri", uri).
 			Str("reason", reason).
 			Msg("webview revealed")
 	}
