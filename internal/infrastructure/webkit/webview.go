@@ -1417,12 +1417,12 @@ func (wv *WebView) ResetForPoolReuse() {
 	wv.isLoading = false
 	wv.asyncCallbacks = nil
 	wv.runJSErrorStats = make(map[string]runJSErrorStat)
+	wv.lastProgressUpdate.Store(0)
 	wv.mu.Unlock()
 
 	wv.isFullscreen.Store(false)
 	wv.isPlayingAudio.Store(false)
 	wv.navigationActive.Store(false)
-	wv.lastProgressUpdate.Store(0)
 
 	if wv.inner != nil {
 		wv.inner.StopLoading()
@@ -1561,6 +1561,16 @@ func (wv *WebView) RunJavaScript(ctx context.Context, script, worldName string) 
 	log := logging.FromContext(ctx)
 
 	cb := gio.AsyncReadyCallback(func(_ uintptr, resPtr uintptr, _ uintptr) {
+		if wv.destroyed.Load() {
+			return
+		}
+		wv.mu.RLock()
+		inner := wv.inner
+		wv.mu.RUnlock()
+		if inner == nil {
+			return
+		}
+
 		domain := wv.runJSDomain()
 		if resPtr == 0 {
 			signature := "nil_async_result"
@@ -1577,7 +1587,7 @@ func (wv *WebView) RunJavaScript(ctx context.Context, script, worldName string) 
 		}
 
 		res := &gio.AsyncResultBase{Ptr: resPtr}
-		value, err := wv.inner.EvaluateJavascriptFinish(res)
+		value, err := inner.EvaluateJavascriptFinish(res)
 		if err != nil {
 			nonFatal, signature := classifyRunJSEvaluateError(err)
 			shouldLog, count := wv.shouldLogRunJSError(domain, signature, nonFatal, time.Now())
@@ -1629,7 +1639,13 @@ func (wv *WebView) RunJavaScript(ctx context.Context, script, worldName string) 
 	if worldName != "" {
 		worldNamePtr = &worldName
 	}
-	wv.inner.EvaluateJavascript(script, -1, worldNamePtr, nil, nil, &cb, 0)
+	wv.mu.RLock()
+	inner := wv.inner
+	wv.mu.RUnlock()
+	if inner == nil || wv.destroyed.Load() {
+		return
+	}
+	inner.EvaluateJavascript(script, -1, worldNamePtr, nil, nil, &cb, 0)
 }
 
 // AttachFrontend injects scripts/styles and wires the message router once per WebView.

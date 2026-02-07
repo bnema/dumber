@@ -962,6 +962,8 @@ func (o *Omnibox) acceptGhostCompletion() {
 	}
 	o.isAcceptingGhost = true
 	o.realInput = fullText
+	o.selectedIndex = -1
+	o.hasNavigated = false
 	o.ghostToken++
 	o.ghostSuffix = ""
 	o.ghostFullText = ""
@@ -974,6 +976,9 @@ func (o *Omnibox) acceptGhostCompletion() {
 		}
 		o.entry.SelectRegion(-1, -1)
 		o.entry.SetPosition(-1)
+	}
+	if o.listBox != nil {
+		o.listBox.SelectRow(nil)
 	}
 
 	o.mu.Lock()
