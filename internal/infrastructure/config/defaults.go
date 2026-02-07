@@ -153,6 +153,10 @@ func DefaultConfig() *Config {
 			SampleMemory:              false,
 			DebugFrames:               false,
 		},
+		Privacy: PrivacyConfig{
+			CookiePolicy: CookiePolicyNoThirdParty,
+			ITPEnabled:   true,
+		},
 		DefaultWebpageZoom: 1.2,            // 120% default zoom for better readability
 		DefaultUIScale:     defaultUIScale, // 1.0 = 100%, 2.0 = 200%
 		Workspace: WorkspaceConfig{

@@ -3,6 +3,15 @@ package port
 
 import "context"
 
+// WebKitCookiePolicy controls cookie acceptance behavior for NetworkSession.
+type WebKitCookiePolicy string
+
+const (
+	WebKitCookiePolicyAlways       WebKitCookiePolicy = "always"
+	WebKitCookiePolicyNoThirdParty WebKitCookiePolicy = "no_third_party"
+	WebKitCookiePolicyNever        WebKitCookiePolicy = "never"
+)
+
 // MemoryPressureConfig holds memory pressure settings for a WebKit process.
 // Zero values mean "use WebKit defaults".
 type MemoryPressureConfig struct {
@@ -41,6 +50,12 @@ type WebKitContextOptions struct {
 
 	// CacheDir is the directory for cache data.
 	CacheDir string
+
+	// CookiePolicy controls cookie acceptance behavior.
+	CookiePolicy WebKitCookiePolicy
+
+	// ITPEnabled controls Intelligent Tracking Prevention for NetworkSession.
+	ITPEnabled bool
 
 	// WebProcessMemory configures memory pressure for web processes.
 	// nil means use WebKit defaults.

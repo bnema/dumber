@@ -201,6 +201,17 @@ func normalizeConfig(config *Config) {
 		config.Rendering.GSKRenderer = GSKRendererAuto
 	}
 
+	switch strings.ToLower(string(config.Privacy.CookiePolicy)) {
+	case "", string(CookiePolicyNoThirdParty):
+		config.Privacy.CookiePolicy = CookiePolicyNoThirdParty
+	case string(CookiePolicyAlways):
+		config.Privacy.CookiePolicy = CookiePolicyAlways
+	case string(CookiePolicyNever):
+		config.Privacy.CookiePolicy = CookiePolicyNever
+	default:
+		config.Privacy.CookiePolicy = CookiePolicyNoThirdParty
+	}
+
 	switch config.Appearance.ColorScheme {
 	case ThemePreferDark, ThemePreferLight, ThemeDefault:
 	case "":
@@ -373,6 +384,7 @@ func (m *Manager) setDefaults() {
 	m.setDebugDefaults(defaults)
 	m.setAppearanceDefaults(defaults)
 	m.setRenderingDefaults(defaults)
+	m.setPrivacyDefaults(defaults)
 	m.setWorkspaceDefaults(defaults)
 	m.setContentFilteringDefaults(defaults)
 	m.setClipboardDefaults(defaults)
@@ -445,6 +457,11 @@ func (m *Manager) setRenderingDefaults(defaults *Config) {
 	m.viper.SetDefault("rendering.debug_frames", defaults.Rendering.DebugFrames)
 	m.viper.SetDefault("default_webpage_zoom", defaults.DefaultWebpageZoom)
 	m.viper.SetDefault("default_ui_scale", defaults.DefaultUIScale)
+}
+
+func (m *Manager) setPrivacyDefaults(defaults *Config) {
+	m.viper.SetDefault("privacy.cookie_policy", string(defaults.Privacy.CookiePolicy))
+	m.viper.SetDefault("privacy.itp_enabled", defaults.Privacy.ITPEnabled)
 }
 
 func (m *Manager) setWorkspaceDefaults(defaults *Config) {

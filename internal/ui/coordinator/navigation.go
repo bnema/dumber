@@ -233,7 +233,7 @@ func (c *NavigationCoordinator) RecordHistory(ctx context.Context, paneID entity
 		return
 	}
 
-	c.navigateUC.RecordHistory(ctx, url)
+	c.navigateUC.RecordHistory(ctx, string(paneID), url)
 }
 
 // ActiveWebView returns the WebView for the active pane (for zoom operations).

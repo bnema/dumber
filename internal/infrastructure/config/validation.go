@@ -26,6 +26,7 @@ func validateConfig(config *Config) error {
 	validationErrors = append(validationErrors, validateWorkspaceNewPaneURL(config)...)
 	validationErrors = append(validationErrors, validateOmnibox(config)...)
 	validationErrors = append(validationErrors, validateRendering(config)...)
+	validationErrors = append(validationErrors, validatePrivacy(config)...)
 	validationErrors = append(validationErrors, validateColorScheme(config)...)
 	validationErrors = append(validationErrors, validateSession(config)...)
 	validationErrors = append(validationErrors, validatePerformanceProfile(config)...)
@@ -321,6 +322,18 @@ func validateRendering(config *Config) []string {
 	}
 
 	return validationErrors
+}
+
+func validatePrivacy(config *Config) []string {
+	switch config.Privacy.CookiePolicy {
+	case CookiePolicyAlways, CookiePolicyNoThirdParty, CookiePolicyNever, "":
+		return nil
+	default:
+		return []string{fmt.Sprintf(
+			"privacy.cookie_policy must be one of: always, no_third_party, never (got: %s)",
+			config.Privacy.CookiePolicy,
+		)}
+	}
 }
 
 func validateColorScheme(config *Config) []string {
