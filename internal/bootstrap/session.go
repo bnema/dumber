@@ -493,8 +493,10 @@ func runSessionCleanupAsync(
 	}()
 }
 
-// sweepPairedMarkers removes startup, shutdown, and abrupt marker files for
-// sessions that have both a startup and shutdown marker older than maxAgeDays.
+// sweepPairedMarkers removes marker files for sessions that have both a
+// shutdown marker and a startup marker older than maxAgeDays. Both markers
+// must exist and be aged past the cutoff before any files are removed.
+// The associated abrupt marker (if present) is also cleaned up.
 // Removal errors are non-fatal (logged and skipped).
 func sweepPairedMarkers(lockDir string, maxAgeDays int, log *zerolog.Logger) {
 	if lockDir == "" {
@@ -524,15 +526,21 @@ func sweepPairedMarkers(lockDir string, maxAgeDays int, log *zerolog.Logger) {
 			continue
 		}
 
-		info, err := os.Stat(shutdownPath)
-		if err != nil || info.ModTime().After(cutoff) {
+		shutdownInfo, err := os.Stat(shutdownPath)
+		if err != nil || shutdownInfo.ModTime().After(cutoff) {
 			continue
 		}
 
 		startupPath := startupMarkerPath(lockDir, sessionID)
+		startupInfo, err := os.Stat(startupPath)
+		if err != nil || startupInfo.ModTime().After(cutoff) {
+			// Startup marker missing or too recent — skip this session.
+			continue
+		}
+
 		abruptPath := abruptMarkerPath(lockDir, sessionID)
 
-		// Remove the trio: shutdown, startup (if still present), abrupt (if present).
+		// Remove the trio: shutdown, startup, abrupt (if present).
 		for _, p := range []string{shutdownPath, startupPath, abruptPath} {
 			if rmErr := os.Remove(p); rmErr != nil && !os.IsNotExist(rmErr) {
 				if log != nil {

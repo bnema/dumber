@@ -56,6 +56,8 @@ func TestPaneView_HideLoadingSkeleton_HidesWhenPresent(t *testing.T) {
 	mockVersion.EXPECT().SetValign(mock.Anything).Once()
 	mockVersion.EXPECT().SetCanFocus(false).Once()
 	mockVersion.EXPECT().SetCanTarget(false).Once()
+	mockVersion.EXPECT().SetMaxWidthChars(mock.Anything).Once()
+	mockVersion.EXPECT().SetEllipsize(mock.Anything).Once()
 	mockVersion.EXPECT().AddCssClass("loading-skeleton-version").Once()
 
 	mockContent.EXPECT().Append(mockLogo).Once()

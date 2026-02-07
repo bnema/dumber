@@ -233,8 +233,7 @@ func sanitizeCrashPageOriginalURI(originalURI string) string {
 }
 
 func buildCrashPageHTML(originalURI string) string {
-	escapedOriginal := html.EscapeString(originalURI)
-	escapedReloadTarget := html.EscapeString(originalURI)
+	escapedURI := html.EscapeString(originalURI)
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -333,7 +332,7 @@ func buildCrashPageHTML(originalURI string) string {
         });
     </script>
 </body>
-</html>`, escapedOriginal, escapedReloadTarget)
+</html>`, escapedURI, escapedURI)
 }
 
 func (h *DumbSchemeHandler) buildConfigResponse(cfg *config.Config) *SchemeResponse {

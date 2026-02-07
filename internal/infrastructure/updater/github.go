@@ -292,11 +292,6 @@ func isRetryableRequestError(err error) bool {
 		}
 	}
 
-	var urlErr *url.Error
-	if errors.As(err, &urlErr) && urlErr.Temporary() {
-		return true
-	}
-
 	return false
 }
 
