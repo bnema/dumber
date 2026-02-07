@@ -114,6 +114,23 @@ func (r *LazyHistoryRepository) IncrementVisitCount(ctx context.Context, url str
 	return r.repo.IncrementVisitCount(ctx, url)
 }
 
+func (r *LazyHistoryRepository) IncrementVisitCountBy(ctx context.Context, url string, delta int) error {
+	if err := r.init(ctx); err != nil {
+		return err
+	}
+	if deltaRepo, ok := r.repo.(interface {
+		IncrementVisitCountBy(context.Context, string, int) error
+	}); ok {
+		return deltaRepo.IncrementVisitCountBy(ctx, url, delta)
+	}
+	for i := 0; i < delta; i++ {
+		if err := r.repo.IncrementVisitCount(ctx, url); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (r *LazyHistoryRepository) Delete(ctx context.Context, id int64) error {
 	if err := r.init(ctx); err != nil {
 		return err

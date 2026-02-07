@@ -19,6 +19,11 @@ UPDATE history
 SET visit_count = visit_count + 1, last_visited = CURRENT_TIMESTAMP
 WHERE url = ?;
 
+-- name: IncrementVisitCountByDelta :exec
+UPDATE history
+SET visit_count = visit_count + ?, last_visited = CURRENT_TIMESTAMP
+WHERE url = ?;
+
 -- name: SearchHistory :many
 SELECT * FROM history
 WHERE url LIKE '%' || ? || '%' OR title LIKE '%' || ? || '%'

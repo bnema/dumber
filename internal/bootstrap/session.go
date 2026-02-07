@@ -98,7 +98,7 @@ func StartBrowserSession(
 	persistFn := func(persistCtx context.Context) error {
 		persistMu.Do(func() {
 			if lockDir != "" {
-				abruptSessions, abruptErr := markAbruptExits(lockDir, now.UTC())
+				abruptSessions, abruptErr := markAbruptExits(lockDir, time.Now().UTC())
 				if abruptErr != nil {
 					logger.Warn().Err(abruptErr).Msg("failed to check abrupt exit markers")
 				} else {

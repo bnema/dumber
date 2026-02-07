@@ -311,6 +311,20 @@ func (r *historyRepo) IncrementVisitCount(ctx context.Context, url string) error
 	return r.queries.IncrementVisitCount(ctx, url)
 }
 
+func (r *historyRepo) IncrementVisitCountBy(ctx context.Context, url string, delta int) error {
+	// Skip incrementing about:blank - it should always have visit_count = 1
+	if url == aboutBlankURL {
+		return nil
+	}
+	if delta <= 0 {
+		delta = 1
+	}
+	return r.queries.IncrementVisitCountByDelta(ctx, sqlc.IncrementVisitCountByDeltaParams{
+		VisitCount: sql.NullInt64{Int64: int64(delta), Valid: true},
+		Url:        url,
+	})
+}
+
 func (r *historyRepo) Delete(ctx context.Context, id int64) error {
 	return r.queries.DeleteHistoryByID(ctx, id)
 }
