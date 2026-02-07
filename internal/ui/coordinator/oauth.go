@@ -2,6 +2,8 @@ package coordinator
 
 import (
 	"strings"
+
+	"github.com/bnema/dumber/internal/infrastructure/webkit"
 )
 
 // oauthFlowPatterns are URL patterns that indicate an OAuth flow is in progress.
@@ -137,4 +139,46 @@ func IsOAuthError(url string) bool {
 	}
 	lower := strings.ToLower(url)
 	return strings.Contains(lower, "error=")
+}
+
+func composeOnClose(existing func(), next func()) func() {
+	if existing == nil {
+		return next
+	}
+	if next == nil {
+		return existing
+	}
+	return func() {
+		existing()
+		next()
+	}
+}
+
+func composeOnURIChanged(existing func(string), next func(string)) func(string) {
+	if existing == nil {
+		return next
+	}
+	if next == nil {
+		return existing
+	}
+	return func(uri string) {
+		existing(uri)
+		next(uri)
+	}
+}
+
+func composeOnLoadChanged(
+	existing func(webkit.LoadEvent),
+	next func(webkit.LoadEvent),
+) func(webkit.LoadEvent) {
+	if existing == nil {
+		return next
+	}
+	if next == nil {
+		return existing
+	}
+	return func(event webkit.LoadEvent) {
+		existing(event)
+		next(event)
+	}
 }

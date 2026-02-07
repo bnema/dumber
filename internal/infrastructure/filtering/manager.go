@@ -17,6 +17,7 @@ import (
 const (
 	storeDirPerm   = 0o755
 	jsonDirPerm    = 0o755
+	quarantinePerm = 0o755
 	mergedFilePerm = 0o644
 
 	// CacheMaxAge is the maximum age of the filter cache before it's considered stale.
@@ -190,6 +191,12 @@ func (m *Manager) LoadAsync(ctx context.Context) {
 			return
 		}
 
+		if err := m.validateDownloadedFiles(ctx, paths); err != nil {
+			log.Error().Err(err).Msg("downloaded filter validation failed")
+			m.setStatus(FilterStatus{State: StateError, Message: "Invalid downloaded filters"})
+			return
+		}
+
 		m.setStatus(FilterStatus{State: StateLoading, Message: "Compiling filters..."})
 
 		// Merge JSON files into one for compilation
@@ -204,6 +211,29 @@ func (m *Manager) LoadAsync(ctx context.Context) {
 		filter, err := m.store.Compile(ctx, FilterIdentifier, mergedPath)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to compile filters")
+			if m.hasActiveFilter() {
+				version := m.getCachedVersion()
+				m.setStatus(FilterStatus{
+					State:   StateActive,
+					Message: "Filters active (update skipped)",
+					Version: version,
+				})
+				return
+			}
+			m.setStatus(FilterStatus{State: StateError, Message: "Compilation failed"})
+			return
+		}
+		if filter == nil {
+			log.Error().Msg("filter compilation returned nil filter")
+			if m.hasActiveFilter() {
+				version := m.getCachedVersion()
+				m.setStatus(FilterStatus{
+					State:   StateActive,
+					Message: "Filters active (update skipped)",
+					Version: version,
+				})
+				return
+			}
 			m.setStatus(FilterStatus{State: StateError, Message: "Compilation failed"})
 			return
 		}
@@ -345,16 +375,26 @@ func (m *Manager) CheckForUpdates(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to download filter update: %w", err)
 	}
+	if err := m.validateDownloadedFiles(ctx, paths); err != nil {
+		log.Warn().Err(err).Msg("invalid downloaded filters, keeping existing active filter")
+		return nil
+	}
 
 	// Merge and compile
 	mergedPath, err := m.mergeJSONFiles(ctx, paths)
 	if err != nil {
-		return fmt.Errorf("failed to merge updated filters: %w", err)
+		log.Warn().Err(err).Msg("failed to merge updated filters, keeping existing active filter")
+		return nil
 	}
 
 	filter, err := m.store.Compile(ctx, FilterIdentifier, mergedPath)
 	if err != nil {
-		return fmt.Errorf("failed to compile updated filters: %w", err)
+		log.Warn().Err(err).Msg("failed to compile updated filters, keeping existing active filter")
+		return nil
+	}
+	if filter == nil {
+		log.Warn().Msg("updated filter compilation returned nil filter, keeping existing active filter")
+		return nil
 	}
 
 	m.filterMu.Lock()
@@ -368,6 +408,89 @@ func (m *Manager) CheckForUpdates(ctx context.Context) error {
 		Version: version,
 	})
 	log.Info().Str("version", version).Msg("filters updated successfully")
+
+	return nil
+}
+
+func (m *Manager) hasActiveFilter() bool {
+	m.filterMu.RLock()
+	defer m.filterMu.RUnlock()
+	return m.filter != nil
+}
+
+func (m *Manager) validateDownloadedFiles(ctx context.Context, paths []string) error {
+	for _, path := range paths {
+		if err := validateRuleFile(path); err != nil {
+			if quarantineErr := m.quarantineInvalidFile(ctx, path, "rule_validation_failed"); quarantineErr != nil {
+				return fmt.Errorf("invalid filter file %s (%v), quarantine failed: %w", path, err, quarantineErr)
+			}
+			return fmt.Errorf("invalid filter file %s: %w", path, err)
+		}
+	}
+	return nil
+}
+
+func validateRuleFile(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read failed: %w", err)
+	}
+
+	var rules []map[string]json.RawMessage
+	if err := json.Unmarshal(data, &rules); err != nil {
+		return fmt.Errorf("json parse failed: %w", err)
+	}
+	if len(rules) == 0 {
+		return fmt.Errorf("empty rule set")
+	}
+
+	for i, rule := range rules {
+		trigger, ok := rule["trigger"]
+		if !ok || len(trigger) == 0 || string(trigger) == "null" {
+			return fmt.Errorf("rule[%d] missing trigger", i)
+		}
+		action, ok := rule["action"]
+		if !ok || len(action) == 0 || string(action) == "null" {
+			return fmt.Errorf("rule[%d] missing action", i)
+		}
+		var actionObj struct {
+			Type string `json:"type"`
+		}
+		if err := json.Unmarshal(action, &actionObj); err != nil {
+			return fmt.Errorf("rule[%d] action parse failed: %w", i, err)
+		}
+		if actionObj.Type == "" {
+			return fmt.Errorf("rule[%d] action.type missing", i)
+		}
+	}
+
+	return nil
+}
+
+func (m *Manager) quarantineInvalidFile(ctx context.Context, srcPath string, cause string) error {
+	log := logging.FromContext(ctx).With().
+		Str("component", "filter-manager").
+		Logger()
+
+	quarantineDir := filepath.Join(m.jsonDir, "quarantine")
+	if err := os.MkdirAll(quarantineDir, quarantinePerm); err != nil {
+		return fmt.Errorf("create quarantine dir failed: %w", err)
+	}
+
+	baseName := filepath.Base(srcPath)
+	quarantinePath := filepath.Join(
+		quarantineDir,
+		fmt.Sprintf("%d-%s", time.Now().UnixNano(), baseName),
+	)
+	if err := os.Rename(srcPath, quarantinePath); err != nil {
+		return fmt.Errorf("move to quarantine failed: %w", err)
+	}
+
+	log.Error().
+		Str("path", srcPath).
+		Str("quarantine_path", quarantinePath).
+		Str("cause", cause).
+		Msg("quarantined invalid filter file")
 
 	return nil
 }
