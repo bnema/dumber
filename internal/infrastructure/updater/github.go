@@ -293,7 +293,6 @@ func isRetryableRequestError(err error) bool {
 	}
 
 	var urlErr *url.Error
-	//nolint:staticcheck // url.Error.Temporary is deprecated but still useful for transient detection
 	if errors.As(err, &urlErr) && urlErr.Temporary() {
 		return true
 	}
