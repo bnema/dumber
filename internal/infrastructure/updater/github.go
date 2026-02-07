@@ -12,6 +12,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -22,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/logging"
@@ -58,6 +61,18 @@ const (
 
 	// Allowed GitHub download host.
 	allowedDownloadHost = "github.com"
+
+	// Maximum number of attempts for retryable network requests.
+	maxRetryAttempts = 3
+
+	// Base delay used for exponential backoff between retries.
+	retryBaseDelay = 250 * time.Millisecond
+
+	// Maximum delay cap for exponential backoff between retries.
+	retryMaxDelay = 2 * time.Second
+
+	// Max random jitter added to each retry backoff.
+	retryJitterMax = 200 * time.Millisecond
 )
 
 // githubRelease represents the GitHub API response for a release.
@@ -70,13 +85,17 @@ type githubRelease struct {
 
 // GitHubChecker implements UpdateChecker using the GitHub API.
 type GitHubChecker struct {
-	client *http.Client
+	client    *http.Client
+	randInt63 func(n int64) int64
+	sleep     func(ctx context.Context, d time.Duration) error
 }
 
 // NewGitHubChecker creates a new GitHub-based update checker.
 func NewGitHubChecker() *GitHubChecker {
 	return &GitHubChecker{
-		client: &http.Client{Timeout: apiTimeout},
+		client:    &http.Client{Timeout: apiTimeout},
+		randInt63: rand.Int63n,
+		sleep:     waitForBackoff,
 	}
 }
 
@@ -115,13 +134,21 @@ func (g *GitHubChecker) CheckForUpdate(ctx context.Context, currentVersion strin
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 	req.Header.Set("User-Agent", "dumber-browser/"+currentVersion)
 
-	resp, err := g.client.Do(req)
+	resp, err := g.doRequestWithRetry(ctx, req)
 	if err != nil {
+		if isRetryableRequestError(err) {
+			log.Debug().Err(err).Msg("transient update check failure; skipping check")
+			return nil, fmt.Errorf("%w: %w", port.ErrUpdateCheckTransient, err)
+		}
 		return nil, fmt.Errorf("failed to fetch latest release: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
+		if isRetryableStatus(resp.StatusCode) {
+			log.Debug().Int("status", resp.StatusCode).Msg("transient update check API status; skipping check")
+			return nil, fmt.Errorf("%w: github API returned status %d", port.ErrUpdateCheckTransient, resp.StatusCode)
+		}
 		return nil, fmt.Errorf("github API returned status %d", resp.StatusCode)
 	}
 
@@ -214,14 +241,100 @@ func compareVersions(v1, v2 string) int {
 
 // GitHubDownloader implements UpdateDownloader for GitHub releases.
 type GitHubDownloader struct {
-	client *http.Client
+	client    *http.Client
+	randInt63 func(n int64) int64
+	sleep     func(ctx context.Context, d time.Duration) error
 }
 
 // NewGitHubDownloader creates a new GitHub release downloader.
 func NewGitHubDownloader() *GitHubDownloader {
 	return &GitHubDownloader{
-		client: &http.Client{Timeout: downloadTimeout},
+		client:    &http.Client{Timeout: downloadTimeout},
+		randInt63: rand.Int63n,
+		sleep:     waitForBackoff,
 	}
+}
+
+func isRetryableStatus(status int) bool {
+	if status == http.StatusForbidden || status == http.StatusTooManyRequests || status == http.StatusRequestTimeout {
+		return true
+	}
+	return status >= http.StatusInternalServerError
+}
+
+func isRetryableRequestError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.Canceled) {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Timeout()
+}
+
+func waitForBackoff(ctx context.Context, d time.Duration) error {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func retryDelayForAttempt(attempt int, randInt63 func(n int64) int64) time.Duration {
+	if attempt < 1 {
+		attempt = 1
+	}
+	delay := retryBaseDelay
+	for i := 1; i < attempt; i++ {
+		if delay >= retryMaxDelay {
+			delay = retryMaxDelay
+			break
+		}
+		delay *= 2
+		if delay > retryMaxDelay {
+			delay = retryMaxDelay
+		}
+	}
+
+	if randInt63 != nil && retryJitterMax > 0 {
+		delay += time.Duration(randInt63(int64(retryJitterMax) + 1))
+	}
+
+	return delay
+}
+
+func (g *GitHubChecker) doRequestWithRetry(ctx context.Context, req *http.Request) (*http.Response, error) {
+	for attempt := 1; attempt <= maxRetryAttempts; attempt++ {
+		resp, err := g.client.Do(req)
+		if err != nil {
+			if !isRetryableRequestError(err) || attempt == maxRetryAttempts {
+				return nil, err
+			}
+			if waitErr := g.sleep(ctx, retryDelayForAttempt(attempt, g.randInt63)); waitErr != nil {
+				return nil, waitErr
+			}
+			continue
+		}
+
+		if !isRetryableStatus(resp.StatusCode) || attempt == maxRetryAttempts {
+			return resp, nil
+		}
+
+		_ = resp.Body.Close()
+		if waitErr := g.sleep(ctx, retryDelayForAttempt(attempt, g.randInt63)); waitErr != nil {
+			return nil, waitErr
+		}
+	}
+
+	return nil, fmt.Errorf("request failed after retries")
 }
 
 // validateDownloadURL ensures the URL is a valid GitHub releases URL.
@@ -257,7 +370,7 @@ func (g *GitHubDownloader) fetchChecksums(ctx context.Context) (map[string]strin
 	}
 	req.Header.Set("User-Agent", "dumber-browser")
 
-	resp, err := g.client.Do(req)
+	resp, err := g.doRequestWithRetry(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch checksums: %w", err)
 	}
@@ -362,7 +475,7 @@ func (g *GitHubDownloader) Download(ctx context.Context, downloadURL, destDir st
 
 	log.Debug().Str("url", downloadURL).Msg("downloading update")
 
-	resp, err := g.client.Do(req)
+	resp, err := g.doRequestWithRetry(ctx, req)
 	if err != nil {
 		return "", fmt.Errorf("failed to download: %w", err)
 	}
@@ -421,6 +534,32 @@ func (g *GitHubDownloader) Download(ctx context.Context, downloadURL, destDir st
 		Msg("download completed and verified")
 
 	return archivePath, nil
+}
+
+func (g *GitHubDownloader) doRequestWithRetry(ctx context.Context, req *http.Request) (*http.Response, error) {
+	for attempt := 1; attempt <= maxRetryAttempts; attempt++ {
+		resp, err := g.client.Do(req)
+		if err != nil {
+			if !isRetryableRequestError(err) || attempt == maxRetryAttempts {
+				return nil, err
+			}
+			if waitErr := g.sleep(ctx, retryDelayForAttempt(attempt, g.randInt63)); waitErr != nil {
+				return nil, waitErr
+			}
+			continue
+		}
+
+		if !isRetryableStatus(resp.StatusCode) || attempt == maxRetryAttempts {
+			return resp, nil
+		}
+
+		_ = resp.Body.Close()
+		if waitErr := g.sleep(ctx, retryDelayForAttempt(attempt, g.randInt63)); waitErr != nil {
+			return nil, waitErr
+		}
+	}
+
+	return nil, fmt.Errorf("request failed after retries")
 }
 
 // sanitizeTarPath validates and sanitizes a tar header name to prevent path traversal.

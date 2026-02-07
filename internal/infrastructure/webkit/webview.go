@@ -163,6 +163,9 @@ type WebView struct {
 	// asyncCallbacks keeps references to async JS callbacks to prevent GC
 	asyncCallbacks []interface{}
 
+	// runJSErrorStats aggregates repeated non-fatal RunJavaScript errors by domain+signature.
+	runJSErrorStats map[string]runJSErrorStat
+
 	// findController is cached to prevent GC from collecting the Go wrapper
 	findController     *findControllerAdapter
 	findControllerOnce sync.Once
@@ -171,10 +174,19 @@ type WebView struct {
 	backForwardListSignalID uint32
 }
 
+type runJSErrorStat struct {
+	count   uint64
+	lastLog time.Time
+}
+
 const (
 	terminatePolicyAuto   = "auto"
 	terminatePolicyAlways = "always"
 	terminatePolicyNever  = "never"
+
+	runJSNonFatalLogInterval = 30 * time.Second
+	runJSAggregateLogEvery   = 20
+	runJSUnknown             = "unknown"
 )
 
 type findControllerAdapter struct {
@@ -309,10 +321,11 @@ func NewWebView(ctx context.Context, wkCtx *WebKitContext, settings *SettingsMan
 	}
 
 	wv := &WebView{
-		inner:     inner,
-		ucm:       inner.GetUserContentManager(),
-		logger:    log.With().Str("component", "webview").Logger(),
-		signalIDs: make([]uint32, 0, 4),
+		inner:           inner,
+		ucm:             inner.GetUserContentManager(),
+		logger:          log.With().Str("component", "webview").Logger(),
+		signalIDs:       make([]uint32, 0, 4),
+		runJSErrorStats: make(map[string]runJSErrorStat),
 	}
 
 	// Register in global registry
@@ -358,11 +371,12 @@ func NewWebViewWithRelated(ctx context.Context, parent *WebView, settings *Setti
 		Msg("related webview created, checking pointers")
 
 	wv := &WebView{
-		inner:     inner,
-		isRelated: true, // Shares web process with parent - must not terminate process on destroy
-		ucm:       inner.GetUserContentManager(),
-		logger:    log.With().Str("component", "webview-popup").Logger(),
-		signalIDs: make([]uint32, 0, 6),
+		inner:           inner,
+		isRelated:       true, // Shares web process with parent - must not terminate process on destroy
+		ucm:             inner.GetUserContentManager(),
+		logger:          log.With().Str("component", "webview-popup").Logger(),
+		signalIDs:       make([]uint32, 0, 6),
+		runJSErrorStats: make(map[string]runJSErrorStat),
 	}
 
 	wv.id = globalRegistry.register(wv)
@@ -1447,6 +1461,90 @@ func shouldTerminateWebProcess(policy string, isRelated, navigationActive bool) 
 	}
 }
 
+func classifyRunJSEvaluateError(err error) (nonFatal bool, signature string) {
+	if err == nil {
+		return false, "evaluate_error"
+	}
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	signature = "evaluate_error:" + normalizeRunJSErrorSignature(msg)
+	switch {
+	case strings.Contains(msg, "canceled"),
+		strings.Contains(msg, "cancel"),
+		strings.Contains(msg, "javascript execution context"),
+		strings.Contains(msg, "execution context was destroyed"),
+		strings.Contains(msg, "document unloaded"):
+		return true, signature
+	default:
+		return false, signature
+	}
+}
+
+func normalizeRunJSErrorSignature(msg string) string {
+	msg = strings.ToLower(strings.TrimSpace(msg))
+	if msg == "" {
+		return "empty"
+	}
+	fields := strings.Fields(msg)
+	if len(fields) == 0 {
+		return "empty"
+	}
+	return strings.Join(fields, " ")
+}
+
+func (wv *WebView) runJSDomain() string {
+	wv.mu.RLock()
+	currentURI := strings.TrimSpace(wv.uri)
+	wv.mu.RUnlock()
+	if currentURI == "" {
+		return runJSUnknown
+	}
+	parsed, err := url.Parse(currentURI)
+	if err != nil {
+		return runJSUnknown
+	}
+	host := strings.ToLower(strings.TrimSpace(parsed.Hostname()))
+	if host == "" {
+		return runJSUnknown
+	}
+	return host
+}
+
+func (wv *WebView) shouldLogRunJSError(domain, signature string, nonFatal bool, now time.Time) (bool, uint64) {
+	if wv == nil {
+		return true, 1
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
+	if domain == "" {
+		domain = runJSUnknown
+	}
+	if signature == "" {
+		signature = runJSUnknown
+	}
+	key := domain + "|" + signature
+
+	wv.mu.Lock()
+	if wv.runJSErrorStats == nil {
+		wv.runJSErrorStats = make(map[string]runJSErrorStat)
+	}
+	stat := wv.runJSErrorStats[key]
+	stat.count++
+	count := stat.count
+
+	shouldLog := true
+	if nonFatal {
+		shouldLog = count == 1 || count%runJSAggregateLogEvery == 0 || now.Sub(stat.lastLog) >= runJSNonFatalLogInterval
+	}
+	if shouldLog {
+		stat.lastLog = now
+	}
+	wv.runJSErrorStats[key] = stat
+	wv.mu.Unlock()
+
+	return shouldLog, count
+}
+
 // RunJavaScript executes script in the specified world (empty for main world).
 // This is fire-and-forget: it does not block and errors are logged asynchronously.
 // Safe to call from any context including GTK signal handlers.
@@ -1461,25 +1559,58 @@ func (wv *WebView) RunJavaScript(ctx context.Context, script, worldName string) 
 	log := logging.FromContext(ctx)
 
 	cb := gio.AsyncReadyCallback(func(_ uintptr, resPtr uintptr, _ uintptr) {
+		domain := wv.runJSDomain()
 		if resPtr == 0 {
-			log.Warn().Uint64("webview_id", uint64(wv.id)).Msg("RunJavaScript: nil async result")
+			signature := "nil_async_result"
+			shouldLog, count := wv.shouldLogRunJSError(domain, signature, true, time.Now())
+			if shouldLog {
+				log.Debug().
+					Uint64("webview_id", uint64(wv.id)).
+					Str("domain", domain).
+					Str("signature", signature).
+					Uint64("repeat_count", count).
+					Msg("RunJavaScript: non-fatal nil async result")
+			}
 			return
 		}
 
 		res := &gio.AsyncResultBase{Ptr: resPtr}
 		value, err := wv.inner.EvaluateJavascriptFinish(res)
 		if err != nil {
-			log.Warn().Err(err).Uint64("webview_id", uint64(wv.id)).Msg("RunJavaScript: failed")
+			nonFatal, signature := classifyRunJSEvaluateError(err)
+			shouldLog, count := wv.shouldLogRunJSError(domain, signature, nonFatal, time.Now())
+			if shouldLog {
+				ev := log.Warn()
+				msg := "RunJavaScript: failed"
+				if nonFatal {
+					ev = log.Debug()
+					msg = "RunJavaScript: non-fatal failure"
+				}
+				ev.Err(err).
+					Uint64("webview_id", uint64(wv.id)).
+					Str("domain", domain).
+					Str("signature", signature).
+					Uint64("repeat_count", count).
+					Msg(msg)
+			}
 			return
 		}
 
 		if value != nil {
 			if jscCtx := value.GetContext(); jscCtx != nil {
 				if exc := jscCtx.GetException(); exc != nil {
-					log.Warn().
-						Str("exception", exc.GetMessage()).
-						Uint64("webview_id", uint64(wv.id)).
-						Msg("RunJavaScript: JS exception")
+					exceptionMessage := strings.TrimSpace(exc.GetMessage())
+					signature := "js_exception:" + normalizeRunJSErrorSignature(exceptionMessage)
+					shouldLog, count := wv.shouldLogRunJSError(domain, signature, true, time.Now())
+					if shouldLog {
+						log.Debug().
+							Str("exception", exceptionMessage).
+							Uint64("webview_id", uint64(wv.id)).
+							Str("domain", domain).
+							Str("signature", signature).
+							Uint64("repeat_count", count).
+							Msg("RunJavaScript: JS exception")
+					}
 				}
 			}
 		}

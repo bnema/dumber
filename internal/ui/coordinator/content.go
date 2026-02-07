@@ -928,11 +928,9 @@ func (c *ContentCoordinator) PreloadCachedFavicon(ctx context.Context, paneID en
 
 	// Check memory and disk cache (no external fetch)
 	texture := c.faviconAdapter.PreloadFromCache(uri)
-	if texture == nil {
-		return
-	}
 
-	// Update stacked pane favicon if applicable
+	// Update stacked pane favicon if applicable.
+	// A nil texture triggers the default icon fallback, which avoids stale favicons.
 	_, wsView := c.getActiveWS()
 	if wsView != nil {
 		tr := wsView.TreeRenderer()
