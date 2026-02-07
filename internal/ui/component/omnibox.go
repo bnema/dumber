@@ -3,6 +3,7 @@ package component
 import (
 	"context"
 	"fmt"
+	stdurl "net/url"
 	"strings"
 	"sync"
 	"time"
@@ -1066,8 +1067,54 @@ func (o *Omnibox) resolveGhostCompletion(entryText string, mode ViewMode, sugges
 			o.clearGhostTextIfInput(entryText)
 			return
 		}
-		o.setGhostText(entryText, suggestion.Suffix, suggestion.FullText)
+		fullText, suffix := normalizeGhostSuggestion(entryText, suggestion.FullText, suggestion.Suffix)
+		if fullText == "" || suffix == "" {
+			o.clearGhostTextIfInput(entryText)
+			return
+		}
+		o.setGhostText(entryText, suffix, fullText)
 	}()
+}
+
+// normalizeGhostSuggestion trims noisy URL completions to a domain completion when input
+// appears to be host-like (e.g. "google" -> "google.com" instead of full redirect URL).
+func normalizeGhostSuggestion(queryText, fullText, fallbackSuffix string) (normalizedFullText, suffix string) {
+	if queryText == "" || fullText == "" {
+		return "", ""
+	}
+
+	// If input already contains path/query-ish delimiters, keep original completion behavior.
+	if strings.ContainsAny(queryText, "/?#=& ") {
+		return fullText, fallbackSuffix
+	}
+
+	hostOnly := extractHostForCompletion(fullText)
+	if hostOnly != "" {
+		for _, candidate := range []string{hostOnly, strings.TrimPrefix(hostOnly, "www.")} {
+			if completionSuffix, ok := autocomplete.ComputeCompletionSuffix(queryText, candidate); ok {
+				return candidate, completionSuffix
+			}
+		}
+	}
+
+	return fullText, fallbackSuffix
+}
+
+func extractHostForCompletion(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	if parsed, err := stdurl.Parse(raw); err == nil && parsed.Host != "" {
+		return strings.ToLower(parsed.Hostname())
+	}
+	trimmed := autocomplete.StripProtocol(raw)
+	trimmed = strings.ToLower(trimmed)
+	for _, sep := range []string{"/", "?", "#"} {
+		if idx := strings.Index(trimmed, sep); idx >= 0 {
+			trimmed = trimmed[:idx]
+		}
+	}
+	return strings.TrimSpace(trimmed)
 }
 
 func (o *Omnibox) isGhostTokenCurrent(searchToken, ghostToken uint64, query string) bool {
