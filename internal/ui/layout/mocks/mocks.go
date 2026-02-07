@@ -1485,18 +1485,18 @@ func (_c *MockPanedWidget_ComputePoint_Call) RunAndReturn(run func(target layout
 }
 
 // ConnectMap provides a mock function for the type MockPanedWidget
-func (_mock *MockPanedWidget) ConnectMap(callback func()) uint32 {
+func (_mock *MockPanedWidget) ConnectMap(callback func()) uint {
 	ret := _mock.Called(callback)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ConnectMap")
 	}
 
-	var r0 uint32
-	if returnFunc, ok := ret.Get(0).(func(func()) uint32); ok {
+	var r0 uint
+	if returnFunc, ok := ret.Get(0).(func(func()) uint); ok {
 		r0 = returnFunc(callback)
 	} else {
-		r0 = ret.Get(0).(uint32)
+		r0 = ret.Get(0).(uint)
 	}
 	return r0
 }
@@ -1525,29 +1525,29 @@ func (_c *MockPanedWidget_ConnectMap_Call) Run(run func(callback func())) *MockP
 	return _c
 }
 
-func (_c *MockPanedWidget_ConnectMap_Call) Return(v uint32) *MockPanedWidget_ConnectMap_Call {
+func (_c *MockPanedWidget_ConnectMap_Call) Return(v uint) *MockPanedWidget_ConnectMap_Call {
 	_c.Call.Return(v)
 	return _c
 }
 
-func (_c *MockPanedWidget_ConnectMap_Call) RunAndReturn(run func(callback func()) uint32) *MockPanedWidget_ConnectMap_Call {
+func (_c *MockPanedWidget_ConnectMap_Call) RunAndReturn(run func(callback func()) uint) *MockPanedWidget_ConnectMap_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ConnectNotifyPosition provides a mock function for the type MockPanedWidget
-func (_mock *MockPanedWidget) ConnectNotifyPosition(callback func()) uint32 {
+func (_mock *MockPanedWidget) ConnectNotifyPosition(callback func()) uint {
 	ret := _mock.Called(callback)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ConnectNotifyPosition")
 	}
 
-	var r0 uint32
-	if returnFunc, ok := ret.Get(0).(func(func()) uint32); ok {
+	var r0 uint
+	if returnFunc, ok := ret.Get(0).(func(func()) uint); ok {
 		r0 = returnFunc(callback)
 	} else {
-		r0 = ret.Get(0).(uint32)
+		r0 = ret.Get(0).(uint)
 	}
 	return r0
 }
@@ -1576,12 +1576,12 @@ func (_c *MockPanedWidget_ConnectNotifyPosition_Call) Run(run func(callback func
 	return _c
 }
 
-func (_c *MockPanedWidget_ConnectNotifyPosition_Call) Return(v uint32) *MockPanedWidget_ConnectNotifyPosition_Call {
+func (_c *MockPanedWidget_ConnectNotifyPosition_Call) Return(v uint) *MockPanedWidget_ConnectNotifyPosition_Call {
 	_c.Call.Return(v)
 	return _c
 }
 
-func (_c *MockPanedWidget_ConnectNotifyPosition_Call) RunAndReturn(run func(callback func()) uint32) *MockPanedWidget_ConnectNotifyPosition_Call {
+func (_c *MockPanedWidget_ConnectNotifyPosition_Call) RunAndReturn(run func(callback func()) uint) *MockPanedWidget_ConnectNotifyPosition_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -8007,18 +8007,18 @@ func (_c *MockButtonWidget_ComputePoint_Call) RunAndReturn(run func(target layou
 }
 
 // ConnectClicked provides a mock function for the type MockButtonWidget
-func (_mock *MockButtonWidget) ConnectClicked(callback func()) uint32 {
+func (_mock *MockButtonWidget) ConnectClicked(callback func()) uint {
 	ret := _mock.Called(callback)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ConnectClicked")
 	}
 
-	var r0 uint32
-	if returnFunc, ok := ret.Get(0).(func(func()) uint32); ok {
+	var r0 uint
+	if returnFunc, ok := ret.Get(0).(func(func()) uint); ok {
 		r0 = returnFunc(callback)
 	} else {
-		r0 = ret.Get(0).(uint32)
+		r0 = ret.Get(0).(uint)
 	}
 	return r0
 }
@@ -8047,12 +8047,12 @@ func (_c *MockButtonWidget_ConnectClicked_Call) Run(run func(callback func())) *
 	return _c
 }
 
-func (_c *MockButtonWidget_ConnectClicked_Call) Return(v uint32) *MockButtonWidget_ConnectClicked_Call {
+func (_c *MockButtonWidget_ConnectClicked_Call) Return(v uint) *MockButtonWidget_ConnectClicked_Call {
 	_c.Call.Return(v)
 	return _c
 }
 
-func (_c *MockButtonWidget_ConnectClicked_Call) RunAndReturn(run func(callback func()) uint32) *MockButtonWidget_ConnectClicked_Call {
+func (_c *MockButtonWidget_ConnectClicked_Call) RunAndReturn(run func(callback func()) uint) *MockButtonWidget_ConnectClicked_Call {
 	_c.Call.Return(run)
 	return _c
 }

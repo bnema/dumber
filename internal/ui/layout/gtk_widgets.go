@@ -159,18 +159,18 @@ func (p *gtkPaned) GetShrinkEndChild() bool    { return p.inner.GetShrinkEndChil
 func (p *gtkPaned) SetWideHandle(wide bool)    { p.inner.SetWideHandle(wide) }
 func (p *gtkPaned) GetWideHandle() bool        { return p.inner.GetWideHandle() }
 
-func (p *gtkPaned) ConnectMap(callback func()) uint32 {
+func (p *gtkPaned) ConnectMap(callback func()) uint {
 	cb := func(_ gtk.Widget) {
 		callback()
 	}
-	return uint32(p.inner.ConnectMap(&cb))
+	return p.inner.ConnectMap(&cb)
 }
 
-func (p *gtkPaned) ConnectNotifyPosition(callback func()) uint32 {
+func (p *gtkPaned) ConnectNotifyPosition(callback func()) uint {
 	cb := func(_ gobject.Object, _ uintptr) {
 		callback()
 	}
-	return uint32(p.inner.ConnectNotifyWithDetail("position", &cb))
+	return p.inner.ConnectNotifyWithDetail("position", &cb)
 }
 
 func (p *gtkPaned) AddTickCallback(callback func() bool) uint {
@@ -539,11 +539,11 @@ func (btn *gtkButton) GetChild() Widget {
 	return &gtkWidget{inner: child}
 }
 
-func (btn *gtkButton) ConnectClicked(callback func()) uint32 {
+func (btn *gtkButton) ConnectClicked(callback func()) uint {
 	cb := func(_ gtk.Button) {
 		callback()
 	}
-	return uint32(btn.inner.ConnectClicked(&cb))
+	return btn.inner.ConnectClicked(&cb)
 }
 
 func (btn *gtkButton) GetAllocatedWidth() int               { return btn.inner.GetAllocatedWidth() }

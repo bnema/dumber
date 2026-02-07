@@ -95,8 +95,8 @@ type PanedWidget interface {
 	GetShrinkEndChild() bool
 
 	// Signals
-	ConnectMap(callback func()) uint32
-	ConnectNotifyPosition(callback func()) uint32
+	ConnectMap(callback func()) uint
+	ConnectNotifyPosition(callback func()) uint
 
 	// Tick callback for frame-based updates (returns signal ID)
 	// Callback returns true to continue, false to stop
@@ -182,7 +182,7 @@ type ButtonWidget interface {
 	SetIconName(iconName string)
 
 	// Connect click handler, returns signal ID for disconnection
-	ConnectClicked(callback func()) uint32
+	ConnectClicked(callback func()) uint
 }
 
 // Paintable represents a graphics texture that can be displayed in an image.

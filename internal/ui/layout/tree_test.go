@@ -122,9 +122,9 @@ func TestBuild_HorizontalSplit(t *testing.T) {
 	mockRightStackBox.EXPECT().SetVisible(true).Once()
 	mockPaned.EXPECT().SetStartChild(mockLeftStackBox).Once()
 	mockPaned.EXPECT().SetEndChild(mockRightStackBox).Once()
-	mockPaned.EXPECT().ConnectNotifyPosition(mock.Anything).Return(uint32(0)).Once()
+	mockPaned.EXPECT().ConnectNotifyPosition(mock.Anything).Return(uint(0)).Once()
 	mockPaned.EXPECT().GetAllocatedWidth().Return(0).Once()
-	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint(0)).Once()
 	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
 
 	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
@@ -172,9 +172,9 @@ func TestBuild_VerticalSplit(t *testing.T) {
 	mockBottomStackBox.EXPECT().SetVisible(true).Once()
 	mockPaned.EXPECT().SetStartChild(mockTopStackBox).Once()
 	mockPaned.EXPECT().SetEndChild(mockBottomStackBox).Once()
-	mockPaned.EXPECT().ConnectNotifyPosition(mock.Anything).Return(uint32(0)).Once()
+	mockPaned.EXPECT().ConnectNotifyPosition(mock.Anything).Return(uint(0)).Once()
 	mockPaned.EXPECT().GetAllocatedHeight().Return(0).Once()
-	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint(0)).Once()
 	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
 
 	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
@@ -241,9 +241,9 @@ func TestBuild_NestedSplits(t *testing.T) {
 	mockStackBox2.EXPECT().SetVisible(true).Once()
 	mockInnerPaned.EXPECT().SetStartChild(mockStackBox1).Once()
 	mockInnerPaned.EXPECT().SetEndChild(mockStackBox2).Once()
-	mockInnerPaned.EXPECT().ConnectNotifyPosition(mock.Anything).Return(uint32(0)).Once()
+	mockInnerPaned.EXPECT().ConnectNotifyPosition(mock.Anything).Return(uint(0)).Once()
 	mockInnerPaned.EXPECT().GetAllocatedHeight().Return(0).Once()
-	mockInnerPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+	mockInnerPaned.EXPECT().ConnectMap(mock.Anything).Return(uint(0)).Once()
 	mockInnerPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
 
 	// Outer split (horizontal) gets inner paned and pane3
@@ -255,9 +255,9 @@ func TestBuild_NestedSplits(t *testing.T) {
 	mockStackBox3.EXPECT().SetVisible(true).Once()
 	mockOuterPaned.EXPECT().SetStartChild(mockInnerPaned).Once()
 	mockOuterPaned.EXPECT().SetEndChild(mockStackBox3).Once()
-	mockOuterPaned.EXPECT().ConnectNotifyPosition(mock.Anything).Return(uint32(0)).Once()
+	mockOuterPaned.EXPECT().ConnectNotifyPosition(mock.Anything).Return(uint(0)).Once()
 	mockOuterPaned.EXPECT().GetAllocatedWidth().Return(0).Once()
-	mockOuterPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+	mockOuterPaned.EXPECT().ConnectMap(mock.Anything).Return(uint(0)).Once()
 	mockOuterPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
 
 	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
@@ -417,9 +417,9 @@ func TestGetNodeIDs_ReturnsAllIDs(t *testing.T) {
 	mockRightStackBox.EXPECT().SetVisible(true).Once()
 	mockPaned.EXPECT().SetStartChild(mockLeftStackBox).Once()
 	mockPaned.EXPECT().SetEndChild(mockRightStackBox).Once()
-	mockPaned.EXPECT().ConnectNotifyPosition(mock.Anything).Return(uint32(0)).Once()
+	mockPaned.EXPECT().ConnectNotifyPosition(mock.Anything).Return(uint(0)).Once()
 	mockPaned.EXPECT().GetAllocatedWidth().Return(0).Once()
-	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint(0)).Once()
 	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
 
 	renderer := layout.NewTreeRenderer(ctx, mockFactory, mockPaneViewFactory)
@@ -542,9 +542,9 @@ func TestUpdateSplitRatio_ExistingNode(t *testing.T) {
 	mockRightStackBox.EXPECT().SetVisible(true).Once()
 	mockPaned.EXPECT().SetStartChild(mockLeftStackBox).Once()
 	mockPaned.EXPECT().SetEndChild(mockRightStackBox).Once()
-	mockPaned.EXPECT().ConnectNotifyPosition(mock.Anything).Return(uint32(0)).Once()
+	mockPaned.EXPECT().ConnectNotifyPosition(mock.Anything).Return(uint(0)).Once()
 	mockPaned.EXPECT().GetAllocatedWidth().Return(0).Twice()
-	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint32(0)).Once()
+	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint(0)).Once()
 
 	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
 

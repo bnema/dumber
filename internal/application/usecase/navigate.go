@@ -294,6 +294,10 @@ func (uc *NavigateUseCase) UpdateHistoryTitle(ctx context.Context, historyURL, t
 	historyURL = canonicalizeURLForHistory(historyURL, historyCanonicalizationOptions{
 		StripTrackingParams: stripTrackingParamsForHistoryDedup,
 	})
+	if historyURL == "" {
+		log.Debug().Str("title", title).Msg("history URL empty after canonicalization, skipping title update")
+		return nil
+	}
 	log.Debug().Str("url", logging.TruncateURL(historyURL, logURLMaxLen)).Str("title", title).Msg("updating history title")
 
 	entry, err := uc.historyRepo.FindByURL(ctx, historyURL)
