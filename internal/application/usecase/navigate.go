@@ -56,6 +56,7 @@ type NavigateUseCase struct {
 	defaultZoom  float64
 	recentMu     sync.Mutex
 	recentVisits map[string]paneHistoryState // key: pane ID, value: per-pane history state
+	closeOnce    sync.Once
 
 	// Async history recording
 	historyQueue chan historyRecord
@@ -95,7 +96,9 @@ func NewNavigateUseCase(
 // Close shuts down the background history worker and drains any pending records.
 // This should be called when the application is shutting down.
 func (uc *NavigateUseCase) Close() {
-	close(uc.done)
+	uc.closeOnce.Do(func() {
+		close(uc.done)
+	})
 	uc.wg.Wait()
 }
 
