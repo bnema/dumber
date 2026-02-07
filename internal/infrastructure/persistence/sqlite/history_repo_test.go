@@ -429,6 +429,35 @@ func TestHistoryRepository_Search_EmptyQuery(t *testing.T) {
 	assert.Empty(t, results)
 }
 
+func TestHistoryRepository_Search_NoValidTokens(t *testing.T) {
+	ctx := historyTestCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewHistoryRepository(db)
+
+	require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{
+		URL:   "https://example.com",
+		Title: "Example",
+	}))
+
+	invalidQueries := []string{
+		"!!!",
+		"___",
+		"AND OR NOT NEAR",
+		`"***"`,
+	}
+
+	for _, q := range invalidQueries {
+		results, err := repo.Search(ctx, q, 10)
+		require.NoError(t, err, "query %q should return early without SQL errors", q)
+		assert.Empty(t, results, "query %q should have no valid tokens", q)
+	}
+}
+
 func TestHistoryRepository_Search_NoResults(t *testing.T) {
 	ctx := historyTestCtx()
 	dbPath := filepath.Join(t.TempDir(), "dumber.db")
@@ -555,6 +584,27 @@ func TestHistoryRepository_Search_SpecialCharacters(t *testing.T) {
 		// May or may not find results, but should not error
 		_ = results
 	}
+}
+
+func TestHistoryRepository_Search_IgnoresFTSOperatorsAsTokens(t *testing.T) {
+	ctx := historyTestCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewHistoryRepository(db)
+
+	require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{
+		URL:   "https://github.com/bnema/dumber",
+		Title: "Dumber",
+	}))
+
+	results, err := repo.Search(ctx, "AND github OR", 10)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	assert.Equal(t, "https://github.com/bnema/dumber", results[0].Entry.URL)
 }
 
 func TestHistoryRepository_Search_SlashSeparatedQuery(t *testing.T) {

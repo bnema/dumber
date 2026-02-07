@@ -998,9 +998,6 @@ func (c *ContentCoordinator) shouldSkipAboutBlankAppearance(paneID entity.PaneID
 // onSPANavigation records history when URL changes via JavaScript (History API).
 // This handles SPA navigation like YouTube search, where the URL changes without a page load.
 func (c *ContentCoordinator) onSPANavigation(ctx context.Context, paneID entity.PaneID, url string) {
-	log := logging.FromContext(ctx)
-	log.Debug().Str("pane_id", string(paneID)).Str("url", url).Msg("SPA navigation detected")
-
 	// Update domain model with current URI for session snapshots
 	c.updatePaneURI(paneID, url)
 
@@ -1461,12 +1458,6 @@ func (c *ContentCoordinator) setupWebViewCallbacks(ctx context.Context, paneID e
 		// Check for external URL schemes (vscode://, vscode-insiders://, spotify://, etc.)
 		// These are typically triggered by JavaScript redirects (window.location)
 		isExternal := urlutil.IsExternalScheme(uri)
-		log.Debug().
-			Str("pane_id", string(paneID)).
-			Str("uri", uri).
-			Bool("is_external", isExternal).
-			Bool("is_loading", wv.IsLoading()).
-			Msg("OnURIChanged")
 
 		if isExternal {
 			log.Info().Str("pane_id", string(paneID)).Str("uri", uri).Msg("external scheme detected, launching externally")

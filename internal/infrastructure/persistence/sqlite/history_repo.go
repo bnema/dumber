@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
+	"unicode"
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
@@ -15,6 +17,8 @@ import (
 )
 
 const logURLMaxLen = 60
+
+var expectedFTSFailureCount atomic.Uint64
 
 type historyRepo struct {
 	queries *sqlc.Queries
@@ -68,28 +72,15 @@ func (r *historyRepo) FindByURL(ctx context.Context, url string) (*entity.Histor
 }
 
 func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]entity.HistoryMatch, error) {
-	log := logging.FromContext(ctx)
-
-	// Replace separators with spaces before splitting - FTS5 tokenizer treats these as separators
-	// so "gordon.bne" or "github.com/bnema" are indexed as separate tokens
-	// This allows searching "gordon.bne" or "github.com/bnema" to match URLs containing both terms
-	normalizedQuery := strings.NewReplacer(
-		".", " ",
-		"/", " ",
-	).Replace(query)
-
-	// Split query into words and add prefix matching to each
-	// This enables multi-word searches like "github issues" -> "github* issues*"
-	words := strings.Fields(normalizedQuery)
+	words := sanitizeFTS5QueryTokens(query)
 	if len(words) == 0 {
 		return []entity.HistoryMatch{}, nil
 	}
 
 	// Build FTS5 query: "word1* word2*" (implicit AND between terms)
-	// Sanitize each word to remove FTS5 special characters
 	parts := make([]string, len(words))
 	for i, word := range words {
-		parts[i] = sanitizeFTS5Word(word) + "*"
+		parts[i] = word + "*"
 	}
 	ftsQuery := strings.Join(parts, " ")
 
@@ -97,12 +88,12 @@ func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]en
 	// Use domain-boosted query for URL search to prioritize domain matches
 	// Use sanitized first word for domain boost (intentional: domain boost targets first search term)
 	urlRows, urlErr := r.queries.SearchHistoryFTSUrlWithDomainBoost(ctx, sqlc.SearchHistoryFTSUrlWithDomainBoostParams{
-		Term:  sql.NullString{String: sanitizeFTS5Word(words[0]), Valid: true},
+		Term:  sql.NullString{String: words[0], Valid: true},
 		Query: ftsQuery,
 		Limit: int64(limit),
 	})
 	if urlErr != nil {
-		log.Debug().Err(urlErr).Str("query", query).Msg("FTS URL search failed")
+		logFTSSearchError(ctx, "url", query, urlErr)
 		urlRows = []sqlc.SearchHistoryFTSUrlWithDomainBoostRow{}
 	}
 
@@ -111,7 +102,7 @@ func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]en
 		Limit: int64(limit),
 	})
 	if titleErr != nil {
-		log.Debug().Err(titleErr).Str("query", query).Msg("FTS title search failed")
+		logFTSSearchError(ctx, "title", query, titleErr)
 		titleRows = []sqlc.History{}
 	}
 
@@ -163,21 +154,75 @@ func historyFromDomainBoostRow(row sqlc.SearchHistoryFTSUrlWithDomainBoostRow) *
 	}
 }
 
-// sanitizeFTS5Word removes FTS5 special characters from a search word.
-// FTS5 special chars: " * ( ) : ^ - AND OR NOT NEAR
-// Note: Periods are handled earlier by replacing with spaces (tokenizer separator)
+// sanitizeFTS5QueryTokens normalizes separators and returns only valid FTS tokens.
+func sanitizeFTS5QueryTokens(query string) []string {
+	normalized := normalizeFTSSeparators(query)
+	rawTokens := strings.Fields(normalized)
+	if len(rawTokens) == 0 {
+		return nil
+	}
+
+	tokens := make([]string, 0, len(rawTokens))
+	for _, token := range rawTokens {
+		sanitized := sanitizeFTS5Word(token)
+		if sanitized == "" {
+			continue
+		}
+		upper := strings.ToUpper(sanitized)
+		if upper == "AND" || upper == "OR" || upper == "NOT" || upper == "NEAR" {
+			continue
+		}
+		tokens = append(tokens, sanitized)
+	}
+	return tokens
+}
+
+// normalizeFTSSeparators replaces non-alphanumeric separators with spaces.
+func normalizeFTSSeparators(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) {
+			b.WriteRune(r)
+		} else {
+			b.WriteByte(' ')
+		}
+	}
+	return b.String()
+}
+
+// sanitizeFTS5Word keeps only alphanumeric runes in a single token.
 func sanitizeFTS5Word(word string) string {
-	// Remove characters that have special meaning in FTS5
 	var result strings.Builder
+	result.Grow(len(word))
 	for _, r := range word {
-		switch r {
-		case '"', '*', '(', ')', ':', '^', '-', '/':
-			// Skip FTS5 special characters
-		default:
+		if unicode.IsLetter(r) || unicode.IsNumber(r) {
 			result.WriteRune(r)
 		}
 	}
 	return result.String()
+}
+
+func logFTSSearchError(ctx context.Context, part, query string, err error) {
+	log := logging.FromContext(ctx)
+	if isExpectedFTSError(err) {
+		count := expectedFTSFailureCount.Add(1)
+		if count == 1 || count%100 == 0 {
+			log.Debug().
+				Uint64("expected_error_count", count).
+				Str("part", part).
+				Msg("expected FTS errors observed")
+		}
+		return
+	}
+	log.Debug().Err(err).Str("part", part).Str("query", query).Msg("FTS search failed")
+}
+
+func isExpectedFTSError(err error) bool {
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "malformed match") ||
+		strings.Contains(msg, "fts5: syntax error") ||
+		strings.Contains(msg, "unterminated string")
 }
 
 func (r *historyRepo) GetRecent(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error) {
