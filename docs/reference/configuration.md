@@ -104,7 +104,7 @@
 | `update.enable_on_startup` | bool | `true` | |
 | `update.auto_download` | bool | `false` | |
 | `update.notify_on_new_settings` | bool | `true` | |
-| `performance.profile` | string | `lite` | `default`, `lite`, `max`, `custom` |
+| `performance.profile` | string | `default` | `default`, `lite`, `max`, `custom` |
 | `performance.skia_cpu_painting_threads` | int | `0` | |
 | `performance.skia_gpu_painting_threads` | int | `-1` | |
 | `performance.skia_enable_cpu_rendering` | bool | `false` | |

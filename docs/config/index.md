@@ -532,7 +532,7 @@ Performance profiles provide preset configurations for WebKitGTK tuning. These s
 
 | Key | Type | Default | Valid Values | Description |
 |-----|------|---------|--------------|-------------|
-| `performance.profile` | string | `"lite"` | `default`, `lite`, `max`, `custom` | Performance profile selection |
+| `performance.profile` | string | `"default"` | `default`, `lite`, `max`, `custom` | Performance profile selection |
 
 ### Profiles
 
@@ -558,7 +558,7 @@ Performance profiles provide preset configurations for WebKitGTK tuning. These s
 **Example:**
 ```toml
 [performance]
-profile = "lite"  # Daily-use default
+profile = "default"  # WebKit baseline default
 
 # For WebKit baseline behavior:
 # profile = "default"
