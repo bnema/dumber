@@ -127,7 +127,13 @@ func (r *LazyHistoryRepository) IncrementVisitCountBy(ctx context.Context, url s
 	}); ok {
 		return deltaRepo.IncrementVisitCountBy(ctx, url, delta)
 	}
-	for i := 0; i < delta; i++ {
+	// Cap the fallback loop to avoid unbounded DB writes if delta is unexpectedly large.
+	const fallbackCap = 256
+	iterations := delta
+	if iterations > fallbackCap {
+		iterations = fallbackCap
+	}
+	for i := 0; i < iterations; i++ {
 		if err := r.repo.IncrementVisitCount(ctx, url); err != nil {
 			return err
 		}
