@@ -171,7 +171,7 @@ type WebView struct {
 	findControllerOnce sync.Once
 
 	backForwardList         *webkit.BackForwardList
-	backForwardListSignalID uint
+	backForwardListSignalID uintptr
 }
 
 type runJSErrorStat struct {
@@ -882,7 +882,7 @@ func (wv *WebView) connectBackForwardListChangedSignal() {
 	}
 	sigID := backForwardList.ConnectChanged(&changedCb)
 	wv.backForwardList = backForwardList
-	wv.backForwardListSignalID = sigID
+	wv.backForwardListSignalID = uintptr(sigID)
 }
 
 func webProcessTerminationReasonString(reason webkit.WebProcessTerminationReason) string {
@@ -1333,7 +1333,7 @@ func (wv *WebView) DisconnectSignals() {
 
 	if wv.backForwardList != nil && wv.backForwardListSignalID != 0 {
 		bfObj := gobject.ObjectNewFromInternalPtr(wv.backForwardList.GoPointer())
-		gobject.SignalHandlerDisconnect(bfObj, wv.backForwardListSignalID)
+		gobject.SignalHandlerDisconnect(bfObj, uint(wv.backForwardListSignalID))
 		wv.backForwardListSignalID = 0
 		wv.backForwardList = nil
 	}

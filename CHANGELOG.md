@@ -20,6 +20,9 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - **Inline ghost suggestion stability**: Reworked ghostwriter flow to keep suggestions selected (not auto-committed), with stronger token guards and stale-callback protection.
 - **GTK thread-safety in omnibox**: Removed unsafe off-main-thread widget reads in async flows.
+- **Review follow-ups (Copilot/CodeRabbit)**: Fixed custom-scheme GET handling for empty WebKit methods, synchronized pool close/send paths, aligned WebKit signal ID storage types, and marshalled OAuth parent refresh reloads back to the GTK main loop.
+- **Persistence/update safety edges**: Enforced positive visit-count deltas in SQLite repos, removed redundant filter cache directory creation, canceled pending snapshot timer on `SetReady`, and made updater retry-loop exhaustion explicit.
+- **Logging/dedup consistency**: Unified abrupt-session marker stat warnings under structured session logging and reduced favicon warning dedup growth by using a global cache-dir warning key plus callback coverage tests.
 - **Omnibox input/ghost correctness**: Enforced minimum typed input before ghost suggestions, trimmed leading spaces before URL interpretation, deferred omnibox auto-open until layout is ready, and fixed width/layout edge-cases.
 - **History/autocomplete edge-cases**: Normalized FTS queries containing slashes and capped `about:blank` visit-count inflation.
 - **Navigation/history robustness**: Added pane history cleanup hooks, batched/capped visit increment fallback, and idempotent `NavigateUseCase.Close()`.

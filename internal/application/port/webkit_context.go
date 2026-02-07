@@ -52,9 +52,11 @@ type WebKitContextOptions struct {
 	CacheDir string
 
 	// CookiePolicy controls cookie acceptance behavior.
+	// Empty value means runtime defaults are used.
 	CookiePolicy WebKitCookiePolicy
 
 	// ITPEnabled controls Intelligent Tracking Prevention for NetworkSession.
+	// False means ITP remains disabled unless enabled explicitly.
 	ITPEnabled bool
 
 	// WebProcessMemory configures memory pressure for web processes.

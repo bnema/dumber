@@ -317,7 +317,7 @@ func (r *historyRepo) IncrementVisitCountBy(ctx context.Context, url string, del
 		return nil
 	}
 	if delta <= 0 {
-		delta = 1
+		return fmt.Errorf("visit delta must be > 0, got %d", delta)
 	}
 	return r.queries.IncrementVisitCountByDelta(ctx, sqlc.IncrementVisitCountByDeltaParams{
 		VisitCount: sql.NullInt64{Int64: int64(delta), Valid: true},

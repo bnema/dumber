@@ -18,6 +18,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"sync"
 	"time"
 
@@ -115,6 +116,9 @@ func (r *LazyHistoryRepository) IncrementVisitCount(ctx context.Context, url str
 }
 
 func (r *LazyHistoryRepository) IncrementVisitCountBy(ctx context.Context, url string, delta int) error {
+	if delta <= 0 {
+		return fmt.Errorf("visit delta must be > 0, got %d", delta)
+	}
 	if err := r.init(ctx); err != nil {
 		return err
 	}

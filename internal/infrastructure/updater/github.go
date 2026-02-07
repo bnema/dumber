@@ -322,7 +322,10 @@ func doRequestWithRetryHelper(
 	sleep func(ctx context.Context, d time.Duration) error,
 	randInt63 func(n int64) int64,
 ) (*http.Response, error) {
-	for attempt := 1; attempt <= maxRetryAttempts; attempt++ {
+	for attempt := 1; ; attempt++ {
+		if attempt > maxRetryAttempts {
+			return nil, fmt.Errorf("request failed after retries")
+		}
 		resp, err := client.Do(req)
 		if err != nil {
 			if !isRetryableRequestError(err) || attempt == maxRetryAttempts {
@@ -343,8 +346,6 @@ func doRequestWithRetryHelper(
 			return nil, waitErr
 		}
 	}
-
-	return nil, fmt.Errorf("request failed after retries")
 }
 
 func (g *GitHubChecker) doRequestWithRetry(ctx context.Context, req *http.Request) (*http.Response, error) {

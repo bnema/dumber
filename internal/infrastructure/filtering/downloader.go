@@ -164,10 +164,6 @@ func (d *Downloader) downloadFile(ctx context.Context, filename string) (string,
 	url := fmt.Sprintf("%s/%s", d.baseURL, filename)
 	localPath := filepath.Join(d.cacheDir, filename)
 
-	if err := os.MkdirAll(d.cacheDir, cacheDirPerm); err != nil {
-		return "", 0, fmt.Errorf("failed to create cache dir: %w", err)
-	}
-
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to create request: %w", err)

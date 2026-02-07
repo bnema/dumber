@@ -39,7 +39,7 @@ func TestSessionMarkers_MarkAbruptExits(t *testing.T) {
 	require.NoError(t, writeStartupMarker(lockDir, "clean-b", detectedAt.Add(-4*time.Minute)))
 	require.NoError(t, writeShutdownMarker(lockDir, "clean-b", detectedAt.Add(-1*time.Minute)))
 
-	abruptSessions, err := markAbruptExits(lockDir, detectedAt)
+	abruptSessions, err := markAbruptExits(lockDir, detectedAt, nil)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"abrupt-a"}, abruptSessions)
 
@@ -55,11 +55,11 @@ func TestSessionMarkers_MarkAbruptExitsIdempotent(t *testing.T) {
 
 	require.NoError(t, writeStartupMarker(lockDir, "abrupt-c", detectedAt.Add(-10*time.Minute)))
 
-	first, err := markAbruptExits(lockDir, detectedAt)
+	first, err := markAbruptExits(lockDir, detectedAt, nil)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"abrupt-c"}, first)
 
-	second, err := markAbruptExits(lockDir, detectedAt.Add(1*time.Minute))
+	second, err := markAbruptExits(lockDir, detectedAt.Add(1*time.Minute), nil)
 	require.NoError(t, err)
 	assert.Empty(t, second)
 }

@@ -44,12 +44,10 @@ type PoolConfig struct {
 // DefaultPoolConfig returns sensible defaults for the pool.
 func DefaultPoolConfig() PoolConfig {
 	return PoolConfig{
-		MinSize:         2,
-		MaxSize:         8,
-		PrewarmCount:    4, // Pre-create 4 WebViews for faster initial tab creation
-		IdleTimeout:     5 * time.Minute,
-		ReusePolicy:     reusePolicyOff,
-		TerminatePolicy: terminatePolicyAuto,
+		MinSize:      2,
+		MaxSize:      8,
+		PrewarmCount: 4, // Pre-create 4 WebViews for faster initial tab creation
+		IdleTimeout:  5 * time.Minute,
 	}
 }
 
@@ -66,6 +64,7 @@ type WebViewPool struct {
 	config   PoolConfig
 
 	pool          chan *WebView
+	poolMu        sync.Mutex
 	injector      *ContentInjector
 	router        *MessageRouter
 	filterApplier FilterApplier // Optional content filter applier
@@ -299,12 +298,11 @@ func (p *WebViewPool) PrewarmFirst(ctx context.Context) error {
 		return err
 	}
 
-	select {
-	case p.pool <- wv:
+	if p.tryPut(ctx, wv) {
 		log.Debug().Uint64("id", uint64(wv.ID())).Msg("prewarmed first webview for cold start")
-	default:
-		wv.Destroy() // Pool somehow full (shouldn't happen)
+		return nil
 	}
+	wv.Destroy() // Pool somehow full (shouldn't happen)
 	return nil
 }
 
@@ -375,10 +373,9 @@ func (p *WebViewPool) PrewarmAsync(ctx context.Context, count int) {
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to prewarm webview")
 			} else {
-				select {
-				case p.pool <- wv:
+				if p.tryPut(ctx, wv) {
 					log.Debug().Uint64("id", uint64(wv.ID())).Msg("prewarmed webview added to pool")
-				default:
+				} else {
 					wv.Destroy()
 				}
 			}
@@ -417,10 +414,9 @@ func (p *WebViewPool) prewarmSync(ctx context.Context, count int) {
 		}
 
 		// Try to add to pool
-		select {
-		case p.pool <- wv:
+		if p.tryPut(ctx, wv) {
 			log.Debug().Uint64("id", uint64(wv.ID())).Msg("prewarmed webview added to pool")
-		default:
+		} else {
 			// Pool full, destroy
 			wv.Destroy()
 		}
@@ -468,10 +464,9 @@ refreshLoop:
 			}
 
 			// Put back in pool
-			select {
-			case p.pool <- wv:
+			if p.tryPut(ctx, wv) {
 				refreshed++
-			default:
+			} else {
 				wv.Destroy()
 			}
 		default:
@@ -498,7 +493,9 @@ func (p *WebViewPool) Close(ctx context.Context) {
 	p.wg.Wait()
 
 	// Drain and destroy all pooled views
+	p.poolMu.Lock()
 	close(p.pool)
+	p.poolMu.Unlock()
 	for wv := range p.pool {
 		if wv != nil && !wv.IsDestroyed() {
 			wv.Destroy()
@@ -529,6 +526,11 @@ func (p *WebViewPool) shouldReuseOnRelease(wv *WebView) bool {
 
 func (p *WebViewPool) tryPut(ctx context.Context, wv *WebView) bool {
 	log := logging.FromContext(ctx)
+	p.poolMu.Lock()
+	defer p.poolMu.Unlock()
+	if p.closed.Load() {
+		return false
+	}
 	select {
 	case p.pool <- wv:
 		log.Debug().Uint64("id", uint64(wv.ID())).Int("pool_size", len(p.pool)).Msg("returned webview to pool")
