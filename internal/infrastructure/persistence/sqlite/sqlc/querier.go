@@ -64,6 +64,7 @@ type Querier interface {
 	GetTotalSessionStatesSize(ctx context.Context) (interface{}, error)
 	GetZoomLevel(ctx context.Context, domain string) (ZoomLevel, error)
 	IncrementVisitCount(ctx context.Context, url string) error
+	IncrementVisitCountByDelta(ctx context.Context, arg IncrementVisitCountByDeltaParams) error
 	InsertSession(ctx context.Context, arg InsertSessionParams) error
 	IsWhitelisted(ctx context.Context, domain string) (int64, error)
 	ListZoomLevels(ctx context.Context) ([]ZoomLevel, error)

@@ -207,12 +207,29 @@ func crashOriginalURI(requestURI string) string {
 	return strings.TrimSpace(parsed.Query().Get("url"))
 }
 
+func crashReloadTarget(originalURI string) string {
+	originalURI = strings.TrimSpace(originalURI)
+	if originalURI == "" {
+		return ""
+	}
+	parsed, err := url.Parse(originalURI)
+	if err != nil {
+		return ""
+	}
+	switch strings.ToLower(parsed.Scheme) {
+	case "http", "https":
+		if parsed.Host == "" {
+			return ""
+		}
+		return parsed.String()
+	default:
+		return ""
+	}
+}
+
 func buildCrashPageHTML(originalURI string) string {
 	escapedOriginal := html.EscapeString(originalURI)
-	reloadAction := "window.location.reload();"
-	if originalURI != "" {
-		reloadAction = "window.location.href = targetUrl;"
-	}
+	escapedReloadTarget := html.EscapeString(crashReloadTarget(originalURI))
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -290,21 +307,27 @@ func buildCrashPageHTML(originalURI string) string {
         <p>The current page was interrupted. You can reload it to continue browsing.</p>
         <div class="url">%s</div>
         <div class="actions">
-            <button class="primary" id="reload-btn">Reload page</button>
+            <button class="primary" id="reload-btn" data-target="%s">Reload page</button>
             <button class="secondary" id="stay-btn">Stay on this page</button>
         </div>
     </div>
     <script>
-        const targetUrl = %q;
-        document.getElementById('reload-btn').addEventListener('click', function() {
-            %s
+        const reloadButton = document.getElementById('reload-btn');
+        const targetUrl = (reloadButton.getAttribute('data-target') || '').trim();
+        reloadButton.addEventListener('click', function() {
+            if (targetUrl) {
+                window.location.href = targetUrl;
+                return;
+            }
+            window.location.reload();
         });
         document.getElementById('stay-btn').addEventListener('click', function() {
-            window.location.href = 'dumb://home/crash?url=' + encodeURIComponent(targetUrl);
+            const crashURI = targetUrl ? targetUrl : '';
+            window.location.href = 'dumb://home/crash?url=' + encodeURIComponent(crashURI);
         });
     </script>
 </body>
-</html>`, escapedOriginal, originalURI, reloadAction)
+</html>`, escapedOriginal, escapedReloadTarget)
 }
 
 func (h *DumbSchemeHandler) buildConfigResponse(cfg *config.Config) *SchemeResponse {

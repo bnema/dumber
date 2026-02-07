@@ -32,6 +32,10 @@ type historyRecord struct {
 	visits int
 }
 
+type historyVisitDeltaIncrementer interface {
+	IncrementVisitCountBy(ctx context.Context, url string, delta int) error
+}
+
 type paneHistoryState struct {
 	lastRawURL       string
 	lastCanonicalURL string
@@ -258,7 +262,15 @@ func (uc *NavigateUseCase) persistHistory(ctx context.Context, record historyRec
 	}
 
 	if existing != nil {
-		for i := 0; i < maxInt(1, record.visits); i++ {
+		delta := maxInt(1, record.visits)
+		if deltaWriter, ok := uc.historyRepo.(historyVisitDeltaIncrementer); ok {
+			if err := deltaWriter.IncrementVisitCountBy(ctx, record.url, delta); err != nil {
+				log.Warn().Err(err).Str("url", record.url).Int("delta", delta).Msg("failed to increment visit count by delta")
+				return
+			}
+			return
+		}
+		for i := 0; i < delta; i++ {
 			if err := uc.historyRepo.IncrementVisitCount(ctx, record.url); err != nil {
 				log.Warn().Err(err).Str("url", record.url).Msg("failed to increment visit count")
 				return

@@ -16,13 +16,25 @@ func TestCrashOriginalURI(t *testing.T) {
 
 func TestBuildCrashPageHTMLIncludesReloadTarget(t *testing.T) {
 	body := buildCrashPageHTML("https://example.com/foo?a=1&b=2")
-	assert.Contains(t, body, "window.location.href = targetUrl;")
+	assert.Contains(t, body, `data-target="https://example.com/foo?a=1&amp;b=2"`)
 	assert.Contains(t, body, "https://example.com/foo?a=1&amp;b=2")
 }
 
 func TestBuildCrashPageHTMLFallbackReloadWithoutTarget(t *testing.T) {
 	body := buildCrashPageHTML("")
 	assert.Contains(t, body, "window.location.reload();")
+}
+
+func TestBuildCrashPageHTMLRejectsUnsafeReloadScheme(t *testing.T) {
+	body := buildCrashPageHTML("javascript:alert(1)")
+	assert.Contains(t, body, `data-target=""`)
+}
+
+func TestBuildCrashPageHTMLEscapesScriptBreakoutPayload(t *testing.T) {
+	payload := `https://example.com/?q=</script><script>alert(1)</script>`
+	body := buildCrashPageHTML(payload)
+	assert.NotContains(t, body, "</script><script>alert(1)</script>")
+	assert.Contains(t, body, "&lt;/script&gt;&lt;script&gt;alert(1)&lt;/script&gt;")
 }
 
 func TestRegisterDefaultsIncludesCrashHandler(t *testing.T) {
