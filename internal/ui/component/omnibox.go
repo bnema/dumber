@@ -836,6 +836,7 @@ func (o *Omnibox) setGhostText(originalInput, suffix, fullText string) {
 		displayText = fullText
 	}
 	selectionStart := utf8.RuneCountInString(originalInput)
+	selectionEnd := utf8.RuneCountInString(displayText)
 
 	o.mu.Lock()
 	o.realInput = originalInput
@@ -860,7 +861,8 @@ func (o *Omnibox) setGhostText(originalInput, suffix, fullText string) {
 		o.mu.Unlock()
 
 		o.entry.SetText(displayText)
-		o.entry.SelectRegion(selectionStart, -1)
+		o.entry.SetPosition(selectionStart)
+		o.entry.SelectRegion(selectionStart, selectionEnd)
 
 		o.mu.Lock()
 		o.isAcceptingGhost = false
