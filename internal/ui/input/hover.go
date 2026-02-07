@@ -18,16 +18,21 @@ const (
 // HoverCallback is called when a pane should receive focus from hover.
 type HoverCallback func(paneID entity.PaneID)
 
+// MotionCallback is called when intentional mouse movement is detected.
+type MotionCallback func()
+
 // HoverHandler handles mouse hover events for focus-follows-mouse behavior.
 // It uses a debounce timer to avoid rapid focus switches.
 type HoverHandler struct {
 	motionCtrl *gtk.EventControllerMotion
 	paneID     entity.PaneID
 	onEnter    HoverCallback
+	onMotion   MotionCallback
 
 	// Callback retention: must stay reachable by Go GC.
-	enterCb func(gtk.EventControllerMotion, float64, float64)
-	leaveCb func(gtk.EventControllerMotion)
+	enterCb  func(gtk.EventControllerMotion, float64, float64)
+	leaveCb  func(gtk.EventControllerMotion)
+	motionCb func(gtk.EventControllerMotion, float64, float64)
 
 	timer    *time.Timer
 	timerMu  sync.Mutex
@@ -50,6 +55,13 @@ func NewHoverHandler(ctx context.Context, paneID entity.PaneID) *HoverHandler {
 // SetOnEnter sets the callback for when the pane should receive focus.
 func (h *HoverHandler) SetOnEnter(fn HoverCallback) {
 	h.onEnter = fn
+}
+
+// SetOnMotion sets the callback for intentional mouse movement.
+// This fires on actual mouse motion within the pane, not on synthetic
+// enter/leave events from GTK widget rearrangement.
+func (h *HoverHandler) SetOnMotion(fn MotionCallback) {
+	h.onMotion = fn
 }
 
 // AttachTo attaches the hover handler to a GTK widget.
@@ -78,6 +90,16 @@ func (h *HoverHandler) AttachTo(widget *gtk.Widget) {
 		h.handleLeave()
 	}
 	h.motionCtrl.ConnectLeave(&h.leaveCb)
+
+	// Connect motion handler to detect intentional mouse movement.
+	// Unlike enter/leave, motion only fires when the cursor physically moves
+	// inside the widget — not on synthetic events from widget rearrangement.
+	h.motionCb = func(_ gtk.EventControllerMotion, _ float64, _ float64) {
+		if h.onMotion != nil {
+			h.onMotion()
+		}
+	}
+	h.motionCtrl.ConnectMotion(&h.motionCb)
 
 	// Add controller to widget
 	widget.AddController(&h.motionCtrl.EventController)
@@ -143,4 +165,5 @@ func (h *HoverHandler) Detach() {
 	h.motionCtrl = nil
 	h.enterCb = nil
 	h.leaveCb = nil
+	h.motionCb = nil
 }
