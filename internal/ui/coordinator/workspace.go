@@ -64,6 +64,16 @@ type stackPaneContext struct {
 	originalTitle string
 }
 
+type incrementalCloseContext struct {
+	parentNode           *entity.PaneNode
+	siblingNode          *entity.PaneNode
+	grandparentNode      *entity.PaneNode
+	parentWidget         layout.Widget
+	siblingIsStartChild  bool
+	parentIsStartInGrand bool
+	precheckReason       string
+}
+
 // NewWorkspaceCoordinator creates a new WorkspaceCoordinator.
 func NewWorkspaceCoordinator(ctx context.Context, cfg WorkspaceCoordinatorConfig) *WorkspaceCoordinator {
 	log := logging.FromContext(ctx)
@@ -717,52 +727,8 @@ func (c *WorkspaceCoordinator) ClosePane(ctx context.Context) error {
 		return nil
 	}
 
-	// BEFORE domain changes: capture widget info for incremental close
-	var parentNode *entity.PaneNode
-	var siblingNode *entity.PaneNode
-	var grandparentNode *entity.PaneNode
-	var parentWidget layout.Widget
-	var siblingIsStartChild bool  // true if sibling is the start (left/top) child in parent
-	var parentIsStartInGrand bool // true if parent is the start (left/top) child in grandparent
-
-	if wsView != nil {
-		tr := wsView.TreeRenderer()
-		if tr != nil && activePane.Parent != nil {
-			parentNode = activePane.Parent
-
-			// Find sibling (the other child of parent)
-			// If closing pane is start child, sibling is end child (and vice versa)
-			if parentNode.Left() == activePane {
-				siblingNode = parentNode.Right()
-				siblingIsStartChild = false // sibling is end/right child
-			} else {
-				siblingNode = parentNode.Left()
-				siblingIsStartChild = true // sibling is start/left child
-			}
-
-			grandparentNode = parentNode.Parent
-			parentWidget = tr.Lookup(parentNode.ID)
-
-			// Determine parent's position in grandparent (if grandparent exists)
-			if grandparentNode != nil {
-				parentIsStartInGrand = grandparentNode.Left() == parentNode
-			}
-
-			log.Debug().
-				Str("parent_id", parentNode.ID).
-				Str("sibling_id", func() string {
-					if siblingNode != nil {
-						return siblingNode.ID
-					}
-					return nilString
-				}()).
-				Bool("sibling_is_start", siblingIsStartChild).
-				Bool("parent_is_start_in_grand", parentIsStartInGrand).
-				Bool("has_grandparent", grandparentNode != nil).
-				Bool("has_parent_widget", parentWidget != nil).
-				Msg("captured close context")
-		}
-	}
+	// BEFORE domain changes: capture incremental close context.
+	closeCtx := c.captureIncrementalCloseContext(wsView, activePane)
 
 	// Now do domain changes
 	_, err := c.panesUC.Close(ctx, ws, activePane)
@@ -776,12 +742,7 @@ func (c *WorkspaceCoordinator) ClosePane(ctx context.Context) error {
 		wsView,
 		ws,
 		closingPaneID,
-		parentNode,
-		siblingNode,
-		grandparentNode,
-		parentWidget,
-		siblingIsStartChild,
-		parentIsStartInGrand,
+		closeCtx,
 	)
 
 	// Notify state change for session snapshots
@@ -824,35 +785,8 @@ func (c *WorkspaceCoordinator) ClosePaneByID(ctx context.Context, paneID entity.
 		return nil
 	}
 
-	// BEFORE domain changes: capture widget info for incremental close
-	var parentNode *entity.PaneNode
-	var siblingNode *entity.PaneNode
-	var grandparentNode *entity.PaneNode
-	var parentWidget layout.Widget
-	var siblingIsStartChild bool
-	var parentIsStartInGrand bool
-
-	if wsView != nil {
-		tr := wsView.TreeRenderer()
-		if tr != nil && paneNode.Parent != nil {
-			parentNode = paneNode.Parent
-
-			if parentNode.Left() == paneNode {
-				siblingNode = parentNode.Right()
-				siblingIsStartChild = false
-			} else {
-				siblingNode = parentNode.Left()
-				siblingIsStartChild = true
-			}
-
-			grandparentNode = parentNode.Parent
-			parentWidget = tr.Lookup(parentNode.ID)
-
-			if grandparentNode != nil {
-				parentIsStartInGrand = grandparentNode.Left() == parentNode
-			}
-		}
-	}
+	// BEFORE domain changes: capture incremental close context.
+	closeCtx := c.captureIncrementalCloseContext(wsView, paneNode)
 
 	// Now do domain changes
 	_, err := c.panesUC.Close(ctx, ws, paneNode)
@@ -866,12 +800,7 @@ func (c *WorkspaceCoordinator) ClosePaneByID(ctx context.Context, paneID entity.
 		wsView,
 		ws,
 		paneID,
-		parentNode,
-		siblingNode,
-		grandparentNode,
-		parentWidget,
-		siblingIsStartChild,
-		parentIsStartInGrand,
+		closeCtx,
 	)
 
 	// Notify state change for session snapshots
@@ -894,6 +823,16 @@ func (c *WorkspaceCoordinator) doIncrementalClose(
 	parentIsStartInGrand bool, // true if parent is start/left child in grandparent
 ) error {
 	log := logging.FromContext(ctx)
+	if parentNode == nil {
+		return fmt.Errorf("parent node missing")
+	}
+	if siblingNode == nil {
+		return fmt.Errorf("sibling node missing")
+	}
+	if parentWidget == nil {
+		return fmt.Errorf("parent widget missing")
+	}
+
 	tr := wsView.TreeRenderer()
 	if tr == nil {
 		return fmt.Errorf("tree renderer not available")
@@ -1015,12 +954,7 @@ func (c *WorkspaceCoordinator) finalizePaneClose(
 	wsView *component.WorkspaceView,
 	ws *entity.Workspace,
 	paneID entity.PaneID,
-	parentNode *entity.PaneNode,
-	siblingNode *entity.PaneNode,
-	grandparentNode *entity.PaneNode,
-	parentWidget layout.Widget,
-	siblingIsStartChild bool,
-	parentIsStartInGrand bool,
+	closeCtx incrementalCloseContext,
 ) {
 	if wsView == nil {
 		return
@@ -1028,29 +962,40 @@ func (c *WorkspaceCoordinator) finalizePaneClose(
 
 	log := logging.FromContext(ctx)
 
-	if parentNode != nil {
+	if closeCtx.parentNode != nil {
 		var closeErr error
 
-		if parentNode.IsStacked {
-			closeErr = c.doIncrementalStackClose(ctx, wsView, paneID, parentNode)
-		} else if siblingNode != nil && parentWidget != nil {
+		if closeCtx.parentNode.IsStacked {
+			closeErr = c.doIncrementalStackClose(ctx, wsView, paneID, closeCtx.parentNode)
+		} else if closeCtx.precheckReason != "" {
+			closeErr = fmt.Errorf("incremental close precheck failed: %s", closeCtx.precheckReason)
+		} else if closeCtx.siblingNode != nil && closeCtx.parentWidget != nil {
 			closeErr = c.doIncrementalClose(
 				ctx,
 				wsView,
 				paneID,
-				siblingNode,
-				parentNode,
-				grandparentNode,
-				parentWidget,
-				siblingIsStartChild,
-				parentIsStartInGrand,
+				closeCtx.siblingNode,
+				closeCtx.parentNode,
+				closeCtx.grandparentNode,
+				closeCtx.parentWidget,
+				closeCtx.siblingIsStartChild,
+				closeCtx.parentIsStartInGrand,
 			)
 		} else {
 			closeErr = fmt.Errorf("missing context for incremental close")
 		}
 
 		if closeErr != nil {
-			log.Warn().Err(closeErr).Msg("incremental close failed, falling back to rebuild")
+			fallbackLog := log.Warn().Err(closeErr).
+				Str("pane_id", string(paneID)).
+				Str("parent_id", paneNodeID(closeCtx.parentNode)).
+				Str("sibling_id", paneNodeID(closeCtx.siblingNode)).
+				Str("grandparent_id", paneNodeID(closeCtx.grandparentNode)).
+				Bool("has_parent_widget", closeCtx.parentWidget != nil)
+			if closeCtx.precheckReason != "" {
+				fallbackLog = fallbackLog.Str("precheck_reason", closeCtx.precheckReason)
+			}
+			fallbackLog.Msg("incremental close failed, falling back to rebuild")
 			if err := wsView.Rebuild(ctx); err != nil {
 				log.Error().Err(err).Msg("failed to rebuild workspace view")
 			}
@@ -1071,6 +1016,113 @@ func (c *WorkspaceCoordinator) finalizePaneClose(
 		log.Warn().Err(err).Msg("failed to set active pane in workspace view")
 	}
 	wsView.FocusPane(ws.ActivePaneID)
+}
+
+func (c *WorkspaceCoordinator) captureIncrementalCloseContext(
+	wsView *component.WorkspaceView,
+	closingPane *entity.PaneNode,
+) incrementalCloseContext {
+	closeCtx, err := deriveIncrementalCloseTreeContext(closingPane)
+	if err != nil {
+		closeCtx.precheckReason = err.Error()
+		return closeCtx
+	}
+
+	if closeCtx.parentNode == nil || closeCtx.parentNode.IsStacked {
+		return closeCtx
+	}
+
+	if wsView == nil {
+		closeCtx.precheckReason = "workspace view unavailable"
+		return closeCtx
+	}
+
+	tr := wsView.TreeRenderer()
+	if tr == nil {
+		closeCtx.precheckReason = "tree renderer unavailable"
+		return closeCtx
+	}
+
+	closeCtx.parentWidget = tr.Lookup(closeCtx.parentNode.ID)
+	if closeCtx.parentWidget == nil {
+		closeCtx.precheckReason = "parent widget missing"
+	}
+
+	return closeCtx
+}
+
+func deriveIncrementalCloseTreeContext(closingPane *entity.PaneNode) (incrementalCloseContext, error) {
+	var closeCtx incrementalCloseContext
+	if closingPane == nil {
+		return closeCtx, errors.New("closing pane missing")
+	}
+
+	parentNode := closingPane.Parent
+	if parentNode == nil {
+		return closeCtx, errors.New("closing pane has no parent")
+	}
+
+	closeCtx.parentNode = parentNode
+	closeCtx.grandparentNode = parentNode.Parent
+
+	if parentNode.IsStacked {
+		return closeCtx, nil
+	}
+
+	if !parentNode.IsSplit() {
+		return closeCtx, fmt.Errorf("parent node is not split: %s", parentNode.ID)
+	}
+
+	if len(parentNode.Children) != 2 {
+		return closeCtx, fmt.Errorf("split parent has invalid child count: %d", len(parentNode.Children))
+	}
+
+	leftChild := parentNode.Left()
+	rightChild := parentNode.Right()
+	if leftChild == closingPane && rightChild == nil {
+		return closeCtx, errors.New("sibling missing")
+	}
+	if rightChild == closingPane && leftChild == nil {
+		return closeCtx, errors.New("sibling missing")
+	}
+	if leftChild == nil || rightChild == nil {
+		return closeCtx, errors.New("split parent has nil child")
+	}
+
+	switch {
+	case leftChild == closingPane:
+		closeCtx.siblingNode = rightChild
+		closeCtx.siblingIsStartChild = false
+	case rightChild == closingPane:
+		closeCtx.siblingNode = leftChild
+		closeCtx.siblingIsStartChild = true
+	default:
+		return closeCtx, fmt.Errorf("closing pane not found under parent: %s", parentNode.ID)
+	}
+
+	if closeCtx.siblingNode == nil {
+		return closeCtx, errors.New("sibling missing")
+	}
+
+	if closeCtx.grandparentNode != nil {
+		switch {
+		case closeCtx.grandparentNode.Left() == parentNode:
+			closeCtx.parentIsStartInGrand = true
+		case closeCtx.grandparentNode.Right() == parentNode:
+			closeCtx.parentIsStartInGrand = false
+		default:
+			return closeCtx, fmt.Errorf("parent not found under grandparent: %s", closeCtx.grandparentNode.ID)
+		}
+	}
+
+	return closeCtx, nil
+}
+
+func paneNodeID(node *entity.PaneNode) string {
+	if node == nil {
+		return nilString
+	}
+	return node.ID
 }
 
 // doIncrementalStackClose removes a pane from a stack without rebuilding the entire tree.

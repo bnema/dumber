@@ -432,11 +432,20 @@ Dumber automatically detects your GPU vendor (AMD/Intel/NVIDIA) and sets optimal
 [media]
 hardware_decoding = "auto"    # HW preferred, SW fallback
 prefer_av1 = false            # Let site choose codec
-show_diagnostics = false      # Enable for debugging
+show_diagnostics = false      # Keep off for daily use
 force_vsync = false           # Let compositor handle VSync
 gl_rendering_mode = "auto"    # GStreamer picks best GL API
 gstreamer_debug_level = 0     # Increase to 3-5 for debugging
 ```
+
+**Diagnostic mode toggle path:**
+```toml
+# ~/.config/dumber/config.toml
+[media]
+show_diagnostics = true
+gstreamer_debug_level = 3
+```
+Set `show_diagnostics = false` and `gstreamer_debug_level = 0` to return to normal mode.
 
 **Diagnostics CLI:**
 ```bash
@@ -523,13 +532,13 @@ Performance profiles provide preset configurations for WebKitGTK tuning. These s
 
 | Key | Type | Default | Valid Values | Description |
 |-----|------|---------|--------------|-------------|
-| `performance.profile` | string | `"default"` | `default`, `lite`, `max`, `custom` | Performance profile selection |
+| `performance.profile` | string | `"lite"` | `default`, `lite`, `max`, `custom` | Performance profile selection |
 
 ### Profiles
 
 | Profile | Description | Use Case |
 |---------|-------------|----------|
-| `default` | No tuning, uses WebKit defaults | Normal browsing, most users |
+| `default` | No tuning, uses WebKit defaults | Compatibility baseline, troubleshooting |
 | `lite` | Reduced resource usage | Low-RAM systems (< 4GB), battery saving |
 | `max` | Maximum responsiveness | Heavy pages (GitHub PRs, complex SPAs), high-end systems |
 | `custom` | Manual control over all settings | Advanced users who want fine-grained control |
@@ -549,10 +558,10 @@ Performance profiles provide preset configurations for WebKitGTK tuning. These s
 **Example:**
 ```toml
 [performance]
-profile = "default"  # Most users - no tuning needed
+profile = "lite"  # Daily-use default
 
-# For low-RAM systems:
-# profile = "lite"
+# For WebKit baseline behavior:
+# profile = "default"
 
 # For heavy pages (GitHub PRs, complex web apps):
 # profile = "max"

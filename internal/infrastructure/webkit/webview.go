@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -157,6 +158,7 @@ type WebView struct {
 	mu     sync.RWMutex
 
 	frontendAttached atomic.Bool
+	navigationActive atomic.Bool
 
 	// asyncCallbacks keeps references to async JS callbacks to prevent GC
 	asyncCallbacks []interface{}
@@ -168,6 +170,12 @@ type WebView struct {
 	backForwardList         *webkit.BackForwardList
 	backForwardListSignalID uint32
 }
+
+const (
+	terminatePolicyAuto   = "auto"
+	terminatePolicyAlways = "always"
+	terminatePolicyNever  = "never"
+)
 
 type findControllerAdapter struct {
 	fc *webkit.FindController
@@ -406,6 +414,7 @@ func (wv *WebView) connectLoadChangedSignal() {
 
 		switch event {
 		case webkit.LoadStartedValue:
+			wv.navigationActive.Store(true)
 			wv.isLoading = true
 			wv.logger.Debug().Str("uri", uri).Msg("load started")
 		case webkit.LoadRedirectedValue:
@@ -941,6 +950,7 @@ func (wv *WebView) LoadURI(ctx context.Context, uri string) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
+	wv.navigationActive.Store(true)
 	wv.inner.LoadUri(uri)
 	logging.FromContext(ctx).Debug().Str("uri", uri).Msg("loading URI")
 	return nil
@@ -951,6 +961,7 @@ func (wv *WebView) LoadHTML(ctx context.Context, content, baseURI string) error 
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
+	wv.navigationActive.Store(true)
 	var baseURIPtr *string
 	if baseURI != "" {
 		baseURIPtr = &baseURI
@@ -1249,6 +1260,16 @@ func (wv *WebView) IsDestroyed() bool {
 	return wv.destroyed.Load()
 }
 
+// IsRelated returns true when this WebView shares process/session with a parent popup.
+func (wv *WebView) IsRelated() bool {
+	return wv.isRelated
+}
+
+// HasNavigationActivity reports whether this WebView has been used for content navigation.
+func (wv *WebView) HasNavigationActivity() bool {
+	return wv.navigationActive.Load()
+}
+
 // Close triggers the close callback as if window.close() was called.
 // This is used for programmatic popup closure (e.g., OAuth auto-close).
 func (wv *WebView) Close() {
@@ -1288,9 +1309,16 @@ func (wv *WebView) DisconnectSignals() {
 // This must be called when a WebView is no longer needed to free GPU resources,
 // VA-API decoder contexts, and DMA-BUF buffers held by the web process.
 func (wv *WebView) Destroy() {
+	wv.DestroyWithPolicy(resolveTerminatePolicy(""))
+}
+
+// DestroyWithPolicy cleans up the WebView resources with explicit process policy.
+// Valid policies: auto, always, never.
+func (wv *WebView) DestroyWithPolicy(policy string) {
 	if wv.destroyed.Swap(true) {
 		return // Already destroyed
 	}
+	policy = resolveTerminatePolicy(policy)
 
 	// 1. Disconnect all signal handlers first to prevent callbacks during cleanup
 	wv.DisconnectSignals()
@@ -1322,11 +1350,9 @@ func (wv *WebView) Destroy() {
 		wv.inner.Unparent()
 	}
 
-	// 5. Terminate the web process to free GPU resources (VA-API, DMA-BUF, GL contexts)
-	// This is critical to prevent zombie processes that hold video decoder resources.
-	// IMPORTANT: Skip for related views (popups) - they share the web process with their
-	// parent. Terminating the shared process would kill the parent WebView too!
-	if !wv.isRelated && wv.inner != nil {
+	// 5. Optionally terminate web process (skip for related popup views sharing parent process).
+	terminate := shouldTerminateWebProcess(policy, wv.isRelated, wv.navigationActive.Load())
+	if terminate && wv.inner != nil {
 		wv.inner.TerminateWebProcess()
 	}
 
@@ -1338,10 +1364,86 @@ func (wv *WebView) Destroy() {
 	wv.ucm = nil
 	wv.findController = nil
 
-	if wv.isRelated {
-		wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("related webview destroyed (process shared with parent)")
-	} else {
-		wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("webview destroyed and web process terminated")
+	wv.logger.Debug().
+		Uint64("id", uint64(wv.id)).
+		Bool("related", wv.isRelated).
+		Bool("navigation_active", wv.navigationActive.Load()).
+		Bool("terminated_process", terminate).
+		Str("terminate_policy", policy).
+		Msg("webview destroyed")
+}
+
+// ResetForPoolReuse sanitizes callbacks/state so the WebView can be safely reused.
+func (wv *WebView) ResetForPoolReuse() {
+	if wv == nil || wv.destroyed.Load() {
+		return
+	}
+
+	wv.OnLoadChanged = nil
+	wv.OnTitleChanged = nil
+	wv.OnURIChanged = nil
+	wv.OnProgressChanged = nil
+	wv.OnFaviconChanged = nil
+	wv.OnClose = nil
+	wv.OnCreate = nil
+	wv.OnReadyToShow = nil
+	wv.OnLinkMiddleClick = nil
+	wv.OnEnterFullscreen = nil
+	wv.OnLeaveFullscreen = nil
+	wv.OnAudioStateChanged = nil
+	wv.OnLinkHover = nil
+	wv.OnWebProcessTerminated = nil
+
+	wv.mu.Lock()
+	wv.uri = ""
+	wv.title = ""
+	wv.progress = 0
+	wv.canGoBack = false
+	wv.canGoFwd = false
+	wv.isLoading = false
+	wv.asyncCallbacks = nil
+	wv.mu.Unlock()
+
+	wv.isFullscreen.Store(false)
+	wv.isPlayingAudio.Store(false)
+	wv.navigationActive.Store(false)
+
+	if wv.inner != nil {
+		wv.inner.StopLoading()
+		wv.inner.SetVisible(false)
+	}
+}
+
+func resolveTerminatePolicy(raw string) string {
+	value := strings.ToLower(strings.TrimSpace(raw))
+	if value == "" {
+		value = strings.ToLower(strings.TrimSpace(os.Getenv("DUMBER_WEBVIEW_TERMINATE_POLICY")))
+	}
+	switch value {
+	case terminatePolicyAlways:
+		return terminatePolicyAlways
+	case terminatePolicyNever:
+		return terminatePolicyNever
+	case terminatePolicyAuto, "":
+		return terminatePolicyAuto
+	default:
+		return terminatePolicyAuto
+	}
+}
+
+func shouldTerminateWebProcess(policy string, isRelated, navigationActive bool) bool {
+	if isRelated {
+		return false
+	}
+	switch resolveTerminatePolicy(policy) {
+	case terminatePolicyNever:
+		return false
+	case terminatePolicyAlways:
+		return true
+	case terminatePolicyAuto:
+		return navigationActive
+	default:
+		return navigationActive
 	}
 }
 
