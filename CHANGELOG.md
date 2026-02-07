@@ -23,6 +23,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **Hover focus stealing from new split panes**: New pane creation now locks hover focus until the user intentionally moves the mouse, replacing the 300ms time-based suppression that could expire before GTK layout completes. Synthetic enter events from widget rearrangement no longer steal focus from freshly created panes.
 - **Stacked pane title desync on navigation**: Titles in the stacked title bar now sync immediately on `LoadCommitted` and when switching panes, preventing stale titles after background navigation.
 - **Session marker file accumulation**: `writeShutdownMarker` now removes the matching startup marker (embedding its timestamp for classification), and a new `sweepPairedMarkers` sweep in background cleanup removes old marker trios past the configured age.
 - **Retry delay exceeding max**: `retryDelayForAttempt` now clamps the final delay (base + jitter) to `retryMaxDelay` so backoff never overshoots the hard cap.
