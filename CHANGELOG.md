@@ -2,6 +2,57 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **Session exit classification runbook and diagnostics docs**: Added dedicated operational documentation for abrupt/clean exit classification and troubleshooting paths.
+- **Session/bootstrap resilience coverage**: Added tests and supporting logic for startup markers, WebKit stack bootstrap, and exit classification handling.
+- **Omnibox async guard tests**: Added focused tests for ghost text async/state safety and normalization behavior.
+
+### Changed
+
+- **WebKit/puregotk compatibility refresh**: Updated bindings and call sites for `github.com/bnema/puregotk-webkit v0.0.10` and latest puregotk replacement, including signal ID/type handling updates.
+- **Dependencies updated**: Bumped key runtime/developer dependencies, including `go-sqlite3`, `bubbles`, and related transitive modules.
+- **Omnibox behavior tuning**: Refined ghost suggestion ranking/selection behavior and dynamic result sizing tied to pane height.
+- **Autocomplete architecture cleanup**: Centralized completion flow and ghost positioning helpers for more consistent behavior across async paths.
+- **Omnibox keyboard/navigation UX**: Added `Alt+h/j/k/l` pane navigation while omnibox is open and improved chrome height scaling/debouncing on GTK main thread.
+- **Config normalization hardening**: Normalization now coerces invalid profile/appearance values to safe defaults.
+- **Loading skeleton redesign**: Reduced logo from 512px to 256px, added version label below a discrete 32px spinner. Sizes extracted to constants so tests use `mock.Anything` and don't break on dimension changes.
+- **Aggressive WebView reuse policy**: `reusePolicyAggressive` now actually differs from `reusePolicySafe` by allowing reuse regardless of navigation activity, relying on `ResetForPoolReuse` to clear state.
+
+### Fixed
+
+- **Hover focus stealing from new split panes**: New pane creation now locks hover focus until the user intentionally moves the mouse, replacing the 300ms time-based suppression that could expire before GTK layout completes. Synthetic enter events from widget rearrangement no longer steal focus from freshly created panes.
+- **Stacked pane title desync on navigation**: Titles in the stacked title bar now sync immediately on `LoadCommitted` and when switching panes, preventing stale titles after background navigation.
+- **Session marker file accumulation**: `writeShutdownMarker` now removes the matching startup marker (embedding its timestamp for classification), and a new `sweepPairedMarkers` sweep in background cleanup removes old marker trios past the configured age.
+- **Retry delay exceeding max**: `retryDelayForAttempt` now clamps the final delay (base + jitter) to `retryMaxDelay` so backoff never overshoots the hard cap.
+- **Inconsistent WebView termination in pool**: `PrewarmFirst`, `PrewarmAsync`, `prewarmSync`, and `RefreshScripts` now call `DestroyWithPolicy(terminatePolicy)` instead of bare `Destroy()`, matching `Release` behavior.
+- **Pool metrics counted on failed creation**: `acquireCount`, `acquirePoolMisses`, and `acquireTotalNanos` are now incremented only after `createWebView` succeeds.
+- **Redundant crash page URI sanitization**: Removed double `sanitizeCrashPageOriginalURI` call inside `buildCrashPageHTML`; the caller already sanitizes.
+- **Racy skeleton version global**: Replaced plain `string` with `atomic.Value` so concurrent reads/writes to `skeletonVersion` are safe.
+- **Inline ghost suggestion stability**: Reworked ghostwriter flow to keep suggestions selected (not auto-committed), with stronger token guards and stale-callback protection.
+- **GTK thread-safety in omnibox**: Removed unsafe off-main-thread widget reads in async flows.
+- **Review follow-ups (Copilot/CodeRabbit)**: Fixed custom-scheme GET handling for empty WebKit methods, synchronized pool close/send paths, aligned WebKit signal ID storage types, and marshalled OAuth parent refresh reloads back to the GTK main loop.
+- **Persistence/update safety edges**: Enforced positive visit-count deltas in SQLite repos, removed redundant filter cache directory creation, canceled pending snapshot timer on `SetReady`, and made updater retry-loop exhaustion explicit.
+- **Logging/dedup consistency**: Unified abrupt-session marker stat warnings under structured session logging and reduced favicon warning dedup growth by using a global cache-dir warning key plus callback coverage tests.
+- **Omnibox input/ghost correctness**: Enforced minimum typed input before ghost suggestions, trimmed leading spaces before URL interpretation, deferred omnibox auto-open until layout is ready, and fixed width/layout edge-cases.
+- **History/autocomplete edge-cases**: Normalized FTS queries containing slashes and capped `about:blank` visit-count inflation.
+- **Navigation/history robustness**: Added pane history cleanup hooks, batched/capped visit increment fallback, and idempotent `NavigateUseCase.Close()`.
+- **WebView lifecycle/reset correctness**: Reset pooled WebView transient state more thoroughly and improved callback/signal wiring consistency.
+- **Navigation safety guards**: Added `CanGoBack` protection in navigation policy handling and corrected back-forward-list signal disconnection target.
+- **Crash handling and retry edge-cases**: Hardened crash-page routing safety, updater retry semantics/documentation, and related infra error paths.
+- **Filtering/snapshot/session reliability**: Fixed race/error-handling paths in filtering updates, snapshot persistence, and session startup marker processing.
+- **WebView pool shutdown race**: Re-check `closed` flag after `createWebView` in `Acquire` to prevent leaking WebViews when pool closes during creation.
+- **Updater transient error detection**: Broadened `isRetryableRequestError` to detect `ECONNRESET`, `ECONNREFUSED`, `ENETUNREACH`, `EHOSTUNREACH`, and `EADDRNOTAVAIL` syscall errors, plus `net.Error.Temporary()` and `url.Error` wrappers.
+- **Session lock probe accuracy**: `markAbruptExits` now uses non-blocking flock instead of `os.Stat`, correctly distinguishing active sessions (lock held) from stale ones (lock acquirable) and skipping on permission/IO errors.
+- **Crash page "Stay on this page" UX**: Button no longer navigates to `dumb://home/crash`; it now stays on the crash page as its label suggests.
+- **Visit increment fallback overflow**: `IncrementVisitCountBy` now returns an error when delta exceeds the fallback cap instead of silently dropping increments.
+
+### Security
+
+- **External scheme launch guard**: Restricted external URL scheme launching to user-gesture initiated navigations.
+
 ## [0.26.1] - 2026-01-25
 
 ### Fixed

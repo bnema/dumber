@@ -27,6 +27,8 @@ type Config struct {
 	Omnibox OmniboxConfig `mapstructure:"omnibox" yaml:"omnibox" toml:"omnibox"`
 	// Rendering controls WebKit, GTK and compositor behavior.
 	Rendering RenderingConfig `mapstructure:"rendering" yaml:"rendering" toml:"rendering"`
+	// Privacy controls cookie acceptance and tracking prevention.
+	Privacy PrivacyConfig `mapstructure:"privacy" yaml:"privacy" toml:"privacy"`
 	// Media controls video playback and hardware acceleration
 	Media MediaConfig `mapstructure:"media" yaml:"media" toml:"media"`
 	// Runtime configures optional runtime overrides (e.g., /opt prefix for WebKitGTK/GTK).
@@ -46,6 +48,18 @@ const (
 	RenderingModeAuto RenderingMode = "auto"
 	RenderingModeGPU  RenderingMode = "gpu"
 	RenderingModeCPU  RenderingMode = "cpu"
+)
+
+// CookiePolicy controls cookie acceptance behavior.
+type CookiePolicy string
+
+const (
+	// CookiePolicyAlways accepts all cookies.
+	CookiePolicyAlways CookiePolicy = "always"
+	// CookiePolicyNoThirdParty blocks third-party cookies.
+	CookiePolicyNoThirdParty CookiePolicy = "no_third_party"
+	// CookiePolicyNever blocks all cookies.
+	CookiePolicyNever CookiePolicy = "never"
 )
 
 // GSKRendererMode controls the GTK Scene Kit renderer selection.
@@ -101,6 +115,15 @@ type RenderingConfig struct {
 	// DebugFrames enables frame timing debug output.
 	// Env: GDK_DEBUG=frames
 	DebugFrames bool `mapstructure:"debug_frames" yaml:"debug_frames" toml:"debug_frames"`
+}
+
+// PrivacyConfig controls cookie behavior and tracking prevention.
+type PrivacyConfig struct {
+	// CookiePolicy controls cookie acceptance behavior.
+	// Values: "always", "no_third_party", "never"
+	CookiePolicy CookiePolicy `mapstructure:"cookie_policy" yaml:"cookie_policy" toml:"cookie_policy"`
+	// ITPEnabled enables Intelligent Tracking Prevention.
+	ITPEnabled bool `mapstructure:"itp_enabled" yaml:"itp_enabled" toml:"itp_enabled"`
 }
 
 // HardwareDecodingMode controls video hardware acceleration.

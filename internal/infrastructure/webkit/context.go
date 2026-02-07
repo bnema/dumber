@@ -37,8 +37,10 @@ type WebKitContext struct {
 // This MUST be called before creating any WebViews to ensure they use persistent storage.
 func NewWebKitContext(ctx context.Context, dataDir, cacheDir string) (*WebKitContext, error) {
 	return NewWebKitContextWithOptions(ctx, port.WebKitContextOptions{
-		DataDir:  dataDir,
-		CacheDir: cacheDir,
+		DataDir:      dataDir,
+		CacheDir:     cacheDir,
+		CookiePolicy: port.WebKitCookiePolicyNoThirdParty,
+		ITPEnabled:   true,
 	})
 }
 
@@ -71,7 +73,7 @@ func NewWebKitContextWithOptions(ctx context.Context, opts port.WebKitContextOpt
 
 	// Create persistent network session FIRST
 	// Per WebKitGTK 6.0 docs: "The first WebKitNetworkSession created becomes the default"
-	if err := wkCtx.initNetworkSession(); err != nil {
+	if err := wkCtx.initNetworkSession(opts); err != nil {
 		return nil, fmt.Errorf("failed to init network session: %w", err)
 	}
 
@@ -112,7 +114,7 @@ func NewWebKitContextWithOptions(ctx context.Context, opts port.WebKitContextOpt
 }
 
 // initNetworkSession creates and configures the persistent network session.
-func (c *WebKitContext) initNetworkSession() error {
+func (c *WebKitContext) initNetworkSession(opts port.WebKitContextOptions) error {
 	// Create persistent network session
 	session := webkit.NewNetworkSession(&c.dataDir, &c.cacheDir)
 	if session == nil {
@@ -158,10 +160,14 @@ func (c *WebKitContext) initNetworkSession() error {
 
 	cookiePath := filepath.Join(c.dataDir, "cookies.db")
 	cookieManager.SetPersistentStorage(cookiePath, webkit.CookiePersistentStorageSqliteValue)
-	cookieManager.SetAcceptPolicy(webkit.CookiePolicyAcceptNoThirdPartyValue)
+	cookiePolicy, cookiePolicyLabel := mapCookiePolicy(opts.CookiePolicy)
+	cookieManager.SetAcceptPolicy(cookiePolicy)
+	session.SetItpEnabled(opts.ITPEnabled)
 
-	c.logger.Debug().
+	c.logger.Info().
 		Str("cookie_path", cookiePath).
+		Str("cookie_policy", cookiePolicyLabel).
+		Bool("itp_enabled", opts.ITPEnabled).
 		Msg("cookie storage configured")
 
 	// Enable persistent credential storage
@@ -180,6 +186,19 @@ func (c *WebKitContext) initNetworkSession() error {
 	c.logger.Debug().Msg("network session initialized as persistent")
 
 	return nil
+}
+
+func mapCookiePolicy(policy port.WebKitCookiePolicy) (webkit.CookieAcceptPolicy, string) {
+	switch policy {
+	case port.WebKitCookiePolicyAlways:
+		return webkit.CookiePolicyAcceptAlwaysValue, string(port.WebKitCookiePolicyAlways)
+	case port.WebKitCookiePolicyNever:
+		return webkit.CookiePolicyAcceptNeverValue, string(port.WebKitCookiePolicyNever)
+	case port.WebKitCookiePolicyNoThirdParty, "":
+		return webkit.CookiePolicyAcceptNoThirdPartyValue, string(port.WebKitCookiePolicyNoThirdParty)
+	default:
+		return webkit.CookiePolicyAcceptNoThirdPartyValue, string(port.WebKitCookiePolicyNoThirdParty)
+	}
 }
 
 // Context returns the shared WebContext.

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -56,6 +57,14 @@ type WorkspaceView struct {
 	// Prevents hover focus from overriding keyboard-initiated focus changes
 	hoverSuppressedUntil time.Time
 
+	// newPaneFocusLock suppresses hover focus after a new pane is created.
+	// Rule: new pane creation always wins focus. Hover focus is blocked
+	// until the user intentionally moves the mouse (motion event), at which
+	// point normal hover-follows-mouse behavior resumes. This prevents
+	// GTK's synthetic enter events (fired on widget rearrangement) from
+	// stealing focus away from a freshly created pane.
+	newPaneFocusLock atomic.Bool
+
 	// Auto-open omnibox on new pane creation
 	autoOpenOnNewPane bool
 
@@ -93,10 +102,23 @@ func (a *paneViewFactoryAdapter) CreatePaneView(node *entity.PaneNode) layout.Wi
 		}
 	})
 
+	// Clear new-pane focus lock on intentional mouse motion.
+	// This allows hover-follows-mouse to resume after the user moves the
+	// mouse, while keeping focus on the new pane until that happens.
+	pv.SetOnMouseMotion(func() {
+		a.wv.newPaneFocusLock.Store(false)
+	})
+
 	// Set up hover callback for focus-follows-mouse
 	pv.SetOnHover(func(paneID entity.PaneID) {
 		// Skip if hover is suppressed (keyboard navigation just happened)
 		if a.wv.IsHoverSuppressed() {
+			return
+		}
+
+		// Skip if new pane was just created — focus stays on new pane
+		// until the user intentionally moves the mouse (see SetOnMouseMotion).
+		if a.wv.newPaneFocusLock.Load() {
 			return
 		}
 
@@ -566,7 +588,10 @@ func (wv *WorkspaceView) SetAutoOpenOnNewPane(enabled bool) {
 // NotifyNewPaneCreated handles new pane creation events.
 // Suppresses hover focus to keep focus on the new pane, and optionally shows omnibox.
 func (wv *WorkspaceView) NotifyNewPaneCreated(ctx context.Context) {
-	// Suppress hover focus so mouse position doesn't steal focus from new pane
+	// Lock hover focus until the user intentionally moves the mouse.
+	// New pane creation always wins focus; hover-follows-mouse resumes
+	// only after real mouse motion (cleared by PaneView.SetOnMouseMotion).
+	wv.newPaneFocusLock.Store(true)
 	wv.SuppressHover(KeyboardFocusSuppressDuration)
 	wv.CancelAllPendingHovers()
 

@@ -70,7 +70,7 @@ func setupPaneMocks(t *testing.T, mockFactory *mocks.MockWidgetFactory, mockBox 
 	mockTitleBar.EXPECT().AddController(mock.Anything).Once()
 
 	// Close button click handler
-	mockCloseButton.EXPECT().ConnectClicked(mock.Anything).Return(uint32(2)).Once()
+	mockCloseButton.EXPECT().ConnectClicked(mock.Anything).Return(uint(2)).Once()
 
 	// Signal disconnection calls GtkWidget() - return nil to skip actual GTK operations in tests
 	mockCloseButton.EXPECT().GtkWidget().Return(nil).Maybe()
@@ -593,7 +593,7 @@ func setupInsertPaneMocks(
 	mockTitleBar.EXPECT().AddController(mock.Anything).Once()
 
 	// Close button click handler
-	mockCloseButton.EXPECT().ConnectClicked(mock.Anything).Return(uint32(2)).Once()
+	mockCloseButton.EXPECT().ConnectClicked(mock.Anything).Return(uint(2)).Once()
 
 	// Signal disconnection calls GtkWidget() - return nil to skip actual GTK operations in tests
 	mockCloseButton.EXPECT().GtkWidget().Return(nil).Maybe()

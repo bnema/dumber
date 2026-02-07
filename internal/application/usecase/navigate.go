@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -20,12 +21,32 @@ const (
 
 	// logURLMaxLen is the max length for URLs in log messages.
 	logURLMaxLen = 60
+
+	// historyWorkerFlushInterval coalesces bursts into fewer persistence writes.
+	historyWorkerFlushInterval = 100 * time.Millisecond
+
+	// historyFallbackIncrementCap bounds DB writes when delta-increment API is unavailable.
+	historyFallbackIncrementCap = 256
 )
 
 // historyRecord holds data for async history recording.
 type historyRecord struct {
-	url       string
-	timestamp time.Time
+	url    string
+	visits int
+}
+
+type historyVisitDeltaIncrementer interface {
+	IncrementVisitCountBy(ctx context.Context, url string, delta int) error
+}
+
+type paneHistoryState struct {
+	lastRawURL       string
+	lastCanonicalURL string
+	lastRecordedAt   time.Time
+}
+
+type historyCanonicalizationOptions struct {
+	StripTrackingParams bool
 }
 
 // NavigateUseCase handles URL navigation with history recording and zoom application.
@@ -33,7 +54,9 @@ type NavigateUseCase struct {
 	historyRepo  repository.HistoryRepository
 	zoomRepo     repository.ZoomRepository
 	defaultZoom  float64
-	recentVisits sync.Map // key: url, value: time.Time - for deduplication
+	recentMu     sync.Mutex
+	recentVisits map[string]paneHistoryState // key: pane ID, value: per-pane history state
+	closeOnce    sync.Once
 
 	// Async history recording
 	historyQueue chan historyRecord
@@ -57,6 +80,7 @@ func NewNavigateUseCase(
 		historyRepo:  historyRepo,
 		zoomRepo:     zoomRepo,
 		defaultZoom:  defaultZoom,
+		recentVisits: make(map[string]paneHistoryState),
 		historyQueue: make(chan historyRecord, historyQueueSize),
 		done:         make(chan struct{}),
 		ctx:          context.Background(),
@@ -72,7 +96,9 @@ func NewNavigateUseCase(
 // Close shuts down the background history worker and drains any pending records.
 // This should be called when the application is shutting down.
 func (uc *NavigateUseCase) Close() {
-	close(uc.done)
+	uc.closeOnce.Do(func() {
+		close(uc.done)
+	})
 	uc.wg.Wait()
 }
 
@@ -117,34 +143,72 @@ func (uc *NavigateUseCase) Execute(ctx context.Context, input NavigateInput) (*N
 // This prevents inflation from redirects and rapid navigation.
 const historyDeduplicationWindow = 2 * time.Second
 
+// stripTrackingParamsForHistoryDedup controls whether known tracking parameters
+// are removed while canonicalizing URLs for history deduplication/storage.
+const stripTrackingParamsForHistoryDedup = true
+
 // RecordHistory queues a history entry for async recording.
 // This is non-blocking to avoid SQLite I/O on the GTK main thread.
 // Should be called on LoadCommitted when URI is guaranteed correct.
-func (uc *NavigateUseCase) RecordHistory(ctx context.Context, url string) {
+func (uc *NavigateUseCase) RecordHistory(ctx context.Context, paneID, rawURL string) {
 	log := logging.FromContext(ctx)
-
-	// Normalize URL to avoid duplicates (e.g., github.com vs github.com/)
-	url = normalizeURLForHistory(url)
-
-	// Time-based deduplication: skip if same URL was recorded recently
-	// This check is fast (sync.Map lookup) and stays on the main thread
-	now := time.Now()
-	if lastTime, ok := uc.recentVisits.Load(url); ok {
-		if now.Sub(lastTime.(time.Time)) < historyDeduplicationWindow {
-			log.Debug().Str("url", url).Msg("skipping duplicate history record within dedup window")
-			return
-		}
+	rawURL = strings.TrimSpace(rawURL)
+	if rawURL == "" {
+		return
 	}
-	uc.recentVisits.Store(url, now)
+
+	canonicalURL := canonicalizeURLForHistory(rawURL, historyCanonicalizationOptions{
+		StripTrackingParams: stripTrackingParamsForHistoryDedup,
+	})
+	if canonicalURL == "" {
+		return
+	}
+
+	paneID = normalizePaneID(paneID)
+
+	now := time.Now()
+
+	uc.recentMu.Lock()
+	state := uc.recentVisits[paneID]
+
+	// Ignore in-page hash transitions for history persistence.
+	if isHashOnlyTransition(state.lastRawURL, rawURL) {
+		state.lastRawURL = rawURL
+		uc.recentVisits[paneID] = state
+		uc.recentMu.Unlock()
+		return
+	}
+
+	// Per-pane short-window deduplication by canonical URL.
+	if state.lastCanonicalURL == canonicalURL && now.Sub(state.lastRecordedAt) < historyDeduplicationWindow {
+		state.lastRawURL = rawURL
+		uc.recentVisits[paneID] = state
+		uc.recentMu.Unlock()
+		return
+	}
+
+	state.lastRawURL = rawURL
+	state.lastCanonicalURL = canonicalURL
+	state.lastRecordedAt = now
+	uc.recentVisits[paneID] = state
+	uc.recentMu.Unlock()
 
 	// Non-blocking send to async queue
 	select {
-	case uc.historyQueue <- historyRecord{url: url, timestamp: now}:
-		log.Debug().Str("url", logging.TruncateURL(url, logURLMaxLen)).Msg("history record queued")
+	case uc.historyQueue <- historyRecord{url: canonicalURL, visits: 1}:
 	default:
 		// Queue full - log warning but don't block navigation
-		log.Warn().Str("url", url).Msg("history queue full, dropping record")
+		log.Warn().Str("url", logging.TruncateURL(canonicalURL, logURLMaxLen)).Msg("history queue full, dropping record")
 	}
+}
+
+// ClearPaneHistory removes per-pane deduplication state to prevent unbounded growth.
+// Callers should invoke this when a pane is closed.
+func (uc *NavigateUseCase) ClearPaneHistory(paneID string) {
+	paneID = normalizePaneID(paneID)
+	uc.recentMu.Lock()
+	delete(uc.recentVisits, paneID)
+	uc.recentMu.Unlock()
 }
 
 // historyWorker is a background goroutine that processes history records.
@@ -156,22 +220,44 @@ func (uc *NavigateUseCase) historyWorker() {
 		Str("component", "history-worker").
 		Logger()
 
+	ticker := time.NewTicker(historyWorkerFlushInterval)
+	defer ticker.Stop()
+
+	pending := make(map[string]int)
+
+	flushPending := func() {
+		if len(pending) == 0 {
+			return
+		}
+		for historyURL, visits := range pending {
+			uc.persistHistory(uc.ctx, historyRecord{url: historyURL, visits: visits})
+		}
+		clear(pending)
+	}
+
+	drainQueue := func() {
+		for {
+			select {
+			case record := <-uc.historyQueue:
+				pending[record.url] += record.visits
+			default:
+				return
+			}
+		}
+	}
+
 	for {
 		select {
 		case record := <-uc.historyQueue:
-			uc.persistHistory(uc.ctx, record)
+			pending[record.url] += record.visits
+		case <-ticker.C:
+			flushPending()
 		case <-uc.done:
-			// Drain remaining records before shutdown
 			log.Debug().Int("remaining", len(uc.historyQueue)).Msg("draining history queue")
-			for {
-				select {
-				case record := <-uc.historyQueue:
-					uc.persistHistory(uc.ctx, record)
-				default:
-					log.Debug().Msg("history worker shutdown complete")
-					return
-				}
-			}
+			drainQueue()
+			flushPending()
+			log.Debug().Msg("history worker shutdown complete")
+			return
 		}
 	}
 }
@@ -189,13 +275,33 @@ func (uc *NavigateUseCase) persistHistory(ctx context.Context, record historyRec
 	}
 
 	if existing != nil {
-		// Increment visit count
-		if err := uc.historyRepo.IncrementVisitCount(ctx, record.url); err != nil {
-			log.Warn().Err(err).Str("url", record.url).Msg("failed to increment visit count")
+		delta := max(1, record.visits)
+		if deltaWriter, ok := uc.historyRepo.(historyVisitDeltaIncrementer); ok {
+			if err := deltaWriter.IncrementVisitCountBy(ctx, record.url, delta); err != nil {
+				log.Warn().Err(err).Str("url", record.url).Int("delta", delta).Msg("failed to increment visit count by delta")
+				return
+			}
+			return
+		}
+		iterations := delta
+		if iterations > historyFallbackIncrementCap {
+			log.Warn().
+				Str("url", record.url).
+				Int("delta", delta).
+				Int("cap", historyFallbackIncrementCap).
+				Msg("visit count fallback increment capped")
+			iterations = historyFallbackIncrementCap
+		}
+		for i := 0; i < iterations; i++ {
+			if err := uc.historyRepo.IncrementVisitCount(ctx, record.url); err != nil {
+				log.Warn().Err(err).Str("url", record.url).Msg("failed to increment visit count")
+				return
+			}
 		}
 	} else {
 		// Create new entry
 		entry := entity.NewHistoryEntry(record.url, "")
+		entry.VisitCount = int64(max(1, record.visits))
 		if err := uc.historyRepo.Save(ctx, entry); err != nil {
 			log.Warn().Err(err).Str("url", record.url).Msg("failed to save history")
 		}
@@ -203,14 +309,20 @@ func (uc *NavigateUseCase) persistHistory(ctx context.Context, record historyRec
 }
 
 // UpdateHistoryTitle updates the title of a history entry after page load.
-func (uc *NavigateUseCase) UpdateHistoryTitle(ctx context.Context, url, title string) error {
+func (uc *NavigateUseCase) UpdateHistoryTitle(ctx context.Context, historyURL, title string) error {
 	log := logging.FromContext(ctx)
 
-	// Normalize URL to match storage (e.g., github.com/ -> github.com)
-	url = normalizeURLForHistory(url)
-	log.Debug().Str("url", logging.TruncateURL(url, logURLMaxLen)).Str("title", title).Msg("updating history title")
+	// Canonicalize URL the same way history records are persisted.
+	historyURL = canonicalizeURLForHistory(historyURL, historyCanonicalizationOptions{
+		StripTrackingParams: stripTrackingParamsForHistoryDedup,
+	})
+	if historyURL == "" {
+		log.Debug().Str("title", title).Msg("history URL empty after canonicalization, skipping title update")
+		return nil
+	}
+	log.Debug().Str("url", logging.TruncateURL(historyURL, logURLMaxLen)).Str("title", title).Msg("updating history title")
 
-	entry, err := uc.historyRepo.FindByURL(ctx, url)
+	entry, err := uc.historyRepo.FindByURL(ctx, historyURL)
 	if err != nil {
 		return fmt.Errorf("failed to find history entry: %w", err)
 	}
@@ -219,7 +331,7 @@ func (uc *NavigateUseCase) UpdateHistoryTitle(ctx context.Context, url, title st
 		// Entry doesn't exist - don't create it here
 		// Initial navigation should have already created the entry
 		// This can happen if URL changed during page load (SPA, redirect)
-		log.Debug().Str("url", url).Msg("no history entry found for URL, skipping title update")
+		log.Debug().Str("url", historyURL).Msg("no history entry found for URL, skipping title update")
 		return nil
 	}
 
@@ -250,20 +362,89 @@ func (uc *NavigateUseCase) Stop(ctx context.Context, webview port.WebView) error
 	return webview.Stop(ctx)
 }
 
-// normalizeURLForHistory normalizes a URL for history storage.
-// Strips trailing slash to avoid duplicates like github.com vs github.com/
-func normalizeURLForHistory(url string) string {
-	// Don't strip if URL is just the protocol + domain (e.g., "https://github.com")
-	// Only strip trailing slash from paths
-	if strings.HasSuffix(url, "/") {
-		// Check if it's just domain with trailing slash (e.g., "https://github.com/")
-		// by counting slashes - protocol has 2, domain adds 0, path adds more
-		if strings.Count(url, "/") == 3 {
-			// It's "https://domain.com/" - strip the trailing slash
-			return strings.TrimSuffix(url, "/")
-		}
-		// For paths like "https://github.com/user/" - also strip
-		return strings.TrimSuffix(url, "/")
+func canonicalizeURLForHistory(raw string, opts historyCanonicalizationOptions) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
 	}
-	return url
+
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return strings.TrimSuffix(raw, "/")
+	}
+
+	parsed.Scheme = strings.ToLower(parsed.Scheme)
+	parsed.Host = strings.ToLower(parsed.Host)
+	parsed.Fragment = ""
+	parsed.Path = normalizePathForHistory(parsed.Path)
+
+	query := parsed.Query()
+	if opts.StripTrackingParams {
+		for key := range query {
+			if isTrackingQueryParam(key) {
+				query.Del(key)
+			}
+		}
+	}
+	parsed.RawQuery = query.Encode()
+
+	return parsed.String()
+}
+
+func normalizePathForHistory(path string) string {
+	if path == "/" {
+		return ""
+	}
+	if strings.HasSuffix(path, "/") {
+		return strings.TrimSuffix(path, "/")
+	}
+	return path
+}
+
+func isTrackingQueryParam(key string) bool {
+	key = strings.ToLower(strings.TrimSpace(key))
+	if key == "" {
+		return false
+	}
+	if strings.HasPrefix(key, "utm_") {
+		return true
+	}
+	switch key {
+	case "fbclid", "gclid", "msclkid", "dclid", "yclid", "mc_cid", "mc_eid", "_hsenc", "_hsmi", "igshid":
+		return true
+	}
+	return false
+}
+
+func isHashOnlyTransition(previous, current string) bool {
+	if previous == "" || current == "" || previous == current {
+		return false
+	}
+
+	prevParsed, prevErr := url.Parse(previous)
+	currParsed, currErr := url.Parse(current)
+	if prevErr != nil || currErr != nil {
+		return false
+	}
+
+	if !strings.EqualFold(prevParsed.Scheme, currParsed.Scheme) {
+		return false
+	}
+	if !strings.EqualFold(prevParsed.Host, currParsed.Host) {
+		return false
+	}
+	if normalizePathForHistory(prevParsed.Path) != normalizePathForHistory(currParsed.Path) {
+		return false
+	}
+	if prevParsed.RawQuery != currParsed.RawQuery {
+		return false
+	}
+	return prevParsed.Fragment != currParsed.Fragment
+}
+
+func normalizePaneID(paneID string) string {
+	if strings.TrimSpace(paneID) == "" {
+		return "__default__"
+	}
+	return paneID
 }

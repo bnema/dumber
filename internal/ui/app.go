@@ -1393,6 +1393,9 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.deps.NavigateUC,
 		a.contentCoord,
 	)
+	a.wsCoord.SetOnPaneClosed(func(paneID entity.PaneID) {
+		a.navCoord.ClearPaneHistory(paneID)
+	})
 
 	// Wire title updates to history persistence
 	a.contentCoord.SetOnTitleUpdated(func(ctx context.Context, paneID entity.PaneID, url, title string) {

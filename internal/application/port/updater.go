@@ -3,9 +3,13 @@ package port
 
 import (
 	"context"
+	"errors"
 
 	"github.com/bnema/dumber/internal/domain/entity"
 )
+
+// ErrUpdateCheckTransient indicates a temporary update-check failure that should not be treated as actionable.
+var ErrUpdateCheckTransient = errors.New("transient update check failure")
 
 // UpdateChecker checks for available updates from a remote source.
 type UpdateChecker interface {

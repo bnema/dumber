@@ -233,7 +233,15 @@ func (c *NavigationCoordinator) RecordHistory(ctx context.Context, paneID entity
 		return
 	}
 
-	c.navigateUC.RecordHistory(ctx, url)
+	c.navigateUC.RecordHistory(ctx, string(paneID), url)
+}
+
+// ClearPaneHistory clears per-pane navigation history deduplication state.
+func (c *NavigationCoordinator) ClearPaneHistory(paneID entity.PaneID) {
+	if c.navigateUC == nil {
+		return
+	}
+	c.navigateUC.ClearPaneHistory(string(paneID))
 }
 
 // ActiveWebView returns the WebView for the active pane (for zoom operations).

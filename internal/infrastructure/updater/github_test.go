@@ -1,12 +1,20 @@
 package updater
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
+
+	"github.com/bnema/dumber/internal/application/port"
 )
 
 func TestCompareVersions(t *testing.T) {
@@ -355,7 +363,140 @@ func TestSizeLimits(t *testing.T) {
 	}
 }
 
+func TestRetryDelayForAttempt(t *testing.T) {
+	tests := []struct {
+		name    string
+		attempt int
+		want    time.Duration
+	}{
+		{name: "first attempt", attempt: 1, want: retryBaseDelay},
+		{name: "second attempt", attempt: 2, want: retryBaseDelay * 2},
+		{name: "third attempt", attempt: 3, want: retryBaseDelay * 4},
+		{name: "capped attempt", attempt: 6, want: retryMaxDelay},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := retryDelayForAttempt(tt.attempt, func(_ int64) int64 { return 0 })
+			if got != tt.want {
+				t.Fatalf("retryDelayForAttempt(%d) = %v, want %v", tt.attempt, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRetryDelayForAttemptAddsJitter(t *testing.T) {
+	got := retryDelayForAttempt(1, func(_ int64) int64 { return int64(50 * time.Millisecond) })
+	want := retryBaseDelay + (50 * time.Millisecond)
+	if got != want {
+		t.Fatalf("retryDelayForAttempt with jitter = %v, want %v", got, want)
+	}
+}
+
+func TestGitHubCheckerDoRequestWithRetry_RetryableStatus(t *testing.T) {
+	var calls int32
+	tr := roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		attempt := atomic.AddInt32(&calls, 1)
+		if attempt < maxRetryAttempts {
+			return testResponse(http.StatusForbidden, "forbidden"), nil
+		}
+		return testResponse(http.StatusOK, `{"tag_name":"v1.2.3"}`), nil
+	})
+
+	checker := NewGitHubChecker()
+	checker.client = &http.Client{Transport: tr}
+	checker.randInt63 = func(_ int64) int64 { return 0 }
+	checker.sleep = func(context.Context, time.Duration) error { return nil }
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, githubAPIURL, http.NoBody)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+
+	resp, err := checker.doRequestWithRetry(context.Background(), req)
+	if err != nil {
+		t.Fatalf("doRequestWithRetry() unexpected error: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+	if atomic.LoadInt32(&calls) != maxRetryAttempts {
+		t.Fatalf("calls = %d, want %d", calls, maxRetryAttempts)
+	}
+}
+
+func TestGitHubCheckerCheckForUpdate_TransientError(t *testing.T) {
+	var calls int32
+	tr := roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		atomic.AddInt32(&calls, 1)
+		return testResponse(http.StatusForbidden, "forbidden"), nil
+	})
+
+	checker := NewGitHubChecker()
+	checker.client = &http.Client{Transport: tr}
+	checker.randInt63 = func(_ int64) int64 { return 0 }
+	checker.sleep = func(context.Context, time.Duration) error { return nil }
+
+	_, err := checker.CheckForUpdate(context.Background(), "1.0.0")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, port.ErrUpdateCheckTransient) {
+		t.Fatalf("expected transient error, got %v", err)
+	}
+	if atomic.LoadInt32(&calls) != maxRetryAttempts {
+		t.Fatalf("calls = %d, want %d", calls, maxRetryAttempts)
+	}
+}
+
+func TestGitHubDownloaderDoRequestWithRetry_NoRetryOnClientError(t *testing.T) {
+	var calls int32
+	tr := roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		atomic.AddInt32(&calls, 1)
+		return testResponse(http.StatusNotFound, "not found"), nil
+	})
+
+	downloader := NewGitHubDownloader()
+	downloader.client = &http.Client{Transport: tr}
+	downloader.randInt63 = func(_ int64) int64 { return 0 }
+	downloader.sleep = func(context.Context, time.Duration) error { return nil }
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, checksumsURLTemplate, http.NoBody)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+
+	resp, err := downloader.doRequestWithRetry(context.Background(), req)
+	if err != nil {
+		t.Fatalf("doRequestWithRetry() unexpected error: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", resp.StatusCode, http.StatusNotFound)
+	}
+	if atomic.LoadInt32(&calls) != 1 {
+		t.Fatalf("calls = %d, want 1", calls)
+	}
+}
+
 // contains checks if substr is in s (helper for error message checks).
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func testResponse(status int, body string) *http.Response {
+	return &http.Response{
+		StatusCode: status,
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Header:     make(http.Header),
+	}
 }

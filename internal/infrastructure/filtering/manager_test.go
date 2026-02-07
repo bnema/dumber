@@ -2,6 +2,7 @@ package filtering_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"sync"
@@ -11,6 +12,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/infrastructure/filtering/mocks"
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/puregotk-webkit/webkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -54,7 +56,7 @@ func TestManager_LoadAsync_ChecksCacheFirst(t *testing.T) {
 
 	mockStore.EXPECT().
 		Compile(mock.Anything, filtering.FilterIdentifier, mock.Anything).
-		Return(nil, nil)
+		Return(&webkit.UserContentFilter{}, nil)
 
 	mockDownloader.EXPECT().
 		GetCachedManifest().
@@ -144,7 +146,7 @@ func TestManager_LoadAsync_DownloadsWhenCacheMiss(t *testing.T) {
 	// Compile should be called
 	mockStore.EXPECT().
 		Compile(mock.Anything, filtering.FilterIdentifier, mock.Anything).
-		Return(nil, nil)
+		Return(&webkit.UserContentFilter{}, nil)
 
 	// GetCachedManifest for version
 	mockDownloader.EXPECT().
@@ -241,7 +243,7 @@ func TestManager_CheckForUpdates_DownloadsWhenNewVersionAvailable(t *testing.T) 
 	// Compile called
 	mockStore.EXPECT().
 		Compile(mock.Anything, filtering.FilterIdentifier, mock.Anything).
-		Return(nil, nil)
+		Return(&webkit.UserContentFilter{}, nil)
 
 	// GetCachedManifest for version
 	mockDownloader.EXPECT().
@@ -451,7 +453,7 @@ func TestManager_StatusCallback_CalledOnStateChange(t *testing.T) {
 		Return([]string{jsonFile}, nil)
 	mockStore.EXPECT().
 		Compile(mock.Anything, filtering.FilterIdentifier, mock.Anything).
-		Return(nil, nil)
+		Return(&webkit.UserContentFilter{}, nil)
 	mockDownloader.EXPECT().
 		GetCachedManifest().
 		Return(&filtering.Manifest{Version: "test"}, nil)
@@ -493,4 +495,115 @@ func TestManager_StatusCallback_CalledOnStateChange(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 	assert.GreaterOrEqual(t, callCount, 2, "Expected callback to be called at least twice")
+}
+
+func TestManager_LoadAsync_QuarantinesInvalidDownloadedPayload(t *testing.T) {
+	tmpDir := t.TempDir()
+	storeDir := filepath.Join(tmpDir, "store")
+	jsonDir := filepath.Join(tmpDir, "json")
+
+	invalidJSONFile := filepath.Join(jsonDir, "combined-part1.json")
+	require.NoError(t, os.MkdirAll(jsonDir, 0o755))
+	require.NoError(t, os.WriteFile(invalidJSONFile, []byte(`{"invalid":`), 0o644))
+
+	mockStore := mocks.NewMockFilterStore(t)
+	mockDownloader := mocks.NewMockFilterDownloader(t)
+
+	mockStore.EXPECT().
+		HasCompiledFilter(mock.Anything, filtering.FilterIdentifier).
+		Return(false)
+
+	mockDownloader.EXPECT().
+		DownloadFilters(mock.Anything, mock.Anything).
+		Return([]string{invalidJSONFile}, nil)
+
+	mgr, err := filtering.NewManager(filtering.ManagerConfig{
+		StoreDir:   storeDir,
+		JSONDir:    jsonDir,
+		Enabled:    true,
+		AutoUpdate: false,
+		Store:      mockStore,
+		Downloader: mockDownloader,
+	})
+	require.NoError(t, err)
+
+	ctx := testContext()
+	require.NoError(t, mgr.Initialize(ctx))
+
+	mgr.LoadAsync(ctx)
+
+	require.Eventually(t, func() bool {
+		return mgr.Status().State == filtering.StateError
+	}, 3*time.Second, 50*time.Millisecond)
+	assert.Equal(t, "Invalid downloaded filters", mgr.Status().Message)
+
+	_, statErr := os.Stat(invalidJSONFile)
+	require.ErrorIs(t, statErr, os.ErrNotExist)
+
+	quarantineDir := filepath.Join(jsonDir, "quarantine")
+	entries, err := os.ReadDir(quarantineDir)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+}
+
+func TestManager_CheckForUpdates_CompileFailureKeepsActiveFilter(t *testing.T) {
+	tmpDir := t.TempDir()
+	storeDir := filepath.Join(tmpDir, "store")
+	jsonDir := filepath.Join(tmpDir, "json")
+
+	validJSON := `[{"trigger":{"url-filter":"test"},"action":{"type":"block"}}]`
+	jsonFile := filepath.Join(jsonDir, "combined-part1.json")
+	require.NoError(t, os.MkdirAll(jsonDir, 0o755))
+	require.NoError(t, os.WriteFile(jsonFile, []byte(validJSON), 0o644))
+
+	mockStore := mocks.NewMockFilterStore(t)
+	mockDownloader := mocks.NewMockFilterDownloader(t)
+
+	activeFilter := &webkit.UserContentFilter{}
+
+	mockStore.EXPECT().
+		HasCompiledFilter(mock.Anything, filtering.FilterIdentifier).
+		Return(true).Once()
+	mockStore.EXPECT().
+		Load(mock.Anything, filtering.FilterIdentifier).
+		Return(activeFilter, nil).Once()
+	mockDownloader.EXPECT().
+		GetCachedManifest().
+		Return(&filtering.Manifest{Version: "2025.12.19"}, nil).Once()
+	mockDownloader.EXPECT().
+		IsCacheStale(filtering.CacheMaxAge).
+		Return(false).Once()
+
+	mockDownloader.EXPECT().
+		NeedsUpdate(mock.Anything).
+		Return(true, nil).Once()
+	mockDownloader.EXPECT().
+		DownloadFilters(mock.Anything, mock.Anything).
+		Return([]string{jsonFile}, nil).Once()
+	mockStore.EXPECT().
+		Compile(mock.Anything, filtering.FilterIdentifier, mock.Anything).
+		Return(nil, errors.New("compile failed")).Once()
+
+	mgr, err := filtering.NewManager(filtering.ManagerConfig{
+		StoreDir:   storeDir,
+		JSONDir:    jsonDir,
+		Enabled:    true,
+		AutoUpdate: true,
+		Store:      mockStore,
+		Downloader: mockDownloader,
+	})
+	require.NoError(t, err)
+
+	ctx := testContext()
+	require.NoError(t, mgr.Initialize(ctx))
+	mgr.LoadAsync(ctx)
+
+	require.Eventually(t, func() bool {
+		return mgr.GetFilter() != nil && mgr.Status().State == filtering.StateActive
+	}, 3*time.Second, 50*time.Millisecond)
+
+	err = mgr.CheckForUpdates(ctx)
+	require.ErrorIs(t, err, filtering.ErrUpdateSkipped)
+	assert.Same(t, activeFilter, mgr.GetFilter())
+	assert.Equal(t, filtering.StateActive, mgr.Status().State)
 }

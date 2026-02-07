@@ -107,3 +107,6 @@ aur/*/*.pkg.tar.zst
 aur/*/LICENSE
 aur/*/dev.bnema.Dumber.desktop
 aur/*/logo-512.png
+
+# Planning/runbook notes stored outside product docs
+docs/reference/stability-performance-multi-agent-runbook-*.md

@@ -159,14 +159,14 @@ func (p *gtkPaned) GetShrinkEndChild() bool    { return p.inner.GetShrinkEndChil
 func (p *gtkPaned) SetWideHandle(wide bool)    { p.inner.SetWideHandle(wide) }
 func (p *gtkPaned) GetWideHandle() bool        { return p.inner.GetWideHandle() }
 
-func (p *gtkPaned) ConnectMap(callback func()) uint32 {
+func (p *gtkPaned) ConnectMap(callback func()) uint {
 	cb := func(_ gtk.Widget) {
 		callback()
 	}
 	return p.inner.ConnectMap(&cb)
 }
 
-func (p *gtkPaned) ConnectNotifyPosition(callback func()) uint32 {
+func (p *gtkPaned) ConnectNotifyPosition(callback func()) uint {
 	cb := func(_ gobject.Object, _ uintptr) {
 		callback()
 	}
@@ -539,7 +539,7 @@ func (btn *gtkButton) GetChild() Widget {
 	return &gtkWidget{inner: child}
 }
 
-func (btn *gtkButton) ConnectClicked(callback func()) uint32 {
+func (btn *gtkButton) ConnectClicked(callback func()) uint {
 	cb := func(_ gtk.Button) {
 		callback()
 	}

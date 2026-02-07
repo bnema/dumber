@@ -29,16 +29,34 @@ dumber doctor --media   # GStreamer/VA-API only
 
 **Solution:**
 1. Run `dumber doctor --media`
-2. Check hardware decoding:
+2. Enable diagnostic mode for startup media warnings:
+
+   ```toml
+   # ~/.config/dumber/config.toml
+   [media]
+   show_diagnostics = true
+   gstreamer_debug_level = 3
+   ```
+
+3. Check hardware decoding:
+
    ```toml
    # ~/.config/dumber/config.toml
    [media]
    hardware_decoding = "auto"  # Try "disable" if issues persist
    ```
-3. Install VA-API drivers:
+
+4. Install VA-API drivers:
    - AMD: `libva-mesa-driver`
    - Intel: `intel-media-driver`
    - NVIDIA: `libva-nvidia-driver`
+5. After diagnosing, disable diagnostic mode for quieter daily runs:
+
+   ```toml
+   [media]
+   show_diagnostics = false
+   gstreamer_debug_level = 0
+   ```
 
 ### Screen flickering on Wayland
 

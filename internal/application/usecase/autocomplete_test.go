@@ -55,8 +55,8 @@ func TestAutocompleteUseCase_GetSuggestion_FavoritesPriority(t *testing.T) {
 	assert.True(t, output.Found)
 	assert.NotNil(t, output.Suggestion)
 	assert.Equal(t, autocomplete.SourceFavorite, output.Suggestion.Source)
-	assert.Equal(t, "github.com/user/repo", output.Suggestion.FullText)
-	assert.Equal(t, ".com/user/repo", output.Suggestion.Suffix)
+	assert.Equal(t, "github.com", output.Suggestion.FullText)
+	assert.Equal(t, ".com", output.Suggestion.Suffix)
 	assert.Equal(t, "My Repo", output.Suggestion.Title)
 }
 
@@ -165,6 +165,25 @@ func TestAutocompleteUseCase_ResolveCompletion_VisibleURLsOrder(t *testing.T) {
 	require.NotNil(t, suggestion)
 	assert.Equal(t, "bnema.dev", suggestion.FullText)
 	assert.Equal(t, "a.dev", suggestion.Suffix)
+}
+
+func TestAutocompleteUseCase_ResolveCompletion_PrefersShortHostForGoo(t *testing.T) {
+	ctx := testContext()
+	uc := usecase.NewAutocompleteUseCase(nil, nil, nil)
+
+	urls := []string{
+		"https://www.google.com/url?q=https://dashboard.stripe.com",
+		"https://google.com",
+	}
+
+	suggestion := uc.ResolveCompletion(ctx, "goo", usecase.CompletionOptions{
+		VisibleURLs: urls,
+		AllowBangs:  false,
+	})
+
+	require.NotNil(t, suggestion)
+	assert.Equal(t, "google.com", suggestion.FullText)
+	assert.Equal(t, "gle.com", suggestion.Suffix)
 }
 
 func TestAutocompleteUseCase_GetSuggestion_FavoritesCached(t *testing.T) {

@@ -18,6 +18,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"sync"
 	"time"
 
@@ -112,6 +113,31 @@ func (r *LazyHistoryRepository) IncrementVisitCount(ctx context.Context, url str
 		return err
 	}
 	return r.repo.IncrementVisitCount(ctx, url)
+}
+
+func (r *LazyHistoryRepository) IncrementVisitCountBy(ctx context.Context, url string, delta int) error {
+	if delta <= 0 {
+		return fmt.Errorf("visit delta must be > 0, got %d", delta)
+	}
+	if err := r.init(ctx); err != nil {
+		return err
+	}
+	if deltaRepo, ok := r.repo.(interface {
+		IncrementVisitCountBy(context.Context, string, int) error
+	}); ok {
+		return deltaRepo.IncrementVisitCountBy(ctx, url, delta)
+	}
+	// Fallback: single-increment loop for repos that don't support delta increment.
+	const fallbackCap = 256
+	if delta > fallbackCap {
+		return fmt.Errorf("visit delta %d exceeds fallback cap %d and repo does not support IncrementVisitCountBy", delta, fallbackCap)
+	}
+	for i := 0; i < delta; i++ {
+		if err := r.repo.IncrementVisitCount(ctx, url); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *LazyHistoryRepository) Delete(ctx context.Context, id int64) error {
