@@ -274,6 +274,8 @@ func normalizePerformanceProfile(config *Config) {
 		config.Performance.Profile = ProfileMax
 	case string(ProfileCustom):
 		config.Performance.Profile = ProfileCustom
+	default:
+		config.Performance.Profile = ProfileDefault
 	}
 }
 
