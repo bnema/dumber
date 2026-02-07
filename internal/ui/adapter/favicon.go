@@ -12,6 +12,7 @@ import (
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/gio"
 	"github.com/jwijenbergh/puregotk/v4/glib"
+	"github.com/rs/zerolog"
 )
 
 // FaviconAdapter bridges the domain FaviconService to GTK by providing
@@ -21,6 +22,8 @@ type FaviconAdapter struct {
 	faviconDB    *webkit.FaviconDatabase
 	textureCache map[string]*gdk.Texture
 	mu           sync.RWMutex
+	warnMu       sync.Mutex
+	warnCounts   map[string]int
 }
 
 // NewFaviconAdapter creates a new FaviconAdapter.
@@ -30,6 +33,7 @@ func NewFaviconAdapter(service *favicon.Service, faviconDB *webkit.FaviconDataba
 		service:      service,
 		faviconDB:    faviconDB,
 		textureCache: make(map[string]*gdk.Texture),
+		warnCounts:   make(map[string]int),
 	}
 }
 
@@ -195,6 +199,9 @@ func (a *FaviconAdapter) StoreFromWebKitWithOrigin(
 // Uses glib.IdleAdd to defer disk I/O until GTK main loop is idle, avoiding UI blocking.
 func (a *FaviconAdapter) saveFaviconToDisk(ctx context.Context, domain string, texture *gdk.Texture) {
 	log := logging.FromContext(ctx)
+	cacheDirWarnKey := "cache-dir:" + domain
+	savePNGWarnKey := "save-png:" + domain
+	sizedPNGWarnKey := "sized-png:" + domain
 
 	// Check if PNG save is needed before scheduling idle callback
 	pngPath := a.service.DiskPathPNG(domain)
@@ -203,8 +210,12 @@ func (a *FaviconAdapter) saveFaviconToDisk(ctx context.Context, domain string, t
 	if needsPNGSave {
 		// Ensure cache directory exists (cheap check, do it now)
 		if err := a.service.EnsureCacheDir(); err != nil {
-			log.Warn().Err(err).Str("domain", domain).Msg("failed to create favicon cache dir")
+			a.logWarningDedup(ctx, cacheDirWarnKey, err, func(e *zerolog.Event) {
+				e.Str("domain", domain).Msg("failed to create favicon cache dir")
+			})
 			needsPNGSave = false
+		} else {
+			a.clearWarningDedup(cacheDirWarnKey)
 		}
 	}
 
@@ -213,15 +224,21 @@ func (a *FaviconAdapter) saveFaviconToDisk(ctx context.Context, domain string, t
 		// texture.SaveToPng must run on main thread but we defer it to avoid blocking
 		cb := glib.SourceFunc(func(_ uintptr) bool {
 			if ok := texture.SaveToPng(pngPath); !ok {
-				log.Warn().Str("domain", domain).Str("path", pngPath).Msg("failed to save favicon PNG")
+				a.logWarningDedup(ctx, savePNGWarnKey, nil, func(e *zerolog.Event) {
+					e.Str("domain", domain).Str("path", pngPath).Msg("failed to save favicon PNG")
+				})
 			} else {
+				a.clearWarningDedup(savePNGWarnKey)
 				log.Debug().Str("domain", domain).Str("path", pngPath).Msg("saved favicon PNG")
 
 				// Create normalized sized copy for dmenu/fuzzel (async)
 				go func() {
 					if err := a.service.EnsureSizedPNG(ctx, domain, favicon.NormalizedIconSize); err != nil {
-						log.Warn().Err(err).Str("domain", domain).Msg("failed to create sized PNG")
+						a.logWarningDedup(ctx, sizedPNGWarnKey, err, func(e *zerolog.Event) {
+							e.Str("domain", domain).Msg("failed to create sized PNG")
+						})
 					} else {
+						a.clearWarningDedup(sizedPNGWarnKey)
 						log.Debug().Str("domain", domain).Msg("created sized PNG")
 					}
 				}()
@@ -318,10 +335,55 @@ func (a *FaviconAdapter) ensureSizedPNG(ctx context.Context, domain string) {
 	if hasPNG && !hasSized {
 		log.Debug().Str("domain", domain).Msg("creating sized PNG")
 		if err := a.service.EnsureSizedPNG(ctx, domain, favicon.NormalizedIconSize); err != nil {
-			log.Warn().Err(err).Str("domain", domain).Msg("failed to create sized PNG")
+			a.logWarningDedup(ctx, "sized-png:"+domain, err, func(e *zerolog.Event) {
+				e.Str("domain", domain).Msg("failed to create sized PNG")
+			})
 		} else {
+			a.clearWarningDedup("sized-png:" + domain)
 			log.Debug().Str("domain", domain).Msg("sized PNG created successfully")
 		}
+	}
+}
+
+func (a *FaviconAdapter) shouldLogWarningDedup(key string) (bool, int) {
+	a.warnMu.Lock()
+	defer a.warnMu.Unlock()
+
+	count := a.warnCounts[key] + 1
+	a.warnCounts[key] = count
+
+	return count == 1, count - 1
+}
+
+func (a *FaviconAdapter) clearWarningDedup(key string) {
+	a.warnMu.Lock()
+	delete(a.warnCounts, key)
+	a.warnMu.Unlock()
+}
+
+func (a *FaviconAdapter) logWarningDedup(
+	ctx context.Context,
+	key string,
+	err error,
+	warnFn func(*zerolog.Event),
+) {
+	log := logging.FromContext(ctx)
+	logWarning, suppressed := a.shouldLogWarningDedup(key)
+	if logWarning {
+		event := log.Warn()
+		if err != nil {
+			event = event.Err(err)
+		}
+		warnFn(event)
+		return
+	}
+
+	if suppressed == 1 {
+		event := log.Debug()
+		if err != nil {
+			event = event.Err(err)
+		}
+		event.Str("dedupe_key", key).Msg("suppressing repeated favicon warning")
 	}
 }
 

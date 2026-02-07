@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/build"
@@ -53,6 +54,15 @@ func (uc *CheckUpdateUseCase) Execute(ctx context.Context, _ CheckUpdateInput) (
 
 	info, err := uc.checker.CheckForUpdate(ctx, uc.buildInfo.Version)
 	if err != nil {
+		if errors.Is(err, port.ErrUpdateCheckTransient) {
+			log.Debug().Err(err).Msg("transient update check failure")
+			return &CheckUpdateOutput{
+				UpdateAvailable: false,
+				CanAutoUpdate:   false,
+				CurrentVersion:  uc.buildInfo.Version,
+				LatestVersion:   uc.buildInfo.Version,
+			}, nil
+		}
 		log.Warn().Err(err).Msg("update check failed")
 		return nil, err
 	}
