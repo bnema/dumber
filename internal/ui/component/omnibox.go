@@ -798,6 +798,10 @@ func (o *Omnibox) onEntryChanged() {
 		return
 	}
 
+	if o.isGhostProgrammaticEcho(entryText) {
+		return
+	}
+
 	// Reset navigation state when user types - space should type, not toggle favorite
 	o.mu.Lock()
 	o.hasNavigated = false
@@ -821,6 +825,35 @@ func (o *Omnibox) onEntryChanged() {
 		glib.IdleAdd(&cb, 0)
 	})
 	o.debounceMu.Unlock()
+}
+
+func (o *Omnibox) isGhostProgrammaticEcho(entryText string) bool {
+	o.mu.RLock()
+	hasGhost := o.hasGhostText
+	realInput := o.realInput
+	ghostFullText := o.ghostFullText
+	o.mu.RUnlock()
+
+	if !hasGhost || ghostFullText == "" || entryText != ghostFullText {
+		return false
+	}
+
+	selectionStart := 0
+	selectionEnd := 0
+	hasSelection := o.entry.GetSelectionBounds(&selectionStart, &selectionEnd)
+	return isInlineGhostSelection(realInput, ghostFullText, selectionStart, selectionEnd, hasSelection)
+}
+
+func isInlineGhostSelection(realInput, ghostFullText string, selectionStart, selectionEnd int, hasSelection bool) bool {
+	if !hasSelection {
+		return false
+	}
+	prefixRunes := utf8.RuneCountInString(realInput)
+	fullRunes := utf8.RuneCountInString(ghostFullText)
+	if prefixRunes < 0 || fullRunes <= prefixRunes {
+		return false
+	}
+	return selectionStart == prefixRunes && selectionEnd == fullRunes
 }
 
 // setGhostText applies inline completion using entry selection.
@@ -922,11 +955,11 @@ func (o *Omnibox) clearGhostTextIfInput(expectedInput string) {
 // acceptGhostCompletion accepts the ghost text and fills the input.
 func (o *Omnibox) acceptGhostCompletion() {
 	o.mu.Lock()
-	if !o.hasGhostText || o.ghostFullText == "" {
+	fullText, accepted := acceptedGhostInput(o.hasGhostText, o.ghostFullText)
+	if !accepted {
 		o.mu.Unlock()
 		return
 	}
-	fullText := o.ghostFullText
 	o.isAcceptingGhost = true
 	o.realInput = fullText
 	o.ghostToken++
@@ -946,6 +979,13 @@ func (o *Omnibox) acceptGhostCompletion() {
 	o.mu.Lock()
 	o.isAcceptingGhost = false
 	o.mu.Unlock()
+}
+
+func acceptedGhostInput(hasGhost bool, ghostFullText string) (string, bool) {
+	if !hasGhost || ghostFullText == "" {
+		return "", false
+	}
+	return ghostFullText, true
 }
 
 // updateGhostFromURL updates ghost text based on a specific URL (from row selection).
