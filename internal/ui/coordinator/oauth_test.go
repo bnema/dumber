@@ -106,5 +106,5 @@ func waitFor(t *testing.T, timeout time.Duration, condition func() bool) {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	assert.True(t, condition(), "condition not met before timeout")
+	t.Fatalf("condition not met before timeout (%s)", timeout)
 }

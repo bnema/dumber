@@ -599,11 +599,11 @@ func TestManager_CheckForUpdates_CompileFailureKeepsActiveFilter(t *testing.T) {
 	mgr.LoadAsync(ctx)
 
 	require.Eventually(t, func() bool {
-		return mgr.GetFilter() != nil
+		return mgr.GetFilter() != nil && mgr.Status().State == filtering.StateActive
 	}, 3*time.Second, 50*time.Millisecond)
 
 	err = mgr.CheckForUpdates(ctx)
-	require.NoError(t, err)
+	require.ErrorIs(t, err, filtering.ErrUpdateSkipped)
 	assert.Same(t, activeFilter, mgr.GetFilter())
 	assert.Equal(t, filtering.StateActive, mgr.Status().State)
 }

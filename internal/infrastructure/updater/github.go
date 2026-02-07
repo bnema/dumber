@@ -305,20 +305,26 @@ func retryDelayForAttempt(attempt int, randInt63 func(n int64) int64) time.Durat
 	}
 
 	if randInt63 != nil && retryJitterMax > 0 {
-		delay += time.Duration(randInt63(int64(retryJitterMax) + 1))
+		delay += time.Duration(randInt63(int64(retryJitterMax)))
 	}
 
 	return delay
 }
 
-func (g *GitHubChecker) doRequestWithRetry(ctx context.Context, req *http.Request) (*http.Response, error) {
+func doRequestWithRetryHelper(
+	ctx context.Context,
+	client *http.Client,
+	req *http.Request,
+	sleep func(ctx context.Context, d time.Duration) error,
+	randInt63 func(n int64) int64,
+) (*http.Response, error) {
 	for attempt := 1; attempt <= maxRetryAttempts; attempt++ {
-		resp, err := g.client.Do(req)
+		resp, err := client.Do(req)
 		if err != nil {
 			if !isRetryableRequestError(err) || attempt == maxRetryAttempts {
 				return nil, err
 			}
-			if waitErr := g.sleep(ctx, retryDelayForAttempt(attempt, g.randInt63)); waitErr != nil {
+			if waitErr := sleep(ctx, retryDelayForAttempt(attempt, randInt63)); waitErr != nil {
 				return nil, waitErr
 			}
 			continue
@@ -329,12 +335,16 @@ func (g *GitHubChecker) doRequestWithRetry(ctx context.Context, req *http.Reques
 		}
 
 		_ = resp.Body.Close()
-		if waitErr := g.sleep(ctx, retryDelayForAttempt(attempt, g.randInt63)); waitErr != nil {
+		if waitErr := sleep(ctx, retryDelayForAttempt(attempt, randInt63)); waitErr != nil {
 			return nil, waitErr
 		}
 	}
 
 	return nil, fmt.Errorf("request failed after retries")
+}
+
+func (g *GitHubChecker) doRequestWithRetry(ctx context.Context, req *http.Request) (*http.Response, error) {
+	return doRequestWithRetryHelper(ctx, g.client, req, g.sleep, g.randInt63)
 }
 
 // validateDownloadURL ensures the URL is a valid GitHub releases URL.
@@ -537,29 +547,7 @@ func (g *GitHubDownloader) Download(ctx context.Context, downloadURL, destDir st
 }
 
 func (g *GitHubDownloader) doRequestWithRetry(ctx context.Context, req *http.Request) (*http.Response, error) {
-	for attempt := 1; attempt <= maxRetryAttempts; attempt++ {
-		resp, err := g.client.Do(req)
-		if err != nil {
-			if !isRetryableRequestError(err) || attempt == maxRetryAttempts {
-				return nil, err
-			}
-			if waitErr := g.sleep(ctx, retryDelayForAttempt(attempt, g.randInt63)); waitErr != nil {
-				return nil, waitErr
-			}
-			continue
-		}
-
-		if !isRetryableStatus(resp.StatusCode) || attempt == maxRetryAttempts {
-			return resp, nil
-		}
-
-		_ = resp.Body.Close()
-		if waitErr := g.sleep(ctx, retryDelayForAttempt(attempt, g.randInt63)); waitErr != nil {
-			return nil, waitErr
-		}
-	}
-
-	return nil, fmt.Errorf("request failed after retries")
+	return doRequestWithRetryHelper(ctx, g.client, req, g.sleep, g.randInt63)
 }
 
 // sanitizeTarPath validates and sanitizes a tar header name to prevent path traversal.

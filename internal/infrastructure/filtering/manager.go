@@ -3,9 +3,11 @@ package filtering
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -23,6 +25,10 @@ const (
 	// CacheMaxAge is the maximum age of the filter cache before it's considered stale.
 	CacheMaxAge = 24 * time.Hour
 )
+
+// ErrUpdateSkipped indicates a filter update was intentionally skipped after a recoverable
+// update-path failure (e.g. invalid payload, merge failure, compile failure).
+var ErrUpdateSkipped = errors.New("filter update skipped")
 
 // Manager orchestrates the content filter lifecycle.
 // It handles downloading, compiling, loading, and applying filters to WebViews.
@@ -388,24 +394,24 @@ func (m *Manager) CheckForUpdates(ctx context.Context) error {
 	validateErr := m.validateDownloadedFiles(ctx, paths)
 	if validateErr != nil {
 		log.Warn().Err(validateErr).Msg("invalid downloaded filters, keeping existing active filter")
-		return nil
+		return fmt.Errorf("%w: validation failed: %w", ErrUpdateSkipped, validateErr)
 	}
 
 	// Merge and compile
 	mergedPath, err := m.mergeJSONFiles(ctx, paths)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to merge updated filters, keeping existing active filter")
-		return nil
+		return fmt.Errorf("%w: merge failed: %w", ErrUpdateSkipped, err)
 	}
 
 	filter, err := m.store.Compile(ctx, FilterIdentifier, mergedPath)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to compile updated filters, keeping existing active filter")
-		return nil
+		return fmt.Errorf("%w: compile failed: %w", ErrUpdateSkipped, err)
 	}
 	if filter == nil {
 		log.Warn().Msg("updated filter compilation returned nil filter, keeping existing active filter")
-		return nil
+		return fmt.Errorf("%w: compile returned nil filter", ErrUpdateSkipped)
 	}
 
 	m.filterMu.Lock()
@@ -430,15 +436,35 @@ func (m *Manager) hasActiveFilter() bool {
 }
 
 func (m *Manager) validateDownloadedFiles(ctx context.Context, paths []string) error {
+	var validationErrs []error
+	var quarantineErrs []error
+
 	for _, path := range paths {
 		if err := validateRuleFile(path); err != nil {
 			if quarantineErr := m.quarantineInvalidFile(ctx, path, "rule_validation_failed"); quarantineErr != nil {
-				return fmt.Errorf("invalid filter file %s: %w (quarantine failed: %s)", path, err, quarantineErr.Error())
+				quarantineErrs = append(quarantineErrs, fmt.Errorf("file=%s: %w", path, quarantineErr))
 			}
-			return fmt.Errorf("invalid filter file %s: %w", path, err)
+			validationErrs = append(validationErrs, fmt.Errorf("file=%s: %w", path, err))
 		}
 	}
-	return nil
+
+	if len(validationErrs) == 0 && len(quarantineErrs) == 0 {
+		return nil
+	}
+
+	var parts []string
+	if len(validationErrs) > 0 {
+		parts = append(parts, fmt.Sprintf("%d invalid file(s)", len(validationErrs)))
+	}
+	if len(quarantineErrs) > 0 {
+		parts = append(parts, fmt.Sprintf("%d quarantine failure(s)", len(quarantineErrs)))
+	}
+
+	return fmt.Errorf(
+		"downloaded filter validation failed (%s): %w",
+		strings.Join(parts, ", "),
+		errors.Join(append(validationErrs, quarantineErrs...)...),
+	)
 }
 
 func validateRuleFile(path string) error {

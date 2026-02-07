@@ -1416,11 +1416,13 @@ func (wv *WebView) ResetForPoolReuse() {
 	wv.canGoFwd = false
 	wv.isLoading = false
 	wv.asyncCallbacks = nil
+	wv.runJSErrorStats = make(map[string]runJSErrorStat)
 	wv.mu.Unlock()
 
 	wv.isFullscreen.Store(false)
 	wv.isPlayingAudio.Store(false)
 	wv.navigationActive.Store(false)
+	wv.lastProgressUpdate.Store(0)
 
 	if wv.inner != nil {
 		wv.inner.StopLoading()

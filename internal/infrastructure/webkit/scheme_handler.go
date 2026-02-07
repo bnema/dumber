@@ -169,7 +169,7 @@ func (h *DumbSchemeHandler) registerDefaults() {
 		if req.Method != "" && req.Method != httpGET {
 			return nil
 		}
-		originalURI := crashOriginalURI(req.URI)
+		originalURI := sanitizeCrashPageOriginalURI(crashOriginalURI(req.URI))
 		return &SchemeResponse{
 			Data:        []byte(buildCrashPageHTML(originalURI)),
 			ContentType: "text/html; charset=utf-8",
@@ -207,7 +207,7 @@ func crashOriginalURI(requestURI string) string {
 	return strings.TrimSpace(parsed.Query().Get("url"))
 }
 
-func crashReloadTarget(originalURI string) string {
+func sanitizeCrashPageOriginalURI(originalURI string) string {
 	originalURI = strings.TrimSpace(originalURI)
 	if originalURI == "" {
 		return ""
@@ -222,9 +222,18 @@ func crashReloadTarget(originalURI string) string {
 			return ""
 		}
 		return parsed.String()
+	case "dumb":
+		if parsed.Host == "" && parsed.Opaque == "" {
+			return ""
+		}
+		return parsed.String()
 	default:
 		return ""
 	}
+}
+
+func crashReloadTarget(originalURI string) string {
+	return sanitizeCrashPageOriginalURI(originalURI)
 }
 
 func buildCrashPageHTML(originalURI string) string {

@@ -26,6 +26,8 @@ type FaviconAdapter struct {
 	warnCounts   map[string]int
 }
 
+type warningLogFunc func(log *zerolog.Logger, err error)
+
 // NewFaviconAdapter creates a new FaviconAdapter.
 // The faviconDB can be nil if WebKit favicon database is not available.
 func NewFaviconAdapter(service *favicon.Service, faviconDB *webkit.FaviconDatabase) *FaviconAdapter {
@@ -210,8 +212,8 @@ func (a *FaviconAdapter) saveFaviconToDisk(ctx context.Context, domain string, t
 	if needsPNGSave {
 		// Ensure cache directory exists (cheap check, do it now)
 		if err := a.service.EnsureCacheDir(); err != nil {
-			a.logWarningDedup(ctx, cacheDirWarnKey, err, func(e *zerolog.Event) {
-				e.Str("domain", domain).Msg("failed to create favicon cache dir")
+			a.logWarningDedup(ctx, cacheDirWarnKey, err, func(log *zerolog.Logger, warnErr error) {
+				log.Warn().Err(warnErr).Str("domain", domain).Msg("failed to create favicon cache dir")
 			})
 			needsPNGSave = false
 		} else {
@@ -224,8 +226,8 @@ func (a *FaviconAdapter) saveFaviconToDisk(ctx context.Context, domain string, t
 		// texture.SaveToPng must run on main thread but we defer it to avoid blocking
 		cb := glib.SourceFunc(func(_ uintptr) bool {
 			if ok := texture.SaveToPng(pngPath); !ok {
-				a.logWarningDedup(ctx, savePNGWarnKey, nil, func(e *zerolog.Event) {
-					e.Str("domain", domain).Str("path", pngPath).Msg("failed to save favicon PNG")
+				a.logWarningDedup(ctx, savePNGWarnKey, nil, func(log *zerolog.Logger, _ error) {
+					log.Warn().Str("domain", domain).Str("path", pngPath).Msg("failed to save favicon PNG")
 				})
 			} else {
 				a.clearWarningDedup(savePNGWarnKey)
@@ -234,8 +236,8 @@ func (a *FaviconAdapter) saveFaviconToDisk(ctx context.Context, domain string, t
 				// Create normalized sized copy for dmenu/fuzzel (async)
 				go func() {
 					if err := a.service.EnsureSizedPNG(ctx, domain, favicon.NormalizedIconSize); err != nil {
-						a.logWarningDedup(ctx, sizedPNGWarnKey, err, func(e *zerolog.Event) {
-							e.Str("domain", domain).Msg("failed to create sized PNG")
+						a.logWarningDedup(ctx, sizedPNGWarnKey, err, func(log *zerolog.Logger, warnErr error) {
+							log.Warn().Err(warnErr).Str("domain", domain).Msg("failed to create sized PNG")
 						})
 					} else {
 						a.clearWarningDedup(sizedPNGWarnKey)
@@ -335,8 +337,8 @@ func (a *FaviconAdapter) ensureSizedPNG(ctx context.Context, domain string) {
 	if hasPNG && !hasSized {
 		log.Debug().Str("domain", domain).Msg("creating sized PNG")
 		if err := a.service.EnsureSizedPNG(ctx, domain, favicon.NormalizedIconSize); err != nil {
-			a.logWarningDedup(ctx, "sized-png:"+domain, err, func(e *zerolog.Event) {
-				e.Str("domain", domain).Msg("failed to create sized PNG")
+			a.logWarningDedup(ctx, "sized-png:"+domain, err, func(log *zerolog.Logger, warnErr error) {
+				log.Warn().Err(warnErr).Str("domain", domain).Msg("failed to create sized PNG")
 			})
 		} else {
 			a.clearWarningDedup("sized-png:" + domain)
@@ -365,16 +367,12 @@ func (a *FaviconAdapter) logWarningDedup(
 	ctx context.Context,
 	key string,
 	err error,
-	warnFn func(*zerolog.Event),
+	warnFn warningLogFunc,
 ) {
 	log := logging.FromContext(ctx)
 	logWarning, suppressed := a.shouldLogWarningDedup(key)
 	if logWarning {
-		event := log.Warn()
-		if err != nil {
-			event = event.Err(err)
-		}
-		warnFn(event)
+		warnFn(log, err)
 		return
 	}
 

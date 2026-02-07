@@ -226,9 +226,12 @@ func normalizePrivacy(config *Config) {
 }
 
 func normalizeAppearance(config *Config) {
-	switch config.Appearance.ColorScheme {
-	case ThemePreferDark, ThemePreferLight, ThemeDefault:
-	case "":
+	switch strings.ToLower(strings.TrimSpace(config.Appearance.ColorScheme)) {
+	case strings.ToLower(ThemePreferDark):
+		config.Appearance.ColorScheme = ThemePreferDark
+	case strings.ToLower(ThemePreferLight):
+		config.Appearance.ColorScheme = ThemePreferLight
+	case strings.ToLower(ThemeDefault):
 		config.Appearance.ColorScheme = ThemeDefault
 	default:
 		config.Appearance.ColorScheme = ThemeDefault

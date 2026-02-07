@@ -236,6 +236,10 @@ func waitForRetry(ctx context.Context, delay time.Duration) error {
 }
 
 func isTransientFKError(err error) bool {
+	// SQLite-specific transient FK detection:
+	// we match case-insensitive "foreign key" text from wrapped driver errors.
+	// Message wording may vary across SQLite versions/wrappers; adjust this check
+	// if transient FK retries stop matching expected failures in production logs.
 	if err == nil {
 		return false
 	}
