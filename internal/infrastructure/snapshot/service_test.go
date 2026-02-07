@@ -134,5 +134,8 @@ func TestService_SetReady_SavesPendingDirtySnapshot(t *testing.T) {
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("expected pending snapshot to be saved after SetReady")
 	}
-	assert.False(t, svc.dirty)
+	svc.mu.Lock()
+	dirty := svc.dirty
+	svc.mu.Unlock()
+	assert.False(t, dirty)
 }

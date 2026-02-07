@@ -439,12 +439,14 @@ gstreamer_debug_level = 0     # Increase to 3-5 for debugging
 ```
 
 **Diagnostic mode toggle path:**
+
 ```toml
 # ~/.config/dumber/config.toml
 [media]
 show_diagnostics = true
 gstreamer_debug_level = 3
 ```
+
 Set `show_diagnostics = false` and `gstreamer_debug_level = 0` to return to normal mode.
 
 **Diagnostics CLI:**

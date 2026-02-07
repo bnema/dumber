@@ -26,9 +26,9 @@ func TestResolveTerminatePolicy(t *testing.T) {
 }
 
 func TestShouldTerminateWebProcess(t *testing.T) {
-	assert.False(t, shouldTerminateWebProcess(terminatePolicyAlways, true, true))
-	assert.False(t, shouldTerminateWebProcess(terminatePolicyNever, false, true))
-	assert.True(t, shouldTerminateWebProcess(terminatePolicyAlways, false, false))
-	assert.True(t, shouldTerminateWebProcess(terminatePolicyAuto, false, true))
-	assert.False(t, shouldTerminateWebProcess(terminatePolicyAuto, false, false))
+	assert.False(t, shouldTerminateWebProcess(terminatePolicyAlways, true, true))  // isRelated=true, navigationActive=true
+	assert.False(t, shouldTerminateWebProcess(terminatePolicyNever, false, true))  // isRelated=false, navigationActive=true
+	assert.True(t, shouldTerminateWebProcess(terminatePolicyAlways, false, false)) // isRelated=false, navigationActive=false
+	assert.True(t, shouldTerminateWebProcess(terminatePolicyAuto, false, true))    // isRelated=false, navigationActive=true
+	assert.False(t, shouldTerminateWebProcess(terminatePolicyAuto, false, false))  // isRelated=false, navigationActive=false
 }

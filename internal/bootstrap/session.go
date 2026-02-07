@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	stdlog "log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -352,15 +353,19 @@ func markAbruptExits(lockDir string, detectedAt time.Time) ([]string, error) {
 		if sessionID == "" {
 			continue
 		}
-		if _, err := os.Stat(shutdownMarkerPath(lockDir, sessionID)); err == nil {
+		shutdownPath := shutdownMarkerPath(lockDir, sessionID)
+		if _, err := os.Stat(shutdownPath); err == nil {
 			continue
 		} else if !os.IsNotExist(err) {
-			return abruptSessions, err
+			stdlog.Printf("markAbruptExits: stat failed session_id=%s path=%s err=%v", sessionID, shutdownPath, err)
+			continue
 		}
-		if _, err := os.Stat(abruptMarkerPath(lockDir, sessionID)); err == nil {
+		abruptPath := abruptMarkerPath(lockDir, sessionID)
+		if _, err := os.Stat(abruptPath); err == nil {
 			continue
 		} else if !os.IsNotExist(err) {
-			return abruptSessions, err
+			stdlog.Printf("markAbruptExits: stat failed session_id=%s path=%s err=%v", sessionID, abruptPath, err)
+			continue
 		}
 
 		payload := []byte(fmt.Sprintf("detected_at=%s\nstartup_marker=%s\n", detectedAt.Format(time.RFC3339Nano), startupPath))

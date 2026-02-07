@@ -49,6 +49,11 @@ func (r *sessionStateRepo) SaveSnapshot(ctx context.Context, state *entity.Sessi
 	if err != nil {
 		return fmt.Errorf("begin snapshot transaction: %w", err)
 	}
+	defer func() {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+			log.Debug().Err(rollbackErr).Msg("snapshot rollback reported non-terminal error")
+		}
+	}()
 
 	txQueries := r.queries.WithTx(tx)
 	if err := txQueries.UpsertSessionState(ctx, sqlc.UpsertSessionStateParams{
@@ -58,12 +63,9 @@ func (r *sessionStateRepo) SaveSnapshot(ctx context.Context, state *entity.Sessi
 		TabCount:  int64(len(state.Tabs)),
 		PaneCount: int64(state.CountPanes()),
 		UpdatedAt: state.SavedAt,
-		}); err != nil {
-			if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
-				return fmt.Errorf("save snapshot rollback after upsert failure: %w", errors.Join(err, rollbackErr))
-			}
-			return err
-		}
+	}); err != nil {
+		return err
+	}
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit snapshot transaction: %w", err)

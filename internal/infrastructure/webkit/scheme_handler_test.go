@@ -30,6 +30,11 @@ func TestBuildCrashPageHTMLRejectsUnsafeReloadScheme(t *testing.T) {
 	assert.Contains(t, body, `data-target=""`)
 }
 
+func TestBuildCrashPageHTMLAllowsDumbSchemeTarget(t *testing.T) {
+	body := buildCrashPageHTML("dumb://home")
+	assert.Contains(t, body, `data-target="dumb://home"`)
+}
+
 func TestBuildCrashPageHTMLEscapesScriptBreakoutPayload(t *testing.T) {
 	payload := `https://example.com/?q=</script><script>alert(1)</script>`
 	body := buildCrashPageHTML(payload)
@@ -57,4 +62,24 @@ func TestRegisterDefaultsIncludesCrashHandler(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, "text/html; charset=utf-8", resp.ContentType)
 	assert.Contains(t, string(resp.Data), "Renderer process ended")
+}
+
+func TestCrashHandlerSanitizesUnsafeURLQuery(t *testing.T) {
+	handler := NewDumbSchemeHandler(context.Background())
+	require.NotNil(t, handler)
+
+	handler.mu.RLock()
+	crashHandler, ok := handler.handlers["/crash"]
+	handler.mu.RUnlock()
+	require.True(t, ok)
+	require.NotNil(t, crashHandler)
+
+	resp := crashHandler.Handle(&SchemeRequest{
+		URI:    "dumb://home/crash?url=javascript%3Aalert(1)",
+		Path:   "/crash",
+		Method: "GET",
+		Scheme: "dumb",
+	})
+	require.NotNil(t, resp)
+	assert.Contains(t, string(resp.Data), `data-target=""`)
 }
