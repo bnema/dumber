@@ -519,7 +519,9 @@ func (p *WebViewPool) shouldReuseOnRelease(wv *WebView) bool {
 	case reusePolicySafe:
 		return !wv.HasNavigationActivity()
 	case reusePolicyAggressive:
-		return true
+		// Even in aggressive mode, avoid reusing views that already navigated.
+		// Reusing navigated views can leak back/forward/page context across tabs.
+		return !wv.HasNavigationActivity()
 	default:
 		return false
 	}
