@@ -325,10 +325,25 @@ func writeShutdownMarker(lockDir, sessionID string, endedAt time.Time) error {
 	if err := os.MkdirAll(lockDir, lockDirPerm); err != nil {
 		return err
 	}
-	content := []byte(endedAt.Format(time.RFC3339Nano) + "\n")
+
+	// Preserve the startup time inside the shutdown marker so
+	// ClassifySessionExitFromMarkers can still read it after the
+	// startup marker file is removed.
+	var startupLine string
+	startupPath := startupMarkerPath(lockDir, sessionID)
+	if raw, readErr := os.ReadFile(startupPath); readErr == nil {
+		if t := strings.TrimSpace(string(raw)); t != "" {
+			startupLine = "started_at=" + t + "\n"
+		}
+	}
+
+	content := []byte(endedAt.Format(time.RFC3339Nano) + "\n" + startupLine)
 	if err := os.WriteFile(shutdownMarkerPath(lockDir, sessionID), content, markerFilePerm); err != nil {
 		return err
 	}
+	// Clean up the matching startup marker now that shutdown is recorded.
+	// Errors are non-fatal: the marker will be swept later if removal fails.
+	_ = os.Remove(startupPath)
 	return nil
 }
 
@@ -470,5 +485,65 @@ func runSessionCleanupAsync(
 				log.Info().Int64("deleted", cleanupOutput.TotalDeleted).Msg("background: cleaned up old sessions")
 			}
 		}
+
+		// Sweep paired startup+shutdown markers that are no longer needed.
+		if lockDir != "" {
+			sweepPairedMarkers(lockDir, cfg.Session.MaxExitedSessionAgeDays, log)
+		}
 	}()
+}
+
+// sweepPairedMarkers removes startup, shutdown, and abrupt marker files for
+// sessions that have both a startup and shutdown marker older than maxAgeDays.
+// Removal errors are non-fatal (logged and skipped).
+func sweepPairedMarkers(lockDir string, maxAgeDays int, log *zerolog.Logger) {
+	if lockDir == "" {
+		return
+	}
+	if maxAgeDays <= 0 {
+		maxAgeDays = 7
+	}
+	cutoff := time.Now().Add(-time.Duration(maxAgeDays) * 24 * time.Hour)
+
+	shutdownMarkers, err := filepath.Glob(filepath.Join(lockDir, "session_*.shutdown.marker"))
+	if err != nil {
+		if log != nil {
+			log.Warn().Err(err).Msg("sweepPairedMarkers: glob failed")
+		}
+		return
+	}
+
+	swept := 0
+	for _, shutdownPath := range shutdownMarkers {
+		base := filepath.Base(shutdownPath)
+		if !strings.HasPrefix(base, "session_") || !strings.HasSuffix(base, ".shutdown.marker") {
+			continue
+		}
+		sessionID := strings.TrimSuffix(strings.TrimPrefix(base, "session_"), ".shutdown.marker")
+		if sessionID == "" {
+			continue
+		}
+
+		info, err := os.Stat(shutdownPath)
+		if err != nil || info.ModTime().After(cutoff) {
+			continue
+		}
+
+		startupPath := startupMarkerPath(lockDir, sessionID)
+		abruptPath := abruptMarkerPath(lockDir, sessionID)
+
+		// Remove the trio: shutdown, startup (if still present), abrupt (if present).
+		for _, p := range []string{shutdownPath, startupPath, abruptPath} {
+			if rmErr := os.Remove(p); rmErr != nil && !os.IsNotExist(rmErr) {
+				if log != nil {
+					log.Warn().Err(rmErr).Str("path", p).Msg("sweepPairedMarkers: remove failed")
+				}
+			}
+		}
+		swept++
+	}
+
+	if swept > 0 && log != nil {
+		log.Info().Int("swept", swept).Msg("sweepPairedMarkers: cleaned up old marker files")
+	}
 }

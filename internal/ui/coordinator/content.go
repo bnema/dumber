@@ -880,6 +880,22 @@ func (c *ContentCoordinator) updateStackedPaneTitle(
 	}
 }
 
+// syncStackedTitle updates the stacked title bar for a pane if it's in a stack.
+// Called from onLoadCommitted to keep titles in sync during navigation.
+func (c *ContentCoordinator) syncStackedTitle(ctx context.Context, paneID entity.PaneID, title string) {
+	_, wsView := c.getActiveWS()
+	if wsView == nil {
+		return
+	}
+	tr := wsView.TreeRenderer()
+	if tr == nil {
+		return
+	}
+	if sv := tr.GetStackedViewForPane(string(paneID)); sv != nil {
+		c.updateStackedPaneTitle(ctx, sv, paneID, title)
+	}
+}
+
 // onFaviconChanged updates favicon tracking when a WebView's favicon changes.
 func (c *ContentCoordinator) onFaviconChanged(ctx context.Context, paneID entity.PaneID, favicon *gdk.Texture) {
 	log := logging.FromContext(ctx)
@@ -1051,6 +1067,13 @@ func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.
 
 	// Update domain model with current URI for session snapshots
 	c.updatePaneURI(paneID, uri)
+
+	// Sync StackedView title bar with the WebView's current title.
+	// This keeps the stacked title bar up-to-date immediately on navigation,
+	// before the asynchronous notify::title signal fires.
+	if title := wv.Title(); title != "" {
+		c.syncStackedTitle(ctx, paneID, title)
+	}
 
 	// Record history - URI is guaranteed to be correct at LoadCommitted
 	if c.onHistoryRecord != nil {

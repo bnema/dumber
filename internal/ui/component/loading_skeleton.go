@@ -1,6 +1,8 @@
 package component
 
 import (
+	"sync/atomic"
+
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 )
@@ -23,11 +25,11 @@ const (
 )
 
 // skeletonVersion is set via SetSkeletonVersion during startup.
-var skeletonVersion string
+var skeletonVersion atomic.Value
 
 // SetSkeletonVersion sets the version string shown on loading skeletons.
 func SetSkeletonVersion(v string) {
-	skeletonVersion = v
+	skeletonVersion.Store(v)
 }
 
 func NewLoadingSkeleton(factory layout.WidgetFactory) *LoadingSkeleton {
@@ -72,7 +74,7 @@ func NewLoadingSkeleton(factory layout.WidgetFactory) *LoadingSkeleton {
 	spinner.AddCssClass("loading-skeleton-spinner")
 
 	// Version label below spinner
-	versionText := skeletonVersion
+	versionText, _ := skeletonVersion.Load().(string)
 	if versionText == "" {
 		versionText = "dev"
 	}

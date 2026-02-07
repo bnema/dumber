@@ -53,6 +53,11 @@ func ClassifySessionExitFromMarkers(lockDir, sessionID string) (SessionExitClass
 		return classification, err
 	}
 
+	// If the startup marker was already cleaned up (writeShutdownMarker removes
+	// it), fall back to the started_at line embedded in the shutdown marker.
+	if startupAt == nil && shutdownExists {
+		startupAt, _, _, _ = readMarkerTime(shutdownMarkerPath(lockDir, sessionID), "started_at=")
+	}
 	classification.StartupAt = startupAt
 	classification.ShutdownAt = shutdownAt
 	classification.AbruptDetectedAt = abruptAt
@@ -180,7 +185,10 @@ func readMarkerTime(path, keyPrefix string) (*time.Time, bool, time.Time, error)
 		return nil, true, stat.ModTime(), nil
 	}
 
-	parsed, parseErr := time.Parse(time.RFC3339Nano, raw)
+	// When no key prefix is given, parse the first line as the timestamp.
+	// Multi-line markers may contain additional metadata (e.g. started_at=).
+	firstLine, _, _ := strings.Cut(raw, "\n")
+	parsed, parseErr := time.Parse(time.RFC3339Nano, firstLine)
 	if parseErr != nil {
 		return nil, true, stat.ModTime(), nil
 	}

@@ -234,7 +234,7 @@ func sanitizeCrashPageOriginalURI(originalURI string) string {
 
 func buildCrashPageHTML(originalURI string) string {
 	escapedOriginal := html.EscapeString(originalURI)
-	escapedReloadTarget := html.EscapeString(sanitizeCrashPageOriginalURI(originalURI))
+	escapedReloadTarget := html.EscapeString(originalURI)
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en">
 <head>

@@ -190,12 +190,12 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 	// Pool empty or pooled view was destroyed, create new
 	log.Debug().Msg("pool empty, creating new webview")
 	wv, err := p.createWebView(ctx)
-	p.acquireCount.Add(1)
-	p.acquirePoolMisses.Add(1)
-	p.acquireTotalNanos.Add(time.Since(start).Nanoseconds())
 	if err != nil {
 		return nil, err
 	}
+	p.acquireCount.Add(1)
+	p.acquirePoolMisses.Add(1)
+	p.acquireTotalNanos.Add(time.Since(start).Nanoseconds())
 
 	// Re-check after creation: if pool closed during createWebView, destroy
 	// the new WebView and return an error to avoid leaking resources.
@@ -310,7 +310,7 @@ func (p *WebViewPool) PrewarmFirst(ctx context.Context) error {
 		log.Debug().Uint64("id", uint64(wv.ID())).Msg("prewarmed first webview for cold start")
 		return nil
 	}
-	wv.Destroy() // Pool somehow full (shouldn't happen)
+	wv.DestroyWithPolicy(p.terminatePolicy) // Pool somehow full (shouldn't happen)
 	return nil
 }
 
@@ -384,7 +384,7 @@ func (p *WebViewPool) PrewarmAsync(ctx context.Context, count int) {
 				if p.tryPut(ctx, wv) {
 					log.Debug().Uint64("id", uint64(wv.ID())).Msg("prewarmed webview added to pool")
 				} else {
-					wv.Destroy()
+					wv.DestroyWithPolicy(p.terminatePolicy)
 				}
 			}
 
@@ -426,7 +426,7 @@ func (p *WebViewPool) prewarmSync(ctx context.Context, count int) {
 			log.Debug().Uint64("id", uint64(wv.ID())).Msg("prewarmed webview added to pool")
 		} else {
 			// Pool full, destroy
-			wv.Destroy()
+			wv.DestroyWithPolicy(p.terminatePolicy)
 		}
 
 		// Small delay between creations to avoid overwhelming the system
@@ -475,7 +475,7 @@ refreshLoop:
 			if p.tryPut(ctx, wv) {
 				refreshed++
 			} else {
-				wv.Destroy()
+				wv.DestroyWithPolicy(p.terminatePolicy)
 			}
 		default:
 			// Pool was modified during iteration, stop
