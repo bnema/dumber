@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
@@ -13,12 +14,16 @@ import (
 )
 
 type sessionStateRepo struct {
+	db      *sql.DB
 	queries *sqlc.Queries
 }
 
 // NewSessionStateRepository creates a new session state repository.
 func NewSessionStateRepository(db *sql.DB) repository.SessionStateRepository {
-	return &sessionStateRepo{queries: sqlc.New(db)}
+	return &sessionStateRepo{
+		db:      db,
+		queries: sqlc.New(db),
+	}
 }
 
 // SaveSnapshot saves or updates a session state snapshot.
@@ -40,14 +45,31 @@ func (r *sessionStateRepo) SaveSnapshot(ctx context.Context, state *entity.Sessi
 		Int("pane_count", state.CountPanes()).
 		Msg("saving session state snapshot")
 
-	return r.queries.UpsertSessionState(ctx, sqlc.UpsertSessionStateParams{
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin snapshot transaction: %w", err)
+	}
+
+	txQueries := r.queries.WithTx(tx)
+	if err := txQueries.UpsertSessionState(ctx, sqlc.UpsertSessionStateParams{
 		SessionID: string(state.SessionID),
 		StateJson: string(stateJSON),
 		Version:   int64(state.Version),
 		TabCount:  int64(len(state.Tabs)),
 		PaneCount: int64(state.CountPanes()),
 		UpdatedAt: state.SavedAt,
-	})
+		}); err != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+				return fmt.Errorf("save snapshot rollback after upsert failure: %w", errors.Join(err, rollbackErr))
+			}
+			return err
+		}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit snapshot transaction: %w", err)
+	}
+
+	return nil
 }
 
 // GetSnapshot returns the latest snapshot for a session.
