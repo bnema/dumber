@@ -311,6 +311,10 @@ func retryDelayForAttempt(attempt int, randInt63 func(n int64) int64) time.Durat
 	return delay
 }
 
+// doRequestWithRetryHelper retries the same request instance across attempts.
+// It assumes req.Body is non-consumable (for example http.NoBody); it does not clone
+// the request or rewind req.Body. Callers needing retries with a real body must provide
+// a fresh cloned request per attempt or use a rewindable body implementation.
 func doRequestWithRetryHelper(
 	ctx context.Context,
 	client *http.Client,

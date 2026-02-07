@@ -876,6 +876,7 @@ func (o *Omnibox) setGhostText(originalInput, suffix, fullText string) {
 	o.ghostSuffix = suffix
 	o.ghostFullText = fullText
 	o.hasGhostText = true
+	capturedToken := o.ghostToken
 	o.mu.Unlock()
 
 	var cb glib.SourceFunc = func(uintptr) bool {
@@ -885,8 +886,12 @@ func (o *Omnibox) setGhostText(originalInput, suffix, fullText string) {
 
 		o.mu.RLock()
 		currentInput := o.realInput
+		currentToken := o.ghostToken
 		o.mu.RUnlock()
 		if currentInput != originalInput {
+			return false
+		}
+		if capturedToken != currentToken {
 			return false
 		}
 		o.mu.Lock()
@@ -1962,6 +1967,7 @@ func (o *Omnibox) toggleFavorite() {
 			log.Debug().Msg("remove favorite: invalid ID")
 			return
 		}
+		entryText := o.entry.GetText()
 
 		go func() {
 			ctx := o.ctx
@@ -1989,7 +1995,7 @@ func (o *Omnibox) toggleFavorite() {
 			o.mu.RLock()
 			currentToken := o.searchToken
 			o.mu.RUnlock()
-			o.loadFavorites(o.entry.GetText(), currentToken)
+			o.loadFavorites(entryText, currentToken)
 			if o.onToast != nil {
 				cb := glib.SourceFunc(func(_ uintptr) bool {
 					o.onToast(ctx, "Favorite removed", ToastSuccess)

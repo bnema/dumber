@@ -1486,8 +1486,9 @@ func shouldTerminateWebProcess(policy string, isRelated, navigationActive bool) 
 }
 
 func classifyRunJSEvaluateError(err error) (nonFatal bool, signature string) {
+	// Defensive guard: callers should only pass non-nil errors, but tolerate nil safely.
 	if err == nil {
-		return false, "evaluate_error"
+		return true, ""
 	}
 	msg := strings.ToLower(strings.TrimSpace(err.Error()))
 	signature = "evaluate_error:" + normalizeRunJSErrorSignature(msg)
