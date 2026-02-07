@@ -293,7 +293,7 @@ func DefaultConfig() *Config {
 			Prefix: "",
 		},
 		Performance: PerformanceConfig{
-			Profile:                 ProfileDefault, // Use WebKit defaults, no tuning
+			Profile:                 ProfileLite, // Daily-use default: lighter profile
 			ZoomCacheSize:           defaultZoomCacheSize,
 			WebViewPoolPrewarmCount: defaultWebViewPoolPrewarmCount,
 			// Skia threading - balanced defaults (unset = use WebKit defaults)
