@@ -32,13 +32,13 @@ func TestBuildWebKitContextOptions_MapsPrivacyAndMemory(t *testing.T) {
 
 	require.NotNil(t, opts.WebProcessMemory)
 	assert.Equal(t, 1024, opts.WebProcessMemory.MemoryLimitMB)
-	assert.Equal(t, 11.0, opts.WebProcessMemory.PollIntervalSec)
-	assert.Equal(t, 0.25, opts.WebProcessMemory.ConservativeThreshold)
-	assert.Equal(t, 0.5, opts.WebProcessMemory.StrictThreshold)
+	assert.InDelta(t, 11.0, opts.WebProcessMemory.PollIntervalSec, 1e-9)
+	assert.InDelta(t, 0.25, opts.WebProcessMemory.ConservativeThreshold, 1e-9)
+	assert.InDelta(t, 0.5, opts.WebProcessMemory.StrictThreshold, 1e-9)
 
 	require.NotNil(t, opts.NetworkProcessMemory)
 	assert.Equal(t, 512, opts.NetworkProcessMemory.MemoryLimitMB)
-	assert.Equal(t, 13.0, opts.NetworkProcessMemory.PollIntervalSec)
+	assert.InDelta(t, 13.0, opts.NetworkProcessMemory.PollIntervalSec, 1e-9)
 }
 
 func TestBuildWebKitContextOptions_DefaultPrivacyWhenConfigNil(t *testing.T) {

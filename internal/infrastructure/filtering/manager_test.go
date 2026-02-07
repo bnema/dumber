@@ -538,7 +538,7 @@ func TestManager_LoadAsync_QuarantinesInvalidDownloadedPayload(t *testing.T) {
 	assert.Equal(t, "Invalid downloaded filters", mgr.Status().Message)
 
 	_, statErr := os.Stat(invalidJSONFile)
-	assert.ErrorIs(t, statErr, os.ErrNotExist)
+	require.ErrorIs(t, statErr, os.ErrNotExist)
 
 	quarantineDir := filepath.Join(jsonDir, "quarantine")
 	entries, err := os.ReadDir(quarantineDir)

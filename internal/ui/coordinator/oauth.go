@@ -141,7 +141,7 @@ func IsOAuthError(url string) bool {
 	return strings.Contains(lower, "error=")
 }
 
-func composeOnClose(existing func(), next func()) func() {
+func composeOnClose(existing, next func()) func() {
 	if existing == nil {
 		return next
 	}
@@ -154,7 +154,7 @@ func composeOnClose(existing func(), next func()) func() {
 	}
 }
 
-func composeOnURIChanged(existing func(string), next func(string)) func(string) {
+func composeOnURIChanged(existing, next func(string)) func(string) {
 	if existing == nil {
 		return next
 	}

@@ -10,8 +10,8 @@ import (
 
 func TestCrashOriginalURI(t *testing.T) {
 	assert.Equal(t, "https://example.com/path?q=1", crashOriginalURI("dumb://home/crash?url=https%3A%2F%2Fexample.com%2Fpath%3Fq%3D1"))
-	assert.Equal(t, "", crashOriginalURI("dumb://home/crash"))
-	assert.Equal(t, "", crashOriginalURI("%%%"))
+	assert.Empty(t, crashOriginalURI("dumb://home/crash"))
+	assert.Empty(t, crashOriginalURI("%%%"))
 }
 
 func TestBuildCrashPageHTMLIncludesReloadTarget(t *testing.T) {
