@@ -165,7 +165,7 @@ func (h *DumbSchemeHandler) registerDefaults() {
 	}))
 
 	// Crash page (web process termination fallback)
-	h.RegisterPage("/crash", PageHandlerFunc(func(req *SchemeRequest) *SchemeResponse {
+	h.RegisterPage("/"+CrashPath, PageHandlerFunc(func(req *SchemeRequest) *SchemeResponse {
 		if req.Method != "" && req.Method != httpGET {
 			return nil
 		}

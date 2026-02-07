@@ -22,6 +22,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -272,8 +273,45 @@ func isRetryableRequestError(err error) bool {
 	if errors.Is(err, context.DeadlineExceeded) {
 		return true
 	}
+
 	var netErr net.Error
-	return errors.As(err, &netErr) && netErr.Timeout()
+	if errors.As(err, &netErr) {
+		if netErr.Timeout() {
+			return true
+		}
+		//nolint:staticcheck // net.Error.Temporary is deprecated but still useful for transient detection
+		if netErr.Temporary() {
+			return true
+		}
+	}
+
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		if isTransientSyscallError(opErr.Err) {
+			return true
+		}
+	}
+
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) && urlErr.Temporary() {
+		return true
+	}
+
+	return false
+}
+
+func isTransientSyscallError(err error) bool {
+	var errno syscall.Errno
+	if !errors.As(err, &errno) {
+		return false
+	}
+	switch errno {
+	case syscall.ECONNRESET, syscall.ECONNREFUSED,
+		syscall.EADDRNOTAVAIL, syscall.ENETUNREACH,
+		syscall.EHOSTUNREACH:
+		return true
+	}
+	return false
 }
 
 func waitForBackoff(ctx context.Context, d time.Duration) error {

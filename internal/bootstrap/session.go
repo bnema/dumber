@@ -354,18 +354,36 @@ func markAbruptExits(lockDir string, detectedAt time.Time, logger *zerolog.Logge
 		}
 
 		lockPath := sessionLockPath(lockDir, entity.SessionID(sessionID))
-		if _, err := os.Stat(lockPath); err == nil {
-			// Session still actively running; do not mark as abrupt.
-			continue
-		} else if !os.IsNotExist(err) {
-			if logger != nil {
+		f, openErr := os.OpenFile(lockPath, os.O_RDWR, lockFilePerm)
+		if openErr != nil {
+			if !os.IsNotExist(openErr) && logger != nil {
 				logger.Warn().
-					Err(err).
+					Err(openErr).
 					Str("session_id", sessionID).
 					Str("path", lockPath).
-					Msg("markAbruptExits: stat failed")
+					Msg("markAbruptExits: open lock file failed")
 			}
-			continue
+			// No lock file or open error: fall through to mark as abrupt.
+		} else {
+			locked, lockErr := tryLockExclusiveNonBlocking(f)
+			if lockErr != nil {
+				_ = f.Close()
+				if logger != nil {
+					logger.Warn().
+						Err(lockErr).
+						Str("session_id", sessionID).
+						Str("path", lockPath).
+						Msg("markAbruptExits: lock probe failed")
+				}
+				continue
+			}
+			if !locked {
+				// Lock is held by another process: session still active.
+				_ = f.Close()
+				continue
+			}
+			// Lock acquired: no process holds it, session is stale.
+			_ = unlockAndClose(f)
 		}
 
 		shutdownPath := shutdownMarkerPath(lockDir, sessionID)
