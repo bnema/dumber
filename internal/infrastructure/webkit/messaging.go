@@ -47,7 +47,7 @@ type MessageRouter struct {
 
 	mu        sync.RWMutex
 	callbacks []interface{}
-	signals   []uint32
+	signals   []uint
 
 	idMu      sync.Mutex
 	syncedIDs map[WebViewID]bool
@@ -121,7 +121,7 @@ func (r *MessageRouter) RegisterHandlerWithCallbacks(msgType, callback, errorCal
 // It registers the script message handler in the MAIN world (not isolated).
 // WebKit's messageHandlers is only available in main world.
 // The isolated world GUI scripts dispatch CustomEvents to main world, which forwards to this handler.
-func (r *MessageRouter) SetupMessageHandler(ucm *webkit.UserContentManager, _ string) (uint32, error) {
+func (r *MessageRouter) SetupMessageHandler(ucm *webkit.UserContentManager, _ string) (uint, error) {
 	log := logging.FromContext(r.baseCtx).With().Str("component", "message-router").Logger()
 
 	log.Debug().Msg("SetupMessageHandler called")
@@ -146,10 +146,10 @@ func (r *MessageRouter) SetupMessageHandler(ucm *webkit.UserContentManager, _ st
 
 	// Connect to "script-message-received::dumber" with handler name as signal detail
 	signalID := ucm.ConnectScriptMessageReceivedWithDetail(MessageHandlerName, &cb)
-	log.Debug().Uint32("signal_id", uint32(signalID)).Str("handler", MessageHandlerName).Msg("signal connected with detail")
+	log.Debug().Uint64("signal_id", uint64(signalID)).Str("handler", MessageHandlerName).Msg("signal connected with detail")
 
 	r.mu.Lock()
-	r.signals = append(r.signals, uint32(signalID))
+	r.signals = append(r.signals, signalID)
 	r.mu.Unlock()
 
 	log.Debug().Msg("SetupMessageHandler: registering handler in main world")
@@ -164,10 +164,10 @@ func (r *MessageRouter) SetupMessageHandler(ucm *webkit.UserContentManager, _ st
 	log.Info().
 		Str("handler", MessageHandlerName).
 		Str("world", "main").
-		Uint32("signal_id", uint32(signalID)).
+		Uint64("signal_id", uint64(signalID)).
 		Msg("script message handler connected")
 
-	return uint32(signalID), nil
+	return signalID, nil
 }
 
 // handleScriptMessage decodes the JSC value and routes it to the correct handler.

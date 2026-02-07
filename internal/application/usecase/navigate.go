@@ -24,6 +24,9 @@ const (
 
 	// historyWorkerFlushInterval coalesces bursts into fewer persistence writes.
 	historyWorkerFlushInterval = 100 * time.Millisecond
+
+	// historyFallbackIncrementCap bounds DB writes when delta-increment API is unavailable.
+	historyFallbackIncrementCap = 256
 )
 
 // historyRecord holds data for async history recording.
@@ -158,9 +161,7 @@ func (uc *NavigateUseCase) RecordHistory(ctx context.Context, paneID, rawURL str
 		return
 	}
 
-	if paneID == "" {
-		paneID = "__default__"
-	}
+	paneID = normalizePaneID(paneID)
 
 	now := time.Now()
 
@@ -196,6 +197,15 @@ func (uc *NavigateUseCase) RecordHistory(ctx context.Context, paneID, rawURL str
 		// Queue full - log warning but don't block navigation
 		log.Warn().Str("url", logging.TruncateURL(canonicalURL, logURLMaxLen)).Msg("history queue full, dropping record")
 	}
+}
+
+// ClearPaneHistory removes per-pane deduplication state to prevent unbounded growth.
+// Callers should invoke this when a pane is closed.
+func (uc *NavigateUseCase) ClearPaneHistory(paneID string) {
+	paneID = normalizePaneID(paneID)
+	uc.recentMu.Lock()
+	delete(uc.recentVisits, paneID)
+	uc.recentMu.Unlock()
 }
 
 // historyWorker is a background goroutine that processes history records.
@@ -262,7 +272,7 @@ func (uc *NavigateUseCase) persistHistory(ctx context.Context, record historyRec
 	}
 
 	if existing != nil {
-		delta := maxInt(1, record.visits)
+		delta := max(1, record.visits)
 		if deltaWriter, ok := uc.historyRepo.(historyVisitDeltaIncrementer); ok {
 			if err := deltaWriter.IncrementVisitCountBy(ctx, record.url, delta); err != nil {
 				log.Warn().Err(err).Str("url", record.url).Int("delta", delta).Msg("failed to increment visit count by delta")
@@ -270,7 +280,16 @@ func (uc *NavigateUseCase) persistHistory(ctx context.Context, record historyRec
 			}
 			return
 		}
-		for i := 0; i < delta; i++ {
+		iterations := delta
+		if iterations > historyFallbackIncrementCap {
+			log.Warn().
+				Str("url", record.url).
+				Int("delta", delta).
+				Int("cap", historyFallbackIncrementCap).
+				Msg("visit count fallback increment capped")
+			iterations = historyFallbackIncrementCap
+		}
+		for i := 0; i < iterations; i++ {
 			if err := uc.historyRepo.IncrementVisitCount(ctx, record.url); err != nil {
 				log.Warn().Err(err).Str("url", record.url).Msg("failed to increment visit count")
 				return
@@ -279,7 +298,7 @@ func (uc *NavigateUseCase) persistHistory(ctx context.Context, record historyRec
 	} else {
 		// Create new entry
 		entry := entity.NewHistoryEntry(record.url, "")
-		entry.VisitCount = int64(maxInt(1, record.visits))
+		entry.VisitCount = int64(max(1, record.visits))
 		if err := uc.historyRepo.Save(ctx, entry); err != nil {
 			log.Warn().Err(err).Str("url", record.url).Msg("failed to save history")
 		}
@@ -420,9 +439,9 @@ func isHashOnlyTransition(previous, current string) bool {
 	return prevParsed.Fragment != currParsed.Fragment
 }
 
-func maxInt(a, b int) int {
-	if a > b {
-		return a
+func normalizePaneID(paneID string) string {
+	if strings.TrimSpace(paneID) == "" {
+		return "__default__"
 	}
-	return b
+	return paneID
 }

@@ -52,6 +52,16 @@ type WebViewState struct {
 	ZoomLevel float64
 }
 
+// WebProcessTerminationReason describes why the web process terminated.
+type WebProcessTerminationReason int
+
+const (
+	WebProcessTerminationUnknown WebProcessTerminationReason = iota
+	WebProcessTerminationCrashed
+	WebProcessTerminationExceededMemory
+	WebProcessTerminationByAPI
+)
+
 // PopupRequest contains metadata about a popup window request.
 type PopupRequest struct {
 	TargetURI     string
@@ -92,6 +102,8 @@ type WebViewCallbacks struct {
 	// OnLinkHover is called when hovering over a link, image, or media element.
 	// The uri parameter contains the target URL, or empty string when leaving.
 	OnLinkHover func(uri string)
+	// OnWebProcessTerminated is called when the web process exits unexpectedly.
+	OnWebProcessTerminated func(reason WebProcessTerminationReason, reasonLabel string, uri string)
 }
 
 // FindOptions configures search behavior.
@@ -111,10 +123,10 @@ type FindController interface {
 	GetSearchText() string
 
 	// Signal connections
-	OnFoundText(callback func(matchCount uint)) uint32
-	OnFailedToFindText(callback func()) uint32
-	OnCountedMatches(callback func(matchCount uint)) uint32
-	DisconnectSignal(id uint32)
+	OnFoundText(callback func(matchCount uint)) uint
+	OnFailedToFindText(callback func()) uint
+	OnCountedMatches(callback func(matchCount uint)) uint
+	DisconnectSignal(id uint)
 }
 
 // WebView defines the port interface for browser view operations.
