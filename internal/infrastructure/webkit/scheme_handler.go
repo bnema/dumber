@@ -179,7 +179,7 @@ func (h *DumbSchemeHandler) registerDefaults() {
 
 	// API: Get current config (used by dumb://config)
 	h.RegisterPage("/api/config", PageHandlerFunc(func(req *SchemeRequest) *SchemeResponse {
-		if req.Method != httpGET {
+		if req.Method != "" && req.Method != httpGET {
 			return nil
 		}
 
@@ -188,7 +188,7 @@ func (h *DumbSchemeHandler) registerDefaults() {
 
 	// API: Get default config (used by Reset Defaults in dumb://config)
 	h.RegisterPage("/api/config/default", PageHandlerFunc(func(req *SchemeRequest) *SchemeResponse {
-		if req.Method != httpGET {
+		if req.Method != "" && req.Method != httpGET {
 			return nil
 		}
 

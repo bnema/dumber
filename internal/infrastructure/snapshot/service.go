@@ -67,6 +67,10 @@ func (s *Service) Start(ctx context.Context) {
 // to avoid FK constraint violations.
 func (s *Service) SetReady() {
 	s.mu.Lock()
+	if s.timer != nil {
+		s.timer.Stop()
+		s.timer = nil
+	}
 	s.ready = true
 	dirty := s.dirty
 	ctx := s.ctx

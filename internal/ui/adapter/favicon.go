@@ -201,7 +201,7 @@ func (a *FaviconAdapter) StoreFromWebKitWithOrigin(
 // Uses glib.IdleAdd to defer disk I/O until GTK main loop is idle, avoiding UI blocking.
 func (a *FaviconAdapter) saveFaviconToDisk(ctx context.Context, domain string, texture *gdk.Texture) {
 	log := logging.FromContext(ctx)
-	cacheDirWarnKey := "cache-dir:" + domain
+	cacheDirWarnKey := "cache-dir"
 	savePNGWarnKey := "save-png:" + domain
 	sizedPNGWarnKey := "sized-png:" + domain
 

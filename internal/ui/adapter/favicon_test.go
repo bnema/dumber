@@ -1,6 +1,11 @@
 package adapter
 
-import "testing"
+import (
+	"sync/atomic"
+	"testing"
+
+	"github.com/rs/zerolog"
+)
 
 func TestFaviconWarningDedup_FirstAndRepeated(t *testing.T) {
 	adapter := NewFaviconAdapter(nil, nil)
@@ -47,5 +52,22 @@ func TestFaviconWarningDedup_ClearResetsState(t *testing.T) {
 	}
 	if suppressed != 0 {
 		t.Fatalf("expected suppressed count reset after clear, got %d", suppressed)
+	}
+}
+
+func TestFaviconWarningDedup_LogWarningDedupInvokesCallbackOnce(t *testing.T) {
+	adapter := NewFaviconAdapter(nil, nil)
+	key := "save-png:example.com"
+	var calls atomic.Int32
+
+	adapter.logWarningDedup(t.Context(), key, nil, func(_ *zerolog.Logger, _ error) {
+		calls.Add(1)
+	})
+	adapter.logWarningDedup(t.Context(), key, nil, func(_ *zerolog.Logger, _ error) {
+		calls.Add(1)
+	})
+
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("expected warning callback to run once, got %d", got)
 	}
 }

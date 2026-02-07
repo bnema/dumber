@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	stdlog "log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -99,7 +98,7 @@ func StartBrowserSession(
 	persistFn := func(persistCtx context.Context) error {
 		persistMu.Do(func() {
 			if lockDir != "" {
-				abruptSessions, abruptErr := markAbruptExits(lockDir, time.Now().UTC())
+				abruptSessions, abruptErr := markAbruptExits(lockDir, time.Now().UTC(), &logger)
 				if abruptErr != nil {
 					logger.Warn().Err(abruptErr).Msg("failed to check abrupt exit markers")
 				} else {
@@ -333,7 +332,7 @@ func writeShutdownMarker(lockDir, sessionID string, endedAt time.Time) error {
 	return nil
 }
 
-func markAbruptExits(lockDir string, detectedAt time.Time) ([]string, error) {
+func markAbruptExits(lockDir string, detectedAt time.Time, logger *zerolog.Logger) ([]string, error) {
 	if lockDir == "" {
 		return nil, nil
 	}
@@ -357,14 +356,26 @@ func markAbruptExits(lockDir string, detectedAt time.Time) ([]string, error) {
 		if _, err := os.Stat(shutdownPath); err == nil {
 			continue
 		} else if !os.IsNotExist(err) {
-			stdlog.Printf("markAbruptExits: stat failed session_id=%s path=%s err=%v", sessionID, shutdownPath, err)
+			if logger != nil {
+				logger.Warn().
+					Err(err).
+					Str("session_id", sessionID).
+					Str("path", shutdownPath).
+					Msg("markAbruptExits: stat failed")
+			}
 			continue
 		}
 		abruptPath := abruptMarkerPath(lockDir, sessionID)
 		if _, err := os.Stat(abruptPath); err == nil {
 			continue
 		} else if !os.IsNotExist(err) {
-			stdlog.Printf("markAbruptExits: stat failed session_id=%s path=%s err=%v", sessionID, abruptPath, err)
+			if logger != nil {
+				logger.Warn().
+					Err(err).
+					Str("session_id", sessionID).
+					Str("path", abruptPath).
+					Msg("markAbruptExits: stat failed")
+			}
 			continue
 		}
 

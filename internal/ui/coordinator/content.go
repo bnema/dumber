@@ -23,6 +23,7 @@ import (
 	"github.com/bnema/dumber/internal/ui/layout"
 	webkitlib "github.com/bnema/puregotk-webkit/webkit"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
+	"github.com/jwijenbergh/puregotk/v4/glib"
 )
 
 const (
@@ -1751,7 +1752,11 @@ func (c *ContentCoordinator) scheduleParentPaneRefresh(
 		c.popupMu.Lock()
 		delete(c.popupRefresh, parentPaneID)
 		c.popupMu.Unlock()
-		c.refreshPaneAfterOAuth(ctx, parentPaneID, popupID)
+		cb := glib.SourceFunc(func(_ uintptr) bool {
+			c.refreshPaneAfterOAuth(ctx, parentPaneID, popupID)
+			return false
+		})
+		glib.IdleAdd(&cb, 0)
 	})
 	c.popupMu.Unlock()
 }
