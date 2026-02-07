@@ -356,14 +356,18 @@ func markAbruptExits(lockDir string, detectedAt time.Time, logger *zerolog.Logge
 		lockPath := sessionLockPath(lockDir, entity.SessionID(sessionID))
 		f, openErr := os.OpenFile(lockPath, os.O_RDWR, lockFilePerm)
 		if openErr != nil {
-			if !os.IsNotExist(openErr) && logger != nil {
-				logger.Warn().
-					Err(openErr).
-					Str("session_id", sessionID).
-					Str("path", lockPath).
-					Msg("markAbruptExits: open lock file failed")
+			if os.IsNotExist(openErr) {
+				// No lock file: fall through to mark as abrupt.
+			} else {
+				if logger != nil {
+					logger.Warn().
+						Err(openErr).
+						Str("session_id", sessionID).
+						Str("path", lockPath).
+						Msg("markAbruptExits: open lock file failed")
+				}
+				continue
 			}
-			// No lock file or open error: fall through to mark as abrupt.
 		} else {
 			locked, lockErr := tryLockExclusiveNonBlocking(f)
 			if lockErr != nil {

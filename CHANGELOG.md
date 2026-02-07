@@ -18,6 +18,8 @@ All notable changes to this project will be documented in this file.
 - **Autocomplete architecture cleanup**: Centralized completion flow and ghost positioning helpers for more consistent behavior across async paths.
 - **Omnibox keyboard/navigation UX**: Added `Alt+h/j/k/l` pane navigation while omnibox is open and improved chrome height scaling/debouncing on GTK main thread.
 - **Config normalization hardening**: Normalization now coerces invalid profile/appearance values to safe defaults.
+- **Loading skeleton redesign**: Reduced logo from 512px to 256px, added version label below a discrete 32px spinner. Sizes extracted to constants so tests use `mock.Anything` and don't break on dimension changes.
+- **Aggressive WebView reuse policy**: `reusePolicyAggressive` now actually differs from `reusePolicySafe` by allowing reuse regardless of navigation activity, relying on `ResetForPoolReuse` to clear state.
 
 ### Fixed
 
@@ -33,6 +35,11 @@ All notable changes to this project will be documented in this file.
 - **Navigation safety guards**: Added `CanGoBack` protection in navigation policy handling and corrected back-forward-list signal disconnection target.
 - **Crash handling and retry edge-cases**: Hardened crash-page routing safety, updater retry semantics/documentation, and related infra error paths.
 - **Filtering/snapshot/session reliability**: Fixed race/error-handling paths in filtering updates, snapshot persistence, and session startup marker processing.
+- **WebView pool shutdown race**: Re-check `closed` flag after `createWebView` in `Acquire` to prevent leaking WebViews when pool closes during creation.
+- **Updater transient error detection**: Broadened `isRetryableRequestError` to detect `ECONNRESET`, `ECONNREFUSED`, `ENETUNREACH`, `EHOSTUNREACH`, and `EADDRNOTAVAIL` syscall errors, plus `net.Error.Temporary()` and `url.Error` wrappers.
+- **Session lock probe accuracy**: `markAbruptExits` now uses non-blocking flock instead of `os.Stat`, correctly distinguishing active sessions (lock held) from stale ones (lock acquirable) and skipping on permission/IO errors.
+- **Crash page "Stay on this page" UX**: Button no longer navigates to `dumb://home/crash`; it now stays on the crash page as its label suggests.
+- **Visit increment fallback overflow**: `IncrementVisitCountBy` now returns an error when delta exceeds the fallback cap instead of silently dropping increments.
 
 ### Security
 
