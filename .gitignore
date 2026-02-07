@@ -76,6 +76,7 @@ CLAUDE.local.md
 .claude/
 memory/
 notes/
+docs/plans/
 scripts/
 !scripts/generate-types.js
 specs/
