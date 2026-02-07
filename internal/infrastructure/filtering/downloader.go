@@ -164,6 +164,10 @@ func (d *Downloader) downloadFile(ctx context.Context, filename string) (string,
 	url := fmt.Sprintf("%s/%s", d.baseURL, filename)
 	localPath := filepath.Join(d.cacheDir, filename)
 
+	if err := os.MkdirAll(d.cacheDir, cacheDirPerm); err != nil {
+		return "", 0, fmt.Errorf("failed to create cache dir: %w", err)
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to create request: %w", err)
@@ -183,31 +187,56 @@ func (d *Downloader) downloadFile(ctx context.Context, filename string) (string,
 		return "", 0, fmt.Errorf("download %s failed with status %d", filename, resp.StatusCode)
 	}
 
-	// Write to temp file first, then atomic rename
-	tmpPath := localPath + ".tmp"
-	file, err := os.Create(tmpPath)
+	// Write to temp file in cacheDir, then atomic rename into destination.
+	tmpFile, err := os.CreateTemp(d.cacheDir, filepath.Base(filename)+".*.tmp")
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to create temp file: %w", err)
 	}
+	tmpPath := tmpFile.Name()
 
-	bytesWritten, err := io.Copy(file, resp.Body)
+	bytesWritten, err := io.Copy(tmpFile, resp.Body)
 	if err != nil {
-		_ = file.Close()
+		_ = tmpFile.Close()
 		_ = os.Remove(tmpPath)
 		return "", 0, fmt.Errorf("failed to write %s: %w", filename, err)
 	}
-	if err := file.Close(); err != nil {
+	if err := tmpFile.Close(); err != nil {
 		_ = os.Remove(tmpPath)
 		return "", 0, fmt.Errorf("failed to close temp file: %w", err)
 	}
 
-	// Atomic rename
-	if err := os.Rename(tmpPath, localPath); err != nil {
+	if err := d.renameTempFile(tmpPath, localPath); err != nil {
 		_ = os.Remove(tmpPath)
-		return "", 0, fmt.Errorf("failed to rename temp file: %w", err)
+		return "", 0, err
 	}
 
 	return localPath, bytesWritten, nil
+}
+
+func (*Downloader) renameTempFile(tmpPath, localPath string) error {
+	parentDir := filepath.Dir(localPath)
+
+	if err := os.MkdirAll(parentDir, cacheDirPerm); err != nil {
+		return fmt.Errorf("failed to create target dir: %w", err)
+	}
+
+	parentInfo, err := os.Stat(parentDir)
+	if err != nil {
+		return fmt.Errorf("failed to stat target dir: %w", err)
+	}
+	if !parentInfo.IsDir() {
+		return fmt.Errorf("target parent path is not a directory: %s", parentDir)
+	}
+
+	if _, err := os.Stat(tmpPath); err != nil {
+		return fmt.Errorf("temp file missing before rename: %w", err)
+	}
+
+	if err := os.Rename(tmpPath, localPath); err != nil {
+		return fmt.Errorf("failed to rename temp file: %w", err)
+	}
+
+	return nil
 }
 
 // downloadAndCacheManifest downloads and caches the manifest.
