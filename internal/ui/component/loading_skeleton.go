@@ -1,24 +1,37 @@
 package component
 
 import (
+	"sync/atomic"
+
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 )
 
 // LoadingSkeleton displays a themed loading placeholder.
 // It is intended to be embedded as an overlay while primary content is loading.
-// Shows a faded app logo and spinner.
+// Shows a faded app logo, a discrete spinner, and the version below.
 type LoadingSkeleton struct {
 	container layout.BoxWidget
 	content   layout.BoxWidget
 	spinner   layout.SpinnerWidget
 	logo      layout.ImageWidget
+	version   layout.LabelWidget
 }
 
 const (
-	loadingSkeletonSpacing  = 6
-	loadingSkeletonLogoSize = 512
+	loadingSkeletonSpacing         = 6
+	loadingSkeletonLogoSize        = 256
+	loadingSkeletonSpinnerSize     = 32
+	loadingSkeletonVersionMaxChars = 16
 )
+
+// skeletonVersion is set via SetSkeletonVersion during startup.
+var skeletonVersion atomic.Value
+
+// SetSkeletonVersion sets the version string shown on loading skeletons.
+func SetSkeletonVersion(v string) {
+	skeletonVersion.Store(v)
+}
 
 func NewLoadingSkeleton(factory layout.WidgetFactory) *LoadingSkeleton {
 	container := factory.NewBox(layout.OrientationVertical, 0)
@@ -37,14 +50,6 @@ func NewLoadingSkeleton(factory layout.WidgetFactory) *LoadingSkeleton {
 	content.SetCanTarget(false)
 	content.AddCssClass("loading-skeleton-content")
 
-	spinner := factory.NewSpinner()
-	spinner.SetHalign(gtk.AlignCenterValue)
-	spinner.SetValign(gtk.AlignCenterValue)
-	spinner.SetCanFocus(false)
-	spinner.SetCanTarget(false)
-	spinner.SetSizeRequest(32, 32)
-	spinner.AddCssClass("loading-skeleton-spinner")
-
 	// Faded app logo
 	logo := factory.NewImage()
 	logo.SetHalign(gtk.AlignCenterValue)
@@ -60,9 +65,33 @@ func NewLoadingSkeleton(factory layout.WidgetFactory) *LoadingSkeleton {
 		logo.SetFromPaintable(logoTexture)
 	}
 
-	// Layout: logo, spinner (vertically centered)
+	// Discrete spinner between logo and version
+	spinner := factory.NewSpinner()
+	spinner.SetHalign(gtk.AlignCenterValue)
+	spinner.SetValign(gtk.AlignCenterValue)
+	spinner.SetCanFocus(false)
+	spinner.SetCanTarget(false)
+	spinner.SetSizeRequest(loadingSkeletonSpinnerSize, loadingSkeletonSpinnerSize)
+	spinner.AddCssClass("loading-skeleton-spinner")
+
+	// Version label below spinner
+	versionText, _ := skeletonVersion.Load().(string)
+	if versionText == "" {
+		versionText = "dev"
+	}
+	versionLabel := factory.NewLabel(versionText)
+	versionLabel.SetHalign(gtk.AlignCenterValue)
+	versionLabel.SetValign(gtk.AlignCenterValue)
+	versionLabel.SetCanFocus(false)
+	versionLabel.SetCanTarget(false)
+	versionLabel.SetMaxWidthChars(loadingSkeletonVersionMaxChars)
+	versionLabel.SetEllipsize(layout.EllipsizeEnd)
+	versionLabel.AddCssClass("loading-skeleton-version")
+
+	// Layout: logo, spinner, version (vertically centered)
 	content.Append(logo)
 	content.Append(spinner)
+	content.Append(versionLabel)
 	container.Append(content)
 
 	ls := &LoadingSkeleton{
@@ -70,6 +99,7 @@ func NewLoadingSkeleton(factory layout.WidgetFactory) *LoadingSkeleton {
 		content:   content,
 		spinner:   spinner,
 		logo:      logo,
+		version:   versionLabel,
 	}
 	ls.SetVisible(true)
 	return ls

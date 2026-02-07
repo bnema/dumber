@@ -266,3 +266,56 @@ func TestComputeURLCompletionSuffix(t *testing.T) {
 		})
 	}
 }
+
+func TestBestURLCompletion_PrefersHostForHostLikeInput(t *testing.T) {
+	urls := []string{
+		"https://www.google.com/url?q=https://dashboard.stripe.com/auth",
+		"https://google.com",
+	}
+
+	suffix, matchedURL, ok := BestURLCompletion("goo", urls)
+	if !ok {
+		t.Fatalf("expected completion")
+	}
+	if matchedURL != "google.com" {
+		t.Fatalf("expected host completion, got %q", matchedURL)
+	}
+	if suffix != "gle.com" {
+		t.Fatalf("expected host suffix, got %q", suffix)
+	}
+}
+
+func TestBestURLCompletion_KeepsPathForPathLikeInput(t *testing.T) {
+	urls := []string{
+		"https://google.com/url?q=https://example.com",
+	}
+
+	suffix, matchedURL, ok := BestURLCompletion("google.com/u", urls)
+	if !ok {
+		t.Fatalf("expected completion")
+	}
+	if matchedURL != "google.com/url?q=https://example.com" {
+		t.Fatalf("unexpected matched URL: %q", matchedURL)
+	}
+	if suffix != "rl?q=https://example.com" {
+		t.Fatalf("unexpected suffix: %q", suffix)
+	}
+}
+
+func TestBestURLCompletion_SelectsAnyValidPrefixFromVisibleList(t *testing.T) {
+	urls := []string{
+		"https://example.org",
+		"https://google.com/maps",
+	}
+
+	suffix, matchedURL, ok := BestURLCompletion("goo", urls)
+	if !ok {
+		t.Fatalf("expected completion from second URL")
+	}
+	if matchedURL != "google.com" {
+		t.Fatalf("expected host completion from second URL, got %q", matchedURL)
+	}
+	if suffix != "gle.com" {
+		t.Fatalf("unexpected suffix: %q", suffix)
+	}
+}

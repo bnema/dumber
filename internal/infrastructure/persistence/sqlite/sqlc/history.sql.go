@@ -410,6 +410,22 @@ func (q *Queries) IncrementVisitCount(ctx context.Context, url string) error {
 	return err
 }
 
+const IncrementVisitCountByDelta = `-- name: IncrementVisitCountByDelta :exec
+UPDATE history
+SET visit_count = visit_count + ?, last_visited = CURRENT_TIMESTAMP
+WHERE url = ?
+`
+
+type IncrementVisitCountByDeltaParams struct {
+	VisitCount sql.NullInt64 `json:"visit_count"`
+	Url        string        `json:"url"`
+}
+
+func (q *Queries) IncrementVisitCountByDelta(ctx context.Context, arg IncrementVisitCountByDeltaParams) error {
+	_, err := q.db.ExecContext(ctx, IncrementVisitCountByDelta, arg.VisitCount, arg.Url)
+	return err
+}
+
 const SearchHistory = `-- name: SearchHistory :many
 SELECT id, url, title, favicon_url, visit_count, last_visited, created_at FROM history
 WHERE url LIKE '%' || ? || '%' OR title LIKE '%' || ? || '%'

@@ -28,6 +28,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/xdg"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui"
+	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/theme"
 	"github.com/rs/zerolog"
 )
@@ -71,6 +72,7 @@ func main() {
 
 func runGUI() int {
 	runtime.LockOSThread()
+	component.SetSkeletonVersion(version)
 	timer := bootstrap.NewStartupTimer()
 
 	cfg := initConfig()

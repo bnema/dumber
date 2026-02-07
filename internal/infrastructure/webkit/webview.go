@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -135,38 +136,58 @@ type WebView struct {
 	lastProgressUpdate atomic.Int64 // Unix nanoseconds
 
 	// Signal handler IDs for disconnection
-	signalIDs []uint32
+	signalIDs []uintptr
 
 	// Callbacks (set by UI layer)
-	OnLoadChanged       func(LoadEvent)
-	OnTitleChanged      func(string)
-	OnURIChanged        func(string)
-	OnProgressChanged   func(float64)
-	OnFaviconChanged    func(*gdk.Texture) // Called when page favicon changes
-	OnClose             func()
-	OnCreate            func(PopupRequest) *WebView // Return new WebView or nil to block popup
-	OnReadyToShow       func()                      // Called when popup is ready to display
-	OnLinkMiddleClick   func(uri string) bool       // Return true if handled (blocks navigation)
-	OnEnterFullscreen   func() bool                 // Return true to prevent fullscreen
-	OnLeaveFullscreen   func() bool                 // Return true to prevent leaving fullscreen
-	OnAudioStateChanged func(playing bool)          // Called when audio playback starts/stops
-	OnLinkHover         func(uri string)            // Called when hovering over a link/image/media (empty string when leaving)
+	OnLoadChanged          func(LoadEvent)
+	OnTitleChanged         func(string)
+	OnURIChanged           func(string)
+	OnProgressChanged      func(float64)
+	OnFaviconChanged       func(*gdk.Texture) // Called when page favicon changes
+	OnClose                func()
+	OnCreate               func(PopupRequest) *WebView // Return new WebView or nil to block popup
+	OnReadyToShow          func()                      // Called when popup is ready to display
+	OnLinkMiddleClick      func(uri string) bool       // Return true if handled (blocks navigation)
+	OnEnterFullscreen      func() bool                 // Return true to prevent fullscreen
+	OnLeaveFullscreen      func() bool                 // Return true to prevent leaving fullscreen
+	OnAudioStateChanged    func(playing bool)          // Called when audio playback starts/stops
+	OnLinkHover            func(uri string)            // Called when hovering over a link/image/media (empty string when leaving)
+	OnWebProcessTerminated func(reason webkit.WebProcessTerminationReason, reasonLabel string, uri string)
 
 	logger zerolog.Logger
 	mu     sync.RWMutex
 
 	frontendAttached atomic.Bool
+	navigationActive atomic.Bool
 
 	// asyncCallbacks keeps references to async JS callbacks to prevent GC
 	asyncCallbacks []interface{}
+
+	// runJSErrorStats aggregates repeated non-fatal RunJavaScript errors by domain+signature.
+	runJSErrorStats map[string]runJSErrorStat
 
 	// findController is cached to prevent GC from collecting the Go wrapper
 	findController     *findControllerAdapter
 	findControllerOnce sync.Once
 
 	backForwardList         *webkit.BackForwardList
-	backForwardListSignalID uint32
+	backForwardListSignalID uintptr
 }
+
+type runJSErrorStat struct {
+	count   uint64
+	lastLog time.Time
+}
+
+const (
+	terminatePolicyAuto   = "auto"
+	terminatePolicyAlways = "always"
+	terminatePolicyNever  = "never"
+
+	runJSNonFatalLogInterval = 30 * time.Second
+	runJSAggregateLogEvery   = 20
+	runJSUnknown             = "unknown"
+)
 
 type findControllerAdapter struct {
 	fc *webkit.FindController
@@ -234,7 +255,7 @@ func (a *findControllerAdapter) GetSearchText() string {
 	return a.fc.GetSearchText()
 }
 
-func (a *findControllerAdapter) OnFoundText(callback func(matchCount uint)) uint32 {
+func (a *findControllerAdapter) OnFoundText(callback func(matchCount uint)) uint {
 	if a == nil || a.fc == nil || callback == nil {
 		return 0
 	}
@@ -244,7 +265,7 @@ func (a *findControllerAdapter) OnFoundText(callback func(matchCount uint)) uint
 	return a.fc.ConnectFoundText(&cb)
 }
 
-func (a *findControllerAdapter) OnFailedToFindText(callback func()) uint32 {
+func (a *findControllerAdapter) OnFailedToFindText(callback func()) uint {
 	if a == nil || a.fc == nil || callback == nil {
 		return 0
 	}
@@ -254,7 +275,7 @@ func (a *findControllerAdapter) OnFailedToFindText(callback func()) uint32 {
 	return a.fc.ConnectFailedToFindText(&cb)
 }
 
-func (a *findControllerAdapter) OnCountedMatches(callback func(matchCount uint)) uint32 {
+func (a *findControllerAdapter) OnCountedMatches(callback func(matchCount uint)) uint {
 	if a == nil || a.fc == nil || callback == nil {
 		return 0
 	}
@@ -264,7 +285,7 @@ func (a *findControllerAdapter) OnCountedMatches(callback func(matchCount uint))
 	return a.fc.ConnectCountedMatches(&cb)
 }
 
-func (a *findControllerAdapter) DisconnectSignal(id uint32) {
+func (a *findControllerAdapter) DisconnectSignal(id uint) {
 	if a == nil || a.fc == nil || id == 0 {
 		return
 	}
@@ -300,10 +321,11 @@ func NewWebView(ctx context.Context, wkCtx *WebKitContext, settings *SettingsMan
 	}
 
 	wv := &WebView{
-		inner:     inner,
-		ucm:       inner.GetUserContentManager(),
-		logger:    log.With().Str("component", "webview").Logger(),
-		signalIDs: make([]uint32, 0, 4),
+		inner:           inner,
+		ucm:             inner.GetUserContentManager(),
+		logger:          log.With().Str("component", "webview").Logger(),
+		signalIDs:       make([]uintptr, 0, 4),
+		runJSErrorStats: make(map[string]runJSErrorStat),
 	}
 
 	// Register in global registry
@@ -349,11 +371,12 @@ func NewWebViewWithRelated(ctx context.Context, parent *WebView, settings *Setti
 		Msg("related webview created, checking pointers")
 
 	wv := &WebView{
-		inner:     inner,
-		isRelated: true, // Shares web process with parent - must not terminate process on destroy
-		ucm:       inner.GetUserContentManager(),
-		logger:    log.With().Str("component", "webview-popup").Logger(),
-		signalIDs: make([]uint32, 0, 6),
+		inner:           inner,
+		isRelated:       true, // Shares web process with parent - must not terminate process on destroy
+		ucm:             inner.GetUserContentManager(),
+		logger:          log.With().Str("component", "webview-popup").Logger(),
+		signalIDs:       make([]uintptr, 0, 6),
+		runJSErrorStats: make(map[string]runJSErrorStat),
 	}
 
 	wv.id = globalRegistry.register(wv)
@@ -388,6 +411,7 @@ func (wv *WebView) connectSignals() {
 	wv.connectAudioStateSignal()
 	wv.connectMouseTargetChangedSignal()
 	wv.connectBackForwardListChangedSignal()
+	wv.connectWebProcessTerminatedSignal()
 }
 
 func (wv *WebView) connectLoadChangedSignal() {
@@ -404,6 +428,7 @@ func (wv *WebView) connectLoadChangedSignal() {
 
 		switch event {
 		case webkit.LoadStartedValue:
+			wv.navigationActive.Store(true)
 			wv.isLoading = true
 			wv.logger.Debug().Str("uri", uri).Msg("load started")
 		case webkit.LoadRedirectedValue:
@@ -421,7 +446,7 @@ func (wv *WebView) connectLoadChangedSignal() {
 		}
 	}
 	sigID := wv.inner.ConnectLoadChanged(&loadChangedCb)
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
 }
 
 func (wv *WebView) connectCloseSignal() {
@@ -431,7 +456,7 @@ func (wv *WebView) connectCloseSignal() {
 		}
 	}
 	sigID := wv.inner.ConnectClose(&closeCb)
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
 }
 
 func (wv *WebView) connectCreateSignal() {
@@ -473,7 +498,7 @@ func (wv *WebView) connectCreateSignal() {
 		return newWV.inner.Widget
 	}
 	sigID := wv.inner.ConnectCreate(&createCb)
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
 }
 
 func (wv *WebView) connectReadyToShowSignal() {
@@ -483,7 +508,7 @@ func (wv *WebView) connectReadyToShowSignal() {
 		}
 	}
 	sigID := wv.inner.ConnectReadyToShow(&readyToShowCb)
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
 }
 
 func (wv *WebView) connectTitleSignal() {
@@ -498,7 +523,7 @@ func (wv *WebView) connectTitleSignal() {
 		}
 	}
 	sigID := gobject.SignalConnect(wv.inner.GoPointer(), "notify::title", glib.NewCallback(&titleCb))
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
 }
 
 func (wv *WebView) connectURISignal() {
@@ -514,7 +539,7 @@ func (wv *WebView) connectURISignal() {
 		}
 	}
 	sigID := gobject.SignalConnect(wv.inner.GoPointer(), "notify::uri", glib.NewCallback(&uriCb))
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
 }
 
 func (wv *WebView) connectFaviconSignal() {
@@ -525,7 +550,7 @@ func (wv *WebView) connectFaviconSignal() {
 		}
 	}
 	sigID := gobject.SignalConnect(wv.inner.GoPointer(), "notify::favicon", glib.NewCallback(&faviconCb))
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
 }
 
 // progressThrottleInterval limits progress callbacks to ~60fps to reduce UI overhead.
@@ -555,7 +580,7 @@ func (wv *WebView) connectProgressSignal() {
 		}
 	}
 	sigID := gobject.SignalConnect(wv.inner.GoPointer(), "notify::estimated-load-progress", glib.NewCallback(&progressCb))
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
 }
 
 func (wv *WebView) connectDecidePolicySignal() {
@@ -571,7 +596,7 @@ func (wv *WebView) connectDecidePolicySignal() {
 		}
 	}
 	sigID := wv.inner.ConnectDecidePolicy(&decidePolicyCb)
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
 }
 
 // handleResponsePolicyDecision handles response policy decisions (e.g., forcing downloads).
@@ -770,7 +795,7 @@ func (wv *WebView) connectEnterFullscreenSignal() {
 		return false // Allow fullscreen
 	}
 	sigID := wv.inner.ConnectEnterFullscreen(&enterFullscreenCb)
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
 }
 
 func (wv *WebView) connectLeaveFullscreenSignal() {
@@ -783,7 +808,7 @@ func (wv *WebView) connectLeaveFullscreenSignal() {
 		return false // Allow leaving fullscreen
 	}
 	sigID := wv.inner.ConnectLeaveFullscreen(&leaveFullscreenCb)
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
 }
 
 func (wv *WebView) connectAudioStateSignal() {
@@ -801,7 +826,7 @@ func (wv *WebView) connectAudioStateSignal() {
 		}
 	}
 	sigID := gobject.SignalConnect(wv.inner.GoPointer(), "notify::is-playing-audio", glib.NewCallback(&audioCb))
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
 }
 
 func (wv *WebView) connectMouseTargetChangedSignal() {
@@ -829,7 +854,7 @@ func (wv *WebView) connectMouseTargetChangedSignal() {
 		wv.OnLinkHover(uri)
 	}
 	sigID := wv.inner.ConnectMouseTargetChanged(&mouseTargetCb)
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
 }
 
 func (wv *WebView) connectBackForwardListChangedSignal() {
@@ -857,7 +882,52 @@ func (wv *WebView) connectBackForwardListChangedSignal() {
 	}
 	sigID := backForwardList.ConnectChanged(&changedCb)
 	wv.backForwardList = backForwardList
-	wv.backForwardListSignalID = sigID
+	wv.backForwardListSignalID = uintptr(sigID)
+}
+
+func webProcessTerminationReasonString(reason webkit.WebProcessTerminationReason) string {
+	switch reason {
+	case webkit.WebProcessCrashedValue:
+		return "crashed"
+	case webkit.WebProcessExceededMemoryLimitValue:
+		return "exceeded_memory"
+	case webkit.WebProcessTerminatedByApiValue:
+		return "terminated_by_api"
+	default:
+		return "unknown"
+	}
+}
+
+func mapWebProcessTerminationReason(reason webkit.WebProcessTerminationReason) port.WebProcessTerminationReason {
+	switch reason {
+	case webkit.WebProcessCrashedValue:
+		return port.WebProcessTerminationCrashed
+	case webkit.WebProcessExceededMemoryLimitValue:
+		return port.WebProcessTerminationExceededMemory
+	case webkit.WebProcessTerminatedByApiValue:
+		return port.WebProcessTerminationByAPI
+	default:
+		return port.WebProcessTerminationUnknown
+	}
+}
+
+func (wv *WebView) connectWebProcessTerminatedSignal() {
+	terminatedCb := func(_ webkit.WebView, reason webkit.WebProcessTerminationReason) {
+		uri := wv.URI()
+		reasonLabel := webProcessTerminationReasonString(reason)
+		wv.logger.Warn().
+			Uint64("id", uint64(wv.id)).
+			Str("reason", reasonLabel).
+			Int("reason_code", int(reason)).
+			Str("uri", uri).
+			Msg("web process terminated")
+
+		if wv.OnWebProcessTerminated != nil {
+			wv.OnWebProcessTerminated(reason, reasonLabel, uri)
+		}
+	}
+	sigID := wv.inner.ConnectWebProcessTerminated(&terminatedCb)
+	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
 }
 
 // ID returns the unique identifier for this WebView.
@@ -907,6 +977,7 @@ func (wv *WebView) LoadURI(ctx context.Context, uri string) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
+	wv.navigationActive.Store(true)
 	wv.inner.LoadUri(uri)
 	logging.FromContext(ctx).Debug().Str("uri", uri).Msg("loading URI")
 	return nil
@@ -917,6 +988,7 @@ func (wv *WebView) LoadHTML(ctx context.Context, content, baseURI string) error 
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
+	wv.navigationActive.Store(true)
 	var baseURIPtr *string
 	if baseURI != "" {
 		baseURIPtr = &baseURI
@@ -1140,6 +1212,8 @@ func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
 		wv.OnFaviconChanged = nil
 		wv.OnClose = nil
 		wv.OnCreate = nil
+		wv.OnLinkHover = nil
+		wv.OnWebProcessTerminated = nil
 		return
 	}
 
@@ -1179,6 +1253,13 @@ func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
 		}
 	}
 	wv.OnLinkHover = callbacks.OnLinkHover
+	if callbacks.OnWebProcessTerminated != nil {
+		wv.OnWebProcessTerminated = func(reason webkit.WebProcessTerminationReason, reasonLabel string, uri string) {
+			callbacks.OnWebProcessTerminated(mapWebProcessTerminationReason(reason), reasonLabel, uri)
+		}
+	} else {
+		wv.OnWebProcessTerminated = nil
+	}
 }
 
 // ShowDevTools opens the WebKit inspector/developer tools.
@@ -1215,6 +1296,16 @@ func (wv *WebView) IsDestroyed() bool {
 	return wv.destroyed.Load()
 }
 
+// IsRelated returns true when this WebView shares process/session with a parent popup.
+func (wv *WebView) IsRelated() bool {
+	return wv.isRelated
+}
+
+// HasNavigationActivity reports whether this WebView has been used for content navigation.
+func (wv *WebView) HasNavigationActivity() bool {
+	return wv.navigationActive.Load()
+}
+
 // Close triggers the close callback as if window.close() was called.
 // This is used for programmatic popup closure (e.g., OAuth auto-close).
 func (wv *WebView) Close() {
@@ -1236,13 +1327,13 @@ func (wv *WebView) DisconnectSignals() {
 
 	obj := gobject.ObjectNewFromInternalPtr(wv.inner.GoPointer())
 	for _, sigID := range wv.signalIDs {
-		gobject.SignalHandlerDisconnect(obj, sigID)
+		gobject.SignalHandlerDisconnect(obj, uint(sigID))
 	}
 	wv.signalIDs = wv.signalIDs[:0] // Clear the slice
 
 	if wv.backForwardList != nil && wv.backForwardListSignalID != 0 {
 		bfObj := gobject.ObjectNewFromInternalPtr(wv.backForwardList.GoPointer())
-		gobject.SignalHandlerDisconnect(bfObj, wv.backForwardListSignalID)
+		gobject.SignalHandlerDisconnect(bfObj, uint(wv.backForwardListSignalID))
 		wv.backForwardListSignalID = 0
 		wv.backForwardList = nil
 	}
@@ -1254,9 +1345,16 @@ func (wv *WebView) DisconnectSignals() {
 // This must be called when a WebView is no longer needed to free GPU resources,
 // VA-API decoder contexts, and DMA-BUF buffers held by the web process.
 func (wv *WebView) Destroy() {
+	wv.DestroyWithPolicy("")
+}
+
+// DestroyWithPolicy cleans up the WebView resources with explicit process policy.
+// Valid policies: auto, always, never.
+func (wv *WebView) DestroyWithPolicy(policy string) {
 	if wv.destroyed.Swap(true) {
 		return // Already destroyed
 	}
+	policy = resolveTerminatePolicy(policy)
 
 	// 1. Disconnect all signal handlers first to prevent callbacks during cleanup
 	wv.DisconnectSignals()
@@ -1275,6 +1373,7 @@ func (wv *WebView) Destroy() {
 	wv.OnLeaveFullscreen = nil
 	wv.OnAudioStateChanged = nil
 	wv.OnLinkHover = nil
+	wv.OnWebProcessTerminated = nil
 
 	// 3. Clear async callback references
 	wv.mu.Lock()
@@ -1287,11 +1386,9 @@ func (wv *WebView) Destroy() {
 		wv.inner.Unparent()
 	}
 
-	// 5. Terminate the web process to free GPU resources (VA-API, DMA-BUF, GL contexts)
-	// This is critical to prevent zombie processes that hold video decoder resources.
-	// IMPORTANT: Skip for related views (popups) - they share the web process with their
-	// parent. Terminating the shared process would kill the parent WebView too!
-	if !wv.isRelated && wv.inner != nil {
+	// 5. Optionally terminate web process (skip for related popup views sharing parent process).
+	terminate := shouldTerminateWebProcess(policy, wv.isRelated, wv.navigationActive.Load())
+	if terminate && wv.inner != nil {
 		wv.inner.TerminateWebProcess()
 	}
 
@@ -1303,11 +1400,174 @@ func (wv *WebView) Destroy() {
 	wv.ucm = nil
 	wv.findController = nil
 
-	if wv.isRelated {
-		wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("related webview destroyed (process shared with parent)")
-	} else {
-		wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("webview destroyed and web process terminated")
+	wv.logger.Debug().
+		Uint64("id", uint64(wv.id)).
+		Bool("related", wv.isRelated).
+		Bool("navigation_active", wv.navigationActive.Load()).
+		Bool("terminated_process", terminate).
+		Str("terminate_policy", policy).
+		Msg("webview destroyed")
+}
+
+// ResetForPoolReuse sanitizes callbacks/state so the WebView can be safely reused.
+func (wv *WebView) ResetForPoolReuse() {
+	if wv == nil || wv.destroyed.Load() {
+		return
 	}
+
+	wv.OnLoadChanged = nil
+	wv.OnTitleChanged = nil
+	wv.OnURIChanged = nil
+	wv.OnProgressChanged = nil
+	wv.OnFaviconChanged = nil
+	wv.OnClose = nil
+	wv.OnCreate = nil
+	wv.OnReadyToShow = nil
+	wv.OnLinkMiddleClick = nil
+	wv.OnEnterFullscreen = nil
+	wv.OnLeaveFullscreen = nil
+	wv.OnAudioStateChanged = nil
+	wv.OnLinkHover = nil
+	wv.OnWebProcessTerminated = nil
+
+	wv.mu.Lock()
+	wv.uri = ""
+	wv.title = ""
+	wv.progress = 0
+	wv.canGoBack = false
+	wv.canGoFwd = false
+	wv.isLoading = false
+	wv.asyncCallbacks = nil
+	wv.runJSErrorStats = make(map[string]runJSErrorStat)
+	wv.lastProgressUpdate.Store(0)
+	wv.mu.Unlock()
+
+	wv.isFullscreen.Store(false)
+	wv.isPlayingAudio.Store(false)
+	wv.navigationActive.Store(false)
+
+	if wv.inner != nil {
+		wv.inner.StopLoading()
+		wv.inner.SetVisible(false)
+	}
+}
+
+func resolveTerminatePolicy(raw string) string {
+	value := strings.ToLower(strings.TrimSpace(raw))
+	if value == "" {
+		value = strings.ToLower(strings.TrimSpace(os.Getenv("DUMBER_WEBVIEW_TERMINATE_POLICY")))
+	}
+	switch value {
+	case terminatePolicyAlways:
+		return terminatePolicyAlways
+	case terminatePolicyNever:
+		return terminatePolicyNever
+	case terminatePolicyAuto, "":
+		return terminatePolicyAuto
+	default:
+		return terminatePolicyAuto
+	}
+}
+
+func shouldTerminateWebProcess(policy string, isRelated, navigationActive bool) bool {
+	if isRelated {
+		return false
+	}
+	switch resolveTerminatePolicy(policy) {
+	case terminatePolicyNever:
+		return false
+	case terminatePolicyAlways:
+		return true
+	case terminatePolicyAuto:
+		return navigationActive
+	default:
+		return navigationActive
+	}
+}
+
+func classifyRunJSEvaluateError(err error) (nonFatal bool, signature string) {
+	// Defensive guard: callers should only pass non-nil errors, but tolerate nil safely.
+	if err == nil {
+		return true, ""
+	}
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	signature = "evaluate_error:" + normalizeRunJSErrorSignature(msg)
+	switch {
+	case strings.Contains(msg, "canceled"),
+		strings.Contains(msg, "cancel"),
+		strings.Contains(msg, "javascript execution context"),
+		strings.Contains(msg, "execution context was destroyed"),
+		strings.Contains(msg, "document unloaded"):
+		return true, signature
+	default:
+		return false, signature
+	}
+}
+
+func normalizeRunJSErrorSignature(msg string) string {
+	msg = strings.ToLower(strings.TrimSpace(msg))
+	if msg == "" {
+		return "empty"
+	}
+	fields := strings.Fields(msg)
+	if len(fields) == 0 {
+		return "empty"
+	}
+	return strings.Join(fields, " ")
+}
+
+func (wv *WebView) runJSDomain() string {
+	wv.mu.RLock()
+	currentURI := strings.TrimSpace(wv.uri)
+	wv.mu.RUnlock()
+	if currentURI == "" {
+		return runJSUnknown
+	}
+	parsed, err := url.Parse(currentURI)
+	if err != nil {
+		return runJSUnknown
+	}
+	host := strings.ToLower(strings.TrimSpace(parsed.Hostname()))
+	if host == "" {
+		return runJSUnknown
+	}
+	return host
+}
+
+func (wv *WebView) shouldLogRunJSError(domain, signature string, nonFatal bool, now time.Time) (bool, uint64) {
+	if wv == nil {
+		return true, 1
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
+	if domain == "" {
+		domain = runJSUnknown
+	}
+	if signature == "" {
+		signature = runJSUnknown
+	}
+	key := domain + "|" + signature
+
+	wv.mu.Lock()
+	if wv.runJSErrorStats == nil {
+		wv.runJSErrorStats = make(map[string]runJSErrorStat)
+	}
+	stat := wv.runJSErrorStats[key]
+	stat.count++
+	count := stat.count
+
+	shouldLog := true
+	if nonFatal {
+		shouldLog = count == 1 || count%runJSAggregateLogEvery == 0 || now.Sub(stat.lastLog) >= runJSNonFatalLogInterval
+	}
+	if shouldLog {
+		stat.lastLog = now
+	}
+	wv.runJSErrorStats[key] = stat
+	wv.mu.Unlock()
+
+	return shouldLog, count
 }
 
 // RunJavaScript executes script in the specified world (empty for main world).
@@ -1324,25 +1584,68 @@ func (wv *WebView) RunJavaScript(ctx context.Context, script, worldName string) 
 	log := logging.FromContext(ctx)
 
 	cb := gio.AsyncReadyCallback(func(_ uintptr, resPtr uintptr, _ uintptr) {
+		if wv.destroyed.Load() {
+			return
+		}
+		wv.mu.RLock()
+		inner := wv.inner
+		wv.mu.RUnlock()
+		if inner == nil {
+			return
+		}
+
+		domain := wv.runJSDomain()
 		if resPtr == 0 {
-			log.Warn().Uint64("webview_id", uint64(wv.id)).Msg("RunJavaScript: nil async result")
+			signature := "nil_async_result"
+			shouldLog, count := wv.shouldLogRunJSError(domain, signature, true, time.Now())
+			if shouldLog {
+				log.Debug().
+					Uint64("webview_id", uint64(wv.id)).
+					Str("domain", domain).
+					Str("signature", signature).
+					Uint64("repeat_count", count).
+					Msg("RunJavaScript: non-fatal nil async result")
+			}
 			return
 		}
 
 		res := &gio.AsyncResultBase{Ptr: resPtr}
-		value, err := wv.inner.EvaluateJavascriptFinish(res)
+		value, err := inner.EvaluateJavascriptFinish(res)
 		if err != nil {
-			log.Warn().Err(err).Uint64("webview_id", uint64(wv.id)).Msg("RunJavaScript: failed")
+			nonFatal, signature := classifyRunJSEvaluateError(err)
+			shouldLog, count := wv.shouldLogRunJSError(domain, signature, nonFatal, time.Now())
+			if shouldLog {
+				ev := log.Warn()
+				msg := "RunJavaScript: failed"
+				if nonFatal {
+					ev = log.Debug()
+					msg = "RunJavaScript: non-fatal failure"
+				}
+				ev.Err(err).
+					Uint64("webview_id", uint64(wv.id)).
+					Str("domain", domain).
+					Str("signature", signature).
+					Uint64("repeat_count", count).
+					Msg(msg)
+			}
 			return
 		}
 
 		if value != nil {
 			if jscCtx := value.GetContext(); jscCtx != nil {
 				if exc := jscCtx.GetException(); exc != nil {
-					log.Warn().
-						Str("exception", exc.GetMessage()).
-						Uint64("webview_id", uint64(wv.id)).
-						Msg("RunJavaScript: JS exception")
+					exceptionMessage := strings.TrimSpace(exc.GetMessage())
+					signature := "js_exception:" + normalizeRunJSErrorSignature(exceptionMessage)
+					shouldLog, count := wv.shouldLogRunJSError(domain, signature, true, time.Now())
+					if shouldLog {
+						log.Debug().
+							Str("exception", exceptionMessage).
+							Uint64("webview_id", uint64(wv.id)).
+							Str("domain", domain).
+							Str("signature", signature).
+							Uint64("repeat_count", count).
+							Msg("RunJavaScript: JS exception")
+					}
 				}
 			}
 		}
@@ -1359,7 +1662,13 @@ func (wv *WebView) RunJavaScript(ctx context.Context, script, worldName string) 
 	if worldName != "" {
 		worldNamePtr = &worldName
 	}
-	wv.inner.EvaluateJavascript(script, -1, worldNamePtr, nil, nil, &cb, 0)
+	wv.mu.RLock()
+	inner := wv.inner
+	wv.mu.RUnlock()
+	if inner == nil || wv.destroyed.Load() {
+		return
+	}
+	inner.EvaluateJavascript(script, -1, worldNamePtr, nil, nil, &cb, 0)
 }
 
 // AttachFrontend injects scripts/styles and wires the message router once per WebView.

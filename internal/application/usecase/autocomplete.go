@@ -157,22 +157,21 @@ func (uc *AutocompleteUseCase) findFavoriteSuggestion(ctx context.Context, input
 		return nil
 	}
 
-	for _, fav := range favorites {
-		if fav == nil || fav.URL == "" {
-			continue
-		}
-		suffix, matchedURL, ok := autocomplete.ComputeURLCompletionSuffix(input, fav.URL)
-		if ok {
-			return &autocomplete.Suggestion{
-				FullText: matchedURL,
-				Suffix:   suffix,
-				Source:   autocomplete.SourceFavorite,
-				Title:    fav.Title,
+	return bestSuggestionFromURLs(input, autocomplete.SourceFavorite,
+		len(favorites),
+		func(i int) string {
+			if favorites[i] == nil {
+				return ""
 			}
-		}
-	}
-
-	return nil
+			return favorites[i].URL
+		},
+		func(i int) string {
+			if favorites[i] == nil {
+				return ""
+			}
+			return favorites[i].Title
+		},
+	)
 }
 
 // findHistorySuggestion finds the best matching history entry for the input.
@@ -189,22 +188,21 @@ func (uc *AutocompleteUseCase) findHistorySuggestion(ctx context.Context, input 
 		return nil
 	}
 
-	for _, entry := range entries {
-		if entry == nil || entry.URL == "" {
-			continue
-		}
-		suffix, matchedURL, ok := autocomplete.ComputeURLCompletionSuffix(input, entry.URL)
-		if ok {
-			return &autocomplete.Suggestion{
-				FullText: matchedURL,
-				Suffix:   suffix,
-				Source:   autocomplete.SourceHistory,
-				Title:    entry.Title,
+	return bestSuggestionFromURLs(input, autocomplete.SourceHistory,
+		len(entries),
+		func(i int) string {
+			if entries[i] == nil {
+				return ""
 			}
-		}
-	}
-
-	return nil
+			return entries[i].URL
+		},
+		func(i int) string {
+			if entries[i] == nil {
+				return ""
+			}
+			return entries[i].Title
+		},
+	)
 }
 
 // findBangSuggestion finds the best matching bang shortcut for the input.
@@ -239,21 +237,56 @@ func (uc *AutocompleteUseCase) findBangSuggestion(ctx context.Context, input str
 }
 
 func findCompletionInURLs(_ context.Context, input string, urls []string, source autocomplete.SuggestionSource) *autocomplete.Suggestion {
-	for _, u := range urls {
-		if u == "" {
-			continue
-		}
-		suffix, matchedURL, ok := autocomplete.ComputeURLCompletionSuffix(input, u)
-		if ok {
-			return &autocomplete.Suggestion{
-				FullText: matchedURL,
-				Suffix:   suffix,
-				Source:   source,
-			}
+	suffix, matchedURL, ok := autocomplete.BestURLCompletion(input, urls)
+	if ok {
+		return &autocomplete.Suggestion{
+			FullText: matchedURL,
+			Suffix:   suffix,
+			Source:   source,
 		}
 	}
-
 	return nil
+}
+
+func bestSuggestionFromURLs(
+	input string,
+	source autocomplete.SuggestionSource,
+	count int,
+	urlAt func(int) string,
+	titleAt func(int) string,
+) *autocomplete.Suggestion {
+	if count <= 0 {
+		return nil
+	}
+
+	urls := make([]string, 0, count)
+	titles := make([]string, 0, count)
+	for i := 0; i < count; i++ {
+		url := urlAt(i)
+		if url == "" {
+			continue
+		}
+		urls = append(urls, url)
+		titles = append(titles, titleAt(i))
+	}
+	if len(urls) == 0 {
+		return nil
+	}
+
+	suffix, matchedURL, idx, ok := autocomplete.BestURLCompletionWithIndex(input, urls)
+	if !ok {
+		return nil
+	}
+	title := ""
+	if idx >= 0 && idx < len(titles) {
+		title = titles[idx]
+	}
+	return &autocomplete.Suggestion{
+		FullText: matchedURL,
+		Suffix:   suffix,
+		Source:   source,
+		Title:    title,
+	}
 }
 
 func (uc *AutocompleteUseCase) getCachedFavorites(ctx context.Context) ([]*entity.Favorite, error) {

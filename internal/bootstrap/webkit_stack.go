@@ -46,7 +46,11 @@ func BuildWebKitStack(input WebKitStackInput) WebKitStack {
 	configureRenderingEnvironment(ctx, cfg, &perfSettings, logger)
 	logging.Trace().Mark("render_env")
 
-	wkOpts := buildWebKitContextOptions(input.DataDir, input.CacheDir, &perfSettings)
+	wkOpts := buildWebKitContextOptions(cfg, input.DataDir, input.CacheDir, &perfSettings)
+	logger.Info().
+		Str("cookie_policy", string(wkOpts.CookiePolicy)).
+		Bool("itp_enabled", wkOpts.ITPEnabled).
+		Msg("webkit privacy configuration")
 	wkCtx, err := webkit.NewWebKitContextWithOptions(ctx, wkOpts)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("failed to initialize WebKit context")
@@ -97,10 +101,23 @@ func surveyHardwareAndResolveProfile(ctx context.Context, cfg *config.Config, lo
 	return perfSettings
 }
 
-func buildWebKitContextOptions(dataDir, cacheDir string, perfSettings *config.ResolvedPerformanceSettings) port.WebKitContextOptions {
+func buildWebKitContextOptions(
+	cfg *config.Config,
+	dataDir, cacheDir string,
+	perfSettings *config.ResolvedPerformanceSettings,
+) port.WebKitContextOptions {
+	cookiePolicy := port.WebKitCookiePolicyNoThirdParty
+	itpEnabled := true
+	if cfg != nil {
+		cookiePolicy = port.WebKitCookiePolicy(cfg.Privacy.CookiePolicy)
+		itpEnabled = cfg.Privacy.ITPEnabled
+	}
+
 	wkOpts := port.WebKitContextOptions{
-		DataDir:  dataDir,
-		CacheDir: cacheDir,
+		DataDir:      dataDir,
+		CacheDir:     cacheDir,
+		CookiePolicy: cookiePolicy,
+		ITPEnabled:   itpEnabled,
 	}
 
 	if hasWebProcessMemoryConfig(perfSettings) {

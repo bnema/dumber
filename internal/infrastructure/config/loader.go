@@ -177,6 +177,16 @@ func ensureDatabasePath(config *Config) error {
 }
 
 func normalizeConfig(config *Config) {
+	normalizeRendering(config)
+	normalizePrivacy(config)
+	normalizeAppearance(config)
+	normalizeMedia(config)
+
+	config.Runtime.Prefix = strings.TrimSpace(config.Runtime.Prefix)
+	normalizePerformanceProfile(config)
+}
+
+func normalizeRendering(config *Config) {
 	switch strings.ToLower(string(config.Rendering.Mode)) {
 	case "", string(RenderingModeAuto):
 		config.Rendering.Mode = RenderingModeAuto
@@ -200,15 +210,35 @@ func normalizeConfig(config *Config) {
 	default:
 		config.Rendering.GSKRenderer = GSKRendererAuto
 	}
+}
 
-	switch config.Appearance.ColorScheme {
-	case ThemePreferDark, ThemePreferLight, ThemeDefault:
-	case "":
+func normalizePrivacy(config *Config) {
+	switch strings.ToLower(string(config.Privacy.CookiePolicy)) {
+	case "", string(CookiePolicyNoThirdParty):
+		config.Privacy.CookiePolicy = CookiePolicyNoThirdParty
+	case string(CookiePolicyAlways):
+		config.Privacy.CookiePolicy = CookiePolicyAlways
+	case string(CookiePolicyNever):
+		config.Privacy.CookiePolicy = CookiePolicyNever
+	default:
+		config.Privacy.CookiePolicy = CookiePolicyNoThirdParty
+	}
+}
+
+func normalizeAppearance(config *Config) {
+	switch strings.ToLower(strings.TrimSpace(config.Appearance.ColorScheme)) {
+	case strings.ToLower(ThemePreferDark):
+		config.Appearance.ColorScheme = ThemePreferDark
+	case strings.ToLower(ThemePreferLight):
+		config.Appearance.ColorScheme = ThemePreferLight
+	case strings.ToLower(ThemeDefault):
 		config.Appearance.ColorScheme = ThemeDefault
 	default:
 		config.Appearance.ColorScheme = ThemeDefault
 	}
+}
 
+func normalizeMedia(config *Config) {
 	switch strings.ToLower(string(config.Media.HardwareDecodingMode)) {
 	case "", string(HardwareDecodingAuto):
 		config.Media.HardwareDecodingMode = HardwareDecodingAuto
@@ -232,9 +262,6 @@ func normalizeConfig(config *Config) {
 	default:
 		config.Media.GLRenderingMode = GLRenderingModeAuto
 	}
-
-	config.Runtime.Prefix = strings.TrimSpace(config.Runtime.Prefix)
-	normalizePerformanceProfile(config)
 }
 
 func normalizePerformanceProfile(config *Config) {
@@ -247,6 +274,8 @@ func normalizePerformanceProfile(config *Config) {
 		config.Performance.Profile = ProfileMax
 	case string(ProfileCustom):
 		config.Performance.Profile = ProfileCustom
+	default:
+		config.Performance.Profile = ProfileDefault
 	}
 }
 
@@ -373,6 +402,7 @@ func (m *Manager) setDefaults() {
 	m.setDebugDefaults(defaults)
 	m.setAppearanceDefaults(defaults)
 	m.setRenderingDefaults(defaults)
+	m.setPrivacyDefaults(defaults)
 	m.setWorkspaceDefaults(defaults)
 	m.setContentFilteringDefaults(defaults)
 	m.setClipboardDefaults(defaults)
@@ -445,6 +475,11 @@ func (m *Manager) setRenderingDefaults(defaults *Config) {
 	m.viper.SetDefault("rendering.debug_frames", defaults.Rendering.DebugFrames)
 	m.viper.SetDefault("default_webpage_zoom", defaults.DefaultWebpageZoom)
 	m.viper.SetDefault("default_ui_scale", defaults.DefaultUIScale)
+}
+
+func (m *Manager) setPrivacyDefaults(defaults *Config) {
+	m.viper.SetDefault("privacy.cookie_policy", string(defaults.Privacy.CookiePolicy))
+	m.viper.SetDefault("privacy.itp_enabled", defaults.Privacy.ITPEnabled)
 }
 
 func (m *Manager) setWorkspaceDefaults(defaults *Config) {

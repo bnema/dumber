@@ -43,7 +43,7 @@ type FindInPageUseCase struct {
 	ctx context.Context
 
 	controller port.FindController
-	signalIDs  []uint32
+	signalIDs  []uint
 
 	query        string
 	matchCount   uint

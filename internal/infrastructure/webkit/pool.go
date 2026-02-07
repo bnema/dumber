@@ -3,6 +3,8 @@ package webkit
 import (
 	"context"
 	"errors"
+	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -31,6 +33,12 @@ type PoolConfig struct {
 	PrewarmCount int
 	// IdleTimeout is how long idle views stay in the pool before being destroyed.
 	IdleTimeout time.Duration
+	// ReusePolicy controls if/when released WebViews are returned to pool.
+	// Values: off, safe, aggressive.
+	ReusePolicy string
+	// TerminatePolicy controls whether Destroy() should terminate web process.
+	// Values: auto, always, never.
+	TerminatePolicy string
 }
 
 // DefaultPoolConfig returns sensible defaults for the pool.
@@ -43,6 +51,12 @@ func DefaultPoolConfig() PoolConfig {
 	}
 }
 
+const (
+	reusePolicyOff        = "off"
+	reusePolicySafe       = "safe"
+	reusePolicyAggressive = "aggressive"
+)
+
 // WebViewPool manages a pool of pre-created WebViews for fast tab creation.
 type WebViewPool struct {
 	wkCtx    *WebKitContext
@@ -50,6 +64,7 @@ type WebViewPool struct {
 	config   PoolConfig
 
 	pool          chan *WebView
+	poolMu        sync.Mutex
 	injector      *ContentInjector
 	router        *MessageRouter
 	filterApplier FilterApplier // Optional content filter applier
@@ -59,6 +74,19 @@ type WebViewPool struct {
 
 	closed atomic.Bool
 	wg     sync.WaitGroup
+
+	reusePolicy     string
+	terminatePolicy string
+
+	acquireCount      atomic.Uint64
+	acquirePoolHits   atomic.Uint64
+	acquirePoolMisses atomic.Uint64
+	releaseCount      atomic.Uint64
+	releaseReused     atomic.Uint64
+	releaseDestroyed  atomic.Uint64
+	releaseDropped    atomic.Uint64
+	releaseTotalNanos atomic.Int64
+	acquireTotalNanos atomic.Int64
 }
 
 // NewWebViewPool creates a new WebView pool.
@@ -79,21 +107,28 @@ func NewWebViewPool(
 	if cfg.MinSize > cfg.MaxSize {
 		cfg.MinSize = cfg.MaxSize
 	}
+	cfg.ReusePolicy = resolveReusePolicy(cfg.ReusePolicy)
+	cfg.TerminatePolicy = resolveTerminatePolicy(cfg.TerminatePolicy)
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
 	p := &WebViewPool{
-		wkCtx:    wkCtx,
-		settings: settings,
-		config:   cfg,
-		pool:     make(chan *WebView, cfg.MaxSize),
-		injector: injector,
-		router:   router,
+		wkCtx:           wkCtx,
+		settings:        settings,
+		config:          cfg,
+		pool:            make(chan *WebView, cfg.MaxSize),
+		injector:        injector,
+		router:          router,
+		reusePolicy:     cfg.ReusePolicy,
+		terminatePolicy: cfg.TerminatePolicy,
 	}
 
 	log := logging.FromContext(ctx)
-	log.Debug().Msg("creating webview pool")
+	log.Debug().
+		Str("reuse_policy", p.reusePolicy).
+		Str("terminate_policy", p.terminatePolicy).
+		Msg("creating webview pool")
 
 	return p
 }
@@ -113,6 +148,7 @@ func (p *WebViewPool) SetBackgroundColor(r, g, b, a float32) {
 // Acquire gets a WebView from the pool or creates a new one.
 func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 	log := logging.FromContext(ctx)
+	start := time.Now()
 
 	if p.closed.Load() {
 		return nil, ErrPoolClosed
@@ -135,7 +171,15 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 			if p.filterApplier != nil {
 				p.filterApplier.ApplyTo(ctx, wv.ucm)
 			}
-			log.Debug().Uint64("id", uint64(wv.ID())).Msg("acquired webview from pool")
+			p.acquireCount.Add(1)
+			p.acquirePoolHits.Add(1)
+			p.acquireTotalNanos.Add(time.Since(start).Nanoseconds())
+			log.Debug().
+				Uint64("id", uint64(wv.ID())).
+				Dur("latency", time.Since(start)).
+				Int("pool_size", len(p.pool)).
+				Str("source", "pool").
+				Msg("acquired webview")
 			return wv, nil
 		}
 		// Fall through to create new if the pooled one was destroyed
@@ -145,7 +189,28 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 
 	// Pool empty or pooled view was destroyed, create new
 	log.Debug().Msg("pool empty, creating new webview")
-	return p.createWebView(ctx)
+	wv, err := p.createWebView(ctx)
+	if err != nil {
+		return nil, err
+	}
+	p.acquireCount.Add(1)
+	p.acquirePoolMisses.Add(1)
+	p.acquireTotalNanos.Add(time.Since(start).Nanoseconds())
+
+	// Re-check after creation: if pool closed during createWebView, destroy
+	// the new WebView and return an error to avoid leaking resources.
+	if p.closed.Load() {
+		wv.DestroyWithPolicy(p.terminatePolicy)
+		return nil, ErrPoolClosed
+	}
+
+	log.Debug().
+		Uint64("id", uint64(wv.ID())).
+		Dur("latency", time.Since(start)).
+		Int("pool_size", len(p.pool)).
+		Str("source", "new").
+		Msg("acquired webview")
+	return wv, nil
 }
 
 func (p *WebViewPool) createWebView(ctx context.Context) (*WebView, error) {
@@ -174,29 +239,52 @@ func (p *WebViewPool) createWebView(ctx context.Context) (*WebView, error) {
 	return wv, nil
 }
 
-// Release returns a WebView to the pool.
-// For safety, we always destroy and never pool WebViews that have been used.
-// This prevents crashes from GLib signals firing after the widget tree is modified.
-// The pool is only used for prewarmed WebViews that haven't been attached to UI yet.
+// Release returns a WebView to the pool when configured and safe.
+// Default behavior remains conservative (`reuse_policy=off`) and destroys on release.
 func (p *WebViewPool) Release(ctx context.Context, wv *WebView) {
 	log := logging.FromContext(ctx)
+	start := time.Now()
 
 	if wv == nil || wv.IsDestroyed() || p.closed.Load() {
 		if wv != nil && !wv.IsDestroyed() {
-			wv.Destroy()
+			wv.DestroyWithPolicy(p.terminatePolicy)
 		}
+		p.releaseDropped.Add(1)
 		return
 	}
 
-	// CRITICAL: Always destroy used WebViews instead of pooling them.
-	// GLib signals are connected with closures that can fire asynchronously
-	// even after we clear Go callbacks. Loading about:blank triggers signals
-	// that can crash if the widget tree has been modified.
-	//
-	// The pool is designed for prewarmed WebViews only, not for recycling
-	// WebViews that have been attached to the UI.
-	log.Debug().Uint64("id", uint64(wv.ID())).Msg("destroying webview (not pooling used views)")
-	wv.Destroy()
+	action := "destroyed"
+	if p.shouldReuseOnRelease(wv) {
+		wv.ResetForPoolReuse()
+		if p.tryPut(ctx, wv) {
+			action = "reused"
+			p.releaseReused.Add(1)
+		} else {
+			action = "destroyed_after_reuse_failed"
+			wv.DestroyWithPolicy(p.terminatePolicy)
+			p.releaseDestroyed.Add(1)
+		}
+	} else {
+		wv.DestroyWithPolicy(p.terminatePolicy)
+		p.releaseDestroyed.Add(1)
+	}
+	p.releaseCount.Add(1)
+	elapsed := time.Since(start)
+	p.releaseTotalNanos.Add(elapsed.Nanoseconds())
+	log.Debug().
+		Uint64("id", uint64(wv.ID())).
+		Str("action", action).
+		Str("reuse_policy", p.reusePolicy).
+		Str("terminate_policy", p.terminatePolicy).
+		Dur("latency", elapsed).
+		Int("pool_size", len(p.pool)).
+		Uint64("acquire_total", p.acquireCount.Load()).
+		Uint64("acquire_hits", p.acquirePoolHits.Load()).
+		Uint64("acquire_misses", p.acquirePoolMisses.Load()).
+		Uint64("release_total", p.releaseCount.Load()).
+		Uint64("release_reused", p.releaseReused.Load()).
+		Uint64("release_destroyed", p.releaseDestroyed.Load()).
+		Msg("released webview")
 }
 
 // PrewarmFirst creates exactly one WebView synchronously.
@@ -218,12 +306,11 @@ func (p *WebViewPool) PrewarmFirst(ctx context.Context) error {
 		return err
 	}
 
-	select {
-	case p.pool <- wv:
+	if p.tryPut(ctx, wv) {
 		log.Debug().Uint64("id", uint64(wv.ID())).Msg("prewarmed first webview for cold start")
-	default:
-		wv.Destroy() // Pool somehow full (shouldn't happen)
+		return nil
 	}
+	wv.DestroyWithPolicy(p.terminatePolicy) // Pool somehow full (shouldn't happen)
 	return nil
 }
 
@@ -294,11 +381,10 @@ func (p *WebViewPool) PrewarmAsync(ctx context.Context, count int) {
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to prewarm webview")
 			} else {
-				select {
-				case p.pool <- wv:
+				if p.tryPut(ctx, wv) {
 					log.Debug().Uint64("id", uint64(wv.ID())).Msg("prewarmed webview added to pool")
-				default:
-					wv.Destroy()
+				} else {
+					wv.DestroyWithPolicy(p.terminatePolicy)
 				}
 			}
 
@@ -336,12 +422,11 @@ func (p *WebViewPool) prewarmSync(ctx context.Context, count int) {
 		}
 
 		// Try to add to pool
-		select {
-		case p.pool <- wv:
+		if p.tryPut(ctx, wv) {
 			log.Debug().Uint64("id", uint64(wv.ID())).Msg("prewarmed webview added to pool")
-		default:
+		} else {
 			// Pool full, destroy
-			wv.Destroy()
+			wv.DestroyWithPolicy(p.terminatePolicy)
 		}
 
 		// Small delay between creations to avoid overwhelming the system
@@ -387,11 +472,10 @@ refreshLoop:
 			}
 
 			// Put back in pool
-			select {
-			case p.pool <- wv:
+			if p.tryPut(ctx, wv) {
 				refreshed++
-			default:
-				wv.Destroy()
+			} else {
+				wv.DestroyWithPolicy(p.terminatePolicy)
 			}
 		default:
 			// Pool was modified during iteration, stop
@@ -417,7 +501,9 @@ func (p *WebViewPool) Close(ctx context.Context) {
 	p.wg.Wait()
 
 	// Drain and destroy all pooled views
+	p.poolMu.Lock()
 	close(p.pool)
+	p.poolMu.Unlock()
 	for wv := range p.pool {
 		if wv != nil && !wv.IsDestroyed() {
 			wv.Destroy()
@@ -425,4 +511,61 @@ func (p *WebViewPool) Close(ctx context.Context) {
 	}
 
 	log.Debug().Msg("webview pool closed")
+}
+
+func (p *WebViewPool) shouldReuseOnRelease(wv *WebView) bool {
+	if p.reusePolicy == reusePolicyOff || wv == nil || wv.IsDestroyed() || wv.IsRelated() {
+		return false
+	}
+	if len(p.pool) >= p.config.MaxSize {
+		return false
+	}
+	switch p.reusePolicy {
+	case reusePolicySafe:
+		// Safe mode: only reuse views that haven't navigated, avoiding
+		// back/forward/page context leaking across tabs.
+		return !wv.HasNavigationActivity()
+	case reusePolicyAggressive:
+		// Aggressive mode: reuse regardless of navigation activity.
+		// The view is reset via ResetForPoolReuse before being returned to the pool.
+		return true
+	default:
+		return false
+	}
+}
+
+func (p *WebViewPool) tryPut(ctx context.Context, wv *WebView) bool {
+	log := logging.FromContext(ctx)
+	p.poolMu.Lock()
+	defer p.poolMu.Unlock()
+	if p.closed.Load() {
+		return false
+	}
+	select {
+	case p.pool <- wv:
+		log.Debug().Uint64("id", uint64(wv.ID())).Int("pool_size", len(p.pool)).Msg("returned webview to pool")
+		return true
+	default:
+		return false
+	}
+}
+
+func resolveReusePolicy(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(defaultIfEmpty(raw, os.Getenv("DUMBER_WEBVIEW_REUSE_POLICY")))) {
+	case reusePolicySafe:
+		return reusePolicySafe
+	case reusePolicyAggressive:
+		return reusePolicyAggressive
+	case reusePolicyOff, "":
+		return reusePolicyOff
+	default:
+		return reusePolicyOff
+	}
+}
+
+func defaultIfEmpty(value, fallback string) string {
+	if strings.TrimSpace(value) != "" {
+		return value
+	}
+	return fallback
 }

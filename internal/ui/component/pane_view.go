@@ -29,9 +29,10 @@ type PaneView struct {
 	paneID        entity.PaneID
 	isActive      bool
 
-	onFocusIn  func(paneID entity.PaneID)
-	onFocusOut func(paneID entity.PaneID)
-	onHover    func(paneID entity.PaneID)
+	onFocusIn     func(paneID entity.PaneID)
+	onFocusOut    func(paneID entity.PaneID)
+	onHover       func(paneID entity.PaneID)
+	onMouseMotion func()
 
 	hoverHandler *input.HoverHandler
 
@@ -218,6 +219,15 @@ func (pv *PaneView) SetOnHover(fn func(paneID entity.PaneID)) {
 	pv.onHover = fn
 }
 
+// SetOnMouseMotion sets a callback fired on intentional mouse movement within the pane.
+// Used to detect real user interaction vs synthetic GTK enter events from widget rearrangement.
+func (pv *PaneView) SetOnMouseMotion(fn func()) {
+	pv.mu.Lock()
+	defer pv.mu.Unlock()
+
+	pv.onMouseMotion = fn
+}
+
 // AttachHoverHandler creates and attaches a hover handler for focus-follows-mouse behavior.
 func (pv *PaneView) AttachHoverHandler(ctx context.Context) {
 	pv.mu.Lock()
@@ -226,7 +236,7 @@ func (pv *PaneView) AttachHoverHandler(ctx context.Context) {
 	// Create hover handler
 	pv.hoverHandler = input.NewHoverHandler(ctx, pv.paneID)
 
-	// Wire up callback
+	// Wire up hover enter callback
 	pv.hoverHandler.SetOnEnter(func(paneID entity.PaneID) {
 		pv.mu.RLock()
 		callback := pv.onHover
@@ -234,6 +244,17 @@ func (pv *PaneView) AttachHoverHandler(ctx context.Context) {
 
 		if callback != nil {
 			callback(paneID)
+		}
+	})
+
+	// Wire up mouse motion callback (intentional movement detection)
+	pv.hoverHandler.SetOnMotion(func() {
+		pv.mu.RLock()
+		callback := pv.onMouseMotion
+		pv.mu.RUnlock()
+
+		if callback != nil {
+			callback()
 		}
 	})
 
