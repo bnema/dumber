@@ -141,115 +141,125 @@ func (m *Manager) LoadAsync(ctx context.Context) {
 		return
 	}
 
-	go func() {
-		log := logging.FromContext(ctx).With().
-			Str("component", "filter-manager").
-			Logger()
+	go m.loadAsyncWorker(ctx)
+}
 
-		// If already loaded, skip
-		m.filterMu.RLock()
-		if m.filter != nil {
-			m.filterMu.RUnlock()
-			log.Debug().Msg("filters already loaded, skipping async load")
-			return
-		}
-		m.filterMu.RUnlock()
+func (m *Manager) loadAsyncWorker(ctx context.Context) {
+	log := logging.FromContext(ctx).With().
+		Str("component", "filter-manager").
+		Logger()
 
-		// Try to load from cache first (fast path)
-		m.setStatus(FilterStatus{State: StateLoading, Message: "Loading filters..."})
-		if m.store.HasCompiledFilter(ctx, FilterIdentifier) {
-			log.Debug().Msg("found compiled filter, loading from cache")
-			filter, err := m.store.Load(ctx, FilterIdentifier)
-			if err == nil && filter != nil {
-				m.filterMu.Lock()
-				m.filter = filter
-				m.filterMu.Unlock()
+	if m.hasActiveFilter() {
+		log.Debug().Msg("filters already loaded, skipping async load")
+		return
+	}
 
-				version := m.getCachedVersion()
-				m.setStatus(FilterStatus{
-					State:   StateActive,
-					Message: "Filters active",
-					Version: version,
-				})
-				log.Info().Str("version", version).Msg("filters loaded from cache")
+	if m.loadFromCache(ctx) {
+		m.checkStaleCacheAndUpdate(ctx)
+		return
+	}
 
-				m.checkStaleCacheAndUpdate(ctx)
-				return
-			}
-			log.Warn().Err(err).Msg("failed to load cached filter, will download")
-		}
+	m.downloadCompileAndActivate(ctx)
+}
 
-		// Download filters
-		m.setStatus(FilterStatus{State: StateLoading, Message: "Downloading filters..."})
-		paths, err := m.downloader.DownloadFilters(ctx, func(p DownloadProgress) {
-			msg := fmt.Sprintf("Downloading filters (%d/%d)...", p.Current, p.Total)
-			m.setStatus(FilterStatus{State: StateLoading, Message: msg})
-		})
-		if err != nil {
-			log.Error().Err(err).Msg("failed to download filters")
-			m.setStatus(FilterStatus{State: StateError, Message: "Download failed"})
-			return
-		}
+func (m *Manager) loadFromCache(ctx context.Context) bool {
+	log := logging.FromContext(ctx).With().
+		Str("component", "filter-manager").
+		Logger()
 
-		if err := m.validateDownloadedFiles(ctx, paths); err != nil {
-			log.Error().Err(err).Msg("downloaded filter validation failed")
-			m.setStatus(FilterStatus{State: StateError, Message: "Invalid downloaded filters"})
-			return
-		}
+	m.setStatus(FilterStatus{State: StateLoading, Message: "Loading filters..."})
+	if !m.store.HasCompiledFilter(ctx, FilterIdentifier) {
+		return false
+	}
 
-		m.setStatus(FilterStatus{State: StateLoading, Message: "Compiling filters..."})
+	log.Debug().Msg("found compiled filter, loading from cache")
+	filter, err := m.store.Load(ctx, FilterIdentifier)
+	if err != nil || filter == nil {
+		log.Warn().Err(err).Msg("failed to load cached filter, will download")
+		return false
+	}
 
-		// Merge JSON files into one for compilation
-		mergedPath, err := m.mergeJSONFiles(ctx, paths)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to merge filter files")
-			m.setStatus(FilterStatus{State: StateError, Message: "Filter merge failed"})
-			return
-		}
+	version := m.setActiveFilter(filter, "Filters active")
+	log.Info().Str("version", version).Msg("filters loaded from cache")
+	return true
+}
 
-		// Compile the merged filter
-		filter, err := m.store.Compile(ctx, FilterIdentifier, mergedPath)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to compile filters")
-			if m.hasActiveFilter() {
-				version := m.getCachedVersion()
-				m.setStatus(FilterStatus{
-					State:   StateActive,
-					Message: "Filters active (update skipped)",
-					Version: version,
-				})
-				return
-			}
-			m.setStatus(FilterStatus{State: StateError, Message: "Compilation failed"})
-			return
-		}
-		if filter == nil {
-			log.Error().Msg("filter compilation returned nil filter")
-			if m.hasActiveFilter() {
-				version := m.getCachedVersion()
-				m.setStatus(FilterStatus{
-					State:   StateActive,
-					Message: "Filters active (update skipped)",
-					Version: version,
-				})
-				return
-			}
-			m.setStatus(FilterStatus{State: StateError, Message: "Compilation failed"})
-			return
-		}
+func (m *Manager) downloadCompileAndActivate(ctx context.Context) {
+	log := logging.FromContext(ctx).With().
+		Str("component", "filter-manager").
+		Logger()
 
-		m.filterMu.Lock()
-		m.filter = filter
-		m.filterMu.Unlock()
+	paths, err := m.downloadFiltersWithProgress(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to download filters")
+		m.setStatus(FilterStatus{State: StateError, Message: "Download failed"})
+		return
+	}
 
+	validateErr := m.validateDownloadedFiles(ctx, paths)
+	if validateErr != nil {
+		log.Error().Err(validateErr).Msg("downloaded filter validation failed")
+		m.setStatus(FilterStatus{State: StateError, Message: "Invalid downloaded filters"})
+		return
+	}
+
+	m.setStatus(FilterStatus{State: StateLoading, Message: "Compiling filters..."})
+	mergedPath, err := m.mergeJSONFiles(ctx, paths)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to merge filter files")
+		m.setStatus(FilterStatus{State: StateError, Message: "Filter merge failed"})
+		return
+	}
+
+	filter, err := m.store.Compile(ctx, FilterIdentifier, mergedPath)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to compile filters")
+		m.handleCompilationFailure()
+		return
+	}
+	if filter == nil {
+		log.Error().Msg("filter compilation returned nil filter")
+		m.handleCompilationFailure()
+		return
+	}
+
+	version := m.setActiveFilter(filter, "Filters active")
+	log.Info().Str("version", version).Msg("filters compiled and active")
+}
+
+func (m *Manager) downloadFiltersWithProgress(ctx context.Context) ([]string, error) {
+	m.setStatus(FilterStatus{State: StateLoading, Message: "Downloading filters..."})
+	return m.downloader.DownloadFilters(ctx, func(p DownloadProgress) {
+		msg := fmt.Sprintf("Downloading filters (%d/%d)...", p.Current, p.Total)
+		m.setStatus(FilterStatus{State: StateLoading, Message: msg})
+	})
+}
+
+func (m *Manager) handleCompilationFailure() {
+	if m.hasActiveFilter() {
 		version := m.getCachedVersion()
 		m.setStatus(FilterStatus{
 			State:   StateActive,
-			Message: "Filters active",
+			Message: "Filters active (update skipped)",
 			Version: version,
 		})
-		log.Info().Str("version", version).Msg("filters compiled and active")
-	}()
+		return
+	}
+	m.setStatus(FilterStatus{State: StateError, Message: "Compilation failed"})
+}
+
+func (m *Manager) setActiveFilter(filter *webkit.UserContentFilter, message string) string {
+	m.filterMu.Lock()
+	m.filter = filter
+	m.filterMu.Unlock()
+
+	version := m.getCachedVersion()
+	m.setStatus(FilterStatus{
+		State:   StateActive,
+		Message: message,
+		Version: version,
+	})
+	return version
 }
 
 // mergeJSONFiles combines multiple JSON rule files into one.
@@ -375,8 +385,9 @@ func (m *Manager) CheckForUpdates(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to download filter update: %w", err)
 	}
-	if err := m.validateDownloadedFiles(ctx, paths); err != nil {
-		log.Warn().Err(err).Msg("invalid downloaded filters, keeping existing active filter")
+	validateErr := m.validateDownloadedFiles(ctx, paths)
+	if validateErr != nil {
+		log.Warn().Err(validateErr).Msg("invalid downloaded filters, keeping existing active filter")
 		return nil
 	}
 
@@ -422,7 +433,7 @@ func (m *Manager) validateDownloadedFiles(ctx context.Context, paths []string) e
 	for _, path := range paths {
 		if err := validateRuleFile(path); err != nil {
 			if quarantineErr := m.quarantineInvalidFile(ctx, path, "rule_validation_failed"); quarantineErr != nil {
-				return fmt.Errorf("invalid filter file %s (%v), quarantine failed: %w", path, err, quarantineErr)
+				return fmt.Errorf("invalid filter file %s: %w (quarantine failed: %s)", path, err, quarantineErr.Error())
 			}
 			return fmt.Errorf("invalid filter file %s: %w", path, err)
 		}
@@ -467,7 +478,7 @@ func validateRuleFile(path string) error {
 	return nil
 }
 
-func (m *Manager) quarantineInvalidFile(ctx context.Context, srcPath string, cause string) error {
+func (m *Manager) quarantineInvalidFile(ctx context.Context, srcPath, cause string) error {
 	log := logging.FromContext(ctx).With().
 		Str("component", "filter-manager").
 		Logger()

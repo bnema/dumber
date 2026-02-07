@@ -16,7 +16,7 @@ func TestShouldRenderCrashPage(t *testing.T) {
 
 func TestExtractOriginalURIFromCrashPage(t *testing.T) {
 	assert.Equal(t, "https://example.com/path?q=1", extractOriginalURIFromCrashPage("dumb://home/crash?url=https%3A%2F%2Fexample.com%2Fpath%3Fq%3D1"))
-	assert.Equal(t, "", extractOriginalURIFromCrashPage("dumb://home/crash"))
+	assert.Empty(t, extractOriginalURIFromCrashPage("dumb://home/crash"))
 	assert.Equal(t, "https://example.com", extractOriginalURIFromCrashPage("https://example.com"))
 	assert.Equal(t, "%%%bad", extractOriginalURIFromCrashPage("%%%bad"))
 }

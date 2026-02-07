@@ -31,6 +31,7 @@ const (
 	ErrorPath  = "error"
 	CrashPath  = "crash"
 	IndexHTML  = "index.html"
+	httpGET    = "GET"
 )
 
 // SchemeRequest represents a request to a custom URI scheme.
@@ -165,7 +166,7 @@ func (h *DumbSchemeHandler) registerDefaults() {
 
 	// Crash page (web process termination fallback)
 	h.RegisterPage("/crash", PageHandlerFunc(func(req *SchemeRequest) *SchemeResponse {
-		if req.Method != "" && req.Method != "GET" {
+		if req.Method != "" && req.Method != httpGET {
 			return nil
 		}
 		originalURI := crashOriginalURI(req.URI)
@@ -178,7 +179,7 @@ func (h *DumbSchemeHandler) registerDefaults() {
 
 	// API: Get current config (used by dumb://config)
 	h.RegisterPage("/api/config", PageHandlerFunc(func(req *SchemeRequest) *SchemeResponse {
-		if req.Method != "GET" {
+		if req.Method != httpGET {
 			return nil
 		}
 
@@ -187,7 +188,7 @@ func (h *DumbSchemeHandler) registerDefaults() {
 
 	// API: Get default config (used by Reset Defaults in dumb://config)
 	h.RegisterPage("/api/config/default", PageHandlerFunc(func(req *SchemeRequest) *SchemeResponse {
-		if req.Method != "GET" {
+		if req.Method != httpGET {
 			return nil
 		}
 

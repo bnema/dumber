@@ -802,9 +802,9 @@ func (c *ContentCoordinator) onTitleChanged(ctx context.Context, paneID entity.P
 	// Notify history persistence (get URL from WebView)
 	if c.onTitleUpdated != nil {
 		if wv := c.webViews[paneID]; wv != nil {
-			url := wv.URI()
-			if url != "" && title != "" {
-				c.onTitleUpdated(ctx, paneID, url, title)
+			currentURI := wv.URI()
+			if currentURI != "" && title != "" {
+				c.onTitleUpdated(ctx, paneID, currentURI, title)
 			}
 		}
 	}
@@ -912,22 +912,22 @@ func (c *ContentCoordinator) FaviconAdapter() *adapter.FaviconAdapter {
 // SetNavigationOrigin records the original URL before navigation starts.
 // This allows caching favicons under both original and final domains
 // when cross-domain redirects occur (e.g., google.fr → google.com).
-func (c *ContentCoordinator) SetNavigationOrigin(paneID entity.PaneID, url string) {
+func (c *ContentCoordinator) SetNavigationOrigin(paneID entity.PaneID, uri string) {
 	c.navOriginMu.Lock()
-	c.navOrigins[paneID] = url
+	c.navOrigins[paneID] = uri
 	c.navOriginMu.Unlock()
 }
 
 // PreloadCachedFavicon checks the favicon cache and updates the stacked pane
 // title bar immediately if a cached favicon exists for the URL.
 // This provides instant favicon display without waiting for WebKit.
-func (c *ContentCoordinator) PreloadCachedFavicon(ctx context.Context, paneID entity.PaneID, url string) {
-	if c.faviconAdapter == nil || url == "" {
+func (c *ContentCoordinator) PreloadCachedFavicon(ctx context.Context, paneID entity.PaneID, uri string) {
+	if c.faviconAdapter == nil || uri == "" {
 		return
 	}
 
 	// Check memory and disk cache (no external fetch)
-	texture := c.faviconAdapter.PreloadFromCache(url)
+	texture := c.faviconAdapter.PreloadFromCache(uri)
 	if texture == nil {
 		return
 	}
@@ -953,14 +953,14 @@ func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.
 	log := logging.FromContext(ctx)
 	logging.Trace().Mark("load_committed")
 
-	url := wv.URI()
-	if url == "" {
+	uri := wv.URI()
+	if uri == "" {
 		return
 	}
 
 	// Set appropriate background color based on page type to prevent dark background bleeding.
 	switch {
-	case strings.HasPrefix(url, "dumb://"):
+	case strings.HasPrefix(uri, "dumb://"):
 		// Internal pages: apply themed background
 		theme, ok := c.getCurrentTheme()
 		if ok && theme.prefersDark {
@@ -968,7 +968,7 @@ func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.
 		} else {
 			wv.ResetBackgroundToDefault()
 		}
-	case strings.HasPrefix(url, "about:"):
+	case strings.HasPrefix(uri, "about:"):
 		// Keep pool background (no action)
 	default:
 		// External pages: white background
@@ -980,7 +980,7 @@ func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.
 	// Skip showing if this is about:blank but the pane is loading a different URL
 	// This prevents the brief flash of about:blank during initial navigation
 	shouldShow := true
-	if url == aboutBlankURI {
+	if uri == aboutBlankURI {
 		// Get the pane's intended URI from the workspace
 		ws, _ := c.getActiveWS()
 		if ws != nil {
@@ -1011,15 +1011,15 @@ func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.
 
 	c.markPendingReveal(paneID)
 	if wv.EstimatedProgress() > 0 {
-		c.revealIfPending(ctx, paneID, url, "progress-after-commit")
+		c.revealIfPending(ctx, paneID, uri, "progress-after-commit")
 	}
 
 	// Update domain model with current URI for session snapshots
-	c.updatePaneURI(paneID, url)
+	c.updatePaneURI(paneID, uri)
 
 	// Record history - URI is guaranteed to be correct at LoadCommitted
 	if c.onHistoryRecord != nil {
-		c.onHistoryRecord(ctx, paneID, url)
+		c.onHistoryRecord(ctx, paneID, uri)
 	}
 
 	// Apply zoom
@@ -1027,7 +1027,7 @@ func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.
 		return
 	}
 
-	domain, err := usecase.ExtractDomain(url)
+	domain, err := usecase.ExtractDomain(uri)
 	if err != nil {
 		return
 	}
@@ -1058,21 +1058,21 @@ func (c *ContentCoordinator) shouldSkipAboutBlankAppearance(paneID entity.PaneID
 
 // onSPANavigation records history when URL changes via JavaScript (History API).
 // This handles SPA navigation like YouTube search, where the URL changes without a page load.
-func (c *ContentCoordinator) onSPANavigation(ctx context.Context, paneID entity.PaneID, url string) {
+func (c *ContentCoordinator) onSPANavigation(ctx context.Context, paneID entity.PaneID, uri string) {
 	// Update domain model with current URI for session snapshots
-	c.updatePaneURI(paneID, url)
+	c.updatePaneURI(paneID, uri)
 
 	// Record history for SPA navigation
 	if c.onHistoryRecord != nil {
-		c.onHistoryRecord(ctx, paneID, url)
+		c.onHistoryRecord(ctx, paneID, uri)
 	}
 }
 
 // updatePaneURI updates the pane's URI in the domain model.
 // This is called on navigation so that session snapshots capture the current URL.
-func (c *ContentCoordinator) updatePaneURI(paneID entity.PaneID, url string) {
+func (c *ContentCoordinator) updatePaneURI(paneID entity.PaneID, uri string) {
 	if c.onPaneURIUpdated != nil {
-		c.onPaneURIUpdated(paneID, url)
+		c.onPaneURIUpdated(paneID, uri)
 	}
 }
 
@@ -1148,7 +1148,7 @@ func (c *ContentCoordinator) clearPendingReveal(paneID entity.PaneID) {
 	c.revealMu.Unlock()
 }
 
-func (c *ContentCoordinator) revealIfPending(ctx context.Context, paneID entity.PaneID, url, reason string) {
+func (c *ContentCoordinator) revealIfPending(ctx context.Context, paneID entity.PaneID, uri, reason string) {
 	c.revealMu.Lock()
 	pending := c.pendingReveal[paneID]
 	if pending {
@@ -1170,7 +1170,7 @@ func (c *ContentCoordinator) revealIfPending(ctx context.Context, paneID entity.
 		logging.FromContext(ctx).
 			Debug().
 			Str("pane_id", string(paneID)).
-			Str("url", url).
+			Str("url", uri).
 			Str("reason", reason).
 			Msg("webview revealed")
 	}
@@ -1518,7 +1518,6 @@ func (c *ContentCoordinator) setupWebViewCallbacks(ctx context.Context, paneID e
 
 	// SPA navigation and external scheme handling
 	wv.OnURIChanged = func(uri string) {
-		log := logging.FromContext(ctx)
 		if uri == "" {
 			return
 		}

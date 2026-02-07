@@ -177,6 +177,16 @@ func ensureDatabasePath(config *Config) error {
 }
 
 func normalizeConfig(config *Config) {
+	normalizeRendering(config)
+	normalizePrivacy(config)
+	normalizeAppearance(config)
+	normalizeMedia(config)
+
+	config.Runtime.Prefix = strings.TrimSpace(config.Runtime.Prefix)
+	normalizePerformanceProfile(config)
+}
+
+func normalizeRendering(config *Config) {
 	switch strings.ToLower(string(config.Rendering.Mode)) {
 	case "", string(RenderingModeAuto):
 		config.Rendering.Mode = RenderingModeAuto
@@ -200,7 +210,9 @@ func normalizeConfig(config *Config) {
 	default:
 		config.Rendering.GSKRenderer = GSKRendererAuto
 	}
+}
 
+func normalizePrivacy(config *Config) {
 	switch strings.ToLower(string(config.Privacy.CookiePolicy)) {
 	case "", string(CookiePolicyNoThirdParty):
 		config.Privacy.CookiePolicy = CookiePolicyNoThirdParty
@@ -211,7 +223,9 @@ func normalizeConfig(config *Config) {
 	default:
 		config.Privacy.CookiePolicy = CookiePolicyNoThirdParty
 	}
+}
 
+func normalizeAppearance(config *Config) {
 	switch config.Appearance.ColorScheme {
 	case ThemePreferDark, ThemePreferLight, ThemeDefault:
 	case "":
@@ -219,7 +233,9 @@ func normalizeConfig(config *Config) {
 	default:
 		config.Appearance.ColorScheme = ThemeDefault
 	}
+}
 
+func normalizeMedia(config *Config) {
 	switch strings.ToLower(string(config.Media.HardwareDecodingMode)) {
 	case "", string(HardwareDecodingAuto):
 		config.Media.HardwareDecodingMode = HardwareDecodingAuto
@@ -243,9 +259,6 @@ func normalizeConfig(config *Config) {
 	default:
 		config.Media.GLRenderingMode = GLRenderingModeAuto
 	}
-
-	config.Runtime.Prefix = strings.TrimSpace(config.Runtime.Prefix)
-	normalizePerformanceProfile(config)
 }
 
 func normalizePerformanceProfile(config *Config) {

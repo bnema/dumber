@@ -147,10 +147,10 @@ func (uc *NavigateUseCase) RecordHistory(ctx context.Context, paneID, rawURL str
 		return
 	}
 
-	url := canonicalizeURLForHistory(rawURL, historyCanonicalizationOptions{
+	canonicalURL := canonicalizeURLForHistory(rawURL, historyCanonicalizationOptions{
 		StripTrackingParams: stripTrackingParamsForHistoryDedup,
 	})
-	if url == "" {
+	if canonicalURL == "" {
 		return
 	}
 
@@ -172,7 +172,7 @@ func (uc *NavigateUseCase) RecordHistory(ctx context.Context, paneID, rawURL str
 	}
 
 	// Per-pane short-window deduplication by canonical URL.
-	if state.lastCanonicalURL == url && now.Sub(state.lastRecordedAt) < historyDeduplicationWindow {
+	if state.lastCanonicalURL == canonicalURL && now.Sub(state.lastRecordedAt) < historyDeduplicationWindow {
 		state.lastRawURL = rawURL
 		uc.recentVisits[paneID] = state
 		uc.recentMu.Unlock()
@@ -180,17 +180,17 @@ func (uc *NavigateUseCase) RecordHistory(ctx context.Context, paneID, rawURL str
 	}
 
 	state.lastRawURL = rawURL
-	state.lastCanonicalURL = url
+	state.lastCanonicalURL = canonicalURL
 	state.lastRecordedAt = now
 	uc.recentVisits[paneID] = state
 	uc.recentMu.Unlock()
 
 	// Non-blocking send to async queue
 	select {
-	case uc.historyQueue <- historyRecord{url: url, visits: 1}:
+	case uc.historyQueue <- historyRecord{url: canonicalURL, visits: 1}:
 	default:
 		// Queue full - log warning but don't block navigation
-		log.Warn().Str("url", logging.TruncateURL(url, logURLMaxLen)).Msg("history queue full, dropping record")
+		log.Warn().Str("url", logging.TruncateURL(canonicalURL, logURLMaxLen)).Msg("history queue full, dropping record")
 	}
 }
 
@@ -258,7 +258,7 @@ func (uc *NavigateUseCase) persistHistory(ctx context.Context, record historyRec
 	}
 
 	if existing != nil {
-		for i := 0; i < max(1, record.visits); i++ {
+		for i := 0; i < maxInt(1, record.visits); i++ {
 			if err := uc.historyRepo.IncrementVisitCount(ctx, record.url); err != nil {
 				log.Warn().Err(err).Str("url", record.url).Msg("failed to increment visit count")
 				return
@@ -267,7 +267,7 @@ func (uc *NavigateUseCase) persistHistory(ctx context.Context, record historyRec
 	} else {
 		// Create new entry
 		entry := entity.NewHistoryEntry(record.url, "")
-		entry.VisitCount = int64(max(1, record.visits))
+		entry.VisitCount = int64(maxInt(1, record.visits))
 		if err := uc.historyRepo.Save(ctx, entry); err != nil {
 			log.Warn().Err(err).Str("url", record.url).Msg("failed to save history")
 		}
@@ -275,16 +275,16 @@ func (uc *NavigateUseCase) persistHistory(ctx context.Context, record historyRec
 }
 
 // UpdateHistoryTitle updates the title of a history entry after page load.
-func (uc *NavigateUseCase) UpdateHistoryTitle(ctx context.Context, url, title string) error {
+func (uc *NavigateUseCase) UpdateHistoryTitle(ctx context.Context, historyURL, title string) error {
 	log := logging.FromContext(ctx)
 
 	// Canonicalize URL the same way history records are persisted.
-	url = canonicalizeURLForHistory(url, historyCanonicalizationOptions{
+	historyURL = canonicalizeURLForHistory(historyURL, historyCanonicalizationOptions{
 		StripTrackingParams: stripTrackingParamsForHistoryDedup,
 	})
-	log.Debug().Str("url", logging.TruncateURL(url, logURLMaxLen)).Str("title", title).Msg("updating history title")
+	log.Debug().Str("url", logging.TruncateURL(historyURL, logURLMaxLen)).Str("title", title).Msg("updating history title")
 
-	entry, err := uc.historyRepo.FindByURL(ctx, url)
+	entry, err := uc.historyRepo.FindByURL(ctx, historyURL)
 	if err != nil {
 		return fmt.Errorf("failed to find history entry: %w", err)
 	}
@@ -293,7 +293,7 @@ func (uc *NavigateUseCase) UpdateHistoryTitle(ctx context.Context, url, title st
 		// Entry doesn't exist - don't create it here
 		// Initial navigation should have already created the entry
 		// This can happen if URL changed during page load (SPA, redirect)
-		log.Debug().Str("url", url).Msg("no history entry found for URL, skipping title update")
+		log.Debug().Str("url", historyURL).Msg("no history entry found for URL, skipping title update")
 		return nil
 	}
 
@@ -322,14 +322,6 @@ func (uc *NavigateUseCase) Stop(ctx context.Context, webview port.WebView) error
 	log := logging.FromContext(ctx).With().Float64("default_zoom", uc.defaultZoom).Logger()
 	log.Debug().Msg("stopping page load")
 	return webview.Stop(ctx)
-}
-
-// normalizeURLForHistory normalizes a URL for history storage.
-// Strips trailing slash to avoid duplicates like github.com vs github.com/
-func normalizeURLForHistory(raw string) string {
-	return canonicalizeURLForHistory(raw, historyCanonicalizationOptions{
-		StripTrackingParams: false,
-	})
 }
 
 func canonicalizeURLForHistory(raw string, opts historyCanonicalizationOptions) string {
@@ -412,7 +404,7 @@ func isHashOnlyTransition(previous, current string) bool {
 	return prevParsed.Fragment != currParsed.Fragment
 }
 
-func max(a, b int) int {
+func maxInt(a, b int) int {
 	if a > b {
 		return a
 	}
