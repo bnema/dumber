@@ -352,6 +352,22 @@ func markAbruptExits(lockDir string, detectedAt time.Time, logger *zerolog.Logge
 		if sessionID == "" {
 			continue
 		}
+
+		lockPath := sessionLockPath(lockDir, entity.SessionID(sessionID))
+		if _, err := os.Stat(lockPath); err == nil {
+			// Session still actively running; do not mark as abrupt.
+			continue
+		} else if !os.IsNotExist(err) {
+			if logger != nil {
+				logger.Warn().
+					Err(err).
+					Str("session_id", sessionID).
+					Str("path", lockPath).
+					Msg("markAbruptExits: stat failed")
+			}
+			continue
+		}
+
 		shutdownPath := shutdownMarkerPath(lockDir, sessionID)
 		if _, err := os.Stat(shutdownPath); err == nil {
 			continue

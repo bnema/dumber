@@ -5,11 +5,13 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+
 - **Session exit classification runbook and diagnostics docs**: Added dedicated operational documentation for abrupt/clean exit classification and troubleshooting paths.
 - **Session/bootstrap resilience coverage**: Added tests and supporting logic for startup markers, WebKit stack bootstrap, and exit classification handling.
 - **Omnibox async guard tests**: Added focused tests for ghost text async/state safety and normalization behavior.
 
 ### Changed
+
 - **WebKit/puregotk compatibility refresh**: Updated bindings and call sites for `github.com/bnema/puregotk-webkit v0.0.10` and latest puregotk replacement, including signal ID/type handling updates.
 - **Dependencies updated**: Bumped key runtime/developer dependencies, including `go-sqlite3`, `bubbles`, and related transitive modules.
 - **Omnibox behavior tuning**: Refined ghost suggestion ranking/selection behavior and dynamic result sizing tied to pane height.
@@ -18,6 +20,7 @@ All notable changes to this project will be documented in this file.
 - **Config normalization hardening**: Normalization now coerces invalid profile/appearance values to safe defaults.
 
 ### Fixed
+
 - **Inline ghost suggestion stability**: Reworked ghostwriter flow to keep suggestions selected (not auto-committed), with stronger token guards and stale-callback protection.
 - **GTK thread-safety in omnibox**: Removed unsafe off-main-thread widget reads in async flows.
 - **Review follow-ups (Copilot/CodeRabbit)**: Fixed custom-scheme GET handling for empty WebKit methods, synchronized pool close/send paths, aligned WebKit signal ID storage types, and marshalled OAuth parent refresh reloads back to the GTK main loop.
@@ -32,6 +35,7 @@ All notable changes to this project will be documented in this file.
 - **Filtering/snapshot/session reliability**: Fixed race/error-handling paths in filtering updates, snapshot persistence, and session startup marker processing.
 
 ### Security
+
 - **External scheme launch guard**: Restricted external URL scheme launching to user-gesture initiated navigations.
 
 ## [0.26.1] - 2026-01-25

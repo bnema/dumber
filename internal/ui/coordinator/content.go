@@ -93,6 +93,7 @@ type ContentCoordinator struct {
 	injector       *webkit.ContentInjector
 
 	webViews   map[entity.PaneID]*webkit.WebView
+	webViewsMu sync.RWMutex
 	paneTitles map[entity.PaneID]string
 	titleMu    sync.RWMutex
 
@@ -261,7 +262,7 @@ func (c *ContentCoordinator) SetOnFirstLoadStarted(fn func()) {
 func (c *ContentCoordinator) EnsureWebView(ctx context.Context, paneID entity.PaneID) (*webkit.WebView, error) {
 	log := logging.FromContext(ctx)
 
-	if wv, ok := c.webViews[paneID]; ok && wv != nil && !wv.IsDestroyed() {
+	if wv := c.getWebViewLocked(paneID); wv != nil && !wv.IsDestroyed() {
 		return wv, nil
 	}
 
@@ -270,7 +271,7 @@ func (c *ContentCoordinator) EnsureWebView(ctx context.Context, paneID entity.Pa
 	}
 
 	// Mark tab_created on first webview (first tab)
-	if len(c.webViews) == 0 {
+	if c.webViewCount() == 0 {
 		logging.Trace().Mark("tab_created")
 	}
 
@@ -280,7 +281,7 @@ func (c *ContentCoordinator) EnsureWebView(ctx context.Context, paneID entity.Pa
 	}
 	logging.Trace().Mark("webview_acquired")
 
-	c.webViews[paneID] = wv
+	c.setWebViewLocked(paneID, wv)
 	c.setupWebViewCallbacks(ctx, paneID, wv)
 
 	log.Debug().Str("pane_id", string(paneID)).Msg("webview acquired for pane")
@@ -291,11 +292,10 @@ func (c *ContentCoordinator) EnsureWebView(ctx context.Context, paneID entity.Pa
 func (c *ContentCoordinator) ReleaseWebView(ctx context.Context, paneID entity.PaneID) {
 	log := logging.FromContext(ctx)
 
-	wv, ok := c.webViews[paneID]
-	if !ok || wv == nil {
+	wv := c.deleteWebViewLocked(paneID)
+	if wv == nil {
 		return
 	}
-	delete(c.webViews, paneID)
 	c.clearPendingAppearance(paneID)
 
 	// CRITICAL: If this webview was inhibiting idle (fullscreen or audio playing),
@@ -422,20 +422,56 @@ func (c *ContentCoordinator) ActiveWebView(ctx context.Context) *webkit.WebView 
 		return nil
 	}
 
-	return c.webViews[pane.Pane.ID]
+	return c.getWebViewLocked(pane.Pane.ID)
 }
 
 // GetWebView returns the WebView for a specific pane.
 func (c *ContentCoordinator) GetWebView(paneID entity.PaneID) *webkit.WebView {
-	return c.webViews[paneID]
+	return c.getWebViewLocked(paneID)
 }
 
 // RegisterPopupWebView registers a popup WebView that was created externally.
 // This is used when popup tabs are created and the WebView needs to be tracked.
 func (c *ContentCoordinator) RegisterPopupWebView(paneID entity.PaneID, wv *webkit.WebView) {
 	if wv != nil && paneID != "" {
-		c.webViews[paneID] = wv
+		c.setWebViewLocked(paneID, wv)
 	}
+}
+
+func (c *ContentCoordinator) getWebViewLocked(paneID entity.PaneID) *webkit.WebView {
+	c.webViewsMu.RLock()
+	defer c.webViewsMu.RUnlock()
+	return c.webViews[paneID]
+}
+
+func (c *ContentCoordinator) setWebViewLocked(paneID entity.PaneID, wv *webkit.WebView) {
+	c.webViewsMu.Lock()
+	c.webViews[paneID] = wv
+	c.webViewsMu.Unlock()
+}
+
+func (c *ContentCoordinator) deleteWebViewLocked(paneID entity.PaneID) *webkit.WebView {
+	c.webViewsMu.Lock()
+	defer c.webViewsMu.Unlock()
+	wv := c.webViews[paneID]
+	delete(c.webViews, paneID)
+	return wv
+}
+
+func (c *ContentCoordinator) webViewCount() int {
+	c.webViewsMu.RLock()
+	defer c.webViewsMu.RUnlock()
+	return len(c.webViews)
+}
+
+func (c *ContentCoordinator) snapshotWebViews() map[entity.PaneID]*webkit.WebView {
+	c.webViewsMu.RLock()
+	defer c.webViewsMu.RUnlock()
+	snapshot := make(map[entity.PaneID]*webkit.WebView, len(c.webViews))
+	for paneID, wv := range c.webViews {
+		snapshot[paneID] = wv
+	}
+	return snapshot
 }
 
 // ApplyFiltersToAll applies content filters to all active webviews.
@@ -443,7 +479,7 @@ func (c *ContentCoordinator) RegisterPopupWebView(paneID entity.PaneID, wv *webk
 func (c *ContentCoordinator) ApplyFiltersToAll(ctx context.Context, applier webkit.FilterApplier) {
 	log := logging.FromContext(ctx)
 
-	for paneID, wv := range c.webViews {
+	for paneID, wv := range c.snapshotWebViews() {
 		if wv != nil && !wv.IsDestroyed() {
 			applier.ApplyTo(ctx, wv.UserContentManager())
 			log.Debug().Str("pane_id", string(paneID)).Msg("applied filters to existing webview")
@@ -458,7 +494,7 @@ func (c *ContentCoordinator) ApplySettingsToAll(ctx context.Context, sm *webkit.
 		return
 	}
 
-	for paneID, wv := range c.webViews {
+	for paneID, wv := range c.snapshotWebViews() {
 		if wv == nil || wv.IsDestroyed() {
 			continue
 		}
@@ -802,7 +838,7 @@ func (c *ContentCoordinator) onTitleChanged(ctx context.Context, paneID entity.P
 
 	// Notify history persistence (get URL from WebView)
 	if c.onTitleUpdated != nil {
-		if wv := c.webViews[paneID]; wv != nil {
+		if wv := c.getWebViewLocked(paneID); wv != nil {
 			currentURI := wv.URI()
 			if currentURI != "" && title != "" {
 				c.onTitleUpdated(ctx, paneID, currentURI, title)
@@ -849,7 +885,7 @@ func (c *ContentCoordinator) onFaviconChanged(ctx context.Context, paneID entity
 	log := logging.FromContext(ctx)
 
 	// Get current URI to extract domain for caching
-	wv := c.webViews[paneID]
+	wv := c.getWebViewLocked(paneID)
 	if wv == nil {
 		return
 	}
@@ -1159,7 +1195,7 @@ func (c *ContentCoordinator) revealIfPending(ctx context.Context, paneID entity.
 		return
 	}
 
-	wv := c.webViews[paneID]
+	wv := c.getWebViewLocked(paneID)
 	if wv == nil || wv.IsDestroyed() {
 		return
 	}
@@ -1351,7 +1387,7 @@ func (c *ContentCoordinator) handlePopupCreate(
 	}
 
 	// Register WebView in our map (after successful insertion)
-	c.webViews[paneID] = popupWV
+	c.setWebViewLocked(paneID, popupWV)
 
 	// Setup standard callbacks (after successful insertion to avoid leak)
 	c.setupWebViewCallbacks(ctx, paneID, popupWV)
@@ -1767,7 +1803,7 @@ func (c *ContentCoordinator) refreshPaneAfterOAuth(
 	popupID port.WebViewID,
 ) {
 	log := logging.FromContext(ctx)
-	wv := c.webViews[parentPaneID]
+	wv := c.getWebViewLocked(parentPaneID)
 	if wv == nil || wv.IsDestroyed() {
 		log.Debug().
 			Str("parent_pane_id", string(parentPaneID)).
@@ -1834,7 +1870,7 @@ func (c *ContentCoordinator) handleLinkMiddleClick(ctx context.Context, parentPa
 	newPane.URI = uri
 
 	// Register WebView
-	c.webViews[paneID] = newWV
+	c.setWebViewLocked(paneID, newWV)
 
 	// Setup callbacks
 	c.setupWebViewCallbacks(ctx, paneID, newWV)

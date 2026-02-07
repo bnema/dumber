@@ -1345,7 +1345,7 @@ func (wv *WebView) DisconnectSignals() {
 // This must be called when a WebView is no longer needed to free GPU resources,
 // VA-API decoder contexts, and DMA-BUF buffers held by the web process.
 func (wv *WebView) Destroy() {
-	wv.DestroyWithPolicy(resolveTerminatePolicy(""))
+	wv.DestroyWithPolicy("")
 }
 
 // DestroyWithPolicy cleans up the WebView resources with explicit process policy.
