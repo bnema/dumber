@@ -163,14 +163,14 @@ func (p *gtkPaned) ConnectMap(callback func()) uint32 {
 	cb := func(_ gtk.Widget) {
 		callback()
 	}
-	return p.inner.ConnectMap(&cb)
+	return uint32(p.inner.ConnectMap(&cb))
 }
 
 func (p *gtkPaned) ConnectNotifyPosition(callback func()) uint32 {
 	cb := func(_ gobject.Object, _ uintptr) {
 		callback()
 	}
-	return p.inner.ConnectNotifyWithDetail("position", &cb)
+	return uint32(p.inner.ConnectNotifyWithDetail("position", &cb))
 }
 
 func (p *gtkPaned) AddTickCallback(callback func() bool) uint {
@@ -543,7 +543,7 @@ func (btn *gtkButton) ConnectClicked(callback func()) uint32 {
 	cb := func(_ gtk.Button) {
 		callback()
 	}
-	return btn.inner.ConnectClicked(&cb)
+	return uint32(btn.inner.ConnectClicked(&cb))
 }
 
 func (btn *gtkButton) GetAllocatedWidth() int               { return btn.inner.GetAllocatedWidth() }

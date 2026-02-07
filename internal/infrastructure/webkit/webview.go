@@ -138,19 +138,20 @@ type WebView struct {
 	signalIDs []uint32
 
 	// Callbacks (set by UI layer)
-	OnLoadChanged       func(LoadEvent)
-	OnTitleChanged      func(string)
-	OnURIChanged        func(string)
-	OnProgressChanged   func(float64)
-	OnFaviconChanged    func(*gdk.Texture) // Called when page favicon changes
-	OnClose             func()
-	OnCreate            func(PopupRequest) *WebView // Return new WebView or nil to block popup
-	OnReadyToShow       func()                      // Called when popup is ready to display
-	OnLinkMiddleClick   func(uri string) bool       // Return true if handled (blocks navigation)
-	OnEnterFullscreen   func() bool                 // Return true to prevent fullscreen
-	OnLeaveFullscreen   func() bool                 // Return true to prevent leaving fullscreen
-	OnAudioStateChanged func(playing bool)          // Called when audio playback starts/stops
-	OnLinkHover         func(uri string)            // Called when hovering over a link/image/media (empty string when leaving)
+	OnLoadChanged          func(LoadEvent)
+	OnTitleChanged         func(string)
+	OnURIChanged           func(string)
+	OnProgressChanged      func(float64)
+	OnFaviconChanged       func(*gdk.Texture) // Called when page favicon changes
+	OnClose                func()
+	OnCreate               func(PopupRequest) *WebView // Return new WebView or nil to block popup
+	OnReadyToShow          func()                      // Called when popup is ready to display
+	OnLinkMiddleClick      func(uri string) bool       // Return true if handled (blocks navigation)
+	OnEnterFullscreen      func() bool                 // Return true to prevent fullscreen
+	OnLeaveFullscreen      func() bool                 // Return true to prevent leaving fullscreen
+	OnAudioStateChanged    func(playing bool)          // Called when audio playback starts/stops
+	OnLinkHover            func(uri string)            // Called when hovering over a link/image/media (empty string when leaving)
+	OnWebProcessTerminated func(reason webkit.WebProcessTerminationReason, reasonLabel string, uri string)
 
 	logger zerolog.Logger
 	mu     sync.RWMutex
@@ -241,7 +242,7 @@ func (a *findControllerAdapter) OnFoundText(callback func(matchCount uint)) uint
 	cb := func(_ webkit.FindController, matchCount uint) {
 		callback(matchCount)
 	}
-	return a.fc.ConnectFoundText(&cb)
+	return uint32(a.fc.ConnectFoundText(&cb))
 }
 
 func (a *findControllerAdapter) OnFailedToFindText(callback func()) uint32 {
@@ -251,7 +252,7 @@ func (a *findControllerAdapter) OnFailedToFindText(callback func()) uint32 {
 	cb := func(_ webkit.FindController) {
 		callback()
 	}
-	return a.fc.ConnectFailedToFindText(&cb)
+	return uint32(a.fc.ConnectFailedToFindText(&cb))
 }
 
 func (a *findControllerAdapter) OnCountedMatches(callback func(matchCount uint)) uint32 {
@@ -261,7 +262,7 @@ func (a *findControllerAdapter) OnCountedMatches(callback func(matchCount uint))
 	cb := func(_ webkit.FindController, matchCount uint) {
 		callback(matchCount)
 	}
-	return a.fc.ConnectCountedMatches(&cb)
+	return uint32(a.fc.ConnectCountedMatches(&cb))
 }
 
 func (a *findControllerAdapter) DisconnectSignal(id uint32) {
@@ -269,7 +270,7 @@ func (a *findControllerAdapter) DisconnectSignal(id uint32) {
 		return
 	}
 	obj := gobject.ObjectNewFromInternalPtr(a.fc.GoPointer())
-	gobject.SignalHandlerDisconnect(obj, id)
+	gobject.SignalHandlerDisconnect(obj, uint(id))
 }
 
 // NewWebView creates a new WebView with the given context and settings.
@@ -388,6 +389,7 @@ func (wv *WebView) connectSignals() {
 	wv.connectAudioStateSignal()
 	wv.connectMouseTargetChangedSignal()
 	wv.connectBackForwardListChangedSignal()
+	wv.connectWebProcessTerminatedSignal()
 }
 
 func (wv *WebView) connectLoadChangedSignal() {
@@ -421,7 +423,7 @@ func (wv *WebView) connectLoadChangedSignal() {
 		}
 	}
 	sigID := wv.inner.ConnectLoadChanged(&loadChangedCb)
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uint32(sigID))
 }
 
 func (wv *WebView) connectCloseSignal() {
@@ -431,7 +433,7 @@ func (wv *WebView) connectCloseSignal() {
 		}
 	}
 	sigID := wv.inner.ConnectClose(&closeCb)
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uint32(sigID))
 }
 
 func (wv *WebView) connectCreateSignal() {
@@ -473,7 +475,7 @@ func (wv *WebView) connectCreateSignal() {
 		return newWV.inner.Widget
 	}
 	sigID := wv.inner.ConnectCreate(&createCb)
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uint32(sigID))
 }
 
 func (wv *WebView) connectReadyToShowSignal() {
@@ -483,7 +485,7 @@ func (wv *WebView) connectReadyToShowSignal() {
 		}
 	}
 	sigID := wv.inner.ConnectReadyToShow(&readyToShowCb)
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uint32(sigID))
 }
 
 func (wv *WebView) connectTitleSignal() {
@@ -498,7 +500,7 @@ func (wv *WebView) connectTitleSignal() {
 		}
 	}
 	sigID := gobject.SignalConnect(wv.inner.GoPointer(), "notify::title", glib.NewCallback(&titleCb))
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uint32(sigID))
 }
 
 func (wv *WebView) connectURISignal() {
@@ -514,7 +516,7 @@ func (wv *WebView) connectURISignal() {
 		}
 	}
 	sigID := gobject.SignalConnect(wv.inner.GoPointer(), "notify::uri", glib.NewCallback(&uriCb))
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uint32(sigID))
 }
 
 func (wv *WebView) connectFaviconSignal() {
@@ -525,7 +527,7 @@ func (wv *WebView) connectFaviconSignal() {
 		}
 	}
 	sigID := gobject.SignalConnect(wv.inner.GoPointer(), "notify::favicon", glib.NewCallback(&faviconCb))
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uint32(sigID))
 }
 
 // progressThrottleInterval limits progress callbacks to ~60fps to reduce UI overhead.
@@ -555,7 +557,7 @@ func (wv *WebView) connectProgressSignal() {
 		}
 	}
 	sigID := gobject.SignalConnect(wv.inner.GoPointer(), "notify::estimated-load-progress", glib.NewCallback(&progressCb))
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uint32(sigID))
 }
 
 func (wv *WebView) connectDecidePolicySignal() {
@@ -571,7 +573,7 @@ func (wv *WebView) connectDecidePolicySignal() {
 		}
 	}
 	sigID := wv.inner.ConnectDecidePolicy(&decidePolicyCb)
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uint32(sigID))
 }
 
 // handleResponsePolicyDecision handles response policy decisions (e.g., forcing downloads).
@@ -770,7 +772,7 @@ func (wv *WebView) connectEnterFullscreenSignal() {
 		return false // Allow fullscreen
 	}
 	sigID := wv.inner.ConnectEnterFullscreen(&enterFullscreenCb)
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uint32(sigID))
 }
 
 func (wv *WebView) connectLeaveFullscreenSignal() {
@@ -783,7 +785,7 @@ func (wv *WebView) connectLeaveFullscreenSignal() {
 		return false // Allow leaving fullscreen
 	}
 	sigID := wv.inner.ConnectLeaveFullscreen(&leaveFullscreenCb)
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uint32(sigID))
 }
 
 func (wv *WebView) connectAudioStateSignal() {
@@ -801,7 +803,7 @@ func (wv *WebView) connectAudioStateSignal() {
 		}
 	}
 	sigID := gobject.SignalConnect(wv.inner.GoPointer(), "notify::is-playing-audio", glib.NewCallback(&audioCb))
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uint32(sigID))
 }
 
 func (wv *WebView) connectMouseTargetChangedSignal() {
@@ -829,7 +831,7 @@ func (wv *WebView) connectMouseTargetChangedSignal() {
 		wv.OnLinkHover(uri)
 	}
 	sigID := wv.inner.ConnectMouseTargetChanged(&mouseTargetCb)
-	wv.signalIDs = append(wv.signalIDs, sigID)
+	wv.signalIDs = append(wv.signalIDs, uint32(sigID))
 }
 
 func (wv *WebView) connectBackForwardListChangedSignal() {
@@ -857,7 +859,39 @@ func (wv *WebView) connectBackForwardListChangedSignal() {
 	}
 	sigID := backForwardList.ConnectChanged(&changedCb)
 	wv.backForwardList = backForwardList
-	wv.backForwardListSignalID = sigID
+	wv.backForwardListSignalID = uint32(sigID)
+}
+
+func webProcessTerminationReasonString(reason webkit.WebProcessTerminationReason) string {
+	switch reason {
+	case webkit.WebProcessCrashedValue:
+		return "crashed"
+	case webkit.WebProcessExceededMemoryLimitValue:
+		return "exceeded_memory"
+	case webkit.WebProcessTerminatedByApiValue:
+		return "terminated_by_api"
+	default:
+		return "unknown"
+	}
+}
+
+func (wv *WebView) connectWebProcessTerminatedSignal() {
+	terminatedCb := func(_ webkit.WebView, reason webkit.WebProcessTerminationReason) {
+		uri := wv.URI()
+		reasonLabel := webProcessTerminationReasonString(reason)
+		wv.logger.Warn().
+			Uint64("id", uint64(wv.id)).
+			Str("reason", reasonLabel).
+			Int("reason_code", int(reason)).
+			Str("uri", uri).
+			Msg("web process terminated")
+
+		if wv.OnWebProcessTerminated != nil {
+			wv.OnWebProcessTerminated(reason, reasonLabel, uri)
+		}
+	}
+	sigID := wv.inner.ConnectWebProcessTerminated(&terminatedCb)
+	wv.signalIDs = append(wv.signalIDs, uint32(sigID))
 }
 
 // ID returns the unique identifier for this WebView.
@@ -1236,13 +1270,13 @@ func (wv *WebView) DisconnectSignals() {
 
 	obj := gobject.ObjectNewFromInternalPtr(wv.inner.GoPointer())
 	for _, sigID := range wv.signalIDs {
-		gobject.SignalHandlerDisconnect(obj, sigID)
+		gobject.SignalHandlerDisconnect(obj, uint(sigID))
 	}
 	wv.signalIDs = wv.signalIDs[:0] // Clear the slice
 
 	if wv.backForwardList != nil && wv.backForwardListSignalID != 0 {
 		bfObj := gobject.ObjectNewFromInternalPtr(wv.backForwardList.GoPointer())
-		gobject.SignalHandlerDisconnect(bfObj, wv.backForwardListSignalID)
+		gobject.SignalHandlerDisconnect(bfObj, uint(wv.backForwardListSignalID))
 		wv.backForwardListSignalID = 0
 		wv.backForwardList = nil
 	}
@@ -1275,6 +1309,7 @@ func (wv *WebView) Destroy() {
 	wv.OnLeaveFullscreen = nil
 	wv.OnAudioStateChanged = nil
 	wv.OnLinkHover = nil
+	wv.OnWebProcessTerminated = nil
 
 	// 3. Clear async callback references
 	wv.mu.Lock()

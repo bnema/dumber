@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -24,6 +25,7 @@ const (
 	recentSessionsLimit = 200
 	lockDirPerm         = 0o755
 	lockFilePerm        = 0o600
+	markerFilePerm      = 0o644
 )
 
 type BrowserSession struct {
@@ -95,6 +97,19 @@ func StartBrowserSession(
 	// error handling during shutdown sequences where persistFn may be called multiple times.
 	persistFn := func(persistCtx context.Context) error {
 		persistMu.Do(func() {
+			if lockDir != "" {
+				abruptSessions, abruptErr := markAbruptExits(lockDir, now.UTC())
+				if abruptErr != nil {
+					logger.Warn().Err(abruptErr).Msg("failed to check abrupt exit markers")
+				} else {
+					for _, abruptSessionID := range abruptSessions {
+						logger.Warn().
+							Str("session_id", abruptSessionID).
+							Msg("abrupt-exit marker detected (startup without shutdown)")
+					}
+				}
+			}
+
 			saveCtx := corelogging.WithContext(context.Background(), logger)
 			if err := sessionRepo.Save(saveCtx, session); err != nil {
 				persistErr = fmt.Errorf("save session: %w", err)
@@ -105,6 +120,11 @@ func StartBrowserSession(
 				Str("session_id", string(session.ID)).
 				Str("type", string(session.Type)).
 				Msg("session started")
+			if lockDir != "" {
+				if err := writeStartupMarker(lockDir, string(session.ID), now.UTC()); err != nil {
+					logger.Warn().Err(err).Str("session_id", string(session.ID)).Msg("failed to write startup marker")
+				}
+			}
 
 			lf, lp, lockErr := lockSessionFile(lockDir, session.ID)
 			if lockErr != nil {
@@ -132,6 +152,13 @@ func StartBrowserSession(
 		lf := lockFile
 		lp := lockPath
 		lockMu.Unlock()
+
+		if lockDir != "" {
+			shutdownAt := time.Now().UTC()
+			if markerErr := writeShutdownMarker(lockDir, string(session.ID), shutdownAt); markerErr != nil {
+				logger.Warn().Err(markerErr).Str("session_id", string(session.ID)).Msg("failed to write clean shutdown marker")
+			}
+		}
 
 		if lf != nil {
 			_ = unlockAndClose(lf)
@@ -261,6 +288,89 @@ func unlockAndClose(f *os.File) error {
 	}
 	_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
 	return f.Close()
+}
+
+func startupMarkerPath(lockDir, sessionID string) string {
+	return filepath.Join(lockDir, fmt.Sprintf("session_%s.startup.marker", sessionID))
+}
+
+func shutdownMarkerPath(lockDir, sessionID string) string {
+	return filepath.Join(lockDir, fmt.Sprintf("session_%s.shutdown.marker", sessionID))
+}
+
+func abruptMarkerPath(lockDir, sessionID string) string {
+	return filepath.Join(lockDir, fmt.Sprintf("session_%s.abrupt.marker", sessionID))
+}
+
+func writeStartupMarker(lockDir, sessionID string, startedAt time.Time) error {
+	if lockDir == "" || sessionID == "" {
+		return errors.New("startup marker requires lockDir and sessionID")
+	}
+	if err := os.MkdirAll(lockDir, lockDirPerm); err != nil {
+		return err
+	}
+	content := []byte(startedAt.Format(time.RFC3339Nano) + "\n")
+	if err := os.WriteFile(startupMarkerPath(lockDir, sessionID), content, markerFilePerm); err != nil {
+		return err
+	}
+	_ = os.Remove(shutdownMarkerPath(lockDir, sessionID))
+	_ = os.Remove(abruptMarkerPath(lockDir, sessionID))
+	return nil
+}
+
+func writeShutdownMarker(lockDir, sessionID string, endedAt time.Time) error {
+	if lockDir == "" || sessionID == "" {
+		return errors.New("shutdown marker requires lockDir and sessionID")
+	}
+	if err := os.MkdirAll(lockDir, lockDirPerm); err != nil {
+		return err
+	}
+	content := []byte(endedAt.Format(time.RFC3339Nano) + "\n")
+	if err := os.WriteFile(shutdownMarkerPath(lockDir, sessionID), content, markerFilePerm); err != nil {
+		return err
+	}
+	return nil
+}
+
+func markAbruptExits(lockDir string, detectedAt time.Time) ([]string, error) {
+	if lockDir == "" {
+		return nil, nil
+	}
+	pattern := filepath.Join(lockDir, "session_*.startup.marker")
+	startupMarkers, err := filepath.Glob(pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	abruptSessions := make([]string, 0, len(startupMarkers))
+	for _, startupPath := range startupMarkers {
+		base := filepath.Base(startupPath)
+		if !strings.HasPrefix(base, "session_") || !strings.HasSuffix(base, ".startup.marker") {
+			continue
+		}
+		sessionID := strings.TrimSuffix(strings.TrimPrefix(base, "session_"), ".startup.marker")
+		if sessionID == "" {
+			continue
+		}
+		if _, err := os.Stat(shutdownMarkerPath(lockDir, sessionID)); err == nil {
+			continue
+		} else if !os.IsNotExist(err) {
+			return abruptSessions, err
+		}
+		if _, err := os.Stat(abruptMarkerPath(lockDir, sessionID)); err == nil {
+			continue
+		} else if !os.IsNotExist(err) {
+			return abruptSessions, err
+		}
+
+		payload := []byte(fmt.Sprintf("detected_at=%s\nstartup_marker=%s\n", detectedAt.Format(time.RFC3339Nano), startupPath))
+		if err := os.WriteFile(abruptMarkerPath(lockDir, sessionID), payload, markerFilePerm); err != nil {
+			return abruptSessions, err
+		}
+		abruptSessions = append(abruptSessions, sessionID)
+	}
+
+	return abruptSessions, nil
 }
 
 // runSessionCleanupAsync performs stale session cleanup and old session pruning
