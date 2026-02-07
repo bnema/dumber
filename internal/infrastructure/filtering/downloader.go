@@ -216,18 +216,6 @@ func (*Downloader) renameTempFile(tmpPath, localPath string) error {
 		return fmt.Errorf("failed to create target dir: %w", err)
 	}
 
-	parentInfo, err := os.Stat(parentDir)
-	if err != nil {
-		return fmt.Errorf("failed to stat target dir: %w", err)
-	}
-	if !parentInfo.IsDir() {
-		return fmt.Errorf("target parent path is not a directory: %s", parentDir)
-	}
-
-	if _, err := os.Stat(tmpPath); err != nil {
-		return fmt.Errorf("temp file missing before rename: %w", err)
-	}
-
 	if err := os.Rename(tmpPath, localPath); err != nil {
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
