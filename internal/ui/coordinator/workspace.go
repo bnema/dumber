@@ -1623,6 +1623,18 @@ func (c *WorkspaceCoordinator) onTitleBarClick(ctx context.Context, stackNode *e
 	}
 	clickedPaneID := clickedChild.Pane.ID
 
+	// Sync the incoming pane's title bar with its current WebView title
+	// to avoid showing a stale title after navigation occurred while hidden.
+	incomingTitle := c.contentCoord.GetTitle(clickedPaneID)
+	if incomingTitle == "" {
+		incomingTitle = clickedChild.Pane.Title
+	}
+	if incomingTitle != "" {
+		if err := sv.UpdateTitle(clickedIndex, incomingTitle); err != nil {
+			log.Warn().Err(err).Msg("failed to update incoming pane title")
+		}
+	}
+
 	// Update StackedView active index
 	if err := sv.SetActive(ctx, clickedIndex); err != nil {
 		log.Warn().Err(err).Int("index", clickedIndex).Msg("failed to set active pane in stack")

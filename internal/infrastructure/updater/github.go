@@ -346,6 +346,10 @@ func retryDelayForAttempt(attempt int, randInt63 func(n int64) int64) time.Durat
 		delay += time.Duration(randInt63(int64(retryJitterMax)))
 	}
 
+	if delay > retryMaxDelay {
+		delay = retryMaxDelay
+	}
+
 	return delay
 }
 

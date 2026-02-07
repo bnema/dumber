@@ -26,7 +26,11 @@ func TestBuildCrashPageHTMLFallbackReloadWithoutTarget(t *testing.T) {
 }
 
 func TestBuildCrashPageHTMLRejectsUnsafeReloadScheme(t *testing.T) {
-	body := buildCrashPageHTML("javascript:alert(1)")
+	// buildCrashPageHTML receives already-sanitized input from the caller.
+	// sanitizeCrashPageOriginalURI strips unsafe schemes to "".
+	sanitized := sanitizeCrashPageOriginalURI("javascript:alert(1)")
+	assert.Empty(t, sanitized)
+	body := buildCrashPageHTML(sanitized)
 	assert.Contains(t, body, `data-target=""`)
 }
 

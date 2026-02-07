@@ -23,6 +23,13 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **Stacked pane title desync on navigation**: Titles in the stacked title bar now sync immediately on `LoadCommitted` and when switching panes, preventing stale titles after background navigation.
+- **Session marker file accumulation**: `writeShutdownMarker` now removes the matching startup marker (embedding its timestamp for classification), and a new `sweepPairedMarkers` sweep in background cleanup removes old marker trios past the configured age.
+- **Retry delay exceeding max**: `retryDelayForAttempt` now clamps the final delay (base + jitter) to `retryMaxDelay` so backoff never overshoots the hard cap.
+- **Inconsistent WebView termination in pool**: `PrewarmFirst`, `PrewarmAsync`, `prewarmSync`, and `RefreshScripts` now call `DestroyWithPolicy(terminatePolicy)` instead of bare `Destroy()`, matching `Release` behavior.
+- **Pool metrics counted on failed creation**: `acquireCount`, `acquirePoolMisses`, and `acquireTotalNanos` are now incremented only after `createWebView` succeeds.
+- **Redundant crash page URI sanitization**: Removed double `sanitizeCrashPageOriginalURI` call inside `buildCrashPageHTML`; the caller already sanitizes.
+- **Racy skeleton version global**: Replaced plain `string` with `atomic.Value` so concurrent reads/writes to `skeletonVersion` are safe.
 - **Inline ghost suggestion stability**: Reworked ghostwriter flow to keep suggestions selected (not auto-committed), with stronger token guards and stale-callback protection.
 - **GTK thread-safety in omnibox**: Removed unsafe off-main-thread widget reads in async flows.
 - **Review follow-ups (Copilot/CodeRabbit)**: Fixed custom-scheme GET handling for empty WebKit methods, synchronized pool close/send paths, aligned WebKit signal ID storage types, and marshalled OAuth parent refresh reloads back to the GTK main loop.
