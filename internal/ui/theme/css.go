@@ -527,12 +527,19 @@ func generatePaneCSS(p Palette) string {
 	min-width: 32px;
 	min-height: 32px;
 	color: var(--muted);
+	opacity: 0.4;
 }
 
 .loading-skeleton-logo {
 	opacity: 0.08;
-	min-width: 512px;
-	min-height: 512px;
+	min-width: 256px;
+	min-height: 256px;
+}
+
+.loading-skeleton-version {
+	opacity: 0.25;
+	font-size: 13px;
+	color: var(--muted);
 }
 
 /* Pane border - default transparent */

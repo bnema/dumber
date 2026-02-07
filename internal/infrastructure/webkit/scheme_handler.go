@@ -232,13 +232,9 @@ func sanitizeCrashPageOriginalURI(originalURI string) string {
 	}
 }
 
-func crashReloadTarget(originalURI string) string {
-	return sanitizeCrashPageOriginalURI(originalURI)
-}
-
 func buildCrashPageHTML(originalURI string) string {
 	escapedOriginal := html.EscapeString(originalURI)
-	escapedReloadTarget := html.EscapeString(crashReloadTarget(originalURI))
+	escapedReloadTarget := html.EscapeString(sanitizeCrashPageOriginalURI(originalURI))
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -330,9 +326,10 @@ func buildCrashPageHTML(originalURI string) string {
             }
             window.location.reload();
         });
+        // "Stay on this page" keeps the crash page visible without navigating away.
         document.getElementById('stay-btn').addEventListener('click', function() {
-            const crashURI = targetUrl ? targetUrl : '';
-            window.location.href = 'dumb://home/crash?url=' + encodeURIComponent(crashURI);
+            this.disabled = true;
+            this.textContent = 'Staying on page';
         });
     </script>
 </body>
