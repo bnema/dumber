@@ -914,8 +914,10 @@ func (o *Omnibox) setGhostText(originalInput, suffix, fullText string) {
 func (o *Omnibox) clearGhostText() {
 	o.mu.Lock()
 	realInput := o.realInput
+	ghostFullText := o.ghostFullText
 	hadGhost := o.hasGhostText || o.ghostSuffix != "" || o.ghostFullText != ""
 	o.ghostToken++
+	capturedToken := o.ghostToken
 	o.ghostSuffix = ""
 	o.ghostFullText = ""
 	o.hasGhostText = false
@@ -929,10 +931,18 @@ func (o *Omnibox) clearGhostText() {
 		if o.entry == nil {
 			return false
 		}
+		o.mu.RLock()
+		currentToken := o.ghostToken
+		o.mu.RUnlock()
+		if capturedToken != currentToken {
+			return false
+		}
 		o.mu.Lock()
 		o.isAcceptingGhost = true
 		o.mu.Unlock()
-		if o.entry.GetText() != realInput {
+		// Only revert text when the entry still shows the previous ghost completion.
+		// If the user typed since scheduling this idle callback, never overwrite it.
+		if o.entry.GetText() == ghostFullText && o.entry.GetText() != realInput {
 			o.entry.SetText(realInput)
 		}
 		o.entry.SelectRegion(-1, -1)
