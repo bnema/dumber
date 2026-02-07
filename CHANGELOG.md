@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Session exit classification runbook and diagnostics docs**: Added dedicated operational documentation for abrupt/clean exit classification and troubleshooting paths.
+- **Session/bootstrap resilience coverage**: Added tests and supporting logic for startup markers, WebKit stack bootstrap, and exit classification handling.
+- **Omnibox async guard tests**: Added focused tests for ghost text async/state safety and normalization behavior.
+
+### Changed
+- **WebKit/puregotk compatibility refresh**: Updated bindings and call sites for `github.com/bnema/puregotk-webkit v0.0.10` and latest puregotk replacement, including signal ID/type handling updates.
+- **Dependencies updated**: Bumped key runtime/developer dependencies, including `go-sqlite3`, `bubbles`, and related transitive modules.
+- **Omnibox behavior tuning**: Refined ghost suggestion ranking/selection behavior and dynamic result sizing tied to pane height.
+- **Autocomplete architecture cleanup**: Centralized completion flow and ghost positioning helpers for more consistent behavior across async paths.
+- **Omnibox keyboard/navigation UX**: Added `Alt+h/j/k/l` pane navigation while omnibox is open and improved chrome height scaling/debouncing on GTK main thread.
+- **Config normalization hardening**: Normalization now coerces invalid profile/appearance values to safe defaults.
+
+### Fixed
+- **Inline ghost suggestion stability**: Reworked ghostwriter flow to keep suggestions selected (not auto-committed), with stronger token guards and stale-callback protection.
+- **GTK thread-safety in omnibox**: Removed unsafe off-main-thread widget reads in async flows.
+- **Omnibox input/ghost correctness**: Enforced minimum typed input before ghost suggestions, trimmed leading spaces before URL interpretation, deferred omnibox auto-open until layout is ready, and fixed width/layout edge-cases.
+- **History/autocomplete edge-cases**: Normalized FTS queries containing slashes and capped `about:blank` visit-count inflation.
+- **Navigation/history robustness**: Added pane history cleanup hooks, batched/capped visit increment fallback, and idempotent `NavigateUseCase.Close()`.
+- **WebView lifecycle/reset correctness**: Reset pooled WebView transient state more thoroughly and improved callback/signal wiring consistency.
+- **Navigation safety guards**: Added `CanGoBack` protection in navigation policy handling and corrected back-forward-list signal disconnection target.
+- **Crash handling and retry edge-cases**: Hardened crash-page routing safety, updater retry semantics/documentation, and related infra error paths.
+- **Filtering/snapshot/session reliability**: Fixed race/error-handling paths in filtering updates, snapshot persistence, and session startup marker processing.
+
+### Security
+- **External scheme launch guard**: Restricted external URL scheme launching to user-gesture initiated navigations.
+
 ## [0.26.1] - 2026-01-25
 
 ### Fixed
