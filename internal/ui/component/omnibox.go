@@ -850,7 +850,7 @@ func isInlineGhostSelection(realInput, ghostFullText string, selectionStart, sel
 	}
 	prefixRunes := utf8.RuneCountInString(realInput)
 	fullRunes := utf8.RuneCountInString(ghostFullText)
-	if prefixRunes < 0 || fullRunes <= prefixRunes {
+	if fullRunes <= prefixRunes {
 		return false
 	}
 	return selectionStart == prefixRunes && selectionEnd == fullRunes

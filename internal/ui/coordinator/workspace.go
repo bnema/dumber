@@ -35,6 +35,7 @@ type WorkspaceCoordinator struct {
 	onCloseLastPane  func(ctx context.Context) error
 	onCreatePopupTab func(ctx context.Context, input InsertPopupInput) error // For tabbed popup behavior
 	onStateChanged   func()                                                  // For session snapshots
+	onPaneClosed     func(paneID entity.PaneID)                              // For pane-specific cleanup hooks
 }
 
 // WorkspaceCoordinatorConfig holds configuration for WorkspaceCoordinator.
@@ -98,6 +99,11 @@ func (c *WorkspaceCoordinator) SetOnCloseLastPane(fn func(ctx context.Context) e
 // SetOnStateChanged sets the callback for when workspace state changes (for session snapshots).
 func (c *WorkspaceCoordinator) SetOnStateChanged(fn func()) {
 	c.onStateChanged = fn
+}
+
+// SetOnPaneClosed sets a callback invoked after a pane is successfully closed.
+func (c *WorkspaceCoordinator) SetOnPaneClosed(fn func(paneID entity.PaneID)) {
+	c.onPaneClosed = fn
 }
 
 // notifyStateChanged triggers the state changed callback if set.
@@ -744,6 +750,9 @@ func (c *WorkspaceCoordinator) ClosePane(ctx context.Context) error {
 		closingPaneID,
 		closeCtx,
 	)
+	if c.onPaneClosed != nil {
+		c.onPaneClosed(closingPaneID)
+	}
 
 	// Notify state change for session snapshots
 	c.notifyStateChanged()
@@ -802,6 +811,9 @@ func (c *WorkspaceCoordinator) ClosePaneByID(ctx context.Context, paneID entity.
 		paneID,
 		closeCtx,
 	)
+	if c.onPaneClosed != nil {
+		c.onPaneClosed(paneID)
+	}
 
 	// Notify state change for session snapshots
 	c.notifyStateChanged()
