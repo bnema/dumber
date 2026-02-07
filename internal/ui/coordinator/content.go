@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -20,12 +21,15 @@ import (
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
+	webkitlib "github.com/bnema/puregotk-webkit/webkit"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 )
 
 const (
-	aboutBlankURI = "about:blank"
-	logURLMaxLen  = 80
+	aboutBlankURI              = "about:blank"
+	crashPageURI               = "dumb://home/crash"
+	logURLMaxLen               = 80
+	oauthParentRefreshDebounce = 200 * time.Millisecond
 
 	// Dark theme background color (#0a0a0b) as float32 RGBA values
 	darkBgR = 0.039
@@ -33,6 +37,51 @@ const (
 	darkBgB = 0.043
 	darkBgA = 1.0
 )
+
+func shouldRenderCrashPage(reason webkitlib.WebProcessTerminationReason) bool {
+	switch reason {
+	case webkitlib.WebProcessCrashedValue, webkitlib.WebProcessExceededMemoryLimitValue:
+		return true
+	case webkitlib.WebProcessTerminatedByApiValue:
+		return false
+	default:
+		return true
+	}
+}
+
+func extractOriginalURIFromCrashPage(uri string) string {
+	if uri == "" {
+		return ""
+	}
+
+	parsed, err := url.Parse(uri)
+	if err != nil {
+		return uri
+	}
+
+	if parsed.Scheme != "dumb" || parsed.Host != webkit.HomePath {
+		return uri
+	}
+
+	if strings.Trim(parsed.Path, "/") != "crash" {
+		return uri
+	}
+
+	original := strings.TrimSpace(parsed.Query().Get("url"))
+	if original == "" {
+		return ""
+	}
+	return original
+}
+
+func buildCrashPageURI(originalURI string) string {
+	if strings.TrimSpace(originalURI) == "" {
+		return crashPageURI
+	}
+	query := url.Values{}
+	query.Set("url", originalURI)
+	return crashPageURI + "?" + query.Encode()
+}
 
 // ContentCoordinator manages WebView lifecycle, title tracking, and content attachment.
 type ContentCoordinator struct {
@@ -87,6 +136,8 @@ type ContentCoordinator struct {
 	factory       *webkit.WebViewFactory
 	popupConfig   *config.PopupBehaviorConfig
 	pendingPopups map[port.WebViewID]*PendingPopup
+	popupOAuth    map[port.WebViewID]*popupOAuthState
+	popupRefresh  map[entity.PaneID]*time.Timer
 	popupMu       sync.RWMutex
 
 	// Callback to insert popup into workspace (avoids circular dependency)
@@ -117,6 +168,14 @@ type pendingThemeUpdate struct {
 	cssText     string
 }
 
+type popupOAuthState struct {
+	ParentPaneID entity.PaneID
+	CallbackURI  string
+	Success      bool
+	Error        bool
+	Seen         bool
+}
+
 // NewContentCoordinator creates a new ContentCoordinator.
 func NewContentCoordinator(
 	ctx context.Context,
@@ -140,6 +199,8 @@ func NewContentCoordinator(
 		pendingReveal:  make(map[entity.PaneID]bool),
 		getActiveWS:    getActiveWS,
 		pendingPopups:  make(map[port.WebViewID]*PendingPopup),
+		popupOAuth:     make(map[port.WebViewID]*popupOAuthState),
+		popupRefresh:   make(map[entity.PaneID]*time.Timer),
 	}
 }
 
@@ -1299,7 +1360,8 @@ func (c *ContentCoordinator) handlePopupCreate(
 	// Setup OAuth auto-close if configured
 	if hasConfig && oauthEnabled && isOAuth {
 		popupPane.AutoClose = true
-		c.setupOAuthAutoClose(ctx, paneID, popupWV)
+		c.trackOAuthPopup(popupID, parentPaneID)
+		c.setupOAuthAutoClose(ctx, paneID, popupID, popupWV)
 		log.Debug().Str("pane_id", string(paneID)).Msg("OAuth auto-close enabled for popup")
 	}
 
@@ -1323,9 +1385,9 @@ func (c *ContentCoordinator) handlePopupCreate(
 	popupWV.OnReadyToShow = func() {
 		c.handlePopupReadyToShow(ctx, popupID)
 	}
-	popupWV.OnClose = func() {
+	popupWV.OnClose = composeOnClose(popupWV.OnClose, func() {
 		c.handlePopupClose(ctx, popupID)
-	}
+	})
 
 	log.Info().
 		Uint64("popup_id", uint64(popupID)).
@@ -1386,6 +1448,7 @@ func (c *ContentCoordinator) handlePopupClose(ctx context.Context, popupID port.
 	c.popupMu.Unlock()
 
 	if wasPending && pending != nil {
+		c.handlePopupOAuthClose(ctx, popupID)
 		// Was never shown, just destroy
 		pending.WebView.Destroy()
 		log.Debug().Msg("destroyed pending popup that was never shown")
@@ -1402,6 +1465,7 @@ func (c *ContentCoordinator) handlePopupClose(ctx context.Context, popupID port.
 	}
 
 	if paneID == "" {
+		c.handlePopupOAuthClose(ctx, popupID)
 		log.Warn().Msg("popup close: could not find pane for webview")
 		return
 	}
@@ -1413,6 +1477,8 @@ func (c *ContentCoordinator) handlePopupClose(ctx context.Context, popupID port.
 		}
 	}
 
+	c.handlePopupOAuthClose(ctx, popupID)
+
 	// Release the WebView (this will clean up tracking)
 	c.ReleaseWebView(ctx, paneID)
 
@@ -1421,6 +1487,8 @@ func (c *ContentCoordinator) handlePopupClose(ctx context.Context, popupID port.
 
 // setupWebViewCallbacks configures standard callbacks and popup handling.
 func (c *ContentCoordinator) setupWebViewCallbacks(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
+	log := logging.FromContext(ctx)
+
 	// Title changes
 	wv.OnTitleChanged = func(title string) {
 		c.onTitleChanged(ctx, paneID, title)
@@ -1491,6 +1559,36 @@ func (c *ContentCoordinator) setupWebViewCallbacks(ctx context.Context, paneID e
 		c.onLinkHover(paneID, uri)
 	}
 
+	wv.OnWebProcessTerminated = func(reason webkitlib.WebProcessTerminationReason, reasonLabel string, uri string) {
+		originalURI := extractOriginalURIFromCrashPage(uri)
+		if !shouldRenderCrashPage(reason) {
+			log.Info().
+				Str("pane_id", string(paneID)).
+				Str("reason", reasonLabel).
+				Str("uri", uri).
+				Msg("web process termination handled without crash page")
+			return
+		}
+
+		crashURI := buildCrashPageURI(originalURI)
+		log.Warn().
+			Str("pane_id", string(paneID)).
+			Str("reason", reasonLabel).
+			Str("uri", uri).
+			Str("crash_uri", crashURI).
+			Msg("web process terminated, redirecting to crash page")
+
+		if err := wv.LoadURI(ctx, crashURI); err != nil {
+			log.Error().
+				Err(err).
+				Str("pane_id", string(paneID)).
+				Str("reason", reasonLabel).
+				Str("uri", uri).
+				Str("crash_uri", crashURI).
+				Msg("failed to load crash page after web process termination")
+		}
+	}
+
 	// Fullscreen handlers for idle inhibition
 	c.setupIdleInhibitionHandlers(ctx, paneID, wv)
 
@@ -1503,12 +1601,19 @@ func (c *ContentCoordinator) setupWebViewCallbacks(ctx context.Context, paneID e
 // For providers using postMessage (like Google Sign-In), we rely on the provider calling
 // window.close() which triggers WebKit's close signal.
 // A long safety timeout (30s) catches popups that get stuck.
-func (c *ContentCoordinator) setupOAuthAutoClose(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
+func (c *ContentCoordinator) setupOAuthAutoClose(
+	ctx context.Context,
+	paneID entity.PaneID,
+	popupID port.WebViewID,
+	wv *webkit.WebView,
+) {
 	log := logging.FromContext(ctx)
 
 	// Safety timeout - only triggers if popup gets stuck (provider should close via window.close)
 	var safetyTimer *time.Timer
 	var safetyTimerMu sync.Mutex
+	var cancelSafetyTimerOnce sync.Once
+	var requestCloseOnce sync.Once
 	const oauthSafetyTimeout = 30 * time.Second
 
 	startSafetyTimer := func() {
@@ -1526,69 +1631,162 @@ func (c *ContentCoordinator) setupOAuthAutoClose(ctx context.Context, paneID ent
 	}
 
 	cancelSafetyTimer := func() {
-		safetyTimerMu.Lock()
-		defer safetyTimerMu.Unlock()
-		if safetyTimer != nil {
-			safetyTimer.Stop()
-			safetyTimer = nil
-		}
+		cancelSafetyTimerOnce.Do(func() {
+			safetyTimerMu.Lock()
+			defer safetyTimerMu.Unlock()
+			if safetyTimer != nil {
+				safetyTimer.Stop()
+				safetyTimer = nil
+			}
+		})
 	}
 
-	// Start safety timer immediately
-	startSafetyTimer()
-
-	// Wrap the existing OnURIChanged to also check for OAuth callbacks
-	originalURIChanged := wv.OnURIChanged
-	wv.OnURIChanged = func(uri string) {
-		// Call original handler first
-		if originalURIChanged != nil {
-			originalURIChanged(uri)
-		}
-
-		// Check for OAuth callback (URL-based detection)
-		if ShouldAutoClose(uri) {
-			cancelSafetyTimer()
-			log.Info().Str("pane", string(paneID)).Msg("oauth callback detected, closing")
+	requestOAuthClose := func(uri string, reason string) {
+		c.capturePopupOAuthState(popupID, uri)
+		cancelSafetyTimer()
+		log.Info().
+			Str("pane", string(paneID)).
+			Str("reason", reason).
+			Msg("oauth callback detected, closing")
+		requestCloseOnce.Do(func() {
 			go func() {
 				time.Sleep(500 * time.Millisecond)
 				if wv != nil && !wv.IsDestroyed() {
 					wv.Close()
 				}
 			}()
-		}
+		})
 	}
 
-	// Monitor load events for URL-based detection
-	originalLoadChanged := wv.OnLoadChanged
-	wv.OnLoadChanged = func(event webkit.LoadEvent) {
-		if originalLoadChanged != nil {
-			originalLoadChanged(event)
-		}
+	// Start safety timer immediately.
+	startSafetyTimer()
 
-		// Check URL on commit for immediate detection
+	// Wrap OnURIChanged to check for OAuth callbacks.
+	wv.OnURIChanged = composeOnURIChanged(wv.OnURIChanged, func(uri string) {
+		if ShouldAutoClose(uri) {
+			requestOAuthClose(uri, "uri_changed")
+		}
+	})
+
+	// Monitor load events for URL-based detection.
+	wv.OnLoadChanged = composeOnLoadChanged(wv.OnLoadChanged, func(event webkit.LoadEvent) {
 		if event == webkit.LoadCommitted {
 			uri := wv.URI()
 			if ShouldAutoClose(uri) {
-				cancelSafetyTimer()
-				log.Info().Str("pane", string(paneID)).Msg("oauth callback on load, closing")
-				go func() {
-					time.Sleep(500 * time.Millisecond)
-					if wv != nil && !wv.IsDestroyed() {
-						wv.Close()
-					}
-				}()
+				requestOAuthClose(uri, "load_committed")
 			}
 		}
+	})
+
+	// Cancel safety timer on any close path.
+	wv.OnClose = composeOnClose(func() {
+		cancelSafetyTimer()
+	}, wv.OnClose)
+}
+
+func (c *ContentCoordinator) trackOAuthPopup(popupID port.WebViewID, parentPaneID entity.PaneID) {
+	c.popupMu.Lock()
+	defer c.popupMu.Unlock()
+	if c.popupOAuth == nil {
+		c.popupOAuth = make(map[port.WebViewID]*popupOAuthState)
+	}
+	c.popupOAuth[popupID] = &popupOAuthState{
+		ParentPaneID: parentPaneID,
+	}
+}
+
+func (c *ContentCoordinator) capturePopupOAuthState(popupID port.WebViewID, uri string) {
+	c.popupMu.Lock()
+	defer c.popupMu.Unlock()
+
+	state, ok := c.popupOAuth[popupID]
+	if !ok {
+		return
 	}
 
-	// Wrap OnClose to cancel safety timer when popup closes normally
-	originalOnClose := wv.OnClose
-	wv.OnClose = func() {
-		cancelSafetyTimer()
-		if originalOnClose != nil {
-			originalOnClose()
-		}
+	state.Seen = true
+	state.CallbackURI = uri
+	state.Success = IsOAuthSuccess(uri)
+	state.Error = IsOAuthError(uri)
+}
+
+func (c *ContentCoordinator) handlePopupOAuthClose(ctx context.Context, popupID port.WebViewID) {
+	log := logging.FromContext(ctx)
+
+	c.popupMu.Lock()
+	state, ok := c.popupOAuth[popupID]
+	if ok {
+		delete(c.popupOAuth, popupID)
 	}
+	c.popupMu.Unlock()
+
+	if !ok || state == nil || !state.Seen {
+		return
+	}
+
+	log.Debug().
+		Uint64("popup_id", uint64(popupID)).
+		Str("parent_pane_id", string(state.ParentPaneID)).
+		Bool("oauth_success", state.Success).
+		Bool("oauth_error", state.Error).
+		Msg("popup oauth result captured on close")
+
+	if !state.Success || state.ParentPaneID == "" {
+		return
+	}
+
+	c.scheduleParentPaneRefresh(ctx, state.ParentPaneID, popupID)
+}
+
+func (c *ContentCoordinator) scheduleParentPaneRefresh(
+	ctx context.Context,
+	parentPaneID entity.PaneID,
+	popupID port.WebViewID,
+) {
+	c.popupMu.Lock()
+	if c.popupRefresh == nil {
+		c.popupRefresh = make(map[entity.PaneID]*time.Timer)
+	}
+	if existing := c.popupRefresh[parentPaneID]; existing != nil {
+		existing.Stop()
+	}
+	c.popupRefresh[parentPaneID] = time.AfterFunc(oauthParentRefreshDebounce, func() {
+		c.popupMu.Lock()
+		delete(c.popupRefresh, parentPaneID)
+		c.popupMu.Unlock()
+		c.refreshPaneAfterOAuth(ctx, parentPaneID, popupID)
+	})
+	c.popupMu.Unlock()
+}
+
+func (c *ContentCoordinator) refreshPaneAfterOAuth(
+	ctx context.Context,
+	parentPaneID entity.PaneID,
+	popupID port.WebViewID,
+) {
+	log := logging.FromContext(ctx)
+	wv := c.webViews[parentPaneID]
+	if wv == nil || wv.IsDestroyed() {
+		log.Debug().
+			Str("parent_pane_id", string(parentPaneID)).
+			Uint64("popup_id", uint64(popupID)).
+			Msg("skipping parent pane refresh after oauth close: parent webview unavailable")
+		return
+	}
+
+	if err := wv.Reload(ctx); err != nil {
+		log.Warn().
+			Err(err).
+			Str("parent_pane_id", string(parentPaneID)).
+			Uint64("popup_id", uint64(popupID)).
+			Msg("failed parent pane refresh after oauth popup close")
+		return
+	}
+
+	log.Info().
+		Str("parent_pane_id", string(parentPaneID)).
+		Uint64("popup_id", uint64(popupID)).
+		Msg("refreshed parent pane after oauth popup success")
 }
 
 // handleLinkMiddleClick handles middle-click / Ctrl+click on links.
