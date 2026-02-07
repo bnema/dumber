@@ -146,10 +146,10 @@ func (r *MessageRouter) SetupMessageHandler(ucm *webkit.UserContentManager, _ st
 
 	// Connect to "script-message-received::dumber" with handler name as signal detail
 	signalID := ucm.ConnectScriptMessageReceivedWithDetail(MessageHandlerName, &cb)
-	log.Debug().Uint32("signal_id", signalID).Str("handler", MessageHandlerName).Msg("signal connected with detail")
+	log.Debug().Uint32("signal_id", uint32(signalID)).Str("handler", MessageHandlerName).Msg("signal connected with detail")
 
 	r.mu.Lock()
-	r.signals = append(r.signals, signalID)
+	r.signals = append(r.signals, uint32(signalID))
 	r.mu.Unlock()
 
 	log.Debug().Msg("SetupMessageHandler: registering handler in main world")
@@ -164,10 +164,10 @@ func (r *MessageRouter) SetupMessageHandler(ucm *webkit.UserContentManager, _ st
 	log.Info().
 		Str("handler", MessageHandlerName).
 		Str("world", "main").
-		Uint32("signal_id", signalID).
+		Uint32("signal_id", uint32(signalID)).
 		Msg("script message handler connected")
 
-	return signalID, nil
+	return uint32(signalID), nil
 }
 
 // handleScriptMessage decodes the JSC value and routes it to the correct handler.

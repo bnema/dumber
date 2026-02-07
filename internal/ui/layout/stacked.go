@@ -275,7 +275,7 @@ func disconnectButtonSignal(btn ButtonWidget, signalID uint32) {
 	}
 
 	obj := gobject.ObjectNewFromInternalPtr(ptr)
-	gobject.SignalHandlerDisconnect(obj, signalID)
+	gobject.SignalHandlerDisconnect(obj, uint(signalID))
 }
 
 // InsertPaneAfter inserts a new pane after the specified index position.
