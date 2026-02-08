@@ -113,6 +113,7 @@ func (m *Migrator) DetectChanges() ([]port.KeyChange, error) {
 
 	// Find missing keys (in defaults but not in user config)
 	missingKeys := m.findMissingKeys(defaultKeys, userKeySet)
+	missingKeys = appendUniqueKeys(missingKeys, m.detectMissingWorkspaceShortcutActions(userKeysWithValues))
 
 	// Try to match deprecated keys with missing keys (detect renames)
 	renames, unmatchedDeprecated, unmatchedMissing := m.matchRenamedKeys(deprecatedKeys, missingKeys)
@@ -120,7 +121,7 @@ func (m *Migrator) DetectChanges() ([]port.KeyChange, error) {
 	// Add rename changes
 	for oldKey, newKey := range renames {
 		oldValue := m.formatValue(userKeysWithValues[oldKey])
-		newValue := m.formatValue(m.defaultViper.Get(newKey))
+		newValue := m.formatValue(m.defaultValueForKey(newKey))
 		changes = append(changes, port.KeyChange{
 			Type:     port.KeyChangeRenamed,
 			OldKey:   oldKey,
@@ -144,7 +145,7 @@ func (m *Migrator) DetectChanges() ([]port.KeyChange, error) {
 		changes = append(changes, port.KeyChange{
 			Type:     port.KeyChangeAdded,
 			NewKey:   newKey,
-			NewValue: m.formatValue(m.defaultViper.Get(newKey)),
+			NewValue: m.formatValue(m.defaultValueForKey(newKey)),
 		})
 	}
 
@@ -172,6 +173,9 @@ func (m *Migrator) DetectChanges() ([]port.KeyChange, error) {
 func (m *Migrator) findDeprecatedKeys(userKeys map[string]any, defaultKeys map[string]bool) []string {
 	var deprecated []string
 	for userKey := range userKeys {
+		if userKey == "database.path" {
+			continue
+		}
 		if !m.keyOrRelatedExistsInDefaults(userKey, defaultKeys) {
 			deprecated = append(deprecated, userKey)
 		}
@@ -257,9 +261,10 @@ const (
 
 // Config format constants.
 const (
-	configFormatTOML = "toml"
-	configFormatYAML = "yaml"
-	configFormatJSON = "json"
+	configFormatTOML             = "toml"
+	configFormatYAML             = "yaml"
+	configFormatJSON             = "json"
+	workspaceShortcutsActionsKey = "workspace.shortcuts.actions"
 )
 
 // typesAreCompatible checks if the default types for two keys are compatible.
@@ -405,6 +410,7 @@ func (m *Migrator) Migrate() ([]string, error) {
 	for key := range keysToRemove {
 		m.deleteNestedKey(rawConfig, key)
 	}
+	m.mergeMissingWorkspaceShortcutActions(rawConfig)
 
 	// Create a new Viper instance with defaults for added keys
 	userViper := viper.New()
@@ -579,7 +585,7 @@ func (m *Migrator) deleteNestedKeyRecursive(current map[string]any, parts []stri
 
 // GetKeyInfo returns detailed information about a config key.
 func (m *Migrator) GetKeyInfo(key string) port.KeyInfo {
-	value := m.defaultViper.Get(key)
+	value := m.defaultValueForKey(key)
 	if value == nil {
 		return port.KeyInfo{
 			Key:          key,
@@ -598,6 +604,21 @@ func (m *Migrator) GetKeyInfo(key string) port.KeyInfo {
 // GetConfigFile returns the path to the user's config file.
 func (*Migrator) GetConfigFile() (string, error) {
 	return GetConfigFile()
+}
+
+func (m *Migrator) defaultValueForKey(key string) any {
+	if value := m.defaultViper.Get(key); value != nil {
+		return value
+	}
+
+	if strings.HasPrefix(key, workspaceShortcutsActionsKey+".") {
+		actionName := strings.TrimPrefix(key, workspaceShortcutsActionsKey+".")
+		if action, ok := m.defaultConfig.Workspace.Shortcuts.Actions[actionName]; ok {
+			return action
+		}
+	}
+
+	return nil
 }
 
 // getAllDefaultKeys returns all keys from the default configuration.
@@ -725,6 +746,111 @@ func (*Migrator) isUserDataSection(keyPath string) bool {
 	}
 
 	return false
+}
+
+// detectMissingWorkspaceShortcutActions finds default global shortcut actions not present in user config.
+func (m *Migrator) detectMissingWorkspaceShortcutActions(userKeysWithValues map[string]any) []string {
+	if userKeysWithValues == nil {
+		return nil
+	}
+
+	userActionsValue, ok := userKeysWithValues[workspaceShortcutsActionsKey]
+	if !ok {
+		return nil
+	}
+
+	userActions, ok := m.toStringAnyMap(userActionsValue)
+	if !ok {
+		return nil
+	}
+
+	defaultActions := m.defaultConfig.Workspace.Shortcuts.Actions
+	if len(defaultActions) == 0 {
+		return nil
+	}
+
+	missing := make([]string, 0)
+	for actionName := range defaultActions {
+		if _, exists := userActions[actionName]; exists {
+			continue
+		}
+		missing = append(missing, workspaceShortcutsActionsKey+"."+actionName)
+	}
+
+	sort.Strings(missing)
+	return missing
+}
+
+// mergeMissingWorkspaceShortcutActions injects new default shortcut actions while preserving user overrides.
+func (m *Migrator) mergeMissingWorkspaceShortcutActions(rawConfig map[string]any) {
+	actionsValue := m.getNestedValue(rawConfig, workspaceShortcutsActionsKey)
+	if actionsValue == nil {
+		return
+	}
+
+	userActions, ok := m.toStringAnyMap(actionsValue)
+	if !ok {
+		return
+	}
+
+	defaultActions := m.defaultConfig.Workspace.Shortcuts.Actions
+	for actionName, defaultAction := range defaultActions {
+		if _, exists := userActions[actionName]; exists {
+			continue
+		}
+		userActions[actionName] = defaultAction
+	}
+
+	m.setNestedValue(rawConfig, workspaceShortcutsActionsKey, userActions)
+}
+
+func appendUniqueKeys(base, extra []string) []string {
+	if len(extra) == 0 {
+		return base
+	}
+
+	seen := make(map[string]bool, len(base)+len(extra))
+	for _, key := range base {
+		seen[key] = true
+	}
+
+	for _, key := range extra {
+		if seen[key] {
+			continue
+		}
+		base = append(base, key)
+		seen[key] = true
+	}
+
+	sort.Strings(base)
+	return base
+}
+
+func (*Migrator) toStringAnyMap(value any) (map[string]any, bool) {
+	if value == nil {
+		return nil, false
+	}
+
+	if m, ok := value.(map[string]any); ok {
+		return m, true
+	}
+
+	rv := reflect.ValueOf(value)
+	if rv.Kind() != reflect.Map {
+		return nil, false
+	}
+
+	out := make(map[string]any, rv.Len())
+	iter := rv.MapRange()
+	for iter.Next() {
+		k := iter.Key()
+		if k.Kind() != reflect.String {
+			return nil, false
+		}
+		out[k.String()] = iter.Value().Interface()
+	}
+
+	return out, true
 }
 
 // findMissingKeys returns keys that are in defaults but not in user config.

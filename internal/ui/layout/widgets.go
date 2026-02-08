@@ -23,6 +23,7 @@ type Widget interface {
 	Hide()
 	SetVisible(visible bool)
 	IsVisible() bool
+	SetOpacity(opacity float64)
 
 	// Focus
 	GrabFocus() bool

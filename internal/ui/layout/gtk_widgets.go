@@ -31,6 +31,7 @@ func (w *gtkWidget) Show()                         { w.inner.Show() }
 func (w *gtkWidget) Hide()                         { w.inner.Hide() }
 func (w *gtkWidget) SetVisible(visible bool)       { w.inner.SetVisible(visible) }
 func (w *gtkWidget) IsVisible() bool               { return w.inner.GetVisible() }
+func (w *gtkWidget) SetOpacity(opacity float64)    { w.inner.SetOpacity(opacity) }
 func (w *gtkWidget) GrabFocus() bool               { return w.inner.GrabFocus() }
 func (w *gtkWidget) HasFocus() bool                { return w.inner.HasFocus() }
 func (w *gtkWidget) SetCanFocus(canFocus bool)     { w.inner.SetCanFocus(canFocus) }
@@ -87,6 +88,7 @@ func (p *gtkPaned) Show()                         { p.inner.Show() }
 func (p *gtkPaned) Hide()                         { p.inner.Hide() }
 func (p *gtkPaned) SetVisible(visible bool)       { p.inner.SetVisible(visible) }
 func (p *gtkPaned) IsVisible() bool               { return p.inner.GetVisible() }
+func (p *gtkPaned) SetOpacity(opacity float64)    { p.inner.SetOpacity(opacity) }
 func (p *gtkPaned) GrabFocus() bool               { return p.inner.GrabFocus() }
 func (p *gtkPaned) HasFocus() bool                { return p.inner.HasFocus() }
 func (p *gtkPaned) SetCanFocus(canFocus bool)     { p.inner.SetCanFocus(canFocus) }
@@ -209,6 +211,7 @@ func (b *gtkBox) Show()                         { b.inner.Show() }
 func (b *gtkBox) Hide()                         { b.inner.Hide() }
 func (b *gtkBox) SetVisible(visible bool)       { b.inner.SetVisible(visible) }
 func (b *gtkBox) IsVisible() bool               { return b.inner.GetVisible() }
+func (b *gtkBox) SetOpacity(opacity float64)    { b.inner.SetOpacity(opacity) }
 func (b *gtkBox) GrabFocus() bool               { return b.inner.GrabFocus() }
 func (b *gtkBox) HasFocus() bool                { return b.inner.HasFocus() }
 func (b *gtkBox) SetCanFocus(canFocus bool)     { b.inner.SetCanFocus(canFocus) }
@@ -315,6 +318,7 @@ func (o *gtkOverlay) Show()                         { o.inner.Show() }
 func (o *gtkOverlay) Hide()                         { o.inner.Hide() }
 func (o *gtkOverlay) SetVisible(visible bool)       { o.inner.SetVisible(visible) }
 func (o *gtkOverlay) IsVisible() bool               { return o.inner.GetVisible() }
+func (o *gtkOverlay) SetOpacity(opacity float64)    { o.inner.SetOpacity(opacity) }
 func (o *gtkOverlay) GrabFocus() bool               { return o.inner.GrabFocus() }
 func (o *gtkOverlay) HasFocus() bool                { return o.inner.HasFocus() }
 func (o *gtkOverlay) SetCanFocus(canFocus bool)     { o.inner.SetCanFocus(canFocus) }
@@ -429,6 +433,7 @@ func (l *gtkLabel) Show()                         { l.inner.Show() }
 func (l *gtkLabel) Hide()                         { l.inner.Hide() }
 func (l *gtkLabel) SetVisible(visible bool)       { l.inner.SetVisible(visible) }
 func (l *gtkLabel) IsVisible() bool               { return l.inner.GetVisible() }
+func (l *gtkLabel) SetOpacity(opacity float64)    { l.inner.SetOpacity(opacity) }
 func (l *gtkLabel) GrabFocus() bool               { return l.inner.GrabFocus() }
 func (l *gtkLabel) HasFocus() bool                { return l.inner.HasFocus() }
 func (l *gtkLabel) SetCanFocus(canFocus bool)     { l.inner.SetCanFocus(canFocus) }
@@ -492,6 +497,7 @@ func (btn *gtkButton) Show()                         { btn.inner.Show() }
 func (btn *gtkButton) Hide()                         { btn.inner.Hide() }
 func (btn *gtkButton) SetVisible(visible bool)       { btn.inner.SetVisible(visible) }
 func (btn *gtkButton) IsVisible() bool               { return btn.inner.GetVisible() }
+func (btn *gtkButton) SetOpacity(opacity float64)    { btn.inner.SetOpacity(opacity) }
 func (btn *gtkButton) GrabFocus() bool               { return btn.inner.GrabFocus() }
 func (btn *gtkButton) HasFocus() bool                { return btn.inner.HasFocus() }
 func (btn *gtkButton) SetCanFocus(canFocus bool)     { btn.inner.SetCanFocus(canFocus) }
@@ -575,6 +581,7 @@ func (img *gtkImage) Show()                         { img.inner.Show() }
 func (img *gtkImage) Hide()                         { img.inner.Hide() }
 func (img *gtkImage) SetVisible(visible bool)       { img.inner.SetVisible(visible) }
 func (img *gtkImage) IsVisible() bool               { return img.inner.GetVisible() }
+func (img *gtkImage) SetOpacity(opacity float64)    { img.inner.SetOpacity(opacity) }
 func (img *gtkImage) GrabFocus() bool               { return img.inner.GrabFocus() }
 func (img *gtkImage) HasFocus() bool                { return img.inner.HasFocus() }
 func (img *gtkImage) SetCanFocus(canFocus bool)     { img.inner.SetCanFocus(canFocus) }
@@ -647,6 +654,7 @@ func (p *gtkProgressBar) Show()                         { p.inner.Show() }
 func (p *gtkProgressBar) Hide()                         { p.inner.Hide() }
 func (p *gtkProgressBar) SetVisible(visible bool)       { p.inner.SetVisible(visible) }
 func (p *gtkProgressBar) IsVisible() bool               { return p.inner.GetVisible() }
+func (p *gtkProgressBar) SetOpacity(opacity float64)    { p.inner.SetOpacity(opacity) }
 func (p *gtkProgressBar) GrabFocus() bool               { return p.inner.GrabFocus() }
 func (p *gtkProgressBar) HasFocus() bool                { return p.inner.HasFocus() }
 func (p *gtkProgressBar) SetCanFocus(canFocus bool)     { p.inner.SetCanFocus(canFocus) }
@@ -706,6 +714,7 @@ func (s *gtkSpinner) Show()                         { s.inner.Show() }
 func (s *gtkSpinner) Hide()                         { s.inner.Hide() }
 func (s *gtkSpinner) SetVisible(visible bool)       { s.inner.SetVisible(visible) }
 func (s *gtkSpinner) IsVisible() bool               { return s.inner.GetVisible() }
+func (s *gtkSpinner) SetOpacity(opacity float64)    { s.inner.SetOpacity(opacity) }
 func (s *gtkSpinner) GrabFocus() bool               { return s.inner.GrabFocus() }
 func (s *gtkSpinner) HasFocus() bool                { return s.inner.HasFocus() }
 func (s *gtkSpinner) SetCanFocus(canFocus bool)     { s.inner.SetCanFocus(canFocus) }

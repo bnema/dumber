@@ -145,6 +145,7 @@ type App struct {
 type floatingWorkspaceSession struct {
 	paneID              entity.PaneID
 	pane                *component.FloatingPane
+	paneView            *component.PaneView
 	webView             *webkit.WebView
 	overlay             layout.OverlayWidget
 	widget              layout.Widget
@@ -1956,7 +1957,8 @@ func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.
 		session.pane.SetParentOverlay(wsView.WorkspaceOverlayWidget())
 		if session.widget != nil {
 			wsView.AddWorkspaceOverlayWidget(session.widget)
-			session.widget.SetVisible(session.pane.IsVisible())
+			configureFloatingOverlayMeasurement(wsView.WorkspaceOverlayWidget(), session.widget)
+			setFloatingWidgetShown(session.widget, session.pane.IsVisible())
 		}
 	}
 	a.syncFloatingFocus()
@@ -2102,9 +2104,53 @@ func decorateFloatingOverlay(overlay layout.OverlayWidget) {
 		return
 	}
 
+	overlay.SetHexpand(false)
+	overlay.SetVexpand(false)
 	overlay.AddCssClass("floating-pane-container")
 	overlay.AddCssClass("pane-border")
 	overlay.AddCssClass("pane-active")
+}
+
+// showFloatingWidget makes a floating pane widget interactive and visible.
+// Uses opacity instead of SetVisible to keep the GPU surface allocated,
+// preventing the black flash when WebKit needs to re-composite after unmap.
+func showFloatingWidget(w layout.Widget) {
+	if w == nil {
+		return
+	}
+	w.SetOpacity(1)
+	w.SetCanTarget(true)
+	w.SetCanFocus(true)
+}
+
+// hideFloatingWidget makes a floating pane widget invisible and non-interactive.
+// Uses opacity 0 instead of SetVisible(false) so GTK keeps the widget mapped
+// and WebKit retains its rendered surface in GPU memory.
+func hideFloatingWidget(w layout.Widget) {
+	if w == nil {
+		return
+	}
+	w.SetOpacity(0)
+	w.SetCanTarget(false)
+	w.SetCanFocus(false)
+}
+
+// setFloatingWidgetShown applies show or hide based on the visible flag.
+func setFloatingWidgetShown(w layout.Widget, visible bool) {
+	if visible {
+		showFloatingWidget(w)
+	} else {
+		hideFloatingWidget(w)
+	}
+}
+
+func configureFloatingOverlayMeasurement(workspaceOverlay layout.OverlayWidget, floatingOverlay layout.Widget) {
+	if workspaceOverlay == nil || floatingOverlay == nil {
+		return
+	}
+
+	workspaceOverlay.SetMeasureOverlay(floatingOverlay, true)
+	workspaceOverlay.SetClipOverlay(floatingOverlay, false)
 }
 
 func (a *App) currentFloatingConfig() config.FloatingPaneConfig {
@@ -2128,6 +2174,10 @@ func (a *App) ensureFloatingSession(
 		session.pane.SetParentOverlay(wsView.WorkspaceOverlayWidget())
 		if session.widget != nil {
 			wsView.AddWorkspaceOverlayWidget(session.widget)
+			configureFloatingOverlayMeasurement(wsView.WorkspaceOverlayWidget(), session.widget)
+		}
+		if session.paneView != nil {
+			wsView.RegisterPaneView(session.paneID, session.paneView)
 		}
 		return session, nil
 	}
@@ -2155,13 +2205,27 @@ func (a *App) ensureFloatingSession(
 	webViewWidget.SetHexpand(true)
 	webViewWidget.SetVexpand(true)
 
-	overlay := a.widgetFactory.NewOverlay()
-	overlay.SetChild(webViewWidget)
-	decorateFloatingOverlay(overlay)
-	overlay.SetHalign(gtk.AlignCenterValue)
-	overlay.SetValign(gtk.AlignCenterValue)
-	overlay.SetVisible(false)
-	wsView.AddWorkspaceOverlayWidget(overlay)
+	// Wrap the WebView in a PaneView so it gets progress bar, loading
+	// skeleton, and link status overlays — the same widget hierarchy as
+	// regular workspace panes. This allows the content coordinator's
+	// existing callbacks (onLoadStarted, onProgressChanged, etc.) to find
+	// and update the floating pane automatically.
+	pv := component.NewPaneView(a.widgetFactory, paneID, webViewWidget)
+	pv.SetActive(true)
+	// Hide loading skeleton — floating panes have their own themed container.
+	pv.HideLoadingSkeleton()
+	wsView.RegisterPaneView(paneID, pv)
+
+	// Use the PaneView's overlay directly as the floating overlay.
+	// This avoids nesting two overlays which causes GTK4 allocation
+	// issues (inner overlay expanding to fill the parent's allocation).
+	pvOverlay := pv.Overlay()
+	decorateFloatingOverlay(pvOverlay)
+	pvOverlay.SetHalign(gtk.AlignCenterValue)
+	pvOverlay.SetValign(gtk.AlignCenterValue)
+	hideFloatingWidget(pvOverlay)
+	wsView.AddWorkspaceOverlayWidget(pvOverlay)
+	configureFloatingOverlayMeasurement(wsView.WorkspaceOverlayWidget(), pvOverlay)
 
 	floatingCfg := a.currentFloatingConfig()
 	floatingPane := component.NewFloatingPane(wsView.WorkspaceOverlayWidget(), component.FloatingPaneOptions{
@@ -2175,11 +2239,12 @@ func (a *App) ensureFloatingSession(
 	})
 
 	session := &floatingWorkspaceSession{
-		paneID:  paneID,
-		pane:    floatingPane,
-		webView: wv,
-		overlay: overlay,
-		widget:  overlay,
+		paneID:   paneID,
+		pane:     floatingPane,
+		paneView: pv,
+		webView:  wv,
+		overlay:  pvOverlay,
+		widget:   pvOverlay,
 	}
 	a.floatingSessions[key] = session
 	return session, nil
@@ -2208,8 +2273,13 @@ func (a *App) releaseFloatingSessionsForTab(ctx context.Context, tabID entity.Ta
 			session.pane.Hide(ctx)
 		}
 		a.hideFloatingOmnibox(ctx, session)
-		if wsView := a.workspaceViews[tabID]; wsView != nil && session.widget != nil {
-			wsView.RemoveWorkspaceOverlayWidget(session.widget)
+		if wsView := a.workspaceViews[tabID]; wsView != nil {
+			if session.widget != nil {
+				wsView.RemoveWorkspaceOverlayWidget(session.widget)
+			}
+			if session.paneID != "" {
+				wsView.UnregisterPaneView(session.paneID)
+			}
 		}
 		if a.contentCoord != nil && session.paneID != "" {
 			a.contentCoord.ReleaseWebView(ctx, session.paneID)
@@ -2414,9 +2484,7 @@ func (a *App) hideFloatingSession(ctx context.Context, session *floatingWorkspac
 	a.stopFloatingResizeWatcher(session)
 	session.pane.Hide(ctx)
 	a.hideFloatingOmnibox(ctx, session)
-	if session.widget != nil {
-		session.widget.SetVisible(false)
-	}
+	hideFloatingWidget(session.widget)
 }
 
 func (a *App) hideVisibleFloatingSessions(ctx context.Context, tabID entity.TabID, except *floatingWorkspaceSession) {
@@ -2474,12 +2542,24 @@ func (a *App) openFloatingPaneSession(ctx context.Context, sessionID string, url
 	if err != nil {
 		return err
 	}
+	hasURL := len(url) > 0 && strings.TrimSpace(url[0]) != ""
+	isProfileSession := normalizeFloatingSessionID(sessionID) != floatingSessionIDDefault
+
+	if hasURL && isProfileSession && session.pane.IsVisible() {
+		a.hideFloatingSession(ctx, session)
+		a.syncFloatingFocus()
+		return nil
+	}
+
 	a.hideVisibleFloatingSessions(ctx, activeTab.ID, session)
 
-	hasURL := len(url) > 0 && strings.TrimSpace(url[0]) != ""
 	if hasURL {
-		if err := session.pane.ShowURL(ctx, url[0]); err != nil {
-			return err
+		if isProfileSession && session.pane.SessionStarted() {
+			session.pane.Show()
+		} else {
+			if err := session.pane.ShowURL(ctx, url[0]); err != nil {
+				return err
+			}
 		}
 		a.hideFloatingOmnibox(ctx, session)
 	} else {
@@ -2492,9 +2572,7 @@ func (a *App) openFloatingPaneSession(ctx context.Context, sessionID string, url
 	}
 
 	a.resizeFloatingWidget(session)
-	if session.widget != nil {
-		session.widget.SetVisible(session.pane.IsVisible())
-	}
+	setFloatingWidgetShown(session.widget, session.pane.IsVisible())
 	a.startFloatingResizeWatcher(session)
 	a.syncFloatingFocus()
 

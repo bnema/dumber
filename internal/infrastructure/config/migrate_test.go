@@ -539,6 +539,16 @@ func TestMigrator_FindDeprecatedKeys(t *testing.T) {
 			},
 			expected: []string{},
 		},
+		{
+			name: "database.path ignored as deprecated",
+			userKeys: map[string]any{
+				"database.path": "",
+			},
+			defaultKeys: map[string]bool{
+				"history.max_entries": true,
+			},
+			expected: []string{},
+		},
 	}
 
 	for _, tt := range tests {
@@ -675,6 +685,97 @@ func TestMigrator_GetConfigType(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestMigrator_DetectMissingWorkspaceShortcutActions(t *testing.T) {
+	m := NewMigrator()
+
+	defaultActions := m.defaultConfig.Workspace.Shortcuts.Actions
+	userActions := make(map[string]any, len(defaultActions))
+	for actionName, value := range defaultActions {
+		userActions[actionName] = value
+	}
+	delete(userActions, "toggle_floating_pane")
+
+	missing := m.detectMissingWorkspaceShortcutActions(map[string]any{
+		"workspace.shortcuts.actions": userActions,
+	})
+
+	assert.Equal(t, []string{"workspace.shortcuts.actions.toggle_floating_pane"}, missing)
+}
+
+func TestMigrator_MergeMissingWorkspaceShortcutActions(t *testing.T) {
+	m := NewMigrator()
+
+	rawConfig := map[string]any{
+		"workspace": map[string]any{
+			"shortcuts": map[string]any{
+				"actions": map[string]any{
+					"close_pane": map[string]any{
+						"keys": []string{"ctrl+w", "ctrl+i"},
+						"desc": "Custom close pane",
+					},
+					"next_tab": map[string]any{
+						"keys": []string{"ctrl+tab"},
+						"desc": "Switch to next tab",
+					},
+					"previous_tab": map[string]any{
+						"keys": []string{"ctrl+shift+tab"},
+						"desc": "Switch to previous tab",
+					},
+					"consume_or_expel_left": map[string]any{
+						"keys": []string{"alt+["},
+						"desc": "Consume/expel pane left",
+					},
+					"consume_or_expel_right": map[string]any{
+						"keys": []string{"alt+]"},
+						"desc": "Consume/expel pane right",
+					},
+					"consume_or_expel_up": map[string]any{
+						"keys": []string{"alt+{"},
+						"desc": "Consume/expel pane up",
+					},
+					"consume_or_expel_down": map[string]any{
+						"keys": []string{"alt+}"},
+						"desc": "Consume/expel pane down",
+					},
+				},
+			},
+		},
+	}
+
+	m.mergeMissingWorkspaceShortcutActions(rawConfig)
+
+	actionsAny := m.getNestedValue(rawConfig, "workspace.shortcuts.actions")
+	actions, ok := actionsAny.(map[string]any)
+	require.True(t, ok)
+
+	toggleAny, hasToggle := actions["toggle_floating_pane"]
+	assert.True(t, hasToggle)
+	assert.NotNil(t, toggleAny)
+
+	closePaneAny, hasClosePane := actions["close_pane"]
+	require.True(t, hasClosePane)
+	closePane, ok := closePaneAny.(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "Custom close pane", closePane["desc"])
+}
+
+func TestMigrator_DefaultValueForKey_WorkspaceShortcutAction(t *testing.T) {
+	m := NewMigrator()
+
+	value := m.defaultValueForKey("workspace.shortcuts.actions.toggle_floating_pane")
+
+	action, ok := value.(ActionBinding)
+	require.True(t, ok)
+	assert.Equal(t, []string{"alt+f"}, action.Keys)
+}
+
+func TestMigrator_DefaultValueForKey_RegularKey(t *testing.T) {
+	m := NewMigrator()
+
+	value := m.defaultValueForKey("history.max_entries")
+	assert.Equal(t, 10000, value)
 }
 
 func TestMigrator_GetNestedValue(t *testing.T) {

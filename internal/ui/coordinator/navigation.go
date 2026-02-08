@@ -42,12 +42,24 @@ func NewNavigationCoordinator(
 // SetOmniboxProvider sets the omnibox provider for toggle/zoom operations.
 func (c *NavigationCoordinator) SetOmniboxProvider(provider OmniboxProvider) {
 	c.omniboxProvider = provider
+	if c.omniboxProvider != nil {
+		c.omniboxProvider.SetOmniboxOnNavigate(func(url string) {
+			ctx := context.Background()
+			if err := c.Navigate(ctx, url); err != nil {
+				logging.FromContext(ctx).Warn().Err(err).Str("url", url).Msg("omnibox-initiated navigation failed")
+			}
+		})
+	}
 }
 
 // Navigate loads a URL in the active pane using NavigateUseCase.
 // This properly handles history recording and zoom application.
 func (c *NavigationCoordinator) Navigate(ctx context.Context, url string) error {
 	log := logging.FromContext(ctx)
+	if c.contentCoord == nil {
+		log.Warn().Str("url", url).Msg("content coordinator not initialized")
+		return fmt.Errorf("content coordinator not initialized")
+	}
 
 	wv := c.contentCoord.ActiveWebView(ctx)
 	if wv == nil {
@@ -56,16 +68,13 @@ func (c *NavigationCoordinator) Navigate(ctx context.Context, url string) error 
 	}
 
 	// Get active pane ID for tracking
-	ws, _ := c.contentCoord.getActiveWS()
-	var paneID string
-	if ws != nil {
-		if pane := ws.ActivePane(); pane != nil && pane.Pane != nil {
-			paneID = string(pane.Pane.ID)
-			// Track original URL for cross-domain redirect favicon caching
-			c.contentCoord.SetNavigationOrigin(pane.Pane.ID, url)
-			// Pre-load cached favicon asynchronously (don't block navigation start)
-			go c.contentCoord.PreloadCachedFavicon(ctx, pane.Pane.ID, url)
-		}
+	activePaneID := c.contentCoord.ActivePaneID(ctx)
+	paneID := string(activePaneID)
+	if activePaneID != "" {
+		// Track original URL for cross-domain redirect favicon caching
+		c.contentCoord.SetNavigationOrigin(activePaneID, url)
+		// Pre-load cached favicon asynchronously (don't block navigation start)
+		go c.contentCoord.PreloadCachedFavicon(ctx, activePaneID, url)
 	}
 
 	// Use NavigateUseCase which handles history + zoom

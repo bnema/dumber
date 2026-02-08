@@ -258,6 +258,70 @@ func TestSetWorkspace_SinglePane_CreatesPaneView(t *testing.T) {
 	assert.NotNil(t, wv.GetPaneView(pane.ID))
 }
 
+func TestWorkspaceView_HoverFocusLockState(t *testing.T) {
+	var wv component.WorkspaceView
+
+	assert.False(t, wv.IsHoverFocusLocked())
+	wv.SetHoverFocusLocked(true)
+	assert.True(t, wv.IsHoverFocusLocked())
+
+	wv.SetHoverFocusLocked(false)
+	assert.False(t, wv.IsHoverFocusLocked())
+}
+
+func TestAddWorkspaceOverlayWidget_DoesNotReaddWhenAlreadyAttached(t *testing.T) {
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	ctx := context.Background()
+
+	mockContainer := mocks.NewMockBoxWidget(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockContainer).Once()
+	mockContainer.EXPECT().SetHexpand(true).Once()
+	mockContainer.EXPECT().SetVexpand(true).Once()
+	mockContainer.EXPECT().SetVisible(true).Once()
+	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
+	mockOverlay.EXPECT().SetHexpand(true).Once()
+	mockOverlay.EXPECT().SetVexpand(true).Once()
+	mockOverlay.EXPECT().SetChild(mockContainer).Once()
+	mockOverlay.EXPECT().SetVisible(true).Once()
+
+	wv := component.NewWorkspaceView(ctx, mockFactory)
+
+	widget := mocks.NewMockWidget(t)
+	widget.EXPECT().GetParent().Return(mockOverlay).Once()
+
+	wv.AddWorkspaceOverlayWidget(widget)
+}
+
+func TestAddWorkspaceOverlayWidget_UnparentsBeforeAdding(t *testing.T) {
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	ctx := context.Background()
+
+	mockContainer := mocks.NewMockBoxWidget(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockContainer).Once()
+	mockContainer.EXPECT().SetHexpand(true).Once()
+	mockContainer.EXPECT().SetVexpand(true).Once()
+	mockContainer.EXPECT().SetVisible(true).Once()
+	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
+	mockOverlay.EXPECT().SetHexpand(true).Once()
+	mockOverlay.EXPECT().SetVexpand(true).Once()
+	mockOverlay.EXPECT().SetChild(mockContainer).Once()
+	mockOverlay.EXPECT().SetVisible(true).Once()
+
+	wv := component.NewWorkspaceView(ctx, mockFactory)
+
+	widget := mocks.NewMockWidget(t)
+	otherParent := mocks.NewMockWidget(t)
+	widget.EXPECT().GetParent().Return(otherParent).Once()
+	widget.EXPECT().Unparent().Once()
+	mockOverlay.EXPECT().AddOverlay(widget).Once()
+	mockOverlay.EXPECT().SetClipOverlay(widget, false).Once()
+	mockOverlay.EXPECT().SetMeasureOverlay(widget, false).Once()
+
+	wv.AddWorkspaceOverlayWidget(widget)
+}
+
 func TestSetActivePaneID_UpdatesStyling(t *testing.T) {
 	// Arrange
 	mockFactory := mocks.NewMockWidgetFactory(t)

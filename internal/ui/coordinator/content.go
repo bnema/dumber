@@ -95,6 +95,10 @@ type ContentCoordinator struct {
 
 	webViews   map[entity.PaneID]*webkit.WebView
 	webViewsMu sync.RWMutex
+
+	activePaneOverride   entity.PaneID
+	activePaneOverrideMu sync.RWMutex
+
 	paneTitles map[entity.PaneID]string
 	titleMu    sync.RWMutex
 
@@ -440,6 +444,18 @@ func (c *ContentCoordinator) WrapWidget(ctx context.Context, wv *webkit.WebView)
 func (c *ContentCoordinator) ActiveWebView(ctx context.Context) *webkit.WebView {
 	log := logging.FromContext(ctx)
 
+	if paneID, ok := c.activePaneOverrideID(); ok {
+		wv := c.getWebViewLocked(paneID)
+		if wv != nil {
+			return wv
+		}
+		log.Debug().Str("pane_id", string(paneID)).Msg("active pane override has no webview, falling back")
+	}
+	if c.getActiveWS == nil {
+		log.Debug().Msg("no active workspace resolver")
+		return nil
+	}
+
 	ws, _ := c.getActiveWS()
 	if ws == nil {
 		log.Debug().Msg("no active workspace")
@@ -453,6 +469,45 @@ func (c *ContentCoordinator) ActiveWebView(ctx context.Context) *webkit.WebView 
 	}
 
 	return c.getWebViewLocked(pane.Pane.ID)
+}
+
+// ActivePaneID returns the currently active pane ID used by navigation.
+func (c *ContentCoordinator) ActivePaneID(ctx context.Context) entity.PaneID {
+	if paneID, ok := c.activePaneOverrideID(); ok {
+		return paneID
+	}
+	if c.getActiveWS == nil {
+		return ""
+	}
+
+	ws, _ := c.getActiveWS()
+	if ws == nil {
+		return ""
+	}
+	return ws.ActivePaneID
+}
+
+// SetActivePaneOverride forces ActiveWebView/ActivePaneID to use a specific pane.
+func (c *ContentCoordinator) SetActivePaneOverride(paneID entity.PaneID) {
+	c.activePaneOverrideMu.Lock()
+	c.activePaneOverride = paneID
+	c.activePaneOverrideMu.Unlock()
+}
+
+// ClearActivePaneOverride removes any forced active pane override.
+func (c *ContentCoordinator) ClearActivePaneOverride() {
+	c.activePaneOverrideMu.Lock()
+	c.activePaneOverride = ""
+	c.activePaneOverrideMu.Unlock()
+}
+
+func (c *ContentCoordinator) activePaneOverrideID() (entity.PaneID, bool) {
+	c.activePaneOverrideMu.RLock()
+	defer c.activePaneOverrideMu.RUnlock()
+	if c.activePaneOverride == "" {
+		return "", false
+	}
+	return c.activePaneOverride, true
 }
 
 // GetWebView returns the WebView for a specific pane.

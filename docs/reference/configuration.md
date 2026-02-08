@@ -69,6 +69,13 @@
 | `workspace.resize_mode.timeout_ms` | int | `3000` | |
 | `workspace.resize_mode.step_percent` | float | `5.0` | |
 | `workspace.resize_mode.min_pane_percent` | float | `10.0` | |
+| `workspace.shortcuts.actions.toggle_floating_pane.keys` | []string | `alt+f` | key strings |
+| `workspace.shortcuts.actions.toggle_floating_pane.desc` | string | `Toggle floating pane` | |
+| `workspace.floating_pane.width_pct` | float | `0.82` | `(0,1]` |
+| `workspace.floating_pane.height_pct` | float | `0.72` | `(0,1]` |
+| `workspace.floating_pane.profiles.<name>.keys` | []string | | at least one key |
+| `workspace.floating_pane.profiles.<name>.url` | string | | required URL |
+| `workspace.floating_pane.profiles.<name>.desc` | string | | |
 | `workspace.popups.behavior` | string | `split` | `split`, `stacked`, `tabbed`, `windowed` |
 | `workspace.popups.placement` | string | `right` | `right`, `left`, `top`, `bottom` |
 | `workspace.popups.open_in_new_pane` | bool | `true` | |

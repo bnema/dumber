@@ -33,6 +33,8 @@ const (
 	defaultResizeMinPanePercent      = 10.0
 	defaultTabBarPosition            = "bottom"
 	defaultPopupPlacement            = "right"
+	defaultFloatingPaneWidthPct      = 0.82
+	defaultFloatingPaneHeightPct     = 0.72
 
 	// Session defaults
 	defaultSessionActivationShortcut  = "ctrl+o"
@@ -223,6 +225,7 @@ func DefaultConfig() *Config {
 			},
 			Shortcuts: GlobalShortcutsConfig{
 				Actions: map[string]ActionBinding{
+					"toggle_floating_pane":   {Keys: []string{"alt+f"}, Desc: "Toggle floating pane"},
 					"close_pane":             {Keys: []string{"ctrl+w"}, Desc: "Close active pane"},
 					"next_tab":               {Keys: []string{"ctrl+tab"}, Desc: "Switch to next tab"},
 					"previous_tab":           {Keys: []string{"ctrl+shift+tab"}, Desc: "Switch to previous tab"},
@@ -231,6 +234,11 @@ func DefaultConfig() *Config {
 					"consume_or_expel_up":    {Keys: []string{"alt+{"}, Desc: "Consume/expel pane up"},
 					"consume_or_expel_down":  {Keys: []string{"alt+}"}, Desc: "Consume/expel pane down"},
 				},
+			},
+			FloatingPane: FloatingPaneConfig{
+				WidthPct:  defaultFloatingPaneWidthPct,
+				HeightPct: defaultFloatingPaneHeightPct,
+				Profiles:  map[string]FloatingPaneProfile{},
 			},
 			TabBarPosition:          defaultTabBarPosition,
 			HideTabBarWhenSingleTab: true,

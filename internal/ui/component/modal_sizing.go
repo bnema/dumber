@@ -138,6 +138,36 @@ func CalculateModalDimensions(parent layout.OverlayWidget, cfg ModalSizeConfig) 
 	return width, marginTop
 }
 
+// CalculateOverlayDimensions computes width and height from overlay allocation percentages.
+func CalculateOverlayDimensions(
+	parent layout.OverlayWidget,
+	widthPct, heightPct float64,
+	fallbackWidth, fallbackHeight int,
+) (width, height int) {
+	parentWidth := fallbackWidth
+	parentHeight := fallbackHeight
+
+	if parent != nil {
+		if allocatedWidth := parent.GetAllocatedWidth(); allocatedWidth >= 100 {
+			parentWidth = allocatedWidth
+		}
+		if allocatedHeight := parent.GetAllocatedHeight(); allocatedHeight >= 100 {
+			parentHeight = allocatedHeight
+		}
+	}
+
+	if widthPct <= 0 || widthPct > 1 {
+		widthPct = 1.0
+	}
+	if heightPct <= 0 || heightPct > 1 {
+		heightPct = 1.0
+	}
+
+	width = int(float64(parentWidth) * widthPct)
+	height = int(float64(parentHeight) * heightPct)
+	return width, height
+}
+
 // SetScrolledWindowHeight safely sets min/max content height on a ScrolledWindow.
 // Resets min to -1 first to avoid GTK assertion (min <= max) when shrinking.
 func SetScrolledWindowHeight(sw *gtk.ScrolledWindow, height int) {
