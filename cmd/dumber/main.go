@@ -47,6 +47,8 @@ var initialURL string
 var restoreSessionID string
 
 func main() {
+	enableCrashForensics()
+
 	// Run GUI mode for browse command
 	if len(os.Args) > 1 && os.Args[1] == "browse" {
 		if len(os.Args) > 2 {
@@ -105,6 +107,7 @@ func runGUI() int {
 
 	log := logging.FromContext(ctx)
 	logging.Trace().UpdateLogger(log)
+	logCoreDumpLimits(ctx)
 
 	if stack.MessageRouter != nil {
 		stack.MessageRouter.SetBaseContext(ctx)
@@ -198,7 +201,7 @@ func buildAndConfigureApp(
 	uiDeps := buildUIDependencies(
 		ctx, cfg, initResult.ThemeManager,
 		initResult.ColorResolver, initResult.AdwaitaDetector,
-		stack, repos, useCases, idleInhibitor, browserSession.Session.ID,
+		stack, repos, useCases, idleInhibitor, browserSession.Session.ID, browserSession.UnexpectedCloseReports(),
 	)
 	configureDeferredInit(uiDeps, cfg, browserSession)
 	return ui.New(uiDeps)
@@ -295,8 +298,15 @@ func configureDeferredInit(
 			go func() {
 				if persistErr := session.Persist(bgCtx); persistErr != nil {
 					logger.Error().Err(persistErr).Msg("deferred session persistence failed")
-				} else if uiDeps.OnSessionPersisted != nil {
-					uiDeps.OnSessionPersisted()
+				} else {
+					if uiDeps.OnCrashReportsDetected != nil {
+						if reports := session.UnexpectedCloseReports(); len(reports) > 0 {
+							uiDeps.OnCrashReportsDetected(reports)
+						}
+					}
+					if uiDeps.OnSessionPersisted != nil {
+						uiDeps.OnSessionPersisted()
+					}
 				}
 			}()
 		}
@@ -494,6 +504,7 @@ func buildUIDependencies(
 	uc *useCases,
 	idleInhibitor port.IdleInhibitor,
 	currentSessionID entity.SessionID,
+	startupCrashReports []string,
 ) *ui.Dependencies {
 	return &ui.Dependencies{
 		Ctx:              ctx,
@@ -531,5 +542,39 @@ func buildUIDependencies(
 		SnapshotUC:       uc.snapshot,
 		CheckUpdateUC:    uc.checkUpdate,
 		ApplyUpdateUC:    uc.applyUpdate,
+		Ctx:                 ctx,
+		Config:              cfg,
+		InitialURL:          initialURL,
+		RestoreSessionID:    restoreSessionID,
+		StartupCrashReports: startupCrashReports,
+		Theme:               themeManager,
+		ColorResolver:       colorResolver,
+		AdwaitaDetector:     adwaitaDetector,
+		XDG:                 xdg.New(),
+		WebContext:          stack.Context,
+		Pool:                stack.Pool,
+		Settings:            stack.Settings,
+		Injector:            stack.Injector,
+		MessageRouter:       stack.MessageRouter,
+		FilterManager:       stack.FilterManager,
+		HistoryRepo:         repos.history,
+		FavoriteRepo:        repos.favorite,
+		ZoomRepo:            repos.zoom,
+		TabsUC:              uc.tabs,
+		PanesUC:             uc.panes,
+		HistoryUC:           uc.history,
+		FavoritesUC:         uc.favorites,
+		ZoomUC:              uc.zoom,
+		NavigateUC:          uc.navigate,
+		CopyURLUC:           uc.copyURL,
+		Clipboard:           uc.clipboard,
+		FaviconService:      uc.favicon,
+		IdleInhibitor:       idleInhibitor,
+		SessionRepo:         repos.session,
+		SessionStateRepo:    repos.sessionState,
+		CurrentSessionID:    currentSessionID,
+		SnapshotUC:          uc.snapshot,
+		CheckUpdateUC:       uc.checkUpdate,
+		ApplyUpdateUC:       uc.applyUpdate,
 	}
 }

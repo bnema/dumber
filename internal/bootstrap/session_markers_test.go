@@ -22,6 +22,8 @@ func TestSessionMarkers_WriteStartupAndShutdown(t *testing.T) {
 	startupContent, err := os.ReadFile(startupMarkerPath(lockDir, sessionID))
 	require.NoError(t, err)
 	assert.Contains(t, string(startupContent), startedAt.Format(time.RFC3339Nano))
+	assert.Contains(t, string(startupContent), "pid=")
+	assert.Contains(t, string(startupContent), "ppid=")
 
 	err = writeShutdownMarker(lockDir, sessionID, endedAt)
 	require.NoError(t, err)
@@ -29,6 +31,9 @@ func TestSessionMarkers_WriteStartupAndShutdown(t *testing.T) {
 	shutdownContent, err := os.ReadFile(shutdownMarkerPath(lockDir, sessionID))
 	require.NoError(t, err)
 	assert.Contains(t, string(shutdownContent), endedAt.Format(time.RFC3339Nano))
+	assert.Contains(t, string(shutdownContent), "started_at="+startedAt.Format(time.RFC3339Nano))
+	assert.Contains(t, string(shutdownContent), "pid=")
+	assert.Contains(t, string(shutdownContent), "ppid=")
 }
 
 func TestSessionMarkers_MarkAbruptExits(t *testing.T) {
@@ -46,6 +51,9 @@ func TestSessionMarkers_MarkAbruptExits(t *testing.T) {
 	abruptMarkerData, err := os.ReadFile(abruptMarkerPath(lockDir, "abrupt-a"))
 	require.NoError(t, err)
 	assert.Contains(t, string(abruptMarkerData), "detected_at="+detectedAt.Format(time.RFC3339Nano))
+	assert.Contains(t, string(abruptMarkerData), "started_at=")
+	assert.Contains(t, string(abruptMarkerData), "pid=")
+	assert.Contains(t, string(abruptMarkerData), "ppid=")
 	assert.FileExists(t, filepath.Join(lockDir, "session_clean-b.shutdown.marker"))
 }
 
