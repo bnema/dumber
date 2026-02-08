@@ -40,6 +40,8 @@ import (
 const (
 	// AppID is the application identifier for GTK.
 	AppID = "com.github.bnema.dumber"
+	// crashReportToastDurationMs keeps startup crash-report toast visible longer.
+	crashReportToastDurationMs = 5000
 )
 
 // App wraps the GTK Application and manages the browser lifecycle.
@@ -246,6 +248,7 @@ func (a *App) onActivate(ctx context.Context) {
 
 	a.initLayoutInfrastructure()
 	a.initAppToasterOverlay()
+	a.installCrashReportNotifier(ctx)
 	a.initFocusAndBorderOverlay()
 	a.initAccentPicker(ctx)
 	a.initDownloadHandler(ctx)
@@ -394,6 +397,16 @@ func (a *App) initAppToasterOverlay() {
 		return
 	}
 	a.mainWindow.AddOverlay(modeGtkWidget)
+}
+
+func (a *App) installCrashReportNotifier(ctx context.Context) {
+	if a.deps == nil {
+		return
+	}
+
+	a.deps.OnCrashReportsDetected = func(paths []string) {
+		a.showCrashReportToast(ctx, paths)
+	}
 }
 
 func (a *App) initFocusAndBorderOverlay() {
@@ -1177,6 +1190,10 @@ func (a *App) finalizeActivation(ctx context.Context) {
 	}
 	log.Info().Msg("main window displayed")
 
+	if a.deps != nil && len(a.deps.StartupCrashReports) > 0 {
+		a.showCrashReportToast(ctx, a.deps.StartupCrashReports)
+	}
+
 	// Defer non-critical initialization until after first navigation starts.
 	// This keeps pool prewarm, config watcher, and filter loading from
 	// competing with the initial page load.
@@ -1186,6 +1203,26 @@ func (a *App) finalizeActivation(ctx context.Context) {
 		a.initFilteringAsync(ctx)
 		a.checkConfigMigration(ctx)
 	})
+}
+
+func (a *App) showCrashReportToast(ctx context.Context, paths []string) {
+	if len(paths) == 0 {
+		return
+	}
+	log := logging.FromContext(ctx)
+	log.Warn().Int("count", len(paths)).Msg("unexpected-close reports available")
+
+	cb := glib.SourceFunc(func(_ uintptr) bool {
+		if a.appToaster != nil {
+			msg := fmt.Sprintf("Detected %d unexpected close report(s). Run: dumber crashes issue latest", len(paths))
+			a.appToaster.Show(ctx, msg, component.ToastWarning,
+				component.WithDuration(crashReportToastDurationMs),
+				component.WithPosition(component.ToastPositionBottomRight),
+			)
+		}
+		return false
+	})
+	glib.IdleAdd(&cb, 0)
 }
 
 // runAfterFirstLoadStarted schedules work to run after the first navigation starts.

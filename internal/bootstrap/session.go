@@ -33,8 +33,29 @@ type BrowserSession struct {
 	Logger     zerolog.Logger
 	LogCleanup func()
 
+	reportsMu                 sync.RWMutex
+	unexpectedCloseReportPath []string
+
 	Persist func(context.Context) error
 	End     func(context.Context) error
+}
+
+func (s *BrowserSession) SetUnexpectedCloseReports(paths []string) {
+	if s == nil {
+		return
+	}
+	s.reportsMu.Lock()
+	defer s.reportsMu.Unlock()
+	s.unexpectedCloseReportPath = append([]string(nil), paths...)
+}
+
+func (s *BrowserSession) UnexpectedCloseReports() []string {
+	if s == nil {
+		return nil
+	}
+	s.reportsMu.RLock()
+	defer s.reportsMu.RUnlock()
+	return append([]string(nil), s.unexpectedCloseReportPath...)
 }
 
 func StartBrowserSession(
@@ -91,6 +112,12 @@ func StartBrowserSession(
 		persistErr error
 	)
 
+	browserSession := &BrowserSession{
+		Session:    session,
+		Logger:     logger,
+		LogCleanup: cleanup,
+	}
+
 	// persistFn ensures the session is saved exactly once. Using sync.Once is intentional:
 	// if the first persist fails, we cache the error and return it on subsequent calls
 	// rather than retrying. This prevents duplicate session records and ensures consistent
@@ -98,15 +125,11 @@ func StartBrowserSession(
 	persistFn := func(persistCtx context.Context) error {
 		persistMu.Do(func() {
 			if lockDir != "" {
-				abruptSessions, abruptErr := markAbruptExits(lockDir, time.Now().UTC(), &logger)
+				generatedReports, abruptErr := detectAbruptSessionsAndBuildReports(lockDir, &logger)
 				if abruptErr != nil {
 					logger.Warn().Err(abruptErr).Msg("failed to check abrupt exit markers")
-				} else {
-					for _, abruptSessionID := range abruptSessions {
-						logger.Warn().
-							Str("session_id", abruptSessionID).
-							Msg("abrupt-exit marker detected (startup without shutdown)")
-					}
+				} else if len(generatedReports) > 0 {
+					browserSession.SetUnexpectedCloseReports(generatedReports)
 				}
 			}
 
@@ -167,12 +190,7 @@ func StartBrowserSession(
 		return endErr
 	}
 
-	browserSession := &BrowserSession{
-		Session:    session,
-		Logger:     logger,
-		LogCleanup: cleanup,
-		End:        endFn,
-	}
+	browserSession.End = endFn
 
 	if deferPersist {
 		browserSession.Persist = persistFn
@@ -186,6 +204,44 @@ func StartBrowserSession(
 	}
 
 	return browserSession, sessionCtx, nil
+}
+
+func detectAbruptSessionsAndBuildReports(lockDir string, logger *zerolog.Logger) ([]string, error) {
+	abruptSessions, abruptErr := markAbruptExits(lockDir, time.Now().UTC(), logger)
+	if abruptErr != nil {
+		return nil, abruptErr
+	}
+
+	generatedReports := make([]string, 0, len(abruptSessions))
+	for _, abruptSessionID := range abruptSessions {
+		if logger != nil {
+			logger.Warn().
+				Str("session_id", abruptSessionID).
+				Msg("abrupt-exit marker detected (startup without shutdown)")
+		}
+		reportPath, reportErr := writeUnexpectedCloseReport(lockDir, abruptSessionID)
+		if reportErr != nil {
+			if logger != nil {
+				logger.Warn().
+					Err(reportErr).
+					Str("session_id", abruptSessionID).
+					Msg("failed to write unexpected-close report")
+			}
+			continue
+		}
+		if reportPath == "" {
+			continue
+		}
+		generatedReports = append(generatedReports, reportPath)
+		if logger != nil {
+			logger.Warn().
+				Str("session_id", abruptSessionID).
+				Str("report_path", reportPath).
+				Msg("unexpected-close report generated")
+		}
+	}
+
+	return generatedReports, nil
 }
 
 func endStaleActiveBrowserSessions(
@@ -309,7 +365,12 @@ func writeStartupMarker(lockDir, sessionID string, startedAt time.Time) error {
 	if err := os.MkdirAll(lockDir, lockDirPerm); err != nil {
 		return err
 	}
-	content := []byte(startedAt.Format(time.RFC3339Nano) + "\n")
+	content := []byte(fmt.Sprintf(
+		"%s\npid=%d\nppid=%d\n",
+		startedAt.Format(time.RFC3339Nano),
+		os.Getpid(),
+		os.Getppid(),
+	))
 	if err := os.WriteFile(startupMarkerPath(lockDir, sessionID), content, markerFilePerm); err != nil {
 		return err
 	}
@@ -330,14 +391,22 @@ func writeShutdownMarker(lockDir, sessionID string, endedAt time.Time) error {
 	// ClassifySessionExitFromMarkers can still read it after the
 	// startup marker file is removed.
 	var startupLine string
+	var pidLine string
+	var ppidLine string
 	startupPath := startupMarkerPath(lockDir, sessionID)
 	if raw, readErr := os.ReadFile(startupPath); readErr == nil {
-		if t := strings.TrimSpace(string(raw)); t != "" {
+		if t := firstNonEmptyLine(raw); t != "" {
 			startupLine = "started_at=" + t + "\n"
+		}
+		if pid := markerValue(raw, "pid="); pid != "" {
+			pidLine = "pid=" + pid + "\n"
+		}
+		if ppid := markerValue(raw, "ppid="); ppid != "" {
+			ppidLine = "ppid=" + ppid + "\n"
 		}
 	}
 
-	content := []byte(endedAt.Format(time.RFC3339Nano) + "\n" + startupLine)
+	content := []byte(endedAt.Format(time.RFC3339Nano) + "\n" + startupLine + pidLine + ppidLine)
 	if err := os.WriteFile(shutdownMarkerPath(lockDir, sessionID), content, markerFilePerm); err != nil {
 		return err
 	}
@@ -359,87 +428,145 @@ func markAbruptExits(lockDir string, detectedAt time.Time, logger *zerolog.Logge
 
 	abruptSessions := make([]string, 0, len(startupMarkers))
 	for _, startupPath := range startupMarkers {
-		base := filepath.Base(startupPath)
-		if !strings.HasPrefix(base, "session_") || !strings.HasSuffix(base, ".startup.marker") {
-			continue
-		}
-		sessionID := strings.TrimSuffix(strings.TrimPrefix(base, "session_"), ".startup.marker")
+		sessionID := sessionIDFromStartupMarker(startupPath)
 		if sessionID == "" {
 			continue
 		}
 
-		lockPath := sessionLockPath(lockDir, entity.SessionID(sessionID))
-		f, openErr := os.OpenFile(lockPath, os.O_RDWR, lockFilePerm)
-		if openErr != nil {
-			if os.IsNotExist(openErr) {
-				// No lock file: fall through to mark as abrupt.
-			} else {
-				if logger != nil {
-					logger.Warn().
-						Err(openErr).
-						Str("session_id", sessionID).
-						Str("path", lockPath).
-						Msg("markAbruptExits: open lock file failed")
-				}
-				continue
-			}
-		} else {
-			locked, lockErr := tryLockExclusiveNonBlocking(f)
-			if lockErr != nil {
-				_ = f.Close()
-				if logger != nil {
-					logger.Warn().
-						Err(lockErr).
-						Str("session_id", sessionID).
-						Str("path", lockPath).
-						Msg("markAbruptExits: lock probe failed")
-				}
-				continue
-			}
-			if !locked {
-				// Lock is held by another process: session still active.
-				_ = f.Close()
-				continue
-			}
-			// Lock acquired: no process holds it, session is stale.
-			_ = unlockAndClose(f)
-		}
-
-		shutdownPath := shutdownMarkerPath(lockDir, sessionID)
-		if _, err := os.Stat(shutdownPath); err == nil {
-			continue
-		} else if !os.IsNotExist(err) {
+		shouldMark, checkErr := shouldMarkAbruptExit(lockDir, sessionID, logger)
+		if checkErr != nil {
 			if logger != nil {
-				logger.Warn().
-					Err(err).
-					Str("session_id", sessionID).
-					Str("path", shutdownPath).
-					Msg("markAbruptExits: stat failed")
+				logger.Warn().Err(checkErr).Str("session_id", sessionID).Msg("markAbruptExits: marker checks failed")
 			}
 			continue
 		}
-		abruptPath := abruptMarkerPath(lockDir, sessionID)
-		if _, err := os.Stat(abruptPath); err == nil {
-			continue
-		} else if !os.IsNotExist(err) {
-			if logger != nil {
-				logger.Warn().
-					Err(err).
-					Str("session_id", sessionID).
-					Str("path", abruptPath).
-					Msg("markAbruptExits: stat failed")
-			}
+		if !shouldMark {
 			continue
 		}
 
-		payload := []byte(fmt.Sprintf("detected_at=%s\nstartup_marker=%s\n", detectedAt.Format(time.RFC3339Nano), startupPath))
-		if err := os.WriteFile(abruptMarkerPath(lockDir, sessionID), payload, markerFilePerm); err != nil {
+		startupRaw, _ := os.ReadFile(startupPath)
+		payload := fmt.Sprintf("detected_at=%s\nstartup_marker=%s\n", detectedAt.Format(time.RFC3339Nano), startupPath)
+		if startupAt := firstNonEmptyLine(startupRaw); startupAt != "" {
+			payload += "started_at=" + startupAt + "\n"
+		}
+		if pid := markerValue(startupRaw, "pid="); pid != "" {
+			payload += "pid=" + pid + "\n"
+		}
+		if ppid := markerValue(startupRaw, "ppid="); ppid != "" {
+			payload += "ppid=" + ppid + "\n"
+		}
+
+		if err := os.WriteFile(abruptMarkerPath(lockDir, sessionID), []byte(payload), markerFilePerm); err != nil {
 			return abruptSessions, err
 		}
 		abruptSessions = append(abruptSessions, sessionID)
 	}
 
 	return abruptSessions, nil
+}
+
+func sessionIDFromStartupMarker(startupPath string) string {
+	base := filepath.Base(startupPath)
+	if !strings.HasPrefix(base, "session_") || !strings.HasSuffix(base, ".startup.marker") {
+		return ""
+	}
+	return strings.TrimSuffix(strings.TrimPrefix(base, "session_"), ".startup.marker")
+}
+
+func shouldMarkAbruptExit(lockDir, sessionID string, logger *zerolog.Logger) (bool, error) {
+	active, probeErr := sessionLockHeldByLiveProcess(lockDir, sessionID, logger)
+	if probeErr != nil {
+		return false, probeErr
+	}
+	if active {
+		return false, nil
+	}
+
+	shutdownPath := shutdownMarkerPath(lockDir, sessionID)
+	if exists, statErr := markerExists(shutdownPath); statErr != nil {
+		return false, statErr
+	} else if exists {
+		return false, nil
+	}
+
+	abruptPath := abruptMarkerPath(lockDir, sessionID)
+	if exists, statErr := markerExists(abruptPath); statErr != nil {
+		return false, statErr
+	} else if exists {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func sessionLockHeldByLiveProcess(lockDir, sessionID string, logger *zerolog.Logger) (bool, error) {
+	lockPath := sessionLockPath(lockDir, entity.SessionID(sessionID))
+	f, openErr := os.OpenFile(lockPath, os.O_RDWR, lockFilePerm)
+	if openErr != nil {
+		if os.IsNotExist(openErr) {
+			return false, nil
+		}
+		if logger != nil {
+			logger.Warn().
+				Err(openErr).
+				Str("session_id", sessionID).
+				Str("path", lockPath).
+				Msg("markAbruptExits: open lock file failed")
+		}
+		return false, openErr
+	}
+
+	locked, lockErr := tryLockExclusiveNonBlocking(f)
+	if lockErr != nil {
+		_ = f.Close()
+		if logger != nil {
+			logger.Warn().
+				Err(lockErr).
+				Str("session_id", sessionID).
+				Str("path", lockPath).
+				Msg("markAbruptExits: lock probe failed")
+		}
+		return false, lockErr
+	}
+	if !locked {
+		_ = f.Close()
+		return true, nil
+	}
+	_ = unlockAndClose(f)
+	return false, nil
+}
+
+func markerExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+func firstNonEmptyLine(raw []byte) string {
+	trimmed := strings.TrimSpace(string(raw))
+	if trimmed == "" {
+		return ""
+	}
+	first, _, _ := strings.Cut(trimmed, "\n")
+	return strings.TrimSpace(first)
+}
+
+func markerValue(raw []byte, key string) string {
+	if key == "" || len(raw) == 0 {
+		return ""
+	}
+	for _, line := range strings.Split(string(raw), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, key) {
+			return strings.TrimSpace(strings.TrimPrefix(line, key))
+		}
+	}
+	return ""
 }
 
 // runSessionCleanupAsync performs stale session cleanup and old session pruning

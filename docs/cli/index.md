@@ -15,6 +15,7 @@ Dumber provides commands for browser management, history, sessions, and diagnost
 | `dumber setup` | Setup desktop integration |
 | `dumber update` | Check for and install updates |
 | `dumber logs` | View application logs |
+| `dumber crashes` | Inspect unexpected-close reports |
 | `dumber purge` | Remove data and configuration |
 | `dumber about` | Show version information |
 | `dumber gen-docs` | Generate documentation from CLI commands |
@@ -194,6 +195,23 @@ dumber logs clear [flags]
 | Flag | Description |
 |------|-------------|
 | `--all` | Remove all session logs |
+
+### crashes
+
+Inspect crash reports generated automatically after unexpected closes.
+
+```bash
+dumber crashes
+dumber crashes show <report|latest>
+dumber crashes issue <report|latest>
+```
+
+**Subcommands:**
+
+| Subcommand | Description |
+|------------|-------------|
+| `show <report|latest>` | Show full crash report markdown |
+| `issue <report|latest>` | Print GitHub-ready issue section |
 
 ### purge
 

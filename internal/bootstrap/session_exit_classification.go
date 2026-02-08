@@ -19,14 +19,14 @@ const (
 )
 
 type SessionExitClassification struct {
-	SessionID          string
-	Class              SessionExitClass
-	Inference          string
-	Reason             string
-	StartupAt          *time.Time
-	ShutdownAt         *time.Time
-	AbruptDetectedAt   *time.Time
-	LastMarkerObserved time.Time
+	SessionID          string           `json:"session_id"`
+	Class              SessionExitClass `json:"class"`
+	Inference          string           `json:"inference"`
+	Reason             string           `json:"reason"`
+	StartupAt          *time.Time       `json:"startup_at,omitempty"`
+	ShutdownAt         *time.Time       `json:"shutdown_at,omitempty"`
+	AbruptDetectedAt   *time.Time       `json:"abrupt_detected_at,omitempty"`
+	LastMarkerObserved time.Time        `json:"last_marker_observed"`
 }
 
 func ClassifySessionExitFromMarkers(lockDir, sessionID string) (SessionExitClassification, error) {
