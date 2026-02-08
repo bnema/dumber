@@ -11,6 +11,7 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
+	urlutil "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	"github.com/bnema/dumber/internal/infrastructure/filesystem"
@@ -24,6 +25,7 @@ import (
 	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
+	"github.com/bnema/dumber/internal/ui/dialog"
 	"github.com/bnema/dumber/internal/ui/dispatcher"
 	"github.com/bnema/dumber/internal/ui/focus"
 	"github.com/bnema/dumber/internal/ui/input"
@@ -95,6 +97,8 @@ type App struct {
 	appToaster *component.Toaster
 	// Mode indicator toaster for modal mode notifications (pane, tab, session, resize)
 	modeToaster *component.Toaster
+	// Top-right WebRTC permission activity indicator
+	webrtcIndicator *component.WebRTCPermissionIndicator
 
 	// Session management
 	sessionManager  *component.SessionManager
@@ -203,8 +207,8 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		}
 	}
 
-	// TODO: Use AppID once puregotk GC bug is fixed (nullable-string-gc-memory-corruption)
-	a.gtkApp = gtk.NewApplication(nil, gio.GApplicationFlagsNoneValue)
+	appID := AppID
+	a.gtkApp = gtk.NewApplication(&appID, gio.GApplicationFlagsNoneValue)
 	if a.gtkApp == nil {
 		log.Error().Msg("failed to create GTK application")
 		return 1
@@ -254,6 +258,7 @@ func (a *App) onActivate(ctx context.Context) {
 	a.initDownloadHandler(ctx)
 
 	a.initCoordinators(ctx)
+	a.wireWebRTCPermissionIndicator()
 	logging.Trace().Mark("coordinators_init")
 	a.initKeyboardHandler(ctx)
 	a.initOmniboxConfig(ctx)
@@ -350,6 +355,32 @@ func (a *App) createMainWindow(ctx context.Context) error {
 		return err
 	}
 	a.mainWindow = mainWindow
+
+	// Create permission popup and dialog presenter
+	if a.deps != nil && a.deps.PermissionUC != nil {
+		uiScale := 1.0
+		if a.deps.Config != nil {
+			uiScale = a.deps.Config.DefaultUIScale
+		}
+		permPopup := component.NewPermissionPopup(nil, uiScale)
+		if permPopup != nil {
+			// Add popup to the main window's content overlay
+			if w := permPopup.Widget(); w != nil {
+				a.mainWindow.AddOverlay(w)
+			}
+			permDialog := dialog.NewPermissionDialog(permPopup)
+			a.deps.PermissionUC.SetDialogPresenter(permDialog)
+		}
+	}
+
+	// Create top-right WebRTC permission activity indicator.
+	indicator := component.NewWebRTCPermissionIndicator()
+	if indicator != nil {
+		if w := indicator.Widget(); w != nil {
+			a.mainWindow.AddOverlay(w)
+			a.webrtcIndicator = indicator
+		}
+	}
 
 	// Apply GTK CSS styling from theme manager.
 	if a.deps == nil || a.deps.Theme == nil {
@@ -1316,6 +1347,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.faviconAdapter,
 		getActiveWS,
 		a.deps.ZoomUC,
+		a.deps.PermissionUC,
 	)
 
 	// Set idle inhibitor for fullscreen video playback
@@ -1520,6 +1552,100 @@ func (a *App) initCoordinators(ctx context.Context) {
 	})
 
 	log.Debug().Msg("coordinators initialized")
+}
+
+func (a *App) wireWebRTCPermissionIndicator() {
+	if a.webrtcIndicator == nil || a.contentCoord == nil {
+		return
+	}
+	ctx := context.Background()
+	if a.deps != nil && a.deps.Ctx != nil {
+		ctx = a.deps.Ctx
+	}
+	log := logging.FromContext(ctx)
+
+	a.contentCoord.SetOnPermissionActivity(func(origin string, permTypes []entity.PermissionType, state coordinator.PermissionActivityState) {
+		a.webrtcIndicator.SetOrigin(origin)
+
+		switch state {
+		case coordinator.PermissionActivityRequesting:
+			a.webrtcIndicator.MarkRequesting(permTypes)
+		case coordinator.PermissionActivityAllowed:
+			a.webrtcIndicator.MarkAllowed(permTypes)
+		case coordinator.PermissionActivityBlocked:
+			a.webrtcIndicator.MarkBlocked(permTypes)
+		}
+
+		for _, permType := range permTypes {
+			a.syncWebRTCPermissionLockState(ctx, origin, permType)
+		}
+	})
+
+	a.webrtcIndicator.SetOnToggleLock(func(origin string, permType entity.PermissionType, state string, hasStored bool) {
+		if a.deps == nil || a.deps.PermissionUC == nil || origin == "" {
+			return
+		}
+
+		if hasStored {
+			// Already locked: reset to prompt (will re-ask on next request).
+			if err := a.deps.PermissionUC.ResetManualPermissionDecision(ctx, origin, permType); err != nil {
+				log.Warn().Err(err).Str("origin", origin).Str("type", string(permType)).Msg("failed to reset manual permission decision")
+				return
+			}
+		} else {
+			// Not locked: flip the state.
+			// Allowed/requesting → deny future requests.
+			// Blocked → allow future requests.
+			decision := entity.PermissionDenied
+			if state == string(coordinator.PermissionActivityBlocked) {
+				decision = entity.PermissionGranted
+			}
+			if err := a.deps.PermissionUC.SetManualPermissionDecision(ctx, origin, permType, decision); err != nil {
+				log.Warn().Err(err).Str("origin", origin).Str("type", string(permType)).Msg("failed to set manual permission decision")
+				return
+			}
+		}
+
+		a.syncWebRTCPermissionLockState(ctx, origin, permType)
+	})
+
+	// Reset indicator when the active pane navigates away from the current origin.
+	a.contentCoord.SetOnActiveNavigationCommitted(func(uri string) {
+		newOrigin, err := urlutil.ExtractOrigin(uri)
+		if err != nil {
+			// Internal pages (dumb://, about:) — clear the indicator.
+			a.webrtcIndicator.Reset()
+			return
+		}
+
+		currentOrigin := a.webrtcIndicator.Origin()
+		if currentOrigin != "" && currentOrigin != newOrigin {
+			a.webrtcIndicator.Reset()
+		}
+	})
+}
+
+func (a *App) syncWebRTCPermissionLockState(ctx context.Context, origin string, permType entity.PermissionType) {
+	if a.webrtcIndicator == nil || a.deps == nil || a.deps.PermissionUC == nil || origin == "" {
+		return
+	}
+
+	record, err := a.deps.PermissionUC.GetManualPermissionDecision(ctx, origin, permType)
+	if err != nil {
+		logging.FromContext(ctx).Warn().
+			Err(err).
+			Str("origin", origin).
+			Str("type", string(permType)).
+			Msg("failed to read manual permission decision")
+		return
+	}
+
+	if record == nil {
+		a.webrtcIndicator.SetStoredDecision(permType, entity.PermissionPrompt, false)
+		return
+	}
+
+	a.webrtcIndicator.SetStoredDecision(permType, record.Decision, true)
 }
 
 // generateID generates a unique ID for tabs and panes.

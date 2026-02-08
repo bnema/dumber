@@ -26,6 +26,7 @@ type Querier interface {
 	DeleteHistoryOlderThan(ctx context.Context, lastVisited sql.NullTime) error
 	// Deletes exited browser sessions beyond the keep limit, keeping the most recent ones.
 	DeleteOldestExitedSessions(ctx context.Context, offset int64) (int64, error)
+	DeletePermission(ctx context.Context, arg DeletePermissionParams) error
 	DeleteSession(ctx context.Context, id string) error
 	DeleteSessionState(ctx context.Context, sessionID string) error
 	DeleteTag(ctx context.Context, id int64) error
@@ -51,6 +52,7 @@ type Querier interface {
 	GetHistoryStats(ctx context.Context) (GetHistoryStatsRow, error)
 	GetHourlyDistribution(ctx context.Context) ([]GetHourlyDistributionRow, error)
 	GetMostVisited(ctx context.Context, datetime interface{}) ([]History, error)
+	GetPermission(ctx context.Context, arg GetPermissionParams) (Permission, error)
 	GetRecentHistory(ctx context.Context, arg GetRecentHistoryParams) ([]History, error)
 	GetRecentHistorySince(ctx context.Context, datetime interface{}) ([]History, error)
 	GetRecentSessions(ctx context.Context, limit int64) ([]Session, error)
@@ -67,6 +69,8 @@ type Querier interface {
 	IncrementVisitCountByDelta(ctx context.Context, arg IncrementVisitCountByDeltaParams) error
 	InsertSession(ctx context.Context, arg InsertSessionParams) error
 	IsWhitelisted(ctx context.Context, domain string) (int64, error)
+	ListAllPermissions(ctx context.Context) ([]Permission, error)
+	ListPermissionsByOrigin(ctx context.Context, origin string) ([]Permission, error)
 	ListZoomLevels(ctx context.Context) ([]ZoomLevel, error)
 	MarkSessionEnded(ctx context.Context, arg MarkSessionEndedParams) error
 	RemoveFromWhitelist(ctx context.Context, domain string) error
@@ -77,6 +81,7 @@ type Querier interface {
 	SearchHistoryFTSUrlWithDomainBoost(ctx context.Context, arg SearchHistoryFTSUrlWithDomainBoostParams) ([]SearchHistoryFTSUrlWithDomainBoostRow, error)
 	SetFavoriteFolder(ctx context.Context, arg SetFavoriteFolderParams) error
 	SetFavoriteShortcut(ctx context.Context, arg SetFavoriteShortcutParams) error
+	SetPermission(ctx context.Context, arg SetPermissionParams) error
 	SetZoomLevel(ctx context.Context, arg SetZoomLevelParams) error
 	UpdateFavorite(ctx context.Context, arg UpdateFavoriteParams) error
 	UpdateFavoritePosition(ctx context.Context, arg UpdateFavoritePositionParams) error

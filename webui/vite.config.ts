@@ -42,6 +42,18 @@ const pages = {
       filename: "config.html",
     },
   },
+  webrtc: {
+    entry: "src/pages/webrtc.ts",
+    output: "webrtc.min.js",
+    global: "DumberWebRTC",
+    html: {
+      name: "webrtc",
+      title: "WebRTC Diagnostics",
+      script: "webrtc.min.js",
+      css: "style.css",
+      filename: "webrtc.html",
+    },
+  },
 } as const;
 
 // Get page from VITE_PAGE env var, default to building all

@@ -4,14 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "VITE_PAGE=homepage vite build && VITE_PAGE=error vite build && VITE_PAGE=config vite build",
+    "build": "VITE_PAGE=homepage vite build && VITE_PAGE=error vite build && VITE_PAGE=config vite build && VITE_PAGE=webrtc vite build",
     "build:homepage": "VITE_PAGE=homepage vite build",
     "build:error": "VITE_PAGE=error vite build",
     "build:config": "VITE_PAGE=config vite build",
+    "build:webrtc": "VITE_PAGE=webrtc vite build",
     "dev": "VITE_PAGE=homepage vite build --watch",
     "dev:homepage": "VITE_PAGE=homepage vite build --watch",
     "dev:error": "VITE_PAGE=error vite build --watch",
     "dev:config": "VITE_PAGE=config vite build --watch",
+    "dev:webrtc": "VITE_PAGE=webrtc vite build --watch",
     "check": "svelte-check",
     "lint": "eslint src --fix",
     "fmt": "prettier --write ."

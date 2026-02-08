@@ -19,6 +19,7 @@ import (
 	"github.com/jwijenbergh/puregotk/v4/gio"
 	"github.com/jwijenbergh/puregotk/v4/glib"
 	"github.com/jwijenbergh/puregotk/v4/gobject"
+	gtypes "github.com/jwijenbergh/puregotk/v4/gobject/types"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 	"github.com/rs/zerolog"
 )
@@ -153,6 +154,11 @@ type WebView struct {
 	OnAudioStateChanged    func(playing bool)          // Called when audio playback starts/stops
 	OnLinkHover            func(uri string)            // Called when hovering over a link/image/media (empty string when leaving)
 	OnWebProcessTerminated func(reason webkit.WebProcessTerminationReason, reasonLabel string, uri string)
+
+	// PermissionRequest is called when a site requests permission (mic, camera, screen sharing).
+	// Return true to indicate the request was handled. Call allow()/deny() to respond.
+	// The permission types are determined from the request object.
+	OnPermissionRequest func(origin string, permTypes []string, allow, deny func()) bool
 
 	logger zerolog.Logger
 	mu     sync.RWMutex
@@ -409,9 +415,11 @@ func (wv *WebView) connectSignals() {
 	wv.connectEnterFullscreenSignal()
 	wv.connectLeaveFullscreenSignal()
 	wv.connectAudioStateSignal()
+	wv.connectMediaCaptureStateSignals()
 	wv.connectMouseTargetChangedSignal()
 	wv.connectBackForwardListChangedSignal()
 	wv.connectWebProcessTerminatedSignal()
+	wv.connectPermissionRequestSignal()
 }
 
 func (wv *WebView) connectLoadChangedSignal() {
@@ -829,6 +837,39 @@ func (wv *WebView) connectAudioStateSignal() {
 	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
 }
 
+func (wv *WebView) connectMediaCaptureStateSignals() {
+	connect := func(signal string, readState func() webkit.MediaCaptureState, kind string) {
+		cb := func() {
+			state := readState()
+			wv.logger.Debug().
+				Uint64("id", uint64(wv.id)).
+				Str("kind", kind).
+				Str("state", mediaCaptureStateString(state)).
+				Int("state_code", int(state)).
+				Msg("media capture state changed")
+		}
+		sigID := gobject.SignalConnect(wv.inner.GoPointer(), signal, glib.NewCallback(&cb))
+		wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
+	}
+
+	connect("notify::camera-capture-state", wv.inner.GetCameraCaptureState, "camera")
+	connect("notify::microphone-capture-state", wv.inner.GetMicrophoneCaptureState, "microphone")
+	connect("notify::display-capture-state", wv.inner.GetDisplayCaptureState, "display")
+}
+
+func mediaCaptureStateString(state webkit.MediaCaptureState) string {
+	switch state {
+	case webkit.MediaCaptureStateNoneValue:
+		return "none"
+	case webkit.MediaCaptureStateActiveValue:
+		return "active"
+	case webkit.MediaCaptureStateMutedValue:
+		return "muted"
+	default:
+		return "unknown"
+	}
+}
+
 func (wv *WebView) connectMouseTargetChangedSignal() {
 	mouseTargetCb := func(_ webkit.WebView, hitTestPtr uintptr, _ uint) {
 		if wv.OnLinkHover == nil {
@@ -928,6 +969,224 @@ func (wv *WebView) connectWebProcessTerminatedSignal() {
 	}
 	sigID := wv.inner.ConnectWebProcessTerminated(&terminatedCb)
 	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
+}
+
+// connectPermissionRequestSignal sets up the permission-request signal handler.
+// This is emitted when a site calls getUserMedia() or getDisplayMedia().
+func (wv *WebView) connectPermissionRequestSignal() {
+	permissionCb := func(_ webkit.WebView, requestPtr uintptr) bool {
+		ctx := logging.WithContext(context.Background(), wv.logger)
+
+		if wv.OnPermissionRequest == nil {
+			return false // Not handled, WebKit will deny by default
+		}
+
+		// Extract and normalize origin from current URI
+		uri := wv.URI()
+		if uri == "" {
+			wv.logger.Debug().Msg("permission request with empty origin, denying")
+			return false
+		}
+		origin, err := urlutil.ExtractOrigin(uri)
+		if err != nil {
+			wv.logger.Debug().Str("uri", uri).Err(err).Msg("permission request: failed to extract origin, denying")
+			return false
+		}
+
+		// Determine permission types from the request
+		permTypes := wv.determinePermissionTypes(ctx, requestPtr)
+		if len(permTypes) == 0 {
+			wv.logger.Warn().Msg("permission request with unknown type, denying")
+			return false
+		}
+
+		// Ref the request object to prevent use-after-free
+		// The request may outlive the signal handler if we show a dialog
+		requestObj := gobject.ObjectNewFromInternalPtr(requestPtr)
+		if requestObj == nil {
+			wv.logger.Warn().Msg("permission request: failed to wrap request object")
+			return false
+		}
+		requestObj.Ref()
+
+		// Create allow/deny callbacks that wrap the WebKit permission request
+		allowCalled := false
+		denyCalled := false
+
+		allow := func() {
+			if allowCalled || denyCalled {
+				return
+			}
+			allowCalled = true
+			wv.allowPermissionRequest(requestPtr)
+			requestObj.Unref()
+		}
+
+		deny := func() {
+			if allowCalled || denyCalled {
+				return
+			}
+			denyCalled = true
+			wv.denyPermissionRequest(requestPtr)
+			requestObj.Unref()
+		}
+
+		// Call the handler
+		return wv.OnPermissionRequest(origin, permTypes, allow, deny)
+	}
+
+	sigID := wv.inner.ConnectPermissionRequest(&permissionCb)
+	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
+}
+
+// determinePermissionTypes extracts permission types from a WebKit permission request.
+// This uses type checking to identify UserMediaPermissionRequest and its specific types.
+// We use GObject property accessors for audio/video request flags. Display detection
+// uses the dedicated WebKit API because this WebKit build does not expose an
+// "is-for-display-device" GObject property.
+func (wv *WebView) determinePermissionTypes(ctx context.Context, requestPtr uintptr) []string {
+	requestKind := detectPermissionRequestKind(ctx, requestPtr)
+	switch requestKind {
+	case permissionRequestKindUserMedia:
+		userMediaReq := webkit.UserMediaPermissionRequestNewFromInternalPtr(requestPtr)
+		if userMediaReq == nil {
+			return nil
+		}
+
+		// Use GObject property accessors — more reliable than the C function wrappers
+		// which can hit the purego bool return value bug.
+		isAudio := userMediaReq.GetPropertyIsForAudioDevice()
+		isVideo := userMediaReq.GetPropertyIsForVideoDevice()
+		isDisplay := webkit.UserMediaPermissionIsForDisplayDevice(userMediaReq)
+
+		wv.logger.Debug().
+			Bool("is_audio", isAudio).
+			Bool("is_video", isVideo).
+			Bool("is_display", isDisplay).
+			Msg("permission request type detection")
+
+		return classifyPermissionRequestTypes(ctx, requestKind, isAudio, isVideo, isDisplay)
+	case permissionRequestKindDeviceInfo:
+		return classifyPermissionRequestTypes(ctx, requestKind, false, false, false)
+	default:
+		if requestPtr != 0 {
+			typeName := permissionRequestTypeName(ctx, requestPtr)
+			if typeName != "" {
+				wv.logger.Warn().Str("request_type", typeName).Msg("unknown permission request type")
+			} else {
+				wv.logger.Warn().Msg("unknown permission request type")
+			}
+		}
+		// Unknown permission type - could be clipboard, notifications, geolocation, etc.
+		// For now, return empty to trigger denial. Future phases will add these types.
+		return nil
+	}
+}
+
+type permissionRequestKind int
+
+const (
+	permissionRequestKindUnknown permissionRequestKind = iota
+	permissionRequestKindUserMedia
+	permissionRequestKindDeviceInfo
+)
+
+func detectPermissionRequestKind(ctx context.Context, requestPtr uintptr) permissionRequestKind {
+	if isPermissionRequestType(ctx, requestPtr, webkit.UserMediaPermissionRequestGLibType()) {
+		return permissionRequestKindUserMedia
+	}
+	if isPermissionRequestType(ctx, requestPtr, webkit.DeviceInfoPermissionRequestGLibType()) {
+		return permissionRequestKindDeviceInfo
+	}
+	return permissionRequestKindUnknown
+}
+
+func isPermissionRequestType(ctx context.Context, requestPtr uintptr, requestType gtypes.GType) bool {
+	return gobjectTypeCheckInstanceIsAByPtr(ctx, requestPtr, requestType)
+}
+
+func classifyPermissionRequestTypes(
+	ctx context.Context,
+	kind permissionRequestKind,
+	isAudio, isVideo, isDisplay bool,
+) []string {
+	switch kind {
+	case permissionRequestKindUserMedia:
+		return classifyUserMediaPermissionTypes(ctx, isAudio, isVideo, isDisplay)
+	case permissionRequestKindDeviceInfo:
+		return []string{"device_info"}
+	default:
+		return nil
+	}
+}
+
+func classifyUserMediaPermissionTypes(ctx context.Context, isAudio, isVideo, isDisplay bool) []string {
+	types := make([]string, 0, 2)
+
+	if isAudio {
+		types = append(types, "microphone")
+	}
+
+	if isDisplay {
+		types = append(types, "display")
+	} else if isVideo {
+		types = append(types, "camera")
+	}
+
+	if len(types) == 0 {
+		// On some Wayland/WebKit paths, getDisplayMedia() can arrive with all
+		// flags false even though the request is a screen-capture request.
+		logging.FromContext(ctx).Debug().
+			Bool("is_audio", isAudio).
+			Bool("is_video", isVideo).
+			Bool("is_display", isDisplay).
+			Msg("user media request had no flags; using display fallback")
+		return []string{"display"}
+	}
+
+	return types
+}
+
+// allowPermissionRequest calls Allow() on the WebKit permission request.
+func (wv *WebView) allowPermissionRequest(requestPtr uintptr) {
+	// Try UserMediaPermissionRequest first
+	userMediaReq := webkit.UserMediaPermissionRequestNewFromInternalPtr(requestPtr)
+	if userMediaReq != nil {
+		userMediaReq.Allow()
+		wv.logger.Debug().Msg("permission request allowed")
+		return
+	}
+
+	// Try DeviceInfoPermissionRequest
+	deviceInfoReq := webkit.DeviceInfoPermissionRequestNewFromInternalPtr(requestPtr)
+	if deviceInfoReq != nil {
+		deviceInfoReq.Allow()
+		wv.logger.Debug().Msg("permission request allowed")
+		return
+	}
+
+	wv.logger.Warn().Uint64("request_ptr", uint64(requestPtr)).Msg("permission request: unknown type, cannot allow")
+}
+
+// denyPermissionRequest calls Deny() on the WebKit permission request.
+func (wv *WebView) denyPermissionRequest(requestPtr uintptr) {
+	// Try UserMediaPermissionRequest first
+	userMediaReq := webkit.UserMediaPermissionRequestNewFromInternalPtr(requestPtr)
+	if userMediaReq != nil {
+		userMediaReq.Deny()
+		wv.logger.Debug().Msg("permission request denied")
+		return
+	}
+
+	// Try DeviceInfoPermissionRequest
+	deviceInfoReq := webkit.DeviceInfoPermissionRequestNewFromInternalPtr(requestPtr)
+	if deviceInfoReq != nil {
+		deviceInfoReq.Deny()
+		wv.logger.Debug().Msg("permission request denied")
+		return
+	}
+
+	wv.logger.Warn().Uint64("request_ptr", uint64(requestPtr)).Msg("permission request: unknown type, cannot deny")
 }
 
 // ID returns the unique identifier for this WebView.
@@ -1214,6 +1473,7 @@ func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
 		wv.OnCreate = nil
 		wv.OnLinkHover = nil
 		wv.OnWebProcessTerminated = nil
+		wv.OnPermissionRequest = nil
 		return
 	}
 
@@ -1260,6 +1520,7 @@ func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
 	} else {
 		wv.OnWebProcessTerminated = nil
 	}
+	wv.OnPermissionRequest = callbacks.OnPermissionRequest
 }
 
 // ShowDevTools opens the WebKit inspector/developer tools.
@@ -1374,6 +1635,7 @@ func (wv *WebView) DestroyWithPolicy(policy string) {
 	wv.OnAudioStateChanged = nil
 	wv.OnLinkHover = nil
 	wv.OnWebProcessTerminated = nil
+	wv.OnPermissionRequest = nil
 
 	// 3. Clear async callback references
 	wv.mu.Lock()
