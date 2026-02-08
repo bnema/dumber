@@ -2,8 +2,10 @@ package webkit
 
 import (
 	"context"
+	"net/url"
 	"testing"
 
+	"github.com/bnema/dumber/assets"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -86,4 +88,30 @@ func TestCrashHandlerSanitizesUnsafeURLQuery(t *testing.T) {
 	})
 	require.NotNil(t, resp)
 	assert.Contains(t, string(resp.Data), `data-target=""`)
+}
+
+func TestHandleAsset_WebRTCRootServesInternalWebRTCTester(t *testing.T) {
+	h := NewDumbSchemeHandler(context.Background())
+	h.SetAssets(assets.WebUIAssets)
+
+	u, err := url.Parse("dumb://webrtc/")
+	require.NoError(t, err)
+
+	resp := h.handleAsset(u)
+	require.NotNil(t, resp)
+	assert.Equal(t, "text/html; charset=utf-8", resp.ContentType)
+	assert.Contains(t, string(resp.Data), "webrtc.min.js")
+}
+
+func TestHandleAsset_WebRTCOpaqueFormServesInternalWebRTCTester(t *testing.T) {
+	h := NewDumbSchemeHandler(context.Background())
+	h.SetAssets(assets.WebUIAssets)
+
+	u, err := url.Parse("dumb:webrtc")
+	require.NoError(t, err)
+
+	resp := h.handleAsset(u)
+	require.NotNil(t, resp)
+	assert.Equal(t, "text/html; charset=utf-8", resp.ContentType)
+	assert.Contains(t, string(resp.Data), "webrtc.min.js")
 }

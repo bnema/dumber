@@ -4,6 +4,7 @@ package dialog
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -11,11 +12,26 @@ import (
 	"github.com/bnema/dumber/internal/ui/component"
 )
 
+type permissionPopup interface {
+	Show(ctx context.Context, heading, body string, callback func(allowed, persistent bool))
+}
+
+type permissionDialogRequest struct {
+	ctx       context.Context
+	origin    string
+	permTypes []entity.PermissionType
+	callback  func(result port.PermissionDialogResult)
+}
+
 // PermissionDialog implements the port.PermissionDialogPresenter interface.
 // It uses a custom PermissionPopup overlay to sidestep the purego ConnectResponse bug
 // and match the app's custom UI style.
 type PermissionDialog struct {
-	popup *component.PermissionPopup
+	popup permissionPopup
+
+	mu     sync.Mutex
+	active bool
+	queue  []permissionDialogRequest
 }
 
 // NewPermissionDialog creates a new permission dialog presenter.
@@ -33,11 +49,45 @@ func (d *PermissionDialog) ShowPermissionDialog(
 	permTypes []entity.PermissionType,
 	callback func(result port.PermissionDialogResult),
 ) {
+	req := permissionDialogRequest{
+		ctx:       ctx,
+		origin:    origin,
+		permTypes: permTypes,
+		callback:  callback,
+	}
+
+	if !d.enqueueOrStart(req) {
+		return
+	}
+
+	d.showRequest(req)
+}
+
+func (d *PermissionDialog) enqueueOrStart(req permissionDialogRequest) bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if d.active {
+		d.queue = append(d.queue, req)
+		return false
+	}
+
+	d.active = true
+	return true
+}
+
+func (d *PermissionDialog) showRequest(req permissionDialogRequest) {
+	ctx := req.ctx
+	origin := req.origin
+	permTypes := req.permTypes
+	callback := req.callback
+
 	log := logging.FromContext(ctx)
 
 	if d.popup == nil {
 		log.Error().Msg("permission popup not available")
 		callback(port.PermissionDialogResult{Allowed: false, Persistent: false})
+		d.showNextQueuedRequest()
 		return
 	}
 
@@ -51,12 +101,28 @@ func (d *PermissionDialog) ShowPermissionDialog(
 			Bool("persistent", persistent).
 			Msg("permission popup response")
 		callback(port.PermissionDialogResult{Allowed: allowed, Persistent: persistent})
+		d.showNextQueuedRequest()
 	})
 
 	log.Debug().
 		Str("origin", origin).
 		Strs("types", entity.PermissionTypesToStrings(permTypes)).
 		Msg("showing permission popup")
+}
+
+func (d *PermissionDialog) showNextQueuedRequest() {
+	d.mu.Lock()
+	if len(d.queue) == 0 {
+		d.active = false
+		d.mu.Unlock()
+		return
+	}
+
+	next := d.queue[0]
+	d.queue = d.queue[1:]
+	d.mu.Unlock()
+
+	d.showRequest(next)
 }
 
 // buildHeading creates the dialog heading based on permission types.

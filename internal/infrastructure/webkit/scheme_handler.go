@@ -28,6 +28,7 @@ import (
 const (
 	HomePath   = "home"
 	ConfigPath = "config"
+	WebRTCPath = "webrtc"
 	ErrorPath  = "error"
 	CrashPath  = "crash"
 	IndexHTML  = "index.html"
@@ -511,38 +512,8 @@ func (h *DumbSchemeHandler) handleAsset(u *url.URL) *SchemeResponse {
 		return nil
 	}
 
-	// Determine the target file based on host and path
-	host := u.Host
-	path := strings.TrimPrefix(u.Path, "/")
-
-	var relPath string
-	switch {
-	// Home root maps to index.html.
-	case host == HomePath && (path == "" || path == "/"):
-		relPath = IndexHTML
-	// Home asset paths map directly to assets.
-	case host == HomePath && path != "":
-		relPath = path
-	// Config root maps to config.html.
-	case host == ConfigPath && (path == "" || path == "/"):
-		relPath = "config.html"
-	// Config asset paths map directly to assets.
-	case host == ConfigPath && path != "":
-		relPath = path
-	// Error root maps to error.html.
-	case host == ErrorPath && (path == "" || path == "/"):
-		relPath = "error.html"
-	// Error asset paths map directly to assets.
-	case host == ErrorPath && path != "":
-		relPath = path
-	// Opaque home form maps to index.html.
-	case u.Opaque == HomePath:
-		relPath = IndexHTML
-	// Opaque error form maps to error.html.
-	case u.Opaque == ErrorPath:
-		relPath = "error.html"
-	default:
-		// Not a recognized asset path
+	relPath, ok := resolveAssetPath(u)
+	if !ok {
 		return nil
 	}
 
@@ -565,6 +536,38 @@ func (h *DumbSchemeHandler) handleAsset(u *url.URL) *SchemeResponse {
 		Data:        data,
 		ContentType: contentType,
 		StatusCode:  http.StatusOK,
+	}
+}
+
+func resolveAssetPath(u *url.URL) (string, bool) {
+	if u == nil {
+		return "", false
+	}
+
+	rootByHost := map[string]string{
+		HomePath:   IndexHTML,
+		ConfigPath: "config.html",
+		WebRTCPath: "webrtc.html",
+		ErrorPath:  "error.html",
+	}
+
+	if root, ok := rootByHost[u.Host]; ok {
+		path := strings.TrimPrefix(u.Path, "/")
+		if path == "" {
+			return root, true
+		}
+		return path, true
+	}
+
+	switch u.Opaque {
+	case HomePath:
+		return IndexHTML, true
+	case ErrorPath:
+		return "error.html", true
+	case WebRTCPath:
+		return "webrtc.html", true
+	default:
+		return "", false
 	}
 }
 

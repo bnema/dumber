@@ -60,10 +60,15 @@ func (sm *SettingsManager) applySettings(ctx context.Context, settings *webkit.S
 	applyCanvasSettings(settings)
 	applyWebRTCSettings(settings)
 
+	webrtcEnabled := settings.GetPropertyEnableWebrtc()
+	mediaStreamEnabled := settings.GetPropertyEnableMediaStream()
+
 	log.Debug().
 		Str("sans_font", cfg.Appearance.SansFont).
 		Str("rendering_mode", string(cfg.Rendering.Mode)).
 		Bool("developer_extras", cfg.Debug.EnableDevTools).
+		Bool("webrtc_enabled", webrtcEnabled).
+		Bool("media_stream_enabled", mediaStreamEnabled).
 		Msg("settings applied")
 }
 
@@ -152,6 +157,10 @@ func applyCanvasSettings(settings *webkit.Settings) {
 }
 
 func applyWebRTCSettings(settings *webkit.Settings) {
+	// Set both direct API and gobject properties for robustness with generated bindings.
+	settings.SetPropertyEnableMediaStream(true)
+	settings.SetPropertyEnableWebrtc(true)
+
 	settings.SetEnableWebrtc(true)
 }
 
