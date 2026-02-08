@@ -80,7 +80,7 @@ These work outside modal modes:
 | Action | Keys |
 |--------|------|
 | Toggle floating pane | `Alt+F` |
-| Close pane | `Ctrl+W` |
+| Close pane (or release floating pane) | `Ctrl+W` |
 | Next tab | `Ctrl+Tab` |
 | Previous tab | `Ctrl+Shift+Tab` |
 | Consume/expel left | `Alt+[` |
@@ -88,11 +88,16 @@ These work outside modal modes:
 | Consume/expel up | `Alt+{` |
 | Consume/expel down | `Alt+}` |
 
-`Alt+F` is the only floating-pane shortcut enabled by default.
-Any URL-opening shortcut (for example `Alt+G`) must be defined explicitly in `workspace.floating_pane.profiles`.
+- `Alt+F` is the only floating-pane shortcut enabled by default.
+- `Alt+F` toggles floating visibility and keeps floating pane state intact.
+- `Ctrl+W` closes the active pane; when the floating pane is active, it fully releases that floating session.
+- Any URL shortcut (for example `Alt+G`) must be defined explicitly in `workspace.floating_pane.profiles`.
+- Floating profile shortcuts support modifier combos with `ctrl`, `shift`, and `alt` (for example `ctrl+shift+y` or `ctrl+alt+m`).
 
-Warning: some `Alt+<key>` combinations may already be handled by WebKit, websites, or your desktop environment.
+Warning: some `Alt+<key>` combinations may conflict with default WebKit shortcuts, website handlers, or your desktop environment.
 If a shortcut does not trigger in Dumber, choose a different keybinding.
+
+For details, see [Floating Pane](./floating-pane.md).
 
 ## Customization
 

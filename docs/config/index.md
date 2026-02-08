@@ -301,7 +301,7 @@ Global shortcuts are configured under `workspace.shortcuts.actions` using the sa
 | Action | Default Keys | Description |
 |--------|--------------|-------------|
 | `toggle_floating_pane` | `alt+f` | Toggle the workspace floating pane (persistent session) |
-| `close_pane` | `ctrl+w` | Close active pane (closes tab if last pane) |
+| `close_pane` | `ctrl+w` | Close active pane (or release floating pane when floating is active) |
 | `next_tab` | `ctrl+tab` | Switch to next tab |
 | `previous_tab` | `ctrl+shift+tab` | Switch to previous tab |
 | `consume_or_expel_left` | `alt+[` | Consume into left sibling stack, or expel left if stacked |
@@ -339,6 +339,9 @@ The floating workspace pane is a persistent overlay session: hiding it does not 
 
 - Default behavior includes exactly one floating shortcut: `Alt+F` (`toggle_floating_pane`).
 - URL shortcuts (for example `Alt+G`) are user-defined via `workspace.floating_pane.profiles` and are empty by default.
+- `Alt+F` toggles visibility only and preserves floating state.
+- `Ctrl+W` on an active floating pane closes and releases that floating session for a fresh next open.
+- Floating profile keybindings support modifier combos with `ctrl`, `shift`, and `alt` (for example `ctrl+shift+y` or `ctrl+alt+m`).
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
