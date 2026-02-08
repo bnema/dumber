@@ -82,6 +82,15 @@ var TabPickerListDefaults = ListDisplayDefaults{
 	MaxResults:     20,
 }
 
+// PermissionPopupSizeDefaults provides default sizing for permission popup modal.
+var PermissionPopupSizeDefaults = ModalSizeConfig{
+	WidthPct:       0.4,
+	MaxWidth:       400,
+	TopMarginPct:   0.3,
+	FallbackWidth:  400,
+	FallbackHeight: 300,
+}
+
 // EffectiveMaxRows returns the maximum number of visible rows that fit
 // in the available space. It computes available height by subtracting the
 // top margin (TopMarginPct of parentHeight) and chrome height (header tabs +

@@ -4,8 +4,8 @@ import (
 	"embed"
 )
 
-// WebUIAssets contains the embedded webui build output (homepage, error, and config pages).
-// Used by the scheme handler to serve dumb://home, dumb://error, and dumb://config.
+// WebUIAssets contains the embedded webui build output (homepage, error, config, and webrtc pages).
+// Used by the scheme handler to serve dumb://home, dumb://error, dumb://config, and dumb://webrtc.
 //
 //go:embed webui/*
 var WebUIAssets embed.FS

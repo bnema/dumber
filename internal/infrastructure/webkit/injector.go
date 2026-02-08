@@ -141,6 +141,25 @@ const autoCopySelectionScript = `(function() {
   });
 })();`
 
+// webRTCCompatScript maps legacy Safari-prefixed WebRTC globals to standard names.
+// Some pages gate support on window.RTCPeerConnection and report false negatives
+// when only webkit-prefixed constructors are present.
+const webRTCCompatScript = `(function() {
+  if (!window.RTCPeerConnection && window.webkitRTCPeerConnection) {
+    window.RTCPeerConnection = window.webkitRTCPeerConnection;
+  }
+  if (!window.RTCSessionDescription && window.webkitRTCSessionDescription) {
+    window.RTCSessionDescription = window.webkitRTCSessionDescription;
+  }
+  if (!window.RTCIceCandidate && window.webkitRTCIceCandidate) {
+    window.RTCIceCandidate = window.webkitRTCIceCandidate;
+  }
+})();`
+
+func buildWebRTCCompatScript() string {
+	return webRTCCompatScript
+}
+
 // ContentInjector encapsulates script injection into WebViews.
 // It injects dark mode detection scripts for internal pages (dumb://)
 // and theme CSS variables for WebUI styling.
@@ -217,7 +236,19 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 
 	prefersDark := ci.PrefersDark()
 
-	// 1. Inject WebView ID for debugging (internal pages only)
+	// 1. Inject WebRTC compatibility aliases for all pages.
+	addScript(
+		webkit.NewUserScript(
+			buildWebRTCCompatScript(),
+			webkit.UserContentInjectTopFrameValue,
+			webkit.UserScriptInjectAtDocumentStartValue,
+			nil,
+			nil,
+		),
+		"webrtc-compat-shim",
+	)
+
+	// 2. Inject WebView ID for debugging (internal pages only)
 	if webviewID != 0 {
 		idScript := fmt.Sprintf("window.__dumber_webview_id=%d;", uint64(webviewID))
 		addScript(
@@ -235,7 +266,7 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		log.Warn().Msg("webview ID is 0, skipping ID injection")
 	}
 
-	// 2. Inject dark mode handler for internal pages only
+	// 3. Inject dark mode handler for internal pages only
 	// This sets .dark/.light class on <html> and patches matchMedia for WebUI
 	internalDarkModeScript := fmt.Sprintf(internalDarkModeScriptTemplate, prefersDark)
 	addScript(
@@ -249,7 +280,7 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		"internal-dark-mode-handler",
 	)
 
-	// 3. Inject theme CSS for internal pages (dumb://* only)
+	// 4. Inject theme CSS for internal pages (dumb://* only)
 	if ci.themeCSSVars != "" {
 		// Escape for JS string literal
 		escapedCSS := strings.ReplaceAll(ci.themeCSSVars, "\\", "\\\\")
@@ -269,7 +300,7 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		log.Debug().Msg("theme CSS vars injection configured for internal pages")
 	}
 
-	// 4. Inject find highlight CSS for all pages
+	// 5. Inject find highlight CSS for all pages
 	if ci.findCSS != "" {
 		stylesheet := webkit.NewUserStyleSheet(
 			ci.findCSS,
@@ -286,7 +317,7 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		}
 	}
 
-	// 5. Inject auto-copy selection script for all pages (if enabled)
+	// 6. Inject auto-copy selection script for all pages (if enabled)
 	autoCopyEnabled := ci.autoCopyConfigGetter != nil && ci.autoCopyConfigGetter()
 	if autoCopyEnabled {
 		addScript(
