@@ -173,7 +173,7 @@ func (m *Migrator) DetectChanges() ([]port.KeyChange, error) {
 func (m *Migrator) findDeprecatedKeys(userKeys map[string]any, defaultKeys map[string]bool) []string {
 	var deprecated []string
 	for userKey := range userKeys {
-		if userKey == "database.path" {
+		if userKey == databasePathKey {
 			continue
 		}
 		if !m.keyOrRelatedExistsInDefaults(userKey, defaultKeys) {
@@ -264,6 +264,7 @@ const (
 	configFormatTOML             = "toml"
 	configFormatYAML             = "yaml"
 	configFormatJSON             = "json"
+	databasePathKey              = "database.path"
 	workspaceShortcutsActionsKey = "workspace.shortcuts.actions"
 )
 
@@ -629,7 +630,7 @@ func (m *Migrator) getAllDefaultKeys() []string {
 	filtered := make([]string, 0, len(keys))
 	for _, key := range keys {
 		// Skip database.path as it's set dynamically
-		if key == "database.path" {
+		if key == databasePathKey {
 			continue
 		}
 		filtered = append(filtered, key)

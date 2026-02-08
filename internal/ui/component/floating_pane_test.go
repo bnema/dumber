@@ -2,6 +2,7 @@ package component_test
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 
@@ -149,4 +150,55 @@ func TestFloatingPane_ConcurrentResizeAndParentSwitch(t *testing.T) {
 	width, height := fp.Dimensions()
 	assert.Positive(t, width)
 	assert.Positive(t, height)
+}
+
+func TestFloatingPane_ShowURL_RollsBackVisibilityOnNavigateError(t *testing.T) {
+	expectedErr := errors.New("navigate failed")
+	fp := component.NewFloatingPane(nil, component.FloatingPaneOptions{
+		WidthPct:       0.82,
+		HeightPct:      0.72,
+		FallbackWidth:  1200,
+		FallbackHeight: 800,
+		OnNavigate: func(context.Context, string) error {
+			return expectedErr
+		},
+	})
+
+	err := fp.ShowURL(context.Background(), "https://example.com")
+	require.ErrorIs(t, err, expectedErr)
+	assert.False(t, fp.IsVisible())
+	assert.False(t, fp.IsOmniboxVisible())
+	assert.Empty(t, fp.CurrentURL())
+}
+
+func TestFloatingPane_ShowToggleNavigateError_DoesNotClobberConcurrentStateChange(t *testing.T) {
+	navigationStarted := make(chan struct{})
+	releaseNavigation := make(chan struct{})
+	expectedErr := errors.New("navigate failed")
+
+	fp := component.NewFloatingPane(nil, component.FloatingPaneOptions{
+		WidthPct:       0.82,
+		HeightPct:      0.72,
+		FallbackWidth:  1200,
+		FallbackHeight: 800,
+		OnNavigate: func(context.Context, string) error {
+			close(navigationStarted)
+			<-releaseNavigation
+			return expectedErr
+		},
+	})
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- fp.ShowToggle(context.Background())
+	}()
+
+	<-navigationStarted
+	fp.Show()
+	close(releaseNavigation)
+
+	err := <-errCh
+	require.ErrorIs(t, err, expectedErr)
+	assert.True(t, fp.IsVisible())
+	assert.False(t, fp.IsOmniboxVisible())
 }
