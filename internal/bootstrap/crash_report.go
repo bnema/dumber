@@ -23,6 +23,7 @@ const (
 	crashReportsDirName = "crashes"
 	logTailLineCount    = 120
 	maxCrashReportsKept = 20
+	scannerMaxTokenSize = 256 * 1024
 )
 
 type unexpectedCloseReport struct {
@@ -214,19 +215,30 @@ func readRedactedLogTail(path string, lines int) []string {
 	}
 	defer func() { _ = file.Close() }()
 
-	all := make([]string, 0, lines)
+	ring := make([]string, lines)
+	count := 0
 	scanner := bufio.NewScanner(file)
-	scanner.Buffer(make([]byte, 0, 256*1024), 256*1024)
+	scanner.Buffer(make([]byte, 0, scannerMaxTokenSize), scannerMaxTokenSize)
 	for scanner.Scan() {
-		all = append(all, redactSensitiveContent(scanner.Text()))
+		ring[count%lines] = redactSensitiveContent(scanner.Text())
+		count++
 	}
+
+	var result []string
+	if count <= lines {
+		result = make([]string, count)
+		copy(result, ring[:count])
+	} else {
+		result = make([]string, lines)
+		start := count % lines
+		copy(result, ring[start:])
+		copy(result[lines-start:], ring[:start])
+	}
+
 	if scanner.Err() != nil {
-		all = append(all, fmt.Sprintf("[log tail truncated: %v]", scanner.Err()))
+		result = append(result, fmt.Sprintf("[log tail truncated: %v]", scanner.Err()))
 	}
-	if len(all) <= lines {
-		return all
-	}
-	return all[len(all)-lines:]
+	return result
 }
 
 func buildUnexpectedCloseMarkdown(report unexpectedCloseReport) string {
@@ -294,9 +306,15 @@ var urlRegex = regexp.MustCompile(`(?i)\b(?:https?|wss?)://[^\s\]\)\"'<>]+`)
 
 var secretKeyRegex = regexp.MustCompile(`(?i)(token|access_token|id_token|code|password|passwd|secret|authorization)=([^&\s]+)`)
 
+var secretJSONRegex = regexp.MustCompile(`(?i)"(token|access_token|id_token|password|secret)"\s*:\s*"(.*?)"`)
+
+var secretHeaderRegex = regexp.MustCompile(`(?i)(authorization|auth):\s*(\S[^\n,;]*)`)
+
 func redactSensitiveContent(line string) string {
 	redacted := urlRegex.ReplaceAllStringFunc(line, redactURLString)
 	redacted = secretKeyRegex.ReplaceAllString(redacted, "$1=[REDACTED]")
+	redacted = secretJSONRegex.ReplaceAllString(redacted, `"$1":"[REDACTED]"`)
+	redacted = secretHeaderRegex.ReplaceAllString(redacted, "$1: [REDACTED]")
 	return redacted
 }
 
