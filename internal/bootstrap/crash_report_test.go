@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,13 +15,63 @@ import (
 )
 
 func TestRedactSensitiveContent(t *testing.T) {
-	line := "redirect to https://example.com/cb?code=abc123&token=secret#frag"
-	redacted := redactSensitiveContent(line)
+	t.Run("url_query_params", func(t *testing.T) {
+		line := "redirect to https://example.com/cb?code=abc123&token=secret#frag"
+		redacted := redactSensitiveContent(line)
+		assert.Contains(t, redacted, "https://example.com/cb")
+		assert.NotContains(t, redacted, "code=abc123")
+		assert.NotContains(t, redacted, "token=secret")
+		assert.NotContains(t, redacted, "#frag")
+	})
 
-	assert.Contains(t, redacted, "https://example.com/cb")
-	assert.NotContains(t, redacted, "code=abc123")
-	assert.NotContains(t, redacted, "token=secret")
-	assert.NotContains(t, redacted, "#frag")
+	t.Run("json_secret_fields", func(t *testing.T) {
+		line := `{"token":"eyJhbGciOi","access_token":"sk-abc123","password":"hunter2"}`
+		redacted := redactSensitiveContent(line)
+		assert.NotContains(t, redacted, "eyJhbGciOi")
+		assert.NotContains(t, redacted, "sk-abc123")
+		assert.NotContains(t, redacted, "hunter2")
+		assert.Contains(t, redacted, `"token":"[REDACTED]"`)
+		assert.Contains(t, redacted, `"access_token":"[REDACTED]"`)
+		assert.Contains(t, redacted, `"password":"[REDACTED]"`)
+	})
+
+	t.Run("authorization_headers", func(t *testing.T) {
+		line := "Authorization: Bearer eyJhbGciOiJSUz"
+		redacted := redactSensitiveContent(line)
+		assert.NotContains(t, redacted, "eyJhbGciOiJSUz")
+		assert.Contains(t, redacted, "[REDACTED]")
+
+		line2 := "auth: basic dXNlcjpwYXNz"
+		redacted2 := redactSensitiveContent(line2)
+		assert.NotContains(t, redacted2, "dXNlcjpwYXNz")
+		assert.Contains(t, redacted2, "[REDACTED]")
+	})
+}
+
+func TestReadRedactedLogTail_RingBuffer(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.log")
+
+	var lines []string
+	for i := 0; i < 10; i++ {
+		lines = append(lines, fmt.Sprintf("line %d", i))
+	}
+	require.NoError(t, os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), markerFilePerm))
+
+	t.Run("fewer_lines_than_requested", func(t *testing.T) {
+		result := readRedactedLogTail(path, 20)
+		assert.Len(t, result, 10)
+		assert.Equal(t, "line 0", result[0])
+		assert.Equal(t, "line 9", result[9])
+	})
+
+	t.Run("exact_tail", func(t *testing.T) {
+		result := readRedactedLogTail(path, 3)
+		assert.Len(t, result, 3)
+		assert.Equal(t, "line 7", result[0])
+		assert.Equal(t, "line 8", result[1])
+		assert.Equal(t, "line 9", result[2])
+	})
 }
 
 func TestWriteUnexpectedCloseReport(t *testing.T) {
