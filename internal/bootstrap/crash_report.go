@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -21,6 +22,7 @@ import (
 const (
 	crashReportsDirName = "crashes"
 	logTailLineCount    = 120
+	maxCrashReportsKept = 20
 )
 
 type unexpectedCloseReport struct {
@@ -78,9 +80,26 @@ func writeUnexpectedCloseReport(lockDir, sessionID string) (string, error) {
 		return "", err
 	}
 
+	pruneOldCrashReports(reportsDir, maxCrashReportsKept)
+
 	jsonPath := filepath.Join(reportsDir, fmt.Sprintf("session_%s.crash.json", sessionID))
 	markdownPath := filepath.Join(reportsDir, fmt.Sprintf("session_%s.crash.md", sessionID))
 	if _, statErr := os.Stat(jsonPath); statErr == nil {
+		if _, mdErr := os.Stat(markdownPath); mdErr == nil {
+			return jsonPath, nil
+		}
+		raw, readErr := os.ReadFile(jsonPath)
+		if readErr != nil {
+			return "", readErr
+		}
+		var existing unexpectedCloseReport
+		if err := json.Unmarshal(raw, &existing); err != nil {
+			return "", err
+		}
+		markdown := buildUnexpectedCloseMarkdown(existing)
+		if err := os.WriteFile(markdownPath, []byte(markdown), markerFilePerm); err != nil {
+			return "", err
+		}
 		return jsonPath, nil
 	} else if !os.IsNotExist(statErr) {
 		return "", statErr
@@ -197,8 +216,12 @@ func readRedactedLogTail(path string, lines int) []string {
 
 	all := make([]string, 0, lines)
 	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 0, 256*1024), 256*1024)
 	for scanner.Scan() {
 		all = append(all, redactSensitiveContent(scanner.Text()))
+	}
+	if scanner.Err() != nil {
+		all = append(all, fmt.Sprintf("[log tail truncated: %v]", scanner.Err()))
 	}
 	if len(all) <= lines {
 		return all
@@ -287,4 +310,34 @@ func redactURLString(raw string) string {
 	u.RawQuery = ""
 	u.Fragment = ""
 	return u.String()
+}
+
+func pruneOldCrashReports(reportsDir string, maxKeep int) {
+	matches, err := filepath.Glob(filepath.Join(reportsDir, "session_*.crash.json"))
+	if err != nil || len(matches) <= maxKeep {
+		return
+	}
+
+	type reportEntry struct {
+		path    string
+		modTime time.Time
+	}
+	entries := make([]reportEntry, 0, len(matches))
+	for _, p := range matches {
+		info, statErr := os.Stat(p)
+		if statErr != nil {
+			continue
+		}
+		entries = append(entries, reportEntry{path: p, modTime: info.ModTime()})
+	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].modTime.After(entries[j].modTime)
+	})
+
+	for _, e := range entries[maxKeep:] {
+		_ = os.Remove(e.path)
+		mdPath := strings.TrimSuffix(e.path, ".json") + ".md"
+		_ = os.Remove(mdPath)
+	}
 }
