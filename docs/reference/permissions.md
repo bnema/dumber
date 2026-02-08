@@ -35,9 +35,12 @@ When a site requests mic/camera access, a dialog appears with four options:
 
 ### Origin-Based Storage
 
-Permissions are stored per-origin (scheme + host), not per-page. This means:
+Permissions are stored per-origin (scheme + host + port), not per-page.
+Default ports are normalized away (`:80` for `http`, `:443` for `https`). This means:
 
-- `https://meet.google.com/room1` and `https://meet.google.com/room2` share the same permission (same host)
+- `https://meet.google.com/room1` and `https://meet.google.com/room2` share the same permission (same origin)
+- `https://meet.google.com:443/room1` and `https://meet.google.com/room1` share the same permission (default `https` port)
+- `https://meet.google.com:8443/room1` and `https://meet.google.com/room1` have different permissions (different port)
 - `https://github.com` and `https://gist.github.com` have different permissions (different hosts)
 
 ### Permission States
@@ -52,7 +55,7 @@ The permission system follows W3C specifications:
 
 - Display capture permissions are **never persisted** (always prompt via portal)
 - Mic/camera permissions **can be persisted** with user consent
-- Permissions are scoped to origins (scheme + host)
+- Permissions are scoped to origins (scheme + host + port)
 
 ## Managing Stored Permissions
 

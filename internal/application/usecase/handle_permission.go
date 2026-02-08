@@ -9,7 +9,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/logging"
+	"github.com/rs/zerolog"
 )
 
 // PermissionCallback provides allow/deny functions for the permission request.
@@ -24,20 +24,37 @@ type PermissionCallback struct {
 // - Device enumeration: auto-allow (low risk)
 // - Mic/Camera: check stored → dialog → persist if "Always"
 type HandlePermissionUseCase struct {
-	permRepo port.PermissionRepository
-	dialog   port.PermissionDialogPresenter
-	dialogMu sync.RWMutex
+	permRepo          port.PermissionRepository
+	dialog            port.PermissionDialogPresenter
+	loggerFromContext port.LoggerFromContext
+	dialogMu          sync.RWMutex
 }
 
 // NewHandlePermissionUseCase creates a new permission handling use case.
 func NewHandlePermissionUseCase(
 	permRepo port.PermissionRepository,
 	dialog port.PermissionDialogPresenter,
+	loggerFromContext port.LoggerFromContext,
 ) *HandlePermissionUseCase {
 	return &HandlePermissionUseCase{
-		permRepo: permRepo,
-		dialog:   dialog,
+		permRepo:          permRepo,
+		dialog:            dialog,
+		loggerFromContext: loggerFromContext,
 	}
+}
+
+func (uc *HandlePermissionUseCase) logger(ctx context.Context) *zerolog.Logger {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if uc == nil || uc.loggerFromContext == nil {
+		return zerolog.Ctx(ctx)
+	}
+	log := uc.loggerFromContext(ctx)
+	if log == nil {
+		return zerolog.Ctx(ctx)
+	}
+	return log
 }
 
 // SetDialogPresenter sets the dialog presenter. This can be called after
@@ -69,7 +86,7 @@ func (uc *HandlePermissionUseCase) HandlePermissionRequest(
 	permTypes []entity.PermissionType,
 	callback PermissionCallback,
 ) {
-	log := logging.FromContext(ctx).With().
+	log := uc.logger(ctx).With().
 		Str("component", "permission").
 		Str("origin", origin).
 		Strs("types", entity.PermissionTypesToStrings(permTypes)).
@@ -128,7 +145,7 @@ func (uc *HandlePermissionUseCase) QueryPermissionState(
 	origin string,
 	permType entity.PermissionType,
 ) entity.PermissionDecision {
-	log := logging.FromContext(ctx).With().
+	log := uc.logger(ctx).With().
 		Str("component", "permission").
 		Str("origin", origin).
 		Str("type", string(permType)).
@@ -172,7 +189,7 @@ func (uc *HandlePermissionUseCase) checkStoredPermissions(
 	origin string,
 	permTypes []entity.PermissionType,
 ) entity.PermissionDecision {
-	log := logging.FromContext(ctx)
+	log := uc.logger(ctx)
 
 	hasPrompt := false
 
@@ -229,7 +246,7 @@ func (uc *HandlePermissionUseCase) showPermissionDialog(
 	permTypes []entity.PermissionType,
 	callback PermissionCallback,
 ) {
-	log := logging.FromContext(ctx)
+	log := uc.logger(ctx)
 
 	dialog := uc.getDialog()
 
@@ -268,7 +285,7 @@ func (uc *HandlePermissionUseCase) persistPermission(
 	permTypes []entity.PermissionType,
 	decision entity.PermissionDecision,
 ) {
-	log := logging.FromContext(ctx)
+	log := uc.logger(ctx)
 
 	for _, permType := range permTypes {
 		// Only persist allowed types

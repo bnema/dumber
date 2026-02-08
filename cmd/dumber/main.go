@@ -463,7 +463,7 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 	updateApplier := updater.NewApplier(stateDir)
 
 	// Permission use case will be initialized later with dialog presenter
-	permissionUC := usecase.NewHandlePermissionUseCase(repos.permission, nil)
+	permissionUC := usecase.NewHandlePermissionUseCase(repos.permission, nil, logging.FromContext)
 
 	return &useCases{
 		tabs:           usecase.NewManageTabsUseCase(idGenerator),

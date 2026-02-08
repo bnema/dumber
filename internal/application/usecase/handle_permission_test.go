@@ -10,17 +10,22 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	repomocks "github.com/bnema/dumber/internal/domain/repository/mocks"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+func permissionLoggerFromContext(ctx context.Context) *zerolog.Logger {
+	return zerolog.Ctx(ctx)
+}
 
 func TestHandlePermissionUseCase_AutoAllowDisplayCapture(t *testing.T) {
 	ctx := testContext()
 	permRepo := repomocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
-	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog)
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
 
 	permRepo.EXPECT().Get(mock.Anything, "https://meet.example.com", entity.PermissionTypeDisplay).
 		Return(nil, nil)
@@ -47,7 +52,7 @@ func TestHandlePermissionUseCase_AutoAllowDeviceInfo(t *testing.T) {
 	permRepo := repomocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
-	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog)
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
 
 	permRepo.EXPECT().Get(mock.Anything, "https://example.com", entity.PermissionTypeDeviceInfo).
 		Return(nil, nil)
@@ -71,7 +76,7 @@ func TestHandlePermissionUseCase_StoredPermissionGranted(t *testing.T) {
 	permRepo := repomocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
-	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog)
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
 
 	// Return stored granted permission
 	permRepo.EXPECT().Get(mock.Anything, "https://meet.example.com", entity.PermissionTypeMicrophone).
@@ -101,7 +106,7 @@ func TestHandlePermissionUseCase_StoredPermissionDenied(t *testing.T) {
 	permRepo := repomocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
-	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog)
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
 
 	// Return stored denied permission
 	permRepo.EXPECT().Get(mock.Anything, "https://meet.example.com", entity.PermissionTypeCamera).
@@ -131,7 +136,7 @@ func TestHandlePermissionUseCase_ShowDialogForPrompt(t *testing.T) {
 	permRepo := repomocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
-	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog)
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
 
 	// No stored permission (returns nil)
 	permRepo.EXPECT().Get(mock.Anything, "https://meet.example.com", entity.PermissionTypeMicrophone).
@@ -164,7 +169,7 @@ func TestHandlePermissionUseCase_PersistAllowed(t *testing.T) {
 	permRepo := repomocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
-	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog)
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
 
 	// No stored permission
 	permRepo.EXPECT().Get(mock.Anything, "https://meet.example.com", entity.PermissionTypeMicrophone).
@@ -203,7 +208,7 @@ func TestHandlePermissionUseCase_PersistDenied(t *testing.T) {
 	permRepo := repomocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
-	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog)
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
 
 	// No stored permission
 	permRepo.EXPECT().Get(mock.Anything, "https://meet.example.com", entity.PermissionTypeCamera).
@@ -241,7 +246,7 @@ func TestHandlePermissionUseCase_EmptyOrigin(t *testing.T) {
 	permRepo := repomocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
-	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog)
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
 
 	denied := false
 	callback := usecase.PermissionCallback{
@@ -262,7 +267,7 @@ func TestHandlePermissionUseCase_CombinedPermissions(t *testing.T) {
 	permRepo := repomocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
-	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog)
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
 
 	// Both mic and camera - one denied means whole request denied
 	permRepo.EXPECT().Get(mock.Anything, "https://meet.example.com", entity.PermissionTypeMicrophone).
@@ -298,7 +303,7 @@ func TestHandlePermissionUseCase_QueryPermissionState_AutoAllow(t *testing.T) {
 	permRepo := repomocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
-	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog)
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
 	permRepo.EXPECT().Get(mock.Anything, "https://example.com", entity.PermissionTypeDisplay).
 		Return(nil, nil)
 
@@ -312,7 +317,7 @@ func TestHandlePermissionUseCase_QueryPermissionState_AutoAllowManualOverride(t 
 	permRepo := repomocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
-	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog)
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
 
 	permRepo.EXPECT().Get(mock.Anything, "https://example.com", entity.PermissionTypeDisplay).
 		Return(&entity.PermissionRecord{
@@ -331,7 +336,7 @@ func TestHandlePermissionUseCase_QueryPermissionState_Stored(t *testing.T) {
 	permRepo := repomocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
-	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog)
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
 
 	permRepo.EXPECT().Get(mock.Anything, "https://meet.example.com", entity.PermissionTypeMicrophone).
 		Return(&entity.PermissionRecord{
@@ -350,7 +355,7 @@ func TestHandlePermissionUseCase_QueryPermissionState_NoRecord(t *testing.T) {
 	permRepo := repomocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
-	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog)
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
 
 	permRepo.EXPECT().Get(mock.Anything, "https://meet.example.com", entity.PermissionTypeCamera).
 		Return(nil, nil)
@@ -365,7 +370,7 @@ func TestHandlePermissionUseCase_NonPersistableNotSaved(t *testing.T) {
 	permRepo := repomocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
-	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog)
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
 
 	// Display capture is not persistable per W3C spec
 	// A stored override may exist, so a Get call is expected before auto-allow.
@@ -392,7 +397,7 @@ func TestHandlePermissionUseCase_NoDialogPresenter(t *testing.T) {
 	permRepo := repomocks.NewMockPermissionRepository(t)
 
 	// Create use case with nil dialog presenter
-	uc := usecase.NewHandlePermissionUseCase(permRepo, nil)
+	uc := usecase.NewHandlePermissionUseCase(permRepo, nil, permissionLoggerFromContext)
 
 	denied := false
 	callback := usecase.PermissionCallback{
@@ -416,7 +421,7 @@ func TestHandlePermissionUseCase_DisplayOverrideDenied(t *testing.T) {
 	permRepo := repomocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
-	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog)
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
 
 	permRepo.EXPECT().Get(mock.Anything, "https://meet.example.com", entity.PermissionTypeDisplay).
 		Return(&entity.PermissionRecord{
@@ -442,7 +447,7 @@ func TestHandlePermissionUseCase_DisplayOverrideDenied(t *testing.T) {
 func TestHandlePermissionUseCase_GetSetResetManualDecision(t *testing.T) {
 	ctx := testContext()
 	permRepo := repomocks.NewMockPermissionRepository(t)
-	uc := usecase.NewHandlePermissionUseCase(permRepo, nil)
+	uc := usecase.NewHandlePermissionUseCase(permRepo, nil, permissionLoggerFromContext)
 
 	permRepo.EXPECT().Set(mock.Anything, mock.AnythingOfType("*entity.PermissionRecord")).
 		Run(func(_ context.Context, record *entity.PermissionRecord) {
@@ -482,7 +487,7 @@ func TestHandlePermissionUseCase_GetSetResetManualDecision(t *testing.T) {
 func TestHandlePermissionUseCase_SetManualPermissionDecision_NonPersistable(t *testing.T) {
 	ctx := testContext()
 	permRepo := repomocks.NewMockPermissionRepository(t)
-	uc := usecase.NewHandlePermissionUseCase(permRepo, nil)
+	uc := usecase.NewHandlePermissionUseCase(permRepo, nil, permissionLoggerFromContext)
 
 	err := uc.SetManualPermissionDecision(
 		ctx,
@@ -495,4 +500,24 @@ func TestHandlePermissionUseCase_SetManualPermissionDecision_NonPersistable(t *t
 	require.ErrorContains(t, err, "permission type not persistable")
 	permRepo.AssertNotCalled(t, "Set")
 	permRepo.AssertNotCalled(t, "Delete")
+}
+
+func TestHandlePermissionUseCase_UsesInjectedLoggerFactory(t *testing.T) {
+	ctx := testContext()
+	permRepo := repomocks.NewMockPermissionRepository(t)
+	dialog := portmocks.NewMockPermissionDialogPresenter(t)
+
+	called := false
+	loggerFactory := func(ctx context.Context) *zerolog.Logger {
+		called = true
+		return zerolog.Ctx(ctx)
+	}
+
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, loggerFactory)
+	uc.HandlePermissionRequest(ctx, "", []entity.PermissionType{entity.PermissionTypeMicrophone}, usecase.PermissionCallback{
+		Allow: func() {},
+		Deny:  func() {},
+	})
+
+	assert.True(t, called)
 }
