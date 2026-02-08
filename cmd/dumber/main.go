@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"runtime/debug"
+	"strconv"
 	"syscall"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -31,6 +33,7 @@ import (
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/theme"
 	"github.com/rs/zerolog"
+	"golang.org/x/sys/unix"
 )
 
 // Build-time variables (set via ldflags).
@@ -47,6 +50,8 @@ var initialURL string
 var restoreSessionID string
 
 func main() {
+	enableCrashForensics()
+
 	// Run GUI mode for browse command
 	if len(os.Args) > 1 && os.Args[1] == "browse" {
 		if len(os.Args) > 2 {
@@ -105,6 +110,7 @@ func runGUI() int {
 
 	log := logging.FromContext(ctx)
 	logging.Trace().UpdateLogger(log)
+	logCoreDumpLimits(ctx)
 
 	if stack.MessageRouter != nil {
 		stack.MessageRouter.SetBaseContext(ctx)
@@ -198,7 +204,7 @@ func buildAndConfigureApp(
 	uiDeps := buildUIDependencies(
 		ctx, cfg, initResult.ThemeManager,
 		initResult.ColorResolver, initResult.AdwaitaDetector,
-		stack, repos, useCases, idleInhibitor, browserSession.Session.ID,
+		stack, repos, useCases, idleInhibitor, browserSession.Session.ID, browserSession.UnexpectedCloseReports(),
 	)
 	configureDeferredInit(uiDeps, cfg, browserSession)
 	return ui.New(uiDeps)
@@ -295,8 +301,15 @@ func configureDeferredInit(
 			go func() {
 				if persistErr := session.Persist(bgCtx); persistErr != nil {
 					logger.Error().Err(persistErr).Msg("deferred session persistence failed")
-				} else if uiDeps.OnSessionPersisted != nil {
-					uiDeps.OnSessionPersisted()
+				} else {
+					if uiDeps.OnCrashReportsDetected != nil {
+						if reports := session.UnexpectedCloseReports(); len(reports) > 0 {
+							uiDeps.OnCrashReportsDetected(reports)
+						}
+					}
+					if uiDeps.OnSessionPersisted != nil {
+						uiDeps.OnSessionPersisted()
+					}
 				}
 			}()
 		}
@@ -379,6 +392,41 @@ func setupSignalHandler(ctx context.Context, app *ui.App) {
 		log.Info().Str("signal", sig.String()).Msg("received interrupt, quitting")
 		app.Quit()
 	}()
+}
+
+func enableCrashForensics() {
+	debug.SetTraceback("crash")
+
+	var limit unix.Rlimit
+	if err := unix.Getrlimit(unix.RLIMIT_CORE, &limit); err != nil {
+		return
+	}
+	if limit.Cur >= limit.Max {
+		return
+	}
+	limit.Cur = limit.Max
+	_ = unix.Setrlimit(unix.RLIMIT_CORE, &limit)
+}
+
+func logCoreDumpLimits(ctx context.Context) {
+	log := logging.FromContext(ctx)
+	var limit unix.Rlimit
+	if err := unix.Getrlimit(unix.RLIMIT_CORE, &limit); err != nil {
+		log.Debug().Err(err).Msg("failed to read RLIMIT_CORE")
+		return
+	}
+
+	log.Debug().
+		Str("soft", formatRlimit(limit.Cur)).
+		Str("hard", formatRlimit(limit.Max)).
+		Msg("core dump limits")
+}
+
+func formatRlimit(value uint64) string {
+	if value == unix.RLIM_INFINITY {
+		return "infinity"
+	}
+	return strconv.FormatUint(value, 10)
 }
 
 // repositories groups infrastructure layer repository implementations.
@@ -486,40 +534,42 @@ func buildUIDependencies(
 	uc *useCases,
 	idleInhibitor port.IdleInhibitor,
 	currentSessionID entity.SessionID,
+	startupCrashReports []string,
 ) *ui.Dependencies {
 	return &ui.Dependencies{
-		Ctx:              ctx,
-		Config:           cfg,
-		InitialURL:       initialURL,
-		RestoreSessionID: restoreSessionID,
-		Theme:            themeManager,
-		ColorResolver:    colorResolver,
-		AdwaitaDetector:  adwaitaDetector,
-		XDG:              xdg.New(),
-		WebContext:       stack.Context,
-		Pool:             stack.Pool,
-		Settings:         stack.Settings,
-		Injector:         stack.Injector,
-		MessageRouter:    stack.MessageRouter,
-		FilterManager:    stack.FilterManager,
-		HistoryRepo:      repos.history,
-		FavoriteRepo:     repos.favorite,
-		ZoomRepo:         repos.zoom,
-		TabsUC:           uc.tabs,
-		PanesUC:          uc.panes,
-		HistoryUC:        uc.history,
-		FavoritesUC:      uc.favorites,
-		ZoomUC:           uc.zoom,
-		NavigateUC:       uc.navigate,
-		CopyURLUC:        uc.copyURL,
-		Clipboard:        uc.clipboard,
-		FaviconService:   uc.favicon,
-		IdleInhibitor:    idleInhibitor,
-		SessionRepo:      repos.session,
-		SessionStateRepo: repos.sessionState,
-		CurrentSessionID: currentSessionID,
-		SnapshotUC:       uc.snapshot,
-		CheckUpdateUC:    uc.checkUpdate,
-		ApplyUpdateUC:    uc.applyUpdate,
+		Ctx:                 ctx,
+		Config:              cfg,
+		InitialURL:          initialURL,
+		RestoreSessionID:    restoreSessionID,
+		StartupCrashReports: startupCrashReports,
+		Theme:               themeManager,
+		ColorResolver:       colorResolver,
+		AdwaitaDetector:     adwaitaDetector,
+		XDG:                 xdg.New(),
+		WebContext:          stack.Context,
+		Pool:                stack.Pool,
+		Settings:            stack.Settings,
+		Injector:            stack.Injector,
+		MessageRouter:       stack.MessageRouter,
+		FilterManager:       stack.FilterManager,
+		HistoryRepo:         repos.history,
+		FavoriteRepo:        repos.favorite,
+		ZoomRepo:            repos.zoom,
+		TabsUC:              uc.tabs,
+		PanesUC:             uc.panes,
+		HistoryUC:           uc.history,
+		FavoritesUC:         uc.favorites,
+		ZoomUC:              uc.zoom,
+		NavigateUC:          uc.navigate,
+		CopyURLUC:           uc.copyURL,
+		Clipboard:           uc.clipboard,
+		FaviconService:      uc.favicon,
+		IdleInhibitor:       idleInhibitor,
+		SessionRepo:         repos.session,
+		SessionStateRepo:    repos.sessionState,
+		CurrentSessionID:    currentSessionID,
+		SnapshotUC:          uc.snapshot,
+		CheckUpdateUC:       uc.checkUpdate,
+		ApplyUpdateUC:       uc.applyUpdate,
 	}
 }
