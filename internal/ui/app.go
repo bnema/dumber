@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"unsafe"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
@@ -49,6 +50,7 @@ const (
 	floatingPaneFallbackHeight = 800
 	floatingPaneIDPrefix       = "floating-pane:"
 	floatingSessionIDDefault   = "default"
+	floatingPaneVisibleClass   = "floating-pane-visible"
 )
 
 func gtkApplicationFlags() gio.ApplicationFlags {
@@ -1910,6 +1912,7 @@ func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.
 		log.Error().Msg("failed to create workspace view")
 		return
 	}
+	a.installFloatingOverlayPositioning(tab.ID, wsView.WorkspaceOverlayWidget())
 
 	// Set the workspace
 	if err := wsView.SetWorkspace(ctx, tab.Workspace); err != nil {
@@ -2112,25 +2115,25 @@ func decorateFloatingOverlay(overlay layout.OverlayWidget) {
 }
 
 // showFloatingWidget makes a floating pane widget interactive and visible.
-// Uses opacity instead of SetVisible to keep the GPU surface allocated,
-// preventing the black flash when WebKit needs to re-composite after unmap.
+// Visibility is controlled by CSS class to animate opacity while keeping the
+// widget mapped so WebKit can redraw without a hard pop.
 func showFloatingWidget(w layout.Widget) {
 	if w == nil {
 		return
 	}
-	w.SetOpacity(1)
+	w.AddCssClass(floatingPaneVisibleClass)
 	w.SetCanTarget(true)
 	w.SetCanFocus(true)
 }
 
 // hideFloatingWidget makes a floating pane widget invisible and non-interactive.
-// Uses opacity 0 instead of SetVisible(false) so GTK keeps the widget mapped
-// and WebKit retains its rendered surface in GPU memory.
+// Removes the visible CSS class instead of SetVisible(false) so GTK keeps the
+// widget mapped and WebKit retains its rendered surface in GPU memory.
 func hideFloatingWidget(w layout.Widget) {
 	if w == nil {
 		return
 	}
-	w.SetOpacity(0)
+	w.RemoveCssClass(floatingPaneVisibleClass)
 	w.SetCanTarget(false)
 	w.SetCanFocus(false)
 }
@@ -2149,8 +2152,100 @@ func configureFloatingOverlayMeasurement(workspaceOverlay layout.OverlayWidget, 
 		return
 	}
 
-	workspaceOverlay.SetMeasureOverlay(floatingOverlay, true)
+	workspaceOverlay.SetMeasureOverlay(floatingOverlay, false)
 	workspaceOverlay.SetClipOverlay(floatingOverlay, false)
+}
+
+func floatingAllocationRect(overlayWidth, overlayHeight, desiredWidth, desiredHeight int) (x, y, width, height int, ok bool) {
+	if overlayWidth <= 0 || overlayHeight <= 0 || desiredWidth <= 0 || desiredHeight <= 0 {
+		return 0, 0, 0, 0, false
+	}
+
+	width = desiredWidth
+	height = desiredHeight
+	if width > overlayWidth {
+		width = overlayWidth
+	}
+	if height > overlayHeight {
+		height = overlayHeight
+	}
+
+	x = (overlayWidth - width) / 2
+	y = (overlayHeight - height) / 2
+	if x < 0 {
+		x = 0
+	}
+	if y < 0 {
+		y = 0
+	}
+
+	return x, y, width, height, true
+}
+
+func writeOverlayAllocation(allocationPtr *uintptr, x, y, width, height int) bool {
+	if allocationPtr == nil {
+		return false
+	}
+
+	// GtkAllocation/GdkRectangle is four 32-bit signed integers in C.
+	base := unsafe.Pointer(allocationPtr)
+	*(*int32)(base) = int32(x)
+	*(*int32)(unsafe.Pointer(uintptr(base) + uintptr(4))) = int32(y)
+	*(*int32)(unsafe.Pointer(uintptr(base) + uintptr(8))) = int32(width)
+	*(*int32)(unsafe.Pointer(uintptr(base) + uintptr(12))) = int32(height)
+	return true
+}
+
+func (a *App) floatingAllocationForWidget(tabID entity.TabID, widgetPtr uintptr, overlayWidth, overlayHeight int) (x, y, width, height int, ok bool) {
+	for key, session := range a.floatingSessions {
+		if key.tabID != tabID || session == nil || session.widget == nil {
+			continue
+		}
+
+		gtkWidget := session.widget.GtkWidget()
+		if gtkWidget == nil || gtkWidget.GoPointer() != widgetPtr {
+			continue
+		}
+
+		desiredWidth := session.appliedWidth
+		desiredHeight := session.appliedHeight
+		if (desiredWidth <= 0 || desiredHeight <= 0) && session.pane != nil {
+			session.pane.Resize()
+			desiredWidth, desiredHeight = session.pane.Dimensions()
+		}
+
+		return floatingAllocationRect(overlayWidth, overlayHeight, desiredWidth, desiredHeight)
+	}
+
+	return 0, 0, 0, 0, false
+}
+
+func (a *App) installFloatingOverlayPositioning(tabID entity.TabID, workspaceOverlay layout.OverlayWidget) {
+	if workspaceOverlay == nil {
+		return
+	}
+
+	workspaceWidget := workspaceOverlay.GtkWidget()
+	if workspaceWidget == nil {
+		return
+	}
+
+	gtkOverlay := gtk.OverlayNewFromInternalPtr(workspaceWidget.GoPointer())
+	if gtkOverlay == nil {
+		return
+	}
+
+	cb := func(_ gtk.Overlay, widgetPtr uintptr, allocationPtr *uintptr) bool {
+		overlayWidth := workspaceOverlay.GetAllocatedWidth()
+		overlayHeight := workspaceOverlay.GetAllocatedHeight()
+		x, y, width, height, ok := a.floatingAllocationForWidget(tabID, widgetPtr, overlayWidth, overlayHeight)
+		if !ok {
+			return false
+		}
+		return writeOverlayAllocation(allocationPtr, x, y, width, height)
+	}
+
+	gtkOverlay.ConnectGetChildPosition(&cb)
 }
 
 func (a *App) currentFloatingConfig() config.FloatingPaneConfig {
@@ -2485,6 +2580,10 @@ func (a *App) hideFloatingSession(ctx context.Context, session *floatingWorkspac
 	session.pane.Hide(ctx)
 	a.hideFloatingOmnibox(ctx, session)
 	hideFloatingWidget(session.widget)
+	// Force a fresh size request on next show so WebKit gets a new
+	// allocation cycle and repaints content after rapid toggles.
+	session.appliedWidth = 0
+	session.appliedHeight = 0
 }
 
 func (a *App) hideVisibleFloatingSessions(ctx context.Context, tabID entity.TabID, except *floatingWorkspaceSession) {
