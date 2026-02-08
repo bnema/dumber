@@ -53,6 +53,28 @@ func TestHideFloatingWidget_RemovesVisibleClassAndDisablesInteraction(t *testing
 	hideFloatingWidget(widget)
 }
 
+func TestFocusFloatingSessionContent_GrabsWebViewFocusWhenOmniboxHidden(t *testing.T) {
+	session := newFloatingPaneSession(entity.TabID("tab-1"), "profile:google")
+	session.pane.Show()
+
+	widget := layoutmocks.NewMockWidget(t)
+	widget.EXPECT().GrabFocus().Return(true).Once()
+	session.focusWidget = widget
+
+	focusFloatingSessionContent(session)
+}
+
+func TestFocusFloatingSessionContent_SkipsWhenOmniboxVisible(t *testing.T) {
+	session := newFloatingPaneSession(entity.TabID("tab-1"), floatingSessionIDDefault)
+	require.NoError(t, session.pane.ShowToggle(context.Background()))
+	require.True(t, session.pane.IsOmniboxVisible())
+
+	widget := layoutmocks.NewMockWidget(t)
+	session.focusWidget = widget
+
+	focusFloatingSessionContent(session)
+}
+
 func TestFloatingAllocationRect_CentersRequestedSize(t *testing.T) {
 	x, y, width, height, ok := floatingAllocationRect(1000, 700, 820, 504)
 
@@ -273,15 +295,17 @@ func TestFloatingPane_DefaultSessionStillUsesAboutBlank(t *testing.T) {
 func TestFloatingPane_CloseActiveFloatingSession(t *testing.T) {
 	app, tabID, _ := newFloatingPaneTestApp(t)
 	session := newFloatingPaneSession(tabID, "profile:gmail")
-	app.floatingSessions[floatingSessionKey{tabID: tabID, sessionID: "profile:gmail"}] = session
+	key := floatingSessionKey{tabID: tabID, sessionID: "profile:gmail"}
+	app.floatingSessions[key] = session
 
 	require.NoError(t, app.OpenFloatingPaneProfileURL(context.Background(), "profile:gmail", "https://mail.google.com"))
 
-	handled := app.closeActiveFloatingPane(context.Background())
+	handled := app.closeAndReleaseActiveFloatingPane(context.Background())
 	assert.True(t, handled)
-	assert.False(t, session.pane.IsVisible())
+	_, stillExists := app.floatingSessions[key]
+	assert.False(t, stillExists)
 
-	handled = app.closeActiveFloatingPane(context.Background())
+	handled = app.closeAndReleaseActiveFloatingPane(context.Background())
 	assert.False(t, handled)
 }
 
