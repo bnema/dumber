@@ -35,6 +35,15 @@ func TestRedactSensitiveContent(t *testing.T) {
 		assert.Contains(t, redacted, `"password":"[REDACTED]"`)
 	})
 
+	t.Run("key_value_params", func(t *testing.T) {
+		line := "callback received password=secret123 token=abc456"
+		redacted := redactSensitiveContent(line)
+		assert.NotContains(t, redacted, "secret123")
+		assert.NotContains(t, redacted, "abc456")
+		assert.Contains(t, redacted, "password=[REDACTED]")
+		assert.Contains(t, redacted, "token=[REDACTED]")
+	})
+
 	t.Run("authorization_headers", func(t *testing.T) {
 		line := "Authorization: Bearer eyJhbGciOiJSUz"
 		redacted := redactSensitiveContent(line)
@@ -105,13 +114,20 @@ func TestWriteUnexpectedCloseReport(t *testing.T) {
 	require.NoError(t, json.Unmarshal(raw, &payload))
 	assert.Equal(t, sessionID, payload["session_id"])
 
-	classification := payload["classification"].(map[string]any)
-	classValue, _ := classification["class"].(string)
+	classificationRaw, ok := payload["classification"].(map[string]any)
+	require.True(t, ok, "classification should be a map[string]any")
+	classValue, ok := classificationRaw["class"].(string)
+	require.True(t, ok, "classification.class should be a string")
 	assert.Equal(t, string(SessionExitMainProcessCrashOrAbrupt), classValue)
 
-	tail := payload["session_log_tail_redacted"].([]any)
-	require.NotEmpty(t, tail)
-	text := tail[0].(string) + tail[len(tail)-1].(string)
+	tail, ok := payload["session_log_tail_redacted"].([]any)
+	require.True(t, ok, "session_log_tail_redacted should be a []any")
+	require.GreaterOrEqual(t, len(tail), 2, "expected at least 2 log tail entries")
+	first, ok := tail[0].(string)
+	require.True(t, ok, "first tail entry should be a string")
+	last, ok := tail[len(tail)-1].(string)
+	require.True(t, ok, "last tail entry should be a string")
+	text := first + last
 	assert.NotContains(t, text, "?a=1&b=2")
 	assert.NotContains(t, text, "code=abc")
 	assert.NotContains(t, text, "token=def")
