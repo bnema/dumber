@@ -3,6 +3,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -89,6 +90,13 @@ func (uc *HandlePermissionUseCase) HandlePermissionRequest(
 		callback.Deny()
 		return
 	}
+
+	if uc.isAutoAllowOverrideDenied(ctx, origin, permTypes) {
+		log.Debug().Msg("manual override denied auto-allow permission request")
+		callback.Deny()
+		return
+	}
+
 	if isAutoAllowSet(permTypes) {
 		log.Debug().Msg("auto-allowing permission request")
 		callback.Allow()
@@ -285,4 +293,74 @@ func (uc *HandlePermissionUseCase) persistPermission(
 				Msg("failed to persist permission")
 		}
 	}
+}
+
+// GetManualPermissionDecision returns the stored decision (if any) for origin/type.
+func (uc *HandlePermissionUseCase) GetManualPermissionDecision(
+	ctx context.Context,
+	origin string,
+	permType entity.PermissionType,
+) (*entity.PermissionRecord, error) {
+	if origin == "" {
+		return nil, errors.New("origin is required")
+	}
+	return uc.permRepo.Get(ctx, origin, permType)
+}
+
+// SetManualPermissionDecision stores an explicit decision for origin/type.
+// This is used by the UI permission indicator as the source of truth for lock state.
+func (uc *HandlePermissionUseCase) SetManualPermissionDecision(
+	ctx context.Context,
+	origin string,
+	permType entity.PermissionType,
+	decision entity.PermissionDecision,
+) error {
+	if origin == "" {
+		return errors.New("origin is required")
+	}
+	if decision == entity.PermissionPrompt {
+		return uc.permRepo.Delete(ctx, origin, permType)
+	}
+
+	return uc.permRepo.Set(ctx, &entity.PermissionRecord{
+		Origin:    origin,
+		Type:      permType,
+		Decision:  decision,
+		UpdatedAt: time.Now().Unix(),
+	})
+}
+
+// ResetManualPermissionDecision clears any stored decision for origin/type.
+func (uc *HandlePermissionUseCase) ResetManualPermissionDecision(
+	ctx context.Context,
+	origin string,
+	permType entity.PermissionType,
+) error {
+	if origin == "" {
+		return errors.New("origin is required")
+	}
+	return uc.permRepo.Delete(ctx, origin, permType)
+}
+
+func (uc *HandlePermissionUseCase) isAutoAllowOverrideDenied(
+	ctx context.Context,
+	origin string,
+	permTypes []entity.PermissionType,
+) bool {
+	for _, permType := range permTypes {
+		if !entity.IsAutoAllow(permType) {
+			continue
+		}
+
+		record, err := uc.permRepo.Get(ctx, origin, permType)
+		if err != nil || record == nil {
+			continue
+		}
+
+		if record.Decision == entity.PermissionDenied {
+			return true
+		}
+	}
+
+	return false
 }

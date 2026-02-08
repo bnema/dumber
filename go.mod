@@ -3,7 +3,7 @@ module github.com/bnema/dumber
 go 1.25.3
 
 require (
-	github.com/bnema/puregotk-webkit v0.0.10
+	github.com/bnema/puregotk-webkit v0.0.12
 	github.com/charmbracelet/bubbles v0.21.1
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
@@ -22,7 +22,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-replace github.com/jwijenbergh/puregotk => github.com/bnema/puregotk v0.0.0-20260207041652-c591276fa9d3
+replace github.com/jwijenbergh/puregotk => github.com/bnema/puregotk v0.0.0-20260208062357-b1825488ed92
 
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect

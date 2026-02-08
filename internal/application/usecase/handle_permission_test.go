@@ -12,6 +12,7 @@ import (
 	repomocks "github.com/bnema/dumber/internal/domain/repository/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestHandlePermissionUseCase_AutoAllowDisplayCapture(t *testing.T) {
@@ -20,6 +21,9 @@ func TestHandlePermissionUseCase_AutoAllowDisplayCapture(t *testing.T) {
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog)
+
+	permRepo.EXPECT().Get(mock.Anything, "https://meet.example.com", entity.PermissionTypeDisplay).
+		Return(nil, nil)
 
 	allowed := false
 	denied := false
@@ -35,7 +39,6 @@ func TestHandlePermissionUseCase_AutoAllowDisplayCapture(t *testing.T) {
 
 	assert.True(t, allowed, "display capture should be auto-allowed")
 	assert.False(t, denied)
-	permRepo.AssertNotCalled(t, "Get")
 	dialog.AssertNotCalled(t, "ShowPermissionDialog")
 }
 
@@ -45,6 +48,9 @@ func TestHandlePermissionUseCase_AutoAllowDeviceInfo(t *testing.T) {
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog)
+
+	permRepo.EXPECT().Get(mock.Anything, "https://example.com", entity.PermissionTypeDeviceInfo).
+		Return(nil, nil)
 
 	allowed := false
 	callback := usecase.PermissionCallback{
@@ -341,8 +347,10 @@ func TestHandlePermissionUseCase_NonPersistableNotSaved(t *testing.T) {
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog)
 
 	// Display capture is not persistable per W3C spec
-	// No Get call since it's auto-allowed
+	// A stored override may exist, so a Get call is expected before auto-allow.
 	// No Set call should happen even if we try to persist
+	permRepo.EXPECT().Get(mock.Anything, "https://meet.example.com", entity.PermissionTypeDisplay).
+		Return(nil, nil)
 
 	allowed := false
 	callback := usecase.PermissionCallback{
@@ -380,4 +388,72 @@ func TestHandlePermissionUseCase_NoDialogPresenter(t *testing.T) {
 	}, callback)
 
 	assert.True(t, denied, "should deny when no dialog presenter is available")
+}
+
+func TestHandlePermissionUseCase_DisplayOverrideDenied(t *testing.T) {
+	ctx := testContext()
+	permRepo := repomocks.NewMockPermissionRepository(t)
+	dialog := portmocks.NewMockPermissionDialogPresenter(t)
+
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog)
+
+	permRepo.EXPECT().Get(mock.Anything, "https://meet.example.com", entity.PermissionTypeDisplay).
+		Return(&entity.PermissionRecord{
+			Origin:   "https://meet.example.com",
+			Type:     entity.PermissionTypeDisplay,
+			Decision: entity.PermissionDenied,
+		}, nil)
+
+	denied := false
+	callback := usecase.PermissionCallback{
+		Allow: func() {},
+		Deny:  func() { denied = true },
+	}
+
+	uc.HandlePermissionRequest(ctx, "https://meet.example.com", []entity.PermissionType{
+		entity.PermissionTypeDisplay,
+	}, callback)
+
+	assert.True(t, denied, "display should be denied when manual override is denied")
+	dialog.AssertNotCalled(t, "ShowPermissionDialog")
+}
+
+func TestHandlePermissionUseCase_GetSetResetManualDecision(t *testing.T) {
+	ctx := testContext()
+	permRepo := repomocks.NewMockPermissionRepository(t)
+	uc := usecase.NewHandlePermissionUseCase(permRepo, nil)
+
+	permRepo.EXPECT().Set(mock.Anything, mock.AnythingOfType("*entity.PermissionRecord")).
+		Run(func(_ context.Context, record *entity.PermissionRecord) {
+			assert.Equal(t, "https://app.zoom.us", record.Origin)
+			assert.Equal(t, entity.PermissionTypeMicrophone, record.Type)
+			assert.Equal(t, entity.PermissionGranted, record.Decision)
+		}).
+		Return(nil)
+
+	err := uc.SetManualPermissionDecision(
+		ctx,
+		"https://app.zoom.us",
+		entity.PermissionTypeMicrophone,
+		entity.PermissionGranted,
+	)
+	require.NoError(t, err)
+
+	permRepo.EXPECT().Get(mock.Anything, "https://app.zoom.us", entity.PermissionTypeMicrophone).
+		Return(&entity.PermissionRecord{
+			Origin:   "https://app.zoom.us",
+			Type:     entity.PermissionTypeMicrophone,
+			Decision: entity.PermissionGranted,
+		}, nil)
+
+	record, err := uc.GetManualPermissionDecision(ctx, "https://app.zoom.us", entity.PermissionTypeMicrophone)
+	require.NoError(t, err)
+	if assert.NotNil(t, record) {
+		assert.Equal(t, entity.PermissionGranted, record.Decision)
+	}
+
+	permRepo.EXPECT().Delete(mock.Anything, "https://app.zoom.us", entity.PermissionTypeMicrophone).
+		Return(nil)
+	err = uc.ResetManualPermissionDecision(ctx, "https://app.zoom.us", entity.PermissionTypeMicrophone)
+	require.NoError(t, err)
 }

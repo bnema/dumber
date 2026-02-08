@@ -19,6 +19,7 @@ import (
 	"github.com/jwijenbergh/puregotk/v4/gio"
 	"github.com/jwijenbergh/puregotk/v4/glib"
 	"github.com/jwijenbergh/puregotk/v4/gobject"
+	gtypes "github.com/jwijenbergh/puregotk/v4/gobject/types"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 	"github.com/rs/zerolog"
 )
@@ -414,6 +415,7 @@ func (wv *WebView) connectSignals() {
 	wv.connectEnterFullscreenSignal()
 	wv.connectLeaveFullscreenSignal()
 	wv.connectAudioStateSignal()
+	wv.connectMediaCaptureStateSignals()
 	wv.connectMouseTargetChangedSignal()
 	wv.connectBackForwardListChangedSignal()
 	wv.connectWebProcessTerminatedSignal()
@@ -835,6 +837,39 @@ func (wv *WebView) connectAudioStateSignal() {
 	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
 }
 
+func (wv *WebView) connectMediaCaptureStateSignals() {
+	connect := func(signal string, readState func() webkit.MediaCaptureState, kind string) {
+		cb := func() {
+			state := readState()
+			wv.logger.Debug().
+				Uint64("id", uint64(wv.id)).
+				Str("kind", kind).
+				Str("state", mediaCaptureStateString(state)).
+				Int("state_code", int(state)).
+				Msg("media capture state changed")
+		}
+		sigID := gobject.SignalConnect(wv.inner.GoPointer(), signal, glib.NewCallback(&cb))
+		wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
+	}
+
+	connect("notify::camera-capture-state", wv.inner.GetCameraCaptureState, "camera")
+	connect("notify::microphone-capture-state", wv.inner.GetMicrophoneCaptureState, "microphone")
+	connect("notify::display-capture-state", wv.inner.GetDisplayCaptureState, "display")
+}
+
+func mediaCaptureStateString(state webkit.MediaCaptureState) string {
+	switch state {
+	case webkit.MediaCaptureStateNoneValue:
+		return "none"
+	case webkit.MediaCaptureStateActiveValue:
+		return "active"
+	case webkit.MediaCaptureStateMutedValue:
+		return "muted"
+	default:
+		return "unknown"
+	}
+}
+
 func (wv *WebView) connectMouseTargetChangedSignal() {
 	mouseTargetCb := func(_ webkit.WebView, hitTestPtr uintptr, _ uint) {
 		if wv.OnLinkHover == nil {
@@ -1004,47 +1039,104 @@ func (wv *WebView) connectPermissionRequestSignal() {
 
 // determinePermissionTypes extracts permission types from a WebKit permission request.
 // This uses type checking to identify UserMediaPermissionRequest and its specific types.
-// We use GObject property accessors as the primary method because the C function wrappers
-// can hit a purego bug where bool return values are misread.
+// We use GObject property accessors for audio/video request flags. Display detection
+// uses the dedicated WebKit API because this WebKit build does not expose an
+// "is-for-display-device" GObject property.
 func (wv *WebView) determinePermissionTypes(requestPtr uintptr) []string {
-	var types []string
+	requestKind := detectPermissionRequestKind(requestPtr)
+	switch requestKind {
+	case permissionRequestKindUserMedia:
+		userMediaReq := webkit.UserMediaPermissionRequestNewFromInternalPtr(requestPtr)
+		if userMediaReq == nil {
+			return nil
+		}
 
-	// Try to cast to UserMediaPermissionRequest
-	userMediaReq := webkit.UserMediaPermissionRequestNewFromInternalPtr(requestPtr)
-	if userMediaReq != nil {
 		// Use GObject property accessors — more reliable than the C function wrappers
 		// which can hit the purego bool return value bug.
 		isAudio := userMediaReq.GetPropertyIsForAudioDevice()
 		isVideo := userMediaReq.GetPropertyIsForVideoDevice()
+		isDisplay := webkit.UserMediaPermissionIsForDisplayDevice(userMediaReq)
 
 		wv.logger.Debug().
 			Bool("is_audio", isAudio).
 			Bool("is_video", isVideo).
+			Bool("is_display", isDisplay).
 			Msg("permission request type detection")
 
-		if isAudio {
-			types = append(types, "microphone")
-		}
-		if isVideo {
-			// Check if this is display capture or camera
-			if webkit.UserMediaPermissionIsForDisplayDevice(userMediaReq) {
-				types = append(types, "display")
+		return classifyPermissionRequestTypes(requestKind, isAudio, isVideo, isDisplay)
+	case permissionRequestKindDeviceInfo:
+		return classifyPermissionRequestTypes(requestKind, false, false, false)
+	default:
+		if requestPtr != 0 {
+			typeName := permissionRequestTypeName(requestPtr)
+			if typeName != "" {
+				wv.logger.Warn().Str("request_type", typeName).Msg("unknown permission request type")
 			} else {
-				types = append(types, "camera")
+				wv.logger.Warn().Msg("unknown permission request type")
 			}
 		}
-		return types
+		// Unknown permission type - could be clipboard, notifications, geolocation, etc.
+		// For now, return empty to trigger denial. Future phases will add these types.
+		return nil
 	}
+}
 
-	// Check for device enumeration request
-	deviceInfoReq := webkit.DeviceInfoPermissionRequestNewFromInternalPtr(requestPtr)
-	if deviceInfoReq != nil {
+type permissionRequestKind int
+
+const (
+	permissionRequestKindUnknown permissionRequestKind = iota
+	permissionRequestKindUserMedia
+	permissionRequestKindDeviceInfo
+)
+
+func detectPermissionRequestKind(requestPtr uintptr) permissionRequestKind {
+	if isPermissionRequestType(requestPtr, webkit.UserMediaPermissionRequestGLibType()) {
+		return permissionRequestKindUserMedia
+	}
+	if isPermissionRequestType(requestPtr, webkit.DeviceInfoPermissionRequestGLibType()) {
+		return permissionRequestKindDeviceInfo
+	}
+	return permissionRequestKindUnknown
+}
+
+func isPermissionRequestType(requestPtr uintptr, requestType gtypes.GType) bool {
+	return gobjectTypeCheckInstanceIsAByPtr(requestPtr, requestType)
+}
+
+func classifyPermissionRequestTypes(
+	kind permissionRequestKind,
+	isAudio, isVideo, isDisplay bool,
+) []string {
+	switch kind {
+	case permissionRequestKindUserMedia:
+		return classifyUserMediaPermissionTypes(isAudio, isVideo, isDisplay)
+	case permissionRequestKindDeviceInfo:
 		return []string{"device_info"}
+	default:
+		return nil
+	}
+}
+
+func classifyUserMediaPermissionTypes(isAudio, isVideo, isDisplay bool) []string {
+	types := make([]string, 0, 2)
+
+	if isAudio {
+		types = append(types, "microphone")
 	}
 
-	// Unknown permission type - could be clipboard, notifications, geolocation, etc.
-	// For now, return empty to trigger denial. Future phases will add these types.
-	return nil
+	if isDisplay {
+		types = append(types, "display")
+	} else if isVideo {
+		types = append(types, "camera")
+	}
+
+	if len(types) == 0 {
+		// On some Wayland/WebKit paths, getDisplayMedia() can arrive with all
+		// flags false even though the request is a screen-capture request.
+		return []string{"display"}
+	}
+
+	return types
 }
 
 // allowPermissionRequest calls Allow() on the WebKit permission request.

@@ -118,6 +118,12 @@ type ContentCoordinator struct {
 	// Callback when active pane title changes (for window title updates)
 	onWindowTitleChanged func(title string)
 
+	// Callback when media permission activity changes (requesting/allowed/blocked).
+	onPermissionActivity func(origin string, permTypes []entity.PermissionType, state PermissionActivityState)
+
+	// Callback when the active pane commits a navigation (new page loading).
+	onActiveNavigationCommitted func(uri string)
+
 	// Callback when the WebView becomes visible (first real commit)
 	onWebViewShown func(paneID entity.PaneID)
 
@@ -179,6 +185,15 @@ type popupOAuthState struct {
 	Seen         bool
 }
 
+// PermissionActivityState represents the visible state for media permission activity.
+type PermissionActivityState string
+
+const (
+	PermissionActivityRequesting PermissionActivityState = "requesting"
+	PermissionActivityAllowed    PermissionActivityState = "allowed"
+	PermissionActivityBlocked    PermissionActivityState = "blocked"
+)
+
 // NewContentCoordinator creates a new ContentCoordinator.
 func NewContentCoordinator(
 	ctx context.Context,
@@ -217,6 +232,18 @@ func (c *ContentCoordinator) SetOnTitleUpdated(fn func(ctx context.Context, pane
 // SetOnHistoryRecord sets the callback for recording history on page commit.
 func (c *ContentCoordinator) SetOnHistoryRecord(fn func(ctx context.Context, paneID entity.PaneID, url string)) {
 	c.onHistoryRecord = fn
+}
+
+// SetOnPermissionActivity sets a callback for WebRTC permission activity changes.
+func (c *ContentCoordinator) SetOnPermissionActivity(
+	fn func(origin string, permTypes []entity.PermissionType, state PermissionActivityState),
+) {
+	c.onPermissionActivity = fn
+}
+
+// SetOnActiveNavigationCommitted sets a callback fired when the active pane commits a navigation.
+func (c *ContentCoordinator) SetOnActiveNavigationCommitted(fn func(uri string)) {
+	c.onActiveNavigationCommitted = fn
 }
 
 // SetOnPaneURIUpdated sets the callback for pane URI changes (for session snapshots).
@@ -1083,6 +1110,9 @@ func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.
 		c.onHistoryRecord(ctx, paneID, uri)
 	}
 
+	// Notify active pane navigation for permission indicator reset.
+	c.notifyActiveNavigation(paneID, uri)
+
 	// Apply zoom
 	if c.zoomUC == nil {
 		return
@@ -1094,6 +1124,16 @@ func (c *ContentCoordinator) onLoadCommitted(ctx context.Context, paneID entity.
 	}
 
 	_ = c.zoomUC.ApplyToWebView(ctx, wv, domain)
+}
+
+func (c *ContentCoordinator) notifyActiveNavigation(paneID entity.PaneID, uri string) {
+	if c.onActiveNavigationCommitted == nil {
+		return
+	}
+	ws, _ := c.getActiveWS()
+	if ws != nil && ws.ActivePaneID == paneID {
+		c.onActiveNavigationCommitted(uri)
+	}
 }
 
 func (c *ContentCoordinator) shouldSkipAboutBlankAppearance(paneID entity.PaneID, wv *webkit.WebView) bool {
@@ -1983,6 +2023,25 @@ func (c *ContentCoordinator) handlePermissionRequest(
 		return true
 	}
 
+	trackedTypes := filterWebRTCPermissionTypes(entityTypes)
+	notifyActivity := func(state PermissionActivityState) {
+		if c.onPermissionActivity == nil || len(trackedTypes) == 0 {
+			return
+		}
+		c.onPermissionActivity(origin, trackedTypes, state)
+	}
+
+	notifyActivity(PermissionActivityRequesting)
+
+	wrappedAllow := func() {
+		notifyActivity(PermissionActivityAllowed)
+		allow()
+	}
+	wrappedDeny := func() {
+		notifyActivity(PermissionActivityBlocked)
+		deny()
+	}
+
 	// Check if permission use case is available
 	if c.permissionUC == nil {
 		log.Warn().Str("origin", origin).Msg("no permission use case available, auto-allowing low-risk permissions")
@@ -1995,21 +2054,32 @@ func (c *ContentCoordinator) handlePermissionRequest(
 			}
 		}
 		if allAutoAllow {
-			allow()
+			wrappedAllow()
 		} else {
-			deny()
+			wrappedDeny()
 		}
 		return true
 	}
 
 	// Delegate to use case
 	callback := usecase.PermissionCallback{
-		Allow: allow,
-		Deny:  deny,
+		Allow: wrappedAllow,
+		Deny:  wrappedDeny,
 	}
 
 	c.permissionUC.HandlePermissionRequest(ctx, origin, entityTypes, callback)
 	return true
+}
+
+func filterWebRTCPermissionTypes(types []entity.PermissionType) []entity.PermissionType {
+	filtered := make([]entity.PermissionType, 0, len(types))
+	for _, permType := range types {
+		switch permType {
+		case entity.PermissionTypeMicrophone, entity.PermissionTypeCamera, entity.PermissionTypeDisplay:
+			filtered = append(filtered, permType)
+		}
+	}
+	return filtered
 }
 
 // setupIdleInhibitionHandlers configures fullscreen and audio callbacks for idle inhibition.
