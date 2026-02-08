@@ -388,7 +388,7 @@ type repositories struct {
 	folder       repository.FolderRepository
 	tag          repository.TagRepository
 	zoom         repository.ZoomRepository
-	permission   repository.PermissionRepository
+	permission   port.PermissionRepository
 	session      repository.SessionRepository
 	sessionState repository.SessionStateRepository
 }

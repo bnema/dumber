@@ -561,6 +561,11 @@ func TestExtractOrigin_ValidURI(t *testing.T) {
 			uri:      "HTTPS://EXAMPLE.COM:443/path",
 			expected: "https://example.com",
 		},
+		{
+			name:     "ipv6 with explicit port",
+			uri:      "https://[::1]:8443/path",
+			expected: "https://[::1]:8443",
+		},
 	}
 
 	for _, tt := range tests {

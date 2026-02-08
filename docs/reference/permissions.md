@@ -58,7 +58,7 @@ The permission system follows W3C specifications:
 
 Currently, stored permissions can only be cleared by:
 
-1. **Site-specific reset**: The site can use `navigator.permissions.revoke()` (if supported)
+1. **Site-specific reset**: `navigator.permissions.revoke()` was removed from the Permissions API and is not supported in modern browsers; direct users to browser/site permission settings (or account-level controls when available) to reset access.
 2. **Full reset**: Remove `~/.local/share/dumber/dumber.db` (deletes all data including permissions)
 
 A permission management UI is planned for a future release.

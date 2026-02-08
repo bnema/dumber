@@ -47,7 +47,7 @@ type Dependencies struct {
 	HistoryRepo    repository.HistoryRepository
 	FavoriteRepo   repository.FavoriteRepository
 	ZoomRepo       repository.ZoomRepository
-	PermissionRepo repository.PermissionRepository
+	PermissionRepo port.PermissionRepository
 	FilterRepo     repository.ContentWhitelistRepository
 
 	// Use Cases

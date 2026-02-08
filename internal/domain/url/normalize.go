@@ -222,6 +222,9 @@ func ExtractOrigin(uri string) (string, error) {
 	// Canonicalize: lowercase scheme and hostname
 	scheme := strings.ToLower(parsed.Scheme)
 	hostname := strings.ToLower(parsed.Hostname())
+	if strings.Contains(hostname, ":") && !strings.HasPrefix(hostname, "[") {
+		hostname = "[" + hostname + "]"
+	}
 
 	// Determine if we should include the port
 	port := parsed.Port()
