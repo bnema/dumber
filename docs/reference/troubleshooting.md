@@ -125,6 +125,9 @@ View application logs for debugging:
 dumber logs              # List sessions
 dumber logs <session-id> # View specific session
 dumber logs -f <id>      # Follow in real-time
+dumber crashes           # List unexpected-close reports
+dumber crashes show latest
+dumber crashes issue latest
 ```
 
 ## Reset Configuration
@@ -147,4 +150,5 @@ dumber purge
 ## Getting Help
 
 - Check logs: `dumber logs`
+- Check crash reports: `dumber crashes`
 - [GitHub Issues](https://github.com/bnema/dumber/issues)

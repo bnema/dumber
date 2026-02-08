@@ -1,0 +1,73 @@
+name: Unexpected Close Report
+description: Report an unexpected Dumber close with auto-generated crash report
+title: "Unexpected close: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Dumber alpha stability.
+
+        Before submitting, run:
+
+        ```bash
+        dumber crashes issue latest
+        ```
+
+        Paste the output in the "Crash report" field below.
+
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened?
+      description: What were you doing just before Dumber closed?
+      placeholder: "I had 3 tabs open, played a video, and Dumber closed after alt-tabbing..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: crash_report
+    attributes:
+      label: Crash report
+      description: Paste output from `dumber crashes issue latest`
+      render: markdown
+      placeholder: "## GitHub Issue Template ..."
+    validations:
+      required: true
+
+  - type: input
+    id: distro
+    attributes:
+      label: Linux distro
+      placeholder: "Arch Linux"
+    validations:
+      required: true
+
+  - type: input
+    id: wm
+    attributes:
+      label: Compositor / window manager
+      placeholder: "Hyprland / Sway / River / Niri ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Short, numbered steps help a lot.
+      placeholder: |
+        1. Open Dumber
+        2. ...
+        3. ...
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Anything else useful (screenshots, coredumpctl snippets, etc.)
+    validations:
+      required: false

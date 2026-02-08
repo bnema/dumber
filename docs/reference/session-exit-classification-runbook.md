@@ -12,6 +12,12 @@ Marker directory (default):
 LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/dumber/logs"
 ```
 
+Crash report directory (auto-generated on startup when abrupt exits are detected):
+
+```bash
+CRASH_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/dumber/logs/crashes"
+```
+
 ## Classification Model
 
 - `clean_exit` (`marker-confirmed`)
@@ -84,6 +90,12 @@ journalctl -k --since "2026-02-07 10:00:00" --until "2026-02-07 10:10:00" | rg -
 
 ```bash
 coredumpctl list | rg -i "dumber"
+```
+
+5. Print GitHub-ready issue payload from generated report:
+
+```bash
+dumber crashes issue latest
 ```
 
 Interpretation guidance:
