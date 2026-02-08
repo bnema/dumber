@@ -7,8 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"runtime/debug"
-	"strconv"
 	"syscall"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -33,7 +31,6 @@ import (
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/theme"
 	"github.com/rs/zerolog"
-	"golang.org/x/sys/unix"
 )
 
 // Build-time variables (set via ldflags).
@@ -392,41 +389,6 @@ func setupSignalHandler(ctx context.Context, app *ui.App) {
 		log.Info().Str("signal", sig.String()).Msg("received interrupt, quitting")
 		app.Quit()
 	}()
-}
-
-func enableCrashForensics() {
-	debug.SetTraceback("crash")
-
-	var limit unix.Rlimit
-	if err := unix.Getrlimit(unix.RLIMIT_CORE, &limit); err != nil {
-		return
-	}
-	if limit.Cur >= limit.Max {
-		return
-	}
-	limit.Cur = limit.Max
-	_ = unix.Setrlimit(unix.RLIMIT_CORE, &limit)
-}
-
-func logCoreDumpLimits(ctx context.Context) {
-	log := logging.FromContext(ctx)
-	var limit unix.Rlimit
-	if err := unix.Getrlimit(unix.RLIMIT_CORE, &limit); err != nil {
-		log.Debug().Err(err).Msg("failed to read RLIMIT_CORE")
-		return
-	}
-
-	log.Debug().
-		Str("soft", formatRlimit(limit.Cur)).
-		Str("hard", formatRlimit(limit.Max)).
-		Msg("core dump limits")
-}
-
-func formatRlimit(value uint64) string {
-	if value == unix.RLIM_INFINITY {
-		return "infinity"
-	}
-	return strconv.FormatUint(value, 10)
 }
 
 // repositories groups infrastructure layer repository implementations.
