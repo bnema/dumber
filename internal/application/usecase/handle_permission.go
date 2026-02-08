@@ -151,6 +151,11 @@ func (uc *HandlePermissionUseCase) QueryPermissionState(
 		Str("type", string(permType)).
 		Logger()
 
+	if origin == "" {
+		log.Warn().Msg("query: empty origin, returning prompt")
+		return entity.PermissionPrompt
+	}
+
 	// Check stored permission first (including manual overrides on auto-allow types).
 	record, err := uc.permRepo.Get(ctx, origin, permType)
 	if err != nil {
