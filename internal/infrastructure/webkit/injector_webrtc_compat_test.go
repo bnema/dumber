@@ -10,7 +10,7 @@ func TestBuildWebRTCCompatScript_AddsPrefixedAliases(t *testing.T) {
 	script := buildWebRTCCompatScript()
 
 	assert.Contains(t, script, "window.webkitRTCPeerConnection")
-	assert.Contains(t, script, "window.RTCPeerConnection = window.webkitRTCPeerConnection")
-	assert.Contains(t, script, "window.RTCSessionDescription = window.webkitRTCSessionDescription")
-	assert.Contains(t, script, "window.RTCIceCandidate = window.webkitRTCIceCandidate")
+	assert.Regexp(t, `window\.RTCPeerConnection\s*=\s*window\.webkitRTCPeerConnection`, script)
+	assert.Regexp(t, `window\.RTCSessionDescription\s*=\s*window\.webkitRTCSessionDescription`, script)
+	assert.Regexp(t, `window\.RTCIceCandidate\s*=\s*window\.webkitRTCIceCandidate`, script)
 }

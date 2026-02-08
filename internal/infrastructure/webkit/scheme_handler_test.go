@@ -115,3 +115,16 @@ func TestHandleAsset_WebRTCOpaqueFormServesInternalWebRTCTester(t *testing.T) {
 	assert.Equal(t, "text/html; charset=utf-8", resp.ContentType)
 	assert.Contains(t, string(resp.Data), "webrtc.min.js")
 }
+
+func TestHandleAsset_ConfigOpaqueFormServesConfigPage(t *testing.T) {
+	h := NewDumbSchemeHandler(context.Background())
+	h.SetAssets(assets.WebUIAssets)
+
+	u, err := url.Parse("dumb:config")
+	require.NoError(t, err)
+
+	resp := h.handleAsset(u)
+	require.NotNil(t, resp)
+	assert.Equal(t, "text/html; charset=utf-8", resp.ContentType)
+	assert.Contains(t, string(resp.Data), "config")
+}

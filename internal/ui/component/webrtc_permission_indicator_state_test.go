@@ -41,6 +41,15 @@ func TestWebRTCSummaryState_IdleWhenEmpty(t *testing.T) {
 	assert.Equal(t, webrtcPermissionStateIdle, summarizeWebRTCPermissionState(map[entity.PermissionType]webrtcPermissionState{}))
 }
 
+func TestWebRTCSummaryState_IdleWhenAllIdle(t *testing.T) {
+	states := map[entity.PermissionType]webrtcPermissionState{
+		entity.PermissionTypeMicrophone: webrtcPermissionStateIdle,
+		entity.PermissionTypeCamera:     webrtcPermissionStateIdle,
+	}
+
+	assert.Equal(t, webrtcPermissionStateIdle, summarizeWebRTCPermissionState(states))
+}
+
 func TestWebRTCShouldShowIndicator(t *testing.T) {
 	assert.False(t, shouldShowWebRTCPermissionIndicator(nil))
 	assert.False(t, shouldShowWebRTCPermissionIndicator(map[entity.PermissionType]webrtcPermissionState{

@@ -975,6 +975,8 @@ func (wv *WebView) connectWebProcessTerminatedSignal() {
 // This is emitted when a site calls getUserMedia() or getDisplayMedia().
 func (wv *WebView) connectPermissionRequestSignal() {
 	permissionCb := func(_ webkit.WebView, requestPtr uintptr) bool {
+		ctx := logging.WithContext(context.Background(), wv.logger)
+
 		if wv.OnPermissionRequest == nil {
 			return false // Not handled, WebKit will deny by default
 		}
@@ -992,7 +994,7 @@ func (wv *WebView) connectPermissionRequestSignal() {
 		}
 
 		// Determine permission types from the request
-		permTypes := wv.determinePermissionTypes(requestPtr)
+		permTypes := wv.determinePermissionTypes(ctx, requestPtr)
 		if len(permTypes) == 0 {
 			wv.logger.Warn().Msg("permission request with unknown type, denying")
 			return false
@@ -1042,8 +1044,8 @@ func (wv *WebView) connectPermissionRequestSignal() {
 // We use GObject property accessors for audio/video request flags. Display detection
 // uses the dedicated WebKit API because this WebKit build does not expose an
 // "is-for-display-device" GObject property.
-func (wv *WebView) determinePermissionTypes(requestPtr uintptr) []string {
-	requestKind := detectPermissionRequestKind(requestPtr)
+func (wv *WebView) determinePermissionTypes(ctx context.Context, requestPtr uintptr) []string {
+	requestKind := detectPermissionRequestKind(ctx, requestPtr)
 	switch requestKind {
 	case permissionRequestKindUserMedia:
 		userMediaReq := webkit.UserMediaPermissionRequestNewFromInternalPtr(requestPtr)
@@ -1063,12 +1065,12 @@ func (wv *WebView) determinePermissionTypes(requestPtr uintptr) []string {
 			Bool("is_display", isDisplay).
 			Msg("permission request type detection")
 
-		return classifyPermissionRequestTypes(requestKind, isAudio, isVideo, isDisplay)
+		return classifyPermissionRequestTypes(ctx, requestKind, isAudio, isVideo, isDisplay)
 	case permissionRequestKindDeviceInfo:
-		return classifyPermissionRequestTypes(requestKind, false, false, false)
+		return classifyPermissionRequestTypes(ctx, requestKind, false, false, false)
 	default:
 		if requestPtr != 0 {
-			typeName := permissionRequestTypeName(requestPtr)
+			typeName := permissionRequestTypeName(ctx, requestPtr)
 			if typeName != "" {
 				wv.logger.Warn().Str("request_type", typeName).Msg("unknown permission request type")
 			} else {
@@ -1089,27 +1091,28 @@ const (
 	permissionRequestKindDeviceInfo
 )
 
-func detectPermissionRequestKind(requestPtr uintptr) permissionRequestKind {
-	if isPermissionRequestType(requestPtr, webkit.UserMediaPermissionRequestGLibType()) {
+func detectPermissionRequestKind(ctx context.Context, requestPtr uintptr) permissionRequestKind {
+	if isPermissionRequestType(ctx, requestPtr, webkit.UserMediaPermissionRequestGLibType()) {
 		return permissionRequestKindUserMedia
 	}
-	if isPermissionRequestType(requestPtr, webkit.DeviceInfoPermissionRequestGLibType()) {
+	if isPermissionRequestType(ctx, requestPtr, webkit.DeviceInfoPermissionRequestGLibType()) {
 		return permissionRequestKindDeviceInfo
 	}
 	return permissionRequestKindUnknown
 }
 
-func isPermissionRequestType(requestPtr uintptr, requestType gtypes.GType) bool {
-	return gobjectTypeCheckInstanceIsAByPtr(requestPtr, requestType)
+func isPermissionRequestType(ctx context.Context, requestPtr uintptr, requestType gtypes.GType) bool {
+	return gobjectTypeCheckInstanceIsAByPtr(ctx, requestPtr, requestType)
 }
 
 func classifyPermissionRequestTypes(
+	ctx context.Context,
 	kind permissionRequestKind,
 	isAudio, isVideo, isDisplay bool,
 ) []string {
 	switch kind {
 	case permissionRequestKindUserMedia:
-		return classifyUserMediaPermissionTypes(isAudio, isVideo, isDisplay)
+		return classifyUserMediaPermissionTypes(ctx, isAudio, isVideo, isDisplay)
 	case permissionRequestKindDeviceInfo:
 		return []string{"device_info"}
 	default:
@@ -1117,7 +1120,7 @@ func classifyPermissionRequestTypes(
 	}
 }
 
-func classifyUserMediaPermissionTypes(isAudio, isVideo, isDisplay bool) []string {
+func classifyUserMediaPermissionTypes(ctx context.Context, isAudio, isVideo, isDisplay bool) []string {
 	types := make([]string, 0, 2)
 
 	if isAudio {
@@ -1133,6 +1136,11 @@ func classifyUserMediaPermissionTypes(isAudio, isVideo, isDisplay bool) []string
 	if len(types) == 0 {
 		// On some Wayland/WebKit paths, getDisplayMedia() can arrive with all
 		// flags false even though the request is a screen-capture request.
+		logging.FromContext(ctx).Debug().
+			Bool("is_audio", isAudio).
+			Bool("is_video", isVideo).
+			Bool("is_display", isDisplay).
+			Msg("user media request had no flags; using display fallback")
 		return []string{"display"}
 	}
 
@@ -1156,6 +1164,8 @@ func (wv *WebView) allowPermissionRequest(requestPtr uintptr) {
 		wv.logger.Debug().Msg("permission request allowed")
 		return
 	}
+
+	wv.logger.Warn().Uint64("request_ptr", uint64(requestPtr)).Msg("permission request: unknown type, cannot allow")
 }
 
 // denyPermissionRequest calls Deny() on the WebKit permission request.
@@ -1175,6 +1185,8 @@ func (wv *WebView) denyPermissionRequest(requestPtr uintptr) {
 		wv.logger.Debug().Msg("permission request denied")
 		return
 	}
+
+	wv.logger.Warn().Uint64("request_ptr", uint64(requestPtr)).Msg("permission request: unknown type, cannot deny")
 }
 
 // ID returns the unique identifier for this WebView.

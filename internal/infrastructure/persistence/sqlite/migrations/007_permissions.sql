@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS permissions (
     PRIMARY KEY (origin, permission_type)
 );
 
-CREATE INDEX IF NOT EXISTS idx_permissions_origin ON permissions(origin);
 CREATE INDEX IF NOT EXISTS idx_permissions_updated_at ON permissions(updated_at);
 
 -- +goose Down

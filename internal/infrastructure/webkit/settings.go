@@ -122,7 +122,6 @@ func applyMediaSettings(settings *webkit.Settings, cfg *config.Config, log *zero
 	settings.SetEnableMedia(true)
 	settings.SetEnableMediasource(true)
 	settings.SetEnableMediaCapabilities(true)
-	settings.SetEnableMediaStream(true)
 	settings.SetEnableEncryptedMedia(true)
 	settings.SetMediaPlaybackRequiresUserGesture(true)
 	settings.SetMediaPlaybackAllowsInline(true)
@@ -161,6 +160,7 @@ func applyWebRTCSettings(settings *webkit.Settings) {
 	settings.SetPropertyEnableMediaStream(true)
 	settings.SetPropertyEnableWebrtc(true)
 
+	settings.SetEnableMediaStream(true)
 	settings.SetEnableWebrtc(true)
 }
 

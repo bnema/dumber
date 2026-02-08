@@ -562,6 +562,8 @@ func resolveAssetPath(u *url.URL) (string, bool) {
 	switch u.Opaque {
 	case HomePath:
 		return IndexHTML, true
+	case ConfigPath:
+		return "config.html", true
 	case ErrorPath:
 		return "error.html", true
 	case WebRTCPath:

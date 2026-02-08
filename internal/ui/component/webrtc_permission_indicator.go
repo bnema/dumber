@@ -298,12 +298,8 @@ func (w *WebRTCPermissionIndicator) Reset() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	for k := range w.states {
-		delete(w.states, k)
-	}
-	for k := range w.stored {
-		delete(w.stored, k)
-	}
+	clear(w.states)
+	clear(w.stored)
 	w.currentOrigin = ""
 
 	w.refreshLocked()

@@ -88,7 +88,7 @@ var PermissionPopupSizeDefaults = ModalSizeConfig{
 	MaxWidth:       400,
 	TopMarginPct:   0.3,
 	FallbackWidth:  400,
-	FallbackHeight: 600,
+	FallbackHeight: 300,
 }
 
 // EffectiveMaxRows returns the maximum number of visible rows that fit
