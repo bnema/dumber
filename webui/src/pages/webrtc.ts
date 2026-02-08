@@ -34,12 +34,17 @@ async function probeDevices(output: HTMLPreElement): Promise<void> {
     return;
   }
 
-  const devices = await navigator.mediaDevices.enumerateDevices();
-  const summary = devices
-    .map((device) => `${device.kind} ${device.label || "(label hidden until permission)"}`)
-    .join(" | ");
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const summary = devices
+      .map((device) => `${device.kind} ${device.label || "(label hidden until permission)"}`)
+      .join(" | ");
 
-  appendLog(output, `Devices: ${summary || "none"}`);
+    appendLog(output, `Devices: ${summary || "none"}`);
+  } catch (err) {
+    appendLog(output, `enumerateDevices failed: ${String(err)}`);
+    appendLog(output, "Devices: none");
+  }
 }
 
 async function requestUserMedia(video: HTMLVideoElement, output: HTMLPreElement, status: HTMLElement): Promise<void> {
