@@ -73,9 +73,13 @@ func (r *permissionRepo) GetAll(ctx context.Context, origin string) ([]*entity.P
 	log := logging.FromContext(ctx)
 	log.Debug().Str("origin", origin).Msg("getting all permissions for origin")
 
+	// sqlc returns an empty slice (not sql.ErrNoRows) when nothing matches.
 	rows, err := r.queries.ListPermissionsByOrigin(ctx, origin)
 	if err != nil {
 		return nil, err
+	}
+	if len(rows) == 0 {
+		return []*entity.PermissionRecord{}, nil
 	}
 
 	records := make([]*entity.PermissionRecord, len(rows))

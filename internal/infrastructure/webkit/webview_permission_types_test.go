@@ -1,6 +1,7 @@
 package webkit
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -46,7 +47,7 @@ func TestClassifyUserMediaPermissionTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, classifyUserMediaPermissionTypes(tt.isAudio, tt.isVideo, tt.isDisplay))
+			assert.Equal(t, tt.expected, classifyUserMediaPermissionTypes(context.Background(), tt.isAudio, tt.isVideo, tt.isDisplay))
 		})
 	}
 }
@@ -90,7 +91,7 @@ func TestClassifyPermissionRequestTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, classifyPermissionRequestTypes(tt.kind, tt.isAudio, tt.isVideo, tt.isDisplay))
+			assert.Equal(t, tt.expected, classifyPermissionRequestTypes(context.Background(), tt.kind, tt.isAudio, tt.isVideo, tt.isDisplay))
 		})
 	}
 }

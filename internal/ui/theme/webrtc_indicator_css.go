@@ -46,21 +46,13 @@ func generateWebRTCPermissionIndicatorCSS(p Palette) string {
 	            box-shadow 200ms ease-in-out;
 }
 
-/* Header row: origin label (left) + dot (right) on the same line */
-.webrtc-indicator-header {
-}
-
-/* Origin label - shown next to the dot, hidden when collapsed (no text) */
+/* Origin label shown next to the dot. */
 .webrtc-indicator-origin {
 	font-size: 0.6875em;
 	font-weight: 600;
 	letter-spacing: 0.02em;
 	padding: 0 0.4em 0 0;
 	color: var(--muted);
-}
-
-/* GtkRevealer wrapper */
-.webrtc-indicator-revealer {
 }
 
 /* Details section inside the revealer (permission rows only) */

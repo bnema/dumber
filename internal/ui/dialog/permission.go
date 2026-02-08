@@ -129,6 +129,7 @@ func (d *PermissionDialog) showNextQueuedRequest() {
 func (d *PermissionDialog) buildHeading(permTypes []entity.PermissionType) string {
 	hasMic := false
 	hasCam := false
+	hasDisplay := false
 
 	for _, pt := range permTypes {
 		switch pt {
@@ -136,16 +137,26 @@ func (d *PermissionDialog) buildHeading(permTypes []entity.PermissionType) strin
 			hasMic = true
 		case entity.PermissionTypeCamera:
 			hasCam = true
+		case entity.PermissionTypeDisplay:
+			hasDisplay = true
 		}
 	}
 
 	switch {
+	case hasMic && hasCam && hasDisplay:
+		return "Allow Microphone, Camera, and Screen Sharing?"
+	case hasMic && hasDisplay:
+		return "Allow Microphone and Screen Sharing?"
+	case hasCam && hasDisplay:
+		return "Allow Camera and Screen Sharing?"
 	case hasMic && hasCam:
 		return "Allow Microphone and Camera?"
 	case hasMic:
 		return "Allow Microphone Access?"
 	case hasCam:
 		return "Allow Camera Access?"
+	case hasDisplay:
+		return "Allow Screen Sharing?"
 	default:
 		return "Allow Permission?"
 	}
@@ -155,6 +166,7 @@ func (d *PermissionDialog) buildHeading(permTypes []entity.PermissionType) strin
 func (d *PermissionDialog) buildBody(origin string, permTypes []entity.PermissionType) string {
 	hasMic := false
 	hasCam := false
+	hasDisplay := false
 
 	for _, pt := range permTypes {
 		switch pt {
@@ -162,17 +174,27 @@ func (d *PermissionDialog) buildBody(origin string, permTypes []entity.Permissio
 			hasMic = true
 		case entity.PermissionTypeCamera:
 			hasCam = true
+		case entity.PermissionTypeDisplay:
+			hasDisplay = true
 		}
 	}
 
 	var action string
 	switch {
+	case hasMic && hasCam && hasDisplay:
+		action = "access your microphone and camera, and share your screen"
+	case hasMic && hasDisplay:
+		action = "access your microphone and share your screen"
+	case hasCam && hasDisplay:
+		action = "access your camera and share your screen"
 	case hasMic && hasCam:
 		action = "access your microphone and camera"
 	case hasMic:
 		action = "access your microphone"
 	case hasCam:
 		action = "access your camera"
+	case hasDisplay:
+		action = "share your screen"
 	default:
 		action = "access your device"
 	}

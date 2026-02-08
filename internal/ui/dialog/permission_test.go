@@ -107,3 +107,47 @@ func TestPermissionDialog_NoPopup_DeniesRequest(t *testing.T) {
 	assert.True(t, called)
 	assert.Equal(t, port.PermissionDialogResult{Allowed: false, Persistent: false}, result)
 }
+
+func TestPermissionDialog_BuildHeadingAndBody_DisplayCombinations(t *testing.T) {
+	d := &PermissionDialog{}
+	origin := "https://meet.example.com"
+
+	tests := []struct {
+		name           string
+		permTypes      []entity.PermissionType
+		expectHeading  string
+		expectedAction string
+	}{
+		{
+			name:           "display only",
+			permTypes:      []entity.PermissionType{entity.PermissionTypeDisplay},
+			expectHeading:  "Allow Screen Sharing?",
+			expectedAction: "share your screen",
+		},
+		{
+			name:           "microphone and display",
+			permTypes:      []entity.PermissionType{entity.PermissionTypeMicrophone, entity.PermissionTypeDisplay},
+			expectHeading:  "Allow Microphone and Screen Sharing?",
+			expectedAction: "access your microphone and share your screen",
+		},
+		{
+			name:           "camera and display",
+			permTypes:      []entity.PermissionType{entity.PermissionTypeCamera, entity.PermissionTypeDisplay},
+			expectHeading:  "Allow Camera and Screen Sharing?",
+			expectedAction: "access your camera and share your screen",
+		},
+		{
+			name:           "all three",
+			permTypes:      []entity.PermissionType{entity.PermissionTypeMicrophone, entity.PermissionTypeCamera, entity.PermissionTypeDisplay},
+			expectHeading:  "Allow Microphone, Camera, and Screen Sharing?",
+			expectedAction: "access your microphone and camera, and share your screen",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expectHeading, d.buildHeading(tt.permTypes))
+			assert.Equal(t, origin+" wants to "+tt.expectedAction+".", d.buildBody(origin, tt.permTypes))
+		})
+	}
+}

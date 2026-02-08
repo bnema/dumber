@@ -137,6 +137,15 @@ func TestSessionManagerSizeDefaults_Values(t *testing.T) {
 	assert.LessOrEqual(t, SessionManagerSizeDefaults.TopMarginPct, 1.0)
 }
 
+func TestPermissionPopupSizeDefaults_Values(t *testing.T) {
+	assert.Greater(t, PermissionPopupSizeDefaults.WidthPct, 0.0)
+	assert.LessOrEqual(t, PermissionPopupSizeDefaults.WidthPct, 1.0)
+	assert.Positive(t, PermissionPopupSizeDefaults.MaxWidth)
+	assert.Greater(t, PermissionPopupSizeDefaults.TopMarginPct, 0.0)
+	assert.LessOrEqual(t, PermissionPopupSizeDefaults.TopMarginPct, 1.0)
+	assert.Equal(t, 300, PermissionPopupSizeDefaults.FallbackHeight)
+}
+
 func TestListDisplayDefaults_Values(t *testing.T) {
 	assert.Positive(t, OmniboxListDefaults.MaxVisibleRows)
 	assert.Positive(t, OmniboxListDefaults.MaxResults)
