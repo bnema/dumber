@@ -3,6 +3,7 @@ package input
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/bnema/dumber/internal/infrastructure/config"
@@ -100,6 +101,7 @@ func NewGlobalShortcutHandler(
 		// Map action names to action constants for global shortcuts
 		actionMap := map[string]Action{
 			"toggle_floating_pane":   ActionToggleFloatingPane,
+			"toggle-floating-pane":   ActionToggleFloatingPane,
 			"consume_or_expel_left":  ActionConsumeOrExpelLeft,
 			"consume_or_expel_right": ActionConsumeOrExpelRight,
 			"consume_or_expel_up":    ActionConsumeOrExpelUp,
@@ -238,6 +240,10 @@ func formatBinding(binding KeyBinding) string {
 	if binding.Modifiers&ModAlt != 0 {
 		parts = append(parts, "alt")
 	}
-	parts = append(parts, strings.ToLower(gdk.KeyvalName(binding.Keyval)))
+	keyName := gdk.KeyvalName(binding.Keyval)
+	if keyName == "" {
+		keyName = fmt.Sprintf("0x%x", binding.Keyval)
+	}
+	parts = append(parts, strings.ToLower(keyName))
 	return strings.Join(parts, "+")
 }

@@ -997,10 +997,6 @@ func generateFloatingPaneCSS(p Palette) string {
 	border-color: var(--accent);
 }
 
-.single-pane .floating-pane-container.pane-active {
-	border-color: var(--accent);
-}
-
 .floating-pane-omnibox {
 	background-color: shade(var(--surface-variant), 1.08);
 	border-bottom: 0.0625em solid var(--border);

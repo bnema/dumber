@@ -78,6 +78,8 @@ func (fp *FloatingPane) ShowToggle(ctx context.Context) error {
 	showOmnibox := navigateToBlank || fp.currentURL == defaultFloatingPaneURL
 	fp.visible = true
 	fp.omniboxVisible = showOmnibox
+	// Release lock before Navigate: callbacks may block and must not run while
+	// holding fp.mu. On error, rollback below restores visibility state.
 	fp.mu.Unlock()
 
 	if navigateToBlank {
@@ -130,7 +132,7 @@ func (fp *FloatingPane) ShowURL(ctx context.Context, url string) error {
 }
 
 // Hide hides the pane while preserving web session state.
-func (fp *FloatingPane) Hide(context.Context) {
+func (fp *FloatingPane) Hide(_ context.Context) {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 	fp.visible = false
@@ -164,26 +166,15 @@ func (fp *FloatingPane) Navigate(ctx context.Context, url string) error {
 
 // Resize recalculates pane dimensions from parent overlay allocation.
 func (fp *FloatingPane) Resize() {
-	fp.mu.RLock()
-	parent := fp.parent
-	widthPct := fp.widthPct
-	heightPct := fp.heightPct
-	fallbackWidth := fp.fallbackWidth
-	fallbackHeight := fp.fallbackHeight
-	fp.mu.RUnlock()
-
-	width, height := CalculateOverlayDimensions(
-		parent,
-		widthPct,
-		heightPct,
-		fallbackWidth,
-		fallbackHeight,
-	)
-
 	fp.mu.Lock()
-	fp.calculatedWidth = width
-	fp.calculatedHeight = height
-	fp.mu.Unlock()
+	defer fp.mu.Unlock()
+	fp.calculatedWidth, fp.calculatedHeight = CalculateOverlayDimensions(
+		fp.parent,
+		fp.widthPct,
+		fp.heightPct,
+		fp.fallbackWidth,
+		fp.fallbackHeight,
+	)
 }
 
 // SetParentOverlay updates the workspace overlay used for sizing calculations.

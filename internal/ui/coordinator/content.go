@@ -1063,22 +1063,47 @@ func (c *ContentCoordinator) PreloadCachedFavicon(ctx context.Context, paneID en
 	if c.faviconAdapter == nil || uri == "" {
 		return
 	}
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
 
 	// Check memory and disk cache (no external fetch)
 	texture := c.faviconAdapter.PreloadFromCache(uri)
-
-	// Update stacked pane favicon if applicable.
-	// A nil texture triggers the default icon fallback, which avoids stale favicons.
-	_, wsView := c.getActiveWS()
-	if wsView != nil {
-		tr := wsView.TreeRenderer()
-		if tr != nil {
-			stackedView := tr.GetStackedViewForPane(string(paneID))
-			if stackedView != nil {
-				c.updateStackedPaneFavicon(ctx, stackedView, paneID, texture)
-			}
-		}
+	select {
+	case <-ctx.Done():
+		return
+	default:
 	}
+
+	// Update stacked pane favicon on GTK main loop.
+	cb := glib.SourceFunc(func(_ uintptr) bool {
+		select {
+		case <-ctx.Done():
+			return false
+		default:
+		}
+		if c.getActiveWS == nil {
+			return false
+		}
+		// A nil texture triggers the default icon fallback, which avoids stale favicons.
+		_, wsView := c.getActiveWS()
+		if wsView == nil {
+			return false
+		}
+		tr := wsView.TreeRenderer()
+		if tr == nil {
+			return false
+		}
+		stackedView := tr.GetStackedViewForPane(string(paneID))
+		if stackedView == nil {
+			return false
+		}
+		c.updateStackedPaneFavicon(ctx, stackedView, paneID, texture)
+		return false
+	})
+	glib.IdleAdd(&cb, 0)
 }
 
 // onLoadCommitted re-applies zoom when page content starts loading and records history.

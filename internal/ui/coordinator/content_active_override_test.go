@@ -8,6 +8,7 @@ import (
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
+	"github.com/bnema/dumber/internal/ui/component"
 )
 
 func TestContentCoordinator_ActiveWebView_UsesOverride(t *testing.T) {
@@ -41,4 +42,26 @@ func TestContentCoordinator_ActiveWebView_ClearOverrideFallsBack(t *testing.T) {
 
 	assert.Nil(t, c.ActiveWebView(context.Background()))
 	assert.Equal(t, entity.PaneID(""), c.ActivePaneID(context.Background()))
+}
+
+func TestContentCoordinator_ActiveWebView_ClearOverrideFallsBackToWorkspace(t *testing.T) {
+	ctx := context.Background()
+	mainWV := &webkit.WebView{}
+	mainPane := entity.NewPane(entity.PaneID("main-pane"))
+	ws := entity.NewWorkspace(entity.WorkspaceID("ws-1"), mainPane)
+
+	c := &ContentCoordinator{
+		webViews: map[entity.PaneID]*webkit.WebView{
+			mainPane.ID: mainWV,
+		},
+		getActiveWS: func() (*entity.Workspace, *component.WorkspaceView) {
+			return ws, nil
+		},
+	}
+
+	c.SetActivePaneOverride("floating-pane")
+	c.ClearActivePaneOverride()
+
+	assert.Equal(t, mainWV, c.ActiveWebView(ctx))
+	assert.Equal(t, ws.ActivePaneID, c.ActivePaneID(ctx))
 }

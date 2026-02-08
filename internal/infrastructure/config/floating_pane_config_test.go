@@ -85,70 +85,80 @@ func TestFloatingPaneConfig_ValidationRanges(t *testing.T) {
 }
 
 func TestFloatingPaneConfig_ProfileValidation(t *testing.T) {
-	cfg := DefaultConfig()
-	cfg.Workspace.FloatingPane.Profiles = map[string]FloatingPaneProfile{
-		"google": {
-			URL:  "",
-			Keys: []string{"alt+g"},
-		},
-	}
+	t.Run("missing URL", func(t *testing.T) {
+		cfg := DefaultConfig()
+		cfg.Workspace.FloatingPane.Profiles = map[string]FloatingPaneProfile{
+			"google": {
+				URL:  "",
+				Keys: []string{"alt+g"},
+			},
+		}
 
-	err := validateConfig(cfg)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "workspace.floating_pane.profiles.google.url")
+		err := validateConfig(cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "workspace.floating_pane.profiles.google.url")
+	})
 
-	cfg = DefaultConfig()
-	cfg.Workspace.FloatingPane.Profiles = map[string]FloatingPaneProfile{
-		"google": {
-			URL:  "https://google.com",
-			Keys: nil,
-		},
-	}
+	t.Run("missing keys", func(t *testing.T) {
+		cfg := DefaultConfig()
+		cfg.Workspace.FloatingPane.Profiles = map[string]FloatingPaneProfile{
+			"google": {
+				URL:  "https://google.com",
+				Keys: nil,
+			},
+		}
 
-	err = validateConfig(cfg)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "workspace.floating_pane.profiles.google.keys")
+		err := validateConfig(cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "workspace.floating_pane.profiles.google.keys")
+	})
 
-	cfg = DefaultConfig()
-	cfg.Workspace.FloatingPane.Profiles = map[string]FloatingPaneProfile{
-		"google": {
-			URL:  "https://google.com",
-			Keys: []string{"   ", "alt+g"},
-		},
-	}
+	t.Run("whitespace-only key", func(t *testing.T) {
+		cfg := DefaultConfig()
+		cfg.Workspace.FloatingPane.Profiles = map[string]FloatingPaneProfile{
+			"google": {
+				URL:  "https://google.com",
+				Keys: []string{"   ", "alt+g"},
+			},
+		}
 
-	err = validateConfig(cfg)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "empty or whitespace-only key binding")
+		err := validateConfig(cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "empty or whitespace-only key binding")
+	})
 
-	cfg = DefaultConfig()
-	cfg.Workspace.FloatingPane.Profiles = map[string]FloatingPaneProfile{
-		"google": {
-			URL:  "https://google.com",
-			Keys: []string{"alt+g"},
-		},
-		"github": {
-			URL:  "https://github.com",
-			Keys: []string{"alt+g"},
-		},
-	}
+	t.Run("duplicate key binding", func(t *testing.T) {
+		cfg := DefaultConfig()
+		cfg.Workspace.FloatingPane.Profiles = map[string]FloatingPaneProfile{
+			"google": {
+				URL:  "https://google.com",
+				Keys: []string{"alt+g"},
+			},
+			"github": {
+				URL:  "https://github.com",
+				Keys: []string{"alt+g"},
+			},
+		}
 
-	err = validateConfig(cfg)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "duplicate key binding")
+		err := validateConfig(cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "duplicate key binding")
+	})
 
-	cfg = DefaultConfig()
-	cfg.Workspace.FloatingPane.Profiles = map[string]FloatingPaneProfile{
-		"invalid-scheme": {
-			URL:  "ftp://example.com",
-			Keys: []string{"alt+i"},
-		},
-	}
+	t.Run("invalid URL scheme", func(t *testing.T) {
+		cfg := DefaultConfig()
+		cfg.Workspace.FloatingPane.Profiles = map[string]FloatingPaneProfile{
+			"invalid-scheme": {
+				URL:  "ftp://example.com",
+				Keys: []string{"alt+i"},
+			},
+		}
 
-	err = validateConfig(cfg)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "workspace.floating_pane.profiles.invalid-scheme.url")
-	assert.Contains(t, err.Error(), "must use one of: http, https, dumb, file, about")
+		err := validateConfig(cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "workspace.floating_pane.profiles.invalid-scheme.url")
+		assert.Contains(t, err.Error(), "must use one of: http, https, dumb, file, about")
+	})
 }
 
 func TestFloatingPaneConfig_ProfileMultiplicity(t *testing.T) {

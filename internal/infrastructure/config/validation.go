@@ -334,13 +334,12 @@ func validateWorkspaceNewPaneURL(config *Config) []string {
 
 func validateWorkspaceURLValue(fieldPath, value string) []string {
 	trimmed := strings.TrimSpace(value)
-	normalized := domainurl.Normalize(trimmed)
-	candidate := normalized
-	if rawParsed, rawErr := url.Parse(trimmed); rawErr == nil && rawParsed.Scheme != "" {
-		candidate = trimmed
-	}
-
+	candidate := trimmed
 	parsed, err := url.Parse(candidate)
+	if err != nil || parsed.Scheme == "" {
+		candidate = domainurl.Normalize(trimmed)
+		parsed, err = url.Parse(candidate)
+	}
 	if err != nil {
 		return []string{fmt.Sprintf("%s must be a valid URL (got: %s)", fieldPath, value)}
 	}

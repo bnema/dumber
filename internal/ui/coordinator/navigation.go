@@ -3,6 +3,7 @@ package coordinator
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -23,6 +24,8 @@ type NavigationCoordinator struct {
 	contentCoord    *ContentCoordinator
 	omniboxProvider OmniboxProvider
 }
+
+const faviconPreloadTimeout = 300 * time.Millisecond
 
 // NewNavigationCoordinator creates a new NavigationCoordinator.
 func NewNavigationCoordinator(
@@ -74,7 +77,11 @@ func (c *NavigationCoordinator) Navigate(ctx context.Context, url string) error 
 		// Track original URL for cross-domain redirect favicon caching
 		c.contentCoord.SetNavigationOrigin(activePaneID, url)
 		// Pre-load cached favicon asynchronously (don't block navigation start)
-		go c.contentCoord.PreloadCachedFavicon(ctx, activePaneID, url)
+		preloadCtx, cancelPreload := context.WithTimeout(ctx, faviconPreloadTimeout)
+		go func() {
+			defer cancelPreload()
+			c.contentCoord.PreloadCachedFavicon(preloadCtx, activePaneID, url)
+		}()
 	}
 
 	// Use NavigateUseCase which handles history + zoom

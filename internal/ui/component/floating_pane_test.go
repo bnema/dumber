@@ -1,10 +1,11 @@
-package component
+package component_test
 
 import (
 	"context"
 	"sync"
 	"testing"
 
+	"github.com/bnema/dumber/internal/ui/component"
 	layoutmocks "github.com/bnema/dumber/internal/ui/layout/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,7 +17,7 @@ func TestFloatingPane_HideShowPreservesState(t *testing.T) {
 	overlay.EXPECT().GetAllocatedHeight().Return(800).Maybe()
 
 	navigated := make([]string, 0)
-	fp := NewFloatingPane(overlay, FloatingPaneOptions{
+	fp := component.NewFloatingPane(overlay, component.FloatingPaneOptions{
 		WidthPct:       0.82,
 		HeightPct:      0.72,
 		FallbackWidth:  1200,
@@ -44,7 +45,7 @@ func TestFloatingPane_ShowURLLoadsTarget(t *testing.T) {
 	overlay.EXPECT().GetAllocatedWidth().Return(1000).Maybe()
 	overlay.EXPECT().GetAllocatedHeight().Return(700).Maybe()
 
-	fp := NewFloatingPane(overlay, FloatingPaneOptions{
+	fp := component.NewFloatingPane(overlay, component.FloatingPaneOptions{
 		WidthPct:       0.82,
 		HeightPct:      0.72,
 		FallbackWidth:  1000,
@@ -63,7 +64,7 @@ func TestFloatingPane_ResizeUsesWorkspacePercentages(t *testing.T) {
 	overlay.EXPECT().GetAllocatedWidth().Return(1000).Maybe()
 	overlay.EXPECT().GetAllocatedHeight().Return(700).Maybe()
 
-	fp := NewFloatingPane(overlay, FloatingPaneOptions{
+	fp := component.NewFloatingPane(overlay, component.FloatingPaneOptions{
 		WidthPct:       0.82,
 		HeightPct:      0.72,
 		FallbackWidth:  1000,
@@ -82,7 +83,7 @@ func TestFloatingPane_FirstToggleOpensBlankAndOmnibox(t *testing.T) {
 	overlay.EXPECT().GetAllocatedWidth().Return(1200).Maybe()
 	overlay.EXPECT().GetAllocatedHeight().Return(800).Maybe()
 
-	fp := NewFloatingPane(overlay, FloatingPaneOptions{
+	fp := component.NewFloatingPane(overlay, component.FloatingPaneOptions{
 		WidthPct:       0.82,
 		HeightPct:      0.72,
 		FallbackWidth:  1200,
@@ -97,7 +98,7 @@ func TestFloatingPane_FirstToggleOpensBlankAndOmnibox(t *testing.T) {
 }
 
 func TestFloatingPane_SetOmniboxVisible(t *testing.T) {
-	fp := NewFloatingPane(nil, FloatingPaneOptions{
+	fp := component.NewFloatingPane(nil, component.FloatingPaneOptions{
 		WidthPct:       0.82,
 		HeightPct:      0.72,
 		FallbackWidth:  1200,
@@ -120,7 +121,7 @@ func TestFloatingPane_ConcurrentResizeAndParentSwitch(t *testing.T) {
 	overlayB.EXPECT().GetAllocatedWidth().Return(1000).Maybe()
 	overlayB.EXPECT().GetAllocatedHeight().Return(700).Maybe()
 
-	fp := NewFloatingPane(overlayA, FloatingPaneOptions{
+	fp := component.NewFloatingPane(overlayA, component.FloatingPaneOptions{
 		WidthPct:       0.82,
 		HeightPct:      0.72,
 		FallbackWidth:  1200,
