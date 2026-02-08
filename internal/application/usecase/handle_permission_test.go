@@ -365,6 +365,19 @@ func TestHandlePermissionUseCase_QueryPermissionState_NoRecord(t *testing.T) {
 	assert.Equal(t, entity.PermissionPrompt, state, "no record should return prompt")
 }
 
+func TestHandlePermissionUseCase_QueryPermissionState_EmptyOriginReturnsPrompt(t *testing.T) {
+	ctx := testContext()
+	permRepo := repomocks.NewMockPermissionRepository(t)
+	dialog := portmocks.NewMockPermissionDialogPresenter(t)
+
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
+
+	state := uc.QueryPermissionState(ctx, "", entity.PermissionTypeDisplay)
+
+	assert.Equal(t, entity.PermissionPrompt, state, "empty origin should return prompt")
+	permRepo.AssertNotCalled(t, "Get")
+}
+
 func TestHandlePermissionUseCase_NonPersistableNotSaved(t *testing.T) {
 	ctx := testContext()
 	permRepo := repomocks.NewMockPermissionRepository(t)
