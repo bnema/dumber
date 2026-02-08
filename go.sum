@@ -4,10 +4,10 @@ github.com/aymanbagabas/go-osc52/v2 v2.0.1 h1:HwpRHbFMcZLEVr42D4p7XBqjyuxQH5SMiE
 github.com/aymanbagabas/go-osc52/v2 v2.0.1/go.mod h1:uYgXzlJ7ZpABp8OJ+exZzJJhRNQ2ASbcXHWsFqH8hp8=
 github.com/aymanbagabas/go-udiff v0.3.1 h1:LV+qyBQ2pqe0u42ZsUEtPiCaUoqgA9gYRDs3vj1nolY=
 github.com/aymanbagabas/go-udiff v0.3.1/go.mod h1:G0fsKmG+P6ylD0r6N/KgQD/nWzgfnl8ZBcNLgcbrw8E=
-github.com/bnema/puregotk v0.0.0-20260207041652-c591276fa9d3 h1:bT12Jdm3GsJyINzxsk+WrPiMuwLaTQbBc5Z8VidyBl0=
-github.com/bnema/puregotk v0.0.0-20260207041652-c591276fa9d3/go.mod h1:mZu8qSvCSqtVL+xoiebZuicnJijwrLfGRs6/eTVgFlc=
-github.com/bnema/puregotk-webkit v0.0.10 h1:Qkwxo6UERwsLXFHtcJpV3McmAWpNswf/AGSV9JXWDOk=
-github.com/bnema/puregotk-webkit v0.0.10/go.mod h1:Hs5dyovh6jPUzyj8iWweRmN0zjPyUlD+JWH7mjypQiw=
+github.com/bnema/puregotk v0.0.0-20260208062357-b1825488ed92 h1:rprl5N0eR8wMIv27i8Zz0UeYqewhTPWYr6QNP4n76hs=
+github.com/bnema/puregotk v0.0.0-20260208062357-b1825488ed92/go.mod h1:mZu8qSvCSqtVL+xoiebZuicnJijwrLfGRs6/eTVgFlc=
+github.com/bnema/puregotk-webkit v0.0.12 h1:cvE+EZr0TiKJj1EeXbtOkNMU4RSgGXXclKl8OcSX63Y=
+github.com/bnema/puregotk-webkit v0.0.12/go.mod h1:kITL8qc4l1BGKl03TCrnMqVc2xPJ2Rf6+ihH+N6kdJo=
 github.com/charmbracelet/bubbles v0.21.1 h1:nj0decPiixaZeL9diI4uzzQTkkz1kYY8+jgzCZXSmW0=
 github.com/charmbracelet/bubbles v0.21.1/go.mod h1:HHvIYRCpbkCJw2yo0vNX1O5loCwSr9/mWS8GYSg50Sk=
 github.com/charmbracelet/bubbletea v1.3.10 h1:otUDHWMMzQSB0Pkc87rm691KZ3SWa4KUlvF9nRvCICw=

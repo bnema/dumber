@@ -185,6 +185,12 @@ func (mw *MainWindow) SetTitle(title string) {
 	mw.window.SetTitle(&title)
 }
 
+// ContentOverlay returns the content overlay widget.
+// Used by components that need the overlay dimensions for sizing calculations.
+func (mw *MainWindow) ContentOverlay() *gtk.Overlay {
+	return mw.contentOverlay
+}
+
 // AddOverlay adds a widget to the content overlay.
 // The widget will be displayed on top of the workspace content.
 func (mw *MainWindow) AddOverlay(widget *gtk.Widget) {

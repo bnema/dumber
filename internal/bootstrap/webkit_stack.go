@@ -13,6 +13,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/theme"
+	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/rs/zerolog"
 )
 
@@ -211,12 +212,20 @@ func initWebViewPool(
 		pool.SetFilterApplier(filterManager)
 	}
 
-	if err := pool.PrewarmFirst(ctx); err != nil {
-		logger.Warn().Err(err).Msg("failed to prewarm first webview, first tab may be slower")
+	if shouldPrewarmFirstWebView(gdk.DisplayGetDefault()) {
+		if err := pool.PrewarmFirst(ctx); err != nil {
+			logger.Warn().Err(err).Msg("failed to prewarm first webview, first tab may be slower")
+		}
+	} else {
+		logger.Warn().Msg("skipping first webview prewarm: no GDK display available yet")
 	}
 	logging.Trace().Mark("pool_prewarm_first")
 
 	return pool
+}
+
+func shouldPrewarmFirstWebView(display *gdk.Display) bool {
+	return display != nil
 }
 
 // hasWebProcessMemoryConfig returns true if any web process memory setting is configured.

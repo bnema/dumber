@@ -46,19 +46,21 @@ type Dependencies struct {
 	MessageRouter *webkit.MessageRouter
 
 	// Repositories
-	HistoryRepo  repository.HistoryRepository
-	FavoriteRepo repository.FavoriteRepository
-	ZoomRepo     repository.ZoomRepository
-	FilterRepo   repository.ContentWhitelistRepository
+	HistoryRepo    repository.HistoryRepository
+	FavoriteRepo   repository.FavoriteRepository
+	ZoomRepo       repository.ZoomRepository
+	PermissionRepo port.PermissionRepository
+	FilterRepo     repository.ContentWhitelistRepository
 
 	// Use Cases
-	TabsUC      *usecase.ManageTabsUseCase
-	PanesUC     *usecase.ManagePanesUseCase
-	NavigateUC  *usecase.NavigateUseCase
-	ZoomUC      *usecase.ManageZoomUseCase
-	FavoritesUC *usecase.ManageFavoritesUseCase
-	HistoryUC   *usecase.SearchHistoryUseCase
-	CopyURLUC   *usecase.CopyURLUseCase
+	TabsUC       *usecase.ManageTabsUseCase
+	PanesUC      *usecase.ManagePanesUseCase
+	NavigateUC   *usecase.NavigateUseCase
+	ZoomUC       *usecase.ManageZoomUseCase
+	PermissionUC *usecase.HandlePermissionUseCase
+	FavoritesUC  *usecase.ManageFavoritesUseCase
+	HistoryUC    *usecase.SearchHistoryUseCase
+	CopyURLUC    *usecase.CopyURLUseCase
 
 	// Infrastructure Adapters
 	Clipboard      port.Clipboard

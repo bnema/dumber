@@ -5,6 +5,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -46,4 +47,9 @@ func TestBuildWebKitContextOptions_DefaultPrivacyWhenConfigNil(t *testing.T) {
 
 	assert.Equal(t, port.WebKitCookiePolicyNoThirdParty, opts.CookiePolicy)
 	assert.True(t, opts.ITPEnabled)
+}
+
+func TestShouldPrewarmFirstWebView(t *testing.T) {
+	assert.False(t, shouldPrewarmFirstWebView(nil))
+	assert.True(t, shouldPrewarmFirstWebView(&gdk.Display{}))
 }

@@ -63,6 +63,13 @@ type HistoryFt struct {
 	Title string `json:"title"`
 }
 
+type Permission struct {
+	Origin         string       `json:"origin"`
+	PermissionType string       `json:"permission_type"`
+	Decision       string       `json:"decision"`
+	UpdatedAt      sql.NullTime `json:"updated_at"`
+}
+
 type Session struct {
 	ID        string       `json:"id"`
 	Type      string       `json:"type"`
