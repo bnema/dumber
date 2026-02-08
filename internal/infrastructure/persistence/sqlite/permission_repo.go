@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite/sqlc"
 	"github.com/bnema/dumber/internal/logging"
 )
@@ -16,7 +16,7 @@ type permissionRepo struct {
 }
 
 // NewPermissionRepository creates a new SQLite-backed permission repository.
-func NewPermissionRepository(db *sql.DB) repository.PermissionRepository {
+func NewPermissionRepository(db *sql.DB) port.PermissionRepository {
 	return &permissionRepo{queries: sqlc.New(db)}
 }
 

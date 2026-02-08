@@ -43,13 +43,13 @@ func NewLazyHistoryRepository(provider port.DatabaseProvider) repository.History
 // LazyPermissionRepository wraps a permission repository with lazy database initialization.
 type LazyPermissionRepository struct {
 	provider port.DatabaseProvider
-	repo     repository.PermissionRepository
+	repo     port.PermissionRepository
 	once     sync.Once
 	initErr  error
 }
 
 // NewLazyPermissionRepository creates a lazy-loading permission repository.
-func NewLazyPermissionRepository(provider port.DatabaseProvider) repository.PermissionRepository {
+func NewLazyPermissionRepository(provider port.DatabaseProvider) port.PermissionRepository {
 	return &LazyPermissionRepository{provider: provider}
 }
 
@@ -753,7 +753,7 @@ type LazyRepositories struct {
 	Session      repository.SessionRepository
 	SessionState repository.SessionStateRepository
 	Filter       repository.ContentWhitelistRepository
-	Permission   repository.PermissionRepository
+	Permission   port.PermissionRepository
 }
 
 // NewLazyRepositories creates all lazy repositories from a database provider.

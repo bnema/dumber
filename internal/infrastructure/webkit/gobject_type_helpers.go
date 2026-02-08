@@ -45,6 +45,10 @@ func permissionRequestTypeName(ctx context.Context, instancePtr uintptr) string 
 }
 
 func loadGObjectTypeFns(ctx context.Context) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	loadGObjectTypeFnsOnce.Do(func() {
 		log := logging.FromContext(ctx)
 		libs := make([]uintptr, 0, 2)
@@ -62,6 +66,12 @@ func loadGObjectTypeFns(ctx context.Context) {
 		}
 
 		core.PuregoSafeRegister(&typeCheckInstanceIsA, libs, "g_type_check_instance_is_a")
+		if typeCheckInstanceIsA == nil {
+			log.Debug().Msg("failed to register g_type_check_instance_is_a")
+		}
 		core.PuregoSafeRegister(&typeNameFromInstance, libs, "g_type_name_from_instance")
+		if typeNameFromInstance == nil {
+			log.Debug().Msg("failed to register g_type_name_from_instance")
+		}
 	})
 }

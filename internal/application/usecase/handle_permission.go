@@ -9,7 +9,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -25,14 +24,14 @@ type PermissionCallback struct {
 // - Device enumeration: auto-allow (low risk)
 // - Mic/Camera: check stored → dialog → persist if "Always"
 type HandlePermissionUseCase struct {
-	permRepo repository.PermissionRepository
+	permRepo port.PermissionRepository
 	dialog   port.PermissionDialogPresenter
 	dialogMu sync.RWMutex
 }
 
 // NewHandlePermissionUseCase creates a new permission handling use case.
 func NewHandlePermissionUseCase(
-	permRepo repository.PermissionRepository,
+	permRepo port.PermissionRepository,
 	dialog port.PermissionDialogPresenter,
 ) *HandlePermissionUseCase {
 	return &HandlePermissionUseCase{
@@ -135,26 +134,25 @@ func (uc *HandlePermissionUseCase) QueryPermissionState(
 		Str("type", string(permType)).
 		Logger()
 
-	// Auto-allow types
-	if entity.IsAutoAllow(permType) {
-		log.Debug().Msg("query: auto-allow type returns granted")
-		return entity.PermissionGranted
-	}
-
-	// Check stored permission
+	// Check stored permission first (including manual overrides on auto-allow types).
 	record, err := uc.permRepo.Get(ctx, origin, permType)
 	if err != nil {
 		log.Warn().Err(err).Msg("query: failed to get stored permission, returning prompt")
 		return entity.PermissionPrompt
 	}
 
-	if record == nil {
-		log.Debug().Msg("query: no stored permission, returning prompt")
-		return entity.PermissionPrompt
+	if record != nil {
+		log.Debug().Str("decision", string(record.Decision)).Msg("query: returning stored permission")
+		return record.Decision
 	}
 
-	log.Debug().Str("decision", string(record.Decision)).Msg("query: returning stored permission")
-	return record.Decision
+	if entity.IsAutoAllow(permType) {
+		log.Debug().Msg("query: no stored permission for auto-allow type, returning granted")
+		return entity.PermissionGranted
+	}
+
+	log.Debug().Msg("query: no stored permission, returning prompt")
+	return entity.PermissionPrompt
 }
 
 // isAutoAllowSet returns true if all permission types in the set are auto-allow.
@@ -317,6 +315,9 @@ func (uc *HandlePermissionUseCase) SetManualPermissionDecision(
 ) error {
 	if origin == "" {
 		return errors.New("origin is required")
+	}
+	if !entity.CanPersist(permType) {
+		return errors.New("permission type not persistable")
 	}
 	if decision == entity.PermissionPrompt {
 		return uc.permRepo.Delete(ctx, origin, permType)

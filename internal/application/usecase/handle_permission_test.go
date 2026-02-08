@@ -299,10 +299,31 @@ func TestHandlePermissionUseCase_QueryPermissionState_AutoAllow(t *testing.T) {
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog)
+	permRepo.EXPECT().Get(mock.Anything, "https://example.com", entity.PermissionTypeDisplay).
+		Return(nil, nil)
 
 	state := uc.QueryPermissionState(ctx, "https://example.com", entity.PermissionTypeDisplay)
 
 	assert.Equal(t, entity.PermissionGranted, state, "display capture should auto-return granted")
+}
+
+func TestHandlePermissionUseCase_QueryPermissionState_AutoAllowManualOverride(t *testing.T) {
+	ctx := testContext()
+	permRepo := repomocks.NewMockPermissionRepository(t)
+	dialog := portmocks.NewMockPermissionDialogPresenter(t)
+
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog)
+
+	permRepo.EXPECT().Get(mock.Anything, "https://example.com", entity.PermissionTypeDisplay).
+		Return(&entity.PermissionRecord{
+			Origin:   "https://example.com",
+			Type:     entity.PermissionTypeDisplay,
+			Decision: entity.PermissionDenied,
+		}, nil)
+
+	state := uc.QueryPermissionState(ctx, "https://example.com", entity.PermissionTypeDisplay)
+
+	assert.Equal(t, entity.PermissionDenied, state, "stored manual deny should override auto-allow")
 }
 
 func TestHandlePermissionUseCase_QueryPermissionState_Stored(t *testing.T) {
@@ -456,4 +477,22 @@ func TestHandlePermissionUseCase_GetSetResetManualDecision(t *testing.T) {
 		Return(nil)
 	err = uc.ResetManualPermissionDecision(ctx, "https://app.zoom.us", entity.PermissionTypeMicrophone)
 	require.NoError(t, err)
+}
+
+func TestHandlePermissionUseCase_SetManualPermissionDecision_NonPersistable(t *testing.T) {
+	ctx := testContext()
+	permRepo := repomocks.NewMockPermissionRepository(t)
+	uc := usecase.NewHandlePermissionUseCase(permRepo, nil)
+
+	err := uc.SetManualPermissionDecision(
+		ctx,
+		"https://app.zoom.us",
+		entity.PermissionTypeDisplay,
+		entity.PermissionDenied,
+	)
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "permission type not persistable")
+	permRepo.AssertNotCalled(t, "Set")
+	permRepo.AssertNotCalled(t, "Delete")
 }
