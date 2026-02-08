@@ -55,7 +55,7 @@ func TestWriteUnexpectedCloseReport(t *testing.T) {
 	assert.Equal(t, sessionID, payload["session_id"])
 
 	classification := payload["classification"].(map[string]any)
-	classValue, _ := classification["Class"].(string)
+	classValue, _ := classification["class"].(string)
 	assert.Equal(t, string(SessionExitMainProcessCrashOrAbrupt), classValue)
 
 	tail := payload["session_log_tail_redacted"].([]any)

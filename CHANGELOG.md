@@ -6,6 +6,10 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- **Unexpected-close crash reports**: Automatically detects prior abrupt sessions on startup and generates per-session crash reports (JSON + Markdown) with metadata, core-dump diagnostics, and redacted log tails. Reports are capped at 20 to prevent unbounded disk growth.
+- **`dumber crashes` CLI**: New CLI surface to list, view, and extract GitHub issue payloads from crash reports (`dumber crashes`, `dumber crashes show latest`, `dumber crashes issue latest`).
+- **Crash report UI notification**: Startup toast guides users to run `dumber crashes issue latest` when unexpected-close reports are detected.
+- **Unexpected-close GitHub issue template**: Structured issue template for reporting crashes with crash report payload, context, and reproduction steps.
 - **Session exit classification runbook and diagnostics docs**: Added dedicated operational documentation for abrupt/clean exit classification and troubleshooting paths.
 - **Session/bootstrap resilience coverage**: Added tests and supporting logic for startup markers, WebKit stack bootstrap, and exit classification handling.
 - **Omnibox async guard tests**: Added focused tests for ghost text async/state safety and normalization behavior.
