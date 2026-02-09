@@ -3,8 +3,10 @@ set -e
 
 # Dumber installer script
 # Usage: curl -fsSL https://dumber.bnema.dev/install | sh
+# Usage with pre-release: curl -fsSL https://dumber.bnema.dev/install | DUMBER_PRERELEASE=1 sh
 
 REPO="bnema/dumber"
+VERSION="${DUMBER_VERSION:-latest}"
 
 # Prefer ~/.local/bin if it exists and is in PATH, otherwise /usr/local/bin
 if [ -d "$HOME/.local/bin" ]; then
@@ -36,14 +38,46 @@ fi
 echo "Detected: linux/x86_64"
 
 TARBALL="dumber_linux_x86_64.tar.gz"
-DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/${TARBALL}"
+
+# Determine version to download
+if [ "$VERSION" = "latest" ] && [ -n "$DUMBER_PRERELEASE" ]; then
+    echo "Finding latest pre-release..."
+    RELEASE_DATA=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=1" 2>/dev/null || echo "")
+    if [ -z "$RELEASE_DATA" ]; then
+        echo "Error: Failed to fetch release information from GitHub API"
+        exit 1
+    fi
+    VERSION=$(echo "$RELEASE_DATA" | grep -m1 '"tag_name"' | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')
+    if [ -z "$VERSION" ]; then
+        echo "Error: Could not determine latest pre-release version"
+        exit 1
+    fi
+    echo "Using pre-release version: ${VERSION}"
+elif [ "$VERSION" = "latest" ]; then
+    echo "Using latest stable release"
+    RELEASE_DATA=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null || echo "")
+    if [ -z "$RELEASE_DATA" ]; then
+        echo "Error: Failed to fetch latest release information from GitHub API"
+        exit 1
+    fi
+    VERSION=$(echo "$RELEASE_DATA" | grep -m1 '"tag_name"' | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')
+    if [ -z "$VERSION" ]; then
+        echo "Error: Could not determine latest stable version"
+        exit 1
+    fi
+    echo "Resolved version: ${VERSION}"
+else
+    echo "Using version: ${VERSION}"
+fi
+
+DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${TARBALL}"
 
 # Create temporary directory
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 # Download checksums file
-CHECKSUMS_URL="https://github.com/${REPO}/releases/latest/download/checksums.txt"
+CHECKSUMS_URL="https://github.com/${REPO}/releases/download/${VERSION}/checksums.txt"
 echo "Downloading checksums..."
 if ! curl -fsSL "$CHECKSUMS_URL" -o "$TMP_DIR/checksums.txt"; then
     echo "Error: Failed to download checksums file"
