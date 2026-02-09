@@ -985,6 +985,12 @@ func generateFloatingPaneCSS(p Palette) string {
 	border: 0.0625em solid var(--border);
 	border-radius: 0.25em;
 	box-shadow: 0 0.5em 1.5em alpha(black, 0.25);
+	opacity: 0;
+	transition: opacity 110ms ease-out;
+}
+
+.floating-pane-container.floating-pane-visible {
+	opacity: 1;
 }
 
 .floating-pane-container.pane-active {

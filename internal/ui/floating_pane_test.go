@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"testing"
+	"unsafe"
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/ui/component"
@@ -22,14 +23,74 @@ func TestDecorateFloatingOverlay_AddsThemeClasses(t *testing.T) {
 	decorateFloatingOverlay(overlay)
 }
 
-func TestConfigureFloatingOverlayMeasurement_UsesMeasuredOverlay(t *testing.T) {
+func TestConfigureFloatingOverlayMeasurement_DoesNotMeasureOverlay(t *testing.T) {
 	workspaceOverlay := layoutmocks.NewMockOverlayWidget(t)
 	floatingOverlay := layoutmocks.NewMockWidget(t)
 
-	workspaceOverlay.EXPECT().SetMeasureOverlay(floatingOverlay, true).Once()
+	workspaceOverlay.EXPECT().SetMeasureOverlay(floatingOverlay, false).Once()
 	workspaceOverlay.EXPECT().SetClipOverlay(floatingOverlay, false).Once()
 
 	configureFloatingOverlayMeasurement(workspaceOverlay, floatingOverlay)
+}
+
+func TestShowFloatingWidget_AddsVisibleClassAndEnablesInteraction(t *testing.T) {
+	widget := layoutmocks.NewMockWidget(t)
+
+	widget.EXPECT().AddCssClass(floatingPaneVisibleClass).Once()
+	widget.EXPECT().SetCanTarget(true).Once()
+	widget.EXPECT().SetCanFocus(true).Once()
+
+	showFloatingWidget(widget)
+}
+
+func TestHideFloatingWidget_RemovesVisibleClassAndDisablesInteraction(t *testing.T) {
+	widget := layoutmocks.NewMockWidget(t)
+
+	widget.EXPECT().RemoveCssClass(floatingPaneVisibleClass).Once()
+	widget.EXPECT().SetCanTarget(false).Once()
+	widget.EXPECT().SetCanFocus(false).Once()
+
+	hideFloatingWidget(widget)
+}
+
+func TestFloatingAllocationRect_CentersRequestedSize(t *testing.T) {
+	x, y, width, height, ok := floatingAllocationRect(1000, 700, 820, 504)
+
+	require.True(t, ok)
+	assert.Equal(t, 90, x)
+	assert.Equal(t, 98, y)
+	assert.Equal(t, 820, width)
+	assert.Equal(t, 504, height)
+}
+
+func TestFloatingAllocationRect_ClampsToOverlayBounds(t *testing.T) {
+	x, y, width, height, ok := floatingAllocationRect(1000, 700, 1200, 900)
+
+	require.True(t, ok)
+	assert.Equal(t, 0, x)
+	assert.Equal(t, 0, y)
+	assert.Equal(t, 1000, width)
+	assert.Equal(t, 700, height)
+}
+
+func TestWriteOverlayAllocation_WritesRectangleFields(t *testing.T) {
+	type cGtkAllocation struct {
+		X      int32
+		Y      int32
+		Width  int32
+		Height int32
+	}
+
+	rect := cGtkAllocation{}
+	allocationPtr := (*uintptr)(unsafe.Pointer(&rect))
+
+	ok := writeOverlayAllocation(allocationPtr, 11, 22, 33, 44)
+
+	require.True(t, ok)
+	assert.Equal(t, int32(11), rect.X)
+	assert.Equal(t, int32(22), rect.Y)
+	assert.Equal(t, int32(33), rect.Width)
+	assert.Equal(t, int32(44), rect.Height)
 }
 
 func TestFloatingPane_ToggleActiveWorkspaceSession(t *testing.T) {
@@ -248,12 +309,16 @@ func TestFloatingPane_HideFloatingSession_StopsResizeWatcher(t *testing.T) {
 	session := newFloatingPaneSession(entity.TabID("tab-1"), "profile:test")
 	session.resizeWatcherActive = true
 	session.resizeTickID = 42
+	session.appliedWidth = 960
+	session.appliedHeight = 640
 
 	app := &App{}
 	app.hideFloatingSession(context.Background(), session)
 
 	assert.False(t, session.resizeWatcherActive)
 	assert.Equal(t, uint(0), session.resizeTickID)
+	assert.Equal(t, 0, session.appliedWidth)
+	assert.Equal(t, 0, session.appliedHeight)
 }
 
 func newFloatingPaneTestApp(t *testing.T) (*App, entity.TabID, *floatingWorkspaceSession) {
