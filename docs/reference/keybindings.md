@@ -79,6 +79,7 @@ These work outside modal modes:
 
 | Action | Keys |
 |--------|------|
+| Toggle floating pane | `Alt+F` |
 | Close pane | `Ctrl+W` |
 | Next tab | `Ctrl+Tab` |
 | Previous tab | `Ctrl+Shift+Tab` |
@@ -86,6 +87,12 @@ These work outside modal modes:
 | Consume/expel right | `Alt+]` |
 | Consume/expel up | `Alt+{` |
 | Consume/expel down | `Alt+}` |
+
+`Alt+F` is the only floating-pane shortcut enabled by default.
+Any URL-opening shortcut (for example `Alt+G`) must be defined explicitly in `workspace.floating_pane.profiles`.
+
+Warning: some `Alt+<key>` combinations may already be handled by WebKit, websites, or your desktop environment.
+If a shortcut does not trigger in Dumber, choose a different keybinding.
 
 ## Customization
 
@@ -98,6 +105,21 @@ close-pane = ["x", "q"]
 
 [workspace.shortcuts.actions.close_pane]
 keys = ["ctrl+w"]
+
+[workspace.shortcuts.actions.toggle_floating_pane]
+keys = ["alt+f"]
+
+[workspace.floating_pane]
+width_pct = 0.82
+height_pct = 0.72
+
+[workspace.floating_pane.profiles.google]
+keys = ["alt+g"]
+url = "https://google.com"
+
+[workspace.floating_pane.profiles.github]
+keys = ["alt+h"]
+url = "https://github.com"
 ```
 
 See [Configuration](../config/index.md) for full details.

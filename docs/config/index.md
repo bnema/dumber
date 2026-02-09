@@ -300,6 +300,7 @@ Global shortcuts are configured under `workspace.shortcuts.actions` using the sa
 
 | Action | Default Keys | Description |
 |--------|--------------|-------------|
+| `toggle_floating_pane` | `alt+f` | Toggle the workspace floating pane (persistent session) |
 | `close_pane` | `ctrl+w` | Close active pane (closes tab if last pane) |
 | `next_tab` | `ctrl+tab` | Switch to next tab |
 | `previous_tab` | `ctrl+shift+tab` | Switch to previous tab |
@@ -317,6 +318,10 @@ Global shortcuts are configured under `workspace.shortcuts.actions` using the sa
 [workspace.shortcuts.actions.next_tab]
   keys = ["ctrl+tab", "alt+l"]
   desc = "Switch to next tab"
+
+[workspace.shortcuts.actions.toggle_floating_pane]
+  keys = ["alt+f"]
+  desc = "Toggle floating pane"
 ```
 
 > **Tip:** Use `dumb://config` → Keybindings tab to edit shortcuts visually.
@@ -324,6 +329,47 @@ Global shortcuts are configured under `workspace.shortcuts.actions` using the sa
 > **Note:** New tab creation uses modal tab mode (Ctrl+T then n/c). This follows the Zellij-style modal keyboard interface.
 >
 > **Note:** Consume-or-expel is experimental and may change behavior between releases.
+>
+> **Warning:** Some `Alt+<key>` shortcuts may conflict with WebKit defaults, website handlers, or your desktop environment.
+> If a binding does not fire, rebind it to a different key.
+
+### Floating Pane
+
+The floating workspace pane is a persistent overlay session: hiding it does not destroy its web content.
+
+- Default behavior includes exactly one floating shortcut: `Alt+F` (`toggle_floating_pane`).
+- URL shortcuts (for example `Alt+G`) are user-defined via `workspace.floating_pane.profiles` and are empty by default.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `workspace.floating_pane.width_pct` | float | `0.82` | Floating pane width as fraction of workspace width (`(0,1]`) |
+| `workspace.floating_pane.height_pct` | float | `0.72` | Floating pane height as fraction of workspace height (`(0,1]`) |
+| `workspace.floating_pane.profiles` | map | `{}` | Named URL profiles, each with `keys[]`, `url`, optional `desc` |
+
+**Example:**
+
+```toml
+[workspace.shortcuts.actions.toggle_floating_pane]
+keys = ["alt+f"]
+desc = "Toggle floating pane"
+
+[workspace.floating_pane]
+width_pct = 0.82
+height_pct = 0.72
+
+[workspace.floating_pane.profiles]
+# Empty by default. Add as many entries as needed.
+
+[workspace.floating_pane.profiles.google]
+keys = ["alt+g"]
+url = "https://google.com"
+desc = "Open floating pane on Google"
+
+[workspace.floating_pane.profiles.github]
+keys = ["alt+h"]
+url = "https://github.com"
+desc = "Open floating pane on GitHub"
+```
 
 ### Popup Behavior
 

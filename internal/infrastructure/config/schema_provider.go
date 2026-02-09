@@ -453,6 +453,30 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 			Description: "Global keyboard shortcuts (use Keybindings tab to edit)",
 			Section:     SectionWorkspace,
 		},
+		// Floating pane
+		{
+			Key:         "workspace.floating_pane.width_pct",
+			Type:        "float64",
+			Default:     fmt.Sprintf("%.2f", defaults.Workspace.FloatingPane.WidthPct),
+			Description: "Floating pane width as a fraction of workspace width",
+			Range:       "(0,1]",
+			Section:     SectionWorkspace,
+		},
+		{
+			Key:         "workspace.floating_pane.height_pct",
+			Type:        "float64",
+			Default:     fmt.Sprintf("%.2f", defaults.Workspace.FloatingPane.HeightPct),
+			Description: "Floating pane height as a fraction of workspace height",
+			Range:       "(0,1]",
+			Section:     SectionWorkspace,
+		},
+		{
+			Key:         "workspace.floating_pane.profiles.<name>",
+			Type:        "object",
+			Default:     "(empty)",
+			Description: "Named floating pane URL profiles with keys, url, and optional desc",
+			Section:     SectionWorkspace,
+		},
 		// Popups
 		{
 			Key:         "workspace.popups.behavior",
