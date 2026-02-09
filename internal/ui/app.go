@@ -151,6 +151,7 @@ type floatingWorkspaceSession struct {
 	webView             *webkit.WebView
 	overlay             layout.OverlayWidget
 	widget              layout.Widget
+	focusWidget         layout.Widget
 	omnibox             *component.Omnibox
 	omniboxWidget       layout.Widget
 	resizeWatcherActive bool
@@ -618,7 +619,7 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 	a.keyboardHandler = input.NewKeyboardHandler(ctx, a.deps.Config)
 	a.keyboardHandler.SetOnAction(func(ctx context.Context, action input.Action) error {
 		if action == input.ActionClosePane {
-			if a.closeActiveFloatingPane(ctx) {
+			if a.closeAndReleaseActiveFloatingPane(ctx) {
 				return nil
 			}
 		}
@@ -2182,21 +2183,33 @@ func floatingAllocationRect(overlayWidth, overlayHeight, desiredWidth, desiredHe
 	return x, y, width, height, true
 }
 
+//nolint:gosec // GtkOverlay get-child-position provides a valid GtkAllocation pointer owned by GTK.
 func writeOverlayAllocation(allocationPtr *uintptr, x, y, width, height int) bool {
 	if allocationPtr == nil {
 		return false
 	}
 
+	const (
+		gtkAllocationOffsetX      = uintptr(0)
+		gtkAllocationOffsetY      = uintptr(4)
+		gtkAllocationOffsetWidth  = uintptr(8)
+		gtkAllocationOffsetHeight = uintptr(12)
+	)
+
 	// GtkAllocation/GdkRectangle is four 32-bit signed integers in C.
 	base := unsafe.Pointer(allocationPtr)
-	*(*int32)(base) = int32(x)
-	*(*int32)(unsafe.Pointer(uintptr(base) + uintptr(4))) = int32(y)
-	*(*int32)(unsafe.Pointer(uintptr(base) + uintptr(8))) = int32(width)
-	*(*int32)(unsafe.Pointer(uintptr(base) + uintptr(12))) = int32(height)
+	*(*int32)(unsafe.Pointer(uintptr(base) + gtkAllocationOffsetX)) = int32(x)
+	*(*int32)(unsafe.Pointer(uintptr(base) + gtkAllocationOffsetY)) = int32(y)
+	*(*int32)(unsafe.Pointer(uintptr(base) + gtkAllocationOffsetWidth)) = int32(width)
+	*(*int32)(unsafe.Pointer(uintptr(base) + gtkAllocationOffsetHeight)) = int32(height)
 	return true
 }
 
-func (a *App) floatingAllocationForWidget(tabID entity.TabID, widgetPtr uintptr, overlayWidth, overlayHeight int) (x, y, width, height int, ok bool) {
+func (a *App) floatingAllocationForWidget(
+	tabID entity.TabID,
+	widgetPtr uintptr,
+	overlayWidth, overlayHeight int,
+) (x, y, width, height int, ok bool) {
 	for key, session := range a.floatingSessions {
 		if key.tabID != tabID || session == nil || session.widget == nil {
 			continue
@@ -2273,6 +2286,9 @@ func (a *App) ensureFloatingSession(
 		}
 		if session.paneView != nil {
 			wsView.RegisterPaneView(session.paneID, session.paneView)
+			if session.focusWidget == nil {
+				session.focusWidget = session.paneView.WebViewWidget()
+			}
 		}
 		return session, nil
 	}
@@ -2334,12 +2350,13 @@ func (a *App) ensureFloatingSession(
 	})
 
 	session := &floatingWorkspaceSession{
-		paneID:   paneID,
-		pane:     floatingPane,
-		paneView: pv,
-		webView:  wv,
-		overlay:  pvOverlay,
-		widget:   pvOverlay,
+		paneID:      paneID,
+		pane:        floatingPane,
+		paneView:    pv,
+		webView:     wv,
+		overlay:     pvOverlay,
+		widget:      pvOverlay,
+		focusWidget: webViewWidget,
 	}
 	a.floatingSessions[key] = session
 	return session, nil
@@ -2363,41 +2380,66 @@ func (a *App) releaseFloatingSessionsForTab(ctx context.Context, tabID entity.Ta
 	}
 
 	for key, session := range sessions {
-		a.stopFloatingResizeWatcher(session)
-		if session.pane != nil {
-			session.pane.Hide(ctx)
-		}
-		a.hideFloatingOmnibox(ctx, session)
-		if wsView := a.workspaceViews[tabID]; wsView != nil {
-			if session.widget != nil {
-				wsView.RemoveWorkspaceOverlayWidget(session.widget)
-			}
-			if session.paneID != "" {
-				wsView.UnregisterPaneView(session.paneID)
-			}
-		}
-		if a.contentCoord != nil && session.paneID != "" {
-			a.contentCoord.ReleaseWebView(ctx, session.paneID)
-		}
-		delete(a.floatingSessions, key)
+		a.releaseFloatingSession(ctx, key, session)
 	}
 	a.syncFloatingFocus()
 }
 
-func (a *App) activeFloatingSession() (*floatingWorkspaceSession, entity.TabID) {
+func (a *App) activeFloatingSessionEntry() (floatingSessionKey, *floatingWorkspaceSession, bool) {
 	activeTab := a.tabs.ActiveTab()
 	if activeTab == nil {
-		return nil, ""
+		return floatingSessionKey{}, nil, false
 	}
 	for key, session := range a.floatingSessions {
 		if key.tabID != activeTab.ID || session == nil || session.pane == nil {
 			continue
 		}
 		if session.pane.IsVisible() {
-			return session, activeTab.ID
+			return key, session, true
 		}
 	}
-	return nil, activeTab.ID
+	return floatingSessionKey{tabID: activeTab.ID}, nil, false
+}
+
+func (a *App) activeFloatingSession() (*floatingWorkspaceSession, entity.TabID) {
+	key, session, ok := a.activeFloatingSessionEntry()
+	if !ok {
+		return nil, key.tabID
+	}
+	return session, key.tabID
+}
+
+func (a *App) releaseFloatingSession(ctx context.Context, key floatingSessionKey, session *floatingWorkspaceSession) {
+	if session == nil {
+		return
+	}
+
+	a.stopFloatingResizeWatcher(session)
+	if session.pane != nil {
+		session.pane.Hide(ctx)
+	}
+	a.hideFloatingOmnibox(ctx, session)
+	if wsView := a.workspaceViews[key.tabID]; wsView != nil {
+		if session.widget != nil {
+			wsView.RemoveWorkspaceOverlayWidget(session.widget)
+		}
+		if session.paneID != "" {
+			wsView.UnregisterPaneView(session.paneID)
+		}
+	}
+	if a.contentCoord != nil && session.paneID != "" {
+		a.contentCoord.ReleaseWebView(ctx, session.paneID)
+	}
+	delete(a.floatingSessions, key)
+
+	session.appliedWidth = 0
+	session.appliedHeight = 0
+	session.focusWidget = nil
+	session.paneView = nil
+	session.widget = nil
+	session.overlay = nil
+	session.webView = nil
+	session.pane = nil
 }
 
 func (a *App) updateFloatingSessionURI(paneID entity.PaneID, url string) {
@@ -2504,6 +2546,33 @@ func (a *App) hideFloatingOmnibox(ctx context.Context, session *floatingWorkspac
 	session.omniboxWidget = nil
 }
 
+func floatingFocusWidget(session *floatingWorkspaceSession) layout.Widget {
+	if session == nil {
+		return nil
+	}
+	if session.focusWidget != nil {
+		return session.focusWidget
+	}
+	if session.paneView != nil {
+		return session.paneView.WebViewWidget()
+	}
+	return nil
+}
+
+func focusFloatingSessionContent(session *floatingWorkspaceSession) {
+	if session == nil || session.pane == nil {
+		return
+	}
+	if !session.pane.IsVisible() || session.pane.IsOmniboxVisible() {
+		return
+	}
+	w := floatingFocusWidget(session)
+	if w == nil {
+		return
+	}
+	w.GrabFocus()
+}
+
 func (a *App) resizeFloatingWidget(session *floatingWorkspaceSession) {
 	if session == nil || session.pane == nil {
 		return
@@ -2608,6 +2677,16 @@ func (a *App) closeActiveFloatingPane(ctx context.Context) bool {
 	return true
 }
 
+func (a *App) closeAndReleaseActiveFloatingPane(ctx context.Context) bool {
+	key, session, ok := a.activeFloatingSessionEntry()
+	if !ok {
+		return false
+	}
+	a.releaseFloatingSession(ctx, key, session)
+	a.syncFloatingFocus()
+	return true
+}
+
 // ToggleFloatingPane toggles the active workspace floating pane visibility.
 func (a *App) ToggleFloatingPane(ctx context.Context) error {
 	activeTab := a.tabs.ActiveTab()
@@ -2660,18 +2739,20 @@ func (a *App) openFloatingPaneSession(ctx context.Context, sessionID string, url
 				return err
 			}
 		}
-		a.hideFloatingOmnibox(ctx, session)
 	} else {
 		if err := session.pane.ShowToggle(ctx); err != nil {
 			return err
-		}
-		if session.pane.IsOmniboxVisible() {
-			a.showFloatingOmnibox(ctx, session)
 		}
 	}
 
 	a.resizeFloatingWidget(session)
 	setFloatingWidgetShown(session.widget, session.pane.IsVisible())
+	if session.pane.IsOmniboxVisible() {
+		a.showFloatingOmnibox(ctx, session)
+	} else {
+		a.hideFloatingOmnibox(ctx, session)
+		focusFloatingSessionContent(session)
+	}
 	a.startFloatingResizeWatcher(session)
 	a.syncFloatingFocus()
 
