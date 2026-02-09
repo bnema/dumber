@@ -20,6 +20,7 @@ type OmniboxProvider interface {
 
 // NavigationCoordinator handles URL navigation, history, and browser controls.
 type NavigationCoordinator struct {
+	contextProvider func() context.Context
 	navigateUC      *usecase.NavigateUseCase
 	contentCoord    *ContentCoordinator
 	omniboxProvider OmniboxProvider
@@ -35,8 +36,12 @@ func NewNavigationCoordinator(
 ) *NavigationCoordinator {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("creating navigation coordinator")
+	callbackLogger := *log
 
 	return &NavigationCoordinator{
+		contextProvider: func() context.Context {
+			return logging.WithContext(context.Background(), callbackLogger)
+		},
 		navigateUC:   navigateUC,
 		contentCoord: contentCoord,
 	}
@@ -47,9 +52,12 @@ func (c *NavigationCoordinator) SetOmniboxProvider(provider OmniboxProvider) {
 	c.omniboxProvider = provider
 	if c.omniboxProvider != nil {
 		c.omniboxProvider.SetOmniboxOnNavigate(func(url string) {
-			ctx := context.Background()
-			if err := c.Navigate(ctx, url); err != nil {
-				logging.FromContext(ctx).Warn().Err(err).Str("url", url).Msg("omnibox-initiated navigation failed")
+			navCtx := context.Background()
+			if c.contextProvider != nil {
+				navCtx = c.contextProvider()
+			}
+			if err := c.Navigate(navCtx, url); err != nil {
+				logging.FromContext(navCtx).Warn().Err(err).Str("url", url).Msg("omnibox-initiated navigation failed")
 			}
 		})
 	}

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"net/url"
+	"sort"
 	"strings"
 
 	domainurl "github.com/bnema/dumber/internal/domain/url"
@@ -237,7 +238,14 @@ func validateFloatingPane(config *Config) []string {
 		validationErrors = append(validationErrors, "workspace.floating_pane.height_pct must be in (0,1]")
 	}
 
-	for profileName, profile := range config.Workspace.FloatingPane.Profiles {
+	profileNames := make([]string, 0, len(config.Workspace.FloatingPane.Profiles))
+	for profileName := range config.Workspace.FloatingPane.Profiles {
+		profileNames = append(profileNames, profileName)
+	}
+	sort.Strings(profileNames)
+
+	for _, profileName := range profileNames {
+		profile := config.Workspace.FloatingPane.Profiles[profileName]
 		if strings.TrimSpace(profile.URL) == "" {
 			validationErrors = append(validationErrors, fmt.Sprintf(
 				"workspace.floating_pane.profiles.%s.url is required",

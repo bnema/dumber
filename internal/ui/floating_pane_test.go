@@ -96,6 +96,9 @@ func TestFloatingAllocationRect_ClampsToOverlayBounds(t *testing.T) {
 }
 
 func TestWriteOverlayAllocation_WritesRectangleFields(t *testing.T) {
+	// cGtkAllocation mirrors GTK's GdkRectangle/GtkAllocation layout used by
+	// writeOverlayAllocation: four int32 fields in order. allocationPtr uses
+	// unsafe.Pointer to simulate the C allocation callback memory.
 	type cGtkAllocation struct {
 		X      int32
 		Y      int32

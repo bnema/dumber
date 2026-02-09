@@ -33,6 +33,7 @@ type FloatingPane struct {
 	omniboxVisible   bool
 	sessionStarted   bool
 	currentURL       string
+	stateVersion     uint64
 	calculatedWidth  int
 	calculatedHeight int
 }
@@ -67,9 +68,12 @@ func NewFloatingPane(parent layout.OverlayWidget, opts FloatingPaneOptions) *Flo
 // ShowToggle toggles pane visibility; first open initializes a blank session.
 func (fp *FloatingPane) ShowToggle(ctx context.Context) error {
 	fp.mu.Lock()
+	previousVisible := fp.visible
+	previousOmniboxVisible := fp.omniboxVisible
 	if fp.visible {
 		fp.visible = false
 		fp.omniboxVisible = false
+		fp.stateVersion++
 		fp.mu.Unlock()
 		return nil
 	}
@@ -78,6 +82,8 @@ func (fp *FloatingPane) ShowToggle(ctx context.Context) error {
 	showOmnibox := navigateToBlank || fp.currentURL == defaultFloatingPaneURL
 	fp.visible = true
 	fp.omniboxVisible = showOmnibox
+	fp.stateVersion++
+	rollbackVersion := fp.stateVersion
 	// Release lock before Navigate: callbacks may block and must not run while
 	// holding fp.mu. On error, rollback below restores visibility state.
 	fp.mu.Unlock()
@@ -85,8 +91,11 @@ func (fp *FloatingPane) ShowToggle(ctx context.Context) error {
 	if navigateToBlank {
 		if err := fp.Navigate(ctx, defaultFloatingPaneURL); err != nil {
 			fp.mu.Lock()
-			fp.visible = false
-			fp.omniboxVisible = false
+			if fp.stateVersion == rollbackVersion {
+				fp.visible = previousVisible
+				fp.omniboxVisible = previousOmniboxVisible
+				fp.stateVersion++
+			}
 			fp.mu.Unlock()
 			return err
 		}
@@ -102,6 +111,7 @@ func (fp *FloatingPane) Show() {
 	defer fp.mu.Unlock()
 	fp.visible = true
 	fp.omniboxVisible = false
+	fp.stateVersion++
 }
 
 // SessionStarted reports whether the floating pane has navigated at least once.
@@ -119,13 +129,26 @@ func (fp *FloatingPane) ShowURL(ctx context.Context, url string) error {
 	}
 
 	fp.mu.Lock()
+	previousVisible := fp.visible
+	previousOmniboxVisible := fp.omniboxVisible
 	fp.visible = true
 	fp.omniboxVisible = false
 	shouldNavigate := !fp.sessionStarted || fp.currentURL != url
+	fp.stateVersion++
+	rollbackVersion := fp.stateVersion
 	fp.mu.Unlock()
 
 	if shouldNavigate {
-		return fp.Navigate(ctx, url)
+		if err := fp.Navigate(ctx, url); err != nil {
+			fp.mu.Lock()
+			if fp.stateVersion == rollbackVersion {
+				fp.visible = previousVisible
+				fp.omniboxVisible = previousOmniboxVisible
+				fp.stateVersion++
+			}
+			fp.mu.Unlock()
+			return err
+		}
 	}
 
 	return nil
@@ -137,6 +160,7 @@ func (fp *FloatingPane) Hide(_ context.Context) {
 	defer fp.mu.Unlock()
 	fp.visible = false
 	fp.omniboxVisible = false
+	fp.stateVersion++
 }
 
 // Navigate loads a URL into the floating pane's persistent session.
@@ -159,6 +183,7 @@ func (fp *FloatingPane) Navigate(ctx context.Context, url string) error {
 	fp.mu.Lock()
 	fp.currentURL = url
 	fp.sessionStarted = true
+	fp.stateVersion++
 	fp.mu.Unlock()
 
 	return nil
@@ -217,6 +242,7 @@ func (fp *FloatingPane) IsOmniboxVisible() bool {
 func (fp *FloatingPane) SetOmniboxVisible(visible bool) {
 	fp.mu.Lock()
 	fp.omniboxVisible = visible
+	fp.stateVersion++
 	fp.mu.Unlock()
 }
 
@@ -230,5 +256,6 @@ func (fp *FloatingPane) RecordLoadedURL(url string) {
 	fp.mu.Lock()
 	fp.currentURL = url
 	fp.sessionStarted = true
+	fp.stateVersion++
 	fp.mu.Unlock()
 }
