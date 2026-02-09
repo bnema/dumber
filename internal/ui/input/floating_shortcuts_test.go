@@ -162,3 +162,33 @@ func TestShortcutSet_FloatingProfilesWithSameURLGetDistinctSessionIDs(t *testing
 	assert.Equal(t, "https://mail.google.com", personalTarget.URL)
 	assert.NotEqual(t, workTarget.SessionID, personalTarget.SessionID)
 }
+
+func TestShortcutSet_FloatingProfiles_SupportModifierCombos(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Workspace.FloatingPane.Profiles = map[string]config.FloatingPaneProfile{
+		"mail": {
+			Keys: []string{"ctrl+alt+m"},
+			URL:  "https://mail.example.com",
+		},
+		"search": {
+			Keys: []string{"ctrl+shift+y"},
+			URL:  "https://search.example.com",
+		},
+	}
+
+	set := NewShortcutSet(context.Background(), cfg)
+
+	mailAction, ok := set.Lookup(KeyBinding{Keyval: uint(gdk.KEY_m), Modifiers: ModCtrl | ModAlt}, ModeNormal)
+	require.True(t, ok)
+	mailTarget, ok := ParseFloatingProfileTarget(mailAction)
+	require.True(t, ok)
+	assert.Equal(t, "mail", mailTarget.SessionID)
+	assert.Equal(t, "https://mail.example.com", mailTarget.URL)
+
+	searchAction, ok := set.Lookup(KeyBinding{Keyval: uint(gdk.KEY_y), Modifiers: ModCtrl | ModShift}, ModeNormal)
+	require.True(t, ok)
+	searchTarget, ok := ParseFloatingProfileTarget(searchAction)
+	require.True(t, ok)
+	assert.Equal(t, "search", searchTarget.SessionID)
+	assert.Equal(t, "https://search.example.com", searchTarget.URL)
+}

@@ -23,6 +23,7 @@ https://github.com/user-attachments/assets/232822af-08e4-4a74-9416-87f79c96b118
 
 **Features:**
 - Zellij-style panes with modal keyboard navigation
+- Floating workspace pane with profile shortcuts
 - Wayland native (Sway, Hyprland, River, Niri)
 - Session resurrection with auto-snapshots
 - Built-in ad blocking (UBlock-based)
@@ -89,6 +90,15 @@ Four modal modes. Enter a mode, take action, escape out. Vim and Zellij users wi
 | Tab | `Ctrl+T` | New · Close · Switch · Rename |
 | Resize | `Ctrl+N` | Grow · Shrink · hjkl/arrows |
 | Session | `Ctrl+O` | Save · Restore · Browse |
+
+## Floating Pane
+
+- `Alt+F` toggles the floating pane and preserves its state while hidden.
+- `Ctrl+W` closes the active pane; if the floating pane is active, it is fully released for a fresh next open.
+- Profile shortcuts like `Alt+G` are optional and configured under `workspace.floating_pane.profiles`.
+- Some `Alt+<key>` bindings may conflict with default WebKit shortcuts or desktop-level handlers.
+
+See [Floating Pane Reference](https://dumber.bnema.dev/docs/reference/floating-pane) for setup and behavior details.
 
 ## Development
 

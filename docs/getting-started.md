@@ -35,6 +35,14 @@ Press `Ctrl+L` to open the omnibox for:
 - Search (uses default search engine)
 - Bang shortcuts (`!g query` for Google, `!gh query` for GitHub)
 
+## Floating Pane
+
+- Press `Alt+F` to toggle the floating pane.
+- Press `Ctrl+W` to close the active pane; if floating is active, this fully releases it for a fresh next open.
+- Some `Alt+<key>` bindings can conflict with default WebKit shortcuts or desktop-level handlers.
+
+See [Floating Pane](./reference/floating-pane.md) for profile shortcuts and configuration.
+
 ## Configuration
 
 Edit `~/.config/dumber/config.toml` or use:
