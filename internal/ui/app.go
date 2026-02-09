@@ -2183,7 +2183,21 @@ func floatingAllocationRect(overlayWidth, overlayHeight, desiredWidth, desiredHe
 	return x, y, width, height, true
 }
 
-//nolint:gosec // GtkOverlay get-child-position provides a valid GtkAllocation pointer owned by GTK.
+type gtkAllocationLayout [4]int32
+
+const gtkAllocationLayoutSize = 16
+
+var (
+	_ [gtkAllocationLayoutSize - int(unsafe.Sizeof(gtkAllocationLayout{}))]struct{}
+	_ [int(unsafe.Sizeof(gtkAllocationLayout{})) - gtkAllocationLayoutSize]struct{}
+)
+
+// writeOverlayAllocation writes GTK-owned GtkAllocation fields in place.
+// Assumes GTK4 C layout for GdkRectangle/GtkAllocation: four contiguous
+// 32-bit signed integers {x, y, width, height} in native endianness.
+// If GTK struct layout changes, revisit offsets and writes below.
+//
+//nolint:gosec // Intentional unsafe pointer math against GTK-owned allocation memory.
 func writeOverlayAllocation(allocationPtr *uintptr, x, y, width, height int) bool {
 	if allocationPtr == nil {
 		return false
@@ -2604,6 +2618,19 @@ func (a *App) handleFloatingViewportTick(session *floatingWorkspaceSession) bool
 	return true
 }
 
+func (a *App) floatingSessionByPaneID(paneID entity.PaneID) *floatingWorkspaceSession {
+	if paneID == "" {
+		return nil
+	}
+	for _, session := range a.floatingSessions {
+		if session == nil || session.paneID != paneID {
+			continue
+		}
+		return session
+	}
+	return nil
+}
+
 func (a *App) startFloatingResizeWatcher(session *floatingWorkspaceSession) {
 	if session == nil || session.overlay == nil || session.resizeWatcherActive {
 		return
@@ -2615,11 +2642,19 @@ func (a *App) startFloatingResizeWatcher(session *floatingWorkspaceSession) {
 	}
 
 	session.resizeWatcherActive = true
+	paneID := session.paneID
 	tickCallback := gtk.TickCallback(func(_ uintptr, _ uintptr, _ uintptr) bool {
-		keepRunning := a.handleFloatingViewportTick(session)
-		if !keepRunning {
+		liveSession := a.floatingSessionByPaneID(paneID)
+		if liveSession == nil {
 			session.resizeWatcherActive = false
 			session.resizeTickID = 0
+			return false
+		}
+
+		keepRunning := a.handleFloatingViewportTick(liveSession)
+		if !keepRunning {
+			liveSession.resizeWatcherActive = false
+			liveSession.resizeTickID = 0
 		}
 		return keepRunning
 	})

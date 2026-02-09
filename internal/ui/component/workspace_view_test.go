@@ -259,6 +259,8 @@ func TestSetWorkspace_SinglePane_CreatesPaneView(t *testing.T) {
 }
 
 func TestWorkspaceView_HoverFocusLockState(t *testing.T) {
+	// Intentional zero-value check: hoverFocusLock is an atomic.Bool and should
+	// be safe with its language-level zero value before constructor wiring.
 	var wv component.WorkspaceView
 
 	assert.False(t, wv.IsHoverFocusLocked())

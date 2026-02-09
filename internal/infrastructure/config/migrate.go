@@ -835,6 +835,8 @@ func (*Migrator) toStringAnyMap(value any) (map[string]any, bool) {
 		return m, true
 	}
 
+	// Some TOML/YAML parser paths yield non-map[string]any map implementations
+	// for nested tables, so keep a reflect.Map coercion fallback here.
 	rv := reflect.ValueOf(value)
 	if rv.Kind() != reflect.Map {
 		return nil, false

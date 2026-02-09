@@ -334,6 +334,7 @@ func (s *ShortcutSet) registerConfiguredShortcuts(cfg *config.WorkspaceConfig) {
 	// Map action names to action constants
 	actionMap := map[string]Action{
 		"toggle_floating_pane":   ActionToggleFloatingPane,
+		"toggle-floating-pane":   ActionToggleFloatingPane,
 		"close_pane":             ActionClosePane,
 		"next_tab":               ActionNextTab,
 		"previous_tab":           ActionPreviousTab,
@@ -442,6 +443,8 @@ func reserveGlobalOnlyShortcutBindings(occupied map[KeyBinding]Action) {
 		ActionSwitchTabIndex9,
 	}
 
+	// Assumes gdk.KEY_1..gdk.KEY_9 are contiguous (ASCII '1'..'9').
+	// If that ever changes on a platform, map digits explicitly.
 	for i, action := range tabIndexActions {
 		binding := KeyBinding{Keyval: uint(gdk.KEY_1) + uint(i), Modifiers: ModAlt}
 		if _, exists := occupied[binding]; exists {
@@ -541,6 +544,7 @@ func (s *ShortcutSet) buildModeShortcuts(ctx context.Context, bindings map[strin
 
 var configActionToAction = map[string]Action{
 	"toggle_floating_pane": ActionToggleFloatingPane,
+	"toggle-floating-pane": ActionToggleFloatingPane,
 
 	// Tab actions
 	"new-tab":      ActionNewTab,
