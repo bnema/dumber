@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -108,27 +109,43 @@ func runConfigSchema(_ *cobra.Command, _ []string) error {
 
 // runConfigOpen opens the config file in the user's preferred editor.
 func runConfigOpen(_ *cobra.Command, _ []string) error {
+	app := GetApp()
+	if app == nil {
+		return fmt.Errorf("app not initialized")
+	}
+
 	configFile, err := config.GetConfigFile()
 	if err != nil {
-		return fmt.Errorf("get config file: %w", err)
+		renderer := styles.NewConfigRenderer(app.Theme)
+		return fmt.Errorf("%s", strings.TrimSpace(renderer.RenderError(fmt.Errorf("get config file: %w", err))))
 	}
 
 	// Check if config file exists
 	if _, statErr := os.Stat(configFile); os.IsNotExist(statErr) {
-		return fmt.Errorf("config file does not exist: %s", configFile)
+		renderer := styles.NewConfigRenderer(app.Theme)
+		return fmt.Errorf("%s", strings.TrimSpace(renderer.RenderError(fmt.Errorf("config file does not exist: %s", configFile))))
 	}
 
 	editor := getEditor()
 	if editor == "" {
-		return fmt.Errorf("no editor found: set $EDITOR or $VISUAL environment variable")
+		renderer := styles.NewConfigRenderer(app.Theme)
+		const msg = "no editor found: set $EDITOR or $VISUAL environment variable"
+		return fmt.Errorf("%s", strings.TrimSpace(renderer.RenderError(fmt.Errorf("%s", msg))))
 	}
+
+	// Keep this a simple, non-interactive message; the actual editor takes over the terminal.
+	fmt.Println(styles.NewConfigRenderer(app.Theme).RenderOpening(configFile, editor))
 
 	cmd := exec.Command(editor, configFile)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		renderer := styles.NewConfigRenderer(app.Theme)
+		return fmt.Errorf("%s", strings.TrimSpace(renderer.RenderError(fmt.Errorf("open config: %w", err))))
+	}
+	return nil
 }
 
 // getEditor returns the user's preferred editor.

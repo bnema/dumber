@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/bnema/dumber/internal/cli/styles"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 )
 
@@ -95,15 +96,16 @@ func runCrashesShow(_ *cobra.Command, args []string) error {
 	if app == nil {
 		return fmt.Errorf("app not initialized")
 	}
+	renderer := styles.NewCrashesCLIRenderer(app.Theme)
 
 	report, err := resolveCrashReport(getCrashReportsDir(app.Config), args[0])
 	if err != nil {
-		return err
+		return fmt.Errorf("%s\n%s", renderer.RenderError(err), renderer.RenderHintList())
 	}
 
 	body, err := os.ReadFile(report.MarkdownPath)
 	if err != nil {
-		return fmt.Errorf("read crash report markdown: %w", err)
+		return fmt.Errorf("%s", renderer.RenderError(fmt.Errorf("read crash report markdown: %w", err)))
 	}
 	fmt.Print(string(body))
 	return nil
@@ -114,15 +116,16 @@ func runCrashesIssue(_ *cobra.Command, args []string) error {
 	if app == nil {
 		return fmt.Errorf("app not initialized")
 	}
+	renderer := styles.NewCrashesCLIRenderer(app.Theme)
 
 	report, err := resolveCrashReport(getCrashReportsDir(app.Config), args[0])
 	if err != nil {
-		return err
+		return fmt.Errorf("%s\n%s", renderer.RenderError(err), renderer.RenderHintList())
 	}
 
 	body, err := os.ReadFile(report.MarkdownPath)
 	if err != nil {
-		return fmt.Errorf("read crash report markdown: %w", err)
+		return fmt.Errorf("%s", renderer.RenderError(fmt.Errorf("read crash report markdown: %w", err)))
 	}
 	all := string(body)
 	start := strings.Index(all, "## GitHub Issue Template")
