@@ -1031,6 +1031,8 @@ func (a *App) rebuildAndAttachWorkspace(ctx context.Context, tabID entity.TabID,
 		return
 	}
 	_ = wsView.Rebuild(ctx)
+	a.reattachFloatingSessions(tabID, wsView)
+	a.syncFloatingFocus()
 
 	if tab == nil || tab.Workspace == nil || a.contentCoord == nil {
 		return
@@ -1038,6 +1040,31 @@ func (a *App) rebuildAndAttachWorkspace(ctx context.Context, tabID entity.TabID,
 	a.contentCoord.AttachToWorkspace(ctx, tab.Workspace, wsView)
 	if a.wsCoord != nil {
 		a.wsCoord.SetupStackedPaneCallbacks(ctx, tab.Workspace, wsView)
+	}
+}
+
+func (a *App) reattachFloatingSessions(tabID entity.TabID, wsView *component.WorkspaceView) {
+	if wsView == nil {
+		return
+	}
+
+	for key, session := range a.floatingSessions {
+		if key.tabID != tabID || session == nil || session.pane == nil {
+			continue
+		}
+
+		session.pane.SetParentOverlay(wsView.WorkspaceOverlayWidget())
+		if session.widget != nil {
+			wsView.AddWorkspaceOverlayWidget(session.widget)
+			configureFloatingOverlayMeasurement(wsView.WorkspaceOverlayWidget(), session.widget)
+			setFloatingWidgetShown(session.widget, session.pane.IsVisible())
+		}
+		if session.paneView != nil {
+			wsView.RegisterPaneView(session.paneID, session.paneView)
+			if session.focusWidget == nil {
+				session.focusWidget = session.paneView.WebViewWidget()
+			}
+		}
 	}
 }
 
@@ -1954,17 +1981,7 @@ func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.
 
 	// Store in map
 	a.workspaceViews[tab.ID] = wsView
-	for key, session := range a.floatingSessions {
-		if key.tabID != tab.ID || session == nil || session.pane == nil {
-			continue
-		}
-		session.pane.SetParentOverlay(wsView.WorkspaceOverlayWidget())
-		if session.widget != nil {
-			wsView.AddWorkspaceOverlayWidget(session.widget)
-			configureFloatingOverlayMeasurement(wsView.WorkspaceOverlayWidget(), session.widget)
-			setFloatingWidgetShown(session.widget, session.pane.IsVisible())
-		}
-	}
+	a.reattachFloatingSessions(tab.ID, wsView)
 	a.syncFloatingFocus()
 
 	log.Debug().Str("tab_id", string(tab.ID)).Msg("workspace view created")
