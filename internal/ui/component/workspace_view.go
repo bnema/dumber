@@ -56,6 +56,7 @@ type WorkspaceView struct {
 	// Hover suppression for keyboard navigation (Issue #89)
 	// Prevents hover focus from overriding keyboard-initiated focus changes
 	hoverSuppressedUntil time.Time
+	hoverFocusLocked     atomic.Bool
 
 	// newPaneFocusLock suppresses hover focus after a new pane is created.
 	// Rule: new pane creation always wins focus. Hover focus is blocked
@@ -113,6 +114,10 @@ func (a *paneViewFactoryAdapter) CreatePaneView(node *entity.PaneNode) layout.Wi
 	pv.SetOnHover(func(paneID entity.PaneID) {
 		// Skip if hover is suppressed (keyboard navigation just happened)
 		if a.wv.IsHoverSuppressed() {
+			return
+		}
+
+		if a.wv.IsHoverFocusLocked() {
 			return
 		}
 
@@ -529,6 +534,62 @@ func (wv *WorkspaceView) SetModeBorderOverlay(widget layout.Widget) {
 	}
 }
 
+// WorkspaceOverlayWidget returns the workspace-level overlay.
+func (wv *WorkspaceView) WorkspaceOverlayWidget() layout.OverlayWidget {
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return wv.overlay
+}
+
+// AddWorkspaceOverlayWidget adds a widget to the workspace-level overlay safely.
+func (wv *WorkspaceView) AddWorkspaceOverlayWidget(widget layout.Widget) {
+	if widget == nil {
+		return
+	}
+
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+	if wv.overlay == nil {
+		return
+	}
+
+	if parent := widget.GetParent(); parent != nil {
+		if parent == wv.overlay {
+			return
+		}
+
+		parentGTK := parent.GtkWidget()
+		overlayGTK := wv.overlay.GtkWidget()
+		if parentGTK != nil && overlayGTK != nil && parentGTK.GoPointer() == overlayGTK.GoPointer() {
+			return
+		}
+		widget.Unparent()
+	}
+
+	wv.overlay.AddOverlay(widget)
+	wv.overlay.SetClipOverlay(widget, false)
+	wv.overlay.SetMeasureOverlay(widget, false)
+}
+
+// RemoveWorkspaceOverlayWidget removes a widget from the workspace-level overlay safely.
+func (wv *WorkspaceView) RemoveWorkspaceOverlayWidget(widget layout.Widget) {
+	if widget == nil {
+		return
+	}
+
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+	if wv.overlay == nil {
+		return
+	}
+
+	if parent := widget.GetParent(); parent == wv.overlay {
+		wv.overlay.RemoveOverlay(widget)
+	} else if parent != nil {
+		widget.Unparent()
+	}
+}
+
 // GetPaneWidget returns the widget for a pane ID.
 // Implements focus.PaneGeometryProvider.
 func (wv *WorkspaceView) GetPaneWidget(paneID entity.PaneID) layout.Widget {
@@ -858,6 +919,16 @@ func (wv *WorkspaceView) IsHoverSuppressed() bool {
 	wv.mu.RLock()
 	defer wv.mu.RUnlock()
 	return time.Now().Before(wv.hoverSuppressedUntil)
+}
+
+// SetHoverFocusLocked enables or disables hover-to-focus behavior.
+func (wv *WorkspaceView) SetHoverFocusLocked(locked bool) {
+	wv.hoverFocusLocked.Store(locked)
+}
+
+// IsHoverFocusLocked returns whether hover-to-focus is currently locked.
+func (wv *WorkspaceView) IsHoverFocusLocked() bool {
+	return wv.hoverFocusLocked.Load()
 }
 
 // CancelAllPendingHovers cancels any pending hover timers on all pane views.

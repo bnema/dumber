@@ -1028,6 +1028,46 @@ func (_c *MockWidget_SetHexpand_Call) RunAndReturn(run func(expand bool)) *MockW
 	return _c
 }
 
+// SetOpacity provides a mock function for the type MockWidget
+func (_mock *MockWidget) SetOpacity(opacity float64) {
+	_mock.Called(opacity)
+	return
+}
+
+// MockWidget_SetOpacity_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetOpacity'
+type MockWidget_SetOpacity_Call struct {
+	*mock.Call
+}
+
+// SetOpacity is a helper method to define mock.On call
+//   - opacity float64
+func (_e *MockWidget_Expecter) SetOpacity(opacity interface{}) *MockWidget_SetOpacity_Call {
+	return &MockWidget_SetOpacity_Call{Call: _e.mock.On("SetOpacity", opacity)}
+}
+
+func (_c *MockWidget_SetOpacity_Call) Run(run func(opacity float64)) *MockWidget_SetOpacity_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 float64
+		if args[0] != nil {
+			arg0 = args[0].(float64)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWidget_SetOpacity_Call) Return() *MockWidget_SetOpacity_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockWidget_SetOpacity_Call) RunAndReturn(run func(opacity float64)) *MockWidget_SetOpacity_Call {
+	_c.Run(run)
+	return _c
+}
+
 // SetSizeRequest provides a mock function for the type MockWidget
 func (_mock *MockWidget) SetSizeRequest(width int, height int) {
 	_mock.Called(width, height)
@@ -2742,6 +2782,46 @@ func (_c *MockPanedWidget_SetHexpand_Call) Return() *MockPanedWidget_SetHexpand_
 }
 
 func (_c *MockPanedWidget_SetHexpand_Call) RunAndReturn(run func(expand bool)) *MockPanedWidget_SetHexpand_Call {
+	_c.Run(run)
+	return _c
+}
+
+// SetOpacity provides a mock function for the type MockPanedWidget
+func (_mock *MockPanedWidget) SetOpacity(opacity float64) {
+	_mock.Called(opacity)
+	return
+}
+
+// MockPanedWidget_SetOpacity_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetOpacity'
+type MockPanedWidget_SetOpacity_Call struct {
+	*mock.Call
+}
+
+// SetOpacity is a helper method to define mock.On call
+//   - opacity float64
+func (_e *MockPanedWidget_Expecter) SetOpacity(opacity interface{}) *MockPanedWidget_SetOpacity_Call {
+	return &MockPanedWidget_SetOpacity_Call{Call: _e.mock.On("SetOpacity", opacity)}
+}
+
+func (_c *MockPanedWidget_SetOpacity_Call) Run(run func(opacity float64)) *MockPanedWidget_SetOpacity_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 float64
+		if args[0] != nil {
+			arg0 = args[0].(float64)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockPanedWidget_SetOpacity_Call) Return() *MockPanedWidget_SetOpacity_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockPanedWidget_SetOpacity_Call) RunAndReturn(run func(opacity float64)) *MockPanedWidget_SetOpacity_Call {
 	_c.Run(run)
 	return _c
 }
@@ -4579,6 +4659,46 @@ func (_c *MockBoxWidget_SetHomogeneous_Call) RunAndReturn(run func(homogeneous b
 	return _c
 }
 
+// SetOpacity provides a mock function for the type MockBoxWidget
+func (_mock *MockBoxWidget) SetOpacity(opacity float64) {
+	_mock.Called(opacity)
+	return
+}
+
+// MockBoxWidget_SetOpacity_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetOpacity'
+type MockBoxWidget_SetOpacity_Call struct {
+	*mock.Call
+}
+
+// SetOpacity is a helper method to define mock.On call
+//   - opacity float64
+func (_e *MockBoxWidget_Expecter) SetOpacity(opacity interface{}) *MockBoxWidget_SetOpacity_Call {
+	return &MockBoxWidget_SetOpacity_Call{Call: _e.mock.On("SetOpacity", opacity)}
+}
+
+func (_c *MockBoxWidget_SetOpacity_Call) Run(run func(opacity float64)) *MockBoxWidget_SetOpacity_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 float64
+		if args[0] != nil {
+			arg0 = args[0].(float64)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockBoxWidget_SetOpacity_Call) Return() *MockBoxWidget_SetOpacity_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockBoxWidget_SetOpacity_Call) RunAndReturn(run func(opacity float64)) *MockBoxWidget_SetOpacity_Call {
+	_c.Run(run)
+	return _c
+}
+
 // SetOrientation provides a mock function for the type MockBoxWidget
 func (_mock *MockBoxWidget) SetOrientation(orientation layout.Orientation) {
 	_mock.Called(orientation)
@@ -6188,6 +6308,46 @@ func (_c *MockOverlayWidget_SetMeasureOverlay_Call) RunAndReturn(run func(overla
 	return _c
 }
 
+// SetOpacity provides a mock function for the type MockOverlayWidget
+func (_mock *MockOverlayWidget) SetOpacity(opacity float64) {
+	_mock.Called(opacity)
+	return
+}
+
+// MockOverlayWidget_SetOpacity_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetOpacity'
+type MockOverlayWidget_SetOpacity_Call struct {
+	*mock.Call
+}
+
+// SetOpacity is a helper method to define mock.On call
+//   - opacity float64
+func (_e *MockOverlayWidget_Expecter) SetOpacity(opacity interface{}) *MockOverlayWidget_SetOpacity_Call {
+	return &MockOverlayWidget_SetOpacity_Call{Call: _e.mock.On("SetOpacity", opacity)}
+}
+
+func (_c *MockOverlayWidget_SetOpacity_Call) Run(run func(opacity float64)) *MockOverlayWidget_SetOpacity_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 float64
+		if args[0] != nil {
+			arg0 = args[0].(float64)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockOverlayWidget_SetOpacity_Call) Return() *MockOverlayWidget_SetOpacity_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockOverlayWidget_SetOpacity_Call) RunAndReturn(run func(opacity float64)) *MockOverlayWidget_SetOpacity_Call {
+	_c.Run(run)
+	return _c
+}
+
 // SetSizeRequest provides a mock function for the type MockOverlayWidget
 func (_mock *MockOverlayWidget) SetSizeRequest(width int, height int) {
 	_mock.Called(width, height)
@@ -7517,6 +7677,46 @@ func (_c *MockLabelWidget_SetMaxWidthChars_Call) Return() *MockLabelWidget_SetMa
 }
 
 func (_c *MockLabelWidget_SetMaxWidthChars_Call) RunAndReturn(run func(nChars int)) *MockLabelWidget_SetMaxWidthChars_Call {
+	_c.Run(run)
+	return _c
+}
+
+// SetOpacity provides a mock function for the type MockLabelWidget
+func (_mock *MockLabelWidget) SetOpacity(opacity float64) {
+	_mock.Called(opacity)
+	return
+}
+
+// MockLabelWidget_SetOpacity_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetOpacity'
+type MockLabelWidget_SetOpacity_Call struct {
+	*mock.Call
+}
+
+// SetOpacity is a helper method to define mock.On call
+//   - opacity float64
+func (_e *MockLabelWidget_Expecter) SetOpacity(opacity interface{}) *MockLabelWidget_SetOpacity_Call {
+	return &MockLabelWidget_SetOpacity_Call{Call: _e.mock.On("SetOpacity", opacity)}
+}
+
+func (_c *MockLabelWidget_SetOpacity_Call) Run(run func(opacity float64)) *MockLabelWidget_SetOpacity_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 float64
+		if args[0] != nil {
+			arg0 = args[0].(float64)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockLabelWidget_SetOpacity_Call) Return() *MockLabelWidget_SetOpacity_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockLabelWidget_SetOpacity_Call) RunAndReturn(run func(opacity float64)) *MockLabelWidget_SetOpacity_Call {
 	_c.Run(run)
 	return _c
 }
@@ -9031,6 +9231,46 @@ func (_c *MockButtonWidget_SetLabel_Call) RunAndReturn(run func(label string)) *
 	return _c
 }
 
+// SetOpacity provides a mock function for the type MockButtonWidget
+func (_mock *MockButtonWidget) SetOpacity(opacity float64) {
+	_mock.Called(opacity)
+	return
+}
+
+// MockButtonWidget_SetOpacity_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetOpacity'
+type MockButtonWidget_SetOpacity_Call struct {
+	*mock.Call
+}
+
+// SetOpacity is a helper method to define mock.On call
+//   - opacity float64
+func (_e *MockButtonWidget_Expecter) SetOpacity(opacity interface{}) *MockButtonWidget_SetOpacity_Call {
+	return &MockButtonWidget_SetOpacity_Call{Call: _e.mock.On("SetOpacity", opacity)}
+}
+
+func (_c *MockButtonWidget_SetOpacity_Call) Run(run func(opacity float64)) *MockButtonWidget_SetOpacity_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 float64
+		if args[0] != nil {
+			arg0 = args[0].(float64)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockButtonWidget_SetOpacity_Call) Return() *MockButtonWidget_SetOpacity_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockButtonWidget_SetOpacity_Call) RunAndReturn(run func(opacity float64)) *MockButtonWidget_SetOpacity_Call {
+	_c.Run(run)
+	return _c
+}
+
 // SetSizeRequest provides a mock function for the type MockButtonWidget
 func (_mock *MockButtonWidget) SetSizeRequest(width int, height int) {
 	_mock.Called(width, height)
@@ -10353,6 +10593,46 @@ func (_c *MockImageWidget_SetHexpand_Call) RunAndReturn(run func(expand bool)) *
 	return _c
 }
 
+// SetOpacity provides a mock function for the type MockImageWidget
+func (_mock *MockImageWidget) SetOpacity(opacity float64) {
+	_mock.Called(opacity)
+	return
+}
+
+// MockImageWidget_SetOpacity_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetOpacity'
+type MockImageWidget_SetOpacity_Call struct {
+	*mock.Call
+}
+
+// SetOpacity is a helper method to define mock.On call
+//   - opacity float64
+func (_e *MockImageWidget_Expecter) SetOpacity(opacity interface{}) *MockImageWidget_SetOpacity_Call {
+	return &MockImageWidget_SetOpacity_Call{Call: _e.mock.On("SetOpacity", opacity)}
+}
+
+func (_c *MockImageWidget_SetOpacity_Call) Run(run func(opacity float64)) *MockImageWidget_SetOpacity_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 float64
+		if args[0] != nil {
+			arg0 = args[0].(float64)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockImageWidget_SetOpacity_Call) Return() *MockImageWidget_SetOpacity_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockImageWidget_SetOpacity_Call) RunAndReturn(run func(opacity float64)) *MockImageWidget_SetOpacity_Call {
+	_c.Run(run)
+	return _c
+}
+
 // SetPixelSize provides a mock function for the type MockImageWidget
 func (_mock *MockImageWidget) SetPixelSize(pixelSize int) {
 	_mock.Called(pixelSize)
@@ -11646,6 +11926,46 @@ func (_c *MockProgressBarWidget_SetHexpand_Call) RunAndReturn(run func(expand bo
 	return _c
 }
 
+// SetOpacity provides a mock function for the type MockProgressBarWidget
+func (_mock *MockProgressBarWidget) SetOpacity(opacity float64) {
+	_mock.Called(opacity)
+	return
+}
+
+// MockProgressBarWidget_SetOpacity_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetOpacity'
+type MockProgressBarWidget_SetOpacity_Call struct {
+	*mock.Call
+}
+
+// SetOpacity is a helper method to define mock.On call
+//   - opacity float64
+func (_e *MockProgressBarWidget_Expecter) SetOpacity(opacity interface{}) *MockProgressBarWidget_SetOpacity_Call {
+	return &MockProgressBarWidget_SetOpacity_Call{Call: _e.mock.On("SetOpacity", opacity)}
+}
+
+func (_c *MockProgressBarWidget_SetOpacity_Call) Run(run func(opacity float64)) *MockProgressBarWidget_SetOpacity_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 float64
+		if args[0] != nil {
+			arg0 = args[0].(float64)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockProgressBarWidget_SetOpacity_Call) Return() *MockProgressBarWidget_SetOpacity_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockProgressBarWidget_SetOpacity_Call) RunAndReturn(run func(opacity float64)) *MockProgressBarWidget_SetOpacity_Call {
+	_c.Run(run)
+	return _c
+}
+
 // SetSizeRequest provides a mock function for the type MockProgressBarWidget
 func (_mock *MockProgressBarWidget) SetSizeRequest(width int, height int) {
 	_mock.Called(width, height)
@@ -12855,6 +13175,46 @@ func (_c *MockSpinnerWidget_SetHexpand_Call) Return() *MockSpinnerWidget_SetHexp
 }
 
 func (_c *MockSpinnerWidget_SetHexpand_Call) RunAndReturn(run func(expand bool)) *MockSpinnerWidget_SetHexpand_Call {
+	_c.Run(run)
+	return _c
+}
+
+// SetOpacity provides a mock function for the type MockSpinnerWidget
+func (_mock *MockSpinnerWidget) SetOpacity(opacity float64) {
+	_mock.Called(opacity)
+	return
+}
+
+// MockSpinnerWidget_SetOpacity_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetOpacity'
+type MockSpinnerWidget_SetOpacity_Call struct {
+	*mock.Call
+}
+
+// SetOpacity is a helper method to define mock.On call
+//   - opacity float64
+func (_e *MockSpinnerWidget_Expecter) SetOpacity(opacity interface{}) *MockSpinnerWidget_SetOpacity_Call {
+	return &MockSpinnerWidget_SetOpacity_Call{Call: _e.mock.On("SetOpacity", opacity)}
+}
+
+func (_c *MockSpinnerWidget_SetOpacity_Call) Run(run func(opacity float64)) *MockSpinnerWidget_SetOpacity_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 float64
+		if args[0] != nil {
+			arg0 = args[0].(float64)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSpinnerWidget_SetOpacity_Call) Return() *MockSpinnerWidget_SetOpacity_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockSpinnerWidget_SetOpacity_Call) RunAndReturn(run func(opacity float64)) *MockSpinnerWidget_SetOpacity_Call {
 	_c.Run(run)
 	return _c
 }

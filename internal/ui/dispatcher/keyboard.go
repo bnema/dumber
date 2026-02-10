@@ -31,6 +31,8 @@ type KeyboardDispatcher struct {
 	onSessionOpen    func(ctx context.Context) error
 	onMovePaneToTab  func(ctx context.Context) error
 	onMovePaneToNext func(ctx context.Context) error
+	onToggleFloating func(ctx context.Context) error
+	onOpenFloating   func(ctx context.Context, target input.FloatingProfileTarget) error
 }
 
 // NewKeyboardDispatcher creates a new KeyboardDispatcher.
@@ -92,6 +94,24 @@ func (d *KeyboardDispatcher) SetOnMovePaneToTab(fn func(ctx context.Context) err
 
 func (d *KeyboardDispatcher) SetOnMovePaneToNextTab(fn func(ctx context.Context) error) {
 	d.onMovePaneToNext = fn
+}
+
+func (d *KeyboardDispatcher) SetOnToggleFloatingPane(fn func(ctx context.Context) error) {
+	d.onToggleFloating = fn
+}
+
+func (d *KeyboardDispatcher) SetOnOpenFloatingURL(fn func(ctx context.Context, url string) error) {
+	if fn == nil {
+		d.onOpenFloating = nil
+		return
+	}
+	d.onOpenFloating = func(ctx context.Context, target input.FloatingProfileTarget) error {
+		return fn(ctx, target.URL)
+	}
+}
+
+func (d *KeyboardDispatcher) SetOnOpenFloatingTarget(fn func(ctx context.Context, target input.FloatingProfileTarget) error) {
+	d.onOpenFloating = fn
 }
 
 func (d *KeyboardDispatcher) initActionHandlers() {
@@ -191,6 +211,12 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 		input.ActionFindPrev:     d.handleFindPrev,
 		input.ActionCloseFind:    d.handleFindClose,
 		input.ActionOpenDevTools: d.navCoord.OpenDevTools,
+		input.ActionToggleFloatingPane: func(ctx context.Context) error {
+			if d.onToggleFloating != nil {
+				return d.onToggleFloating(ctx)
+			}
+			return d.logNoop(ctx, "toggle floating pane action (no handler)")
+		},
 		input.ActionToggleFullscreen: func(ctx context.Context) error {
 			return d.logNoop(ctx, "toggle fullscreen action (not yet implemented)")
 		},
@@ -207,6 +233,14 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 func (d *KeyboardDispatcher) Dispatch(ctx context.Context, action input.Action) error {
 	log := logging.FromContext(ctx)
 	log.Debug().Str("action", string(action)).Msg("dispatching keyboard action")
+
+	if target, ok := input.ParseFloatingProfileTarget(action); ok {
+		if d.onOpenFloating != nil {
+			return d.onOpenFloating(ctx, target)
+		}
+		log.Debug().Str("url", target.URL).Msg("floating profile action ignored (no handler)")
+		return nil
+	}
 
 	if handler, ok := d.actionHandlers[action]; ok {
 		return handler(ctx)

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"net/url"
+	"sort"
 	"strings"
 
 	domainurl "github.com/bnema/dumber/internal/domain/url"
@@ -22,6 +23,7 @@ func validateConfig(config *Config) error {
 	validationErrors = append(validationErrors, validatePaneMode(config)...)
 	validationErrors = append(validationErrors, validateTabBar(config)...)
 	validationErrors = append(validationErrors, validateTabMode(config)...)
+	validationErrors = append(validationErrors, validateFloatingPane(config)...)
 	validationErrors = append(validationErrors, validateLogging(config)...)
 	validationErrors = append(validationErrors, validateWorkspaceNewPaneURL(config)...)
 	validationErrors = append(validationErrors, validateOmnibox(config)...)
@@ -224,6 +226,80 @@ func validateTabMode(config *Config) []string {
 	return validationErrors
 }
 
+func validateFloatingPane(config *Config) []string {
+	var validationErrors []string
+	seenProfileKeys := make(map[string]string)
+
+	if config.Workspace.FloatingPane.WidthPct <= 0 || config.Workspace.FloatingPane.WidthPct > 1 {
+		validationErrors = append(validationErrors, "workspace.floating_pane.width_pct must be in (0,1]")
+	}
+
+	if config.Workspace.FloatingPane.HeightPct <= 0 || config.Workspace.FloatingPane.HeightPct > 1 {
+		validationErrors = append(validationErrors, "workspace.floating_pane.height_pct must be in (0,1]")
+	}
+
+	profileNames := make([]string, 0, len(config.Workspace.FloatingPane.Profiles))
+	for profileName := range config.Workspace.FloatingPane.Profiles {
+		profileNames = append(profileNames, profileName)
+	}
+	sort.Strings(profileNames)
+
+	for _, profileName := range profileNames {
+		profile := config.Workspace.FloatingPane.Profiles[profileName]
+		if strings.TrimSpace(profile.URL) == "" {
+			validationErrors = append(validationErrors, fmt.Sprintf(
+				"workspace.floating_pane.profiles.%s.url is required",
+				profileName,
+			))
+		} else {
+			validationErrors = append(validationErrors, validateWorkspaceURLValue(
+				fmt.Sprintf("workspace.floating_pane.profiles.%s.url", profileName),
+				profile.URL,
+			)...)
+		}
+		if len(profile.Keys) == 0 {
+			validationErrors = append(validationErrors, fmt.Sprintf(
+				"workspace.floating_pane.profiles.%s.keys must have at least one entry",
+				profileName,
+			))
+		}
+
+		for _, key := range profile.Keys {
+			normalizedKey := normalizeBindingKeyString(key)
+			if normalizedKey == "" {
+				validationErrors = append(validationErrors, fmt.Sprintf(
+					"workspace.floating_pane.profiles.%s.keys contains empty or whitespace-only key binding %q",
+					profileName,
+					key,
+				))
+				continue
+			}
+
+			if existingProfile, exists := seenProfileKeys[normalizedKey]; exists {
+				validationErrors = append(validationErrors, fmt.Sprintf(
+					"workspace.floating_pane.profiles.%s.keys contains duplicate key binding %q already used by profile %q",
+					profileName,
+					key,
+					existingProfile,
+				))
+				continue
+			}
+
+			seenProfileKeys[normalizedKey] = profileName
+		}
+	}
+
+	return validationErrors
+}
+
+func normalizeBindingKeyString(key string) string {
+	normalized := strings.ToLower(strings.TrimSpace(key))
+	if normalized == "" {
+		return ""
+	}
+	return strings.Join(strings.Fields(normalized), "")
+}
+
 func validateLogging(config *Config) []string {
 	var validationErrors []string
 	if config.Logging.MaxAge < 0 {
@@ -256,27 +332,36 @@ func validateWorkspaceNewPaneURL(config *Config) []string {
 		return validationErrors
 	}
 
-	normalized := domainurl.Normalize(config.Workspace.NewPaneURL)
-	parsed, err := url.Parse(normalized)
+	validationErrors = append(validationErrors, validateWorkspaceURLValue(
+		"workspace.new_pane_url",
+		config.Workspace.NewPaneURL,
+	)...)
+
+	return validationErrors
+}
+
+func validateWorkspaceURLValue(fieldPath, value string) []string {
+	trimmed := strings.TrimSpace(value)
+	candidate := trimmed
+	parsed, err := url.Parse(candidate)
+	if err != nil || parsed.Scheme == "" {
+		candidate = domainurl.Normalize(trimmed)
+		parsed, err = url.Parse(candidate)
+	}
 	if err != nil {
-		validationErrors = append(validationErrors, fmt.Sprintf(
-			"workspace.new_pane_url must be a valid URL (got: %s)",
-			config.Workspace.NewPaneURL,
-		))
-		return validationErrors
+		return []string{fmt.Sprintf("%s must be a valid URL (got: %s)", fieldPath, value)}
 	}
 
 	switch parsed.Scheme {
 	case "http", "https", "dumb", "file", "about":
-		// ok
+		return nil
 	default:
-		validationErrors = append(validationErrors, fmt.Sprintf(
-			"workspace.new_pane_url must use one of: http, https, dumb, file, about (got: %s)",
+		return []string{fmt.Sprintf(
+			"%s must use one of: http, https, dumb, file, about (got: %s)",
+			fieldPath,
 			parsed.Scheme,
-		))
+		)}
 	}
-
-	return validationErrors
 }
 
 func validateOmnibox(config *Config) []string {

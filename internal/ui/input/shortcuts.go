@@ -3,6 +3,7 @@ package input
 
 import (
 	"context"
+	"sort"
 	"strings"
 
 	"github.com/bnema/dumber/internal/infrastructure/config"
@@ -178,13 +179,14 @@ const (
 	ActionZoomReset Action = "zoom_reset"
 
 	// UI
-	ActionOpenOmnibox      Action = "open_omnibox"
-	ActionOpenFind         Action = "open_find"
-	ActionFindNext         Action = "find_next"
-	ActionFindPrev         Action = "find_prev"
-	ActionCloseFind        Action = "close_find"
-	ActionOpenDevTools     Action = "open_devtools"
-	ActionToggleFullscreen Action = "toggle_fullscreen"
+	ActionOpenOmnibox        Action = "open_omnibox"
+	ActionOpenFind           Action = "open_find"
+	ActionFindNext           Action = "find_next"
+	ActionFindPrev           Action = "find_prev"
+	ActionCloseFind          Action = "close_find"
+	ActionOpenDevTools       Action = "open_devtools"
+	ActionToggleFullscreen   Action = "toggle_fullscreen"
+	ActionToggleFloatingPane Action = "toggle_floating_pane"
 
 	// Clipboard
 	ActionCopyURL Action = "copy_url"
@@ -195,6 +197,9 @@ const (
 	// Application
 	ActionQuit Action = "quit"
 )
+
+const floatingProfileActionPrefix = "open_floating_profile:"
+const floatingProfileActionSeparator = "\u241F"
 
 // ShortcutTable maps KeyBinding to Action.
 type ShortcutTable map[KeyBinding]Action
@@ -248,6 +253,7 @@ func (s *ShortcutSet) buildGlobalShortcuts(ctx context.Context, cfg *config.Conf
 	s.registerStandardShortcuts()
 	s.registerPaneNavigationShortcuts()
 	s.registerTabSwitchShortcuts()
+	s.registerFloatingProfileShortcuts(ctx, cfg)
 }
 
 // buildTabModeShortcuts populates tab mode shortcuts from config.
@@ -327,6 +333,8 @@ func (s *ShortcutSet) registerConfiguredShortcuts(cfg *config.WorkspaceConfig) {
 	// However, these standard browser shortcuts ARE global:
 	// Map action names to action constants
 	actionMap := map[string]Action{
+		"toggle_floating_pane":   ActionToggleFloatingPane,
+		"toggle-floating-pane":   ActionToggleFloatingPane,
 		"close_pane":             ActionClosePane,
 		"next_tab":               ActionNextTab,
 		"previous_tab":           ActionPreviousTab,
@@ -346,6 +354,113 @@ func (s *ShortcutSet) registerConfiguredShortcuts(cfg *config.WorkspaceConfig) {
 				s.Global[binding] = action
 			}
 		}
+	}
+}
+
+func (s *ShortcutSet) registerFloatingProfileShortcuts(ctx context.Context, cfg *config.Config) {
+	occupied := make(map[KeyBinding]Action, len(s.Global))
+	for binding, action := range s.Global {
+		occupied[binding] = action
+	}
+
+	for _, shortcut := range collectFloatingProfileShortcuts(ctx, cfg, occupied) {
+		s.Global[shortcut.Binding] = shortcut.Action
+	}
+}
+
+type floatingProfileShortcut struct {
+	Binding KeyBinding
+	Action  Action
+}
+
+func collectFloatingProfileShortcuts(
+	ctx context.Context,
+	cfg *config.Config,
+	occupied map[KeyBinding]Action,
+) []floatingProfileShortcut {
+	if cfg == nil {
+		return nil
+	}
+
+	log := logging.FromContext(ctx)
+	reserveGlobalOnlyShortcutBindings(occupied)
+	result := make([]floatingProfileShortcut, 0)
+	profileNames := make([]string, 0, len(cfg.Workspace.FloatingPane.Profiles))
+	for profileName := range cfg.Workspace.FloatingPane.Profiles {
+		profileNames = append(profileNames, profileName)
+	}
+	sort.Strings(profileNames)
+
+	for _, profileName := range profileNames {
+		profile := cfg.Workspace.FloatingPane.Profiles[profileName]
+		url := strings.TrimSpace(profile.URL)
+		if url == "" {
+			log.Warn().Str("profile", profileName).Msg("floating profile missing URL, skipping")
+			continue
+		}
+
+		action := NewFloatingProfileAction(profileName, url)
+		keys := append([]string(nil), profile.Keys...)
+		sort.Strings(keys)
+		for _, keyStr := range keys {
+			binding, ok := ParseKeyString(keyStr)
+			if !ok {
+				log.Warn().Str("profile", profileName).Str("shortcut", keyStr).Msg("failed to parse floating profile shortcut")
+				continue
+			}
+
+			if existing, exists := occupied[binding]; exists {
+				log.Warn().
+					Str("profile", profileName).
+					Str("shortcut", keyStr).
+					Str("existing_action", string(existing)).
+					Msg("floating profile shortcut conflicts with existing global shortcut, skipping")
+				continue
+			}
+
+			occupied[binding] = action
+			result = append(result, floatingProfileShortcut{Binding: binding, Action: action})
+		}
+	}
+
+	return result
+}
+
+func reserveGlobalOnlyShortcutBindings(occupied map[KeyBinding]Action) {
+	if occupied == nil {
+		return
+	}
+
+	tabIndexActions := []Action{
+		ActionSwitchTabIndex1,
+		ActionSwitchTabIndex2,
+		ActionSwitchTabIndex3,
+		ActionSwitchTabIndex4,
+		ActionSwitchTabIndex5,
+		ActionSwitchTabIndex6,
+		ActionSwitchTabIndex7,
+		ActionSwitchTabIndex8,
+		ActionSwitchTabIndex9,
+	}
+
+	// Assumes gdk.KEY_1..gdk.KEY_9 are contiguous (ASCII '1'..'9').
+	// If that ever changes on a platform, map digits explicitly.
+	for i, action := range tabIndexActions {
+		binding := KeyBinding{Keyval: uint(gdk.KEY_1) + uint(i), Modifiers: ModAlt}
+		if _, exists := occupied[binding]; exists {
+			continue
+		}
+		occupied[binding] = action
+	}
+
+	altZero := KeyBinding{Keyval: uint(gdk.KEY_0), Modifiers: ModAlt}
+	if _, exists := occupied[altZero]; !exists {
+		occupied[altZero] = ActionSwitchTabIndex10
+	}
+
+	altTab := KeyBinding{Keyval: uint(gdk.KEY_Tab), Modifiers: ModAlt}
+	if _, exists := occupied[altTab]; !exists {
+		occupied[altTab] = ActionSwitchLastTab
 	}
 }
 
@@ -428,6 +543,9 @@ func (s *ShortcutSet) buildModeShortcuts(ctx context.Context, bindings map[strin
 }
 
 var configActionToAction = map[string]Action{
+	"toggle_floating_pane": ActionToggleFloatingPane,
+	"toggle-floating-pane": ActionToggleFloatingPane,
+
 	// Tab actions
 	"new-tab":      ActionNewTab,
 	"close-tab":    ActionCloseTab,
@@ -476,6 +594,57 @@ var configActionToAction = map[string]Action{
 
 	// Session actions
 	"session-manager": ActionOpenSessionManager,
+}
+
+// FloatingProfileTarget carries the session identity and URL for a floating profile action.
+type FloatingProfileTarget struct {
+	SessionID string
+	URL       string
+}
+
+// NewFloatingProfileAction builds an action value carrying a floating profile session and URL.
+func NewFloatingProfileAction(profileName, url string) Action {
+	sessionID := strings.TrimSpace(profileName)
+	trimmedURL := strings.TrimSpace(url)
+	if sessionID == "" {
+		sessionID = trimmedURL
+	}
+	return Action(floatingProfileActionPrefix + sessionID + floatingProfileActionSeparator + trimmedURL)
+}
+
+// ParseFloatingProfileTarget extracts the session identity and target URL.
+func ParseFloatingProfileTarget(action Action) (FloatingProfileTarget, bool) {
+	value := string(action)
+	if !strings.HasPrefix(value, floatingProfileActionPrefix) {
+		return FloatingProfileTarget{}, false
+	}
+
+	payload := strings.TrimPrefix(value, floatingProfileActionPrefix)
+	sessionID := ""
+	url := payload
+	if parts := strings.SplitN(payload, floatingProfileActionSeparator, 2); len(parts) == 2 {
+		sessionID = strings.TrimSpace(parts[0])
+		url = parts[1]
+	}
+
+	url = strings.TrimSpace(url)
+	if url == "" {
+		return FloatingProfileTarget{}, false
+	}
+	if sessionID == "" {
+		sessionID = url
+	}
+
+	return FloatingProfileTarget{SessionID: sessionID, URL: url}, true
+}
+
+// ParseFloatingProfileAction extracts the target URL from a floating profile action.
+func ParseFloatingProfileAction(action Action) (string, bool) {
+	target, ok := ParseFloatingProfileTarget(action)
+	if !ok {
+		return "", false
+	}
+	return target.URL, true
 }
 
 // mapConfigAction maps config action names to Action constants.

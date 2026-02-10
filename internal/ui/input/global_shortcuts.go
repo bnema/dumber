@@ -3,6 +3,8 @@ package input
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
@@ -18,6 +20,7 @@ type GlobalShortcutHandler struct {
 	controller *gtk.ShortcutController
 	onAction   ActionHandler
 	ctx        context.Context
+	registered map[KeyBinding]Action
 
 	// Keep references to callbacks to prevent GC from collecting them
 	callbacks []gtk.ShortcutFunc
@@ -39,6 +42,7 @@ func NewGlobalShortcutHandler(
 		onAction:   onAction,
 		ctx:        ctx,
 		callbacks:  make([]gtk.ShortcutFunc, 0),
+		registered: make(map[KeyBinding]Action),
 	}
 
 	if h.controller == nil {
@@ -96,6 +100,8 @@ func NewGlobalShortcutHandler(
 	if cfg != nil {
 		// Map action names to action constants for global shortcuts
 		actionMap := map[string]Action{
+			"toggle_floating_pane":   ActionToggleFloatingPane,
+			"toggle-floating-pane":   ActionToggleFloatingPane,
 			"consume_or_expel_left":  ActionConsumeOrExpelLeft,
 			"consume_or_expel_right": ActionConsumeOrExpelRight,
 			"consume_or_expel_up":    ActionConsumeOrExpelUp,
@@ -113,8 +119,25 @@ func NewGlobalShortcutHandler(
 					log.Warn().Str("shortcut", keyStr).Str("action", string(action)).Msg("failed to parse global shortcut")
 					continue
 				}
-				h.registerShortcut(binding.Keyval, gdk.ModifierType(binding.Modifiers), action)
-				log.Trace().Str("shortcut", keyStr).Str("action", string(action)).Msg("registered global shortcut")
+				if h.registerShortcut(binding.Keyval, gdk.ModifierType(binding.Modifiers), action) {
+					log.Trace().Str("shortcut", keyStr).Str("action", string(action)).Msg("registered global shortcut")
+				}
+			}
+		}
+
+		occupied := make(map[KeyBinding]Action, len(h.registered))
+		for binding, action := range h.registered {
+			occupied[binding] = action
+		}
+		for _, shortcut := range collectFloatingProfileShortcuts(ctx, cfg, occupied) {
+			if !h.registerShortcut(shortcut.Binding.Keyval, gdk.ModifierType(shortcut.Binding.Modifiers), shortcut.Action) {
+				continue
+			}
+			if url, ok := ParseFloatingProfileAction(shortcut.Action); ok {
+				log.Trace().
+					Str("shortcut", formatBinding(shortcut.Binding)).
+					Str("url", url).
+					Msg("registered floating profile global shortcut")
 			}
 		}
 	}
@@ -130,14 +153,24 @@ func NewGlobalShortcutHandler(
 }
 
 // registerShortcut creates and registers a single shortcut with the controller.
-func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.ModifierType, action Action) {
+func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.ModifierType, action Action) bool {
+	binding := KeyBinding{Keyval: keyval, Modifiers: Modifier(modifiers) & modifierMask}
+	if existing, exists := h.registered[binding]; exists {
+		logging.FromContext(h.ctx).Warn().
+			Str("existing_action", string(existing)).
+			Str("new_action", string(action)).
+			Str("shortcut", formatBinding(binding)).
+			Msg("global shortcut conflict, skipping")
+		return false
+	}
+
 	// Create trigger for this key combination
 	trigger := gtk.NewKeyvalTrigger(keyval, modifiers)
 	if trigger == nil {
 		logging.FromContext(h.ctx).Error().
 			Uint("keyval", keyval).
 			Msg("failed to create keyval trigger")
-		return
+		return false
 	}
 
 	// Create callback action
@@ -169,7 +202,7 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 		logging.FromContext(h.ctx).Error().
 			Uint("keyval", keyval).
 			Msg("failed to create callback action")
-		return
+		return false
 	}
 
 	// Create the shortcut combining trigger and action
@@ -178,11 +211,13 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 		logging.FromContext(h.ctx).Error().
 			Uint("keyval", keyval).
 			Msg("failed to create shortcut")
-		return
+		return false
 	}
 
 	// Add to controller
 	h.controller.AddShortcut(shortcut)
+	h.registered[binding] = action
+	return true
 }
 
 // Detach removes the global shortcut handler from the window.
@@ -191,4 +226,24 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 func (h *GlobalShortcutHandler) Detach() {
 	h.controller = nil
 	h.callbacks = nil
+	h.registered = nil
+}
+
+func formatBinding(binding KeyBinding) string {
+	parts := make([]string, 0, 3)
+	if binding.Modifiers&ModCtrl != 0 {
+		parts = append(parts, "ctrl")
+	}
+	if binding.Modifiers&ModShift != 0 {
+		parts = append(parts, "shift")
+	}
+	if binding.Modifiers&ModAlt != 0 {
+		parts = append(parts, "alt")
+	}
+	keyName := gdk.KeyvalName(binding.Keyval)
+	if keyName == "" {
+		keyName = fmt.Sprintf("0x%x", binding.Keyval)
+	}
+	parts = append(parts, strings.ToLower(keyName))
+	return strings.Join(parts, "+")
 }

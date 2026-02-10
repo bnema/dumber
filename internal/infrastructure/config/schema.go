@@ -420,6 +420,8 @@ type WorkspaceConfig struct {
 	ResizeMode ResizeModeConfig `mapstructure:"resize_mode" yaml:"resize_mode" toml:"resize_mode" json:"resize_mode"`
 	// Shortcuts holds global (non-modal) keyboard shortcuts.
 	Shortcuts GlobalShortcutsConfig `mapstructure:"shortcuts" yaml:"shortcuts" toml:"shortcuts" json:"shortcuts"`
+	// FloatingPane configures workspace-level floating pane behavior.
+	FloatingPane FloatingPaneConfig `mapstructure:"floating_pane" yaml:"floating_pane" toml:"floating_pane" json:"floating_pane"`
 	// TabBarPosition determines tab bar placement: "top" or "bottom".
 	TabBarPosition string `mapstructure:"tab_bar_position" yaml:"tab_bar_position" toml:"tab_bar_position" json:"tab_bar_position"`
 	// HideTabBarWhenSingleTab hides the tab bar when only one tab exists.
@@ -501,6 +503,20 @@ func (r *ResizeModeConfig) GetKeyBindings() map[string]string {
 // GlobalShortcutsConfig defines global shortcuts (always active, not modal).
 type GlobalShortcutsConfig struct {
 	Actions map[string]ActionBinding `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
+}
+
+// FloatingPaneConfig defines persistent floating pane behavior.
+type FloatingPaneConfig struct {
+	WidthPct  float64                        `mapstructure:"width_pct" yaml:"width_pct" toml:"width_pct" json:"width_pct"`
+	HeightPct float64                        `mapstructure:"height_pct" yaml:"height_pct" toml:"height_pct" json:"height_pct"`
+	Profiles  map[string]FloatingPaneProfile `mapstructure:"profiles" yaml:"profiles" toml:"profiles" json:"profiles"`
+}
+
+// FloatingPaneProfile defines a shortcut profile that opens a URL in the floating pane.
+type FloatingPaneProfile struct {
+	Keys []string `mapstructure:"keys" yaml:"keys" toml:"keys" json:"keys"`
+	URL  string   `mapstructure:"url" yaml:"url" toml:"url" json:"url"`
+	Desc string   `mapstructure:"desc" yaml:"desc" toml:"desc" json:"desc,omitempty"`
 }
 
 // GetKeyBindings returns an inverted map for O(1) key→action lookup.

@@ -13,6 +13,10 @@ All notable changes to this project will be documented in this file.
 - **Session exit classification runbook and diagnostics docs**: Added dedicated operational documentation for abrupt/clean exit classification and troubleshooting paths.
 - **Session/bootstrap resilience coverage**: Added tests and supporting logic for startup markers, WebKit stack bootstrap, and exit classification handling.
 - **Omnibox async guard tests**: Added focused tests for ghost text async/state safety and normalization behavior.
+- **Floating pane (persistent overlay pane)**: `Alt+F` toggles a workspace floating pane that preserves its session state while hidden.
+- **Floating pane profiles**: Optional URL profiles under `workspace.floating_pane.profiles` with user-defined shortcut keys to open/focus named floating sessions.
+- **Floating pane documentation**: Added reference docs describing floating behavior, shortcuts, and configuration.
+- **Installer prerelease/version selection**: `install.sh` supports `DUMBER_PRERELEASE=1` to install the latest prerelease and `DUMBER_VERSION=<tag>` to install a specific release.
 
 ### Changed
 
@@ -24,6 +28,9 @@ All notable changes to this project will be documented in this file.
 - **Config normalization hardening**: Normalization now coerces invalid profile/appearance values to safe defaults.
 - **Loading skeleton redesign**: Reduced logo from 512px to 256px, added version label below a discrete 32px spinner. Sizes extracted to constants so tests use `mock.Anything` and don't break on dimension changes.
 - **Aggressive WebView reuse policy**: `reusePolicyAggressive` now actually differs from `reusePolicySafe` by allowing reuse regardless of navigation activity, relying on `ResetForPoolReuse` to clear state.
+- **Multiple GUI instances**: GTK app is now non-unique, allowing independent `dumber` launches in parallel.
+- **Config schema/validation**: Added `workspace.floating_pane.*` config keys to schema and validation, including URL/profile shortcut validation.
+- **Config migration for shortcut actions**: Migration now merges newly added `workspace.shortcuts.actions.*` defaults into existing user action maps without overwriting user-defined entries.
 
 ### Fixed
 

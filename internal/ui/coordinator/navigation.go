@@ -3,6 +3,7 @@ package coordinator
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -19,10 +20,13 @@ type OmniboxProvider interface {
 
 // NavigationCoordinator handles URL navigation, history, and browser controls.
 type NavigationCoordinator struct {
+	contextProvider func() context.Context
 	navigateUC      *usecase.NavigateUseCase
 	contentCoord    *ContentCoordinator
 	omniboxProvider OmniboxProvider
 }
+
+const faviconPreloadTimeout = 300 * time.Millisecond
 
 // NewNavigationCoordinator creates a new NavigationCoordinator.
 func NewNavigationCoordinator(
@@ -32,8 +36,12 @@ func NewNavigationCoordinator(
 ) *NavigationCoordinator {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("creating navigation coordinator")
+	callbackLogger := *log
 
 	return &NavigationCoordinator{
+		contextProvider: func() context.Context {
+			return logging.WithContext(context.Background(), callbackLogger)
+		},
 		navigateUC:   navigateUC,
 		contentCoord: contentCoord,
 	}
@@ -42,12 +50,27 @@ func NewNavigationCoordinator(
 // SetOmniboxProvider sets the omnibox provider for toggle/zoom operations.
 func (c *NavigationCoordinator) SetOmniboxProvider(provider OmniboxProvider) {
 	c.omniboxProvider = provider
+	if c.omniboxProvider != nil {
+		c.omniboxProvider.SetOmniboxOnNavigate(func(url string) {
+			navCtx := context.Background()
+			if c.contextProvider != nil {
+				navCtx = c.contextProvider()
+			}
+			if err := c.Navigate(navCtx, url); err != nil {
+				logging.FromContext(navCtx).Warn().Err(err).Str("url", url).Msg("omnibox-initiated navigation failed")
+			}
+		})
+	}
 }
 
 // Navigate loads a URL in the active pane using NavigateUseCase.
 // This properly handles history recording and zoom application.
 func (c *NavigationCoordinator) Navigate(ctx context.Context, url string) error {
 	log := logging.FromContext(ctx)
+	if c.contentCoord == nil {
+		log.Warn().Str("url", url).Msg("content coordinator not initialized")
+		return fmt.Errorf("content coordinator not initialized")
+	}
 
 	wv := c.contentCoord.ActiveWebView(ctx)
 	if wv == nil {
@@ -56,16 +79,17 @@ func (c *NavigationCoordinator) Navigate(ctx context.Context, url string) error 
 	}
 
 	// Get active pane ID for tracking
-	ws, _ := c.contentCoord.getActiveWS()
-	var paneID string
-	if ws != nil {
-		if pane := ws.ActivePane(); pane != nil && pane.Pane != nil {
-			paneID = string(pane.Pane.ID)
-			// Track original URL for cross-domain redirect favicon caching
-			c.contentCoord.SetNavigationOrigin(pane.Pane.ID, url)
-			// Pre-load cached favicon asynchronously (don't block navigation start)
-			go c.contentCoord.PreloadCachedFavicon(ctx, pane.Pane.ID, url)
-		}
+	activePaneID := c.contentCoord.ActivePaneID(ctx)
+	paneID := string(activePaneID)
+	if activePaneID != "" {
+		// Track original URL for cross-domain redirect favicon caching
+		c.contentCoord.SetNavigationOrigin(activePaneID, url)
+		// Pre-load cached favicon asynchronously (don't block navigation start)
+		preloadCtx, cancelPreload := context.WithTimeout(ctx, faviconPreloadTimeout)
+		go func() {
+			defer cancelPreload()
+			c.contentCoord.PreloadCachedFavicon(preloadCtx, activePaneID, url)
+		}()
 	}
 
 	// Use NavigateUseCase which handles history + zoom

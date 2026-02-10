@@ -132,6 +132,10 @@ func GenerateCSSFull(p Palette, scale float64, fonts FontConfig, modeColors Mode
 	sb.WriteString(generatePermissionPopupCSS(p))
 	sb.WriteString("\n")
 
+	// Floating pane styling
+	sb.WriteString(generateFloatingPaneCSS(p))
+	sb.WriteString("\n")
+
 	// WebRTC permission activity indicator styling
 	sb.WriteString(generateWebRTCPermissionIndicatorCSS(p))
 	sb.WriteString("\n")
@@ -965,6 +969,43 @@ func generateLinkStatusCSS(p Palette) string {
 /* Link status label text */
 .link-status label {
 	color: var(--muted);
+}
+`
+}
+
+func generateFloatingPaneCSS(p Palette) string {
+	_ = p
+	return `/* ===== Floating Pane Styling ===== */
+.floating-pane-outer {
+	/* Positioning handled in Go via overlay alignment and margins. */
+}
+
+.floating-pane-container {
+	background-color: var(--surface-variant);
+	border: 0.0625em solid var(--border);
+	border-radius: 0.25em;
+	box-shadow: 0 0.5em 1.5em alpha(black, 0.25);
+	opacity: 0;
+	transition: opacity 110ms ease-out;
+}
+
+.floating-pane-container.floating-pane-visible {
+	opacity: 1;
+}
+
+.floating-pane-container.pane-active {
+	border-color: var(--accent);
+}
+
+.floating-pane-omnibox {
+	background-color: shade(var(--surface-variant), 1.08);
+	border-bottom: 0.0625em solid var(--border);
+	padding: 0.375em 0.5em;
+}
+
+.floating-pane-content {
+	background-color: var(--bg);
+	min-height: 12em;
 }
 `
 }

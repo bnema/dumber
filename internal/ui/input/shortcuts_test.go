@@ -375,3 +375,17 @@ func TestShouldAutoExitMode(t *testing.T) {
 		}
 	}
 }
+
+func TestMapConfigAction_ToggleFloatingPane(t *testing.T) {
+	action := mapConfigAction("toggle_floating_pane")
+	if action != ActionToggleFloatingPane {
+		t.Fatalf("mapConfigAction(toggle_floating_pane) = %s, want %s", action, ActionToggleFloatingPane)
+	}
+}
+
+func TestMapConfigAction_ToggleFloatingPaneHyphenAlias(t *testing.T) {
+	action := mapConfigAction("toggle-floating-pane")
+	if action != ActionToggleFloatingPane {
+		t.Fatalf("mapConfigAction(toggle-floating-pane) = %s, want %s", action, ActionToggleFloatingPane)
+	}
+}
