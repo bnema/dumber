@@ -199,7 +199,7 @@ const (
 )
 
 const floatingProfileActionPrefix = "open_floating_profile:"
-const floatingProfileActionSeparator = "|"
+const floatingProfileActionSeparator = "\u241F"
 
 // ShortcutTable maps KeyBinding to Action.
 type ShortcutTable map[KeyBinding]Action

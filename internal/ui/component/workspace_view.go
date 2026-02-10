@@ -557,6 +557,12 @@ func (wv *WorkspaceView) AddWorkspaceOverlayWidget(widget layout.Widget) {
 		if parent == wv.overlay {
 			return
 		}
+
+		parentGTK := parent.GtkWidget()
+		overlayGTK := wv.overlay.GtkWidget()
+		if parentGTK != nil && overlayGTK != nil && parentGTK.GoPointer() == overlayGTK.GoPointer() {
+			return
+		}
 		widget.Unparent()
 	}
 

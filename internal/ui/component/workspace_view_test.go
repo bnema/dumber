@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/jwijenbergh/puregotk/v4/gtk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -316,10 +317,41 @@ func TestAddWorkspaceOverlayWidget_UnparentsBeforeAdding(t *testing.T) {
 	widget := mocks.NewMockWidget(t)
 	otherParent := mocks.NewMockWidget(t)
 	widget.EXPECT().GetParent().Return(otherParent).Once()
+	otherParent.EXPECT().GtkWidget().Return(nil).Once()
+	mockOverlay.EXPECT().GtkWidget().Return(nil).Once()
 	widget.EXPECT().Unparent().Once()
 	mockOverlay.EXPECT().AddOverlay(widget).Once()
 	mockOverlay.EXPECT().SetClipOverlay(widget, false).Once()
 	mockOverlay.EXPECT().SetMeasureOverlay(widget, false).Once()
+
+	wv.AddWorkspaceOverlayWidget(widget)
+}
+
+func TestAddWorkspaceOverlayWidget_DoesNotReaddWhenParentGTKMatchesOverlay(t *testing.T) {
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	ctx := context.Background()
+
+	mockContainer := mocks.NewMockBoxWidget(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockContainer).Once()
+	mockContainer.EXPECT().SetHexpand(true).Once()
+	mockContainer.EXPECT().SetVexpand(true).Once()
+	mockContainer.EXPECT().SetVisible(true).Once()
+	mockFactory.EXPECT().NewOverlay().Return(mockOverlay).Once()
+	mockOverlay.EXPECT().SetHexpand(true).Once()
+	mockOverlay.EXPECT().SetVexpand(true).Once()
+	mockOverlay.EXPECT().SetChild(mockContainer).Once()
+	mockOverlay.EXPECT().SetVisible(true).Once()
+
+	wv := component.NewWorkspaceView(ctx, mockFactory)
+
+	widget := mocks.NewMockWidget(t)
+	otherParent := mocks.NewMockWidget(t)
+	gtkWidget := &gtk.Widget{}
+
+	widget.EXPECT().GetParent().Return(otherParent).Once()
+	otherParent.EXPECT().GtkWidget().Return(gtkWidget).Once()
+	mockOverlay.EXPECT().GtkWidget().Return(gtkWidget).Once()
 
 	wv.AddWorkspaceOverlayWidget(widget)
 }

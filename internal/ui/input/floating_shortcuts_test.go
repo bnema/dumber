@@ -192,3 +192,12 @@ func TestShortcutSet_FloatingProfiles_SupportModifierCombos(t *testing.T) {
 	assert.Equal(t, "search", searchTarget.SessionID)
 	assert.Equal(t, "https://search.example.com", searchTarget.URL)
 }
+
+func TestParseFloatingProfileTarget_AllowsPipeInURL(t *testing.T) {
+	action := NewFloatingProfileAction("pipe-test", "https://example.com/a|b")
+
+	target, ok := ParseFloatingProfileTarget(action)
+	require.True(t, ok)
+	assert.Equal(t, "pipe-test", target.SessionID)
+	assert.Equal(t, "https://example.com/a|b", target.URL)
+}

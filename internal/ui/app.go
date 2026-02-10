@@ -2454,6 +2454,7 @@ func (a *App) releaseFloatingSession(ctx context.Context, key floatingSessionKey
 	session.overlay = nil
 	session.webView = nil
 	session.pane = nil
+	// Session is fully released/zeroed; caller must drop this reference and not reuse it.
 }
 
 func (a *App) updateFloatingSessionURI(paneID entity.PaneID, url string) {

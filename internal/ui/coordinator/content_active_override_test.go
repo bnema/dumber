@@ -12,6 +12,8 @@ import (
 )
 
 func TestContentCoordinator_ActiveWebView_UsesOverride(t *testing.T) {
+	t.Parallel()
+
 	mainWV := &webkit.WebView{}
 	floatingWV := &webkit.WebView{}
 
@@ -29,6 +31,8 @@ func TestContentCoordinator_ActiveWebView_UsesOverride(t *testing.T) {
 }
 
 func TestContentCoordinator_ActiveWebView_ClearOverrideFallsBack(t *testing.T) {
+	t.Parallel()
+
 	mainWV := &webkit.WebView{}
 
 	c := &ContentCoordinator{
@@ -45,6 +49,8 @@ func TestContentCoordinator_ActiveWebView_ClearOverrideFallsBack(t *testing.T) {
 }
 
 func TestContentCoordinator_ActiveWebView_ClearOverrideFallsBackToWorkspace(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	mainWV := &webkit.WebView{}
 	mainPane := entity.NewPane(entity.PaneID("main-pane"))

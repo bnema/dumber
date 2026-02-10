@@ -125,7 +125,12 @@ func (fp *FloatingPane) SessionStarted() bool {
 func (fp *FloatingPane) ShowURL(ctx context.Context, url string) error {
 	url = strings.TrimSpace(url)
 	if url == "" {
-		return fp.ShowToggle(ctx)
+		fp.mu.Lock()
+		fp.visible = true
+		fp.omniboxVisible = true
+		fp.stateVersion++
+		fp.mu.Unlock()
+		return nil
 	}
 
 	fp.mu.Lock()
