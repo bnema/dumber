@@ -353,40 +353,43 @@ func (m SessionsModel) View() string {
 	}
 
 	t := m.theme
-	var b strings.Builder
+	var prefix strings.Builder
 
 	// Header
-	header := m.renderHeader()
-	b.WriteString(header)
-	b.WriteString("\n\n")
+	prefix.WriteString(m.renderHeader())
+	prefix.WriteString("\n")
 
 	// Error display
 	if m.err != nil {
-		b.WriteString(t.ErrorStyle.Render(fmt.Sprintf("%s Error: %v", styles.IconX, m.err)))
-		b.WriteString("\n\n")
+		prefix.WriteString("\n")
+		prefix.WriteString(t.ErrorStyle.Render(fmt.Sprintf("%s Error: %v", styles.IconX, m.err)))
+		prefix.WriteString("\n")
 	}
 
 	// Status message
 	if m.statusMessage != "" {
-		b.WriteString(t.Subtle.Render(m.statusMessage))
-		b.WriteString("\n\n")
+		prefix.WriteString("\n")
+		prefix.WriteString(t.Subtle.Render(m.statusMessage))
+		prefix.WriteString("\n")
 	}
-
-	// Sessions list
-	if len(m.sessions) == 0 {
-		b.WriteString(t.Subtle.Render("  No saved sessions found."))
-		b.WriteString("\n")
-	} else {
-		b.WriteString(m.renderSessionsList())
-	}
-
-	b.WriteString("\n")
 
 	// Help
 	helpView := m.help.View(m.keys)
-	b.WriteString(helpView)
 
-	return b.String()
+	// Compute available height for list so the view never exceeds terminal height.
+	// This prevents Bubble Tea from truncating the bottom of the UI when there
+	// are many sessions.
+	prefixH := lipgloss.Height(prefix.String())
+	helpH := lipgloss.Height(helpView)
+	listH := m.height - prefixH - 1 - helpH // one spacer line between list and help
+	if listH < 1 {
+		listH = 1
+	}
+
+	listView := m.renderSessionsList(listH)
+
+	// Compose final output with a single spacer line above help.
+	return strings.TrimRight(prefix.String(), "\n") + "\n" + listView + "\n" + helpView
 }
 
 func (m SessionsModel) renderHeader() string {
@@ -416,23 +419,61 @@ func (m SessionsModel) renderHeader() string {
 	return icon + title + stats
 }
 
-func (m SessionsModel) renderSessionsList() string {
-	var b strings.Builder
+func (m SessionsModel) renderSessionsList(maxHeight int) string {
+	t := m.theme
 
-	for i, info := range m.sessions {
+	if maxHeight <= 0 {
+		return ""
+	}
+	if len(m.sessions) == 0 {
+		return t.Subtle.Render("  No saved sessions found.")
+	}
+
+	// Determine starting index so the selected row stays visible.
+	start := 0
+	if len(m.sessions) > maxHeight {
+		// Keep selection roughly centered, but always visible.
+		start = m.selectedIdx - (maxHeight / 2)
+		if start < 0 {
+			start = 0
+		}
+		maxStart := len(m.sessions) - maxHeight
+		if start > maxStart {
+			start = maxStart
+		}
+	}
+
+	var b strings.Builder
+	remaining := maxHeight
+
+	for i := start; i < len(m.sessions) && remaining > 0; i++ {
+		info := m.sessions[i]
 		isSelected := i == m.selectedIdx
 		isExpanded := i == m.expandedIdx
 
 		b.WriteString(m.renderSessionRow(info, isSelected, isExpanded))
-		b.WriteString("\n")
+		remaining--
+		if remaining <= 0 {
+			break
+		}
 
-		// Render expanded details
-		if isExpanded && info.State != nil {
-			b.WriteString(m.renderSessionDetails(info))
+		// Render expanded details, but never exceed available height.
+		if isExpanded && info.State != nil && remaining > 0 {
+			details := m.renderSessionDetails(info)
+			details = truncateLines(details, remaining)
+			if details != "" {
+				b.WriteString("\n")
+				b.WriteString(details)
+				remaining -= lipgloss.Height(details)
+			}
+		}
+
+		if remaining > 0 {
+			b.WriteString("\n")
 		}
 	}
 
-	return b.String()
+	return strings.TrimRight(b.String(), "\n")
 }
 
 func (m SessionsModel) renderSessionRow(info entity.SessionInfo, isSelected, isExpanded bool) string {
@@ -509,7 +550,7 @@ func (m SessionsModel) renderSessionDetails(info entity.SessionInfo) string {
 	var b strings.Builder
 
 	if info.State == nil {
-		b.WriteString(t.Subtle.Render("      No state data available\n"))
+		b.WriteString(t.Subtle.Render("      No state data available"))
 		return b.String()
 	}
 
@@ -547,8 +588,18 @@ func (m SessionsModel) renderSessionDetails(info entity.SessionInfo) string {
 		m.renderPaneTree(&b, &tab.Workspace, isLastTab, t, treeStyle, leafStyle)
 	}
 
-	b.WriteString("\n")
 	return b.String()
+}
+
+func truncateLines(s string, maxLines int) string {
+	if maxLines <= 0 || s == "" {
+		return ""
+	}
+	lines := strings.Split(strings.TrimRight(s, "\n"), "\n")
+	if len(lines) <= maxLines {
+		return strings.Join(lines, "\n")
+	}
+	return strings.Join(lines[:maxLines], "\n")
 }
 
 func (m SessionsModel) renderPaneTree(
