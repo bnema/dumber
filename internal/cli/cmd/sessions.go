@@ -107,7 +107,7 @@ func runSessionsList(_ *cobra.Command, _ []string) error {
 
 	output, err := app.ListSessionsUC.Execute(app.Ctx(), currentSessionID, sessionsLimit)
 	if err != nil {
-		return fmt.Errorf("list sessions: %w", err)
+		return fmt.Errorf("%s", renderer.RenderError(fmt.Errorf("list sessions: %w", err)))
 	}
 
 	if sessionsJSON {

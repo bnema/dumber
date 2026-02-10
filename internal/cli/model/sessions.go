@@ -429,18 +429,23 @@ func (m SessionsModel) renderSessionsList(maxHeight int) string {
 		return t.Subtle.Render("  No saved sessions found.")
 	}
 
-	// Determine starting index so the selected row stays visible.
-	start := 0
-	if len(m.sessions) > maxHeight {
-		// Keep selection roughly centered, but always visible.
-		start = m.selectedIdx - (maxHeight / 2)
-		if start < 0 {
-			start = 0
+	// Determine starting index so the selected row stays visible even when
+	// rows above it are expanded and consume multiple lines.
+	start := m.selectedIdx
+	if start < 0 {
+		start = 0
+	}
+	if start >= len(m.sessions) {
+		start = len(m.sessions) - 1
+	}
+	used := m.rowHeight(start)
+	for start > 0 {
+		prevHeight := m.rowHeight(start - 1)
+		if used+prevHeight > maxHeight {
+			break
 		}
-		maxStart := len(m.sessions) - maxHeight
-		if start > maxStart {
-			start = maxStart
-		}
+		start--
+		used += prevHeight
 	}
 
 	var b strings.Builder
@@ -474,6 +479,29 @@ func (m SessionsModel) renderSessionsList(maxHeight int) string {
 	}
 
 	return strings.TrimRight(b.String(), "\n")
+}
+
+func (m SessionsModel) rowHeight(idx int) int {
+	if idx < 0 || idx >= len(m.sessions) {
+		return 0
+	}
+
+	height := 1 // always render one row line
+	if idx != m.expandedIdx {
+		return height
+	}
+
+	info := m.sessions[idx]
+	if info.State == nil {
+		return height
+	}
+
+	details := m.renderSessionDetails(info)
+	if details == "" {
+		return height
+	}
+
+	return height + lipgloss.Height(details)
 }
 
 func (m SessionsModel) renderSessionRow(info entity.SessionInfo, isSelected, isExpanded bool) string {
