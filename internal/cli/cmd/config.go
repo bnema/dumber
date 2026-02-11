@@ -118,18 +118,24 @@ func runConfigOpen(_ *cobra.Command, _ []string) error {
 
 	configFile, err := config.GetConfigFile()
 	if err != nil {
-		return fmt.Errorf("%s", strings.TrimRight(renderer.RenderError(fmt.Errorf("get config file: %w", err)), "\n"))
+		wrappedErr := fmt.Errorf("get config file: %w", err)
+		fmt.Fprintln(os.Stderr, strings.TrimRight(renderer.RenderError(wrappedErr), "\n"))
+		return wrapPrintedError(wrappedErr)
 	}
 
 	// Check if config file exists
 	if _, statErr := os.Stat(configFile); os.IsNotExist(statErr) {
-		return fmt.Errorf("%s", strings.TrimRight(renderer.RenderError(fmt.Errorf("config file does not exist: %s", configFile)), "\n"))
+		err := fmt.Errorf("config file does not exist: %s", configFile)
+		fmt.Fprintln(os.Stderr, strings.TrimRight(renderer.RenderError(err), "\n"))
+		return wrapPrintedError(err)
 	}
 
 	editor := getEditor()
 	if editor == "" {
 		const msg = "no editor found: set $EDITOR or $VISUAL environment variable"
-		return fmt.Errorf("%s", strings.TrimRight(renderer.RenderError(fmt.Errorf("%s", msg)), "\n"))
+		err := fmt.Errorf("%s", msg)
+		fmt.Fprintln(os.Stderr, strings.TrimRight(renderer.RenderError(err), "\n"))
+		return wrapPrintedError(err)
 	}
 
 	// Keep this a simple, non-interactive message; the actual editor takes over the terminal.
@@ -141,7 +147,9 @@ func runConfigOpen(_ *cobra.Command, _ []string) error {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("%s", strings.TrimRight(renderer.RenderError(fmt.Errorf("open config: %w", err)), "\n"))
+		wrappedErr := fmt.Errorf("open config: %w", err)
+		fmt.Fprintln(os.Stderr, strings.TrimRight(renderer.RenderError(wrappedErr), "\n"))
+		return wrapPrintedError(wrappedErr)
 	}
 	return nil
 }
