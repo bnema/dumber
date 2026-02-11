@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"text/tabwriter"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/cli/model"
+	"github.com/bnema/dumber/internal/cli/styles"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
 )
@@ -93,9 +93,12 @@ func runSessionsList(_ *cobra.Command, _ []string) error {
 	if app == nil {
 		return fmt.Errorf("app not initialized")
 	}
+	renderer := styles.NewSessionsCLIRenderer(app.Theme)
 
 	if app.ListSessionsUC == nil {
-		return fmt.Errorf("session management not available")
+		err := fmt.Errorf("session management not available")
+		fmt.Fprintln(os.Stderr, renderer.RenderError(err))
+		return wrapPrintedError(err)
 	}
 
 	// Get current session ID (empty if not running as browser)
@@ -106,51 +109,23 @@ func runSessionsList(_ *cobra.Command, _ []string) error {
 
 	output, err := app.ListSessionsUC.Execute(app.Ctx(), currentSessionID, sessionsLimit)
 	if err != nil {
-		return fmt.Errorf("list sessions: %w", err)
+		wrappedErr := fmt.Errorf("list sessions: %w", err)
+		fmt.Fprintln(os.Stderr, renderer.RenderError(wrappedErr))
+		return wrapPrintedError(wrappedErr)
 	}
 
 	if sessionsJSON {
 		return outputSessionsJSON(output.Sessions)
 	}
 
-	return outputSessionsTable(output.Sessions)
+	fmt.Println(renderer.RenderList(output.Sessions, sessionsLimit))
+	return nil
 }
 
 func outputSessionsJSON(sessions []entity.SessionInfo) error {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	return enc.Encode(sessions)
-}
-
-func outputSessionsTable(sessions []entity.SessionInfo) error {
-	if len(sessions) == 0 {
-		fmt.Println("No saved sessions found.")
-		return nil
-	}
-
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	_, _ = fmt.Fprintln(w, "STATUS\tSESSION ID\tTABS\tPANES\tLAST UPDATED")
-
-	for _, info := range sessions {
-		status := " "
-		switch {
-		case info.IsCurrent:
-			status = "●"
-		case info.IsActive:
-			status = "○"
-		}
-
-		relTime := usecase.GetRelativeTime(info.UpdatedAt)
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%s\n",
-			status,
-			info.Session.ID,
-			info.TabCount,
-			info.PaneCount,
-			relTime,
-		)
-	}
-
-	return w.Flush()
 }
 
 // sessions restore <id>
@@ -180,15 +155,19 @@ func runSessionsRestore(_ *cobra.Command, args []string) error {
 	if app == nil {
 		return fmt.Errorf("app not initialized")
 	}
+	renderer := styles.NewSessionsCLIRenderer(app.Theme)
 
 	if app.RestoreUC == nil || app.ListSessionsUC == nil {
-		return fmt.Errorf("session restoration not available")
+		err := fmt.Errorf("session restoration not available")
+		fmt.Fprintln(os.Stderr, renderer.RenderError(err))
+		return wrapPrintedError(err)
 	}
 
 	// Find session by ID or suffix
 	sessionInfo, err := findSessionByIDOrSuffix(args[0])
 	if err != nil {
-		return err
+		fmt.Fprintln(os.Stderr, renderer.RenderError(err))
+		return wrapPrintedError(err)
 	}
 
 	sessionID := sessionInfo.Session.ID
@@ -196,16 +175,20 @@ func runSessionsRestore(_ *cobra.Command, args []string) error {
 	// Validate the session has restorable state
 	_, err = app.RestoreUC.Execute(app.Ctx(), usecase.RestoreInput{SessionID: sessionID})
 	if err != nil {
-		return fmt.Errorf("restore session: %w", err)
+		wrappedErr := fmt.Errorf("restore session: %w", err)
+		fmt.Fprintln(os.Stderr, renderer.RenderError(wrappedErr))
+		return wrapPrintedError(wrappedErr)
 	}
 
 	// Spawn a new dumber instance with the session
 	spawner := desktop.NewSessionSpawner(app.Ctx())
 	if err := spawner.SpawnWithSession(sessionID); err != nil {
-		return fmt.Errorf("spawn browser: %w", err)
+		wrappedErr := fmt.Errorf("spawn browser: %w", err)
+		fmt.Fprintln(os.Stderr, renderer.RenderError(wrappedErr))
+		return wrapPrintedError(wrappedErr)
 	}
 
-	fmt.Printf("Restoring session %s...\n", sessionID)
+	fmt.Println(renderer.RenderRestoreStarted(sessionID))
 	return nil
 }
 
@@ -236,15 +219,19 @@ func runSessionsDelete(_ *cobra.Command, args []string) error {
 	if app == nil {
 		return fmt.Errorf("app not initialized")
 	}
+	renderer := styles.NewSessionsCLIRenderer(app.Theme)
 
 	if app.DeleteSessionUC == nil || app.ListSessionsUC == nil {
-		return fmt.Errorf("session management not available")
+		err := fmt.Errorf("session management not available")
+		fmt.Fprintln(os.Stderr, renderer.RenderError(err))
+		return wrapPrintedError(err)
 	}
 
 	// Find session by ID or suffix
 	sessionInfo, err := findSessionByIDOrSuffix(args[0])
 	if err != nil {
-		return err
+		fmt.Fprintln(os.Stderr, renderer.RenderError(err))
+		return wrapPrintedError(err)
 	}
 
 	// Get current session ID
@@ -258,10 +245,12 @@ func runSessionsDelete(_ *cobra.Command, args []string) error {
 		SessionID:        sessionInfo.Session.ID,
 		CurrentSessionID: currentSessionID,
 	}); err != nil {
-		return fmt.Errorf("delete session: %w", err)
+		wrappedErr := fmt.Errorf("delete session: %w", err)
+		fmt.Fprintln(os.Stderr, renderer.RenderError(wrappedErr))
+		return wrapPrintedError(wrappedErr)
 	}
 
-	fmt.Printf("Session %s deleted.\n", sessionInfo.Session.ID)
+	fmt.Println(renderer.RenderDeleted(sessionInfo.Session.ID))
 	return nil
 }
 

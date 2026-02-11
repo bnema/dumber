@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -108,27 +109,49 @@ func runConfigSchema(_ *cobra.Command, _ []string) error {
 
 // runConfigOpen opens the config file in the user's preferred editor.
 func runConfigOpen(_ *cobra.Command, _ []string) error {
+	app := GetApp()
+	if app == nil {
+		return fmt.Errorf("app not initialized")
+	}
+
+	renderer := styles.NewConfigRenderer(app.Theme)
+
 	configFile, err := config.GetConfigFile()
 	if err != nil {
-		return fmt.Errorf("get config file: %w", err)
+		wrappedErr := fmt.Errorf("get config file: %w", err)
+		fmt.Fprintln(os.Stderr, strings.TrimRight(renderer.RenderError(wrappedErr), "\n"))
+		return wrapPrintedError(wrappedErr)
 	}
 
 	// Check if config file exists
 	if _, statErr := os.Stat(configFile); os.IsNotExist(statErr) {
-		return fmt.Errorf("config file does not exist: %s", configFile)
+		err := fmt.Errorf("config file does not exist: %s", configFile)
+		fmt.Fprintln(os.Stderr, strings.TrimRight(renderer.RenderError(err), "\n"))
+		return wrapPrintedError(err)
 	}
 
 	editor := getEditor()
 	if editor == "" {
-		return fmt.Errorf("no editor found: set $EDITOR or $VISUAL environment variable")
+		const msg = "no editor found: set $EDITOR or $VISUAL environment variable"
+		err := fmt.Errorf("%s", msg)
+		fmt.Fprintln(os.Stderr, strings.TrimRight(renderer.RenderError(err), "\n"))
+		return wrapPrintedError(err)
 	}
+
+	// Keep this a simple, non-interactive message; the actual editor takes over the terminal.
+	fmt.Println(renderer.RenderOpening(configFile, editor))
 
 	cmd := exec.Command(editor, configFile)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		wrappedErr := fmt.Errorf("open config: %w", err)
+		fmt.Fprintln(os.Stderr, strings.TrimRight(renderer.RenderError(wrappedErr), "\n"))
+		return wrapPrintedError(wrappedErr)
+	}
+	return nil
 }
 
 // getEditor returns the user's preferred editor.

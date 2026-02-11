@@ -2,6 +2,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -15,8 +16,10 @@ var (
 	app       *cli.App
 	buildInfo build.Info
 	rootCmd   = &cobra.Command{
-		Use:   "dumber",
-		Short: "A fully unfeatured unbloated browser for tiling WMs",
+		Use:           "dumber",
+		Short:         "A fully unfeatured unbloated browser for tiling WMs",
+		SilenceErrors: true,
+		SilenceUsage:  true,
 		Long: `Dumber - a dumb browser that works like your favorite terminal multiplexer.
 
 A fully unfeatured unbloated browser for tiling WMs, built with GTK4 and WebKitGTK.
@@ -61,9 +64,38 @@ management.`,
 // Execute runs the root command.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
+		var printedErr *printedError
+		if errors.As(err, &printedErr) {
+			os.Exit(1)
+		}
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+type printedError struct {
+	err error
+}
+
+func (e *printedError) Error() string {
+	if e == nil || e.err == nil {
+		return ""
+	}
+	return e.err.Error()
+}
+
+func (e *printedError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func wrapPrintedError(err error) error {
+	if err == nil {
+		return nil
+	}
+	return &printedError{err: err}
 }
 
 // GetApp returns the initialized app (for use by subcommands).

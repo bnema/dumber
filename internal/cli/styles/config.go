@@ -246,3 +246,17 @@ func (r *ConfigRenderer) RenderNoConfigFile(path string) string {
 		hintStyle.Render("Config file will be created on first run with all defaults."),
 	)
 }
+
+// RenderOpening renders a brief "opening config" message for `dumber config open`.
+func (r *ConfigRenderer) RenderOpening(path, editor string) string {
+	iconStyle := r.theme.Subtle
+	pathStyle := r.theme.Highlight
+	editorStyle := r.theme.Subtle
+
+	return fmt.Sprintf(
+		"%s Opening %s with %s",
+		iconStyle.Render(IconCursor),
+		pathStyle.Render(path),
+		editorStyle.Render(editor),
+	)
+}
