@@ -463,7 +463,7 @@ func (m SessionsModel) renderSessionsList(maxHeight int) string {
 		}
 
 		// Render expanded details, but never exceed available height.
-		if isExpanded && info.State != nil && remaining > 0 {
+		if isExpanded && remaining > 0 {
 			details := m.renderSessionDetails(info)
 			details = truncateLines(details, remaining)
 			if details != "" {
@@ -492,10 +492,6 @@ func (m SessionsModel) rowHeight(idx int) int {
 	}
 
 	info := m.sessions[idx]
-	if info.State == nil {
-		return height
-	}
-
 	details := m.renderSessionDetails(info)
 	if details == "" {
 		return height

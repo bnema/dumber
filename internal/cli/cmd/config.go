@@ -114,27 +114,26 @@ func runConfigOpen(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("app not initialized")
 	}
 
+	renderer := styles.NewConfigRenderer(app.Theme)
+
 	configFile, err := config.GetConfigFile()
 	if err != nil {
-		renderer := styles.NewConfigRenderer(app.Theme)
 		return fmt.Errorf("%s", strings.TrimRight(renderer.RenderError(fmt.Errorf("get config file: %w", err)), "\n"))
 	}
 
 	// Check if config file exists
 	if _, statErr := os.Stat(configFile); os.IsNotExist(statErr) {
-		renderer := styles.NewConfigRenderer(app.Theme)
 		return fmt.Errorf("%s", strings.TrimRight(renderer.RenderError(fmt.Errorf("config file does not exist: %s", configFile)), "\n"))
 	}
 
 	editor := getEditor()
 	if editor == "" {
-		renderer := styles.NewConfigRenderer(app.Theme)
 		const msg = "no editor found: set $EDITOR or $VISUAL environment variable"
 		return fmt.Errorf("%s", strings.TrimRight(renderer.RenderError(fmt.Errorf("%s", msg)), "\n"))
 	}
 
 	// Keep this a simple, non-interactive message; the actual editor takes over the terminal.
-	fmt.Println(styles.NewConfigRenderer(app.Theme).RenderOpening(configFile, editor))
+	fmt.Println(renderer.RenderOpening(configFile, editor))
 
 	cmd := exec.Command(editor, configFile)
 	cmd.Stdin = os.Stdin
@@ -142,7 +141,6 @@ func runConfigOpen(_ *cobra.Command, _ []string) error {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		renderer := styles.NewConfigRenderer(app.Theme)
 		return fmt.Errorf("%s", strings.TrimRight(renderer.RenderError(fmt.Errorf("open config: %w", err)), "\n"))
 	}
 	return nil

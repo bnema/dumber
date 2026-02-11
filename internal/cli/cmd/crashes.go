@@ -101,13 +101,13 @@ func runCrashesShow(_ *cobra.Command, args []string) error {
 	report, err := resolveCrashReport(getCrashReportsDir(app.Config), args[0])
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "%s\n%s\n", renderer.RenderError(err), renderer.RenderHintList())
-		return nil
+		return fmt.Errorf("resolve crash report: %w", err)
 	}
 
 	body, err := os.ReadFile(report.MarkdownPath)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "%s\n", renderer.RenderError(fmt.Errorf("read crash report markdown: %w", err)))
-		return nil
+		return fmt.Errorf("read crash report markdown: %w", err)
 	}
 	fmt.Print(string(body))
 	return nil
@@ -123,13 +123,13 @@ func runCrashesIssue(_ *cobra.Command, args []string) error {
 	report, err := resolveCrashReport(getCrashReportsDir(app.Config), args[0])
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "%s\n%s\n", renderer.RenderError(err), renderer.RenderHintList())
-		return nil
+		return fmt.Errorf("resolve crash report: %w", err)
 	}
 
 	body, err := os.ReadFile(report.MarkdownPath)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "%s\n", renderer.RenderError(fmt.Errorf("read crash report markdown: %w", err)))
-		return nil
+		return fmt.Errorf("read crash report markdown: %w", err)
 	}
 	all := string(body)
 	start := strings.Index(all, "## GitHub Issue Template")
