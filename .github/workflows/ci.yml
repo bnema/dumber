@@ -112,4 +112,4 @@ jobs:
       - name: Verify purego-only constraints
         run: make verify-purego
       - name: Verify CGO-disabled build
-        run: CGO_ENABLED=0 go build -o /tmp/dumber ./cmd/dumber && rm -f /tmp/dumber
+        run: CGO_ENABLED=0 go build -buildvcs=false -o /tmp/dumber ./cmd/dumber && rm -f /tmp/dumber
