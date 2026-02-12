@@ -147,7 +147,7 @@ func TestGetExtensionFromMimeType(t *testing.T) {
 		{
 			name:     "text html with charset",
 			input:    "text/html; charset=utf-8",
-			expected: ".htm",
+			expected: ".html",
 		},
 		{
 			name:     "mime type with multiple params",
