@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(git rev-parse --show-toplevel)"
+# Use the directory containing this script's parent as repo root,
+# avoiding git which fails in CI with "dubious ownership" errors.
+repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo_root"
 
 denied_patterns=(
@@ -9,12 +11,16 @@ denied_patterns=(
   '^//export '
 )
 
-search_paths=(
-  cmd
-  internal
-  pkg
-  scripts
-)
+all_paths=(cmd internal pkg scripts)
+search_paths=()
+for p in "${all_paths[@]}"; do
+  [ -d "$p" ] && search_paths+=("$p")
+done
+
+if [ ${#search_paths[@]} -eq 0 ]; then
+  echo "verify_purego_only: no source directories found"
+  exit 1
+fi
 
 for pattern in "${denied_patterns[@]}"; do
   if command -v rg >/dev/null 2>&1; then
