@@ -17,6 +17,7 @@ import (
 	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
+	"github.com/bnema/dumber/internal/ui/mainloop"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/glib"
 	"github.com/jwijenbergh/puregotk/v4/graphene"
@@ -138,6 +139,7 @@ type Omnibox struct {
 	// Click outside handler
 	clickOutsideController *gtk.GestureClick
 	clickOutsideCb         func(gtk.GestureClick, int, float64, float64)
+	idleCoalescer          *mainloop.Coalescer
 }
 
 // OmniboxConfig holds configuration for creating an Omnibox.
@@ -182,6 +184,13 @@ func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 		ctx:             ctx,
 		uiScale:         uiScale,
 	}
+	o.idleCoalescer = mainloop.NewCoalescer(func(fn func()) {
+		var cb glib.SourceFunc = func(uintptr) bool {
+			fn()
+			return false
+		}
+		glib.IdleAdd(&cb, 0)
+	})
 
 	if err := o.createWidgets(); err != nil {
 		log.Error().Err(err).Msg("failed to create omnibox widgets")
@@ -817,12 +826,7 @@ func (o *Omnibox) onEntryChanged() {
 		o.debounceTimer.Stop()
 	}
 	o.debounceTimer = time.AfterFunc(debounceDelayMs*time.Millisecond, func() {
-		// Schedule on GTK main thread — performSearch reads GTK widget state
-		var cb glib.SourceFunc = func(uintptr) bool {
-			o.performSearch()
-			return false
-		}
-		glib.IdleAdd(&cb, 0)
+		o.idleCoalescer.Post("omnibox-search", o.performSearch)
 	})
 	o.debounceMu.Unlock()
 }
@@ -879,9 +883,9 @@ func (o *Omnibox) setGhostText(originalInput, suffix, fullText string) {
 	capturedToken := o.ghostToken
 	o.mu.Unlock()
 
-	var cb glib.SourceFunc = func(uintptr) bool {
+	o.idleCoalescer.Post("omnibox-ghost-set", func() {
 		if o.entry == nil {
-			return false
+			return
 		}
 
 		o.mu.RLock()
@@ -889,10 +893,10 @@ func (o *Omnibox) setGhostText(originalInput, suffix, fullText string) {
 		currentToken := o.ghostToken
 		o.mu.RUnlock()
 		if currentInput != originalInput {
-			return false
+			return
 		}
 		if capturedToken != currentToken {
-			return false
+			return
 		}
 		o.mu.Lock()
 		o.isAcceptingGhost = true
@@ -905,9 +909,7 @@ func (o *Omnibox) setGhostText(originalInput, suffix, fullText string) {
 		o.mu.Lock()
 		o.isAcceptingGhost = false
 		o.mu.Unlock()
-		return false
-	}
-	glib.IdleAdd(&cb, 0)
+	})
 }
 
 // clearGhostText hides the ghost completion text.
@@ -927,15 +929,15 @@ func (o *Omnibox) clearGhostText() {
 		return
 	}
 
-	var cb glib.SourceFunc = func(uintptr) bool {
+	o.idleCoalescer.Post("omnibox-ghost-clear", func() {
 		if o.entry == nil {
-			return false
+			return
 		}
 		o.mu.RLock()
 		currentToken := o.ghostToken
 		o.mu.RUnlock()
 		if capturedToken != currentToken {
-			return false
+			return
 		}
 		o.mu.Lock()
 		o.isAcceptingGhost = true
@@ -950,9 +952,7 @@ func (o *Omnibox) clearGhostText() {
 		o.mu.Lock()
 		o.isAcceptingGhost = false
 		o.mu.Unlock()
-		return false
-	}
-	glib.IdleAdd(&cb, 0)
+	})
 }
 
 // clearGhostTextIfInput clears ghost text only if the entry text matches expectedInput.
@@ -2337,6 +2337,9 @@ func (o *Omnibox) Destroy() {
 	o.retainedCallbacks = nil
 	o.clickOutsideController = nil
 	o.clickOutsideCb = nil
+	if o.idleCoalescer != nil {
+		o.idleCoalescer.Destroy()
+	}
 
 	if o.outerBox != nil {
 		o.outerBox.Unparent()

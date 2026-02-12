@@ -3,14 +3,14 @@ module github.com/bnema/dumber
 go 1.25.3
 
 require (
-	github.com/bnema/puregotk-webkit v0.0.12
+	github.com/bnema/puregotk-webkit v0.0.13
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/jwijenbergh/purego v0.0.0-20251017112123-b71757b9ba42
-	github.com/jwijenbergh/puregotk v0.0.0-20260115100645-c78e1521129b
+	github.com/jwijenbergh/puregotk v0.0.0-20260212181341-fb13c245f9f0
 	github.com/ncruces/go-sqlite3 v0.30.5
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/pressly/goose/v3 v3.26.0
@@ -23,7 +23,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-replace github.com/jwijenbergh/puregotk => github.com/bnema/puregotk v0.0.0-20260208062357-b1825488ed92
+replace github.com/jwijenbergh/puregotk => github.com/bnema/puregotk v0.0.0-20260212181341-fb13c245f9f0
 
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect

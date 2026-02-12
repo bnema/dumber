@@ -46,6 +46,22 @@ func SanitizeFilenameWithExtension(name, mimeType string) string {
 	return clean
 }
 
+// preferredExtensions maps MIME types whose stdlib extension list is
+// platform-dependent (alphabetical order) to the canonical extension.
+// Without this, mime.ExtensionsByType("text/html") may return ".ehtml"
+// instead of ".html" depending on the system MIME database.
+var preferredExtensions = map[string]string{
+	"text/html":                ".html",
+	"text/plain":               ".txt",
+	"text/xml":                 ".xml",
+	"application/xhtml+xml":    ".xhtml",
+	"image/jpeg":               ".jpg",
+	"image/svg+xml":            ".svg",
+	"audio/mpeg":               ".mp3",
+	"video/mp4":                ".mp4",
+	"application/octet-stream": ".bin",
+}
+
 // GetExtensionFromMimeType returns a file extension for a given MIME type.
 // Returns empty string if MIME type is unknown or empty.
 // Handles MIME types with parameters (e.g., "application/pdf; charset=binary").
@@ -59,6 +75,10 @@ func GetExtensionFromMimeType(mimeType string) string {
 	mediaType, _, err := mime.ParseMediaType(mimeType)
 	if err != nil || mediaType == "" {
 		return ""
+	}
+
+	if ext, ok := preferredExtensions[mediaType]; ok {
+		return ext
 	}
 
 	exts, err := mime.ExtensionsByType(mediaType)

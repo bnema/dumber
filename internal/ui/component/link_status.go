@@ -4,6 +4,7 @@ package component
 import (
 	"sync"
 
+	"github.com/bnema/dumber/internal/ui/mainloop"
 	"github.com/jwijenbergh/puregotk/v4/glib"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 
@@ -30,6 +31,9 @@ type LinkStatusOverlay struct {
 	showTimer     uint   // GLib timer for delayed show
 	autoHideTimer uint   // GLib timer for auto-hide after timeout
 	visible       bool   // Whether overlay is currently visible (has .visible class)
+	showTimerCb   glib.SourceFunc
+	autoHideCb    glib.SourceFunc
+	coalescer     *mainloop.Coalescer
 	mu            sync.Mutex
 }
 
@@ -60,12 +64,44 @@ func NewLinkStatusOverlay(factory layout.WidgetFactory) *LinkStatusOverlay {
 	label.SetMaxWidthChars(linkStatusMaxChars)
 	container.Append(label)
 
-	return &LinkStatusOverlay{
+	overlay := &LinkStatusOverlay{
 		factory:   factory,
 		container: container,
 		label:     label,
 		visible:   false,
 	}
+	overlay.coalescer = mainloop.NewCoalescer(func(fn func()) {
+		var cb glib.SourceFunc = func(uintptr) bool {
+			fn()
+			return false
+		}
+		glib.IdleAdd(&cb, 0)
+	})
+	overlay.showTimerCb = func(_ uintptr) bool {
+		overlay.mu.Lock()
+		defer overlay.mu.Unlock()
+
+		if overlay.pendingURI != "" {
+			overlay.label.SetText(overlay.pendingURI)
+			if !overlay.visible {
+				overlay.visible = true
+				overlay.container.AddCssClass("visible")
+			}
+			overlay.resetAutoHideTimerLocked()
+		}
+		overlay.showTimer = 0
+		return false
+	}
+	overlay.autoHideCb = func(_ uintptr) bool {
+		overlay.mu.Lock()
+		defer overlay.mu.Unlock()
+
+		overlay.autoHideTimer = 0
+		overlay.hide()
+		return false
+	}
+
+	return overlay
 }
 
 // Show displays the link status overlay with the given URI.
@@ -88,25 +124,19 @@ func (l *LinkStatusOverlay) Show(uri string) {
 
 	l.pendingURI = uri
 
-	// Start delay timer before showing
-	cb := glib.SourceFunc(func(_ uintptr) bool {
+	// Coalesce rapid hover events before scheduling delay timer.
+	l.coalescer.Post("link-status-show-delay", func() {
 		l.mu.Lock()
 		defer l.mu.Unlock()
 
-		if l.pendingURI != "" {
-			l.label.SetText(l.pendingURI)
-			if !l.visible {
-				l.visible = true
-				l.container.AddCssClass("visible")
-			}
-			// Start or reset auto-hide timer
-			l.resetAutoHideTimerLocked()
+		if l.pendingURI == "" {
+			return
 		}
-		l.showTimer = 0
-		return false // Don't repeat
+		if l.showTimer != 0 {
+			glib.SourceRemove(l.showTimer)
+		}
+		l.showTimer = glib.TimeoutAdd(linkStatusShowDelayMs, &l.showTimerCb, 0)
 	})
-
-	l.showTimer = glib.TimeoutAdd(linkStatusShowDelayMs, &cb, 0)
 }
 
 // Hide manually hides the link status overlay.
@@ -144,17 +174,19 @@ func (l *LinkStatusOverlay) resetAutoHideTimerLocked() {
 		l.autoHideTimer = 0
 	}
 
-	// Start new auto-hide timer
-	cb := glib.SourceFunc(func(_ uintptr) bool {
+	// Coalesce timer resets while pointer moves quickly across links.
+	l.coalescer.Post("link-status-auto-hide", func() {
 		l.mu.Lock()
 		defer l.mu.Unlock()
 
-		l.autoHideTimer = 0
-		l.hide()
-		return false // Don't repeat
+		if l.pendingURI == "" {
+			return
+		}
+		if l.autoHideTimer != 0 {
+			glib.SourceRemove(l.autoHideTimer)
+		}
+		l.autoHideTimer = glib.TimeoutAdd(linkStatusAutoHideMs, &l.autoHideCb, 0)
 	})
-
-	l.autoHideTimer = glib.TimeoutAdd(linkStatusAutoHideMs, &cb, 0)
 }
 
 // Widget returns the underlying widget for embedding in overlays.
@@ -184,6 +216,9 @@ func (l *LinkStatusOverlay) Cleanup() {
 	if l.autoHideTimer != 0 {
 		glib.SourceRemove(l.autoHideTimer)
 		l.autoHideTimer = 0
+	}
+	if l.coalescer != nil {
+		l.coalescer.Destroy()
 	}
 	l.pendingURI = ""
 	l.visible = false

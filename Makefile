@@ -1,6 +1,6 @@
 # Makefile for dumber (Clean Architecture - puregotk)
 
-.PHONY: build build-frontend test lint clean install-tools dev generate help init check-docs man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean
+.PHONY: build build-frontend test lint clean install-tools dev generate help init check-docs man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean stress-omnibox-callbacks verify-purego
 
 # Load local overrides from .env.local if present (Makefile syntax)
 ifneq (,$(wildcard .env.local))
@@ -84,6 +84,12 @@ test-cover: ## Run tests with coverage
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 
+stress-omnibox-callbacks: ## Run placeholder omnibox callback stress harness
+	GOFLAGS=-mod=mod CGO_ENABLED=0 go run ./scripts/stress_omnibox_callbacks.go
+
+verify-purego: ## Ensure callback path stays cgo/export free
+	bash ./scripts/verify_purego_only.sh
+
 # Linting
 lint: ## Run golangci-lint
 	@echo "Running golangci-lint..."
@@ -135,6 +141,8 @@ check: ## Check that all tools and dependencies are working
 	@$(MAKE) build-quick
 	@echo "\nRunning tests..."
 	@$(MAKE) test
+	@echo "\nVerifying purego-only constraints..."
+	@$(MAKE) verify-purego
 	@echo "\nAll checks passed!"
 
 # Documentation
