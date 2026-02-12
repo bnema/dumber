@@ -4,10 +4,10 @@ github.com/aymanbagabas/go-osc52/v2 v2.0.1 h1:HwpRHbFMcZLEVr42D4p7XBqjyuxQH5SMiE
 github.com/aymanbagabas/go-osc52/v2 v2.0.1/go.mod h1:uYgXzlJ7ZpABp8OJ+exZzJJhRNQ2ASbcXHWsFqH8hp8=
 github.com/aymanbagabas/go-udiff v0.3.1 h1:LV+qyBQ2pqe0u42ZsUEtPiCaUoqgA9gYRDs3vj1nolY=
 github.com/aymanbagabas/go-udiff v0.3.1/go.mod h1:G0fsKmG+P6ylD0r6N/KgQD/nWzgfnl8ZBcNLgcbrw8E=
-github.com/bnema/puregotk v0.0.0-20260208062357-b1825488ed92 h1:rprl5N0eR8wMIv27i8Zz0UeYqewhTPWYr6QNP4n76hs=
-github.com/bnema/puregotk v0.0.0-20260208062357-b1825488ed92/go.mod h1:mZu8qSvCSqtVL+xoiebZuicnJijwrLfGRs6/eTVgFlc=
-github.com/bnema/puregotk-webkit v0.0.12 h1:cvE+EZr0TiKJj1EeXbtOkNMU4RSgGXXclKl8OcSX63Y=
-github.com/bnema/puregotk-webkit v0.0.12/go.mod h1:kITL8qc4l1BGKl03TCrnMqVc2xPJ2Rf6+ihH+N6kdJo=
+github.com/bnema/puregotk v0.0.0-20260212181341-fb13c245f9f0 h1:oV1Tlh5COw+K3ua6PnezSuVeFi/CxQ05DhhrzKYt+4Q=
+github.com/bnema/puregotk v0.0.0-20260212181341-fb13c245f9f0/go.mod h1:mZu8qSvCSqtVL+xoiebZuicnJijwrLfGRs6/eTVgFlc=
+github.com/bnema/puregotk-webkit v0.0.13 h1:0j99i2a7GPhCQiIaV2LQ4n2p3Tw0q//V/CccDDU4M3A=
+github.com/bnema/puregotk-webkit v0.0.13/go.mod h1:wc+zzGdAy51YgyG1N3iwkQIusgCY4lFHGJUQgi4svJ0=
 github.com/charmbracelet/bubbles v1.0.0 h1:12J8/ak/uCZEMQ6KU7pcfwceyjLlWsDLAxB5fXonfvc=
 github.com/charmbracelet/bubbles v1.0.0/go.mod h1:9d/Zd5GdnauMI5ivUIVisuEm3ave1XwXtD1ckyV6r3E=
 github.com/charmbracelet/bubbletea v1.3.10 h1:otUDHWMMzQSB0Pkc87rm691KZ3SWa4KUlvF9nRvCICw=
