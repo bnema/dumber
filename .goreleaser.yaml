@@ -101,6 +101,9 @@ release:
   # Replace existing draft if it exists
   replace_existing_draft: true
 
+  # Disable immutable releases to allow Flatpak workflow to add assets
+  disable_immutable: true
+
   # Header for release notes
   header: |
     ## {{.Tag}} Release (amd64 Linux)
