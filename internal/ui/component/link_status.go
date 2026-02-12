@@ -219,7 +219,6 @@ func (l *LinkStatusOverlay) Cleanup() {
 	}
 	if l.coalescer != nil {
 		l.coalescer.Destroy()
-		l.coalescer = nil
 	}
 	l.pendingURI = ""
 	l.visible = false

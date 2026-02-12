@@ -2339,7 +2339,6 @@ func (o *Omnibox) Destroy() {
 	o.clickOutsideCb = nil
 	if o.idleCoalescer != nil {
 		o.idleCoalescer.Destroy()
-		o.idleCoalescer = nil
 	}
 
 	if o.outerBox != nil {

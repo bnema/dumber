@@ -79,6 +79,8 @@ notes/
 docs/plans/
 scripts/
 !scripts/generate-types.js
+!scripts/verify_purego_only.sh
+!scripts/stress_omnibox_callbacks.go
 specs/
 templates/
 .serena/
