@@ -61,8 +61,40 @@ Use with rofi or fuzzel:
 dumber dmenu | rofi -dmenu -show-icons | dumber dmenu --select
 ```
 
+## Website Permissions
+
+Dumber includes a built-in permissions system for camera, microphone, and screen sharing:
+
+- **Custom dialog** - Clean permission prompts replace native GTK dialogs
+- **Persistent choices** - "Always Allow" and "Always Deny" are saved per-origin
+- **Privacy-focused** - All permissions stored locally
+- **Camera & Microphone** - Fully working on Wayland/PipeWire
+
+> ⚠️ **Note**: Screen sharing does not currently work on Wayland with WebKitGTK 6.0. This is a known WebKitGTK limitation.
+
+When a website requests camera or microphone access, you'll see a permission dialog with options to allow once, always allow, deny, or always deny.
+
+See [Website Permissions](./reference/permissions.md) for details.
+
+## Crash Reporting
+
+If Dumber exits unexpectedly, crash reports are automatically generated:
+
+```bash
+# List all crash reports
+dumber crashes
+
+# View the latest crash report
+dumber crashes show latest
+
+# Generate GitHub issue payload
+dumber crashes issue latest
+```
+
+See [Session Exit Classification](./reference/session-exit-classification-runbook.md) for troubleshooting.
+
 ## Next Steps
 
-- [Configuration Reference](./config/reference.md) - All settings
+- [Configuration Reference](./reference/configuration.md) - All settings
 - [Keybindings](./reference/keybindings.md) - Full keyboard shortcuts
 - [CLI Commands](./cli/index.md) - Command-line tools

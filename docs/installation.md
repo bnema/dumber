@@ -8,6 +8,26 @@ curl -fsSL https://dumber.bnema.dev/install | bash
 
 Installs to `~/.local/bin` if available, otherwise `/usr/local/bin` (requires sudo).
 
+### Advanced Installation Options
+
+Install a specific version:
+
+```bash
+DUMBER_VERSION=v0.26.2 curl -fsSL https://dumber.bnema.dev/install | bash
+```
+
+Install the latest prerelease:
+
+```bash
+DUMBER_PRERELEASE=1 curl -fsSL https://dumber.bnema.dev/install | bash
+```
+
+Combine both to install a specific prerelease:
+
+```bash
+DUMBER_VERSION=v0.27.0-rc.1 DUMBER_PRERELEASE=1 curl -fsSL https://dumber.bnema.dev/install | bash
+```
+
 ## Flatpak
 
 ```bash

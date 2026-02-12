@@ -34,6 +34,8 @@ A browser designed for Wayland compositors that works like your favorite termina
 - [Dependencies](./reference/dependencies.md) - System dependencies for Arch and Debian/Ubuntu
 - [Keybindings](./reference/keybindings.md) - Keyboard shortcuts reference
 - [Floating Pane](./reference/floating-pane.md) - Floating pane behavior, shortcuts, and profiles
+- [Website Permissions](./reference/permissions.md) - Camera, microphone, and screen sharing permissions
+- [Session Exit Classification](./reference/session-exit-classification-runbook.md) - Understanding crash reports
 - [Troubleshooting](./reference/troubleshooting.md) - Common issues and solutions
 
 ## Requirements
