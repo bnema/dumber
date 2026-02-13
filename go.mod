@@ -1,6 +1,6 @@
 module github.com/bnema/dumber
 
-go 1.25.3
+go 1.26
 
 require (
 	github.com/bnema/puregotk-webkit v0.0.13
@@ -23,7 +23,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-replace github.com/jwijenbergh/puregotk => github.com/bnema/puregotk v0.0.0-20260212181341-fb13c245f9f0
+replace github.com/jwijenbergh/puregotk => github.com/bnema/puregotk v0.1.0
 
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect
