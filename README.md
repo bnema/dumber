@@ -26,7 +26,7 @@ https://github.com/user-attachments/assets/232822af-08e4-4a74-9416-87f79c96b118
 - Floating workspace pane with profile shortcuts
 - Wayland native (Sway, Hyprland, River, Niri)
 - Session resurrection with auto-snapshots
-- Built-in ad blocking (UBlock-based)
+- Built-in ad blocking (uBlock-based)
 - GPU accelerated video (VA-API/VDPAU)
 - Launcher integration (rofi/fuzzel/dmenu)
 - Search bangs (!g, !gi, !ddg)
@@ -82,7 +82,7 @@ sudo apt install libwebkitgtk-6.0-4 libgtk-4-1 gstreamer1.0-plugins-base gstream
 
 ## Keyboard-Driven
 
-Four modal modes. Enter a mode, take action, escape out. Vim and Zellij users will feel right at home.
+Four modal modes. Enter a mode, act, escape out. Vim and Zellij users already know this pattern.
 
 | Mode | Key | Actions |
 |------|-----|---------|
