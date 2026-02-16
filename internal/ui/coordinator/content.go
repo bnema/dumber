@@ -1837,12 +1837,15 @@ func (c *ContentCoordinator) setupOAuthAutoClose(
 			Str("reason", reason).
 			Msg("oauth callback detected, closing")
 		requestCloseOnce.Do(func() {
-			go func() {
-				time.Sleep(500 * time.Millisecond)
-				if wv != nil && !wv.IsDestroyed() {
-					wv.Close()
-				}
-			}()
+			time.AfterFunc(500*time.Millisecond, func() {
+				cb := glib.SourceFunc(func(_ uintptr) bool {
+					if wv != nil && !wv.IsDestroyed() {
+						wv.Close()
+					}
+					return false
+				})
+				glib.IdleAdd(&cb, 0)
+			})
 		})
 	}
 
