@@ -1799,6 +1799,7 @@ func (c *ContentCoordinator) setupOAuthAutoClose(
 	var cancelSafetyTimerOnce sync.Once
 	var requestCloseOnce sync.Once
 	const oauthSafetyTimeout = 30 * time.Second
+	const oauthCloseDelay = 500 * time.Millisecond
 
 	startSafetyTimer := func() {
 		safetyTimerMu.Lock()
@@ -1837,7 +1838,7 @@ func (c *ContentCoordinator) setupOAuthAutoClose(
 			Str("reason", reason).
 			Msg("oauth callback detected, closing")
 		requestCloseOnce.Do(func() {
-			time.AfterFunc(500*time.Millisecond, func() {
+			time.AfterFunc(oauthCloseDelay, func() {
 				cb := glib.SourceFunc(func(_ uintptr) bool {
 					if wv != nil && !wv.IsDestroyed() {
 						wv.Close()
