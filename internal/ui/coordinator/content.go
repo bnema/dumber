@@ -1807,10 +1807,14 @@ func (c *ContentCoordinator) setupOAuthAutoClose(
 			safetyTimer.Stop()
 		}
 		safetyTimer = time.AfterFunc(oauthSafetyTimeout, func() {
-			if wv != nil && !wv.IsDestroyed() {
-				log.Warn().Str("pane", string(paneID)).Msg("oauth safety timeout, closing stuck popup")
-				wv.Close()
-			}
+			cb := glib.SourceFunc(func(_ uintptr) bool {
+				if wv != nil && !wv.IsDestroyed() {
+					log.Warn().Str("pane", string(paneID)).Msg("oauth safety timeout, closing stuck popup")
+					wv.Close()
+				}
+				return false
+			})
+			glib.IdleAdd(&cb, 0)
 		})
 	}
 
