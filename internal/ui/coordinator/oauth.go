@@ -48,7 +48,6 @@ var oauthRequestPatterns = []string{
 	"client_id=",
 	"redirect_uri=",
 	"scope=",
-	"state=",
 	"nonce=",
 }
 
