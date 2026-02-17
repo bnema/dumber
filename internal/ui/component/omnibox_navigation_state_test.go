@@ -88,3 +88,55 @@ func TestNextGhostSuppressionState(t *testing.T) {
 		})
 	}
 }
+
+func TestEffectiveSearchQuery(t *testing.T) {
+	tests := []struct {
+		name      string
+		entryText string
+		realInput string
+		hasGhost  bool
+		want      string
+	}{
+		{name: "uses typed input when ghost visible", entryText: "dumber.bnema.dev", realInput: "dumb", hasGhost: true, want: "dumb"},
+		{name: "falls back to entry when no ghost", entryText: "dumb", realInput: "dumb", hasGhost: false, want: "dumb"},
+		{name: "uses entry when real input unavailable", entryText: "dumb", realInput: "", hasGhost: true, want: "dumb"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := effectiveSearchQuery(tt.entryText, tt.realInput, tt.hasGhost); got != tt.want {
+				t.Fatalf("effectiveSearchQuery(%q, %q, %v) = %q, want %q", tt.entryText, tt.realInput, tt.hasGhost, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestResolveTargetURLForSelection(t *testing.T) {
+	suggestions := []Suggestion{
+		{URL: "https://github.com/bnema/dumber"},
+		{URL: "https://github.com/bnema/dumber/pulls"},
+	}
+	favorites := []Favorite{
+		{URL: "https://dumber.bnema.dev"},
+	}
+
+	tests := []struct {
+		name    string
+		mode    ViewMode
+		index   int
+		wantURL string
+	}{
+		{name: "history index", mode: ViewModeHistory, index: 1, wantURL: "https://github.com/bnema/dumber/pulls"},
+		{name: "favorites index", mode: ViewModeFavorites, index: 0, wantURL: "https://dumber.bnema.dev"},
+		{name: "invalid index", mode: ViewModeHistory, index: 99, wantURL: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolveTargetURLForSelection(tt.mode, tt.index, suggestions, favorites)
+			if got != tt.wantURL {
+				t.Fatalf("resolveTargetURLForSelection(%s, %d) = %q, want %q", tt.mode, tt.index, got, tt.wantURL)
+			}
+		})
+	}
+}

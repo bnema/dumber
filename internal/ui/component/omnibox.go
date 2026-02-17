@@ -579,15 +579,7 @@ func (o *Omnibox) initList() error {
 		}
 
 		var targetURL string
-		if mode == ViewModeHistory {
-			if idx >= 0 && idx < len(suggestions) {
-				targetURL = suggestions[idx].URL
-			}
-		} else {
-			if idx >= 0 && idx < len(favorites) {
-				targetURL = favorites[idx].URL
-			}
-		}
+		targetURL = resolveTargetURLForSelection(mode, idx, suggestions, favorites)
 
 		if targetURL != "" && o.onNavigate != nil {
 			o.Hide(o.ctx)
@@ -1245,6 +1237,8 @@ func (o *Omnibox) performSearch() {
 	o.mu.RLock()
 	visible := o.visible
 	mode := o.viewMode
+	realInput := o.realInput
+	hasGhost := o.hasGhostText
 	o.mu.RUnlock()
 
 	// Skip search if omnibox is hidden
@@ -1252,7 +1246,7 @@ func (o *Omnibox) performSearch() {
 		return
 	}
 
-	query := o.entry.GetText()
+	query := effectiveSearchQuery(o.entry.GetText(), realInput, hasGhost)
 
 	// Skip duplicate queries
 	o.debounceMu.Lock()
@@ -1289,6 +1283,13 @@ func (o *Omnibox) performSearch() {
 
 	// Perform fuzzy history search in background
 	o.searchHistory(query, o.effectiveMaxRows(), token)
+}
+
+func effectiveSearchQuery(entryText, realInput string, hasGhost bool) string {
+	if hasGhost && realInput != "" {
+		return realInput
+	}
+	return entryText
 }
 
 // searchHistory runs a fuzzy history search in a background goroutine.
@@ -1876,7 +1877,28 @@ func (o *Omnibox) selectPrevious() {
 // selectAndNavigate selects an index and navigates to it.
 func (o *Omnibox) selectAndNavigate(index int) {
 	o.selectIndex(index)
-	o.navigateToSelected()
+
+	o.mu.RLock()
+	mode := o.viewMode
+	bangMode := o.bangMode
+	suggestions := o.suggestions
+	favorites := o.favorites
+	o.mu.RUnlock()
+
+	if bangMode {
+		o.navigateToSelected()
+		return
+	}
+
+	targetURL := resolveTargetURLForSelection(mode, index, suggestions, favorites)
+	if targetURL == "" {
+		return
+	}
+
+	o.Hide(o.ctx)
+	if o.onNavigate != nil {
+		o.onNavigate(targetURL)
+	}
 }
 
 // navigateToSelected navigates to the currently selected item or typed URL.
@@ -1923,15 +1945,7 @@ func (o *Omnibox) navigateToSelected() {
 		targetURL = o.buildURL(entryText)
 	} else if idx >= 0 {
 		// If user has selected a result, navigate to that result.
-		if mode == ViewModeHistory {
-			if idx < len(suggestions) {
-				targetURL = suggestions[idx].URL
-			}
-		} else {
-			if idx < len(favorites) {
-				targetURL = favorites[idx].URL
-			}
-		}
+		targetURL = resolveTargetURLForSelection(mode, idx, suggestions, favorites)
 	} else {
 		// No selection - use entry text as URL/search.
 		targetURL = o.buildURL(entryText)
@@ -1946,6 +1960,19 @@ func (o *Omnibox) navigateToSelected() {
 	if o.onNavigate != nil {
 		o.onNavigate(targetURL)
 	}
+}
+
+func resolveTargetURLForSelection(mode ViewMode, idx int, suggestions []Suggestion, favorites []Favorite) string {
+	if mode == ViewModeHistory {
+		if idx >= 0 && idx < len(suggestions) {
+			return suggestions[idx].URL
+		}
+		return ""
+	}
+	if idx >= 0 && idx < len(favorites) {
+		return favorites[idx].URL
+	}
+	return ""
 }
 
 func shouldPreferTypedURLNavigation(entryText string) bool {
