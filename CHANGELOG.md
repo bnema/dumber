@@ -9,15 +9,15 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - **Toolchain compatibility updates**: Bumped the project to Go 1.26, updated puregotk dependencies, and upgraded golangci-lint to v2.9.0 to keep CI aligned with the new Go version.
-- **OAuth timeout maintainability**: Replaced the OAuth popup-close magic number with a named delay constant.
+- **Maintenance**: Internal refactor to OAuth popup timing.
 - **README wording cleanup**: Tightened README copy and standardized uBlock casing.
 - **Repository hygiene**: Removed an accidentally tracked plan file that is already covered by `.gitignore`.
 
 ### Fixed
 
 - **Floating pane Escape handling**: Pressing `Escape` now hides the floating pane only when it is currently visible.
-- **OAuth popup close reliability**: Popup close operations from OAuth callbacks and safety timeouts are dispatched on the GTK main thread.
-- **OAuth popup close scoping**: Prevented OAuth auto-close logic from affecting non-OAuth popups and disabled forced closes from the safety-timeout path.
+- **OAuth popups now close reliably after sign-in**.
+- **Auto-close only affects the OAuth window** so other popups are not dismissed unexpectedly.
 
 ## [0.27.1] - 2026-02-12
 
