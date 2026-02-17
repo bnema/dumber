@@ -390,6 +390,21 @@ func TestLooksLikeURL(t *testing.T) {
 			input: "localhostevil.com",
 			want:  true,
 		},
+		{
+			name:  "ipv4 with port",
+			input: "100.64.0.10:3000",
+			want:  true,
+		},
+		{
+			name:  "ipv4",
+			input: "127.0.0.1",
+			want:  true,
+		},
+		{
+			name:  "ipv6 bracketed",
+			input: "[::1]",
+			want:  true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -397,6 +412,27 @@ func TestLooksLikeURL(t *testing.T) {
 			got := LooksLikeURL(tt.input)
 			if got != tt.want {
 				t.Errorf("LooksLikeURL(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNormalize_IPAddressGetsHTTPByDefault(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{name: "tailnet ipv4", input: "100.64.0.10", want: "http://100.64.0.10"},
+		{name: "tailnet ipv4 with port", input: "100.64.0.10:8080", want: "http://100.64.0.10:8080"},
+		{name: "ipv4 with path", input: "100.64.0.10/api", want: "http://100.64.0.10/api"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := Normalize(tt.input)
+			if got != tt.want {
+				t.Errorf("Normalize(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}
