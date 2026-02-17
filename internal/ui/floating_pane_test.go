@@ -312,6 +312,17 @@ func TestFloatingPane_CloseActiveFloatingSession(t *testing.T) {
 	assert.False(t, handled)
 }
 
+func TestFloatingPane_HandleGlobalEscape_HidesVisibleFloatingPane(t *testing.T) {
+	app, _, session := newFloatingPaneTestApp(t)
+
+	require.NoError(t, app.ToggleFloatingPane(context.Background()))
+	require.True(t, session.pane.IsVisible())
+
+	handled := app.handleGlobalEscape(context.Background())
+	assert.True(t, handled)
+	assert.False(t, session.pane.IsVisible())
+}
+
 func TestFloatingPane_OpenFloatingPaneSession_OptionalURL(t *testing.T) {
 	app, _, session := newFloatingPaneTestApp(t)
 

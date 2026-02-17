@@ -625,6 +625,9 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 		}
 		return a.kbDispatcher.Dispatch(ctx, action)
 	})
+	a.keyboardHandler.SetOnEscape(func(ctx context.Context) bool {
+		return a.handleGlobalEscape(ctx)
+	})
 	a.keyboardHandler.SetOnModeChange(func(from, to input.Mode) {
 		a.handleModeChange(ctx, from, to)
 	})
@@ -2728,6 +2731,10 @@ func (a *App) closeActiveFloatingPane(ctx context.Context) bool {
 	a.hideFloatingSession(ctx, session)
 	a.syncFloatingFocus()
 	return true
+}
+
+func (a *App) handleGlobalEscape(ctx context.Context) bool {
+	return a.closeActiveFloatingPane(ctx)
 }
 
 func (a *App) closeAndReleaseActiveFloatingPane(ctx context.Context) bool {
