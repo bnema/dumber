@@ -44,6 +44,8 @@ type KeyboardHandler struct {
 	shouldBypass func(modifiers Modifier) bool
 	// Optional accent handler for dead keys support
 	accentHandler AccentHandler
+	// Optional escape hook for app-level overlays
+	onEscape func(ctx context.Context) bool
 
 	// GTK controller (nil until attached)
 	controller *gtk.EventControllerKey
@@ -112,6 +114,14 @@ func (h *KeyboardHandler) SetAccentHandler(handler AccentHandler) {
 	h.accentHandler = handler
 }
 
+// SetOnEscape sets an optional callback invoked for plain Escape in normal mode.
+// Return true to consume the key and stop further handling.
+func (h *KeyboardHandler) SetOnEscape(fn func(ctx context.Context) bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.onEscape = fn
+}
+
 // Mode returns the current input mode.
 func (h *KeyboardHandler) Mode() Mode {
 	return h.modal.Mode()
@@ -176,6 +186,7 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 	h.mu.RLock()
 	shouldBypass := h.shouldBypass
 	accentHandler := h.accentHandler
+	onEscape := h.onEscape
 	h.mu.RUnlock()
 
 	// Check if accent picker is visible - it takes priority
@@ -184,6 +195,11 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 	}
 
 	modifiers := Modifier(state) & modifierMask
+	if h.modal.Mode() == ModeNormal && keyval == uint(gdk.KEY_Escape) && modifiers == 0 {
+		if onEscape != nil && onEscape(h.ctx) {
+			return true
+		}
+	}
 
 	// Check accent detection first - works in both normal and bypass mode
 	// This enables accent picker for omnibox (GTK SearchEntry) as well as WebView
