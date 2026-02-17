@@ -578,8 +578,7 @@ func (o *Omnibox) initList() error {
 			return
 		}
 
-		var targetURL string
-		targetURL = resolveTargetURLForSelection(mode, idx, suggestions, favorites)
+		targetURL := resolveTargetURLForSelection(mode, idx, suggestions, favorites)
 
 		if targetURL != "" && o.onNavigate != nil {
 			o.Hide(o.ctx)
@@ -674,9 +673,7 @@ func (o *Omnibox) hasUserNavigated() bool {
 // handleKeyPress processes keyboard events.
 // Returns true if the event was handled.
 func (o *Omnibox) handleKeyPress(keyval, keycode uint, state gdk.ModifierType) bool {
-	o.mu.Lock()
-	o.suppressGhost = nextGhostSuppressionState(o.suppressGhost, keyval)
-	o.mu.Unlock()
+	o.updateGhostSuppressionFromKey(keyval)
 
 	ctrl := state&gdk.ControlMaskValue != 0
 
@@ -752,10 +749,13 @@ func (o *Omnibox) handleKeyPress(keyval, keycode uint, state gdk.ModifierType) b
 }
 
 func nextGhostSuppressionState(_ bool, keyval uint) bool {
-	if isDeletionKey(keyval) {
-		return true
-	}
-	return false
+	return isDeletionKey(keyval)
+}
+
+func (o *Omnibox) updateGhostSuppressionFromKey(keyval uint) {
+	o.mu.Lock()
+	o.suppressGhost = nextGhostSuppressionState(o.suppressGhost, keyval)
+	o.mu.Unlock()
 }
 
 func isDeletionKey(keyval uint) bool {
