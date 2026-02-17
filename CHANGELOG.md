@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.27.2] - 2026-02-17
+
+### Changed
+
+- **Toolchain compatibility updates**: Bumped the project to Go 1.26, updated puregotk dependencies, and upgraded golangci-lint to v2.9.0 to keep CI aligned with the new Go version.
+- **Maintenance**: Internal refactor to OAuth popup timing.
+- **README wording cleanup**: Tightened README copy and standardized uBlock casing.
+- **Repository hygiene**: Removed an accidentally tracked plan file that is already covered by `.gitignore`.
+
+### Fixed
+
+- **Floating pane Escape handling**: Pressing `Escape` now hides the floating pane only when it is currently visible.
+- **OAuth popups now close reliably after sign-in**.
+- **Auto-close only affects the OAuth window** so other popups are not dismissed unexpectedly.
+
+## [0.27.1] - 2026-02-12
+
+### Fixed
+
+- **Release CI hotfix**: Removed invalid `disable_immutable` from GoReleaser config so release workflows run correctly.
+
+### Changed
+
+- **Release workflow compatibility**: Fixed Flatpak upload behavior for `workflow_dispatch` triggers.
+
+## [0.27.0] - 2026-02-12
+
 ### Added
 
 - **Unexpected-close crash reports**: Automatically detects prior abrupt sessions on startup and generates per-session crash reports (JSON + Markdown) with metadata, core-dump diagnostics, and redacted log tails. Reports are capped at 20 to prevent unbounded disk growth.
