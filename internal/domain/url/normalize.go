@@ -3,6 +3,7 @@ package url
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -85,11 +86,32 @@ func Normalize(input string) string {
 	if input == "localhost" || strings.HasPrefix(input, "localhost:") || strings.HasPrefix(input, "localhost/") {
 		return "http://" + input
 	}
+	if looksLikeIPAddressWithOptionalPortOrPath(input) {
+		return "http://" + input
+	}
 	if strings.Contains(input, ".") && !strings.Contains(input, " ") {
 		return "https://" + input
 	}
 
 	return input
+}
+
+func looksLikeIPAddressWithOptionalPortOrPath(input string) bool {
+	if input == "" || strings.Contains(input, " ") {
+		return false
+	}
+
+	parsed, err := url.Parse("http://" + input)
+	if err != nil {
+		return false
+	}
+
+	hostname := parsed.Hostname()
+	if hostname == "" {
+		return false
+	}
+
+	return net.ParseIP(hostname) != nil
 }
 
 // LooksLikeURL checks if the input appears to be a URL (not a search query).

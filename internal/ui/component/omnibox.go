@@ -98,6 +98,7 @@ type Omnibox struct {
 	ghostFullText    string // Full text that ghost completes to
 	hasGhostText     bool   // Quick check for Tab behavior
 	isAcceptingGhost bool   // Prevent re-trigger during acceptance
+	suppressGhost    bool   // Temporarily disable ghost completion after deletion keys
 
 	// Dependencies
 	historyUC       *usecase.SearchHistoryUseCase
@@ -681,6 +682,10 @@ func (o *Omnibox) hasUserNavigated() bool {
 // handleKeyPress processes keyboard events.
 // Returns true if the event was handled.
 func (o *Omnibox) handleKeyPress(keyval, keycode uint, state gdk.ModifierType) bool {
+	o.mu.Lock()
+	o.suppressGhost = nextGhostSuppressionState(o.suppressGhost, keyval)
+	o.mu.Unlock()
+
 	ctrl := state&gdk.ControlMaskValue != 0
 
 	switch keyval {
@@ -754,6 +759,22 @@ func (o *Omnibox) handleKeyPress(keyval, keycode uint, state gdk.ModifierType) b
 	return false // Let entry handle the key
 }
 
+func nextGhostSuppressionState(_ bool, keyval uint) bool {
+	if isDeletionKey(keyval) {
+		return true
+	}
+	return false
+}
+
+func isDeletionKey(keyval uint) bool {
+	switch keyval {
+	case uint(gdk.KEY_BackSpace), uint(gdk.KEY_Delete), uint(gdk.KEY_KP_Delete):
+		return true
+	default:
+		return false
+	}
+}
+
 // handleCtrlNumberShortcut handles Ctrl+1-9 and Ctrl+0 for quick navigation.
 // Uses hardware keycode as fallback for non-QWERTY keyboards (AZERTY, QWERTZ, etc.).
 func (o *Omnibox) handleCtrlNumberShortcut(keyval, keycode uint, ctrl bool) bool {
@@ -813,6 +834,7 @@ func (o *Omnibox) onEntryChanged() {
 
 	// Reset navigation state when user types - space should type, not toggle favorite
 	o.mu.Lock()
+	previousInput := o.realInput
 	o.hasNavigated = false
 	// Update realInput with what user actually typed
 	o.realInput = entryText
@@ -820,6 +842,11 @@ func (o *Omnibox) onEntryChanged() {
 
 	// Clear ghost text when user types (it will be recalculated after search)
 	o.clearGhostText()
+	// Recompute immediately from currently visible rows to avoid transient gaps
+	// where suggestions are visible but ghost text is missing until async search returns.
+	if shouldUpdateGhostImmediately(previousInput, entryText) {
+		o.updateGhostFromSelectionWithInput(entryText)
+	}
 
 	o.debounceMu.Lock()
 	if o.debounceTimer != nil {
@@ -829,6 +856,10 @@ func (o *Omnibox) onEntryChanged() {
 		o.idleCoalescer.Post("omnibox-search", o.performSearch)
 	})
 	o.debounceMu.Unlock()
+}
+
+func shouldUpdateGhostImmediately(previousInput, entryText string) bool {
+	return utf8.RuneCountInString(entryText) >= utf8.RuneCountInString(previousInput)
 }
 
 func (o *Omnibox) isGhostProgrammaticEcho(entryText string) bool {
@@ -1047,9 +1078,15 @@ func (o *Omnibox) updateGhostFromSelectionWithInput(entryText string) {
 	mode := o.viewMode
 	bangMode := o.bangMode
 	hasNavigated := o.hasNavigated
+	suppressGhost := o.suppressGhost
 	suggestions := o.suggestions
 	favorites := o.favorites
 	o.mu.RUnlock()
+
+	if suppressGhost {
+		o.clearGhostTextIfInput(entryText)
+		return
+	}
 
 	// No ghost text in bang mode
 	if bangMode {
@@ -1096,6 +1133,12 @@ func (o *Omnibox) resolveGhostCompletion(entryText string, mode ViewMode, sugges
 		return
 	}
 
+	leadingWhitespace, completionInput, ok := ghostCompletionInput(entryText)
+	if !ok {
+		o.clearGhostTextIfInput(entryText)
+		return
+	}
+
 	visibleURLs := make([]string, 0, len(suggestions))
 	if mode == ViewModeHistory {
 		for _, s := range suggestions {
@@ -1118,7 +1161,7 @@ func (o *Omnibox) resolveGhostCompletion(entryText string, mode ViewMode, sugges
 	o.mu.Unlock()
 
 	go func() {
-		suggestion := o.autocompleteUC.ResolveCompletion(o.ctx, entryText, usecase.CompletionOptions{
+		suggestion := o.autocompleteUC.ResolveCompletion(o.ctx, completionInput, usecase.CompletionOptions{
 			VisibleURLs: visibleURLs,
 			AllowBangs:  false,
 		})
@@ -1129,13 +1172,22 @@ func (o *Omnibox) resolveGhostCompletion(entryText string, mode ViewMode, sugges
 			o.clearGhostTextIfInput(entryText)
 			return
 		}
-		fullText, suffix := normalizeGhostSuggestion(entryText, suggestion.FullText, suggestion.Suffix)
+		fullText, suffix := normalizeGhostSuggestion(completionInput, suggestion.FullText, suggestion.Suffix)
 		if fullText == "" || suffix == "" {
 			o.clearGhostTextIfInput(entryText)
 			return
 		}
-		o.setGhostText(entryText, suffix, fullText)
+		o.setGhostText(entryText, suffix, leadingWhitespace+fullText)
 	}()
+}
+
+func ghostCompletionInput(entryText string) (leadingWhitespace, completionInput string, ok bool) {
+	trimmed := strings.TrimLeft(entryText, " \t")
+	leadingWhitespace = entryText[:len(entryText)-len(trimmed)]
+	if trimmed == "" {
+		return leadingWhitespace, "", false
+	}
+	return leadingWhitespace, trimmed, true
 }
 
 // normalizeGhostSuggestion trims noisy URL completions to a domain completion when input
@@ -1867,10 +1919,10 @@ func (o *Omnibox) navigateToSelected() {
 	}
 
 	var targetURL string
-
-	// If user has selected a result, navigate to that result
-	// Otherwise, treat entry text as URL/search
-	if idx >= 0 {
+	if shouldPreferTypedURLNavigation(entryText) {
+		targetURL = o.buildURL(entryText)
+	} else if idx >= 0 {
+		// If user has selected a result, navigate to that result.
 		if mode == ViewModeHistory {
 			if idx < len(suggestions) {
 				targetURL = suggestions[idx].URL
@@ -1881,7 +1933,7 @@ func (o *Omnibox) navigateToSelected() {
 			}
 		}
 	} else {
-		// No selection - use entry text as URL/search
+		// No selection - use entry text as URL/search.
 		targetURL = o.buildURL(entryText)
 	}
 
@@ -1894,6 +1946,14 @@ func (o *Omnibox) navigateToSelected() {
 	if o.onNavigate != nil {
 		o.onNavigate(targetURL)
 	}
+}
+
+func shouldPreferTypedURLNavigation(entryText string) bool {
+	entryText = strings.TrimSpace(entryText)
+	if entryText == "" {
+		return false
+	}
+	return url.LooksLikeURL(entryText)
 }
 
 // toggleFavorite adds or removes the selected item from favorites.
@@ -2142,6 +2202,7 @@ func (o *Omnibox) Show(ctx context.Context, query string) {
 	o.ghostFullText = ""
 	o.hasGhostText = false
 	o.isAcceptingGhost = false
+	o.suppressGhost = false
 	o.mu.Unlock()
 
 	// Set initial query
@@ -2174,6 +2235,7 @@ func (o *Omnibox) Show(ctx context.Context, query string) {
 
 	// Focus the entry
 	o.entry.GrabFocus()
+	o.resetSearchSessionState()
 
 	// Load initial data (may update size later if results found)
 	o.performSearch()
@@ -2212,11 +2274,19 @@ func (o *Omnibox) Hide(ctx context.Context) {
 	// Reset realInput
 	o.mu.Lock()
 	o.realInput = ""
+	o.suppressGhost = false
 	o.mu.Unlock()
+	o.resetSearchSessionState()
 
 	if o.onClose != nil {
 		o.onClose()
 	}
+}
+
+func (o *Omnibox) resetSearchSessionState() {
+	o.debounceMu.Lock()
+	o.lastQuery = ""
+	o.debounceMu.Unlock()
 }
 
 // Toggle shows if hidden, hides if visible.

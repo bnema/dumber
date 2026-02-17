@@ -33,3 +33,33 @@ func TestExtractHostForCompletion(t *testing.T) {
 		t.Fatalf("expected normalized host, got %q", got)
 	}
 }
+
+func TestGhostCompletionInput(t *testing.T) {
+	tests := []struct {
+		name        string
+		entryText   string
+		wantPrefix  string
+		wantTrimmed string
+		wantOK      bool
+	}{
+		{name: "no leading whitespace", entryText: "goo", wantPrefix: "", wantTrimmed: "goo", wantOK: true},
+		{name: "leading space", entryText: " goo", wantPrefix: " ", wantTrimmed: "goo", wantOK: true},
+		{name: "leading tab", entryText: "\tgoo", wantPrefix: "\t", wantTrimmed: "goo", wantOK: true},
+		{name: "only whitespace", entryText: "  \t", wantPrefix: "  \t", wantTrimmed: "", wantOK: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotPrefix, gotTrimmed, gotOK := ghostCompletionInput(tt.entryText)
+			if gotPrefix != tt.wantPrefix {
+				t.Fatalf("ghostCompletionInput(%q) prefix = %q, want %q", tt.entryText, gotPrefix, tt.wantPrefix)
+			}
+			if gotTrimmed != tt.wantTrimmed {
+				t.Fatalf("ghostCompletionInput(%q) trimmed = %q, want %q", tt.entryText, gotTrimmed, tt.wantTrimmed)
+			}
+			if gotOK != tt.wantOK {
+				t.Fatalf("ghostCompletionInput(%q) ok = %v, want %v", tt.entryText, gotOK, tt.wantOK)
+			}
+		})
+	}
+}
