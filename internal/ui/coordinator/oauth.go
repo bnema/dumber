@@ -105,6 +105,16 @@ func ShouldAutoClose(url string) bool {
 	return IsOAuthCallback(url)
 }
 
+// shouldForceCloseOnSafetyTimeout determines if a popup should be force-closed
+// when the OAuth safety timeout is reached.
+//
+// Safety-timeout force close is disabled for stability. OAuth popups close on
+// callback detection or manual user action.
+func shouldForceCloseOnSafetyTimeout(url string) bool {
+	_ = url
+	return false
+}
+
 // IsOAuthSuccess checks if the callback indicates successful authentication.
 func IsOAuthSuccess(url string) bool {
 	if url == "" {

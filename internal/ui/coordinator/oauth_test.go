@@ -108,6 +108,18 @@ func TestIsOAuthURL_DetectsOAuthAuthorizeRequest(t *testing.T) {
 	assert.True(t, IsOAuthURL(url))
 }
 
+func TestShouldForceCloseOnSafetyTimeout(t *testing.T) {
+	t.Run("does not force close during in-progress auth challenge", func(t *testing.T) {
+		url := "https://accounts.google.com/v3/signin/challenge/dp?TL=AHU8sQabc"
+		assert.False(t, shouldForceCloseOnSafetyTimeout(url))
+	})
+
+	t.Run("does not force close when callback is reached", func(t *testing.T) {
+		url := "http://localhost:1455/auth/callback?code=abc123&state=xyz"
+		assert.False(t, shouldForceCloseOnSafetyTimeout(url))
+	})
+}
+
 func waitFor(t *testing.T, timeout time.Duration, condition func() bool) {
 	t.Helper()
 

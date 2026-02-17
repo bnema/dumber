@@ -1810,8 +1810,16 @@ func (c *ContentCoordinator) setupOAuthAutoClose(
 		safetyTimer = time.AfterFunc(oauthSafetyTimeout, func() {
 			cb := glib.SourceFunc(func(_ uintptr) bool {
 				if wv != nil && !wv.IsDestroyed() {
-					log.Warn().Str("pane", string(paneID)).Msg("oauth safety timeout, closing stuck popup")
-					wv.Close()
+					uri := wv.URI()
+					if shouldForceCloseOnSafetyTimeout(uri) {
+						log.Warn().Str("pane", string(paneID)).Msg("oauth safety timeout, closing stuck popup")
+						wv.Close()
+						return false
+					}
+					log.Debug().
+						Str("pane", string(paneID)).
+						Str("uri", logging.TruncateURL(uri, logURLMaxLen)).
+						Msg("oauth safety timeout reached during active auth flow, skipping forced close")
 				}
 				return false
 			})
