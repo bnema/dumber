@@ -96,6 +96,30 @@ func TestHandlePopupOAuthClose_ErrorDoesNotScheduleParentRefresh(t *testing.T) {
 	assert.Nil(t, c.popupRefresh[parentPaneID], "oauth errors should not refresh parent pane")
 }
 
+func TestIsOAuthURL_DoesNotTreatGenericStateParamAsOAuth(t *testing.T) {
+	url := "https://github.com/apps/linear/installations/new?state=Ar4EJk1ao3eyEDgSbYOtG8Cr4"
+
+	assert.False(t, IsOAuthURL(url))
+}
+
+func TestIsOAuthURL_DetectsOAuthAuthorizeRequest(t *testing.T) {
+	url := "https://auth.openai.com/oauth/authorize?response_type=code&client_id=app_123&redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback&scope=openid+profile+email+offline_access&state=abc"
+
+	assert.True(t, IsOAuthURL(url))
+}
+
+func TestShouldForceCloseOnSafetyTimeout(t *testing.T) {
+	t.Run("does not force close during in-progress auth challenge", func(t *testing.T) {
+		url := "https://accounts.google.com/v3/signin/challenge/dp?TL=AHU8sQabc"
+		assert.False(t, shouldForceCloseOnSafetyTimeout(url))
+	})
+
+	t.Run("does not force close when callback is reached", func(t *testing.T) {
+		url := "http://localhost:1455/auth/callback?code=abc123&state=xyz"
+		assert.False(t, shouldForceCloseOnSafetyTimeout(url))
+	})
+}
+
 func waitFor(t *testing.T, timeout time.Duration, condition func() bool) {
 	t.Helper()
 

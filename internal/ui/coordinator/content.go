@@ -1799,6 +1799,7 @@ func (c *ContentCoordinator) setupOAuthAutoClose(
 	var cancelSafetyTimerOnce sync.Once
 	var requestCloseOnce sync.Once
 	const oauthSafetyTimeout = 30 * time.Second
+	const oauthCloseDelay = 500 * time.Millisecond
 
 	startSafetyTimer := func() {
 		safetyTimerMu.Lock()
@@ -1807,10 +1808,22 @@ func (c *ContentCoordinator) setupOAuthAutoClose(
 			safetyTimer.Stop()
 		}
 		safetyTimer = time.AfterFunc(oauthSafetyTimeout, func() {
-			if wv != nil && !wv.IsDestroyed() {
-				log.Warn().Str("pane", string(paneID)).Msg("oauth safety timeout, closing stuck popup")
-				wv.Close()
-			}
+			cb := glib.SourceFunc(func(_ uintptr) bool {
+				if wv != nil && !wv.IsDestroyed() {
+					uri := wv.URI()
+					if shouldForceCloseOnSafetyTimeout(uri) {
+						log.Warn().Str("pane", string(paneID)).Msg("oauth safety timeout, closing stuck popup")
+						wv.Close()
+						return false
+					}
+					log.Debug().
+						Str("pane", string(paneID)).
+						Str("uri", logging.TruncateURL(uri, logURLMaxLen)).
+						Msg("oauth safety timeout reached during active auth flow, skipping forced close")
+				}
+				return false
+			})
+			glib.IdleAdd(&cb, 0)
 		})
 	}
 
@@ -1833,12 +1846,15 @@ func (c *ContentCoordinator) setupOAuthAutoClose(
 			Str("reason", reason).
 			Msg("oauth callback detected, closing")
 		requestCloseOnce.Do(func() {
-			go func() {
-				time.Sleep(500 * time.Millisecond)
-				if wv != nil && !wv.IsDestroyed() {
-					wv.Close()
-				}
-			}()
+			time.AfterFunc(oauthCloseDelay, func() {
+				cb := glib.SourceFunc(func(_ uintptr) bool {
+					if wv != nil && !wv.IsDestroyed() {
+						wv.Close()
+					}
+					return false
+				})
+				glib.IdleAdd(&cb, 0)
+			})
 		})
 	}
 
