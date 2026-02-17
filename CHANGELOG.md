@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.27.2] - 2026-02-17
+
 ### Changed
 
 - **Toolchain compatibility updates**: Bumped the project to Go 1.26, updated puregotk dependencies, and upgraded golangci-lint to v2.9.0 to keep CI aligned with the new Go version.
