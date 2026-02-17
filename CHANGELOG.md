@@ -20,6 +20,10 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Toolchain compatibility updates**: Bumped the project to Go 1.26, updated puregotk dependencies, and upgraded golangci-lint to v2.9.0 to keep CI aligned with the new Go version.
+- **OAuth timeout maintainability**: Replaced the OAuth popup-close magic number with a named delay constant.
+- **README wording cleanup**: Tightened README copy and standardized uBlock casing.
+- **Repository hygiene**: Removed an accidentally tracked plan file that is already covered by `.gitignore`.
 - **WebKit/puregotk compatibility refresh**: Updated bindings and call sites for `github.com/bnema/puregotk-webkit v0.0.10` and latest puregotk replacement, including signal ID/type handling updates.
 - **Dependencies updated**: Bumped key runtime/developer dependencies, including `go-sqlite3`, `bubbles`, and related transitive modules.
 - **Omnibox behavior tuning**: Refined ghost suggestion ranking/selection behavior and dynamic result sizing tied to pane height.
@@ -34,6 +38,9 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **Floating pane Escape handling**: Pressing `Escape` now hides the floating pane only when it is currently visible.
+- **OAuth popup close reliability**: Popup close operations from OAuth callbacks and safety timeouts are dispatched on the GTK main thread.
+- **OAuth popup close scoping**: Prevented OAuth auto-close logic from affecting non-OAuth popups and disabled forced closes from the safety-timeout path.
 - **Hover focus stealing from new split panes**: New pane creation now locks hover focus until the user intentionally moves the mouse, replacing the 300ms time-based suppression that could expire before GTK layout completes. Synthetic enter events from widget rearrangement no longer steal focus from freshly created panes.
 - **Stacked pane title desync on navigation**: Titles in the stacked title bar now sync immediately on `LoadCommitted` and when switching panes, preventing stale titles after background navigation.
 - **Session marker file accumulation**: `writeShutdownMarker` now removes the matching startup marker (embedding its timestamp for classification), and a new `sweepPairedMarkers` sweep in background cleanup removes old marker trios past the configured age.
