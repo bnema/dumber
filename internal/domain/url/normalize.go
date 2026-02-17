@@ -140,6 +140,9 @@ func LooksLikeURL(input string) bool {
 	if input == "localhost" || strings.HasPrefix(input, "localhost:") || strings.HasPrefix(input, "localhost/") {
 		return true
 	}
+	if looksLikeIPAddressWithOptionalPortOrPath(input) {
+		return true
+	}
 	return strings.Contains(input, ".") && !strings.Contains(input, " ")
 }
 

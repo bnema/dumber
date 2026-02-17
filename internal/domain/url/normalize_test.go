@@ -395,6 +395,16 @@ func TestLooksLikeURL(t *testing.T) {
 			input: "100.64.0.10:3000",
 			want:  true,
 		},
+		{
+			name:  "ipv4",
+			input: "127.0.0.1",
+			want:  true,
+		},
+		{
+			name:  "ipv6 bracketed",
+			input: "[::1]",
+			want:  true,
+		},
 	}
 
 	for _, tt := range tests {

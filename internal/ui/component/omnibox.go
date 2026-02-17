@@ -748,13 +748,13 @@ func (o *Omnibox) handleKeyPress(keyval, keycode uint, state gdk.ModifierType) b
 	return false // Let entry handle the key
 }
 
-func nextGhostSuppressionState(_ bool, keyval uint) bool {
+func nextGhostSuppressionState(keyval uint) bool {
 	return isDeletionKey(keyval)
 }
 
 func (o *Omnibox) updateGhostSuppressionFromKey(keyval uint) {
 	o.mu.Lock()
-	o.suppressGhost = nextGhostSuppressionState(o.suppressGhost, keyval)
+	o.suppressGhost = nextGhostSuppressionState(keyval)
 	o.mu.Unlock()
 }
 

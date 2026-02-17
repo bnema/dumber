@@ -15,6 +15,11 @@ func TestShouldPreferTypedURLNavigation(t *testing.T) {
 		{name: "domain", input: "x.com", want: true},
 		{name: "domain with path", input: "github.com/bnema", want: true},
 		{name: "http url", input: "http://example.com", want: true},
+		{name: "localhost", input: "localhost", want: true},
+		{name: "ipv4", input: "127.0.0.1", want: true},
+		{name: "ipv4 with port", input: "192.168.1.1:8080", want: true},
+		{name: "ipv6 bracketed", input: "[::1]", want: true},
+		{name: "http ipv6 bracketed", input: "http://[::1]", want: true},
 		{name: "search query", input: "hello world", want: false},
 		{name: "empty", input: "", want: false},
 	}
@@ -82,7 +87,7 @@ func TestNextGhostSuppressionState(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := nextGhostSuppressionState(tt.current, tt.key); got != tt.want {
+			if got := nextGhostSuppressionState(tt.key); got != tt.want {
 				t.Fatalf("nextGhostSuppressionState(%v, %d) = %v, want %v", tt.current, tt.key, got, tt.want)
 			}
 		})
