@@ -13,7 +13,7 @@ require (
 	github.com/jwijenbergh/puregotk v0.0.0-20260212181341-fb13c245f9f0
 	github.com/ncruces/go-sqlite3 v0.30.5
 	github.com/pelletier/go-toml/v2 v2.2.4
-	github.com/pressly/goose/v3 v3.26.0
+	github.com/pressly/goose/v3 v3.27.0
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
