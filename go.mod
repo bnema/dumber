@@ -3,7 +3,7 @@ module github.com/bnema/dumber
 go 1.26
 
 require (
-	github.com/bnema/puregotk-webkit v0.0.13
+	github.com/bnema/puregotk-webkit v0.0.14
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
