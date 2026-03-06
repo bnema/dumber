@@ -1092,13 +1092,34 @@ const (
 )
 
 func detectPermissionRequestKind(ctx context.Context, requestPtr uintptr) permissionRequestKind {
-	if isPermissionRequestType(ctx, requestPtr, webkit.UserMediaPermissionRequestGLibType()) {
-		return permissionRequestKindUserMedia
+	if gtype, ok := safeGLibType(ctx, webkit.UserMediaPermissionRequestGLibType); ok {
+		if isPermissionRequestType(ctx, requestPtr, gtype) {
+			return permissionRequestKindUserMedia
+		}
 	}
-	if isPermissionRequestType(ctx, requestPtr, webkit.DeviceInfoPermissionRequestGLibType()) {
-		return permissionRequestKindDeviceInfo
+	if gtype, ok := safeGLibType(ctx, webkit.DeviceInfoPermissionRequestGLibType); ok {
+		if isPermissionRequestType(ctx, requestPtr, gtype) {
+			return permissionRequestKindDeviceInfo
+		}
 	}
 	return permissionRequestKindUnknown
+}
+
+// safeGLibType calls a GType accessor function, recovering from panics caused
+// by unregistered (nil) puregotk function pointers. Returns the GType and true
+// on success, or zero and false if the call panicked.
+func safeGLibType(ctx context.Context, fn func() gtypes.GType) (gtype gtypes.GType, ok bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			logging.FromContext(ctx).Warn().
+				Str("component", "permission").
+				Interface("panic", r).
+				Msg("GType accessor panicked (unregistered puregotk binding?)")
+			gtype = 0
+			ok = false
+		}
+	}()
+	return fn(), true
 }
 
 func isPermissionRequestType(ctx context.Context, requestPtr uintptr, requestType gtypes.GType) bool {
