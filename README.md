@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT) [![Go Report Card](https://goreportcard.com/badge/github.com/bnema/dumber)](https://goreportcard.com/report/github.com/bnema/dumber)
 
-A TTY-inspired browser multiplexer for tiling window managers.
+A TTY-inspired web browser multiplexer for tiling window managers.
 
 - Website: [dumber.bnema.dev](https://dumber.bnema.dev)
 - Documentation: [dumber.bnema.dev/docs](https://dumber.bnema.dev/docs)
@@ -11,11 +11,7 @@ A TTY-inspired browser multiplexer for tiling window managers.
 
 ## What is Dumber?
 
-Dumber is a Wayland-native browser that works like your terminal multiplexer. Tabs hold workspaces. Workspaces hold panes. Panes split and stack like Zellij. Everything is keyboard-driven.
-
-No bloat. No Chrome. No Electron.
-
-
+Dumber is a web browser that works like your terminal multiplexer. Tabs hold workspaces. Workspaces hold panes. Panes split and stack like Zellij.
 
 https://github.com/user-attachments/assets/232822af-08e4-4a74-9416-87f79c96b118
 
