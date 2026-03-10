@@ -48,6 +48,8 @@ func TestIsTextInputKey(t *testing.T) {
 		{"apostrophe", 0x027, true},
 		{"grave accent", 0x060, true},
 		{"tilde", 0x07e, true},
+		{"quotedbl", 0x022, true},
+		{"caret", 0x05e, true},
 
 		// Dead keys (used by US International layout)
 		{"dead acute", 0xfe51, true},
@@ -99,6 +101,7 @@ func TestHandleKeyPress_RoutePassToWidget(t *testing.T) {
 	}{
 		{"plain 'e'", uint('e'), 0},
 		{"plain 'a'", uint('a'), 0},
+		{"shift 'E'", uint('E'), gdk.ShiftMaskValue},
 		{"space", 0x020, 0},
 		{"digit 1", uint('1'), 0},
 	}
@@ -177,6 +180,29 @@ func TestHandleKeyPress_ModalModeIgnoresRoute(t *testing.T) {
 	// In modal mode, unknown keys are consumed (return true)
 	result := h.handleKeyPress(uint('z'), 0, 0)
 	assert.True(t, result, "modal mode should consume unknown keys regardless of route")
+}
+
+func TestKeyboardHandler_SetRouteKey(t *testing.T) {
+	ctx := context.Background()
+	cfg := &config.Config{}
+	h := NewKeyboardHandler(ctx, cfg)
+
+	// Default: no callback set
+	h.mu.RLock()
+	fn := h.routeKey
+	h.mu.RUnlock()
+	assert.Nil(t, fn, "routeKey should be nil by default")
+
+	// Set callback
+	h.SetRouteKey(func(kc KeyContext) KeyRoute {
+		return RoutePassToWidget
+	})
+
+	h.mu.RLock()
+	fn = h.routeKey
+	h.mu.RUnlock()
+	assert.NotNil(t, fn, "routeKey should be set")
+	assert.Equal(t, RoutePassToWidget, fn(KeyContext{}))
 }
 
 func TestHandleKeyPress_NoRouteCallback_DefaultsToShortcuts(t *testing.T) {
