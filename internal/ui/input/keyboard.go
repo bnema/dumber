@@ -40,8 +40,10 @@ type KeyboardHandler struct {
 
 	// Action handler callback
 	onAction ActionHandler
-	// Optional bypass check (e.g., omnibox visible)
-	shouldBypass func(modifiers Modifier) bool
+	// Optional routing callback that determines how a key should be handled.
+	// Returns RouteHandleShortcuts (default), RoutePassToWidget (let focused
+	// widget handle it), or RouteAccentDetection (long-press accent for GTK entries).
+	routeKey func(KeyContext) KeyRoute
 	// Optional accent handler for dead keys support
 	accentHandler AccentHandler
 	// Optional escape hook for app-level overlays
@@ -99,12 +101,16 @@ func (h *KeyboardHandler) SetOnModeChange(fn func(from, to Mode)) {
 	h.modal.SetOnModeChange(fn)
 }
 
-// SetShouldBypassInput sets a hook to bypass keyboard handling entirely.
-// When true, events propagate to focused widgets instead.
-func (h *KeyboardHandler) SetShouldBypassInput(fn func(modifiers Modifier) bool) {
+// SetRouteKey sets the callback that determines how each key event should be routed.
+// The callback receives key context and returns a KeyRoute indicating whether the
+// key should be handled by the shortcut system, passed to the focused widget
+// (for IM/compose support), or routed through accent detection.
+//
+// If not set, all keys are routed through the shortcut system (RouteHandleShortcuts).
+func (h *KeyboardHandler) SetRouteKey(fn func(KeyContext) KeyRoute) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.shouldBypass = fn
+	h.routeKey = fn
 }
 
 // SetAccentHandler sets the handler for long-press accent detection.
@@ -184,7 +190,7 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 	log := logging.FromContext(h.ctx)
 
 	h.mu.RLock()
-	shouldBypass := h.shouldBypass
+	routeKey := h.routeKey
 	accentHandler := h.accentHandler
 	onEscape := h.onEscape
 	h.mu.RUnlock()
@@ -207,9 +213,18 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 		return true
 	}
 
-	if shouldBypass != nil && shouldBypass(modifiers) {
-		log.Debug().Uint("keyval", keyval).Uint("keycode", keycode).Uint("state", uint(state)).Msg("keyboard handler bypassed")
-		return false
+	// Temporary: routeKey replaces shouldBypass - full routing logic comes in Task 3.
+	// For now, we just check if route says to pass to widget.
+	if routeKey != nil {
+		route := routeKey(KeyContext{
+			Keyval:    keyval,
+			Keycode:   keycode,
+			Modifiers: modifiers,
+		})
+		if route == RoutePassToWidget {
+			log.Debug().Uint("keyval", keyval).Uint("keycode", keycode).Msg("routing key to focused widget")
+			return false
+		}
 	}
 
 	// Normalize uppercase letters for consistent binding lookup
@@ -424,4 +439,66 @@ func keyvalToRune(keyval uint) rune {
 		return rune(keyval + ('a' - 'A'))
 	}
 	return 0
+}
+
+// KeyRoute determines how a key event should be routed.
+type KeyRoute int
+
+const (
+	// RouteHandleShortcuts means the key should be processed by the shortcut system.
+	// This is the default route -- app-level shortcuts, modal mode keys, etc.
+	RouteHandleShortcuts KeyRoute = iota
+
+	// RoutePassToWidget means the key should propagate to the focused widget.
+	// Used when overlays (session manager, tab picker) are visible, when the
+	// omnibox is focused, or when a WebView should receive text input for
+	// native IM/compose/dead-key processing.
+	RoutePassToWidget
+
+	// RouteAccentDetection means the key should go through long-press accent
+	// detection. Used for GTK Entry widgets (omnibox, find bar) where WebKit's
+	// IM pipeline is not available but we still want accent support.
+	RouteAccentDetection
+)
+
+// KeyContext provides key event information for routing decisions.
+type KeyContext struct {
+	Keyval    uint     // Translated key value
+	Keycode   uint     // Hardware keycode
+	Modifiers Modifier // Active modifiers (masked)
+}
+
+// IsShortcutModified returns true if the modifiers indicate a shortcut combination
+// (Ctrl or Alt pressed), as opposed to plain text input (no modifier or Shift-only).
+// Dead keys and compose sequences only use no-modifier or Shift, so this correctly
+// identifies keys that should be intercepted vs passed through to the IM pipeline.
+func IsShortcutModified(modifiers Modifier) bool {
+	return modifiers&(ModCtrl|ModAlt) != 0
+}
+
+// IsTextInputKey returns true if the keyval represents a text input key
+// (printable character or dead key) as opposed to a function/navigation key.
+// This is used to determine whether a key should be passed through to the
+// WebKit IM pipeline for compose/dead-key processing.
+func IsTextInputKey(keyval uint) bool {
+	// Dead keys used by compose sequences (US International, etc.)
+	// GDK dead key range: KEY_dead_grave (0xfe50) to KEY_dead_greek (0xfe8b)
+	if keyval >= 0xfe50 && keyval <= 0xfe8b {
+		return true
+	}
+
+	// Printable ASCII range (space through tilde)
+	if keyval >= 0x020 && keyval <= 0x07e {
+		return true
+	}
+	// Latin-1 supplement (non-breaking space through ÿ)
+	if keyval >= 0x0a0 && keyval <= 0x0ff {
+		return true
+	}
+	// Extended Latin and other Unicode characters mapped in GDK keyval space
+	if keyval >= 0x100 && keyval <= 0x20ff {
+		return true
+	}
+
+	return false
 }
