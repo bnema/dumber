@@ -116,6 +116,16 @@ func TestEffectiveSearchQuery(t *testing.T) {
 	}
 }
 
+func TestUpdateGhostFromSelectionUsesRealInputWhenGhostVisible(t *testing.T) {
+	entryText := "github.com/bnema/dumber"
+	realInput := "upl"
+
+	got := effectiveSearchQuery(entryText, realInput, true)
+	if got != realInput {
+		t.Fatalf("effectiveSearchQuery should prefer real input when ghost is visible, got %q want %q", got, realInput)
+	}
+}
+
 func TestResolveTargetURLForSelection(t *testing.T) {
 	suggestions := []Suggestion{
 		{URL: "https://github.com/bnema/dumber"},
@@ -141,6 +151,102 @@ func TestResolveTargetURLForSelection(t *testing.T) {
 			got := resolveTargetURLForSelection(tt.mode, tt.index, suggestions, favorites)
 			if got != tt.wantURL {
 				t.Fatalf("resolveTargetURLForSelection(%s, %d) = %q, want %q", tt.mode, tt.index, got, tt.wantURL)
+			}
+		})
+	}
+}
+
+func TestSelectedTargetURL(t *testing.T) {
+	suggestions := []Suggestion{
+		{URL: "https://github.com/bnema/dumber"},
+	}
+	favorites := []Favorite{
+		{URL: "https://dumber.bnema.dev"},
+	}
+
+	tests := []struct {
+		name     string
+		mode     ViewMode
+		index    int
+		wantURL  string
+		wantBool bool
+	}{
+		{name: "negative index is not explicit selection", mode: ViewModeHistory, index: -1, wantURL: "", wantBool: false},
+		{name: "history selection is explicit", mode: ViewModeHistory, index: 0, wantURL: "https://github.com/bnema/dumber", wantBool: true},
+		{name: "favorites selection is explicit", mode: ViewModeFavorites, index: 0, wantURL: "https://dumber.bnema.dev", wantBool: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotURL, gotBool := selectedTargetURL(tt.mode, tt.index, suggestions, favorites)
+			if gotURL != tt.wantURL || gotBool != tt.wantBool {
+				t.Fatalf("selectedTargetURL(%s, %d) = (%q, %v), want (%q, %v)", tt.mode, tt.index, gotURL, gotBool, tt.wantURL, tt.wantBool)
+			}
+		})
+	}
+}
+
+func TestVisibleGhostSuggestion(t *testing.T) {
+	suggestions := []Suggestion{
+		{URL: "https://github.com/bnema/dumber"},
+		{URL: "https://gitlab.com/team/project"},
+	}
+
+	tests := []struct {
+		name                 string
+		input                string
+		selectedURL          string
+		hasExplicitSelection bool
+		wantFull             string
+		wantSuffix           string
+		wantOK               bool
+	}{
+		{
+			name:       "top visible candidate drives ghost without selection",
+			input:      "git",
+			wantFull:   "github.com",
+			wantSuffix: "hub.com",
+			wantOK:     true,
+		},
+		{
+			name:                 "explicit selection wins over top candidate",
+			input:                "git",
+			selectedURL:          "https://gitlab.com/team/project",
+			hasExplicitSelection: true,
+			wantFull:             "gitlab.com/team/project",
+			wantSuffix:           "lab.com/team/project",
+			wantOK:               true,
+		},
+		{
+			name:       "no visible prefix match means no ghost",
+			input:      "xyz",
+			wantFull:   "",
+			wantSuffix: "",
+			wantOK:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotFull, gotSuffix, gotOK := visibleGhostSuggestion(
+				tt.input,
+				tt.selectedURL,
+				tt.hasExplicitSelection,
+				ViewModeHistory,
+				suggestions,
+				nil,
+			)
+			if gotFull != tt.wantFull || gotSuffix != tt.wantSuffix || gotOK != tt.wantOK {
+				t.Fatalf(
+					"visibleGhostSuggestion(%q) = (%q, %q, %v), want (%q, %q, %v)",
+					tt.input,
+					gotFull,
+					gotSuffix,
+					gotOK,
+					tt.wantFull,
+					tt.wantSuffix,
+					tt.wantOK,
+				)
 			}
 		})
 	}

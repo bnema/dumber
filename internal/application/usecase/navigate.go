@@ -39,6 +39,10 @@ type historyVisitDeltaIncrementer interface {
 	IncrementVisitCountBy(ctx context.Context, url string, delta int) error
 }
 
+type historyMetadataUpdater interface {
+	UpdateMetadata(ctx context.Context, entry *entity.HistoryEntry) error
+}
+
 type paneHistoryState struct {
 	lastRawURL       string
 	lastCanonicalURL string
@@ -337,6 +341,12 @@ func (uc *NavigateUseCase) UpdateHistoryTitle(ctx context.Context, historyURL, t
 
 	// Update existing entry's title
 	entry.Title = title
+	if updater, ok := uc.historyRepo.(historyMetadataUpdater); ok {
+		if err := updater.UpdateMetadata(ctx, entry); err != nil {
+			return fmt.Errorf("failed to update history metadata: %w", err)
+		}
+		return nil
+	}
 	if err := uc.historyRepo.Save(ctx, entry); err != nil {
 		return fmt.Errorf("failed to update history title: %w", err)
 	}

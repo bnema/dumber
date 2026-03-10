@@ -627,6 +627,119 @@ func TestHistoryRepository_Search_SlashSeparatedQuery(t *testing.T) {
 	require.NotEmpty(t, results, "slash-separated query should match history")
 }
 
+func TestHistoryRepository_Search_PrefersURLMatchOverTitleOnlyMatch(t *testing.T) {
+	ctx := historyTestCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewHistoryRepository(db)
+
+	require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{
+		URL:   "https://github.com/bnema/dumber/issues",
+		Title: "Project board",
+	}))
+	require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{
+		URL:   "https://tracker.example.com/board",
+		Title: "GitHub Issues Mirror",
+	}))
+
+	results, err := repo.Search(ctx, "github issues", 10)
+	require.NoError(t, err)
+	require.Len(t, results, 2)
+	assert.Equal(t, "https://github.com/bnema/dumber/issues", results[0].Entry.URL)
+}
+
+func TestHistoryRepository_Search_PrefersHostPrefixOverTitleContains(t *testing.T) {
+	ctx := historyTestCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewHistoryRepository(db)
+
+	require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{
+		URL:   "https://github.com",
+		Title: "GitHub",
+	}))
+	require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{
+		URL:   "https://example.com/landing",
+		Title: "GitHub documentation mirror",
+	}))
+
+	results, err := repo.Search(ctx, "git", 10)
+	require.NoError(t, err)
+	require.Len(t, results, 2)
+	assert.Equal(t, "https://github.com", results[0].Entry.URL)
+}
+
+func TestHistoryRepository_Search_PrefersShorterRootURLForHostQuery(t *testing.T) {
+	ctx := historyTestCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewHistoryRepository(db)
+
+	require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{
+		URL:   "https://github.com",
+		Title: "GitHub",
+	}))
+	require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{
+		URL:   "https://github.com/bnema/dumber/issues/123",
+		Title: "Issue 123",
+	}))
+
+	results, err := repo.Search(ctx, "github", 10)
+	require.NoError(t, err)
+	require.Len(t, results, 2)
+	assert.Equal(t, "https://github.com", results[0].Entry.URL)
+}
+
+func TestHistoryRepository_UpdateMetadata_DoesNotIncrementVisitCount(t *testing.T) {
+	ctx := historyTestCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repoIface := sqlite.NewHistoryRepository(db)
+	repo, ok := repoIface.(interface {
+		Save(context.Context, *entity.HistoryEntry) error
+		FindByURL(context.Context, string) (*entity.HistoryEntry, error)
+		UpdateMetadata(context.Context, *entity.HistoryEntry) error
+	})
+	require.True(t, ok)
+
+	require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{
+		URL:   "https://github.com/bnema/dumber",
+		Title: "Old title",
+	}))
+
+	before, err := repo.FindByURL(ctx, "https://github.com/bnema/dumber")
+	require.NoError(t, err)
+	require.NotNil(t, before)
+	require.Equal(t, int64(1), before.VisitCount)
+
+	require.NoError(t, repo.UpdateMetadata(ctx, &entity.HistoryEntry{
+		URL:   "https://github.com/bnema/dumber",
+		Title: "New title",
+	}))
+
+	after, err := repo.FindByURL(ctx, "https://github.com/bnema/dumber")
+	require.NoError(t, err)
+	require.NotNil(t, after)
+	assert.Equal(t, int64(1), after.VisitCount)
+	assert.Equal(t, "New title", after.Title)
+}
+
 func TestHistoryRepository_AboutBlank_CappedVisitCount(t *testing.T) {
 	ctx := historyTestCtx()
 	dbPath := filepath.Join(t.TempDir(), "dumber.db")

@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
+	"sort"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -12,21 +14,44 @@ import (
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
+	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite/sqlc"
 	"github.com/bnema/dumber/internal/logging"
 )
 
 const logURLMaxLen = 60
 
+const (
+	historyURLMatchScore        = 300.0
+	historyTitleMatchScore      = 120.0
+	historyExactHostScore       = 220.0
+	historyTrimmedHostScore     = 215.0
+	historyHostPrefixScore      = 180.0
+	historyURLPrefixScore       = 170.0
+	historyURLContainsScore     = 80.0
+	historyTitlePrefixScore     = 90.0
+	historyTitleContainsScore   = 40.0
+	historyWordHostPrefixScore  = 40.0
+	historyWordURLContainsScore = 15.0
+	historyWordTitlePrefixScore = 20.0
+	historyWordTitleScore       = 8.0
+	historyPathDepthPenalty     = 18
+	historyRootPathBonus        = 20.0
+	historyDomainBoostScore     = 35.0
+	historyVisitCountCap        = 50.0
+	historyRecentVisitScore     = 10.0
+)
+
 var expectedFTSFailureCount atomic.Uint64
 
 type historyRepo struct {
+	db      *sql.DB
 	queries *sqlc.Queries
 }
 
 // NewHistoryRepository creates a new SQLite-backed history repository.
 func NewHistoryRepository(db *sql.DB) repository.HistoryRepository {
-	return &historyRepo{queries: sqlc.New(db)}
+	return &historyRepo{db: db, queries: sqlc.New(db)}
 }
 
 // aboutBlankURL is the special URL for blank pages that should not accumulate visit counts.
@@ -60,8 +85,8 @@ func (r *historyRepo) Save(ctx context.Context, entry *entity.HistoryEntry) erro
 	return nil
 }
 
-func (r *historyRepo) FindByURL(ctx context.Context, url string) (*entity.HistoryEntry, error) {
-	row, err := r.queries.GetHistoryByURL(ctx, url)
+func (r *historyRepo) FindByURL(ctx context.Context, rawURL string) (*entity.HistoryEntry, error) {
+	row, err := r.queries.GetHistoryByURL(ctx, rawURL)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -69,6 +94,23 @@ func (r *historyRepo) FindByURL(ctx context.Context, url string) (*entity.Histor
 		return nil, err
 	}
 	return historyFromRow(row), nil
+}
+
+func (r *historyRepo) UpdateMetadata(ctx context.Context, entry *entity.HistoryEntry) error {
+	if entry == nil || entry.URL == "" {
+		return fmt.Errorf("history entry URL cannot be empty")
+	}
+	_, err := r.db.ExecContext(
+		ctx,
+		`UPDATE history
+		 SET title = COALESCE(?, title),
+		     favicon_url = COALESCE(?, favicon_url)
+		 WHERE url = ?`,
+		nullString(entry.Title),
+		nullString(entry.FaviconURL),
+		entry.URL,
+	)
+	return err
 }
 
 func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]entity.HistoryMatch, error) {
@@ -106,40 +148,11 @@ func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]en
 		titleRows = []sqlc.History{}
 	}
 
-	// Merge results by interleaving URL and title matches for balanced results
-	seen := make(map[int64]bool)
-	var matches []entity.HistoryMatch
-
-	i, j := 0, 0
-	for len(matches) < limit && (i < len(urlRows) || j < len(titleRows)) {
-		// Take next URL match if available
-		if i < len(urlRows) {
-			row := urlRows[i]
-			i++
-			if !seen[row.ID] {
-				seen[row.ID] = true
-				matches = append(matches, entity.HistoryMatch{
-					Entry: historyFromDomainBoostRow(row),
-					Score: 1.0,
-				})
-			}
-		}
-
-		// Take next title match if available
-		if j < len(titleRows) && len(matches) < limit {
-			row := titleRows[j]
-			j++
-			if !seen[row.ID] {
-				seen[row.ID] = true
-				matches = append(matches, entity.HistoryMatch{
-					Entry: historyFromRow(row),
-					Score: 1.0,
-				})
-			}
-		}
+	ranked := rankHistoryMatches(query, words, urlRows, titleRows)
+	if len(ranked) > limit {
+		ranked = ranked[:limit]
 	}
-
-	return matches, nil
+	return ranked, nil
 }
 
 func historyFromDomainBoostRow(row sqlc.SearchHistoryFTSUrlWithDomainBoostRow) *entity.HistoryEntry {
@@ -152,6 +165,221 @@ func historyFromDomainBoostRow(row sqlc.SearchHistoryFTSUrlWithDomainBoostRow) *
 		LastVisited: row.LastVisited.Time,
 		CreatedAt:   row.CreatedAt.Time,
 	}
+}
+
+func nullString(value string) sql.NullString {
+	return sql.NullString{String: value, Valid: value != ""}
+}
+
+type historySearchCandidate struct {
+	entry         *entity.HistoryEntry
+	score         float64
+	urlMatch      bool
+	titleMatch    bool
+	domainBoost   int64
+	exactURLMatch bool
+	prefixURL     bool
+	prefixTitle   bool
+}
+
+func rankHistoryMatches(
+	query string,
+	words []string,
+	urlRows []sqlc.SearchHistoryFTSUrlWithDomainBoostRow,
+	titleRows []sqlc.History,
+) []entity.HistoryMatch {
+	candidates := make(map[int64]*historySearchCandidate, len(urlRows)+len(titleRows))
+
+	for i := range urlRows {
+		row := urlRows[i]
+		entry := historyFromDomainBoostRow(row)
+		candidate := ensureHistoryCandidate(candidates, entry)
+		candidate.urlMatch = true
+		candidate.domainBoost = maxInt64(candidate.domainBoost, row.DomainBoost)
+	}
+
+	for i := range titleRows {
+		row := titleRows[i]
+		entry := historyFromRow(row)
+		candidate := ensureHistoryCandidate(candidates, entry)
+		candidate.titleMatch = true
+	}
+
+	queryLower := strings.ToLower(strings.TrimSpace(query))
+	matches := make([]entity.HistoryMatch, 0, len(candidates))
+	for _, candidate := range candidates {
+		candidate.score = computeHistoryCandidateScore(candidate, queryLower, words)
+		matches = append(matches, entity.HistoryMatch{
+			Entry: candidate.entry,
+			Score: candidate.score,
+		})
+	}
+
+	sort.Slice(matches, func(i, j int) bool {
+		left := candidates[matches[i].Entry.ID]
+		right := candidates[matches[j].Entry.ID]
+		if matches[i].Score != matches[j].Score {
+			return matches[i].Score > matches[j].Score
+		}
+		if left.exactURLMatch != right.exactURLMatch {
+			return left.exactURLMatch
+		}
+		if left.prefixURL != right.prefixURL {
+			return left.prefixURL
+		}
+		if left.urlMatch != right.urlMatch {
+			return left.urlMatch
+		}
+		if left.prefixTitle != right.prefixTitle {
+			return left.prefixTitle
+		}
+		if matches[i].Entry.VisitCount != matches[j].Entry.VisitCount {
+			return matches[i].Entry.VisitCount > matches[j].Entry.VisitCount
+		}
+		if !matches[i].Entry.LastVisited.Equal(matches[j].Entry.LastVisited) {
+			return matches[i].Entry.LastVisited.After(matches[j].Entry.LastVisited)
+		}
+		return matches[i].Entry.URL < matches[j].Entry.URL
+	})
+
+	return matches
+}
+
+func ensureHistoryCandidate(candidates map[int64]*historySearchCandidate, entry *entity.HistoryEntry) *historySearchCandidate {
+	candidate, ok := candidates[entry.ID]
+	if ok {
+		return candidate
+	}
+	candidate = &historySearchCandidate{entry: entry}
+	candidates[entry.ID] = candidate
+	return candidate
+}
+
+func computeHistoryCandidateScore(candidate *historySearchCandidate, queryLower string, words []string) float64 {
+	if candidate == nil || candidate.entry == nil {
+		return 0
+	}
+
+	urlLower := strings.ToLower(candidate.entry.URL)
+	titleLower := strings.ToLower(candidate.entry.Title)
+	hostLower := strings.ToLower(domainurl.ExtractDomain(candidate.entry.URL))
+
+	score := 0.0
+	if candidate.urlMatch {
+		score += historyURLMatchScore
+	}
+	if candidate.titleMatch {
+		score += historyTitleMatchScore
+	}
+
+	score += scoreQueryMatch(candidate, queryLower, hostLower, urlLower, titleLower)
+	score += scoreHistoryWords(words, hostLower, urlLower, titleLower)
+
+	if looksLikeHostStyleQuery(queryLower) {
+		pathDepth := historyPathDepth(candidate.entry.URL)
+		score -= float64(pathDepth * historyPathDepthPenalty)
+		if pathDepth == 0 {
+			score += historyRootPathBonus
+		}
+	}
+
+	score += float64(candidate.domainBoost) * historyDomainBoostScore
+	score += minFloat64(float64(candidate.entry.VisitCount), historyVisitCountCap)
+	if time.Since(candidate.entry.LastVisited) <= 7*24*time.Hour {
+		score += historyRecentVisitScore
+	}
+	return score
+}
+
+func scoreQueryMatch(
+	candidate *historySearchCandidate,
+	queryLower, hostLower, urlLower, titleLower string,
+) float64 {
+	if queryLower == "" {
+		return 0
+	}
+
+	switch {
+	case hostLower == queryLower:
+		candidate.exactURLMatch = true
+		return historyExactHostScore + scoreTitleQueryMatch(candidate, queryLower, titleLower)
+	case strings.TrimPrefix(hostLower, "www.") == queryLower:
+		candidate.exactURLMatch = true
+		return historyTrimmedHostScore + scoreTitleQueryMatch(candidate, queryLower, titleLower)
+	case strings.HasPrefix(hostLower, queryLower):
+		candidate.prefixURL = true
+		return historyHostPrefixScore + scoreTitleQueryMatch(candidate, queryLower, titleLower)
+	case strings.HasPrefix(urlLower, queryLower):
+		candidate.prefixURL = true
+		return historyURLPrefixScore + scoreTitleQueryMatch(candidate, queryLower, titleLower)
+	case strings.Contains(urlLower, queryLower):
+		return historyURLContainsScore + scoreTitleQueryMatch(candidate, queryLower, titleLower)
+	default:
+		return scoreTitleQueryMatch(candidate, queryLower, titleLower)
+	}
+}
+
+func scoreTitleQueryMatch(candidate *historySearchCandidate, queryLower, titleLower string) float64 {
+	switch {
+	case strings.HasPrefix(titleLower, queryLower):
+		candidate.prefixTitle = true
+		return historyTitlePrefixScore
+	case strings.Contains(titleLower, queryLower):
+		return historyTitleContainsScore
+	default:
+		return 0
+	}
+}
+
+func scoreHistoryWords(words []string, hostLower, urlLower, titleLower string) float64 {
+	score := 0.0
+	for _, word := range words {
+		wordLower := strings.ToLower(word)
+		if wordLower == "" {
+			continue
+		}
+		if strings.HasPrefix(hostLower, wordLower) {
+			score += historyWordHostPrefixScore
+		} else if strings.Contains(urlLower, wordLower) {
+			score += historyWordURLContainsScore
+		}
+		if strings.HasPrefix(titleLower, wordLower) {
+			score += historyWordTitlePrefixScore
+		} else if strings.Contains(titleLower, wordLower) {
+			score += historyWordTitleScore
+		}
+	}
+	return score
+}
+
+func looksLikeHostStyleQuery(query string) bool {
+	return query != "" && !strings.ContainsAny(query, " /?#=&")
+}
+
+func historyPathDepth(rawURL string) int {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return 0
+	}
+	trimmed := strings.Trim(parsed.Path, "/")
+	if trimmed == "" {
+		return 0
+	}
+	return len(strings.Split(trimmed, "/"))
+}
+
+func maxInt64(left, right int64) int64 {
+	if left > right {
+		return left
+	}
+	return right
+}
+
+func minFloat64(left, right float64) float64 {
+	if left < right {
+		return left
+	}
+	return right
 }
 
 // sanitizeFTS5QueryTokens normalizes separators and returns only valid FTS tokens.
@@ -303,17 +531,17 @@ func (r *historyRepo) GetAllMostVisited(ctx context.Context) ([]*entity.HistoryE
 	return entries, nil
 }
 
-func (r *historyRepo) IncrementVisitCount(ctx context.Context, url string) error {
+func (r *historyRepo) IncrementVisitCount(ctx context.Context, rawURL string) error {
 	// Skip incrementing about:blank - it should always have visit_count = 1
-	if url == aboutBlankURL {
+	if rawURL == aboutBlankURL {
 		return nil
 	}
-	return r.queries.IncrementVisitCount(ctx, url)
+	return r.queries.IncrementVisitCount(ctx, rawURL)
 }
 
-func (r *historyRepo) IncrementVisitCountBy(ctx context.Context, url string, delta int) error {
+func (r *historyRepo) IncrementVisitCountBy(ctx context.Context, rawURL string, delta int) error {
 	// Skip incrementing about:blank - it should always have visit_count = 1
-	if url == aboutBlankURL {
+	if rawURL == aboutBlankURL {
 		return nil
 	}
 	if delta <= 0 {
@@ -321,7 +549,7 @@ func (r *historyRepo) IncrementVisitCountBy(ctx context.Context, url string, del
 	}
 	return r.queries.IncrementVisitCountByDelta(ctx, sqlc.IncrementVisitCountByDeltaParams{
 		VisitCount: sql.NullInt64{Int64: int64(delta), Valid: true},
-		Url:        url,
+		Url:        rawURL,
 	})
 }
 

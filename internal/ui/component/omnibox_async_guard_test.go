@@ -23,20 +23,38 @@ func TestOmnibox_IsSearchTokenCurrent(t *testing.T) {
 func TestOmnibox_IsGhostTokenCurrent(t *testing.T) {
 	o := &Omnibox{}
 	o.visible = true
-	o.searchToken = 8
 	o.ghostToken = 5
 	o.realInput = "git"
 
-	if !o.isGhostTokenCurrent(8, 5, "git") {
+	if !o.isGhostTokenCurrent(5, "git") {
 		t.Fatalf("expected ghost token to be current")
 	}
-	if o.isGhostTokenCurrent(7, 5, "git") {
-		t.Fatalf("expected stale search token to be rejected")
-	}
-	if o.isGhostTokenCurrent(8, 4, "git") {
+	if o.isGhostTokenCurrent(4, "git") {
 		t.Fatalf("expected stale ghost token to be rejected")
 	}
-	if o.isGhostTokenCurrent(8, 5, "github") {
+	if o.isGhostTokenCurrent(5, "github") {
 		t.Fatalf("expected query mismatch to be rejected")
+	}
+}
+
+func TestOmnibox_IsBangUpdateCurrent(t *testing.T) {
+	o := &Omnibox{}
+	o.visible = true
+	o.searchToken = 9
+	o.realInput = "!gh"
+
+	if !o.isBangUpdateCurrent("!gh", 9) {
+		t.Fatalf("expected bang update to be current")
+	}
+	if o.isBangUpdateCurrent("!g", 9) {
+		t.Fatalf("expected bang query mismatch to be rejected")
+	}
+	if o.isBangUpdateCurrent("!gh", 8) {
+		t.Fatalf("expected stale bang token to be rejected")
+	}
+
+	o.visible = false
+	if o.isBangUpdateCurrent("!gh", 9) {
+		t.Fatalf("expected hidden omnibox to reject bang updates")
 	}
 }
