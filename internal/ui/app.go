@@ -631,23 +631,47 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 	a.keyboardHandler.SetOnModeChange(func(from, to input.Mode) {
 		a.handleModeChange(ctx, from, to)
 	})
-	a.keyboardHandler.SetShouldBypassInput(func(modifiers input.Modifier) bool {
-		// Bypass keyboard handler when modals are visible
+	// Wire key routing policy.
+	// Determines how each key event should be handled based on UI state:
+	// - Overlays visible (session manager, tab picker): pass all keys to widget
+	// - Omnibox visible: accent detection for text keys, shortcuts for modified keys
+	// - WebView focused: pass text/dead keys to WebKit IM for native compose,
+	//   intercept shortcut-modified keys (Ctrl+, Alt+)
+	// - Default: handle through shortcut system
+	a.keyboardHandler.SetRouteKey(func(kc input.KeyContext) input.KeyRoute {
+		// Overlays take full keyboard control
 		if a.sessionManager != nil && a.sessionManager.IsVisible() {
-			return true
+			return input.RoutePassToWidget
 		}
 		if a.tabPicker != nil && a.tabPicker.IsVisible() {
-			return true
+			return input.RoutePassToWidget
 		}
+
 		wsView := a.activeWorkspaceView()
 		if wsView == nil {
-			return false
+			return input.RouteHandleShortcuts
 		}
+
 		if wsView.IsOmniboxVisible() {
-			// Let Alt-modified keys through for pane navigation
-			return modifiers&input.ModAlt == 0
+			// Omnibox: Alt-modified keys go to shortcuts (pane navigation),
+			// text keys go to accent detection for long-press accent picker
+			if kc.Modifiers&input.ModAlt != 0 {
+				return input.RouteHandleShortcuts
+			}
+			return input.RouteAccentDetection
 		}
-		return false
+
+		// WebView focused: text/dead keys pass through for native IM compose,
+		// shortcut-modified keys (Ctrl+, Alt+) are handled by shortcut system
+		if input.IsShortcutModified(kc.Modifiers) {
+			return input.RouteHandleShortcuts
+		}
+		if input.IsTextInputKey(kc.Keyval) {
+			return input.RoutePassToWidget
+		}
+
+		// Non-text, non-shortcut keys (F-keys, arrows, etc.): shortcut system
+		return input.RouteHandleShortcuts
 	})
 	// Wire accent handler for dead keys support
 	if a.insertAccentUC != nil {
