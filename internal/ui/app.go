@@ -652,9 +652,10 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 			return input.RouteHandleShortcuts
 		}
 
-		if wsView.IsOmniboxVisible() {
-			// Omnibox: Alt-modified keys go to shortcuts (pane navigation),
-			// text keys go to accent detection for long-press accent picker
+		if wsView.IsOmniboxVisible() || wsView.IsFindBarVisible() {
+			// GTK Entry focused (omnibox or find bar): Alt-modified keys go to
+			// shortcuts (pane navigation), text keys go to accent detection
+			// for long-press accent picker
 			if kc.Modifiers&input.ModAlt != 0 {
 				return input.RouteHandleShortcuts
 			}
