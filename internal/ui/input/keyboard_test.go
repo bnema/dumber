@@ -9,6 +9,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// newTestConfig creates a minimal Config with activation shortcuts set.
+// Used by tests that construct a KeyboardHandler.
+func newTestConfig() *config.Config {
+	cfg := &config.Config{}
+	cfg.Workspace.TabMode.ActivationShortcut = "ctrl+t"
+	cfg.Workspace.PaneMode.ActivationShortcut = "ctrl+p"
+	cfg.Workspace.ResizeMode.ActivationShortcut = "ctrl+alt+r"
+	cfg.Session.SessionMode.ActivationShortcut = "ctrl+s"
+	return cfg
+}
+
 func TestIsShortcutModified(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -81,11 +92,7 @@ func TestIsTextInputKey(t *testing.T) {
 
 func TestHandleKeyPress_RoutePassToWidget(t *testing.T) {
 	ctx := context.Background()
-	cfg := &config.Config{}
-	cfg.Workspace.TabMode.ActivationShortcut = "ctrl+t"
-	cfg.Workspace.PaneMode.ActivationShortcut = "ctrl+p"
-	cfg.Workspace.ResizeMode.ActivationShortcut = "ctrl+alt+r"
-	cfg.Session.SessionMode.ActivationShortcut = "ctrl+s"
+	cfg := newTestConfig()
 
 	h := NewKeyboardHandler(ctx, cfg)
 
@@ -116,11 +123,7 @@ func TestHandleKeyPress_RoutePassToWidget(t *testing.T) {
 
 func TestHandleKeyPress_RouteAccentDetection_NoAccent(t *testing.T) {
 	ctx := context.Background()
-	cfg := &config.Config{}
-	cfg.Workspace.TabMode.ActivationShortcut = "ctrl+t"
-	cfg.Workspace.PaneMode.ActivationShortcut = "ctrl+p"
-	cfg.Workspace.ResizeMode.ActivationShortcut = "ctrl+alt+r"
-	cfg.Session.SessionMode.ActivationShortcut = "ctrl+s"
+	cfg := newTestConfig()
 
 	h := NewKeyboardHandler(ctx, cfg)
 
@@ -136,11 +139,7 @@ func TestHandleKeyPress_RouteAccentDetection_NoAccent(t *testing.T) {
 
 func TestHandleKeyPress_ShortcutsWorkWithRouting(t *testing.T) {
 	ctx := context.Background()
-	cfg := &config.Config{}
-	cfg.Workspace.TabMode.ActivationShortcut = "ctrl+t"
-	cfg.Workspace.PaneMode.ActivationShortcut = "ctrl+p"
-	cfg.Workspace.ResizeMode.ActivationShortcut = "ctrl+alt+r"
-	cfg.Session.SessionMode.ActivationShortcut = "ctrl+s"
+	cfg := newTestConfig()
 
 	h := NewKeyboardHandler(ctx, cfg)
 
@@ -163,11 +162,7 @@ func TestHandleKeyPress_ShortcutsWorkWithRouting(t *testing.T) {
 
 func TestHandleKeyPress_ModalModeIgnoresRoute(t *testing.T) {
 	ctx := context.Background()
-	cfg := &config.Config{}
-	cfg.Workspace.TabMode.ActivationShortcut = "ctrl+t"
-	cfg.Workspace.PaneMode.ActivationShortcut = "ctrl+p"
-	cfg.Workspace.ResizeMode.ActivationShortcut = "ctrl+alt+r"
-	cfg.Session.SessionMode.ActivationShortcut = "ctrl+s"
+	cfg := newTestConfig()
 
 	h := NewKeyboardHandler(ctx, cfg)
 	h.EnterTabMode()
@@ -207,11 +202,7 @@ func TestKeyboardHandler_SetRouteKey(t *testing.T) {
 
 func TestHandleKeyPress_NoRouteCallback_DefaultsToShortcuts(t *testing.T) {
 	ctx := context.Background()
-	cfg := &config.Config{}
-	cfg.Workspace.TabMode.ActivationShortcut = "ctrl+t"
-	cfg.Workspace.PaneMode.ActivationShortcut = "ctrl+p"
-	cfg.Workspace.ResizeMode.ActivationShortcut = "ctrl+alt+r"
-	cfg.Session.SessionMode.ActivationShortcut = "ctrl+s"
+	cfg := newTestConfig()
 
 	h := NewKeyboardHandler(ctx, cfg)
 

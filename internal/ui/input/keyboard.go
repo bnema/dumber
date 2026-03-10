@@ -509,8 +509,8 @@ func IsShortcutModified(modifiers Modifier) bool {
 // WebKit IM pipeline for compose/dead-key processing.
 func IsTextInputKey(keyval uint) bool {
 	// Dead keys used by compose sequences (US International, etc.)
-	// GDK dead key range: KEY_dead_grave (0xfe50) to KEY_dead_greek (0xfe8b)
-	if keyval >= 0xfe50 && keyval <= 0xfe8b {
+	// GDK dead key range: KEY_dead_grave (0xfe50) to KEY_dead_greek (0xfe8c)
+	if keyval >= 0xfe50 && keyval <= 0xfe8c {
 		return true
 	}
 
