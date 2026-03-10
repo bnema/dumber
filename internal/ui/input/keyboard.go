@@ -234,17 +234,15 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 	}
 
 	switch route {
-	case RoutePassToWidget:
-		// Let the focused widget handle this key (WebView IM, overlay, etc.)
-		log.Trace().Uint("keyval", keyval).Msg("routing key to focused widget")
-		return false
-
-	case RouteAccentDetection:
-		// Try long-press accent detection (for GTK Entry widgets)
+	case RoutePassToWidget, RouteAccentDetection:
+		// Try long-press accent detection first. This enables the accent picker
+		// universally -- for both GTK Entry widgets and WebView text inputs.
+		// If the accent handler doesn't consume the key, pass it to the widget.
 		if h.tryAccentDetection(accentHandler, keyval, modifiers) {
 			return true
 		}
-		// If accent handler didn't consume it, let the widget handle it
+		// Let the focused widget handle this key (WebView IM, GTK Entry, etc.)
+		log.Trace().Uint("keyval", keyval).Msg("routing key to focused widget")
 		return false
 
 	case RouteHandleShortcuts:
@@ -268,7 +266,8 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 }
 
 // tryAccentDetection starts long-press detection for accent-eligible keys.
-// Only called when routeKey returns RouteAccentDetection (GTK Entry context).
+// Called for both RoutePassToWidget and RouteAccentDetection routes, so the
+// long-press accent picker is available universally (WebView and GTK Entry).
 // Returns true if the key should be suppressed.
 func (h *KeyboardHandler) tryAccentDetection(accentHandler AccentHandler, keyval uint, modifiers Modifier) bool {
 	if accentHandler == nil {
@@ -477,14 +476,15 @@ const (
 	RouteHandleShortcuts KeyRoute = iota
 
 	// RoutePassToWidget means the key should propagate to the focused widget.
-	// Used when overlays (session manager, tab picker) are visible, when the
-	// omnibox is focused, or when a WebView should receive text input for
-	// native IM/compose/dead-key processing.
+	// Used when overlays (session manager, tab picker) are visible, or when a
+	// WebView should receive text input for native IM/compose/dead-key processing.
+	// Long-press accent detection still runs first for accessibility: users with
+	// motor disabilities may not be able to execute rapid compose sequences.
 	RoutePassToWidget
 
 	// RouteAccentDetection means the key should go through long-press accent
-	// detection. Used for GTK Entry widgets (omnibox, find bar) where WebKit's
-	// IM pipeline is not available but we still want accent support.
+	// detection, then pass to the focused widget. Used for GTK Entry widgets
+	// (omnibox, find bar) and as a universal accessibility fallback.
 	RouteAccentDetection
 )
 
