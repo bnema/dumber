@@ -182,10 +182,6 @@ func (h *KeyboardHandler) Detach() {
 
 // handleKeyPress processes a key press event.
 // Returns true if the event was handled and should not propagate further.
-// Parameters:
-//   - keyval: the translated key value (depends on keyboard layout)
-//   - keycode: the hardware keycode (physical key position, layout-independent)
-//   - state: modifier keys state
 func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.ModifierType) bool {
 	log := logging.FromContext(h.ctx)
 
@@ -195,37 +191,49 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 	onEscape := h.onEscape
 	h.mu.RUnlock()
 
-	// Check if accent picker is visible - it takes priority
+	// Accent picker takes absolute priority when visible -- it has its own key controller
 	if accentHandler != nil && accentHandler.IsPickerVisible() {
-		return false // Let the accent picker handle the key via its own controller
+		return false
 	}
 
 	modifiers := Modifier(state) & modifierMask
+
+	// Escape in normal mode: check app-level escape hook first
 	if h.modal.Mode() == ModeNormal && keyval == uint(gdk.KEY_Escape) && modifiers == 0 {
 		if onEscape != nil && onEscape(h.ctx) {
 			return true
 		}
 	}
 
-	// Check accent detection first - works in both normal and bypass mode
-	// This enables accent picker for omnibox (GTK SearchEntry) as well as WebView
-	if h.tryAccentDetection(accentHandler, keyval, modifiers) {
-		return true
-	}
-
-	// Temporary: routeKey replaces shouldBypass - full routing logic comes in Task 3.
-	// For now, we just check if route says to pass to widget.
-	if routeKey != nil {
-		route := routeKey(KeyContext{
+	// Determine routing for this key event
+	route := RouteHandleShortcuts // default: process through shortcut system
+	if routeKey != nil && h.modal.Mode() == ModeNormal {
+		route = routeKey(KeyContext{
 			Keyval:    keyval,
 			Keycode:   keycode,
 			Modifiers: modifiers,
 		})
-		if route == RoutePassToWidget {
-			log.Debug().Uint("keyval", keyval).Uint("keycode", keycode).Msg("routing key to focused widget")
-			return false
-		}
 	}
+
+	switch route {
+	case RoutePassToWidget:
+		// Let the focused widget handle this key (WebView IM, overlay, etc.)
+		log.Trace().Uint("keyval", keyval).Msg("routing key to focused widget")
+		return false
+
+	case RouteAccentDetection:
+		// Try long-press accent detection (for GTK Entry widgets)
+		if h.tryAccentDetection(accentHandler, keyval, modifiers) {
+			return true
+		}
+		// If accent handler didn't consume it, let the widget handle it
+		return false
+
+	case RouteHandleShortcuts:
+		// Fall through to shortcut processing below
+	}
+
+	// --- Shortcut processing path ---
 
 	// Normalize uppercase letters for consistent binding lookup
 	keyval = normalizeKeyval(keyval)
@@ -242,9 +250,10 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 }
 
 // tryAccentDetection starts long-press detection for accent-eligible keys.
-// Returns true if the key should be suppressed (blocked from reaching the WebView).
+// Only called when routeKey returns RouteAccentDetection (GTK Entry context).
+// Returns true if the key should be suppressed.
 func (h *KeyboardHandler) tryAccentDetection(accentHandler AccentHandler, keyval uint, modifiers Modifier) bool {
-	if h.modal.Mode() != ModeNormal || accentHandler == nil {
+	if accentHandler == nil {
 		return false
 	}
 	// Only consider keys without Ctrl/Alt modifiers (Shift is OK for uppercase)
