@@ -1,5 +1,23 @@
 package input
 
+// Manual Testing: Dead Key / Compose Support
+//
+// To verify native dead key support works correctly:
+//
+//  1. Set keyboard layout to "US International with dead keys"
+//  2. Open dumber, navigate to a page with a text input (e.g. Google search)
+//  3. Click into the text input field
+//  4. Type: ' then e -- should produce e with acute accent
+//  5. Type: " then u -- should produce u with diaeresis
+//  6. Type: ` then a -- should produce a with grave accent
+//  7. Type: ~ then n -- should produce n with tilde
+//  8. Verify Ctrl+L still opens omnibox
+//  9. Verify Alt+1-9 still switches tabs
+//  10. Verify modal modes (Ctrl+T for tab mode) still work
+//  11. In omnibox, verify long-press accent picker still works (hold 'e' for 400ms)
+//  12. Verify Escape closes omnibox / exits modal modes
+//  13. Verify session manager overlay captures all keyboard input
+
 import (
 	"context"
 	"sync"
