@@ -53,8 +53,9 @@ func NewInsertAccentUseCase(
 
 // OnKeyPressed handles a key press event.
 // Returns true if the use case is handling this key and the caller should suppress it.
-// Note: Due to WebKit's input handling, key suppression may not be fully effective.
+// Note: For GTK Entry widgets, key suppression may not be fully effective.
 // When the picker shows, we delete any repeated characters that slipped through.
+// WebView text inputs use native IM compose instead of this accent picker.
 func (uc *InsertAccentUseCase) OnKeyPressed(ctx context.Context, char rune, shiftHeld bool) bool {
 	log := logging.FromContext(ctx)
 
