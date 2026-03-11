@@ -210,43 +210,66 @@ func rankHistoryMatches(
 	}
 
 	queryLower := strings.ToLower(strings.TrimSpace(query))
-	matches := make([]entity.HistoryMatch, 0, len(candidates))
+	ranked := make([]rankedHistoryMatch, 0, len(candidates))
 	for _, candidate := range candidates {
 		candidate.score = computeHistoryCandidateScore(candidate, queryLower, words)
-		matches = append(matches, entity.HistoryMatch{
-			Entry: candidate.entry,
-			Score: candidate.score,
+		ranked = append(ranked, rankedHistoryMatch{
+			match: entity.HistoryMatch{
+				Entry: candidate.entry,
+				Score: candidate.score,
+			},
+			score:         candidate.score,
+			exactURLMatch: candidate.exactURLMatch,
+			prefixURL:     candidate.prefixURL,
+			urlMatch:      candidate.urlMatch,
+			prefixTitle:   candidate.prefixTitle,
 		})
 	}
 
-	sort.Slice(matches, func(i, j int) bool {
-		left := candidates[matches[i].Entry.ID]
-		right := candidates[matches[j].Entry.ID]
-		if matches[i].Score != matches[j].Score {
-			return matches[i].Score > matches[j].Score
-		}
-		if left.exactURLMatch != right.exactURLMatch {
-			return left.exactURLMatch
-		}
-		if left.prefixURL != right.prefixURL {
-			return left.prefixURL
-		}
-		if left.urlMatch != right.urlMatch {
-			return left.urlMatch
-		}
-		if left.prefixTitle != right.prefixTitle {
-			return left.prefixTitle
-		}
-		if matches[i].Entry.VisitCount != matches[j].Entry.VisitCount {
-			return matches[i].Entry.VisitCount > matches[j].Entry.VisitCount
-		}
-		if !matches[i].Entry.LastVisited.Equal(matches[j].Entry.LastVisited) {
-			return matches[i].Entry.LastVisited.After(matches[j].Entry.LastVisited)
-		}
-		return matches[i].Entry.URL < matches[j].Entry.URL
-	})
+	sortRankedHistoryMatches(ranked)
 
+	matches := make([]entity.HistoryMatch, len(ranked))
+	for i := range ranked {
+		matches[i] = ranked[i].match
+	}
 	return matches
+}
+
+type rankedHistoryMatch struct {
+	match         entity.HistoryMatch
+	score         float64
+	exactURLMatch bool
+	prefixURL     bool
+	urlMatch      bool
+	prefixTitle   bool
+}
+
+func sortRankedHistoryMatches(items []rankedHistoryMatch) {
+	sort.Slice(items, func(i, j int) bool {
+		li, ri := &items[i], &items[j]
+		if li.score != ri.score {
+			return li.score > ri.score
+		}
+		if li.exactURLMatch != ri.exactURLMatch {
+			return li.exactURLMatch
+		}
+		if li.prefixURL != ri.prefixURL {
+			return li.prefixURL
+		}
+		if li.urlMatch != ri.urlMatch {
+			return li.urlMatch
+		}
+		if li.prefixTitle != ri.prefixTitle {
+			return li.prefixTitle
+		}
+		if li.match.Entry.VisitCount != ri.match.Entry.VisitCount {
+			return li.match.Entry.VisitCount > ri.match.Entry.VisitCount
+		}
+		if !li.match.Entry.LastVisited.Equal(ri.match.Entry.LastVisited) {
+			return li.match.Entry.LastVisited.After(ri.match.Entry.LastVisited)
+		}
+		return li.match.Entry.URL < ri.match.Entry.URL
+	})
 }
 
 func ensureHistoryCandidate(candidates map[int64]*historySearchCandidate, entry *entity.HistoryEntry) *historySearchCandidate {
