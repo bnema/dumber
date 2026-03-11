@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -9,7 +10,15 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/infrastructure/webkit/handlers/homepage"
+	"github.com/bnema/dumber/internal/logging"
 )
+
+// AccentKeyHandler is implemented by the InsertAccentUseCase to receive
+// key press/release events forwarded from WebView JS via the message bridge.
+type AccentKeyHandler interface {
+	OnKeyPressed(ctx context.Context, char rune, shiftHeld bool) bool
+	OnKeyReleased(ctx context.Context, char rune)
+}
 
 // Config holds all dependencies for message handlers.
 type Config struct {
@@ -18,6 +27,7 @@ type Config struct {
 	Clipboard         port.Clipboard
 	ConfigGetter      func() *config.Config
 	OnClipboardCopied func(textLen int) // Called when auto-copy completes (for toast notification)
+	AccentHandler     AccentKeyHandler  // Handles accent key press/release events from WebView inputs
 }
 
 // RegisterAll registers all message handlers with the router.
@@ -58,6 +68,49 @@ func RegisterAll(ctx context.Context, router *webkit.MessageRouter, cfg Config) 
 	// - downloads handlers
 	// - etc.
 
+	return nil
+}
+
+// RegisterAccentHandlers registers accent key press/release handlers with the router.
+// Must be called after the AccentKeyHandler is initialized (i.e., after initAccentPicker).
+func RegisterAccentHandlers(ctx context.Context, router *webkit.MessageRouter, handler AccentKeyHandler) error {
+	if err := router.RegisterHandler("accent_key_press", webkit.MessageHandlerFunc(
+		func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+			var p struct {
+				Char  string `json:"char"`
+				Shift bool   `json:"shift"`
+			}
+			if err := json.Unmarshal(payload, &p); err != nil {
+				return nil, err
+			}
+			if len(p.Char) == 1 {
+				handler.OnKeyPressed(ctx, rune(p.Char[0]), p.Shift)
+			}
+			return nil, nil
+		},
+	)); err != nil {
+		return err
+	}
+
+	if err := router.RegisterHandler("accent_key_release", webkit.MessageHandlerFunc(
+		func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+			var p struct {
+				Char string `json:"char"`
+			}
+			if err := json.Unmarshal(payload, &p); err != nil {
+				return nil, err
+			}
+			if len(p.Char) == 1 {
+				handler.OnKeyReleased(ctx, rune(p.Char[0]))
+			}
+			return nil, nil
+		},
+	)); err != nil {
+		return err
+	}
+
+	log := logging.FromContext(ctx)
+	log.Info().Msg("registered accent key handlers")
 	return nil
 }
 

@@ -141,6 +141,45 @@ const autoCopySelectionScript = `(function() {
   });
 })();`
 
+// accentDetectionScript detects keydown/keyup of a-z keys in WebView inputs and
+// forwards them to the Go-side InsertAccentUseCase via the message bridge.
+// Go handles timing, accent lookup, and picker display — JS only reports events.
+const accentDetectionScript = `(function() {
+    'use strict';
+
+    // Track pressed key for release matching
+    let pressedKey = null;
+
+    document.addEventListener('keydown', function(e) {
+        // Only handle a-z keys, with optional Shift
+        // Skip if Ctrl or Alt are held (those are shortcuts)
+        if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+        // Only single character keys a-z
+        const key = e.key.toLowerCase();
+        if (key.length !== 1 || key < 'a' || key > 'z') return;
+
+        pressedKey = key;
+
+        // Send to Go for accent detection
+        window.webkit.messageHandlers.dumber.postMessage({
+            type: 'accent_key_press',
+            payload: { char: key, shift: e.shiftKey }
+        });
+    }, true);  // capture phase to see events first
+
+    document.addEventListener('keyup', function(e) {
+        const key = e.key.toLowerCase();
+        if (key === pressedKey) {
+            pressedKey = null;
+            window.webkit.messageHandlers.dumber.postMessage({
+                type: 'accent_key_release',
+                payload: { char: key }
+            });
+        }
+    }, true);
+})();`
+
 // webRTCCompatScript maps legacy Safari-prefixed WebRTC globals to standard names.
 // Some pages gate support on window.RTCPeerConnection and report false negatives
 // when only webkit-prefixed constructors are present.
@@ -332,6 +371,19 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		)
 		log.Debug().Msg("auto-copy selection script injected")
 	}
+
+	// 7. Inject accent key detection for all pages (unconditional)
+	// JS only reports keydown/keyup events; Go handles timing and picker display.
+	addScript(
+		webkit.NewUserScript(
+			accentDetectionScript,
+			webkit.UserContentInjectTopFrameValue,
+			webkit.UserScriptInjectAtDocumentEndValue,
+			nil, // all pages
+			nil,
+		),
+		"accent-key-detection",
+	)
 
 	log.Debug().Bool("prefers_dark", prefersDark).Bool("auto_copy", autoCopyEnabled).Msg("scripts injected")
 }

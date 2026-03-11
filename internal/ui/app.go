@@ -197,6 +197,7 @@ func New(deps *Dependencies) (*App, error) {
 			FavoritesUC:  deps.FavoritesUC,
 			Clipboard:    deps.Clipboard,
 			ConfigGetter: config.Get,
+			// AccentHandler is registered after initAccentPicker in onActivate
 			OnClipboardCopied: func(textLen int) {
 				// Show brief toast on auto-copy (similar to zellij footer notification)
 				// Must schedule on GTK main thread since this is called from WebKit handler
@@ -291,6 +292,7 @@ func (a *App) onActivate(ctx context.Context) {
 	a.installCrashReportNotifier(ctx)
 	a.initFocusAndBorderOverlay()
 	a.initAccentPicker(ctx)
+	a.registerAccentHandlers(ctx)
 	a.initDownloadHandler(ctx)
 
 	a.initCoordinators(ctx)
@@ -298,7 +300,7 @@ func (a *App) onActivate(ctx context.Context) {
 	logging.Trace().Mark("coordinators_init")
 	a.initKeyboardHandler(ctx)
 	a.initOmniboxConfig(ctx)
-	a.initFindBarConfig()
+	a.initFindBarConfig(ctx)
 	a.initSessionManager(ctx)
 	a.initTabPicker(ctx)
 	a.initSnapshotService(ctx)
@@ -541,6 +543,21 @@ func (a *App) initAccentPicker(ctx context.Context) {
 	log.Debug().Msg("accent picker initialized")
 }
 
+// registerAccentHandlers registers the accent key press/release message handlers
+// with the router. Must be called after initAccentPicker so insertAccentUC is non-nil.
+func (a *App) registerAccentHandlers(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
+	if a.router == nil || a.insertAccentUC == nil {
+		log.Debug().Msg("router or insertAccentUC not available, skipping accent handler registration")
+		return
+	}
+
+	if err := handlers.RegisterAccentHandlers(ctx, a.router, a.insertAccentUC); err != nil {
+		log.Error().Err(err).Msg("failed to register accent handlers")
+	}
+}
+
 func (a *App) initDownloadHandler(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
@@ -737,12 +754,33 @@ func (a *App) initOmniboxConfig(ctx context.Context) {
 				a.accentFocusProvider.SetFocusedInput(a.getActiveWebViewTarget())
 			}
 		},
+		OnAccentKeyPress: func(keyval uint, state gdk.ModifierType) bool {
+			if a.insertAccentUC == nil {
+				return false
+			}
+			if state&(gdk.ControlMaskValue|gdk.AltMaskValue) != 0 {
+				return false
+			}
+			shiftHeld := state&gdk.ShiftMaskValue != 0
+			if char := input.KeyvalToRune(keyval); char != 0 {
+				return a.insertAccentUC.OnKeyPressed(ctx, char, shiftHeld)
+			}
+			return false
+		},
+		OnAccentKeyRelease: func(keyval uint) {
+			if a.insertAccentUC == nil {
+				return
+			}
+			if char := input.KeyvalToRune(keyval); char != 0 {
+				a.insertAccentUC.OnKeyReleased(ctx, char)
+			}
+		},
 	}
 	a.navCoord.SetOmniboxProvider(a)
 	log.Debug().Msg("omnibox config stored, provider set")
 }
 
-func (a *App) initFindBarConfig() {
+func (a *App) initFindBarConfig(ctx context.Context) {
 	// Store find bar config (find bar is created per-pane via WorkspaceView).
 	a.findBarCfg = component.FindBarConfig{
 		GetFindController: func(paneID entity.PaneID) port.FindController {
@@ -765,6 +803,27 @@ func (a *App) initFindBarConfig() {
 			// When find bar loses focus, set WebView as the focused input
 			if a.accentFocusProvider != nil {
 				a.accentFocusProvider.SetFocusedInput(a.getActiveWebViewTarget())
+			}
+		},
+		OnAccentKeyPress: func(keyval uint, state gdk.ModifierType) bool {
+			if a.insertAccentUC == nil {
+				return false
+			}
+			if state&(gdk.ControlMaskValue|gdk.AltMaskValue) != 0 {
+				return false
+			}
+			shiftHeld := state&gdk.ShiftMaskValue != 0
+			if char := input.KeyvalToRune(keyval); char != 0 {
+				return a.insertAccentUC.OnKeyPressed(ctx, char, shiftHeld)
+			}
+			return false
+		},
+		OnAccentKeyRelease: func(keyval uint) {
+			if a.insertAccentUC == nil {
+				return
+			}
+			if char := input.KeyvalToRune(keyval); char != 0 {
+				a.insertAccentUC.OnKeyReleased(ctx, char)
 			}
 		},
 	}

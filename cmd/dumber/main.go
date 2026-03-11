@@ -73,6 +73,15 @@ func main() {
 }
 
 func runGUI() int {
+	// Wayland compositors that lack text-input-v3 (e.g. niri) don't support
+	// IBus/Fcitx input methods, causing dead-key compose to break. Fall back to
+	// GTK's built-in simple IM context so dead keys work out of the box, but
+	// only when the user hasn't explicitly chosen an IM module.
+	if os.Getenv("GTK_IM_MODULE") == "" {
+		fmt.Fprintf(os.Stderr, "dumber: GTK_IM_MODULE unset, defaulting to gtk-im-context-simple for dead-key support\n")
+		_ = os.Setenv("GTK_IM_MODULE", "gtk-im-context-simple")
+	}
+
 	runtime.LockOSThread()
 	component.SetSkeletonVersion(version)
 	timer := bootstrap.NewStartupTimer()

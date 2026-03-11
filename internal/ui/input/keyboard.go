@@ -152,7 +152,10 @@ func (h *KeyboardHandler) Mode() Mode {
 }
 
 // AttachTo attaches the keyboard handler to a GTK window.
-// The handler will intercept key events in the capture phase.
+// The handler runs in the bubble phase so that WebKit's IM pipeline (including
+// dead-key / compose sequences) processes key events first. App-level shortcuts
+// are still intercepted because WebKit only consumes events it recognises as
+// text input; unhandled events bubble up to this controller.
 func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 	log := logging.FromContext(h.ctx)
 
@@ -167,8 +170,10 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 		return
 	}
 
-	// Set capture phase to intercept events before WebView gets them
-	h.controller.SetPropagationPhase(gtk.PhaseCaptureValue)
+	// Bubble phase: let WebKit IM handle key events first (dead keys, compose
+	// sequences, input methods). Events not consumed by WebKit bubble up here
+	// so app shortcuts still work.
+	h.controller.SetPropagationPhase(gtk.PhaseBubbleValue)
 
 	// Connect key pressed handler (retain callback to prevent GC).
 	// The callback receives: keyval (translated key), keycode (hardware key position), state (modifiers)
@@ -277,7 +282,7 @@ func (h *KeyboardHandler) tryAccentDetection(accentHandler AccentHandler, keyval
 	if modifiers != 0 && modifiers != ModShift {
 		return false
 	}
-	if char := keyvalToRune(keyval); char != 0 {
+	if char := KeyvalToRune(keyval); char != 0 {
 		return accentHandler.OnKeyPressed(h.ctx, char, modifiers == ModShift)
 	}
 	return false
@@ -448,14 +453,14 @@ func (h *KeyboardHandler) handleKeyRelease(keyval uint) {
 	}
 
 	// Convert keyval to rune for the accent handler
-	if char := keyvalToRune(keyval); char != 0 {
+	if char := KeyvalToRune(keyval); char != 0 {
 		accentHandler.OnKeyReleased(h.ctx, char)
 	}
 }
 
-// keyvalToRune converts a GTK keyval to a lowercase rune.
+// KeyvalToRune converts a GTK keyval to a lowercase rune.
 // Returns 0 if the keyval is not a printable character with potential accents.
-func keyvalToRune(keyval uint) rune {
+func KeyvalToRune(keyval uint) rune {
 	// Handle lowercase a-z
 	if keyval >= uint('a') && keyval <= uint('z') {
 		return rune(keyval)
