@@ -7,6 +7,8 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 )
 
+const noChangesMsg = "No changes detected."
+
 // ConfigDiffFormatter implements port.DiffFormatter for formatting config changes.
 type ConfigDiffFormatter struct{}
 
@@ -18,7 +20,7 @@ func NewDiffFormatter() *ConfigDiffFormatter {
 // FormatChangesAsDiff returns changes formatted as a diff for display.
 func (*ConfigDiffFormatter) FormatChangesAsDiff(changes []port.KeyChange) string {
 	if len(changes) == 0 {
-		return "No changes detected."
+		return noChangesMsg
 	}
 
 	var sb strings.Builder
@@ -27,12 +29,12 @@ func (*ConfigDiffFormatter) FormatChangesAsDiff(changes []port.KeyChange) string
 	for _, change := range changes {
 		switch change.Type {
 		case port.KeyChangeAdded:
-			sb.WriteString(fmt.Sprintf("  + %s = %s\n", change.NewKey, change.NewValue))
+			fmt.Fprintf(&sb, "  + %s = %s\n", change.NewKey, change.NewValue)
 		case port.KeyChangeRemoved:
-			sb.WriteString(fmt.Sprintf("  - %s = %s (deprecated)\n", change.OldKey, change.OldValue))
+			fmt.Fprintf(&sb, "  - %s = %s (deprecated)\n", change.OldKey, change.OldValue)
 		case port.KeyChangeRenamed:
-			sb.WriteString(fmt.Sprintf("  ~ %s -> %s\n", change.OldKey, change.NewKey))
-			sb.WriteString(fmt.Sprintf("    (value: %s)\n", change.OldValue))
+			fmt.Fprintf(&sb, "  ~ %s -> %s\n", change.OldKey, change.NewKey)
+			fmt.Fprintf(&sb, "    (value: %s)\n", change.OldValue)
 		}
 	}
 

@@ -54,16 +54,16 @@ func (r *ConfigRenderer) RenderMissingKeys(keys []port.KeyInfo) string {
 	valueStyle := lipgloss.NewStyle().Foreground(r.theme.Text)
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("\n  Missing settings (%d):\n", len(keys)))
+	fmt.Fprintf(&sb, "\n  Missing settings (%d):\n", len(keys))
 
 	for _, key := range keys {
-		sb.WriteString(fmt.Sprintf(
+		fmt.Fprintf(&sb,
 			"    %s %s\n      Type: %s | Default: %s\n",
 			iconStyle.Render(IconCursor),
 			keyStyle.Render(key.Key),
 			typeStyle.Render(key.Type),
 			valueStyle.Render(key.DefaultValue),
-		))
+		)
 	}
 
 	return sb.String()
@@ -98,42 +98,42 @@ func (r *ConfigRenderer) RenderChanges(changes []port.KeyChange) string {
 
 	// Show renamed keys first (most important for user to understand)
 	if len(renamed) > 0 {
-		sb.WriteString(fmt.Sprintf("\n  Renamed settings (%d):\n", len(renamed)))
+		fmt.Fprintf(&sb, "\n  Renamed settings (%d):\n", len(renamed))
 		for _, c := range renamed {
-			sb.WriteString(fmt.Sprintf(
+			fmt.Fprintf(&sb,
 				"    %s %s %s %s\n      Value: %s\n",
 				renameStyle.Render("~"),
 				valueStyle.Render(c.OldKey),
 				renameStyle.Render("→"),
 				keyStyle.Render(c.NewKey),
 				valueStyle.Render(c.OldValue),
-			))
+			)
 		}
 	}
 
 	// Show new settings
 	if len(added) > 0 {
-		sb.WriteString(fmt.Sprintf("\n  New settings (%d):\n", len(added)))
+		fmt.Fprintf(&sb, "\n  New settings (%d):\n", len(added))
 		for _, c := range added {
-			sb.WriteString(fmt.Sprintf(
+			fmt.Fprintf(&sb,
 				"    %s %s\n      Default: %s\n",
 				addStyle.Render("+"),
 				keyStyle.Render(c.NewKey),
 				valueStyle.Render(c.NewValue),
-			))
+			)
 		}
 	}
 
 	// Show deprecated settings (will be removed)
 	if len(removed) > 0 {
-		sb.WriteString(fmt.Sprintf("\n  Deprecated settings (%d):\n", len(removed)))
+		fmt.Fprintf(&sb, "\n  Deprecated settings (%d):\n", len(removed))
 		for _, c := range removed {
-			sb.WriteString(fmt.Sprintf(
+			fmt.Fprintf(&sb,
 				"    %s %s %s\n",
 				removeStyle.Render("-"),
 				valueStyle.Render(c.OldKey),
 				removeStyle.Render("(will be removed)"),
-			))
+			)
 		}
 	}
 

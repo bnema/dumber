@@ -154,7 +154,7 @@ func (h *KeyboardHandler) Mode() Mode {
 // AttachTo attaches the keyboard handler to a GTK window.
 // The handler runs in the bubble phase so that WebKit's IM pipeline (including
 // dead-key / compose sequences) processes key events first. App-level shortcuts
-// are still intercepted because WebKit only consumes events it recognises as
+// are still intercepted because WebKit only consumes events it recognizes as
 // text input; unhandled events bubble up to this controller.
 func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 	log := logging.FromContext(h.ctx)
@@ -275,9 +275,11 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 }
 
 // tryAccentDetection starts long-press detection for accent-eligible keys.
-// Called for both RoutePassToWidget and RouteAccentDetection routes, so the
-// long-press accent picker is available universally (WebView and GTK Entry).
-// Returns true if the key should be suppressed.
+// It is used only for the RouteAccentDetection route (GTK Entry widgets such as
+// the omnibox and find bar). RoutePassToWidget does not call tryAccentDetection;
+// WebView long-press accent behavior is handled entirely by the injected JS bridge
+// (accentDetectionScript) and the Go-side accent key detection script, not here.
+// Returns true if the key should be suppressed (i.e. RouteAccentDetection consumed it).
 func (h *KeyboardHandler) tryAccentDetection(accentHandler AccentHandler, keyval uint, modifiers Modifier) bool {
 	if accentHandler == nil {
 		return false

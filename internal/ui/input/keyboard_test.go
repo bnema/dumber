@@ -81,6 +81,10 @@ func TestIsTextInputKey(t *testing.T) {
 		{"dead tilde", 0xfe53, true},
 		{"dead diaeresis", 0xfe57, true},
 
+		// Dead key upper-bound boundary cases
+		{"dead_greek (0xfe8c) - highest dead key", 0xfe8c, true},
+		{"0xfe8d - one past highest dead key", 0xfe8d, false},
+
 		// Non-text keys (should NOT be treated as text)
 		{"escape", 0xff1b, false},
 		{"return", 0xff0d, false},

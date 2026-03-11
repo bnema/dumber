@@ -74,6 +74,13 @@ func RegisterAll(ctx context.Context, router *webkit.MessageRouter, cfg Config) 
 // RegisterAccentHandlers registers accent key press/release handlers with the router.
 // Must be called after the AccentKeyHandler is initialized (i.e., after initAccentPicker).
 func RegisterAccentHandlers(ctx context.Context, router *webkit.MessageRouter, handler AccentKeyHandler) error {
+	if router == nil {
+		return fmt.Errorf("RegisterAccentHandlers: router must not be nil")
+	}
+	if handler == nil {
+		return fmt.Errorf("RegisterAccentHandlers: handler must not be nil")
+	}
+
 	if err := router.RegisterHandler("accent_key_press", webkit.MessageHandlerFunc(
 		func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
 			var p struct {

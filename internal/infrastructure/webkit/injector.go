@@ -195,6 +195,10 @@ const accentDetectionScript = `(function() {
     }, true);
 })();`
 
+// accentDetectionInjectionMode controls which frames receive the accent detection script.
+// Set to AllFrames so the script runs in iframes as well as the top-level document.
+const accentDetectionInjectionMode = webkit.UserContentInjectAllFramesValue
+
 // webRTCCompatScript maps legacy Safari-prefixed WebRTC globals to standard names.
 // Some pages gate support on window.RTCPeerConnection and report false negatives
 // when only webkit-prefixed constructors are present.
@@ -387,12 +391,12 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		log.Debug().Msg("auto-copy selection script injected")
 	}
 
-	// 7. Inject accent key detection for all pages (unconditional)
+	// 7. Inject accent key detection for all pages and all frames (unconditional).
 	// JS only reports keydown/keyup events; Go handles timing and picker display.
 	addScript(
 		webkit.NewUserScript(
 			accentDetectionScript,
-			webkit.UserContentInjectTopFrameValue,
+			accentDetectionInjectionMode,
 			webkit.UserScriptInjectAtDocumentEndValue,
 			nil, // all pages
 			nil,

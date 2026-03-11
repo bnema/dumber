@@ -363,6 +363,7 @@ func doRequestWithRetryHelper(
 		if attempt > maxRetryAttempts {
 			return nil, fmt.Errorf("request failed after retries")
 		}
+		//nolint:gosec // G107: callers validate or construct trusted GitHub request URLs before passing them here
 		resp, err := client.Do(req)
 		if err != nil {
 			if !isRetryableRequestError(err) || attempt == maxRetryAttempts {

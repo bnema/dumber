@@ -35,8 +35,8 @@ func DefaultFontConfig() FontConfig {
 func FontCSSVars(fonts FontConfig) string {
 	var sb strings.Builder
 	// Quote the configured family; include generic fallback.
-	sb.WriteString(fmt.Sprintf("  --font-sans: %q, sans-serif;\n", fonts.SansFont))
-	sb.WriteString(fmt.Sprintf("  --font-mono: %q, monospace;\n", fonts.MonospaceFont))
+	fmt.Fprintf(&sb, "  --font-sans: %q, sans-serif;\n", fonts.SansFont)
+	fmt.Fprintf(&sb, "  --font-mono: %q, monospace;\n", fonts.MonospaceFont)
 	return sb.String()
 }
 

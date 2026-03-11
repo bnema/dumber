@@ -162,6 +162,7 @@ func (a *Applier) StageUpdate(ctx context.Context, newBinaryPath string) error {
 
 	// Write to staging location.
 	stagedPath := a.stagedBinaryPath()
+	//nolint:gosec // G703: staged path is the app-managed pending-update path under the configured state dir
 	if err := os.WriteFile(stagedPath, newBinary, applierExecPerm); err != nil {
 		return fmt.Errorf("failed to write staged binary: %w", err)
 	}
