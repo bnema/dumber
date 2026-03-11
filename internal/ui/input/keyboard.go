@@ -239,15 +239,19 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 	}
 
 	switch route {
-	case RoutePassToWidget, RouteAccentDetection:
-		// Try long-press accent detection first. This enables the accent picker
-		// universally -- for both GTK Entry widgets and WebView text inputs.
+	case RoutePassToWidget:
+		// Let the focused widget handle this key directly (WebView IM, etc.)
+		// No accent detection here -- WebView has its own JS-based accent detection.
+		log.Trace().Uint("keyval", keyval).Msg("routing key to focused widget")
+		return false
+
+	case RouteAccentDetection:
+		// Try long-press accent detection for GTK Entry widgets (omnibox, find bar).
 		// If the accent handler doesn't consume the key, pass it to the widget.
 		if h.tryAccentDetection(accentHandler, keyval, modifiers) {
 			return true
 		}
-		// Let the focused widget handle this key (WebView IM, GTK Entry, etc.)
-		log.Trace().Uint("keyval", keyval).Msg("routing key to focused widget")
+		log.Trace().Uint("keyval", keyval).Msg("accent detection declined, routing to widget")
 		return false
 
 	case RouteHandleShortcuts:

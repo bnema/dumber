@@ -20,6 +20,18 @@ func newTestConfig() *config.Config {
 	return cfg
 }
 
+// stubAccentHandler is a test stub for the AccentHandler interface.
+type stubAccentHandler struct {
+	onKeyPressedResult bool
+}
+
+func (s *stubAccentHandler) OnKeyPressed(_ context.Context, _ rune, _ bool) bool {
+	return s.onKeyPressedResult
+}
+func (s *stubAccentHandler) OnKeyReleased(_ context.Context, _ rune) {}
+func (s *stubAccentHandler) IsPickerVisible() bool                   { return false }
+func (s *stubAccentHandler) Cancel(_ context.Context)                {}
+
 func TestIsShortcutModified(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -126,6 +138,9 @@ func TestHandleKeyPress_RouteAccentDetection_NoAccent(t *testing.T) {
 	cfg := newTestConfig()
 
 	h := NewKeyboardHandler(ctx, cfg)
+
+	// Set a stub accent handler that always returns false (simulates "no accents for this key")
+	h.SetAccentHandler(&stubAccentHandler{onKeyPressedResult: false})
 
 	// Route to accent detection
 	h.SetRouteKey(func(kc KeyContext) KeyRoute {

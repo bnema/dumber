@@ -150,7 +150,21 @@ const accentDetectionScript = `(function() {
     // Track pressed key for release matching
     let pressedKey = null;
 
+    // Check if the event target is an editable element (input, textarea, contenteditable)
+    function isEditableTarget(target) {
+        const el = target instanceof Element ? target : null;
+        if (!el) return false;
+        if (el.closest('[contenteditable=""], [contenteditable="true"]')) return true;
+        if (el.closest('textarea')) return true;
+        const input = el.closest('input');
+        if (!input) return false;
+        // Exclude non-text input types
+        return !/^(button|checkbox|color|file|hidden|image|radio|range|reset|submit)$/i.test(input.type);
+    }
+
     document.addEventListener('keydown', function(e) {
+        if (!isEditableTarget(e.target)) return;
+
         // Only handle a-z keys, with optional Shift
         // Skip if Ctrl or Alt are held (those are shortcuts)
         if (e.ctrlKey || e.altKey || e.metaKey) return;
@@ -169,6 +183,7 @@ const accentDetectionScript = `(function() {
     }, true);  // capture phase to see events first
 
     document.addEventListener('keyup', function(e) {
+        if (!isEditableTarget(e.target)) return;
         const key = e.key.toLowerCase();
         if (key === pressedKey) {
             pressedKey = null;

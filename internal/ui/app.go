@@ -671,12 +671,12 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 
 		if wsView.IsOmniboxVisible() || wsView.IsFindBarVisible() {
 			// GTK Entry focused (omnibox or find bar): Alt-modified keys go to
-			// shortcuts (pane navigation), text keys go to accent detection
-			// for long-press accent picker
+			// shortcuts (pane navigation), other keys pass through to the widget's
+			// own capture-phase key controller (which handles accent detection)
 			if kc.Modifiers&input.ModAlt != 0 {
 				return input.RouteHandleShortcuts
 			}
-			return input.RouteAccentDetection
+			return input.RoutePassToWidget
 		}
 
 		// WebView focused: text/dead keys pass through for native IM compose,
