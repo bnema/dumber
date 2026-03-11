@@ -2,10 +2,12 @@ package usecase
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	repomocks "github.com/bnema/dumber/internal/domain/repository/mocks"
+	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -56,5 +58,34 @@ func TestRecordHistory_DedupIsPerPaneAndCoalescesVisits(t *testing.T) {
 	uc.RecordHistory(ctx, "pane-1", "https://example.com/article?utm_source=feed")
 	uc.RecordHistory(ctx, "pane-1", "https://example.com/article?utm_source=feed")
 	uc.RecordHistory(ctx, "pane-2", "https://example.com/article")
+	uc.Close()
+}
+
+func TestUpdateHistoryTitle_UsesMetadataUpdateWithoutIncrementingVisits(t *testing.T) {
+	ctx := context.Background()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewHistoryRepository(db)
+	require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{
+		URL:   "https://example.com/article",
+		Title: "Old",
+	}))
+
+	before, err := repo.FindByURL(ctx, "https://example.com/article")
+	require.NoError(t, err)
+	require.NotNil(t, before)
+
+	uc := NewNavigateUseCase(repo, nil, entity.ZoomDefault)
+	err = uc.UpdateHistoryTitle(ctx, "https://example.com/article", "New")
+	require.NoError(t, err)
+
+	after, err := repo.FindByURL(ctx, "https://example.com/article")
+	require.NoError(t, err)
+	require.NotNil(t, after)
+	require.Equal(t, "New", after.Title)
+	require.Equal(t, before.VisitCount, after.VisitCount)
 	uc.Close()
 }

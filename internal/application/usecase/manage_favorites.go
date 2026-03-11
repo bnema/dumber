@@ -3,9 +3,14 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
+	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -14,7 +19,14 @@ type ManageFavoritesUseCase struct {
 	favoriteRepo repository.FavoriteRepository
 	folderRepo   repository.FolderRepository
 	tagRepo      repository.TagRepository
+
+	cacheMu           sync.Mutex
+	favoritesCache    []*entity.Favorite
+	favoriteURLsCache map[string]struct{}
+	cacheTime         time.Time
 }
+
+const favoritesCacheTTL = 2 * time.Second
 
 // NewManageFavoritesUseCase creates a new favorites management use case.
 func NewManageFavoritesUseCase(
@@ -73,6 +85,7 @@ func (uc *ManageFavoritesUseCase) Add(ctx context.Context, input AddFavoriteInpu
 	}
 
 	log.Info().Str("url", input.URL).Int64("id", int64(fav.ID)).Msg("favorite added")
+	uc.invalidateCache()
 	return fav, nil
 }
 
@@ -86,6 +99,7 @@ func (uc *ManageFavoritesUseCase) Remove(ctx context.Context, id entity.Favorite
 	}
 
 	log.Info().Int64("id", int64(id)).Msg("favorite removed")
+	uc.invalidateCache()
 	return nil
 }
 
@@ -116,6 +130,7 @@ func (uc *ManageFavoritesUseCase) Update(ctx context.Context, fav *entity.Favori
 	}
 
 	log.Info().Int64("id", int64(fav.ID)).Msg("favorite updated")
+	uc.invalidateCache()
 	return nil
 }
 
@@ -131,6 +146,7 @@ func (uc *ManageFavoritesUseCase) Move(ctx context.Context, id entity.FavoriteID
 	}
 
 	log.Info().Int64("id", int64(id)).Msg("favorite moved")
+	uc.invalidateCache()
 	return nil
 }
 
@@ -150,6 +166,7 @@ func (uc *ManageFavoritesUseCase) SetShortcut(ctx context.Context, id entity.Fav
 		return fmt.Errorf("failed to set shortcut: %w", err)
 	}
 
+	uc.invalidateCache()
 	return nil
 }
 
@@ -178,13 +195,72 @@ func (uc *ManageFavoritesUseCase) GetAll(ctx context.Context) ([]*entity.Favorit
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("getting all favorites")
 
+	uc.cacheMu.Lock()
+	if time.Since(uc.cacheTime) < favoritesCacheTTL && uc.favoritesCache != nil {
+		cached := uc.favoritesCache
+		uc.cacheMu.Unlock()
+		return cached, nil
+	}
+	uc.cacheMu.Unlock()
+
 	favs, err := uc.favoriteRepo.GetAll(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get favorites: %w", err)
 	}
 
+	uc.cacheMu.Lock()
+	if time.Since(uc.cacheTime) < favoritesCacheTTL && uc.favoritesCache != nil {
+		cached := uc.favoritesCache
+		uc.cacheMu.Unlock()
+		return cached, nil
+	}
+	uc.favoritesCache = favs
+	uc.favoriteURLsCache = buildFavoriteURLSet(favs)
+	uc.cacheTime = time.Now()
+	uc.cacheMu.Unlock()
+
 	log.Debug().Int("count", len(favs)).Msg("retrieved favorites")
 	return favs, nil
+}
+
+// FilterForOmnibox returns favorites filtered and ranked for omnibox display.
+func (uc *ManageFavoritesUseCase) FilterForOmnibox(ctx context.Context, query string) ([]*entity.Favorite, error) {
+	favs, err := uc.GetAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	queryLower := strings.ToLower(strings.TrimSpace(query))
+	if queryLower == "" {
+		return favs, nil
+	}
+
+	filtered := make([]*entity.Favorite, 0, len(favs))
+	for _, fav := range favs {
+		if fav == nil {
+			continue
+		}
+		titleLower := strings.ToLower(fav.Title)
+		urlLower := strings.ToLower(fav.URL)
+		if !strings.Contains(titleLower, queryLower) && !strings.Contains(urlLower, queryLower) {
+			continue
+		}
+		filtered = append(filtered, fav)
+	}
+
+	sort.SliceStable(filtered, func(i, j int) bool {
+		leftScore := omniboxFavoriteScore(filtered[i], queryLower)
+		rightScore := omniboxFavoriteScore(filtered[j], queryLower)
+		if leftScore != rightScore {
+			return leftScore > rightScore
+		}
+		if filtered[i].Position != filtered[j].Position {
+			return filtered[i].Position < filtered[j].Position
+		}
+		return filtered[i].URL < filtered[j].URL
+	})
+
+	return filtered, nil
 }
 
 // IsFavorite checks if a URL is favorited.
@@ -194,6 +270,42 @@ func (uc *ManageFavoritesUseCase) IsFavorite(ctx context.Context, url string) (b
 		return false, fmt.Errorf("failed to check favorite: %w", err)
 	}
 	return fav != nil, nil
+}
+
+func omniboxFavoriteScore(fav *entity.Favorite, queryLower string) int {
+	if fav == nil || queryLower == "" {
+		return 0
+	}
+
+	const (
+		favoriteExactMatchScore    = 600
+		favoriteHostPrefixScore    = 520
+		favoriteTitlePrefixScore   = 440
+		favoriteTitleContainsScore = 320
+		favoriteURLContainsScore   = 280
+	)
+
+	urlLower := strings.ToLower(fav.URL)
+	strippedURLLower := strings.ToLower(strings.TrimPrefix(domainurl.ExtractDomain(fav.URL), "www."))
+	if strippedURLLower == "" {
+		strippedURLLower = strings.ToLower(strings.TrimPrefix(strings.TrimPrefix(fav.URL, "https://"), "http://"))
+	}
+	titleLower := strings.ToLower(fav.Title)
+
+	switch {
+	case titleLower == queryLower || urlLower == queryLower:
+		return favoriteExactMatchScore
+	case strings.HasPrefix(strippedURLLower, queryLower) || strings.HasPrefix(urlLower, queryLower):
+		return favoriteHostPrefixScore
+	case strings.HasPrefix(titleLower, queryLower):
+		return favoriteTitlePrefixScore
+	case strings.Contains(titleLower, queryLower):
+		return favoriteTitleContainsScore
+	case strings.Contains(urlLower, queryLower):
+		return favoriteURLContainsScore
+	default:
+		return 0
+	}
 }
 
 // ToggleResult indicates the result of a toggle operation.
@@ -226,6 +338,7 @@ func (uc *ManageFavoritesUseCase) Toggle(ctx context.Context, url, title string)
 			return nil, fmt.Errorf("failed to remove favorite: %w", err)
 		}
 		log.Info().Str("url", url).Int64("id", int64(existing.ID)).Msg("favorite removed via toggle")
+		uc.invalidateCache()
 		return &ToggleResult{
 			Added:   false,
 			URL:     url,
@@ -240,6 +353,7 @@ func (uc *ManageFavoritesUseCase) Toggle(ctx context.Context, url, title string)
 		return nil, fmt.Errorf("failed to add favorite: %w", err)
 	}
 	log.Info().Str("url", url).Int64("id", int64(fav.ID)).Msg("favorite added via toggle")
+	uc.invalidateCache()
 	return &ToggleResult{
 		Added:   true,
 		URL:     url,
@@ -253,18 +367,42 @@ func (uc *ManageFavoritesUseCase) GetAllURLs(ctx context.Context) (map[string]st
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("getting all favorite URLs")
 
-	favs, err := uc.favoriteRepo.GetAll(ctx)
+	uc.cacheMu.Lock()
+	if time.Since(uc.cacheTime) < favoritesCacheTTL && uc.favoriteURLsCache != nil {
+		cached := uc.favoriteURLsCache
+		uc.cacheMu.Unlock()
+		return cached, nil
+	}
+	uc.cacheMu.Unlock()
+
+	favs, err := uc.GetAll(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get favorites: %w", err)
 	}
 
-	urls := make(map[string]struct{}, len(favs))
-	for _, fav := range favs {
-		urls[fav.URL] = struct{}{}
-	}
+	urls := buildFavoriteURLSet(favs)
 
 	log.Debug().Int("count", len(urls)).Msg("retrieved favorite URLs")
 	return urls, nil
+}
+
+func buildFavoriteURLSet(favs []*entity.Favorite) map[string]struct{} {
+	urls := make(map[string]struct{}, len(favs))
+	for _, fav := range favs {
+		if fav == nil || fav.URL == "" {
+			continue
+		}
+		urls[fav.URL] = struct{}{}
+	}
+	return urls
+}
+
+func (uc *ManageFavoritesUseCase) invalidateCache() {
+	uc.cacheMu.Lock()
+	defer uc.cacheMu.Unlock()
+	uc.favoritesCache = nil
+	uc.favoriteURLsCache = nil
+	uc.cacheTime = time.Time{}
 }
 
 // GetTree builds a complete hierarchical view of folders and favorites.
@@ -359,6 +497,7 @@ func (uc *ManageFavoritesUseCase) DeleteFolder(ctx context.Context, id entity.Fo
 				Msg("failed to move favorite from deleted folder")
 		}
 	}
+	uc.invalidateCache()
 
 	// Get child folders
 	children, err := uc.folderRepo.GetChildren(ctx, &id)

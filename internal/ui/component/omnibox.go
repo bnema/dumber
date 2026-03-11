@@ -106,7 +106,6 @@ type Omnibox struct {
 	faviconAdapter  *adapter.FaviconAdapter
 	copyURLUC       *usecase.CopyURLUseCase
 	shortcutsUC     *usecase.SearchShortcutsUseCase
-	autocompleteUC  *usecase.AutocompleteUseCase
 	defaultSearch   string
 	initialBehavior string
 	ctx             context.Context
@@ -150,7 +149,6 @@ type OmniboxConfig struct {
 	FaviconAdapter  *adapter.FaviconAdapter
 	CopyURLUC       *usecase.CopyURLUseCase
 	ShortcutsUC     *usecase.SearchShortcutsUseCase
-	AutocompleteUC  *usecase.AutocompleteUseCase
 	DefaultSearch   string
 	InitialBehavior string
 	UIScale         float64                                                     // UI scale for favicon sizing
@@ -178,7 +176,6 @@ func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 		faviconAdapter:  cfg.FaviconAdapter,
 		copyURLUC:       cfg.CopyURLUC,
 		shortcutsUC:     cfg.ShortcutsUC,
-		autocompleteUC:  cfg.AutocompleteUC,
 		defaultSearch:   cfg.DefaultSearch,
 		initialBehavior: cfg.InitialBehavior,
 		onToast:         cfg.OnToast,
@@ -540,18 +537,20 @@ func (o *Omnibox) initList() error {
 	o.listBox.SetSelectionMode(gtk.SelectionSingleValue)
 
 	rowSelectedCb := func(_ gtk.ListBox, rowPtr uintptr) {
+		o.restoreEntryToRealInput()
 		if rowPtr == 0 {
 			o.mu.Lock()
 			o.selectedIndex = -1
 			o.mu.Unlock()
-			return
+		} else {
+			row := gtk.ListBoxRowNewFromInternalPtr(rowPtr)
+			if row != nil {
+				o.mu.Lock()
+				o.selectedIndex = row.GetIndex()
+				o.mu.Unlock()
+			}
 		}
-		row := gtk.ListBoxRowNewFromInternalPtr(rowPtr)
-		if row != nil {
-			o.mu.Lock()
-			o.selectedIndex = row.GetIndex()
-			o.mu.Unlock()
-		}
+		o.updateGhostFromSelection()
 	}
 	o.retainedCallbacks = append(o.retainedCallbacks, rowSelectedCb)
 	o.listBox.ConnectRowSelected(&rowSelectedCb)
@@ -700,12 +699,10 @@ func (o *Omnibox) handleKeyPress(keyval, keycode uint, state gdk.ModifierType) b
 
 	case uint(gdk.KEY_Up):
 		o.selectPrevious()
-		o.updateGhostFromSelection()
 		return true
 
 	case uint(gdk.KEY_Down):
 		o.selectNext()
-		o.updateGhostFromSelection()
 		return true
 
 	case uint(gdk.KEY_Tab):
@@ -1060,7 +1057,48 @@ func (o *Omnibox) updateGhostFromURL(userInput, targetURL string) bool {
 
 // updateGhostFromSelection updates ghost text based on the currently selected row.
 func (o *Omnibox) updateGhostFromSelection() {
-	o.updateGhostFromSelectionWithInput(o.entry.GetText())
+	o.mu.RLock()
+	realInput := o.realInput
+	hasGhost := o.hasGhostText
+	o.mu.RUnlock()
+
+	entryText := ""
+	if o.entry != nil {
+		entryText = o.entry.GetText()
+	}
+
+	query := effectiveSearchQuery(entryText, realInput, hasGhost)
+	o.restoreEntryToRealInput()
+	o.updateGhostFromSelectionWithInput(query)
+}
+
+func (o *Omnibox) restoreEntryToRealInput() {
+	if o.entry == nil {
+		return
+	}
+
+	o.mu.RLock()
+	realInput := o.realInput
+	hadGhost := o.hasGhostText || o.ghostSuffix != "" || o.ghostFullText != ""
+	o.mu.RUnlock()
+
+	o.mu.Lock()
+	o.isAcceptingGhost = true
+	o.ghostToken++
+	o.ghostSuffix = ""
+	o.ghostFullText = ""
+	o.hasGhostText = false
+	o.mu.Unlock()
+
+	if hadGhost || o.entry.GetText() != realInput {
+		o.entry.SetText(realInput)
+	}
+	o.entry.SelectRegion(-1, -1)
+	o.entry.SetPosition(-1)
+
+	o.mu.Lock()
+	o.isAcceptingGhost = false
+	o.mu.Unlock()
 }
 
 // updateGhostFromSelectionWithInput updates ghost text based on selected row and input.
@@ -1091,20 +1129,11 @@ func (o *Omnibox) updateGhostFromSelectionWithInput(entryText string) {
 		return
 	}
 
-	if entryText != "" {
-		o.resolveGhostCompletion(entryText, mode, suggestions, favorites)
-		return
-	}
+	targetURL, hasExplicitSelection := selectedTargetURL(mode, idx, suggestions, favorites)
 
-	var targetURL string
-	if mode == ViewModeHistory {
-		if idx >= 0 && idx < len(suggestions) {
-			targetURL = suggestions[idx].URL
-		}
-	} else {
-		if idx >= 0 && idx < len(favorites) {
-			targetURL = favorites[idx].URL
-		}
+	if entryText != "" {
+		o.resolveGhostCompletion(entryText, targetURL, hasExplicitSelection, mode, suggestions, favorites)
+		return
 	}
 
 	if targetURL == "" {
@@ -1119,52 +1148,34 @@ func (o *Omnibox) updateGhostFromSelectionWithInput(entryText string) {
 	o.clearGhostTextIfInput(entryText)
 }
 
-func (o *Omnibox) resolveGhostCompletion(entryText string, mode ViewMode, suggestions []Suggestion, favorites []Favorite) {
-	if o.autocompleteUC == nil {
-		o.clearGhostTextIfInput(entryText)
-		return
-	}
-
+func (o *Omnibox) resolveGhostCompletion(
+	entryText, selectedURL string,
+	hasExplicitSelection bool,
+	mode ViewMode,
+	suggestions []Suggestion,
+	favorites []Favorite,
+) {
 	leadingWhitespace, completionInput, ok := ghostCompletionInput(entryText)
 	if !ok {
 		o.clearGhostTextIfInput(entryText)
 		return
 	}
 
-	visibleURLs := make([]string, 0, len(suggestions))
-	if mode == ViewModeHistory {
-		for _, s := range suggestions {
-			if s.URL != "" {
-				visibleURLs = append(visibleURLs, s.URL)
-			}
-		}
-	} else {
-		for _, f := range favorites {
-			if f.URL != "" {
-				visibleURLs = append(visibleURLs, f.URL)
-			}
-		}
-	}
-
 	o.mu.Lock()
 	o.ghostToken++
 	ghostToken := o.ghostToken
-	searchToken := o.searchToken
 	o.mu.Unlock()
 
 	go func() {
-		suggestion := o.autocompleteUC.ResolveCompletion(o.ctx, completionInput, usecase.CompletionOptions{
-			VisibleURLs: visibleURLs,
-			AllowBangs:  false,
-		})
-		if !o.isGhostTokenCurrent(searchToken, ghostToken, entryText) {
+		fullText, suffix, found := visibleGhostSuggestion(completionInput, selectedURL, hasExplicitSelection, mode, suggestions, favorites)
+		if !o.isGhostTokenCurrent(ghostToken, entryText) {
 			return
 		}
-		if suggestion == nil {
+		if !found {
 			o.clearGhostTextIfInput(entryText)
 			return
 		}
-		fullText, suffix := normalizeGhostSuggestion(completionInput, suggestion.FullText, suggestion.Suffix)
+		fullText, suffix = normalizeGhostSuggestion(completionInput, fullText, suffix)
 		if fullText == "" || suffix == "" {
 			o.clearGhostTextIfInput(entryText)
 			return
@@ -1223,11 +1234,54 @@ func extractHostForCompletion(raw string) string {
 	return strings.TrimSpace(trimmed)
 }
 
-func (o *Omnibox) isGhostTokenCurrent(searchToken, ghostToken uint64, query string) bool {
+func visibleGhostSuggestion(
+	query, selectedURL string,
+	hasExplicitSelection bool,
+	mode ViewMode,
+	suggestions []Suggestion,
+	favorites []Favorite,
+) (fullText, suffix string, ok bool) {
+	if hasExplicitSelection {
+		suffix, fullText, ok = autocomplete.ComputeURLCompletionSuffix(query, selectedURL)
+		return fullText, suffix, ok
+	}
+
+	visibleURLs := visibleURLsForMode(mode, suggestions, favorites)
+	suffix, fullText, ok = autocomplete.BestURLCompletion(query, visibleURLs)
+	return fullText, suffix, ok
+}
+
+func visibleURLsForMode(mode ViewMode, suggestions []Suggestion, favorites []Favorite) []string {
+	if mode == ViewModeHistory {
+		urls := make([]string, 0, len(suggestions))
+		for _, s := range suggestions {
+			if s.URL != "" {
+				urls = append(urls, s.URL)
+			}
+		}
+		return urls
+	}
+
+	urls := make([]string, 0, len(favorites))
+	for _, f := range favorites {
+		if f.URL != "" {
+			urls = append(urls, f.URL)
+		}
+	}
+	return urls
+}
+
+func selectedTargetURL(mode ViewMode, idx int, suggestions []Suggestion, favorites []Favorite) (string, bool) {
+	if idx < 0 {
+		return "", false
+	}
+	return resolveTargetURLForSelection(mode, idx, suggestions, favorites), true
+}
+
+func (o *Omnibox) isGhostTokenCurrent(ghostToken uint64, query string) bool {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 	return o.visible &&
-		o.searchToken == searchToken &&
 		o.ghostToken == ghostToken &&
 		o.realInput == query
 }
@@ -1263,8 +1317,8 @@ func (o *Omnibox) performSearch() {
 	o.mu.Unlock()
 
 	if strings.HasPrefix(query, "!") {
-		o.updateBangDetection(query)
-		o.loadBangSuggestions(query)
+		o.updateBangDetection(query, token)
+		o.loadBangSuggestions(query, token)
 		return
 	}
 
@@ -1379,8 +1433,18 @@ func (o *Omnibox) loadInitialHistory(token uint64) {
 			favCh := make(chan map[string]struct{}, 1)
 
 			go func() {
-				// TODO: Implement GetMostVisited in use case if needed
-				results, err := o.historyUC.GetRecent(ctx, initialLimit, 0)
+				var (
+					results []*entity.HistoryEntry
+					err     error
+				)
+				if o.initialBehavior == "most_visited" {
+					results, err = o.historyUC.GetMostVisited(ctx, 0)
+					if err == nil && len(results) > initialLimit {
+						results = results[:initialLimit]
+					}
+				} else {
+					results, err = o.historyUC.GetRecent(ctx, initialLimit, 0)
+				}
 				historyCh <- historyResult{results, err}
 			}()
 
@@ -1424,23 +1488,14 @@ func (o *Omnibox) loadFavorites(query string, token uint64) {
 	go func() {
 		ctx := o.ctx
 		log := logging.FromContext(ctx)
-		results, err := o.favoritesUC.GetAll(ctx)
+		results, err := o.favoritesUC.FilterForOmnibox(ctx, query)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to load favorites")
 			return
 		}
 
 		favorites := make([]Favorite, 0, len(results))
-		queryLower := strings.ToLower(query)
 		for i, r := range results {
-			// Filter by query if provided
-			if query != "" {
-				titleMatch := strings.Contains(strings.ToLower(r.Title), queryLower)
-				urlMatch := strings.Contains(strings.ToLower(r.URL), queryLower)
-				if !titleMatch && !urlMatch {
-					continue
-				}
-			}
 			favorites = append(favorites, Favorite{
 				ID:       int64(r.ID),
 				URL:      r.URL,
@@ -1453,7 +1508,7 @@ func (o *Omnibox) loadFavorites(query string, token uint64) {
 	}()
 }
 
-func (o *Omnibox) loadBangSuggestions(query string) {
+func (o *Omnibox) loadBangSuggestions(query string, token uint64) {
 	if o.shortcutsUC == nil {
 		return
 	}
@@ -1462,21 +1517,21 @@ func (o *Omnibox) loadBangSuggestions(query string) {
 	for i, s := range output.Suggestions {
 		suggestions[i] = BangSuggestion{Key: s.Key, Description: s.Description}
 	}
-	o.idleAddUpdateBangSuggestions(suggestions)
+	o.idleAddUpdateBangSuggestions(suggestions, query, token)
 }
 
-func (o *Omnibox) updateBangDetection(query string) {
+func (o *Omnibox) updateBangDetection(query string, token uint64) {
 	if o.shortcutsUC == nil {
-		o.clearDetectedBang()
+		o.clearDetectedBang(query, token)
 		return
 	}
 	output := o.shortcutsUC.DetectBangKey(o.ctx, usecase.DetectBangKeyInput{Query: query})
 	if output.Key == "" {
-		o.clearDetectedBang()
+		o.clearDetectedBang(query, token)
 		return
 	}
 
-	o.setDetectedBang(output.Key, output.Description)
+	o.setDetectedBang(output.Key, output.Description, query, token)
 }
 
 func (o *Omnibox) clearBangState() {
@@ -1485,10 +1540,14 @@ func (o *Omnibox) clearBangState() {
 	o.bangSuggestions = nil
 	o.mu.Unlock()
 
-	o.clearDetectedBang()
+	o.mu.RLock()
+	query := o.realInput
+	token := o.searchToken
+	o.mu.RUnlock()
+	o.clearDetectedBang(query, token)
 }
 
-func (o *Omnibox) setDetectedBang(key, description string) {
+func (o *Omnibox) setDetectedBang(key, description, query string, token uint64) {
 	o.mu.Lock()
 	o.detectedBang = key
 	o.mu.Unlock()
@@ -1498,6 +1557,9 @@ func (o *Omnibox) setDetectedBang(key, description string) {
 	}
 	label := description
 	var cb glib.SourceFunc = func(uintptr) bool {
+		if !o.isBangUpdateCurrent(query, token) {
+			return false
+		}
 		o.entry.AddCssClass("omnibox-entry-bang-active")
 		o.bangBadge.SetText(label)
 		o.bangBadge.SetVisible(true)
@@ -1506,7 +1568,7 @@ func (o *Omnibox) setDetectedBang(key, description string) {
 	glib.IdleAdd(&cb, 0)
 }
 
-func (o *Omnibox) clearDetectedBang() {
+func (o *Omnibox) clearDetectedBang(query string, token uint64) {
 	o.mu.Lock()
 	o.detectedBang = ""
 	o.mu.Unlock()
@@ -1515,6 +1577,9 @@ func (o *Omnibox) clearDetectedBang() {
 		return
 	}
 	var cb glib.SourceFunc = func(uintptr) bool {
+		if !o.isBangUpdateCurrent(query, token) {
+			return false
+		}
 		o.entry.RemoveCssClass("omnibox-entry-bang-active")
 		o.bangBadge.SetVisible(false)
 		return false
@@ -1522,8 +1587,11 @@ func (o *Omnibox) clearDetectedBang() {
 	glib.IdleAdd(&cb, 0)
 }
 
-func (o *Omnibox) idleAddUpdateBangSuggestions(suggestions []BangSuggestion) {
+func (o *Omnibox) idleAddUpdateBangSuggestions(suggestions []BangSuggestion, query string, token uint64) {
 	var cb glib.SourceFunc = func(uintptr) bool {
+		if !o.isBangUpdateCurrent(query, token) {
+			return false
+		}
 		o.updateBangSuggestions(suggestions)
 		return false
 	}
@@ -1535,6 +1603,7 @@ func (o *Omnibox) updateBangSuggestions(suggestions []BangSuggestion) {
 	o.bangMode = true
 	o.bangSuggestions = suggestions
 	o.selectedIndex = -1
+	o.hasNavigated = false
 	o.mu.Unlock()
 
 	o.rebuildList()
@@ -1544,10 +1613,6 @@ func (o *Omnibox) updateBangSuggestions(suggestions []BangSuggestion) {
 		o.scrolledWin.SetVisible(rowCount > 0)
 	}
 	o.resizeAndCenter(rowCount)
-
-	if rowCount > 0 {
-		o.selectIndex(0)
-	}
 }
 
 // updateSuggestions updates the list with history suggestions.
@@ -1569,9 +1634,7 @@ func (o *Omnibox) updateSuggestions(suggestions []Suggestion, query string) {
 	}
 	o.resizeAndCenter(rowCount)
 
-	// Select first item if available and update ghost text
 	if rowCount > 0 {
-		o.selectIndex(0)
 		o.updateGhostFromSelectionWithInput(query)
 	} else {
 		o.clearGhostTextIfInput(query)
@@ -1597,9 +1660,7 @@ func (o *Omnibox) updateFavorites(favorites []Favorite, query string) {
 	}
 	o.resizeAndCenter(rowCount)
 
-	// Select first item if available and update ghost text
 	if rowCount > 0 {
-		o.selectIndex(0)
 		o.updateGhostFromSelectionWithInput(query)
 	} else {
 		o.clearGhostTextIfInput(query)
@@ -1713,6 +1774,7 @@ func (o *Omnibox) createRowWithFaviconURL(displayURL, title, faviconURL, fallbac
 		return nil
 	}
 	row.AddCssClass("omnibox-row")
+	o.attachRowHoverSelection(row, index)
 
 	const rowSpacing = 8
 	hbox := gtk.NewBox(gtk.OrientationHorizontalValue, rowSpacing)
@@ -1783,6 +1845,33 @@ func (o *Omnibox) createRowWithFaviconURL(displayURL, title, faviconURL, fallbac
 	return row
 }
 
+func (o *Omnibox) attachRowHoverSelection(row *gtk.ListBoxRow, index int) {
+	motionCtrl := gtk.NewEventControllerMotion()
+	if motionCtrl == nil {
+		return
+	}
+
+	enterCb := func(_ gtk.EventControllerMotion, _ float64, _ float64) {
+		o.mu.RLock()
+		realInput := o.realInput
+		hasGhostText := o.hasGhostText
+		hasNavigated := o.hasNavigated
+		o.mu.RUnlock()
+
+		if !shouldPromoteHoverSelection(realInput, hasGhostText, hasNavigated) {
+			return
+		}
+		o.selectIndex(index)
+	}
+	o.retainedCallbacks = append(o.retainedCallbacks, enterCb)
+	motionCtrl.ConnectEnter(&enterCb)
+	row.AddController(&motionCtrl.EventController)
+}
+
+func shouldPromoteHoverSelection(realInput string, hasGhostText, hasNavigated bool) bool {
+	return realInput == "" && !hasGhostText && !hasNavigated
+}
+
 // createSuggestionRow creates a ListBoxRow for a suggestion.
 func (o *Omnibox) createSuggestionRow(s Suggestion, index int) *gtk.ListBoxRow {
 	row := o.createRowWithFavicon(s.URL, s.Title, "web-browser-symbolic", index)
@@ -1809,13 +1898,19 @@ func (o *Omnibox) createBangRow(b BangSuggestion, index int) *gtk.ListBoxRow {
 
 // selectIndex selects a row by index.
 func (o *Omnibox) selectIndex(index int) {
+	o.mu.Lock()
+	o.selectedIndex = index
+	o.mu.Unlock()
+
 	// Note: Don't hold mutex when calling SelectRow - it triggers rowSelectedCb
 	// which also acquires the mutex, causing deadlock
 	row := o.listBox.GetRowAtIndex(index)
 	if row != nil {
 		o.listBox.SelectRow(row)
-		// selectedIndex is updated by rowSelectedCb
+		return
 	}
+
+	o.updateGhostFromSelection()
 }
 
 // selectNext moves selection down.
@@ -1938,16 +2033,14 @@ func (o *Omnibox) navigateToSelected() {
 			o.entry.SetPosition(-1)
 			return
 		}
+		return
 	}
 
 	var targetURL string
-	if shouldPreferTypedURLNavigation(entryText) {
-		targetURL = o.buildURL(entryText)
-	} else if idx >= 0 {
+	if idx >= 0 {
 		// If user has selected a result, navigate to that result.
 		targetURL = resolveTargetURLForSelection(mode, idx, suggestions, favorites)
 	} else {
-		// No selection - use entry text as URL/search.
 		targetURL = o.buildURL(entryText)
 	}
 
@@ -2408,6 +2501,12 @@ func (o *Omnibox) isSearchTokenCurrent(token uint64) bool {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 	return o.visible && o.searchToken == token
+}
+
+func (o *Omnibox) isBangUpdateCurrent(query string, token uint64) bool {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	return o.visible && o.searchToken == token && o.realInput == query
 }
 
 // Widget returns the omnibox widget for embedding in an overlay.

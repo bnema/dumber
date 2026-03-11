@@ -123,6 +123,18 @@ func (r *LazyHistoryRepository) FindByURL(ctx context.Context, url string) (*ent
 	return r.repo.FindByURL(ctx, url)
 }
 
+func (r *LazyHistoryRepository) UpdateMetadata(ctx context.Context, entry *entity.HistoryEntry) error {
+	if err := r.init(ctx); err != nil {
+		return err
+	}
+	if updater, ok := r.repo.(interface {
+		UpdateMetadata(context.Context, *entity.HistoryEntry) error
+	}); ok {
+		return updater.UpdateMetadata(ctx, entry)
+	}
+	return r.repo.Save(ctx, entry)
+}
+
 func (r *LazyHistoryRepository) Search(ctx context.Context, query string, limit int) ([]entity.HistoryMatch, error) {
 	if err := r.init(ctx); err != nil {
 		return nil, err
