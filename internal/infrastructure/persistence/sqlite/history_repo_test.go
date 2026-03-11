@@ -809,3 +809,26 @@ func TestHistoryRepository_AboutBlank_NotDominant(t *testing.T) {
 	assert.Equal(t, "about:blank", results[1].URL, "about:blank should be second with capped visit count")
 	assert.Equal(t, int64(1), results[1].VisitCount)
 }
+
+func TestHistoryRepository_Search_ReturnsEmptyForNonPositiveLimit(t *testing.T) {
+	ctx := historyTestCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewHistoryRepository(db)
+	require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{
+		URL:   "https://github.com",
+		Title: "GitHub",
+	}))
+
+	results, err := repo.Search(ctx, "git", 0)
+	require.NoError(t, err)
+	assert.Empty(t, results)
+
+	results, err = repo.Search(ctx, "git", -1)
+	require.NoError(t, err)
+	assert.Empty(t, results)
+}

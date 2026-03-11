@@ -209,6 +209,11 @@ func (uc *ManageFavoritesUseCase) GetAll(ctx context.Context) ([]*entity.Favorit
 	}
 
 	uc.cacheMu.Lock()
+	if time.Since(uc.cacheTime) < favoritesCacheTTL && uc.favoritesCache != nil {
+		cached := uc.favoritesCache
+		uc.cacheMu.Unlock()
+		return cached, nil
+	}
 	uc.favoritesCache = favs
 	uc.favoriteURLsCache = buildFavoriteURLSet(favs)
 	uc.cacheTime = time.Now()
@@ -492,6 +497,7 @@ func (uc *ManageFavoritesUseCase) DeleteFolder(ctx context.Context, id entity.Fo
 				Msg("failed to move favorite from deleted folder")
 		}
 	}
+	uc.invalidateCache()
 
 	// Get child folders
 	children, err := uc.folderRepo.GetChildren(ctx, &id)

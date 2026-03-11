@@ -302,3 +302,43 @@ func TestManageFavoritesUseCase_Toggle_InvalidatesCache(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, urls, "https://new.example")
 }
+
+func TestManageFavoritesUseCase_DeleteFolder_InvalidatesFavoritesCache(t *testing.T) {
+	ctx := testContext()
+
+	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
+	folderRepo := repomocks.NewMockFolderRepository(t)
+	tagRepo := repomocks.NewMockTagRepository(t)
+
+	folderID := entity.FolderID(9)
+	initialFolderID := folderID
+	cachedFavorites := []*entity.Favorite{
+		{ID: 1, URL: "https://example.com", FolderID: &initialFolderID},
+	}
+	updatedFavorites := []*entity.Favorite{
+		{ID: 1, URL: "https://example.com", FolderID: nil},
+	}
+
+	favoriteRepo.EXPECT().GetAll(mock.Anything).Return(cachedFavorites, nil).Once()
+	folderRepo.EXPECT().FindByID(mock.Anything, folderID).Return(&entity.Folder{ID: folderID}, nil).Once()
+	favoriteRepo.EXPECT().GetByFolder(mock.Anything, &folderID).Return(cachedFavorites, nil).Once()
+	favoriteRepo.EXPECT().SetFolder(mock.Anything, entity.FavoriteID(1), (*entity.FolderID)(nil)).Return(nil).Once()
+	folderRepo.EXPECT().GetChildren(mock.Anything, &folderID).Return([]*entity.Folder{}, nil).Once()
+	folderRepo.EXPECT().Delete(mock.Anything, folderID).Return(nil).Once()
+	favoriteRepo.EXPECT().GetAll(mock.Anything).Return(updatedFavorites, nil).Once()
+
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+
+	favoritesBefore, err := uc.GetAll(ctx)
+	require.NoError(t, err)
+	require.Len(t, favoritesBefore, 1)
+	require.NotNil(t, favoritesBefore[0].FolderID)
+
+	err = uc.DeleteFolder(ctx, folderID)
+	require.NoError(t, err)
+
+	favoritesAfter, err := uc.GetAll(ctx)
+	require.NoError(t, err)
+	require.Len(t, favoritesAfter, 1)
+	assert.Nil(t, favoritesAfter[0].FolderID)
+}

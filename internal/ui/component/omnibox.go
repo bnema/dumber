@@ -1852,11 +1852,24 @@ func (o *Omnibox) attachRowHoverSelection(row *gtk.ListBoxRow, index int) {
 	}
 
 	enterCb := func(_ gtk.EventControllerMotion, _ float64, _ float64) {
+		o.mu.RLock()
+		realInput := o.realInput
+		hasGhostText := o.hasGhostText
+		hasNavigated := o.hasNavigated
+		o.mu.RUnlock()
+
+		if !shouldPromoteHoverSelection(realInput, hasGhostText, hasNavigated) {
+			return
+		}
 		o.selectIndex(index)
 	}
 	o.retainedCallbacks = append(o.retainedCallbacks, enterCb)
 	motionCtrl.ConnectEnter(&enterCb)
 	row.AddController(&motionCtrl.EventController)
+}
+
+func shouldPromoteHoverSelection(realInput string, hasGhostText, hasNavigated bool) bool {
+	return realInput == "" && !hasGhostText && !hasNavigated
 }
 
 // createSuggestionRow creates a ListBoxRow for a suggestion.

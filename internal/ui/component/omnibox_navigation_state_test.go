@@ -251,3 +251,49 @@ func TestVisibleGhostSuggestion(t *testing.T) {
 		})
 	}
 }
+
+func TestShouldPromoteHoverSelection(t *testing.T) {
+	tests := []struct {
+		name         string
+		realInput    string
+		hasGhostText bool
+		hasNavigated bool
+		want         bool
+	}{
+		{
+			name: "initial open allows hover selection",
+			want: true,
+		},
+		{
+			name:      "typed input keeps hover from stealing authority",
+			realInput: "git",
+			want:      false,
+		},
+		{
+			name:         "visible ghost keeps hover from stealing authority",
+			hasGhostText: true,
+			want:         false,
+		},
+		{
+			name:         "keyboard navigation keeps hover from stealing authority",
+			hasNavigated: true,
+			want:         false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shouldPromoteHoverSelection(tt.realInput, tt.hasGhostText, tt.hasNavigated)
+			if got != tt.want {
+				t.Fatalf(
+					"shouldPromoteHoverSelection(%q, %v, %v) = %v, want %v",
+					tt.realInput,
+					tt.hasGhostText,
+					tt.hasNavigated,
+					got,
+					tt.want,
+				)
+			}
+		})
+	}
+}

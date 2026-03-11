@@ -114,6 +114,10 @@ func (r *historyRepo) UpdateMetadata(ctx context.Context, entry *entity.HistoryE
 }
 
 func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]entity.HistoryMatch, error) {
+	if limit <= 0 {
+		return []entity.HistoryMatch{}, nil
+	}
+
 	words := sanitizeFTS5QueryTokens(query)
 	if len(words) == 0 {
 		return []entity.HistoryMatch{}, nil
@@ -149,7 +153,7 @@ func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]en
 	}
 
 	ranked := rankHistoryMatches(query, words, urlRows, titleRows)
-	if len(ranked) > limit {
+	if limit < len(ranked) {
 		ranked = ranked[:limit]
 	}
 	return ranked, nil
