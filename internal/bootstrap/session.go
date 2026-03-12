@@ -407,7 +407,6 @@ func writeShutdownMarker(lockDir, sessionID string, endedAt time.Time) error {
 	}
 
 	content := []byte(endedAt.Format(time.RFC3339Nano) + "\n" + startupLine + pidLine + ppidLine)
-	//nolint:gosec // G703: path is derived from the app lock dir plus an internally generated session id
 	if err := os.WriteFile(shutdownMarkerPath(lockDir, sessionID), content, markerFilePerm); err != nil {
 		return err
 	}
@@ -457,7 +456,6 @@ func markAbruptExits(lockDir string, detectedAt time.Time, logger *zerolog.Logge
 			payload += "ppid=" + ppid + "\n"
 		}
 
-		//nolint:gosec // G703: path is derived from the app lock dir plus an internally generated session id
 		if err := os.WriteFile(abruptMarkerPath(lockDir, sessionID), []byte(payload), markerFilePerm); err != nil {
 			return abruptSessions, err
 		}

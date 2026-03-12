@@ -710,6 +710,33 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 	)
 }
 
+// handleAccentKeyPress handles accent key press events for GTK entry widgets
+// (omnibox and find bar). Returns true if the key was consumed.
+func (a *App) handleAccentKeyPress(ctx context.Context, keyval uint, state gdk.ModifierType) bool {
+	if a.insertAccentUC == nil {
+		return false
+	}
+	if state&(gdk.ControlMaskValue|gdk.AltMaskValue) != 0 {
+		return false
+	}
+	shiftHeld := state&gdk.ShiftMaskValue != 0
+	if char := input.KeyvalToRune(keyval); char != 0 {
+		return a.insertAccentUC.OnKeyPressed(ctx, char, shiftHeld)
+	}
+	return false
+}
+
+// handleAccentKeyRelease handles accent key release events for GTK entry widgets
+// (omnibox and find bar).
+func (a *App) handleAccentKeyRelease(ctx context.Context, keyval uint) {
+	if a.insertAccentUC == nil {
+		return
+	}
+	if char := input.KeyvalToRune(keyval); char != 0 {
+		a.insertAccentUC.OnKeyReleased(ctx, char)
+	}
+}
+
 func (a *App) initOmniboxConfig(ctx context.Context) {
 	if a.deps == nil || a.deps.Config == nil {
 		return
@@ -755,25 +782,10 @@ func (a *App) initOmniboxConfig(ctx context.Context) {
 			}
 		},
 		OnAccentKeyPress: func(keyval uint, state gdk.ModifierType) bool {
-			if a.insertAccentUC == nil {
-				return false
-			}
-			if state&(gdk.ControlMaskValue|gdk.AltMaskValue) != 0 {
-				return false
-			}
-			shiftHeld := state&gdk.ShiftMaskValue != 0
-			if char := input.KeyvalToRune(keyval); char != 0 {
-				return a.insertAccentUC.OnKeyPressed(ctx, char, shiftHeld)
-			}
-			return false
+			return a.handleAccentKeyPress(ctx, keyval, state)
 		},
 		OnAccentKeyRelease: func(keyval uint) {
-			if a.insertAccentUC == nil {
-				return
-			}
-			if char := input.KeyvalToRune(keyval); char != 0 {
-				a.insertAccentUC.OnKeyReleased(ctx, char)
-			}
+			a.handleAccentKeyRelease(ctx, keyval)
 		},
 	}
 	a.navCoord.SetOmniboxProvider(a)
@@ -806,25 +818,10 @@ func (a *App) initFindBarConfig(ctx context.Context) {
 			}
 		},
 		OnAccentKeyPress: func(keyval uint, state gdk.ModifierType) bool {
-			if a.insertAccentUC == nil {
-				return false
-			}
-			if state&(gdk.ControlMaskValue|gdk.AltMaskValue) != 0 {
-				return false
-			}
-			shiftHeld := state&gdk.ShiftMaskValue != 0
-			if char := input.KeyvalToRune(keyval); char != 0 {
-				return a.insertAccentUC.OnKeyPressed(ctx, char, shiftHeld)
-			}
-			return false
+			return a.handleAccentKeyPress(ctx, keyval, state)
 		},
 		OnAccentKeyRelease: func(keyval uint) {
-			if a.insertAccentUC == nil {
-				return
-			}
-			if char := input.KeyvalToRune(keyval); char != 0 {
-				a.insertAccentUC.OnKeyReleased(ctx, char)
-			}
+			a.handleAccentKeyRelease(ctx, keyval)
 		},
 	}
 }

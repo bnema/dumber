@@ -25,6 +25,14 @@ func TestRegisterAccentHandlers_NilHandler(t *testing.T) {
 	assert.Contains(t, err.Error(), "handler")
 }
 
+func TestRegisterAccentHandlers_Success(t *testing.T) {
+	ctx := context.Background()
+	router := webkit.NewMessageRouter(ctx)
+	handler := &stubAccentHandler{}
+	err := RegisterAccentHandlers(ctx, router, handler)
+	require.NoError(t, err)
+}
+
 // stubAccentHandler satisfies AccentKeyHandler for tests.
 type stubAccentHandler struct{}
 

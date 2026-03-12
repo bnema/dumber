@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
@@ -27,7 +28,6 @@ type Config struct {
 	Clipboard         port.Clipboard
 	ConfigGetter      func() *config.Config
 	OnClipboardCopied func(textLen int) // Called when auto-copy completes (for toast notification)
-	AccentHandler     AccentKeyHandler  // Handles accent key press/release events from WebView inputs
 }
 
 // RegisterAll registers all message handlers with the router.
@@ -90,8 +90,8 @@ func RegisterAccentHandlers(ctx context.Context, router *webkit.MessageRouter, h
 			if err := json.Unmarshal(payload, &p); err != nil {
 				return nil, err
 			}
-			if len(p.Char) == 1 {
-				handler.OnKeyPressed(ctx, rune(p.Char[0]), p.Shift)
+			if r, _ := utf8.DecodeRuneInString(p.Char); r != utf8.RuneError && utf8.RuneCountInString(p.Char) == 1 {
+				handler.OnKeyPressed(ctx, r, p.Shift)
 			}
 			return nil, nil
 		},
@@ -107,8 +107,8 @@ func RegisterAccentHandlers(ctx context.Context, router *webkit.MessageRouter, h
 			if err := json.Unmarshal(payload, &p); err != nil {
 				return nil, err
 			}
-			if len(p.Char) == 1 {
-				handler.OnKeyReleased(ctx, rune(p.Char[0]))
+			if r, _ := utf8.DecodeRuneInString(p.Char); r != utf8.RuneError && utf8.RuneCountInString(p.Char) == 1 {
+				handler.OnKeyReleased(ctx, r)
 			}
 			return nil, nil
 		},

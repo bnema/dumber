@@ -189,7 +189,6 @@ func EnsureDirectories() error {
 	}
 
 	for _, dir := range directories {
-		//nolint:gosec // G703: XDG directories come from the user environment/config and are created intentionally
 		if err := os.MkdirAll(dir, dirPerm); err != nil {
 			return err
 		}

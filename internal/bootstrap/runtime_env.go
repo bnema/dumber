@@ -24,7 +24,9 @@ func ApplyGTKIMModuleFallback(stderr io.Writer, getter func(string) string, sett
 		return
 	}
 	_, _ = fmt.Fprintf(stderr, "dumber: GTK_IM_MODULE unset, defaulting to gtk-im-context-simple for dead-key support\n")
-	_ = setter("GTK_IM_MODULE", "gtk-im-context-simple")
+	if err := setter("GTK_IM_MODULE", "gtk-im-context-simple"); err != nil {
+		_, _ = fmt.Fprintf(stderr, "dumber: failed to set GTK_IM_MODULE: %v\n", err)
+	}
 }
 
 // ApplyGTKIMModuleFallbackDefault calls ApplyGTKIMModuleFallback with os.Getenv and os.Setenv.
