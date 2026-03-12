@@ -85,8 +85,8 @@ func (c *NavigationCoordinator) Navigate(ctx context.Context, url string) error 
 		// Track original URL for cross-domain redirect favicon caching
 		c.contentCoord.SetNavigationOrigin(activePaneID, url)
 		// Pre-load cached favicon asynchronously (don't block navigation start)
-		preloadCtx, cancelPreload := context.WithTimeout(ctx, faviconPreloadTimeout)
 		go func() {
+			preloadCtx, cancelPreload := context.WithTimeout(ctx, faviconPreloadTimeout)
 			defer cancelPreload()
 			c.contentCoord.PreloadCachedFavicon(preloadCtx, activePaneID, url)
 		}()

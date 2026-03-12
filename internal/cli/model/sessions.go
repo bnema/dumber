@@ -602,11 +602,11 @@ func (m SessionsModel) renderSessionDetails(info entity.SessionInfo) string {
 			tabName = "Tab"
 		}
 
-		b.WriteString(fmt.Sprintf("      %s%s %s\n",
+		fmt.Fprintf(&b, "      %s%s %s\n",
 			treeStyle.Render(branch),
 			leafStyle.Render(tabIcon),
 			t.Normal.Render(tabName),
-		))
+		)
 
 		// Render panes under this tab
 		m.renderPaneTree(&b, &tab.Workspace, isLastTab, t, treeStyle, leafStyle)

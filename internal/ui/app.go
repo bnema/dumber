@@ -197,6 +197,7 @@ func New(deps *Dependencies) (*App, error) {
 			FavoritesUC:  deps.FavoritesUC,
 			Clipboard:    deps.Clipboard,
 			ConfigGetter: config.Get,
+			// AccentHandler is registered after initAccentPicker in onActivate
 			OnClipboardCopied: func(textLen int) {
 				// Show brief toast on auto-copy (similar to zellij footer notification)
 				// Must schedule on GTK main thread since this is called from WebKit handler
@@ -291,6 +292,7 @@ func (a *App) onActivate(ctx context.Context) {
 	a.installCrashReportNotifier(ctx)
 	a.initFocusAndBorderOverlay()
 	a.initAccentPicker(ctx)
+	a.registerAccentHandlers(ctx)
 	a.initDownloadHandler(ctx)
 
 	a.initCoordinators(ctx)
@@ -298,7 +300,7 @@ func (a *App) onActivate(ctx context.Context) {
 	logging.Trace().Mark("coordinators_init")
 	a.initKeyboardHandler(ctx)
 	a.initOmniboxConfig(ctx)
-	a.initFindBarConfig()
+	a.initFindBarConfig(ctx)
 	a.initSessionManager(ctx)
 	a.initTabPicker(ctx)
 	a.initSnapshotService(ctx)
@@ -541,6 +543,23 @@ func (a *App) initAccentPicker(ctx context.Context) {
 	log.Debug().Msg("accent picker initialized")
 }
 
+// registerAccentHandlers registers the accent key press/release message handlers
+// with the router. Must be called after initAccentPicker so insertAccentUC is non-nil.
+func (a *App) registerAccentHandlers(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
+	if a.router == nil || a.insertAccentUC == nil {
+		log.Debug().Msg("router or insertAccentUC not available, skipping accent handler registration")
+		return
+	}
+
+	if err := handlers.RegisterAccentHandlers(ctx, a.router, a.insertAccentUC); err != nil {
+		log.Error().Err(err).Msg("failed to register accent handlers")
+	} else {
+		log.Info().Msg("registered accent key handlers")
+	}
+}
+
 func (a *App) initDownloadHandler(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
@@ -631,23 +650,53 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 	a.keyboardHandler.SetOnModeChange(func(from, to input.Mode) {
 		a.handleModeChange(ctx, from, to)
 	})
-	a.keyboardHandler.SetShouldBypassInput(func(modifiers input.Modifier) bool {
-		// Bypass keyboard handler when modals are visible
+	// Wire key routing policy.
+	// Determines how each key event should be handled based on UI state:
+	// - Overlays visible (session manager, tab picker): pass all keys to widget
+	// - Omnibox visible: accent detection for text keys, shortcuts for modified keys
+	// - WebView focused: pass text/dead keys to WebKit IM for native compose,
+	//   intercept shortcut-modified keys (Ctrl+, Alt+)
+	// - Default: handle through shortcut system
+	a.keyboardHandler.SetRouteKey(func(kc input.KeyContext) input.KeyRoute {
+		// Overlays take full keyboard control
 		if a.sessionManager != nil && a.sessionManager.IsVisible() {
-			return true
+			return input.RoutePassToWidget
 		}
 		if a.tabPicker != nil && a.tabPicker.IsVisible() {
-			return true
+			return input.RoutePassToWidget
 		}
+
 		wsView := a.activeWorkspaceView()
 		if wsView == nil {
-			return false
+			return input.RouteHandleShortcuts
 		}
-		if wsView.IsOmniboxVisible() {
-			// Let Alt-modified keys through for pane navigation
-			return modifiers&input.ModAlt == 0
+
+		// Check actual focus rather than visibility: find bar can remain
+		// visible after focus returns to the WebView, so visibility alone
+		// would misroute keys.
+		if a.accentFocusProvider != nil {
+			if _, ok := a.accentFocusProvider.GetFocusedInput().(*textinput.GTKEntryTarget); ok {
+				// GTK Entry focused (omnibox or find bar): Alt-modified keys go to
+				// shortcuts (pane navigation), other keys pass through to the widget's
+				// own capture-phase key controller (which handles accent detection)
+				if kc.Modifiers&input.ModAlt != 0 {
+					return input.RouteHandleShortcuts
+				}
+				return input.RoutePassToWidget
+			}
 		}
-		return false
+
+		// WebView focused: text/dead keys pass through for native IM compose,
+		// shortcut-modified keys (Ctrl+, Alt+) are handled by shortcut system
+		if input.IsShortcutModified(kc.Modifiers) {
+			return input.RouteHandleShortcuts
+		}
+		if input.IsTextInputKey(kc.Keyval) {
+			return input.RoutePassToWidget
+		}
+
+		// Non-text, non-shortcut keys (F-keys, arrows, etc.): shortcut system
+		return input.RouteHandleShortcuts
 	})
 	// Wire accent handler for dead keys support
 	if a.insertAccentUC != nil {
@@ -666,6 +715,33 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 			return a.kbDispatcher.Dispatch(ctx, action)
 		},
 	)
+}
+
+// handleAccentKeyPress handles accent key press events for GTK entry widgets
+// (omnibox and find bar). Returns true if the key was consumed.
+func (a *App) handleAccentKeyPress(ctx context.Context, keyval uint, state gdk.ModifierType) bool {
+	if a.insertAccentUC == nil {
+		return false
+	}
+	if state&(gdk.ControlMaskValue|gdk.AltMaskValue) != 0 {
+		return false
+	}
+	shiftHeld := state&gdk.ShiftMaskValue != 0
+	if char := input.KeyvalToRune(keyval); char != 0 {
+		return a.insertAccentUC.OnKeyPressed(ctx, char, shiftHeld)
+	}
+	return false
+}
+
+// handleAccentKeyRelease handles accent key release events for GTK entry widgets
+// (omnibox and find bar).
+func (a *App) handleAccentKeyRelease(ctx context.Context, keyval uint) {
+	if a.insertAccentUC == nil {
+		return
+	}
+	if char := input.KeyvalToRune(keyval); char != 0 {
+		a.insertAccentUC.OnKeyReleased(ctx, char)
+	}
 }
 
 func (a *App) initOmniboxConfig(ctx context.Context) {
@@ -712,12 +788,18 @@ func (a *App) initOmniboxConfig(ctx context.Context) {
 				a.accentFocusProvider.SetFocusedInput(a.getActiveWebViewTarget())
 			}
 		},
+		OnAccentKeyPress: func(keyval uint, state gdk.ModifierType) bool {
+			return a.handleAccentKeyPress(ctx, keyval, state)
+		},
+		OnAccentKeyRelease: func(keyval uint) {
+			a.handleAccentKeyRelease(ctx, keyval)
+		},
 	}
 	a.navCoord.SetOmniboxProvider(a)
 	log.Debug().Msg("omnibox config stored, provider set")
 }
 
-func (a *App) initFindBarConfig() {
+func (a *App) initFindBarConfig(ctx context.Context) {
 	// Store find bar config (find bar is created per-pane via WorkspaceView).
 	a.findBarCfg = component.FindBarConfig{
 		GetFindController: func(paneID entity.PaneID) port.FindController {
@@ -741,6 +823,12 @@ func (a *App) initFindBarConfig() {
 			if a.accentFocusProvider != nil {
 				a.accentFocusProvider.SetFocusedInput(a.getActiveWebViewTarget())
 			}
+		},
+		OnAccentKeyPress: func(keyval uint, state gdk.ModifierType) bool {
+			return a.handleAccentKeyPress(ctx, keyval, state)
+		},
+		OnAccentKeyRelease: func(keyval uint) {
+			a.handleAccentKeyRelease(ctx, keyval)
 		},
 	}
 }

@@ -39,19 +39,23 @@ type FindBar struct {
 
 	uc *usecase.FindInPageUseCase
 
-	visible           bool
-	mu                sync.RWMutex
-	ctx               context.Context
-	onClose           func()
-	retainedCallbacks []interface{} // Keep callbacks alive for GC
+	visible            bool
+	mu                 sync.RWMutex
+	ctx                context.Context
+	onClose            func()
+	onAccentKeyPress   func(keyval uint, state gdk.ModifierType) bool
+	onAccentKeyRelease func(keyval uint)
+	retainedCallbacks  []interface{} // Keep callbacks alive for GC
 }
 
 // FindBarConfig holds configuration for creating a FindBar.
 type FindBarConfig struct {
-	OnClose           func()
-	GetFindController func(paneID entity.PaneID) port.FindController
-	OnFocusIn         func(entry *gtk.SearchEntry) // Callback when entry gains focus (for accent picker)
-	OnFocusOut        func()                       // Callback when entry loses focus
+	OnClose            func()
+	GetFindController  func(paneID entity.PaneID) port.FindController
+	OnFocusIn          func(entry *gtk.SearchEntry)                   // Callback when entry gains focus (for accent picker)
+	OnFocusOut         func()                                         // Callback when entry loses focus
+	OnAccentKeyPress   func(keyval uint, state gdk.ModifierType) bool // Long-press accent detection
+	OnAccentKeyRelease func(keyval uint)                              // Key release for accent cancel
 }
 
 // NewFindBar creates a new FindBar component.
@@ -59,9 +63,11 @@ func NewFindBar(ctx context.Context, cfg FindBarConfig) *FindBar {
 	log := logging.FromContext(ctx)
 
 	fb := &FindBar{
-		ctx:     ctx,
-		onClose: cfg.OnClose,
-		uc:      usecase.NewFindInPageUseCase(ctx),
+		ctx:                ctx,
+		onClose:            cfg.OnClose,
+		onAccentKeyPress:   cfg.OnAccentKeyPress,
+		onAccentKeyRelease: cfg.OnAccentKeyRelease,
+		uc:                 usecase.NewFindInPageUseCase(ctx),
 	}
 
 	if err := fb.createWidgets(); err != nil {
@@ -370,9 +376,23 @@ func (fb *FindBar) attachKeyController() {
 			}
 			return true
 		}
+		// Try long-press accent detection for text keys
+		if fb.onAccentKeyPress != nil {
+			return fb.onAccentKeyPress(keyval, state)
+		}
 		return false
 	}
+	fb.retainedCallbacks = append(fb.retainedCallbacks, keyPressedCb)
 	controller.ConnectKeyPressed(&keyPressedCb)
+
+	keyReleasedCb := func(_ gtk.EventControllerKey, keyval uint, _ uint, _ gdk.ModifierType) {
+		if fb.onAccentKeyRelease != nil {
+			fb.onAccentKeyRelease(keyval)
+		}
+	}
+	fb.retainedCallbacks = append(fb.retainedCallbacks, keyReleasedCb)
+	controller.ConnectKeyReleased(&keyReleasedCb)
+
 	fb.outerBox.AddController(&controller.EventController)
 }
 

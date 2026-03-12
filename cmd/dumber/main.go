@@ -73,6 +73,8 @@ func main() {
 }
 
 func runGUI() int {
+	bootstrap.ApplyGTKIMModuleFallbackDefault(os.Stderr)
+
 	runtime.LockOSThread()
 	component.SetSkeletonVersion(version)
 	timer := bootstrap.NewStartupTimer()

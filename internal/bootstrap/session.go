@@ -571,7 +571,8 @@ func markerValue(raw []byte, key string) string {
 
 // runSessionCleanupAsync performs stale session cleanup and old session pruning
 // in a background goroutine. This avoids blocking startup for non-critical tasks.
-// Uses context.Background() to ensure cleanup completes even if startup context is canceled.
+// Uses context.WithoutCancel(startupCtx) so the background work inherits request
+// values and the logger from the startup context while detaching from its cancellation.
 func runSessionCleanupAsync(
 	startupCtx context.Context,
 	sessionUC *usecase.ManageSessionUseCase,
@@ -580,14 +581,10 @@ func runSessionCleanupAsync(
 	lockDir string,
 	log *zerolog.Logger,
 ) {
-	// Silence unused parameter warning - startupCtx is intentionally unused.
-	_ = startupCtx
-
 	go func() {
-		// Use a detached background context instead of the startup context:
-		// session cleanup is critical and must run to completion even if the
-		// startup context is canceled or times out.
-		bgCtx := context.Background()
+		// Detach cancellation from the startup context so cleanup runs to completion
+		// even if the startup context is canceled, while still carrying its values/logger.
+		bgCtx := context.WithoutCancel(startupCtx)
 
 		// End stale active sessions (orphaned from crashed processes)
 		if lockDir != "" {

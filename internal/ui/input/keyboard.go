@@ -1,5 +1,23 @@
 package input
 
+// Manual Testing: Dead Key / Compose Support
+//
+// To verify native dead key support works correctly:
+//
+//  1. Set keyboard layout to "US International with dead keys"
+//  2. Open dumber, navigate to a page with a text input (e.g. Google search)
+//  3. Click into the text input field
+//  4. Type: ' then e -- should produce e with acute accent
+//  5. Type: " then u -- should produce u with diaeresis
+//  6. Type: ` then a -- should produce a with grave accent
+//  7. Type: ~ then n -- should produce n with tilde
+//  8. Verify Ctrl+L still opens omnibox
+//  9. Verify Alt+1-9 still switches tabs
+//  10. Verify modal modes (Ctrl+T for tab mode) still work
+//  11. In omnibox, verify long-press accent picker still works (hold 'e' for 400ms)
+//  12. Verify Escape closes omnibox / exits modal modes
+//  13. Verify session manager overlay captures all keyboard input
+
 import (
 	"context"
 	"sync"
@@ -40,8 +58,10 @@ type KeyboardHandler struct {
 
 	// Action handler callback
 	onAction ActionHandler
-	// Optional bypass check (e.g., omnibox visible)
-	shouldBypass func(modifiers Modifier) bool
+	// Optional routing callback that determines how a key should be handled.
+	// Returns RouteHandleShortcuts (default), RoutePassToWidget (let focused
+	// widget handle it), or RouteAccentDetection (long-press accent for GTK entries).
+	routeKey func(KeyContext) KeyRoute
 	// Optional accent handler for dead keys support
 	accentHandler AccentHandler
 	// Optional escape hook for app-level overlays
@@ -99,12 +119,16 @@ func (h *KeyboardHandler) SetOnModeChange(fn func(from, to Mode)) {
 	h.modal.SetOnModeChange(fn)
 }
 
-// SetShouldBypassInput sets a hook to bypass keyboard handling entirely.
-// When true, events propagate to focused widgets instead.
-func (h *KeyboardHandler) SetShouldBypassInput(fn func(modifiers Modifier) bool) {
+// SetRouteKey sets the callback that determines how each key event should be routed.
+// The callback receives key context and returns a KeyRoute indicating whether the
+// key should be handled by the shortcut system, passed to the focused widget
+// (for IM/compose support), or routed through accent detection.
+//
+// If not set, all keys are routed through the shortcut system (RouteHandleShortcuts).
+func (h *KeyboardHandler) SetRouteKey(fn func(KeyContext) KeyRoute) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.shouldBypass = fn
+	h.routeKey = fn
 }
 
 // SetAccentHandler sets the handler for long-press accent detection.
@@ -128,7 +152,10 @@ func (h *KeyboardHandler) Mode() Mode {
 }
 
 // AttachTo attaches the keyboard handler to a GTK window.
-// The handler will intercept key events in the capture phase.
+// The handler runs in the bubble phase so that WebKit's IM pipeline (including
+// dead-key / compose sequences) processes key events first. App-level shortcuts
+// are still intercepted because WebKit only consumes events it recognizes as
+// text input; unhandled events bubble up to this controller.
 func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 	log := logging.FromContext(h.ctx)
 
@@ -143,8 +170,10 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 		return
 	}
 
-	// Set capture phase to intercept events before WebView gets them
-	h.controller.SetPropagationPhase(gtk.PhaseCaptureValue)
+	// Bubble phase: let WebKit IM handle key events first (dead keys, compose
+	// sequences, input methods). Events not consumed by WebKit bubble up here
+	// so app shortcuts still work.
+	h.controller.SetPropagationPhase(gtk.PhaseBubbleValue)
 
 	// Connect key pressed handler (retain callback to prevent GC).
 	// The callback receives: keyval (translated key), keycode (hardware key position), state (modifiers)
@@ -176,41 +205,60 @@ func (h *KeyboardHandler) Detach() {
 
 // handleKeyPress processes a key press event.
 // Returns true if the event was handled and should not propagate further.
-// Parameters:
-//   - keyval: the translated key value (depends on keyboard layout)
-//   - keycode: the hardware keycode (physical key position, layout-independent)
-//   - state: modifier keys state
 func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.ModifierType) bool {
 	log := logging.FromContext(h.ctx)
 
 	h.mu.RLock()
-	shouldBypass := h.shouldBypass
+	routeKey := h.routeKey
 	accentHandler := h.accentHandler
 	onEscape := h.onEscape
 	h.mu.RUnlock()
 
-	// Check if accent picker is visible - it takes priority
+	// Accent picker takes absolute priority when visible -- it has its own key controller
 	if accentHandler != nil && accentHandler.IsPickerVisible() {
-		return false // Let the accent picker handle the key via its own controller
+		return false
 	}
 
 	modifiers := Modifier(state) & modifierMask
+
+	// Escape in normal mode: check app-level escape hook first
 	if h.modal.Mode() == ModeNormal && keyval == uint(gdk.KEY_Escape) && modifiers == 0 {
 		if onEscape != nil && onEscape(h.ctx) {
 			return true
 		}
 	}
 
-	// Check accent detection first - works in both normal and bypass mode
-	// This enables accent picker for omnibox (GTK SearchEntry) as well as WebView
-	if h.tryAccentDetection(accentHandler, keyval, modifiers) {
-		return true
+	// Determine routing for this key event
+	route := RouteHandleShortcuts // default: process through shortcut system
+	if routeKey != nil && h.modal.Mode() == ModeNormal {
+		route = routeKey(KeyContext{
+			Keyval:    keyval,
+			Keycode:   keycode,
+			Modifiers: modifiers,
+		})
 	}
 
-	if shouldBypass != nil && shouldBypass(modifiers) {
-		log.Debug().Uint("keyval", keyval).Uint("keycode", keycode).Uint("state", uint(state)).Msg("keyboard handler bypassed")
+	switch route {
+	case RoutePassToWidget:
+		// Let the focused widget handle this key directly (WebView IM, etc.)
+		// No accent detection here -- WebView has its own JS-based accent detection.
+		log.Trace().Uint("keyval", keyval).Msg("routing key to focused widget")
 		return false
+
+	case RouteAccentDetection:
+		// Try long-press accent detection for GTK Entry widgets (omnibox, find bar).
+		// If the accent handler doesn't consume the key, pass it to the widget.
+		if h.tryAccentDetection(accentHandler, keyval, modifiers) {
+			return true
+		}
+		log.Trace().Uint("keyval", keyval).Msg("accent detection declined, routing to widget")
+		return false
+
+	case RouteHandleShortcuts:
+		// Fall through to shortcut processing below
 	}
+
+	// --- Shortcut processing path ---
 
 	// Normalize uppercase letters for consistent binding lookup
 	keyval = normalizeKeyval(keyval)
@@ -227,16 +275,20 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 }
 
 // tryAccentDetection starts long-press detection for accent-eligible keys.
-// Returns true if the key should be suppressed (blocked from reaching the WebView).
+// It is used only for the RouteAccentDetection route (GTK Entry widgets such as
+// the omnibox and find bar). RoutePassToWidget does not call tryAccentDetection;
+// WebView long-press accent behavior is handled entirely by the injected JS bridge
+// (accentDetectionScript) and the Go-side accent key detection script, not here.
+// Returns true if the key should be suppressed (i.e. RouteAccentDetection consumed it).
 func (h *KeyboardHandler) tryAccentDetection(accentHandler AccentHandler, keyval uint, modifiers Modifier) bool {
-	if h.modal.Mode() != ModeNormal || accentHandler == nil {
+	if accentHandler == nil {
 		return false
 	}
 	// Only consider keys without Ctrl/Alt modifiers (Shift is OK for uppercase)
 	if modifiers != 0 && modifiers != ModShift {
 		return false
 	}
-	if char := keyvalToRune(keyval); char != 0 {
+	if char := KeyvalToRune(keyval); char != 0 {
 		return accentHandler.OnKeyPressed(h.ctx, char, modifiers == ModShift)
 	}
 	return false
@@ -407,14 +459,14 @@ func (h *KeyboardHandler) handleKeyRelease(keyval uint) {
 	}
 
 	// Convert keyval to rune for the accent handler
-	if char := keyvalToRune(keyval); char != 0 {
+	if char := KeyvalToRune(keyval); char != 0 {
 		accentHandler.OnKeyReleased(h.ctx, char)
 	}
 }
 
-// keyvalToRune converts a GTK keyval to a lowercase rune.
+// KeyvalToRune converts a GTK keyval to a lowercase rune.
 // Returns 0 if the keyval is not a printable character with potential accents.
-func keyvalToRune(keyval uint) rune {
+func KeyvalToRune(keyval uint) rune {
 	// Handle lowercase a-z
 	if keyval >= uint('a') && keyval <= uint('z') {
 		return rune(keyval)
@@ -424,4 +476,67 @@ func keyvalToRune(keyval uint) rune {
 		return rune(keyval + ('a' - 'A'))
 	}
 	return 0
+}
+
+// KeyRoute determines how a key event should be routed.
+type KeyRoute int
+
+const (
+	// RouteHandleShortcuts means the key should be processed by the shortcut system.
+	// This is the default route -- app-level shortcuts, modal mode keys, etc.
+	RouteHandleShortcuts KeyRoute = iota
+
+	// RoutePassToWidget means the key should propagate to the focused widget.
+	// Used when overlays (session manager, tab picker) are visible, or when a
+	// WebView should receive text input for native IM/compose/dead-key processing.
+	// Long-press accent detection still runs first for accessibility: users with
+	// motor disabilities may not be able to execute rapid compose sequences.
+	RoutePassToWidget
+
+	// RouteAccentDetection means the key should go through long-press accent
+	// detection, then pass to the focused widget. Used for GTK Entry widgets
+	// (omnibox, find bar) and as a universal accessibility fallback.
+	RouteAccentDetection
+)
+
+// KeyContext provides key event information for routing decisions.
+type KeyContext struct {
+	Keyval    uint     // Translated key value
+	Keycode   uint     // Hardware keycode
+	Modifiers Modifier // Active modifiers (masked)
+}
+
+// IsShortcutModified returns true if the modifiers indicate a shortcut combination
+// (Ctrl or Alt pressed), as opposed to plain text input (no modifier or Shift-only).
+// Dead keys and compose sequences only use no-modifier or Shift, so this correctly
+// identifies keys that should be intercepted vs passed through to the IM pipeline.
+func IsShortcutModified(modifiers Modifier) bool {
+	return modifiers&(ModCtrl|ModAlt) != 0
+}
+
+// IsTextInputKey returns true if the keyval represents a text input key
+// (printable character or dead key) as opposed to a function/navigation key.
+// This is used to determine whether a key should be passed through to the
+// WebKit IM pipeline for compose/dead-key processing.
+func IsTextInputKey(keyval uint) bool {
+	// Dead keys used by compose sequences (US International, etc.)
+	// GDK dead key range: KEY_dead_grave (0xfe50) to KEY_dead_greek (0xfe8c)
+	if keyval >= 0xfe50 && keyval <= 0xfe8c {
+		return true
+	}
+
+	// Printable ASCII range (space through tilde)
+	if keyval >= 0x020 && keyval <= 0x07e {
+		return true
+	}
+	// Latin-1 supplement (non-breaking space through ÿ)
+	if keyval >= 0x0a0 && keyval <= 0x0ff {
+		return true
+	}
+	// Extended Latin and other Unicode characters mapped in GDK keyval space
+	if keyval >= 0x100 && keyval <= 0x20ff {
+		return true
+	}
+
+	return false
 }

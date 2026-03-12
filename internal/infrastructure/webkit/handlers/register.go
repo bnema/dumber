@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
@@ -10,6 +12,13 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/infrastructure/webkit/handlers/homepage"
 )
+
+// AccentKeyHandler is implemented by the InsertAccentUseCase to receive
+// key press/release events forwarded from WebView JS via the message bridge.
+type AccentKeyHandler interface {
+	OnKeyPressed(ctx context.Context, char rune, shiftHeld bool) bool
+	OnKeyReleased(ctx context.Context, char rune)
+}
 
 // Config holds all dependencies for message handlers.
 type Config struct {
@@ -57,6 +66,54 @@ func RegisterAll(ctx context.Context, router *webkit.MessageRouter, cfg Config) 
 	// - settings handlers
 	// - downloads handlers
 	// - etc.
+
+	return nil
+}
+
+// RegisterAccentHandlers registers accent key press/release handlers with the router.
+// Must be called after the AccentKeyHandler is initialized (i.e., after initAccentPicker).
+func RegisterAccentHandlers(_ context.Context, router *webkit.MessageRouter, handler AccentKeyHandler) error {
+	if router == nil {
+		return fmt.Errorf("RegisterAccentHandlers: router must not be nil")
+	}
+	if handler == nil {
+		return fmt.Errorf("RegisterAccentHandlers: handler must not be nil")
+	}
+
+	if err := router.RegisterHandler("accent_key_press", webkit.MessageHandlerFunc(
+		func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+			var p struct {
+				Char  string `json:"char"`
+				Shift bool   `json:"shift"`
+			}
+			if err := json.Unmarshal(payload, &p); err != nil {
+				return nil, err
+			}
+			if r, _ := utf8.DecodeRuneInString(p.Char); r != utf8.RuneError && utf8.RuneCountInString(p.Char) == 1 {
+				handler.OnKeyPressed(ctx, r, p.Shift)
+			}
+			return nil, nil
+		},
+	)); err != nil {
+		return err
+	}
+
+	if err := router.RegisterHandler("accent_key_release", webkit.MessageHandlerFunc(
+		func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+			var p struct {
+				Char string `json:"char"`
+			}
+			if err := json.Unmarshal(payload, &p); err != nil {
+				return nil, err
+			}
+			if r, _ := utf8.DecodeRuneInString(p.Char); r != utf8.RuneError && utf8.RuneCountInString(p.Char) == 1 {
+				handler.OnKeyReleased(ctx, r)
+			}
+			return nil, nil
+		},
+	)); err != nil {
+		return err
+	}
 
 	return nil
 }

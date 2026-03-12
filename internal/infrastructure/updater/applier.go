@@ -160,10 +160,39 @@ func (a *Applier) StageUpdate(ctx context.Context, newBinaryPath string) error {
 		return fmt.Errorf("failed to read new binary: %w", err)
 	}
 
-	// Write to staging location.
+	// Write to staging location atomically via temp file.
 	stagedPath := a.stagedBinaryPath()
-	if err := os.WriteFile(stagedPath, newBinary, applierExecPerm); err != nil {
+	dir := filepath.Dir(stagedPath)
+	tmpFile, err := os.CreateTemp(dir, ".staged-update-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file for staged binary: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	// Ensure temp file is cleaned up on any failure.
+	cleanup := func() { _ = os.Remove(tmpPath) }
+
+	if _, err := tmpFile.Write(newBinary); err != nil {
+		_ = tmpFile.Close()
+		cleanup()
 		return fmt.Errorf("failed to write staged binary: %w", err)
+	}
+	if err := tmpFile.Chmod(applierExecPerm); err != nil {
+		_ = tmpFile.Close()
+		cleanup()
+		return fmt.Errorf("failed to chmod staged binary: %w", err)
+	}
+	if err := tmpFile.Sync(); err != nil {
+		_ = tmpFile.Close()
+		cleanup()
+		return fmt.Errorf("failed to sync staged binary: %w", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		cleanup()
+		return fmt.Errorf("failed to close staged binary temp file: %w", err)
+	}
+	if err := os.Rename(tmpPath, stagedPath); err != nil {
+		cleanup()
+		return fmt.Errorf("failed to rename staged binary into place: %w", err)
 	}
 
 	log.Info().

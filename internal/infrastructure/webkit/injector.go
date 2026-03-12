@@ -141,6 +141,64 @@ const autoCopySelectionScript = `(function() {
   });
 })();`
 
+// accentDetectionScript detects keydown/keyup of a-z keys in WebView inputs and
+// forwards them to the Go-side InsertAccentUseCase via the message bridge.
+// Go handles timing, accent lookup, and picker display — JS only reports events.
+const accentDetectionScript = `(function() {
+    'use strict';
+
+    // Track pressed key for release matching
+    let pressedKey = null;
+
+    // Check if the event target is an editable element (input, textarea, contenteditable)
+    function isEditableTarget(target) {
+        const el = target instanceof Element ? target : null;
+        if (!el) return false;
+        if (el.closest('[contenteditable=""], [contenteditable="true"]')) return true;
+        if (el.closest('textarea')) return true;
+        const input = el.closest('input');
+        if (!input) return false;
+        // Exclude non-text input types
+        return !/^(button|checkbox|color|file|hidden|image|radio|range|reset|submit)$/i.test(input.type);
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (!isEditableTarget(e.target)) return;
+
+        // Only handle a-z keys, with optional Shift
+        // Skip if Ctrl or Alt are held (those are shortcuts)
+        if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+        // Only single character keys a-z
+        const key = e.key.toLowerCase();
+        if (key.length !== 1 || key < 'a' || key > 'z') return;
+
+        pressedKey = key;
+
+        // Send to Go for accent detection
+        window.webkit.messageHandlers.dumber.postMessage({
+            type: 'accent_key_press',
+            payload: { char: key, shift: e.shiftKey }
+        });
+    }, true);  // capture phase to see events first
+
+    document.addEventListener('keyup', function(e) {
+        if (!isEditableTarget(e.target)) return;
+        const key = e.key.toLowerCase();
+        if (key === pressedKey) {
+            pressedKey = null;
+            window.webkit.messageHandlers.dumber.postMessage({
+                type: 'accent_key_release',
+                payload: { char: key }
+            });
+        }
+    }, true);
+})();`
+
+// accentDetectionInjectionMode controls which frames receive the accent detection script.
+// Set to AllFrames so the script runs in iframes as well as the top-level document.
+const accentDetectionInjectionMode = webkit.UserContentInjectAllFramesValue
+
 // webRTCCompatScript maps legacy Safari-prefixed WebRTC globals to standard names.
 // Some pages gate support on window.RTCPeerConnection and report false negatives
 // when only webkit-prefixed constructors are present.
@@ -332,6 +390,19 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		)
 		log.Debug().Msg("auto-copy selection script injected")
 	}
+
+	// 7. Inject accent key detection for all pages and all frames (unconditional).
+	// JS only reports keydown/keyup events; Go handles timing and picker display.
+	addScript(
+		webkit.NewUserScript(
+			accentDetectionScript,
+			accentDetectionInjectionMode,
+			webkit.UserScriptInjectAtDocumentEndValue,
+			nil, // all pages
+			nil,
+		),
+		"accent-key-detection",
+	)
 
 	log.Debug().Bool("prefers_dark", prefersDark).Bool("auto_copy", autoCopyEnabled).Msg("scripts injected")
 }

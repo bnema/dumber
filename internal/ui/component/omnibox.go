@@ -111,9 +111,11 @@ type Omnibox struct {
 	ctx             context.Context
 
 	// Callbacks
-	onNavigate func(url string)
-	onClose    func()
-	onToast    func(ctx context.Context, message string, level ToastLevel)
+	onNavigate         func(url string)
+	onClose            func()
+	onToast            func(ctx context.Context, message string, level ToastLevel)
+	onAccentKeyPress   func(keyval uint, state gdk.ModifierType) bool
+	onAccentKeyRelease func(keyval uint)
 
 	// Debouncing
 	debounceTimer *time.Timer
@@ -144,18 +146,20 @@ type Omnibox struct {
 
 // OmniboxConfig holds configuration for creating an Omnibox.
 type OmniboxConfig struct {
-	HistoryUC       *usecase.SearchHistoryUseCase
-	FavoritesUC     *usecase.ManageFavoritesUseCase
-	FaviconAdapter  *adapter.FaviconAdapter
-	CopyURLUC       *usecase.CopyURLUseCase
-	ShortcutsUC     *usecase.SearchShortcutsUseCase
-	DefaultSearch   string
-	InitialBehavior string
-	UIScale         float64                                                     // UI scale for favicon sizing
-	OnNavigate      func(url string)                                            // Callback when user navigates via omnibox
-	OnToast         func(ctx context.Context, message string, level ToastLevel) // Callback to show toast notification
-	OnFocusIn       func(entry *gtk.SearchEntry)                                // Callback when entry gains focus (for accent picker)
-	OnFocusOut      func()                                                      // Callback when entry loses focus
+	HistoryUC          *usecase.SearchHistoryUseCase
+	FavoritesUC        *usecase.ManageFavoritesUseCase
+	FaviconAdapter     *adapter.FaviconAdapter
+	CopyURLUC          *usecase.CopyURLUseCase
+	ShortcutsUC        *usecase.SearchShortcutsUseCase
+	DefaultSearch      string
+	InitialBehavior    string
+	UIScale            float64                                                     // UI scale for favicon sizing
+	OnNavigate         func(url string)                                            // Callback when user navigates via omnibox
+	OnToast            func(ctx context.Context, message string, level ToastLevel) // Callback to show toast notification
+	OnFocusIn          func(entry *gtk.SearchEntry)                                // Callback when entry gains focus (for accent picker)
+	OnFocusOut         func()                                                      // Callback when entry loses focus
+	OnAccentKeyPress   func(keyval uint, state gdk.ModifierType) bool              // Long-press accent detection
+	OnAccentKeyRelease func(keyval uint)                                           // Key release for accent cancel
 }
 
 // NewOmnibox creates a new native GTK4 omnibox widget.
@@ -169,18 +173,20 @@ func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 	}
 
 	o := &Omnibox{
-		viewMode:        ViewModeHistory,
-		selectedIndex:   -1,
-		historyUC:       cfg.HistoryUC,
-		favoritesUC:     cfg.FavoritesUC,
-		faviconAdapter:  cfg.FaviconAdapter,
-		copyURLUC:       cfg.CopyURLUC,
-		shortcutsUC:     cfg.ShortcutsUC,
-		defaultSearch:   cfg.DefaultSearch,
-		initialBehavior: cfg.InitialBehavior,
-		onToast:         cfg.OnToast,
-		ctx:             ctx,
-		uiScale:         uiScale,
+		viewMode:           ViewModeHistory,
+		selectedIndex:      -1,
+		historyUC:          cfg.HistoryUC,
+		favoritesUC:        cfg.FavoritesUC,
+		faviconAdapter:     cfg.FaviconAdapter,
+		copyURLUC:          cfg.CopyURLUC,
+		shortcutsUC:        cfg.ShortcutsUC,
+		defaultSearch:      cfg.DefaultSearch,
+		initialBehavior:    cfg.InitialBehavior,
+		onToast:            cfg.OnToast,
+		onAccentKeyPress:   cfg.OnAccentKeyPress,
+		onAccentKeyRelease: cfg.OnAccentKeyRelease,
+		ctx:                ctx,
+		uiScale:            uiScale,
 	}
 	o.idleCoalescer = mainloop.NewCoalescer(func(fn func()) {
 		var cb glib.SourceFunc = func(uintptr) bool {
@@ -427,10 +433,25 @@ func (o *Omnibox) setupKeyboardHandling() {
 	controller.SetPropagationPhase(gtk.PhaseCaptureValue)
 
 	keyPressedCb := func(_ gtk.EventControllerKey, keyval, keycode uint, state gdk.ModifierType) bool {
-		return o.handleKeyPress(keyval, keycode, state)
+		if o.handleKeyPress(keyval, keycode, state) {
+			return true
+		}
+		// Try long-press accent detection for text keys
+		if o.onAccentKeyPress != nil {
+			return o.onAccentKeyPress(keyval, state)
+		}
+		return false
 	}
 	o.retainedCallbacks = append(o.retainedCallbacks, keyPressedCb)
 	controller.ConnectKeyPressed(&keyPressedCb)
+
+	keyReleasedCb := func(_ gtk.EventControllerKey, keyval uint, _ uint, _ gdk.ModifierType) {
+		if o.onAccentKeyRelease != nil {
+			o.onAccentKeyRelease(keyval)
+		}
+	}
+	o.retainedCallbacks = append(o.retainedCallbacks, keyReleasedCb)
+	controller.ConnectKeyReleased(&keyReleasedCb)
 
 	o.outerBox.AddController(&controller.EventController)
 }
