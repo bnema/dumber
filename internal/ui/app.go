@@ -555,6 +555,8 @@ func (a *App) registerAccentHandlers(ctx context.Context) {
 
 	if err := handlers.RegisterAccentHandlers(ctx, a.router, a.insertAccentUC); err != nil {
 		log.Error().Err(err).Msg("failed to register accent handlers")
+	} else {
+		log.Info().Msg("registered accent key handlers")
 	}
 }
 
@@ -669,14 +671,19 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 			return input.RouteHandleShortcuts
 		}
 
-		if wsView.IsOmniboxVisible() || wsView.IsFindBarVisible() {
-			// GTK Entry focused (omnibox or find bar): Alt-modified keys go to
-			// shortcuts (pane navigation), other keys pass through to the widget's
-			// own capture-phase key controller (which handles accent detection)
-			if kc.Modifiers&input.ModAlt != 0 {
-				return input.RouteHandleShortcuts
+		// Check actual focus rather than visibility: find bar can remain
+		// visible after focus returns to the WebView, so visibility alone
+		// would misroute keys.
+		if a.accentFocusProvider != nil {
+			if _, ok := a.accentFocusProvider.GetFocusedInput().(*textinput.GTKEntryTarget); ok {
+				// GTK Entry focused (omnibox or find bar): Alt-modified keys go to
+				// shortcuts (pane navigation), other keys pass through to the widget's
+				// own capture-phase key controller (which handles accent detection)
+				if kc.Modifiers&input.ModAlt != 0 {
+					return input.RouteHandleShortcuts
+				}
+				return input.RoutePassToWidget
 			}
-			return input.RoutePassToWidget
 		}
 
 		// WebView focused: text/dead keys pass through for native IM compose,

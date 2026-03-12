@@ -11,7 +11,6 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/infrastructure/webkit/handlers/homepage"
-	"github.com/bnema/dumber/internal/logging"
 )
 
 // AccentKeyHandler is implemented by the InsertAccentUseCase to receive
@@ -73,7 +72,7 @@ func RegisterAll(ctx context.Context, router *webkit.MessageRouter, cfg Config) 
 
 // RegisterAccentHandlers registers accent key press/release handlers with the router.
 // Must be called after the AccentKeyHandler is initialized (i.e., after initAccentPicker).
-func RegisterAccentHandlers(ctx context.Context, router *webkit.MessageRouter, handler AccentKeyHandler) error {
+func RegisterAccentHandlers(_ context.Context, router *webkit.MessageRouter, handler AccentKeyHandler) error {
 	if router == nil {
 		return fmt.Errorf("RegisterAccentHandlers: router must not be nil")
 	}
@@ -116,8 +115,6 @@ func RegisterAccentHandlers(ctx context.Context, router *webkit.MessageRouter, h
 		return err
 	}
 
-	log := logging.FromContext(ctx)
-	log.Info().Msg("registered accent key handlers")
 	return nil
 }
 

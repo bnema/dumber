@@ -149,10 +149,12 @@ linters:
       - text: "G304:"
         linters:
           - gosec
-      - text: "G703:"
+      - path: internal/bootstrap/session\.go
+        text: "G703:"
         linters:
           - gosec
-      - text: "G704:"
+      - path: internal/infrastructure/updater/github\.go
+        text: "G704:"
         linters:
           - gosec
       # GTK callbacks require unused parameters
