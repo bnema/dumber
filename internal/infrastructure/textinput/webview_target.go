@@ -99,7 +99,7 @@ func (t *WebViewTarget) InsertText(ctx context.Context, text string) error {
 	t.webView.EvaluateJavascript(script, -1, nil, nil, nil, nil, 0)
 
 	log.Debug().
-		Str("text", text).
+		Int("len", len(text)).
 		Msg("inserted text into WebView via JS")
 
 	return nil

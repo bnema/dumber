@@ -1738,6 +1738,7 @@ func (wv *WebView) ResetForPoolReuse() {
 	wv.OnAudioStateChanged = nil
 	wv.OnLinkHover = nil
 	wv.OnWebProcessTerminated = nil
+	wv.OnPermissionRequest = nil
 
 	wv.mu.Lock()
 	wv.uri = ""

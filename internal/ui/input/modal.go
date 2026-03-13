@@ -94,6 +94,9 @@ func NewModalState(ctx context.Context) *ModalState {
 func (m *ModalState) SetMainThreadScheduler(fn func(func())) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if fn == nil {
+		return
+	}
 	m.scheduleOnMainThread = fn
 }
 
@@ -208,6 +211,7 @@ func (m *ModalState) cancelTimerLocked() {
 	if m.timer != nil {
 		m.timer.Stop()
 		m.timer = nil
+		m.timerGen++
 	}
 }
 

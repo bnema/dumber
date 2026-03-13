@@ -3053,6 +3053,10 @@ func (a *App) initConfigWatcher(ctx context.Context) {
 			if a.keyboardHandler != nil {
 				a.keyboardHandler.ReloadShortcuts(ctx, cfgCopy)
 			}
+			// Reload global shortcuts (removes stale, re-registers from config)
+			if a.globalShortcutHandler != nil {
+				a.globalShortcutHandler.ReloadShortcuts(ctx, cfgCopy)
+			}
 			return false
 		})
 		glib.IdleAdd(&cb, 0)

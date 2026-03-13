@@ -137,16 +137,23 @@ func (uc *InsertAccentUseCase) Cancel(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
 	uc.mu.Lock()
-	defer uc.mu.Unlock()
+	target := uc.targetInput
+	wasVisible := uc.pickerVisible
+	uc.cancelTimerLocked()
+	if wasVisible {
+		uc.accentPicker.Hide()
+		uc.pickerVisible = false
+	}
+	uc.mu.Unlock()
 
-	if uc.timer != nil || uc.pickerVisible {
+	if wasVisible {
 		log.Debug().Msg("canceling accent picker")
 	}
 
-	uc.cancelTimerLocked()
-	if uc.pickerVisible {
-		uc.accentPicker.Hide()
-		uc.pickerVisible = false
+	if wasVisible {
+		if focusable, ok := target.(port.Focusable); ok {
+			focusable.Focus(ctx)
+		}
 	}
 }
 
