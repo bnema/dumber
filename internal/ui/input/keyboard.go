@@ -134,19 +134,18 @@ func (h *KeyboardHandler) SetOnModeChange(fn func(from, to Mode)) {
 }
 
 // setControllerPhase changes the propagation phase of the key controller.
-// Uses glib.IdleAdd because this may be called from timer goroutines
-// (modal timeout) which are not on the GTK main thread.
+// Capture phase during modal modes so plain keys reach the handler before WebView.
+// Bubble phase in normal mode for WebKit IM/dead-key support.
+//
+// This is called synchronously from onModeChange so the phase switch takes
+// effect before the next key event. The caller must ensure GTK thread safety;
+// modal timeouts dispatch to the GTK main thread via glib.IdleAdd before
+// calling ExitMode, so the onModeChange callback always runs on the GTK thread.
 func (h *KeyboardHandler) setControllerPhase(phase gtk.PropagationPhase) {
 	if h.controller == nil {
 		return
 	}
-	cb := glib.SourceFunc(func(_ uintptr) bool {
-		if h.controller != nil {
-			h.controller.SetPropagationPhase(phase)
-		}
-		return false
-	})
-	glib.IdleAdd(&cb, 0)
+	h.controller.SetPropagationPhase(phase)
 }
 
 // SetRouteKey sets the callback that determines how each key event should be routed.
@@ -204,6 +203,17 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 	// sequences, input methods). Events not consumed by WebKit bubble up here
 	// so app shortcuts still work.
 	h.controller.SetPropagationPhase(gtk.PhaseBubbleValue)
+
+	// Wire GTK main thread scheduler for modal timeouts. Timer goroutines
+	// must dispatch ExitMode to the GTK thread because onModeChange may
+	// call setControllerPhase (a GTK operation).
+	h.modal.SetMainThreadScheduler(func(fn func()) {
+		cb := glib.SourceFunc(func(_ uintptr) bool {
+			fn()
+			return false
+		})
+		glib.IdleAdd(&cb, 0)
+	})
 
 	// Connect key pressed handler (retain callback to prevent GC).
 	// The callback receives: keyval (translated key), keycode (hardware key position), state (modifiers)

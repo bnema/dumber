@@ -67,6 +67,13 @@ type ModalState struct {
 	// Callback for mode changes (called synchronously under lock).
 	onModeChange func(from, to Mode)
 
+	// scheduleOnMainThread dispatches a function to the GTK main thread.
+	// Timer callbacks use this so that onModeChange (which may make GTK
+	// calls like switching controller phase) always runs on the GTK thread.
+	// Defaults to direct execution (suitable for tests without a GTK loop).
+	// The app sets this to a glib.IdleAdd wrapper via SetMainThreadScheduler.
+	scheduleOnMainThread func(fn func())
+
 	mu sync.RWMutex
 }
 
@@ -75,8 +82,18 @@ func NewModalState(ctx context.Context) *ModalState {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("creating modal state")
 	return &ModalState{
-		mode: ModeNormal,
+		mode:                 ModeNormal,
+		scheduleOnMainThread: func(fn func()) { fn() },
 	}
+}
+
+// SetMainThreadScheduler sets the function used to dispatch timer callbacks
+// to the GTK main thread. In the real app this should be a glib.IdleAdd
+// wrapper. In tests, the default (direct execution) is used.
+func (m *ModalState) SetMainThreadScheduler(fn func(func())) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.scheduleOnMainThread = fn
 }
 
 // Mode returns the current mode (thread-safe).
@@ -87,142 +104,54 @@ func (m *ModalState) Mode() Mode {
 }
 
 // EnterTabMode switches to tab mode with an optional timeout.
-// If timeout is 0, the mode stays until explicitly exited.
 func (m *ModalState) EnterTabMode(ctx context.Context, timeout time.Duration) {
-	log := logging.FromContext(ctx)
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if m.mode == ModeTab {
-		// Already in tab mode, just reset timeout
-		m.resetTimeoutLocked(ctx, timeout)
-		return
-	}
-
-	m.cancelTimerLocked()
-	oldMode := m.mode
-	m.mode = ModeTab
-	m.timeout = timeout
-
-	if timeout > 0 {
-		m.timer = time.AfterFunc(timeout, func() {
-			m.ExitMode(ctx)
-		})
-	}
-
-	log.Debug().
-		Str("from", oldMode.String()).
-		Str("to", m.mode.String()).
-		Dur("timeout", timeout).
-		Msg("entered tab mode")
-
-	if m.onModeChange != nil {
-		m.onModeChange(oldMode, m.mode)
-	}
+	m.enterMode(ctx, ModeTab, timeout)
 }
 
 // EnterPaneMode switches to pane mode with an optional timeout.
-// If timeout is 0, the mode stays until explicitly exited.
 func (m *ModalState) EnterPaneMode(ctx context.Context, timeout time.Duration) {
-	log := logging.FromContext(ctx)
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if m.mode == ModePane {
-		// Already in pane mode, just reset timeout
-		m.resetTimeoutLocked(ctx, timeout)
-		return
-	}
-
-	m.cancelTimerLocked()
-	oldMode := m.mode
-	m.mode = ModePane
-	m.timeout = timeout
-
-	if timeout > 0 {
-		m.timer = time.AfterFunc(timeout, func() {
-			m.ExitMode(ctx)
-		})
-	}
-
-	log.Debug().
-		Str("from", oldMode.String()).
-		Str("to", m.mode.String()).
-		Dur("timeout", timeout).
-		Msg("entered pane mode")
-
-	if m.onModeChange != nil {
-		m.onModeChange(oldMode, m.mode)
-	}
+	m.enterMode(ctx, ModePane, timeout)
 }
 
 // EnterSessionMode switches to session mode with an optional timeout.
-// If timeout is 0, the mode stays until explicitly exited.
 func (m *ModalState) EnterSessionMode(ctx context.Context, timeout time.Duration) {
-	log := logging.FromContext(ctx)
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if m.mode == ModeSession {
-		// Already in session mode, just reset timeout
-		m.resetTimeoutLocked(ctx, timeout)
-		return
-	}
-
-	m.cancelTimerLocked()
-	oldMode := m.mode
-	m.mode = ModeSession
-	m.timeout = timeout
-
-	if timeout > 0 {
-		m.timer = time.AfterFunc(timeout, func() {
-			m.ExitMode(ctx)
-		})
-	}
-
-	log.Debug().
-		Str("from", oldMode.String()).
-		Str("to", m.mode.String()).
-		Dur("timeout", timeout).
-		Msg("entered session mode")
-
-	if m.onModeChange != nil {
-		m.onModeChange(oldMode, m.mode)
-	}
+	m.enterMode(ctx, ModeSession, timeout)
 }
 
 // EnterResizeMode switches to resize mode with an optional timeout.
-// If timeout is 0, the mode stays until explicitly exited.
 func (m *ModalState) EnterResizeMode(ctx context.Context, timeout time.Duration) {
+	m.enterMode(ctx, ModeResize, timeout)
+}
+
+// enterMode is the shared implementation for all mode-enter methods.
+// If already in the target mode, it resets the timeout instead.
+func (m *ModalState) enterMode(ctx context.Context, target Mode, timeout time.Duration) {
 	log := logging.FromContext(ctx)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if m.mode == ModeResize {
-		// Already in resize mode, just reset timeout
+	if m.mode == target {
 		m.resetTimeoutLocked(ctx, timeout)
 		return
 	}
 
 	m.cancelTimerLocked()
 	oldMode := m.mode
-	m.mode = ModeResize
+	m.mode = target
 	m.timeout = timeout
 
 	if timeout > 0 {
-		m.timer = time.AfterFunc(timeout, func() {
-			m.ExitMode(ctx)
-		})
+		m.startTimeoutLocked(ctx, timeout)
 	}
 
 	log.Debug().
 		Str("from", oldMode.String()).
-		Str("to", m.mode.String()).
+		Str("to", target.String()).
 		Dur("timeout", timeout).
-		Msg("entered resize mode")
+		Msg("entered " + target.String() + " mode")
 
 	if m.onModeChange != nil {
-		m.onModeChange(oldMode, m.mode)
+		m.onModeChange(oldMode, target)
 	}
 }
 
@@ -281,14 +210,23 @@ func (m *ModalState) cancelTimerLocked() {
 	}
 }
 
+// startTimeoutLocked starts a new timeout timer that exits the mode via the
+// main thread scheduler. Timer goroutines must not call ExitMode directly
+// because onModeChange may make GTK calls (e.g., switching controller phase).
+// Must be called with m.mu held.
+func (m *ModalState) startTimeoutLocked(ctx context.Context, timeout time.Duration) {
+	schedule := m.scheduleOnMainThread
+	m.timer = time.AfterFunc(timeout, func() {
+		schedule(func() { m.ExitMode(ctx) })
+	})
+}
+
 // resetTimeoutLocked resets the timeout timer.
 // Must be called with m.mu held.
 func (m *ModalState) resetTimeoutLocked(ctx context.Context, timeout time.Duration) {
 	m.cancelTimerLocked()
 	m.timeout = timeout
 	if timeout > 0 {
-		m.timer = time.AfterFunc(timeout, func() {
-			m.ExitMode(ctx)
-		})
+		m.startTimeoutLocked(ctx, timeout)
 	}
 }
