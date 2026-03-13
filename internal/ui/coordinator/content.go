@@ -1091,6 +1091,12 @@ func (c *ContentCoordinator) resolveCommittedFavicon(ctx context.Context, paneID
 	// Capture current generation to guard against stale callbacks
 	gen := wv.Generation()
 	c.faviconAdapter.GetOrFetch(ctx, uri, func(texture *gdk.Texture) {
+		// Skip nil results — a nil means "couldn't resolve", not "no favicon".
+		// Without this guard, a late nil callback can overwrite a good favicon
+		// that was already set by an earlier onFaviconChanged signal.
+		if texture == nil {
+			return
+		}
 		// Verify WebView is still bound to pane and hasn't been reused
 		if wv.Generation() != gen {
 			return
