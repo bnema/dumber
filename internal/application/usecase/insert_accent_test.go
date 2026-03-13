@@ -6,10 +6,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
+
+type focusableTextInputTarget struct {
+	port.TextInputTarget
+	focusCalls int
+}
+
+func (t *focusableTextInputTarget) Focus(_ context.Context) {
+	t.focusCalls++
+}
 
 func TestInsertAccentUseCase_OnKeyPressed_NoAccents(t *testing.T) {
 	ctx := context.Background()
@@ -216,4 +226,39 @@ func TestInsertAccentUseCase_PickerVisibleBlocksNewLongPress(t *testing.T) {
 	assert.LessOrEqual(t, count, 1, "Show should only be called once")
 
 	uc.Cancel(ctx)
+}
+
+func TestInsertAccentUseCase_OnAccentSelected_RestoresFocusForFocusableTarget(t *testing.T) {
+	ctx := context.Background()
+	focusProvider := mocks.NewMockFocusedInputProvider(t)
+	accentPicker := mocks.NewMockAccentPickerUI(t)
+	textInput := mocks.NewMockTextInputTarget(t)
+	target := &focusableTextInputTarget{TextInputTarget: textInput}
+
+	focusProvider.EXPECT().GetFocusedInput().Return(target).Once()
+	textInput.EXPECT().InsertText(ctx, "à").Return(nil).Once()
+	accentPicker.EXPECT().Hide().Once()
+
+	uc := NewInsertAccentUseCase(focusProvider, accentPicker, func(fn func()) { fn() })
+	uc.OnKeyPressed(ctx, 'a', false)
+	uc.onAccentSelected(ctx, 'à')
+
+	assert.Equal(t, 1, target.focusCalls, "focus should be restored after accent insertion")
+}
+
+func TestInsertAccentUseCase_OnPickerCanceled_RestoresFocusForFocusableTarget(t *testing.T) {
+	ctx := context.Background()
+	focusProvider := mocks.NewMockFocusedInputProvider(t)
+	accentPicker := mocks.NewMockAccentPickerUI(t)
+	textInput := mocks.NewMockTextInputTarget(t)
+	target := &focusableTextInputTarget{TextInputTarget: textInput}
+
+	focusProvider.EXPECT().GetFocusedInput().Return(target).Once()
+	accentPicker.EXPECT().Hide().Once()
+
+	uc := NewInsertAccentUseCase(focusProvider, accentPicker, func(fn func()) { fn() })
+	uc.OnKeyPressed(ctx, 'a', false)
+	uc.onPickerCanceled(ctx)
+
+	assert.Equal(t, 1, target.focusCalls, "focus should be restored after picker cancel")
 }

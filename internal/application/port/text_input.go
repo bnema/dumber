@@ -12,6 +12,12 @@ type TextInputTarget interface {
 	DeleteBeforeCursor(ctx context.Context, n int) error
 }
 
+// Focusable is optionally implemented by text input targets that can restore
+// focus after the accent picker closes.
+type Focusable interface {
+	Focus(ctx context.Context)
+}
+
 // FocusedInputProvider tracks which text input target currently has focus.
 // This allows the accent picker to insert text into the correct input field.
 type FocusedInputProvider interface {

@@ -3,22 +3,18 @@ package textinput
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
 )
 
-// clipboardRestoreDelay is the delay before restoring the clipboard after paste.
-const clipboardRestoreDelay = 50 * time.Millisecond
-
 // deleteBeforeCursorJS is the JavaScript template to delete n characters before cursor.
 // It handles both input/textarea elements and contenteditable elements.
 const deleteBeforeCursorJS = `
 (function() {
 	const n = %d;
-	const el = document.activeElement;
+	const el = window.__dumber_lastEditableEl || document.activeElement;
 	if (!el) return;
 	
 	// Handle input and textarea elements
@@ -38,7 +34,6 @@ const deleteBeforeCursorJS = `
 	if (el.isContentEditable) {
 		const sel = window.getSelection();
 		if (!sel.rangeCount) return;
-		const range = sel.getRangeAt(0);
 		for (let i = 0; i < n; i++) {
 			sel.modify('extend', 'backward', 'character');
 		}
@@ -47,30 +42,51 @@ const deleteBeforeCursorJS = `
 })();
 `
 
-// WebViewTarget implements TextInputTarget for WebView text fields.
-// It uses the clipboard-paste pattern to insert text:
-// 1. Save current clipboard
-// 2. Write text to clipboard
-// 3. Execute paste command
-// 4. Restore original clipboard after a short delay
+// insertTextJS inserts text at the cursor position of the last focused editable element.
+// Uses the tracked element from the accent detection script so insertion still works
+// after GTK focus moves to the accent picker.
+const insertTextJS = `
+(function() {
+	const text = %q;
+	const el = window.__dumber_lastEditableEl || document.activeElement;
+	if (!el) return;
+
+	el.focus();
+
+	if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+		const start = el.selectionStart;
+		const end = el.selectionEnd;
+		el.value = el.value.slice(0, start) + text + el.value.slice(end);
+		el.selectionStart = el.selectionEnd = start + text.length;
+		el.dispatchEvent(new Event('input', { bubbles: true }));
+		return;
+	}
+
+	// execCommand is deprecated but remains the most reliable way to insert
+	// text into contenteditable elements across WebKit/GTK. The modern
+	// InputEvent('insertText') alternative has inconsistent support.
+	if (el.isContentEditable) {
+		document.execCommand('insertText', false, text);
+	}
+})();
+`
+
+// WebViewTarget implements text input and focus restoration for WebView fields.
 type WebViewTarget struct {
-	webView   *webkit.WebView
-	clipboard port.Clipboard
+	webView *webkit.WebView
 }
 
-// Compile-time interface check.
 var _ port.TextInputTarget = (*WebViewTarget)(nil)
+var _ port.Focusable = (*WebViewTarget)(nil)
 
 // NewWebViewTarget creates a new WebView target.
-func NewWebViewTarget(webView *webkit.WebView, clipboard port.Clipboard) *WebViewTarget {
+func NewWebViewTarget(webView *webkit.WebView) *WebViewTarget {
 	return &WebViewTarget{
-		webView:   webView,
-		clipboard: clipboard,
+		webView: webView,
 	}
 }
 
 // InsertText inserts text at the current cursor position in the WebView.
-// Uses clipboard-paste pattern since WebView doesn't expose direct text insertion.
 func (t *WebViewTarget) InsertText(ctx context.Context, text string) error {
 	log := logging.FromContext(ctx)
 
@@ -79,37 +95,12 @@ func (t *WebViewTarget) InsertText(ctx context.Context, text string) error {
 		return nil
 	}
 
-	// Save current clipboard contents
-	originalClipboard, _ := t.clipboard.ReadText(ctx)
-
-	// Write the accent to clipboard
-	if err := t.clipboard.WriteText(ctx, text); err != nil {
-		log.Error().Err(err).Msg("failed to write text to clipboard")
-		return err
-	}
-
-	// Execute paste command
-	t.webView.ExecuteEditingCommand(webkit.EDITING_COMMAND_PASTE)
+	script := fmt.Sprintf(insertTextJS, text)
+	t.webView.EvaluateJavascript(script, -1, nil, nil, nil, nil, 0)
 
 	log.Debug().
-		Str("text", text).
-		Msg("inserted text into WebView via clipboard paste")
-
-	// Restore original clipboard after a short delay.
-	// This allows the paste operation to complete first.
-	// Derive a detached context so the restore runs even if ctx is canceled,
-	// but still carries its values/logger.
-	detachedCtx := context.WithoutCancel(ctx)
-	go func() {
-		time.Sleep(clipboardRestoreDelay)
-		restoreCtx, cancelRestore := context.WithTimeout(detachedCtx, clipboardRestoreDelay)
-		defer cancelRestore()
-		if originalClipboard != "" {
-			if err := t.clipboard.WriteText(restoreCtx, originalClipboard); err != nil {
-				log.Debug().Err(err).Msg("failed to restore clipboard")
-			}
-		}
-	}()
+		Int("len", len(text)).
+		Msg("inserted text into WebView via JS")
 
 	return nil
 }
@@ -134,4 +125,20 @@ func (t *WebViewTarget) DeleteBeforeCursor(ctx context.Context, n int) error {
 
 	log.Debug().Int("n", n).Msg("deleted characters before cursor in WebView")
 	return nil
+}
+
+// Focus restores GTK focus to the WebView widget and refocuses the last
+// editable element inside the page.
+func (t *WebViewTarget) Focus(_ context.Context) {
+	if t.webView == nil {
+		return
+	}
+
+	t.webView.GrabFocus()
+	t.webView.EvaluateJavascript(`
+		(function() {
+			var el = window.__dumber_lastEditableEl;
+			if (el) el.focus();
+		})();
+	`, -1, nil, nil, nil, nil, 0)
 }

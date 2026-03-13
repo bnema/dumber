@@ -137,7 +137,8 @@ type WebView struct {
 	lastProgressUpdate atomic.Int64 // Unix nanoseconds
 
 	// Signal handler IDs for disconnection
-	signalIDs []uintptr
+	signalIDs  []uintptr
+	generation atomic.Uint64
 
 	// Callbacks (set by UI layer)
 	OnLoadChanged          func(LoadEvent)
@@ -1405,6 +1406,12 @@ func (wv *WebView) Favicon() *gdk.Texture {
 	return wv.inner.GetFavicon()
 }
 
+// Generation returns the current reuse generation of this WebView.
+// Used by callback holders to detect stale closures after pool reuse.
+func (wv *WebView) Generation() uint64 {
+	return wv.generation.Load()
+}
+
 // IsLoading returns true if a page is currently loading.
 func (wv *WebView) IsLoading() bool {
 	wv.mu.RLock()
@@ -1623,6 +1630,20 @@ func (wv *WebView) DisconnectSignals() {
 	wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("signals disconnected")
 }
 
+// ReconnectSignals re-establishes GLib signal handlers after pool reuse.
+// Must be called after acquiring a WebView from the pool and before setting up callbacks.
+func (wv *WebView) ReconnectSignals() {
+	if wv == nil || wv.destroyed.Load() || wv.inner == nil {
+		return
+	}
+	// Only reconnect if signals were previously disconnected
+	if len(wv.signalIDs) > 0 {
+		return // Already connected
+	}
+	wv.connectSignals()
+	wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("signals reconnected after pool reuse")
+}
+
 // Destroy cleans up the WebView resources and terminates the web process.
 // This must be called when a WebView is no longer needed to free GPU resources,
 // VA-API decoder contexts, and DMA-BUF buffers held by the web process.
@@ -1697,6 +1718,11 @@ func (wv *WebView) ResetForPoolReuse() {
 	if wv == nil || wv.destroyed.Load() {
 		return
 	}
+	wv.generation.Add(1)
+
+	// Disconnect GLib signals to prevent stale callbacks from firing on reused WebView.
+	// They will be reconnected when the WebView is re-acquired from the pool.
+	wv.DisconnectSignals()
 
 	wv.OnLoadChanged = nil
 	wv.OnTitleChanged = nil
@@ -1712,6 +1738,7 @@ func (wv *WebView) ResetForPoolReuse() {
 	wv.OnAudioStateChanged = nil
 	wv.OnLinkHover = nil
 	wv.OnWebProcessTerminated = nil
+	wv.OnPermissionRequest = nil
 
 	wv.mu.Lock()
 	wv.uri = ""

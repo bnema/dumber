@@ -17,3 +17,16 @@ func TestAccentDetectionScriptInjectionMode(t *testing.T) {
 		"accent detection script must inject into all frames, not just the top frame",
 	)
 }
+
+func TestAccentDetectionScriptTracksLastFocusedEditableElement(t *testing.T) {
+	assert.Contains(t,
+		accentDetectionScript,
+		"window.__dumber_lastEditableEl = e.target",
+		"accent detection script must track the last focused editable element",
+	)
+	assert.Contains(t,
+		accentDetectionScript,
+		"document.addEventListener('focusin'",
+		"accent detection script must register a focusin listener",
+	)
+}

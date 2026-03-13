@@ -171,6 +171,7 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 			if p.filterApplier != nil {
 				p.filterApplier.ApplyTo(ctx, wv.ucm)
 			}
+			wv.ReconnectSignals()
 			p.acquireCount.Add(1)
 			p.acquirePoolHits.Add(1)
 			p.acquireTotalNanos.Add(time.Since(start).Nanoseconds())

@@ -18,6 +18,8 @@ import (
 // to intercept shortcuts before they reach the WebView.
 type GlobalShortcutHandler struct {
 	controller *gtk.ShortcutController
+	window     *gtk.ApplicationWindow
+	kbHandler  *KeyboardHandler
 	onAction   ActionHandler
 	ctx        context.Context
 	registered map[KeyBinding]Action
@@ -32,6 +34,7 @@ func NewGlobalShortcutHandler(
 	ctx context.Context,
 	window *gtk.ApplicationWindow,
 	cfg *config.Config,
+	kbHandler *KeyboardHandler,
 	onAction ActionHandler,
 ) *GlobalShortcutHandler {
 	log := logging.FromContext(ctx)
@@ -39,6 +42,8 @@ func NewGlobalShortcutHandler(
 
 	h := &GlobalShortcutHandler{
 		controller: gtk.NewShortcutController(),
+		window:     window,
+		kbHandler:  kbHandler,
 		onAction:   onAction,
 		ctx:        ctx,
 		callbacks:  make([]gtk.ShortcutFunc, 0),
@@ -140,6 +145,16 @@ func NewGlobalShortcutHandler(
 					Msg("registered floating profile global shortcut")
 			}
 		}
+
+		// Register all app-reserved shortcuts (mode activations, Ctrl+L, Ctrl+F, etc.)
+		// so they work even when WebView has focus.
+		shortcuts := NewShortcutSet(ctx, cfg)
+		for binding, action := range shortcuts.Global {
+			if _, exists := h.registered[binding]; exists {
+				continue
+			}
+			h.registerShortcut(binding.Keyval, gdk.ModifierType(binding.Modifiers), action)
+		}
 	}
 
 	// Attach to window
@@ -182,6 +197,17 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 			Str("action", string(actionToDispatch)).
 			Msg("global shortcut triggered")
 
+		// Mode-enter/exit actions go through KeyboardHandler for modal state
+		if isModeAction(actionToDispatch) {
+			if h.kbHandler != nil {
+				h.kbHandler.DispatchAction(actionToDispatch)
+				return true
+			}
+			log.Warn().
+				Str("action", string(actionToDispatch)).
+				Msg("mode action triggered but keyboard handler not set, falling through to default handler")
+		}
+
 		if h.onAction != nil {
 			if err := h.onAction(h.ctx, actionToDispatch); err != nil {
 				log.Error().
@@ -220,6 +246,96 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 	return true
 }
 
+// ReloadShortcuts rebuilds global shortcuts from a new config.
+// It replaces the GTK shortcut controller to ensure stale shortcuts
+// are removed.
+func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, cfg *config.Config) {
+	log := logging.FromContext(ctx)
+
+	if h.window == nil || h.controller == nil {
+		return
+	}
+
+	// Remove old controller from window
+	h.window.RemoveController(&h.controller.EventController)
+
+	// Create fresh controller
+	h.controller = gtk.NewShortcutController()
+	if h.controller == nil {
+		log.Error().Msg("failed to create shortcut controller during reload")
+		return
+	}
+	h.controller.SetScope(gtk.ShortcutScopeGlobalValue)
+	h.callbacks = make([]gtk.ShortcutFunc, 0)
+	h.registered = make(map[KeyBinding]Action)
+
+	// Re-register hardcoded shortcuts (Alt+1-9, Alt+0, Alt+Tab, Ctrl+Shift+S)
+	tabActions := []Action{
+		ActionSwitchTabIndex1, ActionSwitchTabIndex2, ActionSwitchTabIndex3,
+		ActionSwitchTabIndex4, ActionSwitchTabIndex5, ActionSwitchTabIndex6,
+		ActionSwitchTabIndex7, ActionSwitchTabIndex8, ActionSwitchTabIndex9,
+	}
+	for i, action := range tabActions {
+		h.registerShortcut(uint(gdk.KEY_1)+uint(i), gdk.AltMaskValue, action)
+	}
+	h.registerShortcut(uint(gdk.KEY_0), gdk.AltMaskValue, ActionSwitchTabIndex10)
+	h.registerShortcut(uint(gdk.KEY_Tab), gdk.AltMaskValue, ActionSwitchLastTab)
+	h.registerShortcut(uint(gdk.KEY_s), gdk.ControlMaskValue|gdk.ShiftMaskValue, ActionOpenSessionManager)
+
+	// Re-register config-driven shortcuts
+	if cfg != nil {
+		actionMap := map[string]Action{
+			"toggle_floating_pane":   ActionToggleFloatingPane,
+			"toggle-floating-pane":   ActionToggleFloatingPane,
+			"consume_or_expel_left":  ActionConsumeOrExpelLeft,
+			"consume_or_expel_right": ActionConsumeOrExpelRight,
+			"consume_or_expel_up":    ActionConsumeOrExpelUp,
+			"consume_or_expel_down":  ActionConsumeOrExpelDown,
+		}
+
+		for actionName, actionBinding := range cfg.Workspace.Shortcuts.Actions {
+			action, ok := actionMap[actionName]
+			if !ok {
+				continue
+			}
+			for _, keyStr := range actionBinding.Keys {
+				binding, ok := ParseKeyString(keyStr)
+				if !ok {
+					continue
+				}
+				h.registerShortcut(binding.Keyval, gdk.ModifierType(binding.Modifiers), action)
+			}
+		}
+
+		occupied := make(map[KeyBinding]Action, len(h.registered))
+		for binding, action := range h.registered {
+			occupied[binding] = action
+		}
+		for _, shortcut := range collectFloatingProfileShortcuts(ctx, cfg, occupied) {
+			if h.registerShortcut(shortcut.Binding.Keyval, gdk.ModifierType(shortcut.Binding.Modifiers), shortcut.Action) {
+				if url, ok := ParseFloatingProfileAction(shortcut.Action); ok {
+					log.Trace().Str("shortcut", formatBinding(shortcut.Binding)).Str("url", url).Msg("registered floating profile global shortcut")
+				}
+			}
+		}
+
+		shortcuts := NewShortcutSet(ctx, cfg)
+		for binding, action := range shortcuts.Global {
+			if _, exists := h.registered[binding]; exists {
+				continue
+			}
+			h.registerShortcut(binding.Keyval, gdk.ModifierType(binding.Modifiers), action)
+		}
+	}
+
+	// Attach new controller to window
+	h.window.AddController(&h.controller.EventController)
+
+	log.Debug().
+		Int("shortcuts", len(h.callbacks)).
+		Msg("global shortcuts reloaded")
+}
+
 // Detach removes the global shortcut handler from the window.
 // Note: GTK handles cleanup when the widget is destroyed,
 // but we clear our references here.
@@ -246,4 +362,13 @@ func formatBinding(binding KeyBinding) string {
 	}
 	parts = append(parts, strings.ToLower(keyName))
 	return strings.Join(parts, "+")
+}
+
+func isModeAction(action Action) bool {
+	switch action {
+	case ActionEnterTabMode, ActionEnterPaneMode, ActionEnterSessionMode, ActionEnterResizeMode, ActionExitMode:
+		return true
+	default:
+		return false
+	}
 }

@@ -137,16 +137,23 @@ func (uc *InsertAccentUseCase) Cancel(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
 	uc.mu.Lock()
-	defer uc.mu.Unlock()
+	target := uc.targetInput
+	wasVisible := uc.pickerVisible
+	uc.cancelTimerLocked()
+	if wasVisible {
+		uc.accentPicker.Hide()
+		uc.pickerVisible = false
+	}
+	uc.mu.Unlock()
 
-	if uc.timer != nil || uc.pickerVisible {
+	if wasVisible {
 		log.Debug().Msg("canceling accent picker")
 	}
 
-	uc.cancelTimerLocked()
-	if uc.pickerVisible {
-		uc.accentPicker.Hide()
-		uc.pickerVisible = false
+	if wasVisible {
+		if focusable, ok := target.(port.Focusable); ok {
+			focusable.Focus(ctx)
+		}
 	}
 }
 
@@ -249,6 +256,10 @@ func (uc *InsertAccentUseCase) onAccentSelected(ctx context.Context, accent rune
 	if err := target.InsertText(ctx, string(accent)); err != nil {
 		log.Error().Err(err).Msg("failed to insert accent")
 	}
+
+	if focusable, ok := target.(port.Focusable); ok {
+		focusable.Focus(ctx)
+	}
 }
 
 // onPickerCanceled is called when the user cancels the picker (Escape).
@@ -256,6 +267,7 @@ func (uc *InsertAccentUseCase) onPickerCanceled(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
 	uc.mu.Lock()
+	target := uc.targetInput
 	uc.pickerVisible = false
 	uc.pressedChar = 0
 	uc.repeatCount = 0
@@ -263,6 +275,10 @@ func (uc *InsertAccentUseCase) onPickerCanceled(ctx context.Context) {
 	uc.mu.Unlock()
 
 	uc.accentPicker.Hide()
+
+	if focusable, ok := target.(port.Focusable); ok {
+		focusable.Focus(ctx)
+	}
 
 	log.Debug().Msg("accent picker canceled")
 }

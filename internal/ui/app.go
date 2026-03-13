@@ -630,6 +630,8 @@ func (d *downloadEventAdapter) OnDownloadEvent(ctx context.Context, event port.D
 }
 
 func (a *App) initKeyboardHandler(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
 	if a.mainWindow == nil || a.deps == nil || a.deps.Config == nil {
 		return
 	}
@@ -711,10 +713,14 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 		ctx,
 		a.mainWindow.Window(),
 		a.deps.Config,
+		a.keyboardHandler,
 		func(ctx context.Context, action input.Action) error {
 			return a.kbDispatcher.Dispatch(ctx, action)
 		},
 	)
+	if a.globalShortcutHandler == nil {
+		log.Warn().Msg("global shortcut handler creation failed, shortcuts may not work when WebView has focus")
+	}
 }
 
 // handleAccentKeyPress handles accent key press events for GTK entry widgets
@@ -2110,7 +2116,7 @@ func (a *App) activeWorkspaceView() *component.WorkspaceView {
 // getActiveWebViewTarget returns a TextInputTarget for the active pane's WebView.
 // Used by the accent picker to insert accented characters into web content.
 func (a *App) getActiveWebViewTarget() port.TextInputTarget {
-	if a.contentCoord == nil || a.deps == nil || a.deps.Clipboard == nil {
+	if a.contentCoord == nil {
 		return nil
 	}
 
@@ -2120,7 +2126,7 @@ func (a *App) getActiveWebViewTarget() port.TextInputTarget {
 	}
 
 	// Get the underlying webkit.WebView for the text input target
-	return textinput.NewWebViewTarget(wv.Widget(), a.deps.Clipboard)
+	return textinput.NewWebViewTarget(wv.Widget())
 }
 
 // attachPopupToTab attaches a popup WebView to a newly created tab.
@@ -3046,6 +3052,10 @@ func (a *App) initConfigWatcher(ctx context.Context) {
 			// Reload keyboard shortcuts
 			if a.keyboardHandler != nil {
 				a.keyboardHandler.ReloadShortcuts(ctx, cfgCopy)
+			}
+			// Reload global shortcuts (removes stale, re-registers from config)
+			if a.globalShortcutHandler != nil {
+				a.globalShortcutHandler.ReloadShortcuts(ctx, cfgCopy)
 			}
 			return false
 		})
