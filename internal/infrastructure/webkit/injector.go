@@ -3,9 +3,11 @@ package webkit
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
 )
@@ -141,16 +143,23 @@ const autoCopySelectionScript = `(function() {
   });
 })();`
 
-// accentDetectionScript detects keydown/keyup of a-z keys in WebView inputs and
-// forwards them to the Go-side InsertAccentUseCase via the message bridge.
-// Go handles timing, accent lookup, and picker display — JS only reports events.
-const accentDetectionScript = `(function() {
-    'use strict';
+// accentDetectionScript is built at init from entity.AccentMap so the JS
+// filter stays in sync with the Go-side accent table.
+var accentDetectionScript string
 
-    // Track pressed key for release matching
+func init() {
+	// Build JS Set literal from AccentMap keys: "new Set(['a','c','e',...])"
+	keys := make([]string, 0, len(entity.AccentMap))
+	for k := range entity.AccentMap {
+		keys = append(keys, fmt.Sprintf("'%c'", k))
+	}
+	sort.Strings(keys)
+
+	accentDetectionScript = fmt.Sprintf(`(function() {
+    'use strict';
+    const accentKeys = new Set([%s]);
     let pressedKey = null;
 
-    // Check if the event target is an editable element (input, textarea, contenteditable)
     function isEditableTarget(target) {
         const el = target instanceof Element ? target : null;
         if (!el) return false;
@@ -158,29 +167,20 @@ const accentDetectionScript = `(function() {
         if (el.closest('textarea')) return true;
         const input = el.closest('input');
         if (!input) return false;
-        // Exclude non-text input types
         return !/^(button|checkbox|color|file|hidden|image|radio|range|reset|submit)$/i.test(input.type);
     }
 
     document.addEventListener('keydown', function(e) {
         if (!isEditableTarget(e.target)) return;
-
-        // Only handle a-z keys, with optional Shift
-        // Skip if Ctrl or Alt are held (those are shortcuts)
         if (e.ctrlKey || e.altKey || e.metaKey) return;
-
-        // Only single character keys a-z
         const key = e.key.toLowerCase();
-        if (key.length !== 1 || key < 'a' || key > 'z') return;
-
+        if (key.length !== 1 || !accentKeys.has(key)) return;
         pressedKey = key;
-
-        // Send to Go for accent detection
         window.webkit.messageHandlers.dumber.postMessage({
             type: 'accent_key_press',
             payload: { char: key, shift: e.shiftKey }
         });
-    }, true);  // capture phase to see events first
+    }, true);
 
     document.addEventListener('keyup', function(e) {
         if (!isEditableTarget(e.target)) return;
@@ -193,7 +193,8 @@ const accentDetectionScript = `(function() {
             });
         }
     }, true);
-})();`
+})();`, strings.Join(keys, ","))
+}
 
 // accentDetectionInjectionMode controls which frames receive the accent detection script.
 // Set to AllFrames so the script runs in iframes as well as the top-level document.
