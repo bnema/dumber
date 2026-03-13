@@ -134,13 +134,13 @@ func (h *KeyboardHandler) SetOnModeChange(fn func(from, to Mode)) {
 }
 
 // setControllerPhase changes the propagation phase of the key controller.
-// Uses glib.IdleAdd to ensure the GTK call runs on the main thread,
-// since this may be called from modal timeout goroutines.
+// Uses glib.IdleAdd because this may be called from timer goroutines
+// (modal timeout) which are not on the GTK main thread.
 func (h *KeyboardHandler) setControllerPhase(phase gtk.PropagationPhase) {
 	if h.controller == nil {
 		return
 	}
-	cb := glib.SourceFunc(func(uintptr) bool {
+	cb := glib.SourceFunc(func(_ uintptr) bool {
 		if h.controller != nil {
 			h.controller.SetPropagationPhase(phase)
 		}

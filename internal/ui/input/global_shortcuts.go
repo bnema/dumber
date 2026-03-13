@@ -203,7 +203,7 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 			}
 			log.Warn().
 				Str("action", string(actionToDispatch)).
-				Msg("mode action triggered but no keyboard handler available")
+				Msg("mode action triggered but keyboard handler not set, falling through to default handler")
 		}
 
 		if h.onAction != nil {

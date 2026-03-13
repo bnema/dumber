@@ -630,6 +630,8 @@ func (d *downloadEventAdapter) OnDownloadEvent(ctx context.Context, event port.D
 }
 
 func (a *App) initKeyboardHandler(ctx context.Context) {
+	log := logging.FromContext(ctx)
+
 	if a.mainWindow == nil || a.deps == nil || a.deps.Config == nil {
 		return
 	}
@@ -717,7 +719,7 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 		},
 	)
 	if a.globalShortcutHandler == nil {
-		logging.FromContext(ctx).Warn().Msg("failed to create global shortcut handler, some shortcuts may not work when WebView has focus")
+		log.Warn().Msg("global shortcut handler creation failed, shortcuts may not work when WebView has focus")
 	}
 }
 
