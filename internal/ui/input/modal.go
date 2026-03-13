@@ -60,9 +60,10 @@ func (m Mode) DisplayName() string {
 
 // ModalState manages the current input mode with optional timeout.
 type ModalState struct {
-	mode    Mode
-	timeout time.Duration
-	timer   *time.Timer
+	mode     Mode
+	timeout  time.Duration
+	timer    *time.Timer
+	timerGen int64 // incremented each time a timer is started; used to ignore stale callbacks
 
 	// Callback for mode changes (called synchronously under lock).
 	onModeChange func(from, to Mode)
@@ -215,9 +216,21 @@ func (m *ModalState) cancelTimerLocked() {
 // because onModeChange may make GTK calls (e.g., switching controller phase).
 // Must be called with m.mu held.
 func (m *ModalState) startTimeoutLocked(ctx context.Context, timeout time.Duration) {
+	m.timerGen++
+	gen := m.timerGen
 	schedule := m.scheduleOnMainThread
 	m.timer = time.AfterFunc(timeout, func() {
-		schedule(func() { m.ExitMode(ctx) })
+		schedule(func() {
+			// Ignore stale callback: time.Timer.Stop can race with the
+			// timer firing, so a canceled timer's callback may still run.
+			m.mu.RLock()
+			stale := m.timerGen != gen
+			m.mu.RUnlock()
+			if stale {
+				return
+			}
+			m.ExitMode(ctx)
+		})
 	})
 }
 

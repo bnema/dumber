@@ -1090,6 +1090,7 @@ func (c *ContentCoordinator) resolveCommittedFavicon(ctx context.Context, paneID
 	// Fall back to GetOrFetch (checks service cache, WebKit DB, then DuckDuckGo API)
 	// Capture current generation to guard against stale callbacks
 	gen := wv.Generation()
+	capturedURI := uri
 	c.faviconAdapter.GetOrFetch(ctx, uri, func(texture *gdk.Texture) {
 		// Skip nil results — a nil means "couldn't resolve", not "no favicon".
 		// Without this guard, a late nil callback can overwrite a good favicon
@@ -1103,6 +1104,10 @@ func (c *ContentCoordinator) resolveCommittedFavicon(ctx context.Context, paneID
 		}
 		currentWV := c.getWebViewLocked(paneID)
 		if currentWV != wv {
+			return
+		}
+		// Verify the WebView hasn't navigated away since we started the fetch
+		if currentWV.URI() != capturedURI {
 			return
 		}
 		c.updateStackedFaviconForPane(ctx, paneID, texture)
