@@ -18,6 +18,7 @@ import (
 // to intercept shortcuts before they reach the WebView.
 type GlobalShortcutHandler struct {
 	controller *gtk.ShortcutController
+	kbHandler  *KeyboardHandler
 	onAction   ActionHandler
 	ctx        context.Context
 	registered map[KeyBinding]Action
@@ -32,6 +33,7 @@ func NewGlobalShortcutHandler(
 	ctx context.Context,
 	window *gtk.ApplicationWindow,
 	cfg *config.Config,
+	kbHandler *KeyboardHandler,
 	onAction ActionHandler,
 ) *GlobalShortcutHandler {
 	log := logging.FromContext(ctx)
@@ -39,6 +41,7 @@ func NewGlobalShortcutHandler(
 
 	h := &GlobalShortcutHandler{
 		controller: gtk.NewShortcutController(),
+		kbHandler:  kbHandler,
 		onAction:   onAction,
 		ctx:        ctx,
 		callbacks:  make([]gtk.ShortcutFunc, 0),
@@ -140,6 +143,16 @@ func NewGlobalShortcutHandler(
 					Msg("registered floating profile global shortcut")
 			}
 		}
+
+		// Register all app-reserved shortcuts (mode activations, Ctrl+L, Ctrl+F, etc.)
+		// so they work even when WebView has focus.
+		shortcuts := NewShortcutSet(ctx, cfg)
+		for binding, action := range shortcuts.Global {
+			if _, exists := h.registered[binding]; exists {
+				continue
+			}
+			h.registerShortcut(binding.Keyval, gdk.ModifierType(binding.Modifiers), action)
+		}
 	}
 
 	// Attach to window
@@ -181,6 +194,17 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 		log.Debug().
 			Str("action", string(actionToDispatch)).
 			Msg("global shortcut triggered")
+
+		// Mode-enter/exit actions go through KeyboardHandler for modal state
+		if isModeAction(actionToDispatch) {
+			if h.kbHandler != nil {
+				h.kbHandler.DispatchAction(actionToDispatch)
+				return true
+			}
+			log.Warn().
+				Str("action", string(actionToDispatch)).
+				Msg("mode action triggered but no keyboard handler available")
+		}
 
 		if h.onAction != nil {
 			if err := h.onAction(h.ctx, actionToDispatch); err != nil {
@@ -246,4 +270,13 @@ func formatBinding(binding KeyBinding) string {
 	}
 	parts = append(parts, strings.ToLower(keyName))
 	return strings.Join(parts, "+")
+}
+
+func isModeAction(action Action) bool {
+	switch action {
+	case ActionEnterTabMode, ActionEnterPaneMode, ActionEnterSessionMode, ActionEnterResizeMode, ActionExitMode:
+		return true
+	default:
+		return false
+	}
 }

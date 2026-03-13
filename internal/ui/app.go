@@ -711,10 +711,14 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 		ctx,
 		a.mainWindow.Window(),
 		a.deps.Config,
+		a.keyboardHandler,
 		func(ctx context.Context, action input.Action) error {
 			return a.kbDispatcher.Dispatch(ctx, action)
 		},
 	)
+	if a.globalShortcutHandler == nil {
+		logging.FromContext(ctx).Warn().Msg("failed to create global shortcut handler, some shortcuts may not work when WebView has focus")
+	}
 }
 
 // handleAccentKeyPress handles accent key press events for GTK entry widgets

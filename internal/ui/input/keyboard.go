@@ -26,6 +26,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
+	"github.com/jwijenbergh/puregotk/v4/glib"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 	"github.com/rs/zerolog"
 )
@@ -116,7 +117,36 @@ func (h *KeyboardHandler) ReloadShortcuts(ctx context.Context, cfg *config.Confi
 
 // SetOnModeChange sets the callback for mode changes (for UI updates).
 func (h *KeyboardHandler) SetOnModeChange(fn func(from, to Mode)) {
-	h.modal.SetOnModeChange(fn)
+	h.modal.SetOnModeChange(func(from, to Mode) {
+		// Switch controller phase: capture during modal, bubble for normal.
+		// This ensures plain modal keys (s, h, etc.) reach the handler
+		// before WebView, while normal typing still goes through WebKit IM.
+		if to == ModeNormal {
+			h.setControllerPhase(gtk.PhaseBubbleValue)
+		} else if from == ModeNormal {
+			h.setControllerPhase(gtk.PhaseCaptureValue)
+		}
+		// Forward to app-level callback
+		if fn != nil {
+			fn(from, to)
+		}
+	})
+}
+
+// setControllerPhase changes the propagation phase of the key controller.
+// Uses glib.IdleAdd to ensure the GTK call runs on the main thread,
+// since this may be called from modal timeout goroutines.
+func (h *KeyboardHandler) setControllerPhase(phase gtk.PropagationPhase) {
+	if h.controller == nil {
+		return
+	}
+	cb := glib.SourceFunc(func(uintptr) bool {
+		if h.controller != nil {
+			h.controller.SetPropagationPhase(phase)
+		}
+		return false
+	})
+	glib.IdleAdd(&cb, 0)
 }
 
 // SetRouteKey sets the callback that determines how each key event should be routed.
@@ -392,17 +422,21 @@ func isResizeAction(action Action) bool {
 }
 
 func (h *KeyboardHandler) handleModeAction(action Action) bool {
+	h.mu.RLock()
+	cfg := h.cfg
+	h.mu.RUnlock()
+
 	switch action {
 	case ActionEnterTabMode:
-		timeout := time.Duration(h.cfg.Workspace.TabMode.TimeoutMilliseconds) * time.Millisecond
+		timeout := time.Duration(cfg.Workspace.TabMode.TimeoutMilliseconds) * time.Millisecond
 		h.modal.EnterTabMode(h.ctx, timeout)
 		return true
 	case ActionEnterPaneMode:
-		timeout := time.Duration(h.cfg.Workspace.PaneMode.TimeoutMilliseconds) * time.Millisecond
+		timeout := time.Duration(cfg.Workspace.PaneMode.TimeoutMilliseconds) * time.Millisecond
 		h.modal.EnterPaneMode(h.ctx, timeout)
 		return true
 	case ActionEnterSessionMode:
-		timeout := time.Duration(h.cfg.Session.SessionMode.TimeoutMilliseconds) * time.Millisecond
+		timeout := time.Duration(cfg.Session.SessionMode.TimeoutMilliseconds) * time.Millisecond
 		h.modal.EnterSessionMode(h.ctx, timeout)
 		return true
 	case ActionEnterResizeMode:
@@ -410,7 +444,7 @@ func (h *KeyboardHandler) handleModeAction(action Action) bool {
 			h.modal.ExitMode(h.ctx)
 			return true
 		}
-		timeout := time.Duration(h.cfg.Workspace.ResizeMode.TimeoutMilliseconds) * time.Millisecond
+		timeout := time.Duration(cfg.Workspace.ResizeMode.TimeoutMilliseconds) * time.Millisecond
 		h.modal.EnterResizeMode(h.ctx, timeout)
 		return true
 	case ActionExitMode:
@@ -424,21 +458,30 @@ func (h *KeyboardHandler) handleModeAction(action Action) bool {
 // EnterTabMode programmatically enters tab mode.
 // Useful for testing or programmatic mode changes.
 func (h *KeyboardHandler) EnterTabMode() {
-	timeout := time.Duration(h.cfg.Workspace.TabMode.TimeoutMilliseconds) * time.Millisecond
+	h.mu.RLock()
+	cfg := h.cfg
+	h.mu.RUnlock()
+	timeout := time.Duration(cfg.Workspace.TabMode.TimeoutMilliseconds) * time.Millisecond
 	h.modal.EnterTabMode(h.ctx, timeout)
 }
 
 // EnterPaneMode programmatically enters pane mode.
 // Useful for testing or programmatic mode changes.
 func (h *KeyboardHandler) EnterPaneMode() {
-	timeout := time.Duration(h.cfg.Workspace.PaneMode.TimeoutMilliseconds) * time.Millisecond
+	h.mu.RLock()
+	cfg := h.cfg
+	h.mu.RUnlock()
+	timeout := time.Duration(cfg.Workspace.PaneMode.TimeoutMilliseconds) * time.Millisecond
 	h.modal.EnterPaneMode(h.ctx, timeout)
 }
 
 // EnterSessionMode programmatically enters session mode.
 // Useful for testing or programmatic mode changes.
 func (h *KeyboardHandler) EnterSessionMode() {
-	timeout := time.Duration(h.cfg.Session.SessionMode.TimeoutMilliseconds) * time.Millisecond
+	h.mu.RLock()
+	cfg := h.cfg
+	h.mu.RUnlock()
+	timeout := time.Duration(cfg.Session.SessionMode.TimeoutMilliseconds) * time.Millisecond
 	h.modal.EnterSessionMode(h.ctx, timeout)
 }
 
@@ -446,6 +489,14 @@ func (h *KeyboardHandler) EnterSessionMode() {
 // Useful for testing or programmatic mode changes.
 func (h *KeyboardHandler) ExitMode() {
 	h.modal.ExitMode(h.ctx)
+}
+
+// DispatchAction processes an action externally triggered (e.g., by a global
+// shortcut). Mode-enter actions update modal state; other actions are forwarded
+// to the registered action handler.
+func (h *KeyboardHandler) DispatchAction(action Action) {
+	mode := h.modal.Mode()
+	h.dispatchAction(action, mode)
 }
 
 // handleKeyRelease processes a key release event for accent detection.
