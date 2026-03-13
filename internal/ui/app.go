@@ -2116,7 +2116,7 @@ func (a *App) activeWorkspaceView() *component.WorkspaceView {
 // getActiveWebViewTarget returns a TextInputTarget for the active pane's WebView.
 // Used by the accent picker to insert accented characters into web content.
 func (a *App) getActiveWebViewTarget() port.TextInputTarget {
-	if a.contentCoord == nil || a.deps == nil || a.deps.Clipboard == nil {
+	if a.contentCoord == nil {
 		return nil
 	}
 
@@ -2126,7 +2126,7 @@ func (a *App) getActiveWebViewTarget() port.TextInputTarget {
 	}
 
 	// Get the underlying webkit.WebView for the text input target
-	return textinput.NewWebViewTarget(wv.Widget(), a.deps.Clipboard)
+	return textinput.NewWebViewTarget(wv.Widget())
 }
 
 // attachPopupToTab attaches a popup WebView to a newly created tab.

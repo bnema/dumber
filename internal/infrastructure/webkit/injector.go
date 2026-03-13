@@ -193,6 +193,12 @@ func init() {
             });
         }
     }, true);
+
+	    document.addEventListener('focusin', function(e) {
+	        if (isEditableTarget(e.target)) {
+	            window.__dumber_lastEditableEl = e.target;
+	        }
+	    }, true);
 })();`, strings.Join(keys, ","))
 }
 
