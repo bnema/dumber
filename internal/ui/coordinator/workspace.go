@@ -1713,6 +1713,36 @@ func (c *WorkspaceCoordinator) SetupStackedPaneCallbacks(ctx context.Context, ws
 			c.onStackedPaneClose(ctx, entity.PaneID(paneID))
 		})
 
+		// Populate stacked title bar favicons from cache.
+		// When panes are stacked (split → stack conversion) or restored from session,
+		// the title bars are created with default icons. We need to apply any cached
+		// favicon textures so they display correctly without waiting for a new navigation.
+		if fa := c.contentCoord.FaviconAdapter(); fa != nil {
+			for i, child := range node.Children {
+				if child.Pane == nil {
+					continue
+				}
+				// Try to get the pane's current URI from its WebView
+				uri := child.Pane.URI
+				if wv := c.contentCoord.GetWebView(child.Pane.ID); wv != nil {
+					if currentURI := wv.URI(); currentURI != "" {
+						uri = currentURI
+					}
+				}
+				if uri == "" {
+					continue
+				}
+				if texture := fa.GetTextureByURL(uri); texture != nil {
+					if err := stackedView.UpdateFaviconTexture(i, texture); err == nil {
+						log.Debug().
+							Str("pane_id", string(child.Pane.ID)).
+							Str("domain", domainurl.ExtractDomain(uri)).
+							Msg("populated stacked title bar favicon from cache")
+					}
+				}
+			}
+		}
+
 		log.Debug().
 			Str("stack_id", node.ID).
 			Int("stack_size", len(node.Children)).
