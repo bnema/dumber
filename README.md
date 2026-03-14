@@ -11,7 +11,7 @@ A TTY-inspired web browser multiplexer for tiling window managers.
 
 ## What is Dumber?
 
-Dumber is a web browser made for tiling Window Managers like Niri or Hyprland. The goal was to provide a webview first approach everything else is hidden by design. Core logic works like a terminal multiplexer (Very much inspired by Zellij). Tabs hold workspaces. Workspaces hold panes. Panes split and stack.
+Dumber is a web browser made for tiling window managers like Niri or Hyprland. The goal was to provide a webview-first approach where everything else is hidden by design. Core logic works like a terminal multiplexer (very much inspired by Zellij). Tabs hold workspaces. Workspaces hold panes. Panes split and stack.
 
 https://github.com/user-attachments/assets/232822af-08e4-4a74-9416-87f79c96b118
 
