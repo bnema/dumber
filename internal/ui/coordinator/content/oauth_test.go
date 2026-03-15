@@ -1,4 +1,4 @@
-package coordinator
+package content
 
 import (
 	"context"
@@ -52,7 +52,7 @@ func TestHandlePopupOAuthClose_SuccessSchedulesParentRefresh(t *testing.T) {
 	parentPaneID := entity.PaneID("parent-pane")
 	popupID := port.WebViewID(101)
 
-	c := &ContentCoordinator{
+	c := &Coordinator{
 		webViews:     make(map[entity.PaneID]*webkit.WebView),
 		popupOAuth:   make(map[port.WebViewID]*popupOAuthState),
 		popupRefresh: make(map[entity.PaneID]*time.Timer),
@@ -81,7 +81,7 @@ func TestHandlePopupOAuthClose_ErrorDoesNotScheduleParentRefresh(t *testing.T) {
 	parentPaneID := entity.PaneID("parent-pane")
 	popupID := port.WebViewID(102)
 
-	c := &ContentCoordinator{
+	c := &Coordinator{
 		webViews:     make(map[entity.PaneID]*webkit.WebView),
 		popupOAuth:   make(map[port.WebViewID]*popupOAuthState),
 		popupRefresh: make(map[entity.PaneID]*time.Timer),

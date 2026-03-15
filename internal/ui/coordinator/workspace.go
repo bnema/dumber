@@ -11,6 +11,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
+	"github.com/bnema/dumber/internal/ui/coordinator/content"
 	"github.com/bnema/dumber/internal/ui/focus"
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/rs/zerolog"
@@ -27,15 +28,15 @@ type WorkspaceCoordinator struct {
 	focusMgr       *focus.Manager
 	stackedPaneMgr *component.StackedPaneManager
 	widgetFactory  layout.WidgetFactory
-	contentCoord   *ContentCoordinator
+	contentCoord   *content.Coordinator
 
 	// Callbacks to avoid circular dependencies
 	getActiveWS      func() (*entity.Workspace, *component.WorkspaceView)
 	generateID       func() string
 	onCloseLastPane  func(ctx context.Context) error
-	onCreatePopupTab func(ctx context.Context, input InsertPopupInput) error // For tabbed popup behavior
-	onStateChanged   func()                                                  // For session snapshots
-	onPaneClosed     func(paneID entity.PaneID)                              // For pane-specific cleanup hooks
+	onCreatePopupTab func(ctx context.Context, input content.InsertPopupInput) error // For tabbed popup behavior
+	onStateChanged   func()                                                          // For session snapshots
+	onPaneClosed     func(paneID entity.PaneID)                                      // For pane-specific cleanup hooks
 }
 
 // WorkspaceCoordinatorConfig holds configuration for WorkspaceCoordinator.
@@ -44,7 +45,7 @@ type WorkspaceCoordinatorConfig struct {
 	FocusMgr       *focus.Manager
 	StackedPaneMgr *component.StackedPaneManager
 	WidgetFactory  layout.WidgetFactory
-	ContentCoord   *ContentCoordinator
+	ContentCoord   *content.Coordinator
 	GetActiveWS    func() (*entity.Workspace, *component.WorkspaceView)
 	GenerateID     func() string
 }
@@ -1180,7 +1181,7 @@ func (c *WorkspaceCoordinator) doIncrementalStackClose(
 	// Release the closing pane's webview
 	c.contentCoord.ReleaseWebView(ctx, closingPaneID)
 
-	// Sync remaining title bars with current titles from ContentCoordinator.
+	// Sync remaining title bars with current titles from content.Coordinator.
 	// The domain model (stackNode.Children) has already been updated by the use case,
 	// so we iterate the remaining children and update their titles in the UI.
 	c.syncStackedPaneTitles(ctx, stackedView, stackNode)
@@ -1756,13 +1757,13 @@ func (c *WorkspaceCoordinator) SetupStackedPaneCallbacks(ctx context.Context, ws
 
 // SetOnCreatePopupTab sets the callback for creating popup tabs.
 // This is used when popup behavior is "tabbed".
-func (c *WorkspaceCoordinator) SetOnCreatePopupTab(fn func(ctx context.Context, input InsertPopupInput) error) {
+func (c *WorkspaceCoordinator) SetOnCreatePopupTab(fn func(ctx context.Context, input content.InsertPopupInput) error) {
 	c.onCreatePopupTab = fn
 }
 
 // InsertPopup inserts a popup pane into the workspace based on the specified behavior.
 // Supports split, stacked, and tabbed behaviors.
-func (c *WorkspaceCoordinator) InsertPopup(ctx context.Context, input InsertPopupInput) error {
+func (c *WorkspaceCoordinator) InsertPopup(ctx context.Context, input content.InsertPopupInput) error {
 	log := logging.FromContext(ctx)
 
 	log.Debug().
@@ -1787,7 +1788,7 @@ func (c *WorkspaceCoordinator) InsertPopup(ctx context.Context, input InsertPopu
 }
 
 // insertPopupSplit inserts a popup as a split pane adjacent to the parent.
-func (c *WorkspaceCoordinator) insertPopupSplit(ctx context.Context, input InsertPopupInput) error {
+func (c *WorkspaceCoordinator) insertPopupSplit(ctx context.Context, input content.InsertPopupInput) error {
 	log := logging.FromContext(ctx)
 
 	ws, wsView := c.getActiveWS()
@@ -1882,7 +1883,7 @@ func (c *WorkspaceCoordinator) resolvePopupSplitWidget(
 func (c *WorkspaceCoordinator) attachPopupWebView(
 	ctx context.Context,
 	wsView *component.WorkspaceView,
-	input InsertPopupInput,
+	input content.InsertPopupInput,
 ) {
 	if wsView == nil || input.WebView == nil {
 		return
@@ -1902,7 +1903,7 @@ func (c *WorkspaceCoordinator) attachPopupWebView(
 
 // insertPopupStacked inserts a popup as a stacked pane on top of the parent.
 // Uses CreateStack and AddToStack use cases for proper domain model management.
-func (c *WorkspaceCoordinator) insertPopupStacked(ctx context.Context, input InsertPopupInput) error {
+func (c *WorkspaceCoordinator) insertPopupStacked(ctx context.Context, input content.InsertPopupInput) error {
 	log := logging.FromContext(ctx)
 
 	ws, wsView := c.getActiveWS()
@@ -2040,7 +2041,7 @@ func (c *WorkspaceCoordinator) resolveOrCreateStackNode(
 
 func (c *WorkspaceCoordinator) attachPopupPaneView(
 	ctx context.Context,
-	input InsertPopupInput,
+	input content.InsertPopupInput,
 	wsView *component.WorkspaceView,
 	stackNode *entity.PaneNode,
 	log *zerolog.Logger,
@@ -2085,7 +2086,7 @@ func (c *WorkspaceCoordinator) attachPopupPaneView(
 }
 
 // insertPopupTabbed creates a new tab for the popup.
-func (c *WorkspaceCoordinator) insertPopupTabbed(ctx context.Context, input InsertPopupInput) error {
+func (c *WorkspaceCoordinator) insertPopupTabbed(ctx context.Context, input content.InsertPopupInput) error {
 	log := logging.FromContext(ctx)
 
 	if c.onCreatePopupTab == nil {

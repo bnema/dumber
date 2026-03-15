@@ -27,6 +27,7 @@ import (
 	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
+	"github.com/bnema/dumber/internal/ui/coordinator/content"
 	"github.com/bnema/dumber/internal/ui/dialog"
 	"github.com/bnema/dumber/internal/ui/dispatcher"
 	"github.com/bnema/dumber/internal/ui/focus"
@@ -68,7 +69,7 @@ type App struct {
 	tabsUC *usecase.ManageTabsUseCase
 
 	// Coordinators (new architecture)
-	contentCoord  *coordinator.ContentCoordinator
+	contentCoord  *content.Coordinator
 	tabCoord      *coordinator.TabCoordinator
 	wsCoord       *coordinator.WorkspaceCoordinator
 	navCoord      *coordinator.NavigationCoordinator
@@ -103,7 +104,7 @@ type App struct {
 	engine   port.Engine
 	wkEngine *webkit.Engine
 
-	// Web content (managed by ContentCoordinator)
+	// Web content (managed by content.Coordinator)
 	pool           *webkit.WebViewPool
 	webViewFactory *webkit.WebViewFactory
 	injector       *webkit.ContentInjector
@@ -1434,7 +1435,7 @@ func (a *App) runAfterFirstLoadStarted(fn func()) {
 	a.deferredInitFn = fn
 }
 
-// triggerDeferredInit is called from ContentCoordinator on first load_started.
+// triggerDeferredInit is called from content.Coordinator on first load_started.
 // It runs deferred initialization at LOW priority so navigation continues unblocked.
 func (a *App) triggerDeferredInit(ctx context.Context) {
 	a.deferredInitOnce.Do(func() {
@@ -1522,7 +1523,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 	a.faviconAdapter = adapter.NewFaviconAdapter(a.deps.FaviconService, faviconDB)
 
 	// 1. Content Coordinator (no dependencies on other coordinators)
-	a.contentCoord = coordinator.NewContentCoordinator(
+	a.contentCoord = content.NewCoordinator(
 		ctx,
 		a.pool,
 		a.widgetFactory,
@@ -1622,14 +1623,14 @@ func (a *App) initCoordinators(ctx context.Context) {
 		&a.deps.Config.Workspace.Popups,
 		a.generateID,
 	)
-	a.contentCoord.SetOnInsertPopup(func(ctx context.Context, input coordinator.InsertPopupInput) error {
+	a.contentCoord.SetOnInsertPopup(func(ctx context.Context, input content.InsertPopupInput) error {
 		return a.wsCoord.InsertPopup(ctx, input)
 	})
 	a.contentCoord.SetOnClosePane(func(ctx context.Context, paneID entity.PaneID) error {
 		return a.wsCoord.ClosePaneByID(ctx, paneID)
 	})
 	// Wire tabbed popup behavior to create new tabs
-	a.wsCoord.SetOnCreatePopupTab(func(ctx context.Context, input coordinator.InsertPopupInput) error {
+	a.wsCoord.SetOnCreatePopupTab(func(ctx context.Context, input content.InsertPopupInput) error {
 		// Create a new tab with the popup pane
 		tab, err := a.tabCoord.CreateWithPane(ctx, input.PopupPane, input.WebView, input.TargetURI)
 		if err != nil {
@@ -1761,15 +1762,15 @@ func (a *App) wireWebRTCPermissionIndicator() {
 	}
 	log := logging.FromContext(ctx)
 
-	a.contentCoord.SetOnPermissionActivity(func(origin string, permTypes []entity.PermissionType, state coordinator.PermissionActivityState) {
+	a.contentCoord.SetOnPermissionActivity(func(origin string, permTypes []entity.PermissionType, state content.PermissionActivityState) {
 		a.webrtcIndicator.SetOrigin(origin)
 
 		switch state {
-		case coordinator.PermissionActivityRequesting:
+		case content.PermissionActivityRequesting:
 			a.webrtcIndicator.MarkRequesting(permTypes)
-		case coordinator.PermissionActivityAllowed:
+		case content.PermissionActivityAllowed:
 			a.webrtcIndicator.MarkAllowed(permTypes)
-		case coordinator.PermissionActivityBlocked:
+		case content.PermissionActivityBlocked:
 			a.webrtcIndicator.MarkBlocked(permTypes)
 		}
 
@@ -1794,7 +1795,7 @@ func (a *App) wireWebRTCPermissionIndicator() {
 			// Allowed/requesting → deny future requests.
 			// Blocked → allow future requests.
 			decision := entity.PermissionDenied
-			if state == string(coordinator.PermissionActivityBlocked) {
+			if state == string(content.PermissionActivityBlocked) {
 				decision = entity.PermissionGranted
 			}
 			if err := a.deps.PermissionUC.SetManualPermissionDecision(ctx, origin, permType, decision); err != nil {

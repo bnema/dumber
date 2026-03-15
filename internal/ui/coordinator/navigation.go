@@ -9,6 +9,7 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/dumber/internal/ui/coordinator/content"
 )
 
 // OmniboxProvider provides access to omnibox operations.
@@ -22,7 +23,7 @@ type OmniboxProvider interface {
 type NavigationCoordinator struct {
 	contextProvider func() context.Context
 	navigateUC      *usecase.NavigateUseCase
-	contentCoord    *ContentCoordinator
+	contentCoord    *content.Coordinator
 	omniboxProvider OmniboxProvider
 }
 
@@ -32,7 +33,7 @@ const faviconPreloadTimeout = 300 * time.Millisecond
 func NewNavigationCoordinator(
 	ctx context.Context,
 	navigateUC *usecase.NavigateUseCase,
-	contentCoord *ContentCoordinator,
+	contentCoord *content.Coordinator,
 ) *NavigationCoordinator {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("creating navigation coordinator")

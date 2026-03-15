@@ -1,4 +1,4 @@
-package coordinator
+package content
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 // without needing to mock WebKit dependencies.
 
 func TestMarkPendingReveal_SetsState(t *testing.T) {
-	c := &ContentCoordinator{
+	c := &Coordinator{
 		pendingReveal: make(map[entity.PaneID]bool),
 	}
 	paneID := entity.PaneID("pane-1")
@@ -29,7 +29,7 @@ func TestMarkPendingReveal_SetsState(t *testing.T) {
 }
 
 func TestClearPendingReveal_RemovesState(t *testing.T) {
-	c := &ContentCoordinator{
+	c := &Coordinator{
 		pendingReveal: make(map[entity.PaneID]bool),
 	}
 	paneID := entity.PaneID("pane-1")
@@ -47,7 +47,7 @@ func TestClearPendingReveal_RemovesState(t *testing.T) {
 
 func TestRevealIfPending_NotPending_DoesNothing(t *testing.T) {
 	callbackCalled := false
-	c := &ContentCoordinator{
+	c := &Coordinator{
 		pendingReveal: make(map[entity.PaneID]bool),
 		webViews:      make(map[entity.PaneID]*webkit.WebView),
 		onWebViewShown: func(paneID entity.PaneID) {
@@ -63,7 +63,7 @@ func TestRevealIfPending_NotPending_DoesNothing(t *testing.T) {
 }
 
 func TestRevealIfPending_ClearsStateOnReveal(t *testing.T) {
-	c := &ContentCoordinator{
+	c := &Coordinator{
 		pendingReveal: make(map[entity.PaneID]bool),
 		webViews:      make(map[entity.PaneID]*webkit.WebView),
 	}
@@ -82,7 +82,7 @@ func TestRevealIfPending_ClearsStateOnReveal(t *testing.T) {
 
 func TestRevealIfPending_OnlyRevealsOnce(t *testing.T) {
 	revealCount := 0
-	c := &ContentCoordinator{
+	c := &Coordinator{
 		pendingReveal: make(map[entity.PaneID]bool),
 		webViews:      make(map[entity.PaneID]*webkit.WebView),
 		onWebViewShown: func(paneID entity.PaneID) {
@@ -109,7 +109,7 @@ func TestRevealIfPending_OnlyRevealsOnce(t *testing.T) {
 }
 
 func TestPendingReveal_ConcurrentAccess(t *testing.T) {
-	c := &ContentCoordinator{
+	c := &Coordinator{
 		pendingReveal: make(map[entity.PaneID]bool),
 		webViews:      make(map[entity.PaneID]*webkit.WebView),
 	}
@@ -144,7 +144,7 @@ func TestPendingReveal_ConcurrentAccess(t *testing.T) {
 }
 
 func TestMarkPendingReveal_MultiplePanes(t *testing.T) {
-	c := &ContentCoordinator{
+	c := &Coordinator{
 		pendingReveal: make(map[entity.PaneID]bool),
 	}
 
@@ -161,7 +161,7 @@ func TestMarkPendingReveal_MultiplePanes(t *testing.T) {
 }
 
 func TestClearPendingReveal_OnlyAffectsTargetPane(t *testing.T) {
-	c := &ContentCoordinator{
+	c := &Coordinator{
 		pendingReveal: make(map[entity.PaneID]bool),
 	}
 
