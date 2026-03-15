@@ -83,3 +83,13 @@ func (e *Engine) FilterApplier() port.FilterApplier {
 func (e *Engine) FaviconDatabase() port.FaviconDatabase {
 	return &faviconDatabaseAdapter{wkCtx: e.wkCtx}
 }
+
+// --- Temporary accessors for migration (M3->M4 bridge) ---
+// These will be removed when ui.Dependencies is updated to use port.Engine.
+
+func (e *Engine) InternalContext() *WebKitContext           { return e.wkCtx }
+func (e *Engine) InternalSettings() *SettingsManager        { return e.settings }
+func (e *Engine) InternalInjector() *ContentInjector        { return e.injector }
+func (e *Engine) InternalMessageRouter() *MessageRouter     { return e.messageRouter }
+func (e *Engine) InternalPool() *WebViewPool                { return e.pool }
+func (e *Engine) InternalFilterManager() *filtering.Manager { return e.filterManager }

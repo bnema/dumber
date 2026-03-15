@@ -25,6 +25,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/idle"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/infrastructure/updater"
+	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/infrastructure/xdg"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui"
@@ -94,7 +95,7 @@ func runGUI() int {
 
 	needsEagerDB := restoreSessionID != "" || cfg.Session.AutoRestore
 
-	stack, repos, dbCleanup, err := initStackAndRepos(ctx, cfg, initResult, needsEagerDB)
+	engine, repos, dbCleanup, err := initStackAndRepos(ctx, cfg, initResult, needsEagerDB)
 	if err != nil {
 		bootstrapLog.Fatal().Err(err).Msg("failed to initialize database/webkit")
 	}
@@ -111,8 +112,10 @@ func runGUI() int {
 	logging.Trace().UpdateLogger(log)
 	logCoreDumpLimits(ctx)
 
-	if stack.MessageRouter != nil {
-		stack.MessageRouter.SetBaseContext(ctx)
+	if wkEngine, ok := engine.(*webkit.Engine); ok {
+		if mr := wkEngine.InternalMessageRouter(); mr != nil {
+			mr.SetBaseContext(ctx)
+		}
 	}
 
 	useCases := createUseCases(repos, cfg)
@@ -124,7 +127,7 @@ func runGUI() int {
 	defer closeIdleInhibitor(idleInhibitor)
 	timer.Mark("use_cases")
 
-	app, err := buildAndConfigureApp(ctx, cfg, initResult, &stack, repos, useCases, idleInhibitor, browserSession)
+	app, err := buildAndConfigureApp(ctx, cfg, initResult, engine, repos, useCases, idleInhibitor, browserSession)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create application")
 		return 1
@@ -194,7 +197,7 @@ func buildAndConfigureApp(
 	ctx context.Context,
 	cfg *config.Config,
 	initResult *bootstrap.ParallelInitResult,
-	stack *bootstrap.WebKitStack,
+	engine port.Engine,
 	repos *repositories,
 	useCases *useCases,
 	idleInhibitor port.IdleInhibitor,
@@ -203,7 +206,7 @@ func buildAndConfigureApp(
 	uiDeps := buildUIDependencies(
 		ctx, cfg, initResult.ThemeManager,
 		initResult.ColorResolver, initResult.AdwaitaDetector,
-		stack, repos, useCases, idleInhibitor, browserSession.Session.ID, browserSession.UnexpectedCloseReports(),
+		engine, repos, useCases, idleInhibitor, browserSession.Session.ID, browserSession.UnexpectedCloseReports(),
 	)
 	configureDeferredInit(uiDeps, cfg, browserSession)
 	return ui.New(uiDeps)
@@ -230,10 +233,10 @@ func initStackAndRepos(
 	cfg *config.Config,
 	initResult *bootstrap.ParallelInitResult,
 	needsEagerDB bool,
-) (bootstrap.WebKitStack, *repositories, func(), error) {
+) (port.Engine, *repositories, func(), error) {
 	if needsEagerDB {
-		// Parallel phase 2: Database + WebKit stack initialize concurrently
-		dbWebKit, err := bootstrap.RunParallelDBWebKit(bootstrap.ParallelDBWebKitInput{
+		// Parallel phase 2: Database + engine initialize concurrently
+		dbEngine, err := bootstrap.RunParallelDBEngine(bootstrap.ParallelDBEngineInput{
 			Ctx:           ctx,
 			Config:        cfg,
 			DataDir:       initResult.DataDir,
@@ -242,13 +245,13 @@ func initStackAndRepos(
 			ColorResolver: initResult.ColorResolver,
 		})
 		if err != nil {
-			return bootstrap.WebKitStack{}, nil, nil, err
+			return nil, nil, nil, err
 		}
-		return dbWebKit.Stack, createRepositories(dbWebKit.DB), dbWebKit.DBCleanup, nil
+		return dbEngine.Engine, createRepositories(dbEngine.DB), dbEngine.DBCleanup, nil
 	}
 
 	log := logging.FromContext(ctx)
-	stack := bootstrap.BuildWebKitStack(bootstrap.WebKitStackInput{
+	engine, err := bootstrap.BuildEngine(bootstrap.EngineInput{
 		Ctx:           ctx,
 		Config:        cfg,
 		DataDir:       initResult.DataDir,
@@ -257,13 +260,16 @@ func initStackAndRepos(
 		ColorResolver: initResult.ColorResolver,
 		Logger:        *log,
 	})
+	if err != nil {
+		return nil, nil, nil, err
+	}
 
 	lazyDB, err := bootstrap.CreateLazyDatabase()
 	if err != nil {
-		return stack, nil, nil, err
+		return nil, nil, nil, err
 	}
 	dbCleanup := func() { _ = lazyDB.Close() }
-	return stack, createLazyRepositories(lazyDB), dbCleanup, nil
+	return engine, createLazyRepositories(lazyDB), dbCleanup, nil
 }
 
 func configureDeferredInit(
@@ -501,13 +507,17 @@ func buildUIDependencies(
 	themeManager *theme.Manager,
 	colorResolver port.ColorSchemeResolver,
 	adwaitaDetector *colorscheme.AdwaitaDetector,
-	stack *bootstrap.WebKitStack,
+	engine port.Engine,
 	repos *repositories,
 	uc *useCases,
 	idleInhibitor port.IdleInhibitor,
 	currentSessionID entity.SessionID,
 	startupCrashReports []string,
 ) *ui.Dependencies {
+	// Type-assert to *webkit.Engine to access concrete types for ui.Dependencies.
+	// This bridge will be removed when ui.Dependencies is updated to use port.Engine (M4).
+	wkEngine := engine.(*webkit.Engine)
+
 	return &ui.Dependencies{
 		Ctx:                 ctx,
 		Config:              cfg,
@@ -518,12 +528,12 @@ func buildUIDependencies(
 		ColorResolver:       colorResolver,
 		AdwaitaDetector:     adwaitaDetector,
 		XDG:                 xdg.New(),
-		WebContext:          stack.Context,
-		Pool:                stack.Pool,
-		Settings:            stack.Settings,
-		Injector:            stack.Injector,
-		MessageRouter:       stack.MessageRouter,
-		FilterManager:       stack.FilterManager,
+		WebContext:          wkEngine.InternalContext(),
+		Pool:                wkEngine.InternalPool(),
+		Settings:            wkEngine.InternalSettings(),
+		Injector:            wkEngine.InternalInjector(),
+		MessageRouter:       wkEngine.InternalMessageRouter(),
+		FilterManager:       wkEngine.InternalFilterManager(),
 		HistoryRepo:         repos.history,
 		FavoriteRepo:        repos.favorite,
 		ZoomRepo:            repos.zoom,

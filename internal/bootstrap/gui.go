@@ -263,7 +263,7 @@ func OpenDatabase(ctx context.Context) (*DatabaseResult, error) {
 // CreateLazyDatabase creates a lazy database provider that defers initialization.
 // The database is initialized on first access, allowing the UI to render faster.
 //
-// Currently unused: the application uses OpenDatabase with RunParallelDBWebKit for
+// Currently unused: the application uses OpenDatabase with RunParallelDBEngine for
 // eager initialization. This function is kept for potential future use when lazy
 // initialization past first paint becomes beneficial.
 func CreateLazyDatabase() (*sqlite.LazyDB, error) {
@@ -274,19 +274,19 @@ func CreateLazyDatabase() (*sqlite.LazyDB, error) {
 	return sqlite.NewLazyDB(dbPath), nil
 }
 
-// ParallelDBWebKitResult holds results from parallel DB and WebKit initialization.
-type ParallelDBWebKitResult struct {
+// ParallelDBEngineResult holds results from parallel DB and engine initialization.
+type ParallelDBEngineResult struct {
 	DB        *sql.DB
 	DBCleanup func()
-	Stack     WebKitStack
+	Engine    port.Engine
 }
 
-// ParallelDBWebKitInput holds inputs for parallel DB and WebKit initialization.
-type ParallelDBWebKitInput struct {
+// ParallelDBEngineInput holds inputs for parallel DB and engine initialization.
+type ParallelDBEngineInput struct {
 	Ctx           context.Context
 	Config        *config.Config
-	DataDir       string // For WebKit context
-	CacheDir      string // For WebKit cache
+	DataDir       string // For engine context
+	CacheDir      string // For engine cache
 	ThemeManager  *theme.Manager
 	ColorResolver port.ColorSchemeResolver
 }
@@ -300,10 +300,10 @@ type dbInitResult struct {
 	err     error
 }
 
-// RunParallelDBWebKit initializes database in background while WebKit runs on main thread.
-// Database init happens in goroutine (pure Go/WASM), WebKit must stay on main thread (GTK).
-// This saves ~150ms by overlapping DB migrations with WebKit context creation.
-func RunParallelDBWebKit(input ParallelDBWebKitInput) (*ParallelDBWebKitResult, error) {
+// RunParallelDBEngine initializes database in background while the engine runs on main thread.
+// Database init happens in goroutine (pure Go/WASM), engine must stay on main thread (GTK).
+// This saves ~150ms by overlapping DB migrations with engine context creation.
+func RunParallelDBEngine(input ParallelDBEngineInput) (*ParallelDBEngineResult, error) {
 	log := logging.FromContext(input.Ctx)
 
 	dbCh := make(chan dbInitResult, 1)
@@ -321,8 +321,8 @@ func RunParallelDBWebKit(input ParallelDBWebKitInput) (*ParallelDBWebKitResult, 
 		}
 	}()
 
-	// WebKit stack on main thread (GTK requirement)
-	stack := BuildWebKitStack(WebKitStackInput{
+	// Engine on main thread (GTK requirement)
+	engine, err := BuildEngine(EngineInput{
 		Ctx:           input.Ctx,
 		Config:        input.Config,
 		DataDir:       input.DataDir,
@@ -331,6 +331,9 @@ func RunParallelDBWebKit(input ParallelDBWebKitInput) (*ParallelDBWebKitResult, 
 		ColorResolver: input.ColorResolver,
 		Logger:        *log,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("engine initialization: %w", err)
+	}
 
 	// Wait for database
 	dbRes := <-dbCh
@@ -339,9 +342,9 @@ func RunParallelDBWebKit(input ParallelDBWebKitInput) (*ParallelDBWebKitResult, 
 		return nil, fmt.Errorf("database initialization: %w", dbRes.err)
 	}
 
-	return &ParallelDBWebKitResult{
+	return &ParallelDBEngineResult{
 		DB:        dbRes.db,
 		DBCleanup: dbRes.cleanup,
-		Stack:     stack,
+		Engine:    engine,
 	}, nil
 }
