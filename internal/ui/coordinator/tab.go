@@ -3,10 +3,10 @@ package coordinator
 import (
 	"context"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/window"
@@ -23,8 +23,8 @@ type TabCoordinator struct {
 	onTabCreated       func(ctx context.Context, tab *entity.Tab)
 	onTabSwitched      func(ctx context.Context, tab *entity.Tab)
 	onQuit             func()
-	onAttachPopupToTab func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv *webkit.WebView) // For popup tabs
-	onStateChanged     func()                                                                               // For session snapshots
+	onAttachPopupToTab func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView) // For popup tabs
+	onStateChanged     func()                                                                            // For session snapshots
 }
 
 // TabCoordinatorConfig holds configuration for TabCoordinator.
@@ -335,7 +335,7 @@ func (c *TabCoordinator) GetTabBar() *component.TabBar {
 }
 
 // SetOnAttachPopupToTab sets the callback for attaching popup WebViews to tabs.
-func (c *TabCoordinator) SetOnAttachPopupToTab(fn func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv *webkit.WebView)) {
+func (c *TabCoordinator) SetOnAttachPopupToTab(fn func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView)) {
 	c.onAttachPopupToTab = fn
 }
 
@@ -344,7 +344,7 @@ func (c *TabCoordinator) SetOnAttachPopupToTab(fn func(ctx context.Context, tabI
 func (c *TabCoordinator) CreateWithPane(
 	ctx context.Context,
 	pane *entity.Pane,
-	wv *webkit.WebView,
+	wv port.WebView,
 	initialURL string,
 ) (*entity.Tab, error) {
 	log := logging.FromContext(ctx)
