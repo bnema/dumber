@@ -429,17 +429,14 @@ func (m *Manager) setDefaults() {
 	m.setDebugDefaults(defaults)
 	m.setAppearanceDefaults(defaults)
 	m.setEngineDefaults(defaults)
-	m.setRenderingDefaults(defaults)
-	m.setPrivacyDefaults(defaults)
+	m.setZoomAndScaleDefaults(defaults)
 	m.setWorkspaceDefaults(defaults)
 	m.setContentFilteringDefaults(defaults)
 	m.setClipboardDefaults(defaults)
 	m.setOmniboxDefaults(defaults)
 	m.setMediaDefaults(defaults)
-	m.setRuntimeDefaults(defaults)
 	m.setSessionDefaults(defaults)
 	m.setUpdateDefaults(defaults)
-	m.setPerformanceDefaults(defaults)
 	m.setDownloadsDefaults(defaults)
 }
 
@@ -489,25 +486,9 @@ func (m *Manager) setAppearanceDefaults(defaults *Config) {
 	m.viper.SetDefault("appearance.color_scheme", defaults.Appearance.ColorScheme)
 }
 
-func (m *Manager) setRenderingDefaults(defaults *Config) {
-	m.viper.SetDefault("rendering.mode", string(defaults.Rendering.Mode))
-	m.viper.SetDefault("rendering.disable_dmabuf_renderer", defaults.Rendering.DisableDMABufRenderer)
-	m.viper.SetDefault("rendering.force_compositing_mode", defaults.Rendering.ForceCompositingMode)
-	m.viper.SetDefault("rendering.disable_compositing_mode", defaults.Rendering.DisableCompositingMode)
-	m.viper.SetDefault("rendering.gsk_renderer", string(defaults.Rendering.GSKRenderer))
-	m.viper.SetDefault("rendering.disable_mipmaps", defaults.Rendering.DisableMipmaps)
-	m.viper.SetDefault("rendering.prefer_gl", defaults.Rendering.PreferGL)
-	m.viper.SetDefault("rendering.draw_compositing_indicators", defaults.Rendering.DrawCompositingIndicators)
-	m.viper.SetDefault("rendering.show_fps", defaults.Rendering.ShowFPS)
-	m.viper.SetDefault("rendering.sample_memory", defaults.Rendering.SampleMemory)
-	m.viper.SetDefault("rendering.debug_frames", defaults.Rendering.DebugFrames)
+func (m *Manager) setZoomAndScaleDefaults(defaults *Config) {
 	m.viper.SetDefault("default_webpage_zoom", defaults.DefaultWebpageZoom)
 	m.viper.SetDefault("default_ui_scale", defaults.DefaultUIScale)
-}
-
-func (m *Manager) setPrivacyDefaults(defaults *Config) {
-	m.viper.SetDefault("privacy.cookie_policy", string(defaults.Privacy.CookiePolicy))
-	m.viper.SetDefault("privacy.itp_enabled", defaults.Privacy.ITPEnabled)
 }
 
 func (m *Manager) setWorkspaceDefaults(defaults *Config) {
@@ -563,17 +544,14 @@ func (m *Manager) setOmniboxDefaults(defaults *Config) {
 }
 
 func (m *Manager) setMediaDefaults(defaults *Config) {
+	// GStreamer fields (force_vsync, gl_rendering_mode, gstreamer_debug_level)
+	// have moved to [engine.webkit] — only non-migrated media fields remain here.
 	m.viper.SetDefault("media.hardware_decoding", string(defaults.Media.HardwareDecodingMode))
 	m.viper.SetDefault("media.prefer_av1", defaults.Media.PreferAV1)
 	m.viper.SetDefault("media.show_diagnostics", defaults.Media.ShowDiagnosticsOnStartup)
-	m.viper.SetDefault("media.force_vsync", defaults.Media.ForceVSync)
-	m.viper.SetDefault("media.gl_rendering_mode", string(defaults.Media.GLRenderingMode))
-	m.viper.SetDefault("media.gstreamer_debug_level", defaults.Media.GStreamerDebugLevel)
 }
 
-func (m *Manager) setRuntimeDefaults(defaults *Config) {
-	m.viper.SetDefault("runtime.prefix", defaults.Runtime.Prefix)
-}
+// setRuntimeDefaults removed — runtime.prefix moved to [engine.webkit].
 
 func (m *Manager) setSessionDefaults(defaults *Config) {
 	m.viper.SetDefault("session.auto_restore", defaults.Session.AutoRestore)
@@ -591,26 +569,7 @@ func (m *Manager) setUpdateDefaults(defaults *Config) {
 	m.viper.SetDefault("update.notify_on_new_settings", defaults.Update.NotifyOnNewSettings)
 }
 
-func (m *Manager) setPerformanceDefaults(defaults *Config) {
-	m.viper.SetDefault("performance.profile", string(defaults.Performance.Profile))
-	m.viper.SetDefault("performance.zoom_cache_size", defaults.Performance.ZoomCacheSize)
-	m.viper.SetDefault("performance.webview_pool_prewarm_count", defaults.Performance.WebViewPoolPrewarmCount)
-	// Skia threading (only used when profile = "custom")
-	m.viper.SetDefault("performance.skia_cpu_painting_threads", defaults.Performance.SkiaCPUPaintingThreads)
-	m.viper.SetDefault("performance.skia_gpu_painting_threads", defaults.Performance.SkiaGPUPaintingThreads)
-	m.viper.SetDefault("performance.skia_enable_cpu_rendering", defaults.Performance.SkiaEnableCPURendering)
-	// Web process memory pressure
-	m.viper.SetDefault("performance.web_process_memory_limit_mb", defaults.Performance.WebProcessMemoryLimitMB)
-	m.viper.SetDefault("performance.web_process_memory_poll_interval_sec", defaults.Performance.WebProcessMemoryPollIntervalSec)
-	m.viper.SetDefault("performance.web_process_memory_conservative_threshold", defaults.Performance.WebProcessMemoryConservativeThreshold)
-	m.viper.SetDefault("performance.web_process_memory_strict_threshold", defaults.Performance.WebProcessMemoryStrictThreshold)
-	// Network process memory pressure
-	m.viper.SetDefault("performance.network_process_memory_limit_mb", defaults.Performance.NetworkProcessMemoryLimitMB)
-	m.viper.SetDefault("performance.network_process_memory_poll_interval_sec", defaults.Performance.NetworkProcessMemoryPollIntervalSec)
-	netConservativeThreshold := defaults.Performance.NetworkProcessMemoryConservativeThreshold
-	m.viper.SetDefault("performance.network_process_memory_conservative_threshold", netConservativeThreshold)
-	m.viper.SetDefault("performance.network_process_memory_strict_threshold", defaults.Performance.NetworkProcessMemoryStrictThreshold)
-}
+// setPerformanceDefaults removed — all fields moved to [engine]/[engine.webkit].
 
 func (m *Manager) setDownloadsDefaults(defaults *Config) {
 	m.viper.SetDefault("downloads.path", defaults.Downloads.Path)
