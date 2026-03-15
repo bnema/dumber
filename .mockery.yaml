@@ -32,6 +32,7 @@ packages:
       KeybindingsSaver: {}
       DownloadResponse: {}
       PermissionDialogPresenter: {}
+      PermissionRepository: {}
   github.com/bnema/dumber/internal/domain/repository:
     config:
       dir: '{{.InterfaceDir}}/mocks'
@@ -46,7 +47,6 @@ packages:
       SessionStateRepository: {}
       TagRepository: {}
       ZoomRepository: {}
-      PermissionRepository: {}
   github.com/bnema/dumber/internal/infrastructure/filtering:
     config:
       dir: '{{.InterfaceDir}}/mocks'

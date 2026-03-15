@@ -9,7 +9,6 @@ import (
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
-	repomocks "github.com/bnema/dumber/internal/domain/repository/mocks"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -22,7 +21,7 @@ func permissionLoggerFromContext(ctx context.Context) *zerolog.Logger {
 
 func TestHandlePermissionUseCase_AutoAllowDisplayCapture(t *testing.T) {
 	ctx := testContext()
-	permRepo := repomocks.NewMockPermissionRepository(t)
+	permRepo := portmocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
@@ -49,7 +48,7 @@ func TestHandlePermissionUseCase_AutoAllowDisplayCapture(t *testing.T) {
 
 func TestHandlePermissionUseCase_AutoAllowDeviceInfo(t *testing.T) {
 	ctx := testContext()
-	permRepo := repomocks.NewMockPermissionRepository(t)
+	permRepo := portmocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
@@ -73,7 +72,7 @@ func TestHandlePermissionUseCase_AutoAllowDeviceInfo(t *testing.T) {
 
 func TestHandlePermissionUseCase_StoredPermissionGranted(t *testing.T) {
 	ctx := testContext()
-	permRepo := repomocks.NewMockPermissionRepository(t)
+	permRepo := portmocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
@@ -103,7 +102,7 @@ func TestHandlePermissionUseCase_StoredPermissionGranted(t *testing.T) {
 
 func TestHandlePermissionUseCase_StoredPermissionDenied(t *testing.T) {
 	ctx := testContext()
-	permRepo := repomocks.NewMockPermissionRepository(t)
+	permRepo := portmocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
@@ -133,7 +132,7 @@ func TestHandlePermissionUseCase_StoredPermissionDenied(t *testing.T) {
 
 func TestHandlePermissionUseCase_ShowDialogForPrompt(t *testing.T) {
 	ctx := testContext()
-	permRepo := repomocks.NewMockPermissionRepository(t)
+	permRepo := portmocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
@@ -166,7 +165,7 @@ func TestHandlePermissionUseCase_ShowDialogForPrompt(t *testing.T) {
 
 func TestHandlePermissionUseCase_PersistAllowed(t *testing.T) {
 	ctx := testContext()
-	permRepo := repomocks.NewMockPermissionRepository(t)
+	permRepo := portmocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
@@ -205,7 +204,7 @@ func TestHandlePermissionUseCase_PersistAllowed(t *testing.T) {
 
 func TestHandlePermissionUseCase_PersistDenied(t *testing.T) {
 	ctx := testContext()
-	permRepo := repomocks.NewMockPermissionRepository(t)
+	permRepo := portmocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
@@ -243,7 +242,7 @@ func TestHandlePermissionUseCase_PersistDenied(t *testing.T) {
 
 func TestHandlePermissionUseCase_EmptyOrigin(t *testing.T) {
 	ctx := testContext()
-	permRepo := repomocks.NewMockPermissionRepository(t)
+	permRepo := portmocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
@@ -264,7 +263,7 @@ func TestHandlePermissionUseCase_EmptyOrigin(t *testing.T) {
 
 func TestHandlePermissionUseCase_CombinedPermissions(t *testing.T) {
 	ctx := testContext()
-	permRepo := repomocks.NewMockPermissionRepository(t)
+	permRepo := portmocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
@@ -300,7 +299,7 @@ func TestHandlePermissionUseCase_CombinedPermissions(t *testing.T) {
 
 func TestHandlePermissionUseCase_QueryPermissionState_AutoAllow(t *testing.T) {
 	ctx := testContext()
-	permRepo := repomocks.NewMockPermissionRepository(t)
+	permRepo := portmocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
@@ -314,7 +313,7 @@ func TestHandlePermissionUseCase_QueryPermissionState_AutoAllow(t *testing.T) {
 
 func TestHandlePermissionUseCase_QueryPermissionState_AutoAllowManualOverride(t *testing.T) {
 	ctx := testContext()
-	permRepo := repomocks.NewMockPermissionRepository(t)
+	permRepo := portmocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
@@ -333,7 +332,7 @@ func TestHandlePermissionUseCase_QueryPermissionState_AutoAllowManualOverride(t 
 
 func TestHandlePermissionUseCase_QueryPermissionState_Stored(t *testing.T) {
 	ctx := testContext()
-	permRepo := repomocks.NewMockPermissionRepository(t)
+	permRepo := portmocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
@@ -352,7 +351,7 @@ func TestHandlePermissionUseCase_QueryPermissionState_Stored(t *testing.T) {
 
 func TestHandlePermissionUseCase_QueryPermissionState_NoRecord(t *testing.T) {
 	ctx := testContext()
-	permRepo := repomocks.NewMockPermissionRepository(t)
+	permRepo := portmocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
@@ -367,7 +366,7 @@ func TestHandlePermissionUseCase_QueryPermissionState_NoRecord(t *testing.T) {
 
 func TestHandlePermissionUseCase_QueryPermissionState_EmptyOriginReturnsPrompt(t *testing.T) {
 	ctx := testContext()
-	permRepo := repomocks.NewMockPermissionRepository(t)
+	permRepo := portmocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
@@ -380,7 +379,7 @@ func TestHandlePermissionUseCase_QueryPermissionState_EmptyOriginReturnsPrompt(t
 
 func TestHandlePermissionUseCase_NonPersistableNotSaved(t *testing.T) {
 	ctx := testContext()
-	permRepo := repomocks.NewMockPermissionRepository(t)
+	permRepo := portmocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
@@ -407,7 +406,7 @@ func TestHandlePermissionUseCase_NonPersistableNotSaved(t *testing.T) {
 
 func TestHandlePermissionUseCase_NoDialogPresenter(t *testing.T) {
 	ctx := testContext()
-	permRepo := repomocks.NewMockPermissionRepository(t)
+	permRepo := portmocks.NewMockPermissionRepository(t)
 
 	// Create use case with nil dialog presenter
 	uc := usecase.NewHandlePermissionUseCase(permRepo, nil, permissionLoggerFromContext)
@@ -431,7 +430,7 @@ func TestHandlePermissionUseCase_NoDialogPresenter(t *testing.T) {
 
 func TestHandlePermissionUseCase_DisplayOverrideDenied(t *testing.T) {
 	ctx := testContext()
-	permRepo := repomocks.NewMockPermissionRepository(t)
+	permRepo := portmocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
@@ -459,7 +458,7 @@ func TestHandlePermissionUseCase_DisplayOverrideDenied(t *testing.T) {
 
 func TestHandlePermissionUseCase_GetSetResetManualDecision(t *testing.T) {
 	ctx := testContext()
-	permRepo := repomocks.NewMockPermissionRepository(t)
+	permRepo := portmocks.NewMockPermissionRepository(t)
 	uc := usecase.NewHandlePermissionUseCase(permRepo, nil, permissionLoggerFromContext)
 
 	permRepo.EXPECT().Set(mock.Anything, mock.AnythingOfType("*entity.PermissionRecord")).
@@ -499,7 +498,7 @@ func TestHandlePermissionUseCase_GetSetResetManualDecision(t *testing.T) {
 
 func TestHandlePermissionUseCase_SetManualPermissionDecision_NonPersistable(t *testing.T) {
 	ctx := testContext()
-	permRepo := repomocks.NewMockPermissionRepository(t)
+	permRepo := portmocks.NewMockPermissionRepository(t)
 	uc := usecase.NewHandlePermissionUseCase(permRepo, nil, permissionLoggerFromContext)
 
 	err := uc.SetManualPermissionDecision(
@@ -517,7 +516,7 @@ func TestHandlePermissionUseCase_SetManualPermissionDecision_NonPersistable(t *t
 
 func TestHandlePermissionUseCase_UsesInjectedLoggerFactory(t *testing.T) {
 	ctx := testContext()
-	permRepo := repomocks.NewMockPermissionRepository(t)
+	permRepo := portmocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 
 	called := false
