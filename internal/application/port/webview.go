@@ -262,3 +262,13 @@ type WebViewFactory interface {
 	// Popup WebViews bypass the pool since they must be related to a specific parent.
 	CreateRelated(ctx context.Context, parentID WebViewID) (WebView, error)
 }
+
+// DevToolsOpener is an optional capability for WebViews that support developer tools.
+type DevToolsOpener interface {
+	OpenDevTools()
+}
+
+// Printer is an optional capability for WebViews that support printing.
+type Printer interface {
+	PrintPage()
+}
