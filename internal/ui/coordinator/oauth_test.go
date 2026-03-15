@@ -40,10 +40,10 @@ func TestComposeOnLoadChanged_Order(t *testing.T) {
 	var calls []string
 
 	composed := composeOnLoadChanged(
-		func(_ webkit.LoadEvent) { calls = append(calls, "existing") },
-		func(_ webkit.LoadEvent) { calls = append(calls, "next") },
+		func(_ port.LoadEvent) { calls = append(calls, "existing") },
+		func(_ port.LoadEvent) { calls = append(calls, "next") },
 	)
-	composed(webkit.LoadCommitted)
+	composed(port.LoadCommitted)
 
 	assert.Equal(t, []string{"existing", "next"}, calls)
 }

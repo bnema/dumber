@@ -6,7 +6,6 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 )
 
 // PopupType indicates whether the popup was triggered by a link or JavaScript.
@@ -39,7 +38,7 @@ func (t PopupType) String() string {
 type PendingPopup struct {
 	// WebView is the related WebView created in the "create" phase.
 	// It shares cookies/session with the parent for OAuth support.
-	WebView *webkit.WebView
+	WebView port.WebView
 
 	// ParentPaneID is the pane that spawned this popup.
 	ParentPaneID entity.PaneID
@@ -85,7 +84,7 @@ type InsertPopupInput struct {
 	PopupPane *entity.Pane
 
 	// WebView is the related WebView for the popup.
-	WebView *webkit.WebView
+	WebView port.WebView
 
 	// Behavior determines how the popup is inserted (split/stacked/tabbed).
 	Behavior config.PopupBehavior

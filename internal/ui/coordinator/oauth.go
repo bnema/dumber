@@ -3,7 +3,7 @@ package coordinator
 import (
 	"strings"
 
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
+	"github.com/bnema/dumber/internal/application/port"
 )
 
 // oauthFlowPatterns are URL patterns that indicate an OAuth flow is in progress.
@@ -177,16 +177,16 @@ func composeOnURIChanged(existing, next func(string)) func(string) {
 }
 
 func composeOnLoadChanged(
-	existing func(webkit.LoadEvent),
-	next func(webkit.LoadEvent),
-) func(webkit.LoadEvent) {
+	existing func(port.LoadEvent),
+	next func(port.LoadEvent),
+) func(port.LoadEvent) {
 	if existing == nil {
 		return next
 	}
 	if next == nil {
 		return existing
 	}
-	return func(event webkit.LoadEvent) {
+	return func(event port.LoadEvent) {
 		existing(event)
 		next(event)
 	}
