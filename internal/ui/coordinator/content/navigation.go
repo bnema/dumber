@@ -327,7 +327,9 @@ func (c *Coordinator) handleURIChanged(ctx context.Context, paneID entity.PaneID
 
 		// Navigate back to avoid stale URI in omnibox/history
 		if wv.CanGoBack() {
-			_ = wv.GoBack(ctx)
+			if err := wv.GoBack(ctx); err != nil {
+				log.Warn().Str("pane_id", string(paneID)).Err(err).Msg("GoBack after external URL")
+			}
 		}
 		return
 	}

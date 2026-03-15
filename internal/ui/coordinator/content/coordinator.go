@@ -144,19 +144,21 @@ func NewCoordinator(
 	log.Debug().Msg("creating content coordinator")
 
 	return &Coordinator{
-		pool:           pool,
-		widgetFactory:  widgetFactory,
-		faviconAdapter: faviconAdapter,
-		zoomUC:         zoomUC,
-		permissionUC:   permissionUC,
-		webViews:       make(map[entity.PaneID]port.WebView),
-		paneTitles:     make(map[entity.PaneID]string),
-		navOrigins:     make(map[entity.PaneID]string),
-		pendingReveal:  make(map[entity.PaneID]bool),
-		getActiveWS:    getActiveWS,
-		pendingPopups:  make(map[port.WebViewID]*PendingPopup),
-		popupOAuth:     make(map[port.WebViewID]*popupOAuthState),
-		popupRefresh:   make(map[entity.PaneID]*time.Timer),
+		pool:                 pool,
+		widgetFactory:        widgetFactory,
+		faviconAdapter:       faviconAdapter,
+		zoomUC:               zoomUC,
+		permissionUC:         permissionUC,
+		webViews:             make(map[entity.PaneID]port.WebView),
+		paneTitles:           make(map[entity.PaneID]string),
+		navOrigins:           make(map[entity.PaneID]string),
+		pendingReveal:        make(map[entity.PaneID]bool),
+		pendingScriptRefresh: make(map[entity.PaneID]bool),
+		pendingThemePanes:    make(map[entity.PaneID]bool),
+		getActiveWS:          getActiveWS,
+		pendingPopups:        make(map[port.WebViewID]*PendingPopup),
+		popupOAuth:           make(map[port.WebViewID]*popupOAuthState),
+		popupRefresh:         make(map[entity.PaneID]*time.Timer),
 	}
 }
 

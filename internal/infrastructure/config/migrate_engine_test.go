@@ -276,6 +276,9 @@ show_fps = true
 	err = toml.Unmarshal(data, &raw)
 	require.NoError(t, err)
 
-	engine := raw["engine"].(map[string]any)
+	engineAny, ok := raw["engine"]
+	require.True(t, ok, "raw[\"engine\"] should exist")
+	engine, ok := engineAny.(map[string]any)
+	require.True(t, ok, "raw[\"engine\"] should be map[string]any, got %T", engineAny)
 	assert.Equal(t, "webkit", engine["type"], "engine.type should default to webkit")
 }
