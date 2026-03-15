@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
@@ -114,7 +115,7 @@ func buildWebUIThemeScript(prefersDark bool, cssText string) (string, error) {
 func (c *Coordinator) applyWebUITheme(
 	ctx context.Context,
 	paneID entity.PaneID,
-	wv *webkit.WebView,
+	wv port.WebView,
 	script string,
 	prefersDark bool,
 ) {
@@ -125,7 +126,10 @@ func (c *Coordinator) applyWebUITheme(
 	if !strings.HasPrefix(uri, "dumb://") {
 		return
 	}
-	wv.RunJavaScript(ctx, script, "")
+	// Type-assert to access webkit-specific RunJavaScript
+	if wkWV, ok := wv.(*webkit.WebView); ok {
+		wkWV.RunJavaScript(ctx, script, "")
+	}
 	logging.FromContext(ctx).
 		Debug().
 		Str("pane_id", string(paneID)).
@@ -183,7 +187,7 @@ func (c *Coordinator) takePendingThemeApply(paneID entity.PaneID) (pendingThemeU
 	return update, true
 }
 
-func (c *Coordinator) applyPendingThemeUpdate(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) bool {
+func (c *Coordinator) applyPendingThemeUpdate(ctx context.Context, paneID entity.PaneID, wv port.WebView) bool {
 	update, ok := c.takePendingThemeApply(paneID)
 	if !ok {
 		return false
@@ -198,7 +202,7 @@ func (c *Coordinator) applyPendingThemeUpdate(ctx context.Context, paneID entity
 	return true
 }
 
-func (c *Coordinator) applyCurrentTheme(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) bool {
+func (c *Coordinator) applyCurrentTheme(ctx context.Context, paneID entity.PaneID, wv port.WebView) bool {
 	update, ok := c.getCurrentTheme()
 	if !ok || update.cssText == "" {
 		return false
@@ -233,7 +237,7 @@ func (c *Coordinator) takePendingScriptRefresh(paneID entity.PaneID) bool {
 	return true
 }
 
-func (c *Coordinator) refreshPendingScripts(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
+func (c *Coordinator) refreshPendingScripts(ctx context.Context, paneID entity.PaneID, wv port.WebView) {
 	if wv == nil || wv.IsDestroyed() || c.shouldDeferAppearance(wv) {
 		return
 	}
@@ -246,7 +250,7 @@ func (c *Coordinator) refreshPendingScripts(ctx context.Context, paneID entity.P
 	c.refreshInjectedScripts(ctx, c.injector, paneID, wv)
 }
 
-func (c *Coordinator) shouldDeferAppearance(wv *webkit.WebView) bool {
+func (c *Coordinator) shouldDeferAppearance(wv port.WebView) bool {
 	if wv == nil || wv.IsDestroyed() {
 		return false
 	}
@@ -260,12 +264,17 @@ func (c *Coordinator) refreshInjectedScripts(
 	ctx context.Context,
 	injector *webkit.ContentInjector,
 	paneID entity.PaneID,
-	wv *webkit.WebView,
+	wv port.WebView,
 ) {
 	if injector == nil || wv == nil || wv.IsDestroyed() {
 		return
 	}
-	ucm := wv.UserContentManager()
+	// Type-assert to access webkit-specific UserContentManager
+	wkWV, ok := wv.(*webkit.WebView)
+	if !ok {
+		return
+	}
+	ucm := wkWV.UserContentManager()
 	if ucm == nil {
 		return
 	}

@@ -19,14 +19,14 @@ import (
 
 // Coordinator manages WebView lifecycle, title tracking, and content attachment.
 type Coordinator struct {
-	pool           *webkit.WebViewPool
+	pool           port.WebViewPool
 	widgetFactory  layout.WidgetFactory
 	faviconAdapter *adapter.FaviconAdapter
 	zoomUC         *usecase.ManageZoomUseCase
 	permissionUC   *usecase.HandlePermissionUseCase
 	injector       *webkit.ContentInjector
 
-	webViews   map[entity.PaneID]*webkit.WebView
+	webViews   map[entity.PaneID]port.WebView
 	webViewsMu sync.RWMutex
 
 	activePaneOverride   entity.PaneID
@@ -79,7 +79,7 @@ type Coordinator struct {
 	gestureActionHandler input.ActionHandler
 
 	// Popup handling
-	factory       *webkit.WebViewFactory
+	factory       port.WebViewFactory
 	popupConfig   *config.PopupBehaviorConfig
 	pendingPopups map[port.WebViewID]*PendingPopup
 	popupOAuth    map[port.WebViewID]*popupOAuthState
@@ -102,7 +102,7 @@ type Coordinator struct {
 	onFullscreenChanged func(entering bool)
 
 	// Callback when WebView gains focus (for accent picker text input targeting)
-	onWebViewFocused func(paneID entity.PaneID, wv *webkit.WebView)
+	onWebViewFocused func(paneID entity.PaneID, wv port.WebView)
 
 	// Callback for first load_started event (triggers deferred initialization)
 	onFirstLoadStarted func()
@@ -134,7 +134,7 @@ const (
 // NewCoordinator creates a new Coordinator.
 func NewCoordinator(
 	ctx context.Context,
-	pool *webkit.WebViewPool,
+	pool port.WebViewPool,
 	widgetFactory layout.WidgetFactory,
 	faviconAdapter *adapter.FaviconAdapter,
 	getActiveWS func() (*entity.Workspace, *component.WorkspaceView),
@@ -150,7 +150,7 @@ func NewCoordinator(
 		faviconAdapter: faviconAdapter,
 		zoomUC:         zoomUC,
 		permissionUC:   permissionUC,
-		webViews:       make(map[entity.PaneID]*webkit.WebView),
+		webViews:       make(map[entity.PaneID]port.WebView),
 		paneTitles:     make(map[entity.PaneID]string),
 		navOrigins:     make(map[entity.PaneID]string),
 		pendingReveal:  make(map[entity.PaneID]bool),
@@ -214,7 +214,7 @@ func (c *Coordinator) SetOnFullscreenChanged(fn func(entering bool)) {
 }
 
 // SetOnWebViewFocused sets the callback for when a WebView gains focus.
-func (c *Coordinator) SetOnWebViewFocused(fn func(paneID entity.PaneID, wv *webkit.WebView)) {
+func (c *Coordinator) SetOnWebViewFocused(fn func(paneID entity.PaneID, wv port.WebView)) {
 	c.onWebViewFocused = fn
 }
 
@@ -270,19 +270,19 @@ func (c *Coordinator) webViewCount() int {
 	return len(c.webViews)
 }
 
-func (c *Coordinator) getWebViewLocked(paneID entity.PaneID) *webkit.WebView {
+func (c *Coordinator) getWebViewLocked(paneID entity.PaneID) port.WebView {
 	c.webViewsMu.RLock()
 	defer c.webViewsMu.RUnlock()
 	return c.webViews[paneID]
 }
 
-func (c *Coordinator) setWebViewLocked(paneID entity.PaneID, wv *webkit.WebView) {
+func (c *Coordinator) setWebViewLocked(paneID entity.PaneID, wv port.WebView) {
 	c.webViewsMu.Lock()
 	c.webViews[paneID] = wv
 	c.webViewsMu.Unlock()
 }
 
-func (c *Coordinator) deleteWebViewLocked(paneID entity.PaneID) *webkit.WebView {
+func (c *Coordinator) deleteWebViewLocked(paneID entity.PaneID) port.WebView {
 	c.webViewsMu.Lock()
 	defer c.webViewsMu.Unlock()
 	wv := c.webViews[paneID]
@@ -290,10 +290,10 @@ func (c *Coordinator) deleteWebViewLocked(paneID entity.PaneID) *webkit.WebView 
 	return wv
 }
 
-func (c *Coordinator) snapshotWebViews() map[entity.PaneID]*webkit.WebView {
+func (c *Coordinator) snapshotWebViews() map[entity.PaneID]port.WebView {
 	c.webViewsMu.RLock()
 	defer c.webViewsMu.RUnlock()
-	snapshot := make(map[entity.PaneID]*webkit.WebView, len(c.webViews))
+	snapshot := make(map[entity.PaneID]port.WebView, len(c.webViews))
 	for paneID, wv := range c.webViews {
 		snapshot[paneID] = wv
 	}

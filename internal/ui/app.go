@@ -1525,7 +1525,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 	// 1. Content Coordinator (no dependencies on other coordinators)
 	a.contentCoord = content.NewCoordinator(
 		ctx,
-		a.pool,
+		a.engine.Pool(),
 		a.widgetFactory,
 		a.faviconAdapter,
 		getActiveWS,
@@ -1619,7 +1619,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.webViewFactory.SetBackgroundColor(r, g, b, alpha)
 	}
 	a.contentCoord.SetPopupConfig(
-		a.webViewFactory,
+		a.engine.Factory(),
 		&a.deps.Config.Workspace.Popups,
 		a.generateID,
 	)
@@ -2140,7 +2140,11 @@ func (a *App) getActiveWebViewTarget() port.TextInputTarget {
 	}
 
 	// Get the underlying webkit.WebView for the text input target
-	return textinput.NewWebViewTarget(wv.Widget())
+	wkWV, ok := wv.(*webkit.WebView)
+	if !ok {
+		return nil
+	}
+	return textinput.NewWebViewTarget(wkWV.Widget())
 }
 
 // attachPopupToTab attaches a popup WebView to a newly created tab.
@@ -3097,7 +3101,7 @@ func (a *App) applyAppearanceConfig(ctx context.Context, cfg *config.Config) {
 
 	// Apply settings to existing webviews via coordinator
 	if a.contentCoord != nil {
-		a.contentCoord.ApplySettingsToAll(ctx, a.settings)
+		a.contentCoord.ApplySettingsToAll(ctx)
 	}
 
 	// Update GTK theme and injected WebUI theme vars
@@ -3124,7 +3128,7 @@ func (a *App) applyAppearanceConfig(ctx context.Context, cfg *config.Config) {
 
 		// Refresh injected scripts so future navigations use the latest theme.
 		if a.contentCoord != nil && a.injector != nil {
-			a.contentCoord.RefreshInjectedScriptsToAll(ctx, a.injector)
+			a.contentCoord.RefreshInjectedScriptsToAll(ctx)
 		}
 
 		// Apply WebUI theme to already-loaded dumb:// pages
@@ -3164,7 +3168,7 @@ func (a *App) showFilterStatus(ctx context.Context, status filtering.FilterStatu
 	case filtering.StateActive:
 		// Apply filters to existing webviews that were created before filters loaded
 		if a.contentCoord != nil && a.deps.FilterManager != nil {
-			a.contentCoord.ApplyFiltersToAll(ctx, a.deps.FilterManager)
+			a.contentCoord.ApplyFiltersToAll(ctx)
 			log.Debug().Msg("applied filters to all existing webviews")
 		}
 		if a.appToaster != nil {

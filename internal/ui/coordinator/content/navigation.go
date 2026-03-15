@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	urlutil "github.com/bnema/dumber/internal/domain/url"
@@ -16,7 +17,7 @@ import (
 // WebKit may reset zoom during document transitions, so we reapply after LoadCommitted.
 // History is recorded here because the URI is guaranteed to be correct after commit.
 // Also shows the WebView widget (it's hidden during creation to avoid white flash).
-func (c *Coordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
+func (c *Coordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID, wv port.WebView) {
 	log := logging.FromContext(ctx)
 	logging.Trace().Mark("load_committed")
 
@@ -26,20 +27,23 @@ func (c *Coordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID,
 	}
 
 	// Set appropriate background color based on page type to prevent dark background bleeding.
-	switch {
-	case strings.HasPrefix(uri, "dumb://"):
-		// Internal pages: apply themed background
-		theme, ok := c.getCurrentTheme()
-		if ok && theme.prefersDark {
-			wv.SetBackgroundColor(darkBgR, darkBgG, darkBgB, darkBgA)
-		} else {
-			wv.ResetBackgroundToDefault()
+	// Type-assert to access webkit-specific background color methods.
+	if wkWV, ok := wv.(*webkit.WebView); ok {
+		switch {
+		case strings.HasPrefix(uri, "dumb://"):
+			// Internal pages: apply themed background
+			theme, ok := c.getCurrentTheme()
+			if ok && theme.prefersDark {
+				wkWV.SetBackgroundColor(darkBgR, darkBgG, darkBgB, darkBgA)
+			} else {
+				wkWV.ResetBackgroundToDefault()
+			}
+		case strings.HasPrefix(uri, "about:"):
+			// Keep pool background (no action)
+		default:
+			// External pages: white background
+			wkWV.ResetBackgroundToDefault()
 		}
-	case strings.HasPrefix(uri, "about:"):
-		// Keep pool background (no action)
-	default:
-		// External pages: white background
-		wv.ResetBackgroundToDefault()
 	}
 
 	// Show the WebView now that content is being painted
@@ -125,7 +129,7 @@ func (c *Coordinator) notifyActiveNavigation(paneID entity.PaneID, uri string) {
 	}
 }
 
-func (c *Coordinator) shouldSkipAboutBlankAppearance(paneID entity.PaneID, wv *webkit.WebView) bool {
+func (c *Coordinator) shouldSkipAboutBlankAppearance(paneID entity.PaneID, wv port.WebView) bool {
 	if wv == nil || wv.IsDestroyed() {
 		return false
 	}
@@ -190,7 +194,7 @@ func (c *Coordinator) onLoadStarted(paneID entity.PaneID) {
 }
 
 // onLoadFinished hides the progress bar when page loading completes.
-func (c *Coordinator) onLoadFinished(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
+func (c *Coordinator) onLoadFinished(ctx context.Context, paneID entity.PaneID, wv port.WebView) {
 	_, wsView := c.getActiveWS()
 	if wsView == nil {
 		return
@@ -255,14 +259,17 @@ func (c *Coordinator) revealIfPending(ctx context.Context, paneID entity.PaneID,
 		return
 	}
 
-	if inner := wv.Widget(); inner != nil {
-		inner.SetVisible(true)
-		logging.FromContext(ctx).
-			Debug().
-			Str("pane_id", string(paneID)).
-			Str("uri", uri).
-			Str("reason", reason).
-			Msg("webview revealed")
+	// Type-assert to access webkit-specific Widget() for visibility control
+	if wkWV, ok := wv.(*webkit.WebView); ok {
+		if inner := wkWV.Widget(); inner != nil {
+			inner.SetVisible(true)
+			logging.FromContext(ctx).
+				Debug().
+				Str("pane_id", string(paneID)).
+				Str("uri", uri).
+				Str("reason", reason).
+				Msg("webview revealed")
+		}
 	}
 
 	// Mark first_paint and finish startup trace
@@ -295,7 +302,7 @@ func (c *Coordinator) onLinkHover(paneID entity.PaneID, uri string) {
 
 // handleURIChanged handles URI changes from WebKit, including external scheme detection
 // and SPA navigation tracking.
-func (c *Coordinator) handleURIChanged(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView, uri string) {
+func (c *Coordinator) handleURIChanged(ctx context.Context, paneID entity.PaneID, wv port.WebView, uri string) {
 	if uri == "" {
 		return
 	}

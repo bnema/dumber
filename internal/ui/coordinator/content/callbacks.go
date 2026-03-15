@@ -5,19 +5,22 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
-	webkitlib "github.com/bnema/puregotk-webkit/webkit"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 )
 
-func shouldRenderCrashPage(reason webkitlib.WebProcessTerminationReason) bool {
+// internalSchemePath is the path used in dumb:// URIs (replaces webkit.HomePath).
+const internalSchemePath = "home"
+
+func shouldRenderCrashPage(reason port.WebProcessTerminationReason) bool {
 	switch reason {
-	case webkitlib.WebProcessCrashedValue, webkitlib.WebProcessExceededMemoryLimitValue:
+	case port.WebProcessTerminationCrashed, port.WebProcessTerminationExceededMemory:
 		return true
-	case webkitlib.WebProcessTerminatedByApiValue:
+	case port.WebProcessTerminationByAPI:
 		return false
 	default:
 		return true
@@ -34,7 +37,7 @@ func extractOriginalURIFromCrashPage(uri string) string {
 		return uri
 	}
 
-	if parsed.Scheme != "dumb" || parsed.Host != webkit.HomePath {
+	if parsed.Scheme != "dumb" || parsed.Host != internalSchemePath {
 		return uri
 	}
 
@@ -59,94 +62,94 @@ func buildCrashPageURI(originalURI string) string {
 }
 
 // setupWebViewCallbacks configures standard callbacks and popup handling.
-func (c *Coordinator) setupWebViewCallbacks(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
+func (c *Coordinator) setupWebViewCallbacks(ctx context.Context, paneID entity.PaneID, wv port.WebView) {
 	log := logging.FromContext(ctx)
 
-	// Title changes
-	wv.OnTitleChanged = func(title string) {
-		c.onTitleChanged(ctx, paneID, title)
-	}
+	// Build port callbacks for standard events
+	callbacks := &port.WebViewCallbacks{
+		OnTitleChanged: func(title string) {
+			c.onTitleChanged(ctx, paneID, title)
+		},
+		OnLoadChanged: func(event port.LoadEvent) {
+			switch event {
+			case port.LoadStarted:
+				c.onLoadStarted(paneID)
+			case port.LoadCommitted:
+				c.onLoadCommitted(ctx, paneID, wv)
+			case port.LoadFinished:
+				c.onLoadFinished(ctx, paneID, wv)
+			}
+		},
+		OnProgressChanged: func(progress float64) {
+			c.onProgressChanged(paneID, progress)
+		},
+		OnURIChanged: func(uri string) {
+			c.handleURIChanged(ctx, paneID, wv, uri)
+		},
+		OnLinkHover: func(uri string) {
+			c.onLinkHover(paneID, uri)
+		},
+		OnWebProcessTerminated: func(reason port.WebProcessTerminationReason, reasonLabel string, uri string) {
+			originalURI := extractOriginalURIFromCrashPage(uri)
+			if !shouldRenderCrashPage(reason) {
+				log.Info().
+					Str("pane_id", string(paneID)).
+					Str("reason", reasonLabel).
+					Str("uri", uri).
+					Msg("web process termination handled without crash page")
+				return
+			}
 
-	// Favicon changes - capture generation to detect stale callbacks after pool reuse
-	faviconGen := wv.Generation()
-	wv.OnFaviconChanged = func(favicon *gdk.Texture) {
-		if wv.Generation() != faviconGen {
-			return // WebView was reused, ignore stale signal
-		}
-		c.onFaviconChanged(ctx, paneID, wv, favicon)
-	}
-
-	// Load events
-	wv.OnLoadChanged = func(event webkit.LoadEvent) {
-		switch event {
-		case webkit.LoadStarted:
-			c.onLoadStarted(paneID)
-		case webkit.LoadCommitted:
-			c.onLoadCommitted(ctx, paneID, wv)
-		case webkit.LoadFinished:
-			c.onLoadFinished(ctx, paneID, wv)
-		}
-	}
-
-	// Progress
-	wv.OnProgressChanged = func(progress float64) {
-		c.onProgressChanged(paneID, progress)
-	}
-
-	// SPA navigation and external scheme handling
-	wv.OnURIChanged = func(uri string) {
-		c.handleURIChanged(ctx, paneID, wv, uri)
-	}
-
-	// Middle-click / Ctrl+click handler for opening links in new pane
-	wv.OnLinkMiddleClick = func(uri string) bool {
-		return c.handleLinkMiddleClick(ctx, paneID, uri)
-	}
-
-	// Link hover callback for status overlay
-	wv.OnLinkHover = func(uri string) {
-		c.onLinkHover(paneID, uri)
-	}
-
-	wv.OnWebProcessTerminated = func(reason webkitlib.WebProcessTerminationReason, reasonLabel string, uri string) {
-		originalURI := extractOriginalURIFromCrashPage(uri)
-		if !shouldRenderCrashPage(reason) {
-			log.Info().
-				Str("pane_id", string(paneID)).
-				Str("reason", reasonLabel).
-				Str("uri", uri).
-				Msg("web process termination handled without crash page")
-			return
-		}
-
-		crashURI := buildCrashPageURI(originalURI)
-		log.Warn().
-			Str("pane_id", string(paneID)).
-			Str("reason", reasonLabel).
-			Str("uri", uri).
-			Str("crash_uri", crashURI).
-			Msg("web process terminated, redirecting to crash page")
-
-		if err := wv.LoadURI(ctx, crashURI); err != nil {
-			log.Error().
-				Err(err).
+			crashURI := buildCrashPageURI(originalURI)
+			log.Warn().
 				Str("pane_id", string(paneID)).
 				Str("reason", reasonLabel).
 				Str("uri", uri).
 				Str("crash_uri", crashURI).
-				Msg("failed to load crash page after web process termination")
+				Msg("web process terminated, redirecting to crash page")
+
+			if err := wv.LoadURI(ctx, crashURI); err != nil {
+				log.Error().
+					Err(err).
+					Str("pane_id", string(paneID)).
+					Str("reason", reasonLabel).
+					Str("uri", uri).
+					Str("crash_uri", crashURI).
+					Msg("failed to load crash page after web process termination")
+			}
+		},
+		OnPermissionRequest: func(origin string, permTypes []string, allow, deny func()) bool {
+			return c.handlePermissionRequest(ctx, origin, permTypes, allow, deny)
+		},
+	}
+
+	// Favicon changes - need webkit-specific Generation() to detect stale callbacks
+	if wkWV, ok := wv.(*webkit.WebView); ok {
+		faviconGen := wkWV.Generation()
+		callbacks.OnFaviconChanged = func(favicon port.Texture) {
+			if wkWV.Generation() != faviconGen {
+				return // WebView was reused, ignore stale signal
+			}
+			if gdkTexture, ok := favicon.(*gdk.Texture); ok {
+				c.onFaviconChanged(ctx, paneID, wkWV, gdkTexture)
+			}
 		}
 	}
 
-	// Permission request handler
-	wv.OnPermissionRequest = func(origin string, permTypes []string, allow, deny func()) bool {
-		return c.handlePermissionRequest(ctx, origin, permTypes, allow, deny)
+	// Add popup create handler if popup handling is configured
+	callbacks.OnCreate = c.buildPopupCreateHandler(ctx, paneID, wv)
+
+	wv.SetCallbacks(callbacks)
+
+	// Webkit-specific callbacks not in port.WebViewCallbacks (middle-click, fullscreen, audio)
+	if wkWV, ok := wv.(*webkit.WebView); ok {
+		wkWV.OnLinkMiddleClick = func(uri string) bool {
+			return c.handleLinkMiddleClick(ctx, paneID, uri)
+		}
 	}
+
 	// Fullscreen handlers for idle inhibition
 	c.setupIdleInhibitionHandlers(ctx, paneID, wv)
-
-	// Popup handling for nested popups
-	c.setupPopupHandling(ctx, paneID, wv)
 }
 
 // handlePermissionRequest processes media permission requests from WebKit.
@@ -246,15 +249,21 @@ func filterWebRTCPermissionTypes(types []entity.PermissionType) []entity.Permiss
 // - The webview enters fullscreen mode (e.g., fullscreen video)
 // - The webview is playing audio (e.g., video/music playback)
 // The inhibitor uses refcounting, so both can be active simultaneously.
-func (c *Coordinator) setupIdleInhibitionHandlers(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
+func (c *Coordinator) setupIdleInhibitionHandlers(ctx context.Context, paneID entity.PaneID, wv port.WebView) {
 	log := logging.FromContext(ctx)
 
 	if wv == nil {
 		return
 	}
 
+	// Type-assert to access webkit-specific fullscreen/audio callbacks
+	wkWV, ok := wv.(*webkit.WebView)
+	if !ok {
+		return
+	}
+
 	// Fullscreen handling
-	wv.OnEnterFullscreen = func() bool {
+	wkWV.OnEnterFullscreen = func() bool {
 		if c.idleInhibitor != nil {
 			if err := c.idleInhibitor.Inhibit(ctx, "Fullscreen video playback"); err != nil {
 				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to inhibit idle")
@@ -266,7 +275,7 @@ func (c *Coordinator) setupIdleInhibitionHandlers(ctx context.Context, paneID en
 		return false // Allow fullscreen
 	}
 
-	wv.OnLeaveFullscreen = func() bool {
+	wkWV.OnLeaveFullscreen = func() bool {
 		if c.idleInhibitor != nil {
 			if err := c.idleInhibitor.Uninhibit(ctx); err != nil {
 				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to uninhibit idle")
@@ -279,7 +288,7 @@ func (c *Coordinator) setupIdleInhibitionHandlers(ctx context.Context, paneID en
 	}
 
 	// Audio playback handling
-	wv.OnAudioStateChanged = func(playing bool) {
+	wkWV.OnAudioStateChanged = func(playing bool) {
 		if c.idleInhibitor == nil {
 			return
 		}

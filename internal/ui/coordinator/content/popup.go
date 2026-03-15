@@ -132,7 +132,7 @@ func GetBehavior(popupType PopupType, cfg *config.PopupBehaviorConfig) config.Po
 
 // SetPopupConfig configures popup handling.
 func (c *Coordinator) SetPopupConfig(
-	factory *webkit.WebViewFactory,
+	factory port.WebViewFactory,
 	popupConfig *config.PopupBehaviorConfig,
 	generateID func() string,
 ) {
@@ -151,21 +151,19 @@ func (c *Coordinator) SetOnClosePane(fn func(ctx context.Context, paneID entity.
 	c.onClosePane = fn
 }
 
-// setupPopupHandling wires the popup create signal for a WebView.
-// This should be called after acquiring a WebView for a pane.
-func (c *Coordinator) setupPopupHandling(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
-	log := logging.FromContext(ctx)
-
+// buildPopupCreateHandler returns the OnCreate callback for a WebView.
+// Returns nil if popup handling is not configured.
+func (c *Coordinator) buildPopupCreateHandler(ctx context.Context, paneID entity.PaneID, wv port.WebView) func(port.PopupRequest) port.WebView {
 	if wv == nil {
-		return
+		return nil
 	}
 
-	// Wire the OnCreate callback for popup requests
-	wv.OnCreate = func(req webkit.PopupRequest) *webkit.WebView {
+	log := logging.FromContext(ctx)
+	log.Debug().Str("pane_id", string(paneID)).Msg("popup handling configured for webview")
+
+	return func(req port.PopupRequest) port.WebView {
 		return c.handlePopupCreate(ctx, paneID, wv, req)
 	}
-
-	log.Debug().Str("pane_id", string(paneID)).Msg("popup handling configured for webview")
 }
 
 // createPopupPane creates a new pane entity for a popup window.
@@ -199,9 +197,9 @@ func (c *Coordinator) createPopupPane(
 func (c *Coordinator) handlePopupCreate(
 	ctx context.Context,
 	parentPaneID entity.PaneID,
-	parentWV *webkit.WebView,
-	req webkit.PopupRequest,
-) *webkit.WebView {
+	parentWV port.WebView,
+	req port.PopupRequest,
+) port.WebView {
 	log := logging.FromContext(ctx)
 
 	log.Debug().
@@ -306,13 +304,15 @@ func (c *Coordinator) handlePopupCreate(
 	c.pendingPopups[popupID] = pending
 	c.popupMu.Unlock()
 
-	// Wire ready-to-show (now just for visibility) and close signals
-	popupWV.OnReadyToShow = func() {
-		c.handlePopupReadyToShow(ctx, popupID)
+	// Wire ready-to-show and close signals via webkit-specific fields
+	if wkWV, ok := popupWV.(*webkit.WebView); ok {
+		wkWV.OnReadyToShow = func() {
+			c.handlePopupReadyToShow(ctx, popupID)
+		}
+		wkWV.OnClose = composeOnClose(wkWV.OnClose, func() {
+			c.handlePopupClose(ctx, popupID)
+		})
 	}
-	popupWV.OnClose = composeOnClose(popupWV.OnClose, func() {
-		c.handlePopupClose(ctx, popupID)
-	})
 
 	log.Info().
 		Uint64("popup_id", uint64(popupID)).
@@ -350,7 +350,9 @@ func (c *Coordinator) handlePopupReadyToShow(ctx context.Context, popupID port.W
 
 	// Make the WebView visible now that it's ready
 	if pending.WebView != nil {
-		pending.WebView.Show()
+		if wkWV, ok := pending.WebView.(*webkit.WebView); ok {
+			wkWV.Show()
+		}
 	}
 
 	log.Info().

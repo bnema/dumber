@@ -9,7 +9,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 )
 
 func TestComposeOnClose_Order(t *testing.T) {
@@ -53,7 +52,7 @@ func TestHandlePopupOAuthClose_SuccessSchedulesParentRefresh(t *testing.T) {
 	popupID := port.WebViewID(101)
 
 	c := &Coordinator{
-		webViews:     make(map[entity.PaneID]*webkit.WebView),
+		webViews:     make(map[entity.PaneID]port.WebView),
 		popupOAuth:   make(map[port.WebViewID]*popupOAuthState),
 		popupRefresh: make(map[entity.PaneID]*time.Timer),
 	}
@@ -82,7 +81,7 @@ func TestHandlePopupOAuthClose_ErrorDoesNotScheduleParentRefresh(t *testing.T) {
 	popupID := port.WebViewID(102)
 
 	c := &Coordinator{
-		webViews:     make(map[entity.PaneID]*webkit.WebView),
+		webViews:     make(map[entity.PaneID]port.WebView),
 		popupOAuth:   make(map[port.WebViewID]*popupOAuthState),
 		popupRefresh: make(map[entity.PaneID]*time.Timer),
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
@@ -115,7 +116,7 @@ func (c *Coordinator) syncStackedTitle(ctx context.Context, paneID entity.PaneID
 }
 
 // onFaviconChanged updates favicon tracking when a WebView's favicon changes.
-func (c *Coordinator) onFaviconChanged(ctx context.Context, paneID entity.PaneID, emittingWV *webkit.WebView, favicon *gdk.Texture) {
+func (c *Coordinator) onFaviconChanged(ctx context.Context, paneID entity.PaneID, emittingWV port.WebView, favicon *gdk.Texture) {
 	log := logging.FromContext(ctx)
 
 	// Verify this WebView is still bound to the expected pane
@@ -189,7 +190,7 @@ func (c *Coordinator) updateStackedFaviconForPane(ctx context.Context, paneID en
 // First checks if WebKit already has a favicon for the page (common for subpath URLs).
 // Falls back to the full GetOrFetch pipeline (cache + WebKit DB + DuckDuckGo API).
 // This closes the gap where title bars relied solely on the notify::favicon signal.
-func (c *Coordinator) resolveCommittedFavicon(ctx context.Context, paneID entity.PaneID, wv *webkit.WebView) {
+func (c *Coordinator) resolveCommittedFavicon(ctx context.Context, paneID entity.PaneID, wv port.WebView) {
 	if c.faviconAdapter == nil || wv == nil {
 		return
 	}
@@ -208,8 +209,14 @@ func (c *Coordinator) resolveCommittedFavicon(ctx context.Context, paneID entity
 		return
 	}
 
+	// Type-assert to access webkit-specific Favicon() and Generation()
+	wkWV, ok := wv.(*webkit.WebView)
+	if !ok {
+		return
+	}
+
 	// Check if WebKit already has a favicon for this page
-	if icon := wv.Favicon(); icon != nil {
+	if icon := wkWV.Favicon(); icon != nil {
 		log.Debug().Str("pane_id", string(paneID)).Str("uri", uri).Msg("using existing WebKit favicon for committed page")
 		// Store and update through the normal path
 		c.navOriginMu.RLock()
@@ -222,7 +229,7 @@ func (c *Coordinator) resolveCommittedFavicon(ctx context.Context, paneID entity
 
 	// Fall back to GetOrFetch (checks service cache, WebKit DB, then DuckDuckGo API)
 	// Capture current generation to guard against stale callbacks
-	gen := wv.Generation()
+	gen := wkWV.Generation()
 	capturedURI := uri
 	c.faviconAdapter.GetOrFetch(ctx, uri, func(texture *gdk.Texture) {
 		// Skip nil results — a nil means "couldn't resolve", not "no favicon".
@@ -232,7 +239,7 @@ func (c *Coordinator) resolveCommittedFavicon(ctx context.Context, paneID entity
 			return
 		}
 		// Verify WebView is still bound to pane and hasn't been reused
-		if wv.Generation() != gen {
+		if wkWV.Generation() != gen {
 			return
 		}
 		currentWV := c.getWebViewLocked(paneID)

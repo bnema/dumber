@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
@@ -13,7 +14,7 @@ import (
 )
 
 // EnsureWebView acquires or reuses a WebView for the given pane.
-func (c *Coordinator) EnsureWebView(ctx context.Context, paneID entity.PaneID) (*webkit.WebView, error) {
+func (c *Coordinator) EnsureWebView(ctx context.Context, paneID entity.PaneID) (port.WebView, error) {
 	log := logging.FromContext(ctx)
 
 	if wv := c.getWebViewLocked(paneID); wv != nil && !wv.IsDestroyed() {
@@ -81,7 +82,7 @@ func (c *Coordinator) ReleaseWebView(ctx context.Context, paneID entity.PaneID) 
 	c.navOriginMu.Unlock()
 
 	if c.pool != nil {
-		c.pool.Release(ctx, wv)
+		c.pool.Release(wv)
 	} else {
 		wv.Destroy()
 	}
@@ -129,7 +130,7 @@ func (c *Coordinator) AttachToWorkspace(ctx context.Context, ws *entity.Workspac
 
 // WrapWidget converts a WebView to a layout.Widget for embedding.
 // It also attaches gesture handlers for mouse button navigation.
-func (c *Coordinator) WrapWidget(ctx context.Context, wv *webkit.WebView) layout.Widget {
+func (c *Coordinator) WrapWidget(ctx context.Context, wv port.WebView) layout.Widget {
 	log := logging.FromContext(ctx)
 
 	if wv == nil || c.widgetFactory == nil {
@@ -137,7 +138,14 @@ func (c *Coordinator) WrapWidget(ctx context.Context, wv *webkit.WebView) layout
 		return nil
 	}
 
-	gtkView := wv.Widget()
+	// Type-assert to access webkit-specific Widget() for GTK embedding
+	wkWV, ok := wv.(*webkit.WebView)
+	if !ok {
+		log.Debug().Msg("webview does not support widget embedding")
+		return nil
+	}
+
+	gtkView := wkWV.Widget()
 	if gtkView == nil {
 		return nil
 	}
@@ -148,7 +156,9 @@ func (c *Coordinator) WrapWidget(ctx context.Context, wv *webkit.WebView) layout
 	if widget != nil {
 		gestureHandler := input.NewGestureHandler(ctx)
 		// Pass WebView directly to preserve user gesture context (like Epiphany)
-		gestureHandler.SetNavigator(wv)
+		if nav, ok := wv.(input.DirectNavigator); ok {
+			gestureHandler.SetNavigator(nav)
+		}
 		// Keep callback as fallback
 		if c.gestureActionHandler != nil {
 			gestureHandler.SetOnAction(c.gestureActionHandler)
@@ -161,7 +171,7 @@ func (c *Coordinator) WrapWidget(ctx context.Context, wv *webkit.WebView) layout
 }
 
 // ActiveWebView returns the WebView for the active pane.
-func (c *Coordinator) ActiveWebView(ctx context.Context) *webkit.WebView {
+func (c *Coordinator) ActiveWebView(ctx context.Context) port.WebView {
 	log := logging.FromContext(ctx)
 
 	if paneID, ok := c.activePaneOverrideID(); ok {
@@ -192,13 +202,13 @@ func (c *Coordinator) ActiveWebView(ctx context.Context) *webkit.WebView {
 }
 
 // GetWebView returns the WebView for a specific pane.
-func (c *Coordinator) GetWebView(paneID entity.PaneID) *webkit.WebView {
+func (c *Coordinator) GetWebView(paneID entity.PaneID) port.WebView {
 	return c.getWebViewLocked(paneID)
 }
 
 // RegisterPopupWebView registers a popup WebView that was created externally.
 // This is used when popup tabs are created and the WebView needs to be tracked.
-func (c *Coordinator) RegisterPopupWebView(paneID entity.PaneID, wv *webkit.WebView) {
+func (c *Coordinator) RegisterPopupWebView(paneID entity.PaneID, wv port.WebView) {
 	if wv != nil && paneID != "" {
 		c.setWebViewLocked(paneID, wv)
 	}

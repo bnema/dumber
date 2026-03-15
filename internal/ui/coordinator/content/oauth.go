@@ -208,9 +208,16 @@ func (c *Coordinator) setupOAuthAutoClose(
 	ctx context.Context,
 	paneID entity.PaneID,
 	popupID port.WebViewID,
-	wv *webkit.WebView,
+	wv port.WebView,
 ) {
 	log := logging.FromContext(ctx)
+
+	// Type-assert to access webkit-specific direct field callbacks and Close()
+	wkWV, ok := wv.(*webkit.WebView)
+	if !ok {
+		log.Debug().Str("pane_id", string(paneID)).Msg("oauth auto-close: webview does not support webkit callbacks")
+		return
+	}
 
 	// Safety timeout - only triggers if popup gets stuck (provider should close via window.close)
 	var safetyTimer *time.Timer
@@ -232,7 +239,7 @@ func (c *Coordinator) setupOAuthAutoClose(
 					uri := wv.URI()
 					if shouldForceCloseOnSafetyTimeout(uri) {
 						log.Warn().Str("pane", string(paneID)).Msg("oauth safety timeout, closing stuck popup")
-						wv.Close()
+						wkWV.Close()
 						return false
 					}
 					log.Debug().
@@ -268,7 +275,7 @@ func (c *Coordinator) setupOAuthAutoClose(
 			time.AfterFunc(oauthCloseDelay, func() {
 				cb := glib.SourceFunc(func(_ uintptr) bool {
 					if wv != nil && !wv.IsDestroyed() {
-						wv.Close()
+						wkWV.Close()
 					}
 					return false
 				})
@@ -281,26 +288,31 @@ func (c *Coordinator) setupOAuthAutoClose(
 	startSafetyTimer()
 
 	// Wrap OnURIChanged to check for OAuth callbacks.
-	wv.OnURIChanged = composeOnURIChanged(wv.OnURIChanged, func(uri string) {
+	wkWV.OnURIChanged = composeOnURIChanged(wkWV.OnURIChanged, func(uri string) {
 		if ShouldAutoClose(uri) {
 			requestOAuthClose(uri, "uri_changed")
 		}
 	})
 
 	// Monitor load events for URL-based detection.
-	wv.OnLoadChanged = composeOnLoadChanged(wv.OnLoadChanged, func(event webkit.LoadEvent) {
-		if event == webkit.LoadCommitted {
+	// Wrap webkit.LoadEvent to port.LoadEvent at the boundary.
+	existingOnLoad := wkWV.OnLoadChanged
+	wkWV.OnLoadChanged = func(event webkit.LoadEvent) {
+		if existingOnLoad != nil {
+			existingOnLoad(event)
+		}
+		if port.LoadEvent(event) == port.LoadCommitted {
 			uri := wv.URI()
 			if ShouldAutoClose(uri) {
 				requestOAuthClose(uri, "load_committed")
 			}
 		}
-	})
+	}
 
 	// Cancel safety timer on any close path.
-	wv.OnClose = composeOnClose(func() {
+	wkWV.OnClose = composeOnClose(func() {
 		cancelSafetyTimer()
-	}, wv.OnClose)
+	}, wkWV.OnClose)
 }
 
 func (c *Coordinator) trackOAuthPopup(popupID port.WebViewID, parentPaneID entity.PaneID) {
