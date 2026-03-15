@@ -87,6 +87,10 @@ func (m *Manager) Load() error {
 		return err
 	}
 
+	if err := m.checkLegacyFormat(); err != nil {
+		return err
+	}
+
 	config, err := m.unmarshalConfig()
 	if err != nil {
 		return err
@@ -149,6 +153,29 @@ func (m *Manager) transformLegacyActionBindings() {
 	for key, value := range rawConfig {
 		m.viper.Set(key, value)
 	}
+}
+
+// checkLegacyFormat detects old config format and returns an error directing user to migrate.
+func (m *Manager) checkLegacyFormat() error {
+	// Check if old sections exist by looking for known keys.
+	// IsSet returns true only for explicitly set values (not SetDefault), so this
+	// correctly identifies keys present in the config file, env vars, or overrides.
+	hasOldSections := m.viper.IsSet("rendering.mode") ||
+		m.viper.IsSet("rendering.disable_dmabuf_renderer") ||
+		m.viper.IsSet("performance.profile") ||
+		m.viper.IsSet("privacy.cookie_policy") ||
+		m.viper.IsSet("runtime.prefix")
+
+	hasEngineSection := m.viper.IsSet("engine.type")
+
+	if hasOldSections && !hasEngineSection {
+		return fmt.Errorf(
+			"config format outdated: [rendering], [performance], [privacy] sections " +
+				"have moved to [engine]/[engine.webkit].\n" +
+				"Run \"dumber migrate\" to update your config file.",
+		)
+	}
+	return nil
 }
 
 func (m *Manager) unmarshalConfig() (*Config, error) {
