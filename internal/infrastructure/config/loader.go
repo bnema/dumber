@@ -428,6 +428,7 @@ func (m *Manager) setDefaults() {
 	m.setLoggingDefaults(defaults)
 	m.setDebugDefaults(defaults)
 	m.setAppearanceDefaults(defaults)
+	m.setEngineDefaults(defaults)
 	m.setRenderingDefaults(defaults)
 	m.setPrivacyDefaults(defaults)
 	m.setWorkspaceDefaults(defaults)
@@ -613,6 +614,43 @@ func (m *Manager) setPerformanceDefaults(defaults *Config) {
 
 func (m *Manager) setDownloadsDefaults(defaults *Config) {
 	m.viper.SetDefault("downloads.path", defaults.Downloads.Path)
+}
+
+func (m *Manager) setEngineDefaults(defaults *Config) {
+	e := defaults.Engine
+	m.viper.SetDefault("engine.type", e.Type)
+	m.viper.SetDefault("engine.profile", string(e.Profile))
+	m.viper.SetDefault("engine.pool_prewarm_count", e.PoolPrewarmCount)
+	m.viper.SetDefault("engine.zoom_cache_size", e.ZoomCacheSize)
+	m.viper.SetDefault("engine.cookie_policy", string(e.CookiePolicy))
+
+	wk := e.WebKit
+	m.viper.SetDefault("engine.webkit.itp_enabled", wk.ITPEnabled)
+	m.viper.SetDefault("engine.webkit.skia_cpu_painting_threads", wk.SkiaCPUPaintingThreads)
+	m.viper.SetDefault("engine.webkit.skia_gpu_painting_threads", wk.SkiaGPUPaintingThreads)
+	m.viper.SetDefault("engine.webkit.skia_enable_cpu_rendering", wk.SkiaEnableCPURendering)
+	m.viper.SetDefault("engine.webkit.disable_dmabuf_renderer", wk.DisableDMABufRenderer)
+	m.viper.SetDefault("engine.webkit.force_compositing_mode", wk.ForceCompositingMode)
+	m.viper.SetDefault("engine.webkit.disable_compositing_mode", wk.DisableCompositingMode)
+	m.viper.SetDefault("engine.webkit.gsk_renderer", string(wk.GSKRenderer))
+	m.viper.SetDefault("engine.webkit.disable_mipmaps", wk.DisableMipmaps)
+	m.viper.SetDefault("engine.webkit.prefer_gl", wk.PreferGL)
+	m.viper.SetDefault("engine.webkit.draw_compositing_indicators", wk.DrawCompositingIndicators)
+	m.viper.SetDefault("engine.webkit.show_fps", wk.ShowFPS)
+	m.viper.SetDefault("engine.webkit.sample_memory", wk.SampleMemory)
+	m.viper.SetDefault("engine.webkit.debug_frames", wk.DebugFrames)
+	m.viper.SetDefault("engine.webkit.force_vsync", wk.ForceVSync)
+	m.viper.SetDefault("engine.webkit.gl_rendering_mode", string(wk.GLRenderingMode))
+	m.viper.SetDefault("engine.webkit.gstreamer_debug_level", wk.GStreamerDebugLevel)
+	m.viper.SetDefault("engine.webkit.prefix", wk.Prefix)
+	m.viper.SetDefault("engine.webkit.web_process_memory_limit_mb", wk.WebProcessMemoryLimitMB)
+	m.viper.SetDefault("engine.webkit.web_process_memory_poll_interval_sec", wk.WebProcessMemoryPollIntervalSec)
+	m.viper.SetDefault("engine.webkit.web_process_memory_conservative_threshold", wk.WebProcessMemoryConservativeThreshold)
+	m.viper.SetDefault("engine.webkit.web_process_memory_strict_threshold", wk.WebProcessMemoryStrictThreshold)
+	m.viper.SetDefault("engine.webkit.network_process_memory_limit_mb", wk.NetworkProcessMemoryLimitMB)
+	m.viper.SetDefault("engine.webkit.network_process_memory_poll_interval_sec", wk.NetworkProcessMemoryPollIntervalSec)
+	m.viper.SetDefault("engine.webkit.network_process_memory_conservative_threshold", wk.NetworkProcessMemoryConservativeThreshold)
+	m.viper.SetDefault("engine.webkit.network_process_memory_strict_threshold", wk.NetworkProcessMemoryStrictThreshold)
 }
 
 // New returns a new default configuration instance.

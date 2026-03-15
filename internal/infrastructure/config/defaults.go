@@ -142,6 +142,20 @@ func DefaultConfig() *Config {
 		Debug: DebugConfig{
 			EnableDevTools: true,
 		},
+		Engine: EngineConfig{
+			Type:             "webkit",
+			Profile:          ProfileDefault,
+			PoolPrewarmCount: defaultWebViewPoolPrewarmCount,
+			ZoomCacheSize:    defaultZoomCacheSize,
+			CookiePolicy:     CookiePolicyNoThirdParty,
+			WebKit: WebKitEngineConfig{
+				ITPEnabled:         true,
+				SkiaCPUPaintingThreads: defaultSkiaCPUPaintingThreads,
+				SkiaGPUPaintingThreads: defaultSkiaGPUPaintingThreads,
+				GSKRenderer:        GSKRendererAuto,
+				GLRenderingMode:    GLRenderingModeAuto,
+			},
+		},
 		Rendering: RenderingConfig{
 			Mode:                      RenderingModeGPU,
 			DisableDMABufRenderer:     false,
