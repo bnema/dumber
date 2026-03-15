@@ -39,6 +39,8 @@ type Config struct {
 	Update UpdateConfig `mapstructure:"update" yaml:"update" toml:"update"`
 	// Downloads configures file download behavior.
 	Downloads DownloadsConfig `mapstructure:"downloads" yaml:"downloads" toml:"downloads"`
+	// Engine holds engine selection and unified engine options.
+	Engine EngineConfig `mapstructure:"engine" toml:"engine" yaml:"engine"`
 }
 
 // RenderingMode selects GPU vs CPU rendering.
