@@ -8,7 +8,6 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -153,7 +152,9 @@ func (c *Coordinator) SetOnClosePane(fn func(ctx context.Context, paneID entity.
 
 // buildPopupCreateHandler returns the OnCreate callback for a WebView.
 // Returns nil if popup handling is not configured.
-func (c *Coordinator) buildPopupCreateHandler(ctx context.Context, paneID entity.PaneID, wv port.WebView) func(port.PopupRequest) port.WebView {
+func (c *Coordinator) buildPopupCreateHandler(
+	ctx context.Context, paneID entity.PaneID, wv port.WebView,
+) func(port.PopupRequest) port.WebView {
 	if wv == nil {
 		return nil
 	}
@@ -304,14 +305,16 @@ func (c *Coordinator) handlePopupCreate(
 	c.pendingPopups[popupID] = pending
 	c.popupMu.Unlock()
 
-	// Wire ready-to-show and close signals via webkit-specific fields
-	if wkWV, ok := popupWV.(*webkit.WebView); ok {
-		wkWV.OnReadyToShow = func() {
+	// Wire ready-to-show and close signals via the PopupCapable interface.
+	if pc, ok := popupWV.(port.PopupCapable); ok {
+		pc.SetOnReadyToShow(func() {
 			c.handlePopupReadyToShow(ctx, popupID)
-		}
-		wkWV.OnClose = composeOnClose(wkWV.OnClose, func() {
+		})
+		pc.SetOnClose(func() {
 			c.handlePopupClose(ctx, popupID)
 		})
+	} else {
+		log.Warn().Uint64("popup_id", uint64(popupID)).Msg("webview does not support popup lifecycle callbacks (PopupCapable)")
 	}
 
 	log.Info().
@@ -350,8 +353,10 @@ func (c *Coordinator) handlePopupReadyToShow(ctx context.Context, popupID port.W
 
 	// Make the WebView visible now that it's ready
 	if pending.WebView != nil {
-		if wkWV, ok := pending.WebView.(*webkit.WebView); ok {
-			wkWV.Show()
+		if pc, ok := pending.WebView.(port.PopupCapable); ok {
+			pc.Show()
+		} else {
+			log.Warn().Uint64("popup_id", uint64(popupID)).Msg("webview does not support Show() (PopupCapable)")
 		}
 	}
 
@@ -384,12 +389,14 @@ func (c *Coordinator) handlePopupClose(ctx context.Context, popupID port.WebView
 
 	// Find pane by WebView ID
 	var paneID entity.PaneID
+	c.webViewsMu.RLock()
 	for pid, wv := range c.webViews {
 		if wv != nil && wv.ID() == popupID {
 			paneID = pid
 			break
 		}
 	}
+	c.webViewsMu.RUnlock()
 
 	if paneID == "" {
 		c.handlePopupOAuthClose(ctx, popupID)
@@ -484,8 +491,8 @@ func (c *Coordinator) handleLinkMiddleClick(ctx context.Context, parentPaneID en
 
 		if err := c.onInsertPopup(ctx, popupInput); err != nil {
 			log.Error().Err(err).Msg("failed to insert middle-click pane into workspace")
-			// Clean up on failure
-			delete(c.webViews, paneID)
+			// Clean up on failure — use the locking helper to avoid a data race.
+			c.deleteWebViewLocked(paneID)
 			newWV.Destroy()
 			return false
 		}

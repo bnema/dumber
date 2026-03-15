@@ -28,6 +28,7 @@ import (
 var _ port.WebView = (*WebView)(nil)
 var _ port.DevToolsOpener = (*WebView)(nil)
 var _ port.Printer = (*WebView)(nil)
+var _ port.OAuthCallbackCapable = (*WebView)(nil)
 
 // WebViewID is an alias to port.WebViewID for clean architecture compliance.
 // Infrastructure layer uses the type defined in the application port.
@@ -1477,6 +1478,30 @@ func (wv *WebView) Show() {
 	wv.inner.SetVisible(true)
 }
 
+// SetOnReadyToShow sets the callback invoked when the popup WebView is ready to display.
+// It implements port.PopupCapable.
+func (wv *WebView) SetOnReadyToShow(fn func()) {
+	wv.OnReadyToShow = fn
+}
+
+// SetOnClose composes fn with any existing OnClose handler so multiple callers
+// can each register a close callback without overwriting one another.
+// It implements port.PopupCapable.
+func (wv *WebView) SetOnClose(fn func()) {
+	existing := wv.OnClose
+	if existing == nil {
+		wv.OnClose = fn
+		return
+	}
+	if fn == nil {
+		return
+	}
+	wv.OnClose = func() {
+		existing()
+		fn()
+	}
+}
+
 // State returns the current WebView state as a snapshot.
 func (wv *WebView) State() port.WebViewState {
 	return port.WebViewState{
@@ -1584,12 +1609,16 @@ func (wv *WebView) Print() error {
 
 // OpenDevTools implements port.DevToolsOpener.
 func (wv *WebView) OpenDevTools() {
-	_ = wv.ShowDevTools()
+	if err := wv.ShowDevTools(); err != nil {
+		wv.logger.Error().Err(err).Uint64("id", uint64(wv.id)).Msg("failed to open dev tools")
+	}
 }
 
 // PrintPage implements port.Printer.
 func (wv *WebView) PrintPage() {
-	_ = wv.Print()
+	if err := wv.Print(); err != nil {
+		wv.logger.Error().Err(err).Uint64("id", uint64(wv.id)).Msg("failed to open print dialog")
+	}
 }
 
 // IsDestroyed returns true if the WebView has been destroyed.
@@ -1615,6 +1644,54 @@ func (wv *WebView) Close() {
 	}
 	if wv.OnClose != nil {
 		wv.OnClose()
+	}
+}
+
+// AddCloseCallback implements port.OAuthCallbackCapable.
+// It composes fn with any existing OnClose handler so multiple callers can register
+// close callbacks without overwriting one another.
+func (wv *WebView) AddCloseCallback(fn func()) {
+	if wv.OnClose == nil {
+		wv.OnClose = fn
+		return
+	}
+	existing := wv.OnClose
+	wv.OnClose = func() {
+		existing()
+		fn()
+	}
+}
+
+// AddNavigationCallback implements port.OAuthCallbackCapable.
+// fn is invoked when the URI changes (OnURIChanged) and when a page load is committed
+// (OnLoadChanged with LoadCommitted), covering both redirect-based and postMessage OAuth flows.
+func (wv *WebView) AddNavigationCallback(fn func(uri string)) {
+	// Compose with existing OnURIChanged.
+	if wv.OnURIChanged == nil {
+		wv.OnURIChanged = fn
+	} else {
+		existing := wv.OnURIChanged
+		wv.OnURIChanged = func(uri string) {
+			existing(uri)
+			fn(uri)
+		}
+	}
+
+	// Compose with existing OnLoadChanged to also fire on committed loads.
+	if wv.OnLoadChanged == nil {
+		wv.OnLoadChanged = func(event LoadEvent) {
+			if event == LoadCommitted {
+				fn(wv.URI())
+			}
+		}
+	} else {
+		existing := wv.OnLoadChanged
+		wv.OnLoadChanged = func(event LoadEvent) {
+			existing(event)
+			if event == LoadCommitted {
+				fn(wv.URI())
+			}
+		}
 	}
 }
 

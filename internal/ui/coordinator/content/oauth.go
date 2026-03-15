@@ -8,7 +8,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/jwijenbergh/puregotk/v4/glib"
 )
@@ -60,6 +59,15 @@ var oauthRequestPatterns = []string{
 
 // IsOAuthURL checks if the URL is related to an OAuth flow.
 // This includes authorization endpoints, login pages, and callback URLs.
+//
+// The matching is intentionally broad: both oauthFlowPatterns (path-based terms like
+// "login", "authorize", "callback") and oauthRequestPatterns (query parameters like
+// "client_id=" and "scope=") use simple substring matching without anchoring.
+// This maximizes recall — we prefer false positives over missed detections — so that
+// edge-case provider URLs and non-standard redirect paths are still caught. The
+// trade-off is reduced precision: some unrelated URLs that happen to contain these
+// substrings will be classified as OAuth URLs. Callers that need higher confidence
+// should combine this with IsOAuthCallback, which checks for concrete response params.
 func IsOAuthURL(url string) bool {
 	if url == "" {
 		return false
@@ -212,10 +220,10 @@ func (c *Coordinator) setupOAuthAutoClose(
 ) {
 	log := logging.FromContext(ctx)
 
-	// Type-assert to access webkit-specific direct field callbacks and Close()
-	wkWV, ok := wv.(*webkit.WebView)
+	// Use the optional OAuthCallbackCapable capability instead of a webkit-specific assertion.
+	oauthWV, ok := wv.(port.OAuthCallbackCapable)
 	if !ok {
-		log.Debug().Str("pane_id", string(paneID)).Msg("oauth auto-close: webview does not support webkit callbacks")
+		log.Debug().Str("pane_id", string(paneID)).Msg("oauth auto-close: webview does not support oauth callbacks")
 		return
 	}
 
@@ -239,7 +247,7 @@ func (c *Coordinator) setupOAuthAutoClose(
 					uri := wv.URI()
 					if shouldForceCloseOnSafetyTimeout(uri) {
 						log.Warn().Str("pane", string(paneID)).Msg("oauth safety timeout, closing stuck popup")
-						wkWV.Close()
+						oauthWV.Close()
 						return false
 					}
 					log.Debug().
@@ -275,7 +283,7 @@ func (c *Coordinator) setupOAuthAutoClose(
 			time.AfterFunc(oauthCloseDelay, func() {
 				cb := glib.SourceFunc(func(_ uintptr) bool {
 					if wv != nil && !wv.IsDestroyed() {
-						wkWV.Close()
+						oauthWV.Close()
 					}
 					return false
 				})
@@ -287,32 +295,17 @@ func (c *Coordinator) setupOAuthAutoClose(
 	// Start safety timer immediately.
 	startSafetyTimer()
 
-	// Wrap OnURIChanged to check for OAuth callbacks.
-	wkWV.OnURIChanged = composeOnURIChanged(wkWV.OnURIChanged, func(uri string) {
+	// Register navigation callback to check for OAuth callbacks on URI changes and committed loads.
+	oauthWV.AddNavigationCallback(func(uri string) {
 		if ShouldAutoClose(uri) {
-			requestOAuthClose(uri, "uri_changed")
+			requestOAuthClose(uri, "navigation")
 		}
 	})
 
-	// Monitor load events for URL-based detection.
-	// Wrap webkit.LoadEvent to port.LoadEvent at the boundary.
-	existingOnLoad := wkWV.OnLoadChanged
-	wkWV.OnLoadChanged = func(event webkit.LoadEvent) {
-		if existingOnLoad != nil {
-			existingOnLoad(event)
-		}
-		if port.LoadEvent(event) == port.LoadCommitted {
-			uri := wv.URI()
-			if ShouldAutoClose(uri) {
-				requestOAuthClose(uri, "load_committed")
-			}
-		}
-	}
-
 	// Cancel safety timer on any close path.
-	wkWV.OnClose = composeOnClose(func() {
+	oauthWV.AddCloseCallback(func() {
 		cancelSafetyTimer()
-	}, wkWV.OnClose)
+	})
 }
 
 func (c *Coordinator) trackOAuthPopup(popupID port.WebViewID, parentPaneID entity.PaneID) {

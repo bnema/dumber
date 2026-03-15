@@ -205,7 +205,7 @@ func (c *Coordinator) onLoadFinished(ctx context.Context, paneID entity.PaneID, 
 		paneView.SetLoading(false)
 	}
 
-	c.revealIfPending(context.Background(), paneID, "", "load-finished")
+	c.revealIfPending(ctx, paneID, "", "load-finished")
 	if c.shouldSkipAboutBlankAppearance(paneID, wv) {
 		return
 	}
@@ -321,7 +321,9 @@ func (c *Coordinator) handleURIChanged(ctx context.Context, paneID entity.PaneID
 
 		// Stop loading to prevent WebKit from showing an error page
 		// The page stays on the previous URL before the JS redirect
-		_ = wv.Stop(ctx)
+		if err := wv.Stop(ctx); err != nil {
+			log.Warn().Str("pane_id", string(paneID)).Str("uri", uri).Err(err).Msg("stop webview for external URL")
+		}
 
 		// Navigate back to avoid stale URI in omnibox/history
 		if wv.CanGoBack() {

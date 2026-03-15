@@ -113,13 +113,16 @@ func NewEngine(
 		filterManager: filterManager,
 		schemeHandler: schemeHandler,
 		schemePath:    "dumb://",
+		logger:        logger,
 	}
 
 	return engine, nil
 }
 
 // engineSurveyHardwareAndResolveProfile surveys hardware and resolves the performance profile.
-func engineSurveyHardwareAndResolveProfile(ctx context.Context, cfg *config.Config, logger zerolog.Logger) config.ResolvedPerformanceSettings {
+func engineSurveyHardwareAndResolveProfile(
+	ctx context.Context, cfg *config.Config, logger zerolog.Logger,
+) config.ResolvedPerformanceSettings {
 	hwSurveyor := env.NewHardwareSurveyor()
 	hwInfo := hwSurveyor.Survey(ctx)
 	logging.Trace().Mark("hardware_survey")

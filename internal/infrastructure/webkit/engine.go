@@ -5,6 +5,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
+	"github.com/rs/zerolog"
 )
 
 // Engine implements port.Engine for the WebKit browser engine.
@@ -18,13 +19,14 @@ type Engine struct {
 	filterManager *filtering.Manager
 	schemeHandler *DumbSchemeHandler
 	schemePath    string
+	logger        zerolog.Logger
 }
 
 // Compile-time check that Engine implements port.Engine.
 var _ port.Engine = (*Engine)(nil)
 
 // Init is a no-op for WebKit — initialization happens in NewEngine.
-func (e *Engine) Init(_ context.Context, _ port.EngineOptions) error {
+func (*Engine) Init(_ context.Context, _ port.EngineOptions) error {
 	return nil
 }
 
@@ -35,7 +37,7 @@ func (e *Engine) Factory() port.WebViewFactory {
 
 // Pool returns the WebViewPool wrapped as a port.WebViewPool.
 func (e *Engine) Pool() port.WebViewPool {
-	return &webViewPoolAdapter{pool: e.pool}
+	return &webViewPoolAdapter{pool: e.pool, logger: e.logger}
 }
 
 // ContentInjector returns the ContentInjector implementing port.ContentInjector.
@@ -58,7 +60,7 @@ func (e *Engine) Close() error {
 
 // SchemeHandler returns a port.SchemeHandler adapter for the DumbSchemeHandler.
 func (e *Engine) SchemeHandler() port.SchemeHandler {
-	return &schemeHandlerAdapter{handler: e.schemeHandler}
+	return &schemeHandlerAdapter{handler: e.schemeHandler, logger: e.logger}
 }
 
 // MessageRouter returns a port.MessageRouter adapter for the internal MessageRouter.

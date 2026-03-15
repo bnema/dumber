@@ -272,3 +272,28 @@ type DevToolsOpener interface {
 type Printer interface {
 	PrintPage()
 }
+
+// PopupCapable is implemented by WebViews that support popup lifecycle callbacks.
+// SetOnClose composes the provided function with any existing close handler so
+// that multiple callers can each register a close callback without overwriting
+// one another.
+type PopupCapable interface {
+	SetOnReadyToShow(fn func())
+	SetOnClose(fn func())
+	Show()
+}
+
+// OAuthCallbackCapable is implemented by WebViews that support OAuth auto-close callbacks.
+// It is an optional capability; callers should type-assert port.WebView to this interface
+// before use and degrade gracefully when it is absent.
+type OAuthCallbackCapable interface {
+	// AddCloseCallback registers fn to be called when the WebView is programmatically closed.
+	// Multiple callbacks may be registered; each will be called in registration order.
+	AddCloseCallback(fn func())
+	// AddNavigationCallback registers fn to be called whenever the URI changes or a
+	// committed load is detected. The uri parameter contains the new URL.
+	// Multiple callbacks may be registered; each will be called in registration order.
+	AddNavigationCallback(fn func(uri string))
+	// Close triggers a programmatic close of the WebView (equivalent to window.close()).
+	Close()
+}

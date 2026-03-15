@@ -9,7 +9,6 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/component"
@@ -24,7 +23,7 @@ type Coordinator struct {
 	faviconAdapter *adapter.FaviconAdapter
 	zoomUC         *usecase.ManageZoomUseCase
 	permissionUC   *usecase.HandlePermissionUseCase
-	injector       *webkit.ContentInjector
+	injector       port.ContentInjector
 
 	webViews   map[entity.PaneID]port.WebView
 	webViewsMu sync.RWMutex
@@ -288,14 +287,4 @@ func (c *Coordinator) deleteWebViewLocked(paneID entity.PaneID) port.WebView {
 	wv := c.webViews[paneID]
 	delete(c.webViews, paneID)
 	return wv
-}
-
-func (c *Coordinator) snapshotWebViews() map[entity.PaneID]port.WebView {
-	c.webViewsMu.RLock()
-	defer c.webViewsMu.RUnlock()
-	snapshot := make(map[entity.PaneID]port.WebView, len(c.webViews))
-	for paneID, wv := range c.webViews {
-		snapshot[paneID] = wv
-	}
-	return snapshot
 }

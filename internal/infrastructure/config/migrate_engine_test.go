@@ -240,8 +240,14 @@ disable_dmabuf_renderer = false
 	assert.NotContains(t, media, "gstreamer_debug_level")
 
 	// Migrated fields should be in engine.webkit
-	engine := raw["engine"].(map[string]any)
-	webkit := engine["webkit"].(map[string]any)
+	engineAny, ok := raw["engine"]
+	require.True(t, ok, "engine section must exist")
+	engine, ok := engineAny.(map[string]any)
+	require.True(t, ok, "engine section must be a map")
+	webkitAny, ok := engine["webkit"]
+	require.True(t, ok, "engine.webkit section must exist")
+	webkit, ok := webkitAny.(map[string]any)
+	require.True(t, ok, "engine.webkit section must be a map")
 	assert.Equal(t, true, webkit["force_vsync"])
 	assert.Equal(t, "auto", webkit["gl_rendering_mode"])
 	assert.Equal(t, int64(3), webkit["gstreamer_debug_level"])

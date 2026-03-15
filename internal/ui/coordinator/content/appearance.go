@@ -262,14 +262,20 @@ func (c *Coordinator) shouldDeferAppearance(wv port.WebView) bool {
 
 func (c *Coordinator) refreshInjectedScripts(
 	ctx context.Context,
-	injector *webkit.ContentInjector,
+	injector port.ContentInjector,
 	paneID entity.PaneID,
 	wv port.WebView,
 ) {
 	if injector == nil || wv == nil || wv.IsDestroyed() {
 		return
 	}
-	// Type-assert to access webkit-specific UserContentManager
+	// Type-assert to access webkit-specific UserContentManager and InjectScripts.
+	// refreshInjectedScripts is a webkit-specific operation; other engines will
+	// need their own implementation when wired through a port.ScriptRefresher.
+	wkInjector, ok := injector.(*webkit.ContentInjector)
+	if !ok {
+		return
+	}
 	wkWV, ok := wv.(*webkit.WebView)
 	if !ok {
 		return
@@ -280,7 +286,7 @@ func (c *Coordinator) refreshInjectedScripts(
 	}
 	ucm.RemoveAllScripts()
 	ucm.RemoveAllStyleSheets()
-	injector.InjectScripts(ctx, ucm, wv.ID())
+	wkInjector.InjectScripts(ctx, ucm, wv.ID())
 	logging.FromContext(ctx).Debug().Str("pane_id", string(paneID)).Msg("refreshed injected scripts for webview")
 }
 
