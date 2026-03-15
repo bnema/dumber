@@ -24,8 +24,10 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// Compile-time interface check: WebView must implement port.WebView.
+// Compile-time interface checks.
 var _ port.WebView = (*WebView)(nil)
+var _ port.DevToolsOpener = (*WebView)(nil)
+var _ port.Printer = (*WebView)(nil)
 
 // WebViewID is an alias to port.WebViewID for clean architecture compliance.
 // Infrastructure layer uses the type defined in the application port.
@@ -1578,6 +1580,16 @@ func (wv *WebView) Print() error {
 	printOp.RunDialog(nil)
 	wv.logger.Debug().Uint64("id", uint64(wv.id)).Msg("print dialog opened")
 	return nil
+}
+
+// OpenDevTools implements port.DevToolsOpener.
+func (wv *WebView) OpenDevTools() {
+	_ = wv.ShowDevTools()
+}
+
+// PrintPage implements port.Printer.
+func (wv *WebView) PrintPage() {
+	_ = wv.Print()
 }
 
 // IsDestroyed returns true if the WebView has been destroyed.
