@@ -153,7 +153,7 @@ type floatingWorkspaceSession struct {
 	paneID              entity.PaneID
 	pane                *component.FloatingPane
 	paneView            *component.PaneView
-	webView             *webkit.WebView
+	webView             port.WebView
 	overlay             layout.OverlayWidget
 	widget              layout.Widget
 	focusWidget         layout.Widget
@@ -1559,7 +1559,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 	a.tabCoord.SetOnQuit(a.Quit)
 	a.tabCoord.SetOnStateChanged(a.MarkDirty)
 	// Wire popup tab WebView attachment
-	a.tabCoord.SetOnAttachPopupToTab(func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv *webkit.WebView) {
+	a.tabCoord.SetOnAttachPopupToTab(func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView) {
 		a.attachPopupToTab(ctx, tabID, pane, wv)
 	})
 
@@ -2149,7 +2149,7 @@ func (a *App) getActiveWebViewTarget() port.TextInputTarget {
 
 // attachPopupToTab attaches a popup WebView to a newly created tab.
 // This is called when a popup uses tabbed behavior.
-func (a *App) attachPopupToTab(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv *webkit.WebView) {
+func (a *App) attachPopupToTab(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView) {
 	log := logging.FromContext(ctx)
 
 	wsView := a.workspaceViews[tabID]

@@ -1,17 +1,17 @@
-package coordinator
+package content
 
 import (
 	"testing"
 
-	webkitlib "github.com/bnema/puregotk-webkit/webkit"
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestShouldRenderCrashPage(t *testing.T) {
-	assert.True(t, shouldRenderCrashPage(webkitlib.WebProcessCrashedValue))
-	assert.True(t, shouldRenderCrashPage(webkitlib.WebProcessExceededMemoryLimitValue))
-	assert.False(t, shouldRenderCrashPage(webkitlib.WebProcessTerminatedByApiValue))
-	assert.True(t, shouldRenderCrashPage(webkitlib.WebProcessTerminationReason(99)))
+	assert.True(t, shouldRenderCrashPage(port.WebProcessTerminationCrashed))
+	assert.True(t, shouldRenderCrashPage(port.WebProcessTerminationExceededMemory))
+	assert.False(t, shouldRenderCrashPage(port.WebProcessTerminationByAPI))
+	assert.True(t, shouldRenderCrashPage(port.WebProcessTerminationReason(99)))
 }
 
 func TestExtractOriginalURIFromCrashPage(t *testing.T) {
