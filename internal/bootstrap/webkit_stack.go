@@ -260,7 +260,7 @@ func configureRenderingEnvironment(
 
 	renderEnv := env.NewManager()
 	gpuVendor := renderEnv.DetectGPUVendor(ctx)
-	renderSettings := port.RenderingEnvSettings{
+	renderSettings := env.RenderingSettings{
 		// GStreamer settings
 		ForceVSync:          cfg.Media.ForceVSync,
 		GLRenderingMode:     string(cfg.Media.GLRenderingMode),

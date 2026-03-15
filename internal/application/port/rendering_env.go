@@ -17,22 +17,17 @@ const (
 	GPUVendorUnknown GPUVendor = "unknown"
 )
 
-// RenderingEnvSettings contains all rendering-related environment settings.
-// This is a port-local type to avoid import cycles with config package.
-type RenderingEnvSettings struct {
-}
-
 // RenderingEnvManager configures rendering environment variables
 // for GStreamer, WebKit, and GTK/GSK.
 // Environment variables must be set BEFORE GTK/WebKit initialization.
+//
+// Note: ApplyEnvironment was removed from this interface because rendering
+// settings are engine-specific (WebKit/GTK/GStreamer) and have moved to
+// internal/infrastructure/env.RenderingSettings to avoid port bloat.
 type RenderingEnvManager interface {
 	// DetectGPUVendor identifies the primary GPU vendor from system info.
 	// Uses /sys/class/drm/card*/device/vendor as primary detection method.
 	DetectGPUVendor(ctx context.Context) GPUVendor
-
-	// ApplyEnvironment sets all rendering environment variables.
-	// Must be called before any GTK/GStreamer initialization.
-	ApplyEnvironment(ctx context.Context, settings RenderingEnvSettings) error
 
 	// GetAppliedVars returns a map of environment variables that were set.
 	// Useful for logging and debugging.
