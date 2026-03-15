@@ -99,6 +99,10 @@ type App struct {
 	// Floating pane sessions keyed by tab and profile session ID.
 	floatingSessions map[floatingSessionKey]*floatingWorkspaceSession
 
+	// Engine (port-level and concrete for webkit-specific operations)
+	engine   port.Engine
+	wkEngine *webkit.Engine
+
 	// Web content (managed by ContentCoordinator)
 	pool           *webkit.WebViewPool
 	webViewFactory *webkit.WebViewFactory
@@ -179,12 +183,17 @@ func New(deps *Dependencies) (*App, error) {
 		panesUC:          deps.PanesUC,
 		workspaceViews:   make(map[entity.TabID]*component.WorkspaceView),
 		floatingSessions: make(map[floatingSessionKey]*floatingWorkspaceSession),
-		pool:             deps.Pool,
-		injector:         deps.Injector,
-		router:           deps.MessageRouter,
-		settings:         deps.Settings,
+		engine:           deps.Engine,
 		configManager:    config.GetManager(),
 		cancel:           cancel,
+	}
+	// Type-assert engine to concrete *webkit.Engine for webkit-specific operations.
+	if wke, ok := deps.Engine.(*webkit.Engine); ok {
+		app.wkEngine = wke
+		app.pool = wke.InternalPool()
+		app.injector = wke.InternalInjector()
+		app.router = wke.InternalMessageRouter()
+		app.settings = wke.InternalSettings()
 	}
 	if app.router == nil {
 		app.router = webkit.NewMessageRouter(ctx)
@@ -563,7 +572,7 @@ func (a *App) registerAccentHandlers(ctx context.Context) {
 func (a *App) initDownloadHandler(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
-	if a.deps == nil || a.deps.WebContext == nil {
+	if a.deps == nil || a.wkEngine == nil {
 		log.Debug().Msg("WebContext not available, skipping download handler")
 		return
 	}
@@ -599,7 +608,7 @@ func (a *App) initDownloadHandler(ctx context.Context) {
 
 	// Create and wire the download handler.
 	handler := webkit.NewDownloadHandler(downloadPath, eventAdapter, prepareDownloadUC)
-	a.deps.WebContext.SetDownloadHandler(ctx, handler)
+	a.wkEngine.InternalContext().SetDownloadHandler(ctx, handler)
 
 	log.Info().Str("path", downloadPath).Msg("download handler initialized")
 }
@@ -1482,8 +1491,8 @@ func (a *App) onShutdown(ctx context.Context) {
 	for _, tabID := range tabIDs {
 		a.releaseFloatingSessionsForTab(ctx, tabID)
 	}
-	if a.deps.Pool != nil {
-		a.deps.Pool.Close(ctx)
+	if a.pool != nil {
+		a.pool.Close(ctx)
 	}
 	// Close idle inhibitor to release D-Bus connection
 	if a.deps.IdleInhibitor != nil {
@@ -1507,8 +1516,8 @@ func (a *App) initCoordinators(ctx context.Context) {
 
 	// Create FaviconAdapter with service and WebKit FaviconDatabase
 	var faviconDB *webkit.FaviconDatabase
-	if a.deps.WebContext != nil {
-		faviconDB = a.deps.WebContext.FaviconDatabase()
+	if a.wkEngine != nil {
+		faviconDB = a.wkEngine.InternalContext().FaviconDatabase()
 	}
 	a.faviconAdapter = adapter.NewFaviconAdapter(a.deps.FaviconService, faviconDB)
 
@@ -1592,8 +1601,12 @@ func (a *App) initCoordinators(ctx context.Context) {
 	a.wsCoord.SetOnStateChanged(a.MarkDirty)
 
 	// Wire popup handling
+	var wkCtx *webkit.WebKitContext
+	if a.wkEngine != nil {
+		wkCtx = a.wkEngine.InternalContext()
+	}
 	a.webViewFactory = webkit.NewWebViewFactory(
-		a.deps.WebContext,
+		wkCtx,
 		a.settings,
 		a.pool,
 		a.injector,

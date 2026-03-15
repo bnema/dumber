@@ -12,7 +12,6 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/ui/theme"
 )
 
@@ -37,13 +36,8 @@ type Dependencies struct {
 	// XDG paths
 	XDG port.XDGPaths
 
-	// WebKit infrastructure
-	WebContext    *webkit.WebKitContext
-	Pool          *webkit.WebViewPool
-	Factory       port.WebViewFactory
-	Settings      *webkit.SettingsManager
-	Injector      *webkit.ContentInjector
-	MessageRouter *webkit.MessageRouter
+	// Engine (replaces individual webkit fields)
+	Engine port.Engine
 
 	// Repositories
 	HistoryRepo    repository.HistoryRepository

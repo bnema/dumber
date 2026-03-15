@@ -514,8 +514,7 @@ func buildUIDependencies(
 	currentSessionID entity.SessionID,
 	startupCrashReports []string,
 ) *ui.Dependencies {
-	// Type-assert to *webkit.Engine to access concrete types for ui.Dependencies.
-	// This bridge will be removed when ui.Dependencies is updated to use port.Engine (M4).
+	// Type-assert to *webkit.Engine to access FilterManager (not yet on port.Engine).
 	wkEngine := engine.(*webkit.Engine)
 
 	return &ui.Dependencies{
@@ -528,11 +527,7 @@ func buildUIDependencies(
 		ColorResolver:       colorResolver,
 		AdwaitaDetector:     adwaitaDetector,
 		XDG:                 xdg.New(),
-		WebContext:          wkEngine.InternalContext(),
-		Pool:                wkEngine.InternalPool(),
-		Settings:            wkEngine.InternalSettings(),
-		Injector:            wkEngine.InternalInjector(),
-		MessageRouter:       wkEngine.InternalMessageRouter(),
+		Engine:              engine,
 		FilterManager:       wkEngine.InternalFilterManager(),
 		HistoryRepo:         repos.history,
 		FavoriteRepo:        repos.favorite,
