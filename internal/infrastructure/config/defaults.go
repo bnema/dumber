@@ -149,17 +149,13 @@ func DefaultConfig() *Config {
 			ZoomCacheSize:    defaultZoomCacheSize,
 			CookiePolicy:     CookiePolicyNoThirdParty,
 			WebKit: WebKitEngineConfig{
-				ITPEnabled:         true,
+				ITPEnabled:             true,
 				SkiaCPUPaintingThreads: defaultSkiaCPUPaintingThreads,
 				SkiaGPUPaintingThreads: defaultSkiaGPUPaintingThreads,
-				GSKRenderer:        GSKRendererAuto,
-				GLRenderingMode:    GLRenderingModeAuto,
+				GSKRenderer:            GSKRendererAuto,
+				GLRenderingMode:        GLRenderingModeAuto,
 			},
 		},
-		// Rendering, Privacy, Runtime, Performance: zeroed out.
-		// These sections have been migrated to [engine]/[engine.webkit].
-		// Keeping zero-value structs so the Config type remains backward-compatible
-		// for unmarshalling old config files during migration.
 		DefaultWebpageZoom: 1.2,            // 120% default zoom for better readability
 		DefaultUIScale:     defaultUIScale, // 1.0 = 100%, 2.0 = 200%
 		Workspace: WorkspaceConfig{

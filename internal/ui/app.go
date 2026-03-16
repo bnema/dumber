@@ -102,14 +102,9 @@ type App struct {
 
 	// Engine (port-level and concrete for webkit-specific operations)
 	engine   port.Engine
-	wkEngine *webkit.Engine
+	wkEngine *webkit.Engine // single webkit escape hatch; all webkit-specific ops go through this
 
 	// Web content (managed by content.Coordinator)
-	pool           *webkit.WebViewPool
-	webViewFactory *webkit.WebViewFactory
-	injector       *webkit.ContentInjector
-	router         *webkit.MessageRouter
-	settings       *webkit.SettingsManager
 	faviconAdapter *adapter.FaviconAdapter
 
 	// App-level toaster for system notifications (filter status, etc.)
@@ -191,18 +186,20 @@ func New(deps *Dependencies) (*App, error) {
 	// Type-assert engine to concrete *webkit.Engine for webkit-specific operations.
 	if wke, ok := deps.Engine.(*webkit.Engine); ok {
 		app.wkEngine = wke
-		app.pool = wke.InternalPool()
-		app.injector = wke.InternalInjector()
-		app.router = wke.InternalMessageRouter()
-		app.settings = wke.InternalSettings()
 	}
-	if app.router == nil {
-		app.router = webkit.NewMessageRouter(ctx)
+
+	// Resolve the message router via wkEngine, with a standalone fallback.
+	var router *webkit.MessageRouter
+	if app.wkEngine != nil {
+		router = app.wkEngine.InternalMessageRouter()
+	}
+	if router == nil {
+		router = webkit.NewMessageRouter(ctx)
 	}
 
 	// Register message handlers
-	if app.router != nil {
-		if err := handlers.RegisterAll(ctx, app.router, handlers.Config{
+	if router != nil {
+		if err := handlers.RegisterAll(ctx, router, handlers.Config{
 			HistoryUC:    deps.HistoryUC,
 			FavoritesUC:  deps.FavoritesUC,
 			Clipboard:    deps.Clipboard,
@@ -249,8 +246,10 @@ func (a *App) Run(ctx context.Context, args []string) int {
 
 		// Refresh scripts in pooled WebViews that were prewarmed before adw.Init().
 		// They have the wrong dark mode preference injected; re-inject with correct value.
-		if a.pool != nil {
-			a.pool.RefreshScripts(ctx)
+		if a.wkEngine != nil {
+			if pool := a.wkEngine.InternalPool(); pool != nil {
+				pool.RefreshScripts(ctx)
+			}
 		}
 	}
 
@@ -375,7 +374,12 @@ func (a *App) setupPoolBackgroundColor(ctx context.Context) {
 
 	// Set theme background color on pool to eliminate white flash.
 	// Must be done before any WebView creation so WebViews get the correct color.
-	if a.pool == nil {
+	if a.wkEngine == nil {
+		log.Debug().Msg("webview pool not available; skipping background color setup")
+		return
+	}
+	pool := a.wkEngine.InternalPool()
+	if pool == nil {
 		log.Debug().Msg("webview pool not available; skipping background color setup")
 		return
 	}
@@ -385,16 +389,20 @@ func (a *App) setupPoolBackgroundColor(ctx context.Context) {
 	}
 
 	r, g, b, alpha := a.deps.Theme.GetBackgroundRGBA()
-	a.pool.SetBackgroundColor(r, g, b, alpha)
+	pool.SetBackgroundColor(r, g, b, alpha)
 	log.Debug().Msg("configured webview pool background color")
 }
 
 func (a *App) prewarmWebViewPoolAsync(ctx context.Context) {
 	// Prewarm WebView pool after startup so cold-start navigation is not blocked.
-	if a.pool == nil {
+	if a.wkEngine == nil {
 		return
 	}
-	a.pool.PrewarmAsync(ctx, 0)
+	pool := a.wkEngine.InternalPool()
+	if pool == nil {
+		return
+	}
+	pool.PrewarmAsync(ctx, 0)
 }
 
 func (a *App) createMainWindow(ctx context.Context) error {
@@ -558,12 +566,20 @@ func (a *App) initAccentPicker(ctx context.Context) {
 func (a *App) registerAccentHandlers(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
-	if a.router == nil || a.insertAccentUC == nil {
-		log.Debug().Msg("router or insertAccentUC not available, skipping accent handler registration")
+	if a.insertAccentUC == nil {
+		log.Debug().Msg("insertAccentUC not available, skipping accent handler registration")
+		return
+	}
+	var router *webkit.MessageRouter
+	if a.wkEngine != nil {
+		router = a.wkEngine.InternalMessageRouter()
+	}
+	if router == nil {
+		log.Debug().Msg("router not available, skipping accent handler registration")
 		return
 	}
 
-	if err := handlers.RegisterAccentHandlers(ctx, a.router, a.insertAccentUC); err != nil {
+	if err := handlers.RegisterAccentHandlers(ctx, router, a.insertAccentUC); err != nil {
 		log.Error().Err(err).Msg("failed to register accent handlers")
 	} else {
 		log.Info().Msg("registered accent key handlers")
@@ -1492,8 +1508,10 @@ func (a *App) onShutdown(ctx context.Context) {
 	for _, tabID := range tabIDs {
 		a.releaseFloatingSessionsForTab(ctx, tabID)
 	}
-	if a.pool != nil {
-		a.pool.Close(ctx)
+	if a.engine != nil {
+		if err := a.engine.Close(); err != nil {
+			log.Warn().Err(err).Msg("failed to close engine")
+		}
 	}
 	// Close idle inhibitor to release D-Bus connection
 	if a.deps.IdleInhibitor != nil {
@@ -1515,17 +1533,14 @@ func (a *App) initCoordinators(ctx context.Context) {
 		return a.activeWorkspace(), a.activeWorkspaceView()
 	}
 
-	// Create FaviconAdapter with service and WebKit FaviconDatabase
-	var faviconDB *webkit.FaviconDatabase
-	if a.wkEngine != nil {
-		faviconDB = a.wkEngine.InternalContext().FaviconDatabase()
-	}
-	a.faviconAdapter = adapter.NewFaviconAdapter(a.deps.FaviconService, faviconDB)
+	// Create FaviconAdapter with service and engine FaviconDatabase
+	a.faviconAdapter = adapter.NewFaviconAdapter(a.deps.FaviconService, a.engine.FaviconDatabase())
 
 	// 1. Content Coordinator (no dependencies on other coordinators)
 	a.contentCoord = content.NewCoordinator(
 		ctx,
 		a.engine.Pool(),
+		a.engine.ContentInjector(),
 		a.widgetFactory,
 		a.faviconAdapter,
 		getActiveWS,
@@ -1602,21 +1617,12 @@ func (a *App) initCoordinators(ctx context.Context) {
 	a.wsCoord.SetOnStateChanged(a.MarkDirty)
 
 	// Wire popup handling
-	var wkCtx *webkit.WebKitContext
-	if a.wkEngine != nil {
-		wkCtx = a.wkEngine.InternalContext()
-	}
-	a.webViewFactory = webkit.NewWebViewFactory(
-		wkCtx,
-		a.settings,
-		a.pool,
-		a.injector,
-		a.router,
-	)
-	// Set theme background color on factory to eliminate white flash
-	if a.deps.Theme != nil {
+	// Set theme background color on the engine's popup factory to eliminate white flash.
+	if a.wkEngine != nil && a.deps.Theme != nil {
 		r, g, b, alpha := a.deps.Theme.GetBackgroundRGBA()
-		a.webViewFactory.SetBackgroundColor(r, g, b, alpha)
+		if f := a.wkEngine.InternalFactory(); f != nil {
+			f.SetBackgroundColor(r, g, b, alpha)
+		}
 	}
 	a.contentCoord.SetPopupConfig(
 		a.engine.Factory(),
@@ -3095,8 +3101,10 @@ func (a *App) applyAppearanceConfig(ctx context.Context, cfg *config.Config) {
 	}
 
 	// Update WebKit settings manager
-	if a.settings != nil {
-		a.settings.UpdateFromConfig(ctx, cfg)
+	if a.wkEngine != nil {
+		if settings := a.wkEngine.InternalSettings(); settings != nil {
+			settings.UpdateFromConfig(ctx, cfg)
+		}
 	}
 
 	// Apply settings to existing webviews via coordinator
@@ -3112,22 +3120,28 @@ func (a *App) applyAppearanceConfig(ctx context.Context, cfg *config.Config) {
 		}
 		a.deps.Theme.UpdateFromConfig(ctx, cfg, display)
 
+		// Resolve injector once for all webkit-specific theme updates below.
+		var injector *webkit.ContentInjector
+		if a.wkEngine != nil {
+			injector = a.wkEngine.InternalInjector()
+		}
+
 		// Update find highlight CSS for future navigations
-		if a.injector != nil {
+		if injector != nil {
 			findCSS := theme.GenerateFindHighlightCSS(a.deps.Theme.GetCurrentPalette())
-			if err := a.injector.InjectFindHighlightCSS(ctx, findCSS); err != nil {
+			if err := injector.InjectFindHighlightCSS(ctx, findCSS); err != nil {
 				log.Warn().Err(err).Msg("failed to update find highlight CSS")
 			}
 		}
 
-		prepareThemeUC := usecase.NewPrepareWebUIThemeUseCase(a.injector)
+		prepareThemeUC := usecase.NewPrepareWebUIThemeUseCase(injector)
 		cssText := a.deps.Theme.GetWebUIThemeCSS()
 		if err := prepareThemeUC.Execute(ctx, usecase.PrepareWebUIThemeInput{CSSVars: cssText}); err != nil {
 			log.Warn().Err(err).Msg("failed to update WebUI theme CSS")
 		}
 
 		// Refresh injected scripts so future navigations use the latest theme.
-		if a.contentCoord != nil && a.injector != nil {
+		if a.contentCoord != nil && injector != nil {
 			a.contentCoord.RefreshInjectedScriptsToAll(ctx)
 		}
 

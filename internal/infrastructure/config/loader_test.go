@@ -31,11 +31,11 @@ func TestSetEngineDefaults(t *testing.T) {
 	assert.Empty(t, mgr.viper.GetString("runtime.prefix"))
 }
 
-func TestNormalizeConfig_PrivacyCookiePolicy(t *testing.T) {
+func TestNormalizeConfig_EngineCookiePolicy(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.Privacy.CookiePolicy = CookiePolicy("INVALID")
+	cfg.Engine.CookiePolicy = CookiePolicy("INVALID")
 
 	normalizeConfig(cfg)
 
-	assert.Equal(t, CookiePolicyNoThirdParty, cfg.Privacy.CookiePolicy)
+	assert.Equal(t, CookiePolicyNoThirdParty, cfg.Engine.CookiePolicy)
 }

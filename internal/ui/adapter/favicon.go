@@ -5,12 +5,11 @@ import (
 	"context"
 	"sync"
 
+	"github.com/bnema/dumber/internal/application/port"
 	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
-	"github.com/jwijenbergh/puregotk/v4/gio"
 	"github.com/jwijenbergh/puregotk/v4/glib"
 	"github.com/rs/zerolog"
 )
@@ -19,7 +18,7 @@ import (
 // gdk.Texture conversion and WebKit FaviconDatabase integration.
 type FaviconAdapter struct {
 	service      *favicon.Service
-	faviconDB    *webkit.FaviconDatabase
+	faviconDB    port.FaviconDatabase
 	textureCache map[string]*gdk.Texture
 	mu           sync.RWMutex
 	warnMu       sync.Mutex
@@ -29,8 +28,8 @@ type FaviconAdapter struct {
 type warningLogFunc func(log *zerolog.Logger, err error)
 
 // NewFaviconAdapter creates a new FaviconAdapter.
-// The faviconDB can be nil if WebKit favicon database is not available.
-func NewFaviconAdapter(service *favicon.Service, faviconDB *webkit.FaviconDatabase) *FaviconAdapter {
+// The faviconDB can be nil if a favicon database is not available.
+func NewFaviconAdapter(service *favicon.Service, faviconDB port.FaviconDatabase) *FaviconAdapter {
 	return &FaviconAdapter{
 		service:      service,
 		faviconDB:    faviconDB,
@@ -127,32 +126,24 @@ func (a *FaviconAdapter) GetOrFetch(ctx context.Context, pageURL string, callbac
 		}()
 	}
 
-	// Try WebKit FaviconDatabase if available
+	// Try engine FaviconDatabase if available
 	if a.faviconDB != nil {
-		asyncCb := gio.AsyncReadyCallback(func(_ uintptr, resultPtr uintptr, _ uintptr) {
-			if resultPtr == 0 {
-				log.Debug().Str("domain", domain).Msg("favicon not in webkit db, fetching via service")
+		a.faviconDB.GetFaviconAsync(pageURL, func(tex port.Texture) {
+			if tex == nil {
+				log.Debug().Str("domain", domain).Msg("favicon not in engine db, fetching via service")
 				fetchViaService()
 				return
 			}
-
-			result := &gio.AsyncResultBase{Ptr: resultPtr}
-			texture, err := a.faviconDB.GetFaviconFinish(result)
-			if err != nil || texture == nil {
-				log.Debug().Str("domain", domain).Msg("favicon not in webkit db, fetching via service")
+			// Convert port.Texture to *gdk.Texture
+			gdkTex, ok := tex.(*gdk.Texture)
+			if !ok {
 				fetchViaService()
 				return
 			}
-
-			// Found in WebKit database
-			a.setTexture(domain, texture)
-			invokeCallback(texture)
-
-			// Ensure disk cache is populated (async)
-			go a.service.EnsureDiskCache(ctx, domain)
+			a.setTexture(domain, gdkTex)
+			invokeCallback(gdkTex)
+			a.saveFaviconToDisk(ctx, domain, gdkTex)
 		})
-
-		a.faviconDB.GetFavicon(pageURL, nil, &asyncCb, 0)
 		return
 	}
 

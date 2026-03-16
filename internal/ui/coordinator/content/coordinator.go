@@ -134,6 +134,7 @@ const (
 func NewCoordinator(
 	ctx context.Context,
 	pool port.WebViewPool,
+	injector port.ContentInjector,
 	widgetFactory layout.WidgetFactory,
 	faviconAdapter *adapter.FaviconAdapter,
 	getActiveWS func() (*entity.Workspace, *component.WorkspaceView),
@@ -145,6 +146,7 @@ func NewCoordinator(
 
 	return &Coordinator{
 		pool:                 pool,
+		injector:             injector,
 		widgetFactory:        widgetFactory,
 		faviconAdapter:       faviconAdapter,
 		zoomUC:               zoomUC,

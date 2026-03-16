@@ -22,6 +22,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/deps"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
+	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/infrastructure/idle"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/infrastructure/updater"
@@ -213,7 +214,7 @@ func buildAndConfigureApp(
 }
 
 func initStartupContext(cfg *config.Config) context.Context {
-	deps.ApplyPrefixEnv(cfg.Runtime.Prefix)
+	deps.ApplyPrefixEnv(cfg.Engine.WebKit.Prefix)
 	bootstrapLogger := logging.NewFromConfigValuesWithTimeFormat(
 		cfg.Logging.Level,
 		cfg.Logging.Format,
@@ -468,7 +469,7 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 	xdgDirs, _ := config.GetXDGDirs()
 	stateDir, _ := config.GetStateDir()
 	defaultZoom := cfg.DefaultWebpageZoom
-	zoomCache := cache.NewLRU[string, *entity.ZoomLevel](cfg.Performance.ZoomCacheSize)
+	zoomCache := cache.NewLRU[string, *entity.ZoomLevel](cfg.Engine.ZoomCacheSize)
 
 	buildInfo := build.Info{
 		Version:   version,
@@ -515,7 +516,10 @@ func buildUIDependencies(
 	startupCrashReports []string,
 ) *ui.Dependencies {
 	// Type-assert to *webkit.Engine to access FilterManager (not yet on port.Engine).
-	wkEngine := engine.(*webkit.Engine)
+	var filterManager *filtering.Manager
+	if wkEngine, ok := engine.(*webkit.Engine); ok {
+		filterManager = wkEngine.InternalFilterManager()
+	}
 
 	return &ui.Dependencies{
 		Ctx:                 ctx,
@@ -528,7 +532,7 @@ func buildUIDependencies(
 		AdwaitaDetector:     adwaitaDetector,
 		XDG:                 xdg.New(),
 		Engine:              engine,
-		FilterManager:       wkEngine.InternalFilterManager(),
+		FilterManager:       filterManager,
 		HistoryRepo:         repos.history,
 		FavoriteRepo:        repos.favorite,
 		ZoomRepo:            repos.zoom,

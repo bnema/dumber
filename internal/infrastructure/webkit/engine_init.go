@@ -34,7 +34,7 @@ func NewEngine(
 	engineConfigureRenderingEnvironment(ctx, cfg, wkCfg, &perfSettings, logger)
 	logging.Trace().Mark("render_env")
 
-	// --- Build WebKitContextOptions from opts + wkCfg + perfSettings ---
+	// --- Build webKitContextOptions from opts + wkCfg + perfSettings ---
 	wkOpts := engineBuildContextOptions(opts, wkCfg, &perfSettings)
 	logger.Info().
 		Str("cookie_policy", string(wkOpts.CookiePolicy)).
@@ -104,6 +104,7 @@ func NewEngine(
 
 	// --- Assemble Engine ---
 	engine := &Engine{
+		ctx:           ctx,
 		wkCtx:         wkCtx,
 		settings:      settings,
 		injector:      injector,
@@ -134,10 +135,11 @@ func engineSurveyHardwareAndResolveProfile(
 		Uint64("vram_mb", hwInfo.VRAM/(1024*1024)).
 		Msg("hardware survey completed")
 
-	perfSettings := config.ResolvePerformanceProfile(&cfg.Performance, &hwInfo)
+	perfCfg := config.PerformanceConfigFromEngine(&cfg.Engine)
+	perfSettings := config.ResolvePerformanceProfile(&perfCfg, &hwInfo)
 	logging.Trace().Mark("performance_profile")
 	logger.Info().
-		Str("profile", string(cfg.Performance.Profile)).
+		Str("profile", string(cfg.Engine.Profile)).
 		Int("skia_cpu_threads", perfSettings.SkiaCPUPaintingThreads).
 		Int("skia_gpu_threads", perfSettings.SkiaGPUPaintingThreads).
 		Int("webview_pool_prewarm", perfSettings.WebViewPoolPrewarmCount).
@@ -194,21 +196,21 @@ func engineConfigureRenderingEnvironment(
 		Msg("rendering environment configured")
 }
 
-// engineBuildContextOptions builds port.WebKitContextOptions from EngineOptions, wkCfg and perfSettings.
+// engineBuildContextOptions builds webKitContextOptions from EngineOptions, wkCfg and perfSettings.
 func engineBuildContextOptions(
 	opts port.EngineOptions,
 	wkCfg WebKitEngineConfig,
 	perfSettings *config.ResolvedPerformanceSettings,
-) port.WebKitContextOptions {
-	cookiePolicy := port.WebKitCookiePolicyNoThirdParty
+) webKitContextOptions {
+	cp := cookiePolicyNoThirdParty
 	if opts.CookiePolicy != "" {
-		cookiePolicy = port.WebKitCookiePolicy(opts.CookiePolicy)
+		cp = opts.CookiePolicy
 	}
 
-	wkOpts := port.WebKitContextOptions{
+	wkOpts := webKitContextOptions{
 		DataDir:      opts.DataDir,
 		CacheDir:     opts.CacheDir,
-		CookiePolicy: cookiePolicy,
+		CookiePolicy: cp,
 		ITPEnabled:   wkCfg.ITPEnabled,
 	}
 

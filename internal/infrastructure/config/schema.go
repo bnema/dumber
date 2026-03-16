@@ -25,16 +25,8 @@ type Config struct {
 	Clipboard ClipboardConfig `mapstructure:"clipboard" yaml:"clipboard" toml:"clipboard"`
 	// Omnibox controls the omnibox behavior (initial history display)
 	Omnibox OmniboxConfig `mapstructure:"omnibox" yaml:"omnibox" toml:"omnibox"`
-	// Rendering controls WebKit, GTK and compositor behavior.
-	Rendering RenderingConfig `mapstructure:"rendering" yaml:"rendering" toml:"rendering"`
-	// Privacy controls cookie acceptance and tracking prevention.
-	Privacy PrivacyConfig `mapstructure:"privacy" yaml:"privacy" toml:"privacy"`
 	// Media controls video playback and hardware acceleration
 	Media MediaConfig `mapstructure:"media" yaml:"media" toml:"media"`
-	// Runtime configures optional runtime overrides (e.g., /opt prefix for WebKitGTK/GTK).
-	Runtime RuntimeConfig `mapstructure:"runtime" yaml:"runtime" toml:"runtime"`
-	// Performance holds internal performance tuning options (not exposed in UI).
-	Performance PerformanceConfig `mapstructure:"performance" yaml:"performance" toml:"performance"`
 	// Update controls automatic update checking and downloading.
 	Update UpdateConfig `mapstructure:"update" yaml:"update" toml:"update"`
 	// Downloads configures file download behavior.
@@ -42,15 +34,6 @@ type Config struct {
 	// Engine holds engine selection and unified engine options.
 	Engine EngineConfig `mapstructure:"engine" toml:"engine" yaml:"engine"`
 }
-
-// RenderingMode selects GPU vs CPU rendering.
-type RenderingMode string
-
-const (
-	RenderingModeAuto RenderingMode = "auto"
-	RenderingModeGPU  RenderingMode = "gpu"
-	RenderingModeCPU  RenderingMode = "cpu"
-)
 
 // CookiePolicy controls cookie acceptance behavior.
 type CookiePolicy string
@@ -73,60 +56,6 @@ const (
 	GSKRendererVulkan GSKRendererMode = "vulkan"
 	GSKRendererCairo  GSKRendererMode = "cairo"
 )
-
-// RenderingConfig controls WebKit and GTK/GSK rendering behavior.
-type RenderingConfig struct {
-	// Mode controls GPU/CPU rendering selection for WebKit (auto, gpu, cpu).
-	Mode RenderingMode `mapstructure:"mode" yaml:"mode" toml:"mode"`
-
-	// DisableDMABufRenderer disables DMA-BUF accelerated renderer.
-	// Env: WEBKIT_DISABLE_DMABUF_RENDERER
-	DisableDMABufRenderer bool `mapstructure:"disable_dmabuf_renderer" yaml:"disable_dmabuf_renderer" toml:"disable_dmabuf_renderer"`
-
-	// ForceCompositingMode forces accelerated compositing.
-	// Env: WEBKIT_FORCE_COMPOSITING_MODE
-	ForceCompositingMode bool `mapstructure:"force_compositing_mode" yaml:"force_compositing_mode" toml:"force_compositing_mode"`
-
-	// DisableCompositingMode disables accelerated compositing.
-	// Env: WEBKIT_DISABLE_COMPOSITING_MODE
-	DisableCompositingMode bool `mapstructure:"disable_compositing_mode" yaml:"disable_compositing_mode" toml:"disable_compositing_mode"`
-
-	// GSKRenderer overrides GTK Scene Kit renderer selection.
-	// Env: GSK_RENDERER
-	GSKRenderer GSKRendererMode `mapstructure:"gsk_renderer" yaml:"gsk_renderer" toml:"gsk_renderer"`
-
-	// DisableMipmaps disables mipmap generation.
-	// Env: GSK_GPU_DISABLE=mipmap
-	DisableMipmaps bool `mapstructure:"disable_mipmaps" yaml:"disable_mipmaps" toml:"disable_mipmaps"`
-
-	// PreferGL forces OpenGL over GLES.
-	// Env: GDK_DEBUG=gl-prefer-gl
-	PreferGL bool `mapstructure:"prefer_gl" yaml:"prefer_gl" toml:"prefer_gl"`
-
-	// DrawCompositingIndicators shows compositing layer borders and repaint counters.
-	DrawCompositingIndicators bool `mapstructure:"draw_compositing_indicators" yaml:"draw_compositing_indicators" toml:"draw_compositing_indicators"` //nolint:lll // struct tags exceed lll limit
-
-	// ShowFPS displays WebKit FPS counter.
-	// Env: WEBKIT_SHOW_FPS
-	ShowFPS bool `mapstructure:"show_fps" yaml:"show_fps" toml:"show_fps"`
-
-	// SampleMemory enables memory sampling.
-	// Env: WEBKIT_SAMPLE_MEMORY
-	SampleMemory bool `mapstructure:"sample_memory" yaml:"sample_memory" toml:"sample_memory"`
-
-	// DebugFrames enables frame timing debug output.
-	// Env: GDK_DEBUG=frames
-	DebugFrames bool `mapstructure:"debug_frames" yaml:"debug_frames" toml:"debug_frames"`
-}
-
-// PrivacyConfig controls cookie behavior and tracking prevention.
-type PrivacyConfig struct {
-	// CookiePolicy controls cookie acceptance behavior.
-	// Values: "always", "no_third_party", "never"
-	CookiePolicy CookiePolicy `mapstructure:"cookie_policy" yaml:"cookie_policy" toml:"cookie_policy"`
-	// ITPEnabled enables Intelligent Tracking Prevention.
-	ITPEnabled bool `mapstructure:"itp_enabled" yaml:"itp_enabled" toml:"itp_enabled"`
-}
 
 // HardwareDecodingMode controls video hardware acceleration.
 type HardwareDecodingMode string
@@ -194,13 +123,6 @@ type MediaConfig struct {
 	GLRenderingMode GLRenderingMode `mapstructure:"gl_rendering_mode" yaml:"gl_rendering_mode" toml:"gl_rendering_mode"`
 	// GStreamerDebugLevel sets GStreamer debug verbosity (0=off, 1-5=increasing verbosity)
 	GStreamerDebugLevel int `mapstructure:"gstreamer_debug_level" yaml:"gstreamer_debug_level" toml:"gstreamer_debug_level"`
-}
-
-// RuntimeConfig holds optional runtime overrides.
-type RuntimeConfig struct {
-	// Prefix points to a custom runtime prefix (e.g., /opt/webkitgtk).
-	// This is used to influence pkg-config lookup and dynamic library loading.
-	Prefix string `mapstructure:"prefix" yaml:"prefix" toml:"prefix"`
 }
 
 // DatabaseConfig holds database-related configuration.

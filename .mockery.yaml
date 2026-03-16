@@ -20,7 +20,6 @@ packages:
       WebViewFactory: {}
       WebViewPool: {}
       MemoryPressureApplier: {}
-      WebKitContextProvider: {}
       HardwareSurveyor: {}
       ColorSchemeDetector: {}
       ColorSchemeResolver: {}

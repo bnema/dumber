@@ -109,6 +109,21 @@ type WebViewCallbacks struct {
 	// Return true to indicate the request was handled. Call allow()/deny() to respond.
 	// The permission types are passed as strings ("microphone", "camera", "display", etc.).
 	OnPermissionRequest func(origin string, permTypes []string, allow, deny func()) bool
+
+	// OnLinkMiddleClick is called when a link is middle-clicked.
+	// Return true if handled (blocks default navigation).
+	OnLinkMiddleClick func(uri string) bool
+
+	// OnEnterFullscreen is called when the WebView requests fullscreen mode.
+	// Return true to prevent fullscreen.
+	OnEnterFullscreen func() bool
+
+	// OnLeaveFullscreen is called when the WebView exits fullscreen mode.
+	// Return true to prevent leaving fullscreen.
+	OnLeaveFullscreen func() bool
+
+	// OnAudioStateChanged is called when audio playback starts or stops.
+	OnAudioStateChanged func(playing bool)
 }
 
 // FindOptions configures search behavior.
@@ -209,6 +224,26 @@ type WebView interface {
 	// SetCallbacks registers callback handlers for WebView events.
 	// Pass nil to clear all callbacks.
 	SetCallbacks(callbacks *WebViewCallbacks)
+
+	// --- Appearance ---
+
+	// RunJavaScript executes a script in the main world. Fire-and-forget.
+	RunJavaScript(ctx context.Context, script string)
+
+	// SetBackgroundColor sets the background color shown before content paints (0.0-1.0 RGBA).
+	SetBackgroundColor(r, g, b, a float64)
+
+	// ResetBackgroundToDefault resets the background to white (browser default).
+	ResetBackgroundToDefault()
+
+	// --- Favicon ---
+
+	// Favicon returns the current page favicon, or nil if unavailable.
+	Favicon() Texture
+
+	// Generation returns a monotonic counter incremented on pool reuse.
+	// Used to detect stale callbacks after a WebView is recycled.
+	Generation() uint64
 
 	// --- Media/Fullscreen State ---
 

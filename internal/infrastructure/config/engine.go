@@ -56,3 +56,27 @@ type WebKitEngineConfig struct {
 	NetworkProcessMemoryConservativeThreshold float64 `mapstructure:"network_process_memory_conservative_threshold" toml:"network_process_memory_conservative_threshold" yaml:"network_process_memory_conservative_threshold"` //nolint:lll // struct tags exceed lll limit
 	NetworkProcessMemoryStrictThreshold       float64 `mapstructure:"network_process_memory_strict_threshold" toml:"network_process_memory_strict_threshold" yaml:"network_process_memory_strict_threshold"`                   //nolint:lll // struct tags exceed lll limit
 }
+
+// PerformanceConfigFromEngine constructs a PerformanceConfig from the
+// new [engine] config section, for use with ResolvePerformanceProfile.
+func PerformanceConfigFromEngine(e *EngineConfig) PerformanceConfig {
+	if e == nil {
+		return PerformanceConfig{}
+	}
+	return PerformanceConfig{
+		Profile:                                   e.Profile,
+		ZoomCacheSize:                             e.ZoomCacheSize,
+		WebViewPoolPrewarmCount:                   e.PoolPrewarmCount,
+		SkiaCPUPaintingThreads:                    e.WebKit.SkiaCPUPaintingThreads,
+		SkiaGPUPaintingThreads:                    e.WebKit.SkiaGPUPaintingThreads,
+		SkiaEnableCPURendering:                    e.WebKit.SkiaEnableCPURendering,
+		WebProcessMemoryLimitMB:                   e.WebKit.WebProcessMemoryLimitMB,
+		WebProcessMemoryPollIntervalSec:           e.WebKit.WebProcessMemoryPollIntervalSec,
+		WebProcessMemoryConservativeThreshold:     e.WebKit.WebProcessMemoryConservativeThreshold,
+		WebProcessMemoryStrictThreshold:           e.WebKit.WebProcessMemoryStrictThreshold,
+		NetworkProcessMemoryLimitMB:               e.WebKit.NetworkProcessMemoryLimitMB,
+		NetworkProcessMemoryPollIntervalSec:       e.WebKit.NetworkProcessMemoryPollIntervalSec,
+		NetworkProcessMemoryConservativeThreshold: e.WebKit.NetworkProcessMemoryConservativeThreshold,
+		NetworkProcessMemoryStrictThreshold:       e.WebKit.NetworkProcessMemoryStrictThreshold,
+	}
+}

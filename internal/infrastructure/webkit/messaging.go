@@ -276,7 +276,7 @@ func (r *MessageRouter) syncWebViewID(wv *WebView) {
 		return
 	}
 	script := fmt.Sprintf("window.__dumber_webview_id=%d;", uint64(wv.ID()))
-	wv.RunJavaScript(r.baseCtx, script, "")
+	wv.RunJavaScriptInWorld(r.baseCtx, script, "")
 }
 
 func (r *MessageRouter) markWebViewIDSynced(id WebViewID) bool {
@@ -329,6 +329,6 @@ func (r *MessageRouter) dispatchResponse(ctx context.Context, webviewID WebViewI
 		string(data),
 	)
 
-	wv.RunJavaScript(ctx, script, world)
+	wv.RunJavaScriptInWorld(ctx, script, world)
 	return nil
 }

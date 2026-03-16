@@ -6,7 +6,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/layout"
@@ -209,27 +208,23 @@ func (c *Coordinator) resolveCommittedFavicon(ctx context.Context, paneID entity
 		return
 	}
 
-	// Type-assert to access webkit-specific Favicon() and Generation()
-	wkWV, ok := wv.(*webkit.WebView)
-	if !ok {
-		return
+	// Check if the WebView already has a favicon for this page
+	if icon := wv.Favicon(); icon != nil {
+		if gdkIcon, ok := icon.(*gdk.Texture); ok {
+			log.Debug().Str("pane_id", string(paneID)).Str("uri", uri).Msg("using existing favicon for committed page")
+			// Store and update through the normal path
+			c.navOriginMu.RLock()
+			originURL := c.navOrigins[paneID]
+			c.navOriginMu.RUnlock()
+			c.faviconAdapter.StoreFromWebKitWithOrigin(ctx, uri, originURL, gdkIcon)
+			c.updateStackedFaviconForPane(ctx, paneID, gdkIcon)
+			return
+		}
 	}
 
-	// Check if WebKit already has a favicon for this page
-	if icon := wkWV.Favicon(); icon != nil {
-		log.Debug().Str("pane_id", string(paneID)).Str("uri", uri).Msg("using existing WebKit favicon for committed page")
-		// Store and update through the normal path
-		c.navOriginMu.RLock()
-		originURL := c.navOrigins[paneID]
-		c.navOriginMu.RUnlock()
-		c.faviconAdapter.StoreFromWebKitWithOrigin(ctx, uri, originURL, icon)
-		c.updateStackedFaviconForPane(ctx, paneID, icon)
-		return
-	}
-
-	// Fall back to GetOrFetch (checks service cache, WebKit DB, then DuckDuckGo API)
+	// Fall back to GetOrFetch (checks service cache, engine DB, then DuckDuckGo API)
 	// Capture current generation to guard against stale callbacks
-	gen := wkWV.Generation()
+	gen := wv.Generation()
 	capturedURI := uri
 	c.faviconAdapter.GetOrFetch(ctx, uri, func(texture *gdk.Texture) {
 		// Skip nil results — a nil means "couldn't resolve", not "no favicon".
@@ -239,7 +234,7 @@ func (c *Coordinator) resolveCommittedFavicon(ctx context.Context, paneID entity
 			return
 		}
 		// Verify WebView is still bound to pane and hasn't been reused
-		if wkWV.Generation() != gen {
+		if wv.Generation() != gen {
 			return
 		}
 		currentWV := c.getWebViewLocked(paneID)

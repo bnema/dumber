@@ -9,8 +9,8 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	urlutil "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/jwijenbergh/puregotk/v4/gtk"
 )
 
 // onLoadCommitted re-applies zoom when page content starts loading and records history.
@@ -27,23 +27,20 @@ func (c *Coordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID,
 	}
 
 	// Set appropriate background color based on page type to prevent dark background bleeding.
-	// Type-assert to access webkit-specific background color methods.
-	if wkWV, ok := wv.(*webkit.WebView); ok {
-		switch {
-		case strings.HasPrefix(uri, "dumb://"):
-			// Internal pages: apply themed background
-			theme, ok := c.getCurrentTheme()
-			if ok && theme.prefersDark {
-				wkWV.SetBackgroundColor(darkBgR, darkBgG, darkBgB, darkBgA)
-			} else {
-				wkWV.ResetBackgroundToDefault()
-			}
-		case strings.HasPrefix(uri, "about:"):
-			// Keep pool background (no action)
-		default:
-			// External pages: white background
-			wkWV.ResetBackgroundToDefault()
+	switch {
+	case strings.HasPrefix(uri, "dumb://"):
+		// Internal pages: apply themed background
+		theme, ok := c.getCurrentTheme()
+		if ok && theme.prefersDark {
+			wv.SetBackgroundColor(darkBgR, darkBgG, darkBgB, darkBgA)
+		} else {
+			wv.ResetBackgroundToDefault()
 		}
+	case strings.HasPrefix(uri, "about:"):
+		// Keep pool background (no action)
+	default:
+		// External pages: white background
+		wv.ResetBackgroundToDefault()
 	}
 
 	// Show the WebView now that content is being painted
@@ -259,10 +256,12 @@ func (c *Coordinator) revealIfPending(ctx context.Context, paneID entity.PaneID,
 		return
 	}
 
-	// Type-assert to access webkit-specific Widget() for visibility control
-	if wkWV, ok := wv.(*webkit.WebView); ok {
-		if inner := wkWV.Widget(); inner != nil {
-			inner.SetVisible(true)
+	// Use NativeWidgetProvider to make the widget visible (engine-agnostic)
+	if nwp, ok := wv.(port.NativeWidgetProvider); ok {
+		if ptr := nwp.NativeWidget(); ptr != 0 {
+			gtkWidget := &gtk.Widget{}
+			gtkWidget.Ptr = ptr
+			gtkWidget.SetVisible(true)
 			logging.FromContext(ctx).
 				Debug().
 				Str("pane_id", string(paneID)).

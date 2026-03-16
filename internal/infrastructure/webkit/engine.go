@@ -10,6 +10,7 @@ import (
 
 // Engine implements port.Engine for the WebKit browser engine.
 type Engine struct {
+	ctx           context.Context
 	wkCtx         *WebKitContext
 	settings      *SettingsManager
 	injector      *ContentInjector
@@ -25,11 +26,6 @@ type Engine struct {
 // Compile-time check that Engine implements port.Engine.
 var _ port.Engine = (*Engine)(nil)
 
-// Init is a no-op for WebKit — initialization happens in NewEngine.
-func (*Engine) Init(_ context.Context, _ port.EngineOptions) error {
-	return nil
-}
-
 // Factory returns the WebViewFactory wrapped as a port.WebViewFactory.
 func (e *Engine) Factory() port.WebViewFactory {
 	return &webViewFactoryAdapter{factory: e.factory}
@@ -37,7 +33,7 @@ func (e *Engine) Factory() port.WebViewFactory {
 
 // Pool returns the WebViewPool wrapped as a port.WebViewPool.
 func (e *Engine) Pool() port.WebViewPool {
-	return &webViewPoolAdapter{pool: e.pool, logger: e.logger}
+	return &webViewPoolAdapter{pool: e.pool, ctx: e.ctx}
 }
 
 // ContentInjector returns the ContentInjector implementing port.ContentInjector.
@@ -53,7 +49,7 @@ func (e *Engine) InternalSchemePath() string {
 // Close releases all resources held by the engine.
 func (e *Engine) Close() error {
 	if e.pool != nil {
-		e.pool.Close(context.Background())
+		e.pool.Close(e.ctx)
 	}
 	return nil
 }
@@ -65,7 +61,7 @@ func (e *Engine) SchemeHandler() port.SchemeHandler {
 
 // MessageRouter returns a port.MessageRouter adapter for the internal MessageRouter.
 func (e *Engine) MessageRouter() port.MessageRouter {
-	return &messageRouterAdapter{router: e.messageRouter}
+	return &messageRouterAdapter{router: e.messageRouter, logger: e.logger}
 }
 
 // SettingsApplier returns a port.SettingsApplier adapter for the SettingsManager.
@@ -94,4 +90,5 @@ func (e *Engine) InternalSettings() *SettingsManager        { return e.settings 
 func (e *Engine) InternalInjector() *ContentInjector        { return e.injector }
 func (e *Engine) InternalMessageRouter() *MessageRouter     { return e.messageRouter }
 func (e *Engine) InternalPool() *WebViewPool                { return e.pool }
+func (e *Engine) InternalFactory() *WebViewFactory          { return e.factory }
 func (e *Engine) InternalFilterManager() *filtering.Manager { return e.filterManager }

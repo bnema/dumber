@@ -347,7 +347,8 @@ func (h *DumbSchemeHandler) buildConfigResponse(cfg *config.Config) *SchemeRespo
 	}
 
 	// Resolve performance profile with hardware info
-	resolved := config.ResolvePerformanceProfile(&cfg.Performance, hw)
+	perfCfg := config.PerformanceConfigFromEngine(&cfg.Engine)
+	resolved := config.ResolvePerformanceProfile(&perfCfg, hw)
 
 	resp := configPayload{
 		DefaultUIScale:      cfg.DefaultUIScale,
@@ -363,13 +364,13 @@ func (h *DumbSchemeHandler) buildConfigResponse(cfg *config.Config) *SchemeRespo
 			DarkPalette:     cfg.Appearance.DarkPalette,
 		},
 		Performance: configPerformancePayload{
-			Profile: string(cfg.Performance.Profile),
+			Profile: string(cfg.Engine.Profile),
 			Custom: configCustomPerformance{
-				SkiaCPUThreads:         cfg.Performance.SkiaCPUPaintingThreads,
-				SkiaGPUThreads:         cfg.Performance.SkiaGPUPaintingThreads,
-				WebProcessMemoryMB:     cfg.Performance.WebProcessMemoryLimitMB,
-				NetworkProcessMemoryMB: cfg.Performance.NetworkProcessMemoryLimitMB,
-				WebViewPoolPrewarm:     cfg.Performance.WebViewPoolPrewarmCount,
+				SkiaCPUThreads:         cfg.Engine.WebKit.SkiaCPUPaintingThreads,
+				SkiaGPUThreads:         cfg.Engine.WebKit.SkiaGPUPaintingThreads,
+				WebProcessMemoryMB:     cfg.Engine.WebKit.WebProcessMemoryLimitMB,
+				NetworkProcessMemoryMB: cfg.Engine.WebKit.NetworkProcessMemoryLimitMB,
+				WebViewPoolPrewarm:     cfg.Engine.PoolPrewarmCount,
 			},
 			Resolved: configResolvedPerformance{
 				SkiaCPUThreads:         resolved.SkiaCPUPaintingThreads,

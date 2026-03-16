@@ -17,6 +17,53 @@ const (
 	CookiePolicyNever CookiePolicy = "never"
 )
 
+// MemoryPressureConfig holds memory pressure settings for an engine process.
+// This is a value type (no infrastructure dependencies) co-located with the
+// interfaces that use it (MemoryPressureApplier, EngineOptions).
+// Zero values mean "use engine defaults".
+type MemoryPressureConfig struct {
+	// MemoryLimitMB sets the memory limit in megabytes.
+	// 0 means unset (uses engine default).
+	MemoryLimitMB int
+
+	// PollIntervalSec sets the interval for memory usage checks.
+	// 0 means unset (uses engine default: 30 seconds).
+	PollIntervalSec float64
+
+	// ConservativeThreshold sets threshold for conservative memory release.
+	// Must be in (0, 1). 0 means unset (uses engine default: 0.33).
+	ConservativeThreshold float64
+
+	// StrictThreshold sets threshold for strict memory release.
+	// Must be in (0, 1). 0 means unset (uses engine default: 0.5).
+	StrictThreshold float64
+}
+
+// IsConfigured returns true if any memory pressure setting is configured.
+func (c *MemoryPressureConfig) IsConfigured() bool {
+	if c == nil {
+		return false
+	}
+	return c.MemoryLimitMB > 0 ||
+		c.PollIntervalSec > 0 ||
+		c.ConservativeThreshold > 0 ||
+		c.StrictThreshold > 0
+}
+
+// MemoryPressureApplier applies memory pressure settings to engine processes.
+// This interface abstracts engine-specific memory pressure configuration
+// to allow testing without engine dependencies.
+type MemoryPressureApplier interface {
+	// ApplyNetworkProcessSettings applies memory pressure settings to the network process.
+	// Must be called BEFORE creating any NetworkSession.
+	ApplyNetworkProcessSettings(ctx context.Context, cfg *MemoryPressureConfig) error
+
+	// ApplyWebProcessSettings applies memory pressure settings to web processes.
+	// Returns an opaque settings object that should be passed to context creation.
+	// Returns nil if no settings are configured.
+	ApplyWebProcessSettings(ctx context.Context, cfg *MemoryPressureConfig) (any, error)
+}
+
 // EngineOptions configures engine initialization.
 type EngineOptions struct {
 	// DataDir is the directory for persistent data (cookies, storage, etc.).
@@ -41,11 +88,10 @@ type EngineOptions struct {
 // Engine is the top-level interface for a browser engine implementation.
 // It provides access to all engine subsystems and manages the lifecycle
 // of the underlying browser context.
+//
+// Engines are fully initialized by their constructor (e.g., webkit.NewEngine).
+// There is no separate Init step.
 type Engine interface {
-	// Init initializes the engine with the given options.
-	// Must be called before any other methods.
-	Init(ctx context.Context, opts EngineOptions) error
-
 	// Factory returns the WebViewFactory for creating new WebView instances.
 	Factory() WebViewFactory
 
@@ -131,4 +177,11 @@ type FaviconDatabase interface {
 type ScriptRefresher interface {
 	// RefreshAll re-injects scripts into all provided WebView instances.
 	RefreshAll(ctx context.Context, webviews []WebView)
+}
+
+// NativeWidgetProvider is an optional capability for WebViews that can provide
+// a native GTK widget pointer for embedding into the UI layout.
+type NativeWidgetProvider interface {
+	// NativeWidget returns the underlying native widget pointer.
+	NativeWidget() uintptr
 }

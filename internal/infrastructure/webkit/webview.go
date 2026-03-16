@@ -1400,9 +1400,22 @@ func (wv *WebView) Title() string {
 	return wv.title
 }
 
-// Favicon returns the current page favicon as a GdkTexture.
+// Favicon returns the current page favicon as a Texture.
 // Returns nil if no favicon is available.
-func (wv *WebView) Favicon() *gdk.Texture {
+func (wv *WebView) Favicon() port.Texture {
+	if wv.destroyed.Load() {
+		return nil
+	}
+	tex := wv.inner.GetFavicon()
+	if tex == nil {
+		return nil
+	}
+	return tex
+}
+
+// FaviconGdk returns the current page favicon as a *gdk.Texture.
+// Used by internal WebKit code that needs the concrete type.
+func (wv *WebView) FaviconGdk() *gdk.Texture {
 	if wv.destroyed.Load() {
 		return nil
 	}
@@ -1447,18 +1460,18 @@ func (wv *WebView) GetZoomLevel() float64 {
 	return wv.inner.GetZoomLevel()
 }
 
-// SetBackgroundColor sets the WebView background color.
+// SetBackgroundColor sets the WebView background color (port.WebView interface).
 // This color is shown before content is painted, eliminating white flash.
 // Values are in range 0.0-1.0 for red, green, blue, alpha.
-func (wv *WebView) SetBackgroundColor(r, g, b, a float32) {
+func (wv *WebView) SetBackgroundColor(r, g, b, a float64) {
 	if wv.destroyed.Load() {
 		return
 	}
 	rgba := &gdk.RGBA{
-		Red:   r,
-		Green: g,
-		Blue:  b,
-		Alpha: a,
+		Red:   float32(r),
+		Green: float32(g),
+		Blue:  float32(b),
+		Alpha: float32(a),
 	}
 	wv.inner.SetBackgroundColor(rgba)
 }
@@ -1467,6 +1480,19 @@ func (wv *WebView) SetBackgroundColor(r, g, b, a float32) {
 // Used for external pages to prevent dark background from bleeding through.
 func (wv *WebView) ResetBackgroundToDefault() {
 	wv.SetBackgroundColor(1.0, 1.0, 1.0, 1.0)
+}
+
+// NativeWidget returns the underlying GTK widget pointer for UI embedding.
+// Implements port.NativeWidgetProvider.
+func (wv *WebView) NativeWidget() uintptr {
+	if wv.destroyed.Load() {
+		return 0
+	}
+	w := wv.Widget()
+	if w == nil {
+		return 0
+	}
+	return w.Widget.GoPointer()
 }
 
 // Show makes the WebView widget visible.
@@ -1576,6 +1602,10 @@ func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
 		wv.OnWebProcessTerminated = nil
 	}
 	wv.OnPermissionRequest = callbacks.OnPermissionRequest
+	wv.OnLinkMiddleClick = callbacks.OnLinkMiddleClick
+	wv.OnEnterFullscreen = callbacks.OnEnterFullscreen
+	wv.OnLeaveFullscreen = callbacks.OnLeaveFullscreen
+	wv.OnAudioStateChanged = callbacks.OnAudioStateChanged
 }
 
 // ShowDevTools opens the WebKit inspector/developer tools.
@@ -1969,10 +1999,16 @@ func (wv *WebView) shouldLogRunJSError(domain, signature string, nonFatal bool, 
 	return shouldLog, count
 }
 
-// RunJavaScript executes script in the specified world (empty for main world).
+// RunJavaScript executes script in the main world (port.WebView interface).
+// This is fire-and-forget: it does not block and errors are logged asynchronously.
+func (wv *WebView) RunJavaScript(ctx context.Context, script string) {
+	wv.RunJavaScriptInWorld(ctx, script, "")
+}
+
+// RunJavaScriptInWorld executes script in the specified world (empty for main world).
 // This is fire-and-forget: it does not block and errors are logged asynchronously.
 // Safe to call from any context including GTK signal handlers.
-func (wv *WebView) RunJavaScript(ctx context.Context, script, worldName string) {
+func (wv *WebView) RunJavaScriptInWorld(ctx context.Context, script, worldName string) {
 	if wv.destroyed.Load() {
 		return
 	}

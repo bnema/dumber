@@ -9,7 +9,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -42,7 +41,15 @@ func (c *Coordinator) ApplyWebUIThemeToAll(ctx context.Context, prefersDark bool
 		return
 	}
 
-	for paneID, wv := range c.webViews {
+	// Snapshot webViews under lock to avoid data race with concurrent popup create/close.
+	c.webViewsMu.RLock()
+	snapshot := make(map[entity.PaneID]port.WebView, len(c.webViews))
+	for k, v := range c.webViews {
+		snapshot[k] = v
+	}
+	c.webViewsMu.RUnlock()
+
+	for paneID, wv := range snapshot {
 		if wv == nil || wv.IsDestroyed() {
 			continue
 		}
@@ -126,10 +133,7 @@ func (c *Coordinator) applyWebUITheme(
 	if !strings.HasPrefix(uri, "dumb://") {
 		return
 	}
-	// Type-assert to access webkit-specific RunJavaScript
-	if wkWV, ok := wv.(*webkit.WebView); ok {
-		wkWV.RunJavaScript(ctx, script, "")
-	}
+	wv.RunJavaScript(ctx, script)
 	logging.FromContext(ctx).
 		Debug().
 		Str("pane_id", string(paneID)).
@@ -269,24 +273,10 @@ func (c *Coordinator) refreshInjectedScripts(
 	if injector == nil || wv == nil || wv.IsDestroyed() {
 		return
 	}
-	// Type-assert to access webkit-specific UserContentManager and InjectScripts.
-	// refreshInjectedScripts is a webkit-specific operation; other engines will
-	// need their own implementation when wired through a port.ScriptRefresher.
-	wkInjector, ok := injector.(*webkit.ContentInjector)
-	if !ok {
+	if err := injector.RefreshScripts(ctx, wv); err != nil {
+		logging.FromContext(ctx).Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to refresh injected scripts")
 		return
 	}
-	wkWV, ok := wv.(*webkit.WebView)
-	if !ok {
-		return
-	}
-	ucm := wkWV.UserContentManager()
-	if ucm == nil {
-		return
-	}
-	ucm.RemoveAllScripts()
-	ucm.RemoveAllStyleSheets()
-	wkInjector.InjectScripts(ctx, ucm, wv.ID())
 	logging.FromContext(ctx).Debug().Str("pane_id", string(paneID)).Msg("refreshed injected scripts for webview")
 }
 

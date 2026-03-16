@@ -65,7 +65,6 @@ func (sm *SettingsManager) applySettings(ctx context.Context, settings *webkit.S
 
 	log.Debug().
 		Str("sans_font", cfg.Appearance.SansFont).
-		Str("rendering_mode", string(cfg.Rendering.Mode)).
 		Bool("developer_extras", cfg.Debug.EnableDevTools).
 		Bool("webrtc_enabled", webrtcEnabled).
 		Bool("media_stream_enabled", mediaStreamEnabled).
@@ -93,21 +92,15 @@ func applyFontSettings(settings *webkit.Settings, cfg *config.Config) {
 	}
 }
 
-func applyRenderingSettings(settings *webkit.Settings, cfg *config.Config) {
-	switch cfg.Rendering.Mode {
-	case config.RenderingModeGPU:
-		settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyAlwaysValue)
-	case config.RenderingModeCPU:
-		settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyNeverValue)
-	case config.RenderingModeAuto:
-		settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyAlwaysValue)
-	}
+func applyRenderingSettings(_ *webkit.Settings, _ *config.Config) {
+	// Hardware acceleration policy is now managed by the engine layer via
+	// cfg.Engine.WebKit. No WebKit settings to apply here at the settings layer.
 }
 
 func applyDebugSettings(settings *webkit.Settings, cfg *config.Config) {
 	settings.SetEnableDeveloperExtras(cfg.Debug.EnableDevTools)
 	settings.SetEnableWriteConsoleMessagesToStdout(cfg.Logging.CaptureConsole)
-	settings.SetDrawCompositingIndicators(cfg.Rendering.DrawCompositingIndicators)
+	settings.SetDrawCompositingIndicators(cfg.Engine.WebKit.DrawCompositingIndicators)
 }
 
 func applyBrowsingSettings(settings *webkit.Settings) {

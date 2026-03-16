@@ -3,6 +3,8 @@ package content
 import (
 	"context"
 
+	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -35,7 +37,15 @@ func (c *Coordinator) RefreshInjectedScriptsToAll(ctx context.Context) {
 		return
 	}
 
-	for paneID, wv := range c.webViews {
+	// Snapshot webViews under lock to avoid data race with concurrent popup create/close.
+	c.webViewsMu.RLock()
+	snapshot := make(map[entity.PaneID]port.WebView, len(c.webViews))
+	for k, v := range c.webViews {
+		snapshot[k] = v
+	}
+	c.webViewsMu.RUnlock()
+
+	for paneID, wv := range snapshot {
 		if wv == nil || wv.IsDestroyed() {
 			continue
 		}

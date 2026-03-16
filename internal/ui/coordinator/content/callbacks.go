@@ -8,7 +8,6 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 )
@@ -123,15 +122,59 @@ func (c *Coordinator) setupWebViewCallbacks(ctx context.Context, paneID entity.P
 		},
 	}
 
-	// Favicon changes - need webkit-specific Generation() to detect stale callbacks
-	if wkWV, ok := wv.(*webkit.WebView); ok {
-		faviconGen := wkWV.Generation()
-		callbacks.OnFaviconChanged = func(favicon port.Texture) {
-			if wkWV.Generation() != faviconGen {
-				return // WebView was reused, ignore stale signal
+	// Favicon changes - use Generation() from port.WebView to detect stale callbacks
+	faviconGen := wv.Generation()
+	callbacks.OnFaviconChanged = func(favicon port.Texture) {
+		if wv.Generation() != faviconGen {
+			return // WebView was reused, ignore stale signal
+		}
+		if gdkTexture, ok := favicon.(*gdk.Texture); ok {
+			c.onFaviconChanged(ctx, paneID, wv, gdkTexture)
+		}
+	}
+
+	// Middle-click link handler
+	callbacks.OnLinkMiddleClick = func(uri string) bool {
+		return c.handleLinkMiddleClick(ctx, paneID, uri)
+	}
+
+	// Fullscreen handlers for idle inhibition
+	callbacks.OnEnterFullscreen = func() bool {
+		if c.idleInhibitor != nil {
+			if err := c.idleInhibitor.Inhibit(ctx, "Fullscreen video playback"); err != nil {
+				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to inhibit idle")
 			}
-			if gdkTexture, ok := favicon.(*gdk.Texture); ok {
-				c.onFaviconChanged(ctx, paneID, wkWV, gdkTexture)
+		}
+		if c.onFullscreenChanged != nil {
+			c.onFullscreenChanged(true)
+		}
+		return false // Allow fullscreen
+	}
+
+	callbacks.OnLeaveFullscreen = func() bool {
+		if c.idleInhibitor != nil {
+			if err := c.idleInhibitor.Uninhibit(ctx); err != nil {
+				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to uninhibit idle")
+			}
+		}
+		if c.onFullscreenChanged != nil {
+			c.onFullscreenChanged(false)
+		}
+		return false // Allow leaving fullscreen
+	}
+
+	// Audio playback handling
+	callbacks.OnAudioStateChanged = func(playing bool) {
+		if c.idleInhibitor == nil {
+			return
+		}
+		if playing {
+			if err := c.idleInhibitor.Inhibit(ctx, "Media playback"); err != nil {
+				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to inhibit idle for audio")
+			}
+		} else {
+			if err := c.idleInhibitor.Uninhibit(ctx); err != nil {
+				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to uninhibit idle for audio")
 			}
 		}
 	}
@@ -140,16 +183,6 @@ func (c *Coordinator) setupWebViewCallbacks(ctx context.Context, paneID entity.P
 	callbacks.OnCreate = c.buildPopupCreateHandler(ctx, paneID, wv)
 
 	wv.SetCallbacks(callbacks)
-
-	// Webkit-specific callbacks not in port.WebViewCallbacks (middle-click, fullscreen, audio)
-	if wkWV, ok := wv.(*webkit.WebView); ok {
-		wkWV.OnLinkMiddleClick = func(uri string) bool {
-			return c.handleLinkMiddleClick(ctx, paneID, uri)
-		}
-	}
-
-	// Fullscreen handlers for idle inhibition
-	c.setupIdleInhibitionHandlers(ctx, paneID, wv)
 }
 
 // handlePermissionRequest processes media permission requests from WebKit.
@@ -242,64 +275,4 @@ func filterWebRTCPermissionTypes(types []entity.PermissionType) []entity.Permiss
 		}
 	}
 	return filtered
-}
-
-// setupIdleInhibitionHandlers configures fullscreen and audio callbacks for idle inhibition.
-// Idle is inhibited when:
-// - The webview enters fullscreen mode (e.g., fullscreen video)
-// - The webview is playing audio (e.g., video/music playback)
-// The inhibitor uses refcounting, so both can be active simultaneously.
-func (c *Coordinator) setupIdleInhibitionHandlers(ctx context.Context, paneID entity.PaneID, wv port.WebView) {
-	log := logging.FromContext(ctx)
-
-	if wv == nil {
-		return
-	}
-
-	// Type-assert to access webkit-specific fullscreen/audio callbacks
-	wkWV, ok := wv.(*webkit.WebView)
-	if !ok {
-		return
-	}
-
-	// Fullscreen handling
-	wkWV.OnEnterFullscreen = func() bool {
-		if c.idleInhibitor != nil {
-			if err := c.idleInhibitor.Inhibit(ctx, "Fullscreen video playback"); err != nil {
-				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to inhibit idle")
-			}
-		}
-		if c.onFullscreenChanged != nil {
-			c.onFullscreenChanged(true)
-		}
-		return false // Allow fullscreen
-	}
-
-	wkWV.OnLeaveFullscreen = func() bool {
-		if c.idleInhibitor != nil {
-			if err := c.idleInhibitor.Uninhibit(ctx); err != nil {
-				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to uninhibit idle")
-			}
-		}
-		if c.onFullscreenChanged != nil {
-			c.onFullscreenChanged(false)
-		}
-		return false // Allow leaving fullscreen
-	}
-
-	// Audio playback handling
-	wkWV.OnAudioStateChanged = func(playing bool) {
-		if c.idleInhibitor == nil {
-			return
-		}
-		if playing {
-			if err := c.idleInhibitor.Inhibit(ctx, "Media playback"); err != nil {
-				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to inhibit idle for audio")
-			}
-		} else {
-			if err := c.idleInhibitor.Uninhibit(ctx); err != nil {
-				log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to uninhibit idle for audio")
-			}
-		}
-	}
 }

@@ -199,7 +199,7 @@ func CheckRuntimeRequirements(ctx context.Context, cfg *config.Config) error {
 	probe := deps.NewPkgConfigProbe()
 	checkRuntimeUC := usecase.NewCheckRuntimeDependenciesUseCase(probe)
 	runtimeOut, err := checkRuntimeUC.Execute(ctx, usecase.CheckRuntimeDependenciesInput{
-		Prefix: cfg.Runtime.Prefix,
+		Prefix: cfg.Engine.WebKit.Prefix,
 	})
 	if err != nil {
 		return fmt.Errorf("runtime check execution failed: %w", err)

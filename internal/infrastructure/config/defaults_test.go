@@ -18,8 +18,6 @@ func TestDefaultConfig_CoreDefaults(t *testing.T) {
 	assert.Equal(t, CookiePolicyNoThirdParty, cfg.Engine.CookiePolicy)
 	assert.True(t, cfg.Engine.WebKit.ITPEnabled)
 
-	// Old sections should be zero-valued
-	assert.Empty(t, string(cfg.Performance.Profile))
-	assert.Empty(t, string(cfg.Privacy.CookiePolicy))
-	assert.Empty(t, string(cfg.Rendering.Mode))
+	// Old sections (Rendering, Privacy, Performance, Runtime) have been removed from Config.
+	// Their values now live under cfg.Engine / cfg.Engine.WebKit (validated above).
 }

@@ -204,52 +204,54 @@ func ensureDatabasePath(config *Config) error {
 }
 
 func normalizeConfig(config *Config) {
-	normalizeRendering(config)
-	normalizePrivacy(config)
 	normalizeAppearance(config)
 	normalizeMedia(config)
-
-	config.Runtime.Prefix = strings.TrimSpace(config.Runtime.Prefix)
-	normalizePerformanceProfile(config)
+	normalizeEngineConfig(config)
 }
 
-func normalizeRendering(config *Config) {
-	switch strings.ToLower(string(config.Rendering.Mode)) {
-	case "", string(RenderingModeAuto):
-		config.Rendering.Mode = RenderingModeAuto
-	case string(RenderingModeGPU):
-		config.Rendering.Mode = RenderingModeGPU
-	case string(RenderingModeCPU):
-		config.Rendering.Mode = RenderingModeCPU
-	default:
-		config.Rendering.Mode = RenderingModeAuto
-	}
-
-	switch strings.ToLower(string(config.Rendering.GSKRenderer)) {
+func normalizeEngineConfig(config *Config) {
+	// Normalize GSK renderer (engine.webkit)
+	switch strings.ToLower(string(config.Engine.WebKit.GSKRenderer)) {
 	case "", string(GSKRendererAuto):
-		config.Rendering.GSKRenderer = GSKRendererAuto
+		config.Engine.WebKit.GSKRenderer = GSKRendererAuto
 	case string(GSKRendererOpenGL):
-		config.Rendering.GSKRenderer = GSKRendererOpenGL
+		config.Engine.WebKit.GSKRenderer = GSKRendererOpenGL
 	case string(GSKRendererVulkan):
-		config.Rendering.GSKRenderer = GSKRendererVulkan
+		config.Engine.WebKit.GSKRenderer = GSKRendererVulkan
 	case string(GSKRendererCairo):
-		config.Rendering.GSKRenderer = GSKRendererCairo
+		config.Engine.WebKit.GSKRenderer = GSKRendererCairo
 	default:
-		config.Rendering.GSKRenderer = GSKRendererAuto
+		config.Engine.WebKit.GSKRenderer = GSKRendererAuto
 	}
-}
 
-func normalizePrivacy(config *Config) {
-	switch strings.ToLower(string(config.Privacy.CookiePolicy)) {
+	// Normalize cookie policy (engine)
+	switch strings.ToLower(string(config.Engine.CookiePolicy)) {
 	case "", string(CookiePolicyNoThirdParty):
-		config.Privacy.CookiePolicy = CookiePolicyNoThirdParty
+		config.Engine.CookiePolicy = CookiePolicyNoThirdParty
 	case string(CookiePolicyAlways):
-		config.Privacy.CookiePolicy = CookiePolicyAlways
+		config.Engine.CookiePolicy = CookiePolicyAlways
 	case string(CookiePolicyNever):
-		config.Privacy.CookiePolicy = CookiePolicyNever
+		config.Engine.CookiePolicy = CookiePolicyNever
 	default:
-		config.Privacy.CookiePolicy = CookiePolicyNoThirdParty
+		config.Engine.CookiePolicy = CookiePolicyNoThirdParty
 	}
+
+	// Normalize performance profile (engine)
+	switch strings.ToLower(string(config.Engine.Profile)) {
+	case "", string(ProfileDefault):
+		config.Engine.Profile = ProfileDefault
+	case string(ProfileLite):
+		config.Engine.Profile = ProfileLite
+	case string(ProfileMax):
+		config.Engine.Profile = ProfileMax
+	case string(ProfileCustom):
+		config.Engine.Profile = ProfileCustom
+	default:
+		config.Engine.Profile = ProfileDefault
+	}
+
+	// Trim runtime prefix (engine.webkit)
+	config.Engine.WebKit.Prefix = strings.TrimSpace(config.Engine.WebKit.Prefix)
 }
 
 func normalizeAppearance(config *Config) {
@@ -288,21 +290,6 @@ func normalizeMedia(config *Config) {
 		config.Media.GLRenderingMode = GLRenderingModeNone
 	default:
 		config.Media.GLRenderingMode = GLRenderingModeAuto
-	}
-}
-
-func normalizePerformanceProfile(config *Config) {
-	switch strings.ToLower(string(config.Performance.Profile)) {
-	case "", string(ProfileDefault):
-		config.Performance.Profile = ProfileDefault
-	case string(ProfileLite):
-		config.Performance.Profile = ProfileLite
-	case string(ProfileMax):
-		config.Performance.Profile = ProfileMax
-	case string(ProfileCustom):
-		config.Performance.Profile = ProfileCustom
-	default:
-		config.Performance.Profile = ProfileDefault
 	}
 }
 

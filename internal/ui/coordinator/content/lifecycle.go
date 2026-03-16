@@ -6,11 +6,11 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
+	"github.com/jwijenbergh/puregotk/v4/gtk"
 )
 
 // EnsureWebView acquires or reuses a WebView for the given pane.
@@ -138,19 +138,21 @@ func (c *Coordinator) WrapWidget(ctx context.Context, wv port.WebView) layout.Wi
 		return nil
 	}
 
-	// Type-assert to access webkit-specific Widget() for GTK embedding
-	wkWV, ok := wv.(*webkit.WebView)
+	// Use NativeWidgetProvider interface for GTK embedding (engine-agnostic)
+	nwp, ok := wv.(port.NativeWidgetProvider)
 	if !ok {
 		log.Debug().Msg("webview does not support widget embedding")
 		return nil
 	}
 
-	gtkView := wkWV.Widget()
-	if gtkView == nil {
+	ptr := nwp.NativeWidget()
+	if ptr == 0 {
 		return nil
 	}
 
-	widget := c.widgetFactory.WrapWidget(&gtkView.Widget)
+	gtkWidget := &gtk.Widget{}
+	gtkWidget.Ptr = ptr
+	widget := c.widgetFactory.WrapWidget(gtkWidget)
 
 	// Attach gesture handler for mouse button 8/9 navigation
 	if widget != nil {

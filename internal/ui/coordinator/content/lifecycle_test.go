@@ -53,6 +53,7 @@ func TestLifecycle_EnsureWebView_AcquiresFromPoolWhenNoneExists(t *testing.T) {
 
 	newWV := mocks.NewMockWebView(t)
 	newWV.EXPECT().SetCallbacks(mock.Anything).Maybe()
+	newWV.EXPECT().Generation().Return(uint64(0)).Maybe()
 
 	pool := mocks.NewMockWebViewPool(t)
 	pool.EXPECT().Acquire(mock.Anything).Return(newWV, nil)
@@ -75,6 +76,7 @@ func TestLifecycle_EnsureWebView_AcquiresFromPoolWhenExistingIsDestroyed(t *test
 
 	newWV := mocks.NewMockWebView(t)
 	newWV.EXPECT().SetCallbacks(mock.Anything).Maybe()
+	newWV.EXPECT().Generation().Return(uint64(0)).Maybe()
 
 	pool := mocks.NewMockWebViewPool(t)
 	pool.EXPECT().Acquire(mock.Anything).Return(newWV, nil)

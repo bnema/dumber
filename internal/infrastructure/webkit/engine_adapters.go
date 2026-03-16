@@ -6,6 +6,8 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
+	"github.com/bnema/dumber/internal/logging"
+	"github.com/jwijenbergh/puregotk/v4/gio"
 	"github.com/rs/zerolog"
 )
 
@@ -40,8 +42,8 @@ func (a *webViewFactoryAdapter) CreateRelated(ctx context.Context, parentID port
 // WebViewPool methods use *WebView and require a context; this adapter adapts
 // the signatures to match the port interface.
 type webViewPoolAdapter struct {
-	pool   *WebViewPool
-	logger zerolog.Logger
+	pool *WebViewPool
+	ctx  context.Context
 }
 
 func (a *webViewPoolAdapter) Acquire(ctx context.Context) (port.WebView, error) {
@@ -58,16 +60,16 @@ func (a *webViewPoolAdapter) Release(wv port.WebView) {
 	}
 	wwv, ok := wv.(*WebView)
 	if !ok {
-		a.logger.Warn().
+		logging.FromContext(a.ctx).Warn().
 			Str("concrete_type", fmt.Sprintf("%T", wv)).
 			Msg("webViewPoolAdapter.Release: unexpected type, cannot release to pool")
 		return
 	}
-	a.pool.Release(context.Background(), wwv)
+	a.pool.Release(a.ctx, wwv)
 }
 
 func (a *webViewPoolAdapter) Prewarm(count int) {
-	a.pool.Prewarm(context.Background(), count)
+	a.pool.Prewarm(a.ctx, count)
 }
 
 func (a *webViewPoolAdapter) Size() int {
@@ -75,7 +77,7 @@ func (a *webViewPoolAdapter) Size() int {
 }
 
 func (a *webViewPoolAdapter) Close() {
-	a.pool.Close(context.Background())
+	a.pool.Close(a.ctx)
 }
 
 // --- SchemeHandler adapter ---
@@ -105,12 +107,15 @@ func (a *schemeHandlerAdapter) RegisterScheme(scheme string, _ func(uri string) 
 // PostMessage is also not directly available on the internal type.
 type messageRouterAdapter struct {
 	router *MessageRouter
+	logger zerolog.Logger
 }
 
-func (*messageRouterAdapter) RegisterHandler(_ string, _ func(message string) (string, error)) {
+func (a *messageRouterAdapter) RegisterHandler(name string, _ func(message string) (string, error)) {
 	// Internal MessageRouter.RegisterHandler takes a MessageHandler interface, not a plain func.
 	// Wire up via RegisterHandler(msgType, MessageHandlerFunc{...}) when consumers are migrated.
-	panic("not implemented — use MessageRouter.RegisterHandler(msgType, MessageHandler) directly")
+	a.logger.Warn().
+		Str("handler", name).
+		Msg("messageRouterAdapter.RegisterHandler: not implemented — use MessageRouter.RegisterHandler(msgType, MessageHandler) directly")
 }
 
 func (*messageRouterAdapter) PostMessage(webviewID port.WebViewID, message string) error {
@@ -118,7 +123,7 @@ func (*messageRouterAdapter) PostMessage(webviewID port.WebViewID, message strin
 	if wv == nil {
 		return fmt.Errorf("webview %d not found", webviewID)
 	}
-	wv.RunJavaScript(context.Background(), message, "")
+	wv.RunJavaScript(context.Background(), message)
 	return nil
 }
 
@@ -161,9 +166,28 @@ type faviconDatabaseAdapter struct {
 	wkCtx *WebKitContext
 }
 
-func (*faviconDatabaseAdapter) GetFaviconAsync(_ string, callback func(port.Texture)) {
-	// FaviconDatabase async lookup is not yet wired through this adapter.
-	// The underlying API is: wkCtx.FaviconDatabase().GetFavicon(uri, callback).
-	// This stub satisfies the interface contract; callers will receive nil.
-	callback(nil)
+func (a *faviconDatabaseAdapter) GetFaviconAsync(pageURL string, callback func(port.Texture)) {
+	db := a.wkCtx.FaviconDatabase()
+	if db == nil {
+		callback(nil)
+		return
+	}
+
+	asyncCb := gio.AsyncReadyCallback(func(_ uintptr, resultPtr uintptr, _ uintptr) {
+		if resultPtr == 0 {
+			callback(nil)
+			return
+		}
+
+		result := &gio.AsyncResultBase{Ptr: resultPtr}
+		texture, err := db.GetFaviconFinish(result)
+		if err != nil || texture == nil {
+			callback(nil)
+			return
+		}
+
+		callback(texture)
+	})
+
+	db.GetFavicon(pageURL, nil, &asyncCb, 0)
 }
