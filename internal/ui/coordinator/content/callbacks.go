@@ -207,6 +207,8 @@ func (c *Coordinator) handlePermissionRequest(
 			entityTypes = append(entityTypes, entity.PermissionTypeDisplay)
 		case "device_info":
 			entityTypes = append(entityTypes, entity.PermissionTypeDeviceInfo)
+		case "website_data_access":
+			entityTypes = append(entityTypes, entity.PermissionTypeWebsiteDataAccess)
 		default:
 			log.Warn().Str("type", pt).Msg("unknown permission type, skipping")
 		}
