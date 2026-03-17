@@ -130,6 +130,7 @@ func (d *PermissionDialog) buildHeading(permTypes []entity.PermissionType) strin
 	hasMic := false
 	hasCam := false
 	hasDisplay := false
+	hasDataAccess := false
 
 	for _, pt := range permTypes {
 		switch pt {
@@ -139,6 +140,8 @@ func (d *PermissionDialog) buildHeading(permTypes []entity.PermissionType) strin
 			hasCam = true
 		case entity.PermissionTypeDisplay:
 			hasDisplay = true
+		case entity.PermissionTypeWebsiteDataAccess:
+			hasDataAccess = true
 		}
 	}
 
@@ -157,6 +160,8 @@ func (d *PermissionDialog) buildHeading(permTypes []entity.PermissionType) strin
 		return "Allow Camera Access?"
 	case hasDisplay:
 		return "Allow Screen Sharing?"
+	case hasDataAccess:
+		return "Allow Third-Party Data Access?"
 	default:
 		return "Allow Permission?"
 	}
@@ -167,6 +172,7 @@ func (d *PermissionDialog) buildBody(origin string, permTypes []entity.Permissio
 	hasMic := false
 	hasCam := false
 	hasDisplay := false
+	hasDataAccess := false
 
 	for _, pt := range permTypes {
 		switch pt {
@@ -176,6 +182,8 @@ func (d *PermissionDialog) buildBody(origin string, permTypes []entity.Permissio
 			hasCam = true
 		case entity.PermissionTypeDisplay:
 			hasDisplay = true
+		case entity.PermissionTypeWebsiteDataAccess:
+			hasDataAccess = true
 		}
 	}
 
@@ -195,6 +203,8 @@ func (d *PermissionDialog) buildBody(origin string, permTypes []entity.Permissio
 		action = "access your camera"
 	case hasDisplay:
 		action = "share your screen"
+	case hasDataAccess:
+		action = "access its stored data while you browse this site"
 	default:
 		action = "access your device"
 	}
