@@ -998,10 +998,13 @@ func (wv *WebView) connectPermissionRequestSignal() {
 		}
 
 		// Determine permission types from the request
-		permTypes := wv.determinePermissionTypes(ctx, requestPtr)
+		permTypes, originOverride := wv.determinePermissionTypes(ctx, requestPtr)
 		if len(permTypes) == 0 {
 			wv.logger.Warn().Msg("permission request with unknown type, denying")
 			return false
+		}
+		if originOverride != "" {
+			origin = originOverride
 		}
 
 		// Ref the request object to prevent use-after-free
@@ -1048,13 +1051,13 @@ func (wv *WebView) connectPermissionRequestSignal() {
 // We use GObject property accessors for audio/video request flags. Display detection
 // uses the dedicated WebKit API because this WebKit build does not expose an
 // "is-for-display-device" GObject property.
-func (wv *WebView) determinePermissionTypes(ctx context.Context, requestPtr uintptr) []string {
+func (wv *WebView) determinePermissionTypes(ctx context.Context, requestPtr uintptr) (types []string, originOverride string) {
 	requestKind := detectPermissionRequestKind(ctx, requestPtr)
 	switch requestKind {
 	case permissionRequestKindUserMedia:
 		userMediaReq := webkit.UserMediaPermissionRequestNewFromInternalPtr(requestPtr)
 		if userMediaReq == nil {
-			return nil
+			return nil, ""
 		}
 
 		// Use GObject property accessors — more reliable than the C function wrappers
@@ -1069,9 +1072,34 @@ func (wv *WebView) determinePermissionTypes(ctx context.Context, requestPtr uint
 			Bool("is_display", isDisplay).
 			Msg("permission request type detection")
 
-		return classifyPermissionRequestTypes(ctx, requestKind, isAudio, isVideo, isDisplay)
+		return classifyPermissionRequestTypes(ctx, requestKind, isAudio, isVideo, isDisplay), ""
 	case permissionRequestKindDeviceInfo:
-		return classifyPermissionRequestTypes(ctx, requestKind, false, false, false)
+		return classifyPermissionRequestTypes(ctx, requestKind, false, false, false), ""
+	case permissionRequestKindWebsiteDataAccess:
+		wdaReq := webkit.WebsiteDataAccessPermissionRequestNewFromInternalPtr(requestPtr)
+		if wdaReq == nil {
+			return nil, ""
+		}
+		currentDomain := wdaReq.GetCurrentDomain()
+		requestingDomain := wdaReq.GetRequestingDomain()
+		wv.logger.Debug().
+			Str("current_domain", currentDomain).
+			Str("requesting_domain", requestingDomain).
+			Msg("website data access permission request")
+		override := ""
+		if requestingDomain != "" {
+			candidate := "https://" + requestingDomain
+			if normalized, err := urlutil.ExtractOrigin(candidate); err == nil {
+				override = normalized
+			} else {
+				wv.logger.Warn().
+					Str("requesting_domain", requestingDomain).
+					Err(err).
+					Msg("website data access: failed to normalize requesting domain, using raw")
+				override = candidate
+			}
+		}
+		return classifyPermissionRequestTypes(ctx, requestKind, false, false, false), override
 	default:
 		if requestPtr != 0 {
 			typeName := permissionRequestTypeName(ctx, requestPtr)
@@ -1083,7 +1111,7 @@ func (wv *WebView) determinePermissionTypes(ctx context.Context, requestPtr uint
 		}
 		// Unknown permission type - could be clipboard, notifications, geolocation, etc.
 		// For now, return empty to trigger denial. Future phases will add these types.
-		return nil
+		return nil, ""
 	}
 }
 
@@ -1093,6 +1121,7 @@ const (
 	permissionRequestKindUnknown permissionRequestKind = iota
 	permissionRequestKindUserMedia
 	permissionRequestKindDeviceInfo
+	permissionRequestKindWebsiteDataAccess
 )
 
 func detectPermissionRequestKind(ctx context.Context, requestPtr uintptr) permissionRequestKind {
@@ -1104,6 +1133,11 @@ func detectPermissionRequestKind(ctx context.Context, requestPtr uintptr) permis
 	if gtype, ok := safeGLibType(ctx, webkit.DeviceInfoPermissionRequestGLibType); ok {
 		if isPermissionRequestType(ctx, requestPtr, gtype) {
 			return permissionRequestKindDeviceInfo
+		}
+	}
+	if gtype, ok := safeGLibType(ctx, webkit.WebsiteDataAccessPermissionRequestGLibType); ok {
+		if isPermissionRequestType(ctx, requestPtr, gtype) {
+			return permissionRequestKindWebsiteDataAccess
 		}
 	}
 	return permissionRequestKindUnknown
@@ -1140,6 +1174,8 @@ func classifyPermissionRequestTypes(
 		return classifyUserMediaPermissionTypes(ctx, isAudio, isVideo, isDisplay)
 	case permissionRequestKindDeviceInfo:
 		return []string{"device_info"}
+	case permissionRequestKindWebsiteDataAccess:
+		return []string{"website_data_access"}
 	default:
 		return nil
 	}
@@ -1190,6 +1226,14 @@ func (wv *WebView) allowPermissionRequest(requestPtr uintptr) {
 		return
 	}
 
+	// Try WebsiteDataAccessPermissionRequest
+	wdaReq := webkit.WebsiteDataAccessPermissionRequestNewFromInternalPtr(requestPtr)
+	if wdaReq != nil {
+		wdaReq.Allow()
+		wv.logger.Debug().Msg("website data access permission request allowed")
+		return
+	}
+
 	wv.logger.Warn().Uint64("request_ptr", uint64(requestPtr)).Msg("permission request: unknown type, cannot allow")
 }
 
@@ -1208,6 +1252,14 @@ func (wv *WebView) denyPermissionRequest(requestPtr uintptr) {
 	if deviceInfoReq != nil {
 		deviceInfoReq.Deny()
 		wv.logger.Debug().Msg("permission request denied")
+		return
+	}
+
+	// Try WebsiteDataAccessPermissionRequest
+	wdaReq := webkit.WebsiteDataAccessPermissionRequestNewFromInternalPtr(requestPtr)
+	if wdaReq != nil {
+		wdaReq.Deny()
+		wv.logger.Debug().Msg("website data access permission request denied")
 		return
 	}
 
