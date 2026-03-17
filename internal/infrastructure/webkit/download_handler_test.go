@@ -16,7 +16,7 @@ func TestNewDownloadHandler(t *testing.T) {
 		assert.NotNil(t, handler)
 		assert.Equal(t, "/tmp/downloads", handler.downloadPath)
 		assert.Nil(t, handler.eventHandler)
-		assert.NotNil(t, handler.prepareDownloadUC)
+		assert.NotNil(t, handler.preparer)
 	})
 
 	t.Run("creates handler with custom path", func(t *testing.T) {

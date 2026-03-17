@@ -44,6 +44,39 @@ packages:
       OAuthCallbackCapable: {}
       DevToolsOpener: {}
       Printer: {}
+      AccentKeyHandler: {}
+      AutoCopyConfig: {}
+      Clipboard: {}
+      DesktopIntegration: {}
+      DownloadEventHandler: {}
+      DownloadPreparer: {}
+      FaviconService: {}
+      FileSystem: {}
+      FilterManager: {}
+      Focusable: {}
+      FindController: {}
+      GTKEntryInputTarget: {}
+      HomepageFavorites: {}
+      HomepageHistory: {}
+      AllKeybindingsResetter: {}
+      KeybindingResetter: {}
+      KeybindingSetter: {}
+      KeybindingsGetter: {}
+      MediaDiagnostics: {}
+      NativeWidgetProvider: {}
+      Notification: {}
+      RenderingEnvManager: {}
+      RuntimeVersionProbe: {}
+      ScriptRefresher: {}
+      SnapshotService: {}
+      TextInputTargetProvider: {}
+      Texture: {}
+      ToolkitAvailabilityNotifier: {}
+      UpdateApplier: {}
+      UpdateChecker: {}
+      UpdateDownloader: {}
+      WebUIConfigSaver: {}
+      XDGPaths: {}
   github.com/bnema/dumber/internal/domain/repository:
     config:
       dir: '{{.InterfaceDir}}/mocks'
