@@ -1521,8 +1521,11 @@ func (a *App) initCoordinators(ctx context.Context) {
 		return a.activeWorkspace(), a.activeWorkspaceView()
 	}
 
-	// Create FaviconAdapter with service and engine FaviconDatabase
-	a.faviconAdapter = adapter.NewFaviconAdapter(a.deps.FaviconService, a.engine.FaviconDatabase(), a.deps.FaviconAdapterConfig)
+	// Create FaviconAdapter with service and engine FaviconDatabase.
+	// Skip if FaviconService is nil (e.g. in tests or when favicon support is disabled).
+	if a.deps.FaviconService != nil {
+		a.faviconAdapter = adapter.NewFaviconAdapter(a.deps.FaviconService, a.engine.FaviconDatabase(), a.deps.FaviconAdapterConfig)
+	}
 
 	// 1. Content Coordinator (no dependencies on other coordinators)
 	a.contentCoord = content.NewCoordinator(

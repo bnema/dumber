@@ -39,15 +39,21 @@ type PaneModeConfig struct {
 	Actions             map[string]ActionBinding `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
 }
 
-// GetKeyBindings returns a map from key string to action name.
-func (p *PaneModeConfig) GetKeyBindings() map[string]string {
+// keyBindingsFromActions converts an action binding map to a key→action map.
+// This is the canonical implementation shared by all GetKeyBindings methods.
+func keyBindingsFromActions(actions map[string]ActionBinding) map[string]string {
 	keyToAction := make(map[string]string)
-	for action, binding := range p.Actions {
+	for action, binding := range actions {
 		for _, key := range binding.Keys {
 			keyToAction[key] = action
 		}
 	}
 	return keyToAction
+}
+
+// GetKeyBindings returns a map from key string to action name.
+func (p *PaneModeConfig) GetKeyBindings() map[string]string {
+	return keyBindingsFromActions(p.Actions)
 }
 
 // TabModeConfig holds tab mode shortcut configuration.
@@ -59,13 +65,7 @@ type TabModeConfig struct {
 
 // GetKeyBindings returns a map from key string to action name.
 func (t *TabModeConfig) GetKeyBindings() map[string]string {
-	keyToAction := make(map[string]string)
-	for action, binding := range t.Actions {
-		for _, key := range binding.Keys {
-			keyToAction[key] = action
-		}
-	}
-	return keyToAction
+	return keyBindingsFromActions(t.Actions)
 }
 
 // ResizeModeConfig holds resize mode shortcut configuration.
@@ -79,13 +79,7 @@ type ResizeModeConfig struct {
 
 // GetKeyBindings returns a map from key string to action name.
 func (r *ResizeModeConfig) GetKeyBindings() map[string]string {
-	keyToAction := make(map[string]string)
-	for action, binding := range r.Actions {
-		for _, key := range binding.Keys {
-			keyToAction[key] = action
-		}
-	}
-	return keyToAction
+	return keyBindingsFromActions(r.Actions)
 }
 
 // SessionModeConfig holds session mode shortcut configuration.
@@ -97,13 +91,7 @@ type SessionModeConfig struct {
 
 // GetKeyBindings returns a map from key string to action name.
 func (s *SessionModeConfig) GetKeyBindings() map[string]string {
-	keyToAction := make(map[string]string)
-	for action, binding := range s.Actions {
-		for _, key := range binding.Keys {
-			keyToAction[key] = action
-		}
-	}
-	return keyToAction
+	return keyBindingsFromActions(s.Actions)
 }
 
 // SessionConfig holds session persistence and restoration settings.
@@ -126,13 +114,7 @@ type GlobalShortcutsConfig struct {
 
 // GetKeyBindings returns a map from key string to action name.
 func (g *GlobalShortcutsConfig) GetKeyBindings() map[string]string {
-	keyToAction := make(map[string]string)
-	for action, binding := range g.Actions {
-		for _, key := range binding.Keys {
-			keyToAction[key] = action
-		}
-	}
-	return keyToAction
+	return keyBindingsFromActions(g.Actions)
 }
 
 // FloatingPaneProfile defines a named floating pane preset.

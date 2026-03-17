@@ -246,17 +246,19 @@ func (a *FaviconAdapter) saveFaviconToDisk(ctx context.Context, domain string, t
 				a.clearWarningDedup(savePNGWarnKey)
 				log.Debug().Str("domain", domain).Str("path", pngPath).Msg("saved favicon PNG")
 
-				// Create normalized sized copy for dmenu/fuzzel (async)
-				go func() {
-					if err := a.service.EnsureSizedPNG(ctx, domain, a.normalizedIconSize); err != nil {
-						a.logWarningDedup(ctx, sizedPNGWarnKey, err, func(log *zerolog.Logger, warnErr error) {
-							log.Warn().Err(warnErr).Str("domain", domain).Msg("failed to create sized PNG")
-						})
-					} else {
-						a.clearWarningDedup(sizedPNGWarnKey)
-						log.Debug().Str("domain", domain).Msg("created sized PNG")
-					}
-				}()
+				// Create normalized sized copy for dmenu/fuzzel (async, only if size is set)
+				if a.normalizedIconSize > 0 {
+					go func() {
+						if err := a.service.EnsureSizedPNG(ctx, domain, a.normalizedIconSize); err != nil {
+							a.logWarningDedup(ctx, sizedPNGWarnKey, err, func(log *zerolog.Logger, warnErr error) {
+								log.Warn().Err(warnErr).Str("domain", domain).Msg("failed to create sized PNG")
+							})
+						} else {
+							a.clearWarningDedup(sizedPNGWarnKey)
+							log.Debug().Str("domain", domain).Msg("created sized PNG")
+						}
+					}()
+				}
 			}
 			return false // don't repeat
 		})

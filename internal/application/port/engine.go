@@ -150,13 +150,21 @@ type Engine interface {
 }
 
 // EngineSettingsUpdate carries a runtime config change to the engine.
-// Raw holds the implementation-specific config object; the engine type-asserts
-// to its concrete type (e.g. *config.Config for the WebKit engine).
-// This is the only intentional use of `any` in the Engine port.
+//
+// The Raw field holds the implementation-specific config object; each engine
+// implementation type-asserts it to its concrete config type (e.g. the WebKit
+// engine asserts to *infrastructure/config.Config).
+//
+// This is the only intentional use of `any` in the Engine port. A fully typed
+// approach would require either moving the entire config schema into the domain
+// layer (a large refactor) or defining a SettingsProvider interface — which
+// would itself reduce to `any` because callers would embed engine-specific data
+// behind an empty interface. Until the config schema is promoted to domain,
+// the type assertion in the engine implementation is the least-invasive option.
 type EngineSettingsUpdate struct {
 	// Raw holds the implementation-specific config.
-	// WebKit engine expects *config.Config.
-	Raw any
+	// WebKit engine expects *infrastructure/config.Config.
+	Raw any //nolint:iface // intentional: see type comment above
 }
 
 // HandlerDependencies holds use cases needed by WebUI message handlers.

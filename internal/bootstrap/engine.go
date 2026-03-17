@@ -48,7 +48,10 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 		}
 
 		// Pre-build config save function for handler registration.
-		saveConfigFunc := buildSaveConfigFunc()
+		saveConfigFunc, err := buildSaveConfigFunc()
+		if err != nil {
+			return nil, fmt.Errorf("failed to build save config func: %w", err)
+		}
 
 		return webkit.NewEngine(
 			input.Ctx, cfg, opts, wkCfg,
@@ -93,14 +96,13 @@ func buildKeybindingsHandler() (*handlers.KeybindingsHandler, error) {
 }
 
 // buildSaveConfigFunc constructs the config save function using the config manager.
-func buildSaveConfigFunc() func(context.Context, port.WebUIConfig) error {
+// It returns an error immediately if the config manager is not initialized, consistent
+// with buildKeybindingsHandler.
+func buildSaveConfigFunc() (func(context.Context, port.WebUIConfig) error, error) {
 	mgr := config.GetManager()
 	if mgr == nil {
-		// Return a function that errors — config manager may not be ready yet.
-		return func(_ context.Context, _ port.WebUIConfig) error {
-			return fmt.Errorf("config manager not initialized")
-		}
+		return nil, fmt.Errorf("config manager not initialized")
 	}
 	uc := usecase.NewSaveWebUIConfigUseCase(config.NewWebUIConfigGateway(mgr))
-	return uc.Execute
+	return uc.Execute, nil
 }

@@ -326,6 +326,8 @@ func (c *Coordinator) handleURIChanged(ctx context.Context, paneID entity.PaneID
 		// Launch externally via injected callback
 		if c.onLaunchExternalURL != nil {
 			c.onLaunchExternalURL(uri)
+		} else {
+			log.Warn().Str("pane_id", string(paneID)).Str("uri", uri).Msg("external URL not launched: no handler registered")
 		}
 
 		// Stop loading to prevent WebKit from showing an error page

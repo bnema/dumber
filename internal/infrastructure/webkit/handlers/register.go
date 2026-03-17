@@ -18,13 +18,15 @@ type AccentKeyHandler = port.AccentKeyHandler
 
 // Config holds all dependencies for message handlers.
 type Config struct {
-	HistoryUC          port.HomepageHistory
-	FavoritesUC        port.HomepageFavorites
-	Clipboard          port.Clipboard
-	AutoCopyConfig     port.AutoCopyConfig
-	SaveConfig         func(context.Context, port.WebUIConfig) error // Pre-built by bootstrap (usecase.SaveWebUIConfigUseCase.Execute)
-	KeybindingsHandler *KeybindingsHandler                           // Pre-built by bootstrap
-	OnClipboardCopied  func(textLen int)                             // Called when auto-copy completes (for toast notification)
+	HistoryUC      port.HomepageHistory
+	FavoritesUC    port.HomepageFavorites
+	Clipboard      port.Clipboard
+	AutoCopyConfig port.AutoCopyConfig
+	SaveConfig     func(context.Context, port.WebUIConfig) error // Pre-built by bootstrap (usecase.SaveWebUIConfigUseCase.Execute)
+	// KeybindingsHandler is required (not optional like other handlers) because the WebUI
+	// always needs keybinding read/write support regardless of configuration.
+	KeybindingsHandler *KeybindingsHandler // Pre-built by bootstrap
+	OnClipboardCopied  func(textLen int)   // Called when auto-copy completes (for toast notification)
 }
 
 // RegisterAll registers all message handlers with the router.

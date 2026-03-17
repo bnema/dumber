@@ -568,6 +568,9 @@ func buildUIDependencies(
 		},
 		OnConfigChange: func(callback func()) {
 			config.GetManager().OnConfigChange(func(newCfg *config.Config) {
+				// No synchronization needed: viper fires this callback on the
+				// GTK main thread (via glib.IdleAdd), and all callers of cfg run
+				// on the same GTK main thread, so there is no concurrent access.
 				if cfg != nil && newCfg != nil {
 					*cfg = *newCfg
 				}

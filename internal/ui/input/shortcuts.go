@@ -219,7 +219,8 @@ type ShortcutSet struct {
 }
 
 // NewShortcutSet creates a ShortcutSet from workspace and session configuration.
-// workspace must not be nil. session may be nil (session mode shortcuts will be empty).
+// workspace may be nil (workspace-specific shortcuts will be empty).
+// session may be nil (session mode shortcuts will be empty).
 func NewShortcutSet(ctx context.Context, workspace *entity.WorkspaceConfig, session *entity.SessionConfig) *ShortcutSet {
 	log := logging.FromContext(ctx)
 	set := &ShortcutSet{

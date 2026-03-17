@@ -83,6 +83,27 @@ type incrementalCloseContext struct {
 	precheckReason       string
 }
 
+const (
+	defaultResizeStepPercent    = 0.05
+	defaultResizeMinPanePercent = 0.1
+)
+
+// clampResizeStep clamps resizeStepPercent to (0, 0.5], returning the default (0.05) if out of range.
+func clampResizeStep(v float64) float64 {
+	if v <= 0 || v > 0.5 {
+		return defaultResizeStepPercent
+	}
+	return v
+}
+
+// clampResizeMin clamps resizeMinPanePercent to (0, 0.5), returning the default (0.1) if out of range.
+func clampResizeMin(v float64) float64 {
+	if v <= 0 || v >= 0.5 {
+		return defaultResizeMinPanePercent
+	}
+	return v
+}
+
 // NewWorkspaceCoordinator creates a new WorkspaceCoordinator.
 func NewWorkspaceCoordinator(ctx context.Context, cfg WorkspaceCoordinatorConfig) *WorkspaceCoordinator {
 	log := logging.FromContext(ctx)
@@ -97,8 +118,8 @@ func NewWorkspaceCoordinator(ctx context.Context, cfg WorkspaceCoordinatorConfig
 		getActiveWS:          cfg.GetActiveWS,
 		generateID:           cfg.GenerateID,
 		newPaneURL:           cfg.NewPaneURL,
-		resizeStepPercent:    cfg.ResizeStepPercent,
-		resizeMinPanePercent: cfg.ResizeMinPanePercent,
+		resizeStepPercent:    clampResizeStep(cfg.ResizeStepPercent),
+		resizeMinPanePercent: clampResizeMin(cfg.ResizeMinPanePercent),
 	}
 }
 

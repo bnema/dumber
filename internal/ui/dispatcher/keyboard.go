@@ -132,6 +132,10 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 	d.actionHandlers = map[input.Action]func(ctx context.Context) error{
 		// Tab actions
 		input.ActionNewTab: func(ctx context.Context) error {
+			if d.newPaneURL == "" {
+				logging.FromContext(ctx).Warn().Msg("ActionNewTab: newPaneURL is empty, cannot open new tab")
+				return fmt.Errorf("newPaneURL is not configured")
+			}
 			_, err := d.tabCoord.Create(ctx, domainurl.Normalize(d.newPaneURL))
 			return err
 		},
