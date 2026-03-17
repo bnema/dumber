@@ -8,7 +8,6 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	domainurl "github.com/bnema/dumber/internal/domain/url"
-	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator/content"
@@ -30,6 +29,11 @@ type WorkspaceCoordinator struct {
 	widgetFactory  layout.WidgetFactory
 	contentCoord   *content.Coordinator
 
+	// Config-derived values (injected to avoid direct config dependency)
+	newPaneURL           string
+	resizeStepPercent    float64
+	resizeMinPanePercent float64
+
 	// Callbacks to avoid circular dependencies
 	getActiveWS      func() (*entity.Workspace, *component.WorkspaceView)
 	generateID       func() string
@@ -41,13 +45,16 @@ type WorkspaceCoordinator struct {
 
 // WorkspaceCoordinatorConfig holds configuration for WorkspaceCoordinator.
 type WorkspaceCoordinatorConfig struct {
-	PanesUC        *usecase.ManagePanesUseCase
-	FocusMgr       *focus.Manager
-	StackedPaneMgr *component.StackedPaneManager
-	WidgetFactory  layout.WidgetFactory
-	ContentCoord   *content.Coordinator
-	GetActiveWS    func() (*entity.Workspace, *component.WorkspaceView)
-	GenerateID     func() string
+	PanesUC              *usecase.ManagePanesUseCase
+	FocusMgr             *focus.Manager
+	StackedPaneMgr       *component.StackedPaneManager
+	WidgetFactory        layout.WidgetFactory
+	ContentCoord         *content.Coordinator
+	GetActiveWS          func() (*entity.Workspace, *component.WorkspaceView)
+	GenerateID           func() string
+	NewPaneURL           string
+	ResizeStepPercent    float64
+	ResizeMinPanePercent float64
 }
 
 type splitContext struct {
@@ -82,13 +89,16 @@ func NewWorkspaceCoordinator(ctx context.Context, cfg WorkspaceCoordinatorConfig
 	log.Debug().Msg("creating workspace coordinator")
 
 	return &WorkspaceCoordinator{
-		panesUC:        cfg.PanesUC,
-		focusMgr:       cfg.FocusMgr,
-		stackedPaneMgr: cfg.StackedPaneMgr,
-		widgetFactory:  cfg.WidgetFactory,
-		contentCoord:   cfg.ContentCoord,
-		getActiveWS:    cfg.GetActiveWS,
-		generateID:     cfg.GenerateID,
+		panesUC:              cfg.PanesUC,
+		focusMgr:             cfg.FocusMgr,
+		stackedPaneMgr:       cfg.StackedPaneMgr,
+		widgetFactory:        cfg.WidgetFactory,
+		contentCoord:         cfg.ContentCoord,
+		getActiveWS:          cfg.GetActiveWS,
+		generateID:           cfg.GenerateID,
+		newPaneURL:           cfg.NewPaneURL,
+		resizeStepPercent:    cfg.ResizeStepPercent,
+		resizeMinPanePercent: cfg.ResizeMinPanePercent,
 	}
 }
 
@@ -144,7 +154,7 @@ func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.Spli
 		Workspace:  splitCtx.ws,
 		TargetPane: splitCtx.activePane,
 		Direction:  direction,
-		InitialURL: domainurl.Normalize(config.Get().Workspace.NewPaneURL),
+		InitialURL: domainurl.Normalize(c.newPaneURL),
 	})
 	if err != nil {
 		log.Error().Err(err).Str("direction", string(direction)).Msg("failed to split pane")
@@ -1350,7 +1360,7 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 	// Create new pane entity
 	newPaneID := entity.PaneID(c.generateID())
 	newPane := entity.NewPane(newPaneID)
-	newPane.URI = domainurl.Normalize(config.Get().Workspace.NewPaneURL)
+	newPane.URI = domainurl.Normalize(c.newPaneURL)
 	newPane.Title = defaultPaneTitle
 
 	// Determine if we need to create a new stack or add to existing
@@ -1775,11 +1785,11 @@ func (c *WorkspaceCoordinator) InsertPopup(ctx context.Context, input content.In
 		Msg("inserting popup into workspace")
 
 	switch input.Behavior {
-	case config.PopupBehaviorSplit:
+	case entity.PopupBehaviorSplit:
 		return c.insertPopupSplit(ctx, input)
-	case config.PopupBehaviorStacked:
+	case entity.PopupBehaviorStacked:
 		return c.insertPopupStacked(ctx, input)
-	case config.PopupBehaviorTabbed:
+	case entity.PopupBehaviorTabbed:
 		return c.insertPopupTabbed(ctx, input)
 	default:
 		// Default to split right
@@ -2198,8 +2208,7 @@ func (c *WorkspaceCoordinator) Resize(ctx context.Context, dir usecase.ResizeDir
 		return nil
 	}
 
-	cfg := config.Get()
-	err := c.panesUC.Resize(ctx, ws, target, dir, cfg.Workspace.ResizeMode.StepPercent, cfg.Workspace.ResizeMode.MinPanePercent)
+	err := c.panesUC.Resize(ctx, ws, target, dir, c.resizeStepPercent, c.resizeMinPanePercent)
 	if errors.Is(err, usecase.ErrNothingToResize) {
 		c.ShowToastOnActivePane(ctx, "Nothing to resize", component.ToastInfo)
 		return nil
@@ -2230,12 +2239,11 @@ func (c *WorkspaceCoordinator) SetSplitRatio(ctx context.Context, splitNodeID st
 		return nil
 	}
 
-	cfg := config.Get()
 	err := c.panesUC.SetSplitRatio(ctx, usecase.SetSplitRatioInput{
 		Workspace:      ws,
 		SplitNodeID:    splitNodeID,
 		Ratio:          ratio,
-		MinPanePercent: cfg.Workspace.ResizeMode.MinPanePercent,
+		MinPanePercent: c.resizeMinPanePercent,
 	})
 	if err != nil {
 		return err

@@ -1,5 +1,70 @@
 package config
 
+import "github.com/bnema/dumber/internal/domain/entity"
+
+// Type aliases for config value types now defined in domain/entity.
+// These aliases keep all existing config-package callers working without
+// any changes to their import paths.
+
+// AppearanceConfig holds UI/rendering preferences.
+type AppearanceConfig = entity.AppearanceConfig
+
+// ColorPalette contains semantic color tokens for light/dark themes.
+type ColorPalette = entity.ColorPalette
+
+// ActionBinding defines a keybinding with optional description.
+type ActionBinding = entity.ActionBinding
+
+// PaneModeConfig defines modal behavior for pane management.
+type PaneModeConfig = entity.PaneModeConfig
+
+// TabModeConfig defines modal behavior for tab management (Zellij-style).
+type TabModeConfig = entity.TabModeConfig
+
+// ResizeModeConfig defines modal behavior for resizing panes (Zellij-style).
+type ResizeModeConfig = entity.ResizeModeConfig
+
+// SessionModeConfig defines modal behavior for session management.
+type SessionModeConfig = entity.SessionModeConfig
+
+// SessionConfig holds session persistence settings.
+type SessionConfig = entity.SessionConfig
+
+// GlobalShortcutsConfig defines global shortcuts (always active, not modal).
+type GlobalShortcutsConfig = entity.GlobalShortcutsConfig
+
+// FloatingPaneProfile defines a shortcut profile that opens a URL in the floating pane.
+type FloatingPaneProfile = entity.FloatingPaneProfile
+
+// FloatingPaneConfig defines persistent floating pane behavior.
+type FloatingPaneConfig = entity.FloatingPaneConfig
+
+// WorkspaceStylingConfig defines visual styling for workspace panes.
+type WorkspaceStylingConfig = entity.WorkspaceStylingConfig
+
+// PopupBehavior defines how popup windows should be opened.
+type PopupBehavior = entity.PopupBehavior
+
+const (
+	// PopupBehaviorSplit opens popups in a split pane (default)
+	PopupBehaviorSplit = entity.PopupBehaviorSplit
+	// PopupBehaviorStacked opens popups in a stacked pane
+	PopupBehaviorStacked = entity.PopupBehaviorStacked
+	// PopupBehaviorTabbed opens popups as a new tab
+	PopupBehaviorTabbed = entity.PopupBehaviorTabbed
+	// PopupBehaviorWindowed opens popups in a new workspace window
+	PopupBehaviorWindowed = entity.PopupBehaviorWindowed
+)
+
+// PopupBehaviorConfig defines handling for popup windows.
+type PopupBehaviorConfig = entity.PopupBehaviorConfig
+
+// WorkspaceConfig captures layout, pane, and tab behavior preferences.
+type WorkspaceConfig = entity.WorkspaceConfig
+
+// UpdateConfig holds automatic update settings.
+type UpdateConfig = entity.UpdateConfig
+
 // Config represents the complete configuration for dumber.
 type Config struct {
 	Database        DatabaseConfig            `mapstructure:"database" yaml:"database" toml:"database"`
@@ -256,31 +321,6 @@ type LoggingConfig struct {
 	CaptureGTKLogs bool `mapstructure:"capture_gtk_logs" yaml:"capture_gtk_logs" toml:"capture_gtk_logs" json:"capture_gtk_logs"`
 }
 
-// AppearanceConfig holds UI/rendering preferences.
-type AppearanceConfig struct {
-	// Default fonts for pages that do not specify fonts.
-	SansFont      string `mapstructure:"sans_font" yaml:"sans_font" toml:"sans_font"`
-	SerifFont     string `mapstructure:"serif_font" yaml:"serif_font" toml:"serif_font"`
-	MonospaceFont string `mapstructure:"monospace_font" yaml:"monospace_font" toml:"monospace_font"`
-	// Default font size in CSS pixels (approx).
-	DefaultFontSize int          `mapstructure:"default_font_size" yaml:"default_font_size" toml:"default_font_size"`
-	LightPalette    ColorPalette `mapstructure:"light_palette" yaml:"light_palette" toml:"light_palette"`
-	DarkPalette     ColorPalette `mapstructure:"dark_palette" yaml:"dark_palette" toml:"dark_palette"`
-	// ColorScheme controls the initial theme preference: "prefer-dark", "prefer-light", or "default" (follows system)
-	ColorScheme string `mapstructure:"color_scheme" yaml:"color_scheme" toml:"color_scheme"`
-}
-
-// ColorPalette contains semantic color tokens for light/dark themes.
-type ColorPalette struct {
-	Background     string `mapstructure:"background" yaml:"background" toml:"background" json:"background"`
-	Surface        string `mapstructure:"surface" yaml:"surface" toml:"surface" json:"surface"`
-	SurfaceVariant string `mapstructure:"surface_variant" yaml:"surface_variant" toml:"surface_variant" json:"surface_variant"`
-	Text           string `mapstructure:"text" yaml:"text" toml:"text" json:"text"`
-	Muted          string `mapstructure:"muted" yaml:"muted" toml:"muted" json:"muted"`
-	Accent         string `mapstructure:"accent" yaml:"accent" toml:"accent" json:"accent"`
-	Border         string `mapstructure:"border" yaml:"border" toml:"border" json:"border"`
-}
-
 // ContentFilteringConfig holds content filtering and ad blocking preferences
 type ContentFilteringConfig struct {
 	// Enabled controls whether ad blocking is active (default: true)
@@ -316,256 +356,9 @@ type DebugConfig struct {
 	EnableDevTools bool `mapstructure:"enable_devtools" yaml:"enable_devtools" toml:"enable_devtools"`
 }
 
-// UpdateConfig holds automatic update settings.
-type UpdateConfig struct {
-	// EnableOnStartup enables checking for updates when the browser starts.
-	// Default: true
-	EnableOnStartup bool `mapstructure:"enable_on_startup" yaml:"enable_on_startup" toml:"enable_on_startup"`
-	// AutoDownload automatically downloads updates in the background.
-	// When enabled, updates are applied on browser exit.
-	// Default: false
-	AutoDownload bool `mapstructure:"auto_download" yaml:"auto_download" toml:"auto_download"`
-	// NotifyOnNewSettings shows a toast notification on startup when new config settings are available.
-	// Default: true
-	NotifyOnNewSettings bool `mapstructure:"notify_on_new_settings" yaml:"notify_on_new_settings" toml:"notify_on_new_settings"`
-}
-
 // DownloadsConfig holds file download preferences.
 type DownloadsConfig struct {
 	// Path is the directory where downloads are saved.
 	// Empty string means use XDG_DOWNLOAD_DIR or ~/Downloads.
 	Path string `mapstructure:"path" yaml:"path" toml:"path"`
-}
-
-// WorkspaceConfig captures layout, pane, and tab behavior preferences.
-type WorkspaceConfig struct {
-	// NewPaneURL is the URL loaded when creating a new empty pane/tab.
-	// Default: "about:blank"
-	NewPaneURL string `mapstructure:"new_pane_url" yaml:"new_pane_url" toml:"new_pane_url"`
-	// PaneMode defines modal pane behavior and bindings.
-	PaneMode PaneModeConfig `mapstructure:"pane_mode" yaml:"pane_mode" toml:"pane_mode" json:"pane_mode"`
-	// TabMode defines modal tab behavior and bindings (Alt+T).
-	TabMode TabModeConfig `mapstructure:"tab_mode" yaml:"tab_mode" toml:"tab_mode" json:"tab_mode"`
-	// ResizeMode defines modal pane resizing behavior and bindings (Ctrl+N).
-	ResizeMode ResizeModeConfig `mapstructure:"resize_mode" yaml:"resize_mode" toml:"resize_mode" json:"resize_mode"`
-	// Shortcuts holds global (non-modal) keyboard shortcuts.
-	Shortcuts GlobalShortcutsConfig `mapstructure:"shortcuts" yaml:"shortcuts" toml:"shortcuts" json:"shortcuts"`
-	// FloatingPane configures workspace-level floating pane behavior.
-	FloatingPane FloatingPaneConfig `mapstructure:"floating_pane" yaml:"floating_pane" toml:"floating_pane" json:"floating_pane"`
-	// TabBarPosition determines tab bar placement: "top" or "bottom".
-	TabBarPosition string `mapstructure:"tab_bar_position" yaml:"tab_bar_position" toml:"tab_bar_position" json:"tab_bar_position"`
-	// HideTabBarWhenSingleTab hides the tab bar when only one tab exists.
-	HideTabBarWhenSingleTab bool `mapstructure:"hide_tab_bar_when_single_tab" yaml:"hide_tab_bar_when_single_tab" toml:"hide_tab_bar_when_single_tab" json:"hide_tab_bar_when_single_tab"` //nolint:lll // struct tags must stay on one line
-	// SwitchToTabOnMove controls whether moving a pane to another tab switches focus to that tab.
-	// Default: true
-	SwitchToTabOnMove bool `mapstructure:"switch_to_tab_on_move" yaml:"switch_to_tab_on_move" toml:"switch_to_tab_on_move" json:"switch_to_tab_on_move"` //nolint:lll // struct tags must stay on one line
-	// Popups configures default popup placement rules.
-	Popups PopupBehaviorConfig `mapstructure:"popups" yaml:"popups" toml:"popups" json:"popups"`
-	// Styling configures workspace visual appearance.
-	Styling WorkspaceStylingConfig `mapstructure:"styling" yaml:"styling" toml:"styling" json:"styling"`
-}
-
-// ActionBinding defines a keybinding with optional description.
-type ActionBinding struct {
-	Keys []string `mapstructure:"keys" yaml:"keys" toml:"keys" json:"keys"`
-	Desc string   `mapstructure:"desc" yaml:"desc" toml:"desc" json:"desc,omitempty"`
-}
-
-// PaneModeConfig defines modal behavior for pane management.
-type PaneModeConfig struct {
-	ActivationShortcut  string                   `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
-	TimeoutMilliseconds int                      `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
-	Actions             map[string]ActionBinding `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
-}
-
-// GetKeyBindings returns an inverted map for O(1) key→action lookup.
-// This is built from the action→keys structure in the config.
-func (p *PaneModeConfig) GetKeyBindings() map[string]string {
-	keyToAction := make(map[string]string)
-	for action, binding := range p.Actions {
-		for _, key := range binding.Keys {
-			keyToAction[key] = action
-		}
-	}
-	return keyToAction
-}
-
-// TabModeConfig defines modal behavior for tab management (Zellij-style).
-type TabModeConfig struct {
-	ActivationShortcut  string                   `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
-	TimeoutMilliseconds int                      `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
-	Actions             map[string]ActionBinding `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
-}
-
-// GetKeyBindings returns an inverted map for O(1) key→action lookup.
-// This is built from the action→keys structure in the config.
-func (t *TabModeConfig) GetKeyBindings() map[string]string {
-	keyToAction := make(map[string]string)
-	for action, binding := range t.Actions {
-		for _, key := range binding.Keys {
-			keyToAction[key] = action
-		}
-	}
-	return keyToAction
-}
-
-// ResizeModeConfig defines modal behavior for resizing panes (Zellij-style).
-type ResizeModeConfig struct {
-	ActivationShortcut  string                   `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
-	TimeoutMilliseconds int                      `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
-	StepPercent         float64                  `mapstructure:"step_percent" yaml:"step_percent" toml:"step_percent" json:"step_percent"`
-	MinPanePercent      float64                  `mapstructure:"min_pane_percent" yaml:"min_pane_percent" toml:"min_pane_percent" json:"min_pane_percent"` //nolint:lll // struct tags must stay on one line
-	Actions             map[string]ActionBinding `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
-}
-
-// GetKeyBindings returns an inverted map for O(1) key→action lookup.
-// This is built from the action→keys structure in the config.
-func (r *ResizeModeConfig) GetKeyBindings() map[string]string {
-	keyToAction := make(map[string]string)
-	for action, binding := range r.Actions {
-		for _, key := range binding.Keys {
-			keyToAction[key] = action
-		}
-	}
-	return keyToAction
-}
-
-// GlobalShortcutsConfig defines global shortcuts (always active, not modal).
-type GlobalShortcutsConfig struct {
-	Actions map[string]ActionBinding `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
-}
-
-// FloatingPaneConfig defines persistent floating pane behavior.
-type FloatingPaneConfig struct {
-	WidthPct  float64                        `mapstructure:"width_pct" yaml:"width_pct" toml:"width_pct" json:"width_pct"`
-	HeightPct float64                        `mapstructure:"height_pct" yaml:"height_pct" toml:"height_pct" json:"height_pct"`
-	Profiles  map[string]FloatingPaneProfile `mapstructure:"profiles" yaml:"profiles" toml:"profiles" json:"profiles"`
-}
-
-// FloatingPaneProfile defines a shortcut profile that opens a URL in the floating pane.
-type FloatingPaneProfile struct {
-	Keys []string `mapstructure:"keys" yaml:"keys" toml:"keys" json:"keys"`
-	URL  string   `mapstructure:"url" yaml:"url" toml:"url" json:"url"`
-	Desc string   `mapstructure:"desc" yaml:"desc" toml:"desc" json:"desc,omitempty"`
-}
-
-// GetKeyBindings returns an inverted map for O(1) key→action lookup.
-func (g *GlobalShortcutsConfig) GetKeyBindings() map[string]string {
-	keyToAction := make(map[string]string)
-	for action, binding := range g.Actions {
-		for _, key := range binding.Keys {
-			keyToAction[key] = action
-		}
-	}
-	return keyToAction
-}
-
-// PopupBehavior defines how popup windows should be opened
-type PopupBehavior string
-
-const (
-	// PopupBehaviorSplit opens popups in a split pane (default)
-	PopupBehaviorSplit PopupBehavior = "split"
-	// PopupBehaviorStacked opens popups in a stacked pane
-	PopupBehaviorStacked PopupBehavior = "stacked"
-	// PopupBehaviorTabbed opens popups as a new tab
-	PopupBehaviorTabbed PopupBehavior = "tabbed"
-	// PopupBehaviorWindowed opens popups in a new workspace window
-	PopupBehaviorWindowed PopupBehavior = "windowed"
-)
-
-// PopupBehaviorConfig defines handling for popup windows.
-type PopupBehaviorConfig struct {
-	// Behavior determines how popups are opened (split/stacked/tabbed/windowed)
-	Behavior PopupBehavior `mapstructure:"behavior" yaml:"behavior" toml:"behavior" json:"behavior"`
-
-	// Placement specifies direction for split behavior ("right", "left", "top", "bottom")
-	// Only used when Behavior is "split"
-	Placement string `mapstructure:"placement" yaml:"placement" toml:"placement" json:"placement"`
-
-	// OpenInNewPane controls whether popups are opened in workspace or blocked
-	OpenInNewPane bool `mapstructure:"open_in_new_pane" yaml:"open_in_new_pane" toml:"open_in_new_pane" json:"open_in_new_pane"`
-
-	// FollowPaneContext determines if popup placement follows parent pane context
-	FollowPaneContext bool `mapstructure:"follow_pane_context" yaml:"follow_pane_context" toml:"follow_pane_context" json:"follow_pane_context"` //nolint:lll // struct tags must stay on one line
-
-	// BlankTargetBehavior determines how target="_blank" links are opened
-	// Accepted values: "split", "stacked" (default), "tabbed"
-	// This is separate from Behavior which controls JavaScript popups
-	BlankTargetBehavior string `mapstructure:"blank_target_behavior" yaml:"blank_target_behavior" toml:"blank_target_behavior" json:"blank_target_behavior"` //nolint:lll // struct tags must stay on one line
-
-	// EnableSmartDetection uses WebKitWindowProperties to detect popup vs tab intents
-	EnableSmartDetection bool `mapstructure:"enable_smart_detection" yaml:"enable_smart_detection" toml:"enable_smart_detection" json:"enable_smart_detection"` //nolint:lll // struct tags must stay on one line
-
-	// OAuthAutoClose enables auto-closing OAuth popups after successful auth redirects
-	OAuthAutoClose bool `mapstructure:"oauth_auto_close" yaml:"oauth_auto_close" toml:"oauth_auto_close" json:"oauth_auto_close"`
-}
-
-// WorkspaceStylingConfig defines visual styling for workspace panes.
-type WorkspaceStylingConfig struct {
-	// BorderWidth in pixels for active pane borders (overlay)
-	BorderWidth int `mapstructure:"border_width" yaml:"border_width" toml:"border_width" json:"border_width"`
-	// BorderColor for focused panes (CSS color value or theme variable)
-	BorderColor string `mapstructure:"border_color" yaml:"border_color" toml:"border_color" json:"border_color"`
-
-	// ModeBorderWidth in pixels for all mode indicator borders (pane, tab, session, resize)
-	ModeBorderWidth int `mapstructure:"mode_border_width" yaml:"mode_border_width" toml:"mode_border_width" json:"mode_border_width"` //nolint:lll // struct tags must stay on one line
-
-	// PaneModeColor for pane mode indicator (border and toaster). Defaults to "#4A90E2" (blue)
-	PaneModeColor string `mapstructure:"pane_mode_color" yaml:"pane_mode_color" toml:"pane_mode_color" json:"pane_mode_color"` //nolint:lll // struct tags must stay on one line
-	// TabModeColor for tab mode indicator (border and toaster). Defaults to "#FFA500" (orange)
-	TabModeColor string `mapstructure:"tab_mode_color" yaml:"tab_mode_color" toml:"tab_mode_color" json:"tab_mode_color"` //nolint:lll // struct tags must stay on one line
-	// SessionModeColor for session mode indicator (border and toaster). Defaults to "#9B59B6" (purple)
-	SessionModeColor string `mapstructure:"session_mode_color" yaml:"session_mode_color" toml:"session_mode_color" json:"session_mode_color"` //nolint:lll // struct tags must stay on one line
-	// ResizeModeColor for resize mode indicator (border and toaster). Defaults to "#00D4AA" (teal)
-	ResizeModeColor string `mapstructure:"resize_mode_color" yaml:"resize_mode_color" toml:"resize_mode_color" json:"resize_mode_color"` //nolint:lll // struct tags must stay on one line
-
-	// ModeIndicatorToasterEnabled shows a toaster notification when modal modes are active.
-	// Default: true
-	ModeIndicatorToasterEnabled bool `mapstructure:"mode_indicator_toaster_enabled" yaml:"mode_indicator_toaster_enabled" toml:"mode_indicator_toaster_enabled" json:"mode_indicator_toaster_enabled"` //nolint:lll // struct tags must stay on one line
-
-	// TransitionDuration in milliseconds for border animations
-	TransitionDuration int `mapstructure:"transition_duration" yaml:"transition_duration" toml:"transition_duration" json:"transition_duration"` //nolint:lll // struct tags must stay on one line
-}
-
-// SessionConfig holds session persistence settings.
-type SessionConfig struct {
-	// AutoRestore automatically restores the last session on startup.
-	// Default: false
-	AutoRestore bool `mapstructure:"auto_restore" yaml:"auto_restore" toml:"auto_restore" json:"auto_restore"`
-
-	// SnapshotIntervalMs is the minimum interval between snapshots in milliseconds.
-	// Default: 5000
-	SnapshotIntervalMs int `mapstructure:"snapshot_interval_ms" yaml:"snapshot_interval_ms" toml:"snapshot_interval_ms" json:"snapshot_interval_ms"` //nolint:lll // struct tags must stay on one line
-
-	// MaxExitedSessions is the maximum number of exited sessions to keep.
-	// Default: 50
-	MaxExitedSessions int `mapstructure:"max_exited_sessions" yaml:"max_exited_sessions" toml:"max_exited_sessions" json:"max_exited_sessions"` //nolint:lll // struct tags must stay on one line
-
-	// MaxExitedSessionAgeDays is the maximum age in days for exited sessions.
-	// Sessions older than this will be automatically deleted on startup.
-	// Default: 7
-	MaxExitedSessionAgeDays int `mapstructure:"max_exited_session_age_days" yaml:"max_exited_session_age_days" toml:"max_exited_session_age_days" json:"max_exited_session_age_days"` //nolint:lll // struct tags must stay on one line
-
-	// SessionMode defines modal behavior for session management (Ctrl+O).
-	SessionMode SessionModeConfig `mapstructure:"session_mode" yaml:"session_mode" toml:"session_mode" json:"session_mode"`
-}
-
-// SessionModeConfig defines modal behavior for session management.
-type SessionModeConfig struct {
-	ActivationShortcut  string                   `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
-	TimeoutMilliseconds int                      `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
-	Actions             map[string]ActionBinding `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
-}
-
-// GetKeyBindings returns an inverted map for O(1) key→action lookup.
-// This is built from the action→keys structure in the config.
-func (s *SessionModeConfig) GetKeyBindings() map[string]string {
-	keyToAction := make(map[string]string)
-	for action, binding := range s.Actions {
-		for _, key := range binding.Keys {
-			keyToAction[key] = action
-		}
-	}
-	return keyToAction
 }

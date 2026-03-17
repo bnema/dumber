@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
 )
@@ -12,10 +11,12 @@ import (
 // checkConfigMigration checks if user config needs migration and shows a toast.
 func (a *App) checkConfigMigration(ctx context.Context) {
 	log := logging.FromContext(ctx)
-	cfg := config.Get()
 
-	migrator := config.NewMigrator()
-	result, err := migrator.CheckMigration()
+	if a.deps.ConfigMigrator == nil {
+		return
+	}
+
+	result, err := a.deps.ConfigMigrator.CheckMigration()
 	if err != nil {
 		log.Debug().Err(err).Msg("config migration check failed")
 		return
@@ -31,7 +32,7 @@ func (a *App) checkConfigMigration(ctx context.Context) {
 		Msg("config migration available")
 
 	// Show toast notification if enabled
-	if cfg.Update.NotifyOnNewSettings && a.appToaster != nil {
+	if a.deps.Config.Update.NotifyOnNewSettings && a.appToaster != nil {
 		msg := fmt.Sprintf("Config has %d new settings. Run 'dumber config migrate'", len(result.MissingKeys))
 		a.appToaster.Show(ctx, msg, component.ToastInfo)
 	}

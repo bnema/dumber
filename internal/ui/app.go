@@ -371,7 +371,7 @@ func (a *App) prewarmWebViewPoolAsync(_ context.Context) {
 }
 
 func (a *App) createMainWindow(ctx context.Context) error {
-	mainWindow, err := window.New(ctx, a.gtkApp, a.deps.Config)
+	mainWindow, err := window.New(ctx, a.gtkApp, a.deps.Config.Workspace.TabBarPosition)
 	if err != nil {
 		return err
 	}
@@ -637,7 +637,7 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 	}
 
 	// Create keyboard handler and wire to dispatcher.
-	a.keyboardHandler = input.NewKeyboardHandler(ctx, a.deps.Config)
+	a.keyboardHandler = input.NewKeyboardHandler(ctx, &a.deps.Config.Workspace, &a.deps.Config.Session)
 	a.keyboardHandler.SetOnAction(func(ctx context.Context, action input.Action) error {
 		if action == input.ActionClosePane {
 			if a.closeAndReleaseActiveFloatingPane(ctx) {
@@ -712,7 +712,8 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 	a.globalShortcutHandler = input.NewGlobalShortcutHandler(
 		ctx,
 		a.mainWindow.Window(),
-		a.deps.Config,
+		&a.deps.Config.Workspace,
+		&a.deps.Config.Session,
 		a.keyboardHandler,
 		func(ctx context.Context, action input.Action) error {
 			return a.kbDispatcher.Dispatch(ctx, action)
@@ -1271,7 +1272,8 @@ func (a *App) initUpdateCoordinator(ctx context.Context) {
 		a.deps.CheckUpdateUC,
 		a.deps.ApplyUpdateUC,
 		a.appToaster,
-		a.deps.Config,
+		a.deps.Config.Update.EnableOnStartup,
+		a.deps.Config.Update.AutoDownload,
 	)
 
 	// Start async update check
@@ -1520,7 +1522,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 	}
 
 	// Create FaviconAdapter with service and engine FaviconDatabase
-	a.faviconAdapter = adapter.NewFaviconAdapter(a.deps.FaviconService, a.engine.FaviconDatabase())
+	a.faviconAdapter = adapter.NewFaviconAdapter(a.deps.FaviconService, a.engine.FaviconDatabase(), a.deps.FaviconAdapterConfig)
 
 	// 1. Content Coordinator (no dependencies on other coordinators)
 	a.contentCoord = content.NewCoordinator(
@@ -1539,6 +1541,11 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.contentCoord.SetIdleInhibitor(a.deps.IdleInhibitor)
 	}
 
+	// Wire external URL launcher (e.g. xdg-open for vscode://, spotify://)
+	if a.deps.LaunchExternalURL != nil {
+		a.contentCoord.SetOnLaunchExternalURL(a.deps.LaunchExternalURL)
+	}
+
 	// Wire deferred init trigger - runs after first navigation starts
 	a.contentCoord.SetOnFirstLoadStarted(func() {
 		a.triggerDeferredInit(ctx)
@@ -1546,10 +1553,10 @@ func (a *App) initCoordinators(ctx context.Context) {
 
 	// 2. Tab Coordinator
 	a.tabCoord = coordinator.NewTabCoordinator(ctx, coordinator.TabCoordinatorConfig{
-		TabsUC:     a.tabsUC,
-		Tabs:       a.tabs,
-		MainWindow: a.mainWindow,
-		Config:     a.deps.Config,
+		TabsUC:                  a.tabsUC,
+		Tabs:                    a.tabs,
+		MainWindow:              a.mainWindow,
+		HideTabBarWhenSingleTab: a.deps.Config.Workspace.HideTabBarWhenSingleTab,
 	})
 	a.tabCoord.SetOnTabCreated(func(ctx context.Context, tab *entity.Tab) {
 		a.createWorkspaceView(ctx, tab)
@@ -1589,13 +1596,16 @@ func (a *App) initCoordinators(ctx context.Context) {
 
 	// 3. Workspace Coordinator
 	a.wsCoord = coordinator.NewWorkspaceCoordinator(ctx, coordinator.WorkspaceCoordinatorConfig{
-		PanesUC:        a.panesUC,
-		FocusMgr:       a.focusMgr,
-		StackedPaneMgr: a.stackedPaneMgr,
-		WidgetFactory:  a.widgetFactory,
-		ContentCoord:   a.contentCoord,
-		GetActiveWS:    getActiveWS,
-		GenerateID:     a.generateID,
+		PanesUC:              a.panesUC,
+		FocusMgr:             a.focusMgr,
+		StackedPaneMgr:       a.stackedPaneMgr,
+		WidgetFactory:        a.widgetFactory,
+		ContentCoord:         a.contentCoord,
+		GetActiveWS:          getActiveWS,
+		GenerateID:           a.generateID,
+		NewPaneURL:           a.deps.Config.Workspace.NewPaneURL,
+		ResizeStepPercent:    a.deps.Config.Workspace.ResizeMode.StepPercent,
+		ResizeMinPanePercent: a.deps.Config.Workspace.ResizeMode.MinPanePercent,
 	})
 	a.wsCoord.SetOnCloseLastPane(func(ctx context.Context) error {
 		return a.tabCoord.Close(ctx)
@@ -1699,6 +1709,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.navCoord,
 		a.deps.ZoomUC,
 		a.deps.CopyURLUC,
+		a.deps.Config.Workspace.NewPaneURL,
 	)
 	a.wireKeyboardActions()
 
@@ -3067,11 +3078,11 @@ func (a *App) initConfigWatcher(ctx context.Context) {
 			a.applyAppearanceConfig(ctx)
 			// Reload keyboard shortcuts
 			if a.keyboardHandler != nil {
-				a.keyboardHandler.ReloadShortcuts(ctx, a.deps.Config)
+				a.keyboardHandler.ReloadShortcuts(ctx, &a.deps.Config.Workspace, &a.deps.Config.Session)
 			}
 			// Reload global shortcuts (removes stale, re-registers from config)
 			if a.globalShortcutHandler != nil {
-				a.globalShortcutHandler.ReloadShortcuts(ctx, a.deps.Config)
+				a.globalShortcutHandler.ReloadShortcuts(ctx, &a.deps.Config.Workspace, &a.deps.Config.Session)
 			}
 			return false
 		})
@@ -3103,7 +3114,7 @@ func (a *App) applyAppearanceConfig(ctx context.Context) {
 		if a.mainWindow != nil && a.mainWindow.Window() != nil {
 			display = a.mainWindow.Window().GetDisplay()
 		}
-		a.deps.Theme.UpdateFromConfig(ctx, cfg, display)
+		a.deps.Theme.UpdateFromConfig(ctx, &cfg.Appearance, cfg.DefaultUIScale, &cfg.Workspace.Styling, display)
 
 		var inj port.ContentInjector
 		if a.engine != nil {

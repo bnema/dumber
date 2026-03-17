@@ -8,7 +8,7 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/config"
+
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/component"
@@ -79,7 +79,7 @@ type Coordinator struct {
 
 	// Popup handling
 	factory       port.WebViewFactory
-	popupConfig   *config.PopupBehaviorConfig
+	popupConfig   *entity.PopupBehaviorConfig
 	pendingPopups map[port.WebViewID]*PendingPopup
 	popupOAuth    map[port.WebViewID]*popupOAuthState
 	popupRefresh  map[entity.PaneID]*time.Timer
@@ -106,6 +106,10 @@ type Coordinator struct {
 	// Callback for first load_started event (triggers deferred initialization)
 	onFirstLoadStarted func()
 	loadStartedOnce    sync.Once
+
+	// Callback to open a URL with the system's default handler (e.g. xdg-open).
+	// Used for external URL schemes like vscode://, spotify://, etc.
+	onLaunchExternalURL func(uri string)
 }
 
 type pendingThemeUpdate struct {
@@ -226,6 +230,12 @@ func (c *Coordinator) SetOnWebViewFocused(fn func(paneID entity.PaneID, wv port.
 // has been processed by the GTK main loop.
 func (c *Coordinator) SetOnFirstLoadStarted(fn func()) {
 	c.onFirstLoadStarted = fn
+}
+
+// SetOnLaunchExternalURL sets the callback invoked when an external URL scheme
+// (e.g. vscode://, spotify://) is detected and must be handed off to the system.
+func (c *Coordinator) SetOnLaunchExternalURL(fn func(uri string)) {
+	c.onLaunchExternalURL = fn
 }
 
 // ActivePaneID returns the currently active pane ID used by navigation.

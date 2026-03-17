@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 )
@@ -218,8 +218,9 @@ type ShortcutSet struct {
 	ResizeMode ShortcutTable
 }
 
-// NewShortcutSet creates a ShortcutSet from the configuration.
-func NewShortcutSet(ctx context.Context, cfg *config.Config) *ShortcutSet {
+// NewShortcutSet creates a ShortcutSet from workspace and session configuration.
+// workspace must not be nil. session may be nil (session mode shortcuts will be empty).
+func NewShortcutSet(ctx context.Context, workspace *entity.WorkspaceConfig, session *entity.SessionConfig) *ShortcutSet {
 	log := logging.FromContext(ctx)
 	set := &ShortcutSet{
 		Global:      make(ShortcutTable),
@@ -229,11 +230,15 @@ func NewShortcutSet(ctx context.Context, cfg *config.Config) *ShortcutSet {
 		ResizeMode:  make(ShortcutTable),
 	}
 
-	set.buildGlobalShortcuts(ctx, cfg)
-	set.buildTabModeShortcuts(ctx, &cfg.Workspace)
-	set.buildPaneModeShortcuts(ctx, &cfg.Workspace)
-	set.buildResizeModeShortcuts(ctx, &cfg.Workspace)
-	set.buildSessionModeShortcuts(ctx, &cfg.Session)
+	set.buildGlobalShortcutsFromParts(ctx, workspace, session)
+	if workspace != nil {
+		set.buildTabModeShortcuts(ctx, workspace)
+		set.buildPaneModeShortcuts(ctx, workspace)
+		set.buildResizeModeShortcuts(ctx, workspace)
+	}
+	if session != nil {
+		set.buildSessionModeShortcuts(ctx, session)
+	}
 
 	log.Debug().
 		Int("global", len(set.Global)).
@@ -246,81 +251,89 @@ func NewShortcutSet(ctx context.Context, cfg *config.Config) *ShortcutSet {
 	return set
 }
 
-// buildGlobalShortcuts populates global shortcuts from config.
-func (s *ShortcutSet) buildGlobalShortcuts(ctx context.Context, cfg *config.Config) {
-	s.registerActivationShortcuts(ctx, cfg)
-	s.registerConfiguredShortcuts(&cfg.Workspace)
+// buildGlobalShortcutsFromParts populates global shortcuts from workspace and session configs.
+func (s *ShortcutSet) buildGlobalShortcutsFromParts(ctx context.Context, workspace *entity.WorkspaceConfig, session *entity.SessionConfig) {
+	s.registerActivationShortcutsFromParts(ctx, workspace, session)
+	s.registerConfiguredShortcuts(workspace)
 	s.registerStandardShortcuts()
 	s.registerPaneNavigationShortcuts()
 	s.registerTabSwitchShortcuts()
-	s.registerFloatingProfileShortcuts(ctx, cfg)
+	s.registerFloatingProfileShortcutsFromWorkspace(ctx, workspace)
 }
 
 // buildTabModeShortcuts populates tab mode shortcuts from config.
-func (s *ShortcutSet) buildTabModeShortcuts(ctx context.Context, cfg *config.WorkspaceConfig) {
+func (s *ShortcutSet) buildTabModeShortcuts(ctx context.Context, cfg *entity.WorkspaceConfig) {
 	s.buildModeShortcuts(ctx, cfg.TabMode.GetKeyBindings(), s.TabMode, "tab")
 }
 
 // buildPaneModeShortcuts populates pane mode shortcuts from config.
-func (s *ShortcutSet) buildPaneModeShortcuts(ctx context.Context, cfg *config.WorkspaceConfig) {
+func (s *ShortcutSet) buildPaneModeShortcuts(ctx context.Context, cfg *entity.WorkspaceConfig) {
 	s.buildModeShortcuts(ctx, cfg.PaneMode.GetKeyBindings(), s.PaneMode, "pane")
 }
 
 // buildSessionModeShortcuts populates session mode shortcuts from config.
-func (s *ShortcutSet) buildSessionModeShortcuts(ctx context.Context, cfg *config.SessionConfig) {
+func (s *ShortcutSet) buildSessionModeShortcuts(ctx context.Context, cfg *entity.SessionConfig) {
 	s.buildModeShortcuts(ctx, cfg.SessionMode.GetKeyBindings(), s.SessionMode, "session")
 }
 
 // buildResizeModeShortcuts populates resize mode shortcuts from config.
-func (s *ShortcutSet) buildResizeModeShortcuts(ctx context.Context, cfg *config.WorkspaceConfig) {
+func (s *ShortcutSet) buildResizeModeShortcuts(ctx context.Context, cfg *entity.WorkspaceConfig) {
 	s.buildModeShortcuts(ctx, cfg.ResizeMode.GetKeyBindings(), s.ResizeMode, "resize")
 }
 
-func (s *ShortcutSet) registerActivationShortcuts(ctx context.Context, cfg *config.Config) {
+func (s *ShortcutSet) registerActivationShortcutsFromParts(ctx context.Context, workspace *entity.WorkspaceConfig, session *entity.SessionConfig) {
 	log := logging.FromContext(ctx)
-	if binding, ok := ParseKeyString(cfg.Workspace.TabMode.ActivationShortcut); ok {
+	if workspace == nil {
+		return
+	}
+	if binding, ok := ParseKeyString(workspace.TabMode.ActivationShortcut); ok {
 		s.Global[binding] = ActionEnterTabMode
 		log.Trace().
-			Str("shortcut", cfg.Workspace.TabMode.ActivationShortcut).
+			Str("shortcut", workspace.TabMode.ActivationShortcut).
 			Uint("keyval", binding.Keyval).
 			Uint("mod", uint(binding.Modifiers)).
 			Msg("tab mode activation registered")
 	} else {
-		log.Warn().Str("shortcut", cfg.Workspace.TabMode.ActivationShortcut).Msg("failed to parse tab mode activation shortcut")
+		log.Warn().Str("shortcut", workspace.TabMode.ActivationShortcut).Msg("failed to parse tab mode activation shortcut")
 	}
-	if binding, ok := ParseKeyString(cfg.Workspace.PaneMode.ActivationShortcut); ok {
+	if binding, ok := ParseKeyString(workspace.PaneMode.ActivationShortcut); ok {
 		s.Global[binding] = ActionEnterPaneMode
 		log.Trace().
-			Str("shortcut", cfg.Workspace.PaneMode.ActivationShortcut).
+			Str("shortcut", workspace.PaneMode.ActivationShortcut).
 			Uint("keyval", binding.Keyval).
 			Uint("mod", uint(binding.Modifiers)).
 			Msg("pane mode activation registered")
 	} else {
-		log.Warn().Str("shortcut", cfg.Workspace.PaneMode.ActivationShortcut).Msg("failed to parse pane mode activation shortcut")
+		log.Warn().Str("shortcut", workspace.PaneMode.ActivationShortcut).Msg("failed to parse pane mode activation shortcut")
 	}
-	if binding, ok := ParseKeyString(cfg.Session.SessionMode.ActivationShortcut); ok {
-		s.Global[binding] = ActionEnterSessionMode
-		log.Trace().
-			Str("shortcut", cfg.Session.SessionMode.ActivationShortcut).
-			Uint("keyval", binding.Keyval).
-			Uint("mod", uint(binding.Modifiers)).
-			Msg("session mode activation registered")
-	} else {
-		log.Warn().Str("shortcut", cfg.Session.SessionMode.ActivationShortcut).Msg("failed to parse session mode activation shortcut")
+	if session != nil {
+		if binding, ok := ParseKeyString(session.SessionMode.ActivationShortcut); ok {
+			s.Global[binding] = ActionEnterSessionMode
+			log.Trace().
+				Str("shortcut", session.SessionMode.ActivationShortcut).
+				Uint("keyval", binding.Keyval).
+				Uint("mod", uint(binding.Modifiers)).
+				Msg("session mode activation registered")
+		} else {
+			log.Warn().Str("shortcut", session.SessionMode.ActivationShortcut).Msg("failed to parse session mode activation shortcut")
+		}
 	}
-	if binding, ok := ParseKeyString(cfg.Workspace.ResizeMode.ActivationShortcut); ok {
+	if binding, ok := ParseKeyString(workspace.ResizeMode.ActivationShortcut); ok {
 		s.Global[binding] = ActionEnterResizeMode
 		log.Trace().
-			Str("shortcut", cfg.Workspace.ResizeMode.ActivationShortcut).
+			Str("shortcut", workspace.ResizeMode.ActivationShortcut).
 			Uint("keyval", binding.Keyval).
 			Uint("mod", uint(binding.Modifiers)).
 			Msg("resize mode activation registered")
 	} else {
-		log.Warn().Str("shortcut", cfg.Workspace.ResizeMode.ActivationShortcut).Msg("failed to parse resize mode activation shortcut")
+		log.Warn().Str("shortcut", workspace.ResizeMode.ActivationShortcut).Msg("failed to parse resize mode activation shortcut")
 	}
 }
 
-func (s *ShortcutSet) registerConfiguredShortcuts(cfg *config.WorkspaceConfig) {
+func (s *ShortcutSet) registerConfiguredShortcuts(cfg *entity.WorkspaceConfig) {
+	if cfg == nil {
+		return
+	}
 	// Note: Ctrl+T is NOT registered globally - it enters tab mode.
 	// In tab mode, use:
 	//   n = new tab
@@ -357,13 +370,13 @@ func (s *ShortcutSet) registerConfiguredShortcuts(cfg *config.WorkspaceConfig) {
 	}
 }
 
-func (s *ShortcutSet) registerFloatingProfileShortcuts(ctx context.Context, cfg *config.Config) {
+func (s *ShortcutSet) registerFloatingProfileShortcutsFromWorkspace(ctx context.Context, workspace *entity.WorkspaceConfig) {
 	occupied := make(map[KeyBinding]Action, len(s.Global))
 	for binding, action := range s.Global {
 		occupied[binding] = action
 	}
 
-	for _, shortcut := range collectFloatingProfileShortcuts(ctx, cfg, occupied) {
+	for _, shortcut := range collectFloatingProfileShortcutsFromWorkspace(ctx, workspace, occupied) {
 		s.Global[shortcut.Binding] = shortcut.Action
 	}
 }
@@ -373,26 +386,27 @@ type floatingProfileShortcut struct {
 	Action  Action
 }
 
-func collectFloatingProfileShortcuts(
+// collectFloatingProfileShortcutsFromWorkspace collects floating profile shortcuts from a workspace config.
+func collectFloatingProfileShortcutsFromWorkspace(
 	ctx context.Context,
-	cfg *config.Config,
+	workspace *entity.WorkspaceConfig,
 	occupied map[KeyBinding]Action,
 ) []floatingProfileShortcut {
-	if cfg == nil {
+	if workspace == nil {
 		return nil
 	}
 
 	log := logging.FromContext(ctx)
 	reserveGlobalOnlyShortcutBindings(occupied)
 	result := make([]floatingProfileShortcut, 0)
-	profileNames := make([]string, 0, len(cfg.Workspace.FloatingPane.Profiles))
-	for profileName := range cfg.Workspace.FloatingPane.Profiles {
+	profileNames := make([]string, 0, len(workspace.FloatingPane.Profiles))
+	for profileName := range workspace.FloatingPane.Profiles {
 		profileNames = append(profileNames, profileName)
 	}
 	sort.Strings(profileNames)
 
 	for _, profileName := range profileNames {
-		profile := cfg.Workspace.FloatingPane.Profiles[profileName]
+		profile := workspace.FloatingPane.Profiles[profileName]
 		url := strings.TrimSpace(profile.URL)
 		if url == "" {
 			log.Warn().Str("profile", profileName).Msg("floating profile missing URL, skipping")

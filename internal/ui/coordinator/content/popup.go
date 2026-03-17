@@ -7,7 +7,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -93,7 +92,7 @@ type InsertPopupInput struct {
 	WebView port.WebView
 
 	// Behavior determines how the popup is inserted (split/stacked/tabbed).
-	Behavior config.PopupBehavior
+	Behavior entity.PopupBehavior
 
 	// Placement specifies direction for split behavior (right/left/top/bottom).
 	Placement string
@@ -106,9 +105,9 @@ type InsertPopupInput struct {
 }
 
 // GetBehavior returns the appropriate behavior based on popup type and config.
-func GetBehavior(popupType PopupType, cfg *config.PopupBehaviorConfig) config.PopupBehavior {
+func GetBehavior(popupType PopupType, cfg *entity.PopupBehaviorConfig) entity.PopupBehavior {
 	if cfg == nil {
-		return config.PopupBehaviorSplit // Default
+		return entity.PopupBehaviorSplit // Default
 	}
 
 	switch popupType {
@@ -116,13 +115,13 @@ func GetBehavior(popupType PopupType, cfg *config.PopupBehaviorConfig) config.Po
 		// Tab-like popups (_blank) use blank_target_behavior
 		switch cfg.BlankTargetBehavior {
 		case "split":
-			return config.PopupBehaviorSplit
+			return entity.PopupBehaviorSplit
 		case "stacked":
-			return config.PopupBehaviorStacked
+			return entity.PopupBehaviorStacked
 		case "tabbed":
-			return config.PopupBehaviorTabbed
+			return entity.PopupBehaviorTabbed
 		default:
-			return config.PopupBehaviorStacked // Default for _blank
+			return entity.PopupBehaviorStacked // Default for _blank
 		}
 	case PopupTypePopup:
 		// JS popups use the main behavior setting
@@ -135,7 +134,7 @@ func GetBehavior(popupType PopupType, cfg *config.PopupBehaviorConfig) config.Po
 // SetPopupConfig configures popup handling.
 func (c *Coordinator) SetPopupConfig(
 	factory port.WebViewFactory,
-	popupConfig *config.PopupBehaviorConfig,
+	popupConfig *entity.PopupBehaviorConfig,
 	generateID func() string,
 ) {
 	c.factory = factory
@@ -476,9 +475,9 @@ func (c *Coordinator) handleLinkMiddleClick(ctx context.Context, parentPaneID en
 	c.setupWebViewCallbacks(ctx, paneID, newWV)
 
 	// Get behavior from config (same as _blank links)
-	behavior := config.PopupBehaviorStacked // default
+	behavior := entity.PopupBehaviorStacked // default
 	if c.popupConfig != nil && c.popupConfig.BlankTargetBehavior != "" {
-		behavior = config.PopupBehavior(c.popupConfig.BlankTargetBehavior)
+		behavior = entity.PopupBehavior(c.popupConfig.BlankTargetBehavior)
 	}
 	placement := "right"
 	if c.popupConfig != nil {

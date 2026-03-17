@@ -9,6 +9,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/theme"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 )
@@ -55,10 +56,11 @@ type Dependencies struct {
 	CopyURLUC    *usecase.CopyURLUseCase
 
 	// Infrastructure Adapters
-	Clipboard      port.Clipboard
-	FaviconService port.FaviconService
-	FilterManager  port.FilterManager
-	IdleInhibitor  port.IdleInhibitor
+	Clipboard            port.Clipboard
+	FaviconService       port.FaviconService
+	FaviconAdapterConfig adapter.FaviconAdapterConfig
+	FilterManager        port.FilterManager
+	IdleInhibitor        port.IdleInhibitor
 
 	// Accent picker for dead keys support
 	InsertAccentUC      *usecase.InsertAccentUseCase
@@ -88,6 +90,14 @@ type Dependencies struct {
 	// Update management
 	CheckUpdateUC *usecase.CheckUpdateUseCase
 	ApplyUpdateUC *usecase.ApplyUpdateUseCase
+
+	// Config migration checker (optional; nil disables migration notifications)
+	ConfigMigrator port.ConfigMigrator
+
+	// LaunchExternalURL opens a URI with the system's default handler (e.g. xdg-open).
+	// Used for external URL schemes (vscode://, spotify://, etc.).
+	// Optional: if nil, external URLs are silently dropped.
+	LaunchExternalURL func(uri string)
 }
 
 // Validate checks that all required dependencies are set.

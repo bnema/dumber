@@ -8,7 +8,6 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	urlutil "github.com/bnema/dumber/internal/domain/url"
-	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 )
@@ -324,8 +323,10 @@ func (c *Coordinator) handleURIChanged(ctx context.Context, paneID entity.PaneID
 	if isExternal {
 		log.Info().Str("pane_id", string(paneID)).Str("uri", uri).Msg("external scheme detected, launching externally")
 
-		// Launch externally
-		desktop.LaunchExternalURL(uri)
+		// Launch externally via injected callback
+		if c.onLaunchExternalURL != nil {
+			c.onLaunchExternalURL(uri)
+		}
 
 		// Stop loading to prevent WebKit from showing an error page
 		// The page stays on the previous URL before the JS redirect

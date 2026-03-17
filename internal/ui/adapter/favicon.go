@@ -7,7 +7,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	domainurl "github.com/bnema/dumber/internal/domain/url"
-	"github.com/bnema/dumber/internal/infrastructure/favicon"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/glib"
@@ -23,18 +22,41 @@ type FaviconAdapter struct {
 	mu           sync.RWMutex
 	warnMu       sync.Mutex
 	warnCounts   map[string]int
+
+	// App-logo / internal-URL helpers (injected to decouple from infrastructure/favicon)
+	isInternalURL      func(url string) bool
+	internalDomain     string
+	normalizedIconSize int
+	getLogoBytes       func() []byte
 }
 
 type warningLogFunc func(log *zerolog.Logger, err error)
 
+// FaviconAdapterConfig holds optional configuration for FaviconAdapter.
+// Zero values disable the corresponding features (internal-URL logo, sized-PNG creation).
+type FaviconAdapterConfig struct {
+	// IsInternalURL reports whether a URL uses the internal app scheme (e.g. dumb://).
+	IsInternalURL func(url string) bool
+	// InternalDomain is the pseudo-domain used to cache the app logo favicon.
+	InternalDomain string
+	// NormalizedIconSize is the target size for dmenu/fuzzel icons (0 = skip).
+	NormalizedIconSize int
+	// GetLogoBytes returns the raw bytes of the app logo (nil = skip logo favicon).
+	GetLogoBytes func() []byte
+}
+
 // NewFaviconAdapter creates a new FaviconAdapter.
 // The faviconDB can be nil if a favicon database is not available.
-func NewFaviconAdapter(service port.FaviconService, faviconDB port.FaviconDatabase) *FaviconAdapter {
+func NewFaviconAdapter(service port.FaviconService, faviconDB port.FaviconDatabase, cfg FaviconAdapterConfig) *FaviconAdapter {
 	return &FaviconAdapter{
-		service:      service,
-		faviconDB:    faviconDB,
-		textureCache: make(map[string]*gdk.Texture),
-		warnCounts:   make(map[string]int),
+		service:            service,
+		faviconDB:          faviconDB,
+		textureCache:       make(map[string]*gdk.Texture),
+		warnCounts:         make(map[string]int),
+		isInternalURL:      cfg.IsInternalURL,
+		internalDomain:     cfg.InternalDomain,
+		normalizedIconSize: cfg.NormalizedIconSize,
+		getLogoBytes:       cfg.GetLogoBytes,
 	}
 }
 
@@ -54,8 +76,8 @@ func (a *FaviconAdapter) GetTexture(domain string) *gdk.Texture {
 // For internal dumb:// URLs, returns the app logo texture.
 func (a *FaviconAdapter) GetTextureByURL(pageURL string) *gdk.Texture {
 	// Handle internal dumb:// scheme URLs
-	if favicon.IsInternalURL(pageURL) {
-		return a.GetTexture(favicon.InternalDomain)
+	if a.isInternalURL != nil && a.isInternalURL(pageURL) {
+		return a.GetTexture(a.internalDomain)
 	}
 	domain := domainurl.ExtractDomain(pageURL)
 	return a.GetTexture(domain)
@@ -72,7 +94,7 @@ func (a *FaviconAdapter) GetOrFetch(ctx context.Context, pageURL string, callbac
 	log := logging.FromContext(ctx)
 
 	// Handle internal dumb:// scheme URLs - use app logo
-	if favicon.IsInternalURL(pageURL) {
+	if a.isInternalURL != nil && a.isInternalURL(pageURL) {
 		texture := a.getOrCreateLogoTexture()
 		callback(texture)
 		return
@@ -226,7 +248,7 @@ func (a *FaviconAdapter) saveFaviconToDisk(ctx context.Context, domain string, t
 
 				// Create normalized sized copy for dmenu/fuzzel (async)
 				go func() {
-					if err := a.service.EnsureSizedPNG(ctx, domain, favicon.NormalizedIconSize); err != nil {
+					if err := a.service.EnsureSizedPNG(ctx, domain, a.normalizedIconSize); err != nil {
 						a.logWarningDedup(ctx, sizedPNGWarnKey, err, func(log *zerolog.Logger, warnErr error) {
 							log.Warn().Err(warnErr).Str("domain", domain).Msg("failed to create sized PNG")
 						})
@@ -316,7 +338,7 @@ func (a *FaviconAdapter) ensureSizedPNG(ctx context.Context, domain string) {
 	log := logging.FromContext(ctx)
 
 	hasPNG := a.service.HasPNGOnDisk(domain)
-	hasSized := a.service.HasPNGSizedOnDisk(domain, favicon.NormalizedIconSize)
+	hasSized := a.service.HasPNGSizedOnDisk(domain, a.normalizedIconSize)
 
 	log.Debug().
 		Str("domain", domain).
@@ -327,7 +349,7 @@ func (a *FaviconAdapter) ensureSizedPNG(ctx context.Context, domain string) {
 	// Only create if original PNG exists but sized version doesn't
 	if hasPNG && !hasSized {
 		log.Debug().Str("domain", domain).Msg("creating sized PNG")
-		if err := a.service.EnsureSizedPNG(ctx, domain, favicon.NormalizedIconSize); err != nil {
+		if err := a.service.EnsureSizedPNG(ctx, domain, a.normalizedIconSize); err != nil {
 			a.logWarningDedup(ctx, "sized-png:"+domain, err, func(log *zerolog.Logger, warnErr error) {
 				log.Warn().Err(warnErr).Str("domain", domain).Msg("failed to create sized PNG")
 			})
@@ -377,18 +399,22 @@ func (a *FaviconAdapter) logWarningDedup(
 }
 
 // getOrCreateLogoTexture returns the app logo texture, creating it if needed.
-// The texture is cached under the InternalDomain key.
+// The texture is cached under the internalDomain key.
 func (a *FaviconAdapter) getOrCreateLogoTexture() *gdk.Texture {
+	if a.internalDomain == "" || a.getLogoBytes == nil {
+		return nil
+	}
+
 	// Check cache first
-	if texture := a.GetTexture(favicon.InternalDomain); texture != nil {
+	if texture := a.GetTexture(a.internalDomain); texture != nil {
 		return texture
 	}
 
 	// Create texture from logo bytes
-	logoBytes := favicon.GetLogoBytes()
+	logoBytes := a.getLogoBytes()
 	texture := bytesToTexture(logoBytes)
 	if texture != nil {
-		a.setTexture(favicon.InternalDomain, texture)
+		a.setTexture(a.internalDomain, texture)
 	}
 	return texture
 }

@@ -31,6 +31,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/xdg"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui"
+	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/theme"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
@@ -543,11 +544,17 @@ func buildUIDependencies(
 		CopyURLUC:           uc.copyURL,
 		Clipboard:           uc.clipboard,
 		FaviconService:      uc.favicon,
-		IdleInhibitor:       idleInhibitor,
-		SessionRepo:         repos.session,
-		SessionStateRepo:    repos.sessionState,
-		CurrentSessionID:    currentSessionID,
-		SnapshotUC:          uc.snapshot,
+		FaviconAdapterConfig: adapter.FaviconAdapterConfig{
+			IsInternalURL:      favicon.IsInternalURL,
+			InternalDomain:     favicon.InternalDomain,
+			NormalizedIconSize: favicon.NormalizedIconSize,
+			GetLogoBytes:       favicon.GetLogoBytes,
+		},
+		IdleInhibitor:    idleInhibitor,
+		SessionRepo:      repos.session,
+		SessionStateRepo: repos.sessionState,
+		CurrentSessionID: currentSessionID,
+		SnapshotUC:       uc.snapshot,
 		SnapshotServiceFactory: func(provider port.TabListProvider, intervalMs int) port.SnapshotService {
 			return snapshot.NewService(uc.snapshot, provider, intervalMs)
 		},
@@ -570,6 +577,8 @@ func buildUIDependencies(
 		WatchConfig: func() error {
 			return config.GetManager().Watch()
 		},
+		LaunchExternalURL: desktop.LaunchExternalURL,
+		ConfigMigrator:    config.NewMigrator(),
 	}
 
 	return uiDeps

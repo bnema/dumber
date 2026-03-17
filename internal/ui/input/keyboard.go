@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/jwijenbergh/puregotk/v4/gdk"
 	"github.com/jwijenbergh/puregotk/v4/glib"
@@ -55,7 +55,8 @@ type AccentHandler interface {
 type KeyboardHandler struct {
 	shortcuts *ShortcutSet
 	modal     *ModalState
-	cfg       *config.Config
+	workspace *entity.WorkspaceConfig
+	session   *entity.SessionConfig
 
 	// Action handler callback
 	onAction ActionHandler
@@ -80,15 +81,16 @@ type KeyboardHandler struct {
 }
 
 // NewKeyboardHandler creates a new keyboard handler.
-func NewKeyboardHandler(ctx context.Context, cfg *config.Config) *KeyboardHandler {
+func NewKeyboardHandler(ctx context.Context, workspace *entity.WorkspaceConfig, session *entity.SessionConfig) *KeyboardHandler {
 	log := logging.FromContext(ctx)
 
 	log.Debug().Msg("creating keyboard handler")
 
 	h := &KeyboardHandler{
-		shortcuts: NewShortcutSet(ctx, cfg),
+		shortcuts: NewShortcutSet(ctx, workspace, session),
 		modal:     NewModalState(ctx),
-		cfg:       cfg,
+		workspace: workspace,
+		session:   session,
 		ctx:       ctx,
 	}
 
@@ -102,17 +104,18 @@ func (h *KeyboardHandler) SetOnAction(fn ActionHandler) {
 	h.onAction = fn
 }
 
-// ReloadShortcuts rebuilds the shortcut set from the new config.
+// ReloadShortcuts rebuilds the shortcut set from new config values.
 // This enables hot-reloading of keybindings without restarting.
-func (h *KeyboardHandler) ReloadShortcuts(ctx context.Context, cfg *config.Config) {
+func (h *KeyboardHandler) ReloadShortcuts(ctx context.Context, workspace *entity.WorkspaceConfig, session *entity.SessionConfig) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("reloading shortcuts from config")
 
-	h.shortcuts = NewShortcutSet(ctx, cfg)
-	h.cfg = cfg
+	h.shortcuts = NewShortcutSet(ctx, workspace, session)
+	h.workspace = workspace
+	h.session = session
 }
 
 // SetOnModeChange sets the callback for mode changes (for UI updates).
@@ -433,29 +436,42 @@ func isResizeAction(action Action) bool {
 
 func (h *KeyboardHandler) handleModeAction(action Action) bool {
 	h.mu.RLock()
-	cfg := h.cfg
+	workspace := h.workspace
+	session := h.session
 	h.mu.RUnlock()
 
 	switch action {
 	case ActionEnterTabMode:
-		timeout := time.Duration(cfg.Workspace.TabMode.TimeoutMilliseconds) * time.Millisecond
-		h.modal.EnterTabMode(h.ctx, timeout)
+		var ms int
+		if workspace != nil {
+			ms = workspace.TabMode.TimeoutMilliseconds
+		}
+		h.modal.EnterTabMode(h.ctx, time.Duration(ms)*time.Millisecond)
 		return true
 	case ActionEnterPaneMode:
-		timeout := time.Duration(cfg.Workspace.PaneMode.TimeoutMilliseconds) * time.Millisecond
-		h.modal.EnterPaneMode(h.ctx, timeout)
+		var ms int
+		if workspace != nil {
+			ms = workspace.PaneMode.TimeoutMilliseconds
+		}
+		h.modal.EnterPaneMode(h.ctx, time.Duration(ms)*time.Millisecond)
 		return true
 	case ActionEnterSessionMode:
-		timeout := time.Duration(cfg.Session.SessionMode.TimeoutMilliseconds) * time.Millisecond
-		h.modal.EnterSessionMode(h.ctx, timeout)
+		var ms int
+		if session != nil {
+			ms = session.SessionMode.TimeoutMilliseconds
+		}
+		h.modal.EnterSessionMode(h.ctx, time.Duration(ms)*time.Millisecond)
 		return true
 	case ActionEnterResizeMode:
 		if h.modal.Mode() == ModeResize {
 			h.modal.ExitMode(h.ctx)
 			return true
 		}
-		timeout := time.Duration(cfg.Workspace.ResizeMode.TimeoutMilliseconds) * time.Millisecond
-		h.modal.EnterResizeMode(h.ctx, timeout)
+		var ms int
+		if workspace != nil {
+			ms = workspace.ResizeMode.TimeoutMilliseconds
+		}
+		h.modal.EnterResizeMode(h.ctx, time.Duration(ms)*time.Millisecond)
 		return true
 	case ActionExitMode:
 		h.modal.ExitMode(h.ctx)
@@ -469,30 +485,39 @@ func (h *KeyboardHandler) handleModeAction(action Action) bool {
 // Useful for testing or programmatic mode changes.
 func (h *KeyboardHandler) EnterTabMode() {
 	h.mu.RLock()
-	cfg := h.cfg
+	workspace := h.workspace
 	h.mu.RUnlock()
-	timeout := time.Duration(cfg.Workspace.TabMode.TimeoutMilliseconds) * time.Millisecond
-	h.modal.EnterTabMode(h.ctx, timeout)
+	var ms int
+	if workspace != nil {
+		ms = workspace.TabMode.TimeoutMilliseconds
+	}
+	h.modal.EnterTabMode(h.ctx, time.Duration(ms)*time.Millisecond)
 }
 
 // EnterPaneMode programmatically enters pane mode.
 // Useful for testing or programmatic mode changes.
 func (h *KeyboardHandler) EnterPaneMode() {
 	h.mu.RLock()
-	cfg := h.cfg
+	workspace := h.workspace
 	h.mu.RUnlock()
-	timeout := time.Duration(cfg.Workspace.PaneMode.TimeoutMilliseconds) * time.Millisecond
-	h.modal.EnterPaneMode(h.ctx, timeout)
+	var ms int
+	if workspace != nil {
+		ms = workspace.PaneMode.TimeoutMilliseconds
+	}
+	h.modal.EnterPaneMode(h.ctx, time.Duration(ms)*time.Millisecond)
 }
 
 // EnterSessionMode programmatically enters session mode.
 // Useful for testing or programmatic mode changes.
 func (h *KeyboardHandler) EnterSessionMode() {
 	h.mu.RLock()
-	cfg := h.cfg
+	session := h.session
 	h.mu.RUnlock()
-	timeout := time.Duration(cfg.Session.SessionMode.TimeoutMilliseconds) * time.Millisecond
-	h.modal.EnterSessionMode(h.ctx, timeout)
+	var ms int
+	if session != nil {
+		ms = session.SessionMode.TimeoutMilliseconds
+	}
+	h.modal.EnterSessionMode(h.ctx, time.Duration(ms)*time.Millisecond)
 }
 
 // ExitMode programmatically exits modal mode.

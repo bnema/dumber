@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/domain/entity"
 )
 
 // Palette holds semantic color tokens for theming.
@@ -85,7 +85,7 @@ func DefaultLightPalette() Palette {
 }
 
 // PaletteFromConfig creates a Palette from config values, filling missing values with defaults.
-func PaletteFromConfig(cfg *config.ColorPalette, isDark bool) Palette {
+func PaletteFromConfig(cfg *entity.ColorPalette, isDark bool) Palette {
 	var defaults Palette
 	if isDark {
 		defaults = DefaultDarkPalette()
