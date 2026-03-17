@@ -27,7 +27,7 @@ func NewEngine(
 	colorResolver port.ColorSchemeResolver,
 	logger zerolog.Logger,
 	handlerRegistrar func(ctx context.Context, router *MessageRouter, deps port.HandlerDependencies) error,
-	accentHandlerRegistrar func(ctx context.Context, router *MessageRouter, handler any) error,
+	accentHandlerRegistrar func(ctx context.Context, router *MessageRouter, handler port.AccentKeyHandler) error,
 ) (*Engine, error) {
 	// --- Hardware survey and performance profile resolution ---
 	perfSettings := engineSurveyHardwareAndResolveProfile(ctx, cfg, logger)

@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/rs/zerolog"
@@ -27,7 +26,7 @@ type Engine struct {
 
 	// Handler registrars - injected at construction to avoid import cycles.
 	handlerRegistrar       func(ctx context.Context, router *MessageRouter, deps port.HandlerDependencies) error
-	accentHandlerRegistrar func(ctx context.Context, router *MessageRouter, handler any) error
+	accentHandlerRegistrar func(ctx context.Context, router *MessageRouter, handler port.AccentKeyHandler) error
 }
 
 // Compile-time check that Engine implements port.Engine.
@@ -112,7 +111,7 @@ func (e *Engine) RegisterHandlers(ctx context.Context, deps port.HandlerDependen
 }
 
 // RegisterAccentHandlers registers accent/dead-key input handlers.
-func (e *Engine) RegisterAccentHandlers(ctx context.Context, handler any) error {
+func (e *Engine) RegisterAccentHandlers(ctx context.Context, handler port.AccentKeyHandler) error {
 	if e.messageRouter == nil {
 		return fmt.Errorf("message router not initialized")
 	}
@@ -123,15 +122,11 @@ func (e *Engine) RegisterAccentHandlers(ctx context.Context, handler any) error 
 }
 
 // ConfigureDownloads sets up download handling.
-func (e *Engine) ConfigureDownloads(ctx context.Context, downloadPath string, eventHandler port.DownloadEventHandler, prepareUC any) error {
+func (e *Engine) ConfigureDownloads(ctx context.Context, downloadPath string, eventHandler port.DownloadEventHandler, preparer port.DownloadPreparer) error {
 	if e.wkCtx == nil {
 		return fmt.Errorf("webkit context not initialized")
 	}
-	uc, ok := prepareUC.(*usecase.PrepareDownloadUseCase)
-	if !ok {
-		return fmt.Errorf("prepareUC does not implement PrepareDownloadUseCase")
-	}
-	handler := NewDownloadHandler(downloadPath, eventHandler, uc)
+	handler := NewDownloadHandler(downloadPath, eventHandler, preparer)
 	e.wkCtx.SetDownloadHandler(ctx, handler)
 	return nil
 }
@@ -156,13 +151,13 @@ func (e *Engine) UpdateAppearance(_ context.Context, r, g, b, alpha float64) err
 }
 
 // UpdateSettings applies runtime config changes to engine settings.
-func (e *Engine) UpdateSettings(ctx context.Context, cfg any) error {
-	configCfg, ok := cfg.(*config.Config)
+func (e *Engine) UpdateSettings(ctx context.Context, update port.EngineSettingsUpdate) error {
+	cfg, ok := update.Raw.(*config.Config)
 	if !ok {
-		return fmt.Errorf("expected *config.Config, got %T", cfg)
+		return fmt.Errorf("UpdateSettings: expected *config.Config, got %T", update.Raw)
 	}
 	if e.settings != nil {
-		e.settings.UpdateFromConfig(ctx, configCfg)
+		e.settings.UpdateFromConfig(ctx, cfg)
 	}
 	return nil
 }

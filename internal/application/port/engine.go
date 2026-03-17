@@ -127,10 +127,10 @@ type Engine interface {
 	RegisterHandlers(ctx context.Context, deps HandlerDependencies) error
 
 	// RegisterAccentHandlers registers accent/dead-key input handlers.
-	RegisterAccentHandlers(ctx context.Context, handler any) error
+	RegisterAccentHandlers(ctx context.Context, handler AccentKeyHandler) error
 
 	// ConfigureDownloads sets up download handling for this engine.
-	ConfigureDownloads(ctx context.Context, downloadPath string, eventHandler DownloadEventHandler, prepareUC any) error
+	ConfigureDownloads(ctx context.Context, downloadPath string, eventHandler DownloadEventHandler, preparer DownloadPreparer) error
 
 	// OnToolkitReady is called after the UI toolkit has initialized.
 	OnToolkitReady(ctx context.Context) error
@@ -139,15 +139,25 @@ type Engine interface {
 	UpdateAppearance(ctx context.Context, r, g, b, alpha float64) error
 
 	// UpdateSettings applies runtime config changes to engine internals.
-	UpdateSettings(ctx context.Context, cfg any) error
+	UpdateSettings(ctx context.Context, update EngineSettingsUpdate) error
+}
+
+// EngineSettingsUpdate carries a runtime config change to the engine.
+// Raw holds the implementation-specific config object; the engine type-asserts
+// to its concrete type (e.g. *config.Config for the WebKit engine).
+// This is the only intentional use of `any` in the Engine port.
+type EngineSettingsUpdate struct {
+	// Raw holds the implementation-specific config.
+	// WebKit engine expects *config.Config.
+	Raw any
 }
 
 // HandlerDependencies holds use cases needed by WebUI message handlers.
 type HandlerDependencies struct {
-	HistoryUC         any
-	FavoritesUC       any
+	HistoryUC         HomepageHistory
+	FavoritesUC       HomepageFavorites
 	Clipboard         Clipboard
-	ConfigGetter      func() any
+	AutoCopyConfig    AutoCopyConfig
 	OnClipboardCopied func(textLen int)
 }
 

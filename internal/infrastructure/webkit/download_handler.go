@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/application/usecase"
 	downloadutil "github.com/bnema/dumber/internal/domain/download"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
@@ -20,26 +19,26 @@ const (
 
 // DownloadHandler manages WebKit downloads and notifies the UI layer.
 type DownloadHandler struct {
-	downloadPath      string
-	eventHandler      port.DownloadEventHandler
-	prepareDownloadUC *usecase.PrepareDownloadUseCase
-	mu                sync.RWMutex
+	downloadPath string
+	eventHandler port.DownloadEventHandler
+	preparer     port.DownloadPreparer
+	mu           sync.RWMutex
 }
 
 // NewDownloadHandler creates a new download handler.
-// Panics if prepareDownloadUC is nil (fail fast on misconfiguration).
+// Panics if preparer is nil (fail fast on misconfiguration).
 func NewDownloadHandler(
 	downloadPath string,
 	handler port.DownloadEventHandler,
-	prepareDownloadUC *usecase.PrepareDownloadUseCase,
+	preparer port.DownloadPreparer,
 ) *DownloadHandler {
-	if prepareDownloadUC == nil {
-		panic("prepareDownloadUC is required")
+	if preparer == nil {
+		panic("preparer is required")
 	}
 	return &DownloadHandler{
-		downloadPath:      downloadPath,
-		eventHandler:      handler,
-		prepareDownloadUC: prepareDownloadUC,
+		downloadPath: downloadPath,
+		eventHandler: handler,
+		preparer:     preparer,
 	}
 }
 
@@ -57,7 +56,7 @@ func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.D
 	h.mu.RLock()
 	downloadPath := h.downloadPath
 	eventHandler := h.eventHandler
-	prepareDownloadUC := h.prepareDownloadUC
+	preparer := h.preparer
 	h.mu.RUnlock()
 
 	// Track download state in a dedicated struct to ensure proper isolation.
@@ -80,8 +79,8 @@ func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.D
 			response = &uriResponseAdapter{resp: resp}
 		}
 
-		// Use PrepareDownloadUseCase to resolve filename
-		output := prepareDownloadUC.Execute(ctx, usecase.PrepareDownloadInput{
+		// Use DownloadPreparer to resolve filename
+		output := preparer.Execute(ctx, port.DownloadPrepareInput{
 			SuggestedFilename: suggestedFilename,
 			Response:          response,
 			DownloadDir:       downloadPath,

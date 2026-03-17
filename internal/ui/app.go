@@ -181,12 +181,10 @@ func New(deps *Dependencies) (*App, error) {
 	}
 	// Register message handlers through the engine.
 	if err := deps.Engine.RegisterHandlers(ctx, port.HandlerDependencies{
-		HistoryUC:   deps.HistoryUC,
-		FavoritesUC: deps.FavoritesUC,
-		Clipboard:   deps.Clipboard,
-		ConfigGetter: func() any {
-			return config.Get()
-		},
+		HistoryUC:      deps.HistoryUC,
+		FavoritesUC:    deps.FavoritesUC,
+		Clipboard:      deps.Clipboard,
+		AutoCopyConfig: &configAutoCopyAdapter{},
 		OnClipboardCopied: func(textLen int) {
 			cb := glib.SourceFunc(func(_ uintptr) bool {
 				if app.appToaster != nil {
@@ -619,6 +617,17 @@ func (d *downloadEventAdapter) OnDownloadEvent(ctx context.Context, event port.D
 		return false
 	})
 	glib.IdleAdd(&cb, 0)
+}
+
+// configAutoCopyAdapter implements port.AutoCopyConfig by reading the live config.
+type configAutoCopyAdapter struct{}
+
+func (a *configAutoCopyAdapter) IsAutoCopyEnabled() bool {
+	cfg := config.Get()
+	if cfg == nil {
+		return false
+	}
+	return cfg.Clipboard.AutoCopyOnSelection
 }
 
 func (a *App) initKeyboardHandler(ctx context.Context) {
@@ -3063,7 +3072,7 @@ func (a *App) applyAppearanceConfig(ctx context.Context, cfg *config.Config) {
 	}
 
 	if a.engine != nil {
-		_ = a.engine.UpdateSettings(ctx, cfg)
+		_ = a.engine.UpdateSettings(ctx, port.EngineSettingsUpdate{Raw: cfg})
 	}
 
 	// Apply settings to existing webviews via coordinator

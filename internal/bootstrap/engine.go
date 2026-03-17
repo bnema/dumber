@@ -54,34 +54,18 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			input.Ctx, cfg, opts, wkCfg,
 			input.ThemeManager, input.ColorResolver, input.Logger,
 			func(ctx context.Context, router *webkit.MessageRouter, deps port.HandlerDependencies) error {
-				var historyUC port.HomepageHistory
-				if deps.HistoryUC != nil {
-					historyUC, _ = deps.HistoryUC.(port.HomepageHistory)
-				}
-				var favoritesUC port.HomepageFavorites
-				if deps.FavoritesUC != nil {
-					favoritesUC, _ = deps.FavoritesUC.(port.HomepageFavorites)
-				}
-				var autoCopyConfig port.AutoCopyConfig
-				if deps.ConfigGetter != nil {
-					autoCopyConfig, _ = deps.ConfigGetter().(port.AutoCopyConfig)
-				}
 				return handlers.RegisterAll(ctx, router, handlers.Config{
-					HistoryUC:          historyUC,
-					FavoritesUC:        favoritesUC,
+					HistoryUC:          deps.HistoryUC,
+					FavoritesUC:        deps.FavoritesUC,
 					Clipboard:          deps.Clipboard,
-					AutoCopyConfig:     autoCopyConfig,
+					AutoCopyConfig:     deps.AutoCopyConfig,
 					SaveConfig:         saveConfigFunc,
 					KeybindingsHandler: keybindingsHandler,
 					OnClipboardCopied:  deps.OnClipboardCopied,
 				})
 			},
-			func(ctx context.Context, router *webkit.MessageRouter, handler any) error {
-				accentHandler, ok := handler.(port.AccentKeyHandler)
-				if !ok {
-					return fmt.Errorf("handler does not implement port.AccentKeyHandler")
-				}
-				return handlers.RegisterAccentHandlers(ctx, router, accentHandler)
+			func(ctx context.Context, router *webkit.MessageRouter, handler port.AccentKeyHandler) error {
+				return handlers.RegisterAccentHandlers(ctx, router, handler)
 			},
 		)
 	case "cef":
