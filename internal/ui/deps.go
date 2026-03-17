@@ -84,7 +84,9 @@ func (d *Dependencies) Validate() error {
 	if d.Config == nil {
 		return ErrMissingDependency("Config")
 	}
-	// WebKit dependencies are optional for testing without WebViews
+	if d.Engine == nil {
+		return ErrMissingDependency("Engine")
+	}
 	// Use cases are optional - can be nil if not needed
 	return nil
 }

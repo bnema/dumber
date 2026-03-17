@@ -299,7 +299,7 @@ func TestPendingPopups_ConcurrentAccess(t *testing.T) {
 	count := len(c.pendingPopups)
 	c.popupMu.RUnlock()
 
-	assert.LessOrEqual(t, count, workers, "pending popups should not exceed number of writers")
+	assert.Equal(t, workers, count, "each writer uses a unique key, so all inserts should be present")
 }
 
 func TestPendingPopups_ConcurrentDeleteAndRead(t *testing.T) {
@@ -338,4 +338,8 @@ func TestPendingPopups_ConcurrentDeleteAndRead(t *testing.T) {
 	}
 
 	wg.Wait()
+
+	c.popupMu.RLock()
+	defer c.popupMu.RUnlock()
+	assert.Empty(t, c.pendingPopups, "all preloaded popups should have been deleted")
 }

@@ -2,6 +2,7 @@ package content
 
 import (
 	"context"
+	neturl "net/url"
 	"strings"
 	"sync"
 	"time"
@@ -31,21 +32,6 @@ var oauthFlowPatterns = []string{
 	"callback",
 	"redirect",
 	"/cb",
-}
-
-// oauthCallbackPatterns are URL query parameters that indicate an OAuth callback.
-// These appear when the OAuth provider redirects back to the application.
-var oauthCallbackPatterns = []string{
-	// Success parameters
-	"code=",
-	"access_token=",
-	"id_token=",
-	"token_type=",
-	"refresh_token=",
-	// Error parameters
-	"error=",
-	"error_description=",
-	"error_uri=",
 }
 
 // oauthRequestPatterns are query parameters found in OAuth authorization requests.
@@ -97,15 +83,18 @@ func IsOAuthCallback(url string) bool {
 	if url == "" {
 		return false
 	}
-	lower := strings.ToLower(url)
-
-	// Must contain callback patterns (code=, access_token=, error=, etc.)
-	for _, pattern := range oauthCallbackPatterns {
-		if strings.Contains(lower, pattern) {
-			return true
+	u, err := neturl.Parse(url)
+	if err != nil {
+		return false
+	}
+	if hasOAuthCallbackParam(u.Query()) {
+		return true
+	}
+	if u.Fragment != "" {
+		if fragVals, err := neturl.ParseQuery(u.Fragment); err == nil {
+			return hasOAuthCallbackParam(fragVals)
 		}
 	}
-
 	return false
 }
 
@@ -161,8 +150,30 @@ func IsOAuthError(url string) bool {
 	if url == "" {
 		return false
 	}
-	lower := strings.ToLower(url)
-	return strings.Contains(lower, "error=")
+	u, err := neturl.Parse(url)
+	if err != nil {
+		return false
+	}
+	if _, ok := u.Query()["error"]; ok {
+		return true
+	}
+	if u.Fragment != "" {
+		if fragVals, err := neturl.ParseQuery(u.Fragment); err == nil {
+			if _, ok := fragVals["error"]; ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func hasOAuthCallbackParam(v neturl.Values) bool {
+	for _, k := range []string{"code", "access_token", "id_token", "token_type", "refresh_token", "error", "error_description", "error_uri"} {
+		if _, ok := v[k]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func composeOnClose(existing, next func()) func() {

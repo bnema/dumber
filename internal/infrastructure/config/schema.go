@@ -116,13 +116,19 @@ type MediaConfig struct {
 	PreferAV1 bool `mapstructure:"prefer_av1" yaml:"prefer_av1" toml:"prefer_av1"`
 	// ShowDiagnosticsOnStartup shows media capability warnings at startup
 	ShowDiagnosticsOnStartup bool `mapstructure:"show_diagnostics" yaml:"show_diagnostics" toml:"show_diagnostics"`
-	// ForceVSync forces vertical sync for video playback (may help with tearing)
-	ForceVSync bool `mapstructure:"force_vsync" yaml:"force_vsync" toml:"force_vsync"`
-	// GLRenderingMode controls OpenGL API selection for video rendering
+	// ForceVSync forces vertical sync for video playback (may help with tearing).
+	//
+	// Deprecated: moved to [engine.webkit]. Kept for read compatibility during migration.
+	ForceVSync bool `mapstructure:"force_vsync" yaml:"force_vsync" toml:"-"`
+	// GLRenderingMode controls OpenGL API selection for video rendering.
 	// Values: "auto" (default), "gles2", "gl3", "none"
-	GLRenderingMode GLRenderingMode `mapstructure:"gl_rendering_mode" yaml:"gl_rendering_mode" toml:"gl_rendering_mode"`
-	// GStreamerDebugLevel sets GStreamer debug verbosity (0=off, 1-5=increasing verbosity)
-	GStreamerDebugLevel int `mapstructure:"gstreamer_debug_level" yaml:"gstreamer_debug_level" toml:"gstreamer_debug_level"`
+	//
+	// Deprecated: moved to [engine.webkit]. Kept for read compatibility during migration.
+	GLRenderingMode GLRenderingMode `mapstructure:"gl_rendering_mode" yaml:"gl_rendering_mode" toml:"-"`
+	// GStreamerDebugLevel sets GStreamer debug verbosity (0=off, 1-5=increasing verbosity).
+	//
+	// Deprecated: moved to [engine.webkit]. Kept for read compatibility during migration.
+	GStreamerDebugLevel int `mapstructure:"gstreamer_debug_level" yaml:"gstreamer_debug_level" toml:"-"`
 }
 
 // DatabaseConfig holds database-related configuration.

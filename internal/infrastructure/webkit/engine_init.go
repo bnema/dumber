@@ -202,10 +202,7 @@ func engineBuildContextOptions(
 	wkCfg WebKitEngineConfig,
 	perfSettings *config.ResolvedPerformanceSettings,
 ) webKitContextOptions {
-	cp := cookiePolicyNoThirdParty
-	if opts.CookiePolicy != "" {
-		cp = opts.CookiePolicy
-	}
+	cp := opts.CookiePolicy // empty preserves runtime default per port contract
 
 	wkOpts := webKitContextOptions{
 		DataDir:      opts.DataDir,

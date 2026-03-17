@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 
@@ -93,6 +94,27 @@ func MigrateToEngineConfig(configFile string) (bool, error) {
 	}
 
 	if _, exists := raw["engine"]; exists {
+		for _, section := range []string{"rendering", "performance", "privacy", "runtime"} {
+			if _, hasLegacy := raw[section]; hasLegacy {
+				return false, fmt.Errorf(
+					"mixed old/new config: [engine] coexists with legacy [%s]; "+
+						"remove [rendering], [performance], [privacy], [runtime]",
+					section,
+				)
+			}
+		}
+		// Check for deprecated media keys that moved to [engine.webkit].
+		if mediaRaw, ok := raw["media"].(map[string]any); ok {
+			for _, key := range []string{"force_vsync", "gl_rendering_mode", "gstreamer_debug_level"} {
+				if _, has := mediaRaw[key]; has {
+					return false, fmt.Errorf(
+						"mixed old/new config: [engine] coexists with deprecated "+
+							"media.%s; remove it from [media] (now in [engine.webkit])",
+						key,
+					)
+				}
+			}
+		}
 		return false, nil // already migrated
 	}
 

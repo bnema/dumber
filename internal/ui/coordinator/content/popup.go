@@ -49,6 +49,9 @@ func DetectPopupType(frameName string) PopupType {
 // inserted into the workspace. This is used during the three-phase popup
 // lifecycle: create → ready-to-show → (insert into workspace).
 type PendingPopup struct {
+	// PaneID is the popup pane created during the create phase.
+	PaneID entity.PaneID
+
 	// WebView is the related WebView created in the "create" phase.
 	// It shares cookies/session with the parent for OAuth support.
 	WebView port.WebView
@@ -205,7 +208,7 @@ func (c *Coordinator) handlePopupCreate(
 
 	log.Debug().
 		Str("parent_pane", string(parentPaneID)).
-		Str("target_uri", req.TargetURI).
+		Str("target_uri", logging.TruncateURL(req.TargetURI, logURLMaxLen)).
 		Str("frame_name", req.FrameName).
 		Bool("user_gesture", req.IsUserGesture).
 		Msg("popup create request")
@@ -291,6 +294,7 @@ func (c *Coordinator) handlePopupCreate(
 
 	// Store pending popup for ready-to-show handling (just visibility now)
 	pending := &PendingPopup{
+		PaneID:          paneID,
 		WebView:         popupWV,
 		ParentPaneID:    parentPaneID,
 		ParentWebViewID: parentID,
@@ -380,10 +384,14 @@ func (c *Coordinator) handlePopupClose(ctx context.Context, popupID port.WebView
 	c.popupMu.Unlock()
 
 	if wasPending && pending != nil {
+		if c.onClosePane != nil {
+			if err := c.onClosePane(ctx, pending.PaneID); err != nil {
+				log.Warn().Err(err).Str("pane_id", string(pending.PaneID)).Msg("failed to close pending popup pane")
+			}
+		}
 		c.handlePopupOAuthClose(ctx, popupID)
-		// Was never shown, just destroy
-		pending.WebView.Destroy()
-		log.Debug().Msg("destroyed pending popup that was never shown")
+		c.ReleaseWebView(ctx, pending.PaneID)
+		log.Debug().Str("pane_id", string(pending.PaneID)).Msg("cleaned up pending popup that was never shown")
 		return
 	}
 
@@ -426,7 +434,7 @@ func (c *Coordinator) handleLinkMiddleClick(ctx context.Context, parentPaneID en
 
 	log.Info().
 		Str("parent_pane", string(parentPaneID)).
-		Str("uri", uri).
+		Str("uri", logging.TruncateURL(uri, logURLMaxLen)).
 		Msg("middle-click/ctrl+click on link")
 
 	// Check if popups are enabled
@@ -500,13 +508,13 @@ func (c *Coordinator) handleLinkMiddleClick(ctx context.Context, parentPaneID en
 
 	// Load the URI after insertion
 	if err := newWV.LoadURI(ctx, uri); err != nil {
-		log.Error().Err(err).Str("uri", uri).Msg("failed to load URI in new pane")
+		log.Error().Err(err).Str("uri", logging.TruncateURL(uri, logURLMaxLen)).Msg("failed to load URI in new pane")
 	}
 
 	log.Info().
 		Str("pane_id", string(paneID)).
 		Str("behavior", string(behavior)).
-		Str("uri", uri).
+		Str("uri", logging.TruncateURL(uri, logURLMaxLen)).
 		Msg("middle-click link opened in new pane")
 
 	return true

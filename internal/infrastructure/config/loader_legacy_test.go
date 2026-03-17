@@ -17,14 +17,15 @@ func TestCheckLegacyFormat_OldSectionsNoEngine_ReturnsError(t *testing.T) {
 	require.Contains(t, err.Error(), "dumber migrate")
 }
 
-func TestCheckLegacyFormat_OldSectionsWithEngine_ReturnsNoError(t *testing.T) {
+func TestCheckLegacyFormat_OldSectionsWithEngine_ReturnsError(t *testing.T) {
 	m := &Manager{viper: viper.New()}
 	m.viper.Set("rendering.mode", "gpu")
 	m.viper.Set("engine.type", "webkit")
 
 	err := m.checkLegacyFormat()
 
-	require.NoError(t, err)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "dumber migrate")
 }
 
 func TestCheckLegacyFormat_FreshConfig_ReturnsNoError(t *testing.T) {

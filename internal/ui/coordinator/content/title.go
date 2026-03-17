@@ -31,6 +31,9 @@ func (c *Coordinator) onTitleChanged(ctx context.Context, paneID entity.PaneID, 
 
 	// Update domain model and check if this is the active pane
 	isActivePaneTitle := false
+	if c.getActiveWS == nil {
+		return
+	}
 	ws, wsView := c.getActiveWS()
 	if ws != nil {
 		paneNode := ws.FindPane(paneID)
@@ -101,6 +104,9 @@ func (c *Coordinator) updateStackedPaneTitle(
 // syncStackedTitle updates the stacked title bar for a pane if it's in a stack.
 // Called from onLoadCommitted to keep titles in sync during navigation.
 func (c *Coordinator) syncStackedTitle(ctx context.Context, paneID entity.PaneID, title string) {
+	if c.getActiveWS == nil {
+		return
+	}
 	_, wsView := c.getActiveWS()
 	if wsView == nil {
 		return
@@ -172,6 +178,9 @@ func (c *Coordinator) updateStackedPaneFavicon(
 
 // updateStackedFaviconForPane updates the stacked title bar favicon for a pane.
 func (c *Coordinator) updateStackedFaviconForPane(ctx context.Context, paneID entity.PaneID, texture *gdk.Texture) {
+	if c.getActiveWS == nil {
+		return
+	}
 	_, wsView := c.getActiveWS()
 	if wsView == nil {
 		return

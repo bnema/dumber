@@ -476,13 +476,13 @@ func (c *WorkspaceCoordinator) doIncrementalSplit(
 	// 2. Get the active pane's StackedView widget (what we're actually splitting)
 	tr := wsView.TreeRenderer()
 	if tr == nil {
-		return nil
+		return fmt.Errorf("tree renderer not available")
 	}
 
 	activeStackedView := tr.GetStackedViewForPane(string(oldActivePaneID))
 	if activeStackedView == nil {
 		log.Warn().Msg("no stacked view found for active pane")
-		return nil
+		return fmt.Errorf("no stacked view found for active pane")
 	}
 	activePaneWidget := activeStackedView.Widget()
 
@@ -512,7 +512,7 @@ func (c *WorkspaceCoordinator) doIncrementalSplit(
 
 	orientation, existingFirst, ok := splitOrientation(direction)
 	if !ok {
-		return nil
+		return fmt.Errorf("unsupported split direction: %s", direction)
 	}
 
 	// 7. Handle root vs non-root split differently
@@ -2054,6 +2054,7 @@ func (c *WorkspaceCoordinator) attachPopupPaneView(
 	wsView.RegisterPaneView(input.PopupPane.ID, newPaneView)
 
 	if err := c.stackedPaneMgr.AddPaneToStack(ctx, wsView, input.ParentPaneID, newPaneView, input.PopupPane.Title); err != nil {
+		wsView.UnregisterPaneView(input.PopupPane.ID)
 		log.Error().Err(err).Msg("failed to add popup pane to stack")
 		return err
 	}

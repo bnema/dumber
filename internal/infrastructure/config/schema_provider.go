@@ -796,14 +796,6 @@ func (*SchemaProvider) getMediaKeys(defaults *Config) []entity.ConfigKeyInfo {
 			Section:     SectionMedia,
 		},
 		{
-			Key:         "media.gl_rendering_mode",
-			Type:        "string",
-			Default:     string(defaults.Media.GLRenderingMode),
-			Description: "OpenGL API selection for video rendering",
-			Values:      []string{"auto", "gles2", "gl3", "none"},
-			Section:     SectionMedia,
-		},
-		{
 			Key:         "media.prefer_av1",
 			Type:        "bool",
 			Default:     fmt.Sprintf("%t", defaults.Media.PreferAV1),
@@ -815,21 +807,6 @@ func (*SchemaProvider) getMediaKeys(defaults *Config) []entity.ConfigKeyInfo {
 			Type:        "bool",
 			Default:     fmt.Sprintf("%t", defaults.Media.ShowDiagnosticsOnStartup),
 			Description: "Show media capability warnings at startup",
-			Section:     SectionMedia,
-		},
-		{
-			Key:         "media.force_vsync",
-			Type:        "bool",
-			Default:     fmt.Sprintf("%t", defaults.Media.ForceVSync),
-			Description: "Force vertical sync for video playback",
-			Section:     SectionMedia,
-		},
-		{
-			Key:         "media.gstreamer_debug_level",
-			Type:        "int",
-			Default:     fmt.Sprintf("%d", defaults.Media.GStreamerDebugLevel),
-			Description: "GStreamer debug verbosity (0=off, 1-5)",
-			Range:       "0-5",
 			Section:     SectionMedia,
 		},
 	}

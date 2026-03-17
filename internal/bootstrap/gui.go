@@ -332,6 +332,10 @@ func RunParallelDBEngine(input ParallelDBEngineInput) (*ParallelDBEngineResult, 
 		Logger:        *log,
 	})
 	if err != nil {
+		dbRes := <-dbCh
+		if dbRes.err == nil && dbRes.cleanup != nil {
+			dbRes.cleanup()
+		}
 		return nil, fmt.Errorf("engine initialization: %w", err)
 	}
 

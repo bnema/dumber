@@ -158,15 +158,15 @@ func (m *Manager) transformLegacyActionBindings() {
 // checkLegacyFormat detects old config format and returns an error directing user to migrate.
 func (m *Manager) checkLegacyFormat() error {
 	// Check if old sections exist by looking for known keys.
-	// IsSet returns true only for explicitly set values (not SetDefault), so this
-	// correctly identifies keys present in the config file, env vars, or overrides.
+	// IsSet works for legacy keys because they do not have defaults, while
+	// engine.type has a default and must be checked with InConfig.
 	hasOldSections := m.viper.IsSet("rendering.mode") ||
 		m.viper.IsSet("rendering.disable_dmabuf_renderer") ||
 		m.viper.IsSet("performance.profile") ||
 		m.viper.IsSet("privacy.cookie_policy") ||
 		m.viper.IsSet("runtime.prefix")
 
-	hasEngineSection := m.viper.IsSet("engine.type")
+	hasEngineSection := m.viper.InConfig("engine.type")
 
 	if hasOldSections && !hasEngineSection {
 		return fmt.Errorf(
@@ -277,19 +277,6 @@ func normalizeMedia(config *Config) {
 		config.Media.HardwareDecodingMode = HardwareDecodingDisable
 	default:
 		config.Media.HardwareDecodingMode = HardwareDecodingAuto
-	}
-
-	switch strings.ToLower(string(config.Media.GLRenderingMode)) {
-	case "", string(GLRenderingModeAuto):
-		config.Media.GLRenderingMode = GLRenderingModeAuto
-	case string(GLRenderingModeGLES2):
-		config.Media.GLRenderingMode = GLRenderingModeGLES2
-	case string(GLRenderingModeGL3):
-		config.Media.GLRenderingMode = GLRenderingModeGL3
-	case string(GLRenderingModeNone):
-		config.Media.GLRenderingMode = GLRenderingModeNone
-	default:
-		config.Media.GLRenderingMode = GLRenderingModeAuto
 	}
 }
 

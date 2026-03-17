@@ -193,8 +193,10 @@ func mapCookiePolicy(policy cookiePolicy) (webkit.CookieAcceptPolicy, string) {
 		return webkit.CookiePolicyAcceptAlwaysValue, string(cookiePolicyAlways)
 	case cookiePolicyNever:
 		return webkit.CookiePolicyAcceptNeverValue, string(cookiePolicyNever)
-	case cookiePolicyNoThirdParty, "":
+	case cookiePolicyNoThirdParty:
 		return webkit.CookiePolicyAcceptNoThirdPartyValue, string(cookiePolicyNoThirdParty)
+	case "":
+		return webkit.CookiePolicyAcceptNoThirdPartyValue, ""
 	default:
 		return webkit.CookiePolicyAcceptNoThirdPartyValue, string(cookiePolicyNoThirdParty)
 	}

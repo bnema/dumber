@@ -387,6 +387,9 @@ func (c *TabCoordinator) CreateWithPane(
 		c.onTabSwitched(ctx, output.Tab)
 	}
 
+	// Notify state change for session snapshots
+	c.notifyStateChanged()
+
 	log.Debug().
 		Str("tab_id", string(output.Tab.ID)).
 		Str("pane_id", string(pane.ID)).
