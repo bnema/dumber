@@ -533,3 +533,74 @@ func TestHandlePermissionUseCase_UsesInjectedLoggerFactory(t *testing.T) {
 
 	assert.True(t, called)
 }
+
+func TestHandlePermissionUseCase_WebsiteDataAccess_ShowsDialogAndPersists(t *testing.T) {
+	ctx := testContext()
+	permRepo := portmocks.NewMockPermissionRepository(t)
+	dialog := portmocks.NewMockPermissionDialogPresenter(t)
+
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
+
+	// No stored permission
+	permRepo.EXPECT().Get(mock.Anything, "https://accounts.google.com", entity.PermissionTypeWebsiteDataAccess).
+		Return(nil, nil)
+
+	allowed := false
+	callback := usecase.PermissionCallback{
+		Allow: func() { allowed = true },
+		Deny:  func() {},
+	}
+
+	// Dialog shows and user clicks "Always Allow"
+	dialog.EXPECT().ShowPermissionDialog(
+		mock.Anything,
+		"https://accounts.google.com",
+		[]entity.PermissionType{entity.PermissionTypeWebsiteDataAccess},
+		mock.Anything,
+	).Run(func(_ context.Context, _ string, _ []entity.PermissionType, cb func(port.PermissionDialogResult)) {
+		cb(port.PermissionDialogResult{Allowed: true, Persistent: true})
+	})
+
+	// Should persist the granted permission
+	permRepo.EXPECT().Set(mock.Anything, mock.AnythingOfType("*entity.PermissionRecord")).
+		Run(func(_ context.Context, r *entity.PermissionRecord) {
+			assert.Equal(t, "https://accounts.google.com", r.Origin)
+			assert.Equal(t, entity.PermissionTypeWebsiteDataAccess, r.Type)
+			assert.Equal(t, entity.PermissionGranted, r.Decision)
+		}).Return(nil)
+
+	uc.HandlePermissionRequest(ctx, "https://accounts.google.com", []entity.PermissionType{
+		entity.PermissionTypeWebsiteDataAccess,
+	}, callback)
+
+	assert.True(t, allowed)
+}
+
+func TestHandlePermissionUseCase_WebsiteDataAccess_UsesStoredGrant(t *testing.T) {
+	ctx := testContext()
+	permRepo := portmocks.NewMockPermissionRepository(t)
+	dialog := portmocks.NewMockPermissionDialogPresenter(t)
+
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
+
+	// Stored granted permission
+	permRepo.EXPECT().Get(mock.Anything, "https://accounts.google.com", entity.PermissionTypeWebsiteDataAccess).
+		Return(&entity.PermissionRecord{
+			Origin:   "https://accounts.google.com",
+			Type:     entity.PermissionTypeWebsiteDataAccess,
+			Decision: entity.PermissionGranted,
+		}, nil)
+
+	allowed := false
+	callback := usecase.PermissionCallback{
+		Allow: func() { allowed = true },
+		Deny:  func() {},
+	}
+
+	uc.HandlePermissionRequest(ctx, "https://accounts.google.com", []entity.PermissionType{
+		entity.PermissionTypeWebsiteDataAccess,
+	}, callback)
+
+	assert.True(t, allowed, "should use stored granted permission without dialog")
+	dialog.AssertNotCalled(t, "ShowPermissionDialog")
+}
