@@ -332,3 +332,9 @@ type OAuthCallbackCapable interface {
 	// Close triggers a programmatic close of the WebView (equivalent to window.close()).
 	Close()
 }
+
+// TextInputTargetProvider is an optional capability for WebViews that support
+// text input method integration.
+type TextInputTargetProvider interface {
+	TextInputTarget() TextInputTarget
+}

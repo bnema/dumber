@@ -122,6 +122,33 @@ type Engine interface {
 
 	// Close releases all resources held by the engine.
 	Close() error
+
+	// RegisterHandlers registers all WebUI message bridge handlers.
+	RegisterHandlers(ctx context.Context, deps HandlerDependencies) error
+
+	// RegisterAccentHandlers registers accent/dead-key input handlers.
+	RegisterAccentHandlers(ctx context.Context, handler any) error
+
+	// ConfigureDownloads sets up download handling for this engine.
+	ConfigureDownloads(ctx context.Context, downloadPath string, eventHandler DownloadEventHandler, prepareUC any) error
+
+	// OnToolkitReady is called after the UI toolkit has initialized.
+	OnToolkitReady(ctx context.Context) error
+
+	// UpdateAppearance updates default background color for new WebViews.
+	UpdateAppearance(ctx context.Context, r, g, b, alpha float64) error
+
+	// UpdateSettings applies runtime config changes to engine internals.
+	UpdateSettings(ctx context.Context, cfg any) error
+}
+
+// HandlerDependencies holds use cases needed by WebUI message handlers.
+type HandlerDependencies struct {
+	HistoryUC         any
+	FavoritesUC       any
+	Clipboard         Clipboard
+	ConfigGetter      func() any
+	OnClipboardCopied func(textLen int)
 }
 
 // SchemeHandler defines the port interface for registering custom URI schemes.

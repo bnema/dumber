@@ -2,8 +2,11 @@ package webkit
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/rs/zerolog"
 )
@@ -21,6 +24,10 @@ type Engine struct {
 	schemeHandler *DumbSchemeHandler
 	schemePath    string
 	logger        zerolog.Logger
+
+	// Handler registrars - injected at construction to avoid import cycles.
+	handlerRegistrar       func(ctx context.Context, router *MessageRouter, deps port.HandlerDependencies) error
+	accentHandlerRegistrar func(ctx context.Context, router *MessageRouter, handler any) error
 }
 
 // Compile-time check that Engine implements port.Engine.
@@ -92,3 +99,70 @@ func (e *Engine) InternalMessageRouter() *MessageRouter     { return e.messageRo
 func (e *Engine) InternalPool() *WebViewPool                { return e.pool }
 func (e *Engine) InternalFactory() *WebViewFactory          { return e.factory }
 func (e *Engine) InternalFilterManager() *filtering.Manager { return e.filterManager }
+
+// RegisterHandlers registers all WebUI message bridge handlers.
+func (e *Engine) RegisterHandlers(ctx context.Context, deps port.HandlerDependencies) error {
+	if e.messageRouter == nil {
+		return fmt.Errorf("message router not initialized")
+	}
+	if e.handlerRegistrar == nil {
+		return fmt.Errorf("handler registrar not configured")
+	}
+	return e.handlerRegistrar(ctx, e.messageRouter, deps)
+}
+
+// RegisterAccentHandlers registers accent/dead-key input handlers.
+func (e *Engine) RegisterAccentHandlers(ctx context.Context, handler any) error {
+	if e.messageRouter == nil {
+		return fmt.Errorf("message router not initialized")
+	}
+	if e.accentHandlerRegistrar == nil {
+		return fmt.Errorf("accent handler registrar not configured")
+	}
+	return e.accentHandlerRegistrar(ctx, e.messageRouter, handler)
+}
+
+// ConfigureDownloads sets up download handling.
+func (e *Engine) ConfigureDownloads(ctx context.Context, downloadPath string, eventHandler port.DownloadEventHandler, prepareUC any) error {
+	if e.wkCtx == nil {
+		return fmt.Errorf("webkit context not initialized")
+	}
+	uc, ok := prepareUC.(*usecase.PrepareDownloadUseCase)
+	if !ok {
+		return fmt.Errorf("prepareUC does not implement PrepareDownloadUseCase")
+	}
+	handler := NewDownloadHandler(downloadPath, eventHandler, uc)
+	e.wkCtx.SetDownloadHandler(ctx, handler)
+	return nil
+}
+
+// OnToolkitReady refreshes pooled WebViews after toolkit init.
+func (e *Engine) OnToolkitReady(ctx context.Context) error {
+	if e.pool != nil {
+		e.pool.RefreshScripts(ctx)
+	}
+	return nil
+}
+
+// UpdateAppearance updates default background color for pool and factory.
+func (e *Engine) UpdateAppearance(_ context.Context, r, g, b, alpha float64) error {
+	if e.pool != nil {
+		e.pool.SetBackgroundColor(float32(r), float32(g), float32(b), float32(alpha))
+	}
+	if e.factory != nil {
+		e.factory.SetBackgroundColor(float32(r), float32(g), float32(b), float32(alpha))
+	}
+	return nil
+}
+
+// UpdateSettings applies runtime config changes to engine settings.
+func (e *Engine) UpdateSettings(ctx context.Context, cfg any) error {
+	configCfg, ok := cfg.(*config.Config)
+	if !ok {
+		return fmt.Errorf("expected *config.Config, got %T", cfg)
+	}
+	if e.settings != nil {
+		e.settings.UpdateFromConfig(ctx, configCfg)
+	}
+	return nil
+}

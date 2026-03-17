@@ -20,9 +20,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/infrastructure/snapshot"
 	"github.com/bnema/dumber/internal/infrastructure/textinput"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 
-	"github.com/bnema/dumber/internal/infrastructure/webkit/handlers"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/component"
@@ -100,9 +98,8 @@ type App struct {
 	// Floating pane sessions keyed by tab and profile session ID.
 	floatingSessions map[floatingSessionKey]*floatingWorkspaceSession
 
-	// Engine (port-level and concrete for webkit-specific operations)
-	engine   port.Engine
-	wkEngine *webkit.Engine // single webkit escape hatch; all webkit-specific ops go through this
+	// Engine
+	engine port.Engine
 
 	// Web content (managed by content.Coordinator)
 	faviconAdapter *adapter.FaviconAdapter
@@ -183,45 +180,28 @@ func New(deps *Dependencies) (*App, error) {
 		configManager:    config.GetManager(),
 		cancel:           cancel,
 	}
-	// Type-assert engine to concrete *webkit.Engine for webkit-specific operations.
-	if wke, ok := deps.Engine.(*webkit.Engine); ok {
-		app.wkEngine = wke
-	}
-
-	// Resolve the message router via wkEngine, with a standalone fallback.
-	var router *webkit.MessageRouter
-	if app.wkEngine != nil {
-		router = app.wkEngine.InternalMessageRouter()
-	}
-	if router == nil {
-		router = webkit.NewMessageRouter(ctx)
-	}
-
-	// Register message handlers
-	if router != nil {
-		if err := handlers.RegisterAll(ctx, router, handlers.Config{
-			HistoryUC:    deps.HistoryUC,
-			FavoritesUC:  deps.FavoritesUC,
-			Clipboard:    deps.Clipboard,
-			ConfigGetter: config.Get,
-			// AccentHandler is registered after initAccentPicker in onActivate
-			OnClipboardCopied: func(textLen int) {
-				// Show brief toast on auto-copy (similar to zellij footer notification)
-				// Must schedule on GTK main thread since this is called from WebKit handler
-				cb := glib.SourceFunc(func(_ uintptr) bool {
-					if app.appToaster != nil {
-						app.appToaster.Show(ctx, "Copied to clipboard", component.ToastInfo,
-							component.WithDuration(component.ToastBriefDurationMs),
-							component.WithPosition(component.ToastPositionBottomRight),
-						)
-					}
-					return false
-				})
-				glib.IdleAdd(&cb, 0)
-			},
-		}); err != nil {
-			return nil, err
-		}
+	// Register message handlers through the engine.
+	if err := deps.Engine.RegisterHandlers(ctx, port.HandlerDependencies{
+		HistoryUC:   deps.HistoryUC,
+		FavoritesUC: deps.FavoritesUC,
+		Clipboard:   deps.Clipboard,
+		ConfigGetter: func() any {
+			return config.Get()
+		},
+		OnClipboardCopied: func(textLen int) {
+			cb := glib.SourceFunc(func(_ uintptr) bool {
+				if app.appToaster != nil {
+					app.appToaster.Show(ctx, "Copied to clipboard", component.ToastInfo,
+						component.WithDuration(component.ToastBriefDurationMs),
+						component.WithPosition(component.ToastPositionBottomRight),
+					)
+				}
+				return false
+			})
+			glib.IdleAdd(&cb, 0)
+		},
+	}); err != nil {
+		return nil, err
 	}
 
 	return app, nil
@@ -246,10 +226,8 @@ func (a *App) Run(ctx context.Context, args []string) int {
 
 		// Refresh scripts in pooled WebViews that were prewarmed before adw.Init().
 		// They have the wrong dark mode preference injected; re-inject with correct value.
-		if a.wkEngine != nil {
-			if pool := a.wkEngine.InternalPool(); pool != nil {
-				pool.RefreshScripts(ctx)
-			}
+		if a.engine != nil {
+			_ = a.engine.OnToolkitReady(ctx)
 		}
 	}
 
@@ -371,38 +349,30 @@ func (a *App) applyGTKColorSchemePreference(ctx context.Context) {
 
 func (a *App) setupPoolBackgroundColor(ctx context.Context) {
 	log := logging.FromContext(ctx)
-
-	// Set theme background color on pool to eliminate white flash.
-	// Must be done before any WebView creation so WebViews get the correct color.
-	if a.wkEngine == nil {
-		log.Debug().Msg("webview pool not available; skipping background color setup")
-		return
-	}
-	pool := a.wkEngine.InternalPool()
-	if pool == nil {
-		log.Debug().Msg("webview pool not available; skipping background color setup")
+	if a.engine == nil {
+		log.Debug().Msg("engine not available; skipping background color setup")
 		return
 	}
 	if a.deps == nil || a.deps.Theme == nil {
 		log.Debug().Msg("theme not available; skipping webview pool background color setup")
 		return
 	}
-
 	r, g, b, alpha := a.deps.Theme.GetBackgroundRGBA()
-	pool.SetBackgroundColor(r, g, b, alpha)
+	if err := a.engine.UpdateAppearance(ctx, float64(r), float64(g), float64(b), float64(alpha)); err != nil {
+		log.Warn().Err(err).Msg("failed to update engine appearance")
+	}
 	log.Debug().Msg("configured webview pool background color")
 }
 
-func (a *App) prewarmWebViewPoolAsync(ctx context.Context) {
-	// Prewarm WebView pool after startup so cold-start navigation is not blocked.
-	if a.wkEngine == nil {
+func (a *App) prewarmWebViewPoolAsync(_ context.Context) {
+	if a.engine == nil {
 		return
 	}
-	pool := a.wkEngine.InternalPool()
+	pool := a.engine.Pool()
 	if pool == nil {
 		return
 	}
-	pool.PrewarmAsync(ctx, 0)
+	pool.Prewarm(0)
 }
 
 func (a *App) createMainWindow(ctx context.Context) error {
@@ -570,16 +540,12 @@ func (a *App) registerAccentHandlers(ctx context.Context) {
 		log.Debug().Msg("insertAccentUC not available, skipping accent handler registration")
 		return
 	}
-	var router *webkit.MessageRouter
-	if a.wkEngine != nil {
-		router = a.wkEngine.InternalMessageRouter()
-	}
-	if router == nil {
-		log.Debug().Msg("router not available, skipping accent handler registration")
+	if a.engine == nil {
+		log.Debug().Msg("engine not available, skipping accent handler registration")
 		return
 	}
 
-	if err := handlers.RegisterAccentHandlers(ctx, router, a.insertAccentUC); err != nil {
+	if err := a.engine.RegisterAccentHandlers(ctx, a.insertAccentUC); err != nil {
 		log.Error().Err(err).Msg("failed to register accent handlers")
 	} else {
 		log.Info().Msg("registered accent key handlers")
@@ -589,7 +555,7 @@ func (a *App) registerAccentHandlers(ctx context.Context) {
 func (a *App) initDownloadHandler(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
-	if a.deps == nil || a.wkEngine == nil {
+	if a.deps == nil || a.engine == nil {
 		log.Debug().Msg("WebContext not available, skipping download handler")
 		return
 	}
@@ -623,9 +589,10 @@ func (a *App) initDownloadHandler(ctx context.Context) {
 	// Create use case for preparing download destinations with file deduplication.
 	prepareDownloadUC := usecase.NewPrepareDownloadUseCase(filesystem.New())
 
-	// Create and wire the download handler.
-	handler := webkit.NewDownloadHandler(downloadPath, eventAdapter, prepareDownloadUC)
-	a.wkEngine.InternalContext().SetDownloadHandler(ctx, handler)
+	if err := a.engine.ConfigureDownloads(ctx, downloadPath, eventAdapter, prepareDownloadUC); err != nil {
+		log.Error().Err(err).Msg("failed to configure downloads")
+		return
+	}
 
 	log.Info().Str("path", downloadPath).Msg("download handler initialized")
 }
@@ -1618,11 +1585,9 @@ func (a *App) initCoordinators(ctx context.Context) {
 
 	// Wire popup handling
 	// Set theme background color on the engine's popup factory to eliminate white flash.
-	if a.wkEngine != nil && a.deps.Theme != nil {
+	if a.engine != nil && a.deps.Theme != nil {
 		r, g, b, alpha := a.deps.Theme.GetBackgroundRGBA()
-		if f := a.wkEngine.InternalFactory(); f != nil {
-			f.SetBackgroundColor(r, g, b, alpha)
-		}
+		_ = a.engine.UpdateAppearance(context.Background(), float64(r), float64(g), float64(b), float64(alpha))
 	}
 	a.contentCoord.SetPopupConfig(
 		a.engine.Factory(),
@@ -2145,12 +2110,10 @@ func (a *App) getActiveWebViewTarget() port.TextInputTarget {
 		return nil
 	}
 
-	// Get the underlying webkit.WebView for the text input target
-	wkWV, ok := wv.(*webkit.WebView)
-	if !ok {
-		return nil
+	if provider, ok := wv.(port.TextInputTargetProvider); ok {
+		return provider.TextInputTarget()
 	}
-	return textinput.NewWebViewTarget(wkWV.Widget())
+	return nil
 }
 
 // attachPopupToTab attaches a popup WebView to a newly created tab.
@@ -3100,11 +3063,8 @@ func (a *App) applyAppearanceConfig(ctx context.Context, cfg *config.Config) {
 		*a.deps.Config = *cfg
 	}
 
-	// Update WebKit settings manager
-	if a.wkEngine != nil {
-		if settings := a.wkEngine.InternalSettings(); settings != nil {
-			settings.UpdateFromConfig(ctx, cfg)
-		}
+	if a.engine != nil {
+		_ = a.engine.UpdateSettings(ctx, cfg)
 	}
 
 	// Apply settings to existing webviews via coordinator
@@ -3120,28 +3080,25 @@ func (a *App) applyAppearanceConfig(ctx context.Context, cfg *config.Config) {
 		}
 		a.deps.Theme.UpdateFromConfig(ctx, cfg, display)
 
-		// Resolve injector once for all webkit-specific theme updates below.
-		var injector *webkit.ContentInjector
-		if a.wkEngine != nil {
-			injector = a.wkEngine.InternalInjector()
+		var inj port.ContentInjector
+		if a.engine != nil {
+			inj = a.engine.ContentInjector()
 		}
 
-		// Update find highlight CSS for future navigations
-		if injector != nil {
+		if inj != nil {
 			findCSS := theme.GenerateFindHighlightCSS(a.deps.Theme.GetCurrentPalette())
-			if err := injector.InjectFindHighlightCSS(ctx, findCSS); err != nil {
+			if err := inj.InjectFindHighlightCSS(ctx, findCSS); err != nil {
 				log.Warn().Err(err).Msg("failed to update find highlight CSS")
 			}
 		}
 
-		prepareThemeUC := usecase.NewPrepareWebUIThemeUseCase(injector)
+		prepareThemeUC := usecase.NewPrepareWebUIThemeUseCase(inj)
 		cssText := a.deps.Theme.GetWebUIThemeCSS()
 		if err := prepareThemeUC.Execute(ctx, usecase.PrepareWebUIThemeInput{CSSVars: cssText}); err != nil {
 			log.Warn().Err(err).Msg("failed to update WebUI theme CSS")
 		}
 
-		// Refresh injected scripts so future navigations use the latest theme.
-		if a.contentCoord != nil && injector != nil {
+		if a.contentCoord != nil && inj != nil {
 			a.contentCoord.RefreshInjectedScriptsToAll(ctx)
 		}
 
