@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
@@ -12,11 +12,11 @@ import (
 
 // FavoritesHandlers handles favorite-related messages from the homepage.
 type FavoritesHandlers struct {
-	favoritesUC *usecase.ManageFavoritesUseCase
+	favoritesUC port.HomepageFavorites
 }
 
 // NewFavoritesHandlers creates a new FavoritesHandlers instance.
-func NewFavoritesHandlers(favoritesUC *usecase.ManageFavoritesUseCase) *FavoritesHandlers {
+func NewFavoritesHandlers(favoritesUC port.HomepageFavorites) *FavoritesHandlers {
 	return &FavoritesHandlers{favoritesUC: favoritesUC}
 }
 

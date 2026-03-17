@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
@@ -13,11 +13,11 @@ import (
 
 // HistoryHandlers handles history-related messages from the homepage.
 type HistoryHandlers struct {
-	historyUC *usecase.SearchHistoryUseCase
+	historyUC port.HomepageHistory
 }
 
 // NewHistoryHandlers creates a new HistoryHandlers instance.
-func NewHistoryHandlers(historyUC *usecase.SearchHistoryUseCase) *HistoryHandlers {
+func NewHistoryHandlers(historyUC port.HomepageHistory) *HistoryHandlers {
 	return &HistoryHandlers{historyUC: historyUC}
 }
 
@@ -75,7 +75,7 @@ func (h *HistoryHandlers) HandleSearchFTS() webkit.MessageHandler {
 			Str("query", req.Query).
 			Msg("handling history_search_fts")
 
-		output, err := h.historyUC.Search(ctx, usecase.SearchInput{
+		output, err := h.historyUC.Search(ctx, port.HistorySearchInput{
 			Query: req.Query,
 			Limit: req.Limit,
 		})

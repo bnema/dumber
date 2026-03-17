@@ -11,6 +11,9 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
+// Compile-time check: InsertAccentUseCase must satisfy port.AccentKeyHandler.
+var _ port.AccentKeyHandler = (*InsertAccentUseCase)(nil)
+
 // LongPressDelay is the duration a key must be held to trigger the accent picker.
 const LongPressDelay = 400 * time.Millisecond
 

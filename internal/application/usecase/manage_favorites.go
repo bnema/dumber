@@ -8,11 +8,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
 	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
 )
+
+// Compile-time check: ManageFavoritesUseCase must satisfy port.HomepageFavorites.
+var _ port.HomepageFavorites = (*ManageFavoritesUseCase)(nil)
 
 // ManageFavoritesUseCase handles favorite, folder, and tag operations.
 type ManageFavoritesUseCase struct {

@@ -4,15 +4,15 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 )
 
 // Config holds dependencies for homepage handlers.
 type Config struct {
-	HistoryUC   *usecase.SearchHistoryUseCase
-	FavoritesUC *usecase.ManageFavoritesUseCase
+	HistoryUC   port.HomepageHistory
+	FavoritesUC port.HomepageFavorites
 }
 
 // RegisterHandlers registers all homepage message handlers with the router.

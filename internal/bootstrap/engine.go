@@ -40,41 +40,46 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			CookiePolicy: port.CookiePolicy(cfg.Engine.CookiePolicy),
 		}
 		wkCfg := webkit.EngineConfigFromConfig(cfg.Engine.WebKit)
+
+		// Pre-build keybindings handler for handler registration.
+		keybindingsHandler, err := buildKeybindingsHandler()
+		if err != nil {
+			return nil, fmt.Errorf("failed to build keybindings handler: %w", err)
+		}
+
+		// Pre-build config save function for handler registration.
+		saveConfigFunc := buildSaveConfigFunc()
+
 		return webkit.NewEngine(
 			input.Ctx, cfg, opts, wkCfg,
 			input.ThemeManager, input.ColorResolver, input.Logger,
 			func(ctx context.Context, router *webkit.MessageRouter, deps port.HandlerDependencies) error {
-				var historyUC *usecase.SearchHistoryUseCase
+				var historyUC port.HomepageHistory
 				if deps.HistoryUC != nil {
-					historyUC, _ = deps.HistoryUC.(*usecase.SearchHistoryUseCase)
+					historyUC, _ = deps.HistoryUC.(port.HomepageHistory)
 				}
-				var favoritesUC *usecase.ManageFavoritesUseCase
+				var favoritesUC port.HomepageFavorites
 				if deps.FavoritesUC != nil {
-					favoritesUC, _ = deps.FavoritesUC.(*usecase.ManageFavoritesUseCase)
+					favoritesUC, _ = deps.FavoritesUC.(port.HomepageFavorites)
 				}
-				var configGetter func() *config.Config
+				var autoCopyConfig port.AutoCopyConfig
 				if deps.ConfigGetter != nil {
-					configGetter = func() *config.Config {
-						raw := deps.ConfigGetter()
-						if raw == nil {
-							return nil
-						}
-						cfg, _ := raw.(*config.Config)
-						return cfg
-					}
+					autoCopyConfig, _ = deps.ConfigGetter().(port.AutoCopyConfig)
 				}
 				return handlers.RegisterAll(ctx, router, handlers.Config{
-					HistoryUC:         historyUC,
-					FavoritesUC:       favoritesUC,
-					Clipboard:         deps.Clipboard,
-					ConfigGetter:      configGetter,
-					OnClipboardCopied: deps.OnClipboardCopied,
+					HistoryUC:          historyUC,
+					FavoritesUC:        favoritesUC,
+					Clipboard:          deps.Clipboard,
+					AutoCopyConfig:     autoCopyConfig,
+					SaveConfig:         saveConfigFunc,
+					KeybindingsHandler: keybindingsHandler,
+					OnClipboardCopied:  deps.OnClipboardCopied,
 				})
 			},
 			func(ctx context.Context, router *webkit.MessageRouter, handler any) error {
-				accentHandler, ok := handler.(handlers.AccentKeyHandler)
+				accentHandler, ok := handler.(port.AccentKeyHandler)
 				if !ok {
-					return fmt.Errorf("handler does not implement AccentKeyHandler")
+					return fmt.Errorf("handler does not implement port.AccentKeyHandler")
 				}
 				return handlers.RegisterAccentHandlers(ctx, router, accentHandler)
 			},
@@ -84,4 +89,34 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 	default:
 		return nil, fmt.Errorf("unknown engine type: %q", engineType)
 	}
+}
+
+// buildKeybindingsHandler constructs the keybindings handler using the config manager.
+func buildKeybindingsHandler() (*handlers.KeybindingsHandler, error) {
+	mgr := config.GetManager()
+	if mgr == nil {
+		return nil, fmt.Errorf("config manager not initialized")
+	}
+
+	gateway := config.NewKeybindingsGateway(mgr)
+
+	return handlers.NewKeybindingsHandler(
+		usecase.NewGetKeybindingsUseCase(gateway),
+		usecase.NewSetKeybindingUseCase(gateway, gateway),
+		usecase.NewResetKeybindingUseCase(gateway),
+		usecase.NewResetAllKeybindingsUseCase(gateway),
+	), nil
+}
+
+// buildSaveConfigFunc constructs the config save function using the config manager.
+func buildSaveConfigFunc() func(context.Context, port.WebUIConfig) error {
+	mgr := config.GetManager()
+	if mgr == nil {
+		// Return a function that errors — config manager may not be ready yet.
+		return func(_ context.Context, _ port.WebUIConfig) error {
+			return fmt.Errorf("config manager not initialized")
+		}
+	}
+	uc := usecase.NewSaveWebUIConfigUseCase(config.NewWebUIConfigGateway(mgr))
+	return uc.Execute
 }

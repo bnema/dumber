@@ -17,7 +17,6 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	"github.com/bnema/dumber/internal/infrastructure/filesystem"
-	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/infrastructure/snapshot"
 	"github.com/bnema/dumber/internal/infrastructure/textinput"
 
@@ -3116,7 +3115,7 @@ func (a *App) initFilteringAsync(ctx context.Context) {
 		return
 	}
 
-	a.deps.FilterManager.SetStatusCallback(func(status filtering.FilterStatus) {
+	a.deps.FilterManager.SetStatusCallback(func(status port.FilterStatus) {
 		statusCopy := status // Capture for closure
 		cb := glib.SourceFunc(func(_ uintptr) bool {
 			a.showFilterStatus(ctx, statusCopy)
@@ -3128,15 +3127,15 @@ func (a *App) initFilteringAsync(ctx context.Context) {
 }
 
 // showFilterStatus displays toast notification for filter status.
-func (a *App) showFilterStatus(ctx context.Context, status filtering.FilterStatus) {
+func (a *App) showFilterStatus(ctx context.Context, status port.FilterStatus) {
 	log := logging.FromContext(ctx)
 
 	switch status.State {
-	case filtering.StateLoading:
+	case port.FilterStateLoading:
 		if a.appToaster != nil {
 			a.appToaster.Show(ctx, status.Message, component.ToastInfo)
 		}
-	case filtering.StateActive:
+	case port.FilterStateActive:
 		// Apply filters to existing webviews that were created before filters loaded
 		if a.contentCoord != nil && a.deps.FilterManager != nil {
 			a.contentCoord.ApplyFiltersToAll(ctx)
@@ -3145,7 +3144,7 @@ func (a *App) showFilterStatus(ctx context.Context, status filtering.FilterStatu
 		if a.appToaster != nil {
 			a.appToaster.Show(ctx, fmt.Sprintf("Ad blocker ready (%s)", status.Version), component.ToastInfo)
 		}
-	case filtering.StateError:
+	case port.FilterStateError:
 		if a.appToaster != nil {
 			a.appToaster.Show(ctx, "Filter load failed: "+status.Message, component.ToastError)
 		}

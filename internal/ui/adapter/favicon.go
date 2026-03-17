@@ -17,7 +17,7 @@ import (
 // FaviconAdapter bridges the domain FaviconService to GTK by providing
 // gdk.Texture conversion and WebKit FaviconDatabase integration.
 type FaviconAdapter struct {
-	service      *favicon.Service
+	service      port.FaviconService
 	faviconDB    port.FaviconDatabase
 	textureCache map[string]*gdk.Texture
 	mu           sync.RWMutex
@@ -29,7 +29,7 @@ type warningLogFunc func(log *zerolog.Logger, err error)
 
 // NewFaviconAdapter creates a new FaviconAdapter.
 // The faviconDB can be nil if a favicon database is not available.
-func NewFaviconAdapter(service *favicon.Service, faviconDB port.FaviconDatabase) *FaviconAdapter {
+func NewFaviconAdapter(service port.FaviconService, faviconDB port.FaviconDatabase) *FaviconAdapter {
 	return &FaviconAdapter{
 		service:      service,
 		faviconDB:    faviconDB,
@@ -272,7 +272,7 @@ func (a *FaviconAdapter) PreloadFromCache(pageURL string) *gdk.Texture {
 
 // Service returns the underlying favicon service.
 // Used by CLI components that need disk paths.
-func (a *FaviconAdapter) Service() *favicon.Service {
+func (a *FaviconAdapter) Service() port.FaviconService {
 	return a.service
 }
 

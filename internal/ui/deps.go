@@ -8,10 +8,7 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
-	"github.com/bnema/dumber/internal/infrastructure/colorscheme"
 	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/infrastructure/favicon"
-	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/ui/theme"
 )
 
@@ -20,9 +17,9 @@ import (
 type Dependencies struct {
 	// Core context and configuration
 	Ctx                    context.Context
-	Config                 *config.Config
-	InitialURL             string // URL to open on startup (optional)
-	RestoreSessionID       string // Session ID to restore on startup (optional)
+	Config                 *config.Config // TODO: replace with port interface in a later milestone
+	InitialURL             string         // URL to open on startup (optional)
+	RestoreSessionID       string         // Session ID to restore on startup (optional)
 	StartupCrashReports    []string
 	OnFirstWebViewShown    func(context.Context)
 	OnSessionPersisted     func() // Called by main after session is persisted to DB
@@ -31,7 +28,7 @@ type Dependencies struct {
 	// Theme and color scheme management
 	Theme           *theme.Manager
 	ColorResolver   port.ColorSchemeResolver
-	AdwaitaDetector *colorscheme.AdwaitaDetector
+	AdwaitaDetector port.ToolkitAvailabilityNotifier
 
 	// XDG paths
 	XDG port.XDGPaths
@@ -58,8 +55,8 @@ type Dependencies struct {
 
 	// Infrastructure Adapters
 	Clipboard      port.Clipboard
-	FaviconService *favicon.Service
-	FilterManager  *filtering.Manager
+	FaviconService port.FaviconService
+	FilterManager  port.FilterManager
 	IdleInhibitor  port.IdleInhibitor
 
 	// Accent picker for dead keys support

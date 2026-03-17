@@ -18,11 +18,9 @@ import (
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/cache"
 	"github.com/bnema/dumber/internal/infrastructure/clipboard"
-	"github.com/bnema/dumber/internal/infrastructure/colorscheme"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/deps"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
-	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/infrastructure/idle"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/infrastructure/updater"
@@ -507,7 +505,7 @@ func buildUIDependencies(
 	cfg *config.Config,
 	themeManager *theme.Manager,
 	colorResolver port.ColorSchemeResolver,
-	adwaitaDetector *colorscheme.AdwaitaDetector,
+	adwaitaDetector port.ToolkitAvailabilityNotifier,
 	engine port.Engine,
 	repos *repositories,
 	uc *useCases,
@@ -516,7 +514,7 @@ func buildUIDependencies(
 	startupCrashReports []string,
 ) *ui.Dependencies {
 	// Type-assert to *webkit.Engine to access FilterManager (not yet on port.Engine).
-	var filterManager *filtering.Manager
+	var filterManager port.FilterManager
 	if wkEngine, ok := engine.(*webkit.Engine); ok {
 		filterManager = wkEngine.InternalFilterManager()
 	}

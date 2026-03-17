@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
@@ -12,11 +12,11 @@ import (
 
 // FolderHandlers handles folder-related messages from the homepage.
 type FolderHandlers struct {
-	favoritesUC *usecase.ManageFavoritesUseCase
+	favoritesUC port.HomepageFavorites
 }
 
 // NewFolderHandlers creates a new FolderHandlers instance.
-func NewFolderHandlers(favoritesUC *usecase.ManageFavoritesUseCase) *FolderHandlers {
+func NewFolderHandlers(favoritesUC port.HomepageFavorites) *FolderHandlers {
 	return &FolderHandlers{favoritesUC: favoritesUC}
 }
 
