@@ -20,15 +20,20 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/clipboard"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/deps"
+	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
+	"github.com/bnema/dumber/internal/infrastructure/filesystem"
 	"github.com/bnema/dumber/internal/infrastructure/idle"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
+	"github.com/bnema/dumber/internal/infrastructure/snapshot"
+	"github.com/bnema/dumber/internal/infrastructure/textinput"
 	"github.com/bnema/dumber/internal/infrastructure/updater"
 	"github.com/bnema/dumber/internal/infrastructure/xdg"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/theme"
+	"github.com/jwijenbergh/puregotk/v4/gtk"
 	"github.com/rs/zerolog"
 )
 
@@ -510,7 +515,9 @@ func buildUIDependencies(
 ) *ui.Dependencies {
 	filterManager := engine.InternalFilterManager()
 
-	return &ui.Dependencies{
+	focusProvider := textinput.NewFocusProvider()
+
+	uiDeps := &ui.Dependencies{
 		Ctx:                 ctx,
 		Config:              cfg,
 		InitialURL:          initialURL,
@@ -541,7 +548,29 @@ func buildUIDependencies(
 		SessionStateRepo:    repos.sessionState,
 		CurrentSessionID:    currentSessionID,
 		SnapshotUC:          uc.snapshot,
+		SnapshotServiceFactory: func(provider port.TabListProvider, intervalMs int) port.SnapshotService {
+			return snapshot.NewService(uc.snapshot, provider, intervalMs)
+		},
 		CheckUpdateUC:       uc.checkUpdate,
 		ApplyUpdateUC:       uc.applyUpdate,
+		SessionSpawner:      desktop.NewSessionSpawner(ctx),
+		FileSystem:          filesystem.New(),
+		AccentFocusProvider: focusProvider,
+		NewGTKEntryTarget: func(entry *gtk.SearchEntry) port.TextInputTarget {
+			return textinput.NewGTKEntryTarget(entry)
+		},
+		OnConfigChange: func(callback func()) {
+			config.GetManager().OnConfigChange(func(newCfg *config.Config) {
+				if cfg != nil && newCfg != nil {
+					*cfg = *newCfg
+				}
+				callback()
+			})
+		},
+		WatchConfig: func() error {
+			return config.GetManager().Watch()
+		},
 	}
+
+	return uiDeps
 }

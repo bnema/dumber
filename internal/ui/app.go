@@ -14,11 +14,6 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	urlutil "github.com/bnema/dumber/internal/domain/url"
-	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/infrastructure/desktop"
-	"github.com/bnema/dumber/internal/infrastructure/filesystem"
-	"github.com/bnema/dumber/internal/infrastructure/snapshot"
-	"github.com/bnema/dumber/internal/infrastructure/textinput"
 
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/adapter"
@@ -66,12 +61,11 @@ type App struct {
 	tabsUC *usecase.ManageTabsUseCase
 
 	// Coordinators (new architecture)
-	contentCoord  *content.Coordinator
-	tabCoord      *coordinator.TabCoordinator
-	wsCoord       *coordinator.WorkspaceCoordinator
-	navCoord      *coordinator.NavigationCoordinator
-	kbDispatcher  *dispatcher.KeyboardDispatcher
-	configManager *config.Manager
+	contentCoord *content.Coordinator
+	tabCoord     *coordinator.TabCoordinator
+	wsCoord      *coordinator.WorkspaceCoordinator
+	navCoord     *coordinator.NavigationCoordinator
+	kbDispatcher *dispatcher.KeyboardDispatcher
 
 	// Pane management (used by coordinators)
 	panesUC        *usecase.ManagePanesUseCase
@@ -115,7 +109,7 @@ type App struct {
 	tabPicker       *component.TabPicker
 	tabPickerWidget layout.Widget
 	tabPickerPaneID entity.PaneID
-	snapshotService *snapshot.Service
+	snapshotService port.SnapshotService
 
 	// Update management
 	updateCoord *coordinator.UpdateCoordinator
@@ -130,7 +124,7 @@ type App struct {
 	// Accent picker for dead keys support
 	accentPicker        *component.AccentPicker
 	insertAccentUC      *usecase.InsertAccentUseCase
-	accentFocusProvider *textinput.FocusProvider
+	accentFocusProvider port.FocusedInputProvider
 
 	// Deferred initialization - runs after first load_started to avoid blocking initial navigation
 	deferredInitOnce sync.Once
@@ -176,15 +170,19 @@ func New(deps *Dependencies) (*App, error) {
 		workspaceViews:   make(map[entity.TabID]*component.WorkspaceView),
 		floatingSessions: make(map[floatingSessionKey]*floatingWorkspaceSession),
 		engine:           deps.Engine,
-		configManager:    config.GetManager(),
 		cancel:           cancel,
 	}
 	// Register message handlers through the engine.
 	if err := deps.Engine.RegisterHandlers(ctx, port.HandlerDependencies{
-		HistoryUC:      deps.HistoryUC,
-		FavoritesUC:    deps.FavoritesUC,
-		Clipboard:      deps.Clipboard,
-		AutoCopyConfig: &configAutoCopyAdapter{},
+		HistoryUC:   deps.HistoryUC,
+		FavoritesUC: deps.FavoritesUC,
+		Clipboard:   deps.Clipboard,
+		AutoCopyConfig: &autoCopyConfigFn{fn: func() bool {
+			if deps.Config == nil {
+				return false
+			}
+			return deps.Config.Clipboard.AutoCopyOnSelection
+		}},
 		OnClipboardCopied: func(textLen int) {
 			cb := glib.SourceFunc(func(_ uintptr) bool {
 				if app.appToaster != nil {
@@ -509,8 +507,8 @@ func (a *App) initAccentPicker(ctx context.Context) {
 		}
 	}
 
-	// Create focus provider (tracks which input has focus)
-	a.accentFocusProvider = textinput.NewFocusProvider()
+	// Use focus provider from deps (tracks which input has focus)
+	a.accentFocusProvider = a.deps.AccentFocusProvider
 
 	// Create the use case with glib.IdleAdd for thread-safe GTK calls
 	a.insertAccentUC = usecase.NewInsertAccentUseCase(
@@ -584,7 +582,7 @@ func (a *App) initDownloadHandler(ctx context.Context) {
 	eventAdapter := &downloadEventAdapter{app: a}
 
 	// Create use case for preparing download destinations with file deduplication.
-	prepareDownloadUC := usecase.NewPrepareDownloadUseCase(filesystem.New())
+	prepareDownloadUC := usecase.NewPrepareDownloadUseCase(a.deps.FileSystem)
 
 	if err := a.engine.ConfigureDownloads(ctx, downloadPath, eventAdapter, prepareDownloadUC); err != nil {
 		log.Error().Err(err).Msg("failed to configure downloads")
@@ -619,15 +617,16 @@ func (d *downloadEventAdapter) OnDownloadEvent(ctx context.Context, event port.D
 	glib.IdleAdd(&cb, 0)
 }
 
-// configAutoCopyAdapter implements port.AutoCopyConfig by reading the live config.
-type configAutoCopyAdapter struct{}
+// autoCopyConfigFn implements port.AutoCopyConfig using a function closure.
+type autoCopyConfigFn struct {
+	fn func() bool
+}
 
-func (a *configAutoCopyAdapter) IsAutoCopyEnabled() bool {
-	cfg := config.Get()
-	if cfg == nil {
+func (a *autoCopyConfigFn) IsAutoCopyEnabled() bool {
+	if a.fn == nil {
 		return false
 	}
-	return cfg.Clipboard.AutoCopyOnSelection
+	return a.fn()
 }
 
 func (a *App) initKeyboardHandler(ctx context.Context) {
@@ -678,7 +677,7 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 		// visible after focus returns to the WebView, so visibility alone
 		// would misroute keys.
 		if a.accentFocusProvider != nil {
-			if _, ok := a.accentFocusProvider.GetFocusedInput().(*textinput.GTKEntryTarget); ok {
+			if _, ok := a.accentFocusProvider.GetFocusedInput().(port.GTKEntryInputTarget); ok {
 				// GTK Entry focused (omnibox or find bar): Alt-modified keys go to
 				// shortcuts (pane navigation), other keys pass through to the widget's
 				// own capture-phase key controller (which handles accent detection)
@@ -786,7 +785,9 @@ func (a *App) initOmniboxConfig(ctx context.Context) {
 		OnFocusIn: func(entry *gtk.SearchEntry) {
 			// Set omnibox entry as the focused input for accent picker
 			if a.accentFocusProvider != nil && entry != nil {
-				a.accentFocusProvider.SetFocusedInput(textinput.NewGTKEntryTarget(entry))
+				if a.deps.NewGTKEntryTarget != nil {
+					a.accentFocusProvider.SetFocusedInput(a.deps.NewGTKEntryTarget(entry))
+				}
 			}
 		},
 		OnFocusOut: func() {
@@ -822,7 +823,9 @@ func (a *App) initFindBarConfig(ctx context.Context) {
 		OnFocusIn: func(entry *gtk.SearchEntry) {
 			// Set find bar entry as the focused input for accent picker
 			if a.accentFocusProvider != nil && entry != nil {
-				a.accentFocusProvider.SetFocusedInput(textinput.NewGTKEntryTarget(entry))
+				if a.deps.NewGTKEntryTarget != nil {
+					a.accentFocusProvider.SetFocusedInput(a.deps.NewGTKEntryTarget(entry))
+				}
 			}
 		},
 		OnFocusOut: func() {
@@ -864,8 +867,8 @@ func (a *App) initSessionManager(ctx context.Context) {
 		)
 	}
 
-	// Create session spawner for restoration
-	spawner := desktop.NewSessionSpawner(ctx)
+	// Use injected session spawner for restoration
+	spawner := a.deps.SessionSpawner
 
 	// Create session manager component
 	a.sessionManager = component.NewSessionManager(ctx, component.SessionManagerConfig{
@@ -878,6 +881,10 @@ func (a *App) initSessionManager(ctx context.Context) {
 		},
 		OnOpen: func(sessionID entity.SessionID) {
 			log.Info().Str("session_id", string(sessionID)).Msg("session restoration requested")
+			if spawner == nil {
+				log.Warn().Str("session_id", string(sessionID)).Msg("session spawner not available")
+				return
+			}
 			if err := spawner.SpawnWithSession(sessionID); err != nil {
 				log.Error().Err(err).Str("session_id", string(sessionID)).Msg("failed to spawn session")
 			}
@@ -1167,7 +1174,7 @@ func (a *App) switchToTargetTabIfConfigured(ctx context.Context, out *usecase.Mo
 		return
 	}
 
-	switchToTarget := config.Get().Workspace.SwitchToTabOnMove
+	switchToTarget := a.deps.Config.Workspace.SwitchToTabOnMove
 	if out.SourceTabClosed {
 		switchToTarget = true
 	}
@@ -1227,8 +1234,8 @@ func (a *App) initTabPicker(ctx context.Context) {
 func (a *App) initSnapshotService(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
-	if a.deps == nil || a.deps.SnapshotUC == nil {
-		log.Debug().Msg("snapshot use case not available, skipping snapshot service")
+	if a.deps == nil || a.deps.SnapshotServiceFactory == nil {
+		log.Debug().Msg("snapshot service factory not available, skipping")
 		return
 	}
 
@@ -1237,7 +1244,11 @@ func (a *App) initSnapshotService(ctx context.Context) {
 		intervalMs = a.deps.Config.Session.SnapshotIntervalMs
 	}
 
-	a.snapshotService = snapshot.NewService(a.deps.SnapshotUC, a, intervalMs)
+	a.snapshotService = a.deps.SnapshotServiceFactory(a, intervalMs)
+	if a.snapshotService == nil {
+		log.Warn().Msg("snapshot service factory returned nil")
+		return
+	}
 	a.snapshotService.Start(ctx)
 
 	// Set up callback for main.go to notify when session is persisted
@@ -2047,7 +2058,9 @@ func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.
 	// Set find bar config for this workspace view
 	wsView.SetFindBarConfig(a.findBarCfg)
 	// Set auto-open omnibox on new pane
-	wsView.SetAutoOpenOnNewPane(config.Get().Omnibox.AutoOpenOnNewPane)
+	if a.deps.Config != nil {
+		wsView.SetAutoOpenOnNewPane(a.deps.Config.Omnibox.AutoOpenOnNewPane)
+	}
 
 	wsView.SetOnPaneFocused(func(paneID entity.PaneID) {
 		if a.keyboardHandler != nil && a.keyboardHandler.Mode() == input.ModeResize {
@@ -2380,11 +2393,20 @@ func (a *App) installFloatingOverlayPositioning(tabID entity.TabID, workspaceOve
 	gtkOverlay.ConnectGetChildPosition(&cb)
 }
 
-func (a *App) currentFloatingConfig() config.FloatingPaneConfig {
+// currentFloatingWidthPct returns the configured floating pane width percentage.
+func (a *App) currentFloatingWidthPct() float64 {
 	if a.deps != nil && a.deps.Config != nil {
-		return a.deps.Config.Workspace.FloatingPane
+		return a.deps.Config.Workspace.FloatingPane.WidthPct
 	}
-	return config.Get().Workspace.FloatingPane
+	return 0
+}
+
+// currentFloatingHeightPct returns the configured floating pane height percentage.
+func (a *App) currentFloatingHeightPct() float64 {
+	if a.deps != nil && a.deps.Config != nil {
+		return a.deps.Config.Workspace.FloatingPane.HeightPct
+	}
+	return 0
 }
 
 func (a *App) ensureFloatingSession(
@@ -2457,10 +2479,9 @@ func (a *App) ensureFloatingSession(
 	wsView.AddWorkspaceOverlayWidget(pvOverlay)
 	configureFloatingOverlayMeasurement(wsView.WorkspaceOverlayWidget(), pvOverlay)
 
-	floatingCfg := a.currentFloatingConfig()
 	floatingPane := component.NewFloatingPane(wsView.WorkspaceOverlayWidget(), component.FloatingPaneOptions{
-		WidthPct:       floatingCfg.WidthPct,
-		HeightPct:      floatingCfg.HeightPct,
+		WidthPct:       a.currentFloatingWidthPct(),
+		HeightPct:      a.currentFloatingHeightPct(),
 		FallbackWidth:  floatingPaneFallbackWidth,
 		FallbackHeight: floatingPaneFallbackHeight,
 		OnNavigate: func(navCtx context.Context, url string) error {
@@ -3028,29 +3049,29 @@ func (a *App) SetOmniboxOnNavigate(fn func(url string)) {
 func (a *App) initConfigWatcher(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
-	if a.configManager == nil {
-		log.Debug().Msg("no config manager available, skipping watcher")
+	if a.deps.WatchConfig == nil || a.deps.OnConfigChange == nil {
+		log.Debug().Msg("no config watcher available, skipping")
 		return
 	}
 
 	// Start viper watcher
-	if err := a.configManager.Watch(); err != nil {
+	if err := a.deps.WatchConfig(); err != nil {
 		log.Warn().Err(err).Msg("failed to start config watcher")
 		return
 	}
 
 	// Hot-reload appearance and keybindings on config change.
-	a.configManager.OnConfigChange(func(newCfg *config.Config) {
-		cfgCopy := newCfg
+	// deps.Config is updated in-place before this callback fires.
+	a.deps.OnConfigChange(func() {
 		cb := glib.SourceFunc(func(_ uintptr) bool {
-			a.applyAppearanceConfig(ctx, cfgCopy)
+			a.applyAppearanceConfig(ctx)
 			// Reload keyboard shortcuts
 			if a.keyboardHandler != nil {
-				a.keyboardHandler.ReloadShortcuts(ctx, cfgCopy)
+				a.keyboardHandler.ReloadShortcuts(ctx, a.deps.Config)
 			}
 			// Reload global shortcuts (removes stale, re-registers from config)
 			if a.globalShortcutHandler != nil {
-				a.globalShortcutHandler.ReloadShortcuts(ctx, cfgCopy)
+				a.globalShortcutHandler.ReloadShortcuts(ctx, a.deps.Config)
 			}
 			return false
 		})
@@ -3060,16 +3081,12 @@ func (a *App) initConfigWatcher(ctx context.Context) {
 	log.Debug().Msg("config watcher initialized")
 }
 
-func (a *App) applyAppearanceConfig(ctx context.Context, cfg *config.Config) {
+func (a *App) applyAppearanceConfig(ctx context.Context) {
 	log := logging.FromContext(ctx)
-	if cfg == nil {
+	if a.deps == nil || a.deps.Config == nil {
 		return
 	}
-
-	// Update the shared config pointer in-place so existing references see changes.
-	if a.deps != nil && a.deps.Config != nil {
-		*a.deps.Config = *cfg
-	}
+	cfg := a.deps.Config
 
 	if a.engine != nil {
 		_ = a.engine.UpdateSettings(ctx, port.EngineSettingsUpdate{Raw: cfg})
@@ -3081,7 +3098,7 @@ func (a *App) applyAppearanceConfig(ctx context.Context, cfg *config.Config) {
 	}
 
 	// Update GTK theme and injected WebUI theme vars
-	if a.deps != nil && a.deps.Theme != nil {
+	if a.deps.Theme != nil {
 		var display *gdk.Display
 		if a.mainWindow != nil && a.mainWindow.Window() != nil {
 			display = a.mainWindow.Window().GetDisplay()

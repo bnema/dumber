@@ -10,6 +10,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/ui/theme"
+	"github.com/jwijenbergh/puregotk/v4/gtk"
 )
 
 // Dependencies holds all injected dependencies for the UI layer.
@@ -60,13 +61,29 @@ type Dependencies struct {
 	IdleInhibitor  port.IdleInhibitor
 
 	// Accent picker for dead keys support
-	InsertAccentUC *usecase.InsertAccentUseCase
+	InsertAccentUC      *usecase.InsertAccentUseCase
+	AccentFocusProvider port.FocusedInputProvider
+	// NewGTKEntryTarget creates a port.TextInputTarget from a GTK SearchEntry.
+	// Injected to avoid importing infrastructure/textinput from the UI layer.
+	NewGTKEntryTarget func(entry *gtk.SearchEntry) port.TextInputTarget
 
 	// Session management
 	SessionStateRepo repository.SessionStateRepository
 	SessionRepo      repository.SessionRepository
 	CurrentSessionID entity.SessionID
 	SnapshotUC       *usecase.SnapshotSessionUseCase
+	// SnapshotServiceFactory creates a snapshot service bound to the given tab-list provider.
+	// Called after the App is initialized so the App can serve as the provider.
+	SnapshotServiceFactory func(provider port.TabListProvider, intervalMs int) port.SnapshotService
+	// SessionSpawner spawns a new dumber instance for session restoration.
+	SessionSpawner port.SessionSpawner
+	// FileSystem provides file operations (e.g., for download deduplication).
+	FileSystem port.FileSystem
+	// OnConfigChange registers a callback for config hot-reload.
+	// The config pointer in deps.Config is updated in-place before the callback fires.
+	OnConfigChange func(callback func())
+	// WatchConfig starts watching the config file for changes.
+	WatchConfig func() error
 
 	// Update management
 	CheckUpdateUC *usecase.CheckUpdateUseCase

@@ -14,8 +14,12 @@ type GTKEntryTarget struct {
 	entry *gtk.SearchEntry
 }
 
-// Compile-time interface check.
+// Compile-time interface checks.
 var _ port.TextInputTarget = (*GTKEntryTarget)(nil)
+var _ port.GTKEntryInputTarget = (*GTKEntryTarget)(nil)
+
+// IsGTKEntryTarget implements port.GTKEntryInputTarget.
+func (t *GTKEntryTarget) IsGTKEntryTarget() bool { return true }
 
 // NewGTKEntryTarget creates a new GTK entry target for a SearchEntry.
 func NewGTKEntryTarget(entry *gtk.SearchEntry) *GTKEntryTarget {
