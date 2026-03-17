@@ -97,7 +97,14 @@ func (e *Engine) InternalInjector() *ContentInjector        { return e.injector 
 func (e *Engine) InternalMessageRouter() *MessageRouter     { return e.messageRouter }
 func (e *Engine) InternalPool() *WebViewPool                { return e.pool }
 func (e *Engine) InternalFactory() *WebViewFactory          { return e.factory }
-func (e *Engine) InternalFilterManager() *filtering.Manager { return e.filterManager }
+func (e *Engine) InternalFilterManager() port.FilterManager { return e.filterManager }
+
+// SetHandlerContext sets the base context for message handler dispatch.
+func (e *Engine) SetHandlerContext(ctx context.Context) {
+	if e.messageRouter != nil {
+		e.messageRouter.SetBaseContext(ctx)
+	}
+}
 
 // RegisterHandlers registers all WebUI message bridge handlers.
 func (e *Engine) RegisterHandlers(ctx context.Context, deps port.HandlerDependencies) error {

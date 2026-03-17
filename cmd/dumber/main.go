@@ -24,7 +24,6 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/idle"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/infrastructure/updater"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/infrastructure/xdg"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui"
@@ -111,11 +110,7 @@ func runGUI() int {
 	logging.Trace().UpdateLogger(log)
 	logCoreDumpLimits(ctx)
 
-	if wkEngine, ok := engine.(*webkit.Engine); ok {
-		if mr := wkEngine.InternalMessageRouter(); mr != nil {
-			mr.SetBaseContext(ctx)
-		}
-	}
+	engine.SetHandlerContext(ctx)
 
 	useCases := createUseCases(repos, cfg)
 	if needsEagerDB {
@@ -513,11 +508,7 @@ func buildUIDependencies(
 	currentSessionID entity.SessionID,
 	startupCrashReports []string,
 ) *ui.Dependencies {
-	// Type-assert to *webkit.Engine to access FilterManager (not yet on port.Engine).
-	var filterManager port.FilterManager
-	if wkEngine, ok := engine.(*webkit.Engine); ok {
-		filterManager = wkEngine.InternalFilterManager()
-	}
+	filterManager := engine.InternalFilterManager()
 
 	return &ui.Dependencies{
 		Ctx:                 ctx,
