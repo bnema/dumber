@@ -359,7 +359,7 @@ func (a *App) setupPoolBackgroundColor(ctx context.Context) {
 	log.Debug().Msg("configured webview pool background color")
 }
 
-func (a *App) prewarmWebViewPoolAsync(_ context.Context) {
+func (a *App) prewarmWebViewPoolAsync(ctx context.Context) {
 	if a.engine == nil {
 		return
 	}
@@ -367,7 +367,7 @@ func (a *App) prewarmWebViewPoolAsync(_ context.Context) {
 	if pool == nil {
 		return
 	}
-	pool.Prewarm(0)
+	pool.PrewarmAsync(ctx, 0)
 }
 
 func (a *App) createMainWindow(ctx context.Context) error {

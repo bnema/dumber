@@ -275,9 +275,14 @@ type WebViewPool interface {
 	// If the pool is full, the WebView will be destroyed.
 	Release(wv WebView)
 
-	// Prewarm creates WebViews in the background to populate the pool.
+	// Prewarm creates WebViews synchronously to populate the pool.
 	// Pass count <= 0 to use the default prewarm count.
 	Prewarm(count int)
+
+	// PrewarmAsync schedules WebView creation on the toolkit idle loop,
+	// avoiding blocking startup while still warming up WebViews.
+	// Pass count <= 0 to use the default prewarm count.
+	PrewarmAsync(ctx context.Context, count int)
 
 	// Size returns the current number of available WebViews in the pool.
 	Size() int

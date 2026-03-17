@@ -72,6 +72,10 @@ func (a *webViewPoolAdapter) Prewarm(count int) {
 	a.pool.Prewarm(a.ctx, count)
 }
 
+func (a *webViewPoolAdapter) PrewarmAsync(ctx context.Context, count int) {
+	a.pool.PrewarmAsync(ctx, count)
+}
+
 func (a *webViewPoolAdapter) Size() int {
 	return a.pool.Size()
 }
