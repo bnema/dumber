@@ -48,7 +48,10 @@ func (h *ConfigHandler) Handle(ctx context.Context, _ webkit.WebViewID, payload 
 }
 
 // RegisterConfigHandlers registers configuration handlers with the router.
-func RegisterConfigHandlers(ctx context.Context, router *webkit.MessageRouter, saveConfig func(context.Context, port.WebUIConfig) error) error {
+func RegisterConfigHandlers(
+	ctx context.Context, router *webkit.MessageRouter,
+	saveConfig func(context.Context, port.WebUIConfig) error,
+) error {
 	handler := NewConfigHandler(saveConfig)
 
 	log := logging.FromContext(ctx).With().Str("component", "handlers").Logger()

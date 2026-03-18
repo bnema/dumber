@@ -282,7 +282,9 @@ func (s *ShortcutSet) buildResizeModeShortcuts(ctx context.Context, cfg *entity.
 	s.buildModeShortcuts(ctx, cfg.ResizeMode.GetKeyBindings(), s.ResizeMode, "resize")
 }
 
-func (s *ShortcutSet) registerActivationShortcutsFromParts(ctx context.Context, workspace *entity.WorkspaceConfig, session *entity.SessionConfig) {
+func (s *ShortcutSet) registerActivationShortcutsFromParts(
+	ctx context.Context, workspace *entity.WorkspaceConfig, session *entity.SessionConfig,
+) {
 	log := logging.FromContext(ctx)
 	if workspace == nil {
 		return

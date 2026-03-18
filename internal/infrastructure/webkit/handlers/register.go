@@ -13,6 +13,7 @@ import (
 
 // AccentKeyHandler is implemented by the InsertAccentUseCase to receive
 // key press/release events forwarded from WebView JS via the message bridge.
+//
 // Deprecated: use port.AccentKeyHandler instead. This alias is kept for compatibility.
 type AccentKeyHandler = port.AccentKeyHandler
 

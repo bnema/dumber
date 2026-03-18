@@ -1511,23 +1511,11 @@ func (a *App) onShutdown(ctx context.Context) {
 	log.Info().Msg("application shutdown complete")
 }
 
-// initCoordinators initializes all coordinators and wires their callbacks.
-func (a *App) initCoordinators(ctx context.Context) {
-	log := logging.FromContext(ctx)
-	log.Debug().Msg("initializing coordinators")
-
-	// Helper to get active workspace and view
-	getActiveWS := func() (*entity.Workspace, *component.WorkspaceView) {
-		return a.activeWorkspace(), a.activeWorkspaceView()
-	}
-
-	// Create FaviconAdapter with service and engine FaviconDatabase.
-	// Skip if FaviconService is nil (e.g. in tests or when favicon support is disabled).
-	if a.deps.FaviconService != nil {
-		a.faviconAdapter = adapter.NewFaviconAdapter(a.deps.FaviconService, a.engine.FaviconDatabase(), a.deps.FaviconAdapterConfig)
-	}
-
-	// 1. Content Coordinator (no dependencies on other coordinators)
+// initContentCoordinator creates the content coordinator and wires its optional dependencies.
+func (a *App) initContentCoordinator(
+	ctx context.Context,
+	getActiveWS func() (*entity.Workspace, *component.WorkspaceView),
+) {
 	a.contentCoord = content.NewCoordinator(
 		ctx,
 		a.engine.Pool(),
@@ -1561,6 +1549,26 @@ func (a *App) initCoordinators(ctx context.Context) {
 	a.contentCoord.SetOnFirstLoadStarted(func() {
 		a.triggerDeferredInit(ctx)
 	})
+}
+
+// initCoordinators initializes all coordinators and wires their callbacks.
+func (a *App) initCoordinators(ctx context.Context) {
+	log := logging.FromContext(ctx)
+	log.Debug().Msg("initializing coordinators")
+
+	// Helper to get active workspace and view
+	getActiveWS := func() (*entity.Workspace, *component.WorkspaceView) {
+		return a.activeWorkspace(), a.activeWorkspaceView()
+	}
+
+	// Create FaviconAdapter with service and engine FaviconDatabase.
+	// Skip if FaviconService is nil (e.g. in tests or when favicon support is disabled).
+	if a.deps.FaviconService != nil {
+		a.faviconAdapter = adapter.NewFaviconAdapter(a.deps.FaviconService, a.engine.FaviconDatabase(), a.deps.FaviconAdapterConfig)
+	}
+
+	// 1. Content Coordinator (no dependencies on other coordinators)
+	a.initContentCoordinator(ctx, getActiveWS)
 
 	// 2. Tab Coordinator
 	a.tabCoord = coordinator.NewTabCoordinator(ctx, coordinator.TabCoordinatorConfig{

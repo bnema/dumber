@@ -125,7 +125,10 @@ func RunParallelInit(input ParallelInitInput) (*ParallelInitResult, error) {
 	var themeManager *theme.Manager
 	go func() {
 		defer wg.Done()
-		themeManager = theme.NewManager(input.Ctx, &input.Config.Appearance, input.Config.DefaultUIScale, &input.Config.Workspace.Styling, resolver)
+		themeManager = theme.NewManager(
+			input.Ctx, &input.Config.Appearance, input.Config.DefaultUIScale,
+			&input.Config.Workspace.Styling, resolver,
+		)
 	}()
 
 	wg.Wait()

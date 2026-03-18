@@ -174,22 +174,24 @@ type PopupBehaviorConfig struct {
 	OAuthAutoClose bool `mapstructure:"oauth_auto_close" yaml:"oauth_auto_close" toml:"oauth_auto_close" json:"oauth_auto_close"`
 }
 
-// WorkspaceConfig holds all workspace layout and behaviour settings.
+// WorkspaceConfig holds all workspace layout and behavior settings.
 type WorkspaceConfig struct {
-	NewPaneURL              string                 `mapstructure:"new_pane_url" yaml:"new_pane_url" toml:"new_pane_url"`
-	PaneMode                PaneModeConfig         `mapstructure:"pane_mode" yaml:"pane_mode" toml:"pane_mode" json:"pane_mode"`
-	TabMode                 TabModeConfig          `mapstructure:"tab_mode" yaml:"tab_mode" toml:"tab_mode" json:"tab_mode"`
-	ResizeMode              ResizeModeConfig       `mapstructure:"resize_mode" yaml:"resize_mode" toml:"resize_mode" json:"resize_mode"`
-	Shortcuts               GlobalShortcutsConfig  `mapstructure:"shortcuts" yaml:"shortcuts" toml:"shortcuts" json:"shortcuts"`
-	FloatingPane            FloatingPaneConfig     `mapstructure:"floating_pane" yaml:"floating_pane" toml:"floating_pane" json:"floating_pane"`
-	TabBarPosition          string                 `mapstructure:"tab_bar_position" yaml:"tab_bar_position" toml:"tab_bar_position" json:"tab_bar_position"`
-	HideTabBarWhenSingleTab bool                   `mapstructure:"hide_tab_bar_when_single_tab" yaml:"hide_tab_bar_when_single_tab" toml:"hide_tab_bar_when_single_tab" json:"hide_tab_bar_when_single_tab"` //nolint:lll // struct tags must stay on one line
-	SwitchToTabOnMove       bool                   `mapstructure:"switch_to_tab_on_move" yaml:"switch_to_tab_on_move" toml:"switch_to_tab_on_move" json:"switch_to_tab_on_move"`                             //nolint:lll // struct tags must stay on one line
-	Popups                  PopupBehaviorConfig    `mapstructure:"popups" yaml:"popups" toml:"popups" json:"popups"`
-	Styling                 WorkspaceStylingConfig `mapstructure:"styling" yaml:"styling" toml:"styling" json:"styling"`
+	NewPaneURL   string                `mapstructure:"new_pane_url" yaml:"new_pane_url" toml:"new_pane_url"`
+	PaneMode     PaneModeConfig        `mapstructure:"pane_mode" yaml:"pane_mode" toml:"pane_mode" json:"pane_mode"`
+	TabMode      TabModeConfig         `mapstructure:"tab_mode" yaml:"tab_mode" toml:"tab_mode" json:"tab_mode"`
+	ResizeMode   ResizeModeConfig      `mapstructure:"resize_mode" yaml:"resize_mode" toml:"resize_mode" json:"resize_mode"`
+	Shortcuts    GlobalShortcutsConfig `mapstructure:"shortcuts" yaml:"shortcuts" toml:"shortcuts" json:"shortcuts"`
+	FloatingPane FloatingPaneConfig    `mapstructure:"floating_pane" yaml:"floating_pane" toml:"floating_pane" json:"floating_pane"`
+
+	TabBarPosition          string `mapstructure:"tab_bar_position" yaml:"tab_bar_position" toml:"tab_bar_position" json:"tab_bar_position"`
+	HideTabBarWhenSingleTab bool   `mapstructure:"hide_tab_bar_when_single_tab" yaml:"hide_tab_bar_when_single_tab" toml:"hide_tab_bar_when_single_tab" json:"hide_tab_bar_when_single_tab"` //nolint:lll // struct tags must stay on one line
+	SwitchToTabOnMove       bool   `mapstructure:"switch_to_tab_on_move" yaml:"switch_to_tab_on_move" toml:"switch_to_tab_on_move" json:"switch_to_tab_on_move"`                             //nolint:lll // struct tags must stay on one line
+
+	Popups  PopupBehaviorConfig    `mapstructure:"popups" yaml:"popups" toml:"popups" json:"popups"`
+	Styling WorkspaceStylingConfig `mapstructure:"styling" yaml:"styling" toml:"styling" json:"styling"`
 }
 
-// UpdateConfig holds auto-update behaviour settings.
+// UpdateConfig holds auto-update behavior settings.
 type UpdateConfig struct {
 	EnableOnStartup     bool `mapstructure:"enable_on_startup" yaml:"enable_on_startup" toml:"enable_on_startup"`
 	AutoDownload        bool `mapstructure:"auto_download" yaml:"auto_download" toml:"auto_download"`

@@ -113,7 +113,10 @@ func (e *Engine) RegisterAccentHandlers(ctx context.Context, handler port.Accent
 }
 
 // ConfigureDownloads sets up download handling.
-func (e *Engine) ConfigureDownloads(ctx context.Context, downloadPath string, eventHandler port.DownloadEventHandler, preparer port.DownloadPreparer) error {
+func (e *Engine) ConfigureDownloads(
+	ctx context.Context, downloadPath string,
+	eventHandler port.DownloadEventHandler, preparer port.DownloadPreparer,
+) error {
 	if e.wkCtx == nil {
 		return fmt.Errorf("webkit context not initialized")
 	}

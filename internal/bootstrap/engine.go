@@ -67,9 +67,7 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 					OnClipboardCopied:  deps.OnClipboardCopied,
 				})
 			},
-			func(ctx context.Context, router *webkit.MessageRouter, handler port.AccentKeyHandler) error {
-				return handlers.RegisterAccentHandlers(ctx, router, handler)
-			},
+			handlers.RegisterAccentHandlers,
 		)
 	case "cef":
 		return nil, fmt.Errorf("CEF engine not yet implemented")
