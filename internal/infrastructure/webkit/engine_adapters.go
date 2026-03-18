@@ -8,7 +8,6 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/jwijenbergh/puregotk/v4/gio"
-	"github.com/rs/zerolog"
 )
 
 // --- WebViewFactory adapter ---
@@ -82,53 +81,6 @@ func (a *webViewPoolAdapter) Size() int {
 
 func (a *webViewPoolAdapter) Close() {
 	a.pool.Close(a.ctx)
-}
-
-// --- SchemeHandler adapter ---
-
-// schemeHandlerAdapter bridges *DumbSchemeHandler to port.SchemeHandler.
-// DumbSchemeHandler uses a page-based registration pattern (RegisterPage) rather
-// than a generic scheme+handler registration; this adapter is a stub until
-// consumers are migrated.
-type schemeHandlerAdapter struct {
-	handler *DumbSchemeHandler
-	logger  zerolog.Logger
-}
-
-func (a *schemeHandlerAdapter) RegisterScheme(scheme string, _ func(uri string) ([]byte, string, error)) {
-	// DumbSchemeHandler handles the "dumb" scheme exclusively via RegisterPage/RegisterWithContext.
-	// Generic scheme registration is not yet wired through this adapter.
-	a.logger.Warn().
-		Str("scheme", scheme).
-		Msg("schemeHandlerAdapter.RegisterScheme: not implemented — DumbSchemeHandler uses RegisterPage/RegisterWithContext pattern")
-}
-
-// --- MessageRouter adapter ---
-
-// messageRouterAdapter bridges *MessageRouter to port.MessageRouter.
-// The internal MessageRouter uses a typed MessageHandler interface rather than
-// the simple func(string)(string,error) signature in the port interface.
-// PostMessage is also not directly available on the internal type.
-type messageRouterAdapter struct {
-	router *MessageRouter
-	logger zerolog.Logger
-}
-
-func (a *messageRouterAdapter) RegisterHandler(name string, _ func(message string) (string, error)) {
-	// Internal MessageRouter.RegisterHandler takes a MessageHandler interface, not a plain func.
-	// Wire up via RegisterHandler(msgType, MessageHandlerFunc{...}) when consumers are migrated.
-	a.logger.Warn().
-		Str("handler", name).
-		Msg("messageRouterAdapter.RegisterHandler: not implemented — use MessageRouter.RegisterHandler(msgType, MessageHandler) directly")
-}
-
-func (*messageRouterAdapter) PostMessage(webviewID port.WebViewID, message string) error {
-	wv := LookupWebView(webviewID)
-	if wv == nil {
-		return fmt.Errorf("webview %d not found", webviewID)
-	}
-	wv.RunJavaScript(context.Background(), message)
-	return nil
 }
 
 // --- SettingsApplier adapter ---

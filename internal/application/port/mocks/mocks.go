@@ -2966,52 +2966,6 @@ func (_c *MockEngine_InternalSchemePath_Call) RunAndReturn(run func() string) *M
 	return _c
 }
 
-// MessageRouter provides a mock function for the type MockEngine
-func (_mock *MockEngine) MessageRouter() port.MessageRouter {
-	ret := _mock.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for MessageRouter")
-	}
-
-	var r0 port.MessageRouter
-	if returnFunc, ok := ret.Get(0).(func() port.MessageRouter); ok {
-		r0 = returnFunc()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(port.MessageRouter)
-		}
-	}
-	return r0
-}
-
-// MockEngine_MessageRouter_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MessageRouter'
-type MockEngine_MessageRouter_Call struct {
-	*mock.Call
-}
-
-// MessageRouter is a helper method to define mock.On call
-func (_e *MockEngine_Expecter) MessageRouter() *MockEngine_MessageRouter_Call {
-	return &MockEngine_MessageRouter_Call{Call: _e.mock.On("MessageRouter")}
-}
-
-func (_c *MockEngine_MessageRouter_Call) Run(run func()) *MockEngine_MessageRouter_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *MockEngine_MessageRouter_Call) Return(messageRouter port.MessageRouter) *MockEngine_MessageRouter_Call {
-	_c.Call.Return(messageRouter)
-	return _c
-}
-
-func (_c *MockEngine_MessageRouter_Call) RunAndReturn(run func() port.MessageRouter) *MockEngine_MessageRouter_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // OnToolkitReady provides a mock function for the type MockEngine
 func (_mock *MockEngine) OnToolkitReady(ctx context.Context) error {
 	ret := _mock.Called(ctx)
@@ -3219,52 +3173,6 @@ func (_c *MockEngine_RegisterHandlers_Call) Return(err error) *MockEngine_Regist
 }
 
 func (_c *MockEngine_RegisterHandlers_Call) RunAndReturn(run func(ctx context.Context, deps port.HandlerDependencies) error) *MockEngine_RegisterHandlers_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// SchemeHandler provides a mock function for the type MockEngine
-func (_mock *MockEngine) SchemeHandler() port.SchemeHandler {
-	ret := _mock.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for SchemeHandler")
-	}
-
-	var r0 port.SchemeHandler
-	if returnFunc, ok := ret.Get(0).(func() port.SchemeHandler); ok {
-		r0 = returnFunc()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(port.SchemeHandler)
-		}
-	}
-	return r0
-}
-
-// MockEngine_SchemeHandler_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SchemeHandler'
-type MockEngine_SchemeHandler_Call struct {
-	*mock.Call
-}
-
-// SchemeHandler is a helper method to define mock.On call
-func (_e *MockEngine_Expecter) SchemeHandler() *MockEngine_SchemeHandler_Call {
-	return &MockEngine_SchemeHandler_Call{Call: _e.mock.On("SchemeHandler")}
-}
-
-func (_c *MockEngine_SchemeHandler_Call) Run(run func()) *MockEngine_SchemeHandler_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *MockEngine_SchemeHandler_Call) Return(schemeHandler port.SchemeHandler) *MockEngine_SchemeHandler_Call {
-	_c.Call.Return(schemeHandler)
-	return _c
-}
-
-func (_c *MockEngine_SchemeHandler_Call) RunAndReturn(run func() port.SchemeHandler) *MockEngine_SchemeHandler_Call {
 	_c.Call.Return(run)
 	return _c
 }

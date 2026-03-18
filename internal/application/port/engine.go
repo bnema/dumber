@@ -98,14 +98,8 @@ type Engine interface {
 	// Pool returns the WebViewPool for acquiring pre-warmed WebView instances.
 	Pool() WebViewPool
 
-	// SchemeHandler returns the SchemeHandler for registering custom URI schemes.
-	SchemeHandler() SchemeHandler
-
 	// ContentInjector returns the ContentInjector for injecting scripts and styles.
 	ContentInjector() ContentInjector
-
-	// MessageRouter returns the MessageRouter for JS-to-Go message passing.
-	MessageRouter() MessageRouter
 
 	// SettingsApplier returns the SettingsApplier for applying browser settings.
 	SettingsApplier() SettingsApplier

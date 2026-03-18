@@ -60,16 +60,6 @@ func (e *Engine) Close() error {
 	return nil
 }
 
-// SchemeHandler returns a port.SchemeHandler adapter for the DumbSchemeHandler.
-func (e *Engine) SchemeHandler() port.SchemeHandler {
-	return &schemeHandlerAdapter{handler: e.schemeHandler, logger: e.logger}
-}
-
-// MessageRouter returns a port.MessageRouter adapter for the internal MessageRouter.
-func (e *Engine) MessageRouter() port.MessageRouter {
-	return &messageRouterAdapter{router: e.messageRouter, logger: e.logger}
-}
-
 // SettingsApplier returns a port.SettingsApplier adapter for the SettingsManager.
 func (e *Engine) SettingsApplier() port.SettingsApplier {
 	return &settingsApplierAdapter{settings: e.settings}
