@@ -12745,6 +12745,52 @@ func (_c *MockWebViewPool_Prewarm_Call) RunAndReturn(run func(count int)) *MockW
 	return _c
 }
 
+// PrewarmAsync provides a mock function for the type MockWebViewPool
+func (_mock *MockWebViewPool) PrewarmAsync(ctx context.Context, count int) {
+	_mock.Called(ctx, count)
+	return
+}
+
+// MockWebViewPool_PrewarmAsync_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PrewarmAsync'
+type MockWebViewPool_PrewarmAsync_Call struct {
+	*mock.Call
+}
+
+// PrewarmAsync is a helper method to define mock.On call
+//   - ctx context.Context
+//   - count int
+func (_e *MockWebViewPool_Expecter) PrewarmAsync(ctx interface{}, count interface{}) *MockWebViewPool_PrewarmAsync_Call {
+	return &MockWebViewPool_PrewarmAsync_Call{Call: _e.mock.On("PrewarmAsync", ctx, count)}
+}
+
+func (_c *MockWebViewPool_PrewarmAsync_Call) Run(run func(ctx context.Context, count int)) *MockWebViewPool_PrewarmAsync_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWebViewPool_PrewarmAsync_Call) Return() *MockWebViewPool_PrewarmAsync_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockWebViewPool_PrewarmAsync_Call) RunAndReturn(run func(ctx context.Context, count int)) *MockWebViewPool_PrewarmAsync_Call {
+	_c.Run(run)
+	return _c
+}
+
 // Release provides a mock function for the type MockWebViewPool
 func (_mock *MockWebViewPool) Release(wv port.WebView) {
 	_mock.Called(wv)
