@@ -45,7 +45,7 @@ func NewUpdateCoordinator(
 	}
 }
 
-// CheckOnStartup triggers an update check if enabled by config.
+// CheckOnStartup triggers an update check if enabled via the enableOnStartup constructor flag.
 func (c *UpdateCoordinator) CheckOnStartup(ctx context.Context) {
 	log := logging.FromContext(ctx)
 

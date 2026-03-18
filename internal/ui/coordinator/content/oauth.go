@@ -114,8 +114,7 @@ func ShouldAutoClose(url string) bool {
 //
 // Safety-timeout force close is disabled for stability. OAuth popups close on
 // callback detection or manual user action.
-func shouldForceCloseOnSafetyTimeout(url string) bool {
-	_ = url
+func shouldForceCloseOnSafetyTimeout() bool {
 	return false
 }
 
@@ -256,7 +255,7 @@ func (c *Coordinator) setupOAuthAutoClose(
 			cb := glib.SourceFunc(func(_ uintptr) bool {
 				if wv != nil && !wv.IsDestroyed() {
 					uri := wv.URI()
-					if shouldForceCloseOnSafetyTimeout(uri) {
+					if shouldForceCloseOnSafetyTimeout() {
 						log.Warn().Str("pane", string(paneID)).Msg("oauth safety timeout, closing stuck popup")
 						oauthWV.Close()
 						return false

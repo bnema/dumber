@@ -22,8 +22,8 @@ const (
 // Environment variables must be set BEFORE GTK/WebKit initialization.
 //
 // Note: ApplyEnvironment was removed from this interface because rendering
-// settings are engine-specific (WebKit/GTK/GStreamer) and have moved to
-// internal/infrastructure/env.RenderingSettings to avoid port bloat.
+// settings are engine-specific and are handled by concrete implementations
+// (e.g. WebKit/GTK/GStreamer) to avoid port bloat.
 type RenderingEnvManager interface {
 	// DetectGPUVendor identifies the primary GPU vendor from system info.
 	// Uses /sys/class/drm/card*/device/vendor as primary detection method.

@@ -1607,6 +1607,10 @@ func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
 		wv.OnLinkHover = nil
 		wv.OnWebProcessTerminated = nil
 		wv.OnPermissionRequest = nil
+		wv.OnLinkMiddleClick = nil
+		wv.OnEnterFullscreen = nil
+		wv.OnLeaveFullscreen = nil
+		wv.OnAudioStateChanged = nil
 		return
 	}
 
@@ -1733,6 +1737,9 @@ func (wv *WebView) Close() {
 // It composes fn with any existing OnClose handler so multiple callers can register
 // close callbacks without overwriting one another.
 func (wv *WebView) AddCloseCallback(fn func()) {
+	if fn == nil {
+		return
+	}
 	if wv.OnClose == nil {
 		wv.OnClose = fn
 		return
@@ -1748,6 +1755,9 @@ func (wv *WebView) AddCloseCallback(fn func()) {
 // fn is invoked when the URI changes (OnURIChanged) and when a page load is committed
 // (OnLoadChanged with LoadCommitted), covering both redirect-based and postMessage OAuth flows.
 func (wv *WebView) AddNavigationCallback(fn func(uri string)) {
+	if fn == nil {
+		return
+	}
 	// Compose with existing OnURIChanged.
 	if wv.OnURIChanged == nil {
 		wv.OnURIChanged = fn

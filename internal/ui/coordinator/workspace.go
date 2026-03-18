@@ -1862,6 +1862,8 @@ func (c *WorkspaceCoordinator) insertPopupSplit(ctx context.Context, input conte
 		c.attachPopupWebView(ctx, wsView, input)
 	}
 
+	c.notifyStateChanged()
+
 	log.Info().
 		Str("popup_pane", string(input.PopupPane.ID)).
 		Str("direction", string(direction)).
@@ -1976,6 +1978,8 @@ func (c *WorkspaceCoordinator) insertPopupStacked(ctx context.Context, input con
 
 		return err
 	}
+
+	c.notifyStateChanged()
 
 	log.Info().
 		Str("popup_pane", string(input.PopupPane.ID)).

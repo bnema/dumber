@@ -114,7 +114,7 @@ type updateFolderRequest struct {
 }
 
 // HandleUpdate handles folder_update messages.
-// NOTE: This requires UpdateFolder() method to be added to ManageFavoritesUseCase.
+// It delegates to the port.HomepageFavorites interface's UpdateFolder method.
 func (h *FolderHandlers) HandleUpdate() webkit.MessageHandler {
 	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)

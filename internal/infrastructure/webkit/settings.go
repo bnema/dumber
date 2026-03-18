@@ -175,14 +175,7 @@ func (sm *SettingsManager) ApplyToWebView(ctx context.Context, wv *webkit.WebVie
 		return
 	}
 
-	settings := sm.CreateSettings(ctx)
-	if settings == nil {
-		return
-	}
-
-	// WebView.GetSettings() returns the current settings - we can modify them directly
-	// For a full replacement, we'd need webkit_web_view_set_settings which may not be available
-	// Instead, we apply to the existing settings object
+	// Apply to the existing settings object attached to the WebView
 	existingSettings := wv.GetSettings()
 	if existingSettings != nil {
 		sm.mu.RLock()

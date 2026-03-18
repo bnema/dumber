@@ -28,7 +28,6 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/snapshot"
 	"github.com/bnema/dumber/internal/infrastructure/textinput"
 	"github.com/bnema/dumber/internal/infrastructure/updater"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/infrastructure/xdg"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui"
@@ -516,8 +515,8 @@ func buildUIDependencies(
 	startupCrashReports []string,
 ) *ui.Dependencies {
 	var filterManager port.FilterManager
-	if wkEngine, ok := engine.(*webkit.Engine); ok {
-		filterManager = wkEngine.InternalFilterManager()
+	if fmp, ok := engine.(port.FilterManagerProvider); ok {
+		filterManager = fmp.InternalFilterManager()
 	}
 
 	focusProvider := textinput.NewFocusProvider()

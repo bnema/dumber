@@ -3111,7 +3111,9 @@ func (a *App) applyAppearanceConfig(ctx context.Context) {
 	cfg := a.deps.Config
 
 	if a.engine != nil {
-		_ = a.engine.UpdateSettings(ctx, port.EngineSettingsUpdate{Raw: cfg})
+		if err := a.engine.UpdateSettings(ctx, port.EngineSettingsUpdate{Raw: cfg}); err != nil {
+			log.Warn().Err(err).Msg("failed to apply engine settings update")
+		}
 	}
 
 	// Apply settings to existing webviews via coordinator

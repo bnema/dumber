@@ -9,7 +9,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/config"
 )
 
 // ---------------------------------------------------------------------------
@@ -63,52 +62,52 @@ func TestPopupTypeString_Unknown(t *testing.T) {
 func TestGetBehavior_NilConfigReturnsSplit(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, config.PopupBehaviorSplit, GetBehavior(PopupTypeTab, nil))
-	assert.Equal(t, config.PopupBehaviorSplit, GetBehavior(PopupTypePopup, nil))
+	assert.Equal(t, entity.PopupBehaviorSplit, GetBehavior(PopupTypeTab, nil))
+	assert.Equal(t, entity.PopupBehaviorSplit, GetBehavior(PopupTypePopup, nil))
 }
 
 func TestGetBehavior_TabPopup_DefaultConfig(t *testing.T) {
 	t.Parallel()
 
 	// BlankTargetBehavior is empty → falls through to default "stacked"
-	cfg := &config.PopupBehaviorConfig{}
-	assert.Equal(t, config.PopupBehaviorStacked, GetBehavior(PopupTypeTab, cfg))
+	cfg := &entity.PopupBehaviorConfig{}
+	assert.Equal(t, entity.PopupBehaviorStacked, GetBehavior(PopupTypeTab, cfg))
 }
 
 func TestGetBehavior_TabPopup_SplitConfig(t *testing.T) {
 	t.Parallel()
 
-	cfg := &config.PopupBehaviorConfig{BlankTargetBehavior: "split"}
-	assert.Equal(t, config.PopupBehaviorSplit, GetBehavior(PopupTypeTab, cfg))
+	cfg := &entity.PopupBehaviorConfig{BlankTargetBehavior: "split"}
+	assert.Equal(t, entity.PopupBehaviorSplit, GetBehavior(PopupTypeTab, cfg))
 }
 
 func TestGetBehavior_TabPopup_StackedConfig(t *testing.T) {
 	t.Parallel()
 
-	cfg := &config.PopupBehaviorConfig{BlankTargetBehavior: "stacked"}
-	assert.Equal(t, config.PopupBehaviorStacked, GetBehavior(PopupTypeTab, cfg))
+	cfg := &entity.PopupBehaviorConfig{BlankTargetBehavior: "stacked"}
+	assert.Equal(t, entity.PopupBehaviorStacked, GetBehavior(PopupTypeTab, cfg))
 }
 
 func TestGetBehavior_TabPopup_TabbedConfig(t *testing.T) {
 	t.Parallel()
 
-	cfg := &config.PopupBehaviorConfig{BlankTargetBehavior: "tabbed"}
-	assert.Equal(t, config.PopupBehaviorTabbed, GetBehavior(PopupTypeTab, cfg))
+	cfg := &entity.PopupBehaviorConfig{BlankTargetBehavior: "tabbed"}
+	assert.Equal(t, entity.PopupBehaviorTabbed, GetBehavior(PopupTypeTab, cfg))
 }
 
 func TestGetBehavior_JSPopup_UsesBehaviorField(t *testing.T) {
 	t.Parallel()
 
-	cfg := &config.PopupBehaviorConfig{Behavior: config.PopupBehaviorWindowed}
-	assert.Equal(t, config.PopupBehaviorWindowed, GetBehavior(PopupTypePopup, cfg))
+	cfg := &entity.PopupBehaviorConfig{Behavior: entity.PopupBehaviorWindowed}
+	assert.Equal(t, entity.PopupBehaviorWindowed, GetBehavior(PopupTypePopup, cfg))
 }
 
 func TestGetBehavior_JSPopup_DefaultConfig(t *testing.T) {
 	t.Parallel()
 
 	// Behavior zero-value is empty string; GetBehavior returns it as-is.
-	cfg := &config.PopupBehaviorConfig{}
-	assert.Equal(t, config.PopupBehavior(""), GetBehavior(PopupTypePopup, cfg))
+	cfg := &entity.PopupBehaviorConfig{}
+	assert.Equal(t, entity.PopupBehavior(""), GetBehavior(PopupTypePopup, cfg))
 }
 
 func TestGetBehavior_TabPopup_BlocksWhenOpenInNewPaneFalse(t *testing.T) {
@@ -116,11 +115,11 @@ func TestGetBehavior_TabPopup_BlocksWhenOpenInNewPaneFalse(t *testing.T) {
 
 	// GetBehavior itself does not honor OpenInNewPane — that is enforced by
 	// handlePopupCreate. GetBehavior still returns the configured value.
-	cfg := &config.PopupBehaviorConfig{
+	cfg := &entity.PopupBehaviorConfig{
 		OpenInNewPane:       false,
 		BlankTargetBehavior: "split",
 	}
-	assert.Equal(t, config.PopupBehaviorSplit, GetBehavior(PopupTypeTab, cfg))
+	assert.Equal(t, entity.PopupBehaviorSplit, GetBehavior(PopupTypeTab, cfg))
 }
 
 // ---------------------------------------------------------------------------
@@ -220,7 +219,7 @@ func TestSetPopupConfig_SetsFields(t *testing.T) {
 	c := &Coordinator{}
 
 	factory := &stubFactory{}
-	cfg := &config.PopupBehaviorConfig{Behavior: config.PopupBehaviorSplit}
+	cfg := &entity.PopupBehaviorConfig{Behavior: entity.PopupBehaviorSplit}
 	genID := func() string { return "test-id" }
 
 	c.SetPopupConfig(factory, cfg, genID)

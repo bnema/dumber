@@ -221,6 +221,13 @@ type ScriptRefresher interface {
 	RefreshAll(ctx context.Context, webviews []WebView)
 }
 
+// FilterManagerProvider is an optional capability interface for engines that
+// support content filter management (e.g. ad blocking). Callers should type-assert
+// the Engine to FilterManagerProvider rather than a concrete engine type.
+type FilterManagerProvider interface {
+	InternalFilterManager() FilterManager
+}
+
 // NativeWidgetProvider is an optional capability for WebViews that can provide
 // a native widget pointer for embedding into the host toolkit's layout system.
 // For GTK-based engines this returns a *gtk.Widget pointer; other engines

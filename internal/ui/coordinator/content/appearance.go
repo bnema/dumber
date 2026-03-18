@@ -108,7 +108,7 @@ func buildWebUIThemeScript(prefersDark bool, cssText string) (string, error) {
     if (!meta) {
       meta = document.createElement('meta');
       meta.name = 'color-scheme';
-      document.documentElement.appendChild(meta);
+      (document.head || document.documentElement).appendChild(meta);
     }
     meta.content = prefersDark ? 'dark light' : 'light dark';
   } catch (e) {
