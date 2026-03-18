@@ -2922,52 +2922,6 @@ func (_c *MockEngine_FilterApplier_Call) RunAndReturn(run func() port.FilterAppl
 	return _c
 }
 
-// InternalFilterManager provides a mock function for the type MockEngine
-func (_mock *MockEngine) InternalFilterManager() port.FilterManager {
-	ret := _mock.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for InternalFilterManager")
-	}
-
-	var r0 port.FilterManager
-	if returnFunc, ok := ret.Get(0).(func() port.FilterManager); ok {
-		r0 = returnFunc()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(port.FilterManager)
-		}
-	}
-	return r0
-}
-
-// MockEngine_InternalFilterManager_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InternalFilterManager'
-type MockEngine_InternalFilterManager_Call struct {
-	*mock.Call
-}
-
-// InternalFilterManager is a helper method to define mock.On call
-func (_e *MockEngine_Expecter) InternalFilterManager() *MockEngine_InternalFilterManager_Call {
-	return &MockEngine_InternalFilterManager_Call{Call: _e.mock.On("InternalFilterManager")}
-}
-
-func (_c *MockEngine_InternalFilterManager_Call) Run(run func()) *MockEngine_InternalFilterManager_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *MockEngine_InternalFilterManager_Call) Return(filterManager port.FilterManager) *MockEngine_InternalFilterManager_Call {
-	_c.Call.Return(filterManager)
-	return _c
-}
-
-func (_c *MockEngine_InternalFilterManager_Call) RunAndReturn(run func() port.FilterManager) *MockEngine_InternalFilterManager_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // InternalSchemePath provides a mock function for the type MockEngine
 func (_mock *MockEngine) InternalSchemePath() string {
 	ret := _mock.Called()

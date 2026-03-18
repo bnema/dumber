@@ -143,10 +143,6 @@ type Engine interface {
 
 	// SetHandlerContext sets the base context for message handler dispatch.
 	SetHandlerContext(ctx context.Context)
-
-	// InternalFilterManager returns the FilterManager for content filter lifecycle.
-	// Returns nil if content filtering is not supported.
-	InternalFilterManager() FilterManager
 }
 
 // EngineSettingsUpdate carries a runtime config change to the engine.

@@ -88,15 +88,9 @@ func (e *Engine) FaviconDatabase() port.FaviconDatabase {
 	return &faviconDatabaseAdapter{wkCtx: e.wkCtx}
 }
 
-// --- Temporary accessors for migration (M3->M4 bridge) ---
-// These will be removed when ui.Dependencies is updated to use port.Engine.
-
-func (e *Engine) InternalContext() *WebKitContext           { return e.wkCtx }
-func (e *Engine) InternalSettings() *SettingsManager        { return e.settings }
-func (e *Engine) InternalInjector() *ContentInjector        { return e.injector }
-func (e *Engine) InternalMessageRouter() *MessageRouter     { return e.messageRouter }
-func (e *Engine) InternalPool() *WebViewPool                { return e.pool }
-func (e *Engine) InternalFactory() *WebViewFactory          { return e.factory }
+// InternalFilterManager returns the FilterManager for content filter lifecycle.
+// This is on the concrete *Engine type (not the port.Engine interface) because
+// FilterManager is a webkit-specific concern used only during dependency wiring.
 func (e *Engine) InternalFilterManager() port.FilterManager { return e.filterManager }
 
 // SetHandlerContext sets the base context for message handler dispatch.

@@ -28,6 +28,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/snapshot"
 	"github.com/bnema/dumber/internal/infrastructure/textinput"
 	"github.com/bnema/dumber/internal/infrastructure/updater"
+	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/infrastructure/xdg"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui"
@@ -514,7 +515,7 @@ func buildUIDependencies(
 	currentSessionID entity.SessionID,
 	startupCrashReports []string,
 ) *ui.Dependencies {
-	filterManager := engine.InternalFilterManager()
+	filterManager := engine.(*webkit.Engine).InternalFilterManager()
 
 	focusProvider := textinput.NewFocusProvider()
 
