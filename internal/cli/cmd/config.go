@@ -247,6 +247,17 @@ func runConfigMigrate(_ *cobra.Command, _ []string) error {
 		return nil
 	}
 
+	// Structural migration: move old [rendering]/[performance]/[privacy]/[runtime]
+	// sections to [engine]/[engine.webkit] if needed.
+	engineMigrated, engineErr := config.MigrateToEngineConfig(configFile)
+	if engineErr != nil {
+		fmt.Println(renderer.RenderError(fmt.Errorf("engine config migration failed: %w", engineErr)))
+		return nil
+	}
+	if engineMigrated {
+		fmt.Printf("  Migrated legacy sections to [engine]/[engine.webkit]\n")
+	}
+
 	// Detect changes (includes renames, additions, and removals)
 	ctx := context.Background()
 	detectResult, err := uc.DetectChanges(ctx, usecase.DetectChangesInput{})
