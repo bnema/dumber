@@ -227,13 +227,14 @@ func (d *PermissionDialog) buildBody(
 		action = "access your device"
 	case len(parts) == 1:
 		action = parts[0]
-	case f.mic && f.cam:
-		// When mic+cam are combined into one phrase containing "and",
-		// use ", and" before the next part for clarity.
+	case len(parts) == 2 && (!f.mic || !f.cam):
+		// Simple two-part join when neither part contains "and".
+		action = parts[0] + " and " + parts[1]
+	default:
+		// Oxford-comma join for 3+ parts, or when a part already
+		// contains "and" (e.g. "access your microphone and camera").
 		action = strings.Join(parts[:len(parts)-1], ", ") +
 			", and " + parts[len(parts)-1]
-	default:
-		action = parts[0] + " and " + parts[1]
 	}
 
 	return fmt.Sprintf("%s wants to %s.", origin, action)

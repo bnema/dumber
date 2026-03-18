@@ -108,13 +108,7 @@ func TestIsOAuthURL_DetectsOAuthAuthorizeRequest(t *testing.T) {
 }
 
 func TestShouldForceCloseOnSafetyTimeout(t *testing.T) {
-	t.Run("does not force close during in-progress auth challenge", func(t *testing.T) {
-		assert.False(t, shouldForceCloseOnSafetyTimeout())
-	})
-
-	t.Run("does not force close when callback is reached", func(t *testing.T) {
-		assert.False(t, shouldForceCloseOnSafetyTimeout())
-	})
+	assert.False(t, shouldForceCloseOnSafetyTimeout())
 }
 
 func waitFor(t *testing.T, timeout time.Duration, condition func() bool) {

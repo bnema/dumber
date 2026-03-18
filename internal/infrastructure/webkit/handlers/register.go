@@ -43,8 +43,10 @@ func RegisterAll(ctx context.Context, router *webkit.MessageRouter, cfg Config) 
 	}
 
 	// Configuration handlers
-	if err := RegisterConfigHandlers(ctx, router, cfg.SaveConfig); err != nil {
-		return err
+	if cfg.SaveConfig != nil {
+		if err := RegisterConfigHandlers(ctx, router, cfg.SaveConfig); err != nil {
+			return err
+		}
 	}
 
 	// Keybindings handlers (always available)

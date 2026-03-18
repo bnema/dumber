@@ -119,29 +119,34 @@ func shouldForceCloseOnSafetyTimeout() bool {
 }
 
 // IsOAuthSuccess checks if the callback indicates successful authentication.
-func IsOAuthSuccess(url string) bool {
-	if url == "" {
+// It parses query and fragment parameters (like IsOAuthCallback) to avoid
+// false positives from substring matching.
+func IsOAuthSuccess(rawURL string) bool {
+	if rawURL == "" {
 		return false
 	}
-	lower := strings.ToLower(url)
-
-	// Check for success indicators
-	successPatterns := []string{
-		"code=",
-		"access_token=",
-		"id_token=",
+	u, err := neturl.Parse(rawURL)
+	if err != nil {
+		return false
 	}
-
-	for _, pattern := range successPatterns {
-		if strings.Contains(lower, pattern) {
-			// Make sure it's not an error response
-			if !strings.Contains(lower, "error=") {
-				return true
-			}
+	if hasOAuthSuccessParam(u.Query()) {
+		return true
+	}
+	if u.Fragment != "" {
+		if fragVals, err := neturl.ParseQuery(u.Fragment); err == nil {
+			return hasOAuthSuccessParam(fragVals)
 		}
 	}
-
 	return false
+}
+
+// hasOAuthSuccessParam returns true if params contain a success token
+// (code, access_token, id_token) and no error key.
+func hasOAuthSuccessParam(params neturl.Values) bool {
+	if params.Has("error") {
+		return false
+	}
+	return params.Has("code") || params.Has("access_token") || params.Has("id_token")
 }
 
 // IsOAuthError checks if the callback indicates an authentication error.

@@ -1635,7 +1635,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 	// Set theme background color on the engine's popup factory to eliminate white flash.
 	if a.engine != nil && a.deps.Theme != nil {
 		r, g, b, alpha := a.deps.Theme.GetBackgroundRGBA()
-		_ = a.engine.UpdateAppearance(context.Background(), float64(r), float64(g), float64(b), float64(alpha))
+		_ = a.engine.UpdateAppearance(ctx, float64(r), float64(g), float64(b), float64(alpha))
 	}
 	a.contentCoord.SetPopupConfig(
 		a.engine.Factory(),

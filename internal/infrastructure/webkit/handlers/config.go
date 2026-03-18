@@ -18,6 +18,9 @@ type ConfigHandler struct {
 // NewConfigHandler creates a new ConfigHandler.
 // saveConfig is called to persist config changes (typically usecase.SaveWebUIConfigUseCase.Execute).
 func NewConfigHandler(saveConfig func(context.Context, port.WebUIConfig) error) *ConfigHandler {
+	if saveConfig == nil {
+		panic("NewConfigHandler: saveConfig must not be nil")
+	}
 	return &ConfigHandler{saveConfig: saveConfig}
 }
 

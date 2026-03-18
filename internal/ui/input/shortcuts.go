@@ -287,6 +287,19 @@ func (s *ShortcutSet) registerActivationShortcutsFromParts(
 ) {
 	log := logging.FromContext(ctx)
 	if workspace == nil {
+		// Still register session mode if available.
+		if session != nil {
+			if binding, ok := ParseKeyString(session.SessionMode.ActivationShortcut); ok {
+				s.Global[binding] = ActionEnterSessionMode
+				log.Trace().
+					Str("shortcut", session.SessionMode.ActivationShortcut).
+					Uint("keyval", binding.Keyval).
+					Uint("mod", uint(binding.Modifiers)).
+					Msg("session mode activation registered")
+			} else {
+				log.Warn().Str("shortcut", session.SessionMode.ActivationShortcut).Msg("failed to parse session mode activation shortcut")
+			}
+		}
 		return
 	}
 	if binding, ok := ParseKeyString(workspace.TabMode.ActivationShortcut); ok {
@@ -352,12 +365,19 @@ func (s *ShortcutSet) registerConfiguredShortcuts(cfg *entity.WorkspaceConfig) {
 		"toggle_floating_pane":   ActionToggleFloatingPane,
 		"toggle-floating-pane":   ActionToggleFloatingPane,
 		"close_pane":             ActionClosePane,
+		"close-pane":             ActionClosePane,
 		"next_tab":               ActionNextTab,
+		"next-tab":               ActionNextTab,
 		"previous_tab":           ActionPreviousTab,
+		"previous-tab":           ActionPreviousTab,
 		"consume_or_expel_left":  ActionConsumeOrExpelLeft,
+		"consume-or-expel-left":  ActionConsumeOrExpelLeft,
 		"consume_or_expel_right": ActionConsumeOrExpelRight,
+		"consume-or-expel-right": ActionConsumeOrExpelRight,
 		"consume_or_expel_up":    ActionConsumeOrExpelUp,
+		"consume-or-expel-up":    ActionConsumeOrExpelUp,
 		"consume_or_expel_down":  ActionConsumeOrExpelDown,
+		"consume-or-expel-down":  ActionConsumeOrExpelDown,
 	}
 
 	for actionName, actionBinding := range cfg.Shortcuts.Actions {

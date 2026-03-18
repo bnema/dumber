@@ -51,7 +51,6 @@ func (sm *SettingsManager) applySettings(ctx context.Context, settings *webkit.S
 	log := logging.FromContext(ctx)
 	applyJavaScriptSettings(settings)
 	applyFontSettings(settings, cfg)
-	applyRenderingSettings(settings, cfg)
 	applyDebugSettings(settings, cfg)
 	applyBrowsingSettings(settings)
 	applyMediaSettings(settings, cfg, log)
@@ -90,11 +89,6 @@ func applyFontSettings(settings *webkit.Settings, cfg *config.Config) {
 	if cfg.Appearance.DefaultFontSize > 0 {
 		settings.SetDefaultFontSize(uint32(cfg.Appearance.DefaultFontSize))
 	}
-}
-
-func applyRenderingSettings(_ *webkit.Settings, _ *config.Config) {
-	// Hardware acceleration policy is now managed by the engine layer via
-	// cfg.Engine.WebKit. No WebKit settings to apply here at the settings layer.
 }
 
 func applyDebugSettings(settings *webkit.Settings, cfg *config.Config) {
@@ -171,6 +165,9 @@ func (sm *SettingsManager) UpdateFromConfig(ctx context.Context, cfg *config.Con
 // ApplyToWebView applies current settings to an existing WebView.
 // This can be used to update a WebView's settings after config hot-reload.
 func (sm *SettingsManager) ApplyToWebView(ctx context.Context, wv *webkit.WebView) {
+	if sm == nil {
+		return
+	}
 	if wv == nil {
 		return
 	}

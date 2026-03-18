@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -143,7 +144,8 @@ func TestTrackOAuthPopup_StoresState(t *testing.T) {
 	state, ok := c.popupOAuth[popupID]
 	c.popupMu.RUnlock()
 
-	assert.True(t, ok, "oauth state should be tracked after trackOAuthPopup")
+	require.True(t, ok, "oauth state should be tracked after trackOAuthPopup")
+	require.NotNil(t, state)
 	assert.Equal(t, parentPaneID, state.ParentPaneID)
 	assert.False(t, state.Seen, "Seen should be false before capturing callback URI")
 }
@@ -164,6 +166,7 @@ func TestCapturePopupOAuthState_SuccessCallback(t *testing.T) {
 	state := c.popupOAuth[popupID]
 	c.popupMu.RUnlock()
 
+	require.NotNil(t, state)
 	assert.True(t, state.Seen)
 	assert.True(t, state.Success)
 	assert.False(t, state.Error)
@@ -186,6 +189,7 @@ func TestCapturePopupOAuthState_ErrorCallback(t *testing.T) {
 	state := c.popupOAuth[popupID]
 	c.popupMu.RUnlock()
 
+	require.NotNil(t, state)
 	assert.True(t, state.Seen)
 	assert.False(t, state.Success)
 	assert.True(t, state.Error)

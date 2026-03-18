@@ -6,13 +6,13 @@ package entity
 
 // AppearanceConfig holds visual appearance settings.
 type AppearanceConfig struct {
-	SansFont        string       `mapstructure:"sans_font" yaml:"sans_font" toml:"sans_font"`
-	SerifFont       string       `mapstructure:"serif_font" yaml:"serif_font" toml:"serif_font"`
-	MonospaceFont   string       `mapstructure:"monospace_font" yaml:"monospace_font" toml:"monospace_font"`
-	DefaultFontSize int          `mapstructure:"default_font_size" yaml:"default_font_size" toml:"default_font_size"`
-	LightPalette    ColorPalette `mapstructure:"light_palette" yaml:"light_palette" toml:"light_palette"`
-	DarkPalette     ColorPalette `mapstructure:"dark_palette" yaml:"dark_palette" toml:"dark_palette"`
-	ColorScheme     string       `mapstructure:"color_scheme" yaml:"color_scheme" toml:"color_scheme"`
+	SansFont        string       `mapstructure:"sans_font" yaml:"sans_font" toml:"sans_font" json:"sans_font"`
+	SerifFont       string       `mapstructure:"serif_font" yaml:"serif_font" toml:"serif_font" json:"serif_font"`
+	MonospaceFont   string       `mapstructure:"monospace_font" yaml:"monospace_font" toml:"monospace_font" json:"monospace_font"`
+	DefaultFontSize int          `mapstructure:"default_font_size" yaml:"default_font_size" toml:"default_font_size" json:"default_font_size"`
+	LightPalette    ColorPalette `mapstructure:"light_palette" yaml:"light_palette" toml:"light_palette" json:"light_palette"`
+	DarkPalette     ColorPalette `mapstructure:"dark_palette" yaml:"dark_palette" toml:"dark_palette" json:"dark_palette"`
+	ColorScheme     string       `mapstructure:"color_scheme" yaml:"color_scheme" toml:"color_scheme" json:"color_scheme"`
 }
 
 // ColorPalette defines the color scheme for a theme variant (light/dark).
@@ -176,7 +176,7 @@ type PopupBehaviorConfig struct {
 
 // WorkspaceConfig holds all workspace layout and behavior settings.
 type WorkspaceConfig struct {
-	NewPaneURL   string                `mapstructure:"new_pane_url" yaml:"new_pane_url" toml:"new_pane_url"`
+	NewPaneURL   string                `mapstructure:"new_pane_url" yaml:"new_pane_url" toml:"new_pane_url" json:"new_pane_url"`
 	PaneMode     PaneModeConfig        `mapstructure:"pane_mode" yaml:"pane_mode" toml:"pane_mode" json:"pane_mode"`
 	TabMode      TabModeConfig         `mapstructure:"tab_mode" yaml:"tab_mode" toml:"tab_mode" json:"tab_mode"`
 	ResizeMode   ResizeModeConfig      `mapstructure:"resize_mode" yaml:"resize_mode" toml:"resize_mode" json:"resize_mode"`

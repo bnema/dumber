@@ -14,8 +14,8 @@ func collectCoreDumpDiagnostics() unexpectedCloseCoreDump {
 	}
 	var limit unix.Rlimit
 	if err := unix.Getrlimit(unix.RLIMIT_CORE, &limit); err != nil {
-		d.RLimitCoreSoft = "unknown"
-		d.RLimitCoreHard = "unknown"
+		d.RLimitCoreSoft = string(SessionExitUnknown)
+		d.RLimitCoreHard = string(SessionExitUnknown)
 		return d
 	}
 	d.RLimitCoreSoft = formatRlimitCore(limit.Cur)

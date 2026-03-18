@@ -67,9 +67,12 @@ func (h *FolderHandlers) HandleCreate() webkit.MessageHandler {
 			return NewErrorResponse(req.RequestID, err), nil
 		}
 
-		// Set icon if provided
+		// Set icon if provided and persist it
 		if req.Icon != nil && *req.Icon != "" {
 			folder.Icon = *req.Icon
+			if err := h.favoritesUC.UpdateFolder(ctx, folder.ID, folder.Name, folder.Icon); err != nil {
+				return NewErrorResponse(req.RequestID, err), nil
+			}
 		}
 
 		return NewSuccessResponse(req.RequestID, folder), nil
