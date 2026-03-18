@@ -2,10 +2,9 @@ package config
 
 import (
 	"fmt"
+	"github.com/pelletier/go-toml/v2"
 	"io/fs"
 	"os"
-
-	"github.com/pelletier/go-toml/v2"
 )
 
 // configFilePermissions is the file permission used when writing migrated config files.
@@ -129,8 +128,8 @@ func MigrateToEngineConfig(configFile string) (bool, error) {
 		return false, marshalErr
 	}
 
-	if writeErr := os.WriteFile(configFile, out, configFilePermissions); writeErr != nil {
-		return false, writeErr
+	if err := atomicWriteFile(configFile, string(out), configFilePermissions); err != nil {
+		return false, err
 	}
 
 	return true, nil
