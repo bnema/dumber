@@ -247,6 +247,17 @@ func (r *ConfigRenderer) RenderNoConfigFile(path string) string {
 	)
 }
 
+// RenderEngineMigrationSuccess renders the success message after migrating legacy
+// sections to [engine]/[engine.webkit].
+func (r *ConfigRenderer) RenderEngineMigrationSuccess() string {
+	iconStyle := lipgloss.NewStyle().Foreground(r.theme.Success)
+
+	return fmt.Sprintf(
+		"  %s Migrated legacy sections to [engine]/[engine.webkit]\n",
+		iconStyle.Render(IconCheck),
+	)
+}
+
 // RenderOpening renders a brief "opening config" message for `dumber config open`.
 func (r *ConfigRenderer) RenderOpening(path, editor string) string {
 	iconStyle := r.theme.Subtle

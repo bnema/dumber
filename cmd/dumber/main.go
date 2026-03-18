@@ -515,7 +515,10 @@ func buildUIDependencies(
 	currentSessionID entity.SessionID,
 	startupCrashReports []string,
 ) *ui.Dependencies {
-	filterManager := engine.(*webkit.Engine).InternalFilterManager()
+	var filterManager port.FilterManager
+	if wkEngine, ok := engine.(*webkit.Engine); ok {
+		filterManager = wkEngine.InternalFilterManager()
+	}
 
 	focusProvider := textinput.NewFocusProvider()
 

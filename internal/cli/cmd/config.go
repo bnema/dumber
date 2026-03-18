@@ -255,7 +255,7 @@ func runConfigMigrate(_ *cobra.Command, _ []string) error {
 		return nil
 	}
 	if engineMigrated {
-		fmt.Printf("  Migrated legacy sections to [engine]/[engine.webkit]\n")
+		fmt.Print(renderer.RenderEngineMigrationSuccess())
 	}
 
 	// Detect changes (includes renames, additions, and removals)
