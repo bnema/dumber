@@ -1544,6 +1544,14 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.contentCoord.SetIdleInhibitor(a.deps.IdleInhibitor)
 	}
 
+	// Wire engine settings and filter appliers for hot-reload and late-binding filters
+	if sa := a.deps.Engine.SettingsApplier(); sa != nil {
+		a.contentCoord.SetSettingsApplier(sa)
+	}
+	if fa := a.deps.Engine.FilterApplier(); fa != nil {
+		a.contentCoord.SetFilterApplier(fa)
+	}
+
 	// Wire external URL launcher (e.g. xdg-open for vscode://, spotify://)
 	if a.deps.LaunchExternalURL != nil {
 		a.contentCoord.SetOnLaunchExternalURL(a.deps.LaunchExternalURL)

@@ -18,12 +18,14 @@ import (
 
 // Coordinator manages WebView lifecycle, title tracking, and content attachment.
 type Coordinator struct {
-	pool           port.WebViewPool
-	widgetFactory  layout.WidgetFactory
-	faviconAdapter *adapter.FaviconAdapter
-	zoomUC         *usecase.ManageZoomUseCase
-	permissionUC   *usecase.HandlePermissionUseCase
-	injector       port.ContentInjector
+	pool            port.WebViewPool
+	widgetFactory   layout.WidgetFactory
+	faviconAdapter  *adapter.FaviconAdapter
+	zoomUC          *usecase.ManageZoomUseCase
+	permissionUC    *usecase.HandlePermissionUseCase
+	injector        port.ContentInjector
+	settingsApplier port.SettingsApplier // optional: nil if engine doesn't support
+	filterApplier   port.FilterApplier   // optional: nil if engine doesn't support
 
 	webViews   map[entity.PaneID]port.WebView
 	webViewsMu sync.RWMutex
@@ -236,6 +238,16 @@ func (c *Coordinator) SetOnFirstLoadStarted(fn func()) {
 // (e.g. vscode://, spotify://) is detected and must be handed off to the system.
 func (c *Coordinator) SetOnLaunchExternalURL(fn func(uri string)) {
 	c.onLaunchExternalURL = fn
+}
+
+// SetSettingsApplier sets the engine settings applier for config hot-reload.
+func (c *Coordinator) SetSettingsApplier(sa port.SettingsApplier) {
+	c.settingsApplier = sa
+}
+
+// SetFilterApplier sets the content filter applier for late-binding filters.
+func (c *Coordinator) SetFilterApplier(fa port.FilterApplier) {
+	c.filterApplier = fa
 }
 
 // ActivePaneID returns the currently active pane ID used by navigation.

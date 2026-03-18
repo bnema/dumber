@@ -10,17 +10,41 @@ import (
 
 // ApplyFiltersToAll applies content filters to all active webviews.
 // Called when filters become available after webviews were already created.
-// TODO: Accept a port.FilterApplier once engine abstraction is wired.
 func (c *Coordinator) ApplyFiltersToAll(ctx context.Context) {
 	log := logging.FromContext(ctx)
-	log.Debug().Msg("ApplyFiltersToAll: not yet implemented with engine abstraction")
+	if c.filterApplier == nil {
+		log.Debug().Msg("ApplyFiltersToAll: no filter applier configured")
+		return
+	}
+
+	c.webViewsMu.RLock()
+	snapshot := make([]port.WebView, 0, len(c.webViews))
+	for _, wv := range c.webViews {
+		snapshot = append(snapshot, wv)
+	}
+	c.webViewsMu.RUnlock()
+
+	c.filterApplier.ApplyToAll(ctx, snapshot)
+	log.Debug().Int("count", len(snapshot)).Msg("applied filters to all webviews")
 }
 
-// ApplySettingsToAll reapplies WebKit settings to all active WebViews.
-// TODO: Accept engine-level settings once engine abstraction is wired.
+// ApplySettingsToAll reapplies engine settings to all active WebViews.
 func (c *Coordinator) ApplySettingsToAll(ctx context.Context) {
 	log := logging.FromContext(ctx)
-	log.Debug().Msg("ApplySettingsToAll: not yet implemented with engine abstraction")
+	if c.settingsApplier == nil {
+		log.Debug().Msg("ApplySettingsToAll: no settings applier configured")
+		return
+	}
+
+	c.webViewsMu.RLock()
+	snapshot := make([]port.WebView, 0, len(c.webViews))
+	for _, wv := range c.webViews {
+		snapshot = append(snapshot, wv)
+	}
+	c.webViewsMu.RUnlock()
+
+	c.settingsApplier.ApplyToAll(ctx, snapshot)
+	log.Debug().Int("count", len(snapshot)).Msg("applied settings to all webviews")
 }
 
 // RefreshInjectedScriptsToAll clears and re-injects user scripts into all active WebViews.
@@ -30,7 +54,6 @@ func (c *Coordinator) ApplySettingsToAll(ctx context.Context) {
 // the scripts so future navigations pick up the latest values.
 // Script refresh is deferred for any WebView that is currently loading to avoid
 // removing scripts mid-navigation.
-// TODO: Accept engine-level injector once engine abstraction is wired.
 func (c *Coordinator) RefreshInjectedScriptsToAll(ctx context.Context) {
 	log := logging.FromContext(ctx)
 	if c.injector == nil {
