@@ -677,7 +677,7 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 		// visible after focus returns to the WebView, so visibility alone
 		// would misroute keys.
 		if a.accentFocusProvider != nil {
-			if _, ok := a.accentFocusProvider.GetFocusedInput().(port.GTKEntryInputTarget); ok {
+			if _, ok := a.accentFocusProvider.GetFocusedInput().(port.EntryInputTarget); ok {
 				// GTK Entry focused (omnibox or find bar): Alt-modified keys go to
 				// shortcuts (pane navigation), other keys pass through to the widget's
 				// own capture-phase key controller (which handles accent detection)

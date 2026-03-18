@@ -70,11 +70,10 @@ type PopupRequest struct {
 	ParentViewID  WebViewID
 }
 
-// Texture represents a graphics texture (abstraction over gdk.Texture).
-// This interface allows the port layer to work with textures without
-// importing GTK/GDK packages directly.
+// Texture represents a graphics texture returned by the engine.
+// GoPointer returns a native toolkit pointer (e.g. *gdk.Texture in GTK engines).
+// Engine implementations are responsible for the concrete type.
 type Texture interface {
-	// GoPointer returns the underlying C pointer for GTK interop.
 	GoPointer() uintptr
 }
 

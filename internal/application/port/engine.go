@@ -222,8 +222,9 @@ type ScriptRefresher interface {
 }
 
 // NativeWidgetProvider is an optional capability for WebViews that can provide
-// a native GTK widget pointer for embedding into the UI layout.
+// a native widget pointer for embedding into the host toolkit's layout system.
+// For GTK-based engines this returns a *gtk.Widget pointer; other engines
+// provide their equivalent embedding handle.
 type NativeWidgetProvider interface {
-	// NativeWidget returns the underlying native widget pointer.
 	NativeWidget() uintptr
 }
