@@ -18,6 +18,13 @@ type Focusable interface {
 	Focus(ctx context.Context)
 }
 
+// EntryInputTarget is a marker interface implemented by text input targets
+// that wrap a native entry widget. Used for keyboard routing decisions.
+type EntryInputTarget interface {
+	TextInputTarget
+	IsGTKEntryTarget() bool
+}
+
 // FocusedInputProvider tracks which text input target currently has focus.
 // This allows the accent picker to insert text into the correct input field.
 type FocusedInputProvider interface {

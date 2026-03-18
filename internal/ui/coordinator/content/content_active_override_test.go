@@ -1,4 +1,4 @@
-package coordinator
+package content
 
 import (
 	"context"
@@ -6,19 +6,20 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/ui/component"
 )
 
-func TestContentCoordinator_ActiveWebView_UsesOverride(t *testing.T) {
+func TestCoordinator_ActiveWebView_UsesOverride(t *testing.T) {
 	t.Parallel()
 
-	mainWV := &webkit.WebView{}
-	floatingWV := &webkit.WebView{}
+	mainWV := mocks.NewMockWebView(t)
+	floatingWV := mocks.NewMockWebView(t)
 
-	c := &ContentCoordinator{
-		webViews: map[entity.PaneID]*webkit.WebView{
+	c := &Coordinator{
+		webViews: map[entity.PaneID]port.WebView{
 			"main-pane":     mainWV,
 			"floating-pane": floatingWV,
 		},
@@ -30,13 +31,13 @@ func TestContentCoordinator_ActiveWebView_UsesOverride(t *testing.T) {
 	assert.Equal(t, entity.PaneID("floating-pane"), c.ActivePaneID(context.Background()))
 }
 
-func TestContentCoordinator_ActiveWebView_ClearOverrideFallsBack(t *testing.T) {
+func TestCoordinator_ActiveWebView_ClearOverrideFallsBack(t *testing.T) {
 	t.Parallel()
 
-	mainWV := &webkit.WebView{}
+	mainWV := mocks.NewMockWebView(t)
 
-	c := &ContentCoordinator{
-		webViews: map[entity.PaneID]*webkit.WebView{
+	c := &Coordinator{
+		webViews: map[entity.PaneID]port.WebView{
 			"main-pane": mainWV,
 		},
 	}
@@ -48,16 +49,16 @@ func TestContentCoordinator_ActiveWebView_ClearOverrideFallsBack(t *testing.T) {
 	assert.Equal(t, entity.PaneID(""), c.ActivePaneID(context.Background()))
 }
 
-func TestContentCoordinator_ActiveWebView_ClearOverrideFallsBackToWorkspace(t *testing.T) {
+func TestCoordinator_ActiveWebView_ClearOverrideFallsBackToWorkspace(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	mainWV := &webkit.WebView{}
+	mainWV := mocks.NewMockWebView(t)
 	mainPane := entity.NewPane(entity.PaneID("main-pane"))
 	ws := entity.NewWorkspace(entity.WorkspaceID("ws-1"), mainPane)
 
-	c := &ContentCoordinator{
-		webViews: map[entity.PaneID]*webkit.WebView{
+	c := &Coordinator{
+		webViews: map[entity.PaneID]port.WebView{
 			mainPane.ID: mainWV,
 		},
 		getActiveWS: func() (*entity.Workspace, *component.WorkspaceView) {

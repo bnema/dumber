@@ -18,18 +18,23 @@ import (
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/cache"
 	"github.com/bnema/dumber/internal/infrastructure/clipboard"
-	"github.com/bnema/dumber/internal/infrastructure/colorscheme"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/deps"
+	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
+	"github.com/bnema/dumber/internal/infrastructure/filesystem"
 	"github.com/bnema/dumber/internal/infrastructure/idle"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
+	"github.com/bnema/dumber/internal/infrastructure/snapshot"
+	"github.com/bnema/dumber/internal/infrastructure/textinput"
 	"github.com/bnema/dumber/internal/infrastructure/updater"
 	"github.com/bnema/dumber/internal/infrastructure/xdg"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui"
+	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/theme"
+	"github.com/jwijenbergh/puregotk/v4/gtk"
 	"github.com/rs/zerolog"
 )
 
@@ -94,7 +99,7 @@ func runGUI() int {
 
 	needsEagerDB := restoreSessionID != "" || cfg.Session.AutoRestore
 
-	stack, repos, dbCleanup, err := initStackAndRepos(ctx, cfg, initResult, needsEagerDB)
+	engine, repos, dbCleanup, err := initStackAndRepos(ctx, cfg, initResult, needsEagerDB)
 	if err != nil {
 		bootstrapLog.Fatal().Err(err).Msg("failed to initialize database/webkit")
 	}
@@ -111,9 +116,7 @@ func runGUI() int {
 	logging.Trace().UpdateLogger(log)
 	logCoreDumpLimits(ctx)
 
-	if stack.MessageRouter != nil {
-		stack.MessageRouter.SetBaseContext(ctx)
-	}
+	engine.SetHandlerContext(ctx)
 
 	useCases := createUseCases(repos, cfg)
 	if needsEagerDB {
@@ -124,7 +127,7 @@ func runGUI() int {
 	defer closeIdleInhibitor(idleInhibitor)
 	timer.Mark("use_cases")
 
-	app, err := buildAndConfigureApp(ctx, cfg, initResult, &stack, repos, useCases, idleInhibitor, browserSession)
+	app, err := buildAndConfigureApp(ctx, cfg, initResult, engine, repos, useCases, idleInhibitor, browserSession)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create application")
 		return 1
@@ -194,7 +197,7 @@ func buildAndConfigureApp(
 	ctx context.Context,
 	cfg *config.Config,
 	initResult *bootstrap.ParallelInitResult,
-	stack *bootstrap.WebKitStack,
+	engine port.Engine,
 	repos *repositories,
 	useCases *useCases,
 	idleInhibitor port.IdleInhibitor,
@@ -203,14 +206,14 @@ func buildAndConfigureApp(
 	uiDeps := buildUIDependencies(
 		ctx, cfg, initResult.ThemeManager,
 		initResult.ColorResolver, initResult.AdwaitaDetector,
-		stack, repos, useCases, idleInhibitor, browserSession.Session.ID, browserSession.UnexpectedCloseReports(),
+		engine, repos, useCases, idleInhibitor, browserSession.Session.ID, browserSession.UnexpectedCloseReports(),
 	)
 	configureDeferredInit(uiDeps, cfg, browserSession)
 	return ui.New(uiDeps)
 }
 
 func initStartupContext(cfg *config.Config) context.Context {
-	deps.ApplyPrefixEnv(cfg.Runtime.Prefix)
+	deps.ApplyPrefixEnv(cfg.Engine.WebKit.Prefix)
 	bootstrapLogger := logging.NewFromConfigValuesWithTimeFormat(
 		cfg.Logging.Level,
 		cfg.Logging.Format,
@@ -230,10 +233,10 @@ func initStackAndRepos(
 	cfg *config.Config,
 	initResult *bootstrap.ParallelInitResult,
 	needsEagerDB bool,
-) (bootstrap.WebKitStack, *repositories, func(), error) {
+) (port.Engine, *repositories, func(), error) {
 	if needsEagerDB {
-		// Parallel phase 2: Database + WebKit stack initialize concurrently
-		dbWebKit, err := bootstrap.RunParallelDBWebKit(bootstrap.ParallelDBWebKitInput{
+		// Parallel phase 2: Database + engine initialize concurrently
+		dbEngine, err := bootstrap.RunParallelDBEngine(bootstrap.ParallelDBEngineInput{
 			Ctx:           ctx,
 			Config:        cfg,
 			DataDir:       initResult.DataDir,
@@ -242,13 +245,13 @@ func initStackAndRepos(
 			ColorResolver: initResult.ColorResolver,
 		})
 		if err != nil {
-			return bootstrap.WebKitStack{}, nil, nil, err
+			return nil, nil, nil, err
 		}
-		return dbWebKit.Stack, createRepositories(dbWebKit.DB), dbWebKit.DBCleanup, nil
+		return dbEngine.Engine, createRepositories(dbEngine.DB), dbEngine.DBCleanup, nil
 	}
 
 	log := logging.FromContext(ctx)
-	stack := bootstrap.BuildWebKitStack(bootstrap.WebKitStackInput{
+	engine, err := bootstrap.BuildEngine(bootstrap.EngineInput{
 		Ctx:           ctx,
 		Config:        cfg,
 		DataDir:       initResult.DataDir,
@@ -257,13 +260,16 @@ func initStackAndRepos(
 		ColorResolver: initResult.ColorResolver,
 		Logger:        *log,
 	})
+	if err != nil {
+		return nil, nil, nil, err
+	}
 
 	lazyDB, err := bootstrap.CreateLazyDatabase()
 	if err != nil {
-		return stack, nil, nil, err
+		return nil, nil, nil, err
 	}
 	dbCleanup := func() { _ = lazyDB.Close() }
-	return stack, createLazyRepositories(lazyDB), dbCleanup, nil
+	return engine, createLazyRepositories(lazyDB), dbCleanup, nil
 }
 
 func configureDeferredInit(
@@ -462,7 +468,7 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 	xdgDirs, _ := config.GetXDGDirs()
 	stateDir, _ := config.GetStateDir()
 	defaultZoom := cfg.DefaultWebpageZoom
-	zoomCache := cache.NewLRU[string, *entity.ZoomLevel](cfg.Performance.ZoomCacheSize)
+	zoomCache := cache.NewLRU[string, *entity.ZoomLevel](cfg.Engine.ZoomCacheSize)
 
 	buildInfo := build.Info{
 		Version:   version,
@@ -500,15 +506,22 @@ func buildUIDependencies(
 	cfg *config.Config,
 	themeManager *theme.Manager,
 	colorResolver port.ColorSchemeResolver,
-	adwaitaDetector *colorscheme.AdwaitaDetector,
-	stack *bootstrap.WebKitStack,
+	adwaitaDetector port.ToolkitAvailabilityNotifier,
+	engine port.Engine,
 	repos *repositories,
 	uc *useCases,
 	idleInhibitor port.IdleInhibitor,
 	currentSessionID entity.SessionID,
 	startupCrashReports []string,
 ) *ui.Dependencies {
-	return &ui.Dependencies{
+	var filterManager port.FilterManager
+	if fmp, ok := engine.(port.FilterManagerProvider); ok {
+		filterManager = fmp.InternalFilterManager()
+	}
+
+	focusProvider := textinput.NewFocusProvider()
+
+	uiDeps := &ui.Dependencies{
 		Ctx:                 ctx,
 		Config:              cfg,
 		InitialURL:          initialURL,
@@ -518,12 +531,8 @@ func buildUIDependencies(
 		ColorResolver:       colorResolver,
 		AdwaitaDetector:     adwaitaDetector,
 		XDG:                 xdg.New(),
-		WebContext:          stack.Context,
-		Pool:                stack.Pool,
-		Settings:            stack.Settings,
-		Injector:            stack.Injector,
-		MessageRouter:       stack.MessageRouter,
-		FilterManager:       stack.FilterManager,
+		Engine:              engine,
+		FilterManager:       filterManager,
 		HistoryRepo:         repos.history,
 		FavoriteRepo:        repos.favorite,
 		ZoomRepo:            repos.zoom,
@@ -538,12 +547,45 @@ func buildUIDependencies(
 		CopyURLUC:           uc.copyURL,
 		Clipboard:           uc.clipboard,
 		FaviconService:      uc.favicon,
-		IdleInhibitor:       idleInhibitor,
-		SessionRepo:         repos.session,
-		SessionStateRepo:    repos.sessionState,
-		CurrentSessionID:    currentSessionID,
-		SnapshotUC:          uc.snapshot,
+		FaviconAdapterConfig: adapter.FaviconAdapterConfig{
+			IsInternalURL:      favicon.IsInternalURL,
+			InternalDomain:     favicon.InternalDomain,
+			NormalizedIconSize: favicon.NormalizedIconSize,
+			GetLogoBytes:       favicon.GetLogoBytes,
+		},
+		IdleInhibitor:    idleInhibitor,
+		SessionRepo:      repos.session,
+		SessionStateRepo: repos.sessionState,
+		CurrentSessionID: currentSessionID,
+		SnapshotUC:       uc.snapshot,
+		SnapshotServiceFactory: func(provider port.TabListProvider, intervalMs int) port.SnapshotService {
+			return snapshot.NewService(uc.snapshot, provider, intervalMs)
+		},
 		CheckUpdateUC:       uc.checkUpdate,
 		ApplyUpdateUC:       uc.applyUpdate,
+		SessionSpawner:      desktop.NewSessionSpawner(ctx),
+		FileSystem:          filesystem.New(),
+		AccentFocusProvider: focusProvider,
+		NewGTKEntryTarget: func(entry *gtk.SearchEntry) port.TextInputTarget {
+			return textinput.NewGTKEntryTarget(entry)
+		},
+		OnConfigChange: func(callback func()) {
+			config.GetManager().OnConfigChange(func(newCfg *config.Config) {
+				// No synchronization needed: viper fires this callback on the
+				// GTK main thread (via glib.IdleAdd), and all callers of cfg run
+				// on the same GTK main thread, so there is no concurrent access.
+				if cfg != nil && newCfg != nil {
+					*cfg = *newCfg
+				}
+				callback()
+			})
+		},
+		WatchConfig: func() error {
+			return config.GetManager().Watch()
+		},
+		LaunchExternalURL: desktop.LaunchExternalURL,
+		ConfigMigrator:    config.NewMigrator(),
 	}
+
+	return uiDeps
 }

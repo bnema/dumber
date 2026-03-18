@@ -413,3 +413,28 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 
 	log.Debug().Bool("prefers_dark", prefersDark).Bool("auto_copy", autoCopyEnabled).Msg("scripts injected")
 }
+
+// RefreshScripts clears and re-injects user scripts for a single WebView.
+// Implements port.ContentInjector.
+// Returns nil for "not applicable" cases (nil wv, wrong engine type, nil UCM).
+func (ci *ContentInjector) RefreshScripts(ctx context.Context, wv port.WebView) error {
+	log := logging.FromContext(ctx).With().Str("component", "content-injector").Logger()
+	if wv == nil {
+		log.Debug().Msg("RefreshScripts: nil webview")
+		return nil
+	}
+	wkWV, ok := wv.(*WebView)
+	if !ok {
+		log.Debug().Msg("RefreshScripts: webview is not *webkit.WebView")
+		return nil
+	}
+	ucm := wkWV.UserContentManager()
+	if ucm == nil {
+		log.Debug().Uint64("webview_id", uint64(wv.ID())).Msg("RefreshScripts: nil UserContentManager")
+		return nil
+	}
+	ucm.RemoveAllScripts()
+	ucm.RemoveAllStyleSheets()
+	ci.InjectScripts(ctx, ucm, wv.ID())
+	return nil
+}

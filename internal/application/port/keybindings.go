@@ -64,3 +64,23 @@ type KeybindingsSaver interface {
 	ResetKeybinding(ctx context.Context, req ResetKeybindingRequest) error
 	ResetAllKeybindings(ctx context.Context) error
 }
+
+// KeybindingsGetter retrieves all keybindings (narrow interface for the handler).
+type KeybindingsGetter interface {
+	Execute(ctx context.Context) (KeybindingsConfig, error)
+}
+
+// KeybindingSetter updates a single keybinding (narrow interface for the handler).
+type KeybindingSetter interface {
+	Execute(ctx context.Context, req SetKeybindingRequest) (SetKeybindingResponse, error)
+}
+
+// KeybindingResetter resets a single keybinding to default (narrow interface for the handler).
+type KeybindingResetter interface {
+	Execute(ctx context.Context, req ResetKeybindingRequest) error
+}
+
+// AllKeybindingsResetter resets all keybindings to defaults (narrow interface for the handler).
+type AllKeybindingsResetter interface {
+	Execute(ctx context.Context) error
+}

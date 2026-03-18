@@ -7,7 +7,6 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	domainurl "github.com/bnema/dumber/internal/domain/url"
-	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
@@ -22,6 +21,7 @@ type KeyboardDispatcher struct {
 	navCoord         *coordinator.NavigationCoordinator
 	zoomUC           *usecase.ManageZoomUseCase
 	copyURLUC        *usecase.CopyURLUseCase
+	newPaneURL       string
 	actionHandlers   map[input.Action]func(ctx context.Context) error
 	onQuit           func()
 	onFindOpen       func(ctx context.Context) error
@@ -43,16 +43,18 @@ func NewKeyboardDispatcher(
 	navCoord *coordinator.NavigationCoordinator,
 	zoomUC *usecase.ManageZoomUseCase,
 	copyURLUC *usecase.CopyURLUseCase,
+	newPaneURL string,
 ) *KeyboardDispatcher {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("creating keyboard dispatcher")
 
 	dispatcher := &KeyboardDispatcher{
-		tabCoord:  tabCoord,
-		wsCoord:   wsCoord,
-		navCoord:  navCoord,
-		zoomUC:    zoomUC,
-		copyURLUC: copyURLUC,
+		tabCoord:   tabCoord,
+		wsCoord:    wsCoord,
+		navCoord:   navCoord,
+		zoomUC:     zoomUC,
+		copyURLUC:  copyURLUC,
+		newPaneURL: newPaneURL,
 	}
 	dispatcher.initActionHandlers()
 	return dispatcher
@@ -130,8 +132,11 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 	d.actionHandlers = map[input.Action]func(ctx context.Context) error{
 		// Tab actions
 		input.ActionNewTab: func(ctx context.Context) error {
-			cfg := config.Get()
-			_, err := d.tabCoord.Create(ctx, domainurl.Normalize(cfg.Workspace.NewPaneURL))
+			if d.newPaneURL == "" {
+				logging.FromContext(ctx).Warn().Msg("ActionNewTab: newPaneURL is empty, cannot open new tab")
+				return fmt.Errorf("newPaneURL is not configured")
+			}
+			_, err := d.tabCoord.Create(ctx, domainurl.Normalize(d.newPaneURL))
 			return err
 		},
 		input.ActionCloseTab:         d.tabCoord.Close,

@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/dumber/internal/ui/coordinator/content"
 )
 
 // OmniboxProvider provides access to omnibox operations.
@@ -22,7 +23,7 @@ type OmniboxProvider interface {
 type NavigationCoordinator struct {
 	contextProvider func() context.Context
 	navigateUC      *usecase.NavigateUseCase
-	contentCoord    *ContentCoordinator
+	contentCoord    *content.Coordinator
 	omniboxProvider OmniboxProvider
 }
 
@@ -32,7 +33,7 @@ const faviconPreloadTimeout = 300 * time.Millisecond
 func NewNavigationCoordinator(
 	ctx context.Context,
 	navigateUC *usecase.NavigateUseCase,
-	contentCoord *ContentCoordinator,
+	contentCoord *content.Coordinator,
 ) *NavigationCoordinator {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("creating navigation coordinator")
@@ -210,9 +211,9 @@ func (c *NavigationCoordinator) OpenDevTools(ctx context.Context) error {
 
 	log.Debug().Uint64("webview_id", uint64(wv.ID())).Msg("opening devtools")
 
-	// Type assert to access ShowDevTools (not in port.WebView interface)
-	if webkitWV, ok := interface{}(wv).(*webkit.WebView); ok {
-		return webkitWV.ShowDevTools()
+	if opener, ok := wv.(port.DevToolsOpener); ok {
+		opener.OpenDevTools()
+		return nil
 	}
 
 	return fmt.Errorf("webview does not support devtools")
@@ -230,9 +231,9 @@ func (c *NavigationCoordinator) PrintPage(ctx context.Context) error {
 
 	log.Debug().Uint64("webview_id", uint64(wv.ID())).Msg("opening print dialog")
 
-	// Type assert to access Print (not in port.WebView interface)
-	if webkitWV, ok := interface{}(wv).(*webkit.WebView); ok {
-		return webkitWV.Print()
+	if printer, ok := wv.(port.Printer); ok {
+		printer.PrintPage()
+		return nil
 	}
 
 	return fmt.Errorf("webview does not support printing")
@@ -269,7 +270,7 @@ func (c *NavigationCoordinator) ClearPaneHistory(paneID entity.PaneID) {
 }
 
 // ActiveWebView returns the WebView for the active pane (for zoom operations).
-func (c *NavigationCoordinator) ActiveWebView(ctx context.Context) *webkit.WebView {
+func (c *NavigationCoordinator) ActiveWebView(ctx context.Context) port.WebView {
 	return c.contentCoord.ActiveWebView(ctx)
 }
 

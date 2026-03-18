@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
@@ -12,11 +12,11 @@ import (
 
 // FolderHandlers handles folder-related messages from the homepage.
 type FolderHandlers struct {
-	favoritesUC *usecase.ManageFavoritesUseCase
+	favoritesUC port.HomepageFavorites
 }
 
 // NewFolderHandlers creates a new FolderHandlers instance.
-func NewFolderHandlers(favoritesUC *usecase.ManageFavoritesUseCase) *FolderHandlers {
+func NewFolderHandlers(favoritesUC port.HomepageFavorites) *FolderHandlers {
 	return &FolderHandlers{favoritesUC: favoritesUC}
 }
 
@@ -67,9 +67,12 @@ func (h *FolderHandlers) HandleCreate() webkit.MessageHandler {
 			return NewErrorResponse(req.RequestID, err), nil
 		}
 
-		// Set icon if provided
+		// Set icon if provided and persist it
 		if req.Icon != nil && *req.Icon != "" {
 			folder.Icon = *req.Icon
+			if err := h.favoritesUC.UpdateFolder(ctx, folder.ID, folder.Name, folder.Icon); err != nil {
+				return NewErrorResponse(req.RequestID, err), nil
+			}
 		}
 
 		return NewSuccessResponse(req.RequestID, folder), nil
@@ -114,7 +117,7 @@ type updateFolderRequest struct {
 }
 
 // HandleUpdate handles folder_update messages.
-// NOTE: This requires UpdateFolder() method to be added to ManageFavoritesUseCase.
+// It delegates to the port.HomepageFavorites interface's UpdateFolder method.
 func (h *FolderHandlers) HandleUpdate() webkit.MessageHandler {
 	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)

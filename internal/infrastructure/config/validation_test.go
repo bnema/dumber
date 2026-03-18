@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidateConfig_PrivacyCookiePolicy(t *testing.T) {
+func TestValidateConfig_EngineCookiePolicy(t *testing.T) {
 	tests := []struct {
 		name         string
 		cookiePolicy CookiePolicy
@@ -22,12 +22,12 @@ func TestValidateConfig_PrivacyCookiePolicy(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := DefaultConfig()
-			cfg.Privacy.CookiePolicy = tt.cookiePolicy
+			cfg.Engine.CookiePolicy = tt.cookiePolicy
 
 			err := validateConfig(cfg)
 			if tt.wantErr {
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), "privacy.cookie_policy")
+				assert.Contains(t, err.Error(), "engine.cookie_policy")
 				return
 			}
 			require.NoError(t, err)

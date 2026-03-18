@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
@@ -12,11 +12,11 @@ import (
 
 // TagHandlers handles tag-related messages from the homepage.
 type TagHandlers struct {
-	favoritesUC *usecase.ManageFavoritesUseCase
+	favoritesUC port.HomepageFavorites
 }
 
 // NewTagHandlers creates a new TagHandlers instance.
-func NewTagHandlers(favoritesUC *usecase.ManageFavoritesUseCase) *TagHandlers {
+func NewTagHandlers(favoritesUC port.HomepageFavorites) *TagHandlers {
 	return &TagHandlers{favoritesUC: favoritesUC}
 }
 

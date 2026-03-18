@@ -5,10 +5,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/logging"
 )
+
+// Compile-time check: SearchHistoryUseCase must satisfy port.HomepageHistory.
+var _ port.HomepageHistory = (*SearchHistoryUseCase)(nil)
 
 // SearchHistoryUseCase handles history search and retrieval operations.
 type SearchHistoryUseCase struct {
@@ -22,16 +26,11 @@ func NewSearchHistoryUseCase(historyRepo repository.HistoryRepository) *SearchHi
 	}
 }
 
-// SearchInput contains search parameters.
-type SearchInput struct {
-	Query string
-	Limit int
-}
+// SearchInput is an alias for port.HistorySearchInput.
+type SearchInput = port.HistorySearchInput
 
-// SearchOutput contains search results.
-type SearchOutput struct {
-	Matches []entity.HistoryMatch
-}
+// SearchOutput is an alias for port.HistorySearchOutput.
+type SearchOutput = port.HistorySearchOutput
 
 // Search performs a full-text search on history entries using SQLite FTS5.
 // Returns only entries that actually match the query terms.

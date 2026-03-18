@@ -6,25 +6,24 @@ import (
 	"fmt"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 )
 
 // KeybindingsHandler handles keybinding-related messages.
 type KeybindingsHandler struct {
-	getUC      *usecase.GetKeybindingsUseCase
-	setUC      *usecase.SetKeybindingUseCase
-	resetUC    *usecase.ResetKeybindingUseCase
-	resetAllUC *usecase.ResetAllKeybindingsUseCase
+	getUC      port.KeybindingsGetter
+	setUC      port.KeybindingSetter
+	resetUC    port.KeybindingResetter
+	resetAllUC port.AllKeybindingsResetter
 }
 
 // NewKeybindingsHandler creates a new KeybindingsHandler.
 func NewKeybindingsHandler(
-	getUC *usecase.GetKeybindingsUseCase,
-	setUC *usecase.SetKeybindingUseCase,
-	resetUC *usecase.ResetKeybindingUseCase,
-	resetAllUC *usecase.ResetAllKeybindingsUseCase,
+	getUC port.KeybindingsGetter,
+	setUC port.KeybindingSetter,
+	resetUC port.KeybindingResetter,
+	resetAllUC port.AllKeybindingsResetter,
 ) *KeybindingsHandler {
 	return &KeybindingsHandler{
 		getUC:      getUC,

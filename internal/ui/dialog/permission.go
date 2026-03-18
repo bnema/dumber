@@ -4,6 +4,7 @@ package dialog
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -125,78 +126,115 @@ func (d *PermissionDialog) showNextQueuedRequest() {
 	d.showRequest(next)
 }
 
-// buildHeading creates the dialog heading based on permission types.
-func (d *PermissionDialog) buildHeading(permTypes []entity.PermissionType) string {
-	hasMic := false
-	hasCam := false
-	hasDisplay := false
+// permFlags holds parsed permission type flags.
+type permFlags struct {
+	mic, cam, display, dataAccess bool
+}
 
+// parsePermFlags extracts boolean flags from permission types.
+func parsePermFlags(permTypes []entity.PermissionType) permFlags {
+	var f permFlags
 	for _, pt := range permTypes {
 		switch pt {
 		case entity.PermissionTypeMicrophone:
-			hasMic = true
+			f.mic = true
 		case entity.PermissionTypeCamera:
-			hasCam = true
+			f.cam = true
 		case entity.PermissionTypeDisplay:
-			hasDisplay = true
+			f.display = true
+		case entity.PermissionTypeWebsiteDataAccess:
+			f.dataAccess = true
 		}
 	}
+	return f
+}
 
-	switch {
-	case hasMic && hasCam && hasDisplay:
-		return "Allow Microphone, Camera, and Screen Sharing?"
-	case hasMic && hasDisplay:
-		return "Allow Microphone and Screen Sharing?"
-	case hasCam && hasDisplay:
-		return "Allow Camera and Screen Sharing?"
-	case hasMic && hasCam:
-		return "Allow Microphone and Camera?"
-	case hasMic:
-		return "Allow Microphone Access?"
-	case hasCam:
-		return "Allow Camera Access?"
-	case hasDisplay:
-		return "Allow Screen Sharing?"
+// joinPermissionLabels joins labels with commas and "and".
+func joinPermissionLabels(labels []string) string {
+	switch len(labels) {
+	case 0:
+		return ""
+	case 1:
+		return labels[0]
+	case 2:
+		return labels[0] + " and " + labels[1]
 	default:
+		return strings.Join(labels[:len(labels)-1], ", ") +
+			", and " + labels[len(labels)-1]
+	}
+}
+
+// buildHeading creates the dialog heading based on permission types.
+func (d *PermissionDialog) buildHeading(
+	permTypes []entity.PermissionType,
+) string {
+	f := parsePermFlags(permTypes)
+	var labels []string
+	if f.mic {
+		labels = append(labels, "Microphone")
+	}
+	if f.cam {
+		labels = append(labels, "Camera")
+	}
+	if f.display {
+		labels = append(labels, "Screen Sharing")
+	}
+	if f.dataAccess {
+		labels = append(labels, "Data Access")
+	}
+	switch {
+	case len(labels) == 0:
 		return "Allow Permission?"
+	case len(labels) == 1 && f.dataAccess:
+		return "Allow Third-Party Data Access?"
+	case len(labels) == 1 && f.display:
+		return "Allow Screen Sharing?"
+	case len(labels) == 1:
+		return "Allow " + labels[0] + " Access?"
+	default:
+		return "Allow " + joinPermissionLabels(labels) + "?"
 	}
 }
 
 // buildBody creates the dialog body text.
-func (d *PermissionDialog) buildBody(origin string, permTypes []entity.PermissionType) string {
-	hasMic := false
-	hasCam := false
-	hasDisplay := false
-
-	for _, pt := range permTypes {
-		switch pt {
-		case entity.PermissionTypeMicrophone:
-			hasMic = true
-		case entity.PermissionTypeCamera:
-			hasCam = true
-		case entity.PermissionTypeDisplay:
-			hasDisplay = true
+func (d *PermissionDialog) buildBody(
+	origin string, permTypes []entity.PermissionType,
+) string {
+	f := parsePermFlags(permTypes)
+	var parts []string
+	if f.mic && f.cam {
+		parts = append(parts, "access your microphone and camera")
+	} else if f.mic {
+		parts = append(parts, "access your microphone")
+	} else if f.cam {
+		parts = append(parts, "access your camera")
+	}
+	if f.display {
+		parts = append(parts, "share your screen")
+	}
+	if f.dataAccess {
+		if len(parts) == 0 {
+			parts = append(parts,
+				"access its stored data while you browse this site")
+		} else {
+			parts = append(parts, "access its stored data")
 		}
 	}
 
 	var action string
 	switch {
-	case hasMic && hasCam && hasDisplay:
-		action = "access your microphone and camera, and share your screen"
-	case hasMic && hasDisplay:
-		action = "access your microphone and share your screen"
-	case hasCam && hasDisplay:
-		action = "access your camera and share your screen"
-	case hasMic && hasCam:
-		action = "access your microphone and camera"
-	case hasMic:
-		action = "access your microphone"
-	case hasCam:
-		action = "access your camera"
-	case hasDisplay:
-		action = "share your screen"
-	default:
+	case len(parts) == 0:
 		action = "access your device"
+	case len(parts) == 1:
+		action = parts[0]
+	case len(parts) == 2 && (!f.mic || !f.cam):
+		// Simple two-part join when neither part contains "and".
+		action = parts[0] + " and " + parts[1]
+	default:
+		// Oxford-comma join for 3+ parts, or when a part already
+		// contains "and" (e.g. "access your microphone and camera").
+		action = strings.Join(parts[:len(parts)-1], ", ") +
+			", and " + parts[len(parts)-1]
 	}
 
 	return fmt.Sprintf("%s wants to %s.", origin, action)

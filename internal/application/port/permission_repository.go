@@ -7,7 +7,8 @@ import (
 )
 
 // PermissionRepository defines operations for permission persistence.
-// Only microphone and camera permissions are persisted per W3C spec.
+// Persistable types include microphone, camera, website_data_access,
+// and others where CanPersist() returns true.
 type PermissionRepository interface {
 	// Get retrieves the permission record for a specific origin and permission type.
 	// Returns nil if no record exists (treat as "prompt" state).

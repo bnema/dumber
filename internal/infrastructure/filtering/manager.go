@@ -12,9 +12,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
 )
+
+// Compile-time check that Manager satisfies port.FilterManager.
+var _ port.FilterManager = (*Manager)(nil)
 
 const (
 	storeDirPerm   = 0o755

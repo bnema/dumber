@@ -9,24 +9,14 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
-// PrepareDownloadInput contains the inputs for preparing a download destination.
-type PrepareDownloadInput struct {
-	// SuggestedFilename is the filename suggested by WebKit (from Content-Disposition or other sources).
-	SuggestedFilename string
-	// Response provides additional metadata (MIME type, URI) for filename resolution.
-	// May be nil if not available.
-	Response port.DownloadResponse
-	// DownloadDir is the directory where downloads should be saved.
-	DownloadDir string
-}
+// PrepareDownloadInput is an alias for port.DownloadPrepareInput.
+type PrepareDownloadInput = port.DownloadPrepareInput
 
-// PrepareDownloadOutput contains the resolved download destination.
-type PrepareDownloadOutput struct {
-	// Filename is the sanitized, safe filename to use.
-	Filename string
-	// DestinationPath is the full path where the download should be saved.
-	DestinationPath string
-}
+// PrepareDownloadOutput is an alias for port.DownloadPrepareOutput.
+type PrepareDownloadOutput = port.DownloadPrepareOutput
+
+// Compile-time check: PrepareDownloadUseCase must satisfy port.DownloadPreparer.
+var _ port.DownloadPreparer = (*PrepareDownloadUseCase)(nil)
 
 // PrepareDownloadUseCase orchestrates filename resolution for downloads.
 // It combines multiple sources (suggested name, response headers, URI) to

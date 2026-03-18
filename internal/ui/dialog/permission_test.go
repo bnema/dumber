@@ -142,6 +142,12 @@ func TestPermissionDialog_BuildHeadingAndBody_DisplayCombinations(t *testing.T) 
 			expectHeading:  "Allow Microphone, Camera, and Screen Sharing?",
 			expectedAction: "access your microphone and camera, and share your screen",
 		},
+		{
+			name:           "website data access only",
+			permTypes:      []entity.PermissionType{entity.PermissionTypeWebsiteDataAccess},
+			expectHeading:  "Allow Third-Party Data Access?",
+			expectedAction: "access its stored data while you browse this site",
+		},
 	}
 
 	for _, tt := range tests {

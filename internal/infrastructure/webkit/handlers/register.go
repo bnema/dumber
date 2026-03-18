@@ -7,26 +7,27 @@ import (
 	"unicode/utf8"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/infrastructure/webkit/handlers/homepage"
 )
 
 // AccentKeyHandler is implemented by the InsertAccentUseCase to receive
 // key press/release events forwarded from WebView JS via the message bridge.
-type AccentKeyHandler interface {
-	OnKeyPressed(ctx context.Context, char rune, shiftHeld bool) bool
-	OnKeyReleased(ctx context.Context, char rune)
-}
+//
+// Deprecated: use port.AccentKeyHandler instead. This alias is kept for compatibility.
+type AccentKeyHandler = port.AccentKeyHandler
 
 // Config holds all dependencies for message handlers.
 type Config struct {
-	HistoryUC         *usecase.SearchHistoryUseCase
-	FavoritesUC       *usecase.ManageFavoritesUseCase
-	Clipboard         port.Clipboard
-	ConfigGetter      func() *config.Config
-	OnClipboardCopied func(textLen int) // Called when auto-copy completes (for toast notification)
+	HistoryUC      port.HomepageHistory
+	FavoritesUC    port.HomepageFavorites
+	Clipboard      port.Clipboard
+	AutoCopyConfig port.AutoCopyConfig
+	SaveConfig     func(context.Context, port.WebUIConfig) error // Pre-built by bootstrap (usecase.SaveWebUIConfigUseCase.Execute)
+	// KeybindingsHandler is required (not optional like other handlers) because the WebUI
+	// always needs keybinding read/write support regardless of configuration.
+	KeybindingsHandler *KeybindingsHandler // Pre-built by bootstrap
+	OnClipboardCopied  func(textLen int)   // Called when auto-copy completes (for toast notification)
 }
 
 // RegisterAll registers all message handlers with the router.
@@ -41,31 +42,27 @@ func RegisterAll(ctx context.Context, router *webkit.MessageRouter, cfg Config) 
 		}
 	}
 
-	// Configuration handlers (always available)
-	if err := RegisterConfigHandlers(ctx, router); err != nil {
-		return err
-	}
-
-	// Keybindings handlers (always available)
-	keybindingsHandler, err := createKeybindingsHandler()
-	if err != nil {
-		return fmt.Errorf("failed to create keybindings handler: %w", err)
-	}
-	if err := RegisterKeybindingsHandlers(ctx, router, keybindingsHandler); err != nil {
-		return err
-	}
-
-	// Clipboard handlers (for auto-copy on selection feature)
-	if cfg.Clipboard != nil && cfg.ConfigGetter != nil {
-		if err := RegisterClipboardHandlers(ctx, router, cfg.Clipboard, cfg.ConfigGetter, cfg.OnClipboardCopied); err != nil {
+	// Configuration handlers
+	if cfg.SaveConfig != nil {
+		if err := RegisterConfigHandlers(ctx, router, cfg.SaveConfig); err != nil {
 			return err
 		}
 	}
 
-	// Future handler groups go here:
-	// - settings handlers
-	// - downloads handlers
-	// - etc.
+	// Keybindings handlers (always available)
+	if cfg.KeybindingsHandler == nil {
+		return fmt.Errorf("KeybindingsHandler is required")
+	}
+	if err := RegisterKeybindingsHandlers(ctx, router, cfg.KeybindingsHandler); err != nil {
+		return err
+	}
+
+	// Clipboard handlers (for auto-copy on selection feature)
+	if cfg.Clipboard != nil && cfg.AutoCopyConfig != nil {
+		if err := RegisterClipboardHandlers(ctx, router, cfg.Clipboard, cfg.AutoCopyConfig, cfg.OnClipboardCopied); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -116,21 +113,4 @@ func RegisterAccentHandlers(_ context.Context, router *webkit.MessageRouter, han
 	}
 
 	return nil
-}
-
-// createKeybindingsHandler wires the gateway and use cases for keybindings.
-func createKeybindingsHandler() (*KeybindingsHandler, error) {
-	mgr := config.GetManager()
-	if mgr == nil {
-		return nil, fmt.Errorf("config manager not initialized")
-	}
-
-	gateway := config.NewKeybindingsGateway(mgr)
-
-	return NewKeybindingsHandler(
-		usecase.NewGetKeybindingsUseCase(gateway),
-		usecase.NewSetKeybindingUseCase(gateway, gateway),
-		usecase.NewResetKeybindingUseCase(gateway),
-		usecase.NewResetAllKeybindingsUseCase(gateway),
-	), nil
 }

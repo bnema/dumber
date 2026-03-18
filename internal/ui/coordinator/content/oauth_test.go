@@ -1,4 +1,4 @@
-package coordinator
+package content
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 )
 
 func TestComposeOnClose_Order(t *testing.T) {
@@ -40,10 +39,10 @@ func TestComposeOnLoadChanged_Order(t *testing.T) {
 	var calls []string
 
 	composed := composeOnLoadChanged(
-		func(_ webkit.LoadEvent) { calls = append(calls, "existing") },
-		func(_ webkit.LoadEvent) { calls = append(calls, "next") },
+		func(_ port.LoadEvent) { calls = append(calls, "existing") },
+		func(_ port.LoadEvent) { calls = append(calls, "next") },
 	)
-	composed(webkit.LoadCommitted)
+	composed(port.LoadCommitted)
 
 	assert.Equal(t, []string{"existing", "next"}, calls)
 }
@@ -52,8 +51,8 @@ func TestHandlePopupOAuthClose_SuccessSchedulesParentRefresh(t *testing.T) {
 	parentPaneID := entity.PaneID("parent-pane")
 	popupID := port.WebViewID(101)
 
-	c := &ContentCoordinator{
-		webViews:     make(map[entity.PaneID]*webkit.WebView),
+	c := &Coordinator{
+		webViews:     make(map[entity.PaneID]port.WebView),
 		popupOAuth:   make(map[port.WebViewID]*popupOAuthState),
 		popupRefresh: make(map[entity.PaneID]*time.Timer),
 	}
@@ -81,8 +80,8 @@ func TestHandlePopupOAuthClose_ErrorDoesNotScheduleParentRefresh(t *testing.T) {
 	parentPaneID := entity.PaneID("parent-pane")
 	popupID := port.WebViewID(102)
 
-	c := &ContentCoordinator{
-		webViews:     make(map[entity.PaneID]*webkit.WebView),
+	c := &Coordinator{
+		webViews:     make(map[entity.PaneID]port.WebView),
 		popupOAuth:   make(map[port.WebViewID]*popupOAuthState),
 		popupRefresh: make(map[entity.PaneID]*time.Timer),
 	}
@@ -109,15 +108,7 @@ func TestIsOAuthURL_DetectsOAuthAuthorizeRequest(t *testing.T) {
 }
 
 func TestShouldForceCloseOnSafetyTimeout(t *testing.T) {
-	t.Run("does not force close during in-progress auth challenge", func(t *testing.T) {
-		url := "https://accounts.google.com/v3/signin/challenge/dp?TL=AHU8sQabc"
-		assert.False(t, shouldForceCloseOnSafetyTimeout(url))
-	})
-
-	t.Run("does not force close when callback is reached", func(t *testing.T) {
-		url := "http://localhost:1455/auth/callback?code=abc123&state=xyz"
-		assert.False(t, shouldForceCloseOnSafetyTimeout(url))
-	})
+	assert.False(t, shouldForceCloseOnSafetyTimeout())
 }
 
 func waitFor(t *testing.T, timeout time.Duration, condition func() bool) {

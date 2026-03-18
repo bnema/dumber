@@ -159,7 +159,7 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 	case wv := <-p.pool:
 		if wv != nil && !wv.IsDestroyed() {
 			if r, g, b, a := p.bg.get(); a > 0 {
-				wv.SetBackgroundColor(r, g, b, a)
+				wv.SetBackgroundColor(float64(r), float64(g), float64(b), float64(a))
 			}
 			wv.inner.AddCssClass("webview-themed")
 			// Keep pooled WebViews hidden until we explicitly reveal them.

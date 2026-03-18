@@ -7,6 +7,12 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 )
 
+// Compile-time checks: keybinding use cases must satisfy their port interfaces.
+var _ port.KeybindingsGetter = (*GetKeybindingsUseCase)(nil)
+var _ port.KeybindingSetter = (*SetKeybindingUseCase)(nil)
+var _ port.KeybindingResetter = (*ResetKeybindingUseCase)(nil)
+var _ port.AllKeybindingsResetter = (*ResetAllKeybindingsUseCase)(nil)
+
 // validModes defines the valid keybinding modes.
 var validModes = map[string]bool{
 	"global":  true,

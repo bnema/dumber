@@ -1,30 +1,29 @@
 package filtering
 
-import "time"
+import (
+	"time"
 
-// FilterState represents the current state of the content filter system.
-type FilterState string
+	"github.com/bnema/dumber/internal/application/port"
+)
+
+// FilterState is an alias for port.FilterState to avoid breaking existing references.
+type FilterState = port.FilterState
+
+// FilterStatus is an alias for port.FilterStatus so filtering.Manager satisfies port.FilterManager.
+type FilterStatus = port.FilterStatus
 
 const (
 	// StateUninitialized means the filter manager has not been initialized yet.
-	StateUninitialized FilterState = "uninitialized"
+	StateUninitialized FilterState = port.FilterStateUninitialized
 	// StateLoading means filters are being downloaded or compiled.
-	StateLoading FilterState = "loading"
+	StateLoading FilterState = port.FilterStateLoading
 	// StateActive means filters are loaded and active.
-	StateActive FilterState = "active"
+	StateActive FilterState = port.FilterStateActive
 	// StateDisabled means filtering is disabled by configuration.
-	StateDisabled FilterState = "disabled"
+	StateDisabled FilterState = port.FilterStateDisabled
 	// StateError means an error occurred during filter loading.
-	StateError FilterState = "error"
+	StateError FilterState = port.FilterStateError
 )
-
-// FilterStatus represents the current status of the content filter system.
-// Used for UI toast notifications and status reporting.
-type FilterStatus struct {
-	State   FilterState
-	Message string
-	Version string
-}
 
 // Manifest represents the manifest.json from ublock-webkit-filters releases.
 // It contains metadata about the filter lists and their rule counts.

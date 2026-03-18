@@ -87,6 +87,11 @@ func TestClassifyPermissionRequestTypes(t *testing.T) {
 			kind:     permissionRequestKindUnknown,
 			expected: nil,
 		},
+		{
+			name:     "website data access request",
+			kind:     permissionRequestKindWebsiteDataAccess,
+			expected: []string{"website_data_access"},
+		},
 	}
 
 	for _, tt := range tests {

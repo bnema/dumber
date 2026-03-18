@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,14 +24,14 @@ func TestManager_ApplyEnvironment_SkiaEnv(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		settings       port.RenderingEnvSettings
+		settings       env.RenderingSettings
 		presetEnv      map[string]string
 		expectedVars   map[string]string
 		unexpectedVars []string
 	}{
 		{
 			name: "CPU threads set when > 0",
-			settings: port.RenderingEnvSettings{
+			settings: env.RenderingSettings{
 				SkiaCPUPaintingThreads: 4,
 				SkiaGPUPaintingThreads: -1, // unset
 			},
@@ -43,7 +42,7 @@ func TestManager_ApplyEnvironment_SkiaEnv(t *testing.T) {
 		},
 		{
 			name: "GPU threads set when >= 0",
-			settings: port.RenderingEnvSettings{
+			settings: env.RenderingSettings{
 				SkiaCPUPaintingThreads: 0, // unset
 				SkiaGPUPaintingThreads: 2,
 			},
@@ -54,7 +53,7 @@ func TestManager_ApplyEnvironment_SkiaEnv(t *testing.T) {
 		},
 		{
 			name: "GPU threads 0 disables GPU tile painting",
-			settings: port.RenderingEnvSettings{
+			settings: env.RenderingSettings{
 				SkiaGPUPaintingThreads: 0,
 			},
 			expectedVars: map[string]string{
@@ -63,7 +62,7 @@ func TestManager_ApplyEnvironment_SkiaEnv(t *testing.T) {
 		},
 		{
 			name: "CPU rendering enabled",
-			settings: port.RenderingEnvSettings{
+			settings: env.RenderingSettings{
 				SkiaEnableCPURendering: true,
 			},
 			expectedVars: map[string]string{
@@ -72,14 +71,14 @@ func TestManager_ApplyEnvironment_SkiaEnv(t *testing.T) {
 		},
 		{
 			name: "CPU rendering disabled (default)",
-			settings: port.RenderingEnvSettings{
+			settings: env.RenderingSettings{
 				SkiaEnableCPURendering: false,
 			},
 			unexpectedVars: []string{"WEBKIT_SKIA_ENABLE_CPU_RENDERING"},
 		},
 		{
 			name: "does not override existing CPU threads env var",
-			settings: port.RenderingEnvSettings{
+			settings: env.RenderingSettings{
 				SkiaCPUPaintingThreads: 8,
 			},
 			presetEnv: map[string]string{
@@ -91,7 +90,7 @@ func TestManager_ApplyEnvironment_SkiaEnv(t *testing.T) {
 		},
 		{
 			name: "does not override existing GPU threads env var",
-			settings: port.RenderingEnvSettings{
+			settings: env.RenderingSettings{
 				SkiaGPUPaintingThreads: 4,
 			},
 			presetEnv: map[string]string{
@@ -103,7 +102,7 @@ func TestManager_ApplyEnvironment_SkiaEnv(t *testing.T) {
 		},
 		{
 			name: "does not override existing CPU rendering env var",
-			settings: port.RenderingEnvSettings{
+			settings: env.RenderingSettings{
 				SkiaEnableCPURendering: true,
 			},
 			presetEnv: map[string]string{
@@ -115,7 +114,7 @@ func TestManager_ApplyEnvironment_SkiaEnv(t *testing.T) {
 		},
 		{
 			name: "all unset by default",
-			settings: port.RenderingEnvSettings{
+			settings: env.RenderingSettings{
 				SkiaCPUPaintingThreads: 0,  // unset
 				SkiaGPUPaintingThreads: -1, // unset
 				SkiaEnableCPURendering: false,

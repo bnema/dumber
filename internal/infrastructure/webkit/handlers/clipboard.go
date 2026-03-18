@@ -5,24 +5,23 @@ import (
 	"encoding/json"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 )
 
 // ClipboardHandler handles clipboard-related messages from webviews.
 type ClipboardHandler struct {
-	clipboard    port.Clipboard
-	configGetter func() *config.Config
-	onCopied     func(textLen int) // Called after successful auto-copy (for toast notification)
+	clipboard      port.Clipboard
+	autoCopyConfig port.AutoCopyConfig
+	onCopied       func(textLen int) // Called after successful auto-copy (for toast notification)
 }
 
 // NewClipboardHandler creates a new ClipboardHandler.
-func NewClipboardHandler(clipboard port.Clipboard, configGetter func() *config.Config, onCopied func(textLen int)) *ClipboardHandler {
+func NewClipboardHandler(clipboard port.Clipboard, autoCopyConfig port.AutoCopyConfig, onCopied func(textLen int)) *ClipboardHandler {
 	return &ClipboardHandler{
-		clipboard:    clipboard,
-		configGetter: configGetter,
-		onCopied:     onCopied,
+		clipboard:      clipboard,
+		autoCopyConfig: autoCopyConfig,
+		onCopied:       onCopied,
 	}
 }
 
@@ -38,8 +37,7 @@ func (h *ClipboardHandler) HandleAutoCopySelection() webkit.MessageHandler {
 		log := logging.FromContext(ctx)
 
 		// Check if feature is enabled
-		cfg := h.configGetter()
-		if cfg == nil || !cfg.Clipboard.AutoCopyOnSelection {
+		if h.autoCopyConfig == nil || !h.autoCopyConfig.IsAutoCopyEnabled() {
 			return nil, nil
 		}
 
@@ -75,10 +73,10 @@ func RegisterClipboardHandlers(
 	ctx context.Context,
 	router *webkit.MessageRouter,
 	clipboard port.Clipboard,
-	configGetter func() *config.Config,
+	autoCopyConfig port.AutoCopyConfig,
 	onCopied func(textLen int),
 ) error {
-	handler := NewClipboardHandler(clipboard, configGetter, onCopied)
+	handler := NewClipboardHandler(clipboard, autoCopyConfig, onCopied)
 
 	// Register auto_copy_selection handler
 	if err := router.RegisterHandler("auto_copy_selection", handler.HandleAutoCopySelection()); err != nil {

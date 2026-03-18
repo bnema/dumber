@@ -1,4 +1,4 @@
-package coordinator
+package content
 
 import (
 	"context"
@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 )
 
 // TestPendingReveal tests the pending reveal state management.
@@ -16,7 +16,7 @@ import (
 // without needing to mock WebKit dependencies.
 
 func TestMarkPendingReveal_SetsState(t *testing.T) {
-	c := &ContentCoordinator{
+	c := &Coordinator{
 		pendingReveal: make(map[entity.PaneID]bool),
 	}
 	paneID := entity.PaneID("pane-1")
@@ -29,7 +29,7 @@ func TestMarkPendingReveal_SetsState(t *testing.T) {
 }
 
 func TestClearPendingReveal_RemovesState(t *testing.T) {
-	c := &ContentCoordinator{
+	c := &Coordinator{
 		pendingReveal: make(map[entity.PaneID]bool),
 	}
 	paneID := entity.PaneID("pane-1")
@@ -47,9 +47,9 @@ func TestClearPendingReveal_RemovesState(t *testing.T) {
 
 func TestRevealIfPending_NotPending_DoesNothing(t *testing.T) {
 	callbackCalled := false
-	c := &ContentCoordinator{
+	c := &Coordinator{
 		pendingReveal: make(map[entity.PaneID]bool),
-		webViews:      make(map[entity.PaneID]*webkit.WebView),
+		webViews:      make(map[entity.PaneID]port.WebView),
 		onWebViewShown: func(paneID entity.PaneID) {
 			callbackCalled = true
 		},
@@ -63,9 +63,9 @@ func TestRevealIfPending_NotPending_DoesNothing(t *testing.T) {
 }
 
 func TestRevealIfPending_ClearsStateOnReveal(t *testing.T) {
-	c := &ContentCoordinator{
+	c := &Coordinator{
 		pendingReveal: make(map[entity.PaneID]bool),
-		webViews:      make(map[entity.PaneID]*webkit.WebView),
+		webViews:      make(map[entity.PaneID]port.WebView),
 	}
 	paneID := entity.PaneID("pane-1")
 
@@ -82,9 +82,9 @@ func TestRevealIfPending_ClearsStateOnReveal(t *testing.T) {
 
 func TestRevealIfPending_OnlyRevealsOnce(t *testing.T) {
 	revealCount := 0
-	c := &ContentCoordinator{
+	c := &Coordinator{
 		pendingReveal: make(map[entity.PaneID]bool),
-		webViews:      make(map[entity.PaneID]*webkit.WebView),
+		webViews:      make(map[entity.PaneID]port.WebView),
 		onWebViewShown: func(paneID entity.PaneID) {
 			revealCount++
 		},
@@ -109,9 +109,9 @@ func TestRevealIfPending_OnlyRevealsOnce(t *testing.T) {
 }
 
 func TestPendingReveal_ConcurrentAccess(t *testing.T) {
-	c := &ContentCoordinator{
+	c := &Coordinator{
 		pendingReveal: make(map[entity.PaneID]bool),
-		webViews:      make(map[entity.PaneID]*webkit.WebView),
+		webViews:      make(map[entity.PaneID]port.WebView),
 	}
 
 	var wg sync.WaitGroup
@@ -144,7 +144,7 @@ func TestPendingReveal_ConcurrentAccess(t *testing.T) {
 }
 
 func TestMarkPendingReveal_MultiplePanes(t *testing.T) {
-	c := &ContentCoordinator{
+	c := &Coordinator{
 		pendingReveal: make(map[entity.PaneID]bool),
 	}
 
@@ -161,7 +161,7 @@ func TestMarkPendingReveal_MultiplePanes(t *testing.T) {
 }
 
 func TestClearPendingReveal_OnlyAffectsTargetPane(t *testing.T) {
-	c := &ContentCoordinator{
+	c := &Coordinator{
 		pendingReveal: make(map[entity.PaneID]bool),
 	}
 

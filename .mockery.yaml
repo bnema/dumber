@@ -20,7 +20,6 @@ packages:
       WebViewFactory: {}
       WebViewPool: {}
       MemoryPressureApplier: {}
-      WebKitContextProvider: {}
       HardwareSurveyor: {}
       ColorSchemeDetector: {}
       ColorSchemeResolver: {}
@@ -32,6 +31,52 @@ packages:
       KeybindingsSaver: {}
       DownloadResponse: {}
       PermissionDialogPresenter: {}
+      PermissionRepository: {}
+      Engine: {}
+      ContentInjector: {}
+      SchemeHandler: {}
+      MessageRouter: {}
+      SettingsApplier: {}
+      FilterApplier: {}
+      FaviconDatabase: {}
+      IdleInhibitor: {}
+      PopupCapable: {}
+      OAuthCallbackCapable: {}
+      DevToolsOpener: {}
+      Printer: {}
+      AccentKeyHandler: {}
+      AutoCopyConfig: {}
+      Clipboard: {}
+      DesktopIntegration: {}
+      DownloadEventHandler: {}
+      DownloadPreparer: {}
+      FaviconService: {}
+      FileSystem: {}
+      FilterManager: {}
+      Focusable: {}
+      FindController: {}
+      EntryInputTarget: {}
+      HomepageFavorites: {}
+      HomepageHistory: {}
+      AllKeybindingsResetter: {}
+      KeybindingResetter: {}
+      KeybindingSetter: {}
+      KeybindingsGetter: {}
+      MediaDiagnostics: {}
+      NativeWidgetProvider: {}
+      Notification: {}
+      RenderingEnvManager: {}
+      RuntimeVersionProbe: {}
+      ScriptRefresher: {}
+      SnapshotService: {}
+      TextInputTargetProvider: {}
+      Texture: {}
+      ToolkitAvailabilityNotifier: {}
+      UpdateApplier: {}
+      UpdateChecker: {}
+      UpdateDownloader: {}
+      WebUIConfigSaver: {}
+      XDGPaths: {}
   github.com/bnema/dumber/internal/domain/repository:
     config:
       dir: '{{.InterfaceDir}}/mocks'
@@ -46,7 +91,6 @@ packages:
       SessionStateRepository: {}
       TagRepository: {}
       ZoomRepository: {}
-      PermissionRepository: {}
   github.com/bnema/dumber/internal/infrastructure/filtering:
     config:
       dir: '{{.InterfaceDir}}/mocks'

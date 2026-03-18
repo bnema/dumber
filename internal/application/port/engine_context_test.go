@@ -81,27 +81,27 @@ func TestMemoryPressureConfig_IsConfigured(t *testing.T) {
 	}
 }
 
-func TestWebKitContextOptions_IsWebProcessMemoryConfigured(t *testing.T) {
+func TestEngineOptions_IsWebProcessMemoryConfigured(t *testing.T) {
 	tests := []struct {
 		name     string
-		opts     port.WebKitContextOptions
+		opts     port.EngineOptions
 		expected bool
 	}{
 		{
 			name:     "nil WebProcessMemory",
-			opts:     port.WebKitContextOptions{},
+			opts:     port.EngineOptions{},
 			expected: false,
 		},
 		{
 			name: "empty WebProcessMemory",
-			opts: port.WebKitContextOptions{
+			opts: port.EngineOptions{
 				WebProcessMemory: &port.MemoryPressureConfig{},
 			},
 			expected: false,
 		},
 		{
 			name: "configured WebProcessMemory",
-			opts: port.WebKitContextOptions{
+			opts: port.EngineOptions{
 				WebProcessMemory: &port.MemoryPressureConfig{
 					MemoryLimitMB: 1024,
 				},
@@ -112,33 +112,33 @@ func TestWebKitContextOptions_IsWebProcessMemoryConfigured(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := tt.opts.IsWebProcessMemoryConfigured()
+			result := tt.opts.WebProcessMemory.IsConfigured()
 			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
-func TestWebKitContextOptions_IsNetworkProcessMemoryConfigured(t *testing.T) {
+func TestEngineOptions_IsNetworkProcessMemoryConfigured(t *testing.T) {
 	tests := []struct {
 		name     string
-		opts     port.WebKitContextOptions
+		opts     port.EngineOptions
 		expected bool
 	}{
 		{
 			name:     "nil NetworkProcessMemory",
-			opts:     port.WebKitContextOptions{},
+			opts:     port.EngineOptions{},
 			expected: false,
 		},
 		{
 			name: "empty NetworkProcessMemory",
-			opts: port.WebKitContextOptions{
+			opts: port.EngineOptions{
 				NetworkProcessMemory: &port.MemoryPressureConfig{},
 			},
 			expected: false,
 		},
 		{
 			name: "configured NetworkProcessMemory",
-			opts: port.WebKitContextOptions{
+			opts: port.EngineOptions{
 				NetworkProcessMemory: &port.MemoryPressureConfig{
 					PollIntervalSec: 20.0,
 				},
@@ -149,7 +149,7 @@ func TestWebKitContextOptions_IsNetworkProcessMemoryConfigured(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := tt.opts.IsNetworkProcessMemoryConfigured()
+			result := tt.opts.NetworkProcessMemory.IsConfigured()
 			assert.Equal(t, tt.expected, result)
 		})
 	}

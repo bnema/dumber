@@ -142,22 +142,19 @@ func DefaultConfig() *Config {
 		Debug: DebugConfig{
 			EnableDevTools: true,
 		},
-		Rendering: RenderingConfig{
-			Mode:                      RenderingModeGPU,
-			DisableDMABufRenderer:     false,
-			ForceCompositingMode:      false,
-			DisableCompositingMode:    false,
-			GSKRenderer:               GSKRendererAuto, // Let GTK choose - Vulkan can conflict with WebKit's DMA-BUF
-			DisableMipmaps:            false,
-			PreferGL:                  false,
-			DrawCompositingIndicators: false,
-			ShowFPS:                   false,
-			SampleMemory:              false,
-			DebugFrames:               false,
-		},
-		Privacy: PrivacyConfig{
-			CookiePolicy: CookiePolicyNoThirdParty,
-			ITPEnabled:   true,
+		Engine: EngineConfig{
+			Type:             "webkit",
+			Profile:          ProfileDefault,
+			PoolPrewarmCount: defaultWebViewPoolPrewarmCount,
+			ZoomCacheSize:    defaultZoomCacheSize,
+			CookiePolicy:     CookiePolicyNoThirdParty,
+			WebKit: WebKitEngineConfig{
+				ITPEnabled:             true,
+				SkiaCPUPaintingThreads: defaultSkiaCPUPaintingThreads,
+				SkiaGPUPaintingThreads: defaultSkiaGPUPaintingThreads,
+				GSKRenderer:            GSKRendererAuto,
+				GLRenderingMode:        GLRenderingModeAuto,
+			},
 		},
 		DefaultWebpageZoom: 1.2,            // 120% default zoom for better readability
 		DefaultUIScale:     defaultUIScale, // 1.0 = 100%, 2.0 = 200%
@@ -293,32 +290,9 @@ func DefaultConfig() *Config {
 			HardwareDecodingMode:     HardwareDecodingAuto, // auto allows sw fallback
 			PreferAV1:                false,                // Don't force codec preference, let site choose
 			ShowDiagnosticsOnStartup: false,                // Disabled - diagnostics can be noisy
-			ForceVSync:               false,                // Let compositor handle VSync
-			GLRenderingMode:          GLRenderingModeAuto,  // GStreamer picks best GL API
-			GStreamerDebugLevel:      0,                    // Disabled by default
-		},
-		Runtime: RuntimeConfig{
-			Prefix: "",
-		},
-		Performance: PerformanceConfig{
-			Profile:                 ProfileDefault, // Use WebKit defaults by default
-			ZoomCacheSize:           defaultZoomCacheSize,
-			WebViewPoolPrewarmCount: defaultWebViewPoolPrewarmCount,
-			// Skia threading - balanced defaults (unset = use WebKit defaults)
-			// These only apply when Profile is "custom"
-			SkiaCPUPaintingThreads: defaultSkiaCPUPaintingThreads,
-			SkiaGPUPaintingThreads: defaultSkiaGPUPaintingThreads,
-			SkiaEnableCPURendering: false,
-			// Web process memory pressure - all unset by default
-			WebProcessMemoryLimitMB:               0,
-			WebProcessMemoryPollIntervalSec:       0,
-			WebProcessMemoryConservativeThreshold: 0,
-			WebProcessMemoryStrictThreshold:       0,
-			// Network process memory pressure - all unset by default
-			NetworkProcessMemoryLimitMB:               0,
-			NetworkProcessMemoryPollIntervalSec:       0,
-			NetworkProcessMemoryConservativeThreshold: 0,
-			NetworkProcessMemoryStrictThreshold:       0,
+			// GStreamer fields (ForceVSync, GLRenderingMode, GStreamerDebugLevel)
+			// moved to [engine.webkit] — zero values here prevent them from being
+			// written back when marshaling the Config struct.
 		},
 		Update: UpdateConfig{
 			EnableOnStartup:     true,  // Check for updates on startup by default
