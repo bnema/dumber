@@ -172,7 +172,7 @@ func (m *Manager) checkLegacyFormat() error {
 		return fmt.Errorf(
 			"config format outdated: [rendering], [performance], [privacy] sections " +
 				"have moved to [engine]/[engine.webkit] — " +
-				"run \"dumber migrate\" to update your config file",
+				"run \"dumber config migrate\" to update your config file",
 		)
 	}
 	return nil
