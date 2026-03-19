@@ -6,6 +6,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/infrastructure/cef"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/infrastructure/webkit/handlers"
@@ -70,7 +71,8 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			handlers.RegisterAccentHandlers,
 		)
 	case "cef":
-		return nil, fmt.Errorf("CEF engine not yet implemented")
+		cefCfg := cfg.Engine.CEF
+		return cef.NewEngine(input.Ctx, cefCfg, input.Logger)
 	default:
 		return nil, fmt.Errorf("unknown engine type: %q", engineType)
 	}
