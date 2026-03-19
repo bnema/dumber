@@ -45,9 +45,15 @@ type glLoader struct {
 	genTextures    func(n int32, textures *uint32)
 	deleteTextures func(n int32, textures *uint32)
 	bindTexture    func(target uint32, texture uint32)
-	texImage2D     func(target uint32, level int32, internalformat int32, width int32, height int32, border int32, format uint32, xtype uint32, pixels unsafe.Pointer)
-	texSubImage2D  func(target uint32, level int32, xoffset int32, yoffset int32, width int32, height int32, format uint32, xtype uint32, pixels unsafe.Pointer)
-	texParameteri  func(target uint32, pname uint32, param int32)
+	texImage2D     func(
+		target uint32, level, internalformat, width, height, border int32,
+		format, xtype uint32, pixels unsafe.Pointer,
+	)
+	texSubImage2D func(
+		target uint32, level, xoffset, yoffset, width, height int32,
+		format, xtype uint32, pixels unsafe.Pointer,
+	)
+	texParameteri func(target uint32, pname uint32, param int32)
 
 	// PBO / buffer functions
 	genBuffers    func(n int32, buffers *uint32)

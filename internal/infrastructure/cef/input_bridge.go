@@ -154,7 +154,7 @@ func (ib *inputBridge) onScroll(dx, dy float64) {
 	host.SendMouseWheelEvent(&evt, deltaX, deltaY)
 }
 
-func (ib *inputBridge) onKeyPress(keyval, keycode uint, mods uint) {
+func (ib *inputBridge) onKeyPress(keyval, keycode, mods uint) {
 	ib.mu.Lock()
 	host := ib.host
 	ib.mu.Unlock()
@@ -175,7 +175,7 @@ func (ib *inputBridge) onKeyPress(keyval, keycode uint, mods uint) {
 	}
 }
 
-func (ib *inputBridge) onKeyRelease(keyval, keycode uint, mods uint) {
+func (ib *inputBridge) onKeyRelease(keyval, keycode, mods uint) {
 	ib.mu.Lock()
 	host := ib.host
 	ib.mu.Unlock()
@@ -199,7 +199,7 @@ func buildMouseEvent(x, y float64, gdkMods uint, scale int32) purecef.MouseEvent
 	}
 }
 
-func buildKeyEvent(keyval, keycode uint, gdkMods uint, eventType purecef.KeyEventType) purecef.KeyEvent {
+func buildKeyEvent(keyval, keycode, gdkMods uint, eventType purecef.KeyEventType) purecef.KeyEvent {
 	var evt purecef.KeyEvent
 	evt.Size = unsafe.Sizeof(evt)
 	// Use unsafe to set Type field — the underlying types are both int32 but
@@ -251,10 +251,27 @@ func translateMouseButton(gdkButton uint) purecef.MouseButtonType {
 	}
 }
 
-// translateScrollDeltas converts GDK scroll deltas to CEF units (120 per notch).
+// cefScrollUnitsPerNotch is the number of scroll units CEF expects per mouse wheel notch.
+const cefScrollUnitsPerNotch = 120
+
+// translateScrollDeltas converts GDK scroll deltas to CEF units.
 func translateScrollDeltas(dx, dy float64) (int32, int32) {
-	return int32(dx * 120), int32(-dy * 120) // CEF: positive Y = scroll up
+	return int32(dx * cefScrollUnitsPerNotch), int32(-dy * cefScrollUnitsPerNotch) // CEF: positive Y = scroll up
 }
+
+// GDK keyval constants for special keys.
+const (
+	gdkKeyReturn    = 0xff0d
+	gdkKeyTab       = 0xff09
+	gdkKeyBackSpace = 0xff08
+	gdkKeyEscape    = 0xff1b
+	gdkKeyDelete    = 0xffff
+	gdkKeySpace     = 0x020
+	gdkKeyHome      = 0xff50
+	gdkKeyEnd       = 0xff57
+	gdkKeyPageUp    = 0xff55
+	gdkKeyPageDown  = 0xff56
+)
 
 // keyvalToChar returns the UTF-16 character for a printable GDK keyval, or 0.
 func keyvalToChar(keyval uint) uint16 {
@@ -262,65 +279,93 @@ func keyvalToChar(keyval uint) uint16 {
 	if keyval >= 0x020 && keyval <= 0x07e {
 		return uint16(keyval)
 	}
-	// GDK_KEY_Return → carriage return
-	if keyval == 0xff0d {
+	switch keyval {
+	case gdkKeyReturn:
 		return '\r'
-	}
-	// GDK_KEY_Tab
-	if keyval == 0xff09 {
+	case gdkKeyTab:
 		return '\t'
-	}
-	// GDK_KEY_BackSpace
-	if keyval == 0xff08 {
+	case gdkKeyBackSpace:
 		return '\b'
+	default:
+		return 0
 	}
-	return 0
 }
 
 // gdkKeyvalToWindowsVK translates a GDK keyval to a Windows virtual-key code.
 func gdkKeyvalToWindowsVK(keyval uint) int32 {
-	// Lowercase letters → uppercase VK codes (A-Z = 0x41-0x5A)
-	if keyval >= 0x061 && keyval <= 0x07a {
-		return int32(keyval-0x061) + 0x41
+	if vk, ok := gdkKeyvalToVKRange(keyval); ok {
+		return vk
 	}
-	// Uppercase letters
-	if keyval >= 0x041 && keyval <= 0x05a {
-		return int32(keyval-0x041) + 0x41
-	}
-	// Digits 0-9 = 0x30-0x39
-	if keyval >= 0x030 && keyval <= 0x039 {
-		return int32(keyval)
-	}
-	// F1-F12: GDK 0xffbe-0xffc9 → VK 0x70-0x7B
-	if keyval >= 0xffbe && keyval <= 0xffc9 {
-		return int32(keyval-0xffbe) + 0x70
-	}
-	// Arrow keys: GDK 0xff51-0xff54 → VK Left=0x25, Up=0x26, Right=0x27, Down=0x28
-	if keyval >= 0xff51 && keyval <= 0xff54 {
-		return int32(keyval-0xff51) + 0x25
-	}
+	return gdkKeyvalToVKSwitch(keyval)
+}
 
-	// Individual keys
+// GDK keyval range boundaries for contiguous mappings.
+const (
+	gdkKeyLowercaseAStart = 0x061
+	gdkKeyLowercaseAEnd   = 0x07a
+	gdkKeyUppercaseAStart = 0x041
+	gdkKeyUppercaseAEnd   = 0x05a
+	gdkKeyDigit0Start     = 0x030
+	gdkKeyDigit9End       = 0x039
+	gdkKeyF1Start         = 0xffbe
+	gdkKeyF12End          = 0xffc9
+	gdkKeyArrowStart      = 0xff51
+	gdkKeyArrowEnd        = 0xff54
+
+	vkA         = 0x41
+	vkF1        = 0x70
+	vkArrowLeft = 0x25
+)
+
+// gdkKeyvalToVKRange handles contiguous GDK keyval ranges that map linearly
+// to Windows virtual-key codes (letters, digits, F-keys, arrows).
+func gdkKeyvalToVKRange(keyval uint) (int32, bool) {
+	switch {
+	// Lowercase letters -> uppercase VK codes (A-Z = 0x41-0x5A)
+	case keyval >= gdkKeyLowercaseAStart && keyval <= gdkKeyLowercaseAEnd:
+		return int32(keyval-gdkKeyLowercaseAStart) + vkA, true
+	// Uppercase letters
+	case keyval >= gdkKeyUppercaseAStart && keyval <= gdkKeyUppercaseAEnd:
+		return int32(keyval-gdkKeyUppercaseAStart) + vkA, true
+	// Digits 0-9 = 0x30-0x39
+	case keyval >= gdkKeyDigit0Start && keyval <= gdkKeyDigit9End:
+		return int32(keyval), true
+	// F1-F12: GDK 0xffbe-0xffc9 -> VK 0x70-0x7B
+	case keyval >= gdkKeyF1Start && keyval <= gdkKeyF12End:
+		return int32(keyval-gdkKeyF1Start) + vkF1, true
+	// Arrow keys: GDK 0xff51-0xff54 -> VK Left=0x25..Down=0x28
+	case keyval >= gdkKeyArrowStart && keyval <= gdkKeyArrowEnd:
+		return int32(keyval-gdkKeyArrowStart) + vkArrowLeft, true
+	default:
+		return 0, false
+	}
+}
+
+// gdkKeyvalToVKSwitch handles individual GDK keyvals that map to specific
+// Windows virtual-key codes.
+//
+//nolint:mnd // GDK keyval→VK code lookup table; named constants would hurt readability.
+func gdkKeyvalToVKSwitch(keyval uint) int32 {
 	switch keyval {
-	case 0xff0d: // Return
+	case gdkKeyReturn:
 		return 0x0D
-	case 0xff1b: // Escape
+	case gdkKeyEscape:
 		return 0x1B
-	case 0xff09: // Tab
+	case gdkKeyTab:
 		return 0x09
-	case 0xff08: // BackSpace
+	case gdkKeyBackSpace:
 		return 0x08
-	case 0xffff: // Delete
+	case gdkKeyDelete:
 		return 0x2E
-	case 0x020: // space
+	case gdkKeySpace:
 		return 0x20
-	case 0xff50: // Home
+	case gdkKeyHome:
 		return 0x24
-	case 0xff57: // End
+	case gdkKeyEnd:
 		return 0x23
-	case 0xff55: // Page_Up
+	case gdkKeyPageUp:
 		return 0x21
-	case 0xff56: // Page_Down
+	case gdkKeyPageDown:
 		return 0x22
 	case 0xffe1, 0xffe2: // Shift_L, Shift_R
 		return 0xA0

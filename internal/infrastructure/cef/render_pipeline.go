@@ -48,9 +48,24 @@ type renderPipeline struct {
 }
 
 // Shader sources for the fullscreen textured quad.
-const vertexShaderSource = "#version 330 core\nlayout(location=0) in vec2 aPos;\nlayout(location=1) in vec2 aUV;\nout vec2 vUV;\nvoid main() {\n    gl_Position = vec4(aPos, 0.0, 1.0);\n    vUV = aUV;\n}\x00"
+const vertexShaderSource = "" +
+	"#version 330 core\n" +
+	"layout(location=0) in vec2 aPos;\n" +
+	"layout(location=1) in vec2 aUV;\n" +
+	"out vec2 vUV;\n" +
+	"void main() {\n" +
+	"    gl_Position = vec4(aPos, 0.0, 1.0);\n" +
+	"    vUV = aUV;\n" +
+	"}\x00"
 
-const fragmentShaderSource = "#version 330 core\nin vec2 vUV;\nout vec4 fragColor;\nuniform sampler2D tex;\nvoid main() {\n    fragColor = texture(tex, vUV);\n}\x00"
+const fragmentShaderSource = "" +
+	"#version 330 core\n" +
+	"in vec2 vUV;\n" +
+	"out vec4 fragColor;\n" +
+	"uniform sampler2D tex;\n" +
+	"void main() {\n" +
+	"    fragColor = texture(tex, vUV);\n" +
+	"}\x00"
 
 // Fullscreen quad: position (x,y) + UV (u,v), triangle strip.
 // UV Y is flipped because CEF's buffer origin is top-left, GL is bottom-left.

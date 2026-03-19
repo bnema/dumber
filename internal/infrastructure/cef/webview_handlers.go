@@ -78,7 +78,7 @@ func (h *handlerSet) GetViewRect(_ purecef.Browser, rect *purecef.Rect) {
 	rect.Height = ht
 }
 
-func (h *handlerSet) GetScreenPoint(_ purecef.Browser, _ int32, _ int32, _ unsafe.Pointer, _ unsafe.Pointer) int32 {
+func (h *handlerSet) GetScreenPoint(_ purecef.Browser, _, _ int32, _, _ unsafe.Pointer) int32 {
 	return 0
 }
 
@@ -90,7 +90,10 @@ func (h *handlerSet) OnPopupSize(_ purecef.Browser, _ *purecef.Rect) {}
 
 // OnPaint receives the BGRA pixel buffer from CEF and forwards dirty rects
 // to the render pipeline for GPU upload.
-func (h *handlerSet) OnPaint(_ purecef.Browser, _ purecef.PaintElementType, dirtyRects []purecef.Rect, buffer unsafe.Pointer, width int32, height int32) {
+func (h *handlerSet) OnPaint(
+	_ purecef.Browser, _ purecef.PaintElementType,
+	dirtyRects []purecef.Rect, buffer unsafe.Pointer, width, height int32,
+) {
 	rects := make([]rect, len(dirtyRects))
 	for i, dr := range dirtyRects {
 		rects[i] = rect{X: dr.X, Y: dr.Y, Width: dr.Width, Height: dr.Height}
@@ -106,13 +109,13 @@ func (h *handlerSet) GetTouchHandleSize(_ purecef.Browser, _ purecef.HorizontalA
 
 func (h *handlerSet) OnTouchHandleStateChanged(_ purecef.Browser, _ *purecef.TouchHandleState) {}
 
-func (h *handlerSet) StartDragging(_ purecef.Browser, _ purecef.DragData, _ purecef.DragOperationsMask, _ int32, _ int32) int32 {
+func (h *handlerSet) StartDragging(_ purecef.Browser, _ purecef.DragData, _ purecef.DragOperationsMask, _, _ int32) int32 {
 	return 0
 }
 
 func (h *handlerSet) UpdateDragCursor(_ purecef.Browser, _ purecef.DragOperationsMask) {}
 
-func (h *handlerSet) OnScrollOffsetChanged(_ purecef.Browser, _ float64, _ float64) {}
+func (h *handlerSet) OnScrollOffsetChanged(_ purecef.Browser, _, _ float64) {}
 
 func (h *handlerSet) OnImeCompositionRangeChanged(_ purecef.Browser, _ *purecef.Range, _ []purecef.Rect) {
 }
@@ -170,7 +173,7 @@ func (h *handlerSet) OnStatusMessage(_ purecef.Browser, value string) {
 	}
 }
 
-func (h *handlerSet) OnConsoleMessage(_ purecef.Browser, _ purecef.LogSeverity, _ string, _ string, _ int32) int32 {
+func (h *handlerSet) OnConsoleMessage(_ purecef.Browser, _ purecef.LogSeverity, _, _ string, _ int32) int32 {
 	return 0
 }
 
@@ -185,7 +188,7 @@ func (h *handlerSet) OnCursorChange(_ purecef.Browser, _ uintptr, _ purecef.Curs
 	return 0
 }
 
-func (h *handlerSet) OnMediaAccessChange(_ purecef.Browser, _ int32, _ int32) {}
+func (h *handlerSet) OnMediaAccessChange(_ purecef.Browser, _, _ int32) {}
 
 func (h *handlerSet) OnContentsBoundsChange(_ purecef.Browser, _ *purecef.Rect) int32 { return 0 }
 
@@ -196,7 +199,7 @@ func (h *handlerSet) GetRootWindowScreenRect(_ purecef.Browser, _ *purecef.Rect)
 // ===========================================================================
 
 // OnLoadingStateChange updates the loading/navigation state cache and fires callbacks.
-func (h *handlerSet) OnLoadingStateChange(_ purecef.Browser, isloading int32, cangoback int32, cangoforward int32) {
+func (h *handlerSet) OnLoadingStateChange(_ purecef.Browser, isloading, cangoback, cangoforward int32) {
 	loading := isloading != 0
 	h.wv.updateLoadState(loading, cangoback != 0, cangoforward != 0)
 
@@ -244,7 +247,7 @@ func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, _ int32) 
 }
 
 // OnLoadError is a no-op in Phase 1.
-func (h *handlerSet) OnLoadError(_ purecef.Browser, _ purecef.Frame, _ purecef.Errorcode, _ string, _ string) {
+func (h *handlerSet) OnLoadError(_ purecef.Browser, _ purecef.Frame, _ purecef.Errorcode, _, _ string) {
 }
 
 // ===========================================================================
@@ -252,13 +255,21 @@ func (h *handlerSet) OnLoadError(_ purecef.Browser, _ purecef.Frame, _ purecef.E
 // ===========================================================================
 
 // OnBeforePopup blocks all popups in Phase 1.
-func (h *handlerSet) OnBeforePopup(_ purecef.Browser, _ purecef.Frame, _ int32, _ string, _ string, _ purecef.WindowOpenDisposition, _ int32, _ *purecef.PopupFeatures, _ *purecef.WindowInfo, _ unsafe.Pointer, _ *purecef.BrowserSettings, _ unsafe.Pointer, _ unsafe.Pointer) bool {
+func (h *handlerSet) OnBeforePopup(
+	_ purecef.Browser, _ purecef.Frame, _ int32, _, _ string,
+	_ purecef.WindowOpenDisposition, _ int32, _ *purecef.PopupFeatures,
+	_ *purecef.WindowInfo, _ unsafe.Pointer, _ *purecef.BrowserSettings,
+	_, _ unsafe.Pointer,
+) bool {
 	return true // block
 }
 
 func (h *handlerSet) OnBeforePopupAborted(_ purecef.Browser, _ int32) {}
 
-func (h *handlerSet) OnBeforeDevToolsPopup(_ purecef.Browser, _ *purecef.WindowInfo, _ unsafe.Pointer, _ *purecef.BrowserSettings, _ unsafe.Pointer, _ unsafe.Pointer) {
+func (h *handlerSet) OnBeforeDevToolsPopup(
+	_ purecef.Browser, _ *purecef.WindowInfo, _ unsafe.Pointer,
+	_ *purecef.BrowserSettings, _, _ unsafe.Pointer,
+) {
 }
 
 // OnAfterCreated stores the browser and host references and enables input.
@@ -287,7 +298,7 @@ func (h *handlerSet) OnBeforeClose(_ purecef.Browser) {
 // RequestHandler (11 methods)
 // ===========================================================================
 
-func (h *handlerSet) OnBeforeBrowse(_ purecef.Browser, _ purecef.Frame, _ purecef.Request, _ int32, _ int32) bool {
+func (h *handlerSet) OnBeforeBrowse(_ purecef.Browser, _ purecef.Frame, _ purecef.Request, _, _ int32) bool {
 	return false
 }
 
@@ -295,11 +306,17 @@ func (h *handlerSet) OnOpenUrlfromTab(_ purecef.Browser, _ purecef.Frame, _ stri
 	return 0
 }
 
-func (h *handlerSet) GetResourceRequestHandler(_ purecef.Browser, _ purecef.Frame, _ purecef.Request, _ int32, _ int32, _ string, _ unsafe.Pointer) purecef.ResourceRequestHandler {
+func (h *handlerSet) GetResourceRequestHandler(
+	_ purecef.Browser, _ purecef.Frame, _ purecef.Request,
+	_, _ int32, _ string, _ unsafe.Pointer,
+) purecef.ResourceRequestHandler {
 	return nil
 }
 
-func (h *handlerSet) GetAuthCredentials(_ purecef.Browser, _ string, _ int32, _ string, _ int32, _ string, _ string, _ purecef.AuthCallback) int32 {
+func (h *handlerSet) GetAuthCredentials(
+	_ purecef.Browser, _ string, _ int32, _ string, _ int32,
+	_, _ string, _ purecef.AuthCallback,
+) int32 {
 	return 0
 }
 
@@ -307,7 +324,10 @@ func (h *handlerSet) OnCertificateError(_ purecef.Browser, _ purecef.Errorcode, 
 	return 0
 }
 
-func (h *handlerSet) OnSelectClientCertificate(_ purecef.Browser, _ int32, _ string, _ int32, _ int, _ unsafe.Pointer, _ purecef.SelectClientCertificateCallback) int32 {
+func (h *handlerSet) OnSelectClientCertificate(
+	_ purecef.Browser, _ int32, _ string, _ int32, _ int,
+	_ unsafe.Pointer, _ purecef.SelectClientCertificateCallback,
+) int32 {
 	return 0
 }
 

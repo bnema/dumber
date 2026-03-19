@@ -361,7 +361,7 @@ func (wv *WebView) updateProgress(progress float64) {
 	}
 }
 
-func (wv *WebView) updateLoadState(loading bool, back bool, fwd bool) {
+func (wv *WebView) updateLoadState(loading, back, fwd bool) {
 	wv.mu.Lock()
 	wv.isLoading = loading
 	wv.canGoBack = back
