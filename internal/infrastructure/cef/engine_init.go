@@ -22,7 +22,8 @@ func NewEngine(ctx context.Context, cfg config.CEFEngineConfig, logger zerolog.L
 		settings.LogSeverity = cfg.LogSeverity
 	}
 
-	purecef.MaybeExitSubprocess()
+	// NOTE: MaybeExitSubprocess is called in main() before Cobra, so that
+	// CEF subprocess args (--type=renderer) are handled before arg stripping.
 
 	if err := purecef.Init(settings); err != nil {
 		return nil, fmt.Errorf("cef.Init: %w", err)

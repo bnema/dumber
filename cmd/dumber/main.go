@@ -34,6 +34,7 @@ import (
 	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/theme"
+	cef "github.com/bnema/purego-cef/cef"
 	"github.com/bnema/puregotk/v4/gtk"
 	"github.com/rs/zerolog"
 )
@@ -53,6 +54,14 @@ var restoreSessionID string
 
 func main() {
 	enableCrashForensics()
+
+	// CEF subprocess handling: when CEF re-launches the binary with
+	// --type=renderer/gpu/etc, we must call ExecuteProcess before anything
+	// else (Cobra, config, arg stripping). This only runs when the engine
+	// is set to "cef" and exits immediately for subprocess invocations.
+	if os.Getenv("DUMBER_ENGINE") == "cef" {
+		cef.MaybeExitSubprocess()
+	}
 
 	// Run GUI mode for browse command
 	if len(os.Args) > 1 && os.Args[1] == "browse" {
