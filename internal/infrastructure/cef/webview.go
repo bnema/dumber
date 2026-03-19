@@ -31,6 +31,7 @@ type WebView struct {
 	id       port.WebViewID
 	browser  purecef.Browser
 	host     purecef.BrowserHost
+	client   purecef.Client // prevent GC from collecting the client before CEF AddRef's it
 	pipeline *renderPipeline
 	input    *inputBridge
 	handlers *handlerSet

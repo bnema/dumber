@@ -3,7 +3,6 @@ package cef
 import (
 	"context"
 	"sync/atomic"
-	"unsafe"
 
 	purecef "github.com/bnema/purego-cef/cef"
 
@@ -54,18 +53,17 @@ func (f *WebViewFactory) Create(_ context.Context) (port.WebView, error) {
 	input.attachTo(pipeline.glArea)
 	wv.input = input
 
-	// Build a CEF client backed by our handlerSet. NewClient returns a Client
-	// that wraps the raw CEF struct with refcounting and callback vtable.
+	// Build a CEF client backed by our handlerSet.
+	// Store on WebView to prevent GC collection before CEF AddRef's it.
 	client := purecef.NewClient(wv.handlers)
+	wv.client = client
 
 	// Configure WindowInfo for off-screen rendering (OSR).
-	var windowInfo purecef.WindowInfo
-	windowInfo.Size = unsafe.Sizeof(windowInfo)
+	windowInfo := purecef.DefaultWindowInfo()
 	windowInfo.WindowlessRenderingEnabled = 1
 
-	// Configure BrowserSettings with 60 fps for smooth rendering.
-	var settings purecef.BrowserSettings
-	settings.Size = unsafe.Sizeof(settings)
+	// Configure BrowserSettings.
+	settings := purecef.DefaultBrowserSettings()
 	settings.WindowlessFrameRate = 60
 
 	// Create the browser asynchronously. The browser will be nil until
