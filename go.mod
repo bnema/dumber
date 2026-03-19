@@ -3,6 +3,7 @@ module github.com/bnema/dumber
 go 1.26.1
 
 require (
+	github.com/bnema/purego-cef v0.0.0-00010101000000-000000000000
 	github.com/bnema/purego-sqlite v0.1.1
 	github.com/bnema/puregotk v0.2.2
 	github.com/bnema/puregotk-webkit v0.0.16
@@ -39,6 +40,7 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.5.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/ebitengine/purego v0.10.0 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
