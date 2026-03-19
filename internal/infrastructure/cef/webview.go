@@ -36,6 +36,16 @@ type WebView struct {
 	input    *inputBridge
 	handlers *handlerSet
 
+	// pendingCreate holds browser creation params until the GL area is realized.
+	pendingCreate *pendingBrowserCreate
+
+	// pendingURI is set when LoadURI is called before the browser exists.
+	pendingURI string
+
+	// crashCount tracks consecutive renderer crashes to prevent infinite
+	// crash → redirect → crash loops.
+	crashCount int32
+
 	// Callbacks set by use case layer.
 	mu        sync.RWMutex
 	callbacks *port.WebViewCallbacks
@@ -52,6 +62,14 @@ type WebView struct {
 	destroyed  atomic.Bool
 	fullscreen atomic.Bool
 	generation atomic.Uint64
+}
+
+// pendingBrowserCreate holds the parameters needed to create a CEF browser,
+// deferred until the GL area has a non-zero size.
+type pendingBrowserCreate struct {
+	windowInfo *purecef.WindowInfo
+	client     purecef.Client
+	settings   *purecef.BrowserSettings
 }
 
 // ---------------------------------------------------------------------------
@@ -73,7 +91,9 @@ func (wv *WebView) LoadURI(_ context.Context, uri string) error {
 		return errDestroyed
 	}
 	if wv.browser == nil {
-		return errNoBrowser
+		// Browser not yet created — queue the URI for OnAfterCreated.
+		wv.pendingURI = uri
+		return nil
 	}
 	wv.browser.GetMainFrame().LoadURL(uri)
 	return nil

@@ -1,6 +1,8 @@
 package cef
 
 import (
+	"fmt"
+	"os"
 	"sync"
 	"unsafe"
 
@@ -45,6 +47,12 @@ type renderPipeline struct {
 
 	// GL initialized flag.
 	glReady bool
+
+	// onFirstResize is called once when the first non-zero resize occurs.
+	onFirstResize func(width, height int32)
+
+	// onResizeCB is called on every non-zero resize after the first.
+	onResizeCB func(width, height int32)
 }
 
 // Shader sources for the fullscreen textured quad.
@@ -121,8 +129,8 @@ func (rp *renderPipeline) handlePaint(buffer unsafe.Pointer, width, height int32
 	bufSize := int(width) * int(height) * 4
 	srcSlice := unsafe.Slice((*byte)(buffer), bufSize)
 
-	// Detect size change.
-	if width != rp.width || height != rp.height {
+	// Detect size change, or first paint (staging not yet allocated).
+	if width != rp.width || height != rp.height || rp.staging == nil {
 		rp.width = width
 		rp.height = height
 		rp.staging = make([]byte, bufSize)
@@ -151,12 +159,20 @@ func (rp *renderPipeline) handlePaint(buffer unsafe.Pointer, width, height int32
 }
 
 // onGLRender is the GTK "render" signal handler. GL context is current.
+var glRenderCount uint64
+
 func (rp *renderPipeline) onGLRender() bool {
 	rp.mu.Lock()
 
 	needsUpload := rp.needsUpload
 	sizeChanged := rp.sizeChanged
 	rp.needsUpload = false
+
+	glRenderCount++
+	if glRenderCount <= 5 {
+		fmt.Fprintf(os.Stderr, "cef-debug: onGLRender call=%d needsUpload=%v sizeChanged=%v glReady=%v\n",
+			glRenderCount, needsUpload, sizeChanged, rp.glReady)
+	}
 
 	// Snapshot dirty rects for upload.
 	var dirtyRects []rect
@@ -370,7 +386,6 @@ func compileShader(gl *glLoader, shaderType uint32, source string) uint32 {
 // we multiply by scale to get device pixels.
 func (rp *renderPipeline) onResize(width, height int32) {
 	rp.mu.Lock()
-	defer rp.mu.Unlock()
 
 	scaled := func(v int32) int32 {
 		return v * rp.scale
@@ -379,6 +394,21 @@ func (rp *renderPipeline) onResize(width, height int32) {
 	rp.width = scaled(width)
 	rp.height = scaled(height)
 	rp.sizeChanged = true
+
+	firstCB := rp.onFirstResize
+	if firstCB != nil {
+		rp.onFirstResize = nil
+	}
+	resizeCB := rp.onResizeCB
+
+	w, h := rp.width, rp.height
+	rp.mu.Unlock()
+
+	if firstCB != nil {
+		firstCB(w, h)
+	} else if resizeCB != nil {
+		resizeCB(w, h)
+	}
 }
 
 // destroy releases all GL resources.

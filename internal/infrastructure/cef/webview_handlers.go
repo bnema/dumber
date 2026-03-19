@@ -1,6 +1,8 @@
 package cef
 
 import (
+	"fmt"
+	"os"
 	"unsafe"
 
 	purecef "github.com/bnema/purego-cef/cef"
@@ -63,6 +65,8 @@ func (h *handlerSet) GetRootScreenRect(_ purecef.Browser, _ *purecef.Rect) int32
 // GetViewRect fills the rect struct with the pipeline dimensions.
 // The rect pointer points to a cef_rect_t: {HostLayout padding, X, Y, Width, Height} all int32.
 // The HostLayout field occupies 0 bytes on most platforms but we use the Rect type alias to be safe.
+var getViewRectCount uint64
+
 func (h *handlerSet) GetViewRect(_ purecef.Browser, rect *purecef.Rect) {
 	if rect == nil {
 		return
@@ -71,6 +75,20 @@ func (h *handlerSet) GetViewRect(_ purecef.Browser, rect *purecef.Rect) {
 	w := h.wv.pipeline.width
 	ht := h.wv.pipeline.height
 	h.wv.pipeline.mu.Unlock()
+
+	// CEF requires a non-empty rect. Return a 1x1 fallback if the GL area
+	// has not been realized yet.
+	if w <= 0 {
+		w = 1
+	}
+	if ht <= 0 {
+		ht = 1
+	}
+
+	getViewRectCount++
+	if getViewRectCount <= 5 {
+		fmt.Fprintf(os.Stderr, "cef-debug: GetViewRect call=%d w=%d h=%d\n", getViewRectCount, w, ht)
+	}
 
 	rect.X = 0
 	rect.Y = 0
@@ -90,10 +108,17 @@ func (h *handlerSet) OnPopupSize(_ purecef.Browser, _ *purecef.Rect) {}
 
 // OnPaint receives the BGRA pixel buffer from CEF and forwards dirty rects
 // to the render pipeline for GPU upload.
+var onPaintCount uint64
+
 func (h *handlerSet) OnPaint(
 	_ purecef.Browser, _ purecef.PaintElementType,
 	dirtyRects []purecef.Rect, buffer unsafe.Pointer, width, height int32,
 ) {
+	onPaintCount++
+	if onPaintCount <= 3 {
+		fmt.Fprintf(os.Stderr, "cef-debug: OnPaint call=%d w=%d h=%d dirtyRects=%d buffer_nil=%v\n",
+			onPaintCount, width, height, len(dirtyRects), buffer == nil)
+	}
 	rects := make([]rect, len(dirtyRects))
 	for i, dr := range dirtyRects {
 		rects[i] = rect{X: dr.X, Y: dr.Y, Width: dr.Width, Height: dr.Height}
@@ -215,24 +240,31 @@ func (h *handlerSet) OnLoadingStateChange(_ purecef.Browser, isloading, cangobac
 	}
 }
 
-// OnLoadStart fires LoadStarted for main frame navigations.
+// OnLoadStart fires LoadCommitted for main frame navigations.
+// In CEF this callback runs after navigation commit, so it is the closest
+// equivalent to WebKit's LoadCommitted event.
 func (h *handlerSet) OnLoadStart(_ purecef.Browser, frame purecef.Frame, _ purecef.TransitionType) {
 	if frame == nil || !frame.IsMain() {
 		return
 	}
+	h.wv.updateURI(frame.GetURL())
 	h.wv.mu.RLock()
 	cb := h.wv.callbacks
 	h.wv.mu.RUnlock()
 	if cb != nil && cb.OnLoadChanged != nil {
-		cb.OnLoadChanged(port.LoadStarted)
+		cb.OnLoadChanged(port.LoadCommitted)
 	}
 }
 
 // OnLoadEnd fires LoadFinished and sets progress to 1.0 for the main frame.
-func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, _ int32) {
+func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, httpStatusCode int32) {
+	fmt.Fprintf(os.Stderr, "cef-debug: OnLoadEnd frame_nil=%v is_main=%v http_status=%d\n",
+		frame == nil, frame != nil && frame.IsMain(), httpStatusCode)
 	if frame == nil || !frame.IsMain() {
 		return
 	}
+	// Successful load — reset the consecutive crash counter.
+	h.wv.crashCount = 0
 	h.wv.mu.RLock()
 	cb := h.wv.callbacks
 	h.wv.mu.RUnlock()
@@ -274,9 +306,16 @@ func (h *handlerSet) OnBeforeDevToolsPopup(
 
 // OnAfterCreated stores the browser and host references and enables input.
 func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
+	fmt.Fprintf(os.Stderr, "cef-debug: OnAfterCreated browser_nil=%v\n", browser == nil)
 	h.wv.browser = browser
 	h.wv.host = browser.GetHost()
 	h.wv.input.setHost(h.wv.host)
+
+	// Replay any navigation that was requested before the browser existed.
+	if uri := h.wv.pendingURI; uri != "" {
+		h.wv.pendingURI = ""
+		browser.GetMainFrame().LoadURL(uri)
+	}
 }
 
 // DoClose returns false to allow the default close behavior.
@@ -339,8 +378,18 @@ func (h *handlerSet) OnRenderProcessUnresponsive(_ purecef.Browser, _ purecef.Un
 
 func (h *handlerSet) OnRenderProcessResponsive(_ purecef.Browser) {}
 
+// maxConsecutiveCrashes caps how many times OnRenderProcessTerminated will
+// forward the event before suppressing further notifications. This prevents
+// infinite crash → redirect → crash loops.
+const maxConsecutiveCrashes = 3
+
 // OnRenderProcessTerminated fires the OnWebProcessTerminated callback with a mapped reason.
 func (h *handlerSet) OnRenderProcessTerminated(_ purecef.Browser, status purecef.TerminationStatus, _ int32, _ string) {
+	h.wv.crashCount++
+	if h.wv.crashCount > maxConsecutiveCrashes {
+		return // suppress to break the loop
+	}
+
 	var reason port.WebProcessTerminationReason
 	var label string
 	switch status {

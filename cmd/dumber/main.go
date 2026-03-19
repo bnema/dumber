@@ -55,12 +55,19 @@ var restoreSessionID string
 func main() {
 	enableCrashForensics()
 
+	// Debug: dump args at entry to identify subprocess leakage.
+	fmt.Fprintf(os.Stderr, "cef-debug: main() entry, pid=%d args=%v\n", os.Getpid(), os.Args)
+
 	// CEF subprocess handling: when CEF re-launches the binary with
 	// --type=renderer/gpu/etc, we must call ExecuteProcess before anything
-	// else (Cobra, config, arg stripping). This only runs when the engine
-	// is set to "cef" and exits immediately for subprocess invocations.
-	if os.Getenv("DUMBER_ENGINE") == "cef" {
+	// else (Cobra, config, arg stripping). We detect subprocesses by the
+	// presence of --type= in os.Args rather than checking the engine env
+	// var, because subprocesses may not inherit the environment and the
+	// engine can also be selected via config.
+	if isCEFSubprocess() {
+		fmt.Fprintf(os.Stderr, "cef: detected subprocess, args=%v\n", os.Args)
 		cef.MaybeExitSubprocess()
+		fmt.Fprintf(os.Stderr, "cef: MaybeExitSubprocess returned (browser process)\n")
 	}
 
 	// Run GUI mode for browse command
@@ -505,6 +512,17 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 		clipboard:      clipboardAdapter,
 		favicon:        favicon.NewService(faviconCacheDir),
 	}
+}
+
+// isCEFSubprocess returns true if os.Args contains a --type= flag, indicating
+// this process was spawned by CEF as a renderer, GPU, or utility subprocess.
+func isCEFSubprocess() bool {
+	for _, arg := range os.Args {
+		if len(arg) > 7 && arg[:7] == "--type=" {
+			return true
+		}
+	}
+	return false
 }
 
 func buildUIDependencies(

@@ -66,16 +66,36 @@ func (f *WebViewFactory) Create(_ context.Context) (port.WebView, error) {
 	settings := purecef.DefaultBrowserSettings()
 	settings.WindowlessFrameRate = 60
 
-	// Create the browser asynchronously. The browser will be nil until
-	// OnAfterCreated fires in the LifeSpanHandler.
-	purecef.BrowserHostCreateBrowser(
-		&windowInfo,
-		client,
-		"about:blank",
-		&settings,
-		nil, // extraInfo
-		nil, // requestContext
-	)
+	// Defer browser creation until the GL area has a non-zero size.
+	// CEF requires GetViewRect to return a non-empty rect, but the GL area
+	// is not yet realized at this point.
+	wv.pendingCreate = &pendingBrowserCreate{
+		windowInfo: &windowInfo,
+		client:     client,
+		settings:   &settings,
+	}
+
+	// When the GL area gets its first non-zero size, create the browser.
+	pipeline.onFirstResize = func(_, _ int32) {
+		if pc := wv.pendingCreate; pc != nil {
+			wv.pendingCreate = nil
+			purecef.BrowserHostCreateBrowser(
+				pc.windowInfo,
+				pc.client,
+				"about:blank",
+				pc.settings,
+				nil, // extraInfo
+				nil, // requestContext
+			)
+		}
+	}
+
+	// On subsequent resizes, notify CEF so it re-queries GetViewRect.
+	pipeline.onResizeCB = func(_, _ int32) {
+		if wv.host != nil {
+			wv.host.WasResized()
+		}
+	}
 
 	return wv, nil
 }
