@@ -8,6 +8,7 @@ type EngineConfig struct {
 	Profile          PerformanceProfile `mapstructure:"profile" toml:"profile" yaml:"profile"`
 	CookiePolicy     CookiePolicy       `mapstructure:"cookie_policy" toml:"cookie_policy" yaml:"cookie_policy"`
 	WebKit           WebKitEngineConfig `mapstructure:"webkit" toml:"webkit" yaml:"webkit"`
+	CEF              CEFEngineConfig    `mapstructure:"cef" toml:"cef" yaml:"cef"`
 }
 
 // WebKitEngineConfig holds WebKit-specific engine options.
@@ -55,6 +56,19 @@ type WebKitEngineConfig struct {
 	NetworkProcessMemoryPollIntervalSec       float64 `mapstructure:"network_process_memory_poll_interval_sec" toml:"network_process_memory_poll_interval_sec" yaml:"network_process_memory_poll_interval_sec"`                //nolint:lll // struct tags exceed lll limit
 	NetworkProcessMemoryConservativeThreshold float64 `mapstructure:"network_process_memory_conservative_threshold" toml:"network_process_memory_conservative_threshold" yaml:"network_process_memory_conservative_threshold"` //nolint:lll // struct tags exceed lll limit
 	NetworkProcessMemoryStrictThreshold       float64 `mapstructure:"network_process_memory_strict_threshold" toml:"network_process_memory_strict_threshold" yaml:"network_process_memory_strict_threshold"`                   //nolint:lll // struct tags exceed lll limit
+}
+
+// CEFEngineConfig holds CEF-specific engine options.
+type CEFEngineConfig struct {
+	// CEFDir is the path to the CEF framework directory containing
+	// libcef.so and the Resources/locales subdirectories.
+	CEFDir string `mapstructure:"cef_dir" toml:"cef_dir" yaml:"cef_dir"`
+	// LogSeverity controls CEF's internal log verbosity.
+	// 0 = default, 1 = verbose, 2 = info, 3 = warning, 4 = error, 99 = disable.
+	LogSeverity int32 `mapstructure:"log_severity" toml:"log_severity" yaml:"log_severity"`
+	// WindowlessFrameRate is the maximum frame rate for off-screen rendering.
+	// Default: 30. Higher values increase CPU usage.
+	WindowlessFrameRate int32 `mapstructure:"windowless_frame_rate" toml:"windowless_frame_rate" yaml:"windowless_frame_rate"`
 }
 
 // PerformanceConfigFromEngine constructs a PerformanceConfig from the
