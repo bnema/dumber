@@ -90,23 +90,15 @@ func (h *handlerSet) OnPopupSize(_ purecef.Browser, _ *purecef.Rect) {}
 
 // OnPaint receives the BGRA pixel buffer from CEF and forwards dirty rects
 // to the render pipeline for GPU upload.
-// NOTE: dirty rects are still count+pointer (uintptr) because the purego-cef
-// parser doesn't preserve the C type for this parameter yet. Decode manually.
-func (h *handlerSet) OnPaint(_ purecef.Browser, _ purecef.PaintElementType, dirtyrectscount int, dirtyrects uintptr, buffer unsafe.Pointer, width int32, height int32) {
-	var rects []rect
-	if dirtyrectscount > 0 && dirtyrects != 0 {
-		// Each cef_rect_t is {x, y, width, height} as int32, but purecef.Rect
-		// has a HostLayout padding prefix. Use unsafe.Slice on the raw pointer.
-		cefRects := unsafe.Slice((*purecef.Rect)(unsafe.Pointer(dirtyrects)), dirtyrectscount)
-		rects = make([]rect, dirtyrectscount)
-		for i, dr := range cefRects {
-			rects[i] = rect{X: dr.X, Y: dr.Y, Width: dr.Width, Height: dr.Height}
-		}
+func (h *handlerSet) OnPaint(_ purecef.Browser, _ purecef.PaintElementType, dirtyRects []purecef.Rect, buffer unsafe.Pointer, width int32, height int32) {
+	rects := make([]rect, len(dirtyRects))
+	for i, dr := range dirtyRects {
+		rects[i] = rect{X: dr.X, Y: dr.Y, Width: dr.Width, Height: dr.Height}
 	}
 	h.wv.pipeline.handlePaint(buffer, width, height, rects)
 }
 
-func (h *handlerSet) OnAcceleratedPaint(_ purecef.Browser, _ purecef.PaintElementType, _ int, _ uintptr, _ *purecef.AcceleratedPaintInfo) {
+func (h *handlerSet) OnAcceleratedPaint(_ purecef.Browser, _ purecef.PaintElementType, _ []purecef.Rect, _ *purecef.AcceleratedPaintInfo) {
 }
 
 func (h *handlerSet) GetTouchHandleSize(_ purecef.Browser, _ purecef.HorizontalAlignment, _ *purecef.Size) {
@@ -122,7 +114,7 @@ func (h *handlerSet) UpdateDragCursor(_ purecef.Browser, _ purecef.DragOperation
 
 func (h *handlerSet) OnScrollOffsetChanged(_ purecef.Browser, _ float64, _ float64) {}
 
-func (h *handlerSet) OnImeCompositionRangeChanged(_ purecef.Browser, _ *purecef.Range, _ int, _ uintptr) {
+func (h *handlerSet) OnImeCompositionRangeChanged(_ purecef.Browser, _ *purecef.Range, _ []purecef.Rect) {
 }
 
 func (h *handlerSet) OnTextSelectionChanged(_ purecef.Browser, _ string, _ *purecef.Range) {}
