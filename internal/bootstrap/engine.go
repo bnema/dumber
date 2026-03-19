@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
@@ -32,6 +33,10 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 	engineType := cfg.Engine.Type
 	if engineType == "" {
 		engineType = "webkit"
+	}
+	// Allow env var override for smoke testing: DUMBER_ENGINE=cef
+	if envEngine := os.Getenv("DUMBER_ENGINE"); envEngine != "" {
+		engineType = envEngine
 	}
 	switch engineType {
 	case "webkit":
