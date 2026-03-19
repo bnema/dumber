@@ -54,11 +54,9 @@ func (f *WebViewFactory) Create(_ context.Context) (port.WebView, error) {
 	input.attachTo(pipeline.glArea)
 	wv.input = input
 
-	// Build a CEF client backed by our handlerSet. NewClient allocates a raw
-	// CEF client struct with ref-counting and callback vtable wired up. We
-	// keep the pointer alive on the WebView so it is not garbage collected
-	// before the browser is destroyed.
-	clientPtr := purecef.NewClient(wv.handlers)
+	// Build a CEF client backed by our handlerSet. NewClient returns a Client
+	// that wraps the raw CEF struct with refcounting and callback vtable.
+	client := purecef.NewClient(wv.handlers)
 
 	// Configure WindowInfo for off-screen rendering (OSR).
 	var windowInfo purecef.WindowInfo
@@ -70,39 +68,18 @@ func (f *WebViewFactory) Create(_ context.Context) (port.WebView, error) {
 	settings.Size = unsafe.Sizeof(settings)
 	settings.WindowlessFrameRate = 60
 
-	// Create the browser asynchronously. BrowserHostCreateBrowser posts to the
-	// CEF UI thread; the browser will be nil until OnAfterCreated fires.
-	//
-	// We call the raw creation function directly with the client pointer from
-	// NewClient, because the high-level wrapper's extractRawPointer requires a
-	// package-internal interface that external types cannot satisfy.
-	//
-	// NOTE: BrowserHostCreateBrowser is currently a stub in purego-cef (returns
-	// 0). That is expected — the skeleton is correct and will work once the
-	// stub is implemented.
-	createBrowser(clientPtr, &windowInfo, &settings)
-
-	return wv, nil
-}
-
-// createBrowser calls purecef.BrowserHostCreateBrowser with the raw client
-// pointer. This is separated for testability and to document the impedance
-// mismatch between NewClient (returns unsafe.Pointer) and
-// BrowserHostCreateBrowser (expects Client interface with unexported
-// rawPointer method).
-func createBrowser(clientPtr unsafe.Pointer, windowInfo *purecef.WindowInfo, settings *purecef.BrowserSettings) {
-	// Wrap the raw pointer in a thin Client adapter so BrowserHostCreateBrowser
-	// can extract it. handlerSet already implements Client; the real vtable is
-	// in the raw struct that clientPtr points to.
-	adapter := &clientAdapter{ptr: clientPtr}
+	// Create the browser asynchronously. The browser will be nil until
+	// OnAfterCreated fires in the LifeSpanHandler.
 	purecef.BrowserHostCreateBrowser(
-		windowInfo,
-		adapter,
+		&windowInfo,
+		client,
 		"about:blank",
-		settings,
+		&settings,
 		nil, // extraInfo
 		nil, // requestContext
 	)
+
+	return wv, nil
 }
 
 // CreateRelated creates a WebView that shares session/cookies with the parent.
@@ -110,39 +87,4 @@ func createBrowser(clientPtr unsafe.Pointer, windowInfo *purecef.WindowInfo, set
 // request context so cookies and session state are shared.
 func (f *WebViewFactory) CreateRelated(ctx context.Context, _ port.WebViewID) (port.WebView, error) {
 	return f.Create(ctx)
-}
-
-// clientAdapter wraps an unsafe.Pointer from NewClient into something that
-// satisfies the purecef.Client interface. The actual CEF callbacks are already
-// wired inside the raw struct; these Go methods are never invoked by CEF.
-//
-// NOTE: purecef.extractRawPointer checks for an unexported rawPointer()
-// method, which external packages cannot satisfy. Until purego-cef exports a
-// proper WrapClient helper, the pointer extraction will return nil. This is
-// acceptable because BrowserHostCreateBrowser is currently a stub.
-type clientAdapter struct {
-	ptr unsafe.Pointer
-}
-
-func (c *clientAdapter) GetAudioHandler() purecef.AudioHandler             { return nil }
-func (c *clientAdapter) GetCommandHandler() purecef.CommandHandler         { return nil }
-func (c *clientAdapter) GetContextMenuHandler() purecef.ContextMenuHandler { return nil }
-func (c *clientAdapter) GetDialogHandler() purecef.DialogHandler           { return nil }
-func (c *clientAdapter) GetDisplayHandler() purecef.DisplayHandler         { return nil }
-func (c *clientAdapter) GetDownloadHandler() purecef.DownloadHandler       { return nil }
-func (c *clientAdapter) GetDragHandler() purecef.DragHandler               { return nil }
-func (c *clientAdapter) GetFindHandler() purecef.FindHandler               { return nil }
-func (c *clientAdapter) GetFocusHandler() purecef.FocusHandler             { return nil }
-func (c *clientAdapter) GetFrameHandler() purecef.FrameHandler             { return nil }
-func (c *clientAdapter) GetPermissionHandler() purecef.PermissionHandler   { return nil }
-func (c *clientAdapter) GetJsdialogHandler() purecef.JsdialogHandler       { return nil }
-func (c *clientAdapter) GetKeyboardHandler() purecef.KeyboardHandler       { return nil }
-func (c *clientAdapter) GetLifeSpanHandler() purecef.LifeSpanHandler       { return nil }
-func (c *clientAdapter) GetLoadHandler() purecef.LoadHandler               { return nil }
-func (c *clientAdapter) GetPrintHandler() purecef.PrintHandler             { return nil }
-func (c *clientAdapter) GetRenderHandler() purecef.RenderHandler           { return nil }
-func (c *clientAdapter) GetRequestHandler() purecef.RequestHandler         { return nil }
-
-func (c *clientAdapter) OnProcessMessageReceived(_ purecef.Browser, _ purecef.Frame, _ purecef.ProcessID, _ purecef.ProcessMessage) int32 {
-	return 0
 }
