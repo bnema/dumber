@@ -226,7 +226,7 @@ func buildAndConfigureApp(
 	uiDeps := buildUIDependencies(
 		ctx, cfg, initResult.ThemeManager,
 		initResult.ColorResolver, initResult.AdwaitaDetector,
-		engine, repos, useCases, idleInhibitor, browserSession.Session.ID, browserSession.UnexpectedCloseReports(),
+		engine, repos, useCases, idleInhibitor, browserSession.Session.ID, browserSession.CrashReports(),
 	)
 	configureDeferredInit(uiDeps, cfg, browserSession)
 	return ui.New(uiDeps)
@@ -328,7 +328,7 @@ func configureDeferredInit(
 					logger.Error().Err(persistErr).Msg("deferred session persistence failed")
 				} else {
 					if uiDeps.OnCrashReportsDetected != nil {
-						if reports := session.UnexpectedCloseReports(); len(reports) > 0 {
+						if reports := session.CrashReports(); len(reports) > 0 {
 							uiDeps.OnCrashReportsDetected(reports)
 						}
 					}
@@ -517,7 +517,7 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 		navigate:       usecase.NewNavigateUseCase(repos.history, repos.zoom, defaultZoom),
 		copyURL:        usecase.NewCopyURLUseCase(clipboardAdapter),
 		snapshot:       usecase.NewSnapshotSessionUseCase(repos.sessionState),
-		lastRestorable: usecase.NewGetLastRestorableSessionUseCase(repos.session, repos.sessionState, stateDir),
+		lastRestorable: usecase.NewGetLastRestorableSessionUseCase(repos.session, repos.sessionState),
 		checkUpdate:    usecase.NewCheckUpdateUseCase(updateChecker, updateApplier, buildInfo),
 		applyUpdate:    usecase.NewApplyUpdateUseCase(updateDownloader, updateApplier, xdgDirs.CacheHome),
 		clipboard:      clipboardAdapter,

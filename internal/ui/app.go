@@ -868,12 +868,10 @@ func (a *App) initSessionManager(ctx context.Context) {
 		listSessionsUC = usecase.NewListSessionsUseCase(
 			a.deps.SessionRepo,
 			a.deps.SessionStateRepo,
-			a.deps.Config.Logging.LogDir,
 		)
 		deleteSessionUC = usecase.NewDeleteSessionUseCase(
 			a.deps.SessionStateRepo,
 			a.deps.SessionRepo,
-			a.deps.Config.Logging.LogDir,
 		)
 	}
 

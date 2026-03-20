@@ -6,7 +6,7 @@ import (
 	"time"
 
 	purecef "github.com/bnema/purego-cef/cef"
-	"github.com/jwijenbergh/puregotk/v4/glib"
+	"github.com/bnema/puregotk/v4/glib"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
