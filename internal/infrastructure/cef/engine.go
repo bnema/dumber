@@ -15,10 +15,6 @@ import (
 // Compile-time interface check.
 var _ port.Engine = (*Engine)(nil)
 
-// pumpTickMS is the interval of the persistent glib timer that checks
-// whether CEF work is due. This is a polling interval, NOT the frame rate.
-const pumpTickMS uint = 4
-
 // cefFallbackPumpDelayMS mirrors the upstream external message pump fallback:
 // even when no new callback arrives we still re-enter CefDoMessageLoopWork
 // periodically so async browser creation and IPC continue to make progress.
@@ -38,18 +34,23 @@ type Engine struct {
 	// Value: 0 means "nothing scheduled right now".
 	nextWorkAtMs atomic.Int64
 
-	// Pump lifecycle managed only from the main GTK thread.
-	pumpCB       glib.SourceFunc
-	pumpSourceID uint
-	pumpStarted  bool
-	pumpClosing  bool
+	// Pump lifecycle. Scheduling callbacks can originate from any Chromium
+	// thread, while source callbacks execute on the GTK main thread.
+	pumpEnabled atomic.Bool
+	pumpClosing atomic.Bool
+
+	pumpWakeQueued   atomic.Bool
+	pumpIdleSourceID atomic.Uint64
+
+	pumpTimerDueAtMs atomic.Int64
+	pumpTimerSource  atomic.Uint64
 
 	// Reentrancy guard for DoMessageLoopWork.
 	pumpActive  bool
 	pumpReentry bool
 
 	// Diagnostic counters (temporary).
-	pumpTickCount uint64
+	pumpWakeCount uint64
 	pumpWorkCount uint64
 	scheduleCount atomic.Uint64 // incremented from any thread — read from main thread only
 
@@ -223,10 +224,6 @@ func (e *Engine) recordBrowserAfterCreated(browser purecef.Browser) {
 }
 
 func (e *Engine) maybeLogBrowserCreateStall() {
-	if e.pumpTickCount%250 != 0 {
-		return
-	}
-
 	createCount := e.browserCreateRequests.Load()
 	if createCount == 0 || createCount == e.browserAfterCreated.Load() || createCount == e.lastStallLoggedCreateSeq {
 		return
@@ -250,7 +247,7 @@ func (e *Engine) maybeLogBrowserCreateStall() {
 		Int32("last_create_result", e.browserCreateLastResult.Load()).
 		Int32("last_create_width", e.browserCreateLastWidth.Load()).
 		Int32("last_create_height", e.browserCreateLastHeight.Load()).
-		Uint64("pump_ticks", e.pumpTickCount).
+		Uint64("pump_wakes", e.pumpWakeCount).
 		Uint64("pump_work", e.pumpWorkCount).
 		Uint64("schedule_calls", e.scheduleCount.Load()).
 		Uint64("schedule_immediate", e.scheduleImmediateCount.Load()).
@@ -269,18 +266,14 @@ func (e *Engine) maybeLogBrowserCreateStall() {
 // CEF message pump — thread-safe via atomic deadlines
 //
 // OnScheduleMessagePumpWork can be called from ANY Chromium thread (UI, IO,
-// GPU compositor, etc.). It MUST NOT call any glib/GTK functions. Instead it
-// updates the next due time atomically. A persistent glib timer on the main
-// GTK thread polls that due time and calls DoMessageLoopWork when necessary.
-//
-// CPU cost when idle: one atomic load and one clock read per tick.
-// Latency: max 4ms before CEF work is processed.
+// GPU compositor, etc.). It updates the next due time atomically and coalesces
+// a wake-up on the GTK main loop. When work is not yet due, a one-shot GLib
+// timeout is armed for the exact deadline instead of polling every few ms.
 // ---------------------------------------------------------------------------
 
 // scheduleMessagePumpWork is called by OnScheduleMessagePumpWork from any
-// thread. It only updates the due deadline atomically.
-// IMPORTANT: No logging, no context access, no allocations here — this can
-// be called from native CEF threads (GPU, IO, renderer).
+// thread. It updates the earliest due deadline atomically and queues a wake-up
+// if the main loop needs to re-evaluate timer state.
 func (e *Engine) scheduleMessagePumpWork(delayMs int64) {
 	nowMs := time.Now().UnixMilli()
 	dueAtMs := nowMs
@@ -288,53 +281,65 @@ func (e *Engine) scheduleMessagePumpWork(delayMs int64) {
 		dueAtMs += delayMs
 	}
 
-	e.nextWorkAtMs.Store(dueAtMs)
+	for {
+		current := e.nextWorkAtMs.Load()
+		if current != 0 && current <= dueAtMs {
+			dueAtMs = current
+			break
+		}
+		if e.nextWorkAtMs.CompareAndSwap(current, dueAtMs) {
+			break
+		}
+	}
+
 	e.scheduleCount.Add(1)
 	e.scheduleLastDelayMs.Store(delayMs)
 	if delayMs <= 0 {
 		e.scheduleImmediateCount.Add(1)
+	} else {
+		e.scheduleDelayedCount.Add(1)
+		for {
+			current := e.scheduleMaxDelayMs.Load()
+			if delayMs <= current {
+				break
+			}
+			if e.scheduleMaxDelayMs.CompareAndSwap(current, delayMs) {
+				break
+			}
+		}
+	}
+
+	if !e.pumpEnabled.Load() || e.pumpClosing.Load() {
 		return
 	}
 
-	e.scheduleDelayedCount.Add(1)
-	for {
-		current := e.scheduleMaxDelayMs.Load()
-		if delayMs <= current {
-			return
-		}
-		if e.scheduleMaxDelayMs.CompareAndSwap(current, delayMs) {
-			return
-		}
+	armedDueAtMs := e.pumpTimerDueAtMs.Load()
+	if dueAtMs <= nowMs || armedDueAtMs == 0 || dueAtMs < armedDueAtMs {
+		e.queuePumpWake()
 	}
 }
 
 func (e *Engine) startMessagePump() {
-	if e.pumpStarted || e.pumpClosing {
+	if e.pumpEnabled.Load() {
 		return
 	}
 
-	// Ensure the first tick enters CEF even if the only startup callback
-	// happened before GTK finished activating.
+	e.pumpClosing.Store(false)
+	e.pumpEnabled.Store(true)
 	e.nextWorkAtMs.Store(time.Now().UnixMilli())
-
-	e.pumpCB = glib.SourceFunc(func(_ uintptr) bool {
-		if e.pumpClosing {
-			return false
-		}
-		e.pumpTick()
-		return true // keep the timer running
-	})
-
-	e.pumpSourceID = glib.TimeoutAdd(pumpTickMS, &e.pumpCB, 0)
-	e.pumpStarted = true
+	e.queuePumpWake()
 }
 
 func (e *Engine) stopMessagePump() {
-	e.pumpClosing = true
+	e.pumpClosing.Store(true)
+	e.pumpEnabled.Store(false)
 	e.nextWorkAtMs.Store(0)
-	if e.pumpSourceID != 0 {
-		glib.SourceRemove(e.pumpSourceID)
-		e.pumpSourceID = 0
+	e.pumpTimerDueAtMs.Store(0)
+	if sourceID := uint(e.pumpIdleSourceID.Swap(0)); sourceID != 0 {
+		glib.SourceRemove(sourceID)
+	}
+	if sourceID := uint(e.pumpTimerSource.Swap(0)); sourceID != 0 {
+		glib.SourceRemove(sourceID)
 	}
 }
 
@@ -345,29 +350,92 @@ func (e *Engine) scheduleFallbackPumpWork(nowMs int64) {
 	e.nextWorkAtMs.CompareAndSwap(0, nowMs+cefFallbackPumpDelayMS)
 }
 
-// pumpTick is called on the GTK main thread by the persistent timer.
-// It checks if CEF work is due and processes it.
-func (e *Engine) pumpTick() {
-	e.pumpTickCount++
+func (e *Engine) queuePumpWake() {
+	if e.pumpClosing.Load() || !e.pumpEnabled.Load() {
+		return
+	}
+	if !e.pumpWakeQueued.CompareAndSwap(false, true) {
+		return
+	}
+
+	cb := glib.SourceOnceFunc(func(_ uintptr) {
+		e.pumpIdleSourceID.Store(0)
+		e.pumpWakeQueued.Store(false)
+		if e.pumpClosing.Load() || !e.pumpEnabled.Load() {
+			return
+		}
+		e.onPumpWake()
+	})
+
+	sourceID := glib.IdleAddOnce(&cb, 0)
+	e.pumpIdleSourceID.Store(uint64(sourceID))
+}
+
+func (e *Engine) armPumpTimer(dueAtMs, nowMs int64) {
+	if e.pumpClosing.Load() || !e.pumpEnabled.Load() {
+		return
+	}
+
+	currentDueAtMs := e.pumpTimerDueAtMs.Load()
+	if currentDueAtMs != 0 && currentDueAtMs <= dueAtMs {
+		return
+	}
+
+	if sourceID := uint(e.pumpTimerSource.Swap(0)); sourceID != 0 {
+		glib.SourceRemove(sourceID)
+	}
+
+	delayMs := dueAtMs - nowMs
+	if delayMs <= 0 {
+		delayMs = 1
+	}
+
+	cb := glib.SourceOnceFunc(func(_ uintptr) {
+		e.pumpTimerSource.Store(0)
+		e.pumpTimerDueAtMs.Store(0)
+		if e.pumpClosing.Load() || !e.pumpEnabled.Load() {
+			return
+		}
+		e.onPumpWake()
+	})
+
+	sourceID := glib.TimeoutAddOnce(uint(delayMs), &cb, 0)
+	e.pumpTimerSource.Store(uint64(sourceID))
+	e.pumpTimerDueAtMs.Store(dueAtMs)
+}
+
+func (e *Engine) disarmPumpTimer() {
+	e.pumpTimerDueAtMs.Store(0)
+	if sourceID := uint(e.pumpTimerSource.Swap(0)); sourceID != 0 {
+		glib.SourceRemove(sourceID)
+	}
+}
+
+// onPumpWake is called on the GTK main thread when the message pump should
+// either process due CEF work immediately or arm a one-shot timer for the
+// next deadline.
+func (e *Engine) onPumpWake() {
+	e.pumpWakeCount++
 	e.maybeLogBrowserCreateStall()
 
 	dueAtMs := e.nextWorkAtMs.Load()
 	if dueAtMs == 0 {
+		e.disarmPumpTimer()
 		return
 	}
 
 	nowMs := time.Now().UnixMilli()
 	if nowMs < dueAtMs {
+		e.armPumpTimer(dueAtMs, nowMs)
 		return
 	}
 
-	// Consume the current deadline before entering CEF. Any new callback that
-	// happens during DoMessageLoopWork will publish a fresh deadline.
+	e.disarmPumpTimer()
 	e.nextWorkAtMs.Store(0)
 	e.pumpWorkCount++
 	if e.pumpWorkCount <= 20 || e.pumpWorkCount%100 == 0 {
 		logging.FromContext(e.ctx).Debug().
-			Uint64("tick", e.pumpTickCount).
+			Uint64("wake", e.pumpWakeCount).
 			Uint64("work", e.pumpWorkCount).
 			Uint64("schedule_calls", e.scheduleCount.Load()).
 			Int64("due_at_ms", dueAtMs).
@@ -379,7 +447,18 @@ func (e *Engine) pumpTick() {
 	// Match the upstream external-pump reference behavior: if CEF did not
 	// request another deadline, keep a placeholder wakeup so async work such as
 	// browser creation can continue progressing.
-	e.scheduleFallbackPumpWork(time.Now().UnixMilli())
+	nowMs = time.Now().UnixMilli()
+	e.scheduleFallbackPumpWork(nowMs)
+
+	nextDueAtMs := e.nextWorkAtMs.Load()
+	if nextDueAtMs == 0 {
+		return
+	}
+	if nextDueAtMs <= nowMs {
+		e.queuePumpWake()
+		return
+	}
+	e.armPumpTimer(nextDueAtMs, nowMs)
 }
 
 // performMessageLoopWork calls DoMessageLoopWork with reentrancy protection.
