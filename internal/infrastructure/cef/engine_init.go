@@ -42,11 +42,6 @@ func NewEngine(ctx context.Context, cfg config.CEFEngineConfig) (*Engine, error)
 	// Chromium flags injected temporarily into os.Args for cef_initialize,
 	// then restored so GTK doesn't choke on unknown flags.
 	//
-	// --in-process-gpu: GPU subprocess fails (error_code=1002) even with the
-	//   helper because the Go runtime creates FDs the GPU process doesn't expect.
-	// --no-zygote: Disable the zygote process which uses fork(). Go's runtime
-	//   does not survive fork cleanly, causing renderer crashes. Without zygote,
-	//   CEF launches each subprocess as a fresh exec of the helper binary.
 	// --no-zygote: Disable the zygote process which uses fork(). Go's runtime
 	//   does not survive fork cleanly, causing renderer crashes. Without zygote,
 	//   CEF launches each subprocess as a fresh exec of the helper binary.

@@ -205,11 +205,10 @@ func (e *Engine) stopMessagePump() {
 	}
 }
 
-// performMessageLoopWork calls DoMessageLoopWork with reentrancy protection
-// and re-schedules follow-up work. Matches the pattern from CEF's
-// main_message_loop_external_pump.cc: the host must always re-schedule
-// after each DoMessageLoopWork call because CEF does not call
-// OnScheduleMessagePumpWork after returning from DoMessageLoopWork.
+// performMessageLoopWork calls DoMessageLoopWork with reentrancy protection.
+// If CEF called OnScheduleMessagePumpWork re-entrantly during DoMessageLoopWork,
+// we re-schedule immediately. Otherwise the pump goes idle — CEF will call
+// OnScheduleMessagePumpWork when it has new work, which restarts the pump.
 func (e *Engine) performMessageLoopWork() {
 	if e.pumpActive {
 		e.pumpReentry = true
@@ -222,12 +221,9 @@ func (e *Engine) performMessageLoopWork() {
 	e.pumpActive = false
 
 	if e.pumpReentry {
-		// CEF called OnScheduleMessagePumpWork re-entrantly during
-		// DoMessageLoopWork — schedule immediate follow-up.
+		// CEF requested work re-entrantly — schedule immediate follow-up.
 		e.scheduleMessagePumpWork(0)
-	} else {
-		// No re-entrant request — schedule at the max timer delay
-		// to keep the pump alive for pending work.
-		e.scheduleMessagePumpWork(cefMaxTimerDelayMS)
 	}
+	// Otherwise: pump goes idle. CEF will call OnScheduleMessagePumpWork
+	// when new work arrives (timer, IPC, input response, etc.).
 }
