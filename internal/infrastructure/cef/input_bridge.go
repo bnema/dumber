@@ -139,25 +139,19 @@ func (ib *inputBridge) attachFocusAndKeyboard(glArea *gtk.GLArea) {
 	// Keyboard + IMContext for dead key / compose support.
 	key := gtk.NewEventControllerKey()
 
-	// Set up IMContext: when set on the controller, GTK calls
-	// FilterKeypress on every key event. If the IM absorbs the key
-	// (dead key, compose in-progress), key-pressed is NOT emitted;
-	// instead the IM emits "commit" with the composed string.
-	// TODO: re-enable once ConnectCommit callback crash is resolved.
-	// The IMContext integration causes a stack corruption crash at startup,
-	// likely due to a purego callback ABI mismatch in the generated signal
-	// bindings. The VK code fixes and gdk.KeyvalToUnicode() still work
-	// without IMContext — XKB handles dead key composition at the layout level.
-	//
-	// ib.imContext = gtk.NewIMContextSimple()
-	// if ib.imContext != nil {
-	// 	ib.commitCb = func(_ gtk.IMContext, text string) {
-	// 		ib.onIMCommit(text)
-	// 	}
-	// 	ib.imContext.ConnectCommit(&ib.commitCb)
-	// 	key.SetImContext(&ib.imContext.IMContext)
-	// 	ib.imContext.SetClientWidget(&glArea.Widget)
-	// }
+	// Set up IMContext for dead key / compose support.
+	// When set on the controller, GTK calls FilterKeypress on every key
+	// event. If the IM absorbs the key (dead key, compose in-progress),
+	// key-pressed is NOT emitted; the IM emits "commit" with the result.
+	ib.imContext = gtk.NewIMContextSimple()
+	if ib.imContext != nil {
+		ib.commitCb = func(_ gtk.IMContext, text string) {
+			ib.onIMCommit(text)
+		}
+		ib.imContext.ConnectCommit(&ib.commitCb)
+		key.SetImContext(&ib.imContext.IMContext)
+		ib.imContext.SetClientWidget(&glArea.Widget)
+	}
 
 	keyPressCb := func(_ gtk.EventControllerKey, keyval, keycode uint, state gdk.ModifierType) bool {
 		ib.onKeyPress(keyval, keycode, uint(state))
