@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
+	"math"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -61,10 +63,15 @@ type WebView struct {
 	canGoFwd  bool
 	isLoading bool
 
+	// Last known hover URI for middle-click → new tab.
+	lastHoverURI string
+
 	// Atomic state.
-	destroyed  atomic.Bool
-	fullscreen atomic.Bool
-	generation atomic.Uint64
+	destroyed    atomic.Bool
+	fullscreen   atomic.Bool
+	generation   atomic.Uint64
+	audioPlaying atomic.Bool
+	zoomFactor   atomic.Value // float64, initialized to 1.0
 }
 
 // pendingBrowserCreate holds the parameters needed to create a CEF browser,
@@ -254,7 +261,7 @@ func (wv *WebView) State() port.WebViewState {
 		Progress:  wv.progress,
 		CanGoBack: wv.canGoBack,
 		CanGoFwd:  wv.canGoFwd,
-		ZoomLevel: 1.0,
+		ZoomLevel: wv.GetZoomLevel(),
 	}
 }
 
@@ -263,9 +270,9 @@ func (wv *WebView) IsFullscreen() bool {
 	return wv.fullscreen.Load()
 }
 
-// IsPlayingAudio returns false (Phase 1 stub).
+// IsPlayingAudio returns true if any audio stream is active.
 func (wv *WebView) IsPlayingAudio() bool {
-	return false
+	return wv.audioPlaying.Load()
 }
 
 // Generation returns a monotonic counter incremented on pool reuse.
@@ -279,16 +286,43 @@ func (wv *WebView) Favicon() port.Texture {
 }
 
 // ---------------------------------------------------------------------------
-// Zoom (Phase 1 stubs)
+// Zoom
 // ---------------------------------------------------------------------------
 
-// GetZoomLevel returns 1.0 (Phase 1 stub).
+// chromiumZoomBase is the base used by Chromium's logarithmic zoom level.
+// CEF zoom level = log(factor) / log(1.2), where factor is the linear multiplier.
+const chromiumZoomBase = 1.2
+
+// cefZoomFromFactor converts a linear zoom factor (1.0 = 100%) to CEF's
+// logarithmic zoom level.
+func cefZoomFromFactor(factor float64) float64 {
+	if factor <= 0 {
+		return 0
+	}
+	return math.Log(factor) / math.Log(chromiumZoomBase)
+}
+
+// GetZoomLevel returns the current linear zoom factor.
 func (wv *WebView) GetZoomLevel() float64 {
+	if v := wv.zoomFactor.Load(); v != nil {
+		return v.(float64)
+	}
 	return 1.0
 }
 
-// SetZoomLevel is a no-op (Phase 1 stub).
-func (wv *WebView) SetZoomLevel(_ context.Context, _ float64) error {
+// SetZoomLevel sets the zoom level using a linear factor (1.0 = 100%).
+func (wv *WebView) SetZoomLevel(_ context.Context, factor float64) error {
+	if wv.destroyed.Load() {
+		return errDestroyed
+	}
+	wv.mu.RLock()
+	host := wv.host
+	wv.mu.RUnlock()
+	if host == nil {
+		return errNoBrowser
+	}
+	host.SetZoomLevel(cefZoomFromFactor(factor))
+	wv.zoomFactor.Store(factor)
 	return nil
 }
 
@@ -330,11 +364,23 @@ func (wv *WebView) RunJavaScript(_ context.Context, script string) {
 	browser.GetMainFrame().ExecuteJavaScript(script, "", 0)
 }
 
-// SetBackgroundColor is a no-op in Phase 1.
-func (wv *WebView) SetBackgroundColor(_, _, _, _ float64) {}
+// colorScale converts a 0.0–1.0 color component to an 8-bit integer.
+const colorScale = 255
 
-// ResetBackgroundToDefault is a no-op in Phase 1.
-func (wv *WebView) ResetBackgroundToDefault() {}
+// SetBackgroundColor sets the background via JS injection (CEF has no runtime API).
+func (wv *WebView) SetBackgroundColor(r, g, b, a float64) {
+	script := fmt.Sprintf(
+		`document.documentElement.style.backgroundColor='rgba(%d,%d,%d,%.2f)'`,
+		int(r*colorScale), int(g*colorScale), int(b*colorScale), a,
+	)
+	wv.RunJavaScript(context.Background(), script)
+}
+
+// ResetBackgroundToDefault clears the injected background color.
+func (wv *WebView) ResetBackgroundToDefault() {
+	wv.RunJavaScript(context.Background(),
+		`document.documentElement.style.backgroundColor=''`)
+}
 
 // ---------------------------------------------------------------------------
 // Lifecycle
@@ -421,6 +467,24 @@ func (wv *WebView) updateLoadState(loading, back, fwd bool) {
 	wv.isLoading = loading
 	wv.canGoBack = back
 	wv.canGoFwd = fwd
+	wv.mu.Unlock()
+}
+
+func (wv *WebView) setAudioPlaying(playing bool) {
+	wv.audioPlaying.Store(playing)
+	wv.mu.RLock()
+	cb := wv.callbacks
+	wv.mu.RUnlock()
+	if cb != nil && cb.OnAudioStateChanged != nil {
+		wv.runOnGTK(func() {
+			cb.OnAudioStateChanged(playing)
+		})
+	}
+}
+
+func (wv *WebView) updateHoverURI(uri string) {
+	wv.mu.Lock()
+	wv.lastHoverURI = uri
 	wv.mu.Unlock()
 }
 

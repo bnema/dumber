@@ -51,6 +51,10 @@ type inputBridge struct {
 	imContext *gtk.IMContextSimple
 	// Prevent GC from collecting signal callbacks.
 	commitCb func(gtk.IMContext, string)
+
+	// onMiddleClick is called when button 2 (middle) is pressed on a link.
+	// The callback receives the hovered URI. Set by the factory.
+	onMiddleClick func(uri string)
 }
 
 // newInputBridge creates an input bridge with the given HiDPI scale factor.
@@ -154,7 +158,16 @@ func (ib *inputBridge) attachFocusAndKeyboard(glArea *gtk.GLArea) {
 	}
 
 	keyPressCb := func(_ gtk.EventControllerKey, keyval, keycode uint, state gdk.ModifierType) bool {
-		ib.onKeyPress(keyval, keycode, uint(state))
+		mods := uint(state)
+		ib.onKeyPress(keyval, keycode, mods)
+
+		// Let Ctrl/Alt modified key combos propagate to the window's
+		// ShortcutController so that app shortcuts (Ctrl+L, Ctrl+F, …)
+		// still fire. Only consume unmodified / Shift-only keys that
+		// are text input destined for CEF.
+		if mods&uint(gdk.ControlMaskValue) != 0 || mods&uint(gdk.AltMaskValue) != 0 {
+			return false
+		}
 		return true
 	}
 	key.ConnectKeyPressed(&keyPressCb)
@@ -198,8 +211,15 @@ func (ib *inputBridge) onMouseMove(x, y float64, mods uint, leave bool) {
 func (ib *inputBridge) onMousePress(x, y float64, button, mods uint, clickCount int) {
 	ib.mu.Lock()
 	host := ib.host
+	middleCB := ib.onMiddleClick
 	ib.mu.Unlock()
 	if host == nil {
+		return
+	}
+
+	// Middle-click on a link opens in a new tab instead of sending to CEF.
+	if button == 2 && middleCB != nil {
+		middleCB("")
 		return
 	}
 

@@ -119,8 +119,11 @@ func (e *Engine) OnToolkitReady(_ context.Context) error {
 	return nil
 }
 
-// UpdateAppearance updates default background color for new WebViews (Phase 1 stub).
-func (e *Engine) UpdateAppearance(_ context.Context, _, _, _, _ float64) error {
+// UpdateAppearance updates the default background color for new WebViews.
+func (e *Engine) UpdateAppearance(_ context.Context, r, g, b, alpha float64) error {
+	if e.factory != nil {
+		e.factory.setDefaultBackgroundColor(r, g, b, alpha)
+	}
 	return nil
 }
 

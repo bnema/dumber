@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	purecef "github.com/bnema/purego-cef/cef"
+	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/rs/zerolog"
 
 	"github.com/bnema/dumber/internal/infrastructure/config"
@@ -102,8 +103,23 @@ func NewEngine(ctx context.Context, cfg config.CEFEngineConfig) (*Engine, error)
 		return nil, fmt.Errorf("GL loader: %w", err)
 	}
 
-	// 4. Create factory + pool and wire them into the engine.
-	scale := int32(1) // TODO: detect from GDK
+	// 4. Detect HiDPI scale from the primary monitor.
+	scale := int32(1)
+	if display := gdk.DisplayGetDefault(); display != nil {
+		if monitors := display.GetMonitors(); monitors != nil {
+			obj := monitors.GetObject(0)
+			if obj != nil {
+				mon := &gdk.Monitor{}
+				mon.SetGoPointer(obj.GoPointer())
+				if s := mon.GetScaleFactor(); s > 0 {
+					scale = int32(s)
+					logger.Info().Int32("scale", scale).Msg("cef: detected HiDPI scale from monitor")
+				}
+			}
+		}
+	}
+
+	// 5. Create factory + pool and wire them into the engine.
 	factory := newWebViewFactory(eng, gl, scale)
 	pool := newWebViewPool(factory)
 

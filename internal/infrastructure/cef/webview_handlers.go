@@ -24,13 +24,14 @@ var (
 	_ purecef.LoadHandler     = (*handlerSet)(nil)
 	_ purecef.LifeSpanHandler = (*handlerSet)(nil)
 	_ purecef.RequestHandler  = (*handlerSet)(nil)
+	_ purecef.AudioHandler    = (*handlerSet)(nil)
 )
 
 // ===========================================================================
 // Client
 // ===========================================================================
 
-func (h *handlerSet) GetAudioHandler() purecef.AudioHandler             { return nil }
+func (h *handlerSet) GetAudioHandler() purecef.AudioHandler             { return h }
 func (h *handlerSet) GetCommandHandler() purecef.CommandHandler         { return nil }
 func (h *handlerSet) GetContextMenuHandler() purecef.ContextMenuHandler { return nil }
 func (h *handlerSet) GetDialogHandler() purecef.DialogHandler           { return nil }
@@ -92,7 +93,27 @@ func (h *handlerSet) GetScreenPoint(_ purecef.Browser, _, _ int32, _, _ unsafe.P
 	return 0
 }
 
-func (h *handlerSet) GetScreenInfo(_ purecef.Browser, _ *purecef.ScreenInfo) int32 { return 0 }
+func (h *handlerSet) GetScreenInfo(_ purecef.Browser, info *purecef.ScreenInfo) int32 {
+	if info == nil {
+		return 0
+	}
+	h.wv.pipeline.mu.Lock()
+	w := h.wv.pipeline.width
+	ht := h.wv.pipeline.height
+	s := h.wv.pipeline.scale
+	h.wv.pipeline.mu.Unlock()
+
+	info.Size = unsafe.Sizeof(*info)
+	info.DeviceScaleFactor = float32(s)
+	info.Depth = 24
+	info.DepthPerComponent = 8
+	info.Rect.X = 0
+	info.Rect.Y = 0
+	info.Rect.Width = w
+	info.Rect.Height = ht
+	info.AvailableRect = info.Rect
+	return 1
+}
 
 func (h *handlerSet) OnPopupShow(_ purecef.Browser, _ int32) {}
 
@@ -199,8 +220,11 @@ func (h *handlerSet) OnFullscreenModeChange(_ purecef.Browser, fullscreen int32)
 
 func (h *handlerSet) OnTooltip(_ purecef.Browser, _ uintptr) int32 { return 0 }
 
-// OnStatusMessage fires the OnLinkHover callback with the status text.
+// OnStatusMessage fires the OnLinkHover callback with the status text
+// and caches the hover URI for middle-click interception.
 func (h *handlerSet) OnStatusMessage(_ purecef.Browser, value string) {
+	h.wv.updateHoverURI(value)
+
 	h.wv.mu.RLock()
 	cb := h.wv.callbacks
 	h.wv.mu.RUnlock()
@@ -472,6 +496,28 @@ func (h *handlerSet) OnRenderProcessTerminated(_ purecef.Browser, status purecef
 }
 
 func (h *handlerSet) OnDocumentAvailableInMainFrame(_ purecef.Browser) {}
+
+// ===========================================================================
+// AudioHandler (5 methods)
+// ===========================================================================
+
+func (h *handlerSet) GetAudioParameters(_ purecef.Browser, _ *purecef.AudioParameters) int32 {
+	return 1 // proceed with defaults
+}
+
+func (h *handlerSet) OnAudioStreamStarted(_ purecef.Browser, _ *purecef.AudioParameters, _ int32) {
+	h.wv.setAudioPlaying(true)
+}
+
+func (h *handlerSet) OnAudioStreamPacket(_ purecef.Browser, _ unsafe.Pointer, _ int32, _ int64) {}
+
+func (h *handlerSet) OnAudioStreamStopped(_ purecef.Browser) {
+	h.wv.setAudioPlaying(false)
+}
+
+func (h *handlerSet) OnAudioStreamError(_ purecef.Browser, _ string) {
+	h.wv.setAudioPlaying(false)
+}
 
 // cefCursorNames maps CEF cursor types to GDK/CSS cursor names.
 var cefCursorNames = map[purecef.CursorType]string{

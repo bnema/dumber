@@ -17,10 +17,11 @@ var _ port.WebViewFactory = (*WebViewFactory)(nil)
 // gets a unique ID, its own renderPipeline and inputBridge, and an
 // asynchronously-created CEF browser (via BrowserHostCreateBrowser).
 type WebViewFactory struct {
-	engine *Engine
-	gl     *glLoader
-	nextID atomic.Uint64
-	scale  int32
+	engine  *Engine
+	gl      *glLoader
+	nextID  atomic.Uint64
+	scale   int32
+	bgColor atomic.Uint32 // packed ARGB for BrowserSettings.BackgroundColor
 }
 
 // newWebViewFactory returns a factory that will create WebViews using the
@@ -34,6 +35,13 @@ func newWebViewFactory(engine *Engine, gl *glLoader, scale int32) *WebViewFactor
 		gl:     gl,
 		scale:  scale,
 	}
+}
+
+// setDefaultBackgroundColor stores a packed ARGB color for new browser creation.
+func (f *WebViewFactory) setDefaultBackgroundColor(r, g, b, a float64) {
+	const s = colorScale
+	argb := uint32(a*s)<<24 | uint32(r*s)<<16 | uint32(g*s)<<8 | uint32(b*s)
+	f.bgColor.Store(argb)
 }
 
 // Create builds a new CEF off-screen browser WebView. The browser is created
@@ -58,6 +66,21 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	input.attachTo(pipeline.glArea)
 	wv.input = input
 
+	// Wire middle-click → new tab using the cached hover URI.
+	input.onMiddleClick = func(_ string) {
+		wv.mu.RLock()
+		hoverURI := wv.lastHoverURI
+		cb := wv.callbacks
+		wv.mu.RUnlock()
+		if hoverURI == "" || cb == nil || cb.OnLinkMiddleClick == nil {
+			return
+		}
+		uri := hoverURI
+		wv.runOnGTK(func() {
+			cb.OnLinkMiddleClick(uri)
+		})
+	}
+
 	// Build a CEF client backed by our handlerSet.
 	// Store on WebView to prevent GC collection before CEF AddRef's it.
 	client := purecef.NewClient(wv.handlers)
@@ -70,6 +93,9 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	// Configure BrowserSettings.
 	settings := purecef.DefaultBrowserSettings()
 	settings.WindowlessFrameRate = 60
+	if bg := f.bgColor.Load(); bg != 0 {
+		settings.BackgroundColor = bg
+	}
 
 	// Defer browser creation until the GL area has a non-zero size.
 	// CEF requires GetViewRect to return a non-empty rect, but the GL area
